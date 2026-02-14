@@ -82,6 +82,15 @@ func TestWithNavInjectsThemeAndSession(t *testing.T) {
 	if view["asset_base_path"] == nil {
 		t.Fatalf("expected asset_base_path in view context")
 	}
+	if view["translation_capabilities"] == nil {
+		t.Fatalf("expected translation_capabilities in view context")
+	}
+	if _, ok := view["activity_enabled"].(bool); !ok {
+		t.Fatalf("expected activity_enabled boolean in view context")
+	}
+	if _, ok := view["activity_feature_enabled"].(bool); !ok {
+		t.Fatalf("expected activity_feature_enabled boolean in view context")
+	}
 	if available, ok := view["users_import_available"].(bool); !ok || available {
 		t.Fatalf("expected users_import_available=false by default, got %v", view["users_import_available"])
 	}

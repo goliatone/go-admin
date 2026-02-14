@@ -112,3 +112,51 @@ func TestEnsureDefaultMenuParentsNestsChildren(t *testing.T) {
 		t.Fatalf("others children unexpected: %+v", others.Children)
 	}
 }
+
+func TestDefaultMenuParentsContentPermissionsIncludeContentSurfaces(t *testing.T) {
+	parents := DefaultMenuParents("admin.main")
+	content := findMenuItem(parents, func(item admin.MenuItem) bool {
+		return strings.EqualFold(strings.TrimSpace(item.LabelKey), "menu.content")
+	})
+	if content == nil {
+		t.Fatalf("expected content menu parent")
+	}
+
+	required := []string{
+		"admin.pages.view",
+		"admin.posts.view",
+		"admin.media.view",
+		"admin.content_types.view",
+		"admin.block_definitions.view",
+	}
+	for _, permission := range required {
+		if !containsStringFold(content.Permissions, permission) {
+			t.Fatalf("expected content parent permission %q, got %v", permission, content.Permissions)
+		}
+	}
+}
+
+func findMenuItem(items []admin.MenuItem, match func(admin.MenuItem) bool) *admin.MenuItem {
+	for idx := range items {
+		if match(items[idx]) {
+			return &items[idx]
+		}
+		if child := findMenuItem(items[idx].Children, match); child != nil {
+			return child
+		}
+	}
+	return nil
+}
+
+func containsStringFold(values []string, target string) bool {
+	target = strings.TrimSpace(target)
+	if target == "" {
+		return false
+	}
+	for _, value := range values {
+		if strings.EqualFold(strings.TrimSpace(value), target) {
+			return true
+		}
+	}
+	return false
+}

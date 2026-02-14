@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -359,5 +360,50 @@ func TestBunSettingsAdapterPersistsScopes(t *testing.T) {
 	}
 	if validation.Fields["feature.enabled"] == "" {
 		t.Fatalf("expected validation field error for feature.enabled")
+	}
+}
+
+func TestBunSettingsAdapterResolveAllLoadsBeyondLegacyPageLimit(t *testing.T) {
+	db, err := newSettingsDB()
+	if err != nil {
+		t.Fatalf("settings db: %v", err)
+	}
+	adapter, err := NewBunSettingsAdapter(db)
+	if err != nil {
+		t.Fatalf("bun adapter: %v", err)
+	}
+
+	svc := NewSettingsService()
+	svc.UseAdapter(adapter)
+
+	values := map[string]any{}
+	for i := 0; i < 40; i++ {
+		key := fmt.Sprintf("bulk.setting.%02d", i)
+		value := fmt.Sprintf("value-%02d", i)
+		svc.RegisterDefinition(SettingDefinition{Key: key, Default: "default", Type: "string"})
+		values[key] = value
+	}
+
+	if err := svc.Apply(context.Background(), SettingsBundle{
+		Scope:  SettingsScopeSite,
+		Values: values,
+	}); err != nil {
+		t.Fatalf("apply site settings: %v", err)
+	}
+
+	resolved := svc.ResolveAll("")
+	for i := 0; i < 40; i++ {
+		key := fmt.Sprintf("bulk.setting.%02d", i)
+		expected := fmt.Sprintf("value-%02d", i)
+		entry, ok := resolved[key]
+		if !ok {
+			t.Fatalf("missing resolved key %q", key)
+		}
+		if entry.Value != expected {
+			t.Fatalf("unexpected value for %q: got %v want %s", key, entry.Value, expected)
+		}
+		if entry.Provenance != string(SettingsScopeSite) {
+			t.Fatalf("unexpected provenance for %q: got %s", key, entry.Provenance)
+		}
 	}
 }

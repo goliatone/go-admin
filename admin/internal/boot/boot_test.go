@@ -38,6 +38,7 @@ type stubCtx struct {
 	dashboard  DashboardBinding
 	navigation NavigationBinding
 	settings   SettingsBinding
+	workflows  WorkflowManagementBinding
 	exchange   TranslationExchangeBinding
 	registry   SchemaRegistryBinding
 	overrides  FeatureOverridesBinding
@@ -89,6 +90,9 @@ func (s *stubCtx) BootNotifications() NotificationsBinding {
 func (s *stubCtx) BootActivity() ActivityBinding { return nil }
 func (s *stubCtx) BootJobs() JobsBinding         { return nil }
 func (s *stubCtx) BootSettings() SettingsBinding { return s.settings }
+func (s *stubCtx) BootWorkflows() WorkflowManagementBinding {
+	return s.workflows
+}
 func (s *stubCtx) BootSchemaRegistry() SchemaRegistryBinding {
 	return s.registry
 }
@@ -153,6 +157,10 @@ func newTestURLManager(basePath string) *urlkit.RouteManager {
 							"navigation":                   "/navigation",
 							"settings":                     "/settings",
 							"settings.form":                "/settings/form",
+							"workflows":                    "/workflows",
+							"workflows.id":                 "/workflows/:id",
+							"workflows.bindings":           "/workflows/bindings",
+							"workflows.bindings.id":        "/workflows/bindings/:id",
 							"translations.export":          "/translations/export",
 							"translations.template":        "/translations/template",
 							"translations.import.validate": "/translations/import/validate",
@@ -996,6 +1004,56 @@ type stubSchemaRegistryBinding struct {
 	lastResource string
 }
 
+type stubWorkflowManagementBinding struct {
+	listWorkflowsCalled  int
+	createWorkflowCalled int
+	updateWorkflowCalled int
+	listBindingsCalled   int
+	createBindingCalled  int
+	updateBindingCalled  int
+	deleteBindingCalled  int
+	lastBody             map[string]any
+}
+
+func (s *stubWorkflowManagementBinding) ListWorkflows(_ router.Context) (map[string]any, error) {
+	s.listWorkflowsCalled++
+	return map[string]any{"workflows": []map[string]any{}, "total": 0}, nil
+}
+
+func (s *stubWorkflowManagementBinding) CreateWorkflow(_ router.Context, body map[string]any) (map[string]any, error) {
+	s.createWorkflowCalled++
+	s.lastBody = body
+	return map[string]any{"workflow": map[string]any{"id": "editorial.default"}}, nil
+}
+
+func (s *stubWorkflowManagementBinding) UpdateWorkflow(_ router.Context, _ string, body map[string]any) (map[string]any, error) {
+	s.updateWorkflowCalled++
+	s.lastBody = body
+	return map[string]any{"workflow": map[string]any{"id": "editorial.default"}}, nil
+}
+
+func (s *stubWorkflowManagementBinding) ListBindings(_ router.Context) (map[string]any, error) {
+	s.listBindingsCalled++
+	return map[string]any{"bindings": []map[string]any{}, "total": 0}, nil
+}
+
+func (s *stubWorkflowManagementBinding) CreateBinding(_ router.Context, body map[string]any) (map[string]any, error) {
+	s.createBindingCalled++
+	s.lastBody = body
+	return map[string]any{"binding": map[string]any{"id": "wfb_1"}}, nil
+}
+
+func (s *stubWorkflowManagementBinding) UpdateBinding(_ router.Context, _ string, body map[string]any) (map[string]any, error) {
+	s.updateBindingCalled++
+	s.lastBody = body
+	return map[string]any{"binding": map[string]any{"id": "wfb_1"}}, nil
+}
+
+func (s *stubWorkflowManagementBinding) DeleteBinding(_ router.Context, _ string) error {
+	s.deleteBindingCalled++
+	return nil
+}
+
 func (s *stubSchemaRegistryBinding) List(_ router.Context) (any, error) {
 	s.listCalled++
 	return map[string]any{"schemas": []map[string]any{{"resource": "content"}}}, nil
@@ -1041,4 +1099,52 @@ func TestSchemaRegistryStepRegistersRoutes(t *testing.T) {
 	require.NoError(t, listHandler(router.NewMockContext()))
 	require.Equal(t, 1, binding.listCalled)
 	require.Equal(t, 1, resp.jsonCalled)
+}
+
+func TestWorkflowRouteStepRegistersRoutesAndParsesBody(t *testing.T) {
+	rr := &recordRouter{}
+	resp := &stubResponder{}
+	binding := &stubWorkflowManagementBinding{}
+	ctx := &stubCtx{
+		router:    rr,
+		responder: resp,
+		basePath:  "/admin",
+		workflows: binding,
+		parseBody: func(router.Context) (map[string]any, error) {
+			return map[string]any{"name": "Editorial"}, nil
+		},
+	}
+
+	require.NoError(t, WorkflowRouteStep(ctx))
+	require.Len(t, rr.calls, 7)
+
+	methodPaths := map[string]bool{}
+	for _, call := range rr.calls {
+		methodPaths[call.method+" "+call.path] = true
+	}
+	workflowsPath := mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "workflows")
+	workflowIDPath := mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "workflows.id")
+	bindingsPath := mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "workflows.bindings")
+	bindingIDPath := mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "workflows.bindings.id")
+	require.True(t, methodPaths["GET "+workflowsPath])
+	require.True(t, methodPaths["POST "+workflowsPath])
+	require.True(t, methodPaths["PUT "+workflowIDPath])
+	require.True(t, methodPaths["GET "+bindingsPath])
+	require.True(t, methodPaths["POST "+bindingsPath])
+	require.True(t, methodPaths["PUT "+bindingIDPath])
+	require.True(t, methodPaths["DELETE "+bindingIDPath])
+
+	for _, call := range rr.calls {
+		mock := router.NewMockContext()
+		mock.ParamsM["id"] = "wfb_1"
+		require.NoError(t, call.handler(mock))
+	}
+	require.Equal(t, 1, binding.listWorkflowsCalled)
+	require.Equal(t, 1, binding.createWorkflowCalled)
+	require.Equal(t, 1, binding.updateWorkflowCalled)
+	require.Equal(t, 1, binding.listBindingsCalled)
+	require.Equal(t, 1, binding.createBindingCalled)
+	require.Equal(t, 1, binding.updateBindingCalled)
+	require.Equal(t, 1, binding.deleteBindingCalled)
+	require.NotNil(t, binding.lastBody)
 }

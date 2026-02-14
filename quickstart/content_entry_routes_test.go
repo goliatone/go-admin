@@ -555,12 +555,110 @@ func TestCanonicalPanelRouteBindingsSkipsPanelsWithCustomRouteOwners(t *testing.
 	}
 }
 
+func TestCanonicalPanelRouteBindingsIncludesEntryModes(t *testing.T) {
+	cfg := admin.Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+	}
+	adm, err := admin.New(cfg, admin.Dependencies{})
+	if err != nil {
+		t.Fatalf("new admin: %v", err)
+	}
+	if _, err := adm.RegisterPanel("users", (&admin.PanelBuilder{}).
+		WithRepository(admin.NewMemoryRepository())); err != nil {
+		t.Fatalf("register users panel: %v", err)
+	}
+	if _, err := adm.RegisterPanel("profile", (&admin.PanelBuilder{}).
+		WithRepository(admin.NewMemoryRepository()).
+		WithEntryMode(admin.PanelEntryModeDetailCurrentUser)); err != nil {
+		t.Fatalf("register profile panel: %v", err)
+	}
+
+	bindings := canonicalPanelRouteBindings(adm.URLs(), adm.Registry().Panels())
+	modes := map[string]admin.PanelEntryMode{}
+	for _, binding := range bindings {
+		modes[binding.Panel] = binding.EntryMode
+	}
+	if got := modes["users"]; got != admin.PanelEntryModeList {
+		t.Fatalf("expected users entry mode %q, got %q", admin.PanelEntryModeList, got)
+	}
+	if got := modes["profile"]; got != admin.PanelEntryModeDetailCurrentUser {
+		t.Fatalf("expected profile entry mode %q, got %q", admin.PanelEntryModeDetailCurrentUser, got)
+	}
+}
+
 func TestCanonicalPanelNameStripsEnvironmentSuffix(t *testing.T) {
 	if got := canonicalPanelName("users@staging"); got != "users" {
 		t.Fatalf("expected canonical panel users, got %q", got)
 	}
 	if got := canonicalPanelName(" profile "); got != "profile" {
 		t.Fatalf("expected trimmed panel profile, got %q", got)
+	}
+}
+
+func TestEntryForPanelUsesCurrentUserDetailEntryMode(t *testing.T) {
+	cfg := admin.Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+	}
+	adm, err := admin.New(cfg, admin.Dependencies{})
+	if err != nil {
+		t.Fatalf("new admin: %v", err)
+	}
+	repo := admin.NewMemoryRepository()
+	record, err := repo.Create(context.Background(), map[string]any{
+		"display_name": "Jane Doe",
+	})
+	if err != nil {
+		t.Fatalf("seed profile: %v", err)
+	}
+	if _, err := adm.RegisterPanel("profile", (&admin.PanelBuilder{}).
+		WithRepository(repo).
+		WithEntryMode(admin.PanelEntryModeDetailCurrentUser).
+		DetailFields(
+			admin.Field{Name: "display_name", Label: "Name", Type: "text"},
+		)); err != nil {
+		t.Fatalf("register panel: %v", err)
+	}
+
+	h := &contentEntryHandlers{
+		admin:          adm,
+		cfg:            cfg,
+		detailTemplate: "resources/content/detail",
+		templateExists: func(name string) bool {
+			return name == "resources/content/detail"
+		},
+	}
+	ctx := router.NewMockContext()
+	ctx.HeadersM["X-User-ID"] = strings.TrimSpace(anyToString(record["id"]))
+	ctx.On("Context").Return(context.Background())
+	ctx.On("Render", "resources/content/detail", mock.MatchedBy(func(arg any) bool {
+		viewCtx, ok := arg.(router.ViewContext)
+		if !ok {
+			return false
+		}
+		item, ok := viewCtx["resource_item"].(map[string]any)
+		if !ok {
+			return false
+		}
+		return strings.TrimSpace(anyToString(item["id"])) == strings.TrimSpace(anyToString(record["id"])) &&
+			strings.TrimSpace(anyToString(item["display_name"])) == "Jane Doe" &&
+			strings.TrimSpace(anyToString(viewCtx["panel_name"])) == "profile"
+	})).Return(nil).Once()
+
+	if err := h.entryForPanel(ctx, "profile", admin.PanelEntryModeDetailCurrentUser); err != nil {
+		t.Fatalf("entryForPanel: %v", err)
+	}
+	ctx.AssertExpectations(t)
+}
+
+func TestEntryForPanelRejectsCurrentUserModeWhenUserIDMissing(t *testing.T) {
+	h := &contentEntryHandlers{cfg: admin.Config{DefaultLocale: "en"}}
+	ctx := router.NewMockContext()
+	ctx.On("Context").Return(context.Background())
+
+	if err := h.entryForPanel(ctx, "profile", admin.PanelEntryModeDetailCurrentUser); err != admin.ErrForbidden {
+		t.Fatalf("expected ErrForbidden when user id missing, got %v", err)
 	}
 }
 

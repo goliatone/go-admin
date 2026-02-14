@@ -113,7 +113,7 @@ func TestWorkflowEngineForContentTypePrefersWorkflowIDCapability(t *testing.T) {
 	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
 	adm.WithWorkflow(engine)
 
-	workflow := workflowEngineForContentType(adm, &CMSContentType{
+	workflow := workflowEngineForContentType(context.Background(), adm, &CMSContentType{
 		Slug: "news",
 		Capabilities: map[string]any{
 			"workflow_id": "editorial.news",
@@ -181,7 +181,7 @@ func TestWorkflowEngineForContentTypeUsesAdminTraitWorkflowDefaults(t *testing.T
 		"editorial": "editorial.default",
 	})
 
-	workflow := workflowEngineForContentType(adm, &CMSContentType{
+	workflow := workflowEngineForContentType(context.Background(), adm, &CMSContentType{
 		Slug: "news",
 		Capabilities: map[string]any{
 			"panel_traits": []any{"editorial"},
@@ -197,5 +197,148 @@ func TestWorkflowEngineForContentTypeUsesAdminTraitWorkflowDefaults(t *testing.T
 	}
 	if !hasTransition(transitions, "publish") {
 		t.Fatalf("expected workflow transitions from trait default, got %+v", transitions)
+	}
+}
+
+func TestWorkflowEngineForContentTypeUsesPersistedBindingPrecedence(t *testing.T) {
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
+	engine := NewSimpleWorkflowEngine()
+	adm.WithWorkflow(engine)
+	runtime := NewWorkflowRuntimeService(NewInMemoryWorkflowDefinitionRepository(), NewInMemoryWorkflowBindingRepository())
+	adm.WithWorkflowRuntime(runtime)
+
+	register := func(id, transition string) {
+		_, err := runtime.CreateWorkflow(context.Background(), PersistedWorkflow{
+			ID:     id,
+			Name:   id,
+			Status: WorkflowStatusActive,
+			Definition: WorkflowDefinition{
+				InitialState: "draft",
+				Transitions: []WorkflowTransition{
+					{Name: transition, From: "draft", To: "published"},
+				},
+			},
+		})
+		if err != nil {
+			t.Fatalf("create workflow %s: %v", id, err)
+		}
+	}
+	register("editorial.global", "publish_global")
+	register("editorial.trait", "publish_trait")
+	register("editorial.news", "publish_news")
+
+	_, err := runtime.CreateBinding(context.Background(), WorkflowBinding{
+		ScopeType:  WorkflowBindingScopeGlobal,
+		WorkflowID: "editorial.global",
+		Priority:   100,
+		Status:     WorkflowBindingStatusActive,
+	})
+	if err != nil {
+		t.Fatalf("create global binding: %v", err)
+	}
+	_, err = runtime.CreateBinding(context.Background(), WorkflowBinding{
+		ScopeType:  WorkflowBindingScopeTrait,
+		ScopeRef:   "editorial",
+		WorkflowID: "editorial.trait",
+		Priority:   50,
+		Status:     WorkflowBindingStatusActive,
+	})
+	if err != nil {
+		t.Fatalf("create trait binding: %v", err)
+	}
+	_, err = runtime.CreateBinding(context.Background(), WorkflowBinding{
+		ScopeType:  WorkflowBindingScopeContentType,
+		ScopeRef:   "news",
+		WorkflowID: "editorial.news",
+		Priority:   10,
+		Status:     WorkflowBindingStatusActive,
+	})
+	if err != nil {
+		t.Fatalf("create content-type binding: %v", err)
+	}
+
+	workflow := workflowEngineForContentType(context.Background(), adm, &CMSContentType{
+		Slug: "news",
+		Capabilities: map[string]any{
+			"panel_traits": []any{"editorial"},
+		},
+	})
+	if workflow == nil {
+		t.Fatalf("expected persisted binding workflow")
+	}
+	transitions, err := workflow.AvailableTransitions(context.Background(), "ignored", "draft")
+	if err != nil {
+		t.Fatalf("available transitions failed: %v", err)
+	}
+	if !hasTransition(transitions, "publish_news") {
+		t.Fatalf("expected content_type binding transition, got %+v", transitions)
+	}
+}
+
+func TestWorkflowEngineForContentTypeExplicitWorkflowIDStillWinsPersistedBindings(t *testing.T) {
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
+	engine := NewSimpleWorkflowEngine()
+	adm.WithWorkflow(engine)
+	runtime := NewWorkflowRuntimeService(NewInMemoryWorkflowDefinitionRepository(), NewInMemoryWorkflowBindingRepository())
+	adm.WithWorkflowRuntime(runtime)
+
+	_, err := runtime.CreateWorkflow(context.Background(), PersistedWorkflow{
+		ID:     "editorial.bound",
+		Name:   "editorial.bound",
+		Status: WorkflowStatusActive,
+		Definition: WorkflowDefinition{
+			InitialState: "draft",
+			Transitions: []WorkflowTransition{
+				{Name: "publish_bound", From: "draft", To: "published"},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create bound workflow: %v", err)
+	}
+	_, err = runtime.CreateWorkflow(context.Background(), PersistedWorkflow{
+		ID:     "editorial.explicit",
+		Name:   "editorial.explicit",
+		Status: WorkflowStatusActive,
+		Definition: WorkflowDefinition{
+			InitialState: "draft",
+			Transitions: []WorkflowTransition{
+				{Name: "publish_explicit", From: "draft", To: "published"},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create explicit workflow: %v", err)
+	}
+
+	_, err = runtime.CreateBinding(context.Background(), WorkflowBinding{
+		ScopeType:  WorkflowBindingScopeContentType,
+		ScopeRef:   "news",
+		WorkflowID: "editorial.bound",
+		Priority:   10,
+		Status:     WorkflowBindingStatusActive,
+	})
+	if err != nil {
+		t.Fatalf("create binding: %v", err)
+	}
+
+	workflow := workflowEngineForContentType(context.Background(), adm, &CMSContentType{
+		Slug: "news",
+		Capabilities: map[string]any{
+			"workflow_id": "editorial.explicit",
+		},
+	})
+	if workflow == nil {
+		t.Fatalf("expected workflow")
+	}
+	transitions, err := workflow.AvailableTransitions(context.Background(), "ignored", "draft")
+	if err != nil {
+		t.Fatalf("available transitions failed: %v", err)
+	}
+	if !hasTransition(transitions, "publish_explicit") {
+		t.Fatalf("expected explicit workflow transition, got %+v", transitions)
+	}
+	if hasTransition(transitions, "publish_bound") {
+		t.Fatalf("did not expect persisted binding workflow to override explicit workflow")
 	}
 }
