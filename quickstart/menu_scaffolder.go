@@ -6,6 +6,18 @@ import (
 	"github.com/goliatone/go-admin/admin"
 )
 
+// DefaultContentParentPermissions returns the canonical permission set used for
+// the sidebar "Content" parent node.
+func DefaultContentParentPermissions() []string {
+	return []string{
+		"admin.pages.view",
+		"admin.posts.view",
+		"admin.media.view",
+		"admin.content_types.view",
+		"admin.block_definitions.view",
+	}
+}
+
 // DefaultMenuParents returns the baseline parents/groups used by quickstart modules.
 func DefaultMenuParents(menuCode string) []admin.MenuItem {
 	menuCode = admin.NormalizeMenuSlug(menuCode)
@@ -38,7 +50,7 @@ func DefaultMenuParents(menuCode string) []admin.MenuItem {
 		},
 		Menu:        menuCode,
 		ParentID:    mainGroup.ID,
-		Permissions: []string{"admin.pages.view", "admin.posts.view"},
+		Permissions: append([]string{}, DefaultContentParentPermissions()...),
 	}
 	others := admin.MenuItem{
 		ID:            "nav-group-others",
