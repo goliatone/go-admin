@@ -192,6 +192,9 @@ func SetupUsersWithMigrations(ctx context.Context, dsn string, registrar UserMig
 		if err := rewriteSeedScope(ctx, client.DB(), quickstart.ScopeConfigFromEnv()); err != nil {
 			return stores.UserDependencies{}, nil, nil, err
 		}
+		if err := ensureContentNavigationSeedPermissions(ctx, deps.RoleRegistry); err != nil {
+			return stores.UserDependencies{}, nil, nil, err
+		}
 		if err := ensureTranslationExchangeSeedPermissions(ctx, deps.RoleRegistry); err != nil {
 			return stores.UserDependencies{}, nil, nil, err
 		}
@@ -820,6 +823,78 @@ func ensureTranslationExchangeSeedPermissions(ctx context.Context, registry type
 	}
 	scope := seedScopeDefaults()
 	for _, roleKey := range []string{"superadmin", "owner"} {
+		page, err := registry.ListRoles(ctx, types.RoleFilter{
+			RoleKey:       roleKey,
+			IncludeSystem: true,
+			Scope:         scope,
+		})
+		if err != nil {
+			return err
+		}
+		if len(page.Roles) == 0 {
+			continue
+		}
+
+		role := page.Roles[0]
+		merged, changed := mergeRolePermissions(role.Permissions, required)
+		if !changed {
+			continue
+		}
+		if _, err := registry.UpdateRole(ctx, role.ID, types.RoleMutation{
+			Name:        role.Name,
+			RoleKey:     role.RoleKey,
+			Permissions: merged,
+			Scope:       role.Scope,
+		}); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func ensureContentNavigationSeedPermissions(ctx context.Context, registry types.RoleRegistry) error {
+	if registry == nil {
+		return nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	requiredByRole := map[string][]string{
+		"superadmin": {
+			"admin.pages.view",
+			"admin.posts.view",
+			"admin.media.view",
+			"admin.content_types.view",
+			"admin.block_definitions.view",
+		},
+		"owner": {
+			"admin.pages.view",
+			"admin.posts.view",
+			"admin.media.view",
+			"admin.content_types.view",
+			"admin.block_definitions.view",
+		},
+		"admin": {
+			"admin.pages.view",
+			"admin.posts.view",
+			"admin.media.view",
+			"admin.content_types.view",
+			"admin.block_definitions.view",
+		},
+		"editor": {
+			"admin.pages.view",
+			"admin.posts.view",
+		},
+	}
+
+	scope := seedScopeDefaults()
+	for _, roleKey := range []string{"superadmin", "owner", "admin", "editor"} {
+		required := requiredByRole[roleKey]
+		if len(required) == 0 {
+			continue
+		}
 		page, err := registry.ListRoles(ctx, types.RoleFilter{
 			RoleKey:       roleKey,
 			IncludeSystem: true,
