@@ -207,9 +207,11 @@ func preSeedContentTypeBuilder(adm *admin.Admin, cfg admin.Config, modules []adm
 			continue
 		}
 		err := builder.Register(admin.ModuleContext{
-			Admin:  adm,
-			Router: adm.PublicRouter(),
-			Locale: strings.TrimSpace(cfg.DefaultLocale),
+			Admin:           adm,
+			Router:          adm.PublicRouter(),
+			PublicRouter:    adm.PublicRouter(),
+			ProtectedRouter: adm.ProtectedRouter(),
+			Locale:          strings.TrimSpace(cfg.DefaultLocale),
 		})
 		if err != nil && !errors.Is(err, admin.ErrFeatureDisabled) {
 			return err
