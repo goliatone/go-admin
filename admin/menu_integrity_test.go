@@ -142,7 +142,7 @@ func TestGoCMSMenuAdapterRejectsCycleUpdate(t *testing.T) {
 	if !ok {
 		t.Fatalf("missing root item in menu: %+v", menu.Items)
 	}
-	child, ok := menuItemByID(menu.Items, "admin_main.child")
+	child, ok := menuItemByID(menu.Items, "admin_main.root.child")
 	if !ok {
 		t.Fatalf("missing child item in menu: %+v", menu.Items)
 	}
