@@ -36,6 +36,7 @@
     "uses_mock_dependencies": false,
     "requires_manual_patches": false,
     "api_only_fallback_detected": false,
+    "legacy_runtime_path_active": false,
     "notes": "Runtime paths validated by backend tests; no mock/demo-only fallback and no API-only signer fallback accepted in production flow."
   },
   "evidence": {

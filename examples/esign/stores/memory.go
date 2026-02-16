@@ -2,7 +2,10 @@ package stores
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -32,6 +35,16 @@ type InMemoryStore struct {
 	jobRunDedupeIndex          map[string]string
 	integrationCredentials     map[string]IntegrationCredentialRecord
 	integrationCredentialIndex map[string]string
+	mappingSpecs               map[string]MappingSpecRecord
+	integrationBindings        map[string]IntegrationBindingRecord
+	integrationBindingIndex    map[string]string
+	integrationSyncRuns        map[string]IntegrationSyncRunRecord
+	integrationCheckpoints     map[string]IntegrationCheckpointRecord
+	integrationCheckpointIndex map[string]string
+	integrationConflicts       map[string]IntegrationConflictRecord
+	integrationChangeEvents    map[string]IntegrationChangeEventRecord
+	integrationMutationClaims  map[string]time.Time
+	placementRuns              map[string]PlacementRunRecord
 }
 
 func NewInMemoryStore() *InMemoryStore {
@@ -54,11 +67,22 @@ func NewInMemoryStore() *InMemoryStore {
 		jobRunDedupeIndex:          map[string]string{},
 		integrationCredentials:     map[string]IntegrationCredentialRecord{},
 		integrationCredentialIndex: map[string]string{},
+		mappingSpecs:               map[string]MappingSpecRecord{},
+		integrationBindings:        map[string]IntegrationBindingRecord{},
+		integrationBindingIndex:    map[string]string{},
+		integrationSyncRuns:        map[string]IntegrationSyncRunRecord{},
+		integrationCheckpoints:     map[string]IntegrationCheckpointRecord{},
+		integrationCheckpointIndex: map[string]string{},
+		integrationConflicts:       map[string]IntegrationConflictRecord{},
+		integrationChangeEvents:    map[string]IntegrationChangeEventRecord{},
+		integrationMutationClaims:  map[string]time.Time{},
+		placementRuns:              map[string]PlacementRunRecord{},
 	}
 }
 
 // WithTx executes fn within a transactional scope.
-// InMemoryStore currently provides best-effort semantics and executes inline.
+// InMemoryStore provides snapshot-based atomic commit semantics:
+// all tx writes are applied on a cloned store and committed only on success.
 func (s *InMemoryStore) WithTx(ctx context.Context, fn func(tx TxStore) error) error {
 	_ = ctx
 	if fn == nil {
@@ -67,7 +91,119 @@ func (s *InMemoryStore) WithTx(ctx context.Context, fn func(tx TxStore) error) e
 	if s == nil {
 		return invalidRecordError("transactions", "store", "not configured")
 	}
-	return fn(s)
+	txStore, err := s.cloneForTx()
+	if err != nil {
+		return err
+	}
+	if err := fn(txStore); err != nil {
+		return err
+	}
+	return s.commitFromTx(txStore)
+}
+
+func (s *InMemoryStore) cloneForTx() (*InMemoryStore, error) {
+	if s == nil {
+		return nil, invalidRecordError("transactions", "store", "not configured")
+	}
+	snapshot, err := s.snapshot()
+	if err != nil {
+		return nil, err
+	}
+	out := NewInMemoryStore()
+	out.applySnapshot(snapshot)
+	return out, nil
+}
+
+func (s *InMemoryStore) commitFromTx(txStore *InMemoryStore) error {
+	if s == nil {
+		return invalidRecordError("transactions", "store", "not configured")
+	}
+	if txStore == nil {
+		return invalidRecordError("transactions", "tx_store", "not configured")
+	}
+	snapshot, err := txStore.snapshot()
+	if err != nil {
+		return err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.applySnapshot(snapshot)
+	return nil
+}
+
+func (s *InMemoryStore) snapshot() (sqliteStoreSnapshot, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	payload := sqliteStoreSnapshot{
+		Documents:                  s.documents,
+		Agreements:                 s.agreements,
+		Participants:               s.participants,
+		FieldDefinitions:           s.fieldDefinitions,
+		FieldInstances:             s.fieldInstances,
+		Recipients:                 s.recipients,
+		Fields:                     s.fields,
+		SigningTokens:              s.signingTokens,
+		TokenHashIndex:             s.tokenHashIndex,
+		SignatureArtifacts:         s.signatureArtifacts,
+		FieldValues:                s.fieldValues,
+		AuditEvents:                s.auditEvents,
+		AgreementArtifacts:         s.agreementArtifacts,
+		EmailLogs:                  s.emailLogs,
+		JobRuns:                    s.jobRuns,
+		JobRunDedupeIndex:          s.jobRunDedupeIndex,
+		IntegrationCredentials:     s.integrationCredentials,
+		IntegrationCredentialIndex: s.integrationCredentialIndex,
+		MappingSpecs:               s.mappingSpecs,
+		IntegrationBindings:        s.integrationBindings,
+		IntegrationBindingIndex:    s.integrationBindingIndex,
+		IntegrationSyncRuns:        s.integrationSyncRuns,
+		IntegrationCheckpoints:     s.integrationCheckpoints,
+		IntegrationCheckpointIndex: s.integrationCheckpointIndex,
+		IntegrationConflicts:       s.integrationConflicts,
+		IntegrationChangeEvents:    s.integrationChangeEvents,
+		IntegrationMutationClaims:  s.integrationMutationClaims,
+		PlacementRuns:              s.placementRuns,
+	}
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return sqliteStoreSnapshot{}, fmt.Errorf("snapshot store state: %w", err)
+	}
+	var cloned sqliteStoreSnapshot
+	if err := json.Unmarshal(raw, &cloned); err != nil {
+		return sqliteStoreSnapshot{}, fmt.Errorf("clone store state: %w", err)
+	}
+	return cloned, nil
+}
+
+func (s *InMemoryStore) applySnapshot(snapshot sqliteStoreSnapshot) {
+	s.documents = ensureDocumentMap(snapshot.Documents)
+	s.agreements = ensureAgreementMap(snapshot.Agreements)
+	s.participants = ensureParticipantMap(snapshot.Participants)
+	s.fieldDefinitions = ensureFieldDefinitionMap(snapshot.FieldDefinitions)
+	s.fieldInstances = ensureFieldInstanceMap(snapshot.FieldInstances)
+	s.recipients = ensureRecipientMap(snapshot.Recipients)
+	s.fields = ensureFieldMap(snapshot.Fields)
+	s.signingTokens = ensureSigningTokenMap(snapshot.SigningTokens)
+	s.tokenHashIndex = ensureStringMap(snapshot.TokenHashIndex)
+	s.signatureArtifacts = ensureSignatureArtifactMap(snapshot.SignatureArtifacts)
+	s.fieldValues = ensureFieldValueMap(snapshot.FieldValues)
+	s.auditEvents = ensureAuditEventMap(snapshot.AuditEvents)
+	s.agreementArtifacts = ensureAgreementArtifactMap(snapshot.AgreementArtifacts)
+	s.emailLogs = ensureEmailLogMap(snapshot.EmailLogs)
+	s.jobRuns = ensureJobRunMap(snapshot.JobRuns)
+	s.jobRunDedupeIndex = ensureStringMap(snapshot.JobRunDedupeIndex)
+	s.integrationCredentials = ensureIntegrationCredentialMap(snapshot.IntegrationCredentials)
+	s.integrationCredentialIndex = ensureStringMap(snapshot.IntegrationCredentialIndex)
+	s.mappingSpecs = ensureMappingSpecMap(snapshot.MappingSpecs)
+	s.integrationBindings = ensureIntegrationBindingMap(snapshot.IntegrationBindings)
+	s.integrationBindingIndex = ensureStringMap(snapshot.IntegrationBindingIndex)
+	s.integrationSyncRuns = ensureIntegrationSyncRunMap(snapshot.IntegrationSyncRuns)
+	s.integrationCheckpoints = ensureIntegrationCheckpointMap(snapshot.IntegrationCheckpoints)
+	s.integrationCheckpointIndex = ensureStringMap(snapshot.IntegrationCheckpointIndex)
+	s.integrationConflicts = ensureIntegrationConflictMap(snapshot.IntegrationConflicts)
+	s.integrationChangeEvents = ensureIntegrationChangeEventMap(snapshot.IntegrationChangeEvents)
+	s.integrationMutationClaims = ensureTimeMap(snapshot.IntegrationMutationClaims)
+	s.placementRuns = ensurePlacementRunMap(snapshot.PlacementRuns)
 }
 
 func scopedKey(scope Scope, id string) string {
@@ -969,15 +1105,16 @@ func (s *InMemoryStore) UpsertFieldInstanceDraft(ctx context.Context, scope Scop
 	record, exists := s.fieldInstances[key]
 	if !exists {
 		record = FieldInstanceRecord{
-			ID:          instanceID,
-			TenantID:    scope.TenantID,
-			OrgID:       scope.OrgID,
-			AgreementID: agreementID,
-			PageNumber:  1,
-			Width:       150,
-			Height:      32,
-			TabIndex:    0,
-			CreatedAt:   time.Now().UTC(),
+			ID:              instanceID,
+			TenantID:        scope.TenantID,
+			OrgID:           scope.OrgID,
+			AgreementID:     agreementID,
+			PageNumber:      1,
+			Width:           150,
+			Height:          32,
+			TabIndex:        0,
+			PlacementSource: PlacementSourceManual,
+			CreatedAt:       time.Now().UTC(),
 		}
 	}
 	if patch.FieldDefinitionID != nil {
@@ -1007,6 +1144,21 @@ func (s *InMemoryStore) UpsertFieldInstanceDraft(ctx context.Context, scope Scop
 	if patch.AppearanceJSON != nil {
 		record.AppearanceJSON = strings.TrimSpace(*patch.AppearanceJSON)
 	}
+	if patch.PlacementSource != nil {
+		record.PlacementSource = strings.ToLower(strings.TrimSpace(*patch.PlacementSource))
+	}
+	if patch.ResolverID != nil {
+		record.ResolverID = strings.ToLower(strings.TrimSpace(*patch.ResolverID))
+	}
+	if patch.Confidence != nil {
+		record.Confidence = *patch.Confidence
+	}
+	if patch.PlacementRunID != nil {
+		record.PlacementRunID = normalizeID(*patch.PlacementRunID)
+	}
+	if patch.ManualOverride != nil {
+		record.ManualOverride = *patch.ManualOverride
+	}
 	if record.FieldDefinitionID == "" {
 		return FieldInstanceRecord{}, invalidRecordError("field_instances", "field_definition_id", "required")
 	}
@@ -1019,6 +1171,18 @@ func (s *InMemoryStore) UpsertFieldInstanceDraft(ctx context.Context, scope Scop
 	}
 	if record.Width <= 0 || record.Height <= 0 {
 		return FieldInstanceRecord{}, invalidRecordError("field_instances", "width|height", "must be positive")
+	}
+	if record.PlacementSource == "" {
+		record.PlacementSource = PlacementSourceManual
+	}
+	if record.PlacementSource != PlacementSourceAuto && record.PlacementSource != PlacementSourceManual {
+		return FieldInstanceRecord{}, invalidRecordError("field_instances", "placement_source", "must be auto or manual")
+	}
+	if record.Confidence < 0 {
+		record.Confidence = 0
+	}
+	if record.Confidence > 1 {
+		record.Confidence = 1
 	}
 	record.UpdatedAt = time.Now().UTC()
 	s.fieldInstances[key] = record
@@ -1150,20 +1314,21 @@ func (s *InMemoryStore) UpsertFieldDraft(ctx context.Context, scope Scope, agree
 		return FieldRecord{}, err
 	}
 	return FieldRecord{
-		ID:          instance.ID,
-		TenantID:    scope.TenantID,
-		OrgID:       scope.OrgID,
-		AgreementID: agreementID,
-		RecipientID: definition.ParticipantID,
-		Type:        definition.Type,
-		PageNumber:  instance.PageNumber,
-		PosX:        instance.X,
-		PosY:        instance.Y,
-		Width:       instance.Width,
-		Height:      instance.Height,
-		Required:    definition.Required,
-		CreatedAt:   instance.CreatedAt,
-		UpdatedAt:   instance.UpdatedAt,
+		ID:                instance.ID,
+		FieldDefinitionID: definition.ID,
+		TenantID:          scope.TenantID,
+		OrgID:             scope.OrgID,
+		AgreementID:       agreementID,
+		RecipientID:       definition.ParticipantID,
+		Type:              definition.Type,
+		PageNumber:        instance.PageNumber,
+		PosX:              instance.X,
+		PosY:              instance.Y,
+		Width:             instance.Width,
+		Height:            instance.Height,
+		Required:          definition.Required,
+		CreatedAt:         instance.CreatedAt,
+		UpdatedAt:         instance.UpdatedAt,
 	}, nil
 }
 
@@ -1191,20 +1356,21 @@ func (s *InMemoryStore) ListFields(ctx context.Context, scope Scope, agreementID
 			continue
 		}
 		out = append(out, FieldRecord{
-			ID:          instance.ID,
-			TenantID:    instance.TenantID,
-			OrgID:       instance.OrgID,
-			AgreementID: instance.AgreementID,
-			RecipientID: definition.ParticipantID,
-			Type:        definition.Type,
-			PageNumber:  instance.PageNumber,
-			PosX:        instance.X,
-			PosY:        instance.Y,
-			Width:       instance.Width,
-			Height:      instance.Height,
-			Required:    definition.Required,
-			CreatedAt:   instance.CreatedAt,
-			UpdatedAt:   instance.UpdatedAt,
+			ID:                instance.ID,
+			FieldDefinitionID: definition.ID,
+			TenantID:          instance.TenantID,
+			OrgID:             instance.OrgID,
+			AgreementID:       instance.AgreementID,
+			RecipientID:       definition.ParticipantID,
+			Type:              definition.Type,
+			PageNumber:        instance.PageNumber,
+			PosX:              instance.X,
+			PosY:              instance.Y,
+			Width:             instance.Width,
+			Height:            instance.Height,
+			Required:          definition.Required,
+			CreatedAt:         instance.CreatedAt,
+			UpdatedAt:         instance.UpdatedAt,
 		})
 	}
 	sort.Slice(out, func(i, j int) bool {
@@ -1643,6 +1809,120 @@ func cloneIntegrationCredentialRecord(record IntegrationCredentialRecord) Integr
 	return record
 }
 
+func cloneExternalSchema(schema ExternalSchema) ExternalSchema {
+	out := schema
+	if len(schema.Fields) > 0 {
+		out.Fields = append([]ExternalFieldRef{}, schema.Fields...)
+	} else {
+		out.Fields = []ExternalFieldRef{}
+	}
+	return out
+}
+
+func cloneMappingRules(rules []MappingRule) []MappingRule {
+	if len(rules) == 0 {
+		return []MappingRule{}
+	}
+	return append([]MappingRule{}, rules...)
+}
+
+func cloneMappingSpecRecord(record MappingSpecRecord) MappingSpecRecord {
+	record.ExternalSchema = cloneExternalSchema(record.ExternalSchema)
+	record.Rules = cloneMappingRules(record.Rules)
+	record.PublishedAt = cloneTimePtr(record.PublishedAt)
+	record.CreatedAt = normalizeRecordTime(record.CreatedAt)
+	record.UpdatedAt = normalizeRecordTime(record.UpdatedAt)
+	return record
+}
+
+func cloneIntegrationBindingRecord(record IntegrationBindingRecord) IntegrationBindingRecord {
+	record.CreatedAt = normalizeRecordTime(record.CreatedAt)
+	record.UpdatedAt = normalizeRecordTime(record.UpdatedAt)
+	return record
+}
+
+func cloneIntegrationSyncRunRecord(record IntegrationSyncRunRecord) IntegrationSyncRunRecord {
+	record.CompletedAt = cloneTimePtr(record.CompletedAt)
+	record.StartedAt = normalizeRecordTime(record.StartedAt)
+	record.CreatedAt = normalizeRecordTime(record.CreatedAt)
+	record.UpdatedAt = normalizeRecordTime(record.UpdatedAt)
+	return record
+}
+
+func cloneIntegrationCheckpointRecord(record IntegrationCheckpointRecord) IntegrationCheckpointRecord {
+	record.CreatedAt = normalizeRecordTime(record.CreatedAt)
+	record.UpdatedAt = normalizeRecordTime(record.UpdatedAt)
+	return record
+}
+
+func cloneIntegrationConflictRecord(record IntegrationConflictRecord) IntegrationConflictRecord {
+	record.ResolvedAt = cloneTimePtr(record.ResolvedAt)
+	record.CreatedAt = normalizeRecordTime(record.CreatedAt)
+	record.UpdatedAt = normalizeRecordTime(record.UpdatedAt)
+	return record
+}
+
+func cloneIntegrationChangeEventRecord(record IntegrationChangeEventRecord) IntegrationChangeEventRecord {
+	record.EmittedAt = normalizeRecordTime(record.EmittedAt)
+	record.CreatedAt = normalizeRecordTime(record.CreatedAt)
+	return record
+}
+
+func clonePlacementSuggestionRecords(in []PlacementSuggestionRecord) []PlacementSuggestionRecord {
+	if len(in) == 0 {
+		return []PlacementSuggestionRecord{}
+	}
+	out := make([]PlacementSuggestionRecord, 0, len(in))
+	for _, suggestion := range in {
+		suggestion.ID = normalizeID(suggestion.ID)
+		suggestion.FieldDefinitionID = normalizeID(suggestion.FieldDefinitionID)
+		suggestion.ResolverID = strings.ToLower(strings.TrimSpace(suggestion.ResolverID))
+		suggestion.Label = strings.TrimSpace(suggestion.Label)
+		suggestion.MetadataJSON = strings.TrimSpace(suggestion.MetadataJSON)
+		if suggestion.Confidence < 0 {
+			suggestion.Confidence = 0
+		}
+		if suggestion.Confidence > 1 {
+			suggestion.Confidence = 1
+		}
+		out = append(out, suggestion)
+	}
+	return out
+}
+
+func clonePlacementResolverScores(in []PlacementResolverScore) []PlacementResolverScore {
+	if len(in) == 0 {
+		return []PlacementResolverScore{}
+	}
+	out := make([]PlacementResolverScore, 0, len(in))
+	for _, score := range in {
+		score.ResolverID = strings.ToLower(strings.TrimSpace(score.ResolverID))
+		score.Reason = strings.TrimSpace(score.Reason)
+		out = append(out, score)
+	}
+	return out
+}
+
+func clonePlacementRunRecord(record PlacementRunRecord) PlacementRunRecord {
+	record.ID = normalizeID(record.ID)
+	record.AgreementID = normalizeID(record.AgreementID)
+	record.Status = strings.ToLower(strings.TrimSpace(record.Status))
+	record.ReasonCode = strings.TrimSpace(record.ReasonCode)
+	record.ResolverOrder = append([]string{}, record.ResolverOrder...)
+	record.ExecutedResolvers = append([]string{}, record.ExecutedResolvers...)
+	record.ResolverScores = clonePlacementResolverScores(record.ResolverScores)
+	record.Suggestions = clonePlacementSuggestionRecords(record.Suggestions)
+	record.SelectedSuggestionIDs = append([]string{}, record.SelectedSuggestionIDs...)
+	record.UnresolvedDefinitionIDs = append([]string{}, record.UnresolvedDefinitionIDs...)
+	record.SelectedSource = strings.TrimSpace(record.SelectedSource)
+	record.PolicyJSON = strings.TrimSpace(record.PolicyJSON)
+	record.CreatedByUserID = normalizeID(record.CreatedByUserID)
+	record.CompletedAt = cloneTimePtr(record.CompletedAt)
+	record.CreatedAt = normalizeRecordTime(record.CreatedAt)
+	record.UpdatedAt = normalizeRecordTime(record.UpdatedAt)
+	return record
+}
+
 func jobDedupeIndexKey(scope Scope, jobName, dedupeKey string) string {
 	return strings.Join([]string{
 		scope.key(),
@@ -1656,6 +1936,91 @@ func integrationCredentialIndexKey(scope Scope, provider, userID string) string 
 		scope.key(),
 		strings.ToLower(strings.TrimSpace(provider)),
 		normalizeID(userID),
+	}, "|")
+}
+
+func integrationBindingIndexKey(scope Scope, provider, entityKind, externalID string) string {
+	return strings.Join([]string{
+		scope.key(),
+		strings.ToLower(strings.TrimSpace(provider)),
+		strings.ToLower(strings.TrimSpace(entityKind)),
+		normalizeID(externalID),
+	}, "|")
+}
+
+func integrationCheckpointIndexKey(scope Scope, runID, checkpointKey string) string {
+	return strings.Join([]string{
+		scope.key(),
+		normalizeID(runID),
+		strings.TrimSpace(checkpointKey),
+	}, "|")
+}
+
+func integrationMutationClaimKey(scope Scope, idempotencyKey string) string {
+	return scope.key() + "|" + strings.TrimSpace(idempotencyKey)
+}
+
+func normalizePositiveVersion(input int64) int64 {
+	if input > 0 {
+		return input
+	}
+	return 1
+}
+
+func normalizeProviderAndEntity(provider, entityKind string) (string, string) {
+	return strings.ToLower(strings.TrimSpace(provider)), strings.ToLower(strings.TrimSpace(entityKind))
+}
+
+func normalizeSyncRunStatus(status string) string {
+	status = strings.ToLower(strings.TrimSpace(status))
+	switch status {
+	case IntegrationSyncRunStatusPending, IntegrationSyncRunStatusRunning, IntegrationSyncRunStatusCompleted, IntegrationSyncRunStatusFailed:
+		return status
+	default:
+		return IntegrationSyncRunStatusPending
+	}
+}
+
+func normalizeConflictStatus(status string) string {
+	status = strings.ToLower(strings.TrimSpace(status))
+	switch status {
+	case IntegrationConflictStatusPending, IntegrationConflictStatusResolved, IntegrationConflictStatusIgnored:
+		return status
+	default:
+		return IntegrationConflictStatusPending
+	}
+}
+
+func normalizeMappingStatus(status string) string {
+	status = strings.ToLower(strings.TrimSpace(status))
+	switch status {
+	case MappingSpecStatusDraft, MappingSpecStatusPublished:
+		return status
+	default:
+		return MappingSpecStatusDraft
+	}
+}
+
+func sanitizePlacementResolverIDs(in []string) []string {
+	seen := map[string]bool{}
+	out := make([]string, 0, len(in))
+	for _, resolverID := range in {
+		resolverID = strings.ToLower(strings.TrimSpace(resolverID))
+		if resolverID == "" || seen[resolverID] {
+			continue
+		}
+		seen[resolverID] = true
+		out = append(out, resolverID)
+	}
+	return out
+}
+
+func mappingSpecSortKey(record MappingSpecRecord) string {
+	return strings.Join([]string{
+		strings.ToLower(strings.TrimSpace(record.Provider)),
+		strings.ToLower(strings.TrimSpace(record.Name)),
+		strconv.FormatInt(record.Version, 10),
+		strings.TrimSpace(record.ID),
 	}, "|")
 }
 
@@ -2220,6 +2585,903 @@ func (s *InMemoryStore) DeleteIntegrationCredential(ctx context.Context, scope S
 	delete(s.integrationCredentialIndex, indexKey)
 	delete(s.integrationCredentials, scopedKey(scope, id))
 	return nil
+}
+
+func (s *InMemoryStore) UpsertMappingSpec(ctx context.Context, scope Scope, record MappingSpecRecord) (MappingSpecRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return MappingSpecRecord{}, err
+	}
+	record.Provider = strings.ToLower(strings.TrimSpace(record.Provider))
+	record.Name = strings.TrimSpace(record.Name)
+	record.Status = normalizeMappingStatus(record.Status)
+	record.CreatedByUserID = normalizeID(record.CreatedByUserID)
+	record.UpdatedByUserID = normalizeID(record.UpdatedByUserID)
+	record.ExternalSchema = cloneExternalSchema(record.ExternalSchema)
+	record.ExternalSchema.ObjectType = strings.TrimSpace(record.ExternalSchema.ObjectType)
+	record.ExternalSchema.Version = strings.TrimSpace(record.ExternalSchema.Version)
+	for i := range record.ExternalSchema.Fields {
+		record.ExternalSchema.Fields[i].Object = strings.TrimSpace(record.ExternalSchema.Fields[i].Object)
+		record.ExternalSchema.Fields[i].Field = strings.TrimSpace(record.ExternalSchema.Fields[i].Field)
+		record.ExternalSchema.Fields[i].Type = strings.TrimSpace(record.ExternalSchema.Fields[i].Type)
+		record.ExternalSchema.Fields[i].ConstraintsJSON = strings.TrimSpace(record.ExternalSchema.Fields[i].ConstraintsJSON)
+	}
+	record.Rules = cloneMappingRules(record.Rules)
+	for i := range record.Rules {
+		record.Rules[i].SourceObject = strings.TrimSpace(record.Rules[i].SourceObject)
+		record.Rules[i].SourceField = strings.TrimSpace(record.Rules[i].SourceField)
+		record.Rules[i].TargetEntity = strings.TrimSpace(record.Rules[i].TargetEntity)
+		record.Rules[i].TargetPath = strings.TrimSpace(record.Rules[i].TargetPath)
+		record.Rules[i].DefaultValue = strings.TrimSpace(record.Rules[i].DefaultValue)
+		record.Rules[i].Transform = strings.TrimSpace(record.Rules[i].Transform)
+	}
+	record.CompiledJSON = strings.TrimSpace(record.CompiledJSON)
+	record.CompiledHash = strings.TrimSpace(record.CompiledHash)
+	if record.Provider == "" {
+		return MappingSpecRecord{}, invalidRecordError("integration_mapping_specs", "provider", "required")
+	}
+	if record.Name == "" {
+		return MappingSpecRecord{}, invalidRecordError("integration_mapping_specs", "name", "required")
+	}
+	if normalizeID(record.ID) == "" {
+		record.ID = uuid.NewString()
+	}
+	record.ID = normalizeID(record.ID)
+	record.TenantID = scope.TenantID
+	record.OrgID = scope.OrgID
+	now := time.Now().UTC()
+
+	key := scopedKey(scope, record.ID)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	existing, hasExisting := s.mappingSpecs[key]
+	if hasExisting {
+		if record.Version > 0 && record.Version != existing.Version {
+			return MappingSpecRecord{}, versionConflictError("integration_mapping_specs", record.ID, record.Version, existing.Version)
+		}
+		record.Version = existing.Version + 1
+		record.CreatedAt = existing.CreatedAt
+		record.PublishedAt = cloneTimePtr(existing.PublishedAt)
+		if existing.Status == MappingSpecStatusPublished && record.Status == MappingSpecStatusDraft {
+			record.Status = existing.Status
+		}
+	} else {
+		record.Version = normalizePositiveVersion(record.Version)
+		record.CreatedAt = now
+	}
+	if record.Status == MappingSpecStatusPublished {
+		if record.PublishedAt == nil {
+			record.PublishedAt = &now
+		} else {
+			record.PublishedAt = cloneTimePtr(record.PublishedAt)
+		}
+	} else {
+		record.PublishedAt = nil
+	}
+	record.UpdatedAt = now
+	record = cloneMappingSpecRecord(record)
+	s.mappingSpecs[key] = record
+	return record, nil
+}
+
+func (s *InMemoryStore) GetMappingSpec(ctx context.Context, scope Scope, id string) (MappingSpecRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return MappingSpecRecord{}, err
+	}
+	id = normalizeID(id)
+	if id == "" {
+		return MappingSpecRecord{}, invalidRecordError("integration_mapping_specs", "id", "required")
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	record, ok := s.mappingSpecs[scopedKey(scope, id)]
+	if !ok {
+		return MappingSpecRecord{}, notFoundError("integration_mapping_specs", id)
+	}
+	return cloneMappingSpecRecord(record), nil
+}
+
+func (s *InMemoryStore) ListMappingSpecs(ctx context.Context, scope Scope, provider string) ([]MappingSpecRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return nil, err
+	}
+	provider = strings.ToLower(strings.TrimSpace(provider))
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make([]MappingSpecRecord, 0)
+	for _, record := range s.mappingSpecs {
+		if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
+			continue
+		}
+		if provider != "" && strings.ToLower(strings.TrimSpace(record.Provider)) != provider {
+			continue
+		}
+		out = append(out, cloneMappingSpecRecord(record))
+	}
+	sort.Slice(out, func(i, j int) bool {
+		return mappingSpecSortKey(out[i]) < mappingSpecSortKey(out[j])
+	})
+	return out, nil
+}
+
+func (s *InMemoryStore) PublishMappingSpec(ctx context.Context, scope Scope, id string, expectedVersion int64, publishedAt time.Time) (MappingSpecRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return MappingSpecRecord{}, err
+	}
+	id = normalizeID(id)
+	if id == "" {
+		return MappingSpecRecord{}, invalidRecordError("integration_mapping_specs", "id", "required")
+	}
+	if publishedAt.IsZero() {
+		publishedAt = time.Now().UTC()
+	}
+	publishedAt = publishedAt.UTC()
+	key := scopedKey(scope, id)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	record, ok := s.mappingSpecs[key]
+	if !ok {
+		return MappingSpecRecord{}, notFoundError("integration_mapping_specs", id)
+	}
+	if expectedVersion > 0 && record.Version != expectedVersion {
+		return MappingSpecRecord{}, versionConflictError("integration_mapping_specs", id, expectedVersion, record.Version)
+	}
+	record.Status = MappingSpecStatusPublished
+	record.PublishedAt = &publishedAt
+	record.Version++
+	record.UpdatedAt = publishedAt
+	record = cloneMappingSpecRecord(record)
+	s.mappingSpecs[key] = record
+	return record, nil
+}
+
+func (s *InMemoryStore) UpsertIntegrationBinding(ctx context.Context, scope Scope, record IntegrationBindingRecord) (IntegrationBindingRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return IntegrationBindingRecord{}, err
+	}
+	record.Provider, record.EntityKind = normalizeProviderAndEntity(record.Provider, record.EntityKind)
+	record.ExternalID = normalizeID(record.ExternalID)
+	record.InternalID = normalizeID(record.InternalID)
+	record.ProvenanceJSON = strings.TrimSpace(record.ProvenanceJSON)
+	if record.Provider == "" {
+		return IntegrationBindingRecord{}, invalidRecordError("integration_bindings", "provider", "required")
+	}
+	if record.EntityKind == "" {
+		return IntegrationBindingRecord{}, invalidRecordError("integration_bindings", "entity_kind", "required")
+	}
+	if record.ExternalID == "" {
+		return IntegrationBindingRecord{}, invalidRecordError("integration_bindings", "external_id", "required")
+	}
+	if record.InternalID == "" {
+		return IntegrationBindingRecord{}, invalidRecordError("integration_bindings", "internal_id", "required")
+	}
+	if normalizeID(record.ID) == "" {
+		record.ID = uuid.NewString()
+	}
+	record.ID = normalizeID(record.ID)
+	record.TenantID = scope.TenantID
+	record.OrgID = scope.OrgID
+	now := time.Now().UTC()
+	indexKey := integrationBindingIndexKey(scope, record.Provider, record.EntityKind, record.ExternalID)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if existingID, ok := s.integrationBindingIndex[indexKey]; ok {
+		existing, ok := s.integrationBindings[scopedKey(scope, existingID)]
+		if !ok {
+			return IntegrationBindingRecord{}, notFoundError("integration_bindings", existingID)
+		}
+		if record.Version > 0 && record.Version != existing.Version {
+			return IntegrationBindingRecord{}, versionConflictError("integration_bindings", existing.ID, record.Version, existing.Version)
+		}
+		record.ID = existing.ID
+		record.Version = existing.Version + 1
+		record.CreatedAt = existing.CreatedAt
+		record.UpdatedAt = now
+		record = cloneIntegrationBindingRecord(record)
+		s.integrationBindings[scopedKey(scope, record.ID)] = record
+		s.integrationBindingIndex[indexKey] = record.ID
+		return record, nil
+	}
+
+	record.Version = normalizePositiveVersion(record.Version)
+	record.CreatedAt = now
+	record.UpdatedAt = now
+	record = cloneIntegrationBindingRecord(record)
+	s.integrationBindings[scopedKey(scope, record.ID)] = record
+	s.integrationBindingIndex[indexKey] = record.ID
+	return record, nil
+}
+
+func (s *InMemoryStore) GetIntegrationBindingByExternal(ctx context.Context, scope Scope, provider, entityKind, externalID string) (IntegrationBindingRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return IntegrationBindingRecord{}, err
+	}
+	provider, entityKind = normalizeProviderAndEntity(provider, entityKind)
+	externalID = normalizeID(externalID)
+	if provider == "" || entityKind == "" || externalID == "" {
+		return IntegrationBindingRecord{}, invalidRecordError("integration_bindings", "provider|entity_kind|external_id", "required")
+	}
+	indexKey := integrationBindingIndexKey(scope, provider, entityKind, externalID)
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	id, ok := s.integrationBindingIndex[indexKey]
+	if !ok {
+		return IntegrationBindingRecord{}, notFoundError("integration_bindings", externalID)
+	}
+	record, ok := s.integrationBindings[scopedKey(scope, id)]
+	if !ok {
+		return IntegrationBindingRecord{}, notFoundError("integration_bindings", id)
+	}
+	return cloneIntegrationBindingRecord(record), nil
+}
+
+func (s *InMemoryStore) ListIntegrationBindings(ctx context.Context, scope Scope, provider, entityKind, internalID string) ([]IntegrationBindingRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return nil, err
+	}
+	provider, entityKind = normalizeProviderAndEntity(provider, entityKind)
+	internalID = normalizeID(internalID)
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make([]IntegrationBindingRecord, 0)
+	for _, record := range s.integrationBindings {
+		if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
+			continue
+		}
+		if provider != "" && record.Provider != provider {
+			continue
+		}
+		if entityKind != "" && record.EntityKind != entityKind {
+			continue
+		}
+		if internalID != "" && record.InternalID != internalID {
+			continue
+		}
+		out = append(out, cloneIntegrationBindingRecord(record))
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].UpdatedAt.Equal(out[j].UpdatedAt) {
+			return out[i].ID < out[j].ID
+		}
+		return out[i].UpdatedAt.Before(out[j].UpdatedAt)
+	})
+	return out, nil
+}
+
+func (s *InMemoryStore) CreateIntegrationSyncRun(ctx context.Context, scope Scope, record IntegrationSyncRunRecord) (IntegrationSyncRunRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return IntegrationSyncRunRecord{}, err
+	}
+	record.Provider = strings.ToLower(strings.TrimSpace(record.Provider))
+	record.Direction = strings.ToLower(strings.TrimSpace(record.Direction))
+	record.MappingSpecID = normalizeID(record.MappingSpecID)
+	record.Status = normalizeSyncRunStatus(record.Status)
+	record.Cursor = strings.TrimSpace(record.Cursor)
+	record.LastError = strings.TrimSpace(record.LastError)
+	record.CreatedByUserID = normalizeID(record.CreatedByUserID)
+	if record.Provider == "" {
+		return IntegrationSyncRunRecord{}, invalidRecordError("integration_sync_runs", "provider", "required")
+	}
+	if record.Direction == "" {
+		return IntegrationSyncRunRecord{}, invalidRecordError("integration_sync_runs", "direction", "required")
+	}
+	if normalizeID(record.ID) == "" {
+		record.ID = uuid.NewString()
+	}
+	record.ID = normalizeID(record.ID)
+	record.TenantID = scope.TenantID
+	record.OrgID = scope.OrgID
+	if record.StartedAt.IsZero() {
+		record.StartedAt = time.Now().UTC()
+	}
+	record.StartedAt = record.StartedAt.UTC()
+	if record.AttemptCount <= 0 {
+		record.AttemptCount = 1
+	}
+	record.Version = normalizePositiveVersion(record.Version)
+	record.CreatedAt = normalizeRecordTime(record.CreatedAt)
+	record.UpdatedAt = normalizeRecordTime(record.UpdatedAt)
+	if record.CreatedAt.IsZero() {
+		record.CreatedAt = record.StartedAt
+	}
+	if record.UpdatedAt.IsZero() {
+		record.UpdatedAt = record.StartedAt
+	}
+
+	key := scopedKey(scope, record.ID)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, exists := s.integrationSyncRuns[key]; exists {
+		return IntegrationSyncRunRecord{}, invalidRecordError("integration_sync_runs", "id", "already exists")
+	}
+	record = cloneIntegrationSyncRunRecord(record)
+	s.integrationSyncRuns[key] = record
+	return record, nil
+}
+
+func (s *InMemoryStore) UpdateIntegrationSyncRunStatus(ctx context.Context, scope Scope, id, status, lastError, cursor string, completedAt *time.Time, expectedVersion int64) (IntegrationSyncRunRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return IntegrationSyncRunRecord{}, err
+	}
+	id = normalizeID(id)
+	if id == "" {
+		return IntegrationSyncRunRecord{}, invalidRecordError("integration_sync_runs", "id", "required")
+	}
+	status = normalizeSyncRunStatus(status)
+	lastError = strings.TrimSpace(lastError)
+	cursor = strings.TrimSpace(cursor)
+
+	key := scopedKey(scope, id)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	record, ok := s.integrationSyncRuns[key]
+	if !ok {
+		return IntegrationSyncRunRecord{}, notFoundError("integration_sync_runs", id)
+	}
+	if expectedVersion > 0 && record.Version != expectedVersion {
+		return IntegrationSyncRunRecord{}, versionConflictError("integration_sync_runs", id, expectedVersion, record.Version)
+	}
+	record.Status = status
+	record.LastError = lastError
+	if cursor != "" {
+		record.Cursor = cursor
+	}
+	if completedAt != nil {
+		record.CompletedAt = cloneTimePtr(completedAt)
+	} else if status == IntegrationSyncRunStatusCompleted || status == IntegrationSyncRunStatusFailed {
+		now := time.Now().UTC()
+		record.CompletedAt = &now
+	}
+	record.Version++
+	record.UpdatedAt = time.Now().UTC()
+	record = cloneIntegrationSyncRunRecord(record)
+	s.integrationSyncRuns[key] = record
+	return record, nil
+}
+
+func (s *InMemoryStore) GetIntegrationSyncRun(ctx context.Context, scope Scope, id string) (IntegrationSyncRunRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return IntegrationSyncRunRecord{}, err
+	}
+	id = normalizeID(id)
+	if id == "" {
+		return IntegrationSyncRunRecord{}, invalidRecordError("integration_sync_runs", "id", "required")
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	record, ok := s.integrationSyncRuns[scopedKey(scope, id)]
+	if !ok {
+		return IntegrationSyncRunRecord{}, notFoundError("integration_sync_runs", id)
+	}
+	return cloneIntegrationSyncRunRecord(record), nil
+}
+
+func (s *InMemoryStore) ListIntegrationSyncRuns(ctx context.Context, scope Scope, provider string) ([]IntegrationSyncRunRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return nil, err
+	}
+	provider = strings.ToLower(strings.TrimSpace(provider))
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make([]IntegrationSyncRunRecord, 0)
+	for _, record := range s.integrationSyncRuns {
+		if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
+			continue
+		}
+		if provider != "" && record.Provider != provider {
+			continue
+		}
+		out = append(out, cloneIntegrationSyncRunRecord(record))
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].StartedAt.Equal(out[j].StartedAt) {
+			return out[i].ID < out[j].ID
+		}
+		return out[i].StartedAt.After(out[j].StartedAt)
+	})
+	return out, nil
+}
+
+func (s *InMemoryStore) UpsertIntegrationCheckpoint(ctx context.Context, scope Scope, record IntegrationCheckpointRecord) (IntegrationCheckpointRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return IntegrationCheckpointRecord{}, err
+	}
+	record.RunID = normalizeID(record.RunID)
+	record.CheckpointKey = strings.TrimSpace(record.CheckpointKey)
+	record.Cursor = strings.TrimSpace(record.Cursor)
+	record.PayloadJSON = strings.TrimSpace(record.PayloadJSON)
+	if record.RunID == "" {
+		return IntegrationCheckpointRecord{}, invalidRecordError("integration_checkpoints", "run_id", "required")
+	}
+	if record.CheckpointKey == "" {
+		return IntegrationCheckpointRecord{}, invalidRecordError("integration_checkpoints", "checkpoint_key", "required")
+	}
+	if normalizeID(record.ID) == "" {
+		record.ID = uuid.NewString()
+	}
+	record.ID = normalizeID(record.ID)
+	record.TenantID = scope.TenantID
+	record.OrgID = scope.OrgID
+	now := time.Now().UTC()
+	indexKey := integrationCheckpointIndexKey(scope, record.RunID, record.CheckpointKey)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.integrationSyncRuns[scopedKey(scope, record.RunID)]; !ok {
+		return IntegrationCheckpointRecord{}, notFoundError("integration_sync_runs", record.RunID)
+	}
+
+	if existingID, ok := s.integrationCheckpointIndex[indexKey]; ok {
+		existing, ok := s.integrationCheckpoints[scopedKey(scope, existingID)]
+		if !ok {
+			return IntegrationCheckpointRecord{}, notFoundError("integration_checkpoints", existingID)
+		}
+		if record.Version > 0 && record.Version != existing.Version {
+			return IntegrationCheckpointRecord{}, versionConflictError("integration_checkpoints", existing.ID, record.Version, existing.Version)
+		}
+		record.ID = existing.ID
+		record.Version = existing.Version + 1
+		record.CreatedAt = existing.CreatedAt
+		record.UpdatedAt = now
+		record = cloneIntegrationCheckpointRecord(record)
+		s.integrationCheckpoints[scopedKey(scope, record.ID)] = record
+		s.integrationCheckpointIndex[indexKey] = record.ID
+		return record, nil
+	}
+
+	record.Version = normalizePositiveVersion(record.Version)
+	record.CreatedAt = now
+	record.UpdatedAt = now
+	record = cloneIntegrationCheckpointRecord(record)
+	s.integrationCheckpoints[scopedKey(scope, record.ID)] = record
+	s.integrationCheckpointIndex[indexKey] = record.ID
+	return record, nil
+}
+
+func (s *InMemoryStore) ListIntegrationCheckpoints(ctx context.Context, scope Scope, runID string) ([]IntegrationCheckpointRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return nil, err
+	}
+	runID = normalizeID(runID)
+	if runID == "" {
+		return nil, invalidRecordError("integration_checkpoints", "run_id", "required")
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make([]IntegrationCheckpointRecord, 0)
+	for _, record := range s.integrationCheckpoints {
+		if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
+			continue
+		}
+		if record.RunID != runID {
+			continue
+		}
+		out = append(out, cloneIntegrationCheckpointRecord(record))
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].UpdatedAt.Equal(out[j].UpdatedAt) {
+			return out[i].ID < out[j].ID
+		}
+		return out[i].UpdatedAt.Before(out[j].UpdatedAt)
+	})
+	return out, nil
+}
+
+func (s *InMemoryStore) CreateIntegrationConflict(ctx context.Context, scope Scope, record IntegrationConflictRecord) (IntegrationConflictRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return IntegrationConflictRecord{}, err
+	}
+	record.RunID = normalizeID(record.RunID)
+	record.BindingID = normalizeID(record.BindingID)
+	record.Provider, record.EntityKind = normalizeProviderAndEntity(record.Provider, record.EntityKind)
+	record.ExternalID = normalizeID(record.ExternalID)
+	record.InternalID = normalizeID(record.InternalID)
+	record.Status = normalizeConflictStatus(record.Status)
+	record.Reason = strings.TrimSpace(record.Reason)
+	record.PayloadJSON = strings.TrimSpace(record.PayloadJSON)
+	record.ResolutionJSON = strings.TrimSpace(record.ResolutionJSON)
+	record.ResolvedByUserID = normalizeID(record.ResolvedByUserID)
+	if record.Provider == "" {
+		return IntegrationConflictRecord{}, invalidRecordError("integration_conflicts", "provider", "required")
+	}
+	if record.EntityKind == "" {
+		return IntegrationConflictRecord{}, invalidRecordError("integration_conflicts", "entity_kind", "required")
+	}
+	if record.ExternalID == "" {
+		return IntegrationConflictRecord{}, invalidRecordError("integration_conflicts", "external_id", "required")
+	}
+	if record.Reason == "" {
+		return IntegrationConflictRecord{}, invalidRecordError("integration_conflicts", "reason", "required")
+	}
+	if normalizeID(record.ID) == "" {
+		record.ID = uuid.NewString()
+	}
+	record.ID = normalizeID(record.ID)
+	record.TenantID = scope.TenantID
+	record.OrgID = scope.OrgID
+	record.Version = normalizePositiveVersion(record.Version)
+	now := time.Now().UTC()
+	record.CreatedAt = now
+	record.UpdatedAt = now
+	record.ResolvedAt = cloneTimePtr(record.ResolvedAt)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, exists := s.integrationConflicts[scopedKey(scope, record.ID)]; exists {
+		return IntegrationConflictRecord{}, invalidRecordError("integration_conflicts", "id", "already exists")
+	}
+	record = cloneIntegrationConflictRecord(record)
+	s.integrationConflicts[scopedKey(scope, record.ID)] = record
+	return record, nil
+}
+
+func (s *InMemoryStore) GetIntegrationConflict(ctx context.Context, scope Scope, id string) (IntegrationConflictRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return IntegrationConflictRecord{}, err
+	}
+	id = normalizeID(id)
+	if id == "" {
+		return IntegrationConflictRecord{}, invalidRecordError("integration_conflicts", "id", "required")
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	record, ok := s.integrationConflicts[scopedKey(scope, id)]
+	if !ok {
+		return IntegrationConflictRecord{}, notFoundError("integration_conflicts", id)
+	}
+	return cloneIntegrationConflictRecord(record), nil
+}
+
+func (s *InMemoryStore) ListIntegrationConflicts(ctx context.Context, scope Scope, runID, status string) ([]IntegrationConflictRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return nil, err
+	}
+	runID = normalizeID(runID)
+	status = strings.ToLower(strings.TrimSpace(status))
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make([]IntegrationConflictRecord, 0)
+	for _, record := range s.integrationConflicts {
+		if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
+			continue
+		}
+		if runID != "" && record.RunID != runID {
+			continue
+		}
+		if status != "" && record.Status != status {
+			continue
+		}
+		out = append(out, cloneIntegrationConflictRecord(record))
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].UpdatedAt.Equal(out[j].UpdatedAt) {
+			return out[i].ID < out[j].ID
+		}
+		return out[i].UpdatedAt.Before(out[j].UpdatedAt)
+	})
+	return out, nil
+}
+
+func (s *InMemoryStore) ResolveIntegrationConflict(ctx context.Context, scope Scope, id, status, resolutionJSON, resolvedByUserID string, resolvedAt time.Time, expectedVersion int64) (IntegrationConflictRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return IntegrationConflictRecord{}, err
+	}
+	id = normalizeID(id)
+	if id == "" {
+		return IntegrationConflictRecord{}, invalidRecordError("integration_conflicts", "id", "required")
+	}
+	status = strings.ToLower(strings.TrimSpace(status))
+	if status != IntegrationConflictStatusResolved && status != IntegrationConflictStatusIgnored {
+		return IntegrationConflictRecord{}, invalidRecordError("integration_conflicts", "status", "must be resolved or ignored")
+	}
+	resolutionJSON = strings.TrimSpace(resolutionJSON)
+	resolvedByUserID = normalizeID(resolvedByUserID)
+	if resolvedAt.IsZero() {
+		resolvedAt = time.Now().UTC()
+	}
+	resolvedAt = resolvedAt.UTC()
+
+	key := scopedKey(scope, id)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	record, ok := s.integrationConflicts[key]
+	if !ok {
+		return IntegrationConflictRecord{}, notFoundError("integration_conflicts", id)
+	}
+	if expectedVersion > 0 && record.Version != expectedVersion {
+		return IntegrationConflictRecord{}, versionConflictError("integration_conflicts", id, expectedVersion, record.Version)
+	}
+	record.Status = status
+	record.ResolutionJSON = resolutionJSON
+	record.ResolvedByUserID = resolvedByUserID
+	record.ResolvedAt = &resolvedAt
+	record.Version++
+	record.UpdatedAt = resolvedAt
+	record = cloneIntegrationConflictRecord(record)
+	s.integrationConflicts[key] = record
+	return record, nil
+}
+
+func (s *InMemoryStore) AppendIntegrationChangeEvent(ctx context.Context, scope Scope, record IntegrationChangeEventRecord) (IntegrationChangeEventRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return IntegrationChangeEventRecord{}, err
+	}
+	record.AgreementID = normalizeID(record.AgreementID)
+	record.Provider = strings.ToLower(strings.TrimSpace(record.Provider))
+	record.EventType = strings.TrimSpace(record.EventType)
+	record.SourceEventID = strings.TrimSpace(record.SourceEventID)
+	record.IdempotencyKey = strings.TrimSpace(record.IdempotencyKey)
+	record.PayloadJSON = strings.TrimSpace(record.PayloadJSON)
+	if record.Provider == "" {
+		return IntegrationChangeEventRecord{}, invalidRecordError("integration_change_events", "provider", "required")
+	}
+	if record.EventType == "" {
+		return IntegrationChangeEventRecord{}, invalidRecordError("integration_change_events", "event_type", "required")
+	}
+	if record.IdempotencyKey == "" {
+		return IntegrationChangeEventRecord{}, invalidRecordError("integration_change_events", "idempotency_key", "required")
+	}
+	if normalizeID(record.ID) == "" {
+		record.ID = uuid.NewString()
+	}
+	record.ID = normalizeID(record.ID)
+	record.TenantID = scope.TenantID
+	record.OrgID = scope.OrgID
+	if record.EmittedAt.IsZero() {
+		record.EmittedAt = time.Now().UTC()
+	}
+	record.EmittedAt = record.EmittedAt.UTC()
+	record.CreatedAt = normalizeRecordTime(record.CreatedAt)
+	if record.CreatedAt.IsZero() {
+		record.CreatedAt = record.EmittedAt
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, existing := range s.integrationChangeEvents {
+		if existing.TenantID != scope.TenantID || existing.OrgID != scope.OrgID {
+			continue
+		}
+		if existing.Provider == record.Provider && existing.IdempotencyKey == record.IdempotencyKey {
+			return cloneIntegrationChangeEventRecord(existing), nil
+		}
+	}
+	record = cloneIntegrationChangeEventRecord(record)
+	s.integrationChangeEvents[scopedKey(scope, record.ID)] = record
+	return record, nil
+}
+
+func (s *InMemoryStore) ListIntegrationChangeEvents(ctx context.Context, scope Scope, agreementID string) ([]IntegrationChangeEventRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return nil, err
+	}
+	agreementID = normalizeID(agreementID)
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make([]IntegrationChangeEventRecord, 0)
+	for _, record := range s.integrationChangeEvents {
+		if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
+			continue
+		}
+		if agreementID != "" && record.AgreementID != agreementID {
+			continue
+		}
+		out = append(out, cloneIntegrationChangeEventRecord(record))
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].EmittedAt.Equal(out[j].EmittedAt) {
+			return out[i].ID < out[j].ID
+		}
+		return out[i].EmittedAt.Before(out[j].EmittedAt)
+	})
+	return out, nil
+}
+
+func (s *InMemoryStore) ClaimIntegrationMutation(ctx context.Context, scope Scope, idempotencyKey string, firstSeenAt time.Time) (bool, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return false, err
+	}
+	idempotencyKey = strings.TrimSpace(idempotencyKey)
+	if idempotencyKey == "" {
+		return false, invalidRecordError("integration_mutation_claims", "idempotency_key", "required")
+	}
+	if firstSeenAt.IsZero() {
+		firstSeenAt = time.Now().UTC()
+	}
+	firstSeenAt = firstSeenAt.UTC()
+	key := integrationMutationClaimKey(scope, idempotencyKey)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, exists := s.integrationMutationClaims[key]; exists {
+		return false, nil
+	}
+	s.integrationMutationClaims[key] = firstSeenAt
+	return true, nil
+}
+
+func normalizePlacementRunStatus(status string) string {
+	status = strings.ToLower(strings.TrimSpace(status))
+	switch status {
+	case PlacementRunStatusCompleted,
+		PlacementRunStatusPartial,
+		PlacementRunStatusBudgetExhausted,
+		PlacementRunStatusTimedOut,
+		PlacementRunStatusFailed:
+		return status
+	default:
+		return PlacementRunStatusFailed
+	}
+}
+
+func (s *InMemoryStore) UpsertPlacementRun(ctx context.Context, scope Scope, record PlacementRunRecord) (PlacementRunRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return PlacementRunRecord{}, err
+	}
+	record.AgreementID = normalizeID(record.AgreementID)
+	if record.AgreementID == "" {
+		return PlacementRunRecord{}, invalidRecordError("placement_runs", "agreement_id", "required")
+	}
+	if normalizeID(record.ID) == "" {
+		record.ID = uuid.NewString()
+	}
+	record.ID = normalizeID(record.ID)
+	record.Status = normalizePlacementRunStatus(record.Status)
+	record.ReasonCode = strings.TrimSpace(record.ReasonCode)
+	record.CreatedByUserID = normalizeID(record.CreatedByUserID)
+	record.PolicyJSON = strings.TrimSpace(record.PolicyJSON)
+	record.ResolverOrder = sanitizePlacementResolverIDs(record.ResolverOrder)
+	record.ExecutedResolvers = sanitizePlacementResolverIDs(record.ExecutedResolvers)
+	record.ResolverScores = clonePlacementResolverScores(record.ResolverScores)
+	record.Suggestions = clonePlacementSuggestionRecords(record.Suggestions)
+	record.SelectedSuggestionIDs = append([]string{}, record.SelectedSuggestionIDs...)
+	record.UnresolvedDefinitionIDs = append([]string{}, record.UnresolvedDefinitionIDs...)
+	record.SelectedSource = strings.TrimSpace(record.SelectedSource)
+	if record.MaxBudget < 0 {
+		record.MaxBudget = 0
+	}
+	if record.BudgetUsed < 0 {
+		record.BudgetUsed = 0
+	}
+	if record.MaxTimeMS < 0 {
+		record.MaxTimeMS = 0
+	}
+	if record.ElapsedMS < 0 {
+		record.ElapsedMS = 0
+	}
+	if record.ManualOverrideCount < 0 {
+		record.ManualOverrideCount = 0
+	}
+	now := time.Now().UTC()
+	key := scopedKey(scope, record.ID)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.agreements[scopedKey(scope, record.AgreementID)]; !ok {
+		return PlacementRunRecord{}, notFoundError("agreements", record.AgreementID)
+	}
+	existing, hasExisting := s.placementRuns[key]
+	if hasExisting {
+		if record.Version > 0 && record.Version != existing.Version {
+			return PlacementRunRecord{}, versionConflictError("placement_runs", record.ID, record.Version, existing.Version)
+		}
+		record.Version = existing.Version + 1
+		record.CreatedAt = existing.CreatedAt
+	} else {
+		record.Version = normalizePositiveVersion(record.Version)
+		record.CreatedAt = now
+	}
+	if record.CompletedAt != nil {
+		completed := record.CompletedAt.UTC()
+		record.CompletedAt = &completed
+	}
+	record.TenantID = scope.TenantID
+	record.OrgID = scope.OrgID
+	record.UpdatedAt = now
+	record = clonePlacementRunRecord(record)
+	s.placementRuns[key] = record
+	return record, nil
+}
+
+func (s *InMemoryStore) GetPlacementRun(ctx context.Context, scope Scope, agreementID, runID string) (PlacementRunRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return PlacementRunRecord{}, err
+	}
+	agreementID = normalizeID(agreementID)
+	runID = normalizeID(runID)
+	if agreementID == "" {
+		return PlacementRunRecord{}, invalidRecordError("placement_runs", "agreement_id", "required")
+	}
+	if runID == "" {
+		return PlacementRunRecord{}, invalidRecordError("placement_runs", "id", "required")
+	}
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	record, ok := s.placementRuns[scopedKey(scope, runID)]
+	if !ok {
+		return PlacementRunRecord{}, notFoundError("placement_runs", runID)
+	}
+	if record.AgreementID != agreementID {
+		return PlacementRunRecord{}, notFoundError("placement_runs", runID)
+	}
+	return clonePlacementRunRecord(record), nil
+}
+
+func (s *InMemoryStore) ListPlacementRuns(ctx context.Context, scope Scope, agreementID string) ([]PlacementRunRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return nil, err
+	}
+	agreementID = normalizeID(agreementID)
+	if agreementID == "" {
+		return nil, invalidRecordError("placement_runs", "agreement_id", "required")
+	}
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make([]PlacementRunRecord, 0)
+	for _, record := range s.placementRuns {
+		if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
+			continue
+		}
+		if record.AgreementID != agreementID {
+			continue
+		}
+		out = append(out, clonePlacementRunRecord(record))
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].CreatedAt.Equal(out[j].CreatedAt) {
+			return out[i].ID < out[j].ID
+		}
+		return out[i].CreatedAt.Before(out[j].CreatedAt)
+	})
+	return out, nil
 }
 
 // UpdateAuditEvent always rejects writes because audit_events is append-only.

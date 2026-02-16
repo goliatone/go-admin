@@ -37,6 +37,19 @@ func anyToString(value any) string {
 	return ""
 }
 
+func hasRecipientID(recipientIDs []string, candidate string) bool {
+	candidate = strings.TrimSpace(candidate)
+	if candidate == "" {
+		return false
+	}
+	for _, recipientID := range recipientIDs {
+		if strings.TrimSpace(recipientID) == candidate {
+			return true
+		}
+	}
+	return false
+}
+
 func TestSigningServiceGetSessionSequentialState(t *testing.T) {
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 
@@ -128,6 +141,297 @@ func TestSigningServiceGetSessionSequentialState(t *testing.T) {
 	}
 	if waitingSession.Fields[0].ValueText != "Signer Two" {
 		t.Fatalf("expected signer two value snapshot, got %+v", waitingSession.Fields[0])
+	}
+}
+
+func TestSigningServiceGetSessionStageParallelState(t *testing.T) {
+	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
+
+	signerOne, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("stage1-signer-1@example.com"),
+		Name:         stringPtr("Stage One A"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: intPtr(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer one: %v", err)
+	}
+	signerTwo, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("stage1-signer-2@example.com"),
+		Name:         stringPtr("Stage One B"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: intPtr(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer two: %v", err)
+	}
+	signerThree, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("stage2-signer@example.com"),
+		Name:         stringPtr("Stage Two"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: intPtr(2),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer three: %v", err)
+	}
+
+	for _, signer := range []stores.RecipientRecord{signerOne, signerTwo, signerThree} {
+		if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+			RecipientID: &signer.ID,
+			Type:        stringPtr(stores.FieldTypeSignature),
+			PageNumber:  intPtr(1),
+			Required:    boolPtr(true),
+		}); err != nil {
+			t.Fatalf("UpsertFieldDraft signer %s: %v", signer.ID, err)
+		}
+	}
+
+	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase24-session-stage-parallel"}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+
+	signingSvc := NewSigningService(store)
+
+	firstSession, err := signingSvc.GetSession(ctx, scope, stores.SigningTokenRecord{
+		AgreementID: agreement.ID,
+		RecipientID: signerOne.ID,
+	})
+	if err != nil {
+		t.Fatalf("GetSession signer one: %v", err)
+	}
+	if firstSession.State != SignerSessionStateActive {
+		t.Fatalf("expected signer one active state, got %q", firstSession.State)
+	}
+	if firstSession.ActiveStage != 1 {
+		t.Fatalf("expected active stage 1, got %d", firstSession.ActiveStage)
+	}
+	if len(firstSession.ActiveRecipientIDs) != 2 {
+		t.Fatalf("expected two active signer ids, got %+v", firstSession.ActiveRecipientIDs)
+	}
+	if !hasRecipientID(firstSession.ActiveRecipientIDs, signerOne.ID) || !hasRecipientID(firstSession.ActiveRecipientIDs, signerTwo.ID) {
+		t.Fatalf("expected stage-one signer ids in active set, got %+v", firstSession.ActiveRecipientIDs)
+	}
+
+	secondSession, err := signingSvc.GetSession(ctx, scope, stores.SigningTokenRecord{
+		AgreementID: agreement.ID,
+		RecipientID: signerTwo.ID,
+	})
+	if err != nil {
+		t.Fatalf("GetSession signer two: %v", err)
+	}
+	if secondSession.State != SignerSessionStateActive {
+		t.Fatalf("expected signer two active state, got %q", secondSession.State)
+	}
+
+	thirdSession, err := signingSvc.GetSession(ctx, scope, stores.SigningTokenRecord{
+		AgreementID: agreement.ID,
+		RecipientID: signerThree.ID,
+	})
+	if err != nil {
+		t.Fatalf("GetSession signer three: %v", err)
+	}
+	if thirdSession.State != SignerSessionStateWaiting {
+		t.Fatalf("expected signer three waiting state, got %q", thirdSession.State)
+	}
+	if thirdSession.ActiveStage != 1 || thirdSession.RecipientStage != 2 {
+		t.Fatalf("expected stage metadata active=1 recipient=2, got active=%d recipient=%d", thirdSession.ActiveStage, thirdSession.RecipientStage)
+	}
+	if len(thirdSession.WaitingForRecipientIDs) != 2 {
+		t.Fatalf("expected two waiting-for signer ids, got %+v", thirdSession.WaitingForRecipientIDs)
+	}
+	if !hasRecipientID(thirdSession.WaitingForRecipientIDs, signerOne.ID) || !hasRecipientID(thirdSession.WaitingForRecipientIDs, signerTwo.ID) {
+		t.Fatalf("expected waiting-for ids to include stage-one signers, got %+v", thirdSession.WaitingForRecipientIDs)
+	}
+}
+
+func TestSigningServiceSubmitProgressesBySigningStage(t *testing.T) {
+	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
+
+	signerOne, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("stage1-signer-1@example.com"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: intPtr(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer one: %v", err)
+	}
+	signerTwo, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("stage1-signer-2@example.com"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: intPtr(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer two: %v", err)
+	}
+	signerThree, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("stage2-signer@example.com"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: intPtr(2),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer three: %v", err)
+	}
+
+	signatureFields := map[string]string{}
+	for _, signer := range []stores.RecipientRecord{signerOne, signerTwo, signerThree} {
+		field, upsertErr := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+			RecipientID: &signer.ID,
+			Type:        stringPtr(stores.FieldTypeSignature),
+			PageNumber:  intPtr(1),
+			Required:    boolPtr(true),
+		})
+		if upsertErr != nil {
+			t.Fatalf("UpsertFieldDraft signer %s: %v", signer.ID, upsertErr)
+		}
+		signatureFields[signer.ID] = field.ID
+	}
+
+	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase24-submit-stage-progression"}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+
+	signingSvc := NewSigningService(store)
+	signStage := func(recipient stores.RecipientRecord, objectKeySuffix, digest, submitKey string) SignerSubmitResult {
+		t.Helper()
+		token := stores.SigningTokenRecord{
+			AgreementID: agreement.ID,
+			RecipientID: recipient.ID,
+		}
+		if _, err := signingSvc.CaptureConsent(ctx, scope, token, SignerConsentInput{Accepted: true}); err != nil {
+			t.Fatalf("CaptureConsent %s: %v", recipient.ID, err)
+		}
+		if _, err := signingSvc.AttachSignatureArtifact(ctx, scope, token, SignerSignatureInput{
+			FieldID:   signatureFields[recipient.ID],
+			Type:      "typed",
+			ObjectKey: "tenant/tenant-1/org/org-1/agreements/" + agreement.ID + "/sig/" + objectKeySuffix + ".png",
+			SHA256:    digest,
+			ValueText: "Signed",
+		}); err != nil {
+			t.Fatalf("AttachSignatureArtifact %s: %v", recipient.ID, err)
+		}
+		submit, err := signingSvc.Submit(ctx, scope, token, SignerSubmitInput{IdempotencyKey: submitKey})
+		if err != nil {
+			t.Fatalf("Submit %s: %v", recipient.ID, err)
+		}
+		return submit
+	}
+
+	firstSubmit := signStage(signerOne, "stage1-a", strings.Repeat("1", 64), "submit-stage1-a")
+	if firstSubmit.Completed {
+		t.Fatal("expected stage one first signer submit to keep agreement open")
+	}
+	if firstSubmit.NextStage != 1 {
+		t.Fatalf("expected next stage 1 after first stage-one submit, got %d", firstSubmit.NextStage)
+	}
+	if !hasRecipientID(firstSubmit.NextRecipientIDs, signerTwo.ID) {
+		t.Fatalf("expected remaining active signer in stage one, got %+v", firstSubmit.NextRecipientIDs)
+	}
+
+	stageTwoWaiting, err := signingSvc.GetSession(ctx, scope, stores.SigningTokenRecord{
+		AgreementID: agreement.ID,
+		RecipientID: signerThree.ID,
+	})
+	if err != nil {
+		t.Fatalf("GetSession stage-two waiting: %v", err)
+	}
+	if stageTwoWaiting.State != SignerSessionStateWaiting {
+		t.Fatalf("expected stage-two signer waiting after first stage submit, got %q", stageTwoWaiting.State)
+	}
+
+	secondSubmit := signStage(signerTwo, "stage1-b", strings.Repeat("2", 64), "submit-stage1-b")
+	if secondSubmit.Completed {
+		t.Fatal("expected stage transition to stage two before completion")
+	}
+	if secondSubmit.NextStage != 2 {
+		t.Fatalf("expected next stage 2, got %d", secondSubmit.NextStage)
+	}
+	if !hasRecipientID(secondSubmit.NextRecipientIDs, signerThree.ID) {
+		t.Fatalf("expected stage-two signer activation, got %+v", secondSubmit.NextRecipientIDs)
+	}
+
+	stageTwoActive, err := signingSvc.GetSession(ctx, scope, stores.SigningTokenRecord{
+		AgreementID: agreement.ID,
+		RecipientID: signerThree.ID,
+	})
+	if err != nil {
+		t.Fatalf("GetSession stage-two active: %v", err)
+	}
+	if stageTwoActive.State != SignerSessionStateActive {
+		t.Fatalf("expected stage-two signer active after stage-one completion, got %q", stageTwoActive.State)
+	}
+	if stageTwoActive.ActiveStage != 2 {
+		t.Fatalf("expected active stage 2, got %d", stageTwoActive.ActiveStage)
+	}
+
+	finalSubmit := signStage(signerThree, "stage2", strings.Repeat("3", 64), "submit-stage2-final")
+	if !finalSubmit.Completed {
+		t.Fatal("expected final stage submit to complete agreement")
+	}
+	if finalSubmit.Agreement.Status != stores.AgreementStatusCompleted {
+		t.Fatalf("expected completed agreement status, got %q", finalSubmit.Agreement.Status)
+	}
+}
+
+func TestSigningServiceDeclineMixedStageTerminalBehavior(t *testing.T) {
+	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
+
+	signerOne, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("stage1-signer@example.com"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: intPtr(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer one: %v", err)
+	}
+	signerTwo, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("stage2-signer@example.com"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: intPtr(2),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer two: %v", err)
+	}
+	for _, signer := range []stores.RecipientRecord{signerOne, signerTwo} {
+		if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+			RecipientID: &signer.ID,
+			Type:        stringPtr(stores.FieldTypeSignature),
+			PageNumber:  intPtr(1),
+			Required:    boolPtr(true),
+		}); err != nil {
+			t.Fatalf("UpsertFieldDraft signer %s: %v", signer.ID, err)
+		}
+	}
+	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase24-decline-mixed-stage"}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+
+	signingSvc := NewSigningService(store)
+	waitingToken := stores.SigningTokenRecord{
+		AgreementID: agreement.ID,
+		RecipientID: signerTwo.ID,
+	}
+	if _, err := signingSvc.Decline(ctx, scope, waitingToken, SignerDeclineInput{Reason: "too early"}); err == nil {
+		t.Fatal("expected stage-two signer decline to be blocked while waiting")
+	} else if !strings.Contains(err.Error(), "MISSING_REQUIRED_FIELDS") {
+		t.Fatalf("expected typed waiting error, got %v", err)
+	}
+
+	activeToken := stores.SigningTokenRecord{
+		AgreementID: agreement.ID,
+		RecipientID: signerOne.ID,
+	}
+	declined, err := signingSvc.Decline(ctx, scope, activeToken, SignerDeclineInput{Reason: "decline at stage one"})
+	if err != nil {
+		t.Fatalf("Decline active stage signer: %v", err)
+	}
+	if declined.Agreement.Status != stores.AgreementStatusDeclined {
+		t.Fatalf("expected declined agreement status, got %q", declined.Agreement.Status)
+	}
+
+	if _, err := signingSvc.GetSession(ctx, scope, waitingToken); err == nil {
+		t.Fatal("expected signer token access to be rejected after agreement decline")
+	} else if !strings.Contains(err.Error(), "MISSING_REQUIRED_FIELDS") {
+		t.Fatalf("expected invalid agreement status token error, got %v", err)
 	}
 }
 
@@ -236,7 +540,7 @@ func TestSigningServiceGetSessionNormalizesFieldGeometryToCanonicalPageSpace(t *
 	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        stringPtr(stores.FieldTypeSignature),
-		PageNumber:  intPtr(99),
+		PageNumber:  intPtr(2),
 		PosX:        &negativePosX,
 		PosY:        &negativePosY,
 		Width:       &oversizeWidth,
@@ -1167,6 +1471,178 @@ func TestSigningServiceSubmitWithIdempotencyAndCAS(t *testing.T) {
 		t.Fatal("expected submit idempotency key requirement error")
 	} else if !strings.Contains(err.Error(), "MISSING_REQUIRED_FIELDS") {
 		t.Fatalf("expected MISSING_REQUIRED_FIELDS error code, got %v", err)
+	}
+}
+
+func TestSigningServiceSubmitAllowsConsentCapturedBeforeServiceRestart(t *testing.T) {
+	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
+
+	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("signer@example.com"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: intPtr(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer: %v", err)
+	}
+	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        stringPtr(stores.FieldTypeSignature),
+		PageNumber:  intPtr(1),
+		Required:    boolPtr(true),
+	})
+	if err != nil {
+		t.Fatalf("UpsertFieldDraft signature: %v", err)
+	}
+	textField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        stringPtr(stores.FieldTypeText),
+		PageNumber:  intPtr(1),
+		Required:    boolPtr(true),
+	})
+	if err != nil {
+		t.Fatalf("UpsertFieldDraft text: %v", err)
+	}
+	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase-v2-consent-restart"}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+
+	token := stores.SigningTokenRecord{AgreementID: agreement.ID, RecipientID: signer.ID}
+	firstService := NewSigningService(store)
+	if _, err := firstService.CaptureConsent(ctx, scope, token, SignerConsentInput{Accepted: true}); err != nil {
+		t.Fatalf("CaptureConsent: %v", err)
+	}
+	if _, err := firstService.AttachSignatureArtifact(ctx, scope, token, SignerSignatureInput{
+		FieldID:   signatureField.ID,
+		Type:      "typed",
+		ObjectKey: "tenant/tenant-1/org/org-1/agreements/agreement-1/sig/sig-consent-restart.png",
+		SHA256:    strings.Repeat("a", 64),
+		ValueText: "Signer Name",
+	}); err != nil {
+		t.Fatalf("AttachSignatureArtifact: %v", err)
+	}
+	if _, err := firstService.UpsertFieldValue(ctx, scope, token, SignerFieldValueInput{
+		FieldID:   textField.ID,
+		ValueText: "Signer Name",
+	}); err != nil {
+		t.Fatalf("UpsertFieldValue: %v", err)
+	}
+
+	// Simulate a restart/new instance: consent replay must be discovered from audit, not in-memory state.
+	secondService := NewSigningService(store)
+	result, err := secondService.Submit(ctx, scope, token, SignerSubmitInput{IdempotencyKey: "submit-after-restart"})
+	if err != nil {
+		t.Fatalf("Submit after restart: %v", err)
+	}
+	if !result.Completed {
+		t.Fatal("expected submit after restart to complete")
+	}
+}
+
+func TestSigningServiceSubmitReplayPersistsAcrossServiceRestart(t *testing.T) {
+	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
+
+	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("signer@example.com"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: intPtr(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer: %v", err)
+	}
+	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        stringPtr(stores.FieldTypeSignature),
+		PageNumber:  intPtr(1),
+		Required:    boolPtr(true),
+	})
+	if err != nil {
+		t.Fatalf("UpsertFieldDraft signature: %v", err)
+	}
+	textField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        stringPtr(stores.FieldTypeText),
+		PageNumber:  intPtr(1),
+		Required:    boolPtr(true),
+	})
+	if err != nil {
+		t.Fatalf("UpsertFieldDraft text: %v", err)
+	}
+	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase-v2-submit-replay"}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+
+	token := stores.SigningTokenRecord{AgreementID: agreement.ID, RecipientID: signer.ID}
+	firstService := NewSigningService(store)
+	if _, err := firstService.CaptureConsent(ctx, scope, token, SignerConsentInput{Accepted: true}); err != nil {
+		t.Fatalf("CaptureConsent: %v", err)
+	}
+	if _, err := firstService.AttachSignatureArtifact(ctx, scope, token, SignerSignatureInput{
+		FieldID:   signatureField.ID,
+		Type:      "typed",
+		ObjectKey: "tenant/tenant-1/org/org-1/agreements/agreement-1/sig/sig-submit-replay.png",
+		SHA256:    strings.Repeat("b", 64),
+		ValueText: "Signer Name",
+	}); err != nil {
+		t.Fatalf("AttachSignatureArtifact: %v", err)
+	}
+	if _, err := firstService.UpsertFieldValue(ctx, scope, token, SignerFieldValueInput{
+		FieldID:   textField.ID,
+		ValueText: "Signer Name",
+	}); err != nil {
+		t.Fatalf("UpsertFieldValue: %v", err)
+	}
+	first, err := firstService.Submit(ctx, scope, token, SignerSubmitInput{IdempotencyKey: "submit-replay-key"})
+	if err != nil {
+		t.Fatalf("Submit first: %v", err)
+	}
+	if !first.Completed {
+		t.Fatal("expected first submit to complete agreement")
+	}
+
+	// Simulate restart/new node and replay with same idempotency key.
+	secondService := NewSigningService(store)
+	replay, err := secondService.Submit(ctx, scope, token, SignerSubmitInput{IdempotencyKey: "submit-replay-key"})
+	if err != nil {
+		t.Fatalf("Submit replay after restart: %v", err)
+	}
+	if !replay.Replay {
+		t.Fatalf("expected replay=true after restart replay, got %v", replay.Replay)
+	}
+	if replay.Agreement.Status != stores.AgreementStatusCompleted {
+		t.Fatalf("expected completed agreement on replay, got %q", replay.Agreement.Status)
+	}
+}
+
+func TestSigningServiceSignerTokenRejectedForDraftAgreement(t *testing.T) {
+	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
+	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("signer@example.com"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: intPtr(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer: %v", err)
+	}
+	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        stringPtr(stores.FieldTypeSignature),
+		PageNumber:  intPtr(1),
+		Required:    boolPtr(true),
+	}); err != nil {
+		t.Fatalf("UpsertFieldDraft signature: %v", err)
+	}
+
+	signingSvc := NewSigningService(store)
+	_, err = signingSvc.GetSession(ctx, scope, stores.SigningTokenRecord{
+		AgreementID: agreement.ID,
+		RecipientID: signer.ID,
+	})
+	if err == nil {
+		t.Fatal("expected signer session to reject draft agreement token")
+	}
+	if !strings.Contains(err.Error(), "MISSING_REQUIRED_FIELDS") {
+		t.Fatalf("expected validation error code for invalid agreement status, got %v", err)
 	}
 }
 

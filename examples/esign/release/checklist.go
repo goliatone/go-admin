@@ -36,6 +36,7 @@ type RuntimeReadinessSummary struct {
 	UsesMockDependencies    bool   `json:"uses_mock_dependencies"`
 	RequiresManualPatches   bool   `json:"requires_manual_patches"`
 	APIOnlyFallbackDetected bool   `json:"api_only_fallback_detected"`
+	LegacyRuntimePathActive bool   `json:"legacy_runtime_path_active"`
 	Notes                   string `json:"notes"`
 }
 
@@ -104,6 +105,9 @@ func (c Checklist) Validate() []string {
 	}
 	if c.Runtime.APIOnlyFallbackDetected {
 		issues = append(issues, "runtime still requires API-only fallback for normal signer flow")
+	}
+	if c.Runtime.LegacyRuntimePathActive {
+		issues = append(issues, "runtime still exposes legacy signer flow paths")
 	}
 	if !c.Productization.RecipientJourneyFromSignLink {
 		issues = append(issues, "15.4 recipient journey from sign link without API tooling is not verified")

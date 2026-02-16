@@ -103,6 +103,7 @@ func TestAdminAPIStatusEnvelopeContract(t *testing.T) {
 	}
 	for _, key := range []string{
 		"admin", "admin_api",
+		"admin_agreement_auto_place", "admin_agreement_placement_runs", "admin_agreement_placement_run", "admin_agreement_placement_apply",
 		"admin_smoke_recipient_links",
 		"admin_documents_upload",
 		"signer_session", "signer_consent", "signer_field_values", "signer_signature", "signer_signature_upload", "signer_signature_object", "signer_telemetry", "signer_submit", "signer_decline", "signer_assets",
@@ -555,7 +556,7 @@ func TestSignerAssetContractEmitsAuditEventForAssetOpen(t *testing.T) {
 	}
 }
 
-func TestSignerSessionLegacyCompatibilityGate(t *testing.T) {
+func TestSignerSessionV2FieldIdentityContract(t *testing.T) {
 	app, _, token, _, _ := setupSignerFlowApp(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session/"+token, nil)
@@ -588,6 +589,8 @@ func TestSignerSessionLegacyCompatibilityGate(t *testing.T) {
 	}
 	assertMapHasRequiredKeys(t, firstField,
 		"id",
+		"field_instance_id",
+		"field_definition_id",
 		"type",
 		"page",
 		"pos_x",
@@ -598,10 +601,24 @@ func TestSignerSessionLegacyCompatibilityGate(t *testing.T) {
 	)
 }
 
-func TestSignerTypedSignatureAttachLegacyCompatibilityGate(t *testing.T) {
+func TestSignerTypedSignatureAttachRequiresFieldInstanceID(t *testing.T) {
 	app, _, token, _, signatureFieldID := setupSignerFlowApp(t)
 
-	body := bytes.NewBufferString(`{"field_id":"` + signatureFieldID + `","type":"typed","object_key":"tenant/tenant-1/org/org-1/agreements/agreement-1/sig/legacy-compat.png","sha256":"` + strings.Repeat("a", 64) + `","value_text":"Legacy Signer"}`)
+	legacyBody := bytes.NewBufferString(`{"field_id":"` + signatureFieldID + `","type":"typed","object_key":"tenant/tenant-1/org/org-1/agreements/agreement-1/sig/v2-contract.png","sha256":"` + strings.Repeat("a", 64) + `","value_text":"Signer"}`)
+	legacyReq := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/field-values/signature/"+token, legacyBody)
+	legacyReq.Header.Set("Content-Type", "application/json")
+
+	legacyResp, err := app.Test(legacyReq, -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer legacyResp.Body.Close()
+	if legacyResp.StatusCode != http.StatusBadRequest {
+		payload, _ := io.ReadAll(legacyResp.Body)
+		t.Fatalf("expected status 400 for legacy field_id payload, got %d body=%s", legacyResp.StatusCode, payload)
+	}
+
+	body := bytes.NewBufferString(`{"field_instance_id":"` + signatureFieldID + `","type":"typed","object_key":"tenant/tenant-1/org/org-1/agreements/agreement-1/sig/v2-contract.png","sha256":"` + strings.Repeat("a", 64) + `","value_text":"Signer"}`)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/field-values/signature/"+token, body)
 	req.Header.Set("Content-Type", "application/json")
 
@@ -612,7 +629,7 @@ func TestSignerTypedSignatureAttachLegacyCompatibilityGate(t *testing.T) {
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		payload, _ := io.ReadAll(resp.Body)
-		t.Fatalf("expected status 200 for legacy typed signature attach without upload token, got %d body=%s", resp.StatusCode, payload)
+		t.Fatalf("expected status 200 for v2 typed signature attach, got %d body=%s", resp.StatusCode, payload)
 	}
 }
 

@@ -5,7 +5,6 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
@@ -39,12 +38,6 @@ const (
 	defaultESignAuthSigningKey    = "esign-demo-secret"
 	defaultESignAuthContextKey    = "esign_admin_user"
 	esignUploadFormField          = "file"
-	envSignerFlowMode             = "ESIGN_SIGNER_FLOW_MODE"
-	envSignerUnifiedKillSwitch    = "ESIGN_SIGNER_UNIFIED_KILL_SWITCH"
-	envSignerUnifiedTargetTenants = "ESIGN_SIGNER_UNIFIED_TARGET_TENANTS"
-	envSignerUnifiedTargetOrgs    = "ESIGN_SIGNER_UNIFIED_TARGET_ORGS"
-	envSignerUnifiedTargetUsers   = "ESIGN_SIGNER_UNIFIED_TARGET_USERS"
-	signerFlowModeLegacy          = "legacy"
 	signerFlowModeUnified         = "unified"
 )
 
@@ -421,8 +414,6 @@ func registerESignWebRoutes(
 			DefaultScope:         esignModule.DefaultScope(),
 			APIBasePath:          "/api/v1/esign/signing",
 			AssetBasePath:        basePath,
-			DefaultFlowMode:      firstNonEmptyEnv(envSignerFlowMode, signerFlowModeLegacy),
-			RolloutPolicy:        resolveSignerFlowRolloutPolicyFromEnv(),
 		}
 		if err := registerESignPublicSignerWebRoutes(r, signerCfg); err != nil {
 			return err
@@ -760,68 +751,6 @@ type SignerWebRouteConfig struct {
 	DefaultScope         stores.Scope
 	APIBasePath          string
 	AssetBasePath        string
-	DefaultFlowMode      string
-	RolloutPolicy        SignerFlowRolloutPolicy
-}
-
-// SignerFlowRolloutPolicy controls scoped unified-flow rollout and emergency fallback behavior.
-type SignerFlowRolloutPolicy struct {
-	KillSwitch bool
-	Tenants    map[string]bool
-	Orgs       map[string]bool
-	Users      map[string]bool
-}
-
-func resolveSignerFlowRolloutPolicyFromEnv() SignerFlowRolloutPolicy {
-	return SignerFlowRolloutPolicy{
-		KillSwitch: envBool(envSignerUnifiedKillSwitch, false),
-		Tenants:    parseCSVSet(os.Getenv(envSignerUnifiedTargetTenants)),
-		Orgs:       parseCSVSet(os.Getenv(envSignerUnifiedTargetOrgs)),
-		Users:      parseCSVSet(os.Getenv(envSignerUnifiedTargetUsers)),
-	}
-}
-
-func parseCSVSet(raw string) map[string]bool {
-	out := map[string]bool{}
-	for _, part := range strings.Split(raw, ",") {
-		value := strings.ToLower(strings.TrimSpace(part))
-		if value == "" {
-			continue
-		}
-		out[value] = true
-	}
-	return out
-}
-
-const (
-	signerFlowReasonDefaultMode        = "default_mode"
-	signerFlowReasonKillSwitch         = "kill_switch"
-	signerFlowReasonRolloutScopeDenied = "rollout_scope_denied"
-	signerFlowReasonReviewBootFallback = "review_boot_fallback"
-	signerFlowReasonQueryOverride      = "query_override"
-)
-
-type signerFlowResolution struct {
-	Mode   string
-	Reason string
-	Inputs map[string]any
-}
-
-func (p SignerFlowRolloutPolicy) hasTargets() bool {
-	return len(p.Tenants) > 0 || len(p.Orgs) > 0 || len(p.Users) > 0
-}
-
-func (p SignerFlowRolloutPolicy) allowsUnified(token stores.SigningTokenRecord) bool {
-	if p.KillSwitch {
-		return false
-	}
-	if !p.hasTargets() {
-		return true
-	}
-	tenantID := strings.ToLower(strings.TrimSpace(token.TenantID))
-	orgID := strings.ToLower(strings.TrimSpace(token.OrgID))
-	userID := strings.ToLower(strings.TrimSpace(token.RecipientID))
-	return p.Tenants[tenantID] || p.Orgs[orgID] || p.Users[userID]
 }
 
 // registerESignPublicSignerWebRoutes registers HTML routes for the public signer flow.
@@ -839,14 +768,14 @@ func registerESignPublicSignerWebRoutes(
 		apiBasePath = "/api/v1/esign/signing"
 	}
 
-	// GET /sign/:token - Main session/consent entrypoint
+	// GET /sign/:token - Unified signer entrypoint.
 	r.Get("/sign/:token", func(c router.Context) error {
-		return renderSignerEntryPoint(c, signerCfg, apiBasePath, "/sign")
+		return renderSignerReviewPage(c, signerCfg, apiBasePath)
 	})
 
-	// Alias: /esign/sign/:token (for template URL pattern compatibility)
+	// Alias: /esign/sign/:token (template compatibility).
 	r.Get("/esign/sign/:token", func(c router.Context) error {
-		return renderSignerEntryPoint(c, signerCfg, apiBasePath, "/esign/sign")
+		return renderSignerReviewPage(c, signerCfg, apiBasePath)
 	})
 
 	// GET /sign/:token/review - Unified signer page
@@ -855,14 +784,6 @@ func registerESignPublicSignerWebRoutes(
 	})
 	r.Get("/esign/sign/:token/review", func(c router.Context) error {
 		return renderSignerReviewPage(c, signerCfg, apiBasePath)
-	})
-
-	// GET /sign/:token/fields - Field completion page
-	r.Get("/sign/:token/fields", func(c router.Context) error {
-		return renderSignerFieldsPage(c, signerCfg, apiBasePath)
-	})
-	r.Get("/esign/sign/:token/fields", func(c router.Context) error {
-		return renderSignerFieldsPage(c, signerCfg, apiBasePath)
 	})
 
 	// GET /sign/:token/complete - Submission complete confirmation
@@ -881,247 +802,7 @@ func registerESignPublicSignerWebRoutes(
 		return renderSignerDeclinedPage(c, signerCfg, apiBasePath)
 	})
 
-	// GET /api/v1/esign/signing/flow-diagnostics/:token - Debug-safe flow-resolution diagnostics.
-	r.Get(path.Join(apiBasePath, "flow-diagnostics", ":token"), func(c router.Context) error {
-		return renderSignerFlowDiagnostics(c, signerCfg)
-	})
-
 	return nil
-}
-
-func renderSignerEntryPoint(c router.Context, cfg SignerWebRouteConfig, apiBasePath, entryBasePath string) error {
-	resolution := resolveSignerFlowResolution(c, cfg)
-	if resolution.Mode == signerFlowModeUnified {
-		token := strings.TrimSpace(c.Param("token"))
-		if token == "" {
-			observability.ObserveSignerLinkOpen(c.Context(), false)
-			return renderSignerErrorPage(c, cfg, apiBasePath, "INVALID_TOKEN", "Invalid Link", "The signing link is missing or invalid.")
-		}
-		if cfg.RolloutPolicy.hasTargets() {
-			tokenRecord, err := validateSignerToken(c.Context(), cfg, token)
-			if err != nil {
-				return handleSignerTokenError(c, cfg, apiBasePath, err, token)
-			}
-			if !cfg.RolloutPolicy.allowsUnified(tokenRecord) {
-				resolution.Mode = signerFlowModeLegacy
-				resolution.Reason = signerFlowReasonRolloutScopeDenied
-				resolution.Inputs["rollout_scope_allowed"] = false
-				enrichFlowResolutionTokenInputs(&resolution, tokenRecord)
-				logSignerFlowResolution(c.Context(), resolution)
-				session, err := cfg.SigningService.GetSession(c.Context(), cfg.DefaultScope, tokenRecord)
-				if err != nil {
-					observability.ObserveSignerLinkOpen(c.Context(), false)
-					return renderSignerErrorPage(c, cfg, apiBasePath, "SESSION_ERROR", "Unable to Load Session", "We couldn't load your signing session. Please try again or contact the sender.")
-				}
-				observability.ObserveSignerLinkOpen(c.Context(), true)
-				viewCtx := buildSignerSessionViewContext(token, apiBasePath, session, nil)
-				return c.Render("esign-signer/session", signerTemplateViewContext(cfg, apiBasePath, viewCtx))
-			}
-			resolution.Inputs["rollout_scope_allowed"] = true
-			enrichFlowResolutionTokenInputs(&resolution, tokenRecord)
-		}
-		redirectPath := strings.TrimSpace(entryBasePath)
-		if redirectPath == "" {
-			redirectPath = "/sign"
-		}
-		return c.Redirect(appendFlowQuery(path.Join(redirectPath, token, "review"), signerFlowModeUnified), http.StatusFound)
-	}
-	logSignerFlowResolution(c.Context(), resolution)
-	return renderSignerSessionPage(c, cfg, apiBasePath)
-}
-
-func resolveSignerFlowMode(c router.Context, cfg SignerWebRouteConfig) string {
-	return resolveSignerFlowResolution(c, cfg).Mode
-}
-
-func resolveSignerFlowResolution(c router.Context, cfg SignerWebRouteConfig) signerFlowResolution {
-	defaultMode := normalizeSignerFlowMode(cfg.DefaultFlowMode)
-	if defaultMode == "" {
-		defaultMode = normalizeSignerFlowMode(firstNonEmptyEnv(envSignerFlowMode, signerFlowModeLegacy))
-	}
-	if defaultMode == "" {
-		defaultMode = signerFlowModeLegacy
-	}
-	resolution := signerFlowResolution{
-		Mode:   defaultMode,
-		Reason: signerFlowReasonDefaultMode,
-		Inputs: map[string]any{
-			"default_mode":            defaultMode,
-			"kill_switch":             cfg.RolloutPolicy.KillSwitch,
-			"rollout_has_targets":     cfg.RolloutPolicy.hasTargets(),
-			"rollout_target_tenants":  len(cfg.RolloutPolicy.Tenants),
-			"rollout_target_orgs":     len(cfg.RolloutPolicy.Orgs),
-			"rollout_target_users":    len(cfg.RolloutPolicy.Users),
-			"query_override":          "",
-			"review_boot_fallback":    false,
-			"rollout_scope_allowed":   nil,
-			"token_validation_result": "",
-		},
-	}
-	if cfg.RolloutPolicy.KillSwitch {
-		resolution.Mode = signerFlowModeLegacy
-		resolution.Reason = signerFlowReasonKillSwitch
-		return resolution
-	}
-	if c == nil {
-		return resolution
-	}
-	if requested := normalizeSignerFlowMode(c.Query("flow")); requested != "" {
-		resolution.Mode = requested
-		resolution.Reason = signerFlowReasonQueryOverride
-		resolution.Inputs["query_override"] = requested
-		return resolution
-	}
-	// Safe fallback path for unified boot failures redirecting back from /review.
-	referer := strings.ToLower(strings.TrimSpace(c.Header("Referer")))
-	if resolution.Mode == signerFlowModeUnified && strings.Contains(referer, "/sign/") && strings.Contains(referer, "/review") {
-		resolution.Mode = signerFlowModeLegacy
-		resolution.Reason = signerFlowReasonReviewBootFallback
-		resolution.Inputs["review_boot_fallback"] = true
-	}
-	return resolution
-}
-
-func enrichFlowResolutionTokenInputs(resolution *signerFlowResolution, token stores.SigningTokenRecord) {
-	if resolution == nil {
-		return
-	}
-	if resolution.Inputs == nil {
-		resolution.Inputs = map[string]any{}
-	}
-	resolution.Inputs["token_validation_result"] = "valid"
-	resolution.Inputs["token_scope_tenant"] = strings.TrimSpace(token.TenantID)
-	resolution.Inputs["token_scope_org"] = strings.TrimSpace(token.OrgID)
-	resolution.Inputs["agreement_id"] = strings.TrimSpace(token.AgreementID)
-	resolution.Inputs["recipient_id"] = strings.TrimSpace(token.RecipientID)
-}
-
-func classifyTokenValidationResult(err error) string {
-	if err == nil {
-		return "valid"
-	}
-	msg := strings.ToLower(strings.TrimSpace(err.Error()))
-	switch {
-	case strings.Contains(msg, "expired"):
-		return "expired"
-	case strings.Contains(msg, "revoked"), strings.Contains(msg, "invalidated"):
-		return "revoked"
-	case strings.Contains(msg, "scope"):
-		return "scope_denied"
-	default:
-		return "invalid"
-	}
-}
-
-func logSignerFlowResolution(ctx context.Context, resolution signerFlowResolution) {
-	fields := map[string]any{
-		"reason":               strings.TrimSpace(resolution.Reason),
-		"resolved_mode":        strings.TrimSpace(resolution.Mode),
-		"default_mode":         resolution.Inputs["default_mode"],
-		"kill_switch":          resolution.Inputs["kill_switch"],
-		"query_override":       resolution.Inputs["query_override"],
-		"review_boot_fallback": resolution.Inputs["review_boot_fallback"],
-		"rollout_has_targets":  resolution.Inputs["rollout_has_targets"],
-	}
-	for _, key := range []string{"rollout_target_tenants", "rollout_target_orgs", "rollout_target_users", "rollout_scope_allowed", "token_scope_tenant", "token_scope_org", "agreement_id", "recipient_id"} {
-		if value, ok := resolution.Inputs[key]; ok {
-			fields[key] = value
-		}
-	}
-	level := slog.LevelInfo
-	if strings.TrimSpace(resolution.Mode) == signerFlowModeLegacy {
-		level = slog.LevelWarn
-	}
-	correlationID := observability.ResolveCorrelationID("signer_flow_resolver", strings.TrimSpace(resolution.Reason), strings.TrimSpace(resolution.Mode))
-	observability.LogOperation(ctx, level, "web", "signer_flow_resolver", strings.TrimSpace(resolution.Mode), correlationID, 0, nil, fields)
-}
-
-func normalizeSignerFlowMode(raw string) string {
-	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case signerFlowModeLegacy:
-		return signerFlowModeLegacy
-	case signerFlowModeUnified:
-		return signerFlowModeUnified
-	default:
-		return ""
-	}
-}
-
-func appendFlowQuery(rawPath, flow string) string {
-	trimmedPath := strings.TrimSpace(rawPath)
-	mode := normalizeSignerFlowMode(flow)
-	if trimmedPath == "" || mode == "" {
-		return trimmedPath
-	}
-	separator := "?"
-	if strings.Contains(trimmedPath, "?") {
-		separator = "&"
-	}
-	return trimmedPath + separator + "flow=" + mode
-}
-
-func renderSignerFlowDiagnostics(c router.Context, cfg SignerWebRouteConfig) error {
-	if c == nil {
-		return nil
-	}
-	token := strings.TrimSpace(c.Param("token"))
-	if token == "" {
-		return c.Status(http.StatusBadRequest).JSON(http.StatusBadRequest, map[string]any{
-			"error": map[string]any{
-				"code":    string(services.ErrorCodeMissingRequiredFields),
-				"message": "token is required",
-			},
-		})
-	}
-
-	resolution := resolveSignerFlowResolution(c, cfg)
-	tokenRecord, err := validateSignerToken(c.Context(), cfg, token)
-	if err != nil {
-		resolution.Inputs["token_validation_result"] = classifyTokenValidationResult(err)
-	} else {
-		enrichFlowResolutionTokenInputs(&resolution, tokenRecord)
-		if resolution.Mode == signerFlowModeUnified && cfg.RolloutPolicy.hasTargets() {
-			allowed := cfg.RolloutPolicy.allowsUnified(tokenRecord)
-			resolution.Inputs["rollout_scope_allowed"] = allowed
-			if !allowed {
-				resolution.Mode = signerFlowModeLegacy
-				resolution.Reason = signerFlowReasonRolloutScopeDenied
-			}
-		}
-	}
-
-	return c.JSON(http.StatusOK, map[string]any{
-		"status": "ok",
-		"decision": map[string]any{
-			"mode":   strings.TrimSpace(resolution.Mode),
-			"reason": strings.TrimSpace(resolution.Reason),
-		},
-		"inputs": resolution.Inputs,
-	})
-}
-
-func renderSignerSessionPage(c router.Context, cfg SignerWebRouteConfig, apiBasePath string) error {
-	applySignerSecurityHeaders(c, false)
-	token := strings.TrimSpace(c.Param("token"))
-	if token == "" {
-		observability.ObserveSignerLinkOpen(c.Context(), false)
-		return renderSignerErrorPage(c, cfg, apiBasePath, "INVALID_TOKEN", "Invalid Link", "The signing link is missing or invalid.")
-	}
-
-	tokenRecord, err := validateSignerToken(c.Context(), cfg, token)
-	if err != nil {
-		return handleSignerTokenError(c, cfg, apiBasePath, err, token)
-	}
-
-	session, err := cfg.SigningService.GetSession(c.Context(), cfg.DefaultScope, tokenRecord)
-	if err != nil {
-		observability.ObserveSignerLinkOpen(c.Context(), false)
-		return renderSignerErrorPage(c, cfg, apiBasePath, "SESSION_ERROR", "Unable to Load Session", "We couldn't load your signing session. Please try again or contact the sender.")
-	}
-
-	observability.ObserveSignerLinkOpen(c.Context(), true)
-	viewCtx := buildSignerSessionViewContext(token, apiBasePath, session, nil)
-	return c.Render("esign-signer/session", signerTemplateViewContext(cfg, apiBasePath, viewCtx))
 }
 
 func renderSignerReviewPage(c router.Context, cfg SignerWebRouteConfig, apiBasePath string) error {
@@ -1139,20 +820,16 @@ func renderSignerReviewPage(c router.Context, cfg SignerWebRouteConfig, apiBaseP
 		observability.ObserveUnifiedViewerLoad(c.Context(), time.Since(startedAt), false)
 		return handleSignerTokenError(c, cfg, apiBasePath, err, token)
 	}
-	if !cfg.RolloutPolicy.allowsUnified(tokenRecord) {
-		observability.ObserveUnifiedViewerLoad(c.Context(), time.Since(startedAt), false)
-		return c.Redirect(appendFlowQuery(path.Join("/sign", token), signerFlowModeLegacy), http.StatusFound)
-	}
 
 	session, err := cfg.SigningService.GetSession(c.Context(), cfg.DefaultScope, tokenRecord)
 	if err != nil {
 		observability.ObserveUnifiedViewerLoad(c.Context(), time.Since(startedAt), false)
 		observability.ObserveSignerLinkOpen(c.Context(), false)
-		return c.Redirect(appendFlowQuery(path.Join("/sign", token), signerFlowModeLegacy), http.StatusFound)
+		return renderSignerErrorPage(c, cfg, apiBasePath, "SESSION_ERROR", "Unable to Load Session", "We couldn't load your signing session. Please try again or contact the sender.")
 	}
 	if !canRenderUnifiedSession(session) {
 		observability.ObserveUnifiedViewerLoad(c.Context(), time.Since(startedAt), false)
-		return c.Redirect(appendFlowQuery(path.Join("/sign", token), signerFlowModeLegacy), http.StatusFound)
+		return renderSignerErrorPage(c, cfg, apiBasePath, "SESSION_ERROR", "Unable to Load Session", "We couldn't load your signing session. Please try again or contact the sender.")
 	}
 
 	observability.ObserveUnifiedViewerLoad(c.Context(), time.Since(startedAt), true)
@@ -1177,32 +854,6 @@ func canRenderUnifiedSession(session services.SignerSessionContext) bool {
 		}
 	}
 	return true
-}
-
-func renderSignerFieldsPage(c router.Context, cfg SignerWebRouteConfig, apiBasePath string) error {
-	applySignerSecurityHeaders(c, false)
-	token := strings.TrimSpace(c.Param("token"))
-	if token == "" {
-		return renderSignerErrorPage(c, cfg, apiBasePath, "INVALID_TOKEN", "Invalid Link", "The signing link is missing or invalid.")
-	}
-
-	tokenRecord, err := validateSignerToken(c.Context(), cfg, token)
-	if err != nil {
-		return handleSignerTokenError(c, cfg, apiBasePath, err, token)
-	}
-
-	session, err := cfg.SigningService.GetSession(c.Context(), cfg.DefaultScope, tokenRecord)
-	if err != nil {
-		return renderSignerErrorPage(c, cfg, apiBasePath, "SESSION_ERROR", "Unable to Load Session", "We couldn't load your signing session. Please try again or contact the sender.")
-	}
-
-	// Redirect to session page if not in active state
-	if session.State != services.SignerSessionStateActive {
-		return c.Redirect(appendFlowQuery("/sign/"+token, signerFlowModeLegacy), http.StatusFound)
-	}
-
-	viewCtx := buildSignerFieldsViewContext(token, apiBasePath, session)
-	return c.Render("esign-signer/fields", signerTemplateViewContext(cfg, apiBasePath, viewCtx))
 }
 
 func renderSignerCompletePage(c router.Context, cfg SignerWebRouteConfig, apiBasePath string) error {
@@ -1381,58 +1032,6 @@ func signerTemplateViewContext(cfg SignerWebRouteConfig, apiBasePath string, vie
 	})
 }
 
-func buildSignerSessionViewContext(token, apiBasePath string, session services.SignerSessionContext, agreement map[string]any) router.ViewContext {
-	if agreement == nil {
-		pageCount := session.PageCount
-		if pageCount <= 0 {
-			pageCount = 1
-		}
-		documentName := strings.TrimSpace(session.DocumentName)
-		if documentName == "" {
-			documentName = "Document.pdf"
-		}
-		agreement = map[string]any{
-			"title":         "Agreement",
-			"status":        session.AgreementStatus,
-			"page_count":    pageCount,
-			"document_name": documentName,
-			"sender_email":  "",
-			"total_signers": 1,
-		}
-	}
-
-	return router.ViewContext{
-		"token":         token,
-		"api_base_path": apiBasePath,
-		"session":       sessionToViewContext(session),
-		"agreement":     agreement,
-	}
-}
-
-func buildSignerFieldsViewContext(token, apiBasePath string, session services.SignerSessionContext) router.ViewContext {
-	fieldsJSON := "[]"
-	if len(session.Fields) > 0 {
-		if encoded, err := encodeFieldsJSON(session.Fields); err == nil {
-			fieldsJSON = encoded
-		}
-	}
-
-	sessionCtx := sessionToViewContext(session)
-	sessionCtx["fields_json"] = fieldsJSON
-
-	return router.ViewContext{
-		"token":         token,
-		"api_base_path": apiBasePath,
-		"session":       sessionCtx,
-		"agreement": map[string]any{
-			"title":         "Agreement",
-			"status":        session.AgreementStatus,
-			"page_count":    maxInt(session.PageCount, 1),
-			"document_name": firstNonEmptyValue(session.DocumentName, "Document.pdf"),
-		},
-	}
-}
-
 func buildSignerReviewViewContext(token, apiBasePath string, session services.SignerSessionContext) router.ViewContext {
 	fieldsJSON := "[]"
 	if len(session.Fields) > 0 {
@@ -1464,12 +1063,11 @@ func buildSignerReviewViewContext(token, apiBasePath string, session services.Si
 	}
 
 	return router.ViewContext{
-		"token":            token,
-		"api_base_path":    apiBasePath,
-		"flow_mode":        signerFlowModeUnified,
-		"legacy_base_path": "/sign",
-		"session":          sessionCtx,
-		"viewer":           viewerCtx,
+		"token":         token,
+		"api_base_path": apiBasePath,
+		"flow_mode":     signerFlowModeUnified,
+		"session":       sessionCtx,
+		"viewer":        viewerCtx,
 		"agreement": map[string]any{
 			"title":         "Agreement",
 			"status":        session.AgreementStatus,
@@ -1483,19 +1081,21 @@ func sessionToViewContext(session services.SignerSessionContext) router.ViewCont
 	fields := make([]map[string]any, 0, len(session.Fields))
 	for _, f := range session.Fields {
 		field := map[string]any{
-			"id":            f.ID,
-			"recipient_id":  f.RecipientID,
-			"type":          f.Type,
-			"page":          f.Page,
-			"pos_x":         f.PosX,
-			"pos_y":         f.PosY,
-			"width":         f.Width,
-			"height":        f.Height,
-			"page_width":    f.PageWidth,
-			"page_height":   f.PageHeight,
-			"page_rotation": f.PageRotation,
-			"required":      f.Required,
-			"value_text":    f.ValueText,
+			"id":                  f.ID,
+			"field_instance_id":   firstNonEmptyValue(f.FieldInstanceID, f.ID),
+			"field_definition_id": strings.TrimSpace(f.FieldDefinitionID),
+			"recipient_id":        f.RecipientID,
+			"type":                f.Type,
+			"page":                f.Page,
+			"pos_x":               f.PosX,
+			"pos_y":               f.PosY,
+			"width":               f.Width,
+			"height":              f.Height,
+			"page_width":          f.PageWidth,
+			"page_height":         f.PageHeight,
+			"page_rotation":       f.PageRotation,
+			"required":            f.Required,
+			"value_text":          f.ValueText,
 		}
 		if f.ValueBool != nil {
 			field["value_bool"] = *f.ValueBool
@@ -1509,63 +1109,87 @@ func sessionToViewContext(session services.SignerSessionContext) router.ViewCont
 		fields = append(fields, field)
 	}
 
+	// Encode stage-related arrays as JSON for frontend (Task 24.FE.1)
+	activeRecipientIDsJSON := "[]"
+	waitingForRecipientIDsJSON := "[]"
+	if len(session.ActiveRecipientIDs) > 0 {
+		if encoded, err := json.Marshal(session.ActiveRecipientIDs); err == nil {
+			activeRecipientIDsJSON = string(encoded)
+		}
+	}
+	if len(session.WaitingForRecipientIDs) > 0 {
+		if encoded, err := json.Marshal(session.WaitingForRecipientIDs); err == nil {
+			waitingForRecipientIDsJSON = string(encoded)
+		}
+	}
+
 	return router.ViewContext{
-		"agreement_id":      session.AgreementID,
-		"agreement_status":  session.AgreementStatus,
-		"document_name":     firstNonEmptyValue(session.DocumentName, "Document.pdf"),
-		"page_count":        maxInt(session.PageCount, 1),
-		"viewer":            session.Viewer,
-		"recipient_id":      session.RecipientID,
-		"recipient_email":   session.RecipientEmail,
-		"recipient_name":    session.RecipientName,
-		"recipient_order":   session.RecipientOrder,
-		"recipient_role":    session.RecipientRole,
-		"state":             session.State,
-		"has_consented":     false,
-		"fields":            fields,
-		"active_recipient":  session.ActiveRecipientID,
-		"waiting_recipient": session.WaitingForRecipient,
+		"agreement_id":                   session.AgreementID,
+		"agreement_status":               session.AgreementStatus,
+		"document_name":                  firstNonEmptyValue(session.DocumentName, "Document.pdf"),
+		"page_count":                     maxInt(session.PageCount, 1),
+		"viewer":                         session.Viewer,
+		"recipient_id":                   session.RecipientID,
+		"recipient_email":                session.RecipientEmail,
+		"recipient_name":                 session.RecipientName,
+		"recipient_order":                session.RecipientOrder,
+		"recipient_role":                 session.RecipientRole,
+		"recipient_stage":                session.RecipientStage,
+		"active_stage":                   session.ActiveStage,
+		"state":                          session.State,
+		"has_consented":                  false,
+		"fields":                         fields,
+		"active_recipient":               session.ActiveRecipientID,
+		"active_recipient_ids":           session.ActiveRecipientIDs,
+		"active_recipient_ids_json":      activeRecipientIDsJSON,
+		"waiting_recipient":              session.WaitingForRecipient,
+		"waiting_for_recipient_ids":      session.WaitingForRecipientIDs,
+		"waiting_for_recipient_ids_json": waitingForRecipientIDsJSON,
 	}
 }
 
 func encodeFieldsJSON(fields []services.SignerSessionField) (string, error) {
 	type fieldJSON struct {
-		ID           string  `json:"id"`
-		RecipientID  string  `json:"recipient_id"`
-		Type         string  `json:"type"`
-		Page         int     `json:"page"`
-		PosX         float64 `json:"pos_x"`
-		PosY         float64 `json:"pos_y"`
-		Width        float64 `json:"width"`
-		Height       float64 `json:"height"`
-		PageWidth    float64 `json:"page_width,omitempty"`
-		PageHeight   float64 `json:"page_height,omitempty"`
-		PageRotation int     `json:"page_rotation"`
-		Required     bool    `json:"required"`
-		Label        string  `json:"label,omitempty"`
-		TabIndex     int     `json:"tab_index,omitempty"`
-		ValueText    string  `json:"value_text,omitempty"`
-		ValueBool    *bool   `json:"value_bool,omitempty"`
+		ID                string  `json:"id"`
+		FieldInstanceID   string  `json:"field_instance_id"`
+		FieldDefinitionID string  `json:"field_definition_id,omitempty"`
+		RecipientID       string  `json:"recipient_id"`
+		Type              string  `json:"type"`
+		Page              int     `json:"page"`
+		PosX              float64 `json:"pos_x"`
+		PosY              float64 `json:"pos_y"`
+		Width             float64 `json:"width"`
+		Height            float64 `json:"height"`
+		PageWidth         float64 `json:"page_width,omitempty"`
+		PageHeight        float64 `json:"page_height,omitempty"`
+		PageRotation      int     `json:"page_rotation"`
+		Required          bool    `json:"required"`
+		Label             string  `json:"label,omitempty"`
+		TabIndex          int     `json:"tab_index,omitempty"`
+		ValueText         string  `json:"value_text,omitempty"`
+		ValueBool         *bool   `json:"value_bool,omitempty"`
 	}
 	out := make([]fieldJSON, 0, len(fields))
 	for _, f := range fields {
 		out = append(out, fieldJSON{
-			ID:           f.ID,
-			RecipientID:  f.RecipientID,
-			Type:         f.Type,
-			Page:         f.Page,
-			PosX:         f.PosX,
-			PosY:         f.PosY,
-			Width:        f.Width,
-			Height:       f.Height,
-			PageWidth:    f.PageWidth,
-			PageHeight:   f.PageHeight,
-			PageRotation: f.PageRotation,
-			Required:     f.Required,
-			Label:        strings.TrimSpace(f.Label),
-			TabIndex:     f.TabIndex,
-			ValueText:    f.ValueText,
-			ValueBool:    f.ValueBool,
+			ID:                f.ID,
+			FieldInstanceID:   firstNonEmptyValue(f.FieldInstanceID, f.ID),
+			FieldDefinitionID: strings.TrimSpace(f.FieldDefinitionID),
+			RecipientID:       f.RecipientID,
+			Type:              f.Type,
+			Page:              f.Page,
+			PosX:              f.PosX,
+			PosY:              f.PosY,
+			Width:             f.Width,
+			Height:            f.Height,
+			PageWidth:         f.PageWidth,
+			PageHeight:        f.PageHeight,
+			PageRotation:      f.PageRotation,
+			Required:          f.Required,
+			Label:             strings.TrimSpace(f.Label),
+			TabIndex:          f.TabIndex,
+			ValueText:         f.ValueText,
+			ValueBool:         f.ValueBool,
 		})
 	}
 	encoded, err := json.Marshal(out)

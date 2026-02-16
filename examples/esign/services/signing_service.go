@@ -20,6 +20,7 @@ import (
 const (
 	SignerSessionStateActive    = "active"
 	SignerSessionStateWaiting   = "waiting"
+	SignerSessionStateBlocked   = "blocked"
 	SignerSessionStateCompleted = "completed"
 	SignerSessionStateTerminal  = "terminal"
 	SignerSessionStateObserver  = "observer"
@@ -231,22 +232,24 @@ func (s SigningService) withWriteTx(ctx context.Context, fn func(SigningService)
 
 // SignerSessionField captures signer-visible field context and current value snapshot.
 type SignerSessionField struct {
-	ID           string  `json:"id"`
-	RecipientID  string  `json:"recipient_id"`
-	Type         string  `json:"type"`
-	Page         int     `json:"page"`
-	PosX         float64 `json:"pos_x"`
-	PosY         float64 `json:"pos_y"`
-	Width        float64 `json:"width"`
-	Height       float64 `json:"height"`
-	PageWidth    float64 `json:"page_width,omitempty"`
-	PageHeight   float64 `json:"page_height,omitempty"`
-	PageRotation int     `json:"page_rotation"`
-	Required     bool    `json:"required"`
-	Label        string  `json:"label,omitempty"`
-	TabIndex     int     `json:"tab_index,omitempty"`
-	ValueText    string  `json:"value_text,omitempty"`
-	ValueBool    *bool   `json:"value_bool,omitempty"`
+	ID                string  `json:"id"`
+	FieldInstanceID   string  `json:"field_instance_id"`
+	FieldDefinitionID string  `json:"field_definition_id"`
+	RecipientID       string  `json:"recipient_id"`
+	Type              string  `json:"type"`
+	Page              int     `json:"page"`
+	PosX              float64 `json:"pos_x"`
+	PosY              float64 `json:"pos_y"`
+	Width             float64 `json:"width"`
+	Height            float64 `json:"height"`
+	PageWidth         float64 `json:"page_width,omitempty"`
+	PageHeight        float64 `json:"page_height,omitempty"`
+	PageRotation      int     `json:"page_rotation"`
+	Required          bool    `json:"required"`
+	Label             string  `json:"label,omitempty"`
+	TabIndex          int     `json:"tab_index,omitempty"`
+	ValueText         string  `json:"value_text,omitempty"`
+	ValueBool         *bool   `json:"value_bool,omitempty"`
 }
 
 // SignerSessionViewerPage describes canonical page-space metadata for overlay normalization.
@@ -269,20 +272,24 @@ type SignerSessionViewerContext struct {
 
 // SignerSessionContext returns agreement and signer-scoped context for the signer API.
 type SignerSessionContext struct {
-	AgreementID         string                     `json:"agreement_id"`
-	AgreementStatus     string                     `json:"agreement_status"`
-	DocumentName        string                     `json:"document_name"`
-	PageCount           int                        `json:"page_count"`
-	Viewer              SignerSessionViewerContext `json:"viewer"`
-	RecipientID         string                     `json:"recipient_id"`
-	RecipientRole       string                     `json:"recipient_role"`
-	RecipientEmail      string                     `json:"recipient_email"`
-	RecipientName       string                     `json:"recipient_name"`
-	RecipientOrder      int                        `json:"recipient_order"`
-	State               string                     `json:"state"`
-	ActiveRecipientID   string                     `json:"active_recipient_id,omitempty"`
-	WaitingForRecipient string                     `json:"waiting_for_recipient_id,omitempty"`
-	Fields              []SignerSessionField       `json:"fields"`
+	AgreementID            string                     `json:"agreement_id"`
+	AgreementStatus        string                     `json:"agreement_status"`
+	DocumentName           string                     `json:"document_name"`
+	PageCount              int                        `json:"page_count"`
+	Viewer                 SignerSessionViewerContext `json:"viewer"`
+	RecipientID            string                     `json:"recipient_id"`
+	RecipientRole          string                     `json:"recipient_role"`
+	RecipientEmail         string                     `json:"recipient_email"`
+	RecipientName          string                     `json:"recipient_name"`
+	RecipientOrder         int                        `json:"recipient_order"`
+	RecipientStage         int                        `json:"recipient_stage,omitempty"`
+	ActiveStage            int                        `json:"active_stage,omitempty"`
+	State                  string                     `json:"state"`
+	ActiveRecipientID      string                     `json:"active_recipient_id,omitempty"`
+	ActiveRecipientIDs     []string                   `json:"active_recipient_ids,omitempty"`
+	WaitingForRecipient    string                     `json:"waiting_for_recipient_id,omitempty"`
+	WaitingForRecipientIDs []string                   `json:"waiting_for_recipient_ids,omitempty"`
+	Fields                 []SignerSessionField       `json:"fields"`
 }
 
 // SignerConsentInput captures signer consent payload.
@@ -299,22 +306,26 @@ type SignerConsentResult struct {
 
 // SignerFieldValueInput captures signer field value upserts.
 type SignerFieldValueInput struct {
-	FieldID         string `json:"field_id"`
-	ValueText       string `json:"value_text,omitempty"`
-	ValueBool       *bool  `json:"value_bool,omitempty"`
-	ExpectedVersion int64  `json:"expected_version,omitempty"`
-	IPAddress       string `json:"-"`
-	UserAgent       string `json:"-"`
+	FieldID           string `json:"field_id,omitempty"`
+	FieldInstanceID   string `json:"field_instance_id,omitempty"`
+	FieldDefinitionID string `json:"field_definition_id,omitempty"`
+	ValueText         string `json:"value_text,omitempty"`
+	ValueBool         *bool  `json:"value_bool,omitempty"`
+	ExpectedVersion   int64  `json:"expected_version,omitempty"`
+	IPAddress         string `json:"-"`
+	UserAgent         string `json:"-"`
 }
 
 // SignerSignatureUploadInput captures signed upload bootstrap request payload.
 type SignerSignatureUploadInput struct {
-	FieldID     string `json:"field_id"`
-	SHA256      string `json:"sha256"`
-	ContentType string `json:"content_type,omitempty"`
-	SizeBytes   int64  `json:"size_bytes,omitempty"`
-	IPAddress   string `json:"-"`
-	UserAgent   string `json:"-"`
+	FieldID           string `json:"field_id,omitempty"`
+	FieldInstanceID   string `json:"field_instance_id,omitempty"`
+	FieldDefinitionID string `json:"field_definition_id,omitempty"`
+	SHA256            string `json:"sha256"`
+	ContentType       string `json:"content_type,omitempty"`
+	SizeBytes         int64  `json:"size_bytes,omitempty"`
+	IPAddress         string `json:"-"`
+	UserAgent         string `json:"-"`
 }
 
 // SignerSignatureUploadContract returns signer-scoped temporary upload contract metadata.
@@ -353,15 +364,17 @@ type SignerSignatureUploadCommitResult struct {
 
 // SignerSignatureInput captures create+attach signature artifact payload.
 type SignerSignatureInput struct {
-	FieldID         string `json:"field_id"`
-	Type            string `json:"type"`
-	ObjectKey       string `json:"object_key"`
-	SHA256          string `json:"sha256"`
-	UploadToken     string `json:"upload_token,omitempty"`
-	ValueText       string `json:"value_text,omitempty"`
-	ExpectedVersion int64  `json:"expected_version,omitempty"`
-	IPAddress       string `json:"-"`
-	UserAgent       string `json:"-"`
+	FieldID           string `json:"field_id,omitempty"`
+	FieldInstanceID   string `json:"field_instance_id,omitempty"`
+	FieldDefinitionID string `json:"field_definition_id,omitempty"`
+	Type              string `json:"type"`
+	ObjectKey         string `json:"object_key"`
+	SHA256            string `json:"sha256"`
+	UploadToken       string `json:"upload_token,omitempty"`
+	ValueText         string `json:"value_text,omitempty"`
+	ExpectedVersion   int64  `json:"expected_version,omitempty"`
+	IPAddress         string `json:"-"`
+	UserAgent         string `json:"-"`
 }
 
 type signatureUploadGrant struct {
@@ -413,11 +426,13 @@ type SignerSubmitInput struct {
 
 // SignerSubmitResult captures submit transition result data.
 type SignerSubmitResult struct {
-	Agreement       stores.AgreementRecord `json:"agreement"`
-	Recipient       stores.RecipientRecord `json:"recipient"`
-	NextRecipientID string                 `json:"next_recipient_id,omitempty"`
-	Completed       bool                   `json:"completed"`
-	Replay          bool                   `json:"replay,omitempty"`
+	Agreement        stores.AgreementRecord `json:"agreement"`
+	Recipient        stores.RecipientRecord `json:"recipient"`
+	NextRecipientID  string                 `json:"next_recipient_id,omitempty"`
+	NextRecipientIDs []string               `json:"next_recipient_ids,omitempty"`
+	NextStage        int                    `json:"next_stage,omitempty"`
+	Completed        bool                   `json:"completed"`
+	Replay           bool                   `json:"replay,omitempty"`
 }
 
 // SignerDeclineInput captures decline request metadata.
@@ -435,7 +450,7 @@ type SignerDeclineResult struct {
 
 // GetSession returns signer-scoped agreement/field context with sequential waiting-state semantics.
 func (s SigningService) GetSession(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord) (SignerSessionContext, error) {
-	agreement, recipient, activeSigner, _, fields, err := s.signerContext(ctx, scope, token)
+	agreement, recipient, activeStage, activeSigners, _, fields, err := s.signerContext(ctx, scope, token)
 	if err != nil {
 		return SignerSessionContext{}, err
 	}
@@ -459,10 +474,13 @@ func (s SigningService) GetSession(ctx context.Context, scope stores.Scope, toke
 		}
 	}
 
-	state := resolveSessionState(agreement.Status, recipient, activeSigner, strings.TrimSpace(activeSigner.ID) != "")
+	state := resolveSessionState(agreement.Status, recipient, activeStage, activeSigners)
+	activeRecipientIDs := recipientIDs(activeSigners)
 	waitingFor := ""
+	waitingForIDs := []string{}
 	if state == SignerSessionStateWaiting {
-		waitingFor = activeSigner.ID
+		waitingForIDs = append(waitingForIDs, activeRecipientIDs...)
+		waitingFor = coalesceFirst(waitingForIDs)
 	}
 	documentName, pageCount, viewer := s.resolveSessionBootstrap(ctx, scope, agreement, fields)
 	pagesByNumber := map[int]SignerSessionViewerPage{}
@@ -480,41 +498,47 @@ func (s SigningService) GetSession(ctx context.Context, scope stores.Scope, toke
 		value := valuesByField[field.ID]
 		page, posX, posY, width, height, pageMeta := normalizeFieldGeometry(field, pageCount, pagesByNumber)
 		sessionFields = append(sessionFields, SignerSessionField{
-			ID:           field.ID,
-			RecipientID:  field.RecipientID,
-			Type:         field.Type,
-			Page:         page,
-			PosX:         posX,
-			PosY:         posY,
-			Width:        width,
-			Height:       height,
-			PageWidth:    pageMeta.Width,
-			PageHeight:   pageMeta.Height,
-			PageRotation: pageMeta.Rotation,
-			Required:     field.Required,
-			Label:        strings.TrimSpace(field.Type),
-			TabIndex:     tabIndex,
-			ValueText:    strings.TrimSpace(value.ValueText),
-			ValueBool:    value.ValueBool,
+			ID:                field.ID,
+			FieldInstanceID:   field.ID,
+			FieldDefinitionID: strings.TrimSpace(field.FieldDefinitionID),
+			RecipientID:       field.RecipientID,
+			Type:              field.Type,
+			Page:              page,
+			PosX:              posX,
+			PosY:              posY,
+			Width:             width,
+			Height:            height,
+			PageWidth:         pageMeta.Width,
+			PageHeight:        pageMeta.Height,
+			PageRotation:      pageMeta.Rotation,
+			Required:          field.Required,
+			Label:             strings.TrimSpace(field.Type),
+			TabIndex:          tabIndex,
+			ValueText:         strings.TrimSpace(value.ValueText),
+			ValueBool:         value.ValueBool,
 		})
 		tabIndex++
 	}
 
 	return SignerSessionContext{
-		AgreementID:         agreement.ID,
-		AgreementStatus:     agreement.Status,
-		DocumentName:        documentName,
-		PageCount:           pageCount,
-		Viewer:              viewer,
-		RecipientID:         recipient.ID,
-		RecipientRole:       recipient.Role,
-		RecipientEmail:      recipient.Email,
-		RecipientName:       recipient.Name,
-		RecipientOrder:      recipient.SigningOrder,
-		State:               state,
-		ActiveRecipientID:   activeSigner.ID,
-		WaitingForRecipient: waitingFor,
-		Fields:              sessionFields,
+		AgreementID:            agreement.ID,
+		AgreementStatus:        agreement.Status,
+		DocumentName:           documentName,
+		PageCount:              pageCount,
+		Viewer:                 viewer,
+		RecipientID:            recipient.ID,
+		RecipientRole:          recipient.Role,
+		RecipientEmail:         recipient.Email,
+		RecipientName:          recipient.Name,
+		RecipientOrder:         recipient.SigningOrder,
+		RecipientStage:         normalizeSigningStage(recipient.SigningOrder),
+		ActiveStage:            activeStage,
+		State:                  state,
+		ActiveRecipientID:      coalesceFirst(activeRecipientIDs),
+		ActiveRecipientIDs:     activeRecipientIDs,
+		WaitingForRecipient:    waitingFor,
+		WaitingForRecipientIDs: waitingForIDs,
+		Fields:                 sessionFields,
 	}, nil
 }
 
@@ -567,14 +591,14 @@ func (s SigningService) CaptureConsent(ctx context.Context, scope stores.Scope, 
 	if !input.Accepted {
 		return SignerConsentResult{}, domainValidationError("consent", "accepted", "must be true")
 	}
-	agreement, recipient, activeSigner, _, _, err := s.signerContext(ctx, scope, token)
+	agreement, recipient, activeStage, activeSigners, _, _, err := s.signerContext(ctx, scope, token)
 	if err != nil {
 		return SignerConsentResult{}, err
 	}
 	if agreement.Status != stores.AgreementStatusSent && agreement.Status != stores.AgreementStatusInProgress {
 		return SignerConsentResult{}, domainValidationError("agreements", "status", "consent requires sent or in_progress status")
 	}
-	if err := ensureActiveSequentialSigner(recipient, activeSigner); err != nil {
+	if err := ensureActiveStageSigner(recipient, activeStage, activeSigners); err != nil {
 		return SignerConsentResult{}, err
 	}
 
@@ -593,20 +617,23 @@ func (s SigningService) UpsertFieldValue(ctx context.Context, scope stores.Scope
 	if s.signing == nil {
 		return stores.FieldValueRecord{}, domainValidationError("field_values", "store", "not configured")
 	}
-	agreement, recipient, activeSigner, _, fields, err := s.signerContext(ctx, scope, token)
+	agreement, recipient, activeStage, activeSigners, _, fields, err := s.signerContext(ctx, scope, token)
 	if err != nil {
 		return stores.FieldValueRecord{}, err
 	}
-	if err := ensureActiveSequentialSigner(recipient, activeSigner); err != nil {
+	if err := ensureActiveStageSigner(recipient, activeStage, activeSigners); err != nil {
 		return stores.FieldValueRecord{}, err
 	}
-	fieldID := strings.TrimSpace(input.FieldID)
+	fieldID := resolveFieldInstanceID(input.FieldInstanceID, input.FieldID)
 	if fieldID == "" {
-		return stores.FieldValueRecord{}, domainValidationError("field_values", "field_id", "required")
+		return stores.FieldValueRecord{}, domainValidationError("field_values", "field_instance_id", "required")
 	}
 	field, ok := findFieldByID(fields, fieldID)
 	if !ok {
 		return stores.FieldValueRecord{}, domainValidationError("fields", "id", "not found")
+	}
+	if err := validateFieldDefinitionReference(field, input.FieldDefinitionID); err != nil {
+		return stores.FieldValueRecord{}, err
 	}
 	if strings.TrimSpace(field.RecipientID) != strings.TrimSpace(recipient.ID) {
 		return stores.FieldValueRecord{}, domainValidationError("fields", "recipient_id", "field does not belong to signer")
@@ -642,7 +669,9 @@ func (s SigningService) UpsertFieldValue(ctx context.Context, scope stores.Scope
 		return stores.FieldValueRecord{}, err
 	}
 	if err := s.appendSignerAudit(ctx, scope, agreement.ID, recipient.ID, "signer.field_value_upserted", input.IPAddress, input.UserAgent, map[string]any{
-		"field_id": field.ID,
+		"field_id":            field.ID,
+		"field_instance_id":   field.ID,
+		"field_definition_id": strings.TrimSpace(field.FieldDefinitionID),
 	}); err != nil {
 		return stores.FieldValueRecord{}, err
 	}
@@ -651,20 +680,23 @@ func (s SigningService) UpsertFieldValue(ctx context.Context, scope stores.Scope
 
 // IssueSignatureUpload creates a short-lived signer-scoped upload contract for drawn signatures.
 func (s SigningService) IssueSignatureUpload(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord, input SignerSignatureUploadInput) (SignerSignatureUploadContract, error) {
-	agreement, recipient, activeSigner, _, fields, err := s.signerContext(ctx, scope, token)
+	agreement, recipient, activeStage, activeSigners, _, fields, err := s.signerContext(ctx, scope, token)
 	if err != nil {
 		return SignerSignatureUploadContract{}, err
 	}
-	if err := ensureActiveSequentialSigner(recipient, activeSigner); err != nil {
+	if err := ensureActiveStageSigner(recipient, activeStage, activeSigners); err != nil {
 		return SignerSignatureUploadContract{}, err
 	}
-	fieldID := strings.TrimSpace(input.FieldID)
+	fieldID := resolveFieldInstanceID(input.FieldInstanceID, input.FieldID)
 	if fieldID == "" {
-		return SignerSignatureUploadContract{}, domainValidationError("signature_upload", "field_id", "required")
+		return SignerSignatureUploadContract{}, domainValidationError("signature_upload", "field_instance_id", "required")
 	}
 	field, ok := findFieldByID(fields, fieldID)
 	if !ok {
-		return SignerSignatureUploadContract{}, domainValidationError("signature_upload", "field_id", "not found")
+		return SignerSignatureUploadContract{}, domainValidationError("signature_upload", "field_instance_id", "not found")
+	}
+	if err := validateFieldDefinitionReference(field, input.FieldDefinitionID); err != nil {
+		return SignerSignatureUploadContract{}, err
 	}
 	if !isSignatureAttachFieldType(field.Type) {
 		return SignerSignatureUploadContract{}, domainValidationError("signature_upload", "field_type", "bootstrap requires signature or initials field")
@@ -710,10 +742,12 @@ func (s SigningService) IssueSignatureUpload(ctx context.Context, scope stores.S
 	s.putSignatureUploadGrant(tokenValue, claims)
 
 	if err := s.appendSignerAudit(ctx, scope, agreement.ID, recipient.ID, "signer.signature_upload_bootstrapped", input.IPAddress, input.UserAgent, map[string]any{
-		"field_id":     field.ID,
-		"object_key":   objectKey,
-		"content_type": contentType,
-		"expires_at":   expiresAt.UTC().Format(time.RFC3339),
+		"field_id":            field.ID,
+		"field_instance_id":   field.ID,
+		"field_definition_id": strings.TrimSpace(field.FieldDefinitionID),
+		"object_key":          objectKey,
+		"content_type":        contentType,
+		"expires_at":          expiresAt.UTC().Format(time.RFC3339),
 	}); err != nil {
 		return SignerSignatureUploadContract{}, err
 	}
@@ -828,20 +862,23 @@ func (s SigningService) AttachSignatureArtifact(ctx context.Context, scope store
 	if s.artifacts == nil {
 		return SignerSignatureResult{}, domainValidationError("signature_artifacts", "store", "not configured")
 	}
-	agreement, recipient, activeSigner, _, fields, err := s.signerContext(ctx, scope, token)
+	agreement, recipient, activeStage, activeSigners, _, fields, err := s.signerContext(ctx, scope, token)
 	if err != nil {
 		return SignerSignatureResult{}, err
 	}
-	if err := ensureActiveSequentialSigner(recipient, activeSigner); err != nil {
+	if err := ensureActiveStageSigner(recipient, activeStage, activeSigners); err != nil {
 		return SignerSignatureResult{}, err
 	}
-	fieldID := strings.TrimSpace(input.FieldID)
+	fieldID := resolveFieldInstanceID(input.FieldInstanceID, input.FieldID)
 	if fieldID == "" {
-		return SignerSignatureResult{}, domainValidationError("signature_artifacts", "field_id", "required")
+		return SignerSignatureResult{}, domainValidationError("signature_artifacts", "field_instance_id", "required")
 	}
 	field, ok := findFieldByID(fields, fieldID)
 	if !ok {
 		return SignerSignatureResult{}, domainValidationError("fields", "id", "not found")
+	}
+	if err := validateFieldDefinitionReference(field, input.FieldDefinitionID); err != nil {
+		return SignerSignatureResult{}, err
 	}
 	if !isSignatureAttachFieldType(field.Type) {
 		return SignerSignatureResult{}, domainValidationError("fields", "field_type", "signature attach requires signature or initials field")
@@ -944,9 +981,11 @@ func (s SigningService) AttachSignatureArtifact(ctx context.Context, scope store
 		return SignerSignatureResult{}, err
 	}
 	metadata := map[string]any{
-		"field_id":    field.ID,
-		"artifact_id": artifact.ID,
-		"type":        signatureType,
+		"field_id":            field.ID,
+		"field_instance_id":   field.ID,
+		"field_definition_id": strings.TrimSpace(field.FieldDefinitionID),
+		"artifact_id":         artifact.ID,
+		"type":                signatureType,
 	}
 	if uploadTokenHash != "" {
 		metadata["upload_token_hash"] = uploadTokenHash
@@ -1142,20 +1181,27 @@ func (s SigningService) Submit(ctx context.Context, scope stores.Scope, token st
 		cached.Replay = true
 		return cached, nil
 	}
+	if replay, ok, err := s.resolveSubmitReplayFromAudit(ctx, scope, agreementID, recipientID, idempotencyKey); err != nil {
+		return SignerSubmitResult{}, err
+	} else if ok {
+		replay.Replay = true
+		s.setSubmitByKey(submitKey, replay)
+		return replay, nil
+	}
 	var result SignerSubmitResult
 	if err := s.withWriteTx(ctx, func(txSvc SigningService) error {
-		agreement, recipient, activeSigner, recipients, fields, err := txSvc.signerContext(ctx, scope, token)
+		agreement, recipient, activeStage, activeSigners, recipients, fields, err := txSvc.signerContext(ctx, scope, token)
 		if err != nil {
 			return err
 		}
 		if agreement.Status != stores.AgreementStatusSent && agreement.Status != stores.AgreementStatusInProgress {
 			return domainValidationError("agreements", "status", "submit requires sent or in_progress status")
 		}
-		if err := ensureActiveSequentialSigner(recipient, activeSigner); err != nil {
+		if err := ensureActiveStageSigner(recipient, activeStage, activeSigners); err != nil {
 			return err
 		}
 
-		if _, ok := txSvc.getConsentAccepted(signingFlowKey(scope, agreement.ID, recipient.ID)); !ok {
+		if !txSvc.consentCaptured(ctx, scope, agreement.ID, recipient.ID) {
 			return domainValidationError("consent", "accepted", "consent must be captured before submit")
 		}
 		if err := txSvc.ensureRequiredFieldsCompleted(ctx, scope, agreement.ID, recipient.ID, fields); err != nil {
@@ -1167,10 +1213,12 @@ func (s SigningService) Submit(ctx context.Context, scope stores.Scope, token st
 			return err
 		}
 
-		nextSignerID := nextSequentialSignerID(updateRecipientSnapshot(recipients, completedRecipient), completedRecipient.ID)
+		nextStage, nextSigners, hasNext := activeSignerStageFromRecipients(updateRecipientSnapshot(recipients, completedRecipient))
+		nextSignerIDs := recipientIDs(nextSigners)
+		nextSignerID := coalesceFirst(nextSignerIDs)
 		resultAgreement := agreement
 		expectedVersion := agreement.Version
-		if nextSignerID == "" {
+		if !hasNext {
 			if agreement.Status != stores.AgreementStatusCompleted {
 				resultAgreement, err = txSvc.agreements.Transition(ctx, scope, agreement.ID, stores.AgreementTransitionInput{
 					ToStatus:        stores.AgreementStatusCompleted,
@@ -1191,22 +1239,28 @@ func (s SigningService) Submit(ctx context.Context, scope stores.Scope, token st
 		}
 
 		result = SignerSubmitResult{
-			Agreement:       resultAgreement,
-			Recipient:       completedRecipient,
-			NextRecipientID: nextSignerID,
-			Completed:       nextSignerID == "",
+			Agreement:        resultAgreement,
+			Recipient:        completedRecipient,
+			NextRecipientID:  nextSignerID,
+			NextRecipientIDs: nextSignerIDs,
+			NextStage:        nextStage,
+			Completed:        !hasNext,
 		}
 		if err := txSvc.appendSignerAudit(ctx, scope, agreement.ID, recipient.ID, "signer.submitted", input.IPAddress, input.UserAgent, map[string]any{
 			"agreement_status":    resultAgreement.Status,
+			"active_stage":        normalizeSigningStage(completedRecipient.SigningOrder),
+			"next_stage":          nextStage,
 			"next_recipient_id":   nextSignerID,
+			"next_recipient_ids":  nextSignerIDs,
 			"idempotency_key":     idempotencyKey,
-			"agreement_completed": nextSignerID == "",
+			"agreement_completed": !hasNext,
 			"signer_identity_snapshot": map[string]any{
 				"recipient_id":   completedRecipient.ID,
 				"email":          completedRecipient.Email,
 				"name":           completedRecipient.Name,
 				"role":           completedRecipient.Role,
 				"signing_order":  completedRecipient.SigningOrder,
+				"signing_stage":  normalizeSigningStage(completedRecipient.SigningOrder),
 				"first_view_at":  timePtrRFC3339(completedRecipient.FirstViewAt),
 				"last_view_at":   timePtrRFC3339(completedRecipient.LastViewAt),
 				"completed_at":   timePtrRFC3339(completedRecipient.CompletedAt),
@@ -1231,14 +1285,14 @@ func (s SigningService) Submit(ctx context.Context, scope stores.Scope, token st
 
 // Decline records signer decline reason and transitions agreement to terminal declined state.
 func (s SigningService) Decline(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord, input SignerDeclineInput) (SignerDeclineResult, error) {
-	agreement, recipient, activeSigner, _, _, err := s.signerContext(ctx, scope, token)
+	agreement, recipient, activeStage, activeSigners, _, _, err := s.signerContext(ctx, scope, token)
 	if err != nil {
 		return SignerDeclineResult{}, err
 	}
 	if agreement.Status != stores.AgreementStatusSent && agreement.Status != stores.AgreementStatusInProgress {
 		return SignerDeclineResult{}, domainValidationError("agreements", "status", "decline requires sent or in_progress status")
 	}
-	if err := ensureActiveSequentialSigner(recipient, activeSigner); err != nil {
+	if err := ensureActiveStageSigner(recipient, activeStage, activeSigners); err != nil {
 		return SignerDeclineResult{}, err
 	}
 	reason := strings.TrimSpace(input.Reason)
@@ -1268,9 +1322,12 @@ func (s SigningService) Decline(ctx context.Context, scope stores.Scope, token s
 	}, nil
 }
 
-func resolveSessionState(agreementStatus string, recipient stores.RecipientRecord, activeSigner stores.RecipientRecord, hasActiveSigner bool) string {
+func resolveSessionState(agreementStatus string, recipient stores.RecipientRecord, activeStage int, activeSigners []stores.RecipientRecord) string {
 	if recipient.CompletedAt != nil {
 		return SignerSessionStateCompleted
+	}
+	if recipient.DeclinedAt != nil {
+		return SignerSessionStateTerminal
 	}
 	if recipient.Role == stores.RecipientRoleCC {
 		return SignerSessionStateObserver
@@ -1279,13 +1336,20 @@ func resolveSessionState(agreementStatus string, recipient stores.RecipientRecor
 	case stores.AgreementStatusCompleted, stores.AgreementStatusVoided, stores.AgreementStatusDeclined, stores.AgreementStatusExpired:
 		return SignerSessionStateTerminal
 	case stores.AgreementStatusSent, stores.AgreementStatusInProgress:
-		if !hasActiveSigner {
-			return SignerSessionStateInvalid
+		if activeStage <= 0 || len(activeSigners) == 0 {
+			return SignerSessionStateBlocked
 		}
-		if strings.TrimSpace(activeSigner.ID) != strings.TrimSpace(recipient.ID) {
+		recipientStage := normalizeSigningStage(recipient.SigningOrder)
+		switch {
+		case recipientStage > activeStage:
 			return SignerSessionStateWaiting
+		case recipientStage < activeStage:
+			return SignerSessionStateBlocked
+		case !containsRecipientID(recipientIDs(activeSigners), recipient.ID):
+			return SignerSessionStateBlocked
+		default:
+			return SignerSessionStateActive
 		}
-		return SignerSessionStateActive
 	default:
 		return SignerSessionStateInvalid
 	}
@@ -1329,72 +1393,120 @@ func findFieldByID(fields []stores.FieldRecord, fieldID string) (stores.FieldRec
 	return stores.FieldRecord{}, false
 }
 
-func currentSequentialSigner(recipients []stores.RecipientRecord) (stores.RecipientRecord, bool) {
+func resolveFieldInstanceID(candidates ...string) string {
+	for _, candidate := range candidates {
+		if value := strings.TrimSpace(candidate); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func validateFieldDefinitionReference(field stores.FieldRecord, fieldDefinitionID string) error {
+	expected := strings.TrimSpace(field.FieldDefinitionID)
+	requested := strings.TrimSpace(fieldDefinitionID)
+	if requested == "" || expected == "" {
+		return nil
+	}
+	if requested != expected {
+		return domainValidationError("fields", "field_definition_id", "field definition does not match instance")
+	}
+	return nil
+}
+
+func activeSignerStageFromRecipients(recipients []stores.RecipientRecord) (int, []stores.RecipientRecord, bool) {
 	signers := make([]stores.RecipientRecord, 0)
 	for _, rec := range recipients {
 		if rec.Role != stores.RecipientRoleSigner {
 			continue
 		}
+		if rec.CompletedAt != nil || rec.DeclinedAt != nil {
+			continue
+		}
 		signers = append(signers, rec)
 	}
 	if len(signers) == 0 {
-		return stores.RecipientRecord{}, false
+		return 0, nil, false
 	}
 	sort.Slice(signers, func(i, j int) bool {
-		return signers[i].SigningOrder < signers[j].SigningOrder
-	})
-	for _, signer := range signers {
-		if signer.CompletedAt == nil && signer.DeclinedAt == nil {
-			return signer, true
+		stageI := normalizeSigningStage(signers[i].SigningOrder)
+		stageJ := normalizeSigningStage(signers[j].SigningOrder)
+		if stageI == stageJ {
+			return signers[i].ID < signers[j].ID
 		}
+		return stageI < stageJ
+	})
+	activeStage := normalizeSigningStage(signers[0].SigningOrder)
+	active := make([]stores.RecipientRecord, 0)
+	for _, signer := range signers {
+		if normalizeSigningStage(signer.SigningOrder) != activeStage {
+			break
+		}
+		active = append(active, signer)
 	}
-	return stores.RecipientRecord{}, false
+	if len(active) == 0 {
+		return 0, nil, false
+	}
+	return activeStage, active, true
 }
 
-func ensureActiveSequentialSigner(recipient, activeSigner stores.RecipientRecord) error {
+func ensureActiveStageSigner(recipient stores.RecipientRecord, activeStage int, activeSigners []stores.RecipientRecord) error {
 	if strings.TrimSpace(recipient.ID) == "" {
 		return domainValidationError("recipients", "id", "required")
 	}
 	if recipient.Role != stores.RecipientRoleSigner {
 		return domainValidationError("recipients", "role", "must be signer")
 	}
-	if strings.TrimSpace(activeSigner.ID) == "" {
-		return domainValidationError("recipients", "signing_order", "no active sequential signer")
+	if activeStage <= 0 || len(activeSigners) == 0 {
+		return domainValidationError("recipients", "signing_stage", "no active signing stage")
 	}
-	if strings.TrimSpace(recipient.ID) != strings.TrimSpace(activeSigner.ID) {
-		return domainValidationError("recipients", "signing_order", "signer is waiting for a previous signer")
+	recipientStage := normalizeSigningStage(recipient.SigningOrder)
+	switch {
+	case recipientStage > activeStage:
+		return domainValidationError("recipients", "signing_stage", "signer is waiting for previous stage completion")
+	case recipientStage < activeStage:
+		return domainValidationError("recipients", "signing_stage", "signer stage is already closed")
+	case !containsRecipientID(recipientIDs(activeSigners), recipient.ID):
+		return domainValidationError("recipients", "signing_stage", "signer is not active in current stage")
+	default:
+		return nil
 	}
-	return nil
 }
 
-func (s SigningService) signerContext(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord) (stores.AgreementRecord, stores.RecipientRecord, stores.RecipientRecord, []stores.RecipientRecord, []stores.FieldRecord, error) {
+func (s SigningService) signerContext(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord) (stores.AgreementRecord, stores.RecipientRecord, int, []stores.RecipientRecord, []stores.RecipientRecord, []stores.FieldRecord, error) {
 	if s.agreements == nil {
-		return stores.AgreementRecord{}, stores.RecipientRecord{}, stores.RecipientRecord{}, nil, nil, domainValidationError("signing", "agreement_store", "not configured")
+		return stores.AgreementRecord{}, stores.RecipientRecord{}, 0, nil, nil, nil, domainValidationError("signing", "agreement_store", "not configured")
 	}
 	agreementID := strings.TrimSpace(token.AgreementID)
 	recipientID := strings.TrimSpace(token.RecipientID)
 	if agreementID == "" || recipientID == "" {
-		return stores.AgreementRecord{}, stores.RecipientRecord{}, stores.RecipientRecord{}, nil, nil, domainValidationError("signing_tokens", "agreement_id|recipient_id", "required")
+		return stores.AgreementRecord{}, stores.RecipientRecord{}, 0, nil, nil, nil, domainValidationError("signing_tokens", "agreement_id|recipient_id", "required")
 	}
 
 	agreement, err := s.agreements.GetAgreement(ctx, scope, agreementID)
 	if err != nil {
-		return stores.AgreementRecord{}, stores.RecipientRecord{}, stores.RecipientRecord{}, nil, nil, err
+		return stores.AgreementRecord{}, stores.RecipientRecord{}, 0, nil, nil, nil, err
+	}
+	switch strings.TrimSpace(agreement.Status) {
+	case stores.AgreementStatusSent, stores.AgreementStatusInProgress, stores.AgreementStatusCompleted:
+		// valid token-backed signer access states
+	default:
+		return stores.AgreementRecord{}, stores.RecipientRecord{}, 0, nil, nil, nil, domainValidationError("agreements", "status", "signer token is invalid for agreement status")
 	}
 	recipients, err := s.agreements.ListRecipients(ctx, scope, agreementID)
 	if err != nil {
-		return stores.AgreementRecord{}, stores.RecipientRecord{}, stores.RecipientRecord{}, nil, nil, err
+		return stores.AgreementRecord{}, stores.RecipientRecord{}, 0, nil, nil, nil, err
 	}
 	fields, err := s.agreements.ListFields(ctx, scope, agreementID)
 	if err != nil {
-		return stores.AgreementRecord{}, stores.RecipientRecord{}, stores.RecipientRecord{}, nil, nil, err
+		return stores.AgreementRecord{}, stores.RecipientRecord{}, 0, nil, nil, nil, err
 	}
 	recipient, ok := findRecipientByID(recipients, recipientID)
 	if !ok {
-		return stores.AgreementRecord{}, stores.RecipientRecord{}, stores.RecipientRecord{}, nil, nil, domainValidationError("recipients", "id", "not found for token")
+		return stores.AgreementRecord{}, stores.RecipientRecord{}, 0, nil, nil, nil, domainValidationError("recipients", "id", "not found for token")
 	}
-	activeSigner, _ := currentSequentialSigner(recipients)
-	return agreement, recipient, activeSigner, recipients, fields, nil
+	activeStage, activeSigners, _ := activeSignerStageFromRecipients(recipients)
+	return agreement, recipient, activeStage, activeSigners, recipients, fields, nil
 }
 
 func (s SigningService) findFieldValueByField(ctx context.Context, scope stores.Scope, agreementID, recipientID, fieldID string) (stores.FieldValueRecord, bool, error) {
@@ -1427,6 +1539,145 @@ func (s SigningService) submitIdempotencyKey(scope stores.Scope, agreementID, re
 		strings.TrimSpace(recipientID),
 		strings.TrimSpace(idempotencyKey),
 	}, "|")
+}
+
+func (s SigningService) consentCaptured(ctx context.Context, scope stores.Scope, agreementID, recipientID string) bool {
+	if _, ok := s.getConsentAccepted(signingFlowKey(scope, agreementID, recipientID)); ok {
+		return true
+	}
+	return s.wasConsentCapturedInAudit(ctx, scope, agreementID, recipientID)
+}
+
+func (s SigningService) wasConsentCapturedInAudit(ctx context.Context, scope stores.Scope, agreementID, recipientID string) bool {
+	if s.audits == nil {
+		return false
+	}
+	agreementID = strings.TrimSpace(agreementID)
+	recipientID = strings.TrimSpace(recipientID)
+	if agreementID == "" || recipientID == "" {
+		return false
+	}
+	events, err := s.audits.ListForAgreement(ctx, scope, agreementID, stores.AuditEventQuery{SortDesc: true})
+	if err != nil {
+		return false
+	}
+	for _, event := range events {
+		if strings.TrimSpace(event.EventType) != "signer.consent_captured" {
+			continue
+		}
+		if strings.TrimSpace(event.ActorID) == recipientID {
+			return true
+		}
+	}
+	return false
+}
+
+func (s SigningService) resolveSubmitReplayFromAudit(ctx context.Context, scope stores.Scope, agreementID, recipientID, idempotencyKey string) (SignerSubmitResult, bool, error) {
+	if s.audits == nil || s.agreements == nil {
+		return SignerSubmitResult{}, false, nil
+	}
+	agreementID = strings.TrimSpace(agreementID)
+	recipientID = strings.TrimSpace(recipientID)
+	idempotencyKey = strings.TrimSpace(idempotencyKey)
+	if agreementID == "" || recipientID == "" || idempotencyKey == "" {
+		return SignerSubmitResult{}, false, nil
+	}
+	events, err := s.audits.ListForAgreement(ctx, scope, agreementID, stores.AuditEventQuery{SortDesc: true})
+	if err != nil {
+		return SignerSubmitResult{}, false, err
+	}
+	var submitMetadata map[string]any
+	for _, event := range events {
+		if strings.TrimSpace(event.EventType) != "signer.submitted" {
+			continue
+		}
+		if strings.TrimSpace(event.ActorID) != recipientID {
+			continue
+		}
+		metadataJSON := strings.TrimSpace(event.MetadataJSON)
+		if metadataJSON == "" {
+			continue
+		}
+		decoded := map[string]any{}
+		if err := json.Unmarshal([]byte(metadataJSON), &decoded); err != nil {
+			continue
+		}
+		if strings.TrimSpace(fmt.Sprint(decoded["idempotency_key"])) != idempotencyKey {
+			continue
+		}
+		submitMetadata = decoded
+		break
+	}
+	if submitMetadata == nil {
+		return SignerSubmitResult{}, false, nil
+	}
+
+	agreement, err := s.agreements.GetAgreement(ctx, scope, agreementID)
+	if err != nil {
+		return SignerSubmitResult{}, false, err
+	}
+	recipients, err := s.agreements.ListRecipients(ctx, scope, agreementID)
+	if err != nil {
+		return SignerSubmitResult{}, false, err
+	}
+	recipient, ok := findRecipientByID(recipients, recipientID)
+	if !ok {
+		return SignerSubmitResult{}, false, domainValidationError("recipients", "id", "not found for token")
+	}
+
+	nextRecipientIDs := metadataStringSlice(submitMetadata["next_recipient_ids"])
+	nextRecipientID := strings.TrimSpace(fmt.Sprint(submitMetadata["next_recipient_id"]))
+	if nextRecipientID == "" {
+		nextRecipientID = coalesceFirst(nextRecipientIDs)
+	}
+	nextStage := int(toInt64Any(submitMetadata["next_stage"]))
+	completed := metadataBool(submitMetadata["agreement_completed"])
+
+	return SignerSubmitResult{
+		Agreement:        agreement,
+		Recipient:        recipient,
+		NextRecipientID:  nextRecipientID,
+		NextRecipientIDs: nextRecipientIDs,
+		NextStage:        nextStage,
+		Completed:        completed,
+	}, true, nil
+}
+
+func metadataStringSlice(value any) []string {
+	out := make([]string, 0)
+	switch typed := value.(type) {
+	case []string:
+		for _, item := range typed {
+			item = strings.TrimSpace(item)
+			if item != "" {
+				out = append(out, item)
+			}
+		}
+	case []any:
+		for _, item := range typed {
+			candidate := strings.TrimSpace(fmt.Sprint(item))
+			if candidate != "" {
+				out = append(out, candidate)
+			}
+		}
+	default:
+		candidate := strings.TrimSpace(fmt.Sprint(value))
+		if candidate != "" && candidate != "<nil>" {
+			out = append(out, candidate)
+		}
+	}
+	return out
+}
+
+func metadataBool(value any) bool {
+	switch typed := value.(type) {
+	case bool:
+		return typed
+	case string:
+		return strings.EqualFold(strings.TrimSpace(typed), "true")
+	default:
+		return false
+	}
 }
 
 func (s SigningService) ensureRequiredFieldsCompleted(ctx context.Context, scope stores.Scope, agreementID, recipientID string, fields []stores.FieldRecord) error {
@@ -1491,26 +1742,11 @@ func updateRecipientSnapshot(recipients []stores.RecipientRecord, updated stores
 	return next
 }
 
-func nextSequentialSignerID(recipients []stores.RecipientRecord, completedRecipientID string) string {
-	signers := make([]stores.RecipientRecord, 0)
-	for _, rec := range recipients {
-		if rec.Role != stores.RecipientRoleSigner {
-			continue
-		}
-		signers = append(signers, rec)
+func normalizeSigningStage(stage int) int {
+	if stage <= 0 {
+		return 1
 	}
-	sort.Slice(signers, func(i, j int) bool {
-		return signers[i].SigningOrder < signers[j].SigningOrder
-	})
-	for _, signer := range signers {
-		if strings.TrimSpace(signer.ID) == strings.TrimSpace(completedRecipientID) {
-			continue
-		}
-		if signer.CompletedAt == nil && signer.DeclinedAt == nil {
-			return signer.ID
-		}
-	}
-	return ""
+	return stage
 }
 
 func normalizeFieldGeometry(field stores.FieldRecord, pageCount int, pagesByNumber map[int]SignerSessionViewerPage) (int, float64, float64, float64, float64, SignerSessionViewerPage) {

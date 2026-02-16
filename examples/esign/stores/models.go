@@ -49,6 +49,37 @@ const (
 	SourceTypeGoogleDrive = "google_drive"
 )
 
+const (
+	MappingSpecStatusDraft     = "draft"
+	MappingSpecStatusPublished = "published"
+)
+
+const (
+	IntegrationSyncRunStatusPending   = "pending"
+	IntegrationSyncRunStatusRunning   = "running"
+	IntegrationSyncRunStatusCompleted = "completed"
+	IntegrationSyncRunStatusFailed    = "failed"
+)
+
+const (
+	IntegrationConflictStatusPending  = "pending"
+	IntegrationConflictStatusResolved = "resolved"
+	IntegrationConflictStatusIgnored  = "ignored"
+)
+
+const (
+	PlacementSourceAuto   = "auto"
+	PlacementSourceManual = "manual"
+)
+
+const (
+	PlacementRunStatusCompleted       = "completed"
+	PlacementRunStatusPartial         = "partial"
+	PlacementRunStatusBudgetExhausted = "budget_exhausted"
+	PlacementRunStatusTimedOut        = "timed_out"
+	PlacementRunStatusFailed          = "failed"
+)
+
 // DocumentRecord captures immutable source PDF metadata.
 type DocumentRecord struct {
 	ID                     string
@@ -153,20 +184,21 @@ type SigningTokenRecord struct {
 
 // FieldRecord stores e-sign field placements and assignment.
 type FieldRecord struct {
-	ID          string
-	TenantID    string
-	OrgID       string
-	AgreementID string
-	RecipientID string
-	Type        string
-	PageNumber  int
-	PosX        float64
-	PosY        float64
-	Width       float64
-	Height      float64
-	Required    bool
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID                string
+	FieldDefinitionID string
+	TenantID          string
+	OrgID             string
+	AgreementID       string
+	RecipientID       string
+	Type              string
+	PageNumber        int
+	PosX              float64
+	PosY              float64
+	Width             float64
+	Height            float64
+	Required          bool
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 }
 
 // FieldDefinitionRecord is the canonical v2 logical field model.
@@ -198,8 +230,67 @@ type FieldInstanceRecord struct {
 	TabIndex          int
 	Label             string
 	AppearanceJSON    string
+	PlacementSource   string
+	ResolverID        string
+	Confidence        float64
+	PlacementRunID    string
+	ManualOverride    bool
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
+}
+
+// PlacementSuggestionRecord stores one suggestion emitted during a placement run.
+type PlacementSuggestionRecord struct {
+	ID                string
+	FieldDefinitionID string
+	ResolverID        string
+	Confidence        float64
+	PageNumber        int
+	X                 float64
+	Y                 float64
+	Width             float64
+	Height            float64
+	Label             string
+	MetadataJSON      string
+}
+
+// PlacementResolverScore stores per-resolver ranking metadata for a placement run.
+type PlacementResolverScore struct {
+	ResolverID string
+	Accuracy   float64
+	Cost       float64
+	Latency    float64
+	Score      float64
+	Supported  bool
+	Reason     string
+}
+
+// PlacementRunRecord stores placement-run execution and audit metadata.
+type PlacementRunRecord struct {
+	ID                      string
+	TenantID                string
+	OrgID                   string
+	AgreementID             string
+	Status                  string
+	ReasonCode              string
+	ResolverOrder           []string
+	ExecutedResolvers       []string
+	ResolverScores          []PlacementResolverScore
+	Suggestions             []PlacementSuggestionRecord
+	SelectedSuggestionIDs   []string
+	UnresolvedDefinitionIDs []string
+	SelectedSource          string
+	PolicyJSON              string
+	MaxBudget               float64
+	BudgetUsed              float64
+	MaxTimeMS               int64
+	ElapsedMS               int64
+	ManualOverrideCount     int
+	CreatedByUserID         string
+	Version                 int64
+	CreatedAt               time.Time
+	UpdatedAt               time.Time
+	CompletedAt             *time.Time
 }
 
 // FieldValueRecord stores signer-provided values for fields.
@@ -325,6 +416,139 @@ type IntegrationCredentialRecord struct {
 	UpdatedAt             time.Time
 }
 
+// ExternalFieldRef is the canonical normalized field descriptor for an external provider schema.
+type ExternalFieldRef struct {
+	Object          string
+	Field           string
+	Type            string
+	Required        bool
+	ConstraintsJSON string
+}
+
+// ExternalSchema captures a provider-agnostic external object schema contract.
+type ExternalSchema struct {
+	ObjectType string
+	Version    string
+	Fields     []ExternalFieldRef
+}
+
+// MappingRule maps an external source field to an internal e-sign target attribute.
+type MappingRule struct {
+	SourceObject string
+	SourceField  string
+	TargetEntity string
+	TargetPath   string
+	Required     bool
+	DefaultValue string
+	Transform    string
+}
+
+// MappingSpecRecord stores a versioned provider-agnostic mapping contract.
+type MappingSpecRecord struct {
+	ID              string
+	TenantID        string
+	OrgID           string
+	Provider        string
+	Name            string
+	Version         int64
+	Status          string
+	ExternalSchema  ExternalSchema
+	Rules           []MappingRule
+	CompiledJSON    string
+	CompiledHash    string
+	PublishedAt     *time.Time
+	CreatedByUserID string
+	UpdatedByUserID string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
+// IntegrationBindingRecord stores external-to-internal identity bindings with provenance.
+type IntegrationBindingRecord struct {
+	ID             string
+	TenantID       string
+	OrgID          string
+	Provider       string
+	EntityKind     string
+	ExternalID     string
+	InternalID     string
+	ProvenanceJSON string
+	Version        int64
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+}
+
+// IntegrationSyncRunRecord stores sync run lifecycle and resumable progress metadata.
+type IntegrationSyncRunRecord struct {
+	ID              string
+	TenantID        string
+	OrgID           string
+	Provider        string
+	Direction       string
+	MappingSpecID   string
+	Status          string
+	Cursor          string
+	LastError       string
+	AttemptCount    int
+	Version         int64
+	StartedAt       time.Time
+	CompletedAt     *time.Time
+	CreatedByUserID string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
+// IntegrationCheckpointRecord stores resumable checkpoint markers for a sync run.
+type IntegrationCheckpointRecord struct {
+	ID            string
+	TenantID      string
+	OrgID         string
+	RunID         string
+	CheckpointKey string
+	Cursor        string
+	PayloadJSON   string
+	Version       int64
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+}
+
+// IntegrationConflictRecord stores explicit integration conflicts requiring operator action.
+type IntegrationConflictRecord struct {
+	ID               string
+	TenantID         string
+	OrgID            string
+	RunID            string
+	BindingID        string
+	Provider         string
+	EntityKind       string
+	ExternalID       string
+	InternalID       string
+	Status           string
+	Reason           string
+	PayloadJSON      string
+	ResolutionJSON   string
+	ResolvedByUserID string
+	ResolvedAt       *time.Time
+	Version          int64
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+}
+
+// IntegrationChangeEventRecord stores normalized outbound change envelopes.
+type IntegrationChangeEventRecord struct {
+	ID             string
+	TenantID       string
+	OrgID          string
+	AgreementID    string
+	Provider       string
+	EventType      string
+	SourceEventID  string
+	IdempotencyKey string
+	PayloadJSON    string
+	EmittedAt      time.Time
+	CreatedAt      time.Time
+}
+
 type DocumentQuery struct {
 	TitleContains string
 	Limit         int
@@ -397,6 +621,11 @@ type FieldInstanceDraftPatch struct {
 	TabIndex          *int
 	Label             *string
 	AppearanceJSON    *string
+	PlacementSource   *string
+	ResolverID        *string
+	Confidence        *float64
+	PlacementRunID    *string
+	ManualOverride    *bool
 }
 
 type AgreementTransitionInput struct {

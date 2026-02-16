@@ -328,6 +328,75 @@ func TestMigrationsExposeGoogleSourceMetadataAndCredentialTable(t *testing.T) {
 	}
 }
 
+func TestMigrationsExposeIntegrationFoundationTablesAndColumns(t *testing.T) {
+	client, cleanup := newSQLiteMigrationClient(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	if err := client.Migrate(ctx); err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+
+	requiredTables := []string{
+		"integration_mapping_specs",
+		"integration_bindings",
+		"integration_sync_runs",
+		"integration_checkpoints",
+		"integration_conflicts",
+		"integration_change_events",
+		"integration_mutation_claims",
+	}
+	for _, table := range requiredTables {
+		exists, err := tableExists(ctx, client.DB(), table)
+		if err != nil {
+			t.Fatalf("tableExists(%s): %v", table, err)
+		}
+		if !exists {
+			t.Fatalf("expected table %s to exist", table)
+		}
+	}
+
+	mappingCols, err := tableColumnNames(ctx, client.DB(), "integration_mapping_specs")
+	if err != nil {
+		t.Fatalf("tableColumnNames(integration_mapping_specs): %v", err)
+	}
+	for _, col := range []string{"provider", "name", "version", "status", "external_schema_json", "rules_json", "compiled_json", "compiled_hash"} {
+		if !contains(mappingCols, col) {
+			t.Fatalf("expected integration_mapping_specs.%s column", col)
+		}
+	}
+
+	bindingCols, err := tableColumnNames(ctx, client.DB(), "integration_bindings")
+	if err != nil {
+		t.Fatalf("tableColumnNames(integration_bindings): %v", err)
+	}
+	for _, col := range []string{"provider", "entity_kind", "external_id", "internal_id", "provenance_json", "version"} {
+		if !contains(bindingCols, col) {
+			t.Fatalf("expected integration_bindings.%s column", col)
+		}
+	}
+
+	syncRunCols, err := tableColumnNames(ctx, client.DB(), "integration_sync_runs")
+	if err != nil {
+		t.Fatalf("tableColumnNames(integration_sync_runs): %v", err)
+	}
+	for _, col := range []string{"provider", "direction", "mapping_spec_id", "status", "cursor", "last_error", "attempt_count", "version"} {
+		if !contains(syncRunCols, col) {
+			t.Fatalf("expected integration_sync_runs.%s column", col)
+		}
+	}
+
+	conflictCols, err := tableColumnNames(ctx, client.DB(), "integration_conflicts")
+	if err != nil {
+		t.Fatalf("tableColumnNames(integration_conflicts): %v", err)
+	}
+	for _, col := range []string{"run_id", "binding_id", "status", "reason", "resolution_json", "resolved_by_user_id"} {
+		if !contains(conflictCols, col) {
+			t.Fatalf("expected integration_conflicts.%s column", col)
+		}
+	}
+}
+
 func TestMigrationsEnforceRecipientLifecycleConstraints(t *testing.T) {
 	client, cleanup := newSQLiteMigrationClient(t)
 	defer cleanup()

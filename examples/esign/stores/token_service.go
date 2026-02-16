@@ -90,6 +90,17 @@ func WithTokenPepper(pepper string) TokenServiceOption {
 	}
 }
 
+// ForTx returns a copy of the token service bound to the provided tx store.
+// The returned service does not open nested transactions.
+func (s TokenService) ForTx(tx TxStore) TokenService {
+	if tx == nil {
+		return s
+	}
+	s.store = tx
+	s.tx = nil
+	return s
+}
+
 func (s TokenService) Issue(ctx context.Context, scope Scope, agreementID, recipientID string) (IssuedSigningToken, error) {
 	if s.tx != nil {
 		var issued IssuedSigningToken

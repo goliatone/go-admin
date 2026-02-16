@@ -10,9 +10,10 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/stores"
 )
 
-func stringPtr(v string) *string { return &v }
-func intPtr(v int) *int          { return &v }
-func boolPtr(v bool) *bool       { return &v }
+func stringPtr(v string) *string  { return &v }
+func intPtr(v int) *int           { return &v }
+func boolPtr(v bool) *bool        { return &v }
+func floatPtr(v float64) *float64 { return &v }
 
 type stubAgreementEmailWorkflow struct {
 	sentCalls       int
@@ -25,6 +26,49 @@ type stubAgreementEmailWorkflow struct {
 	lastToken       string
 	sentErr         error
 	resentErr       error
+}
+
+type capturingAgreementTokenService struct {
+	inner   AgreementTokenService
+	issued  []stores.IssuedSigningToken
+	rotated []stores.IssuedSigningToken
+}
+
+func (c *capturingAgreementTokenService) Issue(ctx context.Context, scope stores.Scope, agreementID, recipientID string) (stores.IssuedSigningToken, error) {
+	issued, err := c.inner.Issue(ctx, scope, agreementID, recipientID)
+	if err == nil {
+		c.issued = append(c.issued, issued)
+	}
+	return issued, err
+}
+
+func (c *capturingAgreementTokenService) Rotate(ctx context.Context, scope stores.Scope, agreementID, recipientID string) (stores.IssuedSigningToken, error) {
+	issued, err := c.inner.Rotate(ctx, scope, agreementID, recipientID)
+	if err == nil {
+		c.rotated = append(c.rotated, issued)
+	}
+	return issued, err
+}
+
+func (c *capturingAgreementTokenService) Revoke(ctx context.Context, scope stores.Scope, agreementID, recipientID string) error {
+	return c.inner.Revoke(ctx, scope, agreementID, recipientID)
+}
+
+func (c *capturingAgreementTokenService) ForTx(tx stores.TxStore) AgreementTokenService {
+	if c == nil || tx == nil {
+		return c
+	}
+	switch inner := c.inner.(type) {
+	case stores.TokenService:
+		c.inner = inner.ForTx(tx)
+	case *stores.TokenService:
+		c.inner = inner.ForTx(tx)
+	case interface {
+		ForTx(tx stores.TxStore) AgreementTokenService
+	}:
+		c.inner = inner.ForTx(tx)
+	}
+	return c
 }
 
 func (s *stubAgreementEmailWorkflow) OnAgreementSent(_ context.Context, scope stores.Scope, notification AgreementNotification) error {
@@ -59,7 +103,7 @@ func setupDraftAgreement(t *testing.T) (context.Context, stores.Scope, *stores.I
 	doc, err := docSvc.Upload(ctx, scope, DocumentUploadInput{
 		Title:     "Master Services Agreement",
 		ObjectKey: "tenant/tenant-1/org/org-1/docs/doc-1/original.pdf",
-		PDF:       samplePDF(1),
+		PDF:       samplePDF(2),
 	})
 	if err != nil {
 		t.Fatalf("Upload: %v", err)
@@ -295,8 +339,153 @@ func TestAgreementServiceValidateBeforeSend(t *testing.T) {
 	}
 }
 
-func TestAgreementServiceSendIdempotency(t *testing.T) {
+func TestAgreementServiceValidateBeforeSendFlagsOutOfBoundsPagePlacements(t *testing.T) {
+	ctx, scope, store, svc, agreement := setupDraftAgreement(t)
+
+	signerRole := stores.RecipientRoleSigner
+	stage := 1
+	signer, err := store.UpsertParticipantDraft(ctx, scope, agreement.ID, stores.ParticipantDraftPatch{
+		Email:        stringPtr("signer@example.com"),
+		Role:         &signerRole,
+		SigningStage: &stage,
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertParticipantDraft: %v", err)
+	}
+	definitionType := stores.FieldTypeSignature
+	required := true
+	definition, err := store.UpsertFieldDefinitionDraft(ctx, scope, agreement.ID, stores.FieldDefinitionDraftPatch{
+		ParticipantID: &signer.ID,
+		Type:          &definitionType,
+		Required:      &required,
+	})
+	if err != nil {
+		t.Fatalf("UpsertFieldDefinitionDraft: %v", err)
+	}
+	pageNumber := 3 // Source document has 2 pages in setup fixture.
+	if _, err := store.UpsertFieldInstanceDraft(ctx, scope, agreement.ID, stores.FieldInstanceDraftPatch{
+		FieldDefinitionID: &definition.ID,
+		PageNumber:        &pageNumber,
+		X:                 floatPtr(10),
+		Y:                 floatPtr(20),
+		Width:             floatPtr(100),
+		Height:            floatPtr(30),
+	}); err != nil {
+		t.Fatalf("UpsertFieldInstanceDraft: %v", err)
+	}
+
+	validation, err := svc.ValidateBeforeSend(ctx, scope, agreement.ID)
+	if err != nil {
+		t.Fatalf("ValidateBeforeSend: %v", err)
+	}
+	if validation.Valid {
+		t.Fatal("expected validation to fail for out-of-document page placement")
+	}
+	found := false
+	for _, issue := range validation.Issues {
+		if issue.Field == "field_instances.page_number" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected page_number validation issue, got %+v", validation.Issues)
+	}
+}
+
+func TestAgreementServiceV2AuthoringCRUDAndGeometryBounds(t *testing.T) {
 	ctx, scope, _, svc, agreement := setupDraftAgreement(t)
+
+	signerRole := stores.RecipientRoleSigner
+	stage := 1
+	participant, err := svc.UpsertParticipantDraft(ctx, scope, agreement.ID, stores.ParticipantDraftPatch{
+		Email:        stringPtr("signer@example.com"),
+		Name:         stringPtr("Primary Signer"),
+		Role:         &signerRole,
+		SigningStage: &stage,
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertParticipantDraft: %v", err)
+	}
+
+	definitionType := stores.FieldTypeSignature
+	required := true
+	definition, err := svc.UpsertFieldDefinitionDraft(ctx, scope, agreement.ID, stores.FieldDefinitionDraftPatch{
+		ParticipantID: &participant.ID,
+		Type:          &definitionType,
+		Required:      &required,
+	})
+	if err != nil {
+		t.Fatalf("UpsertFieldDefinitionDraft: %v", err)
+	}
+
+	page := 1
+	x := 22.5
+	y := 33.5
+	width := 120.0
+	height := 28.0
+	tabIndex := 1
+	instance, err := svc.UpsertFieldInstanceDraft(ctx, scope, agreement.ID, stores.FieldInstanceDraftPatch{
+		FieldDefinitionID: &definition.ID,
+		PageNumber:        &page,
+		X:                 &x,
+		Y:                 &y,
+		Width:             &width,
+		Height:            &height,
+		TabIndex:          &tabIndex,
+	})
+	if err != nil {
+		t.Fatalf("UpsertFieldInstanceDraft: %v", err)
+	}
+	if instance.TabIndex != tabIndex {
+		t.Fatalf("expected tab_index %d, got %d", tabIndex, instance.TabIndex)
+	}
+
+	if _, err := svc.UpsertFieldInstanceDraft(ctx, scope, agreement.ID, stores.FieldInstanceDraftPatch{
+		FieldDefinitionID: &definition.ID,
+		PageNumber:        intPtr(3),
+		X:                 floatPtr(10),
+		Y:                 floatPtr(20),
+		Width:             floatPtr(100),
+		Height:            floatPtr(30),
+	}); err == nil {
+		t.Fatal("expected out-of-bounds page_number to be rejected")
+	}
+
+	participants, err := svc.ListParticipants(ctx, scope, agreement.ID)
+	if err != nil {
+		t.Fatalf("ListParticipants: %v", err)
+	}
+	if len(participants) != 1 {
+		t.Fatalf("expected 1 participant, got %d", len(participants))
+	}
+
+	definitions, err := svc.ListFieldDefinitions(ctx, scope, agreement.ID)
+	if err != nil {
+		t.Fatalf("ListFieldDefinitions: %v", err)
+	}
+	if len(definitions) != 1 {
+		t.Fatalf("expected 1 definition, got %d", len(definitions))
+	}
+
+	instances, err := svc.ListFieldInstances(ctx, scope, agreement.ID)
+	if err != nil {
+		t.Fatalf("ListFieldInstances: %v", err)
+	}
+	if len(instances) != 1 {
+		t.Fatalf("expected 1 instance, got %d", len(instances))
+	}
+
+	if err := svc.DeleteFieldInstanceDraft(ctx, scope, agreement.ID, instance.ID); err != nil {
+		t.Fatalf("DeleteFieldInstanceDraft: %v", err)
+	}
+	if err := svc.DeleteParticipantDraft(ctx, scope, agreement.ID, participant.ID); err != nil {
+		t.Fatalf("DeleteParticipantDraft: %v", err)
+	}
+}
+
+func TestAgreementServiceSendIdempotency(t *testing.T) {
+	ctx, scope, store, svc, agreement := setupDraftAgreement(t)
 
 	signer, err := svc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        stringPtr("signer@example.com"),
@@ -323,7 +512,8 @@ func TestAgreementServiceSendIdempotency(t *testing.T) {
 		t.Fatalf("expected sent status, got %q", first.Status)
 	}
 
-	second, err := svc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "send-key-1"})
+	restarted := NewAgreementService(store)
+	second, err := restarted.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "send-key-1"})
 	if err != nil {
 		t.Fatalf("Send second idempotent: %v", err)
 	}
@@ -604,6 +794,61 @@ func TestAgreementServiceVoidRevokesSignerTokens(t *testing.T) {
 	}
 }
 
+func TestAgreementServiceVoidRevokesMixedStageTokens(t *testing.T) {
+	ctx, scope, store, _, agreement := setupDraftAgreement(t)
+	tokenService := stores.NewTokenService(store)
+	capturingTokens := &capturingAgreementTokenService{inner: tokenService}
+	svc := NewAgreementService(store, WithAgreementTokenService(capturingTokens))
+
+	signerStageOne, err := svc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("stage1@example.com"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: intPtr(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft stage one signer: %v", err)
+	}
+	signerStageTwo, err := svc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("stage2@example.com"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: intPtr(2),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft stage two signer: %v", err)
+	}
+	for _, signer := range []stores.RecipientRecord{signerStageOne, signerStageTwo} {
+		if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+			RecipientID: &signer.ID,
+			Type:        stringPtr(stores.FieldTypeSignature),
+			PageNumber:  intPtr(1),
+			Required:    boolPtr(true),
+		}); err != nil {
+			t.Fatalf("UpsertFieldDraft signer %s: %v", signer.ID, err)
+		}
+	}
+
+	if _, err := svc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "send-mixed-stage-void"}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	if len(capturingTokens.issued) != 2 {
+		t.Fatalf("expected send to issue tokens for both mixed-stage signers, got %d", len(capturingTokens.issued))
+	}
+
+	voided, err := svc.Void(ctx, scope, agreement.ID, VoidInput{RevokeTokens: true, Reason: "cancelled"})
+	if err != nil {
+		t.Fatalf("Void: %v", err)
+	}
+	if voided.Status != stores.AgreementStatusVoided {
+		t.Fatalf("expected voided status, got %q", voided.Status)
+	}
+
+	for _, issued := range capturingTokens.issued {
+		if _, err := tokenService.Validate(ctx, scope, issued.Token); err == nil {
+			t.Fatalf("expected token %q to be revoked after void", issued.Token)
+		}
+	}
+}
+
 func TestAgreementServiceEmitsCanonicalAuditEvents(t *testing.T) {
 	ctx, scope, store, svc, agreement := setupDraftAgreement(t)
 	tokenService := stores.NewTokenService(store)
@@ -704,6 +949,61 @@ func TestAgreementServiceExpireRevokesTokens(t *testing.T) {
 
 	if _, err := svc.Expire(ctx, scope, agreement.ID, ExpireInput{Reason: "repeat"}); err == nil {
 		t.Fatal("expected second expiry call to be rejected")
+	}
+}
+
+func TestAgreementServiceExpireRevokesMixedStageTokens(t *testing.T) {
+	ctx, scope, store, _, agreement := setupDraftAgreement(t)
+	tokenService := stores.NewTokenService(store)
+	capturingTokens := &capturingAgreementTokenService{inner: tokenService}
+	svc := NewAgreementService(store, WithAgreementTokenService(capturingTokens))
+
+	signerStageOne, err := svc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("stage1@example.com"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: intPtr(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft stage one signer: %v", err)
+	}
+	signerStageTwo, err := svc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("stage2@example.com"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: intPtr(2),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft stage two signer: %v", err)
+	}
+	for _, signer := range []stores.RecipientRecord{signerStageOne, signerStageTwo} {
+		if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+			RecipientID: &signer.ID,
+			Type:        stringPtr(stores.FieldTypeSignature),
+			PageNumber:  intPtr(1),
+			Required:    boolPtr(true),
+		}); err != nil {
+			t.Fatalf("UpsertFieldDraft signer %s: %v", signer.ID, err)
+		}
+	}
+
+	if _, err := svc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "send-mixed-stage-expire"}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	if len(capturingTokens.issued) != 2 {
+		t.Fatalf("expected send to issue tokens for both mixed-stage signers, got %d", len(capturingTokens.issued))
+	}
+
+	expired, err := svc.Expire(ctx, scope, agreement.ID, ExpireInput{Reason: "time window elapsed"})
+	if err != nil {
+		t.Fatalf("Expire: %v", err)
+	}
+	if expired.Status != stores.AgreementStatusExpired {
+		t.Fatalf("expected expired status, got %q", expired.Status)
+	}
+
+	for _, issued := range capturingTokens.issued {
+		if _, err := tokenService.Validate(ctx, scope, issued.Token); err == nil {
+			t.Fatalf("expected token %q to be revoked after expiry", issued.Token)
+		}
 	}
 }
 

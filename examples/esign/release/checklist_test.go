@@ -73,6 +73,7 @@ func TestChecklistValidatePassesForApprovedChecklist(t *testing.T) {
 			UsesMockDependencies:    false,
 			RequiresManualPatches:   false,
 			APIOnlyFallbackDetected: false,
+			LegacyRuntimePathActive: false,
 		},
 		Productization: ProductizationExitSummary{
 			RecipientJourneyFromSignLink: true,
@@ -125,6 +126,7 @@ func TestChecklistValidateRejectsAPIOnlyFallback(t *testing.T) {
 			UsesMockDependencies:    false,
 			RequiresManualPatches:   false,
 			APIOnlyFallbackDetected: true,
+			LegacyRuntimePathActive: false,
 		},
 		Productization: ProductizationExitSummary{
 			RecipientJourneyFromSignLink: true,
@@ -151,6 +153,49 @@ func TestChecklistValidateRejectsAPIOnlyFallback(t *testing.T) {
 	}
 }
 
+func TestChecklistValidateRejectsLegacyRuntimePath(t *testing.T) {
+	checklist := Checklist{
+		ReleaseID: "esign-2026.02.10-rc1",
+		Track:     "A",
+		Phase:     "25",
+		Signoffs: map[string]Signoff{
+			TeamBackend:  {Approved: true, Approver: "be-lead", ApprovedAt: "2026-02-10T17:00:00Z"},
+			TeamFrontend: {Approved: true, Approver: "fe-lead", ApprovedAt: "2026-02-10T17:05:00Z"},
+			TeamQA:       {Approved: true, Approver: "qa-lead", ApprovedAt: "2026-02-10T17:10:00Z"},
+			TeamOps:      {Approved: true, Approver: "ops-lead", ApprovedAt: "2026-02-10T17:15:00Z"},
+		},
+		Security: SecurityReviewSummary{HighSeverityOpen: 0},
+		Runtime: RuntimeReadinessSummary{
+			UsesMockDependencies:    false,
+			RequiresManualPatches:   false,
+			APIOnlyFallbackDetected: false,
+			LegacyRuntimePathActive: true,
+		},
+		Productization: ProductizationExitSummary{
+			RecipientJourneyFromSignLink: true,
+			InvitationLinkActionable:     true,
+			CompletionLinkActionable:     true,
+			PrimaryCTANotContractJSON:    true,
+			CISmokeWorkflowPassed:        true,
+			CISmokeRef:                   "ci/esign-smoke/125",
+		},
+		SLOSnapshot: observability.MetricsSnapshot{
+			AdminReadP95MS:          250,
+			SendP95MS:               500,
+			EmailDispatchStartP99MS: 20_000,
+			FinalizeP99MS:           80_000,
+			JobSuccessTotal:         999,
+			JobFailureTotal:         1,
+		},
+	}
+
+	issues := checklist.Validate()
+	joined := strings.Join(issues, " | ")
+	if !strings.Contains(joined, "legacy signer flow") {
+		t.Fatalf("expected legacy runtime-path validation issue, got %s", joined)
+	}
+}
+
 func TestChecklistValidateRejectsMissingProductizationAssertions(t *testing.T) {
 	checklist := Checklist{
 		ReleaseID: "esign-2026.02.10-rc1",
@@ -167,6 +212,7 @@ func TestChecklistValidateRejectsMissingProductizationAssertions(t *testing.T) {
 			UsesMockDependencies:    false,
 			RequiresManualPatches:   false,
 			APIOnlyFallbackDetected: false,
+			LegacyRuntimePathActive: false,
 		},
 		Productization: ProductizationExitSummary{
 			RecipientJourneyFromSignLink: false,
