@@ -274,6 +274,15 @@ func TestSetup_MisconfigurationFailures(t *testing.T) {
 			}(),
 			adm: newTestAdmin(t),
 		},
+		{
+			name: "invalid callbacks public base url",
+			cfg: func() Config {
+				cfg := base
+				cfg.Callbacks.PublicBaseURL = "://bad-url"
+				return cfg
+			}(),
+			adm: newTestAdmin(t),
+		},
 	}
 
 	for _, tc := range tests {
@@ -323,6 +332,39 @@ func TestSetup_LifecycleConfigOverride(t *testing.T) {
 	}
 	if len(resolved.Projectors.Notifications.DefinitionMap) != 1 {
 		t.Fatalf("expected notifications definition map override")
+	}
+}
+
+func TestSetup_CallbackURLConfigOverride(t *testing.T) {
+	client := newTestPersistenceClient(t)
+	adm := newTestAdmin(t)
+
+	cfg := DefaultConfig()
+	cfg.Enabled = true
+	cfg.EncryptionKey = "test-services-key"
+	cfg.PersistenceClient = client
+
+	module, err := Setup(adm, cfg, WithRegisterMigrations(false), WithCallbackURLConfig(CallbackURLConfig{
+		Strict:               true,
+		PublicBaseURL:        "https://callbacks.example.com",
+		ProviderRoutes:       map[string]string{"github": "custom.github.callback"},
+		ProviderURLOverrides: map[string]string{"google_drive": "https://alt.example.com/oauth/google-drive/callback"},
+	}))
+	if err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+
+	if !module.config.Callbacks.Strict {
+		t.Fatalf("expected callbacks.strict override")
+	}
+	if got := strings.TrimSpace(module.config.Callbacks.PublicBaseURL); got != "https://callbacks.example.com" {
+		t.Fatalf("expected callbacks.public_base_url override, got %q", got)
+	}
+	if got := module.config.Callbacks.ProviderRoutes["github"]; got != "custom.github.callback" {
+		t.Fatalf("expected provider route override, got %q", got)
+	}
+	if got := module.config.Callbacks.ProviderURLOverrides["google_drive"]; got != "https://alt.example.com/oauth/google-drive/callback" {
+		t.Fatalf("expected provider url override, got %q", got)
 	}
 }
 

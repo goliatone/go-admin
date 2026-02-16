@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
+	"net/url"
 	"strings"
 	"time"
 
@@ -15,6 +16,10 @@ import (
 	goservicesinbound "github.com/goliatone/go-services/inbound"
 	goserviceswebhooks "github.com/goliatone/go-services/webhooks"
 	"github.com/uptrace/bun"
+)
+
+const (
+	defaultConnectionCallbackRoute = "services.connections.callback"
 )
 
 // Provider aliases go-services provider contracts into the adapter package.
@@ -145,6 +150,27 @@ type APIConfig struct {
 	ActivityActionLabelOverrides map[string]string `koanf:"activity_action_label_overrides" mapstructure:"activity_action_label_overrides"`
 }
 
+// CallbackURLConfig controls callback URL resolution for OAuth/re-consent flows.
+type CallbackURLConfig struct {
+	Strict bool `koanf:"strict" mapstructure:"strict"`
+
+	// PublicBaseURL overrides request-origin derived callback URL roots (scheme/host/path prefix).
+	PublicBaseURL string `koanf:"public_base_url" mapstructure:"public_base_url"`
+
+	// URLKitGroup overrides the URLKit group used to resolve callback routes.
+	// Defaults to admin.AdminAPIGroup().
+	URLKitGroup string `koanf:"urlkit_group" mapstructure:"urlkit_group"`
+
+	// DefaultRoute is the URLKit route key used when no provider-specific route exists.
+	DefaultRoute string `koanf:"default_route" mapstructure:"default_route"`
+
+	// ProviderRoutes maps provider IDs to URLKit route keys.
+	ProviderRoutes map[string]string `koanf:"provider_routes" mapstructure:"provider_routes"`
+
+	// ProviderURLOverrides maps provider IDs to absolute callback URLs.
+	ProviderURLOverrides map[string]string `koanf:"provider_url_overrides" mapstructure:"provider_url_overrides"`
+}
+
 // WorkerConfig controls async worker adapter wiring.
 type WorkerConfig struct {
 	Enabled bool `koanf:"enabled" mapstructure:"enabled"`
@@ -225,11 +251,12 @@ type Config struct {
 	Lifecycle LifecycleConfig `koanf:"lifecycle" mapstructure:"lifecycle"`
 
 	// Admin services API/runtime integration controls.
-	API        APIConfig        `koanf:"api" mapstructure:"api"`
-	Worker     WorkerConfig     `koanf:"worker" mapstructure:"worker"`
-	Webhook    WebhookConfig    `koanf:"webhook" mapstructure:"webhook"`
-	Inbound    InboundConfig    `koanf:"inbound" mapstructure:"inbound"`
-	Extensions ExtensionsConfig `koanf:"extensions" mapstructure:"extensions"`
+	API        APIConfig         `koanf:"api" mapstructure:"api"`
+	Callbacks  CallbackURLConfig `koanf:"callbacks" mapstructure:"callbacks"`
+	Worker     WorkerConfig      `koanf:"worker" mapstructure:"worker"`
+	Webhook    WebhookConfig     `koanf:"webhook" mapstructure:"webhook"`
+	Inbound    InboundConfig     `koanf:"inbound" mapstructure:"inbound"`
+	Extensions ExtensionsConfig  `koanf:"extensions" mapstructure:"extensions"`
 
 	// Optional worker/inbound/webhook runtime adapters.
 	JobEnqueuer           JobEnqueuer           `koanf:"-" mapstructure:"-"`
@@ -285,6 +312,12 @@ func DefaultConfig() Config {
 			RequireIdempotencyKey:        true,
 			IdempotencyTTL:               24 * time.Hour,
 			ActivityActionLabelOverrides: map[string]string{},
+		},
+		Callbacks: CallbackURLConfig{
+			Strict:               false,
+			DefaultRoute:         defaultConnectionCallbackRoute,
+			ProviderRoutes:       map[string]string{},
+			ProviderURLOverrides: map[string]string{},
 		},
 		Worker: WorkerConfig{
 			Enabled: true,
@@ -365,6 +398,13 @@ func withDefaults(cfg Config) Config {
 	if cfg.API.ActivityActionLabelOverrides == nil {
 		cfg.API.ActivityActionLabelOverrides = map[string]string{}
 	}
+	if strings.TrimSpace(cfg.Callbacks.DefaultRoute) == "" {
+		cfg.Callbacks.DefaultRoute = defaults.Callbacks.DefaultRoute
+	}
+	cfg.Callbacks.PublicBaseURL = strings.TrimSpace(cfg.Callbacks.PublicBaseURL)
+	cfg.Callbacks.URLKitGroup = strings.TrimSpace(cfg.Callbacks.URLKitGroup)
+	cfg.Callbacks.ProviderRoutes = normalizeStringMapEntries(cfg.Callbacks.ProviderRoutes)
+	cfg.Callbacks.ProviderURLOverrides = normalizeStringMapEntries(cfg.Callbacks.ProviderURLOverrides)
 	if cfg.Webhook.ClaimLease == 0 {
 		cfg.Webhook.ClaimLease = defaults.Webhook.ClaimLease
 	}
@@ -442,6 +482,33 @@ func (c Config) validate() error {
 			return fmt.Errorf("modules/services: api.activity_action_label_overrides[%q] value must not be empty", action)
 		}
 	}
+	if strings.TrimSpace(c.Callbacks.DefaultRoute) == "" {
+		return fmt.Errorf("modules/services: callbacks.default_route must not be empty")
+	}
+	if baseURL := strings.TrimSpace(c.Callbacks.PublicBaseURL); baseURL != "" {
+		if err := validateAbsoluteHTTPURL(baseURL); err != nil {
+			return fmt.Errorf("modules/services: callbacks.public_base_url %w", err)
+		}
+	}
+	for providerID, route := range c.Callbacks.ProviderRoutes {
+		if strings.TrimSpace(providerID) == "" {
+			return fmt.Errorf("modules/services: callbacks.provider_routes keys must not be empty")
+		}
+		if strings.TrimSpace(route) == "" {
+			return fmt.Errorf("modules/services: callbacks.provider_routes[%q] value must not be empty", providerID)
+		}
+	}
+	for providerID, overrideURL := range c.Callbacks.ProviderURLOverrides {
+		if strings.TrimSpace(providerID) == "" {
+			return fmt.Errorf("modules/services: callbacks.provider_url_overrides keys must not be empty")
+		}
+		if strings.TrimSpace(overrideURL) == "" {
+			return fmt.Errorf("modules/services: callbacks.provider_url_overrides[%q] value must not be empty", providerID)
+		}
+		if err := validateAbsoluteHTTPURL(strings.TrimSpace(overrideURL)); err != nil {
+			return fmt.Errorf("modules/services: callbacks.provider_url_overrides[%q] %w", providerID, err)
+		}
+	}
 	if c.Webhook.ClaimLease <= 0 {
 		return fmt.Errorf("modules/services: webhook.claim_lease must be greater than zero")
 	}
@@ -498,6 +565,37 @@ func normalizeStringListUnique(values []string) []string {
 		out = append(out, trimmed)
 	}
 	return out
+}
+
+func normalizeStringMapEntries(values map[string]string) map[string]string {
+	if len(values) == 0 {
+		return map[string]string{}
+	}
+	out := make(map[string]string, len(values))
+	for key, value := range values {
+		trimmedKey := strings.TrimSpace(key)
+		trimmedValue := strings.TrimSpace(value)
+		if trimmedKey == "" || trimmedValue == "" {
+			continue
+		}
+		out[trimmedKey] = trimmedValue
+	}
+	return out
+}
+
+func validateAbsoluteHTTPURL(raw string) error {
+	parsed, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil {
+		return fmt.Errorf("must be a valid absolute URL: %w", err)
+	}
+	if parsed == nil || !parsed.IsAbs() || strings.TrimSpace(parsed.Host) == "" {
+		return fmt.Errorf("must be a valid absolute URL")
+	}
+	scheme := strings.ToLower(strings.TrimSpace(parsed.Scheme))
+	if scheme != "http" && scheme != "https" {
+		return fmt.Errorf("must use http or https scheme")
+	}
+	return nil
 }
 
 func defaultErrorFactory(message string, category ...goerrors.Category) *goerrors.Error {
