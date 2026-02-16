@@ -78,11 +78,11 @@ Endpoint-specific aliases are preserved (for example `connections`, `subscriptio
 | Method | Path | Permission | Request body/query | Response keys |
 | --- | --- | --- | --- | --- |
 | POST | `/activity/retention/cleanup` | `admin.services.edit` | optional metadata | cleanup status payload |
-| POST | `/installations/:ref/begin` | `admin.services.connect` | `scope_type`, `scope_id`, `redirect_uri`, `state`, `requested_grants`, `metadata` | `begin`, `installation` |
+| POST | `/installations/:ref/begin` | `admin.services.connect` | `scope_type`, `scope_id`, optional `redirect_uri`, `state`, `requested_grants`, `metadata` | `begin`, `installation` |
 | POST | `/installations/:ref/uninstall` | `admin.services.revoke` | optional `reason` | `status`, `installation_id`, `revoked_connections` |
-| POST | `/connections/:ref/begin` | `admin.services.connect` | `scope_type`, `scope_id`, `redirect_uri`, `state`, `requested_grants`, `metadata` | `begin` |
-| GET | `/connections/:ref/callback` | `admin.services.connect` | query: `scope_type`, `scope_id`, `code`, `state`, `redirect_uri`, metadata passthrough | `completion` |
-| POST | `/connections/:ref/reconsent/begin` | `admin.services.reconsent` | `redirect_uri`, `state`, `requested_grants`, `metadata` | `begin` |
+| POST | `/connections/:ref/begin` | `admin.services.connect` | `scope_type`, `scope_id`, optional `redirect_uri`, `state`, `requested_grants`, `metadata` | `begin` |
+| GET | `/connections/:ref/callback` | `admin.services.connect` | query: `scope_type`, `scope_id`, `code`, `state`, optional `redirect_uri`, metadata passthrough | `completion` |
+| POST | `/connections/:ref/reconsent/begin` | `admin.services.reconsent` | optional `redirect_uri`, `state`, `requested_grants`, `metadata` | `begin` |
 | POST | `/connections/:ref/refresh` | `admin.services.edit` | optional `provider_id`, `metadata` | queued payload (`202`) or `refresh` result (`200`) |
 | POST | `/connections/:ref/revoke` | `admin.services.revoke` | optional `reason` | `status`, `connection_id` |
 | POST | `/capabilities/:provider/:capability/invoke` | `admin.services.edit` | `scope_type`, `scope_id`, optional `connection_id`, `payload` | `result` |
@@ -96,6 +96,18 @@ Endpoint-specific aliases are preserved (for example `connections`, `subscriptio
 | --- | --- | --- | --- | --- |
 | POST | `/webhooks/:provider` | `admin.services.webhooks` | provider signature/delivery headers + payload | `result` |
 | POST | `/inbound/:provider/:surface` | `admin.services.webhooks` | provider signature/message headers + payload | `result` |
+
+## Callback URL Resolution
+
+- When `redirect_uri` is omitted for connect/re-consent begin routes, the module resolves a callback URL using:
+  1. provider-specific absolute override (`callbacks.provider_url_overrides`)
+  2. provider-specific URLKit route (`callbacks.provider_routes`)
+  3. default URLKit route (`callbacks.default_route`)
+  4. fallback canonical path (`/admin/api/services/connections/:provider/callback`) under the current admin API base path
+- Resolved path URLs are converted to absolute URLs using:
+  - `callbacks.public_base_url` when configured, otherwise
+  - request origin headers (`X-Forwarded-Proto`/`X-Forwarded-Host` or `Host`)
+- `redirect_uri` provided by the request always takes precedence over resolver defaults.
 
 ## Read Model Highlights
 
