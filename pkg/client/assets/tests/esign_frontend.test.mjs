@@ -2503,7 +2503,7 @@ function buildSignaturePayloadForUnified(fieldId, signatureData, agreementId, re
   const timestamp = Date.now();
 
   return {
-    field_id: fieldId,
+    field_instance_id: fieldId,
     type: signatureType,
     value_text: signatureData.text || '[Drawn]',
     object_key: `tenant/bootstrap/org/bootstrap/agreements/${agreementId}/signatures/${recipientId}/${fieldId}-${timestamp}.${extension}`,
@@ -2547,7 +2547,7 @@ test('validateSignatureInput rejects null data', () => {
 test('buildSignaturePayloadForUnified creates correct payload structure', () => {
   const payload = buildSignaturePayloadForUnified('field123', { type: 'typed', text: 'John' }, 'agr_abc', 'rec_xyz');
 
-  assert.equal(payload.field_id, 'field123');
+  assert.equal(payload.field_instance_id, 'field123');
   assert.equal(payload.type, 'typed');
   assert.equal(payload.value_text, 'John');
   assert.ok(payload.object_key.includes('agr_abc'));
@@ -4849,7 +4849,7 @@ test('drawn signature attach payload includes upload_token', async () => {
 
   // Build attach payload
   const attachPayload = {
-    field_id: 'sig_field_3',
+    field_instance_id: 'sig_field_3',
     type: 'drawn',
     value_text: '[Drawn]',
     object_key: uploadResult.objectKey,
@@ -4864,7 +4864,7 @@ test('drawn signature attach payload includes upload_token', async () => {
 test('typed signature attach does not require upload_token', () => {
   // Typed signatures go directly to attach endpoint
   const typedPayload = {
-    field_id: 'sig_typed_1',
+    field_instance_id: 'sig_typed_1',
     type: 'typed',
     value_text: 'John Doe',
     object_key: 'tenant/test/signatures/sig_typed_1.txt',

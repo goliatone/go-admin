@@ -1445,7 +1445,8 @@ document.addEventListener('DOMContentLoaded', function() {
     selectedFieldId: null,
     isDragging: false,
     isResizing: false,
-    dragOffset: { x: 0, y: 0 }
+    dragOffset: { x: 0, y: 0 },
+    uiHandlersBound: false
   };
 
   const TYPE_COLORS = {
@@ -1562,8 +1563,24 @@ document.addEventListener('DOMContentLoaded', function() {
         credentials: 'same-origin',
         headers: { 'Accept': 'application/json' }
       });
-      const docData = await docResponse.json();
-      const pdfUrl = docData.file_url || docData.url;
+      if (!docResponse.ok) {
+        throw new Error(`Failed to load document metadata (${docResponse.status})`);
+      }
+      const docPayload = await docResponse.json();
+      const docData = (docPayload && typeof docPayload === 'object' && docPayload.data && typeof docPayload.data === 'object')
+        ? docPayload.data
+        : docPayload;
+      const sourceObjectKey = String(docData?.source_object_key || '').trim().replace(/^\/+/, '');
+      const sourceAssetUrl = sourceObjectKey
+        ? `${basePath}/assets/${sourceObjectKey.split('/').map(encodeURIComponent).join('/')}`
+        : '';
+      const pdfUrl = String(
+        docData?.file_url ||
+        docData?.url ||
+        docData?.source_url ||
+        docData?.download_url ||
+        sourceAssetUrl
+      ).trim();
 
       if (!pdfUrl) {
         throw new Error('No PDF URL found');
@@ -1584,14 +1601,13 @@ document.addEventListener('DOMContentLoaded', function() {
       // Hide loading
       placementLoading.classList.add('hidden');
 
-      // Set up drop zone
-      setupDropZone(placementViewer, placementOverlays);
-
-      // Set up page navigation
-      setupPageNavigation();
-
-      // Set up zoom controls
-      setupZoomControls();
+      if (!placementState.uiHandlersBound) {
+        // Bind these handlers once to avoid duplicate listeners when step 5 is revisited.
+        setupDropZone(placementViewer, placementOverlays);
+        setupPageNavigation();
+        setupZoomControls();
+        placementState.uiHandlersBound = true;
+      }
 
       // Render existing field instances
       renderFieldOverlays();
@@ -1684,9 +1700,10 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
-  function addFieldInstance(fieldData, x, y) {
+  function addFieldInstance(fieldData, x, y, options = {}) {
     const sizes = DEFAULT_FIELD_SIZES[fieldData.fieldType] || DEFAULT_FIELD_SIZES.text;
     const instanceId = `fi_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const placementSource = options.placementSource || 'manual';
 
     const instance = {
       id: instanceId,
@@ -1698,7 +1715,8 @@ document.addEventListener('DOMContentLoaded', function() {
       x: Math.max(0, x - sizes.width / 2),
       y: Math.max(0, y - sizes.height / 2),
       width: sizes.width,
-      height: sizes.height
+      height: sizes.height,
+      placementSource
     };
 
     placementState.fieldInstances.push(instance);
@@ -1801,6 +1819,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
       instance.x = Math.max(0, (startLeft + dx) / placementState.scale);
       instance.y = Math.max(0, (startTop + dy) / placementState.scale);
+      instance.placementSource = 'manual';
 
       overlay.style.left = `${instance.x * placementState.scale}px`;
       overlay.style.top = `${instance.y * placementState.scale}px`;
@@ -1833,6 +1852,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
       instance.width = Math.max(30, startWidth + dx);
       instance.height = Math.max(20, startHeight + dy);
+      instance.placementSource = 'manual';
 
       renderFieldOverlays();
     }
@@ -2068,7 +2088,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
       // Place on last page
       placementState.currentPage = placementState.totalPages;
-      addFieldInstance(fieldData, 300, yOffset + sizes.height / 2);
+      addFieldInstance(fieldData, 300, yOffset + sizes.height / 2, { placementSource: 'auto_fallback' });
       yOffset += sizes.height + 20;
     });
 
