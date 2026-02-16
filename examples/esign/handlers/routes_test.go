@@ -69,6 +69,27 @@ func TestBuildRouteSetUsesResolverNamespaces(t *testing.T) {
 	if routes.AdminAgreementsStats != "/suite/api/v9/esign/agreements/stats" {
 		t.Fatalf("expected admin agreement stats route /suite/api/v9/esign/agreements/stats, got %q", routes.AdminAgreementsStats)
 	}
+	if routes.AdminAgreementParticipants != "/suite/api/v9/esign/agreements/:agreement_id/participants" {
+		t.Fatalf("expected participants route /suite/api/v9/esign/agreements/:agreement_id/participants, got %q", routes.AdminAgreementParticipants)
+	}
+	if routes.AdminAgreementParticipant != "/suite/api/v9/esign/agreements/:agreement_id/participants/:participant_id" {
+		t.Fatalf("expected participant route /suite/api/v9/esign/agreements/:agreement_id/participants/:participant_id, got %q", routes.AdminAgreementParticipant)
+	}
+	if routes.AdminAgreementFieldDefinitions != "/suite/api/v9/esign/agreements/:agreement_id/field-definitions" {
+		t.Fatalf("expected field definitions route /suite/api/v9/esign/agreements/:agreement_id/field-definitions, got %q", routes.AdminAgreementFieldDefinitions)
+	}
+	if routes.AdminAgreementFieldDefinition != "/suite/api/v9/esign/agreements/:agreement_id/field-definitions/:field_definition_id" {
+		t.Fatalf("expected field definition route /suite/api/v9/esign/agreements/:agreement_id/field-definitions/:field_definition_id, got %q", routes.AdminAgreementFieldDefinition)
+	}
+	if routes.AdminAgreementFieldInstances != "/suite/api/v9/esign/agreements/:agreement_id/field-instances" {
+		t.Fatalf("expected field instances route /suite/api/v9/esign/agreements/:agreement_id/field-instances, got %q", routes.AdminAgreementFieldInstances)
+	}
+	if routes.AdminAgreementFieldInstance != "/suite/api/v9/esign/agreements/:agreement_id/field-instances/:field_instance_id" {
+		t.Fatalf("expected field instance route /suite/api/v9/esign/agreements/:agreement_id/field-instances/:field_instance_id, got %q", routes.AdminAgreementFieldInstance)
+	}
+	if routes.AdminAgreementSendReadiness != "/suite/api/v9/esign/agreements/:agreement_id/send-readiness" {
+		t.Fatalf("expected send-readiness route /suite/api/v9/esign/agreements/:agreement_id/send-readiness, got %q", routes.AdminAgreementSendReadiness)
+	}
 	if routes.AdminSmokeRecipientLinks != "/suite/api/v9/esign/smoke/recipient-links" {
 		t.Fatalf("expected admin smoke recipient-links route /suite/api/v9/esign/smoke/recipient-links, got %q", routes.AdminSmokeRecipientLinks)
 	}
@@ -127,6 +148,27 @@ func TestBuildRouteSetFallbacksWhenResolverMissing(t *testing.T) {
 	}
 	if routes.AdminAgreementsStats != "/admin/api/v1/esign/agreements/stats" {
 		t.Fatalf("expected /admin/api/v1/esign/agreements/stats, got %q", routes.AdminAgreementsStats)
+	}
+	if routes.AdminAgreementParticipants != "/admin/api/v1/esign/agreements/:agreement_id/participants" {
+		t.Fatalf("expected /admin/api/v1/esign/agreements/:agreement_id/participants, got %q", routes.AdminAgreementParticipants)
+	}
+	if routes.AdminAgreementParticipant != "/admin/api/v1/esign/agreements/:agreement_id/participants/:participant_id" {
+		t.Fatalf("expected /admin/api/v1/esign/agreements/:agreement_id/participants/:participant_id, got %q", routes.AdminAgreementParticipant)
+	}
+	if routes.AdminAgreementFieldDefinitions != "/admin/api/v1/esign/agreements/:agreement_id/field-definitions" {
+		t.Fatalf("expected /admin/api/v1/esign/agreements/:agreement_id/field-definitions, got %q", routes.AdminAgreementFieldDefinitions)
+	}
+	if routes.AdminAgreementFieldDefinition != "/admin/api/v1/esign/agreements/:agreement_id/field-definitions/:field_definition_id" {
+		t.Fatalf("expected /admin/api/v1/esign/agreements/:agreement_id/field-definitions/:field_definition_id, got %q", routes.AdminAgreementFieldDefinition)
+	}
+	if routes.AdminAgreementFieldInstances != "/admin/api/v1/esign/agreements/:agreement_id/field-instances" {
+		t.Fatalf("expected /admin/api/v1/esign/agreements/:agreement_id/field-instances, got %q", routes.AdminAgreementFieldInstances)
+	}
+	if routes.AdminAgreementFieldInstance != "/admin/api/v1/esign/agreements/:agreement_id/field-instances/:field_instance_id" {
+		t.Fatalf("expected /admin/api/v1/esign/agreements/:agreement_id/field-instances/:field_instance_id, got %q", routes.AdminAgreementFieldInstance)
+	}
+	if routes.AdminAgreementSendReadiness != "/admin/api/v1/esign/agreements/:agreement_id/send-readiness" {
+		t.Fatalf("expected /admin/api/v1/esign/agreements/:agreement_id/send-readiness, got %q", routes.AdminAgreementSendReadiness)
 	}
 	if routes.AdminSmokeRecipientLinks != "/admin/api/v1/esign/smoke/recipient-links" {
 		t.Fatalf("expected /admin/api/v1/esign/smoke/recipient-links, got %q", routes.AdminSmokeRecipientLinks)

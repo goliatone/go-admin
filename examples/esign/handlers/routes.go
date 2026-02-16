@@ -24,6 +24,10 @@ const (
 	documentsSegment       = "documents"
 	adminStatusSegment     = "status"
 	statsSegment           = "stats"
+	participantsSegment    = "participants"
+	fieldDefinitionsSegment = "field-definitions"
+	fieldInstancesSegment   = "field-instances"
+	sendReadinessSegment    = "send-readiness"
 	smokeSegment           = "smoke"
 	recipientLinksSegment  = "recipient-links"
 	uploadSegment          = "upload"
@@ -56,6 +60,13 @@ type RouteSet struct {
 	AdminStatus              string
 	AdminAPIStatus           string
 	AdminAgreementsStats     string
+	AdminAgreementParticipants string
+	AdminAgreementParticipant  string
+	AdminAgreementFieldDefinitions string
+	AdminAgreementFieldDefinition  string
+	AdminAgreementFieldInstances   string
+	AdminAgreementFieldInstance    string
+	AdminAgreementSendReadiness    string
 	AdminSmokeRecipientLinks string
 	AdminDocumentsUpload     string
 	SignerSession            string
@@ -100,6 +111,13 @@ func BuildRouteSet(urls urlkit.Resolver, adminBasePath, adminAPIGroup string) Ro
 		AdminStatus:              joinPath(adminBase, esignSegment, adminStatusSegment),
 		AdminAPIStatus:           joinPath(adminAPIBase, esignSegment, adminStatusSegment),
 		AdminAgreementsStats:     joinPath(adminAPIBase, esignSegment, agreementsSegment, statsSegment),
+		AdminAgreementParticipants:    joinPath(adminAPIBase, esignSegment, agreementsSegment, ":agreement_id", participantsSegment),
+		AdminAgreementParticipant:     joinPath(adminAPIBase, esignSegment, agreementsSegment, ":agreement_id", participantsSegment, ":participant_id"),
+		AdminAgreementFieldDefinitions: joinPath(adminAPIBase, esignSegment, agreementsSegment, ":agreement_id", fieldDefinitionsSegment),
+		AdminAgreementFieldDefinition:  joinPath(adminAPIBase, esignSegment, agreementsSegment, ":agreement_id", fieldDefinitionsSegment, ":field_definition_id"),
+		AdminAgreementFieldInstances:   joinPath(adminAPIBase, esignSegment, agreementsSegment, ":agreement_id", fieldInstancesSegment),
+		AdminAgreementFieldInstance:    joinPath(adminAPIBase, esignSegment, agreementsSegment, ":agreement_id", fieldInstancesSegment, ":field_instance_id"),
+		AdminAgreementSendReadiness:    joinPath(adminAPIBase, esignSegment, agreementsSegment, ":agreement_id", sendReadinessSegment),
 		AdminSmokeRecipientLinks: joinPath(adminAPIBase, esignSegment, smokeSegment, recipientLinksSegment),
 		AdminDocumentsUpload:     joinPath(adminAPIBase, esignSegment, documentsSegment, uploadSegment),
 		SignerSession:            joinPath(signingBase, sessionSegment, ":token"),
