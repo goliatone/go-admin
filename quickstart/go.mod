@@ -110,7 +110,7 @@ require (
 	github.com/goliatone/go-options v0.7.1 // indirect
 	github.com/goliatone/go-print v0.4.1 // indirect
 	github.com/goliatone/go-repository-bun v0.15.0 // indirect
-	github.com/goliatone/go-repository-cache v0.7.0 // indirect
+	github.com/goliatone/go-repository-cache v0.7.1 // indirect
 	github.com/goliatone/go-slug v0.1.0 // indirect
 	github.com/goliatone/hashid v0.2.0 // indirect
 	github.com/goodsign/monday v1.0.2 // indirect
