@@ -1024,3 +1024,74 @@ func menuPermissionIncluded(perms []string, permission string) bool {
 	}
 	return false
 }
+
+// RemoveLegacyTranslationToolsMenuItems removes translation links previously seeded under Tools.
+// Translation navigation is rendered via the dedicated Translations menu in the UI.
+func RemoveLegacyTranslationToolsMenuItems(ctx context.Context, menuSvc admin.CMSMenuService, menuCode, locale string) error {
+	if menuSvc == nil {
+		return nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	menuCode = strings.TrimSpace(menuCode)
+	if menuCode == "" {
+		menuCode = NavigationMenuCode
+	}
+	locale = strings.TrimSpace(locale)
+	if locale == "" {
+		locale = "en"
+	}
+
+	menu, err := menuSvc.Menu(ctx, menuCode, locale)
+	if err != nil || menu == nil {
+		return err
+	}
+
+	ids := []string{}
+	collectLegacyTranslationToolItemIDs(menu.Items, &ids)
+	if len(ids) == 0 {
+		return nil
+	}
+
+	for _, id := range ids {
+		itemID := strings.TrimSpace(id)
+		if itemID == "" {
+			continue
+		}
+		if err := menuSvc.DeleteMenuItem(ctx, menuCode, itemID); err != nil {
+			if errors.Is(err, admin.ErrNotFound) {
+				continue
+			}
+			msg := strings.ToLower(strings.TrimSpace(err.Error()))
+			if strings.Contains(msg, "not found") {
+				continue
+			}
+			return err
+		}
+	}
+	return nil
+}
+
+func collectLegacyTranslationToolItemIDs(items []admin.MenuItem, out *[]string) {
+	for _, item := range items {
+		if isLegacyTranslationToolsItem(item) {
+			*out = append(*out, item.ID)
+		}
+		if len(item.Children) > 0 {
+			collectLegacyTranslationToolItemIDs(item.Children, out)
+		}
+	}
+}
+
+func isLegacyTranslationToolsItem(item admin.MenuItem) bool {
+	labelKey := strings.ToLower(strings.TrimSpace(item.LabelKey))
+	if labelKey != "menu.translations.queue" && labelKey != "menu.translations.exchange" {
+		return false
+	}
+	parentID := strings.ToLower(strings.TrimSpace(item.ParentID))
+	if strings.Contains(parentID, ".nav-group-others") || parentID == "nav-group-others" {
+		return true
+	}
+	return false
+}

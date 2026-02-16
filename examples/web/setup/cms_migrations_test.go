@@ -3,6 +3,7 @@ package setup
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -88,5 +89,67 @@ ORDER BY name`)
 	}
 	if !hasCanonicalKey {
 		t.Fatalf("expected canonical_key column from sanitized migrations")
+	}
+}
+
+func TestPersistentCMSSeedsRequiredContentTypes(t *testing.T) {
+	t.Helper()
+
+	ctx := context.Background()
+	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared&_fk=1", strings.ToLower(t.Name()))
+
+	opts, err := SetupPersistentCMS(ctx, "en", dsn)
+	if err != nil {
+		t.Fatalf("setup persistent cms: %v", err)
+	}
+	if opts.Container == nil {
+		t.Fatalf("expected CMS container")
+	}
+
+	db, err := sql.Open("sqlite3", dsn)
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	defer db.Close()
+
+	required := []struct {
+		name  string
+		slug  string
+		panel string
+	}{
+		{name: "page", slug: "page", panel: "pages"},
+		{name: "post", slug: "post", panel: "posts"},
+	}
+
+	for _, item := range required {
+		var slug string
+		var status string
+		var capabilities string
+		var schema string
+		err := db.QueryRowContext(ctx, `
+SELECT COALESCE(slug, ''), COALESCE(status, ''), COALESCE(CAST(capabilities AS TEXT), ''), COALESCE(CAST(schema AS TEXT), '')
+FROM content_types
+WHERE name = ?`, item.name).Scan(&slug, &status, &capabilities, &schema)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				t.Fatalf("required content type %s missing", item.name)
+			}
+			t.Fatalf("query content type %s: %v", item.name, err)
+		}
+		if !strings.EqualFold(strings.TrimSpace(slug), item.slug) {
+			t.Fatalf("expected %s slug %q, got %q", item.name, item.slug, slug)
+		}
+		if !strings.EqualFold(strings.TrimSpace(status), "active") {
+			t.Fatalf("expected %s status active, got %q", item.name, status)
+		}
+		if strings.TrimSpace(schema) == "" || strings.TrimSpace(schema) == "{}" {
+			t.Fatalf("expected %s schema to be seeded", item.name)
+		}
+		if strings.TrimSpace(capabilities) == "" || strings.TrimSpace(capabilities) == "{}" {
+			t.Fatalf("expected %s capabilities to be seeded", item.name)
+		}
+		if !strings.Contains(strings.ToLower(capabilities), `"panel_slug":"`+item.panel+`"`) {
+			t.Fatalf("expected %s capabilities panel_slug=%s, got %s", item.name, item.panel, capabilities)
+		}
 	}
 }
