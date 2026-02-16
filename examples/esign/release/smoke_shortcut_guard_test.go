@@ -31,4 +31,3 @@ func TestSmokeE2EUsesRuntimeIssuedRecipientLinks(t *testing.T) {
 		t.Fatalf("smoke script must not start signer journey from legacy /fields shortcut path")
 	}
 }
-

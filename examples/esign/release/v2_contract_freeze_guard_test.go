@@ -75,4 +75,3 @@ func TestValidateV2ContractFreezeGuardAllowsApprovedPostFreezeException(t *testi
 		t.Fatalf("expected approved post-freeze exception to pass, got %+v", issues)
 	}
 }
-
