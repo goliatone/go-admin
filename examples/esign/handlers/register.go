@@ -1034,13 +1034,16 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 			}
 			var payload struct {
 				AuthCode    string `json:"auth_code"`
+				AccountID   string `json:"account_id"`
 				RedirectURI string `json:"redirect_uri"`
 			}
 			if err := c.Bind(&payload); err != nil {
 				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid oauth connect payload", nil)
 			}
+			accountID := strings.TrimSpace(firstNonEmpty(payload.AccountID, c.Query("account_id")))
 			status, err := cfg.google.Connect(c.Context(), cfg.resolveScope(c), services.GoogleConnectInput{
 				UserID:      userID,
+				AccountID:   accountID,
 				AuthCode:    strings.TrimSpace(payload.AuthCode),
 				RedirectURI: strings.TrimSpace(payload.RedirectURI),
 			})
@@ -1061,13 +1064,16 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 			if userID == "" {
 				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "user_id is required", nil)
 			}
-			if err := cfg.google.Disconnect(c.Context(), cfg.resolveScope(c), userID); err != nil {
+			accountID := strings.TrimSpace(c.Query("account_id"))
+			scopedUserID := services.ComposeGoogleScopedUserID(userID, accountID)
+			if err := cfg.google.Disconnect(c.Context(), cfg.resolveScope(c), scopedUserID); err != nil {
 				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeGoogleAccessRevoked), "google oauth disconnect failed", nil)
 			}
 			return c.JSON(http.StatusOK, map[string]any{
-				"status":   "disconnected",
-				"provider": services.GoogleProviderName,
-				"user_id":  userID,
+				"status":     "disconnected",
+				"provider":   services.GoogleProviderName,
+				"user_id":    userID,
+				"account_id": accountID,
 			})
 		}, requireAdminPermission(cfg, cfg.permissions.AdminSettings))
 
@@ -1079,7 +1085,9 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 			if userID == "" {
 				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "user_id is required", nil)
 			}
-			status, err := cfg.google.RotateCredentialEncryption(c.Context(), cfg.resolveScope(c), userID)
+			accountID := strings.TrimSpace(c.Query("account_id"))
+			scopedUserID := services.ComposeGoogleScopedUserID(userID, accountID)
+			status, err := cfg.google.RotateCredentialEncryption(c.Context(), cfg.resolveScope(c), scopedUserID)
 			if err != nil {
 				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeGoogleAccessRevoked), "google oauth rotate failed", nil)
 			}
@@ -1097,7 +1105,9 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 			if userID == "" {
 				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "user_id is required", nil)
 			}
-			status, err := cfg.google.Status(c.Context(), cfg.resolveScope(c), userID)
+			accountID := strings.TrimSpace(c.Query("account_id"))
+			scopedUserID := services.ComposeGoogleScopedUserID(userID, accountID)
+			status, err := cfg.google.Status(c.Context(), cfg.resolveScope(c), scopedUserID)
 			if err != nil {
 				return writeAPIError(c, err, http.StatusInternalServerError, "GOOGLE_STATUS_UNAVAILABLE", "google oauth status failed", nil)
 			}
@@ -1115,9 +1125,11 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 			if userID == "" {
 				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "user_id is required", nil)
 			}
+			accountID := strings.TrimSpace(c.Query("account_id"))
 			pageSize := parsePageSize(c.Query("page_size"))
 			result, err := cfg.google.SearchFiles(c.Context(), cfg.resolveScope(c), services.GoogleDriveQueryInput{
 				UserID:    userID,
+				AccountID: accountID,
 				Query:     strings.TrimSpace(c.Query("q")),
 				PageToken: strings.TrimSpace(c.Query("page_token")),
 				PageSize:  pageSize,
@@ -1140,9 +1152,11 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 			if userID == "" {
 				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "user_id is required", nil)
 			}
+			accountID := strings.TrimSpace(c.Query("account_id"))
 			pageSize := parsePageSize(c.Query("page_size"))
 			result, err := cfg.google.BrowseFiles(c.Context(), cfg.resolveScope(c), services.GoogleDriveQueryInput{
 				UserID:    userID,
+				AccountID: accountID,
 				FolderID:  strings.TrimSpace(c.Query("folder_id")),
 				PageToken: strings.TrimSpace(c.Query("page_token")),
 				PageSize:  pageSize,
@@ -1177,6 +1191,7 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 			}
 			var payload struct {
 				GoogleFileID      string `json:"google_file_id"`
+				AccountID         string `json:"account_id"`
 				DocumentTitle     string `json:"document_title"`
 				AgreementTitle    string `json:"agreement_title"`
 				CreatedByUserID   string `json:"created_by_user_id"`
@@ -1187,8 +1202,9 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 				logAPIOperation(c.Context(), "google_drive_imports_create", correlationID, startedAt, err, nil)
 				return werr
 			}
+			accountID := strings.TrimSpace(firstNonEmpty(payload.AccountID, c.Query("account_id")))
 			scope := cfg.resolveScope(c)
-			dedupeKey := googleImportRunDedupeKey(userID, payload.GoogleFileID, payload.SourceVersionHint)
+			dedupeKey := googleImportRunDedupeKey(userID, accountID, payload.GoogleFileID, payload.SourceVersionHint)
 			run, created, err := cfg.googleImportRuns.BeginGoogleImportRun(c.Context(), scope, stores.GoogleImportRunInput{
 				UserID:            userID,
 				GoogleFileID:      strings.TrimSpace(payload.GoogleFileID),
@@ -1210,6 +1226,7 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 					Scope:             scope,
 					ImportRunID:       strings.TrimSpace(run.ID),
 					UserID:            userID,
+					GoogleAccountID:   accountID,
 					GoogleFileID:      strings.TrimSpace(payload.GoogleFileID),
 					SourceVersionHint: strings.TrimSpace(payload.SourceVersionHint),
 					DocumentTitle:     strings.TrimSpace(payload.DocumentTitle),
@@ -1338,6 +1355,7 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 			}
 			var payload struct {
 				GoogleFileID    string `json:"google_file_id"`
+				AccountID       string `json:"account_id"`
 				DocumentTitle   string `json:"document_title"`
 				AgreementTitle  string `json:"agreement_title"`
 				CreatedByUserID string `json:"created_by_user_id"`
@@ -1349,8 +1367,10 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 			}
 			c.Set("Deprecation", "true")
 			c.Set("Link", fmt.Sprintf("<%s>; rel=\"successor-version\"", routes.AdminGoogleDriveImports))
+			accountID := strings.TrimSpace(firstNonEmpty(payload.AccountID, c.Query("account_id")))
 			imported, err := cfg.google.ImportDocument(c.Context(), cfg.resolveScope(c), services.GoogleImportInput{
 				UserID:          userID,
+				AccountID:       accountID,
 				GoogleFileID:    strings.TrimSpace(payload.GoogleFileID),
 				DocumentTitle:   strings.TrimSpace(payload.DocumentTitle),
 				AgreementTitle:  strings.TrimSpace(payload.AgreementTitle),
@@ -2824,13 +2844,17 @@ func integrationChangeEventRecordToMap(record stores.IntegrationChangeEventRecor
 	}
 }
 
-func googleImportRunDedupeKey(userID, googleFileID, sourceVersionHint string) string {
-	parts := strings.Join([]string{
+func googleImportRunDedupeKey(userID, accountID, googleFileID, sourceVersionHint string) string {
+	parts := []string{
 		strings.TrimSpace(strings.ToLower(userID)),
 		strings.TrimSpace(strings.ToLower(googleFileID)),
 		strings.TrimSpace(strings.ToLower(sourceVersionHint)),
-	}, "|")
-	sum := sha256.Sum256([]byte(parts))
+	}
+	if normalizedAccountID := strings.TrimSpace(strings.ToLower(accountID)); normalizedAccountID != "" {
+		parts = append(parts, normalizedAccountID)
+	}
+	joined := strings.Join(parts, "|")
+	sum := sha256.Sum256([]byte(joined))
 	return hex.EncodeToString(sum[:])
 }
 

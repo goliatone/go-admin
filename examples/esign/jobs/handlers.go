@@ -517,7 +517,7 @@ func (h Handlers) ExecuteTokenRotate(ctx context.Context, msg TokenRotateMsg) er
 
 func (h Handlers) ExecuteGoogleDriveImport(ctx context.Context, msg GoogleDriveImportMsg) (services.GoogleImportResult, error) {
 	startedAt := h.now()
-	correlationID := observability.ResolveCorrelationID(msg.CorrelationID, msg.DedupeKey, msg.GoogleFileID, msg.UserID, JobGoogleDriveImport)
+	correlationID := observability.ResolveCorrelationID(msg.CorrelationID, msg.DedupeKey, msg.GoogleFileID, msg.UserID, msg.GoogleAccountID, JobGoogleDriveImport)
 	if h.googleImporter == nil {
 		err := fmt.Errorf("google import dependencies not configured")
 		importRunID := strings.TrimSpace(msg.ImportRunID)
@@ -536,11 +536,15 @@ func (h Handlers) ExecuteGoogleDriveImport(ctx context.Context, msg GoogleDriveI
 	}
 	dedupeKey := strings.TrimSpace(msg.DedupeKey)
 	if dedupeKey == "" {
-		dedupeKey = strings.Join([]string{
+		parts := []string{
 			strings.TrimSpace(msg.UserID),
 			strings.TrimSpace(msg.GoogleFileID),
 			strings.TrimSpace(msg.SourceVersionHint),
-		}, "|")
+		}
+		if accountID := strings.TrimSpace(msg.GoogleAccountID); accountID != "" {
+			parts = append(parts, accountID)
+		}
+		dedupeKey = strings.Join(parts, "|")
 	}
 
 	importRunID := strings.TrimSpace(msg.ImportRunID)
@@ -555,6 +559,7 @@ func (h Handlers) ExecuteGoogleDriveImport(ctx context.Context, msg GoogleDriveI
 
 	result, err := h.googleImporter.ImportDocument(ctx, msg.Scope, services.GoogleImportInput{
 		UserID:          strings.TrimSpace(msg.UserID),
+		AccountID:       strings.TrimSpace(msg.GoogleAccountID),
 		GoogleFileID:    strings.TrimSpace(msg.GoogleFileID),
 		DocumentTitle:   strings.TrimSpace(msg.DocumentTitle),
 		AgreementTitle:  strings.TrimSpace(msg.AgreementTitle),
@@ -613,6 +618,7 @@ func (h Handlers) ExecuteGoogleDriveImport(ctx context.Context, msg GoogleDriveI
 		"job_name":       JobGoogleDriveImport,
 		"google_file_id": strings.TrimSpace(msg.GoogleFileID),
 		"user_id":        strings.TrimSpace(msg.UserID),
+		"account_id":     strings.TrimSpace(msg.GoogleAccountID),
 	})
 	return result, nil
 }

@@ -290,6 +290,12 @@ func applyESignRuntimeDefaults(cfg *coreadmin.Config) {
 }
 
 func newESignViewEngine(cfg coreadmin.Config, adm *coreadmin.Admin) (fiber.Views, error) {
+	if err := validateESignTemplateOwnership(); err != nil {
+		return nil, err
+	}
+	if err := validateESignRuntimeAssetContracts(); err != nil {
+		return nil, err
+	}
 	templateOpts := []quickstart.TemplateFuncOption{
 		quickstart.WithTemplateBasePath(cfg.BasePath),
 	}
@@ -403,7 +409,7 @@ func registerESignWebRoutes(
 			Feature:    "esign",
 			Permission: permissions.AdminESignView,
 			BuildContext: func(_ router.Context) (router.ViewContext, error) {
-				return router.ViewContext{
+				viewCtx := router.ViewContext{
 					"api_base_path": apiBasePath,
 					"stats": map[string]int{
 						"draft":           0,
@@ -412,7 +418,9 @@ func registerESignWebRoutes(
 						"action_required": 0,
 					},
 					"recent_agreements": []map[string]any{},
-				}, nil
+				}
+				viewCtx = withESignPageConfig(viewCtx, buildESignAdminLandingPageConfig(basePath, apiBasePath, googleEnabled))
+				return viewCtx, nil
 			},
 		},
 	); err != nil {
@@ -488,19 +496,38 @@ func registerESignGoogleIntegrationUIRoutes(
 			Permission: permissions.AdminESignSettings,
 			BuildContext: func(c router.Context) (router.ViewContext, error) {
 				userID := resolveESignAdminUserID(c)
+				accountID := resolveGoogleAccountID(c)
 				redirectURI := resolveGoogleOAuthRedirectURI(c, googleCallbackPath)
-				return router.ViewContext{
+				viewCtx := router.ViewContext{
 					"api_base_path":       apiBasePath,
 					"google_enabled":      googleEnabled,
 					"google_client_id":    strings.TrimSpace(os.Getenv("ESIGN_GOOGLE_CLIENT_ID")),
 					"google_redirect_uri": redirectURI,
+					"google_account_id":   accountID,
 					"user_id":             userID,
 					"routes": map[string]any{
 						"esign_settings":      landingPath,
 						"esign_documents":     documentsPath,
 						"esign_google_picker": googleDrivePickerPath,
 					},
-				}, nil
+				}
+				pageCfg := buildESignGoogleIntegrationPageConfig(
+					eSignPageGoogleIntegration,
+					basePath,
+					apiBasePath,
+					userID,
+					googleEnabled,
+					viewContextRoutes(viewCtx),
+				)
+				if pageCfg.Context == nil {
+					pageCfg.Context = map[string]any{}
+				}
+				pageCfg.Context["google_account_id"] = accountID
+				viewCtx = withESignPageConfig(
+					viewCtx,
+					pageCfg,
+				)
+				return viewCtx, nil
 			},
 		},
 		quickstart.AdminPageSpec{
@@ -509,6 +536,29 @@ func registerESignGoogleIntegrationUIRoutes(
 			Title:      "Google Authorization",
 			Active:     "esign",
 			Permission: permissions.AdminESignSettings,
+			BuildContext: func(c router.Context) (router.ViewContext, error) {
+				userID := resolveESignAdminUserID(c)
+				accountID := resolveGoogleAccountID(c)
+				pageCfg := buildESignGoogleIntegrationPageConfig(
+					eSignPageGoogleCallback,
+					basePath,
+					apiBasePath,
+					userID,
+					googleEnabled,
+					map[string]string{},
+				)
+				if pageCfg.Context == nil {
+					pageCfg.Context = map[string]any{}
+				}
+				pageCfg.Context["google_account_id"] = accountID
+				viewCtx := withESignPageConfig(
+					router.ViewContext{
+						"google_account_id": accountID,
+					},
+					pageCfg,
+				)
+				return viewCtx, nil
+			},
 		},
 		quickstart.AdminPageSpec{
 			Path:       googleDrivePickerPath,
@@ -518,20 +568,40 @@ func registerESignGoogleIntegrationUIRoutes(
 			Permission: permissions.AdminESignCreate,
 			BuildContext: func(c router.Context) (router.ViewContext, error) {
 				userID := resolveESignAdminUserID(c)
+				accountID := resolveGoogleAccountID(c)
 				scope := stores.Scope{TenantID: "tenant-bootstrap", OrgID: "org-bootstrap"}
 				if esignModule != nil {
 					scope = resolveESignUploadScope(c, esignModule.DefaultScope())
 				}
-				googleConnected := esignModule != nil && esignModule.GoogleConnected(c.Context(), scope, userID)
-				return router.ViewContext{
-					"api_base_path":    apiBasePath,
-					"user_id":          userID,
-					"google_connected": googleConnected,
+				scopedUserID := services.ComposeGoogleScopedUserID(userID, accountID)
+				googleConnected := esignModule != nil && esignModule.GoogleConnected(c.Context(), scope, scopedUserID)
+				viewCtx := router.ViewContext{
+					"api_base_path":     apiBasePath,
+					"google_account_id": accountID,
+					"user_id":           userID,
+					"google_connected":  googleConnected,
 					"routes": map[string]any{
 						"esign_settings":  landingPath,
 						"esign_documents": documentsPath,
 					},
-				}, nil
+				}
+				pageCfg := buildESignGoogleIntegrationPageConfig(
+					eSignPageGoogleDrivePicker,
+					basePath,
+					apiBasePath,
+					userID,
+					googleEnabled,
+					viewContextRoutes(viewCtx),
+				)
+				if pageCfg.Context == nil {
+					pageCfg.Context = map[string]any{}
+				}
+				pageCfg.Context["google_account_id"] = accountID
+				viewCtx = withESignPageConfig(
+					viewCtx,
+					pageCfg,
+				)
+				return viewCtx, nil
 			},
 		},
 	)
@@ -734,6 +804,13 @@ func resolveESignAdminUserID(c router.Context) string {
 	return firstNonEmptyEnv("ESIGN_ADMIN_ID", defaultESignDemoAdminID)
 }
 
+func resolveGoogleAccountID(c router.Context) string {
+	if c == nil {
+		return ""
+	}
+	return strings.TrimSpace(c.Query("account_id"))
+}
+
 func withESignDocumentIngestionViewContext(
 	ctx router.ViewContext,
 	panelName string,
@@ -748,14 +825,33 @@ func withESignDocumentIngestionViewContext(
 		return ctx
 	}
 	userID := resolveESignAdminUserID(c)
+	accountID := resolveGoogleAccountID(c)
 	ctx["user_id"] = userID
+	ctx["google_account_id"] = accountID
 	ctx["google_enabled"] = googleEnabled
 	googleConnected := false
 	if googleEnabled && esignModule != nil && c != nil && strings.TrimSpace(userID) != "" {
 		scope := resolveESignUploadScope(c, esignModule.DefaultScope())
-		googleConnected = esignModule.GoogleConnected(c.Context(), scope, userID)
+		scopedUserID := services.ComposeGoogleScopedUserID(userID, accountID)
+		googleConnected = esignModule.GoogleConnected(c.Context(), scope, scopedUserID)
 	}
 	ctx["google_connected"] = googleConnected
+	pageCfg := buildESignDocumentIngestionPageConfig(
+		viewContextString(ctx, "base_path", "/admin"),
+		viewContextString(ctx, "api_base_path", "/admin/api/v1"),
+		userID,
+		googleEnabled,
+		googleConnected,
+		viewContextRoutes(ctx),
+	)
+	if pageCfg.Context == nil {
+		pageCfg.Context = map[string]any{}
+	}
+	pageCfg.Context["google_account_id"] = accountID
+	ctx = withESignPageConfig(
+		ctx,
+		pageCfg,
+	)
 	return ctx
 }
 
@@ -949,7 +1045,10 @@ func renderSignerReviewPage(c router.Context, cfg SignerWebRouteConfig, apiBaseP
 
 	observability.ObserveUnifiedViewerLoad(c.Context(), time.Since(startedAt), true)
 	observability.ObserveSignerLinkOpen(c.Context(), true)
-	viewCtx := buildSignerReviewViewContext(token, apiBasePath, session)
+	viewCtx := withESignPageConfig(
+		buildSignerReviewViewContext(token, apiBasePath, session),
+		buildESignSignerPageConfig(eSignPageSignerReview, cfg.AssetBasePath, apiBasePath, token),
+	)
 	return c.Render("esign-signer/review", signerTemplateViewContext(cfg, apiBasePath, viewCtx))
 }
 
@@ -991,6 +1090,10 @@ func renderSignerCompletePage(c router.Context, cfg SignerWebRouteConfig, apiBas
 			},
 			"signed_at": time.Now().Format("January 2, 2006"),
 		}
+		viewCtx = withESignPageConfig(
+			viewCtx,
+			buildESignSignerPageConfig(eSignPageSignerComplete, cfg.AssetBasePath, apiBasePath, token),
+		)
 		return c.Render("esign-signer/complete", signerTemplateViewContext(cfg, apiBasePath, viewCtx))
 	}
 
@@ -1006,6 +1109,10 @@ func renderSignerCompletePage(c router.Context, cfg SignerWebRouteConfig, apiBas
 			},
 			"signed_at": time.Now().Format("January 2, 2006"),
 		}
+		viewCtx = withESignPageConfig(
+			viewCtx,
+			buildESignSignerPageConfig(eSignPageSignerComplete, cfg.AssetBasePath, apiBasePath, token),
+		)
 		return c.Render("esign-signer/complete", signerTemplateViewContext(cfg, apiBasePath, viewCtx))
 	}
 
@@ -1049,6 +1156,10 @@ func renderSignerCompletePage(c router.Context, cfg SignerWebRouteConfig, apiBas
 			}
 		}
 	}
+	viewCtx = withESignPageConfig(
+		viewCtx,
+		buildESignSignerPageConfig(eSignPageSignerComplete, cfg.AssetBasePath, apiBasePath, token),
+	)
 	return c.Render("esign-signer/complete", signerTemplateViewContext(cfg, apiBasePath, viewCtx))
 }
 
@@ -1083,6 +1194,10 @@ func renderSignerDeclinedPage(c router.Context, cfg SignerWebRouteConfig, apiBas
 			viewCtx["session"] = sessionToViewContext(session)
 		}
 	}
+	viewCtx = withESignPageConfig(
+		viewCtx,
+		buildESignSignerPageConfig(eSignPageSignerDeclined, cfg.AssetBasePath, apiBasePath, token),
+	)
 
 	return c.Render("esign-signer/declined", signerTemplateViewContext(cfg, apiBasePath, viewCtx))
 }
@@ -1095,6 +1210,10 @@ func renderSignerErrorPage(c router.Context, cfg SignerWebRouteConfig, apiBasePa
 		"error_title":   errorTitle,
 		"error_message": errorMessage,
 	}
+	viewCtx = withESignPageConfig(
+		viewCtx,
+		buildESignSignerPageConfig(eSignPageSignerError, cfg.AssetBasePath, apiBasePath, ""),
+	)
 	return c.Render("esign-signer/error", signerTemplateViewContext(cfg, apiBasePath, viewCtx))
 }
 

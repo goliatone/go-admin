@@ -75,6 +75,8 @@ func (s GoogleServicesIntegrationService) Connect(ctx context.Context, scope sto
 	if userID == "" {
 		return GoogleOAuthStatus{}, domainValidationError("google", "user_id", "required")
 	}
+	accountID := normalizeGoogleAccountID(input.AccountID)
+	scopedUserID := ComposeGoogleScopedUserID(userID, accountID)
 	authCode := strings.TrimSpace(input.AuthCode)
 	if authCode == "" {
 		return GoogleOAuthStatus{}, domainValidationError("google", "auth_code", "required")
@@ -83,7 +85,7 @@ func (s GoogleServicesIntegrationService) Connect(ctx context.Context, scope sto
 	if redirectErr != nil {
 		return GoogleOAuthStatus{}, redirectErr
 	}
-	resolvedScope := s.scopeRef(scope, userID)
+	resolvedScope := s.scopeRef(scope, scopedUserID)
 
 	begin, err := svc.Connect(ctx, gocore.ConnectRequest{
 		ProviderID:      s.googleProviderID(),
@@ -91,7 +93,8 @@ func (s GoogleServicesIntegrationService) Connect(ctx context.Context, scope sto
 		RedirectURI:     redirectURI,
 		RequestedGrants: append([]string(nil), s.allowedScopes...),
 		Metadata: map[string]any{
-			"user_id": userID,
+			"user_id":    userID,
+			"account_id": accountID,
 		},
 	})
 	if err != nil {
@@ -105,7 +108,8 @@ func (s GoogleServicesIntegrationService) Connect(ctx context.Context, scope sto
 		State:       strings.TrimSpace(begin.State),
 		RedirectURI: redirectURI,
 		Metadata: map[string]any{
-			"user_id": userID,
+			"user_id":    userID,
+			"account_id": accountID,
 		},
 	})
 	if err != nil {
@@ -138,6 +142,7 @@ func (s GoogleServicesIntegrationService) Connect(ctx context.Context, scope sto
 		Provider:             GoogleProviderName,
 		ProviderMode:         health.Mode,
 		UserID:               userID,
+		AccountID:            accountID,
 		Connected:            true,
 		Scopes:               scopes,
 		ExpiresAt:            expiresAt,
@@ -163,7 +168,12 @@ func (s GoogleServicesIntegrationService) Disconnect(ctx context.Context, scope 
 	if userID == "" {
 		return domainValidationError("google", "user_id", "required")
 	}
-	connection, found, err := s.findScopedConnection(ctx, svc, scope, userID)
+	baseUserID, accountID := ParseGoogleScopedUserID(userID)
+	if baseUserID == "" {
+		return domainValidationError("google", "user_id", "required")
+	}
+	scopedUserID := ComposeGoogleScopedUserID(baseUserID, accountID)
+	connection, found, err := s.findScopedConnection(ctx, svc, scope, scopedUserID)
 	if err != nil {
 		return err
 	}
@@ -171,7 +181,7 @@ func (s GoogleServicesIntegrationService) Disconnect(ctx context.Context, scope 
 		return nil
 	}
 	if s.provider != nil {
-		if accessToken, _, tokenErr := s.resolveAccessToken(ctx, scope, userID); tokenErr == nil {
+		if accessToken, _, tokenErr := s.resolveAccessToken(ctx, scope, scopedUserID); tokenErr == nil {
 			if revokeErr := s.provider.RevokeToken(ctx, accessToken); revokeErr != nil {
 				observability.ObserveProviderResult(ctx, GoogleProviderName, false)
 				return MapGoogleProviderError(revokeErr)
@@ -197,7 +207,12 @@ func (s GoogleServicesIntegrationService) Status(ctx context.Context, scope stor
 	if userID == "" {
 		return GoogleOAuthStatus{}, domainValidationError("google", "user_id", "required")
 	}
-	connection, found, err := s.findScopedConnection(ctx, svc, scope, userID)
+	baseUserID, accountID := ParseGoogleScopedUserID(userID)
+	if baseUserID == "" {
+		return GoogleOAuthStatus{}, domainValidationError("google", "user_id", "required")
+	}
+	scopedUserID := ComposeGoogleScopedUserID(baseUserID, accountID)
+	connection, found, err := s.findScopedConnection(ctx, svc, scope, scopedUserID)
 	if err != nil {
 		return GoogleOAuthStatus{}, err
 	}
@@ -205,7 +220,8 @@ func (s GoogleServicesIntegrationService) Status(ctx context.Context, scope stor
 		return GoogleOAuthStatus{
 			Provider:             GoogleProviderName,
 			ProviderMode:         health.Mode,
-			UserID:               userID,
+			UserID:               baseUserID,
+			AccountID:            accountID,
 			Connected:            false,
 			Scopes:               []string{},
 			IsExpired:            false,
@@ -261,7 +277,8 @@ func (s GoogleServicesIntegrationService) Status(ctx context.Context, scope stor
 	return GoogleOAuthStatus{
 		Provider:             GoogleProviderName,
 		ProviderMode:         health.Mode,
-		UserID:               userID,
+		UserID:               baseUserID,
+		AccountID:            accountID,
 		Connected:            connected,
 		Scopes:               scopes,
 		ExpiresAt:            expiresAt,
@@ -290,7 +307,7 @@ func (s GoogleServicesIntegrationService) SearchFiles(ctx context.Context, scope
 	if s.provider == nil {
 		return GoogleDriveListResult{}, domainValidationError("google", "service", "provider not configured")
 	}
-	accessToken, _, err := s.resolveAccessToken(ctx, scope, input.UserID)
+	accessToken, _, err := s.resolveAccessToken(ctx, scope, ComposeGoogleScopedUserID(input.UserID, input.AccountID))
 	if err != nil {
 		return GoogleDriveListResult{}, err
 	}
@@ -312,7 +329,7 @@ func (s GoogleServicesIntegrationService) BrowseFiles(ctx context.Context, scope
 	if s.provider == nil {
 		return GoogleDriveListResult{}, domainValidationError("google", "service", "provider not configured")
 	}
-	accessToken, _, err := s.resolveAccessToken(ctx, scope, input.UserID)
+	accessToken, _, err := s.resolveAccessToken(ctx, scope, ComposeGoogleScopedUserID(input.UserID, input.AccountID))
 	if err != nil {
 		return GoogleDriveListResult{}, err
 	}
@@ -341,7 +358,7 @@ func (s GoogleServicesIntegrationService) ImportDocument(ctx context.Context, sc
 	if s.documents == nil || s.agreements == nil {
 		return GoogleImportResult{}, domainValidationError("google", "import", "document/agreement services not configured")
 	}
-	accessToken, userID, err := s.resolveAccessToken(ctx, scope, input.UserID)
+	accessToken, userID, err := s.resolveAccessToken(ctx, scope, ComposeGoogleScopedUserID(input.UserID, input.AccountID))
 	if err != nil {
 		return GoogleImportResult{}, err
 	}
@@ -694,7 +711,12 @@ func (s GoogleServicesIntegrationService) resolveAccessToken(ctx context.Context
 	if userID == "" {
 		return "", "", domainValidationError("google", "user_id", "required")
 	}
-	connection, found, err := s.findScopedConnection(ctx, svc, scope, userID)
+	baseUserID, accountID := ParseGoogleScopedUserID(userID)
+	if baseUserID == "" {
+		return "", "", domainValidationError("google", "user_id", "required")
+	}
+	scopedUserID := ComposeGoogleScopedUserID(baseUserID, accountID)
+	connection, found, err := s.findScopedConnection(ctx, svc, scope, scopedUserID)
 	if err != nil {
 		return "", "", err
 	}
@@ -703,7 +725,11 @@ func (s GoogleServicesIntegrationService) resolveAccessToken(ctx context.Context
 		return "", "", goerrors.New("google integration disconnected", goerrors.CategoryAuthz).
 			WithCode(http.StatusUnauthorized).
 			WithTextCode(string(ErrorCodeGoogleAccessRevoked)).
-			WithMetadata(map[string]any{"provider": GoogleProviderName, "user_id": userID})
+			WithMetadata(map[string]any{
+				"provider":   GoogleProviderName,
+				"user_id":    baseUserID,
+				"account_id": accountID,
+			})
 	}
 
 	active, err := s.resolveActiveCredential(ctx, svc, connection.ID)
@@ -713,7 +739,11 @@ func (s GoogleServicesIntegrationService) resolveAccessToken(ctx context.Context
 			return "", "", goerrors.New("google integration disconnected", goerrors.CategoryAuthz).
 				WithCode(http.StatusUnauthorized).
 				WithTextCode(string(ErrorCodeGoogleAccessRevoked)).
-				WithMetadata(map[string]any{"provider": GoogleProviderName, "user_id": userID})
+				WithMetadata(map[string]any{
+					"provider":   GoogleProviderName,
+					"user_id":    baseUserID,
+					"account_id": accountID,
+				})
 		}
 		return "", "", err
 	}
@@ -741,7 +771,8 @@ func (s GoogleServicesIntegrationService) resolveAccessToken(ctx context.Context
 			WithTextCode(string(ErrorCodeGoogleAccessRevoked)).
 			WithMetadata(map[string]any{
 				"provider":          GoogleProviderName,
-				"user_id":           userID,
+				"user_id":           baseUserID,
+				"account_id":        accountID,
 				"reason":            "refresh_failed",
 				"can_auto_refresh":  tokenState.CanAutoRefresh,
 				"connection_status": string(connection.Status),
@@ -761,9 +792,10 @@ func (s GoogleServicesIntegrationService) resolveAccessToken(ctx context.Context
 			WithCode(http.StatusUnauthorized).
 			WithTextCode(string(ErrorCodeGoogleAccessRevoked)).
 			WithMetadata(map[string]any{
-				"provider": GoogleProviderName,
-				"user_id":  userID,
-				"reason":   "token_expired",
+				"provider":   GoogleProviderName,
+				"user_id":    baseUserID,
+				"account_id": accountID,
+				"reason":     "token_expired",
 			})
 	}
 	accessToken := strings.TrimSpace(active.AccessToken)
@@ -773,7 +805,7 @@ func (s GoogleServicesIntegrationService) resolveAccessToken(ctx context.Context
 			WithCode(http.StatusUnauthorized).
 			WithTextCode(string(ErrorCodeGoogleAccessRevoked))
 	}
-	return accessToken, userID, nil
+	return accessToken, baseUserID, nil
 }
 
 func normalizeDrivePageSize(pageSize int) int {
