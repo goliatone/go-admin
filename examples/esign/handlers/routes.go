@@ -24,6 +24,8 @@ const (
 	documentsSegment       = "documents"
 	adminStatusSegment     = "status"
 	statsSegment           = "stats"
+	smokeSegment           = "smoke"
+	recipientLinksSegment  = "recipient-links"
 	uploadSegment          = "upload"
 	connectSegment         = "connect"
 	disconnectSegment      = "disconnect"
@@ -50,21 +52,22 @@ type RouteSet struct {
 	AdminAPIBase  string
 	PublicAPIBase string
 
-	AdminHome             string
-	AdminStatus           string
-	AdminAPIStatus        string
-	AdminAgreementsStats  string
-	AdminDocumentsUpload  string
-	SignerSession         string
-	SignerConsent         string
-	SignerFieldValues     string
-	SignerSignature       string
-	SignerSignatureUpload string
-	SignerSignatureObject string
-	SignerTelemetry       string
-	SignerSubmit          string
-	SignerDecline         string
-	SignerAssets          string
+	AdminHome                string
+	AdminStatus              string
+	AdminAPIStatus           string
+	AdminAgreementsStats     string
+	AdminSmokeRecipientLinks string
+	AdminDocumentsUpload     string
+	SignerSession            string
+	SignerConsent            string
+	SignerFieldValues        string
+	SignerSignature          string
+	SignerSignatureUpload    string
+	SignerSignatureObject    string
+	SignerTelemetry          string
+	SignerSubmit             string
+	SignerDecline            string
+	SignerAssets             string
 
 	AdminGoogleOAuthConnect    string
 	AdminGoogleOAuthDisconnect string
@@ -90,24 +93,25 @@ func BuildRouteSet(urls urlkit.Resolver, adminBasePath, adminAPIGroup string) Ro
 	signingBase := joinPath(publicAPIBase, esignSegment, signingSegment)
 
 	return RouteSet{
-		AdminBasePath:         adminBase,
-		AdminAPIBase:          adminAPIBase,
-		PublicAPIBase:         publicAPIBase,
-		AdminHome:             joinPath(adminBase, esignSegment),
-		AdminStatus:           joinPath(adminBase, esignSegment, adminStatusSegment),
-		AdminAPIStatus:        joinPath(adminAPIBase, esignSegment, adminStatusSegment),
-		AdminAgreementsStats:  joinPath(adminAPIBase, esignSegment, agreementsSegment, statsSegment),
-		AdminDocumentsUpload:  joinPath(adminAPIBase, esignSegment, documentsSegment, uploadSegment),
-		SignerSession:         joinPath(signingBase, sessionSegment, ":token"),
-		SignerConsent:         joinPath(signingBase, consentSegment, ":token"),
-		SignerFieldValues:     joinPath(signingBase, fieldValuesSegment, ":token"),
-		SignerSignature:       joinPath(signingBase, fieldValuesSegment, signatureSegment, ":token"),
-		SignerSignatureUpload: joinPath(signingBase, signatureUploadSegment, ":token"),
-		SignerSignatureObject: joinPath(signingBase, signatureUploadSegment, objectSegment),
-		SignerTelemetry:       joinPath(signingBase, telemetrySegment, ":token"),
-		SignerSubmit:          joinPath(signingBase, submitSegment, ":token"),
-		SignerDecline:         joinPath(signingBase, declineSegment, ":token"),
-		SignerAssets:          joinPath(signingBase, assetsSegment, ":token"),
+		AdminBasePath:            adminBase,
+		AdminAPIBase:             adminAPIBase,
+		PublicAPIBase:            publicAPIBase,
+		AdminHome:                joinPath(adminBase, esignSegment),
+		AdminStatus:              joinPath(adminBase, esignSegment, adminStatusSegment),
+		AdminAPIStatus:           joinPath(adminAPIBase, esignSegment, adminStatusSegment),
+		AdminAgreementsStats:     joinPath(adminAPIBase, esignSegment, agreementsSegment, statsSegment),
+		AdminSmokeRecipientLinks: joinPath(adminAPIBase, esignSegment, smokeSegment, recipientLinksSegment),
+		AdminDocumentsUpload:     joinPath(adminAPIBase, esignSegment, documentsSegment, uploadSegment),
+		SignerSession:            joinPath(signingBase, sessionSegment, ":token"),
+		SignerConsent:            joinPath(signingBase, consentSegment, ":token"),
+		SignerFieldValues:        joinPath(signingBase, fieldValuesSegment, ":token"),
+		SignerSignature:          joinPath(signingBase, fieldValuesSegment, signatureSegment, ":token"),
+		SignerSignatureUpload:    joinPath(signingBase, signatureUploadSegment, ":token"),
+		SignerSignatureObject:    joinPath(signingBase, signatureUploadSegment, objectSegment),
+		SignerTelemetry:          joinPath(signingBase, telemetrySegment, ":token"),
+		SignerSubmit:             joinPath(signingBase, submitSegment, ":token"),
+		SignerDecline:            joinPath(signingBase, declineSegment, ":token"),
+		SignerAssets:             joinPath(signingBase, assetsSegment, ":token"),
 
 		AdminGoogleOAuthConnect:    joinPath(adminAPIBase, esignSegment, integrationsSegment, googleSegment, connectSegment),
 		AdminGoogleOAuthDisconnect: joinPath(adminAPIBase, esignSegment, integrationsSegment, googleSegment, disconnectSegment),

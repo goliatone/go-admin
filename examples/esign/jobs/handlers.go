@@ -40,6 +40,7 @@ type EmailProvider interface {
 type DeterministicEmailProvider struct{}
 
 func (p DeterministicEmailProvider) Send(_ context.Context, input EmailSendInput) (string, error) {
+	CaptureRecipientLink(input)
 	payload := strings.Join([]string{
 		strings.TrimSpace(input.TemplateCode),
 		strings.TrimSpace(input.Agreement.ID),

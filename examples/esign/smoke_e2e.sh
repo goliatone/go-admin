@@ -9,7 +9,6 @@ ADMIN_IDENTIFIER="${ADMIN_IDENTIFIER:-admin@example.com}"
 ADMIN_PASSWORD="${ADMIN_PASSWORD:-admin.pwd}"
 SOURCE_PDF="${SOURCE_PDF:-}"
 KEEP_TMP="${KEEP_TMP:-0}"
-GO_BIN="${GO_BIN:-/Users/goliatone/.g/go/bin/go}"
 
 usage() {
   cat <<'EOF'
@@ -31,7 +30,6 @@ Options:
 
 Environment variables (equivalent):
   BASE_URL TENANT_ID ORG_ID ADMIN_IDENTIFIER ADMIN_PASSWORD SOURCE_PDF KEEP_TMP
-  GO_BIN
 
 Prerequisites:
   - e-sign app running (for example: ./taskfile dev:serve)
@@ -155,6 +153,43 @@ absolute_url() {
   echo "${BASE_URL}${value}"
 }
 
+resolve_recipient_link() {
+  local agreement_id="$1"
+  local recipient_id="$2"
+  local notification="$3"
+  local url_field="$4"
+  local output_path="$5"
+  local link_url_base="${BASE_URL}/admin/api/v1/esign/smoke/recipient-links"
+  local request_url="${link_url_base}?agreement_id=${agreement_id}&recipient_id=${recipient_id}&notification=${notification}"
+  request_url="$(append_query_string "${request_url}" "${EFFECTIVE_API_SCOPE_QUERY}")"
+
+  local status=""
+  local resolved=""
+  for _ in $(seq 1 20); do
+    status="$(
+      curl -sS \
+        -o "${output_path}" \
+        -b "${COOKIE_JAR}" \
+        "${request_url}" \
+        --write-out '%{http_code}'
+    )"
+    if [[ "${status}" == "200" ]]; then
+      resolved="$(jq -r --arg field "${url_field}" '.link[$field] // empty' "${output_path}")"
+      if [[ -n "${resolved}" ]]; then
+        echo "${resolved}"
+        return 0
+      fi
+      fail "recipient-link source response missing ${url_field}: $(cat "${output_path}")"
+    fi
+    if [[ "${status}" != "404" ]]; then
+      fail "recipient-link source failed: expected HTTP 200/404, got ${status}. body=$(cat "${output_path}")"
+    fi
+    sleep 0.25
+  done
+
+  fail "recipient link unavailable from in-process source: agreement_id=${agreement_id} recipient_id=${recipient_id} notification=${notification} body=$(cat "${output_path}")"
+}
+
 require_cmd curl
 require_cmd jq
 
@@ -179,6 +214,8 @@ SIGNER_ENTRY_HEADERS="${TMP_DIR}/signer-entry.headers"
 SIGNER_ENTRY_BODY="${TMP_DIR}/signer-entry.body"
 SIGNER_REVIEW_HTML="${TMP_DIR}/signer-review.html"
 COMPLETION_PAGE_HTML="${TMP_DIR}/completion-page.html"
+SIGN_LINK_JSON_PATH="${TMP_DIR}/sign-link.json"
+COMPLETION_LINK_JSON_PATH="${TMP_DIR}/completion-link.json"
 EXECUTED_HEADERS_PATH="${TMP_DIR}/executed.headers"
 CERTIFICATE_HEADERS_PATH="${TMP_DIR}/certificate.headers"
 EXECUTED_ASSET_PATH="${TMP_DIR}/executed.pdf"
@@ -374,24 +411,21 @@ if [[ "${SEND_STATUS}" != "200" ]]; then
   fail "send action failed: expected HTTP 200, got ${SEND_STATUS}. body=$(cat "${SEND_JSON_PATH}")"
 fi
 
-log "Issuing signer token for smoke link journey"
-SIGNER_TOKEN="$(
-  "${GO_BIN}" run ./tools/issue_signing_token \
-    --tenant-id "${EFFECTIVE_SCOPE_TENANT_ID}" \
-    --org-id "${EFFECTIVE_SCOPE_ORG_ID}" \
-    --agreement-id "${AGREEMENT_ID}" \
-    --recipient-id "${SIGNER_RECIPIENT_ID}" \
-    2>/dev/null | tr -d '\r\n'
-)"
-[[ -n "${SIGNER_TOKEN}" ]] || fail "failed to issue signer token for smoke flow"
-SIGN_URL="${BASE_URL}/sign/${SIGNER_TOKEN}"
+log "Resolving signer recipient link from in-process email capture source"
+SIGN_URL="$(resolve_recipient_link "${AGREEMENT_ID}" "${SIGNER_RECIPIENT_ID}" "signing_invitation" "sign_url" "${SIGN_LINK_JSON_PATH}")"
+[[ -n "${SIGN_URL}" ]] || fail "missing signer sign URL from recipient-link source"
+if [[ "${SIGN_URL}" == *"/fields"* ]]; then
+  fail "sign URL must resolve to entrypoint route, got legacy fields path: ${SIGN_URL}"
+fi
+SIGNER_TOKEN="$(echo "${SIGN_URL}" | sed -E 's#^.*/sign/([^/?]+).*$#\1#')"
+[[ -n "${SIGNER_TOKEN}" ]] || fail "failed to parse signer token from sign URL: ${SIGN_URL}"
 
 log "Loading signer entrypoint from recipient sign URL"
 SIGNER_ENTRY_STATUS="$(
   curl -sS \
     -o "${SIGNER_ENTRY_BODY}" \
     -D "${SIGNER_ENTRY_HEADERS}" \
-    "${SIGN_URL}" \
+    "$(absolute_url "${SIGN_URL}")" \
     --write-out '%{http_code}'
 )"
 if [[ "${SIGNER_ENTRY_STATUS}" != "302" ]]; then
@@ -457,31 +491,25 @@ if [[ "$(jq -r '.submit.completed // false' "${SUBMIT_JSON_PATH}")" != "true" ]]
   fail "signer submit did not complete agreement: $(cat "${SUBMIT_JSON_PATH}")"
 fi
 
-log "Issuing completion-recipient token and validating actionable completion CTA"
-COMPLETION_TOKEN="$(
-  "${GO_BIN}" run ./tools/issue_signing_token \
-    --tenant-id "${EFFECTIVE_SCOPE_TENANT_ID}" \
-    --org-id "${EFFECTIVE_SCOPE_ORG_ID}" \
-    --agreement-id "${AGREEMENT_ID}" \
-    --recipient-id "${CC_RECIPIENT_ID}" \
-    2>/dev/null | tr -d '\r\n'
-)"
-[[ -n "${COMPLETION_TOKEN}" ]] || fail "failed to issue completion token for artifact access check"
-COMPLETION_URL="${BASE_URL}/sign/${COMPLETION_TOKEN}/complete"
+log "Resolving completion-recipient link from in-process email capture source"
+COMPLETION_URL="$(resolve_recipient_link "${AGREEMENT_ID}" "${CC_RECIPIENT_ID}" "completion_delivery" "completion_url" "${COMPLETION_LINK_JSON_PATH}")"
+[[ -n "${COMPLETION_URL}" ]] || fail "missing completion URL from recipient-link source"
+COMPLETION_TOKEN="$(echo "${COMPLETION_URL}" | sed -E 's#^.*/sign/([^/?]+).*$#\1#')"
+[[ -n "${COMPLETION_TOKEN}" ]] || fail "failed to parse completion token from completion URL: ${COMPLETION_URL}"
 if [[ "${COMPLETION_URL}" == *"/api/v1/esign/signing/assets/"* ]]; then
   fail "completion CTA must not target raw asset contract endpoint: ${COMPLETION_URL}"
 fi
 COMPLETION_PAGE_STATUS="$(
   curl -sS \
     -o "${COMPLETION_PAGE_HTML}" \
-    "${COMPLETION_URL}" \
+    "$(absolute_url "${COMPLETION_URL}")" \
     --write-out '%{http_code}'
 )"
 if [[ "${COMPLETION_PAGE_STATUS}" != "200" ]]; then
   fail "completion page failed: expected HTTP 200, got ${COMPLETION_PAGE_STATUS}. body=$(cat "${COMPLETION_PAGE_HTML}")"
 fi
-if ! grep -qi 'Download Copy' "${COMPLETION_PAGE_HTML}"; then
-  fail "completion page missing actionable download CTA: $(cat "${COMPLETION_PAGE_HTML}")"
+if ! grep -q 'id="artifact-actions-container"' "${COMPLETION_PAGE_HTML}" || ! grep -q 'id="artifact-executed-link"' "${COMPLETION_PAGE_HTML}"; then
+  fail "completion page missing actionable artifact UI: $(cat "${COMPLETION_PAGE_HTML}")"
 fi
 
 log "Validating artifact contract and PDF responses"

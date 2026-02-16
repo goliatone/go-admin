@@ -19,12 +19,21 @@ type AgreementStore interface {
 	ListAgreements(ctx context.Context, scope Scope, query AgreementQuery) ([]AgreementRecord, error)
 	UpdateDraft(ctx context.Context, scope Scope, id string, patch AgreementDraftPatch, expectedVersion int64) (AgreementRecord, error)
 	Transition(ctx context.Context, scope Scope, id string, input AgreementTransitionInput) (AgreementRecord, error)
+	UpsertParticipantDraft(ctx context.Context, scope Scope, agreementID string, patch ParticipantDraftPatch, expectedVersion int64) (ParticipantRecord, error)
+	DeleteParticipantDraft(ctx context.Context, scope Scope, agreementID, participantID string) error
+	ListParticipants(ctx context.Context, scope Scope, agreementID string) ([]ParticipantRecord, error)
 	UpsertRecipientDraft(ctx context.Context, scope Scope, agreementID string, patch RecipientDraftPatch, expectedVersion int64) (RecipientRecord, error)
 	DeleteRecipientDraft(ctx context.Context, scope Scope, agreementID, recipientID string) error
 	ListRecipients(ctx context.Context, scope Scope, agreementID string) ([]RecipientRecord, error)
 	TouchRecipientView(ctx context.Context, scope Scope, agreementID, recipientID string, viewedAt time.Time) (RecipientRecord, error)
 	CompleteRecipient(ctx context.Context, scope Scope, agreementID, recipientID string, completedAt time.Time, expectedVersion int64) (RecipientRecord, error)
 	DeclineRecipient(ctx context.Context, scope Scope, agreementID, recipientID, reason string, declinedAt time.Time, expectedVersion int64) (RecipientRecord, error)
+	UpsertFieldDefinitionDraft(ctx context.Context, scope Scope, agreementID string, patch FieldDefinitionDraftPatch) (FieldDefinitionRecord, error)
+	DeleteFieldDefinitionDraft(ctx context.Context, scope Scope, agreementID, fieldDefinitionID string) error
+	ListFieldDefinitions(ctx context.Context, scope Scope, agreementID string) ([]FieldDefinitionRecord, error)
+	UpsertFieldInstanceDraft(ctx context.Context, scope Scope, agreementID string, patch FieldInstanceDraftPatch) (FieldInstanceRecord, error)
+	DeleteFieldInstanceDraft(ctx context.Context, scope Scope, agreementID, fieldInstanceID string) error
+	ListFieldInstances(ctx context.Context, scope Scope, agreementID string) ([]FieldInstanceRecord, error)
 	UpsertFieldDraft(ctx context.Context, scope Scope, agreementID string, patch FieldDraftPatch) (FieldRecord, error)
 	DeleteFieldDraft(ctx context.Context, scope Scope, agreementID, fieldID string) error
 	ListFields(ctx context.Context, scope Scope, agreementID string) ([]FieldRecord, error)

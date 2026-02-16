@@ -117,6 +117,26 @@ type RecipientRecord struct {
 	UpdatedAt     time.Time
 }
 
+// ParticipantRecord is the canonical v2 signer/cc routing entity.
+type ParticipantRecord struct {
+	ID            string
+	TenantID      string
+	OrgID         string
+	AgreementID   string
+	Email         string
+	Name          string
+	Role          string
+	SigningStage  int
+	FirstViewAt   *time.Time
+	LastViewAt    *time.Time
+	DeclinedAt    *time.Time
+	DeclineReason string
+	CompletedAt   *time.Time
+	Version       int64
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+}
+
 // SigningTokenRecord stores only hashed signer tokens.
 type SigningTokenRecord struct {
 	ID          string
@@ -147,6 +167,39 @@ type FieldRecord struct {
 	Required    bool
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+}
+
+// FieldDefinitionRecord is the canonical v2 logical field model.
+type FieldDefinitionRecord struct {
+	ID             string
+	TenantID       string
+	OrgID          string
+	AgreementID    string
+	ParticipantID  string
+	Type           string
+	Required       bool
+	ValidationJSON string
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+}
+
+// FieldInstanceRecord stores canonical v2 placement data for a field definition.
+type FieldInstanceRecord struct {
+	ID                string
+	TenantID          string
+	OrgID             string
+	AgreementID       string
+	FieldDefinitionID string
+	PageNumber        int
+	X                 float64
+	Y                 float64
+	Width             float64
+	Height            float64
+	TabIndex          int
+	Label             string
+	AppearanceJSON    string
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 }
 
 // FieldValueRecord stores signer-provided values for fields.
@@ -305,6 +358,14 @@ type RecipientDraftPatch struct {
 	SigningOrder *int
 }
 
+type ParticipantDraftPatch struct {
+	ID           string
+	Email        *string
+	Name         *string
+	Role         *string
+	SigningStage *int
+}
+
 type FieldDraftPatch struct {
 	ID          string
 	RecipientID *string
@@ -315,6 +376,27 @@ type FieldDraftPatch struct {
 	Width       *float64
 	Height      *float64
 	Required    *bool
+}
+
+type FieldDefinitionDraftPatch struct {
+	ID             string
+	ParticipantID  *string
+	Type           *string
+	Required       *bool
+	ValidationJSON *string
+}
+
+type FieldInstanceDraftPatch struct {
+	ID                string
+	FieldDefinitionID *string
+	PageNumber        *int
+	X                 *float64
+	Y                 *float64
+	Width             *float64
+	Height            *float64
+	TabIndex          *int
+	Label             *string
+	AppearanceJSON    *string
 }
 
 type AgreementTransitionInput struct {
