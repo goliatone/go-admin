@@ -195,6 +195,19 @@ func TestGoogleIntegrationConnectRejectsScopeViolations(t *testing.T) {
 	}
 }
 
+func TestValidateLeastPrivilegeScopesAllowsLegacyDriveFile(t *testing.T) {
+	err := validateLeastPrivilegeScopes(
+		[]string{
+			GoogleScopeDriveReadonly,
+			GoogleScopeDriveFile,
+		},
+		DefaultGoogleOAuthScopes,
+	)
+	if err != nil {
+		t.Fatalf("expected legacy drive.file scope to be accepted, got %v", err)
+	}
+}
+
 func TestGoogleIntegrationImportDocumentPersistsGoogleSourceMetadata(t *testing.T) {
 	ctx := context.Background()
 	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}

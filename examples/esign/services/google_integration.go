@@ -36,6 +36,7 @@ const (
 
 const (
 	GoogleScopeDriveReadonly = "https://www.googleapis.com/auth/drive.readonly"
+	GoogleScopeDriveFile     = "https://www.googleapis.com/auth/drive.file"
 	GoogleScopeUserinfoEmail = "https://www.googleapis.com/auth/userinfo.email"
 )
 
@@ -1375,6 +1376,10 @@ func validateLeastPrivilegeScopes(actual, allowed []string) error {
 	extra := make([]string, 0)
 	for _, scope := range actual {
 		if _, ok := allowedSet[scope]; !ok {
+			// Allow legacy drive.file grants so existing linked accounts continue to function.
+			if scope == GoogleScopeDriveFile || scope == "drive.file" {
+				continue
+			}
 			extra = append(extra, scope)
 		}
 	}
