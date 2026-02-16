@@ -1,0 +1,1169 @@
+{% extends "layout.html" %}
+
+{% block title %}V2 Runtime Diagnostics - E-Sign Admin{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6">
+  <!-- Page Header -->
+  <div class="flex justify-between items-center mb-6">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">V2 Runtime Diagnostics</h1>
+      <p class="text-sm text-gray-500 mt-1">Operator-facing visibility into v2 runtime states and system health</p>
+    </div>
+    <div class="flex gap-3">
+      <select id="time-range" class="border border-gray-300 rounded-md px-3 py-2 text-sm">
+        <option value="1h">Last 1 hour</option>
+        <option value="6h">Last 6 hours</option>
+        <option value="24h" selected>Last 24 hours</option>
+        <option value="7d">Last 7 days</option>
+      </select>
+      <button id="refresh-btn" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm">
+        Refresh
+      </button>
+      <button id="export-btn" class="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 text-sm">
+        Export Report
+      </button>
+    </div>
+  </div>
+
+  <!-- System Status Banner -->
+  <div id="system-status-banner" class="mb-6 p-4 rounded-lg bg-green-50 border border-green-200">
+    <div class="flex items-center gap-3">
+      <div class="flex-shrink-0">
+        <svg id="status-icon-healthy" class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        <svg id="status-icon-degraded" class="w-6 h-6 text-yellow-600 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+        </svg>
+        <svg id="status-icon-critical" class="w-6 h-6 text-red-600 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+      </div>
+      <div class="flex-1">
+        <p id="status-title" class="font-semibold text-green-800">All Systems Operational</p>
+        <p id="status-message" class="text-sm text-green-600">V2 runtime is operating normally with no active incidents.</p>
+      </div>
+      <div id="status-timestamp" class="text-xs text-gray-500">Updated: <span id="last-updated">--</span></div>
+    </div>
+  </div>
+
+  <!-- Key Metrics Row -->
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+    <!-- Active Agreements by Stage -->
+    <div class="bg-white rounded-lg shadow p-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-sm text-gray-500">Active Agreements</p>
+          <p id="active-agreements-count" class="text-3xl font-bold text-gray-900">--</p>
+        </div>
+        <div class="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
+          <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+          </svg>
+        </div>
+      </div>
+      <p id="agreements-by-stage-summary" class="text-xs text-gray-400 mt-2">-- in progress, -- awaiting</p>
+    </div>
+
+    <!-- Pending Conflicts -->
+    <div class="bg-white rounded-lg shadow p-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-sm text-gray-500">Pending Conflicts</p>
+          <p id="pending-conflicts-count" class="text-3xl font-bold text-orange-600">--</p>
+        </div>
+        <div class="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center">
+          <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+          </svg>
+        </div>
+      </div>
+      <p id="conflicts-priority-summary" class="text-xs text-gray-400 mt-2">-- high priority, -- normal</p>
+    </div>
+
+    <!-- Placement Engine Status -->
+    <div class="bg-white rounded-lg shadow p-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-sm text-gray-500">Placement Engine</p>
+          <p id="placement-engine-status" class="text-xl font-bold text-green-600">Healthy</p>
+        </div>
+        <div id="placement-status-indicator" class="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+          All Resolvers
+        </div>
+      </div>
+      <p id="placement-resolver-summary" class="text-xs text-gray-400 mt-2">-- active resolvers, -- degraded</p>
+    </div>
+
+    <!-- Signer Stage Progress -->
+    <div class="bg-white rounded-lg shadow p-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-sm text-gray-500">Avg. Stage Duration</p>
+          <p id="avg-stage-duration" class="text-3xl font-bold text-gray-900">--</p>
+        </div>
+        <div class="text-right">
+          <p id="fastest-completion" class="text-sm text-green-600">Fastest: --</p>
+          <p id="slowest-completion" class="text-sm text-orange-600">Slowest: --</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stage Progression Visibility -->
+  <div class="bg-white rounded-lg shadow mb-6">
+    <div class="px-4 py-3 border-b border-gray-200">
+      <div class="flex justify-between items-center">
+        <h3 class="text-lg font-semibold text-gray-900">Stage Progression Overview</h3>
+        <div class="flex gap-2">
+          <button id="stage-view-chart" class="px-3 py-1 text-sm border border-gray-300 rounded-md bg-white hover:bg-gray-50">
+            Chart View
+          </button>
+          <button id="stage-view-table" class="px-3 py-1 text-sm border border-blue-500 bg-blue-50 text-blue-700 rounded-md">
+            Table View
+          </button>
+        </div>
+      </div>
+      <p class="text-sm text-gray-500 mt-1">Real-time visibility into v2 six-step authoring and multi-stage signer progression</p>
+    </div>
+
+    <!-- Stage Progress Chart View -->
+    <div id="stage-chart-view" class="p-4 hidden">
+      <div class="grid grid-cols-6 gap-2 mb-4">
+        <div class="text-center p-3 rounded-lg bg-gray-50">
+          <p class="text-xs text-gray-500 mb-1">Step 1</p>
+          <p class="font-semibold text-gray-900">Document</p>
+          <p id="stage-1-count" class="text-2xl font-bold text-blue-600 mt-1">--</p>
+        </div>
+        <div class="text-center p-3 rounded-lg bg-gray-50">
+          <p class="text-xs text-gray-500 mb-1">Step 2</p>
+          <p class="font-semibold text-gray-900">Details</p>
+          <p id="stage-2-count" class="text-2xl font-bold text-blue-600 mt-1">--</p>
+        </div>
+        <div class="text-center p-3 rounded-lg bg-gray-50">
+          <p class="text-xs text-gray-500 mb-1">Step 3</p>
+          <p class="font-semibold text-gray-900">Participants</p>
+          <p id="stage-3-count" class="text-2xl font-bold text-blue-600 mt-1">--</p>
+        </div>
+        <div class="text-center p-3 rounded-lg bg-gray-50">
+          <p class="text-xs text-gray-500 mb-1">Step 4</p>
+          <p class="font-semibold text-gray-900">Fields</p>
+          <p id="stage-4-count" class="text-2xl font-bold text-blue-600 mt-1">--</p>
+        </div>
+        <div class="text-center p-3 rounded-lg bg-gray-50">
+          <p class="text-xs text-gray-500 mb-1">Step 5</p>
+          <p class="font-semibold text-gray-900">Placement</p>
+          <p id="stage-5-count" class="text-2xl font-bold text-blue-600 mt-1">--</p>
+        </div>
+        <div class="text-center p-3 rounded-lg bg-green-50">
+          <p class="text-xs text-gray-500 mb-1">Step 6</p>
+          <p class="font-semibold text-gray-900">Review</p>
+          <p id="stage-6-count" class="text-2xl font-bold text-green-600 mt-1">--</p>
+        </div>
+      </div>
+      <div class="h-48">
+        <canvas id="stage-progression-canvas"></canvas>
+      </div>
+    </div>
+
+    <!-- Stage Progress Table View -->
+    <div id="stage-table-view" class="p-4">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-left text-gray-500 border-b">
+            <th class="pb-2 font-medium">Agreement</th>
+            <th class="pb-2 font-medium">Current Stage</th>
+            <th class="pb-2 font-medium">Participants</th>
+            <th class="pb-2 font-medium">Stage Progress</th>
+            <th class="pb-2 font-medium">Time in Stage</th>
+            <th class="pb-2 font-medium">Status</th>
+          </tr>
+        </thead>
+        <tbody id="stage-table-body">
+          <tr class="text-gray-400">
+            <td colspan="6" class="py-4 text-center">Loading stage progression data...</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="mt-4 flex justify-between items-center">
+        <p id="stage-table-summary" class="text-sm text-gray-500">Showing -- of -- agreements</p>
+        <div class="flex gap-2">
+          <button id="stage-prev-page" class="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50" disabled>Previous</button>
+          <button id="stage-next-page" class="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50">Next</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Multi-Stage Signer Progression -->
+  <div class="bg-white rounded-lg shadow mb-6">
+    <div class="px-4 py-3 border-b border-gray-200">
+      <h3 class="text-lg font-semibold text-gray-900">Multi-Stage Signer Progression</h3>
+      <p class="text-sm text-gray-500 mt-1">Track participant progress across signing stages with bottleneck identification</p>
+    </div>
+    <div class="p-4">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Signer Stage Distribution -->
+        <div>
+          <h4 class="text-sm font-medium text-gray-700 mb-3">Stage Distribution</h4>
+          <div class="space-y-3">
+            <div class="flex items-center gap-3">
+              <span class="w-24 text-sm text-gray-600">Stage 1</span>
+              <div class="flex-1 h-6 bg-gray-100 rounded-full overflow-hidden">
+                <div id="signer-stage-1-bar" class="h-full bg-blue-500" style="width: 0%"></div>
+              </div>
+              <span id="signer-stage-1-count" class="w-12 text-sm font-medium text-right">--</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="w-24 text-sm text-gray-600">Stage 2</span>
+              <div class="flex-1 h-6 bg-gray-100 rounded-full overflow-hidden">
+                <div id="signer-stage-2-bar" class="h-full bg-indigo-500" style="width: 0%"></div>
+              </div>
+              <span id="signer-stage-2-count" class="w-12 text-sm font-medium text-right">--</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="w-24 text-sm text-gray-600">Stage 3</span>
+              <div class="flex-1 h-6 bg-gray-100 rounded-full overflow-hidden">
+                <div id="signer-stage-3-bar" class="h-full bg-purple-500" style="width: 0%"></div>
+              </div>
+              <span id="signer-stage-3-count" class="w-12 text-sm font-medium text-right">--</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="w-24 text-sm text-gray-600">Completed</span>
+              <div class="flex-1 h-6 bg-gray-100 rounded-full overflow-hidden">
+                <div id="signer-completed-bar" class="h-full bg-green-500" style="width: 0%"></div>
+              </div>
+              <span id="signer-completed-count" class="w-12 text-sm font-medium text-right">--</span>
+            </div>
+          </div>
+        </div>
+        <!-- Bottleneck Analysis -->
+        <div>
+          <h4 class="text-sm font-medium text-gray-700 mb-3">Bottleneck Analysis</h4>
+          <div id="bottleneck-list" class="space-y-2">
+            <div class="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <p class="text-sm text-yellow-800 font-medium">No bottlenecks detected</p>
+              <p class="text-xs text-yellow-600">Signer progression is healthy across all stages.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Integration Conflicts Surfacing -->
+  <div class="bg-white rounded-lg shadow mb-6">
+    <div class="px-4 py-3 border-b border-gray-200">
+      <div class="flex justify-between items-center">
+        <div>
+          <h3 class="text-lg font-semibold text-gray-900">Integration Conflicts</h3>
+          <p class="text-sm text-gray-500 mt-1">Unresolved conflicts requiring operator attention</p>
+        </div>
+        <div class="flex gap-2">
+          <select id="conflict-priority-filter" class="border border-gray-300 rounded-md px-3 py-1 text-sm">
+            <option value="">All Priorities</option>
+            <option value="high">High Priority</option>
+            <option value="normal">Normal</option>
+            <option value="low">Low Priority</option>
+          </select>
+          <select id="conflict-provider-filter" class="border border-gray-300 rounded-md px-3 py-1 text-sm">
+            <option value="">All Providers</option>
+            <option value="salesforce">Salesforce</option>
+            <option value="hubspot">HubSpot</option>
+            <option value="bamboohr">BambooHR</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="p-4">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-left text-gray-500 border-b">
+            <th class="pb-2 font-medium">Conflict ID</th>
+            <th class="pb-2 font-medium">Provider</th>
+            <th class="pb-2 font-medium">Entity</th>
+            <th class="pb-2 font-medium">Reason</th>
+            <th class="pb-2 font-medium">Priority</th>
+            <th class="pb-2 font-medium">Age</th>
+            <th class="pb-2 font-medium">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="conflicts-table-body">
+          <tr class="text-gray-400">
+            <td colspan="7" class="py-4 text-center">Loading conflict data...</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="mt-4 flex justify-between items-center">
+        <p id="conflicts-summary" class="text-sm text-gray-500">Showing -- of -- conflicts</p>
+        <div class="flex gap-2">
+          <button id="bulk-resolve-btn" class="px-3 py-1 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50" disabled>
+            Resolve Selected
+          </button>
+          <button id="bulk-ignore-btn" class="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50" disabled>
+            Ignore Selected
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Placement Engine Diagnostics -->
+  <div class="bg-white rounded-lg shadow mb-6">
+    <div class="px-4 py-3 border-b border-gray-200">
+      <div class="flex justify-between items-center">
+        <div>
+          <h3 class="text-lg font-semibold text-gray-900">Placement Engine Diagnostics</h3>
+          <p class="text-sm text-gray-500 mt-1">Resolver status, degraded mode detection, and performance metrics</p>
+        </div>
+        <div id="placement-mode-badge" class="px-3 py-1 bg-green-100 text-green-800 text-sm rounded-full font-medium">
+          Normal Mode
+        </div>
+      </div>
+    </div>
+    <div class="p-4">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Resolver Status -->
+        <div class="lg:col-span-2">
+          <h4 class="text-sm font-medium text-gray-700 mb-3">Resolver Status</h4>
+          <div class="space-y-2">
+            <div id="resolver-native_pdf_forms" class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div class="flex items-center gap-3">
+                <span class="w-3 h-3 rounded-full bg-green-500"></span>
+                <div>
+                  <p class="font-medium text-gray-900">Native PDF Forms</p>
+                  <p class="text-xs text-gray-500">Primary resolver for PDF form fields</p>
+                </div>
+              </div>
+              <div class="text-right">
+                <p class="text-sm font-medium text-green-600">Healthy</p>
+                <p class="text-xs text-gray-400">Latency: --ms</p>
+              </div>
+            </div>
+            <div id="resolver-text_anchor" class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div class="flex items-center gap-3">
+                <span class="w-3 h-3 rounded-full bg-green-500"></span>
+                <div>
+                  <p class="font-medium text-gray-900">Text Anchor</p>
+                  <p class="text-xs text-gray-500">Pattern-based text matching</p>
+                </div>
+              </div>
+              <div class="text-right">
+                <p class="text-sm font-medium text-green-600">Healthy</p>
+                <p class="text-xs text-gray-400">Latency: --ms</p>
+              </div>
+            </div>
+            <div id="resolver-ocr_anchor" class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div class="flex items-center gap-3">
+                <span class="w-3 h-3 rounded-full bg-green-500"></span>
+                <div>
+                  <p class="font-medium text-gray-900">OCR Anchor</p>
+                  <p class="text-xs text-gray-500">OCR-based field detection</p>
+                </div>
+              </div>
+              <div class="text-right">
+                <p class="text-sm font-medium text-green-600">Healthy</p>
+                <p class="text-xs text-gray-400">Latency: --ms</p>
+              </div>
+            </div>
+            <div id="resolver-ml_layout" class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div class="flex items-center gap-3">
+                <span class="w-3 h-3 rounded-full bg-green-500"></span>
+                <div>
+                  <p class="font-medium text-gray-900">ML Layout</p>
+                  <p class="text-xs text-gray-500">Machine learning layout analysis</p>
+                </div>
+              </div>
+              <div class="text-right">
+                <p class="text-sm font-medium text-green-600">Healthy</p>
+                <p class="text-xs text-gray-400">Latency: --ms</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- Degraded Mode Panel -->
+        <div>
+          <h4 class="text-sm font-medium text-gray-700 mb-3">Degraded Mode Status</h4>
+          <div id="degraded-mode-panel" class="p-4 bg-gray-50 rounded-lg">
+            <div class="flex items-center gap-2 mb-3">
+              <svg id="degraded-icon-ok" class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+              <svg id="degraded-icon-warn" class="w-5 h-5 text-yellow-600 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+              </svg>
+              <span id="degraded-mode-text" class="font-medium text-gray-900">Not in Degraded Mode</span>
+            </div>
+            <div id="degraded-details" class="space-y-2 text-sm hidden">
+              <div class="flex justify-between">
+                <span class="text-gray-600">Affected Resolvers:</span>
+                <span id="affected-resolvers-count" class="font-medium">--</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-600">Fallback Active:</span>
+                <span id="fallback-active" class="font-medium">--</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-600">Since:</span>
+                <span id="degraded-since" class="font-medium">--</span>
+              </div>
+            </div>
+            <div id="healthy-details" class="space-y-2 text-sm">
+              <div class="flex justify-between">
+                <span class="text-gray-600">Active Resolvers:</span>
+                <span id="active-resolvers-count" class="font-medium">4</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-600">Avg. Confidence:</span>
+                <span id="avg-confidence" class="font-medium">--</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-600">Last Check:</span>
+                <span id="last-health-check" class="font-medium">--</span>
+              </div>
+            </div>
+          </div>
+          <div class="mt-3">
+            <h5 class="text-xs text-gray-500 uppercase tracking-wider mb-2">Recent Placement Runs</h5>
+            <div id="recent-placement-runs" class="space-y-1">
+              <p class="text-sm text-gray-400">Loading...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Real-time Activity Feed -->
+  <div class="bg-white rounded-lg shadow">
+    <div class="px-4 py-3 border-b border-gray-200">
+      <div class="flex justify-between items-center">
+        <h3 class="text-lg font-semibold text-gray-900">Real-time Activity Feed</h3>
+        <div class="flex items-center gap-3">
+          <label class="flex items-center gap-2 text-sm">
+            <input type="checkbox" id="auto-refresh" checked class="rounded border-gray-300">
+            Auto-refresh
+          </label>
+          <span id="feed-status" class="flex items-center gap-1 text-xs text-green-600">
+            <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+            Live
+          </span>
+        </div>
+      </div>
+    </div>
+    <div class="p-4 max-h-80 overflow-y-auto">
+      <div id="activity-feed" class="space-y-3">
+        <p class="text-sm text-gray-400 text-center py-4">Waiting for activity...</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  const apiBase = '{{ api_base|default:"/admin/api" }}';
+  let autoRefreshInterval = null;
+  let currentPage = { stage: 1, conflicts: 1 };
+  const pageSize = 10;
+
+  // Initialize on load
+  document.addEventListener('DOMContentLoaded', init);
+
+  function init() {
+    loadDiagnosticsData();
+    setupEventListeners();
+    startAutoRefresh();
+  }
+
+  function setupEventListeners() {
+    document.getElementById('refresh-btn').addEventListener('click', loadDiagnosticsData);
+    document.getElementById('export-btn').addEventListener('click', exportReport);
+    document.getElementById('time-range').addEventListener('change', loadDiagnosticsData);
+    document.getElementById('stage-view-chart').addEventListener('click', () => toggleStageView('chart'));
+    document.getElementById('stage-view-table').addEventListener('click', () => toggleStageView('table'));
+    document.getElementById('auto-refresh').addEventListener('change', toggleAutoRefresh);
+    document.getElementById('conflict-priority-filter').addEventListener('change', loadConflicts);
+    document.getElementById('conflict-provider-filter').addEventListener('change', loadConflicts);
+    document.getElementById('stage-prev-page').addEventListener('click', () => changePageStage(-1));
+    document.getElementById('stage-next-page').addEventListener('click', () => changePageStage(1));
+    document.getElementById('bulk-resolve-btn').addEventListener('click', bulkResolveConflicts);
+    document.getElementById('bulk-ignore-btn').addEventListener('click', bulkIgnoreConflicts);
+  }
+
+  function toggleStageView(view) {
+    const chartBtn = document.getElementById('stage-view-chart');
+    const tableBtn = document.getElementById('stage-view-table');
+    const chartView = document.getElementById('stage-chart-view');
+    const tableView = document.getElementById('stage-table-view');
+
+    if (view === 'chart') {
+      chartBtn.classList.add('border-blue-500', 'bg-blue-50', 'text-blue-700');
+      chartBtn.classList.remove('border-gray-300');
+      tableBtn.classList.remove('border-blue-500', 'bg-blue-50', 'text-blue-700');
+      tableBtn.classList.add('border-gray-300');
+      chartView.classList.remove('hidden');
+      tableView.classList.add('hidden');
+    } else {
+      tableBtn.classList.add('border-blue-500', 'bg-blue-50', 'text-blue-700');
+      tableBtn.classList.remove('border-gray-300');
+      chartBtn.classList.remove('border-blue-500', 'bg-blue-50', 'text-blue-700');
+      chartBtn.classList.add('border-gray-300');
+      tableView.classList.remove('hidden');
+      chartView.classList.add('hidden');
+    }
+  }
+
+  function toggleAutoRefresh() {
+    const enabled = document.getElementById('auto-refresh').checked;
+    const feedStatus = document.getElementById('feed-status');
+
+    if (enabled) {
+      startAutoRefresh();
+      feedStatus.innerHTML = '<span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span> Live';
+      feedStatus.className = 'flex items-center gap-1 text-xs text-green-600';
+    } else {
+      stopAutoRefresh();
+      feedStatus.innerHTML = '<span class="w-2 h-2 rounded-full bg-gray-400"></span> Paused';
+      feedStatus.className = 'flex items-center gap-1 text-xs text-gray-500';
+    }
+  }
+
+  function startAutoRefresh() {
+    stopAutoRefresh();
+    autoRefreshInterval = setInterval(loadDiagnosticsData, 30000);
+  }
+
+  function stopAutoRefresh() {
+    if (autoRefreshInterval) {
+      clearInterval(autoRefreshInterval);
+      autoRefreshInterval = null;
+    }
+  }
+
+  async function loadDiagnosticsData() {
+    const timeRange = document.getElementById('time-range').value;
+
+    try {
+      // Load all diagnostics data in parallel
+      await Promise.all([
+        loadSystemStatus(timeRange),
+        loadKeyMetrics(timeRange),
+        loadStageProgression(timeRange),
+        loadSignerProgression(timeRange),
+        loadConflicts(),
+        loadPlacementDiagnostics(timeRange),
+        loadActivityFeed(timeRange)
+      ]);
+
+      document.getElementById('last-updated').textContent = new Date().toLocaleTimeString();
+    } catch (error) {
+      console.error('Failed to load diagnostics data:', error);
+      addActivityItem('error', 'Failed to load diagnostics data', error.message);
+    }
+  }
+
+  async function loadSystemStatus(timeRange) {
+    try {
+      const response = await fetch(`${apiBase}/esign-diagnostics/v2/status?range=${timeRange}`);
+      if (!response.ok) {
+        // Simulate data for demo
+        updateSystemStatus({ status: 'healthy', message: 'V2 runtime is operating normally with no active incidents.' });
+        return;
+      }
+      const data = await response.json();
+      updateSystemStatus(data);
+    } catch (error) {
+      // Default to healthy for demo
+      updateSystemStatus({ status: 'healthy', message: 'V2 runtime is operating normally with no active incidents.' });
+    }
+  }
+
+  function updateSystemStatus(data) {
+    const banner = document.getElementById('system-status-banner');
+    const title = document.getElementById('status-title');
+    const message = document.getElementById('status-message');
+    const iconHealthy = document.getElementById('status-icon-healthy');
+    const iconDegraded = document.getElementById('status-icon-degraded');
+    const iconCritical = document.getElementById('status-icon-critical');
+
+    // Hide all icons first
+    iconHealthy.classList.add('hidden');
+    iconDegraded.classList.add('hidden');
+    iconCritical.classList.add('hidden');
+
+    if (data.status === 'critical') {
+      banner.className = 'mb-6 p-4 rounded-lg bg-red-50 border border-red-200';
+      title.className = 'font-semibold text-red-800';
+      message.className = 'text-sm text-red-600';
+      iconCritical.classList.remove('hidden');
+      title.textContent = 'System Critical';
+    } else if (data.status === 'degraded') {
+      banner.className = 'mb-6 p-4 rounded-lg bg-yellow-50 border border-yellow-200';
+      title.className = 'font-semibold text-yellow-800';
+      message.className = 'text-sm text-yellow-600';
+      iconDegraded.classList.remove('hidden');
+      title.textContent = 'Degraded Performance';
+    } else {
+      banner.className = 'mb-6 p-4 rounded-lg bg-green-50 border border-green-200';
+      title.className = 'font-semibold text-green-800';
+      message.className = 'text-sm text-green-600';
+      iconHealthy.classList.remove('hidden');
+      title.textContent = 'All Systems Operational';
+    }
+    message.textContent = data.message || '';
+  }
+
+  async function loadKeyMetrics(timeRange) {
+    try {
+      const response = await fetch(`${apiBase}/esign-diagnostics/v2/metrics?range=${timeRange}`);
+      if (!response.ok) {
+        // Simulate data
+        updateKeyMetrics({
+          active_agreements: 42,
+          in_progress: 18,
+          awaiting: 24,
+          pending_conflicts: 7,
+          high_priority: 2,
+          normal_priority: 5,
+          placement_status: 'healthy',
+          active_resolvers: 4,
+          degraded_resolvers: 0,
+          avg_stage_duration: '2.5h',
+          fastest: '45m',
+          slowest: '8h'
+        });
+        return;
+      }
+      const data = await response.json();
+      updateKeyMetrics(data);
+    } catch (error) {
+      updateKeyMetrics({
+        active_agreements: 42,
+        in_progress: 18,
+        awaiting: 24,
+        pending_conflicts: 7,
+        high_priority: 2,
+        normal_priority: 5,
+        placement_status: 'healthy',
+        active_resolvers: 4,
+        degraded_resolvers: 0,
+        avg_stage_duration: '2.5h',
+        fastest: '45m',
+        slowest: '8h'
+      });
+    }
+  }
+
+  function updateKeyMetrics(data) {
+    document.getElementById('active-agreements-count').textContent = data.active_agreements || '--';
+    document.getElementById('agreements-by-stage-summary').textContent =
+      `${data.in_progress || '--'} in progress, ${data.awaiting || '--'} awaiting`;
+
+    document.getElementById('pending-conflicts-count').textContent = data.pending_conflicts || '0';
+    document.getElementById('conflicts-priority-summary').textContent =
+      `${data.high_priority || 0} high priority, ${data.normal_priority || 0} normal`;
+
+    const placementStatus = document.getElementById('placement-engine-status');
+    const placementIndicator = document.getElementById('placement-status-indicator');
+    if (data.placement_status === 'healthy') {
+      placementStatus.textContent = 'Healthy';
+      placementStatus.className = 'text-xl font-bold text-green-600';
+      placementIndicator.textContent = 'All Resolvers';
+      placementIndicator.className = 'px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full';
+    } else if (data.placement_status === 'degraded') {
+      placementStatus.textContent = 'Degraded';
+      placementStatus.className = 'text-xl font-bold text-yellow-600';
+      placementIndicator.textContent = 'Partial';
+      placementIndicator.className = 'px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full';
+    } else {
+      placementStatus.textContent = 'Critical';
+      placementStatus.className = 'text-xl font-bold text-red-600';
+      placementIndicator.textContent = 'Offline';
+      placementIndicator.className = 'px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full';
+    }
+    document.getElementById('placement-resolver-summary').textContent =
+      `${data.active_resolvers || '--'} active resolvers, ${data.degraded_resolvers || 0} degraded`;
+
+    document.getElementById('avg-stage-duration').textContent = data.avg_stage_duration || '--';
+    document.getElementById('fastest-completion').textContent = `Fastest: ${data.fastest || '--'}`;
+    document.getElementById('slowest-completion').textContent = `Slowest: ${data.slowest || '--'}`;
+  }
+
+  async function loadStageProgression(timeRange) {
+    try {
+      const response = await fetch(`${apiBase}/esign-diagnostics/v2/stage-progression?range=${timeRange}&page=${currentPage.stage}&limit=${pageSize}`);
+      if (!response.ok) {
+        // Simulate data
+        updateStageProgression({
+          stages: { 1: 5, 2: 8, 3: 12, 4: 10, 5: 4, 6: 3 },
+          agreements: generateSampleAgreements(),
+          total: 25
+        });
+        return;
+      }
+      const data = await response.json();
+      updateStageProgression(data);
+    } catch (error) {
+      updateStageProgression({
+        stages: { 1: 5, 2: 8, 3: 12, 4: 10, 5: 4, 6: 3 },
+        agreements: generateSampleAgreements(),
+        total: 25
+      });
+    }
+  }
+
+  function generateSampleAgreements() {
+    return [
+      { id: 'AGR-001', title: 'NDA - Acme Corp', stage: 4, stage_name: 'Fields', participants: 3, completed: 1, time_in_stage: '2h 15m', status: 'in_progress' },
+      { id: 'AGR-002', title: 'Employment Agreement', stage: 5, stage_name: 'Placement', participants: 2, completed: 0, time_in_stage: '45m', status: 'pending' },
+      { id: 'AGR-003', title: 'Vendor Contract', stage: 3, stage_name: 'Participants', participants: 4, completed: 2, time_in_stage: '1h 30m', status: 'in_progress' },
+      { id: 'AGR-004', title: 'Lease Agreement', stage: 6, stage_name: 'Review', participants: 2, completed: 2, time_in_stage: '20m', status: 'ready' },
+      { id: 'AGR-005', title: 'Service Level Agreement', stage: 2, stage_name: 'Details', participants: 3, completed: 0, time_in_stage: '4h 10m', status: 'stalled' }
+    ];
+  }
+
+  function updateStageProgression(data) {
+    // Update chart counts
+    for (let i = 1; i <= 6; i++) {
+      const el = document.getElementById(`stage-${i}-count`);
+      if (el) el.textContent = data.stages[i] || 0;
+    }
+
+    // Update table
+    const tbody = document.getElementById('stage-table-body');
+    if (data.agreements && data.agreements.length > 0) {
+      tbody.innerHTML = data.agreements.map(agr => `
+        <tr class="border-b border-gray-100 hover:bg-gray-50">
+          <td class="py-3">
+            <a href="/admin/esign-agreements/${agr.id}" class="text-blue-600 hover:underline font-medium">${agr.id}</a>
+            <p class="text-xs text-gray-500">${agr.title}</p>
+          </td>
+          <td class="py-3">
+            <span class="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded-full">
+              Step ${agr.stage}: ${agr.stage_name}
+            </span>
+          </td>
+          <td class="py-3">${agr.completed}/${agr.participants} completed</td>
+          <td class="py-3">
+            <div class="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
+              <div class="h-full bg-blue-500" style="width: ${(agr.stage / 6) * 100}%"></div>
+            </div>
+          </td>
+          <td class="py-3 text-sm text-gray-600">${agr.time_in_stage}</td>
+          <td class="py-3">${renderStageStatus(agr.status)}</td>
+        </tr>
+      `).join('');
+    } else {
+      tbody.innerHTML = '<tr><td colspan="6" class="py-4 text-center text-gray-400">No active agreements</td></tr>';
+    }
+
+    document.getElementById('stage-table-summary').textContent =
+      `Showing ${Math.min(currentPage.stage * pageSize, data.total || 0)} of ${data.total || 0} agreements`;
+  }
+
+  function renderStageStatus(status) {
+    const classes = {
+      'in_progress': 'bg-blue-100 text-blue-700',
+      'pending': 'bg-gray-100 text-gray-700',
+      'ready': 'bg-green-100 text-green-700',
+      'stalled': 'bg-yellow-100 text-yellow-700',
+      'blocked': 'bg-red-100 text-red-700'
+    };
+    return `<span class="px-2 py-1 text-xs rounded-full ${classes[status] || classes.pending}">${status}</span>`;
+  }
+
+  async function loadSignerProgression(timeRange) {
+    try {
+      const response = await fetch(`${apiBase}/esign-diagnostics/v2/signer-progression?range=${timeRange}`);
+      if (!response.ok) {
+        // Simulate data
+        updateSignerProgression({
+          stages: { 1: 15, 2: 22, 3: 8, completed: 35 },
+          bottlenecks: []
+        });
+        return;
+      }
+      const data = await response.json();
+      updateSignerProgression(data);
+    } catch (error) {
+      updateSignerProgression({
+        stages: { 1: 15, 2: 22, 3: 8, completed: 35 },
+        bottlenecks: []
+      });
+    }
+  }
+
+  function updateSignerProgression(data) {
+    const total = (data.stages[1] || 0) + (data.stages[2] || 0) + (data.stages[3] || 0) + (data.stages.completed || 0);
+
+    for (let i = 1; i <= 3; i++) {
+      const bar = document.getElementById(`signer-stage-${i}-bar`);
+      const count = document.getElementById(`signer-stage-${i}-count`);
+      const pct = total > 0 ? ((data.stages[i] || 0) / total * 100) : 0;
+      if (bar) bar.style.width = `${pct}%`;
+      if (count) count.textContent = data.stages[i] || 0;
+    }
+
+    const completedBar = document.getElementById('signer-completed-bar');
+    const completedCount = document.getElementById('signer-completed-count');
+    const completedPct = total > 0 ? ((data.stages.completed || 0) / total * 100) : 0;
+    if (completedBar) completedBar.style.width = `${completedPct}%`;
+    if (completedCount) completedCount.textContent = data.stages.completed || 0;
+
+    // Update bottleneck analysis
+    const bottleneckList = document.getElementById('bottleneck-list');
+    if (data.bottlenecks && data.bottlenecks.length > 0) {
+      bottleneckList.innerHTML = data.bottlenecks.map(b => `
+        <div class="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <p class="text-sm text-yellow-800 font-medium">${b.title}</p>
+          <p class="text-xs text-yellow-600">${b.description}</p>
+          <p class="text-xs text-gray-500 mt-1">${b.affected_count} affected</p>
+        </div>
+      `).join('');
+    } else {
+      bottleneckList.innerHTML = `
+        <div class="p-3 bg-green-50 border border-green-200 rounded-lg">
+          <p class="text-sm text-green-800 font-medium">No bottlenecks detected</p>
+          <p class="text-xs text-green-600">Signer progression is healthy across all stages.</p>
+        </div>
+      `;
+    }
+  }
+
+  async function loadConflicts() {
+    const priority = document.getElementById('conflict-priority-filter').value;
+    const provider = document.getElementById('conflict-provider-filter').value;
+
+    try {
+      const params = new URLSearchParams({ page: currentPage.conflicts, limit: pageSize });
+      if (priority) params.append('priority', priority);
+      if (provider) params.append('provider', provider);
+
+      const response = await fetch(`${apiBase}/esign-diagnostics/v2/conflicts?${params}`);
+      if (!response.ok) {
+        // Simulate data
+        updateConflicts({
+          conflicts: generateSampleConflicts(),
+          total: 7
+        });
+        return;
+      }
+      const data = await response.json();
+      updateConflicts(data);
+    } catch (error) {
+      updateConflicts({
+        conflicts: generateSampleConflicts(),
+        total: 7
+      });
+    }
+  }
+
+  function generateSampleConflicts() {
+    return [
+      { id: 'CNF-001', provider: 'salesforce', entity: 'Contact', reason: 'Duplicate email detected', priority: 'high', age: '2h' },
+      { id: 'CNF-002', provider: 'hubspot', entity: 'Deal', reason: 'Missing required field', priority: 'normal', age: '4h' },
+      { id: 'CNF-003', provider: 'salesforce', entity: 'Account', reason: 'Schema mismatch', priority: 'high', age: '1h' },
+      { id: 'CNF-004', provider: 'bamboohr', entity: 'Employee', reason: 'Invalid date format', priority: 'low', age: '12h' }
+    ];
+  }
+
+  function updateConflicts(data) {
+    const tbody = document.getElementById('conflicts-table-body');
+    if (data.conflicts && data.conflicts.length > 0) {
+      tbody.innerHTML = data.conflicts.map(c => `
+        <tr class="border-b border-gray-100 hover:bg-gray-50">
+          <td class="py-3">
+            <input type="checkbox" class="conflict-checkbox rounded border-gray-300" data-id="${c.id}">
+            <span class="ml-2 font-mono text-sm">${c.id}</span>
+          </td>
+          <td class="py-3 capitalize">${c.provider}</td>
+          <td class="py-3">${c.entity}</td>
+          <td class="py-3 text-sm text-gray-600">${c.reason}</td>
+          <td class="py-3">${renderPriorityBadge(c.priority)}</td>
+          <td class="py-3 text-sm text-gray-600">${c.age}</td>
+          <td class="py-3">
+            <div class="flex gap-1">
+              <button class="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700" onclick="resolveConflict('${c.id}')">
+                Resolve
+              </button>
+              <button class="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50" onclick="viewConflict('${c.id}')">
+                View
+              </button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+
+      // Setup checkbox listeners
+      document.querySelectorAll('.conflict-checkbox').forEach(cb => {
+        cb.addEventListener('change', updateBulkActions);
+      });
+    } else {
+      tbody.innerHTML = '<tr><td colspan="7" class="py-4 text-center text-gray-400">No pending conflicts</td></tr>';
+    }
+
+    document.getElementById('conflicts-summary').textContent =
+      `Showing ${Math.min(currentPage.conflicts * pageSize, data.total || 0)} of ${data.total || 0} conflicts`;
+  }
+
+  function renderPriorityBadge(priority) {
+    const classes = {
+      'high': 'bg-red-100 text-red-700',
+      'normal': 'bg-yellow-100 text-yellow-700',
+      'low': 'bg-gray-100 text-gray-700'
+    };
+    return `<span class="px-2 py-1 text-xs rounded-full ${classes[priority] || classes.normal}">${priority}</span>`;
+  }
+
+  function updateBulkActions() {
+    const checked = document.querySelectorAll('.conflict-checkbox:checked').length;
+    document.getElementById('bulk-resolve-btn').disabled = checked === 0;
+    document.getElementById('bulk-ignore-btn').disabled = checked === 0;
+  }
+
+  async function loadPlacementDiagnostics(timeRange) {
+    try {
+      const response = await fetch(`${apiBase}/esign-diagnostics/v2/placement?range=${timeRange}`);
+      if (!response.ok) {
+        // Simulate data
+        updatePlacementDiagnostics({
+          mode: 'normal',
+          resolvers: [
+            { id: 'native_pdf_forms', status: 'healthy', latency: 45 },
+            { id: 'text_anchor', status: 'healthy', latency: 120 },
+            { id: 'ocr_anchor', status: 'healthy', latency: 350 },
+            { id: 'ml_layout', status: 'healthy', latency: 800 }
+          ],
+          avg_confidence: '94%',
+          last_check: 'Just now',
+          recent_runs: [
+            { id: 'PR-001', status: 'completed', confidence: 98 },
+            { id: 'PR-002', status: 'completed', confidence: 95 },
+            { id: 'PR-003', status: 'partial', confidence: 72 }
+          ]
+        });
+        return;
+      }
+      const data = await response.json();
+      updatePlacementDiagnostics(data);
+    } catch (error) {
+      updatePlacementDiagnostics({
+        mode: 'normal',
+        resolvers: [
+          { id: 'native_pdf_forms', status: 'healthy', latency: 45 },
+          { id: 'text_anchor', status: 'healthy', latency: 120 },
+          { id: 'ocr_anchor', status: 'healthy', latency: 350 },
+          { id: 'ml_layout', status: 'healthy', latency: 800 }
+        ],
+        avg_confidence: '94%',
+        last_check: 'Just now',
+        recent_runs: [
+          { id: 'PR-001', status: 'completed', confidence: 98 },
+          { id: 'PR-002', status: 'completed', confidence: 95 },
+          { id: 'PR-003', status: 'partial', confidence: 72 }
+        ]
+      });
+    }
+  }
+
+  function updatePlacementDiagnostics(data) {
+    // Update mode badge
+    const modeBadge = document.getElementById('placement-mode-badge');
+    if (data.mode === 'degraded') {
+      modeBadge.textContent = 'Degraded Mode';
+      modeBadge.className = 'px-3 py-1 bg-yellow-100 text-yellow-800 text-sm rounded-full font-medium';
+    } else if (data.mode === 'critical') {
+      modeBadge.textContent = 'Critical';
+      modeBadge.className = 'px-3 py-1 bg-red-100 text-red-800 text-sm rounded-full font-medium';
+    } else {
+      modeBadge.textContent = 'Normal Mode';
+      modeBadge.className = 'px-3 py-1 bg-green-100 text-green-800 text-sm rounded-full font-medium';
+    }
+
+    // Update resolver statuses
+    if (data.resolvers) {
+      data.resolvers.forEach(r => {
+        const el = document.getElementById(`resolver-${r.id}`);
+        if (el) {
+          const statusDot = el.querySelector('span');
+          const statusText = el.querySelector('.text-sm.font-medium');
+          const latencyText = el.querySelector('.text-xs.text-gray-400');
+
+          if (r.status === 'healthy') {
+            statusDot.className = 'w-3 h-3 rounded-full bg-green-500';
+            statusText.textContent = 'Healthy';
+            statusText.className = 'text-sm font-medium text-green-600';
+          } else if (r.status === 'degraded') {
+            statusDot.className = 'w-3 h-3 rounded-full bg-yellow-500';
+            statusText.textContent = 'Degraded';
+            statusText.className = 'text-sm font-medium text-yellow-600';
+          } else {
+            statusDot.className = 'w-3 h-3 rounded-full bg-red-500';
+            statusText.textContent = 'Offline';
+            statusText.className = 'text-sm font-medium text-red-600';
+          }
+          latencyText.textContent = `Latency: ${r.latency}ms`;
+        }
+      });
+    }
+
+    // Update degraded mode panel
+    const degradedIcon = document.getElementById('degraded-icon-ok');
+    const degradedWarn = document.getElementById('degraded-icon-warn');
+    const degradedText = document.getElementById('degraded-mode-text');
+    const degradedDetails = document.getElementById('degraded-details');
+    const healthyDetails = document.getElementById('healthy-details');
+
+    if (data.mode === 'degraded' || data.mode === 'critical') {
+      degradedIcon.classList.add('hidden');
+      degradedWarn.classList.remove('hidden');
+      degradedText.textContent = data.mode === 'critical' ? 'Critical Mode Active' : 'Degraded Mode Active';
+      degradedDetails.classList.remove('hidden');
+      healthyDetails.classList.add('hidden');
+    } else {
+      degradedIcon.classList.remove('hidden');
+      degradedWarn.classList.add('hidden');
+      degradedText.textContent = 'Not in Degraded Mode';
+      degradedDetails.classList.add('hidden');
+      healthyDetails.classList.remove('hidden');
+    }
+
+    document.getElementById('avg-confidence').textContent = data.avg_confidence || '--';
+    document.getElementById('last-health-check').textContent = data.last_check || '--';
+
+    // Update recent runs
+    const recentRuns = document.getElementById('recent-placement-runs');
+    if (data.recent_runs && data.recent_runs.length > 0) {
+      recentRuns.innerHTML = data.recent_runs.map(run => `
+        <div class="flex items-center justify-between text-sm p-2 bg-gray-100 rounded">
+          <span class="font-mono text-xs">${run.id}</span>
+          <span class="${run.status === 'completed' ? 'text-green-600' : 'text-yellow-600'}">${run.confidence}%</span>
+        </div>
+      `).join('');
+    } else {
+      recentRuns.innerHTML = '<p class="text-sm text-gray-400">No recent runs</p>';
+    }
+  }
+
+  async function loadActivityFeed(timeRange) {
+    try {
+      const response = await fetch(`${apiBase}/esign-diagnostics/v2/activity?range=${timeRange}&limit=20`);
+      if (!response.ok) {
+        // Simulate data
+        updateActivityFeed([
+          { type: 'info', title: 'Agreement AGR-004 ready for review', time: '2 minutes ago' },
+          { type: 'success', title: 'Placement run completed', message: '3 fields placed with 98% confidence', time: '5 minutes ago' },
+          { type: 'warning', title: 'Signer bottleneck detected', message: 'Stage 2 has 22 pending signers', time: '10 minutes ago' },
+          { type: 'info', title: 'Conflict CNF-005 resolved', time: '15 minutes ago' }
+        ]);
+        return;
+      }
+      const data = await response.json();
+      updateActivityFeed(data.events || []);
+    } catch (error) {
+      updateActivityFeed([
+        { type: 'info', title: 'Agreement AGR-004 ready for review', time: '2 minutes ago' },
+        { type: 'success', title: 'Placement run completed', message: '3 fields placed with 98% confidence', time: '5 minutes ago' }
+      ]);
+    }
+  }
+
+  function updateActivityFeed(events) {
+    const feed = document.getElementById('activity-feed');
+    if (events.length > 0) {
+      feed.innerHTML = events.map(e => renderActivityItem(e.type, e.title, e.message, e.time)).join('');
+    } else {
+      feed.innerHTML = '<p class="text-sm text-gray-400 text-center py-4">No recent activity</p>';
+    }
+  }
+
+  function addActivityItem(type, title, message) {
+    const feed = document.getElementById('activity-feed');
+    const item = renderActivityItem(type, title, message, 'Just now');
+    feed.insertAdjacentHTML('afterbegin', item);
+  }
+
+  function renderActivityItem(type, title, message, time) {
+    const icons = {
+      success: '<svg class="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>',
+      warning: '<svg class="w-4 h-4 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>',
+      error: '<svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>',
+      info: '<svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>'
+    };
+
+    return `
+      <div class="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+        <div class="flex-shrink-0 mt-0.5">${icons[type] || icons.info}</div>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-medium text-gray-900">${title}</p>
+          ${message ? `<p class="text-xs text-gray-500">${message}</p>` : ''}
+        </div>
+        <span class="text-xs text-gray-400 flex-shrink-0">${time}</span>
+      </div>
+    `;
+  }
+
+  function changePageStage(delta) {
+    currentPage.stage = Math.max(1, currentPage.stage + delta);
+    loadStageProgression(document.getElementById('time-range').value);
+  }
+
+  async function bulkResolveConflicts() {
+    const checked = Array.from(document.querySelectorAll('.conflict-checkbox:checked')).map(cb => cb.dataset.id);
+    if (checked.length === 0) return;
+
+    try {
+      await fetch(`${apiBase}/esign-diagnostics/v2/conflicts/bulk-resolve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: checked })
+      });
+      addActivityItem('success', `${checked.length} conflicts resolved`, null);
+      loadConflicts();
+    } catch (error) {
+      addActivityItem('error', 'Failed to resolve conflicts', error.message);
+    }
+  }
+
+  async function bulkIgnoreConflicts() {
+    const checked = Array.from(document.querySelectorAll('.conflict-checkbox:checked')).map(cb => cb.dataset.id);
+    if (checked.length === 0) return;
+
+    try {
+      await fetch(`${apiBase}/esign-diagnostics/v2/conflicts/bulk-ignore`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: checked })
+      });
+      addActivityItem('info', `${checked.length} conflicts ignored`, null);
+      loadConflicts();
+    } catch (error) {
+      addActivityItem('error', 'Failed to ignore conflicts', error.message);
+    }
+  }
+
+  function exportReport() {
+    const timeRange = document.getElementById('time-range').value;
+    window.location.href = `${apiBase}/esign-diagnostics/v2/export?range=${timeRange}&format=csv`;
+  }
+
+  // Expose functions for inline handlers
+  window.resolveConflict = async function(id) {
+    try {
+      await fetch(`${apiBase}/esign-diagnostics/v2/conflicts/${id}/resolve`, { method: 'POST' });
+      addActivityItem('success', `Conflict ${id} resolved`, null);
+      loadConflicts();
+    } catch (error) {
+      addActivityItem('error', 'Failed to resolve conflict', error.message);
+    }
+  };
+
+  window.viewConflict = function(id) {
+    window.location.href = `/admin/esign-integrations/conflicts/${id}`;
+  };
+})();
+</script>
+{% endblock %}

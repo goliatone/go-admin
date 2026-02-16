@@ -1,0 +1,703 @@
+{% extends "layout.html" %}
+
+{% block title %}Integration Conflicts - {{ title }}{% endblock %}
+
+{% block content %}
+<header class="px-8 py-6 bg-white border-b border-gray-200 flex justify-between items-center">
+  <div>
+    <p class="text-sm text-gray-500 mb-1">E-Sign Integrations</p>
+    <h1 class="text-3xl font-bold text-admin-dark">Conflict Queue</h1>
+  </div>
+  <div class="flex gap-3">
+    {% if routes.integration_sync_runs %}
+      <a href="{{ routes.integration_sync_runs }}" class="btn btn-secondary" aria-label="Go to Sync Runs">
+        <i class="iconoir-refresh-double" aria-hidden="true"></i>
+        Sync Runs
+      </a>
+    {% endif %}
+    <button type="button" id="refresh-btn" class="btn btn-secondary" aria-label="Refresh conflicts">
+      <svg class="w-4 h-4 mr-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+      </svg>
+      Refresh
+    </button>
+  </div>
+</header>
+
+<div class="flex-1 p-8 overflow-y-auto">
+  {# Live region for announcements #}
+  <div id="conflicts-announcements" class="sr-only" role="alert" aria-live="polite"></div>
+
+  <div class="space-y-6">
+    {# Stats Cards #}
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="conflict-stats">
+      <div class="bg-white border border-gray-200 rounded-xl p-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
+            <svg class="w-5 h-5 text-amber-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+            </svg>
+          </div>
+          <div>
+            <p class="text-2xl font-bold text-gray-900" id="stat-pending">0</p>
+            <p class="text-sm text-gray-500">Pending</p>
+          </div>
+        </div>
+      </div>
+      <div class="bg-white border border-gray-200 rounded-xl p-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
+            <svg class="w-5 h-5 text-green-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </div>
+          <div>
+            <p class="text-2xl font-bold text-gray-900" id="stat-resolved">0</p>
+            <p class="text-sm text-gray-500">Resolved</p>
+          </div>
+        </div>
+      </div>
+      <div class="bg-white border border-gray-200 rounded-xl p-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
+            <svg class="w-5 h-5 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7-1.274 4.057-5.065 7-9.543 7-.53 0-1.045-.039-1.545-.114"/>
+            </svg>
+          </div>
+          <div>
+            <p class="text-2xl font-bold text-gray-900" id="stat-ignored">0</p>
+            <p class="text-sm text-gray-500">Ignored</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {# Filter Bar #}
+    <div class="flex flex-wrap items-center gap-4">
+      <div class="flex items-center gap-2">
+        <label for="filter-status" class="text-sm font-medium text-gray-700">Status:</label>
+        <select id="filter-status" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+          <option value="">All</option>
+          <option value="pending" selected>Pending</option>
+          <option value="resolved">Resolved</option>
+          <option value="ignored">Ignored</option>
+        </select>
+      </div>
+      <div class="flex items-center gap-2">
+        <label for="filter-provider" class="text-sm font-medium text-gray-700">Provider:</label>
+        <select id="filter-provider" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+          <option value="">All Providers</option>
+        </select>
+      </div>
+      <div class="flex items-center gap-2">
+        <label for="filter-entity" class="text-sm font-medium text-gray-700">Entity:</label>
+        <select id="filter-entity" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+          <option value="">All Types</option>
+          <option value="participant">Participant</option>
+          <option value="agreement">Agreement</option>
+          <option value="field_definition">Field Definition</option>
+        </select>
+      </div>
+    </div>
+
+    {# Loading State #}
+    <div id="loading-state" class="hidden py-16 text-center">
+      <svg class="animate-spin h-8 w-8 text-gray-400 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+      </svg>
+      <span class="sr-only">Loading conflicts...</span>
+    </div>
+
+    {# Empty State #}
+    <div id="empty-state" class="hidden text-center py-16">
+      <div class="mx-auto w-24 h-24 mb-6 rounded-full bg-green-100 flex items-center justify-center" aria-hidden="true">
+        <svg class="w-12 h-12 text-green-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+      </div>
+      <h3 class="text-xl font-semibold text-gray-900 mb-2">No conflicts</h3>
+      <p class="text-gray-500 max-w-sm mx-auto">
+        All integration data is synchronized without conflicts.
+      </p>
+    </div>
+
+    {# Error State #}
+    <div id="error-state" class="hidden text-center py-16">
+      <div class="mx-auto w-16 h-16 mb-4 rounded-full bg-red-100 flex items-center justify-center" aria-hidden="true">
+        <svg class="w-8 h-8 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+        </svg>
+      </div>
+      <h3 class="text-lg font-medium text-gray-900 mb-2">Unable to Load Conflicts</h3>
+      <p class="text-sm text-gray-500 mb-4" id="error-message">An error occurred.</p>
+      <button type="button" id="retry-btn" class="btn btn-secondary">Try Again</button>
+    </div>
+
+    {# Conflicts List #}
+    <div id="conflicts-list" class="hidden space-y-3">
+      {# Populated by JavaScript #}
+    </div>
+  </div>
+</div>
+
+{# Conflict Detail Modal #}
+<div id="conflict-detail-modal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="conflict-detail-modal-title">
+  <div class="fixed inset-0 bg-black/50" aria-hidden="true"></div>
+  <div class="fixed inset-0 flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white rounded-xl shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+      <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white z-10">
+        <h2 id="conflict-detail-modal-title" class="text-xl font-semibold text-gray-900">Conflict Details</h2>
+        <button type="button" id="close-detail-btn" class="text-gray-400 hover:text-gray-600" aria-label="Close">
+          <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="p-6 space-y-6">
+        {# Conflict Header #}
+        <div class="flex items-start justify-between p-4 bg-amber-50 border border-amber-200 rounded-lg">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
+              <svg class="w-5 h-5 text-amber-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+              </svg>
+            </div>
+            <div>
+              <p class="font-semibold text-amber-800" id="detail-reason">Conflict Reason</p>
+              <p class="text-sm text-amber-700" id="detail-entity-type">Entity Type</p>
+            </div>
+          </div>
+          <div id="detail-status-badge"></div>
+        </div>
+
+        {# Identity Information #}
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="p-4 bg-gray-50 rounded-lg">
+            <h4 class="text-xs text-gray-500 uppercase tracking-wide mb-2">External Identity</h4>
+            <div class="space-y-2">
+              <div>
+                <p class="text-xs text-gray-500">Provider</p>
+                <p class="font-medium text-gray-900" id="detail-provider">-</p>
+              </div>
+              <div>
+                <p class="text-xs text-gray-500">External ID</p>
+                <p class="font-mono text-sm text-gray-900" id="detail-external-id">-</p>
+              </div>
+            </div>
+          </div>
+          <div class="p-4 bg-gray-50 rounded-lg">
+            <h4 class="text-xs text-gray-500 uppercase tracking-wide mb-2">Internal Identity</h4>
+            <div class="space-y-2">
+              <div>
+                <p class="text-xs text-gray-500">Internal ID</p>
+                <p class="font-mono text-sm text-gray-900" id="detail-internal-id">-</p>
+              </div>
+              <div>
+                <p class="text-xs text-gray-500">Binding ID</p>
+                <p class="font-mono text-sm text-gray-900" id="detail-binding-id">-</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {# Payload Data #}
+        <div>
+          <h4 class="text-sm font-semibold text-gray-900 mb-3">Conflicting Data</h4>
+          <div class="border border-gray-200 rounded-lg overflow-hidden">
+            <pre id="detail-payload" class="p-4 bg-gray-50 text-xs font-mono overflow-x-auto max-h-48">{}</pre>
+          </div>
+        </div>
+
+        {# Resolution Section (for resolved conflicts) #}
+        <div id="resolution-section" class="hidden">
+          <h4 class="text-sm font-semibold text-gray-900 mb-3">Resolution</h4>
+          <div class="p-4 bg-green-50 border border-green-200 rounded-lg">
+            <div class="flex items-center gap-2 mb-2">
+              <svg class="w-4 h-4 text-green-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+              </svg>
+              <span class="text-sm font-medium text-green-800">Resolved</span>
+              <span class="text-xs text-green-600" id="detail-resolved-at"></span>
+            </div>
+            <p class="text-sm text-green-700" id="detail-resolved-by">-</p>
+            <pre id="detail-resolution" class="mt-2 p-2 bg-green-100 rounded text-xs font-mono overflow-x-auto max-h-32">{}</pre>
+          </div>
+        </div>
+
+        {# Audit Context #}
+        <div class="border-t border-gray-200 pt-4">
+          <h4 class="text-sm font-semibold text-gray-900 mb-3">Audit Trail</h4>
+          <div class="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <p class="text-gray-500">Conflict ID</p>
+              <p class="font-mono text-gray-900" id="detail-conflict-id">-</p>
+            </div>
+            <div>
+              <p class="text-gray-500">Sync Run</p>
+              <p class="font-mono text-gray-900" id="detail-run-id">-</p>
+            </div>
+            <div>
+              <p class="text-gray-500">Created</p>
+              <p class="text-gray-900" id="detail-created-at">-</p>
+            </div>
+            <div>
+              <p class="text-gray-500">Version</p>
+              <p class="text-gray-900" id="detail-version">-</p>
+            </div>
+          </div>
+        </div>
+
+        {# Action Buttons (for pending conflicts) #}
+        <div id="action-buttons" class="hidden flex flex-wrap gap-3 pt-4 border-t border-gray-200">
+          <button type="button" id="action-resolve-btn" class="btn bg-green-600 hover:bg-green-700 text-white">
+            <svg class="w-4 h-4 mr-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+            </svg>
+            Resolve Conflict
+          </button>
+          <button type="button" id="action-ignore-btn" class="btn btn-secondary">
+            <svg class="w-4 h-4 mr-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243"/>
+            </svg>
+            Ignore
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# Resolve Conflict Modal #}
+<div id="resolve-modal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="resolve-modal-title">
+  <div class="fixed inset-0 bg-black/50" aria-hidden="true"></div>
+  <div class="fixed inset-0 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-xl max-w-lg w-full p-6">
+      <h2 id="resolve-modal-title" class="text-xl font-semibold text-gray-900 mb-4">Resolve Conflict</h2>
+
+      <form id="resolve-form" class="space-y-4">
+        <div>
+          <label for="resolution-action" class="block text-sm font-medium text-gray-700 mb-1">
+            Resolution Action <span class="text-red-500">*</span>
+          </label>
+          <select
+            id="resolution-action"
+            name="status"
+            required
+            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="resolved">Resolve - Apply manual correction</option>
+            <option value="ignored">Ignore - Skip this conflict</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="resolution-data" class="block text-sm font-medium text-gray-700 mb-1">
+            Resolution Data (JSON, optional)
+          </label>
+          <textarea
+            id="resolution-data"
+            name="resolution"
+            rows="4"
+            placeholder='{"corrected_value": "..."}'
+            class="w-full px-4 py-2 font-mono text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+          ></textarea>
+          <p class="mt-1 text-xs text-gray-500">Optional JSON data documenting the resolution</p>
+        </div>
+
+        <div>
+          <label for="resolution-notes" class="block text-sm font-medium text-gray-700 mb-1">
+            Notes
+          </label>
+          <textarea
+            id="resolution-notes"
+            name="notes"
+            rows="2"
+            placeholder="Reason for resolution..."
+            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+          ></textarea>
+        </div>
+
+        <div class="flex gap-3 justify-end pt-4 border-t border-gray-200">
+          <button type="button" id="cancel-resolve-btn" class="btn btn-secondary">Cancel</button>
+          <button type="submit" id="submit-resolve-btn" class="btn bg-green-600 hover:bg-green-700 text-white">
+            <svg class="w-4 h-4 mr-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+            </svg>
+            Submit Resolution
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const basePath = '{{ base_path }}';
+  const apiBase = '{{ api_base_path|default:"" }}' || `${basePath}/api`;
+  const conflictsEndpoint = `${apiBase}/esign/integrations/conflicts`;
+
+  // State
+  let conflicts = [];
+  let currentConflictId = null;
+
+  // Elements
+  const announcements = document.getElementById('conflicts-announcements');
+  const loadingState = document.getElementById('loading-state');
+  const emptyState = document.getElementById('empty-state');
+  const errorState = document.getElementById('error-state');
+  const conflictsList = document.getElementById('conflicts-list');
+  const errorMessage = document.getElementById('error-message');
+  const refreshBtn = document.getElementById('refresh-btn');
+  const retryBtn = document.getElementById('retry-btn');
+  const filterStatus = document.getElementById('filter-status');
+  const filterProvider = document.getElementById('filter-provider');
+  const filterEntity = document.getElementById('filter-entity');
+
+  // Stats
+  const statPending = document.getElementById('stat-pending');
+  const statResolved = document.getElementById('stat-resolved');
+  const statIgnored = document.getElementById('stat-ignored');
+
+  // Detail modal
+  const conflictDetailModal = document.getElementById('conflict-detail-modal');
+  const closeDetailBtn = document.getElementById('close-detail-btn');
+  const detailReason = document.getElementById('detail-reason');
+  const detailEntityType = document.getElementById('detail-entity-type');
+  const detailStatusBadge = document.getElementById('detail-status-badge');
+  const detailProvider = document.getElementById('detail-provider');
+  const detailExternalId = document.getElementById('detail-external-id');
+  const detailInternalId = document.getElementById('detail-internal-id');
+  const detailBindingId = document.getElementById('detail-binding-id');
+  const detailPayload = document.getElementById('detail-payload');
+  const resolutionSection = document.getElementById('resolution-section');
+  const detailResolvedAt = document.getElementById('detail-resolved-at');
+  const detailResolvedBy = document.getElementById('detail-resolved-by');
+  const detailResolution = document.getElementById('detail-resolution');
+  const detailConflictId = document.getElementById('detail-conflict-id');
+  const detailRunId = document.getElementById('detail-run-id');
+  const detailCreatedAt = document.getElementById('detail-created-at');
+  const detailVersion = document.getElementById('detail-version');
+  const actionButtons = document.getElementById('action-buttons');
+  const actionResolveBtn = document.getElementById('action-resolve-btn');
+  const actionIgnoreBtn = document.getElementById('action-ignore-btn');
+
+  // Resolve modal
+  const resolveModal = document.getElementById('resolve-modal');
+  const resolveForm = document.getElementById('resolve-form');
+  const cancelResolveBtn = document.getElementById('cancel-resolve-btn');
+  const submitResolveBtn = document.getElementById('submit-resolve-btn');
+  const resolutionAction = document.getElementById('resolution-action');
+
+  function announce(message) {
+    if (announcements) announcements.textContent = message;
+  }
+
+  function showState(state) {
+    loadingState.classList.add('hidden');
+    emptyState.classList.add('hidden');
+    errorState.classList.add('hidden');
+    conflictsList.classList.add('hidden');
+
+    switch (state) {
+      case 'loading': loadingState.classList.remove('hidden'); break;
+      case 'empty': emptyState.classList.remove('hidden'); break;
+      case 'error': errorState.classList.remove('hidden'); break;
+      case 'list': conflictsList.classList.remove('hidden'); break;
+    }
+  }
+
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text || '';
+    return div.innerHTML;
+  }
+
+  function formatDate(dateStr) {
+    if (!dateStr) return '-';
+    try {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch {
+      return dateStr;
+    }
+  }
+
+  function getStatusBadge(status) {
+    const configs = {
+      pending: { label: 'Pending', bg: 'bg-amber-100', text: 'text-amber-700', dot: 'bg-amber-500' },
+      resolved: { label: 'Resolved', bg: 'bg-green-100', text: 'text-green-700', dot: 'bg-green-500' },
+      ignored: { label: 'Ignored', bg: 'bg-gray-100', text: 'text-gray-700', dot: 'bg-gray-400' }
+    };
+    const config = configs[status] || configs.pending;
+    return `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${config.bg} ${config.text}">
+      <span class="w-1.5 h-1.5 rounded-full ${config.dot}" aria-hidden="true"></span>
+      ${config.label}
+    </span>`;
+  }
+
+  function getEntityBadge(entityKind) {
+    const configs = {
+      participant: { label: 'Participant', bg: 'bg-blue-100', text: 'text-blue-700' },
+      agreement: { label: 'Agreement', bg: 'bg-purple-100', text: 'text-purple-700' },
+      field_definition: { label: 'Field Definition', bg: 'bg-teal-100', text: 'text-teal-700' }
+    };
+    const config = configs[entityKind] || { label: entityKind, bg: 'bg-gray-100', text: 'text-gray-700' };
+    return `<span class="px-2 py-0.5 rounded text-xs font-medium ${config.bg} ${config.text}">${config.label}</span>`;
+  }
+
+  async function loadConflicts() {
+    showState('loading');
+    try {
+      const params = new URLSearchParams();
+      if (filterStatus.value) params.set('status', filterStatus.value);
+
+      const response = await fetch(`${conflictsEndpoint}${params.toString() ? '?' + params : ''}`, {
+        credentials: 'same-origin',
+        headers: { 'Accept': 'application/json' }
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      conflicts = data.conflicts || [];
+
+      // Populate provider filter
+      const providers = [...new Set(conflicts.map(c => c.provider).filter(Boolean))];
+      const currentProvider = filterProvider.value;
+      filterProvider.innerHTML = '<option value="">All Providers</option>' +
+        providers.map(p => `<option value="${escapeHtml(p)}" ${p === currentProvider ? 'selected' : ''}>${escapeHtml(p)}</option>`).join('');
+
+      updateStats();
+      renderConflicts();
+      announce(`Loaded ${conflicts.length} conflicts`);
+    } catch (error) {
+      console.error('Error loading conflicts:', error);
+      errorMessage.textContent = error.message || 'An error occurred';
+      showState('error');
+    }
+  }
+
+  function updateStats() {
+    const pending = conflicts.filter(c => c.status === 'pending').length;
+    const resolved = conflicts.filter(c => c.status === 'resolved').length;
+    const ignored = conflicts.filter(c => c.status === 'ignored').length;
+
+    statPending.textContent = pending;
+    statResolved.textContent = resolved;
+    statIgnored.textContent = ignored;
+  }
+
+  function renderConflicts() {
+    const statusFilter = filterStatus.value;
+    const providerFilter = filterProvider.value;
+    const entityFilter = filterEntity.value;
+
+    const filtered = conflicts.filter(c => {
+      if (statusFilter && c.status !== statusFilter) return false;
+      if (providerFilter && c.provider !== providerFilter) return false;
+      if (entityFilter && c.entity_kind !== entityFilter) return false;
+      return true;
+    });
+
+    if (filtered.length === 0) {
+      showState('empty');
+      return;
+    }
+
+    conflictsList.innerHTML = filtered.map(conflict => `
+      <div class="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow cursor-pointer conflict-card" data-id="${escapeHtml(conflict.id)}">
+        <div class="p-4">
+          <div class="flex items-start justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-lg ${conflict.status === 'pending' ? 'bg-amber-100' : conflict.status === 'resolved' ? 'bg-green-100' : 'bg-gray-100'} flex items-center justify-center">
+                <svg class="w-5 h-5 ${conflict.status === 'pending' ? 'text-amber-600' : conflict.status === 'resolved' ? 'text-green-600' : 'text-gray-500'}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                </svg>
+              </div>
+              <div>
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="font-medium text-gray-900">${escapeHtml(conflict.reason || 'Data conflict')}</span>
+                  ${getEntityBadge(conflict.entity_kind)}
+                </div>
+                <div class="flex items-center gap-2 text-xs text-gray-500">
+                  <span>${escapeHtml(conflict.provider)}</span>
+                  <span>•</span>
+                  <span class="font-mono">${escapeHtml((conflict.external_id || '').slice(0, 12))}...</span>
+                </div>
+              </div>
+            </div>
+            <div class="text-right">
+              ${getStatusBadge(conflict.status)}
+              <p class="text-xs text-gray-500 mt-1">${formatDate(conflict.created_at)}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    `).join('');
+
+    showState('list');
+
+    // Attach click listeners
+    conflictsList.querySelectorAll('.conflict-card').forEach(card => {
+      card.addEventListener('click', () => openConflictDetail(card.dataset.id));
+    });
+  }
+
+  function openConflictDetail(conflictId) {
+    currentConflictId = conflictId;
+    const conflict = conflicts.find(c => c.id === conflictId);
+    if (!conflict) return;
+
+    // Populate detail view
+    detailReason.textContent = conflict.reason || 'Data conflict';
+    detailEntityType.textContent = conflict.entity_kind || '-';
+    detailStatusBadge.innerHTML = getStatusBadge(conflict.status);
+    detailProvider.textContent = conflict.provider || '-';
+    detailExternalId.textContent = conflict.external_id || '-';
+    detailInternalId.textContent = conflict.internal_id || '-';
+    detailBindingId.textContent = conflict.binding_id || '-';
+    detailConflictId.textContent = conflict.id;
+    detailRunId.textContent = conflict.run_id || '-';
+    detailCreatedAt.textContent = formatDate(conflict.created_at);
+    detailVersion.textContent = conflict.version || '1';
+
+    // Payload
+    try {
+      const payload = conflict.payload_json ? JSON.parse(conflict.payload_json) : conflict.payload || {};
+      detailPayload.textContent = JSON.stringify(payload, null, 2);
+    } catch {
+      detailPayload.textContent = conflict.payload_json || '{}';
+    }
+
+    // Resolution section
+    if (conflict.status === 'resolved' || conflict.status === 'ignored') {
+      resolutionSection.classList.remove('hidden');
+      actionButtons.classList.add('hidden');
+      detailResolvedAt.textContent = conflict.resolved_at ? formatDate(conflict.resolved_at) : '';
+      detailResolvedBy.textContent = conflict.resolved_by_user_id ? `By user ${conflict.resolved_by_user_id}` : '-';
+      try {
+        const resolution = conflict.resolution_json ? JSON.parse(conflict.resolution_json) : conflict.resolution || {};
+        detailResolution.textContent = JSON.stringify(resolution, null, 2);
+      } catch {
+        detailResolution.textContent = conflict.resolution_json || '{}';
+      }
+    } else {
+      resolutionSection.classList.add('hidden');
+      actionButtons.classList.remove('hidden');
+    }
+
+    conflictDetailModal.classList.remove('hidden');
+  }
+
+  function closeConflictDetail() {
+    conflictDetailModal.classList.add('hidden');
+    currentConflictId = null;
+  }
+
+  function openResolveModal(presetStatus = 'resolved') {
+    resolveForm.reset();
+    resolutionAction.value = presetStatus;
+    resolveModal.classList.remove('hidden');
+  }
+
+  function closeResolveModal() {
+    resolveModal.classList.add('hidden');
+  }
+
+  async function submitResolution(e) {
+    e.preventDefault();
+    if (!currentConflictId) return;
+
+    const formData = new FormData(resolveForm);
+    let resolution = {};
+    const resolutionData = formData.get('resolution');
+    if (resolutionData) {
+      try {
+        resolution = JSON.parse(resolutionData);
+      } catch {
+        resolution = { raw: resolutionData };
+      }
+    }
+    const notes = formData.get('notes');
+    if (notes) {
+      resolution.notes = notes;
+    }
+
+    const payload = {
+      status: formData.get('status'),
+      resolution: resolution
+    };
+
+    submitResolveBtn.disabled = true;
+    submitResolveBtn.innerHTML = '<svg class="animate-spin w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> Submitting...';
+
+    try {
+      const response = await fetch(`${conflictsEndpoint}/${currentConflictId}/resolve`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Idempotency-Key': `resolve-${currentConflictId}-${Date.now()}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const result = await response.json();
+        throw new Error(result.error?.message || `HTTP ${response.status}`);
+      }
+
+      if (window.toastManager) window.toastManager.success('Conflict resolved');
+      announce('Conflict resolved');
+      closeResolveModal();
+      closeConflictDetail();
+      loadConflicts();
+    } catch (error) {
+      console.error('Resolution error:', error);
+      if (window.toastManager) window.toastManager.error(`Failed: ${error.message}`);
+    } finally {
+      submitResolveBtn.disabled = false;
+      submitResolveBtn.innerHTML = '<svg class="w-4 h-4 mr-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Submit Resolution';
+    }
+  }
+
+  // Event listeners
+  refreshBtn.addEventListener('click', loadConflicts);
+  retryBtn.addEventListener('click', loadConflicts);
+  closeDetailBtn.addEventListener('click', closeConflictDetail);
+
+  filterStatus.addEventListener('change', loadConflicts);
+  filterProvider.addEventListener('change', renderConflicts);
+  filterEntity.addEventListener('change', renderConflicts);
+
+  actionResolveBtn.addEventListener('click', () => openResolveModal('resolved'));
+  actionIgnoreBtn.addEventListener('click', () => openResolveModal('ignored'));
+  cancelResolveBtn.addEventListener('click', closeResolveModal);
+  resolveForm.addEventListener('submit', submitResolution);
+
+  // Modal escape/backdrop
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      if (!resolveModal.classList.contains('hidden')) closeResolveModal();
+      else if (!conflictDetailModal.classList.contains('hidden')) closeConflictDetail();
+    }
+  });
+
+  [conflictDetailModal, resolveModal].forEach(modal => {
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal || e.target.getAttribute('aria-hidden') === 'true') {
+        if (modal === conflictDetailModal) closeConflictDetail();
+        else if (modal === resolveModal) closeResolveModal();
+      }
+    });
+  });
+
+  // Initial load
+  loadConflicts();
+});
+</script>
+{% endblock %}

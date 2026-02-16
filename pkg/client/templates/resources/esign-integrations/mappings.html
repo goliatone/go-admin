@@ -1,0 +1,1458 @@
+{% extends "layout.html" %}
+
+{% block title %}Integration Mappings - {{ title }}{% endblock %}
+
+{% block content %}
+<header class="px-8 py-6 bg-white border-b border-gray-200 flex justify-between items-center">
+  <div>
+    <p class="text-sm text-gray-500 mb-1">E-Sign Integrations</p>
+    <h1 class="text-3xl font-bold text-admin-dark">Integration Mappings</h1>
+  </div>
+  <div class="flex gap-3">
+    {% if routes.esign_settings %}
+      <a href="{{ routes.esign_settings }}" class="btn btn-secondary" aria-label="Return to E-Sign settings">
+        <i class="iconoir-arrow-left" aria-hidden="true"></i>
+        Back to Settings
+      </a>
+    {% endif %}
+    <button type="button" id="create-mapping-btn" class="btn btn-primary" aria-label="Create new mapping specification">
+      <svg class="w-4 h-4 mr-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+      </svg>
+      New Mapping
+    </button>
+  </div>
+</header>
+
+<div class="flex-1 p-8 overflow-y-auto">
+  {# Live region for announcements #}
+  <div id="mappings-announcements" class="sr-only" role="alert" aria-live="polite"></div>
+
+  <div class="space-y-6">
+    {# Info banner #}
+    <div class="bg-blue-50 border border-blue-200 rounded-xl p-4" role="note">
+      <div class="flex items-start gap-3">
+        <svg class="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <div>
+          <h4 class="text-sm font-medium text-blue-800">About Integration Mappings</h4>
+          <p class="text-sm text-blue-700 mt-1">
+            Mapping specifications define how external CRM/HRIS data transforms into e-sign entities
+            (participants, fields, agreement metadata). Create mappings to enable automated sync workflows.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    {# Filter and search #}
+    <div class="flex flex-wrap items-center gap-4">
+      <div class="flex-1 min-w-[200px] max-w-sm">
+        <label for="search-mappings" class="sr-only">Search mappings</label>
+        <div class="relative">
+          <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+          <input
+            type="search"
+            id="search-mappings"
+            placeholder="Search by name or provider..."
+            class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <label for="filter-status" class="text-sm font-medium text-gray-700">Status:</label>
+        <select id="filter-status" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+          <option value="">All</option>
+          <option value="draft">Draft</option>
+          <option value="published">Published</option>
+        </select>
+      </div>
+      <div class="flex items-center gap-2">
+        <label for="filter-provider" class="text-sm font-medium text-gray-700">Provider:</label>
+        <select id="filter-provider" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+          <option value="">All Providers</option>
+          {# Populated dynamically #}
+        </select>
+      </div>
+      <button type="button" id="refresh-btn" class="btn btn-secondary text-sm" aria-label="Refresh mappings list">
+        <svg class="w-4 h-4 mr-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+        </svg>
+        Refresh
+      </button>
+    </div>
+
+    {# Loading State #}
+    <div id="loading-state" class="hidden py-16 text-center">
+      <svg class="animate-spin h-8 w-8 text-gray-400 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+      </svg>
+      <span class="sr-only">Loading mappings...</span>
+    </div>
+
+    {# Empty State #}
+    <div id="empty-state" class="hidden text-center py-16" role="status">
+      <div class="mx-auto w-24 h-24 mb-6 rounded-full bg-gray-100 flex items-center justify-center" aria-hidden="true">
+        <svg class="w-12 h-12 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/>
+        </svg>
+      </div>
+      <h3 class="text-xl font-semibold text-gray-900 mb-2">No mappings configured</h3>
+      <p class="text-gray-500 mb-6 max-w-sm mx-auto">
+        Create your first integration mapping to connect external systems with e-sign workflows.
+      </p>
+      <button type="button" id="create-mapping-empty-btn" class="btn btn-primary" aria-label="Create your first mapping">
+        <svg class="w-4 h-4 mr-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+        </svg>
+        Create Mapping
+      </button>
+    </div>
+
+    {# Error State #}
+    <div id="error-state" class="hidden text-center py-16">
+      <div class="mx-auto w-16 h-16 mb-4 rounded-full bg-red-100 flex items-center justify-center" aria-hidden="true">
+        <svg class="w-8 h-8 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+        </svg>
+      </div>
+      <h3 class="text-lg font-medium text-gray-900 mb-2">Unable to Load Mappings</h3>
+      <p class="text-sm text-gray-500 mb-4" id="error-message">An error occurred while loading mappings.</p>
+      <button type="button" id="retry-btn" class="btn btn-secondary">Try Again</button>
+    </div>
+
+    {# Mappings List #}
+    <div id="mappings-list" class="hidden bg-white border border-gray-200 rounded-xl overflow-hidden">
+      <table class="w-full" role="grid" aria-label="Integration mappings">
+        <thead class="bg-gray-50 border-b border-gray-200">
+          <tr>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Name</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Provider</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Version</th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Updated</th>
+            <th scope="col" class="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="mappings-tbody" class="divide-y divide-gray-100">
+          {# Populated by JavaScript #}
+        </tbody>
+      </table>
+    </div>
+
+    {# Validation Summary Panel (shown when editing) #}
+    <div id="validation-panel" class="hidden bg-white border border-gray-200 rounded-xl p-6">
+      <h3 class="text-lg font-semibold text-gray-900 mb-4">Mapping Validation Summary</h3>
+      <div id="validation-content">
+        {# Populated by JavaScript #}
+      </div>
+    </div>
+  </div>
+</div>
+
+{# Create/Edit Mapping Modal #}
+<div id="mapping-modal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="mapping-modal-title">
+  <div class="fixed inset-0 bg-black/50" aria-hidden="true"></div>
+  <div class="fixed inset-0 flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white rounded-xl shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+      <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+        <h2 id="mapping-modal-title" class="text-xl font-semibold text-gray-900">New Mapping Specification</h2>
+        <button type="button" id="close-modal-btn" class="text-gray-400 hover:text-gray-600" aria-label="Close modal">
+          <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <form id="mapping-form" class="p-6 space-y-6">
+        <input type="hidden" id="mapping-id" name="id" value="">
+        <input type="hidden" id="mapping-version" name="version" value="0">
+
+        {# Basic Info #}
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label for="mapping-name" class="block text-sm font-medium text-gray-700 mb-1">
+              Name <span class="text-red-500" aria-hidden="true">*</span>
+            </label>
+            <input
+              type="text"
+              id="mapping-name"
+              name="name"
+              required
+              placeholder="e.g., employee-participant-mapping"
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+            <p class="mt-1 text-xs text-gray-500">Unique identifier for this mapping</p>
+          </div>
+          <div>
+            <label for="mapping-provider" class="block text-sm font-medium text-gray-700 mb-1">
+              Provider <span class="text-red-500" aria-hidden="true">*</span>
+            </label>
+            <input
+              type="text"
+              id="mapping-provider"
+              name="provider"
+              required
+              placeholder="e.g., bamboohr, workday, salesforce"
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+            <p class="mt-1 text-xs text-gray-500">External system providing the data</p>
+          </div>
+        </div>
+
+        {# External Schema #}
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">External Schema</label>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div>
+              <label for="schema-object-type" class="block text-xs font-medium text-gray-600 mb-1">Object Type</label>
+              <input
+                type="text"
+                id="schema-object-type"
+                name="object_type"
+                required
+                placeholder="e.g., employee, contact, deal"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              >
+            </div>
+            <div>
+              <label for="schema-version" class="block text-xs font-medium text-gray-600 mb-1">Schema Version</label>
+              <input
+                type="text"
+                id="schema-version"
+                name="schema_version"
+                placeholder="e.g., v1, 2024-01"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              >
+            </div>
+          </div>
+
+          {# Schema Fields #}
+          <div class="border border-gray-200 rounded-lg p-4">
+            <div class="flex items-center justify-between mb-3">
+              <h4 class="text-sm font-medium text-gray-700">Schema Fields</h4>
+              <button type="button" id="add-field-btn" class="text-sm text-blue-600 hover:text-blue-700 font-medium">
+                + Add Field
+              </button>
+            </div>
+            <div id="schema-fields-container" class="space-y-2">
+              {# Populated by JavaScript #}
+            </div>
+          </div>
+        </div>
+
+        {# Mapping Rules #}
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Mapping Rules</label>
+          <div class="border border-gray-200 rounded-lg p-4">
+            <div class="flex items-center justify-between mb-3">
+              <h4 class="text-sm font-medium text-gray-700">Field Mappings</h4>
+              <button type="button" id="add-rule-btn" class="text-sm text-blue-600 hover:text-blue-700 font-medium">
+                + Add Rule
+              </button>
+            </div>
+            <div id="mapping-rules-container" class="space-y-2">
+              {# Populated by JavaScript #}
+            </div>
+          </div>
+        </div>
+
+        {# Validation Status #}
+        <div id="form-validation-status" class="hidden rounded-lg p-4">
+          {# Populated on validation #}
+        </div>
+
+        {# Actions #}
+        <div class="flex justify-between items-center pt-4 border-t border-gray-200">
+          <div>
+            <span id="mapping-status-badge" class="hidden inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium"></span>
+          </div>
+          <div class="flex gap-3">
+            <button type="button" id="cancel-modal-btn" class="btn btn-secondary">Cancel</button>
+            <button type="button" id="validate-btn" class="btn btn-secondary">
+              <svg class="w-4 h-4 mr-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              Validate
+            </button>
+            <button type="submit" id="save-btn" class="btn btn-primary">
+              <svg class="w-4 h-4 mr-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+              </svg>
+              Save Draft
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{# Publish Confirmation Modal #}
+<div id="publish-modal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="publish-modal-title">
+  <div class="fixed inset-0 bg-black/50" aria-hidden="true"></div>
+  <div class="fixed inset-0 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+          <svg class="w-5 h-5 text-green-600" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+          </svg>
+        </div>
+        <h3 id="publish-modal-title" class="text-lg font-semibold text-gray-900">Publish Mapping?</h3>
+      </div>
+      <p class="text-sm text-gray-600 mb-4">
+        Publishing will make this mapping available for sync operations. This creates a new version and locks the current configuration.
+      </p>
+      <div id="publish-mapping-info" class="p-3 bg-gray-50 rounded-lg mb-6">
+        <p class="text-sm font-medium text-gray-700" id="publish-mapping-name"></p>
+        <p class="text-xs text-gray-500">Version: <span id="publish-mapping-version"></span></p>
+      </div>
+      <div class="flex gap-3 justify-end">
+        <button type="button" id="publish-cancel-btn" class="btn btn-secondary">Cancel</button>
+        <button type="button" id="publish-confirm-btn" class="btn bg-green-600 hover:bg-green-700 text-white">
+          Publish
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# Delete Confirmation Modal #}
+<div id="delete-modal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="delete-modal-title">
+  <div class="fixed inset-0 bg-black/50" aria-hidden="true"></div>
+  <div class="fixed inset-0 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+          <svg class="w-5 h-5 text-red-600" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+          </svg>
+        </div>
+        <h3 id="delete-modal-title" class="text-lg font-semibold text-gray-900">Delete Mapping?</h3>
+      </div>
+      <p class="text-sm text-gray-600 mb-6">
+        This action cannot be undone. Any sync runs using this mapping will fail.
+      </p>
+      <div class="flex gap-3 justify-end">
+        <button type="button" id="delete-cancel-btn" class="btn btn-secondary">Cancel</button>
+        <button type="button" id="delete-confirm-btn" class="btn bg-red-600 hover:bg-red-700 text-white">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# Mapping Preview Modal - Shows source payload to resolved e-sign entity projection #}
+<div id="preview-modal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="preview-modal-title">
+  <div class="fixed inset-0 bg-black/50" aria-hidden="true"></div>
+  <div class="fixed inset-0 flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white rounded-xl shadow-xl max-w-5xl w-full max-h-[90vh] overflow-y-auto">
+      <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white z-10">
+        <h2 id="preview-modal-title" class="text-xl font-semibold text-gray-900">Mapping Preview</h2>
+        <button type="button" id="close-preview-btn" class="text-gray-400 hover:text-gray-600" aria-label="Close preview">
+          <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="p-6 space-y-6">
+        {# Mapping Info Header #}
+        <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+          <div>
+            <p class="text-sm text-gray-500">Mapping</p>
+            <p class="font-semibold text-gray-900" id="preview-mapping-name">-</p>
+          </div>
+          <div>
+            <p class="text-sm text-gray-500">Provider</p>
+            <p class="font-medium text-gray-700" id="preview-mapping-provider">-</p>
+          </div>
+          <div>
+            <p class="text-sm text-gray-500">Object Type</p>
+            <p class="font-medium text-gray-700" id="preview-object-type">-</p>
+          </div>
+          <div id="preview-mapping-status"></div>
+        </div>
+
+        {# Two-column preview layout #}
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {# Source Payload Input #}
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <h3 class="text-sm font-semibold text-gray-900">Source Payload (JSON)</h3>
+              <button type="button" id="load-sample-btn" class="text-xs text-blue-600 hover:text-blue-700 font-medium">
+                Load Sample
+              </button>
+            </div>
+            <div class="relative">
+              <textarea
+                id="preview-source-input"
+                rows="15"
+                placeholder='{"employee": {"email": "john@example.com", "name": "John Doe"}}'
+                class="w-full px-4 py-3 font-mono text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                spellcheck="false"
+              ></textarea>
+              <div id="source-syntax-error" class="hidden absolute bottom-2 left-2 right-2 px-3 py-2 bg-red-50 border border-red-200 rounded text-xs text-red-600"></div>
+            </div>
+            <div class="flex items-center gap-3">
+              <button type="button" id="run-preview-btn" class="btn btn-primary">
+                <svg class="w-4 h-4 mr-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                Run Transform
+              </button>
+              <button type="button" id="clear-preview-btn" class="btn btn-secondary text-sm">Clear</button>
+            </div>
+          </div>
+
+          {# Resolved Output #}
+          <div class="space-y-3">
+            <h3 class="text-sm font-semibold text-gray-900">Resolved E-Sign Entities</h3>
+
+            {# Transform Result Container #}
+            <div id="preview-result-container" class="border border-gray-200 rounded-lg overflow-hidden">
+              {# Empty state #}
+              <div id="preview-empty" class="p-8 text-center">
+                <div class="w-12 h-12 mx-auto mb-3 rounded-full bg-gray-100 flex items-center justify-center">
+                  <svg class="w-6 h-6 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+                  </svg>
+                </div>
+                <p class="text-sm text-gray-500">Enter source payload and run transform to see resolved entities</p>
+              </div>
+
+              {# Loading state #}
+              <div id="preview-loading" class="hidden p-8 text-center">
+                <svg class="animate-spin h-8 w-8 text-blue-500 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                </svg>
+                <p class="text-sm text-gray-500 mt-2">Transforming...</p>
+              </div>
+
+              {# Error state #}
+              <div id="preview-error" class="hidden p-4 bg-red-50 border-b border-red-200">
+                <div class="flex items-start gap-3">
+                  <svg class="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                  </svg>
+                  <div>
+                    <p class="text-sm font-medium text-red-800">Transform Failed</p>
+                    <p class="text-sm text-red-700 mt-1" id="preview-error-message"></p>
+                  </div>
+                </div>
+              </div>
+
+              {# Success result - Entity cards #}
+              <div id="preview-success" class="hidden divide-y divide-gray-100">
+                {# Participants section #}
+                <div class="p-4">
+                  <div class="flex items-center gap-2 mb-3">
+                    <svg class="w-4 h-4 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    </svg>
+                    <h4 class="text-sm font-semibold text-gray-900">Participants</h4>
+                    <span class="text-xs text-gray-500" id="participants-count">(0)</span>
+                  </div>
+                  <div id="preview-participants" class="space-y-2">
+                    {# Populated by JavaScript #}
+                  </div>
+                </div>
+
+                {# Field Definitions section #}
+                <div class="p-4">
+                  <div class="flex items-center gap-2 mb-3">
+                    <svg class="w-4 h-4 text-purple-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    <h4 class="text-sm font-semibold text-gray-900">Field Definitions</h4>
+                    <span class="text-xs text-gray-500" id="fields-count">(0)</span>
+                  </div>
+                  <div id="preview-fields" class="space-y-2">
+                    {# Populated by JavaScript #}
+                  </div>
+                </div>
+
+                {# Agreement Metadata section #}
+                <div class="p-4">
+                  <div class="flex items-center gap-2 mb-3">
+                    <svg class="w-4 h-4 text-green-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <h4 class="text-sm font-semibold text-gray-900">Agreement Metadata</h4>
+                  </div>
+                  <div id="preview-metadata" class="space-y-1">
+                    {# Populated by JavaScript #}
+                  </div>
+                </div>
+
+                {# Raw JSON output (collapsible) #}
+                <details class="p-4">
+                  <summary class="text-sm font-medium text-gray-700 cursor-pointer hover:text-gray-900">View Raw JSON Output</summary>
+                  <pre id="preview-raw-json" class="mt-3 p-3 bg-gray-50 rounded-lg text-xs font-mono overflow-x-auto max-h-48"></pre>
+                </details>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {# Rule Mapping Visualization #}
+        <div class="border border-gray-200 rounded-lg p-4">
+          <h3 class="text-sm font-semibold text-gray-900 mb-4">Field Mapping Rules</h3>
+          <div id="preview-rules-table" class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-3 py-2 text-left text-xs font-semibold text-gray-600">Source</th>
+                  <th class="px-3 py-2 text-center text-xs font-semibold text-gray-600"></th>
+                  <th class="px-3 py-2 text-left text-xs font-semibold text-gray-600">Target Entity</th>
+                  <th class="px-3 py-2 text-left text-xs font-semibold text-gray-600">Target Path</th>
+                  <th class="px-3 py-2 text-left text-xs font-semibold text-gray-600">Status</th>
+                </tr>
+              </thead>
+              <tbody id="preview-rules-tbody" class="divide-y divide-gray-100">
+                {# Populated by JavaScript #}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const basePath = '{{ base_path }}';
+  const apiBase = '{{ api_base_path|default:"" }}' || `${basePath}/api`;
+  const mappingsEndpoint = `${apiBase}/esign/integrations/mappings`;
+
+  // State
+  let mappings = [];
+  let editingMappingId = null;
+  let pendingPublishId = null;
+  let pendingDeleteId = null;
+
+  // Elements
+  const announcements = document.getElementById('mappings-announcements');
+  const loadingState = document.getElementById('loading-state');
+  const emptyState = document.getElementById('empty-state');
+  const errorState = document.getElementById('error-state');
+  const mappingsList = document.getElementById('mappings-list');
+  const mappingsTbody = document.getElementById('mappings-tbody');
+  const searchInput = document.getElementById('search-mappings');
+  const filterStatus = document.getElementById('filter-status');
+  const filterProvider = document.getElementById('filter-provider');
+  const refreshBtn = document.getElementById('refresh-btn');
+  const retryBtn = document.getElementById('retry-btn');
+  const errorMessage = document.getElementById('error-message');
+
+  const createMappingBtn = document.getElementById('create-mapping-btn');
+  const createMappingEmptyBtn = document.getElementById('create-mapping-empty-btn');
+  const mappingModal = document.getElementById('mapping-modal');
+  const mappingModalTitle = document.getElementById('mapping-modal-title');
+  const closeModalBtn = document.getElementById('close-modal-btn');
+  const cancelModalBtn = document.getElementById('cancel-modal-btn');
+  const mappingForm = document.getElementById('mapping-form');
+  const mappingIdInput = document.getElementById('mapping-id');
+  const mappingVersionInput = document.getElementById('mapping-version');
+  const mappingNameInput = document.getElementById('mapping-name');
+  const mappingProviderInput = document.getElementById('mapping-provider');
+  const schemaObjectTypeInput = document.getElementById('schema-object-type');
+  const schemaVersionInput = document.getElementById('schema-version');
+  const schemaFieldsContainer = document.getElementById('schema-fields-container');
+  const addFieldBtn = document.getElementById('add-field-btn');
+  const mappingRulesContainer = document.getElementById('mapping-rules-container');
+  const addRuleBtn = document.getElementById('add-rule-btn');
+  const validateBtn = document.getElementById('validate-btn');
+  const saveBtn = document.getElementById('save-btn');
+  const formValidationStatus = document.getElementById('form-validation-status');
+  const mappingStatusBadge = document.getElementById('mapping-status-badge');
+
+  const publishModal = document.getElementById('publish-modal');
+  const publishMappingName = document.getElementById('publish-mapping-name');
+  const publishMappingVersion = document.getElementById('publish-mapping-version');
+  const publishCancelBtn = document.getElementById('publish-cancel-btn');
+  const publishConfirmBtn = document.getElementById('publish-confirm-btn');
+
+  const deleteModal = document.getElementById('delete-modal');
+  const deleteCancelBtn = document.getElementById('delete-cancel-btn');
+  const deleteConfirmBtn = document.getElementById('delete-confirm-btn');
+
+  // Preview modal elements
+  const previewModal = document.getElementById('preview-modal');
+  const closePreviewBtn = document.getElementById('close-preview-btn');
+  const previewMappingName = document.getElementById('preview-mapping-name');
+  const previewMappingProvider = document.getElementById('preview-mapping-provider');
+  const previewObjectType = document.getElementById('preview-object-type');
+  const previewMappingStatus = document.getElementById('preview-mapping-status');
+  const previewSourceInput = document.getElementById('preview-source-input');
+  const sourceSyntaxError = document.getElementById('source-syntax-error');
+  const loadSampleBtn = document.getElementById('load-sample-btn');
+  const runPreviewBtn = document.getElementById('run-preview-btn');
+  const clearPreviewBtn = document.getElementById('clear-preview-btn');
+  const previewEmpty = document.getElementById('preview-empty');
+  const previewLoading = document.getElementById('preview-loading');
+  const previewError = document.getElementById('preview-error');
+  const previewErrorMessage = document.getElementById('preview-error-message');
+  const previewSuccess = document.getElementById('preview-success');
+  const previewParticipants = document.getElementById('preview-participants');
+  const participantsCount = document.getElementById('participants-count');
+  const previewFields = document.getElementById('preview-fields');
+  const fieldsCount = document.getElementById('fields-count');
+  const previewMetadata = document.getElementById('preview-metadata');
+  const previewRawJson = document.getElementById('preview-raw-json');
+  const previewRulesTbody = document.getElementById('preview-rules-tbody');
+
+  let currentPreviewMapping = null;
+
+  function announce(message) {
+    if (announcements) announcements.textContent = message;
+  }
+
+  function showState(state) {
+    loadingState.classList.add('hidden');
+    emptyState.classList.add('hidden');
+    errorState.classList.add('hidden');
+    mappingsList.classList.add('hidden');
+
+    switch (state) {
+      case 'loading': loadingState.classList.remove('hidden'); break;
+      case 'empty': emptyState.classList.remove('hidden'); break;
+      case 'error': errorState.classList.remove('hidden'); break;
+      case 'list': mappingsList.classList.remove('hidden'); break;
+    }
+  }
+
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text || '';
+    return div.innerHTML;
+  }
+
+  function formatDate(dateStr) {
+    if (!dateStr) return '-';
+    try {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch {
+      return dateStr;
+    }
+  }
+
+  function getStatusBadge(status) {
+    const configs = {
+      draft: { label: 'Draft', bg: 'bg-gray-100', text: 'text-gray-700', dot: 'bg-gray-400' },
+      published: { label: 'Published', bg: 'bg-green-100', text: 'text-green-700', dot: 'bg-green-500' }
+    };
+    const config = configs[status] || configs.draft;
+    return `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${config.bg} ${config.text}">
+      <span class="w-1.5 h-1.5 rounded-full ${config.dot}" aria-hidden="true"></span>
+      ${config.label}
+    </span>`;
+  }
+
+  async function loadMappings() {
+    showState('loading');
+    try {
+      const response = await fetch(mappingsEndpoint, {
+        credentials: 'same-origin',
+        headers: { 'Accept': 'application/json' }
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      mappings = data.mappings || [];
+
+      // Populate provider filter
+      const providers = [...new Set(mappings.map(m => m.provider).filter(Boolean))];
+      filterProvider.innerHTML = '<option value="">All Providers</option>' +
+        providers.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
+
+      renderMappings();
+      announce(`Loaded ${mappings.length} mappings`);
+    } catch (error) {
+      console.error('Error loading mappings:', error);
+      errorMessage.textContent = error.message || 'An error occurred';
+      showState('error');
+      announce('Error loading mappings');
+    }
+  }
+
+  function renderMappings() {
+    const search = (searchInput.value || '').toLowerCase();
+    const statusFilter = filterStatus.value;
+    const providerFilter = filterProvider.value;
+
+    const filtered = mappings.filter(m => {
+      if (search && !m.name.toLowerCase().includes(search) && !m.provider.toLowerCase().includes(search)) return false;
+      if (statusFilter && m.status !== statusFilter) return false;
+      if (providerFilter && m.provider !== providerFilter) return false;
+      return true;
+    });
+
+    if (filtered.length === 0) {
+      showState('empty');
+      return;
+    }
+
+    mappingsTbody.innerHTML = filtered.map(m => `
+      <tr class="hover:bg-gray-50">
+        <td class="px-6 py-4">
+          <div class="font-medium text-gray-900">${escapeHtml(m.name)}</div>
+          <div class="text-xs text-gray-500">${escapeHtml(m.compiled_hash ? m.compiled_hash.slice(0, 12) + '...' : '')}</div>
+        </td>
+        <td class="px-6 py-4 text-sm text-gray-700">${escapeHtml(m.provider)}</td>
+        <td class="px-6 py-4">${getStatusBadge(m.status)}</td>
+        <td class="px-6 py-4 text-sm text-gray-700">v${m.version || 1}</td>
+        <td class="px-6 py-4 text-sm text-gray-500">${formatDate(m.updated_at)}</td>
+        <td class="px-6 py-4 text-right">
+          <div class="flex items-center justify-end gap-2">
+            <button type="button" class="preview-mapping-btn text-purple-600 hover:text-purple-700 text-sm font-medium" data-id="${escapeHtml(m.id)}" aria-label="Preview ${escapeHtml(m.name)}">
+              Preview
+            </button>
+            <button type="button" class="edit-mapping-btn text-blue-600 hover:text-blue-700 text-sm font-medium" data-id="${escapeHtml(m.id)}" aria-label="Edit ${escapeHtml(m.name)}">
+              Edit
+            </button>
+            ${m.status === 'draft' ? `
+              <button type="button" class="publish-mapping-btn text-green-600 hover:text-green-700 text-sm font-medium" data-id="${escapeHtml(m.id)}" aria-label="Publish ${escapeHtml(m.name)}">
+                Publish
+              </button>
+            ` : ''}
+            <button type="button" class="delete-mapping-btn text-red-600 hover:text-red-700 text-sm font-medium" data-id="${escapeHtml(m.id)}" aria-label="Delete ${escapeHtml(m.name)}">
+              Delete
+            </button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+
+    showState('list');
+
+    // Attach row event listeners
+    mappingsTbody.querySelectorAll('.preview-mapping-btn').forEach(btn => {
+      btn.addEventListener('click', () => openPreviewModal(btn.dataset.id));
+    });
+    mappingsTbody.querySelectorAll('.edit-mapping-btn').forEach(btn => {
+      btn.addEventListener('click', () => openEditModal(btn.dataset.id));
+    });
+    mappingsTbody.querySelectorAll('.publish-mapping-btn').forEach(btn => {
+      btn.addEventListener('click', () => openPublishModal(btn.dataset.id));
+    });
+    mappingsTbody.querySelectorAll('.delete-mapping-btn').forEach(btn => {
+      btn.addEventListener('click', () => openDeleteModal(btn.dataset.id));
+    });
+  }
+
+  // Schema field template
+  function createSchemaFieldRow(field = {}) {
+    const row = document.createElement('div');
+    row.className = 'flex items-center gap-2 p-2 bg-gray-50 rounded-lg schema-field-row';
+    row.innerHTML = `
+      <input type="text" placeholder="object" value="${escapeHtml(field.object || '')}" class="field-object flex-1 px-2 py-1 border border-gray-300 rounded text-sm" required>
+      <input type="text" placeholder="field" value="${escapeHtml(field.field || '')}" class="field-name flex-1 px-2 py-1 border border-gray-300 rounded text-sm" required>
+      <select class="field-type px-2 py-1 border border-gray-300 rounded text-sm">
+        <option value="string" ${field.type === 'string' ? 'selected' : ''}>string</option>
+        <option value="number" ${field.type === 'number' ? 'selected' : ''}>number</option>
+        <option value="boolean" ${field.type === 'boolean' ? 'selected' : ''}>boolean</option>
+        <option value="date" ${field.type === 'date' ? 'selected' : ''}>date</option>
+      </select>
+      <label class="flex items-center gap-1 text-xs">
+        <input type="checkbox" class="field-required" ${field.required ? 'checked' : ''}> Req
+      </label>
+      <button type="button" class="remove-field-btn text-red-500 hover:text-red-600" aria-label="Remove field">
+        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    `;
+    row.querySelector('.remove-field-btn').addEventListener('click', () => row.remove());
+    return row;
+  }
+
+  // Mapping rule template
+  function createMappingRuleRow(rule = {}) {
+    const row = document.createElement('div');
+    row.className = 'flex items-center gap-2 p-2 bg-gray-50 rounded-lg mapping-rule-row';
+    row.innerHTML = `
+      <input type="text" placeholder="source_object" value="${escapeHtml(rule.source_object || '')}" class="rule-source-object flex-1 px-2 py-1 border border-gray-300 rounded text-sm">
+      <input type="text" placeholder="source_field" value="${escapeHtml(rule.source_field || '')}" class="rule-source-field flex-1 px-2 py-1 border border-gray-300 rounded text-sm" required>
+      <span class="text-gray-400">→</span>
+      <select class="rule-target-entity px-2 py-1 border border-gray-300 rounded text-sm">
+        <option value="participant" ${rule.target_entity === 'participant' ? 'selected' : ''}>participant</option>
+        <option value="agreement" ${rule.target_entity === 'agreement' ? 'selected' : ''}>agreement</option>
+        <option value="field_definition" ${rule.target_entity === 'field_definition' ? 'selected' : ''}>field_definition</option>
+        <option value="field_instance" ${rule.target_entity === 'field_instance' ? 'selected' : ''}>field_instance</option>
+      </select>
+      <input type="text" placeholder="target_path" value="${escapeHtml(rule.target_path || '')}" class="rule-target-path flex-1 px-2 py-1 border border-gray-300 rounded text-sm" required>
+      <button type="button" class="remove-rule-btn text-red-500 hover:text-red-600" aria-label="Remove rule">
+        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    `;
+    row.querySelector('.remove-rule-btn').addEventListener('click', () => row.remove());
+    return row;
+  }
+
+  function collectFormData() {
+    const fields = [];
+    schemaFieldsContainer.querySelectorAll('.schema-field-row').forEach(row => {
+      fields.push({
+        object: row.querySelector('.field-object').value.trim(),
+        field: row.querySelector('.field-name').value.trim(),
+        type: row.querySelector('.field-type').value,
+        required: row.querySelector('.field-required').checked
+      });
+    });
+
+    const rules = [];
+    mappingRulesContainer.querySelectorAll('.mapping-rule-row').forEach(row => {
+      rules.push({
+        source_object: row.querySelector('.rule-source-object').value.trim(),
+        source_field: row.querySelector('.rule-source-field').value.trim(),
+        target_entity: row.querySelector('.rule-target-entity').value,
+        target_path: row.querySelector('.rule-target-path').value.trim()
+      });
+    });
+
+    return {
+      id: mappingIdInput.value.trim() || undefined,
+      version: parseInt(mappingVersionInput.value, 10) || 0,
+      name: mappingNameInput.value.trim(),
+      provider: mappingProviderInput.value.trim(),
+      external_schema: {
+        object_type: schemaObjectTypeInput.value.trim(),
+        version: schemaVersionInput.value.trim(),
+        fields: fields
+      },
+      rules: rules
+    };
+  }
+
+  function populateForm(mapping) {
+    mappingIdInput.value = mapping.id || '';
+    mappingVersionInput.value = mapping.version || 0;
+    mappingNameInput.value = mapping.name || '';
+    mappingProviderInput.value = mapping.provider || '';
+
+    const schema = mapping.external_schema || {};
+    schemaObjectTypeInput.value = schema.object_type || '';
+    schemaVersionInput.value = schema.version || '';
+
+    schemaFieldsContainer.innerHTML = '';
+    (schema.fields || []).forEach(f => schemaFieldsContainer.appendChild(createSchemaFieldRow(f)));
+
+    mappingRulesContainer.innerHTML = '';
+    (mapping.rules || []).forEach(r => mappingRulesContainer.appendChild(createMappingRuleRow(r)));
+
+    // Update status badge
+    if (mapping.status) {
+      mappingStatusBadge.innerHTML = getStatusBadge(mapping.status);
+      mappingStatusBadge.classList.remove('hidden');
+    } else {
+      mappingStatusBadge.classList.add('hidden');
+    }
+
+    formValidationStatus.classList.add('hidden');
+  }
+
+  function resetForm() {
+    mappingForm.reset();
+    mappingIdInput.value = '';
+    mappingVersionInput.value = '0';
+    schemaFieldsContainer.innerHTML = '';
+    mappingRulesContainer.innerHTML = '';
+    mappingStatusBadge.classList.add('hidden');
+    formValidationStatus.classList.add('hidden');
+    editingMappingId = null;
+  }
+
+  function openCreateModal() {
+    resetForm();
+    mappingModalTitle.textContent = 'New Mapping Specification';
+    // Add default field and rule
+    schemaFieldsContainer.appendChild(createSchemaFieldRow({ object: '', field: 'email', type: 'string', required: true }));
+    mappingRulesContainer.appendChild(createMappingRuleRow({ target_entity: 'participant', target_path: 'email' }));
+    mappingModal.classList.remove('hidden');
+    mappingNameInput.focus();
+  }
+
+  function openEditModal(id) {
+    const mapping = mappings.find(m => m.id === id);
+    if (!mapping) return;
+
+    editingMappingId = id;
+    mappingModalTitle.textContent = 'Edit Mapping Specification';
+    populateForm(mapping);
+    mappingModal.classList.remove('hidden');
+    mappingNameInput.focus();
+  }
+
+  function closeModal() {
+    mappingModal.classList.add('hidden');
+    resetForm();
+  }
+
+  function openPublishModal(id) {
+    const mapping = mappings.find(m => m.id === id);
+    if (!mapping) return;
+
+    pendingPublishId = id;
+    publishMappingName.textContent = mapping.name;
+    publishMappingVersion.textContent = `v${mapping.version || 1}`;
+    publishModal.classList.remove('hidden');
+  }
+
+  function closePublishModal() {
+    publishModal.classList.add('hidden');
+    pendingPublishId = null;
+  }
+
+  function openDeleteModal(id) {
+    pendingDeleteId = id;
+    deleteModal.classList.remove('hidden');
+  }
+
+  function closeDeleteModal() {
+    deleteModal.classList.add('hidden');
+    pendingDeleteId = null;
+  }
+
+  // Preview Modal Functions
+  function openPreviewModal(id) {
+    const mapping = mappings.find(m => m.id === id);
+    if (!mapping) return;
+
+    currentPreviewMapping = mapping;
+    previewMappingName.textContent = mapping.name;
+    previewMappingProvider.textContent = mapping.provider;
+    previewObjectType.textContent = mapping.external_schema?.object_type || '-';
+    previewMappingStatus.innerHTML = getStatusBadge(mapping.status);
+
+    // Render rules table
+    renderPreviewRules(mapping.rules || []);
+
+    // Reset preview output
+    showPreviewState('empty');
+    previewSourceInput.value = '';
+    sourceSyntaxError.classList.add('hidden');
+
+    previewModal.classList.remove('hidden');
+    previewSourceInput.focus();
+  }
+
+  function closePreviewModal() {
+    previewModal.classList.add('hidden');
+    currentPreviewMapping = null;
+    previewSourceInput.value = '';
+  }
+
+  function showPreviewState(state) {
+    previewEmpty.classList.add('hidden');
+    previewLoading.classList.add('hidden');
+    previewError.classList.add('hidden');
+    previewSuccess.classList.add('hidden');
+
+    switch (state) {
+      case 'empty': previewEmpty.classList.remove('hidden'); break;
+      case 'loading': previewLoading.classList.remove('hidden'); break;
+      case 'error': previewError.classList.remove('hidden'); break;
+      case 'success': previewSuccess.classList.remove('hidden'); break;
+    }
+  }
+
+  function renderPreviewRules(rules) {
+    if (!rules || rules.length === 0) {
+      previewRulesTbody.innerHTML = '<tr><td colspan="5" class="px-3 py-4 text-center text-sm text-gray-500">No mapping rules defined</td></tr>';
+      return;
+    }
+
+    previewRulesTbody.innerHTML = rules.map(rule => `
+      <tr>
+        <td class="px-3 py-2 font-mono text-xs">${escapeHtml(rule.source_object ? rule.source_object + '.' : '')}${escapeHtml(rule.source_field)}</td>
+        <td class="px-3 py-2 text-center text-gray-400">→</td>
+        <td class="px-3 py-2">
+          <span class="px-2 py-0.5 bg-gray-100 rounded text-xs font-medium">${escapeHtml(rule.target_entity)}</span>
+        </td>
+        <td class="px-3 py-2 font-mono text-xs">${escapeHtml(rule.target_path)}</td>
+        <td class="px-3 py-2" data-rule-source="${escapeHtml(rule.source_field)}">
+          <span class="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">Pending</span>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function loadSamplePayload() {
+    if (!currentPreviewMapping) return;
+
+    const schema = currentPreviewMapping.external_schema || {};
+    const objectType = schema.object_type || 'data';
+    const fields = schema.fields || [];
+
+    // Generate sample payload based on schema
+    const sample = {};
+    const innerObj = {};
+    fields.forEach(field => {
+      const key = field.field || 'field';
+      switch (field.type) {
+        case 'string':
+          innerObj[key] = key === 'email' ? 'john.doe@example.com' : key === 'name' ? 'John Doe' : `sample_${key}`;
+          break;
+        case 'number':
+          innerObj[key] = 123;
+          break;
+        case 'boolean':
+          innerObj[key] = true;
+          break;
+        case 'date':
+          innerObj[key] = new Date().toISOString().split('T')[0];
+          break;
+        default:
+          innerObj[key] = `sample_${key}`;
+      }
+    });
+
+    sample[objectType] = innerObj;
+    previewSourceInput.value = JSON.stringify(sample, null, 2);
+    sourceSyntaxError.classList.add('hidden');
+  }
+
+  function validateSourceJson() {
+    const value = previewSourceInput.value.trim();
+    if (!value) {
+      sourceSyntaxError.classList.add('hidden');
+      return null;
+    }
+
+    try {
+      const parsed = JSON.parse(value);
+      sourceSyntaxError.classList.add('hidden');
+      return parsed;
+    } catch (e) {
+      sourceSyntaxError.textContent = `JSON Syntax Error: ${e.message}`;
+      sourceSyntaxError.classList.remove('hidden');
+      return null;
+    }
+  }
+
+  async function runPreviewTransform() {
+    const sourcePayload = validateSourceJson();
+    if (sourcePayload === null && previewSourceInput.value.trim()) {
+      return; // JSON syntax error
+    }
+
+    if (!sourcePayload) {
+      showPreviewState('empty');
+      return;
+    }
+
+    if (!currentPreviewMapping) return;
+
+    showPreviewState('loading');
+
+    // Simulate transform based on mapping rules (client-side preview)
+    // In production, this would call a backend preview endpoint
+    try {
+      const result = simulateTransform(sourcePayload, currentPreviewMapping);
+      renderPreviewResult(result);
+      showPreviewState('success');
+    } catch (error) {
+      console.error('Transform error:', error);
+      previewErrorMessage.textContent = error.message || 'Transform failed';
+      showPreviewState('error');
+    }
+  }
+
+  function simulateTransform(sourcePayload, mapping) {
+    const rules = mapping.rules || [];
+    const result = {
+      participants: [],
+      field_definitions: [],
+      field_instances: [],
+      agreement: {},
+      matched_rules: []
+    };
+
+    const participantData = {};
+    const agreementData = {};
+    const fieldDefData = [];
+
+    rules.forEach(rule => {
+      const sourceValue = resolveSourceValue(sourcePayload, rule.source_object, rule.source_field);
+      const matched = sourceValue !== undefined;
+
+      result.matched_rules.push({
+        source: rule.source_field,
+        matched: matched,
+        value: sourceValue
+      });
+
+      if (!matched) return;
+
+      switch (rule.target_entity) {
+        case 'participant':
+          participantData[rule.target_path] = sourceValue;
+          break;
+        case 'agreement':
+          agreementData[rule.target_path] = sourceValue;
+          break;
+        case 'field_definition':
+          fieldDefData.push({ path: rule.target_path, value: sourceValue });
+          break;
+      }
+    });
+
+    // Build participant if we have data
+    if (Object.keys(participantData).length > 0) {
+      result.participants.push({
+        ...participantData,
+        role: participantData.role || 'signer',
+        signing_stage: participantData.signing_stage || 1
+      });
+    }
+
+    // Build agreement metadata
+    result.agreement = agreementData;
+
+    // Build field definitions
+    result.field_definitions = fieldDefData;
+
+    return result;
+  }
+
+  function resolveSourceValue(payload, sourceObject, sourceField) {
+    if (!payload) return undefined;
+
+    // Try direct field access
+    if (sourceObject && payload[sourceObject]) {
+      return payload[sourceObject][sourceField];
+    }
+
+    // Try nested access using first key
+    for (const key of Object.keys(payload)) {
+      if (typeof payload[key] === 'object' && payload[key] !== null) {
+        if (sourceField in payload[key]) {
+          return payload[key][sourceField];
+        }
+      }
+    }
+
+    // Try direct access
+    return payload[sourceField];
+  }
+
+  function renderPreviewResult(result) {
+    // Render participants
+    const participants = result.participants || [];
+    participantsCount.textContent = `(${participants.length})`;
+    if (participants.length === 0) {
+      previewParticipants.innerHTML = '<p class="text-sm text-gray-500">No participants resolved</p>';
+    } else {
+      previewParticipants.innerHTML = participants.map(p => `
+        <div class="flex items-center gap-3 p-2 bg-gray-50 rounded-lg">
+          <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-sm font-medium text-blue-700">
+            ${escapeHtml((p.name || p.email || '?').charAt(0).toUpperCase())}
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-900 truncate">${escapeHtml(p.name || '-')}</p>
+            <p class="text-xs text-gray-500 truncate">${escapeHtml(p.email || '-')}</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-medium">${escapeHtml(p.role)}</span>
+            <span class="text-xs text-gray-500">Stage ${p.signing_stage}</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // Render field definitions
+    const fields = result.field_definitions || [];
+    fieldsCount.textContent = `(${fields.length})`;
+    if (fields.length === 0) {
+      previewFields.innerHTML = '<p class="text-sm text-gray-500">No field definitions resolved</p>';
+    } else {
+      previewFields.innerHTML = fields.map(f => `
+        <div class="flex items-center gap-2 p-2 bg-gray-50 rounded-lg text-sm">
+          <span class="font-mono text-xs text-gray-600">${escapeHtml(f.path)}</span>
+          <span class="text-gray-400">=</span>
+          <span class="text-gray-900">${escapeHtml(String(f.value))}</span>
+        </div>
+      `).join('');
+    }
+
+    // Render agreement metadata
+    const metadata = result.agreement || {};
+    const metaEntries = Object.entries(metadata);
+    if (metaEntries.length === 0) {
+      previewMetadata.innerHTML = '<p class="text-sm text-gray-500">No agreement metadata resolved</p>';
+    } else {
+      previewMetadata.innerHTML = metaEntries.map(([key, value]) => `
+        <div class="flex items-center gap-2 text-sm">
+          <span class="text-gray-600">${escapeHtml(key)}:</span>
+          <span class="text-gray-900">${escapeHtml(String(value))}</span>
+        </div>
+      `).join('');
+    }
+
+    // Render raw JSON
+    previewRawJson.textContent = JSON.stringify(result, null, 2);
+
+    // Update rule status indicators
+    (result.matched_rules || []).forEach(rule => {
+      const cell = previewRulesTbody.querySelector(`[data-rule-source="${escapeHtml(rule.source)}"] span`);
+      if (cell) {
+        if (rule.matched) {
+          cell.className = 'px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700';
+          cell.textContent = 'Matched';
+        } else {
+          cell.className = 'px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700';
+          cell.textContent = 'Not Found';
+        }
+      }
+    });
+  }
+
+  function clearPreview() {
+    previewSourceInput.value = '';
+    sourceSyntaxError.classList.add('hidden');
+    showPreviewState('empty');
+    renderPreviewRules(currentPreviewMapping?.rules || []);
+  }
+
+  async function validateMapping() {
+    const data = collectFormData();
+    validateBtn.disabled = true;
+    validateBtn.innerHTML = '<svg class="animate-spin w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> Validating...';
+
+    try {
+      const response = await fetch(mappingsEndpoint, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ ...data, validate_only: true })
+      });
+      const result = await response.json();
+
+      if (response.ok && result.status === 'ok') {
+        formValidationStatus.innerHTML = `
+          <div class="flex items-start gap-3 text-green-700 bg-green-50 border border-green-200">
+            <svg class="w-5 h-5 mt-0.5 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+            </svg>
+            <div>
+              <p class="font-medium">Validation Passed</p>
+              <p class="text-sm mt-1">Mapping specification is valid. Compiled hash: <code class="text-xs bg-green-100 px-1 py-0.5 rounded">${escapeHtml((result.mapping?.compiled_hash || '').slice(0, 16))}</code></p>
+            </div>
+          </div>
+        `;
+        formValidationStatus.className = 'rounded-lg p-4';
+        announce('Validation passed');
+      } else {
+        const errors = result.errors || [result.error?.message || 'Validation failed'];
+        formValidationStatus.innerHTML = `
+          <div class="flex items-start gap-3 text-red-700 bg-red-50 border border-red-200">
+            <svg class="w-5 h-5 mt-0.5 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+            </svg>
+            <div>
+              <p class="font-medium">Validation Failed</p>
+              <ul class="text-sm mt-1 list-disc list-inside">${errors.map(e => `<li>${escapeHtml(e)}</li>`).join('')}</ul>
+            </div>
+          </div>
+        `;
+        formValidationStatus.className = 'rounded-lg p-4';
+        announce('Validation failed');
+      }
+      formValidationStatus.classList.remove('hidden');
+    } catch (error) {
+      console.error('Validation error:', error);
+      formValidationStatus.innerHTML = `<div class="text-red-600">Error: ${escapeHtml(error.message)}</div>`;
+      formValidationStatus.classList.remove('hidden');
+    } finally {
+      validateBtn.disabled = false;
+      validateBtn.innerHTML = '<svg class="w-4 h-4 mr-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Validate';
+    }
+  }
+
+  async function saveMapping() {
+    const data = collectFormData();
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<svg class="animate-spin w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> Saving...';
+
+    try {
+      const isUpdate = !!data.id;
+      const url = isUpdate ? `${mappingsEndpoint}/${data.id}` : mappingsEndpoint;
+      const method = isUpdate ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method: method,
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      if (!response.ok) {
+        const result = await response.json();
+        throw new Error(result.error?.message || `HTTP ${response.status}`);
+      }
+
+      if (window.toastManager) {
+        window.toastManager.success(isUpdate ? 'Mapping updated' : 'Mapping created');
+      }
+      announce(isUpdate ? 'Mapping updated' : 'Mapping created');
+      closeModal();
+      loadMappings();
+    } catch (error) {
+      console.error('Save error:', error);
+      if (window.toastManager) {
+        window.toastManager.error(`Failed to save: ${error.message}`);
+      }
+      announce(`Failed to save: ${error.message}`);
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.innerHTML = '<svg class="w-4 h-4 mr-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Save Draft';
+    }
+  }
+
+  async function publishMapping() {
+    if (!pendingPublishId) return;
+
+    const mapping = mappings.find(m => m.id === pendingPublishId);
+    if (!mapping) return;
+
+    publishConfirmBtn.disabled = true;
+    publishConfirmBtn.textContent = 'Publishing...';
+
+    try {
+      const response = await fetch(`${mappingsEndpoint}/${pendingPublishId}/publish`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ expected_version: mapping.version })
+      });
+
+      if (!response.ok) {
+        const result = await response.json();
+        throw new Error(result.error?.message || `HTTP ${response.status}`);
+      }
+
+      if (window.toastManager) {
+        window.toastManager.success('Mapping published');
+      }
+      announce('Mapping published');
+      closePublishModal();
+      loadMappings();
+    } catch (error) {
+      console.error('Publish error:', error);
+      if (window.toastManager) {
+        window.toastManager.error(`Failed to publish: ${error.message}`);
+      }
+    } finally {
+      publishConfirmBtn.disabled = false;
+      publishConfirmBtn.textContent = 'Publish';
+    }
+  }
+
+  async function deleteMapping() {
+    if (!pendingDeleteId) return;
+
+    deleteConfirmBtn.disabled = true;
+    deleteConfirmBtn.textContent = 'Deleting...';
+
+    try {
+      const response = await fetch(`${mappingsEndpoint}/${pendingDeleteId}`, {
+        method: 'DELETE',
+        credentials: 'same-origin',
+        headers: { 'Accept': 'application/json' }
+      });
+
+      if (!response.ok) {
+        const result = await response.json();
+        throw new Error(result.error?.message || `HTTP ${response.status}`);
+      }
+
+      if (window.toastManager) {
+        window.toastManager.success('Mapping deleted');
+      }
+      announce('Mapping deleted');
+      closeDeleteModal();
+      loadMappings();
+    } catch (error) {
+      console.error('Delete error:', error);
+      if (window.toastManager) {
+        window.toastManager.error(`Failed to delete: ${error.message}`);
+      }
+    } finally {
+      deleteConfirmBtn.disabled = false;
+      deleteConfirmBtn.textContent = 'Delete';
+    }
+  }
+
+  // Event listeners
+  createMappingBtn.addEventListener('click', openCreateModal);
+  createMappingEmptyBtn.addEventListener('click', openCreateModal);
+  closeModalBtn.addEventListener('click', closeModal);
+  cancelModalBtn.addEventListener('click', closeModal);
+  refreshBtn.addEventListener('click', loadMappings);
+  retryBtn.addEventListener('click', loadMappings);
+  addFieldBtn.addEventListener('click', () => schemaFieldsContainer.appendChild(createSchemaFieldRow()));
+  addRuleBtn.addEventListener('click', () => mappingRulesContainer.appendChild(createMappingRuleRow()));
+  validateBtn.addEventListener('click', validateMapping);
+  mappingForm.addEventListener('submit', (e) => { e.preventDefault(); saveMapping(); });
+  publishCancelBtn.addEventListener('click', closePublishModal);
+  publishConfirmBtn.addEventListener('click', publishMapping);
+  deleteCancelBtn.addEventListener('click', closeDeleteModal);
+  deleteConfirmBtn.addEventListener('click', deleteMapping);
+
+  // Preview modal listeners
+  closePreviewBtn.addEventListener('click', closePreviewModal);
+  loadSampleBtn.addEventListener('click', loadSamplePayload);
+  runPreviewBtn.addEventListener('click', runPreviewTransform);
+  clearPreviewBtn.addEventListener('click', clearPreview);
+  previewSourceInput.addEventListener('input', debounce(validateSourceJson, 300));
+
+  // Filter listeners
+  searchInput.addEventListener('input', debounce(renderMappings, 300));
+  filterStatus.addEventListener('change', renderMappings);
+  filterProvider.addEventListener('change', renderMappings);
+
+  // Escape key handling
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      if (!mappingModal.classList.contains('hidden')) closeModal();
+      if (!publishModal.classList.contains('hidden')) closePublishModal();
+      if (!deleteModal.classList.contains('hidden')) closeDeleteModal();
+      if (!previewModal.classList.contains('hidden')) closePreviewModal();
+    }
+  });
+
+  // Backdrop click handling
+  [mappingModal, publishModal, deleteModal, previewModal].forEach(modal => {
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal || e.target.getAttribute('aria-hidden') === 'true') {
+        if (modal === mappingModal) closeModal();
+        else if (modal === publishModal) closePublishModal();
+        else if (modal === deleteModal) closeDeleteModal();
+        else if (modal === previewModal) closePreviewModal();
+      }
+    });
+  });
+
+  function debounce(fn, delay) {
+    let timeout;
+    return (...args) => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => fn(...args), delay);
+    };
+  }
+
+  // Initial load
+  loadMappings();
+});
+</script>
+{% endblock %}
