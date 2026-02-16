@@ -65,8 +65,11 @@ func TestNewAdminLogsAdapterFailuresViaDependencyLogger(t *testing.T) {
 	_, _, err := NewAdmin(cfg, hooks, WithAdminDependencies(admin.Dependencies{
 		Logger: logger,
 	}))
-	if err != nil {
-		t.Fatalf("NewAdmin error: %v", err)
+	if err == nil {
+		t.Fatalf("expected persistent cms setup error")
+	}
+	if !errors.Is(err, ErrPersistentCMSSetupFailed) {
+		t.Fatalf("expected persistent cms setup failure, got %v", err)
 	}
 	if got := logger.count("warn", "persistent CMS requested but setup failed"); got == 0 {
 		t.Fatalf("expected persistent CMS warning logged via injected logger")
