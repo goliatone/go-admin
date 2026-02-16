@@ -104,7 +104,7 @@ func TestRepairNavigationIntegrityRepairsSelfParentContentNode(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("add main group: %v", err)
 	}
-	// Seed corrupted content row: self-parent + clickable path target.
+	// Seed corrupted content row: orphan parent + clickable path target.
 	if err := svc.AddMenuItem(ctx, menuCode, admin.MenuItem{
 		ID:          NavigationSectionContent,
 		Type:        admin.MenuItemTypeItem,
@@ -112,8 +112,8 @@ func TestRepairNavigationIntegrityRepairsSelfParentContentNode(t *testing.T) {
 		LabelKey:    "menu.content.pages",
 		Menu:        menuCode,
 		Locale:      locale,
-		ParentID:    NavigationSectionContent,
-		ParentCode:  NavigationSectionContent,
+		ParentID:    "legacy.content.parent",
+		ParentCode:  "legacy.content.parent",
 		Collapsible: false,
 		Target: map[string]any{
 			"type": "url",
@@ -190,8 +190,8 @@ func TestRepairNavigationIntegrityIsIdempotent(t *testing.T) {
 		LabelKey:    "menu.content.pages",
 		Menu:        menuCode,
 		Locale:      locale,
-		ParentID:    NavigationSectionContent,
-		ParentCode:  NavigationSectionContent,
+		ParentID:    "legacy.content.parent",
+		ParentCode:  "legacy.content.parent",
 		Collapsible: false,
 		Target: map[string]any{
 			"type": "url",
