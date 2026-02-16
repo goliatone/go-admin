@@ -810,7 +810,8 @@
 }
 
 /* Column toggle menu container - use flex so list shrinks to content */
-#column-toggle-menu {
+/* Only apply flex when menu is visible (not hidden) to preserve hidden class behavior */
+#column-toggle-menu:not(.hidden) {
   @apply flex flex-col;
 }
 

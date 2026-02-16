@@ -11641,3 +11641,1399 @@ test('Phase 28.FE.2: diagnostics recovery scenario', () => {
   assert.equal(status.status, 'healthy');
   assert.equal(feed.getEvents()[0].type, 'success');
 });
+
+// =============================================================================
+// PHASE 30: Agreement Wizard State Persistence
+// =============================================================================
+// Tests for hybrid client/server state persistence in the Create Agreement wizard.
+// Frontend scope: sessionStorage, draft sync service, sync orchestration,
+// resume dialog, conflict handling, multi-tab coordination.
+
+// -----------------------------------------------------------------------------
+// Phase 30 Simulators
+// -----------------------------------------------------------------------------
+
+/**
+ * WizardStateManagerSimulator - simulates sessionStorage persistence for wizard state
+ */
+class WizardStateManagerSimulator {
+  constructor() {
+    this.STORAGE_KEY = 'esign_wizard_state';
+    this.VERSION = 1;
+    this.storage = {};
+    this.state = null;
+  }
+
+  createInitialState() {
+    return {
+      version: this.VERSION,
+      draftId: null,
+      revision: 0,
+      currentStep: 1,
+      lastSyncedAt: null,
+      isDirty: false,
+      document: { templateId: null, file: null, fileName: null },
+      details: { title: '', description: '' },
+      signers: [],
+      fields: [],
+      workflow: { order: 'sequential', reminderDays: 3, expirationDays: 30 },
+      review: { confirmed: false }
+    };
+  }
+
+  loadFromSession() {
+    const stored = this.storage[this.STORAGE_KEY];
+    if (!stored) return null;
+
+    try {
+      const parsed = JSON.parse(stored);
+      if (parsed.version !== this.VERSION) {
+        this.clearSession();
+        return null;
+      }
+      this.state = parsed;
+      return parsed;
+    } catch {
+      return null;
+    }
+  }
+
+  saveToSession() {
+    if (this.state) {
+      this.storage[this.STORAGE_KEY] = JSON.stringify(this.state);
+    }
+  }
+
+  clearSession() {
+    delete this.storage[this.STORAGE_KEY];
+    this.state = null;
+  }
+
+  hasResumableState() {
+    const state = this.loadFromSession();
+    return state !== null && (state.currentStep > 1 || state.isDirty);
+  }
+
+  updateState(updates) {
+    if (!this.state) {
+      this.state = this.createInitialState();
+    }
+    this.state = { ...this.state, ...updates, isDirty: true };
+    this.saveToSession();
+    return this.state;
+  }
+
+  updateStep(step) {
+    return this.updateState({ currentStep: step });
+  }
+
+  updateDocument(doc) {
+    return this.updateState({ document: { ...this.state?.document, ...doc } });
+  }
+
+  updateDetails(details) {
+    return this.updateState({ details: { ...this.state?.details, ...details } });
+  }
+
+  updateSigners(signers) {
+    return this.updateState({ signers });
+  }
+
+  updateFields(fields) {
+    return this.updateState({ fields });
+  }
+
+  updateWorkflow(workflow) {
+    return this.updateState({ workflow: { ...this.state?.workflow, ...workflow } });
+  }
+
+  markSynced(draftId, revision) {
+    return this.updateState({
+      draftId,
+      revision,
+      isDirty: false,
+      lastSyncedAt: new Date().toISOString()
+    });
+  }
+
+  initialize() {
+    this.state = this.createInitialState();
+    this.saveToSession();
+    return this.state;
+  }
+
+  getState() {
+    return this.state;
+  }
+}
+
+/**
+ * DraftSyncServiceSimulator - simulates server API communication for draft persistence
+ */
+class DraftSyncServiceSimulator {
+  constructor() {
+    this.drafts = new Map();
+    this.nextDraftId = 1;
+    this.simulatedError = null;
+    this.simulatedConflict = false;
+  }
+
+  simulateError(error) {
+    this.simulatedError = error;
+  }
+
+  simulateConflict(serverRevision) {
+    this.simulatedConflict = serverRevision;
+  }
+
+  clearSimulations() {
+    this.simulatedError = null;
+    this.simulatedConflict = false;
+  }
+
+  async create(state) {
+    if (this.simulatedError) {
+      const error = this.simulatedError;
+      this.simulatedError = null;
+      throw new Error(error);
+    }
+
+    const draftId = `DRF-${String(this.nextDraftId++).padStart(3, '0')}`;
+    const draft = {
+      id: draftId,
+      revision: 1,
+      state: { ...state },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    this.drafts.set(draftId, draft);
+    return { draftId, revision: 1 };
+  }
+
+  async update(draftId, state, expectedRevision) {
+    if (this.simulatedError) {
+      const error = this.simulatedError;
+      this.simulatedError = null;
+      throw new Error(error);
+    }
+
+    const draft = this.drafts.get(draftId);
+    if (!draft) {
+      throw new Error('Draft not found');
+    }
+
+    if (this.simulatedConflict) {
+      const serverRev = this.simulatedConflict;
+      this.simulatedConflict = false;
+      const error = new Error('Conflict');
+      error.status = 409;
+      error.code = 'stale_revision';
+      error.serverRevision = serverRev;
+      error.serverState = draft.state;
+      throw error;
+    }
+
+    if (expectedRevision !== draft.revision) {
+      const error = new Error('Conflict');
+      error.status = 409;
+      error.code = 'stale_revision';
+      error.serverRevision = draft.revision;
+      error.serverState = draft.state;
+      throw error;
+    }
+
+    draft.revision++;
+    draft.state = { ...state };
+    draft.updatedAt = new Date().toISOString();
+    return { draftId, revision: draft.revision };
+  }
+
+  async load(draftId) {
+    if (this.simulatedError) {
+      const error = this.simulatedError;
+      this.simulatedError = null;
+      throw new Error(error);
+    }
+
+    const draft = this.drafts.get(draftId);
+    if (!draft) {
+      throw new Error('Draft not found');
+    }
+    return {
+      id: draft.id,
+      revision: draft.revision,
+      state: { ...draft.state },
+      updatedAt: draft.updatedAt
+    };
+  }
+
+  async delete(draftId) {
+    if (this.simulatedError) {
+      const error = this.simulatedError;
+      this.simulatedError = null;
+      throw new Error(error);
+    }
+    this.drafts.delete(draftId);
+    return { success: true };
+  }
+
+  async list() {
+    return Array.from(this.drafts.values()).map(d => ({
+      id: d.id,
+      title: d.state.details?.title || 'Untitled',
+      currentStep: d.state.currentStep || 1,
+      updatedAt: d.updatedAt
+    }));
+  }
+
+  async sync(state, draftId, expectedRevision) {
+    if (draftId) {
+      return this.update(draftId, state, expectedRevision);
+    }
+    return this.create(state);
+  }
+}
+
+/**
+ * SyncOrchestratorSimulator - simulates sync orchestration with debouncing and multi-tab coordination
+ */
+class SyncOrchestratorSimulator {
+  constructor(stateManager, syncService) {
+    this.stateManager = stateManager;
+    this.syncService = syncService;
+    this.SYNC_DEBOUNCE_MS = 2000;
+    this.RETRY_DELAYS = [1000, 2000, 5000, 10000, 30000];
+    this.status = 'idle'; // idle, syncing, synced, error, conflict
+    this.pendingSync = null;
+    this.retryCount = 0;
+    this.lastError = null;
+    this.broadcastMessages = [];
+    this.otherTabMessages = [];
+    this.listeners = new Map();
+  }
+
+  on(event, callback) {
+    if (!this.listeners.has(event)) {
+      this.listeners.set(event, []);
+    }
+    this.listeners.get(event).push(callback);
+  }
+
+  emit(event, data) {
+    const callbacks = this.listeners.get(event) || [];
+    callbacks.forEach(cb => cb(data));
+  }
+
+  setStatus(status) {
+    this.status = status;
+    this.emit('statusChange', status);
+  }
+
+  scheduleDebouncedSync() {
+    // In real implementation, this uses setTimeout
+    // Here we just track that a sync was scheduled
+    this.pendingSync = { scheduled: Date.now() };
+    return this.pendingSync;
+  }
+
+  cancelPendingSync() {
+    this.pendingSync = null;
+  }
+
+  async forceSync() {
+    this.cancelPendingSync();
+    return this.performSync();
+  }
+
+  async performSync() {
+    const state = this.stateManager.getState();
+    if (!state || !state.isDirty) {
+      return { skipped: true, reason: 'not_dirty' };
+    }
+
+    this.setStatus('syncing');
+
+    try {
+      const result = await this.syncService.sync(
+        state,
+        state.draftId,
+        state.revision
+      );
+
+      this.stateManager.markSynced(result.draftId, result.revision);
+      this.setStatus('synced');
+      this.retryCount = 0;
+      this.lastError = null;
+
+      // Broadcast to other tabs
+      this.broadcastMessages.push({
+        type: 'sync_completed',
+        draftId: result.draftId,
+        revision: result.revision
+      });
+
+      return result;
+    } catch (error) {
+      if (error.status === 409 && error.code === 'stale_revision') {
+        this.setStatus('conflict');
+        this.emit('conflict', {
+          serverRevision: error.serverRevision,
+          serverState: error.serverState,
+          localState: state
+        });
+        return { conflict: true, error };
+      }
+
+      this.setStatus('error');
+      this.lastError = error;
+      return { error: true, message: error.message };
+    }
+  }
+
+  async retrySync() {
+    if (this.retryCount >= this.RETRY_DELAYS.length) {
+      return { error: true, message: 'Max retries exceeded' };
+    }
+
+    const delay = this.RETRY_DELAYS[this.retryCount];
+    this.retryCount++;
+
+    // In real implementation, this waits for the delay
+    // Here we just perform the sync
+    return this.performSync();
+  }
+
+  receiveFromOtherTab(message) {
+    this.otherTabMessages.push(message);
+
+    if (message.type === 'sync_completed') {
+      // Another tab synced, update our local state
+      const state = this.stateManager.getState();
+      if (state && state.draftId === message.draftId) {
+        if (message.revision > state.revision) {
+          this.emit('externalUpdate', message);
+        }
+      }
+    } else if (message.type === 'tab_active') {
+      // Another tab became active, we should back off
+      this.emit('tabActivated', message);
+    }
+  }
+
+  broadcastTabActive() {
+    this.broadcastMessages.push({
+      type: 'tab_active',
+      timestamp: Date.now()
+    });
+  }
+
+  handleVisibilityChange(hidden) {
+    if (hidden) {
+      // Page going hidden, force sync
+      this.forceSync();
+    } else {
+      // Page becoming visible, broadcast we're active
+      this.broadcastTabActive();
+    }
+  }
+
+  handlePageHide() {
+    // Use sendBeacon in real implementation
+    const state = this.stateManager.getState();
+    if (state && state.isDirty) {
+      this.emit('beaconSync', state);
+    }
+  }
+
+  handleBeforeUnload() {
+    this.forceSync();
+  }
+
+  resolveConflict(resolution) {
+    // resolution: 'keep_local', 'use_server', 'merge'
+    this.setStatus('idle');
+    this.emit('conflictResolved', resolution);
+    return { resolved: true, resolution };
+  }
+
+  getRetryDelay() {
+    if (this.retryCount >= this.RETRY_DELAYS.length) {
+      return this.RETRY_DELAYS[this.RETRY_DELAYS.length - 1];
+    }
+    return this.RETRY_DELAYS[this.retryCount];
+  }
+
+  destroy() {
+    this.cancelPendingSync();
+    this.listeners.clear();
+  }
+}
+
+/**
+ * ResumeDialogSimulator - simulates the resume/discard dialog behavior
+ */
+class ResumeDialogSimulator {
+  constructor(stateManager, syncService) {
+    this.stateManager = stateManager;
+    this.syncService = syncService;
+    this.visible = false;
+    this.draftInfo = null;
+    this.choice = null;
+  }
+
+  checkForResumableState() {
+    const hasLocal = this.stateManager.hasResumableState();
+    if (hasLocal) {
+      const state = this.stateManager.loadFromSession();
+      this.draftInfo = {
+        source: 'local',
+        step: state.currentStep,
+        title: state.details?.title || 'Untitled Draft',
+        lastModified: state.lastSyncedAt || 'Just now',
+        draftId: state.draftId
+      };
+      this.visible = true;
+      return true;
+    }
+    return false;
+  }
+
+  async checkForServerDrafts() {
+    try {
+      const drafts = await this.syncService.list();
+      if (drafts.length > 0) {
+        const latest = drafts[0];
+        this.draftInfo = {
+          source: 'server',
+          step: latest.currentStep,
+          title: latest.title,
+          lastModified: latest.updatedAt,
+          draftId: latest.id
+        };
+        this.visible = true;
+        return true;
+      }
+    } catch {
+      // Ignore errors, proceed without server drafts
+    }
+    return false;
+  }
+
+  async handleContinue() {
+    this.choice = 'continue';
+    this.visible = false;
+
+    if (this.draftInfo.source === 'server') {
+      // Load from server
+      const draft = await this.syncService.load(this.draftInfo.draftId);
+      this.stateManager.updateState(draft.state);
+      this.stateManager.markSynced(draft.id, draft.revision);
+    }
+    // If local, state is already loaded
+
+    return { action: 'continue', state: this.stateManager.getState() };
+  }
+
+  handleStartNew() {
+    this.choice = 'start_new';
+    this.visible = false;
+
+    // Clear local state
+    this.stateManager.clearSession();
+
+    // Initialize fresh state
+    this.stateManager.initialize();
+
+    return { action: 'start_new', state: this.stateManager.getState() };
+  }
+
+  async handleDiscard() {
+    this.choice = 'discard';
+    this.visible = false;
+
+    // Delete server draft if exists
+    if (this.draftInfo?.draftId) {
+      try {
+        await this.syncService.delete(this.draftInfo.draftId);
+      } catch {
+        // Ignore delete errors
+      }
+    }
+
+    // Clear local state
+    this.stateManager.clearSession();
+
+    // Initialize fresh state
+    this.stateManager.initialize();
+
+    return { action: 'discard', state: this.stateManager.getState() };
+  }
+
+  dismiss() {
+    this.visible = false;
+    this.draftInfo = null;
+  }
+}
+
+/**
+ * SyncStatusIndicatorSimulator - simulates the sync status UI indicator
+ */
+class SyncStatusIndicatorSimulator {
+  constructor() {
+    this.status = 'idle';
+    this.retryVisible = false;
+    this.message = '';
+  }
+
+  update(status) {
+    this.status = status;
+    switch (status) {
+      case 'idle':
+        this.message = '';
+        this.retryVisible = false;
+        break;
+      case 'syncing':
+        this.message = 'Saving...';
+        this.retryVisible = false;
+        break;
+      case 'synced':
+        this.message = 'Saved';
+        this.retryVisible = false;
+        break;
+      case 'error':
+        this.message = 'Save failed';
+        this.retryVisible = true;
+        break;
+      case 'conflict':
+        this.message = 'Conflict detected';
+        this.retryVisible = false;
+        break;
+    }
+  }
+
+  getIconClass() {
+    switch (this.status) {
+      case 'syncing':
+        return 'animate-pulse bg-yellow-500';
+      case 'synced':
+        return 'bg-green-500';
+      case 'error':
+        return 'bg-red-500';
+      case 'conflict':
+        return 'bg-orange-500';
+      default:
+        return 'bg-gray-400';
+    }
+  }
+
+  isVisible() {
+    return this.status !== 'idle';
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Phase 30.FE.1 Tests: WizardStateManager - sessionStorage Persistence
+// -----------------------------------------------------------------------------
+
+test('Phase 30.FE.1: WizardStateManager creates initial state', () => {
+  const manager = new WizardStateManagerSimulator();
+  const state = manager.createInitialState();
+
+  assert.equal(state.version, 1);
+  assert.equal(state.currentStep, 1);
+  assert.equal(state.draftId, null);
+  assert.equal(state.revision, 0);
+  assert.equal(state.isDirty, false);
+  assert.ok(state.document);
+  assert.ok(state.details);
+  assert.ok(state.signers);
+  assert.ok(state.fields);
+  assert.ok(state.workflow);
+  assert.ok(state.review);
+});
+
+test('Phase 30.FE.1: WizardStateManager saves and loads from session', () => {
+  const manager = new WizardStateManagerSimulator();
+  manager.initialize();
+  manager.updateStep(3);
+  manager.updateDetails({ title: 'Test Agreement', description: 'A test' });
+
+  // Simulate page reload - create new manager with same storage
+  const manager2 = new WizardStateManagerSimulator();
+  manager2.storage = manager.storage; // Share the mock storage
+
+  const loaded = manager2.loadFromSession();
+
+  assert.ok(loaded);
+  assert.equal(loaded.currentStep, 3);
+  assert.equal(loaded.details.title, 'Test Agreement');
+});
+
+test('Phase 30.FE.1: WizardStateManager rejects mismatched versions', () => {
+  const manager = new WizardStateManagerSimulator();
+  manager.initialize();
+  manager.updateStep(3);
+
+  // Manually corrupt version
+  const stored = JSON.parse(manager.storage[manager.STORAGE_KEY]);
+  stored.version = 99;
+  manager.storage[manager.STORAGE_KEY] = JSON.stringify(stored);
+
+  const manager2 = new WizardStateManagerSimulator();
+  manager2.storage = manager.storage;
+
+  const loaded = manager2.loadFromSession();
+
+  assert.equal(loaded, null);
+});
+
+test('Phase 30.FE.1: WizardStateManager tracks dirty state', () => {
+  const manager = new WizardStateManagerSimulator();
+  manager.initialize();
+
+  assert.equal(manager.getState().isDirty, false);
+
+  manager.updateDetails({ title: 'New Title' });
+
+  assert.equal(manager.getState().isDirty, true);
+});
+
+test('Phase 30.FE.1: WizardStateManager marks synced clears dirty flag', () => {
+  const manager = new WizardStateManagerSimulator();
+  manager.initialize();
+  manager.updateDetails({ title: 'Test' });
+
+  assert.equal(manager.getState().isDirty, true);
+
+  manager.markSynced('DRF-001', 1);
+
+  assert.equal(manager.getState().isDirty, false);
+  assert.equal(manager.getState().draftId, 'DRF-001');
+  assert.equal(manager.getState().revision, 1);
+});
+
+test('Phase 30.FE.1: WizardStateManager hasResumableState detects progress', () => {
+  const manager = new WizardStateManagerSimulator();
+
+  // No state - not resumable
+  assert.equal(manager.hasResumableState(), false);
+
+  manager.initialize();
+  // Step 1, not dirty - not resumable
+  assert.equal(manager.hasResumableState(), false);
+
+  manager.updateStep(2);
+  // Step 2 - resumable
+  assert.equal(manager.hasResumableState(), true);
+});
+
+test('Phase 30.FE.1: WizardStateManager clears session', () => {
+  const manager = new WizardStateManagerSimulator();
+  manager.initialize();
+  manager.updateStep(4);
+  manager.updateDetails({ title: 'Important Draft' });
+
+  manager.clearSession();
+
+  assert.equal(manager.hasResumableState(), false);
+  assert.equal(manager.loadFromSession(), null);
+});
+
+// -----------------------------------------------------------------------------
+// Phase 30.FE.2 Tests: DraftSyncService - Server API Communication
+// -----------------------------------------------------------------------------
+
+test('Phase 30.FE.2: DraftSyncService creates new draft', async () => {
+  const service = new DraftSyncServiceSimulator();
+
+  const state = { currentStep: 2, details: { title: 'Test' } };
+  const result = await service.create(state);
+
+  assert.ok(result.draftId);
+  assert.equal(result.revision, 1);
+});
+
+test('Phase 30.FE.2: DraftSyncService updates draft with matching revision', async () => {
+  const service = new DraftSyncServiceSimulator();
+
+  const state = { currentStep: 2, details: { title: 'Test' } };
+  const created = await service.create(state);
+
+  const updated = await service.update(
+    created.draftId,
+    { ...state, currentStep: 3 },
+    1 // expected revision
+  );
+
+  assert.equal(updated.revision, 2);
+});
+
+test('Phase 30.FE.2: DraftSyncService rejects stale revision', async () => {
+  const service = new DraftSyncServiceSimulator();
+
+  const state = { currentStep: 2, details: { title: 'Test' } };
+  const created = await service.create(state);
+
+  // Update once to increment revision
+  await service.update(created.draftId, { ...state, currentStep: 3 }, 1);
+
+  // Try to update with old revision
+  try {
+    await service.update(created.draftId, { ...state, currentStep: 4 }, 1);
+    assert.fail('Should have thrown conflict error');
+  } catch (error) {
+    assert.equal(error.status, 409);
+    assert.equal(error.code, 'stale_revision');
+    assert.equal(error.serverRevision, 2);
+  }
+});
+
+test('Phase 30.FE.2: DraftSyncService loads draft', async () => {
+  const service = new DraftSyncServiceSimulator();
+
+  const state = { currentStep: 3, details: { title: 'Loaded Draft' } };
+  const created = await service.create(state);
+
+  const loaded = await service.load(created.draftId);
+
+  assert.equal(loaded.id, created.draftId);
+  assert.equal(loaded.state.currentStep, 3);
+  assert.equal(loaded.state.details.title, 'Loaded Draft');
+});
+
+test('Phase 30.FE.2: DraftSyncService deletes draft', async () => {
+  const service = new DraftSyncServiceSimulator();
+
+  const state = { currentStep: 2 };
+  const created = await service.create(state);
+
+  await service.delete(created.draftId);
+
+  try {
+    await service.load(created.draftId);
+    assert.fail('Should have thrown not found error');
+  } catch (error) {
+    assert.ok(error.message.includes('not found'));
+  }
+});
+
+test('Phase 30.FE.2: DraftSyncService lists drafts', async () => {
+  const service = new DraftSyncServiceSimulator();
+
+  await service.create({ currentStep: 1, details: { title: 'Draft 1' } });
+  await service.create({ currentStep: 2, details: { title: 'Draft 2' } });
+  await service.create({ currentStep: 3, details: { title: 'Draft 3' } });
+
+  const drafts = await service.list();
+
+  assert.equal(drafts.length, 3);
+  assert.ok(drafts.some(d => d.title === 'Draft 1'));
+  assert.ok(drafts.some(d => d.title === 'Draft 2'));
+  assert.ok(drafts.some(d => d.title === 'Draft 3'));
+});
+
+test('Phase 30.FE.2: DraftSyncService sync creates if no draftId', async () => {
+  const service = new DraftSyncServiceSimulator();
+
+  const state = { currentStep: 2 };
+  const result = await service.sync(state, null, null);
+
+  assert.ok(result.draftId);
+  assert.equal(result.revision, 1);
+});
+
+test('Phase 30.FE.2: DraftSyncService sync updates if draftId exists', async () => {
+  const service = new DraftSyncServiceSimulator();
+
+  const state = { currentStep: 2 };
+  const created = await service.sync(state, null, null);
+
+  const updated = await service.sync(
+    { ...state, currentStep: 3 },
+    created.draftId,
+    created.revision
+  );
+
+  assert.equal(updated.draftId, created.draftId);
+  assert.equal(updated.revision, 2);
+});
+
+// -----------------------------------------------------------------------------
+// Phase 30.FE.3 Tests: SyncOrchestrator - Debounced Sync and Coordination
+// -----------------------------------------------------------------------------
+
+test('Phase 30.FE.3: SyncOrchestrator schedules debounced sync', () => {
+  const stateManager = new WizardStateManagerSimulator();
+  const syncService = new DraftSyncServiceSimulator();
+  const orchestrator = new SyncOrchestratorSimulator(stateManager, syncService);
+
+  stateManager.initialize();
+  stateManager.updateDetails({ title: 'Test' });
+
+  const pending = orchestrator.scheduleDebouncedSync();
+
+  assert.ok(pending);
+  assert.ok(pending.scheduled);
+});
+
+test('Phase 30.FE.3: SyncOrchestrator cancels pending sync', () => {
+  const stateManager = new WizardStateManagerSimulator();
+  const syncService = new DraftSyncServiceSimulator();
+  const orchestrator = new SyncOrchestratorSimulator(stateManager, syncService);
+
+  stateManager.initialize();
+  orchestrator.scheduleDebouncedSync();
+
+  assert.ok(orchestrator.pendingSync);
+
+  orchestrator.cancelPendingSync();
+
+  assert.equal(orchestrator.pendingSync, null);
+});
+
+test('Phase 30.FE.3: SyncOrchestrator force sync bypasses debounce', async () => {
+  const stateManager = new WizardStateManagerSimulator();
+  const syncService = new DraftSyncServiceSimulator();
+  const orchestrator = new SyncOrchestratorSimulator(stateManager, syncService);
+
+  stateManager.initialize();
+  stateManager.updateDetails({ title: 'Forced' });
+
+  const result = await orchestrator.forceSync();
+
+  assert.ok(result.draftId);
+  assert.equal(stateManager.getState().isDirty, false);
+});
+
+test('Phase 30.FE.3: SyncOrchestrator skips sync if not dirty', async () => {
+  const stateManager = new WizardStateManagerSimulator();
+  const syncService = new DraftSyncServiceSimulator();
+  const orchestrator = new SyncOrchestratorSimulator(stateManager, syncService);
+
+  stateManager.initialize();
+  // Not dirty, no changes
+
+  const result = await orchestrator.performSync();
+
+  assert.equal(result.skipped, true);
+  assert.equal(result.reason, 'not_dirty');
+});
+
+test('Phase 30.FE.3: SyncOrchestrator updates status through sync lifecycle', async () => {
+  const stateManager = new WizardStateManagerSimulator();
+  const syncService = new DraftSyncServiceSimulator();
+  const orchestrator = new SyncOrchestratorSimulator(stateManager, syncService);
+
+  const statuses = [];
+  orchestrator.on('statusChange', (status) => statuses.push(status));
+
+  stateManager.initialize();
+  stateManager.updateDetails({ title: 'Test' });
+
+  await orchestrator.performSync();
+
+  assert.ok(statuses.includes('syncing'));
+  assert.ok(statuses.includes('synced'));
+  assert.equal(orchestrator.status, 'synced');
+});
+
+test('Phase 30.FE.3: SyncOrchestrator handles sync error', async () => {
+  const stateManager = new WizardStateManagerSimulator();
+  const syncService = new DraftSyncServiceSimulator();
+  const orchestrator = new SyncOrchestratorSimulator(stateManager, syncService);
+
+  stateManager.initialize();
+  stateManager.updateDetails({ title: 'Test' });
+
+  syncService.simulateError('Network error');
+
+  const result = await orchestrator.performSync();
+
+  assert.equal(result.error, true);
+  assert.equal(orchestrator.status, 'error');
+  assert.ok(orchestrator.lastError);
+});
+
+test('Phase 30.FE.3: SyncOrchestrator retries with backoff', async () => {
+  const stateManager = new WizardStateManagerSimulator();
+  const syncService = new DraftSyncServiceSimulator();
+  const orchestrator = new SyncOrchestratorSimulator(stateManager, syncService);
+
+  stateManager.initialize();
+  stateManager.updateDetails({ title: 'Test' });
+
+  // First attempt fails
+  syncService.simulateError('Network error');
+  await orchestrator.performSync();
+
+  assert.equal(orchestrator.status, 'error');
+  assert.equal(orchestrator.retryCount, 0);
+
+  // Retry succeeds
+  syncService.clearSimulations();
+  await orchestrator.retrySync();
+
+  assert.equal(orchestrator.status, 'synced');
+  assert.equal(orchestrator.retryCount, 1);
+});
+
+test('Phase 30.FE.3: SyncOrchestrator returns bounded retry delays', () => {
+  const stateManager = new WizardStateManagerSimulator();
+  const syncService = new DraftSyncServiceSimulator();
+  const orchestrator = new SyncOrchestratorSimulator(stateManager, syncService);
+
+  assert.equal(orchestrator.getRetryDelay(), 1000);
+
+  orchestrator.retryCount = 1;
+  assert.equal(orchestrator.getRetryDelay(), 2000);
+
+  orchestrator.retryCount = 4;
+  assert.equal(orchestrator.getRetryDelay(), 30000);
+
+  // Beyond max
+  orchestrator.retryCount = 10;
+  assert.equal(orchestrator.getRetryDelay(), 30000);
+});
+
+// -----------------------------------------------------------------------------
+// Phase 30.FE.4 Tests: Conflict Handling
+// -----------------------------------------------------------------------------
+
+test('Phase 30.FE.4: SyncOrchestrator detects 409 conflict', async () => {
+  const stateManager = new WizardStateManagerSimulator();
+  const syncService = new DraftSyncServiceSimulator();
+  const orchestrator = new SyncOrchestratorSimulator(stateManager, syncService);
+
+  let conflictData = null;
+  orchestrator.on('conflict', (data) => { conflictData = data; });
+
+  stateManager.initialize();
+  stateManager.updateDetails({ title: 'Test' });
+
+  // Create initial draft
+  const created = await orchestrator.performSync();
+  stateManager.updateDetails({ title: 'Updated' });
+
+  // Simulate conflict
+  syncService.simulateConflict(5);
+
+  const result = await orchestrator.performSync();
+
+  assert.equal(result.conflict, true);
+  assert.equal(orchestrator.status, 'conflict');
+  assert.ok(conflictData);
+  assert.equal(conflictData.serverRevision, 5);
+});
+
+test('Phase 30.FE.4: SyncOrchestrator resolves conflict with keep_local', async () => {
+  const stateManager = new WizardStateManagerSimulator();
+  const syncService = new DraftSyncServiceSimulator();
+  const orchestrator = new SyncOrchestratorSimulator(stateManager, syncService);
+
+  let resolved = null;
+  orchestrator.on('conflictResolved', (r) => { resolved = r; });
+
+  orchestrator.setStatus('conflict');
+
+  const result = orchestrator.resolveConflict('keep_local');
+
+  assert.equal(result.resolved, true);
+  assert.equal(result.resolution, 'keep_local');
+  assert.equal(orchestrator.status, 'idle');
+  assert.equal(resolved, 'keep_local');
+});
+
+test('Phase 30.FE.4: SyncOrchestrator resolves conflict with use_server', async () => {
+  const stateManager = new WizardStateManagerSimulator();
+  const syncService = new DraftSyncServiceSimulator();
+  const orchestrator = new SyncOrchestratorSimulator(stateManager, syncService);
+
+  orchestrator.setStatus('conflict');
+
+  const result = orchestrator.resolveConflict('use_server');
+
+  assert.equal(result.resolved, true);
+  assert.equal(result.resolution, 'use_server');
+});
+
+// -----------------------------------------------------------------------------
+// Phase 30.FE.5 Tests: Multi-Tab Coordination via BroadcastChannel
+// -----------------------------------------------------------------------------
+
+test('Phase 30.FE.5: SyncOrchestrator broadcasts sync completion', async () => {
+  const stateManager = new WizardStateManagerSimulator();
+  const syncService = new DraftSyncServiceSimulator();
+  const orchestrator = new SyncOrchestratorSimulator(stateManager, syncService);
+
+  stateManager.initialize();
+  stateManager.updateDetails({ title: 'Test' });
+
+  await orchestrator.performSync();
+
+  assert.equal(orchestrator.broadcastMessages.length, 1);
+  assert.equal(orchestrator.broadcastMessages[0].type, 'sync_completed');
+  assert.ok(orchestrator.broadcastMessages[0].draftId);
+});
+
+test('Phase 30.FE.5: SyncOrchestrator receives external sync message', () => {
+  const stateManager = new WizardStateManagerSimulator();
+  const syncService = new DraftSyncServiceSimulator();
+  const orchestrator = new SyncOrchestratorSimulator(stateManager, syncService);
+
+  let externalUpdate = null;
+  orchestrator.on('externalUpdate', (data) => { externalUpdate = data; });
+
+  stateManager.initialize();
+  stateManager.markSynced('DRF-001', 1);
+
+  // Receive message from other tab with newer revision
+  orchestrator.receiveFromOtherTab({
+    type: 'sync_completed',
+    draftId: 'DRF-001',
+    revision: 5
+  });
+
+  assert.ok(externalUpdate);
+  assert.equal(externalUpdate.revision, 5);
+});
+
+test('Phase 30.FE.5: SyncOrchestrator broadcasts tab active', () => {
+  const stateManager = new WizardStateManagerSimulator();
+  const syncService = new DraftSyncServiceSimulator();
+  const orchestrator = new SyncOrchestratorSimulator(stateManager, syncService);
+
+  orchestrator.broadcastTabActive();
+
+  assert.equal(orchestrator.broadcastMessages.length, 1);
+  assert.equal(orchestrator.broadcastMessages[0].type, 'tab_active');
+});
+
+test('Phase 30.FE.5: SyncOrchestrator handles tab activated from other tab', () => {
+  const stateManager = new WizardStateManagerSimulator();
+  const syncService = new DraftSyncServiceSimulator();
+  const orchestrator = new SyncOrchestratorSimulator(stateManager, syncService);
+
+  let activated = false;
+  orchestrator.on('tabActivated', () => { activated = true; });
+
+  orchestrator.receiveFromOtherTab({
+    type: 'tab_active',
+    timestamp: Date.now()
+  });
+
+  assert.equal(activated, true);
+});
+
+// -----------------------------------------------------------------------------
+// Phase 30.FE.6 Tests: Page Lifecycle Events
+// -----------------------------------------------------------------------------
+
+test('Phase 30.FE.6: SyncOrchestrator handles visibilitychange to hidden', async () => {
+  const stateManager = new WizardStateManagerSimulator();
+  const syncService = new DraftSyncServiceSimulator();
+  const orchestrator = new SyncOrchestratorSimulator(stateManager, syncService);
+
+  stateManager.initialize();
+  stateManager.updateDetails({ title: 'Test' });
+
+  // Simulate page becoming hidden
+  await orchestrator.handleVisibilityChange(true);
+
+  // Should have forced sync
+  assert.equal(orchestrator.status, 'synced');
+});
+
+test('Phase 30.FE.6: SyncOrchestrator handles visibilitychange to visible', () => {
+  const stateManager = new WizardStateManagerSimulator();
+  const syncService = new DraftSyncServiceSimulator();
+  const orchestrator = new SyncOrchestratorSimulator(stateManager, syncService);
+
+  stateManager.initialize();
+
+  // Simulate page becoming visible
+  orchestrator.handleVisibilityChange(false);
+
+  // Should broadcast tab active
+  assert.equal(orchestrator.broadcastMessages.length, 1);
+  assert.equal(orchestrator.broadcastMessages[0].type, 'tab_active');
+});
+
+test('Phase 30.FE.6: SyncOrchestrator handles pagehide with beacon', () => {
+  const stateManager = new WizardStateManagerSimulator();
+  const syncService = new DraftSyncServiceSimulator();
+  const orchestrator = new SyncOrchestratorSimulator(stateManager, syncService);
+
+  let beaconState = null;
+  orchestrator.on('beaconSync', (state) => { beaconState = state; });
+
+  stateManager.initialize();
+  stateManager.updateDetails({ title: 'Beacon Test' });
+
+  orchestrator.handlePageHide();
+
+  assert.ok(beaconState);
+  assert.equal(beaconState.details.title, 'Beacon Test');
+});
+
+test('Phase 30.FE.6: SyncOrchestrator handles beforeunload', async () => {
+  const stateManager = new WizardStateManagerSimulator();
+  const syncService = new DraftSyncServiceSimulator();
+  const orchestrator = new SyncOrchestratorSimulator(stateManager, syncService);
+
+  stateManager.initialize();
+  stateManager.updateDetails({ title: 'Unload Test' });
+
+  await orchestrator.handleBeforeUnload();
+
+  assert.equal(orchestrator.status, 'synced');
+});
+
+// -----------------------------------------------------------------------------
+// Phase 30.FE.7 Tests: Resume Dialog
+// -----------------------------------------------------------------------------
+
+test('Phase 30.FE.7: ResumeDialog detects local resumable state', () => {
+  const stateManager = new WizardStateManagerSimulator();
+  const syncService = new DraftSyncServiceSimulator();
+  const dialog = new ResumeDialogSimulator(stateManager, syncService);
+
+  stateManager.initialize();
+  stateManager.updateStep(3);
+  stateManager.updateDetails({ title: 'Resumable Draft' });
+
+  const hasResumable = dialog.checkForResumableState();
+
+  assert.equal(hasResumable, true);
+  assert.equal(dialog.visible, true);
+  assert.equal(dialog.draftInfo.source, 'local');
+  assert.equal(dialog.draftInfo.step, 3);
+  assert.equal(dialog.draftInfo.title, 'Resumable Draft');
+});
+
+test('Phase 30.FE.7: ResumeDialog detects server drafts', async () => {
+  const stateManager = new WizardStateManagerSimulator();
+  const syncService = new DraftSyncServiceSimulator();
+  const dialog = new ResumeDialogSimulator(stateManager, syncService);
+
+  // Create server draft
+  await syncService.create({ currentStep: 4, details: { title: 'Server Draft' } });
+
+  const hasServer = await dialog.checkForServerDrafts();
+
+  assert.equal(hasServer, true);
+  assert.equal(dialog.visible, true);
+  assert.equal(dialog.draftInfo.source, 'server');
+});
+
+test('Phase 30.FE.7: ResumeDialog continue action restores state', async () => {
+  const stateManager = new WizardStateManagerSimulator();
+  const syncService = new DraftSyncServiceSimulator();
+  const dialog = new ResumeDialogSimulator(stateManager, syncService);
+
+  stateManager.initialize();
+  stateManager.updateStep(4);
+  stateManager.updateDetails({ title: 'Continue Me' });
+
+  dialog.checkForResumableState();
+  const result = await dialog.handleContinue();
+
+  assert.equal(result.action, 'continue');
+  assert.equal(result.state.currentStep, 4);
+  assert.equal(dialog.visible, false);
+  assert.equal(dialog.choice, 'continue');
+});
+
+test('Phase 30.FE.7: ResumeDialog start new clears state', () => {
+  const stateManager = new WizardStateManagerSimulator();
+  const syncService = new DraftSyncServiceSimulator();
+  const dialog = new ResumeDialogSimulator(stateManager, syncService);
+
+  stateManager.initialize();
+  stateManager.updateStep(5);
+
+  dialog.checkForResumableState();
+  const result = dialog.handleStartNew();
+
+  assert.equal(result.action, 'start_new');
+  assert.equal(result.state.currentStep, 1);
+  assert.equal(dialog.choice, 'start_new');
+});
+
+test('Phase 30.FE.7: ResumeDialog discard deletes server draft', async () => {
+  const stateManager = new WizardStateManagerSimulator();
+  const syncService = new DraftSyncServiceSimulator();
+  const dialog = new ResumeDialogSimulator(stateManager, syncService);
+
+  // Create and sync a draft
+  stateManager.initialize();
+  stateManager.updateDetails({ title: 'To Discard' });
+  const created = await syncService.create(stateManager.getState());
+  stateManager.markSynced(created.draftId, created.revision);
+
+  dialog.checkForResumableState();
+  const result = await dialog.handleDiscard();
+
+  assert.equal(result.action, 'discard');
+  assert.equal(result.state.currentStep, 1);
+
+  // Verify server draft deleted
+  const drafts = await syncService.list();
+  assert.equal(drafts.length, 0);
+});
+
+// -----------------------------------------------------------------------------
+// Phase 30.FE.8 Tests: Sync Status Indicator
+// -----------------------------------------------------------------------------
+
+test('Phase 30.FE.8: SyncStatusIndicator shows idle state', () => {
+  const indicator = new SyncStatusIndicatorSimulator();
+
+  indicator.update('idle');
+
+  assert.equal(indicator.status, 'idle');
+  assert.equal(indicator.message, '');
+  assert.equal(indicator.isVisible(), false);
+});
+
+test('Phase 30.FE.8: SyncStatusIndicator shows syncing state', () => {
+  const indicator = new SyncStatusIndicatorSimulator();
+
+  indicator.update('syncing');
+
+  assert.equal(indicator.status, 'syncing');
+  assert.equal(indicator.message, 'Saving...');
+  assert.equal(indicator.retryVisible, false);
+  assert.ok(indicator.getIconClass().includes('animate-pulse'));
+});
+
+test('Phase 30.FE.8: SyncStatusIndicator shows synced state', () => {
+  const indicator = new SyncStatusIndicatorSimulator();
+
+  indicator.update('synced');
+
+  assert.equal(indicator.status, 'synced');
+  assert.equal(indicator.message, 'Saved');
+  assert.ok(indicator.getIconClass().includes('bg-green-500'));
+});
+
+test('Phase 30.FE.8: SyncStatusIndicator shows error state with retry', () => {
+  const indicator = new SyncStatusIndicatorSimulator();
+
+  indicator.update('error');
+
+  assert.equal(indicator.status, 'error');
+  assert.equal(indicator.message, 'Save failed');
+  assert.equal(indicator.retryVisible, true);
+  assert.ok(indicator.getIconClass().includes('bg-red-500'));
+});
+
+test('Phase 30.FE.8: SyncStatusIndicator shows conflict state', () => {
+  const indicator = new SyncStatusIndicatorSimulator();
+
+  indicator.update('conflict');
+
+  assert.equal(indicator.status, 'conflict');
+  assert.equal(indicator.message, 'Conflict detected');
+  assert.ok(indicator.getIconClass().includes('bg-orange-500'));
+});
+
+// -----------------------------------------------------------------------------
+// Phase 30 Integration Tests
+// -----------------------------------------------------------------------------
+
+test('Phase 30 Integration: full wizard persistence flow', async () => {
+  const stateManager = new WizardStateManagerSimulator();
+  const syncService = new DraftSyncServiceSimulator();
+  const orchestrator = new SyncOrchestratorSimulator(stateManager, syncService);
+  const indicator = new SyncStatusIndicatorSimulator();
+
+  // Wire up status indicator
+  orchestrator.on('statusChange', (status) => indicator.update(status));
+
+  // Step 1: Initialize wizard
+  stateManager.initialize();
+  assert.equal(stateManager.getState().currentStep, 1);
+
+  // Step 2: User fills in details
+  stateManager.updateDetails({ title: 'My Agreement', description: 'Test' });
+  assert.equal(stateManager.getState().isDirty, true);
+
+  // Step 3: Debounced sync fires
+  await orchestrator.performSync();
+  assert.equal(indicator.status, 'synced');
+  assert.ok(stateManager.getState().draftId);
+
+  // Step 4: User navigates to step 3
+  stateManager.updateStep(3);
+  stateManager.updateSigners([{ name: 'John', email: 'john@test.com' }]);
+
+  // Step 5: Force sync on step change
+  await orchestrator.forceSync();
+  assert.equal(stateManager.getState().revision, 2);
+
+  // Step 6: Simulate page reload
+  const newStateManager = new WizardStateManagerSimulator();
+  newStateManager.storage = stateManager.storage;
+
+  const loaded = newStateManager.loadFromSession();
+  assert.ok(loaded);
+  assert.equal(loaded.currentStep, 3);
+  assert.equal(loaded.signers.length, 1);
+});
+
+test('Phase 30 Integration: resume dialog with server draft', async () => {
+  const stateManager = new WizardStateManagerSimulator();
+  const syncService = new DraftSyncServiceSimulator();
+  const dialog = new ResumeDialogSimulator(stateManager, syncService);
+
+  // Create server draft (simulating previous session)
+  await syncService.create({
+    currentStep: 5,
+    details: { title: 'Almost Done' },
+    signers: [{ name: 'Jane' }]
+  });
+
+  // New session starts
+  stateManager.initialize();
+
+  // Check for resumable
+  const hasLocal = dialog.checkForResumableState();
+  assert.equal(hasLocal, false); // Fresh state, step 1
+
+  const hasServer = await dialog.checkForServerDrafts();
+  assert.equal(hasServer, true);
+  assert.equal(dialog.draftInfo.title, 'Almost Done');
+  assert.equal(dialog.draftInfo.step, 5);
+
+  // User chooses to continue
+  const result = await dialog.handleContinue();
+  assert.equal(result.state.currentStep, 5);
+});
+
+test('Phase 30 Integration: conflict resolution preserves work', async () => {
+  const stateManager = new WizardStateManagerSimulator();
+  const syncService = new DraftSyncServiceSimulator();
+  const orchestrator = new SyncOrchestratorSimulator(stateManager, syncService);
+
+  // Initial sync
+  stateManager.initialize();
+  stateManager.updateDetails({ title: 'Original' });
+  await orchestrator.performSync();
+
+  // Make local changes
+  stateManager.updateDetails({ title: 'Local Changes' });
+
+  // Simulate concurrent edit from another tab
+  syncService.simulateConflict(10);
+
+  // Try to sync - gets conflict
+  const result = await orchestrator.performSync();
+  assert.equal(result.conflict, true);
+  assert.equal(orchestrator.status, 'conflict');
+
+  // User chooses keep local
+  orchestrator.resolveConflict('keep_local');
+
+  // Local state preserved
+  assert.equal(stateManager.getState().details.title, 'Local Changes');
+});
