@@ -192,13 +192,13 @@
             <div class="flex flex-wrap gap-3">
               <a
                 href="{{ adminURL("content/esign_documents/new") }}?source=google"
-                class="btn btn-secondary text-sm"
+                class="btn btn-primary text-sm"
                 aria-label="Import a document from Google Drive"
               >
                 <svg class="w-4 h-4 mr-1.5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
                 </svg>
-                Import Document
+                Import from Google Drive
               </a>
               <button
                 type="button"
@@ -212,6 +212,11 @@
                 Refresh Status
               </button>
             </div>
+            <p class="mt-3 text-xs text-gray-500">
+              <a href="{{ adminURL("esign/integrations/google") }}" class="text-blue-600 hover:text-blue-800">Integration settings</a>
+              •
+              <a href="{{ adminURL("content/esign_documents") }}" class="text-blue-600 hover:text-blue-800">All documents</a>
+            </p>
           </div>
         </div>
 
@@ -350,6 +355,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const basePath = '{{ base_path }}';
   const apiBase = '{{ api_base_path|default:"" }}' || `${basePath}/api`;
   const userId = '{{ user_id|default:"" }}';
+  const googleRedirectUri = '{{ google_redirect_uri|default:"" }}'.trim();
 
   // Elements
   const loadingState = document.getElementById('loading-state');
@@ -478,32 +484,50 @@ document.addEventListener('DOMContentLoaded', function() {
     }).join('');
   }
 
-  function renderExpiry(expiryTime, isExpired, isExpiringSoon) {
+  function renderExpiry(expiryTime, isExpired, isExpiringSoon, canAutoRefresh, needsReauthorization) {
+    expiryInfo.classList.remove('text-red-600', 'text-amber-600');
+    expiryInfo.classList.add('text-gray-500');
+
     if (!expiryTime) {
       expiryInfo.textContent = 'Access token status unknown';
+      reauthWarning.classList.add('hidden');
       return;
     }
 
     const expiryDate = new Date(expiryTime);
     const now = new Date();
+    const minutesLeft = Math.max(1, Math.round((expiryDate - now) / (1000 * 60)));
 
     if (isExpired) {
-      expiryInfo.textContent = 'Access token has expired. Please re-authorize.';
-      expiryInfo.classList.remove('text-gray-500');
-      expiryInfo.classList.add('text-red-600');
-      reauthWarning.classList.remove('hidden');
-      reauthReason.textContent = 'Your access token has expired. Please re-authorize to continue using Google Drive import.';
+      if (canAutoRefresh) {
+        expiryInfo.textContent = 'Access token expired, but refresh is available and will be applied automatically.';
+        expiryInfo.classList.remove('text-gray-500');
+        expiryInfo.classList.add('text-amber-600');
+        reauthWarning.classList.add('hidden');
+      } else {
+        expiryInfo.textContent = 'Access token has expired. Please re-authorize.';
+        expiryInfo.classList.remove('text-gray-500');
+        expiryInfo.classList.add('text-red-600');
+        reauthWarning.classList.remove('hidden');
+        reauthReason.textContent = 'Your access token has expired and cannot be refreshed automatically. Re-authorize to continue using Google Drive import.';
+      }
     } else if (isExpiringSoon) {
-      const hoursLeft = Math.round((expiryDate - now) / (1000 * 60 * 60));
-      expiryInfo.textContent = `Token expires in approximately ${hoursLeft} hour${hoursLeft !== 1 ? 's' : ''}`;
       expiryInfo.classList.remove('text-gray-500');
       expiryInfo.classList.add('text-amber-600');
-      reauthWarning.classList.remove('hidden');
-      reauthReason.textContent = `Your access token will expire in ${hoursLeft} hour${hoursLeft !== 1 ? 's' : ''}. Re-authorize now to avoid interruption.`;
+      if (canAutoRefresh) {
+        expiryInfo.textContent = `Token expires in approximately ${minutesLeft} minute${minutesLeft !== 1 ? 's' : ''}. Refresh is available automatically.`;
+        reauthWarning.classList.add('hidden');
+      } else {
+        expiryInfo.textContent = `Token expires in approximately ${minutesLeft} minute${minutesLeft !== 1 ? 's' : ''}`;
+        reauthWarning.classList.remove('hidden');
+        reauthReason.textContent = `Your access token will expire in ${minutesLeft} minute${minutesLeft !== 1 ? 's' : ''} and cannot be refreshed automatically. Re-authorize now to avoid interruption.`;
+      }
     } else {
       expiryInfo.textContent = `Token valid until ${expiryDate.toLocaleDateString()} ${expiryDate.toLocaleTimeString()}`;
-      expiryInfo.classList.remove('text-red-600', 'text-amber-600');
-      expiryInfo.classList.add('text-gray-500');
+      reauthWarning.classList.add('hidden');
+    }
+
+    if (!needsReauthorization) {
       reauthWarning.classList.add('hidden');
     }
   }
@@ -520,6 +544,57 @@ document.addEventListener('DOMContentLoaded', function() {
     degradedWarning.classList.add('hidden');
   }
 
+  function firstDefined(obj, keys, fallback = undefined) {
+    if (!obj || typeof obj !== 'object') return fallback;
+    for (const key of keys) {
+      if (Object.prototype.hasOwnProperty.call(obj, key) && obj[key] !== undefined && obj[key] !== null) {
+        return obj[key];
+      }
+    }
+    return fallback;
+  }
+
+  function normalizeIntegrationPayload(raw) {
+    const expiresAt = firstDefined(raw, ['expires_at', 'ExpiresAt'], '');
+    const scopes = firstDefined(raw, ['scopes', 'Scopes'], []);
+    const connected = firstDefined(raw, ['connected', 'Connected'], false) === true;
+    const degraded = firstDefined(raw, ['degraded', 'Degraded'], false) === true;
+    const degradedReason = firstDefined(raw, ['degraded_reason', 'DegradedReason'], '');
+    const email = firstDefined(raw, ['email', 'user_email', 'account_email', 'AccountEmail'], '');
+    const canAutoRefresh = firstDefined(raw, ['can_auto_refresh', 'CanAutoRefresh'], false) === true;
+    const explicitNeedsReauth = firstDefined(raw, ['needs_reauthorization', 'NeedsReauthorization', 'NeedsReauth'], undefined);
+
+    let isExpired = firstDefined(raw, ['is_expired', 'IsExpired'], undefined);
+    let isExpiringSoon = firstDefined(raw, ['is_expiring_soon', 'IsExpiringSoon'], undefined);
+    if (typeof isExpired !== 'boolean' || typeof isExpiringSoon !== 'boolean') {
+      if (expiresAt) {
+        const expiryDate = new Date(expiresAt);
+        if (!Number.isNaN(expiryDate.getTime())) {
+          const deltaMs = expiryDate.getTime() - Date.now();
+          const expiringSoonMs = 5 * 60 * 1000;
+          isExpired = deltaMs <= 0;
+          isExpiringSoon = deltaMs > 0 && deltaMs <= expiringSoonMs;
+        }
+      }
+    }
+    const needsReauthorization = typeof explicitNeedsReauth === 'boolean'
+      ? explicitNeedsReauth
+      : ((isExpired === true || isExpiringSoon === true) && !canAutoRefresh);
+
+    return {
+      connected,
+      email,
+      scopes: Array.isArray(scopes) ? scopes : [],
+      expires_at: expiresAt,
+      is_expired: isExpired === true,
+      is_expiring_soon: isExpiringSoon === true,
+      can_auto_refresh: canAutoRefresh,
+      needs_reauthorization: needsReauthorization,
+      degraded,
+      degraded_reason: degradedReason
+    };
+  }
+
   async function checkStatus() {
     showState('loading');
 
@@ -530,18 +605,27 @@ document.addEventListener('DOMContentLoaded', function() {
       });
 
       if (!response.ok) {
-        if (response.status === 404 || response.status === 400) {
+        if (response.status === 404) {
           // Not connected
           showState('disconnected');
           updateStatusBadge(false);
           announce('Google Drive is not connected');
           return;
         }
-        throw new Error(`Failed to check status: ${response.status}`);
+        let message = `Failed to check status: ${response.status}`;
+        try {
+          const errorData = await response.json();
+          if (errorData && errorData.error && errorData.error.message) {
+            message = errorData.error.message;
+          }
+        } catch (parseError) {
+          // ignore parse errors and keep generic status message
+        }
+        throw new Error(message);
       }
 
       const data = await response.json();
-      const integration = data.integration || {};
+      const integration = normalizeIntegrationPayload(data.integration || {});
       const isDegraded = integration.degraded === true;
       const degradedReasonText = integration.degraded_reason || '';
       renderDegradedState(isDegraded, degradedReasonText);
@@ -552,10 +636,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const isExpired = integration.is_expired === true;
         const isExpiringSoon = integration.is_expiring_soon === true;
-        renderExpiry(integration.expires_at, isExpired, isExpiringSoon);
+        const canAutoRefresh = integration.can_auto_refresh === true;
+        const needsReauthorization = integration.needs_reauthorization === true;
+        renderExpiry(integration.expires_at, isExpired, isExpiringSoon, canAutoRefresh, needsReauthorization);
 
         showState('connected');
-        updateStatusBadge(true, isExpiringSoon || isExpired, isDegraded);
+        updateStatusBadge(true, needsReauthorization, isDegraded);
         announce(isDegraded ? 'Google Drive connected with degraded provider health' : 'Google Drive is connected');
       } else {
         showState('disconnected');
@@ -583,9 +669,16 @@ document.addEventListener('DOMContentLoaded', function() {
     // Show modal
     oauthModal.classList.remove('hidden');
 
-    // Build OAuth URL (this should come from backend ideally)
-    const redirectUri = `${window.location.origin}${basePath}/esign/integrations/google/callback`;
+    const redirectUri = resolveOAuthRedirectURI();
     const authUrl = buildGoogleOAuthUrl(redirectUri);
+    if (!authUrl) {
+      oauthModal.classList.add('hidden');
+      const message = 'Google OAuth is not configured: missing client ID.';
+      errorMessage.textContent = message;
+      showState('error');
+      announce(message);
+      return;
+    }
 
     // Open popup
     const width = 500;
@@ -611,6 +704,13 @@ document.addEventListener('DOMContentLoaded', function() {
     }, 500);
   }
 
+  function resolveOAuthRedirectURI() {
+    if (googleRedirectUri) {
+      return googleRedirectUri;
+    }
+    return `${window.location.origin}${basePath}/esign/integrations/google/callback`;
+  }
+
   function buildGoogleOAuthUrl(redirectUri) {
     // This is a placeholder - in production, the backend should provide the full auth URL
     // with properly configured client ID and scopes
@@ -621,8 +721,7 @@ document.addEventListener('DOMContentLoaded', function() {
     ].join(' ');
 
     if (!clientId) {
-      // If no client ID, redirect to backend endpoint that handles OAuth
-      return `${apiBase}/esign/integrations/google/auth?redirect_uri=${encodeURIComponent(redirectUri)}&user_id=${encodeURIComponent(userId)}`;
+      return '';
     }
 
     return `https://accounts.google.com/o/oauth2/v2/auth?` +
@@ -656,6 +755,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (data.code) {
       // Exchange code for token
       try {
+        const redirectUri = data.redirect_uri || resolveOAuthRedirectURI();
         const response = await fetch(`${apiBase}/esign/integrations/google/connect?user_id=${encodeURIComponent(userId)}`, {
           method: 'POST',
           credentials: 'same-origin',
@@ -665,7 +765,7 @@ document.addEventListener('DOMContentLoaded', function() {
           },
           body: JSON.stringify({
             auth_code: data.code,
-            redirect_uri: data.redirect_uri
+            redirect_uri: redirectUri
           })
         });
 

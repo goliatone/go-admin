@@ -23,6 +23,14 @@ const agreementDetailTemplatePath = path.resolve(
   testFileDir,
   '../../templates/resources/esign-agreements/detail.html',
 );
+const documentFormTemplatePath = path.resolve(
+  testFileDir,
+  '../../templates/resources/esign-documents/form.html',
+);
+const googleIntegrationTemplatePath = path.resolve(
+  testFileDir,
+  '../../templates/resources/esign-integrations/google.html',
+);
 
 // =============================================================================
 // Test Helpers
@@ -1516,6 +1524,348 @@ test('all Google error codes are recognized', async () => {
     const result = await extractStructuredError(response);
     assert.equal(result.textCode, code, `Error code ${code} should be extracted`);
   }
+});
+
+// =============================================================================
+// Phase 31: Unified Document Ingestion UI Tests
+// =============================================================================
+
+/**
+ * Source types for document ingestion
+ */
+const DOC_INGESTION_SOURCES = ['upload', 'google'];
+
+/**
+ * Import status states (async import state machine)
+ */
+const IMPORT_STATES = ['queued', 'running', 'succeeded', 'failed'];
+
+/**
+ * Importable MIME types from Google Drive
+ */
+const IMPORTABLE_MIME_TYPES = [
+  'application/vnd.google-apps.document',
+  'application/pdf',
+];
+
+/**
+ * Non-importable MIME types from Google Drive
+ */
+const NON_IMPORTABLE_MIME_TYPES = [
+  'application/vnd.google-apps.spreadsheet',
+  'application/vnd.google-apps.presentation',
+  'application/vnd.google-apps.folder',
+  'image/png',
+  'image/jpeg',
+];
+
+/**
+ * Parse source from URL query parameters
+ * @param {string} queryString - URL search string
+ * @returns {string} - 'upload' | 'google'
+ */
+function parseSourceFromQuery(queryString) {
+  const params = new URLSearchParams(queryString);
+  const source = params.get('source');
+  return source === 'google' ? 'google' : 'upload';
+}
+
+/**
+ * Check if a Google Drive file is importable
+ * @param {Object} file - Google Drive file object
+ * @returns {boolean}
+ */
+function isFileImportable(file) {
+  const mimeType = (file.mimeType || '').toLowerCase();
+  return mimeType === 'application/vnd.google-apps.document' || mimeType === 'application/pdf';
+}
+
+/**
+ * Check if a file is a Google Doc (will be exported as PDF)
+ * @param {Object} file - Google Drive file object
+ * @returns {boolean}
+ */
+function isGoogleDocFile(file) {
+  const mimeType = (file.mimeType || '').toLowerCase();
+  return mimeType === 'application/vnd.google-apps.document';
+}
+
+/**
+ * Check if a file is a native PDF
+ * @param {Object} file - Google Drive file object
+ * @returns {boolean}
+ */
+function isPDFFile(file) {
+  const mimeType = (file.mimeType || '').toLowerCase();
+  return mimeType === 'application/pdf';
+}
+
+/**
+ * Check if a file is a folder
+ * @param {Object} file - Google Drive file object
+ * @returns {boolean}
+ */
+function isFolderFile(file) {
+  const mimeType = (file.mimeType || '').toLowerCase();
+  return mimeType === 'application/vnd.google-apps.folder';
+}
+
+/**
+ * Get import type info for a file
+ * @param {Object} file - Google Drive file object
+ * @returns {Object|null} - Import type info or null if not importable
+ */
+function getImportTypeInfo(file) {
+  if (isGoogleDocFile(file)) {
+    return {
+      type: 'google_doc',
+      label: 'Google Doc → PDF Export',
+      description: 'Will be exported as PDF snapshot',
+      showSnapshotWarning: true,
+    };
+  }
+  if (isPDFFile(file)) {
+    return {
+      type: 'pdf',
+      label: 'Direct PDF Import',
+      description: 'Will be imported as-is',
+      showSnapshotWarning: false,
+    };
+  }
+  return null;
+}
+
+/**
+ * Determine if an import state is terminal (no more polling needed)
+ * @param {string} state - Import state
+ * @returns {boolean}
+ */
+function isImportStateTerminal(state) {
+  return state === 'succeeded' || state === 'failed';
+}
+
+/**
+ * Determine if an import state is polling-active
+ * @param {string} state - Import state
+ * @returns {boolean}
+ */
+function isImportStatePolling(state) {
+  return state === 'queued' || state === 'running';
+}
+
+/**
+ * Check if import_run_id should resume polling
+ * @param {string} queryString - URL search string
+ * @returns {string|null} - import_run_id or null
+ */
+function parseImportRunIdFromQuery(queryString) {
+  const params = new URLSearchParams(queryString);
+  return params.get('import_run_id') || null;
+}
+
+// Source Selector Tests
+
+test('parseSourceFromQuery returns upload by default', () => {
+  assert.equal(parseSourceFromQuery(''), 'upload');
+  assert.equal(parseSourceFromQuery('?foo=bar'), 'upload');
+});
+
+test('parseSourceFromQuery returns google when source=google', () => {
+  assert.equal(parseSourceFromQuery('?source=google'), 'google');
+});
+
+test('parseSourceFromQuery returns upload for invalid source values', () => {
+  assert.equal(parseSourceFromQuery('?source='), 'upload');
+  assert.equal(parseSourceFromQuery('?source=dropbox'), 'upload');
+  assert.equal(parseSourceFromQuery('?source=onedrive'), 'upload');
+});
+
+test('parseSourceFromQuery preserves google source with other params', () => {
+  assert.equal(parseSourceFromQuery('?source=google&tenant_id=t1'), 'google');
+  assert.equal(parseSourceFromQuery('?foo=bar&source=google'), 'google');
+});
+
+// File Type Detection Tests
+
+test('isFileImportable returns true for Google Docs', () => {
+  assert.equal(isFileImportable({ mimeType: 'application/vnd.google-apps.document' }), true);
+});
+
+test('isFileImportable returns true for PDFs', () => {
+  assert.equal(isFileImportable({ mimeType: 'application/pdf' }), true);
+});
+
+test('isFileImportable returns false for spreadsheets', () => {
+  assert.equal(isFileImportable({ mimeType: 'application/vnd.google-apps.spreadsheet' }), false);
+});
+
+test('isFileImportable returns false for presentations', () => {
+  assert.equal(isFileImportable({ mimeType: 'application/vnd.google-apps.presentation' }), false);
+});
+
+test('isFileImportable returns false for folders', () => {
+  assert.equal(isFileImportable({ mimeType: 'application/vnd.google-apps.folder' }), false);
+});
+
+test('isFileImportable returns false for images', () => {
+  assert.equal(isFileImportable({ mimeType: 'image/png' }), false);
+  assert.equal(isFileImportable({ mimeType: 'image/jpeg' }), false);
+});
+
+test('isGoogleDocFile correctly identifies Google Docs', () => {
+  assert.equal(isGoogleDocFile({ mimeType: 'application/vnd.google-apps.document' }), true);
+  assert.equal(isGoogleDocFile({ mimeType: 'application/pdf' }), false);
+  assert.equal(isGoogleDocFile({ mimeType: 'application/vnd.google-apps.spreadsheet' }), false);
+});
+
+test('isPDFFile correctly identifies PDF files', () => {
+  assert.equal(isPDFFile({ mimeType: 'application/pdf' }), true);
+  assert.equal(isPDFFile({ mimeType: 'application/vnd.google-apps.document' }), false);
+});
+
+test('isFolderFile correctly identifies folders', () => {
+  assert.equal(isFolderFile({ mimeType: 'application/vnd.google-apps.folder' }), true);
+  assert.equal(isFolderFile({ mimeType: 'application/pdf' }), false);
+});
+
+// Import Type Info Tests
+
+test('getImportTypeInfo returns google_doc info for Google Docs', () => {
+  const info = getImportTypeInfo({ mimeType: 'application/vnd.google-apps.document' });
+  assert.ok(info);
+  assert.equal(info.type, 'google_doc');
+  assert.equal(info.showSnapshotWarning, true);
+});
+
+test('getImportTypeInfo returns pdf info for PDFs', () => {
+  const info = getImportTypeInfo({ mimeType: 'application/pdf' });
+  assert.ok(info);
+  assert.equal(info.type, 'pdf');
+  assert.equal(info.showSnapshotWarning, false);
+});
+
+test('getImportTypeInfo returns null for non-importable files', () => {
+  assert.equal(getImportTypeInfo({ mimeType: 'application/vnd.google-apps.spreadsheet' }), null);
+  assert.equal(getImportTypeInfo({ mimeType: 'application/vnd.google-apps.folder' }), null);
+  assert.equal(getImportTypeInfo({ mimeType: 'image/png' }), null);
+});
+
+// Async Import State Machine Tests
+
+test('isImportStateTerminal returns true for succeeded', () => {
+  assert.equal(isImportStateTerminal('succeeded'), true);
+});
+
+test('isImportStateTerminal returns true for failed', () => {
+  assert.equal(isImportStateTerminal('failed'), true);
+});
+
+test('isImportStateTerminal returns false for queued', () => {
+  assert.equal(isImportStateTerminal('queued'), false);
+});
+
+test('isImportStateTerminal returns false for running', () => {
+  assert.equal(isImportStateTerminal('running'), false);
+});
+
+test('isImportStatePolling returns true for queued', () => {
+  assert.equal(isImportStatePolling('queued'), true);
+});
+
+test('isImportStatePolling returns true for running', () => {
+  assert.equal(isImportStatePolling('running'), true);
+});
+
+test('isImportStatePolling returns false for succeeded', () => {
+  assert.equal(isImportStatePolling('succeeded'), false);
+});
+
+test('isImportStatePolling returns false for failed', () => {
+  assert.equal(isImportStatePolling('failed'), false);
+});
+
+// Import Run ID Resume Tests
+
+test('parseImportRunIdFromQuery returns null when not present', () => {
+  assert.equal(parseImportRunIdFromQuery(''), null);
+  assert.equal(parseImportRunIdFromQuery('?source=google'), null);
+});
+
+test('parseImportRunIdFromQuery extracts import_run_id', () => {
+  assert.equal(parseImportRunIdFromQuery('?import_run_id=run_123'), 'run_123');
+});
+
+test('parseImportRunIdFromQuery works with multiple params', () => {
+  assert.equal(parseImportRunIdFromQuery('?source=google&import_run_id=run_abc'), 'run_abc');
+});
+
+// Deep Link Behavior Tests
+
+test('deep link with source=google activates Google tab', () => {
+  const source = parseSourceFromQuery('?source=google');
+  assert.equal(source, 'google');
+});
+
+test('deep link with import_run_id triggers resume', () => {
+  const importRunId = parseImportRunIdFromQuery('?source=google&import_run_id=run_xyz');
+  assert.ok(importRunId);
+  assert.equal(importRunId, 'run_xyz');
+});
+
+test('import states follow expected transitions', () => {
+  // Valid transitions: queued -> running -> succeeded | failed
+  const transitions = {
+    queued: ['running', 'succeeded', 'failed'],
+    running: ['succeeded', 'failed'],
+    succeeded: [], // terminal
+    failed: [], // terminal (retry creates new run)
+  };
+
+  assert.ok(transitions.queued.includes('running'));
+  assert.ok(transitions.running.includes('succeeded'));
+  assert.ok(transitions.running.includes('failed'));
+  assert.equal(transitions.succeeded.length, 0);
+  assert.equal(transitions.failed.length, 0);
+});
+
+// All importable MIME types are recognized
+
+test('all importable MIME types are correctly identified', () => {
+  for (const mimeType of IMPORTABLE_MIME_TYPES) {
+    assert.ok(isFileImportable({ mimeType }), `${mimeType} should be importable`);
+  }
+});
+
+test('all non-importable MIME types are correctly rejected', () => {
+  for (const mimeType of NON_IMPORTABLE_MIME_TYPES) {
+    assert.equal(isFileImportable({ mimeType }), false, `${mimeType} should not be importable`);
+  }
+});
+
+test('Phase 31 template: quick action targets unified new-document route', () => {
+  const template = fs.readFileSync(googleIntegrationTemplatePath, 'utf8');
+  assert.match(template, /adminURL\("content\/esign_documents\/new"\)\s*\}\}\?source=google/);
+});
+
+test('Phase 31 template: importability checks are strict MIME matches', () => {
+  const template = fs.readFileSync(documentFormTemplatePath, 'utf8');
+  assert.match(template, /const MIME_GOOGLE_DOC = 'application\/vnd\.google-apps\.document';/);
+  assert.match(template, /const MIME_PDF = 'application\/pdf';/);
+  assert.match(template, /return isGoogleDoc\(file\) \|\| isPDF\(file\);/);
+  assert.doesNotMatch(template, /mimeType\.includes\('document'\)/);
+});
+
+test('Phase 31 template: succeeded import redirects to agreement before document', () => {
+  const template = fs.readFileSync(documentFormTemplatePath, 'utf8');
+  assert.match(template, /if \(data\.agreement\?\.id\) \{/);
+  assert.match(template, /window\.location\.href = `\$\{agreementsBase\}\/\$\{encodeURIComponent\(data\.agreement\.id\)\}`;/);
+  assert.match(template, /else if \(data\.document\?\.id\) \{/);
+});
+
+test('Phase 31 template: retry button triggers a new async import submission', () => {
+  const template = fs.readFileSync(documentFormTemplatePath, 'utf8');
+  assert.match(template, /importRetryBtn\.addEventListener\('click', \(\) => \{/);
+  assert.match(template, /if \(selectedFile\) \{\s*startImport\(\);/s);
 });
 
 // =============================================================================

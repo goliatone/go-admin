@@ -814,8 +814,11 @@
 document.addEventListener('DOMContentLoaded', function() {
   const basePath = '{{ base_path }}';
   const apiBase = '{{ api_base_path|default:"" }}' || `${basePath}/api`;
-  const draftsEndpoint = `${apiBase}/v1/esign/drafts`;
+  const normalizedAPIBase = apiBase.replace(/\/+$/, '');
+  const apiVersionBase = /\/v\d+$/i.test(normalizedAPIBase) ? normalizedAPIBase : `${normalizedAPIBase}/v1`;
+  const draftsEndpoint = `${apiVersionBase}/esign/drafts`;
   const isEditMode = {{ is_edit|default:false|yesno:"true,false" }};
+  const createSuccess = {{ create_success|default:false|yesno:"true,false" }};
 
   // =============================================================================
   // Wizard State Persistence (Phase 30)
@@ -1461,6 +1464,19 @@ document.addEventListener('DOMContentLoaded', function() {
   const syncService = new DraftSyncService(stateManager);
   const syncOrchestrator = new SyncOrchestrator(stateManager, syncService, updateSyncStatus);
 
+  if (createSuccess) {
+    const state = stateManager.getState();
+    const serverDraftId = state?.serverDraftId;
+    stateManager.clear();
+    syncOrchestrator.broadcastStateUpdate();
+
+    if (serverDraftId) {
+      syncService.delete(serverDraftId).catch((error) => {
+        console.warn('Failed to delete server draft after successful create:', error);
+      });
+    }
+  }
+
   // Wire up retry button
   document.getElementById('sync-retry-btn')?.addEventListener('click', () => {
     syncOrchestrator.manualRetry();
@@ -1976,6 +1992,40 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
+  function findSignersMissingRequiredSignatureField() {
+    const signers = getSignerParticipants();
+    const signerSignatureFields = new Map(); // participantId -> hasSignatureField
+
+    signers.forEach((signer) => {
+      signerSignatureFields.set(signer.id, false);
+    });
+
+    const fieldDefinitionEntries = fieldDefinitionsContainer.querySelectorAll('.field-definition-entry');
+    fieldDefinitionEntries.forEach((field) => {
+      const typeSelect = field.querySelector('.field-type-select');
+      const participantSelect = field.querySelector('.field-participant-select');
+      const requiredCheckbox = field.querySelector('input[name*=".required"]');
+      if (typeSelect?.value === 'signature' && participantSelect?.value && requiredCheckbox?.checked) {
+        signerSignatureFields.set(participantSelect.value, true);
+      }
+    });
+
+    return signers.filter((signer) => !signerSignatureFields.get(signer.id));
+  }
+
+  function missingSignatureFieldMessage(missingSigners) {
+    if (!Array.isArray(missingSigners) || missingSigners.length === 0) {
+      return 'Each signer requires at least one required signature field.';
+    }
+    const names = missingSigners
+      .map((signer) => signer?.name?.trim())
+      .filter((name) => Boolean(name));
+    if (names.length === 0) {
+      return 'Each signer requires at least one required signature field.';
+    }
+    return `Each signer requires at least one required signature field. Missing: ${names.join(', ')}`;
+  }
+
   form.addEventListener('submit', function(e) {
     // Validate document selected
     if (!documentIdInput.value) {
@@ -2011,40 +2061,14 @@ document.addEventListener('DOMContentLoaded', function() {
       return;
     }
 
-    // Validate field definitions: each signer should have at least one signature field
     const fieldDefinitionEntries = fieldDefinitionsContainer.querySelectorAll('.field-definition-entry');
-    const signerSignatureFields = new Map(); // participantId -> hasSignatureField
-
-    // Initialize all signers as having no signature field
-    participantEntries.forEach((entry) => {
-      const participantId = entry.getAttribute('data-participant-id');
-      const roleSelect = entry.querySelector('select[name*=".role"]');
-      if (roleSelect.value === 'signer') {
-        signerSignatureFields.set(participantId, false);
-      }
-    });
-
-    // Check field definitions for signature assignments
-    fieldDefinitionEntries.forEach(field => {
-      const typeSelect = field.querySelector('.field-type-select');
-      const participantSelect = field.querySelector('.field-participant-select');
-      const requiredCheckbox = field.querySelector('input[name*=".required"]');
-      if (typeSelect.value === 'signature' && participantSelect.value && requiredCheckbox.checked) {
-        signerSignatureFields.set(participantSelect.value, true);
-      }
-    });
-
-    // Check if any signer is missing a signature field
-    let missingSignatureField = false;
-    signerSignatureFields.forEach((hasField, participantId) => {
-      if (!hasField) {
-        missingSignatureField = true;
-      }
-    });
-
-    if (missingSignatureField && fieldDefinitionEntries.length > 0) {
-      // Only warn, don't block - fields can be added later in draft state
-      console.warn('Some signers do not have a required signature field assigned');
+    const missingSigners = findSignersMissingRequiredSignatureField();
+    if (missingSigners.length > 0) {
+      e.preventDefault();
+      announceError(missingSignatureFieldMessage(missingSigners));
+      goToStep(4);
+      addFieldBtn.focus();
+      return;
     }
 
     // Validate that all field participant assignments are valid
@@ -2064,13 +2088,29 @@ document.addEventListener('DOMContentLoaded', function() {
       return;
     }
 
+    const hasSaveAsDraftIntent = Boolean(form.querySelector('input[name="save_as_draft"]'));
+    const shouldSendForSignature = currentStep === TOTAL_STEPS && !hasSaveAsDraftIntent;
+
+    if (shouldSendForSignature) {
+      let sendIntentInput = form.querySelector('input[name="send_for_signature"]');
+      if (!sendIntentInput) {
+        sendIntentInput = document.createElement('input');
+        sendIntentInput.type = 'hidden';
+        sendIntentInput.name = 'send_for_signature';
+        form.appendChild(sendIntentInput);
+      }
+      sendIntentInput.value = '1';
+    } else {
+      form.querySelector('input[name="send_for_signature"]')?.remove();
+    }
+
     submitBtn.disabled = true;
     submitBtn.innerHTML = `
       <svg class="animate-spin w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
       </svg>
-      Saving...
+      ${shouldSendForSignature ? 'Sending...' : 'Saving...'}
     `;
   });
 
@@ -2208,6 +2248,12 @@ document.addEventListener('DOMContentLoaded', function() {
             participantSelect.focus();
             return false;
           }
+        }
+        const missingSigners = findSignersMissingRequiredSignatureField();
+        if (missingSigners.length > 0) {
+          announceError(missingSignatureFieldMessage(missingSigners));
+          addFieldBtn.focus();
+          return false;
         }
         return true;
 
@@ -3478,26 +3524,15 @@ document.addEventListener('DOMContentLoaded', function() {
       issues.push({ severity: 'error', message: 'No signers added', action: 'Go to Step 3', step: 3 });
     }
 
-    // Check each signer has a signature field
-    const signersWithSignature = new Set();
-    fieldEntries.forEach(field => {
-      const typeSelect = field.querySelector('.field-type-select');
-      const participantSelect = field.querySelector('.field-participant-select');
-      const requiredCheckbox = field.querySelector('input[name*=".required"]');
-      if (typeSelect.value === 'signature' && participantSelect.value && requiredCheckbox?.checked) {
-        signersWithSignature.add(participantSelect.value);
-      }
-    });
-
-    signers.forEach(signer => {
-      if (!signersWithSignature.has(signer.id)) {
-        issues.push({
-          severity: 'warning',
-          message: `${signer.name} has no required signature field`,
-          action: 'Add signature field',
-          step: 4
-        });
-      }
+    // Check each signer has a required signature field
+    const missingSigners = findSignersMissingRequiredSignatureField();
+    missingSigners.forEach((signer) => {
+      issues.push({
+        severity: 'error',
+        message: `${signer.name} has no required signature field`,
+        action: 'Add signature field',
+        step: 4
+      });
     });
 
     // Check stage continuity
