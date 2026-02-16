@@ -106,6 +106,9 @@ func DefaultTemplateFuncs(opts ...TemplateFuncOption) map[string]any {
 		"renderMenuIcon":    renderMenuIcon,
 		"renderIcon":        renderIconFn,
 		"renderIconVariant": renderIconVariantFn,
+		"oauthNeedsReauthorization": func(isExpired, isExpiringSoon, canAutoRefresh bool) bool {
+			return OAuthNeedsReauthorization(isExpired, isExpiringSoon, canAutoRefresh)
+		},
 		"dict": func(values ...any) (map[string]any, error) {
 			if len(values)%2 != 0 {
 				return nil, fmt.Errorf("dict requires even number of arguments")
