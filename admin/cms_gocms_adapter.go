@@ -377,10 +377,14 @@ func normalizeMenuItemTranslationFields(item MenuItem) (label, labelKey, groupTi
 }
 
 func deriveMenuItemPaths(menuCode string, item MenuItem) (string, string, error) {
+	parent := firstNonEmpty(item.ParentID, item.ParentCode)
+	if err := validateMenuParentLink(item.ID, parent); err != nil {
+		return "", "", err
+	}
 	derived, err := cms.DeriveMenuItemPaths(
 		menuCode,
 		item.ID,
-		firstNonEmpty(item.ParentID, item.ParentCode),
+		parent,
 		firstNonEmpty(item.Label, item.GroupTitle, item.LabelKey, item.GroupTitleKey),
 	)
 	if err != nil {
