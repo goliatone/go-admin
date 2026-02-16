@@ -88,6 +88,21 @@
           <p class="text-sm text-amber-700 mt-1" id="degraded-reason">Google API health checks are failing. Import actions may be unavailable until provider recovery.</p>
         </div>
 
+        {# Account Scope Selector #}
+        <div class="mb-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+          <label for="account-id-input" class="block text-sm font-medium text-gray-700">Account ID (optional)</label>
+          <input
+            type="text"
+            id="account-id-input"
+            placeholder="e.g. work, personal, client-a"
+            class="mt-2 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            aria-describedby="account-id-help"
+          >
+          <p id="account-id-help" class="mt-2 text-xs text-gray-500">
+            Use different account IDs to connect and manage multiple Google accounts. Leave blank for the default account slot.
+          </p>
+        </div>
+
         {# Not Connected State #}
         <div id="disconnected-state" class="hidden">
           <div class="text-center py-6">
@@ -133,6 +148,7 @@
               <div>
                 <p class="font-medium text-green-800">Connected</p>
                 <p class="text-sm text-green-700" id="connected-email">user@example.com</p>
+                <p class="text-xs text-green-700/80" id="connected-account-id">Account ID: default</p>
               </div>
             </div>
             <button
@@ -192,6 +208,8 @@
             <div class="flex flex-wrap gap-3">
               <a
                 href="{{ adminURL("content/esign_documents/new") }}?source=google"
+                data-base-href="{{ adminURL("content/esign_documents/new") }}?source=google"
+                id="import-drive-link"
                 class="btn btn-primary text-sm"
                 aria-label="Import a document from Google Drive"
               >
@@ -213,7 +231,7 @@
               </button>
             </div>
             <p class="mt-3 text-xs text-gray-500">
-              <a href="{{ adminURL("esign/integrations/google") }}" class="text-blue-600 hover:text-blue-800">Integration settings</a>
+              <a href="{{ adminURL("esign/integrations/google") }}" data-base-href="{{ adminURL("esign/integrations/google") }}" id="integration-settings-link" class="text-blue-600 hover:text-blue-800">Integration settings</a>
               •
               <a href="{{ adminURL("content/esign_documents") }}" class="text-blue-600 hover:text-blue-800">All documents</a>
             </p>
@@ -276,6 +294,7 @@
         <h4 class="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Required Permissions</h4>
         <ul class="text-xs text-gray-500 space-y-1">
           <li><code class="px-1 py-0.5 bg-gray-200 rounded">drive.readonly</code> - Read access to your Drive files</li>
+          <li><code class="px-1 py-0.5 bg-gray-200 rounded">openid</code> - Verify your Google identity for account profile linking</li>
           <li><code class="px-1 py-0.5 bg-gray-200 rounded">userinfo.email</code> - Read your Google account email address</li>
         </ul>
       </div>
@@ -350,12 +369,50 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
+{# Page configuration for module bootstrapping #}
+<script id="esign-page-config" type="application/json">
+{
+  "basePath": "{{ base_path }}",
+  "apiBasePath": "{{ api_base_path|default:"" }}",
+  "userId": "{{ user_id|default:"" }}",
+  "googleAccountId": "{{ google_account_id|default:"" }}",
+  "googleRedirectUri": "{{ google_redirect_uri|default:"" }}",
+  "googleClientId": "{{ google_client_id|default:"" }}",
+  "googleEnabled": {{ google_enabled|default:false|yesno:"true,false" }}
+}
+</script>
+
+{# Module bootstrapping - uses TypeScript controller from esign module #}
+<script type="module">
+  import { bootstrapGoogleIntegration } from '{{ esign_module_path|default:"/assets/dist/esign/index.js" }}';
+
+  const configEl = document.getElementById('esign-page-config');
+  let config = {};
+  if (configEl) {
+    try {
+      config = JSON.parse(configEl.textContent || '{}');
+    } catch (e) {
+      console.warn('Failed to parse esign page config:', e);
+    }
+  }
+  if (!config.apiBasePath) {
+    config.apiBasePath = (config.basePath || '/admin') + '/api';
+  }
+  bootstrapGoogleIntegration(config);
+</script>
+
+{# Legacy inline script - preserved for backward compatibility during migration #}
+{# TODO: Remove this block once module migration is validated #}
+<script data-legacy="true" data-disabled="true">
+/* Legacy script disabled - module bootstrapping is now active */
+/*
 document.addEventListener('DOMContentLoaded', function() {
   const basePath = '{{ base_path }}';
   const apiBase = '{{ api_base_path|default:"" }}' || `${basePath}/api`;
   const userId = '{{ user_id|default:"" }}';
+  const initialAccountId = '{{ google_account_id|default:"" }}';
   const googleRedirectUri = '{{ google_redirect_uri|default:"" }}'.trim();
+  const googleAccountStorageKey = 'esign.google.account_id';
 
   // Elements
   const loadingState = document.getElementById('loading-state');
@@ -364,6 +421,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const errorState = document.getElementById('error-state');
   const statusBadge = document.getElementById('status-badge');
   const announcements = document.getElementById('integration-announcements');
+  const accountIdInput = document.getElementById('account-id-input');
 
   const connectBtn = document.getElementById('connect-btn');
   const disconnectBtn = document.getElementById('disconnect-btn');
@@ -385,12 +443,119 @@ document.addEventListener('DOMContentLoaded', function() {
   const errorMessage = document.getElementById('error-message');
   const degradedWarning = document.getElementById('degraded-warning');
   const degradedReason = document.getElementById('degraded-reason');
+  const connectedAccountId = document.getElementById('connected-account-id');
+  const importDriveLink = document.getElementById('import-drive-link');
+  const integrationSettingsLink = document.getElementById('integration-settings-link');
 
   let oauthWindow = null;
+  let oauthTimeout = null;
+  let pendingOAuthAccountId = '';
+  let currentAccountId = resolveInitialAccountId();
 
   function announce(message) {
     if (announcements) {
       announcements.textContent = message;
+    }
+  }
+
+  function normalizeAccountId(value) {
+    return (value || '').trim();
+  }
+
+  function resolveInitialAccountId() {
+    const params = new URLSearchParams(window.location.search);
+    const fromQuery = normalizeAccountId(params.get('account_id'));
+    if (fromQuery) {
+      return fromQuery;
+    }
+    const fromTemplate = normalizeAccountId(initialAccountId);
+    if (fromTemplate) {
+      return fromTemplate;
+    }
+    try {
+      return normalizeAccountId(window.localStorage.getItem(googleAccountStorageKey));
+    } catch (error) {
+      return '';
+    }
+  }
+
+  function persistAccountId() {
+    try {
+      if (currentAccountId) {
+        window.localStorage.setItem(googleAccountStorageKey, currentAccountId);
+      } else {
+        window.localStorage.removeItem(googleAccountStorageKey);
+      }
+    } catch (error) {
+      // Ignore storage failures.
+    }
+  }
+
+  function syncAccountIdInURL() {
+    const url = new URL(window.location.href);
+    if (currentAccountId) {
+      url.searchParams.set('account_id', currentAccountId);
+    } else {
+      url.searchParams.delete('account_id');
+    }
+    window.history.replaceState({}, '', url);
+  }
+
+  function applyAccountIdToPath(pathOrURL) {
+    const parsed = new URL(pathOrURL, window.location.origin);
+    if (currentAccountId) {
+      parsed.searchParams.set('account_id', currentAccountId);
+    } else {
+      parsed.searchParams.delete('account_id');
+    }
+    return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+  }
+
+  function buildScopedAPIURL(path, accountId = currentAccountId) {
+    const url = new URL(`${apiBase}${path}`, window.location.origin);
+    url.searchParams.set('user_id', userId);
+    if (accountId) {
+      url.searchParams.set('account_id', accountId);
+    }
+    return url.toString();
+  }
+
+  function updateScopedLinks() {
+    [importDriveLink, integrationSettingsLink].forEach(link => {
+      if (!link) return;
+      const baseHref = link.dataset.baseHref || link.getAttribute('href');
+      if (!baseHref) return;
+      link.setAttribute('href', applyAccountIdToPath(baseHref));
+    });
+  }
+
+  function renderSelectedAccountID(accountId) {
+    if (!connectedAccountId) return;
+    connectedAccountId.textContent = accountId
+      ? `Account ID: ${accountId}`
+      : 'Account ID: default';
+  }
+
+  function updateAccountScopeUI() {
+    if (accountIdInput) {
+      accountIdInput.value = currentAccountId;
+    }
+    renderSelectedAccountID(currentAccountId);
+    persistAccountId();
+    syncAccountIdInURL();
+    updateScopedLinks();
+  }
+
+  function setCurrentAccountId(value, refreshStatus = false) {
+    const normalized = normalizeAccountId(value);
+    if (normalized === currentAccountId) {
+      updateAccountScopeUI();
+      return;
+    }
+    currentAccountId = normalized;
+    updateAccountScopeUI();
+    if (refreshStatus) {
+      checkStatus();
     }
   }
 
@@ -455,6 +620,7 @@ document.addEventListener('DOMContentLoaded', function() {
   function formatScope(scope) {
     const scopeDescriptions = {
       'https://www.googleapis.com/auth/drive.readonly': { label: 'Drive (Read Only)', description: 'View files in your Google Drive' },
+      'openid': { label: 'OpenID', description: 'Verify your Google identity for account linking' },
       'https://www.googleapis.com/auth/userinfo.email': { label: 'Account Email', description: 'Read your Google account email address' },
       'https://www.googleapis.com/auth/drive.file': { label: 'Drive (App Files)', description: 'Access files opened with this app' },
       'drive.readonly': { label: 'Drive (Read Only)', description: 'View files in your Google Drive' },
@@ -559,6 +725,7 @@ document.addEventListener('DOMContentLoaded', function() {
   function normalizeIntegrationPayload(raw) {
     const expiresAt = firstDefined(raw, ['expires_at', 'ExpiresAt'], '');
     const scopes = firstDefined(raw, ['scopes', 'Scopes'], []);
+    const accountID = normalizeAccountId(firstDefined(raw, ['account_id', 'AccountID'], ''));
     const connected = firstDefined(raw, ['connected', 'Connected'], false) === true;
     const degraded = firstDefined(raw, ['degraded', 'Degraded'], false) === true;
     const degradedReason = firstDefined(raw, ['degraded_reason', 'DegradedReason'], '');
@@ -585,6 +752,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     return {
       connected,
+      account_id: accountID,
       email,
       scopes: Array.isArray(scopes) ? scopes : [],
       expires_at: expiresAt,
@@ -601,7 +769,7 @@ document.addEventListener('DOMContentLoaded', function() {
     showState('loading');
 
     try {
-      const response = await fetch(`${apiBase}/esign/integrations/google/status?user_id=${encodeURIComponent(userId)}`, {
+      const response = await fetch(buildScopedAPIURL('/esign/integrations/google/status'), {
         credentials: 'same-origin',
         headers: { 'Accept': 'application/json' }
       });
@@ -628,12 +796,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
       const data = await response.json();
       const integration = normalizeIntegrationPayload(data.integration || {});
+      if (!currentAccountId && integration.account_id) {
+        currentAccountId = integration.account_id;
+        updateAccountScopeUI();
+      }
       const isDegraded = integration.degraded === true;
       const degradedReasonText = integration.degraded_reason || '';
       renderDegradedState(isDegraded, degradedReasonText);
 
       if (integration.connected) {
         connectedEmail.textContent = integration.email || integration.user_email || 'Connected';
+        renderSelectedAccountID(integration.account_id || currentAccountId);
         renderScopes(integration.scopes || []);
 
         const isExpired = integration.is_expired === true;
@@ -666,13 +839,42 @@ document.addEventListener('DOMContentLoaded', function() {
     return div.innerHTML;
   }
 
+  function clearOAuthTimeout() {
+    if (oauthTimeout) {
+      clearTimeout(oauthTimeout);
+      oauthTimeout = null;
+    }
+  }
+
+  function closeOAuthWindow() {
+    if (!oauthWindow) return;
+    try {
+      oauthWindow.close();
+    } catch (error) {
+      console.warn('Unable to close OAuth popup:', error);
+    }
+    oauthWindow = null;
+  }
+
+  function cleanupOAuthFlow() {
+    clearOAuthTimeout();
+    window.removeEventListener('message', handleOAuthCallback);
+  }
+
+  function cancelOAuthFlow() {
+    oauthModal.classList.add('hidden');
+    closeOAuthWindow();
+    cleanupOAuthFlow();
+  }
+
   // OAuth Connect Flow
   async function startOAuthFlow() {
     // Show modal
     oauthModal.classList.remove('hidden');
 
     const redirectUri = resolveOAuthRedirectURI();
-    const authUrl = buildGoogleOAuthUrl(redirectUri);
+    pendingOAuthAccountId = currentAccountId;
+    const authUrl = buildGoogleOAuthUrl(redirectUri, pendingOAuthAccountId);
     if (!authUrl) {
       oauthModal.classList.add('hidden');
       const message = 'Google OAuth is not configured: missing client ID.';
@@ -693,17 +895,29 @@ document.addEventListener('DOMContentLoaded', function() {
       `width=${width},height=${height},left=${left},top=${top},popup=yes`
     );
 
+    if (!oauthWindow) {
+      oauthModal.classList.add('hidden');
+      const message = 'Popup blocked. Allow popups for this site and try again.';
+      if (window.toastManager) {
+        window.toastManager.error(message);
+      }
+      announce(message);
+      return;
+    }
+
     // Listen for callback message
     window.addEventListener('message', handleOAuthCallback);
 
-    // Check if popup was blocked or closed
-    const checkPopup = setInterval(() => {
-      if (oauthWindow && oauthWindow.closed) {
-        clearInterval(checkPopup);
-        oauthModal.classList.add('hidden');
-        window.removeEventListener('message', handleOAuthCallback);
+    // Do not poll oauthWindow.closed: COOP can block cross-origin checks.
+    oauthTimeout = setTimeout(() => {
+      cleanupOAuthFlow();
+      oauthModal.classList.add('hidden');
+      const message = 'Google authorization timed out. Please try again.';
+      if (window.toastManager) {
+        window.toastManager.error(message);
       }
-    }, 500);
+      announce(message);
+    }, 120000);
   }
 
   function resolveOAuthRedirectURI() {
@@ -713,12 +927,20 @@ document.addEventListener('DOMContentLoaded', function() {
     return `${window.location.origin}${basePath}/esign/integrations/google/callback`;
   }
 
-  function buildGoogleOAuthUrl(redirectUri) {
+  function buildOAuthState(accountId) {
+    return JSON.stringify({
+      user_id: userId,
+      account_id: accountId || ''
+    });
+  }
+
+  function buildGoogleOAuthUrl(redirectUri, accountId) {
     // This is a placeholder - in production, the backend should provide the full auth URL
     // with properly configured client ID and scopes
     const clientId = '{{ google_client_id|default:"" }}';
     const scopes = [
       'https://www.googleapis.com/auth/drive.readonly',
+      'openid',
       'https://www.googleapis.com/auth/userinfo.email'
     ].join(' ');
 
@@ -733,7 +955,7 @@ document.addEventListener('DOMContentLoaded', function() {
       `&scope=${encodeURIComponent(scopes)}` +
       `&access_type=offline` +
       `&prompt=consent` +
-      `&state=${encodeURIComponent(userId)}`;
+      `&state=${encodeURIComponent(buildOAuthState(accountId))}`;
   }
 
   async function handleOAuthCallback(event) {
@@ -743,8 +965,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const data = event.data;
     if (data.type !== 'google_oauth_callback') return;
 
-    window.removeEventListener('message', handleOAuthCallback);
+    cleanupOAuthFlow();
     oauthModal.classList.add('hidden');
+    closeOAuthWindow();
 
     if (data.error) {
       if (window.toastManager) {
@@ -758,7 +981,13 @@ document.addEventListener('DOMContentLoaded', function() {
       // Exchange code for token
       try {
         const redirectUri = data.redirect_uri || resolveOAuthRedirectURI();
-        const response = await fetch(`${apiBase}/esign/integrations/google/connect?user_id=${encodeURIComponent(userId)}`, {
+        const callbackAccountId = normalizeAccountId(data.account_id);
+        const accountIdForConnect = callbackAccountId || pendingOAuthAccountId || currentAccountId;
+        if (callbackAccountId && callbackAccountId !== currentAccountId) {
+          currentAccountId = callbackAccountId;
+          updateAccountScopeUI();
+        }
+        const response = await fetch(buildScopedAPIURL('/esign/integrations/google/connect', accountIdForConnect), {
           method: 'POST',
           credentials: 'same-origin',
           headers: {
@@ -767,6 +996,7 @@ document.addEventListener('DOMContentLoaded', function() {
           },
           body: JSON.stringify({
             auth_code: data.code,
+            account_id: accountIdForConnect || undefined,
             redirect_uri: redirectUri
           })
         });
@@ -796,7 +1026,7 @@ document.addEventListener('DOMContentLoaded', function() {
     disconnectModal.classList.add('hidden');
 
     try {
-      const response = await fetch(`${apiBase}/esign/integrations/google/disconnect?user_id=${encodeURIComponent(userId)}`, {
+      const response = await fetch(buildScopedAPIURL('/esign/integrations/google/disconnect'), {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Accept': 'application/json' }
@@ -847,13 +1077,7 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   if (oauthCancelBtn) {
-    oauthCancelBtn.addEventListener('click', () => {
-      oauthModal.classList.add('hidden');
-      if (oauthWindow && !oauthWindow.closed) {
-        oauthWindow.close();
-      }
-      window.removeEventListener('message', handleOAuthCallback);
-    });
+    oauthCancelBtn.addEventListener('click', cancelOAuthFlow);
   }
 
   if (refreshBtn) {
@@ -864,15 +1088,23 @@ document.addEventListener('DOMContentLoaded', function() {
     retryBtn.addEventListener('click', checkStatus);
   }
 
+  if (accountIdInput) {
+    accountIdInput.addEventListener('change', () => {
+      setCurrentAccountId(accountIdInput.value, true);
+    });
+    accountIdInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        setCurrentAccountId(accountIdInput.value, true);
+      }
+    });
+  }
+
   // Close modals on escape
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       if (!oauthModal.classList.contains('hidden')) {
-        oauthModal.classList.add('hidden');
-        if (oauthWindow && !oauthWindow.closed) {
-          oauthWindow.close();
-        }
-        window.removeEventListener('message', handleOAuthCallback);
+        cancelOAuthFlow();
       }
       if (!disconnectModal.classList.contains('hidden')) {
         disconnectModal.classList.add('hidden');
@@ -886,16 +1118,19 @@ document.addEventListener('DOMContentLoaded', function() {
       modal.addEventListener('click', (e) => {
         if (e.target === modal || e.target.getAttribute('aria-hidden') === 'true') {
           modal.classList.add('hidden');
-          if (modal === oauthModal && oauthWindow && !oauthWindow.closed) {
-            oauthWindow.close();
+          if (modal === oauthModal) {
+            cancelOAuthFlow();
           }
         }
       });
     }
   });
 
+  updateAccountScopeUI();
+
   // Initial status check
   checkStatus();
 });
+*/
 </script>
 {% endblock %}

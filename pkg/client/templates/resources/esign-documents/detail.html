@@ -148,44 +148,10 @@
 {% endblock %}
 
 {% block detail_scripts %}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  // Format file size
-  function formatBytes(bytes) {
-    if (!bytes || bytes <= 0) return '-';
-    bytes = parseInt(bytes, 10);
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
-  }
+<script type="module">
+import { initDetailFormatters } from '{{ base_path }}/assets/dist/esign/index.js';
 
-  // Format timestamp
-  function formatTimestamp(ts) {
-    if (!ts) return '-';
-    try {
-      const date = new Date(ts);
-      return date.toLocaleDateString() + ' at ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    } catch {
-      return ts;
-    }
-  }
-
-  // Format size elements
-  document.querySelectorAll('[data-size-bytes]').forEach(el => {
-    const bytes = el.getAttribute('data-size-bytes');
-    if (bytes) {
-      el.textContent = formatBytes(bytes);
-    }
-  });
-
-  // Format timestamp elements
-  const createdAtEl = document.getElementById('doc-created-at');
-  if (createdAtEl) {
-    const ts = createdAtEl.getAttribute('data-timestamp');
-    if (ts) {
-      createdAtEl.textContent = formatTimestamp(ts);
-    }
-  }
-});
+// Apply formatters to detail page elements (data-size-bytes, data-timestamp)
+initDetailFormatters();
 </script>
 {% endblock %}

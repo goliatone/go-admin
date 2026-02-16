@@ -185,7 +185,33 @@
         }
       }
 
-      function handleError(error, description) {
+      function parseOAuthState(rawState) {
+        const result = {
+          user_id: '',
+          account_id: ''
+        };
+        if (!rawState) {
+          return result;
+        }
+        try {
+          const parsed = JSON.parse(rawState);
+          if (parsed && typeof parsed === 'object') {
+            if (typeof parsed.user_id === 'string') {
+              result.user_id = parsed.user_id.trim();
+            }
+            if (typeof parsed.account_id === 'string') {
+              result.account_id = parsed.account_id.trim();
+            }
+            return result;
+          }
+        } catch (error) {
+          // Backward compatibility: older state payloads may contain only user ID.
+        }
+        result.user_id = String(rawState || '').trim();
+        return result;
+      }
+
+      function handleError(error, description, stateData) {
         showState('error');
 
         const errorMessages = {
@@ -208,16 +234,18 @@
         sendToOpener({
           type: 'google_oauth_callback',
           error: error,
-          error_description: description
+          error_description: description,
+          account_id: stateData.account_id || ''
         });
       }
 
-      function handleSuccess(code) {
+      function handleSuccess(code, stateData) {
         showState('success');
 
         sendToOpener({
           type: 'google_oauth_callback',
-          code: code
+          code: code,
+          account_id: stateData.account_id || ''
         });
 
         // Auto-close after a short delay
@@ -231,15 +259,19 @@
       const code = params.get('code');
       const error = params.get('error');
       const errorDescription = params.get('error_description');
-      const state = params.get('state'); // Contains user_id
+      const state = params.get('state');
+      const stateData = parseOAuthState(state);
+      if (!stateData.account_id) {
+        stateData.account_id = (params.get('account_id') || '').trim();
+      }
 
       if (error) {
-        handleError(error, errorDescription);
+        handleError(error, errorDescription, stateData);
       } else if (code) {
-        handleSuccess(code);
+        handleSuccess(code, stateData);
       } else {
         // No code or error - something unexpected
-        handleError('unknown', 'No authorization code was received from Google.');
+        handleError('unknown', 'No authorization code was received from Google.', stateData);
       }
 
       // Close button handler
@@ -253,7 +285,11 @@
         closeBtn.addEventListener('click', () => {
           // Redirect back to integration page
           const basePath = '{{ base_path|default:"/admin" }}';
-          window.location.href = basePath + '/esign/integrations/google';
+          const redirectURL = new URL(basePath + '/esign/integrations/google', window.location.origin);
+          if (stateData.account_id) {
+            redirectURL.searchParams.set('account_id', stateData.account_id);
+          }
+          window.location.href = redirectURL.toString();
         });
       }
     })();
