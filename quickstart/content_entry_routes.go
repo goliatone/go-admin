@@ -1206,7 +1206,12 @@ func (h *contentEntryHandlers) parseFormPayload(c router.Context, schema map[str
 		}
 		schemaDef := schemaMap[key]
 		if len(vals) > 1 {
-			value := parseMultiValue(vals, schemaDef)
+			value, err := parseMultiValue(vals, schemaDef)
+			if err != nil {
+				return nil, goerrors.New(fmt.Sprintf("invalid form payload for %s", strings.TrimSpace(key)), goerrors.CategoryValidation).
+					WithCode(http.StatusBadRequest).
+					WithTextCode("INVALID_FORM")
+			}
 			setNestedValue(record, key, value)
 			continue
 		}
@@ -2538,17 +2543,47 @@ func schemaType(schema map[string]any) string {
 	return ""
 }
 
-func parseMultiValue(values []string, info schemaPathInfo) any {
+func parseMultiValue(values []string, info schemaPathInfo) (any, error) {
 	stype := strings.TrimSpace(info.Type)
 	if stype != "array" {
-		return values
+		return parseScalarMultiValue(values, info)
 	}
 	itemsSchema, _ := info.Schema["items"].(map[string]any)
 	parsed := make([]any, 0, len(values))
 	for _, raw := range values {
 		parsed = append(parsed, parseValue(raw, schemaPathInfo{Schema: itemsSchema, Type: schemaType(itemsSchema)}))
 	}
-	return parsed
+	return parsed, nil
+}
+
+func parseScalarMultiValue(values []string, info schemaPathInfo) (any, error) {
+	unique := []string{}
+	seen := map[string]struct{}{}
+	var candidate any
+	for _, raw := range values {
+		parsed := parseValue(raw, info)
+		candidate = parsed
+		normalized := strings.TrimSpace(anyToString(parsed))
+		if normalized == "" {
+			continue
+		}
+		if _, exists := seen[normalized]; exists {
+			continue
+		}
+		seen[normalized] = struct{}{}
+		unique = append(unique, normalized)
+	}
+	switch len(unique) {
+	case 0:
+		if candidate == nil {
+			return "", nil
+		}
+		return candidate, nil
+	case 1:
+		return parseValue(unique[0], info), nil
+	default:
+		return nil, fmt.Errorf("conflicting duplicate scalar values %v", unique)
+	}
 }
 
 func parseValue(raw string, info schemaPathInfo) any {
