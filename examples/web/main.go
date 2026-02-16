@@ -611,6 +611,7 @@ func main() {
 			)...,
 		)),
 		quickstart.WithViewTemplatesFS(webFS),
+		quickstart.WithViewDebug(cfg.Debug.Enabled),
 	)
 	if err != nil {
 		log.Panicf("failed to initialize view engine: %v", err)
