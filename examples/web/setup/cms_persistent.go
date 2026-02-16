@@ -92,6 +92,9 @@ func SetupPersistentCMS(ctx context.Context, defaultLocale, dsn string) (admin.C
 	if err != nil {
 		return admin.CMSOptions{}, fmt.Errorf("seed cms prereqs: %w", err)
 	}
+	if err := ensureRequiredSeedContentTypes(ctx, client.DB(), seedRefs); err != nil {
+		return admin.CMSOptions{}, fmt.Errorf("validate required cms content types: %w", err)
+	}
 
 	cmsCfg := cms.DefaultConfig()
 	cmsCfg.DefaultLocale = defaultLocale

@@ -700,6 +700,65 @@ func ensureContentTypes(ctx context.Context, db *bun.DB) (uuid.UUID, uuid.UUID, 
 	return pageID, postID, nil
 }
 
+func ensureRequiredSeedContentTypes(ctx context.Context, db *bun.DB, refs cmsSeedRefs) error {
+	required := []struct {
+		Name          string
+		ExpectedSlug  string
+		ExpectedPanel string
+		ExpectedID    uuid.UUID
+	}{
+		{
+			Name:          "page",
+			ExpectedSlug:  "page",
+			ExpectedPanel: "pages",
+			ExpectedID:    refs.PageContentTypeID,
+		},
+		{
+			Name:          "post",
+			ExpectedSlug:  "post",
+			ExpectedPanel: "posts",
+			ExpectedID:    refs.PostContentTypeID,
+		},
+	}
+
+	for _, item := range required {
+		if item.ExpectedID == uuid.Nil {
+			return fmt.Errorf("required content type %s missing id", item.Name)
+		}
+
+		var row contentTypeRow
+		err := db.NewSelect().
+			Model(&row).
+			Where("name = ?", item.Name).
+			Scan(ctx)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return fmt.Errorf("required content type %s missing", item.Name)
+			}
+			return fmt.Errorf("lookup content type %s: %w", item.Name, err)
+		}
+
+		if row.ID != item.ExpectedID {
+			return fmt.Errorf("required content type %s id mismatch", item.Name)
+		}
+		if strings.ToLower(strings.TrimSpace(row.Slug)) != item.ExpectedSlug {
+			return fmt.Errorf("required content type %s slug mismatch", item.Name)
+		}
+		if len(row.Schema) == 0 {
+			return fmt.Errorf("required content type %s missing schema", item.Name)
+		}
+		if len(row.Capabilities) == 0 {
+			return fmt.Errorf("required content type %s missing capabilities", item.Name)
+		}
+		panel := strings.ToLower(strings.TrimSpace(capabilityString(row.Capabilities, "panel_slug", "panelSlug", "panel-slug")))
+		if panel != item.ExpectedPanel {
+			return fmt.Errorf("required content type %s panel slug mismatch", item.Name)
+		}
+	}
+
+	return nil
+}
+
 type seedContentTypeSpec struct {
 	Name            string
 	Capabilities    map[string]any

@@ -222,3 +222,85 @@ func TestRepairNavigationIntegrityIsIdempotent(t *testing.T) {
 		t.Fatalf("expected no integrity issues after idempotent pass, got %+v", second)
 	}
 }
+
+func TestRemoveLegacyTranslationToolsMenuItems(t *testing.T) {
+	ctx := context.Background()
+	menuCode := NavigationMenuCode
+	locale := "en"
+	svc := admin.NewInMemoryMenuService()
+
+	if _, err := svc.CreateMenu(ctx, menuCode); err != nil {
+		t.Fatalf("create menu: %v", err)
+	}
+	if err := svc.AddMenuItem(ctx, menuCode, admin.MenuItem{
+		ID:            NavigationGroupOthers,
+		Type:          admin.MenuItemTypeGroup,
+		GroupTitle:    "Tools",
+		GroupTitleKey: "menu.group.others",
+		Position:      admin.IntPtr(90),
+		Menu:          menuCode,
+		Locale:        locale,
+	}); err != nil {
+		t.Fatalf("add others group: %v", err)
+	}
+	if err := svc.AddMenuItem(ctx, menuCode, admin.MenuItem{
+		ID:       NavigationGroupOthers + ".translations.queue",
+		Label:    "Translation Queue",
+		LabelKey: "menu.translations.queue",
+		Menu:     menuCode,
+		Locale:   locale,
+		ParentID: NavigationGroupOthers,
+		Target: map[string]any{
+			"type": "url",
+			"key":  "translations",
+		},
+	}); err != nil {
+		t.Fatalf("add translation queue tools item: %v", err)
+	}
+	if err := svc.AddMenuItem(ctx, menuCode, admin.MenuItem{
+		ID:       NavigationGroupOthers + ".translations.exchange",
+		Label:    "Translation Exchange",
+		LabelKey: "menu.translations.exchange",
+		Menu:     menuCode,
+		Locale:   locale,
+		ParentID: NavigationGroupOthers,
+		Target: map[string]any{
+			"type": "url",
+			"key":  "translations",
+		},
+	}); err != nil {
+		t.Fatalf("add translation exchange tools item: %v", err)
+	}
+	if err := svc.AddMenuItem(ctx, menuCode, admin.MenuItem{
+		ID:       NavigationGroupOthers + ".feature_flags",
+		Label:    "Feature Flags",
+		LabelKey: "menu.feature_flags",
+		Menu:     menuCode,
+		Locale:   locale,
+		ParentID: NavigationGroupOthers,
+		Target: map[string]any{
+			"type": "url",
+			"key":  "feature_flags",
+		},
+	}); err != nil {
+		t.Fatalf("add non-translation tools item: %v", err)
+	}
+
+	if err := RemoveLegacyTranslationToolsMenuItems(ctx, svc, menuCode, locale); err != nil {
+		t.Fatalf("remove legacy translation tools items: %v", err)
+	}
+
+	menu, err := svc.Menu(ctx, menuCode, locale)
+	if err != nil || menu == nil {
+		t.Fatalf("menu fetch failed: err=%v menu=%v", err, menu)
+	}
+	if item := findMenuItemByID(menu.Items, strings.TrimSpace(NavigationGroupOthers+".translations.queue")); item != nil {
+		t.Fatalf("expected translation queue tools item removed, got %+v", *item)
+	}
+	if item := findMenuItemByID(menu.Items, strings.TrimSpace(NavigationGroupOthers+".translations.exchange")); item != nil {
+		t.Fatalf("expected translation exchange tools item removed, got %+v", *item)
+	}
+	if item := findMenuItemByID(menu.Items, strings.TrimSpace(NavigationGroupOthers+".feature_flags")); item == nil {
+		t.Fatalf("expected non-translation tools item to remain")
+	}
+}
