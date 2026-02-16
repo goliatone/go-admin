@@ -809,11 +809,16 @@
   @apply bg-gray-100;
 }
 
+/* Column toggle menu container - use flex so list shrinks to content */
+#column-toggle-menu {
+  @apply flex flex-col;
+}
+
 /* Column manager header with search and count */
 .column-manager-header {
   @apply flex items-center gap-2 p-2;
   @apply border-b border-gray-200;
-  @apply sticky top-0 bg-white z-10;
+  @apply flex-shrink-0;
 }
 
 /* Search input container */
@@ -845,11 +850,14 @@
   @apply whitespace-nowrap;
 }
 
-/* Column list wrapper - grows with content, parent container controls max height */
+/* Column list wrapper - shrinks to content, parent container controls max height */
 .column-list {
   @apply overflow-y-auto;
-  @apply max-h-[50vh];
   @apply transition-shadow duration-150;
+  /* Let the parent #column-toggle-menu control max-height via max-h-[80vh] */
+  /* Use flex-shrink so list doesn't create empty space when few items */
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 /* Scroll shadow indicators */
@@ -871,6 +879,7 @@
 .column-manager-footer {
   @apply border-t border-gray-200;
   @apply mt-2 pt-2;
+  @apply flex-shrink-0;
 }
 
 /* Reset to Default button */
