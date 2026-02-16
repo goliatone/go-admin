@@ -63,6 +63,7 @@ type GoogleDriveImportMsg struct {
 	Scope             stores.Scope
 	ImportRunID       string
 	UserID            string
+	GoogleAccountID   string
 	GoogleFileID      string
 	SourceVersionHint string
 	DocumentTitle     string

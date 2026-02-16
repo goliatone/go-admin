@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	neturl "net/url"
 	"os"
 	"sort"
 	"strings"
@@ -37,12 +38,14 @@ const (
 const (
 	GoogleScopeDriveReadonly = "https://www.googleapis.com/auth/drive.readonly"
 	GoogleScopeDriveFile     = "https://www.googleapis.com/auth/drive.file"
+	GoogleScopeOpenID        = "openid"
 	GoogleScopeUserinfoEmail = "https://www.googleapis.com/auth/userinfo.email"
 )
 
 // DefaultGoogleOAuthScopes is the least-privilege scope set required by the Google integration backend.
 var DefaultGoogleOAuthScopes = []string{
 	GoogleScopeDriveReadonly,
+	GoogleScopeOpenID,
 	GoogleScopeUserinfoEmail,
 }
 
@@ -55,6 +58,8 @@ const (
 	GoogleIngestionModeExportPDF      = "google_export_pdf"
 	GoogleIngestionModeDrivePDFDirect = "drive_pdf_direct"
 )
+
+const googleScopedUserAccountSuffix = "#google-account="
 
 // GoogleProviderErrorCode captures provider-specific failure classification.
 type GoogleProviderErrorCode string
@@ -416,6 +421,7 @@ type GoogleOAuthStatus struct {
 	Provider             string     `json:"provider"`
 	ProviderMode         string     `json:"provider_mode"`
 	UserID               string     `json:"user_id"`
+	AccountID            string     `json:"account_id,omitempty"`
 	Connected            bool       `json:"connected"`
 	AccountEmail         string     `json:"account_email,omitempty"`
 	Scopes               []string   `json:"scopes"`
@@ -433,13 +439,13 @@ type GoogleOAuthStatus struct {
 
 // GoogleDriveFile captures the subset of Drive metadata needed by backend APIs.
 type GoogleDriveFile struct {
-	ID           string
-	Name         string
-	MimeType     string
-	WebViewURL   string
-	OwnerEmail   string
-	ParentID     string
-	ModifiedTime time.Time
+	ID           string    `json:"id"`
+	Name         string    `json:"name"`
+	MimeType     string    `json:"mimeType"`
+	WebViewURL   string    `json:"webViewLink,omitempty"`
+	OwnerEmail   string    `json:"ownerEmail,omitempty"`
+	ParentID     string    `json:"parentId,omitempty"`
+	ModifiedTime time.Time `json:"modifiedTime"`
 }
 
 // GoogleDriveListResult captures search/browse pagination results.
@@ -670,6 +676,7 @@ type GoogleAgreementCreator interface {
 // GoogleConnectInput captures OAuth connect inputs.
 type GoogleConnectInput struct {
 	UserID      string
+	AccountID   string
 	AuthCode    string
 	RedirectURI string
 }
@@ -677,6 +684,7 @@ type GoogleConnectInput struct {
 // GoogleDriveQueryInput captures search/browse query input.
 type GoogleDriveQueryInput struct {
 	UserID    string
+	AccountID string
 	Query     string
 	FolderID  string
 	PageToken string
@@ -686,6 +694,7 @@ type GoogleDriveQueryInput struct {
 // GoogleImportInput captures import request inputs.
 type GoogleImportInput struct {
 	UserID          string
+	AccountID       string
 	GoogleFileID    string
 	DocumentTitle   string
 	AgreementTitle  string
@@ -805,6 +814,8 @@ func (s GoogleIntegrationService) Connect(ctx context.Context, scope stores.Scop
 	if userID == "" {
 		return GoogleOAuthStatus{}, domainValidationError("google", "user_id", "required")
 	}
+	accountID := normalizeGoogleAccountID(input.AccountID)
+	scopedUserID := ComposeGoogleScopedUserID(userID, accountID)
 	authCode := strings.TrimSpace(input.AuthCode)
 	if authCode == "" {
 		return GoogleOAuthStatus{}, domainValidationError("google", "auth_code", "required")
@@ -835,7 +846,7 @@ func (s GoogleIntegrationService) Connect(ctx context.Context, scope stores.Scop
 		expiresAt = &exp
 	}
 	if _, err := s.credentials.UpsertIntegrationCredential(ctx, scope, stores.IntegrationCredentialRecord{
-		UserID:                userID,
+		UserID:                scopedUserID,
 		Provider:              GoogleProviderName,
 		EncryptedAccessToken:  encryptedAccess,
 		EncryptedRefreshToken: encryptedRefresh,
@@ -857,6 +868,7 @@ func (s GoogleIntegrationService) Connect(ctx context.Context, scope stores.Scop
 		Provider:             GoogleProviderName,
 		ProviderMode:         health.Mode,
 		UserID:               userID,
+		AccountID:            accountID,
 		Connected:            true,
 		AccountEmail:         strings.TrimSpace(token.AccountEmail),
 		Scopes:               scopes,
@@ -882,7 +894,12 @@ func (s GoogleIntegrationService) Disconnect(ctx context.Context, scope stores.S
 	if userID == "" {
 		return domainValidationError("google", "user_id", "required")
 	}
-	credential, err := s.credentials.GetIntegrationCredential(ctx, scope, GoogleProviderName, userID)
+	baseUserID, accountID := ParseGoogleScopedUserID(userID)
+	if baseUserID == "" {
+		return domainValidationError("google", "user_id", "required")
+	}
+	scopedUserID := ComposeGoogleScopedUserID(baseUserID, accountID)
+	credential, err := s.credentials.GetIntegrationCredential(ctx, scope, GoogleProviderName, scopedUserID)
 	if err != nil {
 		if isNotFound(err) {
 			return nil
@@ -897,7 +914,7 @@ func (s GoogleIntegrationService) Disconnect(ctx context.Context, scope stores.S
 		observability.ObserveProviderResult(ctx, GoogleProviderName, false)
 		return MapGoogleProviderError(err)
 	}
-	if err := s.credentials.DeleteIntegrationCredential(ctx, scope, GoogleProviderName, userID); err != nil {
+	if err := s.credentials.DeleteIntegrationCredential(ctx, scope, GoogleProviderName, scopedUserID); err != nil {
 		return err
 	}
 	observability.ObserveProviderResult(ctx, GoogleProviderName, true)
@@ -915,13 +932,19 @@ func (s GoogleIntegrationService) Status(ctx context.Context, scope stores.Scope
 	if userID == "" {
 		return GoogleOAuthStatus{}, domainValidationError("google", "user_id", "required")
 	}
-	credential, err := s.credentials.GetIntegrationCredential(ctx, scope, GoogleProviderName, userID)
+	baseUserID, accountID := ParseGoogleScopedUserID(userID)
+	if baseUserID == "" {
+		return GoogleOAuthStatus{}, domainValidationError("google", "user_id", "required")
+	}
+	scopedUserID := ComposeGoogleScopedUserID(baseUserID, accountID)
+	credential, err := s.credentials.GetIntegrationCredential(ctx, scope, GoogleProviderName, scopedUserID)
 	if err != nil {
 		if isNotFound(err) {
 			return GoogleOAuthStatus{
 				Provider:             GoogleProviderName,
 				ProviderMode:         health.Mode,
-				UserID:               userID,
+				UserID:               baseUserID,
+				AccountID:            accountID,
 				Connected:            false,
 				Scopes:               []string{},
 				ExpiresAt:            nil,
@@ -949,7 +972,8 @@ func (s GoogleIntegrationService) Status(ctx context.Context, scope stores.Scope
 	return GoogleOAuthStatus{
 		Provider:             GoogleProviderName,
 		ProviderMode:         health.Mode,
-		UserID:               userID,
+		UserID:               baseUserID,
+		AccountID:            accountID,
 		Connected:            true,
 		Scopes:               normalizeScopes(credential.Scopes),
 		ExpiresAt:            expiresAt,
@@ -974,8 +998,13 @@ func (s GoogleIntegrationService) RotateCredentialEncryption(ctx context.Context
 	if userID == "" {
 		return GoogleOAuthStatus{}, domainValidationError("google", "user_id", "required")
 	}
+	baseUserID, accountID := ParseGoogleScopedUserID(userID)
+	if baseUserID == "" {
+		return GoogleOAuthStatus{}, domainValidationError("google", "user_id", "required")
+	}
+	scopedUserID := ComposeGoogleScopedUserID(baseUserID, accountID)
 
-	credential, err := s.credentials.GetIntegrationCredential(ctx, scope, GoogleProviderName, userID)
+	credential, err := s.credentials.GetIntegrationCredential(ctx, scope, GoogleProviderName, scopedUserID)
 	if err != nil {
 		return GoogleOAuthStatus{}, err
 	}
@@ -999,7 +1028,7 @@ func (s GoogleIntegrationService) RotateCredentialEncryption(ctx context.Context
 
 	if _, err := s.credentials.UpsertIntegrationCredential(ctx, scope, stores.IntegrationCredentialRecord{
 		ID:                    credential.ID,
-		UserID:                userID,
+		UserID:                scopedUserID,
 		Provider:              GoogleProviderName,
 		EncryptedAccessToken:  encryptedAccess,
 		EncryptedRefreshToken: encryptedRefresh,
@@ -1009,7 +1038,7 @@ func (s GoogleIntegrationService) RotateCredentialEncryption(ctx context.Context
 		return GoogleOAuthStatus{}, err
 	}
 
-	return s.Status(ctx, scope, userID)
+	return s.Status(ctx, scope, scopedUserID)
 }
 
 // SearchFiles searches files via provider using decrypted scoped credentials.
@@ -1017,7 +1046,7 @@ func (s GoogleIntegrationService) SearchFiles(ctx context.Context, scope stores.
 	if err := s.ensureProviderHealthy(ctx); err != nil {
 		return GoogleDriveListResult{}, err
 	}
-	accessToken, _, err := s.resolveAccessToken(ctx, scope, input.UserID)
+	accessToken, _, err := s.resolveAccessToken(ctx, scope, ComposeGoogleScopedUserID(input.UserID, input.AccountID))
 	if err != nil {
 		return GoogleDriveListResult{}, err
 	}
@@ -1042,7 +1071,7 @@ func (s GoogleIntegrationService) BrowseFiles(ctx context.Context, scope stores.
 	if err := s.ensureProviderHealthy(ctx); err != nil {
 		return GoogleDriveListResult{}, err
 	}
-	accessToken, _, err := s.resolveAccessToken(ctx, scope, input.UserID)
+	accessToken, _, err := s.resolveAccessToken(ctx, scope, ComposeGoogleScopedUserID(input.UserID, input.AccountID))
 	if err != nil {
 		return GoogleDriveListResult{}, err
 	}
@@ -1074,7 +1103,7 @@ func (s GoogleIntegrationService) ImportDocument(ctx context.Context, scope stor
 	if err := s.ensureProviderHealthy(ctx); err != nil {
 		return GoogleImportResult{}, err
 	}
-	accessToken, userID, err := s.resolveAccessToken(ctx, scope, input.UserID)
+	accessToken, userID, err := s.resolveAccessToken(ctx, scope, ComposeGoogleScopedUserID(input.UserID, input.AccountID))
 	if err != nil {
 		return GoogleImportResult{}, err
 	}
@@ -1256,14 +1285,23 @@ func (s GoogleIntegrationService) resolveAccessToken(ctx context.Context, scope 
 	if userID == "" {
 		return "", "", domainValidationError("google", "user_id", "required")
 	}
-	credential, err := s.credentials.GetIntegrationCredential(ctx, scope, GoogleProviderName, userID)
+	baseUserID, accountID := ParseGoogleScopedUserID(userID)
+	if baseUserID == "" {
+		return "", "", domainValidationError("google", "user_id", "required")
+	}
+	scopedUserID := ComposeGoogleScopedUserID(baseUserID, accountID)
+	credential, err := s.credentials.GetIntegrationCredential(ctx, scope, GoogleProviderName, scopedUserID)
 	if err != nil {
 		if isNotFound(err) {
 			observability.ObserveGoogleAuthChurn(ctx, "disconnected")
 			return "", "", goerrors.New("google integration disconnected", goerrors.CategoryAuthz).
 				WithCode(http.StatusUnauthorized).
 				WithTextCode(string(ErrorCodeGoogleAccessRevoked)).
-				WithMetadata(map[string]any{"provider": GoogleProviderName, "user_id": userID})
+				WithMetadata(map[string]any{
+					"provider":   GoogleProviderName,
+					"user_id":    baseUserID,
+					"account_id": accountID,
+				})
 		}
 		return "", "", err
 	}
@@ -1280,7 +1318,7 @@ func (s GoogleIntegrationService) resolveAccessToken(ctx context.Context, scope 
 			WithCode(http.StatusUnauthorized).
 			WithTextCode(string(ErrorCodeGoogleAccessRevoked))
 	}
-	return accessToken, userID, nil
+	return accessToken, baseUserID, nil
 }
 
 func normalizeRequiredID(entity, field, value string) string {
@@ -1289,6 +1327,48 @@ func normalizeRequiredID(entity, field, value string) string {
 		return ""
 	}
 	return value
+}
+
+// ComposeGoogleScopedUserID composes a stable scoped user key for multi-account Google credentials.
+func ComposeGoogleScopedUserID(userID, accountID string) string {
+	userID = strings.TrimSpace(userID)
+	if userID == "" {
+		return ""
+	}
+	accountID = normalizeGoogleAccountID(accountID)
+	if accountID == "" {
+		return userID
+	}
+	return userID + googleScopedUserAccountSuffix + neturl.QueryEscape(accountID)
+}
+
+// ParseGoogleScopedUserID extracts base user/account ids from a scoped Google user key.
+func ParseGoogleScopedUserID(value string) (string, string) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "", ""
+	}
+	index := strings.LastIndex(value, googleScopedUserAccountSuffix)
+	if index <= 0 {
+		return value, ""
+	}
+	userID := strings.TrimSpace(value[:index])
+	if userID == "" {
+		return "", ""
+	}
+	encodedAccountID := strings.TrimSpace(value[index+len(googleScopedUserAccountSuffix):])
+	if encodedAccountID == "" {
+		return userID, ""
+	}
+	accountID, err := neturl.QueryUnescape(encodedAccountID)
+	if err != nil {
+		accountID = encodedAccountID
+	}
+	return userID, normalizeGoogleAccountID(accountID)
+}
+
+func normalizeGoogleAccountID(value string) string {
+	return strings.TrimSpace(value)
 }
 
 func inferGoogleProviderMode(provider GoogleProvider) string {
