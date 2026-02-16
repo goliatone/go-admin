@@ -215,12 +215,9 @@
       function handleSuccess(code) {
         showState('success');
 
-        const redirectUri = window.location.origin + window.location.pathname;
-
         sendToOpener({
           type: 'google_oauth_callback',
-          code: code,
-          redirect_uri: redirectUri
+          code: code
         });
 
         // Auto-close after a short delay
