@@ -221,6 +221,12 @@ func NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin
 	} else {
 		cfg, result = configureAdaptersWithFlagsLogger(options.ctx, cfg, hooks, ResolveAdapterFlags(), adaptersLogger)
 	}
+	if result.Flags.UsePersistentCMS && !result.PersistentCMSSet {
+		if result.PersistentCMSError != nil {
+			return nil, result, result.PersistentCMSError
+		}
+		return nil, result, ErrPersistentCMSSetupFailed
+	}
 	if options.deps.TranslationPolicy == nil {
 		policyCfg := DefaultTranslationPolicyConfig()
 		if options.translationPolicyConfigSet {
