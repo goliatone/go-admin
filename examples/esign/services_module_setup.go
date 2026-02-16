@@ -103,11 +103,45 @@ func setupESignServicesModule(adm *coreadmin.Admin) (*servicesmodule.Module, fun
 		_ = sqlDB.Close()
 		return nil, nil, err
 	}
+	if err := client.Migrate(context.Background()); err != nil {
+		_ = sqlDB.Close()
+		return nil, nil, fmt.Errorf("esign services module: migrate services schema: %w", err)
+	}
+	if err := ensureESignServicesSchema(context.Background(), sqlDB); err != nil {
+		_ = sqlDB.Close()
+		return nil, nil, err
+	}
 
 	cleanup := func() {
 		_ = sqlDB.Close()
 	}
 	return module, cleanup, nil
+}
+
+func ensureESignServicesSchema(ctx context.Context, db *sql.DB) error {
+	if db == nil {
+		return fmt.Errorf("esign services module: sqlite db is required")
+	}
+	requiredTables := []string{
+		"service_connections",
+		"service_credentials",
+		"service_grant_events",
+		"service_grant_snapshots",
+	}
+	for _, table := range requiredTables {
+		var count int
+		if err := db.QueryRowContext(
+			ctx,
+			`SELECT COUNT(1) FROM sqlite_master WHERE type='table' AND name = ?`,
+			table,
+		).Scan(&count); err != nil {
+			return fmt.Errorf("esign services module: check services schema table %q: %w", table, err)
+		}
+		if count <= 0 {
+			return fmt.Errorf("esign services module: missing required table %q after migration", table)
+		}
+	}
+	return nil
 }
 
 func buildGoogleDriveProviderFromEnv() (servicesmodule.Provider, error) {

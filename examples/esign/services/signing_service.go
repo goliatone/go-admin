@@ -1,6 +1,7 @@
 package services
 
 import (
+	"bytes"
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
@@ -8,6 +9,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"sort"
 	"strings"
 	"sync"
@@ -15,6 +17,8 @@ import (
 
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	"github.com/goliatone/go-uploader"
+	"github.com/phpdave11/gofpdf"
+	gofpdi "github.com/phpdave11/gofpdf/contrib/gofpdi"
 )
 
 const (
@@ -557,10 +561,14 @@ func (s SigningService) GetSession(ctx context.Context, scope stores.Scope, toke
 func (s SigningService) resolveSessionBootstrap(ctx context.Context, scope stores.Scope, agreement stores.AgreementRecord, fields []stores.FieldRecord) (string, int, SignerSessionViewerContext) {
 	documentName := "Document.pdf"
 	pageCount := 1
+	sourceObjectKey := ""
 	if strings.TrimSpace(agreement.DocumentID) != "" && s.documents != nil {
 		if document, err := s.documents.Get(ctx, scope, agreement.DocumentID); err == nil {
 			if strings.TrimSpace(document.Title) != "" {
 				documentName = strings.TrimSpace(document.Title)
+			}
+			if strings.TrimSpace(document.SourceObjectKey) != "" {
+				sourceObjectKey = strings.TrimSpace(document.SourceObjectKey)
 			}
 			if document.PageCount > 0 {
 				pageCount = document.PageCount
@@ -579,14 +587,17 @@ func (s SigningService) resolveSessionBootstrap(ctx context.Context, scope store
 	if pageCount <= 0 {
 		pageCount = 1
 	}
-	pages := make([]SignerSessionViewerPage, 0, pageCount)
-	for page := 1; page <= pageCount; page++ {
-		pages = append(pages, SignerSessionViewerPage{
-			Page:     page,
-			Width:    defaultPDFPageWidth,
-			Height:   defaultPDFPageHeight,
-			Rotation: 0,
-		})
+	pages := s.resolveViewerPagesFromSourcePDF(ctx, sourceObjectKey, pageCount)
+	if len(pages) != pageCount {
+		pages = make([]SignerSessionViewerPage, 0, pageCount)
+		for page := 1; page <= pageCount; page++ {
+			pages = append(pages, SignerSessionViewerPage{
+				Page:     page,
+				Width:    defaultPDFPageWidth,
+				Height:   defaultPDFPageHeight,
+				Rotation: 0,
+			})
+		}
 	}
 	return documentName, pageCount, SignerSessionViewerContext{
 		CoordinateSpace: signerCoordinateSpace,
@@ -596,6 +607,49 @@ func (s SigningService) resolveSessionBootstrap(ctx context.Context, scope store
 		YAxisDirection:  signerCoordinateYAxisDirection,
 		Pages:           pages,
 	}
+}
+
+func (s SigningService) resolveViewerPagesFromSourcePDF(ctx context.Context, sourceObjectKey string, pageCount int) []SignerSessionViewerPage {
+	sourceObjectKey = strings.TrimSpace(sourceObjectKey)
+	if s.objectStore == nil || sourceObjectKey == "" || pageCount <= 0 {
+		return nil
+	}
+	sourcePDF, err := s.objectStore.GetFile(ctx, sourceObjectKey)
+	if err != nil || len(sourcePDF) == 0 {
+		return nil
+	}
+	if !bytes.HasPrefix(sourcePDF, []byte("%PDF-")) {
+		return nil
+	}
+
+	pdf := gofpdf.New("P", "pt", "Letter", "")
+	importer := gofpdi.NewImporter()
+	pages := make([]SignerSessionViewerPage, 0, pageCount)
+	for page := 1; page <= pageCount; page++ {
+		rs := io.ReadSeeker(bytes.NewReader(sourcePDF))
+		tplID := importer.ImportPageFromStream(pdf, &rs, page, "/CropBox")
+		if tplID == 0 {
+			rsFallback := io.ReadSeeker(bytes.NewReader(sourcePDF))
+			tplID = importer.ImportPageFromStream(pdf, &rsFallback, page, "/MediaBox")
+			if tplID == 0 {
+				return nil
+			}
+		}
+		width, height := importedPageSize(importer.GetPageSizes(), page)
+		if width <= 0 {
+			width = defaultPDFPageWidth
+		}
+		if height <= 0 {
+			height = defaultPDFPageHeight
+		}
+		pages = append(pages, SignerSessionViewerPage{
+			Page:     page,
+			Width:    width,
+			Height:   height,
+			Rotation: 0,
+		})
+	}
+	return pages
 }
 
 // CaptureConsent stores consent acceptance for the active signer in a sequential flow.
