@@ -150,14 +150,68 @@ func TestNewAdminAdapterHookErrors(t *testing.T) {
 	}
 
 	_, result, err := NewAdmin(cfg, hooks)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	if err == nil {
+		t.Fatalf("expected persistent cms setup error")
+	}
+	if !errors.Is(err, ErrPersistentCMSSetupFailed) {
+		t.Fatalf("expected persistent cms setup failure, got %v", err)
 	}
 	if result.PersistentCMSSet || result.CMSBackend != "in-memory CMS" {
 		t.Fatalf("expected persistent CMS not set, got %+v", result)
 	}
+	if result.PersistentCMSError == nil {
+		t.Fatalf("expected persistent cms setup error recorded on adapter result")
+	}
+	if !errors.Is(result.PersistentCMSError, ErrPersistentCMSSetupFailed) {
+		t.Fatalf("expected adapter result persistent cms setup failure, got %v", result.PersistentCMSError)
+	}
 	if result.SettingsBackend != "in-memory settings" {
 		t.Fatalf("expected settings backend fallback, got %q", result.SettingsBackend)
+	}
+}
+
+func TestNewAdminPersistentCMSRequestedWithoutHookFails(t *testing.T) {
+	t.Setenv("USE_PERSISTENT_CMS", "true")
+
+	cfg := NewAdminConfig("", "", "")
+	_, result, err := NewAdmin(cfg, AdapterHooks{})
+	if err == nil {
+		t.Fatalf("expected persistent cms setup error when hook is missing")
+	}
+	if !errors.Is(err, ErrPersistentCMSSetupFailed) {
+		t.Fatalf("expected persistent cms setup failure, got %v", err)
+	}
+	if result.PersistentCMSSet {
+		t.Fatalf("expected persistent CMS not set, got %+v", result)
+	}
+	if result.PersistentCMSError == nil {
+		t.Fatalf("expected persistent cms setup error recorded on adapter result")
+	}
+}
+
+func TestNewAdminPersistentCMSNilContainerFails(t *testing.T) {
+	t.Setenv("USE_PERSISTENT_CMS", "true")
+
+	cfg := NewAdminConfig("", "", "")
+	hooks := AdapterHooks{
+		PersistentCMS: func(ctx context.Context, defaultLocale string) (admin.CMSOptions, string, error) {
+			_, _ = ctx, defaultLocale
+			return admin.CMSOptions{}, "persistent CMS", nil
+		},
+	}
+
+	_, result, err := NewAdmin(cfg, hooks)
+	if err == nil {
+		t.Fatalf("expected persistent cms setup error when hook returns nil container")
+	}
+	if !errors.Is(err, ErrPersistentCMSSetupFailed) {
+		t.Fatalf("expected persistent cms setup failure, got %v", err)
+	}
+	if result.PersistentCMSSet {
+		t.Fatalf("expected persistent CMS not set, got %+v", result)
+	}
+	if result.PersistentCMSError == nil {
+		t.Fatalf("expected persistent cms setup error recorded on adapter result")
 	}
 }
 
