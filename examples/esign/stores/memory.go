@@ -432,48 +432,48 @@ func (s *InMemoryStore) Transition(ctx context.Context, scope Scope, id string, 
 	return record, nil
 }
 
-func (s *InMemoryStore) UpsertRecipientDraft(ctx context.Context, scope Scope, agreementID string, patch RecipientDraftPatch, expectedVersion int64) (RecipientRecord, error) {
+func (s *InMemoryStore) UpsertParticipantDraft(ctx context.Context, scope Scope, agreementID string, patch ParticipantDraftPatch, expectedVersion int64) (ParticipantRecord, error) {
 	_ = ctx
 	scope, err := validateScope(scope)
 	if err != nil {
-		return RecipientRecord{}, err
+		return ParticipantRecord{}, err
 	}
 	agreementID = normalizeID(agreementID)
 	if agreementID == "" {
-		return RecipientRecord{}, invalidRecordError("recipients", "agreement_id", "required")
+		return ParticipantRecord{}, invalidRecordError("participants", "agreement_id", "required")
 	}
 
-	recipientID := normalizeID(patch.ID)
-	if recipientID == "" {
-		recipientID = uuid.NewString()
+	participantID := normalizeID(patch.ID)
+	if participantID == "" {
+		participantID = uuid.NewString()
 	}
-	key := scopedKey(scope, recipientID)
+	key := scopedKey(scope, participantID)
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	agreement, ok := s.agreements[scopedKey(scope, agreementID)]
 	if !ok {
-		return RecipientRecord{}, notFoundError("agreements", agreementID)
+		return ParticipantRecord{}, notFoundError("agreements", agreementID)
 	}
 	if agreement.Status != AgreementStatusDraft {
-		return RecipientRecord{}, immutableAgreementError(agreement.ID, agreement.Status)
+		return ParticipantRecord{}, immutableAgreementError(agreement.ID, agreement.Status)
 	}
 
-	record, exists := s.recipients[key]
+	record, exists := s.participants[key]
 	if !exists {
-		record = RecipientRecord{
-			ID:           recipientID,
+		record = ParticipantRecord{
+			ID:           participantID,
 			TenantID:     scope.TenantID,
 			OrgID:        scope.OrgID,
 			AgreementID:  agreementID,
 			Role:         RecipientRoleSigner,
-			SigningOrder: 1,
+			SigningStage: 1,
 			Version:      1,
 			CreatedAt:    time.Now().UTC(),
 		}
 	} else if expectedVersion > 0 && record.Version != expectedVersion {
-		return RecipientRecord{}, versionConflictError("recipients", recipientID, expectedVersion, record.Version)
+		return ParticipantRecord{}, versionConflictError("participants", participantID, expectedVersion, record.Version)
 	}
 
 	if patch.Email != nil {
@@ -483,43 +483,101 @@ func (s *InMemoryStore) UpsertRecipientDraft(ctx context.Context, scope Scope, a
 		record.Name = strings.TrimSpace(*patch.Name)
 	}
 	if patch.Role != nil {
-		record.Role = strings.TrimSpace(*patch.Role)
+		record.Role = strings.ToLower(strings.TrimSpace(*patch.Role))
 	}
-	if patch.SigningOrder != nil {
-		record.SigningOrder = *patch.SigningOrder
+	if patch.SigningStage != nil {
+		record.SigningStage = *patch.SigningStage
+	}
+	if record.Role == "" {
+		record.Role = RecipientRoleSigner
 	}
 
 	if record.Email == "" {
-		return RecipientRecord{}, invalidRecordError("recipients", "email", "required")
+		return ParticipantRecord{}, invalidRecordError("participants", "email", "required")
 	}
 	if record.Role != RecipientRoleSigner && record.Role != RecipientRoleCC {
-		return RecipientRecord{}, invalidRecordError("recipients", "role", "must be signer or cc")
+		return ParticipantRecord{}, invalidRecordError("participants", "role", "must be signer or cc")
 	}
-	if record.SigningOrder <= 0 {
-		return RecipientRecord{}, invalidRecordError("recipients", "signing_order", "must be positive")
-	}
-
-	for mapKey, existing := range s.recipients {
-		if mapKey == key {
-			continue
-		}
-		if existing.TenantID != scope.TenantID || existing.OrgID != scope.OrgID || existing.AgreementID != agreementID {
-			continue
-		}
-		if existing.SigningOrder == record.SigningOrder {
-			return RecipientRecord{}, invalidRecordError("recipients", "signing_order", "duplicate for agreement")
-		}
+	if record.SigningStage <= 0 {
+		return ParticipantRecord{}, invalidRecordError("participants", "signing_stage", "must be positive")
 	}
 
 	if exists {
 		record.Version++
 	}
 	record.UpdatedAt = time.Now().UTC()
-	s.recipients[key] = record
+	s.participants[key] = record
 	return record, nil
 }
 
-func (s *InMemoryStore) ListRecipients(ctx context.Context, scope Scope, agreementID string) ([]RecipientRecord, error) {
+func (s *InMemoryStore) DeleteParticipantDraft(ctx context.Context, scope Scope, agreementID, participantID string) error {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return err
+	}
+	agreementID = normalizeID(agreementID)
+	participantID = normalizeID(participantID)
+	if agreementID == "" {
+		return invalidRecordError("participants", "agreement_id", "required")
+	}
+	if participantID == "" {
+		return invalidRecordError("participants", "id", "required")
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	agreement, ok := s.agreements[scopedKey(scope, agreementID)]
+	if !ok {
+		return notFoundError("agreements", agreementID)
+	}
+	if agreement.Status != AgreementStatusDraft {
+		return immutableAgreementError(agreementID, agreement.Status)
+	}
+
+	participantKey := scopedKey(scope, participantID)
+	record, exists := s.participants[participantKey]
+	if !exists || record.AgreementID != agreementID {
+		return notFoundError("participants", participantID)
+	}
+	delete(s.participants, participantKey)
+
+	for key, definition := range s.fieldDefinitions {
+		if definition.TenantID != scope.TenantID || definition.OrgID != scope.OrgID {
+			continue
+		}
+		if definition.AgreementID == agreementID && definition.ParticipantID == participantID {
+			delete(s.fieldDefinitions, key)
+			for instanceKey, instance := range s.fieldInstances {
+				if instance.TenantID != scope.TenantID || instance.OrgID != scope.OrgID {
+					continue
+				}
+				if instance.AgreementID == agreementID && instance.FieldDefinitionID == definition.ID {
+					delete(s.fieldInstances, instanceKey)
+					for valueKey, value := range s.fieldValues {
+						if value.TenantID != scope.TenantID || value.OrgID != scope.OrgID {
+							continue
+						}
+						if value.AgreementID == agreementID && value.FieldID == instance.ID {
+							delete(s.fieldValues, valueKey)
+						}
+					}
+				}
+			}
+		}
+	}
+	for valueKey, value := range s.fieldValues {
+		if value.TenantID != scope.TenantID || value.OrgID != scope.OrgID {
+			continue
+		}
+		if value.AgreementID == agreementID && value.RecipientID == participantID {
+			delete(s.fieldValues, valueKey)
+		}
+	}
+	return nil
+}
+
+func (s *InMemoryStore) ListParticipants(ctx context.Context, scope Scope, agreementID string) ([]ParticipantRecord, error) {
 	_ = ctx
 	scope, err := validateScope(scope)
 	if err != nil {
@@ -527,14 +585,14 @@ func (s *InMemoryStore) ListRecipients(ctx context.Context, scope Scope, agreeme
 	}
 	agreementID = normalizeID(agreementID)
 	if agreementID == "" {
-		return nil, invalidRecordError("recipients", "agreement_id", "required")
+		return nil, invalidRecordError("participants", "agreement_id", "required")
 	}
 
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	out := make([]RecipientRecord, 0)
-	for _, record := range s.recipients {
+	out := make([]ParticipantRecord, 0)
+	for _, record := range s.participants {
 		if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
 			continue
 		}
@@ -544,11 +602,40 @@ func (s *InMemoryStore) ListRecipients(ctx context.Context, scope Scope, agreeme
 		out = append(out, record)
 	}
 	sort.Slice(out, func(i, j int) bool {
-		if out[i].SigningOrder == out[j].SigningOrder {
+		if out[i].SigningStage == out[j].SigningStage {
 			return out[i].CreatedAt.Before(out[j].CreatedAt)
 		}
-		return out[i].SigningOrder < out[j].SigningOrder
+		return out[i].SigningStage < out[j].SigningStage
 	})
+	return out, nil
+}
+
+func (s *InMemoryStore) UpsertRecipientDraft(ctx context.Context, scope Scope, agreementID string, patch RecipientDraftPatch, expectedVersion int64) (RecipientRecord, error) {
+	participantPatch := ParticipantDraftPatch{
+		ID:    patch.ID,
+		Email: patch.Email,
+		Name:  patch.Name,
+		Role:  patch.Role,
+	}
+	if patch.SigningOrder != nil {
+		participantPatch.SigningStage = patch.SigningOrder
+	}
+	participant, err := s.UpsertParticipantDraft(ctx, scope, agreementID, participantPatch, expectedVersion)
+	if err != nil {
+		return RecipientRecord{}, err
+	}
+	return participantToRecipient(participant), nil
+}
+
+func (s *InMemoryStore) ListRecipients(ctx context.Context, scope Scope, agreementID string) ([]RecipientRecord, error) {
+	participants, err := s.ListParticipants(ctx, scope, agreementID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]RecipientRecord, 0, len(participants))
+	for _, participant := range participants {
+		out = append(out, participantToRecipient(participant))
+	}
 	return out, nil
 }
 
@@ -561,10 +648,10 @@ func (s *InMemoryStore) TouchRecipientView(ctx context.Context, scope Scope, agr
 	agreementID = normalizeID(agreementID)
 	recipientID = normalizeID(recipientID)
 	if agreementID == "" {
-		return RecipientRecord{}, invalidRecordError("recipients", "agreement_id", "required")
+		return RecipientRecord{}, invalidRecordError("participants", "agreement_id", "required")
 	}
 	if recipientID == "" {
-		return RecipientRecord{}, invalidRecordError("recipients", "id", "required")
+		return RecipientRecord{}, invalidRecordError("participants", "id", "required")
 	}
 	if viewedAt.IsZero() {
 		viewedAt = time.Now().UTC()
@@ -577,9 +664,9 @@ func (s *InMemoryStore) TouchRecipientView(ctx context.Context, scope Scope, agr
 		return RecipientRecord{}, notFoundError("agreements", agreementID)
 	}
 	key := scopedKey(scope, recipientID)
-	record, ok := s.recipients[key]
+	record, ok := s.participants[key]
 	if !ok || record.AgreementID != agreementID {
-		return RecipientRecord{}, notFoundError("recipients", recipientID)
+		return RecipientRecord{}, notFoundError("participants", recipientID)
 	}
 	if record.FirstViewAt == nil {
 		record.FirstViewAt = cloneTimePtr(&viewedAt)
@@ -587,8 +674,8 @@ func (s *InMemoryStore) TouchRecipientView(ctx context.Context, scope Scope, agr
 	record.LastViewAt = cloneTimePtr(&viewedAt)
 	record.UpdatedAt = time.Now().UTC()
 	record.Version++
-	s.recipients[key] = record
-	return record, nil
+	s.participants[key] = record
+	return participantToRecipient(record), nil
 }
 
 func (s *InMemoryStore) CompleteRecipient(ctx context.Context, scope Scope, agreementID, recipientID string, completedAt time.Time, expectedVersion int64) (RecipientRecord, error) {
@@ -600,10 +687,10 @@ func (s *InMemoryStore) CompleteRecipient(ctx context.Context, scope Scope, agre
 	agreementID = normalizeID(agreementID)
 	recipientID = normalizeID(recipientID)
 	if agreementID == "" {
-		return RecipientRecord{}, invalidRecordError("recipients", "agreement_id", "required")
+		return RecipientRecord{}, invalidRecordError("participants", "agreement_id", "required")
 	}
 	if recipientID == "" {
-		return RecipientRecord{}, invalidRecordError("recipients", "id", "required")
+		return RecipientRecord{}, invalidRecordError("participants", "id", "required")
 	}
 	if completedAt.IsZero() {
 		completedAt = time.Now().UTC()
@@ -612,7 +699,6 @@ func (s *InMemoryStore) CompleteRecipient(ctx context.Context, scope Scope, agre
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
 	agreement, ok := s.agreements[scopedKey(scope, agreementID)]
 	if !ok {
 		return RecipientRecord{}, notFoundError("agreements", agreementID)
@@ -622,18 +708,18 @@ func (s *InMemoryStore) CompleteRecipient(ctx context.Context, scope Scope, agre
 	}
 
 	key := scopedKey(scope, recipientID)
-	record, ok := s.recipients[key]
+	record, ok := s.participants[key]
 	if !ok || record.AgreementID != agreementID {
-		return RecipientRecord{}, notFoundError("recipients", recipientID)
+		return RecipientRecord{}, notFoundError("participants", recipientID)
 	}
 	if expectedVersion > 0 && record.Version != expectedVersion {
-		return RecipientRecord{}, versionConflictError("recipients", recipientID, expectedVersion, record.Version)
+		return RecipientRecord{}, versionConflictError("participants", recipientID, expectedVersion, record.Version)
 	}
 	record.CompletedAt = cloneTimePtr(&completedAt)
 	record.UpdatedAt = time.Now().UTC()
 	record.Version++
-	s.recipients[key] = record
-	return record, nil
+	s.participants[key] = record
+	return participantToRecipient(record), nil
 }
 
 func (s *InMemoryStore) DeclineRecipient(ctx context.Context, scope Scope, agreementID, recipientID, reason string, declinedAt time.Time, expectedVersion int64) (RecipientRecord, error) {
@@ -646,13 +732,13 @@ func (s *InMemoryStore) DeclineRecipient(ctx context.Context, scope Scope, agree
 	recipientID = normalizeID(recipientID)
 	reason = strings.TrimSpace(reason)
 	if agreementID == "" {
-		return RecipientRecord{}, invalidRecordError("recipients", "agreement_id", "required")
+		return RecipientRecord{}, invalidRecordError("participants", "agreement_id", "required")
 	}
 	if recipientID == "" {
-		return RecipientRecord{}, invalidRecordError("recipients", "id", "required")
+		return RecipientRecord{}, invalidRecordError("participants", "id", "required")
 	}
 	if reason == "" {
-		return RecipientRecord{}, invalidRecordError("recipients", "decline_reason", "required")
+		return RecipientRecord{}, invalidRecordError("participants", "decline_reason", "required")
 	}
 	if declinedAt.IsZero() {
 		declinedAt = time.Now().UTC()
@@ -661,7 +747,6 @@ func (s *InMemoryStore) DeclineRecipient(ctx context.Context, scope Scope, agree
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
 	agreement, ok := s.agreements[scopedKey(scope, agreementID)]
 	if !ok {
 		return RecipientRecord{}, notFoundError("agreements", agreementID)
@@ -671,19 +756,19 @@ func (s *InMemoryStore) DeclineRecipient(ctx context.Context, scope Scope, agree
 	}
 
 	key := scopedKey(scope, recipientID)
-	record, ok := s.recipients[key]
+	record, ok := s.participants[key]
 	if !ok || record.AgreementID != agreementID {
-		return RecipientRecord{}, notFoundError("recipients", recipientID)
+		return RecipientRecord{}, notFoundError("participants", recipientID)
 	}
 	if expectedVersion > 0 && record.Version != expectedVersion {
-		return RecipientRecord{}, versionConflictError("recipients", recipientID, expectedVersion, record.Version)
+		return RecipientRecord{}, versionConflictError("participants", recipientID, expectedVersion, record.Version)
 	}
 	record.DeclinedAt = cloneTimePtr(&declinedAt)
 	record.DeclineReason = reason
 	record.UpdatedAt = time.Now().UTC()
 	record.Version++
-	s.recipients[key] = record
-	return record, nil
+	s.participants[key] = record
+	return participantToRecipient(record), nil
 }
 
 func isSupportedFieldType(fieldType string) bool {
@@ -701,181 +786,99 @@ func isSupportedFieldType(fieldType string) bool {
 }
 
 func (s *InMemoryStore) DeleteRecipientDraft(ctx context.Context, scope Scope, agreementID, recipientID string) error {
-	_ = ctx
-	scope, err := validateScope(scope)
-	if err != nil {
-		return err
-	}
-	agreementID = normalizeID(agreementID)
-	recipientID = normalizeID(recipientID)
-	if agreementID == "" {
-		return invalidRecordError("recipients", "agreement_id", "required")
-	}
-	if recipientID == "" {
-		return invalidRecordError("recipients", "id", "required")
-	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	agreement, ok := s.agreements[scopedKey(scope, agreementID)]
-	if !ok {
-		return notFoundError("agreements", agreementID)
-	}
-	if agreement.Status != AgreementStatusDraft {
-		return immutableAgreementError(agreementID, agreement.Status)
-	}
-
-	recipientKey := scopedKey(scope, recipientID)
-	record, exists := s.recipients[recipientKey]
-	if !exists || record.AgreementID != agreementID {
-		return notFoundError("recipients", recipientID)
-	}
-	delete(s.recipients, recipientKey)
-
-	for key, field := range s.fields {
-		if field.TenantID != scope.TenantID || field.OrgID != scope.OrgID {
-			continue
-		}
-		if field.AgreementID == agreementID && field.RecipientID == recipientID {
-			delete(s.fields, key)
-		}
-	}
-	for key, value := range s.fieldValues {
-		if value.TenantID != scope.TenantID || value.OrgID != scope.OrgID {
-			continue
-		}
-		if value.AgreementID == agreementID && value.RecipientID == recipientID {
-			delete(s.fieldValues, key)
-		}
-	}
-
-	return nil
+	return s.DeleteParticipantDraft(ctx, scope, agreementID, recipientID)
 }
 
-func (s *InMemoryStore) UpsertFieldDraft(ctx context.Context, scope Scope, agreementID string, patch FieldDraftPatch) (FieldRecord, error) {
+func (s *InMemoryStore) UpsertFieldDefinitionDraft(ctx context.Context, scope Scope, agreementID string, patch FieldDefinitionDraftPatch) (FieldDefinitionRecord, error) {
 	_ = ctx
 	scope, err := validateScope(scope)
 	if err != nil {
-		return FieldRecord{}, err
+		return FieldDefinitionRecord{}, err
 	}
 	agreementID = normalizeID(agreementID)
 	if agreementID == "" {
-		return FieldRecord{}, invalidRecordError("fields", "agreement_id", "required")
+		return FieldDefinitionRecord{}, invalidRecordError("field_definitions", "agreement_id", "required")
 	}
 
-	fieldID := normalizeID(patch.ID)
-	if fieldID == "" {
-		fieldID = uuid.NewString()
+	definitionID := normalizeID(patch.ID)
+	if definitionID == "" {
+		definitionID = uuid.NewString()
 	}
-	fieldKey := scopedKey(scope, fieldID)
+	key := scopedKey(scope, definitionID)
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
 	agreement, ok := s.agreements[scopedKey(scope, agreementID)]
 	if !ok {
-		return FieldRecord{}, notFoundError("agreements", agreementID)
+		return FieldDefinitionRecord{}, notFoundError("agreements", agreementID)
 	}
 	if agreement.Status != AgreementStatusDraft {
-		return FieldRecord{}, immutableAgreementError(agreementID, agreement.Status)
+		return FieldDefinitionRecord{}, immutableAgreementError(agreementID, agreement.Status)
 	}
 
-	record, exists := s.fields[fieldKey]
+	record, exists := s.fieldDefinitions[key]
 	if !exists {
-		record = FieldRecord{
-			ID:          fieldID,
-			TenantID:    scope.TenantID,
-			OrgID:       scope.OrgID,
-			AgreementID: agreementID,
-			Type:        FieldTypeText,
-			PageNumber:  1,
-			PosX:        0,
-			PosY:        0,
-			Width:       150,
-			Height:      32,
-			Required:    false,
-			CreatedAt:   time.Now().UTC(),
+		record = FieldDefinitionRecord{
+			ID:             definitionID,
+			TenantID:       scope.TenantID,
+			OrgID:          scope.OrgID,
+			AgreementID:    agreementID,
+			Type:           FieldTypeText,
+			Required:       false,
+			ValidationJSON: "",
+			CreatedAt:      time.Now().UTC(),
 		}
+	}
+	if patch.ParticipantID != nil {
+		record.ParticipantID = normalizeID(*patch.ParticipantID)
 	}
 	if patch.Type != nil {
 		record.Type = strings.TrimSpace(*patch.Type)
 	}
-	if patch.RecipientID != nil {
-		record.RecipientID = normalizeID(*patch.RecipientID)
-	}
-	if patch.PageNumber != nil {
-		record.PageNumber = *patch.PageNumber
-	}
-	if patch.PosX != nil {
-		record.PosX = *patch.PosX
-	}
-	if patch.PosY != nil {
-		record.PosY = *patch.PosY
-	}
-	if patch.Width != nil {
-		record.Width = *patch.Width
-	}
-	if patch.Height != nil {
-		record.Height = *patch.Height
-	}
 	if patch.Required != nil {
 		record.Required = *patch.Required
 	}
+	if patch.ValidationJSON != nil {
+		record.ValidationJSON = strings.TrimSpace(*patch.ValidationJSON)
+	}
 	if record.Type == FieldTypeDateSigned {
-		// date_signed is always system-managed and required for signer completion.
 		record.Required = true
 	}
-
 	if !isSupportedFieldType(record.Type) {
-		return FieldRecord{}, invalidRecordError("fields", "field_type", "unsupported type")
+		return FieldDefinitionRecord{}, invalidRecordError("field_definitions", "field_type", "unsupported type")
 	}
-	if record.PageNumber <= 0 {
-		return FieldRecord{}, invalidRecordError("fields", "page_number", "must be positive")
+	if record.ParticipantID == "" {
+		return FieldDefinitionRecord{}, invalidRecordError("field_definitions", "participant_id", "required")
 	}
-	if record.Width <= 0 || record.Height <= 0 {
-		return FieldRecord{}, invalidRecordError("fields", "width|height", "must be positive")
+	participant, ok := s.participants[scopedKey(scope, record.ParticipantID)]
+	if !ok || participant.AgreementID != agreementID {
+		return FieldDefinitionRecord{}, notFoundError("participants", record.ParticipantID)
 	}
-	requiresSignerRecipient := record.Type == FieldTypeSignature ||
-		record.Type == FieldTypeName ||
-		record.Type == FieldTypeDateSigned ||
-		record.Type == FieldTypeInitials
-	if requiresSignerRecipient && record.RecipientID == "" {
-		return FieldRecord{}, invalidRecordError("fields", "recipient_id", "required for signer-bound field type")
+	if participant.Role != RecipientRoleSigner {
+		return FieldDefinitionRecord{}, invalidSignerStateError("field definitions cannot target cc participants")
 	}
-	if record.RecipientID != "" {
-		recipient, ok := s.recipients[scopedKey(scope, record.RecipientID)]
-		if !ok || recipient.AgreementID != agreementID {
-			return FieldRecord{}, notFoundError("recipients", record.RecipientID)
-		}
-		if recipient.Role == RecipientRoleCC {
-			return FieldRecord{}, invalidSignerStateError("fields cannot be assigned to cc recipients")
-		}
-	}
-
 	record.UpdatedAt = time.Now().UTC()
-	s.fields[fieldKey] = record
+	s.fieldDefinitions[key] = record
 	return record, nil
 }
 
-func (s *InMemoryStore) DeleteFieldDraft(ctx context.Context, scope Scope, agreementID, fieldID string) error {
+func (s *InMemoryStore) DeleteFieldDefinitionDraft(ctx context.Context, scope Scope, agreementID, fieldDefinitionID string) error {
 	_ = ctx
 	scope, err := validateScope(scope)
 	if err != nil {
 		return err
 	}
 	agreementID = normalizeID(agreementID)
-	fieldID = normalizeID(fieldID)
+	fieldDefinitionID = normalizeID(fieldDefinitionID)
 	if agreementID == "" {
-		return invalidRecordError("fields", "agreement_id", "required")
+		return invalidRecordError("field_definitions", "agreement_id", "required")
 	}
-	if fieldID == "" {
-		return invalidRecordError("fields", "id", "required")
+	if fieldDefinitionID == "" {
+		return invalidRecordError("field_definitions", "id", "required")
 	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
 	agreement, ok := s.agreements[scopedKey(scope, agreementID)]
 	if !ok {
 		return notFoundError("agreements", agreementID)
@@ -883,26 +886,32 @@ func (s *InMemoryStore) DeleteFieldDraft(ctx context.Context, scope Scope, agree
 	if agreement.Status != AgreementStatusDraft {
 		return immutableAgreementError(agreementID, agreement.Status)
 	}
-
-	field, exists := s.fields[scopedKey(scope, fieldID)]
-	if !exists || field.AgreementID != agreementID {
-		return notFoundError("fields", fieldID)
+	key := scopedKey(scope, fieldDefinitionID)
+	record, ok := s.fieldDefinitions[key]
+	if !ok || record.AgreementID != agreementID {
+		return notFoundError("field_definitions", fieldDefinitionID)
 	}
-	delete(s.fields, scopedKey(scope, fieldID))
-
-	for key, value := range s.fieldValues {
-		if value.TenantID != scope.TenantID || value.OrgID != scope.OrgID {
+	delete(s.fieldDefinitions, key)
+	for instanceKey, instance := range s.fieldInstances {
+		if instance.TenantID != scope.TenantID || instance.OrgID != scope.OrgID {
 			continue
 		}
-		if value.AgreementID == agreementID && value.FieldID == fieldID {
-			delete(s.fieldValues, key)
+		if instance.AgreementID == agreementID && instance.FieldDefinitionID == fieldDefinitionID {
+			delete(s.fieldInstances, instanceKey)
+			for valueKey, value := range s.fieldValues {
+				if value.TenantID != scope.TenantID || value.OrgID != scope.OrgID {
+					continue
+				}
+				if value.AgreementID == agreementID && value.FieldID == instance.ID {
+					delete(s.fieldValues, valueKey)
+				}
+			}
 		}
 	}
-
 	return nil
 }
 
-func (s *InMemoryStore) ListFields(ctx context.Context, scope Scope, agreementID string) ([]FieldRecord, error) {
+func (s *InMemoryStore) ListFieldDefinitions(ctx context.Context, scope Scope, agreementID string) ([]FieldDefinitionRecord, error) {
 	_ = ctx
 	scope, err := validateScope(scope)
 	if err != nil {
@@ -910,21 +919,293 @@ func (s *InMemoryStore) ListFields(ctx context.Context, scope Scope, agreementID
 	}
 	agreementID = normalizeID(agreementID)
 	if agreementID == "" {
-		return nil, invalidRecordError("fields", "agreement_id", "required")
+		return nil, invalidRecordError("field_definitions", "agreement_id", "required")
 	}
 
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+	out := make([]FieldDefinitionRecord, 0)
+	for _, record := range s.fieldDefinitions {
+		if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
+			continue
+		}
+		if record.AgreementID != agreementID {
+			continue
+		}
+		out = append(out, record)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].CreatedAt.Before(out[j].CreatedAt)
+	})
+	return out, nil
+}
 
-	out := make([]FieldRecord, 0)
-	for _, field := range s.fields {
-		if field.TenantID != scope.TenantID || field.OrgID != scope.OrgID {
+func (s *InMemoryStore) UpsertFieldInstanceDraft(ctx context.Context, scope Scope, agreementID string, patch FieldInstanceDraftPatch) (FieldInstanceRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return FieldInstanceRecord{}, err
+	}
+	agreementID = normalizeID(agreementID)
+	if agreementID == "" {
+		return FieldInstanceRecord{}, invalidRecordError("field_instances", "agreement_id", "required")
+	}
+	instanceID := normalizeID(patch.ID)
+	if instanceID == "" {
+		instanceID = uuid.NewString()
+	}
+	key := scopedKey(scope, instanceID)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	agreement, ok := s.agreements[scopedKey(scope, agreementID)]
+	if !ok {
+		return FieldInstanceRecord{}, notFoundError("agreements", agreementID)
+	}
+	if agreement.Status != AgreementStatusDraft {
+		return FieldInstanceRecord{}, immutableAgreementError(agreementID, agreement.Status)
+	}
+
+	record, exists := s.fieldInstances[key]
+	if !exists {
+		record = FieldInstanceRecord{
+			ID:          instanceID,
+			TenantID:    scope.TenantID,
+			OrgID:       scope.OrgID,
+			AgreementID: agreementID,
+			PageNumber:  1,
+			Width:       150,
+			Height:      32,
+			TabIndex:    0,
+			CreatedAt:   time.Now().UTC(),
+		}
+	}
+	if patch.FieldDefinitionID != nil {
+		record.FieldDefinitionID = normalizeID(*patch.FieldDefinitionID)
+	}
+	if patch.PageNumber != nil {
+		record.PageNumber = *patch.PageNumber
+	}
+	if patch.X != nil {
+		record.X = *patch.X
+	}
+	if patch.Y != nil {
+		record.Y = *patch.Y
+	}
+	if patch.Width != nil {
+		record.Width = *patch.Width
+	}
+	if patch.Height != nil {
+		record.Height = *patch.Height
+	}
+	if patch.TabIndex != nil {
+		record.TabIndex = *patch.TabIndex
+	}
+	if patch.Label != nil {
+		record.Label = strings.TrimSpace(*patch.Label)
+	}
+	if patch.AppearanceJSON != nil {
+		record.AppearanceJSON = strings.TrimSpace(*patch.AppearanceJSON)
+	}
+	if record.FieldDefinitionID == "" {
+		return FieldInstanceRecord{}, invalidRecordError("field_instances", "field_definition_id", "required")
+	}
+	definition, ok := s.fieldDefinitions[scopedKey(scope, record.FieldDefinitionID)]
+	if !ok || definition.AgreementID != agreementID {
+		return FieldInstanceRecord{}, notFoundError("field_definitions", record.FieldDefinitionID)
+	}
+	if record.PageNumber <= 0 {
+		return FieldInstanceRecord{}, invalidRecordError("field_instances", "page_number", "must be positive")
+	}
+	if record.Width <= 0 || record.Height <= 0 {
+		return FieldInstanceRecord{}, invalidRecordError("field_instances", "width|height", "must be positive")
+	}
+	record.UpdatedAt = time.Now().UTC()
+	s.fieldInstances[key] = record
+	return record, nil
+}
+
+func (s *InMemoryStore) DeleteFieldInstanceDraft(ctx context.Context, scope Scope, agreementID, fieldInstanceID string) error {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return err
+	}
+	agreementID = normalizeID(agreementID)
+	fieldInstanceID = normalizeID(fieldInstanceID)
+	if agreementID == "" {
+		return invalidRecordError("field_instances", "agreement_id", "required")
+	}
+	if fieldInstanceID == "" {
+		return invalidRecordError("field_instances", "id", "required")
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	agreement, ok := s.agreements[scopedKey(scope, agreementID)]
+	if !ok {
+		return notFoundError("agreements", agreementID)
+	}
+	if agreement.Status != AgreementStatusDraft {
+		return immutableAgreementError(agreementID, agreement.Status)
+	}
+	key := scopedKey(scope, fieldInstanceID)
+	instance, ok := s.fieldInstances[key]
+	if !ok || instance.AgreementID != agreementID {
+		return notFoundError("field_instances", fieldInstanceID)
+	}
+	delete(s.fieldInstances, key)
+	for valueKey, value := range s.fieldValues {
+		if value.TenantID != scope.TenantID || value.OrgID != scope.OrgID {
 			continue
 		}
-		if field.AgreementID != agreementID {
+		if value.AgreementID == agreementID && value.FieldID == fieldInstanceID {
+			delete(s.fieldValues, valueKey)
+		}
+	}
+	remaining := 0
+	for _, check := range s.fieldInstances {
+		if check.TenantID != scope.TenantID || check.OrgID != scope.OrgID {
 			continue
 		}
-		out = append(out, field)
+		if check.AgreementID == agreementID && check.FieldDefinitionID == instance.FieldDefinitionID {
+			remaining++
+			break
+		}
+	}
+	if remaining == 0 {
+		delete(s.fieldDefinitions, scopedKey(scope, instance.FieldDefinitionID))
+	}
+	return nil
+}
+
+func (s *InMemoryStore) ListFieldInstances(ctx context.Context, scope Scope, agreementID string) ([]FieldInstanceRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return nil, err
+	}
+	agreementID = normalizeID(agreementID)
+	if agreementID == "" {
+		return nil, invalidRecordError("field_instances", "agreement_id", "required")
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make([]FieldInstanceRecord, 0)
+	for _, record := range s.fieldInstances {
+		if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
+			continue
+		}
+		if record.AgreementID != agreementID {
+			continue
+		}
+		out = append(out, record)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].PageNumber == out[j].PageNumber {
+			if out[i].TabIndex == out[j].TabIndex {
+				return out[i].CreatedAt.Before(out[j].CreatedAt)
+			}
+			return out[i].TabIndex < out[j].TabIndex
+		}
+		return out[i].PageNumber < out[j].PageNumber
+	})
+	return out, nil
+}
+
+func (s *InMemoryStore) UpsertFieldDraft(ctx context.Context, scope Scope, agreementID string, patch FieldDraftPatch) (FieldRecord, error) {
+	fieldID := normalizeID(patch.ID)
+	definitionID := fieldID
+	if fieldID != "" {
+		if instances, err := s.ListFieldInstances(ctx, scope, agreementID); err == nil {
+			for _, instance := range instances {
+				if instance.ID == fieldID {
+					definitionID = instance.FieldDefinitionID
+					break
+				}
+			}
+		}
+	}
+	definitionPatch := FieldDefinitionDraftPatch{
+		ID:            definitionID,
+		ParticipantID: patch.RecipientID,
+		Type:          patch.Type,
+		Required:      patch.Required,
+	}
+	definition, err := s.UpsertFieldDefinitionDraft(ctx, scope, agreementID, definitionPatch)
+	if err != nil {
+		return FieldRecord{}, err
+	}
+
+	instancePatch := FieldInstanceDraftPatch{
+		ID:                fieldID,
+		FieldDefinitionID: &definition.ID,
+		PageNumber:        patch.PageNumber,
+		X:                 patch.PosX,
+		Y:                 patch.PosY,
+		Width:             patch.Width,
+		Height:            patch.Height,
+	}
+	instance, err := s.UpsertFieldInstanceDraft(ctx, scope, agreementID, instancePatch)
+	if err != nil {
+		return FieldRecord{}, err
+	}
+	return FieldRecord{
+		ID:          instance.ID,
+		TenantID:    scope.TenantID,
+		OrgID:       scope.OrgID,
+		AgreementID: agreementID,
+		RecipientID: definition.ParticipantID,
+		Type:        definition.Type,
+		PageNumber:  instance.PageNumber,
+		PosX:        instance.X,
+		PosY:        instance.Y,
+		Width:       instance.Width,
+		Height:      instance.Height,
+		Required:    definition.Required,
+		CreatedAt:   instance.CreatedAt,
+		UpdatedAt:   instance.UpdatedAt,
+	}, nil
+}
+
+func (s *InMemoryStore) DeleteFieldDraft(ctx context.Context, scope Scope, agreementID, fieldID string) error {
+	return s.DeleteFieldInstanceDraft(ctx, scope, agreementID, fieldID)
+}
+
+func (s *InMemoryStore) ListFields(ctx context.Context, scope Scope, agreementID string) ([]FieldRecord, error) {
+	definitions, err := s.ListFieldDefinitions(ctx, scope, agreementID)
+	if err != nil {
+		return nil, err
+	}
+	instances, err := s.ListFieldInstances(ctx, scope, agreementID)
+	if err != nil {
+		return nil, err
+	}
+	defByID := make(map[string]FieldDefinitionRecord, len(definitions))
+	for _, definition := range definitions {
+		defByID[definition.ID] = definition
+	}
+	out := make([]FieldRecord, 0, len(instances))
+	for _, instance := range instances {
+		definition, ok := defByID[instance.FieldDefinitionID]
+		if !ok {
+			continue
+		}
+		out = append(out, FieldRecord{
+			ID:          instance.ID,
+			TenantID:    instance.TenantID,
+			OrgID:       instance.OrgID,
+			AgreementID: instance.AgreementID,
+			RecipientID: definition.ParticipantID,
+			Type:        definition.Type,
+			PageNumber:  instance.PageNumber,
+			PosX:        instance.X,
+			PosY:        instance.Y,
+			Width:       instance.Width,
+			Height:      instance.Height,
+			Required:    definition.Required,
+			CreatedAt:   instance.CreatedAt,
+			UpdatedAt:   instance.UpdatedAt,
+		})
 	}
 	sort.Slice(out, func(i, j int) bool {
 		if out[i].PageNumber == out[j].PageNumber {
@@ -1101,9 +1382,9 @@ func (s *InMemoryStore) CreateSignatureArtifact(ctx context.Context, scope Scope
 	if agreement.TenantID != scope.TenantID || agreement.OrgID != scope.OrgID {
 		return SignatureArtifactRecord{}, scopeDeniedError()
 	}
-	recipient, ok := s.recipients[scopedKey(scope, record.RecipientID)]
+	recipient, ok := s.participants[scopedKey(scope, record.RecipientID)]
 	if !ok {
-		return SignatureArtifactRecord{}, notFoundError("recipients", record.RecipientID)
+		return SignatureArtifactRecord{}, notFoundError("participants", record.RecipientID)
 	}
 	if recipient.AgreementID != record.AgreementID {
 		return SignatureArtifactRecord{}, invalidRecordError("signature_artifacts", "recipient_id", "recipient does not belong to agreement")

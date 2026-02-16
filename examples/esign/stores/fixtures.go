@@ -14,6 +14,9 @@ type FixtureSet struct {
 	DocumentID              string
 	AgreementID             string
 	RecipientID             string
+	ParticipantID           string
+	FieldDefinitionID       string
+	FieldInstanceID         string
 	SigningTokenID          string
 	FieldID                 string
 	FieldValueID            string
@@ -41,6 +44,9 @@ func SeedCoreFixtures(ctx context.Context, db *bun.DB, scope Scope) (FixtureSet,
 		DocumentID:              uuid.NewString(),
 		AgreementID:             uuid.NewString(),
 		RecipientID:             uuid.NewString(),
+		ParticipantID:           uuid.NewString(),
+		FieldDefinitionID:       uuid.NewString(),
+		FieldInstanceID:         uuid.NewString(),
 		SigningTokenID:          uuid.NewString(),
 		FieldID:                 uuid.NewString(),
 		FieldValueID:            uuid.NewString(),
@@ -72,6 +78,13 @@ VALUES (?, ?, ?, ?, ?, ?, 'signer', 1, ?, ?, '', 1, ?, ?)
 	}
 
 	if _, err := db.ExecContext(ctx, `
+INSERT INTO participants (id, tenant_id, org_id, agreement_id, email, name, role, signing_stage, first_view_at, last_view_at, decline_reason, version, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, 'signer', 1, ?, ?, '', 1, ?, ?)
+`, fx.ParticipantID, scope.TenantID, scope.OrgID, fx.AgreementID, "participant@example.com", "Fixture Participant", now, now, now, now); err != nil {
+		return FixtureSet{}, err
+	}
+
+	if _, err := db.ExecContext(ctx, `
 INSERT INTO signing_tokens (id, tenant_id, org_id, agreement_id, recipient_id, token_hash, status, expires_at, created_at)
 VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?)
 `, fx.SigningTokenID, scope.TenantID, scope.OrgID, fx.AgreementID, fx.RecipientID, strings.Repeat("b", 64), now.Add(24*time.Hour), now); err != nil {
@@ -82,6 +95,20 @@ VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?)
 INSERT INTO fields (id, tenant_id, org_id, agreement_id, recipient_id, field_type, page_number, pos_x, pos_y, width, height, required, created_at, updated_at)
 VALUES (?, ?, ?, ?, ?, 'signature', 1, 10, 10, 100, 40, 1, ?, ?)
 `, fx.FieldID, scope.TenantID, scope.OrgID, fx.AgreementID, fx.RecipientID, now, now); err != nil {
+		return FixtureSet{}, err
+	}
+
+	if _, err := db.ExecContext(ctx, `
+INSERT INTO field_definitions (id, tenant_id, org_id, agreement_id, participant_id, field_type, required, validation_json, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, 'signature', 1, '', ?, ?)
+`, fx.FieldDefinitionID, scope.TenantID, scope.OrgID, fx.AgreementID, fx.ParticipantID, now, now); err != nil {
+		return FixtureSet{}, err
+	}
+
+	if _, err := db.ExecContext(ctx, `
+INSERT INTO field_instances (id, tenant_id, org_id, agreement_id, field_definition_id, page_number, x, y, width, height, tab_index, label, appearance_json, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, 1, 10, 10, 100, 40, 0, '', '', ?, ?)
+`, fx.FieldInstanceID, scope.TenantID, scope.OrgID, fx.AgreementID, fx.FieldDefinitionID, now, now); err != nil {
 		return FixtureSet{}, err
 	}
 

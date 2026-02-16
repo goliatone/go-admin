@@ -276,25 +276,27 @@ func (s AgreementService) UpsertRecipientDraft(ctx context.Context, scope stores
 		return stores.RecipientRecord{}, domainValidationError("recipients", "store", "not configured")
 	}
 
-	recipients, err := s.agreements.ListRecipients(ctx, scope, agreementID)
+	participants, err := s.agreements.ListParticipants(ctx, scope, agreementID)
 	if err != nil {
 		return stores.RecipientRecord{}, err
 	}
-	if err := validateRecipientSet(simulateRecipientUpsert(recipients, patch)); err != nil {
+	participantPatch := participantPatchFromRecipientPatch(patch)
+	if err := validateParticipantSet(simulateParticipantUpsert(participants, participantPatch)); err != nil {
 		return stores.RecipientRecord{}, err
 	}
-	recipient, err := s.agreements.UpsertRecipientDraft(ctx, scope, agreementID, patch, expectedVersion)
+	participant, err := s.agreements.UpsertParticipantDraft(ctx, scope, agreementID, participantPatch, expectedVersion)
 	if err != nil {
 		return stores.RecipientRecord{}, err
 	}
 	if err := s.appendAuditEvent(ctx, scope, agreementID, "agreement.recipient_upserted", "system", "", map[string]any{
-		"recipient_id":  recipient.ID,
-		"role":          recipient.Role,
-		"signing_order": recipient.SigningOrder,
+		"participant_id": participant.ID,
+		"recipient_id":   participant.ID,
+		"role":           participant.Role,
+		"signing_stage":  participant.SigningStage,
 	}); err != nil {
 		return stores.RecipientRecord{}, err
 	}
-	return recipient, nil
+	return recipientFromParticipant(participant), nil
 }
 
 // RemoveRecipientDraft removes a draft recipient and enforces recipient constraints.
@@ -302,18 +304,19 @@ func (s AgreementService) RemoveRecipientDraft(ctx context.Context, scope stores
 	if s.agreements == nil {
 		return domainValidationError("recipients", "store", "not configured")
 	}
-	recipients, err := s.agreements.ListRecipients(ctx, scope, agreementID)
+	participants, err := s.agreements.ListParticipants(ctx, scope, agreementID)
 	if err != nil {
 		return err
 	}
-	if err := validateRecipientSet(simulateRecipientDelete(recipients, recipientID)); err != nil {
+	if err := validateParticipantSet(simulateParticipantDelete(participants, recipientID)); err != nil {
 		return err
 	}
-	if err := s.agreements.DeleteRecipientDraft(ctx, scope, agreementID, recipientID); err != nil {
+	if err := s.agreements.DeleteParticipantDraft(ctx, scope, agreementID, recipientID); err != nil {
 		return err
 	}
 	return s.appendAuditEvent(ctx, scope, agreementID, "agreement.recipient_removed", "system", "", map[string]any{
-		"recipient_id": strings.TrimSpace(recipientID),
+		"participant_id": strings.TrimSpace(recipientID),
+		"recipient_id":   strings.TrimSpace(recipientID),
 	})
 }
 
@@ -322,14 +325,65 @@ func (s AgreementService) UpsertFieldDraft(ctx context.Context, scope stores.Sco
 	if s.agreements == nil {
 		return stores.FieldRecord{}, domainValidationError("fields", "store", "not configured")
 	}
-	field, err := s.agreements.UpsertFieldDraft(ctx, scope, agreementID, patch)
+	fieldID := strings.TrimSpace(patch.ID)
+	definitionID := fieldID
+	if fieldID != "" {
+		instances, err := s.agreements.ListFieldInstances(ctx, scope, agreementID)
+		if err == nil {
+			for _, instance := range instances {
+				if instance.ID == fieldID {
+					definitionID = instance.FieldDefinitionID
+					break
+				}
+			}
+		}
+	}
+	definitionPatch := stores.FieldDefinitionDraftPatch{
+		ID:            definitionID,
+		ParticipantID: patch.RecipientID,
+		Type:          patch.Type,
+		Required:      patch.Required,
+	}
+	definition, err := s.agreements.UpsertFieldDefinitionDraft(ctx, scope, agreementID, definitionPatch)
 	if err != nil {
 		return stores.FieldRecord{}, err
 	}
+	instancePatch := stores.FieldInstanceDraftPatch{
+		ID:                fieldID,
+		FieldDefinitionID: &definition.ID,
+		PageNumber:        patch.PageNumber,
+		X:                 patch.PosX,
+		Y:                 patch.PosY,
+		Width:             patch.Width,
+		Height:            patch.Height,
+	}
+	instance, err := s.agreements.UpsertFieldInstanceDraft(ctx, scope, agreementID, instancePatch)
+	if err != nil {
+		return stores.FieldRecord{}, err
+	}
+	field := stores.FieldRecord{
+		ID:          instance.ID,
+		TenantID:    instance.TenantID,
+		OrgID:       instance.OrgID,
+		AgreementID: instance.AgreementID,
+		RecipientID: definition.ParticipantID,
+		Type:        definition.Type,
+		PageNumber:  instance.PageNumber,
+		PosX:        instance.X,
+		PosY:        instance.Y,
+		Width:       instance.Width,
+		Height:      instance.Height,
+		Required:    definition.Required,
+		CreatedAt:   instance.CreatedAt,
+		UpdatedAt:   instance.UpdatedAt,
+	}
 	if err := s.appendAuditEvent(ctx, scope, agreementID, "agreement.field_upserted", "system", "", map[string]any{
-		"field_id":     field.ID,
-		"field_type":   field.Type,
-		"recipient_id": field.RecipientID,
+		"field_definition_id": definition.ID,
+		"field_instance_id":   instance.ID,
+		"field_id":            field.ID,
+		"field_type":          field.Type,
+		"participant_id":      definition.ParticipantID,
+		"recipient_id":        field.RecipientID,
 	}); err != nil {
 		return stores.FieldRecord{}, err
 	}
@@ -341,11 +395,12 @@ func (s AgreementService) DeleteFieldDraft(ctx context.Context, scope stores.Sco
 	if s.agreements == nil {
 		return domainValidationError("fields", "store", "not configured")
 	}
-	if err := s.agreements.DeleteFieldDraft(ctx, scope, agreementID, fieldID); err != nil {
+	if err := s.agreements.DeleteFieldInstanceDraft(ctx, scope, agreementID, fieldID); err != nil {
 		return err
 	}
 	return s.appendAuditEvent(ctx, scope, agreementID, "agreement.field_deleted", "system", "", map[string]any{
-		"field_id": strings.TrimSpace(fieldID),
+		"field_instance_id": strings.TrimSpace(fieldID),
+		"field_id":          strings.TrimSpace(fieldID),
 	})
 }
 
@@ -368,85 +423,128 @@ func (s AgreementService) ValidateBeforeSend(ctx context.Context, scope stores.S
 		})
 	}
 
-	recipients, err := s.agreements.ListRecipients(ctx, scope, agreementID)
+	participants, err := s.agreements.ListParticipants(ctx, scope, agreementID)
 	if err != nil {
 		return AgreementValidationResult{}, err
 	}
-	fields, err := s.agreements.ListFields(ctx, scope, agreementID)
+	definitions, err := s.agreements.ListFieldDefinitions(ctx, scope, agreementID)
 	if err != nil {
 		return AgreementValidationResult{}, err
 	}
-	issues = append(issues, recipientValidationIssues(recipients)...)
+	instances, err := s.agreements.ListFieldInstances(ctx, scope, agreementID)
+	if err != nil {
+		return AgreementValidationResult{}, err
+	}
+	issues = append(issues, participantValidationIssues(participants)...)
 
-	if len(fields) == 0 {
+	if len(definitions) == 0 {
 		issues = append(issues, ValidationIssue{
 			Code:    string(ErrorCodeMissingRequiredFields),
-			Field:   "fields",
-			Message: "at least one field is required",
+			Field:   "field_definitions",
+			Message: "at least one field definition is required",
+		})
+	}
+	if len(instances) == 0 {
+		issues = append(issues, ValidationIssue{
+			Code:    string(ErrorCodeMissingRequiredFields),
+			Field:   "field_instances",
+			Message: "at least one field instance is required",
 		})
 	}
 
-	signers := map[string]stores.RecipientRecord{}
-	for _, rec := range recipients {
-		if rec.Role == stores.RecipientRoleSigner {
-			signers[rec.ID] = rec
+	signers := map[string]stores.ParticipantRecord{}
+	for _, participant := range participants {
+		if participant.Role == stores.RecipientRoleSigner {
+			signers[participant.ID] = participant
 		}
 	}
 
-	requiredSignatureBySigner := map[string]bool{}
-	for _, field := range fields {
-		if !isV1FieldType(field.Type) {
+	instancesByDefinition := make(map[string]int, len(instances))
+	definitionByID := make(map[string]stores.FieldDefinitionRecord, len(definitions))
+	for _, definition := range definitions {
+		definitionByID[definition.ID] = definition
+	}
+	for _, instance := range instances {
+		if instance.PageNumber <= 0 || instance.Width <= 0 || instance.Height <= 0 {
 			issues = append(issues, ValidationIssue{
 				Code:    string(ErrorCodeMissingRequiredFields),
-				Field:   "fields.field_type",
+				Field:   "field_instances.geometry",
+				Message: "field instance geometry must be positive and page_number must be > 0",
+			})
+			continue
+		}
+		if _, ok := definitionByID[instance.FieldDefinitionID]; !ok {
+			issues = append(issues, ValidationIssue{
+				Code:    string(ErrorCodeMissingRequiredFields),
+				Field:   "field_instances.field_definition_id",
+				Message: "field instance references missing field definition",
+			})
+			continue
+		}
+		instancesByDefinition[instance.FieldDefinitionID]++
+	}
+
+	requiredSignatureBySigner := map[string]bool{}
+	for _, definition := range definitions {
+		if !isV1FieldType(definition.Type) {
+			issues = append(issues, ValidationIssue{
+				Code:    string(ErrorCodeMissingRequiredFields),
+				Field:   "field_definitions.field_type",
 				Message: "unsupported field type",
 			})
 			continue
 		}
-		if field.Type == stores.FieldTypeDateSigned {
-			if !field.Required {
+		if definition.Type == stores.FieldTypeDateSigned {
+			if !definition.Required {
 				issues = append(issues, ValidationIssue{
 					Code:    string(ErrorCodeInvalidSignerState),
-					Field:   "fields.date_signed.required",
+					Field:   "field_definitions.date_signed.required",
 					Message: "date_signed fields must be required and system-managed",
 				})
 			}
-			if strings.TrimSpace(field.RecipientID) == "" {
+			if strings.TrimSpace(definition.ParticipantID) == "" {
 				issues = append(issues, ValidationIssue{
 					Code:    string(ErrorCodeMissingRequiredFields),
-					Field:   "fields.date_signed.recipient_id",
+					Field:   "field_definitions.date_signed.participant_id",
 					Message: "date_signed fields must target a signer",
 				})
 			}
 		}
-		if field.Required && strings.TrimSpace(field.RecipientID) == "" {
+		if strings.TrimSpace(definition.ParticipantID) == "" {
 			issues = append(issues, ValidationIssue{
 				Code:    string(ErrorCodeMissingRequiredFields),
-				Field:   "fields.recipient_id",
-				Message: "required fields must be assigned to a signer",
+				Field:   "field_definitions.participant_id",
+				Message: "field definitions must be assigned to a signer participant",
 			})
 			continue
 		}
-		if strings.TrimSpace(field.RecipientID) != "" {
-			recipient, ok := signers[field.RecipientID]
+		if strings.TrimSpace(definition.ParticipantID) != "" {
+			participant, ok := signers[definition.ParticipantID]
 			if !ok {
 				issues = append(issues, ValidationIssue{
 					Code:    string(ErrorCodeInvalidSignerState),
-					Field:   "fields.recipient_id",
-					Message: "field recipient must be a signer",
+					Field:   "field_definitions.participant_id",
+					Message: "field definition participant must be a signer",
 				})
 				continue
 			}
-			if recipient.Role != stores.RecipientRoleSigner {
+			if participant.Role != stores.RecipientRoleSigner {
 				issues = append(issues, ValidationIssue{
 					Code:    string(ErrorCodeInvalidSignerState),
-					Field:   "fields.recipient_id",
-					Message: "field recipient must be a signer",
+					Field:   "field_definitions.participant_id",
+					Message: "field definition participant must be a signer",
 				})
 			}
 		}
-		if field.Required && field.Type == stores.FieldTypeSignature && strings.TrimSpace(field.RecipientID) != "" {
-			requiredSignatureBySigner[field.RecipientID] = true
+		if definition.Required && instancesByDefinition[definition.ID] == 0 {
+			issues = append(issues, ValidationIssue{
+				Code:    string(ErrorCodeMissingRequiredFields),
+				Field:   "field_instances",
+				Message: "required field definition must include at least one valid instance placement",
+			})
+		}
+		if definition.Required && definition.Type == stores.FieldTypeSignature && strings.TrimSpace(definition.ParticipantID) != "" && instancesByDefinition[definition.ID] > 0 {
+			requiredSignatureBySigner[definition.ParticipantID] = true
 		}
 	}
 
@@ -454,7 +552,7 @@ func (s AgreementService) ValidateBeforeSend(ctx context.Context, scope stores.S
 		if !requiredSignatureBySigner[signerID] {
 			issues = append(issues, ValidationIssue{
 				Code:    string(ErrorCodeMissingRequiredFields),
-				Field:   "fields.signature",
+				Field:   "field_definitions.signature",
 				Message: "each signer requires at least one required signature field",
 			})
 		}
@@ -462,8 +560,8 @@ func (s AgreementService) ValidateBeforeSend(ctx context.Context, scope stores.S
 
 	return AgreementValidationResult{
 		Valid:          len(issues) == 0,
-		RecipientCount: len(recipients),
-		FieldCount:     len(fields),
+		RecipientCount: len(participants),
+		FieldCount:     len(instances),
 		Issues:         issues,
 	}, nil
 }
@@ -811,21 +909,55 @@ func (s AgreementService) CompletionDeliveryRecipients(ctx context.Context, scop
 	return out, nil
 }
 
-func simulateRecipientUpsert(current []stores.RecipientRecord, patch stores.RecipientDraftPatch) []stores.RecipientRecord {
-	next := make([]stores.RecipientRecord, len(current))
+func participantPatchFromRecipientPatch(patch stores.RecipientDraftPatch) stores.ParticipantDraftPatch {
+	out := stores.ParticipantDraftPatch{
+		ID:    patch.ID,
+		Email: patch.Email,
+		Name:  patch.Name,
+		Role:  patch.Role,
+	}
+	if patch.SigningOrder != nil {
+		out.SigningStage = patch.SigningOrder
+	}
+	return out
+}
+
+func recipientFromParticipant(record stores.ParticipantRecord) stores.RecipientRecord {
+	return stores.RecipientRecord{
+		ID:            record.ID,
+		TenantID:      record.TenantID,
+		OrgID:         record.OrgID,
+		AgreementID:   record.AgreementID,
+		Email:         record.Email,
+		Name:          record.Name,
+		Role:          record.Role,
+		SigningOrder:  record.SigningStage,
+		FirstViewAt:   record.FirstViewAt,
+		LastViewAt:    record.LastViewAt,
+		DeclinedAt:    record.DeclinedAt,
+		DeclineReason: record.DeclineReason,
+		CompletedAt:   record.CompletedAt,
+		Version:       record.Version,
+		CreatedAt:     record.CreatedAt,
+		UpdatedAt:     record.UpdatedAt,
+	}
+}
+
+func simulateParticipantUpsert(current []stores.ParticipantRecord, patch stores.ParticipantDraftPatch) []stores.ParticipantRecord {
+	next := make([]stores.ParticipantRecord, len(current))
 	copy(next, current)
 
-	recipientID := strings.TrimSpace(patch.ID)
+	participantID := strings.TrimSpace(patch.ID)
 	idx := -1
 	for i, rec := range next {
-		if strings.TrimSpace(rec.ID) == recipientID && recipientID != "" {
+		if strings.TrimSpace(rec.ID) == participantID && participantID != "" {
 			idx = i
 			break
 		}
 	}
 
 	if idx == -1 {
-		next = append(next, stores.RecipientRecord{ID: recipientID})
+		next = append(next, stores.ParticipantRecord{ID: participantID})
 		idx = len(next) - 1
 	}
 	rec := next[idx]
@@ -838,27 +970,27 @@ func simulateRecipientUpsert(current []stores.RecipientRecord, patch stores.Reci
 	if patch.Role != nil {
 		rec.Role = strings.TrimSpace(*patch.Role)
 	}
-	if patch.SigningOrder != nil {
-		rec.SigningOrder = *patch.SigningOrder
+	if patch.SigningStage != nil {
+		rec.SigningStage = *patch.SigningStage
 	}
 	if rec.Role == "" {
 		rec.Role = stores.RecipientRoleSigner
 	}
-	if rec.SigningOrder <= 0 {
-		rec.SigningOrder = 1
+	if rec.SigningStage <= 0 {
+		rec.SigningStage = 1
 	}
 	next[idx] = rec
 	return next
 }
 
-func simulateRecipientDelete(current []stores.RecipientRecord, recipientID string) []stores.RecipientRecord {
-	recipientID = strings.TrimSpace(recipientID)
-	if recipientID == "" {
+func simulateParticipantDelete(current []stores.ParticipantRecord, participantID string) []stores.ParticipantRecord {
+	participantID = strings.TrimSpace(participantID)
+	if participantID == "" {
 		return current
 	}
-	next := make([]stores.RecipientRecord, 0, len(current))
+	next := make([]stores.ParticipantRecord, 0, len(current))
 	for _, rec := range current {
-		if strings.TrimSpace(rec.ID) == recipientID {
+		if strings.TrimSpace(rec.ID) == participantID {
 			continue
 		}
 		next = append(next, rec)
@@ -866,33 +998,23 @@ func simulateRecipientDelete(current []stores.RecipientRecord, recipientID strin
 	return next
 }
 
-func validateRecipientSet(recipients []stores.RecipientRecord) error {
-	issues := recipientValidationIssues(recipients)
+func validateParticipantSet(participants []stores.ParticipantRecord) error {
+	issues := participantValidationIssues(participants)
 	if len(issues) == 0 {
 		return nil
 	}
 	issue := issues[0]
-	return domainValidationError("recipients", issue.Field, issue.Message)
+	return domainValidationError("participants", issue.Field, issue.Message)
 }
 
-func recipientValidationIssues(recipients []stores.RecipientRecord) []ValidationIssue {
+func participantValidationIssues(participants []stores.ParticipantRecord) []ValidationIssue {
 	issues := make([]ValidationIssue, 0)
-	if len(recipients) == 0 {
+	if len(participants) == 0 {
 		return issues
 	}
-	if len(recipients) > 3 {
-		issues = append(issues, ValidationIssue{
-			Code:    string(ErrorCodeMissingRequiredFields),
-			Field:   "count",
-			Message: "must be between 1 and 3",
-		})
-		return issues
-	}
-
-	signerOrders := make([]int, 0, len(recipients))
+	signerStages := make([]int, 0, len(participants))
 	signerCount := 0
-	ccCount := 0
-	for _, rec := range recipients {
+	for _, rec := range participants {
 		role := strings.TrimSpace(rec.Role)
 		email := strings.TrimSpace(rec.Email)
 		if email == "" {
@@ -906,9 +1028,16 @@ func recipientValidationIssues(recipients []stores.RecipientRecord) []Validation
 		switch role {
 		case stores.RecipientRoleSigner:
 			signerCount++
-			signerOrders = append(signerOrders, rec.SigningOrder)
+			signerStages = append(signerStages, rec.SigningStage)
 		case stores.RecipientRoleCC:
-			ccCount++
+			if rec.SigningStage <= 0 {
+				issues = append(issues, ValidationIssue{
+					Code:    string(ErrorCodeMissingRequiredFields),
+					Field:   "signing_stage",
+					Message: "must be positive",
+				})
+				return issues
+			}
 		default:
 			issues = append(issues, ValidationIssue{
 				Code:    string(ErrorCodeMissingRequiredFields),
@@ -926,25 +1055,33 @@ func recipientValidationIssues(recipients []stores.RecipientRecord) []Validation
 		})
 		return issues
 	}
-	if ccCount > 1 {
-		issues = append(issues, ValidationIssue{
-			Code:    string(ErrorCodeMissingRequiredFields),
-			Field:   "role",
-			Message: "only one cc recipient is allowed in v1",
-		})
-		return issues
-	}
-	sort.Ints(signerOrders)
-	for i, order := range signerOrders {
-		expected := i + 1
-		if order != expected {
+	sort.Ints(signerStages)
+	seenStage := map[int]bool{}
+	maxStage := 0
+	for _, stage := range signerStages {
+		if stage <= 0 {
 			issues = append(issues, ValidationIssue{
 				Code:    string(ErrorCodeMissingRequiredFields),
-				Field:   "signing_order",
-				Message: "signer order must be sequential starting at 1",
+				Field:   "signing_stage",
+				Message: "must be positive",
 			})
 			return issues
 		}
+		seenStage[stage] = true
+		if stage > maxStage {
+			maxStage = stage
+		}
+	}
+	for stage := 1; stage <= maxStage; stage++ {
+		if seenStage[stage] {
+			continue
+		}
+		issues = append(issues, ValidationIssue{
+			Code:    string(ErrorCodeMissingRequiredFields),
+			Field:   "signing_stage",
+			Message: "signing stages must be contiguous starting at 1",
+		})
+		return issues
 	}
 	return issues
 }

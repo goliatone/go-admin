@@ -26,8 +26,8 @@ const (
 )
 
 var (
-	recipientBracketKeyPattern = regexp.MustCompile(`^recipients\[(\d+)\]$`)
-	fieldBracketKeyPattern     = regexp.MustCompile(`^fields\[(\d+)\]$`)
+	participantBracketKeyPattern = regexp.MustCompile(`^(participants|recipients)\[(\d+)\]$`)
+	fieldBracketKeyPattern       = regexp.MustCompile(`^(fields|field_instances)\[(\d+)\]$`)
 )
 
 type documentPanelRepository struct {
@@ -538,9 +538,11 @@ func agreementRecordToMap(
 	}
 	if len(recipients) > 0 {
 		payload["recipients"] = recipientsToMaps(agreement, recipients)
+		payload["participants"] = recipientsToMaps(agreement, recipients)
 	}
 	if len(fields) > 0 {
-		payload["fields"] = fieldsToMaps(fields, recipientIndexesByID(recipients))
+		payload["fields"] = fieldsToMaps(fields)
+		payload["field_instances"] = fieldsToMaps(fields)
 	}
 	if len(events) > 0 {
 		payload["timeline"] = eventsToMaps(events)
@@ -566,12 +568,14 @@ func recipientsToMaps(agreement stores.AgreementRecord, records []stores.Recipie
 		status, signedAt, deliveredAt := recipientPresentationStatus(agreement, record)
 		out = append(out, map[string]any{
 			"id":             record.ID,
+			"participant_id": record.ID,
 			"agreement_id":   record.AgreementID,
 			"email":          record.Email,
 			"name":           record.Name,
 			"role":           record.Role,
 			"status":         status,
 			"signing_order":  record.SigningOrder,
+			"signing_stage":  record.SigningOrder,
 			"sent_at":        formatTimePtr(agreement.SentAt),
 			"first_view_at":  formatTimePtr(record.FirstViewAt),
 			"last_view_at":   formatTimePtr(record.LastViewAt),
@@ -615,38 +619,27 @@ func recipientPresentationStatus(agreement stores.AgreementRecord, record stores
 	}
 }
 
-func fieldsToMaps(records []stores.FieldRecord, recipientIndexByID map[string]int) []map[string]any {
+func fieldsToMaps(records []stores.FieldRecord) []map[string]any {
 	out := make([]map[string]any, 0, len(records))
 	for _, record := range records {
 		entry := map[string]any{
-			"id":           record.ID,
-			"agreement_id": record.AgreementID,
-			"recipient_id": record.RecipientID,
-			"type":         record.Type,
-			"page":         record.PageNumber,
-			"page_number":  record.PageNumber,
-			"pos_x":        record.PosX,
-			"pos_y":        record.PosY,
-			"width":        record.Width,
-			"height":       record.Height,
-			"required":     record.Required,
-		}
-		if index, ok := recipientIndexByID[strings.TrimSpace(record.RecipientID)]; ok {
-			entry["recipient_index"] = index
+			"id":             record.ID,
+			"field_id":       record.ID,
+			"agreement_id":   record.AgreementID,
+			"recipient_id":   record.RecipientID,
+			"participant_id": record.RecipientID,
+			"type":           record.Type,
+			"page":           record.PageNumber,
+			"page_number":    record.PageNumber,
+			"pos_x":          record.PosX,
+			"pos_y":          record.PosY,
+			"x":              record.PosX,
+			"y":              record.PosY,
+			"width":          record.Width,
+			"height":         record.Height,
+			"required":       record.Required,
 		}
 		out = append(out, entry)
-	}
-	return out
-}
-
-func recipientIndexesByID(recipients []stores.RecipientRecord) map[string]int {
-	out := make(map[string]int, len(recipients))
-	for index, recipient := range recipients {
-		id := strings.TrimSpace(recipient.ID)
-		if id == "" {
-			continue
-		}
-		out[id] = index
 	}
 	return out
 }
@@ -693,16 +686,23 @@ func formatTimePtr(value *time.Time) string {
 }
 
 type agreementRecipientFormInput struct {
-	Name  string
-	Email string
-	Role  string
+	ID           string
+	Name         string
+	Email        string
+	Role         string
+	SigningStage int
 }
 
 type agreementFieldFormInput struct {
+	ID             string
 	Type           string
+	ParticipantID  string
 	RecipientIndex int
-	RecipientID    string
 	PageNumber     int
+	PosX           float64
+	PosY           float64
+	Width          float64
+	Height         float64
 	Required       bool
 }
 
@@ -756,31 +756,52 @@ func (r *agreementPanelRepository) syncDraftRecipients(
 	if len(inputs) == 0 {
 		return nil, fmt.Errorf("at least one recipient is required")
 	}
-	for index, input := range inputs {
+	existingByID := make(map[string]stores.RecipientRecord, len(existing))
+	for _, record := range existing {
+		id := strings.TrimSpace(record.ID)
+		if id == "" {
+			continue
+		}
+		existingByID[id] = record
+	}
+	seen := map[string]bool{}
+	nextDefaultStage := 1
+	for _, input := range inputs {
 		email := strings.TrimSpace(input.Email)
 		name := strings.TrimSpace(input.Name)
 		role := strings.ToLower(strings.TrimSpace(input.Role))
 		if role == "" {
 			role = stores.RecipientRoleSigner
 		}
-		signingOrder := index + 1
+		signingStage := input.SigningStage
+		if signingStage <= 0 {
+			signingStage = nextDefaultStage
+		}
+		if role == stores.RecipientRoleSigner && signingStage >= nextDefaultStage {
+			nextDefaultStage = signingStage + 1
+		}
 		patch := stores.RecipientDraftPatch{
+			ID:           strings.TrimSpace(input.ID),
 			Email:        &email,
 			Name:         &name,
 			Role:         &role,
-			SigningOrder: &signingOrder,
+			SigningOrder: &signingStage,
 		}
 		expectedVersion := int64(0)
-		if index < len(existing) {
-			patch.ID = existing[index].ID
-			expectedVersion = existing[index].Version
+		if rec, ok := existingByID[patch.ID]; ok {
+			expectedVersion = rec.Version
+			seen[patch.ID] = true
 		}
 		if _, err := r.service.UpsertRecipientDraft(ctx, scope, agreementID, patch, expectedVersion); err != nil {
 			return nil, err
 		}
 	}
-	for index := len(inputs); index < len(existing); index++ {
-		if err := r.service.RemoveRecipientDraft(ctx, scope, agreementID, existing[index].ID); err != nil {
+	for _, rec := range existing {
+		id := strings.TrimSpace(rec.ID)
+		if id == "" || seen[id] {
+			continue
+		}
+		if err := r.service.RemoveRecipientDraft(ctx, scope, agreementID, id); err != nil {
 			return nil, err
 		}
 	}
@@ -799,53 +820,80 @@ func (r *agreementPanelRepository) syncDraftFields(
 		return nil, fmt.Errorf("at least one recipient is required before adding fields")
 	}
 	recipientIDsByIndex := make([]string, 0, len(recipients))
+	recipientIDs := map[string]struct{}{}
 	for _, recipient := range recipients {
-		recipientIDsByIndex = append(recipientIDsByIndex, recipient.ID)
+		id := strings.TrimSpace(recipient.ID)
+		if id == "" {
+			continue
+		}
+		recipientIDsByIndex = append(recipientIDsByIndex, id)
+		recipientIDs[id] = struct{}{}
 	}
-
-	for index, input := range inputs {
+	existingByID := make(map[string]stores.FieldRecord, len(existingFields))
+	for _, field := range existingFields {
+		id := strings.TrimSpace(field.ID)
+		if id == "" {
+			continue
+		}
+		existingByID[id] = field
+	}
+	seen := map[string]bool{}
+	for _, input := range inputs {
 		fieldType := strings.TrimSpace(input.Type)
 		if fieldType == "" {
 			fieldType = stores.FieldTypeSignature
 		}
-		recipientID := strings.TrimSpace(input.RecipientID)
-		if recipientID == "" {
-			if input.RecipientIndex < 0 || input.RecipientIndex >= len(recipientIDsByIndex) {
-				return nil, fmt.Errorf("field recipient assignment %d is invalid", input.RecipientIndex)
+		participantID := strings.TrimSpace(input.ParticipantID)
+		if participantID == "" {
+			if input.RecipientIndex >= 0 && input.RecipientIndex < len(recipientIDsByIndex) {
+				participantID = recipientIDsByIndex[input.RecipientIndex]
 			}
-			recipientID = recipientIDsByIndex[input.RecipientIndex]
-		} else {
-			known := false
-			for _, id := range recipientIDsByIndex {
-				if id == recipientID {
-					known = true
-					break
-				}
-			}
-			if !known {
-				return nil, fmt.Errorf("field recipient_id %q is invalid", recipientID)
-			}
+		}
+		if participantID == "" {
+			return nil, fmt.Errorf("field participant_id is required")
+		}
+		if _, ok := recipientIDs[participantID]; !ok {
+			return nil, fmt.Errorf("field participant_id %q is invalid", participantID)
 		}
 		pageNumber := input.PageNumber
 		if pageNumber <= 0 {
 			pageNumber = 1
 		}
+		width := input.Width
+		if width <= 0 {
+			width = 150
+		}
+		height := input.Height
+		if height <= 0 {
+			height = 32
+		}
 		required := input.Required
 		patch := stores.FieldDraftPatch{
-			RecipientID: &recipientID,
+			ID:          strings.TrimSpace(input.ID),
+			RecipientID: &participantID,
 			Type:        &fieldType,
 			PageNumber:  &pageNumber,
+			PosX:        &input.PosX,
+			PosY:        &input.PosY,
+			Width:       &width,
+			Height:      &height,
 			Required:    &required,
 		}
-		if index < len(existingFields) {
-			patch.ID = existingFields[index].ID
+		if patch.ID != "" {
+			if _, ok := existingByID[patch.ID]; ok {
+				seen[patch.ID] = true
+			}
 		}
 		if _, err := r.service.UpsertFieldDraft(ctx, scope, agreementID, patch); err != nil {
 			return nil, err
 		}
 	}
-	for index := len(inputs); index < len(existingFields); index++ {
-		if err := r.service.DeleteFieldDraft(ctx, scope, agreementID, existingFields[index].ID); err != nil {
+	for _, field := range existingFields {
+		id := strings.TrimSpace(field.ID)
+		if id == "" || seen[id] {
+			continue
+		}
+		if err := r.service.DeleteFieldDraft(ctx, scope, agreementID, id); err != nil {
 			return nil, err
 		}
 	}
@@ -859,17 +907,21 @@ func parseAgreementRecipientFormInputs(record map[string]any) ([]agreementRecipi
 		return nil, false
 	}
 
+	if raw, ok := record["participants"]; ok {
+		hasPayload = true
+		collectIndexedFormEntries(entries, raw)
+	}
 	if raw, ok := record["recipients"]; ok {
 		hasPayload = true
 		collectIndexedFormEntries(entries, raw)
 	}
 	for key, value := range record {
-		matches := recipientBracketKeyPattern.FindStringSubmatch(strings.TrimSpace(key))
-		if len(matches) != 2 {
+		matches := participantBracketKeyPattern.FindStringSubmatch(strings.TrimSpace(key))
+		if len(matches) != 3 {
 			continue
 		}
 		hasPayload = true
-		index := int(toInt64(matches[1]))
+		index := int(toInt64(matches[2]))
 		entry, ok := value.(map[string]any)
 		if !ok {
 			entry = map[string]any{}
@@ -881,16 +933,24 @@ func parseAgreementRecipientFormInputs(record map[string]any) ([]agreementRecipi
 	out := make([]agreementRecipientFormInput, 0, len(indexes))
 	for _, index := range indexes {
 		entry := entries[index]
+		id := strings.TrimSpace(toString(entry["id"]))
 		name := strings.TrimSpace(toString(entry["name"]))
 		email := strings.TrimSpace(toString(entry["email"]))
 		role := strings.ToLower(strings.TrimSpace(toString(entry["role"])))
-		if name == "" && email == "" && role == "" {
+		stageRaw := strings.TrimSpace(toString(entry["signing_stage"]))
+		if stageRaw == "" {
+			stageRaw = strings.TrimSpace(toString(entry["signing_order"]))
+		}
+		signingStage := int(toInt64(stageRaw))
+		if id == "" && name == "" && email == "" && role == "" && signingStage <= 0 {
 			continue
 		}
 		out = append(out, agreementRecipientFormInput{
-			Name:  name,
-			Email: email,
-			Role:  role,
+			ID:           id,
+			Name:         name,
+			Email:        email,
+			Role:         role,
+			SigningStage: signingStage,
 		})
 	}
 	return out, hasPayload
@@ -903,17 +963,21 @@ func parseAgreementFieldFormInputs(record map[string]any) ([]agreementFieldFormI
 		return nil, false
 	}
 
+	if raw, ok := record["field_instances"]; ok {
+		hasPayload = true
+		collectIndexedFormEntries(entries, raw)
+	}
 	if raw, ok := record["fields"]; ok {
 		hasPayload = true
 		collectIndexedFormEntries(entries, raw)
 	}
 	for key, value := range record {
 		matches := fieldBracketKeyPattern.FindStringSubmatch(strings.TrimSpace(key))
-		if len(matches) != 2 {
+		if len(matches) != 3 {
 			continue
 		}
 		hasPayload = true
-		index := int(toInt64(matches[1]))
+		index := int(toInt64(matches[2]))
 		entry, ok := value.(map[string]any)
 		if !ok {
 			entry = map[string]any{}
@@ -925,24 +989,42 @@ func parseAgreementFieldFormInputs(record map[string]any) ([]agreementFieldFormI
 	out := make([]agreementFieldFormInput, 0, len(indexes))
 	for _, index := range indexes {
 		entry := entries[index]
+		id := strings.TrimSpace(toString(entry["id"]))
 		fieldType := strings.TrimSpace(toString(entry["type"]))
-		recipientIndexRaw := strings.TrimSpace(toString(entry["recipient_index"]))
-		recipientIndex := int(toInt64(recipientIndexRaw))
-		recipientID := strings.TrimSpace(toString(entry["recipient_id"]))
+		participantID := strings.TrimSpace(toString(entry["participant_id"]))
+		if participantID == "" {
+			participantID = strings.TrimSpace(toString(entry["recipient_id"]))
+		}
+		recipientIndex := int(toInt64(strings.TrimSpace(toString(entry["recipient_index"]))))
 		pageRaw := strings.TrimSpace(toString(entry["page"]))
 		if pageRaw == "" {
 			pageRaw = strings.TrimSpace(toString(entry["page_number"]))
 		}
 		pageNumber := int(toInt64(pageRaw))
+		posX := toFloat64(entry["x"])
+		if posX == 0 {
+			posX = toFloat64(entry["pos_x"])
+		}
+		posY := toFloat64(entry["y"])
+		if posY == 0 {
+			posY = toFloat64(entry["pos_y"])
+		}
+		width := toFloat64(entry["width"])
+		height := toFloat64(entry["height"])
 		required := toBool(entry["required"])
-		if fieldType == "" && recipientIndexRaw == "" && recipientID == "" {
+		if id == "" && fieldType == "" && participantID == "" {
 			continue
 		}
 		out = append(out, agreementFieldFormInput{
+			ID:             id,
 			Type:           fieldType,
+			ParticipantID:  participantID,
 			RecipientIndex: recipientIndex,
-			RecipientID:    recipientID,
 			PageNumber:     pageNumber,
+			PosX:           posX,
+			PosY:           posY,
+			Width:          width,
+			Height:         height,
 			Required:       required,
 		})
 	}
@@ -1079,6 +1161,45 @@ func toInt64(value any) int64 {
 			return 0
 		}
 		var parsed int64
+		_, _ = fmt.Sscan(trimmed, &parsed)
+		return parsed
+	default:
+		return 0
+	}
+}
+
+func toFloat64(value any) float64 {
+	switch raw := value.(type) {
+	case float64:
+		return raw
+	case float32:
+		return float64(raw)
+	case int:
+		return float64(raw)
+	case int8:
+		return float64(raw)
+	case int16:
+		return float64(raw)
+	case int32:
+		return float64(raw)
+	case int64:
+		return float64(raw)
+	case uint:
+		return float64(raw)
+	case uint8:
+		return float64(raw)
+	case uint16:
+		return float64(raw)
+	case uint32:
+		return float64(raw)
+	case uint64:
+		return float64(raw)
+	case string:
+		trimmed := strings.TrimSpace(raw)
+		if trimmed == "" {
+			return 0
+		}
+		var parsed float64
 		_, _ = fmt.Sscan(trimmed, &parsed)
 		return parsed
 	default:

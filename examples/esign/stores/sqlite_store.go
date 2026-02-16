@@ -43,6 +43,9 @@ type SQLiteStore struct {
 type sqliteStoreSnapshot struct {
 	Documents                  map[string]DocumentRecord              `json:"documents"`
 	Agreements                 map[string]AgreementRecord             `json:"agreements"`
+	Participants               map[string]ParticipantRecord           `json:"participants"`
+	FieldDefinitions           map[string]FieldDefinitionRecord       `json:"field_definitions"`
+	FieldInstances             map[string]FieldInstanceRecord         `json:"field_instances"`
 	Recipients                 map[string]RecipientRecord             `json:"recipients"`
 	Fields                     map[string]FieldRecord                 `json:"fields"`
 	SigningTokens              map[string]SigningTokenRecord          `json:"signing_tokens"`
@@ -156,6 +159,9 @@ func loadSQLiteSnapshot(ctx context.Context, db *sql.DB) (*InMemoryStore, error)
 	}
 	mem.documents = ensureDocumentMap(snapshot.Documents)
 	mem.agreements = ensureAgreementMap(snapshot.Agreements)
+	mem.participants = ensureParticipantMap(snapshot.Participants)
+	mem.fieldDefinitions = ensureFieldDefinitionMap(snapshot.FieldDefinitions)
+	mem.fieldInstances = ensureFieldInstanceMap(snapshot.FieldInstances)
 	mem.recipients = ensureRecipientMap(snapshot.Recipients)
 	mem.fields = ensureFieldMap(snapshot.Fields)
 	mem.signingTokens = ensureSigningTokenMap(snapshot.SigningTokens)
@@ -199,6 +205,9 @@ func (s *SQLiteStore) persist(ctx context.Context) error {
 	snapshot := sqliteStoreSnapshot{
 		Documents:                  maps.Clone(s.documents),
 		Agreements:                 maps.Clone(s.agreements),
+		Participants:               maps.Clone(s.participants),
+		FieldDefinitions:           maps.Clone(s.fieldDefinitions),
+		FieldInstances:             maps.Clone(s.fieldInstances),
 		Recipients:                 maps.Clone(s.recipients),
 		Fields:                     maps.Clone(s.fields),
 		SigningTokens:              maps.Clone(s.signingTokens),
@@ -410,6 +419,72 @@ func (s *SQLiteStore) UpsertRecipientDraft(ctx context.Context, scope Scope, agr
 		return RecipientRecord{}, err
 	}
 	return out, nil
+}
+
+func (s *SQLiteStore) UpsertParticipantDraft(ctx context.Context, scope Scope, agreementID string, patch ParticipantDraftPatch, expectedVersion int64) (ParticipantRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.UpsertParticipantDraft(ctx, scope, agreementID, patch, expectedVersion)
+	if err != nil {
+		return ParticipantRecord{}, err
+	}
+	if err := s.persistMaybe(ctx); err != nil {
+		return ParticipantRecord{}, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) DeleteParticipantDraft(ctx context.Context, scope Scope, agreementID, participantID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.InMemoryStore.DeleteParticipantDraft(ctx, scope, agreementID, participantID); err != nil {
+		return err
+	}
+	return s.persistMaybe(ctx)
+}
+
+func (s *SQLiteStore) UpsertFieldDefinitionDraft(ctx context.Context, scope Scope, agreementID string, patch FieldDefinitionDraftPatch) (FieldDefinitionRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.UpsertFieldDefinitionDraft(ctx, scope, agreementID, patch)
+	if err != nil {
+		return FieldDefinitionRecord{}, err
+	}
+	if err := s.persistMaybe(ctx); err != nil {
+		return FieldDefinitionRecord{}, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) DeleteFieldDefinitionDraft(ctx context.Context, scope Scope, agreementID, fieldDefinitionID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.InMemoryStore.DeleteFieldDefinitionDraft(ctx, scope, agreementID, fieldDefinitionID); err != nil {
+		return err
+	}
+	return s.persistMaybe(ctx)
+}
+
+func (s *SQLiteStore) UpsertFieldInstanceDraft(ctx context.Context, scope Scope, agreementID string, patch FieldInstanceDraftPatch) (FieldInstanceRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.UpsertFieldInstanceDraft(ctx, scope, agreementID, patch)
+	if err != nil {
+		return FieldInstanceRecord{}, err
+	}
+	if err := s.persistMaybe(ctx); err != nil {
+		return FieldInstanceRecord{}, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) DeleteFieldInstanceDraft(ctx context.Context, scope Scope, agreementID, fieldInstanceID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.InMemoryStore.DeleteFieldInstanceDraft(ctx, scope, agreementID, fieldInstanceID); err != nil {
+		return err
+	}
+	return s.persistMaybe(ctx)
 }
 
 func (s *SQLiteStore) TouchRecipientView(ctx context.Context, scope Scope, agreementID, recipientID string, viewedAt time.Time) (RecipientRecord, error) {
@@ -657,6 +732,27 @@ func ensureDocumentMap(in map[string]DocumentRecord) map[string]DocumentRecord {
 func ensureAgreementMap(in map[string]AgreementRecord) map[string]AgreementRecord {
 	if in == nil {
 		return map[string]AgreementRecord{}
+	}
+	return in
+}
+
+func ensureParticipantMap(in map[string]ParticipantRecord) map[string]ParticipantRecord {
+	if in == nil {
+		return map[string]ParticipantRecord{}
+	}
+	return in
+}
+
+func ensureFieldDefinitionMap(in map[string]FieldDefinitionRecord) map[string]FieldDefinitionRecord {
+	if in == nil {
+		return map[string]FieldDefinitionRecord{}
+	}
+	return in
+}
+
+func ensureFieldInstanceMap(in map[string]FieldInstanceRecord) map[string]FieldInstanceRecord {
+	if in == nil {
+		return map[string]FieldInstanceRecord{}
 	}
 	return in
 }
