@@ -61,7 +61,8 @@ node_modules
 examples/web/assets/uploads/users/profile-pictures
 .cache
 .codex_tmp/
-
+.envset
+.taskenv
 
 docs/
 !docs/GUIDES_*.md
