@@ -18,6 +18,7 @@ import (
 	goservices "github.com/goliatone/go-services"
 	gocore "github.com/goliatone/go-services/core"
 	goserviceswebhooks "github.com/goliatone/go-services/webhooks"
+	urlkit "github.com/goliatone/go-urlkit"
 	"github.com/julienschmidt/httprouter"
 	"github.com/uptrace/bun"
 )
@@ -418,6 +419,177 @@ func TestServicesAPI_IdempotencyReplayAndConflict(t *testing.T) {
 		t.Fatalf("expected idempotency conflict 409, got %d body=%s", conflict.Code, conflict.Body.String())
 	}
 	assertErrorCode(t, conflict.Body.Bytes(), "conflict")
+}
+
+func TestServicesAPI_BeginConnectionResolvesCallbackRedirectFromRequestOrigin(t *testing.T) {
+	adm, module, server, base := setupServicesTestRuntime(
+		t,
+		func(adm *goadmin.Admin) { adm.WithAuthorizer(servicesAllowAuthorizer{}) },
+	)
+
+	response := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		base+"/connections/github/begin",
+		map[string]any{"scope_type": "user", "scope_id": "user-1"},
+		map[string]string{"Idempotency-Key": "callback-origin-1"},
+	)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected begin connection 200, got %d body=%s", response.Code, response.Body.String())
+	}
+
+	payload := decodeJSONMap(t, response.Body.Bytes())
+	begin := toAnyMap(payload["begin"])
+	state := strings.TrimSpace(firstNonEmpty(toString(begin["state"]), toString(begin["State"])))
+	record := consumeOAuthStateRecord(t, module, state)
+	expected := "http://example.com" + strings.TrimRight(adm.AdminAPIBasePath(), "/") + "/services/connections/github/callback"
+	if got := strings.TrimSpace(record.RedirectURI); got != expected {
+		t.Fatalf("expected resolved redirect %q, got %q", expected, got)
+	}
+}
+
+func TestServicesAPI_BeginConnectionResolvesCallbackRedirectWithPublicBaseOverride(t *testing.T) {
+	adm, module, server, base := setupServicesTestRuntime(
+		t,
+		func(adm *goadmin.Admin) { adm.WithAuthorizer(servicesAllowAuthorizer{}) },
+		WithCallbackURLConfig(CallbackURLConfig{
+			PublicBaseURL: "https://callbacks.example.com",
+		}),
+	)
+
+	response := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		base+"/connections/github/begin",
+		map[string]any{"scope_type": "user", "scope_id": "user-1"},
+		map[string]string{"Idempotency-Key": "callback-public-1"},
+	)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected begin connection 200, got %d body=%s", response.Code, response.Body.String())
+	}
+
+	payload := decodeJSONMap(t, response.Body.Bytes())
+	begin := toAnyMap(payload["begin"])
+	state := strings.TrimSpace(firstNonEmpty(toString(begin["state"]), toString(begin["State"])))
+	record := consumeOAuthStateRecord(t, module, state)
+	expected := "https://callbacks.example.com" + strings.TrimRight(adm.AdminAPIBasePath(), "/") + "/services/connections/github/callback"
+	if got := strings.TrimSpace(record.RedirectURI); got != expected {
+		t.Fatalf("expected resolved redirect %q, got %q", expected, got)
+	}
+}
+
+func TestServicesAPI_BeginConnectionResolvesProviderSpecificCallbackRoute(t *testing.T) {
+	adm, module, server, base := setupServicesTestRuntime(
+		t,
+		func(adm *goadmin.Admin) {
+			adm.WithAuthorizer(servicesAllowAuthorizer{})
+			manager, ok := adm.URLs().(*urlkit.RouteManager)
+			if !ok || manager == nil {
+				t.Fatalf("expected URL manager")
+			}
+			if _, err := manager.AddRoutes(adm.AdminAPIGroup(), map[string]string{
+				"services.github.callback.custom": "/services/oauth/github/custom-callback",
+			}); err != nil {
+				t.Fatalf("add callback route: %v", err)
+			}
+		},
+		WithCallbackURLConfig(CallbackURLConfig{
+			ProviderRoutes: map[string]string{
+				"github": "services.github.callback.custom",
+			},
+		}),
+	)
+
+	response := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		base+"/connections/github/begin",
+		map[string]any{"scope_type": "user", "scope_id": "user-1"},
+		map[string]string{"Idempotency-Key": "callback-provider-route-1"},
+	)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected begin connection 200, got %d body=%s", response.Code, response.Body.String())
+	}
+
+	payload := decodeJSONMap(t, response.Body.Bytes())
+	begin := toAnyMap(payload["begin"])
+	state := strings.TrimSpace(firstNonEmpty(toString(begin["state"]), toString(begin["State"])))
+	record := consumeOAuthStateRecord(t, module, state)
+	expected := "http://example.com" + strings.TrimRight(adm.AdminAPIBasePath(), "/") + "/services/oauth/github/custom-callback"
+	if got := strings.TrimSpace(record.RedirectURI); got != expected {
+		t.Fatalf("expected resolved redirect %q, got %q", expected, got)
+	}
+}
+
+func TestServicesAPI_BeginConnectionResolvesProviderSpecificCallbackURLOverride(t *testing.T) {
+	_, module, server, base := setupServicesTestRuntime(
+		t,
+		func(adm *goadmin.Admin) { adm.WithAuthorizer(servicesAllowAuthorizer{}) },
+		WithCallbackURLConfig(CallbackURLConfig{
+			ProviderURLOverrides: map[string]string{
+				"github": "https://hooks.example.com/oauth/github/callback",
+			},
+		}),
+	)
+
+	response := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		base+"/connections/github/begin",
+		map[string]any{"scope_type": "user", "scope_id": "user-1"},
+		map[string]string{"Idempotency-Key": "callback-provider-url-1"},
+	)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected begin connection 200, got %d body=%s", response.Code, response.Body.String())
+	}
+
+	payload := decodeJSONMap(t, response.Body.Bytes())
+	begin := toAnyMap(payload["begin"])
+	state := strings.TrimSpace(firstNonEmpty(toString(begin["state"]), toString(begin["State"])))
+	record := consumeOAuthStateRecord(t, module, state)
+	if got := strings.TrimSpace(record.RedirectURI); got != "https://hooks.example.com/oauth/github/callback" {
+		t.Fatalf("expected override redirect, got %q", got)
+	}
+}
+
+func TestServicesAPI_BeginConnectionRedirectURIRequestValueHasPrecedence(t *testing.T) {
+	_, module, server, base := setupServicesTestRuntime(
+		t,
+		func(adm *goadmin.Admin) { adm.WithAuthorizer(servicesAllowAuthorizer{}) },
+		WithCallbackURLConfig(CallbackURLConfig{
+			ProviderURLOverrides: map[string]string{
+				"github": "https://hooks.example.com/oauth/github/callback",
+			},
+		}),
+	)
+
+	response := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		base+"/connections/github/begin",
+		map[string]any{
+			"scope_type":   "user",
+			"scope_id":     "user-1",
+			"redirect_uri": "https://request.example.com/oauth/direct-callback",
+		},
+		map[string]string{"Idempotency-Key": "callback-request-precedence-1"},
+	)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected begin connection 200, got %d body=%s", response.Code, response.Body.String())
+	}
+
+	payload := decodeJSONMap(t, response.Body.Bytes())
+	begin := toAnyMap(payload["begin"])
+	state := strings.TrimSpace(firstNonEmpty(toString(begin["state"]), toString(begin["State"])))
+	record := consumeOAuthStateRecord(t, module, state)
+	if got := strings.TrimSpace(record.RedirectURI); got != "https://request.example.com/oauth/direct-callback" {
+		t.Fatalf("expected request redirect URI precedence, got %q", got)
+	}
 }
 
 func TestServicesAPI_InboundVerificationAndClaimLifecycleRetry(t *testing.T) {
@@ -1052,6 +1224,22 @@ func decodeJSONMap(t *testing.T, raw []byte) map[string]any {
 		t.Fatalf("decode JSON: %v raw=%s", err, string(raw))
 	}
 	return out
+}
+
+func consumeOAuthStateRecord(t *testing.T, module *Module, state string) gocore.OAuthStateRecord {
+	t.Helper()
+	if module == nil || module.Service() == nil {
+		t.Fatalf("module/service is required")
+	}
+	store := module.Service().Dependencies().OAuthStateStore
+	if store == nil {
+		t.Fatalf("oauth state store is required")
+	}
+	record, err := store.Consume(context.Background(), strings.TrimSpace(state))
+	if err != nil {
+		t.Fatalf("consume oauth state record: %v", err)
+	}
+	return record
 }
 
 func toAnyMap(value any) map[string]any {

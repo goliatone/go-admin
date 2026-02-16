@@ -51,6 +51,7 @@ type setupOptions struct {
 	inboundClaimStore     InboundClaimStore
 
 	activityActionLabels map[string]string
+	callbackURLs         *CallbackURLConfig
 
 	extensionHooks              *goservices.ExtensionHooks
 	providerPacks               []goservices.ProviderPack
@@ -408,6 +409,16 @@ func WithActivityActionLabelOverrides(overrides map[string]string) Option {
 			return
 		}
 		opts.activityActionLabels = copyStringMap(overrides)
+	}
+}
+
+// WithCallbackURLConfig overrides callback URL resolution settings used by connect/re-consent flows.
+func WithCallbackURLConfig(config CallbackURLConfig) Option {
+	return func(opts *setupOptions) {
+		if opts != nil {
+			copyConfig := config
+			opts.callbackURLs = &copyConfig
+		}
 	}
 }
 

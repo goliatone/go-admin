@@ -378,11 +378,19 @@ func (m *Module) handleBeginInstallation(c router.Context, body map[string]any) 
 	if m.service == nil {
 		return 0, nil, providerUnavailableError("services runtime is not configured", nil)
 	}
+	redirectURI := strings.TrimSpace(toString(body["redirect_uri"]))
+	if redirectURI == "" {
+		resolvedRedirect, err := m.resolveCallbackRedirectURI(c, providerID)
+		if err != nil {
+			return 0, nil, err
+		}
+		redirectURI = resolvedRedirect
+	}
 	requested := toStringSlice(body["requested_grants"])
 	begin, err := m.service.Connect(c.Context(), gocore.ConnectRequest{
 		ProviderID:      providerID,
 		Scope:           scope,
-		RedirectURI:     strings.TrimSpace(toString(body["redirect_uri"])),
+		RedirectURI:     redirectURI,
 		State:           strings.TrimSpace(toString(body["state"])),
 		RequestedGrants: requested,
 		Metadata:        extractMetadata(body),
@@ -633,10 +641,18 @@ func (m *Module) handleBeginConnection(c router.Context, body map[string]any) (i
 	if err != nil {
 		return 0, nil, err
 	}
+	redirectURI := strings.TrimSpace(toString(body["redirect_uri"]))
+	if redirectURI == "" {
+		resolvedRedirect, err := m.resolveCallbackRedirectURI(c, providerID)
+		if err != nil {
+			return 0, nil, err
+		}
+		redirectURI = resolvedRedirect
+	}
 	response, err := m.service.Connect(c.Context(), gocore.ConnectRequest{
 		ProviderID:      providerID,
 		Scope:           scope,
-		RedirectURI:     strings.TrimSpace(toString(body["redirect_uri"])),
+		RedirectURI:     redirectURI,
 		State:           strings.TrimSpace(toString(body["state"])),
 		RequestedGrants: toStringSlice(body["requested_grants"]),
 		Metadata:        extractMetadata(body),
@@ -703,9 +719,23 @@ func (m *Module) handleBeginReconsent(c router.Context, body map[string]any) (in
 	if m.service == nil {
 		return 0, nil, providerUnavailableError("services runtime is not configured", nil)
 	}
+	redirectURI := strings.TrimSpace(toString(body["redirect_uri"]))
+	if redirectURI == "" {
+		providerID := strings.TrimSpace(toString(body["provider_id"]))
+		if providerID == "" {
+			providerID = m.lookupConnectionProvider(c.Context(), connectionID)
+		}
+		if providerID != "" {
+			resolvedRedirect, err := m.resolveCallbackRedirectURI(c, providerID)
+			if err != nil {
+				return 0, nil, err
+			}
+			redirectURI = resolvedRedirect
+		}
+	}
 	begin, err := m.service.StartReconsent(c.Context(), gocore.ReconsentRequest{
 		ConnectionID:    connectionID,
-		RedirectURI:     strings.TrimSpace(toString(body["redirect_uri"])),
+		RedirectURI:     redirectURI,
 		State:           strings.TrimSpace(toString(body["state"])),
 		RequestedGrants: toStringSlice(body["requested_grants"]),
 		Metadata:        extractMetadata(body),

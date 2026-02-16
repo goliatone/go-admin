@@ -142,6 +142,9 @@ func Setup(adminApp *goadmin.Admin, cfg Config, opts ...Option) (*Module, error)
 	if len(setupCfg.activityActionLabels) > 0 {
 		cfg.API.ActivityActionLabelOverrides = copyStringMap(setupCfg.activityActionLabels)
 	}
+	if setupCfg.callbackURLs != nil {
+		cfg.Callbacks = mergeCallbackURLConfig(cfg.Callbacks, *setupCfg.callbackURLs)
+	}
 	if len(setupCfg.enabledProviderPacks) > 0 {
 		cfg.Extensions.EnabledProviderPacks = normalizeStringListUnique(setupCfg.enabledProviderPacks)
 	}
@@ -393,11 +396,35 @@ func Setup(adminApp *goadmin.Admin, cfg Config, opts ...Option) (*Module, error)
 			JobLogger:         jobLogger,
 		},
 	}
+	if err := module.ensureCallbackURLRoute(); err != nil {
+		return nil, err
+	}
 	if err := module.initializeRuntime(); err != nil {
 		return nil, err
 	}
 
 	return module, nil
+}
+
+func mergeCallbackURLConfig(base CallbackURLConfig, override CallbackURLConfig) CallbackURLConfig {
+	out := base
+	out.Strict = base.Strict || override.Strict
+	if trimmed := strings.TrimSpace(override.PublicBaseURL); trimmed != "" {
+		out.PublicBaseURL = trimmed
+	}
+	if trimmed := strings.TrimSpace(override.URLKitGroup); trimmed != "" {
+		out.URLKitGroup = trimmed
+	}
+	if trimmed := strings.TrimSpace(override.DefaultRoute); trimmed != "" {
+		out.DefaultRoute = trimmed
+	}
+	if override.ProviderRoutes != nil {
+		out.ProviderRoutes = normalizeStringMapEntries(override.ProviderRoutes)
+	}
+	if override.ProviderURLOverrides != nil {
+		out.ProviderURLOverrides = normalizeStringMapEntries(override.ProviderURLOverrides)
+	}
+	return out
 }
 
 // Config returns the resolved module configuration.
