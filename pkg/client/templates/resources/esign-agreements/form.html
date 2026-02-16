@@ -1931,6 +1931,8 @@ document.addEventListener('DOMContentLoaded', function() {
   addFieldBtn.addEventListener('click', () => addFieldDefinition());
   addFieldDefinitionEmptyBtn.addEventListener('click', () => addFieldDefinition());
 
+  window._initialFieldPlacementsData = [];
+
   // Initialize with existing field instances.
   {% if resource_item.field_instances and resource_item.field_instances|length > 0 %}
     {% for field_def in resource_item.field_instances %}
@@ -1940,6 +1942,19 @@ document.addEventListener('DOMContentLoaded', function() {
       participant_id: '{{ field_def.participant_id|default:"" }}',
       page: {{ field_def.page|default:1 }},
       required: {% if field_def.required %}true{% else %}false{% endif %}
+    });
+    window._initialFieldPlacementsData.push({
+      id: '{{ field_def.id|default:"" }}',
+      definitionId: '{{ field_def.id|default:"" }}',
+      type: '{{ field_def.type|default:"text" }}',
+      participantId: '{{ field_def.participant_id|default:"" }}',
+      participantName: '',
+      page: {{ field_def.page|default:1 }},
+      x: {{ field_def.x|default:0 }},
+      y: {{ field_def.y|default:0 }},
+      width: {{ field_def.width|default:150 }},
+      height: {{ field_def.height|default:32 }},
+      placementSource: 'manual'
     });
     {% endfor %}
   {% endif %}
@@ -2253,12 +2268,40 @@ document.addEventListener('DOMContentLoaded', function() {
   // =============================================================================
   // Step 5: Placement Editor (PDF Viewer + Drag/Resize Field Overlays)
   // =============================================================================
+  function normalizePlacementInstance(instance, index) {
+    const raw = instance || {};
+    const id = String(raw.id || `fi_init_${index || 0}`);
+    const definitionId = String(raw.definitionId || raw.definition_id || raw.field_definition_id || id);
+    const page = parseInt(raw.page || raw.page_number || '1', 10);
+    const x = parseFloat(raw.x || raw.pos_x || '0');
+    const y = parseFloat(raw.y || raw.pos_y || '0');
+    const width = parseFloat(raw.width || '150');
+    const height = parseFloat(raw.height || '32');
+    return {
+      id,
+      definitionId,
+      type: String(raw.type || 'text'),
+      participantId: String(raw.participantId || raw.participant_id || ''),
+      participantName: String(raw.participantName || raw.participant_name || 'Unassigned'),
+      page: Number.isFinite(page) && page > 0 ? page : 1,
+      x: Number.isFinite(x) && x >= 0 ? x : 0,
+      y: Number.isFinite(y) && y >= 0 ? y : 0,
+      width: Number.isFinite(width) && width > 0 ? width : 150,
+      height: Number.isFinite(height) && height > 0 ? height : 32,
+      placementSource: String(raw.placementSource || raw.placement_source || 'manual')
+    };
+  }
+
+  const initialPlacementInstances = Array.isArray(window._initialFieldPlacementsData)
+    ? window._initialFieldPlacementsData.map((instance, index) => normalizePlacementInstance(instance, index))
+    : [];
+
   let placementState = {
     pdfDoc: null,
     currentPage: 1,
     totalPages: 1,
     scale: 1.0,
-    fieldInstances: [], // { id, definitionId, type, participantId, page, x, y, width, height }
+    fieldInstances: initialPlacementInstances, // { id, definitionId, type, participantId, page, x, y, width, height }
     selectedFieldId: null,
     isDragging: false,
     isResizing: false,
@@ -2322,6 +2365,14 @@ document.addEventListener('DOMContentLoaded', function() {
       const fieldType = typeSelect.value;
       const participantId = participantSelect.value;
       const participant = signers.find(s => s.id === participantId);
+
+      placementState.fieldInstances.forEach(instance => {
+        if (instance.definitionId === definitionId) {
+          instance.type = fieldType;
+          instance.participantId = participantId;
+          instance.participantName = participant?.name || 'Unassigned';
+        }
+      });
 
       const colors = TYPE_COLORS[fieldType] || TYPE_COLORS.text;
       const isPlaced = placementState.fieldInstances.some(f => f.definitionId === definitionId);
@@ -2443,6 +2494,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     updatePlacementStats();
+    updateFieldInstancesFormData();
   }
 
   async function loadPdfJs() {
@@ -2790,6 +2842,9 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     });
   }
+
+  // Ensure placement geometry is included in form posts before any interaction.
+  updateFieldInstancesFormData();
 
   // =============================================================================
   // Auto-Placement Engine Integration (Phase 27)
@@ -3619,11 +3674,19 @@ document.addEventListener('DOMContentLoaded', function() {
     updateFieldDefinitionsEmptyState();
   }
 
+  function restoreFieldPlacementsFromState() {
+    const state = stateManager.getState();
+    if (!Array.isArray(state.fieldPlacements) || state.fieldPlacements.length === 0) return;
+    placementState.fieldInstances = state.fieldPlacements.map((instance, index) => normalizePlacementInstance(instance, index));
+    updateFieldInstancesFormData();
+  }
+
   // Check if we need to restore state after initialization
   if (window._resumeToStep) {
     // Restore participants and field definitions
     restoreParticipantsFromState();
     restoreFieldDefinitionsFromState();
+    restoreFieldPlacementsFromState();
 
     // Navigate to saved step
     currentStep = window._resumeToStep;

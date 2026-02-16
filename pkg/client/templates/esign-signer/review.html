@@ -1283,12 +1283,12 @@
         };
       }
 
-      // Fallback to cached PDF.js viewport
+      // Fallback to cached PDF.js viewport metadata
       const viewport = this.pageViewports.get(pageNum);
       if (viewport) {
         return {
-          width: viewport.width / state.zoomLevel,
-          height: viewport.height / state.zoomLevel,
+          width: viewport.width,
+          height: viewport.height,
           rotation: viewport.rotation || 0
         };
       }
@@ -1304,8 +1304,7 @@
       this.pageViewports.set(pageNum, {
         width: viewport.width,
         height: viewport.height,
-        rotation: viewport.rotation || 0,
-        scale: viewport.scale
+        rotation: viewport.rotation || 0
       });
     },
 
@@ -1318,7 +1317,6 @@
       const pageMetadata = this.getPageMetadata(pageNum);
 
       // Get rendered container dimensions
-      const containerRect = containerEl.getBoundingClientRect();
       const containerWidth = containerEl.offsetWidth;
       const containerHeight = containerEl.offsetHeight;
 
@@ -1326,9 +1324,10 @@
       const sourceWidth = fieldData.pageWidth || pageMetadata.width;
       const sourceHeight = fieldData.pageHeight || pageMetadata.height;
 
-      // Calculate scale factors
-      const scaleX = (containerWidth / sourceWidth) * state.zoomLevel;
-      const scaleY = (containerHeight / sourceHeight) * state.zoomLevel;
+      // Calculate scale factors from rendered canvas size to source page points.
+      // Do not re-apply zoom here: container dimensions already include zoom.
+      const scaleX = containerWidth / sourceWidth;
+      const scaleY = containerHeight / sourceHeight;
 
       // Handle coordinate origin and Y-axis direction
       // Backend provides coordinates in PDF space (origin top-left, Y down)
@@ -1346,20 +1345,11 @@
       const screenWidth = (fieldData.width || 150) * scaleX;
       const screenHeight = (fieldData.height || 30) * scaleY;
 
-      // Apply minimum size constraints for touch targets
-      const minSize = 44; // iOS accessibility minimum
-      const finalWidth = Math.max(screenWidth, minSize);
-      const finalHeight = Math.max(screenHeight, minSize);
-
-      // Center adjustment if size was clamped
-      const xAdjust = (finalWidth - screenWidth) / 2;
-      const yAdjust = (finalHeight - screenHeight) / 2;
-
       return {
-        left: screenX - xAdjust,
-        top: screenY - yAdjust,
-        width: finalWidth,
-        height: finalHeight,
+        left: screenX,
+        top: screenY,
+        width: screenWidth,
+        height: screenHeight,
         // Store original values for debugging
         _debug: {
           sourceX: posX,
@@ -2036,13 +2026,13 @@
       const scale = state.zoomLevel;
       const renderQuality = getRenderQuality();
       const viewport = page.getViewport({ scale: scale * renderQuality });
+      const sourceViewport = page.getViewport({ scale: 1 });
 
       // Cache viewport for coordinate transforms (Task 19.FE.2)
       coordinateTransform.setPageViewport(pageNum, {
-        width: viewport.width / scale,
-        height: viewport.height / scale,
-        rotation: viewport.rotation || 0,
-        scale: scale
+        width: sourceViewport.width,
+        height: sourceViewport.height,
+        rotation: sourceViewport.rotation || 0
       });
 
       const container = document.getElementById('pdf-page-1');
