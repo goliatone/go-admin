@@ -1406,7 +1406,7 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            field_id: fieldId,
+            field_instance_id: fieldId,
             sha256: sha256,
             content_type: contentType,
             size_bytes: sizeBytes
@@ -2618,7 +2618,7 @@
     const canvasData = state.signatureCanvases.get(fieldId);
     if (canvasData) {
       const { canvas, ctx } = canvasData;
-      ctx.clearRect(0, 0, canvas.width / 2, canvas.height / 2);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
   }
 
@@ -2759,7 +2759,7 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          field_id: fieldId,
+          field_instance_id: fieldId,
           value_text: valueText,
           value_bool: valueBool
         })
@@ -2821,7 +2821,7 @@
         );
 
         payload = {
-          field_id: fieldId,
+          field_instance_id: fieldId,
           type: 'drawn',
           value_text: valueText,
           object_key: uploadResult.objectKey,
@@ -2888,7 +2888,7 @@
     const objectKey = `tenant/bootstrap/org/bootstrap/agreements/${unifiedConfig.agreementId}/signatures/${unifiedConfig.recipientId}/${fieldId}-${Date.now()}.txt`;
 
     return {
-      field_id: fieldId,
+      field_instance_id: fieldId,
       type: 'typed',
       value_text: valueText,
       object_key: objectKey,

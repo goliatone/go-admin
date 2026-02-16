@@ -545,23 +545,4 @@ export function getAnimationDuration(normalDuration: number): number {
 // Exports
 // =============================================================================
 
-export {
-  setupKeyboardNavigation,
-  setupRovingTabindex,
-  createFocusTrap,
-  announceToScreenReader,
-  announceLoading,
-  announceSuccess,
-  announceError,
-  announceNavigation,
-  setExpandedState,
-  setLoadingState,
-  setStatusLabel,
-  setSortableHeader,
-  setProgress,
-  createSkipLink,
-  setupDialogFocus,
-  prefersReducedMotion,
-  getAnimationDuration,
-  FOCUSABLE_SELECTOR,
-};
+export { FOCUSABLE_SELECTOR };

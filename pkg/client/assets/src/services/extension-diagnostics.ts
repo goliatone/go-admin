@@ -671,13 +671,3 @@ function escapeHtml(text: string): string {
   return div.innerHTML;
 }
 
-// =============================================================================
-// Exports
-// =============================================================================
-
-export {
-  ExtensionDiagnosticsPanel,
-  renderStateSourceIndicator,
-  addStateSourceIndicator,
-  renderStateSourceLegend,
-};

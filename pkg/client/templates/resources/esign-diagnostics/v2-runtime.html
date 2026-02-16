@@ -569,15 +569,13 @@
     try {
       const response = await fetch(`${apiBase}/esign-diagnostics/v2/status?range=${timeRange}`);
       if (!response.ok) {
-        // Simulate data for demo
-        updateSystemStatus({ status: 'healthy', message: 'V2 runtime is operating normally with no active incidents.' });
-        return;
+        throw new Error(`Status endpoint returned ${response.status}`);
       }
       const data = await response.json();
       updateSystemStatus(data);
     } catch (error) {
-      // Default to healthy for demo
-      updateSystemStatus({ status: 'healthy', message: 'V2 runtime is operating normally with no active incidents.' });
+      updateSystemStatus({ status: 'critical', message: 'Unable to load system status.' });
+      addActivityItem('error', 'System status unavailable', error.message);
     }
   }
 
@@ -620,39 +618,25 @@
     try {
       const response = await fetch(`${apiBase}/esign-diagnostics/v2/metrics?range=${timeRange}`);
       if (!response.ok) {
-        // Simulate data
-        updateKeyMetrics({
-          active_agreements: 42,
-          in_progress: 18,
-          awaiting: 24,
-          pending_conflicts: 7,
-          high_priority: 2,
-          normal_priority: 5,
-          placement_status: 'healthy',
-          active_resolvers: 4,
-          degraded_resolvers: 0,
-          avg_stage_duration: '2.5h',
-          fastest: '45m',
-          slowest: '8h'
-        });
-        return;
+        throw new Error(`Metrics endpoint returned ${response.status}`);
       }
       const data = await response.json();
       updateKeyMetrics(data);
     } catch (error) {
+      addActivityItem('error', 'Key metrics unavailable', error.message);
       updateKeyMetrics({
-        active_agreements: 42,
-        in_progress: 18,
-        awaiting: 24,
-        pending_conflicts: 7,
-        high_priority: 2,
-        normal_priority: 5,
-        placement_status: 'healthy',
-        active_resolvers: 4,
-        degraded_resolvers: 0,
-        avg_stage_duration: '2.5h',
-        fastest: '45m',
-        slowest: '8h'
+        active_agreements: '--',
+        in_progress: '--',
+        awaiting: '--',
+        pending_conflicts: '--',
+        high_priority: '--',
+        normal_priority: '--',
+        placement_status: 'unknown',
+        active_resolvers: '--',
+        degraded_resolvers: '--',
+        avg_stage_duration: '--',
+        fastest: '--',
+        slowest: '--'
       });
     }
   }
@@ -678,11 +662,16 @@
       placementStatus.className = 'text-xl font-bold text-yellow-600';
       placementIndicator.textContent = 'Partial';
       placementIndicator.className = 'px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full';
-    } else {
+    } else if (data.placement_status === 'critical') {
       placementStatus.textContent = 'Critical';
       placementStatus.className = 'text-xl font-bold text-red-600';
       placementIndicator.textContent = 'Offline';
       placementIndicator.className = 'px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full';
+    } else {
+      placementStatus.textContent = 'Unavailable';
+      placementStatus.className = 'text-xl font-bold text-gray-500';
+      placementIndicator.textContent = 'Unknown';
+      placementIndicator.className = 'px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full';
     }
     document.getElementById('placement-resolver-summary').textContent =
       `${data.active_resolvers || '--'} active resolvers, ${data.degraded_resolvers || 0} degraded`;
@@ -696,44 +685,37 @@
     try {
       const response = await fetch(`${apiBase}/esign-diagnostics/v2/stage-progression?range=${timeRange}&page=${currentPage.stage}&limit=${pageSize}`);
       if (!response.ok) {
-        // Simulate data
-        updateStageProgression({
-          stages: { 1: 5, 2: 8, 3: 12, 4: 10, 5: 4, 6: 3 },
-          agreements: generateSampleAgreements(),
-          total: 25
-        });
-        return;
+        throw new Error(`Stage progression endpoint returned ${response.status}`);
       }
       const data = await response.json();
       updateStageProgression(data);
     } catch (error) {
+      addActivityItem('error', 'Stage progression unavailable', error.message);
       updateStageProgression({
-        stages: { 1: 5, 2: 8, 3: 12, 4: 10, 5: 4, 6: 3 },
-        agreements: generateSampleAgreements(),
-        total: 25
+        stages: {},
+        agreements: [],
+        total: 0,
+        error: 'Unable to load stage progression data.'
       });
     }
   }
 
-  function generateSampleAgreements() {
-    return [
-      { id: 'AGR-001', title: 'NDA - Acme Corp', stage: 4, stage_name: 'Fields', participants: 3, completed: 1, time_in_stage: '2h 15m', status: 'in_progress' },
-      { id: 'AGR-002', title: 'Employment Agreement', stage: 5, stage_name: 'Placement', participants: 2, completed: 0, time_in_stage: '45m', status: 'pending' },
-      { id: 'AGR-003', title: 'Vendor Contract', stage: 3, stage_name: 'Participants', participants: 4, completed: 2, time_in_stage: '1h 30m', status: 'in_progress' },
-      { id: 'AGR-004', title: 'Lease Agreement', stage: 6, stage_name: 'Review', participants: 2, completed: 2, time_in_stage: '20m', status: 'ready' },
-      { id: 'AGR-005', title: 'Service Level Agreement', stage: 2, stage_name: 'Details', participants: 3, completed: 0, time_in_stage: '4h 10m', status: 'stalled' }
-    ];
-  }
-
   function updateStageProgression(data) {
+    const stages = data.stages || {};
+
     // Update chart counts
     for (let i = 1; i <= 6; i++) {
       const el = document.getElementById(`stage-${i}-count`);
-      if (el) el.textContent = data.stages[i] || 0;
+      if (el) el.textContent = stages[i] || 0;
     }
 
     // Update table
     const tbody = document.getElementById('stage-table-body');
+    if (data.error) {
+      tbody.innerHTML = `<tr><td colspan="6" class="py-4 text-center text-red-500">${data.error}</td></tr>`;
+      document.getElementById('stage-table-summary').textContent = 'Data unavailable';
+      return;
+    }
     if (data.agreements && data.agreements.length > 0) {
       tbody.innerHTML = data.agreements.map(agr => `
         <tr class="border-b border-gray-100 hover:bg-gray-50">
@@ -779,42 +761,49 @@
     try {
       const response = await fetch(`${apiBase}/esign-diagnostics/v2/signer-progression?range=${timeRange}`);
       if (!response.ok) {
-        // Simulate data
-        updateSignerProgression({
-          stages: { 1: 15, 2: 22, 3: 8, completed: 35 },
-          bottlenecks: []
-        });
-        return;
+        throw new Error(`Signer progression endpoint returned ${response.status}`);
       }
       const data = await response.json();
       updateSignerProgression(data);
     } catch (error) {
+      addActivityItem('error', 'Signer progression unavailable', error.message);
       updateSignerProgression({
-        stages: { 1: 15, 2: 22, 3: 8, completed: 35 },
-        bottlenecks: []
+        stages: {},
+        bottlenecks: [],
+        error: 'Unable to load signer progression data.'
       });
     }
   }
 
   function updateSignerProgression(data) {
-    const total = (data.stages[1] || 0) + (data.stages[2] || 0) + (data.stages[3] || 0) + (data.stages.completed || 0);
+    const stages = data.stages || {};
+    const total = (stages[1] || 0) + (stages[2] || 0) + (stages[3] || 0) + (stages.completed || 0);
 
     for (let i = 1; i <= 3; i++) {
       const bar = document.getElementById(`signer-stage-${i}-bar`);
       const count = document.getElementById(`signer-stage-${i}-count`);
-      const pct = total > 0 ? ((data.stages[i] || 0) / total * 100) : 0;
+      const pct = total > 0 ? ((stages[i] || 0) / total * 100) : 0;
       if (bar) bar.style.width = `${pct}%`;
-      if (count) count.textContent = data.stages[i] || 0;
+      if (count) count.textContent = stages[i] || 0;
     }
 
     const completedBar = document.getElementById('signer-completed-bar');
     const completedCount = document.getElementById('signer-completed-count');
-    const completedPct = total > 0 ? ((data.stages.completed || 0) / total * 100) : 0;
+    const completedPct = total > 0 ? ((stages.completed || 0) / total * 100) : 0;
     if (completedBar) completedBar.style.width = `${completedPct}%`;
-    if (completedCount) completedCount.textContent = data.stages.completed || 0;
+    if (completedCount) completedCount.textContent = stages.completed || 0;
 
     // Update bottleneck analysis
     const bottleneckList = document.getElementById('bottleneck-list');
+    if (data.error) {
+      bottleneckList.innerHTML = `
+        <div class="p-3 bg-red-50 border border-red-200 rounded-lg">
+          <p class="text-sm text-red-800 font-medium">Signer progression unavailable</p>
+          <p class="text-xs text-red-600">${data.error}</p>
+        </div>
+      `;
+      return;
+    }
     if (data.bottlenecks && data.bottlenecks.length > 0) {
       bottleneckList.innerHTML = data.bottlenecks.map(b => `
         <div class="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
@@ -844,34 +833,27 @@
 
       const response = await fetch(`${apiBase}/esign-diagnostics/v2/conflicts?${params}`);
       if (!response.ok) {
-        // Simulate data
-        updateConflicts({
-          conflicts: generateSampleConflicts(),
-          total: 7
-        });
-        return;
+        throw new Error(`Conflicts endpoint returned ${response.status}`);
       }
       const data = await response.json();
       updateConflicts(data);
     } catch (error) {
+      addActivityItem('error', 'Conflicts unavailable', error.message);
       updateConflicts({
-        conflicts: generateSampleConflicts(),
-        total: 7
+        conflicts: [],
+        total: 0,
+        error: 'Unable to load conflicts.'
       });
     }
   }
 
-  function generateSampleConflicts() {
-    return [
-      { id: 'CNF-001', provider: 'salesforce', entity: 'Contact', reason: 'Duplicate email detected', priority: 'high', age: '2h' },
-      { id: 'CNF-002', provider: 'hubspot', entity: 'Deal', reason: 'Missing required field', priority: 'normal', age: '4h' },
-      { id: 'CNF-003', provider: 'salesforce', entity: 'Account', reason: 'Schema mismatch', priority: 'high', age: '1h' },
-      { id: 'CNF-004', provider: 'bamboohr', entity: 'Employee', reason: 'Invalid date format', priority: 'low', age: '12h' }
-    ];
-  }
-
   function updateConflicts(data) {
     const tbody = document.getElementById('conflicts-table-body');
+    if (data.error) {
+      tbody.innerHTML = `<tr><td colspan="7" class="py-4 text-center text-red-500">${data.error}</td></tr>`;
+      document.getElementById('conflicts-summary').textContent = 'Data unavailable';
+      return;
+    }
     if (data.conflicts && data.conflicts.length > 0) {
       tbody.innerHTML = data.conflicts.map(c => `
         <tr class="border-b border-gray-100 hover:bg-gray-50">
@@ -928,43 +910,24 @@
     try {
       const response = await fetch(`${apiBase}/esign-diagnostics/v2/placement?range=${timeRange}`);
       if (!response.ok) {
-        // Simulate data
-        updatePlacementDiagnostics({
-          mode: 'normal',
-          resolvers: [
-            { id: 'native_pdf_forms', status: 'healthy', latency: 45 },
-            { id: 'text_anchor', status: 'healthy', latency: 120 },
-            { id: 'ocr_anchor', status: 'healthy', latency: 350 },
-            { id: 'ml_layout', status: 'healthy', latency: 800 }
-          ],
-          avg_confidence: '94%',
-          last_check: 'Just now',
-          recent_runs: [
-            { id: 'PR-001', status: 'completed', confidence: 98 },
-            { id: 'PR-002', status: 'completed', confidence: 95 },
-            { id: 'PR-003', status: 'partial', confidence: 72 }
-          ]
-        });
-        return;
+        throw new Error(`Placement diagnostics endpoint returned ${response.status}`);
       }
       const data = await response.json();
       updatePlacementDiagnostics(data);
     } catch (error) {
+      addActivityItem('error', 'Placement diagnostics unavailable', error.message);
       updatePlacementDiagnostics({
-        mode: 'normal',
+        mode: 'unknown',
         resolvers: [
-          { id: 'native_pdf_forms', status: 'healthy', latency: 45 },
-          { id: 'text_anchor', status: 'healthy', latency: 120 },
-          { id: 'ocr_anchor', status: 'healthy', latency: 350 },
-          { id: 'ml_layout', status: 'healthy', latency: 800 }
+          { id: 'native_pdf_forms', status: 'unknown', latency: null },
+          { id: 'text_anchor', status: 'unknown', latency: null },
+          { id: 'ocr_anchor', status: 'unknown', latency: null },
+          { id: 'ml_layout', status: 'unknown', latency: null }
         ],
-        avg_confidence: '94%',
-        last_check: 'Just now',
-        recent_runs: [
-          { id: 'PR-001', status: 'completed', confidence: 98 },
-          { id: 'PR-002', status: 'completed', confidence: 95 },
-          { id: 'PR-003', status: 'partial', confidence: 72 }
-        ]
+        avg_confidence: '--',
+        last_check: '--',
+        recent_runs: [],
+        error: 'Unable to load placement diagnostics.'
       });
     }
   }
@@ -978,9 +941,12 @@
     } else if (data.mode === 'critical') {
       modeBadge.textContent = 'Critical';
       modeBadge.className = 'px-3 py-1 bg-red-100 text-red-800 text-sm rounded-full font-medium';
-    } else {
+    } else if (data.mode === 'normal') {
       modeBadge.textContent = 'Normal Mode';
       modeBadge.className = 'px-3 py-1 bg-green-100 text-green-800 text-sm rounded-full font-medium';
+    } else {
+      modeBadge.textContent = 'Unavailable';
+      modeBadge.className = 'px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded-full font-medium';
     }
 
     // Update resolver statuses
@@ -1000,12 +966,16 @@
             statusDot.className = 'w-3 h-3 rounded-full bg-yellow-500';
             statusText.textContent = 'Degraded';
             statusText.className = 'text-sm font-medium text-yellow-600';
-          } else {
+          } else if (r.status === 'critical' || r.status === 'offline') {
             statusDot.className = 'w-3 h-3 rounded-full bg-red-500';
             statusText.textContent = 'Offline';
             statusText.className = 'text-sm font-medium text-red-600';
+          } else {
+            statusDot.className = 'w-3 h-3 rounded-full bg-gray-400';
+            statusText.textContent = 'Unavailable';
+            statusText.className = 'text-sm font-medium text-gray-500';
           }
-          latencyText.textContent = `Latency: ${r.latency}ms`;
+          latencyText.textContent = r.latency == null ? 'Latency: --' : `Latency: ${r.latency}ms`;
         }
       });
     }
@@ -1022,6 +992,12 @@
       degradedWarn.classList.remove('hidden');
       degradedText.textContent = data.mode === 'critical' ? 'Critical Mode Active' : 'Degraded Mode Active';
       degradedDetails.classList.remove('hidden');
+      healthyDetails.classList.add('hidden');
+    } else if (data.mode === 'unknown') {
+      degradedIcon.classList.add('hidden');
+      degradedWarn.classList.remove('hidden');
+      degradedText.textContent = 'Status Unavailable';
+      degradedDetails.classList.add('hidden');
       healthyDetails.classList.add('hidden');
     } else {
       degradedIcon.classList.remove('hidden');
@@ -1052,21 +1028,13 @@
     try {
       const response = await fetch(`${apiBase}/esign-diagnostics/v2/activity?range=${timeRange}&limit=20`);
       if (!response.ok) {
-        // Simulate data
-        updateActivityFeed([
-          { type: 'info', title: 'Agreement AGR-004 ready for review', time: '2 minutes ago' },
-          { type: 'success', title: 'Placement run completed', message: '3 fields placed with 98% confidence', time: '5 minutes ago' },
-          { type: 'warning', title: 'Signer bottleneck detected', message: 'Stage 2 has 22 pending signers', time: '10 minutes ago' },
-          { type: 'info', title: 'Conflict CNF-005 resolved', time: '15 minutes ago' }
-        ]);
-        return;
+        throw new Error(`Activity endpoint returned ${response.status}`);
       }
       const data = await response.json();
       updateActivityFeed(data.events || []);
     } catch (error) {
       updateActivityFeed([
-        { type: 'info', title: 'Agreement AGR-004 ready for review', time: '2 minutes ago' },
-        { type: 'success', title: 'Placement run completed', message: '3 fields placed with 98% confidence', time: '5 minutes ago' }
+        { type: 'error', title: 'Activity feed unavailable', message: error.message, time: 'Just now' }
       ]);
     }
   }
