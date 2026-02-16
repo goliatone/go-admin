@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"regexp"
 	"strings"
 	"sync"
 	"testing"
@@ -299,11 +300,19 @@ func TestRuntimeNewDocumentRouteInjectsGoogleIngestionFlagsWhenEnabled(t *testin
 	if err != nil {
 		t.Fatalf("read new-document response body: %v", err)
 	}
-	if !strings.Contains(string(initialBody), "const googleEnabled = true;") {
-		t.Fatalf("expected googleEnabled=true in new-document template context")
+	initialMarkup := string(initialBody)
+	if !strings.Contains(initialMarkup, `data-esign-page="admin.documents.ingestion"`) {
+		t.Fatalf("expected page marker data-esign-page=admin.documents.ingestion in new-document template")
 	}
-	if !strings.Contains(string(initialBody), "const googleConnected = false;") {
-		t.Fatalf("expected googleConnected=false before oauth connect")
+	initialConfig := extractESignPageConfigFromHTML(t, initialMarkup)
+	if got := strings.TrimSpace(fmt.Sprint(initialConfig["page"])); got != "admin.documents.ingestion" {
+		t.Fatalf("expected page config page=admin.documents.ingestion, got %q", got)
+	}
+	if got := getESignConfigFeatureBool(initialConfig, "google_enabled"); !got {
+		t.Fatalf("expected google_enabled=true in page config")
+	}
+	if got := getESignConfigFeatureBool(initialConfig, "google_connected"); got {
+		t.Fatalf("expected google_connected=false before oauth connect")
 	}
 
 	connectReq := httptest.NewRequest(
@@ -334,8 +343,114 @@ func TestRuntimeNewDocumentRouteInjectsGoogleIngestionFlagsWhenEnabled(t *testin
 	if err != nil {
 		t.Fatalf("read connected new-document response body: %v", err)
 	}
-	if !strings.Contains(string(connectedBody), "const googleConnected = true;") {
-		t.Fatalf("expected googleConnected=true after oauth connect")
+	connectedConfig := extractESignPageConfigFromHTML(t, string(connectedBody))
+	if got := getESignConfigFeatureBool(connectedConfig, "google_connected"); !got {
+		t.Fatalf("expected google_connected=true after oauth connect")
+	}
+}
+
+func TestRuntimeNewDocumentRouteConfigReflectsGoogleFeatureGateWhenDisabled(t *testing.T) {
+	app := setupESignRuntimeWebApp(t)
+
+	form := url.Values{}
+	form.Set("identifier", defaultESignDemoAdminEmail)
+	form.Set("password", defaultESignDemoAdminPassword)
+	loginResp := doRequest(t, app, http.MethodPost, "/admin/login", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
+	defer loginResp.Body.Close()
+	authCookie := firstAuthCookie(loginResp)
+	if authCookie == nil {
+		t.Fatal("expected auth cookie after login")
+	}
+
+	resp := doRequestWithCookie(t, app, http.MethodGet, "/admin/content/esign_documents/new?source=google", authCookie)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected /admin/content/esign_documents/new status 200, got %d body=%s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read new-document body: %v", err)
+	}
+	config := extractESignPageConfigFromHTML(t, string(body))
+	if got := strings.TrimSpace(fmt.Sprint(config["page"])); got != "admin.documents.ingestion" {
+		t.Fatalf("expected page config page=admin.documents.ingestion, got %q", got)
+	}
+	if got := getESignConfigFeatureBool(config, "google_enabled"); got {
+		t.Fatalf("expected google_enabled=false when feature is disabled")
+	}
+	if got := getESignConfigFeatureBool(config, "google_connected"); got {
+		t.Fatalf("expected google_connected=false when feature is disabled")
+	}
+}
+
+func TestRuntimeMigratedPagesExposeValidatedESignModuleAssets(t *testing.T) {
+	app := setupESignRuntimeWebApp(t)
+
+	form := url.Values{}
+	form.Set("identifier", defaultESignDemoAdminEmail)
+	form.Set("password", defaultESignDemoAdminPassword)
+	loginResp := doRequest(t, app, http.MethodPost, "/admin/login", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
+	defer loginResp.Body.Close()
+	authCookie := firstAuthCookie(loginResp)
+	if authCookie == nil {
+		t.Fatal("expected auth cookie after login")
+	}
+
+	landingResp := doRequestWithCookie(t, app, http.MethodGet, "/admin/esign", authCookie)
+	defer landingResp.Body.Close()
+	if landingResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(landingResp.Body)
+		t.Fatalf("expected /admin/esign status 200, got %d body=%s", landingResp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	landingBody, err := io.ReadAll(landingResp.Body)
+	if err != nil {
+		t.Fatalf("read landing body: %v", err)
+	}
+	landingMarkup := string(landingBody)
+	if !strings.Contains(landingMarkup, `data-esign-page="admin.landing"`) {
+		t.Fatalf("expected landing page marker in response")
+	}
+	landingConfig := extractESignPageConfigFromHTML(t, landingMarkup)
+	landingModulePath := getESignConfigModulePath(landingConfig)
+	if landingModulePath != "/admin/assets/dist/esign/admin-landing.js" {
+		t.Fatalf("expected landing module path contract, got %q", landingModulePath)
+	}
+	if !strings.Contains(landingMarkup, `src="`+landingModulePath+`"`) {
+		t.Fatalf("expected landing module script src %q in markup", landingModulePath)
+	}
+
+	docResp := doRequestWithCookie(t, app, http.MethodGet, "/admin/content/esign_documents/new", authCookie)
+	defer docResp.Body.Close()
+	if docResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(docResp.Body)
+		t.Fatalf("expected /admin/content/esign_documents/new status 200, got %d body=%s", docResp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	docBody, err := io.ReadAll(docResp.Body)
+	if err != nil {
+		t.Fatalf("read document ingestion body: %v", err)
+	}
+	docMarkup := string(docBody)
+	docConfig := extractESignPageConfigFromHTML(t, docMarkup)
+	docModulePath := getESignConfigModulePath(docConfig)
+	if docModulePath != "/admin/assets/dist/esign/document-ingestion.js" {
+		t.Fatalf("expected document-ingestion module path contract, got %q", docModulePath)
+	}
+	if !strings.Contains(docMarkup, `src="`+docModulePath+`"`) {
+		t.Fatalf("expected document-ingestion module script src %q in markup", docModulePath)
+	}
+
+	landingAssetResp := doRequest(t, app, http.MethodGet, landingModulePath, "", nil)
+	defer landingAssetResp.Body.Close()
+	if landingAssetResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(landingAssetResp.Body)
+		t.Fatalf("expected landing module asset status 200, got %d body=%s", landingAssetResp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	docAssetResp := doRequest(t, app, http.MethodGet, docModulePath, "", nil)
+	defer docAssetResp.Body.Close()
+	if docAssetResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(docAssetResp.Body)
+		t.Fatalf("expected document-ingestion module asset status 200, got %d body=%s", docAssetResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 }
 
@@ -1248,6 +1363,41 @@ func newESignRuntimeWebFixtureForTestsWithGoogleEnabled(googleEnabled bool) (eSi
 		App:    server.WrappedRouter(),
 		Module: esignModule,
 	}, nil
+}
+
+func extractESignPageConfigFromHTML(t *testing.T, html string) map[string]any {
+	t.Helper()
+	re := regexp.MustCompile(`(?s)<script[^>]*id="esign-page-config"[^>]*>(.*?)</script>`)
+	matches := re.FindStringSubmatch(html)
+	if len(matches) < 2 {
+		t.Fatalf("expected esign page config script tag in html response")
+	}
+	raw := strings.TrimSpace(matches[1])
+	if raw == "" {
+		t.Fatalf("expected esign page config payload in script tag")
+	}
+	payload := map[string]any{}
+	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
+		t.Fatalf("unmarshal esign page config payload: %v", err)
+	}
+	return payload
+}
+
+func getESignConfigFeatureBool(payload map[string]any, key string) bool {
+	features, ok := payload["features"].(map[string]any)
+	if !ok || features == nil {
+		return false
+	}
+	value, ok := features[strings.TrimSpace(key)]
+	if !ok {
+		return false
+	}
+	boolVal, ok := value.(bool)
+	return ok && boolVal
+}
+
+func getESignConfigModulePath(payload map[string]any) string {
+	return strings.TrimSpace(fmt.Sprint(payload["module_path"]))
 }
 
 func assertRedirect(t *testing.T, app *fiber.App, method, endpoint, expectedLocation string) {

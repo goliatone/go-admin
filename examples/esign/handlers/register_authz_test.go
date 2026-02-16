@@ -1575,6 +1575,15 @@ func TestRegisterGoogleDriveSearchBrowseAndImportEndpoints(t *testing.T) {
 	if !strings.Contains(string(searchBody), `"files"`) {
 		t.Fatalf("expected files in search response, got %s", string(searchBody))
 	}
+	if !strings.Contains(string(searchBody), `"name":"NDA Source"`) {
+		t.Fatalf("expected camelCase google file name in search response, got %s", string(searchBody))
+	}
+	if !strings.Contains(string(searchBody), `"mimeType":"application/vnd.google-apps.document"`) {
+		t.Fatalf("expected camelCase google file mimeType in search response, got %s", string(searchBody))
+	}
+	if strings.Contains(string(searchBody), `"Name"`) || strings.Contains(string(searchBody), `"MimeType"`) {
+		t.Fatalf("expected camelCase google file keys only, got %s", string(searchBody))
+	}
 
 	browseReq := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign/google-drive/browse?user_id=ops-user&folder_id=root", nil)
 	browseResp, err := app.Test(browseReq, -1)

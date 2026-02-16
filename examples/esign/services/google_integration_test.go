@@ -173,6 +173,85 @@ func TestGoogleIntegrationConnectStatusDisconnect(t *testing.T) {
 	}
 }
 
+func TestGoogleScopedUserIDRoundTrip(t *testing.T) {
+	scoped := ComposeGoogleScopedUserID("ops-user", "work@example.com")
+	if !strings.Contains(scoped, "ops-user") {
+		t.Fatalf("expected scoped id to include base user id, got %q", scoped)
+	}
+	userID, accountID := ParseGoogleScopedUserID(scoped)
+	if userID != "ops-user" {
+		t.Fatalf("expected parsed user id ops-user, got %q", userID)
+	}
+	if accountID != "work@example.com" {
+		t.Fatalf("expected parsed account id work@example.com, got %q", accountID)
+	}
+
+	baseOnly := ComposeGoogleScopedUserID("ops-user", "")
+	if baseOnly != "ops-user" {
+		t.Fatalf("expected base id passthrough, got %q", baseOnly)
+	}
+	parsedUserID, parsedAccountID := ParseGoogleScopedUserID(baseOnly)
+	if parsedUserID != "ops-user" || parsedAccountID != "" {
+		t.Fatalf("expected base parse without account, got user=%q account=%q", parsedUserID, parsedAccountID)
+	}
+}
+
+func TestGoogleIntegrationSupportsMultipleAccountsPerUser(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+	provider := NewDeterministicGoogleProvider()
+	service := NewGoogleIntegrationService(store, provider, nil, nil)
+
+	if _, err := service.Connect(ctx, scope, GoogleConnectInput{
+		UserID:    "user-1",
+		AccountID: "work@example.com",
+		AuthCode:  "code-work",
+	}); err != nil {
+		t.Fatalf("Connect work account: %v", err)
+	}
+	if _, err := service.Connect(ctx, scope, GoogleConnectInput{
+		UserID:    "user-1",
+		AccountID: "personal@example.com",
+		AuthCode:  "code-personal",
+	}); err != nil {
+		t.Fatalf("Connect personal account: %v", err)
+	}
+
+	workScoped := ComposeGoogleScopedUserID("user-1", "work@example.com")
+	personalScoped := ComposeGoogleScopedUserID("user-1", "personal@example.com")
+
+	workCredential, err := store.GetIntegrationCredential(ctx, scope, GoogleProviderName, workScoped)
+	if err != nil {
+		t.Fatalf("GetIntegrationCredential work: %v", err)
+	}
+	personalCredential, err := store.GetIntegrationCredential(ctx, scope, GoogleProviderName, personalScoped)
+	if err != nil {
+		t.Fatalf("GetIntegrationCredential personal: %v", err)
+	}
+	if workCredential.ID == personalCredential.ID {
+		t.Fatalf("expected separate credentials per account, got shared id %q", workCredential.ID)
+	}
+
+	if err := service.Disconnect(ctx, scope, personalScoped); err != nil {
+		t.Fatalf("Disconnect personal account: %v", err)
+	}
+	personalStatus, err := service.Status(ctx, scope, personalScoped)
+	if err != nil {
+		t.Fatalf("Status personal after disconnect: %v", err)
+	}
+	if personalStatus.Connected {
+		t.Fatalf("expected personal account disconnected, got %+v", personalStatus)
+	}
+	workStatus, err := service.Status(ctx, scope, workScoped)
+	if err != nil {
+		t.Fatalf("Status work after personal disconnect: %v", err)
+	}
+	if !workStatus.Connected {
+		t.Fatalf("expected work account to remain connected, got %+v", workStatus)
+	}
+}
+
 func TestGoogleIntegrationConnectRejectsScopeViolations(t *testing.T) {
 	ctx := context.Background()
 	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
@@ -205,6 +284,20 @@ func TestValidateLeastPrivilegeScopesAllowsLegacyDriveFile(t *testing.T) {
 	)
 	if err != nil {
 		t.Fatalf("expected legacy drive.file scope to be accepted, got %v", err)
+	}
+}
+
+func TestValidateLeastPrivilegeScopesAllowsOpenID(t *testing.T) {
+	err := validateLeastPrivilegeScopes(
+		[]string{
+			GoogleScopeDriveReadonly,
+			GoogleScopeOpenID,
+			GoogleScopeUserinfoEmail,
+		},
+		DefaultGoogleOAuthScopes,
+	)
+	if err != nil {
+		t.Fatalf("expected openid scope to be accepted, got %v", err)
 	}
 }
 
