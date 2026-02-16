@@ -41,6 +41,7 @@ const (
 	searchSegment           = "search"
 	browseSegment           = "browse"
 	importSegment           = "import"
+	importsSegment          = "imports"
 	mappingsSegment         = "mappings"
 	syncRunsSegment         = "sync-runs"
 	checkpointsSegment      = "checkpoints"
@@ -108,6 +109,8 @@ type RouteSet struct {
 	AdminGoogleDriveSearch       string
 	AdminGoogleDriveBrowse       string
 	AdminGoogleDriveImport       string
+	AdminGoogleDriveImports      string
+	AdminGoogleDriveImportRun    string
 	AdminIntegrationMappings     string
 	AdminIntegrationMapping      string
 	AdminIntegrationMapPublish   string
@@ -181,6 +184,8 @@ func BuildRouteSet(urls urlkit.Resolver, adminBasePath, adminAPIGroup string) Ro
 		AdminGoogleDriveSearch:       joinPath(adminAPIBase, esignSegment, googleDriveSegment, searchSegment),
 		AdminGoogleDriveBrowse:       joinPath(adminAPIBase, esignSegment, googleDriveSegment, browseSegment),
 		AdminGoogleDriveImport:       joinPath(adminAPIBase, esignSegment, googleDriveSegment, importSegment),
+		AdminGoogleDriveImports:      joinPath(adminAPIBase, esignSegment, googleDriveSegment, importsSegment),
+		AdminGoogleDriveImportRun:    joinPath(adminAPIBase, esignSegment, googleDriveSegment, importsSegment, ":import_run_id"),
 		AdminIntegrationMappings:     joinPath(adminAPIBase, esignSegment, integrationsSegment, mappingsSegment),
 		AdminIntegrationMapping:      joinPath(adminAPIBase, esignSegment, integrationsSegment, mappingsSegment, ":mapping_id"),
 		AdminIntegrationMapPublish:   joinPath(adminAPIBase, esignSegment, integrationsSegment, mappingsSegment, ":mapping_id", publishSegment),

@@ -60,14 +60,16 @@ type TokenRotateMsg struct {
 func (TokenRotateMsg) Type() string { return JobTokenRotate }
 
 type GoogleDriveImportMsg struct {
-	Scope           stores.Scope
-	UserID          string
-	GoogleFileID    string
-	DocumentTitle   string
-	AgreementTitle  string
-	CreatedByUserID string
-	CorrelationID   string
-	DedupeKey       string
+	Scope             stores.Scope
+	ImportRunID       string
+	UserID            string
+	GoogleFileID      string
+	SourceVersionHint string
+	DocumentTitle     string
+	AgreementTitle    string
+	CreatedByUserID   string
+	CorrelationID     string
+	DedupeKey         string
 }
 
 func (GoogleDriveImportMsg) Type() string { return JobGoogleDriveImport }

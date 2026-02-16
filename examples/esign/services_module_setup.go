@@ -95,6 +95,7 @@ func setupESignServicesModule(adm *coreadmin.Admin) (*servicesmodule.Module, fun
 			_ = sqlDB.Close()
 			return nil, nil, providerErr
 		}
+		opts = append(opts, servicesmodule.WithCallbackURLConfig(resolveESignServicesCallbackConfig()))
 		opts = append(opts, servicesmodule.WithProvider(provider))
 	}
 
@@ -164,4 +165,19 @@ func buildGoogleDriveProviderFromEnv() (servicesmodule.Provider, error) {
 		return nil, fmt.Errorf("esign services module: drive provider: %w", err)
 	}
 	return provider, nil
+}
+
+func resolveESignServicesCallbackConfig() servicesmodule.CallbackURLConfig {
+	config := servicesmodule.CallbackURLConfig{
+		Strict: true,
+	}
+	if publicBaseURL := strings.TrimSpace(firstNonEmptyEnv("ESIGN_SERVICES_CALLBACK_PUBLIC_BASE_URL", strings.TrimSpace(os.Getenv("ESIGN_PUBLIC_BASE_URL")))); publicBaseURL != "" {
+		config.PublicBaseURL = publicBaseURL
+	}
+	if googleRedirectURI := strings.TrimSpace(os.Getenv(services.EnvGoogleOAuthRedirectURI)); googleRedirectURI != "" {
+		config.ProviderURLOverrides = map[string]string{
+			services.GoogleServicesProviderID: googleRedirectURI,
+		}
+	}
+	return config
 }

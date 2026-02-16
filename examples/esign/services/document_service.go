@@ -30,6 +30,8 @@ type DocumentUploadInput struct {
 	SourceModifiedTime     *time.Time
 	SourceExportedAt       *time.Time
 	SourceExportedByUserID string
+	SourceMimeType         string
+	SourceIngestionMode    string
 }
 
 // DocumentMetadata captures extracted immutable source PDF metadata.
@@ -140,6 +142,8 @@ func (s DocumentService) Upload(ctx context.Context, scope stores.Scope, input D
 		SourceModifiedTime:     input.SourceModifiedTime,
 		SourceExportedAt:       input.SourceExportedAt,
 		SourceExportedByUserID: strings.TrimSpace(input.SourceExportedByUserID),
+		SourceMimeType:         strings.TrimSpace(input.SourceMimeType),
+		SourceIngestionMode:    strings.TrimSpace(input.SourceIngestionMode),
 		SizeBytes:              metadata.SizeBytes,
 		PageCount:              metadata.PageCount,
 		CreatedAt:              now,

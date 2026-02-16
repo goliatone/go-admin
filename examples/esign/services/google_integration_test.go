@@ -13,6 +13,7 @@ import (
 
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	goerrors "github.com/goliatone/go-errors"
+	gocore "github.com/goliatone/go-services/core"
 )
 
 type scopeViolatingProvider struct{}
@@ -53,7 +54,15 @@ func (scopeViolatingProvider) BrowseFiles(context.Context, string, string, strin
 	return GoogleDriveListResult{}, nil
 }
 
+func (scopeViolatingProvider) GetFile(context.Context, string, string) (GoogleDriveFile, error) {
+	return GoogleDriveFile{}, nil
+}
+
 func (scopeViolatingProvider) ExportFilePDF(context.Context, string, string) (GoogleExportSnapshot, error) {
+	return GoogleExportSnapshot{}, nil
+}
+
+func (scopeViolatingProvider) DownloadFilePDF(context.Context, string, string) (GoogleExportSnapshot, error) {
 	return GoogleExportSnapshot{}, nil
 }
 
@@ -226,6 +235,93 @@ func TestGoogleIntegrationImportDocumentPersistsGoogleSourceMetadata(t *testing.
 	}
 	if imported.Agreement.SourceExportedAt == nil {
 		t.Fatalf("expected source_exported_at on agreement, got %+v", imported.Agreement)
+	}
+	if imported.SourceMimeType != GoogleDriveMimeTypeDoc {
+		t.Fatalf("expected source mime %q, got %q", GoogleDriveMimeTypeDoc, imported.SourceMimeType)
+	}
+	if imported.IngestionMode != GoogleIngestionModeExportPDF {
+		t.Fatalf("expected ingestion mode %q, got %q", GoogleIngestionModeExportPDF, imported.IngestionMode)
+	}
+}
+
+func TestGoogleIntegrationImportDocumentDrivePDFDirect(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+	provider := NewDeterministicGoogleProvider()
+	documents := NewDocumentService(store)
+	agreements := NewAgreementService(store)
+	service := NewGoogleIntegrationService(store, provider, documents, agreements)
+
+	if _, err := service.Connect(ctx, scope, GoogleConnectInput{
+		UserID:   "import-user",
+		AuthCode: "import-code",
+	}); err != nil {
+		t.Fatalf("Connect: %v", err)
+	}
+
+	imported, err := service.ImportDocument(ctx, scope, GoogleImportInput{
+		UserID:          "import-user",
+		GoogleFileID:    "google-pdf-1",
+		DocumentTitle:   "Imported PDF",
+		AgreementTitle:  "Imported PDF Agreement",
+		CreatedByUserID: "ops-user",
+	})
+	if err != nil {
+		t.Fatalf("ImportDocument: %v", err)
+	}
+	if imported.SourceMimeType != GoogleDriveMimeTypePDF {
+		t.Fatalf("expected source mime %q, got %q", GoogleDriveMimeTypePDF, imported.SourceMimeType)
+	}
+	if imported.IngestionMode != GoogleIngestionModeDrivePDFDirect {
+		t.Fatalf("expected ingestion mode %q, got %q", GoogleIngestionModeDrivePDFDirect, imported.IngestionMode)
+	}
+	if imported.Document.SourceIngestionMode != GoogleIngestionModeDrivePDFDirect {
+		t.Fatalf("expected document ingestion mode persisted, got %q", imported.Document.SourceIngestionMode)
+	}
+}
+
+func TestGoogleIntegrationImportDocumentRejectsUnsupportedMIME(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+	provider := NewDeterministicGoogleProvider()
+	provider.files["google-sheet-1"] = GoogleDriveFile{
+		ID:           "google-sheet-1",
+		Name:         "Budget Sheet",
+		MimeType:     "application/vnd.google-apps.spreadsheet",
+		WebViewURL:   "https://docs.google.com/spreadsheets/d/google-sheet-1/edit",
+		OwnerEmail:   "owner@example.com",
+		ParentID:     "root",
+		ModifiedTime: time.Date(2026, 2, 10, 11, 0, 0, 0, time.UTC),
+	}
+	documents := NewDocumentService(store)
+	agreements := NewAgreementService(store)
+	service := NewGoogleIntegrationService(store, provider, documents, agreements)
+
+	if _, err := service.Connect(ctx, scope, GoogleConnectInput{
+		UserID:   "import-user",
+		AuthCode: "import-code",
+	}); err != nil {
+		t.Fatalf("Connect: %v", err)
+	}
+
+	_, err := service.ImportDocument(ctx, scope, GoogleImportInput{
+		UserID:       "import-user",
+		GoogleFileID: "google-sheet-1",
+	})
+	if err == nil {
+		t.Fatal("expected unsupported mime error")
+	}
+	var coded *goerrors.Error
+	if !asGoError(err, &coded) {
+		t.Fatalf("expected goerrors.Error, got %T", err)
+	}
+	if coded.TextCode != string(ErrorCodeGoogleUnsupportedType) {
+		t.Fatalf("expected code %s, got %s", ErrorCodeGoogleUnsupportedType, coded.TextCode)
+	}
+	if coded.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected status 422, got %d", coded.Code)
 	}
 }
 
@@ -725,6 +821,207 @@ func (e *googleProviderEmulatorServer) isRevokedBearer(r *http.Request) bool {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	return e.revoked[token]
+}
+
+func TestGoogleServicesIntegrationResolveConnectRedirectURIRejectsConfiguredMismatch(t *testing.T) {
+	t.Setenv(EnvGoogleOAuthRedirectURI, "http://127.0.0.1:8082/admin/esign/integrations/google/callback")
+	service := GoogleServicesIntegrationService{providerMode: GoogleProviderModeReal}
+
+	_, err := service.resolveConnectRedirectURI("http://localhost:8082/admin/esign/integrations/google/callback")
+	if err == nil {
+		t.Fatal("expected redirect URI mismatch validation error")
+	}
+	var coded *goerrors.Error
+	if !errors.As(err, &coded) {
+		t.Fatalf("expected goerrors.Error, got %T", err)
+	}
+	if coded.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400 for redirect mismatch, got %d", coded.Code)
+	}
+}
+
+func TestGoogleServicesIntegrationResolveConnectRedirectURIRequiresRealModeRedirect(t *testing.T) {
+	t.Setenv(EnvGoogleOAuthRedirectURI, "")
+	service := GoogleServicesIntegrationService{providerMode: GoogleProviderModeReal}
+
+	_, err := service.resolveConnectRedirectURI("")
+	if err == nil {
+		t.Fatal("expected redirect URI requirement error in real mode")
+	}
+}
+
+func TestGoogleServicesIntegrationResolveConnectRedirectURIAcceptsCanonicalMatch(t *testing.T) {
+	t.Setenv(EnvGoogleOAuthRedirectURI, "http://127.0.0.1:8082/admin/esign/integrations/google/callback")
+	service := GoogleServicesIntegrationService{providerMode: GoogleProviderModeReal}
+
+	got, err := service.resolveConnectRedirectURI("http://127.0.0.1:8082/admin/esign/integrations/google/callback/")
+	if err != nil {
+		t.Fatalf("expected canonical redirect URI match to pass, got %v", err)
+	}
+	if got != "http://127.0.0.1:8082/admin/esign/integrations/google/callback" {
+		t.Fatalf("expected configured redirect URI to be used, got %q", got)
+	}
+}
+
+func TestGoogleOAuthStatusJSONUsesSnakeCaseFields(t *testing.T) {
+	payload, err := json.Marshal(GoogleOAuthStatus{
+		Provider:             "google",
+		ProviderMode:         "real",
+		UserID:               "user-1",
+		Connected:            true,
+		AccountEmail:         "ops@example.com",
+		Scopes:               []string{GoogleScopeDriveReadonly},
+		IsExpired:            false,
+		IsExpiringSoon:       true,
+		CanAutoRefresh:       true,
+		NeedsReauthorization: false,
+		LeastPrivilege:       true,
+		Healthy:              true,
+	})
+	if err != nil {
+		t.Fatalf("marshal status payload: %v", err)
+	}
+	raw := string(payload)
+	if !strings.Contains(raw, `"connected":true`) {
+		t.Fatalf("expected connected field in snake_case payload, got %s", raw)
+	}
+	if !strings.Contains(raw, `"least_privilege":true`) {
+		t.Fatalf("expected least_privilege field in snake_case payload, got %s", raw)
+	}
+	if !strings.Contains(raw, `"is_expiring_soon":true`) {
+		t.Fatalf("expected is_expiring_soon field in snake_case payload, got %s", raw)
+	}
+	if !strings.Contains(raw, `"can_auto_refresh":true`) {
+		t.Fatalf("expected can_auto_refresh field in snake_case payload, got %s", raw)
+	}
+	if !strings.Contains(raw, `"needs_reauthorization":false`) {
+		t.Fatalf("expected needs_reauthorization field in snake_case payload, got %s", raw)
+	}
+	if strings.Contains(raw, `"Connected"`) ||
+		strings.Contains(raw, `"LeastPrivilege"`) ||
+		strings.Contains(raw, `"IsExpiringSoon"`) ||
+		strings.Contains(raw, `"CanAutoRefresh"`) {
+		t.Fatalf("did not expect PascalCase field names in payload, got %s", raw)
+	}
+}
+
+func TestGoogleTokenExpiryState(t *testing.T) {
+	now := time.Date(2026, 2, 16, 8, 0, 0, 0, time.UTC)
+	cases := []struct {
+		name       string
+		credential gocore.ActiveCredential
+		expired    bool
+		soon       bool
+		auto       bool
+	}{
+		{
+			name:       "no expiry",
+			credential: gocore.ActiveCredential{},
+			expired:    false,
+			soon:       false,
+			auto:       false,
+		},
+		{
+			name: "expired",
+			credential: gocore.ActiveCredential{
+				Refreshable:  true,
+				RefreshToken: "refresh-1",
+				ExpiresAt:    ptrTime(now.Add(-30 * time.Second)),
+			},
+			expired: true,
+			soon:    false,
+			auto:    true,
+		},
+		{
+			name: "expiring soon",
+			credential: gocore.ActiveCredential{
+				Refreshable:  true,
+				RefreshToken: "refresh-1",
+				ExpiresAt:    ptrTime(now.Add(2 * time.Minute)),
+			},
+			expired: false,
+			soon:    true,
+			auto:    true,
+		},
+		{
+			name: "healthy ttl",
+			credential: gocore.ActiveCredential{
+				Refreshable:  true,
+				RefreshToken: "refresh-1",
+				ExpiresAt:    ptrTime(now.Add(20 * time.Minute)),
+			},
+			expired: false,
+			soon:    false,
+			auto:    true,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			state := gocore.ResolveCredentialTokenState(now, tc.credential, gocore.DefaultCredentialExpiringSoonWindow)
+			if state.IsExpired != tc.expired || state.IsExpiringSoon != tc.soon {
+				t.Fatalf("expected expired=%t soon=%t, got expired=%t soon=%t", tc.expired, tc.soon, state.IsExpired, state.IsExpiringSoon)
+			}
+			if state.CanAutoRefresh != tc.auto {
+				t.Fatalf("expected can_auto_refresh=%t, got %t", tc.auto, state.CanAutoRefresh)
+			}
+		})
+	}
+}
+
+func TestGoogleTokenRefreshDue(t *testing.T) {
+	now := time.Date(2026, 2, 16, 8, 0, 0, 0, time.UTC)
+	cases := []struct {
+		name  string
+		state gocore.CredentialTokenState
+		due   bool
+	}{
+		{
+			name:  "no expiry",
+			state: gocore.CredentialTokenState{},
+			due:   false,
+		},
+		{
+			name: "expired",
+			state: gocore.CredentialTokenState{
+				CanAutoRefresh: true,
+				HasAccessToken: true,
+				ExpiresAt:      ptrTime(now.Add(-1 * time.Minute)),
+			},
+			due: true,
+		},
+		{
+			name: "within lead window",
+			state: gocore.CredentialTokenState{
+				CanAutoRefresh: true,
+				HasAccessToken: true,
+				ExpiresAt:      ptrTime(now.Add(2 * time.Minute)),
+			},
+			due: true,
+		},
+		{
+			name: "outside lead window",
+			state: gocore.CredentialTokenState{
+				CanAutoRefresh: true,
+				HasAccessToken: true,
+				ExpiresAt:      ptrTime(now.Add(30 * time.Minute)),
+			},
+			due: false,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if due := gocore.ShouldRefreshCredential(now, tc.state, gocore.DefaultCredentialRefreshLeadWindow); due != tc.due {
+				t.Fatalf("expected due=%t, got %t", tc.due, due)
+			}
+		})
+	}
+}
+
+func ptrTime(value time.Time) *time.Time {
+	utc := value.UTC()
+	return &utc
 }
 
 func writeJSONResponse(w http.ResponseWriter, status int, payload map[string]any) {

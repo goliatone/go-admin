@@ -303,6 +303,7 @@ func newESignViewEngine(cfg coreadmin.Config, adm *coreadmin.Admin) (fiber.Views
 		client.FS(),
 		quickstart.WithViewTemplateFuncs(quickstart.DefaultTemplateFuncs(templateOpts...)),
 		quickstart.WithViewTemplatesFS(eSignTemplatesFS),
+		quickstart.WithViewDebug(cfg.Debug.Enabled),
 	)
 }
 
@@ -335,6 +336,8 @@ func registerESignWebRoutes(
 	if basePath == "" {
 		basePath = "/admin"
 	}
+	contentEntryViewContext := quickstart.DefaultAdminUIViewContextBuilder(adm, cfg)
+	googleEnabled := featureEnabledInSystemScope(adm.FeatureGate(), "esign_google")
 
 	r.Get("/", func(c router.Context) error {
 		return c.Redirect(basePath, http.StatusFound)
@@ -351,6 +354,12 @@ func registerESignWebRoutes(
 		cfg,
 		adm,
 		authn,
+		quickstart.WithContentEntryUIViewContext(func(ctx router.ViewContext, panelName string, c router.Context) router.ViewContext {
+			if contentEntryViewContext != nil {
+				ctx = contentEntryViewContext(ctx, panelName, c)
+			}
+			return withESignDocumentIngestionViewContext(ctx, panelName, c, esignModule, googleEnabled)
+		}),
 		quickstart.WithContentEntryUITemplateFS(client.FS(), eSignTemplatesFS),
 	); err != nil {
 		return err
@@ -479,11 +488,13 @@ func registerESignGoogleIntegrationUIRoutes(
 			Permission: permissions.AdminESignSettings,
 			BuildContext: func(c router.Context) (router.ViewContext, error) {
 				userID := resolveESignAdminUserID(c)
+				redirectURI := resolveGoogleOAuthRedirectURI(c, googleCallbackPath)
 				return router.ViewContext{
-					"api_base_path":    apiBasePath,
-					"google_enabled":   googleEnabled,
-					"google_client_id": strings.TrimSpace(os.Getenv("ESIGN_GOOGLE_CLIENT_ID")),
-					"user_id":          userID,
+					"api_base_path":       apiBasePath,
+					"google_enabled":      googleEnabled,
+					"google_client_id":    strings.TrimSpace(os.Getenv("ESIGN_GOOGLE_CLIENT_ID")),
+					"google_redirect_uri": redirectURI,
+					"user_id":             userID,
 					"routes": map[string]any{
 						"esign_settings":      landingPath,
 						"esign_documents":     documentsPath,
@@ -721,6 +732,101 @@ func resolveESignAdminUserID(c router.Context) string {
 		}
 	}
 	return firstNonEmptyEnv("ESIGN_ADMIN_ID", defaultESignDemoAdminID)
+}
+
+func withESignDocumentIngestionViewContext(
+	ctx router.ViewContext,
+	panelName string,
+	c router.Context,
+	esignModule *modules.ESignModule,
+	googleEnabled bool,
+) router.ViewContext {
+	if ctx == nil {
+		ctx = router.ViewContext{}
+	}
+	if strings.TrimSpace(panelName) != "esign_documents" {
+		return ctx
+	}
+	userID := resolveESignAdminUserID(c)
+	ctx["user_id"] = userID
+	ctx["google_enabled"] = googleEnabled
+	googleConnected := false
+	if googleEnabled && esignModule != nil && c != nil && strings.TrimSpace(userID) != "" {
+		scope := resolveESignUploadScope(c, esignModule.DefaultScope())
+		googleConnected = esignModule.GoogleConnected(c.Context(), scope, userID)
+	}
+	ctx["google_connected"] = googleConnected
+	return ctx
+}
+
+func resolveGoogleOAuthRedirectURI(c router.Context, callbackPath string) string {
+	if configured := strings.TrimSpace(os.Getenv(services.EnvGoogleOAuthRedirectURI)); configured != "" {
+		return configured
+	}
+	callbackPath = strings.TrimSpace(callbackPath)
+	if callbackPath == "" {
+		return ""
+	}
+	if parsed, err := url.Parse(callbackPath); err == nil && parsed != nil && parsed.IsAbs() {
+		return strings.TrimSpace(parsed.String())
+	}
+	origin := resolveRequestOrigin(c)
+	if origin == "" {
+		return callbackPath
+	}
+	base, baseErr := url.Parse(origin)
+	relative, relativeErr := url.Parse(callbackPath)
+	if baseErr != nil || relativeErr != nil || base == nil || relative == nil {
+		return callbackPath
+	}
+	return strings.TrimSpace(base.ResolveReference(relative).String())
+}
+
+func resolveRequestOrigin(c router.Context) string {
+	if c == nil {
+		return ""
+	}
+	scheme := firstCSVValue(c.Header("X-Forwarded-Proto"))
+	if scheme == "" {
+		scheme = firstCSVValue(c.Header("X-Forwarded-Scheme"))
+	}
+	host := firstCSVValue(c.Header("X-Forwarded-Host"))
+	if host == "" {
+		host = strings.TrimSpace(c.Header("Host"))
+	}
+	if httpCtx, ok := c.(router.HTTPContext); ok && httpCtx != nil {
+		request := httpCtx.Request()
+		if request != nil {
+			if host == "" {
+				host = strings.TrimSpace(request.Host)
+			}
+			if scheme == "" && request.URL != nil {
+				scheme = strings.TrimSpace(request.URL.Scheme)
+			}
+			if scheme == "" && request.TLS != nil {
+				scheme = "https"
+			}
+		}
+	}
+	if scheme == "" {
+		if strings.EqualFold(strings.TrimSpace(c.Header("X-Forwarded-SSL")), "on") {
+			scheme = "https"
+		} else {
+			scheme = "http"
+		}
+	}
+	if host == "" {
+		return ""
+	}
+	return strings.ToLower(strings.TrimSpace(scheme)) + "://" + strings.TrimSpace(host)
+}
+
+func firstCSVValue(raw string) string {
+	parts := strings.Split(strings.TrimSpace(raw), ",")
+	if len(parts) == 0 {
+		return ""
+	}
+	return strings.TrimSpace(parts[0])
 }
 
 func featureEnabledInSystemScope(gate fggate.FeatureGate, feature string) bool {

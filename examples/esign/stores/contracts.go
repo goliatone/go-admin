@@ -98,6 +98,16 @@ type JobRunStore interface {
 	ListJobRuns(ctx context.Context, scope Scope, agreementID string) ([]JobRunRecord, error)
 }
 
+// GoogleImportRunStore defines async Google import lifecycle persistence with scoped idempotent dedupe.
+type GoogleImportRunStore interface {
+	BeginGoogleImportRun(ctx context.Context, scope Scope, input GoogleImportRunInput) (GoogleImportRunRecord, bool, error)
+	MarkGoogleImportRunRunning(ctx context.Context, scope Scope, id string, startedAt time.Time) (GoogleImportRunRecord, error)
+	MarkGoogleImportRunSucceeded(ctx context.Context, scope Scope, id string, input GoogleImportRunSuccessInput) (GoogleImportRunRecord, error)
+	MarkGoogleImportRunFailed(ctx context.Context, scope Scope, id string, input GoogleImportRunFailureInput) (GoogleImportRunRecord, error)
+	GetGoogleImportRun(ctx context.Context, scope Scope, id string) (GoogleImportRunRecord, error)
+	ListGoogleImportRuns(ctx context.Context, scope Scope, query GoogleImportRunQuery) ([]GoogleImportRunRecord, string, error)
+}
+
 // OutboxStore defines durable post-commit side-effect message persistence.
 type OutboxStore interface {
 	txoutbox.Store[Scope]
@@ -159,6 +169,7 @@ type TxStore interface {
 	AgreementArtifactStore
 	EmailLogStore
 	JobRunStore
+	GoogleImportRunStore
 	OutboxStore
 	IntegrationCredentialStore
 	IntegrationFoundationStore

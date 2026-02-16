@@ -49,6 +49,13 @@ const (
 )
 
 const (
+	GoogleImportRunStatusQueued    = "queued"
+	GoogleImportRunStatusRunning   = "running"
+	GoogleImportRunStatusSucceeded = "succeeded"
+	GoogleImportRunStatusFailed    = "failed"
+)
+
+const (
 	OutboxMessageStatusPending    = txoutbox.OutboxStatusPending
 	OutboxMessageStatusProcessing = txoutbox.OutboxStatusProcessing
 	OutboxMessageStatusRetrying   = txoutbox.OutboxStatusRetrying
@@ -106,6 +113,8 @@ type DocumentRecord struct {
 	SourceModifiedTime     *time.Time
 	SourceExportedAt       *time.Time
 	SourceExportedByUserID string
+	SourceMimeType         string
+	SourceIngestionMode    string
 	SizeBytes              int64
 	PageCount              int
 	CreatedAt              time.Time
@@ -124,6 +133,8 @@ type AgreementRecord struct {
 	SourceModifiedTime     *time.Time
 	SourceExportedAt       *time.Time
 	SourceExportedByUserID string
+	SourceMimeType         string
+	SourceIngestionMode    string
 	Status                 string
 	Title                  string
 	Message                string
@@ -428,6 +439,71 @@ type JobRunInput struct {
 	CorrelationID string
 	MaxAttempts   int
 	AttemptedAt   time.Time
+}
+
+// GoogleImportRunRecord stores async Google Drive import execution state and result payload.
+type GoogleImportRunRecord struct {
+	ID                string
+	TenantID          string
+	OrgID             string
+	UserID            string
+	GoogleFileID      string
+	SourceVersionHint string
+	DedupeKey         string
+	DocumentTitle     string
+	AgreementTitle    string
+	CreatedByUserID   string
+	CorrelationID     string
+	Status            string
+	DocumentID        string
+	AgreementID       string
+	SourceMimeType    string
+	IngestionMode     string
+	ErrorCode         string
+	ErrorMessage      string
+	ErrorDetailsJSON  string
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+	StartedAt         *time.Time
+	CompletedAt       *time.Time
+}
+
+// GoogleImportRunInput captures dedupe-aware async Google import run submission.
+type GoogleImportRunInput struct {
+	UserID            string
+	GoogleFileID      string
+	SourceVersionHint string
+	DedupeKey         string
+	DocumentTitle     string
+	AgreementTitle    string
+	CreatedByUserID   string
+	CorrelationID     string
+	RequestedAt       time.Time
+}
+
+// GoogleImportRunSuccessInput captures terminal success payload for an import run.
+type GoogleImportRunSuccessInput struct {
+	DocumentID     string
+	AgreementID    string
+	SourceMimeType string
+	IngestionMode  string
+	CompletedAt    time.Time
+}
+
+// GoogleImportRunFailureInput captures terminal failure payload for an import run.
+type GoogleImportRunFailureInput struct {
+	ErrorCode        string
+	ErrorMessage     string
+	ErrorDetailsJSON string
+	CompletedAt      time.Time
+}
+
+// GoogleImportRunQuery controls scoped import-run listing and pagination.
+type GoogleImportRunQuery struct {
+	UserID   string
+	Limit    int
+	Cursor   string
+	SortDesc bool
 }
 
 // OutboxMessageRecord stores durable side-effect events for post-commit dispatch.

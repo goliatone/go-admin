@@ -271,6 +271,74 @@ func TestRuntimeGoogleIntegrationUIRoutesRenderWhenEnabled(t *testing.T) {
 	}
 }
 
+func TestRuntimeNewDocumentRouteInjectsGoogleIngestionFlagsWhenEnabled(t *testing.T) {
+	t.Setenv("ESIGN_GOOGLE_CREDENTIAL_ACTIVE_KEY", "test-google-active-key")
+	t.Setenv("ESIGN_GOOGLE_PROVIDER_MODE", "deterministic")
+	app, err := newESignRuntimeWebAppForTestsWithGoogleEnabled(true)
+	if err != nil {
+		t.Fatalf("setup e-sign runtime app with google enabled: %v", err)
+	}
+
+	form := url.Values{}
+	form.Set("identifier", defaultESignDemoAdminEmail)
+	form.Set("password", defaultESignDemoAdminPassword)
+	loginResp := doRequest(t, app, http.MethodPost, "/admin/login", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
+	defer loginResp.Body.Close()
+	authCookie := firstAuthCookie(loginResp)
+	if authCookie == nil {
+		t.Fatal("expected auth cookie after login")
+	}
+
+	initialResp := doRequestWithCookie(t, app, http.MethodGet, "/admin/content/esign_documents/new", authCookie)
+	defer initialResp.Body.Close()
+	if initialResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(initialResp.Body)
+		t.Fatalf("expected /admin/content/esign_documents/new status 200, got %d body=%s", initialResp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	initialBody, err := io.ReadAll(initialResp.Body)
+	if err != nil {
+		t.Fatalf("read new-document response body: %v", err)
+	}
+	if !strings.Contains(string(initialBody), "const googleEnabled = true;") {
+		t.Fatalf("expected googleEnabled=true in new-document template context")
+	}
+	if !strings.Contains(string(initialBody), "const googleConnected = false;") {
+		t.Fatalf("expected googleConnected=false before oauth connect")
+	}
+
+	connectReq := httptest.NewRequest(
+		http.MethodPost,
+		"/admin/api/v1/esign/integrations/google/connect?user_id="+url.QueryEscape(defaultESignDemoAdminID),
+		strings.NewReader(`{"auth_code":"oauth-doc-form"}`),
+	)
+	connectReq.Header.Set("Content-Type", "application/json")
+	connectReq.Header.Set("X-Forwarded-Proto", "https")
+	connectReq.AddCookie(authCookie)
+	connectResp, err := app.Test(connectReq, -1)
+	if err != nil {
+		t.Fatalf("google connect request failed: %v", err)
+	}
+	defer connectResp.Body.Close()
+	if connectResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(connectResp.Body)
+		t.Fatalf("expected google connect status 200, got %d body=%s", connectResp.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	connectedResp := doRequestWithCookie(t, app, http.MethodGet, "/admin/content/esign_documents/new?source=google", authCookie)
+	defer connectedResp.Body.Close()
+	if connectedResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(connectedResp.Body)
+		t.Fatalf("expected connected new-document status 200, got %d body=%s", connectedResp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	connectedBody, err := io.ReadAll(connectedResp.Body)
+	if err != nil {
+		t.Fatalf("read connected new-document response body: %v", err)
+	}
+	if !strings.Contains(string(connectedBody), "const googleConnected = true;") {
+		t.Fatalf("expected googleConnected=true after oauth connect")
+	}
+}
+
 func TestRuntimeCoreAdminRoutesResolveAfterLogin(t *testing.T) {
 	app := setupESignRuntimeWebApp(t)
 

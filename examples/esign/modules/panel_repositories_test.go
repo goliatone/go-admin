@@ -152,6 +152,60 @@ func TestAgreementPanelRepositoryCreatePersistsFormRecipientsAndFields(t *testin
 	}
 }
 
+func TestAgreementPanelRepositoryCreateSendsAgreementWhenRequested(t *testing.T) {
+	store := stores.NewInMemoryStore()
+	scope := defaultModuleScope
+	seedESignDocument(t, store, scope, "doc-create-send-1")
+
+	repo := newAgreementPanelRepository(
+		store,
+		services.NewAgreementService(store),
+		services.NewArtifactPipelineService(store, nil),
+		nil,
+		nil,
+		scope,
+		RuntimeSettings{},
+	)
+
+	created, err := repo.Create(context.Background(), map[string]any{
+		"document_id": "doc-create-send-1",
+		"title":       "MSA Send",
+		"message":     "Please sign",
+		"send_for_signature": "1",
+		"recipients[0]": map[string]any{
+			"id":    "participant-create-send-1",
+			"name":  "Alice",
+			"email": "alice.send@example.com",
+			"role":  "signer",
+		},
+		"fields[0]": map[string]any{
+			"id":             "field-create-send-1",
+			"type":           "signature",
+			"participant_id": "participant-create-send-1",
+			"page":           "1",
+			"required":       "on",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	agreementID := strings.TrimSpace(toString(created["id"]))
+	if agreementID == "" {
+		t.Fatalf("expected created agreement id")
+	}
+	if got := strings.TrimSpace(toString(created["status"])); got != stores.AgreementStatusSent {
+		t.Fatalf("expected sent status in response, got %q", got)
+	}
+
+	agreement, err := store.GetAgreement(context.Background(), scope, agreementID)
+	if err != nil {
+		t.Fatalf("GetAgreement: %v", err)
+	}
+	if agreement.Status != stores.AgreementStatusSent {
+		t.Fatalf("expected stored agreement status sent, got %q", agreement.Status)
+	}
+}
+
 func TestAgreementPanelRepositoryCreateCollapsesDuplicateParticipantValues(t *testing.T) {
 	store := stores.NewInMemoryStore()
 	scope := defaultModuleScope
@@ -421,6 +475,67 @@ func TestAgreementPanelRepositoryUpdateSynchronizesFormRecipientsAndFields(t *te
 	}
 	if fields[0].PageNumber != 2 {
 		t.Fatalf("expected page number 2, got %d", fields[0].PageNumber)
+	}
+}
+
+func TestAgreementPanelRepositoryUpdateSendsAgreementWhenRequested(t *testing.T) {
+	store := stores.NewInMemoryStore()
+	scope := defaultModuleScope
+	seedESignDocument(t, store, scope, "doc-update-send-1")
+
+	repo := newAgreementPanelRepository(
+		store,
+		services.NewAgreementService(store),
+		services.NewArtifactPipelineService(store, nil),
+		nil,
+		nil,
+		scope,
+		RuntimeSettings{},
+	)
+
+	created, err := repo.Create(context.Background(), map[string]any{
+		"document_id": "doc-update-send-1",
+		"title":       "Initial Send Candidate",
+		"message":     "Please review",
+		"recipients[0]": map[string]any{
+			"id":    "participant-update-send-1",
+			"name":  "Signer",
+			"email": "update.send@example.com",
+			"role":  "signer",
+		},
+		"fields[0]": map[string]any{
+			"id":             "field-update-send-1",
+			"type":           "signature",
+			"participant_id": "participant-update-send-1",
+			"page":           "1",
+			"required":       "on",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	agreementID := strings.TrimSpace(toString(created["id"]))
+	if agreementID == "" {
+		t.Fatalf("expected created agreement id")
+	}
+
+	updated, err := repo.Update(context.Background(), agreementID, map[string]any{
+		"title":              "Ready To Send",
+		"send_for_signature": true,
+	})
+	if err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+	if got := strings.TrimSpace(toString(updated["status"])); got != stores.AgreementStatusSent {
+		t.Fatalf("expected sent status in response, got %q", got)
+	}
+
+	agreement, err := store.GetAgreement(context.Background(), scope, agreementID)
+	if err != nil {
+		t.Fatalf("GetAgreement: %v", err)
+	}
+	if agreement.Status != stores.AgreementStatusSent {
+		t.Fatalf("expected stored agreement status sent, got %q", agreement.Status)
 	}
 }
 

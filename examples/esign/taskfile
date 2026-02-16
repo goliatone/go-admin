@@ -94,12 +94,19 @@ function dev:serve {
     export ESIGN_EMAIL_SMTP_PASSWORD=Password1;
 
 
-    export ESIGN_GOOGLE_FEATURE_ENABLED=true;
-    export ESIGN_SERVICES_MODULE_ENABLED=true;
-    export ESIGN_GOOGLE_PROVIDER_MODE=real;
-    export ESIGN_GOOGLE_CLIENT_ID="${APP_PROVIDERS__GOOGLE__CLIENT_ID}";
-    export ESIGN_GOOGLE_CLIENT_SECRET="${APP_PROVIDERS__GOOGLE__CLIENT_SECRET}";
-    export ESIGN_SERVICES_ENCRYPTION_KEY="$(openssl rand -base64 32)";
+	export ESIGN_GOOGLE_FEATURE_ENABLED=true;
+	export ESIGN_SERVICES_MODULE_ENABLED=true;
+	export ESIGN_GOOGLE_PROVIDER_MODE=real;
+	export ESIGN_GOOGLE_CLIENT_ID="${APP_PROVIDERS__GOOGLE__CLIENT_ID}";
+	export ESIGN_GOOGLE_CLIENT_SECRET="${APP_PROVIDERS__GOOGLE__CLIENT_SECRET}";
+	if [ -z "${ESIGN_SERVICES_ENCRYPTION_KEY:-}" ]; then
+	    echo "Missing ESIGN_SERVICES_ENCRYPTION_KEY. Define it in examples/esign/.taskenv to keep credentials decryptable across restarts."
+	    return 1
+	fi
+	if [ -z "${ESIGN_GOOGLE_OAUTH_REDIRECT_URI:-}" ]; then
+	    echo "Missing ESIGN_GOOGLE_OAUTH_REDIRECT_URI. Set it to your authorized callback, e.g. http://127.0.0.1:8082/admin/esign/integrations/google/callback"
+	    return 1
+	fi
 
 
     #TODO: remove when we fix go-admin

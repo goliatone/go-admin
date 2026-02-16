@@ -24,6 +24,7 @@ const (
 	ErrorCodeGoogleRateLimited      ErrorCode = "GOOGLE_RATE_LIMITED"
 	ErrorCodeGoogleAccessRevoked    ErrorCode = "GOOGLE_ACCESS_REVOKED"
 	ErrorCodeGoogleScopeViolation   ErrorCode = "GOOGLE_SCOPE_VIOLATION"
+	ErrorCodeGoogleUnsupportedType  ErrorCode = "GOOGLE_UNSUPPORTED_FILE_TYPE"
 	ErrorCodeGoogleIntegrationOff   ErrorCode = "GOOGLE_INTEGRATION_DISABLED"
 	ErrorCodeGoogleProviderDegraded ErrorCode = "GOOGLE_PROVIDER_DEGRADED"
 	ErrorCodeIntegrationMapping     ErrorCode = "INTEGRATION_MAPPING_INVALID"
@@ -122,6 +123,12 @@ var DomainErrorCodes = []coreadmin.DomainErrorCode{
 		Description: "Google OAuth scopes do not match the least-privilege policy.",
 		Category:    goerrors.CategoryValidation,
 		HTTPStatus:  400,
+	},
+	{
+		Code:        string(ErrorCodeGoogleUnsupportedType),
+		Description: "Google file type is unsupported for import in this workflow.",
+		Category:    goerrors.CategoryValidation,
+		HTTPStatus:  422,
 	},
 	{
 		Code:        string(ErrorCodeGoogleIntegrationOff),

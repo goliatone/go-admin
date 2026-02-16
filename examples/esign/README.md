@@ -195,6 +195,9 @@ Required when `ESIGN_GOOGLE_FEATURE_ENABLED=true`:
 | `ESIGN_GOOGLE_PROVIDER_MODE` | (none) | Provider mode: `real` or `deterministic` |
 | `ESIGN_GOOGLE_CLIENT_ID` | (required for real) | Google OAuth client ID |
 | `ESIGN_GOOGLE_CLIENT_SECRET` | (required for real) | Google OAuth client secret |
+| `ESIGN_GOOGLE_OAUTH_REDIRECT_URI` | (recommended) | Canonical OAuth callback URI used for connect+token exchange; should match Google Console authorized redirect URL |
+| `ESIGN_SERVICES_ENCRYPTION_KEY` | (required for services module) | Encryption key for go-services credential payloads (must be stable across restarts) |
+| `ESIGN_SERVICES_CALLBACK_PUBLIC_BASE_URL` | (empty) | Optional absolute callback URL base for go-services callback resolver behind proxies |
 | `ESIGN_GOOGLE_CREDENTIAL_ACTIVE_KEY` | (required) | Encryption key for stored OAuth tokens |
 | `ESIGN_GOOGLE_CREDENTIAL_ACTIVE_KEY_ID` | `v1` | Key ID for key rotation |
 | `ESIGN_GOOGLE_CREDENTIAL_KEYS_JSON` | (empty) | JSON object of legacy keys for rotation: `{"v0":"old-key"}` |
@@ -232,6 +235,15 @@ export ESIGN_GOOGLE_CREDENTIAL_ACTIVE_KEY="<generated-value>"
 ```
 
 **Important**: Keep this key secret. You cannot decrypt stored credentials without it.
+
+#### Dev Taskfile Preflight
+
+`./taskfile dev:serve` now fails fast if these are missing:
+
+- `ESIGN_SERVICES_ENCRYPTION_KEY`
+- `ESIGN_GOOGLE_OAUTH_REDIRECT_URI`
+
+Set both in `examples/esign/.taskenv` for stable local behavior.
 
 ### Public API
 
