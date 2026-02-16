@@ -765,7 +765,7 @@ func main() {
 		cfg,
 		modules,
 		isDev,
-		quickstart.WithTranslationCapabilityMenuMode(quickstart.TranslationCapabilityMenuModeTools),
+		quickstart.WithTranslationCapabilityMenuMode(quickstart.TranslationCapabilityMenuModeNone),
 	); err != nil {
 		log.Panicf("failed to register modules: %v", err)
 	}
@@ -799,6 +799,9 @@ func main() {
 	}
 	if err := setup.EnsureContentParentPermissions(context.Background(), adm.MenuService(), cfg.NavMenuCode, cfg.DefaultLocale); err != nil {
 		log.Printf("warning: failed to reconcile content parent permissions: %v", err)
+	}
+	if err := setup.RemoveLegacyTranslationToolsMenuItems(context.Background(), adm.MenuService(), cfg.NavMenuCode, cfg.DefaultLocale); err != nil {
+		log.Printf("warning: failed to remove legacy translation items from tools menu: %v", err)
 	}
 	if report, err := setup.LogNavigationIntegritySummary(context.Background(), adm.MenuService(), cfg.NavMenuCode, cfg.DefaultLocale); err != nil {
 		log.Printf("warning: failed to compute final navigation integrity summary: %v", err)
