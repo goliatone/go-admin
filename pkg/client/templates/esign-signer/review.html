@@ -617,15 +617,6 @@
           {{ session.recipient_name|default:session.recipient_email }}
         </p>
       </div>
-      <button
-        type="button"
-        onclick="openLegacyFlow()"
-        class="text-sm text-gray-500 hover:text-gray-700 underline underline-offset-2"
-        title="Switch to classic signing view"
-      >
-        <i class="iconoir-switch-horizontal" aria-hidden="true"></i>
-        <span class="hidden lg:inline ml-1">Classic view</span>
-      </button>
     </div>
   </div>
 </header>
@@ -714,6 +705,17 @@
 
     <!-- Panel Content: Field List -->
     <div class="panel-content" id="panel-content">
+      <div id="stage-state-banner" class="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-4" role="status" aria-live="polite">
+        <div class="flex items-start gap-3">
+          <i id="stage-state-icon" class="iconoir-info-circle text-blue-600 mt-0.5" aria-hidden="true"></i>
+          <div class="min-w-0">
+            <p id="stage-state-title" class="text-sm font-semibold text-blue-900">Signing stage status</p>
+            <p id="stage-state-message" class="text-xs text-blue-800 mt-1">Loading stage details...</p>
+            <div id="stage-state-meta" class="mt-2 flex flex-wrap gap-2"></div>
+          </div>
+        </div>
+      </div>
+
       <!-- Consent notice if not yet consented -->
       <div id="consent-notice" class="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg {% if session.has_consented %}hidden{% endif %}">
         <div class="flex items-start gap-3">
@@ -829,6 +831,7 @@
       <div class="text-center mt-3">
         <button
           type="button"
+          id="decline-btn"
           onclick="showDeclineModal()"
           class="text-sm text-gray-500 hover:text-red-600 underline underline-offset-2"
         >
@@ -943,7 +946,7 @@
   const unifiedConfig = {
     token: '{{ token }}',
     apiBasePath: '{{ api_base_path|default:"/api/v1/esign/signing" }}',
-    legacyBasePath: '{{ legacy_base_path|default:"/esign/sign" }}',
+    signerBasePath: '{{ signer_base_path|default:"/esign/sign" }}',
     agreementId: '{{ session.agreement_id }}',
     recipientId: '{{ session.recipient_id }}',
     documentUrl: '{{ document_url }}',
@@ -960,7 +963,13 @@
       origin: '{{ viewer.origin|default:"top-left" }}',
       yAxisDirection: '{{ viewer.y_axis_direction|default:"down" }}',
       pages: JSON.parse('{{ viewer.pages_json|escapejs|default:"[]" }}')
-    }
+    },
+    // Multi-signer stage context (Phase 24)
+    signerState: '{{ session.state|default:"active" }}',
+    recipientStage: parseInt('{{ session.recipient_stage|default:"1" }}', 10),
+    activeStage: parseInt('{{ session.active_stage|default:"1" }}', 10),
+    activeRecipientIds: JSON.parse('{{ session.active_recipient_ids_json|escapejs|default:"[]" }}'),
+    waitingForRecipientIds: JSON.parse('{{ session.waiting_for_recipient_ids_json|escapejs|default:"[]" }}')
   };
 
   // ============================================
@@ -1016,7 +1025,7 @@
         'viewer_load_failed',
         'submit_success',
         'submit_failed',
-        'fallback_triggered',
+        'viewer_critical_error',
         'consent_declined'
       ];
       return critical.includes(eventName);
@@ -1122,13 +1131,13 @@
     },
 
     /**
-     * Track fallback to legacy flow
-     * @param {string} reason - Reason for fallback
+     * Track viewer critical error
+     * @param {string} reason - Reason for error
      */
-    trackFallback(reason) {
-      this.track('fallback_triggered', {
+    trackViewerCriticalError(reason) {
+      this.track('viewer_critical_error', {
         reason,
-        timeBeforeFallback: Date.now() - this.startTime,
+        timeBeforeError: Date.now() - this.startTime,
         pagesViewed: this.metrics.pagesViewed.size,
         fieldsCompleted: this.metrics.fieldsCompleted
       });
@@ -1523,6 +1532,9 @@
     // Detect device capabilities for performance optimization
     state.isLowMemory = detectLowMemoryDevice();
 
+    // Initialize stage state banner for multi-signer flows (Task 24.FE.1)
+    initializeStageBanner();
+
     initializeFieldState();
     initializeConsentCheckbox();
     updateProgress();
@@ -1600,6 +1612,148 @@
         }
       }
     }, 30000); // Check every 30 seconds
+  }
+
+  // ============================================
+  // Stage State Banner (Task 24.FE.1)
+  // ============================================
+  /**
+   * Initialize stage state banner for multi-signer flows
+   * Displays waiting/blocked/active state messaging with stage context
+   */
+  function initializeStageBanner() {
+    const banner = document.getElementById('stage-state-banner');
+    const icon = document.getElementById('stage-state-icon');
+    const title = document.getElementById('stage-state-title');
+    const message = document.getElementById('stage-state-message');
+    const meta = document.getElementById('stage-state-meta');
+
+    if (!banner || !icon || !title || !message || !meta) return;
+
+    const signerState = unifiedConfig.signerState || 'active';
+    const recipientStage = unifiedConfig.recipientStage || 1;
+    const activeStage = unifiedConfig.activeStage || 1;
+    const activeRecipientIds = unifiedConfig.activeRecipientIds || [];
+    const waitingForRecipientIds = unifiedConfig.waitingForRecipientIds || [];
+
+    // Determine banner content based on state
+    let bannerConfig = {
+      hidden: false,
+      bgClass: 'bg-green-50',
+      borderClass: 'border-green-200',
+      iconClass: 'iconoir-check-circle text-green-600',
+      titleClass: 'text-green-900',
+      messageClass: 'text-green-800',
+      title: "It's your turn to sign",
+      message: 'Please complete and sign the document below.',
+      badges: []
+    };
+
+    switch (signerState) {
+      case 'waiting':
+        bannerConfig = {
+          hidden: false,
+          bgClass: 'bg-blue-50',
+          borderClass: 'border-blue-200',
+          iconClass: 'iconoir-hourglass text-blue-600',
+          titleClass: 'text-blue-900',
+          messageClass: 'text-blue-800',
+          title: 'Waiting for Other Signers',
+          message: recipientStage > activeStage
+            ? `You are in signing stage ${recipientStage}. Stage ${activeStage} is currently active.`
+            : 'You will be able to sign once the previous signer(s) have completed their signatures.',
+          badges: [
+            { icon: 'iconoir-clock', text: 'Your turn is coming', variant: 'blue' }
+          ]
+        };
+        if (waitingForRecipientIds.length > 0) {
+          bannerConfig.badges.push({
+            icon: 'iconoir-group',
+            text: `${waitingForRecipientIds.length} signer(s) ahead`,
+            variant: 'blue'
+          });
+        }
+        break;
+
+      case 'blocked':
+        bannerConfig = {
+          hidden: false,
+          bgClass: 'bg-amber-50',
+          borderClass: 'border-amber-200',
+          iconClass: 'iconoir-warning-triangle text-amber-600',
+          titleClass: 'text-amber-900',
+          messageClass: 'text-amber-800',
+          title: 'Signing Not Available',
+          message: 'This agreement cannot be signed at this time. It may have been completed, voided, or is awaiting action from another party.',
+          badges: [
+            { icon: 'iconoir-lock', text: 'Access restricted', variant: 'amber' }
+          ]
+        };
+        break;
+
+      case 'completed':
+        bannerConfig = {
+          hidden: false,
+          bgClass: 'bg-green-50',
+          borderClass: 'border-green-200',
+          iconClass: 'iconoir-check-circle text-green-600',
+          titleClass: 'text-green-900',
+          messageClass: 'text-green-800',
+          title: 'Signing Complete',
+          message: 'You have already completed signing this document.',
+          badges: [
+            { icon: 'iconoir-check', text: 'Signed', variant: 'green' }
+          ]
+        };
+        break;
+
+      case 'active':
+      default:
+        // Active state - show encouraging message
+        if (activeRecipientIds.length > 1) {
+          bannerConfig.message = `You and ${activeRecipientIds.length - 1} other signer(s) can sign now.`;
+          bannerConfig.badges = [
+            { icon: 'iconoir-users', text: `Stage ${activeStage} active`, variant: 'green' }
+          ];
+        } else if (recipientStage > 1) {
+          bannerConfig.badges = [
+            { icon: 'iconoir-check-circle', text: `Stage ${recipientStage}`, variant: 'green' }
+          ];
+        } else {
+          // Single signer or first stage - hide the banner for cleaner UI
+          bannerConfig.hidden = true;
+        }
+        break;
+    }
+
+    // Apply banner configuration
+    if (bannerConfig.hidden) {
+      banner.classList.add('hidden');
+      return;
+    }
+
+    banner.classList.remove('hidden');
+    banner.className = `mb-4 rounded-lg border p-4 ${bannerConfig.bgClass} ${bannerConfig.borderClass}`;
+
+    icon.className = `${bannerConfig.iconClass} mt-0.5`;
+    title.className = `text-sm font-semibold ${bannerConfig.titleClass}`;
+    title.textContent = bannerConfig.title;
+    message.className = `text-xs ${bannerConfig.messageClass} mt-1`;
+    message.textContent = bannerConfig.message;
+
+    // Build badge elements
+    meta.innerHTML = '';
+    bannerConfig.badges.forEach(badge => {
+      const badgeEl = document.createElement('span');
+      const variantClasses = {
+        blue: 'bg-blue-100 text-blue-800',
+        amber: 'bg-amber-100 text-amber-800',
+        green: 'bg-green-100 text-green-800'
+      };
+      badgeEl.className = `inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${variantClasses[badge.variant] || variantClasses.blue}`;
+      badgeEl.innerHTML = `<i class="${badge.icon} mr-1"></i>${badge.text}`;
+      meta.appendChild(badgeEl);
+    });
   }
 
   function initializeFieldState() {
@@ -1856,8 +2010,8 @@
         `;
       }
 
-      // Offer fallback to legacy flow
-      showFallbackOption();
+      // Show viewer error with recovery guidance
+      showViewerError();
     }
   }
 
@@ -2739,7 +2893,7 @@
       value_text: valueText,
       object_key: objectKey,
       sha256: sha256
-      // Note: no upload_token for typed signatures (legacy compatible)
+      // Note: typed signatures do not require upload_token (v2)
     };
   }
 
@@ -2961,7 +3115,7 @@
       telemetry.trackSubmit(true);
 
       // Redirect to completion page
-      window.location.href = `${unifiedConfig.legacyBasePath}/${unifiedConfig.token}/complete`;
+      window.location.href = `${unifiedConfig.signerBasePath}/${unifiedConfig.token}/complete`;
     } catch (error) {
       // Track failed submit
       telemetry.trackSubmit(false, error.message);
@@ -3017,7 +3171,7 @@
         throw new Error(errorData.error?.message || 'Failed to decline');
       }
 
-      window.location.href = `${unifiedConfig.legacyBasePath}/${unifiedConfig.token}/declined`;
+      window.location.href = `${unifiedConfig.signerBasePath}/${unifiedConfig.token}/declined`;
     } catch (error) {
       if (window.toastManager) {
         window.toastManager.error(error.message);
@@ -3026,23 +3180,19 @@
   }
 
   // ============================================
-  // Legacy Flow Fallback
+  // Viewer Error Handling
   // ============================================
-  function openLegacyFlow(reason = 'user_requested') {
-    telemetry.trackFallback(reason);
-    window.location.href = `${unifiedConfig.legacyBasePath}/${unifiedConfig.token}`;
-  }
-
-  function showFallbackOption() {
-    // Track degraded mode (viewer issue requiring fallback offer)
-    telemetry.trackDegradedMode('viewer_failure_fallback_offered');
+  function showViewerError() {
+    // Track viewer failure
+    telemetry.trackDegradedMode('viewer_load_failure');
+    telemetry.trackViewerCriticalError('viewer_load_failed');
 
     if (window.toastManager) {
-      window.toastManager.info('Having trouble? Try the classic signing view.', {
-        duration: 10000,
+      window.toastManager.error('Unable to load the document viewer. Please refresh the page or contact the sender for assistance.', {
+        duration: 15000,
         action: {
-          label: 'Switch',
-          onClick: () => openLegacyFlow('user_accepted_fallback')
+          label: 'Refresh',
+          onClick: () => window.location.reload()
         }
       });
     }
@@ -3205,9 +3355,9 @@
             <div class="debug-label">Actions</div>
             <div style="display: flex; gap: 6px; flex-wrap: wrap;">
               <button class="debug-btn" onclick="debugMode.copySessionInfo()">Copy Info</button>
-              <button class="debug-btn" onclick="debugMode.forceFallback()">Force Fallback</button>
               <button class="debug-btn" onclick="debugMode.clearCache()">Clear Cache</button>
               <button class="debug-btn" onclick="debugMode.showTelemetry()">View Telemetry</button>
+              <button class="debug-btn" onclick="debugMode.reloadViewer()">Reload Viewer</button>
             </div>
           </div>
           <div class="debug-section">
@@ -3293,8 +3443,9 @@
           console.error('[E-Sign Debug] Forced error:', msg);
         },
 
-        triggerFallback: () => {
-          openLegacyFlow('debug_forced');
+        reloadViewer: () => {
+          console.log('[E-Sign Debug] Reloading viewer...');
+          loadPdfDocument();
         },
 
         setLowMemory: (value) => {
@@ -3334,12 +3485,12 @@
     },
 
     /**
-     * Force fallback to legacy
+     * Reload the PDF viewer
      */
-    forceFallback() {
-      if (confirm('Force fallback to legacy signing flow?')) {
-        openLegacyFlow('debug_forced');
-      }
+    reloadViewer() {
+      console.log('[E-Sign Debug] Reloading PDF viewer...');
+      loadPdfDocument();
+      this.updatePanel();
     },
 
     /**

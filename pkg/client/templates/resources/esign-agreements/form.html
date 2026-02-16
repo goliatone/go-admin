@@ -18,6 +18,55 @@
   </div>
 </header>
 
+{# Six-Step Wizard Navigation #}
+<div class="px-8 py-4 bg-gray-50 border-b border-gray-200">
+  <nav aria-label="Agreement creation progress">
+    <ol class="flex items-center justify-between max-w-4xl mx-auto" role="list">
+      <li class="flex items-center" role="listitem">
+        <button type="button" class="wizard-step-btn flex items-center gap-2 text-sm font-medium text-blue-600" data-step="1" aria-current="step">
+          <span class="wizard-step-number w-7 h-7 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold">1</span>
+          <span class="hidden sm:inline">Document</span>
+        </button>
+      </li>
+      <li class="flex-1 mx-2"><div class="wizard-connector h-0.5 bg-gray-300"></div></li>
+      <li class="flex items-center" role="listitem">
+        <button type="button" class="wizard-step-btn flex items-center gap-2 text-sm font-medium text-gray-500" data-step="2">
+          <span class="wizard-step-number w-7 h-7 rounded-full bg-gray-300 text-gray-600 flex items-center justify-center text-xs font-bold">2</span>
+          <span class="hidden sm:inline">Details</span>
+        </button>
+      </li>
+      <li class="flex-1 mx-2"><div class="wizard-connector h-0.5 bg-gray-300"></div></li>
+      <li class="flex items-center" role="listitem">
+        <button type="button" class="wizard-step-btn flex items-center gap-2 text-sm font-medium text-gray-500" data-step="3">
+          <span class="wizard-step-number w-7 h-7 rounded-full bg-gray-300 text-gray-600 flex items-center justify-center text-xs font-bold">3</span>
+          <span class="hidden sm:inline">Participants</span>
+        </button>
+      </li>
+      <li class="flex-1 mx-2"><div class="wizard-connector h-0.5 bg-gray-300"></div></li>
+      <li class="flex items-center" role="listitem">
+        <button type="button" class="wizard-step-btn flex items-center gap-2 text-sm font-medium text-gray-500" data-step="4">
+          <span class="wizard-step-number w-7 h-7 rounded-full bg-gray-300 text-gray-600 flex items-center justify-center text-xs font-bold">4</span>
+          <span class="hidden sm:inline">Fields</span>
+        </button>
+      </li>
+      <li class="flex-1 mx-2"><div class="wizard-connector h-0.5 bg-gray-300"></div></li>
+      <li class="flex items-center" role="listitem">
+        <button type="button" class="wizard-step-btn flex items-center gap-2 text-sm font-medium text-gray-500" data-step="5">
+          <span class="wizard-step-number w-7 h-7 rounded-full bg-gray-300 text-gray-600 flex items-center justify-center text-xs font-bold">5</span>
+          <span class="hidden sm:inline">Placement</span>
+        </button>
+      </li>
+      <li class="flex-1 mx-2"><div class="wizard-connector h-0.5 bg-gray-300"></div></li>
+      <li class="flex items-center" role="listitem">
+        <button type="button" class="wizard-step-btn flex items-center gap-2 text-sm font-medium text-gray-500" data-step="6">
+          <span class="wizard-step-number w-7 h-7 rounded-full bg-gray-300 text-gray-600 flex items-center justify-center text-xs font-bold">6</span>
+          <span class="hidden sm:inline">Review</span>
+        </button>
+      </li>
+    </ol>
+  </nav>
+</div>
+
 <div class="flex-1 p-8 overflow-y-auto">
   {# Live region for form validation announcements #}
   <div id="form-announcements" class="sr-only" role="alert" aria-live="polite"></div>
@@ -30,9 +79,10 @@
   <form id="agreement-form" method="POST" action="{{ form_action|default:routes.create }}" class="max-w-4xl space-y-8" aria-describedby="form-announcements">
     <input type="hidden" name="recipients_present" value="1">
     <input type="hidden" name="fields_present" value="1">
+    <input type="hidden" name="field_instances_present" value="1">
 
     {# Step 1: Document Selection #}
-    <div class="bg-white border border-gray-200 rounded-xl p-6">
+    <div id="wizard-step-1" class="wizard-step bg-white border border-gray-200 rounded-xl p-6" data-step="1">
       <div class="flex items-center gap-3 mb-6">
         <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-sm font-medium text-blue-700">1</div>
         <h2 class="text-lg font-semibold text-gray-900">Select Document</h2>
@@ -91,7 +141,7 @@
     </div>
 
     {# Step 2: Agreement Details #}
-    <div class="bg-white border border-gray-200 rounded-xl p-6">
+    <div id="wizard-step-2" class="wizard-step hidden bg-white border border-gray-200 rounded-xl p-6" data-step="2">
       <div class="flex items-center gap-3 mb-6">
         <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-sm font-medium text-blue-700">2</div>
         <h2 class="text-lg font-semibold text-gray-900">Agreement Details</h2>
@@ -133,34 +183,35 @@
       </div>
     </div>
 
-    {# Step 3: Recipients (v1: single signer constraint) #}
-    <div class="bg-white border border-gray-200 rounded-xl p-6">
+    {# Step 3: Participants #}
+    <div id="wizard-step-3" class="wizard-step hidden bg-white border border-gray-200 rounded-xl p-6" data-step="3">
       <div class="flex items-center justify-between mb-6">
         <div class="flex items-center gap-3">
           <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-sm font-medium text-blue-700">3</div>
-          <h2 class="text-lg font-semibold text-gray-900">Recipients</h2>
+          <h2 class="text-lg font-semibold text-gray-900">Participants</h2>
         </div>
-        <button type="button" id="add-recipient-btn" class="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1" aria-label="Add a new recipient to this agreement">
+        <button type="button" id="add-participant-btn" class="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1" aria-label="Add a new participant to this agreement">
           <svg class="w-4 h-4" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
           </svg>
-          Add Recipient
+          Add Participant
         </button>
       </div>
 
-      <div id="recipients-container" class="space-y-4" role="list" aria-label="Agreement recipients">
-        {# Recipient template - cloned for each recipient #}
-        <template id="recipient-template">
-          <div class="recipient-entry p-4 border border-gray-200 rounded-lg" data-recipient-index="" role="listitem">
+      <div id="participants-container" class="space-y-4" role="list" aria-label="Agreement participants">
+        {# Participant template - cloned for each participant #}
+        <template id="participant-template">
+          <div class="participant-entry p-4 border border-gray-200 rounded-lg" data-participant-id="" role="listitem">
+            <input type="hidden" name="participants[].id" class="participant-id-input" value="">
             <div class="flex items-start justify-between gap-4">
-              <div class="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div class="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
                   <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
                   <input
                     type="text"
-                    name="recipients[].name"
+                    name="participants[].name"
                     placeholder="John Doe"
-                    aria-label="Recipient name"
+                    aria-label="Participant name"
                     autocomplete="name"
                     class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
@@ -172,11 +223,11 @@
                   </label>
                   <input
                     type="email"
-                    name="recipients[].email"
+                    name="participants[].email"
                     placeholder="john@example.com"
                     required
                     aria-required="true"
-                    aria-label="Recipient email address"
+                    aria-label="Participant email address"
                     autocomplete="email"
                     class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
@@ -184,16 +235,31 @@
                 <div>
                   <label class="block text-sm font-medium text-gray-700 mb-1">Role</label>
                   <select
-                    name="recipients[].role"
-                    aria-label="Recipient role"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    name="participants[].role"
+                    aria-label="Participant role"
+                    class="participant-role-select w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
                     <option value="signer">Signer</option>
                     <option value="cc">CC (Copy Only)</option>
                   </select>
                 </div>
+                <div class="signing-stage-wrapper">
+                  <label class="block text-sm font-medium text-gray-700 mb-1">
+                    Signing Stage
+                    <span class="text-xs text-gray-400 font-normal">(order)</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="participants[].signing_stage"
+                    min="1"
+                    value="1"
+                    aria-label="Signing stage order"
+                    class="signing-stage-input w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                  <p class="mt-1 text-xs text-gray-400">Signers in the same stage sign in parallel</p>
+                </div>
               </div>
-              <button type="button" class="remove-recipient-btn p-2 text-gray-400 hover:text-red-600" aria-label="Remove this recipient">
+              <button type="button" class="remove-participant-btn p-2 text-gray-400 hover:text-red-600" aria-label="Remove this participant">
                 <svg class="w-5 h-5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                 </svg>
@@ -205,20 +271,10 @@
         {# Initial recipient entries will be rendered here #}
       </div>
 
-      <div class="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg" role="note" aria-label="Recipient limitation notice">
-        <div class="flex items-start gap-2">
-          <svg class="w-4 h-4 text-amber-600 mt-0.5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-          </svg>
-          <p class="text-xs text-amber-700">
-            <strong>V1 Constraint:</strong> Currently limited to one signer per agreement. CC recipients receive copies but do not sign.
-          </p>
-        </div>
-      </div>
     </div>
 
-    {# Step 4: Signing Fields #}
-    <div class="bg-white border border-gray-200 rounded-xl p-6">
+    {# Step 4: Field Definitions (Logical Fields) #}
+    <div id="wizard-step-4" class="wizard-step hidden bg-white border border-gray-200 rounded-xl p-6" data-step="4">
       <div class="flex items-center justify-between mb-6">
         <div class="flex items-center gap-3">
           <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-sm font-medium text-blue-700">4</div>
@@ -295,11 +351,12 @@
         </div>
       </div>
 
-      {# Fields List #}
-      <div id="fields-container" class="space-y-3" role="list" aria-label="Agreement signing fields">
-        {# Field template - cloned for each field #}
-        <template id="field-template">
-          <div class="field-entry p-4 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors" data-field-index="" role="listitem">
+      {# Field Definitions List #}
+      <div id="field-definitions-container" class="space-y-3" role="list" aria-label="Agreement signing fields">
+        {# Field definition template - cloned for each field #}
+        <template id="field-definition-template">
+          <div class="field-definition-entry p-4 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors" data-field-definition-id="" role="listitem">
+            <input type="hidden" name="field_definitions[].id" class="field-definition-id-input" value="">
             <div class="flex items-start justify-between gap-4">
               <div class="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
@@ -308,7 +365,7 @@
                     <span class="sr-only">(required)</span>
                   </label>
                   <select
-                    name="fields[].type"
+                    name="field_definitions[].type"
                     required
                     aria-required="true"
                     aria-label="Field type"
@@ -328,11 +385,11 @@
                     <span class="sr-only">(required)</span>
                   </label>
                   <select
-                    name="fields[].recipient_index"
+                    name="field_definitions[].participant_id"
                     required
                     aria-required="true"
-                    aria-label="Assign field to recipient"
-                    class="field-recipient-select w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    aria-label="Assign field to participant"
+                    class="field-participant-select w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
                     <option value="">Select signer...</option>
                   </select>
@@ -341,7 +398,7 @@
                   <label class="block text-sm font-medium text-gray-700 mb-1">Page</label>
                   <input
                     type="number"
-                    name="fields[].page"
+                    name="field_definitions[].page"
                     min="1"
                     value="1"
                     aria-label="Page number for this field"
@@ -350,12 +407,12 @@
                 </div>
                 <div class="flex items-center gap-4">
                   <label class="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" name="fields[].required" checked class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                    <input type="checkbox" name="field_definitions[].required" checked class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
                     <span class="text-sm text-gray-700">Required</span>
                   </label>
                 </div>
               </div>
-              <button type="button" class="remove-field-btn p-2 text-gray-400 hover:text-red-600" aria-label="Remove this field">
+              <button type="button" class="remove-field-definition-btn p-2 text-gray-400 hover:text-red-600" aria-label="Remove this field">
                 <svg class="w-5 h-5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                 </svg>
@@ -375,13 +432,13 @@
       </div>
 
       {# Empty state #}
-      <div id="fields-empty-state" class="{% if resource_item.fields and resource_item.fields|length > 0 %}hidden{% endif %} text-center py-8 border-2 border-dashed border-gray-200 rounded-lg">
+      <div id="field-definitions-empty-state" class="{% if resource_item.field_definitions and resource_item.field_definitions|length > 0 %}hidden{% elif resource_item.fields and resource_item.fields|length > 0 %}hidden{% endif %} text-center py-8 border-2 border-dashed border-gray-200 rounded-lg">
         <svg class="mx-auto w-12 h-12 text-gray-300 mb-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
         </svg>
         <p class="text-sm text-gray-500 mb-2">No signing fields added yet</p>
         <p class="text-xs text-gray-400 mb-3">Add at least one signature field for each signer</p>
-        <button type="button" id="add-field-empty-btn" class="text-sm text-blue-600 hover:text-blue-800">
+        <button type="button" id="add-field-definition-empty-btn" class="text-sm text-blue-600 hover:text-blue-800">
           + Add your first field
         </button>
       </div>
@@ -399,20 +456,277 @@
       </div>
     </div>
 
-    {# Form Actions #}
-    <div class="flex justify-end gap-3 pt-4">
-      <a href="{{ routes.index }}" class="btn btn-secondary">Cancel</a>
-      <button type="submit" id="submit-btn" class="btn btn-primary">
-        {% if is_edit %}
-          <i class="iconoir-floppy-disk"></i>
-          Save Changes
-        {% else %}
-          <svg class="w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+    {# Step 5: Field Placement #}
+    <div id="wizard-step-5" class="wizard-step hidden bg-white border border-gray-200 rounded-xl p-6" data-step="5">
+      <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-sm font-medium text-blue-700">5</div>
+          <div>
+            <h2 class="text-lg font-semibold text-gray-900">Place Fields on Document</h2>
+            <p class="text-sm text-gray-500">Position signature and form fields on the document pages</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="flex items-center gap-2">
+            <label for="placement-policy-preset" class="text-xs text-gray-500">Strategy:</label>
+            <select id="placement-policy-preset" class="text-sm border border-gray-300 rounded-md px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" aria-label="Placement strategy preset">
+              <option value="balanced">Balanced</option>
+              <option value="accuracy-first">Accuracy First</option>
+              <option value="cost-first">Cost Optimized</option>
+              <option value="speed-first">Speed Optimized</option>
+            </select>
+          </div>
+          <button type="button" id="auto-place-btn" class="btn btn-secondary text-sm" aria-label="Auto-place fields using smart detection">
+            <svg class="w-4 h-4 mr-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+            </svg>
+            Auto-place
+          </button>
+        </div>
+      </div>
+
+      {# Placement Editor Container #}
+      <div id="placement-editor-container" class="border border-gray-200 rounded-lg overflow-hidden">
+        {# Toolbar #}
+        <div class="bg-gray-50 border-b border-gray-200 px-4 py-2 flex items-center justify-between">
+          <div class="flex items-center gap-4">
+            {# Page Navigation #}
+            <div class="flex items-center gap-2">
+              <button type="button" id="placement-prev-page" class="p-1 rounded hover:bg-gray-200 disabled:opacity-50" aria-label="Previous page">
+                <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                </svg>
+              </button>
+              <span class="text-sm text-gray-600">
+                Page <span id="placement-current-page">1</span> of <span id="placement-total-pages">1</span>
+              </span>
+              <button type="button" id="placement-next-page" class="p-1 rounded hover:bg-gray-200 disabled:opacity-50" aria-label="Next page">
+                <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+              </button>
+            </div>
+
+            {# Zoom Controls #}
+            <div class="flex items-center gap-2 border-l border-gray-300 pl-4">
+              <button type="button" id="placement-zoom-out" class="p-1 rounded hover:bg-gray-200" aria-label="Zoom out">
+                <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"/>
+                </svg>
+              </button>
+              <span id="placement-zoom-level" class="text-sm text-gray-600 w-12 text-center">100%</span>
+              <button type="button" id="placement-zoom-in" class="p-1 rounded hover:bg-gray-200" aria-label="Zoom in">
+                <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+              </button>
+              <button type="button" id="placement-zoom-fit" class="p-1 rounded hover:bg-gray-200 text-xs" aria-label="Fit to width">
+                Fit
+              </button>
+            </div>
+          </div>
+
+          {# Field Legend #}
+          <div class="flex items-center gap-3 text-xs">
+            <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-blue-500"></span> Signature</span>
+            <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-green-500"></span> Name</span>
+            <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-purple-500"></span> Date</span>
+            <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-gray-500"></span> Text</span>
+          </div>
+        </div>
+
+        {# Document Viewer with Overlays #}
+        <div class="flex">
+          {# PDF Viewer #}
+          <div id="placement-viewer" class="flex-1 bg-gray-100 relative overflow-auto" style="height: 600px;">
+            <div id="placement-canvas-container" class="relative mx-auto" style="transform-origin: top center;">
+              <canvas id="placement-pdf-canvas" class="shadow-lg"></canvas>
+              <div id="placement-overlays-container" class="absolute inset-0 pointer-events-none"></div>
+            </div>
+
+            {# Loading State #}
+            <div id="placement-loading" class="absolute inset-0 flex items-center justify-center bg-gray-100">
+              <div class="text-center">
+                <svg class="animate-spin w-8 h-8 mx-auto text-blue-500 mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <p class="text-sm text-gray-600">Loading document...</p>
+              </div>
+            </div>
+
+            {# No Document State #}
+            <div id="placement-no-document" class="hidden absolute inset-0 flex items-center justify-center bg-gray-50">
+              <div class="text-center">
+                <svg class="w-16 h-16 mx-auto text-gray-300 mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                </svg>
+                <p class="text-sm text-gray-600 mb-2">No document selected</p>
+                <p class="text-xs text-gray-400">Go back to Step 1 to select a document</p>
+              </div>
+            </div>
+          </div>
+
+          {# Fields Panel #}
+          <div id="placement-fields-panel" class="w-72 border-l border-gray-200 bg-white overflow-y-auto" style="max-height: 600px;">
+            <div class="p-4 border-b border-gray-200">
+              <h3 class="font-medium text-gray-900 text-sm">Field Definitions</h3>
+              <p class="text-xs text-gray-500 mt-1">Drag fields onto the document to place them</p>
+            </div>
+            <div id="placement-fields-list" class="p-2 space-y-1"></div>
+
+            {# Placement Stats #}
+            <div class="p-4 border-t border-gray-200 bg-gray-50">
+              <h4 class="text-xs font-medium text-gray-700 mb-2">Placement Status</h4>
+              <div id="placement-stats" class="space-y-1 text-xs">
+                <div class="flex justify-between">
+                  <span class="text-gray-600">Total fields:</span>
+                  <span id="placement-total-fields" class="font-medium">0</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-600">Placed:</span>
+                  <span id="placement-placed-count" class="font-medium text-green-600">0</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-600">Unplaced:</span>
+                  <span id="placement-unplaced-count" class="font-medium text-amber-600">0</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {# Field Instances Hidden Inputs Container #}
+      <div id="field-instances-container" class="hidden"></div>
+
+      {# Placement Help #}
+      <div class="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg" role="note">
+        <div class="flex items-start gap-2">
+          <svg class="w-4 h-4 text-amber-600 mt-0.5" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
           </svg>
-          Create Agreement
-        {% endif %}
-      </button>
+          <div class="text-xs text-amber-700">
+            <p><strong>Tip:</strong> Click and drag fields from the panel onto the document. You can resize and reposition fields after placing them. Each required field must be placed before sending.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {# Step 6: Review & Send #}
+    <div id="wizard-step-6" class="wizard-step hidden bg-white border border-gray-200 rounded-xl p-6" data-step="6">
+      <div class="flex items-center gap-3 mb-6">
+        <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-sm font-medium text-blue-700">6</div>
+        <div>
+          <h2 class="text-lg font-semibold text-gray-900">Review & Send</h2>
+          <p class="text-sm text-gray-500">Verify all details before sending for signature</p>
+        </div>
+      </div>
+
+      {# Send Readiness Check #}
+      <div id="send-readiness-container" class="space-y-6">
+        {# Loading State #}
+        <div id="send-readiness-loading" class="text-center py-8">
+          <svg class="animate-spin w-8 h-8 mx-auto text-blue-500 mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <p class="text-sm text-gray-600">Checking send readiness...</p>
+        </div>
+
+        {# Readiness Results #}
+        <div id="send-readiness-results" class="hidden space-y-4">
+          {# Agreement Summary #}
+          <div class="p-4 bg-gray-50 rounded-lg">
+            <h3 class="text-sm font-medium text-gray-900 mb-3">Agreement Summary</h3>
+            <dl class="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <dt class="text-gray-500">Title</dt>
+                <dd id="review-agreement-title" class="font-medium text-gray-900">-</dd>
+              </div>
+              <div>
+                <dt class="text-gray-500">Document</dt>
+                <dd id="review-document-title" class="font-medium text-gray-900">-</dd>
+              </div>
+              <div>
+                <dt class="text-gray-500">Participants</dt>
+                <dd id="review-participant-count" class="font-medium text-gray-900">-</dd>
+              </div>
+              <div>
+                <dt class="text-gray-500">Signing Stages</dt>
+                <dd id="review-stage-count" class="font-medium text-gray-900">-</dd>
+              </div>
+            </dl>
+          </div>
+
+          {# Validation Status #}
+          <div id="send-validation-status" class="p-4 rounded-lg"></div>
+
+          {# Validation Issues #}
+          <div id="send-validation-issues" class="hidden">
+            <h3 class="text-sm font-medium text-gray-900 mb-3">Issues to Resolve</h3>
+            <ul id="send-issues-list" class="space-y-2" role="list"></ul>
+          </div>
+
+          {# Participants Review #}
+          <div class="p-4 bg-gray-50 rounded-lg">
+            <h3 class="text-sm font-medium text-gray-900 mb-3">Participants</h3>
+            <div id="review-participants-list" class="space-y-2"></div>
+          </div>
+
+          {# Fields Review #}
+          <div class="p-4 bg-gray-50 rounded-lg">
+            <h3 class="text-sm font-medium text-gray-900 mb-3">Field Placements</h3>
+            <div id="review-fields-summary" class="text-sm text-gray-600"></div>
+          </div>
+        </div>
+      </div>
+
+      {# Send Confirmation #}
+      <div id="send-confirmation" class="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg hidden">
+        <div class="flex items-start gap-3">
+          <svg class="w-5 h-5 text-blue-600 mt-0.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+          </svg>
+          <div class="flex-1">
+            <p class="text-sm text-blue-800 font-medium">Ready to send!</p>
+            <p class="text-xs text-blue-700 mt-1">All participants will receive an email invitation to sign this agreement. You can track progress from the agreement detail page.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {# Wizard Navigation Actions #}
+    <div id="wizard-navigation" class="flex justify-between gap-3 pt-4">
+      <div>
+        <button type="button" id="wizard-prev-btn" class="btn btn-secondary hidden">
+          <svg class="w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+          </svg>
+          Previous
+        </button>
+      </div>
+      <div class="flex gap-3">
+        <a href="{{ routes.index }}" class="btn btn-secondary">Cancel</a>
+        <button type="button" id="wizard-next-btn" class="btn btn-primary">
+          Next
+          <svg class="w-4 h-4 ml-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+          </svg>
+        </button>
+        <button type="button" id="wizard-save-btn" class="btn btn-secondary hidden">
+          <svg class="w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/>
+          </svg>
+          Save Draft
+        </button>
+        <button type="submit" id="submit-btn" class="btn btn-primary hidden">
+          <svg class="w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+          </svg>
+          Send for Signature
+        </button>
+      </div>
     </div>
   </form>
 </div>
@@ -569,100 +883,121 @@ document.addEventListener('DOMContentLoaded', function() {
   // Load documents on page load
   loadDocuments();
 
-  // Recipients Management
-  const recipientsContainer = document.getElementById('recipients-container');
-  const recipientTemplate = document.getElementById('recipient-template');
-  const addRecipientBtn = document.getElementById('add-recipient-btn');
-  let recipientIndex = 0;
+  // Participants Management (v2 ID-based)
+  const participantsContainer = document.getElementById('participants-container');
+  const participantTemplate = document.getElementById('participant-template');
+  const addParticipantBtn = document.getElementById('add-participant-btn');
+  let participantCounter = 0;
+  let participantFormIndex = 0;
 
-  function addRecipient(data = {}) {
-    const clone = recipientTemplate.content.cloneNode(true);
-    const entry = clone.querySelector('.recipient-entry');
-    entry.setAttribute('data-recipient-index', recipientIndex);
+  function generateParticipantId() {
+    // Generate a temporary client-side ID for new participants
+    // Backend will assign permanent IDs on save
+    return `temp_${Date.now()}_${participantCounter++}`;
+  }
 
-    const nameInput = entry.querySelector('input[name="recipients[].name"]');
-    const emailInput = entry.querySelector('input[name="recipients[].email"]');
-    const roleSelect = entry.querySelector('select[name="recipients[].role"]');
+  function addParticipant(data = {}) {
+    const clone = participantTemplate.content.cloneNode(true);
+    const entry = clone.querySelector('.participant-entry');
 
-    nameInput.name = `recipients[${recipientIndex}].name`;
-    emailInput.name = `recipients[${recipientIndex}].email`;
-    roleSelect.name = `recipients[${recipientIndex}].role`;
+    // Use existing ID or generate a new one
+    const participantId = data.id || generateParticipantId();
+    entry.setAttribute('data-participant-id', participantId);
+
+    const idInput = entry.querySelector('.participant-id-input');
+    const nameInput = entry.querySelector('input[name="participants[].name"]');
+    const emailInput = entry.querySelector('input[name="participants[].email"]');
+    const roleSelect = entry.querySelector('select[name="participants[].role"]');
+    const signingStageInput = entry.querySelector('input[name="participants[].signing_stage"]');
+    const signingStageWrapper = entry.querySelector('.signing-stage-wrapper');
+
+    // Use stable entity IDs in values while preserving index-addressed form arrays.
+    const formIndex = participantFormIndex++;
+    idInput.name = `participants[${formIndex}].id`;
+    idInput.value = participantId;
+    nameInput.name = `participants[${formIndex}].name`;
+    emailInput.name = `participants[${formIndex}].email`;
+    roleSelect.name = `participants[${formIndex}].role`;
+    if (signingStageInput) {
+      signingStageInput.name = `participants[${formIndex}].signing_stage`;
+    }
 
     if (data.name) nameInput.value = data.name;
     if (data.email) emailInput.value = data.email;
     if (data.role) roleSelect.value = data.role;
+    if (signingStageInput && data.signing_stage) {
+      signingStageInput.value = data.signing_stage;
+    }
 
-    entry.querySelector('.remove-recipient-btn').addEventListener('click', () => {
+    const syncSigningStageVisibility = () => {
+      if (!signingStageWrapper || !signingStageInput) return;
+      const isSigner = roleSelect.value === 'signer';
+      signingStageWrapper.classList.toggle('hidden', !isSigner);
+      if (!isSigner) {
+        signingStageInput.value = '';
+      } else if (!signingStageInput.value) {
+        signingStageInput.value = '1';
+      }
+    };
+    syncSigningStageVisibility();
+
+    entry.querySelector('.remove-participant-btn').addEventListener('click', () => {
       entry.remove();
-      enforceSignerConstraint();
+      updateFieldParticipantOptions();
     });
 
-    roleSelect.addEventListener('change', enforceSignerConstraint);
+    roleSelect.addEventListener('change', () => {
+      syncSigningStageVisibility();
+      updateFieldParticipantOptions();
+    });
 
-    recipientsContainer.appendChild(clone);
-    recipientIndex++;
-
-    enforceSignerConstraint();
+    participantsContainer.appendChild(clone);
   }
 
-  function enforceSignerConstraint() {
-    // V1: Only one signer allowed
-    const entries = recipientsContainer.querySelectorAll('.recipient-entry');
-    let signerCount = 0;
+  addParticipantBtn.addEventListener('click', () => addParticipant());
 
-    entries.forEach(entry => {
-      const roleSelect = entry.querySelector('select[name*=".role"]');
-      if (roleSelect.value === 'signer') {
-        signerCount++;
-      }
-    });
-
-    // If we have a signer, disable signer option on other entries
-    entries.forEach(entry => {
-      const roleSelect = entry.querySelector('select[name*=".role"]');
-      const signerOption = roleSelect.querySelector('option[value="signer"]');
-      if (roleSelect.value !== 'signer' && signerCount >= 1) {
-        signerOption.disabled = true;
-      } else {
-        signerOption.disabled = false;
-      }
-    });
-  }
-
-  addRecipientBtn.addEventListener('click', () => addRecipient());
-
-  // Initialize with existing recipients or add one empty
-  {% if resource_item.recipients and resource_item.recipients|length > 0 %}
-    {% for recipient in resource_item.recipients %}
-    addRecipient({
-      name: '{{ recipient.name|default:"" }}',
-      email: '{{ recipient.email|default:"" }}',
-      role: '{{ recipient.role|default:"signer" }}'
+  // Initialize with existing participants or add one empty.
+  {% if resource_item.participants and resource_item.participants|length > 0 %}
+    {% for participant in resource_item.participants %}
+    addParticipant({
+      id: '{{ participant.id|default:"" }}',
+      name: '{{ participant.name|default:"" }}',
+      email: '{{ participant.email|default:"" }}',
+      role: '{{ participant.role|default:"signer" }}',
+      signing_stage: {{ participant.signing_stage|default:1 }}
     });
     {% endfor %}
   {% else %}
-    addRecipient();
+    addParticipant();
   {% endif %}
 
-  // Fields Management
-  const fieldsContainer = document.getElementById('fields-container');
-  const fieldTemplate = document.getElementById('field-template');
+  // Field Definitions Management (v2 ID-based)
+  const fieldDefinitionsContainer = document.getElementById('field-definitions-container');
+  const fieldDefinitionTemplate = document.getElementById('field-definition-template');
   const addFieldBtn = document.getElementById('add-field-btn');
-  const addFieldEmptyBtn = document.getElementById('add-field-empty-btn');
-  const fieldsEmptyState = document.getElementById('fields-empty-state');
-  let fieldIndex = 0;
+  const addFieldDefinitionEmptyBtn = document.getElementById('add-field-definition-empty-btn');
+  const fieldDefinitionsEmptyState = document.getElementById('field-definitions-empty-state');
+  let fieldDefinitionCounter = 0;
+  let fieldInstanceFormIndex = 0;
 
-  function getSignerRecipients() {
-    const entries = recipientsContainer.querySelectorAll('.recipient-entry');
+  function generateFieldDefinitionId() {
+    // Generate a temporary client-side ID for new field definitions
+    // Backend will assign permanent IDs on save
+    return `temp_field_${Date.now()}_${fieldDefinitionCounter++}`;
+  }
+
+  function getSignerParticipants() {
+    const entries = participantsContainer.querySelectorAll('.participant-entry');
     const signers = [];
-    entries.forEach((entry, index) => {
+    entries.forEach((entry) => {
+      const participantId = entry.getAttribute('data-participant-id');
       const roleSelect = entry.querySelector('select[name*=".role"]');
       const nameInput = entry.querySelector('input[name*=".name"]');
       const emailInput = entry.querySelector('input[name*=".email"]');
       if (roleSelect.value === 'signer') {
         signers.push({
-          index: index,
-          name: nameInput.value || emailInput.value || `Signer ${index + 1}`,
+          id: participantId,
+          name: nameInput.value || emailInput.value || `Signer`,
           email: emailInput.value
         });
       }
@@ -670,58 +1005,66 @@ document.addEventListener('DOMContentLoaded', function() {
     return signers;
   }
 
-  function updateFieldRecipientOptions() {
-    const signers = getSignerRecipients();
-    const recipientSelects = fieldsContainer.querySelectorAll('.field-recipient-select');
+  function updateFieldParticipantOptions() {
+    const signers = getSignerParticipants();
+    const participantSelects = fieldDefinitionsContainer.querySelectorAll('.field-participant-select');
 
-    recipientSelects.forEach(select => {
+    participantSelects.forEach(select => {
       const currentValue = select.value;
       select.innerHTML = '<option value="">Select signer...</option>';
       signers.forEach(signer => {
         const option = document.createElement('option');
-        option.value = signer.index;
+        option.value = signer.id;
         option.textContent = signer.name;
         select.appendChild(option);
       });
       // Restore selection if still valid
-      if (currentValue && signers.some(s => s.index.toString() === currentValue)) {
+      if (currentValue && signers.some(s => s.id === currentValue)) {
         select.value = currentValue;
       }
     });
   }
 
-  function addField(data = {}) {
-    const clone = fieldTemplate.content.cloneNode(true);
-    const entry = clone.querySelector('.field-entry');
-    entry.setAttribute('data-field-index', fieldIndex);
+  function addFieldDefinition(data = {}) {
+    const clone = fieldDefinitionTemplate.content.cloneNode(true);
+    const entry = clone.querySelector('.field-definition-entry');
 
-    const typeSelect = entry.querySelector('select[name="fields[].type"]');
-    const recipientSelect = entry.querySelector('select[name="fields[].recipient_index"]');
-    const pageInput = entry.querySelector('input[name="fields[].page"]');
-    const requiredCheckbox = entry.querySelector('input[name="fields[].required"]');
+    // Use existing ID or generate a new one
+    const fieldDefinitionId = data.id || generateFieldDefinitionId();
+    entry.setAttribute('data-field-definition-id', fieldDefinitionId);
+
+    const idInput = entry.querySelector('.field-definition-id-input');
+    const typeSelect = entry.querySelector('select[name="field_definitions[].type"]');
+    const participantSelect = entry.querySelector('select[name="field_definitions[].participant_id"]');
+    const pageInput = entry.querySelector('input[name="field_definitions[].page"]');
+    const requiredCheckbox = entry.querySelector('input[name="field_definitions[].required"]');
     const dateSignedInfo = entry.querySelector('.field-date-signed-info');
 
-    typeSelect.name = `fields[${fieldIndex}].type`;
-    recipientSelect.name = `fields[${fieldIndex}].recipient_index`;
-    pageInput.name = `fields[${fieldIndex}].page`;
-    requiredCheckbox.name = `fields[${fieldIndex}].required`;
+    // Use stable entity IDs in values while preserving index-addressed form arrays.
+    const formIndex = fieldInstanceFormIndex++;
+    idInput.name = `field_instances[${formIndex}].id`;
+    idInput.value = fieldDefinitionId;
+    typeSelect.name = `field_instances[${formIndex}].type`;
+    participantSelect.name = `field_instances[${formIndex}].participant_id`;
+    pageInput.name = `field_instances[${formIndex}].page`;
+    requiredCheckbox.name = `field_instances[${formIndex}].required`;
 
     if (data.type) typeSelect.value = data.type;
-    if (data.recipient_index !== undefined) recipientSelect.value = data.recipient_index;
     if (data.page) pageInput.value = data.page;
     if (data.required !== undefined) requiredCheckbox.checked = data.required;
 
-    // Populate recipient options
-    const signers = getSignerRecipients();
-    recipientSelect.innerHTML = '<option value="">Select signer...</option>';
+    // Populate participant options
+    const signers = getSignerParticipants();
+    participantSelect.innerHTML = '<option value="">Select signer...</option>';
     signers.forEach(signer => {
       const option = document.createElement('option');
-      option.value = signer.index;
+      option.value = signer.id;
       option.textContent = signer.name;
-      recipientSelect.appendChild(option);
+      participantSelect.appendChild(option);
     });
-    if (data.recipient_index !== undefined) {
-      recipientSelect.value = data.recipient_index;
+    // Set participant_id when provided.
+    if (data.participant_id) {
+      participantSelect.value = data.participant_id;
     }
 
     // Show date_signed info when that type is selected
@@ -737,58 +1080,58 @@ document.addEventListener('DOMContentLoaded', function() {
       dateSignedInfo.classList.remove('hidden');
     }
 
-    entry.querySelector('.remove-field-btn').addEventListener('click', () => {
+    entry.querySelector('.remove-field-definition-btn').addEventListener('click', () => {
       entry.remove();
-      updateFieldsEmptyState();
+      updateFieldDefinitionsEmptyState();
     });
 
-    fieldsContainer.appendChild(clone);
-    fieldIndex++;
-    updateFieldsEmptyState();
+    fieldDefinitionsContainer.appendChild(clone);
+    updateFieldDefinitionsEmptyState();
   }
 
-  function updateFieldsEmptyState() {
-    const fields = fieldsContainer.querySelectorAll('.field-entry');
+  function updateFieldDefinitionsEmptyState() {
+    const fields = fieldDefinitionsContainer.querySelectorAll('.field-definition-entry');
     if (fields.length === 0) {
-      fieldsEmptyState.classList.remove('hidden');
+      fieldDefinitionsEmptyState.classList.remove('hidden');
     } else {
-      fieldsEmptyState.classList.add('hidden');
+      fieldDefinitionsEmptyState.classList.add('hidden');
     }
   }
 
-  // Watch for recipient changes to update field assignments
-  const recipientObserver = new MutationObserver(() => {
-    updateFieldRecipientOptions();
+  // Watch for participant changes to update field assignments
+  const participantObserver = new MutationObserver(() => {
+    updateFieldParticipantOptions();
   });
-  recipientObserver.observe(recipientsContainer, { childList: true, subtree: true });
+  participantObserver.observe(participantsContainer, { childList: true, subtree: true });
 
   // Also update when role changes
-  recipientsContainer.addEventListener('change', (e) => {
+  participantsContainer.addEventListener('change', (e) => {
     if (e.target.matches('select[name*=".role"]') || e.target.matches('input[name*=".name"]') || e.target.matches('input[name*=".email"]')) {
-      updateFieldRecipientOptions();
+      updateFieldParticipantOptions();
     }
   });
-  recipientsContainer.addEventListener('input', (e) => {
+  participantsContainer.addEventListener('input', (e) => {
     if (e.target.matches('input[name*=".name"]') || e.target.matches('input[name*=".email"]')) {
-      updateFieldRecipientOptions();
+      updateFieldParticipantOptions();
     }
   });
 
-  addFieldBtn.addEventListener('click', () => addField());
-  addFieldEmptyBtn.addEventListener('click', () => addField());
+  addFieldBtn.addEventListener('click', () => addFieldDefinition());
+  addFieldDefinitionEmptyBtn.addEventListener('click', () => addFieldDefinition());
 
-  // Initialize with existing fields
-  {% if resource_item.fields and resource_item.fields|length > 0 %}
-    {% for field in resource_item.fields %}
-    addField({
-      type: '{{ field.type|default:"signature" }}',
-      recipient_index: {{ field.recipient_index|default:0 }},
-      page: {{ field.page|default:1 }},
-      required: {% if field.required %}true{% else %}false{% endif %}
+  // Initialize with existing field instances.
+  {% if resource_item.field_instances and resource_item.field_instances|length > 0 %}
+    {% for field_def in resource_item.field_instances %}
+    addFieldDefinition({
+      id: '{{ field_def.id|default:"" }}',
+      type: '{{ field_def.type|default:"signature" }}',
+      participant_id: '{{ field_def.participant_id|default:"" }}',
+      page: {{ field_def.page|default:1 }},
+      required: {% if field_def.required %}true{% else %}false{% endif %}
     });
     {% endfor %}
   {% endif %}
-  updateFieldsEmptyState();
+  updateFieldDefinitionsEmptyState();
 
   // Form submission
   const form = document.getElementById('agreement-form');
@@ -815,18 +1158,18 @@ document.addEventListener('DOMContentLoaded', function() {
       return;
     }
 
-    // Validate at least one recipient
-    const entries = recipientsContainer.querySelectorAll('.recipient-entry');
-    if (entries.length === 0) {
+    // Validate at least one participant
+    const participantEntries = participantsContainer.querySelectorAll('.participant-entry');
+    if (participantEntries.length === 0) {
       e.preventDefault();
-      announceError('Please add at least one recipient');
-      addRecipientBtn.focus();
+      announceError('Please add at least one participant');
+      addParticipantBtn.focus();
       return;
     }
 
     // Validate at least one signer
     let hasSigners = false;
-    entries.forEach(entry => {
+    participantEntries.forEach(entry => {
       const roleSelect = entry.querySelector('select[name*=".role"]');
       if (roleSelect.value === 'signer') {
         hasSigners = true;
@@ -836,51 +1179,52 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!hasSigners) {
       e.preventDefault();
       announceError('At least one signer is required');
-      const firstRoleSelect = entries[0]?.querySelector('select[name*=".role"]');
+      const firstRoleSelect = participantEntries[0]?.querySelector('select[name*=".role"]');
       if (firstRoleSelect) firstRoleSelect.focus();
       return;
     }
 
-    // Validate fields: each signer should have at least one signature field
-    const fieldEntries = fieldsContainer.querySelectorAll('.field-entry');
-    const signerSignatureFields = new Map(); // recipientIndex -> hasSignatureField
+    // Validate field definitions: each signer should have at least one signature field
+    const fieldDefinitionEntries = fieldDefinitionsContainer.querySelectorAll('.field-definition-entry');
+    const signerSignatureFields = new Map(); // participantId -> hasSignatureField
 
     // Initialize all signers as having no signature field
-    entries.forEach((entry, index) => {
+    participantEntries.forEach((entry) => {
+      const participantId = entry.getAttribute('data-participant-id');
       const roleSelect = entry.querySelector('select[name*=".role"]');
       if (roleSelect.value === 'signer') {
-        signerSignatureFields.set(index.toString(), false);
+        signerSignatureFields.set(participantId, false);
       }
     });
 
-    // Check fields for signature assignments
-    fieldEntries.forEach(field => {
+    // Check field definitions for signature assignments
+    fieldDefinitionEntries.forEach(field => {
       const typeSelect = field.querySelector('.field-type-select');
-      const recipientSelect = field.querySelector('.field-recipient-select');
+      const participantSelect = field.querySelector('.field-participant-select');
       const requiredCheckbox = field.querySelector('input[name*=".required"]');
-      if (typeSelect.value === 'signature' && recipientSelect.value && requiredCheckbox.checked) {
-        signerSignatureFields.set(recipientSelect.value, true);
+      if (typeSelect.value === 'signature' && participantSelect.value && requiredCheckbox.checked) {
+        signerSignatureFields.set(participantSelect.value, true);
       }
     });
 
     // Check if any signer is missing a signature field
     let missingSignatureField = false;
-    signerSignatureFields.forEach((hasField, recipientIndex) => {
+    signerSignatureFields.forEach((hasField, participantId) => {
       if (!hasField) {
         missingSignatureField = true;
       }
     });
 
-    if (missingSignatureField && fieldEntries.length > 0) {
+    if (missingSignatureField && fieldDefinitionEntries.length > 0) {
       // Only warn, don't block - fields can be added later in draft state
       console.warn('Some signers do not have a required signature field assigned');
     }
 
-    // Validate that all field recipient assignments are valid
+    // Validate that all field participant assignments are valid
     let invalidFieldAssignment = false;
-    fieldEntries.forEach(field => {
-      const recipientSelect = field.querySelector('.field-recipient-select');
-      if (!recipientSelect.value) {
+    fieldDefinitionEntries.forEach(field => {
+      const participantSelect = field.querySelector('.field-participant-select');
+      if (!participantSelect.value) {
         invalidFieldAssignment = true;
       }
     });
@@ -888,7 +1232,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (invalidFieldAssignment) {
       e.preventDefault();
       announceError('Please assign all fields to a signer');
-      const firstUnassigned = fieldsContainer.querySelector('.field-recipient-select:invalid, .field-recipient-select[value=""]');
+      const firstUnassigned = fieldDefinitionsContainer.querySelector('.field-participant-select:invalid, .field-participant-select[value=""]');
       if (firstUnassigned) firstUnassigned.focus();
       return;
     }
@@ -902,6 +1246,1460 @@ document.addEventListener('DOMContentLoaded', function() {
       Saving...
     `;
   });
+
+  // =============================================================================
+  // Wizard Navigation
+  // =============================================================================
+  const TOTAL_STEPS = 6;
+  let currentStep = 1;
+
+  const wizardStepBtns = document.querySelectorAll('.wizard-step-btn');
+  const wizardSteps = document.querySelectorAll('.wizard-step');
+  const wizardConnectors = document.querySelectorAll('.wizard-connector');
+  const wizardPrevBtn = document.getElementById('wizard-prev-btn');
+  const wizardNextBtn = document.getElementById('wizard-next-btn');
+  const wizardSaveBtn = document.getElementById('wizard-save-btn');
+
+  function updateWizardUI() {
+    // Update step buttons and connectors
+    wizardStepBtns.forEach((btn, index) => {
+      const stepNum = index + 1;
+      const stepNumber = btn.querySelector('.wizard-step-number');
+
+      if (stepNum < currentStep) {
+        // Completed step
+        btn.classList.remove('text-gray-500', 'text-blue-600');
+        btn.classList.add('text-green-600');
+        stepNumber.classList.remove('bg-gray-300', 'text-gray-600', 'bg-blue-600', 'text-white');
+        stepNumber.classList.add('bg-green-600', 'text-white');
+        btn.removeAttribute('aria-current');
+      } else if (stepNum === currentStep) {
+        // Current step
+        btn.classList.remove('text-gray-500', 'text-green-600');
+        btn.classList.add('text-blue-600');
+        stepNumber.classList.remove('bg-gray-300', 'text-gray-600', 'bg-green-600');
+        stepNumber.classList.add('bg-blue-600', 'text-white');
+        btn.setAttribute('aria-current', 'step');
+      } else {
+        // Future step
+        btn.classList.remove('text-blue-600', 'text-green-600');
+        btn.classList.add('text-gray-500');
+        stepNumber.classList.remove('bg-blue-600', 'text-white', 'bg-green-600');
+        stepNumber.classList.add('bg-gray-300', 'text-gray-600');
+        btn.removeAttribute('aria-current');
+      }
+    });
+
+    // Update connectors
+    wizardConnectors.forEach((connector, index) => {
+      if (index < currentStep - 1) {
+        connector.classList.remove('bg-gray-300');
+        connector.classList.add('bg-green-600');
+      } else {
+        connector.classList.remove('bg-green-600');
+        connector.classList.add('bg-gray-300');
+      }
+    });
+
+    // Show/hide step content
+    wizardSteps.forEach(step => {
+      const stepNum = parseInt(step.dataset.step, 10);
+      if (stepNum === currentStep) {
+        step.classList.remove('hidden');
+      } else {
+        step.classList.add('hidden');
+      }
+    });
+
+    // Update navigation buttons
+    wizardPrevBtn.classList.toggle('hidden', currentStep === 1);
+    wizardNextBtn.classList.toggle('hidden', currentStep === TOTAL_STEPS);
+    wizardSaveBtn.classList.toggle('hidden', currentStep !== TOTAL_STEPS);
+    submitBtn.classList.toggle('hidden', currentStep !== TOTAL_STEPS);
+
+    // Update next button text based on step
+    if (currentStep < TOTAL_STEPS) {
+      const nextStepName = ['Details', 'Participants', 'Fields', 'Placement', 'Review'][currentStep - 1] || 'Next';
+      wizardNextBtn.innerHTML = `
+        ${nextStepName}
+        <svg class="w-4 h-4 ml-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+        </svg>
+      `;
+    }
+
+    // Run step-specific initialization
+    if (currentStep === 5) {
+      initPlacementEditor();
+    } else if (currentStep === 6) {
+      initSendReadinessCheck();
+    }
+  }
+
+  function validateStep(stepNum) {
+    switch (stepNum) {
+      case 1:
+        if (!documentIdInput.value) {
+          announceError('Please select a document');
+          return false;
+        }
+        return true;
+
+      case 2:
+        const titleInput = document.getElementById('title');
+        if (!titleInput.value.trim()) {
+          announceError('Please enter an agreement title');
+          titleInput.focus();
+          return false;
+        }
+        return true;
+
+      case 3:
+        const participantEntries = participantsContainer.querySelectorAll('.participant-entry');
+        if (participantEntries.length === 0) {
+          announceError('Please add at least one participant');
+          return false;
+        }
+        let hasSigners = false;
+        participantEntries.forEach(entry => {
+          const roleSelect = entry.querySelector('select[name*=".role"]');
+          if (roleSelect.value === 'signer') hasSigners = true;
+        });
+        if (!hasSigners) {
+          announceError('At least one signer is required');
+          return false;
+        }
+        return true;
+
+      case 4:
+        // Field definitions are optional but if present, must be assigned
+        const fieldEntries = fieldDefinitionsContainer.querySelectorAll('.field-definition-entry');
+        for (const field of fieldEntries) {
+          const participantSelect = field.querySelector('.field-participant-select');
+          if (!participantSelect.value) {
+            announceError('Please assign all fields to a signer');
+            participantSelect.focus();
+            return false;
+          }
+        }
+        return true;
+
+      case 5:
+        // Placement validation - warn but don't block
+        return true;
+
+      default:
+        return true;
+    }
+  }
+
+  function goToStep(stepNum) {
+    if (stepNum < 1 || stepNum > TOTAL_STEPS) return;
+
+    // Validate current step before moving forward
+    if (stepNum > currentStep) {
+      for (let i = currentStep; i < stepNum; i++) {
+        if (!validateStep(i)) return;
+      }
+    }
+
+    currentStep = stepNum;
+    updateWizardUI();
+
+    // Scroll to top of form
+    document.querySelector('.wizard-step:not(.hidden)')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  // Wizard step button clicks
+  wizardStepBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const targetStep = parseInt(btn.dataset.step, 10);
+      goToStep(targetStep);
+    });
+  });
+
+  // Previous/Next button handlers
+  wizardPrevBtn.addEventListener('click', () => goToStep(currentStep - 1));
+  wizardNextBtn.addEventListener('click', () => goToStep(currentStep + 1));
+
+  // Save Draft button
+  wizardSaveBtn.addEventListener('click', () => {
+    // Submit form as draft
+    const draftInput = document.createElement('input');
+    draftInput.type = 'hidden';
+    draftInput.name = 'save_as_draft';
+    draftInput.value = '1';
+    form.appendChild(draftInput);
+    form.submit();
+  });
+
+  // =============================================================================
+  // Step 5: Placement Editor (PDF Viewer + Drag/Resize Field Overlays)
+  // =============================================================================
+  let placementState = {
+    pdfDoc: null,
+    currentPage: 1,
+    totalPages: 1,
+    scale: 1.0,
+    fieldInstances: [], // { id, definitionId, type, participantId, page, x, y, width, height }
+    selectedFieldId: null,
+    isDragging: false,
+    isResizing: false,
+    dragOffset: { x: 0, y: 0 }
+  };
+
+  const TYPE_COLORS = {
+    signature: { bg: 'bg-blue-500', border: 'border-blue-500', fill: 'rgba(59, 130, 246, 0.2)' },
+    name: { bg: 'bg-green-500', border: 'border-green-500', fill: 'rgba(34, 197, 94, 0.2)' },
+    date_signed: { bg: 'bg-purple-500', border: 'border-purple-500', fill: 'rgba(168, 85, 247, 0.2)' },
+    text: { bg: 'bg-gray-500', border: 'border-gray-500', fill: 'rgba(107, 114, 128, 0.2)' },
+    checkbox: { bg: 'bg-indigo-500', border: 'border-indigo-500', fill: 'rgba(99, 102, 241, 0.2)' },
+    initials: { bg: 'bg-orange-500', border: 'border-orange-500', fill: 'rgba(249, 115, 22, 0.2)' }
+  };
+
+  const DEFAULT_FIELD_SIZES = {
+    signature: { width: 200, height: 50 },
+    name: { width: 180, height: 30 },
+    date_signed: { width: 120, height: 30 },
+    text: { width: 150, height: 30 },
+    checkbox: { width: 24, height: 24 },
+    initials: { width: 80, height: 40 }
+  };
+
+  async function initPlacementEditor() {
+    const placementLoading = document.getElementById('placement-loading');
+    const placementNoDocument = document.getElementById('placement-no-document');
+    const placementFieldsList = document.getElementById('placement-fields-list');
+    const placementTotalFields = document.getElementById('placement-total-fields');
+    const placementPlacedCount = document.getElementById('placement-placed-count');
+    const placementUnplacedCount = document.getElementById('placement-unplaced-count');
+    const placementViewer = document.getElementById('placement-viewer');
+    const placementCanvas = document.getElementById('placement-pdf-canvas');
+    const placementOverlays = document.getElementById('placement-overlays-container');
+    const placementCanvasContainer = document.getElementById('placement-canvas-container');
+    const currentPageSpan = document.getElementById('placement-current-page');
+    const totalPagesSpan = document.getElementById('placement-total-pages');
+    const zoomLevelSpan = document.getElementById('placement-zoom-level');
+
+    if (!documentIdInput.value) {
+      placementLoading.classList.add('hidden');
+      placementNoDocument.classList.remove('hidden');
+      return;
+    }
+
+    // Show loading state
+    placementLoading.classList.remove('hidden');
+    placementNoDocument.classList.add('hidden');
+
+    // Load field definitions into the panel
+    const fieldEntries = fieldDefinitionsContainer.querySelectorAll('.field-definition-entry');
+    const signers = getSignerParticipants();
+
+    placementFieldsList.innerHTML = '';
+
+    fieldEntries.forEach((field, index) => {
+      const definitionId = field.getAttribute('data-field-definition-id');
+      const typeSelect = field.querySelector('.field-type-select');
+      const participantSelect = field.querySelector('.field-participant-select');
+      const fieldType = typeSelect.value;
+      const participantId = participantSelect.value;
+      const participant = signers.find(s => s.id === participantId);
+
+      const colors = TYPE_COLORS[fieldType] || TYPE_COLORS.text;
+      const isPlaced = placementState.fieldInstances.some(f => f.definitionId === definitionId);
+
+      const fieldItem = document.createElement('div');
+      fieldItem.className = `placement-field-item p-2 border border-gray-200 rounded cursor-move hover:bg-gray-50 flex items-center gap-2 ${isPlaced ? 'opacity-50' : ''}`;
+      fieldItem.draggable = !isPlaced;
+      fieldItem.dataset.definitionId = definitionId;
+      fieldItem.dataset.fieldType = fieldType;
+      fieldItem.dataset.participantId = participantId;
+      fieldItem.dataset.participantName = participant?.name || 'Unassigned';
+
+      fieldItem.innerHTML = `
+        <span class="w-3 h-3 rounded ${colors.bg}"></span>
+        <div class="flex-1 text-xs">
+          <div class="font-medium capitalize">${fieldType.replace('_', ' ')}</div>
+          <div class="text-gray-500">${participant?.name || 'Unassigned'}</div>
+        </div>
+        <span class="placement-status text-xs ${isPlaced ? 'text-green-600' : 'text-amber-600'}">
+          ${isPlaced ? 'Placed' : 'Not placed'}
+        </span>
+      `;
+
+      // Drag start handler
+      fieldItem.addEventListener('dragstart', (e) => {
+        if (isPlaced) {
+          e.preventDefault();
+          return;
+        }
+        e.dataTransfer.setData('application/json', JSON.stringify({
+          definitionId,
+          fieldType,
+          participantId,
+          participantName: participant?.name || 'Unassigned'
+        }));
+        e.dataTransfer.effectAllowed = 'copy';
+        fieldItem.classList.add('opacity-50');
+      });
+
+      fieldItem.addEventListener('dragend', () => {
+        fieldItem.classList.remove('opacity-50');
+      });
+
+      placementFieldsList.appendChild(fieldItem);
+    });
+
+    // Try to load PDF
+    try {
+      // Load PDF.js from CDN if not already loaded
+      if (!window.pdfjsLib) {
+        await loadPdfJs();
+      }
+
+      // Fetch document PDF URL
+      const docResponse = await fetch(`${apiBase}/esign_documents/${documentIdInput.value}`, {
+        credentials: 'same-origin',
+        headers: { 'Accept': 'application/json' }
+      });
+      const docData = await docResponse.json();
+      const pdfUrl = docData.file_url || docData.url;
+
+      if (!pdfUrl) {
+        throw new Error('No PDF URL found');
+      }
+
+      // Load PDF document
+      const loadingTask = window.pdfjsLib.getDocument(pdfUrl);
+      placementState.pdfDoc = await loadingTask.promise;
+      placementState.totalPages = placementState.pdfDoc.numPages;
+      placementState.currentPage = 1;
+
+      // Update page count
+      totalPagesSpan.textContent = placementState.totalPages;
+
+      // Render first page
+      await renderPage(placementState.currentPage);
+
+      // Hide loading
+      placementLoading.classList.add('hidden');
+
+      // Set up drop zone
+      setupDropZone(placementViewer, placementOverlays);
+
+      // Set up page navigation
+      setupPageNavigation();
+
+      // Set up zoom controls
+      setupZoomControls();
+
+      // Render existing field instances
+      renderFieldOverlays();
+
+    } catch (error) {
+      console.error('Failed to load PDF:', error);
+      placementLoading.innerHTML = `
+        <div class="text-center py-8">
+          <svg class="w-16 h-16 mx-auto text-red-300 mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+          </svg>
+          <p class="text-sm text-red-600 mb-2">Failed to load PDF</p>
+          <p class="text-xs text-gray-400">${error.message}</p>
+        </div>
+      `;
+    }
+
+    updatePlacementStats();
+  }
+
+  async function loadPdfJs() {
+    return new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+      script.onload = () => {
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        resolve();
+      };
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+  }
+
+  async function renderPage(pageNum) {
+    if (!placementState.pdfDoc) return;
+
+    const canvas = document.getElementById('placement-pdf-canvas');
+    const container = document.getElementById('placement-canvas-container');
+    const ctx = canvas.getContext('2d');
+
+    const page = await placementState.pdfDoc.getPage(pageNum);
+    const viewport = page.getViewport({ scale: placementState.scale });
+
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    container.style.width = `${viewport.width}px`;
+    container.style.height = `${viewport.height}px`;
+
+    await page.render({
+      canvasContext: ctx,
+      viewport: viewport
+    }).promise;
+
+    // Update page number display
+    document.getElementById('placement-current-page').textContent = pageNum;
+
+    // Update field overlays for current page
+    renderFieldOverlays();
+  }
+
+  function setupDropZone(viewer, overlaysContainer) {
+    const canvas = document.getElementById('placement-pdf-canvas');
+
+    viewer.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+      canvas.classList.add('ring-2', 'ring-blue-500', 'ring-inset');
+    });
+
+    viewer.addEventListener('dragleave', (e) => {
+      canvas.classList.remove('ring-2', 'ring-blue-500', 'ring-inset');
+    });
+
+    viewer.addEventListener('drop', (e) => {
+      e.preventDefault();
+      canvas.classList.remove('ring-2', 'ring-blue-500', 'ring-inset');
+
+      const data = e.dataTransfer.getData('application/json');
+      if (!data) return;
+
+      const fieldData = JSON.parse(data);
+
+      // Calculate drop position relative to canvas
+      const canvasRect = canvas.getBoundingClientRect();
+      const x = (e.clientX - canvasRect.left) / placementState.scale;
+      const y = (e.clientY - canvasRect.top) / placementState.scale;
+
+      // Add field instance
+      addFieldInstance(fieldData, x, y);
+    });
+  }
+
+  function addFieldInstance(fieldData, x, y) {
+    const sizes = DEFAULT_FIELD_SIZES[fieldData.fieldType] || DEFAULT_FIELD_SIZES.text;
+    const instanceId = `fi_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    const instance = {
+      id: instanceId,
+      definitionId: fieldData.definitionId,
+      type: fieldData.fieldType,
+      participantId: fieldData.participantId,
+      participantName: fieldData.participantName,
+      page: placementState.currentPage,
+      x: Math.max(0, x - sizes.width / 2),
+      y: Math.max(0, y - sizes.height / 2),
+      width: sizes.width,
+      height: sizes.height
+    };
+
+    placementState.fieldInstances.push(instance);
+
+    // Mark field as placed in the panel
+    const fieldItem = document.querySelector(`.placement-field-item[data-definition-id="${fieldData.definitionId}"]`);
+    if (fieldItem) {
+      fieldItem.classList.add('opacity-50');
+      fieldItem.draggable = false;
+      const status = fieldItem.querySelector('.placement-status');
+      if (status) {
+        status.textContent = 'Placed';
+        status.classList.remove('text-amber-600');
+        status.classList.add('text-green-600');
+      }
+    }
+
+    renderFieldOverlays();
+    updatePlacementStats();
+    updateFieldInstancesFormData();
+  }
+
+  function renderFieldOverlays() {
+    const container = document.getElementById('placement-overlays-container');
+    container.innerHTML = '';
+    container.style.pointerEvents = 'auto';
+
+    placementState.fieldInstances
+      .filter(f => f.page === placementState.currentPage)
+      .forEach(instance => {
+        const colors = TYPE_COLORS[instance.type] || TYPE_COLORS.text;
+        const isSelected = placementState.selectedFieldId === instance.id;
+
+        const overlay = document.createElement('div');
+        overlay.className = `field-overlay absolute cursor-move ${colors.border} border-2 rounded`;
+        overlay.style.cssText = `
+          left: ${instance.x * placementState.scale}px;
+          top: ${instance.y * placementState.scale}px;
+          width: ${instance.width * placementState.scale}px;
+          height: ${instance.height * placementState.scale}px;
+          background-color: ${colors.fill};
+          ${isSelected ? 'box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);' : ''}
+        `;
+        overlay.dataset.instanceId = instance.id;
+
+        // Label
+        const label = document.createElement('div');
+        label.className = 'absolute -top-5 left-0 text-xs whitespace-nowrap px-1 rounded text-white ' + colors.bg;
+        label.textContent = `${instance.type.replace('_', ' ')} - ${instance.participantName}`;
+        overlay.appendChild(label);
+
+        // Resize handle
+        const resizeHandle = document.createElement('div');
+        resizeHandle.className = 'absolute bottom-0 right-0 w-3 h-3 bg-white border border-gray-400 cursor-se-resize';
+        resizeHandle.style.cssText = 'transform: translate(50%, 50%);';
+        overlay.appendChild(resizeHandle);
+
+        // Delete button
+        const deleteBtn = document.createElement('button');
+        deleteBtn.type = 'button';
+        deleteBtn.className = 'absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center hover:bg-red-600';
+        deleteBtn.innerHTML = '×';
+        deleteBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          removeFieldInstance(instance.id);
+        });
+        overlay.appendChild(deleteBtn);
+
+        // Drag handlers
+        overlay.addEventListener('mousedown', (e) => {
+          if (e.target === resizeHandle) {
+            startResize(e, instance);
+          } else if (e.target !== deleteBtn) {
+            startDrag(e, instance, overlay);
+          }
+        });
+
+        overlay.addEventListener('click', () => {
+          placementState.selectedFieldId = instance.id;
+          renderFieldOverlays();
+        });
+
+        container.appendChild(overlay);
+      });
+  }
+
+  function startDrag(e, instance, overlay) {
+    e.preventDefault();
+    placementState.isDragging = true;
+    placementState.selectedFieldId = instance.id;
+
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startLeft = instance.x * placementState.scale;
+    const startTop = instance.y * placementState.scale;
+
+    function onMouseMove(e) {
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+
+      instance.x = Math.max(0, (startLeft + dx) / placementState.scale);
+      instance.y = Math.max(0, (startTop + dy) / placementState.scale);
+
+      overlay.style.left = `${instance.x * placementState.scale}px`;
+      overlay.style.top = `${instance.y * placementState.scale}px`;
+    }
+
+    function onMouseUp() {
+      placementState.isDragging = false;
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      updateFieldInstancesFormData();
+    }
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }
+
+  function startResize(e, instance) {
+    e.preventDefault();
+    e.stopPropagation();
+    placementState.isResizing = true;
+
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startWidth = instance.width;
+    const startHeight = instance.height;
+
+    function onMouseMove(e) {
+      const dx = (e.clientX - startX) / placementState.scale;
+      const dy = (e.clientY - startY) / placementState.scale;
+
+      instance.width = Math.max(30, startWidth + dx);
+      instance.height = Math.max(20, startHeight + dy);
+
+      renderFieldOverlays();
+    }
+
+    function onMouseUp() {
+      placementState.isResizing = false;
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      updateFieldInstancesFormData();
+    }
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }
+
+  function removeFieldInstance(instanceId) {
+    const instance = placementState.fieldInstances.find(f => f.id === instanceId);
+    if (!instance) return;
+
+    placementState.fieldInstances = placementState.fieldInstances.filter(f => f.id !== instanceId);
+
+    // Unmark field in panel
+    const fieldItem = document.querySelector(`.placement-field-item[data-definition-id="${instance.definitionId}"]`);
+    if (fieldItem) {
+      fieldItem.classList.remove('opacity-50');
+      fieldItem.draggable = true;
+      const status = fieldItem.querySelector('.placement-status');
+      if (status) {
+        status.textContent = 'Not placed';
+        status.classList.remove('text-green-600');
+        status.classList.add('text-amber-600');
+      }
+    }
+
+    renderFieldOverlays();
+    updatePlacementStats();
+    updateFieldInstancesFormData();
+  }
+
+  function setupPageNavigation() {
+    const prevBtn = document.getElementById('placement-prev-page');
+    const nextBtn = document.getElementById('placement-next-page');
+
+    prevBtn.addEventListener('click', async () => {
+      if (placementState.currentPage > 1) {
+        placementState.currentPage--;
+        await renderPage(placementState.currentPage);
+      }
+    });
+
+    nextBtn.addEventListener('click', async () => {
+      if (placementState.currentPage < placementState.totalPages) {
+        placementState.currentPage++;
+        await renderPage(placementState.currentPage);
+      }
+    });
+  }
+
+  function setupZoomControls() {
+    const zoomIn = document.getElementById('placement-zoom-in');
+    const zoomOut = document.getElementById('placement-zoom-out');
+    const zoomFit = document.getElementById('placement-zoom-fit');
+    const zoomLevel = document.getElementById('placement-zoom-level');
+
+    zoomIn.addEventListener('click', async () => {
+      placementState.scale = Math.min(3.0, placementState.scale + 0.25);
+      zoomLevel.textContent = `${Math.round(placementState.scale * 100)}%`;
+      await renderPage(placementState.currentPage);
+    });
+
+    zoomOut.addEventListener('click', async () => {
+      placementState.scale = Math.max(0.5, placementState.scale - 0.25);
+      zoomLevel.textContent = `${Math.round(placementState.scale * 100)}%`;
+      await renderPage(placementState.currentPage);
+    });
+
+    zoomFit.addEventListener('click', async () => {
+      const viewer = document.getElementById('placement-viewer');
+      const page = await placementState.pdfDoc.getPage(placementState.currentPage);
+      const viewport = page.getViewport({ scale: 1.0 });
+      placementState.scale = (viewer.clientWidth - 40) / viewport.width;
+      zoomLevel.textContent = `${Math.round(placementState.scale * 100)}%`;
+      await renderPage(placementState.currentPage);
+    });
+  }
+
+  function updatePlacementStats() {
+    const totalFields = document.querySelectorAll('.placement-field-item').length;
+    const placedCount = placementState.fieldInstances.length;
+    const unplacedCount = totalFields - placedCount;
+
+    document.getElementById('placement-total-fields').textContent = totalFields;
+    document.getElementById('placement-placed-count').textContent = placedCount;
+    document.getElementById('placement-unplaced-count').textContent = unplacedCount;
+  }
+
+  function updateFieldInstancesFormData() {
+    const container = document.getElementById('field-instances-container');
+    container.innerHTML = '';
+
+    placementState.fieldInstances.forEach((instance, index) => {
+      const inputs = [
+        { name: `field_instances[${index}].id`, value: instance.id },
+        { name: `field_instances[${index}].definition_id`, value: instance.definitionId },
+        { name: `field_instances[${index}].type`, value: instance.type },
+        { name: `field_instances[${index}].participant_id`, value: instance.participantId },
+        { name: `field_instances[${index}].page`, value: instance.page },
+        { name: `field_instances[${index}].x`, value: Math.round(instance.x) },
+        { name: `field_instances[${index}].y`, value: Math.round(instance.y) },
+        { name: `field_instances[${index}].width`, value: Math.round(instance.width) },
+        { name: `field_instances[${index}].height`, value: Math.round(instance.height) }
+      ];
+
+      inputs.forEach(({ name, value }) => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = name;
+        input.value = value;
+        container.appendChild(input);
+      });
+    });
+  }
+
+  // =============================================================================
+  // Auto-Placement Engine Integration (Phase 27)
+  // =============================================================================
+
+  let autoPlaceState = {
+    currentRunId: null,
+    suggestions: [],
+    resolverScores: [],
+    policy: null,
+    isRunning: false
+  };
+
+  // Auto-place button handler - wired to placement orchestrator
+  const autoPlaceBtn = document.getElementById('auto-place-btn');
+  if (autoPlaceBtn) {
+    autoPlaceBtn.addEventListener('click', async () => {
+      if (autoPlaceState.isRunning) return;
+
+      const unplacedFields = document.querySelectorAll('.placement-field-item:not(.opacity-50)');
+      if (unplacedFields.length === 0) {
+        showToast('All fields are already placed', 'info');
+        return;
+      }
+
+      const agreementId = document.querySelector('input[name="id"]')?.value;
+      if (!agreementId) {
+        // Fallback to simple placement for unsaved agreements
+        autoPlaceFallback();
+        return;
+      }
+
+      autoPlaceState.isRunning = true;
+      autoPlaceBtn.disabled = true;
+      autoPlaceBtn.innerHTML = `
+        <svg class="animate-spin w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        Analyzing...
+      `;
+
+      try {
+        // Call placement orchestrator API
+        const response = await fetch(`${apiBase}/esign-agreements/${agreementId}/actions/auto-place`, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify({
+            policy_preset: getSelectedPolicyPreset()
+          })
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message || 'Auto-placement failed');
+        }
+
+        const result = await response.json();
+        autoPlaceState.currentRunId = result.run_id;
+        autoPlaceState.suggestions = result.suggestions || [];
+        autoPlaceState.resolverScores = result.resolver_scores || [];
+
+        if (autoPlaceState.suggestions.length === 0) {
+          showToast('No placement suggestions found. Try placing fields manually.', 'warning');
+          autoPlaceFallback();
+        } else {
+          openSuggestionsModal(result);
+        }
+
+      } catch (error) {
+        console.error('Auto-place error:', error);
+        showToast(`Auto-placement failed: ${error.message}`, 'error');
+        // Fallback to simple placement
+        autoPlaceFallback();
+      } finally {
+        autoPlaceState.isRunning = false;
+        autoPlaceBtn.disabled = false;
+        autoPlaceBtn.innerHTML = `
+          <svg class="w-4 h-4 mr-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+          </svg>
+          Auto-place
+        `;
+      }
+    });
+  }
+
+  function getSelectedPolicyPreset() {
+    const policySelect = document.getElementById('placement-policy-preset');
+    return policySelect?.value || 'balanced';
+  }
+
+  function autoPlaceFallback() {
+    // Simple auto-placement: stack fields vertically on the last page
+    const unplacedFields = document.querySelectorAll('.placement-field-item:not(.opacity-50)');
+    let yOffset = 100;
+
+    unplacedFields.forEach(fieldItem => {
+      const fieldData = {
+        definitionId: fieldItem.dataset.definitionId,
+        fieldType: fieldItem.dataset.fieldType,
+        participantId: fieldItem.dataset.participantId,
+        participantName: fieldItem.dataset.participantName
+      };
+
+      const sizes = DEFAULT_FIELD_SIZES[fieldData.fieldType] || DEFAULT_FIELD_SIZES.text;
+
+      // Place on last page
+      placementState.currentPage = placementState.totalPages;
+      addFieldInstance(fieldData, 300, yOffset + sizes.height / 2);
+      yOffset += sizes.height + 20;
+    });
+
+    // Render the last page
+    if (placementState.pdfDoc) {
+      renderPage(placementState.totalPages);
+    }
+
+    showToast('Fields placed using fallback layout', 'info');
+  }
+
+  function openSuggestionsModal(result) {
+    // Create or get modal
+    let modal = document.getElementById('placement-suggestions-modal');
+    if (!modal) {
+      modal = createSuggestionsModal();
+      document.body.appendChild(modal);
+    }
+
+    // Populate suggestions
+    const suggestionsContainer = modal.querySelector('#suggestions-list');
+    const resolverInfo = modal.querySelector('#resolver-info');
+    const runStats = modal.querySelector('#run-stats');
+
+    // Show resolver scores
+    resolverInfo.innerHTML = autoPlaceState.resolverScores.map(rs => `
+      <div class="flex items-center justify-between text-xs py-1 border-b border-gray-100 last:border-0">
+        <span class="font-medium capitalize">${rs.resolver_id.replace(/_/g, ' ')}</span>
+        <div class="flex items-center gap-2">
+          ${rs.supported ? `
+            <span class="px-1.5 py-0.5 rounded text-xs ${getScoreBadgeClass(rs.score)}">
+              ${(rs.score * 100).toFixed(0)}%
+            </span>
+          ` : `
+            <span class="px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 text-xs">N/A</span>
+          `}
+        </div>
+      </div>
+    `).join('');
+
+    // Show run stats
+    runStats.innerHTML = `
+      <div class="flex items-center gap-4 text-xs text-gray-600">
+        <span>Run: <code class="bg-gray-100 px-1 rounded">${result.run_id?.slice(0, 8) || 'N/A'}</code></span>
+        <span>Status: <span class="font-medium ${result.status === 'completed' ? 'text-green-600' : 'text-amber-600'}">${result.status || 'unknown'}</span></span>
+        <span>Time: ${result.elapsed_ms || 0}ms</span>
+      </div>
+    `;
+
+    // Render suggestions with accept/reject controls
+    suggestionsContainer.innerHTML = autoPlaceState.suggestions.map((suggestion, index) => {
+      const fieldDef = getFieldDefinitionById(suggestion.field_definition_id);
+      const colors = TYPE_COLORS[fieldDef?.type] || TYPE_COLORS.text;
+
+      return `
+        <div class="suggestion-item p-3 border border-gray-200 rounded-lg hover:border-blue-300 transition-colors" data-index="${index}" data-suggestion-id="${suggestion.id}">
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex items-center gap-2">
+              <span class="w-3 h-3 rounded ${colors.bg}"></span>
+              <div>
+                <div class="font-medium text-sm capitalize">${(fieldDef?.type || 'field').replace('_', ' ')}</div>
+                <div class="text-xs text-gray-500">Page ${suggestion.page_number}, (${Math.round(suggestion.x)}, ${Math.round(suggestion.y)})</div>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="confidence-badge px-2 py-0.5 rounded-full text-xs font-medium ${getConfidenceBadgeClass(suggestion.confidence)}">
+                ${(suggestion.confidence * 100).toFixed(0)}%
+              </span>
+              <span class="resolver-badge px-2 py-0.5 rounded bg-gray-100 text-gray-600 text-xs">
+                ${formatResolverLabel(suggestion.resolver_id)}
+              </span>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 mt-3">
+            <button type="button" class="accept-suggestion-btn flex-1 px-3 py-1.5 bg-green-50 text-green-700 text-xs font-medium rounded hover:bg-green-100 transition-colors" data-index="${index}">
+              <svg class="w-3 h-3 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+              </svg>
+              Accept
+            </button>
+            <button type="button" class="reject-suggestion-btn flex-1 px-3 py-1.5 bg-red-50 text-red-700 text-xs font-medium rounded hover:bg-red-100 transition-colors" data-index="${index}">
+              <svg class="w-3 h-3 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+              Reject
+            </button>
+            <button type="button" class="preview-suggestion-btn px-3 py-1.5 bg-blue-50 text-blue-700 text-xs font-medium rounded hover:bg-blue-100 transition-colors" data-index="${index}">
+              <svg class="w-3 h-3 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+              </svg>
+              Preview
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    // Bind suggestion action handlers
+    bindSuggestionActions(modal);
+
+    // Show modal
+    modal.classList.remove('hidden');
+  }
+
+  function createSuggestionsModal() {
+    const modal = document.createElement('div');
+    modal.id = 'placement-suggestions-modal';
+    modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 hidden';
+    modal.innerHTML = `
+      <div class="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[80vh] flex flex-col">
+        <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+          <div>
+            <h2 class="text-lg font-semibold text-gray-900">Smart Placement Suggestions</h2>
+            <p class="text-sm text-gray-500 mt-0.5">Review and apply AI-generated field placements</p>
+          </div>
+          <button type="button" id="close-suggestions-modal" class="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+            <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="px-6 py-3 bg-gray-50 border-b border-gray-200">
+          <div class="flex items-center justify-between">
+            <div id="run-stats"></div>
+            <div class="flex items-center gap-2">
+              <button type="button" id="accept-all-btn" class="px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded hover:bg-green-700 transition-colors">
+                Accept All
+              </button>
+              <button type="button" id="reject-all-btn" class="px-3 py-1.5 bg-gray-200 text-gray-700 text-xs font-medium rounded hover:bg-gray-300 transition-colors">
+                Reject All
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto">
+          <div class="grid grid-cols-2 gap-4 p-6">
+            <div>
+              <h3 class="text-sm font-medium text-gray-700 mb-3">Suggestions</h3>
+              <div id="suggestions-list" class="space-y-3"></div>
+            </div>
+            <div>
+              <h3 class="text-sm font-medium text-gray-700 mb-3">Resolver Ranking</h3>
+              <div id="resolver-info" class="bg-gray-50 rounded-lg p-3"></div>
+
+              <h3 class="text-sm font-medium text-gray-700 mt-4 mb-3">Policy Preset</h3>
+              <select id="placement-policy-preset-modal" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                <option value="balanced">Balanced (Recommended)</option>
+                <option value="accuracy-first">Accuracy First</option>
+                <option value="cost-first">Cost Optimized</option>
+                <option value="speed-first">Speed Optimized</option>
+              </select>
+              <p class="text-xs text-gray-500 mt-1">Change preset and re-run for different results</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+          <button type="button" id="rerun-placement-btn" class="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors">
+            Re-run with New Policy
+          </button>
+          <button type="button" id="apply-suggestions-btn" class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
+            Apply Selected
+          </button>
+        </div>
+      </div>
+    `;
+
+    // Close button handler
+    modal.querySelector('#close-suggestions-modal').addEventListener('click', () => {
+      modal.classList.add('hidden');
+    });
+
+    // Click outside to close
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        modal.classList.add('hidden');
+      }
+    });
+
+    // Accept all handler
+    modal.querySelector('#accept-all-btn').addEventListener('click', () => {
+      modal.querySelectorAll('.suggestion-item').forEach(item => {
+        item.classList.add('border-green-500', 'bg-green-50');
+        item.classList.remove('border-red-500', 'bg-red-50');
+        item.dataset.accepted = 'true';
+      });
+    });
+
+    // Reject all handler
+    modal.querySelector('#reject-all-btn').addEventListener('click', () => {
+      modal.querySelectorAll('.suggestion-item').forEach(item => {
+        item.classList.add('border-red-500', 'bg-red-50');
+        item.classList.remove('border-green-500', 'bg-green-50');
+        item.dataset.accepted = 'false';
+      });
+    });
+
+    // Apply suggestions handler
+    modal.querySelector('#apply-suggestions-btn').addEventListener('click', () => {
+      applyAcceptedSuggestions();
+      modal.classList.add('hidden');
+    });
+
+    // Re-run handler
+    modal.querySelector('#rerun-placement-btn').addEventListener('click', () => {
+      modal.classList.add('hidden');
+      // Sync policy preset
+      const modalPreset = modal.querySelector('#placement-policy-preset-modal');
+      const mainPreset = document.getElementById('placement-policy-preset');
+      if (mainPreset && modalPreset) {
+        mainPreset.value = modalPreset.value;
+      }
+      // Trigger auto-place again
+      autoPlaceBtn?.click();
+    });
+
+    return modal;
+  }
+
+  function bindSuggestionActions(modal) {
+    // Accept single suggestion
+    modal.querySelectorAll('.accept-suggestion-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const item = btn.closest('.suggestion-item');
+        item.classList.add('border-green-500', 'bg-green-50');
+        item.classList.remove('border-red-500', 'bg-red-50');
+        item.dataset.accepted = 'true';
+      });
+    });
+
+    // Reject single suggestion
+    modal.querySelectorAll('.reject-suggestion-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const item = btn.closest('.suggestion-item');
+        item.classList.add('border-red-500', 'bg-red-50');
+        item.classList.remove('border-green-500', 'bg-green-50');
+        item.dataset.accepted = 'false';
+      });
+    });
+
+    // Preview suggestion
+    modal.querySelectorAll('.preview-suggestion-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const index = parseInt(btn.dataset.index, 10);
+        const suggestion = autoPlaceState.suggestions[index];
+        if (suggestion) {
+          previewSuggestionOnDocument(suggestion);
+        }
+      });
+    });
+  }
+
+  function previewSuggestionOnDocument(suggestion) {
+    // Navigate to the page and highlight the suggested position
+    if (suggestion.page_number !== placementState.currentPage) {
+      placementState.currentPage = suggestion.page_number;
+      renderPage(suggestion.page_number);
+    }
+
+    // Create temporary highlight overlay
+    const overlaysContainer = document.getElementById('placement-overlays-container');
+    const existingPreview = document.getElementById('suggestion-preview-overlay');
+    if (existingPreview) existingPreview.remove();
+
+    const preview = document.createElement('div');
+    preview.id = 'suggestion-preview-overlay';
+    preview.className = 'absolute pointer-events-none animate-pulse';
+    preview.style.cssText = `
+      left: ${suggestion.x * placementState.scale}px;
+      top: ${suggestion.y * placementState.scale}px;
+      width: ${suggestion.width * placementState.scale}px;
+      height: ${suggestion.height * placementState.scale}px;
+      border: 3px dashed #3b82f6;
+      background: rgba(59, 130, 246, 0.15);
+      border-radius: 4px;
+    `;
+    overlaysContainer.appendChild(preview);
+
+    // Remove preview after 3 seconds
+    setTimeout(() => preview.remove(), 3000);
+  }
+
+  function applyAcceptedSuggestions() {
+    const modal = document.getElementById('placement-suggestions-modal');
+    const acceptedItems = modal.querySelectorAll('.suggestion-item[data-accepted="true"]');
+
+    acceptedItems.forEach(item => {
+      const index = parseInt(item.dataset.index, 10);
+      const suggestion = autoPlaceState.suggestions[index];
+      if (!suggestion) return;
+
+      const fieldDef = getFieldDefinitionById(suggestion.field_definition_id);
+      if (!fieldDef) return;
+
+      // Find the placement field item
+      const fieldItem = document.querySelector(`.placement-field-item[data-definition-id="${suggestion.field_definition_id}"]`);
+      if (!fieldItem || fieldItem.classList.contains('opacity-50')) return;
+
+      const fieldData = {
+        definitionId: suggestion.field_definition_id,
+        fieldType: fieldDef.type,
+        participantId: fieldDef.participant_id,
+        participantName: fieldItem.dataset.participantName
+      };
+
+      // Set current page and add instance
+      placementState.currentPage = suggestion.page_number;
+      addFieldInstanceFromSuggestion(fieldData, suggestion);
+    });
+
+    // Render current page
+    if (placementState.pdfDoc) {
+      renderPage(placementState.currentPage);
+    }
+
+    // Send feedback to API for future improvement
+    sendPlacementFeedback(acceptedItems.length, autoPlaceState.suggestions.length - acceptedItems.length);
+
+    showToast(`Applied ${acceptedItems.length} placement${acceptedItems.length !== 1 ? 's' : ''}`, 'success');
+  }
+
+  function addFieldInstanceFromSuggestion(fieldData, suggestion) {
+    const instance = {
+      id: `instance_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      definitionId: fieldData.definitionId,
+      type: fieldData.fieldType,
+      participantId: fieldData.participantId,
+      participantName: fieldData.participantName,
+      page: suggestion.page_number,
+      x: suggestion.x,
+      y: suggestion.y,
+      width: suggestion.width,
+      height: suggestion.height,
+      // Track placement source for audit
+      placementSource: 'auto',
+      resolverId: suggestion.resolver_id,
+      confidence: suggestion.confidence,
+      placementRunId: autoPlaceState.currentRunId
+    };
+
+    placementState.fieldInstances.push(instance);
+
+    // Mark field as placed in panel
+    const fieldItem = document.querySelector(`.placement-field-item[data-definition-id="${fieldData.definitionId}"]`);
+    if (fieldItem) {
+      fieldItem.classList.add('opacity-50');
+      fieldItem.draggable = false;
+      const status = fieldItem.querySelector('.placement-status');
+      if (status) {
+        status.textContent = 'Placed';
+        status.classList.remove('text-amber-600');
+        status.classList.add('text-green-600');
+      }
+    }
+
+    renderFieldOverlays();
+    updatePlacementStats();
+    updateFieldInstancesFormData();
+  }
+
+  function getFieldDefinitionById(definitionId) {
+    const fieldEntry = document.querySelector(`.field-definition-entry[data-field-definition-id="${definitionId}"]`);
+    if (!fieldEntry) return null;
+
+    return {
+      id: definitionId,
+      type: fieldEntry.querySelector('.field-type-select')?.value || 'text',
+      participant_id: fieldEntry.querySelector('.field-participant-select')?.value || ''
+    };
+  }
+
+  function getConfidenceBadgeClass(confidence) {
+    if (confidence >= 0.9) return 'bg-green-100 text-green-800';
+    if (confidence >= 0.7) return 'bg-blue-100 text-blue-800';
+    if (confidence >= 0.5) return 'bg-yellow-100 text-yellow-800';
+    return 'bg-red-100 text-red-800';
+  }
+
+  function getScoreBadgeClass(score) {
+    if (score >= 0.8) return 'bg-green-100 text-green-800';
+    if (score >= 0.6) return 'bg-blue-100 text-blue-800';
+    if (score >= 0.4) return 'bg-yellow-100 text-yellow-800';
+    return 'bg-gray-100 text-gray-600';
+  }
+
+  function formatResolverLabel(resolverId) {
+    if (!resolverId) return 'Unknown';
+    return resolverId.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  }
+
+  async function sendPlacementFeedback(acceptedCount, rejectedCount) {
+    if (!autoPlaceState.currentRunId) return;
+
+    try {
+      const agreementId = document.querySelector('input[name="id"]')?.value;
+      if (!agreementId) return;
+
+      await fetch(`${apiBase}/esign-agreements/${agreementId}/placement-runs/${autoPlaceState.currentRunId}/feedback`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          accepted_count: acceptedCount,
+          rejected_count: rejectedCount,
+          manual_override_count: placementState.fieldInstances.filter(f => f.placementSource === 'manual').length
+        })
+      });
+    } catch (error) {
+      console.warn('Failed to send placement feedback:', error);
+      // Non-critical, don't show error to user
+    }
+  }
+
+  function showToast(message, type = 'info') {
+    // Simple toast implementation
+    const toast = document.createElement('div');
+    toast.className = `fixed bottom-4 right-4 px-4 py-3 rounded-lg shadow-lg text-sm font-medium z-50 transition-all duration-300 ${
+      type === 'success' ? 'bg-green-600 text-white' :
+      type === 'error' ? 'bg-red-600 text-white' :
+      type === 'warning' ? 'bg-amber-500 text-white' :
+      'bg-gray-800 text-white'
+    }`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      setTimeout(() => toast.remove(), 300);
+    }, 3000);
+  }
+
+  // =============================================================================
+  // Step 6: Send Readiness Check
+  // =============================================================================
+  function initSendReadinessCheck() {
+    const sendReadinessLoading = document.getElementById('send-readiness-loading');
+    const sendReadinessResults = document.getElementById('send-readiness-results');
+    const sendValidationStatus = document.getElementById('send-validation-status');
+    const sendValidationIssues = document.getElementById('send-validation-issues');
+    const sendIssuesList = document.getElementById('send-issues-list');
+    const sendConfirmation = document.getElementById('send-confirmation');
+
+    const reviewAgreementTitle = document.getElementById('review-agreement-title');
+    const reviewDocumentTitle = document.getElementById('review-document-title');
+    const reviewParticipantCount = document.getElementById('review-participant-count');
+    const reviewStageCount = document.getElementById('review-stage-count');
+    const reviewParticipantsList = document.getElementById('review-participants-list');
+    const reviewFieldsSummary = document.getElementById('review-fields-summary');
+
+    // Gather data from form
+    const title = document.getElementById('title').value || 'Untitled';
+    const docTitle = selectedDocumentTitle.textContent || 'No document';
+    const participantEntries = participantsContainer.querySelectorAll('.participant-entry');
+    const fieldEntries = fieldDefinitionsContainer.querySelectorAll('.field-definition-entry');
+    const signers = getSignerParticipants();
+
+    // Calculate stages
+    const stages = new Set();
+    participantEntries.forEach(entry => {
+      const stageInput = entry.querySelector('.signing-stage-input');
+      const roleSelect = entry.querySelector('select[name*=".role"]');
+      if (roleSelect.value === 'signer' && stageInput?.value) {
+        stages.add(parseInt(stageInput.value, 10));
+      }
+    });
+
+    // Populate summary
+    reviewAgreementTitle.textContent = title;
+    reviewDocumentTitle.textContent = docTitle;
+    reviewParticipantCount.textContent = `${participantEntries.length} (${signers.length} signers)`;
+    reviewStageCount.textContent = stages.size > 0 ? stages.size : '1';
+
+    // Populate participants list
+    reviewParticipantsList.innerHTML = '';
+    participantEntries.forEach(entry => {
+      const nameInput = entry.querySelector('input[name*=".name"]');
+      const emailInput = entry.querySelector('input[name*=".email"]');
+      const roleSelect = entry.querySelector('select[name*=".role"]');
+      const stageInput = entry.querySelector('.signing-stage-input');
+
+      const div = document.createElement('div');
+      div.className = 'flex items-center justify-between text-sm';
+      div.innerHTML = `
+        <div>
+          <span class="font-medium">${escapeHtml(nameInput.value || emailInput.value)}</span>
+          <span class="text-gray-500 ml-2">${escapeHtml(emailInput.value)}</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="px-2 py-0.5 rounded text-xs ${roleSelect.value === 'signer' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'}">
+            ${roleSelect.value === 'signer' ? 'Signer' : 'CC'}
+          </span>
+          ${roleSelect.value === 'signer' && stageInput?.value ? `<span class="text-xs text-gray-500">Stage ${stageInput.value}</span>` : ''}
+        </div>
+      `;
+      reviewParticipantsList.appendChild(div);
+    });
+
+    // Populate fields summary
+    reviewFieldsSummary.textContent = `${fieldEntries.length} field${fieldEntries.length !== 1 ? 's' : ''} defined`;
+
+    // Validation
+    const issues = [];
+
+    // Check for document
+    if (!documentIdInput.value) {
+      issues.push({ severity: 'error', message: 'No document selected', action: 'Go to Step 1', step: 1 });
+    }
+
+    // Check for signers
+    if (signers.length === 0) {
+      issues.push({ severity: 'error', message: 'No signers added', action: 'Go to Step 3', step: 3 });
+    }
+
+    // Check each signer has a signature field
+    const signersWithSignature = new Set();
+    fieldEntries.forEach(field => {
+      const typeSelect = field.querySelector('.field-type-select');
+      const participantSelect = field.querySelector('.field-participant-select');
+      const requiredCheckbox = field.querySelector('input[name*=".required"]');
+      if (typeSelect.value === 'signature' && participantSelect.value && requiredCheckbox?.checked) {
+        signersWithSignature.add(participantSelect.value);
+      }
+    });
+
+    signers.forEach(signer => {
+      if (!signersWithSignature.has(signer.id)) {
+        issues.push({
+          severity: 'warning',
+          message: `${signer.name} has no required signature field`,
+          action: 'Add signature field',
+          step: 4
+        });
+      }
+    });
+
+    // Check stage continuity
+    const stageArray = Array.from(stages).sort((a, b) => a - b);
+    for (let i = 0; i < stageArray.length; i++) {
+      if (stageArray[i] !== i + 1) {
+        issues.push({
+          severity: 'warning',
+          message: 'Signing stages should be sequential starting from 1',
+          action: 'Review stages',
+          step: 3
+        });
+        break;
+      }
+    }
+
+    // Display validation results
+    const hasErrors = issues.some(i => i.severity === 'error');
+    const hasWarnings = issues.some(i => i.severity === 'warning');
+
+    if (hasErrors) {
+      sendValidationStatus.className = 'p-4 rounded-lg bg-red-50 border border-red-200';
+      sendValidationStatus.innerHTML = `
+        <div class="flex items-center gap-2 text-red-800">
+          <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <span class="font-medium">Cannot send - issues must be resolved</span>
+        </div>
+      `;
+      sendConfirmation.classList.add('hidden');
+      submitBtn.disabled = true;
+    } else if (hasWarnings) {
+      sendValidationStatus.className = 'p-4 rounded-lg bg-amber-50 border border-amber-200';
+      sendValidationStatus.innerHTML = `
+        <div class="flex items-center gap-2 text-amber-800">
+          <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+          </svg>
+          <span class="font-medium">Ready with warnings - review before sending</span>
+        </div>
+      `;
+      sendConfirmation.classList.remove('hidden');
+      submitBtn.disabled = false;
+    } else {
+      sendValidationStatus.className = 'p-4 rounded-lg bg-green-50 border border-green-200';
+      sendValidationStatus.innerHTML = `
+        <div class="flex items-center gap-2 text-green-800">
+          <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <span class="font-medium">All checks passed - ready to send</span>
+        </div>
+      `;
+      sendConfirmation.classList.remove('hidden');
+      submitBtn.disabled = false;
+    }
+
+    // Display issues
+    if (issues.length > 0) {
+      sendValidationIssues.classList.remove('hidden');
+      sendIssuesList.innerHTML = '';
+      issues.forEach(issue => {
+        const li = document.createElement('li');
+        li.className = `p-3 rounded-lg flex items-center justify-between ${issue.severity === 'error' ? 'bg-red-50' : 'bg-amber-50'}`;
+        li.innerHTML = `
+          <div class="flex items-center gap-2">
+            <svg class="w-4 h-4 ${issue.severity === 'error' ? 'text-red-500' : 'text-amber-500'}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${issue.severity === 'error' ? 'M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z' : 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z'}"/>
+            </svg>
+            <span class="text-sm">${escapeHtml(issue.message)}</span>
+          </div>
+          <button type="button" class="text-xs text-blue-600 hover:text-blue-800" onclick="goToStep(${issue.step})">
+            ${escapeHtml(issue.action)}
+          </button>
+        `;
+        sendIssuesList.appendChild(li);
+      });
+    } else {
+      sendValidationIssues.classList.add('hidden');
+    }
+
+    // Hide loading, show results
+    sendReadinessLoading.classList.add('hidden');
+    sendReadinessResults.classList.remove('hidden');
+  }
+
+  // Make goToStep available globally for issue action buttons
+  window.goToStep = goToStep;
+
+  // Initialize wizard
+  updateWizardUI();
 });
 </script>
 {% endblock %}
