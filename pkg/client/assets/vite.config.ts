@@ -29,6 +29,8 @@ export default defineConfig({
         'translation-exchange/index': resolve(__dirname, 'src/translation-exchange/index.ts'),
         'translation-operations/index': resolve(__dirname, 'src/translation-operations/index.ts'),
         'services/index': resolve(__dirname, 'src/services/index.ts'),
+        // E-Sign module entries
+        'esign/index': resolve(__dirname, 'src/esign/index.ts'),
       },
       formats: ['es'],
       // Output file names without hash for predictable paths

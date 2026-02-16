@@ -19,6 +19,9 @@
 </header>
 
 <div class="flex-1 p-8 overflow-y-auto">
+  <div data-esign-page="{{ esign_page|default:"" }}" data-esign-module="{{ esign_module_path|default:"" }}" hidden></div>
+  <script id="esign-page-config" type="application/json">{{ esign_page_config_json|default:"{}"|safe }}</script>
+
   {# Live region for announcements #}
   <div id="doc-announcements" class="sr-only" role="alert" aria-live="polite"></div>
 
@@ -215,7 +218,7 @@
               <p class="mt-1 text-sm text-amber-700">
                 You need to connect your Google account before importing documents.
               </p>
-              <a href="{{ adminURL("esign/integrations/google") }}" class="mt-3 inline-flex items-center gap-2 text-sm font-medium text-amber-800 hover:text-amber-900 underline">
+              <a href="{{ adminURL("esign/integrations/google") }}" data-base-href="{{ adminURL("esign/integrations/google") }}" id="connect-google-link" class="mt-3 inline-flex items-center gap-2 text-sm font-medium text-amber-800 hover:text-amber-900 underline">
                 <svg class="w-4 h-4" viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
                   <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -262,6 +265,7 @@
               <p id="search-help" class="mt-2 text-xs text-gray-500">
                 Search by file name. Only Google Docs and PDFs can be imported.
               </p>
+              <p id="account-scope-help" class="mt-1 text-xs text-gray-500 hidden"></p>
             </div>
 
             {# Breadcrumb Navigation #}
@@ -451,21 +455,37 @@
 {% endblock %}
 
 {% block scripts %}
+{% if esign_module_path %}
+<script type="module" src="{{ esign_module_path }}"></script>
+{% endif %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   // ============================================================
   // Configuration
   // ============================================================
-  const basePath = '{{ base_path }}';
-  const apiBasePath = '{{ api_base_path|default:"/admin/api/v1" }}';
+  const pageConfigEl = document.getElementById('esign-page-config');
+  const pageConfig = (() => {
+    if (!pageConfigEl) return {};
+    try {
+      const raw = (pageConfigEl.textContent || '').trim();
+      return raw ? JSON.parse(raw) : {};
+    } catch (err) {
+      console.debug('Could not parse e-sign page config JSON:', err);
+      return {};
+    }
+  })();
+  const basePath = pageConfig.base_path || '{{ base_path }}';
+  const apiBasePath = pageConfig.api_base_path || '{{ api_base_path|default:"/admin/api/v1" }}';
   const apiBase = apiBasePath || `${basePath}/api/v1`;
   const uploadEndpoint = apiBase.replace(/\/$/, '') + '/esign/documents/upload';
-  const userId = '{{ user_id|default:"" }}';
-  const documentsBase = '{{ adminURL("content/esign_documents") }}';
-  const agreementsBase = '{{ adminURL("content/esign_agreements") }}';
-  const integrationsBase = '{{ adminURL("esign/integrations/google") }}';
-  const googleEnabled = {{ google_enabled|yesno:"true,false" }};
-  const googleConnected = {{ google_connected|yesno:"true,false" }};
+  const userId = pageConfig.context?.user_id || '{{ user_id|default:"" }}';
+  const initialAccountId = pageConfig.context?.google_account_id || '{{ google_account_id|default:"" }}';
+  const googleAccountStorageKey = 'esign.google.account_id';
+  const documentsBase = pageConfig.routes?.index || '{{ adminURL("content/esign_documents") }}';
+  const agreementsBase = pageConfig.routes?.agreements_index || '{{ adminURL("content/esign_agreements") }}';
+  const integrationsBasePath = pageConfig.routes?.esign_settings || '{{ adminURL("esign/integrations/google") }}';
+  const googleEnabled = !!pageConfig.features?.google_enabled;
+  const googleConnected = !!pageConfig.features?.google_connected;
 
   const MAX_SIZE = 25 * 1024 * 1024; // 25 MB
   const POLL_INTERVAL = 2000; // 2 seconds
@@ -510,6 +530,8 @@ document.addEventListener('DOMContentLoaded', function() {
   const pagination = document.getElementById('pagination');
   const loadMoreBtn = document.getElementById('load-more-btn');
   const refreshBtn = document.getElementById('refresh-btn');
+  const accountScopeHelp = document.getElementById('account-scope-help');
+  const connectGoogleLink = document.getElementById('connect-google-link');
 
   // Selection panel elements
   const noSelection = document.getElementById('no-selection');
@@ -551,6 +573,7 @@ document.addEventListener('DOMContentLoaded', function() {
   let pollAttempts = 0;
   let currentImportRunId = null;
   let loadFiles = null;
+  let currentAccountId = resolveInitialAccountId();
 
   // ============================================================
   // Utility Functions
@@ -558,6 +581,88 @@ document.addEventListener('DOMContentLoaded', function() {
   function announce(message) {
     if (announcements) {
       announcements.textContent = message;
+    }
+  }
+
+  function normalizeAccountId(value) {
+    return (value || '').trim();
+  }
+
+  function resolveInitialAccountId() {
+    const params = new URLSearchParams(window.location.search);
+    const fromQuery = normalizeAccountId(params.get('account_id'));
+    if (fromQuery) {
+      return fromQuery;
+    }
+    const fromTemplate = normalizeAccountId(initialAccountId);
+    if (fromTemplate) {
+      return fromTemplate;
+    }
+    try {
+      return normalizeAccountId(window.localStorage.getItem(googleAccountStorageKey));
+    } catch (error) {
+      return '';
+    }
+  }
+
+  function syncScopedAccountState() {
+    const url = new URL(window.location.href);
+    if (currentAccountId) {
+      url.searchParams.set('account_id', currentAccountId);
+    } else {
+      url.searchParams.delete('account_id');
+    }
+    window.history.replaceState({}, '', url);
+
+    try {
+      if (currentAccountId) {
+        window.localStorage.setItem(googleAccountStorageKey, currentAccountId);
+      } else {
+        window.localStorage.removeItem(googleAccountStorageKey);
+      }
+    } catch (error) {
+      // Ignore storage failures.
+    }
+  }
+
+  function applyAccountIdToPath(pathOrURL) {
+    const parsed = new URL(pathOrURL, window.location.origin);
+    if (currentAccountId) {
+      parsed.searchParams.set('account_id', currentAccountId);
+    } else {
+      parsed.searchParams.delete('account_id');
+    }
+    return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+  }
+
+  function getScopedIntegrationsBase() {
+    return applyAccountIdToPath(integrationsBasePath);
+  }
+
+  function scopedAPIURL(path) {
+    const url = new URL(`${apiBase}${path}`, window.location.origin);
+    url.searchParams.set('user_id', userId);
+    if (currentAccountId) {
+      url.searchParams.set('account_id', currentAccountId);
+    }
+    return url;
+  }
+
+  function updateAccountScopeUI() {
+    syncScopedAccountState();
+    if (accountScopeHelp) {
+      if (currentAccountId) {
+        accountScopeHelp.textContent = `Account scope: ${currentAccountId}`;
+        accountScopeHelp.classList.remove('hidden');
+      } else {
+        accountScopeHelp.classList.add('hidden');
+      }
+    }
+    if (connectGoogleLink) {
+      const baseHref = connectGoogleLink.dataset.baseHref || connectGoogleLink.getAttribute('href');
+      if (baseHref) {
+        connectGoogleLink.setAttribute('href', applyAccountIdToPath(baseHref));
+      }
     }
   }
 
@@ -856,6 +961,46 @@ document.addEventListener('DOMContentLoaded', function() {
   // Google Drive Browser Functions
   // ============================================================
   if (googleEnabled && googleConnected) {
+    function normalizeDriveFile(file) {
+      if (!file || typeof file !== 'object') {
+        return {
+          id: '',
+          name: '',
+          mimeType: '',
+          modifiedTime: '',
+          webViewLink: '',
+          parents: [],
+          owners: []
+        };
+      }
+
+      const id = String(file.id || file.ID || '').trim();
+      const name = String(file.name || file.Name || '').trim();
+      const mimeType = String(file.mimeType || file.MimeType || '').trim();
+      const modifiedTime = String(file.modifiedTime || file.ModifiedTime || '').trim();
+      const webViewLink = String(file.webViewLink || file.webViewURL || file.WebViewURL || '').trim();
+      const parentID = String(file.parentId || file.ParentID || '').trim();
+      const ownerEmail = String(file.ownerEmail || file.OwnerEmail || '').trim();
+      const parents = Array.isArray(file.parents) ? file.parents : (parentID ? [parentID] : []);
+      const owners = Array.isArray(file.owners) ? file.owners : (ownerEmail ? [{ emailAddress: ownerEmail }] : []);
+
+      return {
+        ...file,
+        id,
+        name,
+        mimeType,
+        modifiedTime,
+        webViewLink,
+        parents,
+        owners
+      };
+    }
+
+    function normalizeDriveFiles(files) {
+      if (!Array.isArray(files)) return [];
+      return files.map(normalizeDriveFile);
+    }
+
     function normalizeMimeType(file) {
       return String(file?.mimeType || '').trim().toLowerCase();
     }
@@ -951,12 +1096,17 @@ document.addEventListener('DOMContentLoaded', function() {
       try {
         let url;
         if (query) {
-          url = `${apiBase}/esign/google-drive/search?user_id=${encodeURIComponent(userId)}&q=${encodeURIComponent(query)}&page_size=20`;
-          if (pageToken) url += `&page_token=${encodeURIComponent(pageToken)}`;
+          const searchURL = scopedAPIURL('/esign/google-drive/search');
+          searchURL.searchParams.set('q', query);
+          searchURL.searchParams.set('page_size', '20');
+          if (pageToken) searchURL.searchParams.set('page_token', pageToken);
+          url = searchURL.toString();
         } else {
-          url = `${apiBase}/esign/google-drive/browse?user_id=${encodeURIComponent(userId)}&page_size=20`;
-          if (folderId && folderId !== 'root') url += `&folder_id=${encodeURIComponent(folderId)}`;
-          if (pageToken) url += `&page_token=${encodeURIComponent(pageToken)}`;
+          const browseURL = scopedAPIURL('/esign/google-drive/browse');
+          browseURL.searchParams.set('page_size', '20');
+          if (folderId && folderId !== 'root') browseURL.searchParams.set('folder_id', folderId);
+          if (pageToken) browseURL.searchParams.set('page_token', pageToken);
+          url = browseURL.toString();
         }
 
         const response = await fetch(url, {
@@ -970,7 +1120,7 @@ document.addEventListener('DOMContentLoaded', function() {
           throw new Error(data.error?.message || 'Failed to load files');
         }
 
-        const files = data.files || [];
+        const files = normalizeDriveFiles(data.files || []);
         nextPageToken = data.next_page_token || null;
 
         if (append) {
@@ -1253,7 +1403,7 @@ document.addEventListener('DOMContentLoaded', function() {
       // Show reconnect link for auth errors
       if (importReconnectLink) {
         if (errorCode === 'GOOGLE_ACCESS_REVOKED' || errorCode === 'GOOGLE_SCOPE_VIOLATION') {
-          importReconnectLink.href = integrationsBase;
+          importReconnectLink.href = getScopedIntegrationsBase();
           importReconnectLink.classList.remove('hidden');
         } else {
           importReconnectLink.classList.add('hidden');
@@ -1288,7 +1438,7 @@ document.addEventListener('DOMContentLoaded', function() {
         pendingURL.searchParams.delete('import_run_id');
         window.history.replaceState({}, '', pendingURL);
 
-        const response = await fetch(`${apiBase}/esign/google-drive/imports?user_id=${encodeURIComponent(userId)}`, {
+        const response = await fetch(scopedAPIURL('/esign/google-drive/imports').toString(), {
           method: 'POST',
           credentials: 'same-origin',
           headers: {
@@ -1297,6 +1447,7 @@ document.addEventListener('DOMContentLoaded', function() {
           },
           body: JSON.stringify({
             google_file_id: selectedFile.id,
+            account_id: currentAccountId || undefined,
             document_title: documentTitle
           })
         });
@@ -1343,7 +1494,8 @@ document.addEventListener('DOMContentLoaded', function() {
       }
 
       try {
-        const response = await fetch(`${apiBase}/esign/google-drive/imports/${currentImportRunId}?user_id=${encodeURIComponent(userId)}`, {
+        const statusURL = scopedAPIURL(`/esign/google-drive/imports/${encodeURIComponent(currentImportRunId)}`).toString();
+        const response = await fetch(statusURL, {
           credentials: 'same-origin',
           headers: { 'Accept': 'application/json' }
         });
@@ -1488,6 +1640,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // ============================================================
   // Initialize
   // ============================================================
+  updateAccountScopeUI();
   initializeSourceFromURL();
 });
 </script>
