@@ -8,15 +8,92 @@
     <p class="text-sm text-gray-500 mb-1">E-Sign Agreements</p>
     <h1 class="text-3xl font-bold text-admin-dark">{% if is_edit %}Edit{% else %}Create{% endif %} Agreement</h1>
   </div>
-  <div class="flex gap-3">
-    {% if routes.index %}
-      <a href="{{ routes.index }}" class="btn btn-secondary" aria-label="Return to agreements list">
-        <i class="iconoir-arrow-left" aria-hidden="true"></i>
-        Back to Agreements
-      </a>
-    {% endif %}
+  <div class="flex items-center gap-4">
+    <div id="sync-status-indicator" class="hidden flex items-center gap-2 text-sm" role="status" aria-live="polite">
+      <span id="sync-status-icon" class="w-2 h-2 rounded-full bg-green-500"></span>
+      <span id="sync-status-text" class="text-gray-600">Saved</span>
+      <button type="button" id="sync-retry-btn" class="hidden text-xs text-blue-600 hover:text-blue-700 underline">Retry</button>
+    </div>
+    <div class="flex gap-3">
+      {% if routes.index %}
+        <a href="{{ routes.index }}" class="btn btn-secondary" aria-label="Return to agreements list">
+          <i class="iconoir-arrow-left" aria-hidden="true"></i>
+          Back to Agreements
+        </a>
+      {% endif %}
+    </div>
   </div>
 </header>
+
+{# Resume Draft Dialog Modal #}
+<div id="resume-dialog-modal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="resume-dialog-title">
+  <div class="fixed inset-0 bg-black/50" aria-hidden="true"></div>
+  <div class="fixed inset-0 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+          <svg class="w-5 h-5 text-blue-600" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+        </div>
+        <h3 id="resume-dialog-title" class="text-lg font-semibold text-gray-900">Resume Agreement?</h3>
+      </div>
+      <p class="text-sm text-gray-600 mb-2">You have an incomplete agreement:</p>
+      <div class="p-3 bg-gray-50 rounded-lg mb-4">
+        <p class="text-sm font-medium text-gray-900" id="resume-draft-title">Untitled Agreement</p>
+        <p class="text-xs text-gray-500 mt-1">
+          Step <span id="resume-draft-step">1</span> of 6 &middot; Last edited <span id="resume-draft-time">just now</span>
+        </p>
+      </div>
+      <div class="flex flex-col gap-2">
+        <button type="button" id="resume-continue-btn" class="w-full px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
+          Continue where I left off
+        </button>
+        <button type="button" id="resume-new-btn" class="w-full px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors">
+          Start new agreement
+        </button>
+        <button type="button" id="resume-discard-btn" class="w-full px-4 py-2 text-red-600 text-sm font-medium rounded-lg hover:bg-red-50 transition-colors">
+          Discard saved progress
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# Conflict Resolution Dialog Modal #}
+<div id="conflict-dialog-modal" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="conflict-dialog-title">
+  <div class="fixed inset-0 bg-black/50" aria-hidden="true"></div>
+  <div class="fixed inset-0 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
+          <svg class="w-5 h-5 text-amber-600" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+          </svg>
+        </div>
+        <h3 id="conflict-dialog-title" class="text-lg font-semibold text-gray-900">Version Conflict</h3>
+      </div>
+      <p class="text-sm text-gray-600 mb-4">
+        This agreement was modified elsewhere. Your changes could not be saved because they conflict with the newer version.
+      </p>
+      <div class="p-3 bg-amber-50 border border-amber-200 rounded-lg mb-4 text-xs text-amber-800">
+        <p><strong>Your version:</strong> <span id="conflict-local-time">-</span></p>
+        <p><strong>Server version:</strong> <span id="conflict-server-time">-</span> (revision <span id="conflict-server-revision">-</span>)</p>
+      </div>
+      <div class="flex flex-col gap-2">
+        <button type="button" id="conflict-reload-btn" class="w-full px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
+          Load server version
+        </button>
+        <button type="button" id="conflict-force-btn" class="w-full px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors">
+          Keep my changes (overwrite server)
+        </button>
+        <button type="button" id="conflict-dismiss-btn" class="w-full px-4 py-2 text-gray-500 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors">
+          Dismiss (keep editing locally)
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 
 {# Six-Step Wizard Navigation #}
 <div class="px-8 py-4 bg-gray-50 border-b border-gray-200">
@@ -737,6 +814,741 @@
 document.addEventListener('DOMContentLoaded', function() {
   const basePath = '{{ base_path }}';
   const apiBase = '{{ api_base_path|default:"" }}' || `${basePath}/api`;
+  const draftsEndpoint = `${apiBase}/v1/esign/drafts`;
+  const isEditMode = {{ is_edit|default:false|yesno:"true,false" }};
+
+  // =============================================================================
+  // Wizard State Persistence (Phase 30)
+  // =============================================================================
+
+  const WIZARD_STATE_VERSION = 1;
+  const WIZARD_STORAGE_KEY = 'esign_wizard_state_v1';
+  const WIZARD_CHANNEL_NAME = 'esign_wizard_sync';
+  const SYNC_DEBOUNCE_MS = 2000;
+  const SYNC_RETRY_DELAYS = [1000, 2000, 5000, 10000, 30000];
+
+  /**
+   * WizardSessionState schema (v1)
+   * @typedef {Object} WizardSessionState
+   * @property {string} wizardId - Unique wizard session ID
+   * @property {number} version - Schema version for migrations
+   * @property {string} createdAt - ISO timestamp
+   * @property {string} updatedAt - ISO timestamp
+   * @property {number} currentStep - 1-6
+   * @property {Object} document - Step 1 data
+   * @property {Object} details - Step 2 data
+   * @property {Array} participants - Step 3 data
+   * @property {Array} fieldDefinitions - Step 4 data
+   * @property {Array} fieldPlacements - Step 5 data
+   * @property {string|null} serverDraftId - Server draft ID
+   * @property {number} serverRevision - Server revision for optimistic concurrency
+   * @property {string|null} lastSyncedAt - Last successful server sync
+   * @property {boolean} syncPending - Dirty flag for sync
+   */
+
+  /**
+   * WizardStateManager - handles sessionStorage persistence and state management
+   */
+  class WizardStateManager {
+    constructor() {
+      this.state = null;
+      this.listeners = [];
+      this.init();
+    }
+
+    init() {
+      this.state = this.loadFromSession() || this.createInitialState();
+    }
+
+    createInitialState() {
+      return {
+        wizardId: this.generateWizardId(),
+        version: WIZARD_STATE_VERSION,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        currentStep: 1,
+        document: { id: null, title: null, pageCount: null },
+        details: { title: '', message: '' },
+        participants: [],
+        fieldDefinitions: [],
+        fieldPlacements: [],
+        serverDraftId: null,
+        serverRevision: 0,
+        lastSyncedAt: null,
+        syncPending: false
+      };
+    }
+
+    generateWizardId() {
+      return `wizard_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    }
+
+    loadFromSession() {
+      try {
+        const stored = sessionStorage.getItem(WIZARD_STORAGE_KEY);
+        if (!stored) return null;
+
+        const state = JSON.parse(stored);
+
+        // Schema version check
+        if (state.version !== WIZARD_STATE_VERSION) {
+          console.warn('Wizard state version mismatch, migrating...');
+          return this.migrateState(state);
+        }
+
+        return state;
+      } catch (error) {
+        console.error('Failed to load wizard state from session:', error);
+        return null;
+      }
+    }
+
+    migrateState(oldState) {
+      // Future migrations can be added here
+      // For v1, just reset if version doesn't match
+      console.warn('Discarding incompatible wizard state');
+      return null;
+    }
+
+    saveToSession() {
+      try {
+        this.state.updatedAt = new Date().toISOString();
+        sessionStorage.setItem(WIZARD_STORAGE_KEY, JSON.stringify(this.state));
+      } catch (error) {
+        console.error('Failed to save wizard state to session:', error);
+      }
+    }
+
+    getState() {
+      return this.state;
+    }
+
+    updateState(partial) {
+      this.state = { ...this.state, ...partial, syncPending: true, updatedAt: new Date().toISOString() };
+      this.saveToSession();
+      this.notifyListeners();
+    }
+
+    updateStep(step) {
+      this.updateState({ currentStep: step });
+    }
+
+    updateDocument(doc) {
+      this.updateState({ document: { ...this.state.document, ...doc } });
+    }
+
+    updateDetails(details) {
+      this.updateState({ details: { ...this.state.details, ...details } });
+    }
+
+    updateParticipants(participants) {
+      this.updateState({ participants });
+    }
+
+    updateFieldDefinitions(fieldDefinitions) {
+      this.updateState({ fieldDefinitions });
+    }
+
+    updateFieldPlacements(fieldPlacements) {
+      this.updateState({ fieldPlacements });
+    }
+
+    markSynced(serverDraftId, serverRevision) {
+      this.state.serverDraftId = serverDraftId;
+      this.state.serverRevision = serverRevision;
+      this.state.lastSyncedAt = new Date().toISOString();
+      this.state.syncPending = false;
+      this.saveToSession();
+      this.notifyListeners();
+    }
+
+    clear() {
+      this.state = this.createInitialState();
+      sessionStorage.removeItem(WIZARD_STORAGE_KEY);
+      this.notifyListeners();
+    }
+
+    hasResumableState() {
+      if (!this.state) return false;
+      return (
+        this.state.currentStep > 1 ||
+        this.state.document.id !== null ||
+        this.state.participants.length > 0 ||
+        this.state.details.title.trim() !== ''
+      );
+    }
+
+    onStateChange(callback) {
+      this.listeners.push(callback);
+      return () => {
+        this.listeners = this.listeners.filter(l => l !== callback);
+      };
+    }
+
+    notifyListeners() {
+      this.listeners.forEach(cb => cb(this.state));
+    }
+
+    collectFormState() {
+      // Collect current form state into wizard state
+      const docId = document.getElementById('document_id')?.value || null;
+      const docTitle = document.getElementById('selected-document-title')?.textContent?.trim() || null;
+
+      const titleInput = document.getElementById('title');
+      const messageInput = document.getElementById('message');
+
+      const participants = [];
+      document.querySelectorAll('.participant-entry').forEach(entry => {
+        const id = entry.getAttribute('data-participant-id');
+        const name = entry.querySelector('input[name*=".name"]')?.value || '';
+        const email = entry.querySelector('input[name*=".email"]')?.value || '';
+        const role = entry.querySelector('select[name*=".role"]')?.value || 'signer';
+        const signingStage = parseInt(entry.querySelector('.signing-stage-input')?.value || '1', 10);
+        participants.push({ tempId: id, name, email, role, signingStage });
+      });
+
+      const fieldDefinitions = [];
+      document.querySelectorAll('.field-definition-entry').forEach(entry => {
+        const id = entry.getAttribute('data-field-definition-id');
+        const type = entry.querySelector('.field-type-select')?.value || 'signature';
+        const participantId = entry.querySelector('.field-participant-select')?.value || '';
+        const page = parseInt(entry.querySelector('input[name*=".page"]')?.value || '1', 10);
+        const required = entry.querySelector('input[name*=".required"]')?.checked ?? true;
+        fieldDefinitions.push({ tempId: id, type, participantTempId: participantId, page, required });
+      });
+
+      return {
+        document: { id: docId, title: docTitle, pageCount: null },
+        details: {
+          title: titleInput?.value || '',
+          message: messageInput?.value || ''
+        },
+        participants,
+        fieldDefinitions,
+        fieldPlacements: placementState?.fieldInstances || []
+      };
+    }
+
+    restoreFormState() {
+      const state = this.state;
+      if (!state) return;
+
+      // Restore document selection
+      if (state.document.id) {
+        const docIdInput = document.getElementById('document_id');
+        const selectedDoc = document.getElementById('selected-document');
+        const docPicker = document.getElementById('document-picker');
+        const docTitle = document.getElementById('selected-document-title');
+        const docInfo = document.getElementById('selected-document-info');
+
+        if (docIdInput) docIdInput.value = state.document.id;
+        if (docTitle) docTitle.textContent = state.document.title || 'Selected Document';
+        if (docInfo) docInfo.textContent = state.document.pageCount ? `${state.document.pageCount} pages` : '';
+        if (selectedDoc) selectedDoc.classList.remove('hidden');
+        if (docPicker) docPicker.classList.add('hidden');
+      }
+
+      // Restore details
+      const titleInput = document.getElementById('title');
+      const messageInput = document.getElementById('message');
+      if (titleInput && state.details.title) titleInput.value = state.details.title;
+      if (messageInput && state.details.message) messageInput.value = state.details.message;
+
+      // Participants and field definitions will be restored after their respective
+      // initialization code runs, via restoreParticipants() and restoreFieldDefinitions()
+    }
+  }
+
+  /**
+   * DraftSyncService - handles server draft persistence
+   */
+  class DraftSyncService {
+    constructor(stateManager) {
+      this.stateManager = stateManager;
+      this.pendingSync = null;
+      this.retryCount = 0;
+      this.retryTimeout = null;
+    }
+
+    async create(state) {
+      const payload = {
+        wizard_id: state.wizardId,
+        wizard_state: state,
+        title: state.details.title || 'Untitled Agreement',
+        current_step: state.currentStep,
+        document_id: state.document.id || null
+      };
+
+      const response = await fetch(draftsEndpoint, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error?.message || `HTTP ${response.status}`);
+      }
+
+      return response.json();
+    }
+
+    async update(draftId, state, expectedRevision) {
+      const payload = {
+        expected_revision: expectedRevision,
+        wizard_state: state,
+        title: state.details.title || 'Untitled Agreement',
+        current_step: state.currentStep,
+        document_id: state.document.id || null
+      };
+
+      const response = await fetch(`${draftsEndpoint}/${draftId}`, {
+        method: 'PUT',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (response.status === 409) {
+        const error = await response.json().catch(() => ({}));
+        const err = new Error('stale_revision');
+        err.code = 'stale_revision';
+        err.currentRevision = error.error?.details?.current_revision;
+        throw err;
+      }
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error?.message || `HTTP ${response.status}`);
+      }
+
+      return response.json();
+    }
+
+    async load(draftId) {
+      const response = await fetch(`${draftsEndpoint}/${draftId}`, {
+        credentials: 'same-origin',
+        headers: { 'Accept': 'application/json' }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      return response.json();
+    }
+
+    async delete(draftId) {
+      const response = await fetch(`${draftsEndpoint}/${draftId}`, {
+        method: 'DELETE',
+        credentials: 'same-origin',
+        headers: { 'Accept': 'application/json' }
+      });
+
+      if (!response.ok && response.status !== 404) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+    }
+
+    async list() {
+      const response = await fetch(`${draftsEndpoint}?limit=10`, {
+        credentials: 'same-origin',
+        headers: { 'Accept': 'application/json' }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      return response.json();
+    }
+
+    async sync() {
+      const state = this.stateManager.getState();
+      if (!state.syncPending) return;
+
+      try {
+        let result;
+        if (state.serverDraftId) {
+          result = await this.update(state.serverDraftId, state, state.serverRevision);
+        } else {
+          result = await this.create(state);
+        }
+
+        this.stateManager.markSynced(result.id, result.revision);
+        this.retryCount = 0;
+        return { success: true, result };
+      } catch (error) {
+        if (error.code === 'stale_revision') {
+          return { success: false, conflict: true, currentRevision: error.currentRevision };
+        }
+        return { success: false, error: error.message };
+      }
+    }
+  }
+
+  /**
+   * SyncOrchestrator - coordinates sync timing and retry logic
+   */
+  class SyncOrchestrator {
+    constructor(stateManager, syncService, statusUpdater) {
+      this.stateManager = stateManager;
+      this.syncService = syncService;
+      this.statusUpdater = statusUpdater;
+      this.debounceTimer = null;
+      this.retryTimer = null;
+      this.retryCount = 0;
+      this.isSyncing = false;
+      this.channel = null;
+      this.isOwner = true;
+
+      this.initBroadcastChannel();
+      this.initEventListeners();
+    }
+
+    initBroadcastChannel() {
+      if (typeof BroadcastChannel === 'undefined') return;
+
+      try {
+        this.channel = new BroadcastChannel(WIZARD_CHANNEL_NAME);
+        this.channel.onmessage = (event) => this.handleChannelMessage(event.data);
+        // Announce presence
+        this.channel.postMessage({ type: 'presence', tabId: this.getTabId() });
+      } catch (error) {
+        console.warn('BroadcastChannel not available:', error);
+      }
+    }
+
+    getTabId() {
+      if (!window._wizardTabId) {
+        window._wizardTabId = `tab_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      }
+      return window._wizardTabId;
+    }
+
+    handleChannelMessage(data) {
+      switch (data.type) {
+        case 'presence':
+          // Another tab is active, negotiate ownership
+          if (data.tabId !== this.getTabId()) {
+            this.channel?.postMessage({ type: 'ownership_claim', tabId: this.getTabId() });
+          }
+          break;
+        case 'ownership_claim':
+          // Yield ownership to the newer tab
+          this.isOwner = false;
+          break;
+        case 'state_updated':
+          // Another tab updated state, reload from session
+          if (data.tabId !== this.getTabId()) {
+            const state = this.stateManager.loadFromSession();
+            if (state) {
+              this.stateManager.state = state;
+              this.stateManager.notifyListeners();
+            }
+          }
+          break;
+        case 'sync_completed':
+          // Another tab completed sync, update our state
+          if (data.tabId !== this.getTabId() && data.draftId && data.revision) {
+            this.stateManager.markSynced(data.draftId, data.revision);
+          }
+          break;
+      }
+    }
+
+    broadcastStateUpdate() {
+      this.channel?.postMessage({
+        type: 'state_updated',
+        tabId: this.getTabId()
+      });
+    }
+
+    broadcastSyncCompleted(draftId, revision) {
+      this.channel?.postMessage({
+        type: 'sync_completed',
+        tabId: this.getTabId(),
+        draftId,
+        revision
+      });
+    }
+
+    initEventListeners() {
+      // Force sync on visibility change
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') {
+          this.forceSync();
+        }
+      });
+
+      // Force sync on page hide
+      window.addEventListener('pagehide', () => {
+        this.forceSync();
+      });
+
+      // Force sync on beforeunload
+      window.addEventListener('beforeunload', () => {
+        this.forceSync();
+      });
+    }
+
+    scheduleSync() {
+      if (this.debounceTimer) {
+        clearTimeout(this.debounceTimer);
+      }
+
+      this.statusUpdater('pending');
+
+      this.debounceTimer = setTimeout(() => {
+        this.performSync();
+      }, SYNC_DEBOUNCE_MS);
+    }
+
+    async forceSync() {
+      if (this.debounceTimer) {
+        clearTimeout(this.debounceTimer);
+        this.debounceTimer = null;
+      }
+
+      // Use sendBeacon for pagehide if available
+      const state = this.stateManager.getState();
+      if (state.syncPending && state.serverDraftId && navigator.sendBeacon) {
+        const payload = JSON.stringify({
+          expected_revision: state.serverRevision,
+          wizard_state: state,
+          title: state.details.title || 'Untitled Agreement',
+          current_step: state.currentStep,
+          document_id: state.document.id || null
+        });
+        navigator.sendBeacon(`${draftsEndpoint}/${state.serverDraftId}`, new Blob([payload], { type: 'application/json' }));
+      } else {
+        await this.performSync();
+      }
+    }
+
+    async performSync() {
+      if (this.isSyncing) return;
+      if (!this.isOwner) return;
+
+      const state = this.stateManager.getState();
+      if (!state.syncPending) {
+        this.statusUpdater('saved');
+        return;
+      }
+
+      this.isSyncing = true;
+      this.statusUpdater('saving');
+
+      const result = await this.syncService.sync();
+
+      this.isSyncing = false;
+
+      if (result.success) {
+        this.statusUpdater('saved');
+        this.retryCount = 0;
+        this.broadcastSyncCompleted(result.result.id, result.result.revision);
+      } else if (result.conflict) {
+        this.statusUpdater('conflict');
+        this.showConflictDialog(result.currentRevision);
+      } else {
+        this.statusUpdater('error');
+        this.scheduleRetry();
+      }
+    }
+
+    scheduleRetry() {
+      if (this.retryCount >= SYNC_RETRY_DELAYS.length) {
+        console.error('Max sync retries reached');
+        return;
+      }
+
+      const delay = SYNC_RETRY_DELAYS[this.retryCount];
+      this.retryCount++;
+
+      this.retryTimer = setTimeout(() => {
+        this.performSync();
+      }, delay);
+    }
+
+    manualRetry() {
+      this.retryCount = 0;
+      if (this.retryTimer) {
+        clearTimeout(this.retryTimer);
+        this.retryTimer = null;
+      }
+      this.performSync();
+    }
+
+    showConflictDialog(serverRevision) {
+      const modal = document.getElementById('conflict-dialog-modal');
+      const state = this.stateManager.getState();
+
+      document.getElementById('conflict-local-time').textContent = formatRelativeTime(state.updatedAt);
+      document.getElementById('conflict-server-revision').textContent = serverRevision;
+      document.getElementById('conflict-server-time').textContent = 'newer version';
+
+      modal?.classList.remove('hidden');
+    }
+  }
+
+  // Helper function for relative time formatting
+  function formatRelativeTime(isoString) {
+    if (!isoString) return 'unknown';
+    const date = new Date(isoString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'just now';
+    if (diffMins < 60) return `${diffMins} minute${diffMins !== 1 ? 's' : ''} ago`;
+    if (diffHours < 24) return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
+    if (diffDays < 7) return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
+    return date.toLocaleDateString();
+  }
+
+  // Sync status UI updater
+  function updateSyncStatus(status) {
+    const indicator = document.getElementById('sync-status-indicator');
+    const icon = document.getElementById('sync-status-icon');
+    const text = document.getElementById('sync-status-text');
+    const retryBtn = document.getElementById('sync-retry-btn');
+
+    if (!indicator || !icon || !text) return;
+
+    indicator.classList.remove('hidden');
+
+    switch (status) {
+      case 'saved':
+        icon.className = 'w-2 h-2 rounded-full bg-green-500';
+        text.textContent = 'Saved';
+        text.className = 'text-gray-600';
+        retryBtn?.classList.add('hidden');
+        break;
+      case 'saving':
+        icon.className = 'w-2 h-2 rounded-full bg-blue-500 animate-pulse';
+        text.textContent = 'Saving...';
+        text.className = 'text-gray-600';
+        retryBtn?.classList.add('hidden');
+        break;
+      case 'pending':
+        icon.className = 'w-2 h-2 rounded-full bg-gray-400';
+        text.textContent = 'Unsaved changes';
+        text.className = 'text-gray-500';
+        retryBtn?.classList.add('hidden');
+        break;
+      case 'error':
+        icon.className = 'w-2 h-2 rounded-full bg-amber-500';
+        text.textContent = 'Not synced';
+        text.className = 'text-amber-600';
+        retryBtn?.classList.remove('hidden');
+        break;
+      case 'conflict':
+        icon.className = 'w-2 h-2 rounded-full bg-red-500';
+        text.textContent = 'Conflict';
+        text.className = 'text-red-600';
+        retryBtn?.classList.add('hidden');
+        break;
+      default:
+        indicator.classList.add('hidden');
+    }
+  }
+
+  // Initialize state manager and sync service
+  const stateManager = new WizardStateManager();
+  const syncService = new DraftSyncService(stateManager);
+  const syncOrchestrator = new SyncOrchestrator(stateManager, syncService, updateSyncStatus);
+
+  // Wire up retry button
+  document.getElementById('sync-retry-btn')?.addEventListener('click', () => {
+    syncOrchestrator.manualRetry();
+  });
+
+  // Wire up conflict dialog buttons
+  document.getElementById('conflict-reload-btn')?.addEventListener('click', async () => {
+    const state = stateManager.getState();
+    if (state.serverDraftId) {
+      try {
+        const serverDraft = await syncService.load(state.serverDraftId);
+        if (serverDraft.wizard_state) {
+          stateManager.state = { ...serverDraft.wizard_state, serverDraftId: serverDraft.id, serverRevision: serverDraft.revision };
+          stateManager.saveToSession();
+          window.location.reload();
+        }
+      } catch (error) {
+        console.error('Failed to load server draft:', error);
+      }
+    }
+    document.getElementById('conflict-dialog-modal')?.classList.add('hidden');
+  });
+
+  document.getElementById('conflict-force-btn')?.addEventListener('click', async () => {
+    // Force overwrite by incrementing to current server revision
+    const serverRevision = parseInt(document.getElementById('conflict-server-revision')?.textContent || '0', 10);
+    stateManager.state.serverRevision = serverRevision;
+    stateManager.state.syncPending = true;
+    stateManager.saveToSession();
+    syncOrchestrator.performSync();
+    document.getElementById('conflict-dialog-modal')?.classList.add('hidden');
+  });
+
+  document.getElementById('conflict-dismiss-btn')?.addEventListener('click', () => {
+    document.getElementById('conflict-dialog-modal')?.classList.add('hidden');
+  });
+
+  // Resume dialog handlers
+  function showResumeDialog() {
+    const modal = document.getElementById('resume-dialog-modal');
+    const state = stateManager.getState();
+
+    document.getElementById('resume-draft-title').textContent = state.details.title || 'Untitled Agreement';
+    document.getElementById('resume-draft-step').textContent = state.currentStep;
+    document.getElementById('resume-draft-time').textContent = formatRelativeTime(state.updatedAt);
+
+    modal?.classList.remove('hidden');
+  }
+
+  document.getElementById('resume-continue-btn')?.addEventListener('click', () => {
+    document.getElementById('resume-dialog-modal')?.classList.add('hidden');
+    stateManager.restoreFormState();
+    // Navigate to saved step after form is initialized
+    window._resumeToStep = stateManager.getState().currentStep;
+  });
+
+  document.getElementById('resume-new-btn')?.addEventListener('click', () => {
+    // Keep local state but don't restore - user will start fresh
+    document.getElementById('resume-dialog-modal')?.classList.add('hidden');
+    stateManager.clear();
+  });
+
+  document.getElementById('resume-discard-btn')?.addEventListener('click', async () => {
+    const state = stateManager.getState();
+    if (state.serverDraftId) {
+      try {
+        await syncService.delete(state.serverDraftId);
+      } catch (error) {
+        console.warn('Failed to delete server draft:', error);
+      }
+    }
+    stateManager.clear();
+    document.getElementById('resume-dialog-modal')?.classList.add('hidden');
+  });
+
+  // Check for resumable state on load (only for create mode, not edit)
+  if (!isEditMode && stateManager.hasResumableState()) {
+    showResumeDialog();
+  }
+
+  // Track state changes for persistence
+  function trackWizardStateChanges() {
+    // Collect and update state when form changes
+    const formState = stateManager.collectFormState();
+    stateManager.updateState(formState);
+    syncOrchestrator.scheduleSync();
+    syncOrchestrator.broadcastStateUpdate();
+  }
 
   // Document Selection
   const documentIdInput = document.getElementById('document_id');
@@ -1406,6 +2218,11 @@ document.addEventListener('DOMContentLoaded', function() {
     currentStep = stepNum;
     updateWizardUI();
 
+    // Persist step change
+    stateManager.updateStep(stepNum);
+    trackWizardStateChanges();
+    syncOrchestrator.forceSync(); // Force sync on step change
+
     // Scroll to top of form
     document.querySelector('.wizard-step:not(.hidden)')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
@@ -1955,15 +2772,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
     placementState.fieldInstances.forEach((instance, index) => {
       const inputs = [
-        { name: `field_instances[${index}].id`, value: instance.id },
-        { name: `field_instances[${index}].definition_id`, value: instance.definitionId },
-        { name: `field_instances[${index}].type`, value: instance.type },
-        { name: `field_instances[${index}].participant_id`, value: instance.participantId },
-        { name: `field_instances[${index}].page`, value: instance.page },
-        { name: `field_instances[${index}].x`, value: Math.round(instance.x) },
-        { name: `field_instances[${index}].y`, value: Math.round(instance.y) },
-        { name: `field_instances[${index}].width`, value: Math.round(instance.width) },
-        { name: `field_instances[${index}].height`, value: Math.round(instance.height) }
+        { name: `field_placements[${index}].id`, value: instance.id },
+        { name: `field_placements[${index}].definition_id`, value: instance.definitionId },
+        { name: `field_placements[${index}].page`, value: instance.page },
+        { name: `field_placements[${index}].x`, value: Math.round(instance.x) },
+        { name: `field_placements[${index}].y`, value: Math.round(instance.y) },
+        { name: `field_placements[${index}].width`, value: Math.round(instance.width) },
+        { name: `field_placements[${index}].height`, value: Math.round(instance.height) }
       ];
 
       inputs.forEach(({ name, value }) => {
@@ -2718,8 +3533,111 @@ document.addEventListener('DOMContentLoaded', function() {
   // Make goToStep available globally for issue action buttons
   window.goToStep = goToStep;
 
-  // Initialize wizard
-  updateWizardUI();
+  // =============================================================================
+  // Wire up state change tracking
+  // =============================================================================
+
+  // Debounced tracking function for input events
+  let trackingTimeout = null;
+  function debouncedTrackChanges() {
+    if (trackingTimeout) clearTimeout(trackingTimeout);
+    trackingTimeout = setTimeout(() => {
+      trackWizardStateChanges();
+    }, 500);
+  }
+
+  // Track document selection changes (documentIdInput already declared above)
+  if (documentIdInput) {
+    const observer = new MutationObserver(() => {
+      trackWizardStateChanges();
+    });
+    observer.observe(documentIdInput, { attributes: true, attributeFilter: ['value'] });
+  }
+
+  // Track agreement details changes
+  const titleInput = document.getElementById('title');
+  const messageInput = document.getElementById('message');
+  titleInput?.addEventListener('input', debouncedTrackChanges);
+  messageInput?.addEventListener('input', debouncedTrackChanges);
+
+  // Track participant changes (handled via MutationObserver and change events)
+  participantsContainer.addEventListener('input', debouncedTrackChanges);
+  participantsContainer.addEventListener('change', debouncedTrackChanges);
+
+  // Track field definition changes
+  fieldDefinitionsContainer.addEventListener('input', debouncedTrackChanges);
+  fieldDefinitionsContainer.addEventListener('change', debouncedTrackChanges);
+
+  // Track placement changes (already have updateFieldInstancesFormData)
+  const originalUpdateFieldInstancesFormData = updateFieldInstancesFormData;
+  updateFieldInstancesFormData = function() {
+    originalUpdateFieldInstancesFormData();
+    trackWizardStateChanges();
+  };
+
+  // Restore participants from state if resuming
+  function restoreParticipantsFromState() {
+    const state = stateManager.getState();
+    if (!state.participants || state.participants.length === 0) return;
+
+    // Clear existing participants (the default one added)
+    participantsContainer.innerHTML = '';
+    participantFormIndex = 0;
+
+    // Restore from state
+    state.participants.forEach(p => {
+      addParticipant({
+        id: p.tempId,
+        name: p.name,
+        email: p.email,
+        role: p.role,
+        signing_stage: p.signingStage
+      });
+    });
+  }
+
+  // Restore field definitions from state if resuming
+  function restoreFieldDefinitionsFromState() {
+    const state = stateManager.getState();
+    if (!state.fieldDefinitions || state.fieldDefinitions.length === 0) return;
+
+    // Clear existing field definitions
+    fieldDefinitionsContainer.innerHTML = '';
+    fieldInstanceFormIndex = 0;
+
+    // Restore from state
+    state.fieldDefinitions.forEach(f => {
+      addFieldDefinition({
+        id: f.tempId,
+        type: f.type,
+        participant_id: f.participantTempId,
+        page: f.page,
+        required: f.required
+      });
+    });
+
+    updateFieldDefinitionsEmptyState();
+  }
+
+  // Check if we need to restore state after initialization
+  if (window._resumeToStep) {
+    // Restore participants and field definitions
+    restoreParticipantsFromState();
+    restoreFieldDefinitionsFromState();
+
+    // Navigate to saved step
+    currentStep = window._resumeToStep;
+    updateWizardUI();
+    delete window._resumeToStep;
+  } else {
+    // Initialize wizard normally
+    updateWizardUI();
+  }
+
+  // If editing an existing agreement, don't show sync indicator until changes are made
+  if (isEditMode) {
+    document.getElementById('sync-status-indicator')?.classList.add('hidden');
+  }
 });
 </script>
 {% endblock %}
