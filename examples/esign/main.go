@@ -243,6 +243,9 @@ func validateRuntimeProviderConfiguration() error {
 		if strings.TrimSpace(os.Getenv("ESIGN_SERVICES_ENCRYPTION_KEY")) == "" {
 			return fmt.Errorf("production profile requires ESIGN_SERVICES_ENCRYPTION_KEY when ESIGN_GOOGLE_FEATURE_ENABLED=true")
 		}
+		if err := validateGoogleOAuthRedirectURI(); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -273,6 +276,22 @@ func validatePublicBaseURLForRuntimeProfile(profile string) error {
 	switch host {
 	case "", "localhost", "127.0.0.1", "::1", "0.0.0.0":
 		return fmt.Errorf("%s must not point to localhost in %s profile", jobs.EnvPublicBaseURL, strings.TrimSpace(profile))
+	}
+	return nil
+}
+
+func validateGoogleOAuthRedirectURI() error {
+	redirectURI := strings.TrimSpace(os.Getenv(services.EnvGoogleOAuthRedirectURI))
+	if redirectURI == "" {
+		return fmt.Errorf("production profile requires %s when ESIGN_GOOGLE_FEATURE_ENABLED=true", services.EnvGoogleOAuthRedirectURI)
+	}
+	parsed, err := url.Parse(redirectURI)
+	if err != nil || strings.TrimSpace(parsed.Scheme) == "" || strings.TrimSpace(parsed.Host) == "" {
+		return fmt.Errorf("%s must be a valid absolute URL", services.EnvGoogleOAuthRedirectURI)
+	}
+	scheme := strings.ToLower(strings.TrimSpace(parsed.Scheme))
+	if scheme != "http" && scheme != "https" {
+		return fmt.Errorf("%s must use http or https", services.EnvGoogleOAuthRedirectURI)
 	}
 	return nil
 }

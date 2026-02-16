@@ -108,7 +108,7 @@ func TestAdminAPIStatusEnvelopeContract(t *testing.T) {
 		"admin_documents_upload",
 		"signer_session", "signer_consent", "signer_field_values", "signer_signature", "signer_signature_upload", "signer_signature_object", "signer_telemetry", "signer_submit", "signer_decline", "signer_assets",
 		"google_oauth_connect", "google_oauth_disconnect", "google_oauth_rotate", "google_oauth_status",
-		"google_drive_search", "google_drive_browse", "google_drive_import",
+		"google_drive_search", "google_drive_browse", "google_drive_import", "google_drive_imports", "google_drive_import_run",
 	} {
 		if _, exists := routes[key]; !exists {
 			t.Fatalf("expected route key %q in contract, got %+v", key, routes)
@@ -265,6 +265,210 @@ func TestGoogleImportEnvelopeAndMetadataContractWhenEnabled(t *testing.T) {
 	}
 	if agreement["source_google_file_id"] != "google-file-1" {
 		t.Fatalf("expected agreement source_google_file_id=google-file-1, got %+v", agreement)
+	}
+}
+
+func TestGoogleImportAsyncEndpointsQueueAndPollSuccess(t *testing.T) {
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+	google := services.NewGoogleIntegrationService(
+		store,
+		services.NewDeterministicGoogleProvider(),
+		services.NewDocumentService(store),
+		services.NewAgreementService(store),
+	)
+	jobHandlers := jobs.NewHandlers(jobs.HandlerDependencies{
+		Agreements:       store,
+		Artifacts:        store,
+		JobRuns:          store,
+		GoogleImportRuns: store,
+		EmailLogs:        store,
+		Audits:           store,
+		Pipeline:         services.NewArtifactPipelineService(store, nil),
+		GoogleImporter:   google,
+	})
+	queue := jobs.NewGoogleDriveImportQueue(jobHandlers)
+	t.Cleanup(queue.Close)
+
+	app := setupRegisterTestApp(t,
+		WithAuthorizer(mapAuthorizer{allowed: map[string]bool{
+			DefaultPermissions.AdminSettings: true,
+			DefaultPermissions.AdminCreate:   true,
+			DefaultPermissions.AdminView:     true,
+		}}),
+		WithGoogleIntegrationEnabled(true),
+		WithGoogleIntegrationService(google),
+		WithGoogleImportRunStore(store),
+		WithGoogleImportEnqueue(func(ctx context.Context, msg jobs.GoogleDriveImportMsg) error {
+			return queue.Enqueue(ctx, msg)
+		}),
+		WithDefaultScope(scope),
+	)
+
+	connectReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/integrations/google/connect?user_id=ops-user", bytes.NewBufferString(`{"auth_code":"oauth-code-async"}`))
+	connectReq.Header.Set("Content-Type", "application/json")
+	connectResp, err := app.Test(connectReq, -1)
+	if err != nil {
+		t.Fatalf("google connect request failed: %v", err)
+	}
+	_ = connectResp.Body.Close()
+	if connectResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected connect status 200, got %d", connectResp.StatusCode)
+	}
+
+	body := `{"google_file_id":"google-file-1","document_title":"Contract Doc","agreement_title":"Contract Agreement","source_version_hint":"v1"}`
+	createReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/google-drive/imports?user_id=ops-user", bytes.NewBufferString(body))
+	createReq.Header.Set("Content-Type", "application/json")
+	createResp, err := app.Test(createReq, -1)
+	if err != nil {
+		t.Fatalf("google async import request failed: %v", err)
+	}
+	if createResp.StatusCode != http.StatusAccepted {
+		t.Fatalf("expected status 202, got %d", createResp.StatusCode)
+	}
+	createPayload := mustDecodeJSONMap(t, createResp.Body)
+	_ = createResp.Body.Close()
+
+	importRunID := strings.TrimSpace(toString(createPayload["import_run_id"]))
+	statusURL := strings.TrimSpace(toString(createPayload["status_url"]))
+	if importRunID == "" || statusURL == "" {
+		t.Fatalf("expected import_run_id/status_url, got %+v", createPayload)
+	}
+
+	replayReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/google-drive/imports?user_id=ops-user", bytes.NewBufferString(body))
+	replayReq.Header.Set("Content-Type", "application/json")
+	replayResp, err := app.Test(replayReq, -1)
+	if err != nil {
+		t.Fatalf("google async import replay request failed: %v", err)
+	}
+	if replayResp.StatusCode != http.StatusAccepted {
+		t.Fatalf("expected replay status 202, got %d", replayResp.StatusCode)
+	}
+	replayPayload := mustDecodeJSONMap(t, replayResp.Body)
+	_ = replayResp.Body.Close()
+	if strings.TrimSpace(toString(replayPayload["import_run_id"])) != importRunID {
+		t.Fatalf("expected idempotent replay to return same import_run_id, got %+v", replayPayload)
+	}
+
+	var final map[string]any
+	for i := 0; i < 40; i++ {
+		statusReq := httptest.NewRequest(http.MethodGet, statusURL+"?user_id=ops-user", nil)
+		statusResp, pollErr := app.Test(statusReq, -1)
+		if pollErr != nil {
+			t.Fatalf("status poll failed: %v", pollErr)
+		}
+		final = mustDecodeJSONMap(t, statusResp.Body)
+		_ = statusResp.Body.Close()
+		if strings.TrimSpace(toString(final["status"])) == stores.GoogleImportRunStatusSucceeded {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if strings.TrimSpace(toString(final["status"])) != stores.GoogleImportRunStatusSucceeded {
+		t.Fatalf("expected terminal succeeded status, got %+v", final)
+	}
+	if strings.TrimSpace(toString(final["source_mime_type"])) != services.GoogleDriveMimeTypeDoc {
+		t.Fatalf("expected source_mime_type doc, got %+v", final["source_mime_type"])
+	}
+	if strings.TrimSpace(toString(final["ingestion_mode"])) != services.GoogleIngestionModeExportPDF {
+		t.Fatalf("expected ingestion_mode export, got %+v", final["ingestion_mode"])
+	}
+}
+
+func TestGoogleImportAsyncEndpointsPropagateTerminalFailure(t *testing.T) {
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+	provider := newSharedDriveEdgeProvider()
+	provider.files["shared-sheet-1"] = services.GoogleDriveFile{
+		ID:           "shared-sheet-1",
+		Name:         "Shared Sheet",
+		MimeType:     "application/vnd.google-apps.spreadsheet",
+		WebViewURL:   "https://docs.google.com/spreadsheets/d/shared-sheet-1/edit",
+		OwnerEmail:   "shared-owner@example.com",
+		ParentID:     "shared-drive-1",
+		ModifiedTime: time.Date(2026, 2, 10, 10, 0, 0, 0, time.UTC),
+	}
+	google := services.NewGoogleIntegrationService(
+		store,
+		provider,
+		services.NewDocumentService(store),
+		services.NewAgreementService(store),
+	)
+	jobHandlers := jobs.NewHandlers(jobs.HandlerDependencies{
+		Agreements:       store,
+		Artifacts:        store,
+		JobRuns:          store,
+		GoogleImportRuns: store,
+		EmailLogs:        store,
+		Audits:           store,
+		Pipeline:         services.NewArtifactPipelineService(store, nil),
+		GoogleImporter:   google,
+	})
+	queue := jobs.NewGoogleDriveImportQueue(jobHandlers)
+	t.Cleanup(queue.Close)
+
+	app := setupRegisterTestApp(t,
+		WithAuthorizer(mapAuthorizer{allowed: map[string]bool{
+			DefaultPermissions.AdminSettings: true,
+			DefaultPermissions.AdminCreate:   true,
+			DefaultPermissions.AdminView:     true,
+		}}),
+		WithGoogleIntegrationEnabled(true),
+		WithGoogleIntegrationService(google),
+		WithGoogleImportRunStore(store),
+		WithGoogleImportEnqueue(func(ctx context.Context, msg jobs.GoogleDriveImportMsg) error {
+			return queue.Enqueue(ctx, msg)
+		}),
+		WithDefaultScope(scope),
+	)
+
+	connectReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/integrations/google/connect?user_id=ops-user", bytes.NewBufferString(`{"auth_code":"oauth-code-fail"}`))
+	connectReq.Header.Set("Content-Type", "application/json")
+	connectResp, err := app.Test(connectReq, -1)
+	if err != nil {
+		t.Fatalf("google connect request failed: %v", err)
+	}
+	_ = connectResp.Body.Close()
+	if connectResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected connect status 200, got %d", connectResp.StatusCode)
+	}
+
+	createReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/google-drive/imports?user_id=ops-user", bytes.NewBufferString(`{"google_file_id":"shared-sheet-1","source_version_hint":"v1"}`))
+	createReq.Header.Set("Content-Type", "application/json")
+	createResp, err := app.Test(createReq, -1)
+	if err != nil {
+		t.Fatalf("google async import request failed: %v", err)
+	}
+	if createResp.StatusCode != http.StatusAccepted {
+		t.Fatalf("expected status 202, got %d", createResp.StatusCode)
+	}
+	createPayload := mustDecodeJSONMap(t, createResp.Body)
+	_ = createResp.Body.Close()
+	statusURL := strings.TrimSpace(toString(createPayload["status_url"]))
+	if statusURL == "" {
+		t.Fatalf("expected status_url, got %+v", createPayload)
+	}
+
+	var final map[string]any
+	for i := 0; i < 40; i++ {
+		statusReq := httptest.NewRequest(http.MethodGet, statusURL+"?user_id=ops-user", nil)
+		statusResp, pollErr := app.Test(statusReq, -1)
+		if pollErr != nil {
+			t.Fatalf("status poll failed: %v", pollErr)
+		}
+		final = mustDecodeJSONMap(t, statusResp.Body)
+		_ = statusResp.Body.Close()
+		if strings.TrimSpace(toString(final["status"])) == stores.GoogleImportRunStatusFailed {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if strings.TrimSpace(toString(final["status"])) != stores.GoogleImportRunStatusFailed {
+		t.Fatalf("expected terminal failed status, got %+v", final)
+	}
+	errPayload := mustMapField(t, final, "error")
+	if strings.TrimSpace(toString(errPayload["code"])) != string(services.ErrorCodeGoogleUnsupportedType) {
+		t.Fatalf("expected GOOGLE_UNSUPPORTED_FILE_TYPE, got %+v", errPayload)
 	}
 }
 

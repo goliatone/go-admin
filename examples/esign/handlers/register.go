@@ -18,8 +18,8 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
-	goerrors "github.com/goliatone/go-errors"
 	"github.com/goliatone/go-admin/quickstart"
+	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
 )
 
@@ -141,6 +141,8 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 				"google_drive_search":               routes.AdminGoogleDriveSearch,
 				"google_drive_browse":               routes.AdminGoogleDriveBrowse,
 				"google_drive_import":               routes.AdminGoogleDriveImport,
+				"google_drive_imports":              routes.AdminGoogleDriveImports,
+				"google_drive_import_run":           routes.AdminGoogleDriveImportRun,
 				"integration_mappings":              routes.AdminIntegrationMappings,
 				"integration_mapping":               routes.AdminIntegrationMapping,
 				"integration_mapping_publish":       routes.AdminIntegrationMapPublish,
@@ -1097,7 +1099,7 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 			}
 			status, err := cfg.google.Status(c.Context(), cfg.resolveScope(c), userID)
 			if err != nil {
-				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeGoogleAccessRevoked), "google oauth status failed", nil)
+				return writeAPIError(c, err, http.StatusInternalServerError, "GOOGLE_STATUS_UNAVAILABLE", "google oauth status failed", nil)
 			}
 			return c.JSON(http.StatusOK, map[string]any{
 				"status":      "ok",
@@ -1155,6 +1157,172 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 			})
 		}, requireAdminPermission(cfg, cfg.permissions.AdminCreate))
 
+		adminRoutes.Post(routes.AdminGoogleDriveImports, func(c router.Context) error {
+			startedAt := time.Now()
+			correlationID := apiCorrelationID(c, c.Header("Idempotency-Key"), c.Query("user_id"), "google_drive_imports_create")
+			if err := enforceTransportSecurity(c, cfg); err != nil {
+				logAPIOperation(c.Context(), "google_drive_imports_create", correlationID, startedAt, err, nil)
+				return asHandlerError(err)
+			}
+			if cfg.googleImportRuns == nil || cfg.googleImportEnqueue == nil {
+				err := writeAPIError(c, nil, http.StatusServiceUnavailable, string(services.ErrorCodeGoogleProviderDegraded), "google import async runtime unavailable", nil)
+				logAPIOperation(c.Context(), "google_drive_imports_create", correlationID, startedAt, nil, map[string]any{"outcome": "runtime_unavailable"})
+				return err
+			}
+			userID := resolveAdminUserID(c)
+			if userID == "" {
+				err := writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "user_id is required", nil)
+				logAPIOperation(c.Context(), "google_drive_imports_create", correlationID, startedAt, nil, map[string]any{"outcome": "error"})
+				return err
+			}
+			var payload struct {
+				GoogleFileID      string `json:"google_file_id"`
+				DocumentTitle     string `json:"document_title"`
+				AgreementTitle    string `json:"agreement_title"`
+				CreatedByUserID   string `json:"created_by_user_id"`
+				SourceVersionHint string `json:"source_version_hint"`
+			}
+			if err := c.Bind(&payload); err != nil {
+				werr := writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid google import payload", nil)
+				logAPIOperation(c.Context(), "google_drive_imports_create", correlationID, startedAt, err, nil)
+				return werr
+			}
+			scope := cfg.resolveScope(c)
+			dedupeKey := googleImportRunDedupeKey(userID, payload.GoogleFileID, payload.SourceVersionHint)
+			run, created, err := cfg.googleImportRuns.BeginGoogleImportRun(c.Context(), scope, stores.GoogleImportRunInput{
+				UserID:            userID,
+				GoogleFileID:      strings.TrimSpace(payload.GoogleFileID),
+				SourceVersionHint: strings.TrimSpace(payload.SourceVersionHint),
+				DedupeKey:         dedupeKey,
+				DocumentTitle:     strings.TrimSpace(payload.DocumentTitle),
+				AgreementTitle:    strings.TrimSpace(payload.AgreementTitle),
+				CreatedByUserID:   strings.TrimSpace(payload.CreatedByUserID),
+				CorrelationID:     correlationID,
+				RequestedAt:       time.Now().UTC(),
+			})
+			if err != nil {
+				werr := writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "unable to queue google import", nil)
+				logAPIOperation(c.Context(), "google_drive_imports_create", correlationID, startedAt, err, nil)
+				return werr
+			}
+			if created {
+				enqueueErr := cfg.googleImportEnqueue(c.Context(), jobs.GoogleDriveImportMsg{
+					Scope:             scope,
+					ImportRunID:       strings.TrimSpace(run.ID),
+					UserID:            userID,
+					GoogleFileID:      strings.TrimSpace(payload.GoogleFileID),
+					SourceVersionHint: strings.TrimSpace(payload.SourceVersionHint),
+					DocumentTitle:     strings.TrimSpace(payload.DocumentTitle),
+					AgreementTitle:    strings.TrimSpace(payload.AgreementTitle),
+					CreatedByUserID:   strings.TrimSpace(payload.CreatedByUserID),
+					CorrelationID:     correlationID,
+					DedupeKey:         strings.TrimSpace(run.DedupeKey),
+				})
+				if enqueueErr != nil {
+					_, _ = cfg.googleImportRuns.MarkGoogleImportRunFailed(c.Context(), scope, run.ID, stores.GoogleImportRunFailureInput{
+						ErrorCode:    string(services.ErrorCodeGoogleProviderDegraded),
+						ErrorMessage: strings.TrimSpace(enqueueErr.Error()),
+						CompletedAt:  time.Now().UTC(),
+					})
+					werr := writeAPIError(c, enqueueErr, http.StatusServiceUnavailable, string(services.ErrorCodeGoogleProviderDegraded), "unable to enqueue google import", nil)
+					logAPIOperation(c.Context(), "google_drive_imports_create", correlationID, startedAt, enqueueErr, nil)
+					return werr
+				}
+			}
+			statusURL := strings.Replace(routes.AdminGoogleDriveImportRun, ":import_run_id", strings.TrimSpace(run.ID), 1)
+			respErr := c.JSON(http.StatusAccepted, map[string]any{
+				"import_run_id": strings.TrimSpace(run.ID),
+				"status":        strings.TrimSpace(run.Status),
+				"status_url":    statusURL,
+			})
+			logAPIOperation(c.Context(), "google_drive_imports_create", correlationID, startedAt, respErr, map[string]any{
+				"import_run_id":  strings.TrimSpace(run.ID),
+				"google_file_id": strings.TrimSpace(payload.GoogleFileID),
+				"status":         strings.TrimSpace(run.Status),
+				"replay":         !created,
+			})
+			return respErr
+		}, requireAdminPermission(cfg, cfg.permissions.AdminCreate))
+
+		adminRoutes.Get(routes.AdminGoogleDriveImportRun, func(c router.Context) error {
+			startedAt := time.Now()
+			correlationID := apiCorrelationID(c, c.Param("import_run_id"), "google_drive_imports_get")
+			if err := enforceTransportSecurity(c, cfg); err != nil {
+				logAPIOperation(c.Context(), "google_drive_imports_get", correlationID, startedAt, err, nil)
+				return asHandlerError(err)
+			}
+			if cfg.googleImportRuns == nil {
+				err := writeAPIError(c, nil, http.StatusServiceUnavailable, string(services.ErrorCodeGoogleProviderDegraded), "google import async runtime unavailable", nil)
+				logAPIOperation(c.Context(), "google_drive_imports_get", correlationID, startedAt, nil, map[string]any{"outcome": "runtime_unavailable"})
+				return err
+			}
+			userID := resolveAdminUserID(c)
+			if userID == "" {
+				err := writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "user_id is required", nil)
+				logAPIOperation(c.Context(), "google_drive_imports_get", correlationID, startedAt, nil, map[string]any{"outcome": "error"})
+				return err
+			}
+			scope := cfg.resolveScope(c)
+			runID := strings.TrimSpace(c.Param("import_run_id"))
+			run, err := cfg.googleImportRuns.GetGoogleImportRun(c.Context(), scope, runID)
+			if err != nil || !strings.EqualFold(strings.TrimSpace(run.UserID), strings.TrimSpace(userID)) {
+				werr := writeAPIError(c, err, http.StatusNotFound, string(services.ErrorCodeGooglePermissionDenied), "google import run not found", nil)
+				logAPIOperation(c.Context(), "google_drive_imports_get", correlationID, startedAt, err, nil)
+				return werr
+			}
+			respErr := c.JSON(http.StatusOK, googleImportRunRecordToMap(run))
+			logAPIOperation(c.Context(), "google_drive_imports_get", correlationID, startedAt, respErr, map[string]any{
+				"import_run_id": strings.TrimSpace(run.ID),
+				"status":        strings.TrimSpace(run.Status),
+			})
+			return respErr
+		}, requireAdminPermission(cfg, cfg.permissions.AdminCreate))
+
+		adminRoutes.Get(routes.AdminGoogleDriveImports, func(c router.Context) error {
+			startedAt := time.Now()
+			correlationID := apiCorrelationID(c, c.Query("cursor"), "google_drive_imports_list")
+			if err := enforceTransportSecurity(c, cfg); err != nil {
+				logAPIOperation(c.Context(), "google_drive_imports_list", correlationID, startedAt, err, nil)
+				return asHandlerError(err)
+			}
+			if cfg.googleImportRuns == nil {
+				err := writeAPIError(c, nil, http.StatusServiceUnavailable, string(services.ErrorCodeGoogleProviderDegraded), "google import async runtime unavailable", nil)
+				logAPIOperation(c.Context(), "google_drive_imports_list", correlationID, startedAt, nil, map[string]any{"outcome": "runtime_unavailable"})
+				return err
+			}
+			userID := resolveAdminUserID(c)
+			if userID == "" {
+				err := writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "user_id is required", nil)
+				logAPIOperation(c.Context(), "google_drive_imports_list", correlationID, startedAt, nil, map[string]any{"outcome": "error"})
+				return err
+			}
+			scope := cfg.resolveScope(c)
+			runs, nextCursor, err := cfg.googleImportRuns.ListGoogleImportRuns(c.Context(), scope, stores.GoogleImportRunQuery{
+				UserID:   userID,
+				Limit:    parsePageSize(c.Query("limit")),
+				Cursor:   strings.TrimSpace(c.Query("cursor")),
+				SortDesc: true,
+			})
+			if err != nil {
+				werr := writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "unable to list google import runs", nil)
+				logAPIOperation(c.Context(), "google_drive_imports_list", correlationID, startedAt, err, nil)
+				return werr
+			}
+			rows := make([]map[string]any, 0, len(runs))
+			for _, run := range runs {
+				rows = append(rows, googleImportRunRecordToMap(run))
+			}
+			respErr := c.JSON(http.StatusOK, map[string]any{
+				"status":      "ok",
+				"import_runs": rows,
+				"next_cursor": strings.TrimSpace(nextCursor),
+			})
+			logAPIOperation(c.Context(), "google_drive_imports_list", correlationID, startedAt, respErr, map[string]any{
+				"count": len(rows),
+			})
+			return respErr
+		}, requireAdminPermission(cfg, cfg.permissions.AdminCreate))
+
 		adminRoutes.Post(routes.AdminGoogleDriveImport, func(c router.Context) error {
 			startedAt := time.Now()
 			correlationID := apiCorrelationID(c, c.Query("user_id"), "google_drive_import")
@@ -1179,6 +1347,8 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 				logAPIOperation(c.Context(), "google_drive_import", correlationID, startedAt, err, nil)
 				return werr
 			}
+			c.Set("Deprecation", "true")
+			c.Set("Link", fmt.Sprintf("<%s>; rel=\"successor-version\"", routes.AdminGoogleDriveImports))
 			imported, err := cfg.google.ImportDocument(c.Context(), cfg.resolveScope(c), services.GoogleImportInput{
 				UserID:          userID,
 				GoogleFileID:    strings.TrimSpace(payload.GoogleFileID),
@@ -1202,6 +1372,8 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 					"source_modified_time":       formatTime(imported.Document.SourceModifiedTime),
 					"source_exported_at":         formatTime(imported.Document.SourceExportedAt),
 					"source_exported_by_user_id": imported.Document.SourceExportedByUserID,
+					"source_mime_type":           imported.Document.SourceMimeType,
+					"source_ingestion_mode":      imported.Document.SourceIngestionMode,
 				},
 				"agreement": map[string]any{
 					"id":                         imported.Agreement.ID,
@@ -1213,7 +1385,11 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 					"source_modified_time":       formatTime(imported.Agreement.SourceModifiedTime),
 					"source_exported_at":         formatTime(imported.Agreement.SourceExportedAt),
 					"source_exported_by_user_id": imported.Agreement.SourceExportedByUserID,
+					"source_mime_type":           imported.Agreement.SourceMimeType,
+					"source_ingestion_mode":      imported.Agreement.SourceIngestionMode,
 				},
+				"source_mime_type": imported.SourceMimeType,
+				"ingestion_mode":   imported.IngestionMode,
 			})
 			logAPIOperation(c.Context(), "google_drive_import", correlationID, startedAt, respErr, map[string]any{
 				"agreement_id": strings.TrimSpace(imported.Agreement.ID),
@@ -2646,6 +2822,67 @@ func integrationChangeEventRecordToMap(record stores.IntegrationChangeEventRecor
 		"emitted_at":      record.EmittedAt.UTC().Format(time.RFC3339Nano),
 		"created_at":      record.CreatedAt.UTC().Format(time.RFC3339Nano),
 	}
+}
+
+func googleImportRunDedupeKey(userID, googleFileID, sourceVersionHint string) string {
+	parts := strings.Join([]string{
+		strings.TrimSpace(strings.ToLower(userID)),
+		strings.TrimSpace(strings.ToLower(googleFileID)),
+		strings.TrimSpace(strings.ToLower(sourceVersionHint)),
+	}, "|")
+	sum := sha256.Sum256([]byte(parts))
+	return hex.EncodeToString(sum[:])
+}
+
+func googleImportRunRecordToMap(record stores.GoogleImportRunRecord) map[string]any {
+	out := map[string]any{
+		"import_run_id":       strings.TrimSpace(record.ID),
+		"id":                  strings.TrimSpace(record.ID),
+		"status":              strings.TrimSpace(record.Status),
+		"user_id":             strings.TrimSpace(record.UserID),
+		"google_file_id":      strings.TrimSpace(record.GoogleFileID),
+		"source_version_hint": strings.TrimSpace(record.SourceVersionHint),
+		"dedupe_key":          strings.TrimSpace(record.DedupeKey),
+		"document_title":      strings.TrimSpace(record.DocumentTitle),
+		"agreement_title":     strings.TrimSpace(record.AgreementTitle),
+		"created_by_user_id":  strings.TrimSpace(record.CreatedByUserID),
+		"correlation_id":      strings.TrimSpace(record.CorrelationID),
+		"source_mime_type":    strings.TrimSpace(record.SourceMimeType),
+		"ingestion_mode":      strings.TrimSpace(record.IngestionMode),
+		"created_at":          record.CreatedAt.UTC().Format(time.RFC3339Nano),
+		"updated_at":          record.UpdatedAt.UTC().Format(time.RFC3339Nano),
+		"started_at":          formatTime(record.StartedAt),
+		"completed_at":        formatTime(record.CompletedAt),
+	}
+	if strings.TrimSpace(record.DocumentID) != "" {
+		out["document"] = map[string]any{"id": strings.TrimSpace(record.DocumentID)}
+	}
+	if strings.TrimSpace(record.AgreementID) != "" {
+		out["agreement"] = map[string]any{"id": strings.TrimSpace(record.AgreementID), "document_id": strings.TrimSpace(record.DocumentID)}
+	}
+	if strings.TrimSpace(record.ErrorCode) != "" || strings.TrimSpace(record.ErrorMessage) != "" {
+		errPayload := map[string]any{
+			"code":    strings.TrimSpace(record.ErrorCode),
+			"message": strings.TrimSpace(record.ErrorMessage),
+		}
+		if details := decodeJSONMap(record.ErrorDetailsJSON); len(details) > 0 {
+			errPayload["details"] = details
+		}
+		out["error"] = errPayload
+	}
+	return out
+}
+
+func decodeJSONMap(raw string) map[string]any {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil
+	}
+	out := map[string]any{}
+	if err := json.Unmarshal([]byte(raw), &out); err != nil {
+		return nil
+	}
+	return out
 }
 
 func apiCorrelationID(c router.Context, candidates ...string) string {

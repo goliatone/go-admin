@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
+	goerrors "github.com/goliatone/go-errors"
 )
 
 const (
@@ -100,31 +102,33 @@ func (p RetryPolicy) nextRetry(attempt, maxAttempts int, now time.Time) *time.Ti
 }
 
 type HandlerDependencies struct {
-	Agreements     stores.AgreementStore
-	Artifacts      stores.AgreementArtifactStore
-	JobRuns        stores.JobRunStore
-	EmailLogs      stores.EmailLogStore
-	Audits         stores.AuditEventStore
-	Tokens         TokenService
-	Pipeline       services.ArtifactPipelineService
-	EmailProvider  EmailProvider
-	GoogleImporter GoogleImporter
-	RetryPolicy    RetryPolicy
-	Now            func() time.Time
+	Agreements       stores.AgreementStore
+	Artifacts        stores.AgreementArtifactStore
+	JobRuns          stores.JobRunStore
+	GoogleImportRuns stores.GoogleImportRunStore
+	EmailLogs        stores.EmailLogStore
+	Audits           stores.AuditEventStore
+	Tokens           TokenService
+	Pipeline         services.ArtifactPipelineService
+	EmailProvider    EmailProvider
+	GoogleImporter   GoogleImporter
+	RetryPolicy      RetryPolicy
+	Now              func() time.Time
 }
 
 type Handlers struct {
-	agreements     stores.AgreementStore
-	artifacts      stores.AgreementArtifactStore
-	jobRuns        stores.JobRunStore
-	emailLogs      stores.EmailLogStore
-	audits         stores.AuditEventStore
-	tokens         TokenService
-	pipeline       services.ArtifactPipelineService
-	emailProvider  EmailProvider
-	googleImporter GoogleImporter
-	retryPolicy    RetryPolicy
-	now            func() time.Time
+	agreements       stores.AgreementStore
+	artifacts        stores.AgreementArtifactStore
+	jobRuns          stores.JobRunStore
+	googleImportRuns stores.GoogleImportRunStore
+	emailLogs        stores.EmailLogStore
+	audits           stores.AuditEventStore
+	tokens           TokenService
+	pipeline         services.ArtifactPipelineService
+	emailProvider    EmailProvider
+	googleImporter   GoogleImporter
+	retryPolicy      RetryPolicy
+	now              func() time.Time
 }
 
 func NewHandlers(deps HandlerDependencies) Handlers {
@@ -144,17 +148,18 @@ func NewHandlers(deps HandlerDependencies) Handlers {
 		retryPolicy.MaxAttempts = DefaultRetryPolicy().MaxAttempts
 	}
 	return Handlers{
-		agreements:     deps.Agreements,
-		artifacts:      deps.Artifacts,
-		jobRuns:        deps.JobRuns,
-		emailLogs:      deps.EmailLogs,
-		audits:         deps.Audits,
-		tokens:         deps.Tokens,
-		pipeline:       deps.Pipeline,
-		emailProvider:  provider,
-		googleImporter: deps.GoogleImporter,
-		retryPolicy:    retryPolicy,
-		now:            now,
+		agreements:       deps.Agreements,
+		artifacts:        deps.Artifacts,
+		jobRuns:          deps.JobRuns,
+		googleImportRuns: deps.GoogleImportRuns,
+		emailLogs:        deps.EmailLogs,
+		audits:           deps.Audits,
+		tokens:           deps.Tokens,
+		pipeline:         deps.Pipeline,
+		emailProvider:    provider,
+		googleImporter:   deps.GoogleImporter,
+		retryPolicy:      retryPolicy,
+		now:              now,
 	}
 }
 
@@ -515,6 +520,14 @@ func (h Handlers) ExecuteGoogleDriveImport(ctx context.Context, msg GoogleDriveI
 	correlationID := observability.ResolveCorrelationID(msg.CorrelationID, msg.DedupeKey, msg.GoogleFileID, msg.UserID, JobGoogleDriveImport)
 	if h.googleImporter == nil {
 		err := fmt.Errorf("google import dependencies not configured")
+		importRunID := strings.TrimSpace(msg.ImportRunID)
+		if h.googleImportRuns != nil && importRunID != "" {
+			_, _ = h.googleImportRuns.MarkGoogleImportRunFailed(ctx, msg.Scope, importRunID, stores.GoogleImportRunFailureInput{
+				ErrorCode:    string(services.ErrorCodeGoogleProviderDegraded),
+				ErrorMessage: err.Error(),
+				CompletedAt:  h.now(),
+			})
+		}
 		observability.ObserveGoogleImport(ctx, false, "dependencies_not_configured")
 		observability.LogOperation(ctx, slog.LevelError, "job", "google_drive_import", "error", correlationID, h.now().Sub(startedAt), err, map[string]any{
 			"job_name": JobGoogleDriveImport,
@@ -526,12 +539,17 @@ func (h Handlers) ExecuteGoogleDriveImport(ctx context.Context, msg GoogleDriveI
 		dedupeKey = strings.Join([]string{
 			strings.TrimSpace(msg.UserID),
 			strings.TrimSpace(msg.GoogleFileID),
+			strings.TrimSpace(msg.SourceVersionHint),
 		}, "|")
 	}
-	if h.jobRuns != nil {
-		existing, err := h.jobRuns.GetJobRunByDedupe(ctx, msg.Scope, JobGoogleDriveImport, dedupeKey)
-		if err == nil && existing.Status == stores.JobRunStatusSucceeded {
-			return services.GoogleImportResult{}, nil
+
+	importRunID := strings.TrimSpace(msg.ImportRunID)
+	if h.googleImportRuns != nil && importRunID != "" {
+		if _, markErr := h.googleImportRuns.MarkGoogleImportRunRunning(ctx, msg.Scope, importRunID, h.now()); markErr != nil {
+			observability.LogOperation(ctx, slog.LevelWarn, "job", "google_drive_import", "error", correlationID, h.now().Sub(startedAt), markErr, map[string]any{
+				"job_name":      JobGoogleDriveImport,
+				"import_run_id": importRunID,
+			})
 		}
 	}
 
@@ -543,6 +561,15 @@ func (h Handlers) ExecuteGoogleDriveImport(ctx context.Context, msg GoogleDriveI
 		CreatedByUserID: strings.TrimSpace(msg.CreatedByUserID),
 	})
 	if err != nil {
+		if h.googleImportRuns != nil && importRunID != "" {
+			code, message, details := googleImportFailureDetails(err)
+			_, _ = h.googleImportRuns.MarkGoogleImportRunFailed(ctx, msg.Scope, importRunID, stores.GoogleImportRunFailureInput{
+				ErrorCode:        code,
+				ErrorMessage:     message,
+				ErrorDetailsJSON: details,
+				CompletedAt:      h.now(),
+			})
+		}
 		observability.ObserveJobResult(ctx, JobGoogleDriveImport, false)
 		observability.LogOperation(ctx, slog.LevelWarn, "job", "google_drive_import", "error", correlationID, h.now().Sub(startedAt), err, map[string]any{
 			"job_name":       JobGoogleDriveImport,
@@ -551,7 +578,17 @@ func (h Handlers) ExecuteGoogleDriveImport(ctx context.Context, msg GoogleDriveI
 		return services.GoogleImportResult{}, err
 	}
 
-	if h.jobRuns != nil {
+	if h.googleImportRuns != nil && importRunID != "" {
+		_, _ = h.googleImportRuns.MarkGoogleImportRunSucceeded(ctx, msg.Scope, importRunID, stores.GoogleImportRunSuccessInput{
+			DocumentID:     strings.TrimSpace(result.Document.ID),
+			AgreementID:    strings.TrimSpace(result.Agreement.ID),
+			SourceMimeType: strings.TrimSpace(result.SourceMimeType),
+			IngestionMode:  strings.TrimSpace(result.IngestionMode),
+			CompletedAt:    h.now(),
+		})
+	}
+
+	if h.jobRuns != nil && strings.TrimSpace(result.Agreement.ID) != "" {
 		run, shouldRun, runErr := h.jobRuns.BeginJobRun(ctx, msg.Scope, stores.JobRunInput{
 			JobName:       JobGoogleDriveImport,
 			DedupeKey:     dedupeKey,
@@ -564,7 +601,7 @@ func (h Handlers) ExecuteGoogleDriveImport(ctx context.Context, msg GoogleDriveI
 			_, _ = h.jobRuns.MarkJobRunSucceeded(ctx, msg.Scope, run.ID, h.now())
 		}
 	}
-	if h.audits != nil {
+	if h.audits != nil && strings.TrimSpace(result.Agreement.ID) != "" {
 		_ = h.appendJobAudit(ctx, msg.Scope, result.Agreement.ID, "google.import.completed", map[string]any{
 			"job_name":       JobGoogleDriveImport,
 			"google_file_id": strings.TrimSpace(msg.GoogleFileID),
@@ -578,6 +615,36 @@ func (h Handlers) ExecuteGoogleDriveImport(ctx context.Context, msg GoogleDriveI
 		"user_id":        strings.TrimSpace(msg.UserID),
 	})
 	return result, nil
+}
+
+func googleImportFailureDetails(err error) (string, string, string) {
+	message := strings.TrimSpace(err.Error())
+	if message == "" {
+		message = "google import failed"
+	}
+	var coded *goerrors.Error
+	if !errorsAsGoError(err, &coded) || coded == nil {
+		return "", message, ""
+	}
+	details := map[string]any{}
+	for key, value := range coded.Metadata {
+		details[key] = value
+	}
+	if len(details) == 0 {
+		return strings.TrimSpace(coded.TextCode), message, ""
+	}
+	raw, marshalErr := json.Marshal(details)
+	if marshalErr != nil {
+		return strings.TrimSpace(coded.TextCode), message, ""
+	}
+	return strings.TrimSpace(coded.TextCode), message, strings.TrimSpace(string(raw))
+}
+
+func errorsAsGoError(err error, target **goerrors.Error) bool {
+	if err == nil || target == nil {
+		return false
+	}
+	return errors.As(err, target)
 }
 
 // RunCompletionWorkflow executes render/generate/distribution jobs in completion order.

@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
+	"os"
 	"path"
 	"strings"
 	"time"
@@ -15,7 +17,10 @@ import (
 	gocore "github.com/goliatone/go-services/core"
 )
 
-const defaultGoogleServicesProviderID = "google_drive"
+const (
+	GoogleServicesProviderID        = "google_drive"
+	defaultGoogleServicesProviderID = GoogleServicesProviderID
+)
 
 // GoogleServicesIntegrationService bridges the legacy e-sign Google endpoints
 // to the go-admin/services module runtime.
@@ -74,12 +79,16 @@ func (s GoogleServicesIntegrationService) Connect(ctx context.Context, scope sto
 	if authCode == "" {
 		return GoogleOAuthStatus{}, domainValidationError("google", "auth_code", "required")
 	}
+	redirectURI, redirectErr := s.resolveConnectRedirectURI(input.RedirectURI)
+	if redirectErr != nil {
+		return GoogleOAuthStatus{}, redirectErr
+	}
 	resolvedScope := s.scopeRef(scope, userID)
 
 	begin, err := svc.Connect(ctx, gocore.ConnectRequest{
 		ProviderID:      s.googleProviderID(),
 		Scope:           resolvedScope,
-		RedirectURI:     strings.TrimSpace(input.RedirectURI),
+		RedirectURI:     redirectURI,
 		RequestedGrants: append([]string(nil), s.allowedScopes...),
 		Metadata: map[string]any{
 			"user_id": userID,
@@ -94,7 +103,7 @@ func (s GoogleServicesIntegrationService) Connect(ctx context.Context, scope sto
 		Scope:       resolvedScope,
 		Code:        authCode,
 		State:       strings.TrimSpace(begin.State),
-		RedirectURI: strings.TrimSpace(input.RedirectURI),
+		RedirectURI: redirectURI,
 		Metadata: map[string]any{
 			"user_id": userID,
 		},
@@ -114,22 +123,33 @@ func (s GoogleServicesIntegrationService) Connect(ctx context.Context, scope sto
 		expires := completion.Credential.ExpiresAt.UTC()
 		expiresAt = &expires
 	}
+	state := gocore.ResolveCredentialTokenState(s.now().UTC(), gocore.ActiveCredential{
+		ExpiresAt:   expiresAt,
+		Refreshable: false,
+	}, gocore.DefaultCredentialExpiringSoonWindow)
+	expired := state.IsExpired
+	expiringSoon := state.IsExpiringSoon
+	canAutoRefresh := state.CanAutoRefresh
 
 	observability.ObserveProviderResult(ctx, GoogleProviderName, true)
 	observability.ObserveGoogleAuthChurn(ctx, "oauth_connected")
 	health := s.ProviderHealth(ctx)
 	return GoogleOAuthStatus{
-		Provider:        GoogleProviderName,
-		ProviderMode:    health.Mode,
-		UserID:          userID,
-		Connected:       true,
-		Scopes:          scopes,
-		ExpiresAt:       expiresAt,
-		LeastPrivilege:  least,
-		Healthy:         health.Healthy,
-		Degraded:        !health.Healthy,
-		DegradedReason:  health.Reason,
-		HealthCheckedAt: cloneGoogleTimePtr(health.CheckedAt),
+		Provider:             GoogleProviderName,
+		ProviderMode:         health.Mode,
+		UserID:               userID,
+		Connected:            true,
+		Scopes:               scopes,
+		ExpiresAt:            expiresAt,
+		IsExpired:            expired,
+		IsExpiringSoon:       expiringSoon,
+		CanAutoRefresh:       canAutoRefresh,
+		NeedsReauthorization: googleNeedsReauthorization(expired, expiringSoon, canAutoRefresh),
+		LeastPrivilege:       least,
+		Healthy:              health.Healthy,
+		Degraded:             !health.Healthy,
+		DegradedReason:       health.Reason,
+		HealthCheckedAt:      cloneGoogleTimePtr(health.CheckedAt),
 	}, nil
 }
 
@@ -183,30 +203,54 @@ func (s GoogleServicesIntegrationService) Status(ctx context.Context, scope stor
 	}
 	if !found {
 		return GoogleOAuthStatus{
-			Provider:        GoogleProviderName,
-			ProviderMode:    health.Mode,
-			UserID:          userID,
-			Connected:       false,
-			Scopes:          []string{},
-			LeastPrivilege:  false,
-			Healthy:         health.Healthy,
-			Degraded:        !health.Healthy,
-			DegradedReason:  health.Reason,
-			HealthCheckedAt: cloneGoogleTimePtr(health.CheckedAt),
+			Provider:             GoogleProviderName,
+			ProviderMode:         health.Mode,
+			UserID:               userID,
+			Connected:            false,
+			Scopes:               []string{},
+			IsExpired:            false,
+			IsExpiringSoon:       false,
+			CanAutoRefresh:       false,
+			NeedsReauthorization: false,
+			LeastPrivilege:       false,
+			Healthy:              health.Healthy,
+			Degraded:             !health.Healthy,
+			DegradedReason:       health.Reason,
+			HealthCheckedAt:      cloneGoogleTimePtr(health.CheckedAt),
 		}, nil
 	}
 
 	active, activeErr := s.resolveActiveCredential(ctx, svc, connection.ID)
 	scopes := []string{}
 	var expiresAt *time.Time
+	state := gocore.CredentialTokenState{}
+	canAutoRefresh := false
 	if activeErr == nil {
+		freshResult, freshErr := svc.EnsureCredentialFresh(ctx, gocore.EnsureCredentialFreshRequest{
+			ProviderID:         s.googleProviderID(),
+			ConnectionID:       strings.TrimSpace(connection.ID),
+			Credential:         &active,
+			RefreshLeadWindow:  gocore.DefaultCredentialRefreshLeadWindow,
+			ExpiringSoonWindow: gocore.DefaultCredentialExpiringSoonWindow,
+		})
+		if freshErr == nil {
+			active = freshResult.Credential
+			state = freshResult.State
+			if freshResult.RefreshAttempted {
+				observability.ObserveProviderResult(ctx, GoogleProviderName, true)
+			}
+		} else {
+			state = gocore.ResolveCredentialTokenState(s.now().UTC(), active, gocore.DefaultCredentialExpiringSoonWindow)
+			if state.CanAutoRefresh {
+				observability.ObserveProviderResult(ctx, GoogleProviderName, false)
+			}
+		}
+		canAutoRefresh = state.CanAutoRefresh
 		scopes = normalizeScopes(active.GrantedScopes)
 		if len(scopes) == 0 {
 			scopes = normalizeScopes(active.RequestedScopes)
 		}
-		if active.ExpiresAt != nil {
-			expiresAt = cloneGoogleTimePtr(active.ExpiresAt)
-		}
+		expiresAt = cloneGoogleTimePtr(state.ExpiresAt)
 	} else if !isNotFound(activeErr) {
 		return GoogleOAuthStatus{}, activeErr
 	}
@@ -215,17 +259,21 @@ func (s GoogleServicesIntegrationService) Status(ctx context.Context, scope stor
 	connected := !strings.EqualFold(strings.TrimSpace(string(connection.Status)), string(gocore.ConnectionStatusDisconnected))
 
 	return GoogleOAuthStatus{
-		Provider:        GoogleProviderName,
-		ProviderMode:    health.Mode,
-		UserID:          userID,
-		Connected:       connected,
-		Scopes:          scopes,
-		ExpiresAt:       expiresAt,
-		LeastPrivilege:  least,
-		Healthy:         health.Healthy,
-		Degraded:        !health.Healthy,
-		DegradedReason:  health.Reason,
-		HealthCheckedAt: cloneGoogleTimePtr(health.CheckedAt),
+		Provider:             GoogleProviderName,
+		ProviderMode:         health.Mode,
+		UserID:               userID,
+		Connected:            connected,
+		Scopes:               scopes,
+		ExpiresAt:            expiresAt,
+		IsExpired:            state.IsExpired,
+		IsExpiringSoon:       state.IsExpiringSoon,
+		CanAutoRefresh:       canAutoRefresh,
+		NeedsReauthorization: googleNeedsReauthorization(state.IsExpired, state.IsExpiringSoon, canAutoRefresh),
+		LeastPrivilege:       least,
+		Healthy:              health.Healthy,
+		Degraded:             !health.Healthy,
+		DegradedReason:       health.Reason,
+		HealthCheckedAt:      cloneGoogleTimePtr(health.CheckedAt),
 	}, nil
 }
 
@@ -278,7 +326,8 @@ func (s GoogleServicesIntegrationService) BrowseFiles(ctx context.Context, scope
 	return result, nil
 }
 
-// ImportDocument exports a Google Doc as PDF and persists the imported e-sign draft entities.
+// ImportDocument imports a supported Google source (Docs export snapshot or Drive PDF direct download)
+// and persists the imported e-sign entities.
 func (s GoogleServicesIntegrationService) ImportDocument(ctx context.Context, scope stores.Scope, input GoogleImportInput) (result GoogleImportResult, err error) {
 	defer func() {
 		observability.ObserveGoogleImport(ctx, err == nil, googleTelemetryReason(err))
@@ -301,10 +350,10 @@ func (s GoogleServicesIntegrationService) ImportDocument(ctx context.Context, sc
 		return GoogleImportResult{}, domainValidationError("google", "google_file_id", "required")
 	}
 
-	snapshot, err := s.provider.ExportFilePDF(ctx, accessToken, fileID)
+	snapshot, sourceMimeType, ingestionMode, err := resolveGoogleImportSnapshot(ctx, s.provider, accessToken, fileID)
 	if err != nil {
 		observability.ObserveProviderResult(ctx, GoogleProviderName, false)
-		return GoogleImportResult{}, MapGoogleProviderError(err)
+		return GoogleImportResult{}, err
 	}
 	observability.ObserveProviderResult(ctx, GoogleProviderName, true)
 
@@ -321,9 +370,6 @@ func (s GoogleServicesIntegrationService) ImportDocument(ctx context.Context, sc
 		documentTitle = "Imported Google Document"
 	}
 	agreementTitle := strings.TrimSpace(input.AgreementTitle)
-	if agreementTitle == "" {
-		agreementTitle = documentTitle
-	}
 	createdByUserID := strings.TrimSpace(input.CreatedByUserID)
 	if createdByUserID == "" {
 		createdByUserID = userID
@@ -341,27 +387,39 @@ func (s GoogleServicesIntegrationService) ImportDocument(ctx context.Context, sc
 		SourceModifiedTime:     &modifiedTime,
 		SourceExportedAt:       &exportedAt,
 		SourceExportedByUserID: userID,
+		SourceMimeType:         sourceMimeType,
+		SourceIngestionMode:    ingestionMode,
 	})
 	if err != nil {
 		return GoogleImportResult{}, err
 	}
 
-	agreement, err := s.agreements.CreateDraft(ctx, scope, CreateDraftInput{
-		DocumentID:             document.ID,
-		Title:                  agreementTitle,
-		CreatedByUserID:        createdByUserID,
-		SourceType:             stores.SourceTypeGoogleDrive,
-		SourceGoogleFileID:     fileID,
-		SourceGoogleDocURL:     strings.TrimSpace(snapshot.File.WebViewURL),
-		SourceModifiedTime:     &modifiedTime,
-		SourceExportedAt:       &exportedAt,
-		SourceExportedByUserID: userID,
-	})
-	if err != nil {
-		return GoogleImportResult{}, err
+	var agreement stores.AgreementRecord
+	if agreementTitle != "" {
+		agreement, err = s.agreements.CreateDraft(ctx, scope, CreateDraftInput{
+			DocumentID:             document.ID,
+			Title:                  agreementTitle,
+			CreatedByUserID:        createdByUserID,
+			SourceType:             stores.SourceTypeGoogleDrive,
+			SourceGoogleFileID:     fileID,
+			SourceGoogleDocURL:     strings.TrimSpace(snapshot.File.WebViewURL),
+			SourceModifiedTime:     &modifiedTime,
+			SourceExportedAt:       &exportedAt,
+			SourceExportedByUserID: userID,
+			SourceMimeType:         sourceMimeType,
+			SourceIngestionMode:    ingestionMode,
+		})
+		if err != nil {
+			return GoogleImportResult{}, err
+		}
 	}
 
-	return GoogleImportResult{Document: document, Agreement: agreement}, nil
+	return GoogleImportResult{
+		Document:       document,
+		Agreement:      agreement,
+		SourceMimeType: sourceMimeType,
+		IngestionMode:  ingestionMode,
+	}, nil
 }
 
 // ProviderHealth reports provider/runtime health used for degraded-mode signaling.
@@ -414,6 +472,61 @@ func (s GoogleServicesIntegrationService) googleProviderID() string {
 		providerID = defaultGoogleServicesProviderID
 	}
 	return providerID
+}
+
+func (s GoogleServicesIntegrationService) resolveConnectRedirectURI(requestRedirectURI string) (string, error) {
+	resolvedRedirectURI := strings.TrimSpace(requestRedirectURI)
+	configuredRedirectURI := strings.TrimSpace(os.Getenv(EnvGoogleOAuthRedirectURI))
+	if configuredRedirectURI != "" {
+		if resolvedRedirectURI != "" && !redirectURIsMatch(resolvedRedirectURI, configuredRedirectURI) {
+			return "", goerrors.New("google redirect_uri does not match configured callback", goerrors.CategoryValidation).
+				WithCode(http.StatusBadRequest).
+				WithTextCode(string(ErrorCodeMissingRequiredFields)).
+				WithMetadata(map[string]any{
+					"entity":   "google",
+					"field":    "redirect_uri",
+					"reason":   "mismatch",
+					"expected": configuredRedirectURI,
+					"received": resolvedRedirectURI,
+				})
+		}
+		resolvedRedirectURI = configuredRedirectURI
+	}
+	if resolvedRedirectURI == "" && strings.EqualFold(strings.TrimSpace(s.providerMode), GoogleProviderModeReal) {
+		return "", goerrors.New("google redirect_uri is required in real provider mode", goerrors.CategoryValidation).
+			WithCode(http.StatusBadRequest).
+			WithTextCode(string(ErrorCodeMissingRequiredFields)).
+			WithMetadata(map[string]any{
+				"entity": "google",
+				"field":  "redirect_uri",
+				"reason": "required",
+			})
+	}
+	return resolvedRedirectURI, nil
+}
+
+func redirectURIsMatch(left, right string) bool {
+	left = canonicalRedirectURI(left)
+	right = canonicalRedirectURI(right)
+	return left != "" && right != "" && left == right
+}
+
+func canonicalRedirectURI(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	parsed, err := url.Parse(raw)
+	if err != nil || parsed == nil {
+		return raw
+	}
+	parsed.Scheme = strings.ToLower(strings.TrimSpace(parsed.Scheme))
+	parsed.Host = strings.ToLower(strings.TrimSpace(parsed.Host))
+	parsed.Fragment = ""
+	if parsed.Path != "/" {
+		parsed.Path = strings.TrimRight(parsed.Path, "/")
+	}
+	return strings.TrimSpace(parsed.String())
 }
 
 func (s GoogleServicesIntegrationService) scopeRef(scope stores.Scope, userID string) gocore.ScopeRef {
@@ -604,8 +717,54 @@ func (s GoogleServicesIntegrationService) resolveAccessToken(ctx context.Context
 		}
 		return "", "", err
 	}
-	if err := validateLeastPrivilegeScopes(active.GrantedScopes, s.allowedScopes); err != nil {
+	tokenState := gocore.ResolveCredentialTokenState(s.now().UTC(), active, gocore.DefaultCredentialExpiringSoonWindow)
+	freshResult, refreshErr := svc.EnsureCredentialFresh(ctx, gocore.EnsureCredentialFreshRequest{
+		ProviderID:         s.googleProviderID(),
+		ConnectionID:       strings.TrimSpace(connection.ID),
+		Credential:         &active,
+		RefreshLeadWindow:  gocore.DefaultCredentialRefreshLeadWindow,
+		ExpiringSoonWindow: gocore.DefaultCredentialExpiringSoonWindow,
+	})
+	if refreshErr == nil {
+		active = freshResult.Credential
+		tokenState = freshResult.State
+		if freshResult.RefreshAttempted {
+			observability.ObserveProviderResult(ctx, GoogleProviderName, true)
+		}
+	} else if tokenState.IsExpired {
+		if tokenState.CanAutoRefresh {
+			observability.ObserveProviderResult(ctx, GoogleProviderName, false)
+		}
+		observability.ObserveGoogleAuthChurn(ctx, "refresh_failed")
+		return "", "", goerrors.New("google integration token refresh failed; re-authorization required", goerrors.CategoryAuthz).
+			WithCode(http.StatusUnauthorized).
+			WithTextCode(string(ErrorCodeGoogleAccessRevoked)).
+			WithMetadata(map[string]any{
+				"provider":          GoogleProviderName,
+				"user_id":           userID,
+				"reason":            "refresh_failed",
+				"can_auto_refresh":  tokenState.CanAutoRefresh,
+				"connection_status": string(connection.Status),
+			})
+	}
+
+	scopes := normalizeScopes(active.GrantedScopes)
+	if len(scopes) == 0 {
+		scopes = normalizeScopes(active.RequestedScopes)
+	}
+	if err := validateLeastPrivilegeScopes(scopes, s.allowedScopes); err != nil {
 		return "", "", err
+	}
+	if tokenState.IsExpired {
+		observability.ObserveGoogleAuthChurn(ctx, "token_expired")
+		return "", "", goerrors.New("google integration token expired; re-authorization required", goerrors.CategoryAuthz).
+			WithCode(http.StatusUnauthorized).
+			WithTextCode(string(ErrorCodeGoogleAccessRevoked)).
+			WithMetadata(map[string]any{
+				"provider": GoogleProviderName,
+				"user_id":  userID,
+				"reason":   "token_expired",
+			})
 	}
 	accessToken := strings.TrimSpace(active.AccessToken)
 	if accessToken == "" {

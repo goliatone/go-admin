@@ -118,6 +118,8 @@ type CreateDraftInput struct {
 	SourceModifiedTime     *time.Time
 	SourceExportedAt       *time.Time
 	SourceExportedByUserID string
+	SourceMimeType         string
+	SourceIngestionMode    string
 }
 
 // ValidationIssue represents a pre-send validation failure.
@@ -263,6 +265,8 @@ func (s AgreementService) CreateDraft(ctx context.Context, scope stores.Scope, i
 		SourceModifiedTime:     input.SourceModifiedTime,
 		SourceExportedAt:       input.SourceExportedAt,
 		SourceExportedByUserID: strings.TrimSpace(input.SourceExportedByUserID),
+		SourceMimeType:         strings.TrimSpace(input.SourceMimeType),
+		SourceIngestionMode:    strings.TrimSpace(input.SourceIngestionMode),
 		Status:                 stores.AgreementStatusDraft,
 		Title:                  strings.TrimSpace(input.Title),
 		Message:                strings.TrimSpace(input.Message),

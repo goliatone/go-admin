@@ -19,7 +19,9 @@ import (
 
 	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/stores"
+	"github.com/goliatone/go-admin/quickstart"
 	goerrors "github.com/goliatone/go-errors"
+	gocore "github.com/goliatone/go-services/core"
 )
 
 const (
@@ -42,6 +44,16 @@ var DefaultGoogleOAuthScopes = []string{
 	GoogleScopeDriveReadonly,
 	GoogleScopeUserinfoEmail,
 }
+
+const (
+	GoogleDriveMimeTypeDoc = "application/vnd.google-apps.document"
+	GoogleDriveMimeTypePDF = "application/pdf"
+)
+
+const (
+	GoogleIngestionModeExportPDF      = "google_export_pdf"
+	GoogleIngestionModeDrivePDFDirect = "drive_pdf_direct"
+)
 
 // GoogleProviderErrorCode captures provider-specific failure classification.
 type GoogleProviderErrorCode string
@@ -400,18 +412,22 @@ type GoogleOAuthToken struct {
 
 // GoogleOAuthStatus captures connection status details returned by status endpoints.
 type GoogleOAuthStatus struct {
-	Provider        string
-	ProviderMode    string
-	UserID          string
-	Connected       bool
-	AccountEmail    string
-	Scopes          []string
-	ExpiresAt       *time.Time
-	LeastPrivilege  bool
-	Healthy         bool
-	Degraded        bool
-	DegradedReason  string
-	HealthCheckedAt *time.Time
+	Provider             string     `json:"provider"`
+	ProviderMode         string     `json:"provider_mode"`
+	UserID               string     `json:"user_id"`
+	Connected            bool       `json:"connected"`
+	AccountEmail         string     `json:"account_email,omitempty"`
+	Scopes               []string   `json:"scopes"`
+	ExpiresAt            *time.Time `json:"expires_at,omitempty"`
+	IsExpired            bool       `json:"is_expired"`
+	IsExpiringSoon       bool       `json:"is_expiring_soon"`
+	CanAutoRefresh       bool       `json:"can_auto_refresh"`
+	NeedsReauthorization bool       `json:"needs_reauthorization"`
+	LeastPrivilege       bool       `json:"least_privilege"`
+	Healthy              bool       `json:"healthy"`
+	Degraded             bool       `json:"degraded"`
+	DegradedReason       string     `json:"degraded_reason,omitempty"`
+	HealthCheckedAt      *time.Time `json:"health_checked_at,omitempty"`
 }
 
 // GoogleDriveFile captures the subset of Drive metadata needed by backend APIs.
@@ -443,7 +459,9 @@ type GoogleProvider interface {
 	RevokeToken(ctx context.Context, accessToken string) error
 	SearchFiles(ctx context.Context, accessToken, query, pageToken string, pageSize int) (GoogleDriveListResult, error)
 	BrowseFiles(ctx context.Context, accessToken, folderID, pageToken string, pageSize int) (GoogleDriveListResult, error)
+	GetFile(ctx context.Context, accessToken, fileID string) (GoogleDriveFile, error)
 	ExportFilePDF(ctx context.Context, accessToken, fileID string) (GoogleExportSnapshot, error)
+	DownloadFilePDF(ctx context.Context, accessToken, fileID string) (GoogleExportSnapshot, error)
 }
 
 type googleProviderHealthChecker interface {
@@ -467,15 +485,25 @@ func NewDeterministicGoogleProvider() *DeterministicGoogleProvider {
 			"google-file-1": {
 				ID:           "google-file-1",
 				Name:         "NDA Source",
-				MimeType:     "application/vnd.google-apps.document",
+				MimeType:     GoogleDriveMimeTypeDoc,
 				WebViewURL:   "https://docs.google.com/document/d/google-file-1/edit",
 				OwnerEmail:   "owner@example.com",
 				ParentID:     "root",
 				ModifiedTime: now.Add(-2 * time.Hour),
 			},
+			"google-pdf-1": {
+				ID:           "google-pdf-1",
+				Name:         "NDA Source PDF",
+				MimeType:     GoogleDriveMimeTypePDF,
+				WebViewURL:   "https://drive.google.com/file/d/google-pdf-1/view",
+				OwnerEmail:   "owner@example.com",
+				ParentID:     "root",
+				ModifiedTime: now.Add(-90 * time.Minute),
+			},
 		},
 		pdfByID: map[string][]byte{
 			"google-file-1": GenerateDeterministicPDF(1),
+			"google-pdf-1":  GenerateDeterministicPDF(2),
 		},
 		errorByOp: map[string]error{},
 	}
@@ -562,6 +590,21 @@ func (p *DeterministicGoogleProvider) BrowseFiles(_ context.Context, accessToken
 	return GoogleDriveListResult{Files: out}, nil
 }
 
+func (p *DeterministicGoogleProvider) GetFile(_ context.Context, accessToken, fileID string) (GoogleDriveFile, error) {
+	if p == nil {
+		return GoogleDriveFile{}, fmt.Errorf("google provider not configured")
+	}
+	if err := p.resolveError("metadata:" + strings.TrimSpace(accessToken) + ":" + strings.TrimSpace(fileID)); err != nil {
+		return GoogleDriveFile{}, err
+	}
+	fileID = strings.TrimSpace(fileID)
+	file, ok := p.files[fileID]
+	if !ok {
+		return GoogleDriveFile{}, NewGoogleProviderError(GoogleProviderErrorPermissionDenied, "google file not found", map[string]any{"file_id": fileID})
+	}
+	return file, nil
+}
+
 func (p *DeterministicGoogleProvider) ExportFilePDF(_ context.Context, accessToken, fileID string) (GoogleExportSnapshot, error) {
 	if p == nil {
 		return GoogleExportSnapshot{}, fmt.Errorf("google provider not configured")
@@ -577,6 +620,28 @@ func (p *DeterministicGoogleProvider) ExportFilePDF(_ context.Context, accessTok
 	pdf := append([]byte{}, p.pdfByID[fileID]...)
 	if len(pdf) == 0 {
 		return GoogleExportSnapshot{}, NewGoogleProviderError(GoogleProviderErrorPermissionDenied, "file export not available", map[string]any{"file_id": fileID})
+	}
+	return GoogleExportSnapshot{File: file, PDF: pdf}, nil
+}
+
+func (p *DeterministicGoogleProvider) DownloadFilePDF(_ context.Context, accessToken, fileID string) (GoogleExportSnapshot, error) {
+	if p == nil {
+		return GoogleExportSnapshot{}, fmt.Errorf("google provider not configured")
+	}
+	if err := p.resolveError("download:" + strings.TrimSpace(accessToken) + ":" + strings.TrimSpace(fileID)); err != nil {
+		return GoogleExportSnapshot{}, err
+	}
+	fileID = strings.TrimSpace(fileID)
+	file, ok := p.files[fileID]
+	if !ok {
+		return GoogleExportSnapshot{}, NewGoogleProviderError(GoogleProviderErrorPermissionDenied, "google file not found", map[string]any{"file_id": fileID})
+	}
+	if !strings.EqualFold(strings.TrimSpace(file.MimeType), GoogleDriveMimeTypePDF) {
+		return GoogleExportSnapshot{}, NewGoogleProviderError(GoogleProviderErrorPermissionDenied, "google file is not a PDF", map[string]any{"file_id": fileID})
+	}
+	pdf := append([]byte{}, p.pdfByID[fileID]...)
+	if len(pdf) == 0 {
+		return GoogleExportSnapshot{}, NewGoogleProviderError(GoogleProviderErrorPermissionDenied, "pdf file not available", map[string]any{"file_id": fileID})
 	}
 	return GoogleExportSnapshot{File: file, PDF: pdf}, nil
 }
@@ -628,8 +693,10 @@ type GoogleImportInput struct {
 
 // GoogleImportResult captures imported document/agreement output.
 type GoogleImportResult struct {
-	Document  stores.DocumentRecord
-	Agreement stores.AgreementRecord
+	Document       stores.DocumentRecord
+	Agreement      stores.AgreementRecord
+	SourceMimeType string
+	IngestionMode  string
 }
 
 // GoogleProviderHealthStatus captures runtime provider health used for degraded-mode signaling.
@@ -779,19 +846,29 @@ func (s GoogleIntegrationService) Connect(ctx context.Context, scope stores.Scop
 	observability.ObserveProviderResult(ctx, GoogleProviderName, true)
 	observability.ObserveGoogleAuthChurn(ctx, "oauth_connected")
 	health := s.ProviderHealth(ctx)
+	state := gocore.ResolveCredentialTokenState(s.now().UTC(), gocore.ActiveCredential{
+		AccessToken:  strings.TrimSpace(token.AccessToken),
+		RefreshToken: strings.TrimSpace(token.RefreshToken),
+		Refreshable:  false,
+		ExpiresAt:    expiresAt,
+	}, gocore.DefaultCredentialExpiringSoonWindow)
 	return GoogleOAuthStatus{
-		Provider:        GoogleProviderName,
-		ProviderMode:    health.Mode,
-		UserID:          userID,
-		Connected:       true,
-		AccountEmail:    strings.TrimSpace(token.AccountEmail),
-		Scopes:          scopes,
-		ExpiresAt:       expiresAt,
-		LeastPrivilege:  true,
-		Healthy:         health.Healthy,
-		Degraded:        !health.Healthy,
-		DegradedReason:  health.Reason,
-		HealthCheckedAt: cloneGoogleTimePtr(health.CheckedAt),
+		Provider:             GoogleProviderName,
+		ProviderMode:         health.Mode,
+		UserID:               userID,
+		Connected:            true,
+		AccountEmail:         strings.TrimSpace(token.AccountEmail),
+		Scopes:               scopes,
+		ExpiresAt:            expiresAt,
+		IsExpired:            state.IsExpired,
+		IsExpiringSoon:       state.IsExpiringSoon,
+		CanAutoRefresh:       false,
+		NeedsReauthorization: googleNeedsReauthorization(state.IsExpired, state.IsExpiringSoon, false),
+		LeastPrivilege:       true,
+		Healthy:              health.Healthy,
+		Degraded:             !health.Healthy,
+		DegradedReason:       health.Reason,
+		HealthCheckedAt:      cloneGoogleTimePtr(health.CheckedAt),
 	}, nil
 }
 
@@ -841,34 +918,49 @@ func (s GoogleIntegrationService) Status(ctx context.Context, scope stores.Scope
 	if err != nil {
 		if isNotFound(err) {
 			return GoogleOAuthStatus{
-				Provider:        GoogleProviderName,
-				ProviderMode:    health.Mode,
-				UserID:          userID,
-				Connected:       false,
-				Scopes:          []string{},
-				ExpiresAt:       nil,
-				LeastPrivilege:  false,
-				Healthy:         health.Healthy,
-				Degraded:        !health.Healthy,
-				DegradedReason:  health.Reason,
-				HealthCheckedAt: cloneGoogleTimePtr(health.CheckedAt),
+				Provider:             GoogleProviderName,
+				ProviderMode:         health.Mode,
+				UserID:               userID,
+				Connected:            false,
+				Scopes:               []string{},
+				ExpiresAt:            nil,
+				IsExpired:            false,
+				IsExpiringSoon:       false,
+				CanAutoRefresh:       false,
+				NeedsReauthorization: false,
+				LeastPrivilege:       false,
+				Healthy:              health.Healthy,
+				Degraded:             !health.Healthy,
+				DegradedReason:       health.Reason,
+				HealthCheckedAt:      cloneGoogleTimePtr(health.CheckedAt),
 			}, nil
 		}
 		return GoogleOAuthStatus{}, err
 	}
 	least := validateLeastPrivilegeScopes(credential.Scopes, s.allowedScopes) == nil
+	expiresAt := cloneGoogleTimePtr(credential.ExpiresAt)
+	state := gocore.ResolveCredentialTokenState(s.now().UTC(), gocore.ActiveCredential{
+		AccessToken:  "",
+		RefreshToken: "",
+		Refreshable:  false,
+		ExpiresAt:    expiresAt,
+	}, gocore.DefaultCredentialExpiringSoonWindow)
 	return GoogleOAuthStatus{
-		Provider:        GoogleProviderName,
-		ProviderMode:    health.Mode,
-		UserID:          userID,
-		Connected:       true,
-		Scopes:          normalizeScopes(credential.Scopes),
-		ExpiresAt:       cloneGoogleTimePtr(credential.ExpiresAt),
-		LeastPrivilege:  least,
-		Healthy:         health.Healthy,
-		Degraded:        !health.Healthy,
-		DegradedReason:  health.Reason,
-		HealthCheckedAt: cloneGoogleTimePtr(health.CheckedAt),
+		Provider:             GoogleProviderName,
+		ProviderMode:         health.Mode,
+		UserID:               userID,
+		Connected:            true,
+		Scopes:               normalizeScopes(credential.Scopes),
+		ExpiresAt:            expiresAt,
+		IsExpired:            state.IsExpired,
+		IsExpiringSoon:       state.IsExpiringSoon,
+		CanAutoRefresh:       false,
+		NeedsReauthorization: googleNeedsReauthorization(state.IsExpired, state.IsExpiringSoon, false),
+		LeastPrivilege:       least,
+		Healthy:              health.Healthy,
+		Degraded:             !health.Healthy,
+		DegradedReason:       health.Reason,
+		HealthCheckedAt:      cloneGoogleTimePtr(health.CheckedAt),
 	}, nil
 }
 
@@ -969,7 +1061,8 @@ func (s GoogleIntegrationService) BrowseFiles(ctx context.Context, scope stores.
 	return result, nil
 }
 
-// ImportDocument exports a Google doc PDF snapshot and persists source metadata on document/agreement.
+// ImportDocument imports a supported Google source (Docs export snapshot or Drive PDF direct download)
+// and persists source metadata on document/agreement.
 func (s GoogleIntegrationService) ImportDocument(ctx context.Context, scope stores.Scope, input GoogleImportInput) (result GoogleImportResult, err error) {
 	defer func() {
 		observability.ObserveGoogleImport(ctx, err == nil, googleTelemetryReason(err))
@@ -988,10 +1081,10 @@ func (s GoogleIntegrationService) ImportDocument(ctx context.Context, scope stor
 	if fileID == "" {
 		return GoogleImportResult{}, domainValidationError("google", "google_file_id", "required")
 	}
-	snapshot, err := s.provider.ExportFilePDF(ctx, accessToken, fileID)
+	snapshot, sourceMimeType, ingestionMode, err := resolveGoogleImportSnapshot(ctx, s.provider, accessToken, fileID)
 	if err != nil {
 		observability.ObserveProviderResult(ctx, GoogleProviderName, false)
-		return GoogleImportResult{}, MapGoogleProviderError(err)
+		return GoogleImportResult{}, err
 	}
 	observability.ObserveProviderResult(ctx, GoogleProviderName, true)
 	modifiedTime := snapshot.File.ModifiedTime
@@ -1007,9 +1100,6 @@ func (s GoogleIntegrationService) ImportDocument(ctx context.Context, scope stor
 		documentTitle = "Imported Google Document"
 	}
 	agreementTitle := strings.TrimSpace(input.AgreementTitle)
-	if agreementTitle == "" {
-		agreementTitle = documentTitle
-	}
 	createdByUserID := strings.TrimSpace(input.CreatedByUserID)
 	if createdByUserID == "" {
 		createdByUserID = userID
@@ -1027,30 +1117,82 @@ func (s GoogleIntegrationService) ImportDocument(ctx context.Context, scope stor
 		SourceModifiedTime:     &modifiedTime,
 		SourceExportedAt:       &exportedAt,
 		SourceExportedByUserID: userID,
+		SourceMimeType:         sourceMimeType,
+		SourceIngestionMode:    ingestionMode,
 	})
 	if err != nil {
 		return GoogleImportResult{}, err
 	}
 
-	agreement, err := s.agreements.CreateDraft(ctx, scope, CreateDraftInput{
-		DocumentID:             document.ID,
-		Title:                  agreementTitle,
-		CreatedByUserID:        createdByUserID,
-		SourceType:             stores.SourceTypeGoogleDrive,
-		SourceGoogleFileID:     fileID,
-		SourceGoogleDocURL:     strings.TrimSpace(snapshot.File.WebViewURL),
-		SourceModifiedTime:     &modifiedTime,
-		SourceExportedAt:       &exportedAt,
-		SourceExportedByUserID: userID,
-	})
-	if err != nil {
-		return GoogleImportResult{}, err
+	var agreement stores.AgreementRecord
+	if agreementTitle != "" {
+		agreement, err = s.agreements.CreateDraft(ctx, scope, CreateDraftInput{
+			DocumentID:             document.ID,
+			Title:                  agreementTitle,
+			CreatedByUserID:        createdByUserID,
+			SourceType:             stores.SourceTypeGoogleDrive,
+			SourceGoogleFileID:     fileID,
+			SourceGoogleDocURL:     strings.TrimSpace(snapshot.File.WebViewURL),
+			SourceModifiedTime:     &modifiedTime,
+			SourceExportedAt:       &exportedAt,
+			SourceExportedByUserID: userID,
+			SourceMimeType:         sourceMimeType,
+			SourceIngestionMode:    ingestionMode,
+		})
+		if err != nil {
+			return GoogleImportResult{}, err
+		}
 	}
 
 	return GoogleImportResult{
-		Document:  document,
-		Agreement: agreement,
+		Document:       document,
+		Agreement:      agreement,
+		SourceMimeType: sourceMimeType,
+		IngestionMode:  ingestionMode,
 	}, nil
+}
+
+func resolveGoogleImportSnapshot(ctx context.Context, provider GoogleProvider, accessToken, fileID string) (GoogleExportSnapshot, string, string, error) {
+	if provider == nil {
+		return GoogleExportSnapshot{}, "", "", domainValidationError("google", "service", "provider not configured")
+	}
+	fileID = strings.TrimSpace(fileID)
+	if fileID == "" {
+		return GoogleExportSnapshot{}, "", "", domainValidationError("google", "google_file_id", "required")
+	}
+	file, err := provider.GetFile(ctx, accessToken, fileID)
+	if err != nil {
+		return GoogleExportSnapshot{}, "", "", MapGoogleProviderError(err)
+	}
+	sourceMimeType := strings.ToLower(strings.TrimSpace(file.MimeType))
+	switch sourceMimeType {
+	case GoogleDriveMimeTypeDoc:
+		snapshot, exportErr := provider.ExportFilePDF(ctx, accessToken, fileID)
+		if exportErr != nil {
+			return GoogleExportSnapshot{}, "", "", MapGoogleProviderError(exportErr)
+		}
+		if strings.TrimSpace(snapshot.File.ID) == "" {
+			snapshot.File = file
+		}
+		return snapshot, sourceMimeType, GoogleIngestionModeExportPDF, nil
+	case GoogleDriveMimeTypePDF:
+		snapshot, downloadErr := provider.DownloadFilePDF(ctx, accessToken, fileID)
+		if downloadErr != nil {
+			return GoogleExportSnapshot{}, "", "", MapGoogleProviderError(downloadErr)
+		}
+		if strings.TrimSpace(snapshot.File.ID) == "" {
+			snapshot.File = file
+		}
+		return snapshot, sourceMimeType, GoogleIngestionModeDrivePDFDirect, nil
+	default:
+		return GoogleExportSnapshot{}, sourceMimeType, "", goerrors.New("unsupported google file type", goerrors.CategoryValidation).
+			WithCode(http.StatusUnprocessableEntity).
+			WithTextCode(string(ErrorCodeGoogleUnsupportedType)).
+			WithMetadata(map[string]any{
+				"google_file_id": fileID,
+				"mime_type":      sourceMimeType,
+			})
+	}
 }
 
 // ProviderHealth reports provider mode and health/degraded state.
@@ -1315,4 +1457,8 @@ func cloneGoogleTimePtr(src *time.Time) *time.Time {
 	}
 	copy := src.UTC()
 	return &copy
+}
+
+func googleNeedsReauthorization(isExpired, isExpiringSoon, canAutoRefresh bool) bool {
+	return quickstart.OAuthNeedsReauthorization(isExpired, isExpiringSoon, canAutoRefresh)
 }

@@ -37,6 +37,8 @@ type InMemoryStore struct {
 	emailLogs                  map[string]EmailLogRecord
 	jobRuns                    map[string]JobRunRecord
 	jobRunDedupeIndex          map[string]string
+	googleImportRuns           map[string]GoogleImportRunRecord
+	googleImportRunDedupeIndex map[string]string
 	outboxMessages             map[string]OutboxMessageRecord
 	integrationCredentials     map[string]IntegrationCredentialRecord
 	integrationCredentialIndex map[string]string
@@ -72,6 +74,8 @@ func NewInMemoryStore() *InMemoryStore {
 		emailLogs:                  map[string]EmailLogRecord{},
 		jobRuns:                    map[string]JobRunRecord{},
 		jobRunDedupeIndex:          map[string]string{},
+		googleImportRuns:           map[string]GoogleImportRunRecord{},
+		googleImportRunDedupeIndex: map[string]string{},
 		outboxMessages:             map[string]OutboxMessageRecord{},
 		integrationCredentials:     map[string]IntegrationCredentialRecord{},
 		integrationCredentialIndex: map[string]string{},
@@ -161,6 +165,8 @@ func (s *InMemoryStore) snapshot() (sqliteStoreSnapshot, error) {
 		EmailLogs:                  s.emailLogs,
 		JobRuns:                    s.jobRuns,
 		JobRunDedupeIndex:          s.jobRunDedupeIndex,
+		GoogleImportRuns:           s.googleImportRuns,
+		GoogleImportRunDedupeIndex: s.googleImportRunDedupeIndex,
 		OutboxMessages:             s.outboxMessages,
 		IntegrationCredentials:     s.integrationCredentials,
 		IntegrationCredentialIndex: s.integrationCredentialIndex,
@@ -205,6 +211,8 @@ func (s *InMemoryStore) applySnapshot(snapshot sqliteStoreSnapshot) {
 	s.emailLogs = ensureEmailLogMap(snapshot.EmailLogs)
 	s.jobRuns = ensureJobRunMap(snapshot.JobRuns)
 	s.jobRunDedupeIndex = ensureStringMap(snapshot.JobRunDedupeIndex)
+	s.googleImportRuns = ensureGoogleImportRunMap(snapshot.GoogleImportRuns)
+	s.googleImportRunDedupeIndex = ensureStringMap(snapshot.GoogleImportRunDedupeIndex)
 	s.outboxMessages = ensureOutboxMessageMap(snapshot.OutboxMessages)
 	s.integrationCredentials = ensureIntegrationCredentialMap(snapshot.IntegrationCredentials)
 	s.integrationCredentialIndex = ensureStringMap(snapshot.IntegrationCredentialIndex)
@@ -294,6 +302,8 @@ func (s *InMemoryStore) Create(ctx context.Context, scope Scope, record Document
 	record.SourceModifiedTime = cloneTimePtr(record.SourceModifiedTime)
 	record.SourceExportedAt = cloneTimePtr(record.SourceExportedAt)
 	record.SourceExportedByUserID = normalizeID(record.SourceExportedByUserID)
+	record.SourceMimeType = strings.TrimSpace(record.SourceMimeType)
+	record.SourceIngestionMode = strings.TrimSpace(record.SourceIngestionMode)
 	record.TenantID = scope.TenantID
 	record.OrgID = scope.OrgID
 	record.CreatedAt = normalizeRecordTime(record.CreatedAt)
@@ -397,6 +407,8 @@ func (s *InMemoryStore) CreateDraft(ctx context.Context, scope Scope, record Agr
 	record.SourceModifiedTime = cloneTimePtr(record.SourceModifiedTime)
 	record.SourceExportedAt = cloneTimePtr(record.SourceExportedAt)
 	record.SourceExportedByUserID = normalizeID(record.SourceExportedByUserID)
+	record.SourceMimeType = strings.TrimSpace(record.SourceMimeType)
+	record.SourceIngestionMode = strings.TrimSpace(record.SourceIngestionMode)
 
 	if record.Status == "" {
 		record.Status = AgreementStatusDraft
@@ -532,13 +544,17 @@ func (s *InMemoryStore) CreateDraftSession(ctx context.Context, scope Scope, rec
 
 	key := scopedKey(scope, record.ID)
 	indexKey := draftWizardIndexKey(scope, record.CreatedByUserID, record.WizardID)
+	referenceNow := record.UpdatedAt.UTC()
+	if referenceNow.IsZero() {
+		referenceNow = time.Now().UTC()
+	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	if existingID, ok := s.draftWizardIndex[indexKey]; ok {
 		if existing, exists := s.drafts[scopedKey(scope, existingID)]; exists {
-			if !existing.ExpiresAt.IsZero() && existing.ExpiresAt.Before(time.Now().UTC()) {
+			if !existing.ExpiresAt.IsZero() && !existing.ExpiresAt.After(referenceNow) {
 				delete(s.drafts, scopedKey(scope, existingID))
 				delete(s.draftWizardIndex, indexKey)
 			} else {
@@ -2100,6 +2116,30 @@ func cloneJobRunRecord(record JobRunRecord) JobRunRecord {
 	return record
 }
 
+func cloneGoogleImportRunRecord(record GoogleImportRunRecord) GoogleImportRunRecord {
+	record.UserID = normalizeID(record.UserID)
+	record.GoogleFileID = strings.TrimSpace(record.GoogleFileID)
+	record.SourceVersionHint = strings.TrimSpace(record.SourceVersionHint)
+	record.DedupeKey = strings.TrimSpace(record.DedupeKey)
+	record.DocumentTitle = strings.TrimSpace(record.DocumentTitle)
+	record.AgreementTitle = strings.TrimSpace(record.AgreementTitle)
+	record.CreatedByUserID = normalizeID(record.CreatedByUserID)
+	record.CorrelationID = strings.TrimSpace(record.CorrelationID)
+	record.Status = strings.ToLower(strings.TrimSpace(record.Status))
+	record.DocumentID = normalizeID(record.DocumentID)
+	record.AgreementID = normalizeID(record.AgreementID)
+	record.SourceMimeType = strings.TrimSpace(record.SourceMimeType)
+	record.IngestionMode = strings.TrimSpace(record.IngestionMode)
+	record.ErrorCode = strings.TrimSpace(record.ErrorCode)
+	record.ErrorMessage = strings.TrimSpace(record.ErrorMessage)
+	record.ErrorDetailsJSON = strings.TrimSpace(record.ErrorDetailsJSON)
+	record.StartedAt = cloneTimePtr(record.StartedAt)
+	record.CompletedAt = cloneTimePtr(record.CompletedAt)
+	record.CreatedAt = normalizeRecordTime(record.CreatedAt)
+	record.UpdatedAt = normalizeRecordTime(record.UpdatedAt)
+	return record
+}
+
 func cloneOutboxMessageRecord(record OutboxMessageRecord) OutboxMessageRecord {
 	record.Topic = strings.TrimSpace(record.Topic)
 	record.MessageKey = strings.TrimSpace(record.MessageKey)
@@ -2111,9 +2151,15 @@ func cloneOutboxMessageRecord(record OutboxMessageRecord) OutboxMessageRecord {
 	record.LockedAt = cloneTimePtr(record.LockedAt)
 	record.LockedBy = strings.TrimSpace(record.LockedBy)
 	record.PublishedAt = cloneTimePtr(record.PublishedAt)
-	record.CreatedAt = normalizeRecordTime(record.CreatedAt)
-	record.UpdatedAt = normalizeRecordTime(record.UpdatedAt)
-	record.AvailableAt = normalizeRecordTime(record.AvailableAt)
+	if !record.CreatedAt.IsZero() {
+		record.CreatedAt = record.CreatedAt.UTC()
+	}
+	if !record.UpdatedAt.IsZero() {
+		record.UpdatedAt = record.UpdatedAt.UTC()
+	}
+	if !record.AvailableAt.IsZero() {
+		record.AvailableAt = record.AvailableAt.UTC()
+	}
 	return record
 }
 
@@ -2272,6 +2318,14 @@ func jobDedupeIndexKey(scope Scope, jobName, dedupeKey string) string {
 	}, "|")
 }
 
+func googleImportRunDedupeIndexKey(scope Scope, userID, dedupeKey string) string {
+	return strings.Join([]string{
+		scope.key(),
+		normalizeID(userID),
+		strings.TrimSpace(dedupeKey),
+	}, "|")
+}
+
 func integrationCredentialIndexKey(scope Scope, provider, userID string) string {
 	return strings.Join([]string{
 		scope.key(),
@@ -2306,6 +2360,18 @@ func integrationCheckpointIndexKey(scope Scope, runID, checkpointKey string) str
 }
 
 func parseDraftCursorOffset(raw string) int {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return 0
+	}
+	value, err := strconv.Atoi(raw)
+	if err != nil || value < 0 {
+		return 0
+	}
+	return value
+}
+
+func parseGoogleImportRunCursorOffset(raw string) int {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
 		return 0
@@ -2828,6 +2894,261 @@ func (s *InMemoryStore) ListJobRuns(ctx context.Context, scope Scope, agreementI
 	return out, nil
 }
 
+func (s *InMemoryStore) BeginGoogleImportRun(ctx context.Context, scope Scope, input GoogleImportRunInput) (GoogleImportRunRecord, bool, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return GoogleImportRunRecord{}, false, err
+	}
+	input.UserID = normalizeID(input.UserID)
+	input.GoogleFileID = strings.TrimSpace(input.GoogleFileID)
+	input.SourceVersionHint = strings.TrimSpace(input.SourceVersionHint)
+	input.DedupeKey = strings.TrimSpace(input.DedupeKey)
+	input.DocumentTitle = strings.TrimSpace(input.DocumentTitle)
+	input.AgreementTitle = strings.TrimSpace(input.AgreementTitle)
+	input.CreatedByUserID = normalizeID(input.CreatedByUserID)
+	input.CorrelationID = strings.TrimSpace(input.CorrelationID)
+	if input.UserID == "" {
+		return GoogleImportRunRecord{}, false, invalidRecordError("google_import_runs", "user_id", "required")
+	}
+	if input.GoogleFileID == "" {
+		return GoogleImportRunRecord{}, false, invalidRecordError("google_import_runs", "google_file_id", "required")
+	}
+	if input.DedupeKey == "" {
+		input.DedupeKey = strings.Join([]string{input.UserID, input.GoogleFileID, input.SourceVersionHint}, "|")
+	}
+	requestedAt := input.RequestedAt
+	if requestedAt.IsZero() {
+		requestedAt = time.Now().UTC()
+	}
+	requestedAt = requestedAt.UTC()
+	indexKey := googleImportRunDedupeIndexKey(scope, input.UserID, input.DedupeKey)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if existingID, exists := s.googleImportRunDedupeIndex[indexKey]; exists {
+		record, ok := s.googleImportRuns[scopedKey(scope, existingID)]
+		if !ok {
+			delete(s.googleImportRunDedupeIndex, indexKey)
+		} else {
+			return cloneGoogleImportRunRecord(record), false, nil
+		}
+	}
+
+	record := GoogleImportRunRecord{
+		ID:                uuid.NewString(),
+		TenantID:          scope.TenantID,
+		OrgID:             scope.OrgID,
+		UserID:            input.UserID,
+		GoogleFileID:      input.GoogleFileID,
+		SourceVersionHint: input.SourceVersionHint,
+		DedupeKey:         input.DedupeKey,
+		DocumentTitle:     input.DocumentTitle,
+		AgreementTitle:    input.AgreementTitle,
+		CreatedByUserID:   input.CreatedByUserID,
+		CorrelationID:     input.CorrelationID,
+		Status:            GoogleImportRunStatusQueued,
+		CreatedAt:         requestedAt,
+		UpdatedAt:         requestedAt,
+	}
+	record = cloneGoogleImportRunRecord(record)
+	s.googleImportRuns[scopedKey(scope, record.ID)] = record
+	s.googleImportRunDedupeIndex[indexKey] = record.ID
+	return cloneGoogleImportRunRecord(record), true, nil
+}
+
+func (s *InMemoryStore) MarkGoogleImportRunRunning(ctx context.Context, scope Scope, id string, startedAt time.Time) (GoogleImportRunRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return GoogleImportRunRecord{}, err
+	}
+	id = normalizeID(id)
+	if id == "" {
+		return GoogleImportRunRecord{}, invalidRecordError("google_import_runs", "id", "required")
+	}
+	if startedAt.IsZero() {
+		startedAt = time.Now().UTC()
+	}
+	startedAt = startedAt.UTC()
+
+	key := scopedKey(scope, id)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	record, ok := s.googleImportRuns[key]
+	if !ok {
+		return GoogleImportRunRecord{}, notFoundError("google_import_runs", id)
+	}
+	if record.Status == GoogleImportRunStatusSucceeded || record.Status == GoogleImportRunStatusFailed {
+		return cloneGoogleImportRunRecord(record), nil
+	}
+	record.Status = GoogleImportRunStatusRunning
+	record.StartedAt = cloneTimePtr(&startedAt)
+	record.UpdatedAt = startedAt
+	record = cloneGoogleImportRunRecord(record)
+	s.googleImportRuns[key] = record
+	return cloneGoogleImportRunRecord(record), nil
+}
+
+func (s *InMemoryStore) MarkGoogleImportRunSucceeded(ctx context.Context, scope Scope, id string, input GoogleImportRunSuccessInput) (GoogleImportRunRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return GoogleImportRunRecord{}, err
+	}
+	id = normalizeID(id)
+	if id == "" {
+		return GoogleImportRunRecord{}, invalidRecordError("google_import_runs", "id", "required")
+	}
+	completedAt := input.CompletedAt
+	if completedAt.IsZero() {
+		completedAt = time.Now().UTC()
+	}
+	completedAt = completedAt.UTC()
+	key := scopedKey(scope, id)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	record, ok := s.googleImportRuns[key]
+	if !ok {
+		return GoogleImportRunRecord{}, notFoundError("google_import_runs", id)
+	}
+	record.Status = GoogleImportRunStatusSucceeded
+	record.DocumentID = normalizeID(input.DocumentID)
+	record.AgreementID = normalizeID(input.AgreementID)
+	record.SourceMimeType = strings.TrimSpace(input.SourceMimeType)
+	record.IngestionMode = strings.TrimSpace(input.IngestionMode)
+	record.ErrorCode = ""
+	record.ErrorMessage = ""
+	record.ErrorDetailsJSON = ""
+	record.CompletedAt = cloneTimePtr(&completedAt)
+	if record.StartedAt == nil {
+		record.StartedAt = cloneTimePtr(&completedAt)
+	}
+	record.UpdatedAt = completedAt
+	record = cloneGoogleImportRunRecord(record)
+	s.googleImportRuns[key] = record
+	return cloneGoogleImportRunRecord(record), nil
+}
+
+func (s *InMemoryStore) MarkGoogleImportRunFailed(ctx context.Context, scope Scope, id string, input GoogleImportRunFailureInput) (GoogleImportRunRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return GoogleImportRunRecord{}, err
+	}
+	id = normalizeID(id)
+	if id == "" {
+		return GoogleImportRunRecord{}, invalidRecordError("google_import_runs", "id", "required")
+	}
+	completedAt := input.CompletedAt
+	if completedAt.IsZero() {
+		completedAt = time.Now().UTC()
+	}
+	completedAt = completedAt.UTC()
+	key := scopedKey(scope, id)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	record, ok := s.googleImportRuns[key]
+	if !ok {
+		return GoogleImportRunRecord{}, notFoundError("google_import_runs", id)
+	}
+	record.Status = GoogleImportRunStatusFailed
+	record.ErrorCode = strings.TrimSpace(input.ErrorCode)
+	record.ErrorMessage = strings.TrimSpace(input.ErrorMessage)
+	record.ErrorDetailsJSON = strings.TrimSpace(input.ErrorDetailsJSON)
+	record.CompletedAt = cloneTimePtr(&completedAt)
+	if record.StartedAt == nil {
+		record.StartedAt = cloneTimePtr(&completedAt)
+	}
+	record.UpdatedAt = completedAt
+	record = cloneGoogleImportRunRecord(record)
+	s.googleImportRuns[key] = record
+	return cloneGoogleImportRunRecord(record), nil
+}
+
+func (s *InMemoryStore) GetGoogleImportRun(ctx context.Context, scope Scope, id string) (GoogleImportRunRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return GoogleImportRunRecord{}, err
+	}
+	id = normalizeID(id)
+	if id == "" {
+		return GoogleImportRunRecord{}, invalidRecordError("google_import_runs", "id", "required")
+	}
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	record, ok := s.googleImportRuns[scopedKey(scope, id)]
+	if !ok {
+		return GoogleImportRunRecord{}, notFoundError("google_import_runs", id)
+	}
+	return cloneGoogleImportRunRecord(record), nil
+}
+
+func (s *InMemoryStore) ListGoogleImportRuns(ctx context.Context, scope Scope, query GoogleImportRunQuery) ([]GoogleImportRunRecord, string, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return nil, "", err
+	}
+	userID := normalizeID(query.UserID)
+	if userID == "" {
+		return nil, "", invalidRecordError("google_import_runs", "user_id", "required")
+	}
+	limit := query.Limit
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 50 {
+		limit = 50
+	}
+	offset := parseGoogleImportRunCursorOffset(query.Cursor)
+	if offset < 0 {
+		offset = 0
+	}
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make([]GoogleImportRunRecord, 0)
+	for _, record := range s.googleImportRuns {
+		if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
+			continue
+		}
+		if record.UserID != userID {
+			continue
+		}
+		out = append(out, cloneGoogleImportRunRecord(record))
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if query.SortDesc {
+			if out[i].UpdatedAt.Equal(out[j].UpdatedAt) {
+				return out[i].ID > out[j].ID
+			}
+			return out[i].UpdatedAt.After(out[j].UpdatedAt)
+		}
+		if out[i].UpdatedAt.Equal(out[j].UpdatedAt) {
+			return out[i].ID < out[j].ID
+		}
+		return out[i].UpdatedAt.Before(out[j].UpdatedAt)
+	})
+	if offset > len(out) {
+		offset = len(out)
+	}
+	end := offset + limit
+	if end > len(out) {
+		end = len(out)
+	}
+	page := out[offset:end]
+	nextCursor := ""
+	if end < len(out) {
+		nextCursor = strconv.Itoa(end)
+	}
+	return page, nextCursor, nil
+}
+
 func (s *InMemoryStore) EnqueueOutboxMessage(ctx context.Context, scope Scope, record OutboxMessageRecord) (OutboxMessageRecord, error) {
 	_ = ctx
 	scope, err := validateScope(scope)
@@ -2867,17 +3188,20 @@ func (s *InMemoryStore) EnqueueOutboxMessage(ctx context.Context, scope Scope, r
 		record.Status != OutboxMessageStatusFailed {
 		return OutboxMessageRecord{}, invalidRecordError("outbox_messages", "status", "invalid status")
 	}
-	record.CreatedAt = normalizeRecordTime(record.CreatedAt)
 	if record.CreatedAt.IsZero() {
 		record.CreatedAt = now
+	} else {
+		record.CreatedAt = record.CreatedAt.UTC()
 	}
-	record.UpdatedAt = normalizeRecordTime(record.UpdatedAt)
 	if record.UpdatedAt.IsZero() {
 		record.UpdatedAt = record.CreatedAt
+	} else {
+		record.UpdatedAt = record.UpdatedAt.UTC()
 	}
-	record.AvailableAt = normalizeRecordTime(record.AvailableAt)
 	if record.AvailableAt.IsZero() {
 		record.AvailableAt = record.CreatedAt
+	} else {
+		record.AvailableAt = record.AvailableAt.UTC()
 	}
 	record.LockedAt = cloneTimePtr(record.LockedAt)
 	record.PublishedAt = cloneTimePtr(record.PublishedAt)

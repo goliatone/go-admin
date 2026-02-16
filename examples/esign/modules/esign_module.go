@@ -226,15 +226,17 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 	)
 	emailProvider := jobs.EmailProviderFromEnv()
 	jobHandlers := jobs.NewHandlers(jobs.HandlerDependencies{
-		Agreements:    m.store,
-		Artifacts:     m.store,
-		JobRuns:       m.store,
-		EmailLogs:     m.store,
-		Audits:        m.store,
-		Tokens:        m.tokens,
-		Pipeline:      m.artifacts,
-		EmailProvider: emailProvider,
+		Agreements:       m.store,
+		Artifacts:        m.store,
+		JobRuns:          m.store,
+		GoogleImportRuns: m.store,
+		EmailLogs:        m.store,
+		Audits:           m.store,
+		Tokens:           m.tokens,
+		Pipeline:         m.artifacts,
+		EmailProvider:    emailProvider,
 	})
+	googleImportQueue := jobs.NewGoogleDriveImportQueue(jobHandlers)
 	emailWorkflow := jobs.NewAgreementWorkflow(jobHandlers)
 	m.agreements = services.NewAgreementService(m.store,
 		services.WithAgreementTokenService(m.tokens),
@@ -341,6 +343,10 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		}),
 		handlers.WithGoogleIntegrationEnabled(m.googleEnabled),
 		handlers.WithGoogleIntegrationService(m.google),
+		handlers.WithGoogleImportRunStore(m.store),
+		handlers.WithGoogleImportEnqueue(func(ctx context.Context, msg jobs.GoogleDriveImportMsg) error {
+			return googleImportQueue.Enqueue(ctx, msg)
+		}),
 		handlers.WithIntegrationFoundationService(m.integrations),
 	)
 	return nil

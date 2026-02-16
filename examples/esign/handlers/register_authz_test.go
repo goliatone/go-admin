@@ -43,11 +43,46 @@ type agreementStatsStub struct {
 	err     error
 }
 
+type statusFailingGoogleService struct {
+	err error
+}
+
 func (s agreementStatsStub) ListAgreements(context.Context, stores.Scope, stores.AgreementQuery) ([]stores.AgreementRecord, error) {
 	if s.err != nil {
 		return nil, s.err
 	}
 	return append([]stores.AgreementRecord{}, s.records...), nil
+}
+
+func (s statusFailingGoogleService) Connect(context.Context, stores.Scope, services.GoogleConnectInput) (services.GoogleOAuthStatus, error) {
+	return services.GoogleOAuthStatus{}, nil
+}
+
+func (s statusFailingGoogleService) Disconnect(context.Context, stores.Scope, string) error {
+	return nil
+}
+
+func (s statusFailingGoogleService) RotateCredentialEncryption(context.Context, stores.Scope, string) (services.GoogleOAuthStatus, error) {
+	return services.GoogleOAuthStatus{}, nil
+}
+
+func (s statusFailingGoogleService) Status(context.Context, stores.Scope, string) (services.GoogleOAuthStatus, error) {
+	if s.err != nil {
+		return services.GoogleOAuthStatus{}, s.err
+	}
+	return services.GoogleOAuthStatus{}, nil
+}
+
+func (s statusFailingGoogleService) SearchFiles(context.Context, stores.Scope, services.GoogleDriveQueryInput) (services.GoogleDriveListResult, error) {
+	return services.GoogleDriveListResult{}, nil
+}
+
+func (s statusFailingGoogleService) BrowseFiles(context.Context, stores.Scope, services.GoogleDriveQueryInput) (services.GoogleDriveListResult, error) {
+	return services.GoogleDriveListResult{}, nil
+}
+
+func (s statusFailingGoogleService) ImportDocument(context.Context, stores.Scope, services.GoogleImportInput) (services.GoogleImportResult, error) {
+	return services.GoogleImportResult{}, nil
 }
 
 type sharedDriveEdgeProvider struct {
@@ -139,6 +174,15 @@ func (p *sharedDriveEdgeProvider) BrowseFiles(_ context.Context, _ string, folde
 	return services.GoogleDriveListResult{Files: out}, nil
 }
 
+func (p *sharedDriveEdgeProvider) GetFile(_ context.Context, _ string, fileID string) (services.GoogleDriveFile, error) {
+	fileID = strings.TrimSpace(fileID)
+	file, ok := p.files[fileID]
+	if !ok {
+		return services.GoogleDriveFile{}, services.NewGoogleProviderError(services.GoogleProviderErrorPermissionDenied, "google file not found", map[string]any{"file_id": fileID})
+	}
+	return file, nil
+}
+
 func (p *sharedDriveEdgeProvider) ExportFilePDF(_ context.Context, _ string, fileID string) (services.GoogleExportSnapshot, error) {
 	fileID = strings.TrimSpace(fileID)
 	file, ok := p.files[fileID]
@@ -147,6 +191,19 @@ func (p *sharedDriveEdgeProvider) ExportFilePDF(_ context.Context, _ string, fil
 	}
 	if p.denyExport[fileID] {
 		return services.GoogleExportSnapshot{}, services.NewGoogleProviderError(services.GoogleProviderErrorPermissionDenied, "permission denied for shared drive export", map[string]any{"file_id": fileID})
+	}
+	pdf := append([]byte{}, p.pdfByID[fileID]...)
+	return services.GoogleExportSnapshot{File: file, PDF: pdf}, nil
+}
+
+func (p *sharedDriveEdgeProvider) DownloadFilePDF(_ context.Context, _ string, fileID string) (services.GoogleExportSnapshot, error) {
+	fileID = strings.TrimSpace(fileID)
+	file, ok := p.files[fileID]
+	if !ok {
+		return services.GoogleExportSnapshot{}, services.NewGoogleProviderError(services.GoogleProviderErrorPermissionDenied, "google file not found", map[string]any{"file_id": fileID})
+	}
+	if !strings.EqualFold(strings.TrimSpace(file.MimeType), services.GoogleDriveMimeTypePDF) {
+		return services.GoogleExportSnapshot{}, services.NewGoogleProviderError(services.GoogleProviderErrorPermissionDenied, "google file is not a PDF", map[string]any{"file_id": fileID})
 	}
 	pdf := append([]byte{}, p.pdfByID[fileID]...)
 	return services.GoogleExportSnapshot{File: file, PDF: pdf}, nil
@@ -1441,11 +1498,35 @@ func TestRegisterGoogleOAuthConnectAndStatusEndpoints(t *testing.T) {
 		t.Fatalf("expected status 200, got %d body=%s", statusResp.StatusCode, string(body))
 	}
 	statusBody, _ := io.ReadAll(statusResp.Body)
-	if !strings.Contains(string(statusBody), `"LeastPrivilege":true`) {
+	if !strings.Contains(string(statusBody), `"least_privilege":true`) {
 		t.Fatalf("expected least-privilege marker in status response, got %s", string(statusBody))
 	}
 	if !strings.Contains(string(statusBody), services.GoogleScopeDriveReadonly) {
 		t.Fatalf("expected drive readonly scope in status response, got %s", string(statusBody))
+	}
+}
+
+func TestRegisterGoogleOAuthStatusUnexpectedErrorReturnsInternalServerError(t *testing.T) {
+	app := setupRegisterTestApp(t,
+		WithAuthorizer(mapAuthorizer{allowed: map[string]bool{DefaultPermissions.AdminSettings: true}}),
+		WithGoogleIntegrationEnabled(true),
+		WithGoogleIntegrationService(statusFailingGoogleService{err: fmt.Errorf("status lookup failed")}),
+		WithDefaultScope(stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}),
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign/integrations/google/status?user_id=ops-user", nil)
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("status request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusInternalServerError {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected status 500, got %d body=%s", resp.StatusCode, string(body))
+	}
+	body, _ := io.ReadAll(resp.Body)
+	if !strings.Contains(string(body), "GOOGLE_STATUS_UNAVAILABLE") {
+		t.Fatalf("expected GOOGLE_STATUS_UNAVAILABLE code, got %s", string(body))
 	}
 }
 

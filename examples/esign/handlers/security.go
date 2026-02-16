@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	coreadmin "github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/examples/esign/jobs"
 	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/permissions"
 	"github.com/goliatone/go-admin/examples/esign/services"
@@ -45,28 +46,30 @@ var DefaultPermissions = Permissions{
 }
 
 type registerConfig struct {
-	authorizer         coreadmin.Authorizer
-	adminRouteAuth     router.MiddlewareFunc
-	tokenValidator     SignerTokenValidator
-	signerSession      SignerSessionService
-	signerAssets       SignerAssetContractService
-	agreementDelivery  AgreementDeliveryService
-	agreementAuthoring AgreementAuthoringService
-	drafts             DraftWorkflowService
-	objectStore        SignerObjectStore
-	agreements         AgreementStatsService
-	auditEvents        stores.AuditEventStore
-	google             GoogleIntegrationService
-	integration        IntegrationFoundationService
-	googleEnabled      bool
-	documentUpload     router.HandlerFunc
-	permissions        Permissions
-	defaultScope       stores.Scope
-	scopeResolver      ScopeResolver
-	actorScope         ActorScopeResolver
-	transportGuard     TransportGuard
-	rateLimiter        RequestRateLimiter
-	securityLogEvent   SecurityLogEvent
+	authorizer          coreadmin.Authorizer
+	adminRouteAuth      router.MiddlewareFunc
+	tokenValidator      SignerTokenValidator
+	signerSession       SignerSessionService
+	signerAssets        SignerAssetContractService
+	agreementDelivery   AgreementDeliveryService
+	agreementAuthoring  AgreementAuthoringService
+	drafts              DraftWorkflowService
+	objectStore         SignerObjectStore
+	agreements          AgreementStatsService
+	auditEvents         stores.AuditEventStore
+	google              GoogleIntegrationService
+	googleImportRuns    stores.GoogleImportRunStore
+	googleImportEnqueue GoogleImportEnqueueFunc
+	integration         IntegrationFoundationService
+	googleEnabled       bool
+	documentUpload      router.HandlerFunc
+	permissions         Permissions
+	defaultScope        stores.Scope
+	scopeResolver       ScopeResolver
+	actorScope          ActorScopeResolver
+	transportGuard      TransportGuard
+	rateLimiter         RequestRateLimiter
+	securityLogEvent    SecurityLogEvent
 }
 
 func defaultRegisterConfig() registerConfig {
@@ -182,6 +185,9 @@ type IntegrationFoundationService interface {
 	ApplyInbound(ctx context.Context, scope stores.Scope, input services.InboundApplyInput) (services.InboundApplyResult, error)
 	EmitOutboundChange(ctx context.Context, scope stores.Scope, input services.OutboundChangeInput) (stores.IntegrationChangeEventRecord, bool, error)
 }
+
+// GoogleImportEnqueueFunc enqueues async Google Drive import jobs.
+type GoogleImportEnqueueFunc func(ctx context.Context, msg jobs.GoogleDriveImportMsg) error
 
 // ScopeResolver resolves tenant/org scope from request context.
 type ScopeResolver func(c router.Context, fallback stores.Scope) stores.Scope
@@ -332,6 +338,26 @@ func WithGoogleIntegrationService(service GoogleIntegrationService) RegisterOpti
 			return
 		}
 		cfg.google = service
+	}
+}
+
+// WithGoogleImportRunStore configures async import-run persistence.
+func WithGoogleImportRunStore(store stores.GoogleImportRunStore) RegisterOption {
+	return func(cfg *registerConfig) {
+		if cfg == nil {
+			return
+		}
+		cfg.googleImportRuns = store
+	}
+}
+
+// WithGoogleImportEnqueue configures async Google import job enqueue behavior.
+func WithGoogleImportEnqueue(fn GoogleImportEnqueueFunc) RegisterOption {
+	return func(cfg *registerConfig) {
+		if cfg == nil {
+			return
+		}
+		cfg.googleImportEnqueue = fn
 	}
 }
 

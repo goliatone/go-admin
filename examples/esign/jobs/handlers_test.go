@@ -453,21 +453,34 @@ func TestExecuteGoogleDriveImportJobPersistsSourceMetadata(t *testing.T) {
 	}
 
 	handlers := NewHandlers(HandlerDependencies{
-		Agreements:     store,
-		Artifacts:      store,
-		JobRuns:        store,
-		EmailLogs:      store,
-		Audits:         store,
-		Pipeline:       newTestArtifactPipeline(t, store),
-		GoogleImporter: google,
+		Agreements:       store,
+		Artifacts:        store,
+		JobRuns:          store,
+		GoogleImportRuns: store,
+		EmailLogs:        store,
+		Audits:           store,
+		Pipeline:         newTestArtifactPipeline(t, store),
+		GoogleImporter:   google,
 	})
+	run, _, err := store.BeginGoogleImportRun(ctx, scope, stores.GoogleImportRunInput{
+		UserID:            "ops-user",
+		GoogleFileID:      "google-file-1",
+		SourceVersionHint: "v1",
+		DedupeKey:         "ops-user|google-file-1|v1",
+		RequestedAt:       time.Now().UTC(),
+	})
+	if err != nil {
+		t.Fatalf("BeginGoogleImportRun: %v", err)
+	}
 	result, err := handlers.ExecuteGoogleDriveImport(ctx, GoogleDriveImportMsg{
-		Scope:          scope,
-		UserID:         "ops-user",
-		GoogleFileID:   "google-file-1",
-		DocumentTitle:  "Imported Google NDA",
-		AgreementTitle: "Imported Google NDA Agreement",
-		CorrelationID:  "corr-google-import-1",
+		Scope:             scope,
+		ImportRunID:       run.ID,
+		UserID:            "ops-user",
+		GoogleFileID:      "google-file-1",
+		SourceVersionHint: "v1",
+		DocumentTitle:     "Imported Google NDA",
+		AgreementTitle:    "Imported Google NDA Agreement",
+		CorrelationID:     "corr-google-import-1",
 	})
 	if err != nil {
 		t.Fatalf("ExecuteGoogleDriveImport: %v", err)
@@ -478,8 +491,18 @@ func TestExecuteGoogleDriveImportJobPersistsSourceMetadata(t *testing.T) {
 	if result.Agreement.SourceGoogleFileID != "google-file-1" {
 		t.Fatalf("expected source_google_file_id on agreement, got %q", result.Agreement.SourceGoogleFileID)
 	}
+	importRun, err := store.GetGoogleImportRun(ctx, scope, run.ID)
+	if err != nil {
+		t.Fatalf("GetGoogleImportRun: %v", err)
+	}
+	if importRun.Status != stores.GoogleImportRunStatusSucceeded {
+		t.Fatalf("expected import run succeeded, got %+v", importRun)
+	}
+	if importRun.SourceMimeType == "" || importRun.IngestionMode == "" {
+		t.Fatalf("expected import diagnostics metadata on run, got %+v", importRun)
+	}
 
-	jobRun, err := store.GetJobRunByDedupe(ctx, scope, JobGoogleDriveImport, "ops-user|google-file-1")
+	jobRun, err := store.GetJobRunByDedupe(ctx, scope, JobGoogleDriveImport, "ops-user|google-file-1|v1")
 	if err != nil {
 		t.Fatalf("GetJobRunByDedupe google import: %v", err)
 	}

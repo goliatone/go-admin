@@ -361,6 +361,23 @@ func (r *agreementPanelRepository) Create(ctx context.Context, record map[string
 	if err != nil {
 		return nil, err
 	}
+	if shouldSendForSignature(record) {
+		sent, err := r.service.Send(ctx, scope, created.ID, services.SendInput{
+			IdempotencyKey: resolveSendIdempotencyKey(record, created.ID),
+		})
+		if err != nil {
+			return nil, err
+		}
+		recipients, err = r.agreements.ListRecipients(ctx, scope, sent.ID)
+		if err != nil {
+			return nil, err
+		}
+		fields, err = r.agreements.ListFields(ctx, scope, sent.ID)
+		if err != nil {
+			return nil, err
+		}
+		return agreementRecordToMap(sent, recipients, fields, nil, services.AgreementDeliveryDetail{}), nil
+	}
 	return agreementRecordToMap(created, recipients, fields, nil, services.AgreementDeliveryDetail{}), nil
 }
 
@@ -393,6 +410,23 @@ func (r *agreementPanelRepository) Update(ctx context.Context, id string, record
 	recipients, fields, err := r.syncDraftFormPayload(ctx, scope, updated.ID, record)
 	if err != nil {
 		return nil, err
+	}
+	if shouldSendForSignature(record) {
+		sent, err := r.service.Send(ctx, scope, updated.ID, services.SendInput{
+			IdempotencyKey: resolveSendIdempotencyKey(record, updated.ID),
+		})
+		if err != nil {
+			return nil, err
+		}
+		recipients, err = r.agreements.ListRecipients(ctx, scope, sent.ID)
+		if err != nil {
+			return nil, err
+		}
+		fields, err = r.agreements.ListFields(ctx, scope, sent.ID)
+		if err != nil {
+			return nil, err
+		}
+		return agreementRecordToMap(sent, recipients, fields, nil, services.AgreementDeliveryDetail{}), nil
 	}
 	return agreementRecordToMap(updated, recipients, fields, nil, services.AgreementDeliveryDetail{}), nil
 }
@@ -1410,6 +1444,21 @@ func toBool(value any) bool {
 	default:
 		return toInt64(value) > 0
 	}
+}
+
+func shouldSendForSignature(record map[string]any) bool {
+	return toBool(record["send_for_signature"])
+}
+
+func resolveSendIdempotencyKey(record map[string]any, agreementID string) string {
+	if key := strings.TrimSpace(toString(record["send_idempotency_key"])); key != "" {
+		return key
+	}
+	agreementID = strings.TrimSpace(agreementID)
+	if agreementID == "" {
+		agreementID = "agreement"
+	}
+	return fmt.Sprintf("wizard_send_%s_%d", agreementID, time.Now().UTC().UnixNano())
 }
 
 func lookupFilter(filters map[string]any, keys ...string) string {

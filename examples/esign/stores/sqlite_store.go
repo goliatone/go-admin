@@ -59,6 +59,8 @@ type sqliteStoreSnapshot struct {
 	EmailLogs                  map[string]EmailLogRecord               `json:"email_logs"`
 	JobRuns                    map[string]JobRunRecord                 `json:"job_runs"`
 	JobRunDedupeIndex          map[string]string                       `json:"job_run_dedupe_index"`
+	GoogleImportRuns           map[string]GoogleImportRunRecord        `json:"google_import_runs"`
+	GoogleImportRunDedupeIndex map[string]string                       `json:"google_import_run_dedupe_index"`
 	OutboxMessages             map[string]OutboxMessageRecord          `json:"outbox_messages"`
 	IntegrationCredentials     map[string]IntegrationCredentialRecord  `json:"integration_credentials"`
 	IntegrationCredentialIndex map[string]string                       `json:"integration_credential_index"`
@@ -188,6 +190,8 @@ func loadSQLiteSnapshot(ctx context.Context, db *sql.DB) (*InMemoryStore, error)
 	mem.emailLogs = ensureEmailLogMap(snapshot.EmailLogs)
 	mem.jobRuns = ensureJobRunMap(snapshot.JobRuns)
 	mem.jobRunDedupeIndex = ensureStringMap(snapshot.JobRunDedupeIndex)
+	mem.googleImportRuns = ensureGoogleImportRunMap(snapshot.GoogleImportRuns)
+	mem.googleImportRunDedupeIndex = ensureStringMap(snapshot.GoogleImportRunDedupeIndex)
 	mem.outboxMessages = ensureOutboxMessageMap(snapshot.OutboxMessages)
 	mem.integrationCredentials = ensureIntegrationCredentialMap(snapshot.IntegrationCredentials)
 	mem.integrationCredentialIndex = ensureStringMap(snapshot.IntegrationCredentialIndex)
@@ -247,6 +251,8 @@ func (s *SQLiteStore) persist(ctx context.Context) error {
 		EmailLogs:                  maps.Clone(s.emailLogs),
 		JobRuns:                    maps.Clone(s.jobRuns),
 		JobRunDedupeIndex:          maps.Clone(s.jobRunDedupeIndex),
+		GoogleImportRuns:           maps.Clone(s.googleImportRuns),
+		GoogleImportRunDedupeIndex: maps.Clone(s.googleImportRunDedupeIndex),
 		OutboxMessages:             maps.Clone(s.outboxMessages),
 		IntegrationCredentials:     maps.Clone(s.integrationCredentials),
 		IntegrationCredentialIndex: maps.Clone(s.integrationCredentialIndex),
@@ -795,6 +801,58 @@ func (s *SQLiteStore) MarkJobRunFailed(ctx context.Context, scope Scope, id, fai
 	return out, nil
 }
 
+func (s *SQLiteStore) BeginGoogleImportRun(ctx context.Context, scope Scope, input GoogleImportRunInput) (GoogleImportRunRecord, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	record, created, err := s.InMemoryStore.BeginGoogleImportRun(ctx, scope, input)
+	if err != nil {
+		return GoogleImportRunRecord{}, false, err
+	}
+	if err := s.persistMaybe(ctx); err != nil {
+		return GoogleImportRunRecord{}, false, err
+	}
+	return record, created, nil
+}
+
+func (s *SQLiteStore) MarkGoogleImportRunRunning(ctx context.Context, scope Scope, id string, startedAt time.Time) (GoogleImportRunRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.MarkGoogleImportRunRunning(ctx, scope, id, startedAt)
+	if err != nil {
+		return GoogleImportRunRecord{}, err
+	}
+	if err := s.persistMaybe(ctx); err != nil {
+		return GoogleImportRunRecord{}, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) MarkGoogleImportRunSucceeded(ctx context.Context, scope Scope, id string, input GoogleImportRunSuccessInput) (GoogleImportRunRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.MarkGoogleImportRunSucceeded(ctx, scope, id, input)
+	if err != nil {
+		return GoogleImportRunRecord{}, err
+	}
+	if err := s.persistMaybe(ctx); err != nil {
+		return GoogleImportRunRecord{}, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) MarkGoogleImportRunFailed(ctx context.Context, scope Scope, id string, input GoogleImportRunFailureInput) (GoogleImportRunRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.MarkGoogleImportRunFailed(ctx, scope, id, input)
+	if err != nil {
+		return GoogleImportRunRecord{}, err
+	}
+	if err := s.persistMaybe(ctx); err != nil {
+		return GoogleImportRunRecord{}, err
+	}
+	return out, nil
+}
+
 func (s *SQLiteStore) EnqueueOutboxMessage(ctx context.Context, scope Scope, record OutboxMessageRecord) (OutboxMessageRecord, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -1119,6 +1177,13 @@ func ensureEmailLogMap(in map[string]EmailLogRecord) map[string]EmailLogRecord {
 func ensureJobRunMap(in map[string]JobRunRecord) map[string]JobRunRecord {
 	if in == nil {
 		return map[string]JobRunRecord{}
+	}
+	return in
+}
+
+func ensureGoogleImportRunMap(in map[string]GoogleImportRunRecord) map[string]GoogleImportRunRecord {
+	if in == nil {
+		return map[string]GoogleImportRunRecord{}
 	}
 	return in
 }
