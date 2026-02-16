@@ -172,7 +172,7 @@ func newViewEngineConfig(baseFS fs.FS, opts ...ViewEngineOption) (*viewEngineCon
 
 	options := viewEngineOptions{
 		reload: true,
-		debug:  true,
+		debug:  false,
 		embed:  true,
 		ext:    ".html",
 	}
