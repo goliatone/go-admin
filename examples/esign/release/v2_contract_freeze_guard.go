@@ -94,4 +94,3 @@ func FormatV2FreezeDate(value string) (string, error) {
 	}
 	return parsed.Format(v2ContractFreezeDateLayout), nil
 }
-

@@ -76,16 +76,16 @@ type V2IntegrationSummary struct {
 
 // V2ValidationResult captures v2 production-hardening validation profile outcomes.
 type V2ValidationResult struct {
-	AgreementCount      int                            `json:"agreement_count"`
-	IntegrationRunCount int                            `json:"integration_run_count"`
-	Elapsed             time.Duration                  `json:"elapsed"`
-	Snapshot            observability.MetricsSnapshot  `json:"snapshot"`
-	SLO                 observability.SLOStatus        `json:"slo"`
-	Alerts              []observability.Alert          `json:"alerts"`
-	V2Alerts            []observability.Alert          `json:"v2_alerts"`
-	V2SLO               V2SLOStatus                    `json:"v2_slo"`
-	Scenario            V2ScenarioSummary              `json:"scenario"`
-	Integration         V2IntegrationSummary           `json:"integration"`
+	AgreementCount      int                           `json:"agreement_count"`
+	IntegrationRunCount int                           `json:"integration_run_count"`
+	Elapsed             time.Duration                 `json:"elapsed"`
+	Snapshot            observability.MetricsSnapshot `json:"snapshot"`
+	SLO                 observability.SLOStatus       `json:"slo"`
+	Alerts              []observability.Alert         `json:"alerts"`
+	V2Alerts            []observability.Alert         `json:"v2_alerts"`
+	V2SLO               V2SLOStatus                   `json:"v2_slo"`
+	Scenario            V2ScenarioSummary             `json:"scenario"`
+	Integration         V2IntegrationSummary          `json:"integration"`
 }
 
 func (cfg V2ValidationConfig) normalize() V2ValidationConfig {
@@ -244,11 +244,11 @@ func EvaluateV2Alerts(snapshot observability.MetricsSnapshot, integration V2Inte
 			Severity: "warning",
 			Message:  "v2 integration sync lag p95 above threshold",
 			Metadata: map[string]any{
-				"actual_ms":        integration.SyncRunLagP95MS,
-				"threshold_ms":     ThresholdV2IntegrationSyncLagP95MS,
+				"actual_ms":         integration.SyncRunLagP95MS,
+				"threshold_ms":      ThresholdV2IntegrationSyncLagP95MS,
 				"sync_runs_started": integration.SyncRunsStarted,
-				"slo_managed":      true,
-				"v2_gate":          true,
+				"slo_managed":       true,
+				"v2_gate":           true,
 			},
 		})
 	}
@@ -258,12 +258,12 @@ func EvaluateV2Alerts(snapshot observability.MetricsSnapshot, integration V2Inte
 			Severity: "critical",
 			Message:  "v2 integration conflict backlog above threshold",
 			Metadata: map[string]any{
-				"actual_count":      integration.ConflictBacklog,
-				"threshold_count":   int(ThresholdV2IntegrationConflictBacklogTotal),
+				"actual_count":       integration.ConflictBacklog,
+				"threshold_count":    int(ThresholdV2IntegrationConflictBacklogTotal),
 				"conflicts_detected": integration.ConflictsDetected,
 				"conflicts_resolved": integration.ConflictsResolved,
-				"slo_managed":       true,
-				"v2_gate":           true,
+				"slo_managed":        true,
+				"v2_gate":            true,
 			},
 		})
 	}
