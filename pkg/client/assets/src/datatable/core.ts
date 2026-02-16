@@ -1772,6 +1772,15 @@ export class DataGrid {
     const { signal } = this.dropdownAbortController;
 
     // Existing dropdown toggles (column visibility, export, etc.)
+    // Defensive: ensure all dropdown menus start hidden
+    document.querySelectorAll('[data-dropdown-toggle]').forEach((toggle) => {
+      const targetId = (toggle as HTMLElement).dataset.dropdownToggle;
+      const target = document.getElementById(targetId || '');
+      if (target && !target.classList.contains('hidden')) {
+        target.classList.add('hidden');
+      }
+    });
+
     document.querySelectorAll('[data-dropdown-toggle]').forEach((toggle) => {
       toggle.addEventListener('click', (e) => {
         e.stopPropagation();

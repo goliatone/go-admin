@@ -3431,6 +3431,9 @@ class nn {
     this.dropdownAbortController && this.dropdownAbortController.abort(), this.dropdownAbortController = new AbortController();
     const { signal: e } = this.dropdownAbortController;
     document.querySelectorAll("[data-dropdown-toggle]").forEach((t) => {
+      const r = t.dataset.dropdownToggle, n = document.getElementById(r || "");
+      n && !n.classList.contains("hidden") && n.classList.add("hidden");
+    }), document.querySelectorAll("[data-dropdown-toggle]").forEach((t) => {
       t.addEventListener("click", (r) => {
         r.stopPropagation();
         const n = t.dataset.dropdownToggle, o = document.getElementById(n || "");

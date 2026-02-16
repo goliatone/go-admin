@@ -809,12 +809,6 @@
   @apply bg-gray-100;
 }
 
-/* Column toggle menu container - use flex so list shrinks to content */
-/* Only apply flex when menu is visible (not hidden) to preserve hidden class behavior */
-#column-toggle-menu:not(.hidden) {
-  @apply flex flex-col;
-}
-
 /* Column manager header with search and count */
 .column-manager-header {
   @apply flex items-center gap-2 p-2;
