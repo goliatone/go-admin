@@ -9,7 +9,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/goliatone/go-admin/quickstart v0.0.0-00010101000000-000000000000
 	github.com/goliatone/go-auth v0.31.0
-	github.com/goliatone/go-auth/adapters/featuregate v0.30.0
+	github.com/goliatone/go-auth/adapters/featuregate v0.31.0
 	github.com/goliatone/go-cms v0.36.0
 	github.com/goliatone/go-command v0.13.0
 	github.com/goliatone/go-crud v0.21.1
@@ -24,10 +24,10 @@ require (
 	github.com/goliatone/go-logger v0.8.0
 	github.com/goliatone/go-masker v0.1.0
 	github.com/goliatone/go-notifications v0.12.0
-	github.com/goliatone/go-options v0.7.0
+	github.com/goliatone/go-options v0.7.1
 	github.com/goliatone/go-persistence-bun v0.10.0
-	github.com/goliatone/go-repository-bun v0.14.0
-	github.com/goliatone/go-router v0.49.0
+	github.com/goliatone/go-repository-bun v0.15.0
+	github.com/goliatone/go-router v0.50.0
 	github.com/goliatone/go-template v0.3.1
 	github.com/goliatone/go-theme v0.3.0
 	github.com/goliatone/go-uploader v0.3.0
@@ -85,7 +85,7 @@ require (
 	github.com/dop251/goja_nodejs v0.0.0-20251015164255-5e94316bedaf // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/ettle/strcase v0.2.0 // indirect
-	github.com/expr-lang/expr v1.17.6 // indirect
+	github.com/expr-lang/expr v1.17.7 // indirect
 	github.com/fasthttp/websocket v1.5.12 // indirect
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/fatih/structs v1.1.0 // indirect
@@ -114,7 +114,8 @@ require (
 	github.com/goliatone/go-config v0.8.0 // indirect
 	github.com/goliatone/go-export/adapters/template/go-template v0.7.0 // indirect
 	github.com/goliatone/go-print v0.4.1 // indirect
-	github.com/goliatone/go-repository-cache v0.6.0 // indirect
+	github.com/goliatone/go-repository-cache v0.7.0 // indirect
+	github.com/goliatone/go-services v0.0.0-20260215233704-2ba8a29f2c27
 	github.com/goliatone/go-slug v0.1.0 // indirect
 	github.com/goodsign/monday v1.0.2 // indirect
 	github.com/google/cel-go v0.26.1 // indirect
@@ -205,3 +206,5 @@ require (
 replace github.com/goliatone/go-admin/quickstart => ./quickstart
 
 replace github.com/goliatone/go-router => ../go-router
+
+replace github.com/goliatone/go-services => ../go-services
