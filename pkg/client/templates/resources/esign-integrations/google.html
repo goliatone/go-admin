@@ -276,7 +276,7 @@
         <h4 class="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Required Permissions</h4>
         <ul class="text-xs text-gray-500 space-y-1">
           <li><code class="px-1 py-0.5 bg-gray-200 rounded">drive.readonly</code> - Read access to your Drive files</li>
-          <li><code class="px-1 py-0.5 bg-gray-200 rounded">drive.file</code> - Access to files you open with this app</li>
+          <li><code class="px-1 py-0.5 bg-gray-200 rounded">userinfo.email</code> - Read your Google account email address</li>
         </ul>
       </div>
     </div>
@@ -455,8 +455,10 @@ document.addEventListener('DOMContentLoaded', function() {
   function formatScope(scope) {
     const scopeDescriptions = {
       'https://www.googleapis.com/auth/drive.readonly': { label: 'Drive (Read Only)', description: 'View files in your Google Drive' },
+      'https://www.googleapis.com/auth/userinfo.email': { label: 'Account Email', description: 'Read your Google account email address' },
       'https://www.googleapis.com/auth/drive.file': { label: 'Drive (App Files)', description: 'Access files opened with this app' },
       'drive.readonly': { label: 'Drive (Read Only)', description: 'View files in your Google Drive' },
+      'userinfo.email': { label: 'Account Email', description: 'Read your Google account email address' },
       'drive.file': { label: 'Drive (App Files)', description: 'Access files opened with this app' },
     };
     return scopeDescriptions[scope] || { label: scope, description: '' };
@@ -717,7 +719,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const clientId = '{{ google_client_id|default:"" }}';
     const scopes = [
       'https://www.googleapis.com/auth/drive.readonly',
-      'https://www.googleapis.com/auth/drive.file'
+      'https://www.googleapis.com/auth/userinfo.email'
     ].join(' ');
 
     if (!clientId) {
