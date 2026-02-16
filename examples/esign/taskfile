@@ -85,9 +85,6 @@ function dev:serve {
     export ADMIN_PUBLIC_API=true;
     export ADMIN_API_VERSION=v1;
     export ESIGN_FEATURE_ENABLED=true;
-    export ESIGN_GOOGLE_FEATURE_ENABLED=true;
-    export ESIGN_GOOGLE_PROVIDER_MODE=deterministic;
-    export ESIGN_GOOGLE_CREDENTIAL_ACTIVE_KEY="eSjaEfrhedRicmBvaHHGrPWwVetQ35yf0mLG3VZ6K/4=";
     export ESIGN_EMAIL_TRANSPORT=mailpit;
     export ESIGN_EMAIL_SMTP_HOST=localhost;
     export ESIGN_SIGNER_FLOW_MODE=unified;
@@ -95,6 +92,15 @@ function dev:serve {
     export ESIGN_EMAIL_SMTP_DISABLE_STARTTLS=true;
     export ESIGN_EMAIL_SMTP_USERNAME=User1;
     export ESIGN_EMAIL_SMTP_PASSWORD=Password1;
+
+
+    export ESIGN_GOOGLE_FEATURE_ENABLED=true;
+    export ESIGN_SERVICES_MODULE_ENABLED=true;
+    export ESIGN_GOOGLE_PROVIDER_MODE=real;
+    export ESIGN_GOOGLE_CLIENT_ID="${APP_PROVIDERS__GOOGLE__CLIENT_ID}";
+    export ESIGN_GOOGLE_CLIENT_SECRET="${APP_PROVIDERS__GOOGLE__CLIENT_SECRET}";
+    export ESIGN_SERVICES_ENCRYPTION_KEY="$(openssl rand -base64 32)";
+
 
     #TODO: remove when we fix go-admin
     export ADMIN_ROUTE_CONFLICT_POLICY="log_and_continue";

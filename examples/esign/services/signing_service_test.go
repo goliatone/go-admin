@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -25,6 +26,41 @@ func (c *capturingCompletionWorkflow) RunCompletionWorkflow(_ context.Context, _
 	c.agreementIDs = append(c.agreementIDs, strings.TrimSpace(agreementID))
 	c.correlations = append(c.correlations, strings.TrimSpace(correlationID))
 	return nil
+}
+
+type agreementStatusCheckingCompletionWorkflow struct {
+	store  stores.AgreementStore
+	calls  int
+	status string
+}
+
+func (c *agreementStatusCheckingCompletionWorkflow) RunCompletionWorkflow(ctx context.Context, scope stores.Scope, agreementID, _ string) error {
+	c.calls++
+	if c.store == nil {
+		return nil
+	}
+	agreement, err := c.store.GetAgreement(ctx, scope, strings.TrimSpace(agreementID))
+	if err != nil {
+		return err
+	}
+	c.status = strings.TrimSpace(agreement.Status)
+	if c.status != stores.AgreementStatusCompleted {
+		return fmt.Errorf("completion workflow requires completed agreement, got %q", c.status)
+	}
+	return nil
+}
+
+type failingCompletionWorkflow struct {
+	calls int
+	err   error
+}
+
+func (c *failingCompletionWorkflow) RunCompletionWorkflow(_ context.Context, _ stores.Scope, _ string, _ string) error {
+	c.calls++
+	if c.err != nil {
+		return c.err
+	}
+	return fmt.Errorf("completion workflow unavailable")
 }
 
 func anyToString(value any) string {
@@ -1714,6 +1750,133 @@ func TestSigningServiceSubmitTriggersCompletionWorkflowOnFinalSigner(t *testing.
 	}
 	if len(completionFlow.correlations) != 1 || completionFlow.correlations[0] != "submit-trigger-key-1" {
 		t.Fatalf("expected workflow correlation id submit-trigger-key-1, got %+v", completionFlow.correlations)
+	}
+}
+
+func TestSigningServiceSubmitCompletionWorkflowSeesCommittedAgreementStatus(t *testing.T) {
+	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
+
+	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("signer@example.com"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: intPtr(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer: %v", err)
+	}
+	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        stringPtr(stores.FieldTypeSignature),
+		PageNumber:  intPtr(1),
+		Required:    boolPtr(true),
+	})
+	if err != nil {
+		t.Fatalf("UpsertFieldDraft signature: %v", err)
+	}
+	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase5-submit-commit-order"}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+
+	completionFlow := &agreementStatusCheckingCompletionWorkflow{store: store}
+	signingSvc := NewSigningService(store, WithSigningCompletionWorkflow(completionFlow))
+	token := stores.SigningTokenRecord{
+		AgreementID: agreement.ID,
+		RecipientID: signer.ID,
+	}
+	if _, err := signingSvc.CaptureConsent(ctx, scope, token, SignerConsentInput{Accepted: true}); err != nil {
+		t.Fatalf("CaptureConsent: %v", err)
+	}
+	if _, err := signingSvc.AttachSignatureArtifact(ctx, scope, token, SignerSignatureInput{
+		FieldID:   signatureField.ID,
+		Type:      "typed",
+		ObjectKey: "tenant/tenant-1/org/org-1/agreements/agreement-1/sig/sig-submit-commit-order.png",
+		SHA256:    strings.Repeat("a", 64),
+		ValueText: "Signer Name",
+	}); err != nil {
+		t.Fatalf("AttachSignatureArtifact: %v", err)
+	}
+	if _, err := signingSvc.Submit(ctx, scope, token, SignerSubmitInput{IdempotencyKey: "submit-commit-order-key-1"}); err != nil {
+		t.Fatalf("Submit: %v", err)
+	}
+
+	if completionFlow.calls != 1 {
+		t.Fatalf("expected completion workflow once, got %d", completionFlow.calls)
+	}
+	if completionFlow.status != stores.AgreementStatusCompleted {
+		t.Fatalf("expected completion workflow to observe completed agreement, got %q", completionFlow.status)
+	}
+}
+
+func TestSigningServiceSubmitPersistsWhenCompletionWorkflowFails(t *testing.T) {
+	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
+
+	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("signer@example.com"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: intPtr(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer: %v", err)
+	}
+	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        stringPtr(stores.FieldTypeSignature),
+		PageNumber:  intPtr(1),
+		Required:    boolPtr(true),
+	})
+	if err != nil {
+		t.Fatalf("UpsertFieldDraft signature: %v", err)
+	}
+	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase5-submit-failing-workflow"}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+
+	completionFlow := &failingCompletionWorkflow{err: fmt.Errorf("job bus unavailable")}
+	signingSvc := NewSigningService(store, WithSigningCompletionWorkflow(completionFlow))
+	token := stores.SigningTokenRecord{
+		AgreementID: agreement.ID,
+		RecipientID: signer.ID,
+	}
+	if _, err := signingSvc.CaptureConsent(ctx, scope, token, SignerConsentInput{Accepted: true}); err != nil {
+		t.Fatalf("CaptureConsent: %v", err)
+	}
+	if _, err := signingSvc.AttachSignatureArtifact(ctx, scope, token, SignerSignatureInput{
+		FieldID:   signatureField.ID,
+		Type:      "typed",
+		ObjectKey: "tenant/tenant-1/org/org-1/agreements/agreement-1/sig/sig-submit-workflow-fail.png",
+		SHA256:    strings.Repeat("b", 64),
+		ValueText: "Signer Name",
+	}); err != nil {
+		t.Fatalf("AttachSignatureArtifact: %v", err)
+	}
+
+	submit, err := signingSvc.Submit(ctx, scope, token, SignerSubmitInput{IdempotencyKey: "submit-workflow-fail-key-1"})
+	if err != nil {
+		t.Fatalf("Submit should succeed despite completion workflow failure: %v", err)
+	}
+	if !submit.Completed {
+		t.Fatal("expected final signer submit to complete agreement")
+	}
+	if completionFlow.calls != 1 {
+		t.Fatalf("expected completion workflow once, got %d", completionFlow.calls)
+	}
+
+	events, err := store.ListForAgreement(ctx, scope, agreement.ID, stores.AuditEventQuery{})
+	if err != nil {
+		t.Fatalf("ListForAgreement: %v", err)
+	}
+	found := false
+	for _, event := range events {
+		if event.EventType == "signer.completion_workflow_failed" {
+			found = true
+			if !strings.Contains(event.MetadataJSON, "job bus unavailable") {
+				t.Fatalf("expected workflow failure metadata to include cause, got %s", event.MetadataJSON)
+			}
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected signer.completion_workflow_failed audit event in %+v", events)
 	}
 }
 

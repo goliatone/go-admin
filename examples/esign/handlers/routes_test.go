@@ -66,6 +66,15 @@ func TestBuildRouteSetUsesResolverNamespaces(t *testing.T) {
 	if routes.AdminAPIStatus != "/suite/api/v9/esign/status" {
 		t.Fatalf("expected admin api route /suite/api/v9/esign/status, got %q", routes.AdminAPIStatus)
 	}
+	if routes.AdminDrafts != "/suite/api/v9/esign/drafts" {
+		t.Fatalf("expected drafts route /suite/api/v9/esign/drafts, got %q", routes.AdminDrafts)
+	}
+	if routes.AdminDraft != "/suite/api/v9/esign/drafts/:draft_id" {
+		t.Fatalf("expected draft route /suite/api/v9/esign/drafts/:draft_id, got %q", routes.AdminDraft)
+	}
+	if routes.AdminDraftSend != "/suite/api/v9/esign/drafts/:draft_id/send" {
+		t.Fatalf("expected draft send route /suite/api/v9/esign/drafts/:draft_id/send, got %q", routes.AdminDraftSend)
+	}
 	if routes.AdminAgreementsStats != "/suite/api/v9/esign/agreements/stats" {
 		t.Fatalf("expected admin agreement stats route /suite/api/v9/esign/agreements/stats, got %q", routes.AdminAgreementsStats)
 	}
@@ -163,6 +172,15 @@ func TestBuildRouteSetFallbacksWhenResolverMissing(t *testing.T) {
 	}
 	if routes.AdminAPIStatus != "/admin/api/v1/esign/status" {
 		t.Fatalf("expected /admin/api/v1/esign/status, got %q", routes.AdminAPIStatus)
+	}
+	if routes.AdminDrafts != "/admin/api/v1/esign/drafts" {
+		t.Fatalf("expected /admin/api/v1/esign/drafts, got %q", routes.AdminDrafts)
+	}
+	if routes.AdminDraft != "/admin/api/v1/esign/drafts/:draft_id" {
+		t.Fatalf("expected /admin/api/v1/esign/drafts/:draft_id, got %q", routes.AdminDraft)
+	}
+	if routes.AdminDraftSend != "/admin/api/v1/esign/drafts/:draft_id/send" {
+		t.Fatalf("expected /admin/api/v1/esign/drafts/:draft_id/send, got %q", routes.AdminDraftSend)
 	}
 	if routes.AdminAgreementsStats != "/admin/api/v1/esign/agreements/stats" {
 		t.Fatalf("expected /admin/api/v1/esign/agreements/stats, got %q", routes.AdminAgreementsStats)

@@ -12,7 +12,8 @@ import (
 )
 
 const (
-	defaultAgreementCount = 150
+	defaultAgreementCount      = 150
+	validationProfileChunkSize = 20
 )
 
 type ValidationConfig struct {
@@ -41,27 +42,15 @@ func RunValidationProfile(ctx context.Context, cfg ValidationConfig) (Validation
 	defer observability.ResetDefaultMetrics()
 
 	scope := stores.Scope{TenantID: "tenant-staging", OrgID: "org-staging"}
-	store, err := stores.NewSQLiteStore(stores.ResolveSQLiteDSN())
-	if err != nil {
-		return ValidationResult{}, fmt.Errorf("initialize sqlite store: %w", err)
-	}
-	defer func() {
-		_ = store.Close()
-	}()
-	documentSvc := services.NewDocumentService(store)
-	agreementSvc := services.NewAgreementService(store)
-	signingSvc := services.NewSigningService(store)
-
 	started := time.Now()
-	if err := store.WithBatch(ctx, func() error {
-		for i := 0; i < cfg.AgreementCount; i++ {
-			if err := runAgreementLifecycle(ctx, scope, i, documentSvc, agreementSvc, signingSvc); err != nil {
-				return err
-			}
+	for chunkStart := 0; chunkStart < cfg.AgreementCount; chunkStart += validationProfileChunkSize {
+		chunkSize := validationProfileChunkSize
+		if remaining := cfg.AgreementCount - chunkStart; remaining < chunkSize {
+			chunkSize = remaining
 		}
-		return nil
-	}); err != nil {
-		return ValidationResult{}, err
+		if err := runValidationChunk(ctx, scope, chunkStart, chunkSize); err != nil {
+			return ValidationResult{}, err
+		}
 	}
 
 	snapshot := observability.Snapshot()
@@ -71,6 +60,32 @@ func RunValidationProfile(ctx context.Context, cfg ValidationConfig) (Validation
 		Snapshot:       snapshot,
 		SLO:            observability.EvaluateSLO(snapshot),
 	}, nil
+}
+
+func runValidationChunk(ctx context.Context, scope stores.Scope, chunkStart, chunkSize int) error {
+	storeDSN, cleanup := resolveValidationSQLiteDSN("validation-profile")
+	if cleanup != nil {
+		defer cleanup()
+	}
+	store, err := stores.NewSQLiteStore(storeDSN)
+	if err != nil {
+		return fmt.Errorf("initialize sqlite store: %w", err)
+	}
+	defer func() {
+		_ = store.Close()
+	}()
+
+	documentSvc := services.NewDocumentService(store)
+	agreementSvc := services.NewAgreementService(store)
+	signingSvc := services.NewSigningService(store)
+	return store.WithBatch(ctx, func() error {
+		for i := 0; i < chunkSize; i++ {
+			if err := runAgreementLifecycle(ctx, scope, chunkStart+i, documentSvc, agreementSvc, signingSvc); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func runAgreementLifecycle(

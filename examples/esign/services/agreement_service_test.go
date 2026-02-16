@@ -751,6 +751,65 @@ func TestAgreementServiceResendDispatchesEmailWorkflow(t *testing.T) {
 	}
 }
 
+func TestAgreementServiceResendPersistsWhenEmailWorkflowFails(t *testing.T) {
+	ctx, scope, store, _, agreement := setupDraftAgreement(t)
+	tokenService := stores.NewTokenService(store)
+	workflow := &stubAgreementEmailWorkflow{resentErr: errors.New("mail provider unavailable")}
+	svc := NewAgreementService(store,
+		WithAgreementTokenService(tokenService),
+		WithAgreementEmailWorkflow(workflow),
+	)
+
+	signer, err := svc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("signer@example.com"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: intPtr(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer: %v", err)
+	}
+	if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        stringPtr(stores.FieldTypeSignature),
+		PageNumber:  intPtr(1),
+		Required:    boolPtr(true),
+	}); err != nil {
+		t.Fatalf("UpsertFieldDraft signature: %v", err)
+	}
+	if _, err := svc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "send-key"}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+
+	resent, err := svc.Resend(ctx, scope, agreement.ID, ResendInput{IdempotencyKey: "resend-with-email-error"})
+	if err != nil {
+		t.Fatalf("Resend should succeed despite email workflow failure: %v", err)
+	}
+	if strings.TrimSpace(resent.Token.Token) == "" {
+		t.Fatal("expected resend result to include token")
+	}
+	if workflow.resentCalls != 1 {
+		t.Fatalf("expected 1 email workflow resend call, got %d", workflow.resentCalls)
+	}
+
+	events, err := store.ListForAgreement(ctx, scope, agreement.ID, stores.AuditEventQuery{})
+	if err != nil {
+		t.Fatalf("ListForAgreement: %v", err)
+	}
+	found := false
+	for _, event := range events {
+		if event.EventType == "agreement.resend_notification_failed" {
+			found = true
+			if !strings.Contains(event.MetadataJSON, "mail provider unavailable") {
+				t.Fatalf("expected failure metadata to include cause, got %s", event.MetadataJSON)
+			}
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected agreement.resend_notification_failed audit event in %+v", events)
+	}
+}
+
 func TestAgreementServiceVoidRevokesSignerTokens(t *testing.T) {
 	ctx, scope, store, _, agreement := setupDraftAgreement(t)
 	tokenService := stores.NewTokenService(store)

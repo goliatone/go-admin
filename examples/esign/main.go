@@ -78,8 +78,17 @@ func main() {
 		}
 	}
 
+	servicesModule, servicesCleanup, err := setupESignServicesModule(adm)
+	if err != nil {
+		log.Fatalf("setup services module: %v", err)
+	}
+	if servicesCleanup != nil {
+		defer servicesCleanup()
+	}
+
 	esignModule := modules.NewESignModule(cfg.BasePath, cfg.DefaultLocale, cfg.NavMenuCode).
-		WithUploadDir(resolveESignDiskAssetsDir())
+		WithUploadDir(resolveESignDiskAssetsDir()).
+		WithServicesModule(servicesModule)
 	if err := adm.RegisterModule(esignModule); err != nil {
 		log.Fatalf("register module: %v", err)
 	}
@@ -222,12 +231,17 @@ func validateRuntimeProviderConfiguration() error {
 	}
 
 	if envBool("ESIGN_GOOGLE_FEATURE_ENABLED", false) {
-		mode := services.ResolveGoogleProviderMode()
-		if mode == services.GoogleProviderModeDeterministic {
-			return fmt.Errorf("production profile requires ESIGN_GOOGLE_PROVIDER_MODE=real when ESIGN_GOOGLE_FEATURE_ENABLED=true")
+		if !envBool("ESIGN_SERVICES_MODULE_ENABLED", true) {
+			return fmt.Errorf("production profile requires ESIGN_SERVICES_MODULE_ENABLED=true when ESIGN_GOOGLE_FEATURE_ENABLED=true")
 		}
-		if _, err := services.NewGoogleHTTPProviderFromEnv(); err != nil {
-			return fmt.Errorf("production profile requires valid google provider configuration: %w", err)
+		if strings.TrimSpace(os.Getenv(services.EnvGoogleClientID)) == "" {
+			return fmt.Errorf("production profile requires %s when ESIGN_GOOGLE_FEATURE_ENABLED=true", services.EnvGoogleClientID)
+		}
+		if strings.TrimSpace(os.Getenv(services.EnvGoogleClientSecret)) == "" {
+			return fmt.Errorf("production profile requires %s when ESIGN_GOOGLE_FEATURE_ENABLED=true", services.EnvGoogleClientSecret)
+		}
+		if strings.TrimSpace(os.Getenv("ESIGN_SERVICES_ENCRYPTION_KEY")) == "" {
+			return fmt.Errorf("production profile requires ESIGN_SERVICES_ENCRYPTION_KEY when ESIGN_GOOGLE_FEATURE_ENABLED=true")
 		}
 	}
 	return nil

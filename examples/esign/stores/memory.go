@@ -13,12 +13,16 @@ import (
 	"github.com/google/uuid"
 )
 
+const defaultDraftTTL = 7 * 24 * time.Hour
+
 // InMemoryStore is a phase-1 repository implementation with scope-safe query helpers.
 type InMemoryStore struct {
 	mu sync.RWMutex
 
 	documents                  map[string]DocumentRecord
 	agreements                 map[string]AgreementRecord
+	drafts                     map[string]DraftRecord
+	draftWizardIndex           map[string]string
 	participants               map[string]ParticipantRecord
 	fieldDefinitions           map[string]FieldDefinitionRecord
 	fieldInstances             map[string]FieldInstanceRecord
@@ -33,6 +37,7 @@ type InMemoryStore struct {
 	emailLogs                  map[string]EmailLogRecord
 	jobRuns                    map[string]JobRunRecord
 	jobRunDedupeIndex          map[string]string
+	outboxMessages             map[string]OutboxMessageRecord
 	integrationCredentials     map[string]IntegrationCredentialRecord
 	integrationCredentialIndex map[string]string
 	mappingSpecs               map[string]MappingSpecRecord
@@ -51,6 +56,8 @@ func NewInMemoryStore() *InMemoryStore {
 	return &InMemoryStore{
 		documents:                  map[string]DocumentRecord{},
 		agreements:                 map[string]AgreementRecord{},
+		drafts:                     map[string]DraftRecord{},
+		draftWizardIndex:           map[string]string{},
 		participants:               map[string]ParticipantRecord{},
 		fieldDefinitions:           map[string]FieldDefinitionRecord{},
 		fieldInstances:             map[string]FieldInstanceRecord{},
@@ -65,6 +72,7 @@ func NewInMemoryStore() *InMemoryStore {
 		emailLogs:                  map[string]EmailLogRecord{},
 		jobRuns:                    map[string]JobRunRecord{},
 		jobRunDedupeIndex:          map[string]string{},
+		outboxMessages:             map[string]OutboxMessageRecord{},
 		integrationCredentials:     map[string]IntegrationCredentialRecord{},
 		integrationCredentialIndex: map[string]string{},
 		mappingSpecs:               map[string]MappingSpecRecord{},
@@ -137,6 +145,8 @@ func (s *InMemoryStore) snapshot() (sqliteStoreSnapshot, error) {
 	payload := sqliteStoreSnapshot{
 		Documents:                  s.documents,
 		Agreements:                 s.agreements,
+		Drafts:                     s.drafts,
+		DraftWizardIndex:           s.draftWizardIndex,
 		Participants:               s.participants,
 		FieldDefinitions:           s.fieldDefinitions,
 		FieldInstances:             s.fieldInstances,
@@ -151,6 +161,7 @@ func (s *InMemoryStore) snapshot() (sqliteStoreSnapshot, error) {
 		EmailLogs:                  s.emailLogs,
 		JobRuns:                    s.jobRuns,
 		JobRunDedupeIndex:          s.jobRunDedupeIndex,
+		OutboxMessages:             s.outboxMessages,
 		IntegrationCredentials:     s.integrationCredentials,
 		IntegrationCredentialIndex: s.integrationCredentialIndex,
 		MappingSpecs:               s.mappingSpecs,
@@ -178,6 +189,8 @@ func (s *InMemoryStore) snapshot() (sqliteStoreSnapshot, error) {
 func (s *InMemoryStore) applySnapshot(snapshot sqliteStoreSnapshot) {
 	s.documents = ensureDocumentMap(snapshot.Documents)
 	s.agreements = ensureAgreementMap(snapshot.Agreements)
+	s.drafts = ensureDraftMap(snapshot.Drafts)
+	s.draftWizardIndex = ensureStringMap(snapshot.DraftWizardIndex)
 	s.participants = ensureParticipantMap(snapshot.Participants)
 	s.fieldDefinitions = ensureFieldDefinitionMap(snapshot.FieldDefinitions)
 	s.fieldInstances = ensureFieldInstanceMap(snapshot.FieldInstances)
@@ -192,6 +205,7 @@ func (s *InMemoryStore) applySnapshot(snapshot sqliteStoreSnapshot) {
 	s.emailLogs = ensureEmailLogMap(snapshot.EmailLogs)
 	s.jobRuns = ensureJobRunMap(snapshot.JobRuns)
 	s.jobRunDedupeIndex = ensureStringMap(snapshot.JobRunDedupeIndex)
+	s.outboxMessages = ensureOutboxMessageMap(snapshot.OutboxMessages)
 	s.integrationCredentials = ensureIntegrationCredentialMap(snapshot.IntegrationCredentials)
 	s.integrationCredentialIndex = ensureStringMap(snapshot.IntegrationCredentialIndex)
 	s.mappingSpecs = ensureMappingSpecMap(snapshot.MappingSpecs)
@@ -471,6 +485,291 @@ func (s *InMemoryStore) ListAgreements(ctx context.Context, scope Scope, query A
 	}
 
 	return out[start:end], nil
+}
+
+func (s *InMemoryStore) CreateDraftSession(ctx context.Context, scope Scope, record DraftRecord) (DraftRecord, bool, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return DraftRecord{}, false, err
+	}
+	record.WizardID = strings.TrimSpace(record.WizardID)
+	record.CreatedByUserID = normalizeID(record.CreatedByUserID)
+	if record.WizardID == "" {
+		return DraftRecord{}, false, invalidRecordError("drafts", "wizard_id", "required")
+	}
+	if record.CreatedByUserID == "" {
+		return DraftRecord{}, false, invalidRecordError("drafts", "created_by_user_id", "required")
+	}
+	if normalizeID(record.ID) == "" {
+		record.ID = uuid.NewString()
+	}
+	record.ID = normalizeID(record.ID)
+	record.DocumentID = normalizeID(record.DocumentID)
+	record.Title = strings.TrimSpace(record.Title)
+	record.WizardStateJSON = strings.TrimSpace(record.WizardStateJSON)
+	if record.WizardStateJSON == "" {
+		record.WizardStateJSON = "{}"
+	}
+	if record.CurrentStep <= 0 {
+		record.CurrentStep = 1
+	}
+	if record.CurrentStep > 6 {
+		return DraftRecord{}, false, invalidRecordError("drafts", "current_step", "must be between 1 and 6")
+	}
+	if record.Revision <= 0 {
+		record.Revision = 1
+	}
+	record.TenantID = scope.TenantID
+	record.OrgID = scope.OrgID
+	record.CreatedAt = normalizeRecordTime(record.CreatedAt)
+	record.UpdatedAt = normalizeRecordTime(record.UpdatedAt)
+	if record.ExpiresAt.IsZero() {
+		record.ExpiresAt = record.UpdatedAt.Add(defaultDraftTTL).UTC()
+	} else {
+		record.ExpiresAt = record.ExpiresAt.UTC()
+	}
+
+	key := scopedKey(scope, record.ID)
+	indexKey := draftWizardIndexKey(scope, record.CreatedByUserID, record.WizardID)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if existingID, ok := s.draftWizardIndex[indexKey]; ok {
+		if existing, exists := s.drafts[scopedKey(scope, existingID)]; exists {
+			if !existing.ExpiresAt.IsZero() && existing.ExpiresAt.Before(time.Now().UTC()) {
+				delete(s.drafts, scopedKey(scope, existingID))
+				delete(s.draftWizardIndex, indexKey)
+			} else {
+				// Idempotent create replays still refresh TTL/updated timestamps without bumping revision.
+				now := record.UpdatedAt
+				if now.IsZero() {
+					now = time.Now().UTC()
+				}
+				expiresAt := record.ExpiresAt
+				if expiresAt.IsZero() {
+					expiresAt = now.Add(defaultDraftTTL).UTC()
+				}
+				existing.UpdatedAt = now.UTC()
+				existing.ExpiresAt = expiresAt.UTC()
+				existing = cloneDraftRecord(existing)
+				s.drafts[scopedKey(scope, existingID)] = existing
+				return cloneDraftRecord(existing), true, nil
+			}
+		} else {
+			delete(s.draftWizardIndex, indexKey)
+		}
+	}
+	if _, exists := s.drafts[key]; exists {
+		return DraftRecord{}, false, invalidRecordError("drafts", "id", "already exists")
+	}
+	record = cloneDraftRecord(record)
+	s.drafts[key] = record
+	s.draftWizardIndex[indexKey] = record.ID
+	return cloneDraftRecord(record), false, nil
+}
+
+func (s *InMemoryStore) GetDraftSession(ctx context.Context, scope Scope, id string) (DraftRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return DraftRecord{}, err
+	}
+	id = normalizeID(id)
+	if id == "" {
+		return DraftRecord{}, invalidRecordError("drafts", "id", "required")
+	}
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	record, ok := s.drafts[scopedKey(scope, id)]
+	if !ok {
+		return DraftRecord{}, notFoundError("drafts", id)
+	}
+	if !record.ExpiresAt.IsZero() && !record.ExpiresAt.After(time.Now().UTC()) {
+		return DraftRecord{}, notFoundError("drafts", id)
+	}
+	return cloneDraftRecord(record), nil
+}
+
+func (s *InMemoryStore) ListDraftSessions(ctx context.Context, scope Scope, query DraftQuery) ([]DraftRecord, string, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return nil, "", err
+	}
+	createdByUserID := normalizeID(query.CreatedByUserID)
+	if createdByUserID == "" {
+		return nil, "", invalidRecordError("drafts", "created_by_user_id", "required")
+	}
+	limit := query.Limit
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 50 {
+		limit = 50
+	}
+	offset := parseDraftCursorOffset(query.Cursor)
+	if offset < 0 {
+		offset = 0
+	}
+	wizardIDFilter := strings.TrimSpace(query.WizardID)
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	now := time.Now().UTC()
+	out := make([]DraftRecord, 0)
+	for _, record := range s.drafts {
+		if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
+			continue
+		}
+		if record.CreatedByUserID != createdByUserID {
+			continue
+		}
+		if wizardIDFilter != "" && record.WizardID != wizardIDFilter {
+			continue
+		}
+		if !record.ExpiresAt.IsZero() && !record.ExpiresAt.After(now) {
+			continue
+		}
+		out = append(out, cloneDraftRecord(record))
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if query.SortDesc {
+			if out[i].UpdatedAt.Equal(out[j].UpdatedAt) {
+				return out[i].ID > out[j].ID
+			}
+			return out[i].UpdatedAt.After(out[j].UpdatedAt)
+		}
+		if out[i].UpdatedAt.Equal(out[j].UpdatedAt) {
+			return out[i].ID < out[j].ID
+		}
+		return out[i].UpdatedAt.Before(out[j].UpdatedAt)
+	})
+
+	if offset > len(out) {
+		offset = len(out)
+	}
+	end := offset + limit
+	if end > len(out) {
+		end = len(out)
+	}
+	page := out[offset:end]
+	nextCursor := ""
+	if end < len(out) {
+		nextCursor = strconv.Itoa(end)
+	}
+	return page, nextCursor, nil
+}
+
+func (s *InMemoryStore) UpdateDraftSession(ctx context.Context, scope Scope, id string, patch DraftPatch, expectedRevision int64) (DraftRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return DraftRecord{}, err
+	}
+	id = normalizeID(id)
+	if id == "" {
+		return DraftRecord{}, invalidRecordError("drafts", "id", "required")
+	}
+	if expectedRevision <= 0 {
+		return DraftRecord{}, invalidRecordError("drafts", "expected_revision", "required")
+	}
+
+	key := scopedKey(scope, id)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	record, ok := s.drafts[key]
+	if !ok {
+		return DraftRecord{}, notFoundError("drafts", id)
+	}
+	if !record.ExpiresAt.IsZero() && !record.ExpiresAt.After(time.Now().UTC()) {
+		return DraftRecord{}, notFoundError("drafts", id)
+	}
+	if record.Revision != expectedRevision {
+		return DraftRecord{}, versionConflictError("drafts", id, expectedRevision, record.Revision)
+	}
+
+	if patch.WizardStateJSON != nil {
+		record.WizardStateJSON = strings.TrimSpace(*patch.WizardStateJSON)
+		if record.WizardStateJSON == "" {
+			record.WizardStateJSON = "{}"
+		}
+	}
+	if patch.Title != nil {
+		record.Title = strings.TrimSpace(*patch.Title)
+	}
+	if patch.CurrentStep != nil {
+		if *patch.CurrentStep <= 0 || *patch.CurrentStep > 6 {
+			return DraftRecord{}, invalidRecordError("drafts", "current_step", "must be between 1 and 6")
+		}
+		record.CurrentStep = *patch.CurrentStep
+	}
+	if patch.DocumentID != nil {
+		record.DocumentID = normalizeID(*patch.DocumentID)
+	}
+
+	if patch.UpdatedAt != nil && !patch.UpdatedAt.IsZero() {
+		record.UpdatedAt = patch.UpdatedAt.UTC()
+	} else {
+		record.UpdatedAt = time.Now().UTC()
+	}
+	if patch.ExpiresAt != nil && !patch.ExpiresAt.IsZero() {
+		record.ExpiresAt = patch.ExpiresAt.UTC()
+	} else if record.ExpiresAt.IsZero() {
+		record.ExpiresAt = record.UpdatedAt.Add(defaultDraftTTL).UTC()
+	}
+
+	record.Revision++
+	record = cloneDraftRecord(record)
+	s.drafts[key] = record
+	return cloneDraftRecord(record), nil
+}
+
+func (s *InMemoryStore) DeleteDraftSession(ctx context.Context, scope Scope, id string) error {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return err
+	}
+	id = normalizeID(id)
+	if id == "" {
+		return invalidRecordError("drafts", "id", "required")
+	}
+	key := scopedKey(scope, id)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	record, ok := s.drafts[key]
+	if !ok {
+		return notFoundError("drafts", id)
+	}
+	delete(s.drafts, key)
+	delete(s.draftWizardIndex, draftWizardIndexKey(scope, record.CreatedByUserID, record.WizardID))
+	return nil
+}
+
+func (s *InMemoryStore) DeleteExpiredDraftSessions(ctx context.Context, before time.Time) (int, error) {
+	_ = ctx
+	if before.IsZero() {
+		before = time.Now().UTC()
+	}
+	before = before.UTC()
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	deleted := 0
+	for key, record := range s.drafts {
+		if record.ExpiresAt.IsZero() || record.ExpiresAt.After(before) {
+			continue
+		}
+		delete(s.drafts, key)
+		delete(s.draftWizardIndex, draftWizardIndexKey(Scope{TenantID: record.TenantID, OrgID: record.OrgID}, record.CreatedByUserID, record.WizardID))
+		deleted++
+	}
+	return deleted, nil
 }
 
 func (s *InMemoryStore) UpdateDraft(ctx context.Context, scope Scope, id string, patch AgreementDraftPatch, expectedVersion int64) (AgreementRecord, error) {
@@ -1801,6 +2100,48 @@ func cloneJobRunRecord(record JobRunRecord) JobRunRecord {
 	return record
 }
 
+func cloneOutboxMessageRecord(record OutboxMessageRecord) OutboxMessageRecord {
+	record.Topic = strings.TrimSpace(record.Topic)
+	record.MessageKey = strings.TrimSpace(record.MessageKey)
+	record.PayloadJSON = strings.TrimSpace(record.PayloadJSON)
+	record.HeadersJSON = strings.TrimSpace(record.HeadersJSON)
+	record.CorrelationID = strings.TrimSpace(record.CorrelationID)
+	record.Status = strings.TrimSpace(record.Status)
+	record.LastError = strings.TrimSpace(record.LastError)
+	record.LockedAt = cloneTimePtr(record.LockedAt)
+	record.LockedBy = strings.TrimSpace(record.LockedBy)
+	record.PublishedAt = cloneTimePtr(record.PublishedAt)
+	record.CreatedAt = normalizeRecordTime(record.CreatedAt)
+	record.UpdatedAt = normalizeRecordTime(record.UpdatedAt)
+	record.AvailableAt = normalizeRecordTime(record.AvailableAt)
+	return record
+}
+
+func cloneDraftRecord(record DraftRecord) DraftRecord {
+	record.WizardID = strings.TrimSpace(record.WizardID)
+	record.CreatedByUserID = normalizeID(record.CreatedByUserID)
+	record.DocumentID = normalizeID(record.DocumentID)
+	record.Title = strings.TrimSpace(record.Title)
+	record.WizardStateJSON = strings.TrimSpace(record.WizardStateJSON)
+	if record.WizardStateJSON == "" {
+		record.WizardStateJSON = "{}"
+	}
+	if record.CurrentStep <= 0 {
+		record.CurrentStep = 1
+	}
+	record.CreatedAt = normalizeRecordTime(record.CreatedAt)
+	record.UpdatedAt = normalizeRecordTime(record.UpdatedAt)
+	if record.ExpiresAt.IsZero() {
+		record.ExpiresAt = record.UpdatedAt.Add(defaultDraftTTL).UTC()
+	} else {
+		record.ExpiresAt = record.ExpiresAt.UTC()
+	}
+	if record.Revision <= 0 {
+		record.Revision = 1
+	}
+	return record
+}
+
 func cloneIntegrationCredentialRecord(record IntegrationCredentialRecord) IntegrationCredentialRecord {
 	record.Scopes = append([]string{}, record.Scopes...)
 	record.ExpiresAt = cloneTimePtr(record.ExpiresAt)
@@ -1939,6 +2280,14 @@ func integrationCredentialIndexKey(scope Scope, provider, userID string) string 
 	}, "|")
 }
 
+func draftWizardIndexKey(scope Scope, userID, wizardID string) string {
+	return strings.Join([]string{
+		scope.key(),
+		normalizeID(userID),
+		strings.TrimSpace(wizardID),
+	}, "|")
+}
+
 func integrationBindingIndexKey(scope Scope, provider, entityKind, externalID string) string {
 	return strings.Join([]string{
 		scope.key(),
@@ -1954,6 +2303,18 @@ func integrationCheckpointIndexKey(scope Scope, runID, checkpointKey string) str
 		normalizeID(runID),
 		strings.TrimSpace(checkpointKey),
 	}, "|")
+}
+
+func parseDraftCursorOffset(raw string) int {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return 0
+	}
+	value, err := strconv.Atoi(raw)
+	if err != nil || value < 0 {
+		return 0
+	}
+	return value
 }
 
 func integrationMutationClaimKey(scope Scope, idempotencyKey string) string {
@@ -2465,6 +2826,270 @@ func (s *InMemoryStore) ListJobRuns(ctx context.Context, scope Scope, agreementI
 		return out[i].UpdatedAt.Before(out[j].UpdatedAt)
 	})
 	return out, nil
+}
+
+func (s *InMemoryStore) EnqueueOutboxMessage(ctx context.Context, scope Scope, record OutboxMessageRecord) (OutboxMessageRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return OutboxMessageRecord{}, err
+	}
+	if normalizeID(record.ID) == "" {
+		record.ID = uuid.NewString()
+	}
+	record.ID = normalizeID(record.ID)
+	record.Topic = strings.ToLower(strings.TrimSpace(record.Topic))
+	record.MessageKey = strings.TrimSpace(record.MessageKey)
+	record.PayloadJSON = strings.TrimSpace(record.PayloadJSON)
+	record.HeadersJSON = strings.TrimSpace(record.HeadersJSON)
+	record.CorrelationID = strings.TrimSpace(record.CorrelationID)
+	record.Status = strings.ToLower(strings.TrimSpace(record.Status))
+	if record.Topic == "" {
+		return OutboxMessageRecord{}, invalidRecordError("outbox_messages", "topic", "required")
+	}
+	if record.PayloadJSON == "" {
+		return OutboxMessageRecord{}, invalidRecordError("outbox_messages", "payload_json", "required")
+	}
+	now := time.Now().UTC()
+	record.TenantID = scope.TenantID
+	record.OrgID = scope.OrgID
+	record.AttemptCount = max(record.AttemptCount, 0)
+	if record.MaxAttempts <= 0 {
+		record.MaxAttempts = 5
+	}
+	if record.Status == "" {
+		record.Status = OutboxMessageStatusPending
+	}
+	if record.Status != OutboxMessageStatusPending &&
+		record.Status != OutboxMessageStatusRetrying &&
+		record.Status != OutboxMessageStatusProcessing &&
+		record.Status != OutboxMessageStatusSucceeded &&
+		record.Status != OutboxMessageStatusFailed {
+		return OutboxMessageRecord{}, invalidRecordError("outbox_messages", "status", "invalid status")
+	}
+	record.CreatedAt = normalizeRecordTime(record.CreatedAt)
+	if record.CreatedAt.IsZero() {
+		record.CreatedAt = now
+	}
+	record.UpdatedAt = normalizeRecordTime(record.UpdatedAt)
+	if record.UpdatedAt.IsZero() {
+		record.UpdatedAt = record.CreatedAt
+	}
+	record.AvailableAt = normalizeRecordTime(record.AvailableAt)
+	if record.AvailableAt.IsZero() {
+		record.AvailableAt = record.CreatedAt
+	}
+	record.LockedAt = cloneTimePtr(record.LockedAt)
+	record.PublishedAt = cloneTimePtr(record.PublishedAt)
+	record = cloneOutboxMessageRecord(record)
+	key := scopedKey(scope, record.ID)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, exists := s.outboxMessages[key]; exists {
+		return OutboxMessageRecord{}, invalidRecordError("outbox_messages", "id", "already exists")
+	}
+	s.outboxMessages[key] = record
+	return record, nil
+}
+
+func (s *InMemoryStore) ClaimOutboxMessages(ctx context.Context, scope Scope, input OutboxClaimInput) ([]OutboxMessageRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return nil, err
+	}
+	input.Consumer = normalizeID(input.Consumer)
+	input.Topic = strings.ToLower(strings.TrimSpace(input.Topic))
+	if input.Consumer == "" {
+		return nil, invalidRecordError("outbox_messages", "consumer", "required")
+	}
+	if input.Now.IsZero() {
+		input.Now = time.Now().UTC()
+	}
+	input.Now = input.Now.UTC()
+	if input.Limit <= 0 {
+		input.Limit = 25
+	}
+	lockUntil := cloneTimePtr(input.LockUntil)
+	if lockUntil == nil || lockUntil.IsZero() {
+		defaultLock := input.Now.Add(5 * time.Minute).UTC()
+		lockUntil = &defaultLock
+	} else {
+		lock := lockUntil.UTC()
+		lockUntil = &lock
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	candidates := make([]OutboxMessageRecord, 0)
+	for _, record := range s.outboxMessages {
+		if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
+			continue
+		}
+		if input.Topic != "" && strings.ToLower(strings.TrimSpace(record.Topic)) != input.Topic {
+			continue
+		}
+		if record.MaxAttempts > 0 && record.AttemptCount >= record.MaxAttempts {
+			continue
+		}
+		if record.AvailableAt.After(input.Now) {
+			continue
+		}
+		status := strings.ToLower(strings.TrimSpace(record.Status))
+		if status != OutboxMessageStatusPending && status != OutboxMessageStatusRetrying && status != OutboxMessageStatusProcessing {
+			continue
+		}
+		if record.LockedAt != nil && record.LockedAt.After(input.Now) {
+			continue
+		}
+		candidates = append(candidates, record)
+	}
+	sort.Slice(candidates, func(i, j int) bool {
+		if candidates[i].AvailableAt.Equal(candidates[j].AvailableAt) {
+			if candidates[i].CreatedAt.Equal(candidates[j].CreatedAt) {
+				return candidates[i].ID < candidates[j].ID
+			}
+			return candidates[i].CreatedAt.Before(candidates[j].CreatedAt)
+		}
+		return candidates[i].AvailableAt.Before(candidates[j].AvailableAt)
+	})
+	if len(candidates) > input.Limit {
+		candidates = candidates[:input.Limit]
+	}
+	out := make([]OutboxMessageRecord, 0, len(candidates))
+	for _, record := range candidates {
+		record.Status = OutboxMessageStatusProcessing
+		record.AttemptCount++
+		record.LockedBy = input.Consumer
+		record.LockedAt = cloneTimePtr(lockUntil)
+		record.UpdatedAt = input.Now
+		record = cloneOutboxMessageRecord(record)
+		s.outboxMessages[scopedKey(scope, record.ID)] = record
+		out = append(out, record)
+	}
+	return out, nil
+}
+
+func (s *InMemoryStore) MarkOutboxMessageSucceeded(ctx context.Context, scope Scope, id string, publishedAt time.Time) (OutboxMessageRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return OutboxMessageRecord{}, err
+	}
+	id = normalizeID(id)
+	if id == "" {
+		return OutboxMessageRecord{}, invalidRecordError("outbox_messages", "id", "required")
+	}
+	if publishedAt.IsZero() {
+		publishedAt = time.Now().UTC()
+	}
+	publishedAt = publishedAt.UTC()
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	key := scopedKey(scope, id)
+	record, ok := s.outboxMessages[key]
+	if !ok {
+		return OutboxMessageRecord{}, notFoundError("outbox_messages", id)
+	}
+	record.Status = OutboxMessageStatusSucceeded
+	record.LastError = ""
+	record.LockedBy = ""
+	record.LockedAt = nil
+	record.AvailableAt = publishedAt
+	record.PublishedAt = cloneTimePtr(&publishedAt)
+	record.UpdatedAt = publishedAt
+	record = cloneOutboxMessageRecord(record)
+	s.outboxMessages[key] = record
+	return record, nil
+}
+
+func (s *InMemoryStore) MarkOutboxMessageFailed(ctx context.Context, scope Scope, id, failureReason string, nextAttemptAt *time.Time, failedAt time.Time) (OutboxMessageRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return OutboxMessageRecord{}, err
+	}
+	id = normalizeID(id)
+	if id == "" {
+		return OutboxMessageRecord{}, invalidRecordError("outbox_messages", "id", "required")
+	}
+	failureReason = strings.TrimSpace(failureReason)
+	if failureReason == "" {
+		failureReason = "dispatch failed"
+	}
+	if failedAt.IsZero() {
+		failedAt = time.Now().UTC()
+	}
+	failedAt = failedAt.UTC()
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	key := scopedKey(scope, id)
+	record, ok := s.outboxMessages[key]
+	if !ok {
+		return OutboxMessageRecord{}, notFoundError("outbox_messages", id)
+	}
+	record.LastError = failureReason
+	record.LockedAt = nil
+	record.LockedBy = ""
+	record.UpdatedAt = failedAt
+	if nextAttemptAt != nil && record.AttemptCount < record.MaxAttempts {
+		next := nextAttemptAt.UTC()
+		record.Status = OutboxMessageStatusRetrying
+		record.AvailableAt = next
+	} else {
+		record.Status = OutboxMessageStatusFailed
+		record.AvailableAt = failedAt
+	}
+	record = cloneOutboxMessageRecord(record)
+	s.outboxMessages[key] = record
+	return record, nil
+}
+
+func (s *InMemoryStore) ListOutboxMessages(ctx context.Context, scope Scope, query OutboxQuery) ([]OutboxMessageRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return nil, err
+	}
+	query.Topic = strings.ToLower(strings.TrimSpace(query.Topic))
+	query.Status = strings.ToLower(strings.TrimSpace(query.Status))
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make([]OutboxMessageRecord, 0)
+	for _, record := range s.outboxMessages {
+		if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
+			continue
+		}
+		if query.Topic != "" && strings.ToLower(strings.TrimSpace(record.Topic)) != query.Topic {
+			continue
+		}
+		if query.Status != "" && strings.ToLower(strings.TrimSpace(record.Status)) != query.Status {
+			continue
+		}
+		out = append(out, cloneOutboxMessageRecord(record))
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].CreatedAt.Equal(out[j].CreatedAt) {
+			return out[i].ID < out[j].ID
+		}
+		if query.SortDesc {
+			return out[i].CreatedAt.After(out[j].CreatedAt)
+		}
+		return out[i].CreatedAt.Before(out[j].CreatedAt)
+	})
+	start := max(query.Offset, 0)
+	if start > len(out) {
+		start = len(out)
+	}
+	end := len(out)
+	if query.Limit > 0 && start+query.Limit < end {
+		end = start + query.Limit
+	}
+	return out[start:end], nil
 }
 
 func (s *InMemoryStore) UpsertIntegrationCredential(ctx context.Context, scope Scope, record IntegrationCredentialRecord) (IntegrationCredentialRecord, error) {

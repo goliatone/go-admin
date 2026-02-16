@@ -20,7 +20,10 @@ func RegisterCommandFactories(bus *coreadmin.CommandBus) error {
 	if err := coreadmin.RegisterMessageFactory(bus, CommandAgreementResend, buildAgreementResendInput); err != nil {
 		return err
 	}
-	return coreadmin.RegisterMessageFactory(bus, CommandTokenRotate, buildTokenRotateInput)
+	if err := coreadmin.RegisterMessageFactory(bus, CommandTokenRotate, buildTokenRotateInput); err != nil {
+		return err
+	}
+	return coreadmin.RegisterMessageFactory(bus, CommandDraftCleanup, buildDraftCleanupInput)
 }
 
 func buildAgreementSendInput(payload map[string]any, ids []string) (AgreementSendInput, error) {
@@ -88,6 +91,18 @@ func buildTokenRotateInput(payload map[string]any, ids []string) (TokenRotateInp
 		Scope:         scopeFromPayload(payload),
 		AgreementID:   agreementID,
 		RecipientID:   strings.TrimSpace(toString(payloadValue(payload, "recipient_id"))),
+		CorrelationID: strings.TrimSpace(toString(payloadValue(payload, "correlation_id"))),
+	}
+	if err := msg.Validate(); err != nil {
+		return msg, err
+	}
+	return msg, nil
+}
+
+func buildDraftCleanupInput(payload map[string]any, _ []string) (DraftCleanupInput, error) {
+	msg := DraftCleanupInput{
+		Scope:         scopeFromPayload(payload),
+		Before:        strings.TrimSpace(toString(payloadValue(payload, "before"))),
 		CorrelationID: strings.TrimSpace(toString(payloadValue(payload, "correlation_id"))),
 	}
 	if err := msg.Validate(); err != nil {

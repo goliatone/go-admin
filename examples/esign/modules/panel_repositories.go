@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -28,6 +29,7 @@ const (
 var (
 	participantBracketKeyPattern = regexp.MustCompile(`^(participants|recipients)\[(\d+)\]$`)
 	fieldBracketKeyPattern       = regexp.MustCompile(`^(fields|field_instances)\[(\d+)\]$`)
+	fieldPlacementKeyPattern     = regexp.MustCompile(`^field_placements\[(\d+)\]$`)
 )
 
 type documentPanelRepository struct {
@@ -769,6 +771,16 @@ type agreementFieldFormInput struct {
 	Required       bool
 }
 
+type agreementFieldPlacementFormInput struct {
+	ID           string
+	DefinitionID string
+	PageNumber   int
+	PosX         float64
+	PosY         float64
+	Width        float64
+	Height       float64
+}
+
 func (r *agreementPanelRepository) syncDraftFormPayload(
 	ctx context.Context,
 	scope stores.Scope,
@@ -795,7 +807,10 @@ func (r *agreementPanelRepository) syncDraftFormPayload(
 		}
 	}
 
-	fieldInputs, hasFieldPayload := parseAgreementFieldFormInputs(record)
+	fieldInputs, hasFieldPayload, err := parseAgreementFieldFormInputs(record)
+	if err != nil {
+		return nil, nil, err
+	}
 	if !hasFieldPayload && toBool(record["fields_present"]) {
 		hasFieldPayload = true
 	}
@@ -1019,11 +1034,11 @@ func parseAgreementRecipientFormInputs(record map[string]any) ([]agreementRecipi
 	return out, hasPayload
 }
 
-func parseAgreementFieldFormInputs(record map[string]any) ([]agreementFieldFormInput, bool) {
+func parseAgreementFieldFormInputs(record map[string]any) ([]agreementFieldFormInput, bool, error) {
 	entries := map[int]map[string]any{}
 	hasPayload := false
 	if record == nil {
-		return nil, false
+		return nil, false, nil
 	}
 
 	if raw, ok := record["field_instances"]; ok {
@@ -1052,29 +1067,70 @@ func parseAgreementFieldFormInputs(record map[string]any) ([]agreementFieldFormI
 	out := make([]agreementFieldFormInput, 0, len(indexes))
 	for _, index := range indexes {
 		entry := entries[index]
-		id := strings.TrimSpace(toString(entry["id"]))
-		fieldType := strings.TrimSpace(toString(entry["type"]))
-		participantID := strings.TrimSpace(toString(entry["participant_id"]))
+		id, err := coerceFormString(entry["id"], fmt.Sprintf("field_instances[%d].id", index))
+		if err != nil {
+			return nil, hasPayload, err
+		}
+		fieldType, err := coerceFormString(entry["type"], fmt.Sprintf("field_instances[%d].type", index))
+		if err != nil {
+			return nil, hasPayload, err
+		}
+		participantID, err := coerceFormString(entry["participant_id"], fmt.Sprintf("field_instances[%d].participant_id", index))
+		if err != nil {
+			return nil, hasPayload, err
+		}
 		if participantID == "" {
-			participantID = strings.TrimSpace(toString(entry["recipient_id"]))
+			participantID, err = coerceFormString(entry["recipient_id"], fmt.Sprintf("field_instances[%d].recipient_id", index))
+			if err != nil {
+				return nil, hasPayload, err
+			}
 		}
-		recipientIndex := int(toInt64(strings.TrimSpace(toString(entry["recipient_index"]))))
-		pageRaw := strings.TrimSpace(toString(entry["page"]))
-		if pageRaw == "" {
-			pageRaw = strings.TrimSpace(toString(entry["page_number"]))
+		recipientIndex, err := coerceFormInt(entry["recipient_index"], fmt.Sprintf("field_instances[%d].recipient_index", index))
+		if err != nil {
+			return nil, hasPayload, err
 		}
-		pageNumber := int(toInt64(pageRaw))
-		posX := toFloat64(entry["x"])
+		pageNumber, err := coerceFormInt(entry["page"], fmt.Sprintf("field_instances[%d].page", index))
+		if err != nil {
+			return nil, hasPayload, err
+		}
+		if pageNumber == 0 {
+			pageNumber, err = coerceFormInt(entry["page_number"], fmt.Sprintf("field_instances[%d].page_number", index))
+			if err != nil {
+				return nil, hasPayload, err
+			}
+		}
+		posX, err := coerceFormFloat(entry["x"], fmt.Sprintf("field_instances[%d].x", index))
+		if err != nil {
+			return nil, hasPayload, err
+		}
 		if posX == 0 {
-			posX = toFloat64(entry["pos_x"])
+			posX, err = coerceFormFloat(entry["pos_x"], fmt.Sprintf("field_instances[%d].pos_x", index))
+			if err != nil {
+				return nil, hasPayload, err
+			}
 		}
-		posY := toFloat64(entry["y"])
+		posY, err := coerceFormFloat(entry["y"], fmt.Sprintf("field_instances[%d].y", index))
+		if err != nil {
+			return nil, hasPayload, err
+		}
 		if posY == 0 {
-			posY = toFloat64(entry["pos_y"])
+			posY, err = coerceFormFloat(entry["pos_y"], fmt.Sprintf("field_instances[%d].pos_y", index))
+			if err != nil {
+				return nil, hasPayload, err
+			}
 		}
-		width := toFloat64(entry["width"])
-		height := toFloat64(entry["height"])
-		required := toBool(entry["required"])
+		width, err := coerceFormFloat(entry["width"], fmt.Sprintf("field_instances[%d].width", index))
+		if err != nil {
+			return nil, hasPayload, err
+		}
+		height, err := coerceFormFloat(entry["height"], fmt.Sprintf("field_instances[%d].height", index))
+		if err != nil {
+			return nil, hasPayload, err
+		}
+		required, err := coerceFormBool(entry["required"], fmt.Sprintf("field_instances[%d].required", index))
+		if err != nil {
+			return nil, hasPayload, err
+		}
 		if id == "" && fieldType == "" && participantID == "" {
 			continue
 		}
@@ -1091,7 +1147,222 @@ func parseAgreementFieldFormInputs(record map[string]any) ([]agreementFieldFormI
 			Required:       required,
 		})
 	}
-	return out, hasPayload
+
+	placementInputs, hasPlacementPayload, err := parseAgreementFieldPlacementInputs(record)
+	if err != nil {
+		return nil, hasPayload || hasPlacementPayload, err
+	}
+	if hasPlacementPayload && len(out) > 0 {
+		out = mergeFieldPlacementInputs(out, placementInputs)
+	}
+
+	return out, hasPayload, nil
+}
+
+func parseAgreementFieldPlacementInputs(record map[string]any) ([]agreementFieldPlacementFormInput, bool, error) {
+	entries := map[int]map[string]any{}
+	hasPayload := false
+	if record == nil {
+		return nil, false, nil
+	}
+	if raw, ok := record["field_placements"]; ok {
+		hasPayload = true
+		collectIndexedFormEntries(entries, raw)
+	}
+	for key, value := range record {
+		matches := fieldPlacementKeyPattern.FindStringSubmatch(strings.TrimSpace(key))
+		if len(matches) != 2 {
+			continue
+		}
+		hasPayload = true
+		index := int(toInt64(matches[1]))
+		entry, ok := value.(map[string]any)
+		if !ok {
+			entry = map[string]any{}
+		}
+		entries[index] = entry
+	}
+
+	indexes := sortedEntryIndexes(entries)
+	out := make([]agreementFieldPlacementFormInput, 0, len(indexes))
+	for _, index := range indexes {
+		entry := entries[index]
+		id, err := coerceFormString(entry["id"], fmt.Sprintf("field_placements[%d].id", index))
+		if err != nil {
+			return nil, hasPayload, err
+		}
+		definitionID, err := coerceFormString(entry["definition_id"], fmt.Sprintf("field_placements[%d].definition_id", index))
+		if err != nil {
+			return nil, hasPayload, err
+		}
+		if definitionID == "" {
+			definitionID, err = coerceFormString(entry["field_definition_id"], fmt.Sprintf("field_placements[%d].field_definition_id", index))
+			if err != nil {
+				return nil, hasPayload, err
+			}
+		}
+		pageNumber, err := coerceFormInt(entry["page"], fmt.Sprintf("field_placements[%d].page", index))
+		if err != nil {
+			return nil, hasPayload, err
+		}
+		posX, err := coerceFormFloat(entry["x"], fmt.Sprintf("field_placements[%d].x", index))
+		if err != nil {
+			return nil, hasPayload, err
+		}
+		posY, err := coerceFormFloat(entry["y"], fmt.Sprintf("field_placements[%d].y", index))
+		if err != nil {
+			return nil, hasPayload, err
+		}
+		width, err := coerceFormFloat(entry["width"], fmt.Sprintf("field_placements[%d].width", index))
+		if err != nil {
+			return nil, hasPayload, err
+		}
+		height, err := coerceFormFloat(entry["height"], fmt.Sprintf("field_placements[%d].height", index))
+		if err != nil {
+			return nil, hasPayload, err
+		}
+		if id == "" && definitionID == "" && pageNumber <= 0 && posX == 0 && posY == 0 && width == 0 && height == 0 {
+			continue
+		}
+		out = append(out, agreementFieldPlacementFormInput{
+			ID:           id,
+			DefinitionID: definitionID,
+			PageNumber:   pageNumber,
+			PosX:         posX,
+			PosY:         posY,
+			Width:        width,
+			Height:       height,
+		})
+	}
+	return out, hasPayload, nil
+}
+
+func mergeFieldPlacementInputs(fields []agreementFieldFormInput, placements []agreementFieldPlacementFormInput) []agreementFieldFormInput {
+	if len(fields) == 0 || len(placements) == 0 {
+		return fields
+	}
+	placementsByDefinitionID := make(map[string]agreementFieldPlacementFormInput, len(placements))
+	placementsByID := make(map[string]agreementFieldPlacementFormInput, len(placements))
+	for _, placement := range placements {
+		if id := strings.TrimSpace(placement.DefinitionID); id != "" {
+			placementsByDefinitionID[id] = placement
+		}
+		if id := strings.TrimSpace(placement.ID); id != "" {
+			placementsByID[id] = placement
+		}
+	}
+	for index := range fields {
+		fieldID := strings.TrimSpace(fields[index].ID)
+		placement, ok := placementsByDefinitionID[fieldID]
+		if !ok {
+			placement, ok = placementsByID[fieldID]
+		}
+		if !ok {
+			continue
+		}
+		if placement.PageNumber > 0 {
+			fields[index].PageNumber = placement.PageNumber
+		}
+		fields[index].PosX = placement.PosX
+		fields[index].PosY = placement.PosY
+		fields[index].Width = placement.Width
+		fields[index].Height = placement.Height
+	}
+	return fields
+}
+
+func coerceFormString(value any, fieldPath string) (string, error) {
+	switch typed := value.(type) {
+	case nil:
+		return "", nil
+	case string:
+		return strings.TrimSpace(typed), nil
+	case []string:
+		return coerceFormStringSlice(typed, fieldPath)
+	case []any:
+		flattened := make([]string, 0, len(typed))
+		for _, item := range typed {
+			resolved, err := coerceFormString(item, fieldPath)
+			if err != nil {
+				return "", err
+			}
+			flattened = append(flattened, resolved)
+		}
+		return coerceFormStringSlice(flattened, fieldPath)
+	default:
+		return strings.TrimSpace(fmt.Sprint(typed)), nil
+	}
+}
+
+func coerceFormStringSlice(values []string, fieldPath string) (string, error) {
+	unique := make([]string, 0, len(values))
+	seen := map[string]struct{}{}
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		if _, ok := seen[trimmed]; ok {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		unique = append(unique, trimmed)
+	}
+	switch len(unique) {
+	case 0:
+		return "", nil
+	case 1:
+		return unique[0], nil
+	default:
+		return "", fmt.Errorf("field %s has conflicting values %v", fieldPath, unique)
+	}
+}
+
+func coerceFormInt(value any, fieldPath string) (int, error) {
+	raw, err := coerceFormString(value, fieldPath)
+	if err != nil {
+		return 0, err
+	}
+	if raw == "" {
+		return 0, nil
+	}
+	parsed, err := strconv.Atoi(raw)
+	if err != nil {
+		return 0, fmt.Errorf("field %s has invalid integer %q", fieldPath, raw)
+	}
+	return parsed, nil
+}
+
+func coerceFormFloat(value any, fieldPath string) (float64, error) {
+	raw, err := coerceFormString(value, fieldPath)
+	if err != nil {
+		return 0, err
+	}
+	if raw == "" {
+		return 0, nil
+	}
+	parsed, err := strconv.ParseFloat(raw, 64)
+	if err != nil {
+		return 0, fmt.Errorf("field %s has invalid number %q", fieldPath, raw)
+	}
+	return parsed, nil
+}
+
+func coerceFormBool(value any, fieldPath string) (bool, error) {
+	switch typed := value.(type) {
+	case nil:
+		return false, nil
+	case bool:
+		return typed, nil
+	case []string, []any:
+		raw, err := coerceFormString(typed, fieldPath)
+		if err != nil {
+			return false, err
+		}
+		return toBool(raw), nil
+	default:
+		return toBool(value), nil
+	}
 }
 
 func collectIndexedFormEntries(dst map[int]map[string]any, raw any) {

@@ -43,6 +43,8 @@ type SQLiteStore struct {
 type sqliteStoreSnapshot struct {
 	Documents                  map[string]DocumentRecord               `json:"documents"`
 	Agreements                 map[string]AgreementRecord              `json:"agreements"`
+	Drafts                     map[string]DraftRecord                  `json:"drafts"`
+	DraftWizardIndex           map[string]string                       `json:"draft_wizard_index"`
 	Participants               map[string]ParticipantRecord            `json:"participants"`
 	FieldDefinitions           map[string]FieldDefinitionRecord        `json:"field_definitions"`
 	FieldInstances             map[string]FieldInstanceRecord          `json:"field_instances"`
@@ -57,6 +59,7 @@ type sqliteStoreSnapshot struct {
 	EmailLogs                  map[string]EmailLogRecord               `json:"email_logs"`
 	JobRuns                    map[string]JobRunRecord                 `json:"job_runs"`
 	JobRunDedupeIndex          map[string]string                       `json:"job_run_dedupe_index"`
+	OutboxMessages             map[string]OutboxMessageRecord          `json:"outbox_messages"`
 	IntegrationCredentials     map[string]IntegrationCredentialRecord  `json:"integration_credentials"`
 	IntegrationCredentialIndex map[string]string                       `json:"integration_credential_index"`
 	MappingSpecs               map[string]MappingSpecRecord            `json:"mapping_specs"`
@@ -169,6 +172,8 @@ func loadSQLiteSnapshot(ctx context.Context, db *sql.DB) (*InMemoryStore, error)
 	}
 	mem.documents = ensureDocumentMap(snapshot.Documents)
 	mem.agreements = ensureAgreementMap(snapshot.Agreements)
+	mem.drafts = ensureDraftMap(snapshot.Drafts)
+	mem.draftWizardIndex = ensureStringMap(snapshot.DraftWizardIndex)
 	mem.participants = ensureParticipantMap(snapshot.Participants)
 	mem.fieldDefinitions = ensureFieldDefinitionMap(snapshot.FieldDefinitions)
 	mem.fieldInstances = ensureFieldInstanceMap(snapshot.FieldInstances)
@@ -183,6 +188,7 @@ func loadSQLiteSnapshot(ctx context.Context, db *sql.DB) (*InMemoryStore, error)
 	mem.emailLogs = ensureEmailLogMap(snapshot.EmailLogs)
 	mem.jobRuns = ensureJobRunMap(snapshot.JobRuns)
 	mem.jobRunDedupeIndex = ensureStringMap(snapshot.JobRunDedupeIndex)
+	mem.outboxMessages = ensureOutboxMessageMap(snapshot.OutboxMessages)
 	mem.integrationCredentials = ensureIntegrationCredentialMap(snapshot.IntegrationCredentials)
 	mem.integrationCredentialIndex = ensureStringMap(snapshot.IntegrationCredentialIndex)
 	mem.mappingSpecs = ensureMappingSpecMap(snapshot.MappingSpecs)
@@ -225,6 +231,8 @@ func (s *SQLiteStore) persist(ctx context.Context) error {
 	snapshot := sqliteStoreSnapshot{
 		Documents:                  maps.Clone(s.documents),
 		Agreements:                 maps.Clone(s.agreements),
+		Drafts:                     maps.Clone(s.drafts),
+		DraftWizardIndex:           maps.Clone(s.draftWizardIndex),
 		Participants:               maps.Clone(s.participants),
 		FieldDefinitions:           maps.Clone(s.fieldDefinitions),
 		FieldInstances:             maps.Clone(s.fieldInstances),
@@ -239,6 +247,7 @@ func (s *SQLiteStore) persist(ctx context.Context) error {
 		EmailLogs:                  maps.Clone(s.emailLogs),
 		JobRuns:                    maps.Clone(s.jobRuns),
 		JobRunDedupeIndex:          maps.Clone(s.jobRunDedupeIndex),
+		OutboxMessages:             maps.Clone(s.outboxMessages),
 		IntegrationCredentials:     maps.Clone(s.integrationCredentials),
 		IntegrationCredentialIndex: maps.Clone(s.integrationCredentialIndex),
 		MappingSpecs:               maps.Clone(s.mappingSpecs),
@@ -416,6 +425,56 @@ func (s *SQLiteStore) CreateDraft(ctx context.Context, scope Scope, record Agree
 		return AgreementRecord{}, err
 	}
 	return out, nil
+}
+
+func (s *SQLiteStore) CreateDraftSession(ctx context.Context, scope Scope, record DraftRecord) (DraftRecord, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, replay, err := s.InMemoryStore.CreateDraftSession(ctx, scope, record)
+	if err != nil {
+		return DraftRecord{}, false, err
+	}
+	if err := s.persistMaybe(ctx); err != nil {
+		return DraftRecord{}, false, err
+	}
+	return out, replay, nil
+}
+
+func (s *SQLiteStore) UpdateDraftSession(ctx context.Context, scope Scope, id string, patch DraftPatch, expectedRevision int64) (DraftRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.UpdateDraftSession(ctx, scope, id, patch, expectedRevision)
+	if err != nil {
+		return DraftRecord{}, err
+	}
+	if err := s.persistMaybe(ctx); err != nil {
+		return DraftRecord{}, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) DeleteDraftSession(ctx context.Context, scope Scope, id string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.InMemoryStore.DeleteDraftSession(ctx, scope, id); err != nil {
+		return err
+	}
+	return s.persistMaybe(ctx)
+}
+
+func (s *SQLiteStore) DeleteExpiredDraftSessions(ctx context.Context, before time.Time) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	count, err := s.InMemoryStore.DeleteExpiredDraftSessions(ctx, before)
+	if err != nil {
+		return 0, err
+	}
+	if count > 0 {
+		if err := s.persistMaybe(ctx); err != nil {
+			return 0, err
+		}
+	}
+	return count, nil
 }
 
 func (s *SQLiteStore) UpdateDraft(ctx context.Context, scope Scope, id string, patch AgreementDraftPatch, expectedVersion int64) (AgreementRecord, error) {
@@ -736,6 +795,61 @@ func (s *SQLiteStore) MarkJobRunFailed(ctx context.Context, scope Scope, id, fai
 	return out, nil
 }
 
+func (s *SQLiteStore) EnqueueOutboxMessage(ctx context.Context, scope Scope, record OutboxMessageRecord) (OutboxMessageRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.EnqueueOutboxMessage(ctx, scope, record)
+	if err != nil {
+		return OutboxMessageRecord{}, err
+	}
+	if err := s.persistMaybe(ctx); err != nil {
+		return OutboxMessageRecord{}, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) ClaimOutboxMessages(ctx context.Context, scope Scope, input OutboxClaimInput) ([]OutboxMessageRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.ClaimOutboxMessages(ctx, scope, input)
+	if err != nil {
+		return nil, err
+	}
+	if len(out) == 0 {
+		return out, nil
+	}
+	if err := s.persistMaybe(ctx); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) MarkOutboxMessageSucceeded(ctx context.Context, scope Scope, id string, publishedAt time.Time) (OutboxMessageRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.MarkOutboxMessageSucceeded(ctx, scope, id, publishedAt)
+	if err != nil {
+		return OutboxMessageRecord{}, err
+	}
+	if err := s.persistMaybe(ctx); err != nil {
+		return OutboxMessageRecord{}, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) MarkOutboxMessageFailed(ctx context.Context, scope Scope, id, failureReason string, nextAttemptAt *time.Time, failedAt time.Time) (OutboxMessageRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.MarkOutboxMessageFailed(ctx, scope, id, failureReason, nextAttemptAt, failedAt)
+	if err != nil {
+		return OutboxMessageRecord{}, err
+	}
+	if err := s.persistMaybe(ctx); err != nil {
+		return OutboxMessageRecord{}, err
+	}
+	return out, nil
+}
+
 func (s *SQLiteStore) UpsertIntegrationCredential(ctx context.Context, scope Scope, record IntegrationCredentialRecord) (IntegrationCredentialRecord, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -918,6 +1032,13 @@ func ensureAgreementMap(in map[string]AgreementRecord) map[string]AgreementRecor
 	return in
 }
 
+func ensureDraftMap(in map[string]DraftRecord) map[string]DraftRecord {
+	if in == nil {
+		return map[string]DraftRecord{}
+	}
+	return in
+}
+
 func ensureParticipantMap(in map[string]ParticipantRecord) map[string]ParticipantRecord {
 	if in == nil {
 		return map[string]ParticipantRecord{}
@@ -998,6 +1119,13 @@ func ensureEmailLogMap(in map[string]EmailLogRecord) map[string]EmailLogRecord {
 func ensureJobRunMap(in map[string]JobRunRecord) map[string]JobRunRecord {
 	if in == nil {
 		return map[string]JobRunRecord{}
+	}
+	return in
+}
+
+func ensureOutboxMessageMap(in map[string]OutboxMessageRecord) map[string]OutboxMessageRecord {
+	if in == nil {
+		return map[string]OutboxMessageRecord{}
 	}
 	return in
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	auth "github.com/goliatone/go-auth"
 	gocommand "github.com/goliatone/go-command"
+	"github.com/goliatone/go-command/dispatcher"
 )
 
 // AgreementLifecycleService captures agreement domain transitions triggered by admin actions.
@@ -27,6 +28,11 @@ type TokenRotator interface {
 	Rotate(ctx context.Context, scope stores.Scope, agreementID, recipientID string) (stores.IssuedSigningToken, error)
 }
 
+// DraftCleanupService captures expired draft cleanup behavior.
+type DraftCleanupService interface {
+	CleanupExpiredDrafts(ctx context.Context, before time.Time) (int, error)
+}
+
 // AgreementActivityProjector projects canonical audit events into the shared activity feed.
 type AgreementActivityProjector interface {
 	ProjectAgreement(ctx context.Context, scope stores.Scope, agreementID string) error
@@ -37,6 +43,7 @@ func Register(
 	bus *coreadmin.CommandBus,
 	agreements AgreementLifecycleService,
 	tokens TokenRotator,
+	drafts DraftCleanupService,
 	defaultScope stores.Scope,
 	projector AgreementActivityProjector,
 ) error {
@@ -54,6 +61,11 @@ func Register(
 	}
 	if _, err := coreadmin.RegisterCommand(bus, &TokenRotateCommand{tokens: tokens, defaultScope: defaultScope, projector: projector}); err != nil {
 		return err
+	}
+	if drafts != nil {
+		if _, err := coreadmin.RegisterCommand(bus, &DraftCleanupCommand{drafts: drafts, defaultScope: defaultScope}); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -280,6 +292,63 @@ func (c *TokenRotateCommand) Execute(ctx context.Context, msg TokenRotateInput) 
 		"recipient_id": strings.TrimSpace(msg.RecipientID),
 	})
 	return nil
+}
+
+// DraftCleanupCommand dispatches draft expiry cleanup and exposes a cron schedule.
+type DraftCleanupCommand struct {
+	drafts       DraftCleanupService
+	defaultScope stores.Scope
+}
+
+var _ gocommand.Commander[DraftCleanupInput] = (*DraftCleanupCommand)(nil)
+
+func (c *DraftCleanupCommand) Name() string {
+	return CommandDraftCleanup
+}
+
+func (c *DraftCleanupCommand) Execute(ctx context.Context, msg DraftCleanupInput) error {
+	startedAt := time.Now()
+	correlationID := observability.ResolveCorrelationID(msg.CorrelationID, CommandDraftCleanup)
+	if c == nil || c.drafts == nil {
+		err := fmt.Errorf("draft cleanup command not configured")
+		observability.LogOperation(ctx, slog.LevelError, "command", "draft_cleanup", "error", correlationID, time.Since(startedAt), err, map[string]any{
+			"command_name": CommandDraftCleanup,
+		})
+		return err
+	}
+	if err := msg.Validate(); err != nil {
+		observability.LogOperation(ctx, slog.LevelWarn, "command", "draft_cleanup", "error", correlationID, time.Since(startedAt), err, map[string]any{
+			"command_name": CommandDraftCleanup,
+		})
+		return err
+	}
+	before := msg.BeforeTime(time.Now().UTC())
+	deleted, err := c.drafts.CleanupExpiredDrafts(ctx, before)
+	if err != nil {
+		observability.LogOperation(ctx, slog.LevelWarn, "command", "draft_cleanup", "error", correlationID, time.Since(startedAt), err, map[string]any{
+			"command_name": CommandDraftCleanup,
+		})
+		return err
+	}
+	observability.LogOperation(ctx, slog.LevelInfo, "command", "draft_cleanup", "success", correlationID, time.Since(startedAt), nil, map[string]any{
+		"command_name": CommandDraftCleanup,
+		"deleted":      deleted,
+		"before":       before.Format(time.RFC3339Nano),
+	})
+	return nil
+}
+
+func (c *DraftCleanupCommand) CronHandler() func() error {
+	return func() error {
+		return dispatcher.Dispatch(context.Background(), DraftCleanupInput{
+			Scope:  c.defaultScope,
+			Before: time.Now().UTC().Format(time.RFC3339Nano),
+		})
+	}
+}
+
+func (c *DraftCleanupCommand) CronOptions() gocommand.HandlerConfig {
+	return gocommand.HandlerConfig{Expression: "@daily"}
 }
 
 func projectAgreementActivity(ctx context.Context, projector AgreementActivityProjector, scope stores.Scope, agreementID string) error {

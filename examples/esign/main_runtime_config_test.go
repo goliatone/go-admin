@@ -59,6 +59,8 @@ func TestValidateRuntimeProviderConfigurationAllowsGoogleRealProviderInProductio
 	t.Setenv("ESIGN_PUBLIC_BASE_URL", "https://esign.example.com")
 	t.Setenv("ESIGN_EMAIL_TRANSPORT", "smtp")
 	t.Setenv("ESIGN_SIGNER_UPLOAD_SIGNING_KEY", "upload-signing-key")
+	t.Setenv("ESIGN_SERVICES_MODULE_ENABLED", "true")
+	t.Setenv("ESIGN_SERVICES_ENCRYPTION_KEY", "production-services-encryption-key")
 	t.Setenv("ESIGN_GOOGLE_FEATURE_ENABLED", "true")
 	t.Setenv("ESIGN_GOOGLE_PROVIDER_MODE", "real")
 	t.Setenv("ESIGN_GOOGLE_CLIENT_ID", "client-id")

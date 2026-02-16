@@ -152,6 +152,175 @@ func TestAgreementPanelRepositoryCreatePersistsFormRecipientsAndFields(t *testin
 	}
 }
 
+func TestAgreementPanelRepositoryCreateCollapsesDuplicateParticipantValues(t *testing.T) {
+	store := stores.NewInMemoryStore()
+	scope := defaultModuleScope
+	seedESignDocument(t, store, scope, "doc-create-dup-1")
+
+	repo := newAgreementPanelRepository(
+		store,
+		services.NewAgreementService(store),
+		services.NewArtifactPipelineService(store, nil),
+		nil,
+		nil,
+		scope,
+		RuntimeSettings{},
+	)
+
+	created, err := repo.Create(context.Background(), map[string]any{
+		"document_id": "doc-create-dup-1",
+		"title":       "MSA duplicate participant ids",
+		"message":     "Please review",
+		"recipients[0]": map[string]any{
+			"id":    "participant-create-dup-1",
+			"name":  "Alice",
+			"email": "alice@example.com",
+			"role":  "signer",
+		},
+		"fields[0]": map[string]any{
+			"id":             "field-create-dup-1",
+			"type":           "signature",
+			"participant_id": []string{"participant-create-dup-1", "participant-create-dup-1"},
+			"page":           "1",
+			"required":       "on",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	agreementID := strings.TrimSpace(toString(created["id"]))
+	if agreementID == "" {
+		t.Fatal("expected created agreement id")
+	}
+
+	fields, err := store.ListFields(context.Background(), scope, agreementID)
+	if err != nil {
+		t.Fatalf("ListFields: %v", err)
+	}
+	if len(fields) != 1 {
+		t.Fatalf("expected 1 field, got %d", len(fields))
+	}
+	if got := strings.TrimSpace(fields[0].RecipientID); got != "participant-create-dup-1" {
+		t.Fatalf("expected participant id participant-create-dup-1, got %q", got)
+	}
+}
+
+func TestAgreementPanelRepositoryCreateRejectsConflictingParticipantValues(t *testing.T) {
+	store := stores.NewInMemoryStore()
+	scope := defaultModuleScope
+	seedESignDocument(t, store, scope, "doc-create-dup-2")
+
+	repo := newAgreementPanelRepository(
+		store,
+		services.NewAgreementService(store),
+		services.NewArtifactPipelineService(store, nil),
+		nil,
+		nil,
+		scope,
+		RuntimeSettings{},
+	)
+
+	_, err := repo.Create(context.Background(), map[string]any{
+		"document_id": "doc-create-dup-2",
+		"title":       "MSA conflicting participant ids",
+		"message":     "Please review",
+		"recipients[0]": map[string]any{
+			"id":    "participant-create-dup-2",
+			"name":  "Alice",
+			"email": "alice@example.com",
+			"role":  "signer",
+		},
+		"fields[0]": map[string]any{
+			"id":             "field-create-dup-2",
+			"type":           "signature",
+			"participant_id": []string{"participant-create-dup-2", "participant-create-dup-other"},
+			"page":           "1",
+			"required":       "on",
+		},
+	})
+	if err == nil {
+		t.Fatal("expected conflicting participant_id values error")
+	}
+	if !strings.Contains(err.Error(), "participant_id") || !strings.Contains(err.Error(), "conflicting values") {
+		t.Fatalf("expected conflicting participant_id error, got %v", err)
+	}
+}
+
+func TestAgreementPanelRepositoryCreateMergesFieldPlacements(t *testing.T) {
+	store := stores.NewInMemoryStore()
+	scope := defaultModuleScope
+	seedESignDocument(t, store, scope, "doc-create-placement-1")
+
+	repo := newAgreementPanelRepository(
+		store,
+		services.NewAgreementService(store),
+		services.NewArtifactPipelineService(store, nil),
+		nil,
+		nil,
+		scope,
+		RuntimeSettings{},
+	)
+
+	created, err := repo.Create(context.Background(), map[string]any{
+		"document_id": "doc-create-placement-1",
+		"title":       "MSA with placement merge",
+		"message":     "Please review",
+		"recipients[0]": map[string]any{
+			"id":    "participant-create-placement-1",
+			"name":  "Alice",
+			"email": "alice@example.com",
+			"role":  "signer",
+		},
+		"fields[0]": map[string]any{
+			"id":             "field-create-placement-1",
+			"type":           "signature",
+			"participant_id": "participant-create-placement-1",
+			"page":           "1",
+			"required":       "on",
+		},
+		"field_placements[0]": map[string]any{
+			"definition_id": "field-create-placement-1",
+			"page":          "2",
+			"x":             "72",
+			"y":             "120",
+			"width":         "220",
+			"height":        "42",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	agreementID := strings.TrimSpace(toString(created["id"]))
+	if agreementID == "" {
+		t.Fatal("expected created agreement id")
+	}
+
+	fields, err := store.ListFields(context.Background(), scope, agreementID)
+	if err != nil {
+		t.Fatalf("ListFields: %v", err)
+	}
+	if len(fields) != 1 {
+		t.Fatalf("expected 1 field, got %d", len(fields))
+	}
+	if got := fields[0].PageNumber; got != 2 {
+		t.Fatalf("expected merged page number 2, got %d", got)
+	}
+	if got := int(fields[0].PosX); got != 72 {
+		t.Fatalf("expected merged x=72, got %v", fields[0].PosX)
+	}
+	if got := int(fields[0].PosY); got != 120 {
+		t.Fatalf("expected merged y=120, got %v", fields[0].PosY)
+	}
+	if got := int(fields[0].Width); got != 220 {
+		t.Fatalf("expected merged width=220, got %v", fields[0].Width)
+	}
+	if got := int(fields[0].Height); got != 42 {
+		t.Fatalf("expected merged height=42, got %v", fields[0].Height)
+	}
+}
+
 func TestAgreementPanelRepositoryUpdateSynchronizesFormRecipientsAndFields(t *testing.T) {
 	store := stores.NewInMemoryStore()
 	scope := defaultModuleScope
