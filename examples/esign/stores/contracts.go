@@ -93,6 +93,43 @@ type IntegrationCredentialStore interface {
 	DeleteIntegrationCredential(ctx context.Context, scope Scope, provider, userID string) error
 }
 
+// IntegrationFoundationStore defines provider-agnostic integration mapping/sync/conflict/event persistence.
+type IntegrationFoundationStore interface {
+	UpsertMappingSpec(ctx context.Context, scope Scope, record MappingSpecRecord) (MappingSpecRecord, error)
+	GetMappingSpec(ctx context.Context, scope Scope, id string) (MappingSpecRecord, error)
+	ListMappingSpecs(ctx context.Context, scope Scope, provider string) ([]MappingSpecRecord, error)
+	PublishMappingSpec(ctx context.Context, scope Scope, id string, expectedVersion int64, publishedAt time.Time) (MappingSpecRecord, error)
+
+	UpsertIntegrationBinding(ctx context.Context, scope Scope, record IntegrationBindingRecord) (IntegrationBindingRecord, error)
+	GetIntegrationBindingByExternal(ctx context.Context, scope Scope, provider, entityKind, externalID string) (IntegrationBindingRecord, error)
+	ListIntegrationBindings(ctx context.Context, scope Scope, provider, entityKind, internalID string) ([]IntegrationBindingRecord, error)
+
+	CreateIntegrationSyncRun(ctx context.Context, scope Scope, record IntegrationSyncRunRecord) (IntegrationSyncRunRecord, error)
+	UpdateIntegrationSyncRunStatus(ctx context.Context, scope Scope, id, status, lastError, cursor string, completedAt *time.Time, expectedVersion int64) (IntegrationSyncRunRecord, error)
+	GetIntegrationSyncRun(ctx context.Context, scope Scope, id string) (IntegrationSyncRunRecord, error)
+	ListIntegrationSyncRuns(ctx context.Context, scope Scope, provider string) ([]IntegrationSyncRunRecord, error)
+
+	UpsertIntegrationCheckpoint(ctx context.Context, scope Scope, record IntegrationCheckpointRecord) (IntegrationCheckpointRecord, error)
+	ListIntegrationCheckpoints(ctx context.Context, scope Scope, runID string) ([]IntegrationCheckpointRecord, error)
+
+	CreateIntegrationConflict(ctx context.Context, scope Scope, record IntegrationConflictRecord) (IntegrationConflictRecord, error)
+	GetIntegrationConflict(ctx context.Context, scope Scope, id string) (IntegrationConflictRecord, error)
+	ListIntegrationConflicts(ctx context.Context, scope Scope, runID, status string) ([]IntegrationConflictRecord, error)
+	ResolveIntegrationConflict(ctx context.Context, scope Scope, id, status, resolutionJSON, resolvedByUserID string, resolvedAt time.Time, expectedVersion int64) (IntegrationConflictRecord, error)
+
+	AppendIntegrationChangeEvent(ctx context.Context, scope Scope, record IntegrationChangeEventRecord) (IntegrationChangeEventRecord, error)
+	ListIntegrationChangeEvents(ctx context.Context, scope Scope, agreementID string) ([]IntegrationChangeEventRecord, error)
+
+	ClaimIntegrationMutation(ctx context.Context, scope Scope, idempotencyKey string, firstSeenAt time.Time) (bool, error)
+}
+
+// PlacementRunStore defines placement-run persistence and retrieval contracts.
+type PlacementRunStore interface {
+	UpsertPlacementRun(ctx context.Context, scope Scope, record PlacementRunRecord) (PlacementRunRecord, error)
+	GetPlacementRun(ctx context.Context, scope Scope, agreementID, runID string) (PlacementRunRecord, error)
+	ListPlacementRuns(ctx context.Context, scope Scope, agreementID string) ([]PlacementRunRecord, error)
+}
+
 // TxStore is the transactional store surface available inside a transaction scope.
 type TxStore interface {
 	DocumentStore
@@ -105,6 +142,8 @@ type TxStore interface {
 	EmailLogStore
 	JobRunStore
 	IntegrationCredentialStore
+	IntegrationFoundationStore
+	PlacementRunStore
 }
 
 // TransactionManager defines transaction lifecycle coordination.

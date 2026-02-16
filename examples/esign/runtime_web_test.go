@@ -21,7 +21,6 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/modules"
 	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/services"
-	"github.com/goliatone/go-admin/examples/esign/stores"
 	"github.com/goliatone/go-admin/pkg/client"
 	"github.com/goliatone/go-admin/quickstart"
 	commandregistry "github.com/goliatone/go-command/registry"
@@ -75,35 +74,28 @@ func TestRuntimeAdminUIRoutesRequireLoginButSignerRouteStaysPublic(t *testing.T)
 	}
 }
 
-func TestRuntimeSignerFlowModeRoutesSelectLegacyAndUnified(t *testing.T) {
-	t.Setenv(envSignerFlowMode, signerFlowModeUnified)
+func TestRuntimeSignerRoutesExposeUnifiedSurfaceOnly(t *testing.T) {
 	app, err := newESignRuntimeWebAppForTestsWithGoogleEnabled(false)
 	if err != nil {
 		t.Fatalf("setup e-sign runtime app: %v", err)
 	}
 
-	defaultResp := doRequest(t, app, http.MethodGet, "/sign/token-mode-1", "", nil)
-	defer defaultResp.Body.Close()
-	if defaultResp.StatusCode != http.StatusFound {
-		t.Fatalf("expected unified default redirect status 302, got %d", defaultResp.StatusCode)
+	entryResp := doRequest(t, app, http.MethodGet, "/sign/token-mode-1", "", nil)
+	defer entryResp.Body.Close()
+	if entryResp.StatusCode == http.StatusNotFound {
+		t.Fatalf("expected /sign/:token route to be registered, got 404")
 	}
-	if location := strings.TrimSpace(defaultResp.Header.Get("Location")); location != "/sign/token-mode-1/review?flow=unified" {
-		t.Fatalf("expected unified redirect location, got %q", location)
-	}
-
-	overrideResp := doRequest(t, app, http.MethodGet, "/sign/token-mode-1?flow=legacy", "", nil)
-	defer overrideResp.Body.Close()
-	if overrideResp.StatusCode != http.StatusOK {
-		t.Fatalf("expected legacy override response status 200, got %d", overrideResp.StatusCode)
+	if location := strings.TrimSpace(entryResp.Header.Get("Location")); strings.Contains(location, "flow=") {
+		t.Fatalf("expected no flow-mode query redirects, got %q", location)
 	}
 
 	aliasResp := doRequest(t, app, http.MethodGet, "/esign/sign/token-mode-1", "", nil)
 	defer aliasResp.Body.Close()
-	if aliasResp.StatusCode != http.StatusFound {
-		t.Fatalf("expected unified alias redirect status 302, got %d", aliasResp.StatusCode)
+	if aliasResp.StatusCode == http.StatusNotFound {
+		t.Fatalf("expected /esign/sign/:token alias route to be registered, got 404")
 	}
-	if location := strings.TrimSpace(aliasResp.Header.Get("Location")); location != "/esign/sign/token-mode-1/review?flow=unified" {
-		t.Fatalf("expected unified alias redirect location, got %q", location)
+	if location := strings.TrimSpace(aliasResp.Header.Get("Location")); strings.Contains(location, "flow=") {
+		t.Fatalf("expected no flow-mode query redirects for alias, got %q", location)
 	}
 
 	reviewResp := doRequest(t, app, http.MethodGet, "/sign/token-mode-1/review", "", nil)
@@ -111,189 +103,17 @@ func TestRuntimeSignerFlowModeRoutesSelectLegacyAndUnified(t *testing.T) {
 	if reviewResp.StatusCode == http.StatusNotFound {
 		t.Fatalf("expected unified review route to be registered, got 404")
 	}
-}
 
-func TestRuntimeLegacyFlowCompatibilityGateRemainsAvailableWhenUnifiedDefault(t *testing.T) {
-	t.Setenv(envSignerFlowMode, signerFlowModeUnified)
-	app, err := newESignRuntimeWebAppForTestsWithGoogleEnabled(false)
-	if err != nil {
-		t.Fatalf("setup e-sign runtime app: %v", err)
+	legacyFieldsResp := doRequest(t, app, http.MethodGet, "/sign/token-mode-1/fields", "", nil)
+	defer legacyFieldsResp.Body.Close()
+	if legacyFieldsResp.StatusCode != http.StatusNotFound {
+		t.Fatalf("expected legacy /fields route to be removed, got %d", legacyFieldsResp.StatusCode)
 	}
 
-	resp := doRequest(t, app, http.MethodGet, "/sign/token-legacy-gate?flow=legacy", "", nil)
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("expected legacy flow status 200, got %d", resp.StatusCode)
-	}
-	if location := strings.TrimSpace(resp.Header.Get("Location")); location != "" {
-		t.Fatalf("expected no redirect for legacy compatibility gate, got %q", location)
-	}
-}
-
-func TestRuntimeSignerFlowModeKillSwitchForcesLegacy(t *testing.T) {
-	t.Setenv(envSignerFlowMode, signerFlowModeUnified)
-	t.Setenv(envSignerUnifiedKillSwitch, "true")
-	app, err := newESignRuntimeWebAppForTestsWithGoogleEnabled(false)
-	if err != nil {
-		t.Fatalf("setup e-sign runtime app: %v", err)
-	}
-
-	resp := doRequest(t, app, http.MethodGet, "/sign/token-mode-kill-switch", "", nil)
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("expected legacy-rendered response status 200 when kill switch enabled, got %d", resp.StatusCode)
-	}
-	if location := strings.TrimSpace(resp.Header.Get("Location")); location != "" {
-		t.Fatalf("expected no unified redirect location when kill switch enabled, got %q", location)
-	}
-}
-
-func TestRuntimeSignerFlowDiagnosticsReportsKillSwitchReason(t *testing.T) {
-	t.Setenv(envSignerFlowMode, signerFlowModeUnified)
-	t.Setenv(envSignerUnifiedKillSwitch, "true")
-	app, err := newESignRuntimeWebAppForTestsWithGoogleEnabled(false)
-	if err != nil {
-		t.Fatalf("setup e-sign runtime app: %v", err)
-	}
-
-	resp := doRequest(t, app, http.MethodGet, "/api/v1/esign/signing/flow-diagnostics/token-diag-kill", "", nil)
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		t.Fatalf("expected diagnostics status 200, got %d body=%s", resp.StatusCode, strings.TrimSpace(string(body)))
-	}
-	payload := map[string]any{}
-	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode diagnostics payload: %v", err)
-	}
-	decision, _ := payload["decision"].(map[string]any)
-	if strings.TrimSpace(fmt.Sprint(decision["reason"])) != signerFlowReasonKillSwitch {
-		t.Fatalf("expected reason %q, got %+v", signerFlowReasonKillSwitch, payload)
-	}
-	if strings.TrimSpace(fmt.Sprint(decision["mode"])) != signerFlowModeLegacy {
-		t.Fatalf("expected mode %q, got %+v", signerFlowModeLegacy, payload)
-	}
-}
-
-func TestRuntimeSignerFlowDiagnosticsReportsQueryOverrideReason(t *testing.T) {
-	t.Setenv(envSignerFlowMode, signerFlowModeUnified)
-	app, err := newESignRuntimeWebAppForTestsWithGoogleEnabled(false)
-	if err != nil {
-		t.Fatalf("setup e-sign runtime app: %v", err)
-	}
-
-	resp := doRequest(t, app, http.MethodGet, "/api/v1/esign/signing/flow-diagnostics/token-diag-query?flow=legacy", "", nil)
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		t.Fatalf("expected diagnostics status 200, got %d body=%s", resp.StatusCode, strings.TrimSpace(string(body)))
-	}
-	payload := map[string]any{}
-	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode diagnostics payload: %v", err)
-	}
-	decision, _ := payload["decision"].(map[string]any)
-	if strings.TrimSpace(fmt.Sprint(decision["reason"])) != signerFlowReasonQueryOverride {
-		t.Fatalf("expected reason %q, got %+v", signerFlowReasonQueryOverride, payload)
-	}
-	if strings.TrimSpace(fmt.Sprint(decision["mode"])) != signerFlowModeLegacy {
-		t.Fatalf("expected mode %q, got %+v", signerFlowModeLegacy, payload)
-	}
-}
-
-func TestRuntimeSignerFlowDiagnosticsReportsReviewFallbackReason(t *testing.T) {
-	t.Setenv(envSignerFlowMode, signerFlowModeUnified)
-	app, err := newESignRuntimeWebAppForTestsWithGoogleEnabled(false)
-	if err != nil {
-		t.Fatalf("setup e-sign runtime app: %v", err)
-	}
-
-	resp := doRequestWithBody(
-		t,
-		app,
-		http.MethodGet,
-		"/api/v1/esign/signing/flow-diagnostics/token-diag-review",
-		"",
-		nil,
-		map[string]string{"Referer": "https://esign.example.test/sign/token-diag-review/review"},
-	)
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		t.Fatalf("expected diagnostics status 200, got %d body=%s", resp.StatusCode, strings.TrimSpace(string(body)))
-	}
-	payload := map[string]any{}
-	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode diagnostics payload: %v", err)
-	}
-	decision, _ := payload["decision"].(map[string]any)
-	if strings.TrimSpace(fmt.Sprint(decision["reason"])) != signerFlowReasonReviewBootFallback {
-		t.Fatalf("expected reason %q, got %+v", signerFlowReasonReviewBootFallback, payload)
-	}
-	if strings.TrimSpace(fmt.Sprint(decision["mode"])) != signerFlowModeLegacy {
-		t.Fatalf("expected mode %q, got %+v", signerFlowModeLegacy, payload)
-	}
-}
-
-func TestRuntimeSignerFlowDiagnosticsReportsRolloutScopeDeniedReason(t *testing.T) {
-	t.Setenv(envSignerFlowMode, signerFlowModeUnified)
-	t.Setenv(envSignerUnifiedTargetTenants, "tenant-rollout-allow")
-	fixture, err := newESignRuntimeWebFixtureForTestsWithGoogleEnabled(false)
-	if err != nil {
-		t.Fatalf("setup e-sign runtime app fixture: %v", err)
-	}
-
-	tokenSvc := fixture.Module.TokenService()
-	if tokenSvc == nil {
-		t.Fatal("expected module token service")
-	}
-	issued, err := tokenSvc.Issue(context.Background(), fixture.Module.DefaultScope(), "agreement-diag-rollout", "recipient-diag-rollout")
-	if err != nil {
-		t.Fatalf("issue diagnostics token: %v", err)
-	}
-
-	resp := doRequest(t, fixture.App, http.MethodGet, "/api/v1/esign/signing/flow-diagnostics/"+url.PathEscape(issued.Token), "", nil)
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		t.Fatalf("expected diagnostics status 200, got %d body=%s", resp.StatusCode, strings.TrimSpace(string(body)))
-	}
-	payload := map[string]any{}
-	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode diagnostics payload: %v", err)
-	}
-	decision, _ := payload["decision"].(map[string]any)
-	if strings.TrimSpace(fmt.Sprint(decision["reason"])) != signerFlowReasonRolloutScopeDenied {
-		t.Fatalf("expected reason %q, got %+v", signerFlowReasonRolloutScopeDenied, payload)
-	}
-	if strings.TrimSpace(fmt.Sprint(decision["mode"])) != signerFlowModeLegacy {
-		t.Fatalf("expected mode %q, got %+v", signerFlowModeLegacy, payload)
-	}
-}
-
-func TestSignerFlowRolloutPolicyAllowsScopedTargets(t *testing.T) {
-	policy := SignerFlowRolloutPolicy{
-		Tenants: map[string]bool{"tenant-allow": true},
-		Orgs:    map[string]bool{"org-allow": true},
-		Users:   map[string]bool{"recipient-allow": true},
-	}
-
-	if !policy.allowsUnified(stores.SigningTokenRecord{TenantID: "tenant-allow"}) {
-		t.Fatal("expected tenant target to allow unified flow")
-	}
-	if !policy.allowsUnified(stores.SigningTokenRecord{OrgID: "org-allow"}) {
-		t.Fatal("expected org target to allow unified flow")
-	}
-	if !policy.allowsUnified(stores.SigningTokenRecord{RecipientID: "recipient-allow"}) {
-		t.Fatal("expected user target to allow unified flow")
-	}
-	if policy.allowsUnified(stores.SigningTokenRecord{TenantID: "tenant-deny", OrgID: "org-deny", RecipientID: "recipient-deny"}) {
-		t.Fatal("expected non-targeted signer token to resolve to legacy flow")
-	}
-
-	policy.KillSwitch = true
-	if policy.allowsUnified(stores.SigningTokenRecord{TenantID: "tenant-allow"}) {
-		t.Fatal("expected kill switch to force legacy flow")
+	legacyDiagResp := doRequest(t, app, http.MethodGet, "/api/v1/esign/signing/flow-diagnostics/token-mode-1", "", nil)
+	defer legacyDiagResp.Body.Close()
+	if legacyDiagResp.StatusCode != http.StatusNotFound {
+		t.Fatalf("expected legacy flow-diagnostics endpoint to be removed, got %d", legacyDiagResp.StatusCode)
 	}
 }
 
@@ -301,7 +121,6 @@ func TestRuntimeUnifiedReviewFailureEmitsViewerTelemetry(t *testing.T) {
 	observability.ResetDefaultMetrics()
 	t.Cleanup(observability.ResetDefaultMetrics)
 
-	t.Setenv(envSignerFlowMode, signerFlowModeUnified)
 	app, err := newESignRuntimeWebAppForTestsWithGoogleEnabled(false)
 	if err != nil {
 		t.Fatalf("setup e-sign runtime app: %v", err)
@@ -320,7 +139,6 @@ func TestRuntimeUnifiedReviewFailureEmitsViewerTelemetry(t *testing.T) {
 }
 
 func TestRuntimeUnifiedReviewAppliesCSPAndCacheHeaders(t *testing.T) {
-	t.Setenv(envSignerFlowMode, signerFlowModeUnified)
 	app, err := newESignRuntimeWebAppForTestsWithGoogleEnabled(false)
 	if err != nil {
 		t.Fatalf("setup e-sign runtime app: %v", err)
@@ -336,28 +154,6 @@ func TestRuntimeUnifiedReviewAppliesCSPAndCacheHeaders(t *testing.T) {
 	}
 	if csp := strings.TrimSpace(resp.Header.Get("Content-Security-Policy")); csp == "" {
 		t.Fatalf("expected csp header on unified review route")
-	}
-}
-
-func TestRuntimeSignerFlowModeUnifiedFallbackUsesLegacyOnReviewReferer(t *testing.T) {
-	t.Setenv(envSignerFlowMode, signerFlowModeUnified)
-	app, err := newESignRuntimeWebAppForTestsWithGoogleEnabled(false)
-	if err != nil {
-		t.Fatalf("setup e-sign runtime app: %v", err)
-	}
-
-	req := httptest.NewRequest(http.MethodGet, "/sign/token-fallback-1", nil)
-	req.Header.Set("Referer", "https://esign.test/sign/token-fallback-1/review")
-	resp, err := app.Test(req, -1)
-	if err != nil {
-		t.Fatalf("request failed: %v", err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("expected legacy fallback status 200, got %d", resp.StatusCode)
-	}
-	if location := strings.TrimSpace(resp.Header.Get("Location")); location != "" {
-		t.Fatalf("expected no redirect location during legacy fallback, got %q", location)
 	}
 }
 
@@ -858,25 +654,25 @@ func TestRuntimeSignerWebE2ERecipientJourneyFromSignLinkToSubmit(t *testing.T) {
 		t.Fatal("expected issued signer token")
 	}
 
-	sessionPageResp := doRequest(t, app, http.MethodGet, "/sign/"+url.PathEscape(signerToken), "", nil)
-	defer sessionPageResp.Body.Close()
-	if sessionPageResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(sessionPageResp.Body)
-		t.Fatalf("expected signer session page status 200, got %d body=%s", sessionPageResp.StatusCode, strings.TrimSpace(string(body)))
+	reviewPageResp := doRequest(t, app, http.MethodGet, "/sign/"+url.PathEscape(signerToken), "", nil)
+	defer reviewPageResp.Body.Close()
+	if reviewPageResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(reviewPageResp.Body)
+		t.Fatalf("expected signer review page status 200, got %d body=%s", reviewPageResp.StatusCode, strings.TrimSpace(string(body)))
 	}
-	sessionPageBody, err := io.ReadAll(sessionPageResp.Body)
+	reviewPageBody, err := io.ReadAll(reviewPageResp.Body)
 	if err != nil {
-		t.Fatalf("read signer session page body: %v", err)
+		t.Fatalf("read signer review page body: %v", err)
 	}
-	sessionMarkup := string(sessionPageBody)
-	if !strings.Contains(sessionMarkup, `/admin/assets/output.css`) {
-		t.Fatalf("expected signer session page to reference /admin/assets/output.css, got %s", strings.TrimSpace(sessionMarkup))
+	reviewMarkup := string(reviewPageBody)
+	if !strings.Contains(reviewMarkup, `/admin/assets/output.css`) {
+		t.Fatalf("expected signer review page to reference /admin/assets/output.css, got %s", strings.TrimSpace(reviewMarkup))
 	}
-	if !strings.Contains(sessionMarkup, `/admin/assets/dist/toast/init.js`) {
-		t.Fatalf("expected signer session page to reference /admin/assets/dist/toast/init.js, got %s", strings.TrimSpace(sessionMarkup))
+	if !strings.Contains(reviewMarkup, `/admin/assets/dist/toast/init.js`) {
+		t.Fatalf("expected signer review page to reference /admin/assets/dist/toast/init.js, got %s", strings.TrimSpace(reviewMarkup))
 	}
-	if strings.Contains(sessionMarkup, `href="/assets/output.css"`) || strings.Contains(sessionMarkup, `src="/assets/dist/toast/init.js"`) {
-		t.Fatalf("expected signer session page to avoid root /assets references, got %s", strings.TrimSpace(sessionMarkup))
+	if strings.Contains(reviewMarkup, `href="/assets/output.css"`) || strings.Contains(reviewMarkup, `src="/assets/dist/toast/init.js"`) {
+		t.Fatalf("expected signer review page to avoid root /assets references, got %s", strings.TrimSpace(reviewMarkup))
 	}
 
 	assetsCSSResp := doRequest(t, app, http.MethodGet, "/admin/assets/output.css", "", nil)
@@ -890,21 +686,6 @@ func TestRuntimeSignerWebE2ERecipientJourneyFromSignLinkToSubmit(t *testing.T) {
 	if assetsToastResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(assetsToastResp.Body)
 		t.Fatalf("expected /admin/assets/dist/toast/init.js status 200, got %d body=%s", assetsToastResp.StatusCode, strings.TrimSpace(string(body)))
-	}
-
-	fieldsPageResp := doRequest(t, app, http.MethodGet, "/sign/"+url.PathEscape(signerToken)+"/fields", "", nil)
-	defer fieldsPageResp.Body.Close()
-	if fieldsPageResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(fieldsPageResp.Body)
-		t.Fatalf("expected signer fields page status 200, got %d body=%s", fieldsPageResp.StatusCode, strings.TrimSpace(string(body)))
-	}
-	fieldsPageBody, err := io.ReadAll(fieldsPageResp.Body)
-	if err != nil {
-		t.Fatalf("read signer fields page body: %v", err)
-	}
-	fieldsMarkup := string(fieldsPageBody)
-	if !strings.Contains(fieldsMarkup, `/admin/assets/output.css`) || !strings.Contains(fieldsMarkup, `/admin/assets/dist/toast/init.js`) {
-		t.Fatalf("expected signer fields page to reference admin asset paths, got %s", strings.TrimSpace(fieldsMarkup))
 	}
 
 	consentResp := doRequestWithBody(
@@ -993,7 +774,6 @@ func TestRuntimeSignerWebE2ERecipientJourneyFromSignLinkToSubmit(t *testing.T) {
 }
 
 func TestRuntimeSignerWebE2EUnifiedFlowConsentFieldSignatureSubmit(t *testing.T) {
-	t.Setenv(envSignerFlowMode, signerFlowModeUnified)
 	fixture, err := newESignRuntimeWebFixtureForTestsWithGoogleEnabled(false)
 	if err != nil {
 		t.Fatalf("setup e-sign runtime app fixture: %v", err)
@@ -1168,22 +948,14 @@ func TestRuntimeSignerWebE2EUnifiedFlowConsentFieldSignatureSubmit(t *testing.T)
 
 	entryResp := doRequest(t, app, http.MethodGet, "/sign/"+url.PathEscape(signerToken), "", nil)
 	defer entryResp.Body.Close()
-	if entryResp.StatusCode != http.StatusFound {
-		t.Fatalf("expected unified mode redirect 302, got %d", entryResp.StatusCode)
+	if entryResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(entryResp.Body)
+		t.Fatalf("expected signer unified review page status 200, got %d body=%s", entryResp.StatusCode, strings.TrimSpace(string(body)))
 	}
-	entryLocation := strings.TrimSpace(entryResp.Header.Get("Location"))
-	expectedLocation := "/sign/" + url.PathEscape(signerToken) + "/review?flow=unified"
-	if entryLocation != expectedLocation {
-		t.Fatalf("expected unified review redirect %q, got %q", expectedLocation, entryLocation)
+	if location := strings.TrimSpace(entryResp.Header.Get("Location")); location != "" {
+		t.Fatalf("expected direct unified render on /sign/:token, got redirect %q", location)
 	}
-
-	reviewResp := doRequest(t, app, http.MethodGet, entryLocation, "", nil)
-	defer reviewResp.Body.Close()
-	if reviewResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(reviewResp.Body)
-		t.Fatalf("expected signer unified review page status 200, got %d body=%s", reviewResp.StatusCode, strings.TrimSpace(string(body)))
-	}
-	reviewBody, err := io.ReadAll(reviewResp.Body)
+	reviewBody, err := io.ReadAll(entryResp.Body)
 	if err != nil {
 		t.Fatalf("read review page body: %v", err)
 	}

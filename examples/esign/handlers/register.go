@@ -103,29 +103,55 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 				string(services.ErrorCodeMissingRequiredFields),
 			},
 			"routes": map[string]string{
-				"admin":                       routes.AdminHome,
-				"admin_status":                routes.AdminStatus,
-				"admin_api":                   routes.AdminAPIStatus,
-				"admin_agreements_stats":      routes.AdminAgreementsStats,
-				"admin_smoke_recipient_links": routes.AdminSmokeRecipientLinks,
-				"admin_documents_upload":      routes.AdminDocumentsUpload,
-				"signer_session":              routes.SignerSession,
-				"signer_consent":              routes.SignerConsent,
-				"signer_field_values":         routes.SignerFieldValues,
-				"signer_signature":            routes.SignerSignature,
-				"signer_signature_upload":     routes.SignerSignatureUpload,
-				"signer_signature_object":     routes.SignerSignatureObject,
-				"signer_telemetry":            routes.SignerTelemetry,
-				"signer_submit":               routes.SignerSubmit,
-				"signer_decline":              routes.SignerDecline,
-				"signer_assets":               routes.SignerAssets,
-				"google_oauth_connect":        routes.AdminGoogleOAuthConnect,
-				"google_oauth_disconnect":     routes.AdminGoogleOAuthDisconnect,
-				"google_oauth_rotate":         routes.AdminGoogleOAuthRotate,
-				"google_oauth_status":         routes.AdminGoogleOAuthStatus,
-				"google_drive_search":         routes.AdminGoogleDriveSearch,
-				"google_drive_browse":         routes.AdminGoogleDriveBrowse,
-				"google_drive_import":         routes.AdminGoogleDriveImport,
+				"admin":                             routes.AdminHome,
+				"admin_status":                      routes.AdminStatus,
+				"admin_api":                         routes.AdminAPIStatus,
+				"admin_agreements_stats":            routes.AdminAgreementsStats,
+				"admin_agreement_participants":      routes.AdminAgreementParticipants,
+				"admin_agreement_participant":       routes.AdminAgreementParticipant,
+				"admin_agreement_field_definitions": routes.AdminAgreementFieldDefinitions,
+				"admin_agreement_field_definition":  routes.AdminAgreementFieldDefinition,
+				"admin_agreement_field_instances":   routes.AdminAgreementFieldInstances,
+				"admin_agreement_field_instance":    routes.AdminAgreementFieldInstance,
+				"admin_agreement_send_readiness":    routes.AdminAgreementSendReadiness,
+				"admin_agreement_auto_place":        routes.AdminAgreementAutoPlace,
+				"admin_agreement_placement_runs":    routes.AdminAgreementPlacementRuns,
+				"admin_agreement_placement_run":     routes.AdminAgreementPlacementRun,
+				"admin_agreement_placement_apply":   routes.AdminAgreementPlacementApply,
+				"admin_smoke_recipient_links":       routes.AdminSmokeRecipientLinks,
+				"admin_documents_upload":            routes.AdminDocumentsUpload,
+				"signer_session":                    routes.SignerSession,
+				"signer_consent":                    routes.SignerConsent,
+				"signer_field_values":               routes.SignerFieldValues,
+				"signer_signature":                  routes.SignerSignature,
+				"signer_signature_upload":           routes.SignerSignatureUpload,
+				"signer_signature_object":           routes.SignerSignatureObject,
+				"signer_telemetry":                  routes.SignerTelemetry,
+				"signer_submit":                     routes.SignerSubmit,
+				"signer_decline":                    routes.SignerDecline,
+				"signer_assets":                     routes.SignerAssets,
+				"google_oauth_connect":              routes.AdminGoogleOAuthConnect,
+				"google_oauth_disconnect":           routes.AdminGoogleOAuthDisconnect,
+				"google_oauth_rotate":               routes.AdminGoogleOAuthRotate,
+				"google_oauth_status":               routes.AdminGoogleOAuthStatus,
+				"google_drive_search":               routes.AdminGoogleDriveSearch,
+				"google_drive_browse":               routes.AdminGoogleDriveBrowse,
+				"google_drive_import":               routes.AdminGoogleDriveImport,
+				"integration_mappings":              routes.AdminIntegrationMappings,
+				"integration_mapping":               routes.AdminIntegrationMapping,
+				"integration_mapping_publish":       routes.AdminIntegrationMapPublish,
+				"integration_sync_runs":             routes.AdminIntegrationSyncRuns,
+				"integration_sync_run":              routes.AdminIntegrationSyncRun,
+				"integration_checkpoints":           routes.AdminIntegrationCheckpoints,
+				"integration_sync_resume":           routes.AdminIntegrationSyncResume,
+				"integration_sync_complete":         routes.AdminIntegrationSyncComplete,
+				"integration_sync_fail":             routes.AdminIntegrationSyncFail,
+				"integration_conflicts":             routes.AdminIntegrationConflicts,
+				"integration_conflict":              routes.AdminIntegrationConflict,
+				"integration_conflict_resolve":      routes.AdminIntegrationResolve,
+				"integration_diagnostics":           routes.AdminIntegrationDiagnostics,
+				"integration_inbound":               routes.AdminIntegrationInbound,
+				"integration_outbound":              routes.AdminIntegrationOutbound,
 			},
 		})
 		logAPIOperation(c.Context(), "admin_api_status", correlationID, startedAt, err, nil)
@@ -165,6 +191,604 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 			"by_status": byStatus,
 		})
 	})
+
+	if cfg.agreementAuthoring != nil {
+		adminRoutes.Get(routes.AdminAgreementParticipants, func(c router.Context) error {
+			if err := enforceTransportSecurity(c, cfg); err != nil {
+				return asHandlerError(err)
+			}
+			agreementID := strings.TrimSpace(c.Param("agreement_id"))
+			if agreementID == "" {
+				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "agreement_id is required", nil)
+			}
+			participants, err := cfg.agreementAuthoring.ListParticipants(c.Context(), cfg.resolveScope(c), agreementID)
+			if err != nil {
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "unable to list participants", nil)
+			}
+			rows := make([]map[string]any, 0, len(participants))
+			for _, participant := range participants {
+				rows = append(rows, participantRecordToMap(participant))
+			}
+			return c.JSON(http.StatusOK, map[string]any{
+				"status":       "ok",
+				"participants": rows,
+			})
+		}, requireAdminPermission(cfg, cfg.permissions.AdminView))
+
+		adminRoutes.Post(routes.AdminAgreementParticipants, func(c router.Context) error {
+			if err := enforceTransportSecurity(c, cfg); err != nil {
+				return asHandlerError(err)
+			}
+			agreementID := strings.TrimSpace(c.Param("agreement_id"))
+			if agreementID == "" {
+				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "agreement_id is required", nil)
+			}
+			var payload struct {
+				ID              string `json:"id"`
+				Email           string `json:"email"`
+				Name            string `json:"name"`
+				Role            string `json:"role"`
+				SigningStage    *int   `json:"signing_stage"`
+				SigningOrder    *int   `json:"signing_order"`
+				ExpectedVersion int64  `json:"expected_version"`
+			}
+			if err := c.Bind(&payload); err != nil {
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid participant payload", nil)
+			}
+
+			patch := stores.ParticipantDraftPatch{
+				ID: strings.TrimSpace(payload.ID),
+			}
+			if email := strings.TrimSpace(payload.Email); email != "" {
+				patch.Email = &email
+			}
+			if name := strings.TrimSpace(payload.Name); name != "" {
+				patch.Name = &name
+			}
+			if role := strings.ToLower(strings.TrimSpace(payload.Role)); role != "" {
+				patch.Role = &role
+			}
+			if stage := firstIntPointer(payload.SigningStage, payload.SigningOrder); stage != nil {
+				patch.SigningStage = stage
+			}
+
+			participant, err := cfg.agreementAuthoring.UpsertParticipantDraft(c.Context(), cfg.resolveScope(c), agreementID, patch, payload.ExpectedVersion)
+			if err != nil {
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "unable to upsert participant", nil)
+			}
+			return c.JSON(http.StatusOK, map[string]any{
+				"status":      "ok",
+				"participant": participantRecordToMap(participant),
+			})
+		}, requireAdminPermission(cfg, cfg.permissions.AdminEdit))
+
+		adminRoutes.Put(routes.AdminAgreementParticipant, func(c router.Context) error {
+			if err := enforceTransportSecurity(c, cfg); err != nil {
+				return asHandlerError(err)
+			}
+			agreementID := strings.TrimSpace(c.Param("agreement_id"))
+			participantID := strings.TrimSpace(c.Param("participant_id"))
+			if agreementID == "" || participantID == "" {
+				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "agreement_id and participant_id are required", nil)
+			}
+			var payload struct {
+				Email           string `json:"email"`
+				Name            string `json:"name"`
+				Role            string `json:"role"`
+				SigningStage    *int   `json:"signing_stage"`
+				SigningOrder    *int   `json:"signing_order"`
+				ExpectedVersion int64  `json:"expected_version"`
+			}
+			if err := c.Bind(&payload); err != nil {
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid participant payload", nil)
+			}
+			patch := stores.ParticipantDraftPatch{ID: participantID}
+			if email := strings.TrimSpace(payload.Email); email != "" {
+				patch.Email = &email
+			}
+			if name := strings.TrimSpace(payload.Name); name != "" {
+				patch.Name = &name
+			}
+			if role := strings.ToLower(strings.TrimSpace(payload.Role)); role != "" {
+				patch.Role = &role
+			}
+			if stage := firstIntPointer(payload.SigningStage, payload.SigningOrder); stage != nil {
+				patch.SigningStage = stage
+			}
+			participant, err := cfg.agreementAuthoring.UpsertParticipantDraft(c.Context(), cfg.resolveScope(c), agreementID, patch, payload.ExpectedVersion)
+			if err != nil {
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "unable to update participant", nil)
+			}
+			return c.JSON(http.StatusOK, map[string]any{
+				"status":      "ok",
+				"participant": participantRecordToMap(participant),
+			})
+		}, requireAdminPermission(cfg, cfg.permissions.AdminEdit))
+
+		adminRoutes.Delete(routes.AdminAgreementParticipant, func(c router.Context) error {
+			if err := enforceTransportSecurity(c, cfg); err != nil {
+				return asHandlerError(err)
+			}
+			agreementID := strings.TrimSpace(c.Param("agreement_id"))
+			participantID := strings.TrimSpace(c.Param("participant_id"))
+			if agreementID == "" || participantID == "" {
+				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "agreement_id and participant_id are required", nil)
+			}
+			if err := cfg.agreementAuthoring.DeleteParticipantDraft(c.Context(), cfg.resolveScope(c), agreementID, participantID); err != nil {
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "unable to delete participant", nil)
+			}
+			return c.JSON(http.StatusOK, map[string]any{
+				"status":         "deleted",
+				"agreement_id":   agreementID,
+				"participant_id": participantID,
+			})
+		}, requireAdminPermission(cfg, cfg.permissions.AdminEdit))
+
+		adminRoutes.Get(routes.AdminAgreementFieldDefinitions, func(c router.Context) error {
+			if err := enforceTransportSecurity(c, cfg); err != nil {
+				return asHandlerError(err)
+			}
+			agreementID := strings.TrimSpace(c.Param("agreement_id"))
+			if agreementID == "" {
+				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "agreement_id is required", nil)
+			}
+			definitions, err := cfg.agreementAuthoring.ListFieldDefinitions(c.Context(), cfg.resolveScope(c), agreementID)
+			if err != nil {
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "unable to list field definitions", nil)
+			}
+			rows := make([]map[string]any, 0, len(definitions))
+			for _, definition := range definitions {
+				rows = append(rows, fieldDefinitionRecordToMap(definition))
+			}
+			return c.JSON(http.StatusOK, map[string]any{
+				"status":            "ok",
+				"field_definitions": rows,
+			})
+		}, requireAdminPermission(cfg, cfg.permissions.AdminView))
+
+		adminRoutes.Post(routes.AdminAgreementFieldDefinitions, func(c router.Context) error {
+			if err := enforceTransportSecurity(c, cfg); err != nil {
+				return asHandlerError(err)
+			}
+			agreementID := strings.TrimSpace(c.Param("agreement_id"))
+			if agreementID == "" {
+				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "agreement_id is required", nil)
+			}
+			var payload struct {
+				ID             string  `json:"id"`
+				ParticipantID  string  `json:"participant_id"`
+				Type           string  `json:"type"`
+				FieldType      string  `json:"field_type"`
+				Required       *bool   `json:"required"`
+				ValidationJSON *string `json:"validation_json"`
+			}
+			if err := c.Bind(&payload); err != nil {
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid field definition payload", nil)
+			}
+			fieldType := strings.TrimSpace(payload.FieldType)
+			if fieldType == "" {
+				fieldType = strings.TrimSpace(payload.Type)
+			}
+			patch := stores.FieldDefinitionDraftPatch{
+				ID: strings.TrimSpace(payload.ID),
+			}
+			if participantID := strings.TrimSpace(payload.ParticipantID); participantID != "" {
+				patch.ParticipantID = &participantID
+			}
+			if fieldType != "" {
+				patch.Type = &fieldType
+			}
+			if payload.Required != nil {
+				patch.Required = payload.Required
+			}
+			if payload.ValidationJSON != nil {
+				validationJSON := strings.TrimSpace(*payload.ValidationJSON)
+				patch.ValidationJSON = &validationJSON
+			}
+			definition, err := cfg.agreementAuthoring.UpsertFieldDefinitionDraft(c.Context(), cfg.resolveScope(c), agreementID, patch)
+			if err != nil {
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "unable to upsert field definition", nil)
+			}
+			return c.JSON(http.StatusOK, map[string]any{
+				"status":           "ok",
+				"field_definition": fieldDefinitionRecordToMap(definition),
+			})
+		}, requireAdminPermission(cfg, cfg.permissions.AdminEdit))
+
+		adminRoutes.Put(routes.AdminAgreementFieldDefinition, func(c router.Context) error {
+			if err := enforceTransportSecurity(c, cfg); err != nil {
+				return asHandlerError(err)
+			}
+			agreementID := strings.TrimSpace(c.Param("agreement_id"))
+			fieldDefinitionID := strings.TrimSpace(c.Param("field_definition_id"))
+			if agreementID == "" || fieldDefinitionID == "" {
+				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "agreement_id and field_definition_id are required", nil)
+			}
+			var payload struct {
+				ParticipantID  string  `json:"participant_id"`
+				Type           string  `json:"type"`
+				FieldType      string  `json:"field_type"`
+				Required       *bool   `json:"required"`
+				ValidationJSON *string `json:"validation_json"`
+			}
+			if err := c.Bind(&payload); err != nil {
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid field definition payload", nil)
+			}
+			fieldType := strings.TrimSpace(payload.FieldType)
+			if fieldType == "" {
+				fieldType = strings.TrimSpace(payload.Type)
+			}
+			patch := stores.FieldDefinitionDraftPatch{ID: fieldDefinitionID}
+			if participantID := strings.TrimSpace(payload.ParticipantID); participantID != "" {
+				patch.ParticipantID = &participantID
+			}
+			if fieldType != "" {
+				patch.Type = &fieldType
+			}
+			if payload.Required != nil {
+				patch.Required = payload.Required
+			}
+			if payload.ValidationJSON != nil {
+				validationJSON := strings.TrimSpace(*payload.ValidationJSON)
+				patch.ValidationJSON = &validationJSON
+			}
+			definition, err := cfg.agreementAuthoring.UpsertFieldDefinitionDraft(c.Context(), cfg.resolveScope(c), agreementID, patch)
+			if err != nil {
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "unable to update field definition", nil)
+			}
+			return c.JSON(http.StatusOK, map[string]any{
+				"status":           "ok",
+				"field_definition": fieldDefinitionRecordToMap(definition),
+			})
+		}, requireAdminPermission(cfg, cfg.permissions.AdminEdit))
+
+		adminRoutes.Delete(routes.AdminAgreementFieldDefinition, func(c router.Context) error {
+			if err := enforceTransportSecurity(c, cfg); err != nil {
+				return asHandlerError(err)
+			}
+			agreementID := strings.TrimSpace(c.Param("agreement_id"))
+			fieldDefinitionID := strings.TrimSpace(c.Param("field_definition_id"))
+			if agreementID == "" || fieldDefinitionID == "" {
+				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "agreement_id and field_definition_id are required", nil)
+			}
+			if err := cfg.agreementAuthoring.DeleteFieldDefinitionDraft(c.Context(), cfg.resolveScope(c), agreementID, fieldDefinitionID); err != nil {
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "unable to delete field definition", nil)
+			}
+			return c.JSON(http.StatusOK, map[string]any{
+				"status":              "deleted",
+				"agreement_id":        agreementID,
+				"field_definition_id": fieldDefinitionID,
+			})
+		}, requireAdminPermission(cfg, cfg.permissions.AdminEdit))
+
+		adminRoutes.Get(routes.AdminAgreementFieldInstances, func(c router.Context) error {
+			if err := enforceTransportSecurity(c, cfg); err != nil {
+				return asHandlerError(err)
+			}
+			agreementID := strings.TrimSpace(c.Param("agreement_id"))
+			if agreementID == "" {
+				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "agreement_id is required", nil)
+			}
+			instances, err := cfg.agreementAuthoring.ListFieldInstances(c.Context(), cfg.resolveScope(c), agreementID)
+			if err != nil {
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "unable to list field instances", nil)
+			}
+			rows := make([]map[string]any, 0, len(instances))
+			for _, instance := range instances {
+				rows = append(rows, fieldInstanceRecordToMap(instance))
+			}
+			return c.JSON(http.StatusOK, map[string]any{
+				"status":          "ok",
+				"field_instances": rows,
+			})
+		}, requireAdminPermission(cfg, cfg.permissions.AdminView))
+
+		adminRoutes.Post(routes.AdminAgreementFieldInstances, func(c router.Context) error {
+			if err := enforceTransportSecurity(c, cfg); err != nil {
+				return asHandlerError(err)
+			}
+			agreementID := strings.TrimSpace(c.Param("agreement_id"))
+			if agreementID == "" {
+				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "agreement_id is required", nil)
+			}
+			var payload struct {
+				ID                string   `json:"id"`
+				FieldDefinitionID string   `json:"field_definition_id"`
+				PageNumber        *int     `json:"page_number"`
+				Page              *int     `json:"page"`
+				X                 *float64 `json:"x"`
+				Y                 *float64 `json:"y"`
+				PosX              *float64 `json:"pos_x"`
+				PosY              *float64 `json:"pos_y"`
+				Width             *float64 `json:"width"`
+				Height            *float64 `json:"height"`
+				TabIndex          *int     `json:"tab_index"`
+				Label             *string  `json:"label"`
+				AppearanceJSON    *string  `json:"appearance_json"`
+				PlacementSource   *string  `json:"placement_source"`
+				ResolverID        *string  `json:"resolver_id"`
+				Confidence        *float64 `json:"confidence"`
+				PlacementRunID    *string  `json:"placement_run_id"`
+				ManualOverride    *bool    `json:"manual_override"`
+			}
+			if err := c.Bind(&payload); err != nil {
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid field instance payload", nil)
+			}
+			patch := stores.FieldInstanceDraftPatch{
+				ID: strings.TrimSpace(payload.ID),
+			}
+			if definitionID := strings.TrimSpace(payload.FieldDefinitionID); definitionID != "" {
+				patch.FieldDefinitionID = &definitionID
+			}
+			patch.PageNumber = firstIntPointer(payload.PageNumber, payload.Page)
+			patch.X = firstFloatPointer(payload.X, payload.PosX)
+			patch.Y = firstFloatPointer(payload.Y, payload.PosY)
+			patch.Width = payload.Width
+			patch.Height = payload.Height
+			patch.TabIndex = payload.TabIndex
+			if payload.Label != nil {
+				label := strings.TrimSpace(*payload.Label)
+				patch.Label = &label
+			}
+			if payload.AppearanceJSON != nil {
+				appearanceJSON := strings.TrimSpace(*payload.AppearanceJSON)
+				patch.AppearanceJSON = &appearanceJSON
+			}
+			if payload.PlacementSource != nil {
+				placementSource := strings.ToLower(strings.TrimSpace(*payload.PlacementSource))
+				patch.PlacementSource = &placementSource
+			}
+			if payload.ResolverID != nil {
+				resolverID := strings.ToLower(strings.TrimSpace(*payload.ResolverID))
+				patch.ResolverID = &resolverID
+			}
+			if payload.Confidence != nil {
+				patch.Confidence = payload.Confidence
+			}
+			if payload.PlacementRunID != nil {
+				placementRunID := strings.TrimSpace(*payload.PlacementRunID)
+				patch.PlacementRunID = &placementRunID
+			}
+			if payload.ManualOverride != nil {
+				patch.ManualOverride = payload.ManualOverride
+			}
+			instance, err := cfg.agreementAuthoring.UpsertFieldInstanceDraft(c.Context(), cfg.resolveScope(c), agreementID, patch)
+			if err != nil {
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "unable to upsert field instance", nil)
+			}
+			return c.JSON(http.StatusOK, map[string]any{
+				"status":         "ok",
+				"field_instance": fieldInstanceRecordToMap(instance),
+			})
+		}, requireAdminPermission(cfg, cfg.permissions.AdminEdit))
+
+		adminRoutes.Put(routes.AdminAgreementFieldInstance, func(c router.Context) error {
+			if err := enforceTransportSecurity(c, cfg); err != nil {
+				return asHandlerError(err)
+			}
+			agreementID := strings.TrimSpace(c.Param("agreement_id"))
+			fieldInstanceID := strings.TrimSpace(c.Param("field_instance_id"))
+			if agreementID == "" || fieldInstanceID == "" {
+				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "agreement_id and field_instance_id are required", nil)
+			}
+			var payload struct {
+				FieldDefinitionID string   `json:"field_definition_id"`
+				PageNumber        *int     `json:"page_number"`
+				Page              *int     `json:"page"`
+				X                 *float64 `json:"x"`
+				Y                 *float64 `json:"y"`
+				PosX              *float64 `json:"pos_x"`
+				PosY              *float64 `json:"pos_y"`
+				Width             *float64 `json:"width"`
+				Height            *float64 `json:"height"`
+				TabIndex          *int     `json:"tab_index"`
+				Label             *string  `json:"label"`
+				AppearanceJSON    *string  `json:"appearance_json"`
+				PlacementSource   *string  `json:"placement_source"`
+				ResolverID        *string  `json:"resolver_id"`
+				Confidence        *float64 `json:"confidence"`
+				PlacementRunID    *string  `json:"placement_run_id"`
+				ManualOverride    *bool    `json:"manual_override"`
+			}
+			if err := c.Bind(&payload); err != nil {
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid field instance payload", nil)
+			}
+			patch := stores.FieldInstanceDraftPatch{ID: fieldInstanceID}
+			if definitionID := strings.TrimSpace(payload.FieldDefinitionID); definitionID != "" {
+				patch.FieldDefinitionID = &definitionID
+			}
+			patch.PageNumber = firstIntPointer(payload.PageNumber, payload.Page)
+			patch.X = firstFloatPointer(payload.X, payload.PosX)
+			patch.Y = firstFloatPointer(payload.Y, payload.PosY)
+			patch.Width = payload.Width
+			patch.Height = payload.Height
+			patch.TabIndex = payload.TabIndex
+			if payload.Label != nil {
+				label := strings.TrimSpace(*payload.Label)
+				patch.Label = &label
+			}
+			if payload.AppearanceJSON != nil {
+				appearanceJSON := strings.TrimSpace(*payload.AppearanceJSON)
+				patch.AppearanceJSON = &appearanceJSON
+			}
+			if payload.PlacementSource != nil {
+				placementSource := strings.ToLower(strings.TrimSpace(*payload.PlacementSource))
+				patch.PlacementSource = &placementSource
+			}
+			if payload.ResolverID != nil {
+				resolverID := strings.ToLower(strings.TrimSpace(*payload.ResolverID))
+				patch.ResolverID = &resolverID
+			}
+			if payload.Confidence != nil {
+				patch.Confidence = payload.Confidence
+			}
+			if payload.PlacementRunID != nil {
+				placementRunID := strings.TrimSpace(*payload.PlacementRunID)
+				patch.PlacementRunID = &placementRunID
+			}
+			if payload.ManualOverride != nil {
+				patch.ManualOverride = payload.ManualOverride
+			}
+			instance, err := cfg.agreementAuthoring.UpsertFieldInstanceDraft(c.Context(), cfg.resolveScope(c), agreementID, patch)
+			if err != nil {
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "unable to update field instance", nil)
+			}
+			return c.JSON(http.StatusOK, map[string]any{
+				"status":         "ok",
+				"field_instance": fieldInstanceRecordToMap(instance),
+			})
+		}, requireAdminPermission(cfg, cfg.permissions.AdminEdit))
+
+		adminRoutes.Delete(routes.AdminAgreementFieldInstance, func(c router.Context) error {
+			if err := enforceTransportSecurity(c, cfg); err != nil {
+				return asHandlerError(err)
+			}
+			agreementID := strings.TrimSpace(c.Param("agreement_id"))
+			fieldInstanceID := strings.TrimSpace(c.Param("field_instance_id"))
+			if agreementID == "" || fieldInstanceID == "" {
+				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "agreement_id and field_instance_id are required", nil)
+			}
+			if err := cfg.agreementAuthoring.DeleteFieldInstanceDraft(c.Context(), cfg.resolveScope(c), agreementID, fieldInstanceID); err != nil {
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "unable to delete field instance", nil)
+			}
+			return c.JSON(http.StatusOK, map[string]any{
+				"status":            "deleted",
+				"agreement_id":      agreementID,
+				"field_instance_id": fieldInstanceID,
+			})
+		}, requireAdminPermission(cfg, cfg.permissions.AdminEdit))
+
+		adminRoutes.Post(routes.AdminAgreementAutoPlace, func(c router.Context) error {
+			if err := enforceTransportSecurity(c, cfg); err != nil {
+				return asHandlerError(err)
+			}
+			agreementID := strings.TrimSpace(c.Param("agreement_id"))
+			if agreementID == "" {
+				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "agreement_id is required", nil)
+			}
+			var payload struct {
+				UserID         string                            `json:"user_id"`
+				PolicyOverride *services.PlacementPolicyOverride `json:"policy_override"`
+				NativeFields   []services.NativePlacementField   `json:"native_form_fields"`
+			}
+			if err := c.Bind(&payload); err != nil {
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid auto-place payload", nil)
+			}
+			result, err := cfg.agreementAuthoring.RunAutoPlacement(c.Context(), cfg.resolveScope(c), agreementID, services.AutoPlacementRunInput{
+				UserID:         strings.TrimSpace(payload.UserID),
+				PolicyOverride: payload.PolicyOverride,
+				NativeFields:   payload.NativeFields,
+			})
+			if err != nil {
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "unable to run auto-placement", nil)
+			}
+			return c.JSON(http.StatusOK, map[string]any{
+				"status": "ok",
+				"run":    placementRunRecordToMap(result.Run),
+			})
+		}, requireAdminPermission(cfg, cfg.permissions.AdminEdit))
+
+		adminRoutes.Get(routes.AdminAgreementPlacementRuns, func(c router.Context) error {
+			if err := enforceTransportSecurity(c, cfg); err != nil {
+				return asHandlerError(err)
+			}
+			agreementID := strings.TrimSpace(c.Param("agreement_id"))
+			if agreementID == "" {
+				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "agreement_id is required", nil)
+			}
+			runs, err := cfg.agreementAuthoring.ListPlacementRuns(c.Context(), cfg.resolveScope(c), agreementID)
+			if err != nil {
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "unable to list placement runs", nil)
+			}
+			rows := make([]map[string]any, 0, len(runs))
+			for _, run := range runs {
+				rows = append(rows, placementRunRecordToMap(run))
+			}
+			return c.JSON(http.StatusOK, map[string]any{
+				"status": "ok",
+				"runs":   rows,
+			})
+		}, requireAdminPermission(cfg, cfg.permissions.AdminView))
+
+		adminRoutes.Get(routes.AdminAgreementPlacementRun, func(c router.Context) error {
+			if err := enforceTransportSecurity(c, cfg); err != nil {
+				return asHandlerError(err)
+			}
+			agreementID := strings.TrimSpace(c.Param("agreement_id"))
+			placementRunID := strings.TrimSpace(c.Param("placement_run_id"))
+			if agreementID == "" || placementRunID == "" {
+				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "agreement_id and placement_run_id are required", nil)
+			}
+			run, err := cfg.agreementAuthoring.GetPlacementRun(c.Context(), cfg.resolveScope(c), agreementID, placementRunID)
+			if err != nil {
+				return writeAPIError(c, err, http.StatusNotFound, string(services.ErrorCodeMissingRequiredFields), "placement run not found", nil)
+			}
+			return c.JSON(http.StatusOK, map[string]any{
+				"status": "ok",
+				"run":    placementRunRecordToMap(run),
+			})
+		}, requireAdminPermission(cfg, cfg.permissions.AdminView))
+
+		adminRoutes.Post(routes.AdminAgreementPlacementApply, func(c router.Context) error {
+			if err := enforceTransportSecurity(c, cfg); err != nil {
+				return asHandlerError(err)
+			}
+			agreementID := strings.TrimSpace(c.Param("agreement_id"))
+			placementRunID := strings.TrimSpace(c.Param("placement_run_id"))
+			if agreementID == "" || placementRunID == "" {
+				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "agreement_id and placement_run_id are required", nil)
+			}
+			var payload struct {
+				UserID          string                         `json:"user_id"`
+				SuggestionIDs   []string                       `json:"suggestion_ids"`
+				ManualOverrides []services.ManuallyPlacedField `json:"manual_overrides"`
+			}
+			if err := c.Bind(&payload); err != nil {
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid placement apply payload", nil)
+			}
+			applied, err := cfg.agreementAuthoring.ApplyPlacementRun(c.Context(), cfg.resolveScope(c), agreementID, placementRunID, services.ApplyPlacementRunInput{
+				UserID:          strings.TrimSpace(payload.UserID),
+				SuggestionIDs:   append([]string{}, payload.SuggestionIDs...),
+				ManualOverrides: append([]services.ManuallyPlacedField{}, payload.ManualOverrides...),
+			})
+			if err != nil {
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "unable to apply placement run", nil)
+			}
+			instances := make([]map[string]any, 0, len(applied.AppliedInstances))
+			for _, record := range applied.AppliedInstances {
+				instances = append(instances, fieldInstanceRecordToMap(record))
+			}
+			return c.JSON(http.StatusOK, map[string]any{
+				"status":  "ok",
+				"run":     placementRunRecordToMap(applied.Run),
+				"applied": instances,
+			})
+		}, requireAdminPermission(cfg, cfg.permissions.AdminEdit))
+
+		adminRoutes.Get(routes.AdminAgreementSendReadiness, func(c router.Context) error {
+			if err := enforceTransportSecurity(c, cfg); err != nil {
+				return asHandlerError(err)
+			}
+			agreementID := strings.TrimSpace(c.Param("agreement_id"))
+			if agreementID == "" {
+				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "agreement_id is required", nil)
+			}
+			validation, err := cfg.agreementAuthoring.ValidateBeforeSend(c.Context(), cfg.resolveScope(c), agreementID)
+			if err != nil {
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "unable to validate send readiness", nil)
+			}
+			return c.JSON(http.StatusOK, map[string]any{
+				"status": "ok",
+				"ready":  validation.Valid,
+				"validation": map[string]any{
+					"valid":           validation.Valid,
+					"recipient_count": validation.RecipientCount,
+					"field_count":     validation.FieldCount,
+					"issues":          validation.Issues,
+				},
+			})
+		}, requireAdminPermission(cfg, cfg.permissions.AdminSend))
+	}
 
 	adminRoutes.Get(routes.AdminSmokeRecipientLinks, func(c router.Context) error {
 		if err := enforceTransportSecurity(c, cfg); err != nil {
@@ -414,6 +1038,486 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 			})
 			return respErr
 		}, requireAdminPermission(cfg, cfg.permissions.AdminCreate))
+	}
+
+	if cfg.integration != nil {
+		adminRoutes.Get(routes.AdminIntegrationMappings, func(c router.Context) error {
+			if err := enforceTransportSecurity(c, cfg); err != nil {
+				return asHandlerError(err)
+			}
+			records, err := cfg.integration.ListMappingSpecs(c.Context(), cfg.resolveScope(c), strings.TrimSpace(c.Query("provider")))
+			if err != nil {
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeIntegrationMapping), "unable to list integration mappings", nil)
+			}
+			rows := make([]map[string]any, 0, len(records))
+			for _, record := range records {
+				rows = append(rows, mappingSpecRecordToMap(record))
+			}
+			return c.JSON(http.StatusOK, map[string]any{
+				"status":   "ok",
+				"mappings": rows,
+			})
+		}, requireAdminPermission(cfg, cfg.permissions.AdminView))
+
+		adminRoutes.Post(routes.AdminIntegrationMappings, func(c router.Context) error {
+			startedAt := time.Now()
+			correlationID := apiCorrelationID(c, c.Header("Idempotency-Key"), "integration_mapping_compile")
+			if err := enforceTransportSecurity(c, cfg); err != nil {
+				logAPIOperation(c.Context(), "integration_mapping_compile", correlationID, startedAt, err, nil)
+				return asHandlerError(err)
+			}
+			var payload struct {
+				ID              string                `json:"id"`
+				Provider        string                `json:"provider"`
+				Name            string                `json:"name"`
+				Version         int64                 `json:"version"`
+				Status          string                `json:"status"`
+				ExternalSchema  stores.ExternalSchema `json:"external_schema"`
+				Rules           []stores.MappingRule  `json:"rules"`
+				CreatedByUserID string                `json:"created_by_user_id"`
+				UpdatedByUserID string                `json:"updated_by_user_id"`
+			}
+			if err := c.Bind(&payload); err != nil {
+				logAPIOperation(c.Context(), "integration_mapping_compile", correlationID, startedAt, err, nil)
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeIntegrationMapping), "invalid integration mapping payload", nil)
+			}
+			compiled, err := cfg.integration.ValidateAndCompileMapping(c.Context(), cfg.resolveScope(c), services.MappingCompileInput{
+				ID:              strings.TrimSpace(payload.ID),
+				Provider:        strings.TrimSpace(payload.Provider),
+				Name:            strings.TrimSpace(payload.Name),
+				Version:         payload.Version,
+				Status:          strings.TrimSpace(payload.Status),
+				ExternalSchema:  payload.ExternalSchema,
+				Rules:           payload.Rules,
+				CreatedByUserID: strings.TrimSpace(payload.CreatedByUserID),
+				UpdatedByUserID: strings.TrimSpace(payload.UpdatedByUserID),
+			})
+			if err != nil {
+				logAPIOperation(c.Context(), "integration_mapping_compile", correlationID, startedAt, err, nil)
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeIntegrationMapping), "unable to compile integration mapping", nil)
+			}
+			respErr := c.JSON(http.StatusOK, map[string]any{
+				"status":         "ok",
+				"mapping":        mappingSpecRecordToMap(compiled.Spec),
+				"canonical_json": compiled.CanonicalJSON,
+				"compiled_hash":  compiled.Hash,
+				"warnings":       compiled.Warnings,
+			})
+			logAPIOperation(c.Context(), "integration_mapping_compile", correlationID, startedAt, respErr, map[string]any{
+				"mapping_id": compiled.Spec.ID,
+				"provider":   compiled.Spec.Provider,
+				"name":       compiled.Spec.Name,
+			})
+			return respErr
+		}, requireAdminPermission(cfg, cfg.permissions.AdminSettings))
+
+		adminRoutes.Get(routes.AdminIntegrationMapping, func(c router.Context) error {
+			if err := enforceTransportSecurity(c, cfg); err != nil {
+				return asHandlerError(err)
+			}
+			id := strings.TrimSpace(c.Param("mapping_id"))
+			if id == "" {
+				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "mapping_id is required", nil)
+			}
+			record, err := cfg.integration.GetMappingSpec(c.Context(), cfg.resolveScope(c), id)
+			if err != nil {
+				return writeAPIError(c, err, http.StatusNotFound, string(services.ErrorCodeIntegrationMapping), "integration mapping not found", nil)
+			}
+			return c.JSON(http.StatusOK, map[string]any{
+				"status":  "ok",
+				"mapping": mappingSpecRecordToMap(record),
+			})
+		}, requireAdminPermission(cfg, cfg.permissions.AdminView))
+
+		adminRoutes.Put(routes.AdminIntegrationMapping, func(c router.Context) error {
+			if err := enforceTransportSecurity(c, cfg); err != nil {
+				return asHandlerError(err)
+			}
+			id := strings.TrimSpace(c.Param("mapping_id"))
+			if id == "" {
+				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "mapping_id is required", nil)
+			}
+			var payload struct {
+				Provider        string                `json:"provider"`
+				Name            string                `json:"name"`
+				Version         int64                 `json:"version"`
+				Status          string                `json:"status"`
+				ExternalSchema  stores.ExternalSchema `json:"external_schema"`
+				Rules           []stores.MappingRule  `json:"rules"`
+				UpdatedByUserID string                `json:"updated_by_user_id"`
+			}
+			if err := c.Bind(&payload); err != nil {
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeIntegrationMapping), "invalid integration mapping payload", nil)
+			}
+			compiled, err := cfg.integration.ValidateAndCompileMapping(c.Context(), cfg.resolveScope(c), services.MappingCompileInput{
+				ID:              id,
+				Provider:        strings.TrimSpace(payload.Provider),
+				Name:            strings.TrimSpace(payload.Name),
+				Version:         payload.Version,
+				Status:          strings.TrimSpace(payload.Status),
+				ExternalSchema:  payload.ExternalSchema,
+				Rules:           payload.Rules,
+				UpdatedByUserID: strings.TrimSpace(payload.UpdatedByUserID),
+			})
+			if err != nil {
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeIntegrationMapping), "unable to compile integration mapping", nil)
+			}
+			return c.JSON(http.StatusOK, map[string]any{
+				"status":        "ok",
+				"mapping":       mappingSpecRecordToMap(compiled.Spec),
+				"compiled_hash": compiled.Hash,
+				"warnings":      compiled.Warnings,
+			})
+		}, requireAdminPermission(cfg, cfg.permissions.AdminSettings))
+
+		adminRoutes.Post(routes.AdminIntegrationMapPublish, func(c router.Context) error {
+			if err := enforceTransportSecurity(c, cfg); err != nil {
+				return asHandlerError(err)
+			}
+			id := strings.TrimSpace(c.Param("mapping_id"))
+			if id == "" {
+				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "mapping_id is required", nil)
+			}
+			var payload struct {
+				ExpectedVersion int64 `json:"expected_version"`
+			}
+			if err := c.Bind(&payload); err != nil {
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeIntegrationMapping), "invalid publish payload", nil)
+			}
+			record, err := cfg.integration.PublishMappingSpec(c.Context(), cfg.resolveScope(c), id, payload.ExpectedVersion)
+			if err != nil {
+				return writeAPIError(c, err, http.StatusConflict, string(services.ErrorCodeIntegrationMapping), "unable to publish mapping spec", nil)
+			}
+			return c.JSON(http.StatusOK, map[string]any{
+				"status":  "ok",
+				"mapping": mappingSpecRecordToMap(record),
+			})
+		}, requireAdminPermission(cfg, cfg.permissions.AdminSettings))
+
+		adminRoutes.Get(routes.AdminIntegrationSyncRuns, func(c router.Context) error {
+			if err := enforceTransportSecurity(c, cfg); err != nil {
+				return asHandlerError(err)
+			}
+			runs, err := cfg.integration.ListSyncRuns(c.Context(), cfg.resolveScope(c), strings.TrimSpace(c.Query("provider")))
+			if err != nil {
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeInvalidSignerState), "unable to list sync runs", nil)
+			}
+			rows := make([]map[string]any, 0, len(runs))
+			for _, run := range runs {
+				rows = append(rows, integrationSyncRunRecordToMap(run))
+			}
+			return c.JSON(http.StatusOK, map[string]any{
+				"status": "ok",
+				"runs":   rows,
+			})
+		}, requireAdminPermission(cfg, cfg.permissions.AdminView))
+
+		adminRoutes.Post(routes.AdminIntegrationSyncRuns, func(c router.Context) error {
+			if err := enforceTransportSecurity(c, cfg); err != nil {
+				return asHandlerError(err)
+			}
+			var payload struct {
+				Provider        string `json:"provider"`
+				Direction       string `json:"direction"`
+				MappingSpecID   string `json:"mapping_spec_id"`
+				Cursor          string `json:"cursor"`
+				CreatedByUserID string `json:"created_by_user_id"`
+				IdempotencyKey  string `json:"idempotency_key"`
+			}
+			if err := c.Bind(&payload); err != nil {
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid sync run payload", nil)
+			}
+			run, replay, err := cfg.integration.StartSyncRun(c.Context(), cfg.resolveScope(c), services.StartSyncRunInput{
+				Provider:        strings.TrimSpace(payload.Provider),
+				Direction:       strings.TrimSpace(payload.Direction),
+				MappingSpecID:   strings.TrimSpace(payload.MappingSpecID),
+				Cursor:          strings.TrimSpace(payload.Cursor),
+				CreatedByUserID: strings.TrimSpace(payload.CreatedByUserID),
+				IdempotencyKey:  firstNonEmpty(strings.TrimSpace(payload.IdempotencyKey), strings.TrimSpace(c.Header("Idempotency-Key"))),
+			})
+			if err != nil {
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "unable to start sync run", nil)
+			}
+			return c.JSON(http.StatusOK, map[string]any{
+				"status": "ok",
+				"replay": replay,
+				"run":    integrationSyncRunRecordToMap(run),
+			})
+		}, requireAdminPermission(cfg, cfg.permissions.AdminSettings))
+
+		adminRoutes.Get(routes.AdminIntegrationSyncRun, func(c router.Context) error {
+			if err := enforceTransportSecurity(c, cfg); err != nil {
+				return asHandlerError(err)
+			}
+			runID := strings.TrimSpace(c.Param("run_id"))
+			if runID == "" {
+				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "run_id is required", nil)
+			}
+			run, err := cfg.integration.GetSyncRun(c.Context(), cfg.resolveScope(c), runID)
+			if err != nil {
+				return writeAPIError(c, err, http.StatusNotFound, string(services.ErrorCodeInvalidSignerState), "sync run not found", nil)
+			}
+			return c.JSON(http.StatusOK, map[string]any{
+				"status": "ok",
+				"run":    integrationSyncRunRecordToMap(run),
+			})
+		}, requireAdminPermission(cfg, cfg.permissions.AdminView))
+
+		adminRoutes.Post(routes.AdminIntegrationCheckpoints, func(c router.Context) error {
+			if err := enforceTransportSecurity(c, cfg); err != nil {
+				return asHandlerError(err)
+			}
+			runID := strings.TrimSpace(c.Param("run_id"))
+			if runID == "" {
+				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "run_id is required", nil)
+			}
+			var payload struct {
+				CheckpointKey string         `json:"checkpoint_key"`
+				Cursor        string         `json:"cursor"`
+				Payload       map[string]any `json:"payload"`
+			}
+			if err := c.Bind(&payload); err != nil {
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid checkpoint payload", nil)
+			}
+			checkpoint, err := cfg.integration.SaveCheckpoint(c.Context(), cfg.resolveScope(c), services.SaveCheckpointInput{
+				RunID:         runID,
+				CheckpointKey: strings.TrimSpace(payload.CheckpointKey),
+				Cursor:        strings.TrimSpace(payload.Cursor),
+				Payload:       services.RedactIntegrationPayload(payload.Payload),
+			})
+			if err != nil {
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "unable to save checkpoint", nil)
+			}
+			return c.JSON(http.StatusOK, map[string]any{
+				"status":     "ok",
+				"checkpoint": integrationCheckpointRecordToMap(checkpoint),
+			})
+		}, requireAdminPermission(cfg, cfg.permissions.AdminSettings))
+
+		adminRoutes.Post(routes.AdminIntegrationSyncResume, func(c router.Context) error {
+			if err := enforceTransportSecurity(c, cfg); err != nil {
+				return asHandlerError(err)
+			}
+			runID := strings.TrimSpace(c.Param("run_id"))
+			run, replay, err := cfg.integration.ResumeSyncRun(c.Context(), cfg.resolveScope(c), runID, strings.TrimSpace(c.Header("Idempotency-Key")))
+			if err != nil {
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeInvalidSignerState), "unable to resume sync run", nil)
+			}
+			return c.JSON(http.StatusOK, map[string]any{"status": "ok", "replay": replay, "run": integrationSyncRunRecordToMap(run)})
+		}, requireAdminPermission(cfg, cfg.permissions.AdminSettings))
+
+		adminRoutes.Post(routes.AdminIntegrationSyncComplete, func(c router.Context) error {
+			if err := enforceTransportSecurity(c, cfg); err != nil {
+				return asHandlerError(err)
+			}
+			runID := strings.TrimSpace(c.Param("run_id"))
+			run, replay, err := cfg.integration.CompleteSyncRun(c.Context(), cfg.resolveScope(c), runID, strings.TrimSpace(c.Header("Idempotency-Key")))
+			if err != nil {
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeInvalidSignerState), "unable to complete sync run", nil)
+			}
+			return c.JSON(http.StatusOK, map[string]any{"status": "ok", "replay": replay, "run": integrationSyncRunRecordToMap(run)})
+		}, requireAdminPermission(cfg, cfg.permissions.AdminSettings))
+
+		adminRoutes.Post(routes.AdminIntegrationSyncFail, func(c router.Context) error {
+			if err := enforceTransportSecurity(c, cfg); err != nil {
+				return asHandlerError(err)
+			}
+			runID := strings.TrimSpace(c.Param("run_id"))
+			var payload struct {
+				LastError string `json:"last_error"`
+			}
+			if err := c.Bind(&payload); err != nil {
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid sync-fail payload", nil)
+			}
+			run, replay, err := cfg.integration.FailSyncRun(c.Context(), cfg.resolveScope(c), runID, strings.TrimSpace(payload.LastError), strings.TrimSpace(c.Header("Idempotency-Key")))
+			if err != nil {
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeInvalidSignerState), "unable to fail sync run", nil)
+			}
+			return c.JSON(http.StatusOK, map[string]any{"status": "ok", "replay": replay, "run": integrationSyncRunRecordToMap(run)})
+		}, requireAdminPermission(cfg, cfg.permissions.AdminSettings))
+
+		adminRoutes.Get(routes.AdminIntegrationConflicts, func(c router.Context) error {
+			if err := enforceTransportSecurity(c, cfg); err != nil {
+				return asHandlerError(err)
+			}
+			conflicts, err := cfg.integration.ListConflicts(
+				c.Context(),
+				cfg.resolveScope(c),
+				strings.TrimSpace(c.Query("run_id")),
+				strings.TrimSpace(c.Query("status")),
+			)
+			if err != nil {
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeIntegrationConflict), "unable to list conflicts", nil)
+			}
+			rows := make([]map[string]any, 0, len(conflicts))
+			for _, conflict := range conflicts {
+				rows = append(rows, integrationConflictRecordToMap(conflict))
+			}
+			return c.JSON(http.StatusOK, map[string]any{"status": "ok", "conflicts": rows})
+		}, requireAdminPermission(cfg, cfg.permissions.AdminView))
+
+		adminRoutes.Get(routes.AdminIntegrationConflict, func(c router.Context) error {
+			if err := enforceTransportSecurity(c, cfg); err != nil {
+				return asHandlerError(err)
+			}
+			conflictID := strings.TrimSpace(c.Param("conflict_id"))
+			if conflictID == "" {
+				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "conflict_id is required", nil)
+			}
+			conflict, err := cfg.integration.GetConflict(c.Context(), cfg.resolveScope(c), conflictID)
+			if err != nil {
+				return writeAPIError(c, err, http.StatusNotFound, string(services.ErrorCodeIntegrationConflict), "conflict not found", nil)
+			}
+			return c.JSON(http.StatusOK, map[string]any{"status": "ok", "conflict": integrationConflictRecordToMap(conflict)})
+		}, requireAdminPermission(cfg, cfg.permissions.AdminView))
+
+		adminRoutes.Post(routes.AdminIntegrationResolve, func(c router.Context) error {
+			if err := enforceTransportSecurity(c, cfg); err != nil {
+				return asHandlerError(err)
+			}
+			conflictID := strings.TrimSpace(c.Param("conflict_id"))
+			if conflictID == "" {
+				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "conflict_id is required", nil)
+			}
+			var payload struct {
+				Status           string         `json:"status"`
+				Resolution       map[string]any `json:"resolution"`
+				ResolvedByUserID string         `json:"resolved_by_user_id"`
+				IdempotencyKey   string         `json:"idempotency_key"`
+			}
+			if err := c.Bind(&payload); err != nil {
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeIntegrationConflict), "invalid conflict resolution payload", nil)
+			}
+			resolved, replay, err := cfg.integration.ResolveConflict(c.Context(), cfg.resolveScope(c), services.ResolveConflictInput{
+				ConflictID:       conflictID,
+				Status:           strings.TrimSpace(payload.Status),
+				Resolution:       services.RedactIntegrationPayload(payload.Resolution),
+				ResolvedByUserID: firstNonEmpty(strings.TrimSpace(payload.ResolvedByUserID), resolveAdminUserID(c)),
+				IdempotencyKey:   firstNonEmpty(strings.TrimSpace(payload.IdempotencyKey), strings.TrimSpace(c.Header("Idempotency-Key"))),
+			})
+			if err != nil {
+				return writeAPIError(c, err, http.StatusConflict, string(services.ErrorCodeIntegrationConflict), "unable to resolve conflict", nil)
+			}
+			return c.JSON(http.StatusOK, map[string]any{
+				"status":   "ok",
+				"replay":   replay,
+				"conflict": integrationConflictRecordToMap(resolved),
+			})
+		}, requireAdminPermission(cfg, cfg.permissions.AdminSettings))
+
+		adminRoutes.Get(routes.AdminIntegrationDiagnostics, func(c router.Context) error {
+			if err := enforceTransportSecurity(c, cfg); err != nil {
+				return asHandlerError(err)
+			}
+			runID := strings.TrimSpace(c.Query("run_id"))
+			if runID == "" {
+				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "run_id is required", nil)
+			}
+			diag, err := cfg.integration.SyncRunDiagnostics(c.Context(), cfg.resolveScope(c), runID)
+			if err != nil {
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeInvalidSignerState), "unable to resolve sync diagnostics", nil)
+			}
+			checkpoints := make([]map[string]any, 0, len(diag.Checkpoints))
+			for _, checkpoint := range diag.Checkpoints {
+				checkpoints = append(checkpoints, integrationCheckpointRecordToMap(checkpoint))
+			}
+			conflicts := make([]map[string]any, 0, len(diag.Conflicts))
+			for _, conflict := range diag.Conflicts {
+				conflicts = append(conflicts, integrationConflictRecordToMap(conflict))
+			}
+			return c.JSON(http.StatusOK, map[string]any{
+				"status":      "ok",
+				"run":         integrationSyncRunRecordToMap(diag.Run),
+				"checkpoints": checkpoints,
+				"conflicts":   conflicts,
+			})
+		}, requireAdminPermission(cfg, cfg.permissions.AdminView))
+
+		adminRoutes.Post(routes.AdminIntegrationInbound, func(c router.Context) error {
+			startedAt := time.Now()
+			correlationID := apiCorrelationID(c, c.Header("Idempotency-Key"), "integration_inbound_apply")
+			if err := enforceTransportSecurity(c, cfg); err != nil {
+				logAPIOperation(c.Context(), "integration_inbound_apply", correlationID, startedAt, err, nil)
+				return asHandlerError(err)
+			}
+			var payload struct {
+				Provider         string                                 `json:"provider"`
+				EntityKind       string                                 `json:"entity_kind"`
+				ExternalID       string                                 `json:"external_id"`
+				AgreementID      string                                 `json:"agreement_id"`
+				MetadataTitle    string                                 `json:"metadata_title"`
+				MetadataMessage  string                                 `json:"metadata_message"`
+				Participants     []services.InboundParticipantInput     `json:"participants"`
+				FieldDefinitions []services.InboundFieldDefinitionInput `json:"field_definitions"`
+				IdempotencyKey   string                                 `json:"idempotency_key"`
+			}
+			if err := c.Bind(&payload); err != nil {
+				logAPIOperation(c.Context(), "integration_inbound_apply", correlationID, startedAt, err, nil)
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid inbound integration payload", nil)
+			}
+			result, err := cfg.integration.ApplyInbound(c.Context(), cfg.resolveScope(c), services.InboundApplyInput{
+				Provider:         strings.TrimSpace(payload.Provider),
+				EntityKind:       strings.TrimSpace(payload.EntityKind),
+				ExternalID:       strings.TrimSpace(payload.ExternalID),
+				AgreementID:      strings.TrimSpace(payload.AgreementID),
+				MetadataTitle:    strings.TrimSpace(payload.MetadataTitle),
+				MetadataMessage:  strings.TrimSpace(payload.MetadataMessage),
+				Participants:     payload.Participants,
+				FieldDefinitions: payload.FieldDefinitions,
+				IdempotencyKey:   firstNonEmpty(strings.TrimSpace(payload.IdempotencyKey), strings.TrimSpace(c.Header("Idempotency-Key"))),
+			})
+			if err != nil {
+				logAPIOperation(c.Context(), "integration_inbound_apply", correlationID, startedAt, err, nil)
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeInvalidSignerState), "unable to apply inbound integration payload", nil)
+			}
+			respErr := c.JSON(http.StatusOK, map[string]any{
+				"status": "ok",
+				"result": map[string]any{
+					"agreement_id":           result.AgreementID,
+					"participant_count":      result.ParticipantCount,
+					"field_definition_count": result.FieldDefinitionCount,
+					"replay":                 result.Replay,
+				},
+			})
+			logAPIOperation(c.Context(), "integration_inbound_apply", correlationID, startedAt, respErr, map[string]any{
+				"agreement_id": strings.TrimSpace(result.AgreementID),
+				"replay":       result.Replay,
+			})
+			return respErr
+		}, requireAdminPermission(cfg, cfg.permissions.AdminSettings))
+
+		adminRoutes.Post(routes.AdminIntegrationOutbound, func(c router.Context) error {
+			if err := enforceTransportSecurity(c, cfg); err != nil {
+				return asHandlerError(err)
+			}
+			var payload struct {
+				Provider       string         `json:"provider"`
+				AgreementID    string         `json:"agreement_id"`
+				EventType      string         `json:"event_type"`
+				SourceEventID  string         `json:"source_event_id"`
+				Payload        map[string]any `json:"payload"`
+				IdempotencyKey string         `json:"idempotency_key"`
+			}
+			if err := c.Bind(&payload); err != nil {
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid outbound integration payload", nil)
+			}
+			event, replay, err := cfg.integration.EmitOutboundChange(c.Context(), cfg.resolveScope(c), services.OutboundChangeInput{
+				Provider:       strings.TrimSpace(payload.Provider),
+				AgreementID:    strings.TrimSpace(payload.AgreementID),
+				EventType:      strings.TrimSpace(payload.EventType),
+				SourceEventID:  strings.TrimSpace(payload.SourceEventID),
+				Payload:        services.RedactIntegrationPayload(payload.Payload),
+				IdempotencyKey: firstNonEmpty(strings.TrimSpace(payload.IdempotencyKey), strings.TrimSpace(c.Header("Idempotency-Key"))),
+			})
+			if err != nil {
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeInvalidSignerState), "unable to emit outbound integration event", nil)
+			}
+			return c.JSON(http.StatusOK, map[string]any{
+				"status": "ok",
+				"replay": replay,
+				"event":  integrationChangeEventRecordToMap(event),
+			})
+		}, requireAdminPermission(cfg, cfg.permissions.AdminSettings))
 	}
 
 	r.Get(routes.SignerSession, func(c router.Context) error {
@@ -670,16 +1774,34 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 			}
 			return writeAPIError(c, nil, http.StatusNotImplemented, string(services.ErrorCodeInvalidSignerState), "signer service not configured", nil)
 		}
-		var payload services.SignerFieldValueInput
+		var payload struct {
+			FieldInstanceID   string `json:"field_instance_id"`
+			FieldDefinitionID string `json:"field_definition_id"`
+			ValueText         string `json:"value_text,omitempty"`
+			ValueBool         *bool  `json:"value_bool,omitempty"`
+			ExpectedVersion   int64  `json:"expected_version,omitempty"`
+		}
 		if err := c.Bind(&payload); err != nil {
 			if unifiedFlow {
 				observability.ObserveUnifiedFieldSave(c.Context(), time.Since(startedAt), false)
 			}
 			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid field value payload", nil)
 		}
-		payload.IPAddress = strings.TrimSpace(c.IP())
-		payload.UserAgent = strings.TrimSpace(c.Header("User-Agent"))
-		value, err := cfg.signerSession.UpsertFieldValue(c.Context(), cfg.resolveScope(c), tokenRecord, payload)
+		if strings.TrimSpace(payload.FieldInstanceID) == "" {
+			if unifiedFlow {
+				observability.ObserveUnifiedFieldSave(c.Context(), time.Since(startedAt), false)
+			}
+			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "field_instance_id is required", nil)
+		}
+		value, err := cfg.signerSession.UpsertFieldValue(c.Context(), cfg.resolveScope(c), tokenRecord, services.SignerFieldValueInput{
+			FieldInstanceID:   strings.TrimSpace(payload.FieldInstanceID),
+			FieldDefinitionID: strings.TrimSpace(payload.FieldDefinitionID),
+			ValueText:         payload.ValueText,
+			ValueBool:         payload.ValueBool,
+			ExpectedVersion:   payload.ExpectedVersion,
+			IPAddress:         strings.TrimSpace(c.IP()),
+			UserAgent:         strings.TrimSpace(c.Header("User-Agent")),
+		})
 		if err != nil {
 			if unifiedFlow {
 				observability.ObserveUnifiedFieldSave(c.Context(), time.Since(startedAt), false)
@@ -730,16 +1852,40 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 			}
 			return writeAPIError(c, nil, http.StatusNotImplemented, string(services.ErrorCodeInvalidSignerState), "signer service not configured", nil)
 		}
-		var payload services.SignerSignatureInput
+		var payload struct {
+			FieldInstanceID   string `json:"field_instance_id"`
+			FieldDefinitionID string `json:"field_definition_id"`
+			Type              string `json:"type"`
+			ObjectKey         string `json:"object_key"`
+			SHA256            string `json:"sha256"`
+			UploadToken       string `json:"upload_token,omitempty"`
+			ValueText         string `json:"value_text,omitempty"`
+			ExpectedVersion   int64  `json:"expected_version,omitempty"`
+		}
 		if err := c.Bind(&payload); err != nil {
 			if unifiedFlow {
 				observability.ObserveUnifiedSignatureAttach(c.Context(), time.Since(startedAt), false)
 			}
 			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid signature payload", nil)
 		}
-		payload.IPAddress = strings.TrimSpace(c.IP())
-		payload.UserAgent = strings.TrimSpace(c.Header("User-Agent"))
-		result, err := cfg.signerSession.AttachSignatureArtifact(c.Context(), cfg.resolveScope(c), tokenRecord, payload)
+		if strings.TrimSpace(payload.FieldInstanceID) == "" {
+			if unifiedFlow {
+				observability.ObserveUnifiedSignatureAttach(c.Context(), time.Since(startedAt), false)
+			}
+			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "field_instance_id is required", nil)
+		}
+		result, err := cfg.signerSession.AttachSignatureArtifact(c.Context(), cfg.resolveScope(c), tokenRecord, services.SignerSignatureInput{
+			FieldInstanceID:   strings.TrimSpace(payload.FieldInstanceID),
+			FieldDefinitionID: strings.TrimSpace(payload.FieldDefinitionID),
+			Type:              strings.TrimSpace(payload.Type),
+			ObjectKey:         strings.TrimSpace(payload.ObjectKey),
+			SHA256:            strings.TrimSpace(payload.SHA256),
+			UploadToken:       strings.TrimSpace(payload.UploadToken),
+			ValueText:         payload.ValueText,
+			ExpectedVersion:   payload.ExpectedVersion,
+			IPAddress:         strings.TrimSpace(c.IP()),
+			UserAgent:         strings.TrimSpace(c.Header("User-Agent")),
+		})
 		if err != nil {
 			if unifiedFlow {
 				observability.ObserveUnifiedSignatureAttach(c.Context(), time.Since(startedAt), false)
@@ -773,13 +1919,28 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 		if cfg.signerSession == nil {
 			return writeAPIError(c, nil, http.StatusNotImplemented, string(services.ErrorCodeInvalidSignerState), "signer service not configured", nil)
 		}
-		var payload services.SignerSignatureUploadInput
+		var payload struct {
+			FieldInstanceID   string `json:"field_instance_id"`
+			FieldDefinitionID string `json:"field_definition_id"`
+			SHA256            string `json:"sha256"`
+			ContentType       string `json:"content_type,omitempty"`
+			SizeBytes         int64  `json:"size_bytes,omitempty"`
+		}
 		if err := c.Bind(&payload); err != nil {
 			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid signature upload payload", nil)
 		}
-		payload.IPAddress = strings.TrimSpace(c.IP())
-		payload.UserAgent = strings.TrimSpace(c.Header("User-Agent"))
-		contract, err := cfg.signerSession.IssueSignatureUpload(c.Context(), cfg.resolveScope(c), tokenRecord, payload)
+		if strings.TrimSpace(payload.FieldInstanceID) == "" {
+			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "field_instance_id is required", nil)
+		}
+		contract, err := cfg.signerSession.IssueSignatureUpload(c.Context(), cfg.resolveScope(c), tokenRecord, services.SignerSignatureUploadInput{
+			FieldInstanceID:   strings.TrimSpace(payload.FieldInstanceID),
+			FieldDefinitionID: strings.TrimSpace(payload.FieldDefinitionID),
+			SHA256:            strings.TrimSpace(payload.SHA256),
+			ContentType:       strings.TrimSpace(payload.ContentType),
+			SizeBytes:         payload.SizeBytes,
+			IPAddress:         strings.TrimSpace(c.IP()),
+			UserAgent:         strings.TrimSpace(c.Header("User-Agent")),
+		})
 		if err != nil {
 			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "unable to issue signature upload contract", nil)
 		}
@@ -971,11 +2132,208 @@ func parsePageSize(raw string) int {
 	return parsed
 }
 
+func firstIntPointer(values ...*int) *int {
+	for _, value := range values {
+		if value != nil {
+			return value
+		}
+	}
+	return nil
+}
+
+func firstFloatPointer(values ...*float64) *float64 {
+	for _, value := range values {
+		if value != nil {
+			return value
+		}
+	}
+	return nil
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
+}
+
 func formatTime(value *time.Time) string {
 	if value == nil || value.IsZero() {
 		return ""
 	}
 	return value.UTC().Format(time.RFC3339Nano)
+}
+
+func participantRecordToMap(record stores.ParticipantRecord) map[string]any {
+	return map[string]any{
+		"id":             strings.TrimSpace(record.ID),
+		"agreement_id":   strings.TrimSpace(record.AgreementID),
+		"email":          strings.TrimSpace(record.Email),
+		"name":           strings.TrimSpace(record.Name),
+		"role":           strings.TrimSpace(record.Role),
+		"signing_stage":  record.SigningStage,
+		"first_view_at":  formatTime(record.FirstViewAt),
+		"last_view_at":   formatTime(record.LastViewAt),
+		"declined_at":    formatTime(record.DeclinedAt),
+		"decline_reason": strings.TrimSpace(record.DeclineReason),
+		"completed_at":   formatTime(record.CompletedAt),
+		"version":        record.Version,
+		"created_at":     record.CreatedAt.UTC().Format(time.RFC3339Nano),
+		"updated_at":     record.UpdatedAt.UTC().Format(time.RFC3339Nano),
+	}
+}
+
+func fieldDefinitionRecordToMap(record stores.FieldDefinitionRecord) map[string]any {
+	return map[string]any{
+		"id":              strings.TrimSpace(record.ID),
+		"agreement_id":    strings.TrimSpace(record.AgreementID),
+		"participant_id":  strings.TrimSpace(record.ParticipantID),
+		"field_type":      strings.TrimSpace(record.Type),
+		"type":            strings.TrimSpace(record.Type),
+		"required":        record.Required,
+		"validation_json": strings.TrimSpace(record.ValidationJSON),
+		"created_at":      record.CreatedAt.UTC().Format(time.RFC3339Nano),
+		"updated_at":      record.UpdatedAt.UTC().Format(time.RFC3339Nano),
+	}
+}
+
+func fieldInstanceRecordToMap(record stores.FieldInstanceRecord) map[string]any {
+	return map[string]any{
+		"id":                  strings.TrimSpace(record.ID),
+		"agreement_id":        strings.TrimSpace(record.AgreementID),
+		"field_definition_id": strings.TrimSpace(record.FieldDefinitionID),
+		"page_number":         record.PageNumber,
+		"page":                record.PageNumber,
+		"x":                   record.X,
+		"y":                   record.Y,
+		"width":               record.Width,
+		"height":              record.Height,
+		"tab_index":           record.TabIndex,
+		"label":               strings.TrimSpace(record.Label),
+		"appearance_json":     strings.TrimSpace(record.AppearanceJSON),
+		"placement_source":    strings.TrimSpace(record.PlacementSource),
+		"resolver_id":         strings.TrimSpace(record.ResolverID),
+		"confidence":          record.Confidence,
+		"placement_run_id":    strings.TrimSpace(record.PlacementRunID),
+		"manual_override":     record.ManualOverride,
+		"created_at":          record.CreatedAt.UTC().Format(time.RFC3339Nano),
+		"updated_at":          record.UpdatedAt.UTC().Format(time.RFC3339Nano),
+	}
+}
+
+func placementRunRecordToMap(record stores.PlacementRunRecord) map[string]any {
+	return map[string]any{
+		"id":                        strings.TrimSpace(record.ID),
+		"agreement_id":              strings.TrimSpace(record.AgreementID),
+		"status":                    strings.TrimSpace(record.Status),
+		"reason_code":               strings.TrimSpace(record.ReasonCode),
+		"resolver_order":            append([]string{}, record.ResolverOrder...),
+		"executed_resolvers":        append([]string{}, record.ExecutedResolvers...),
+		"resolver_scores":           record.ResolverScores,
+		"suggestions":               record.Suggestions,
+		"selected_suggestion_ids":   append([]string{}, record.SelectedSuggestionIDs...),
+		"unresolved_definition_ids": append([]string{}, record.UnresolvedDefinitionIDs...),
+		"selected_source":           strings.TrimSpace(record.SelectedSource),
+		"policy_json":               strings.TrimSpace(record.PolicyJSON),
+		"max_budget":                record.MaxBudget,
+		"budget_used":               record.BudgetUsed,
+		"max_time_ms":               record.MaxTimeMS,
+		"elapsed_ms":                record.ElapsedMS,
+		"manual_override_count":     record.ManualOverrideCount,
+		"created_by_user_id":        strings.TrimSpace(record.CreatedByUserID),
+		"version":                   record.Version,
+		"created_at":                record.CreatedAt.UTC().Format(time.RFC3339Nano),
+		"updated_at":                record.UpdatedAt.UTC().Format(time.RFC3339Nano),
+		"completed_at":              formatTime(record.CompletedAt),
+	}
+}
+
+func mappingSpecRecordToMap(record stores.MappingSpecRecord) map[string]any {
+	return map[string]any{
+		"id":                 strings.TrimSpace(record.ID),
+		"provider":           strings.TrimSpace(record.Provider),
+		"name":               strings.TrimSpace(record.Name),
+		"version":            record.Version,
+		"status":             strings.TrimSpace(record.Status),
+		"external_schema":    record.ExternalSchema,
+		"rules":              record.Rules,
+		"compiled_json":      strings.TrimSpace(record.CompiledJSON),
+		"compiled_hash":      strings.TrimSpace(record.CompiledHash),
+		"published_at":       formatTime(record.PublishedAt),
+		"created_by_user_id": strings.TrimSpace(record.CreatedByUserID),
+		"updated_by_user_id": strings.TrimSpace(record.UpdatedByUserID),
+		"created_at":         record.CreatedAt.UTC().Format(time.RFC3339Nano),
+		"updated_at":         record.UpdatedAt.UTC().Format(time.RFC3339Nano),
+	}
+}
+
+func integrationSyncRunRecordToMap(record stores.IntegrationSyncRunRecord) map[string]any {
+	return map[string]any{
+		"id":                 strings.TrimSpace(record.ID),
+		"provider":           strings.TrimSpace(record.Provider),
+		"direction":          strings.TrimSpace(record.Direction),
+		"mapping_spec_id":    strings.TrimSpace(record.MappingSpecID),
+		"status":             strings.TrimSpace(record.Status),
+		"cursor":             strings.TrimSpace(record.Cursor),
+		"last_error":         strings.TrimSpace(record.LastError),
+		"attempt_count":      record.AttemptCount,
+		"version":            record.Version,
+		"started_at":         record.StartedAt.UTC().Format(time.RFC3339Nano),
+		"completed_at":       formatTime(record.CompletedAt),
+		"created_by_user_id": strings.TrimSpace(record.CreatedByUserID),
+		"created_at":         record.CreatedAt.UTC().Format(time.RFC3339Nano),
+		"updated_at":         record.UpdatedAt.UTC().Format(time.RFC3339Nano),
+	}
+}
+
+func integrationCheckpointRecordToMap(record stores.IntegrationCheckpointRecord) map[string]any {
+	return map[string]any{
+		"id":             strings.TrimSpace(record.ID),
+		"run_id":         strings.TrimSpace(record.RunID),
+		"checkpoint_key": strings.TrimSpace(record.CheckpointKey),
+		"cursor":         strings.TrimSpace(record.Cursor),
+		"payload_json":   strings.TrimSpace(record.PayloadJSON),
+		"version":        record.Version,
+		"created_at":     record.CreatedAt.UTC().Format(time.RFC3339Nano),
+		"updated_at":     record.UpdatedAt.UTC().Format(time.RFC3339Nano),
+	}
+}
+
+func integrationConflictRecordToMap(record stores.IntegrationConflictRecord) map[string]any {
+	return map[string]any{
+		"id":                  strings.TrimSpace(record.ID),
+		"run_id":              strings.TrimSpace(record.RunID),
+		"binding_id":          strings.TrimSpace(record.BindingID),
+		"provider":            strings.TrimSpace(record.Provider),
+		"entity_kind":         strings.TrimSpace(record.EntityKind),
+		"external_id":         strings.TrimSpace(record.ExternalID),
+		"internal_id":         strings.TrimSpace(record.InternalID),
+		"status":              strings.TrimSpace(record.Status),
+		"reason":              strings.TrimSpace(record.Reason),
+		"payload_json":        strings.TrimSpace(record.PayloadJSON),
+		"resolution_json":     strings.TrimSpace(record.ResolutionJSON),
+		"resolved_by_user_id": strings.TrimSpace(record.ResolvedByUserID),
+		"resolved_at":         formatTime(record.ResolvedAt),
+		"version":             record.Version,
+		"created_at":          record.CreatedAt.UTC().Format(time.RFC3339Nano),
+		"updated_at":          record.UpdatedAt.UTC().Format(time.RFC3339Nano),
+	}
+}
+
+func integrationChangeEventRecordToMap(record stores.IntegrationChangeEventRecord) map[string]any {
+	return map[string]any{
+		"id":              strings.TrimSpace(record.ID),
+		"agreement_id":    strings.TrimSpace(record.AgreementID),
+		"provider":        strings.TrimSpace(record.Provider),
+		"event_type":      strings.TrimSpace(record.EventType),
+		"source_event_id": strings.TrimSpace(record.SourceEventID),
+		"idempotency_key": strings.TrimSpace(record.IdempotencyKey),
+		"payload_json":    strings.TrimSpace(record.PayloadJSON),
+		"emitted_at":      record.EmittedAt.UTC().Format(time.RFC3339Nano),
+		"created_at":      record.CreatedAt.UTC().Format(time.RFC3339Nano),
+	}
 }
 
 func apiCorrelationID(c router.Context, candidates ...string) string {
@@ -991,18 +2349,7 @@ func apiCorrelationID(c router.Context, candidates ...string) string {
 }
 
 func isUnifiedFlowRequest(c router.Context) bool {
-	if c == nil {
-		return false
-	}
-	flow := strings.ToLower(strings.TrimSpace(c.Header("X-ESign-Flow-Mode")))
-	if flow == "" {
-		flow = strings.ToLower(strings.TrimSpace(c.Query("flow")))
-	}
-	if flow == "unified" {
-		return true
-	}
-	referer := strings.ToLower(strings.TrimSpace(c.Header("Referer")))
-	return strings.Contains(referer, "/sign/") && strings.Contains(referer, "/review")
+	return c != nil
 }
 
 func buildSignerAssetLinks(contract services.SignerAssetContract, contractURL, sessionURL string) map[string]any {

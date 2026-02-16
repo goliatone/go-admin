@@ -41,24 +41,34 @@ type SQLiteStore struct {
 }
 
 type sqliteStoreSnapshot struct {
-	Documents                  map[string]DocumentRecord              `json:"documents"`
-	Agreements                 map[string]AgreementRecord             `json:"agreements"`
-	Participants               map[string]ParticipantRecord           `json:"participants"`
-	FieldDefinitions           map[string]FieldDefinitionRecord       `json:"field_definitions"`
-	FieldInstances             map[string]FieldInstanceRecord         `json:"field_instances"`
-	Recipients                 map[string]RecipientRecord             `json:"recipients"`
-	Fields                     map[string]FieldRecord                 `json:"fields"`
-	SigningTokens              map[string]SigningTokenRecord          `json:"signing_tokens"`
-	TokenHashIndex             map[string]string                      `json:"token_hash_index"`
-	SignatureArtifacts         map[string]SignatureArtifactRecord     `json:"signature_artifacts"`
-	FieldValues                map[string]FieldValueRecord            `json:"field_values"`
-	AuditEvents                map[string]AuditEventRecord            `json:"audit_events"`
-	AgreementArtifacts         map[string]AgreementArtifactRecord     `json:"agreement_artifacts"`
-	EmailLogs                  map[string]EmailLogRecord              `json:"email_logs"`
-	JobRuns                    map[string]JobRunRecord                `json:"job_runs"`
-	JobRunDedupeIndex          map[string]string                      `json:"job_run_dedupe_index"`
-	IntegrationCredentials     map[string]IntegrationCredentialRecord `json:"integration_credentials"`
-	IntegrationCredentialIndex map[string]string                      `json:"integration_credential_index"`
+	Documents                  map[string]DocumentRecord               `json:"documents"`
+	Agreements                 map[string]AgreementRecord              `json:"agreements"`
+	Participants               map[string]ParticipantRecord            `json:"participants"`
+	FieldDefinitions           map[string]FieldDefinitionRecord        `json:"field_definitions"`
+	FieldInstances             map[string]FieldInstanceRecord          `json:"field_instances"`
+	Recipients                 map[string]RecipientRecord              `json:"recipients"`
+	Fields                     map[string]FieldRecord                  `json:"fields"`
+	SigningTokens              map[string]SigningTokenRecord           `json:"signing_tokens"`
+	TokenHashIndex             map[string]string                       `json:"token_hash_index"`
+	SignatureArtifacts         map[string]SignatureArtifactRecord      `json:"signature_artifacts"`
+	FieldValues                map[string]FieldValueRecord             `json:"field_values"`
+	AuditEvents                map[string]AuditEventRecord             `json:"audit_events"`
+	AgreementArtifacts         map[string]AgreementArtifactRecord      `json:"agreement_artifacts"`
+	EmailLogs                  map[string]EmailLogRecord               `json:"email_logs"`
+	JobRuns                    map[string]JobRunRecord                 `json:"job_runs"`
+	JobRunDedupeIndex          map[string]string                       `json:"job_run_dedupe_index"`
+	IntegrationCredentials     map[string]IntegrationCredentialRecord  `json:"integration_credentials"`
+	IntegrationCredentialIndex map[string]string                       `json:"integration_credential_index"`
+	MappingSpecs               map[string]MappingSpecRecord            `json:"mapping_specs"`
+	IntegrationBindings        map[string]IntegrationBindingRecord     `json:"integration_bindings"`
+	IntegrationBindingIndex    map[string]string                       `json:"integration_binding_index"`
+	IntegrationSyncRuns        map[string]IntegrationSyncRunRecord     `json:"integration_sync_runs"`
+	IntegrationCheckpoints     map[string]IntegrationCheckpointRecord  `json:"integration_checkpoints"`
+	IntegrationCheckpointIndex map[string]string                       `json:"integration_checkpoint_index"`
+	IntegrationConflicts       map[string]IntegrationConflictRecord    `json:"integration_conflicts"`
+	IntegrationChangeEvents    map[string]IntegrationChangeEventRecord `json:"integration_change_events"`
+	IntegrationMutationClaims  map[string]time.Time                    `json:"integration_mutation_claims"`
+	PlacementRuns              map[string]PlacementRunRecord           `json:"placement_runs"`
 }
 
 // NewSQLiteStore creates a SQLite-backed e-sign store.
@@ -175,6 +185,16 @@ func loadSQLiteSnapshot(ctx context.Context, db *sql.DB) (*InMemoryStore, error)
 	mem.jobRunDedupeIndex = ensureStringMap(snapshot.JobRunDedupeIndex)
 	mem.integrationCredentials = ensureIntegrationCredentialMap(snapshot.IntegrationCredentials)
 	mem.integrationCredentialIndex = ensureStringMap(snapshot.IntegrationCredentialIndex)
+	mem.mappingSpecs = ensureMappingSpecMap(snapshot.MappingSpecs)
+	mem.integrationBindings = ensureIntegrationBindingMap(snapshot.IntegrationBindings)
+	mem.integrationBindingIndex = ensureStringMap(snapshot.IntegrationBindingIndex)
+	mem.integrationSyncRuns = ensureIntegrationSyncRunMap(snapshot.IntegrationSyncRuns)
+	mem.integrationCheckpoints = ensureIntegrationCheckpointMap(snapshot.IntegrationCheckpoints)
+	mem.integrationCheckpointIndex = ensureStringMap(snapshot.IntegrationCheckpointIndex)
+	mem.integrationConflicts = ensureIntegrationConflictMap(snapshot.IntegrationConflicts)
+	mem.integrationChangeEvents = ensureIntegrationChangeEventMap(snapshot.IntegrationChangeEvents)
+	mem.integrationMutationClaims = ensureTimeMap(snapshot.IntegrationMutationClaims)
+	mem.placementRuns = ensurePlacementRunMap(snapshot.PlacementRuns)
 	return mem, nil
 }
 
@@ -221,6 +241,16 @@ func (s *SQLiteStore) persist(ctx context.Context) error {
 		JobRunDedupeIndex:          maps.Clone(s.jobRunDedupeIndex),
 		IntegrationCredentials:     maps.Clone(s.integrationCredentials),
 		IntegrationCredentialIndex: maps.Clone(s.integrationCredentialIndex),
+		MappingSpecs:               maps.Clone(s.mappingSpecs),
+		IntegrationBindings:        maps.Clone(s.integrationBindings),
+		IntegrationBindingIndex:    maps.Clone(s.integrationBindingIndex),
+		IntegrationSyncRuns:        maps.Clone(s.integrationSyncRuns),
+		IntegrationCheckpoints:     maps.Clone(s.integrationCheckpoints),
+		IntegrationCheckpointIndex: maps.Clone(s.integrationCheckpointIndex),
+		IntegrationConflicts:       maps.Clone(s.integrationConflicts),
+		IntegrationChangeEvents:    maps.Clone(s.integrationChangeEvents),
+		IntegrationMutationClaims:  maps.Clone(s.integrationMutationClaims),
+		PlacementRuns:              maps.Clone(s.placementRuns),
 	}
 	s.InMemoryStore.mu.RUnlock()
 
@@ -321,8 +351,7 @@ func (s *SQLiteStore) WithBatch(ctx context.Context, fn func() error) (err error
 	return err
 }
 
-// WithTx executes fn within a transactional scope.
-// SQLiteStore currently uses batched snapshot persistence semantics.
+// WithTx executes fn within an atomic transactional scope and persists once on commit.
 func (s *SQLiteStore) WithTx(ctx context.Context, fn func(tx TxStore) error) error {
 	if fn == nil {
 		return nil
@@ -330,9 +359,16 @@ func (s *SQLiteStore) WithTx(ctx context.Context, fn func(tx TxStore) error) err
 	if s == nil {
 		return invalidRecordError("transactions", "store", "not configured")
 	}
-	return s.WithBatch(ctx, func() error {
-		return fn(s)
-	})
+	if err := s.InMemoryStore.WithTx(ctx, fn); err != nil {
+		return err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.dirty = true
+	if s.batchDepth > 0 {
+		return nil
+	}
+	return s.flushLocked(ctx)
 }
 
 // Close closes the underlying SQLite connection.
@@ -722,6 +758,152 @@ func (s *SQLiteStore) DeleteIntegrationCredential(ctx context.Context, scope Sco
 	return s.persistMaybe(ctx)
 }
 
+func (s *SQLiteStore) UpsertMappingSpec(ctx context.Context, scope Scope, record MappingSpecRecord) (MappingSpecRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.UpsertMappingSpec(ctx, scope, record)
+	if err != nil {
+		return MappingSpecRecord{}, err
+	}
+	if err := s.persistMaybe(ctx); err != nil {
+		return MappingSpecRecord{}, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) PublishMappingSpec(ctx context.Context, scope Scope, id string, expectedVersion int64, publishedAt time.Time) (MappingSpecRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.PublishMappingSpec(ctx, scope, id, expectedVersion, publishedAt)
+	if err != nil {
+		return MappingSpecRecord{}, err
+	}
+	if err := s.persistMaybe(ctx); err != nil {
+		return MappingSpecRecord{}, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) UpsertIntegrationBinding(ctx context.Context, scope Scope, record IntegrationBindingRecord) (IntegrationBindingRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.UpsertIntegrationBinding(ctx, scope, record)
+	if err != nil {
+		return IntegrationBindingRecord{}, err
+	}
+	if err := s.persistMaybe(ctx); err != nil {
+		return IntegrationBindingRecord{}, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) CreateIntegrationSyncRun(ctx context.Context, scope Scope, record IntegrationSyncRunRecord) (IntegrationSyncRunRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.CreateIntegrationSyncRun(ctx, scope, record)
+	if err != nil {
+		return IntegrationSyncRunRecord{}, err
+	}
+	if err := s.persistMaybe(ctx); err != nil {
+		return IntegrationSyncRunRecord{}, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) UpdateIntegrationSyncRunStatus(ctx context.Context, scope Scope, id, status, lastError, cursor string, completedAt *time.Time, expectedVersion int64) (IntegrationSyncRunRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.UpdateIntegrationSyncRunStatus(ctx, scope, id, status, lastError, cursor, completedAt, expectedVersion)
+	if err != nil {
+		return IntegrationSyncRunRecord{}, err
+	}
+	if err := s.persistMaybe(ctx); err != nil {
+		return IntegrationSyncRunRecord{}, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) UpsertIntegrationCheckpoint(ctx context.Context, scope Scope, record IntegrationCheckpointRecord) (IntegrationCheckpointRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.UpsertIntegrationCheckpoint(ctx, scope, record)
+	if err != nil {
+		return IntegrationCheckpointRecord{}, err
+	}
+	if err := s.persistMaybe(ctx); err != nil {
+		return IntegrationCheckpointRecord{}, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) CreateIntegrationConflict(ctx context.Context, scope Scope, record IntegrationConflictRecord) (IntegrationConflictRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.CreateIntegrationConflict(ctx, scope, record)
+	if err != nil {
+		return IntegrationConflictRecord{}, err
+	}
+	if err := s.persistMaybe(ctx); err != nil {
+		return IntegrationConflictRecord{}, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) ResolveIntegrationConflict(ctx context.Context, scope Scope, id, status, resolutionJSON, resolvedByUserID string, resolvedAt time.Time, expectedVersion int64) (IntegrationConflictRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.ResolveIntegrationConflict(ctx, scope, id, status, resolutionJSON, resolvedByUserID, resolvedAt, expectedVersion)
+	if err != nil {
+		return IntegrationConflictRecord{}, err
+	}
+	if err := s.persistMaybe(ctx); err != nil {
+		return IntegrationConflictRecord{}, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) AppendIntegrationChangeEvent(ctx context.Context, scope Scope, record IntegrationChangeEventRecord) (IntegrationChangeEventRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.AppendIntegrationChangeEvent(ctx, scope, record)
+	if err != nil {
+		return IntegrationChangeEventRecord{}, err
+	}
+	if err := s.persistMaybe(ctx); err != nil {
+		return IntegrationChangeEventRecord{}, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) ClaimIntegrationMutation(ctx context.Context, scope Scope, idempotencyKey string, firstSeenAt time.Time) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	claimed, err := s.InMemoryStore.ClaimIntegrationMutation(ctx, scope, idempotencyKey, firstSeenAt)
+	if err != nil {
+		return false, err
+	}
+	if !claimed {
+		return false, nil
+	}
+	if err := s.persistMaybe(ctx); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func (s *SQLiteStore) UpsertPlacementRun(ctx context.Context, scope Scope, record PlacementRunRecord) (PlacementRunRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.UpsertPlacementRun(ctx, scope, record)
+	if err != nil {
+		return PlacementRunRecord{}, err
+	}
+	if err := s.persistMaybe(ctx); err != nil {
+		return PlacementRunRecord{}, err
+	}
+	return out, nil
+}
+
 func ensureDocumentMap(in map[string]DocumentRecord) map[string]DocumentRecord {
 	if in == nil {
 		return map[string]DocumentRecord{}
@@ -823,6 +1005,62 @@ func ensureJobRunMap(in map[string]JobRunRecord) map[string]JobRunRecord {
 func ensureIntegrationCredentialMap(in map[string]IntegrationCredentialRecord) map[string]IntegrationCredentialRecord {
 	if in == nil {
 		return map[string]IntegrationCredentialRecord{}
+	}
+	return in
+}
+
+func ensureMappingSpecMap(in map[string]MappingSpecRecord) map[string]MappingSpecRecord {
+	if in == nil {
+		return map[string]MappingSpecRecord{}
+	}
+	return in
+}
+
+func ensureIntegrationBindingMap(in map[string]IntegrationBindingRecord) map[string]IntegrationBindingRecord {
+	if in == nil {
+		return map[string]IntegrationBindingRecord{}
+	}
+	return in
+}
+
+func ensureIntegrationSyncRunMap(in map[string]IntegrationSyncRunRecord) map[string]IntegrationSyncRunRecord {
+	if in == nil {
+		return map[string]IntegrationSyncRunRecord{}
+	}
+	return in
+}
+
+func ensureIntegrationCheckpointMap(in map[string]IntegrationCheckpointRecord) map[string]IntegrationCheckpointRecord {
+	if in == nil {
+		return map[string]IntegrationCheckpointRecord{}
+	}
+	return in
+}
+
+func ensureIntegrationConflictMap(in map[string]IntegrationConflictRecord) map[string]IntegrationConflictRecord {
+	if in == nil {
+		return map[string]IntegrationConflictRecord{}
+	}
+	return in
+}
+
+func ensureIntegrationChangeEventMap(in map[string]IntegrationChangeEventRecord) map[string]IntegrationChangeEventRecord {
+	if in == nil {
+		return map[string]IntegrationChangeEventRecord{}
+	}
+	return in
+}
+
+func ensurePlacementRunMap(in map[string]PlacementRunRecord) map[string]PlacementRunRecord {
+	if in == nil {
+		return map[string]PlacementRunRecord{}
+	}
+	return in
+}
+
+func ensureTimeMap(in map[string]time.Time) map[string]time.Time {
+	if in == nil {
+		return map[string]time.Time{}
 	}
 	return in
 }

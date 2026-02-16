@@ -536,6 +536,12 @@ func agreementRecordToMap(
 		"recipient_count":            len(recipients),
 		"signer_count":               signerCount(recipients),
 	}
+	// Add stage information for multi-signer flows (Task 24.FE.2)
+	stageCount, activeStage := computeStageMetrics(recipients)
+	if stageCount > 0 {
+		payload["stage_count"] = stageCount
+		payload["active_stage"] = activeStage
+	}
 	if len(recipients) > 0 {
 		payload["recipients"] = recipientsToMaps(agreement, recipients)
 		payload["participants"] = recipientsToMaps(agreement, recipients)
@@ -560,6 +566,63 @@ func agreementRecordToMap(
 		}
 	}
 	return payload
+}
+
+// computeStageMetrics calculates stage count and active stage from recipients (Task 24.FE.2).
+// Returns (stageCount, activeStage) where activeStage is the lowest incomplete signing stage.
+func computeStageMetrics(recipients []stores.RecipientRecord) (stageCount int, activeStage int) {
+	if len(recipients) == 0 {
+		return 0, 0
+	}
+
+	maxStage := 0
+	stageCompletion := make(map[int]bool) // stage -> all signers complete
+
+	for _, r := range recipients {
+		// Only consider signers for stage computation
+		if strings.EqualFold(strings.TrimSpace(r.Role), stores.RecipientRoleCC) {
+			continue
+		}
+
+		stage := r.SigningOrder
+		if stage <= 0 {
+			stage = 1
+		}
+		if stage > maxStage {
+			maxStage = stage
+		}
+
+		// Initialize stage as complete, set to false if any signer is incomplete
+		if _, exists := stageCompletion[stage]; !exists {
+			stageCompletion[stage] = true
+		}
+
+		// Check if signer is complete (has completed_at or was declined)
+		isComplete := r.CompletedAt != nil || r.DeclinedAt != nil
+		if !isComplete {
+			stageCompletion[stage] = false
+		}
+	}
+
+	if maxStage == 0 {
+		return 0, 0
+	}
+
+	// Find lowest incomplete stage
+	activeStage = maxStage + 1 // default to "all complete" sentinel
+	for stage := 1; stage <= maxStage; stage++ {
+		if complete, exists := stageCompletion[stage]; exists && !complete {
+			activeStage = stage
+			break
+		}
+	}
+
+	// If all stages are complete, set active to the max stage
+	if activeStage > maxStage {
+		activeStage = maxStage
+	}
+
+	return maxStage, activeStage
 }
 
 func recipientsToMaps(agreement stores.AgreementRecord, records []stores.RecipientRecord) []map[string]any {

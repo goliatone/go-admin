@@ -213,6 +213,7 @@ func TestReadableArtifactRendererRenderCertificateIncludesAuditDetails(t *testin
 		"agreement.completed",
 		"corr-1",
 		strings.Repeat("a", 64),
+		"stage=1",
 	} {
 		if !strings.Contains(raw, expected) {
 			t.Fatalf("expected certificate payload to include %q", expected)

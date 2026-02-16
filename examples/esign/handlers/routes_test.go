@@ -90,6 +90,15 @@ func TestBuildRouteSetUsesResolverNamespaces(t *testing.T) {
 	if routes.AdminAgreementSendReadiness != "/suite/api/v9/esign/agreements/:agreement_id/send-readiness" {
 		t.Fatalf("expected send-readiness route /suite/api/v9/esign/agreements/:agreement_id/send-readiness, got %q", routes.AdminAgreementSendReadiness)
 	}
+	if routes.AdminAgreementAutoPlace != "/suite/api/v9/esign/agreements/:agreement_id/auto-place" {
+		t.Fatalf("expected auto-place route /suite/api/v9/esign/agreements/:agreement_id/auto-place, got %q", routes.AdminAgreementAutoPlace)
+	}
+	if routes.AdminAgreementPlacementRun != "/suite/api/v9/esign/agreements/:agreement_id/placement-runs/:placement_run_id" {
+		t.Fatalf("expected placement run route /suite/api/v9/esign/agreements/:agreement_id/placement-runs/:placement_run_id, got %q", routes.AdminAgreementPlacementRun)
+	}
+	if routes.AdminAgreementPlacementApply != "/suite/api/v9/esign/agreements/:agreement_id/placement-runs/:placement_run_id/apply" {
+		t.Fatalf("expected placement apply route /suite/api/v9/esign/agreements/:agreement_id/placement-runs/:placement_run_id/apply, got %q", routes.AdminAgreementPlacementApply)
+	}
 	if routes.AdminSmokeRecipientLinks != "/suite/api/v9/esign/smoke/recipient-links" {
 		t.Fatalf("expected admin smoke recipient-links route /suite/api/v9/esign/smoke/recipient-links, got %q", routes.AdminSmokeRecipientLinks)
 	}
@@ -132,6 +141,15 @@ func TestBuildRouteSetUsesResolverNamespaces(t *testing.T) {
 	if routes.AdminGoogleDriveImport != "/suite/api/v9/esign/google-drive/import" {
 		t.Fatalf("expected google import route /suite/api/v9/esign/google-drive/import, got %q", routes.AdminGoogleDriveImport)
 	}
+	if routes.AdminIntegrationMappings != "/suite/api/v9/esign/integrations/mappings" {
+		t.Fatalf("expected integration mappings route /suite/api/v9/esign/integrations/mappings, got %q", routes.AdminIntegrationMappings)
+	}
+	if routes.AdminIntegrationSyncRuns != "/suite/api/v9/esign/integrations/sync-runs" {
+		t.Fatalf("expected integration sync-runs route /suite/api/v9/esign/integrations/sync-runs, got %q", routes.AdminIntegrationSyncRuns)
+	}
+	if routes.AdminIntegrationResolve != "/suite/api/v9/esign/integrations/conflicts/:conflict_id/resolve" {
+		t.Fatalf("expected integration conflict resolve route /suite/api/v9/esign/integrations/conflicts/:conflict_id/resolve, got %q", routes.AdminIntegrationResolve)
+	}
 }
 
 func TestBuildRouteSetFallbacksWhenResolverMissing(t *testing.T) {
@@ -169,6 +187,15 @@ func TestBuildRouteSetFallbacksWhenResolverMissing(t *testing.T) {
 	}
 	if routes.AdminAgreementSendReadiness != "/admin/api/v1/esign/agreements/:agreement_id/send-readiness" {
 		t.Fatalf("expected /admin/api/v1/esign/agreements/:agreement_id/send-readiness, got %q", routes.AdminAgreementSendReadiness)
+	}
+	if routes.AdminAgreementAutoPlace != "/admin/api/v1/esign/agreements/:agreement_id/auto-place" {
+		t.Fatalf("expected /admin/api/v1/esign/agreements/:agreement_id/auto-place, got %q", routes.AdminAgreementAutoPlace)
+	}
+	if routes.AdminAgreementPlacementRun != "/admin/api/v1/esign/agreements/:agreement_id/placement-runs/:placement_run_id" {
+		t.Fatalf("expected /admin/api/v1/esign/agreements/:agreement_id/placement-runs/:placement_run_id, got %q", routes.AdminAgreementPlacementRun)
+	}
+	if routes.AdminAgreementPlacementApply != "/admin/api/v1/esign/agreements/:agreement_id/placement-runs/:placement_run_id/apply" {
+		t.Fatalf("expected /admin/api/v1/esign/agreements/:agreement_id/placement-runs/:placement_run_id/apply, got %q", routes.AdminAgreementPlacementApply)
 	}
 	if routes.AdminSmokeRecipientLinks != "/admin/api/v1/esign/smoke/recipient-links" {
 		t.Fatalf("expected /admin/api/v1/esign/smoke/recipient-links, got %q", routes.AdminSmokeRecipientLinks)
@@ -211,5 +238,14 @@ func TestBuildRouteSetFallbacksWhenResolverMissing(t *testing.T) {
 	}
 	if routes.AdminGoogleOAuthRotate != "/admin/api/v1/esign/integrations/google/rotate-credentials" {
 		t.Fatalf("expected /admin/api/v1/esign/integrations/google/rotate-credentials, got %q", routes.AdminGoogleOAuthRotate)
+	}
+	if routes.AdminIntegrationMappings != "/admin/api/v1/esign/integrations/mappings" {
+		t.Fatalf("expected /admin/api/v1/esign/integrations/mappings, got %q", routes.AdminIntegrationMappings)
+	}
+	if routes.AdminIntegrationSyncRun != "/admin/api/v1/esign/integrations/sync-runs/:run_id" {
+		t.Fatalf("expected /admin/api/v1/esign/integrations/sync-runs/:run_id, got %q", routes.AdminIntegrationSyncRun)
+	}
+	if routes.AdminIntegrationDiagnostics != "/admin/api/v1/esign/integrations/diagnostics" {
+		t.Fatalf("expected /admin/api/v1/esign/integrations/diagnostics, got %q", routes.AdminIntegrationDiagnostics)
 	}
 }

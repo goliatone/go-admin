@@ -26,6 +26,9 @@ const (
 	ErrorCodeGoogleScopeViolation   ErrorCode = "GOOGLE_SCOPE_VIOLATION"
 	ErrorCodeGoogleIntegrationOff   ErrorCode = "GOOGLE_INTEGRATION_DISABLED"
 	ErrorCodeGoogleProviderDegraded ErrorCode = "GOOGLE_PROVIDER_DEGRADED"
+	ErrorCodeIntegrationMapping     ErrorCode = "INTEGRATION_MAPPING_INVALID"
+	ErrorCodeIntegrationConflict    ErrorCode = "INTEGRATION_CONFLICT"
+	ErrorCodeIntegrationReplay      ErrorCode = "INTEGRATION_REPLAY"
 )
 
 // DomainErrorCodes is the phase-0 e-sign error namespace registration payload.
@@ -131,6 +134,24 @@ var DomainErrorCodes = []coreadmin.DomainErrorCode{
 		Description: "Google provider is degraded or unavailable.",
 		Category:    goerrors.CategoryBadInput,
 		HTTPStatus:  503,
+	},
+	{
+		Code:        string(ErrorCodeIntegrationMapping),
+		Description: "Integration mapping specification is invalid.",
+		Category:    goerrors.CategoryValidation,
+		HTTPStatus:  400,
+	},
+	{
+		Code:        string(ErrorCodeIntegrationConflict),
+		Description: "Integration conflict requires explicit resolution.",
+		Category:    goerrors.CategoryConflict,
+		HTTPStatus:  409,
+	},
+	{
+		Code:        string(ErrorCodeIntegrationReplay),
+		Description: "Integration mutation idempotency replay detected.",
+		Category:    goerrors.CategoryConflict,
+		HTTPStatus:  409,
 	},
 }
 

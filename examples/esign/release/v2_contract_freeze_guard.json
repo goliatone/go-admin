@@ -1,0 +1,15 @@
+{
+  "tracked_files": [
+    "examples/esign/handlers/routes.go",
+    "examples/esign/handlers/security.go",
+    "examples/esign/handlers/register.go",
+    "examples/esign/services/agreement_service.go",
+    "examples/esign/services/signing_service.go",
+    "examples/esign/services/signer_asset_contract.go"
+  ],
+  "contract_hash": "bf0942ded9bc033cbf3d9ffae90a1dcd65699f7e2ee31717a0585342e5195cc7",
+  "freeze_date": "2026-02-16",
+  "release_owner": "backend-release-owner",
+  "exception_approval_ref": "",
+  "exception_approved_by": ""
+}

@@ -630,7 +630,7 @@ func TestRegisterSignerSessionReturnsScopedContextWithWaitingState(t *testing.T)
 	}); err != nil {
 		t.Fatalf("UpsertFieldDraft signer one: %v", err)
 	}
-	pageTwo := 2
+	pageTwo := 1
 	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signerTwo.ID,
 		Type:        strPtr(stores.FieldTypeSignature),
@@ -756,7 +756,7 @@ func TestRegisterSignerConsentCapturesAcceptance(t *testing.T) {
 func TestRegisterSignerFieldValuesUpsertRequiredValidation(t *testing.T) {
 	app, _, token, fieldID, _ := setupSignerFlowApp(t)
 
-	body := bytes.NewBufferString(`{"field_id":"` + fieldID + `","value_text":" "}`)
+	body := bytes.NewBufferString(`{"field_instance_id":"` + fieldID + `","value_text":" "}`)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/field-values/"+token, body)
 	req.Header.Set("Content-Type", "application/json")
 
@@ -781,7 +781,7 @@ func TestRegisterSignerFieldValuesUpsertRequiredValidation(t *testing.T) {
 func TestRegisterSignerFieldValuesUpsertSuccess(t *testing.T) {
 	app, _, token, fieldID, _ := setupSignerFlowApp(t)
 
-	body := bytes.NewBufferString(`{"field_id":"` + fieldID + `","value_text":"Signed by Alice"}`)
+	body := bytes.NewBufferString(`{"field_instance_id":"` + fieldID + `","value_text":"Signed by Alice"}`)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/field-values/"+token, body)
 	req.Header.Set("Content-Type", "application/json")
 
@@ -810,7 +810,7 @@ func TestRegisterSignerFieldValuesUpsertSuccess(t *testing.T) {
 func TestRegisterSignerSignatureAttachSuccess(t *testing.T) {
 	app, _, token, _, signatureFieldID := setupSignerFlowApp(t)
 
-	body := bytes.NewBufferString(`{"field_id":"` + signatureFieldID + `","type":"typed","object_key":"tenant/tenant-1/org/org-1/agreements/agreement-1/sig/sig-1.png","sha256":"` + strings.Repeat("a", 64) + `","value_text":"Signer Name"}`)
+	body := bytes.NewBufferString(`{"field_instance_id":"` + signatureFieldID + `","type":"typed","object_key":"tenant/tenant-1/org/org-1/agreements/agreement-1/sig/sig-1.png","sha256":"` + strings.Repeat("a", 64) + `","value_text":"Signer Name"}`)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/field-values/signature/"+token, body)
 	req.Header.Set("Content-Type", "application/json")
 
@@ -839,7 +839,7 @@ func TestRegisterSignerSignatureAttachSuccess(t *testing.T) {
 func TestRegisterSignerSignatureUploadBootstrapSuccess(t *testing.T) {
 	app, _, token, _, signatureFieldID := setupSignerFlowApp(t)
 
-	body := bytes.NewBufferString(`{"field_id":"` + signatureFieldID + `","sha256":"` + strings.Repeat("a", 64) + `","content_type":"image/png","size_bytes":2048}`)
+	body := bytes.NewBufferString(`{"field_instance_id":"` + signatureFieldID + `","sha256":"` + strings.Repeat("a", 64) + `","content_type":"image/png","size_bytes":2048}`)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/signature-upload/"+token, body)
 	req.Header.Set("Content-Type", "application/json")
 
@@ -903,7 +903,7 @@ func TestRegisterSignerSignatureAttachDrawnWithUploadBootstrap(t *testing.T) {
 	uploadDigest := sha256.Sum256(uploadBytes)
 	uploadSHA := hex.EncodeToString(uploadDigest[:])
 
-	bootstrapReqBody := bytes.NewBufferString(`{"field_id":"` + signatureFieldID + `","sha256":"` + uploadSHA + `","content_type":"image/png","size_bytes":1024}`)
+	bootstrapReqBody := bytes.NewBufferString(`{"field_instance_id":"` + signatureFieldID + `","sha256":"` + uploadSHA + `","content_type":"image/png","size_bytes":1024}`)
 	bootstrapReq := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/signature-upload/"+token, bootstrapReqBody)
 	bootstrapReq.Header.Set("Content-Type", "application/json")
 	bootstrapResp, err := app.Test(bootstrapReq, -1)
@@ -943,7 +943,7 @@ func TestRegisterSignerSignatureAttachDrawnWithUploadBootstrap(t *testing.T) {
 		t.Fatalf("expected upload status 200, got %d body=%s", uploadResp.StatusCode, body)
 	}
 
-	body := bytes.NewBufferString(`{"field_id":"` + signatureFieldID + `","type":"drawn","object_key":"` + objectKey + `","sha256":"` + uploadSHA + `","upload_token":"` + uploadToken + `"}`)
+	body := bytes.NewBufferString(`{"field_instance_id":"` + signatureFieldID + `","type":"drawn","object_key":"` + objectKey + `","sha256":"` + uploadSHA + `","upload_token":"` + uploadToken + `"}`)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/field-values/signature/"+token, body)
 	req.Header.Set("Content-Type", "application/json")
 
@@ -971,7 +971,7 @@ func TestRegisterSignerSignatureAttachDrawnRetryRemainsIdempotent(t *testing.T) 
 	uploadDigest := sha256.Sum256(uploadBytes)
 	uploadSHA := hex.EncodeToString(uploadDigest[:])
 
-	bootstrapReqBody := bytes.NewBufferString(`{"field_id":"` + signatureFieldID + `","sha256":"` + uploadSHA + `","content_type":"image/png","size_bytes":1024}`)
+	bootstrapReqBody := bytes.NewBufferString(`{"field_instance_id":"` + signatureFieldID + `","sha256":"` + uploadSHA + `","content_type":"image/png","size_bytes":1024}`)
 	bootstrapReq := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/signature-upload/"+token, bootstrapReqBody)
 	bootstrapReq.Header.Set("Content-Type", "application/json")
 	bootstrapResp, err := app.Test(bootstrapReq, -1)
@@ -1011,7 +1011,7 @@ func TestRegisterSignerSignatureAttachDrawnRetryRemainsIdempotent(t *testing.T) 
 		t.Fatalf("expected upload status 200, got %d body=%s", uploadResp.StatusCode, body)
 	}
 
-	attachBody := `{"field_id":"` + signatureFieldID + `","type":"drawn","object_key":"` + objectKey + `","sha256":"` + uploadSHA + `","upload_token":"` + uploadToken + `"}`
+	attachBody := `{"field_instance_id":"` + signatureFieldID + `","type":"drawn","object_key":"` + objectKey + `","sha256":"` + uploadSHA + `","upload_token":"` + uploadToken + `"}`
 	firstReq := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/field-values/signature/"+token, bytes.NewBufferString(attachBody))
 	firstReq.Header.Set("Content-Type", "application/json")
 	firstResp, err := app.Test(firstReq, -1)
@@ -1070,7 +1070,7 @@ func TestRegisterSignerSubmitFlowWithIdempotency(t *testing.T) {
 		t.Fatalf("expected consent status 200, got %d", consentResp.StatusCode)
 	}
 
-	signatureReqBody := bytes.NewBufferString(`{"field_id":"` + signatureFieldID + `","type":"typed","object_key":"tenant/tenant-1/org/org-1/agreements/agreement-1/sig/sig-submit.png","sha256":"` + strings.Repeat("d", 64) + `","value_text":"Signer Name"}`)
+	signatureReqBody := bytes.NewBufferString(`{"field_instance_id":"` + signatureFieldID + `","type":"typed","object_key":"tenant/tenant-1/org/org-1/agreements/agreement-1/sig/sig-submit.png","sha256":"` + strings.Repeat("d", 64) + `","value_text":"Signer Name"}`)
 	signatureReq := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/field-values/signature/"+token, signatureReqBody)
 	signatureReq.Header.Set("Content-Type", "application/json")
 	signatureResp, err := app.Test(signatureReq, -1)
@@ -1082,7 +1082,7 @@ func TestRegisterSignerSubmitFlowWithIdempotency(t *testing.T) {
 		t.Fatalf("expected signature status 200, got %d", signatureResp.StatusCode)
 	}
 
-	fieldReqBody := bytes.NewBufferString(`{"field_id":"` + textFieldID + `","value_text":"Signer Name"}`)
+	fieldReqBody := bytes.NewBufferString(`{"field_instance_id":"` + textFieldID + `","value_text":"Signer Name"}`)
 	fieldReq := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/field-values/"+token, fieldReqBody)
 	fieldReq.Header.Set("Content-Type", "application/json")
 	fieldResp, err := app.Test(fieldReq, -1)
@@ -1149,7 +1149,7 @@ func TestRegisterSignerUnifiedFlowObservabilitySignals(t *testing.T) {
 		t.Fatalf("expected consent status 200, got %d", consentResp.StatusCode)
 	}
 
-	signatureReqBody := bytes.NewBufferString(`{"field_id":"` + signatureFieldID + `","type":"typed","object_key":"tenant/tenant-1/org/org-1/agreements/agreement-1/sig/sig-observe.png","sha256":"` + strings.Repeat("f", 64) + `","value_text":"Signer Name"}`)
+	signatureReqBody := bytes.NewBufferString(`{"field_instance_id":"` + signatureFieldID + `","type":"typed","object_key":"tenant/tenant-1/org/org-1/agreements/agreement-1/sig/sig-observe.png","sha256":"` + strings.Repeat("f", 64) + `","value_text":"Signer Name"}`)
 	signatureReq := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/field-values/signature/"+token, signatureReqBody)
 	signatureReq.Header.Set("Content-Type", "application/json")
 	signatureReq.Header.Set("X-ESign-Flow-Mode", "unified")
@@ -1162,7 +1162,7 @@ func TestRegisterSignerUnifiedFlowObservabilitySignals(t *testing.T) {
 		t.Fatalf("expected signature status 200, got %d", signatureResp.StatusCode)
 	}
 
-	fieldReqBody := bytes.NewBufferString(`{"field_id":"` + textFieldID + `","value_text":"Signer Name"}`)
+	fieldReqBody := bytes.NewBufferString(`{"field_instance_id":"` + textFieldID + `","value_text":"Signer Name"}`)
 	fieldReq := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/field-values/"+token, fieldReqBody)
 	fieldReq.Header.Set("Content-Type", "application/json")
 	fieldReq.Header.Set("X-ESign-Flow-Mode", "unified")
@@ -1213,7 +1213,7 @@ func TestRegisterSignerSubmitIdempotencyUnderBurstTraffic(t *testing.T) {
 		t.Fatalf("expected consent status 200, got %d", consentResp.StatusCode)
 	}
 
-	signatureReqBody := bytes.NewBufferString(`{"field_id":"` + signatureFieldID + `","type":"typed","object_key":"tenant/tenant-1/org/org-1/agreements/agreement-1/sig/sig-burst.png","sha256":"` + strings.Repeat("e", 64) + `","value_text":"Signer Name"}`)
+	signatureReqBody := bytes.NewBufferString(`{"field_instance_id":"` + signatureFieldID + `","type":"typed","object_key":"tenant/tenant-1/org/org-1/agreements/agreement-1/sig/sig-burst.png","sha256":"` + strings.Repeat("e", 64) + `","value_text":"Signer Name"}`)
 	signatureReq := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/field-values/signature/"+token, signatureReqBody)
 	signatureReq.Header.Set("Content-Type", "application/json")
 	signatureResp, err := app.Test(signatureReq, -1)
@@ -1225,7 +1225,7 @@ func TestRegisterSignerSubmitIdempotencyUnderBurstTraffic(t *testing.T) {
 		t.Fatalf("expected signature status 200, got %d", signatureResp.StatusCode)
 	}
 
-	fieldReqBody := bytes.NewBufferString(`{"field_id":"` + textFieldID + `","value_text":"Signer Name"}`)
+	fieldReqBody := bytes.NewBufferString(`{"field_instance_id":"` + textFieldID + `","value_text":"Signer Name"}`)
 	fieldReq := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/field-values/"+token, fieldReqBody)
 	fieldReq.Header.Set("Content-Type", "application/json")
 	fieldResp, err := app.Test(fieldReq, -1)

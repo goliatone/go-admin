@@ -45,25 +45,27 @@ var DefaultPermissions = Permissions{
 }
 
 type registerConfig struct {
-	authorizer        coreadmin.Authorizer
-	adminRouteAuth    router.MiddlewareFunc
-	tokenValidator    SignerTokenValidator
-	signerSession     SignerSessionService
-	signerAssets      SignerAssetContractService
-	agreementDelivery AgreementDeliveryService
-	objectStore       SignerObjectStore
-	agreements        AgreementStatsService
-	auditEvents       stores.AuditEventStore
-	google            GoogleIntegrationService
-	googleEnabled     bool
-	documentUpload    router.HandlerFunc
-	permissions       Permissions
-	defaultScope      stores.Scope
-	scopeResolver     ScopeResolver
-	actorScope        ActorScopeResolver
-	transportGuard    TransportGuard
-	rateLimiter       RequestRateLimiter
-	securityLogEvent  SecurityLogEvent
+	authorizer         coreadmin.Authorizer
+	adminRouteAuth     router.MiddlewareFunc
+	tokenValidator     SignerTokenValidator
+	signerSession      SignerSessionService
+	signerAssets       SignerAssetContractService
+	agreementDelivery  AgreementDeliveryService
+	agreementAuthoring AgreementAuthoringService
+	objectStore        SignerObjectStore
+	agreements         AgreementStatsService
+	auditEvents        stores.AuditEventStore
+	google             GoogleIntegrationService
+	integration        IntegrationFoundationService
+	googleEnabled      bool
+	documentUpload     router.HandlerFunc
+	permissions        Permissions
+	defaultScope       stores.Scope
+	scopeResolver      ScopeResolver
+	actorScope         ActorScopeResolver
+	transportGuard     TransportGuard
+	rateLimiter        RequestRateLimiter
+	securityLogEvent   SecurityLogEvent
 }
 
 func defaultRegisterConfig() registerConfig {
@@ -101,6 +103,28 @@ type AgreementDeliveryService interface {
 	AgreementDeliveryDetail(ctx context.Context, scope stores.Scope, agreementID string) (services.AgreementDeliveryDetail, error)
 }
 
+// AgreementAuthoringService captures v2 draft authoring APIs and send-readiness checks.
+type AgreementAuthoringService interface {
+	ListParticipants(ctx context.Context, scope stores.Scope, agreementID string) ([]stores.ParticipantRecord, error)
+	UpsertParticipantDraft(ctx context.Context, scope stores.Scope, agreementID string, patch stores.ParticipantDraftPatch, expectedVersion int64) (stores.ParticipantRecord, error)
+	DeleteParticipantDraft(ctx context.Context, scope stores.Scope, agreementID, participantID string) error
+
+	ListFieldDefinitions(ctx context.Context, scope stores.Scope, agreementID string) ([]stores.FieldDefinitionRecord, error)
+	UpsertFieldDefinitionDraft(ctx context.Context, scope stores.Scope, agreementID string, patch stores.FieldDefinitionDraftPatch) (stores.FieldDefinitionRecord, error)
+	DeleteFieldDefinitionDraft(ctx context.Context, scope stores.Scope, agreementID, fieldDefinitionID string) error
+
+	ListFieldInstances(ctx context.Context, scope stores.Scope, agreementID string) ([]stores.FieldInstanceRecord, error)
+	UpsertFieldInstanceDraft(ctx context.Context, scope stores.Scope, agreementID string, patch stores.FieldInstanceDraftPatch) (stores.FieldInstanceRecord, error)
+	DeleteFieldInstanceDraft(ctx context.Context, scope stores.Scope, agreementID, fieldInstanceID string) error
+
+	RunAutoPlacement(ctx context.Context, scope stores.Scope, agreementID string, input services.AutoPlacementRunInput) (services.AutoPlacementRunResult, error)
+	ListPlacementRuns(ctx context.Context, scope stores.Scope, agreementID string) ([]stores.PlacementRunRecord, error)
+	GetPlacementRun(ctx context.Context, scope stores.Scope, agreementID, placementRunID string) (stores.PlacementRunRecord, error)
+	ApplyPlacementRun(ctx context.Context, scope stores.Scope, agreementID, placementRunID string, input services.ApplyPlacementRunInput) (services.ApplyPlacementRunResult, error)
+
+	ValidateBeforeSend(ctx context.Context, scope stores.Scope, agreementID string) (services.AgreementValidationResult, error)
+}
+
 // SignerObjectStore resolves and persists signer-facing asset/signature blobs by object key.
 type SignerObjectStore interface {
 	GetFile(ctx context.Context, path string) ([]byte, error)
@@ -121,6 +145,31 @@ type GoogleIntegrationService interface {
 	SearchFiles(ctx context.Context, scope stores.Scope, input services.GoogleDriveQueryInput) (services.GoogleDriveListResult, error)
 	BrowseFiles(ctx context.Context, scope stores.Scope, input services.GoogleDriveQueryInput) (services.GoogleDriveListResult, error)
 	ImportDocument(ctx context.Context, scope stores.Scope, input services.GoogleImportInput) (services.GoogleImportResult, error)
+}
+
+// IntegrationFoundationService captures provider-agnostic integration mapping/sync/conflict operations.
+type IntegrationFoundationService interface {
+	ValidateAndCompileMapping(ctx context.Context, scope stores.Scope, input services.MappingCompileInput) (services.MappingCompileResult, error)
+	ListMappingSpecs(ctx context.Context, scope stores.Scope, provider string) ([]stores.MappingSpecRecord, error)
+	GetMappingSpec(ctx context.Context, scope stores.Scope, id string) (stores.MappingSpecRecord, error)
+	PublishMappingSpec(ctx context.Context, scope stores.Scope, id string, expectedVersion int64) (stores.MappingSpecRecord, error)
+
+	StartSyncRun(ctx context.Context, scope stores.Scope, input services.StartSyncRunInput) (stores.IntegrationSyncRunRecord, bool, error)
+	SaveCheckpoint(ctx context.Context, scope stores.Scope, input services.SaveCheckpointInput) (stores.IntegrationCheckpointRecord, error)
+	ResumeSyncRun(ctx context.Context, scope stores.Scope, runID, idempotencyKey string) (stores.IntegrationSyncRunRecord, bool, error)
+	CompleteSyncRun(ctx context.Context, scope stores.Scope, runID, idempotencyKey string) (stores.IntegrationSyncRunRecord, bool, error)
+	FailSyncRun(ctx context.Context, scope stores.Scope, runID, lastError, idempotencyKey string) (stores.IntegrationSyncRunRecord, bool, error)
+	ListSyncRuns(ctx context.Context, scope stores.Scope, provider string) ([]stores.IntegrationSyncRunRecord, error)
+	GetSyncRun(ctx context.Context, scope stores.Scope, runID string) (stores.IntegrationSyncRunRecord, error)
+	SyncRunDiagnostics(ctx context.Context, scope stores.Scope, runID string) (services.SyncRunDiagnostics, error)
+
+	DetectConflict(ctx context.Context, scope stores.Scope, input services.DetectConflictInput) (stores.IntegrationConflictRecord, bool, error)
+	ResolveConflict(ctx context.Context, scope stores.Scope, input services.ResolveConflictInput) (stores.IntegrationConflictRecord, bool, error)
+	ListConflicts(ctx context.Context, scope stores.Scope, runID, status string) ([]stores.IntegrationConflictRecord, error)
+	GetConflict(ctx context.Context, scope stores.Scope, conflictID string) (stores.IntegrationConflictRecord, error)
+
+	ApplyInbound(ctx context.Context, scope stores.Scope, input services.InboundApplyInput) (services.InboundApplyResult, error)
+	EmitOutboundChange(ctx context.Context, scope stores.Scope, input services.OutboundChangeInput) (stores.IntegrationChangeEventRecord, bool, error)
 }
 
 // ScopeResolver resolves tenant/org scope from request context.
@@ -215,6 +264,16 @@ func WithAgreementDeliveryService(service AgreementDeliveryService) RegisterOpti
 	}
 }
 
+// WithAgreementAuthoringService configures participant/field authoring and send-readiness APIs.
+func WithAgreementAuthoringService(service AgreementAuthoringService) RegisterOption {
+	return func(cfg *registerConfig) {
+		if cfg == nil {
+			return
+		}
+		cfg.agreementAuthoring = service
+	}
+}
+
 // WithSignerObjectStore configures signer binary asset/signature object I/O.
 func WithSignerObjectStore(store SignerObjectStore) RegisterOption {
 	return func(cfg *registerConfig) {
@@ -262,6 +321,16 @@ func WithGoogleIntegrationEnabled(enabled bool) RegisterOption {
 			return
 		}
 		cfg.googleEnabled = enabled
+	}
+}
+
+// WithIntegrationFoundationService configures provider-agnostic integration foundation backend service.
+func WithIntegrationFoundationService(service IntegrationFoundationService) RegisterOption {
+	return func(cfg *registerConfig) {
+		if cfg == nil {
+			return
+		}
+		cfg.integration = service
 	}
 }
 

@@ -3,6 +3,8 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"sort"
 	"strings"
 	"time"
@@ -12,16 +14,20 @@ import (
 
 // AgreementService manages draft agreement lifecycle and recipient/field mutations.
 type AgreementService struct {
-	agreements   stores.AgreementStore
-	documents    stores.DocumentStore
-	tokens       AgreementTokenService
-	audits       stores.AuditEventStore
-	emails       AgreementEmailWorkflow
-	tx           stores.TransactionManager
-	customTokens bool
-	customAudits bool
-	now          func() time.Time
-	sendByKey    map[string]stores.AgreementRecord
+	agreements            stores.AgreementStore
+	documents             stores.DocumentStore
+	placementRuns         stores.PlacementRunStore
+	tokens                AgreementTokenService
+	audits                stores.AuditEventStore
+	emails                AgreementEmailWorkflow
+	placementOrchestrator AgreementPlacementOrchestrator
+	placementPolicy       AgreementPlacementPolicyResolver
+	placementObjectStore  PlacementDocumentObjectStore
+	tx                    stores.TransactionManager
+	customTokens          bool
+	customAudits          bool
+	customPlacementRuns   bool
+	now                   func() time.Time
 }
 
 // AgreementServiceOption customizes AgreementService behavior.
@@ -131,13 +137,13 @@ type AgreementValidationResult struct {
 
 func NewAgreementService(store stores.Store, opts ...AgreementServiceOption) AgreementService {
 	svc := AgreementService{
-		agreements: store,
-		documents:  store,
-		audits:     store,
-		tokens:     stores.NewTokenService(store),
-		tx:         store,
-		now:        func() time.Time { return time.Now().UTC() },
-		sendByKey:  map[string]stores.AgreementRecord{},
+		agreements:    store,
+		documents:     store,
+		placementRuns: store,
+		audits:        store,
+		tokens:        stores.NewTokenService(store),
+		tx:            store,
+		now:           func() time.Time { return time.Now().UTC() },
 	}
 	for _, opt := range opts {
 		if opt == nil {
@@ -145,6 +151,7 @@ func NewAgreementService(store stores.Store, opts ...AgreementServiceOption) Agr
 		}
 		opt(&svc)
 	}
+	svc.initPlacementDefaults()
 	return svc
 }
 
@@ -152,11 +159,25 @@ func (s AgreementService) forTx(tx stores.TxStore) AgreementService {
 	txSvc := s
 	txSvc.agreements = tx
 	txSvc.documents = tx
+	if !txSvc.customPlacementRuns {
+		txSvc.placementRuns = tx
+	}
 	if !txSvc.customAudits {
 		txSvc.audits = tx
 	}
 	if !txSvc.customTokens {
 		txSvc.tokens = stores.NewTokenService(tx)
+	} else {
+		switch typed := txSvc.tokens.(type) {
+		case stores.TokenService:
+			txSvc.tokens = typed.ForTx(tx)
+		case *stores.TokenService:
+			txSvc.tokens = typed.ForTx(tx)
+		case interface {
+			ForTx(tx stores.TxStore) AgreementTokenService
+		}:
+			txSvc.tokens = typed.ForTx(tx)
+		}
 	}
 	return txSvc
 }
@@ -320,6 +341,139 @@ func (s AgreementService) RemoveRecipientDraft(ctx context.Context, scope stores
 	})
 }
 
+// ListParticipants returns canonical v2 participants for a draft agreement.
+func (s AgreementService) ListParticipants(ctx context.Context, scope stores.Scope, agreementID string) ([]stores.ParticipantRecord, error) {
+	if s.agreements == nil {
+		return nil, domainValidationError("participants", "store", "not configured")
+	}
+	return s.agreements.ListParticipants(ctx, scope, agreementID)
+}
+
+// UpsertParticipantDraft creates or updates a v2 participant record.
+func (s AgreementService) UpsertParticipantDraft(ctx context.Context, scope stores.Scope, agreementID string, patch stores.ParticipantDraftPatch, expectedVersion int64) (stores.ParticipantRecord, error) {
+	if s.agreements == nil {
+		return stores.ParticipantRecord{}, domainValidationError("participants", "store", "not configured")
+	}
+	participant, err := s.agreements.UpsertParticipantDraft(ctx, scope, agreementID, patch, expectedVersion)
+	if err != nil {
+		return stores.ParticipantRecord{}, err
+	}
+	if err := s.appendAuditEvent(ctx, scope, agreementID, "agreement.participant_upserted", "system", "", map[string]any{
+		"participant_id": participant.ID,
+		"role":           participant.Role,
+		"signing_stage":  participant.SigningStage,
+	}); err != nil {
+		return stores.ParticipantRecord{}, err
+	}
+	return participant, nil
+}
+
+// DeleteParticipantDraft deletes a v2 participant record from a draft agreement.
+func (s AgreementService) DeleteParticipantDraft(ctx context.Context, scope stores.Scope, agreementID, participantID string) error {
+	if s.agreements == nil {
+		return domainValidationError("participants", "store", "not configured")
+	}
+	if err := s.agreements.DeleteParticipantDraft(ctx, scope, agreementID, participantID); err != nil {
+		return err
+	}
+	return s.appendAuditEvent(ctx, scope, agreementID, "agreement.participant_deleted", "system", "", map[string]any{
+		"participant_id": strings.TrimSpace(participantID),
+	})
+}
+
+// ListFieldDefinitions returns canonical v2 logical field definitions for a draft agreement.
+func (s AgreementService) ListFieldDefinitions(ctx context.Context, scope stores.Scope, agreementID string) ([]stores.FieldDefinitionRecord, error) {
+	if s.agreements == nil {
+		return nil, domainValidationError("field_definitions", "store", "not configured")
+	}
+	return s.agreements.ListFieldDefinitions(ctx, scope, agreementID)
+}
+
+// UpsertFieldDefinitionDraft creates or updates a canonical v2 field definition record.
+func (s AgreementService) UpsertFieldDefinitionDraft(ctx context.Context, scope stores.Scope, agreementID string, patch stores.FieldDefinitionDraftPatch) (stores.FieldDefinitionRecord, error) {
+	if s.agreements == nil {
+		return stores.FieldDefinitionRecord{}, domainValidationError("field_definitions", "store", "not configured")
+	}
+	definition, err := s.agreements.UpsertFieldDefinitionDraft(ctx, scope, agreementID, patch)
+	if err != nil {
+		return stores.FieldDefinitionRecord{}, err
+	}
+	if err := s.appendAuditEvent(ctx, scope, agreementID, "agreement.field_definition_upserted", "system", "", map[string]any{
+		"field_definition_id": definition.ID,
+		"participant_id":      definition.ParticipantID,
+		"field_type":          definition.Type,
+		"required":            definition.Required,
+	}); err != nil {
+		return stores.FieldDefinitionRecord{}, err
+	}
+	return definition, nil
+}
+
+// DeleteFieldDefinitionDraft deletes a v2 field definition record from a draft agreement.
+func (s AgreementService) DeleteFieldDefinitionDraft(ctx context.Context, scope stores.Scope, agreementID, fieldDefinitionID string) error {
+	if s.agreements == nil {
+		return domainValidationError("field_definitions", "store", "not configured")
+	}
+	if err := s.agreements.DeleteFieldDefinitionDraft(ctx, scope, agreementID, fieldDefinitionID); err != nil {
+		return err
+	}
+	return s.appendAuditEvent(ctx, scope, agreementID, "agreement.field_definition_deleted", "system", "", map[string]any{
+		"field_definition_id": strings.TrimSpace(fieldDefinitionID),
+	})
+}
+
+// ListFieldInstances returns canonical v2 field placements for a draft agreement.
+func (s AgreementService) ListFieldInstances(ctx context.Context, scope stores.Scope, agreementID string) ([]stores.FieldInstanceRecord, error) {
+	if s.agreements == nil {
+		return nil, domainValidationError("field_instances", "store", "not configured")
+	}
+	return s.agreements.ListFieldInstances(ctx, scope, agreementID)
+}
+
+// UpsertFieldInstanceDraft creates or updates a canonical v2 field placement record.
+func (s AgreementService) UpsertFieldInstanceDraft(ctx context.Context, scope stores.Scope, agreementID string, patch stores.FieldInstanceDraftPatch) (stores.FieldInstanceRecord, error) {
+	if s.agreements == nil {
+		return stores.FieldInstanceRecord{}, domainValidationError("field_instances", "store", "not configured")
+	}
+	pageNumber, err := s.resolveFieldInstancePageNumber(ctx, scope, agreementID, patch)
+	if err != nil {
+		return stores.FieldInstanceRecord{}, err
+	}
+	if err := s.validateFieldInstanceGeometryBounds(ctx, scope, agreementID, pageNumber); err != nil {
+		return stores.FieldInstanceRecord{}, err
+	}
+	instance, err := s.agreements.UpsertFieldInstanceDraft(ctx, scope, agreementID, patch)
+	if err != nil {
+		return stores.FieldInstanceRecord{}, err
+	}
+	if err := s.appendAuditEvent(ctx, scope, agreementID, "agreement.field_instance_upserted", "system", "", map[string]any{
+		"field_instance_id":   instance.ID,
+		"field_definition_id": instance.FieldDefinitionID,
+		"page_number":         instance.PageNumber,
+		"x":                   instance.X,
+		"y":                   instance.Y,
+		"width":               instance.Width,
+		"height":              instance.Height,
+		"tab_index":           instance.TabIndex,
+	}); err != nil {
+		return stores.FieldInstanceRecord{}, err
+	}
+	return instance, nil
+}
+
+// DeleteFieldInstanceDraft deletes a v2 field placement record from a draft agreement.
+func (s AgreementService) DeleteFieldInstanceDraft(ctx context.Context, scope stores.Scope, agreementID, fieldInstanceID string) error {
+	if s.agreements == nil {
+		return domainValidationError("field_instances", "store", "not configured")
+	}
+	if err := s.agreements.DeleteFieldInstanceDraft(ctx, scope, agreementID, fieldInstanceID); err != nil {
+		return err
+	}
+	return s.appendAuditEvent(ctx, scope, agreementID, "agreement.field_instance_deleted", "system", "", map[string]any{
+		"field_instance_id": strings.TrimSpace(fieldInstanceID),
+	})
+}
+
 // UpsertFieldDraft creates or updates draft fields.
 func (s AgreementService) UpsertFieldDraft(ctx context.Context, scope stores.Scope, agreementID string, patch stores.FieldDraftPatch) (stores.FieldRecord, error) {
 	if s.agreements == nil {
@@ -362,20 +516,21 @@ func (s AgreementService) UpsertFieldDraft(ctx context.Context, scope stores.Sco
 		return stores.FieldRecord{}, err
 	}
 	field := stores.FieldRecord{
-		ID:          instance.ID,
-		TenantID:    instance.TenantID,
-		OrgID:       instance.OrgID,
-		AgreementID: instance.AgreementID,
-		RecipientID: definition.ParticipantID,
-		Type:        definition.Type,
-		PageNumber:  instance.PageNumber,
-		PosX:        instance.X,
-		PosY:        instance.Y,
-		Width:       instance.Width,
-		Height:      instance.Height,
-		Required:    definition.Required,
-		CreatedAt:   instance.CreatedAt,
-		UpdatedAt:   instance.UpdatedAt,
+		ID:                instance.ID,
+		FieldDefinitionID: definition.ID,
+		TenantID:          instance.TenantID,
+		OrgID:             instance.OrgID,
+		AgreementID:       instance.AgreementID,
+		RecipientID:       definition.ParticipantID,
+		Type:              definition.Type,
+		PageNumber:        instance.PageNumber,
+		PosX:              instance.X,
+		PosY:              instance.Y,
+		Width:             instance.Width,
+		Height:            instance.Height,
+		Required:          definition.Required,
+		CreatedAt:         instance.CreatedAt,
+		UpdatedAt:         instance.UpdatedAt,
 	}
 	if err := s.appendAuditEvent(ctx, scope, agreementID, "agreement.field_upserted", "system", "", map[string]any{
 		"field_definition_id": definition.ID,
@@ -435,6 +590,10 @@ func (s AgreementService) ValidateBeforeSend(ctx context.Context, scope stores.S
 	if err != nil {
 		return AgreementValidationResult{}, err
 	}
+	documentPageCount, err := s.documentPageCount(ctx, scope, agreement)
+	if err != nil {
+		return AgreementValidationResult{}, err
+	}
 	issues = append(issues, participantValidationIssues(participants)...)
 
 	if len(definitions) == 0 {
@@ -470,6 +629,14 @@ func (s AgreementService) ValidateBeforeSend(ctx context.Context, scope stores.S
 				Code:    string(ErrorCodeMissingRequiredFields),
 				Field:   "field_instances.geometry",
 				Message: "field instance geometry must be positive and page_number must be > 0",
+			})
+			continue
+		}
+		if documentPageCount > 0 && instance.PageNumber > documentPageCount {
+			issues = append(issues, ValidationIssue{
+				Code:    string(ErrorCodeMissingRequiredFields),
+				Field:   "field_instances.page_number",
+				Message: "field instance page_number exceeds source document page count",
 			})
 			continue
 		}
@@ -586,15 +753,30 @@ func (s AgreementService) Send(ctx context.Context, scope stores.Scope, agreemen
 	if s.agreements == nil {
 		return stores.AgreementRecord{}, domainValidationError("agreements", "store", "not configured")
 	}
-	key := s.sendIdempotencyKey(scope, agreementID, input.IdempotencyKey)
-	if key != "" {
-		if cached, ok := s.sendByKey[key]; ok {
-			return cached, nil
-		}
+	idempotencyKey := strings.TrimSpace(input.IdempotencyKey)
+	if replay, ok, err := s.resolveSendReplayFromAudit(ctx, scope, agreementID, idempotencyKey); err != nil {
+		return stores.AgreementRecord{}, err
+	} else if ok {
+		return replay, nil
 	}
 	var result stores.AgreementRecord
-	cacheResult := false
 	if err := s.withWriteTx(ctx, func(txSvc AgreementService) error {
+		agreement, err := txSvc.agreements.GetAgreement(ctx, scope, agreementID)
+		if err != nil {
+			return err
+		}
+		if agreement.Status != stores.AgreementStatusDraft {
+			if agreement.Status == stores.AgreementStatusSent && idempotencyKey != "" {
+				if replayed, replayErr := txSvc.wasSendRecordedWithIdempotencyKey(ctx, scope, agreementID, idempotencyKey); replayErr != nil {
+					return replayErr
+				} else if replayed {
+					result = agreement
+					return nil
+				}
+			}
+			return domainValidationError("agreements", "status", "send requires draft status")
+		}
+
 		validation, err := txSvc.ValidateBeforeSend(ctx, scope, agreementID)
 		if err != nil {
 			return err
@@ -603,19 +785,6 @@ func (s AgreementService) Send(ctx context.Context, scope stores.Scope, agreemen
 			first := validation.Issues[0]
 			return domainValidationError("agreements", first.Field, first.Message)
 		}
-
-		agreement, err := txSvc.agreements.GetAgreement(ctx, scope, agreementID)
-		if err != nil {
-			return err
-		}
-		if agreement.Status != stores.AgreementStatusDraft {
-			if agreement.Status == stores.AgreementStatusSent && key != "" {
-				result = agreement
-				cacheResult = true
-				return nil
-			}
-			return domainValidationError("agreements", "status", "send requires draft status")
-		}
 		if txSvc.tokens == nil {
 			return domainValidationError("signing_tokens", "service", "not configured")
 		}
@@ -623,13 +792,25 @@ func (s AgreementService) Send(ctx context.Context, scope stores.Scope, agreemen
 		if err != nil {
 			return err
 		}
-		activeSigner, ok := activeSignerForSequentialFlow(recipients)
+		activeStage, activeSigners, ok := activeSignerStage(recipients)
 		if !ok {
 			return domainValidationError("recipients", "role", "no active signer recipient found")
 		}
-		issued, err := txSvc.tokens.Issue(ctx, scope, agreementID, activeSigner.ID)
-		if err != nil {
-			return err
+		issuedByRecipient := map[string]stores.IssuedSigningToken{}
+		issuedRecipientIDs := make([]string, 0)
+		for _, recipient := range recipients {
+			if recipient.Role != stores.RecipientRoleSigner {
+				continue
+			}
+			issued, issueErr := txSvc.tokens.Issue(ctx, scope, agreementID, recipient.ID)
+			if issueErr != nil {
+				return issueErr
+			}
+			issuedByRecipient[recipient.ID] = issued
+			issuedRecipientIDs = append(issuedRecipientIDs, recipient.ID)
+		}
+		if len(issuedByRecipient) == 0 {
+			return domainValidationError("recipients", "role", "no active signer recipient found")
 		}
 
 		transitioned, err := txSvc.agreements.Transition(ctx, scope, agreementID, stores.AgreementTransitionInput{
@@ -637,47 +818,58 @@ func (s AgreementService) Send(ctx context.Context, scope stores.Scope, agreemen
 			ExpectedVersion: agreement.Version,
 		})
 		if err != nil {
-			_ = txSvc.tokens.Revoke(ctx, scope, agreementID, activeSigner.ID)
+			var rollbackErr error
+			for recipientID := range issuedByRecipient {
+				if revokeErr := txSvc.tokens.Revoke(ctx, scope, agreementID, recipientID); revokeErr != nil {
+					rollbackErr = errors.Join(rollbackErr, revokeErr)
+				}
+			}
+			if rollbackErr != nil {
+				return errors.Join(err, rollbackErr)
+			}
 			return err
 		}
 		result = transitioned
-		cacheResult = key != ""
 
+		activeRecipientIDs := recipientIDs(activeSigners)
 		if err := txSvc.appendAuditEvent(ctx, scope, transitioned.ID, "agreement.sent", "system", "", map[string]any{
-			"idempotency_key": strings.TrimSpace(input.IdempotencyKey),
-			"status":          transitioned.Status,
-			"recipient_id":    activeSigner.ID,
-			"token_id":        issued.Record.ID,
-			"token_expires_at": func() string {
-				if issued.Record.ExpiresAt.IsZero() {
-					return ""
-				}
-				return issued.Record.ExpiresAt.UTC().Format(time.RFC3339)
+			"idempotency_key":     strings.TrimSpace(input.IdempotencyKey),
+			"status":              transitioned.Status,
+			"active_stage":        activeStage,
+			"active_recipient_id": coalesceFirst(activeRecipientIDs),
+			"active_recipient_ids": func() []string {
+				return append([]string{}, activeRecipientIDs...)
+			}(),
+			"issued_recipient_ids": func() []string {
+				return append([]string{}, issuedRecipientIDs...)
 			}(),
 		}); err != nil {
 			return err
 		}
 		if txSvc.emails != nil {
-			if err := txSvc.emails.OnAgreementSent(ctx, scope, AgreementNotification{
-				AgreementID:   transitioned.ID,
-				RecipientID:   activeSigner.ID,
-				CorrelationID: strings.TrimSpace(input.IdempotencyKey),
-				Type:          NotificationSigningInvitation,
-				Token:         issued,
-			}); err != nil {
-				_ = txSvc.appendAuditEvent(ctx, scope, transitioned.ID, "agreement.send_notification_failed", "system", "", map[string]any{
-					"idempotency_key": strings.TrimSpace(input.IdempotencyKey),
-					"recipient_id":    activeSigner.ID,
-					"error":           strings.TrimSpace(err.Error()),
-				})
+			for _, activeSigner := range activeSigners {
+				issued := issuedByRecipient[activeSigner.ID]
+				if err := txSvc.emails.OnAgreementSent(ctx, scope, AgreementNotification{
+					AgreementID:   transitioned.ID,
+					RecipientID:   activeSigner.ID,
+					CorrelationID: strings.TrimSpace(input.IdempotencyKey),
+					Type:          NotificationSigningInvitation,
+					Token:         issued,
+				}); err != nil {
+					_ = txSvc.appendAuditEvent(ctx, scope, transitioned.ID, "agreement.send_notification_failed", "system", "", map[string]any{
+						"idempotency_key": strings.TrimSpace(input.IdempotencyKey),
+						"recipient_id":    activeSigner.ID,
+						"error":           strings.TrimSpace(err.Error()),
+					})
+				}
 			}
 		}
 		return nil
 	}); err != nil {
+		if replay, ok, replayErr := s.resolveSendReplayFromAudit(ctx, scope, agreementID, idempotencyKey); replayErr == nil && ok {
+			return replay, nil
+		}
 		return stores.AgreementRecord{}, err
-	}
-	if cacheResult && key != "" {
-		s.sendByKey[key] = result
 	}
 	return result, nil
 }
@@ -810,12 +1002,12 @@ func (s AgreementService) Resend(ctx context.Context, scope stores.Scope, agreem
 		if err != nil {
 			return err
 		}
-		activeSigner, ok := activeSignerForSequentialFlow(recipients)
+		activeStage, activeSigners, ok := activeSignerStage(recipients)
 		if !ok {
 			return domainValidationError("recipients", "role", "no active signer recipient found")
 		}
 
-		target := activeSigner
+		target := activeSigners[0]
 		requestedID := strings.TrimSpace(input.RecipientID)
 		if requestedID != "" {
 			var found *stores.RecipientRecord
@@ -834,8 +1026,9 @@ func (s AgreementService) Resend(ctx context.Context, scope stores.Scope, agreem
 		if target.Role != stores.RecipientRoleSigner {
 			return domainValidationError("recipients", "role", "resend target must be signer")
 		}
-		if target.ID != activeSigner.ID && !input.AllowOutOfOrderResend {
-			return domainValidationError("recipients", "signing_order", "resend target is not the active sequential signer")
+		activeRecipientIDs := recipientIDs(activeSigners)
+		if !containsRecipientID(activeRecipientIDs, target.ID) && !input.AllowOutOfOrderResend {
+			return domainValidationError("recipients", "signing_stage", "resend target is not in active signing stage")
 		}
 
 		var issued stores.IssuedSigningToken
@@ -849,7 +1042,9 @@ func (s AgreementService) Resend(ctx context.Context, scope stores.Scope, agreem
 		}
 		if err := txSvc.appendAuditEvent(ctx, scope, agreement.ID, "agreement.resent", "system", "", map[string]any{
 			"recipient_id":              target.ID,
-			"active_recipient_id":       activeSigner.ID,
+			"active_stage":              activeStage,
+			"active_recipient_id":       coalesceFirst(activeRecipientIDs),
+			"active_recipient_ids":      activeRecipientIDs,
 			"rotate_token":              input.RotateToken,
 			"invalidate_existing":       input.InvalidateExisting,
 			"allow_out_of_order_resend": input.AllowOutOfOrderResend,
@@ -871,7 +1066,7 @@ func (s AgreementService) Resend(ctx context.Context, scope stores.Scope, agreem
 		result = ResendResult{
 			Agreement:       agreement,
 			Recipient:       target,
-			ActiveRecipient: activeSigner,
+			ActiveRecipient: activeSigners[0],
 			Token:           issued,
 		}
 		return nil
@@ -1086,6 +1281,115 @@ func participantValidationIssues(participants []stores.ParticipantRecord) []Vali
 	return issues
 }
 
+func (s AgreementService) resolveFieldInstancePageNumber(ctx context.Context, scope stores.Scope, agreementID string, patch stores.FieldInstanceDraftPatch) (int, error) {
+	if patch.PageNumber != nil {
+		return *patch.PageNumber, nil
+	}
+	instanceID := strings.TrimSpace(patch.ID)
+	if instanceID == "" || s.agreements == nil {
+		return 1, nil
+	}
+	instances, err := s.agreements.ListFieldInstances(ctx, scope, agreementID)
+	if err != nil {
+		return 0, err
+	}
+	for _, instance := range instances {
+		if strings.TrimSpace(instance.ID) == instanceID {
+			return instance.PageNumber, nil
+		}
+	}
+	return 1, nil
+}
+
+func (s AgreementService) validateFieldInstanceGeometryBounds(ctx context.Context, scope stores.Scope, agreementID string, pageNumber int) error {
+	if pageNumber <= 0 {
+		return domainValidationError("field_instances", "page_number", "must be positive")
+	}
+	if s.agreements == nil || s.documents == nil {
+		return nil
+	}
+	agreement, err := s.agreements.GetAgreement(ctx, scope, agreementID)
+	if err != nil {
+		return err
+	}
+	documentPageCount, err := s.documentPageCount(ctx, scope, agreement)
+	if err != nil {
+		return err
+	}
+	if documentPageCount <= 0 {
+		return nil
+	}
+	if pageNumber > documentPageCount {
+		return domainValidationError("field_instances", "page_number", "exceeds source document page count")
+	}
+	return nil
+}
+
+func (s AgreementService) documentPageCount(ctx context.Context, scope stores.Scope, agreement stores.AgreementRecord) (int, error) {
+	if s.documents == nil {
+		return 0, nil
+	}
+	documentID := strings.TrimSpace(agreement.DocumentID)
+	if documentID == "" {
+		return 0, nil
+	}
+	document, err := s.documents.Get(ctx, scope, documentID)
+	if err != nil {
+		return 0, err
+	}
+	return document.PageCount, nil
+}
+
+func (s AgreementService) resolveSendReplayFromAudit(ctx context.Context, scope stores.Scope, agreementID, idempotencyKey string) (stores.AgreementRecord, bool, error) {
+	if s.agreements == nil {
+		return stores.AgreementRecord{}, false, nil
+	}
+	replayed, err := s.wasSendRecordedWithIdempotencyKey(ctx, scope, agreementID, idempotencyKey)
+	if err != nil {
+		return stores.AgreementRecord{}, false, err
+	}
+	if !replayed {
+		return stores.AgreementRecord{}, false, nil
+	}
+	agreement, err := s.agreements.GetAgreement(ctx, scope, agreementID)
+	if err != nil {
+		return stores.AgreementRecord{}, false, err
+	}
+	return agreement, true, nil
+}
+
+func (s AgreementService) wasSendRecordedWithIdempotencyKey(ctx context.Context, scope stores.Scope, agreementID, idempotencyKey string) (bool, error) {
+	if s.audits == nil {
+		return false, nil
+	}
+	agreementID = strings.TrimSpace(agreementID)
+	idempotencyKey = strings.TrimSpace(idempotencyKey)
+	if agreementID == "" || idempotencyKey == "" {
+		return false, nil
+	}
+	events, err := s.audits.ListForAgreement(ctx, scope, agreementID, stores.AuditEventQuery{SortDesc: true})
+	if err != nil {
+		return false, err
+	}
+	for _, event := range events {
+		if strings.TrimSpace(event.EventType) != "agreement.sent" {
+			continue
+		}
+		metadataJSON := strings.TrimSpace(event.MetadataJSON)
+		if metadataJSON == "" {
+			continue
+		}
+		decoded := map[string]any{}
+		if err := json.Unmarshal([]byte(metadataJSON), &decoded); err != nil {
+			continue
+		}
+		if strings.TrimSpace(fmt.Sprint(decoded["idempotency_key"])) == idempotencyKey {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 func (s AgreementService) sendIdempotencyKey(scope stores.Scope, agreementID, idempotencyKey string) string {
 	if strings.TrimSpace(idempotencyKey) == "" {
 		return ""
@@ -1098,7 +1402,7 @@ func (s AgreementService) sendIdempotencyKey(scope stores.Scope, agreementID, id
 	}, "|")
 }
 
-func activeSignerForSequentialFlow(recipients []stores.RecipientRecord) (stores.RecipientRecord, bool) {
+func activeSignerStage(recipients []stores.RecipientRecord) (int, []stores.RecipientRecord, bool) {
 	signers := make([]stores.RecipientRecord, 0)
 	for _, rec := range recipients {
 		if rec.Role == stores.RecipientRoleSigner {
@@ -1106,17 +1410,69 @@ func activeSignerForSequentialFlow(recipients []stores.RecipientRecord) (stores.
 		}
 	}
 	if len(signers) == 0 {
-		return stores.RecipientRecord{}, false
+		return 0, nil, false
 	}
 	sort.Slice(signers, func(i, j int) bool {
 		return signers[i].SigningOrder < signers[j].SigningOrder
 	})
+	activeStage := 0
+	active := make([]stores.RecipientRecord, 0)
 	for _, signer := range signers {
-		if signer.CompletedAt == nil {
-			return signer, true
+		if signer.CompletedAt != nil || signer.DeclinedAt != nil {
+			continue
+		}
+		stage := signer.SigningOrder
+		if stage <= 0 {
+			stage = 1
+		}
+		if activeStage == 0 || stage < activeStage {
+			activeStage = stage
+			active = []stores.RecipientRecord{signer}
+			continue
+		}
+		if stage == activeStage {
+			active = append(active, signer)
 		}
 	}
-	return stores.RecipientRecord{}, false
+	if activeStage == 0 || len(active) == 0 {
+		return 0, nil, false
+	}
+	return activeStage, active, true
+}
+
+func recipientIDs(recipients []stores.RecipientRecord) []string {
+	ids := make([]string, 0, len(recipients))
+	for _, recipient := range recipients {
+		id := strings.TrimSpace(recipient.ID)
+		if id == "" {
+			continue
+		}
+		ids = append(ids, id)
+	}
+	return ids
+}
+
+func containsRecipientID(recipientIDs []string, candidate string) bool {
+	candidate = strings.TrimSpace(candidate)
+	if candidate == "" {
+		return false
+	}
+	for _, recipientID := range recipientIDs {
+		if strings.TrimSpace(recipientID) == candidate {
+			return true
+		}
+	}
+	return false
+}
+
+func coalesceFirst(items []string) string {
+	for _, item := range items {
+		item = strings.TrimSpace(item)
+		if item != "" {
+			return item
+		}
+	}
+	return ""
 }
 
 func isV1FieldType(fieldType string) bool {

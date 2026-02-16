@@ -276,14 +276,25 @@ func (r ReadableArtifactRenderer) RenderCertificate(_ context.Context, input Cer
 			if recipient.DeclinedAt != nil {
 				status = "declined at " + recipient.DeclinedAt.UTC().Format(time.RFC3339)
 			}
-			line := fmt.Sprintf("- %s <%s> role=%s order=%d status=%s",
+			line := fmt.Sprintf("- %s <%s> role=%s stage=%d status=%s",
 				coalesce(strings.TrimSpace(recipient.Name), strings.TrimSpace(recipient.ID)),
 				strings.TrimSpace(recipient.Email),
 				strings.TrimSpace(recipient.Role),
-				recipient.SigningOrder,
+				normalizeSigningStage(recipient.SigningOrder),
 				status,
 			)
 			r.writeCertificateBody(pdf, line)
+		}
+	}
+
+	pdf.Ln(6)
+	r.writeCertificateSectionTitle(pdf, "Stage Timeline")
+	stageTimeline := buildCertificateStageTimeline(recipients)
+	if len(stageTimeline) == 0 {
+		r.writeCertificateBody(pdf, "- No signer stage data recorded")
+	} else {
+		for _, line := range stageTimeline {
+			r.writeCertificateBody(pdf, "- "+line)
 		}
 	}
 
@@ -338,6 +349,64 @@ func (r ReadableArtifactRenderer) writeCertificateKV(pdf *gofpdf.Fpdf, key, valu
 func (r ReadableArtifactRenderer) writeCertificateBody(pdf *gofpdf.Fpdf, text string) {
 	pdf.SetFont("Helvetica", "", 11)
 	pdf.MultiCell(0, 15, strings.TrimSpace(text), "", "L", false)
+}
+
+func buildCertificateStageTimeline(recipients []stores.RecipientRecord) []string {
+	byStage := map[int][]stores.RecipientRecord{}
+	stages := make([]int, 0)
+	for _, recipient := range recipients {
+		if recipient.Role != stores.RecipientRoleSigner {
+			continue
+		}
+		stage := normalizeSigningStage(recipient.SigningOrder)
+		if _, ok := byStage[stage]; !ok {
+			stages = append(stages, stage)
+		}
+		byStage[stage] = append(byStage[stage], recipient)
+	}
+	if len(stages) == 0 {
+		return nil
+	}
+	sort.Ints(stages)
+
+	lines := make([]string, 0, len(stages))
+	for _, stage := range stages {
+		signers := byStage[stage]
+		sort.Slice(signers, func(i, j int) bool {
+			if strings.TrimSpace(signers[i].Name) == strings.TrimSpace(signers[j].Name) {
+				return signers[i].ID < signers[j].ID
+			}
+			return strings.TrimSpace(signers[i].Name) < strings.TrimSpace(signers[j].Name)
+		})
+
+		completedCount := 0
+		declinedCount := 0
+		participantStatus := make([]string, 0, len(signers))
+		for _, signer := range signers {
+			status := "pending"
+			if signer.CompletedAt != nil {
+				status = "completed@" + signer.CompletedAt.UTC().Format(time.RFC3339)
+				completedCount++
+			}
+			if signer.DeclinedAt != nil {
+				status = "declined@" + signer.DeclinedAt.UTC().Format(time.RFC3339)
+				declinedCount++
+			}
+			participantStatus = append(participantStatus, fmt.Sprintf("%s<%s>:%s",
+				coalesce(strings.TrimSpace(signer.Name), strings.TrimSpace(signer.ID)),
+				strings.TrimSpace(signer.Email),
+				status,
+			))
+		}
+		lines = append(lines, fmt.Sprintf("stage=%d signers=%d completed=%d declined=%d participants=[%s]",
+			stage,
+			len(signers),
+			completedCount,
+			declinedCount,
+			strings.Join(participantStatus, ", "),
+		))
+	}
+	return lines
 }
 
 type executedOverlay struct {

@@ -61,6 +61,7 @@ type ESignModule struct {
 	signing       services.SigningService
 	artifacts     services.ArtifactPipelineService
 	google        services.GoogleIntegrationService
+	integrations  services.IntegrationFoundationService
 	activityMap   *AuditActivityProjector
 	uploadManager *uploader.Manager
 }
@@ -216,6 +217,7 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		services.WithAgreementTokenService(m.tokens),
 		services.WithAgreementAuditStore(m.store),
 		services.WithAgreementEmailWorkflow(emailWorkflow),
+		services.WithAgreementPlacementObjectStore(objectStore),
 	)
 	signatureUploadTTL, signatureUploadSecret := resolveSignatureUploadSecurityPolicy()
 	m.signing = services.NewSigningService(m.store,
@@ -223,6 +225,10 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		services.WithSigningCompletionWorkflow(emailWorkflow),
 		services.WithSignatureUploadConfig(signatureUploadTTL, signatureUploadSecret),
 		services.WithSigningObjectStore(objectStore),
+	)
+	m.integrations = services.NewIntegrationFoundationService(
+		m.store,
+		services.WithIntegrationAuditStore(m.store),
 	)
 	if m.googleEnabled {
 		googleCipher, err := services.NewGoogleCredentialCipher(context.Background(), services.NewEnvGoogleCredentialKeyProvider())
@@ -281,6 +287,7 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 			),
 		),
 		handlers.WithAgreementDeliveryService(m.artifacts),
+		handlers.WithAgreementAuthoringService(m.agreements),
 		handlers.WithSignerObjectStore(objectStore),
 		handlers.WithAgreementStatsService(m.store),
 		handlers.WithAuditEventStore(m.store),
@@ -296,6 +303,7 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		}),
 		handlers.WithGoogleIntegrationEnabled(m.googleEnabled),
 		handlers.WithGoogleIntegrationService(m.google),
+		handlers.WithIntegrationFoundationService(m.integrations),
 	)
 	return nil
 }

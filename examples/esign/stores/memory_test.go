@@ -483,3 +483,87 @@ func TestInMemoryIntegrationCredentialScopedCRUD(t *testing.T) {
 		t.Fatal("expected missing integration credential after delete")
 	}
 }
+
+func TestInMemoryPlacementRunPersistence(t *testing.T) {
+	store := NewInMemoryStore()
+	ctx := context.Background()
+	scope := Scope{TenantID: "tenant-1", OrgID: "org-1"}
+
+	agreement, err := store.CreateDraft(ctx, scope, AgreementRecord{
+		DocumentID: "doc-placement-1",
+		Title:      "Placement Draft",
+	})
+	if err != nil {
+		t.Fatalf("CreateDraft: %v", err)
+	}
+
+	run, err := store.UpsertPlacementRun(ctx, scope, PlacementRunRecord{
+		AgreementID: agreement.ID,
+		Status:      PlacementRunStatusPartial,
+		ReasonCode:  "unresolved_fields",
+		ResolverOrder: []string{
+			"native_pdf_forms_resolver",
+			"text_anchor_resolver",
+		},
+		Suggestions: []PlacementSuggestionRecord{
+			{
+				ID:                "suggestion-1",
+				FieldDefinitionID: "field-def-1",
+				ResolverID:        "native_pdf_forms_resolver",
+				Confidence:        0.9,
+				PageNumber:        1,
+				X:                 10,
+				Y:                 20,
+				Width:             120,
+				Height:            30,
+			},
+		},
+		UnresolvedDefinitionIDs: []string{"field-def-2"},
+	})
+	if err != nil {
+		t.Fatalf("UpsertPlacementRun create: %v", err)
+	}
+	if run.ID == "" {
+		t.Fatal("expected run id")
+	}
+	if run.Version != 1 {
+		t.Fatalf("expected run version 1, got %d", run.Version)
+	}
+
+	fetched, err := store.GetPlacementRun(ctx, scope, agreement.ID, run.ID)
+	if err != nil {
+		t.Fatalf("GetPlacementRun: %v", err)
+	}
+	if fetched.ID != run.ID {
+		t.Fatalf("expected run id %q, got %q", run.ID, fetched.ID)
+	}
+	if len(fetched.Suggestions) != 1 {
+		t.Fatalf("expected suggestions persisted, got %+v", fetched.Suggestions)
+	}
+
+	updated, err := store.UpsertPlacementRun(ctx, scope, PlacementRunRecord{
+		ID:                    run.ID,
+		AgreementID:           agreement.ID,
+		Version:               run.Version,
+		Status:                PlacementRunStatusCompleted,
+		ReasonCode:            "resolved_all",
+		SelectedSuggestionIDs: []string{"suggestion-1"},
+	})
+	if err != nil {
+		t.Fatalf("UpsertPlacementRun update: %v", err)
+	}
+	if updated.Version != 2 {
+		t.Fatalf("expected run version 2 after update, got %d", updated.Version)
+	}
+	if updated.Status != PlacementRunStatusCompleted {
+		t.Fatalf("expected completed status, got %q", updated.Status)
+	}
+
+	runs, err := store.ListPlacementRuns(ctx, scope, agreement.ID)
+	if err != nil {
+		t.Fatalf("ListPlacementRuns: %v", err)
+	}
+	if len(runs) != 1 {
+		t.Fatalf("expected one placement run, got %d", len(runs))
+	}
+}
