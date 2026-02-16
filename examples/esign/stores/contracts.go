@@ -3,6 +3,8 @@ package stores
 import (
 	"context"
 	"time"
+
+	"github.com/goliatone/go-admin/admin/txoutbox"
 )
 
 // DocumentStore defines document persistence with explicit tenant/org scope inputs.
@@ -37,6 +39,16 @@ type AgreementStore interface {
 	UpsertFieldDraft(ctx context.Context, scope Scope, agreementID string, patch FieldDraftPatch) (FieldRecord, error)
 	DeleteFieldDraft(ctx context.Context, scope Scope, agreementID, fieldID string) error
 	ListFields(ctx context.Context, scope Scope, agreementID string) ([]FieldRecord, error)
+}
+
+// DraftStore defines six-step agreement wizard draft persistence with revision preconditions.
+type DraftStore interface {
+	CreateDraftSession(ctx context.Context, scope Scope, record DraftRecord) (DraftRecord, bool, error)
+	GetDraftSession(ctx context.Context, scope Scope, id string) (DraftRecord, error)
+	ListDraftSessions(ctx context.Context, scope Scope, query DraftQuery) ([]DraftRecord, string, error)
+	UpdateDraftSession(ctx context.Context, scope Scope, id string, patch DraftPatch, expectedRevision int64) (DraftRecord, error)
+	DeleteDraftSession(ctx context.Context, scope Scope, id string) error
+	DeleteExpiredDraftSessions(ctx context.Context, before time.Time) (int, error)
 }
 
 // SigningStore defines field value persistence with scope and optimistic lock requirements.
@@ -84,6 +96,11 @@ type JobRunStore interface {
 	MarkJobRunFailed(ctx context.Context, scope Scope, id, failureReason string, nextRetryAt *time.Time, failedAt time.Time) (JobRunRecord, error)
 	GetJobRunByDedupe(ctx context.Context, scope Scope, jobName, dedupeKey string) (JobRunRecord, error)
 	ListJobRuns(ctx context.Context, scope Scope, agreementID string) ([]JobRunRecord, error)
+}
+
+// OutboxStore defines durable post-commit side-effect message persistence.
+type OutboxStore interface {
+	txoutbox.Store[Scope]
 }
 
 // IntegrationCredentialStore defines encrypted provider credential persistence by scope/user.
@@ -134,6 +151,7 @@ type PlacementRunStore interface {
 type TxStore interface {
 	DocumentStore
 	AgreementStore
+	DraftStore
 	SigningStore
 	SignatureArtifactStore
 	SigningTokenStore
@@ -141,6 +159,7 @@ type TxStore interface {
 	AgreementArtifactStore
 	EmailLogStore
 	JobRunStore
+	OutboxStore
 	IntegrationCredentialStore
 	IntegrationFoundationStore
 	PlacementRunStore

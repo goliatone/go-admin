@@ -703,7 +703,7 @@ func TestRuntimeSignerWebE2ERecipientJourneyFromSignLinkToSubmit(t *testing.T) {
 		t.Fatalf("expected signer consent status 200, got %d body=%s", consentResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 
-	signaturePayload := fmt.Sprintf(`{"field_id":"%s","type":"typed","object_key":"tenant/%s/org/%s/agreements/%s/sig/runtime-e2e-signature.png","sha256":"%s","value_text":"Signer E2E"}`,
+	signaturePayload := fmt.Sprintf(`{"field_instance_id":"%s","type":"typed","object_key":"tenant/%s/org/%s/agreements/%s/sig/runtime-e2e-signature.png","sha256":"%s","value_text":"Signer E2E"}`,
 		signatureFieldID,
 		scope.TenantID,
 		scope.OrgID,
@@ -1010,7 +1010,7 @@ func TestRuntimeSignerWebE2EUnifiedFlowConsentFieldSignatureSubmit(t *testing.T)
 		http.MethodPost,
 		"/api/v1/esign/signing/field-values/"+url.PathEscape(signerToken),
 		"application/json",
-		strings.NewReader(`{"field_id":"`+textFieldID+`","value_text":"Unified Signer"}`),
+		strings.NewReader(`{"field_instance_id":"`+textFieldID+`","value_text":"Unified Signer"}`),
 		map[string]string{"X-Forwarded-Proto": "https"},
 	)
 	defer fieldValueResp.Body.Close()
@@ -1019,7 +1019,7 @@ func TestRuntimeSignerWebE2EUnifiedFlowConsentFieldSignatureSubmit(t *testing.T)
 		t.Fatalf("expected signer field-values status 200, got %d body=%s", fieldValueResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 
-	signaturePayload := fmt.Sprintf(`{"field_id":"%s","type":"typed","object_key":"tenant/%s/org/%s/agreements/%s/sig/runtime-unified-signature.png","sha256":"%s","value_text":"Unified Signer"}`,
+	signaturePayload := fmt.Sprintf(`{"field_instance_id":"%s","type":"typed","object_key":"tenant/%s/org/%s/agreements/%s/sig/runtime-unified-signature.png","sha256":"%s","value_text":"Unified Signer"}`,
 		signatureFieldID,
 		scope.TenantID,
 		scope.OrgID,

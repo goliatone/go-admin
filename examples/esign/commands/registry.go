@@ -5,6 +5,7 @@ const (
 	CommandAgreementVoid   = "esign.agreements.void"
 	CommandAgreementResend = "esign.agreements.resend"
 	CommandTokenRotate     = "esign.tokens.rotate"
+	CommandDraftCleanup    = "esign.drafts.cleanup"
 )
 
 var All = []string{
@@ -12,4 +13,5 @@ var All = []string{
 	CommandAgreementVoid,
 	CommandAgreementResend,
 	CommandTokenRotate,
+	CommandDraftCleanup,
 }

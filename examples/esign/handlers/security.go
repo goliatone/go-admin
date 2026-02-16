@@ -52,6 +52,7 @@ type registerConfig struct {
 	signerAssets       SignerAssetContractService
 	agreementDelivery  AgreementDeliveryService
 	agreementAuthoring AgreementAuthoringService
+	drafts             DraftWorkflowService
 	objectStore        SignerObjectStore
 	agreements         AgreementStatsService
 	auditEvents        stores.AuditEventStore
@@ -123,6 +124,16 @@ type AgreementAuthoringService interface {
 	ApplyPlacementRun(ctx context.Context, scope stores.Scope, agreementID, placementRunID string, input services.ApplyPlacementRunInput) (services.ApplyPlacementRunResult, error)
 
 	ValidateBeforeSend(ctx context.Context, scope stores.Scope, agreementID string) (services.AgreementValidationResult, error)
+}
+
+// DraftWorkflowService captures wizard draft lifecycle persistence and send conversion.
+type DraftWorkflowService interface {
+	Create(ctx context.Context, scope stores.Scope, input services.DraftCreateInput) (stores.DraftRecord, bool, error)
+	List(ctx context.Context, scope stores.Scope, input services.DraftListInput) ([]stores.DraftRecord, string, int, error)
+	Get(ctx context.Context, scope stores.Scope, id, createdByUserID string) (stores.DraftRecord, error)
+	Update(ctx context.Context, scope stores.Scope, id string, input services.DraftUpdateInput) (stores.DraftRecord, error)
+	Delete(ctx context.Context, scope stores.Scope, id, createdByUserID string) error
+	Send(ctx context.Context, scope stores.Scope, id string, input services.DraftSendInput) (services.DraftSendResult, error)
 }
 
 // SignerObjectStore resolves and persists signer-facing asset/signature blobs by object key.
@@ -271,6 +282,16 @@ func WithAgreementAuthoringService(service AgreementAuthoringService) RegisterOp
 			return
 		}
 		cfg.agreementAuthoring = service
+	}
+}
+
+// WithDraftWorkflowService configures wizard draft persistence and send-conversion APIs.
+func WithDraftWorkflowService(service DraftWorkflowService) RegisterOption {
+	return func(cfg *registerConfig) {
+		if cfg == nil {
+			return
+		}
+		cfg.drafts = service
 	}
 }
 
@@ -635,7 +656,11 @@ func writeAPIError(c router.Context, err error, fallbackStatus int, fallbackCode
 		payload["details"] = details
 	}
 
-	return c.Status(status).JSON(status, map[string]any{"error": payload})
+	response := map[string]any{"error": payload}
+	if requestID := resolveAPIRequestID(c, coded); requestID != "" {
+		response["request_id"] = requestID
+	}
+	return c.Status(status).JSON(status, response)
 }
 
 func textCode(err error) string {
@@ -647,6 +672,22 @@ func textCode(err error) string {
 		return strings.TrimSpace(coded.TextCode)
 	}
 	return ""
+}
+
+func resolveAPIRequestID(c router.Context, coded *goerrors.Error) string {
+	if coded != nil && strings.TrimSpace(coded.RequestID) != "" {
+		return strings.TrimSpace(coded.RequestID)
+	}
+	if c == nil {
+		return ""
+	}
+	if requestID := strings.TrimSpace(c.Header("X-Request-ID")); requestID != "" {
+		return requestID
+	}
+	if correlationID := strings.TrimSpace(c.Header("X-Correlation-ID")); correlationID != "" {
+		return correlationID
+	}
+	return apiCorrelationID(c, "request")
 }
 
 func (cfg registerConfig) resolveScope(c router.Context) stores.Scope {

@@ -22,6 +22,7 @@ const (
 	googleDriveSegment      = "google-drive"
 	agreementsSegment       = "agreements"
 	documentsSegment        = "documents"
+	draftsSegment           = "drafts"
 	adminStatusSegment      = "status"
 	statsSegment            = "stats"
 	participantsSegment     = "participants"
@@ -46,6 +47,7 @@ const (
 	conflictsSegment        = "conflicts"
 	resolveSegment          = "resolve"
 	publishSegment          = "publish"
+	sendSegment             = "send"
 	diagnosticsSegment      = "diagnostics"
 	inboundSegment          = "inbound"
 	outboundSegment         = "outbound"
@@ -71,6 +73,9 @@ type RouteSet struct {
 	AdminHome                      string
 	AdminStatus                    string
 	AdminAPIStatus                 string
+	AdminDrafts                    string
+	AdminDraft                     string
+	AdminDraftSend                 string
 	AdminAgreementsStats           string
 	AdminAgreementParticipants     string
 	AdminAgreementParticipant      string
@@ -141,6 +146,9 @@ func BuildRouteSet(urls urlkit.Resolver, adminBasePath, adminAPIGroup string) Ro
 		AdminHome:                      joinPath(adminBase, esignSegment),
 		AdminStatus:                    joinPath(adminBase, esignSegment, adminStatusSegment),
 		AdminAPIStatus:                 joinPath(adminAPIBase, esignSegment, adminStatusSegment),
+		AdminDrafts:                    joinPath(adminAPIBase, esignSegment, draftsSegment),
+		AdminDraft:                     joinPath(adminAPIBase, esignSegment, draftsSegment, ":draft_id"),
+		AdminDraftSend:                 joinPath(adminAPIBase, esignSegment, draftsSegment, ":draft_id", sendSegment),
 		AdminAgreementsStats:           joinPath(adminAPIBase, esignSegment, agreementsSegment, statsSegment),
 		AdminAgreementParticipants:     joinPath(adminAPIBase, esignSegment, agreementsSegment, ":agreement_id", participantsSegment),
 		AdminAgreementParticipant:      joinPath(adminAPIBase, esignSegment, agreementsSegment, ":agreement_id", participantsSegment, ":participant_id"),

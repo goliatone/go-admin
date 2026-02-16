@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
@@ -111,4 +112,31 @@ func (m TokenRotateInput) Validate() error {
 		return fmt.Errorf("recipient_id required")
 	}
 	return nil
+}
+
+// DraftCleanupInput captures payload for scheduled/manual draft expiry cleanup.
+type DraftCleanupInput struct {
+	Scope         stores.Scope
+	Before        string
+	CorrelationID string
+}
+
+func (DraftCleanupInput) Type() string {
+	return CommandDraftCleanup
+}
+
+func (m DraftCleanupInput) Validate() error {
+	return nil
+}
+
+func (m DraftCleanupInput) BeforeTime(now time.Time) time.Time {
+	before := strings.TrimSpace(m.Before)
+	if before == "" {
+		return now.UTC()
+	}
+	parsed, err := time.Parse(time.RFC3339Nano, before)
+	if err != nil {
+		return now.UTC()
+	}
+	return parsed.UTC()
 }

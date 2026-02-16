@@ -230,6 +230,18 @@ func (s SigningService) withWriteTx(ctx context.Context, fn func(SigningService)
 	})
 }
 
+func (s SigningService) withWriteTxHooks(ctx context.Context, fn func(SigningService, *stores.TxHooks) error) error {
+	if fn == nil {
+		return nil
+	}
+	return stores.WithTxHooks(ctx, s.tx, func(tx stores.TxStore, hooks *stores.TxHooks) error {
+		if tx == nil {
+			return fn(s, hooks)
+		}
+		return fn(s.forTx(tx), hooks)
+	})
+}
+
 // SignerSessionField captures signer-visible field context and current value snapshot.
 type SignerSessionField struct {
 	ID                string  `json:"id"`
@@ -1189,7 +1201,7 @@ func (s SigningService) Submit(ctx context.Context, scope stores.Scope, token st
 		return replay, nil
 	}
 	var result SignerSubmitResult
-	if err := s.withWriteTx(ctx, func(txSvc SigningService) error {
+	if err := s.withWriteTxHooks(ctx, func(txSvc SigningService, hooks *stores.TxHooks) error {
 		agreement, recipient, activeStage, activeSigners, recipients, fields, err := txSvc.signerContext(ctx, scope, token)
 		if err != nil {
 			return err
@@ -1271,9 +1283,17 @@ func (s SigningService) Submit(ctx context.Context, scope stores.Scope, token st
 			return err
 		}
 		if result.Completed && txSvc.completionFlow != nil {
-			if err := txSvc.completionFlow.RunCompletionWorkflow(ctx, scope, agreement.ID, idempotencyKey); err != nil {
-				return err
-			}
+			completionAgreementID := strings.TrimSpace(result.Agreement.ID)
+			completionRecipientID := strings.TrimSpace(result.Recipient.ID)
+			hooks.AfterCommit(func() error {
+				if err := s.completionFlow.RunCompletionWorkflow(ctx, scope, completionAgreementID, idempotencyKey); err != nil {
+					_ = s.appendSignerAudit(ctx, scope, completionAgreementID, completionRecipientID, "signer.completion_workflow_failed", input.IPAddress, input.UserAgent, map[string]any{
+						"idempotency_key": idempotencyKey,
+						"error":           strings.TrimSpace(err.Error()),
+					})
+				}
+				return nil
+			})
 		}
 		return nil
 	}); err != nil {

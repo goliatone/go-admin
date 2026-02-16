@@ -282,7 +282,11 @@ func RunV2ValidationProfile(ctx context.Context, cfg V2ValidationConfig) (V2Vali
 	defer observability.ResetDefaultMetrics()
 
 	scope := stores.Scope{TenantID: "tenant-v2-staging", OrgID: "org-v2-staging"}
-	store, err := stores.NewSQLiteStore(stores.ResolveSQLiteDSN())
+	storeDSN, cleanup := resolveValidationSQLiteDSN("validation-v2-profile")
+	if cleanup != nil {
+		defer cleanup()
+	}
+	store, err := stores.NewSQLiteStore(storeDSN)
 	if err != nil {
 		return V2ValidationResult{}, fmt.Errorf("initialize sqlite store: %w", err)
 	}

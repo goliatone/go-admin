@@ -102,7 +102,7 @@ func TestAdminAPIStatusEnvelopeContract(t *testing.T) {
 		t.Fatalf("expected routes map in envelope, got %+v", payload)
 	}
 	for _, key := range []string{
-		"admin", "admin_api",
+		"admin", "admin_api", "admin_drafts", "admin_draft", "admin_draft_send",
 		"admin_agreement_auto_place", "admin_agreement_placement_runs", "admin_agreement_placement_run", "admin_agreement_placement_apply",
 		"admin_smoke_recipient_links",
 		"admin_documents_upload",

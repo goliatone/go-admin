@@ -19,6 +19,7 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/permissions"
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
+	servicesmodule "github.com/goliatone/go-admin/modules/services"
 	fggate "github.com/goliatone/go-featuregate/gate"
 	"github.com/goliatone/go-uploader"
 )
@@ -42,6 +43,17 @@ type eSignStore interface {
 	stores.Store
 }
 
+type googleIntegrationService interface {
+	Connect(ctx context.Context, scope stores.Scope, input services.GoogleConnectInput) (services.GoogleOAuthStatus, error)
+	Disconnect(ctx context.Context, scope stores.Scope, userID string) error
+	RotateCredentialEncryption(ctx context.Context, scope stores.Scope, userID string) (services.GoogleOAuthStatus, error)
+	Status(ctx context.Context, scope stores.Scope, userID string) (services.GoogleOAuthStatus, error)
+	SearchFiles(ctx context.Context, scope stores.Scope, input services.GoogleDriveQueryInput) (services.GoogleDriveListResult, error)
+	BrowseFiles(ctx context.Context, scope stores.Scope, input services.GoogleDriveQueryInput) (services.GoogleDriveListResult, error)
+	ImportDocument(ctx context.Context, scope stores.Scope, input services.GoogleImportInput) (services.GoogleImportResult, error)
+	ProviderHealth(ctx context.Context) services.GoogleProviderHealthStatus
+}
+
 // ESignModule registers routes, panels, commands, settings, and activity projection for e-sign.
 type ESignModule struct {
 	basePath      string
@@ -55,12 +67,14 @@ type ESignModule struct {
 	uploadDir     string
 
 	store         eSignStore
+	services      *servicesmodule.Module
 	documents     services.DocumentService
 	tokens        stores.TokenService
 	agreements    services.AgreementService
+	drafts        services.DraftService
 	signing       services.SigningService
 	artifacts     services.ArtifactPipelineService
-	google        services.GoogleIntegrationService
+	google        googleIntegrationService
 	integrations  services.IntegrationFoundationService
 	activityMap   *AuditActivityProjector
 	uploadManager *uploader.Manager
@@ -83,6 +97,15 @@ func (m *ESignModule) WithUploadDir(dir string) *ESignModule {
 	}
 	m.uploadDir = strings.TrimSpace(dir)
 	m.uploadManager = nil
+	return m
+}
+
+// WithServicesModule injects the shared go-admin services module runtime.
+func (m *ESignModule) WithServicesModule(module *servicesmodule.Module) *ESignModule {
+	if m == nil {
+		return nil
+	}
+	m.services = module
 	return m
 }
 
@@ -219,6 +242,10 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		services.WithAgreementEmailWorkflow(emailWorkflow),
 		services.WithAgreementPlacementObjectStore(objectStore),
 	)
+	m.drafts = services.NewDraftService(m.store,
+		services.WithDraftAgreementService(m.agreements),
+		services.WithDraftAuditStore(m.store),
+	)
 	signatureUploadTTL, signatureUploadSecret := resolveSignatureUploadSecurityPolicy()
 	m.signing = services.NewSigningService(m.store,
 		services.WithSigningAuditStore(m.store),
@@ -231,22 +258,32 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		services.WithIntegrationAuditStore(m.store),
 	)
 	if m.googleEnabled {
-		googleCipher, err := services.NewGoogleCredentialCipher(context.Background(), services.NewEnvGoogleCredentialKeyProvider())
-		if err != nil {
-			return fmt.Errorf("esign module: google credential key provider: %w", err)
-		}
 		googleProvider, providerMode, err := services.NewGoogleProviderFromEnv()
 		if err != nil {
 			return fmt.Errorf("esign module: google provider: %w", err)
 		}
-		m.google = services.NewGoogleIntegrationService(
-			m.store,
-			googleProvider,
-			m.documents,
-			m.agreements,
-			services.WithGoogleCipher(googleCipher),
-			services.WithGoogleProviderMode(providerMode),
-		)
+		if m.services != nil {
+			m.google = services.NewGoogleServicesIntegrationService(
+				m.services,
+				googleProvider,
+				providerMode,
+				m.documents,
+				m.agreements,
+			)
+		} else {
+			googleCipher, cipherErr := services.NewGoogleCredentialCipher(context.Background(), services.NewEnvGoogleCredentialKeyProvider())
+			if cipherErr != nil {
+				return fmt.Errorf("esign module: google credential key provider: %w", cipherErr)
+			}
+			m.google = services.NewGoogleIntegrationService(
+				m.store,
+				googleProvider,
+				m.documents,
+				m.agreements,
+				services.WithGoogleCipher(googleCipher),
+				services.WithGoogleProviderMode(providerMode),
+			)
+		}
 		health := m.google.ProviderHealth(context.Background())
 		if !health.Healthy {
 			slog.Warn("esign module: google provider degraded at startup", "mode", health.Mode, "reason", health.Reason)
@@ -254,7 +291,7 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 	}
 	m.activityMap = NewAuditActivityProjector(ctx.Admin.ActivityFeed(), m.store)
 
-	if err := commands.Register(ctx.Admin.Commands(), m.agreements, m.tokens, m.defaultScope, m.activityMap); err != nil {
+	if err := commands.Register(ctx.Admin.Commands(), m.agreements, m.tokens, m.drafts, m.defaultScope, m.activityMap); err != nil {
 		return err
 	}
 	if err := m.registerPanels(ctx.Admin); err != nil {
@@ -288,6 +325,7 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		),
 		handlers.WithAgreementDeliveryService(m.artifacts),
 		handlers.WithAgreementAuthoringService(m.agreements),
+		handlers.WithDraftWorkflowService(m.drafts),
 		handlers.WithSignerObjectStore(objectStore),
 		handlers.WithAgreementStatsService(m.store),
 		handlers.WithAuditEventStore(m.store),

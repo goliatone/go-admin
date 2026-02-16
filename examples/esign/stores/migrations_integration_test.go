@@ -397,6 +397,48 @@ func TestMigrationsExposeIntegrationFoundationTablesAndColumns(t *testing.T) {
 	}
 }
 
+func TestMigrationsExposeDraftTablesAndColumns(t *testing.T) {
+	client, cleanup := newSQLiteMigrationClient(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	if err := client.Migrate(ctx); err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+
+	exists, err := tableExists(ctx, client.DB(), "esign_drafts")
+	if err != nil {
+		t.Fatalf("tableExists(esign_drafts): %v", err)
+	}
+	if !exists {
+		t.Fatalf("expected table esign_drafts to exist")
+	}
+
+	cols, err := tableColumnNames(ctx, client.DB(), "esign_drafts")
+	if err != nil {
+		t.Fatalf("tableColumnNames(esign_drafts): %v", err)
+	}
+	for _, col := range []string{
+		"id",
+		"tenant_id",
+		"org_id",
+		"created_by",
+		"wizard_id",
+		"document_id",
+		"title",
+		"current_step",
+		"wizard_state_json",
+		"revision",
+		"created_at",
+		"updated_at",
+		"expires_at",
+	} {
+		if !contains(cols, col) {
+			t.Fatalf("expected esign_drafts.%s column", col)
+		}
+	}
+}
+
 func TestMigrationsEnforceRecipientLifecycleConstraints(t *testing.T) {
 	client, cleanup := newSQLiteMigrationClient(t)
 	defer cleanup()

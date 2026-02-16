@@ -179,6 +179,7 @@ func (s AgreementService) forTx(tx stores.TxStore) AgreementService {
 			txSvc.tokens = typed.ForTx(tx)
 		}
 	}
+	txSvc.tx = nil
 	return txSvc
 }
 
@@ -191,6 +192,18 @@ func (s AgreementService) withWriteTx(ctx context.Context, fn func(AgreementServ
 	}
 	return s.tx.WithTx(ctx, func(tx stores.TxStore) error {
 		return fn(s.forTx(tx))
+	})
+}
+
+func (s AgreementService) withWriteTxHooks(ctx context.Context, fn func(AgreementService, *stores.TxHooks) error) error {
+	if fn == nil {
+		return nil
+	}
+	return stores.WithTxHooks(ctx, s.tx, func(tx stores.TxStore, hooks *stores.TxHooks) error {
+		if tx == nil {
+			return fn(s, hooks)
+		}
+		return fn(s.forTx(tx), hooks)
 	})
 }
 
@@ -760,7 +773,7 @@ func (s AgreementService) Send(ctx context.Context, scope stores.Scope, agreemen
 		return replay, nil
 	}
 	var result stores.AgreementRecord
-	if err := s.withWriteTx(ctx, func(txSvc AgreementService) error {
+	if err := s.withWriteTxHooks(ctx, func(txSvc AgreementService, hooks *stores.TxHooks) error {
 		agreement, err := txSvc.agreements.GetAgreement(ctx, scope, agreementID)
 		if err != nil {
 			return err
@@ -849,19 +862,23 @@ func (s AgreementService) Send(ctx context.Context, scope stores.Scope, agreemen
 		if txSvc.emails != nil {
 			for _, activeSigner := range activeSigners {
 				issued := issuedByRecipient[activeSigner.ID]
-				if err := txSvc.emails.OnAgreementSent(ctx, scope, AgreementNotification{
+				notification := AgreementNotification{
 					AgreementID:   transitioned.ID,
 					RecipientID:   activeSigner.ID,
 					CorrelationID: strings.TrimSpace(input.IdempotencyKey),
 					Type:          NotificationSigningInvitation,
 					Token:         issued,
-				}); err != nil {
-					_ = txSvc.appendAuditEvent(ctx, scope, transitioned.ID, "agreement.send_notification_failed", "system", "", map[string]any{
-						"idempotency_key": strings.TrimSpace(input.IdempotencyKey),
-						"recipient_id":    activeSigner.ID,
-						"error":           strings.TrimSpace(err.Error()),
-					})
 				}
+				hooks.AfterCommit(func() error {
+					if err := s.emails.OnAgreementSent(ctx, scope, notification); err != nil {
+						_ = s.appendAuditEvent(ctx, scope, transitioned.ID, "agreement.send_notification_failed", "system", "", map[string]any{
+							"idempotency_key": strings.TrimSpace(input.IdempotencyKey),
+							"recipient_id":    notification.RecipientID,
+							"error":           strings.TrimSpace(err.Error()),
+						})
+					}
+					return nil
+				})
 			}
 		}
 		return nil
@@ -989,7 +1006,7 @@ func (s AgreementService) Resend(ctx context.Context, scope stores.Scope, agreem
 		return ResendResult{}, domainValidationError("signing_tokens", "service", "not configured")
 	}
 	var result ResendResult
-	if err := s.withWriteTx(ctx, func(txSvc AgreementService) error {
+	if err := s.withWriteTxHooks(ctx, func(txSvc AgreementService, hooks *stores.TxHooks) error {
 		agreement, err := txSvc.agreements.GetAgreement(ctx, scope, agreementID)
 		if err != nil {
 			return err
@@ -1053,15 +1070,23 @@ func (s AgreementService) Resend(ctx context.Context, scope stores.Scope, agreem
 			return err
 		}
 		if txSvc.emails != nil {
-			if err := txSvc.emails.OnAgreementResent(ctx, scope, AgreementNotification{
+			notification := AgreementNotification{
 				AgreementID:   agreement.ID,
 				RecipientID:   target.ID,
 				CorrelationID: strings.TrimSpace(input.IdempotencyKey),
 				Type:          NotificationSigningReminder,
 				Token:         issued,
-			}); err != nil {
-				return err
 			}
+			hooks.AfterCommit(func() error {
+				if err := s.emails.OnAgreementResent(ctx, scope, notification); err != nil {
+					_ = s.appendAuditEvent(ctx, scope, agreement.ID, "agreement.resend_notification_failed", "system", "", map[string]any{
+						"idempotency_key": strings.TrimSpace(input.IdempotencyKey),
+						"recipient_id":    notification.RecipientID,
+						"error":           strings.TrimSpace(err.Error()),
+					})
+				}
+				return nil
+			})
 		}
 		result = ResendResult{
 			Agreement:       agreement,

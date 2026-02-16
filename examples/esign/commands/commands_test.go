@@ -3,6 +3,7 @@ package commands
 import (
 	"context"
 	"testing"
+	"time"
 
 	coreadmin "github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/examples/esign/observability"
@@ -62,6 +63,17 @@ func (s *stubProjector) ProjectAgreement(_ context.Context, _ stores.Scope, _ st
 	return nil
 }
 
+type stubDraftCleanupService struct {
+	calls      int
+	lastBefore time.Time
+}
+
+func (s *stubDraftCleanupService) CleanupExpiredDrafts(_ context.Context, before time.Time) (int, error) {
+	s.calls++
+	s.lastBefore = before
+	return 2, nil
+}
+
 func TestBuildAgreementSendInputUsesIDsFallback(t *testing.T) {
 	msg, err := buildAgreementSendInput(map[string]any{"idempotency_key": "k1"}, []string{"agreement-1"})
 	if err != nil {
@@ -82,12 +94,13 @@ func TestRegisterDispatchesTypedAgreementAndTokenCommands(t *testing.T) {
 
 	agreementSvc := &stubAgreementLifecycleService{}
 	tokenSvc := &stubTokenRotator{}
+	draftSvc := &stubDraftCleanupService{}
 	projector := &stubProjector{}
 	bus := coreadmin.NewCommandBus(true)
 	t.Cleanup(bus.Reset)
 
 	defaultScope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
-	if err := Register(bus, agreementSvc, tokenSvc, defaultScope, projector); err != nil {
+	if err := Register(bus, agreementSvc, tokenSvc, draftSvc, defaultScope, projector); err != nil {
 		t.Fatalf("Register: %v", err)
 	}
 
@@ -110,6 +123,17 @@ func TestRegisterDispatchesTypedAgreementAndTokenCommands(t *testing.T) {
 	if tokenSvc.lastScope != defaultScope {
 		t.Fatalf("expected rotate scope %+v, got %+v", defaultScope, tokenSvc.lastScope)
 	}
+
+	if err := bus.DispatchByName(context.Background(), CommandDraftCleanup, map[string]any{}, nil); err != nil {
+		t.Fatalf("DispatchByName draft cleanup: %v", err)
+	}
+	if draftSvc.calls != 1 {
+		t.Fatalf("expected draft cleanup call count 1, got %d", draftSvc.calls)
+	}
+	if draftSvc.lastBefore.IsZero() {
+		t.Fatalf("expected draft cleanup before timestamp to be set")
+	}
+
 	if projector.calls < 2 {
 		t.Fatalf("expected projector to be called for command transitions, got %d", projector.calls)
 	}

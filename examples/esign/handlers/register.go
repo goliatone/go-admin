@@ -18,6 +18,7 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
+	goerrors "github.com/goliatone/go-errors"
 	"github.com/goliatone/go-admin/quickstart"
 	router "github.com/goliatone/go-router"
 )
@@ -106,6 +107,9 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 				"admin":                             routes.AdminHome,
 				"admin_status":                      routes.AdminStatus,
 				"admin_api":                         routes.AdminAPIStatus,
+				"admin_drafts":                      routes.AdminDrafts,
+				"admin_draft":                       routes.AdminDraft,
+				"admin_draft_send":                  routes.AdminDraftSend,
 				"admin_agreements_stats":            routes.AdminAgreementsStats,
 				"admin_agreement_participants":      routes.AdminAgreementParticipants,
 				"admin_agreement_participant":       routes.AdminAgreementParticipant,
@@ -191,6 +195,185 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 			"by_status": byStatus,
 		})
 	})
+
+	if cfg.drafts != nil {
+		adminRoutes.Post(routes.AdminDrafts, func(c router.Context) error {
+			if err := enforceTransportSecurity(c, cfg); err != nil {
+				return asHandlerError(err)
+			}
+			var payload struct {
+				WizardID        string         `json:"wizard_id"`
+				WizardState     map[string]any `json:"wizard_state"`
+				Title           string         `json:"title"`
+				CurrentStep     int            `json:"current_step"`
+				DocumentID      *string        `json:"document_id"`
+				CreatedByUserID string         `json:"created_by_user_id"`
+			}
+			if err := c.Bind(&payload); err != nil {
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid draft payload", nil)
+			}
+			createdByUserID := firstNonEmpty(strings.TrimSpace(payload.CreatedByUserID), resolveAdminUserID(c))
+			if createdByUserID == "" {
+				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "created_by_user_id is required", nil)
+			}
+			documentID := ""
+			if payload.DocumentID != nil {
+				documentID = strings.TrimSpace(*payload.DocumentID)
+			}
+			record, replay, err := cfg.drafts.Create(c.Context(), cfg.resolveScope(c), services.DraftCreateInput{
+				WizardID:        strings.TrimSpace(payload.WizardID),
+				WizardState:     payload.WizardState,
+				Title:           strings.TrimSpace(payload.Title),
+				CurrentStep:     payload.CurrentStep,
+				DocumentID:      documentID,
+				CreatedByUserID: createdByUserID,
+			})
+			if err != nil {
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "unable to create draft", nil)
+			}
+			statusCode := http.StatusCreated
+			if replay {
+				statusCode = http.StatusOK
+			}
+			return c.JSON(statusCode, draftRecordToDetailMap(record))
+		}, requireAdminPermission(cfg, cfg.permissions.AdminCreate))
+
+		adminRoutes.Get(routes.AdminDrafts, func(c router.Context) error {
+			if err := enforceTransportSecurity(c, cfg); err != nil {
+				return asHandlerError(err)
+			}
+			createdByUserID := resolveAdminUserID(c)
+			if createdByUserID == "" {
+				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "created_by_user_id is required", nil)
+			}
+			limit := parsePageSize(c.Query("limit"))
+			rows, nextCursor, total, err := cfg.drafts.List(c.Context(), cfg.resolveScope(c), services.DraftListInput{
+				CreatedByUserID: createdByUserID,
+				Limit:           limit,
+				Cursor:          strings.TrimSpace(c.Query("cursor")),
+			})
+			if err != nil {
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "unable to list drafts", nil)
+			}
+			drafts := make([]map[string]any, 0, len(rows))
+			for _, row := range rows {
+				drafts = append(drafts, draftRecordToSummaryMap(row))
+			}
+			return c.JSON(http.StatusOK, map[string]any{
+				"drafts":      drafts,
+				"next_cursor": nullableString(nextCursor),
+				"total":       total,
+			})
+		}, requireAdminPermission(cfg, cfg.permissions.AdminView))
+
+		adminRoutes.Get(routes.AdminDraft, func(c router.Context) error {
+			if err := enforceTransportSecurity(c, cfg); err != nil {
+				return asHandlerError(err)
+			}
+			draftID := strings.TrimSpace(c.Param("draft_id"))
+			if draftID == "" {
+				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "draft_id is required", nil)
+			}
+			createdByUserID := resolveAdminUserID(c)
+			if createdByUserID == "" {
+				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "created_by_user_id is required", nil)
+			}
+			record, err := cfg.drafts.Get(c.Context(), cfg.resolveScope(c), draftID, createdByUserID)
+			if err != nil {
+				return writeAPIError(c, err, http.StatusNotFound, "NOT_FOUND", "draft not found", nil)
+			}
+			return c.JSON(http.StatusOK, draftRecordToDetailMap(record))
+		}, requireAdminPermission(cfg, cfg.permissions.AdminView))
+
+		adminRoutes.Put(routes.AdminDraft, func(c router.Context) error {
+			if err := enforceTransportSecurity(c, cfg); err != nil {
+				return asHandlerError(err)
+			}
+			draftID := strings.TrimSpace(c.Param("draft_id"))
+			if draftID == "" {
+				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "draft_id is required", nil)
+			}
+			var payload struct {
+				ExpectedRevision int64          `json:"expected_revision"`
+				WizardState      map[string]any `json:"wizard_state"`
+				Title            string         `json:"title"`
+				CurrentStep      int            `json:"current_step"`
+				DocumentID       *string        `json:"document_id"`
+				UpdatedByUserID  string         `json:"updated_by_user_id"`
+			}
+			if err := c.Bind(&payload); err != nil {
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid draft payload", nil)
+			}
+			updatedByUserID := firstNonEmpty(strings.TrimSpace(payload.UpdatedByUserID), resolveAdminUserID(c))
+			if updatedByUserID == "" {
+				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "updated_by_user_id is required", nil)
+			}
+			record, err := cfg.drafts.Update(c.Context(), cfg.resolveScope(c), draftID, services.DraftUpdateInput{
+				ExpectedRevision: payload.ExpectedRevision,
+				WizardState:      payload.WizardState,
+				Title:            strings.TrimSpace(payload.Title),
+				CurrentStep:      payload.CurrentStep,
+				DocumentID:       payload.DocumentID,
+				UpdatedByUserID:  updatedByUserID,
+			})
+			if err != nil {
+				return writeAPIError(c, normalizeDraftMutationError(err), http.StatusUnprocessableEntity, "validation_failed", "unable to update draft", nil)
+			}
+			return c.JSON(http.StatusOK, draftRecordToDetailMap(record))
+		}, requireAdminPermission(cfg, cfg.permissions.AdminEdit))
+
+		adminRoutes.Delete(routes.AdminDraft, func(c router.Context) error {
+			if err := enforceTransportSecurity(c, cfg); err != nil {
+				return asHandlerError(err)
+			}
+			draftID := strings.TrimSpace(c.Param("draft_id"))
+			if draftID == "" {
+				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "draft_id is required", nil)
+			}
+			createdByUserID := resolveAdminUserID(c)
+			if createdByUserID == "" {
+				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "created_by_user_id is required", nil)
+			}
+			if err := cfg.drafts.Delete(c.Context(), cfg.resolveScope(c), draftID, createdByUserID); err != nil {
+				return writeAPIError(c, err, http.StatusNotFound, "NOT_FOUND", "draft not found", nil)
+			}
+			return c.SendStatus(http.StatusNoContent)
+		}, requireAdminPermission(cfg, cfg.permissions.AdminEdit))
+
+		adminRoutes.Post(routes.AdminDraftSend, func(c router.Context) error {
+			if err := enforceTransportSecurity(c, cfg); err != nil {
+				return asHandlerError(err)
+			}
+			draftID := strings.TrimSpace(c.Param("draft_id"))
+			if draftID == "" {
+				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "draft_id is required", nil)
+			}
+			var payload struct {
+				ExpectedRevision int64  `json:"expected_revision"`
+				CreatedByUserID  string `json:"created_by_user_id"`
+			}
+			if err := c.Bind(&payload); err != nil {
+				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid draft send payload", nil)
+			}
+			createdByUserID := firstNonEmpty(strings.TrimSpace(payload.CreatedByUserID), resolveAdminUserID(c))
+			if createdByUserID == "" {
+				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "created_by_user_id is required", nil)
+			}
+			result, err := cfg.drafts.Send(c.Context(), cfg.resolveScope(c), draftID, services.DraftSendInput{
+				ExpectedRevision: payload.ExpectedRevision,
+				CreatedByUserID:  createdByUserID,
+			})
+			if err != nil {
+				return writeAPIError(c, normalizeDraftMutationError(err), http.StatusUnprocessableEntity, "validation_failed", "unable to send draft", nil)
+			}
+			return c.JSON(http.StatusOK, map[string]any{
+				"agreement_id":  strings.TrimSpace(result.AgreementID),
+				"status":        strings.TrimSpace(result.Status),
+				"draft_id":      strings.TrimSpace(result.DraftID),
+				"draft_deleted": result.DraftDeleted,
+			})
+		}, requireAdminPermission(cfg, cfg.permissions.AdminSend))
+	}
 
 	if cfg.agreementAuthoring != nil {
 		adminRoutes.Get(routes.AdminAgreementParticipants, func(c router.Context) error {
@@ -2164,6 +2347,135 @@ func formatTime(value *time.Time) string {
 		return ""
 	}
 	return value.UTC().Format(time.RFC3339Nano)
+}
+
+func nullableString(value string) any {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return nil
+	}
+	return value
+}
+
+func draftRecordToSummaryMap(record stores.DraftRecord) map[string]any {
+	return map[string]any{
+		"id":           strings.TrimSpace(record.ID),
+		"wizard_id":    strings.TrimSpace(record.WizardID),
+		"title":        strings.TrimSpace(record.Title),
+		"current_step": record.CurrentStep,
+		"document_id":  nullableString(record.DocumentID),
+		"created_at":   record.CreatedAt.UTC().Format(time.RFC3339Nano),
+		"updated_at":   record.UpdatedAt.UTC().Format(time.RFC3339Nano),
+		"expires_at":   record.ExpiresAt.UTC().Format(time.RFC3339Nano),
+		"revision":     record.Revision,
+	}
+}
+
+func draftRecordToDetailMap(record stores.DraftRecord) map[string]any {
+	out := draftRecordToSummaryMap(record)
+	out["wizard_state"] = decodeDraftWizardState(record.WizardStateJSON)
+	return out
+}
+
+func decodeDraftWizardState(raw string) map[string]any {
+	decoded := map[string]any{}
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return decoded
+	}
+	if err := json.Unmarshal([]byte(raw), &decoded); err != nil || decoded == nil {
+		return map[string]any{}
+	}
+	return decoded
+}
+
+func normalizeDraftMutationError(err error) error {
+	if err == nil {
+		return nil
+	}
+	var coded *goerrors.Error
+	if !errors.As(err, &coded) || coded == nil {
+		return err
+	}
+
+	text := strings.TrimSpace(strings.ToLower(coded.TextCode))
+	switch text {
+	case "version_conflict":
+		currentRevision := extractCurrentRevision(coded.Metadata)
+		return goerrors.New("stale revision", goerrors.CategoryConflict).
+			WithCode(http.StatusConflict).
+			WithTextCode("stale_revision").
+			WithMetadata(map[string]any{"current_revision": currentRevision})
+	case "missing_required_fields":
+		return goerrors.New("validation failed", goerrors.CategoryValidation).
+			WithCode(http.StatusUnprocessableEntity).
+			WithTextCode("validation_failed").
+			WithMetadata(copyAnyMap(coded.Metadata))
+	}
+	return err
+}
+
+func extractCurrentRevision(metadata map[string]any) int64 {
+	if len(metadata) == 0 {
+		return 0
+	}
+	if raw, ok := metadata["current_revision"]; ok {
+		if parsed, ok := coerceInt64(raw); ok {
+			return parsed
+		}
+	}
+	if raw, ok := metadata["actual"]; ok {
+		if parsed, ok := coerceInt64(raw); ok {
+			return parsed
+		}
+	}
+	return 0
+}
+
+func coerceInt64(value any) (int64, bool) {
+	switch typed := value.(type) {
+	case int:
+		return int64(typed), true
+	case int8:
+		return int64(typed), true
+	case int16:
+		return int64(typed), true
+	case int32:
+		return int64(typed), true
+	case int64:
+		return typed, true
+	case uint:
+		return int64(typed), true
+	case uint8:
+		return int64(typed), true
+	case uint16:
+		return int64(typed), true
+	case uint32:
+		return int64(typed), true
+	case uint64:
+		return int64(typed), true
+	case float32:
+		return int64(typed), true
+	case float64:
+		return int64(typed), true
+	case string:
+		var parsed int64
+		if _, err := fmt.Sscan(strings.TrimSpace(typed), &parsed); err == nil {
+			return parsed, true
+		}
+	}
+	return 0, false
+}
+
+func copyAnyMap(source map[string]any) map[string]any {
+	if len(source) == 0 {
+		return nil
+	}
+	out := make(map[string]any, len(source))
+	for key, value := range source {
+		out[key] = value
+	}
+	return out
 }
 
 func participantRecordToMap(record stores.ParticipantRecord) map[string]any {

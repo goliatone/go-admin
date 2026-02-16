@@ -1,6 +1,10 @@
 package stores
 
-import "time"
+import (
+	"time"
+
+	"github.com/goliatone/go-admin/admin/txoutbox"
+)
 
 const (
 	AgreementStatusDraft      = "draft"
@@ -42,6 +46,14 @@ const (
 	JobRunStatusRetrying  = "retrying"
 	JobRunStatusSucceeded = "succeeded"
 	JobRunStatusFailed    = "failed"
+)
+
+const (
+	OutboxMessageStatusPending    = txoutbox.OutboxStatusPending
+	OutboxMessageStatusProcessing = txoutbox.OutboxStatusProcessing
+	OutboxMessageStatusRetrying   = txoutbox.OutboxStatusRetrying
+	OutboxMessageStatusSucceeded  = txoutbox.OutboxStatusSucceeded
+	OutboxMessageStatusFailed     = txoutbox.OutboxStatusFailed
 )
 
 const (
@@ -125,6 +137,23 @@ type AgreementRecord struct {
 	UpdatedByUserID        string
 	CreatedAt              time.Time
 	UpdatedAt              time.Time
+}
+
+// DraftRecord stores six-step agreement wizard progress for cross-session recovery.
+type DraftRecord struct {
+	ID              string
+	WizardID        string
+	TenantID        string
+	OrgID           string
+	CreatedByUserID string
+	DocumentID      string
+	Title           string
+	CurrentStep     int
+	WizardStateJSON string
+	Revision        int64
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+	ExpiresAt       time.Time
 }
 
 // RecipientRecord captures recipient routing and lifecycle telemetry.
@@ -401,6 +430,12 @@ type JobRunInput struct {
 	AttemptedAt   time.Time
 }
 
+// OutboxMessageRecord stores durable side-effect events for post-commit dispatch.
+type OutboxMessageRecord = txoutbox.Message
+
+// OutboxClaimInput controls batched outbox claiming.
+type OutboxClaimInput = txoutbox.ClaimInput
+
 // IntegrationCredentialRecord stores encrypted provider credentials by scope and user.
 type IntegrationCredentialRecord struct {
 	ID                    string
@@ -562,16 +597,35 @@ type AgreementQuery struct {
 	SortDesc bool
 }
 
+type DraftQuery struct {
+	CreatedByUserID string
+	WizardID        string
+	Limit           int
+	Cursor          string
+	SortDesc        bool
+}
+
 type AuditEventQuery struct {
 	Limit    int
 	Offset   int
 	SortDesc bool
 }
 
+type OutboxQuery = txoutbox.Query
+
 type AgreementDraftPatch struct {
 	Title      *string
 	Message    *string
 	DocumentID *string
+}
+
+type DraftPatch struct {
+	WizardStateJSON *string
+	Title           *string
+	CurrentStep     *int
+	DocumentID      *string
+	ExpiresAt       *time.Time
+	UpdatedAt       *time.Time
 }
 
 type RecipientDraftPatch struct {

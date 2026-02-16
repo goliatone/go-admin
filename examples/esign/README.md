@@ -6,6 +6,11 @@ Backend-first flagship e-sign scaffold wired through quickstart.
 
 All commands map directly to `examples/esign/taskfile`.
 
+## Architecture Guides
+
+- `../../docs/GUIDES_ESIGN_ARCHITECTURE.md`
+- `../../docs/GUIDE_TRANSACTION_OUTBOX.md`
+
 ### `dev:serve`
 
 Build shared client assets and run the e-sign example server.
