@@ -260,7 +260,7 @@ func TestRegisterDraftSendAndExpiryFlows(t *testing.T) {
 
 	invalidState := map[string]any{
 		"document": map[string]any{"id": doc.ID},
-		"details": map[string]any{"title": "Invalid Draft"},
+		"details":  map[string]any{"title": "Invalid Draft"},
 	}
 	status, body := doDraftRequest(t, app, http.MethodPost, "/admin/api/v1/esign/drafts", userID, map[string]any{
 		"wizard_id":    "wiz-send-invalid",

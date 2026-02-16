@@ -168,9 +168,9 @@ func TestAgreementPanelRepositoryCreateSendsAgreementWhenRequested(t *testing.T)
 	)
 
 	created, err := repo.Create(context.Background(), map[string]any{
-		"document_id": "doc-create-send-1",
-		"title":       "MSA Send",
-		"message":     "Please sign",
+		"document_id":        "doc-create-send-1",
+		"title":              "MSA Send",
+		"message":            "Please sign",
 		"send_for_signature": "1",
 		"recipients[0]": map[string]any{
 			"id":    "participant-create-send-1",
