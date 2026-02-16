@@ -105,7 +105,7 @@ function dev:serve {
     #TODO: remove when we fix go-admin
     export ADMIN_ROUTE_CONFLICT_POLICY="log_and_continue";
     export ADMIN_STRICT_ROUTES=false;
-
+    export ADMIN_ERROR_EXPOSE_INTERNAL=true
 
     export ADMIN_ASSETS_DIR="${root_dir}/pkg/client/assets"
 

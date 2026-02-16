@@ -134,7 +134,14 @@ func (r ReadableArtifactRenderer) renderExecutedWithOverlays(
 
 	for page := 1; page <= pageCount; page++ {
 		rs := io.ReadSeeker(bytes.NewReader(sourcePDF))
-		tplID := importer.ImportPageFromStream(pdf, &rs, page, "/MediaBox")
+		tplID := importer.ImportPageFromStream(pdf, &rs, page, "/CropBox")
+		if tplID == 0 {
+			rsFallback := io.ReadSeeker(bytes.NewReader(sourcePDF))
+			tplID = importer.ImportPageFromStream(pdf, &rsFallback, page, "/MediaBox")
+		}
+		if tplID == 0 {
+			return nil, fmt.Errorf("render executed: failed importing source page %d", page)
+		}
 		width, height := importedPageSize(importer.GetPageSizes(), page)
 		orientation := "P"
 		if width > height {
@@ -590,7 +597,7 @@ func importedPageSize(pageSizes map[int]map[string]map[string]float64, page int)
 	if !ok {
 		return defaultPDFPageWidthPt, defaultPDFPageHeightPt
 	}
-	for _, box := range []string{"/MediaBox", "/CropBox", "/TrimBox", "/BleedBox", "/ArtBox"} {
+	for _, box := range []string{"/CropBox", "/MediaBox", "/TrimBox", "/BleedBox", "/ArtBox"} {
 		if dimensions, found := boxes[box]; found {
 			if width := dimensions["w"]; width > 0 {
 				if height := dimensions["h"]; height > 0 {
