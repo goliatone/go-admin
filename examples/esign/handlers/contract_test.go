@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/goliatone/go-admin/examples/esign/jobs"
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	"github.com/goliatone/go-uploader"
@@ -102,6 +103,7 @@ func TestAdminAPIStatusEnvelopeContract(t *testing.T) {
 	}
 	for _, key := range []string{
 		"admin", "admin_api",
+		"admin_smoke_recipient_links",
 		"admin_documents_upload",
 		"signer_session", "signer_consent", "signer_field_values", "signer_signature", "signer_signature_upload", "signer_signature_object", "signer_telemetry", "signer_submit", "signer_decline", "signer_assets",
 		"google_oauth_connect", "google_oauth_disconnect", "google_oauth_rotate", "google_oauth_status",
@@ -110,6 +112,87 @@ func TestAdminAPIStatusEnvelopeContract(t *testing.T) {
 		if _, exists := routes[key]; !exists {
 			t.Fatalf("expected route key %q in contract, got %+v", key, routes)
 		}
+	}
+}
+
+func TestAdminSmokeRecipientLinksReturnsCapturedInvitationLink(t *testing.T) {
+	jobs.ResetCapturedRecipientLinks()
+	t.Cleanup(jobs.ResetCapturedRecipientLinks)
+
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	jobs.CaptureRecipientLink(jobs.EmailSendInput{
+		Scope: scope,
+		Agreement: stores.AgreementRecord{
+			ID: "agreement-1",
+		},
+		Recipient: stores.RecipientRecord{
+			ID:    "recipient-1",
+			Email: "signer@example.test",
+		},
+		TemplateCode:  "esign.sign_request_invitation",
+		Notification:  "signing_invitation",
+		SignURL:       "https://esign.test/sign/token-1",
+		CorrelationID: "corr-smoke-1",
+	})
+
+	app := setupRegisterTestApp(t,
+		WithAuthorizer(mapAuthorizer{allowed: map[string]bool{DefaultPermissions.AdminView: true}}),
+		WithDefaultScope(scope),
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign/smoke/recipient-links?agreement_id=agreement-1&recipient_id=recipient-1&notification=signing_invitation", nil)
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", resp.StatusCode)
+	}
+
+	payload := mustDecodeJSONMap(t, resp.Body)
+	if payload["status"] != "ok" {
+		t.Fatalf("expected status=ok envelope, got %+v", payload)
+	}
+	link, ok := payload["link"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected link payload, got %+v", payload["link"])
+	}
+	if link["sign_url"] != "https://esign.test/sign/token-1" {
+		t.Fatalf("expected captured sign_url, got %+v", link["sign_url"])
+	}
+	if link["notification"] != "signing_invitation" {
+		t.Fatalf("expected signing_invitation notification, got %+v", link["notification"])
+	}
+}
+
+func TestAdminSmokeRecipientLinksReturnsTyped404WhenUnavailable(t *testing.T) {
+	jobs.ResetCapturedRecipientLinks()
+	t.Cleanup(jobs.ResetCapturedRecipientLinks)
+
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	app := setupRegisterTestApp(t,
+		WithAuthorizer(mapAuthorizer{allowed: map[string]bool{DefaultPermissions.AdminView: true}}),
+		WithDefaultScope(scope),
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign/smoke/recipient-links?agreement_id=agreement-missing&recipient_id=recipient-missing&notification=signing_invitation", nil)
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("expected status 404, got %d", resp.StatusCode)
+	}
+
+	payload := mustDecodeJSONMap(t, resp.Body)
+	errPayload, ok := payload["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error payload, got %+v", payload)
+	}
+	if errPayload["code"] != string(services.ErrorCodeInvalidSignerState) {
+		t.Fatalf("expected INVALID_SIGNER_STATE code, got %+v", errPayload["code"])
 	}
 }
 

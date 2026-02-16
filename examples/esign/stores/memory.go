@@ -16,6 +16,9 @@ type InMemoryStore struct {
 
 	documents                  map[string]DocumentRecord
 	agreements                 map[string]AgreementRecord
+	participants               map[string]ParticipantRecord
+	fieldDefinitions           map[string]FieldDefinitionRecord
+	fieldInstances             map[string]FieldInstanceRecord
 	recipients                 map[string]RecipientRecord
 	fields                     map[string]FieldRecord
 	signingTokens              map[string]SigningTokenRecord
@@ -35,6 +38,9 @@ func NewInMemoryStore() *InMemoryStore {
 	return &InMemoryStore{
 		documents:                  map[string]DocumentRecord{},
 		agreements:                 map[string]AgreementRecord{},
+		participants:               map[string]ParticipantRecord{},
+		fieldDefinitions:           map[string]FieldDefinitionRecord{},
+		fieldInstances:             map[string]FieldInstanceRecord{},
 		recipients:                 map[string]RecipientRecord{},
 		fields:                     map[string]FieldRecord{},
 		signingTokens:              map[string]SigningTokenRecord{},
@@ -80,6 +86,27 @@ func cloneSigningTokenRecord(record SigningTokenRecord) SigningTokenRecord {
 	record.RevokedAt = cloneTimePtr(record.RevokedAt)
 	record.CreatedAt = normalizeRecordTime(record.CreatedAt)
 	return record
+}
+
+func participantToRecipient(record ParticipantRecord) RecipientRecord {
+	return RecipientRecord{
+		ID:            record.ID,
+		TenantID:      record.TenantID,
+		OrgID:         record.OrgID,
+		AgreementID:   record.AgreementID,
+		Email:         record.Email,
+		Name:          record.Name,
+		Role:          record.Role,
+		SigningOrder:  record.SigningStage,
+		FirstViewAt:   cloneTimePtr(record.FirstViewAt),
+		LastViewAt:    cloneTimePtr(record.LastViewAt),
+		DeclinedAt:    cloneTimePtr(record.DeclinedAt),
+		DeclineReason: record.DeclineReason,
+		CompletedAt:   cloneTimePtr(record.CompletedAt),
+		Version:       record.Version,
+		CreatedAt:     record.CreatedAt,
+		UpdatedAt:     record.UpdatedAt,
+	}
 }
 
 func normalizeRecordTime(value time.Time) time.Time {

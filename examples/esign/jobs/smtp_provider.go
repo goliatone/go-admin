@@ -200,6 +200,7 @@ func (p SMTPEmailProvider) Send(ctx context.Context, input EmailSendInput) (stri
 		if err != nil {
 			return "", err
 		}
+		CaptureRecipientLink(input)
 		return providerMessageID, nil
 	}
 }

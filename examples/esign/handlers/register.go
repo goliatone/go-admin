@@ -14,6 +14,7 @@ import (
 	"time"
 
 	coreadmin "github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/examples/esign/jobs"
 	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
@@ -102,28 +103,29 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 				string(services.ErrorCodeMissingRequiredFields),
 			},
 			"routes": map[string]string{
-				"admin":                   routes.AdminHome,
-				"admin_status":            routes.AdminStatus,
-				"admin_api":               routes.AdminAPIStatus,
-				"admin_agreements_stats":  routes.AdminAgreementsStats,
-				"admin_documents_upload":  routes.AdminDocumentsUpload,
-				"signer_session":          routes.SignerSession,
-				"signer_consent":          routes.SignerConsent,
-				"signer_field_values":     routes.SignerFieldValues,
-				"signer_signature":        routes.SignerSignature,
-				"signer_signature_upload": routes.SignerSignatureUpload,
-				"signer_signature_object": routes.SignerSignatureObject,
-				"signer_telemetry":        routes.SignerTelemetry,
-				"signer_submit":           routes.SignerSubmit,
-				"signer_decline":          routes.SignerDecline,
-				"signer_assets":           routes.SignerAssets,
-				"google_oauth_connect":    routes.AdminGoogleOAuthConnect,
-				"google_oauth_disconnect": routes.AdminGoogleOAuthDisconnect,
-				"google_oauth_rotate":     routes.AdminGoogleOAuthRotate,
-				"google_oauth_status":     routes.AdminGoogleOAuthStatus,
-				"google_drive_search":     routes.AdminGoogleDriveSearch,
-				"google_drive_browse":     routes.AdminGoogleDriveBrowse,
-				"google_drive_import":     routes.AdminGoogleDriveImport,
+				"admin":                       routes.AdminHome,
+				"admin_status":                routes.AdminStatus,
+				"admin_api":                   routes.AdminAPIStatus,
+				"admin_agreements_stats":      routes.AdminAgreementsStats,
+				"admin_smoke_recipient_links": routes.AdminSmokeRecipientLinks,
+				"admin_documents_upload":      routes.AdminDocumentsUpload,
+				"signer_session":              routes.SignerSession,
+				"signer_consent":              routes.SignerConsent,
+				"signer_field_values":         routes.SignerFieldValues,
+				"signer_signature":            routes.SignerSignature,
+				"signer_signature_upload":     routes.SignerSignatureUpload,
+				"signer_signature_object":     routes.SignerSignatureObject,
+				"signer_telemetry":            routes.SignerTelemetry,
+				"signer_submit":               routes.SignerSubmit,
+				"signer_decline":              routes.SignerDecline,
+				"signer_assets":               routes.SignerAssets,
+				"google_oauth_connect":        routes.AdminGoogleOAuthConnect,
+				"google_oauth_disconnect":     routes.AdminGoogleOAuthDisconnect,
+				"google_oauth_rotate":         routes.AdminGoogleOAuthRotate,
+				"google_oauth_status":         routes.AdminGoogleOAuthStatus,
+				"google_drive_search":         routes.AdminGoogleDriveSearch,
+				"google_drive_browse":         routes.AdminGoogleDriveBrowse,
+				"google_drive_import":         routes.AdminGoogleDriveImport,
 			},
 		})
 		logAPIOperation(c.Context(), "admin_api_status", correlationID, startedAt, err, nil)
@@ -163,6 +165,45 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 			"by_status": byStatus,
 		})
 	})
+
+	adminRoutes.Get(routes.AdminSmokeRecipientLinks, func(c router.Context) error {
+		if err := enforceTransportSecurity(c, cfg); err != nil {
+			return asHandlerError(err)
+		}
+		scope := cfg.resolveScope(c)
+		agreementID := strings.TrimSpace(c.Query("agreement_id"))
+		recipientID := strings.TrimSpace(c.Query("recipient_id"))
+		notification := strings.TrimSpace(c.Query("notification"))
+		if agreementID == "" {
+			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "agreement_id is required", nil)
+		}
+		if recipientID == "" {
+			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "recipient_id is required", nil)
+		}
+		link, ok := jobs.LookupCapturedRecipientLink(scope, agreementID, recipientID, notification)
+		if !ok {
+			return writeAPIError(c, nil, http.StatusNotFound, string(services.ErrorCodeInvalidSignerState), "recipient link is unavailable", map[string]any{
+				"agreement_id": agreementID,
+				"recipient_id": recipientID,
+				"notification": notification,
+			})
+		}
+		return c.JSON(http.StatusOK, map[string]any{
+			"status": "ok",
+			"source": "in_process_email_capture",
+			"link": map[string]any{
+				"agreement_id":    link.AgreementID,
+				"recipient_id":    link.RecipientID,
+				"recipient_email": link.RecipientEmail,
+				"template_code":   link.TemplateCode,
+				"notification":    link.Notification,
+				"sign_url":        link.SignURL,
+				"completion_url":  link.CompletionURL,
+				"correlation_id":  link.CorrelationID,
+				"captured_at":     link.CapturedAt.UTC().Format(time.RFC3339Nano),
+			},
+		})
+	}, requireAdminPermission(cfg, cfg.permissions.AdminView))
 
 	if cfg.documentUpload != nil {
 		adminRoutes.Post(routes.AdminDocumentsUpload, func(c router.Context) error {
