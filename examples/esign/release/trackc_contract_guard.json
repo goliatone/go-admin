@@ -1,0 +1,12 @@
+{
+  "tracked_files": [
+    "examples/esign/stores/contracts.go",
+    "examples/esign/stores/models.go",
+    "examples/esign/stores/memory.go",
+    "examples/esign/services/agreement_service.go",
+    "examples/esign/modules/panel_repositories.go"
+  ],
+  "contract_hash": "ea48d354ce40772098aeac87baa8fea7c9e58a494a28a15b08106a5df5aa89c5",
+  "ledger_path": "docs/GUIDES_ESIGN_TRACK_C_CONTRACT_LEDGER.md",
+  "required_ledger_entry_id": "TC-2026-02-15-001"
+}

@@ -106,15 +106,17 @@ func TestAgreementPanelRepositoryCreatePersistsFormRecipientsAndFields(t *testin
 		"title":       "MSA",
 		"message":     "Please review",
 		"recipients[0]": map[string]any{
+			"id":    "participant-create-1",
 			"name":  "Alice",
 			"email": "alice@example.com",
 			"role":  "signer",
 		},
 		"fields[0]": map[string]any{
-			"type":            "signature",
-			"recipient_index": "0",
-			"page":            "1",
-			"required":        "on",
+			"id":             "field-create-1",
+			"type":           "signature",
+			"participant_id": "participant-create-1",
+			"page":           "1",
+			"required":       "on",
 		},
 	})
 	if err != nil {
@@ -170,25 +172,29 @@ func TestAgreementPanelRepositoryUpdateSynchronizesFormRecipientsAndFields(t *te
 		"title":       "Initial",
 		"message":     "Initial message",
 		"recipients[0]": map[string]any{
+			"id":    "participant-update-signer",
 			"name":  "Signer",
 			"email": "signer@example.com",
 			"role":  "signer",
 		},
 		"recipients[1]": map[string]any{
+			"id":    "participant-update-cc",
 			"name":  "CC User",
 			"email": "cc@example.com",
 			"role":  "cc",
 		},
 		"fields[0]": map[string]any{
-			"type":            "signature",
-			"recipient_index": "0",
-			"page":            "1",
-			"required":        "on",
+			"id":             "field-update-signature",
+			"type":           "signature",
+			"participant_id": "participant-update-signer",
+			"page":           "1",
+			"required":       "on",
 		},
 		"fields[1]": map[string]any{
-			"type":            "text",
-			"recipient_index": "0",
-			"page":            "1",
+			"id":             "field-update-text",
+			"type":           "text",
+			"participant_id": "participant-update-signer",
+			"page":           "1",
 		},
 	})
 	if err != nil {
@@ -203,15 +209,17 @@ func TestAgreementPanelRepositoryUpdateSynchronizesFormRecipientsAndFields(t *te
 		"title":   "Updated",
 		"message": "Updated message",
 		"recipients[0]": map[string]any{
+			"id":    "participant-update-signer",
 			"name":  "Signer Updated",
 			"email": "updated@example.com",
 			"role":  "signer",
 		},
 		"fields[0]": map[string]any{
-			"type":            "initials",
-			"recipient_index": "0",
-			"page":            "2",
-			"required":        "on",
+			"id":             "field-update-signature",
+			"type":           "initials",
+			"participant_id": "participant-update-signer",
+			"page":           "2",
+			"required":       "on",
 		},
 	})
 	if err != nil {
@@ -266,15 +274,17 @@ func TestAgreementPanelRepositoryGetIncludesFieldFormAliases(t *testing.T) {
 		"document_id": "doc-get-1",
 		"title":       "Alias Check",
 		"recipients[0]": map[string]any{
+			"id":    "participant-get-1",
 			"name":  "Signer",
 			"email": "signer@get.example",
 			"role":  "signer",
 		},
 		"fields[0]": map[string]any{
-			"type":            "signature",
-			"recipient_index": "0",
-			"page":            "3",
-			"required":        "on",
+			"id":             "field-get-1",
+			"type":           "signature",
+			"participant_id": "participant-get-1",
+			"page":           "3",
+			"required":       "on",
 		},
 	})
 	if err != nil {
@@ -294,8 +304,8 @@ func TestAgreementPanelRepositoryGetIncludesFieldFormAliases(t *testing.T) {
 		t.Fatalf("expected one field in payload, got %#v", record["fields"])
 	}
 	field := rawFields[0]
-	if got := toInt64(field["recipient_index"]); got != 0 {
-		t.Fatalf("expected recipient_index 0, got %v", field["recipient_index"])
+	if got := strings.TrimSpace(toString(field["participant_id"])); got != "participant-get-1" {
+		t.Fatalf("expected participant_id participant-get-1, got %v", field["participant_id"])
 	}
 	if got := toInt64(field["page"]); got != 3 {
 		t.Fatalf("expected page alias 3, got %v", field["page"])
@@ -369,15 +379,17 @@ func TestAgreementPanelRepositoryUpdateRemovesAllFieldsWhenFieldsPresentFlagSet(
 		"document_id": "doc-clear-fields-1",
 		"title":       "Field cleanup",
 		"recipients[0]": map[string]any{
+			"id":    "participant-clear-fields-1",
 			"name":  "Signer",
 			"email": "fields@example.com",
 			"role":  "signer",
 		},
 		"fields[0]": map[string]any{
-			"type":            "signature",
-			"recipient_index": "0",
-			"page":            "1",
-			"required":        "on",
+			"id":             "field-clear-fields-1",
+			"type":           "signature",
+			"participant_id": "participant-clear-fields-1",
+			"page":           "1",
+			"required":       "on",
 		},
 	})
 	if err != nil {

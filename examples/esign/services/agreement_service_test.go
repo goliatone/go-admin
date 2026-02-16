@@ -196,13 +196,19 @@ func TestAgreementServiceRecipientConstraints(t *testing.T) {
 	}
 
 	if _, err := svc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
-		Email:        stringPtr("extra@example.com"),
+		Email:        stringPtr("signer-3@example.com"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
 		SigningOrder: intPtr(3),
-	}, 0); err == nil {
-		t.Fatal("expected recipient max-count validation error")
-	} else if !strings.Contains(err.Error(), "MISSING_REQUIRED_FIELDS") {
-		t.Fatalf("expected validation text code, got %v", err)
+	}, 0); err != nil {
+		t.Fatalf("expected additional signer in stage 3 to pass, got %v", err)
+	}
+
+	if _, err := svc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("signer-4@example.com"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: intPtr(4),
+	}, 0); err != nil {
+		t.Fatalf("expected arbitrary signer count support, got %v", err)
 	}
 }
 
