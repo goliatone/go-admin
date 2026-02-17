@@ -40,6 +40,7 @@ type stubCtx struct {
 	settings   SettingsBinding
 	workflows  WorkflowManagementBinding
 	exchange   TranslationExchangeBinding
+	queue      TranslationQueueBinding
 	registry   SchemaRegistryBinding
 	overrides  FeatureOverridesBinding
 	gates      FeatureGates
@@ -83,6 +84,9 @@ func (s *stubCtx) BootMedia() MediaBinding           { return nil }
 func (s *stubCtx) BootUserImport() UserImportBinding { return nil }
 func (s *stubCtx) BootTranslationExchange() TranslationExchangeBinding {
 	return s.exchange
+}
+func (s *stubCtx) BootTranslationQueue() TranslationQueueBinding {
+	return s.queue
 }
 func (s *stubCtx) BootNotifications() NotificationsBinding {
 	return nil
@@ -163,6 +167,9 @@ func newTestURLManager(basePath string) *urlkit.RouteManager {
 							"workflows.bindings.id":        "/workflows/bindings/:id",
 							"translations.export":          "/translations/export",
 							"translations.template":        "/translations/template",
+							"translations.my_work":         "/translations/my-work",
+							"translations.queue":           "/translations/queue",
+							"translations.jobs.id":         "/translations/jobs/:id",
 							"translations.import.validate": "/translations/import/validate",
 							"translations.import.apply":    "/translations/import/apply",
 							"schemas":                      "/schemas",
@@ -266,6 +273,7 @@ type stubPanelBinding struct {
 	lastLocale        string
 	lastActionBody    map[string]any
 	actionResult      map[string]any
+	bulkResult        map[string]any
 	subresources      []PanelSubresourceSpec
 	lastSubresource   struct {
 		id    string
@@ -299,14 +307,14 @@ func (s *stubPanelBinding) Action(_ router.Context, locale, action string, body 
 	}
 	return s.actionResult, nil
 }
-func (s *stubPanelBinding) Bulk(_ router.Context, locale, action string, body map[string]any) error {
+func (s *stubPanelBinding) Bulk(_ router.Context, locale, action string, body map[string]any) (map[string]any, error) {
 	s.bulkCalled++
 	s.lastLocale = locale
 	s.lastActionBody = body
 	if action == "" {
-		return errors.New("missing action")
+		return nil, errors.New("missing action")
 	}
-	return nil
+	return s.bulkResult, nil
 }
 
 func (s *stubPanelBinding) Preview(router.Context, string, string) (map[string]any, error) {
@@ -392,6 +400,39 @@ func TestPanelStepActionSuccessEnvelopeWithData(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, "2", data["id"])
 	require.Equal(t, "es", data["locale"])
+}
+
+func TestPanelStepBulkSuccessEnvelopeWithData(t *testing.T) {
+	rr := &recordRouter{}
+	resp := &stubResponder{}
+	binding := &stubPanelBinding{
+		name:       "users",
+		bulkResult: map[string]any{"processed": 2, "failed": 0},
+	}
+	ctx := &stubCtx{
+		router:     rr,
+		responder:  resp,
+		basePath:   "/admin",
+		defaultLoc: "en",
+		panels:     []PanelBinding{binding},
+	}
+
+	require.NoError(t, PanelStep(ctx))
+	require.Len(t, rr.calls, 9)
+
+	bulkCtx := router.NewMockContext()
+	bulkCtx.ParamsM["panel"] = "users"
+	bulkCtx.ParamsM["action"] = "create-missing-translations"
+	bulkCtx.On("Body").Return([]byte{})
+
+	require.NoError(t, rr.calls[7].handler(bulkCtx))
+	payload, ok := resp.lastJSON.(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "ok", payload["status"])
+	data, ok := payload["data"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, 2, int(data["processed"].(int)))
+	require.Equal(t, 0, int(data["failed"].(int)))
 }
 
 func TestPanelStepActionMergesQueryContextIntoPayload(t *testing.T) {
@@ -887,6 +928,7 @@ type stubTranslationExchangeBinding struct {
 	templateCalled int
 	validateCalled int
 	applyCalled    int
+	jobCalled      int
 }
 
 func (s *stubTranslationExchangeBinding) Export(_ router.Context) (any, error) {
@@ -909,6 +951,11 @@ func (s *stubTranslationExchangeBinding) ImportApply(_ router.Context) (any, err
 	return map[string]any{"summary": map[string]any{"processed": 1}}, nil
 }
 
+func (s *stubTranslationExchangeBinding) JobStatus(_ router.Context, _ string) (any, error) {
+	s.jobCalled++
+	return map[string]any{"status": "ok"}, nil
+}
+
 func TestTranslationExchangeRouteStepRegistersRoutes(t *testing.T) {
 	rr := &recordRouter{}
 	resp := &stubResponder{}
@@ -921,7 +968,7 @@ func TestTranslationExchangeRouteStepRegistersRoutes(t *testing.T) {
 	}
 
 	require.NoError(t, TranslationExchangeRouteStep(ctx))
-	require.Len(t, rr.calls, 4)
+	require.Len(t, rr.calls, 5)
 
 	methodPaths := map[string]bool{}
 	for _, call := range rr.calls {
@@ -931,6 +978,7 @@ func TestTranslationExchangeRouteStepRegistersRoutes(t *testing.T) {
 	require.True(t, methodPaths["GET "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.template")])
 	require.True(t, methodPaths["POST "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.import.validate")])
 	require.True(t, methodPaths["POST "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.import.apply")])
+	require.True(t, methodPaths["GET "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.jobs.id")])
 
 	for _, call := range rr.calls {
 		require.NoError(t, call.handler(router.NewMockContext()))
@@ -939,6 +987,49 @@ func TestTranslationExchangeRouteStepRegistersRoutes(t *testing.T) {
 	require.Equal(t, 1, binding.templateCalled)
 	require.Equal(t, 1, binding.validateCalled)
 	require.Equal(t, 1, binding.applyCalled)
+	require.Equal(t, 1, binding.jobCalled)
+}
+
+type stubTranslationQueueBinding struct {
+	myWorkCalled int
+	queueCalled  int
+}
+
+func (s *stubTranslationQueueBinding) MyWork(_ router.Context) (any, error) {
+	s.myWorkCalled++
+	return map[string]any{"scope": "my_work"}, nil
+}
+
+func (s *stubTranslationQueueBinding) Queue(_ router.Context) (any, error) {
+	s.queueCalled++
+	return map[string]any{"scope": "queue"}, nil
+}
+
+func TestTranslationQueueRouteStepRegistersRoutes(t *testing.T) {
+	rr := &recordRouter{}
+	resp := &stubResponder{}
+	binding := &stubTranslationQueueBinding{}
+	ctx := &stubCtx{
+		router:    rr,
+		responder: resp,
+		basePath:  "/admin",
+		queue:     binding,
+	}
+
+	require.NoError(t, TranslationQueueRouteStep(ctx))
+	require.Len(t, rr.calls, 2)
+	methodPaths := map[string]bool{}
+	for _, call := range rr.calls {
+		methodPaths[call.method+" "+call.path] = true
+	}
+	require.True(t, methodPaths["GET "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.my_work")])
+	require.True(t, methodPaths["GET "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.queue")])
+
+	for _, call := range rr.calls {
+		require.NoError(t, call.handler(router.NewMockContext()))
+	}
+	require.Equal(t, 1, binding.myWorkCalled)
+	require.Equal(t, 1, binding.queueCalled)
 }
 
 func (s *stubSettingsBinding) Values(_ router.Context) (map[string]any, error) {

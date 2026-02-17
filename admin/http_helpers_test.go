@@ -262,6 +262,81 @@ func TestWriteErrorMapsTranslationMissingUnprocessableWhenFieldFailuresPresent(t
 	}
 }
 
+func TestWriteErrorMapsTranslationMissingIncludesMandatoryMetadataKeys(t *testing.T) {
+	server := router.NewHTTPServer()
+	server.Router().Post("/publish", func(c router.Context) error {
+		return writeError(c, MissingTranslationsError{
+			EntityType: "pages",
+			EntityID:   "page_123",
+		})
+	})
+
+	req := httptest.NewRequest("POST", "/publish", nil)
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != 409 {
+		t.Fatalf("expected 409, got %d", rr.Code)
+	}
+	var body map[string]any
+	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	errPayload, ok := body["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error payload, got %v", body)
+	}
+	meta, _ := errPayload["metadata"].(map[string]any)
+	if _, ok := meta["missing_locales"]; !ok {
+		t.Fatalf("expected missing_locales metadata key, got %v", meta)
+	}
+	locales, _ := meta["missing_locales"].([]any)
+	if len(locales) != 0 {
+		t.Fatalf("expected empty missing_locales, got %v", locales)
+	}
+	if transition, _ := meta["transition"].(string); transition != "unknown" {
+		t.Fatalf("expected transition fallback unknown, got %q", transition)
+	}
+	if _, ok := meta["missing_fields_by_locale"]; ok {
+		t.Fatalf("expected missing_fields_by_locale omitted when required-fields checks are disabled, got %v", meta["missing_fields_by_locale"])
+	}
+}
+
+func TestWriteErrorMapsTranslationMissingIncludesFieldMapWhenRequiredFieldChecksEnabled(t *testing.T) {
+	server := router.NewHTTPServer()
+	server.Router().Post("/publish", func(c router.Context) error {
+		return writeError(c, MissingTranslationsError{
+			EntityType:              "pages",
+			EntityID:                "page_123",
+			Transition:              "publish",
+			MissingLocales:          []string{"fr"},
+			RequiredFieldsEvaluated: true,
+		})
+	})
+
+	req := httptest.NewRequest("POST", "/publish", nil)
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != 409 {
+		t.Fatalf("expected 409, got %d", rr.Code)
+	}
+	var body map[string]any
+	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	errPayload, ok := body["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error payload, got %v", body)
+	}
+	meta, _ := errPayload["metadata"].(map[string]any)
+	rawFields, ok := meta["missing_fields_by_locale"]
+	if !ok {
+		t.Fatalf("expected missing_fields_by_locale key when required-fields checks are enabled, got %v", meta)
+	}
+	fields, ok := rawFields.(map[string]any)
+	if !ok {
+		t.Fatalf("expected missing_fields_by_locale object, got %T", rawFields)
+	}
+	if len(fields) != 0 {
+		t.Fatalf("expected empty missing_fields_by_locale object when no field data is available, got %v", fields)
+	}
+}
+
 func TestWriteErrorMapsTranslationAlreadyExists(t *testing.T) {
 	server := router.NewHTTPServer()
 	server.Router().Post("/translate", func(c router.Context) error {
@@ -291,6 +366,42 @@ func TestWriteErrorMapsTranslationAlreadyExists(t *testing.T) {
 	meta, _ := errPayload["metadata"].(map[string]any)
 	if meta["locale"] != "es" || meta["translation_group_id"] != "tg_123" {
 		t.Fatalf("expected locale/group metadata, got %v", meta)
+	}
+}
+
+func TestWriteErrorMapsAutosaveConflict(t *testing.T) {
+	server := router.NewHTTPServer()
+	server.Router().Post("/autosave", func(c router.Context) error {
+		return writeError(c, AutosaveConflictError{
+			Panel:           "posts",
+			EntityID:        "post_123",
+			Version:         "2",
+			ExpectedVersion: "1",
+			LatestStatePath: "/admin/api/posts/post_123",
+		})
+	})
+
+	req := httptest.NewRequest("POST", "/autosave", nil)
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != 409 {
+		t.Fatalf("expected 409, got %d", rr.Code)
+	}
+	var body map[string]any
+	_ = json.Unmarshal(rr.Body.Bytes(), &body)
+	errPayload, ok := body["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error payload, got %v", body)
+	}
+	if errPayload["text_code"] != TextCodeAutosaveConflict {
+		t.Fatalf("expected %s, got %v", TextCodeAutosaveConflict, errPayload["text_code"])
+	}
+	meta, _ := errPayload["metadata"].(map[string]any)
+	if meta["version"] != "2" || meta["expected_version"] != "1" {
+		t.Fatalf("expected autosave version metadata, got %v", meta)
+	}
+	if meta["latest_server_state"] != "/admin/api/posts/post_123" {
+		t.Fatalf("expected latest server state pointer, got %v", meta["latest_server_state"])
 	}
 }
 
