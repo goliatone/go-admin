@@ -419,136 +419,167 @@ func (m *inMemoryMetrics) Snapshot() MetricsSnapshot {
 	}
 }
 
-var defaultMetrics Metrics = newInMemoryMetrics()
+var (
+	defaultMetricsMu sync.RWMutex
+	defaultMetrics   Metrics = newInMemoryMetrics()
+)
+
+func currentMetrics() Metrics {
+	defaultMetricsMu.RLock()
+	metrics := defaultMetrics
+	defaultMetricsMu.RUnlock()
+	return metrics
+}
 
 func SetMetrics(metrics Metrics) {
 	if metrics == nil {
 		return
 	}
+	defaultMetricsMu.Lock()
 	defaultMetrics = metrics
+	defaultMetricsMu.Unlock()
 }
 
 func ResetDefaultMetrics() {
+	defaultMetricsMu.Lock()
 	defaultMetrics = newInMemoryMetrics()
+	defaultMetricsMu.Unlock()
 }
 
 func Snapshot() MetricsSnapshot {
-	if defaultMetrics == nil {
+	metrics := currentMetrics()
+	if metrics == nil {
 		return MetricsSnapshot{}
 	}
-	return defaultMetrics.Snapshot()
+	return metrics.Snapshot()
 }
 
 func ObserveAdminRead(ctx context.Context, duration time.Duration, success bool, endpoint string) {
-	if defaultMetrics == nil {
+	metrics := currentMetrics()
+	if metrics == nil {
 		return
 	}
-	defaultMetrics.ObserveAdminRead(ctx, duration, success, endpoint)
+	metrics.ObserveAdminRead(ctx, duration, success, endpoint)
 }
 
 func ObserveSend(ctx context.Context, duration time.Duration, success bool) {
-	if defaultMetrics == nil {
+	metrics := currentMetrics()
+	if metrics == nil {
 		return
 	}
-	defaultMetrics.ObserveSend(ctx, duration, success)
+	metrics.ObserveSend(ctx, duration, success)
 }
 
 func ObserveSignerLinkOpen(ctx context.Context, success bool) {
-	if defaultMetrics == nil {
+	metrics := currentMetrics()
+	if metrics == nil {
 		return
 	}
-	defaultMetrics.ObserveSignerLinkOpen(ctx, success)
+	metrics.ObserveSignerLinkOpen(ctx, success)
 }
 
 func ObserveUnifiedViewerLoad(ctx context.Context, duration time.Duration, success bool) {
-	if defaultMetrics == nil {
+	metrics := currentMetrics()
+	if metrics == nil {
 		return
 	}
-	defaultMetrics.ObserveUnifiedViewerLoad(ctx, duration, success)
+	metrics.ObserveUnifiedViewerLoad(ctx, duration, success)
 }
 
 func ObserveUnifiedFieldSave(ctx context.Context, duration time.Duration, success bool) {
-	if defaultMetrics == nil {
+	metrics := currentMetrics()
+	if metrics == nil {
 		return
 	}
-	defaultMetrics.ObserveUnifiedFieldSave(ctx, duration, success)
+	metrics.ObserveUnifiedFieldSave(ctx, duration, success)
 }
 
 func ObserveUnifiedSignatureAttach(ctx context.Context, duration time.Duration, success bool) {
-	if defaultMetrics == nil {
+	metrics := currentMetrics()
+	if metrics == nil {
 		return
 	}
-	defaultMetrics.ObserveUnifiedSignatureAttach(ctx, duration, success)
+	metrics.ObserveUnifiedSignatureAttach(ctx, duration, success)
 }
 
 func ObserveUnifiedSubmitConversion(ctx context.Context, success bool) {
-	if defaultMetrics == nil {
+	metrics := currentMetrics()
+	if metrics == nil {
 		return
 	}
-	defaultMetrics.ObserveUnifiedSubmitConversion(ctx, success)
+	metrics.ObserveUnifiedSubmitConversion(ctx, success)
 }
 
 func ObserveSignerSubmit(ctx context.Context, duration time.Duration, success bool) {
-	if defaultMetrics == nil {
+	metrics := currentMetrics()
+	if metrics == nil {
 		return
 	}
-	defaultMetrics.ObserveSignerSubmit(ctx, duration, success)
+	metrics.ObserveSignerSubmit(ctx, duration, success)
 }
 
 func ObserveFinalize(ctx context.Context, duration time.Duration, success bool) {
-	if defaultMetrics == nil {
+	metrics := currentMetrics()
+	if metrics == nil {
 		return
 	}
-	defaultMetrics.ObserveFinalize(ctx, duration, success)
+	metrics.ObserveFinalize(ctx, duration, success)
 }
 
 func ObserveEmailDispatchStart(ctx context.Context, duration time.Duration, success bool) {
-	if defaultMetrics == nil {
+	metrics := currentMetrics()
+	if metrics == nil {
 		return
 	}
-	defaultMetrics.ObserveEmailDispatchStart(ctx, duration, success)
+	metrics.ObserveEmailDispatchStart(ctx, duration, success)
 }
 
 func ObserveCompletionDelivery(ctx context.Context, success bool) {
-	if defaultMetrics == nil {
+	metrics := currentMetrics()
+	if metrics == nil {
 		return
 	}
-	defaultMetrics.ObserveCompletionDelivery(ctx, success)
+	metrics.ObserveCompletionDelivery(ctx, success)
 }
 
 func ObserveJobResult(ctx context.Context, jobName string, success bool) {
-	if defaultMetrics == nil {
+	metrics := currentMetrics()
+	if metrics == nil {
 		return
 	}
-	defaultMetrics.ObserveJobResult(ctx, jobName, success)
+	metrics.ObserveJobResult(ctx, jobName, success)
 }
 
 func ObserveProviderResult(ctx context.Context, provider string, success bool) {
-	if defaultMetrics == nil {
+	metrics := currentMetrics()
+	if metrics == nil {
 		return
 	}
-	defaultMetrics.ObserveProviderResult(ctx, provider, success)
+	metrics.ObserveProviderResult(ctx, provider, success)
 }
 
 func ObserveTokenValidationFailure(ctx context.Context, reason string) {
-	if defaultMetrics == nil {
+	metrics := currentMetrics()
+	if metrics == nil {
 		return
 	}
-	defaultMetrics.ObserveTokenValidationFailure(ctx, reason)
+	metrics.ObserveTokenValidationFailure(ctx, reason)
 }
 
 func ObserveGoogleImport(ctx context.Context, success bool, reason string) {
-	if defaultMetrics == nil {
+	metrics := currentMetrics()
+	if metrics == nil {
 		return
 	}
-	defaultMetrics.ObserveGoogleImport(ctx, success, reason)
+	metrics.ObserveGoogleImport(ctx, success, reason)
 }
 
 func ObserveGoogleAuthChurn(ctx context.Context, reason string) {
-	if defaultMetrics == nil {
+	metrics := currentMetrics()
+	if metrics == nil {
 		return
 	}
-	defaultMetrics.ObserveGoogleAuthChurn(ctx, reason)
+	metrics.ObserveGoogleAuthChurn(ctx, reason)
 }
 
 func appendDurationMS(dst []float64, duration time.Duration) []float64 {

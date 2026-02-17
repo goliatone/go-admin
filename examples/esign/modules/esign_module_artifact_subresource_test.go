@@ -325,6 +325,7 @@ func setupESignModuleArtifactSubresourceTest(t *testing.T, authz coreadmin.Autho
 	}
 
 	module := NewESignModule(cfg.BasePath, cfg.DefaultLocale, cfg.NavMenuCode).WithUploadDir(t.TempDir())
+	t.Cleanup(module.Close)
 	if err := adm.RegisterModule(module); err != nil {
 		t.Fatalf("RegisterModule: %v", err)
 	}

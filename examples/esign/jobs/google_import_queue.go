@@ -3,6 +3,7 @@ package jobs
 import (
 	"context"
 	"errors"
+	"sync"
 )
 
 const (
@@ -14,9 +15,11 @@ var errGoogleImportQueueClosed = errors.New("google import queue closed")
 
 // GoogleDriveImportQueue provides an in-process async queue for google drive import jobs.
 type GoogleDriveImportQueue struct {
-	handlers Handlers
-	queue    chan GoogleDriveImportMsg
-	closed   chan struct{}
+	handlers  Handlers
+	queue     chan GoogleDriveImportMsg
+	closed    chan struct{}
+	closeOnce sync.Once
+	workers   sync.WaitGroup
 }
 
 // NewGoogleDriveImportQueue starts a bounded worker queue backed by ExecuteGoogleDriveImport.
@@ -30,6 +33,7 @@ func NewGoogleDriveImportQueue(handlers Handlers) (*GoogleDriveImportQueue, erro
 		closed:   make(chan struct{}),
 	}
 	for i := 0; i < defaultGoogleImportQueueWorkers; i++ {
+		q.workers.Add(1)
 		go q.worker()
 	}
 	return q, nil
@@ -63,15 +67,14 @@ func (q *GoogleDriveImportQueue) Close() {
 	if q == nil {
 		return
 	}
-	select {
-	case <-q.closed:
-		return
-	default:
+	q.closeOnce.Do(func() {
 		close(q.closed)
-	}
+	})
+	q.workers.Wait()
 }
 
 func (q *GoogleDriveImportQueue) worker() {
+	defer q.workers.Done()
 	for {
 		select {
 		case <-q.closed:

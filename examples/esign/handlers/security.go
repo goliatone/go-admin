@@ -760,15 +760,15 @@ func textCode(err error) string {
 
 func resolveAPIRequestID(c router.Context, coded *goerrors.Error) string {
 	if coded != nil && strings.TrimSpace(coded.RequestID) != "" {
-		return strings.TrimSpace(coded.RequestID)
+		return stableString(coded.RequestID)
 	}
 	if c == nil {
 		return ""
 	}
-	if requestID := strings.TrimSpace(c.Header("X-Request-ID")); requestID != "" {
+	if requestID := stableString(c.Header("X-Request-ID")); requestID != "" {
 		return requestID
 	}
-	if correlationID := strings.TrimSpace(c.Header("X-Correlation-ID")); correlationID != "" {
+	if correlationID := stableString(c.Header("X-Correlation-ID")); correlationID != "" {
 		return correlationID
 	}
 	return apiCorrelationID(c, "request")
@@ -803,16 +803,16 @@ func defaultScopeResolver(c router.Context, fallback stores.Scope) stores.Scope 
 	if c == nil {
 		return scope
 	}
-	tenantID := strings.TrimSpace(c.Query("tenant_id"))
+	tenantID := stableString(c.Query("tenant_id"))
 	if tenantID == "" {
-		tenantID = strings.TrimSpace(c.Header("X-Tenant-ID"))
+		tenantID = stableString(c.Header("X-Tenant-ID"))
 	}
 	if tenantID != "" {
 		scope.TenantID = tenantID
 	}
-	orgID := strings.TrimSpace(c.Query("org_id"))
+	orgID := stableString(c.Query("org_id"))
 	if orgID == "" {
-		orgID = strings.TrimSpace(c.Header("X-Org-ID"))
+		orgID = stableString(c.Header("X-Org-ID"))
 	}
 	if orgID != "" {
 		scope.OrgID = orgID
@@ -825,7 +825,15 @@ func defaultActorScopeResolver(c router.Context) stores.Scope {
 		return stores.Scope{}
 	}
 	return stores.Scope{
-		TenantID: strings.TrimSpace(c.Header("X-Actor-Tenant-ID")),
-		OrgID:    strings.TrimSpace(c.Header("X-Actor-Org-ID")),
+		TenantID: stableString(c.Header("X-Actor-Tenant-ID")),
+		OrgID:    stableString(c.Header("X-Actor-Org-ID")),
 	}
+}
+
+func stableString(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+	return strings.Clone(value)
 }
