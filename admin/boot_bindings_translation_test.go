@@ -808,12 +808,19 @@ func TestPanelBindingListIncludesRowActionStateFromWorkflowAvailability(t *testi
 	c := router.NewMockContext()
 	c.On("Context").Return(context.Background())
 
-	records, total, _, _, err := binding.List(c, "en", boot.ListOptions{Page: 1, PerPage: 10})
+	records, total, schemaAny, _, err := binding.List(c, "en", boot.ListOptions{Page: 1, PerPage: 10})
 	if err != nil {
 		t.Fatalf("list failed: %v", err)
 	}
 	if total != 1 || len(records) != 1 {
 		t.Fatalf("expected one record, got total=%d len=%d", total, len(records))
+	}
+	schema, ok := schemaAny.(Schema)
+	if !ok {
+		t.Fatalf("expected schema payload, got %T", schemaAny)
+	}
+	if len(schema.Actions) != 5 {
+		t.Fatalf("expected 5 row actions, got %+v", schema.Actions)
 	}
 
 	rawState, ok := records[0]["_action_state"]
@@ -825,20 +832,39 @@ func TestPanelBindingListIncludesRowActionStateFromWorkflowAvailability(t *testi
 		t.Fatalf("expected map[string]map[string]any action state, got %#v", rawState)
 	}
 
+	for _, action := range schema.Actions {
+		entry, exists := state[action.Name]
+		if !exists {
+			t.Fatalf("expected _action_state entry for action %q, got %+v", action.Name, state)
+		}
+		enabled, enabledOK := entry["enabled"].(bool)
+		if !enabledOK {
+			t.Fatalf("expected enabled bool for action %q, got %+v", action.Name, entry["enabled"])
+		}
+		if !enabled {
+			if strings.TrimSpace(toString(entry["reason"])) == "" {
+				t.Fatalf("expected disabled reason for action %q, got %+v", action.Name, entry)
+			}
+			if strings.TrimSpace(toString(entry["reason_code"])) == "" {
+				t.Fatalf("expected disabled reason_code for action %q, got %+v", action.Name, entry)
+			}
+		}
+	}
+
 	submitState := state["submit_for_approval"]
 	if enabled, _ := submitState["enabled"].(bool); enabled {
 		t.Fatalf("expected submit_for_approval disabled, got %#v", submitState)
 	}
-	if toString(submitState["reason_code"]) != "workflow_transition_not_available" {
-		t.Fatalf("expected workflow_transition_not_available, got %#v", submitState["reason_code"])
+	if toString(submitState["reason_code"]) != ActionDisabledReasonCodeInvalidStatus {
+		t.Fatalf("expected %s, got %#v", ActionDisabledReasonCodeInvalidStatus, submitState["reason_code"])
 	}
 
 	publishState := state["publish"]
 	if enabled, _ := publishState["enabled"].(bool); enabled {
 		t.Fatalf("expected publish disabled, got %#v", publishState)
 	}
-	if toString(publishState["reason_code"]) != "workflow_transition_not_available" {
-		t.Fatalf("expected workflow_transition_not_available, got %#v", publishState["reason_code"])
+	if toString(publishState["reason_code"]) != ActionDisabledReasonCodeInvalidStatus {
+		t.Fatalf("expected %s, got %#v", ActionDisabledReasonCodeInvalidStatus, publishState["reason_code"])
 	}
 
 	unpublishState := state["unpublish"]
@@ -851,6 +877,73 @@ func TestPanelBindingListIncludesRowActionStateFromWorkflowAvailability(t *testi
 	}
 	if len(available) != 1 || available[0] != "unpublish" {
 		t.Fatalf("expected [unpublish], got %#v", available)
+	}
+}
+
+func TestPanelBindingListSetsTranslationMissingReasonCodeForBlockedPublish(t *testing.T) {
+	repo := &translationActionRepoStub{
+		list: []map[string]any{
+			{
+				"id":                   "post_123",
+				"title":                "Published Post",
+				"status":               "approval",
+				"locale":               "en",
+				"translation_group_id": "tg_123",
+				"available_locales":    []string{"en"},
+			},
+		},
+	}
+	panel := &Panel{
+		name: "posts",
+		repo: repo,
+		translationPolicy: readinessPolicyStub{
+			ok: true,
+			req: TranslationRequirements{
+				Locales: []string{"en", "es"},
+			},
+		},
+		workflow: translationWorkflowStateStub{
+			transitionsByState: map[string][]WorkflowTransition{
+				"approval": {{Name: "publish", To: "published"}},
+			},
+		},
+		actions: []Action{
+			{Name: "publish"},
+		},
+	}
+	binding := &panelBinding{
+		admin: &Admin{config: Config{DefaultLocale: "en"}},
+		name:  "posts",
+		panel: panel,
+	}
+	c := router.NewMockContext()
+	c.On("Context").Return(context.Background())
+
+	records, total, _, _, err := binding.List(c, "en", boot.ListOptions{Page: 1, PerPage: 10})
+	if err != nil {
+		t.Fatalf("list failed: %v", err)
+	}
+	if total != 1 || len(records) != 1 {
+		t.Fatalf("expected one record, got total=%d len=%d", total, len(records))
+	}
+
+	rawState, ok := records[0]["_action_state"]
+	if !ok {
+		t.Fatalf("expected _action_state on record")
+	}
+	state, ok := rawState.(map[string]map[string]any)
+	if !ok {
+		t.Fatalf("expected map[string]map[string]any action state, got %#v", rawState)
+	}
+	publishState := state["publish"]
+	if enabled, _ := publishState["enabled"].(bool); enabled {
+		t.Fatalf("expected publish disabled by readiness, got %#v", publishState)
+	}
+	if toString(publishState["reason_code"]) != ActionDisabledReasonCodeTranslationMissing {
+		t.Fatalf("expected %s, got %#v", ActionDisabledReasonCodeTranslationMissing, publishState["reason_code"])
+	}
+	if reason := strings.TrimSpace(toString(publishState["reason"])); !strings.Contains(reason, "ES") {
+		t.Fatalf("expected locale details in reason, got %q", reason)
 	}
 }
 

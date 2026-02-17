@@ -95,6 +95,9 @@ func TestPagesAndPostsPanelsExposeCreateTranslationPayloadContract(t *testing.T)
 			if !ok {
 				t.Fatalf("expected payload_schema.properties, got %+v", action.PayloadSchema)
 			}
+			if _, exists := properties["available_locales"]; exists {
+				t.Fatalf("expected create_translation payload schema to use missing_locales, not available_locales")
+			}
 			localeSchema, ok := properties["locale"].(map[string]any)
 			if !ok {
 				t.Fatalf("expected locale schema, got %+v", properties["locale"])
@@ -109,6 +112,16 @@ func TestPagesAndPostsPanelsExposeCreateTranslationPayloadContract(t *testing.T)
 			options, ok := localeSchema["x-options"].([]map[string]any)
 			if !ok || len(options) != 3 {
 				t.Fatalf("expected locale x-options, got %+v", localeSchema["x-options"])
+			}
+			for _, field := range []string{
+				"missing_locales",
+				"existing_locales",
+				"recommended_locale",
+				"required_for_publish",
+			} {
+				if _, exists := properties[field]; !exists {
+					t.Fatalf("expected create_translation payload schema to include %q", field)
+				}
 			}
 		})
 	}
@@ -151,6 +164,9 @@ func TestPagesAndPostsPanelsExposeTranslationWorkflowActions(t *testing.T) {
 				}
 				if strings.TrimSpace(action.Label) == "" {
 					t.Fatalf("expected %q action label to be non-empty", name)
+				}
+				if action.Order <= 0 {
+					t.Fatalf("expected %q action to include server order, got %+v", name, action)
 				}
 			}
 
