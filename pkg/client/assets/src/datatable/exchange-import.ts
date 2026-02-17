@@ -22,9 +22,10 @@ import type {
 // ============================================================================
 
 /**
- * Conflict resolution strategy
+ * Conflict resolution strategy for import rows
+ * (Named ImportConflictResolution to avoid collision with autosave-indicator's ConflictResolution)
  */
-export type ConflictResolution = 'skip' | 'keep_current' | 'accept_incoming' | 'force';
+export type ImportConflictResolution = 'skip' | 'keep_current' | 'accept_incoming' | 'force';
 
 /**
  * Row selection state
@@ -40,7 +41,7 @@ export interface RowSelectionState {
  */
 export interface ImportPreviewRow extends ExchangeRowResult {
   isSelected: boolean;
-  resolution?: ConflictResolution;
+  resolution?: ImportConflictResolution;
 }
 
 /**
@@ -151,6 +152,19 @@ const DEFAULT_LABELS: ImportLabels = {
   dryRun: 'Dry run (preview only)',
 };
 
+/**
+ * Resolved config with labels fully typed (merged with defaults)
+ */
+interface ResolvedExchangeImportConfig {
+  validateEndpoint: string;
+  applyEndpoint: string;
+  capabilityGate?: CapabilityGate;
+  onValidationComplete?: (result: ExchangeImportResult) => void;
+  onApplyComplete?: (result: ExchangeImportResult) => void;
+  onError?: (error: Error) => void;
+  labels: ImportLabels;
+}
+
 // ============================================================================
 // ExchangeImport Class
 // ============================================================================
@@ -159,8 +173,7 @@ const DEFAULT_LABELS: ImportLabels = {
  * Exchange Import component
  */
 export class ExchangeImport {
-  private config: Required<Omit<ExchangeImportConfig, 'capabilityGate' | 'onValidationComplete' | 'onApplyComplete' | 'onError'>> &
-    Pick<ExchangeImportConfig, 'capabilityGate' | 'onValidationComplete' | 'onApplyComplete' | 'onError'>;
+  private config: ResolvedExchangeImportConfig;
   private container: HTMLElement | null = null;
   private state: ImportPreviewState = 'idle';
   private validationResult: ExchangeImportResult | null = null;
@@ -434,7 +447,7 @@ export class ExchangeImport {
   /**
    * Set resolution for a row
    */
-  setRowResolution(index: number, resolution: ConflictResolution): void {
+  setRowResolution(index: number, resolution: ImportConflictResolution): void {
     const row = this.previewRows.find(r => r.index === index);
     if (row) {
       row.resolution = resolution;
@@ -803,7 +816,7 @@ export class ExchangeImport {
       select.addEventListener('change', () => {
         const index = parseInt(select.dataset.index || '', 10);
         if (!isNaN(index)) {
-          this.setRowResolution(index, select.value as ConflictResolution);
+          this.setRowResolution(index, select.value as ImportConflictResolution);
         }
       });
     });

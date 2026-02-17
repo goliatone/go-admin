@@ -12,6 +12,7 @@ export type ActionVariant = 'primary' | 'secondary' | 'danger' | 'success' | 'wa
 export type ActionRenderMode = 'inline' | 'dropdown';
 
 export interface ActionButton {
+  id?: string;
   label: string;
   icon?: string;
   action: (record: any) => void | Promise<void>;
@@ -272,11 +273,15 @@ export class ActionRenderer {
   private actionBasePath: string;
   private mode: ActionRenderMode;
   private notifier: ToastNotifier;
+  private actionKeys: WeakMap<ActionButton, string>;
+  private actionKeySeq: number;
 
   constructor(config: ActionRendererConfig = {}) {
     this.actionBasePath = config.actionBasePath || '';
     this.mode = config.mode || 'dropdown';  // Default to dropdown
     this.notifier = config.notifier || new FallbackNotifier();
+    this.actionKeys = new WeakMap<ActionButton, string>();
+    this.actionKeySeq = 0;
   }
 
   /**
@@ -301,6 +306,7 @@ export class ActionRenderer {
       const icon = action.icon ? this.renderIcon(action.icon) : '';
       const customClass = action.className || '';
       const disabled = action.disabled === true;
+      const actionKey = this.getActionKey(action);
       const disabledClass = disabled ? 'opacity-50 cursor-not-allowed' : '';
       // Use aria-disabled instead of disabled to keep element focusable for accessibility
       const ariaDisabledAttr = disabled ? 'aria-disabled="true"' : '';
@@ -313,6 +319,7 @@ export class ActionRenderer {
           type="button"
           class="btn btn-sm ${variantClass} ${customClass} ${disabledClass}"
           data-action-id="${this.sanitize(action.label)}"
+          data-action-key="${actionKey}"
           data-record-id="${record.id}"
           data-disabled="${disabled}"
           ${ariaDisabledAttr}
@@ -370,6 +377,7 @@ export class ActionRenderer {
     return actions.map((action, index) => {
       const isDestructive = action.variant === 'danger';
       const disabled = action.disabled === true;
+      const actionKey = this.getActionKey(action);
       const icon = action.icon ? this.renderIcon(action.icon) : '';
       const needsDivider = this.shouldShowDivider(action, index, actions);
 
@@ -393,6 +401,7 @@ export class ActionRenderer {
         <button type="button"
                 class="${itemClass} flex items-center gap-3 w-full px-4 py-2.5 transition-colors"
                 data-action-id="${this.sanitize(action.label)}"
+                data-action-key="${actionKey}"
                 data-record-id="${record.id}"
                 data-disabled="${disabled}"
                 role="menuitem"
@@ -452,8 +461,9 @@ export class ActionRenderer {
     records: Record<string, any>
   ): void {
     actions.forEach(action => {
+      const actionKey = this.getActionKey(action);
       const buttons = container.querySelectorAll(
-        `[data-action-id="${this.sanitize(action.label)}"]`
+        `[data-action-key="${actionKey}"]`
       );
 
       buttons.forEach((button) => {
@@ -895,6 +905,18 @@ export class ActionRenderer {
       'user-badge': '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>',
     };
     return icons[icon] || '';
+  }
+
+  private getActionKey(action: ActionButton): string {
+    const existing = this.actionKeys.get(action);
+    if (existing) {
+      return existing;
+    }
+
+    const configuredID = typeof action.id === 'string' ? action.id.trim() : '';
+    const key = configuredID ? `id-${this.sanitize(configuredID)}` : `auto-${++this.actionKeySeq}`;
+    this.actionKeys.set(action, key);
+    return key;
   }
 
   private sanitize(str: string): string {

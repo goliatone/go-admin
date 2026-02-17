@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 
 // Import the schema actions from dist output (bundled into datatable/index.js)
 const {
@@ -29,6 +30,12 @@ function createBuilder(overrides = {}) {
     useDefaultFallback: true,
     ...overrides,
   });
+}
+
+async function loadTranslationPhase1Fixture(panel) {
+  const fixtureURL = new URL(`./fixtures/translation_phase1/${panel}_list_contract.json`, import.meta.url);
+  const raw = await readFile(fixtureURL, 'utf8');
+  return JSON.parse(raw);
 }
 
 // =============================================================================
@@ -1208,4 +1215,88 @@ test('actions with same order use insertion order as tie-breaker', () => {
   assert.equal(actions[0].label, 'Alpha');
   assert.equal(actions[1].label, 'Beta');
   assert.equal(actions[2].label, 'Gamma');
+});
+
+// =============================================================================
+// Fixture-Driven Contract Tests (TX-031)
+// =============================================================================
+
+test('fixture contract: schema action order is server-authoritative for pages/posts/news', async () => {
+  for (const panel of ['pages', 'posts', 'news']) {
+    const fixture = await loadTranslationPhase1Fixture(panel);
+    const schemaActions = extractSchemaActions(fixture);
+    const record = fixture?.data?.[0];
+    assert.ok(record, `fixture record missing for ${panel}`);
+
+    const builder = new SchemaActionBuilder({
+      apiEndpoint: `/admin/api/${panel}`,
+      actionBasePath: `/admin/content/${panel}`,
+      useDefaultFallback: true,
+    });
+
+    const built = builder.buildRowActions(record, schemaActions);
+
+    const expectedOrder = [...schemaActions]
+      .sort((a, b) => (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER))
+      .map((action) => String(action.name));
+    const actualOrder = built.map((action) => String(action.id || '').trim()).filter(Boolean);
+
+    assert.deepEqual(
+      actualOrder,
+      expectedOrder,
+      `server order mismatch for ${panel}: expected ${expectedOrder.join(', ')}, got ${actualOrder.join(', ')}`
+    );
+  }
+});
+
+test('fixture contract: create_translation payload schema exposes canonical locale keys', async () => {
+  for (const panel of ['pages', 'posts', 'news']) {
+    const fixture = await loadTranslationPhase1Fixture(panel);
+    const schemaActions = extractSchemaActions(fixture);
+    const createAction = schemaActions.find((action) => action.name === 'create_translation');
+
+    assert.ok(createAction, `missing create_translation schema action for ${panel}`);
+    const properties = createAction?.payload_schema?.properties || {};
+
+    assert.ok(properties.missing_locales, `missing_locales missing for ${panel}`);
+    assert.ok(properties.existing_locales, `existing_locales missing for ${panel}`);
+    assert.ok(properties.recommended_locale, `recommended_locale missing for ${panel}`);
+    assert.ok(properties.required_for_publish, `required_for_publish missing for ${panel}`);
+    assert.equal(
+      Object.prototype.hasOwnProperty.call(properties, 'available_locales'),
+      false,
+      `available_locales should not be present for ${panel}`
+    );
+  }
+});
+
+test('fixture contract: disabled actions provide reason and reason_code', async () => {
+  for (const panel of ['pages', 'posts', 'news']) {
+    const fixture = await loadTranslationPhase1Fixture(panel);
+    const schemaActions = extractSchemaActions(fixture);
+    const record = fixture?.data?.[0];
+    assert.ok(record, `fixture record missing for ${panel}`);
+
+    const actionState = record._action_state || {};
+
+    for (const action of schemaActions) {
+      const state = actionState[action.name];
+      assert.ok(state && typeof state === 'object', `_action_state missing for ${panel}.${action.name}`);
+      assert.equal(
+        typeof state.enabled,
+        'boolean',
+        `_action_state.enabled must be boolean for ${panel}.${action.name}`
+      );
+      if (state.enabled === false) {
+        assert.ok(
+          typeof state.reason === 'string' && state.reason.trim().length > 0,
+          `disabled action must include reason for ${panel}.${action.name}`
+        );
+        assert.ok(
+          typeof state.reason_code === 'string' && state.reason_code.trim().length > 0,
+          `disabled action must include reason_code for ${panel}.${action.name}`
+        );
+      }
+    }
+  }
 });

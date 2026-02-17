@@ -51,4 +51,10 @@ export { CapabilityGate, parseCapabilityMode, isExchangeEnabled, isQueueEnabled,
 export type { CapabilityMode, ActionState, ModuleState, RouteConfig, TranslationCapabilities, GateResult, NavItemGate } from './capability-gate.js';
 export { TranslatorDashboard, createTranslatorDashboard, initTranslatorDashboard, getTranslatorDashboardStyles, DEFAULT_FILTER_PRESETS } from './translator-dashboard.js';
 export type { DueState, QueueState, ContentState, AssignmentPriority, ReviewActionState, TranslationAssignment, MyWorkResponse, QueueResponse, FilterPreset, DashboardState, TranslatorDashboardConfig, DashboardLabels } from './translator-dashboard.js';
+export { ExchangeImport, createExchangeImport, initExchangeImport, getExchangeImportStyles } from './exchange-import.js';
+export type { ImportConflictResolution, RowSelectionState, ImportPreviewRow, ImportPreviewState, ImportApplyOptions, ExchangeImportConfig, ImportLabels } from './exchange-import.js';
+export { AsyncProgress, createAsyncProgress, initAsyncProgress, checkForPersistedJob, getAsyncProgressStyles } from './async-progress.js';
+export type { JobStatus, PollingState, JobProgress, ConflictSummary, AsyncJobEnvelope, PersistedJobState, AsyncProgressConfig, AsyncProgressLabels } from './async-progress.js';
+export { SideBySideEditor, createSideBySideEditor, initSideBySideEditorFromRecord, extractSourceTargetDrift, hasFieldDrift, getChangedFields, getSideBySideEditorStyles, DEFAULT_SIDE_BY_SIDE_LABELS } from './side-by-side-editor.js';
+export type { SourceTargetDrift, SideBySideField, SideBySideEditorConfig, SideBySideLabels } from './side-by-side-editor.js';
 //# sourceMappingURL=index.d.ts.map

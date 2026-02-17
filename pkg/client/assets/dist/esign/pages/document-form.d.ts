@@ -37,6 +37,7 @@ export declare class DocumentFormController {
     private pollTimeout;
     private pollAttempts;
     private currentImportRunId;
+    private connectedAccounts;
     private readonly elements;
     constructor(config: DocumentFormConfig);
     /**
@@ -67,6 +68,18 @@ export declare class DocumentFormController {
      * Normalize account ID
      */
     private normalizeAccountId;
+    /**
+     * Set current account ID and optionally refresh Drive files
+     */
+    private setCurrentAccountId;
+    /**
+     * Load connected accounts for account selector
+     */
+    private loadConnectedAccounts;
+    /**
+     * Render account selector options
+     */
+    private renderConnectedAccountsDropdown;
     /**
      * Sync account ID to URL and localStorage
      */

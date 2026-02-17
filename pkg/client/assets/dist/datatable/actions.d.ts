@@ -6,6 +6,7 @@ import type { ToastNotifier } from '../toast/types.js';
 export type ActionVariant = 'primary' | 'secondary' | 'danger' | 'success' | 'warning';
 export type ActionRenderMode = 'inline' | 'dropdown';
 export interface ActionButton {
+    id?: string;
     label: string;
     icon?: string;
     action: (record: any) => void | Promise<void>;
@@ -38,6 +39,8 @@ export declare class ActionRenderer {
     private actionBasePath;
     private mode;
     private notifier;
+    private actionKeys;
+    private actionKeySeq;
     constructor(config?: ActionRendererConfig);
     /**
      * Render row actions as HTML
@@ -88,6 +91,7 @@ export declare class ActionRenderer {
     private buildBulkSuccessMessage;
     private getVariantClass;
     private renderIcon;
+    private getActionKey;
     private sanitize;
     private escapeHtml;
 }

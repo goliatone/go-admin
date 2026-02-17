@@ -40,6 +40,14 @@ export declare class GoogleIntegrationController {
      */
     private setCurrentAccountId;
     /**
+     * Resolve account ID for "connect new account" flow
+     */
+    private resolveNewAccountId;
+    /**
+     * Start OAuth flow using a new/manual account ID
+     */
+    private startOAuthFlowForNewAccount;
+    /**
      * Update UI elements related to account scope
      */
     private updateAccountScopeUI;
