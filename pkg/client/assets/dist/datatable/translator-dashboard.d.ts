@@ -218,6 +218,8 @@ export declare class TranslatorDashboard {
     private renderAssignmentRow;
     private renderAssignmentActions;
     private attachEventListeners;
+    private openAssignment;
+    private buildAssignmentEditURL;
 }
 /**
  * Get CSS styles for translator dashboard

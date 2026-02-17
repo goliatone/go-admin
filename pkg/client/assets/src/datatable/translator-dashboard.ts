@@ -605,6 +605,7 @@ export class TranslatorDashboard {
   private renderAssignmentActions(assignment: TranslationAssignment): string {
     const labels = this.config.labels;
     const actions: string[] = [];
+    const hasActionHandler = typeof this.config.onActionClick === 'function';
 
     // Open action
     actions.push(`
@@ -619,7 +620,7 @@ export class TranslatorDashboard {
     // Review actions based on state and permissions
     const reviewActions = assignment.review_actions;
 
-    if (assignment.queue_state === 'in_progress' && reviewActions.submit_review.enabled) {
+    if (hasActionHandler && assignment.queue_state === 'in_progress' && reviewActions.submit_review.enabled) {
       actions.push(`
         <button type="button" class="action-btn submit-review-btn" data-action="submit_review" title="${escapeAttr(labels.submitForReview)}">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
@@ -629,7 +630,7 @@ export class TranslatorDashboard {
       `);
     }
 
-    if (assignment.queue_state === 'review') {
+    if (hasActionHandler && assignment.queue_state === 'review') {
       if (reviewActions.approve.enabled) {
         actions.push(`
           <button type="button" class="action-btn approve-btn" data-action="approve" title="${escapeAttr(labels.approve)}">
@@ -694,16 +695,18 @@ export class TranslatorDashboard {
           if (!action) return;
 
           if (action === 'open') {
-            this.config.onAssignmentClick?.(assignment);
+            this.openAssignment(assignment);
           } else {
-            await this.config.onActionClick?.(action, assignment);
+            if (typeof this.config.onActionClick === 'function') {
+              await this.config.onActionClick(action, assignment);
+            }
           }
         });
       });
 
       // Row click (open assignment)
       row.addEventListener('click', () => {
-        this.config.onAssignmentClick?.(assignment);
+        this.openAssignment(assignment);
       });
     });
 
@@ -721,6 +724,31 @@ export class TranslatorDashboard {
         }
       });
     });
+  }
+
+  private openAssignment(assignment: TranslationAssignment): void {
+    if (typeof this.config.onAssignmentClick === 'function') {
+      this.config.onAssignmentClick(assignment);
+      return;
+    }
+    const url = this.buildAssignmentEditURL(assignment);
+    if (!url || typeof window === 'undefined') {
+      return;
+    }
+    window.location.href = url;
+  }
+
+  private buildAssignmentEditURL(assignment: TranslationAssignment): string {
+    const base = this.config.panelBaseUrl.trim().replace(/\/+$/, '');
+    if (!base) {
+      return '';
+    }
+    const panel = assignment.entity_type.trim();
+    const targetID = assignment.target_record_id.trim() || assignment.source_record_id.trim();
+    if (!panel || !targetID) {
+      return '';
+    }
+    return `${base}/${encodeURIComponent(panel)}/${encodeURIComponent(targetID)}/edit`;
   }
 }
 

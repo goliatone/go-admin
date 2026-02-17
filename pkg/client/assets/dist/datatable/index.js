@@ -10323,7 +10323,7 @@ class oo {
     `;
   }
   renderAssignmentActions(e) {
-    const t = this.config.labels, r = [];
+    const t = this.config.labels, r = [], n = typeof this.config.onActionClick == "function";
     r.push(`
       <button type="button" class="action-btn open-btn" data-action="open" title="${Be(t.openAssignment)}">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
@@ -10332,20 +10332,20 @@ class oo {
         </svg>
       </button>
     `);
-    const n = e.review_actions;
-    return e.queue_state === "in_progress" && n.submit_review.enabled && r.push(`
+    const i = e.review_actions;
+    return n && e.queue_state === "in_progress" && i.submit_review.enabled && r.push(`
         <button type="button" class="action-btn submit-review-btn" data-action="submit_review" title="${Be(t.submitForReview)}">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
             <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />
           </svg>
         </button>
-      `), e.queue_state === "review" && (n.approve.enabled && r.push(`
+      `), n && e.queue_state === "review" && (i.approve.enabled && r.push(`
           <button type="button" class="action-btn approve-btn" data-action="approve" title="${Be(t.approve)}">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
               <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
             </svg>
           </button>
-        `), n.reject.enabled && r.push(`
+        `), i.reject.enabled && r.push(`
           <button type="button" class="action-btn reject-btn" data-action="reject" title="${Be(t.reject)}">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
               <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
@@ -10369,10 +10369,10 @@ class oo {
         d.addEventListener("click", async (u) => {
           u.stopPropagation();
           const h = d.dataset.action;
-          h && (h === "open" ? this.config.onAssignmentClick?.(l) : await this.config.onActionClick?.(h, l));
+          h && (h === "open" ? this.openAssignment(l) : typeof this.config.onActionClick == "function" && await this.config.onActionClick(h, l));
         });
       }), o.addEventListener("click", () => {
-        this.config.onAssignmentClick?.(l);
+        this.openAssignment(l);
       });
     }), this.container.querySelectorAll(".summary-card").forEach((o) => {
       o.addEventListener("click", () => {
@@ -10380,6 +10380,21 @@ class oo {
         a === "review" ? this.setActivePreset("review") : a === "due_soon" || a === "overdue" ? this.setActivePreset("due_soon") : this.setActivePreset("all");
       });
     });
+  }
+  openAssignment(e) {
+    if (typeof this.config.onAssignmentClick == "function") {
+      this.config.onAssignmentClick(e);
+      return;
+    }
+    const t = this.buildAssignmentEditURL(e);
+    !t || typeof window > "u" || (window.location.href = t);
+  }
+  buildAssignmentEditURL(e) {
+    const t = this.config.panelBaseUrl.trim().replace(/\/+$/, "");
+    if (!t)
+      return "";
+    const r = e.entity_type.trim(), n = e.target_record_id.trim() || e.source_record_id.trim();
+    return !r || !n ? "" : `${t}/${encodeURIComponent(r)}/${encodeURIComponent(n)}/edit`;
   }
 }
 function R(s) {
