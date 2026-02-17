@@ -137,6 +137,7 @@ func BuildNavItemsForPlacement(adm *admin.Admin, cfg admin.Config, placements Pl
 		entry, _ := buildNavEntry(item, basePath, urls, active)
 		entries = append(entries, entry)
 	}
+	entries = applyTranslationEntrypointDegradation(entries, resolveTranslationModuleExposureSnapshot(adm, ctx))
 	if logNav {
 		logger := resolveQuickstartAdminLogger(adm, "quickstart.navigation", nil, nil)
 		if raw, err := json.Marshal(map[string]any{"placement": placement, "menu_code": menuCode, "items": entries}); err == nil {
@@ -148,6 +149,75 @@ func BuildNavItemsForPlacement(adm *admin.Admin, cfg admin.Config, placements Pl
 		}
 	}
 	return entries
+}
+
+func applyTranslationEntrypointDegradation(entries []map[string]any, exposure translationModuleExposureSnapshot) []map[string]any {
+	if len(entries) == 0 {
+		return entries
+	}
+	out := make([]map[string]any, 0, len(entries))
+	for _, entry := range entries {
+		mutated, include := applyTranslationEntrypointDegradationEntry(entry, exposure)
+		if !include {
+			continue
+		}
+		out = append(out, mutated)
+	}
+	return out
+}
+
+func applyTranslationEntrypointDegradationEntry(entry map[string]any, exposure translationModuleExposureSnapshot) (map[string]any, bool) {
+	if entry == nil {
+		return entry, false
+	}
+
+	children, _ := entry["children"].([]map[string]any)
+	if len(children) > 0 {
+		entry["children"] = applyTranslationEntrypointDegradation(children, exposure)
+		updatedChildren, _ := entry["children"].([]map[string]any)
+		entry["has_children"] = len(updatedChildren) > 0
+	}
+
+	moduleName, ok := translationModuleForNavKey(strings.TrimSpace(toNavString(entry["key"])))
+	if !ok {
+		return entry, true
+	}
+	moduleState, ok := exposure.module(moduleName)
+	if !ok {
+		return entry, true
+	}
+	if !moduleState.CapabilityEnabled {
+		return nil, false
+	}
+	if moduleState.EntryEnabled {
+		return entry, true
+	}
+
+	entry["disabled"] = true
+	entry["aria_disabled"] = true
+	entry["disabled_reason"] = moduleState.Reason
+	entry["disabled_reason_code"] = moduleState.ReasonCode
+	return entry, true
+}
+
+func translationModuleForNavKey(key string) (string, bool) {
+	switch strings.ToLower(strings.TrimSpace(key)) {
+	case "translations", "translation_dashboard":
+		return "queue", true
+	case "translation_exchange":
+		return "exchange", true
+	default:
+		return "", false
+	}
+}
+
+func toNavString(value any) string {
+	switch typed := value.(type) {
+	case string:
+		return typed
+	default:
+		return ""
+	}
 }
 
 func buildNavEntry(item admin.NavigationItem, basePath string, urls urlkit.Resolver, active string) (map[string]any, bool) {
