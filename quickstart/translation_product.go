@@ -481,27 +481,124 @@ func validateTranslationProductRuntime(
 	modules, _ := snapshot["modules"].(map[string]any)
 	routes, _ := snapshot["routes"].(map[string]string)
 	failed := []string{}
+	exchangeEnabled := translationModuleEnabled(modules, "exchange")
+	queueEnabled := translationModuleEnabled(modules, "queue")
+	adminAPIGroup := strings.TrimSpace(adm.AdminAPIGroup())
+	if adminAPIGroup == "" {
+		adminAPIGroup = "admin.api"
+	}
 
-	if translationModuleEnabled(modules, "exchange") {
+	exchangeUIKey := "admin.translations.exchange"
+	exchangeExportKey := fmt.Sprintf("%s.%s", adminAPIGroup, "translations.export")
+	exchangeUIResolved := resolveTranslationRoutePath(adm, "admin", "translations.exchange")
+	exchangeExportResolved := resolveTranslationRoutePath(adm, adminAPIGroup, "translations.export")
+	exchangeUIRoute := strings.TrimSpace(routes[exchangeUIKey])
+	exchangeExportRoute := strings.TrimSpace(routes[exchangeExportKey])
+	if exchangeEnabled {
 		if adm.BootTranslationExchange() == nil {
 			failed = append(failed, "exchange.binding")
 		}
-		if strings.TrimSpace(routes["admin.translations.exchange"]) == "" {
+		if exchangeUIRoute == "" {
 			failed = append(failed, "exchange.route.translations.exchange")
 		}
-		exportKey := fmt.Sprintf("%s.%s", adm.AdminAPIGroup(), "translations.export")
-		if strings.TrimSpace(routes[exportKey]) == "" {
+		if exchangeExportRoute == "" {
 			failed = append(failed, "exchange.route.translations.export")
 		}
+		if exchangeUIResolved == "" {
+			failed = append(failed, "exchange.route.translations.exchange.resolver")
+		}
+		if exchangeExportResolved == "" {
+			failed = append(failed, "exchange.route.translations.export.resolver")
+		}
+		if exchangeUIRoute != "" && !translationRuntimeRouteIsStatic(exchangeUIRoute) {
+			failed = append(failed, "exchange.route.translations.exchange.not_static")
+		}
+		if exchangeExportRoute != "" && !translationRuntimeRouteIsStatic(exchangeExportRoute) {
+			failed = append(failed, "exchange.route.translations.export.not_static")
+		}
+	} else {
+		if exchangeUIRoute != "" {
+			failed = append(failed, "exchange.route.translations.exchange.unexpected")
+		}
+		if exchangeExportRoute != "" {
+			failed = append(failed, "exchange.route.translations.export.unexpected")
+		}
 	}
-	if translationModuleEnabled(modules, "queue") {
+	queueDashboardKey := "admin.translations.dashboard"
+	queuePanelKey := "admin.translations.queue"
+	queueMyWorkKey := fmt.Sprintf("%s.%s", adminAPIGroup, "translations.my_work")
+	queueAPIQueueKey := fmt.Sprintf("%s.%s", adminAPIGroup, "translations.queue")
+	queueDashboardRoute := strings.TrimSpace(routes[queueDashboardKey])
+	queuePanelRoute := strings.TrimSpace(routes[queuePanelKey])
+	queueMyWorkRoute := strings.TrimSpace(routes[queueMyWorkKey])
+	queueAPIQueueRoute := strings.TrimSpace(routes[queueAPIQueueKey])
+	queueDashboardResolved := resolveTranslationRoutePath(adm, "admin", "translations.dashboard")
+	queuePanelResolved := resolveTranslationRoutePath(adm, "admin", "translations.queue")
+	queueMyWorkResolved := resolveTranslationRoutePath(adm, adminAPIGroup, "translations.my_work")
+	queueAPIQueueResolved := resolveTranslationRoutePath(adm, adminAPIGroup, "translations.queue")
+	if queueEnabled {
+		if adm.BootTranslationQueue() == nil {
+			failed = append(failed, "queue.binding")
+		}
 		if adm.Registry() == nil {
 			failed = append(failed, "queue.registry")
 		} else if _, ok := adm.Registry().Panel("translations"); !ok {
 			failed = append(failed, "queue.panel.translations")
 		}
-		if strings.TrimSpace(routes["admin.translations.queue"]) == "" {
+		if queueDashboardRoute == "" {
+			failed = append(failed, "queue.route.translations.dashboard")
+		}
+		if queuePanelRoute == "" {
 			failed = append(failed, "queue.route.translations.queue")
+		}
+		if queueMyWorkRoute == "" {
+			failed = append(failed, "queue.route.api.translations.my_work")
+		}
+		if queueAPIQueueRoute == "" {
+			failed = append(failed, "queue.route.api.translations.queue")
+		}
+		if queueDashboardResolved == "" {
+			failed = append(failed, "queue.route.translations.dashboard.resolver")
+		}
+		if queuePanelResolved == "" {
+			failed = append(failed, "queue.route.translations.queue.resolver")
+		}
+		if queueMyWorkResolved == "" {
+			failed = append(failed, "queue.route.api.translations.my_work.resolver")
+		}
+		if queueAPIQueueResolved == "" {
+			failed = append(failed, "queue.route.api.translations.queue.resolver")
+		}
+		if queueDashboardRoute != "" && !translationRuntimeRouteIsStatic(queueDashboardRoute) {
+			failed = append(failed, "queue.route.translations.dashboard.not_static")
+		}
+		if queuePanelRoute != "" && !translationRuntimeRouteIsStatic(queuePanelRoute) {
+			failed = append(failed, "queue.route.translations.queue.not_static")
+		}
+		if queueMyWorkRoute != "" && !translationRuntimeRouteIsStatic(queueMyWorkRoute) {
+			failed = append(failed, "queue.route.api.translations.my_work.not_static")
+		}
+		if queueAPIQueueRoute != "" && !translationRuntimeRouteIsStatic(queueAPIQueueRoute) {
+			failed = append(failed, "queue.route.api.translations.queue.not_static")
+		}
+		if queueDashboardRoute != "" && queueMyWorkRoute == "" {
+			failed = append(failed, "queue.coherence.dashboard_without_my_work_api")
+		}
+		if queueDashboardRoute == "" && queueMyWorkRoute != "" {
+			failed = append(failed, "queue.coherence.my_work_api_without_dashboard")
+		}
+	} else {
+		if queueDashboardRoute != "" {
+			failed = append(failed, "queue.route.translations.dashboard.unexpected")
+		}
+		if queuePanelRoute != "" {
+			failed = append(failed, "queue.route.translations.queue.unexpected")
+		}
+		if queueMyWorkRoute != "" {
+			failed = append(failed, "queue.route.api.translations.my_work.unexpected")
+		}
+		if queueAPIQueueRoute != "" {
+			failed = append(failed, "queue.route.api.translations.queue.unexpected")
 		}
 	}
 
@@ -516,6 +613,24 @@ func validateTranslationProductRuntime(
 		)
 	}
 	return nil
+}
+
+func resolveTranslationRoutePath(adm *admin.Admin, group, route string) string {
+	if adm == nil {
+		return ""
+	}
+	return strings.TrimSpace(resolveRoutePath(adm.URLs(), strings.TrimSpace(group), strings.TrimSpace(route)))
+}
+
+func translationRuntimeRouteIsStatic(path string) bool {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return false
+	}
+	return !strings.Contains(path, ":") &&
+		!strings.Contains(path, "*") &&
+		!strings.Contains(path, "{") &&
+		!strings.Contains(path, "}")
 }
 
 func translationModuleEnabled(modules map[string]any, module string) bool {
