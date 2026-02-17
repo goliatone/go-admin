@@ -947,6 +947,11 @@ func applyTranslationReadinessFields(record map[string]any, readiness map[string
 	}
 	state := normalizeTranslationReadinessState(toString(normalizedReadiness["readiness_state"]))
 	normalizedReadiness["readiness_state"] = state
+	if groupID := strings.TrimSpace(toString(normalizedReadiness["translation_group_id"])); groupID != "" {
+		if strings.TrimSpace(toString(record["translation_group_id"])) == "" {
+			record["translation_group_id"] = groupID
+		}
+	}
 	record["translation_readiness"] = normalizedReadiness
 	record["readiness_state"] = state
 	record["incomplete"] = !strings.EqualFold(state, translationReadinessStateReady)
@@ -1332,7 +1337,7 @@ func buildTranslationGroupedRows(records []map[string]any, defaultLocale string)
 }
 
 func translationGroupIDForRecord(record map[string]any, index int) string {
-	if groupID := strings.TrimSpace(toString(record["translation_group_id"])); groupID != "" {
+	if groupID := strings.TrimSpace(translationGroupIDFromRecord(record)); groupID != "" {
 		return groupID
 	}
 	if id := strings.TrimSpace(toString(record["id"])); id != "" {
