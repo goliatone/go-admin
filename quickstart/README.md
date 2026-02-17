@@ -18,6 +18,7 @@ Each helper is optional and composable.
 - `NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin.Admin, AdapterResult, error)` - Inputs: config, adapter hooks, optional context/dependencies. Outputs: admin instance, adapter result summary, error.
 - `WithAdapterFlags(flags AdapterFlags) AdminOption` - Inputs: adapter flags; outputs: option that bypasses env resolution.
 - `WithFeatureDefaults(defaults map[string]bool) AdminOption` - Inputs: feature default map; outputs: option that extends gate defaults used by `NewAdmin`.
+- `WithStartupPolicy(policy StartupPolicy) AdminOption` - Inputs: startup policy (`enforce` or `warn`); outputs: option controlling module startup validation handling.
 - `WithTranslationProfile(profile TranslationProfile) AdminOption` - Inputs: profile (`none`, `core`, `core+exchange`, `core+queue`, `full`); outputs: option that applies productized translation defaults.
 - `WithTranslationProductConfig(cfg TranslationProductConfig) AdminOption` - Inputs: product config (`SchemaVersion`, `Profile`, optional module overrides); outputs: option that resolves effective translation module wiring with deterministic precedence.
 - `TranslationCapabilities(adm *admin.Admin) map[string]any` - Inputs: admin instance; outputs: resolved translation capability metadata (`profile`, `schema_version`, module enablement, feature flags, routes, resolver keys, panels, warnings).
