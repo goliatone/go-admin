@@ -411,3 +411,29 @@ func TestCMSPostStoreGetResolvesRequestedLocaleVariantByTranslationGroup(t *test
 		t.Fatalf("expected missing_requested_locale=false, got %#v", record["missing_requested_locale"])
 	}
 }
+
+func TestCMSPageStoreResolveLocaleReturnsAllLocalesWhenFilterMissing(t *testing.T) {
+	store := NewCMSPageStore(&localeAwareContentServiceStub{}, "en")
+
+	if got := strings.TrimSpace(store.resolveLocale(admin.ListOptions{})); got != "" {
+		t.Fatalf("expected empty locale scope when filter missing, got %q", got)
+	}
+	if got := strings.TrimSpace(store.resolveLocale(admin.ListOptions{
+		Filters: map[string]any{"locale": "fr"},
+	})); got != "fr" {
+		t.Fatalf("expected explicit locale filter to win, got %q", got)
+	}
+}
+
+func TestCMSPostStoreResolveLocaleReturnsAllLocalesWhenFilterMissing(t *testing.T) {
+	store := NewCMSPostStore(&localeAwareContentServiceStub{}, "en")
+
+	if got := strings.TrimSpace(store.resolveLocale(admin.ListOptions{})); got != "" {
+		t.Fatalf("expected empty locale scope when filter missing, got %q", got)
+	}
+	if got := strings.TrimSpace(store.resolveLocale(admin.ListOptions{
+		Filters: map[string]any{"locale": "fr"},
+	})); got != "fr" {
+		t.Fatalf("expected explicit locale filter to win, got %q", got)
+	}
+}
