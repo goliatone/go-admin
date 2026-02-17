@@ -3,6 +3,7 @@ package services
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"image"
 	"image/color"
 	"image/png"
@@ -166,6 +167,103 @@ func TestReadableArtifactRendererRenderExecutedUsesSourceAndOverlaysValues(t *te
 	}
 }
 
+func TestReadableArtifactRendererRenderExecutedMultiPageAvoidsInfiniteTemplateScale(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+	objectStore := uploader.NewManager(uploader.WithProvider(uploader.NewFSProvider(t.TempDir())))
+	renderer := NewReadableArtifactRenderer(store, store, objectStore)
+
+	sourcePDF := buildReadableTestPDFPages(t, "Multipage MSA", 3)
+	docSvc := NewDocumentService(store, WithDocumentObjectStore(objectStore))
+	document, err := docSvc.Upload(ctx, scope, DocumentUploadInput{
+		Title:     "MSA Multipage",
+		ObjectKey: "tenant/tenant-1/org/org-1/docs/doc-mp/source.pdf",
+		PDF:       sourcePDF,
+	})
+	if err != nil {
+		t.Fatalf("upload source document: %v", err)
+	}
+
+	agreementSvc := NewAgreementService(store)
+	agreement, err := agreementSvc.CreateDraft(ctx, scope, CreateDraftInput{
+		DocumentID:      document.ID,
+		Title:           "Agreement Multipage",
+		CreatedByUserID: "user-1",
+	})
+	if err != nil {
+		t.Fatalf("create draft: %v", err)
+	}
+	recipient, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        strPtrReadable("signer@example.com"),
+		Name:         strPtrReadable("Signer One"),
+		Role:         strPtrReadable(stores.RecipientRoleSigner),
+		SigningOrder: intPtrReadable(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("upsert recipient: %v", err)
+	}
+	textField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &recipient.ID,
+		Type:        strPtrReadable(stores.FieldTypeText),
+		PageNumber:  intPtrReadable(3),
+		PosX:        floatPtrReadable(72),
+		PosY:        floatPtrReadable(240),
+		Width:       floatPtrReadable(320),
+		Height:      floatPtrReadable(36),
+		Required:    boolPtrReadable(true),
+	})
+	if err != nil {
+		t.Fatalf("upsert text field: %v", err)
+	}
+	if _, err := store.UpsertFieldValue(ctx, scope, stores.FieldValueRecord{
+		AgreementID: agreement.ID,
+		RecipientID: recipient.ID,
+		FieldID:     textField.ID,
+		ValueText:   "Page 3 Overlay Marker",
+	}, 0); err != nil {
+		t.Fatalf("upsert text value: %v", err)
+	}
+
+	fields, err := store.ListFields(ctx, scope, agreement.ID)
+	if err != nil {
+		t.Fatalf("list fields: %v", err)
+	}
+	recipients, err := store.ListRecipients(ctx, scope, agreement.ID)
+	if err != nil {
+		t.Fatalf("list recipients: %v", err)
+	}
+	values, err := store.ListFieldValuesByRecipient(ctx, scope, agreement.ID, recipient.ID)
+	if err != nil {
+		t.Fatalf("list field values: %v", err)
+	}
+
+	agreement.Status = stores.AgreementStatusCompleted
+	rendered, err := renderer.RenderExecuted(ctx, ExecutedRenderInput{
+		Scope:       scope,
+		Agreement:   agreement,
+		Recipients:  recipients,
+		Fields:      fields,
+		FieldValues: values,
+	})
+	if err != nil {
+		t.Fatalf("render executed: %v", err)
+	}
+	if !bytes.HasPrefix(rendered.Payload, []byte("%PDF-")) {
+		t.Fatalf("expected executed payload to be pdf")
+	}
+	raw := string(rendered.Payload)
+	if !strings.Contains(raw, "Page 3 Overlay Marker") {
+		t.Fatalf("expected multi-page overlay text in rendered payload")
+	}
+	if strings.Contains(raw, "+Inf") {
+		t.Fatalf("expected rendered payload without invalid +Inf template transform")
+	}
+	if strings.Count(raw, "/Type /Page") < 3 {
+		t.Fatalf("expected rendered payload to preserve multiple pages")
+	}
+}
+
 func TestReadableArtifactRendererRenderCertificateIncludesAuditDetails(t *testing.T) {
 	renderer := NewReadableArtifactRenderer(nil, nil, nil, WithReadableArtifactRendererClock(func() time.Time {
 		return time.Date(2026, 2, 13, 12, 0, 0, 0, time.UTC)
@@ -230,6 +328,27 @@ func buildReadableTestPDF(t *testing.T, title string) []byte {
 	pdf.Text(72, 88, title)
 	pdf.SetFont("Helvetica", "", 11)
 	pdf.Text(72, 116, "This is the source agreement body.")
+	var out bytes.Buffer
+	if err := pdf.Output(&out); err != nil {
+		t.Fatalf("render source pdf: %v", err)
+	}
+	return out.Bytes()
+}
+
+func buildReadableTestPDFPages(t *testing.T, title string, pages int) []byte {
+	t.Helper()
+	if pages <= 0 {
+		pages = 1
+	}
+	pdf := gofpdf.New("P", "pt", "Letter", "")
+	pdf.SetCompression(false)
+	for page := 1; page <= pages; page++ {
+		pdf.AddPage()
+		pdf.SetFont("Helvetica", "B", 18)
+		pdf.Text(72, 88, title)
+		pdf.SetFont("Helvetica", "", 11)
+		pdf.Text(72, 116, fmt.Sprintf("Source Page %d", page))
+	}
 	var out bytes.Buffer
 	if err := pdf.Output(&out); err != nil {
 		t.Fatalf("render source pdf: %v", err)

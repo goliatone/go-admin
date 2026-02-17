@@ -131,15 +131,16 @@ func (r ReadableArtifactRenderer) renderExecutedWithOverlays(
 	pdf.SetCompression(false)
 	importer := gofpdi.NewImporter()
 	overlaysByPage := r.buildExecutedOverlays(ctx, input)
+	rs := io.ReadSeeker(bytes.NewReader(sourcePDF))
 
 	for page := 1; page <= pageCount; page++ {
-		rs := io.ReadSeeker(bytes.NewReader(sourcePDF))
-		tplID := importer.ImportPageFromStream(pdf, &rs, page, "/CropBox")
-		if tplID == 0 {
-			rsFallback := io.ReadSeeker(bytes.NewReader(sourcePDF))
-			tplID = importer.ImportPageFromStream(pdf, &rsFallback, page, "/MediaBox")
+		// Import from /MediaBox first. Some PDFs expose zero-sized /CropBox values
+		// on later pages, which can produce invalid (+Inf) template scale transforms.
+		tplID := importer.ImportPageFromStream(pdf, &rs, page, "/MediaBox")
+		if tplID < 0 {
+			tplID = importer.ImportPageFromStream(pdf, &rs, page, "/CropBox")
 		}
-		if tplID == 0 {
+		if tplID < 0 {
 			return nil, fmt.Errorf("render executed: failed importing source page %d", page)
 		}
 		width, height := importedPageSize(importer.GetPageSizes(), page)
