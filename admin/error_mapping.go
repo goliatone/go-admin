@@ -27,6 +27,7 @@ func mapToGoError(err error, mappers []goerrors.ErrorMapper) (*goerrors.Error, i
 	var permission PermissionDeniedError
 	var missingTranslations MissingTranslationsError
 	var translationExists TranslationAlreadyExistsError
+	var autosaveConflict AutosaveConflictError
 	var queueConflict TranslationAssignmentConflictError
 	var queueVersionConflict TranslationAssignmentVersionConflictError
 	var workflowVersionConflict WorkflowVersionConflictError
@@ -54,9 +55,13 @@ func mapToGoError(err error, mappers []goerrors.ErrorMapper) (*goerrors.Error, i
 			missingLocales = []string{}
 		}
 		missingFields := normalizeMissingFieldsByLocale(missingTranslations.MissingFieldsByLocale)
+		transition := strings.TrimSpace(missingTranslations.Transition)
+		if transition == "" {
+			transition = "unknown"
+		}
 		meta := map[string]any{
 			"missing_locales":  missingLocales,
-			"transition":       strings.TrimSpace(missingTranslations.Transition),
+			"transition":       transition,
 			"entity_type":      normalizePolicyEntityKey(missingTranslations.EntityType),
 			"policy_entity":    normalizePolicyEntityKey(missingTranslations.PolicyEntity),
 			"entity_id":        strings.TrimSpace(missingTranslations.EntityID),
@@ -81,6 +86,23 @@ func mapToGoError(err error, mappers []goerrors.ErrorMapper) (*goerrors.Error, i
 			"translation_group_id": strings.TrimSpace(translationExists.TranslationGroupID),
 		}
 		mapped = NewDomainError(TextCodeTranslationExists, translationExists.Error(), meta)
+		status = mapped.Code
+	case errors.As(err, &autosaveConflict):
+		meta := map[string]any{
+			"panel":     strings.TrimSpace(autosaveConflict.Panel),
+			"entity_id": strings.TrimSpace(autosaveConflict.EntityID),
+			"version":   strings.TrimSpace(autosaveConflict.Version),
+		}
+		if expected := strings.TrimSpace(autosaveConflict.ExpectedVersion); expected != "" {
+			meta["expected_version"] = expected
+		}
+		if latestState := strings.TrimSpace(autosaveConflict.LatestStatePath); latestState != "" {
+			meta["latest_server_state"] = latestState
+		}
+		if len(autosaveConflict.LatestServerState) > 0 {
+			meta["latest_server_state_record"] = cloneAnyMap(autosaveConflict.LatestServerState)
+		}
+		mapped = NewDomainError(TextCodeAutosaveConflict, autosaveConflict.Error(), meta)
 		status = mapped.Code
 	case errors.Is(err, cmscontent.ErrTranslationAlreadyExists), errors.Is(err, cmspages.ErrTranslationAlreadyExists):
 		meta := map[string]any{}
