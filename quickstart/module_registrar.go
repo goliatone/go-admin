@@ -137,7 +137,7 @@ func NewModuleRegistrar(adm *admin.Admin, cfg admin.Config, modules []admin.Modu
 			MenuCode: menuCode,
 			Locale:   locale,
 		},
-		translationCapabilityMenuMode: TranslationCapabilityMenuModeNone,
+		translationCapabilityMenuMode: TranslationCapabilityMenuModeTools,
 	}
 	for _, opt := range opts {
 		if opt != nil {
@@ -440,14 +440,9 @@ func translationCapabilityMenuItems(adm *admin.Admin, cfg admin.Config, menuCode
 	if adm == nil {
 		return nil
 	}
-	caps := TranslationCapabilities(adm)
-	modules, _ := caps["modules"].(map[string]any)
-	if len(modules) == 0 {
-		return nil
-	}
-
-	queueEnabled := translationModuleEnabled(modules, "queue")
-	exchangeEnabled := translationModuleEnabled(modules, "exchange")
+	exposure := resolveTranslationModuleExposureSnapshot(adm, nil)
+	queueEnabled := exposure.Queue.CapabilityEnabled
+	exchangeEnabled := exposure.Exchange.CapabilityEnabled
 	if !queueEnabled && !exchangeEnabled {
 		return nil
 	}
