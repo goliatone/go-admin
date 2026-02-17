@@ -1,20 +1,21 @@
 package quickstart
 
 import (
+	"context"
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
 	router "github.com/goliatone/go-router"
 )
 
-func withUIFeatureContext(ctx router.ViewContext, adm *admin.Admin, active string) router.ViewContext {
+func withUIFeatureContext(ctx router.ViewContext, adm *admin.Admin, active string, reqCtx context.Context) router.ViewContext {
 	if ctx == nil {
 		ctx = router.ViewContext{}
 	}
 	activityEnabled := adm != nil && adm.ActivityReadEnabled()
 	ctx["activity_enabled"] = activityEnabled
 	ctx["activity_feature_enabled"] = activityEnabled
-	ctx["translation_capabilities"] = translationCapabilitiesForAdmin(adm)
+	ctx["translation_capabilities"] = translationCapabilitiesForContext(adm, reqCtx)
 	return withFeatureBodyClasses(ctx, "activity", activityEnabled, strings.EqualFold(strings.TrimSpace(active), "activity"))
 }
 

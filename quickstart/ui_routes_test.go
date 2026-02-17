@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/goliatone/go-admin/admin"
 	router "github.com/goliatone/go-router"
 	"github.com/stretchr/testify/mock"
 )
@@ -203,5 +204,35 @@ func TestRegisterAdminUIRoutesTranslationDashboardRouteIsOptIn(t *testing.T) {
 	}
 	if strings.TrimSpace(fmt.Sprint(rendered["translation_panels_base_path"])) != "/admin/content" {
 		t.Fatalf("expected translation_panels_base_path=/admin/content, got %v", rendered["translation_panels_base_path"])
+	}
+}
+
+func TestRegisterAdminUIRoutesTranslationRoutesEnabledByCapabilityDefaults(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	adm, _, err := NewAdmin(
+		cfg,
+		AdapterHooks{},
+		WithFeatureDefaults(map[string]bool{
+			string(admin.FeatureTranslationQueue):    true,
+			string(admin.FeatureTranslationExchange): true,
+		}),
+	)
+	if err != nil {
+		t.Fatalf("create admin: %v", err)
+	}
+	if adm.Commands() != nil {
+		t.Cleanup(adm.Commands().Reset)
+	}
+
+	captureRouter := newUIRoutesCaptureRouter()
+	if err := RegisterAdminUIRoutes(captureRouter, cfg, adm, nil); err != nil {
+		t.Fatalf("register ui routes: %v", err)
+	}
+
+	if captureRouter.getHandlers["/admin/translations/dashboard"] == nil {
+		t.Fatalf("expected translation dashboard route handler by default when queue capability enabled")
+	}
+	if captureRouter.getHandlers["/admin/translations/exchange"] == nil {
+		t.Fatalf("expected translation exchange route handler by default when exchange capability enabled")
 	}
 }

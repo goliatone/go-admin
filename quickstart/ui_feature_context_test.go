@@ -21,7 +21,7 @@ func TestWithUIFeatureContextMarksActivityDisabledByDefault(t *testing.T) {
 		t.Fatalf("admin.New: %v", err)
 	}
 
-	viewCtx := withUIFeatureContext(nil, adm, "activity")
+	viewCtx := withUIFeatureContext(nil, adm, "activity", context.Background())
 	if enabled, ok := viewCtx["activity_enabled"].(bool); !ok || enabled {
 		t.Fatalf("expected activity_enabled=false, got %v", viewCtx["activity_enabled"])
 	}
@@ -41,7 +41,7 @@ func TestWithUIFeatureContextMarksActivityEnabledWhenFeedConfigured(t *testing.T
 		t.Fatalf("admin.New: %v", err)
 	}
 
-	viewCtx := withUIFeatureContext(nil, adm, "dashboard")
+	viewCtx := withUIFeatureContext(nil, adm, "dashboard", context.Background())
 	if enabled, ok := viewCtx["activity_enabled"].(bool); !ok || !enabled {
 		t.Fatalf("expected activity_enabled=true, got %v", viewCtx["activity_enabled"])
 	}
@@ -80,7 +80,7 @@ func TestWithUIFeatureContextIncludesTranslationCapabilities(t *testing.T) {
 		t.Fatalf("admin.New: %v", err)
 	}
 
-	viewCtx := withUIFeatureContext(nil, adm, "dashboard")
+	viewCtx := withUIFeatureContext(nil, adm, "dashboard", context.Background())
 	caps, ok := viewCtx["translation_capabilities"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected translation_capabilities map in view context")
