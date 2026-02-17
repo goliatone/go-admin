@@ -1280,16 +1280,22 @@ func buildTranslationGroupedRows(records []map[string]any, defaultLocale string)
 	}
 	groups := map[string][]map[string]any{}
 	groupOrder := make([]string, 0, len(records))
-	for index, record := range records {
-		groupID := translationGroupIDForRecord(record, index)
+	ungrouped := make([]map[string]any, 0)
+	for _, record := range records {
+		groupID := translationGroupIDForRecord(record)
+		recordClone := cloneAnyMap(record)
+		if groupID == "" {
+			ungrouped = append(ungrouped, recordClone)
+			continue
+		}
 		if _, ok := groups[groupID]; !ok {
 			groupOrder = append(groupOrder, groupID)
 		}
-		groups[groupID] = append(groups[groupID], cloneAnyMap(record))
+		groups[groupID] = append(groups[groupID], recordClone)
 	}
 	sort.Strings(groupOrder)
 
-	out := make([]map[string]any, 0, len(groupOrder))
+	out := make([]map[string]any, 0, len(groupOrder)+len(ungrouped))
 	for _, groupID := range groupOrder {
 		children := orderTranslationGroupChildren(groups[groupID], defaultLocale)
 		if len(children) == 0 {
@@ -1308,13 +1314,19 @@ func buildTranslationGroupedRows(records []map[string]any, defaultLocale string)
 			annotatedChildren = append(annotatedChildren, childClone)
 		}
 		parent := cloneAnyMap(annotatedChildren[0])
+		groupLabel := translationGroupLabelForChildren(annotatedChildren)
 		summary := buildTranslationGroupSummary(groupID, annotatedChildren)
+		if groupLabel != "" {
+			summary["group_label"] = groupLabel
+		}
 		row := map[string]any{
-			"id":                   "group:" + groupID,
-			"translation_group_id": groupID,
-			"group_by":             listGroupByTranslationGroupID,
+			"id":                      "group:" + groupID,
+			"translation_group_id":    groupID,
+			"translation_group_label": groupLabel,
+			"group_by":                listGroupByTranslationGroupID,
 			"_group": map[string]any{
 				"id":          groupID,
+				"label":       groupLabel,
 				"row_type":    "group",
 				"child_count": len(annotatedChildren),
 				"parent_id":   strings.TrimSpace(toString(parent["id"])),
@@ -1330,20 +1342,23 @@ func buildTranslationGroupedRows(records []map[string]any, defaultLocale string)
 		}
 		out = append(out, row)
 	}
+	for index, record := range ungrouped {
+		recordClone := cloneAnyMap(record)
+		recordClone["_group"] = map[string]any{
+			"id":       fmt.Sprintf("ungrouped:%d", index+1),
+			"row_type": "ungrouped",
+			"position": index + 1,
+		}
+		out = append(out, recordClone)
+	}
 	if len(out) == 0 {
 		return nil
 	}
 	return out
 }
 
-func translationGroupIDForRecord(record map[string]any, index int) string {
-	if groupID := strings.TrimSpace(translationGroupIDFromRecord(record)); groupID != "" {
-		return groupID
-	}
-	if id := strings.TrimSpace(toString(record["id"])); id != "" {
-		return "ungrouped:" + id
-	}
-	return fmt.Sprintf("ungrouped:%d", index+1)
+func translationGroupIDForRecord(record map[string]any) string {
+	return strings.TrimSpace(translationGroupIDFromRecord(record))
 }
 
 func orderTranslationGroupChildren(records []map[string]any, defaultLocale string) []map[string]any {
@@ -1424,19 +1439,44 @@ func buildTranslationGroupSummary(groupID string, records []map[string]any) map[
 	for locale := range groupMissingFields {
 		missingFields[locale] = []string{"missing_fields"}
 	}
-	state := translationReadinessState(missingLocales, missingFields)
+	state := ""
+	if len(requiredLocales) > 0 || len(missingFields) > 0 {
+		state = translationReadinessState(missingLocales, missingFields)
+	}
+	requiredCount := len(requiredLocales)
+	if requiredCount == 0 {
+		requiredCount = len(availableLocales)
+	}
+	childCount := len(records)
 
 	return map[string]any{
 		"group_id":          groupID,
 		"required_locales":  requiredLocales,
 		"available_locales": availableLocales,
 		"missing_locales":   missingLocales,
-		"required_count":    len(requiredLocales),
+		"required_count":    requiredCount,
 		"available_count":   len(availableLocales),
 		"missing_count":     len(missingLocales),
+		"total_items":       childCount,
+		"child_count":       childCount,
 		"readiness_state":   state,
+		"ready_for_publish": state == translationReadinessStateReady,
 		"last_updated_at":   lastUpdatedAt,
 	}
+}
+
+func translationGroupLabelForChildren(children []map[string]any) string {
+	if len(children) == 0 {
+		return ""
+	}
+	parent := children[0]
+	for _, key := range []string{"title", "name", "slug", "path"} {
+		value := strings.TrimSpace(toString(parent[key]))
+		if value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func translationReadinessMissingFieldLocales(readiness map[string]any) []string {
