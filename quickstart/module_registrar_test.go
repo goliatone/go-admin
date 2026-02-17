@@ -195,7 +195,7 @@ func TestBuildSeedMenuItemsRespectsGates(t *testing.T) {
 	}
 }
 
-func TestNewModuleRegistrarDoesNotSeedTranslationCapabilityMenuItemsByDefault(t *testing.T) {
+func TestNewModuleRegistrarSeedsTranslationCapabilityMenuItemsByDefault(t *testing.T) {
 	t.Cleanup(func() { _ = commandregistry.Stop(context.Background()) })
 
 	cfg := NewAdminConfig("/admin", "Admin", "en")
@@ -233,14 +233,14 @@ func TestNewModuleRegistrarDoesNotSeedTranslationCapabilityMenuItemsByDefault(t 
 	if menu == nil {
 		t.Fatalf("expected seeded menu")
 	}
-	if queueItem := findMenuItemByRouteName(menu.Items, "admin.translations.queue"); queueItem != nil {
-		t.Fatalf("expected queue menu hidden by default, got %+v", *queueItem)
+	if queueItem := findMenuItemByRouteName(menu.Items, "admin.translations.queue"); queueItem == nil {
+		t.Fatalf("expected queue menu seeded by default")
 	}
-	if dashboardItem := findMenuItemByRouteName(menu.Items, "admin.translations.dashboard"); dashboardItem != nil {
-		t.Fatalf("expected dashboard menu hidden by default, got %+v", *dashboardItem)
+	if dashboardItem := findMenuItemByRouteName(menu.Items, "admin.translations.dashboard"); dashboardItem == nil {
+		t.Fatalf("expected dashboard menu seeded by default")
 	}
-	if exchangeItem := findMenuItemByRouteName(menu.Items, "admin.translations.exchange"); exchangeItem != nil {
-		t.Fatalf("expected exchange menu hidden by default, got %+v", *exchangeItem)
+	if exchangeItem := findMenuItemByRouteName(menu.Items, "admin.translations.exchange"); exchangeItem == nil {
+		t.Fatalf("expected exchange menu seeded by default")
 	}
 }
 
