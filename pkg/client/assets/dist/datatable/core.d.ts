@@ -2,6 +2,7 @@ import type { ColumnDefinition, ColumnFilter, SortColumn, DataGridBehaviors } fr
 import type { ActionButton, BulkActionConfig, ActionRenderMode } from './actions.js';
 import type { CellRenderer } from './renderers.js';
 import type { ToastNotifier } from '../toast/types.js';
+import type { ViewMode, GroupedData } from './grouped-mode.js';
 /**
  * DataGrid configuration
  */
@@ -46,6 +47,23 @@ export interface DataGridConfig {
      * If not provided, falls back to native alert/confirm
      */
     notifier?: ToastNotifier;
+    /**
+     * Panel identifier for state persistence (Phase 2 grouped mode)
+     */
+    panelId?: string;
+    /**
+     * Enable grouped mode support (Phase 2)
+     * When true, records can be grouped by translation_group_id
+     */
+    enableGroupedMode?: boolean;
+    /**
+     * Default view mode: 'flat', 'grouped', or 'matrix' (Phase 2)
+     */
+    defaultViewMode?: ViewMode;
+    /**
+     * Field to group by (default: translation_group_id)
+     */
+    groupByField?: string;
 }
 /**
  * DOM element selectors
@@ -81,6 +99,9 @@ interface DataGridState {
     selectedRows: Set<string>;
     hiddenColumns: Set<string>;
     columnOrder: string[];
+    viewMode: ViewMode;
+    groupedData: GroupedData | null;
+    expandedGroups: Set<string>;
 }
 /**
  * DataGrid component
@@ -161,6 +182,34 @@ export declare class DataGrid {
      * Render data into table
      */
     private renderData;
+    /**
+     * Render data in flat mode (original behavior)
+     */
+    private renderFlatData;
+    /**
+     * Render data in grouped mode (Phase 2)
+     */
+    private renderGroupedData;
+    /**
+     * Toggle group expand/collapse state (Phase 2)
+     */
+    toggleGroup(groupId: string): void;
+    /**
+     * Update visibility of child rows for a group
+     */
+    private updateGroupVisibility;
+    /**
+     * Set view mode (flat, grouped, matrix) - Phase 2
+     */
+    setViewMode(mode: ViewMode): void;
+    /**
+     * Get current view mode
+     */
+    getViewMode(): ViewMode;
+    /**
+     * Get grouped data (if available)
+     */
+    getGroupedData(): GroupedData | null;
     /**
      * Fetch a detail payload and unwrap the record from the `data` field.
      */

@@ -1404,6 +1404,7 @@
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'omit',
           body: JSON.stringify({
             field_instance_id: fieldId,
             sha256: sha256,
@@ -1435,6 +1436,14 @@
      * Upload binary data to signed URL
      */
     async uploadToSignedUrl(uploadContract, binaryData) {
+      const uploadUrl = new URL(uploadContract.upload_url, window.location.origin);
+      if (uploadContract.upload_token) {
+        uploadUrl.searchParams.set('upload_token', String(uploadContract.upload_token));
+      }
+      if (uploadContract.object_key) {
+        uploadUrl.searchParams.set('object_key', String(uploadContract.object_key));
+      }
+
       const headers = {
         'Content-Type': uploadContract.content_type || 'image/png'
       };
@@ -1442,14 +1451,20 @@
       // Add any extra headers from the upload contract
       if (uploadContract.headers) {
         Object.entries(uploadContract.headers).forEach(([key, value]) => {
+          const normalized = String(key).toLowerCase();
+          // Avoid oversized request headers; backend accepts token/key via query params.
+          if (normalized === 'x-esign-upload-token' || normalized === 'x-esign-upload-key') {
+            return;
+          }
           headers[key] = String(value);
         });
       }
 
-      const response = await fetch(uploadContract.upload_url, {
+      const response = await fetch(uploadUrl.toString(), {
         method: uploadContract.method || 'PUT',
         headers,
-        body: binaryData
+        body: binaryData,
+        credentials: 'omit'
       });
 
       if (!response.ok) {

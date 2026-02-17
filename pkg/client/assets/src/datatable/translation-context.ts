@@ -13,7 +13,7 @@
  * - translation_group_id: The group ID linking all locale variants
  */
 
-import { badge, badgeClasses } from '../shared/badge.js';
+import { badge } from '../shared/badge.js';
 
 // ============================================================================
 // Types
@@ -747,6 +747,137 @@ function getReadinessStateDisplay(
         tooltip: 'Unknown readiness state',
       };
   }
+}
+
+// ============================================================================
+// Translation Matrix Cell (Phase 2)
+// ============================================================================
+
+/**
+ * Matrix cell rendering options
+ */
+export interface MatrixCellOptions {
+  /** Size variant: 'sm' or 'md' */
+  size?: 'sm' | 'md';
+  /** Maximum number of locales to show before truncating */
+  maxLocales?: number;
+  /** Show locale labels alongside icons */
+  showLabels?: boolean;
+}
+
+/**
+ * Render a compact translation matrix cell showing locale status for each required locale.
+ * Uses translation_readiness data to show ● ready, ◐ incomplete, ○ missing states.
+ *
+ * @param record - The record from API response
+ * @param options - Matrix cell rendering options
+ * @returns HTML string for the matrix cell
+ */
+export function renderTranslationMatrixCell(
+  record: Record<string, unknown>,
+  options: MatrixCellOptions = {}
+): string {
+  const { size = 'sm', maxLocales = 5, showLabels = false } = options;
+
+  const readiness = extractTranslationReadiness(record);
+  if (!readiness.hasReadinessMetadata) {
+    return '<span class="text-gray-400">-</span>';
+  }
+
+  const { requiredLocales, availableLocales, missingRequiredFieldsByLocale } = readiness;
+  const allLocales = requiredLocales.length > 0 ? requiredLocales : availableLocales;
+
+  if (allLocales.length === 0) {
+    return '<span class="text-gray-400">-</span>';
+  }
+
+  const availableSet = new Set(availableLocales);
+  const incompleteLocales = getIncompleteLocales(missingRequiredFieldsByLocale);
+
+  const chips = allLocales
+    .slice(0, maxLocales)
+    .map((locale) => {
+      const isAvailable = availableSet.has(locale);
+      const isIncomplete = isAvailable && incompleteLocales.has(locale);
+      const isComplete = isAvailable && !isIncomplete;
+      // isMissing implied when !isComplete && !isIncomplete
+
+      // Determine state and styling
+      let stateClass: string;
+      let icon: string;
+      let stateLabel: string;
+
+      if (isComplete) {
+        stateClass = 'bg-green-100 text-green-700 border-green-300';
+        icon = '●';
+        stateLabel = 'Complete';
+      } else if (isIncomplete) {
+        stateClass = 'bg-amber-100 text-amber-700 border-amber-300';
+        icon = '◐';
+        stateLabel = 'Incomplete';
+      } else {
+        // Missing
+        stateClass = 'bg-white text-gray-400 border-gray-300 border-dashed';
+        icon = '○';
+        stateLabel = 'Missing';
+      }
+
+      const sizeClass = size === 'sm'
+        ? 'text-[10px] px-1.5 py-0.5'
+        : 'text-xs px-2 py-1';
+
+      const labelHtml = showLabels
+        ? `<span class="font-medium">${locale.toUpperCase()}</span>`
+        : '';
+
+      return `
+        <span class="inline-flex items-center gap-0.5 ${sizeClass} rounded border ${stateClass}"
+              title="${locale.toUpperCase()}: ${stateLabel}"
+              aria-label="${locale.toUpperCase()}: ${stateLabel}"
+              data-locale="${locale}"
+              data-state="${stateLabel.toLowerCase()}">
+          ${labelHtml}
+          <span aria-hidden="true">${icon}</span>
+        </span>
+      `;
+    })
+    .join('');
+
+  const overflow = allLocales.length > maxLocales
+    ? `<span class="text-[10px] text-gray-500" title="${allLocales.length - maxLocales} more locales">+${allLocales.length - maxLocales}</span>`
+    : '';
+
+  return `<div class="flex items-center gap-1 flex-wrap" data-matrix-cell="true">${chips}${overflow}</div>`;
+}
+
+/**
+ * Get set of locales that have missing required fields.
+ */
+function getIncompleteLocales(fieldsByLocale: Record<string, string[]>): Set<string> {
+  const incomplete = new Set<string>();
+  if (fieldsByLocale && typeof fieldsByLocale === 'object') {
+    for (const [locale, fields] of Object.entries(fieldsByLocale)) {
+      if (Array.isArray(fields) && fields.length > 0) {
+        incomplete.add(locale);
+      }
+    }
+  }
+  return incomplete;
+}
+
+/**
+ * Create a cell renderer for translation matrix that can be used with DataGrid.
+ * Returns a function compatible with the CellRenderer type.
+ *
+ * @param options - Matrix cell rendering options
+ * @returns CellRenderer function
+ */
+export function createTranslationMatrixRenderer(
+  options: MatrixCellOptions = {}
+): (value: unknown, record: Record<string, unknown>, column: string) => string {
+  return (_value: unknown, record: Record<string, unknown>, _column: string): string => {
+    return renderTranslationMatrixCell(record, options);
+  };
 }
 
 // ============================================================================
