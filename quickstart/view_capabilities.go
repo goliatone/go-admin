@@ -21,10 +21,14 @@ type PanelViewCapabilityOptions struct {
 
 // PanelDataGridConfigOptions configures datagrid wiring for panel templates.
 type PanelDataGridConfigOptions struct {
-	TableID          string
-	APIEndpoint      string
-	ActionBase       string
-	ColumnStorageKey string
+	TableID           string
+	APIEndpoint       string
+	ActionBase        string
+	ColumnStorageKey  string
+	EnableGroupedMode bool
+	DefaultViewMode   string
+	GroupByField      string
+	TranslationUX     bool
 }
 
 // BuildPanelViewCapabilities returns standard capability keys for panel templates.
@@ -100,6 +104,18 @@ func BuildPanelDataGridConfig(opts PanelDataGridConfigOptions) map[string]any {
 	}
 	if columnStorageKey != "" {
 		dataGridConfig["column_storage_key"] = columnStorageKey
+	}
+	if opts.TranslationUX {
+		dataGridConfig["translation_ux_enabled"] = true
+	}
+	if opts.EnableGroupedMode {
+		dataGridConfig["enable_grouped_mode"] = true
+	}
+	if defaultViewMode := strings.TrimSpace(opts.DefaultViewMode); defaultViewMode != "" {
+		dataGridConfig["default_view_mode"] = defaultViewMode
+	}
+	if groupByField := strings.TrimSpace(opts.GroupByField); groupByField != "" {
+		dataGridConfig["group_by_field"] = groupByField
 	}
 	if len(dataGridConfig) == 0 {
 		return nil
