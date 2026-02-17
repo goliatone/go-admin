@@ -2,6 +2,9 @@
 
 This guide explains how translation works in the `examples/web` app from an editor/user perspective first, then with implementation notes for maintainers.
 
+Maintainer note:
+- Backend contract guardrails for translation surfaces (async job ownership, action order determinism, degraded payload signaling) are defined in `docs/GUIDE_DEVELOPMENT.md#10-rfc-contract-and-security-guardrails`.
+
 It answers:
 
 - What is a source record vs a translation variant?
