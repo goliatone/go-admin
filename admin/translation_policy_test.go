@@ -231,3 +231,18 @@ func TestGoCMSTranslationPolicyNormalizesEntityMetadata(t *testing.T) {
 		t.Fatalf("expected normalized policy entity pages, got %q", missingErr.PolicyEntity)
 	}
 }
+
+func TestCanonicalPolicyEntityKeyNormalizesSingularAliases(t *testing.T) {
+	tests := map[string]string{
+		"post":          "posts",
+		"posts":         "posts",
+		"page":          "pages",
+		"pages@staging": "pages",
+		"news":          "news",
+	}
+	for input, expected := range tests {
+		if got := CanonicalPolicyEntityKey(input); got != expected {
+			t.Fatalf("expected %q -> %q, got %q", input, expected, got)
+		}
+	}
+}

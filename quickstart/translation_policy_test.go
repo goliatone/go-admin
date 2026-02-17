@@ -210,6 +210,37 @@ func TestTranslationPolicyValidateNormalizesEntityMetadata(t *testing.T) {
 	}
 }
 
+func TestTranslationPolicyValidateResolvesSingularPolicyEntityAlias(t *testing.T) {
+	postsChecker := &recordingTranslationChecker{}
+	cfg := TranslationPolicyConfig{
+		Required: map[string]TranslationPolicyEntityConfig{
+			"posts": {
+				"publish": {
+					Locales: []string{"en", "fr"},
+				},
+			},
+		},
+	}
+	policy := NewTranslationPolicy(cfg, TranslationPolicyServices{
+		Content: postsChecker,
+	})
+
+	if err := policy.Validate(context.Background(), admin.TranslationPolicyInput{
+		EntityType:   "post",
+		PolicyEntity: "post",
+		EntityID:     uuid.NewString(),
+		Transition:   "publish",
+	}); err != nil {
+		t.Fatalf("validate with singular alias failed: %v", err)
+	}
+	if postsChecker.calls != 1 {
+		t.Fatalf("expected posts checker called once, got %d", postsChecker.calls)
+	}
+	if !reflect.DeepEqual(postsChecker.lastRequired, []string{"en", "fr"}) {
+		t.Fatalf("expected required locales [en fr], got %+v", postsChecker.lastRequired)
+	}
+}
+
 func TestTranslationPolicyValidateEnvironmentResolutionIsDeterministic(t *testing.T) {
 	pagesChecker := &recordingTranslationChecker{}
 	cfg := TranslationPolicyConfig{

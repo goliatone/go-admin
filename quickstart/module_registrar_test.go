@@ -450,6 +450,12 @@ func TestTranslationCapabilityMenuItemsVisibleWithoutTranslationPermissions(t *t
 		if !strings.Contains(href, "/content/translations") {
 			t.Fatalf("expected queue href to include /content/translations, got %q", href)
 		}
+		if disabled, _ := item["disabled"].(bool); !disabled {
+			t.Fatalf("expected queue entrypoint visible-disabled when permission denied")
+		}
+		if code := strings.TrimSpace(toString(item["disabled_reason_code"])); code != admin.ActionDisabledReasonCodePermissionDenied {
+			t.Fatalf("expected queue disabled reason_code=%q, got %q", admin.ActionDisabledReasonCodePermissionDenied, code)
+		}
 	}
 	dashboardItem := findNavItemByKey(navItems, "translation_dashboard")
 	if dashboardItem == nil {
@@ -459,6 +465,12 @@ func TestTranslationCapabilityMenuItemsVisibleWithoutTranslationPermissions(t *t
 	if !strings.Contains(dashboardHref, "/translations/dashboard") {
 		t.Fatalf("expected dashboard href to include /translations/dashboard, got %q", dashboardHref)
 	}
+	if disabled, _ := dashboardItem["disabled"].(bool); !disabled {
+		t.Fatalf("expected dashboard entrypoint visible-disabled when permission denied")
+	}
+	if code := strings.TrimSpace(toString(dashboardItem["disabled_reason_code"])); code != admin.ActionDisabledReasonCodePermissionDenied {
+		t.Fatalf("expected dashboard disabled reason_code=%q, got %q", admin.ActionDisabledReasonCodePermissionDenied, code)
+	}
 	exchangeItem := findNavItemByKey(navItems, "translation_exchange")
 	if exchangeItem == nil {
 		t.Fatalf("expected translation exchange sidebar entrypoint")
@@ -466,6 +478,12 @@ func TestTranslationCapabilityMenuItemsVisibleWithoutTranslationPermissions(t *t
 	href := strings.TrimSpace(toString(exchangeItem["href"]))
 	if !strings.Contains(href, "/translations/exchange") {
 		t.Fatalf("expected exchange href to include /translations/exchange, got %q", href)
+	}
+	if disabled, _ := exchangeItem["disabled"].(bool); !disabled {
+		t.Fatalf("expected exchange entrypoint visible-disabled when permission denied")
+	}
+	if code := strings.TrimSpace(toString(exchangeItem["disabled_reason_code"])); code != admin.ActionDisabledReasonCodePermissionDenied {
+		t.Fatalf("expected exchange disabled reason_code=%q, got %q", admin.ActionDisabledReasonCodePermissionDenied, code)
 	}
 
 	routePath := strings.TrimSpace(resolveRoutePath(adm.URLs(), "admin", "translations.exchange"))

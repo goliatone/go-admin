@@ -174,12 +174,12 @@ func newTestURLManager(basePath string) *urlkit.RouteManager {
 							"translations.import.apply":    "/translations/import/apply",
 							"schemas":                      "/schemas",
 							"schemas.resource":             "/schemas/:resource",
-							"panel":                        "/:panel",
-							"panel.id":                     "/:panel/:id",
-							"panel.action":                 "/:panel/actions/:action",
-							"panel.bulk":                   "/:panel/bulk/:action",
-							"panel.preview":                "/:panel/:id/preview",
-							"panel.subresource":            "/:panel/:id/:subresource/:value",
+							"panel":                        "/panels/:panel",
+							"panel.id":                     "/panels/:panel/:id",
+							"panel.action":                 "/panels/:panel/actions/:action",
+							"panel.bulk":                   "/panels/:panel/bulk/:action",
+							"panel.preview":                "/panels/:panel/:id/preview",
+							"panel.subresource":            "/panels/:panel/:id/:subresource/:value",
 						},
 					},
 				},
@@ -352,6 +352,15 @@ func TestPanelStepRegistersHandlers(t *testing.T) {
 	err := PanelStep(ctx)
 	require.NoError(t, err)
 	require.Len(t, rr.calls, 9)
+	methodPaths := map[string]bool{}
+	for _, call := range rr.calls {
+		methodPaths[call.method+" "+call.path] = true
+	}
+	require.True(t, methodPaths["GET "+mustRoutePathWithParams(t, ctx, ctx.AdminAPIGroup(), "panel", map[string]string{"panel": "users"})])
+	require.True(t, methodPaths["GET "+mustRoutePathWithParams(t, ctx, ctx.AdminAPIGroup(), "panel.id", map[string]string{"panel": "users"})])
+	require.True(t, methodPaths["POST "+mustRoutePathWithParams(t, ctx, ctx.AdminAPIGroup(), "panel.action", map[string]string{"panel": "users"})])
+	require.True(t, methodPaths["POST "+mustRoutePathWithParams(t, ctx, ctx.AdminAPIGroup(), "panel.bulk", map[string]string{"panel": "users"})])
+	require.True(t, methodPaths["GET "+mustRoutePathWithParams(t, ctx, ctx.AdminAPIGroup(), "panel.preview", map[string]string{"panel": "users"})])
 
 	actionCtx := router.NewMockContext()
 	actionCtx.ParamsM["panel"] = "users"
@@ -1030,6 +1039,43 @@ func TestTranslationQueueRouteStepRegistersRoutes(t *testing.T) {
 	}
 	require.Equal(t, 1, binding.myWorkCalled)
 	require.Equal(t, 1, binding.queueCalled)
+}
+
+func TestPanelAndTranslationQueueRoutesDoNotShadowEachOther(t *testing.T) {
+	rr := &recordRouter{}
+	resp := &stubResponder{}
+	panelBinding := &stubPanelBinding{name: "translations"}
+	queueBinding := &stubTranslationQueueBinding{}
+	ctx := &stubCtx{
+		router:     rr,
+		responder:  resp,
+		basePath:   "/admin",
+		defaultLoc: "en",
+		panels:     []PanelBinding{panelBinding},
+		queue:      queueBinding,
+	}
+
+	require.NoError(t, PanelStep(ctx))
+	require.NoError(t, TranslationQueueRouteStep(ctx))
+
+	methodPaths := map[string]bool{}
+	for _, call := range rr.calls {
+		methodPaths[call.method+" "+call.path] = true
+	}
+
+	panelDetail := mustRoutePathWithParams(t, ctx, ctx.AdminAPIGroup(), "panel.id", map[string]string{"panel": "translations"})
+	panelCollection := mustRoutePathWithParams(t, ctx, ctx.AdminAPIGroup(), "panel", map[string]string{"panel": "translations"})
+	myWork := mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.my_work")
+	queue := mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.queue")
+
+	require.True(t, methodPaths["GET "+panelCollection])
+	require.True(t, methodPaths["GET "+panelDetail])
+	require.True(t, methodPaths["GET "+myWork])
+	require.True(t, methodPaths["GET "+queue])
+	require.NotEqual(t, panelCollection, myWork)
+	require.NotEqual(t, panelCollection, queue)
+	require.NotEqual(t, panelDetail, myWork)
+	require.NotEqual(t, panelDetail, queue)
 }
 
 func (s *stubSettingsBinding) Values(_ router.Context) (map[string]any, error) {
