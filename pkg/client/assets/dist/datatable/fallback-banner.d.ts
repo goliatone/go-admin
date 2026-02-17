@@ -19,7 +19,7 @@ import { type TranslationContext } from './translation-context.js';
 export interface FallbackBannerConfig {
     /** Translation context extracted from the record */
     context: TranslationContext;
-    /** API endpoint for panel actions (e.g., /admin/api/pages) */
+    /** API endpoint for panel actions (e.g., /admin/api/panels/pages) */
     apiEndpoint: string;
     /** Base path for navigation (e.g., /admin/content/pages) */
     navigationBasePath: string;

@@ -12,6 +12,28 @@
  */
 /**
  * View mode for DataGrid
+ *
+ * View modes control how translation-enabled content is displayed:
+ *
+ * - **flat**: Standard list view. Each record is a separate row.
+ *   Cell renderers show basic translation status badges.
+ *
+ * - **grouped**: Records are grouped by `translation_group_id`.
+ *   Expandable group headers show aggregate translation state.
+ *   Child rows are collapsible under each group.
+ *
+ * - **matrix**: Grouped layout with compact locale status icons.
+ *   Uses `renderTranslationMatrixCell()` to show per-locale status (●/◐/○)
+ *   for each required locale in a single cell. This is a "matrix summary"
+ *   representation where locale status icons are inline, NOT separate columns.
+ *
+ * Note: A "true locale-column matrix" (separate column per locale) is not
+ * currently implemented. The current matrix mode provides locale status
+ * visibility within the grouped row structure.
+ *
+ * Both 'grouped' and 'matrix' modes share the same expand/collapse behavior,
+ * URL state sync, and pagination handling. The difference is purely visual:
+ * the cell renderer switches to compact locale chips in matrix mode.
  */
 export type ViewMode = 'flat' | 'grouped' | 'matrix';
 /**
@@ -120,10 +142,20 @@ export declare function persistExpandState(panelId: string, expandedGroups: Set<
 export declare function toggleGroupExpand(groupedData: GroupedData, groupId: string): GroupedData;
 /**
  * Expand all groups.
+ *
+ * Note: This only affects grouped records (those with translation_group_id).
+ * Ungrouped records (in groupedData.ungrouped) are always visible and
+ * are not affected by expand/collapse operations.
  */
 export declare function expandAllGroups(groupedData: GroupedData): GroupedData;
 /**
  * Collapse all groups.
+ *
+ * Note: This only affects grouped records (those with translation_group_id).
+ * Ungrouped records (in groupedData.ungrouped) are always visible and
+ * are not affected by expand/collapse operations. This is the expected
+ * behavior for mixed datasets where some records have translation groups
+ * and others are standalone.
  */
 export declare function collapseAllGroups(groupedData: GroupedData): GroupedData;
 /**
@@ -160,6 +192,13 @@ export declare function renderGroupHeaderSummary(group: RecordGroup, options?: {
 }): string;
 /**
  * Render group header row HTML for the DataGrid.
+ *
+ * Group header semantics:
+ * - Groups show an expandable/collapsible header with a derived label
+ * - Label is derived from: displayLabel > first record's title > fallback
+ * - Ungrouped records (those without translation_group_id) are rendered
+ *   as regular rows without a header, after all grouped content
+ * - Collapse All only affects grouped records, not ungrouped rows
  */
 export declare function renderGroupHeaderRow(group: RecordGroup, colSpan: number, options?: {
     showExpandIcon?: boolean;

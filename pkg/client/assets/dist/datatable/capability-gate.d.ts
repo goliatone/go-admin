@@ -4,8 +4,8 @@
  * Provides capability-mode and permission gating for translation module
  * navigation and action controls. Follows the graceful degradation strategy:
  *
- * - Hidden: Module is off OR user lacks module-view permission
- * - Visible + Disabled: Module is on, user has view permission, but lacks action-specific permission
+ * - Hidden: Module is off OR backend marks module as not visible
+ * - Visible + Disabled: Module is visible but entry/action permission is denied
  * - Visible + Enabled: Module is on and user has all required permissions
  */
 /**
@@ -132,8 +132,9 @@ export declare class CapabilityGate {
      * Gate a navigation item.
      * Returns visibility/enabled state for rendering.
      *
-     * Rule: Hidden when module is off or no module-view permission;
-     *       visible-disabled for partial action permissions.
+     * Rule:
+     * - backend visible=false => hidden
+     * - backend visible=true + entry/action denied => visible-disabled
      */
     gateNavItem(gate: NavItemGate): GateResult;
     /**
