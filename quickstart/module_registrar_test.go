@@ -236,6 +236,9 @@ func TestNewModuleRegistrarDoesNotSeedTranslationCapabilityMenuItemsByDefault(t 
 	if queueItem := findMenuItemByRouteName(menu.Items, "admin.translations.queue"); queueItem != nil {
 		t.Fatalf("expected queue menu hidden by default, got %+v", *queueItem)
 	}
+	if dashboardItem := findMenuItemByRouteName(menu.Items, "admin.translations.dashboard"); dashboardItem != nil {
+		t.Fatalf("expected dashboard menu hidden by default, got %+v", *dashboardItem)
+	}
 	if exchangeItem := findMenuItemByRouteName(menu.Items, "admin.translations.exchange"); exchangeItem != nil {
 		t.Fatalf("expected exchange menu hidden by default, got %+v", *exchangeItem)
 	}
@@ -243,10 +246,11 @@ func TestNewModuleRegistrarDoesNotSeedTranslationCapabilityMenuItemsByDefault(t 
 
 func TestNewModuleRegistrarSeedsTranslationCapabilityMenuItemsWhenEnabled(t *testing.T) {
 	tests := []struct {
-		name           string
-		productCfg     TranslationProductConfig
-		expectQueue    bool
-		expectExchange bool
+		name            string
+		productCfg      TranslationProductConfig
+		expectDashboard bool
+		expectQueue     bool
+		expectExchange  bool
 	}{
 		{
 			name: "core profile keeps translation menu hidden",
@@ -254,8 +258,9 @@ func TestNewModuleRegistrarSeedsTranslationCapabilityMenuItemsWhenEnabled(t *tes
 				SchemaVersion: TranslationProductSchemaVersionCurrent,
 				Profile:       TranslationProfileCore,
 			},
-			expectQueue:    false,
-			expectExchange: false,
+			expectDashboard: false,
+			expectQueue:     false,
+			expectExchange:  false,
 		},
 		{
 			name: "queue profile seeds queue menu only",
@@ -267,8 +272,9 @@ func TestNewModuleRegistrarSeedsTranslationCapabilityMenuItemsWhenEnabled(t *tes
 					SupportedLocales: []string{"en", "es"},
 				},
 			},
-			expectQueue:    true,
-			expectExchange: false,
+			expectDashboard: true,
+			expectQueue:     true,
+			expectExchange:  false,
 		},
 		{
 			name: "exchange profile seeds exchange menu only",
@@ -280,8 +286,9 @@ func TestNewModuleRegistrarSeedsTranslationCapabilityMenuItemsWhenEnabled(t *tes
 					Store:   &moduleRegistrarExchangeStoreStub{},
 				},
 			},
-			expectQueue:    false,
-			expectExchange: true,
+			expectDashboard: false,
+			expectQueue:     false,
+			expectExchange:  true,
 		},
 		{
 			name: "full profile seeds queue and exchange menus",
@@ -297,8 +304,9 @@ func TestNewModuleRegistrarSeedsTranslationCapabilityMenuItemsWhenEnabled(t *tes
 					SupportedLocales: []string{"en", "es"},
 				},
 			},
-			expectQueue:    true,
-			expectExchange: true,
+			expectDashboard: true,
+			expectQueue:     true,
+			expectExchange:  true,
 		},
 	}
 
@@ -352,6 +360,24 @@ func TestNewModuleRegistrarSeedsTranslationCapabilityMenuItemsWhenEnabled(t *tes
 				}
 				if len(queueItem.Permissions) != 0 {
 					t.Fatalf("expected queue menu item to be module/profile-gated only, got permissions %v", queueItem.Permissions)
+				}
+			}
+
+			dashboardItem := findMenuItemByRouteName(menu.Items, "admin.translations.dashboard")
+			if (dashboardItem != nil) != tc.expectDashboard {
+				t.Fatalf("expected dashboard menu=%t, got %t", tc.expectDashboard, dashboardItem != nil)
+			}
+			if dashboardItem != nil {
+				parent := strings.TrimSpace(dashboardItem.ParentID)
+				if !strings.Contains(parent, "nav-group-others") {
+					t.Fatalf("expected dashboard item parent to include nav-group-others, got %q", parent)
+				}
+				path, _ := dashboardItem.Target["path"].(string)
+				if !strings.Contains(strings.TrimSpace(path), "/translations/dashboard") {
+					t.Fatalf("expected dashboard target path to include /translations/dashboard, got %q", path)
+				}
+				if len(dashboardItem.Permissions) != 0 {
+					t.Fatalf("expected dashboard menu item to be module/profile-gated only, got permissions %v", dashboardItem.Permissions)
 				}
 			}
 
@@ -425,6 +451,14 @@ func TestTranslationCapabilityMenuItemsVisibleWithoutTranslationPermissions(t *t
 			t.Fatalf("expected queue href to include /content/translations, got %q", href)
 		}
 	}
+	dashboardItem := findNavItemByKey(navItems, "translation_dashboard")
+	if dashboardItem == nil {
+		t.Fatalf("expected translation dashboard sidebar entrypoint")
+	}
+	dashboardHref := strings.TrimSpace(toString(dashboardItem["href"]))
+	if !strings.Contains(dashboardHref, "/translations/dashboard") {
+		t.Fatalf("expected dashboard href to include /translations/dashboard, got %q", dashboardHref)
+	}
 	exchangeItem := findNavItemByKey(navItems, "translation_exchange")
 	if exchangeItem == nil {
 		t.Fatalf("expected translation exchange sidebar entrypoint")
@@ -437,6 +471,10 @@ func TestTranslationCapabilityMenuItemsVisibleWithoutTranslationPermissions(t *t
 	routePath := strings.TrimSpace(resolveRoutePath(adm.URLs(), "admin", "translations.exchange"))
 	if !strings.Contains(routePath, "/translations/exchange") {
 		t.Fatalf("expected exchange route path to include /translations/exchange, got %q", routePath)
+	}
+	dashboardRoutePath := strings.TrimSpace(resolveRoutePath(adm.URLs(), "admin", "translations.dashboard"))
+	if !strings.Contains(dashboardRoutePath, "/translations/dashboard") {
+		t.Fatalf("expected dashboard route path to include /translations/dashboard, got %q", dashboardRoutePath)
 	}
 }
 

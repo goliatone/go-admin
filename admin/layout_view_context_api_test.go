@@ -64,6 +64,9 @@ func TestEnrichLayoutViewContextIncludesTranslationCapabilities(t *testing.T) {
 	if strings.TrimSpace(routes["admin.translations.queue"]) == "" {
 		t.Fatalf("expected admin.translations.queue route")
 	}
+	if strings.TrimSpace(routes["admin.translations.dashboard"]) == "" {
+		t.Fatalf("expected admin.translations.dashboard route")
+	}
 	if strings.TrimSpace(routes["admin.translations.exchange"]) == "" {
 		t.Fatalf("expected admin.translations.exchange route")
 	}

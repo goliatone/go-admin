@@ -99,3 +99,30 @@ func TestBuildPanelDataGridConfigHonorsExplicitColumnStorageKey(t *testing.T) {
 		t.Fatalf("expected explicit column storage key roles_custom_columns, got %v", key)
 	}
 }
+
+func TestBuildPanelDataGridConfigIncludesTranslationUXOptions(t *testing.T) {
+	cfg := BuildPanelDataGridConfig(PanelDataGridConfigOptions{
+		TableID:           "content-pages",
+		APIEndpoint:       "/admin/api/pages",
+		ActionBase:        "/admin/content/pages",
+		TranslationUX:     true,
+		EnableGroupedMode: true,
+		DefaultViewMode:   "grouped",
+		GroupByField:      "translation_group_id",
+	})
+	if cfg == nil {
+		t.Fatalf("expected datagrid config")
+	}
+	if enabled := cfg["translation_ux_enabled"]; enabled != true {
+		t.Fatalf("expected translation_ux_enabled true, got %v", enabled)
+	}
+	if enabled := cfg["enable_grouped_mode"]; enabled != true {
+		t.Fatalf("expected enable_grouped_mode true, got %v", enabled)
+	}
+	if mode := cfg["default_view_mode"]; mode != "grouped" {
+		t.Fatalf("expected default_view_mode grouped, got %v", mode)
+	}
+	if field := cfg["group_by_field"]; field != "translation_group_id" {
+		t.Fatalf("expected group_by_field translation_group_id, got %v", field)
+	}
+}
