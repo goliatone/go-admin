@@ -25,7 +25,7 @@ function createMockRecord(overrides = {}) {
 
 function createBuilder(overrides = {}) {
   return new SchemaActionBuilder({
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     actionBasePath: '/admin/content/pages',
     useDefaultFallback: true,
     ...overrides,
@@ -480,7 +480,7 @@ test('buildSchemaRowActions convenience function works correctly', () => {
   ];
 
   const actions = buildSchemaRowActions(record, schemaActions, {
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     actionBasePath: '/admin/content/pages',
   });
 
@@ -583,7 +583,7 @@ test('schema actions use stable fallback order when no order property', () => {
 
 test('SchemaActionBuilder includes locale in query context', () => {
   const builder = new SchemaActionBuilder({
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     actionBasePath: '/admin/content/pages',
     locale: 'es',
   });
@@ -601,7 +601,7 @@ test('SchemaActionBuilder includes locale in query context', () => {
 
 test('SchemaActionBuilder includes environment in query context', () => {
   const builder = new SchemaActionBuilder({
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     actionBasePath: '/admin/content/pages',
     environment: 'staging',
   });
@@ -616,7 +616,7 @@ test('SchemaActionBuilder includes environment in query context', () => {
 
 test('SchemaActionBuilder includes panelName for policy_entity', () => {
   const builder = new SchemaActionBuilder({
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     actionBasePath: '/admin/content/pages',
     panelName: 'pages',
     locale: 'en',
@@ -809,7 +809,7 @@ test('payload_required array is accepted without payload_schema', () => {
 test('onTranslationBlocker callback is stored in config', () => {
   let blockerCalled = false;
   const builder = new SchemaActionBuilder({
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     actionBasePath: '/admin/content/pages',
     onTranslationBlocker: (info) => {
       blockerCalled = true;
@@ -828,7 +828,7 @@ test('translation blocker retry re-executes the original action payload', async 
   let blockerInfo = null;
 
   const builder = new SchemaActionBuilder({
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     actionBasePath: '/admin/content/pages',
     locale: 'en',
     environment: 'production',
@@ -907,7 +907,7 @@ test('translation blocker retry re-executes the original action payload', async 
 test('onActionSuccess callback is stored in config', () => {
   let successCalled = false;
   const builder = new SchemaActionBuilder({
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     actionBasePath: '/admin/content/pages',
     onActionSuccess: (name, result) => {
       successCalled = true;
@@ -920,7 +920,7 @@ test('onActionSuccess callback is stored in config', () => {
 test('onActionError callback is stored in config', () => {
   let errorCalled = false;
   const builder = new SchemaActionBuilder({
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     actionBasePath: '/admin/content/pages',
     onActionError: (name, error) => {
       errorCalled = true;
@@ -978,7 +978,7 @@ test('confirm message from schema is used', () => {
 
 test('locale and environment are propagated to navigation URLs', () => {
   const builder = new SchemaActionBuilder({
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     actionBasePath: '/admin/content/pages',
     locale: 'fr',
     environment: 'production',
@@ -1001,7 +1001,7 @@ test('locale and environment are propagated to navigation URLs', () => {
 
 test('POST actions include locale/env/policy_entity in payload', () => {
   const builder = new SchemaActionBuilder({
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     actionBasePath: '/admin/content/pages',
     locale: 'es',
     environment: 'staging',
@@ -1089,7 +1089,7 @@ test('create_translation action uses copy icon by default', () => {
 
 test('actionOrderOverride config overrides stable fallback order', () => {
   const builder = new SchemaActionBuilder({
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     actionBasePath: '/admin/content/pages',
     // Custom order: put delete first, view last
     actionOrderOverride: {
@@ -1116,7 +1116,7 @@ test('actionOrderOverride config overrides stable fallback order', () => {
 
 test('server order property takes precedence over actionOrderOverride', () => {
   const builder = new SchemaActionBuilder({
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     actionBasePath: '/admin/content/pages',
     actionOrderOverride: {
       publish: 1, // Would make publish first
@@ -1256,7 +1256,7 @@ test('fixture contract: schema action order is server-authoritative for pages/po
     assert.ok(record, `fixture record missing for ${panel}`);
 
     const builder = new SchemaActionBuilder({
-      apiEndpoint: `/admin/api/${panel}`,
+      apiEndpoint: `/admin/api/panels/`,
       actionBasePath: `/admin/content/${panel}`,
       useDefaultFallback: true,
     });

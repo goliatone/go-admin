@@ -15,22 +15,17 @@
 
 {% block quick_filters %}
 {% if datagrid_config and datagrid_config.translation_ux_enabled %}
-<!-- Phase 19.2: Quick filter for incomplete translations -->
-<button type="button"
-        id="incomplete-translations-filter"
-        class="h-10 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-sm hover:bg-gray-50"
-        aria-pressed="false"
-        title="Show only content with incomplete translations">
-  <svg class="h-4 w-4 text-amber-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
-  </svg>
-  Incomplete
-</button>
+<!-- Translation UX: Quick filters container -->
+<div id="translation-quick-filters" class="inline-flex items-center" data-quick-filters data-size="sm"></div>
 {% endif %}
 {% endblock %}
 
 {% block toolbar_right_extra %}
 {% if datagrid_config and datagrid_config.translation_ux_enabled %}
+<!-- Translation UX: Status legend (Phase 1 contract: always visible, non-collapsible) -->
+<div id="translation-status-legend" data-status-legend data-size="sm" data-orientation="horizontal"></div>
+
+<!-- Translation UX: View mode toggle (flat/grouped/matrix) -->
 <div class="inline-flex items-center gap-2 border border-gray-200 rounded-lg bg-white p-1">
   <button type="button"
           data-view-mode="flat"
@@ -47,10 +42,12 @@
   <button type="button"
           data-view-mode="matrix"
           class="translation-view-mode-btn px-2.5 py-1.5 text-xs font-medium rounded text-gray-700 hover:bg-gray-100"
-          title="Matrix view mode">
-    Matrix
+          title="Matrix summary view mode">
+    Matrix Summary
   </button>
 </div>
+
+<!-- Translation UX: Expand/Collapse controls for grouped mode -->
 <div class="inline-flex items-center gap-1 border border-gray-200 rounded-lg bg-white p-1">
   <button type="button"
           id="group-expand-all-btn"
@@ -92,7 +89,10 @@ import {
   // Phase 19.2: Missing translations affordance
   renderMissingTranslationsBadge,
   hasMissingTranslations,
-  persistExpandState
+  persistExpandState,
+  // Phase 2 (TX-088): Translation UX primitives with template-level initialization
+  createStatusLegend,
+  createTranslationQuickFilters
 } from '{{ base_path }}/assets/dist/datatable/index.js';
 
 const basePath = '{{ base_path }}';
@@ -481,6 +481,74 @@ document.addEventListener('DOMContentLoaded', async function() {
   grid.init();
   syncTranslationViewControls();
 
+  // ============================================================================
+  // Translation UX Primitives Initialization (TX-088)
+  // ============================================================================
+
+  // Initialize status legend if container exists
+  const statusLegendContainer = document.getElementById('translation-status-legend');
+  if (statusLegendContainer && translationUXEnabled) {
+    createStatusLegend({
+      container: statusLegendContainer,
+      size: 'sm',
+      orientation: 'horizontal'
+    });
+  }
+
+  // Initialize quick filters if container exists
+  const quickFiltersContainer = document.getElementById('translation-quick-filters');
+  const canonicalIncompleteFilter = {
+    column: 'incomplete',
+    operator: 'eq',
+    value: 'true'
+  };
+  const incompleteFilterButtonSelector = '[id="incomplete-translations-filter"]';
+  let quickFiltersInstance = null;
+  if (quickFiltersContainer && translationUXEnabled) {
+    quickFiltersInstance = createTranslationQuickFilters(
+      quickFiltersContainer,
+      async (filter) => {
+        if (filter === null) {
+          // Clear filter - remove readiness_state and fallback_used filters
+          grid.state.filters = grid.state.filters.filter(f =>
+            f.column !== 'readiness_state' && f.column !== 'fallback_used' && f.column !== 'incomplete'
+          );
+        } else {
+          // Apply quick filter
+          // Remove any existing readiness/fallback filter first
+          grid.state.filters = grid.state.filters.filter(f =>
+            f.column !== 'readiness_state' && f.column !== 'fallback_used' && f.column !== 'incomplete'
+          );
+          // Canonical quick-filter predicate for translation incompleteness.
+          const useCanonicalIncompletePredicate = filter.key === 'missing_locales' || filter.key === 'missing_fields' || filter.key === 'incomplete';
+          if (useCanonicalIncompletePredicate) {
+            grid.state.filters.push({
+              ...canonicalIncompleteFilter
+            });
+          } else {
+            grid.state.filters.push({
+              column: filter.field,
+              operator: 'eq',
+              value: filter.value
+            });
+          }
+        }
+        grid.resetPagination();
+        grid.syncURL();
+        await grid.refresh();
+      },
+      { size: 'sm' }
+    );
+    const existingIncompleteBtn = quickFiltersContainer.querySelector(incompleteFilterButtonSelector);
+    if (!existingIncompleteBtn) {
+      const preferredIncompleteBtn = quickFiltersContainer.querySelector('[data-filter-key="missing_fields"]')
+        || quickFiltersContainer.querySelector('[data-filter-key="missing_locales"]');
+      if (preferredIncompleteBtn instanceof HTMLElement) {
+        preferredIncompleteBtn.id = 'incomplete-translations-filter';
+      }
+    }
+  }
+
   const refreshBtn = document.getElementById('refresh-btn');
   if (refreshBtn) {
     refreshBtn.addEventListener('click', async () => {
@@ -528,42 +596,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     filterToggleBtn.classList.add('opacity-50', 'cursor-not-allowed');
   }
 
-  // Phase 19.2: Quick filter toggle for missing translations
-  const incompleteFilterBtn = document.getElementById('incomplete-translations-filter');
-  if (incompleteFilterBtn) {
-    let isFilterActive = false;
-
-    incompleteFilterBtn.addEventListener('click', async () => {
-      isFilterActive = !isFilterActive;
-
-      if (isFilterActive) {
-        // Activate filter: show only incomplete translations
-        incompleteFilterBtn.classList.add('bg-amber-100', 'border-amber-300', 'text-amber-800');
-        incompleteFilterBtn.classList.remove('bg-white', 'text-gray-800');
-        incompleteFilterBtn.setAttribute('aria-pressed', 'true');
-
-        // Add canonical incomplete filter.
-        const incompleteFilter = {
-          column: 'incomplete',
-          operator: 'eq',
-          value: 'true'
-        };
-        grid.state.filters = [...grid.state.filters.filter(f => f.column !== 'incomplete'), incompleteFilter];
-      } else {
-        // Deactivate filter: show all
-        incompleteFilterBtn.classList.remove('bg-amber-100', 'border-amber-300', 'text-amber-800');
-        incompleteFilterBtn.classList.add('bg-white', 'text-gray-800');
-        incompleteFilterBtn.setAttribute('aria-pressed', 'false');
-
-        // Remove canonical incomplete filter
-        grid.state.filters = grid.state.filters.filter(f => f.column !== 'incomplete');
-      }
-
-      grid.resetPagination();
-      grid.syncURL();
-      await grid.refresh();
-    });
-  }
 });
+
 </script>
 {% endblock %}

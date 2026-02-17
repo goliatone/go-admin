@@ -20,7 +20,7 @@ test('TranslationBlockerModal constructor accepts required config', () => {
     missingFieldsByLocale: null,
     requestedLocale: 'en',
     environment: 'production',
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   };
 
@@ -41,7 +41,7 @@ test('TranslationBlockerModal handles missing_fields_by_locale config', () => {
     },
     requestedLocale: 'en',
     environment: 'production',
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   };
 
@@ -58,7 +58,7 @@ test('TranslationBlockerModal handles null optional fields', () => {
     missingFieldsByLocale: null,
     requestedLocale: null,
     environment: null,
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   };
 
@@ -75,7 +75,7 @@ test('TranslationBlockerModal handles empty missing_locales array', () => {
     missingFieldsByLocale: null,
     requestedLocale: 'en',
     environment: null,
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   };
 
@@ -94,7 +94,7 @@ test('TranslationBlockerModal renders create/open/retry actions with field detai
     },
     requestedLocale: 'en',
     environment: 'production',
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   };
 
@@ -118,7 +118,7 @@ test('TranslationBlockerModal retry delegates to onRetry callback', async () => 
     missingFieldsByLocale: null,
     requestedLocale: 'en',
     environment: 'production',
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
     onRetry: async () => {
       retryCalls += 1;
@@ -142,7 +142,7 @@ test('TranslationBlockerModal retry errors are routed to onError callback', asyn
     missingFieldsByLocale: null,
     requestedLocale: 'en',
     environment: 'production',
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
     onRetry: async () => {
       throw new Error('Retry failed in test');
@@ -203,7 +203,7 @@ test('config supports onCreateSuccess callback', () => {
     missingFieldsByLocale: null,
     requestedLocale: 'en',
     environment: null,
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
     onCreateSuccess: (locale, result) => {
       callbackCalled = true;
@@ -225,7 +225,7 @@ test('config supports onError callback', () => {
     missingFieldsByLocale: null,
     requestedLocale: 'en',
     environment: null,
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
     onError: (message) => {
       // Error handler
@@ -245,7 +245,7 @@ test('config supports onDismiss callback', () => {
     missingFieldsByLocale: null,
     requestedLocale: 'en',
     environment: null,
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
     onDismiss: () => {
       // Dismiss handler
@@ -265,7 +265,7 @@ test('config supports panelName for policy_entity', () => {
     missingFieldsByLocale: null,
     requestedLocale: 'en',
     environment: 'production',
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
     panelName: 'pages',
   };
@@ -325,7 +325,7 @@ test('TranslationBlockerModal config aligns with TranslationBlockerContext from 
     missingFieldsByLocale: blockerContext.missingFieldsByLocale,
     requestedLocale: blockerContext.requestedLocale,
     environment: blockerContext.environment,
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   };
 
@@ -349,7 +349,7 @@ test('common locale codes are recognized', () => {
     missingFieldsByLocale: null,
     requestedLocale: 'en',
     environment: null,
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   };
 
@@ -370,7 +370,7 @@ test('modal handles missing_fields_by_locale being null gracefully', () => {
     missingFieldsByLocale: null, // No field-level info available
     requestedLocale: 'en',
     environment: 'production',
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   };
 
@@ -388,7 +388,7 @@ test('modal handles empty missing_fields_by_locale object', () => {
     missingFieldsByLocale: {}, // Empty object - no fields for any locale
     requestedLocale: 'en',
     environment: null,
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   };
 
@@ -408,7 +408,7 @@ test('modal handles partial missing_fields_by_locale', () => {
     },
     requestedLocale: 'en',
     environment: null,
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   };
 
@@ -429,7 +429,7 @@ test('modal supports pages entity type', () => {
     missingFieldsByLocale: null,
     requestedLocale: 'en',
     environment: null,
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   };
 
@@ -470,7 +470,7 @@ test('modal handles staging environment', () => {
     missingFieldsByLocale: null,
     requestedLocale: 'en',
     environment: 'staging',
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   };
 
@@ -487,7 +487,7 @@ test('modal handles production environment', () => {
     missingFieldsByLocale: { es: ['summary'], fr: ['path'] },
     requestedLocale: 'en',
     environment: 'production',
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   };
 
@@ -504,7 +504,7 @@ test('modal handles null environment', () => {
     missingFieldsByLocale: null,
     requestedLocale: 'en',
     environment: null,
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   };
 

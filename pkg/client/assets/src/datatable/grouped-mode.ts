@@ -17,6 +17,28 @@
 
 /**
  * View mode for DataGrid
+ *
+ * View modes control how translation-enabled content is displayed:
+ *
+ * - **flat**: Standard list view. Each record is a separate row.
+ *   Cell renderers show basic translation status badges.
+ *
+ * - **grouped**: Records are grouped by `translation_group_id`.
+ *   Expandable group headers show aggregate translation state.
+ *   Child rows are collapsible under each group.
+ *
+ * - **matrix**: Grouped layout with compact locale status icons.
+ *   Uses `renderTranslationMatrixCell()` to show per-locale status (●/◐/○)
+ *   for each required locale in a single cell. This is a "matrix summary"
+ *   representation where locale status icons are inline, NOT separate columns.
+ *
+ * Note: A "true locale-column matrix" (separate column per locale) is not
+ * currently implemented. The current matrix mode provides locale status
+ * visibility within the grouped row structure.
+ *
+ * Both 'grouped' and 'matrix' modes share the same expand/collapse behavior,
+ * URL state sync, and pagination handling. The difference is purely visual:
+ * the cell renderer switches to compact locale chips in matrix mode.
  */
 export type ViewMode = 'flat' | 'grouped' | 'matrix';
 
@@ -640,6 +662,10 @@ export function toggleGroupExpand(
 
 /**
  * Expand all groups.
+ *
+ * Note: This only affects grouped records (those with translation_group_id).
+ * Ungrouped records (in groupedData.ungrouped) are always visible and
+ * are not affected by expand/collapse operations.
  */
 export function expandAllGroups(groupedData: GroupedData): GroupedData {
   const groups = groupedData.groups.map((group) => ({
@@ -651,6 +677,12 @@ export function expandAllGroups(groupedData: GroupedData): GroupedData {
 
 /**
  * Collapse all groups.
+ *
+ * Note: This only affects grouped records (those with translation_group_id).
+ * Ungrouped records (in groupedData.ungrouped) are always visible and
+ * are not affected by expand/collapse operations. This is the expected
+ * behavior for mixed datasets where some records have translation groups
+ * and others are standalone.
  */
 export function collapseAllGroups(groupedData: GroupedData): GroupedData {
   const groups = groupedData.groups.map((group) => ({
@@ -896,7 +928,48 @@ function getReadinessStateConfig(state: GroupSummary['readinessState']): {
 }
 
 /**
+ * Derive a meaningful label for a group from its records.
+ * Prefers: displayLabel > first record's title/name > fallback label.
+ */
+function deriveGroupLabel(group: RecordGroup): string {
+  // Priority 1: Explicit displayLabel
+  if (typeof group.displayLabel === 'string' && group.displayLabel.trim()) {
+    return group.displayLabel.trim();
+  }
+
+  // Priority 2: Check if this is an ungrouped pseudo-group
+  if (group.groupId.startsWith('ungrouped:')) {
+    return 'Ungrouped Records';
+  }
+
+  // Priority 3: Derive from first record's title/name field
+  if (group.records.length > 0) {
+    const firstRecord = group.records[0];
+    // Try common title fields
+    for (const field of ['title', 'name', 'label', 'subject']) {
+      const value = firstRecord[field];
+      if (typeof value === 'string' && value.trim()) {
+        // Truncate long titles
+        const trimmed = value.trim();
+        return trimmed.length > 60 ? trimmed.slice(0, 57) + '...' : trimmed;
+      }
+    }
+  }
+
+  // Priority 4: Fallback with group ID hint
+  const shortId = group.groupId.length > 8 ? group.groupId.slice(0, 8) + '...' : group.groupId;
+  return `Translation Group (${shortId})`;
+}
+
+/**
  * Render group header row HTML for the DataGrid.
+ *
+ * Group header semantics:
+ * - Groups show an expandable/collapsible header with a derived label
+ * - Label is derived from: displayLabel > first record's title > fallback
+ * - Ungrouped records (those without translation_group_id) are rendered
+ *   as regular rows without a header, after all grouped content
+ * - Collapse All only affects grouped records, not ungrouped rows
  */
 export function renderGroupHeaderRow(
   group: RecordGroup,
@@ -909,10 +982,11 @@ export function renderGroupHeaderRow(
     : '';
 
   const summaryHtml = renderGroupHeaderSummary(group);
-  const label = typeof group.displayLabel === 'string' ? group.displayLabel.trim() : '';
-  const groupLabel = label
-    ? escapeHtml(label)
-    : (group.groupId.startsWith('ungrouped:') ? 'Ungrouped' : 'Translation Group');
+  const groupLabel = escapeHtml(deriveGroupLabel(group));
+  const recordCount = group.records.length;
+  const countBadge = recordCount > 1
+    ? `<span class="ml-2 text-xs text-gray-500">(${recordCount} locales)</span>`
+    : '';
 
   return `
     <tr class="group-header bg-gray-50 hover:bg-gray-100 cursor-pointer border-b border-gray-200"
@@ -926,6 +1000,7 @@ export function renderGroupHeaderRow(
           <div class="flex items-center">
             ${expandIcon}
             <span class="font-medium text-gray-700">${groupLabel}</span>
+            ${countBadge}
           </div>
           ${summaryHtml}
         </div>

@@ -368,17 +368,17 @@ describe('Bulk action handler creation', () => {
   }
 
   it('should create handler with correct endpoint', async () => {
-    const handler = createBulkCreateMissingHandler('/admin/api/pages');
+    const handler = createBulkCreateMissingHandler('/admin/api/panels/pages');
     const result = await handler(['1', '2', '3']);
 
-    assert.equal(result.endpoint, '/admin/api/pages/bulk/create-missing-translations');
+    assert.equal(result.endpoint, '/admin/api/panels/pages/bulk/create-missing-translations');
     assert.deepEqual(result.ids, ['1', '2', '3']);
   });
 
   it('should pass notifier and callback', async () => {
     const mockNotifier = { success: () => {} };
     const mockCallback = () => {};
-    const handler = createBulkCreateMissingHandler('/admin/api/pages', mockNotifier, mockCallback);
+    const handler = createBulkCreateMissingHandler('/admin/api/panels/pages', mockNotifier, mockCallback);
     const result = await handler(['1']);
 
     assert.equal(result.hasNotifier, true);

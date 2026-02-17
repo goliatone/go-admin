@@ -59,7 +59,7 @@ test('LocaleActionChip accepts required config', () => {
   const config = {
     locale: 'es',
     recordId: 'page_123',
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   };
 
@@ -71,7 +71,7 @@ test('LocaleActionChip initializes with default state', () => {
   const config = {
     locale: 'fr',
     recordId: 'page_456',
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   };
 
@@ -91,7 +91,7 @@ test('LocaleActionChip renders locale code with uppercase CSS class', () => {
   const config = {
     locale: 'es',
     recordId: 'page_123',
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   };
 
@@ -108,7 +108,7 @@ test('LocaleActionChip renders create button for missing locales', () => {
   const config = {
     locale: 'fr',
     recordId: 'page_123',
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
     localeExists: false,
   };
@@ -124,7 +124,7 @@ test('LocaleActionChip renders open button for existing locales', () => {
   const config = {
     locale: 'de',
     recordId: 'page_123',
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
     localeExists: true,
   };
@@ -142,7 +142,7 @@ test('LocaleActionChip does not render create button after creation', () => {
   const config = {
     locale: 'it',
     recordId: 'page_123',
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
     localeExists: false,
   };
@@ -163,7 +163,7 @@ test('LocaleActionChip uses sm size classes when configured', () => {
   const config = {
     locale: 'es',
     recordId: 'page_123',
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
     size: 'sm',
   };
@@ -179,7 +179,7 @@ test('LocaleActionChip uses md size classes when configured', () => {
   const config = {
     locale: 'es',
     recordId: 'page_123',
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
     size: 'md',
   };
@@ -195,7 +195,7 @@ test('LocaleActionChip renders chip mode by default', () => {
   const config = {
     locale: 'es',
     recordId: 'page_123',
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   };
 
@@ -209,7 +209,7 @@ test('LocaleActionChip renders button mode when configured', () => {
   const config = {
     locale: 'es',
     recordId: 'page_123',
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
     mode: 'button',
   };
@@ -228,7 +228,7 @@ test('LocaleActionChip includes aria-label for locale', () => {
   const config = {
     locale: 'es',
     recordId: 'page_123',
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   };
 
@@ -242,7 +242,7 @@ test('LocaleActionChip has role="group" for action grouping', () => {
   const config = {
     locale: 'fr',
     recordId: 'page_123',
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   };
 
@@ -256,7 +256,7 @@ test('LocaleActionChip includes sr-only label for full locale name', () => {
   const config = {
     locale: 'de',
     recordId: 'page_123',
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   };
 
@@ -274,7 +274,7 @@ test('LocaleActionChip includes data-locale-exists attribute', () => {
   const configMissing = {
     locale: 'es',
     recordId: 'page_123',
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
     localeExists: false,
   };
@@ -293,7 +293,7 @@ test('LocaleActionChip includes data-loading attribute', () => {
   const config = {
     locale: 'es',
     recordId: 'page_123',
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   };
 
@@ -307,7 +307,7 @@ test('LocaleActionChip includes data-created attribute', () => {
   const config = {
     locale: 'es',
     recordId: 'page_123',
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   };
 
@@ -325,7 +325,7 @@ test('renderLocaleActionChip returns HTML string', () => {
   const html = renderLocaleActionChip({
     locale: 'es',
     recordId: 'page_123',
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   });
 
@@ -340,7 +340,7 @@ test('renderLocaleActionChip returns HTML string', () => {
 test('renderLocaleActionList renders multiple locale chips', () => {
   const html = renderLocaleActionList(['es', 'fr', 'de'], {
     recordId: 'page_123',
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   });
 
@@ -352,7 +352,7 @@ test('renderLocaleActionList renders multiple locale chips', () => {
 test('renderLocaleActionList includes role="list" for accessibility', () => {
   const html = renderLocaleActionList(['es', 'fr'], {
     recordId: 'page_123',
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   });
 
@@ -363,7 +363,7 @@ test('renderLocaleActionList includes role="list" for accessibility', () => {
 test('renderLocaleActionList returns empty string for empty array', () => {
   const html = renderLocaleActionList([], {
     recordId: 'page_123',
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   });
 
@@ -373,7 +373,7 @@ test('renderLocaleActionList returns empty string for empty array', () => {
 test('renderLocaleActionList uses flex-wrap for layout', () => {
   const html = renderLocaleActionList(['es', 'fr', 'de', 'it'], {
     recordId: 'page_123',
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   });
 
@@ -388,7 +388,7 @@ test('LocaleActionChip uses amber styling for missing locales', () => {
   const config = {
     locale: 'es',
     recordId: 'page_123',
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
     localeExists: false,
   };
@@ -404,7 +404,7 @@ test('LocaleActionChip uses blue styling for existing locales', () => {
   const config = {
     locale: 'es',
     recordId: 'page_123',
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
     localeExists: true,
   };
@@ -424,7 +424,7 @@ test('LocaleActionChip handles optional panelName', () => {
   const config = {
     locale: 'es',
     recordId: 'page_123',
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
     panelName: 'pages',
   };
@@ -437,7 +437,7 @@ test('LocaleActionChip handles optional environment', () => {
   const config = {
     locale: 'es',
     recordId: 'page_123',
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
     environment: 'production',
   };
@@ -454,7 +454,7 @@ test('LocaleActionChip accepts callback functions', () => {
   const config = {
     locale: 'es',
     recordId: 'page_123',
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
     onCreateSuccess: () => { createCalled = true; },
     onError: () => { errorCalled = true; },
@@ -477,7 +477,7 @@ test('LocaleActionChip works with pages panel', () => {
   const config = {
     locale: 'es',
     recordId: 'page_123',
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
     panelName: 'pages',
   };
@@ -505,7 +505,7 @@ test('LocaleActionChip works with news panel', () => {
   const config = {
     locale: 'de',
     recordId: 'news_789',
-    apiEndpoint: '/admin/api/news',
+    apiEndpoint: '/admin/api/panels/news',
     navigationBasePath: '/admin/content/news',
     panelName: 'news',
   };
@@ -537,7 +537,7 @@ const {
 const STANDARD_CONFIG = {
   locale: 'es',
   recordId: 'page_123',
-  apiEndpoint: '/admin/api/pages',
+  apiEndpoint: '/admin/api/panels/pages',
   navigationBasePath: '/admin/content/pages',
   panelName: 'pages',
   environment: 'production',
@@ -576,7 +576,7 @@ test('E2E: Locale labels in FallbackBanner match LocaleActionChip labels', () =>
 
   const banner = new FallbackBanner({
     context,
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   });
 
@@ -769,7 +769,7 @@ test('E2E: InlineLocaleChips renders missing locales with LocaleActionChip', () 
 
   const inlineChips = new InlineLocaleChips(record, {
     recordId: 'page_123',
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
     panelName: 'pages',
   });
@@ -795,7 +795,7 @@ test('E2E: InlineLocaleChips styling matches LocaleActionChip', () => {
 
   const inlineChips = new InlineLocaleChips(record, {
     recordId: 'page_123',
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   });
 
@@ -825,7 +825,7 @@ test('E2E: FallbackBanner shows correct locale info', () => {
 
   const banner = new FallbackBanner({
     context,
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   });
 
@@ -852,7 +852,7 @@ test('E2E: FallbackBanner create button uses correct locale', () => {
 
   const banner = new FallbackBanner({
     context,
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
     environment: 'staging',
   });
@@ -944,7 +944,7 @@ test('E2E: Multiple locales render consistently in lists', () => {
   const locales = ['es', 'fr', 'de', 'ja'];
   const html = renderLocaleActionList(locales, {
     recordId: 'page_123',
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   });
 
@@ -962,7 +962,7 @@ test('E2E: Locale order is preserved in renders', () => {
   const locales = ['fr', 'es', 'de'];
   const html = renderLocaleActionList(locales, {
     recordId: 'page_123',
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   });
 

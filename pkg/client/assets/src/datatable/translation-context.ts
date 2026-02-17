@@ -772,6 +772,18 @@ function getReadinessStateDisplay(
 
 /**
  * Matrix cell rendering options
+ *
+ * The matrix cell provides a compact "matrix summary" representation where
+ * locale status icons (●/◐/○) are rendered inline for each required locale.
+ *
+ * This is NOT a true locale-column matrix (separate columns per locale).
+ * Instead, it shows all locale states within a single cell, enabling
+ * quick at-a-glance visibility of translation completeness.
+ *
+ * Use this renderer when:
+ * - DataGrid view mode is 'matrix'
+ * - You need compact locale status in list views
+ * - Space is limited but locale visibility is important
  */
 export interface MatrixCellOptions {
   /** Size variant: 'sm' or 'md' */
@@ -785,6 +797,11 @@ export interface MatrixCellOptions {
 /**
  * Render a compact translation matrix cell showing locale status for each required locale.
  * Uses translation_readiness data to show ● ready, ◐ incomplete, ○ missing states.
+ *
+ * States:
+ * - ● (green): Locale translation exists and all required fields are complete
+ * - ◐ (amber): Locale translation exists but has missing required fields
+ * - ○ (gray/dashed): Locale translation does not exist
  *
  * @param record - The record from API response
  * @param options - Matrix cell rendering options

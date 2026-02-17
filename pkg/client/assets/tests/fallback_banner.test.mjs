@@ -70,7 +70,7 @@ test('FallbackBanner accepts required config', () => {
 
   const banner = new FallbackBanner({
     context,
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   });
 
@@ -87,7 +87,7 @@ test('FallbackBanner.isInFallbackMode returns true when in fallback', () => {
 
   const banner = new FallbackBanner({
     context,
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   });
 
@@ -104,7 +104,7 @@ test('FallbackBanner.isInFallbackMode returns false when not in fallback', () =>
 
   const banner = new FallbackBanner({
     context,
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   });
 
@@ -125,7 +125,7 @@ test('getFormLockState returns locked state when in fallback mode', () => {
 
   const banner = new FallbackBanner({
     context,
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   });
 
@@ -148,7 +148,7 @@ test('getFormLockState returns unlocked state when not in fallback mode', () => 
 
   const banner = new FallbackBanner({
     context,
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   });
 
@@ -171,7 +171,7 @@ test('getFormLockState uses custom formLockMessage when provided', () => {
   const customMessage = 'Custom lock message for testing';
   const banner = new FallbackBanner({
     context,
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
     formLockMessage: customMessage,
   });
@@ -195,7 +195,7 @@ test('FallbackBanner.render returns empty string when not in fallback mode', () 
 
   const banner = new FallbackBanner({
     context,
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   });
 
@@ -213,7 +213,7 @@ test('FallbackBanner.render includes banner markup when in fallback mode', () =>
 
   const banner = new FallbackBanner({
     context,
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   });
 
@@ -233,7 +233,7 @@ test('FallbackBanner.render includes data attributes for locales', () => {
 
   const banner = new FallbackBanner({
     context,
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   });
 
@@ -253,7 +253,7 @@ test('FallbackBanner.render includes primary CTA (Create translation)', () => {
 
   const banner = new FallbackBanner({
     context,
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   });
 
@@ -273,7 +273,7 @@ test('FallbackBanner.render includes secondary CTA (Open source)', () => {
 
   const banner = new FallbackBanner({
     context,
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   });
 
@@ -293,7 +293,7 @@ test('FallbackBanner.render includes form lock message by default', () => {
 
   const banner = new FallbackBanner({
     context,
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   });
 
@@ -312,7 +312,7 @@ test('FallbackBanner.render hides form lock message when showFormLockMessage is 
 
   const banner = new FallbackBanner({
     context,
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
     showFormLockMessage: false,
   });
@@ -336,7 +336,7 @@ test('FallbackBanner includes role="alert" for accessibility', () => {
 
   const banner = new FallbackBanner({
     context,
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   });
 
@@ -355,7 +355,7 @@ test('FallbackBanner includes aria-live="polite" for screen readers', () => {
 
   const banner = new FallbackBanner({
     context,
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   });
 
@@ -374,7 +374,7 @@ test('FallbackBanner CTA buttons include aria-label', () => {
 
   const banner = new FallbackBanner({
     context,
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   });
 
@@ -397,7 +397,7 @@ test('renderFallbackBannerFromRecord renders banner from record payload', () => 
   };
 
   const html = renderFallbackBannerFromRecord(record, {
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   });
 
@@ -414,7 +414,7 @@ test('renderFallbackBannerFromRecord returns empty string when not in fallback',
   };
 
   const html = renderFallbackBannerFromRecord(record, {
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   });
 
@@ -435,7 +435,7 @@ test('FallbackBanner accepts panelName config', () => {
 
   const banner = new FallbackBanner({
     context,
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
     panelName: 'pages',
   });
@@ -454,7 +454,7 @@ test('FallbackBanner accepts environment config', () => {
 
   const banner = new FallbackBanner({
     context,
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
     environment: 'production',
   });
@@ -477,7 +477,7 @@ test('FallbackBanner works with pages content type', () => {
 
   const banner = new FallbackBanner({
     context,
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
     panelName: 'pages',
   });
@@ -515,7 +515,7 @@ test('FallbackBanner works with news content type', () => {
 
   const banner = new FallbackBanner({
     context,
-    apiEndpoint: '/admin/api/news',
+    apiEndpoint: '/admin/api/panels/news',
     navigationBasePath: '/admin/content/news',
     panelName: 'news',
   });
@@ -538,7 +538,7 @@ test('FallbackBanner secondary CTA has correct URL structure', () => {
 
   const banner = new FallbackBanner({
     context,
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   });
 
@@ -558,7 +558,7 @@ test('FallbackBanner secondary CTA includes environment in URL', () => {
 
   const banner = new FallbackBanner({
     context,
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
     environment: 'staging',
   });

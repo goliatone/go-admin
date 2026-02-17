@@ -402,8 +402,8 @@ Same changes as users template.
 3. **Functional Testing** (15 min)
    - [ ] View action navigates to detail page
    - [ ] Edit action navigates to edit page
-   - [ ] Suspend action executes POST to `/admin/api/users/:id/suspend`
-   - [ ] Archive action executes POST to `/admin/api/users/:id/archive`
+   - [ ] Suspend action executes POST to `/admin/api/panels/users/:id/suspend`
+   - [ ] Archive action executes POST to `/admin/api/panels/users/:id/archive`
    - [ ] Delete action shows confirmation, then deletes
    - [ ] Table refreshes after action execution
 

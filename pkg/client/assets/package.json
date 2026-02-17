@@ -7,7 +7,8 @@
     "build": "vite build && tsc --emitDeclarationOnly && npm run build:css:prod && npm run build:css:pages",
     "build:css:prod": "tailwindcss -i ./input.css -o ./output.css --minify && mkdir -p dist && cp ./output.css ./dist/output.css",
     "build:css": "tailwindcss -i ./input.css -o ./output.css --minify && mkdir -p dist && cp ./output.css ./dist/output.css",
-    "build:css:pages": "concurrently \"npm:build:css:debug\" \"npm:build:css:widgets\" \"npm:build:css:error\" \"npm:build:css:export\" \"npm:build:css:activity\"",
+    "build:css:pages": "concurrently \"npm:build:css:debug\" \"npm:build:css:widgets\" \"npm:build:css:error\" \"npm:build:css:export\" \"npm:build:css:activity\" \"npm:build:css:datatable\"",
+    "build:css:datatable": "mkdir -p dist/styles && cp src/datatable/actions.css dist/styles/datatable-actions.css",
     "build:css:debug": "mkdir -p dist/styles && cat src/styles/debug/console.css src/styles/debug/prism-catppuccin.css src/styles/debug/expandable-rows.css > dist/styles/debug.css",
     "build:css:widgets": "mkdir -p dist/styles && cp src/styles/widgets.css dist/styles/widgets.css",
     "build:css:error": "mkdir -p dist/styles && cp src/styles/error-page.css dist/styles/error-page.css",
@@ -20,7 +21,11 @@
     "dev:legacy": "concurrently \"npm:watch:ts\" \"npm:watch:css\"",
     "preview": "vite preview",
     "clean": "rm -rf dist",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/*.test.mjs",
+    "e2e": "playwright test",
+    "e2e:headed": "playwright test --headed",
+    "e2e:ui": "playwright test --ui",
+    "e2e:install": "playwright install chromium"
   },
   "keywords": [
     "admin",
@@ -29,6 +34,7 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
+    "@playwright/test": "^1.42.0",
     "@tailwindcss/forms": "^0.5.7",
     "@types/prismjs": "^1.26.5",
     "@types/sortablejs": "^1.15.9",

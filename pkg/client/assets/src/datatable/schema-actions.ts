@@ -102,7 +102,7 @@ export interface PayloadSchemaOption {
  * Configuration for building schema-driven actions
  */
 export interface SchemaActionBuilderConfig {
-  /** Base path for action API endpoint (e.g., /admin/api/pages) */
+  /** Base path for action API endpoint (e.g., /admin/api/panels/pages) */
   apiEndpoint: string;
   /** Base path for navigation actions (e.g., /admin/content/pages) */
   actionBasePath: string;
@@ -202,7 +202,7 @@ interface OrderedAction {
  * Rules:
  * 1. Navigation actions (view, edit): build navigation URLs
  * 2. Delete action: existing delete flow
- * 3. All other schema actions: POST to /admin/api/{panel}/actions/{action.name}
+ * 3. All other schema actions: POST to /admin/api/panels/{panel}/actions/{action.name}
  * 4. Duplicate prevention by action name
  * 5. Schema actions take precedence over defaults
  * 6. Action ordering precedence: schema.order > actionOrderOverride > stable fallback > insertion

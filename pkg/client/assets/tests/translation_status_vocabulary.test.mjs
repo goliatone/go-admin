@@ -309,6 +309,60 @@ describe('getAllReasonCodes', () => {
 });
 
 // ============================================================================
+// CSS Class Helper Tests (TX-053)
+// ============================================================================
+
+describe('getStatusCssClass', () => {
+  it('should return status-{status} for valid statuses', () => {
+    assert.strictEqual(getStatusCssClass('ready'), 'status-ready');
+    assert.strictEqual(getStatusCssClass('pending'), 'status-pending');
+    assert.strictEqual(getStatusCssClass('success'), 'status-success');
+    assert.strictEqual(getStatusCssClass('running'), 'status-running');
+  });
+
+  it('should normalize to lowercase', () => {
+    assert.strictEqual(getStatusCssClass('READY'), 'status-ready');
+    assert.strictEqual(getStatusCssClass('Ready'), 'status-ready');
+    assert.strictEqual(getStatusCssClass('PENDING'), 'status-pending');
+  });
+
+  it('should return empty string for unknown statuses', () => {
+    assert.strictEqual(getStatusCssClass('unknown'), '');
+    assert.strictEqual(getStatusCssClass('invalid'), '');
+    assert.strictEqual(getStatusCssClass(''), '');
+  });
+
+  it('should respect domain filter', () => {
+    assert.strictEqual(getStatusCssClass('ready', 'core'), 'status-ready');
+    assert.strictEqual(getStatusCssClass('pending', 'queue'), 'status-pending');
+    assert.strictEqual(getStatusCssClass('success', 'exchange'), 'status-success');
+    // pending is queue-only, so should return empty for core domain
+    assert.strictEqual(getStatusCssClass('pending', 'core'), '');
+  });
+});
+
+describe('getSeverityCssClass', () => {
+  it('should return severity-{level} for valid statuses', () => {
+    assert.strictEqual(getSeverityCssClass('ready'), 'severity-success');
+    assert.strictEqual(getSeverityCssClass('pending'), 'severity-neutral');
+    assert.strictEqual(getSeverityCssClass('overdue'), 'severity-error');
+    assert.strictEqual(getSeverityCssClass('due_soon'), 'severity-warning');
+    assert.strictEqual(getSeverityCssClass('in_progress'), 'severity-info');
+  });
+
+  it('should return empty string for unknown statuses', () => {
+    assert.strictEqual(getSeverityCssClass('unknown'), '');
+    assert.strictEqual(getSeverityCssClass(''), '');
+  });
+
+  it('should respect domain filter', () => {
+    // 'completed' is exchange-only
+    assert.strictEqual(getSeverityCssClass('completed', 'exchange'), 'severity-success');
+    assert.strictEqual(getSeverityCssClass('failed', 'exchange'), 'severity-error');
+  });
+});
+
+// ============================================================================
 // Rendering Function Tests
 // ============================================================================
 

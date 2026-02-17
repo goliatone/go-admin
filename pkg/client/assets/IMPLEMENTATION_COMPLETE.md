@@ -200,8 +200,8 @@ Actions are conditionally rendered based on:
 ### **Functional Testing**
 - [ ] View action navigates to detail page
 - [ ] Edit action navigates to edit page
-- [ ] Suspend action (Users) executes POST to `/admin/api/users/:id/suspend`
-- [ ] Archive action (Users) executes POST to `/admin/api/users/:id/archive`
+- [ ] Suspend action (Users) executes POST to `/admin/api/panels/users/:id/suspend`
+- [ ] Archive action (Users) executes POST to `/admin/api/panels/users/:id/archive`
 - [ ] Delete action shows confirmation, then deletes
 - [ ] Table refreshes after action execution
 - [ ] Actions conditionally appear based on user status
@@ -239,7 +239,7 @@ go run .
 1. Click three-dot menu on any user row
 2. Verify dropdown opens
 3. Click "Suspend" (if user is active)
-4. Verify POST request to `/admin/api/users/:id/suspend`
+4. Verify POST request to `/admin/api/panels/users/:id/suspend`
 5. Verify table refreshes with updated status
 
 **Posts Page**:
