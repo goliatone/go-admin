@@ -834,6 +834,9 @@ func withESignDocumentIngestionViewContext(
 		scope := resolveESignUploadScope(c, esignModule.DefaultScope())
 		scopedUserID := services.ComposeGoogleScopedUserID(userID, accountID)
 		googleConnected = esignModule.GoogleConnected(c.Context(), scope, scopedUserID)
+		if !googleConnected && accountID != "" {
+			googleConnected = esignModule.GoogleConnected(c.Context(), scope, services.ComposeGoogleScopedUserID(userID, ""))
+		}
 	}
 	ctx["google_connected"] = googleConnected
 	pageCfg := buildESignDocumentIngestionPageConfig(
