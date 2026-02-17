@@ -13,8 +13,13 @@ import (
 
 const (
 	exampleTranslationQueueSourceSlug   = "translation-missing-fr"
+	exampleTranslationQueuePostSource   = "translation-demo-queue-active"
+	exampleTranslationQueueOpenPoolSlug = "translation-exchange-ready"
 	exampleTranslationQueueTargetLocale = "fr"
+	exampleTranslationQueueFallbackUser = "translator.demo"
 )
+
+var exampleTranslationQueueTargetLocales = []string{"fr", "es", "de", "it", "pt", "ja"}
 
 type exampleTranslationExchangeStore struct {
 	resolveContentService func() coreadmin.CMSContentService
@@ -323,20 +328,255 @@ func (s *exampleTranslationExchangeStore) contentService() coreadmin.CMSContentS
 	return s.resolveContentService()
 }
 
-func seedExampleTranslationQueueFixture(ctx context.Context, repo coreadmin.TranslationAssignmentRepository, contentSvc coreadmin.CMSContentService) error {
+func seedExampleTranslationQueueFixture(
+	ctx context.Context,
+	repo coreadmin.TranslationAssignmentRepository,
+	contentSvc coreadmin.CMSContentService,
+	assigneeIDs ...string,
+) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	if repo == nil || contentSvc == nil {
-		return nil
+	if repo == nil {
+		return fmt.Errorf("translation queue fixture repository is required")
+	}
+	if contentSvc == nil {
+		return fmt.Errorf("translation queue fixture content service is required")
+	}
+
+	assignees := normalizeQueueFixtureAssignees(assigneeIDs)
+	if len(assignees) == 0 {
+		assignees = []string{exampleTranslationQueueFallbackUser}
 	}
 
 	sourcePage, err := findPageBySlug(ctx, contentSvc, exampleTranslationQueueSourceSlug)
-	if err != nil || sourcePage == nil {
-		return nil
+	if err != nil {
+		return fmt.Errorf("translation queue fixture source page lookup failed: %w", err)
+	}
+	if sourcePage == nil {
+		return fmt.Errorf("translation queue fixture source page %q not found", exampleTranslationQueueSourceSlug)
 	}
 
 	now := time.Now().UTC()
+	primaryGroupID := normalizeTranslationGroupID(sourcePage.TranslationGroupID, sourcePage.ID)
+	if strings.TrimSpace(primaryGroupID) == "" {
+		return fmt.Errorf("translation queue fixture source page %q missing translation_group_id", exampleTranslationQueueSourceSlug)
+	}
+	primarySourceLocale := strings.ToLower(strings.TrimSpace(fixtureFirstNonEmptyString(sourcePage.Locale, "en")))
+	primarySourcePath := strings.TrimSpace(exchangePagePath(*sourcePage))
+	primaryTitle := strings.TrimSpace(sourcePage.Title)
+
+	for index, assigneeID := range assignees {
+		targetLocale := exampleTranslationQueueTargetLocales[index%len(exampleTranslationQueueTargetLocales)]
+		inProgress := coreadmin.TranslationAssignment{
+			TranslationGroupID: primaryGroupID,
+			EntityType:         "pages",
+			SourceRecordID:     strings.TrimSpace(sourcePage.ID),
+			SourceLocale:       primarySourceLocale,
+			TargetLocale:       targetLocale,
+			SourceTitle:        primaryTitle,
+			SourcePath:         primarySourcePath,
+			AssignmentType:     coreadmin.AssignmentTypeDirect,
+			Status:             coreadmin.AssignmentStatusInProgress,
+			Priority:           coreadmin.PriorityHigh,
+			AssigneeID:         assigneeID,
+			ClaimedAt:          fixtureTimePtr(now),
+		}
+		if err := seedOrRefreshQueueAssignment(ctx, repo, inProgress); err != nil {
+			return err
+		}
+	}
+
+	postSource, postErr := findPostBySlug(ctx, contentSvc, exampleTranslationQueuePostSource)
+	if postErr != nil {
+		return fmt.Errorf("translation queue fixture review post lookup failed: %w", postErr)
+	}
+	if postSource == nil {
+		return fmt.Errorf("translation queue fixture review post %q not found", exampleTranslationQueuePostSource)
+	}
+	reviewDueDate := now.Add(36 * time.Hour)
+	postAssignment := coreadmin.TranslationAssignment{
+		TranslationGroupID: normalizeTranslationGroupID(postSource.TranslationGroupID, postSource.ID),
+		EntityType:         "posts",
+		SourceRecordID:     strings.TrimSpace(postSource.ID),
+		SourceLocale:       strings.ToLower(strings.TrimSpace(fixtureFirstNonEmptyString(postSource.Locale, "en"))),
+		TargetLocale:       "fr",
+		SourceTitle:        strings.TrimSpace(postSource.Title),
+		SourcePath:         strings.TrimSpace(fmt.Sprint(postSource.Data["path"])),
+		AssignmentType:     coreadmin.AssignmentTypeDirect,
+		Status:             coreadmin.AssignmentStatusReview,
+		Priority:           coreadmin.PriorityHigh,
+		AssigneeID:         assignees[0],
+		DueDate:            &reviewDueDate,
+		ClaimedAt:          fixtureTimePtr(now),
+		SubmittedAt:        fixtureTimePtr(now.Add(-2 * time.Hour)),
+	}
+	if strings.TrimSpace(postAssignment.SourcePath) == "" || postAssignment.SourcePath == "<nil>" {
+		postAssignment.SourcePath = strings.TrimSpace("/posts/" + strings.Trim(strings.TrimSpace(postSource.Slug), "/"))
+	}
+	if strings.TrimSpace(postAssignment.TranslationGroupID) == "" {
+		return fmt.Errorf("translation queue fixture review post %q missing translation_group_id", exampleTranslationQueuePostSource)
+	}
+	if err := seedOrRefreshQueueAssignment(ctx, repo, postAssignment); err != nil {
+		return err
+	}
+
+	openPoolSource := sourcePage
+	if candidate, candidateErr := findPageBySlug(ctx, contentSvc, exampleTranslationQueueOpenPoolSlug); candidateErr == nil && candidate != nil {
+		openPoolSource = candidate
+	}
+	openPool := coreadmin.TranslationAssignment{
+		TranslationGroupID: normalizeTranslationGroupID(openPoolSource.TranslationGroupID, openPoolSource.ID),
+		EntityType:         "pages",
+		SourceRecordID:     strings.TrimSpace(openPoolSource.ID),
+		SourceLocale:       strings.ToLower(strings.TrimSpace(fixtureFirstNonEmptyString(openPoolSource.Locale, "en"))),
+		TargetLocale:       "ja",
+		SourceTitle:        strings.TrimSpace(openPoolSource.Title),
+		SourcePath:         strings.TrimSpace(exchangePagePath(*openPoolSource)),
+		AssignmentType:     coreadmin.AssignmentTypeOpenPool,
+		Status:             coreadmin.AssignmentStatusPending,
+		Priority:           coreadmin.PriorityNormal,
+		AssigneeID:         "",
+	}
+	if strings.TrimSpace(openPool.TranslationGroupID) != "" {
+		if err := seedOrRefreshQueueAssignment(ctx, repo, openPool); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func seedOrRefreshQueueAssignment(ctx context.Context, repo coreadmin.TranslationAssignmentRepository, assignment coreadmin.TranslationAssignment) error {
+	persisted, inserted, err := repo.CreateOrReuseActive(ctx, assignment)
+	if err != nil {
+		return err
+	}
+	if inserted {
+		return nil
+	}
+
+	updated := persisted
+	changed := false
+	if updated.Status != assignment.Status {
+		updated.Status = assignment.Status
+		changed = true
+	}
+	if updated.AssignmentType != assignment.AssignmentType {
+		updated.AssignmentType = assignment.AssignmentType
+		changed = true
+	}
+	if strings.TrimSpace(updated.AssigneeID) != strings.TrimSpace(assignment.AssigneeID) {
+		updated.AssigneeID = strings.TrimSpace(assignment.AssigneeID)
+		changed = true
+	}
+	if updated.Priority != assignment.Priority {
+		updated.Priority = assignment.Priority
+		changed = true
+	}
+	if !fixtureTimesEqual(updated.ClaimedAt, assignment.ClaimedAt) {
+		updated.ClaimedAt = fixtureTimePtrValue(assignment.ClaimedAt)
+		changed = true
+	}
+	if !fixtureTimesEqual(updated.SubmittedAt, assignment.SubmittedAt) {
+		updated.SubmittedAt = fixtureTimePtrValue(assignment.SubmittedAt)
+		changed = true
+	}
+	if !fixtureTimesEqual(updated.DueDate, assignment.DueDate) {
+		updated.DueDate = fixtureTimePtrValue(assignment.DueDate)
+		changed = true
+	}
+	if !changed {
+		return nil
+	}
+	_, err = repo.Update(ctx, updated, updated.Version)
+	return err
+}
+
+func normalizeQueueFixtureAssignees(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		normalized := strings.ToLower(trimmed)
+		if _, ok := seen[normalized]; ok {
+			continue
+		}
+		seen[normalized] = struct{}{}
+		out = append(out, trimmed)
+	}
+	return out
+}
+
+func fixtureTimePtr(value time.Time) *time.Time {
+	copied := value
+	return &copied
+}
+
+func fixtureTimePtrValue(value *time.Time) *time.Time {
+	if value == nil {
+		return nil
+	}
+	copied := *value
+	return &copied
+}
+
+func fixtureTimesEqual(left, right *time.Time) bool {
+	if left == nil && right == nil {
+		return true
+	}
+	if left == nil || right == nil {
+		return false
+	}
+	return left.UTC().Equal(right.UTC())
+}
+
+func findPostBySlug(ctx context.Context, contentSvc coreadmin.CMSContentService, slug string) (*coreadmin.CMSContent, error) {
+	if contentSvc == nil {
+		return nil, nil
+	}
+	target := strings.ToLower(strings.TrimSpace(slug))
+	if target == "" {
+		return nil, nil
+	}
+	items, err := contentSvc.Contents(ctx, "")
+	if err != nil {
+		return nil, err
+	}
+	for _, item := range items {
+		if !strings.EqualFold(strings.TrimSpace(item.ContentTypeSlug), "posts") &&
+			!strings.EqualFold(strings.TrimSpace(item.ContentTypeSlug), "post") &&
+			!strings.EqualFold(strings.TrimSpace(item.ContentType), "posts") &&
+			!strings.EqualFold(strings.TrimSpace(item.ContentType), "post") {
+			continue
+		}
+		if strings.EqualFold(strings.TrimSpace(item.Slug), target) && strings.EqualFold(strings.TrimSpace(item.Locale), "en") {
+			copy := cloneCMSContent(item)
+			return &copy, nil
+		}
+	}
+	for _, item := range items {
+		if !strings.EqualFold(strings.TrimSpace(item.ContentTypeSlug), "posts") &&
+			!strings.EqualFold(strings.TrimSpace(item.ContentTypeSlug), "post") &&
+			!strings.EqualFold(strings.TrimSpace(item.ContentType), "posts") &&
+			!strings.EqualFold(strings.TrimSpace(item.ContentType), "post") {
+			continue
+		}
+		if strings.EqualFold(strings.TrimSpace(item.Slug), target) {
+			copy := cloneCMSContent(item)
+			return &copy, nil
+		}
+	}
+	return nil, nil
+}
+
+func seedLegacyTranslationQueueFixture(ctx context.Context, repo coreadmin.TranslationAssignmentRepository, sourcePage *coreadmin.CMSPage, now time.Time) error {
 	assignment := coreadmin.TranslationAssignment{
 		TranslationGroupID: normalizeTranslationGroupID(sourcePage.TranslationGroupID, sourcePage.ID),
 		EntityType:         "pages",
@@ -355,21 +595,7 @@ func seedExampleTranslationQueueFixture(ctx context.Context, repo coreadmin.Tran
 		return nil
 	}
 
-	created, reused, err := repo.CreateOrReuseActive(ctx, assignment)
-	if err != nil {
-		return err
-	}
-	if !reused || created.Status == coreadmin.AssignmentStatusInProgress {
-		return nil
-	}
-
-	created.Status = coreadmin.AssignmentStatusInProgress
-	created.AssigneeID = assignment.AssigneeID
-	created.AssignmentType = assignment.AssignmentType
-	created.Priority = assignment.Priority
-	created.ClaimedAt = &now
-	_, err = repo.Update(ctx, created, created.Version)
-	return err
+	return seedOrRefreshQueueAssignment(ctx, repo, assignment)
 }
 
 func findPageBySlug(ctx context.Context, contentSvc coreadmin.CMSContentService, slug string) (*coreadmin.CMSPage, error) {

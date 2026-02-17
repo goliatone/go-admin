@@ -41,9 +41,73 @@ func TestSeedExampleTranslationQueueFixtureCreatesInProgressAssignment(t *testin
 	fixture := assignments[0]
 	require.Equal(t, coreadmin.AssignmentStatusInProgress, fixture.Status)
 	require.Equal(t, coreadmin.AssignmentTypeDirect, fixture.AssignmentType)
-	require.Equal(t, "translator.demo", fixture.AssigneeID)
+	require.Equal(t, exampleTranslationQueueFallbackUser, fixture.AssigneeID)
 	require.Equal(t, exampleTranslationQueueTargetLocale, strings.ToLower(fixture.TargetLocale))
 	require.Equal(t, strings.ToLower(strings.TrimSpace(expectedGroupID)), strings.ToLower(fixture.TranslationGroupID))
+}
+
+func TestSeedExampleTranslationQueueFixtureSeedsMyWorkAndQueueCoverageForProvidedAssignees(t *testing.T) {
+	ctx := context.Background()
+	dsn := fmt.Sprintf("file:%s?cache=shared&_fk=1", filepath.Join(t.TempDir(), strings.ToLower(t.Name())+".db"))
+
+	cmsOpts, err := setup.SetupPersistentCMS(ctx, "en", dsn)
+	require.NoError(t, err)
+	require.NotNil(t, cmsOpts.Container)
+
+	repo := coreadmin.NewInMemoryTranslationAssignmentRepository()
+	err = seedExampleTranslationQueueFixture(
+		ctx,
+		repo,
+		cmsOpts.Container.ContentService(),
+		"translator-1",
+		"translator-2",
+	)
+	require.NoError(t, err)
+
+	myWorkItems, myWorkTotal, err := repo.List(ctx, coreadmin.ListOptions{
+		Filters: map[string]any{"assignee_id": "translator-1"},
+	})
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, myWorkTotal, 1)
+	require.NotEmpty(t, myWorkItems)
+
+	queueItems, queueTotal, err := repo.List(ctx, coreadmin.ListOptions{})
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, queueTotal, 3)
+	require.NotEmpty(t, queueItems)
+
+	hasOpenPool := false
+	for _, item := range queueItems {
+		if item.AssignmentType == coreadmin.AssignmentTypeOpenPool &&
+			item.Status == coreadmin.AssignmentStatusPending &&
+			strings.TrimSpace(item.AssigneeID) == "" {
+			hasOpenPool = true
+		}
+	}
+	require.True(t, hasOpenPool, "expected seeded open-pool queue fixture assignment")
+}
+
+func TestSeedExampleTranslationQueueFixtureRequiresDependencies(t *testing.T) {
+	ctx := context.Background()
+	err := seedExampleTranslationQueueFixture(ctx, nil, nil)
+	require.Error(t, err)
+	require.Contains(t, strings.ToLower(err.Error()), "repository is required")
+
+	repo := coreadmin.NewInMemoryTranslationAssignmentRepository()
+	err = seedExampleTranslationQueueFixture(ctx, repo, nil)
+	require.Error(t, err)
+	require.Contains(t, strings.ToLower(err.Error()), "content service is required")
+}
+
+func TestSeedExampleTranslationQueueFixtureFailsWhenRequiredSourceFixtureMissing(t *testing.T) {
+	ctx := context.Background()
+	repo := coreadmin.NewInMemoryTranslationAssignmentRepository()
+	contentSvc := coreadmin.NewInMemoryContentService()
+
+	err := seedExampleTranslationQueueFixture(ctx, repo, contentSvc)
+	require.Error(t, err)
+	require.Contains(t, strings.ToLower(err.Error()), "source page")
+	require.Contains(t, strings.ToLower(err.Error()), "not found")
 }
 
 func TestExampleTranslationExchangeStoreResolvesAndAppliesDeterministicLinkage(t *testing.T) {

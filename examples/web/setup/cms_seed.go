@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io/fs"
 	"reflect"
+	"sort"
 	"strings"
 	"text/template"
 	"time"
@@ -1596,4 +1597,234 @@ func normalizePath(path string, slug string) string {
 		path = "/" + path
 	}
 	return path
+}
+
+type translationSeedPanelCoverage struct {
+	singleLocaleGroups int
+	multiLocaleGroups  int
+}
+
+func validateTranslationSeedFixtureCoverage(ctx context.Context, db *bun.DB) error {
+	if db == nil {
+		return fmt.Errorf("db is nil")
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	// Ready + complete fixtures.
+	if err := requireTranslationFixtureLocales(ctx, db, "admin_page_records", "translation-demo-exchange", []string{"en", "es", "fr"}); err != nil {
+		return err
+	}
+	if err := requireTranslationFixtureLocales(ctx, db, "admin_post_records", "getting-started-go", []string{"en", "es", "fr"}); err != nil {
+		return err
+	}
+
+	// Missing-locale + missing-field fixtures.
+	if err := requireTranslationFixtureLocales(ctx, db, "admin_page_records", "translation-demo-missing-locale", []string{"en", "es"}); err != nil {
+		return err
+	}
+	if err := requireTranslationFixtureLocales(ctx, db, "admin_post_records", "translation-demo-review-pending", []string{"en", "es"}); err != nil {
+		return err
+	}
+	if err := requireTranslationFixtureFieldEmpty(ctx, db, "admin_post_records", "translation-review-post-es", "es", "excerpt"); err != nil {
+		return err
+	}
+
+	// Standalone fixtures (single-locale records used by grouped fallback/ungrouped UX paths).
+	if err := requireTranslationFixtureLocales(ctx, db, "admin_page_records", "contact", []string{"en"}); err != nil {
+		return err
+	}
+	if err := requireTranslationFixtureLocales(ctx, db, "admin_post_records", "database-optimization", []string{"en"}); err != nil {
+		return err
+	}
+
+	pageCoverage, err := translationSeedPanelGroupCoverage(ctx, db, "admin_page_records")
+	if err != nil {
+		return err
+	}
+	if pageCoverage.multiLocaleGroups < 1 {
+		return fmt.Errorf("translation seed coverage pages missing multi-locale groups")
+	}
+	if pageCoverage.singleLocaleGroups < 1 {
+		return fmt.Errorf("translation seed coverage pages missing standalone groups")
+	}
+
+	postCoverage, err := translationSeedPanelGroupCoverage(ctx, db, "admin_post_records")
+	if err != nil {
+		return err
+	}
+	if postCoverage.multiLocaleGroups < 1 {
+		return fmt.Errorf("translation seed coverage posts missing multi-locale groups")
+	}
+	if postCoverage.singleLocaleGroups < 1 {
+		return fmt.Errorf("translation seed coverage posts missing standalone groups")
+	}
+
+	return nil
+}
+
+func requireTranslationFixtureLocales(ctx context.Context, db *bun.DB, table, slug string, expected []string) error {
+	locales, err := translationFixtureLocalesBySlugGroup(ctx, db, table, slug)
+	if err != nil {
+		return err
+	}
+	if len(locales) == 0 {
+		return fmt.Errorf("translation seed fixture %s missing locales", slug)
+	}
+	expected = normalizedSeedLocales(expected)
+	locales = normalizedSeedLocales(locales)
+	if len(expected) != len(locales) {
+		return fmt.Errorf("translation seed fixture %s locales mismatch: expected %v got %v", slug, expected, locales)
+	}
+	for index := range expected {
+		if expected[index] != locales[index] {
+			return fmt.Errorf("translation seed fixture %s locales mismatch: expected %v got %v", slug, expected, locales)
+		}
+	}
+	return nil
+}
+
+func requireTranslationFixtureFieldEmpty(ctx context.Context, db *bun.DB, table, slug, locale, field string) error {
+	normalizedTable, err := normalizeTranslationFixtureTable(table)
+	if err != nil {
+		return err
+	}
+	field = strings.ToLower(strings.TrimSpace(field))
+	if field != "excerpt" && field != "summary" {
+		return fmt.Errorf("unsupported translation fixture field %s", field)
+	}
+
+	row := map[string]any{}
+	if err := db.NewSelect().
+		Table(normalizedTable).
+		Column(field).
+		Where("LOWER(slug) = LOWER(?)", strings.TrimSpace(slug)).
+		Where("LOWER(locale) = LOWER(?)", strings.TrimSpace(locale)).
+		Limit(1).
+		Scan(ctx, &row); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("translation seed fixture %s (%s) missing for field validation", slug, locale)
+		}
+		return err
+	}
+	value := strings.TrimSpace(fmt.Sprint(row[field]))
+	if value == "<nil>" {
+		value = ""
+	}
+	if value != "" {
+		return fmt.Errorf("translation seed fixture %s (%s) expected empty %s", slug, locale, field)
+	}
+	return nil
+}
+
+func translationSeedPanelGroupCoverage(ctx context.Context, db *bun.DB, table string) (translationSeedPanelCoverage, error) {
+	normalizedTable, err := normalizeTranslationFixtureTable(table)
+	if err != nil {
+		return translationSeedPanelCoverage{}, err
+	}
+	var grouped []struct {
+		LocaleCount int `bun:"locale_count"`
+	}
+	if err := db.NewSelect().
+		Table(normalizedTable).
+		ColumnExpr("COUNT(DISTINCT LOWER(locale)) AS locale_count").
+		Where("COALESCE(translation_group_id, '') <> ''").
+		Group("translation_group_id").
+		Scan(ctx, &grouped); err != nil {
+		return translationSeedPanelCoverage{}, err
+	}
+	if len(grouped) == 0 {
+		return translationSeedPanelCoverage{}, fmt.Errorf("translation seed coverage %s missing translation groups", normalizedTable)
+	}
+	coverage := translationSeedPanelCoverage{}
+	for _, item := range grouped {
+		if item.LocaleCount >= 2 {
+			coverage.multiLocaleGroups++
+		} else if item.LocaleCount == 1 {
+			coverage.singleLocaleGroups++
+		}
+	}
+	return coverage, nil
+}
+
+func translationFixtureLocalesBySlugGroup(ctx context.Context, db *bun.DB, table, slug string) ([]string, error) {
+	groupID, err := translationFixtureGroupIDBySlug(ctx, db, table, slug)
+	if err != nil {
+		return nil, err
+	}
+	normalizedTable, err := normalizeTranslationFixtureTable(table)
+	if err != nil {
+		return nil, err
+	}
+	locales := make([]string, 0)
+	if err := db.NewSelect().
+		Table(normalizedTable).
+		ColumnExpr("LOWER(locale) AS locale").
+		Where("LOWER(translation_group_id) = LOWER(?)", groupID).
+		Scan(ctx, &locales); err != nil {
+		return nil, err
+	}
+	return normalizedSeedLocales(locales), nil
+}
+
+func translationFixtureGroupIDBySlug(ctx context.Context, db *bun.DB, table, slug string) (string, error) {
+	normalizedTable, err := normalizeTranslationFixtureTable(table)
+	if err != nil {
+		return "", err
+	}
+	row := struct {
+		TranslationGroupID string `bun:"translation_group_id"`
+	}{}
+	err = db.NewSelect().
+		Table(normalizedTable).
+		Column("translation_group_id").
+		Where("LOWER(slug) = LOWER(?)", strings.TrimSpace(slug)).
+		OrderExpr("CASE WHEN LOWER(locale) = 'en' THEN 0 ELSE 1 END").
+		OrderExpr("LOWER(locale) ASC").
+		Limit(1).
+		Scan(ctx, &row)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", fmt.Errorf("translation seed fixture %s missing from %s", slug, normalizedTable)
+		}
+		return "", err
+	}
+	groupID := strings.TrimSpace(row.TranslationGroupID)
+	if groupID == "" {
+		return "", fmt.Errorf("translation seed fixture %s missing translation_group_id in %s", slug, normalizedTable)
+	}
+	return groupID, nil
+}
+
+func normalizeTranslationFixtureTable(table string) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(table)) {
+	case "admin_page_records":
+		return "admin_page_records", nil
+	case "admin_post_records":
+		return "admin_post_records", nil
+	default:
+		return "", fmt.Errorf("unsupported translation fixture table %s", table)
+	}
+}
+
+func normalizedSeedLocales(locales []string) []string {
+	if len(locales) == 0 {
+		return nil
+	}
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(locales))
+	for _, locale := range locales {
+		normalized := strings.ToLower(strings.TrimSpace(locale))
+		if normalized == "" || normalized == "<nil>" {
+			continue
+		}
+		if _, ok := seen[normalized]; ok {
+			continue
+		}
+		seen[normalized] = struct{}{}
+		out = append(out, normalized)
+	}
+	sort.Strings(out)
+	return out
 }

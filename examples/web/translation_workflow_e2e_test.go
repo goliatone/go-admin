@@ -548,15 +548,15 @@ func doAdminJSONRequest(t *testing.T, handler http.Handler, method, path string,
 }
 
 func panelCollectionPath(panel string) string {
-	return "/admin/api/" + strings.TrimSpace(panel)
+	return "/admin/api/panels/" + strings.TrimSpace(panel)
 }
 
 func panelDetailPath(panel, id string) string {
-	return "/admin/api/" + strings.TrimSpace(panel) + "/" + strings.TrimSpace(id)
+	return "/admin/api/panels/" + strings.TrimSpace(panel) + "/" + strings.TrimSpace(id)
 }
 
 func panelActionPath(panel, action string) string {
-	return "/admin/api/" + strings.TrimSpace(panel) + "/actions/" + strings.TrimSpace(action)
+	return "/admin/api/panels/" + strings.TrimSpace(panel) + "/actions/" + strings.TrimSpace(action)
 }
 
 func buildTranslationVariantPayload(panel string, source map[string]any, translationGroupID, locale string) map[string]any {

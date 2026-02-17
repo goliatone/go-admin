@@ -366,8 +366,9 @@ func main() {
 	}
 	exchangeContentService = cmsContentSvc
 	if featureEnabled(adm.FeatureGate(), string(coreadmin.FeatureTranslationQueue)) {
-		if err := seedExampleTranslationQueueFixture(context.Background(), queueRepository, cmsContentSvc); err != nil {
-			log.Printf("warning: failed to seed translation queue fixture: %v", err)
+		queueFixtureAssignees := resolveTranslationQueueFixtureAssignees(context.Background(), usersDeps.AuthRepo)
+		if err := seedExampleTranslationQueueFixture(context.Background(), queueRepository, cmsContentSvc, queueFixtureAssignees...); err != nil {
+			log.Panicf("failed to seed translation queue fixture: %v", err)
 		}
 	}
 	repoOptions := adm.DebugQueryHookOptions()
@@ -1188,6 +1189,43 @@ func buildTranslationProductConfig(
 	}
 
 	return cfg
+}
+
+func resolveTranslationQueueFixtureAssignees(ctx context.Context, repo userstypes.AuthRepository) []string {
+	identifiers := []string{"superadmin", "admin", "translator"}
+	candidates := make([]string, 0, len(identifiers)*2)
+	for _, identifier := range identifiers {
+		if repo != nil {
+			if authUser, err := repo.GetByIdentifier(ctx, identifier); err == nil && authUser != nil {
+				if id := strings.TrimSpace(authUser.ID.String()); id != "" && id != "00000000-0000-0000-0000-000000000000" {
+					candidates = append(candidates, id)
+				}
+			}
+		}
+		candidates = append(candidates, identifier)
+	}
+	return uniqueNonEmptyStrings(candidates...)
+}
+
+func uniqueNonEmptyStrings(values ...string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		key := strings.ToLower(trimmed)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, trimmed)
+	}
+	return out
 }
 
 func translationProfileModuleDefaults(profile quickstart.TranslationProfile) (exchangeEnabled, queueEnabled bool) {
