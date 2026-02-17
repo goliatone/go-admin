@@ -153,9 +153,11 @@ func (s GoogleServicesIntegrationService) Connect(ctx context.Context, scope sto
 	observability.ObserveProviderResult(ctx, GoogleProviderName, true)
 	observability.ObserveGoogleAuthChurn(ctx, "oauth_connected")
 	health := s.ProviderHealth(ctx)
-	accountEmail := googleAccountEmailCandidate(completion.ExternalAccountID)
+	accountEmail := googleAccountEmailCandidate(completion.Connection.ExternalAccountID)
 	if accountEmail == "" {
-		accountEmail = s.resolveAccountEmail(ctx, completion.Credential.AccessToken)
+		if active, decodeErr := decodeActiveCredential(ctx, svc.Dependencies(), completion.Credential); decodeErr == nil {
+			accountEmail = s.resolveAccountEmail(ctx, active.AccessToken)
+		}
 	}
 	return GoogleOAuthStatus{
 		Provider:             GoogleProviderName,
