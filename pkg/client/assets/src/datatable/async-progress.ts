@@ -8,6 +8,8 @@
  * - Completion/failure states
  */
 
+import { renderVocabularyStatusBadge } from './translation-status-vocabulary.js';
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -516,11 +518,14 @@ export class AsyncProgress {
 
     const statusClass = getStatusClass(this.job.status);
     const statusLabel = this.getStatusLabel();
+    const statusHtml = this.pollingState === 'paused'
+      ? `<span class="progress-status ${statusClass}">${escapeHtml(statusLabel)}</span>`
+      : renderVocabularyStatusBadge(this.job.status, { domain: 'exchange', size: 'sm' });
 
     return `
       <div class="progress-header ${statusClass}">
         <h4 class="progress-title">${escapeHtml(labels.title)}</h4>
-        <span class="progress-status ${statusClass}">${escapeHtml(statusLabel)}</span>
+        ${statusHtml}
       </div>
     `;
   }

@@ -77,6 +77,15 @@ export interface GroupTransformOptions {
  */
 export declare function transformToGroups(records: Record<string, unknown>[], options?: GroupTransformOptions): GroupedData;
 /**
+ * Check whether list items follow backend grouped-row contract.
+ */
+export declare function hasBackendGroupedRows(records: Record<string, unknown>[]): boolean;
+/**
+ * Normalize backend grouped payload (`group_by=translation_group_id`) into GroupedData.
+ * Returns `null` when payload does not match grouped-row contract.
+ */
+export declare function normalizeBackendGroupedRows(records: Record<string, unknown>[], options?: GroupTransformOptions): GroupedData | null;
+/**
  * Merge backend-provided group summaries into grouped data.
  * Backend summaries override client-computed summaries.
  *
@@ -122,6 +131,19 @@ export declare function getPersistedViewMode(panelId: string): ViewMode | null;
  * Persist view mode for a panel.
  */
 export declare function persistViewMode(panelId: string, mode: ViewMode): void;
+/**
+ * Parse view mode from URL query parameter.
+ */
+export declare function parseViewMode(value: string | null): ViewMode | null;
+/**
+ * Encode expanded group IDs into a compact URL-safe token.
+ * Token strategy: URI-encode each group ID, sort deterministically, join with commas.
+ */
+export declare function encodeExpandedGroupsToken(expandedGroups: Set<string>): string;
+/**
+ * Decode expanded group token into a validated Set of group IDs.
+ */
+export declare function decodeExpandedGroupsToken(token: string | null): Set<string>;
 /**
  * Render group header summary HTML.
  * Displays locale completeness and readiness state.

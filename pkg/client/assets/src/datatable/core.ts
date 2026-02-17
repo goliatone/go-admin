@@ -15,12 +15,17 @@ import { extractErrorMessage } from '../toast/error-helpers.js';
 import { ColumnManager } from './column-manager.js';
 import {
   transformToGroups,
+  hasBackendGroupedRows,
+  normalizeBackendGroupedRows,
   extractBackendSummaries,
   mergeBackendSummaries,
   getPersistedExpandState,
   persistExpandState,
   getPersistedViewMode,
   persistViewMode,
+  parseViewMode,
+  encodeExpandedGroupsToken,
+  decodeExpandedGroupsToken,
   renderGroupHeaderRow,
   renderGroupedEmptyState,
   renderGroupedLoadingState,
@@ -162,6 +167,24 @@ interface DetailResponse<T = any> {
  * Behavior-agnostic data grid with pluggable behaviors
  */
 export class DataGrid {
+  private static readonly URL_KEY_SEARCH = 'search';
+  private static readonly URL_KEY_PAGE = 'page';
+  private static readonly URL_KEY_PER_PAGE = 'perPage';
+  private static readonly URL_KEY_FILTERS = 'filters';
+  private static readonly URL_KEY_SORT = 'sort';
+  private static readonly URL_KEY_HIDDEN_COLUMNS = 'hiddenColumns';
+  private static readonly URL_KEY_VIEW_MODE = 'view_mode';
+  private static readonly URL_KEY_EXPANDED_GROUPS = 'expanded_groups';
+  private static readonly MANAGED_URL_KEYS = [
+    DataGrid.URL_KEY_SEARCH,
+    DataGrid.URL_KEY_PAGE,
+    DataGrid.URL_KEY_PER_PAGE,
+    DataGrid.URL_KEY_FILTERS,
+    DataGrid.URL_KEY_SORT,
+    DataGrid.URL_KEY_HIDDEN_COLUMNS,
+    DataGrid.URL_KEY_VIEW_MODE,
+    DataGrid.URL_KEY_EXPANDED_GROUPS,
+  ];
   public config: DataGridConfig;
   public state: DataGridState;
   private selectors: DataGridSelectors;
@@ -302,7 +325,7 @@ export class DataGrid {
     this.shouldReorderDOMOnRestore = false;
 
     // Restore search
-    const search = params.get('search');
+    const search = params.get(DataGrid.URL_KEY_SEARCH);
     if (search) {
       this.state.search = search;
       const searchInput = document.querySelector<HTMLInputElement>(this.selectors.searchInput);
@@ -312,14 +335,14 @@ export class DataGrid {
     }
 
     // Restore page
-    const page = params.get('page');
+    const page = params.get(DataGrid.URL_KEY_PAGE);
     if (page) {
       const parsedPage = parseInt(page, 10);
       this.state.currentPage = Number.isNaN(parsedPage) ? 1 : Math.max(1, parsedPage);
     }
 
     // Restore perPage
-    const perPage = params.get('perPage');
+    const perPage = params.get(DataGrid.URL_KEY_PER_PAGE);
     if (perPage) {
       const parsedPerPage = parseInt(perPage, 10);
       const fallbackPerPage = this.config.perPage || 10;
@@ -333,7 +356,7 @@ export class DataGrid {
     }
 
     // Restore filters
-    const filtersParam = params.get('filters');
+    const filtersParam = params.get(DataGrid.URL_KEY_FILTERS);
     if (filtersParam) {
       try {
         this.state.filters = JSON.parse(filtersParam);
@@ -343,7 +366,7 @@ export class DataGrid {
     }
 
     // Restore sort
-    const sortParam = params.get('sort');
+    const sortParam = params.get(DataGrid.URL_KEY_SORT);
     if (sortParam) {
       try {
         this.state.sort = JSON.parse(sortParam);
@@ -352,8 +375,22 @@ export class DataGrid {
       }
     }
 
+    // Restore grouped mode URL state with precedence: URL > localStorage > defaults
+    if (this.config.enableGroupedMode) {
+      const urlViewMode = parseViewMode(params.get(DataGrid.URL_KEY_VIEW_MODE));
+      if (urlViewMode) {
+        this.state.viewMode = getViewModeForViewport(urlViewMode);
+      }
+
+      if (params.has(DataGrid.URL_KEY_EXPANDED_GROUPS)) {
+        this.state.expandedGroups = decodeExpandedGroupsToken(
+          params.get(DataGrid.URL_KEY_EXPANDED_GROUPS)
+        );
+      }
+    }
+
     // Restore hidden columns with precedence: URL > localStorage > defaults
-    const hiddenColumnsParam = params.get('hiddenColumns');
+    const hiddenColumnsParam = params.get(DataGrid.URL_KEY_HIDDEN_COLUMNS);
     if (hiddenColumnsParam) {
       // Priority 1: URL params (authoritative for shared links)
       try {
@@ -446,37 +483,57 @@ export class DataGrid {
   /**
    * Push current state to URL without reloading page
    */
-  private pushStateToURL(): void {
-    const params = new URLSearchParams();
+  private pushStateToURL(options: { replace?: boolean } = {}): void {
+    const params = new URLSearchParams(window.location.search);
+
+    // Reset keys managed by DataGrid while preserving unrelated query params.
+    for (const key of DataGrid.MANAGED_URL_KEYS) {
+      params.delete(key);
+    }
 
     // Add search
     if (this.state.search) {
-      params.set('search', this.state.search);
+      params.set(DataGrid.URL_KEY_SEARCH, this.state.search);
     }
 
     // Add page (only if not page 1)
     if (this.state.currentPage > 1) {
-      params.set('page', String(this.state.currentPage));
+      params.set(DataGrid.URL_KEY_PAGE, String(this.state.currentPage));
     }
 
     // Add perPage (only if different from default)
     if (this.state.perPage !== (this.config.perPage || 10)) {
-      params.set('perPage', String(this.state.perPage));
+      params.set(DataGrid.URL_KEY_PER_PAGE, String(this.state.perPage));
     }
 
     // Add filters
     if (this.state.filters.length > 0) {
-      params.set('filters', JSON.stringify(this.state.filters));
+      params.set(DataGrid.URL_KEY_FILTERS, JSON.stringify(this.state.filters));
     }
 
     // Add sort
     if (this.state.sort.length > 0) {
-      params.set('sort', JSON.stringify(this.state.sort));
+      params.set(DataGrid.URL_KEY_SORT, JSON.stringify(this.state.sort));
     }
 
     // Add hidden columns
     if (this.state.hiddenColumns.size > 0) {
-      params.set('hiddenColumns', JSON.stringify(Array.from(this.state.hiddenColumns)));
+      params.set(
+        DataGrid.URL_KEY_HIDDEN_COLUMNS,
+        JSON.stringify(Array.from(this.state.hiddenColumns))
+      );
+    }
+
+    // Add grouped-mode URL state
+    if (this.config.enableGroupedMode) {
+      params.set(DataGrid.URL_KEY_VIEW_MODE, this.state.viewMode);
+
+      if (this.state.viewMode === 'grouped') {
+        const expandedToken = encodeExpandedGroupsToken(this.state.expandedGroups);
+        if (expandedToken) {
+          params.set(DataGrid.URL_KEY_EXPANDED_GROUPS, expandedToken);
+        }
+      }
     }
 
     // Update URL without reload
@@ -484,7 +541,11 @@ export class DataGrid {
       ? `${window.location.pathname}?${params.toString()}`
       : window.location.pathname;
 
-    window.history.pushState({}, '', newURL);
+    if (options.replace) {
+      window.history.replaceState({}, '', newURL);
+    } else {
+      window.history.pushState({}, '', newURL);
+    }
     console.log('[DataGrid] URL updated:', newURL);
   }
 
@@ -519,6 +580,9 @@ export class DataGrid {
       });
 
       if (!response.ok) {
+        if (this.handleGroupedModeStatusFallback(response.status)) {
+          return;
+        }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
@@ -526,6 +590,10 @@ export class DataGrid {
       console.log('[DataGrid] API Response:', data);
       console.log('[DataGrid] API Response data array:', data.data);
       console.log('[DataGrid] API Response total:', data.total, 'count:', data.count, '$meta:', data.$meta);
+      const items = data.data || data.records || [];
+      if (this.handleGroupedModePayloadFallback(items)) {
+        return;
+      }
       this.lastSchema = data.schema || null;
       this.lastForm = data.form || null;
       const total = this.getResponseTotal(data);
@@ -612,6 +680,11 @@ export class DataGrid {
     if (this.state.sort.length > 0 && this.config.behaviors?.sort) {
       const sortParams = this.config.behaviors.sort.buildQuery(this.state.sort);
       Object.assign(params, sortParams);
+    }
+
+    // Grouping (Phase 2 / TX-058)
+    if (this.isGroupedViewActive()) {
+      params.group_by = this.config.groupByField || 'translation_group_id';
     }
 
     return params;
@@ -815,13 +888,25 @@ export class DataGrid {
    */
   private renderGroupedData(data: ApiResponse, items: any[], tbody: HTMLElement): void {
     const groupByField = this.config.groupByField || 'translation_group_id';
+    const records = items.filter((item): item is Record<string, unknown> => {
+      return !!item && typeof item === 'object' && !Array.isArray(item);
+    });
 
-    // Transform to grouped structure
-    let groupedData = transformToGroups(items, {
+    // Prefer backend grouped payload when contract is available.
+    let groupedData = normalizeBackendGroupedRows(records, {
       groupByField,
       defaultExpanded: true,
       expandedGroups: this.state.expandedGroups,
     });
+
+    // Fallback for legacy flat payloads (local grouping).
+    if (!groupedData) {
+      groupedData = transformToGroups(records, {
+        groupByField,
+        defaultExpanded: true,
+        expandedGroups: this.state.expandedGroups,
+      });
+    }
 
     // Merge backend summaries if available
     const backendSummaries = extractBackendSummaries(data as Record<string, unknown>);
@@ -879,6 +964,64 @@ export class DataGrid {
   }
 
   /**
+   * Whether grouped view is currently active and enabled.
+   */
+  private isGroupedViewActive(): boolean {
+    return Boolean(this.config.enableGroupedMode && this.state.viewMode === 'grouped');
+  }
+
+  /**
+   * Fallback to flat mode when grouped pagination contract is unavailable.
+   */
+  private fallbackGroupedMode(reason: string): void {
+    if (!this.isGroupedViewActive()) {
+      return;
+    }
+
+    this.state.viewMode = 'flat';
+    this.state.groupedData = null;
+
+    const panelId = this.config.panelId || this.config.tableId;
+    persistViewMode(panelId, 'flat');
+    this.pushStateToURL({ replace: true });
+
+    this.notify(reason, 'warning');
+    void this.refresh();
+  }
+
+  /**
+   * Fallback on grouped mode request errors that indicate unsupported contract.
+   */
+  private handleGroupedModeStatusFallback(status: number): boolean {
+    if (!this.isGroupedViewActive()) {
+      return false;
+    }
+    if (![400, 404, 405, 422].includes(status)) {
+      return false;
+    }
+    this.fallbackGroupedMode('Grouped pagination is not supported by this panel. Switched to flat view.');
+    return true;
+  }
+
+  /**
+   * Fallback when payload does not follow backend grouped-row contract.
+   */
+  private handleGroupedModePayloadFallback(items: unknown[]): boolean {
+    if (!this.isGroupedViewActive() || items.length === 0) {
+      return false;
+    }
+
+    const records = items.filter((item): item is Record<string, unknown> => {
+      return !!item && typeof item === 'object' && !Array.isArray(item);
+    });
+    if (records.length !== items.length || !hasBackendGroupedRows(records)) {
+      this.fallbackGroupedMode('Grouped pagination contract is unavailable. Switched to flat view to avoid split groups.');
+      return true;
+    }
+    return false;
+  }
+
+  /**
    * Toggle group expand/collapse state (Phase 2)
    */
   toggleGroup(groupId: string): void {
@@ -903,6 +1046,7 @@ export class DataGrid {
 
     // Re-render the affected group (toggle child row visibility)
     this.updateGroupVisibility(groupId);
+    this.pushStateToURL({ replace: true });
   }
 
   /**
@@ -951,6 +1095,7 @@ export class DataGrid {
     // Persist mode
     const panelId = this.config.panelId || this.config.tableId;
     persistViewMode(panelId, effectiveMode);
+    this.pushStateToURL();
 
     // Re-fetch data with new mode
     this.refresh();

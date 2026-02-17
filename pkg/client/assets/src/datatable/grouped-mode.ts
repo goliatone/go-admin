@@ -78,6 +78,19 @@ export interface GroupTransformOptions {
   expandedGroups?: Set<string>;
 }
 
+/**
+ * Backend grouped row shape for `group_by=translation_group_id`.
+ */
+interface BackendGroupedRow {
+  translation_group_id?: string;
+  group_by?: string;
+  records?: unknown;
+  children?: unknown;
+  parent?: unknown;
+  translation_group_summary?: unknown;
+  _group?: unknown;
+}
+
 // ============================================================================
 // Group Data Transformation (TX-055)
 // ============================================================================
@@ -145,6 +158,165 @@ export function transformToGroups(
     ungrouped,
     totalGroups: groups.length,
     totalRecords: records.length,
+  };
+}
+
+// ============================================================================
+// Backend Grouped Payload Normalization (TX-058)
+// ============================================================================
+
+/**
+ * Check whether list items follow backend grouped-row contract.
+ */
+export function hasBackendGroupedRows(records: Record<string, unknown>[]): boolean {
+  if (records.length === 0) {
+    return false;
+  }
+  return records.every((record) => isBackendGroupedRow(record));
+}
+
+/**
+ * Normalize backend grouped payload (`group_by=translation_group_id`) into GroupedData.
+ * Returns `null` when payload does not match grouped-row contract.
+ */
+export function normalizeBackendGroupedRows(
+  records: Record<string, unknown>[],
+  options: GroupTransformOptions = {}
+): GroupedData | null {
+  const {
+    defaultExpanded = true,
+    expandedGroups = new Set<string>(),
+  } = options;
+
+  if (!hasBackendGroupedRows(records)) {
+    return null;
+  }
+
+  const groups: RecordGroup[] = [];
+  let totalRecords = 0;
+
+  for (const row of records) {
+    const groupId = getBackendGroupID(row);
+    if (!groupId) {
+      return null;
+    }
+
+    const children = getBackendGroupChildren(row);
+    const summary = getBackendGroupSummary(row, children);
+    const expanded = expandedGroups.has(groupId) || (expandedGroups.size === 0 && defaultExpanded);
+
+    groups.push({
+      groupId,
+      records: children,
+      summary,
+      expanded,
+      summaryFromBackend: hasBackendGroupSummary(row),
+    });
+
+    totalRecords += children.length;
+  }
+
+  return {
+    groups,
+    ungrouped: [],
+    totalGroups: groups.length,
+    totalRecords,
+  };
+}
+
+function isBackendGroupedRow(record: Record<string, unknown>): record is Record<string, unknown> & BackendGroupedRow {
+  const row = record as BackendGroupedRow;
+  const groupBy = typeof row.group_by === 'string'
+    ? row.group_by.trim().toLowerCase()
+    : '';
+  const rowType = getBackendGroupRowType(record);
+  const hasGroupedMarker = groupBy === 'translation_group_id' || rowType === 'group';
+  if (!hasGroupedMarker) {
+    return false;
+  }
+  const children = getBackendGroupChildren(record);
+  return Array.isArray(children);
+}
+
+function getBackendGroupRowType(record: Record<string, unknown>): string {
+  const meta = record._group;
+  if (!meta || typeof meta !== 'object' || Array.isArray(meta)) {
+    return '';
+  }
+  const raw = (meta as Record<string, unknown>).row_type;
+  return typeof raw === 'string' ? raw.trim().toLowerCase() : '';
+}
+
+function getBackendGroupID(record: Record<string, unknown>): string | null {
+  const direct = record.translation_group_id;
+  if (typeof direct === 'string' && direct.trim()) {
+    return direct.trim();
+  }
+  const meta = record._group;
+  if (!meta || typeof meta !== 'object' || Array.isArray(meta)) {
+    return null;
+  }
+  const metaID = (meta as Record<string, unknown>).id;
+  return typeof metaID === 'string' && metaID.trim() ? metaID.trim() : null;
+}
+
+function getBackendGroupChildren(record: Record<string, unknown>): Record<string, unknown>[] {
+  const grouped = record as BackendGroupedRow;
+  const primary = Array.isArray(grouped.records) ? grouped.records : grouped.children;
+  if (Array.isArray(primary)) {
+    const children = primary
+      .filter((entry): entry is Record<string, unknown> => {
+        return !!entry && typeof entry === 'object' && !Array.isArray(entry);
+      })
+      .map((entry) => ({ ...entry }));
+    if (children.length > 0) {
+      return children;
+    }
+  }
+
+  const parent = grouped.parent;
+  if (parent && typeof parent === 'object' && !Array.isArray(parent)) {
+    return [{ ...(parent as Record<string, unknown>) }];
+  }
+
+  return [];
+}
+
+function hasBackendGroupSummary(record: Record<string, unknown>): boolean {
+  const summary = record.translation_group_summary;
+  return !!summary && typeof summary === 'object' && !Array.isArray(summary);
+}
+
+function getBackendGroupSummary(record: Record<string, unknown>, children: Record<string, unknown>[]): GroupSummary {
+  const summary = record.translation_group_summary;
+  if (!summary || typeof summary !== 'object' || Array.isArray(summary)) {
+    return computeGroupSummary(children);
+  }
+
+  const raw = summary as Record<string, unknown>;
+  const availableLocales = Array.isArray(raw.available_locales)
+    ? raw.available_locales.filter(isString)
+    : [];
+  const missingLocales = Array.isArray(raw.missing_locales)
+    ? raw.missing_locales.filter(isString)
+    : [];
+  const readinessState = isValidReadinessState(raw.readiness_state)
+    ? raw.readiness_state
+    : null;
+  const requiredCount = typeof raw.required_count === 'number' ? Math.max(raw.required_count, 0) : null;
+  const availableCount = typeof raw.available_count === 'number' ? Math.max(raw.available_count, 0) : availableLocales.length;
+  const fallbackTotal = requiredCount !== null
+    ? requiredCount
+    : Math.max(availableCount + missingLocales.length, children.length);
+
+  return {
+    totalItems: typeof raw.total_items === 'number'
+      ? Math.max(raw.total_items, 0)
+      : fallbackTotal,
+    availableLocales,
+    missingLocales,
+    readinessState,
+    readyForPublish: typeof raw.ready_for_publish === 'boolean' ? raw.ready_for_publish : null,
   };
 }
 
@@ -431,6 +603,8 @@ export function getExpandedGroupIds(groupedData: GroupedData): Set<string> {
 // ============================================================================
 
 const VIEW_MODE_KEY_PREFIX = 'datagrid-view-mode-';
+const MAX_EXPANDED_GROUPS_TOKEN_ITEMS = 200;
+const MAX_EXPANDED_GROUP_ID_LENGTH = 256;
 
 /**
  * Get persisted view mode for a panel.
@@ -462,6 +636,85 @@ export function persistViewMode(panelId: string, mode: ViewMode): void {
 
 function isValidViewMode(value: string): value is ViewMode {
   return value === 'flat' || value === 'grouped' || value === 'matrix';
+}
+
+/**
+ * Parse view mode from URL query parameter.
+ */
+export function parseViewMode(value: string | null): ViewMode | null {
+  if (!value) return null;
+  return isValidViewMode(value) ? value : null;
+}
+
+/**
+ * Encode expanded group IDs into a compact URL-safe token.
+ * Token strategy: URI-encode each group ID, sort deterministically, join with commas.
+ */
+export function encodeExpandedGroupsToken(expandedGroups: Set<string>): string {
+  if (!(expandedGroups instanceof Set) || expandedGroups.size === 0) {
+    return '';
+  }
+
+  const normalized = Array.from(new Set(
+    Array.from(expandedGroups)
+      .map((value) => sanitizeGroupId(value))
+      .filter((value): value is string => value !== null)
+  )).sort();
+
+  if (normalized.length === 0) {
+    return '';
+  }
+
+  return normalized.map((groupId) => encodeURIComponent(groupId)).join(',');
+}
+
+/**
+ * Decode expanded group token into a validated Set of group IDs.
+ */
+export function decodeExpandedGroupsToken(token: string | null): Set<string> {
+  const expanded = new Set<string>();
+  if (!token) {
+    return expanded;
+  }
+
+  const segments = token.split(',');
+  for (const segment of segments) {
+    if (expanded.size >= MAX_EXPANDED_GROUPS_TOKEN_ITEMS) {
+      break;
+    }
+
+    if (!segment) {
+      continue;
+    }
+
+    let decoded = '';
+    try {
+      decoded = decodeURIComponent(segment);
+    } catch {
+      continue;
+    }
+
+    const normalized = sanitizeGroupId(decoded);
+    if (normalized) {
+      expanded.add(normalized);
+    }
+  }
+
+  return expanded;
+}
+
+function sanitizeGroupId(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  if (trimmed.length > MAX_EXPANDED_GROUP_ID_LENGTH) {
+    return null;
+  }
+  return trimmed;
 }
 
 // ============================================================================

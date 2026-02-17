@@ -6,6 +6,7 @@
  */
 
 import type { GateResult, CapabilityGate } from './capability-gate.js';
+import { renderVocabularyStatusBadge } from './translation-status-vocabulary.js';
 
 // ============================================================================
 // Types
@@ -562,8 +563,11 @@ export class TranslatorDashboard {
   private renderAssignmentRow(assignment: TranslationAssignment): string {
     const labels = this.config.labels;
     const dueStateClass = getDueStateClass(assignment.due_state);
-    const queueStateClass = getQueueStateClass(assignment.queue_state);
     const priorityClass = getPriorityClass(assignment.priority);
+    const queueStateBadge = renderVocabularyStatusBadge(assignment.queue_state, {
+      domain: 'queue',
+      size: 'sm',
+    });
 
     const dueDateDisplay = assignment.due_date
       ? formatRelativeDate(new Date(assignment.due_date))
@@ -583,7 +587,7 @@ export class TranslatorDashboard {
           <span class="locale-badge source">${escapeHtml(assignment.source_locale.toUpperCase())}</span>
         </td>
         <td class="status-cell">
-          <span class="status-badge ${queueStateClass}">${escapeHtml(formatQueueState(assignment.queue_state))}</span>
+          ${queueStateBadge}
         </td>
         <td class="due-cell ${dueStateClass}">
           ${dueDateDisplay}
@@ -753,27 +757,6 @@ function getDueStateClass(state: DueState): string {
   }
 }
 
-function getQueueStateClass(state: QueueState): string {
-  switch (state) {
-    case 'pending':
-      return 'status-pending';
-    case 'assigned':
-      return 'status-assigned';
-    case 'in_progress':
-      return 'status-in-progress';
-    case 'review':
-      return 'status-review';
-    case 'approved':
-      return 'status-approved';
-    case 'published':
-      return 'status-published';
-    case 'archived':
-      return 'status-archived';
-    default:
-      return '';
-  }
-}
-
 function getPriorityClass(priority: AssignmentPriority): string {
   switch (priority) {
     case 'urgent':
@@ -787,10 +770,6 @@ function getPriorityClass(priority: AssignmentPriority): string {
     default:
       return 'priority-normal';
   }
-}
-
-function formatQueueState(state: QueueState): string {
-  return state.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
 function formatPriority(priority: AssignmentPriority): string {

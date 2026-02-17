@@ -108,6 +108,15 @@ interface DataGridState {
  * Behavior-agnostic data grid with pluggable behaviors
  */
 export declare class DataGrid {
+    private static readonly URL_KEY_SEARCH;
+    private static readonly URL_KEY_PAGE;
+    private static readonly URL_KEY_PER_PAGE;
+    private static readonly URL_KEY_FILTERS;
+    private static readonly URL_KEY_SORT;
+    private static readonly URL_KEY_HIDDEN_COLUMNS;
+    private static readonly URL_KEY_VIEW_MODE;
+    private static readonly URL_KEY_EXPANDED_GROUPS;
+    private static readonly MANAGED_URL_KEYS;
     config: DataGridConfig;
     state: DataGridState;
     private selectors;
@@ -190,6 +199,22 @@ export declare class DataGrid {
      * Render data in grouped mode (Phase 2)
      */
     private renderGroupedData;
+    /**
+     * Whether grouped view is currently active and enabled.
+     */
+    private isGroupedViewActive;
+    /**
+     * Fallback to flat mode when grouped pagination contract is unavailable.
+     */
+    private fallbackGroupedMode;
+    /**
+     * Fallback on grouped mode request errors that indicate unsupported contract.
+     */
+    private handleGroupedModeStatusFallback;
+    /**
+     * Fallback when payload does not follow backend grouped-row contract.
+     */
+    private handleGroupedModePayloadFallback;
     /**
      * Toggle group expand/collapse state (Phase 2)
      */

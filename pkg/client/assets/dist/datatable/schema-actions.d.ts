@@ -194,7 +194,7 @@ export declare class SchemaActionBuilder {
     private buildActionPayload;
     /**
      * Prompt user for required payload values
-     * Uses the existing PayloadInputModal from actions.ts
+     * Uses the lazy payload modal proxy.
      */
     private promptForPayload;
     /**
@@ -203,6 +203,7 @@ export declare class SchemaActionBuilder {
     private buildFieldOptions;
     private buildExtensionFieldOptions;
     private deriveCreateTranslationLocaleOptions;
+    private createTranslationLocaleLabelMap;
     private extractStringField;
     private asObject;
     private asStringArray;

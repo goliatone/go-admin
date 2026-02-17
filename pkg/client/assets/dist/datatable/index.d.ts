@@ -19,7 +19,7 @@ export { ColumnManager } from './column-manager.js';
 export type { ColumnManagerConfig } from './column-manager.js';
 export { SchemaActionBuilder, buildSchemaRowActions, extractSchemaActions } from './schema-actions.js';
 export type { SchemaAction, SchemaActionBuilderConfig, ActionResult, TranslationBlockerContext, PayloadSchema, PayloadSchemaProperty } from './schema-actions.js';
-export { PayloadInputModal } from './payload-modal.js';
+export { PayloadInputModal } from './payload-modal-lazy.js';
 export type { PayloadModalConfig, PayloadModalField, PayloadModalFieldOption } from './payload-modal.js';
 export { TranslationBlockerModal, showTranslationBlocker } from './translation-blocker-modal.js';
 export type { TranslationBlockerModalConfig, CreateTranslationResult } from './translation-blocker-modal.js';
@@ -29,7 +29,7 @@ export { StatusLegend, createStatusLegend, initStatusLegends, renderStatusLegend
 export type { StatusLegendItem, StatusLegendConfig } from './status-legend.js';
 export { QuickFilters, createTranslationQuickFilters, initQuickFilters, renderQuickFiltersHTML, DEFAULT_TRANSLATION_QUICK_FILTERS } from './quick-filters.js';
 export type { QuickFilter, QuickFilterCapability, QuickFilterState, QuickFiltersConfig } from './quick-filters.js';
-export { transformToGroups, mergeBackendSummaries, extractBackendSummaries, getPersistedExpandState, persistExpandState, toggleGroupExpand, expandAllGroups, collapseAllGroups, getExpandedGroupIds, getPersistedViewMode, persistViewMode, renderGroupHeaderSummary, renderGroupHeaderRow, renderGroupedEmptyState, renderGroupedLoadingState, renderGroupedErrorState, isNarrowViewport, getViewModeForViewport } from './grouped-mode.js';
+export { transformToGroups, hasBackendGroupedRows, normalizeBackendGroupedRows, mergeBackendSummaries, extractBackendSummaries, getPersistedExpandState, persistExpandState, toggleGroupExpand, expandAllGroups, collapseAllGroups, getExpandedGroupIds, getPersistedViewMode, persistViewMode, parseViewMode, encodeExpandedGroupsToken, decodeExpandedGroupsToken, renderGroupHeaderSummary, renderGroupHeaderRow, renderGroupedEmptyState, renderGroupedLoadingState, renderGroupedErrorState, isNarrowViewport, getViewModeForViewport } from './grouped-mode.js';
 export type { ViewMode, GroupSummary, RecordGroup, GroupedData, GroupTransformOptions } from './grouped-mode.js';
 export { executeBulkCreateMissing, renderBulkResultSummary, renderBulkResultInline, createBulkCreateMissingHandler } from './translation-bulk-actions.js';
 export type { BulkCreateResult, BulkCreateMissingResponse, BulkActionSummary, BulkCreateMissingConfig } from './translation-bulk-actions.js';
@@ -57,4 +57,6 @@ export { AsyncProgress, createAsyncProgress, initAsyncProgress, checkForPersiste
 export type { JobStatus, PollingState, JobProgress, ConflictSummary, AsyncJobEnvelope, PersistedJobState, AsyncProgressConfig, AsyncProgressLabels } from './async-progress.js';
 export { SideBySideEditor, createSideBySideEditor, initSideBySideEditorFromRecord, extractSourceTargetDrift, hasFieldDrift, getChangedFields, getSideBySideEditorStyles, DEFAULT_SIDE_BY_SIDE_LABELS } from './side-by-side-editor.js';
 export type { SourceTargetDrift, SideBySideField, SideBySideEditorConfig, SideBySideLabels } from './side-by-side-editor.js';
+export { CORE_READINESS_DISPLAY, QUEUE_STATE_DISPLAY, QUEUE_CONTENT_STATE_DISPLAY, QUEUE_DUE_STATE_DISPLAY, EXCHANGE_ROW_STATUS_DISPLAY, EXCHANGE_JOB_STATUS_DISPLAY, DISABLED_REASON_DISPLAY, getStatusDisplay, getDisabledReasonDisplay, isValidStatus, isValidReasonCode, getStatusesForDomain, getAllReasonCodes, renderVocabularyStatusBadge, renderVocabularyStatusIcon, renderReasonCodeBadge, renderReasonCodeIndicator, createStatusCellRenderer, createReasonCodeCellRenderer, initializeVocabularyFromPayload, getStatusVocabularyStyles } from './translation-status-vocabulary.js';
+export type { StatusDomain, CoreReadinessState, QueueState as VocabularyQueueState, QueueContentState, QueueDueState, ExchangeRowStatus as VocabularyExchangeRowStatus, ExchangeJobStatus, TranslationStatus, DisabledReasonCode, StatusDisplayConfig, DisabledReasonDisplayConfig, StatusVocabularyPayload } from './translation-status-vocabulary.js';
 //# sourceMappingURL=index.d.ts.map
