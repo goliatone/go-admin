@@ -378,6 +378,7 @@ export {
   TranslatorDashboard,
   createTranslatorDashboard,
   initTranslatorDashboard,
+  initTranslatorDashboardWithOptions,
   getTranslatorDashboardStyles,
   DEFAULT_FILTER_PRESETS
 } from './translator-dashboard.js';
@@ -393,6 +394,7 @@ export type {
   FilterPreset,
   DashboardState,
   TranslatorDashboardConfig,
+  InitTranslatorDashboardOptions,
   DashboardLabels
 } from './translator-dashboard.js';
 

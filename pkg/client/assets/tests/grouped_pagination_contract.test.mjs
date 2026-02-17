@@ -6,7 +6,7 @@ const { DataGrid } = await import('../dist/datatable/index.js');
 function createGrid(defaultViewMode = 'flat') {
   return new DataGrid({
     tableId: 'translations-table',
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     columns: [],
     enableGroupedMode: true,
     defaultViewMode,

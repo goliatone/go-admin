@@ -33,7 +33,7 @@ import {
 export interface InlineLocaleChipsConfig {
   /** Record ID */
   recordId: string;
-  /** API endpoint for panel actions (e.g., /admin/api/pages) */
+  /** API endpoint for panel actions (e.g., /admin/api/panels/pages) */
   apiEndpoint: string;
   /** Base path for navigation (e.g., /admin/content/pages) */
   navigationBasePath: string;

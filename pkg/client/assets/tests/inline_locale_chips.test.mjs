@@ -31,7 +31,7 @@ function createMockRecord(overrides = {}) {
 function createMockConfig() {
   return {
     recordId: 'page_123',
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
     panelName: 'pages',
   };
@@ -306,7 +306,7 @@ test('renderInlineLocaleChips renders chips from record', () => {
   const record = createMockRecord();
 
   const html = renderInlineLocaleChips(record, {
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   });
 
@@ -319,7 +319,7 @@ test('renderInlineLocaleChips returns empty string when no ID', () => {
   delete record.id;
 
   const html = renderInlineLocaleChips(record, {
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   });
 
@@ -332,7 +332,7 @@ test('renderInlineLocaleChips returns empty string when no ID', () => {
 
 test('createInlineLocaleChipsRenderer returns a function', () => {
   const renderer = createInlineLocaleChipsRenderer({
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   });
 
@@ -341,7 +341,7 @@ test('createInlineLocaleChipsRenderer returns a function', () => {
 
 test('createInlineLocaleChipsRenderer function renders chips', () => {
   const renderer = createInlineLocaleChipsRenderer({
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
   });
 

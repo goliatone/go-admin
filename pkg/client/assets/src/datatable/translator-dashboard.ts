@@ -6,6 +6,7 @@
  */
 
 import type { GateResult, CapabilityGate } from './capability-gate.js';
+import { createCapabilityGate, renderDisabledReasonBadge } from './capability-gate.js';
 import { renderVocabularyStatusBadge } from './translation-status-vocabulary.js';
 
 // ============================================================================
@@ -132,8 +133,15 @@ export interface FilterPreset {
 
 /**
  * Dashboard state
+ *
+ * States follow the visible-disabled pattern for capability gating:
+ * - 'disabled': Module accessible but user lacks permission (visible-disabled)
+ * - 'loading': Initial data load in progress
+ * - 'loaded': Data loaded successfully with assignments
+ * - 'error': Data load failed (transport or server error)
+ * - 'empty': Data loaded but no assignments
  */
-export type DashboardState = 'loading' | 'loaded' | 'error' | 'empty';
+export type DashboardState = 'disabled' | 'loading' | 'loaded' | 'error' | 'empty';
 
 /**
  * Dashboard configuration
@@ -157,6 +165,16 @@ export interface TranslatorDashboardConfig {
   onActionClick?: (action: string, assignment: TranslationAssignment) => Promise<void>;
   /** Custom labels (merged with defaults) */
   labels?: Partial<DashboardLabels>;
+}
+
+/**
+ * Optional init-time overrides for `initTranslatorDashboard`.
+ * Supports explicit capability gate injection while keeping
+ * capability auto-detection as the default.
+ */
+export interface InitTranslatorDashboardOptions {
+  capabilityGate?: CapabilityGate;
+  capabilitiesPayload?: unknown;
 }
 
 /**
@@ -262,6 +280,7 @@ export class TranslatorDashboard {
   private config: ResolvedDashboardConfig;
   private container: HTMLElement | null = null;
   private state: DashboardState = 'loading';
+  private gateResult: GateResult | null = null;
   private data: MyWorkResponse | null = null;
   private error: Error | null = null;
   private activePreset: string = 'all';
@@ -282,10 +301,33 @@ export class TranslatorDashboard {
   }
 
   /**
-   * Mount the dashboard to a container element
+   * Mount the dashboard to a container element.
+   *
+   * If a capabilityGate is configured, checks queue module access first.
+   * If permission is denied, renders a visible-disabled state with reason
+   * instead of attempting to load data.
    */
   mount(container: HTMLElement): void {
     this.container = container;
+
+    // Check capability gate before loading data
+    if (this.config.capabilityGate) {
+      this.gateResult = this.config.capabilityGate.gateNavItem({ module: 'queue' });
+
+      if (!this.gateResult.visible) {
+        this.container.setAttribute('aria-hidden', 'true');
+        this.container.style.display = 'none';
+        return;
+      }
+
+      if (!this.gateResult.enabled) {
+        // Visible-disabled: show dashboard UI with disabled state
+        this.state = 'disabled';
+        this.render();
+        return;
+      }
+    }
+
     this.render();
     this.loadData();
 
@@ -474,6 +516,8 @@ export class TranslatorDashboard {
 
   private renderContent(): string {
     switch (this.state) {
+      case 'disabled':
+        return this.renderDisabled();
       case 'loading':
         return this.renderLoading();
       case 'error':
@@ -520,6 +564,34 @@ export class TranslatorDashboard {
         </svg>
         <p class="empty-title">${escapeHtml(labels.noAssignments)}</p>
         <p class="empty-description">${escapeHtml(labels.noAssignmentsDescription)}</p>
+      </div>
+    `;
+  }
+
+  /**
+   * Render disabled state (TX-101: visible-disabled module/dashboard UX).
+   * Shows the dashboard structure but with disabled controls and a reason badge.
+   * This is distinct from error state (transport failure) and empty state (no data).
+   */
+  private renderDisabled(): string {
+    const reason = this.gateResult?.reason || 'Access to this feature is not available.';
+    const reasonBadge = this.gateResult
+      ? renderDisabledReasonBadge(this.gateResult)
+      : '';
+
+    return `
+      <div class="dashboard-disabled" role="alert" aria-live="polite">
+        <div class="disabled-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-12 h-12 text-gray-400">
+            <path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd" />
+          </svg>
+        </div>
+        <p class="disabled-title">Translator Dashboard Unavailable</p>
+        <p class="disabled-description">${escapeHtml(reason)}</p>
+        ${reasonBadge}
+        <p class="disabled-help-text">
+          Contact your administrator if you believe you should have access to this feature.
+        </p>
       </div>
     `;
   }
@@ -1029,6 +1101,44 @@ export function getTranslatorDashboardStyles(): string {
       margin: 0;
     }
 
+    /* Disabled State (TX-101: visible-disabled module UX) */
+    .dashboard-disabled {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 3rem;
+      text-align: center;
+      background: #f9fafb;
+      border: 2px dashed #d1d5db;
+      border-radius: 0.5rem;
+      opacity: 0.9;
+    }
+
+    .disabled-icon {
+      margin-bottom: 1rem;
+    }
+
+    .disabled-title {
+      font-weight: 600;
+      color: #4b5563;
+      margin: 0 0 0.5rem;
+      font-size: 1.125rem;
+    }
+
+    .disabled-description {
+      font-size: 0.875rem;
+      color: #6b7280;
+      margin: 0 0 1rem;
+      max-width: 300px;
+    }
+
+    .disabled-help-text {
+      font-size: 0.75rem;
+      color: #9ca3af;
+      margin: 1rem 0 0;
+      max-width: 300px;
+    }
+
     /* Assignment Table */
     .dashboard-assignment-list {
       overflow-x: auto;
@@ -1203,16 +1313,69 @@ export function createTranslatorDashboard(
  * Initialize translator dashboard from data attributes
  */
 export function initTranslatorDashboard(container: HTMLElement): TranslatorDashboard | null {
+  return initTranslatorDashboardWithOptions(container);
+}
+
+/**
+ * Initialize translator dashboard from data attributes with optional overrides.
+ *
+ * Hybrid behavior:
+ * - Default: auto-resolve capability gate from global translation capabilities.
+ * - Override: caller-provided capabilityGate/capabilitiesPayload wins.
+ */
+export function initTranslatorDashboardWithOptions(
+  container: HTMLElement,
+  options: InitTranslatorDashboardOptions = {}
+): TranslatorDashboard | null {
   const endpoint = container.dataset.myWorkEndpoint;
   if (!endpoint) {
     console.warn('TranslatorDashboard: Missing data-my-work-endpoint attribute');
     return null;
   }
 
+  const capabilityGate = resolveInitCapabilityGate(options);
+
   return createTranslatorDashboard(container, {
     myWorkEndpoint: endpoint,
     panelBaseUrl: container.dataset.panelBaseUrl,
     queueEndpoint: container.dataset.queueEndpoint,
     refreshInterval: parseInt(container.dataset.refreshInterval || '0', 10),
+    capabilityGate: capabilityGate || undefined,
   });
+}
+
+function resolveInitCapabilityGate(options: InitTranslatorDashboardOptions): CapabilityGate | null {
+  if (options.capabilityGate) {
+    return options.capabilityGate;
+  }
+  if (options.capabilitiesPayload !== undefined) {
+    return createCapabilityGate(options.capabilitiesPayload);
+  }
+  const globalPayload = resolveGlobalCapabilitiesPayload();
+  if (globalPayload === null) {
+    return null;
+  }
+  return createCapabilityGate(globalPayload);
+}
+
+function resolveGlobalCapabilitiesPayload(): unknown | null {
+  if (typeof window !== 'undefined') {
+    const globalCaps = (window as any).__TRANSLATION_CAPABILITIES__;
+    if (globalCaps && typeof globalCaps === 'object') {
+      return globalCaps;
+    }
+  }
+
+  if (typeof document !== 'undefined') {
+    const scriptEl = document.querySelector<HTMLScriptElement>('script[data-translation-capabilities]');
+    if (scriptEl && scriptEl.textContent) {
+      try {
+        return JSON.parse(scriptEl.textContent);
+      } catch {
+        return null;
+      }
+    }
+  }
+
+  return null;
 }

@@ -210,10 +210,21 @@ class CapabilityGate {
       };
     }
 
-    // Module enabled but no entry permission = hidden
-    if (!moduleState.visible || !moduleState.entry.enabled) {
+    // Backend hidden module = hidden
+    if (!moduleState.visible) {
       return {
         visible: false,
+        enabled: false,
+        reason: moduleState.entry.reason || 'Module hidden by capability metadata',
+        reasonCode: moduleState.entry.reason_code || 'FEATURE_DISABLED',
+        permission: moduleState.entry.permission,
+      };
+    }
+
+    // Module visible but no entry permission = visible-disabled
+    if (!moduleState.entry.enabled) {
+      return {
+        visible: true,
         enabled: false,
         reason: moduleState.entry.reason || 'Missing module view permission',
         reasonCode: moduleState.entry.reason_code || 'PERMISSION_DENIED',
@@ -636,13 +647,13 @@ describe('Capability Gate - Nav Item Gating', () => {
   });
 
   describe('module enabled but missing entry permission', () => {
-    it('should hide when entry permission denied', () => {
+    it('should render visible-disabled when entry permission denied', () => {
       const gate = createCapabilityGate({
         profile: 'full',
         modules: {
           exchange: {
             enabled: true,
-            visible: false,
+            visible: true,
             entry: { enabled: false, reason: 'missing permission: admin.translations.import.view', reason_code: 'PERMISSION_DENIED', permission: 'admin.translations.import.view' },
             actions: {},
           },
@@ -650,7 +661,7 @@ describe('Capability Gate - Nav Item Gating', () => {
       });
 
       const result = gate.gateNavItem({ module: 'exchange' });
-      assert.strictEqual(result.visible, false);
+      assert.strictEqual(result.visible, true);
       assert.strictEqual(result.enabled, false);
       assert.strictEqual(result.reasonCode, 'PERMISSION_DENIED');
       assert.strictEqual(result.permission, 'admin.translations.import.view');

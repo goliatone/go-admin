@@ -4,8 +4,8 @@
  * Provides capability-mode and permission gating for translation module
  * navigation and action controls. Follows the graceful degradation strategy:
  *
- * - Hidden: Module is off OR user lacks module-view permission
- * - Visible + Disabled: Module is on, user has view permission, but lacks action-specific permission
+ * - Hidden: Module is off OR backend marks module as not visible
+ * - Visible + Disabled: Module is visible but entry/action permission is denied
  * - Visible + Enabled: Module is on and user has all required permissions
  */
 
@@ -352,8 +352,9 @@ export class CapabilityGate {
    * Gate a navigation item.
    * Returns visibility/enabled state for rendering.
    *
-   * Rule: Hidden when module is off or no module-view permission;
-   *       visible-disabled for partial action permissions.
+   * Rule:
+   * - backend visible=false => hidden
+   * - backend visible=true + entry/action denied => visible-disabled
    */
   gateNavItem(gate: NavItemGate): GateResult {
     const moduleState = this.getModuleState(gate.module);
@@ -378,10 +379,21 @@ export class CapabilityGate {
       };
     }
 
-    // Module enabled but no entry permission = hidden
-    if (!moduleState.visible || !moduleState.entry.enabled) {
+    // Backend explicitly hides module = hidden
+    if (!moduleState.visible) {
       return {
         visible: false,
+        enabled: false,
+        reason: moduleState.entry.reason || 'Module hidden by capability metadata',
+        reasonCode: moduleState.entry.reason_code || 'FEATURE_DISABLED',
+        permission: moduleState.entry.permission,
+      };
+    }
+
+    // Module is visible, but entry permission denied = visible-disabled
+    if (!moduleState.entry.enabled) {
+      return {
+        visible: true,
         enabled: false,
         reason: moduleState.entry.reason || 'Missing module view permission',
         reasonCode: moduleState.entry.reason_code || 'PERMISSION_DENIED',

@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 const {
   parseCapabilityMode,
   renderDisabledReasonBadge,
+  createCapabilityGate,
 } = await import('../dist/datatable/index.js');
 
 test('capability-gate module contract: parses known capability profiles', () => {
@@ -24,4 +25,35 @@ test('capability-gate module contract: renders shared disabled-reason badge when
 
   assert.ok(html.includes('data-reason-code="PERMISSION_DENIED"'));
   assert.ok(html.includes('permission') || html.includes('No permission'));
+});
+
+test('capability-gate module contract: entry permission denied is visible-disabled when module is visible', () => {
+  const gate = createCapabilityGate({
+    profile: 'full',
+    capability_mode: 'full',
+    schema_version: 1,
+    modules: {
+      queue: {
+        enabled: true,
+        visible: true,
+        entry: {
+          enabled: false,
+          reason: 'missing permission: admin.translations.queue.view',
+          reason_code: 'PERMISSION_DENIED',
+          permission: 'admin.translations.queue.view',
+        },
+        actions: {},
+      },
+    },
+    routes: {},
+    features: {},
+    panels: [],
+    resolver_keys: [],
+    warnings: [],
+  });
+
+  const result = gate.gateNavItem({ module: 'queue' });
+  assert.equal(result.visible, true);
+  assert.equal(result.enabled, false);
+  assert.equal(result.reasonCode, 'PERMISSION_DENIED');
 });

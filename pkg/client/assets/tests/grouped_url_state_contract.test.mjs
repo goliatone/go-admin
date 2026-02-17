@@ -11,7 +11,7 @@ const {
 function createGrid() {
   return new DataGrid({
     tableId: 'translations-table',
-    apiEndpoint: '/admin/api/pages',
+    apiEndpoint: '/admin/api/panels/pages',
     columns: [],
     enableGroupedMode: true,
     defaultViewMode: 'flat',
