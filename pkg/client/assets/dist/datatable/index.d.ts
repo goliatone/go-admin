@@ -49,8 +49,8 @@ export { isExchangeError, extractExchangeError, parseImportResult, groupRowResul
 export type { ExchangeErrorCode, ExchangeRowStatus, ExchangeRowResult, ExchangeConflictInfo, ExchangeResultSummary, ExchangeImportResult, ExchangeExportOptions, ExchangeExportResult, ExchangeErrorInfo } from '../toast/error-helpers.js';
 export { CapabilityGate, parseCapabilityMode, isExchangeEnabled, isQueueEnabled, isCoreEnabled, extractCapabilities, createCapabilityGate, createEmptyCapabilityGate, renderGateAriaAttributes, renderDisabledReasonBadge, getCapabilityGateStyles, applyGateToElement, initCapabilityGating } from './capability-gate.js';
 export type { CapabilityMode, ActionState, ModuleState, RouteConfig, TranslationCapabilities, GateResult, NavItemGate } from './capability-gate.js';
-export { TranslatorDashboard, createTranslatorDashboard, initTranslatorDashboard, getTranslatorDashboardStyles, DEFAULT_FILTER_PRESETS } from './translator-dashboard.js';
-export type { DueState, QueueState, ContentState, AssignmentPriority, ReviewActionState, TranslationAssignment, MyWorkResponse, QueueResponse, FilterPreset, DashboardState, TranslatorDashboardConfig, DashboardLabels } from './translator-dashboard.js';
+export { TranslatorDashboard, createTranslatorDashboard, initTranslatorDashboard, initTranslatorDashboardWithOptions, getTranslatorDashboardStyles, DEFAULT_FILTER_PRESETS } from './translator-dashboard.js';
+export type { DueState, QueueState, ContentState, AssignmentPriority, ReviewActionState, TranslationAssignment, MyWorkResponse, QueueResponse, FilterPreset, DashboardState, TranslatorDashboardConfig, InitTranslatorDashboardOptions, DashboardLabels } from './translator-dashboard.js';
 export { ExchangeImport, createExchangeImport, initExchangeImport, getExchangeImportStyles } from './exchange-import.js';
 export type { ImportConflictResolution, RowSelectionState, ImportPreviewRow, ImportPreviewState, ImportApplyOptions, ExchangeImportConfig, ImportLabels } from './exchange-import.js';
 export { AsyncProgress, createAsyncProgress, initAsyncProgress, checkForPersistedJob, getAsyncProgressStyles } from './async-progress.js';

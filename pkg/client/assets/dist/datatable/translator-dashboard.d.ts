@@ -109,8 +109,15 @@ export interface FilterPreset {
 }
 /**
  * Dashboard state
+ *
+ * States follow the visible-disabled pattern for capability gating:
+ * - 'disabled': Module accessible but user lacks permission (visible-disabled)
+ * - 'loading': Initial data load in progress
+ * - 'loaded': Data loaded successfully with assignments
+ * - 'error': Data load failed (transport or server error)
+ * - 'empty': Data loaded but no assignments
  */
-export type DashboardState = 'loading' | 'loaded' | 'error' | 'empty';
+export type DashboardState = 'disabled' | 'loading' | 'loaded' | 'error' | 'empty';
 /**
  * Dashboard configuration
  */
@@ -133,6 +140,15 @@ export interface TranslatorDashboardConfig {
     onActionClick?: (action: string, assignment: TranslationAssignment) => Promise<void>;
     /** Custom labels (merged with defaults) */
     labels?: Partial<DashboardLabels>;
+}
+/**
+ * Optional init-time overrides for `initTranslatorDashboard`.
+ * Supports explicit capability gate injection while keeping
+ * capability auto-detection as the default.
+ */
+export interface InitTranslatorDashboardOptions {
+    capabilityGate?: CapabilityGate;
+    capabilitiesPayload?: unknown;
 }
 /**
  * Customizable labels
@@ -171,13 +187,18 @@ export declare class TranslatorDashboard {
     private config;
     private container;
     private state;
+    private gateResult;
     private data;
     private error;
     private activePreset;
     private refreshTimer;
     constructor(config: TranslatorDashboardConfig);
     /**
-     * Mount the dashboard to a container element
+     * Mount the dashboard to a container element.
+     *
+     * If a capabilityGate is configured, checks queue module access first.
+     * If permission is denied, renders a visible-disabled state with reason
+     * instead of attempting to load data.
      */
     mount(container: HTMLElement): void;
     /**
@@ -214,6 +235,12 @@ export declare class TranslatorDashboard {
     private renderLoading;
     private renderError;
     private renderEmpty;
+    /**
+     * Render disabled state (TX-101: visible-disabled module/dashboard UX).
+     * Shows the dashboard structure but with disabled controls and a reason badge.
+     * This is distinct from error state (transport failure) and empty state (no data).
+     */
+    private renderDisabled;
     private renderAssignmentList;
     private renderAssignmentRow;
     private renderAssignmentActions;
@@ -233,4 +260,12 @@ export declare function createTranslatorDashboard(container: HTMLElement, config
  * Initialize translator dashboard from data attributes
  */
 export declare function initTranslatorDashboard(container: HTMLElement): TranslatorDashboard | null;
+/**
+ * Initialize translator dashboard from data attributes with optional overrides.
+ *
+ * Hybrid behavior:
+ * - Default: auto-resolve capability gate from global translation capabilities.
+ * - Override: caller-provided capabilityGate/capabilitiesPayload wins.
+ */
+export declare function initTranslatorDashboardWithOptions(container: HTMLElement, options?: InitTranslatorDashboardOptions): TranslatorDashboard | null;
 //# sourceMappingURL=translator-dashboard.d.ts.map
