@@ -15,6 +15,7 @@ import (
 	"github.com/goliatone/go-admin/examples/web/stores"
 	"github.com/goliatone/go-admin/pkg/client"
 	"github.com/goliatone/go-admin/quickstart"
+	commandregistry "github.com/goliatone/go-command/registry"
 	router "github.com/goliatone/go-router"
 	"github.com/stretchr/testify/require"
 )
@@ -83,6 +84,10 @@ func TestContentEntryEditBlocksFallbackSaveButAllowsExistingLocaleSave(t *testin
 
 func newTranslationUIFixture(t *testing.T) translationUIFixture {
 	t.Helper()
+	_ = commandregistry.Stop(context.Background())
+	t.Cleanup(func() {
+		_ = commandregistry.Stop(context.Background())
+	})
 
 	ctx := context.Background()
 	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared&_fk=1", normalizedTestDSNName(t.Name()))

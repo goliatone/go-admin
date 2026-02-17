@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -28,6 +29,8 @@ type persistentConfig struct {
 	server      string
 	pingTimeout time.Duration
 }
+
+var cmsTestLogs = flag.Bool("cms-test-logs", false, "enable go-cms runtime logs during tests")
 
 func (c persistentConfig) GetDebug() bool    { return false }
 func (c persistentConfig) GetDriver() string { return c.driver }
@@ -107,7 +110,7 @@ func SetupPersistentCMS(ctx context.Context, defaultLocale, dsn string) (admin.C
 		Themes:       true,
 		Versioning:   true,
 		Scheduling:   true,
-		Logger:       true,
+		Logger:       shouldEnableCMSRuntimeLogs(),
 		Shortcodes:   false,
 		Activity:     true,
 		MediaLibrary: false,
@@ -208,6 +211,9 @@ func SetupPersistentCMS(ctx context.Context, defaultLocale, dsn string) (admin.C
 			if err := seedCMSDemoContent(ctx, client.DB(), nil, contentSvc, menuSvc, seedRefs, defaultLocale); err != nil {
 				return admin.CMSOptions{}, fmt.Errorf("seed cms demo content: %w", err)
 			}
+			if err := validateTranslationSeedFixtureCoverage(ctx, client.DB()); err != nil {
+				return admin.CMSOptions{}, fmt.Errorf("validate translation seed fixtures: %w", err)
+			}
 		}
 	}
 
@@ -264,6 +270,35 @@ func defaultCMSDSN() string {
 		return "file:" + dbPath + "?cache=shared&_fk=1"
 	}
 	return "file:" + filepath.Join(os.TempDir(), "go-admin-cms.db") + "?cache=shared&_fk=1"
+}
+
+func shouldEnableCMSRuntimeLogs() bool {
+	envOverride, hasEnvOverride := envBool("GO_ADMIN_CMS_LOGS")
+	isTest := flag.Lookup("test.v") != nil
+	testFlag := cmsTestLogs != nil && *cmsTestLogs
+	return shouldEnableCMSRuntimeLogsWith(isTest, testFlag, envOverride, hasEnvOverride)
+}
+
+func shouldEnableCMSRuntimeLogsWith(isTest bool, testFlag bool, envOverride bool, hasEnvOverride bool) bool {
+	if hasEnvOverride {
+		return envOverride
+	}
+	if isTest {
+		return testFlag
+	}
+	return true
+}
+
+func envBool(key string) (bool, bool) {
+	val := strings.TrimSpace(os.Getenv(key))
+	if val == "" {
+		return false, false
+	}
+	parsed, err := strconv.ParseBool(val)
+	if err != nil {
+		return false, false
+	}
+	return parsed, true
 }
 
 func resolveCMSDSN(input string) string {

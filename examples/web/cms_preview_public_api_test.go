@@ -53,7 +53,7 @@ func TestExampleCMSPreviewAndPublicAPI(t *testing.T) {
 	require.NoError(t, adm.Initialize(server.Router()))
 
 	contentBody := `{"title":"Example Draft","slug":"example-draft","content_type":"post","status":"draft","locale":"en"}`
-	createReq := httptest.NewRequest(http.MethodPost, "/admin/api/content", strings.NewReader(contentBody))
+	createReq := httptest.NewRequest(http.MethodPost, "/admin/api/panels/content", strings.NewReader(contentBody))
 	createReq.Header.Set("Content-Type", "application/json")
 	createRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(createRes, createReq)
@@ -62,7 +62,7 @@ func TestExampleCMSPreviewAndPublicAPI(t *testing.T) {
 	pageID := fmt.Sprint(created["id"])
 	require.NotEmpty(t, pageID)
 
-	previewReq := httptest.NewRequest(http.MethodGet, "/admin/api/content/"+pageID+"/preview", nil)
+	previewReq := httptest.NewRequest(http.MethodGet, "/admin/api/panels/content/"+pageID+"/preview", nil)
 	previewRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(previewRes, previewReq)
 	require.Equal(t, http.StatusOK, previewRes.Code)
@@ -87,7 +87,7 @@ func TestExampleCMSPreviewAndPublicAPI(t *testing.T) {
 	server.WrappedRouter().ServeHTTP(publicRes, publicReq)
 	require.Equal(t, http.StatusNotFound, publicRes.Code)
 
-	updateReq := httptest.NewRequest(http.MethodPut, "/admin/api/content/"+pageID, strings.NewReader(`{"status":"published"}`))
+	updateReq := httptest.NewRequest(http.MethodPut, "/admin/api/panels/content/"+pageID, strings.NewReader(`{"status":"published"}`))
 	updateReq.Header.Set("Content-Type", "application/json")
 	updateRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(updateRes, updateReq)
