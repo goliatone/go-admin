@@ -40,7 +40,7 @@ const {
   renderGateAriaAttributes,
   renderDisabledReasonBadge,
   getCapabilityGateStyles,
-} = await import('../dist/datatable/capability-gate.js');
+} = await import('../dist/datatable/index.js');
 
 describe('Capability Gate - Mode Parsing', () => {
   it('should parse valid capability modes', () => {
