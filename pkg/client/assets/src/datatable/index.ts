@@ -290,7 +290,12 @@ export type {
   AutosaveIndicatorConfig,
   AutosaveLabels,
   AutosaveStateChangeEvent,
-  AutosaveStateChangeCallback
+  AutosaveStateChangeCallback,
+  // Phase 3b conflict handling types (TX-074)
+  AutosaveConflictInfo,
+  ConflictResolutionAction,
+  ConflictResolution,
+  ConflictLabels
 } from './autosave-indicator.js';
 
 // Export field-level helpers (Phase 3)
@@ -336,3 +341,29 @@ export type {
   ExchangeExportResult,
   ExchangeErrorInfo
 } from '../toast/error-helpers.js';
+
+// Export capability gate utility (Phase 4 - TX-046)
+export {
+  CapabilityGate,
+  parseCapabilityMode,
+  isExchangeEnabled,
+  isQueueEnabled,
+  isCoreEnabled,
+  extractCapabilities,
+  createCapabilityGate,
+  createEmptyCapabilityGate,
+  renderGateAriaAttributes,
+  renderDisabledReasonBadge,
+  getCapabilityGateStyles,
+  applyGateToElement,
+  initCapabilityGating
+} from './capability-gate.js';
+export type {
+  CapabilityMode,
+  ActionState,
+  ModuleState,
+  RouteConfig,
+  TranslationCapabilities,
+  GateResult,
+  NavItemGate
+} from './capability-gate.js';

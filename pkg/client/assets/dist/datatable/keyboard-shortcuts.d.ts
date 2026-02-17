@@ -201,11 +201,91 @@ export declare function createTranslationShortcuts(handlers: {
  */
 export declare function renderShortcutsHelpContent(shortcuts: KeyboardShortcut[]): string;
 /**
+ * Persisted shortcut settings
+ */
+export interface ShortcutSettings {
+    /** Whether shortcuts are globally enabled */
+    enabled: boolean;
+    /** Per-shortcut enable/disable overrides */
+    shortcuts: Record<string, boolean>;
+    /** When settings were last updated */
+    updatedAt: string;
+}
+/**
+ * Load shortcut settings from localStorage.
+ */
+export declare function loadShortcutSettings(): ShortcutSettings;
+/**
+ * Save shortcut settings to localStorage.
+ */
+export declare function saveShortcutSettings(settings: ShortcutSettings): void;
+/**
+ * Check if the first-time hint has been dismissed.
+ */
+export declare function isShortcutHintDismissed(): boolean;
+/**
+ * Mark the first-time hint as dismissed.
+ */
+export declare function dismissShortcutHint(): void;
+/**
+ * Configuration for the discovery hint
+ */
+export interface DiscoveryHintConfig {
+    /** Where to render the hint */
+    container: HTMLElement;
+    /** Position relative to container */
+    position?: 'top' | 'bottom';
+    /** Callback when hint is dismissed */
+    onDismiss?: () => void;
+    /** Callback when help is requested from hint */
+    onShowHelp?: () => void;
+    /** Auto-dismiss after delay (ms). Set to 0 to disable. */
+    autoDismissMs?: number;
+}
+/**
+ * Render a first-time discovery hint for keyboard shortcuts.
+ * Shows once per user and can be permanently dismissed.
+ */
+export declare function renderDiscoveryHint(config: DiscoveryHintConfig): HTMLElement | null;
+/**
+ * Configuration for the settings UI
+ */
+export interface ShortcutSettingsUIConfig {
+    /** Container to render into */
+    container: HTMLElement;
+    /** Shortcuts to display */
+    shortcuts: KeyboardShortcut[];
+    /** Current settings */
+    settings: ShortcutSettings;
+    /** Callback when settings change */
+    onSettingsChange: (settings: ShortcutSettings) => void;
+}
+/**
+ * Render the keyboard shortcuts settings UI.
+ * Allows users to enable/disable shortcuts globally and per-shortcut.
+ */
+export declare function renderShortcutSettingsUI(config: ShortcutSettingsUIConfig): void;
+/**
+ * Apply persisted settings to a shortcut registry.
+ */
+export declare function applyShortcutSettings(registry: KeyboardShortcutRegistry, settings: ShortcutSettings): void;
+/**
  * Get the default global shortcut registry.
  */
 export declare function getDefaultShortcutRegistry(): KeyboardShortcutRegistry;
 /**
  * Initialize shortcuts with handlers and bind to document.
+ * Automatically loads and applies persisted settings.
  */
 export declare function initKeyboardShortcuts(handlers: Parameters<typeof createTranslationShortcuts>[0], config?: ShortcutRegistryConfig): KeyboardShortcutRegistry;
+/**
+ * Initialize shortcuts with discovery hint support.
+ * Shows first-time hint if not previously dismissed.
+ */
+export declare function initKeyboardShortcutsWithDiscovery(handlers: Parameters<typeof createTranslationShortcuts>[0], config: ShortcutRegistryConfig & {
+    /** Container for discovery hint */
+    hintContainer?: HTMLElement;
+    /** Show help modal callback (for discovery hint) */
+    onShowHelp?: () => void;
+}): KeyboardShortcutRegistry;
 //# sourceMappingURL=keyboard-shortcuts.d.ts.map

@@ -691,3 +691,356 @@ function createTranslationAutosave(config) {
     ...config
   });
 }
+
+// =============================================================================
+// Phase 3b Conflict Handling Tests (TX-074)
+// =============================================================================
+
+/**
+ * Create a mock indicator with conflict handling support.
+ */
+function createMockIndicatorWithConflict(config = {}) {
+  let state = 'idle';
+  let conflictInfo = null;
+  let pendingData = null;
+  let isDirty = false;
+  const listeners = [];
+
+  const setState = (newState) => {
+    const previousState = state;
+    state = newState;
+    for (const listener of listeners) {
+      try {
+        listener({ previousState, currentState: newState });
+      } catch {
+        // Ignore
+      }
+    }
+  };
+
+  return {
+    getState: () => state,
+    getConflictInfo: () => conflictInfo,
+    isInConflict: () => state === 'conflict' && conflictInfo !== null,
+    hasPendingChanges: () => isDirty || pendingData !== null,
+
+    markDirty: (data) => {
+      isDirty = true;
+      pendingData = data;
+      conflictInfo = null;
+    },
+
+    save: async () => {
+      setState('saving');
+      try {
+        if (config.onSave) {
+          await config.onSave(pendingData);
+        }
+        isDirty = false;
+        pendingData = null;
+        setState('saved');
+        return true;
+      } catch (error) {
+        // Check for conflict
+        if (config.enableConflictDetection && error?.code === 'AUTOSAVE_CONFLICT') {
+          conflictInfo = error.metadata || { version: '', expectedVersion: '' };
+          setState('conflict');
+          return false;
+        }
+        setState('error');
+        return false;
+      }
+    },
+
+    resolveWithServerVersion: async () => {
+      if (state !== 'conflict') return;
+      const resolution = {
+        action: 'use_server',
+        serverState: conflictInfo?.latestServerState,
+        localData: pendingData,
+        conflict: conflictInfo
+      };
+      isDirty = false;
+      pendingData = null;
+      conflictInfo = null;
+      setState('idle');
+      if (config.onConflictResolve) {
+        await config.onConflictResolve(resolution);
+      }
+    },
+
+    resolveWithForceSave: async () => {
+      if (state !== 'conflict') return true;
+      const resolution = {
+        action: 'force_save',
+        localData: pendingData,
+        conflict: conflictInfo
+      };
+      if (config.onConflictResolve) {
+        await config.onConflictResolve(resolution);
+      }
+      conflictInfo = null;
+      // Retry save
+      setState('saving');
+      try {
+        if (config.onForceSave) {
+          await config.onForceSave(pendingData);
+        }
+        isDirty = false;
+        pendingData = null;
+        setState('saved');
+        return true;
+      } catch {
+        setState('error');
+        return false;
+      }
+    },
+
+    dismissConflict: () => {
+      if (state !== 'conflict') return;
+      const resolution = {
+        action: 'dismiss',
+        localData: pendingData,
+        conflict: conflictInfo
+      };
+      conflictInfo = null;
+      setState('idle');
+      if (config.onConflictResolve) {
+        config.onConflictResolve(resolution);
+      }
+    },
+
+    onStateChange: (callback) => {
+      listeners.push(callback);
+      return () => {
+        const index = listeners.indexOf(callback);
+        if (index >= 0) {
+          listeners.splice(index, 1);
+        }
+      };
+    }
+  };
+}
+
+test('Conflict: indicator detects AUTOSAVE_CONFLICT error code', async () => {
+  const conflictError = {
+    code: 'AUTOSAVE_CONFLICT',
+    message: 'Version mismatch',
+    metadata: {
+      version: 'v2',
+      expected_version: 'v1',
+      entity_id: '123'
+    }
+  };
+
+  const indicator = createMockIndicatorWithConflict({
+    enableConflictDetection: true,
+    onSave: async () => {
+      throw conflictError;
+    }
+  });
+
+  indicator.markDirty({ title: 'Updated' });
+  await indicator.save();
+
+  assert.equal(indicator.getState(), 'conflict');
+  assert.ok(indicator.isInConflict());
+});
+
+test('Conflict: indicator extracts conflict info from error metadata', async () => {
+  const conflictError = {
+    code: 'AUTOSAVE_CONFLICT',
+    metadata: {
+      version: 'server-v5',
+      expected_version: 'client-v4',
+      entity_id: 'page-123',
+      latest_server_state: { title: 'Server Title' }
+    }
+  };
+
+  const indicator = createMockIndicatorWithConflict({
+    enableConflictDetection: true,
+    onSave: async () => {
+      throw conflictError;
+    }
+  });
+
+  indicator.markDirty({ title: 'Local Title' });
+  await indicator.save();
+
+  const info = indicator.getConflictInfo();
+  assert.ok(info);
+  assert.equal(info.version, 'server-v5');
+  assert.equal(info.expected_version, 'client-v4');
+});
+
+test('Conflict: resolveWithServerVersion clears conflict and local data', async () => {
+  const conflictError = {
+    code: 'AUTOSAVE_CONFLICT',
+    metadata: {
+      version: 'v2',
+      expected_version: 'v1',
+      latestServerState: { title: 'Server Version' }
+    }
+  };
+
+  let resolvedWith = null;
+  const indicator = createMockIndicatorWithConflict({
+    enableConflictDetection: true,
+    onSave: async () => {
+      throw conflictError;
+    },
+    onConflictResolve: (resolution) => {
+      resolvedWith = resolution;
+    }
+  });
+
+  indicator.markDirty({ title: 'Local Changes' });
+  await indicator.save();
+
+  assert.equal(indicator.getState(), 'conflict');
+  assert.ok(indicator.hasPendingChanges());
+
+  await indicator.resolveWithServerVersion();
+
+  assert.equal(indicator.getState(), 'idle');
+  assert.ok(!indicator.isInConflict());
+  assert.ok(!indicator.hasPendingChanges());
+  assert.equal(resolvedWith?.action, 'use_server');
+});
+
+test('Conflict: resolveWithForceSave retries save', async () => {
+  let saveAttempt = 0;
+  const indicator = createMockIndicatorWithConflict({
+    enableConflictDetection: true,
+    onSave: async () => {
+      saveAttempt++;
+      if (saveAttempt === 1) {
+        throw { code: 'AUTOSAVE_CONFLICT', metadata: {} };
+      }
+    },
+    onForceSave: async () => {
+      // Force save succeeds
+    }
+  });
+
+  indicator.markDirty({ title: 'Local Changes' });
+  await indicator.save();
+
+  assert.equal(indicator.getState(), 'conflict');
+  assert.equal(saveAttempt, 1);
+
+  await indicator.resolveWithForceSave();
+
+  assert.equal(indicator.getState(), 'saved');
+  assert.ok(!indicator.isInConflict());
+});
+
+test('Conflict: dismissConflict returns to idle without saving', async () => {
+  const conflictError = {
+    code: 'AUTOSAVE_CONFLICT',
+    metadata: { version: 'v2' }
+  };
+
+  let resolvedWith = null;
+  const indicator = createMockIndicatorWithConflict({
+    enableConflictDetection: true,
+    onSave: async () => {
+      throw conflictError;
+    },
+    onConflictResolve: (resolution) => {
+      resolvedWith = resolution;
+    }
+  });
+
+  indicator.markDirty({ title: 'Changes' });
+  await indicator.save();
+
+  assert.equal(indicator.getState(), 'conflict');
+
+  indicator.dismissConflict();
+
+  assert.equal(indicator.getState(), 'idle');
+  assert.ok(!indicator.isInConflict());
+  assert.equal(resolvedWith?.action, 'dismiss');
+  // Local data should still be pending (not saved)
+  assert.ok(indicator.hasPendingChanges());
+});
+
+test('Conflict: onConflictResolve callback is called with correct resolution', async () => {
+  const conflictError = {
+    code: 'AUTOSAVE_CONFLICT',
+    metadata: {
+      version: 'v2',
+      expected_version: 'v1'
+    }
+  };
+
+  let resolvedWith = null;
+  const indicator = createMockIndicatorWithConflict({
+    enableConflictDetection: true,
+    onSave: async () => {
+      throw conflictError;
+    },
+    onConflictResolve: (resolution) => {
+      resolvedWith = resolution;
+    }
+  });
+
+  indicator.markDirty({ title: 'Test' });
+  await indicator.save();
+  await indicator.resolveWithServerVersion();
+
+  assert.ok(resolvedWith);
+  assert.equal(resolvedWith.action, 'use_server');
+  assert.ok(resolvedWith.conflict);
+});
+
+test('Conflict: state transition from conflict to idle via dismiss', async () => {
+  const states = [];
+
+  const indicator = createMockIndicatorWithConflict({
+    enableConflictDetection: true,
+    onSave: async () => {
+      throw { code: 'AUTOSAVE_CONFLICT', metadata: {} };
+    }
+  });
+
+  indicator.onStateChange((event) => {
+    states.push(event.currentState);
+  });
+
+  indicator.markDirty({});
+  await indicator.save();
+  indicator.dismissConflict();
+
+  assert.ok(states.includes('saving'));
+  assert.ok(states.includes('conflict'));
+  assert.ok(states.includes('idle'));
+});
+
+test('Conflict: isInConflict returns false when not in conflict', () => {
+  const indicator = createMockIndicatorWithConflict({
+    enableConflictDetection: true
+  });
+
+  assert.ok(!indicator.isInConflict());
+  assert.equal(indicator.getState(), 'idle');
+  assert.equal(indicator.getConflictInfo(), null);
+});
+
+test('Conflict: conflict detection disabled by default', async () => {
+  const indicator = createMockIndicatorWithConflict({
+    enableConflictDetection: false,
+    onSave: async () => {
+      throw { code: 'AUTOSAVE_CONFLICT', metadata: {} };
+    }
+  });
+
+  indicator.markDirty({});
+  await indicator.save();
+
+  // Should treat as regular error, not conflict
+  assert.equal(indicator.getState(), 'error');
+  assert.ok(!indicator.isInConflict());
+});

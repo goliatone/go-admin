@@ -243,10 +243,12 @@ export const DEFAULT_SAMPLE_VALUES: Record<string, string> = {
  * Character counter for text inputs with threshold support.
  */
 export class CharacterCounter {
-  private config: Required<Omit<CharacterCounterConfig, 'container' | 'thresholds' | 'formatDisplay'>> & {
+  private config: Required<Omit<CharacterCounterConfig, 'container' | 'thresholds' | 'formatDisplay' | 'softLimit' | 'hardLimit'>> & {
     container?: HTMLElement;
     thresholds: CharacterCounterThreshold[];
     formatDisplay: (current: number, limit?: number) => string;
+    softLimit?: number;
+    hardLimit?: number;
   };
 
   private counterEl: HTMLElement | null = null;
