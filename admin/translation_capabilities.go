@@ -197,6 +197,7 @@ func translationCapabilityRoutes(adm *Admin) (map[string]string, []string) {
 	}
 
 	register(adminGroup, "translations.queue", "admin.translations.queue")
+	register(adminGroup, "translations.dashboard", "admin.translations.dashboard")
 	register(adminGroup, "translations.exchange", "admin.translations.exchange")
 	register(adminAPIGroup, "translations.export", fmt.Sprintf("%s.%s", adminAPIGroup, "translations.export"))
 	register(adminAPIGroup, "translations.template", fmt.Sprintf("%s.%s", adminAPIGroup, "translations.template"))
