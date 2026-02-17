@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Breaking Changes
+
+- Panel API routes migrated from `/admin/api/:panel...` to `/admin/api/panels/:panel...`.
+- No compatibility aliases are provided for legacy panel API routes.
+
 # [0.24.0](https://github.com/goliatone/go-admin/compare/v0.23.0...v0.24.0) - (2026-02-09)
 
 ## <!-- 1 -->🐛 Bug Fixes
@@ -1311,5 +1318,4 @@
 - Example templates ([74d23ed](https://github.com/goliatone/go-admin/commit/74d23ed807d5e312e8a61e009d19ad46d1632b5c))  - (goliatone)
 - Example update ([ff16170](https://github.com/goliatone/go-admin/commit/ff16170e3c7fdf46121bd546f3f6cd43f1dcdadc))  - (goliatone)
 - Initial commit ([2197564](https://github.com/goliatone/go-admin/commit/2197564725b64c8ef15d034763ee283ee95ac4ba))  - (goliatone)
-
 
