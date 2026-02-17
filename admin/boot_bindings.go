@@ -117,14 +117,6 @@ func (p *panelBinding) List(c router.Context, locale string, opts boot.ListOptio
 		}
 	}
 	baseSchema := p.panel.Schema()
-	if baseSchema.UseBlocks || baseSchema.UseSEO || baseSchema.TreeView {
-		if listOpts.Filters == nil {
-			listOpts.Filters = map[string]any{}
-		}
-		if locale != "" {
-			listOpts.Filters["locale"] = locale
-		}
-	}
 	if listOpts.Search != "" {
 		if listOpts.Filters == nil {
 			listOpts.Filters = map[string]any{}
@@ -132,8 +124,17 @@ func (p *panelBinding) List(c router.Context, locale string, opts boot.ListOptio
 		listOpts.Filters["_search"] = listOpts.Search
 	}
 	requestedListOpts, groupBy := splitListGroupByOption(listOpts)
-	baseListOpts, readinessPredicates := splitTranslationReadinessPredicates(requestedListOpts)
 	groupedByTranslationGroup := strings.EqualFold(strings.TrimSpace(groupBy), listGroupByTranslationGroupID)
+	shouldScopeByLocale := baseSchema.UseBlocks || baseSchema.UseSEO || baseSchema.TreeView
+	if shouldScopeByLocale && strings.TrimSpace(locale) != "" && !groupedByTranslationGroup {
+		if requestedListOpts.Filters == nil {
+			requestedListOpts.Filters = map[string]any{}
+		}
+		if strings.TrimSpace(toString(requestedListOpts.Filters["locale"])) == "" {
+			requestedListOpts.Filters["locale"] = locale
+		}
+	}
+	baseListOpts, readinessPredicates := splitTranslationReadinessPredicates(requestedListOpts)
 	var (
 		records []map[string]any
 		total   int
@@ -156,6 +157,7 @@ func (p *panelBinding) List(c router.Context, locale string, opts boot.ListOptio
 		}
 		records = p.withTranslationReadiness(ctx, records, requestedListOpts.Filters)
 	}
+	records = withCanonicalTranslationGroupIDs(records)
 	schema := p.panel.SchemaWithTheme(p.admin.themePayload(ctx.Context))
 	schema.Actions = filterActionsForScope(schema.Actions, ActionScopeRow)
 	schema.BulkActions = filterActionsForScope(schema.BulkActions, ActionScopeBulk)
@@ -311,7 +313,7 @@ func (p *panelBinding) translationSiblingsPayload(ctx AdminContext, id, requeste
 		return []map[string]any{}, true, "panel_unavailable"
 	}
 	id = strings.TrimSpace(id)
-	groupID := strings.TrimSpace(toString(record["translation_group_id"]))
+	groupID := strings.TrimSpace(translationGroupIDFromRecord(record))
 	if groupID == "" {
 		groupID = id
 	}
@@ -345,7 +347,7 @@ func (p *panelBinding) translationSiblingsPayload(ctx AdminContext, id, requeste
 			break
 		}
 		for _, candidate := range records {
-			if !strings.EqualFold(strings.TrimSpace(toString(candidate["translation_group_id"])), groupID) {
+			if !strings.EqualFold(strings.TrimSpace(translationGroupIDFromRecord(candidate)), groupID) {
 				continue
 			}
 			sibling := translationSiblingSummary(candidate, id, requestedLocale)
@@ -396,7 +398,7 @@ func translationSiblingSummary(record map[string]any, currentID, requestedLocale
 		"locale":                   strings.TrimSpace(toString(normalized["locale"])),
 		"status":                   strings.TrimSpace(toString(normalized["status"])),
 		"title":                    strings.TrimSpace(toString(normalized["title"])),
-		"translation_group_id":     strings.TrimSpace(toString(normalized["translation_group_id"])),
+		"translation_group_id":     strings.TrimSpace(translationGroupIDFromRecord(normalized)),
 		"requested_locale":         normalized["requested_locale"],
 		"resolved_locale":          normalized["resolved_locale"],
 		"missing_requested_locale": toBool(normalized["missing_requested_locale"]),
@@ -512,7 +514,7 @@ func (p *panelBinding) panelDetailPath(id string) string {
 	if path != "" {
 		return path
 	}
-	return "/admin/api/" + strings.Trim(strings.TrimSpace(p.name), "/") + "/" + id
+	return "/admin/api/panels/" + strings.Trim(strings.TrimSpace(p.name), "/") + "/" + id
 }
 
 func (p *panelBinding) Action(c router.Context, locale, action string, body map[string]any) (map[string]any, error) {
@@ -546,7 +548,7 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 		if err != nil {
 			return nil, err
 		}
-		groupID := strings.TrimSpace(toString(record["translation_group_id"]))
+		groupID := strings.TrimSpace(translationGroupIDFromRecord(record))
 		if groupID == "" {
 			groupID = primaryID
 		}
@@ -1235,6 +1237,7 @@ func (p *panelBinding) listAllWithTranslationReadinessPredicates(ctx AdminContex
 			break
 		}
 		batch = p.withTranslationReadiness(ctx, batch, baseOpts.Filters)
+		batch = withCanonicalTranslationGroupIDs(batch)
 		for _, record := range batch {
 			if len(predicates) > 0 && !recordMatchesAllListPredicates(record, predicates) {
 				continue
@@ -1284,6 +1287,9 @@ func buildTranslationGroupedRows(records []map[string]any, defaultLocale string)
 	for _, record := range records {
 		groupID := translationGroupIDForRecord(record)
 		recordClone := cloneAnyMap(record)
+		if groupID != "" {
+			recordClone["translation_group_id"] = groupID
+		}
 		if groupID == "" {
 			ungrouped = append(ungrouped, recordClone)
 			continue
@@ -1294,6 +1300,8 @@ func buildTranslationGroupedRows(records []map[string]any, defaultLocale string)
 		groups[groupID] = append(groups[groupID], recordClone)
 	}
 	sort.Strings(groupOrder)
+
+	ungrouped = orderTranslationUngroupedRows(ungrouped)
 
 	out := make([]map[string]any, 0, len(groupOrder)+len(ungrouped))
 	for _, groupID := range groupOrder {
@@ -1339,6 +1347,8 @@ func buildTranslationGroupedRows(records []map[string]any, defaultLocale string)
 			"required_count":            summary["required_count"],
 			"missing_locales":           summary["missing_locales"],
 			"last_updated_at":           summary["last_updated_at"],
+			"requirements_resolved":     summary["requirements_resolved"],
+			"requirements_state":        summary["requirements_state"],
 		}
 		out = append(out, row)
 	}
@@ -1410,9 +1420,20 @@ func buildTranslationGroupSummary(groupID string, records []map[string]any) map[
 	available := map[string]struct{}{}
 	groupMissingFields := map[string]struct{}{}
 	lastUpdatedAt := latestTranslationGroupTimestamp(records)
+	requirementsResolved := true
+	requirementsSignal := false
 
 	for _, record := range records {
 		readiness := extractMap(record["translation_readiness"])
+		if len(readiness) == 0 {
+			requirementsResolved = false
+		}
+		if resolved, ok := readiness["requirements_resolved"].(bool); ok {
+			requirementsSignal = true
+			if !resolved {
+				requirementsResolved = false
+			}
+		}
 		for _, locale := range normalizedLocaleList(readiness["required_locales"]) {
 			required[locale] = struct{}{}
 		}
@@ -1443,26 +1464,62 @@ func buildTranslationGroupSummary(groupID string, records []map[string]any) map[
 	if len(requiredLocales) > 0 || len(missingFields) > 0 {
 		state = translationReadinessState(missingLocales, missingFields)
 	}
+	if !requirementsSignal {
+		requirementsResolved = false
+	}
+	if !requirementsResolved && strings.EqualFold(state, translationReadinessStateReady) {
+		state = ""
+	}
 	requiredCount := len(requiredLocales)
-	if requiredCount == 0 {
+	if requirementsResolved && requiredCount == 0 {
 		requiredCount = len(availableLocales)
 	}
 	childCount := len(records)
+	requirementsState := "unresolved"
+	if requirementsResolved {
+		requirementsState = "resolved"
+	}
 
 	return map[string]any{
-		"group_id":          groupID,
-		"required_locales":  requiredLocales,
-		"available_locales": availableLocales,
-		"missing_locales":   missingLocales,
-		"required_count":    requiredCount,
-		"available_count":   len(availableLocales),
-		"missing_count":     len(missingLocales),
-		"total_items":       childCount,
-		"child_count":       childCount,
-		"readiness_state":   state,
-		"ready_for_publish": state == translationReadinessStateReady,
-		"last_updated_at":   lastUpdatedAt,
+		"group_id":              groupID,
+		"required_locales":      requiredLocales,
+		"available_locales":     availableLocales,
+		"missing_locales":       missingLocales,
+		"required_count":        requiredCount,
+		"available_count":       len(availableLocales),
+		"missing_count":         len(missingLocales),
+		"total_items":           childCount,
+		"child_count":           childCount,
+		"readiness_state":       state,
+		"ready_for_publish":     requirementsResolved && state == translationReadinessStateReady,
+		"last_updated_at":       lastUpdatedAt,
+		"requirements_resolved": requirementsResolved,
+		"requirements_state":    requirementsState,
 	}
+}
+
+func orderTranslationUngroupedRows(records []map[string]any) []map[string]any {
+	if len(records) <= 1 {
+		return records
+	}
+	out := make([]map[string]any, 0, len(records))
+	for _, record := range records {
+		out = append(out, cloneAnyMap(record))
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		leftLocale := strings.ToLower(strings.TrimSpace(toString(out[i]["locale"])))
+		rightLocale := strings.ToLower(strings.TrimSpace(toString(out[j]["locale"])))
+		if leftLocale != rightLocale {
+			return leftLocale < rightLocale
+		}
+		leftID := strings.TrimSpace(toString(out[i]["id"]))
+		rightID := strings.TrimSpace(toString(out[j]["id"]))
+		if leftID != rightID {
+			return leftID < rightID
+		}
+		return false
+	})
+	return out
 }
 
 func translationGroupLabelForChildren(children []map[string]any) string {
@@ -1594,12 +1651,21 @@ func (p *panelBinding) withGroupedRowActionState(ctx AdminContext, groups []map[
 	for _, group := range groups {
 		cloned := cloneAnyMap(group)
 		children := toMapSlice(cloned["children"])
+		parent := extractMap(cloned["parent"])
+		if len(children) == 0 && len(parent) == 0 {
+			rowWithState := p.withRowActionState(ctx, []map[string]any{cloned}, actions)
+			if len(rowWithState) > 0 {
+				out = append(out, rowWithState[0])
+			} else {
+				out = append(out, cloned)
+			}
+			continue
+		}
 		if len(children) > 0 {
 			childrenWithState := p.withRowActionState(ctx, children, actions)
 			cloned["children"] = childrenWithState
 			cloned["records"] = childrenWithState
 		}
-		parent := extractMap(cloned["parent"])
 		if len(parent) > 0 {
 			parentWithState := p.withRowActionState(ctx, []map[string]any{parent}, actions)
 			if len(parentWithState) > 0 {
@@ -1612,6 +1678,39 @@ func (p *panelBinding) withGroupedRowActionState(ctx AdminContext, groups []map[
 		out = append(out, cloned)
 	}
 	return out
+}
+
+func withCanonicalTranslationGroupIDs(records []map[string]any) []map[string]any {
+	if len(records) == 0 {
+		return records
+	}
+	out := make([]map[string]any, 0, len(records))
+	for _, record := range records {
+		out = append(out, withCanonicalTranslationGroupIDRecord(record))
+	}
+	return out
+}
+
+func withCanonicalTranslationGroupIDRecord(record map[string]any) map[string]any {
+	cloned := cloneAnyMap(record)
+	if len(cloned) == 0 {
+		return cloned
+	}
+	if groupID := strings.TrimSpace(translationGroupIDFromRecord(cloned)); groupID != "" {
+		cloned["translation_group_id"] = groupID
+	}
+	if parent := extractMap(cloned["parent"]); len(parent) > 0 {
+		cloned["parent"] = withCanonicalTranslationGroupIDRecord(parent)
+	}
+	if children := toMapSlice(cloned["children"]); len(children) > 0 {
+		canonicalChildren := make([]map[string]any, 0, len(children))
+		for _, child := range children {
+			canonicalChildren = append(canonicalChildren, withCanonicalTranslationGroupIDRecord(child))
+		}
+		cloned["children"] = canonicalChildren
+		cloned["records"] = canonicalChildren
+	}
+	return cloned
 }
 
 func toMapSlice(raw any) []map[string]any {
@@ -1964,7 +2063,7 @@ func translationLocaleExistsInRepositoryGroup(ctx context.Context, repo Reposito
 			if strings.TrimSpace(toString(record["id"])) == strings.TrimSpace(skipID) {
 				continue
 			}
-			candidateGroup := strings.TrimSpace(toString(record["translation_group_id"]))
+			candidateGroup := strings.TrimSpace(translationGroupIDFromRecord(record))
 			if candidateGroup == "" || !strings.EqualFold(candidateGroup, groupID) {
 				continue
 			}
@@ -2261,7 +2360,7 @@ func (p *panelBinding) bulkCreateMissingTranslations(c router.Context, ctx Admin
 			missingLocales = normalizedLocaleList(readiness["missing_locales"])
 		}
 		recordResult["missing_locales"] = append([]string{}, missingLocales...)
-		recordResult["translation_group_id"] = strings.TrimSpace(toString(sourceWithReadiness["translation_group_id"]))
+		recordResult["translation_group_id"] = strings.TrimSpace(translationGroupIDFromRecord(sourceWithReadiness))
 		recordResult["source_locale"] = strings.TrimSpace(toString(sourceWithReadiness["locale"]))
 
 		if len(missingLocales) == 0 {
