@@ -844,6 +844,54 @@ func TestListForPanelInjectsExportConfigForPanelTemplates(t *testing.T) {
 	}
 }
 
+func TestListForPanelEnablesTranslationDataGridUXWhenConfigured(t *testing.T) {
+	cfg := admin.Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+	}
+	adm, err := admin.New(cfg, admin.Dependencies{})
+	if err != nil {
+		t.Fatalf("new admin: %v", err)
+	}
+	if _, err := adm.RegisterPanel("pages", (&admin.PanelBuilder{}).
+		WithRepository(admin.NewMemoryRepository()).
+		ListFields(
+			admin.Field{Name: "title", Label: "Title", Type: "text"},
+			admin.Field{Name: "translation_group_id", Label: "Translation Group", Type: "text", Hidden: true},
+		).
+		Actions(admin.Action{Name: admin.CreateTranslationKey, Label: "Add Translation"})); err != nil {
+		t.Fatalf("register panel: %v", err)
+	}
+
+	handler := newContentEntryHandlers(adm, cfg, nil, contentEntryUIOptions{
+		listTemplate:   "resources/content/list",
+		templateExists: func(name string) bool { return name == "resources/content/list" },
+		translationUX:  true,
+	})
+
+	ctx := router.NewMockContext()
+	ctx.On("Context").Return(context.Background())
+	ctx.On("Render", "resources/content/list", mock.MatchedBy(func(arg any) bool {
+		viewCtx, ok := arg.(router.ViewContext)
+		if !ok {
+			return false
+		}
+		dataGridCfg, ok := viewCtx["datagrid_config"].(map[string]any)
+		if !ok {
+			return false
+		}
+		return dataGridCfg["translation_ux_enabled"] == true &&
+			dataGridCfg["enable_grouped_mode"] == true &&
+			strings.TrimSpace(anyToString(dataGridCfg["default_view_mode"])) == "grouped" &&
+			strings.TrimSpace(anyToString(dataGridCfg["group_by_field"])) == "translation_group_id"
+	})).Return(nil).Once()
+
+	if err := handler.listForPanel(ctx, "pages"); err != nil {
+		t.Fatalf("listForPanel(pages): %v", err)
+	}
+	ctx.AssertExpectations(t)
+}
+
 func TestListForPanelOmitsCreateRoutesWhenPanelHasNoRenderableFormSchema(t *testing.T) {
 	cfg := admin.Config{
 		BasePath:      "/admin",

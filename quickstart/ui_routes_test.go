@@ -150,3 +150,58 @@ func TestRegisterAdminUIRoutesTranslationExchangeRouteIsOptIn(t *testing.T) {
 		t.Fatalf("expected translation_exchange_api_path=/admin/api/translations, got %v", rendered["translation_exchange_api_path"])
 	}
 }
+
+func TestRegisterAdminUIRoutesTranslationDashboardRouteIsOptIn(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	adm, _, err := NewAdmin(cfg, AdapterHooks{})
+	if err != nil {
+		t.Fatalf("create admin: %v", err)
+	}
+	if adm.Commands() != nil {
+		t.Cleanup(adm.Commands().Reset)
+	}
+
+	disabledRouter := newUIRoutesCaptureRouter()
+	if err := RegisterAdminUIRoutes(disabledRouter, cfg, adm, nil); err != nil {
+		t.Fatalf("register ui routes (dashboard disabled): %v", err)
+	}
+	if disabledRouter.getHandlers["/admin/translations/dashboard"] != nil {
+		t.Fatalf("expected translation dashboard route to be absent when disabled")
+	}
+
+	enabledRouter := newUIRoutesCaptureRouter()
+	if err := RegisterAdminUIRoutes(
+		enabledRouter,
+		cfg,
+		adm,
+		nil,
+		WithUITranslationDashboardRoute(true),
+	); err != nil {
+		t.Fatalf("register ui routes (dashboard enabled): %v", err)
+	}
+	handler := enabledRouter.getHandlers["/admin/translations/dashboard"]
+	if handler == nil {
+		t.Fatalf("expected translation dashboard route handler when enabled")
+	}
+
+	ctx := router.NewMockContext()
+	ctx.On("Context").Return(context.Background())
+	rendered := router.ViewContext{}
+	ctx.On("Render", "resources/translations/dashboard", mock.Anything).Run(func(args mock.Arguments) {
+		view, _ := args.Get(1).(router.ViewContext)
+		rendered = view
+	}).Return(nil)
+
+	if err := handler(ctx); err != nil {
+		t.Fatalf("translation dashboard route handler error: %v", err)
+	}
+	if strings.TrimSpace(fmt.Sprint(rendered["translation_dashboard_api_path"])) != "/admin/api/translations/my-work" {
+		t.Fatalf("expected translation_dashboard_api_path=/admin/api/translations/my-work, got %v", rendered["translation_dashboard_api_path"])
+	}
+	if strings.TrimSpace(fmt.Sprint(rendered["translation_queue_api_path"])) != "/admin/api/translations/queue" {
+		t.Fatalf("expected translation_queue_api_path=/admin/api/translations/queue, got %v", rendered["translation_queue_api_path"])
+	}
+	if strings.TrimSpace(fmt.Sprint(rendered["translation_panels_base_path"])) != "/admin/content" {
+		t.Fatalf("expected translation_panels_base_path=/admin/content, got %v", rendered["translation_panels_base_path"])
+	}
+}
