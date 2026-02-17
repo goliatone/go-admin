@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"sort"
 	"strings"
 	"time"
 
@@ -15,12 +16,26 @@ import (
 	servicesmodule "github.com/goliatone/go-admin/modules/services"
 	goerrors "github.com/goliatone/go-errors"
 	gocore "github.com/goliatone/go-services/core"
+	"github.com/uptrace/bun"
 )
 
 const (
 	GoogleServicesProviderID        = "google_drive"
 	defaultGoogleServicesProviderID = GoogleServicesProviderID
 )
+
+type googleServicesConnectionRecord struct {
+	bun.BaseModel `bun:"table:service_connections,alias:sc"`
+
+	ID                string    `bun:"id"`
+	ProviderID        string    `bun:"provider_id"`
+	ScopeType         string    `bun:"scope_type"`
+	ScopeID           string    `bun:"scope_id"`
+	ExternalAccountID string    `bun:"external_account_id"`
+	Status            string    `bun:"status"`
+	CreatedAt         time.Time `bun:"created_at"`
+	UpdatedAt         time.Time `bun:"updated_at"`
+}
 
 // GoogleServicesIntegrationService bridges the legacy e-sign Google endpoints
 // to the go-admin/services module runtime.
@@ -138,11 +153,16 @@ func (s GoogleServicesIntegrationService) Connect(ctx context.Context, scope sto
 	observability.ObserveProviderResult(ctx, GoogleProviderName, true)
 	observability.ObserveGoogleAuthChurn(ctx, "oauth_connected")
 	health := s.ProviderHealth(ctx)
+	accountEmail := googleAccountEmailCandidate(completion.ExternalAccountID)
+	if accountEmail == "" {
+		accountEmail = s.resolveAccountEmail(ctx, completion.Credential.AccessToken)
+	}
 	return GoogleOAuthStatus{
 		Provider:             GoogleProviderName,
 		ProviderMode:         health.Mode,
 		UserID:               userID,
 		AccountID:            accountID,
+		AccountEmail:         accountEmail,
 		Connected:            true,
 		Scopes:               scopes,
 		ExpiresAt:            expiresAt,
@@ -273,12 +293,17 @@ func (s GoogleServicesIntegrationService) Status(ctx context.Context, scope stor
 
 	least := len(scopes) > 0 && validateLeastPrivilegeScopes(scopes, s.allowedScopes) == nil
 	connected := !strings.EqualFold(strings.TrimSpace(string(connection.Status)), string(gocore.ConnectionStatusDisconnected))
+	accountEmail := googleAccountEmailCandidate(connection.ExternalAccountID)
+	if accountEmail == "" && activeErr == nil {
+		accountEmail = s.resolveAccountEmail(ctx, active.AccessToken)
+	}
 
 	return GoogleOAuthStatus{
 		Provider:             GoogleProviderName,
 		ProviderMode:         health.Mode,
 		UserID:               baseUserID,
 		AccountID:            accountID,
+		AccountEmail:         accountEmail,
 		Connected:            connected,
 		Scopes:               scopes,
 		ExpiresAt:            expiresAt,
@@ -294,9 +319,6 @@ func (s GoogleServicesIntegrationService) Status(ctx context.Context, scope stor
 	}, nil
 }
 
-// ListAccounts returns connected account metadata for the provided base user.
-// With the go-services ConnectionStore contract this is currently a best-effort
-// lookup for the base/default scoped account.
 func (s GoogleServicesIntegrationService) ListAccounts(ctx context.Context, scope stores.Scope, baseUserID string) ([]GoogleAccountInfo, error) {
 	baseUserID = normalizeRequiredID("google", "user_id", baseUserID)
 	if baseUserID == "" {
@@ -306,57 +328,101 @@ func (s GoogleServicesIntegrationService) ListAccounts(ctx context.Context, scop
 	if parsedBaseUserID != "" {
 		baseUserID = parsedBaseUserID
 	}
-	scopedUserID := ComposeGoogleScopedUserID(baseUserID, requestedAccountID)
-
-	status, err := s.Status(ctx, scope, scopedUserID)
+	accountRows, err := s.listScopedConnections(ctx, scope, baseUserID)
 	if err != nil {
 		return nil, err
 	}
-	if !status.Connected {
-		return []GoogleAccountInfo{}, nil
+	accountIDs := make([]string, 0, len(accountRows))
+	for accountID := range accountRows {
+		accountIDs = append(accountIDs, accountID)
 	}
-
-	accountStatus := "connected"
-	if status.Degraded {
-		accountStatus = "degraded"
-	} else if status.IsExpired {
-		accountStatus = "expired"
-	} else if status.NeedsReauthorization {
-		accountStatus = "needs_reauth"
+	if requestedAccountID != "" && !containsGoogleAccountID(accountIDs, requestedAccountID) {
+		accountIDs = append(accountIDs, requestedAccountID)
 	}
-
-	accountID := strings.TrimSpace(status.AccountID)
-	email := strings.TrimSpace(status.AccountEmail)
-	createdAt := s.now().UTC()
-	var lastUsedAt *time.Time
-
-	if svc, svcErr := s.serviceRuntime(); svcErr == nil {
-		connection, found, connErr := s.findScopedConnection(ctx, svc, scope, ComposeGoogleScopedUserID(baseUserID, accountID))
-		if connErr != nil {
-			return nil, connErr
+	if len(accountIDs) == 0 {
+		status, statusErr := s.Status(ctx, scope, ComposeGoogleScopedUserID(baseUserID, requestedAccountID))
+		if statusErr != nil {
+			return nil, statusErr
 		}
-		if found {
-			if !connection.CreatedAt.IsZero() {
-				createdAt = connection.CreatedAt.UTC()
-			}
-			if email == "" && strings.Contains(connection.ExternalAccountID, "@") {
-				email = strings.TrimSpace(connection.ExternalAccountID)
-			}
+		if !status.Connected {
+			return []GoogleAccountInfo{}, nil
 		}
+		accountStatus := googleAccountRuntimeStatus(status)
+		email := strings.TrimSpace(status.AccountEmail)
+		createdAt := s.now().UTC()
+		return []GoogleAccountInfo{
+			{
+				AccountID:  normalizeGoogleAccountID(status.AccountID),
+				Email:      email,
+				Status:     accountStatus,
+				Scopes:     normalizeScopes(status.Scopes),
+				ExpiresAt:  cloneGoogleTimePtr(status.ExpiresAt),
+				CreatedAt:  createdAt,
+				LastUsedAt: nil,
+				IsDefault:  normalizeGoogleAccountID(status.AccountID) == "",
+			},
+		}, nil
 	}
-
-	return []GoogleAccountInfo{
-		{
-			AccountID:  accountID,
+	sort.Slice(accountIDs, func(i, j int) bool {
+		left := normalizeGoogleAccountID(accountIDs[i])
+		right := normalizeGoogleAccountID(accountIDs[j])
+		if left == right {
+			return false
+		}
+		if left == "" {
+			return true
+		}
+		if right == "" {
+			return false
+		}
+		return left < right
+	})
+	accounts := make([]GoogleAccountInfo, 0, len(accountIDs))
+	for _, accountID := range accountIDs {
+		normalizedAccountID := normalizeGoogleAccountID(accountID)
+		status, statusErr := s.Status(ctx, scope, ComposeGoogleScopedUserID(baseUserID, normalizedAccountID))
+		if statusErr != nil {
+			return nil, statusErr
+		}
+		if !status.Connected {
+			continue
+		}
+		connection := accountRows[normalizedAccountID]
+		accountStatus := googleAccountRuntimeStatus(status)
+		email := strings.TrimSpace(status.AccountEmail)
+		if email == "" {
+			email = googleAccountEmailCandidate(connection.ExternalAccountID)
+		}
+		createdAt := s.now().UTC()
+		if !connection.CreatedAt.IsZero() {
+			createdAt = connection.CreatedAt.UTC()
+		}
+		var lastUsedAt *time.Time
+		if !connection.UpdatedAt.IsZero() {
+			lastUsed := connection.UpdatedAt.UTC()
+			lastUsedAt = &lastUsed
+		}
+		accounts = append(accounts, GoogleAccountInfo{
+			AccountID:  normalizedAccountID,
 			Email:      email,
 			Status:     accountStatus,
 			Scopes:     normalizeScopes(status.Scopes),
 			ExpiresAt:  cloneGoogleTimePtr(status.ExpiresAt),
 			CreatedAt:  createdAt,
 			LastUsedAt: lastUsedAt,
-			IsDefault:  accountID == "",
-		},
-	}, nil
+			IsDefault:  normalizedAccountID == "",
+		})
+	}
+	sort.Slice(accounts, func(i, j int) bool {
+		if accounts[i].IsDefault != accounts[j].IsDefault {
+			return accounts[i].IsDefault
+		}
+		if accounts[i].CreatedAt.Equal(accounts[j].CreatedAt) {
+			return accounts[i].AccountID < accounts[j].AccountID
+		}
+		return accounts[i].CreatedAt.After(accounts[j].CreatedAt)
+	})
+	return accounts, nil
 }
 
 // RotateCredentialEncryption is a compatibility no-op under go-services-backed storage.
@@ -881,4 +947,159 @@ func normalizeDrivePageSize(pageSize int) int {
 		return 100
 	}
 	return pageSize
+}
+
+func googleAccountRuntimeStatus(status GoogleOAuthStatus) string {
+	accountStatus := "connected"
+	if status.Degraded {
+		accountStatus = "degraded"
+	} else if status.IsExpired {
+		accountStatus = "expired"
+	} else if status.NeedsReauthorization {
+		accountStatus = "needs_reauth"
+	}
+	return accountStatus
+}
+
+func googleAccountEmailCandidate(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+	if strings.Contains(value, "@") {
+		return value
+	}
+	return ""
+}
+
+func containsGoogleAccountID(values []string, target string) bool {
+	target = normalizeGoogleAccountID(target)
+	for _, value := range values {
+		if normalizeGoogleAccountID(value) == target {
+			return true
+		}
+	}
+	return false
+}
+
+func parseScopedUserIDFromScopeID(scopeID string) string {
+	scopeID = strings.TrimSpace(scopeID)
+	if scopeID == "" {
+		return ""
+	}
+	marker := "/user/"
+	index := strings.LastIndex(scopeID, marker)
+	if index < 0 {
+		return scopeID
+	}
+	return strings.TrimSpace(scopeID[index+len(marker):])
+}
+
+func googleConnectionStatusPriority(status string) int {
+	status = strings.ToLower(strings.TrimSpace(status))
+	switch status {
+	case strings.ToLower(strings.TrimSpace(string(gocore.ConnectionStatusActive))):
+		return 0
+	case strings.ToLower(strings.TrimSpace(string(gocore.ConnectionStatusNeedsReconsent))):
+		return 1
+	case strings.ToLower(strings.TrimSpace(string(gocore.ConnectionStatusPendingReauth))):
+		return 2
+	case strings.ToLower(strings.TrimSpace(string(gocore.ConnectionStatusErrored))):
+		return 3
+	case strings.ToLower(strings.TrimSpace(string(gocore.ConnectionStatusDisconnected))):
+		return 4
+	default:
+		return 5
+	}
+}
+
+type googleAccountEmailResolver interface {
+	ResolveAccountEmail(ctx context.Context, accessToken string) (string, error)
+}
+
+func (s GoogleServicesIntegrationService) resolveAccountEmail(ctx context.Context, accessToken string) string {
+	if s.provider == nil {
+		return ""
+	}
+	accessToken = strings.TrimSpace(accessToken)
+	if accessToken == "" {
+		return ""
+	}
+	resolver, ok := s.provider.(googleAccountEmailResolver)
+	if !ok || resolver == nil {
+		return ""
+	}
+	email, err := resolver.ResolveAccountEmail(ctx, accessToken)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(email)
+}
+
+func (s GoogleServicesIntegrationService) servicesDB() *bun.DB {
+	if s.module == nil {
+		return nil
+	}
+	cfg := s.module.Config()
+	if cfg.PersistenceClient != nil {
+		if db := cfg.PersistenceClient.DB(); db != nil {
+			return db
+		}
+	}
+	if provider, ok := s.module.RepositoryFactory().(interface{ DB() *bun.DB }); ok {
+		if db := provider.DB(); db != nil {
+			return db
+		}
+	}
+	return nil
+}
+
+func (s GoogleServicesIntegrationService) listScopedConnections(
+	ctx context.Context,
+	scope stores.Scope,
+	baseUserID string,
+) (map[string]googleServicesConnectionRecord, error) {
+	db := s.servicesDB()
+	if db == nil {
+		return map[string]googleServicesConnectionRecord{}, nil
+	}
+	baseScopeID := strings.TrimSpace(s.scopeRef(scope, baseUserID).ID)
+	if baseScopeID == "" {
+		return map[string]googleServicesConnectionRecord{}, nil
+	}
+	pattern := baseScopeID + googleScopedUserAccountSuffix + "%"
+	rows := []googleServicesConnectionRecord{}
+	if err := db.NewSelect().
+		Model(&rows).
+		Where("provider_id = ?", s.googleProviderID()).
+		Where("scope_type = ?", string(gocore.ScopeTypeUser)).
+		Where("(scope_id = ? OR scope_id LIKE ?)", baseScopeID, pattern).
+		Order("created_at DESC").
+		Scan(ctx); err != nil {
+		return nil, err
+	}
+	byAccount := map[string]googleServicesConnectionRecord{}
+	for _, row := range rows {
+		scopedUserID := parseScopedUserIDFromScopeID(row.ScopeID)
+		parsedBaseUserID, accountID := ParseGoogleScopedUserID(scopedUserID)
+		if parsedBaseUserID != baseUserID {
+			continue
+		}
+		accountID = normalizeGoogleAccountID(accountID)
+		current, exists := byAccount[accountID]
+		if !exists {
+			byAccount[accountID] = row
+			continue
+		}
+		currentPriority := googleConnectionStatusPriority(current.Status)
+		nextPriority := googleConnectionStatusPriority(row.Status)
+		if nextPriority < currentPriority {
+			byAccount[accountID] = row
+			continue
+		}
+		if nextPriority == currentPriority && row.UpdatedAt.After(current.UpdatedAt) {
+			byAccount[accountID] = row
+		}
+	}
+	return byAccount, nil
 }

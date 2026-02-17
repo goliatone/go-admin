@@ -468,6 +468,17 @@ func (p *GoogleHTTPProvider) fetchUserEmail(ctx context.Context, accessToken str
 	return strings.TrimSpace(payload.Email), nil
 }
 
+func (p *GoogleHTTPProvider) ResolveAccountEmail(ctx context.Context, accessToken string) (string, error) {
+	if p == nil {
+		return "", fmt.Errorf("google provider not configured")
+	}
+	accessToken = strings.TrimSpace(accessToken)
+	if accessToken == "" {
+		return "", nil
+	}
+	return p.fetchUserEmail(ctx, accessToken)
+}
+
 func (p *GoogleHTTPProvider) requestForm(ctx context.Context, method, endpoint string, form url.Values, headers map[string]string) ([]byte, int, error) {
 	body := strings.NewReader(form.Encode())
 	req, err := http.NewRequestWithContext(ctx, method, endpoint, body)

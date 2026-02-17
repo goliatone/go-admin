@@ -23,6 +23,22 @@ type staticCredentialKeyProvider struct {
 	err     error
 }
 
+type resolverAwareGoogleProvider struct {
+	*DeterministicGoogleProvider
+	email string
+	err   error
+}
+
+func (p *resolverAwareGoogleProvider) ResolveAccountEmail(_ context.Context, _ string) (string, error) {
+	if p == nil {
+		return "", nil
+	}
+	if p.err != nil {
+		return "", p.err
+	}
+	return strings.TrimSpace(p.email), nil
+}
+
 func (p staticCredentialKeyProvider) Resolve(context.Context) (GoogleCredentialKeyring, error) {
 	if p.err != nil {
 		return GoogleCredentialKeyring{}, p.err
@@ -630,6 +646,14 @@ func TestGoogleHTTPProviderContractAgainstEmulator(t *testing.T) {
 		t.Fatalf("expected account email from userinfo, got %q", token.AccountEmail)
 	}
 
+	resolvedEmail, err := provider.ResolveAccountEmail(ctx, token.AccessToken)
+	if err != nil {
+		t.Fatalf("ResolveAccountEmail: %v", err)
+	}
+	if resolvedEmail != "operator@example.com" {
+		t.Fatalf("expected resolved account email operator@example.com, got %q", resolvedEmail)
+	}
+
 	search, err := provider.SearchFiles(ctx, token.AccessToken, "nda", "", 25)
 	if err != nil {
 		t.Fatalf("SearchFiles: %v", err)
@@ -656,6 +680,29 @@ func TestGoogleHTTPProviderContractAgainstEmulator(t *testing.T) {
 
 	if err := provider.RevokeToken(ctx, token.AccessToken); err != nil {
 		t.Fatalf("RevokeToken: %v", err)
+	}
+}
+
+func TestGoogleServicesIntegrationResolveAccountEmailUsesResolverWhenAvailable(t *testing.T) {
+	service := GoogleServicesIntegrationService{
+		provider: &resolverAwareGoogleProvider{
+			DeterministicGoogleProvider: NewDeterministicGoogleProvider(),
+			email:                       "work@example.com",
+		},
+	}
+	email := service.resolveAccountEmail(context.Background(), "access-token-1")
+	if email != "work@example.com" {
+		t.Fatalf("expected resolved account email work@example.com, got %q", email)
+	}
+}
+
+func TestGoogleServicesIntegrationResolveAccountEmailIgnoresMissingResolver(t *testing.T) {
+	service := GoogleServicesIntegrationService{
+		provider: NewDeterministicGoogleProvider(),
+	}
+	email := service.resolveAccountEmail(context.Background(), "access-token-1")
+	if email != "" {
+		t.Fatalf("expected empty account email when provider resolver is unavailable, got %q", email)
 	}
 }
 
