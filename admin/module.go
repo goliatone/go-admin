@@ -1,6 +1,8 @@
 package admin
 
 import (
+	"context"
+
 	modinternal "github.com/goliatone/go-admin/admin/internal/modules"
 	router "github.com/goliatone/go-router"
 )
@@ -30,6 +32,21 @@ type ModuleContext struct {
 type Module interface {
 	Manifest() ModuleManifest
 	Register(ctx ModuleContext) error
+}
+
+// ModuleStartupPolicy controls how startup validation errors are handled.
+type ModuleStartupPolicy string
+
+const (
+	// ModuleStartupPolicyEnforce treats module startup validation errors as fatal.
+	ModuleStartupPolicyEnforce ModuleStartupPolicy = "enforce"
+	// ModuleStartupPolicyWarn logs module startup validation errors and continues.
+	ModuleStartupPolicyWarn ModuleStartupPolicy = "warn"
+)
+
+// ModuleStartupValidator can run additional startup checks after module registration.
+type ModuleStartupValidator interface {
+	ValidateStartup(ctx context.Context) error
 }
 
 // MenuContributor optionally lets a module contribute navigation items.
