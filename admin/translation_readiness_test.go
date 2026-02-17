@@ -143,6 +143,31 @@ func TestBuildRecordTranslationReadinessCacheMemoizesByEntityAndEnvironment(t *t
 	}
 }
 
+func TestBuildRecordTranslationReadinessCacheNormalizesPolicyEntityAliases(t *testing.T) {
+	cache := &translationReadinessRequirementsCache{}
+	policy := &readinessPolicyCounterStub{}
+
+	_ = buildRecordTranslationReadinessWithCache(context.Background(), policy, "posts", map[string]any{
+		"id":                   "post_1",
+		"locale":               "en",
+		"policy_entity":        "post",
+		"translation_group_id": "tg_1",
+		"available_locales":    []string{"en"},
+	}, map[string]any{"environment": "production"}, cache)
+
+	_ = buildRecordTranslationReadinessWithCache(context.Background(), policy, "posts", map[string]any{
+		"id":                   "post_2",
+		"locale":               "fr",
+		"policy_entity":        "posts",
+		"translation_group_id": "tg_2",
+		"available_locales":    []string{"fr"},
+	}, map[string]any{"environment": "production"}, cache)
+
+	if got := len(policy.calls); got != 1 {
+		t.Fatalf("expected one requirements resolution for post/posts aliases, got %d (%v)", got, policy.calls)
+	}
+}
+
 func TestTranslationReadinessBatchAvailableLocalesAggregatesByGroup(t *testing.T) {
 	grouped := translationReadinessBatchAvailableLocales([]map[string]any{
 		{

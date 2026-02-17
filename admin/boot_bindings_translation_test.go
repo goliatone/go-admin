@@ -184,6 +184,19 @@ func (s *readinessRequirementsPolicyRecorder) Requirements(_ context.Context, _ 
 	return s.defaultReq, true, nil
 }
 
+type readinessPolicyByEntityStub struct {
+	requirements map[string]TranslationRequirements
+}
+
+func (s readinessPolicyByEntityStub) Validate(context.Context, TranslationPolicyInput) error {
+	return nil
+}
+
+func (s readinessPolicyByEntityStub) Requirements(_ context.Context, input TranslationPolicyInput) (TranslationRequirements, bool, error) {
+	req, ok := s.requirements[strings.ToLower(strings.TrimSpace(input.PolicyEntity))]
+	return req, ok, nil
+}
+
 func percentile95(samples []time.Duration) time.Duration {
 	if len(samples) == 0 {
 		return 0
@@ -1358,8 +1371,8 @@ func TestPanelBindingUpdateReturnsAutosaveConflictWhenVersionIsStale(t *testing.
 	if conflict.ExpectedVersion != "1" {
 		t.Fatalf("expected expected version 1, got %q", conflict.ExpectedVersion)
 	}
-	if conflict.LatestStatePath != "/admin/api/posts/post_123" {
-		t.Fatalf("expected latest state pointer /admin/api/posts/post_123, got %q", conflict.LatestStatePath)
+	if conflict.LatestStatePath != "/admin/api/panels/posts/post_123" {
+		t.Fatalf("expected latest state pointer /admin/api/panels/posts/post_123, got %q", conflict.LatestStatePath)
 	}
 	if repo.records["post_123"]["title"] != "Post" {
 		t.Fatalf("expected stale autosave update to be rejected before persistence, got title=%v", repo.records["post_123"]["title"])
@@ -1885,6 +1898,9 @@ func TestPanelBindingListGroupedByTranslationGroupKeepsMissingGroupRowsUngrouped
 				Locales: []string{"en", "fr"},
 			},
 		},
+		actions: []Action{
+			{Name: CreateTranslationKey},
+		},
 	}
 	binding := &panelBinding{
 		admin: &Admin{config: Config{DefaultLocale: "en"}},
@@ -1929,6 +1945,290 @@ func TestPanelBindingListGroupedByTranslationGroupKeepsMissingGroupRowsUngrouped
 	groupMeta, _ := ungroupedRow["_group"].(map[string]any)
 	if rowType := strings.TrimSpace(toString(groupMeta["row_type"])); rowType != "ungrouped" {
 		t.Fatalf("expected ungrouped row type, got %q", rowType)
+	}
+	actionState, _ := ungroupedRow["_action_state"].(map[string]map[string]any)
+	if len(actionState) == 0 {
+		t.Fatalf("expected _action_state on ungrouped row, got %#v", ungroupedRow["_action_state"])
+	}
+	createState := actionState[CreateTranslationKey]
+	if !toBool(createState["enabled"]) {
+		t.Fatalf("expected create_translation enabled on ungrouped row, got %#v", createState)
+	}
+}
+
+func TestPanelBindingListGroupedSummaryMarksUnresolvedRequirementsForMixedDatasets(t *testing.T) {
+	repo := &translationActionRepoStub{
+		list: []map[string]any{
+			{
+				"id":                   "multi_en",
+				"title":                "Multi EN",
+				"status":               "draft",
+				"locale":               "en",
+				"policy_entity":        "posts",
+				"translation_group_id": "tg_multi",
+				"available_locales":    []string{"en"},
+			},
+			{
+				"id":                   "multi_fr",
+				"title":                "Multi FR",
+				"status":               "draft",
+				"locale":               "fr",
+				"policy_entity":        "posts",
+				"translation_group_id": "tg_multi",
+				"available_locales":    []string{"fr"},
+			},
+			{
+				"id":                   "mono_en",
+				"title":                "Mono EN",
+				"status":               "draft",
+				"locale":               "en",
+				"policy_entity":        "widgets",
+				"translation_group_id": "tg_mono",
+				"available_locales":    []string{"en"},
+			},
+		},
+	}
+	panel := &Panel{
+		name: "posts",
+		repo: repo,
+		translationPolicy: readinessPolicyByEntityStub{
+			requirements: map[string]TranslationRequirements{
+				"posts": {Locales: []string{"en", "fr"}},
+			},
+		},
+	}
+	binding := &panelBinding{
+		admin: &Admin{config: Config{DefaultLocale: "en"}},
+		name:  "posts",
+		panel: panel,
+	}
+	c := router.NewMockContext()
+	c.On("Context").Return(context.Background())
+
+	rows, total, _, _, err := binding.List(c, "en", boot.ListOptions{
+		Page:    1,
+		PerPage: 10,
+		Filters: map[string]any{
+			"group_by":    "translation_group_id",
+			"environment": "production",
+		},
+		Predicates: []boot.ListPredicate{
+			{Field: "group_by", Operator: "eq", Values: []string{"translation_group_id"}},
+			{Field: "environment", Operator: "eq", Values: []string{"production"}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("grouped list failed: %v", err)
+	}
+	if total != 2 || len(rows) != 2 {
+		t.Fatalf("expected 2 grouped rows, got total=%d len=%d", total, len(rows))
+	}
+
+	var monoSummary map[string]any
+	for _, row := range rows {
+		if strings.TrimSpace(toString(row["translation_group_id"])) != "tg_mono" {
+			continue
+		}
+		monoSummary = extractMap(row["translation_group_summary"])
+		break
+	}
+	if len(monoSummary) == 0 {
+		t.Fatalf("expected tg_mono summary in rows: %#v", rows)
+	}
+	if resolved, ok := monoSummary["requirements_resolved"].(bool); !ok || resolved {
+		t.Fatalf("expected requirements_resolved=false, got %#v", monoSummary["requirements_resolved"])
+	}
+	if state := strings.TrimSpace(toString(monoSummary["requirements_state"])); state != "unresolved" {
+		t.Fatalf("expected requirements_state unresolved, got %q", state)
+	}
+	requiredCount, _ := monoSummary["required_count"].(int)
+	if requiredCount != 0 {
+		t.Fatalf("expected required_count 0 for unresolved requirements, got %d", requiredCount)
+	}
+	if ready := toBool(monoSummary["ready_for_publish"]); ready {
+		t.Fatalf("expected ready_for_publish=false for unresolved requirements")
+	}
+}
+
+func TestPanelBindingListEmitsCanonicalTranslationGroupIDFromNestedMetadata(t *testing.T) {
+	panelNames := []string{"pages", "posts", "news", "announcements"}
+	for _, panelName := range panelNames {
+		t.Run(panelName, func(t *testing.T) {
+			repo := &translationActionRepoStub{
+				list: []map[string]any{
+					{
+						"id":                panelName + "_en",
+						"title":             "Entry EN",
+						"status":            "draft",
+						"locale":            "en",
+						"available_locales": []string{"en"},
+						"translation_context": map[string]any{
+							"translation_group_id": "tg_" + panelName,
+						},
+					},
+				},
+			}
+			panel := &Panel{
+				name: panelName,
+				repo: repo,
+			}
+			binding := &panelBinding{
+				admin: &Admin{config: Config{DefaultLocale: "en"}},
+				name:  panelName,
+				panel: panel,
+			}
+			c := router.NewMockContext()
+			c.On("Context").Return(context.Background())
+
+			records, total, _, _, err := binding.List(c, "en", boot.ListOptions{
+				Page:    1,
+				PerPage: 10,
+			})
+			if err != nil {
+				t.Fatalf("list failed: %v", err)
+			}
+			if total != 1 || len(records) != 1 {
+				t.Fatalf("expected one record, got total=%d len=%d", total, len(records))
+			}
+			expected := "tg_" + panelName
+			if got := strings.TrimSpace(toString(records[0]["translation_group_id"])); got != expected {
+				t.Fatalf("expected top-level translation_group_id %q, got %q", expected, got)
+			}
+		})
+	}
+}
+
+func TestPanelBindingListGroupedByTranslationGroupOptionAMixedPagination(t *testing.T) {
+	repo := &translationActionRepoStub{
+		list: []map[string]any{
+			{
+				"id":                   "alpha_en",
+				"title":                "Alpha EN",
+				"status":               "draft",
+				"locale":               "en",
+				"translation_group_id": "tg_alpha",
+				"available_locales":    []string{"en"},
+				"updated_at":           "2026-02-16T10:00:00Z",
+			},
+			{
+				"id":                   "alpha_es",
+				"title":                "Alpha ES",
+				"status":               "draft",
+				"locale":               "es",
+				"translation_group_id": "tg_alpha",
+				"available_locales":    []string{"es"},
+				"updated_at":           "2026-02-16T11:00:00Z",
+			},
+			{
+				"id":                   "alpha_fr",
+				"title":                "Alpha FR",
+				"status":               "draft",
+				"locale":               "fr",
+				"translation_group_id": "tg_alpha",
+				"available_locales":    []string{"fr"},
+				"updated_at":           "2026-02-16T12:00:00Z",
+			},
+			{
+				"id":                   "beta_en",
+				"title":                "Beta EN",
+				"status":               "draft",
+				"locale":               "en",
+				"translation_group_id": "tg_beta",
+				"available_locales":    []string{"en"},
+				"updated_at":           "2026-02-16T13:00:00Z",
+			},
+			{
+				"id":                   "beta_fr",
+				"title":                "Beta FR",
+				"status":               "draft",
+				"locale":               "fr",
+				"translation_group_id": "tg_beta",
+				"available_locales":    []string{"fr"},
+				"updated_at":           "2026-02-16T14:00:00Z",
+			},
+			{
+				"id":                "orphan_en",
+				"title":             "Orphan EN",
+				"status":            "draft",
+				"locale":            "en",
+				"available_locales": []string{"en"},
+				"updated_at":        "2026-02-16T15:00:00Z",
+			},
+		},
+	}
+	panel := &Panel{
+		name: "news",
+		repo: repo,
+		translationPolicy: readinessPolicyStub{
+			ok:  true,
+			req: TranslationRequirements{Locales: []string{"en", "es", "fr"}},
+		},
+	}
+	binding := &panelBinding{
+		admin: &Admin{config: Config{DefaultLocale: "en"}},
+		name:  "news",
+		panel: panel,
+	}
+	c := router.NewMockContext()
+	c.On("Context").Return(context.Background())
+
+	page1, total1, _, _, err := binding.List(c, "en", boot.ListOptions{
+		Page:    1,
+		PerPage: 1,
+		Filters: map[string]any{"group_by": "translation_group_id"},
+		Predicates: []boot.ListPredicate{
+			{Field: "group_by", Operator: "eq", Values: []string{"translation_group_id"}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("grouped page 1 failed: %v", err)
+	}
+	if total1 != 3 || len(page1) != 1 {
+		t.Fatalf("expected total=3 len=1 on page 1, got total=%d len=%d", total1, len(page1))
+	}
+	assertGroupedTranslationRecord(t, page1[0], "tg_alpha", 3)
+	children1, _ := page1[0]["children"].([]map[string]any)
+	locales1 := []string{toString(children1[0]["locale"]), toString(children1[1]["locale"]), toString(children1[2]["locale"])}
+	if strings.Join(locales1, ",") != "en,es,fr" {
+		t.Fatalf("expected deterministic locale order en,es,fr for tg_alpha, got %v", locales1)
+	}
+
+	page2, total2, _, _, err := binding.List(c, "en", boot.ListOptions{
+		Page:    2,
+		PerPage: 1,
+		Filters: map[string]any{"group_by": "translation_group_id"},
+		Predicates: []boot.ListPredicate{
+			{Field: "group_by", Operator: "eq", Values: []string{"translation_group_id"}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("grouped page 2 failed: %v", err)
+	}
+	if total2 != 3 || len(page2) != 1 {
+		t.Fatalf("expected total=3 len=1 on page 2, got total=%d len=%d", total2, len(page2))
+	}
+	assertGroupedTranslationRecord(t, page2[0], "tg_beta", 2)
+
+	page3, total3, _, _, err := binding.List(c, "en", boot.ListOptions{
+		Page:    3,
+		PerPage: 1,
+		Filters: map[string]any{"group_by": "translation_group_id"},
+		Predicates: []boot.ListPredicate{
+			{Field: "group_by", Operator: "eq", Values: []string{"translation_group_id"}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("grouped page 3 failed: %v", err)
+	}
+	if total3 != 3 || len(page3) != 1 {
+		t.Fatalf("expected total=3 len=1 on page 3, got total=%d len=%d", total3, len(page3))
+	}
+	if got := strings.TrimSpace(toString(page3[0]["id"])); got != "orphan_en" {
+		t.Fatalf("expected ungrouped orphan record on page 3, got %q", got)
+	}
+	groupMeta, _ := page3[0]["_group"].(map[string]any)
+	if rowType := strings.TrimSpace(toString(groupMeta["row_type"])); rowType != "ungrouped" {
+		t.Fatalf("expected ungrouped row type on page 3, got %q", rowType)
 	}
 }
 

@@ -89,7 +89,7 @@ func TestDefaultURLKitConfigPaths(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve admin.api panel.subresource: %v", err)
 	}
-	if panelSubresource != "/admin/api/agreements/agreement-1/artifact/executed" {
+	if panelSubresource != "/admin/api/panels/agreements/agreement-1/artifact/executed" {
 		t.Fatalf("expected panel subresource path, got %q", panelSubresource)
 	}
 
@@ -107,5 +107,28 @@ func TestDefaultURLKitConfigPaths(t *testing.T) {
 	}
 	if translationsDashboard != "/admin/translations/dashboard" {
 		t.Fatalf("expected /admin/translations/dashboard, got %q", translationsDashboard)
+	}
+}
+
+func TestDefaultAdminAPIRoutesPanelTemplatesAreNamespaced(t *testing.T) {
+	routes := defaultAdminAPIRoutes()
+
+	expected := map[string]string{
+		"panel":             "/panels/:panel",
+		"panel.id":          "/panels/:panel/:id",
+		"panel.action":      "/panels/:panel/actions/:action",
+		"panel.bulk":        "/panels/:panel/bulk/:action",
+		"panel.preview":     "/panels/:panel/:id/preview",
+		"panel.subresource": "/panels/:panel/:id/:subresource/:value",
+	}
+
+	for key, want := range expected {
+		got, ok := routes[key]
+		if !ok {
+			t.Fatalf("expected route key %q to exist", key)
+		}
+		if got != want {
+			t.Fatalf("route %q: expected %q, got %q", key, want, got)
+		}
 	}
 }

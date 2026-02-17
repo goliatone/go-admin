@@ -117,7 +117,7 @@ func TestEndToEndFlowCoversAuthDashboardSearchSettings(t *testing.T) {
 			t.Fatalf("initialize: %v", err)
 		}
 
-		createReq := httptest.NewRequest("POST", "/admin/api/items", strings.NewReader(`{"name":"Alpha"}`))
+		createReq := httptest.NewRequest("POST", "/admin/api/panels/items", strings.NewReader(`{"name":"Alpha"}`))
 		createReq.Header.Set("Content-Type", "application/json")
 		createReq.Header.Set("X-User-ID", "request-user")
 		createRes := httptest.NewRecorder()
@@ -292,7 +292,7 @@ func TestEndToEndFlowCoversAuthDashboardSearchSettings(t *testing.T) {
 			t.Fatalf("expected last_run timestamp after trigger, got %+v", triggered["last_run"])
 		}
 
-		listReq := httptest.NewRequest("GET", "/admin/api/items", nil)
+		listReq := httptest.NewRequest("GET", "/admin/api/panels/items", nil)
 		listReq.Header.Set("X-User-ID", "request-user")
 		listRes := httptest.NewRecorder()
 		server.WrappedRouter().ServeHTTP(listRes, listReq)

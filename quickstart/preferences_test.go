@@ -511,8 +511,8 @@ func TestNewAdminRegistersRoutesWithGoUsersPreferencesRepo(t *testing.T) {
 			method string
 			path   string
 		}{
-			{name: "POST", method: "POST", path: "/admin/api/preferences"},
-			{name: "PUT", method: "PUT", path: "/admin/api/preferences/" + userID},
+			{name: "POST", method: "POST", path: "/admin/api/panels/preferences"},
+			{name: "PUT", method: "PUT", path: "/admin/api/panels/preferences/" + userID},
 		}
 
 		for _, tc := range tests {

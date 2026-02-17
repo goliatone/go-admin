@@ -31,7 +31,7 @@ func TestBuildPanelViewCapabilitiesIncludesVariantWhenProvided(t *testing.T) {
 		Variant:    "staging",
 		DataGrid: PanelDataGridConfigOptions{
 			TableID:     "content-pages",
-			APIEndpoint: "/admin/api/pages",
+			APIEndpoint: "/admin/api/panels/pages",
 			ActionBase:  "/admin/content/pages",
 		},
 	})
@@ -56,8 +56,8 @@ func TestBuildPanelViewCapabilitiesIncludesVariantWhenProvided(t *testing.T) {
 	if tableID := dataGridCfg["table_id"]; tableID != "content-pages" {
 		t.Fatalf("expected table_id content-pages, got %v", tableID)
 	}
-	if endpoint := dataGridCfg["api_endpoint"]; endpoint != "/admin/api/pages" {
-		t.Fatalf("expected api endpoint /admin/api/pages, got %v", endpoint)
+	if endpoint := dataGridCfg["api_endpoint"]; endpoint != "/admin/api/panels/pages" {
+		t.Fatalf("expected api endpoint /admin/api/panels/pages, got %v", endpoint)
 	}
 	if actionBase := dataGridCfg["action_base"]; actionBase != "/admin/content/pages" {
 		t.Fatalf("expected action_base /admin/content/pages, got %v", actionBase)
@@ -103,7 +103,7 @@ func TestBuildPanelDataGridConfigHonorsExplicitColumnStorageKey(t *testing.T) {
 func TestBuildPanelDataGridConfigIncludesTranslationUXOptions(t *testing.T) {
 	cfg := BuildPanelDataGridConfig(PanelDataGridConfigOptions{
 		TableID:           "content-pages",
-		APIEndpoint:       "/admin/api/pages",
+		APIEndpoint:       "/admin/api/panels/pages",
 		ActionBase:        "/admin/content/pages",
 		TranslationUX:     true,
 		EnableGroupedMode: true,

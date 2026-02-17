@@ -831,7 +831,7 @@ func TestListForPanelInjectsExportConfigForPanelTemplates(t *testing.T) {
 				return endpoint == "/admin/exports" &&
 					definition == tc.panel &&
 					tableID == "content-"+tc.panel &&
-					apiEndpoint == "/admin/api/"+tc.panel &&
+					apiEndpoint == "/admin/api/panels/"+tc.panel &&
 					actionBase == "/admin/content/"+tc.panel &&
 					columnStorage == "content_"+tc.panel+"_datatable_columns"
 			})).Return(nil).Once()

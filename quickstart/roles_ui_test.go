@@ -52,7 +52,7 @@ func TestRoleHandlersListInjectsDataGridConfig(t *testing.T) {
 		legacyTableID := strings.TrimSpace(anyToString(viewCtx["datatable_id"]))
 		legacyListAPI := strings.TrimSpace(anyToString(viewCtx["list_api"]))
 		legacyActionBase := strings.TrimSpace(anyToString(viewCtx["action_base"]))
-		if legacyTableID != "roles" || legacyListAPI != "/admin/api/roles" || legacyActionBase != "/admin/roles" {
+		if legacyTableID != "roles" || legacyListAPI != "/admin/api/panels/roles" || legacyActionBase != "/admin/roles" {
 			return false
 		}
 
@@ -71,7 +71,7 @@ func TestRoleHandlersListInjectsDataGridConfig(t *testing.T) {
 		if strings.TrimSpace(anyToString(dataGridCfg["table_id"])) != "roles" {
 			return false
 		}
-		if strings.TrimSpace(anyToString(dataGridCfg["api_endpoint"])) != "/admin/api/roles" {
+		if strings.TrimSpace(anyToString(dataGridCfg["api_endpoint"])) != "/admin/api/panels/roles" {
 			return false
 		}
 		if strings.TrimSpace(anyToString(dataGridCfg["action_base"])) != "/admin/roles" {

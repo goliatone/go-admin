@@ -377,7 +377,7 @@ func TestWriteErrorMapsAutosaveConflict(t *testing.T) {
 			EntityID:        "post_123",
 			Version:         "2",
 			ExpectedVersion: "1",
-			LatestStatePath: "/admin/api/posts/post_123",
+			LatestStatePath: "/admin/api/panels/posts/post_123",
 		})
 	})
 
@@ -400,7 +400,7 @@ func TestWriteErrorMapsAutosaveConflict(t *testing.T) {
 	if meta["version"] != "2" || meta["expected_version"] != "1" {
 		t.Fatalf("expected autosave version metadata, got %v", meta)
 	}
-	if meta["latest_server_state"] != "/admin/api/posts/post_123" {
+	if meta["latest_server_state"] != "/admin/api/panels/posts/post_123" {
 		t.Fatalf("expected latest server state pointer, got %v", meta["latest_server_state"])
 	}
 }

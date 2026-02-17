@@ -10,6 +10,7 @@ import (
 	"github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-command/dispatcher"
 	"github.com/goliatone/go-command/registry"
+	urlkit "github.com/goliatone/go-urlkit"
 )
 
 func TestWithTranslationProfileSetsProductConfig(t *testing.T) {
@@ -1266,4 +1267,323 @@ func TestFeatureFlagInteractionCMSEnabledStateStillValidatedWithModuleFeatureOve
 	if cfgErr.Code != "translation.productization.requires_cms" {
 		t.Fatalf("expected requires_cms error code, got %s", cfgErr.Code)
 	}
+}
+
+func TestTranslationProductRuntimeValidationQueueRouteCoherenceDiagnostics(t *testing.T) {
+	tests := []struct {
+		name                 string
+		includeDashboardUI   bool
+		includeMyWorkAPI     bool
+		expectedFailedChecks []string
+	}{
+		{
+			name:               "dashboard without my-work API",
+			includeDashboardUI: true,
+			includeMyWorkAPI:   false,
+			expectedFailedChecks: []string{
+				"queue.route.api.translations.my_work",
+				"queue.coherence.dashboard_without_my_work_api",
+			},
+		},
+		{
+			name:               "my-work API without dashboard",
+			includeDashboardUI: false,
+			includeMyWorkAPI:   true,
+			expectedFailedChecks: []string{
+				"queue.route.translations.dashboard",
+				"queue.coherence.my_work_api_without_dashboard",
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := NewAdminConfig("/admin", "Admin", "en")
+			cfg.URLs.URLKit = translationRuntimeValidationURLKitConfig(tc.includeDashboardUI, tc.includeMyWorkAPI)
+
+			_, _, err := NewAdmin(cfg, AdapterHooks{}, WithTranslationProductConfig(TranslationProductConfig{
+				SchemaVersion: TranslationProductSchemaVersionCurrent,
+				Profile:       TranslationProfileCoreQueue,
+				Queue: &TranslationQueueConfig{
+					Enabled:          true,
+					SupportedLocales: []string{"en", "es"},
+				},
+			}))
+			if err == nil {
+				t.Fatalf("expected runtime validation error")
+			}
+			if !errors.Is(err, ErrTranslationProductConfig) {
+				t.Fatalf("expected ErrTranslationProductConfig, got %v", err)
+			}
+			var cfgErr translationProductConfigError
+			if !errors.As(err, &cfgErr) {
+				t.Fatalf("expected translationProductConfigError, got %T", err)
+			}
+			if cfgErr.Code != "translation.productization.runtime.invalid" {
+				t.Fatalf("expected runtime.invalid code, got %s", cfgErr.Code)
+			}
+			for _, expected := range tc.expectedFailedChecks {
+				if !containsTranslationProductString(cfgErr.FailedChecks, expected) {
+					t.Fatalf("expected failed check %q, got %v", expected, cfgErr.FailedChecks)
+				}
+			}
+		})
+	}
+}
+
+func TestTranslationProductRuntimeValidationRejectsUnresolvableQueueAggregateRoutePaths(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	cfg.URLs.URLKit = translationRuntimeValidationURLKitConfigWithQueueRoutes(
+		"/translations/dashboard",
+		"/translations/:id",
+		"/translations/queue",
+	)
+
+	_, _, err := NewAdmin(cfg, AdapterHooks{}, WithTranslationProductConfig(TranslationProductConfig{
+		SchemaVersion: TranslationProductSchemaVersionCurrent,
+		Profile:       TranslationProfileCoreQueue,
+		Queue: &TranslationQueueConfig{
+			Enabled:          true,
+			SupportedLocales: []string{"en", "es"},
+		},
+	}))
+	if err == nil {
+		t.Fatalf("expected runtime validation error for dynamic queue aggregate route")
+	}
+	var cfgErr translationProductConfigError
+	if !errors.As(err, &cfgErr) {
+		t.Fatalf("expected translationProductConfigError, got %T", err)
+	}
+	if cfgErr.Code != "translation.productization.runtime.invalid" {
+		t.Fatalf("expected runtime.invalid code, got %s", cfgErr.Code)
+	}
+	if !containsTranslationProductString(cfgErr.FailedChecks, "queue.route.api.translations.my_work") {
+		t.Fatalf("expected missing my_work failed check, got %v", cfgErr.FailedChecks)
+	}
+	if !containsTranslationProductString(cfgErr.FailedChecks, "queue.route.api.translations.my_work.resolver") {
+		t.Fatalf("expected resolver failed check, got %v", cfgErr.FailedChecks)
+	}
+}
+
+func TestTranslationProductProfileModeRouteAndNavDeterminism(t *testing.T) {
+	tests := []struct {
+		profile         TranslationProfile
+		expectDashboard bool
+	}{
+		{profile: TranslationProfileNone, expectDashboard: false},
+		{profile: TranslationProfileCore, expectDashboard: false},
+		{profile: TranslationProfileCoreExchange, expectDashboard: false},
+		{profile: TranslationProfileCoreQueue, expectDashboard: true},
+		{profile: TranslationProfileFull, expectDashboard: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(string(tc.profile), func(t *testing.T) {
+			t.Cleanup(func() { _ = registry.Stop(context.Background()) })
+			cfg := NewAdminConfig("/admin", "Admin", "en")
+			adm, _, err := NewAdmin(
+				cfg,
+				AdapterHooks{},
+				WithTranslationProductConfig(translationProductConfigForProfile(tc.profile)),
+			)
+			if err != nil {
+				t.Fatalf("NewAdmin(%s): %v", tc.profile, err)
+			}
+			if adm.Commands() != nil {
+				t.Cleanup(adm.Commands().Reset)
+			}
+
+			captureRouter := newUIRoutesCaptureRouter()
+			if err := RegisterAdminUIRoutes(captureRouter, cfg, adm, nil, WithUITranslationDashboardRoute(true)); err != nil {
+				t.Fatalf("RegisterAdminUIRoutes(%s): %v", tc.profile, err)
+			}
+			_, hasDashboardHandler := captureRouter.getHandlers["/admin/translations/dashboard"]
+			if hasDashboardHandler != tc.expectDashboard {
+				t.Fatalf("expected dashboard handler=%t, got %t", tc.expectDashboard, hasDashboardHandler)
+			}
+
+			caps := TranslationCapabilities(adm)
+			routes := translationRoutesToStrings(caps["routes"])
+			hasDashboardRoute := strings.TrimSpace(routes["admin.translations.dashboard"]) != ""
+			if hasDashboardRoute != tc.expectDashboard {
+				t.Fatalf("expected capability dashboard route=%t, got %t", tc.expectDashboard, hasDashboardRoute)
+			}
+			myWorkKey := fmt.Sprintf("%s.%s", adm.AdminAPIGroup(), "translations.my_work")
+			hasMyWorkRoute := strings.TrimSpace(routes[myWorkKey]) != ""
+			if hasMyWorkRoute != tc.expectDashboard {
+				t.Fatalf("expected capability my_work route=%t, got %t", tc.expectDashboard, hasMyWorkRoute)
+			}
+
+			if err := NewModuleRegistrar(
+				adm,
+				cfg,
+				nil,
+				false,
+				WithTranslationCapabilityMenuMode(TranslationCapabilityMenuModeTools),
+			); err != nil {
+				t.Fatalf("NewModuleRegistrar(%s): %v", tc.profile, err)
+			}
+			navItems := BuildNavItems(adm, cfg, context.Background(), "")
+			hasDashboardNav := findNavItemByKey(navItems, "translation_dashboard") != nil
+			if hasDashboardNav != tc.expectDashboard {
+				t.Fatalf("expected dashboard nav entry=%t, got %t", tc.expectDashboard, hasDashboardNav)
+			}
+		})
+	}
+}
+
+func TestTranslationCapabilitiesDoNotAdvertiseModulesWhenFeatureGateDisablesRoutes(t *testing.T) {
+	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	defaults := DefaultAdminFeatures()
+	defaults[string(admin.FeatureTranslationQueue)] = false
+	defaults[string(admin.FeatureTranslationExchange)] = false
+	customGate := buildFeatureGate(cfg, defaults, nil)
+
+	adm, _, err := NewAdmin(
+		cfg,
+		AdapterHooks{},
+		WithAdminDependencies(admin.Dependencies{FeatureGate: customGate}),
+		WithTranslationProductConfig(translationProductConfigForProfile(TranslationProfileFull)),
+	)
+	if err != nil {
+		t.Fatalf("NewAdmin: %v", err)
+	}
+	if adm.Commands() != nil {
+		t.Cleanup(adm.Commands().Reset)
+	}
+
+	caps := TranslationCapabilities(adm)
+	modules, _ := caps["modules"].(map[string]any)
+	queue, _ := modules["queue"].(map[string]any)
+	if enabled, _ := queue["enabled"].(bool); enabled {
+		t.Fatalf("expected queue module disabled in capabilities")
+	}
+	exchange, _ := modules["exchange"].(map[string]any)
+	if enabled, _ := exchange["enabled"].(bool); enabled {
+		t.Fatalf("expected exchange module disabled in capabilities")
+	}
+
+	routes := translationRoutesToStrings(caps["routes"])
+	if strings.TrimSpace(routes["admin.translations.dashboard"]) != "" {
+		t.Fatalf("expected dashboard route hidden when queue feature gate disabled")
+	}
+	if strings.TrimSpace(routes[fmt.Sprintf("%s.%s", adm.AdminAPIGroup(), "translations.my_work")]) != "" {
+		t.Fatalf("expected my_work route hidden when queue feature gate disabled")
+	}
+	if strings.TrimSpace(routes["admin.translations.exchange"]) != "" {
+		t.Fatalf("expected exchange route hidden when exchange feature gate disabled")
+	}
+	if strings.TrimSpace(routes[fmt.Sprintf("%s.%s", adm.AdminAPIGroup(), "translations.export")]) != "" {
+		t.Fatalf("expected exchange export route hidden when exchange feature gate disabled")
+	}
+}
+
+func translationProductConfigForProfile(profile TranslationProfile) TranslationProductConfig {
+	cfg := TranslationProductConfig{
+		SchemaVersion: TranslationProductSchemaVersionCurrent,
+		Profile:       profile,
+	}
+	switch profile {
+	case TranslationProfileCoreExchange:
+		cfg.Exchange = &TranslationExchangeConfig{
+			Enabled: true,
+			Store:   &stubQuickstartTranslationExchangeStore{},
+		}
+	case TranslationProfileCoreQueue:
+		cfg.Queue = &TranslationQueueConfig{
+			Enabled:          true,
+			SupportedLocales: []string{"en", "es"},
+		}
+	case TranslationProfileFull:
+		cfg.Exchange = &TranslationExchangeConfig{
+			Enabled: true,
+			Store:   &stubQuickstartTranslationExchangeStore{},
+		}
+		cfg.Queue = &TranslationQueueConfig{
+			Enabled:          true,
+			SupportedLocales: []string{"en", "es"},
+		}
+	}
+	return cfg
+}
+
+func translationRuntimeValidationURLKitConfig(includeDashboardUI, includeMyWorkAPI bool) *urlkit.Config {
+	dashboardPath := ""
+	if includeDashboardUI {
+		dashboardPath = "/translations/dashboard"
+	}
+	myWorkPath := ""
+	if includeMyWorkAPI {
+		myWorkPath = "/translations/my-work"
+	}
+	return translationRuntimeValidationURLKitConfigWithQueueRoutes(dashboardPath, myWorkPath, "/translations/queue")
+}
+
+func translationRuntimeValidationURLKitConfigWithQueueRoutes(dashboardPath, myWorkPath, queuePath string) *urlkit.Config {
+	adminRoutes := map[string]string{
+		"dashboard":          "/",
+		"translations.queue": "/content/translations",
+	}
+	if strings.TrimSpace(dashboardPath) != "" {
+		adminRoutes["translations.dashboard"] = strings.TrimSpace(dashboardPath)
+	}
+
+	adminAPIRoutes := map[string]string{
+		"errors":  "/errors",
+		"preview": "/preview/:token",
+	}
+	if strings.TrimSpace(queuePath) != "" {
+		adminAPIRoutes["translations.queue"] = strings.TrimSpace(queuePath)
+	}
+	if strings.TrimSpace(myWorkPath) != "" {
+		adminAPIRoutes["translations.my_work"] = strings.TrimSpace(myWorkPath)
+	}
+
+	return &urlkit.Config{
+		Groups: []urlkit.GroupConfig{
+			{
+				Name:    "admin",
+				BaseURL: "/admin",
+				Routes:  adminRoutes,
+				Groups: []urlkit.GroupConfig{
+					{
+						Name:   "api",
+						Path:   "/api",
+						Routes: adminAPIRoutes,
+					},
+				},
+			},
+			{
+				Name: "public",
+				Groups: []urlkit.GroupConfig{
+					{
+						Name: "api",
+						Path: "/api",
+						Groups: []urlkit.GroupConfig{
+							{
+								Name: "v1",
+								Path: "/v1",
+								Routes: map[string]string{
+									"pages":   "/pages",
+									"page":    "/pages/:id",
+									"preview": "/preview/:token",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func containsTranslationProductString(values []string, target string) bool {
+	target = strings.TrimSpace(target)
+	for _, value := range values {
+		if strings.EqualFold(strings.TrimSpace(value), target) {
+			return true
+		}
+	}
+	return false
 }

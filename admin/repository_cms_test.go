@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 
 	goerrors "github.com/goliatone/go-errors"
@@ -726,6 +727,86 @@ func TestCMSContentTypeEntryRepositoryListUsesProjectedTopLevelFields(t *testing
 	tags, ok := record["tags"].([]string)
 	if !ok || !reflect.DeepEqual(tags, []string{"company", "mission", "engineering"}) {
 		t.Fatalf("expected projected tags, got %#v", record["tags"])
+	}
+}
+
+func TestCMSContentRepositoryListEmitsCanonicalTranslationGroupIDForEditorialTypes(t *testing.T) {
+	ctx := context.Background()
+	content := NewInMemoryContentService()
+	repo := NewCMSContentRepository(content)
+
+	_, _ = content.CreateContent(ctx, CMSContent{
+		Title:           "Page One",
+		Slug:            "page-one",
+		Locale:          "en",
+		Status:          "draft",
+		ContentTypeSlug: "page",
+	})
+	_, _ = content.CreateContent(ctx, CMSContent{
+		Title:           "Post One",
+		Slug:            "post-one",
+		Locale:          "en",
+		Status:          "draft",
+		ContentTypeSlug: "post",
+		Data: map[string]any{
+			"translation_context": map[string]any{
+				"translation_group_id": "tg-post-1",
+			},
+		},
+	})
+	_, _ = content.CreateContent(ctx, CMSContent{
+		Title:           "News One",
+		Slug:            "news-one",
+		Locale:          "en",
+		Status:          "draft",
+		ContentTypeSlug: "news",
+	})
+
+	list, total, err := repo.List(ctx, ListOptions{PerPage: 20})
+	if err != nil {
+		t.Fatalf("list failed: %v", err)
+	}
+	if total != 3 || len(list) != 3 {
+		t.Fatalf("expected 3 editorial records, got total=%d len=%d", total, len(list))
+	}
+	for _, record := range list {
+		groupID := strings.TrimSpace(toString(record["translation_group_id"]))
+		if groupID == "" {
+			t.Fatalf("expected translation_group_id on list record, got %#v", record)
+		}
+	}
+}
+
+func TestCMSContentTypeEntryRepositoryListEmitsCanonicalTranslationGroupIDForTranslationCapabilityTypes(t *testing.T) {
+	ctx := context.Background()
+	content := NewInMemoryContentService()
+	created, _ := content.CreateContent(ctx, CMSContent{
+		Title:           "Announcement",
+		Slug:            "announcement",
+		Locale:          "en",
+		Status:          "draft",
+		ContentTypeSlug: "announcements",
+	})
+	repo := NewCMSContentTypeEntryRepository(content, CMSContentType{
+		Slug: "announcements",
+		Capabilities: map[string]any{
+			"translations": true,
+		},
+	})
+
+	list, total, err := repo.List(ctx, ListOptions{PerPage: 10})
+	if err != nil {
+		t.Fatalf("list failed: %v", err)
+	}
+	if total != 1 || len(list) != 1 {
+		t.Fatalf("expected one translation-enabled record, got total=%d len=%d", total, len(list))
+	}
+	groupID := strings.TrimSpace(toString(list[0]["translation_group_id"]))
+	if groupID == "" {
+		t.Fatalf("expected translation_group_id in list payload, got %#v", list[0])
+	}
+	if created != nil && strings.TrimSpace(created.ID) != "" && groupID != strings.TrimSpace(created.ID) {
+		t.Fatalf("expected translation_group_id fallback to record id %q, got %q", created.ID, groupID)
 	}
 }
 
