@@ -42,6 +42,7 @@ type contentEntryUIOptions struct {
 	formRenderer     *admin.FormgenSchemaValidator
 	templateExists   templateExistsFunc
 	defaultRenderers map[string]string
+	translationUX    bool
 }
 
 const textCodeTranslationFallbackEditBlocked = "TRANSLATION_FALLBACK_EDIT_BLOCKED"
@@ -167,6 +168,16 @@ func WithContentEntryMergeDefaultRenderers(renderers map[string]string) ContentE
 // WithContentEntryRecommendedDefaults merges recommended content-entry defaults.
 func WithContentEntryRecommendedDefaults() ContentEntryUIOption {
 	return WithContentEntryMergeDefaultRenderers(RecommendedContentEntryDefaultRenderers())
+}
+
+// WithContentEntryTranslationUX enables translation list UX enhancements
+// (grouped/matrix view mode wiring and grouped URL sync) for translation-enabled panels.
+func WithContentEntryTranslationUX(enabled bool) ContentEntryUIOption {
+	return func(opts *contentEntryUIOptions) {
+		if opts != nil {
+			opts.translationUX = enabled
+		}
+	}
 }
 
 // RegisterContentEntryUIRoutes registers HTML routes for content entries.
@@ -375,6 +386,38 @@ func panelRouteKeys(panelName string) []string {
 	return out
 }
 
+func contentEntryPanelSupportsTranslationUX(panel *admin.Panel) bool {
+	if panel == nil {
+		return false
+	}
+	schema := panel.Schema()
+	for _, action := range schema.Actions {
+		if strings.EqualFold(strings.TrimSpace(action.Name), admin.CreateTranslationKey) {
+			return true
+		}
+	}
+	for _, field := range schema.ListFields {
+		if strings.EqualFold(strings.TrimSpace(field.Name), "translation_group_id") {
+			return true
+		}
+	}
+	return false
+}
+
+func contentEntryTranslationDefaultViewMode(enabled bool) string {
+	if enabled {
+		return "grouped"
+	}
+	return ""
+}
+
+func contentEntryTranslationGroupByField(enabled bool) string {
+	if enabled {
+		return "translation_group_id"
+	}
+	return ""
+}
+
 type contentEntryHandlers struct {
 	admin            *admin.Admin
 	cfg              admin.Config
@@ -388,6 +431,7 @@ type contentEntryHandlers struct {
 	formRenderer     *admin.FormgenSchemaValidator
 	templateExists   templateExistsFunc
 	defaultRenderers map[string]string
+	translationUX    bool
 }
 
 func newContentEntryHandlers(adm *admin.Admin, cfg admin.Config, viewCtx UIViewContextBuilder, opts contentEntryUIOptions) *contentEntryHandlers {
@@ -408,6 +452,7 @@ func newContentEntryHandlers(adm *admin.Admin, cfg admin.Config, viewCtx UIViewC
 		formRenderer:     opts.formRenderer,
 		templateExists:   opts.templateExists,
 		defaultRenderers: cloneStringMap(opts.defaultRenderers),
+		translationUX:    opts.translationUX,
 	}
 }
 
@@ -451,6 +496,7 @@ func (h *contentEntryHandlers) listForPanel(c router.Context, panelSlug string) 
 	}
 	dataTableID := "content-" + slug
 	listAPI := path.Join(apiBasePath, panelName)
+	translationUXEnabled := h.translationUX && contentEntryPanelSupportsTranslationUX(panel)
 
 	viewCtx := router.ViewContext{
 		"title":          h.cfg.Title,
@@ -481,9 +527,13 @@ func (h *contentEntryHandlers) listForPanel(c router.Context, panelSlug string) 
 		Definition:  canonicalPanelName(panelName),
 		Variant:     adminCtx.Environment,
 		DataGrid: PanelDataGridConfigOptions{
-			TableID:     dataTableID,
-			APIEndpoint: listAPI,
-			ActionBase:  actionBase,
+			TableID:           dataTableID,
+			APIEndpoint:       listAPI,
+			ActionBase:        actionBase,
+			TranslationUX:     translationUXEnabled,
+			EnableGroupedMode: translationUXEnabled,
+			DefaultViewMode:   contentEntryTranslationDefaultViewMode(translationUXEnabled),
+			GroupByField:      contentEntryTranslationGroupByField(translationUXEnabled),
 		},
 	}))
 	if h.viewContext != nil {
