@@ -807,23 +807,35 @@ func TestBulkRoute(t *testing.T) {
 		t.Fatalf("bulk start status: %d body=%s", rr.Code, rr.Body.String())
 	}
 
-	time.Sleep(10 * time.Millisecond)
-
-	req = httptest.NewRequest("GET", "/admin/api/bulk", nil)
-	rr = httptest.NewRecorder()
-	server.WrappedRouter().ServeHTTP(rr, req)
-	if rr.Code != 200 {
-		t.Fatalf("bulk list status: %d", rr.Code)
-	}
-	var body map[string]any
-	_ = json.Unmarshal(rr.Body.Bytes(), &body)
-	jobs, ok := body["jobs"].([]any)
-	if !ok || len(jobs) == 0 {
-		t.Fatalf("expected bulk jobs")
-	}
-	first, _ := jobs[0].(map[string]any)
-	if progress, _ := first["progress"].(float64); progress <= 0 {
-		t.Fatalf("expected progress value, got %v", progress)
+	var (
+		body  map[string]any
+		first map[string]any
+	)
+	deadline := time.Now().Add(250 * time.Millisecond)
+	for {
+		req = httptest.NewRequest("GET", "/admin/api/bulk", nil)
+		rr = httptest.NewRecorder()
+		server.WrappedRouter().ServeHTTP(rr, req)
+		if rr.Code != 200 {
+			t.Fatalf("bulk list status: %d", rr.Code)
+		}
+		body = map[string]any{}
+		_ = json.Unmarshal(rr.Body.Bytes(), &body)
+		jobs, ok := body["jobs"].([]any)
+		if ok && len(jobs) > 0 {
+			first, _ = jobs[0].(map[string]any)
+			if progress, _ := first["progress"].(float64); progress > 0 {
+				break
+			}
+		}
+		if time.Now().After(deadline) {
+			progress := 0.0
+			if first != nil {
+				progress, _ = first["progress"].(float64)
+			}
+			t.Fatalf("expected progress value, got %v", progress)
+		}
+		time.Sleep(5 * time.Millisecond)
 	}
 	if status, _ := first["status"].(string); status == "" {
 		t.Fatalf("expected status in job payload")

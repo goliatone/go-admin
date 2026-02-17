@@ -79,12 +79,12 @@ func TestESignModuleRegistersPanelsSettingsRoleDefaultsAndCommandActions(t *test
 		t.Fatalf("expected e-sign default role mappings to be created, got %+v", roles)
 	}
 
-	documentID := createPanelRecord(t, server, "/admin/api/v1/esign_documents?tenant_id=tenant-bootstrap&org_id=org-bootstrap", map[string]any{
+	documentID := createPanelRecord(t, server, "/admin/api/v1/panels/esign_documents?tenant_id=tenant-bootstrap&org_id=org-bootstrap", map[string]any{
 		"title":             "Master Service Agreement",
 		"source_object_key": "tenant/tenant-bootstrap/org/org-bootstrap/docs/master-service-agreement.pdf",
 		"pdf_base64":        encodeTestPDF(1),
 	})
-	agreementID := createPanelRecord(t, server, "/admin/api/v1/esign_agreements?tenant_id=tenant-bootstrap&org_id=org-bootstrap", map[string]any{
+	agreementID := createPanelRecord(t, server, "/admin/api/v1/panels/esign_agreements?tenant_id=tenant-bootstrap&org_id=org-bootstrap", map[string]any{
 		"document_id": documentID,
 		"title":       "MSA Signature",
 		"message":     "Please review and sign.",
@@ -92,7 +92,7 @@ func TestESignModuleRegistersPanelsSettingsRoleDefaultsAndCommandActions(t *test
 	seedAgreementAsSignable(t, module, agreementID)
 
 	actionBody, _ := json.Marshal(map[string]any{"idempotency_key": "phase6-send-1"})
-	actionReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign_agreements/actions/send?id="+agreementID+"&tenant_id=tenant-bootstrap&org_id=org-bootstrap", bytes.NewReader(actionBody))
+	actionReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/panels/esign_agreements/actions/send?id="+agreementID+"&tenant_id=tenant-bootstrap&org_id=org-bootstrap", bytes.NewReader(actionBody))
 	actionReq.Header.Set("Content-Type", "application/json")
 	actionReq.Header.Set("X-User-ID", "ops-user")
 	actionRes, err := server.WrappedRouter().Test(actionReq, -1)
@@ -105,7 +105,7 @@ func TestESignModuleRegistersPanelsSettingsRoleDefaultsAndCommandActions(t *test
 		t.Fatalf("expected send action 200, got %d body=%s", actionRes.StatusCode, string(payload))
 	}
 
-	agreementDetail := getPanelDetail(t, server, "/admin/api/v1/esign_agreements/"+agreementID+"?tenant_id=tenant-bootstrap&org_id=org-bootstrap")
+	agreementDetail := getPanelDetail(t, server, "/admin/api/v1/panels/esign_agreements/"+agreementID+"?tenant_id=tenant-bootstrap&org_id=org-bootstrap")
 	status := toString(agreementDetail["status"])
 	if status != "sent" {
 		t.Fatalf("expected agreement status sent after action dispatch, got %q detail=%+v", status, agreementDetail)

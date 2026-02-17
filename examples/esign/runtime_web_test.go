@@ -782,7 +782,7 @@ func TestRuntimeSignerWebE2ERecipientJourneyFromSignLinkToSubmit(t *testing.T) {
 		t.Fatalf("expected agreement id in location header, got %q", agreementLocation)
 	}
 
-	detailResp := doRequestWithCookie(t, app, http.MethodGet, "/admin/api/v1/esign_agreements/"+agreementID+"?"+query, authCookie)
+	detailResp := doRequestWithCookie(t, app, http.MethodGet, "/admin/api/v1/panels/esign_agreements/"+agreementID+"?"+query, authCookie)
 	defer detailResp.Body.Close()
 	if detailResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(detailResp.Body)
@@ -814,7 +814,7 @@ func TestRuntimeSignerWebE2ERecipientJourneyFromSignLinkToSubmit(t *testing.T) {
 		app,
 		authCookie,
 		http.MethodPost,
-		"/admin/api/v1/esign_agreements/actions/send?id="+url.QueryEscape(agreementID)+"&"+query,
+		"/admin/api/v1/panels/esign_agreements/actions/send?id="+url.QueryEscape(agreementID)+"&"+query,
 		"application/json",
 		strings.NewReader(`{"idempotency_key":"runtime-web-e2e-send-1"}`),
 	)
@@ -1077,7 +1077,7 @@ func TestRuntimeSignerWebE2EUnifiedFlowConsentFieldSignatureSubmit(t *testing.T)
 		t.Fatal("expected agreement id in create response location")
 	}
 
-	detailResp := doRequestWithCookie(t, app, http.MethodGet, "/admin/api/v1/esign_agreements/"+agreementID+"?"+query, authCookie)
+	detailResp := doRequestWithCookie(t, app, http.MethodGet, "/admin/api/v1/panels/esign_agreements/"+agreementID+"?"+query, authCookie)
 	defer detailResp.Body.Close()
 	if detailResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(detailResp.Body)
@@ -1106,7 +1106,7 @@ func TestRuntimeSignerWebE2EUnifiedFlowConsentFieldSignatureSubmit(t *testing.T)
 		app,
 		authCookie,
 		http.MethodPost,
-		"/admin/api/v1/esign_agreements/actions/send?id="+url.QueryEscape(agreementID)+"&"+query,
+		"/admin/api/v1/panels/esign_agreements/actions/send?id="+url.QueryEscape(agreementID)+"&"+query,
 		"application/json",
 		strings.NewReader(`{"idempotency_key":"runtime-web-unified-send-1"}`),
 	)

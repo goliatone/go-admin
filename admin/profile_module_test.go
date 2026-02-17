@@ -57,7 +57,7 @@ func TestProfilePanelRequiresPermissions(t *testing.T) {
 		t.Fatalf("initialize: %v", err)
 	}
 
-	req := httptest.NewRequest("GET", "/admin/api/profile", nil)
+	req := httptest.NewRequest("GET", adminPanelAPIPath(adm, cfg, profileModuleID), nil)
 	req.Header.Set("X-User-ID", "user-1")
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
@@ -81,7 +81,7 @@ func TestProfileAPIRejectsMismatchedUser(t *testing.T) {
 		"display_name": "Other User",
 	}
 	body, _ := json.Marshal(payload)
-	req := httptest.NewRequest("PUT", "/admin/api/profile/other-user", bytes.NewReader(body))
+	req := httptest.NewRequest("PUT", adminAPIPath(adm, cfg, "panel.id", map[string]string{"panel": profileModuleID, "id": "other-user"}, nil), bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "user-1")
 	rr := httptest.NewRecorder()
@@ -110,7 +110,7 @@ func TestProfileUpdateRoundTripViaAPI(t *testing.T) {
 		"locale":       "en",
 	}
 	body, _ := json.Marshal(payload)
-	req := httptest.NewRequest("PUT", "/admin/api/profile/user-1", bytes.NewReader(body))
+	req := httptest.NewRequest("PUT", adminAPIPath(adm, cfg, "panel.id", map[string]string{"panel": profileModuleID, "id": "user-1"}, nil), bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "user-1")
 	rr := httptest.NewRecorder()
@@ -152,7 +152,7 @@ func TestProfileSchemaIncludesMediaHintsWhenEnabled(t *testing.T) {
 		t.Fatalf("initialize: %v", err)
 	}
 
-	req := httptest.NewRequest("GET", "/admin/api/profile", nil)
+	req := httptest.NewRequest("GET", adminPanelAPIPath(adm, cfg, profileModuleID), nil)
 	req.Header.Set("X-User-ID", "user-1")
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
