@@ -143,6 +143,14 @@ func resolveAdminPanelPreviewURL(urls urlkit.Resolver, fallback, panel, id strin
 	return prefixBasePath(detail, "preview")
 }
 
+func resolveAdminPanelAPICollectionURL(urls urlkit.Resolver, cfg admin.Config, fallback, panel string) string {
+	return resolveAdminPanelAPICollectionPath(urls, cfg, fallback, panel)
+}
+
+func resolveAdminPanelAPIDetailURL(urls urlkit.Resolver, cfg admin.Config, fallback, panel, id string) string {
+	return resolveAdminPanelAPIDetailPath(urls, cfg, fallback, panel, id)
+}
+
 func normalizeBasePathValue(basePath string) string {
 	return admin.NormalizeBasePath(basePath)
 }
