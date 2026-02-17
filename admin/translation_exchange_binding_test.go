@@ -519,6 +519,174 @@ func TestTranslationExchangeBindingImportApplyEmptyRowsReturnsTypedError(t *test
 	}
 }
 
+func TestTranslationExchangeBindingImportApplyAsyncReturnsJobEnvelopeWithConflictSummary(t *testing.T) {
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
+	executor := &stubTranslationExchangeExecutor{
+		applyResult: TranslationExchangeResult{
+			Summary: TranslationExchangeSummary{Processed: 2, Succeeded: 1, Failed: 1},
+			Results: []TranslationExchangeRowResult{
+				{
+					Index:              0,
+					Resource:           "pages",
+					EntityID:           "page_1",
+					TranslationGroupID: "tg_1",
+					TargetLocale:       "es",
+					FieldPath:          "title",
+					Status:             translationExchangeRowStatusConflict,
+					Conflict: &TranslationExchangeConflictInfo{
+						Type:    "stale_source_hash",
+						Message: "source hash mismatch",
+					},
+				},
+				{
+					Index:              1,
+					Resource:           "pages",
+					EntityID:           "page_1",
+					TranslationGroupID: "tg_1",
+					TargetLocale:       "es",
+					FieldPath:          "body",
+					Status:             translationExchangeRowStatusSuccess,
+				},
+			},
+		},
+	}
+	binding := newTranslationExchangeBinding(adm)
+	binding.executor = executor
+	app := newTranslationExchangeTestApp(t, binding)
+
+	payload := map[string]any{
+		"rows": []map[string]any{
+			{
+				"resource":             "pages",
+				"entity_id":            "page_1",
+				"translation_group_id": "tg_1",
+				"target_locale":        "es",
+				"field_path":           "title",
+				"translated_text":      "Hola",
+			},
+			{
+				"resource":             "pages",
+				"entity_id":            "page_1",
+				"translation_group_id": "tg_1",
+				"target_locale":        "es",
+				"field_path":           "body",
+				"translated_text":      "Mundo",
+			},
+		},
+		"async": true,
+	}
+	raw, _ := json.Marshal(payload)
+	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/import/apply", bytes.NewReader(raw))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status=%d want=200", resp.StatusCode)
+	}
+	if executor.applyCalled != 1 {
+		t.Fatalf("expected async apply dispatch, got %d", executor.applyCalled)
+	}
+	defer resp.Body.Close()
+	respPayload := map[string]any{}
+	if err := json.NewDecoder(resp.Body).Decode(&respPayload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if got := toString(respPayload["status"]); got != "accepted" {
+		t.Fatalf("expected accepted status, got %q", got)
+	}
+	job, _ := respPayload["job"].(map[string]any)
+	if toString(job["id"]) == "" {
+		t.Fatalf("expected async job id, got %+v", job)
+	}
+	if toString(job["status"]) != translationExchangeAsyncJobStatusCompleted {
+		t.Fatalf("expected completed job status, got %+v", job)
+	}
+	pollEndpoint := toString(job["poll_endpoint"])
+	if pollEndpoint == "" {
+		t.Fatalf("expected poll endpoint, got %+v", job)
+	}
+	result, _ := job["result"].(map[string]any)
+	conflicts, _ := result["conflicts"].(map[string]any)
+	byType, _ := conflicts["by_type"].(map[string]any)
+	if byType["stale_source_hash"] != float64(1) {
+		t.Fatalf("expected stale_source_hash conflict count, got %+v", byType)
+	}
+
+	pollReq := httptest.NewRequest(http.MethodGet, pollEndpoint, nil)
+	pollResp, err := app.Test(pollReq)
+	if err != nil {
+		t.Fatalf("poll request error: %v", err)
+	}
+	if pollResp.StatusCode != http.StatusOK {
+		t.Fatalf("poll status=%d want=200", pollResp.StatusCode)
+	}
+	defer pollResp.Body.Close()
+	pollPayload := map[string]any{}
+	if err := json.NewDecoder(pollResp.Body).Decode(&pollPayload); err != nil {
+		t.Fatalf("decode poll response: %v", err)
+	}
+	pollJob, _ := pollPayload["job"].(map[string]any)
+	if toString(pollJob["id"]) != toString(job["id"]) {
+		t.Fatalf("expected same job id from poll, got %+v", pollJob)
+	}
+}
+
+func TestTranslationExchangeBindingExportAsyncReturnsJobEnvelope(t *testing.T) {
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
+	executor := &stubTranslationExchangeExecutor{
+		exportResult: TranslationExportResult{
+			RowCount: 2,
+			Rows: []TranslationExchangeRow{
+				{Resource: "pages", EntityID: "page_1", TranslationGroupID: "tg_1", TargetLocale: "es", FieldPath: "title"},
+				{Resource: "posts", EntityID: "post_1", TranslationGroupID: "tg_2", TargetLocale: "fr", FieldPath: "title"},
+			},
+		},
+	}
+	binding := newTranslationExchangeBinding(adm)
+	binding.executor = executor
+	app := newTranslationExchangeTestApp(t, binding)
+
+	payload := map[string]any{
+		"filter": map[string]any{
+			"resources": []string{"pages", "posts"},
+		},
+		"async": true,
+	}
+	raw, _ := json.Marshal(payload)
+	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/export", bytes.NewReader(raw))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status=%d want=200", resp.StatusCode)
+	}
+	if executor.exportCalled != 1 {
+		t.Fatalf("expected async export dispatch, got %d", executor.exportCalled)
+	}
+	defer resp.Body.Close()
+	respPayload := map[string]any{}
+	if err := json.NewDecoder(resp.Body).Decode(&respPayload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	job, _ := respPayload["job"].(map[string]any)
+	if toString(job["id"]) == "" {
+		t.Fatalf("expected job id, got %+v", job)
+	}
+	if toString(job["status"]) != translationExchangeAsyncJobStatusCompleted {
+		t.Fatalf("expected completed job, got %+v", job)
+	}
+	progress, _ := job["progress"].(map[string]any)
+	if progress["total"] != float64(2) || progress["processed"] != float64(2) {
+		t.Fatalf("expected progress totals to match export rows, got %+v", progress)
+	}
+}
+
 func newTranslationExchangeTestApp(t *testing.T, binding *translationExchangeBinding) *fiber.App {
 	t.Helper()
 	adapter := router.NewFiberAdapter(func(_ *fiber.App) *fiber.App {
@@ -549,6 +717,13 @@ func newTranslationExchangeTestApp(t *testing.T, binding *translationExchangeBin
 	})
 	r.Post("/admin/api/translations/import/apply", func(c router.Context) error {
 		payload, err := binding.ImportApply(c)
+		if err != nil {
+			return writeError(c, err)
+		}
+		return writeJSON(c, payload)
+	})
+	r.Get("/admin/api/translations/jobs/:id", func(c router.Context) error {
+		payload, err := binding.JobStatus(c, c.Param("id", ""))
 		if err != nil {
 			return writeError(c, err)
 		}

@@ -172,3 +172,45 @@ func TestTranslationReadinessBatchAvailableLocalesAggregatesByGroup(t *testing.T
 		t.Fatalf("did not expect anonymous group aggregation, got %v", grouped[""])
 	}
 }
+
+func TestBuildRecordTranslationReadinessIncludesLocaleMetadata(t *testing.T) {
+	record := map[string]any{
+		"id":                   "page_1",
+		"locale":               "en",
+		"translation_group_id": "tg_1",
+		"available_locales":    []string{"en", "fr"},
+		"title":                "Home",
+		"path":                 "/home",
+		"updated_by":           "alice",
+		"updated_at":           "2026-02-17T10:00:00Z",
+		"locale_metadata": map[string]any{
+			"fr": map[string]any{
+				"updated_by": "jean",
+				"updated_at": "2026-02-16T08:00:00Z",
+			},
+		},
+	}
+	policy := readinessPolicyStub{
+		ok: true,
+		req: TranslationRequirements{
+			Locales: []string{"en", "fr"},
+		},
+	}
+
+	readiness := buildRecordTranslationReadiness(context.Background(), policy, "pages", record, nil)
+	localeMetadata, ok := readiness["locale_metadata"].(map[string]map[string]any)
+	if !ok {
+		t.Fatalf("expected locale_metadata map, got %#v", readiness["locale_metadata"])
+	}
+	enMeta := localeMetadata["en"]
+	if toString(enMeta["updated_by"]) != "alice" {
+		t.Fatalf("expected en.updated_by alice, got %#v", enMeta["updated_by"])
+	}
+	if toString(enMeta["updated_at"]) != "2026-02-17T10:00:00Z" {
+		t.Fatalf("expected en.updated_at timestamp, got %#v", enMeta["updated_at"])
+	}
+	frMeta := localeMetadata["fr"]
+	if toString(frMeta["updated_by"]) != "jean" {
+		t.Fatalf("expected fr.updated_by jean, got %#v", frMeta["updated_by"])
+	}
+}
