@@ -1769,6 +1769,93 @@ func TestPanelBindingListGroupedByTranslationGroupSupportsStableGroupPagination(
 	}
 }
 
+func TestPanelBindingListGroupedByTranslationGroupKeepsMissingGroupRowsUngrouped(t *testing.T) {
+	repo := &translationActionRepoStub{
+		list: []map[string]any{
+			{
+				"id":                   "alpha_en",
+				"title":                "Alpha EN",
+				"path":                 "/alpha",
+				"status":               "draft",
+				"locale":               "en",
+				"translation_group_id": "tg_alpha",
+				"available_locales":    []string{"en"},
+			},
+			{
+				"id":                   "alpha_fr",
+				"title":                "Alpha FR",
+				"path":                 "/alpha-fr",
+				"status":               "draft",
+				"locale":               "fr",
+				"translation_group_id": "tg_alpha",
+				"available_locales":    []string{"fr"},
+			},
+			{
+				"id":                "orphan_en",
+				"title":             "Orphan EN",
+				"path":              "/orphan",
+				"status":            "draft",
+				"locale":            "en",
+				"available_locales": []string{"en"},
+			},
+		},
+	}
+	panel := &Panel{
+		name: "pages",
+		repo: repo,
+		translationPolicy: readinessPolicyStub{
+			ok: true,
+			req: TranslationRequirements{
+				Locales: []string{"en", "fr"},
+			},
+		},
+	}
+	binding := &panelBinding{
+		admin: &Admin{config: Config{DefaultLocale: "en"}},
+		name:  "pages",
+		panel: panel,
+	}
+	c := router.NewMockContext()
+	c.On("Context").Return(context.Background())
+
+	rows, total, _, _, err := binding.List(c, "en", boot.ListOptions{
+		Page:    1,
+		PerPage: 10,
+		Filters: map[string]any{
+			"group_by": "translation_group_id",
+		},
+		Predicates: []boot.ListPredicate{
+			{Field: "group_by", Operator: "eq", Values: []string{"translation_group_id"}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("grouped list failed: %v", err)
+	}
+	if total != 2 {
+		t.Fatalf("expected two rows (one group + one ungrouped), got %d", total)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("expected two rows, got %d", len(rows))
+	}
+
+	groupedRow := rows[0]
+	if got := strings.TrimSpace(toString(groupedRow["translation_group_id"])); got != "tg_alpha" {
+		t.Fatalf("expected grouped row translation_group_id tg_alpha, got %q", got)
+	}
+
+	ungroupedRow := rows[1]
+	if got := strings.TrimSpace(toString(ungroupedRow["translation_group_id"])); got != "" {
+		t.Fatalf("expected ungrouped row to keep empty translation_group_id, got %q", got)
+	}
+	if got := strings.TrimSpace(toString(ungroupedRow["id"])); got != "orphan_en" {
+		t.Fatalf("expected ungrouped row id orphan_en, got %q", got)
+	}
+	groupMeta, _ := ungroupedRow["_group"].(map[string]any)
+	if rowType := strings.TrimSpace(toString(groupMeta["row_type"])); rowType != "ungrouped" {
+		t.Fatalf("expected ungrouped row type, got %q", rowType)
+	}
+}
+
 func TestPanelBindingBulkCreateMissingTranslationsReturnsTypedResults(t *testing.T) {
 	repo := &translationActionRepoStub{
 		records: map[string]map[string]any{
