@@ -93,7 +93,7 @@ func buildRecordTranslationReadinessWithCache(
 	readinessState := translationReadinessState(missingLocales, missingFields)
 
 	environment := translationReadinessEnvironment(ctx, filters)
-	groupID := strings.TrimSpace(toString(record["translation_group_id"]))
+	groupID := translationGroupIDFromRecord(record)
 	readyForPublish := readinessState == translationReadinessStateReady
 
 	readiness := map[string]any{
@@ -101,6 +101,7 @@ func buildRecordTranslationReadinessWithCache(
 		"required_locales":                  requiredLocales,
 		"available_locales":                 availableLocales,
 		"missing_required_locales":          missingLocales,
+		"recommended_locale":                translationReadinessRecommendedLocale(missingLocales, requiredLocales),
 		"missing_required_fields_by_locale": missingFields,
 		"readiness_state":                   readinessState,
 		"ready_for_transition":              map[string]bool{translationReadinessTransitionPublish: readyForPublish},
@@ -118,7 +119,7 @@ func translationReadinessApplicable(panelName string, record map[string]any) boo
 	case "pages", "posts", translationReadinessPolicyEntityFallbackPanels:
 		return true
 	}
-	if strings.TrimSpace(toString(record["translation_group_id"])) != "" {
+	if translationGroupIDFromRecord(record) != "" {
 		return true
 	}
 	if len(normalizedLocaleList(record["available_locales"])) > 0 {
@@ -237,7 +238,50 @@ func translationReadinessAvailableLocalesWithBatch(record map[string]any, cache 
 }
 
 func translationReadinessGroupKey(record map[string]any) string {
-	return strings.ToLower(strings.TrimSpace(toString(record["translation_group_id"])))
+	return strings.ToLower(strings.TrimSpace(translationGroupIDFromRecord(record)))
+}
+
+func translationGroupIDFromRecord(record map[string]any) string {
+	if len(record) == 0 {
+		return ""
+	}
+	if groupID := strings.TrimSpace(toString(record["translation_group_id"])); groupID != "" {
+		return groupID
+	}
+	for _, path := range [][]string{
+		{"translation", "meta", "translation_group_id"},
+		{"content_translation", "meta", "translation_group_id"},
+		{"translation_context", "translation_group_id"},
+		{"translation_readiness", "translation_group_id"},
+	} {
+		if groupID := strings.TrimSpace(toString(translationReadinessNestedValue(record, path...))); groupID != "" {
+			return groupID
+		}
+	}
+	return ""
+}
+
+func translationReadinessNestedValue(record map[string]any, path ...string) any {
+	if len(record) == 0 || len(path) == 0 {
+		return nil
+	}
+	cursor := any(record)
+	for _, part := range path {
+		segment := strings.TrimSpace(part)
+		if segment == "" {
+			return nil
+		}
+		m, ok := cursor.(map[string]any)
+		if !ok {
+			return nil
+		}
+		next, ok := m[segment]
+		if !ok {
+			return nil
+		}
+		cursor = next
+	}
+	return cursor
 }
 
 func translationReadinessBatchAvailableLocales(records []map[string]any) map[string][]string {
@@ -364,6 +408,18 @@ func translationReadinessState(missingLocales []string, missingFields map[string
 	default:
 		return translationReadinessStateReady
 	}
+}
+
+func translationReadinessRecommendedLocale(missingLocales, requiredLocales []string) string {
+	missing := translationReadinessLocaleList(missingLocales)
+	if len(missing) > 0 {
+		return missing[0]
+	}
+	required := translationReadinessLocaleList(requiredLocales)
+	if len(required) > 0 {
+		return required[0]
+	}
+	return ""
 }
 
 func translationReadinessRequiredLocalesFromFields(fields map[string][]string) []string {
