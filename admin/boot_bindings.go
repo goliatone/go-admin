@@ -897,14 +897,14 @@ func (p *panelBinding) rowActionStateForRecord(ctx AdminContext, record map[stri
 		availability := map[string]any{"enabled": true}
 		if !actionContextRequiredSatisfied(record, action.ContextRequired) {
 			availability["enabled"] = false
-			availability["reason_code"] = "missing_context_required"
+			availability["reason_code"] = ActionDisabledReasonCodeMissingContext
 			availability["reason"] = "record does not include required context for this action"
 			out[name] = availability
 			continue
 		}
 		if action.Permission != "" && p.panel.authorizer != nil && !p.panel.authorizer.Can(ctx.Context, action.Permission, p.name) {
 			availability["enabled"] = false
-			availability["reason_code"] = "permission_denied"
+			availability["reason_code"] = ActionDisabledReasonCodePermissionDenied
 			availability["reason"] = "you do not have permission to execute this action"
 			out[name] = availability
 			continue
@@ -916,21 +916,21 @@ func (p *panelBinding) rowActionStateForRecord(ctx AdminContext, record map[stri
 		}
 		if p.panel.workflow == nil {
 			availability["enabled"] = false
-			availability["reason_code"] = "workflow_not_configured"
+			availability["reason_code"] = ActionDisabledReasonCodeInvalidStatus
 			availability["reason"] = "workflow is not configured for this panel"
 			out[name] = availability
 			continue
 		}
 		if id == "" {
 			availability["enabled"] = false
-			availability["reason_code"] = "record_id_missing"
+			availability["reason_code"] = ActionDisabledReasonCodeMissingContext
 			availability["reason"] = "record id required to evaluate workflow action"
 			out[name] = availability
 			continue
 		}
 		if transitionsErr != nil {
 			availability["enabled"] = false
-			availability["reason_code"] = "workflow_transitions_unavailable"
+			availability["reason_code"] = ActionDisabledReasonCodeInvalidStatus
 			availability["reason"] = "workflow transitions are unavailable"
 			out[name] = availability
 			continue
@@ -939,12 +939,76 @@ func (p *panelBinding) rowActionStateForRecord(ctx AdminContext, record map[stri
 		availability["available_transitions"] = transitionNames
 		if !actionMatchesAvailableWorkflowTransition(name, transitions) {
 			availability["enabled"] = false
-			availability["reason_code"] = "workflow_transition_not_available"
+			availability["reason_code"] = ActionDisabledReasonCodeInvalidStatus
 			availability["reason"] = fmt.Sprintf("transition %q is not available from state %q", name, firstNonEmpty(state, "unknown"))
 			out[name] = availability
 			continue
 		}
+		if reason, blocked := translationBlockedActionReason(name, record); blocked {
+			availability["enabled"] = false
+			availability["reason_code"] = ActionDisabledReasonCodeTranslationMissing
+			availability["reason"] = reason
+			out[name] = availability
+			continue
+		}
 		out[name] = availability
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func translationBlockedActionReason(actionName string, record map[string]any) (string, bool) {
+	if !actionRequiresTranslationReady(actionName) {
+		return "", false
+	}
+	readiness, ok := record["translation_readiness"].(map[string]any)
+	if !ok || len(readiness) == 0 {
+		return "", false
+	}
+	state := strings.ToLower(strings.TrimSpace(toString(readiness["readiness_state"])))
+	if state == "" || state == translationReadinessStateReady {
+		return "", false
+	}
+	missingLocales := toStringSlice(readiness["missing_required_locales"])
+	if len(missingLocales) == 0 {
+		missingLocales = toStringSlice(readiness["missing_locales"])
+	}
+	if len(missingLocales) > 0 {
+		return fmt.Sprintf("missing required locales: %s", strings.Join(uppercaseLocaleList(missingLocales), ", ")), true
+	}
+	if state == translationReadinessStateMissingFields || state == translationReadinessStateMissingLocalesFields {
+		return "required translation fields are incomplete", true
+	}
+	return "required translations are missing", true
+}
+
+func actionRequiresTranslationReady(actionName string) bool {
+	switch strings.ToLower(strings.TrimSpace(actionName)) {
+	case "publish":
+		return true
+	default:
+		return false
+	}
+}
+
+func uppercaseLocaleList(locales []string) []string {
+	if len(locales) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(locales))
+	seen := map[string]struct{}{}
+	for _, locale := range locales {
+		normalized := strings.ToLower(strings.TrimSpace(locale))
+		if normalized == "" {
+			continue
+		}
+		if _, ok := seen[normalized]; ok {
+			continue
+		}
+		seen[normalized] = struct{}{}
+		out = append(out, strings.ToUpper(normalized))
 	}
 	if len(out) == 0 {
 		return nil
