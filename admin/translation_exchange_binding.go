@@ -248,6 +248,9 @@ func (b *translationExchangeBinding) JobStatus(c router.Context, id string) (any
 	if err := b.admin.requirePermission(adminCtx, strings.TrimSpace(job.Permission), "translations"); err != nil {
 		return nil, err
 	}
+	if !translationExchangeJobOwnedByActor(job, translationExchangeActorID(adminCtx)) {
+		return nil, permissionDenied(strings.TrimSpace(job.Permission), "translations")
+	}
 	return map[string]any{
 		"job": translationExchangeAsyncJobPayload(job),
 	}, nil
@@ -259,7 +262,11 @@ func (b *translationExchangeBinding) exportAsync(adminCtx AdminContext, input Tr
 			"component": "translation_exchange_binding",
 		})
 	}
-	job := b.jobs.Create("export", translationExchangePermissionExport, adminCtx.UserID)
+	actorID := translationExchangeActorID(adminCtx)
+	if actorID == "" {
+		return nil, permissionDenied(translationExchangePermissionExport, "translations")
+	}
+	job := b.jobs.Create("export", translationExchangePermissionExport, actorID)
 	b.jobs.SetPollEndpoint(job.ID, b.jobStatusEndpoint(job.ID))
 	b.jobs.MarkRunning(job.ID, map[string]any{
 		"total":     0,
@@ -317,7 +324,11 @@ func (b *translationExchangeBinding) importApplyAsync(adminCtx AdminContext, inp
 		})
 	}
 	totalRows := len(input.Rows)
-	job := b.jobs.Create("import.apply", translationExchangePermissionImportApply, adminCtx.UserID)
+	actorID := translationExchangeActorID(adminCtx)
+	if actorID == "" {
+		return nil, permissionDenied(translationExchangePermissionImportApply, "translations")
+	}
+	job := b.jobs.Create("import.apply", translationExchangePermissionImportApply, actorID)
 	b.jobs.SetPollEndpoint(job.ID, b.jobStatusEndpoint(job.ID))
 	b.jobs.MarkRunning(job.ID, map[string]any{
 		"total":     totalRows,
@@ -367,6 +378,18 @@ func (b *translationExchangeBinding) importApplyAsync(adminCtx AdminContext, inp
 		"status": "accepted",
 		"job":    translationExchangeAsyncJobPayload(complete),
 	}, nil
+}
+
+func translationExchangeActorID(ctx AdminContext) string {
+	return strings.TrimSpace(firstNonEmpty(ctx.UserID, actorFromContext(ctx.Context)))
+}
+
+func translationExchangeJobOwnedByActor(job translationExchangeAsyncJob, actorID string) bool {
+	owner := strings.TrimSpace(job.CreatedBy)
+	if owner == "" || strings.TrimSpace(actorID) == "" {
+		return false
+	}
+	return strings.EqualFold(owner, strings.TrimSpace(actorID))
 }
 
 func (b *translationExchangeBinding) jobStatusEndpoint(id string) string {

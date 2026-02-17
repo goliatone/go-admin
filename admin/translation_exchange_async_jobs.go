@@ -1,6 +1,8 @@
 package admin
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"strconv"
 	"strings"
 	"sync"
@@ -32,6 +34,7 @@ type translationExchangeAsyncJobStore struct {
 	next  int64
 	jobs  map[string]translationExchangeAsyncJob
 	nowFn func() time.Time
+	idFn  func() string
 }
 
 func newTranslationExchangeAsyncJobStore(nowFn func() time.Time) *translationExchangeAsyncJobStore {
@@ -42,6 +45,7 @@ func newTranslationExchangeAsyncJobStore(nowFn func() time.Time) *translationExc
 		next:  1,
 		jobs:  map[string]translationExchangeAsyncJob{},
 		nowFn: nowFn,
+		idFn:  defaultTranslationExchangeAsyncJobID,
 	}
 }
 
@@ -52,8 +56,7 @@ func (s *translationExchangeAsyncJobStore) Create(kind, permission, actor string
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	now := s.nowFn().UTC()
-	id := "txex_job_" + strconv.FormatInt(s.next, 10)
-	s.next++
+	id := s.nextJobIDLocked()
 	job := translationExchangeAsyncJob{
 		ID:         id,
 		Kind:       strings.TrimSpace(kind),
@@ -70,6 +73,41 @@ func (s *translationExchangeAsyncJobStore) Create(kind, permission, actor string
 	}
 	s.jobs[id] = job
 	return cloneTranslationExchangeAsyncJob(job)
+}
+
+func (s *translationExchangeAsyncJobStore) nextJobIDLocked() string {
+	if s == nil {
+		return ""
+	}
+	for attempt := 0; attempt < 4; attempt++ {
+		if s.idFn == nil {
+			break
+		}
+		id := strings.TrimSpace(s.idFn())
+		if id == "" {
+			continue
+		}
+		if _, exists := s.jobs[id]; exists {
+			continue
+		}
+		return id
+	}
+	for {
+		id := "txex_job_" + strconv.FormatInt(s.next, 10)
+		s.next++
+		if _, exists := s.jobs[id]; exists {
+			continue
+		}
+		return id
+	}
+}
+
+func defaultTranslationExchangeAsyncJobID() string {
+	raw := make([]byte, 16)
+	if _, err := rand.Read(raw); err == nil {
+		return "txex_job_" + hex.EncodeToString(raw)
+	}
+	return ""
 }
 
 func (s *translationExchangeAsyncJobStore) SetPollEndpoint(id, pollEndpoint string) {
