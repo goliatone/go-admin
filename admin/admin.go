@@ -69,6 +69,7 @@ type Admin struct {
 	initHooks                    []func(AdminRouter) error
 	initHooksRun                 bool
 	modulesLoaded                bool
+	moduleStartupPolicy          ModuleStartupPolicy
 	navMenuCode                  string
 	translator                   Translator
 	workflow                     WorkflowEngine
@@ -362,6 +363,7 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 		exportMetadata:         exportMetadata,
 		bulkSvc:                bulkSvc,
 		mediaLibrary:           mediaLib,
+		moduleStartupPolicy:    ModuleStartupPolicyEnforce,
 		navMenuCode:            navMenuCode,
 		translator:             translator,
 		workflow:               deps.Workflow,
@@ -455,6 +457,20 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 	}
 
 	return adm, nil
+}
+
+// WithModuleStartupPolicy configures how module startup validation errors are handled.
+func (a *Admin) WithModuleStartupPolicy(policy ModuleStartupPolicy) *Admin {
+	if a == nil {
+		return a
+	}
+	switch strings.ToLower(strings.TrimSpace(string(policy))) {
+	case string(ModuleStartupPolicyWarn):
+		a.moduleStartupPolicy = ModuleStartupPolicyWarn
+	default:
+		a.moduleStartupPolicy = ModuleStartupPolicyEnforce
+	}
+	return a
 }
 
 // WithAuth attaches an authenticator for route protection.
