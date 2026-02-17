@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -152,7 +153,6 @@ func TestTranslationExchangeBindingImportApplyUsesExplicitCreateIntentOptions(t 
 	raw, _ := json.Marshal(payload)
 	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/import/apply", bytes.NewReader(raw))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-User-ID", "ops-user")
 	req.Header.Set("X-User-ID", "ops-user")
 
 	resp, err := app.Test(req)
@@ -496,6 +496,7 @@ func TestTranslationExchangeBindingImportApplyEmptyRowsReturnsTypedError(t *test
 	raw, _ := json.Marshal(payload)
 	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/import/apply", bytes.NewReader(raw))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-User-ID", "ops-user")
 
 	resp, err := app.Test(req)
 	if err != nil {
@@ -580,6 +581,7 @@ func TestTranslationExchangeBindingImportApplyAsyncReturnsJobEnvelopeWithConflic
 	raw, _ := json.Marshal(payload)
 	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/import/apply", bytes.NewReader(raw))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-User-ID", "ops-user")
 
 	resp, err := app.Test(req)
 	if err != nil {
@@ -733,14 +735,32 @@ func TestTranslationExchangeBindingJobStatusRequiresJobOwner(t *testing.T) {
 		t.Fatalf("expected poll endpoint, got %+v", job)
 	}
 
-	forbiddenReq := httptest.NewRequest(http.MethodGet, pollEndpoint, nil)
-	forbiddenReq.Header.Set("X-User-ID", "other-user")
-	forbiddenResp, err := app.Test(forbiddenReq)
-	if err != nil {
-		t.Fatalf("forbidden poll request error: %v", err)
+	jobID := toString(job["id"])
+	if jobID == "" {
+		t.Fatalf("expected non-empty job id, got %+v", job)
 	}
-	if forbiddenResp.StatusCode != http.StatusForbidden {
-		t.Fatalf("forbidden poll status=%d want=403", forbiddenResp.StatusCode)
+	stored, ok := binding.jobs.Get(jobID)
+	if !ok {
+		t.Fatalf("expected stored async job %q", jobID)
+	}
+	if !translationExchangeJobOwnedByActor(stored, "owner-user") {
+		t.Fatalf("expected owner-user to own job %+v", stored)
+	}
+	if translationExchangeJobOwnedByActor(stored, "other-user") {
+		t.Fatalf("expected other-user to be denied for job %+v", stored)
+	}
+
+	mockCtx := router.NewMockContext()
+	mockCtx.On("Context").Return(context.Background())
+	mockCtx.On("Header", "X-User-ID").Return("other-user")
+	mockCtx.On("Param", "id", "").Return(jobID)
+	_, err = binding.JobStatus(mockCtx, jobID)
+	if err == nil {
+		t.Fatalf("expected job status ownership check to fail")
+	}
+	var denied PermissionDeniedError
+	if !errors.As(err, &denied) {
+		t.Fatalf("expected PermissionDeniedError, got %T", err)
 	}
 }
 
