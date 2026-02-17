@@ -367,3 +367,26 @@ export type {
   GateResult,
   NavItemGate
 } from './capability-gate.js';
+
+// Export translator dashboard (Phase 4 - TX-047)
+export {
+  TranslatorDashboard,
+  createTranslatorDashboard,
+  initTranslatorDashboard,
+  getTranslatorDashboardStyles,
+  DEFAULT_FILTER_PRESETS
+} from './translator-dashboard.js';
+export type {
+  DueState,
+  QueueState,
+  ContentState,
+  AssignmentPriority,
+  ReviewActionState,
+  TranslationAssignment,
+  MyWorkResponse,
+  QueueResponse,
+  FilterPreset,
+  DashboardState,
+  TranslatorDashboardConfig,
+  DashboardLabels
+} from './translator-dashboard.js';

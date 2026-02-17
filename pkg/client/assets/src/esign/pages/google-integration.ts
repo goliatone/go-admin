@@ -242,7 +242,7 @@ export class GoogleIntegrationController {
         if (accountDropdown.value === '__new__') {
           // Reset to current and start OAuth
           accountDropdown.value = this.currentAccountId;
-          this.startOAuthFlow('');
+          this.startOAuthFlowForNewAccount();
         } else {
           this.setCurrentAccountId(accountDropdown.value, true);
         }
@@ -251,7 +251,7 @@ export class GoogleIntegrationController {
 
     // Connect first button (Option B - empty state)
     if (connectFirstBtn) {
-      connectFirstBtn.addEventListener('click', () => this.startOAuthFlow(''));
+      connectFirstBtn.addEventListener('click', () => this.startOAuthFlowForNewAccount());
     }
 
     // Close modals on escape
@@ -335,6 +335,32 @@ export class GoogleIntegrationController {
     if (refreshStatus) {
       this.checkStatus();
     }
+  }
+
+  /**
+   * Resolve account ID for "connect new account" flow
+   */
+  private resolveNewAccountId(): string {
+    const { accountIdInput } = this.elements;
+    const manualValue = this.normalizeAccountId(accountIdInput?.value);
+    if (!manualValue) {
+      return '';
+    }
+    const isExisting = this.accounts.some(
+      (account) => this.normalizeAccountId(account.account_id) === manualValue
+    );
+    return isExisting ? '' : manualValue;
+  }
+
+  /**
+   * Start OAuth flow using a new/manual account ID
+   */
+  private startOAuthFlowForNewAccount(): void {
+    const accountID = this.resolveNewAccountId();
+    if (accountID !== this.currentAccountId) {
+      this.setCurrentAccountId(accountID, false);
+    }
+    this.startOAuthFlow(accountID);
   }
 
   /**
@@ -851,14 +877,6 @@ export class GoogleIntegrationController {
 
       const data = await response.json();
       this.accounts = data.accounts || [];
-      if (
-        this.currentAccountId &&
-        !this.accounts.some(
-          (account) => this.normalizeAccountId(account.account_id) === this.currentAccountId
-        )
-      ) {
-        this.currentAccountId = '';
-      }
       this.updateAccountScopeUI();
     } catch (error) {
       console.error('Error loading accounts:', error);
@@ -902,6 +920,14 @@ export class GoogleIntegrationController {
         option.selected = true;
       }
       accountDropdown.appendChild(option);
+    }
+
+    if (this.currentAccountId && !seenAccountIDs.has(this.currentAccountId)) {
+      const customOption = document.createElement('option');
+      customOption.value = this.currentAccountId;
+      customOption.textContent = `${this.currentAccountId} (new)`;
+      customOption.selected = true;
+      accountDropdown.appendChild(customOption);
     }
 
     // Add "Connect new account" option
@@ -1058,7 +1084,7 @@ export class GoogleIntegrationController {
     // Connect new card
     const connectNewCard = accountsGrid.querySelector('#connect-new-card');
     if (connectNewCard) {
-      connectNewCard.addEventListener('click', () => this.startOAuthFlow(''));
+      connectNewCard.addEventListener('click', () => this.startOAuthFlowForNewAccount());
     }
   }
 

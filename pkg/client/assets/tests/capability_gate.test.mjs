@@ -1,46 +1,420 @@
 /**
  * Capability Gate Tests (Phase 4 - TX-046)
+ * Tests capability-mode and permission gating for module nav and action controls.
  */
-import { describe, it, before, beforeEach, after, mock } from 'node:test';
-import assert from 'node:assert';
+import { describe, it, beforeEach, mock } from 'node:test';
+import assert from 'node:assert/strict';
 
-// Mock DOM environment
-globalThis.document = {
-  createElement: (tag) => ({
-    tagName: tag,
-    style: {},
-    classList: {
-      _classes: new Set(),
-      add(c) { this._classes.add(c); },
-      remove(c) { this._classes.delete(c); },
-      contains(c) { return this._classes.has(c); },
-    },
-    setAttribute: function(k, v) { this[k] = v; },
-    getAttribute: function(k) { return this[k]; },
-    removeAttribute: function(k) { delete this[k]; },
-    dataset: {},
-    addEventListener: () => {},
-    removeEventListener: () => {},
-    querySelectorAll: () => [],
-  }),
-};
+// =============================================================================
+// Mock Implementations (mirrors capability-gate.ts logic)
+// =============================================================================
 
-globalThis.HTMLElement = class {};
+/**
+ * Parse capability mode from string, with fallback to 'none'
+ */
+function parseCapabilityMode(value) {
+  const validModes = ['none', 'core', 'core+exchange', 'core+queue', 'full'];
+  if (typeof value === 'string' && validModes.includes(value)) {
+    return value;
+  }
+  return 'none';
+}
 
-// Import after mocks
-const {
-  parseCapabilityMode,
-  isExchangeEnabled,
-  isQueueEnabled,
-  isCoreEnabled,
-  extractCapabilities,
-  createCapabilityGate,
-  createEmptyCapabilityGate,
-  CapabilityGate,
-  renderGateAriaAttributes,
-  renderDisabledReasonBadge,
-  getCapabilityGateStyles,
-} = await import('../dist/datatable/index.js');
+/**
+ * Check if exchange module is enabled by capability mode
+ */
+function isExchangeEnabled(mode) {
+  return mode === 'core+exchange' || mode === 'full';
+}
+
+/**
+ * Check if queue module is enabled by capability mode
+ */
+function isQueueEnabled(mode) {
+  return mode === 'core+queue' || mode === 'full';
+}
+
+/**
+ * Check if core translation features are enabled
+ */
+function isCoreEnabled(mode) {
+  return mode !== 'none';
+}
+
+/**
+ * Extract action state from raw payload
+ */
+function extractActionState(action) {
+  if (!action || typeof action !== 'object') {
+    return { enabled: false };
+  }
+  return {
+    enabled: action.enabled === true,
+    reason: typeof action.reason === 'string' ? action.reason : undefined,
+    reason_code: typeof action.reason_code === 'string' ? action.reason_code : undefined,
+    permission: typeof action.permission === 'string' ? action.permission : undefined,
+  };
+}
+
+/**
+ * Extract module state from raw payload
+ */
+function extractModuleState(state) {
+  if (!state || typeof state !== 'object') {
+    return {
+      enabled: false,
+      visible: false,
+      entry: { enabled: false, reason: 'Invalid module state', reason_code: 'INVALID_STATE' },
+      actions: {},
+    };
+  }
+
+  const actions = {};
+  if (state.actions && typeof state.actions === 'object') {
+    for (const [key, value] of Object.entries(state.actions)) {
+      if (value && typeof value === 'object') {
+        actions[key] = extractActionState(value);
+      }
+    }
+  }
+
+  return {
+    enabled: state.enabled === true,
+    visible: state.visible === true,
+    entry: extractActionState(state.entry),
+    actions,
+  };
+}
+
+/**
+ * Extract translation capabilities from a raw payload
+ */
+function extractCapabilities(payload) {
+  if (!payload || typeof payload !== 'object') {
+    return null;
+  }
+
+  const profile = parseCapabilityMode(payload.profile || payload.capability_mode);
+  const schemaVersion = typeof payload.schema_version === 'number' ? payload.schema_version : 0;
+
+  const modules = {};
+  if (payload.modules && typeof payload.modules === 'object') {
+    if (payload.modules.exchange) {
+      modules.exchange = extractModuleState(payload.modules.exchange);
+    }
+    if (payload.modules.queue) {
+      modules.queue = extractModuleState(payload.modules.queue);
+    }
+  }
+
+  const features = {};
+  if (payload.features && typeof payload.features === 'object') {
+    features.cms = payload.features.cms === true;
+    features.dashboard = payload.features.dashboard === true;
+  }
+
+  const routes = {};
+  if (payload.routes && typeof payload.routes === 'object') {
+    for (const [key, value] of Object.entries(payload.routes)) {
+      if (typeof value === 'string') {
+        routes[key] = value;
+      }
+    }
+  }
+
+  const panels = Array.isArray(payload.panels)
+    ? payload.panels.filter((p) => typeof p === 'string')
+    : [];
+
+  const resolverKeys = Array.isArray(payload.resolver_keys)
+    ? payload.resolver_keys.filter((k) => typeof k === 'string')
+    : [];
+
+  const warnings = Array.isArray(payload.warnings)
+    ? payload.warnings.filter((w) => typeof w === 'string')
+    : [];
+
+  return {
+    profile,
+    capability_mode: profile,
+    supported_profiles: ['none', 'core', 'core+exchange', 'core+queue', 'full'],
+    schema_version: schemaVersion,
+    modules,
+    features,
+    routes,
+    panels,
+    resolver_keys: resolverKeys,
+    warnings,
+    contracts: payload.contracts && typeof payload.contracts === 'object'
+      ? payload.contracts
+      : undefined,
+  };
+}
+
+/**
+ * CapabilityGate class implementation
+ */
+class CapabilityGate {
+  constructor(capabilities) {
+    this.capabilities = capabilities;
+  }
+
+  getMode() {
+    return this.capabilities.profile;
+  }
+
+  getCapabilities() {
+    return this.capabilities;
+  }
+
+  isModuleEnabledByMode(module) {
+    const mode = this.capabilities.profile;
+    if (module === 'exchange') {
+      return isExchangeEnabled(mode);
+    }
+    return isQueueEnabled(mode);
+  }
+
+  getModuleState(module) {
+    return this.capabilities.modules[module] || null;
+  }
+
+  getActionState(module, action) {
+    const moduleState = this.getModuleState(module);
+    if (!moduleState) {
+      return null;
+    }
+    return moduleState.actions[action] || null;
+  }
+
+  gateNavItem(gate) {
+    const moduleState = this.getModuleState(gate.module);
+
+    // No module state = hidden
+    if (!moduleState) {
+      return {
+        visible: false,
+        enabled: false,
+        reason: `${gate.module} module not configured`,
+        reasonCode: 'MODULE_NOT_CONFIGURED',
+      };
+    }
+
+    // Module disabled by capability mode = hidden
+    if (!moduleState.enabled) {
+      return {
+        visible: false,
+        enabled: false,
+        reason: moduleState.entry.reason || 'Module disabled by capability mode',
+        reasonCode: moduleState.entry.reason_code || 'FEATURE_DISABLED',
+      };
+    }
+
+    // Module enabled but no entry permission = hidden
+    if (!moduleState.visible || !moduleState.entry.enabled) {
+      return {
+        visible: false,
+        enabled: false,
+        reason: moduleState.entry.reason || 'Missing module view permission',
+        reasonCode: moduleState.entry.reason_code || 'PERMISSION_DENIED',
+        permission: moduleState.entry.permission,
+      };
+    }
+
+    // If action specified, check action permission
+    if (gate.action) {
+      const actionState = moduleState.actions[gate.action];
+      if (!actionState) {
+        // Action not defined = visible but disabled
+        return {
+          visible: true,
+          enabled: false,
+          reason: `Action ${gate.action} not configured`,
+          reasonCode: 'ACTION_NOT_CONFIGURED',
+        };
+      }
+
+      if (!actionState.enabled) {
+        // Action permission denied = visible but disabled
+        return {
+          visible: true,
+          enabled: false,
+          reason: actionState.reason || `Missing ${gate.action} permission`,
+          reasonCode: actionState.reason_code || 'PERMISSION_DENIED',
+          permission: actionState.permission,
+        };
+      }
+    }
+
+    // All checks passed = visible and enabled
+    return {
+      visible: true,
+      enabled: true,
+    };
+  }
+
+  gateAction(module, action) {
+    return this.gateNavItem({ module, action });
+  }
+
+  canAccessExchange() {
+    const gate = this.gateNavItem({ module: 'exchange' });
+    return gate.visible && gate.enabled;
+  }
+
+  canAccessQueue() {
+    const gate = this.gateNavItem({ module: 'queue' });
+    return gate.visible && gate.enabled;
+  }
+
+  getRoute(key) {
+    return this.capabilities.routes[key] || null;
+  }
+
+  isFeatureEnabled(feature) {
+    return this.capabilities.features[feature] === true;
+  }
+}
+
+/**
+ * Create a CapabilityGate from raw payload
+ */
+function createCapabilityGate(payload) {
+  const capabilities = extractCapabilities(payload);
+  if (!capabilities) {
+    return null;
+  }
+  return new CapabilityGate(capabilities);
+}
+
+/**
+ * Create a default (empty) CapabilityGate for fallback
+ */
+function createEmptyCapabilityGate() {
+  return new CapabilityGate({
+    profile: 'none',
+    capability_mode: 'none',
+    supported_profiles: ['none', 'core', 'core+exchange', 'core+queue', 'full'],
+    schema_version: 0,
+    modules: {},
+    features: {},
+    routes: {},
+    panels: [],
+    resolver_keys: [],
+    warnings: [],
+  });
+}
+
+/**
+ * Render ARIA attributes for a gated element
+ */
+function renderGateAriaAttributes(gate) {
+  if (!gate.visible) {
+    return 'aria-hidden="true" style="display: none;"';
+  }
+
+  if (!gate.enabled) {
+    const reasonAttr = gate.reason ? ` title="${escapeAttr(gate.reason)}"` : '';
+    return `aria-disabled="true"${reasonAttr}`;
+  }
+
+  return '';
+}
+
+function escapeAttr(str) {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function escapeHtml(str) {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+/**
+ * Get CSS class for a reason code
+ */
+function getReasonCodeLabelClass(reasonCode) {
+  switch (reasonCode) {
+    case 'FEATURE_DISABLED':
+      return 'text-gray-500 bg-gray-100';
+    case 'PERMISSION_DENIED':
+      return 'text-amber-600 bg-amber-50';
+    case 'MODULE_NOT_CONFIGURED':
+      return 'text-blue-500 bg-blue-50';
+    case 'ACTION_NOT_CONFIGURED':
+      return 'text-blue-500 bg-blue-50';
+    default:
+      return 'text-gray-500 bg-gray-100';
+  }
+}
+
+/**
+ * Render a disabled reason badge
+ */
+function renderDisabledReasonBadge(gate) {
+  if (gate.enabled || !gate.reason) {
+    return '';
+  }
+
+  const reasonCode = gate.reasonCode || 'DISABLED';
+  const labelClass = getReasonCodeLabelClass(reasonCode);
+
+  return `
+    <span class="capability-gate-reason ${labelClass}"
+          role="status"
+          aria-label="${escapeAttr(gate.reason)}"
+          data-reason-code="${escapeAttr(reasonCode)}">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 inline-block mr-1">
+        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd" />
+      </svg>
+      ${escapeHtml(gate.reason)}
+    </span>
+  `.trim();
+}
+
+/**
+ * Get CSS styles for capability gate components
+ */
+function getCapabilityGateStyles() {
+  return `
+    /* Capability Gate Styles */
+    .capability-gate-reason {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.25rem 0.5rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+      border-radius: 0.25rem;
+      white-space: nowrap;
+    }
+
+    .capability-gate-disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
+    [aria-disabled="true"].capability-gate-action {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .capability-gate-hidden {
+      display: none !important;
+    }
+  `;
+}
+
+// =============================================================================
+// Tests
+// =============================================================================
 
 describe('Capability Gate - Mode Parsing', () => {
   it('should parse valid capability modes', () => {

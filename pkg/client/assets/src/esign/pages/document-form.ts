@@ -38,6 +38,13 @@ interface FolderPathItem {
   name: string;
 }
 
+interface ConnectedGoogleAccount {
+  account_id: string;
+  email?: string;
+  status?: string;
+  is_default?: boolean;
+}
+
 // Constants
 const GOOGLE_ACCOUNT_STORAGE_KEY = 'esign.google.account_id';
 const MAX_FILE_SIZE_DEFAULT = 25 * 1024 * 1024; // 25 MB
@@ -76,6 +83,7 @@ export class DocumentFormController {
   private pollTimeout: ReturnType<typeof setTimeout> | null = null;
   private pollAttempts = 0;
   private currentImportRunId: string | null = null;
+  private connectedAccounts: ConnectedGoogleAccount[] = [];
 
   // Element references
   private readonly elements: {
@@ -107,6 +115,7 @@ export class DocumentFormController {
     pagination: HTMLElement | null;
     loadMoreBtn: HTMLElement | null;
     refreshBtn: HTMLElement | null;
+    driveAccountDropdown: HTMLSelectElement | null;
     accountScopeHelp: HTMLElement | null;
     connectGoogleLink: HTMLAnchorElement | null;
     // Selection panel
@@ -169,6 +178,7 @@ export class DocumentFormController {
       pagination: qs('#pagination'),
       loadMoreBtn: qs('#load-more-btn'),
       refreshBtn: qs('#refresh-btn'),
+      driveAccountDropdown: qs<HTMLSelectElement>('#drive-account-dropdown'),
       accountScopeHelp: qs('#account-scope-help'),
       connectGoogleLink: qs<HTMLAnchorElement>('#connect-google-link'),
       // Selection panel
@@ -203,6 +213,9 @@ export class DocumentFormController {
   async init(): Promise<void> {
     this.setupEventListeners();
     this.updateAccountScopeUI();
+    if (this.config.googleEnabled && this.config.googleConnected) {
+      await this.loadConnectedAccounts();
+    }
     this.initializeSourceFromURL();
   }
 
@@ -315,6 +328,7 @@ export class DocumentFormController {
       clearSelectionBtn,
       importBtn,
       importRetryBtn,
+      driveAccountDropdown,
     } = this.elements;
 
     // Search
@@ -336,6 +350,13 @@ export class DocumentFormController {
     // Refresh
     if (refreshBtn) {
       refreshBtn.addEventListener('click', () => this.refreshFiles());
+    }
+
+    // Account selector
+    if (driveAccountDropdown) {
+      driveAccountDropdown.addEventListener('change', () => {
+        this.setCurrentAccountId(driveAccountDropdown.value, this.currentSource === 'google');
+      });
     }
 
     // Clear selection
@@ -392,6 +413,113 @@ export class DocumentFormController {
   }
 
   /**
+   * Set current account ID and optionally refresh Drive files
+   */
+  private setCurrentAccountId(value: string, refreshFiles = false): void {
+    const normalized = this.normalizeAccountId(value);
+    if (normalized === this.currentAccountId) {
+      this.updateAccountScopeUI();
+      return;
+    }
+
+    this.currentAccountId = normalized;
+    this.updateAccountScopeUI();
+
+    if (refreshFiles && this.config.googleEnabled && this.config.googleConnected) {
+      this.currentFolderPath = [{ id: 'root', name: 'My Drive' }];
+      this.searchQuery = '';
+      const { searchInput, clearSearchBtn } = this.elements;
+      if (searchInput) searchInput.value = '';
+      if (clearSearchBtn) hide(clearSearchBtn);
+      this.updateBreadcrumb();
+      this.loadFiles({ folderId: 'root' });
+    }
+  }
+
+  /**
+   * Load connected accounts for account selector
+   */
+  private async loadConnectedAccounts(): Promise<void> {
+    const { driveAccountDropdown } = this.elements;
+    if (!driveAccountDropdown) {
+      return;
+    }
+
+    try {
+      const url = new URL(`${this.apiBase}/esign/integrations/google/accounts`, window.location.origin);
+      url.searchParams.set('user_id', this.config.userId || '');
+
+      const response = await fetch(url.toString(), {
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
+      });
+
+      if (!response.ok) {
+        this.connectedAccounts = [];
+        this.renderConnectedAccountsDropdown();
+        return;
+      }
+
+      const data = await response.json();
+      this.connectedAccounts = Array.isArray(data.accounts)
+        ? (data.accounts as ConnectedGoogleAccount[])
+        : [];
+      this.renderConnectedAccountsDropdown();
+    } catch {
+      this.connectedAccounts = [];
+      this.renderConnectedAccountsDropdown();
+    }
+  }
+
+  /**
+   * Render account selector options
+   */
+  private renderConnectedAccountsDropdown(): void {
+    const { driveAccountDropdown } = this.elements;
+    if (!driveAccountDropdown) {
+      return;
+    }
+
+    driveAccountDropdown.innerHTML = '';
+
+    const defaultOption = document.createElement('option');
+    defaultOption.value = '';
+    defaultOption.textContent = 'Default account';
+    if (!this.currentAccountId) {
+      defaultOption.selected = true;
+    }
+    driveAccountDropdown.appendChild(defaultOption);
+
+    const seen = new Set<string>(['']);
+    for (const account of this.connectedAccounts) {
+      const accountID = this.normalizeAccountId(account?.account_id);
+      if (seen.has(accountID)) {
+        continue;
+      }
+      seen.add(accountID);
+
+      const option = document.createElement('option');
+      option.value = accountID;
+      const email = String(account?.email || '').trim();
+      const status = String(account?.status || '').trim();
+      const label = email || accountID || 'Default account';
+      option.textContent = status && status !== 'connected' ? `${label} (${status})` : label;
+      if (accountID === this.currentAccountId) {
+        option.selected = true;
+      }
+      driveAccountDropdown.appendChild(option);
+    }
+
+    if (this.currentAccountId && !seen.has(this.currentAccountId)) {
+      const customOption = document.createElement('option');
+      customOption.value = this.currentAccountId;
+      customOption.textContent = `${this.currentAccountId} (custom)`;
+      customOption.selected = true;
+      driveAccountDropdown.appendChild(customOption);
+    }
+  }
+
+  /**
    * Sync account ID to URL and localStorage
    */
   private syncScopedAccountState(): void {
@@ -433,7 +561,7 @@ export class DocumentFormController {
   private updateAccountScopeUI(): void {
     this.syncScopedAccountState();
 
-    const { accountScopeHelp, connectGoogleLink } = this.elements;
+    const { accountScopeHelp, connectGoogleLink, driveAccountDropdown } = this.elements;
 
     if (accountScopeHelp) {
       if (this.currentAccountId) {
@@ -449,6 +577,18 @@ export class DocumentFormController {
         connectGoogleLink.dataset.baseHref || connectGoogleLink.getAttribute('href');
       if (baseHref) {
         connectGoogleLink.setAttribute('href', this.applyAccountIdToPath(baseHref));
+      }
+    }
+
+    if (driveAccountDropdown) {
+      const hasOption = Array.from(driveAccountDropdown.options).some(
+        (option) => this.normalizeAccountId(option.value) === this.currentAccountId
+      );
+      if (!hasOption) {
+        this.renderConnectedAccountsDropdown();
+      }
+      if (driveAccountDropdown.value !== this.currentAccountId) {
+        driveAccountDropdown.value = this.currentAccountId;
       }
     }
   }

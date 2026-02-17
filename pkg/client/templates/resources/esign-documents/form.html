@@ -265,6 +265,21 @@
               <p id="search-help" class="mt-2 text-xs text-gray-500">
                 Search by file name. Only Google Docs and PDFs can be imported.
               </p>
+              <div class="mt-3">
+                <label for="drive-account-dropdown" class="block text-xs font-medium text-gray-600">
+                  Google Account
+                </label>
+                <select
+                  id="drive-account-dropdown"
+                  class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                  aria-describedby="drive-account-help account-scope-help"
+                >
+                  <option value="">Default account</option>
+                </select>
+                <p id="drive-account-help" class="mt-1 text-xs text-gray-500">
+                  Choose which connected account to browse and import from.
+                </p>
+              </div>
               <p id="account-scope-help" class="mt-1 text-xs text-gray-500 hidden"></p>
             </div>
 

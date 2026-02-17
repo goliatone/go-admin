@@ -961,8 +961,8 @@ class ge {
     }));
     const { accountDropdown: v, connectFirstBtn: m } = this.elements;
     v && v.addEventListener("change", () => {
-      v.value === "__new__" ? (v.value = this.currentAccountId, this.startOAuthFlow("")) : this.setCurrentAccountId(v.value, !0);
-    }), m && m.addEventListener("click", () => this.startOAuthFlow("")), document.addEventListener("keydown", (f) => {
+      v.value === "__new__" ? (v.value = this.currentAccountId, this.startOAuthFlowForNewAccount()) : this.setCurrentAccountId(v.value, !0);
+    }), m && m.addEventListener("click", () => this.startOAuthFlowForNewAccount()), document.addEventListener("keydown", (f) => {
       f.key === "Escape" && (h && !h.classList.contains("hidden") && this.cancelOAuthFlow(), g && !g.classList.contains("hidden") && (this.pendingDisconnectAccountId = null, u(g)));
     }), [h, g].forEach((f) => {
       f && f.addEventListener("click", (b) => {
@@ -1005,6 +1005,20 @@ class ge {
       return;
     }
     this.currentAccountId = n, this.updateAccountScopeUI(), t && this.checkStatus();
+  }
+  /**
+   * Resolve account ID for "connect new account" flow
+   */
+  resolveNewAccountId() {
+    const { accountIdInput: e } = this.elements;
+    return this.normalizeAccountId(e?.value);
+  }
+  /**
+   * Start OAuth flow using a new/manual account ID
+   */
+  startOAuthFlowForNewAccount() {
+    const e = this.resolveNewAccountId();
+    e !== this.currentAccountId && this.setCurrentAccountId(e, !1), this.startOAuthFlow(e);
   }
   /**
    * Update UI elements related to account scope
@@ -1277,9 +1291,7 @@ class ge {
         return;
       }
       const n = await t.json();
-      this.accounts = n.accounts || [], this.currentAccountId && !this.accounts.some(
-        (s) => this.normalizeAccountId(s.account_id) === this.currentAccountId
-      ) && (this.currentAccountId = ""), this.updateAccountScopeUI();
+      this.accounts = n.accounts || [], this.updateAccountScopeUI();
     } catch (e) {
       console.error("Error loading accounts:", e), this.accounts = [], this.updateAccountScopeUI();
     }
@@ -1304,6 +1316,9 @@ class ge {
       const d = a.email || o || "Default", l = a.status !== "connected" ? ` (${a.status})` : "";
       c.textContent = `${d}${l}`, o === this.currentAccountId && (c.selected = !0), e.appendChild(c);
     }
+    this.currentAccountId && !n.has(this.currentAccountId) && ((s) => {
+      s.value = this.currentAccountId, s.textContent = `${this.currentAccountId} (new)`, s.selected = !0, e.appendChild(s);
+    })(document.createElement("option"));
     const s = document.createElement("option");
     s.value = "__new__", s.textContent = "+ Connect New Account...", e.appendChild(s);
   }
@@ -1405,7 +1420,7 @@ class ge {
       });
     });
     const n = e.querySelector("#connect-new-card");
-    n && n.addEventListener("click", () => this.startOAuthFlow(""));
+    n && n.addEventListener("click", () => this.startOAuthFlowForNewAccount());
   }
   /**
    * Escape HTML for safe rendering
@@ -4244,7 +4259,7 @@ function Jt(i) {
 const G = "esign.google.account_id", je = 25 * 1024 * 1024, ze = 2e3, ae = 60, W = "application/vnd.google-apps.document", J = "application/pdf", oe = "application/vnd.google-apps.folder", Ue = [W, J];
 class K {
   constructor(e) {
-    this.isSubmitting = !1, this.currentSource = "upload", this.currentFiles = [], this.nextPageToken = null, this.currentFolderPath = [{ id: "root", name: "My Drive" }], this.selectedFile = null, this.searchQuery = "", this.searchTimeout = null, this.pollTimeout = null, this.pollAttempts = 0, this.currentImportRunId = null, this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api/v1`, this.maxFileSize = e.maxFileSize || je, this.currentAccountId = this.resolveInitialAccountId(), this.elements = {
+    this.isSubmitting = !1, this.currentSource = "upload", this.currentFiles = [], this.nextPageToken = null, this.currentFolderPath = [{ id: "root", name: "My Drive" }], this.selectedFile = null, this.searchQuery = "", this.searchTimeout = null, this.pollTimeout = null, this.pollAttempts = 0, this.currentImportRunId = null, this.connectedAccounts = [], this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api/v1`, this.maxFileSize = e.maxFileSize || je, this.currentAccountId = this.resolveInitialAccountId(), this.elements = {
       // Upload panel
       form: r("#document-upload-form"),
       fileInput: r("#pdf_file"),
@@ -4273,6 +4288,7 @@ class K {
       pagination: r("#pagination"),
       loadMoreBtn: r("#load-more-btn"),
       refreshBtn: r("#refresh-btn"),
+      driveAccountDropdown: r("#drive-account-dropdown"),
       accountScopeHelp: r("#account-scope-help"),
       connectGoogleLink: r("#connect-google-link"),
       // Selection panel
@@ -4304,7 +4320,7 @@ class K {
    * Initialize the document form page
    */
   async init() {
-    this.setupEventListeners(), this.updateAccountScopeUI(), this.initializeSourceFromURL();
+    this.setupEventListeners(), this.updateAccountScopeUI(), this.config.googleEnabled && this.config.googleConnected && await this.loadConnectedAccounts(), this.initializeSourceFromURL();
   }
   /**
    * Setup all event listeners
@@ -4362,15 +4378,18 @@ class K {
       clearSearchBtn: t,
       loadMoreBtn: n,
       refreshBtn: s,
-      clearSelectionBtn: a,
-      importBtn: o,
-      importRetryBtn: c
+      driveAccountDropdown: a,
+      clearSelectionBtn: o,
+      importBtn: c,
+      importRetryBtn: d
     } = this.elements;
     if (e) {
-      const d = D(() => this.handleSearch(), 300);
-      e.addEventListener("input", d);
+      const l = D(() => this.handleSearch(), 300);
+      e.addEventListener("input", l);
     }
-    t && t.addEventListener("click", () => this.clearSearch()), n && n.addEventListener("click", () => this.loadMoreFiles()), s && s.addEventListener("click", () => this.refreshFiles()), a && a.addEventListener("click", () => this.clearFileSelection()), o && o.addEventListener("click", () => this.startImport()), c && c.addEventListener("click", () => {
+    t && t.addEventListener("click", () => this.clearSearch()), n && n.addEventListener("click", () => this.loadMoreFiles()), s && s.addEventListener("click", () => this.refreshFiles()), a && a.addEventListener("change", () => {
+      this.setCurrentAccountId(a.value, this.currentSource === "google");
+    }), o && o.addEventListener("click", () => this.clearFileSelection()), c && c.addEventListener("click", () => this.startImport()), d && d.addEventListener("click", () => {
       this.selectedFile ? this.startImport() : this.clearDriveSelection();
     });
   }
@@ -4400,6 +4419,64 @@ class K {
     return (e || "").trim();
   }
   /**
+   * Set current account ID and optionally refresh Drive files
+   */
+  setCurrentAccountId(e, t = !1) {
+    const n = this.normalizeAccountId(e);
+    if (n === this.currentAccountId) {
+      this.updateAccountScopeUI();
+      return;
+    }
+    this.currentAccountId = n, this.updateAccountScopeUI(), t && this.config.googleEnabled && this.config.googleConnected && (this.currentFolderPath = [{ id: "root", name: "My Drive" }], this.searchQuery = "", this.elements.searchInput && (this.elements.searchInput.value = ""), this.elements.clearSearchBtn && u(this.elements.clearSearchBtn), this.updateBreadcrumb(), this.loadFiles({ folderId: "root" }));
+  }
+  /**
+   * Load connected accounts for account selector
+   */
+  async loadConnectedAccounts() {
+    const { driveAccountDropdown: e } = this.elements;
+    if (!e) return;
+    try {
+      const t = new URL(`${this.apiBase}/esign/integrations/google/accounts`, window.location.origin);
+      t.searchParams.set("user_id", this.config.userId || "");
+      const n = await fetch(t.toString(), {
+        credentials: "same-origin",
+        headers: { Accept: "application/json" }
+      });
+      if (!n.ok) {
+        this.connectedAccounts = [], this.renderConnectedAccountsDropdown();
+        return;
+      }
+      const s = await n.json();
+      this.connectedAccounts = Array.isArray(s.accounts) ? s.accounts : [], this.renderConnectedAccountsDropdown();
+    } catch {
+      this.connectedAccounts = [], this.renderConnectedAccountsDropdown();
+    }
+  }
+  /**
+   * Render account selector options
+   */
+  renderConnectedAccountsDropdown() {
+    const { driveAccountDropdown: e } = this.elements;
+    if (!e) return;
+    e.innerHTML = "";
+    const t = document.createElement("option");
+    t.value = "", t.textContent = "Default account", this.currentAccountId || (t.selected = !0), e.appendChild(t);
+    const n = /* @__PURE__ */ new Set([""]);
+    for (const a of this.connectedAccounts) {
+      const o = this.normalizeAccountId(a?.account_id);
+      if (n.has(o))
+        continue;
+      n.add(o);
+      const c = document.createElement("option");
+      c.value = o;
+      const d = String(a?.email || "").trim(), l = String(a?.status || "").trim(), h = d || o || "Default account";
+      c.textContent = l && l !== "connected" ? `${h} (${l})` : h, o === this.currentAccountId && (c.selected = !0), e.appendChild(c);
+    }
+    this.currentAccountId && !n.has(this.currentAccountId) && ((s) => {
+      s.value = this.currentAccountId, s.textContent = `${this.currentAccountId} (custom)`, s.selected = !0, e.appendChild(s);
+    })(document.createElement("option"));
+  }
+  /**
    * Sync account ID to URL and localStorage
    */
   syncScopedAccountState() {
@@ -4422,10 +4499,16 @@ class K {
    */
   updateAccountScopeUI() {
     this.syncScopedAccountState();
-    const { accountScopeHelp: e, connectGoogleLink: t } = this.elements;
+    const { accountScopeHelp: e, connectGoogleLink: t, driveAccountDropdown: n } = this.elements;
     if (e && (this.currentAccountId ? (e.textContent = `Account scope: ${this.currentAccountId}`, p(e)) : u(e)), t) {
-      const n = t.dataset.baseHref || t.getAttribute("href");
-      n && t.setAttribute("href", this.applyAccountIdToPath(n));
+      const s = t.dataset.baseHref || t.getAttribute("href");
+      s && t.setAttribute("href", this.applyAccountIdToPath(s));
+    }
+    if (n) {
+      const s = Array.from(n.options).some(
+        (a) => this.normalizeAccountId(a.value) === this.currentAccountId
+      );
+      s || this.renderConnectedAccountsDropdown(), n.value !== this.currentAccountId && (n.value = this.currentAccountId);
     }
   }
   /**
