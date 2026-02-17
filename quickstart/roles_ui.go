@@ -181,9 +181,8 @@ func (h *roleHandlers) list(c router.Context) error {
 	}
 
 	routes := newResourceRoutes(h.basePath, "roles")
-	apiBasePath := resolveAdminAPIBasePath(h.urls, h.cfg, h.basePath)
 	dataTableID := "roles"
-	listAPI := path.Join(apiBasePath, "roles")
+	listAPI := resolveAdminPanelAPICollectionURL(h.urls, h.cfg, h.basePath, "roles")
 	actionBase := routes.index()
 	viewCtx := mergeViewContext(h.baseViewContext(routes), router.ViewContext{
 		"items":        roleRecordsToMaps(records, routes),
