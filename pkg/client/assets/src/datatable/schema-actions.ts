@@ -1149,12 +1149,25 @@ export class SchemaActionBuilder {
         .filter((field) => field.length > 0)
       : undefined;
 
+    const translationContextRaw = (
+      (schema as Record<string, unknown>)['x-translation-context']
+      ?? (schema as Record<string, unknown>).x_translation_context
+    );
+    const translationContext = (
+      translationContextRaw
+      && typeof translationContextRaw === 'object'
+      && !Array.isArray(translationContextRaw)
+    )
+      ? translationContextRaw as Record<string, unknown>
+      : undefined;
+
     return {
       type: typeof (schema as Record<string, unknown>).type === 'string'
         ? ((schema as Record<string, unknown>).type as string)
         : undefined,
       required,
       properties,
+      ...(translationContext ? { 'x-translation-context': translationContext } : {}),
     };
   }
 

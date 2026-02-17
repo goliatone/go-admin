@@ -16,6 +16,19 @@ export type TranslationProfile = 'none' | 'core' | 'core+exchange' | 'core+queue
  */
 export interface TranslationModuleState {
     enabled: boolean;
+    visible?: boolean;
+    entry?: {
+        enabled: boolean;
+        reason?: string;
+        reason_code?: string;
+        permission?: string;
+    };
+    actions?: Record<string, {
+        enabled: boolean;
+        reason?: string;
+        reason_code?: string;
+        permission?: string;
+    }>;
 }
 /**
  * Translation capabilities from backend
@@ -62,6 +75,12 @@ export interface TranslationEntrypoint {
     enabled: boolean;
     /** Optional description */
     description?: string;
+    /** Disabled reason when visible but not actionable */
+    disabledReason?: string;
+    /** Machine-readable disabled code */
+    disabledReasonCode?: string;
+    /** Permission evaluated for this entrypoint */
+    permission?: string;
     /** Badge text (e.g., "New") */
     badge?: string;
     /** Badge variant */

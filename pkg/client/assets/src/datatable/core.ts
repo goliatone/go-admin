@@ -535,7 +535,7 @@ export class DataGrid {
     if (this.config.enableGroupedMode) {
       params.set(DataGrid.URL_KEY_VIEW_MODE, this.state.viewMode);
 
-      if (this.state.viewMode === 'grouped') {
+      if (this.isGroupedViewActive()) {
         const expandedToken = encodeExpandedGroupsToken(this.state.expandedGroups);
         if (expandedToken) {
           params.set(DataGrid.URL_KEY_EXPANDED_GROUPS, expandedToken);
@@ -832,7 +832,7 @@ export class DataGrid {
 
     if (items.length === 0) {
       // Use grouped empty state if in grouped mode
-      if (this.config.enableGroupedMode && this.state.viewMode === 'grouped') {
+      if (this.isGroupedViewActive()) {
         tbody.innerHTML = renderGroupedEmptyState(this.config.columns.length);
       } else {
         tbody.innerHTML = `
@@ -850,7 +850,7 @@ export class DataGrid {
     this.recordsById = {};
 
     // Phase 2: Check if grouped mode is enabled and active
-    if (this.config.enableGroupedMode && this.state.viewMode === 'grouped') {
+    if (this.isGroupedViewActive()) {
       this.renderGroupedData(data, items, tbody);
     } else {
       // Flat mode rendering (original behavior)
@@ -971,10 +971,13 @@ export class DataGrid {
   }
 
   /**
-   * Whether grouped view is currently active and enabled.
+   * Whether grouped or matrix view is currently active and enabled.
    */
   private isGroupedViewActive(): boolean {
-    return Boolean(this.config.enableGroupedMode && this.state.viewMode === 'grouped');
+    if (!this.config.enableGroupedMode) {
+      return false;
+    }
+    return this.state.viewMode === 'grouped' || this.state.viewMode === 'matrix';
   }
 
   /**

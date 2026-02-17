@@ -23,6 +23,19 @@ export type TranslationProfile =
  */
 export interface TranslationModuleState {
   enabled: boolean;
+  visible?: boolean;
+  entry?: {
+    enabled: boolean;
+    reason?: string;
+    reason_code?: string;
+    permission?: string;
+  };
+  actions?: Record<string, {
+    enabled: boolean;
+    reason?: string;
+    reason_code?: string;
+    permission?: string;
+  }>;
 }
 
 /**
@@ -71,6 +84,12 @@ export interface TranslationEntrypoint {
   enabled: boolean;
   /** Optional description */
   description?: string;
+  /** Disabled reason when visible but not actionable */
+  disabledReason?: string;
+  /** Machine-readable disabled code */
+  disabledReasonCode?: string;
+  /** Permission evaluated for this entrypoint */
+  permission?: string;
   /** Badge text (e.g., "New") */
   badge?: string;
   /** Badge variant */
@@ -179,22 +198,34 @@ function normalizeCapabilities(raw: unknown): TranslationCapabilities {
     profile: normalizeProfile(data.profile),
     schema_version: typeof data.schema_version === 'number' ? data.schema_version : 1,
     modules: {
-      exchange: { enabled: extractModuleEnabled(modules.exchange) },
-      queue: { enabled: extractModuleEnabled(modules.queue) },
+      exchange: extractModuleState(modules.exchange),
+      queue: extractModuleState(modules.queue),
     },
     features: {
       cms: typeof features.cms === 'boolean' ? features.cms : false,
       dashboard: typeof features.dashboard === 'boolean' ? features.dashboard : false,
     },
-    routes: typeof data.routes === 'object' && data.routes
-      ? data.routes as Record<string, string>
-      : {},
+    routes: normalizeRoutes(data.routes),
     panels: Array.isArray(data.panels) ? data.panels.filter(p => typeof p === 'string') : [],
     resolver_keys: Array.isArray(data.resolver_keys)
       ? data.resolver_keys.filter(k => typeof k === 'string')
       : [],
     warnings: Array.isArray(data.warnings) ? data.warnings.filter(w => typeof w === 'string') : [],
   };
+}
+
+function normalizeRoutes(value: unknown): Record<string, string> {
+  if (!value || typeof value !== 'object') {
+    return {};
+  }
+  const raw = value as Record<string, unknown>;
+  const routes: Record<string, string> = {};
+  for (const [key, candidate] of Object.entries(raw)) {
+    const route = typeof candidate === 'string' ? candidate.trim() : '';
+    if (!route) continue;
+    routes[key] = route;
+  }
+  return routes;
 }
 
 function normalizeProfile(value: unknown): TranslationProfile {
@@ -206,13 +237,86 @@ function normalizeProfile(value: unknown): TranslationProfile {
     : 'none';
 }
 
-function extractModuleEnabled(value: unknown): boolean {
-  if (typeof value === 'boolean') return value;
-  if (typeof value === 'object' && value) {
-    const obj = value as Record<string, unknown>;
-    return typeof obj.enabled === 'boolean' ? obj.enabled : false;
+function extractModuleState(value: unknown): TranslationModuleState {
+  if (typeof value === 'boolean') {
+    return {
+      enabled: value,
+      visible: value,
+      entry: { enabled: value },
+      actions: {},
+    };
   }
-  return false;
+  if (!value || typeof value !== 'object') {
+    return { enabled: false, visible: false };
+  }
+  const obj = value as Record<string, unknown>;
+  const enabled = obj.enabled === true;
+  const entry = extractActionState(obj.entry);
+  const visible = typeof obj.visible === 'boolean'
+    ? obj.visible
+    : enabled && (entry ? entry.enabled : true);
+  const actionsRaw = obj.actions && typeof obj.actions === 'object'
+    ? obj.actions as Record<string, unknown>
+    : {};
+  const actions: Record<string, NonNullable<TranslationModuleState['entry']>> = {};
+  for (const [key, actionValue] of Object.entries(actionsRaw)) {
+    const actionState = extractActionState(actionValue);
+    if (actionState) {
+      actions[key] = actionState;
+    }
+  }
+  return {
+    enabled,
+    visible,
+    entry: entry ?? { enabled },
+    actions,
+  };
+}
+
+function extractActionState(value: unknown): TranslationModuleState['entry'] | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+  const raw = value as Record<string, unknown>;
+  return {
+    enabled: raw.enabled === true,
+    reason: typeof raw.reason === 'string' ? raw.reason : undefined,
+    reason_code: typeof raw.reason_code === 'string' ? raw.reason_code : undefined,
+    permission: typeof raw.permission === 'string' ? raw.permission : undefined,
+  };
+}
+
+function moduleGate(
+  state: TranslationModuleState | undefined
+): { visible: boolean; enabled: boolean; reason?: string; reasonCode?: string; permission?: string } {
+  if (!state) {
+    return { visible: false, enabled: false };
+  }
+  const visible = state.visible === true || (state.visible === undefined && state.enabled);
+  const entry = state.entry ?? { enabled: state.enabled };
+  const entryEnabled = entry.enabled === true;
+  const reason = entry.reason || (!state.enabled ? 'module disabled by capability mode' : undefined);
+  const reasonCode = entry.reason_code || (!state.enabled ? 'FEATURE_DISABLED' : undefined);
+  const permission = entry.permission;
+  if (!visible) {
+    return {
+      visible: false,
+      enabled: false,
+      reason,
+      reasonCode,
+      permission,
+    };
+  }
+  if (!state.enabled || !entryEnabled) {
+    return {
+      visible: true,
+      enabled: false,
+      reason,
+      reasonCode,
+      permission,
+    };
+  }
+  return { visible: true, enabled: true };
 }
 
 /**
@@ -279,30 +383,38 @@ export function buildTranslationEntrypoints(
   const entrypoints: TranslationEntrypoint[] = [];
 
   // Queue entrypoint
+  const queueGate = moduleGate(c.modules.queue);
   const queueRoute = getTranslationRoute('QUEUE', c, base);
-  if (c.modules.queue.enabled && queueRoute) {
+  if (queueGate.visible && queueRoute) {
     entrypoints.push({
       id: 'translation-queue',
       label: 'Translation Queue',
       icon: 'iconoir-language',
       href: queueRoute,
       module: 'queue',
-      enabled: true,
+      enabled: queueGate.enabled,
       description: 'Manage translation assignments and review workflow',
+      disabledReason: queueGate.reason,
+      disabledReasonCode: queueGate.reasonCode,
+      permission: queueGate.permission,
     });
   }
 
   // Exchange entrypoint
+  const exchangeGate = moduleGate(c.modules.exchange);
   const exchangeRoute = getTranslationRoute('EXCHANGE_UI', c, base);
-  if (c.modules.exchange.enabled && exchangeRoute) {
+  if (exchangeGate.visible && exchangeRoute) {
     entrypoints.push({
       id: 'translation-exchange',
       label: 'Translation Exchange',
       icon: 'iconoir-translate',
       href: exchangeRoute,
       module: 'exchange',
-      enabled: true,
+      enabled: exchangeGate.enabled,
       description: 'Export and import translation files',
+      disabledReason: exchangeGate.reason,
+      disabledReasonCode: exchangeGate.reasonCode,
+      permission: exchangeGate.permission,
     });
   }
 
@@ -320,13 +432,21 @@ export function renderEntrypointLink(
   const { asListItem = false, className = '' } = options ?? {};
 
   const link = document.createElement('a');
-  link.href = entrypoint.href;
+  link.href = entrypoint.enabled ? entrypoint.href : '#';
   link.className = `nav-item translation-operation-link ${className}`.trim();
   link.setAttribute('data-entrypoint-id', entrypoint.id);
   link.setAttribute('data-module', entrypoint.module);
+  link.setAttribute('data-enabled', entrypoint.enabled ? 'true' : 'false');
+  if (!entrypoint.enabled) {
+    link.setAttribute('aria-disabled', 'true');
+    link.classList.add('opacity-60', 'cursor-not-allowed');
+  }
 
   // Accessibility: descriptive label and tooltip
-  const description = entrypoint.description || entrypoint.label;
+  const disabledReason = entrypoint.disabledReason?.trim();
+  const description = disabledReason
+    ? `${entrypoint.description || entrypoint.label} (${disabledReason})`
+    : (entrypoint.description || entrypoint.label);
   link.setAttribute('aria-label', description);
   link.setAttribute('title', description);
 
@@ -357,6 +477,13 @@ export function renderEntrypointLink(
     badge.textContent = entrypoint.badge;
     badge.setAttribute('aria-label', `${entrypoint.badge} badge`);
     link.appendChild(badge);
+  }
+
+  if (!entrypoint.enabled) {
+    link.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    });
   }
 
   if (asListItem) {
@@ -496,7 +623,11 @@ export class TranslationOperationsManager {
       link.addEventListener('click', (e) => {
         const entrypointId = link.dataset.entrypointId;
         const entrypoint = this.entrypoints.find(ep => ep.id === entrypointId);
-        if (entrypoint && this.config.onEntrypointClick) {
+        if (!entrypoint || !entrypoint.enabled) {
+          e.preventDefault();
+          return;
+        }
+        if (this.config.onEntrypointClick) {
           this.config.onEntrypointClick(entrypoint);
         }
       });

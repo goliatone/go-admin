@@ -423,7 +423,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
 
     const groupedData = grid.getGroupedData();
-    const canToggleGroups = currentMode === 'grouped' && groupedData && Array.isArray(groupedData.groups) && groupedData.groups.length > 0;
+    const groupedLayoutMode = currentMode === 'grouped' || currentMode === 'matrix';
+    const canToggleGroups = groupedLayoutMode && groupedData && Array.isArray(groupedData.groups) && groupedData.groups.length > 0;
     if (expandAllBtn) expandAllBtn.disabled = !canToggleGroups;
     if (collapseAllBtn) collapseAllBtn.disabled = !canToggleGroups;
   };

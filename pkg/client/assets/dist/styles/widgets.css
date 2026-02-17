@@ -1,0 +1,191 @@
+/**
+ * Widget Grid System
+ * Styles for dashboard widgets with drag-and-drop, resize, and hide functionality.
+ * Extracted from admin.html and dashboard_ssr.html inline styles.
+ */
+
+/* Widget Grid Container */
+.widgets-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+/* Widget Base */
+.widget {
+  grid-column: span var(--span, 12);
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  cursor: grab;
+  transition: all 200ms ease;
+  position: relative;
+}
+
+.widget:active {
+  cursor: grabbing;
+}
+
+.widget.dragging {
+  opacity: 0.5;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+}
+
+.widget[data-hidden="true"],
+.widget.is-hidden {
+  opacity: 0.3;
+}
+
+/* Widget Toolbar */
+.widget__toolbar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.widget__toolbar button {
+  border: none;
+  background: #e2e8f0;
+  border-radius: 6px;
+  padding: 0.2rem 0.6rem;
+  cursor: pointer;
+  font-size: 0.75rem;
+}
+
+.widget__toolbar button:hover:not(:disabled) {
+  background: #cbd5db;
+}
+
+.widget__toolbar button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Widget Content */
+.widget__content {
+  /* Content styling placeholder */
+}
+
+/* Widget Area Title */
+.widget-area__title {
+  margin: 0;
+}
+
+/* Chart Container */
+.widget .chart-container {
+  min-height: 250px;
+}
+
+/* Metrics Display (stat cards within widgets) */
+.widget .metrics {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.widget .metric {
+  flex: 1;
+  min-width: 140px;
+  background: #0f172a;
+  color: #f8fafc;
+  border-radius: 0.625rem;
+  padding: 0.875rem 1rem;
+}
+
+.widget .metric small {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.7rem;
+  color: #cbd5f5;
+}
+
+.widget .metric span {
+  display: block;
+  font-size: 1.4rem;
+  font-weight: 600;
+  margin-top: 0.3rem;
+}
+
+/* Profile Sections (user_profile_overview widget) */
+.profile-sections {
+  /* Container for grouped profile sections */
+}
+
+.profile-section {
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.profile-section:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.profile-field {
+  padding: 0.25rem 0;
+}
+
+/* Profile Badge */
+.profile-badge {
+  text-transform: capitalize;
+}
+
+/* Profile Status Indicator */
+.profile-status {
+  text-transform: capitalize;
+}
+
+/* Profile Verified Badge */
+.profile-verified svg {
+  flex-shrink: 0;
+}
+
+/* Profile Date/Relative Time */
+.profile-date,
+.profile-relative {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Activity Timeline Styles */
+.activity-timeline {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.activity-entry {
+  transition: background-color 150ms ease;
+}
+
+.activity-entry:hover {
+  background-color: #f9fafb;
+}
+
+.activity-avatar {
+  flex-shrink: 0;
+}
+
+.activity-content {
+  overflow: hidden;
+}
+
+.activity-object {
+  word-break: break-word;
+}
+
+.activity-action-badge {
+  text-transform: capitalize;
+}
+
+/* Activity Empty/Unavailable States */
+.activity-empty,
+.activity-unavailable {
+  color: #6b7280;
+}
+
+.activity-empty svg,
+.activity-unavailable svg {
+  opacity: 0.8;
+}
