@@ -18,6 +18,7 @@ type translationActionRepoStub struct {
 	records                 map[string]map[string]any
 	created                 []map[string]any
 	list                    []map[string]any
+	listErr                 error
 	nextID                  int
 	createTranslationCalls  int
 	createTranslationInput  TranslationCreateInput
@@ -26,6 +27,9 @@ type translationActionRepoStub struct {
 }
 
 func (s *translationActionRepoStub) List(context.Context, ListOptions) ([]map[string]any, int, error) {
+	if s.listErr != nil {
+		return nil, 0, s.listErr
+	}
 	if len(s.list) > 0 {
 		out := make([]map[string]any, 0, len(s.list))
 		for _, record := range s.list {
@@ -1268,6 +1272,47 @@ func TestPanelBindingDetailIncludesTranslationSiblingsPayload(t *testing.T) {
 	}
 	if current, _ := siblings[0]["is_current"].(bool); !current {
 		t.Fatalf("expected english sibling to be marked is_current=true, got %+v", siblings[0])
+	}
+}
+
+func TestPanelBindingDetailFlagsSiblingsDegradedWhenListFails(t *testing.T) {
+	repo := &translationActionRepoStub{
+		records: map[string]map[string]any{
+			"post_en": {
+				"id":                   "post_en",
+				"title":                "Post EN",
+				"status":               "published",
+				"locale":               "en",
+				"translation_group_id": "tg_123",
+			},
+		},
+		listErr: errors.New("list unavailable"),
+	}
+	panel := &Panel{name: "posts", repo: repo}
+	binding := &panelBinding{
+		admin: &Admin{config: Config{DefaultLocale: "en"}},
+		name:  "posts",
+		panel: panel,
+	}
+	c := router.NewMockContext()
+	c.On("Context").Return(context.Background())
+
+	detail, err := binding.Detail(c, "en", "post_en")
+	if err != nil {
+		t.Fatalf("detail failed: %v", err)
+	}
+	siblings, ok := detail["siblings"].([]map[string]any)
+	if !ok || len(siblings) != 1 {
+		t.Fatalf("expected fallback sibling payload with one entry, got %T %+v", detail["siblings"], detail["siblings"])
+	}
+	if toString(siblings[0]["id"]) != "post_en" {
+		t.Fatalf("expected fallback sibling id=post_en, got %+v", siblings[0])
+	}
+	if degraded, _ := detail["siblings_degraded"].(bool); !degraded {
+		t.Fatalf("expected siblings_degraded=true, got %+v", detail)
+	}
+	if reason := strings.TrimSpace(toString(detail["siblings_degraded_reason"])); reason != "siblings_query_failed" {
+		t.Fatalf("expected siblings_degraded_reason=siblings_query_failed, got %q", reason)
 	}
 }
 

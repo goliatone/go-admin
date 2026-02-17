@@ -376,6 +376,60 @@ func TestPanelSchemaIncludesActionPayloadContracts(t *testing.T) {
 	}
 }
 
+func TestPanelSchemaAlwaysEmitsActionOrderForUnknownActions(t *testing.T) {
+	panel := &Panel{
+		name: "schema",
+		actions: []Action{
+			{Name: "custom_alpha", CommandName: "custom.alpha"},
+			{Name: "custom_beta", CommandName: "custom.beta"},
+		},
+		bulkActions: []Action{
+			{Name: "bulk_custom", CommandName: "bulk.custom"},
+		},
+	}
+
+	schema := panel.Schema()
+	if len(schema.Actions) < 4 {
+		t.Fatalf("expected default and custom row actions, got %+v", schema.Actions)
+	}
+	for _, action := range schema.Actions {
+		if action.Order <= 0 {
+			t.Fatalf("expected positive action order for %q, got %d", action.Name, action.Order)
+		}
+	}
+	if len(schema.BulkActions) != 1 || schema.BulkActions[0].Order <= 0 {
+		t.Fatalf("expected positive bulk action order, got %+v", schema.BulkActions)
+	}
+}
+
+func TestPanelSchemaAssignsUniqueFallbackOrderForUnknownActions(t *testing.T) {
+	panel := &Panel{
+		name: "schema",
+		actions: []Action{
+			{Name: "custom_a", CommandName: "custom.a"},
+			{Name: "custom_b", CommandName: "custom.b"},
+			{Name: "custom_c", CommandName: "custom.c"},
+		},
+	}
+	schema := panel.Schema()
+	orders := map[int]struct{}{}
+	for _, action := range schema.Actions {
+		if !strings.HasPrefix(action.Name, "custom_") {
+			continue
+		}
+		if action.Order <= 0 {
+			t.Fatalf("expected fallback order for %q", action.Name)
+		}
+		if _, exists := orders[action.Order]; exists {
+			t.Fatalf("expected unique fallback order values, got duplicate %d in %+v", action.Order, schema.Actions)
+		}
+		orders[action.Order] = struct{}{}
+	}
+	if len(orders) != 3 {
+		t.Fatalf("expected fallback orders for all custom actions, got %+v", schema.Actions)
+	}
+}
+
 func TestPanelBuilderBuildRequiresCreateUIContractForCanonicalRoute(t *testing.T) {
 	_, err := (&PanelBuilder{}).
 		WithRepository(NewMemoryRepository()).
