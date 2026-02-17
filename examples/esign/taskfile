@@ -44,14 +44,29 @@ function dev:serve {
     local hash_file="${assets_dir}/.build_hash"
     local src_dir="${assets_dir}/src"
 
-    # Calculate hash of source files
+    # Calculate hash of all frontend inputs that affect runtime behavior:
+    # - Source files (TS/CSS/JS)
+    # - Build config files (vite, tsconfig, tailwind, package.json)
+    # - Input CSS for Tailwind
     local current_hash
+    local config_files="${assets_dir}/vite.config.ts ${assets_dir}/tsconfig.json ${assets_dir}/tailwind.config.cjs ${assets_dir}/package.json ${assets_dir}/input.css"
+
     if command -v md5sum &> /dev/null; then
         # Linux
-        current_hash=$(find "${src_dir}" -type f \( -name "*.ts" -o -name "*.css" -o -name "*.js" \) -exec md5sum {} \; 2>/dev/null | sort | md5sum | cut -d' ' -f1)
+        current_hash=$(
+            {
+                find "${src_dir}" -type f \( -name "*.ts" -o -name "*.css" -o -name "*.js" \) -exec md5sum {} \; 2>/dev/null
+                for f in $config_files; do [ -f "$f" ] && md5sum "$f" 2>/dev/null; done
+            } | sort | md5sum | cut -d' ' -f1
+        )
     else
         # macOS
-        current_hash=$(find "${src_dir}" -type f \( -name "*.ts" -o -name "*.css" -o -name "*.js" \) -exec md5 -q {} \; 2>/dev/null | sort | md5 -q)
+        current_hash=$(
+            {
+                find "${src_dir}" -type f \( -name "*.ts" -o -name "*.css" -o -name "*.js" \) -exec md5 -q {} \; 2>/dev/null
+                for f in $config_files; do [ -f "$f" ] && md5 -q "$f" 2>/dev/null; done
+            } | sort | md5 -q
+        )
     fi
 
     # Check if build is needed
@@ -63,6 +78,23 @@ function dev:serve {
             needs_build=0
             echo "Assets unchanged, skipping build"
         fi
+    fi
+
+    # Safeguard: verify expected dist outputs exist even if hash matches
+    if [ "$needs_build" -eq 0 ]; then
+        local expected_outputs=(
+            "${assets_dir}/dist/datatable/index.js"
+            "${assets_dir}/dist/output.css"
+            "${assets_dir}/dist/styles/datatable-actions.css"
+        )
+        for output in "${expected_outputs[@]}"; do
+            if [ ! -f "$output" ]; then
+                echo "Warning: Expected dist output missing: $output"
+                echo "Forcing rebuild..."
+                needs_build=1
+                break
+            fi
+        done
     fi
 
     if [ "$needs_build" -eq 1 ]; then
