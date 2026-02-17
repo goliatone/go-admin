@@ -137,6 +137,15 @@ func (m *ESignModule) GoogleIntegrationEnabled() bool {
 	return m != nil && m.googleEnabled
 }
 
+// Close releases background resources owned by the module runtime.
+func (m *ESignModule) Close() {
+	if m == nil || m.googleImportQueue == nil {
+		return
+	}
+	m.googleImportQueue.Close()
+	m.googleImportQueue = nil
+}
+
 // GoogleConnected reports whether the given user has an active Google integration connection in scope.
 func (m *ESignModule) GoogleConnected(ctx context.Context, scope stores.Scope, userID string) bool {
 	if m == nil || !m.googleEnabled {

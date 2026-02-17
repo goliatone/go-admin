@@ -49,6 +49,7 @@ func TestESignModuleRegistersPanelsSettingsRoleDefaultsAndCommandActions(t *test
 	adm.WithAuthorizer(allowAllAuthorizer{})
 
 	module := NewESignModule(cfg.BasePath, cfg.DefaultLocale, cfg.NavMenuCode)
+	t.Cleanup(module.Close)
 	if err := adm.RegisterModule(module); err != nil {
 		t.Fatalf("RegisterModule: %v", err)
 	}

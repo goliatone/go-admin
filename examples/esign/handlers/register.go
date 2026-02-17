@@ -1045,7 +1045,7 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 			if err := c.Bind(&payload); err != nil {
 				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid oauth connect payload", nil)
 			}
-			accountID := strings.TrimSpace(firstNonEmpty(payload.AccountID, c.Query("account_id")))
+			accountID := stableString(firstNonEmpty(payload.AccountID, c.Query("account_id")))
 			status, err := cfg.google.Connect(c.Context(), cfg.resolveScope(c), services.GoogleConnectInput{
 				UserID:      userID,
 				AccountID:   accountID,
@@ -1069,7 +1069,7 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 			if userID == "" {
 				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "user_id is required", nil)
 			}
-			accountID := strings.TrimSpace(c.Query("account_id"))
+			accountID := stableString(c.Query("account_id"))
 			scopedUserID := services.ComposeGoogleScopedUserID(userID, accountID)
 			if err := cfg.google.Disconnect(c.Context(), cfg.resolveScope(c), scopedUserID); err != nil {
 				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeGoogleAccessRevoked), "google oauth disconnect failed", nil)
@@ -1090,7 +1090,7 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 			if userID == "" {
 				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "user_id is required", nil)
 			}
-			accountID := strings.TrimSpace(c.Query("account_id"))
+			accountID := stableString(c.Query("account_id"))
 			scopedUserID := services.ComposeGoogleScopedUserID(userID, accountID)
 			status, err := cfg.google.RotateCredentialEncryption(c.Context(), cfg.resolveScope(c), scopedUserID)
 			if err != nil {
@@ -1110,7 +1110,7 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 			if userID == "" {
 				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "user_id is required", nil)
 			}
-			accountID := strings.TrimSpace(c.Query("account_id"))
+			accountID := stableString(c.Query("account_id"))
 			scopedUserID := services.ComposeGoogleScopedUserID(userID, accountID)
 			status, err := cfg.google.Status(c.Context(), cfg.resolveScope(c), scopedUserID)
 			if err != nil {
@@ -1153,7 +1153,7 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 			if userID == "" {
 				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "user_id is required", nil)
 			}
-			accountID := strings.TrimSpace(c.Query("account_id"))
+			accountID := stableString(c.Query("account_id"))
 			pageSize := parsePageSize(c.Query("page_size"))
 			result, err := cfg.google.SearchFiles(c.Context(), cfg.resolveScope(c), services.GoogleDriveQueryInput{
 				UserID:    userID,
@@ -1180,7 +1180,7 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 			if userID == "" {
 				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "user_id is required", nil)
 			}
-			accountID := strings.TrimSpace(c.Query("account_id"))
+			accountID := stableString(c.Query("account_id"))
 			pageSize := parsePageSize(c.Query("page_size"))
 			result, err := cfg.google.BrowseFiles(c.Context(), cfg.resolveScope(c), services.GoogleDriveQueryInput{
 				UserID:    userID,
@@ -1230,7 +1230,7 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 				logAPIOperation(c.Context(), "google_drive_imports_create", correlationID, startedAt, err, nil)
 				return werr
 			}
-			accountID := strings.TrimSpace(firstNonEmpty(payload.AccountID, c.Query("account_id")))
+			accountID := stableString(firstNonEmpty(payload.AccountID, c.Query("account_id")))
 			scope := cfg.resolveScope(c)
 			dedupeKey := googleImportRunDedupeKey(userID, accountID, payload.GoogleFileID, payload.SourceVersionHint)
 			run, created, err := cfg.googleImportRuns.BeginGoogleImportRun(c.Context(), scope, stores.GoogleImportRunInput{
@@ -1395,7 +1395,7 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 			}
 			c.Set("Deprecation", "true")
 			c.Set("Link", fmt.Sprintf("<%s>; rel=\"successor-version\"", routes.AdminGoogleDriveImports))
-			accountID := strings.TrimSpace(firstNonEmpty(payload.AccountID, c.Query("account_id")))
+			accountID := stableString(firstNonEmpty(payload.AccountID, c.Query("account_id")))
 			imported, err := cfg.google.ImportDocument(c.Context(), cfg.resolveScope(c), services.GoogleImportInput{
 				UserID:          userID,
 				AccountID:       accountID,
@@ -2522,9 +2522,9 @@ func resolveAdminUserID(c router.Context) string {
 	if c == nil {
 		return ""
 	}
-	userID := strings.TrimSpace(c.Query("user_id"))
+	userID := stableString(c.Query("user_id"))
 	if userID == "" {
-		userID = strings.TrimSpace(c.Header("X-User-ID"))
+		userID = stableString(c.Header("X-User-ID"))
 	}
 	if userID == "" {
 		if actor, ok := auth.ActorFromRouterContext(c); ok && actor != nil {
@@ -2541,7 +2541,7 @@ func resolveAdminUserID(c router.Context) string {
 			userID = firstNonEmpty(strings.TrimSpace(claims.UserID()), strings.TrimSpace(claims.Subject()))
 		}
 	}
-	return userID
+	return stableString(userID)
 }
 
 func parsePageSize(raw string) int {
