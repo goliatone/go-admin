@@ -3,6 +3,7 @@ package quickstart
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 
@@ -70,8 +71,8 @@ func buildTranslationCapabilities(adm *admin.Admin, productCfg TranslationProduc
 	exchangeEnabled := translationModuleEnabled(baseModules, "exchange")
 	queueEnabled := translationModuleEnabled(baseModules, "queue")
 	if modules.HasState {
-		exchangeEnabled = modules.ExchangeEnabled
-		queueEnabled = modules.QueueEnabled
+		exchangeEnabled = effectiveTranslationModuleEnabled(exchangeEnabled, modules.ExchangeEnabled)
+		queueEnabled = effectiveTranslationModuleEnabled(queueEnabled, modules.QueueEnabled)
 	}
 
 	baseFeatures, _ := base["features"].(map[string]any)
@@ -108,6 +109,7 @@ func buildTranslationCapabilities(adm *admin.Admin, productCfg TranslationProduc
 	}
 	overrideModuleEnabled(out, "exchange", exchangeEnabled)
 	overrideModuleEnabled(out, "queue", queueEnabled)
+	applyTranslationCapabilityRouteFiltering(out)
 	return out
 }
 
@@ -154,14 +156,19 @@ func mergeTranslationCapabilities(base, overlay map[string]any) map[string]any {
 				baseModule = map[string]any{}
 			}
 			if hasEnabled {
-				baseModule["enabled"] = enabled
-				applyModuleEntryState(baseModule, enabled)
-				applyModuleActionStates(baseModule, enabled)
+				effectiveEnabled := enabled
+				if baseEnabled, ok := baseModule["enabled"].(bool); ok {
+					effectiveEnabled = effectiveTranslationModuleEnabled(baseEnabled, enabled)
+				}
+				baseModule["enabled"] = effectiveEnabled
+				applyModuleEntryState(baseModule, effectiveEnabled)
+				applyModuleActionStates(baseModule, effectiveEnabled)
 			}
 			mergedModules[moduleName] = baseModule
 		}
 		out["modules"] = mergedModules
 	}
+	applyTranslationCapabilityRouteFiltering(out)
 
 	return out
 }
@@ -250,13 +257,108 @@ func applyActionStateDisabled(action map[string]any, disabled bool) {
 }
 
 func translationCapabilityRoutes(adm *admin.Admin) (map[string]string, []string) {
-	caps := admin.TranslationCapabilities(adm)
+	caps := translationCapabilitiesForAdmin(adm)
 	return translationRoutesToStrings(caps["routes"]), translationStringSlice(caps["resolver_keys"])
 }
 
 func translationCapabilityPanels(adm *admin.Admin) []string {
-	caps := admin.TranslationCapabilities(adm)
+	caps := translationCapabilitiesForAdmin(adm)
 	return translationStringSlice(caps["panels"])
+}
+
+func effectiveTranslationModuleEnabled(featureEnabled, overlayEnabled bool) bool {
+	return featureEnabled && overlayEnabled
+}
+
+func applyTranslationCapabilityRouteFiltering(payload map[string]any) {
+	if len(payload) == 0 {
+		return
+	}
+	modules, _ := payload["modules"].(map[string]any)
+	queueEnabled := translationModuleEnabled(modules, "queue")
+	exchangeEnabled := translationModuleEnabled(modules, "exchange")
+	routes := filterTranslationCapabilityRoutes(translationRoutesToStrings(payload["routes"]), exchangeEnabled, queueEnabled)
+	payload["routes"] = routes
+	payload["resolver_keys"] = filterTranslationCapabilityResolverKeys(translationStringSlice(payload["resolver_keys"]), routes)
+}
+
+func filterTranslationCapabilityRoutes(routes map[string]string, exchangeEnabled, queueEnabled bool) map[string]string {
+	if len(routes) == 0 {
+		return map[string]string{}
+	}
+	out := map[string]string{}
+	for key, path := range routes {
+		key = strings.TrimSpace(key)
+		path = strings.TrimSpace(path)
+		if key == "" || path == "" {
+			continue
+		}
+		module, hasModule := translationModuleForRouteKey(key)
+		if !hasModule {
+			out[key] = path
+			continue
+		}
+		if module == "queue" && queueEnabled {
+			out[key] = path
+			continue
+		}
+		if module == "exchange" && exchangeEnabled {
+			out[key] = path
+		}
+	}
+	return out
+}
+
+func filterTranslationCapabilityResolverKeys(keys []string, routes map[string]string) []string {
+	if len(keys) == 0 || len(routes) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(keys))
+	seen := map[string]struct{}{}
+	for _, raw := range keys {
+		key := strings.TrimSpace(raw)
+		if key == "" {
+			continue
+		}
+		if _, ok := routes[key]; !ok {
+			continue
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, key)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func translationModuleForRouteKey(routeKey string) (string, bool) {
+	routeKey = strings.TrimSpace(routeKey)
+	switch {
+	case routeKey == "admin.translations.dashboard":
+		return "queue", true
+	case routeKey == "admin.translations.queue":
+		return "queue", true
+	case routeKey == "admin.translations.exchange":
+		return "exchange", true
+	case strings.HasSuffix(routeKey, ".translations.my_work"):
+		return "queue", true
+	case strings.HasSuffix(routeKey, ".translations.queue"):
+		return "queue", true
+	case strings.HasSuffix(routeKey, ".translations.export"):
+		return "exchange", true
+	case strings.HasSuffix(routeKey, ".translations.template"):
+		return "exchange", true
+	case strings.HasSuffix(routeKey, ".translations.jobs.id"):
+		return "exchange", true
+	case strings.HasSuffix(routeKey, ".translations.import.validate"):
+		return "exchange", true
+	case strings.HasSuffix(routeKey, ".translations.import.apply"):
+		return "exchange", true
+	default:
+		return "", false
+	}
 }
 
 func inferTranslationProfile(cmsEnabled, exchangeEnabled, queueEnabled bool) TranslationProfile {
