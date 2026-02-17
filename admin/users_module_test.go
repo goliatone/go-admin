@@ -202,8 +202,8 @@ func TestUserModuleRespectsURLOverrides(t *testing.T) {
 		t.Fatalf("expected users UI path /control/users, got %q", got)
 	}
 	apiPath := adminPanelAPIPath(adm, cfg, usersModuleID)
-	if apiPath != "/control/rest/users" {
-		t.Fatalf("expected users API path /control/rest/users, got %q", apiPath)
+	if apiPath != "/control/rest/panels/users" {
+		t.Fatalf("expected users API path /control/rest/panels/users, got %q", apiPath)
 	}
 	req := httptest.NewRequest("GET", apiPath, nil)
 	req.Header.Set("X-User-ID", "actor-1")

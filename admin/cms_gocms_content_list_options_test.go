@@ -97,13 +97,13 @@ func TestCMSContentTypeEntryRepositoryListOptInTranslations(t *testing.T) {
 		Slug:         "page",
 		Capabilities: map[string]any{"panel_slug": "pages"},
 	}
-	otherType := CMSContentType{Slug: "news"}
+	otherType := CMSContentType{Slug: "product"}
 	contentSvc := &stubGoCMSContentService{
 		listResp: []*cmscontent.Content{
 			{
 				ID:   uuid.New(),
 				Slug: "breaking",
-				Type: &cmscontent.ContentType{Slug: "news"},
+				Type: &cmscontent.ContentType{Slug: "product"},
 			},
 		},
 		listWithTranslations: []*cmscontent.Content{

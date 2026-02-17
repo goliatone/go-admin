@@ -67,7 +67,7 @@ func TestCommerceExampleHappyPath(t *testing.T) {
 		authHeader := "Bearer " + token
 
 		// Panel CRUD (products)
-		createReq := httptest.NewRequest("POST", "/admin/api/products", strings.NewReader(`{"name":"New Bag","sku":"NB-10","price":99,"inventory":3,"status":"active"}`))
+		createReq := httptest.NewRequest("POST", "/admin/api/panels/products", strings.NewReader(`{"name":"New Bag","sku":"NB-10","price":99,"inventory":3,"status":"active"}`))
 		createReq.Header.Set("Content-Type", "application/json")
 		createReq.Header.Set("Authorization", authHeader)
 		createResp, err := app.Test(createReq, -1)
@@ -90,7 +90,7 @@ func TestCommerceExampleHappyPath(t *testing.T) {
 			productID = fmt.Sprintf("%v", productsAfterCreate[len(productsAfterCreate)-1]["id"])
 		}
 
-		detailReq := httptest.NewRequest("GET", "/admin/api/products/"+productID, nil)
+		detailReq := httptest.NewRequest("GET", "/admin/api/panels/products/"+productID, nil)
 		detailReq.Header.Set("Authorization", authHeader)
 		detailResp, err := app.Test(detailReq, -1)
 		if err != nil {
@@ -107,7 +107,7 @@ func TestCommerceExampleHappyPath(t *testing.T) {
 			t.Fatalf("expected detail payload to include data, got %v", detailPayload)
 		}
 
-		listReq := httptest.NewRequest("GET", "/admin/api/products", nil)
+		listReq := httptest.NewRequest("GET", "/admin/api/panels/products", nil)
 		listReq.Header.Set("Authorization", authHeader)
 		listResp, err := app.Test(listReq, -1)
 		if err != nil {
