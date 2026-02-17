@@ -345,6 +345,10 @@ func RegisterAdminUIRoutes[T any](r router.Router[T], cfg admin.Config, adm *adm
 	if r == nil {
 		return fmt.Errorf("router is required")
 	}
+	translationCaps := translationCapabilitiesForAdmin(adm)
+	translationModules, _ := translationCaps["modules"].(map[string]any)
+	queueModuleEnabled := translationModuleEnabled(translationModules, "queue")
+	exchangeModuleEnabled := translationModuleEnabled(translationModules, "exchange")
 
 	options := uiRouteOptions{
 		basePath:                     strings.TrimSpace(cfg.BasePath),
@@ -370,8 +374,8 @@ func RegisterAdminUIRoutes[T any](r router.Router[T], cfg admin.Config, adm *adm
 		registerNotifications:        true,
 		registerActivity:             true,
 		registerFeatureFlags:         true,
-		registerTranslationDashboard: false, // opt-in: enable via WithUITranslationDashboardRoute(true)
-		registerTranslationExchange:  false, // opt-in: enable via WithUITranslationExchangeRoute(true)
+		registerTranslationDashboard: queueModuleEnabled,
+		registerTranslationExchange:  exchangeModuleEnabled,
 	}
 	for _, opt := range opts {
 		if opt != nil {
@@ -498,7 +502,7 @@ func defaultUIViewContextBuilder(adm *admin.Admin, cfg admin.Config) UIViewConte
 			labels = map[string]string{}
 		}
 		ctx["activity_action_labels"] = labels
-		ctx = withUIFeatureContext(ctx, adm, active)
+		ctx = withUIFeatureContext(ctx, adm, active, reqCtx)
 		return admin.CaptureViewContextForRequest(adm.Debug(), c, ctx)
 	}
 }
