@@ -152,6 +152,8 @@ func TestTranslationExchangeBindingImportApplyUsesExplicitCreateIntentOptions(t 
 	raw, _ := json.Marshal(payload)
 	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/import/apply", bytes.NewReader(raw))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-User-ID", "ops-user")
+	req.Header.Set("X-User-ID", "ops-user")
 
 	resp, err := app.Test(req)
 	if err != nil {
@@ -616,6 +618,7 @@ func TestTranslationExchangeBindingImportApplyAsyncReturnsJobEnvelopeWithConflic
 	}
 
 	pollReq := httptest.NewRequest(http.MethodGet, pollEndpoint, nil)
+	pollReq.Header.Set("X-User-ID", "ops-user")
 	pollResp, err := app.Test(pollReq)
 	if err != nil {
 		t.Fatalf("poll request error: %v", err)
@@ -658,6 +661,7 @@ func TestTranslationExchangeBindingExportAsyncReturnsJobEnvelope(t *testing.T) {
 	raw, _ := json.Marshal(payload)
 	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/export", bytes.NewReader(raw))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-User-ID", "ops-user")
 
 	resp, err := app.Test(req)
 	if err != nil {
@@ -684,6 +688,59 @@ func TestTranslationExchangeBindingExportAsyncReturnsJobEnvelope(t *testing.T) {
 	progress, _ := job["progress"].(map[string]any)
 	if progress["total"] != float64(2) || progress["processed"] != float64(2) {
 		t.Fatalf("expected progress totals to match export rows, got %+v", progress)
+	}
+}
+
+func TestTranslationExchangeBindingJobStatusRequiresJobOwner(t *testing.T) {
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
+	executor := &stubTranslationExchangeExecutor{
+		exportResult: TranslationExportResult{
+			RowCount: 1,
+			Rows: []TranslationExchangeRow{
+				{Resource: "pages", EntityID: "page_1", TranslationGroupID: "tg_1", TargetLocale: "es", FieldPath: "title"},
+			},
+		},
+	}
+	binding := newTranslationExchangeBinding(adm)
+	binding.executor = executor
+	app := newTranslationExchangeTestApp(t, binding)
+
+	raw, _ := json.Marshal(map[string]any{
+		"filter": map[string]any{
+			"resources": []string{"pages"},
+		},
+		"async": true,
+	})
+	createReq := httptest.NewRequest(http.MethodPost, "/admin/api/translations/export", bytes.NewReader(raw))
+	createReq.Header.Set("Content-Type", "application/json")
+	createReq.Header.Set("X-User-ID", "owner-user")
+
+	createResp, err := app.Test(createReq)
+	if err != nil {
+		t.Fatalf("create request error: %v", err)
+	}
+	if createResp.StatusCode != http.StatusOK {
+		t.Fatalf("create status=%d want=200", createResp.StatusCode)
+	}
+	defer createResp.Body.Close()
+	createPayload := map[string]any{}
+	if err := json.NewDecoder(createResp.Body).Decode(&createPayload); err != nil {
+		t.Fatalf("decode create payload: %v", err)
+	}
+	job, _ := createPayload["job"].(map[string]any)
+	pollEndpoint := toString(job["poll_endpoint"])
+	if pollEndpoint == "" {
+		t.Fatalf("expected poll endpoint, got %+v", job)
+	}
+
+	forbiddenReq := httptest.NewRequest(http.MethodGet, pollEndpoint, nil)
+	forbiddenReq.Header.Set("X-User-ID", "other-user")
+	forbiddenResp, err := app.Test(forbiddenReq)
+	if err != nil {
+		t.Fatalf("forbidden poll request error: %v", err)
+	}
+	if forbiddenResp.StatusCode != http.StatusForbidden {
+		t.Fatalf("forbidden poll status=%d want=403", forbiddenResp.StatusCode)
 	}
 }
 
