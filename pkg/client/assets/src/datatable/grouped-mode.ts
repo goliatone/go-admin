@@ -42,6 +42,8 @@ export interface GroupSummary {
 export interface RecordGroup {
   /** The translation_group_id */
   groupId: string;
+  /** Optional display label for group headers */
+  displayLabel?: string;
   /** Records in this group */
   records: Record<string, unknown>[];
   /** Group summary (from backend or computed) */
@@ -172,7 +174,18 @@ export function hasBackendGroupedRows(records: Record<string, unknown>[]): boole
   if (records.length === 0) {
     return false;
   }
-  return records.every((record) => isBackendGroupedRow(record));
+  let hasGroupedRows = false;
+  for (const record of records) {
+    if (isBackendGroupedRow(record)) {
+      hasGroupedRows = true;
+      continue;
+    }
+    if (isBackendUngroupedRow(record)) {
+      continue;
+    }
+    return false;
+  }
+  return hasGroupedRows;
 }
 
 /**
@@ -193,9 +206,15 @@ export function normalizeBackendGroupedRows(
   }
 
   const groups: RecordGroup[] = [];
+  const ungrouped: Record<string, unknown>[] = [];
   let totalRecords = 0;
 
   for (const row of records) {
+    if (isBackendUngroupedRow(row)) {
+      ungrouped.push({ ...row });
+      totalRecords += 1;
+      continue;
+    }
     const groupId = getBackendGroupID(row);
     if (!groupId) {
       return null;
@@ -207,6 +226,7 @@ export function normalizeBackendGroupedRows(
 
     groups.push({
       groupId,
+      displayLabel: getBackendGroupLabel(row, children),
       records: children,
       summary,
       expanded,
@@ -218,7 +238,7 @@ export function normalizeBackendGroupedRows(
 
   return {
     groups,
-    ungrouped: [],
+    ungrouped,
     totalGroups: groups.length,
     totalRecords,
   };
@@ -236,6 +256,11 @@ function isBackendGroupedRow(record: Record<string, unknown>): record is Record<
   }
   const children = getBackendGroupChildren(record);
   return Array.isArray(children);
+}
+
+function isBackendUngroupedRow(record: Record<string, unknown>): boolean {
+  const rowType = getBackendGroupRowType(record);
+  return rowType === 'ungrouped';
 }
 
 function getBackendGroupRowType(record: Record<string, unknown>): string {
@@ -303,8 +328,6 @@ function getBackendGroupSummary(record: Record<string, unknown>, children: Recor
   const readinessState = isValidReadinessState(raw.readiness_state)
     ? raw.readiness_state
     : null;
-  const requiredCount = typeof raw.required_count === 'number' ? Math.max(raw.required_count, 0) : null;
-  const availableCount = typeof raw.available_count === 'number' ? Math.max(raw.available_count, 0) : availableLocales.length;
   const fallbackTotal = Math.max(children.length, typeof raw.child_count === 'number' ? Math.max(raw.child_count, 0) : 0);
 
   return {
@@ -316,6 +339,46 @@ function getBackendGroupSummary(record: Record<string, unknown>, children: Recor
     readinessState,
     readyForPublish: typeof raw.ready_for_publish === 'boolean' ? raw.ready_for_publish : null,
   };
+}
+
+function getBackendGroupLabel(record: Record<string, unknown>, children: Record<string, unknown>[]): string | undefined {
+  const directLabel = record.translation_group_label;
+  if (typeof directLabel === 'string' && directLabel.trim()) {
+    return directLabel.trim();
+  }
+
+  const summary = record.translation_group_summary;
+  if (summary && typeof summary === 'object' && !Array.isArray(summary)) {
+    const summaryLabel = (summary as Record<string, unknown>).group_label;
+    if (typeof summaryLabel === 'string' && summaryLabel.trim()) {
+      return summaryLabel.trim();
+    }
+  }
+
+  const meta = record._group;
+  if (meta && typeof meta === 'object' && !Array.isArray(meta)) {
+    const metaLabel = (meta as Record<string, unknown>).label;
+    if (typeof metaLabel === 'string' && metaLabel.trim()) {
+      return metaLabel.trim();
+    }
+  }
+
+  const candidates: unknown[] = [];
+  const parent = (record as BackendGroupedRow).parent;
+  if (parent && typeof parent === 'object' && !Array.isArray(parent)) {
+    const parentRecord = parent as Record<string, unknown>;
+    candidates.push(parentRecord.title, parentRecord.name, parentRecord.slug, parentRecord.path);
+  }
+  if (children.length > 0) {
+    candidates.push(children[0].title, children[0].name, children[0].slug, children[0].path);
+  }
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+
+  return undefined;
 }
 
 /**
@@ -845,9 +908,10 @@ export function renderGroupHeaderRow(
     : '';
 
   const summaryHtml = renderGroupHeaderSummary(group);
-  const groupLabel = group.groupId.startsWith('ungrouped:')
-    ? 'Ungrouped'
-    : `Group: ${escapeHtml(group.groupId.slice(0, 12))}...`;
+  const label = typeof group.displayLabel === 'string' ? group.displayLabel.trim() : '';
+  const groupLabel = label
+    ? escapeHtml(label)
+    : (group.groupId.startsWith('ungrouped:') ? 'Ungrouped' : 'Translation Group');
 
   return `
     <tr class="group-header bg-gray-50 hover:bg-gray-100 cursor-pointer border-b border-gray-200"

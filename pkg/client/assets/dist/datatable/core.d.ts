@@ -201,7 +201,7 @@ export declare class DataGrid {
      */
     private renderGroupedData;
     /**
-     * Whether grouped view is currently active and enabled.
+     * Whether grouped or matrix view is currently active and enabled.
      */
     private isGroupedViewActive;
     /**

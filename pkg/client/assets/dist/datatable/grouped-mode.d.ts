@@ -35,6 +35,8 @@ export interface GroupSummary {
 export interface RecordGroup {
     /** The translation_group_id */
     groupId: string;
+    /** Optional display label for group headers */
+    displayLabel?: string;
     /** Records in this group */
     records: Record<string, unknown>[];
     /** Group summary (from backend or computed) */
