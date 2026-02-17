@@ -477,6 +477,7 @@ export class SchemaActionBuilder {
     }
 
     return {
+      id: schemaAction.name,
       label,
       icon: icon || this.getDefaultIcon(schemaAction.name),
       variant,
@@ -499,6 +500,7 @@ export class SchemaActionBuilder {
     const endpoint = this.config.apiEndpoint;
 
     return {
+      id: 'delete',
       label,
       icon: icon || 'trash',
       variant: variant === 'secondary' ? 'danger' : variant,
@@ -533,6 +535,7 @@ export class SchemaActionBuilder {
     const endpoint = `${this.config.apiEndpoint}/actions/${actionName}`;
 
     return {
+      id: actionName,
       label,
       icon: icon || this.getDefaultIcon(actionName),
       variant,
@@ -1143,6 +1146,7 @@ export class SchemaActionBuilder {
       {
         name: 'view',
         button: {
+          id: 'view',
           label: 'View',
           icon: 'eye',
           variant: 'secondary',
@@ -1156,6 +1160,7 @@ export class SchemaActionBuilder {
       {
         name: 'edit',
         button: {
+          id: 'edit',
           label: 'Edit',
           icon: 'edit',
           variant: 'primary',
@@ -1169,6 +1174,7 @@ export class SchemaActionBuilder {
       {
         name: 'delete',
         button: {
+          id: 'delete',
           label: 'Delete',
           icon: 'trash',
           variant: 'danger',
@@ -1211,6 +1217,7 @@ export class SchemaActionBuilder {
       {
         name: 'view',
         button: {
+          id: 'view',
           label: 'View',
           icon: 'eye',
           variant: 'secondary',
@@ -1224,6 +1231,7 @@ export class SchemaActionBuilder {
       {
         name: 'edit',
         button: {
+          id: 'edit',
           label: 'Edit',
           icon: 'edit',
           variant: 'primary',
@@ -1237,6 +1245,7 @@ export class SchemaActionBuilder {
       {
         name: 'delete',
         button: {
+          id: 'delete',
           label: 'Delete',
           icon: 'trash',
           variant: 'danger',

@@ -390,3 +390,57 @@ export type {
   TranslatorDashboardConfig,
   DashboardLabels
 } from './translator-dashboard.js';
+
+// Export exchange import component (Phase 4 - TX-048)
+export {
+  ExchangeImport,
+  createExchangeImport,
+  initExchangeImport,
+  getExchangeImportStyles
+} from './exchange-import.js';
+export type {
+  ImportConflictResolution,
+  RowSelectionState,
+  ImportPreviewRow,
+  ImportPreviewState,
+  ImportApplyOptions,
+  ExchangeImportConfig,
+  ImportLabels
+} from './exchange-import.js';
+
+// Export async progress component (Phase 4 - TX-049)
+export {
+  AsyncProgress,
+  createAsyncProgress,
+  initAsyncProgress,
+  checkForPersistedJob,
+  getAsyncProgressStyles
+} from './async-progress.js';
+export type {
+  JobStatus,
+  PollingState,
+  JobProgress,
+  ConflictSummary,
+  AsyncJobEnvelope,
+  PersistedJobState,
+  AsyncProgressConfig,
+  AsyncProgressLabels
+} from './async-progress.js';
+
+// Export side-by-side editor component (Phase 5 - TX-051)
+export {
+  SideBySideEditor,
+  createSideBySideEditor,
+  initSideBySideEditorFromRecord,
+  extractSourceTargetDrift,
+  hasFieldDrift,
+  getChangedFields,
+  getSideBySideEditorStyles,
+  DEFAULT_SIDE_BY_SIDE_LABELS
+} from './side-by-side-editor.js';
+export type {
+  SourceTargetDrift,
+  SideBySideField,
+  SideBySideEditorConfig,
+  SideBySideLabels
+} from './side-by-side-editor.js';

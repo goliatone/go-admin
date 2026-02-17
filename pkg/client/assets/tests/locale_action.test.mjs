@@ -759,8 +759,8 @@ test('E2E: Locale code data attribute matches config', () => {
 test('E2E: InlineLocaleChips renders missing locales with LocaleActionChip', () => {
   const record = {
     id: 'page_123',
-    _translation_readiness: {
-      status: 'partial',
+    translation_readiness: {
+      readiness_state: 'missing_locales',
       missing_required_locales: ['es', 'fr'],
       required_locales: ['en', 'es', 'fr'],
       available_locales: ['en'],
@@ -768,6 +768,7 @@ test('E2E: InlineLocaleChips renders missing locales with LocaleActionChip', () 
   };
 
   const inlineChips = new InlineLocaleChips(record, {
+    recordId: 'page_123',
     apiEndpoint: '/admin/api/pages',
     navigationBasePath: '/admin/content/pages',
     panelName: 'pages',
@@ -784,8 +785,8 @@ test('E2E: InlineLocaleChips renders missing locales with LocaleActionChip', () 
 test('E2E: InlineLocaleChips styling matches LocaleActionChip', () => {
   const record = {
     id: 'page_123',
-    _translation_readiness: {
-      status: 'partial',
+    translation_readiness: {
+      readiness_state: 'missing_locales',
       missing_required_locales: ['de'],
       required_locales: ['en', 'de'],
       available_locales: ['en'],
@@ -793,6 +794,7 @@ test('E2E: InlineLocaleChips styling matches LocaleActionChip', () => {
   };
 
   const inlineChips = new InlineLocaleChips(record, {
+    recordId: 'page_123',
     apiEndpoint: '/admin/api/pages',
     navigationBasePath: '/admin/content/pages',
   });
@@ -870,12 +872,10 @@ test('E2E: extractTranslationContext returns consistent structure', () => {
   const record = {
     id: 'page_123',
     locale: 'en',
-    _translation_metadata: {
-      requested_locale: 'es',
-      resolved_locale: 'en',
-      fallback_used: true,
-      missing_requested_locale: true,
-    },
+    requested_locale: 'es',
+    resolved_locale: 'en',
+    fallback_used: true,
+    missing_requested_locale: true,
   };
 
   const context = extractTranslationContext(record);
@@ -890,8 +890,8 @@ test('E2E: extractTranslationContext returns consistent structure', () => {
 test('E2E: extractTranslationReadiness returns consistent structure', () => {
   const record = {
     id: 'page_123',
-    _translation_readiness: {
-      status: 'partial',
+    translation_readiness: {
+      readiness_state: 'missing_locales',
       missing_required_locales: ['es', 'fr'],
       required_locales: ['en', 'es', 'fr'],
       available_locales: ['en'],
@@ -914,17 +914,15 @@ test('E2E: shouldShowFallbackBanner and shouldShowInlineLocaleChips are independ
   // Record with fallback but no missing required locales
   const fallbackOnlyRecord = {
     id: 'page_123',
-    _translation_metadata: {
-      fallback_used: true,
-      missing_requested_locale: true,
-    },
+    fallback_used: true,
+    missing_requested_locale: true,
   };
 
   // Record with missing required locales but no fallback
   const readinessOnlyRecord = {
     id: 'page_456',
-    _translation_readiness: {
-      status: 'partial',
+    translation_readiness: {
+      readiness_state: 'missing_locales',
       missing_required_locales: ['es'],
       required_locales: ['en', 'es'],
       available_locales: ['en'],

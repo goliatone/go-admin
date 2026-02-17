@@ -665,16 +665,32 @@ const DEFAULT_SHORTCUT_SETTINGS: ShortcutSettings = {
   updatedAt: new Date().toISOString(),
 };
 
+interface StorageLike {
+  getItem: (key: string) => string | null;
+  setItem: (key: string, value: string) => void;
+}
+
+function getStorage(): StorageLike | null {
+  if (typeof localStorage === 'undefined' || !localStorage) {
+    return null;
+  }
+  if (typeof localStorage.getItem !== 'function' || typeof localStorage.setItem !== 'function') {
+    return null;
+  }
+  return localStorage as unknown as StorageLike;
+}
+
 /**
  * Load shortcut settings from localStorage.
  */
 export function loadShortcutSettings(): ShortcutSettings {
-  if (typeof localStorage === 'undefined') {
+  const storage = getStorage();
+  if (!storage) {
     return { ...DEFAULT_SHORTCUT_SETTINGS };
   }
 
   try {
-    const stored = localStorage.getItem(SHORTCUTS_STORAGE_KEY);
+    const stored = storage.getItem(SHORTCUTS_STORAGE_KEY);
     if (!stored) {
       return { ...DEFAULT_SHORTCUT_SETTINGS };
     }
@@ -697,14 +713,15 @@ export function loadShortcutSettings(): ShortcutSettings {
  * Save shortcut settings to localStorage.
  */
 export function saveShortcutSettings(settings: ShortcutSettings): void {
-  if (typeof localStorage === 'undefined') return;
+  const storage = getStorage();
+  if (!storage) return;
 
   try {
     const toSave: ShortcutSettings = {
       ...settings,
       updatedAt: new Date().toISOString(),
     };
-    localStorage.setItem(SHORTCUTS_STORAGE_KEY, JSON.stringify(toSave));
+    storage.setItem(SHORTCUTS_STORAGE_KEY, JSON.stringify(toSave));
   } catch {
     // Ignore storage errors (quota exceeded, etc.)
   }
@@ -714,17 +731,19 @@ export function saveShortcutSettings(settings: ShortcutSettings): void {
  * Check if the first-time hint has been dismissed.
  */
 export function isShortcutHintDismissed(): boolean {
-  if (typeof localStorage === 'undefined') return false;
-  return localStorage.getItem(SHORTCUTS_HINT_DISMISSED_KEY) === 'true';
+  const storage = getStorage();
+  if (!storage) return false;
+  return storage.getItem(SHORTCUTS_HINT_DISMISSED_KEY) === 'true';
 }
 
 /**
  * Mark the first-time hint as dismissed.
  */
 export function dismissShortcutHint(): void {
-  if (typeof localStorage === 'undefined') return;
+  const storage = getStorage();
+  if (!storage) return;
   try {
-    localStorage.setItem(SHORTCUTS_HINT_DISMISSED_KEY, 'true');
+    storage.setItem(SHORTCUTS_HINT_DISMISSED_KEY, 'true');
   } catch {
     // Ignore storage errors
   }

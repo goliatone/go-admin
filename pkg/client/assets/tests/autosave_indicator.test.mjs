@@ -3,7 +3,7 @@
  * Phase 3a baseline autosave states: idle, saving, saved, error
  */
 
-import { describe, it, beforeEach, mock } from 'node:test';
+import { describe, it, beforeEach, mock, test } from 'node:test';
 import assert from 'node:assert/strict';
 
 // =============================================================================

@@ -1,4 +1,4 @@
-class Ee {
+class Le {
   constructor(e) {
     this.basePath = e.basePath, this.apiBasePath = e.apiBasePath || `${e.basePath}/api`, this.defaultHeaders = {
       Accept: "application/json",
@@ -123,13 +123,13 @@ class Ee {
           message: e.statusText
         };
       }
-      throw new Pe(t.code, t.message, t.details);
+      throw new Ee(t.code, t.message, t.details);
     }
     if (e.status !== 204)
       return e.json();
   }
 }
-class Pe extends Error {
+class Ee extends Error {
   constructor(e, t, n) {
     super(t), this.code = e, this.details = n, this.name = "ESignAPIError";
   }
@@ -140,12 +140,12 @@ function dt() {
     throw new Error("ESign API client not initialized. Call setESignClient first.");
   return q;
 }
-function Ae(i) {
+function Pe(i) {
   q = i;
 }
 function Me(i) {
-  const e = new Ee(i);
-  return Ae(e), e;
+  const e = new Le(i);
+  return Pe(e), e;
 }
 function H(i) {
   if (i == null || i === "" || i === 0) return "-";
@@ -274,7 +274,7 @@ function de(i) {
     dotClass: "bg-gray-400"
   };
 }
-function $e(i, e) {
+function De(i, e) {
   const t = de(i), n = e?.showDot ?? !1, s = e?.size ?? "sm", a = {
     sm: "px-2.5 py-0.5 text-xs",
     md: "px-3 py-1 text-sm",
@@ -282,11 +282,11 @@ function $e(i, e) {
   }, o = n ? `<span class="w-2 h-2 rounded-full ${t.dotClass} mr-1.5" aria-hidden="true"></span>` : "";
   return `<span class="inline-flex items-center ${a[s]} rounded-full font-medium ${t.bgClass} ${t.textClass}">${o}${t.label}</span>`;
 }
-function yt(i, e) {
+function wt(i, e) {
   const t = document.createElement("span");
-  return t.innerHTML = $e(i, e), t.firstElementChild;
+  return t.innerHTML = De(i, e), t.firstElementChild;
 }
-function wt(i, e, t) {
+function yt(i, e, t) {
   const n = de(e), s = t?.size ?? "sm", a = {
     sm: "px-2.5 py-0.5 text-xs",
     md: "px-3 py-1 text-sm",
@@ -311,7 +311,7 @@ function r(i, e = document) {
     return null;
   }
 }
-function A(i, e = document) {
+function P(i, e = document) {
   try {
     return Array.from(e.querySelectorAll(i));
   } catch {
@@ -321,7 +321,7 @@ function A(i, e = document) {
 function bt(i) {
   return document.getElementById(i);
 }
-function De(i, e, t) {
+function $e(i, e, t) {
   const n = document.createElement(i);
   if (e)
     for (const [s, a] of Object.entries(e))
@@ -341,7 +341,7 @@ function St(i, e, t, n, s) {
   };
   return i.addEventListener(t, a, s), () => i.removeEventListener(t, a, s);
 }
-function w(i) {
+function y(i) {
   document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", i, { once: !0 }) : i();
 }
 function p(i) {
@@ -361,7 +361,7 @@ function B(i, e, t = document) {
   const n = r(`[data-esign-${i}]`, t);
   n && (n.textContent = String(e));
 }
-function Lt(i, e = document) {
+function At(i, e = document) {
   for (const [t, n] of Object.entries(i))
     B(t, n, e);
 }
@@ -389,7 +389,7 @@ function Be(i = "[data-esign-page]", e = "data-esign-config") {
 }
 function C(i, e = "polite") {
   const t = r(`[aria-live="${e}"]`) || (() => {
-    const n = De("div", {
+    const n = $e("div", {
       "aria-live": e,
       "aria-atomic": "true",
       class: "sr-only"
@@ -400,7 +400,7 @@ function C(i, e = "polite") {
     t.textContent = i;
   });
 }
-async function Et(i) {
+async function Lt(i) {
   const {
     fn: e,
     until: t,
@@ -437,7 +437,7 @@ async function Et(i) {
     timedOut: !1
   };
 }
-async function Pt(i) {
+async function Et(i) {
   const {
     fn: e,
     maxAttempts: t = 3,
@@ -478,7 +478,7 @@ function ue(i, e) {
     }
   });
 }
-function D(i, e) {
+function $(i, e) {
   let t = null;
   return (...n) => {
     t && clearTimeout(t), t = setTimeout(() => {
@@ -486,7 +486,7 @@ function D(i, e) {
     }, e);
   };
 }
-function At(i, e) {
+function Pt(i, e) {
   let t = 0, n = null;
   return (...s) => {
     const a = Date.now();
@@ -557,16 +557,16 @@ function kt(i) {
   if (!e)
     throw new Error('Landing page config not found. Add data-esign-page="landing" with config.');
   const t = new Q(e);
-  return w(() => t.init()), t;
+  return y(() => t.init()), t;
 }
-function $t(i, e) {
+function Dt(i, e) {
   const t = {
     basePath: i,
     apiBasePath: e || `${i}/api`
   }, n = new Q(t);
-  w(() => n.init());
+  y(() => n.init());
 }
-typeof document < "u" && w(() => {
+typeof document < "u" && y(() => {
   const i = document.querySelector(
     '[data-esign-page="admin.landing"], [data-esign-page="landing"]'
   );
@@ -687,22 +687,22 @@ class he {
     return { ...this.state };
   }
 }
-function Dt(i) {
+function $t(i) {
   const e = new he(i);
-  return w(() => e.init()), e;
+  return y(() => e.init()), e;
 }
 function Bt(i) {
   const e = new he(i);
-  w(() => e.init()), typeof window < "u" && (window.esignCompletionController = e, window.loadArtifacts = () => e.loadArtifacts());
+  y(() => e.init()), typeof window < "u" && (window.esignCompletionController = e, window.loadArtifacts = () => e.loadArtifacts());
 }
 function _e(i = document) {
-  A("[data-size-bytes]", i).forEach((e) => {
+  P("[data-size-bytes]", i).forEach((e) => {
     const t = e.getAttribute("data-size-bytes");
     t && (e.textContent = H(t));
   });
 }
 function Fe(i = document) {
-  A("[data-timestamp]", i).forEach((e) => {
+  P("[data-timestamp]", i).forEach((e) => {
     const t = e.getAttribute("data-timestamp");
     t && (e.textContent = M(t));
   });
@@ -711,7 +711,7 @@ function Re(i = document) {
   _e(i), Fe(i);
 }
 function He() {
-  w(() => {
+  y(() => {
     Re();
   });
 }
@@ -847,16 +847,16 @@ function _t(i) {
     basePath: "/admin",
     apiBasePath: "/admin/api"
   }, t = new pe(e);
-  return w(() => t.init()), t;
+  return y(() => t.init()), t;
 }
 function Ft(i) {
   const e = {
     basePath: i,
     apiBasePath: `${i}/api`
   }, t = new pe(e);
-  w(() => t.init());
+  y(() => t.init());
 }
-const U = "esign.google.account_id", Oe = {
+const N = "esign.google.account_id", Oe = {
   "https://www.googleapis.com/auth/drive.readonly": {
     label: "Drive (Read Only)",
     description: "View files in your Google Drive"
@@ -966,8 +966,8 @@ class ge {
       f.key === "Escape" && (h && !h.classList.contains("hidden") && this.cancelOAuthFlow(), g && !g.classList.contains("hidden") && (this.pendingDisconnectAccountId = null, u(g)));
     }), [h, g].forEach((f) => {
       f && f.addEventListener("click", (b) => {
-        const y = b.target;
-        (y === f || y.getAttribute("aria-hidden") === "true") && (u(f), f === h ? this.cancelOAuthFlow() : f === g && (this.pendingDisconnectAccountId = null));
+        const w = b.target;
+        (w === f || w.getAttribute("aria-hidden") === "true") && (u(f), f === h ? this.cancelOAuthFlow() : f === g && (this.pendingDisconnectAccountId = null));
       });
     });
   }
@@ -983,7 +983,7 @@ class ge {
       return n;
     try {
       return this.normalizeAccountId(
-        window.localStorage.getItem(U)
+        window.localStorage.getItem(N)
       );
     } catch {
       return "";
@@ -1010,14 +1010,25 @@ class ge {
    * Resolve account ID for "connect new account" flow
    */
   resolveNewAccountId() {
-    const { accountIdInput: e } = this.elements;
-    return this.normalizeAccountId(e?.value);
+    const { accountIdInput: e } = this.elements, t = this.normalizeAccountId(e?.value);
+    return t ? this.accounts.some(
+      (s) => this.normalizeAccountId(s.account_id) === t
+    ) ? "" : t : "";
   }
   /**
    * Start OAuth flow using a new/manual account ID
    */
   startOAuthFlowForNewAccount() {
     const e = this.resolveNewAccountId();
+    if (!e && this.accounts.length > 0) {
+      this.showToast(
+        "Enter a unique account ID (for example: work) before connecting another account.",
+        "error"
+      ), this.announce("Enter a unique account ID before connecting another account");
+      const { accountIdInput: t } = this.elements;
+      t && (t.focus(), t.select());
+      return;
+    }
     e !== this.currentAccountId && this.setCurrentAccountId(e, !1), this.startOAuthFlow(e);
   }
   /**
@@ -1025,14 +1036,14 @@ class ge {
    */
   updateAccountScopeUI() {
     const { accountIdInput: e, connectedAccountId: t, importDriveLink: n, integrationSettingsLink: s } = this.elements;
-    e && (e.value = this.currentAccountId), t && (t.textContent = this.currentAccountId ? `Account ID: ${this.currentAccountId}` : "Account ID: default"), this.persistAccountId(), this.syncAccountIdInURL(), this.updateScopedLinks([n, s]), this.renderAccountDropdown(), this.renderAccountsGrid();
+    e && document.activeElement !== e && (e.value = this.currentAccountId), t && (t.textContent = this.currentAccountId ? `Account ID: ${this.currentAccountId}` : "Account ID: default"), this.persistAccountId(), this.syncAccountIdInURL(), this.updateScopedLinks([n, s]), this.renderAccountDropdown(), this.renderAccountsGrid();
   }
   /**
    * Persist account ID to localStorage
    */
   persistAccountId() {
     try {
-      this.currentAccountId ? window.localStorage.setItem(U, this.currentAccountId) : window.localStorage.removeItem(U);
+      this.currentAccountId ? window.localStorage.setItem(N, this.currentAccountId) : window.localStorage.removeItem(N);
     } catch {
     }
   }
@@ -1171,11 +1182,11 @@ class ge {
    * Normalize integration payload from API (handles both camelCase and snake_case)
    */
   normalizeIntegrationPayload(e) {
-    const t = (b, y) => {
+    const t = (b, w) => {
       for (const x of b)
         if (Object.prototype.hasOwnProperty.call(e, x) && e[x] !== void 0 && e[x] !== null)
           return e[x];
-      return y;
+      return w;
     }, n = t(["expires_at", "ExpiresAt"], ""), s = t(["scopes", "Scopes"], []), a = this.normalizeAccountId(
       t(["account_id", "AccountID"], "")
     ), o = t(["connected", "Connected"], !1), c = t(["degraded", "Degraded"], !1), d = t(["degraded_reason", "DegradedReason"], ""), l = t(
@@ -1195,8 +1206,8 @@ class ge {
     if ((typeof v != "boolean" || typeof m != "boolean") && n) {
       const b = new Date(n);
       if (!Number.isNaN(b.getTime())) {
-        const y = b.getTime() - Date.now(), x = 5 * 60 * 1e3;
-        v = y <= 0, m = y > 0 && y <= x;
+        const w = b.getTime() - Date.now(), x = 5 * 60 * 1e3;
+        v = w <= 0, m = w > 0 && w <= x;
       }
     }
     const f = typeof g == "boolean" ? g : (v === !0 || m === !0) && !h;
@@ -1316,9 +1327,10 @@ class ge {
       const d = a.email || o || "Default", l = a.status !== "connected" ? ` (${a.status})` : "";
       c.textContent = `${d}${l}`, o === this.currentAccountId && (c.selected = !0), e.appendChild(c);
     }
-    this.currentAccountId && !n.has(this.currentAccountId) && ((s) => {
-      s.value = this.currentAccountId, s.textContent = `${this.currentAccountId} (new)`, s.selected = !0, e.appendChild(s);
-    })(document.createElement("option"));
+    if (this.currentAccountId && !n.has(this.currentAccountId)) {
+      const a = document.createElement("option");
+      a.value = this.currentAccountId, a.textContent = `${this.currentAccountId} (new)`, a.selected = !0, e.appendChild(a);
+    }
     const s = document.createElement("option");
     s.value = "__new__", s.textContent = "+ Connect New Account...", e.appendChild(s);
   }
@@ -1352,7 +1364,7 @@ class ge {
       expired: "Expired",
       needs_reauth: "Re-auth needed",
       degraded: "Degraded"
-    }, o = t ? "ring-2 ring-blue-500" : "", c = n[e.status] || "bg-white border-gray-200", d = s[e.status] || "bg-gray-100 text-gray-700", l = a[e.status] || e.status, h = e.account_id || "default", g = e.email || "No email";
+    }, o = t ? "ring-2 ring-blue-500" : "", c = n[e.status] || "bg-white border-gray-200", d = s[e.status] || "bg-gray-100 text-gray-700", l = a[e.status] || e.status, h = e.account_id || "default", g = e.email || (e.account_id ? e.account_id : "Default account");
     return `
       <div class="account-card ${c} ${o} border rounded-xl p-4 relative" data-account-id="${this.escapeHtml(e.account_id)}">
         ${t ? '<span class="absolute top-2 right-2 text-xs font-medium text-blue-600">Active</span>' : ""}
@@ -1606,7 +1618,7 @@ class ge {
 }
 function Rt(i) {
   const e = new ge(i);
-  return w(() => e.init()), e;
+  return y(() => e.init()), e;
 }
 function Ht(i) {
   const e = {
@@ -1618,9 +1630,9 @@ function Ht(i) {
     googleClientId: i.googleClientId,
     googleEnabled: i.googleEnabled !== !1
   }, t = new ge(e);
-  w(() => t.init()), typeof window < "u" && (window.esignGoogleIntegrationController = t);
+  y(() => t.init()), typeof window < "u" && (window.esignGoogleIntegrationController = t);
 }
-const N = "esign.google.account_id", ie = {
+const U = "esign.google.account_id", ie = {
   "application/vnd.google-apps.folder": "folder",
   "application/vnd.google-apps.document": "doc",
   "application/vnd.google-apps.spreadsheet": "sheet",
@@ -1697,7 +1709,7 @@ class me {
       viewGridBtn: v
     } = this.elements;
     if (e) {
-      const f = D(() => this.handleSearch(), 300);
+      const f = $(() => this.handleSearch(), 300);
       e.addEventListener("input", f), e.addEventListener("keydown", (b) => {
         b.key === "Enter" && (b.preventDefault(), this.handleSearch());
       });
@@ -1723,7 +1735,7 @@ class me {
     if (n) return n;
     try {
       return this.normalizeAccountId(
-        window.localStorage.getItem(N)
+        window.localStorage.getItem(U)
       );
     } catch {
       return "";
@@ -1753,7 +1765,7 @@ class me {
     const e = new URL(window.location.href);
     this.currentAccountId ? e.searchParams.set("account_id", this.currentAccountId) : e.searchParams.delete("account_id"), window.history.replaceState({}, "", e.toString());
     try {
-      this.currentAccountId ? window.localStorage.setItem(N, this.currentAccountId) : window.localStorage.removeItem(N);
+      this.currentAccountId ? window.localStorage.setItem(U, this.currentAccountId) : window.localStorage.removeItem(U);
     } catch {
     }
   }
@@ -1996,7 +2008,7 @@ class me {
           </button>
         </li>
       `
-    ).join(""), A(".breadcrumb-item", s).forEach((a) => {
+    ).join(""), P(".breadcrumb-item", s).forEach((a) => {
       a.addEventListener("click", () => {
         const o = parseInt(a.dataset.folderIndex || "0", 10);
         this.navigateToBreadcrumb(o);
@@ -2155,7 +2167,7 @@ class me {
 }
 function Ot(i) {
   const e = new me(i);
-  return w(() => e.init()), e;
+  return y(() => e.init()), e;
 }
 function jt(i) {
   const e = {
@@ -2166,7 +2178,7 @@ function jt(i) {
     googleConnected: i.googleConnected !== !1,
     pickerRoutes: i.pickerRoutes
   }, t = new me(e);
-  w(() => t.init()), typeof window < "u" && (window.esignGoogleDrivePickerController = t);
+  y(() => t.init()), typeof window < "u" && (window.esignGoogleDrivePickerController = t);
 }
 class fe {
   constructor(e) {
@@ -2525,15 +2537,15 @@ class fe {
     const c = a.width, d = a.height, l = 40, h = c - l * 2, g = d - l * 2;
     o.clearRect(0, 0, c, d);
     const v = t.labels, m = Object.values(t.datasets), f = h / v.length / (m.length + 1), b = Math.max(...m.flat()) || 1;
-    v.forEach((y, x) => {
+    v.forEach((w, x) => {
       const S = l + x * h / v.length + f / 2;
-      m.forEach((I, L) => {
-        const E = I[x] / b * g, z = S + L * f, T = d - l - E;
-        o.fillStyle = n[L] || "#6b7280", o.fillRect(z, T, f - 2, E);
-      }), x % Math.ceil(v.length / 6) === 0 && (o.fillStyle = "#6b7280", o.font = "10px sans-serif", o.textAlign = "center", o.fillText(y, S + m.length * f / 2, d - l + 15));
+      m.forEach((I, A) => {
+        const L = I[x] / b * g, z = S + A * f, T = d - l - L;
+        o.fillStyle = n[A] || "#6b7280", o.fillRect(z, T, f - 2, L);
+      }), x % Math.ceil(v.length / 6) === 0 && (o.fillStyle = "#6b7280", o.font = "10px sans-serif", o.textAlign = "center", o.fillText(w, S + m.length * f / 2, d - l + 15));
     }), o.fillStyle = "#6b7280", o.font = "10px sans-serif", o.textAlign = "right";
-    for (let y = 0; y <= 4; y++) {
-      const x = d - l - y * g / 4, S = Math.round(b * y / 4);
+    for (let w = 0; w <= 4; w++) {
+      const x = d - l - w * g / 4, S = Math.round(b * w / 4);
       o.fillText(S.toString(), l - 5, x + 3);
     }
   }
@@ -2547,15 +2559,15 @@ class fe {
 }
 function zt(i) {
   const e = new fe(i);
-  return w(() => e.init()), e;
+  return y(() => e.init()), e;
 }
-function Ut(i) {
+function Nt(i) {
   const e = {
     basePath: i.basePath,
     apiBasePath: i.apiBasePath || `${i.basePath}/api`,
     autoRefreshInterval: i.autoRefreshInterval || 3e4
   }, t = new fe(e);
-  w(() => t.init()), typeof window < "u" && (window.esignIntegrationHealthController = t);
+  y(() => t.init()), typeof window < "u" && (window.esignIntegrationHealthController = t);
 }
 class ve {
   constructor(e) {
@@ -2652,26 +2664,26 @@ class ve {
       deleteCancelBtn: m,
       deleteConfirmBtn: f,
       closePreviewBtn: b,
-      loadSampleBtn: y,
+      loadSampleBtn: w,
       runPreviewBtn: x,
       clearPreviewBtn: S,
       previewSourceInput: I,
-      searchInput: L,
-      filterStatus: E,
+      searchInput: A,
+      filterStatus: L,
       filterProvider: z,
       mappingModal: T,
       publishModal: _,
       deleteModal: F,
       previewModal: R
     } = this.elements;
-    e?.addEventListener("click", () => this.openCreateModal()), t?.addEventListener("click", () => this.openCreateModal()), n?.addEventListener("click", () => this.closeModal()), s?.addEventListener("click", () => this.closeModal()), a?.addEventListener("click", () => this.loadMappings()), o?.addEventListener("click", () => this.loadMappings()), c?.addEventListener("click", () => this.addSchemaField()), d?.addEventListener("click", () => this.addMappingRule()), l?.addEventListener("click", () => this.validateMapping()), h?.addEventListener("submit", (P) => {
-      P.preventDefault(), this.saveMapping();
-    }), g?.addEventListener("click", () => this.closePublishModal()), v?.addEventListener("click", () => this.publishMapping()), m?.addEventListener("click", () => this.closeDeleteModal()), f?.addEventListener("click", () => this.deleteMapping()), b?.addEventListener("click", () => this.closePreviewModal()), y?.addEventListener("click", () => this.loadSamplePayload()), x?.addEventListener("click", () => this.runPreviewTransform()), S?.addEventListener("click", () => this.clearPreview()), I?.addEventListener("input", D(() => this.validateSourceJson(), 300)), L?.addEventListener("input", D(() => this.renderMappings(), 300)), E?.addEventListener("change", () => this.renderMappings()), z?.addEventListener("change", () => this.renderMappings()), document.addEventListener("keydown", (P) => {
-      P.key === "Escape" && (T && !T.classList.contains("hidden") && this.closeModal(), _ && !_.classList.contains("hidden") && this.closePublishModal(), F && !F.classList.contains("hidden") && this.closeDeleteModal(), R && !R.classList.contains("hidden") && this.closePreviewModal());
-    }), [T, _, F, R].forEach((P) => {
-      P?.addEventListener("click", (Le) => {
-        const ne = Le.target;
-        (ne === P || ne.getAttribute("aria-hidden") === "true") && (P === T ? this.closeModal() : P === _ ? this.closePublishModal() : P === F ? this.closeDeleteModal() : P === R && this.closePreviewModal());
+    e?.addEventListener("click", () => this.openCreateModal()), t?.addEventListener("click", () => this.openCreateModal()), n?.addEventListener("click", () => this.closeModal()), s?.addEventListener("click", () => this.closeModal()), a?.addEventListener("click", () => this.loadMappings()), o?.addEventListener("click", () => this.loadMappings()), c?.addEventListener("click", () => this.addSchemaField()), d?.addEventListener("click", () => this.addMappingRule()), l?.addEventListener("click", () => this.validateMapping()), h?.addEventListener("submit", (E) => {
+      E.preventDefault(), this.saveMapping();
+    }), g?.addEventListener("click", () => this.closePublishModal()), v?.addEventListener("click", () => this.publishMapping()), m?.addEventListener("click", () => this.closeDeleteModal()), f?.addEventListener("click", () => this.deleteMapping()), b?.addEventListener("click", () => this.closePreviewModal()), w?.addEventListener("click", () => this.loadSamplePayload()), x?.addEventListener("click", () => this.runPreviewTransform()), S?.addEventListener("click", () => this.clearPreview()), I?.addEventListener("input", $(() => this.validateSourceJson(), 300)), A?.addEventListener("input", $(() => this.renderMappings(), 300)), L?.addEventListener("change", () => this.renderMappings()), z?.addEventListener("change", () => this.renderMappings()), document.addEventListener("keydown", (E) => {
+      E.key === "Escape" && (T && !T.classList.contains("hidden") && this.closeModal(), _ && !_.classList.contains("hidden") && this.closePublishModal(), F && !F.classList.contains("hidden") && this.closeDeleteModal(), R && !R.classList.contains("hidden") && this.closePreviewModal());
+    }), [T, _, F, R].forEach((E) => {
+      E?.addEventListener("click", (Ae) => {
+        const ne = Ae.target;
+        (ne === E || ne.getAttribute("aria-hidden") === "true") && (E === T ? this.closeModal() : E === _ ? this.closePublishModal() : E === F ? this.closeDeleteModal() : E === R && this.closePreviewModal());
       });
     });
   }
@@ -3399,18 +3411,18 @@ class ve {
     s && (t === "success" ? s.success(e) : s.error(e));
   }
 }
-function Nt(i) {
+function Ut(i) {
   const e = new ve(i);
-  return w(() => e.init()), e;
+  return y(() => e.init()), e;
 }
 function Gt(i) {
   const e = {
     basePath: i.basePath,
     apiBasePath: i.apiBasePath || `${i.basePath}/api`
   }, t = new ve(e);
-  w(() => t.init()), typeof window < "u" && (window.esignIntegrationMappingsController = t);
+  y(() => t.init()), typeof window < "u" && (window.esignIntegrationMappingsController = t);
 }
-class ye {
+class we {
   constructor(e) {
     this.conflicts = [], this.currentConflictId = null, this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api`, this.conflictsEndpoint = `${this.apiBase}/esign/integrations/conflicts`, this.elements = {
       announcements: r("#conflicts-announcements"),
@@ -3649,7 +3661,7 @@ class ye {
    */
   openConflictDetail(e) {
     this.currentConflictId = e;
-    const t = this.conflicts.find((E) => E.id === e);
+    const t = this.conflicts.find((L) => L.id === e);
     if (!t) return;
     const {
       conflictDetailModal: n,
@@ -3665,29 +3677,29 @@ class ye {
       detailCreatedAt: m,
       detailVersion: f,
       detailPayload: b,
-      resolutionSection: y,
+      resolutionSection: w,
       actionButtons: x,
       detailResolvedAt: S,
       detailResolvedBy: I,
-      detailResolution: L
+      detailResolution: A
     } = this.elements;
     if (s && (s.textContent = t.reason || "Data conflict"), a && (a.textContent = t.entity_kind || "-"), o && (o.innerHTML = this.getStatusBadge(t.status)), c && (c.textContent = t.provider || "-"), d && (d.textContent = t.external_id || "-"), l && (l.textContent = t.internal_id || "-"), h && (h.textContent = t.binding_id || "-"), g && (g.textContent = t.id), v && (v.textContent = t.run_id || "-"), m && (m.textContent = this.formatDate(t.created_at)), f && (f.textContent = String(t.version || 1)), b)
       try {
-        const E = t.payload_json ? JSON.parse(t.payload_json) : t.payload || {};
-        b.textContent = JSON.stringify(E, null, 2);
+        const L = t.payload_json ? JSON.parse(t.payload_json) : t.payload || {};
+        b.textContent = JSON.stringify(L, null, 2);
       } catch {
         b.textContent = t.payload_json || "{}";
       }
     if (t.status === "resolved" || t.status === "ignored") {
-      if (p(y), u(x), S && (S.textContent = t.resolved_at ? this.formatDate(t.resolved_at) : ""), I && (I.textContent = t.resolved_by_user_id ? `By user ${t.resolved_by_user_id}` : "-"), L)
+      if (p(w), u(x), S && (S.textContent = t.resolved_at ? this.formatDate(t.resolved_at) : ""), I && (I.textContent = t.resolved_by_user_id ? `By user ${t.resolved_by_user_id}` : "-"), A)
         try {
-          const E = t.resolution_json ? JSON.parse(t.resolution_json) : t.resolution || {};
-          L.textContent = JSON.stringify(E, null, 2);
+          const L = t.resolution_json ? JSON.parse(t.resolution_json) : t.resolution || {};
+          A.textContent = JSON.stringify(L, null, 2);
         } catch {
-          L.textContent = t.resolution_json || "{}";
+          A.textContent = t.resolution_json || "{}";
         }
     } else
-      u(y), p(x);
+      u(w), p(x);
     p(n);
   }
   /**
@@ -3765,17 +3777,17 @@ class ye {
   }
 }
 function Vt(i) {
-  const e = new ye(i);
-  return w(() => e.init()), e;
+  const e = new we(i);
+  return y(() => e.init()), e;
 }
 function qt(i) {
   const e = {
     basePath: i.basePath,
     apiBasePath: i.apiBasePath || `${i.basePath}/api`
-  }, t = new ye(e);
-  w(() => t.init()), typeof window < "u" && (window.esignIntegrationConflictsController = t);
+  }, t = new we(e);
+  y(() => t.init()), typeof window < "u" && (window.esignIntegrationConflictsController = t);
 }
-class we {
+class ye {
   constructor(e) {
     this.syncRuns = [], this.mappings = [], this.currentRunId = null, this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api`, this.syncRunsEndpoint = `${this.apiBase}/esign/integrations/sync-runs`, this.mappingsEndpoint = `${this.apiBase}/esign/integrations/mappings`, this.elements = {
       announcements: r("#sync-announcements"),
@@ -3846,15 +3858,15 @@ class we {
       actionCompleteBtn: m,
       actionFailBtn: f,
       actionDiagnosticsBtn: b,
-      startSyncModal: y,
+      startSyncModal: w,
       runDetailModal: x
     } = this.elements;
     e?.addEventListener("click", () => this.openStartSyncModal()), t?.addEventListener("click", () => this.openStartSyncModal()), n?.addEventListener("click", () => this.closeStartSyncModal()), s?.addEventListener("submit", (S) => this.startSync(S)), a?.addEventListener("click", () => this.loadSyncRuns()), o?.addEventListener("click", () => this.loadSyncRuns()), c?.addEventListener("click", () => this.closeRunDetail()), d?.addEventListener("change", () => this.renderTimeline()), l?.addEventListener("change", () => this.renderTimeline()), h?.addEventListener("change", () => this.renderTimeline()), g?.addEventListener("click", () => this.runAction("resume")), v?.addEventListener("click", () => this.runAction("resume")), m?.addEventListener("click", () => this.runAction("complete")), f?.addEventListener("click", () => this.runAction("fail")), b?.addEventListener("click", () => this.openDiagnostics()), document.addEventListener("keydown", (S) => {
-      S.key === "Escape" && (y && !y.classList.contains("hidden") && this.closeStartSyncModal(), x && !x.classList.contains("hidden") && this.closeRunDetail());
-    }), [y, x].forEach((S) => {
+      S.key === "Escape" && (w && !w.classList.contains("hidden") && this.closeStartSyncModal(), x && !x.classList.contains("hidden") && this.closeRunDetail());
+    }), [w, x].forEach((S) => {
       S?.addEventListener("click", (I) => {
-        const L = I.target;
-        (L === S || L.getAttribute("aria-hidden") === "true") && (S === y ? this.closeStartSyncModal() : S === x && this.closeRunDetail());
+        const A = I.target;
+        (A === S || A.getAttribute("aria-hidden") === "true") && (S === w ? this.closeStartSyncModal() : S === x && this.closeRunDetail());
       });
     });
   }
@@ -4127,19 +4139,19 @@ class we {
       detailLastError: m,
       detailCheckpoints: f,
       actionResumeBtn: b,
-      actionRetryBtn: y,
+      actionRetryBtn: w,
       actionCompleteBtn: x,
       actionFailBtn: S
     } = this.elements;
-    s && (s.textContent = t.id), a && (a.textContent = t.provider), o && (o.textContent = t.direction === "inbound" ? "Inbound (Import)" : "Outbound (Export)"), c && (c.innerHTML = this.getStatusBadge(t.status)), d && (d.textContent = this.formatDate(t.started_at)), l && (l.textContent = t.completed_at ? this.formatDate(t.completed_at) : "-"), h && (h.textContent = t.cursor || "-"), g && (g.textContent = String(t.attempt_count || 1)), t.last_error ? (m && (m.textContent = t.last_error), p(v)) : u(v), b && b.classList.toggle("hidden", t.status !== "running"), y && y.classList.toggle("hidden", t.status !== "failed"), x && x.classList.toggle("hidden", t.status !== "running"), S && S.classList.toggle("hidden", t.status !== "running"), f && (f.innerHTML = '<p class="text-sm text-gray-500">Loading checkpoints...</p>'), p(n);
+    s && (s.textContent = t.id), a && (a.textContent = t.provider), o && (o.textContent = t.direction === "inbound" ? "Inbound (Import)" : "Outbound (Export)"), c && (c.innerHTML = this.getStatusBadge(t.status)), d && (d.textContent = this.formatDate(t.started_at)), l && (l.textContent = t.completed_at ? this.formatDate(t.completed_at) : "-"), h && (h.textContent = t.cursor || "-"), g && (g.textContent = String(t.attempt_count || 1)), t.last_error ? (m && (m.textContent = t.last_error), p(v)) : u(v), b && b.classList.toggle("hidden", t.status !== "running"), w && w.classList.toggle("hidden", t.status !== "failed"), x && x.classList.toggle("hidden", t.status !== "running"), S && S.classList.toggle("hidden", t.status !== "running"), f && (f.innerHTML = '<p class="text-sm text-gray-500">Loading checkpoints...</p>'), p(n);
     try {
       const I = await fetch(`${this.syncRunsEndpoint}/${e}/checkpoints`, {
         credentials: "same-origin",
         headers: { Accept: "application/json" }
       });
       if (I.ok) {
-        const L = await I.json();
-        this.renderCheckpoints(L.checkpoints || []);
+        const A = await I.json();
+        this.renderCheckpoints(A.checkpoints || []);
       } else
         f && (f.innerHTML = '<p class="text-sm text-gray-500">No checkpoints available</p>');
     } catch (I) {
@@ -4246,17 +4258,17 @@ class we {
   }
 }
 function Wt(i) {
-  const e = new we(i);
-  return w(() => e.init()), e;
+  const e = new ye(i);
+  return y(() => e.init()), e;
 }
 function Jt(i) {
   const e = {
     basePath: i.basePath,
     apiBasePath: i.apiBasePath || `${i.basePath}/api`
-  }, t = new we(e);
-  w(() => t.init()), typeof window < "u" && (window.esignIntegrationSyncRunsController = t);
+  }, t = new ye(e);
+  y(() => t.init()), typeof window < "u" && (window.esignIntegrationSyncRunsController = t);
 }
-const G = "esign.google.account_id", je = 25 * 1024 * 1024, ze = 2e3, ae = 60, W = "application/vnd.google-apps.document", J = "application/pdf", oe = "application/vnd.google-apps.folder", Ue = [W, J];
+const G = "esign.google.account_id", je = 25 * 1024 * 1024, ze = 2e3, ae = 60, W = "application/vnd.google-apps.document", J = "application/pdf", oe = "application/vnd.google-apps.folder", Ne = [W, J];
 class K {
   constructor(e) {
     this.isSubmitting = !1, this.currentSource = "upload", this.currentFiles = [], this.nextPageToken = null, this.currentFolderPath = [{ id: "root", name: "My Drive" }], this.selectedFile = null, this.searchQuery = "", this.searchTimeout = null, this.pollTimeout = null, this.pollAttempts = 0, this.currentImportRunId = null, this.connectedAccounts = [], this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api/v1`, this.maxFileSize = e.maxFileSize || je, this.currentAccountId = this.resolveInitialAccountId(), this.elements = {
@@ -4274,8 +4286,8 @@ class K {
       titleInput: r("#title"),
       sourceObjectKeyInput: r("#source_object_key"),
       // Source tabs
-      sourceTabs: A(".source-tab"),
-      sourcePanels: A(".source-panel"),
+      sourceTabs: P(".source-tab"),
+      sourcePanels: P(".source-panel"),
       announcements: r("#doc-announcements"),
       // Google Drive panel
       searchInput: r("#drive-search"),
@@ -4378,18 +4390,18 @@ class K {
       clearSearchBtn: t,
       loadMoreBtn: n,
       refreshBtn: s,
-      driveAccountDropdown: a,
-      clearSelectionBtn: o,
-      importBtn: c,
-      importRetryBtn: d
+      clearSelectionBtn: a,
+      importBtn: o,
+      importRetryBtn: c,
+      driveAccountDropdown: d
     } = this.elements;
     if (e) {
-      const l = D(() => this.handleSearch(), 300);
+      const l = $(() => this.handleSearch(), 300);
       e.addEventListener("input", l);
     }
-    t && t.addEventListener("click", () => this.clearSearch()), n && n.addEventListener("click", () => this.loadMoreFiles()), s && s.addEventListener("click", () => this.refreshFiles()), a && a.addEventListener("change", () => {
-      this.setCurrentAccountId(a.value, this.currentSource === "google");
-    }), o && o.addEventListener("click", () => this.clearFileSelection()), c && c.addEventListener("click", () => this.startImport()), d && d.addEventListener("click", () => {
+    t && t.addEventListener("click", () => this.clearSearch()), n && n.addEventListener("click", () => this.loadMoreFiles()), s && s.addEventListener("click", () => this.refreshFiles()), d && d.addEventListener("change", () => {
+      this.setCurrentAccountId(d.value, this.currentSource === "google");
+    }), a && a.addEventListener("click", () => this.clearFileSelection()), o && o.addEventListener("click", () => this.startImport()), c && c.addEventListener("click", () => {
       this.selectedFile ? this.startImport() : this.clearDriveSelection();
     });
   }
@@ -4427,54 +4439,60 @@ class K {
       this.updateAccountScopeUI();
       return;
     }
-    this.currentAccountId = n, this.updateAccountScopeUI(), t && this.config.googleEnabled && this.config.googleConnected && (this.currentFolderPath = [{ id: "root", name: "My Drive" }], this.searchQuery = "", this.elements.searchInput && (this.elements.searchInput.value = ""), this.elements.clearSearchBtn && u(this.elements.clearSearchBtn), this.updateBreadcrumb(), this.loadFiles({ folderId: "root" }));
+    if (this.currentAccountId = n, this.updateAccountScopeUI(), t && this.config.googleEnabled && this.config.googleConnected) {
+      this.currentFolderPath = [{ id: "root", name: "My Drive" }], this.searchQuery = "";
+      const { searchInput: s, clearSearchBtn: a } = this.elements;
+      s && (s.value = ""), a && u(a), this.updateBreadcrumb(), this.loadFiles({ folderId: "root" });
+    }
   }
   /**
    * Load connected accounts for account selector
    */
   async loadConnectedAccounts() {
     const { driveAccountDropdown: e } = this.elements;
-    if (!e) return;
-    try {
-      const t = new URL(`${this.apiBase}/esign/integrations/google/accounts`, window.location.origin);
-      t.searchParams.set("user_id", this.config.userId || "");
-      const n = await fetch(t.toString(), {
-        credentials: "same-origin",
-        headers: { Accept: "application/json" }
-      });
-      if (!n.ok) {
+    if (e)
+      try {
+        const t = new URL(`${this.apiBase}/esign/integrations/google/accounts`, window.location.origin);
+        t.searchParams.set("user_id", this.config.userId || "");
+        const n = await fetch(t.toString(), {
+          credentials: "same-origin",
+          headers: { Accept: "application/json" }
+        });
+        if (!n.ok) {
+          this.connectedAccounts = [], this.renderConnectedAccountsDropdown();
+          return;
+        }
+        const s = await n.json();
+        this.connectedAccounts = Array.isArray(s.accounts) ? s.accounts : [], this.renderConnectedAccountsDropdown();
+      } catch {
         this.connectedAccounts = [], this.renderConnectedAccountsDropdown();
-        return;
       }
-      const s = await n.json();
-      this.connectedAccounts = Array.isArray(s.accounts) ? s.accounts : [], this.renderConnectedAccountsDropdown();
-    } catch {
-      this.connectedAccounts = [], this.renderConnectedAccountsDropdown();
-    }
   }
   /**
    * Render account selector options
    */
   renderConnectedAccountsDropdown() {
     const { driveAccountDropdown: e } = this.elements;
-    if (!e) return;
+    if (!e)
+      return;
     e.innerHTML = "";
     const t = document.createElement("option");
     t.value = "", t.textContent = "Default account", this.currentAccountId || (t.selected = !0), e.appendChild(t);
     const n = /* @__PURE__ */ new Set([""]);
-    for (const a of this.connectedAccounts) {
-      const o = this.normalizeAccountId(a?.account_id);
-      if (n.has(o))
+    for (const s of this.connectedAccounts) {
+      const a = this.normalizeAccountId(s?.account_id);
+      if (n.has(a))
         continue;
-      n.add(o);
-      const c = document.createElement("option");
-      c.value = o;
-      const d = String(a?.email || "").trim(), l = String(a?.status || "").trim(), h = d || o || "Default account";
-      c.textContent = l && l !== "connected" ? `${h} (${l})` : h, o === this.currentAccountId && (c.selected = !0), e.appendChild(c);
+      n.add(a);
+      const o = document.createElement("option");
+      o.value = a;
+      const c = String(s?.email || "").trim(), d = String(s?.status || "").trim(), l = c || a || "Default account";
+      o.textContent = d && d !== "connected" ? `${l} (${d})` : l, a === this.currentAccountId && (o.selected = !0), e.appendChild(o);
     }
-    this.currentAccountId && !n.has(this.currentAccountId) && ((s) => {
+    if (this.currentAccountId && !n.has(this.currentAccountId)) {
+      const s = document.createElement("option");
       s.value = this.currentAccountId, s.textContent = `${this.currentAccountId} (custom)`, s.selected = !0, e.appendChild(s);
-    })(document.createElement("option"));
+    }
   }
   /**
    * Sync account ID to URL and localStorage
@@ -4504,12 +4522,9 @@ class K {
       const s = t.dataset.baseHref || t.getAttribute("href");
       s && t.setAttribute("href", this.applyAccountIdToPath(s));
     }
-    if (n) {
-      const s = Array.from(n.options).some(
-        (a) => this.normalizeAccountId(a.value) === this.currentAccountId
-      );
-      s || this.renderConnectedAccountsDropdown(), n.value !== this.currentAccountId && (n.value = this.currentAccountId);
-    }
+    n && (Array.from(n.options).some(
+      (a) => this.normalizeAccountId(a.value) === this.currentAccountId
+    ) || this.renderConnectedAccountsDropdown(), n.value !== this.currentAccountId && (n.value = this.currentAccountId));
   }
   /**
    * Build scoped API URL
@@ -4732,7 +4747,7 @@ class K {
    * Check if file is importable
    */
   isImportable(e) {
-    return Ue.includes(e.mimeType);
+    return Ne.includes(e.mimeType);
   }
   /**
    * Get file type name
@@ -4924,9 +4939,9 @@ class K {
   selectFile(e) {
     this.selectedFile = e;
     const t = this.getFileIcon(e), n = this.getImportTypeInfo(e), { fileList: s } = this.elements;
-    s && s.querySelectorAll(".file-item").forEach((y) => {
-      const x = parseInt(y.dataset.fileIndex || "0", 10);
-      this.currentFiles[x].id === e.id ? (y.classList.add("bg-blue-50", "border-l-2", "border-l-blue-500"), y.setAttribute("aria-selected", "true")) : (y.classList.remove("bg-blue-50", "border-l-2", "border-l-blue-500"), y.setAttribute("aria-selected", "false"));
+    s && s.querySelectorAll(".file-item").forEach((w) => {
+      const x = parseInt(w.dataset.fileIndex || "0", 10);
+      this.currentFiles[x].id === e.id ? (w.classList.add("bg-blue-50", "border-l-2", "border-l-blue-500"), w.setAttribute("aria-selected", "true")) : (w.classList.remove("bg-blue-50", "border-l-2", "border-l-blue-500"), w.setAttribute("aria-selected", "false"));
     });
     const {
       noSelection: a,
@@ -5165,7 +5180,7 @@ class K {
 }
 function Qt(i) {
   const e = new K(i);
-  return w(() => e.init()), e;
+  return y(() => e.init()), e;
 }
 function Kt(i) {
   const e = {
@@ -5178,9 +5193,9 @@ function Kt(i) {
     maxFileSize: i.maxFileSize,
     routes: i.routes
   }, t = new K(e);
-  w(() => t.init()), typeof window < "u" && (window.esignDocumentFormController = t);
+  y(() => t.init()), typeof window < "u" && (window.esignDocumentFormController = t);
 }
-function Ne(i) {
+function Ue(i) {
   const e = String(i.basePath || i.base_path || "").trim(), t = i.routes && typeof i.routes == "object" ? i.routes : {}, n = i.features && typeof i.features == "object" ? i.features : {}, s = i.context && typeof i.context == "object" ? i.context : {}, a = String(t.index || "").trim();
   return !e && !a ? null : {
     basePath: e || "/admin",
@@ -5200,7 +5215,7 @@ function Ne(i) {
     }
   };
 }
-typeof document < "u" && w(() => {
+typeof document < "u" && y(() => {
   if (document.querySelector(
     '[data-esign-page="admin.documents.ingestion"], [data-esign-page="document-form"]'
   )) {
@@ -5209,7 +5224,7 @@ typeof document < "u" && w(() => {
       try {
         const t = JSON.parse(
           e.textContent || "{}"
-        ), n = Ne(t);
+        ), n = Ue(t);
         n && new K(n).init();
       } catch (t) {
         console.warn("Failed to parse document form page config:", t);
@@ -5457,7 +5472,7 @@ class Y {
       (t, n, s) => this.showConflictDialog(t, n, s)
     ), this.elements = {
       // Navigation
-      wizardSteps: A(".wizard-step"),
+      wizardSteps: P(".wizard-step"),
       prevBtn: r("#prev-btn"),
       nextBtn: r("#next-btn"),
       submitBtn: r("#submit-btn"),
@@ -5467,7 +5482,7 @@ class Y {
       syncStatusText: r("#sync-status-text"),
       syncRetryBtn: r("#sync-retry-btn"),
       // Step panels
-      stepPanels: A(".step-panel"),
+      stepPanels: P(".step-panel"),
       // Resume dialog
       resumeDialogModal: r("#resume-dialog-modal"),
       resumeDraftTitle: r("#resume-draft-title"),
@@ -5533,10 +5548,10 @@ class Y {
       this.hideConflictDialog();
     }), this.elements.titleInput && this.elements.titleInput.addEventListener(
       "input",
-      D(() => this.handleDetailsChange(), 300)
+      $(() => this.handleDetailsChange(), 300)
     ), this.elements.messageInput && this.elements.messageInput.addEventListener(
       "input",
-      D(() => this.handleDetailsChange(), 300)
+      $(() => this.handleDetailsChange(), 300)
     ), this.elements.form && this.elements.form.addEventListener("submit", (e) => this.handleFormSubmit(e));
   }
   checkForSavedProgress() {
@@ -5644,7 +5659,7 @@ class Y {
 }
 function Yt(i) {
   const e = new Y(i);
-  return w(() => e.init()), e;
+  return y(() => e.init()), e;
 }
 function Zt(i) {
   const e = {
@@ -5655,9 +5670,9 @@ function Zt(i) {
     agreementId: i.agreementId,
     routes: i.routes
   }, t = new Y(e);
-  w(() => t.init()), typeof window < "u" && (window.esignAgreementFormController = t);
+  y(() => t.init()), typeof window < "u" && (window.esignAgreementFormController = t);
 }
-typeof document < "u" && w(() => {
+typeof document < "u" && y(() => {
   if (document.querySelector('[data-esign-page="agreement-form"]')) {
     const e = document.getElementById("esign-page-config");
     if (e)
@@ -5960,7 +5975,7 @@ class be {
 }
 function Xt(i) {
   const e = new be(i);
-  return w(() => e.init()), e;
+  return y(() => e.init()), e;
 }
 function en(i) {
   const e = {
@@ -5989,9 +6004,9 @@ function en(i) {
     activeRecipientIds: i.activeRecipientIds || [],
     waitingForRecipientIds: i.waitingForRecipientIds || []
   }, t = new be(e);
-  w(() => t.init()), typeof window < "u" && (window.esignSignerReviewController = t);
+  y(() => t.init()), typeof window < "u" && (window.esignSignerReviewController = t);
 }
-typeof document < "u" && w(() => {
+typeof document < "u" && y(() => {
   document.querySelector(
     '[data-esign-page="signer-review"], [data-esign-page="signer.review"]'
   ) && console.debug("Signer review page detected - module loaded");
@@ -6010,9 +6025,9 @@ class xe {
    * Setup event listeners using delegation
    */
   setupEventListeners() {
-    A('[data-action="retry"]').forEach((n) => {
+    P('[data-action="retry"]').forEach((n) => {
       n.addEventListener("click", () => this.handleRetry());
-    }), A('.retry-btn, [aria-label*="Try Again"]').forEach((n) => {
+    }), P('.retry-btn, [aria-label*="Try Again"]').forEach((n) => {
       n.hasAttribute("data-action") || n.addEventListener("click", () => this.handleRetry());
     });
   }
@@ -6025,11 +6040,11 @@ class xe {
 }
 function tn(i = {}) {
   const e = new xe(i);
-  return w(() => e.init()), e;
+  return y(() => e.init()), e;
 }
 function nn(i = {}) {
   const e = new xe(i);
-  w(() => e.init()), typeof window < "u" && (window.esignErrorController = e);
+  y(() => e.init()), typeof window < "u" && (window.esignErrorController = e);
 }
 class Z {
   constructor(e) {
@@ -6160,9 +6175,9 @@ function rn(i) {
     pdfUrl: i.pdfUrl,
     pageCount: i.pageCount || 1
   }, t = new Z(e);
-  w(() => t.init()), typeof window < "u" && (window.esignDocumentDetailController = t);
+  y(() => t.init()), typeof window < "u" && (window.esignDocumentDetailController = t);
 }
-typeof document < "u" && w(() => {
+typeof document < "u" && y(() => {
   const i = document.querySelector('[data-esign-page="document-detail"]');
   if (i instanceof HTMLElement) {
     const e = i.dataset.documentId || "", t = i.dataset.pdfUrl || "", n = parseInt(i.dataset.pageCount || "1", 10);
@@ -6331,7 +6346,7 @@ function it(i) {
     parents: i.parents
   };
 }
-function yn(i) {
+function wn(i) {
   return i.map(it);
 }
 function Ie(i) {
@@ -6392,7 +6407,7 @@ function ot(i) {
     return i;
   }
 }
-function wn(i, e) {
+function yn(i, e) {
   const t = i.get("account_id");
   if (t)
     return O(t);
@@ -6428,7 +6443,7 @@ function Cn(i) {
   const e = new URL(window.location.href), t = e.searchParams.get("account_id");
   i && t !== i ? (e.searchParams.set("account_id", i), window.history.replaceState({}, "", e.toString())) : !i && t && (e.searchParams.delete("account_id"), window.history.replaceState({}, "", e.toString()));
 }
-function $(i) {
+function D(i) {
   const e = document.createElement("div");
   return e.textContent = i, e.innerHTML;
 }
@@ -6449,15 +6464,15 @@ function In(i, e) {
   ];
   return t.map((n, s) => {
     const a = s === t.length - 1, o = s > 0 ? '<span class="text-gray-400 mx-1">/</span>' : "";
-    return a ? `${o}<span class="text-gray-900 font-medium">${$(n.name)}</span>` : `${o}<button
+    return a ? `${o}<span class="text-gray-900 font-medium">${D(n.name)}</span>` : `${o}<button
         type="button"
         class="text-blue-600 hover:text-blue-800 hover:underline breadcrumb-nav-btn"
         data-folder-id="${n.id}"
-      >${$(n.name)}</button>`;
+      >${D(n.name)}</button>`;
   }).join("");
 }
 function lt(i, e = {}) {
-  const { selectable: t = !0, showSize: n = !0, showDate: s = !0 } = e, a = ct(i), o = k(i), c = st(i), d = o ? "cursor-pointer hover:bg-gray-50" : c ? "cursor-pointer hover:bg-blue-50" : "opacity-60", l = o ? `data-folder-id="${i.id}" data-folder-name="${$(i.name)}"` : c && t ? `data-file-id="${i.id}" data-file-name="${$(i.name)}" data-mime-type="${i.mimeType}"` : "";
+  const { selectable: t = !0, showSize: n = !0, showDate: s = !0 } = e, a = ct(i), o = k(i), c = st(i), d = o ? "cursor-pointer hover:bg-gray-50" : c ? "cursor-pointer hover:bg-blue-50" : "opacity-60", l = o ? `data-folder-id="${i.id}" data-folder-name="${D(i.name)}"` : c && t ? `data-file-id="${i.id}" data-file-name="${D(i.name)}" data-mime-type="${i.mimeType}"` : "";
   return `
     <div
       class="flex items-center gap-3 p-3 rounded-lg border border-gray-200 ${d} file-item"
@@ -6467,7 +6482,7 @@ function lt(i, e = {}) {
     >
       ${a}
       <div class="flex-1 min-w-0">
-        <p class="font-medium text-gray-900 truncate">${$(i.name)}</p>
+        <p class="font-medium text-gray-900 truncate">${D(i.name)}</p>
         <p class="text-xs text-gray-500">
           ${Ie(i.mimeType)}
           ${n && i.size > 0 ? ` &middot; ${at(i.size)}` : ""}
@@ -6478,12 +6493,12 @@ function lt(i, e = {}) {
     </div>
   `;
 }
-function Ln(i, e = {}) {
+function An(i, e = {}) {
   const { emptyMessage: t = "No files found", selectable: n = !0 } = e;
   return i.length === 0 ? `
       <div class="text-center py-8 text-gray-500">
         <i class="iconoir-folder text-4xl mb-2" aria-hidden="true"></i>
-        <p>${$(t)}</p>
+        <p>${D(t)}</p>
       </div>
     ` : `
     <div class="space-y-2" role="list">
@@ -6491,7 +6506,7 @@ function Ln(i, e = {}) {
     </div>
   `;
 }
-function En(i) {
+function Ln(i) {
   return {
     id: i.id,
     name: i.name,
@@ -6504,17 +6519,17 @@ export {
   Y as AgreementFormController,
   Z as DocumentDetailPreviewController,
   K as DocumentFormController,
-  Ee as ESignAPIClient,
-  Pe as ESignAPIError,
+  Le as ESignAPIClient,
+  Ee as ESignAPIError,
   Ce as GOOGLE_ACCOUNT_STORAGE_KEY,
   pe as GoogleCallbackController,
   me as GoogleDrivePickerController,
   ge as GoogleIntegrationController,
   et as IMPORTABLE_MIME_TYPES,
-  ye as IntegrationConflictsController,
+  we as IntegrationConflictsController,
   fe as IntegrationHealthController,
   ve as IntegrationMappingsController,
-  we as IntegrationSyncRunsController,
+  ye as IntegrationSyncRunsController,
   Q as LandingPageController,
   j as MIME_GOOGLE_DOC,
   Se as MIME_GOOGLE_FOLDER,
@@ -6537,10 +6552,10 @@ export {
   jt as bootstrapGoogleDrivePicker,
   Ht as bootstrapGoogleIntegration,
   qt as bootstrapIntegrationConflicts,
-  Ut as bootstrapIntegrationHealth,
+  Nt as bootstrapIntegrationHealth,
   Gt as bootstrapIntegrationMappings,
   Jt as bootstrapIntegrationSyncRuns,
-  $t as bootstrapLandingPage,
+  Dt as bootstrapLandingPage,
   Bt as bootstrapSignerCompletePage,
   nn as bootstrapSignerErrorPage,
   en as bootstrapSignerReview,
@@ -6548,17 +6563,17 @@ export {
   bt as byId,
   Te as capitalize,
   Me as createESignClient,
-  De as createElement,
+  $e as createElement,
   mn as createSchemaActionCachingRefresh,
-  En as createSelectedFile,
-  yt as createStatusBadgeElement,
+  Ln as createSelectedFile,
+  wt as createStatusBadgeElement,
   Mt as createTimeoutController,
   dn as dateTimeCellRenderer,
-  D as debounce,
+  $ as debounce,
   pn as defaultActionErrorHandler,
   hn as defaultActionSuccessHandler,
   St as delegate,
-  $ as escapeHtml,
+  D as escapeHtml,
   un as fileSizeCellRenderer,
   ht as formatDate,
   M as formatDateTime,
@@ -6586,10 +6601,10 @@ export {
   Rt as initGoogleIntegration,
   Vt as initIntegrationConflicts,
   zt as initIntegrationHealth,
-  Nt as initIntegrationMappings,
+  Ut as initIntegrationMappings,
   Wt as initIntegrationSyncRuns,
   kt as initLandingPage,
-  Dt as initSignerCompletePage,
+  $t as initSignerCompletePage,
   tn as initSignerErrorPage,
   Xt as initSignerReview,
   k as isFolder,
@@ -6599,38 +6614,38 @@ export {
   nt as isPDF,
   O as normalizeAccountId,
   it as normalizeDriveFile,
-  yn as normalizeDriveFiles,
+  wn as normalizeDriveFiles,
   Xe as normalizeFilterOperators,
   Ze as normalizeFilterOptions,
   Ye as normalizeFilterType,
   xt as on,
-  w as onReady,
-  Et as poll,
+  y as onReady,
+  Lt as poll,
   ln as prepareFilterFields,
   cn as prepareGridColumns,
   r as qs,
-  A as qsa,
+  P as qsa,
   In as renderBreadcrumb,
   ct as renderFileIcon,
   lt as renderFileItem,
-  Ln as renderFileList,
-  $e as renderStatusBadge,
-  wn as resolveAccountId,
-  Pt as retry,
+  An as renderFileList,
+  De as renderStatusBadge,
+  yn as resolveAccountId,
+  Et as retry,
   bn as saveAccountId,
-  Ae as setESignClient,
+  Pe as setESignClient,
   It as setLoading,
   gn as setupRefreshButton,
   p as show,
   ue as sleep,
   ft as snakeToTitle,
   Cn as syncAccountIdToUrl,
-  At as throttle,
+  Pt as throttle,
   Ct as toggle,
   vt as truncate,
   B as updateDataText,
-  Lt as updateDataTexts,
-  wt as updateStatusBadge,
+  At as updateDataTexts,
+  yt as updateStatusBadge,
   Tt as withTimeout
 };
 //# sourceMappingURL=index.js.map
