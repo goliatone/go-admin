@@ -109,7 +109,7 @@ func (a *Admin) loadModules(ctx context.Context) error {
 			if !ok {
 				return validationDomainError("module missing Register implementation", map[string]any{"component": "modules", "module": mod.Manifest().ID})
 			}
-			return registrar.Register(ModuleContext{
+			moduleCtx := ModuleContext{
 				Admin:           a,
 				Router:          protectedRouter,
 				ProtectedRouter: protectedRouter,
@@ -117,7 +117,28 @@ func (a *Admin) loadModules(ctx context.Context) error {
 				AuthMiddleware:  authMiddleware,
 				Locale:          a.config.DefaultLocale,
 				Translator:      a.translator,
-			})
+			}
+			if err := registrar.Register(moduleCtx); err != nil {
+				return err
+			}
+			if validator, ok := registrar.(ModuleStartupValidator); ok {
+				validateErr := validator.ValidateStartup(ctx)
+				if validateErr != nil {
+					if a.moduleStartupPolicy == ModuleStartupPolicyWarn {
+						a.loggerFor("admin.modules").Warn("module startup validation warning",
+							"module", strings.TrimSpace(mod.Manifest().ID),
+							"error", validateErr,
+						)
+						return nil
+					}
+					return validationDomainError("module startup validation failed", map[string]any{
+						"component": "modules",
+						"module":    strings.TrimSpace(mod.Manifest().ID),
+						"error":     strings.TrimSpace(validateErr.Error()),
+					})
+				}
+			}
+			return nil
 		},
 		AddMenuItems: func(ctx context.Context, items []navinternal.MenuItem) error {
 			return a.addMenuItems(ctx, []MenuItem(items))
