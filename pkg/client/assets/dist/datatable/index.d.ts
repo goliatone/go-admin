@@ -39,8 +39,14 @@ export { FallbackBanner, applyFormLock, removeFormLock, isFormLocked, getFormLoc
 export type { FallbackBannerConfig, FormLockState } from './fallback-banner.js';
 export { InlineLocaleChips, renderInlineLocaleChips, shouldShowInlineLocaleChips, initInlineLocaleChips, createInlineLocaleChipsRenderer } from './inline-locale-chips.js';
 export type { InlineLocaleChipsConfig, ActionStateEntry } from './inline-locale-chips.js';
-export { KeyboardShortcutRegistry, isMacPlatform, getPrimaryModifierLabel, getModifierSymbol, formatShortcutDisplay, createTranslationShortcuts, renderShortcutsHelpContent, getDefaultShortcutRegistry, initKeyboardShortcuts } from './keyboard-shortcuts.js';
-export type { KeyboardShortcut, ModifierKey, ShortcutCategory, ShortcutContext, ShortcutRegistrationOptions, ShortcutRegistryConfig } from './keyboard-shortcuts.js';
+export { KeyboardShortcutRegistry, isMacPlatform, getPrimaryModifierLabel, getModifierSymbol, formatShortcutDisplay, createTranslationShortcuts, renderShortcutsHelpContent, getDefaultShortcutRegistry, initKeyboardShortcuts, loadShortcutSettings, saveShortcutSettings, isShortcutHintDismissed, dismissShortcutHint, renderDiscoveryHint, renderShortcutSettingsUI, applyShortcutSettings, initKeyboardShortcutsWithDiscovery } from './keyboard-shortcuts.js';
+export type { KeyboardShortcut, ModifierKey, ShortcutCategory, ShortcutContext, ShortcutRegistrationOptions, ShortcutRegistryConfig, ShortcutSettings, DiscoveryHintConfig, ShortcutSettingsUIConfig } from './keyboard-shortcuts.js';
+export { AutosaveIndicator, createTranslationAutosave, renderAutosaveIndicator, getAutosaveIndicatorStyles, initFormAutosave } from './autosave-indicator.js';
+export type { AutosaveState, AutosaveIndicatorConfig, AutosaveLabels, AutosaveStateChangeEvent, AutosaveStateChangeCallback, AutosaveConflictInfo, ConflictResolutionAction, ConflictResolution, ConflictLabels } from './autosave-indicator.js';
+export { CharacterCounter, InterpolationPreview, DirectionToggle, initFieldHelpers, renderCharacterCounter, renderDirectionToggle, getFieldHelperStyles, detectInterpolations, getCharCountSeverity, DEFAULT_INTERPOLATION_PATTERNS, DEFAULT_SAMPLE_VALUES } from './field-helpers.js';
+export type { CharacterCounterThreshold, CharacterCounterConfig, InterpolationPattern, InterpolationPreviewConfig, DirectionToggleConfig, FieldHelperState, InterpolationMatch } from './field-helpers.js';
 export { isExchangeError, extractExchangeError, parseImportResult, groupRowResultsByStatus, generateExchangeReport } from '../toast/error-helpers.js';
 export type { ExchangeErrorCode, ExchangeRowStatus, ExchangeRowResult, ExchangeConflictInfo, ExchangeResultSummary, ExchangeImportResult, ExchangeExportOptions, ExchangeExportResult, ExchangeErrorInfo } from '../toast/error-helpers.js';
+export { CapabilityGate, parseCapabilityMode, isExchangeEnabled, isQueueEnabled, isCoreEnabled, extractCapabilities, createCapabilityGate, createEmptyCapabilityGate, renderGateAriaAttributes, renderDisabledReasonBadge, getCapabilityGateStyles, applyGateToElement, initCapabilityGating } from './capability-gate.js';
+export type { CapabilityMode, ActionState, ModuleState, RouteConfig, TranslationCapabilities, GateResult, NavItemGate } from './capability-gate.js';
 //# sourceMappingURL=index.d.ts.map

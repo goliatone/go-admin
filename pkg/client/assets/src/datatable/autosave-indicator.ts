@@ -376,6 +376,7 @@ export class AutosaveIndicator {
       this.isDirty = false;
       this.pendingData = null;
       this.lastError = null;
+      this.conflictInfo = null;
       this.setState('saved');
 
       // Auto-transition back to idle after duration
@@ -388,6 +389,14 @@ export class AutosaveIndicator {
       return true;
     } catch (error) {
       this.lastError = error instanceof Error ? error : new Error(String(error));
+
+      // Check for conflict error (TX-074)
+      if (this.config.enableConflictDetection && this.isConflictError(error)) {
+        this.conflictInfo = this.extractConflictInfo(error);
+        this.setState('conflict');
+        return false;
+      }
+
       this.setState('error');
       return false;
     }
@@ -397,10 +406,198 @@ export class AutosaveIndicator {
    * Retry a failed save.
    */
   async retry(): Promise<boolean> {
-    if (this.state !== 'error') {
+    if (this.state !== 'error' && this.state !== 'conflict') {
       return true;
     }
+    this.conflictInfo = null;
     return this.save();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Conflict Handling (TX-074)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Get current conflict info if in conflict state.
+   */
+  getConflictInfo(): AutosaveConflictInfo | null {
+    return this.conflictInfo;
+  }
+
+  /**
+   * Check if in conflict state.
+   */
+  isInConflict(): boolean {
+    return this.state === 'conflict' && this.conflictInfo !== null;
+  }
+
+  /**
+   * Resolve conflict by using server version (discard local changes).
+   */
+  async resolveWithServerVersion(): Promise<void> {
+    if (!this.isInConflict() || !this.conflictInfo) return;
+
+    const conflict = this.conflictInfo;
+    let serverState = conflict.latestServerState;
+
+    // Fetch server state if not provided inline
+    if (!serverState && conflict.latestStatePath && this.config.fetchServerState) {
+      try {
+        serverState = await this.config.fetchServerState(conflict.latestStatePath);
+      } catch {
+        // Failed to fetch, show error
+        this.lastError = new Error('Failed to fetch server version');
+        this.setState('error');
+        return;
+      }
+    }
+
+    const resolution: ConflictResolution = {
+      action: 'use_server',
+      serverState,
+      localData: this.pendingData,
+      conflict
+    };
+
+    // Clear local state
+    this.isDirty = false;
+    this.pendingData = null;
+    this.conflictInfo = null;
+    this.setState('idle');
+
+    // Notify caller
+    if (this.config.onConflictResolve) {
+      try {
+        await this.config.onConflictResolve(resolution);
+      } catch {
+        // Ignore callback errors
+      }
+    }
+  }
+
+  /**
+   * Resolve conflict by forcing save (overwrite server version).
+   */
+  async resolveWithForceSave(): Promise<boolean> {
+    if (!this.isInConflict() || !this.conflictInfo) return true;
+    if (!this.config.allowForceSave) return false;
+
+    const conflict = this.conflictInfo;
+
+    const resolution: ConflictResolution = {
+      action: 'force_save',
+      localData: this.pendingData,
+      conflict
+    };
+
+    // Notify caller that force save was requested
+    if (this.config.onConflictResolve) {
+      try {
+        await this.config.onConflictResolve(resolution);
+      } catch {
+        // Ignore callback errors
+      }
+    }
+
+    // Clear conflict state and retry save
+    this.conflictInfo = null;
+    return this.save();
+  }
+
+  /**
+   * Dismiss conflict without resolving (keep local changes but don't save).
+   */
+  dismissConflict(): void {
+    if (!this.isInConflict() || !this.conflictInfo) return;
+
+    const conflict = this.conflictInfo;
+
+    const resolution: ConflictResolution = {
+      action: 'dismiss',
+      localData: this.pendingData,
+      conflict
+    };
+
+    this.conflictInfo = null;
+    this.setState('idle');
+
+    // Notify caller
+    if (this.config.onConflictResolve) {
+      try {
+        this.config.onConflictResolve(resolution);
+      } catch {
+        // Ignore callback errors
+      }
+    }
+  }
+
+  /**
+   * Check if an error is an autosave conflict error.
+   */
+  private isConflictError(error: unknown): boolean {
+    if (!error) return false;
+
+    // Check for error code
+    const errorObj = error as { code?: string; text_code?: string; name?: string };
+    if (errorObj.code === 'AUTOSAVE_CONFLICT' || errorObj.text_code === 'AUTOSAVE_CONFLICT') {
+      return true;
+    }
+    if (errorObj.name === 'AutosaveConflictError') {
+      return true;
+    }
+
+    // Check error message
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.toLowerCase().includes('autosave conflict')) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Extract conflict info from an error.
+   */
+  private extractConflictInfo(error: unknown): AutosaveConflictInfo {
+    const errorObj = error as {
+      metadata?: {
+        version?: string;
+        expected_version?: string;
+        latest_state_path?: string;
+        latest_server_state?: Record<string, unknown>;
+        entity_id?: string;
+        panel?: string;
+      };
+      version?: string;
+      expectedVersion?: string;
+      latestStatePath?: string;
+      latestServerState?: Record<string, unknown>;
+      entityId?: string;
+      panel?: string;
+    };
+
+    // Try metadata first (backend response format)
+    const metadata = errorObj.metadata;
+    if (metadata) {
+      return {
+        version: metadata.version || '',
+        expectedVersion: metadata.expected_version || '',
+        latestStatePath: metadata.latest_state_path,
+        latestServerState: metadata.latest_server_state,
+        entityId: metadata.entity_id,
+        panel: metadata.panel
+      };
+    }
+
+    // Fall back to direct properties
+    return {
+      version: errorObj.version || '',
+      expectedVersion: errorObj.expectedVersion || '',
+      latestStatePath: errorObj.latestStatePath,
+      latestServerState: errorObj.latestServerState,
+      entityId: errorObj.entityId,
+      panel: errorObj.panel
+    };
   }
 
   /**
@@ -428,10 +625,44 @@ export class AutosaveIndicator {
     const label = labels[this.state] || '';
     const icon = this.getStateIcon();
 
+    // Conflict state renders expanded UI (TX-074)
+    if (this.state === 'conflict') {
+      return this.renderConflictUI();
+    }
+
     return `<div class="${prefix} ${stateClass}" role="status" aria-live="polite" aria-atomic="true">
       <span class="${prefix}__icon">${icon}</span>
       <span class="${prefix}__label">${label}</span>
       ${this.state === 'error' ? `<button type="button" class="${prefix}__retry" aria-label="Retry save">Retry</button>` : ''}
+    </div>`;
+  }
+
+  /**
+   * Render conflict recovery UI (TX-074).
+   */
+  renderConflictUI(): string {
+    const prefix = this.config.classPrefix;
+    const labels = this.config.conflictLabels;
+
+    return `<div class="${prefix} ${prefix}--conflict" role="alertdialog" aria-labelledby="${prefix}-conflict-title" aria-describedby="${prefix}-conflict-desc">
+      <div class="${prefix}__conflict-header">
+        <span class="${prefix}__icon">${this.getStateIcon()}</span>
+        <span id="${prefix}-conflict-title" class="${prefix}__conflict-title">${labels.title}</span>
+      </div>
+      <p id="${prefix}-conflict-desc" class="${prefix}__conflict-message">${labels.message}</p>
+      <div class="${prefix}__conflict-actions">
+        <button type="button" class="${prefix}__conflict-use-server" aria-label="${labels.useServer}">
+          ${labels.useServer}
+        </button>
+        ${this.config.allowForceSave ? `
+          <button type="button" class="${prefix}__conflict-force-save" aria-label="${labels.forceSave}">
+            ${labels.forceSave}
+          </button>
+        ` : ''}
+        <button type="button" class="${prefix}__conflict-dismiss" aria-label="${labels.dismiss}">
+          ${labels.dismiss}
+        </button>
+      </div>
     </div>`;
   }
 
@@ -442,6 +673,7 @@ export class AutosaveIndicator {
     if (this.config.container) {
       this.config.container.innerHTML = this.renderIndicator();
       this.bindRetryButton();
+      this.bindConflictButtons();
     }
   }
 
@@ -494,10 +726,13 @@ export class AutosaveIndicator {
 
     switch (state) {
       case 'saved':
-        notifier.success(this.config.labels.saved, 2000);
+        notifier.success(this.config.labels.saved ?? DEFAULT_LABELS.saved, 2000);
         break;
       case 'error':
-        notifier.error(this.lastError?.message || this.config.labels.error);
+        notifier.error(this.lastError?.message ?? this.config.labels.error ?? DEFAULT_LABELS.error);
+        break;
+      case 'conflict':
+        notifier.warning?.(this.config.labels.conflict ?? DEFAULT_LABELS.conflict);
         break;
     }
   }
@@ -519,8 +754,35 @@ export class AutosaveIndicator {
           <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="2"/>
           <path d="M8 5v4M8 11v.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         </svg>`;
+      case 'conflict':
+        // Warning triangle icon for conflict state (TX-074)
+        return `<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M8 1L15 14H1L8 1Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M8 6v4M8 12v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>`;
       default:
         return '';
+    }
+  }
+
+  private bindConflictButtons(): void {
+    if (!this.config.container || this.state !== 'conflict') return;
+
+    const prefix = this.config.classPrefix;
+
+    const useServerBtn = this.config.container.querySelector(`.${prefix}__conflict-use-server`);
+    if (useServerBtn) {
+      useServerBtn.addEventListener('click', () => this.resolveWithServerVersion());
+    }
+
+    const forceSaveBtn = this.config.container.querySelector(`.${prefix}__conflict-force-save`);
+    if (forceSaveBtn) {
+      forceSaveBtn.addEventListener('click', () => this.resolveWithForceSave());
+    }
+
+    const dismissBtn = this.config.container.querySelector(`.${prefix}__conflict-dismiss`);
+    if (dismissBtn) {
+      dismissBtn.addEventListener('click', () => this.dismissConflict());
     }
   }
 
@@ -563,8 +825,12 @@ export function createTranslationAutosave(config: AutosaveIndicatorConfig): Auto
       idle: '',
       saving: 'Saving...',
       saved: 'All changes saved',
-      error: 'Failed to save'
+      error: 'Failed to save',
+      conflict: 'Conflict detected'
     },
+    // Enable conflict detection by default for translation forms (TX-074)
+    enableConflictDetection: true,
+    allowForceSave: true,
     ...config
   });
 }
@@ -593,6 +859,9 @@ export function renderAutosaveIndicator(
       break;
     case 'error':
       icon = `<span class="${prefix}__error">!</span>`;
+      break;
+    case 'conflict':
+      icon = `<span class="${prefix}__conflict-icon">⚠</span>`;
       break;
   }
 
@@ -669,6 +938,80 @@ export function getAutosaveIndicatorStyles(classPrefix: string = DEFAULT_CLASS_P
       from { transform: rotate(0deg); }
       to { transform: rotate(360deg); }
     }
+
+    /* Conflict state styles (TX-074) */
+    .${classPrefix}--conflict {
+      color: var(--autosave-conflict-color, #f59e0b);
+      padding: 0.75rem;
+      background: var(--autosave-conflict-bg, #fffbeb);
+      border: 1px solid var(--autosave-conflict-border, #fcd34d);
+      border-radius: 0.5rem;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0.5rem;
+    }
+
+    .${classPrefix}__conflict-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .${classPrefix}__conflict-title {
+      font-weight: 600;
+      color: var(--autosave-conflict-title-color, #92400e);
+    }
+
+    .${classPrefix}__conflict-message {
+      font-size: 0.75rem;
+      color: var(--autosave-conflict-message-color, #78350f);
+      margin: 0;
+    }
+
+    .${classPrefix}__conflict-actions {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-top: 0.25rem;
+    }
+
+    .${classPrefix}__conflict-actions button {
+      padding: 0.25rem 0.5rem;
+      font-size: 0.75rem;
+      border-radius: 0.25rem;
+      cursor: pointer;
+      transition: background-color 150ms ease;
+    }
+
+    .${classPrefix}__conflict-use-server {
+      color: white;
+      background: var(--autosave-conflict-use-server-bg, #3b82f6);
+      border: none;
+    }
+
+    .${classPrefix}__conflict-use-server:hover {
+      background: var(--autosave-conflict-use-server-hover-bg, #2563eb);
+    }
+
+    .${classPrefix}__conflict-force-save {
+      color: var(--autosave-conflict-force-color, #ef4444);
+      background: transparent;
+      border: 1px solid currentColor;
+    }
+
+    .${classPrefix}__conflict-force-save:hover {
+      background: var(--autosave-conflict-force-hover-bg, rgba(239, 68, 68, 0.1));
+    }
+
+    .${classPrefix}__conflict-dismiss {
+      color: var(--autosave-conflict-dismiss-color, #6b7280);
+      background: transparent;
+      border: 1px solid var(--autosave-conflict-dismiss-border, #d1d5db);
+    }
+
+    .${classPrefix}__conflict-dismiss:hover {
+      background: var(--autosave-conflict-dismiss-hover-bg, #f3f4f6);
+    }
   `;
 }
 
@@ -695,7 +1038,7 @@ export function initFormAutosave(
   // Find or create indicator container
   let container = indicatorConfig.container;
   if (!container && indicatorSelector) {
-    container = form.querySelector(indicatorSelector) ?? undefined;
+    container = form.querySelector<HTMLElement>(indicatorSelector) ?? undefined;
   }
 
   const indicator = new AutosaveIndicator({
