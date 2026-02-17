@@ -1,0 +1,17 @@
+[
+  {
+    "resource": "pages",
+    "entity_id": "248e4d5b-3876-4378-93f4-6298963716a2",
+    "translation_group_id": "248e4d5b-3876-4378-93f4-6298963716a2",
+    "source_locale": "en",
+    "target_locale": "es",
+    "field_path": "title",
+    "source_text": "Translation Readiness Missing FR (EN)",
+    "translated_text": "Traduccion Lista FR Faltante (ES)",
+    "source_hash": "945ac1c84c7db5c6135e76741f1dfcebfbd07c5a6d2c690845df26c5f4192c9e",
+    "path": "/translations/missing-fr",
+    "title": "Translation Readiness Missing FR (EN)",
+    "status": "draft",
+    "notes": "Seed-backed import fixture for /admin/translations/exchange"
+  }
+]
