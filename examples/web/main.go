@@ -766,7 +766,7 @@ func main() {
 		cfg,
 		modules,
 		isDev,
-		quickstart.WithTranslationCapabilityMenuMode(quickstart.TranslationCapabilityMenuModeNone),
+		quickstart.WithTranslationCapabilityMenuMode(quickstart.TranslationCapabilityMenuModeTools),
 	); err != nil {
 		log.Panicf("failed to register modules: %v", err)
 	}
@@ -969,6 +969,10 @@ func main() {
 	uiRouteOpts := []quickstart.UIRouteOption{
 		quickstart.WithUIDashboardActive(setup.NavigationSectionDashboard),
 	}
+	if featureEnabled(adm.FeatureGate(), string(coreadmin.FeatureTranslationQueue)) {
+		uiRouteOpts = append(uiRouteOpts, quickstart.WithUITranslationDashboardRoute(true))
+		log.Printf("Translation dashboard UI route enabled (/admin/translations/dashboard)")
+	}
 	if featureEnabled(adm.FeatureGate(), string(coreadmin.FeatureTranslationExchange)) {
 		uiRouteOpts = append(uiRouteOpts, quickstart.WithUITranslationExchangeRoute(true))
 		log.Printf("Translation exchange UI route enabled (/admin/translations/exchange)")
@@ -998,6 +1002,7 @@ func main() {
 		authn,
 		quickstart.WithContentEntryUITemplateFS(client.FS(), webFS),
 		quickstart.WithContentEntryRecommendedDefaults(),
+		quickstart.WithContentEntryTranslationUX(true),
 	); err != nil {
 		log.Panicf("failed to register content entry UI routes: %v", err)
 	}

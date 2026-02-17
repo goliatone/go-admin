@@ -631,7 +631,9 @@ func (s *CMSPageStore) resolveLocale(opts admin.ListOptions) string {
 			return loc
 		}
 	}
-	return s.defaultLocale
+	// No explicit locale filter means "all locales". The list route applies
+	// locale scope when needed; grouped translation views omit it intentionally.
+	return ""
 }
 
 func (s *CMSPageStore) emitActivity(ctx context.Context, verb string, page map[string]any) {
