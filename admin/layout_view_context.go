@@ -49,7 +49,11 @@ func buildAdminLayoutViewContext(adm *Admin, c router.Context, view router.ViewC
 		view["theme"] = adm.themePayload(ctx)
 	}
 	if _, ok := view["translation_capabilities"]; !ok {
-		view["translation_capabilities"] = TranslationCapabilities(adm)
+		reqCtx := context.Background()
+		if c != nil && c.Context() != nil {
+			reqCtx = c.Context()
+		}
+		view["translation_capabilities"] = TranslationCapabilitiesForContext(adm, reqCtx)
 	}
 	if _, ok := view["users_import_available"]; !ok {
 		view["users_import_available"] = adm != nil && adm.UserImportEnabled()
