@@ -19,6 +19,7 @@ import {
   normalizeBackendGroupedRows,
   extractBackendSummaries,
   mergeBackendSummaries,
+  hasPersistedExpandState,
   getPersistedExpandState,
   persistExpandState,
   getPersistedViewMode,
@@ -138,6 +139,7 @@ interface DataGridState {
   viewMode: ViewMode;
   groupedData: GroupedData | null;
   expandedGroups: Set<string>;
+  hasPersistedExpandState: boolean;
 }
 
 /**
@@ -236,6 +238,9 @@ export class DataGrid {
 
     // Restore persisted grouped mode state if enabled
     const panelId = this.config.panelId || this.config.tableId;
+    const hasPersistedGroupedExpandState = this.config.enableGroupedMode
+      ? hasPersistedExpandState(panelId)
+      : false;
     const persistedViewMode = this.config.enableGroupedMode
       ? getPersistedViewMode(panelId)
       : null;
@@ -260,6 +265,7 @@ export class DataGrid {
       viewMode: initialViewMode,
       groupedData: null,
       expandedGroups: persistedExpandState,
+      hasPersistedExpandState: hasPersistedGroupedExpandState,
     };
 
     // Initialize action renderer and cell renderer registry
@@ -386,6 +392,7 @@ export class DataGrid {
         this.state.expandedGroups = decodeExpandedGroupsToken(
           params.get(DataGrid.URL_KEY_EXPANDED_GROUPS)
         );
+        this.state.hasPersistedExpandState = true;
       }
     }
 
@@ -895,7 +902,7 @@ export class DataGrid {
     // Prefer backend grouped payload when contract is available.
     let groupedData = normalizeBackendGroupedRows(records, {
       groupByField,
-      defaultExpanded: true,
+      defaultExpanded: !this.state.hasPersistedExpandState,
       expandedGroups: this.state.expandedGroups,
     });
 
@@ -903,7 +910,7 @@ export class DataGrid {
     if (!groupedData) {
       groupedData = transformToGroups(records, {
         groupByField,
-        defaultExpanded: true,
+        defaultExpanded: !this.state.hasPersistedExpandState,
         expandedGroups: this.state.expandedGroups,
       });
     }
@@ -1037,6 +1044,7 @@ export class DataGrid {
     // Persist state
     const panelId = this.config.panelId || this.config.tableId;
     persistExpandState(panelId, this.state.expandedGroups);
+    this.state.hasPersistedExpandState = true;
 
     // Update the group's expanded state
     const group = this.state.groupedData.groups.find(g => g.groupId === groupId);

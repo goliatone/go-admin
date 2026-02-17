@@ -104,6 +104,11 @@ export declare function extractBackendSummaries(response: Record<string, unknown
  */
 export declare function getPersistedExpandState(panelId: string): Set<string>;
 /**
+ * Whether a panel has persisted expand/collapse preferences.
+ * Distinguishes "no preference stored yet" from an explicitly collapsed-all state.
+ */
+export declare function hasPersistedExpandState(panelId: string): boolean;
+/**
  * Persist expand state for a panel.
  */
 export declare function persistExpandState(panelId: string, expandedGroups: Set<string>): void;
