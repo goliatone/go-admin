@@ -467,6 +467,9 @@ export {
   isValidReasonCode,
   getStatusesForDomain,
   getAllReasonCodes,
+  // CSS class helpers (TX-053: shared status class derivation)
+  getStatusCssClass,
+  getSeverityCssClass,
   // Rendering functions
   renderVocabularyStatusBadge,
   renderVocabularyStatusIcon,

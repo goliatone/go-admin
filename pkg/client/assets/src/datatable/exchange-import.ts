@@ -16,7 +16,7 @@ import type {
   ExchangeResultSummary,
   ExchangeImportResult,
 } from '../toast/error-helpers.js';
-import { renderVocabularyStatusBadge } from './translation-status-vocabulary.js';
+import { renderVocabularyStatusBadge, getStatusCssClass } from './translation-status-vocabulary.js';
 
 // ============================================================================
 // Types
@@ -646,7 +646,7 @@ export class ExchangeImport {
 
   private renderPreviewRow(row: ImportPreviewRow): string {
     const labels = this.config.labels;
-    const statusClass = getStatusClass(row.status);
+    const statusClass = getStatusCssClass(row.status, 'exchange');
     const isDisabled = row.status === 'error';
     const statusBadge = renderVocabularyStatusBadge(row.status, {
       domain: 'exchange',
@@ -859,20 +859,7 @@ function escapeAttr(str: string): string {
     .replace(/'/g, '&#039;');
 }
 
-function getStatusClass(status: ExchangeRowStatus): string {
-  switch (status) {
-    case 'success':
-      return 'status-success';
-    case 'error':
-      return 'status-error';
-    case 'conflict':
-      return 'status-conflict';
-    case 'skipped':
-      return 'status-skipped';
-    default:
-      return '';
-  }
-}
+// Local getStatusClass removed - now using shared getStatusCssClass from translation-status-vocabulary.ts (TX-053)
 
 function truncate(str: string, maxLength: number): string {
   if (str.length <= maxLength) return str;

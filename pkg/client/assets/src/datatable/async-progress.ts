@@ -8,7 +8,7 @@
  * - Completion/failure states
  */
 
-import { renderVocabularyStatusBadge } from './translation-status-vocabulary.js';
+import { renderVocabularyStatusBadge, getStatusCssClass } from './translation-status-vocabulary.js';
 
 // ============================================================================
 // Types
@@ -516,7 +516,7 @@ export class AsyncProgress {
       `;
     }
 
-    const statusClass = getStatusClass(this.job.status);
+    const statusClass = getStatusCssClass(this.job.status, 'exchange');
     const statusLabel = this.getStatusLabel();
     const statusHtml = this.pollingState === 'paused'
       ? `<span class="progress-status ${statusClass}">${escapeHtml(statusLabel)}</span>`
@@ -758,18 +758,7 @@ function escapeHtml(str: string): string {
     .replace(/'/g, '&#039;');
 }
 
-function getStatusClass(status: JobStatus): string {
-  switch (status) {
-    case 'running':
-      return 'status-running';
-    case 'completed':
-      return 'status-completed';
-    case 'failed':
-      return 'status-failed';
-    default:
-      return '';
-  }
-}
+// Local getStatusClass removed - now using shared getStatusCssClass from translation-status-vocabulary.ts (TX-053)
 
 // ============================================================================
 // CSS Styles

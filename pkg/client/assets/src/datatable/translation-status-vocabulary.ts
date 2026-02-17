@@ -640,6 +640,31 @@ export function getAllReasonCodes(): string[] {
   return Object.keys(DISABLED_REASON_DISPLAY);
 }
 
+/**
+ * Get a CSS class name for a status value.
+ * Returns 'status-{status}' for valid statuses, empty string otherwise.
+ * This replaces local getStatusClass() functions in consuming surfaces.
+ */
+export function getStatusCssClass(status: string, domain?: StatusDomain): string {
+  const display = getStatusDisplay(status, domain);
+  if (!display) {
+    return '';
+  }
+  return `status-${status.toLowerCase()}`;
+}
+
+/**
+ * Get a CSS class name based on severity level.
+ * Maps status to its severity CSS class for consistent theming.
+ */
+export function getSeverityCssClass(status: string, domain?: StatusDomain): string {
+  const display = getStatusDisplay(status, domain);
+  if (!display) {
+    return '';
+  }
+  return `severity-${display.severity}`;
+}
+
 // ============================================================================
 // Rendering Functions
 // ============================================================================

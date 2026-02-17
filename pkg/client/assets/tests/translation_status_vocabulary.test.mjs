@@ -53,6 +53,9 @@ const {
   isValidReasonCode,
   getStatusesForDomain,
   getAllReasonCodes,
+  // CSS class helpers (TX-053)
+  getStatusCssClass,
+  getSeverityCssClass,
   // Rendering functions
   renderVocabularyStatusBadge,
   renderReasonCodeBadge,
@@ -309,24 +312,24 @@ describe('getAllReasonCodes', () => {
 // Rendering Function Tests
 // ============================================================================
 
-describe('renderStatusBadge', () => {
+describe('renderVocabularyStatusBadge', () => {
   it('should render valid status as badge HTML', () => {
-    const html = renderStatusBadge('ready');
+    const html = renderVocabularyStatusBadge('ready');
     assert.ok(html.includes('Ready'));
     assert.ok(html.includes('data-status="ready"'));
     assert.ok(html.includes('bg-green-100'));
   });
 
   it('should render unknown status with fallback styling', () => {
-    const html = renderStatusBadge('unknown');
+    const html = renderVocabularyStatusBadge('unknown');
     assert.ok(html.includes('unknown'));
     assert.ok(html.includes('bg-gray-100'));
   });
 
   it('should support size option', () => {
-    const xs = renderStatusBadge('ready', { size: 'xs' });
-    const sm = renderStatusBadge('ready', { size: 'sm' });
-    const def = renderStatusBadge('ready', { size: 'default' });
+    const xs = renderVocabularyStatusBadge('ready', { size: 'xs' });
+    const sm = renderVocabularyStatusBadge('ready', { size: 'sm' });
+    const def = renderVocabularyStatusBadge('ready', { size: 'default' });
 
     assert.ok(xs.includes('text-[10px]'));
     assert.ok(sm.includes('text-xs'));
@@ -334,17 +337,17 @@ describe('renderStatusBadge', () => {
   });
 
   it('should support icon-only mode', () => {
-    const html = renderStatusBadge('ready', { showIcon: true, showLabel: false });
+    const html = renderVocabularyStatusBadge('ready', { showIcon: true, showLabel: false });
     assert.ok(!html.includes('>Ready<'));
   });
 
   it('should support label-only mode', () => {
-    const html = renderStatusBadge('ready', { showIcon: false, showLabel: true });
+    const html = renderVocabularyStatusBadge('ready', { showIcon: false, showLabel: true });
     assert.ok(html.includes('Ready'));
   });
 
   it('should escape HTML in status names', () => {
-    const html = renderStatusBadge('<script>alert(1)</script>');
+    const html = renderVocabularyStatusBadge('<script>alert(1)</script>');
     assert.ok(!html.includes('<script>'));
     assert.ok(html.includes('&lt;script&gt;'));
   });

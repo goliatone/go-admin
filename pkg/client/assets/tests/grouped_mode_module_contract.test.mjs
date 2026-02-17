@@ -70,3 +70,20 @@ test('grouped-mode module contract: rejects flat payload as unsupported grouped 
   assert.equal(hasBackendGroupedRows(flatRows), false);
   assert.equal(normalizeBackendGroupedRows(flatRows), null);
 });
+
+test('grouped-mode module contract: accepts backend ungrouped rows without forcing fallback', () => {
+  const rows = [
+    {
+      id: 'orphan_en',
+      title: 'Orphan EN',
+      _group: { row_type: 'ungrouped', id: 'ungrouped:1' },
+    },
+  ];
+
+  assert.equal(hasBackendGroupedRows(rows), true);
+  const normalized = normalizeBackendGroupedRows(rows);
+  assert.ok(normalized);
+  assert.equal(normalized.totalGroups, 0);
+  assert.equal(normalized.ungrouped.length, 1);
+  assert.equal(normalized.ungrouped[0].id, 'orphan_en');
+});
