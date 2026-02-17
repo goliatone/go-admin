@@ -1,188 +1,248 @@
-# Translation Operations Guide
+# Translation Guide
 
-This document covers translation exchange, queue lifecycle semantics, command contracts, permission scope, route keys, quickstart opt-in behavior, and operations guidance.
+This guide explains how translation works in the `examples/web` app from an editor/user perspective first, then with implementation notes for maintainers.
+
+It answers:
+
+- What is a source record vs a translation variant?
+- What does "missing translations" mean?
+- Where should translations be created?
+- How do I complete an end-to-end translation workflow for a page?
+
+If you only want the "day to day" workflow, start at section 4.
+
+## 1. Quick Setup (examples/web)
+
+Run the app with translation modules enabled:
+
+```bash
+cd examples/web
+ADMIN_TRANSLATION_PROFILE=full go run .
+```
+
+Profile defaults:
+
+- `none`: no translation capabilities
+- `core`: translation policy only (no exchange UI, no queue UI)
+- `core+exchange`: exchange only
+- `core+queue`: queue only
+- `full`: exchange + queue
+
+Important defaults in this repo:
+
+- If `ADMIN_TRANSLATION_PROFILE` is unset, profile resolves to `core` (for CMS enabled apps)
+- Translation exchange and queue feature flags default to `false` in quickstart defaults
+- So with no env overrides, you get core translation mechanics but no Exchange/Queue UI routes
+
+Optional explicit overrides:
+
+- `ADMIN_TRANSLATION_EXCHANGE=true|false`
+- `ADMIN_TRANSLATION_QUEUE=true|false`
+
+In `examples/web/main.go`, profile defaults are resolved first, then explicit module env overrides are applied.
+
+## 2. Core Model
+
+### Translation group
+
+`translation_group_id` links all locale variants of the same content item.
+
+Example:
+
+- EN page: `translation_group_id = tg_123`
+- ES page: `translation_group_id = tg_123`
+- FR page: `translation_group_id = tg_123`
+
+### Source record
+
+In UI workflows, the source is the existing record you start from (usually `en`).
+
+Example:
+
+- You have page `Home` in `en`
+- You click `Add Translation` and choose `es`
+- The `en` row is the source for the creation action
+- The new `es` row is the translation target you now edit
+
+In Exchange, `source_text` is exported from the source locale row and hashed (`source_hash`) for stale content detection.
+
+### Translation variant
+
+A translation is another record in the same `translation_group_id` with a different `locale`.
+
+### Missing translations
+
+"Missing" is policy driven, not just "locale not created".
+
+For list/detail UI, readiness is computed as:
+
+- `required_locales` (from translation policy for transition/environment)
+- minus `available_locales` (locales currently present in the group)
+
+If any required locales are absent, readiness is not `ready`.
+
+Field completeness is separate from locale existence:
+
+- Locale existence drives `missing_required_locales`
+- Required field checks drive `missing_required_fields_by_locale`
+- In list rows, field level readiness is evaluated for the active row locale
+
+### Fallback mode
+
+If user requests locale `fr` but only `en` exists:
+
+- `requested_locale = fr`
+- `resolved_locale = en`
+- `missing_requested_locale = true`
+- `fallback_used = true`
+
+UI then shows fallback warning and blocks saving until translation is created.
+
+## 3. Where To Create Translations
+
+Use one of these paths:
+
+1. Pages/Posts row action: `Add Translation` (`create_translation` action)
+2. Fallback warning banner in detail/edit: `Create XX`
+3. Publish blocker modal (`TRANSLATION_MISSING`): create missing locale from modal
+4. Translation Exchange apply: check `Create missing translation records`
+
+Where you actually write translated text:
+
+- In the translated Pages/Posts record form (`/admin/content/pages` or `/admin/content/posts`)
+- Not in queue rows
+- Not directly in Exchange (Exchange imports values, but editorial review still happens in content forms)
+
+## 4. End to End Tutorial: Translate a Page in UI
+
+### Step 1: Create the source page
+
+1. Open `http://localhost:8080/admin/content/pages`
+2. Create a page in `en` (draft)
+3. Save
+
+### Step 2: Check translation columns
+
+In Pages list you will see:
+
+- `translation_status`
+- `available_locales`
+- `translation_readiness`
+- `missing_translations`
+
+If only `en` exists, it will typically show missing locales for publish policy.
+
+### Step 3: Create first translation (ES)
+
+1. On the EN row, click `Add Translation`
+2. Choose `es`
+3. Open the new ES record (it is created in `draft`)
+4. Enter translated fields and save
+
+### Step 4: Create second translation (FR)
+
+Repeat with locale `fr`.
+
+### Step 5: Verify “missing” is gone
+
+When required locales exist for the translation group:
+
+- readiness no longer shows missing locales
+- missing badge disappears
+- quick filter `Incomplete` drops locale rows that are now ready
+
+### Step 6: Publish
+
+Publish from row action.
+
+With default `DefaultContentTranslationPolicyConfig()`:
+
+- Pages publish requires `en, es, fr` in production
+- Pages publish requires `en, es` in staging
+- Required page fields per locale: `title`, `path`
+
+If blocked, API returns `TRANSLATION_MISSING` and UI shows a blocker modal with missing locales and remediation actions.
+Status code is typically:
+
+- `409` when locales are missing
+- `422` when required fields are missing
 
 ---
 
-## Translation Exchange
+## 5. End-to-End Tutorial: Exchange Workflow (CSV/JSON)
 
-Translation Exchange enables bulk export/import of translatable content fields via CSV/JSON files. This supports external translation workflows (agencies, machine translation, localization platforms).
+Use this for external translators or batch workflows.
 
-### Exchange Schema
+### Step 1: Open exchange UI
 
-Exchange rows use the following canonical schema:
+`GET /admin/translations/exchange`
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `resource` | string | ✓ | Content type (e.g., `pages`, `posts`) |
-| `entity_id` | string | ✓ | Source entity identifier |
-| `translation_group_id` | string | ✓ | Group ID linking source + translations |
-| `target_locale` | string | ✓ | Destination locale code |
-| `field_path` | string | ✓ | Field being translated (e.g., `title`, `body`) |
-| `source_text` | string | export | Original text (export only) |
-| `source_hash` | string | validate | Hash for staleness detection |
-| `translated_text` | string | apply | Translated content |
-| `status` | string | - | Ignored; forced to `draft` on apply |
+### Step 2: Export
 
-### Command Names
+1. Select resources (`pages`, `posts`)
+2. Select source locale (`en`)
+3. Select target locales (`es`, `fr`)
+4. Keep `Include source hash` enabled
+5. Export CSV
 
-- `translations.exchange.export` - Export translatable fields to exchange rows
-- `translations.exchange.import.validate` - Validate import rows without writing
-- `translations.exchange.import.apply` - Apply validated translations
-- `translations.exchange.import.run` - Combined validate + apply
-- `jobs.translations.exchange.import.run` - Cron/job trigger for scheduled imports
+Export rows include fields like:
 
-### Safety Rules
+- `resource`, `entity_id`, `translation_group_id`, `source_locale`, `target_locale`, `field_path`, `source_text`, `source_hash`
 
-1. **Source hash validation**: Import validates `source_hash` against current content hash. Stale rows return `TRANSLATION_EXCHANGE_STALE_SOURCE_HASH` conflict.
+### Step 3: Translate externally
 
-2. **Linkage resolution**: Each row must resolve to an existing translation group. Missing linkage returns `TRANSLATION_EXCHANGE_MISSING_LINKAGE` conflict.
+Fill `translated_text` per row.
 
-3. **Draft workflow enforcement**: All applied translations are forced to `draft` status, regardless of input `status` field. Publish requires separate workflow transition.
+### Step 4: Validate import
 
-4. **Explicit create intent**: Missing target entity requires `create_translation=true` in apply input. Without explicit intent, returns `TRANSLATION_EXCHANGE_INVALID_PAYLOAD` error.
+Upload file and click `Validate`.
 
-5. **Duplicate row detection**: Multiple rows targeting same `(resource, entity_id, translation_group_id, target_locale, field_path)` return conflict for duplicates.
+### Step 5: Apply import
 
-6. **Continue-on-error semantics**: Set `continue_on_error=false` to abort on first row error. Default (`true`) processes all rows and aggregates results.
+If target locale records do not yet exist, enable:
 
-7. **Dry run support**: Set `dry_run=true` to simulate apply without persisting changes.
+- `Create missing translation records` (`allow_create_missing` / `create_translation`)
 
-### HTTP Endpoints
+Optional controls:
 
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/admin/api/translations/export` | Export rows matching filter |
-| GET | `/admin/api/translations/template` | Download CSV template |
-| POST | `/admin/api/translations/import/validate` | Validate CSV/JSON import |
-| POST | `/admin/api/translations/import/apply` | Apply validated translations |
+- `allow_source_hash_override`
+- `continue_on_error`
+- `dry_run`
 
-Content-Type support:
-- `application/json` - JSON payload with `rows` array
-- `multipart/form-data` - CSV file upload
+Apply writes translations as `draft` status.
 
-### CLI/Job Triggers
+### Step 6: Review in Pages/Posts and publish
 
-Exchange commands expose `CLIOptions()` for CLI execution:
-
-```
-translations export --resources pages,posts --target-locales es,fr
-translations import validate --file translations.csv
-translations import apply --file translations.csv --create-translation
-translations import run --file translations.csv --continue-on-error
-```
-
-Scheduled imports use `TranslationImportRunTriggerCommand`:
-
-```go
-trigger := &admin.TranslationImportRunTriggerCommand{
-    Schedule: "@daily",
-    BuildInput: func(ctx context.Context, input admin.TranslationImportRunTriggerInput) (admin.TranslationImportRunInput, error) {
-        // Load rows from external source
-        return admin.TranslationImportRunInput{...}, nil
-    },
-}
-```
-
-### Quickstart Opt-in
-
-Feature key: `translations.exchange` (default `false`).
-
-Enable with:
-
-```go
-adm, _, err := quickstart.NewAdmin(
-    cfg,
-    quickstart.AdapterHooks{},
-    quickstart.WithTranslationExchangeConfig(quickstart.TranslationExchangeConfig{
-        Enabled: true,
-        // Optional: permission wiring
-        PermissionRegister: permissionRegistrar,
-    }),
-)
-```
-
-Wiring performed by quickstart:
-1. Registers exchange command handlers + message factories
-2. Registers HTTP routes under `/admin/api/translations/*`
-3. Optionally registers exchange permissions when `PermissionRegister` is provided
-
-### Permission Matrix
-
-Exchange permissions use `admin.translations.*`:
-- `admin.translations.export` - Export rows
-- `admin.translations.import` - Validate and apply imports
-- `admin.translations.manage` - Full exchange access
-
-### Error Codes
-
-| Code | HTTP | Description |
-|------|------|-------------|
-| `TRANSLATION_EXCHANGE_STALE_SOURCE_HASH` | 409 | Source content changed since export |
-| `TRANSLATION_EXCHANGE_MISSING_LINKAGE` | 409 | Translation group not resolvable |
-| `TRANSLATION_EXCHANGE_INVALID_PAYLOAD` | 400 | Row validation failed |
-| `TRANSLATION_EXCHANGE_UNSUPPORTED_FORMAT` | 400 | Unsupported file format |
-| `VALIDATION_ERROR` | 400 | Input validation failed |
-| `SERVICE_UNAVAILABLE` | 503 | Exchange service not configured |
+Open translated variants, complete required fields if needed, then publish.
 
 ---
 
-## Translation Queue Operations
+## 6. Translation Queue (What It Is For)
 
-This section covers queue lifecycle semantics, command contracts, permission
-scope, route keys, quickstart opt-in behavior, and basic operations guidance.
+When queue module is enabled:
 
-## State Machine
+- UI route: `/admin/content/translations`
+- Panel slug: `translations`
 
-Assignments model translation coordination for one target locale.
+Queue actions include claim/assign/release/review/approve/reject/archive.
 
-Statuses:
-- `pending`
-- `assigned`
-- `in_progress`
-- `review`
-- `rejected`
-- `approved`
-- `published`
-- `archived`
+Pages and Posts detail views also get a `Translations` tab filtered by `translation_group_id`.
 
-Normative transitions:
-1. `pending -> assigned`
-2. `pending (open_pool) -> in_progress` (claim)
-3. `assigned -> in_progress`
-4. `in_progress -> review`
-5. `review -> approved`
-6. `review -> rejected`
-7. `rejected -> in_progress`
-8. `approved -> published` (publish linkage)
-9. Any non-terminal state -> `archived`
+Queue tracks work coordination and lifecycle only. It does not replace editing translated content in page/post forms.
 
-Terminal statuses: `published`, `archived`.
+---
 
-## Command Names
+## 7. Permissions
 
-Single-item commands:
-- `translation.queue.claim`
-- `translation.queue.assign`
-- `translation.queue.release`
-- `translation.queue.submit_review`
-- `translation.queue.approve`
-- `translation.queue.reject`
-- `translation.queue.archive`
+### Exchange permissions
 
-Bulk commands:
-- `translation.queue.bulk_assign`
-- `translation.queue.bulk_release`
-- `translation.queue.bulk_priority`
-- `translation.queue.bulk_archive`
+- `admin.translations.export`
+- `admin.translations.import.view`
+- `admin.translations.import.validate`
+- `admin.translations.import.apply`
 
-All commands are wired through typed `Commander[T]` handlers and registered with:
-- `admin.RegisterTranslationQueueCommands(...)`
-- `admin.RegisterMessageFactory(...)` (via queue command factory registration)
+### Queue permissions
 
-## Permission Matrix
-
-Queue permissions use `admin.translations.*`:
 - `admin.translations.view`
 - `admin.translations.edit`
 - `admin.translations.manage`
@@ -190,123 +250,110 @@ Queue permissions use `admin.translations.*`:
 - `admin.translations.approve`
 - `admin.translations.claim`
 
-Typical action mapping:
-- `claim`: `admin.translations.claim`
-- `assign` / `release`: `admin.translations.assign`
-- `submit_review`: `admin.translations.edit`
-- `approve` / `reject`: `admin.translations.approve`
-- `archive` / bulk lifecycle management: `admin.translations.manage`
+### Content permissions still apply
 
-## URL Route Keys
+For page/post creation/edit/publish flows you also need standard panel permissions such as:
 
-Resolver group: `admin`
+- `admin.pages.edit`, `admin.pages.publish`
+- `admin.posts.edit`, `admin.posts.publish`
 
-Route keys:
-- `translations.queue` -> queue panel list route (default admin path: `/admin/content/translations`)
-
-Semantic queue links (query variants):
-- All queue: `translations.queue`
-- My queue: `translations.queue?assignee_id={user_id}`
-- Open pool: `translations.queue?assignment_type=open_pool&status=pending`
-- Review: `translations.queue?status=review`
-- Overdue: `translations.queue?overdue=true`
-
-Use resolver keys and URL manager output instead of hardcoded admin paths.
-For panel-backed links, prefer canonical panel URL resolution:
-- `quickstart.ResolveAdminPanelURL(adm.URLs(), cfg.BasePath, "translations")`
-
-Translation queue keeps the default entry mode (`list`), so canonical entry
-renders the queue datagrid.
-
-## Quickstart Opt-in
-
-Quickstart queue feature key: `translations.queue` (default `false`).
-
-Enable with:
-- `quickstart.WithTranslationQueueConfig(quickstart.TranslationQueueConfig{Enabled: true, ...})`
-
-Wiring performed by quickstart:
-1. Registers queue panel and content tabs (`pages`, `posts`).
-2. Registers queue command handlers + message factories.
-3. Optionally registers queue permissions when `PermissionRegister` is provided.
-
-Locale alignment rule:
-1. If `supported_locales` is empty, locales derive from active translation policy requirements.
-2. If `supported_locales` is explicitly set and policy locales are available, sets must match exactly; mismatch fails startup.
-
-## Operational Playbook
-
-### Conflict handling
-
-`TRANSLATION_QUEUE_CONFLICT`:
-- Cause: active uniqueness key collision (`translation_group_id + entity_type + source_locale + target_locale`).
-- Action: reuse active assignment, or archive terminally obsolete assignment before creating a replacement.
-
-`TRANSLATION_QUEUE_VERSION_CONFLICT`:
-- Cause: optimistic lock mismatch (stale `expected_version`).
-- Action: refetch assignment, reconcile changes, retry with current version.
-
-### Overdue management
-
-1. Filter queue by `overdue=true`.
-2. Prioritize by `priority` and reviewer/translator load.
-3. Reassign or release stale `assigned`/`in_progress` items.
-4. Archive obsolete non-terminal items tied to canceled content work.
-5. Monitor dashboard counts (`active`, `review`, `overdue`) for daily triage.
+If permissions were changed for a role, re-authenticate so JWT claims refresh.
 
 ---
 
-## Example Productized Profile Runbook
+## 8. Routes and API Reference
 
-Use this runbook with `examples/web` to verify translation product wiring end-to-end.
+### UI routes
 
-### Environment matrix
+- Exchange UI: `GET /admin/translations/exchange` (when exchange enabled)
+- Queue UI: `GET /admin/content/translations` (when queue enabled)
 
-| Profile | Exchange expected | Queue expected |
-|---------|-------------------|----------------|
-| `none` | disabled | disabled |
-| `core` | disabled | disabled |
-| `core+exchange` | enabled | disabled |
-| `core+queue` | disabled | enabled |
-| `full` | enabled | enabled |
+### Exchange API routes
 
-Optional explicit overrides:
-- `ADMIN_TRANSLATION_EXCHANGE=true|false`
-- `ADMIN_TRANSLATION_QUEUE=true|false`
+- `POST /admin/api/translations/export`
+- `GET /admin/api/translations/template`
+- `POST /admin/api/translations/import/validate`
+- `POST /admin/api/translations/import/apply`
 
-Override precedence:
-1. `ADMIN_TRANSLATION_PROFILE` baseline
-2. explicit module overrides (`ADMIN_TRANSLATION_EXCHANGE`, `ADMIN_TRANSLATION_QUEUE`)
+### Queue panel API base
 
-### Startup verification
+- `GET /admin/api/translations`
 
-Run the example with the target profile:
+### Command names
 
-```bash
-cd examples/web
-ADMIN_TRANSLATION_PROFILE=full go run .
-```
+Queue command names:
 
-Validate startup event `translation.capabilities.startup`:
-- `profile` matches intended profile
-- module flags under `modules` match intended enablement
-- route map includes enabled module routes only
-- resolver keys include `admin.translations.exchange` and/or queue keys when enabled
+- `translation.queue.claim`
+- `translation.queue.assign`
+- `translation.queue.release`
+- `translation.queue.submit_review`
+- `translation.queue.approve`
+- `translation.queue.reject`
+- `translation.queue.archive`
+- `translation.queue.bulk_assign`
+- `translation.queue.bulk_release`
+- `translation.queue.bulk_priority`
+- `translation.queue.bulk_archive`
 
-### Route verification
+Exchange message command names:
 
-Enabled-module checks:
-- Exchange UI route: `GET /admin/translations/exchange`
-- Queue UI route: `GET /admin/content/translations`
-- Exchange API route: `POST /admin/api/translations/export`
-- Queue API panel route: `GET /admin/api/translations`
+- `admin.translations.exchange.export`
+- `admin.translations.exchange.import.validate`
+- `admin.translations.exchange.import.apply`
+- `admin.translations.exchange.import.run`
 
-Disabled-module checks:
-- exchange-disabled profiles must not expose `/admin/translations/exchange` or `/admin/api/translations/*`
-- queue-disabled profiles must not expose `/admin/content/translations` UI route or queue panel routes under `/admin/api/translations`
+CLI command paths:
 
-### Capability payload verification
+- `translations exchange export`
+- `translations exchange import validate`
+- `translations exchange import apply`
+- `translations exchange import run`
 
-Confirm backend capability metadata and UI gating remain aligned:
-1. Backend: `quickstart.TranslationCapabilities(adm)` returns module flags and routes consistent with runtime route registration.
-2. UI/template context: `translation_capabilities` (from quickstart UI routes and handlers using `quickstart.WithNav(...)`) matches backend metadata so disabled modules do not leak navigation entrypoints.
+---
+
+## 9. Troubleshooting Common Confusion
+
+### “I can see FR requested, but it still shows EN content”
+
+You are in fallback mode (`missing_requested_locale=true`). Create FR first, then edit FR.
+
+### “Save is disabled in edit page”
+
+Expected in fallback mode. Server also enforces this with `TRANSLATION_FALLBACK_EDIT_BLOCKED`.
+
+### “Create translation returns conflict”
+
+That locale already exists in this translation group. API returns `TRANSLATION_EXISTS`.
+
+### “Publish blocked even though locale rows exist”
+
+Locale rows existing is not enough. Publish can still fail when required fields are missing in one or more locales.
+Check blocker metadata (`missing_fields_by_locale`) and complete those fields in the affected locale records.
+
+### “Exchange apply fails with create required”
+
+Enable create intent (`allow_create_missing` / `create_translation`) when target locale record does not exist.
+
+### “Unknown locale (for example de) fails in Add Translation action”
+
+By default, action schema in this example app supports `en`, `es`, `fr` only.
+
+---
+
+## 10. Implementation Pointers (for maintainers)
+
+Primary wiring in example app:
+
+- `examples/web/main.go`
+- `examples/web/setup/panels.go`
+- `examples/web/translation_product_fixtures.go`
+
+Core mechanics and guards:
+
+- `admin/boot_bindings.go`
+- `admin/translation_readiness.go`
+- `quickstart/content_entry_routes.go`
+- `pkg/client/templates/partials/translation-summary.html`
+- `pkg/client/templates/resources/content/list.html`
+- `pkg/client/templates/resources/content/form.html`
+- `pkg/client/templates/resources/translations/exchange.html`
