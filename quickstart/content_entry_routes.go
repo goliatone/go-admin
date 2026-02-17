@@ -485,7 +485,6 @@ func (h *contentEntryHandlers) listForPanel(c router.Context, panelSlug string) 
 		urls = h.admin.URLs()
 	}
 	basePath := resolveAdminBasePath(urls, h.cfg.BasePath)
-	apiBasePath := resolveAdminAPIBasePath(urls, h.cfg, basePath)
 	slug := contentTypeSlug(contentType, panelName)
 	actionBase := path.Join(basePath, "content", slug)
 	routes := newContentEntryRoutes(basePath, slug, adminCtx.Environment)
@@ -495,7 +494,7 @@ func (h *contentEntryHandlers) listForPanel(c router.Context, panelSlug string) 
 		routesMap["create"] = ""
 	}
 	dataTableID := "content-" + slug
-	listAPI := path.Join(apiBasePath, panelName)
+	listAPI := resolveAdminPanelAPICollectionURL(urls, h.cfg, basePath, panelName)
 	translationUXEnabled := h.translationUX && contentEntryPanelSupportsTranslationUX(panel)
 
 	viewCtx := router.ViewContext{
