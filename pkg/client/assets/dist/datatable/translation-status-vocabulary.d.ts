@@ -175,6 +175,17 @@ export declare function getStatusesForDomain(domain: StatusDomain): string[];
  */
 export declare function getAllReasonCodes(): string[];
 /**
+ * Get a CSS class name for a status value.
+ * Returns 'status-{status}' for valid statuses, empty string otherwise.
+ * This replaces local getStatusClass() functions in consuming surfaces.
+ */
+export declare function getStatusCssClass(status: string, domain?: StatusDomain): string;
+/**
+ * Get a CSS class name based on severity level.
+ * Maps status to its severity CSS class for consistent theming.
+ */
+export declare function getSeverityCssClass(status: string, domain?: StatusDomain): string;
+/**
  * Render a status badge HTML string
  */
 export declare function renderVocabularyStatusBadge(status: string, options?: {

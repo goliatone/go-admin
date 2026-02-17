@@ -174,18 +174,19 @@ export function hasBackendGroupedRows(records: Record<string, unknown>[]): boole
   if (records.length === 0) {
     return false;
   }
-  let hasGroupedRows = false;
+  let hasContractRows = false;
   for (const record of records) {
     if (isBackendGroupedRow(record)) {
-      hasGroupedRows = true;
+      hasContractRows = true;
       continue;
     }
     if (isBackendUngroupedRow(record)) {
+      hasContractRows = true;
       continue;
     }
     return false;
   }
-  return hasGroupedRows;
+  return hasContractRows;
 }
 
 /**
