@@ -345,10 +345,9 @@ func RegisterAdminUIRoutes[T any](r router.Router[T], cfg admin.Config, adm *adm
 	if r == nil {
 		return fmt.Errorf("router is required")
 	}
-	translationCaps := translationCapabilitiesForAdmin(adm)
-	translationModules, _ := translationCaps["modules"].(map[string]any)
-	queueModuleEnabled := translationModuleEnabled(translationModules, "queue")
-	exchangeModuleEnabled := translationModuleEnabled(translationModules, "exchange")
+	exposure := resolveTranslationModuleExposureSnapshot(adm, nil)
+	queueModuleEnabled := exposure.Queue.CapabilityEnabled
+	exchangeModuleEnabled := exposure.Exchange.CapabilityEnabled
 
 	options := uiRouteOptions{
 		basePath:                     strings.TrimSpace(cfg.BasePath),
@@ -381,6 +380,14 @@ func RegisterAdminUIRoutes[T any](r router.Router[T], cfg admin.Config, adm *adm
 		if opt != nil {
 			opt(&options)
 		}
+	}
+	// Keep translation UI routes aligned with capability state even when callers
+	// explicitly opt in, so dashboard/exchange pages do not point to disabled APIs.
+	if !queueModuleEnabled {
+		options.registerTranslationDashboard = false
+	}
+	if !exchangeModuleEnabled {
+		options.registerTranslationExchange = false
 	}
 
 	if options.basePath == "" {
