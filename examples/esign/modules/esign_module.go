@@ -67,19 +67,19 @@ type ESignModule struct {
 	googleEnabled bool
 	uploadDir     string
 
-	store         eSignStore
-	services      *servicesmodule.Module
-	documents     services.DocumentService
-	tokens        stores.TokenService
-	agreements    services.AgreementService
-	drafts        services.DraftService
-	signing       services.SigningService
-	artifacts     services.ArtifactPipelineService
-	google        googleIntegrationService
+	store             eSignStore
+	services          *servicesmodule.Module
+	documents         services.DocumentService
+	tokens            stores.TokenService
+	agreements        services.AgreementService
+	drafts            services.DraftService
+	signing           services.SigningService
+	artifacts         services.ArtifactPipelineService
+	google            googleIntegrationService
 	googleImportQueue *jobs.GoogleDriveImportQueue
-	integrations  services.IntegrationFoundationService
-	activityMap   *AuditActivityProjector
-	uploadManager *uploader.Manager
+	integrations      services.IntegrationFoundationService
+	activityMap       *AuditActivityProjector
+	uploadManager     *uploader.Manager
 }
 
 func NewESignModule(basePath, defaultLocale, menuCode string) *ESignModule {
