@@ -62,3 +62,33 @@ func effectiveAdminAPIVersion(cfg admin.Config) string {
 	}
 	return ""
 }
+
+func resolveAdminPanelAPICollectionPath(urls urlkit.Resolver, cfg admin.Config, fallbackBase, panel string) string {
+	panel = canonicalPanelName(panel)
+	if panel == "" {
+		return ""
+	}
+	group := adminAPIGroupName(cfg)
+	if resolved := strings.TrimSpace(resolveRouteURL(urls, group, "panel", map[string]string{"panel": panel}, nil)); resolved != "" {
+		return resolved
+	}
+	apiBasePath := resolveAdminAPIBasePath(urls, cfg, fallbackBase)
+	return prefixBasePath(apiBasePath, path.Join("panels", panel))
+}
+
+func resolveAdminPanelAPIDetailPath(urls urlkit.Resolver, cfg admin.Config, fallbackBase, panel, id string) string {
+	panel = canonicalPanelName(panel)
+	id = strings.TrimSpace(id)
+	if panel == "" || id == "" {
+		return ""
+	}
+	group := adminAPIGroupName(cfg)
+	if resolved := strings.TrimSpace(resolveRouteURL(urls, group, "panel.id", map[string]string{"panel": panel, "id": id}, nil)); resolved != "" {
+		return resolved
+	}
+	collection := resolveAdminPanelAPICollectionPath(urls, cfg, fallbackBase, panel)
+	if collection == "" {
+		return ""
+	}
+	return prefixBasePath(collection, id)
+}
