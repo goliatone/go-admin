@@ -169,6 +169,14 @@ func (a *Admin) BootTranslationExchange() boot.TranslationExchangeBinding {
 	return newTranslationExchangeBinding(a)
 }
 
+// BootTranslationQueue exposes translation queue aggregate bindings.
+func (a *Admin) BootTranslationQueue() boot.TranslationQueueBinding {
+	if !featureEnabled(a.featureGate, FeatureTranslationQueue) {
+		return nil
+	}
+	return newTranslationQueueBinding(a)
+}
+
 // BootNotifications exposes the notifications binding.
 func (a *Admin) BootNotifications() boot.NotificationsBinding {
 	return newNotificationsBinding(a)
