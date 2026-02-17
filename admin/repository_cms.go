@@ -616,13 +616,17 @@ func (r *CMSContentTypeEntryRepository) List(ctx context.Context, opts ListOptio
 		return nil, 0, err
 	}
 	typeKey := strings.ToLower(strings.TrimSpace(firstNonEmpty(r.contentType.Slug, r.contentType.Name, r.contentType.ID)))
+	translationEnabled := contentTypeWantsTranslations(r.contentType)
 	records := make([]map[string]any, 0, len(contents))
 	for _, item := range contents {
 		contentType := strings.ToLower(strings.TrimSpace(firstNonEmpty(item.ContentTypeSlug, item.ContentType)))
 		if typeKey != "" && contentType != typeKey {
 			continue
 		}
-		if contentTypeWantsTranslations(r.contentType) {
+		if translationEnabled {
+			if strings.TrimSpace(item.TranslationGroupID) == "" {
+				item.TranslationGroupID = strings.TrimSpace(firstNonEmpty(canonicalTranslationGroupIDForContent(item), item.ID))
+			}
 			if err := ensureCanonicalTopLevelFields(item); err != nil {
 				return nil, 0, err
 			}
@@ -697,6 +701,7 @@ func cmsContentRecord(item CMSContent, opts cmsContentRecordOptions) map[string]
 		"title":                    item.Title,
 		"slug":                     item.Slug,
 		"locale":                   item.Locale,
+		"translation_group_id":     canonicalTranslationGroupIDForContent(item),
 		"requested_locale":         item.RequestedLocale,
 		"resolved_locale":          item.ResolvedLocale,
 		"available_locales":        append([]string{}, item.AvailableLocales...),
@@ -813,9 +818,12 @@ func cmsAnyCandidateContains(candidates []string, needles []string) bool {
 }
 
 func contentTypeWantsTranslations(contentType CMSContentType) bool {
+	if hasTranslationsCapability(contentType.Capabilities) {
+		return true
+	}
 	slug := strings.ToLower(strings.TrimSpace(panelSlugForContentType(&contentType)))
 	switch slug {
-	case "pages", "page", "posts", "post":
+	case "pages", "page", "posts", "post", "news":
 		return true
 	default:
 		return false
@@ -825,7 +833,7 @@ func contentTypeWantsTranslations(contentType CMSContentType) bool {
 func contentRecordRequiresCanonicalTopLevelFields(item CMSContent) bool {
 	key := strings.ToLower(strings.TrimSpace(firstNonEmpty(item.ContentTypeSlug, item.ContentType)))
 	switch key {
-	case "page", "pages", "post", "posts":
+	case "page", "pages", "post", "posts", "news":
 		return true
 	default:
 		return false
@@ -889,6 +897,60 @@ func missingCanonicalTopLevelFields(data map[string]any) []string {
 		out = append(out, "meta_description")
 	}
 	return out
+}
+
+func canonicalTranslationGroupIDForContent(item CMSContent) string {
+	if groupID := strings.TrimSpace(item.TranslationGroupID); groupID != "" {
+		return groupID
+	}
+	if len(item.Data) > 0 {
+		if groupID := strings.TrimSpace(toString(item.Data["translation_group_id"])); groupID != "" {
+			return groupID
+		}
+		for _, path := range [][]string{
+			{"translation", "meta", "translation_group_id"},
+			{"content_translation", "meta", "translation_group_id"},
+			{"translation_context", "translation_group_id"},
+			{"translation_readiness", "translation_group_id"},
+		} {
+			if groupID := strings.TrimSpace(toString(translationReadinessNestedValue(item.Data, path...))); groupID != "" {
+				return groupID
+			}
+		}
+	}
+	if contentRecordLikelyTranslationEnabled(item) {
+		return strings.TrimSpace(item.ID)
+	}
+	return ""
+}
+
+func contentRecordLikelyTranslationEnabled(item CMSContent) bool {
+	key := strings.ToLower(strings.TrimSpace(firstNonEmpty(item.ContentTypeSlug, item.ContentType)))
+	switch key {
+	case "page", "pages", "post", "posts", "news":
+		return true
+	}
+	if strings.TrimSpace(item.TranslationGroupID) != "" {
+		return true
+	}
+	if len(item.AvailableLocales) > 0 || strings.TrimSpace(item.RequestedLocale) != "" || strings.TrimSpace(item.ResolvedLocale) != "" || item.MissingRequestedLocale {
+		return true
+	}
+	if len(item.Data) == 0 {
+		return false
+	}
+	for _, path := range [][]string{
+		{"translation_group_id"},
+		{"translation", "meta", "translation_group_id"},
+		{"content_translation", "meta", "translation_group_id"},
+		{"translation_context", "translation_group_id"},
+		{"translation_readiness", "translation_group_id"},
+	} {
+		if groupID := strings.TrimSpace(toString(translationReadinessNestedValue(item.Data, path...))); groupID != "" {
+			return true
+		}
+	}
+	return false
 }
 
 func canonicalMarkdownSourceFieldValue(payload map[string]any, field string) any {
@@ -1003,6 +1065,12 @@ func (r *CMSContentTypeEntryRepository) Get(ctx context.Context, id string) (map
 	recordType := strings.ToLower(strings.TrimSpace(firstNonEmpty(toString(record["content_type_slug"]), toString(record["content_type"]))))
 	if recordType != typeKey {
 		return nil, ErrNotFound
+	}
+	if contentTypeWantsTranslations(r.contentType) {
+		if strings.TrimSpace(toString(record["translation_group_id"])) == "" {
+			record = cloneAnyMap(record)
+			record["translation_group_id"] = strings.TrimSpace(firstNonEmpty(toString(record["id"]), id))
+		}
 	}
 	return record, nil
 }
