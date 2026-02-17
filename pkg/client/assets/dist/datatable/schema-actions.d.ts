@@ -60,6 +60,8 @@ export interface PayloadSchema {
     type?: string;
     required?: string[];
     properties?: Record<string, PayloadSchemaProperty>;
+    'x-translation-context'?: Record<string, unknown>;
+    x_translation_context?: Record<string, unknown>;
 }
 export interface PayloadSchemaProperty {
     type?: string;
@@ -203,6 +205,9 @@ export declare class SchemaActionBuilder {
     private buildFieldOptions;
     private buildExtensionFieldOptions;
     private deriveCreateTranslationLocaleOptions;
+    private applySchemaTranslationContext;
+    private extractTranslationContextMap;
+    private clonePayloadValue;
     private createTranslationLocaleLabelMap;
     private extractStringField;
     private asObject;

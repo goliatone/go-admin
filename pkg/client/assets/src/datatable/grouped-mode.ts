@@ -305,9 +305,7 @@ function getBackendGroupSummary(record: Record<string, unknown>, children: Recor
     : null;
   const requiredCount = typeof raw.required_count === 'number' ? Math.max(raw.required_count, 0) : null;
   const availableCount = typeof raw.available_count === 'number' ? Math.max(raw.available_count, 0) : availableLocales.length;
-  const fallbackTotal = requiredCount !== null
-    ? requiredCount
-    : Math.max(availableCount + missingLocales.length, children.length);
+  const fallbackTotal = Math.max(children.length, typeof raw.child_count === 'number' ? Math.max(raw.child_count, 0) : 0);
 
   return {
     totalItems: typeof raw.total_items === 'number'
@@ -532,6 +530,19 @@ export function getPersistedExpandState(panelId: string): Set<string> {
     // Ignore storage errors
   }
   return new Set<string>();
+}
+
+/**
+ * Whether a panel has persisted expand/collapse preferences.
+ * Distinguishes "no preference stored yet" from an explicitly collapsed-all state.
+ */
+export function hasPersistedExpandState(panelId: string): boolean {
+  try {
+    const key = EXPAND_STATE_KEY_PREFIX + panelId;
+    return localStorage.getItem(key) !== null;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -834,6 +845,9 @@ export function renderGroupHeaderRow(
     : '';
 
   const summaryHtml = renderGroupHeaderSummary(group);
+  const groupLabel = group.groupId.startsWith('ungrouped:')
+    ? 'Ungrouped'
+    : `Group: ${escapeHtml(group.groupId.slice(0, 12))}...`;
 
   return `
     <tr class="group-header bg-gray-50 hover:bg-gray-100 cursor-pointer border-b border-gray-200"
@@ -846,7 +860,7 @@ export function renderGroupHeaderRow(
         <div class="flex items-center justify-between">
           <div class="flex items-center">
             ${expandIcon}
-            <span class="font-medium text-gray-700">Group: ${escapeHtml(group.groupId.slice(0, 12))}...</span>
+            <span class="font-medium text-gray-700">${groupLabel}</span>
           </div>
           ${summaryHtml}
         </div>

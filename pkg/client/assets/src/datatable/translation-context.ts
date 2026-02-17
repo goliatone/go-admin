@@ -243,9 +243,13 @@ export function extractTranslationReadiness(record: Record<string, unknown>): Tr
   if (readinessObj && typeof readinessObj === 'object') {
     readiness.hasReadinessMetadata = true;
 
-    readiness.translationGroupId = typeof readinessObj.translation_group_id === 'string'
-      ? readinessObj.translation_group_id
-      : null;
+    readiness.translationGroupId = extractStringField(record, [
+      'translation_readiness.translation_group_id',
+      'translation_group_id',
+      'translation.meta.translation_group_id',
+      'content_translation.meta.translation_group_id',
+      'translation_context.translation_group_id',
+    ]);
 
     readiness.requiredLocales = Array.isArray(readinessObj.required_locales)
       ? readinessObj.required_locales.filter((v): v is string => typeof v === 'string')

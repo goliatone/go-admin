@@ -14,6 +14,7 @@
 {% endblock %}
 
 {% block quick_filters %}
+{% if datagrid_config and datagrid_config.translation_ux_enabled %}
 <!-- Phase 19.2: Quick filter for incomplete translations -->
 <button type="button"
         id="incomplete-translations-filter"
@@ -25,6 +26,46 @@
   </svg>
   Incomplete
 </button>
+{% endif %}
+{% endblock %}
+
+{% block toolbar_right_extra %}
+{% if datagrid_config and datagrid_config.translation_ux_enabled %}
+<div class="inline-flex items-center gap-2 border border-gray-200 rounded-lg bg-white p-1">
+  <button type="button"
+          data-view-mode="flat"
+          class="translation-view-mode-btn px-2.5 py-1.5 text-xs font-medium rounded text-gray-700 hover:bg-gray-100"
+          title="Flat list view">
+    Flat
+  </button>
+  <button type="button"
+          data-view-mode="grouped"
+          class="translation-view-mode-btn px-2.5 py-1.5 text-xs font-medium rounded text-gray-700 hover:bg-gray-100"
+          title="Grouped by translation group">
+    Grouped
+  </button>
+  <button type="button"
+          data-view-mode="matrix"
+          class="translation-view-mode-btn px-2.5 py-1.5 text-xs font-medium rounded text-gray-700 hover:bg-gray-100"
+          title="Matrix view mode">
+    Matrix
+  </button>
+</div>
+<div class="inline-flex items-center gap-1 border border-gray-200 rounded-lg bg-white p-1">
+  <button type="button"
+          id="group-expand-all-btn"
+          class="px-2.5 py-1.5 text-xs font-medium rounded text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Expand all translation groups">
+    Expand All
+  </button>
+  <button type="button"
+          id="group-collapse-all-btn"
+          class="px-2.5 py-1.5 text-xs font-medium rounded text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Collapse all translation groups">
+    Collapse All
+  </button>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block datatable_scripts %}
@@ -41,6 +82,7 @@ import {
   extractTranslationContext,
   renderLocaleBadge,
   renderTranslationStatusCell,
+  renderTranslationMatrixCell,
   // Phase 19 productization: translation readiness
   extractTranslationReadiness,
   hasTranslationReadiness,
@@ -49,7 +91,8 @@ import {
   renderLocaleCompleteness,
   // Phase 19.2: Missing translations affordance
   renderMissingTranslationsBadge,
-  hasMissingTranslations
+  hasMissingTranslations,
+  persistExpandState
 } from '{{ base_path }}/assets/dist/datatable/index.js';
 
 const basePath = '{{ base_path }}';
@@ -74,6 +117,10 @@ const filterFields = (filters || []).map(filter => ({
   options: normalizeFilterOptions(filter.options),
   operators: normalizeFilterOperators(filter.operators, filter.default_operator)
 }));
+const translationUXEnabled = dataGridConfig.translation_ux_enabled === true;
+const groupedModeEnabled = dataGridConfig.enable_grouped_mode === true;
+const groupByField = String(dataGridConfig.group_by_field || 'translation_group_id').trim() || 'translation_group_id';
+const defaultViewMode = normalizeViewMode(dataGridConfig.default_view_mode, groupedModeEnabled ? 'grouped' : 'flat');
 
 // Schema action builder for server-authoritative row actions
 let schemaActionBuilder = null;
@@ -146,6 +193,14 @@ function normalizeFilterOperators(operators, defaultOperator) {
     return [preferred, ...deduped.filter(op => op !== preferred)];
   }
   return deduped;
+}
+
+function normalizeViewMode(value, fallback = 'flat') {
+  const mode = String(value || '').trim().toLowerCase();
+  if (mode === 'flat' || mode === 'grouped' || mode === 'matrix') {
+    return mode;
+  }
+  return fallback;
 }
 
 const envQuery = env ? `?env=${encodeURIComponent(env)}` : '';
@@ -249,6 +304,10 @@ document.addEventListener('DOMContentLoaded', async function() {
     },
     // Translation status column - shows locale + available locales
     translation_status: (value, record) => {
+      const mode = grid ? normalizeViewMode(grid.getViewMode(), defaultViewMode) : defaultViewMode;
+      if (mode === 'matrix') {
+        return renderTranslationMatrixCell(record, { size: 'sm', maxLocales: 6 });
+      }
       return renderTranslationStatusCell(record, { size: 'sm', maxLocales: 3 });
     },
     // Available locales column
@@ -304,6 +363,10 @@ document.addEventListener('DOMContentLoaded', async function() {
     tableId: datatableId,
     apiEndpoint: apiEndpoint,
     actionBasePath: actionBasePath,
+    panelId: panelName,
+    enableGroupedMode: groupedModeEnabled,
+    defaultViewMode: defaultViewMode,
+    groupByField: groupByField,
     columns: gridColumns,
     perPage: 10,
     searchDelay: 300,
@@ -341,6 +404,67 @@ document.addEventListener('DOMContentLoaded', async function() {
     notifier: window.toastManager
   });
 
+  const viewModeButtons = Array.from(document.querySelectorAll('.translation-view-mode-btn'));
+  const expandAllBtn = document.getElementById('group-expand-all-btn');
+  const collapseAllBtn = document.getElementById('group-collapse-all-btn');
+
+  const syncTranslationViewControls = () => {
+    if (!translationUXEnabled || !groupedModeEnabled) {
+      return;
+    }
+    const currentMode = normalizeViewMode(grid.getViewMode(), defaultViewMode);
+    viewModeButtons.forEach((button) => {
+      const mode = normalizeViewMode(button.dataset.viewMode, 'flat');
+      const isActive = mode === currentMode;
+      button.classList.toggle('bg-blue-100', isActive);
+      button.classList.toggle('text-blue-700', isActive);
+      button.classList.toggle('text-gray-700', !isActive);
+      button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    });
+
+    const groupedData = grid.getGroupedData();
+    const canToggleGroups = currentMode === 'grouped' && groupedData && Array.isArray(groupedData.groups) && groupedData.groups.length > 0;
+    if (expandAllBtn) expandAllBtn.disabled = !canToggleGroups;
+    if (collapseAllBtn) collapseAllBtn.disabled = !canToggleGroups;
+  };
+
+  const setExpandedGroups = async (groupIDs) => {
+    if (!groupedModeEnabled) {
+      return;
+    }
+    const nextExpanded = new Set((groupIDs || []).filter(Boolean));
+    grid.state.expandedGroups = nextExpanded;
+    grid.state.hasPersistedExpandState = true;
+    const panelID = grid.config.panelId || grid.config.tableId;
+    persistExpandState(panelID, nextExpanded);
+    grid.syncURL();
+    await grid.refresh();
+  };
+
+  if (translationUXEnabled && groupedModeEnabled) {
+    viewModeButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const mode = normalizeViewMode(button.dataset.viewMode, defaultViewMode);
+        grid.setViewMode(mode);
+        syncTranslationViewControls();
+      });
+    });
+
+    if (expandAllBtn) {
+      expandAllBtn.addEventListener('click', async () => {
+        const groupedData = grid.getGroupedData();
+        const groupIDs = groupedData?.groups?.map(group => String(group.groupId || '').trim()).filter(Boolean) || [];
+        await setExpandedGroups(groupIDs);
+      });
+    }
+
+    if (collapseAllBtn) {
+      collapseAllBtn.addEventListener('click', async () => {
+        await setExpandedGroups([]);
+      });
+    }
+  }
+
   // Cache schema actions after each refresh for row action rendering
   // Override refresh before init() to ensure caching on first load
   const originalRefresh = grid.refresh.bind(grid);
@@ -350,9 +474,11 @@ document.addEventListener('DOMContentLoaded', async function() {
     if (schema?.actions) {
       cachedSchemaActions = schema.actions;
     }
+    syncTranslationViewControls();
   };
 
   grid.init();
+  syncTranslationViewControls();
 
   const refreshBtn = document.getElementById('refresh-btn');
   if (refreshBtn) {

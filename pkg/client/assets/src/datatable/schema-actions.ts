@@ -76,6 +76,8 @@ export interface PayloadSchema {
   type?: string;
   required?: string[];
   properties?: Record<string, PayloadSchemaProperty>;
+  'x-translation-context'?: Record<string, unknown>;
+  x_translation_context?: Record<string, unknown>;
 }
 
 export interface PayloadSchemaProperty {
@@ -702,12 +704,13 @@ export class SchemaActionBuilder {
     record: Record<string, unknown>,
     schemaAction: SchemaAction
   ): Promise<Record<string, unknown> | null> {
+    const normalizedActionName = schemaAction.name.trim().toLowerCase();
     const payload: Record<string, unknown> = {
       id: record.id,
     };
 
     // Add locale/environment context
-    if (this.config.locale) {
+    if (this.config.locale && normalizedActionName !== 'create_translation') {
       payload.locale = this.config.locale;
     }
     if (this.config.environment) {
@@ -719,6 +722,9 @@ export class SchemaActionBuilder {
 
     const schema = this.normalizePayloadSchema(schemaAction.payload_schema);
     const requiredFields = this.collectRequiredFields(schemaAction.payload_required, schema);
+    if (normalizedActionName === 'create_translation') {
+      this.applySchemaTranslationContext(payload, record, schema);
+    }
 
     // Seed defaults from schema definitions.
     if (schema?.properties) {
@@ -783,7 +789,7 @@ export class SchemaActionBuilder {
         description: definition?.description,
         value: this.stringifyDefault(payload[name] ?? definition?.default),
         type: definition?.type || 'string',
-        options: this.buildFieldOptions(name, schemaAction.name, definition, record),
+        options: this.buildFieldOptions(name, schemaAction.name, definition, record, payload),
       };
     });
 
@@ -802,9 +808,10 @@ export class SchemaActionBuilder {
     fieldName: string,
     actionName: string,
     prop: PayloadSchemaProperty | undefined,
-    record?: Record<string, unknown>
+    record?: Record<string, unknown>,
+    payload?: Record<string, unknown>
   ): Array<{ value: string; label: string }> | undefined {
-    const createTranslationOptions = this.deriveCreateTranslationLocaleOptions(fieldName, actionName, record, prop);
+    const createTranslationOptions = this.deriveCreateTranslationLocaleOptions(fieldName, actionName, record, prop, payload);
     if (createTranslationOptions && createTranslationOptions.length > 0) {
       return createTranslationOptions;
     }
@@ -873,7 +880,8 @@ export class SchemaActionBuilder {
     fieldName: string,
     actionName: string,
     record?: Record<string, unknown>,
-    prop?: PayloadSchemaProperty
+    prop?: PayloadSchemaProperty,
+    payload?: Record<string, unknown>
   ): Array<{ value: string; label: string; description?: string; recommended?: boolean }> | undefined {
     if (fieldName.trim().toLowerCase() !== 'locale') {
       return undefined;
@@ -886,7 +894,13 @@ export class SchemaActionBuilder {
     }
 
     const readiness = this.asObject(record.translation_readiness);
-    let locales = this.asStringArray(readiness?.missing_required_locales);
+    const context = payload && typeof payload === 'object'
+      ? payload as Record<string, unknown>
+      : {};
+    let locales = this.asStringArray(context.missing_locales);
+    if (locales.length === 0) {
+      locales = this.asStringArray(readiness?.missing_required_locales);
+    }
     if (locales.length === 0) {
       locales = this.asStringArray((record as Record<string, unknown>).missing_locales);
     }
@@ -905,15 +919,18 @@ export class SchemaActionBuilder {
     }
 
     // Extract context for hints
-    const recommendedLocale = this.extractStringField(record, 'recommended_locale')
+    const recommendedLocale = this.extractStringField(context, 'recommended_locale')
+      || this.extractStringField(record, 'recommended_locale')
       || this.extractStringField(readiness || {}, 'recommended_locale');
     const requiredForPublish = this.asStringArray(
-      record.required_for_publish
+      context.required_for_publish
+      ?? record.required_for_publish
       ?? readiness?.required_for_publish
       ?? readiness?.required_locales
     );
     const existingLocales = this.asStringArray(
-      record.existing_locales
+      context.existing_locales
+      ?? record.existing_locales
       ?? readiness?.available_locales
     );
     const localizedLabels = this.createTranslationLocaleLabelMap(prop);
@@ -963,6 +980,62 @@ export class SchemaActionBuilder {
     });
 
     return options.length > 0 ? options : undefined;
+  }
+
+  private applySchemaTranslationContext(
+    payload: Record<string, unknown>,
+    record: Record<string, unknown>,
+    schema: PayloadSchema | null
+  ): void {
+    if (!schema) {
+      return;
+    }
+    const context = this.extractTranslationContextMap(schema);
+    if (Object.keys(context).length === 0) {
+      return;
+    }
+    for (const [targetField, sourcePath] of Object.entries(context)) {
+      const target = targetField.trim();
+      const source = sourcePath.trim();
+      if (!target || !source) {
+        continue;
+      }
+      if (!this.isEmptyPayloadValue(payload[target])) {
+        continue;
+      }
+      const value = this.resolveRecordContextValue(record, source);
+      if (value === undefined || value === null) {
+        continue;
+      }
+      payload[target] = this.clonePayloadValue(value);
+    }
+  }
+
+  private extractTranslationContextMap(schema: PayloadSchema): Record<string, string> {
+    const raw = (schema['x-translation-context'] ?? schema.x_translation_context) as Record<string, unknown> | undefined;
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+      return {};
+    }
+    const out: Record<string, string> = {};
+    for (const [targetField, sourcePath] of Object.entries(raw)) {
+      const target = targetField.trim();
+      const source = typeof sourcePath === 'string' ? sourcePath.trim() : '';
+      if (!target || !source) {
+        continue;
+      }
+      out[target] = source;
+    }
+    return out;
+  }
+
+  private clonePayloadValue(value: unknown): unknown {
+    if (Array.isArray(value)) {
+      return value.map((entry) => this.clonePayloadValue(entry));
+    }
+    if (value && typeof value === 'object') {
+      return { ...(value as Record<string, unknown>) };
+    }
+    return value;
   }
 
   private createTranslationLocaleLabelMap(prop?: PayloadSchemaProperty): Record<string, string> {

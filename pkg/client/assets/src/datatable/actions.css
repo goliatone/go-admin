@@ -94,6 +94,17 @@
   background-color: rgba(220, 38, 38, 0.05);
 }
 
+/* Disabled action items remain visible/focusable but must not show active hover feedback */
+.action-item[aria-disabled="true"] {
+  cursor: not-allowed;
+  color: #9ca3af;
+}
+
+.action-item[aria-disabled="true"]:hover,
+.action-item[aria-disabled="true"]:focus {
+  background-color: transparent;
+}
+
 /* Action divider */
 .action-divider {
   margin: 0.25rem 0;

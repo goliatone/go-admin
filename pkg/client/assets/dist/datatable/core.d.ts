@@ -102,6 +102,7 @@ interface DataGridState {
     viewMode: ViewMode;
     groupedData: GroupedData | null;
     expandedGroups: Set<string>;
+    hasPersistedExpandState: boolean;
 }
 /**
  * DataGrid component
