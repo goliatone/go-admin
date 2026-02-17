@@ -6,6 +6,7 @@ const (
 	ActionDisabledReasonCodeInvalidStatus      = "INVALID_STATUS"
 	ActionDisabledReasonCodePermissionDenied   = "PERMISSION_DENIED"
 	ActionDisabledReasonCodeMissingContext     = "MISSING_CONTEXT"
+	ActionDisabledReasonCodeFeatureDisabled    = TextCodeFeatureDisabled
 )
 
 // ActionDisabledReasonCodes returns the canonical disabled reason-code vocabulary.
@@ -15,5 +16,6 @@ func ActionDisabledReasonCodes() []string {
 		ActionDisabledReasonCodeInvalidStatus,
 		ActionDisabledReasonCodePermissionDenied,
 		ActionDisabledReasonCodeMissingContext,
+		ActionDisabledReasonCodeFeatureDisabled,
 	}
 }
