@@ -15,6 +15,16 @@ import (
 // AdminOption customizes NewAdmin behavior.
 type AdminOption func(*adminOptions)
 
+// StartupPolicy controls how module startup validation errors are handled.
+type StartupPolicy = admin.ModuleStartupPolicy
+
+const (
+	// StartupPolicyEnforce fails startup when module startup validation fails.
+	StartupPolicyEnforce StartupPolicy = admin.ModuleStartupPolicyEnforce
+	// StartupPolicyWarn logs startup validation failures and continues.
+	StartupPolicyWarn StartupPolicy = admin.ModuleStartupPolicyWarn
+)
+
 type adminOptions struct {
 	ctx                          context.Context
 	deps                         admin.Dependencies
@@ -40,6 +50,7 @@ type adminOptions struct {
 	translationExchangeConfigSet bool
 	translationQueueConfig       TranslationQueueConfig
 	translationQueueConfigSet    bool
+	startupPolicy                *admin.ModuleStartupPolicy
 	errors                       []error
 	registerUserRoleBulkRoutes   bool
 }
@@ -186,6 +197,17 @@ func WithTranslationLocaleLabels(labels map[string]string) AdminOption {
 	}
 }
 
+// WithStartupPolicy configures module startup validation handling policy.
+func WithStartupPolicy(policy StartupPolicy) AdminOption {
+	return func(opts *adminOptions) {
+		if opts == nil {
+			return
+		}
+		normalized := normalizeStartupPolicy(policy)
+		opts.startupPolicy = &normalized
+	}
+}
+
 // NewAdmin constructs an admin instance with adapter wiring applied.
 func NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin.Admin, AdapterResult, error) {
 	options := adminOptions{
@@ -271,6 +293,9 @@ func NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin
 	if err != nil {
 		return nil, result, err
 	}
+	if options.startupPolicy != nil {
+		adm.WithModuleStartupPolicy(*options.startupPolicy)
+	}
 	if options.workflowRuntime != nil {
 		adm.WithWorkflowRuntime(options.workflowRuntime)
 	}
@@ -317,6 +342,15 @@ func NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin
 	registerTranslationCapabilities(adm, options.translationProductConfig, options.translationProductWarnings, translationModules)
 	logTranslationCapabilitiesStartup(translationLogger, TranslationCapabilities(adm))
 	return adm, result, nil
+}
+
+func normalizeStartupPolicy(policy StartupPolicy) admin.ModuleStartupPolicy {
+	switch strings.ToLower(strings.TrimSpace(string(policy))) {
+	case string(admin.ModuleStartupPolicyWarn):
+		return admin.ModuleStartupPolicyWarn
+	default:
+		return admin.ModuleStartupPolicyEnforce
+	}
 }
 
 func queuePolicyConfigFromOptions(opts adminOptions) (TranslationPolicyConfig, bool) {
