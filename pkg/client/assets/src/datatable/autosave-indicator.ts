@@ -103,6 +103,8 @@ export interface AutosaveIndicatorConfig {
   /**
    * Async save handler. Called with current dirty data when autosave triggers.
    * Should return the saved data or throw on error.
+   * For conflict detection: throw an error with `code: 'AUTOSAVE_CONFLICT'`
+   * and `metadata` containing conflict info.
    */
   onSave?: (data: unknown) => Promise<unknown>;
 
@@ -139,6 +141,52 @@ export interface AutosaveIndicatorConfig {
    * Labels for each state (for i18n support).
    */
   labels?: Partial<AutosaveLabels>;
+
+  // ==========================================================================
+  // Phase 3b Conflict Handling (TX-074)
+  // ==========================================================================
+
+  /**
+   * Enable conflict detection and recovery UI.
+   * When true, AUTOSAVE_CONFLICT errors trigger the conflict state.
+   * Default: false
+   */
+  enableConflictDetection?: boolean;
+
+  /**
+   * Callback when user resolves a conflict.
+   * Called with the resolution action and relevant data.
+   */
+  onConflictResolve?: (resolution: ConflictResolution) => void | Promise<void>;
+
+  /**
+   * Optional handler to fetch latest server state when conflict occurs.
+   * Used when latestServerState is not included inline.
+   */
+  fetchServerState?: (path: string) => Promise<Record<string, unknown>>;
+
+  /**
+   * Whether to show force save option in conflict UI.
+   * Default: true
+   */
+  allowForceSave?: boolean;
+
+  /**
+   * Conflict-specific labels (for i18n support).
+   */
+  conflictLabels?: Partial<ConflictLabels>;
+}
+
+/**
+ * Labels for conflict UI (TX-074).
+ */
+export interface ConflictLabels {
+  title: string;
+  message: string;
+  useServer: string;
+  forceSave: string;
+  viewDiff: string;
+  dismiss: string;
 }
 
 /**
@@ -149,6 +197,7 @@ export interface AutosaveLabels {
   saving: string;
   saved: string;
   error: string;
+  conflict: string;
 }
 
 /**
@@ -178,7 +227,17 @@ const DEFAULT_LABELS: AutosaveLabels = {
   idle: '',
   saving: 'Saving...',
   saved: 'Saved',
-  error: 'Save failed'
+  error: 'Save failed',
+  conflict: 'Conflict detected'
+};
+
+const DEFAULT_CONFLICT_LABELS: ConflictLabels = {
+  title: 'Save Conflict',
+  message: 'This content was modified by someone else. Choose how to proceed:',
+  useServer: 'Use server version',
+  forceSave: 'Overwrite with my changes',
+  viewDiff: 'View differences',
+  dismiss: 'Dismiss'
 };
 
 // =============================================================================
@@ -192,17 +251,23 @@ const DEFAULT_LABELS: AutosaveLabels = {
  *   idle -> saving (on markDirty after debounce)
  *   saving -> saved (on successful save)
  *   saving -> error (on failed save)
+ *   saving -> conflict (on AUTOSAVE_CONFLICT error, TX-074)
  *   saved -> idle (after savedDurationMs)
  *   error -> saving (on retry/markDirty)
+ *   conflict -> idle (on dismiss or resolve)
+ *   conflict -> saving (on force save)
  */
 export class AutosaveIndicator {
-  private config: Required<Omit<AutosaveIndicatorConfig, 'container' | 'onSave' | 'notifier'>> & {
+  private config: Required<Omit<AutosaveIndicatorConfig, 'container' | 'onSave' | 'notifier' | 'onConflictResolve' | 'fetchServerState'>> & {
     container?: HTMLElement;
     onSave?: (data: unknown) => Promise<unknown>;
     notifier?: ToastNotifier;
+    onConflictResolve?: (resolution: ConflictResolution) => void | Promise<void>;
+    fetchServerState?: (path: string) => Promise<Record<string, unknown>>;
   };
 
   private state: AutosaveState = 'idle';
+  private conflictInfo: AutosaveConflictInfo | null = null;
   private pendingData: unknown = null;
   private lastError: Error | null = null;
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -219,7 +284,13 @@ export class AutosaveIndicator {
       notifier: config.notifier,
       showToasts: config.showToasts ?? false,
       classPrefix: config.classPrefix ?? DEFAULT_CLASS_PREFIX,
-      labels: { ...DEFAULT_LABELS, ...config.labels }
+      labels: { ...DEFAULT_LABELS, ...config.labels },
+      // Phase 3b conflict handling (TX-074)
+      enableConflictDetection: config.enableConflictDetection ?? false,
+      onConflictResolve: config.onConflictResolve,
+      fetchServerState: config.fetchServerState,
+      allowForceSave: config.allowForceSave ?? true,
+      conflictLabels: { ...DEFAULT_CONFLICT_LABELS, ...config.conflictLabels }
     };
   }
 
