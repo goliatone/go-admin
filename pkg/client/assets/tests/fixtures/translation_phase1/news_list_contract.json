@@ -1,0 +1,119 @@
+{
+  "panel": "news",
+  "schema": {
+    "actions": [
+      {
+        "name": "view",
+        "label": "View",
+        "order": 11
+      },
+      {
+        "name": "edit",
+        "label": "Edit",
+        "order": 10
+      },
+      {
+        "name": "create_translation",
+        "label": "Add Translation",
+        "order": 20,
+        "payload_required": [
+          "locale"
+        ],
+        "payload_schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "locale"
+          ],
+          "properties": {
+            "locale": {
+              "type": "string",
+              "title": "Locale",
+              "enum": [
+                "en",
+                "es",
+                "fr"
+              ]
+            },
+            "missing_locales": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "existing_locales": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "recommended_locale": {
+              "type": "string"
+            },
+            "required_for_publish": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      {
+        "name": "submit_for_approval",
+        "label": "Submit for approval",
+        "order": 30
+      },
+      {
+        "name": "publish",
+        "label": "Publish",
+        "order": 40
+      },
+      {
+        "name": "delete",
+        "label": "Delete",
+        "order": 1000
+      }
+    ]
+  },
+  "data": [
+    {
+      "id": "news_123",
+      "status": "draft",
+      "translation_readiness": {
+        "readiness_state": "ready",
+        "required_locales": [
+          "en",
+          "es"
+        ],
+        "available_locales": [
+          "en",
+          "es"
+        ],
+        "missing_required_locales": []
+      },
+      "_action_state": {
+        "view": {
+          "enabled": true
+        },
+        "edit": {
+          "enabled": true
+        },
+        "create_translation": {
+          "enabled": true
+        },
+        "submit_for_approval": {
+          "enabled": true
+        },
+        "publish": {
+          "enabled": false,
+          "reason": "transition \"publish\" is not available from state \"draft\"",
+          "reason_code": "INVALID_STATUS"
+        },
+        "delete": {
+          "enabled": true
+        }
+      }
+    }
+  ]
+}

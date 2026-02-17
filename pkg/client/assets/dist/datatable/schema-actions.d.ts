@@ -44,6 +44,8 @@ export interface SchemaAction {
     context_required?: string[];
     /** Permission required for this action */
     permission?: string;
+    /** Server-authoritative display order (lower numbers appear first) */
+    order?: number;
 }
 export interface ActionState {
     enabled?: boolean;
@@ -97,6 +99,8 @@ export interface SchemaActionBuilderConfig {
     appendDefaultActions?: boolean;
     /** Action rendering context (DataGrid row actions use 'row') */
     actionContext?: 'row' | 'detail' | 'bulk';
+    /** Optional client-side action order override (action name -> order) */
+    actionOrderOverride?: Record<string, number>;
 }
 /**
  * Result from action execution
@@ -129,6 +133,7 @@ export interface TranslationBlockerContext {
  * 3. All other schema actions: POST to /admin/api/{panel}/actions/{action.name}
  * 4. Duplicate prevention by action name
  * 5. Schema actions take precedence over defaults
+ * 6. Action ordering precedence: schema.order > actionOrderOverride > stable fallback > insertion
  */
 export declare class SchemaActionBuilder {
     private config;
@@ -142,6 +147,14 @@ export declare class SchemaActionBuilder {
      * @returns Array of ActionButton for rendering
      */
     buildRowActions(record: Record<string, unknown>, schemaActions?: SchemaAction[]): ActionButton[];
+    /**
+     * Resolve action order using precedence:
+     * 1. schema.actions[*].order (server authoritative)
+     * 2. actionOrderOverride (optional client override)
+     * 3. stable fallback map
+     * 4. default order
+     */
+    private resolveActionOrder;
     /**
      * Build a single action from schema definition
      */
@@ -170,6 +183,12 @@ export declare class SchemaActionBuilder {
     private buildPostAction;
     private executePostAction;
     /**
+     * Handle successful create_translation action:
+     * - Show success toast with source locale shortcut
+     * - Redirect to new locale edit page
+     */
+    private handleCreateTranslationSuccess;
+    /**
      * Build action payload from record and schema
      */
     private buildActionPayload;
@@ -184,6 +203,7 @@ export declare class SchemaActionBuilder {
     private buildFieldOptions;
     private buildExtensionFieldOptions;
     private deriveCreateTranslationLocaleOptions;
+    private extractStringField;
     private asObject;
     private asStringArray;
     private localeLabel;
@@ -205,6 +225,10 @@ export declare class SchemaActionBuilder {
      * Append default actions (view, edit, delete) avoiding duplicates
      */
     private appendDefaultActions;
+    /**
+     * Append default actions with ordering metadata
+     */
+    private appendDefaultActionsOrdered;
     /**
      * Get default icon for action by name
      */

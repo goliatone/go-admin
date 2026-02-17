@@ -20,7 +20,10 @@ type GoogleDriveImportQueue struct {
 }
 
 // NewGoogleDriveImportQueue starts a bounded worker queue backed by ExecuteGoogleDriveImport.
-func NewGoogleDriveImportQueue(handlers Handlers) *GoogleDriveImportQueue {
+func NewGoogleDriveImportQueue(handlers Handlers) (*GoogleDriveImportQueue, error) {
+	if err := handlers.ValidateGoogleImportDeps(); err != nil {
+		return nil, err
+	}
 	q := &GoogleDriveImportQueue{
 		handlers: handlers,
 		queue:    make(chan GoogleDriveImportMsg, defaultGoogleImportQueueCapacity),
@@ -29,7 +32,7 @@ func NewGoogleDriveImportQueue(handlers Handlers) *GoogleDriveImportQueue {
 	for i := 0; i < defaultGoogleImportQueueWorkers; i++ {
 		go q.worker()
 	}
-	return q
+	return q, nil
 }
 
 // Enqueue submits a message for asynchronous processing.

@@ -118,6 +118,20 @@ export interface GoogleIntegrationStatus {
     degraded?: boolean;
     degraded_reason?: string;
 }
+export interface GoogleAccountInfo {
+    account_id: string;
+    email: string;
+    status: 'connected' | 'expired' | 'needs_reauth' | 'degraded';
+    scopes: string[];
+    expires_at?: string;
+    created_at: string;
+    last_used_at?: string;
+    is_default: boolean;
+}
+export interface GoogleAccountsResponse {
+    status: string;
+    accounts: GoogleAccountInfo[];
+}
 export interface GoogleOAuthCallbackData {
     type: 'google_oauth_callback';
     code?: string;

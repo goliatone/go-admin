@@ -2191,6 +2191,7 @@ func cloneDraftRecord(record DraftRecord) DraftRecord {
 func cloneIntegrationCredentialRecord(record IntegrationCredentialRecord) IntegrationCredentialRecord {
 	record.Scopes = append([]string{}, record.Scopes...)
 	record.ExpiresAt = cloneTimePtr(record.ExpiresAt)
+	record.LastUsedAt = cloneTimePtr(record.LastUsedAt)
 	record.CreatedAt = normalizeRecordTime(record.CreatedAt)
 	record.UpdatedAt = normalizeRecordTime(record.UpdatedAt)
 	return record
@@ -3534,6 +3535,51 @@ func (s *InMemoryStore) DeleteIntegrationCredential(ctx context.Context, scope S
 	delete(s.integrationCredentialIndex, indexKey)
 	delete(s.integrationCredentials, scopedKey(scope, id))
 	return nil
+}
+
+func (s *InMemoryStore) ListIntegrationCredentials(ctx context.Context, scope Scope, provider string, baseUserIDPrefix string) ([]IntegrationCredentialRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return nil, err
+	}
+	provider = strings.ToLower(strings.TrimSpace(provider))
+	if provider == "" {
+		return nil, invalidRecordError("integration_credentials", "provider", "required")
+	}
+	baseUserIDPrefix = normalizeID(baseUserIDPrefix)
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	out := make([]IntegrationCredentialRecord, 0)
+	scopePrefix := scopedKey(scope, "")
+
+	for key, record := range s.integrationCredentials {
+		// Check scope prefix match (key format: {tenant}|{org}|{id})
+		if !strings.HasPrefix(key, scopePrefix) {
+			continue
+		}
+		// Check provider match (case-insensitive)
+		if !strings.EqualFold(record.Provider, provider) {
+			continue
+		}
+		// Check base user ID match (supports scoped user IDs like "user-1#google-account=work")
+		// without leaking credentials for similarly-prefixed IDs (e.g. user-1 vs user-10).
+		if baseUserIDPrefix != "" {
+			if record.UserID != baseUserIDPrefix && !strings.HasPrefix(record.UserID, baseUserIDPrefix+"#") {
+				continue
+			}
+		}
+		out = append(out, cloneIntegrationCredentialRecord(record))
+	}
+
+	// Sort by CreatedAt descending (most recent first)
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].CreatedAt.After(out[j].CreatedAt)
+	})
+
+	return out, nil
 }
 
 func (s *InMemoryStore) UpsertMappingSpec(ctx context.Context, scope Scope, record MappingSpecRecord) (MappingSpecRecord, error) {

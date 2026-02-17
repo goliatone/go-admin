@@ -138,6 +138,57 @@ func (r *documentPanelRepository) Delete(context.Context, string) error {
 	return fmt.Errorf("documents are immutable after upload")
 }
 
+// ServePanelSubresource serves the source PDF for a document.
+// Supported subresources:
+//   - "source": the original PDF document
+func (r *documentPanelRepository) ServePanelSubresource(ctx coreadmin.AdminContext, c router.Context, documentID, subresource, _ string) error {
+	if strings.ToLower(strings.TrimSpace(subresource)) != "source" {
+		return coreadmin.ErrNotFound
+	}
+	scope, err := resolveScopeFromContext(ctx.Context, r.defaultScope)
+	if err != nil {
+		return err
+	}
+	if r.store == nil {
+		return coreadmin.ErrNotFound
+	}
+	record, err := r.store.Get(ctx.Context, scope, strings.TrimSpace(documentID))
+	if err != nil {
+		return err
+	}
+	objectKey := strings.TrimSpace(record.SourceObjectKey)
+	if objectKey == "" {
+		return coreadmin.ErrNotFound
+	}
+	if r.uploads == nil {
+		return coreadmin.ErrNotFound
+	}
+	disposition := "inline"
+	if strings.EqualFold(strings.TrimSpace(c.Query("disposition")), "attachment") {
+		disposition = "attachment"
+	}
+	filename := strings.TrimSpace(record.Title)
+	if filename == "" {
+		filename = "document"
+	}
+	if !strings.HasSuffix(strings.ToLower(filename), ".pdf") {
+		filename = filename + ".pdf"
+	}
+	if err := quickstart.ServeBinaryObject(c, quickstart.BinaryObjectResponseConfig{
+		Store:       r.uploads,
+		ObjectKey:   objectKey,
+		ContentType: "application/pdf",
+		Filename:    filename,
+		Disposition: disposition,
+	}); err != nil {
+		if errors.Is(err, quickstart.ErrBinaryObjectUnavailable) {
+			return coreadmin.ErrNotFound
+		}
+		return err
+	}
+	return nil
+}
+
 var errPDFPayloadRequired = errors.New("pdf payload is required")
 
 func decodePDFPayload(record map[string]any) ([]byte, error) {

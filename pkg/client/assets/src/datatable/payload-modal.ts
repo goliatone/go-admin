@@ -14,6 +14,10 @@ import { Modal, escapeHtml } from '../shared/modal.js';
 export interface PayloadModalFieldOption {
   value: string;
   label: string;
+  /** Optional description/hint for the option */
+  description?: string;
+  /** Whether this option is recommended (for preselection) */
+  recommended?: boolean;
 }
 
 export interface PayloadModalField {
@@ -137,6 +141,25 @@ export class PayloadInputModal extends Modal {
     cancelBtn?.addEventListener('click', () => {
       this.hide();
     });
+
+    // Handle radio group value synchronization
+    const radioGroups = this.container?.querySelectorAll<HTMLElement>('[data-payload-radio-group]');
+    radioGroups?.forEach((group) => {
+      const fieldName = group.dataset.payloadRadioGroup;
+      if (!fieldName) return;
+
+      const radios = group.querySelectorAll<HTMLInputElement>(`[data-payload-radio="${fieldName}"]`);
+      const hiddenInput = group.querySelector<HTMLInputElement>(`[data-payload-field="${fieldName}"]`);
+      if (!hiddenInput) return;
+
+      radios.forEach((radio) => {
+        radio.addEventListener('change', () => {
+          if (radio.checked) {
+            hiddenInput.value = radio.value;
+          }
+        });
+      });
+    });
   }
 
   protected onBeforeHide(): boolean {
@@ -167,8 +190,24 @@ export class PayloadInputModal extends Modal {
   }
 
   private renderSelect(field: PayloadModalField): string {
-    const selected = field.value;
+    // Find recommended option for preselection if no value is set
+    let selected = field.value;
     const options = field.options || [];
+    if (!selected) {
+      const recommended = options.find((opt) => opt.recommended);
+      if (recommended) {
+        selected = recommended.value;
+      }
+    }
+
+    // Check if any option has descriptions (for enhanced rendering)
+    const hasDescriptions = options.some((opt) => opt.description);
+
+    if (hasDescriptions) {
+      // Render as radio group for better description display
+      return this.renderRadioGroup(field, options, selected);
+    }
+
     const optionHtml = options
       .map((option) => {
         const isSelected = option.value === selected ? ' selected' : '';
@@ -182,6 +221,46 @@ export class PayloadInputModal extends Modal {
         <option value="">Select an option</option>
         ${optionHtml}
       </select>
+    `;
+  }
+
+  private renderRadioGroup(
+    field: PayloadModalField,
+    options: PayloadModalFieldOption[],
+    selected: string
+  ): string {
+    const radioItems = options
+      .map((option, index) => {
+        const isChecked = option.value === selected ? ' checked' : '';
+        const description = option.description
+          ? `<span class="text-xs text-gray-500 block ml-6 mt-0.5">${escapeHtml(option.description)}</span>`
+          : '';
+        return `
+          <label class="flex items-start gap-2 p-2 rounded-lg hover:bg-gray-50 cursor-pointer ${option.recommended ? 'bg-blue-50 border border-blue-200' : ''}">
+            <input type="radio"
+                   name="payload-radio-${field.name}"
+                   value="${escapeHtml(option.value)}"
+                   data-payload-radio="${field.name}"
+                   class="mt-0.5 w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                   ${isChecked} />
+            <span class="flex-1">
+              <span class="text-sm font-medium text-gray-900">${escapeHtml(option.label)}</span>
+              ${description}
+            </span>
+          </label>
+        `;
+      })
+      .join('');
+
+    // Hidden input to hold the actual value for form submission
+    const initialValue = selected || '';
+    return `
+      <div class="space-y-1" data-payload-radio-group="${field.name}">
+        <input type="hidden"
+               data-payload-field="${field.name}"
+               value="${escapeHtml(initialValue)}" />
+        ${radioItems}
+      </div>
     `;
   }
 

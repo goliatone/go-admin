@@ -1,0 +1,132 @@
+{
+  "panel": "posts",
+  "schema": {
+    "actions": [
+      {
+        "name": "view",
+        "label": "View",
+        "order": 11
+      },
+      {
+        "name": "edit",
+        "label": "Edit",
+        "order": 10
+      },
+      {
+        "name": "create_translation",
+        "label": "Add Translation",
+        "order": 20,
+        "payload_required": [
+          "locale"
+        ],
+        "payload_schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "locale"
+          ],
+          "properties": {
+            "locale": {
+              "type": "string",
+              "title": "Locale",
+              "enum": [
+                "en",
+                "es",
+                "fr"
+              ]
+            },
+            "missing_locales": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "existing_locales": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "recommended_locale": {
+              "type": "string"
+            },
+            "required_for_publish": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      {
+        "name": "submit_for_approval",
+        "label": "Submit for approval",
+        "order": 30
+      },
+      {
+        "name": "publish",
+        "label": "Publish",
+        "order": 40
+      },
+      {
+        "name": "unpublish",
+        "label": "Unpublish",
+        "order": 50
+      },
+      {
+        "name": "delete",
+        "label": "Delete",
+        "order": 1000
+      }
+    ]
+  },
+  "data": [
+    {
+      "id": "post_123",
+      "status": "approval",
+      "translation_readiness": {
+        "readiness_state": "missing_locales",
+        "required_locales": [
+          "en",
+          "es"
+        ],
+        "available_locales": [
+          "en"
+        ],
+        "missing_required_locales": [
+          "es"
+        ]
+      },
+      "_action_state": {
+        "view": {
+          "enabled": true
+        },
+        "edit": {
+          "enabled": true
+        },
+        "create_translation": {
+          "enabled": true
+        },
+        "submit_for_approval": {
+          "enabled": false,
+          "reason": "transition \"submit_for_approval\" is not available from state \"approval\"",
+          "reason_code": "INVALID_STATUS"
+        },
+        "publish": {
+          "enabled": false,
+          "reason": "missing required locales: ES",
+          "reason_code": "TRANSLATION_MISSING"
+        },
+        "unpublish": {
+          "enabled": false,
+          "reason": "transition \"unpublish\" is not available from state \"approval\"",
+          "reason_code": "INVALID_STATUS"
+        },
+        "delete": {
+          "enabled": true
+        }
+      }
+    }
+  ]
+}

@@ -181,6 +181,125 @@ func TestESignModuleAgreementArtifactSubresourceDoesNotMatchDynamicPanelAlias(t 
 	}
 }
 
+func TestESignModuleDocumentSourceSubresourceAllowsAdminView(t *testing.T) {
+	_, server, scope := setupESignModuleArtifactSubresourceTest(t, permissionAuthorizer{
+		allowed: map[string]bool{
+			permissions.AdminESignView:   true,
+			permissions.AdminESignCreate: true,
+			permissions.AdminESignEdit:   true,
+		},
+	})
+	documentID := seedDocumentForSourceSubresource(t, server, scope)
+
+	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf(
+		"/admin/api/v1/esign_documents/%s/source/pdf?tenant_id=%s&org_id=%s&disposition=attachment",
+		documentID,
+		scope.TenantID,
+		scope.OrgID,
+	), nil)
+	req.Header.Set("X-User-ID", "ops-user")
+	resp, err := server.WrappedRouter().Test(req, -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected status 200, got %d body=%s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	if contentType := strings.ToLower(strings.TrimSpace(resp.Header.Get("Content-Type"))); !strings.Contains(contentType, "application/pdf") {
+		t.Fatalf("expected application/pdf content type, got %q", resp.Header.Get("Content-Type"))
+	}
+	if disposition := strings.ToLower(strings.TrimSpace(resp.Header.Get("Content-Disposition"))); !strings.Contains(disposition, "attachment") {
+		t.Fatalf("expected attachment content disposition, got %q", resp.Header.Get("Content-Disposition"))
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read response body: %v", err)
+	}
+	if !strings.HasPrefix(string(body), "%PDF-") {
+		t.Fatalf("expected pdf payload, got %q", string(body))
+	}
+}
+
+func TestESignModuleDocumentSourceSubresourceDeniesMissingViewPermission(t *testing.T) {
+	_, server, scope := setupESignModuleArtifactSubresourceTest(t, permissionAuthorizer{
+		allowed: map[string]bool{
+			permissions.AdminESignCreate: true,
+			permissions.AdminESignEdit:   true,
+		},
+	})
+	documentID := seedDocumentForSourceSubresource(t, server, scope)
+
+	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf(
+		"/admin/api/v1/esign_documents/%s/source/pdf?tenant_id=%s&org_id=%s",
+		documentID,
+		scope.TenantID,
+		scope.OrgID,
+	), nil)
+	req.Header.Set("X-User-ID", "ops-user")
+	resp, err := server.WrappedRouter().Test(req, -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusForbidden {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected status 403, got %d body=%s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	payload := map[string]any{}
+	raw, _ := io.ReadAll(resp.Body)
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		t.Fatalf("unmarshal response payload: %v payload=%s", err, strings.TrimSpace(string(raw)))
+	}
+	errorPayload := payload
+	if nested, ok := payload["error"].(map[string]any); ok && nested != nil {
+		errorPayload = nested
+	}
+	metadata := map[string]any{}
+	switch rawMeta := errorPayload["metadata"].(type) {
+	case map[string]any:
+		metadata = rawMeta
+	case map[string]string:
+		for key, value := range rawMeta {
+			metadata[key] = value
+		}
+	default:
+		t.Fatalf("expected metadata payload for forbidden response, got %+v", payload)
+	}
+	if got := strings.TrimSpace(toString(metadata["permission"])); got != permissions.AdminESignView {
+		t.Fatalf("expected forbidden metadata permission %q, got %+v", permissions.AdminESignView, metadata)
+	}
+}
+
+func TestESignModuleDocumentSourceSubresourceDoesNotMatchDynamicPanelAlias(t *testing.T) {
+	_, server, scope := setupESignModuleArtifactSubresourceTest(t, permissionAuthorizer{
+		allowed: map[string]bool{
+			permissions.AdminESignView:   true,
+			permissions.AdminESignCreate: true,
+			permissions.AdminESignEdit:   true,
+		},
+	})
+	documentID := seedDocumentForSourceSubresource(t, server, scope)
+
+	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf(
+		"/admin/api/v1/esign_documents@staging/%s/source/pdf?tenant_id=%s&org_id=%s",
+		documentID,
+		scope.TenantID,
+		scope.OrgID,
+	), nil)
+	req.Header.Set("X-User-ID", "ops-user")
+	resp, err := server.WrappedRouter().Test(req, -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusNotFound {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected status 404 for non-canonical panel alias route, got %d body=%s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+}
+
 func setupESignModuleArtifactSubresourceTest(t *testing.T, authz coreadmin.Authorizer) (*ESignModule, router.Server[*fiber.App], stores.Scope) {
 	t.Helper()
 	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
@@ -217,6 +336,19 @@ func setupESignModuleArtifactSubresourceTest(t *testing.T, authz coreadmin.Autho
 		t.Fatalf("Initialize: %v", err)
 	}
 	return module, server, defaultModuleScope
+}
+
+func seedDocumentForSourceSubresource(t *testing.T, server router.Server[*fiber.App], scope stores.Scope) string {
+	t.Helper()
+	return createPanelRecord(t, server, fmt.Sprintf(
+		"/admin/api/v1/esign_documents?tenant_id=%s&org_id=%s",
+		scope.TenantID,
+		scope.OrgID,
+	), map[string]any{
+		"title":             "Source Subresource Test Document",
+		"source_object_key": fmt.Sprintf("tenant/%s/org/%s/docs/source-subresource-test.pdf", scope.TenantID, scope.OrgID),
+		"pdf_base64":        encodeTestPDF(1),
+	})
 }
 
 func seedAgreementWithArtifacts(t *testing.T, module *ESignModule, server router.Server[*fiber.App], scope stores.Scope) string {

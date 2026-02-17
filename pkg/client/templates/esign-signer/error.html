@@ -150,7 +150,8 @@
         </p>
 
         <button
-          onclick="location.reload()"
+          type="button"
+          data-action="retry"
           class="btn btn-primary inline-flex items-center justify-center"
         >
           <i class="iconoir-refresh mr-2" aria-hidden="true"></i>
@@ -178,7 +179,8 @@
 
         <div class="space-y-3">
           <button
-            onclick="location.reload()"
+            type="button"
+            data-action="retry"
             class="btn btn-primary w-full sm:w-auto inline-flex items-center justify-center"
           >
             <i class="iconoir-refresh mr-2" aria-hidden="true"></i>
@@ -211,4 +213,15 @@
     </div>
   </footer>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script type="module">
+import { bootstrapSignerErrorPage } from '{{ base_path|default:"" }}/assets/dist/esign/index.js';
+
+// Initialize signer error page with delegated event handling
+bootstrapSignerErrorPage({
+  basePath: '{{ base_path|default:"" }}'
+});
+</script>
 {% endblock %}

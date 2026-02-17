@@ -25,8 +25,8 @@ const (
 	eSignPageSignerDeclined    = "signer.declined"
 	eSignPageSignerError       = "signer.error"
 
-	eSignModuleAssetAdminLanding      = "dist/esign/admin-landing.js"
-	eSignModuleAssetDocumentIngestion = "dist/esign/document-ingestion.js"
+	eSignModuleAssetAdminLanding      = "dist/esign/index.js"
+	eSignModuleAssetDocumentIngestion = "dist/esign/index.js"
 )
 
 var eSignMigratedPageModuleAssets = map[string]string{

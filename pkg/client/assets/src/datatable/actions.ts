@@ -301,8 +301,9 @@ export class ActionRenderer {
       const icon = action.icon ? this.renderIcon(action.icon) : '';
       const customClass = action.className || '';
       const disabled = action.disabled === true;
-      const disabledClass = disabled ? 'opacity-50 cursor-not-allowed pointer-events-none' : '';
-      const disabledAttr = disabled ? 'disabled' : '';
+      const disabledClass = disabled ? 'opacity-50 cursor-not-allowed' : '';
+      // Use aria-disabled instead of disabled to keep element focusable for accessibility
+      const ariaDisabledAttr = disabled ? 'aria-disabled="true"' : '';
       const titleAttr = action.disabledReason
         ? `title="${this.escapeHtml(action.disabledReason)}"`
         : '';
@@ -313,7 +314,8 @@ export class ActionRenderer {
           class="btn btn-sm ${variantClass} ${customClass} ${disabledClass}"
           data-action-id="${this.sanitize(action.label)}"
           data-record-id="${record.id}"
-          ${disabledAttr}
+          data-disabled="${disabled}"
+          ${ariaDisabledAttr}
           ${titleAttr}
         >
           ${icon}
@@ -380,7 +382,8 @@ export class ActionRenderer {
         : isDestructive
         ? 'action-item text-red-600 hover:bg-red-50'
         : 'action-item text-gray-700 hover:bg-gray-50';
-      const disabledAttr = disabled ? 'disabled' : '';
+      // Use aria-disabled instead of disabled to keep element focusable for accessibility
+      const ariaDisabledAttr = disabled ? 'aria-disabled="true"' : '';
       const titleAttr = action.disabledReason
         ? `title="${this.escapeHtml(action.disabledReason)}"`
         : '';
@@ -391,8 +394,9 @@ export class ActionRenderer {
                 class="${itemClass} flex items-center gap-3 w-full px-4 py-2.5 transition-colors"
                 data-action-id="${this.sanitize(action.label)}"
                 data-record-id="${record.id}"
+                data-disabled="${disabled}"
                 role="menuitem"
-                ${disabledAttr}
+                ${ariaDisabledAttr}
                 ${titleAttr}>
           <span class="flex-shrink-0 w-5 h-5">${icon}</span>
           <span class="text-sm font-medium">${this.escapeHtml(action.label)}</span>
@@ -460,6 +464,10 @@ export class ActionRenderer {
         if (record) {
           btn.addEventListener('click', async (e) => {
             e.preventDefault();
+            // Click guard: prevent action execution when aria-disabled
+            if (btn.getAttribute('aria-disabled') === 'true' || btn.dataset.disabled === 'true') {
+              return;
+            }
             try {
               await action.action(record);
             } catch (error) {

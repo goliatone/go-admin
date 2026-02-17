@@ -23,6 +23,10 @@ const agreementDetailTemplatePath = path.resolve(
   testFileDir,
   '../../templates/resources/esign-agreements/detail.html',
 );
+const documentDetailTemplatePath = path.resolve(
+  testFileDir,
+  '../../templates/resources/esign-documents/detail.html',
+);
 const documentFormTemplatePath = path.resolve(
   testFileDir,
   '../../templates/resources/esign-documents/form.html',
@@ -30,6 +34,54 @@ const documentFormTemplatePath = path.resolve(
 const googleIntegrationTemplatePath = path.resolve(
   testFileDir,
   '../../templates/resources/esign-integrations/google.html',
+);
+const googleCallbackTemplatePath = path.resolve(
+  testFileDir,
+  '../../templates/resources/esign-integrations/google-callback.html',
+);
+const googleDrivePickerTemplatePath = path.resolve(
+  testFileDir,
+  '../../templates/resources/esign-integrations/google-drive-picker.html',
+);
+const integrationHealthTemplatePath = path.resolve(
+  testFileDir,
+  '../../templates/resources/esign-integrations/health.html',
+);
+const integrationMappingsTemplatePath = path.resolve(
+  testFileDir,
+  '../../templates/resources/esign-integrations/mappings.html',
+);
+const integrationConflictsTemplatePath = path.resolve(
+  testFileDir,
+  '../../templates/resources/esign-integrations/conflicts.html',
+);
+const integrationSyncRunsTemplatePath = path.resolve(
+  testFileDir,
+  '../../templates/resources/esign-integrations/sync-runs.html',
+);
+const documentsListTemplatePath = path.resolve(
+  testFileDir,
+  '../../templates/resources/esign-documents/list.html',
+);
+const agreementsListTemplatePath = path.resolve(
+  testFileDir,
+  '../../templates/resources/esign-agreements/list.html',
+);
+const agreementFormTemplatePath = path.resolve(
+  testFileDir,
+  '../../templates/resources/esign-agreements/form.html',
+);
+const signerReviewTemplatePath = path.resolve(
+  testFileDir,
+  '../../templates/esign-signer/review.html',
+);
+const documentFormControllerPath = path.resolve(
+  testFileDir,
+  '../src/esign/pages/document-form.ts',
+);
+const googleDriveUtilsSourcePath = path.resolve(
+  testFileDir,
+  '../src/esign/utils/google-drive-utils.ts',
 );
 
 // =============================================================================
@@ -1070,6 +1122,21 @@ test('agreement detail template JS uses warning icon for runtime unavailable dow
   assert.match(template, /M12 9v2m0 4h\.01m-6\.938 4h13\.856/);
 });
 
+test('document detail template uses panel-scoped source PDF API path', () => {
+  const template = fs.readFileSync(documentDetailTemplatePath, 'utf8');
+
+  assert.match(template, /data-pdf-url="\{\{ api_base_path \}\}\/\{\{ panel_name\|default:"esign_documents" \}\}\/\{\{ resource_item\.id \}\}\/source\/pdf"/);
+  assert.match(template, /href="\{\{ api_base_path \}\}\/\{\{ panel_name\|default:"esign_documents" \}\}\/\{\{ resource_item\.id \}\}\/source\/pdf\?disposition=attachment"/);
+  assert.doesNotMatch(template, /\/api\/\{\{ resource \}\}\/\{\{ resource_item\.id \}\}\/source\/pdf/);
+});
+
+test('document detail template relies on auto-init to avoid duplicate preview listeners', () => {
+  const template = fs.readFileSync(documentDetailTemplatePath, 'utf8');
+
+  assert.match(template, /data-esign-page="document-detail"/);
+  assert.doesNotMatch(template, /initDocumentDetailPreview\(\s*\{/);
+});
+
 // =============================================================================
 // E-Sign Artifact Status Rendering Tests
 // =============================================================================
@@ -1847,25 +1914,25 @@ test('Phase 31 template: quick action targets unified new-document route', () =>
   assert.match(template, /adminURL\("content\/esign_documents\/new"\)\s*\}\}\?source=google/);
 });
 
-test('Phase 31 template: importability checks are strict MIME matches', () => {
-  const template = fs.readFileSync(documentFormTemplatePath, 'utf8');
-  assert.match(template, /const MIME_GOOGLE_DOC = 'application\/vnd\.google-apps\.document';/);
-  assert.match(template, /const MIME_PDF = 'application\/pdf';/);
-  assert.match(template, /return isGoogleDoc\(file\) \|\| isPDF\(file\);/);
-  assert.doesNotMatch(template, /mimeType\.includes\('document'\)/);
+test('Phase 31 module: importability checks are strict MIME matches', () => {
+  const utilsSource = fs.readFileSync(googleDriveUtilsSourcePath, 'utf8');
+  assert.match(utilsSource, /export const MIME_GOOGLE_DOC = 'application\/vnd\.google-apps\.document';/);
+  assert.match(utilsSource, /export const MIME_PDF = 'application\/pdf';/);
+  assert.match(utilsSource, /export function isImportable\(file: NormalizedDriveFile\): boolean \{\s*return IMPORTABLE_MIME_TYPES\.includes\(file\.mimeType\);\s*\}/s);
+  assert.doesNotMatch(utilsSource, /mimeType\.includes\('document'\)/);
 });
 
-test('Phase 31 template: succeeded import redirects to agreement before document', () => {
-  const template = fs.readFileSync(documentFormTemplatePath, 'utf8');
-  assert.match(template, /if \(data\.agreement\?\.id\) \{/);
-  assert.match(template, /window\.location\.href = `\$\{agreementsBase\}\/\$\{encodeURIComponent\(data\.agreement\.id\)\}`;/);
-  assert.match(template, /else if \(data\.document\?\.id\) \{/);
+test('Phase 31 module: succeeded import redirects to agreement before document', () => {
+  const controllerSource = fs.readFileSync(documentFormControllerPath, 'utf8');
+  assert.match(controllerSource, /if \(data\.agreement\?\.id && this\.config\.routes\.agreements\) \{/);
+  assert.match(controllerSource, /window\.location\.href = `\$\{this\.config\.routes\.agreements\}\/\$\{encodeURIComponent\(data\.agreement\.id\)\}`;/);
+  assert.match(controllerSource, /else if \(data\.document\?\.id\) \{/);
 });
 
-test('Phase 31 template: retry button triggers a new async import submission', () => {
-  const template = fs.readFileSync(documentFormTemplatePath, 'utf8');
-  assert.match(template, /importRetryBtn\.addEventListener\('click', \(\) => \{/);
-  assert.match(template, /if \(selectedFile\) \{\s*startImport\(\);/s);
+test('Phase 31 module: retry button triggers a new async import submission', () => {
+  const controllerSource = fs.readFileSync(documentFormControllerPath, 'utf8');
+  assert.match(controllerSource, /importRetryBtn\.addEventListener\('click', \(\) => \{/);
+  assert.match(controllerSource, /if \(this\.selectedFile\) \{\s*this\.startImport\(\);/s);
 });
 
 // =============================================================================
@@ -13386,4 +13453,342 @@ test('Phase 30 Integration: conflict resolution preserves work', async () => {
 
   // Local state preserved
   assert.equal(stateManager.getState().details.title, 'Local Changes');
+});
+
+// =============================================================================
+// Phase 32 - Google Drive Utils Tests
+// =============================================================================
+
+// Import Google Drive utilities for testing
+const googleDriveUtils = await import('../dist/esign/index.js');
+
+test('Google Drive Utils: isGoogleDoc identifies Google Docs correctly', () => {
+  const googleDoc = {
+    id: 'file1',
+    name: 'Test Doc',
+    mimeType: 'application/vnd.google-apps.document',
+    size: 0,
+    modifiedTime: '2024-01-01T00:00:00Z',
+  };
+  const pdfFile = {
+    id: 'file2',
+    name: 'Test PDF',
+    mimeType: 'application/pdf',
+    size: 1024,
+    modifiedTime: '2024-01-01T00:00:00Z',
+  };
+
+  assert.equal(googleDriveUtils.isGoogleDoc(googleDoc), true);
+  assert.equal(googleDriveUtils.isGoogleDoc(pdfFile), false);
+});
+
+test('Google Drive Utils: isPDF identifies PDF files correctly', () => {
+  const pdfFile = {
+    id: 'file1',
+    name: 'Test PDF',
+    mimeType: 'application/pdf',
+    size: 1024,
+    modifiedTime: '2024-01-01T00:00:00Z',
+  };
+  const wordDoc = {
+    id: 'file2',
+    name: 'Test Word',
+    mimeType: 'application/msword',
+    size: 2048,
+    modifiedTime: '2024-01-01T00:00:00Z',
+  };
+
+  assert.equal(googleDriveUtils.isPDF(pdfFile), true);
+  assert.equal(googleDriveUtils.isPDF(wordDoc), false);
+});
+
+test('Google Drive Utils: isFolder identifies folders correctly', () => {
+  const folder = {
+    id: 'folder1',
+    name: 'My Folder',
+    mimeType: 'application/vnd.google-apps.folder',
+    size: 0,
+    modifiedTime: '2024-01-01T00:00:00Z',
+  };
+  const file = {
+    id: 'file1',
+    name: 'My File',
+    mimeType: 'application/pdf',
+    size: 1024,
+    modifiedTime: '2024-01-01T00:00:00Z',
+  };
+
+  assert.equal(googleDriveUtils.isFolder(folder), true);
+  assert.equal(googleDriveUtils.isFolder(file), false);
+});
+
+test('Google Drive Utils: isImportable identifies importable files correctly', () => {
+  const googleDoc = {
+    id: 'file1',
+    name: 'Test Doc',
+    mimeType: 'application/vnd.google-apps.document',
+    size: 0,
+    modifiedTime: '2024-01-01T00:00:00Z',
+  };
+  const pdfFile = {
+    id: 'file2',
+    name: 'Test PDF',
+    mimeType: 'application/pdf',
+    size: 1024,
+    modifiedTime: '2024-01-01T00:00:00Z',
+  };
+  const excelFile = {
+    id: 'file3',
+    name: 'Test Excel',
+    mimeType: 'application/vnd.google-apps.spreadsheet',
+    size: 2048,
+    modifiedTime: '2024-01-01T00:00:00Z',
+  };
+
+  assert.equal(googleDriveUtils.isImportable(googleDoc), true);
+  assert.equal(googleDriveUtils.isImportable(pdfFile), true);
+  assert.equal(googleDriveUtils.isImportable(excelFile), false);
+});
+
+test('Google Drive Utils: normalizeDriveFile normalizes file data correctly', () => {
+  const rawFile = {
+    id: 'file123',
+    name: 'My Document.pdf',
+    mimeType: 'application/pdf',
+    size: '2048',
+    modifiedTime: '2024-01-15T10:30:00Z',
+    iconLink: 'https://example.com/icon.png',
+    webViewLink: 'https://drive.google.com/file/d/file123',
+  };
+
+  const normalized = googleDriveUtils.normalizeDriveFile(rawFile);
+
+  assert.equal(normalized.id, 'file123');
+  assert.equal(normalized.name, 'My Document.pdf');
+  assert.equal(normalized.mimeType, 'application/pdf');
+  assert.equal(normalized.size, 2048);
+  assert.equal(normalized.modifiedTime, '2024-01-15T10:30:00Z');
+  assert.equal(normalized.iconLink, 'https://example.com/icon.png');
+  assert.equal(normalized.webViewLink, 'https://drive.google.com/file/d/file123');
+});
+
+test('Google Drive Utils: normalizeDriveFile handles missing fields', () => {
+  const rawFile = {
+    id: 'file456',
+  };
+
+  const normalized = googleDriveUtils.normalizeDriveFile(rawFile);
+
+  assert.equal(normalized.id, 'file456');
+  assert.equal(normalized.name, 'Untitled');
+  assert.equal(normalized.mimeType, 'application/octet-stream');
+  assert.equal(normalized.size, 0);
+  assert.ok(normalized.modifiedTime);
+});
+
+test('Google Drive Utils: getFileTypeName returns correct type names', () => {
+  assert.equal(googleDriveUtils.getFileTypeName('application/vnd.google-apps.document'), 'Google Doc');
+  assert.equal(googleDriveUtils.getFileTypeName('application/pdf'), 'PDF');
+  assert.equal(googleDriveUtils.getFileTypeName('application/vnd.google-apps.folder'), 'Folder');
+  assert.equal(googleDriveUtils.getFileTypeName('application/vnd.google-apps.spreadsheet'), 'Google Sheet');
+  assert.equal(googleDriveUtils.getFileTypeName('unknown/type'), 'File');
+});
+
+test('Google Drive Utils: normalizeAccountId handles various inputs', () => {
+  assert.equal(googleDriveUtils.normalizeAccountId('acc_123'), 'acc_123');
+  assert.equal(googleDriveUtils.normalizeAccountId('  acc_456  '), 'acc_456');
+  assert.equal(googleDriveUtils.normalizeAccountId('null'), '');
+  assert.equal(googleDriveUtils.normalizeAccountId('undefined'), '');
+  assert.equal(googleDriveUtils.normalizeAccountId('0'), '');
+  assert.equal(googleDriveUtils.normalizeAccountId(null), '');
+  assert.equal(googleDriveUtils.normalizeAccountId(undefined), '');
+  assert.equal(googleDriveUtils.normalizeAccountId(''), '');
+});
+
+test('Google Drive Utils: getFileIconConfig returns correct config', () => {
+  const folder = {
+    id: 'f1',
+    name: 'Folder',
+    mimeType: 'application/vnd.google-apps.folder',
+    size: 0,
+    modifiedTime: '2024-01-01T00:00:00Z',
+  };
+  const googleDoc = {
+    id: 'f2',
+    name: 'Doc',
+    mimeType: 'application/vnd.google-apps.document',
+    size: 0,
+    modifiedTime: '2024-01-01T00:00:00Z',
+  };
+  const pdf = {
+    id: 'f3',
+    name: 'PDF',
+    mimeType: 'application/pdf',
+    size: 1024,
+    modifiedTime: '2024-01-01T00:00:00Z',
+  };
+
+  const folderConfig = googleDriveUtils.getFileIconConfig(folder);
+  assert.equal(folderConfig.icon, 'iconoir-folder');
+  assert.ok(folderConfig.bgClass.includes('yellow'));
+
+  const docConfig = googleDriveUtils.getFileIconConfig(googleDoc);
+  assert.equal(docConfig.icon, 'iconoir-google-docs');
+  assert.ok(docConfig.bgClass.includes('blue'));
+
+  const pdfConfig = googleDriveUtils.getFileIconConfig(pdf);
+  assert.equal(pdfConfig.icon, 'iconoir-page');
+  assert.ok(pdfConfig.bgClass.includes('red'));
+});
+
+// =============================================================================
+// Phase 32 - Datatable Bootstrap Utils Tests
+// =============================================================================
+
+const datatableUtils = await import('../dist/esign/index.js');
+
+test('Datatable Utils: normalizeFilterType handles various types', () => {
+  assert.equal(datatableUtils.normalizeFilterType('select'), 'select');
+  assert.equal(datatableUtils.normalizeFilterType('enum'), 'select');
+  assert.equal(datatableUtils.normalizeFilterType('number'), 'number');
+  assert.equal(datatableUtils.normalizeFilterType('integer'), 'number');
+  assert.equal(datatableUtils.normalizeFilterType('date'), 'date');
+  assert.equal(datatableUtils.normalizeFilterType('datetime'), 'date');
+  assert.equal(datatableUtils.normalizeFilterType('time'), 'date');
+  assert.equal(datatableUtils.normalizeFilterType('text'), 'text');
+  assert.equal(datatableUtils.normalizeFilterType('unknown'), 'text');
+  assert.equal(datatableUtils.normalizeFilterType(undefined), 'text');
+  assert.equal(datatableUtils.normalizeFilterType(''), 'text');
+});
+
+test('Datatable Utils: normalizeFilterOptions formats options correctly', () => {
+  const options = [
+    { value: 'draft', label: 'Draft' },
+    { value: 'sent', label: 'Sent' },
+    { value: 'completed', label: 'Completed' },
+  ];
+
+  const normalized = datatableUtils.normalizeFilterOptions(options);
+
+  assert.ok(Array.isArray(normalized));
+  assert.equal(normalized.length, 3);
+  assert.deepEqual(normalized[0], { label: 'Draft', value: 'draft' });
+  assert.deepEqual(normalized[1], { label: 'Sent', value: 'sent' });
+});
+
+test('Datatable Utils: normalizeFilterOptions handles empty/null', () => {
+  assert.equal(datatableUtils.normalizeFilterOptions(undefined), undefined);
+  assert.equal(datatableUtils.normalizeFilterOptions([]), undefined);
+  assert.equal(datatableUtils.normalizeFilterOptions(null), undefined);
+});
+
+test('Datatable Utils: normalizeFilterOperators dedupes and orders', () => {
+  const operators = ['eq', 'ne', 'gt', 'eq', 'lt'];
+
+  const normalized = datatableUtils.normalizeFilterOperators(operators, 'eq');
+
+  assert.ok(Array.isArray(normalized));
+  assert.equal(normalized[0], 'eq'); // Preferred first
+  assert.ok(!normalized.includes('eq') || normalized.filter(x => x === 'eq').length === 1);
+});
+
+test('Datatable Utils: normalizeFilterOperators handles empty', () => {
+  assert.equal(datatableUtils.normalizeFilterOperators(undefined), undefined);
+  assert.equal(datatableUtils.normalizeFilterOperators([]), undefined);
+});
+
+test('Datatable Utils: prepareGridColumns sets hidden based on default', () => {
+  const columns = [
+    { field: 'id', default: true },
+    { field: 'title' },
+    { field: 'internal_code', default: false },
+  ];
+
+  const prepared = datatableUtils.prepareGridColumns(columns);
+
+  assert.equal(prepared[0].hidden, false);
+  assert.equal(prepared[1].hidden, false); // No default = visible
+  assert.equal(prepared[2].hidden, true);
+});
+
+test('Datatable Utils: dateTimeCellRenderer formats dates', () => {
+  const result = datatableUtils.dateTimeCellRenderer('2024-01-15T14:30:00Z');
+
+  assert.ok(result !== '-');
+  assert.ok(result.includes('/') || result.includes('-')); // Date format varies by locale
+});
+
+test('Datatable Utils: dateTimeCellRenderer handles empty values', () => {
+  assert.equal(datatableUtils.dateTimeCellRenderer(null), '-');
+  assert.equal(datatableUtils.dateTimeCellRenderer(undefined), '-');
+  assert.equal(datatableUtils.dateTimeCellRenderer(''), '-');
+});
+
+test('Datatable Utils: fileSizeCellRenderer formats sizes', () => {
+  assert.equal(datatableUtils.fileSizeCellRenderer(0), '-');
+  assert.equal(datatableUtils.fileSizeCellRenderer(null), '-');
+  assert.ok(datatableUtils.fileSizeCellRenderer(512).includes('B'));
+  assert.ok(datatableUtils.fileSizeCellRenderer(2048).includes('KB'));
+  assert.ok(datatableUtils.fileSizeCellRenderer(2048 * 1024).includes('MB'));
+});
+
+test('Datatable Utils: STANDARD_GRID_SELECTORS contains required selectors', () => {
+  const selectors = datatableUtils.STANDARD_GRID_SELECTORS;
+
+  assert.ok(selectors.searchInput);
+  assert.ok(selectors.perPageSelect);
+  assert.ok(selectors.paginationContainer);
+  assert.ok(selectors.selectAllCheckbox);
+  assert.ok(selectors.rowCheckboxes);
+  assert.equal(selectors.searchInput, '#table-search');
+});
+
+test('Phase 32 template contract: document form uses backend page marker and config script', () => {
+  const template = fs.readFileSync(documentFormTemplatePath, 'utf8');
+  assert.match(template, /data-esign-page="\{\{ esign_page\|default:"admin\.documents\.ingestion" \}\}"/);
+  assert.match(template, /<script id="esign-page-config" type="application\/json">/);
+});
+
+test('Phase 32 template contract: integration pages bootstrap via module without legacy inline scripts', () => {
+  const contracts = [
+    [googleIntegrationTemplatePath, /bootstrapGoogleIntegration/],
+    [googleCallbackTemplatePath, /bootstrapGoogleCallback/],
+    [googleDrivePickerTemplatePath, /bootstrapGoogleDrivePicker/],
+    [integrationHealthTemplatePath, /bootstrapIntegrationHealth/],
+    [integrationMappingsTemplatePath, /bootstrapIntegrationMappings/],
+    [integrationConflictsTemplatePath, /bootstrapIntegrationConflicts/],
+    [integrationSyncRunsTemplatePath, /bootstrapIntegrationSyncRuns/],
+  ];
+
+  contracts.forEach(([filePath, bootstrapPattern]) => {
+    const template = fs.readFileSync(filePath, 'utf8');
+    assert.match(template, /<script type="module">/);
+    assert.match(template, bootstrapPattern);
+    assert.doesNotMatch(template, /<script(?![^>]*type="module")(?![^>]*type="application\/json")/);
+    assert.doesNotMatch(template, /onclick=/);
+  });
+});
+
+test('Phase 32 template contract: list templates consume shared datatable bootstrap helpers', () => {
+  const docsTemplate = fs.readFileSync(documentsListTemplatePath, 'utf8');
+  const agreementsTemplate = fs.readFileSync(agreementsListTemplatePath, 'utf8');
+
+  assert.match(docsTemplate, /from '\{\{ base_path \}\}\/assets\/dist\/esign\/index\.js';/);
+  assert.match(agreementsTemplate, /from '\{\{ base_path \}\}\/assets\/dist\/esign\/index\.js';/);
+  assert.doesNotMatch(docsTemplate, /class PanelPaginationBehavior/);
+  assert.doesNotMatch(agreementsTemplate, /class PanelPaginationBehavior/);
+  assert.doesNotMatch(docsTemplate, /function normalizeFilterType/);
+  assert.doesNotMatch(agreementsTemplate, /function normalizeFilterType/);
+});
+
+test('Phase 32 template contract: migrated e-sign templates avoid inline onclick handlers', () => {
+  const templates = [
+    agreementFormTemplatePath,
+    signerReviewTemplatePath,
+  ];
+
+  templates.forEach((filePath) => {
+    const template = fs.readFileSync(filePath, 'utf8');
+    assert.doesNotMatch(template, /onclick=/);
+  });
 });

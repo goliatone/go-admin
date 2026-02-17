@@ -73,6 +73,13 @@ func (s statusFailingGoogleService) Status(context.Context, stores.Scope, string
 	return services.GoogleOAuthStatus{}, nil
 }
 
+func (s statusFailingGoogleService) ListAccounts(context.Context, stores.Scope, string) ([]services.GoogleAccountInfo, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	return nil, nil
+}
+
 func (s statusFailingGoogleService) SearchFiles(context.Context, stores.Scope, services.GoogleDriveQueryInput) (services.GoogleDriveListResult, error) {
 	return services.GoogleDriveListResult{}, nil
 }
@@ -281,7 +288,9 @@ func setupRegisterTestApp(t *testing.T, opts ...RegisterOption) *fiber.App {
 	})
 
 	routes := BuildRouteSet(nil, "/admin", "admin.api.v1")
-	Register(adapter.Router(), routes, opts...)
+	if err := Register(adapter.Router(), routes, opts...); err != nil {
+		t.Fatalf("Register: %v", err)
+	}
 	adapter.Init()
 	return adapter.WrappedRouter()
 }
@@ -508,7 +517,10 @@ func TestRegisterSignerSessionReturns410ForExpiredToken(t *testing.T) {
 
 func TestWithSignerTokenValidatorOptionSetsConfig(t *testing.T) {
 	validator := stores.NewTokenService(stores.NewInMemoryStore())
-	cfg := buildRegisterConfig([]RegisterOption{WithSignerTokenValidator(validator)})
+	cfg, err := buildRegisterConfig([]RegisterOption{WithSignerTokenValidator(validator)})
+	if err != nil {
+		t.Fatalf("buildRegisterConfig: %v", err)
+	}
 	if cfg.tokenValidator == nil {
 		t.Fatal("expected token validator to be configured")
 	}

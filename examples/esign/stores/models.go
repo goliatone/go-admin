@@ -523,6 +523,8 @@ type IntegrationCredentialRecord struct {
 	EncryptedRefreshToken string
 	Scopes                []string
 	ExpiresAt             *time.Time
+	ProfileJSON           string     // OAuth profile data, e.g. {"email": "user@example.com"}
+	LastUsedAt            *time.Time // Last API call using this credential
 	CreatedAt             time.Time
 	UpdatedAt             time.Time
 }

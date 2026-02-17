@@ -8,6 +8,10 @@ import { Modal } from '../shared/modal.js';
 export interface PayloadModalFieldOption {
     value: string;
     label: string;
+    /** Optional description/hint for the option */
+    description?: string;
+    /** Whether this option is recommended (for preselection) */
+    recommended?: boolean;
 }
 export interface PayloadModalField {
     name: string;
@@ -38,6 +42,7 @@ export declare class PayloadInputModal extends Modal {
     protected onBeforeHide(): boolean;
     private renderField;
     private renderSelect;
+    private renderRadioGroup;
     private renderInput;
     private clearErrors;
     private showFieldError;

@@ -161,6 +161,24 @@ export interface GoogleIntegrationStatus {
   degraded_reason?: string;
 }
 
+// Google Account info for multi-account management
+export interface GoogleAccountInfo {
+  account_id: string;
+  email: string;
+  status: 'connected' | 'expired' | 'needs_reauth' | 'degraded';
+  scopes: string[];
+  expires_at?: string;
+  created_at: string;
+  last_used_at?: string;
+  is_default: boolean;
+}
+
+// Response from accounts list endpoint
+export interface GoogleAccountsResponse {
+  status: string;
+  accounts: GoogleAccountInfo[];
+}
+
 // Google OAuth callback data
 export interface GoogleOAuthCallbackData {
   type: 'google_oauth_callback';

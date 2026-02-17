@@ -50,7 +50,18 @@ export class SignerCompletePageController {
    * Initialize the completion page
    */
   async init(): Promise<void> {
+    this.setupEventListeners();
     await this.loadArtifacts();
+  }
+
+  /**
+   * Setup event listeners
+   */
+  private setupEventListeners(): void {
+    const retryBtn = qs('#retry-artifacts-btn');
+    if (retryBtn) {
+      retryBtn.addEventListener('click', () => this.loadArtifacts());
+    }
   }
 
   /**

@@ -413,7 +413,7 @@ func TestRuntimeMigratedPagesExposeValidatedESignModuleAssets(t *testing.T) {
 	}
 	landingConfig := extractESignPageConfigFromHTML(t, landingMarkup)
 	landingModulePath := getESignConfigModulePath(landingConfig)
-	if landingModulePath != "/admin/assets/dist/esign/admin-landing.js" {
+	if landingModulePath != "/admin/assets/dist/esign/index.js" {
 		t.Fatalf("expected landing module path contract, got %q", landingModulePath)
 	}
 	if !strings.Contains(landingMarkup, `src="`+landingModulePath+`"`) {
@@ -433,8 +433,8 @@ func TestRuntimeMigratedPagesExposeValidatedESignModuleAssets(t *testing.T) {
 	docMarkup := string(docBody)
 	docConfig := extractESignPageConfigFromHTML(t, docMarkup)
 	docModulePath := getESignConfigModulePath(docConfig)
-	if docModulePath != "/admin/assets/dist/esign/document-ingestion.js" {
-		t.Fatalf("expected document-ingestion module path contract, got %q", docModulePath)
+	if docModulePath != "/admin/assets/dist/esign/index.js" {
+		t.Fatalf("expected document ingestion module path contract, got %q", docModulePath)
 	}
 	if !strings.Contains(docMarkup, `src="`+docModulePath+`"`) {
 		t.Fatalf("expected document-ingestion module script src %q in markup", docModulePath)

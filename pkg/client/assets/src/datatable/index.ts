@@ -122,6 +122,19 @@ export type {
   ReadinessBadgeOptions
 } from './translation-context.js';
 
+// Export status legend component
+export {
+  StatusLegend,
+  createStatusLegend,
+  initStatusLegends,
+  renderStatusLegendHTML,
+  DEFAULT_STATUS_LEGEND_ITEMS
+} from './status-legend.js';
+export type {
+  StatusLegendItem,
+  StatusLegendConfig
+} from './status-legend.js';
+
 // Export translation exchange types and helpers (Phase 15)
 export {
   isExchangeError,
