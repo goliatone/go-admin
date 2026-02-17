@@ -1,0 +1,95 @@
+{
+  "disabled_reason_codes": [
+    "TRANSLATION_MISSING",
+    "INVALID_STATUS",
+    "PERMISSION_DENIED",
+    "MISSING_CONTEXT",
+    "FEATURE_DISABLED"
+  ],
+  "schema_version": 1,
+  "source_target_drift": {
+    "key": "source_target_drift",
+    "required_fields": [
+      "source_hash",
+      "source_version",
+      "changed_fields_summary"
+    ],
+    "summary_fields": [
+      "count",
+      "fields"
+    ]
+  },
+  "status_enums": {
+    "all": [
+      "ready",
+      "missing_locales",
+      "missing_fields",
+      "missing_locales_and_fields",
+      "pending",
+      "assigned",
+      "in_progress",
+      "review",
+      "rejected",
+      "approved",
+      "published",
+      "archived",
+      "draft",
+      "overdue",
+      "due_soon",
+      "on_track",
+      "none",
+      "success",
+      "error",
+      "conflict",
+      "skipped",
+      "running",
+      "completed",
+      "failed"
+    ],
+    "core": {
+      "readiness_state": [
+        "ready",
+        "missing_locales",
+        "missing_fields",
+        "missing_locales_and_fields"
+      ]
+    },
+    "exchange": {
+      "job_status": [
+        "running",
+        "completed",
+        "failed"
+      ],
+      "row_status": [
+        "success",
+        "error",
+        "conflict",
+        "skipped"
+      ]
+    },
+    "queue": {
+      "content_state": [
+        "draft",
+        "review",
+        "ready",
+        "archived"
+      ],
+      "due_state": [
+        "overdue",
+        "due_soon",
+        "on_track",
+        "none"
+      ],
+      "queue_state": [
+        "pending",
+        "assigned",
+        "in_progress",
+        "review",
+        "rejected",
+        "approved",
+        "published",
+        "archived"
+      ]
+    }
+  }
+}
