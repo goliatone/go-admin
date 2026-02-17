@@ -54,3 +54,13 @@ func ResolveAdminAPIBasePath(urls urlkit.Resolver, cfg admin.Config, fallbackBas
 func ResolveAdminAPIGroupName(cfg admin.Config) string {
 	return adminAPIGroupName(cfg)
 }
+
+// ResolveAdminPanelAPICollectionPath returns the canonical admin API collection path for a panel.
+func ResolveAdminPanelAPICollectionPath(urls urlkit.Resolver, cfg admin.Config, fallbackBase, panel string) string {
+	return resolveAdminPanelAPICollectionPath(urls, cfg, fallbackBase, panel)
+}
+
+// ResolveAdminPanelAPIDetailPath returns the canonical admin API detail path for a panel record.
+func ResolveAdminPanelAPIDetailPath(urls urlkit.Resolver, cfg admin.Config, fallbackBase, panel, id string) string {
+	return resolveAdminPanelAPIDetailPath(urls, cfg, fallbackBase, panel, id)
+}
