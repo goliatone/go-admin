@@ -1,15 +1,11 @@
 package quickstart
 
 import (
-	"context"
-	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/admin"
 	router "github.com/goliatone/go-router"
-	"github.com/stretchr/testify/mock"
 )
 
 type uiRoutesCaptureRouter struct {
@@ -103,7 +99,7 @@ func (r *uiRoutesCaptureRouter) WithLogger(logger router.Logger) router.Router[*
 	return r
 }
 
-func TestRegisterAdminUIRoutesTranslationExchangeRouteIsOptIn(t *testing.T) {
+func TestRegisterAdminUIRoutesTranslationExchangeRouteIsCapabilityGuarded(t *testing.T) {
 	cfg := NewAdminConfig("/admin", "Admin", "en")
 	adm, _, err := NewAdmin(cfg, AdapterHooks{})
 	if err != nil {
@@ -121,38 +117,22 @@ func TestRegisterAdminUIRoutesTranslationExchangeRouteIsOptIn(t *testing.T) {
 		t.Fatalf("expected translation exchange route to be absent when disabled")
 	}
 
-	enabledRouter := newUIRoutesCaptureRouter()
+	forcedRouter := newUIRoutesCaptureRouter()
 	if err := RegisterAdminUIRoutes(
-		enabledRouter,
+		forcedRouter,
 		cfg,
 		adm,
 		nil,
 		WithUITranslationExchangeRoute(true),
 	); err != nil {
-		t.Fatalf("register ui routes (exchange enabled): %v", err)
+		t.Fatalf("register ui routes (exchange forced): %v", err)
 	}
-	handler := enabledRouter.getHandlers["/admin/translations/exchange"]
-	if handler == nil {
-		t.Fatalf("expected translation exchange route handler when enabled")
-	}
-
-	ctx := router.NewMockContext()
-	ctx.On("Context").Return(context.Background())
-	rendered := router.ViewContext{}
-	ctx.On("Render", "resources/translations/exchange", mock.Anything).Run(func(args mock.Arguments) {
-		view, _ := args.Get(1).(router.ViewContext)
-		rendered = view
-	}).Return(nil)
-
-	if err := handler(ctx); err != nil {
-		t.Fatalf("translation exchange route handler error: %v", err)
-	}
-	if strings.TrimSpace(fmt.Sprint(rendered["translation_exchange_api_path"])) != "/admin/api/translations" {
-		t.Fatalf("expected translation_exchange_api_path=/admin/api/translations, got %v", rendered["translation_exchange_api_path"])
+	if forcedRouter.getHandlers["/admin/translations/exchange"] != nil {
+		t.Fatalf("expected translation exchange route to remain absent when capability is disabled")
 	}
 }
 
-func TestRegisterAdminUIRoutesTranslationDashboardRouteIsOptIn(t *testing.T) {
+func TestRegisterAdminUIRoutesTranslationDashboardRouteIsCapabilityGuarded(t *testing.T) {
 	cfg := NewAdminConfig("/admin", "Admin", "en")
 	adm, _, err := NewAdmin(cfg, AdapterHooks{})
 	if err != nil {
@@ -170,40 +150,18 @@ func TestRegisterAdminUIRoutesTranslationDashboardRouteIsOptIn(t *testing.T) {
 		t.Fatalf("expected translation dashboard route to be absent when disabled")
 	}
 
-	enabledRouter := newUIRoutesCaptureRouter()
+	forcedRouter := newUIRoutesCaptureRouter()
 	if err := RegisterAdminUIRoutes(
-		enabledRouter,
+		forcedRouter,
 		cfg,
 		adm,
 		nil,
 		WithUITranslationDashboardRoute(true),
 	); err != nil {
-		t.Fatalf("register ui routes (dashboard enabled): %v", err)
+		t.Fatalf("register ui routes (dashboard forced): %v", err)
 	}
-	handler := enabledRouter.getHandlers["/admin/translations/dashboard"]
-	if handler == nil {
-		t.Fatalf("expected translation dashboard route handler when enabled")
-	}
-
-	ctx := router.NewMockContext()
-	ctx.On("Context").Return(context.Background())
-	rendered := router.ViewContext{}
-	ctx.On("Render", "resources/translations/dashboard", mock.Anything).Run(func(args mock.Arguments) {
-		view, _ := args.Get(1).(router.ViewContext)
-		rendered = view
-	}).Return(nil)
-
-	if err := handler(ctx); err != nil {
-		t.Fatalf("translation dashboard route handler error: %v", err)
-	}
-	if strings.TrimSpace(fmt.Sprint(rendered["translation_dashboard_api_path"])) != "/admin/api/translations/my-work" {
-		t.Fatalf("expected translation_dashboard_api_path=/admin/api/translations/my-work, got %v", rendered["translation_dashboard_api_path"])
-	}
-	if strings.TrimSpace(fmt.Sprint(rendered["translation_queue_api_path"])) != "/admin/api/translations/queue" {
-		t.Fatalf("expected translation_queue_api_path=/admin/api/translations/queue, got %v", rendered["translation_queue_api_path"])
-	}
-	if strings.TrimSpace(fmt.Sprint(rendered["translation_panels_base_path"])) != "/admin/content" {
-		t.Fatalf("expected translation_panels_base_path=/admin/content, got %v", rendered["translation_panels_base_path"])
+	if forcedRouter.getHandlers["/admin/translations/dashboard"] != nil {
+		t.Fatalf("expected translation dashboard route to remain absent when capability is disabled")
 	}
 }
 

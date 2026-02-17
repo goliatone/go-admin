@@ -18,6 +18,7 @@ type translationActionRepoStub struct {
 	records                 map[string]map[string]any
 	created                 []map[string]any
 	list                    []map[string]any
+	listOptions             []ListOptions
 	listErr                 error
 	nextID                  int
 	createTranslationCalls  int
@@ -26,7 +27,8 @@ type translationActionRepoStub struct {
 	createTranslationErr    error
 }
 
-func (s *translationActionRepoStub) List(context.Context, ListOptions) ([]map[string]any, int, error) {
+func (s *translationActionRepoStub) List(_ context.Context, opts ListOptions) ([]map[string]any, int, error) {
+	s.listOptions = append(s.listOptions, cloneListOptions(opts))
 	if s.listErr != nil {
 		return nil, 0, s.listErr
 	}
@@ -1766,6 +1768,80 @@ func TestPanelBindingListGroupedByTranslationGroupSupportsStableGroupPagination(
 			}
 			assertGroupedTranslationRecord(t, pageTwo[0], "tg_beta", 2)
 		})
+	}
+}
+
+func TestPanelBindingListGroupedByTranslationGroupDoesNotInjectLocaleScope(t *testing.T) {
+	repo := &translationActionRepoStub{
+		list: []map[string]any{
+			{
+				"id":                   "alpha_en",
+				"title":                "Alpha EN",
+				"path":                 "/alpha",
+				"status":               "draft",
+				"locale":               "en",
+				"translation_group_id": "tg_alpha",
+				"available_locales":    []string{"en"},
+				"updated_at":           "2026-02-16T10:00:00Z",
+			},
+			{
+				"id":                   "alpha_fr",
+				"title":                "Alpha FR",
+				"path":                 "/alpha-fr",
+				"status":               "draft",
+				"locale":               "fr",
+				"translation_group_id": "tg_alpha",
+				"available_locales":    []string{"fr"},
+				"updated_at":           "2026-02-16T09:00:00Z",
+			},
+		},
+	}
+	panel := &Panel{
+		name:   "pages",
+		repo:   repo,
+		useSEO: true,
+		translationPolicy: readinessPolicyStub{
+			ok: true,
+			req: TranslationRequirements{
+				Locales: []string{"en", "fr"},
+			},
+		},
+	}
+	binding := &panelBinding{
+		admin: &Admin{config: Config{DefaultLocale: "en"}},
+		name:  "pages",
+		panel: panel,
+	}
+	c := router.NewMockContext()
+	c.On("Context").Return(context.Background())
+
+	rows, total, _, _, err := binding.List(c, "en", boot.ListOptions{
+		Page:    1,
+		PerPage: 10,
+		Filters: map[string]any{
+			"group_by": "translation_group_id",
+		},
+		Predicates: []boot.ListPredicate{
+			{Field: "group_by", Operator: "eq", Values: []string{"translation_group_id"}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("grouped list failed: %v", err)
+	}
+	if total != 1 {
+		t.Fatalf("expected one grouped row, got %d", total)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("expected one grouped record, got %d", len(rows))
+	}
+	assertGroupedTranslationRecord(t, rows[0], "tg_alpha", 2)
+
+	if len(repo.listOptions) == 0 {
+		t.Fatalf("expected repository list to be called")
+	}
+	firstFilters := repo.listOptions[0].Filters
+	if got := strings.TrimSpace(toString(firstFilters["locale"])); got != "" {
+		t.Fatalf("expected no implicit locale filter for grouped listing, got %q", got)
 	}
 }
 
