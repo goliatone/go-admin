@@ -8,6 +8,7 @@ import type {
   GoogleIntegrationPageConfig,
   GoogleOAuthCallbackData,
   GoogleOAuthState,
+  GoogleAccountInfo,
 } from '../types.js';
 import { qs, show, hide, onReady, announce } from '../utils/dom-helpers.js';
 
@@ -54,9 +55,11 @@ export class GoogleIntegrationController {
   private readonly config: GoogleIntegrationPageConfig;
   private readonly apiBase: string;
   private currentAccountId: string;
+  private accounts: GoogleAccountInfo[] = [];
   private oauthWindow: Window | null = null;
   private oauthTimeout: ReturnType<typeof setTimeout> | null = null;
-  private pendingOAuthAccountId = '';
+  private pendingOAuthAccountId: string | null = null;
+  private pendingDisconnectAccountId: string | null = null;
   private messageHandler: ((event: MessageEvent) => void) | null = null;
 
   private readonly elements: {
@@ -88,6 +91,14 @@ export class GoogleIntegrationController {
     degradedReason: HTMLElement | null;
     importDriveLink: HTMLAnchorElement | null;
     integrationSettingsLink: HTMLAnchorElement | null;
+    // Option A - Dropdown
+    accountDropdown: HTMLSelectElement | null;
+    // Option B - Cards Grid
+    accountsSection: HTMLElement | null;
+    accountsLoading: HTMLElement | null;
+    accountsEmpty: HTMLElement | null;
+    accountsGrid: HTMLElement | null;
+    connectFirstBtn: HTMLElement | null;
   };
 
   constructor(config: GoogleIntegrationPageConfig) {
@@ -124,6 +135,14 @@ export class GoogleIntegrationController {
       degradedReason: qs('#degraded-reason'),
       importDriveLink: qs<HTMLAnchorElement>('#import-drive-link'),
       integrationSettingsLink: qs<HTMLAnchorElement>('#integration-settings-link'),
+      // Option A - Dropdown
+      accountDropdown: qs<HTMLSelectElement>('#account-dropdown'),
+      // Option B - Cards Grid
+      accountsSection: qs('#accounts-section'),
+      accountsLoading: qs('#accounts-loading'),
+      accountsEmpty: qs('#accounts-empty'),
+      accountsGrid: qs('#accounts-grid'),
+      connectFirstBtn: qs('#connect-first-btn'),
     };
   }
 
@@ -133,7 +152,7 @@ export class GoogleIntegrationController {
   async init(): Promise<void> {
     this.setupEventListeners();
     this.updateAccountScopeUI();
-    await this.checkStatus();
+    await Promise.all([this.checkStatus(), this.loadAccounts()]);
   }
 
   /**
@@ -167,6 +186,7 @@ export class GoogleIntegrationController {
     // Disconnect button
     if (disconnectBtn) {
       disconnectBtn.addEventListener('click', () => {
+        this.pendingDisconnectAccountId = this.currentAccountId;
         if (disconnectModal) {
           show(disconnectModal);
         }
@@ -176,6 +196,7 @@ export class GoogleIntegrationController {
     // Disconnect modal buttons
     if (disconnectCancelBtn) {
       disconnectCancelBtn.addEventListener('click', () => {
+        this.pendingDisconnectAccountId = null;
         if (disconnectModal) {
           hide(disconnectModal);
         }
@@ -200,7 +221,7 @@ export class GoogleIntegrationController {
       retryBtn.addEventListener('click', () => this.checkStatus());
     }
 
-    // Account ID input
+    // Account ID input (fallback manual entry)
     if (accountIdInput) {
       accountIdInput.addEventListener('change', () => {
         this.setCurrentAccountId(accountIdInput.value, true);
@@ -214,6 +235,25 @@ export class GoogleIntegrationController {
       });
     }
 
+    // Account dropdown (Option A)
+    const { accountDropdown, connectFirstBtn } = this.elements;
+    if (accountDropdown) {
+      accountDropdown.addEventListener('change', () => {
+        if (accountDropdown.value === '__new__') {
+          // Reset to current and start OAuth
+          accountDropdown.value = this.currentAccountId;
+          this.startOAuthFlow('');
+        } else {
+          this.setCurrentAccountId(accountDropdown.value, true);
+        }
+      });
+    }
+
+    // Connect first button (Option B - empty state)
+    if (connectFirstBtn) {
+      connectFirstBtn.addEventListener('click', () => this.startOAuthFlow(''));
+    }
+
     // Close modals on escape
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
@@ -221,6 +261,7 @@ export class GoogleIntegrationController {
           this.cancelOAuthFlow();
         }
         if (disconnectModal && !disconnectModal.classList.contains('hidden')) {
+          this.pendingDisconnectAccountId = null;
           hide(disconnectModal);
         }
       }
@@ -235,6 +276,8 @@ export class GoogleIntegrationController {
             hide(modal);
             if (modal === oauthModal) {
               this.cancelOAuthFlow();
+            } else if (modal === disconnectModal) {
+              this.pendingDisconnectAccountId = null;
             }
           }
         });
@@ -321,6 +364,8 @@ export class GoogleIntegrationController {
 
     // Update links
     this.updateScopedLinks([importDriveLink, integrationSettingsLink]);
+    this.renderAccountDropdown();
+    this.renderAccountsGrid();
   }
 
   /**
@@ -783,6 +828,240 @@ export class GoogleIntegrationController {
     }
   }
 
+  // Account Management Methods
+
+  /**
+   * Load all connected Google accounts
+   */
+  async loadAccounts(): Promise<void> {
+    try {
+      const url = this.buildScopedAPIURL('/esign/integrations/google/accounts');
+      const response = await fetch(url, {
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
+      });
+
+      if (!response.ok) {
+        console.warn('Failed to load accounts:', response.status);
+        this.accounts = [];
+        this.renderAccountDropdown();
+        this.renderAccountsGrid();
+        return;
+      }
+
+      const data = await response.json();
+      this.accounts = data.accounts || [];
+      if (
+        this.currentAccountId &&
+        !this.accounts.some(
+          (account) => this.normalizeAccountId(account.account_id) === this.currentAccountId
+        )
+      ) {
+        this.currentAccountId = '';
+      }
+      this.updateAccountScopeUI();
+    } catch (error) {
+      console.error('Error loading accounts:', error);
+      this.accounts = [];
+      this.updateAccountScopeUI();
+    }
+  }
+
+  /**
+   * Render the account dropdown (Option A)
+   */
+  private renderAccountDropdown(): void {
+    const { accountDropdown } = this.elements;
+    if (!accountDropdown) return;
+
+    accountDropdown.innerHTML = '';
+
+    // Add default/placeholder option
+    const defaultOption = document.createElement('option');
+    defaultOption.value = '';
+    defaultOption.textContent = 'Default Account';
+    if (!this.currentAccountId) {
+      defaultOption.selected = true;
+    }
+    accountDropdown.appendChild(defaultOption);
+
+    // Add connected accounts
+    const seenAccountIDs = new Set<string>(['']);
+    for (const account of this.accounts) {
+      const accountID = this.normalizeAccountId(account.account_id);
+      if (seenAccountIDs.has(accountID)) {
+        continue;
+      }
+      seenAccountIDs.add(accountID);
+      const option = document.createElement('option');
+      option.value = accountID;
+      const label = account.email || accountID || 'Default';
+      const statusBadge = account.status !== 'connected' ? ` (${account.status})` : '';
+      option.textContent = `${label}${statusBadge}`;
+      if (accountID === this.currentAccountId) {
+        option.selected = true;
+      }
+      accountDropdown.appendChild(option);
+    }
+
+    // Add "Connect new account" option
+    const addNewOption = document.createElement('option');
+    addNewOption.value = '__new__';
+    addNewOption.textContent = '+ Connect New Account...';
+    accountDropdown.appendChild(addNewOption);
+  }
+
+  /**
+   * Render the accounts cards grid (Option B)
+   */
+  private renderAccountsGrid(): void {
+    const { accountsLoading, accountsEmpty, accountsGrid } = this.elements;
+
+    if (accountsLoading) hide(accountsLoading);
+
+    if (this.accounts.length === 0) {
+      if (accountsEmpty) show(accountsEmpty);
+      if (accountsGrid) hide(accountsGrid);
+      return;
+    }
+
+    if (accountsEmpty) hide(accountsEmpty);
+    if (accountsGrid) {
+      show(accountsGrid);
+      accountsGrid.innerHTML =
+        this.accounts.map((account) => this.renderAccountCard(account)).join('') +
+        this.renderConnectNewCard();
+      this.attachCardEventListeners();
+    }
+  }
+
+  /**
+   * Render a single account card
+   */
+  private renderAccountCard(account: GoogleAccountInfo): string {
+    const isActive =
+      account.account_id === this.currentAccountId ||
+      (account.is_default && !this.currentAccountId);
+
+    const statusClasses: Record<string, string> = {
+      connected: 'bg-green-50 border-green-200',
+      expired: 'bg-red-50 border-red-200',
+      needs_reauth: 'bg-amber-50 border-amber-200',
+      degraded: 'bg-gray-50 border-gray-200',
+    };
+
+    const statusBadgeClasses: Record<string, string> = {
+      connected: 'bg-green-100 text-green-700',
+      expired: 'bg-red-100 text-red-700',
+      needs_reauth: 'bg-amber-100 text-amber-700',
+      degraded: 'bg-gray-100 text-gray-700',
+    };
+
+    const statusLabels: Record<string, string> = {
+      connected: 'Connected',
+      expired: 'Expired',
+      needs_reauth: 'Re-auth needed',
+      degraded: 'Degraded',
+    };
+
+    const borderClass = isActive ? 'ring-2 ring-blue-500' : '';
+    const cardClass = statusClasses[account.status] || 'bg-white border-gray-200';
+    const badgeClass = statusBadgeClasses[account.status] || 'bg-gray-100 text-gray-700';
+    const statusLabel = statusLabels[account.status] || account.status;
+    const accountLabel = account.account_id || 'default';
+    const email = account.email || 'No email';
+
+    const googleIcon = `<svg class="w-5 h-5" viewBox="0 0 24 24">
+      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+    </svg>`;
+
+    return `
+      <div class="account-card ${cardClass} ${borderClass} border rounded-xl p-4 relative" data-account-id="${this.escapeHtml(account.account_id)}">
+        ${isActive ? '<span class="absolute top-2 right-2 text-xs font-medium text-blue-600">Active</span>' : ''}
+        <div class="flex items-start gap-3">
+          <div class="w-10 h-10 rounded-full ${account.status === 'connected' ? 'bg-green-100' : 'bg-gray-100'} flex items-center justify-center">
+            ${googleIcon}
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-900 truncate">${this.escapeHtml(email)}</p>
+            <p class="text-xs text-gray-500">Account: ${this.escapeHtml(accountLabel)}</p>
+            <span class="inline-flex items-center mt-2 px-2 py-0.5 rounded text-xs font-medium ${badgeClass}">
+              ${statusLabel}
+            </span>
+          </div>
+        </div>
+        <div class="mt-4 flex gap-2">
+          ${!isActive ? `<button type="button" class="select-account-btn flex-1 text-xs px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Select</button>` : ''}
+          ${account.status === 'needs_reauth' || account.status === 'expired' ? `<button type="button" class="reauth-account-btn flex-1 text-xs px-3 py-1.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700">Re-auth</button>` : ''}
+          <button type="button" class="disconnect-account-btn text-xs px-3 py-1.5 text-red-600 border border-red-200 rounded-lg hover:bg-red-50">Disconnect</button>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Render the "Connect New Account" card
+   */
+  private renderConnectNewCard(): string {
+    return `
+      <div class="account-card-new border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col items-center justify-center text-center hover:border-blue-400 hover:bg-blue-50 cursor-pointer transition-colors min-h-[140px]" id="connect-new-card">
+        <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mb-2">
+          <svg class="w-5 h-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+          </svg>
+        </div>
+        <p class="text-sm font-medium text-gray-700">Connect New Account</p>
+        <p class="text-xs text-gray-500 mt-1">Link another Google account</p>
+      </div>
+    `;
+  }
+
+  /**
+   * Attach event listeners to account cards
+   */
+  private attachCardEventListeners(): void {
+    const { accountsGrid, disconnectModal } = this.elements;
+    if (!accountsGrid) return;
+
+    // Select account buttons
+    accountsGrid.querySelectorAll('.select-account-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        const card = (e.target as HTMLElement).closest('.account-card');
+        const accountId = card?.getAttribute('data-account-id') || '';
+        this.setCurrentAccountId(accountId, true);
+      });
+    });
+
+    // Re-auth buttons
+    accountsGrid.querySelectorAll('.reauth-account-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        const card = (e.target as HTMLElement).closest('.account-card');
+        const accountId = card?.getAttribute('data-account-id') || '';
+        this.setCurrentAccountId(accountId, false);
+        this.startOAuthFlow(accountId);
+      });
+    });
+
+    // Disconnect buttons
+    accountsGrid.querySelectorAll('.disconnect-account-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        const card = (e.target as HTMLElement).closest('.account-card');
+        const accountId = card?.getAttribute('data-account-id') || '';
+        this.pendingDisconnectAccountId = accountId;
+        if (disconnectModal) show(disconnectModal);
+      });
+    });
+
+    // Connect new card
+    const connectNewCard = accountsGrid.querySelector('#connect-new-card');
+    if (connectNewCard) {
+      connectNewCard.addEventListener('click', () => this.startOAuthFlow(''));
+    }
+  }
+
   /**
    * Escape HTML for safe rendering
    */
@@ -797,7 +1076,7 @@ export class GoogleIntegrationController {
   /**
    * Start OAuth flow
    */
-  async startOAuthFlow(): Promise<void> {
+  async startOAuthFlow(targetAccountId?: string): Promise<void> {
     const { oauthModal, errorMessage } = this.elements;
 
     // Show modal
@@ -806,14 +1085,19 @@ export class GoogleIntegrationController {
     }
 
     const redirectUri = this.resolveOAuthRedirectURI();
-    this.pendingOAuthAccountId = this.currentAccountId;
-    const authUrl = this.buildGoogleOAuthUrl(redirectUri, this.pendingOAuthAccountId);
+    const oauthAccountId =
+      targetAccountId !== undefined
+        ? this.normalizeAccountId(targetAccountId)
+        : this.currentAccountId;
+    this.pendingOAuthAccountId = oauthAccountId;
+    const authUrl = this.buildGoogleOAuthUrl(redirectUri, oauthAccountId);
 
     if (!authUrl) {
       if (oauthModal) hide(oauthModal);
       if (errorMessage) {
         errorMessage.textContent = 'Google OAuth is not configured: missing client ID.';
       }
+      this.pendingOAuthAccountId = null;
       this.showState('error');
       this.announce('Google OAuth is not configured');
       return;
@@ -833,6 +1117,7 @@ export class GoogleIntegrationController {
 
     if (!this.oauthWindow) {
       if (oauthModal) hide(oauthModal);
+      this.pendingOAuthAccountId = null;
       this.showToast('Popup blocked. Allow popups for this site and try again.', 'error');
       this.announce('Popup blocked');
       return;
@@ -846,6 +1131,7 @@ export class GoogleIntegrationController {
     this.oauthTimeout = setTimeout(() => {
       this.cleanupOAuthFlow();
       if (oauthModal) hide(oauthModal);
+      this.pendingOAuthAccountId = null;
       this.showToast('Google authorization timed out. Please try again.', 'error');
       this.announce('Authorization timed out');
     }, 120000);
@@ -919,19 +1205,22 @@ export class GoogleIntegrationController {
     if (data.error) {
       this.showToast(`OAuth failed: ${data.error}`, 'error');
       this.announce(`OAuth failed: ${data.error}`);
+      this.pendingOAuthAccountId = null;
       return;
     }
 
     if (data.code) {
       try {
         const redirectUri = this.resolveOAuthRedirectURI();
-        const callbackAccountId = this.normalizeAccountId(data.account_id);
+        const callbackAccountId =
+          typeof data.account_id === 'string'
+            ? this.normalizeAccountId(data.account_id)
+            : null;
         const accountIdForConnect =
-          callbackAccountId || this.pendingOAuthAccountId || this.currentAccountId;
+          callbackAccountId ?? this.pendingOAuthAccountId ?? this.currentAccountId;
 
-        if (callbackAccountId && callbackAccountId !== this.currentAccountId) {
-          this.currentAccountId = callbackAccountId;
-          this.updateAccountScopeUI();
+        if (accountIdForConnect !== this.currentAccountId) {
+          this.setCurrentAccountId(accountIdForConnect, false);
         }
 
         const response = await fetch(
@@ -958,14 +1247,18 @@ export class GoogleIntegrationController {
 
         this.showToast('Google Drive connected successfully', 'success');
         this.announce('Google Drive connected successfully');
-        await this.checkStatus();
+        await Promise.all([this.checkStatus(), this.loadAccounts()]);
       } catch (error) {
         console.error('Connect error:', error);
         const message = error instanceof Error ? error.message : 'Unknown error';
         this.showToast(`Failed to connect: ${message}`, 'error');
         this.announce(`Failed to connect: ${message}`);
+      } finally {
+        this.pendingOAuthAccountId = null;
       }
+      return;
     }
+    this.pendingOAuthAccountId = null;
   }
 
   /**
@@ -974,6 +1267,7 @@ export class GoogleIntegrationController {
   private cancelOAuthFlow(): void {
     const { oauthModal } = this.elements;
     if (oauthModal) hide(oauthModal);
+    this.pendingOAuthAccountId = null;
     this.closeOAuthWindow();
     this.cleanupOAuthFlow();
   }
@@ -1012,10 +1306,11 @@ export class GoogleIntegrationController {
   async disconnect(): Promise<void> {
     const { disconnectModal } = this.elements;
     if (disconnectModal) hide(disconnectModal);
+    const accountIdToDisconnect = this.pendingDisconnectAccountId ?? this.currentAccountId;
 
     try {
       const response = await fetch(
-        this.buildScopedAPIURL('/esign/integrations/google/disconnect'),
+        this.buildScopedAPIURL('/esign/integrations/google/disconnect', accountIdToDisconnect),
         {
           method: 'POST',
           credentials: 'same-origin',
@@ -1030,12 +1325,17 @@ export class GoogleIntegrationController {
 
       this.showToast('Google Drive disconnected', 'success');
       this.announce('Google Drive disconnected');
-      await this.checkStatus();
+      if (accountIdToDisconnect === this.currentAccountId) {
+        this.setCurrentAccountId('', false);
+      }
+      await Promise.all([this.checkStatus(), this.loadAccounts()]);
     } catch (error) {
       console.error('Disconnect error:', error);
       const message = error instanceof Error ? error.message : 'Unknown error';
       this.showToast(`Failed to disconnect: ${message}`, 'error');
       this.announce(`Failed to disconnect: ${message}`);
+    } finally {
+      this.pendingDisconnectAccountId = null;
     }
   }
 

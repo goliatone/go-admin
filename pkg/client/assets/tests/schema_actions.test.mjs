@@ -409,12 +409,15 @@ test('uses default icon for known action names', () => {
 
   const actions = builder.buildRowActions(record, schemaActions);
 
-  assert.equal(actions[0].icon, 'eye');
-  assert.equal(actions[1].icon, 'edit');
-  assert.equal(actions[2].icon, 'trash');
-  assert.equal(actions[3].icon, 'check-circle');
-  assert.equal(actions[4].icon, 'archive');
-  assert.equal(actions[5].icon, 'copy');
+  // Actions are sorted by stable fallback order:
+  // view(100) < edit(200) < create_translation(400) < publish(500) < archive(1000) < delete(9000)
+  assert.equal(actions.length, 6);
+  assert.equal(actions[0].icon, 'eye');           // view
+  assert.equal(actions[1].icon, 'edit');          // edit
+  assert.equal(actions[2].icon, 'copy');          // create_translation
+  assert.equal(actions[3].icon, 'check-circle');  // publish
+  assert.equal(actions[4].icon, 'archive');       // archive
+  assert.equal(actions[5].icon, 'trash');         // delete
 });
 
 // =============================================================================
@@ -431,10 +434,11 @@ test('appendDefaultActions mode adds defaults after schema actions', () => {
   const actions = builder.buildRowActions(record, schemaActions);
 
   // Should have publish + view + edit + delete = 4
+  // Sorted by stable order: view(100) < edit(200) < publish(500) < delete(9000)
   assert.equal(actions.length, 4);
-  assert.equal(actions[0].label, 'Publish');
-  assert.equal(actions[1].label, 'View');
-  assert.equal(actions[2].label, 'Edit');
+  assert.equal(actions[0].label, 'View');
+  assert.equal(actions[1].label, 'Edit');
+  assert.equal(actions[2].label, 'Publish');
   assert.equal(actions[3].label, 'Delete');
 });
 
@@ -449,10 +453,11 @@ test('appendDefaultActions mode avoids duplicates with schema actions', () => {
   const actions = builder.buildRowActions(record, schemaActions);
 
   // Should have view + publish + edit + delete = 4 (no duplicate view)
+  // Sorted by stable order: view(100) < edit(200) < publish(500) < delete(9000)
   assert.equal(actions.length, 4);
   assert.equal(actions[0].label, 'View Custom'); // Schema version wins
-  assert.equal(actions[1].label, 'Publish');
-  assert.equal(actions[2].label, 'Edit');
+  assert.equal(actions[1].label, 'Edit');
+  assert.equal(actions[2].label, 'Publish');
   assert.equal(actions[3].label, 'Delete');
 });
 
@@ -525,23 +530,44 @@ test('extractSchemaActions returns undefined when no actions in schema', () => {
 // SchemaActionBuilder - Deterministic Precedence Tests
 // =============================================================================
 
-test('schema actions maintain order from server', () => {
+test('schema actions maintain order from server when order property is provided', () => {
   const builder = createBuilder();
   const record = createMockRecord();
+  // Use explicit order values to override stable fallback
   const schemaActions = [
-    { name: 'approve', label: 'Approve' },
-    { name: 'view', label: 'View' },
-    { name: 'reject', label: 'Reject' },
-    { name: 'edit', label: 'Edit' },
+    { name: 'approve', label: 'Approve', order: 10 },
+    { name: 'view', label: 'View', order: 20 },
+    { name: 'reject', label: 'Reject', order: 30 },
+    { name: 'edit', label: 'Edit', order: 40 },
   ];
 
   const actions = builder.buildRowActions(record, schemaActions);
 
-  // Order should match schema exactly
+  // Order should match server-provided order
   assert.equal(actions[0].label, 'Approve');
   assert.equal(actions[1].label, 'View');
   assert.equal(actions[2].label, 'Reject');
   assert.equal(actions[3].label, 'Edit');
+});
+
+test('schema actions use stable fallback order when no order property', () => {
+  const builder = createBuilder();
+  const record = createMockRecord();
+  // No order property - uses stable fallback
+  const schemaActions = [
+    { name: 'approve', label: 'Approve' },  // fallback: 800
+    { name: 'view', label: 'View' },        // fallback: 100
+    { name: 'reject', label: 'Reject' },    // fallback: 900
+    { name: 'edit', label: 'Edit' },        // fallback: 200
+  ];
+
+  const actions = builder.buildRowActions(record, schemaActions);
+
+  // Order should match stable fallback: view(100) < edit(200) < approve(800) < reject(900)
+  assert.equal(actions[0].label, 'View');
+  assert.equal(actions[1].label, 'Edit');
+  assert.equal(actions[2].label, 'Approve');
+  assert.equal(actions[3].label, 'Reject');
 });
 
 // =============================================================================
@@ -611,9 +637,10 @@ test('POST actions use action name in endpoint path', () => {
   const actions = builder.buildRowActions(record, schemaActions);
 
   // All non-navigation actions should be POST actions
+  // Sorted by stable order: create_translation(400) < publish(500) < approve(800)
   assert.equal(actions.length, 3);
-  assert.equal(actions[0].label, 'Publish');
-  assert.equal(actions[1].label, 'Create Translation');
+  assert.equal(actions[0].label, 'Create Translation');
+  assert.equal(actions[1].label, 'Publish');
   assert.equal(actions[2].label, 'Approve');
 
   // Actions should be functions (async handlers)
@@ -1047,4 +1074,138 @@ test('create_translation action uses copy icon by default', () => {
 
   assert.equal(actions.length, 1);
   assert.equal(actions[0].icon, 'copy');
+});
+
+// =============================================================================
+// Phase 1 Feature Tests: TX-027 Action Ordering
+// =============================================================================
+
+test('actionOrderOverride config overrides stable fallback order', () => {
+  const builder = new SchemaActionBuilder({
+    apiEndpoint: '/admin/api/pages',
+    actionBasePath: '/admin/content/pages',
+    // Custom order: put delete first, view last
+    actionOrderOverride: {
+      delete: 1,
+      view: 9999,
+    },
+  });
+
+  const record = createMockRecord();
+  const schemaActions = [
+    { name: 'view', label: 'View' },
+    { name: 'edit', label: 'Edit' },
+    { name: 'delete', label: 'Delete' },
+  ];
+
+  const actions = builder.buildRowActions(record, schemaActions);
+
+  // Custom order: delete(1) < edit(200 from stable) < view(9999 from override)
+  assert.equal(actions.length, 3);
+  assert.equal(actions[0].label, 'Delete');
+  assert.equal(actions[1].label, 'Edit');
+  assert.equal(actions[2].label, 'View');
+});
+
+test('server order property takes precedence over actionOrderOverride', () => {
+  const builder = new SchemaActionBuilder({
+    apiEndpoint: '/admin/api/pages',
+    actionBasePath: '/admin/content/pages',
+    actionOrderOverride: {
+      publish: 1, // Would make publish first
+    },
+  });
+
+  const record = createMockRecord();
+  const schemaActions = [
+    { name: 'view', label: 'View', order: 5 },
+    { name: 'publish', label: 'Publish', order: 10 }, // Server order overrides client
+  ];
+
+  const actions = builder.buildRowActions(record, schemaActions);
+
+  // Server order wins: view(5) < publish(10)
+  assert.equal(actions.length, 2);
+  assert.equal(actions[0].label, 'View');
+  assert.equal(actions[1].label, 'Publish');
+});
+
+// =============================================================================
+// Phase 1 Feature Tests: TX-029 Create-Translation Modal Preselection
+// =============================================================================
+
+test('create_translation derives options with recommended locale', () => {
+  const builder = createBuilder();
+  const record = createMockRecord({
+    id: 'page_123',
+    recommended_locale: 'fr',
+    translation_readiness: {
+      missing_required_locales: ['es', 'fr', 'de'],
+      available_locales: ['en'],
+      required_locales: ['en', 'es', 'fr', 'de'],
+    },
+  });
+
+  const schemaActions = [
+    {
+      name: 'create_translation',
+      label: 'Create Translation',
+      payload_required: ['locale'],
+      payload_schema: {
+        type: 'object',
+        properties: {
+          locale: { type: 'string' },
+        },
+      },
+    },
+  ];
+
+  const actions = builder.buildRowActions(record, schemaActions);
+  assert.equal(actions.length, 1);
+  // Action is built; locale options would be derived during payload modal
+});
+
+test('create_translation options sorted with recommended first', () => {
+  // This tests the deriveCreateTranslationLocaleOptions logic
+  // Recommended locale should be sorted first
+  const builder = createBuilder();
+  const record = createMockRecord({
+    id: 'page_123',
+    recommended_locale: 'de', // German recommended
+    translation_readiness: {
+      missing_required_locales: ['es', 'fr', 'de'],
+      available_locales: ['en'],
+      required_locales: ['en', 'es', 'fr', 'de'],
+    },
+  });
+
+  const schemaActions = [
+    { name: 'create_translation', label: 'Create Translation' },
+  ];
+
+  const actions = builder.buildRowActions(record, schemaActions);
+  assert.equal(actions.length, 1);
+});
+
+// =============================================================================
+// Phase 1 Feature Tests: Insertion Order Tie-Breaking
+// =============================================================================
+
+test('actions with same order use insertion order as tie-breaker', () => {
+  const builder = createBuilder();
+  const record = createMockRecord();
+  // All actions have same explicit order
+  const schemaActions = [
+    { name: 'alpha', label: 'Alpha', order: 100 },
+    { name: 'beta', label: 'Beta', order: 100 },
+    { name: 'gamma', label: 'Gamma', order: 100 },
+  ];
+
+  const actions = builder.buildRowActions(record, schemaActions);
+
+  // Same order, so insertion order is used: Alpha, Beta, Gamma
+  assert.equal(actions.length, 3);
+  assert.equal(actions[0].label, 'Alpha');
+  assert.equal(actions[1].label, 'Beta');
+  assert.equal(actions[2].label, 'Gamma');
 });

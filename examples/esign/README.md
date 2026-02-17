@@ -153,6 +153,13 @@ Override with environment variables:
 | `ESIGN_GOOGLE_FEATURE_ENABLED` | `false` | Enable/disable Google Drive integration |
 | `ESIGN_ACTIVITY_FEATURE_ENABLED` | `true` | Enable/disable activity feed |
 
+### Startup Validation
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ESIGN_STARTUP_POLICY` | `enforce` | Module startup validator policy: `enforce` (fail startup) or `warn` (log and continue) |
+| `ESIGN_STRICT_STARTUP` | `false` | When `true`, fail startup if Google provider health is degraded |
+
 ### Database
 
 | Variable | Default | Description |

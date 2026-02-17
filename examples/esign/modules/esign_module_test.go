@@ -26,6 +26,7 @@ type allowAllAuthorizer struct{}
 func (allowAllAuthorizer) Can(context.Context, string, string) bool { return true }
 
 func TestESignModuleRegistersPanelsSettingsRoleDefaultsAndCommandActions(t *testing.T) {
+	_ = registry.Stop(context.Background())
 	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
 	observability.ResetDefaultMetrics()
 	t.Cleanup(observability.ResetDefaultMetrics)

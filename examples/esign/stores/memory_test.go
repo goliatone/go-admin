@@ -484,6 +484,56 @@ func TestInMemoryIntegrationCredentialScopedCRUD(t *testing.T) {
 	}
 }
 
+func TestInMemoryListIntegrationCredentialsScopedBaseUserFilter(t *testing.T) {
+	store := NewInMemoryStore()
+	ctx := context.Background()
+	scope := Scope{TenantID: "tenant-1", OrgID: "org-1"}
+
+	records := []IntegrationCredentialRecord{
+		{
+			UserID:               "user-1",
+			Provider:             "google",
+			EncryptedAccessToken: "enc-access-default",
+		},
+		{
+			UserID:               "user-1#google-account=work",
+			Provider:             "google",
+			EncryptedAccessToken: "enc-access-work",
+		},
+		{
+			UserID:               "user-10#google-account=work",
+			Provider:             "google",
+			EncryptedAccessToken: "enc-access-user-10",
+		},
+		{
+			UserID:               "user-1",
+			Provider:             "microsoft",
+			EncryptedAccessToken: "enc-access-microsoft",
+		},
+	}
+	for _, record := range records {
+		if _, err := store.UpsertIntegrationCredential(ctx, scope, record); err != nil {
+			t.Fatalf("UpsertIntegrationCredential(%s,%s): %v", record.Provider, record.UserID, err)
+		}
+	}
+
+	list, err := store.ListIntegrationCredentials(ctx, scope, "google", "user-1")
+	if err != nil {
+		t.Fatalf("ListIntegrationCredentials: %v", err)
+	}
+	if len(list) != 2 {
+		t.Fatalf("expected 2 google credentials for user-1 scope, got %d", len(list))
+	}
+	for _, record := range list {
+		if record.Provider != "google" {
+			t.Fatalf("expected provider google, got %q", record.Provider)
+		}
+		if record.UserID != "user-1" && !strings.HasPrefix(record.UserID, "user-1#") {
+			t.Fatalf("unexpected user_id in scoped results: %q", record.UserID)
+		}
+	}
+}
+
 func TestInMemoryPlacementRunPersistence(t *testing.T) {
 	store := NewInMemoryStore()
 	ctx := context.Background()

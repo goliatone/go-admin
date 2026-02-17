@@ -163,6 +163,14 @@ func NewHandlers(deps HandlerDependencies) Handlers {
 	}
 }
 
+// ValidateGoogleImportDeps verifies required Google import runtime dependencies.
+func (h Handlers) ValidateGoogleImportDeps() error {
+	if h.googleImporter == nil {
+		return fmt.Errorf("google import dependencies not configured: google importer is required")
+	}
+	return nil
+}
+
 func (h Handlers) ExecuteEmailSendSigningRequest(ctx context.Context, msg EmailSendSigningRequestMsg) error {
 	startedAt := h.now()
 	correlationID := observability.ResolveCorrelationID(msg.CorrelationID, msg.DedupeKey, msg.AgreementID, msg.RecipientID, JobEmailSendSigningRequest)

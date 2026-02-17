@@ -437,6 +437,18 @@ type GoogleOAuthStatus struct {
 	HealthCheckedAt      *time.Time `json:"health_checked_at,omitempty"`
 }
 
+// GoogleAccountInfo represents account metadata returned by the list accounts endpoint.
+type GoogleAccountInfo struct {
+	AccountID  string     `json:"account_id"`
+	Email      string     `json:"email"`
+	Status     string     `json:"status"` // connected, expired, needs_reauth, degraded
+	Scopes     []string   `json:"scopes"`
+	ExpiresAt  *time.Time `json:"expires_at,omitempty"`
+	CreatedAt  time.Time  `json:"created_at"`
+	LastUsedAt *time.Time `json:"last_used_at,omitempty"`
+	IsDefault  bool       `json:"is_default"`
+}
+
 // GoogleDriveFile captures the subset of Drive metadata needed by backend APIs.
 type GoogleDriveFile struct {
 	ID           string    `json:"id"`
@@ -845,6 +857,13 @@ func (s GoogleIntegrationService) Connect(ctx context.Context, scope stores.Scop
 		exp := token.ExpiresAt.UTC()
 		expiresAt = &exp
 	}
+	// Build profile JSON with email from OAuth response
+	profileJSON := ""
+	if email := strings.TrimSpace(token.AccountEmail); email != "" {
+		if profileBytes, err := json.Marshal(map[string]string{"email": email}); err == nil {
+			profileJSON = string(profileBytes)
+		}
+	}
 	if _, err := s.credentials.UpsertIntegrationCredential(ctx, scope, stores.IntegrationCredentialRecord{
 		UserID:                scopedUserID,
 		Provider:              GoogleProviderName,
@@ -852,6 +871,7 @@ func (s GoogleIntegrationService) Connect(ctx context.Context, scope stores.Scop
 		EncryptedRefreshToken: encryptedRefresh,
 		Scopes:                scopes,
 		ExpiresAt:             expiresAt,
+		ProfileJSON:           profileJSON,
 	}); err != nil {
 		return GoogleOAuthStatus{}, err
 	}
@@ -987,6 +1007,69 @@ func (s GoogleIntegrationService) Status(ctx context.Context, scope stores.Scope
 		DegradedReason:       health.Reason,
 		HealthCheckedAt:      cloneGoogleTimePtr(health.CheckedAt),
 	}, nil
+}
+
+// ListAccounts returns all connected Google accounts for a base user ID.
+func (s GoogleIntegrationService) ListAccounts(ctx context.Context, scope stores.Scope, baseUserID string) ([]GoogleAccountInfo, error) {
+	if s.credentials == nil {
+		return nil, domainValidationError("google", "service", "not configured")
+	}
+	baseUserID = normalizeRequiredID("google", "user_id", baseUserID)
+	if baseUserID == "" {
+		return nil, domainValidationError("google", "user_id", "required")
+	}
+
+	// List all credentials for this user with google provider
+	credentials, err := s.credentials.ListIntegrationCredentials(ctx, scope, GoogleProviderName, baseUserID)
+	if err != nil {
+		return nil, err
+	}
+
+	health := s.ProviderHealth(ctx)
+	now := s.now().UTC()
+	accounts := make([]GoogleAccountInfo, 0, len(credentials))
+
+	for _, cred := range credentials {
+		// Parse scoped user ID to get account ID
+		_, accountID := ParseGoogleScopedUserID(cred.UserID)
+
+		// Parse profile JSON for email
+		email := ""
+		if cred.ProfileJSON != "" {
+			var profile map[string]string
+			if err := json.Unmarshal([]byte(cred.ProfileJSON), &profile); err == nil {
+				email = profile["email"]
+			}
+		}
+
+		// Compute status based on token expiration
+		status := "connected"
+		if cred.ExpiresAt != nil {
+			expiresAt := *cred.ExpiresAt
+			expiringSoonWindow := 5 * time.Minute
+			if now.After(expiresAt) {
+				status = "expired"
+			} else if expiresAt.Sub(now) <= expiringSoonWindow {
+				status = "needs_reauth"
+			}
+		}
+		if !health.Healthy {
+			status = "degraded"
+		}
+
+		accounts = append(accounts, GoogleAccountInfo{
+			AccountID:  accountID,
+			Email:      email,
+			Status:     status,
+			Scopes:     normalizeScopes(cred.Scopes),
+			ExpiresAt:  cloneGoogleTimePtr(cred.ExpiresAt),
+			CreatedAt:  cred.CreatedAt,
+			LastUsedAt: cloneGoogleTimePtr(cred.LastUsedAt),
+			IsDefault:  accountID == "", // default account has empty account ID
+		})
+	}
+
+	return accounts, nil
 }
 
 // RotateCredentialEncryption re-encrypts persisted tokens with the currently configured active key.

@@ -59,8 +59,8 @@ func TestBuildESignDocumentIngestionPageConfigIncludesFeatureFlagsAndRoutes(t *t
 	if got := rawToString(cfg.Context["user_id"]); got != "user-1" {
 		t.Fatalf("expected context.user_id=user-1, got %q", got)
 	}
-	if got := cfg.ModulePath; got != "/admin/assets/dist/esign/document-ingestion.js" {
-		t.Fatalf("expected document-ingestion module path, got %q", got)
+	if got := cfg.ModulePath; got != "/admin/assets/dist/esign/index.js" {
+		t.Fatalf("expected module path /admin/assets/dist/esign/index.js, got %q", got)
 	}
 }
 
@@ -78,12 +78,11 @@ func TestViewContextRoutesExtractsMapAny(t *testing.T) {
 
 func TestValidateESignRuntimeAssetContractsWithFSPasses(t *testing.T) {
 	assetsFS := fstest.MapFS{
-		"dist/esign/admin-landing.js":      {Data: []byte("export function bootstrapLandingPage() {}")},
-		"dist/esign/document-ingestion.js": {Data: []byte("export function bootstrapDocumentIngestionPage() {}")},
+		"dist/esign/index.js": {Data: []byte("export function bootstrapLandingPage() {}")},
 	}
 	err := validateESignRuntimeAssetContractsWithFS(assetsFS, map[string]string{
-		eSignPageAdminLanding:      "dist/esign/admin-landing.js",
-		eSignPageDocumentIngestion: "dist/esign/document-ingestion.js",
+		eSignPageAdminLanding:      "dist/esign/index.js",
+		eSignPageDocumentIngestion: "dist/esign/index.js",
 	})
 	if err != nil {
 		t.Fatalf("expected asset contract validation to pass, got %v", err)
@@ -92,10 +91,10 @@ func TestValidateESignRuntimeAssetContractsWithFSPasses(t *testing.T) {
 
 func TestValidateESignRuntimeAssetContractsWithFSRejectsInvalidModulePrefix(t *testing.T) {
 	assetsFS := fstest.MapFS{
-		"dist/esign/admin-landing.js": {Data: []byte("export function bootstrapLandingPage() {}")},
+		"dist/esign/index.js": {Data: []byte("export function bootstrapLandingPage() {}")},
 	}
 	err := validateESignRuntimeAssetContractsWithFS(assetsFS, map[string]string{
-		eSignPageAdminLanding: "dist/other/admin-landing.js",
+		eSignPageAdminLanding: "dist/other/index.js",
 	})
 	if err == nil {
 		t.Fatal("expected invalid module prefix failure")

@@ -38,6 +38,7 @@ const (
 	connectSegment          = "connect"
 	disconnectSegment       = "disconnect"
 	rotateSegment           = "rotate-credentials"
+	accountsSegment         = "accounts"
 	searchSegment           = "search"
 	browseSegment           = "browse"
 	importSegment           = "import"
@@ -106,6 +107,7 @@ type RouteSet struct {
 	AdminGoogleOAuthDisconnect   string
 	AdminGoogleOAuthRotate       string
 	AdminGoogleOAuthStatus       string
+	AdminGoogleOAuthAccounts     string
 	AdminGoogleDriveSearch       string
 	AdminGoogleDriveBrowse       string
 	AdminGoogleDriveImport       string
@@ -181,6 +183,7 @@ func BuildRouteSet(urls urlkit.Resolver, adminBasePath, adminAPIGroup string) Ro
 		AdminGoogleOAuthDisconnect:   joinPath(adminAPIBase, esignSegment, integrationsSegment, googleSegment, disconnectSegment),
 		AdminGoogleOAuthRotate:       joinPath(adminAPIBase, esignSegment, integrationsSegment, googleSegment, rotateSegment),
 		AdminGoogleOAuthStatus:       joinPath(adminAPIBase, esignSegment, integrationsSegment, googleSegment, adminStatusSegment),
+		AdminGoogleOAuthAccounts:     joinPath(adminAPIBase, esignSegment, integrationsSegment, googleSegment, accountsSegment),
 		AdminGoogleDriveSearch:       joinPath(adminAPIBase, esignSegment, googleDriveSegment, searchSegment),
 		AdminGoogleDriveBrowse:       joinPath(adminAPIBase, esignSegment, googleDriveSegment, browseSegment),
 		AdminGoogleDriveImport:       joinPath(adminAPIBase, esignSegment, googleDriveSegment, importSegment),

@@ -629,34 +629,34 @@
     <div class="viewer-toolbar">
       <!-- Page navigation -->
       <div class="flex items-center gap-2">
-        <button type="button" onclick="prevPage()" class="zoom-btn" aria-label="Previous page" id="prev-page-btn" disabled>
+        <button type="button" data-esign-action="prev-page" class="zoom-btn" aria-label="Previous page" id="prev-page-btn" disabled>
           <i class="iconoir-nav-arrow-left"></i>
         </button>
         <span class="text-sm">
           Page <span id="current-page">1</span> of <span id="page-count">{{ agreement.page_count|default:"1" }}</span>
         </span>
-        <button type="button" onclick="nextPage()" class="zoom-btn" aria-label="Next page" id="next-page-btn">
+        <button type="button" data-esign-action="next-page" class="zoom-btn" aria-label="Next page" id="next-page-btn">
           <i class="iconoir-nav-arrow-right"></i>
         </button>
       </div>
 
       <!-- Zoom controls -->
       <div class="zoom-control">
-        <button type="button" onclick="zoomOut()" class="zoom-btn" aria-label="Zoom out">
+        <button type="button" data-esign-action="zoom-out" class="zoom-btn" aria-label="Zoom out" id="zoom-out-btn">
           <i class="iconoir-minus"></i>
         </button>
         <span class="zoom-value" id="zoom-level">100%</span>
-        <button type="button" onclick="zoomIn()" class="zoom-btn" aria-label="Zoom in">
+        <button type="button" data-esign-action="zoom-in" class="zoom-btn" aria-label="Zoom in" id="zoom-in-btn">
           <i class="iconoir-plus"></i>
         </button>
-        <button type="button" onclick="fitToWidth()" class="zoom-btn" aria-label="Fit to width" title="Fit to width">
+        <button type="button" data-esign-action="fit-width" class="zoom-btn" aria-label="Fit to width" title="Fit to width" id="fit-width-btn">
           <i class="iconoir-expand"></i>
         </button>
       </div>
 
       <!-- Viewer actions -->
       <div class="flex items-center gap-2">
-        <button type="button" onclick="downloadDocument()" class="zoom-btn" aria-label="Download document">
+        <button type="button" data-esign-action="download-document" class="zoom-btn" aria-label="Download document" id="download-document-btn">
           <i class="iconoir-download"></i>
         </button>
       </div>
@@ -723,7 +723,7 @@
           <div>
             <p class="text-sm font-medium text-amber-800">Consent Required</p>
             <p class="text-xs text-amber-700 mt-1">Please review and accept the electronic signature consent before completing fields.</p>
-            <button type="button" onclick="showConsentModal()" class="mt-2 text-sm font-medium text-amber-800 hover:text-amber-900 underline underline-offset-2">
+            <button type="button" data-esign-action="show-consent-modal" class="mt-2 text-sm font-medium text-amber-800 hover:text-amber-900 underline underline-offset-2">
               Review & Accept
             </button>
           </div>
@@ -740,7 +740,8 @@
           data-field-type="{{ field.type }}"
           data-field-required="{{ field.required }}"
           data-field-page="{{ field.page }}"
-          onclick="activateField('{{ field.id }}')"
+          data-esign-action="activate-field"
+          data-field-id="{{ field.id }}"
           role="listitem"
           aria-pressed="false"
           aria-describedby="field-desc-{{ field.id }}"
@@ -817,7 +818,7 @@
         type="button"
         id="submit-btn"
         class="btn btn-primary w-full justify-center py-3 text-base disabled:opacity-50 disabled:cursor-not-allowed"
-        onclick="handleSubmit()"
+        data-esign-action="submit-signature"
         disabled
         aria-disabled="true"
         aria-describedby="submit-status"
@@ -832,7 +833,7 @@
         <button
           type="button"
           id="decline-btn"
-          onclick="showDeclineModal()"
+          data-esign-action="show-decline-modal"
           class="text-sm text-gray-500 hover:text-red-600 underline underline-offset-2"
         >
           Decline to sign
@@ -847,7 +848,7 @@
   <div class="field-editor">
     <div class="p-4 border-b border-gray-100 flex items-center justify-between">
       <h3 id="field-editor-title" class="text-lg font-semibold text-gray-900">Edit Field</h3>
-      <button type="button" onclick="closeFieldEditor()" class="text-gray-400 hover:text-gray-600" aria-label="Close">
+      <button type="button" data-esign-action="close-field-editor" class="text-gray-400 hover:text-gray-600" aria-label="Close">
         <i class="iconoir-xmark text-xl"></i>
       </button>
     </div>
@@ -857,10 +858,10 @@
     </div>
 
     <div class="p-4 border-t border-gray-100 flex gap-3">
-      <button type="button" onclick="closeFieldEditor()" class="btn btn-secondary flex-1 justify-center">
+      <button type="button" data-esign-action="close-field-editor" class="btn btn-secondary flex-1 justify-center">
         Cancel
       </button>
-      <button type="button" id="field-editor-save" onclick="saveFieldFromEditor()" class="btn btn-primary flex-1 justify-center">
+      <button type="button" id="field-editor-save" data-esign-action="save-field-editor" class="btn btn-primary flex-1 justify-center">
         Apply
       </button>
     </div>
@@ -888,10 +889,10 @@
     </div>
 
     <div class="p-4 border-t border-gray-100 flex gap-3">
-      <button type="button" onclick="hideConsentModal()" class="btn btn-secondary flex-1 justify-center">
+      <button type="button" data-esign-action="hide-consent-modal" class="btn btn-secondary flex-1 justify-center">
         Cancel
       </button>
-      <button type="button" id="consent-accept-btn" onclick="acceptConsent()" class="btn btn-primary flex-1 justify-center" disabled>
+      <button type="button" id="consent-accept-btn" data-esign-action="accept-consent" class="btn btn-primary flex-1 justify-center" disabled>
         Accept & Continue
       </button>
     </div>
@@ -920,10 +921,10 @@
     </div>
 
     <div class="p-4 border-t border-gray-100 flex gap-3">
-      <button type="button" onclick="hideDeclineModal()" class="btn btn-secondary flex-1 justify-center">
+      <button type="button" data-esign-action="hide-decline-modal" class="btn btn-secondary flex-1 justify-center">
         Cancel
       </button>
-      <button type="button" onclick="confirmDecline()" class="btn bg-red-600 hover:bg-red-700 text-white flex-1 justify-center">
+      <button type="button" data-esign-action="confirm-decline" class="btn bg-red-600 hover:bg-red-700 text-white flex-1 justify-center">
         Decline to Sign
       </button>
     </div>
@@ -932,6 +933,14 @@
 {% endblock %}
 
 {% block scripts %}
+{# Page marker for esign module auto-init #}
+<div data-esign-page="{{ esign_page|default:"signer.review" }}" hidden></div>
+
+{# E-Sign module for progressive migration - TypeScript controller foundation #}
+{% if esign_module_path %}
+<script type="module" src="{{ esign_module_path }}"></script>
+{% endif %}
+
 <!-- PDF.js library -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
@@ -1518,7 +1527,101 @@
   // ============================================
   // Initialization
   // ============================================
+  function bindActionHandlers() {
+    document.addEventListener('click', (event) => {
+      const clicked = event.target;
+      if (!(clicked instanceof Element)) return;
+      const target = clicked.closest('[data-esign-action]');
+      if (!target) return;
+
+      const action = target.getAttribute('data-esign-action');
+      switch (action) {
+        case 'prev-page':
+          prevPage();
+          break;
+        case 'next-page':
+          nextPage();
+          break;
+        case 'zoom-out':
+          zoomOut();
+          break;
+        case 'zoom-in':
+          zoomIn();
+          break;
+        case 'fit-width':
+          fitToWidth();
+          break;
+        case 'download-document':
+          downloadDocument();
+          break;
+        case 'show-consent-modal':
+          showConsentModal();
+          break;
+        case 'activate-field': {
+          const fieldId = target.getAttribute('data-field-id');
+          if (fieldId) activateField(fieldId);
+          break;
+        }
+        case 'submit-signature':
+          handleSubmit();
+          break;
+        case 'show-decline-modal':
+          showDeclineModal();
+          break;
+        case 'close-field-editor':
+          closeFieldEditor();
+          break;
+        case 'save-field-editor':
+          saveFieldFromEditor();
+          break;
+        case 'hide-consent-modal':
+          hideConsentModal();
+          break;
+        case 'accept-consent':
+          acceptConsent();
+          break;
+        case 'hide-decline-modal':
+          hideDeclineModal();
+          break;
+        case 'confirm-decline':
+          confirmDecline();
+          break;
+        case 'retry-load-pdf':
+          loadPdfDocument();
+          break;
+        case 'signature-tab': {
+          const tab = target.getAttribute('data-tab') || 'type';
+          const fieldId = target.getAttribute('data-field-id');
+          if (fieldId) switchSignatureTab(tab, fieldId);
+          break;
+        }
+        case 'clear-signature-canvas': {
+          const fieldId = target.getAttribute('data-field-id');
+          if (fieldId) clearSignatureCanvas(fieldId);
+          break;
+        }
+        case 'debug-toggle-panel':
+          debugMode.togglePanel();
+          break;
+        case 'debug-copy-session':
+          debugMode.copySessionInfo();
+          break;
+        case 'debug-clear-cache':
+          debugMode.clearCache();
+          break;
+        case 'debug-show-telemetry':
+          debugMode.showTelemetry();
+          break;
+        case 'debug-reload-viewer':
+          debugMode.reloadViewer();
+          break;
+      }
+    });
+  }
+
   document.addEventListener('DOMContentLoaded', async function() {
+    bindActionHandlers();
+
     // Detect device capabilities for performance optimization
     state.isLowMemory = detectLowMemoryDevice();
 
@@ -1995,7 +2098,7 @@
           <div class="text-center text-red-500">
             <i class="iconoir-warning-circle text-2xl mb-2"></i>
             <p class="text-sm">Failed to load document</p>
-            <button onclick="loadPdfDocument()" class="mt-2 text-blue-600 hover:underline text-sm">Retry</button>
+            <button type="button" data-esign-action="retry-load-pdf" class="mt-2 text-blue-600 hover:underline text-sm">Retry</button>
           </div>
         `;
       }
@@ -2369,10 +2472,10 @@
           ${canDraw ? `
           <!-- Type/Draw tabs -->
           <div class="flex border-b border-gray-200" role="tablist">
-            <button type="button" class="sig-editor-tab flex-1 py-2 text-sm font-medium border-b-2 border-blue-600 text-blue-600" data-tab="type" onclick="switchSignatureTab('type', '${fieldData.id}')">
+            <button type="button" class="sig-editor-tab flex-1 py-2 text-sm font-medium border-b-2 border-blue-600 text-blue-600" data-tab="type" data-esign-action="signature-tab" data-field-id="${fieldData.id}">
               Type
             </button>
-            <button type="button" class="sig-editor-tab flex-1 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700" data-tab="draw" onclick="switchSignatureTab('draw', '${fieldData.id}')">
+            <button type="button" class="sig-editor-tab flex-1 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700" data-tab="draw" data-esign-action="signature-tab" data-field-id="${fieldData.id}">
               Draw
             </button>
           </div>
@@ -2396,7 +2499,7 @@
           <div id="sig-editor-draw" class="sig-editor-panel hidden">
             <div class="signature-canvas-container">
               <canvas id="sig-draw-canvas" class="signature-canvas" data-field-id="${fieldData.id}"></canvas>
-              <button type="button" onclick="clearSignatureCanvas('${fieldData.id}')" class="absolute bottom-2 right-2 text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1">
+              <button type="button" data-esign-action="clear-signature-canvas" data-field-id="${fieldData.id}" class="absolute bottom-2 right-2 text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1">
                 <i class="iconoir-refresh"></i> Clear
               </button>
             </div>
@@ -3309,7 +3412,7 @@
             background: #4b5563;
           }
         </style>
-        <div class="debug-header" onclick="debugMode.togglePanel()">
+        <div class="debug-header" data-esign-action="debug-toggle-panel">
           <span style="display: flex; align-items: center; gap: 6px;">
             <span style="font-size: 16px;">🔧</span>
             <span class="debug-title">Debug Panel</span>
@@ -3344,10 +3447,10 @@
           <div class="debug-section">
             <div class="debug-label">Actions</div>
             <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-              <button class="debug-btn" onclick="debugMode.copySessionInfo()">Copy Info</button>
-              <button class="debug-btn" onclick="debugMode.clearCache()">Clear Cache</button>
-              <button class="debug-btn" onclick="debugMode.showTelemetry()">View Telemetry</button>
-              <button class="debug-btn" onclick="debugMode.reloadViewer()">Reload Viewer</button>
+              <button type="button" class="debug-btn" data-esign-action="debug-copy-session">Copy Info</button>
+              <button type="button" class="debug-btn" data-esign-action="debug-clear-cache">Clear Cache</button>
+              <button type="button" class="debug-btn" data-esign-action="debug-show-telemetry">View Telemetry</button>
+              <button type="button" class="debug-btn" data-esign-action="debug-reload-viewer">Reload Viewer</button>
             </div>
           </div>
           <div class="debug-section">

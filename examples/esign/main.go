@@ -64,6 +64,7 @@ func main() {
 		quickstart.WithAdminContext(context.Background()),
 		quickstart.WithAdminDependencies(adminDeps),
 		quickstart.WithFeatureDefaults(featureDefaults),
+		quickstart.WithStartupPolicy(resolveESignStartupPolicy()),
 	)
 	if err != nil {
 		log.Fatalf("new admin: %v", err)
@@ -173,6 +174,16 @@ func envInt(key string, fallback int) int {
 		return fallback
 	}
 	return parsed
+}
+
+func resolveESignStartupPolicy() quickstart.StartupPolicy {
+	policy := strings.ToLower(strings.TrimSpace(os.Getenv("ESIGN_STARTUP_POLICY")))
+	switch policy {
+	case "warn", "warning":
+		return quickstart.StartupPolicyWarn
+	default:
+		return quickstart.StartupPolicyEnforce
+	}
 }
 
 func applyESignEmailTransportDefault() {

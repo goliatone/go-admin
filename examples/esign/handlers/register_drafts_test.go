@@ -88,6 +88,76 @@ func TestRegisterDraftEndpointsRequirePermissions(t *testing.T) {
 	}
 }
 
+func TestRegisterDraftEndpointsResolveUserFromClaimsContext(t *testing.T) {
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+	draftSvc := services.NewDraftService(store,
+		services.WithDraftAgreementService(services.NewAgreementService(store)),
+	)
+
+	app := setupRegisterTestApp(t,
+		WithAuthorizer(mapAuthorizer{allowed: map[string]bool{
+			DefaultPermissions.AdminCreate: true,
+			DefaultPermissions.AdminView:   true,
+			DefaultPermissions.AdminEdit:   true,
+			DefaultPermissions.AdminSend:   true,
+		}}),
+		WithAdminRouteMiddleware(withClaimsPermissions(
+			DefaultPermissions.AdminCreate,
+			DefaultPermissions.AdminView,
+			DefaultPermissions.AdminEdit,
+			DefaultPermissions.AdminSend,
+		)),
+		WithDraftWorkflowService(draftSvc),
+		WithDefaultScope(scope),
+	)
+
+	createPayload := map[string]any{
+		"wizard_id": "wiz-claims-context",
+		"wizard_state": map[string]any{
+			"details": map[string]any{"title": "Claims Context Draft"},
+		},
+		"title":        "Claims Context Draft",
+		"current_step": 1,
+	}
+	status, body := doDraftRequest(t, app, http.MethodPost, "/admin/api/v1/esign/drafts", "", createPayload)
+	if status != http.StatusCreated {
+		t.Fatalf("expected create status 201 using claims context fallback, got %d body=%s", status, string(body))
+	}
+	draftID := extractJSONFieldString(body, []string{"id"})
+	if strings.TrimSpace(draftID) == "" {
+		t.Fatalf("expected non-empty draft id, got body=%s", string(body))
+	}
+
+	status, body = doDraftRequest(t, app, http.MethodGet, "/admin/api/v1/esign/drafts?limit=10", "", nil)
+	if status != http.StatusOK {
+		t.Fatalf("expected list status 200 using claims context fallback, got %d body=%s", status, string(body))
+	}
+
+	status, body = doDraftRequest(t, app, http.MethodGet, "/admin/api/v1/esign/drafts/"+draftID, "", nil)
+	if status != http.StatusOK {
+		t.Fatalf("expected get status 200 using claims context fallback, got %d body=%s", status, string(body))
+	}
+
+	updatePayload := map[string]any{
+		"expected_revision": 1,
+		"wizard_state": map[string]any{
+			"details": map[string]any{"title": "Claims Context Draft Updated"},
+		},
+		"title":        "Claims Context Draft Updated",
+		"current_step": 2,
+	}
+	status, body = doDraftRequest(t, app, http.MethodPut, "/admin/api/v1/esign/drafts/"+draftID, "", updatePayload)
+	if status != http.StatusOK {
+		t.Fatalf("expected update status 200 using claims context fallback, got %d body=%s", status, string(body))
+	}
+
+	status, body = doDraftRequest(t, app, http.MethodDelete, "/admin/api/v1/esign/drafts/"+draftID, "", nil)
+	if status != http.StatusNoContent {
+		t.Fatalf("expected delete status 204 using claims context fallback, got %d body=%s", status, string(body))
+	}
+}
+
 func TestRegisterDraftLifecycleEndpoints(t *testing.T) {
 	ctx := context.Background()
 	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}

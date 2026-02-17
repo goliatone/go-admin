@@ -48,6 +48,7 @@ type googleIntegrationService interface {
 	Disconnect(ctx context.Context, scope stores.Scope, userID string) error
 	RotateCredentialEncryption(ctx context.Context, scope stores.Scope, userID string) (services.GoogleOAuthStatus, error)
 	Status(ctx context.Context, scope stores.Scope, userID string) (services.GoogleOAuthStatus, error)
+	ListAccounts(ctx context.Context, scope stores.Scope, baseUserID string) ([]services.GoogleAccountInfo, error)
 	SearchFiles(ctx context.Context, scope stores.Scope, input services.GoogleDriveQueryInput) (services.GoogleDriveListResult, error)
 	BrowseFiles(ctx context.Context, scope stores.Scope, input services.GoogleDriveQueryInput) (services.GoogleDriveListResult, error)
 	ImportDocument(ctx context.Context, scope stores.Scope, input services.GoogleImportInput) (services.GoogleImportResult, error)
@@ -75,6 +76,7 @@ type ESignModule struct {
 	signing       services.SigningService
 	artifacts     services.ArtifactPipelineService
 	google        googleIntegrationService
+	googleImportQueue *jobs.GoogleDriveImportQueue
 	integrations  services.IntegrationFoundationService
 	activityMap   *AuditActivityProjector
 	uploadManager *uploader.Manager
@@ -186,6 +188,14 @@ func (m *ESignModule) Manifest() coreadmin.ModuleManifest {
 	}
 }
 
+// ValidateStartup performs post-registration startup validation checks.
+func (m *ESignModule) ValidateStartup(ctx context.Context) error {
+	if m == nil {
+		return fmt.Errorf("esign module: startup validator module is nil")
+	}
+	return m.validateGoogleRuntimeWiring(ctx, resolveESignStrictStartup())
+}
+
 func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 	if ctx.Admin == nil {
 		return fmt.Errorf("esign module: admin is nil")
@@ -225,7 +235,7 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		services.WithArtifactObjectStore(objectStore),
 	)
 	emailProvider := jobs.EmailProviderFromEnv()
-	jobHandlers := jobs.NewHandlers(jobs.HandlerDependencies{
+	jobHandlerDeps := jobs.HandlerDependencies{
 		Agreements:       m.store,
 		Artifacts:        m.store,
 		JobRuns:          m.store,
@@ -235,8 +245,8 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		Tokens:           m.tokens,
 		Pipeline:         m.artifacts,
 		EmailProvider:    emailProvider,
-	})
-	googleImportQueue := jobs.NewGoogleDriveImportQueue(jobHandlers)
+	}
+	jobHandlers := jobs.NewHandlers(jobHandlerDeps)
 	emailWorkflow := jobs.NewAgreementWorkflow(jobHandlers)
 	m.agreements = services.NewAgreementService(m.store,
 		services.WithAgreementTokenService(m.tokens),
@@ -259,6 +269,7 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		m.store,
 		services.WithIntegrationAuditStore(m.store),
 	)
+	m.googleImportQueue = nil
 	if m.googleEnabled {
 		googleProvider, providerMode, err := services.NewGoogleProviderFromEnv()
 		if err != nil {
@@ -286,10 +297,16 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 				services.WithGoogleProviderMode(providerMode),
 			)
 		}
-		health := m.google.ProviderHealth(context.Background())
-		if !health.Healthy {
-			slog.Warn("esign module: google provider degraded at startup", "mode", health.Mode, "reason", health.Reason)
+		googleImportJobDeps := jobHandlerDeps
+		googleImportJobDeps.GoogleImporter = m.google
+		googleImportQueue, queueErr := jobs.NewGoogleDriveImportQueue(jobs.NewHandlers(googleImportJobDeps))
+		if queueErr != nil {
+			return fmt.Errorf("esign module: google import queue: %w", queueErr)
 		}
+		m.googleImportQueue = googleImportQueue
+	}
+	if err := m.validateGoogleRuntimeWiring(context.Background(), resolveESignStrictStartup()); err != nil {
+		return err
 	}
 	m.activityMap = NewAuditActivityProjector(ctx.Admin.ActivityFeed(), m.store)
 
@@ -312,7 +329,17 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 	if routeRouter == nil {
 		routeRouter = ctx.Router
 	}
-	handlers.Register(
+	googleRuntime := handlers.GoogleRuntimeConfig{
+		Enabled:     m.googleEnabled,
+		Integration: m.google,
+	}
+	if m.googleImportQueue != nil {
+		googleRuntime.ImportRuns = m.store
+		googleRuntime.ImportEnqueue = func(ctx context.Context, msg jobs.GoogleDriveImportMsg) error {
+			return m.googleImportQueue.Enqueue(ctx, msg)
+		}
+	}
+	if err := handlers.Register(
 		routeRouter,
 		m.routes,
 		handlers.WithAuthorizer(ctx.Admin.Authorizer()),
@@ -341,14 +368,11 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 				"fields":         fields,
 			})
 		}),
-		handlers.WithGoogleIntegrationEnabled(m.googleEnabled),
-		handlers.WithGoogleIntegrationService(m.google),
-		handlers.WithGoogleImportRunStore(m.store),
-		handlers.WithGoogleImportEnqueue(func(ctx context.Context, msg jobs.GoogleDriveImportMsg) error {
-			return googleImportQueue.Enqueue(ctx, msg)
-		}),
+		handlers.WithGoogleRuntime(googleRuntime),
 		handlers.WithIntegrationFoundationService(m.integrations),
-	)
+	); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -387,6 +411,9 @@ func (m *ESignModule) registerPanels(adm *coreadmin.Admin) error {
 		).
 		Filters(
 			coreadmin.Filter{Name: "title", Label: "Title", Type: "text"},
+		).
+		Subresources(
+			coreadmin.PanelSubresource{Name: "source", Method: "GET", Permission: permissions.AdminESignView},
 		).
 		Permissions(coreadmin.PanelPermissions{
 			View:   permissions.AdminESignView,
@@ -676,4 +703,40 @@ func resolveSignatureUploadSecurityPolicy() (time.Duration, string) {
 		ttlSeconds = 900
 	}
 	return time.Duration(ttlSeconds) * time.Second, strings.TrimSpace(os.Getenv("ESIGN_SIGNER_UPLOAD_SIGNING_KEY"))
+}
+
+func (m *ESignModule) validateGoogleRuntimeWiring(ctx context.Context, strict bool) error {
+	if m == nil || !m.googleEnabled {
+		return nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if m.google == nil {
+		return fmt.Errorf("esign module: google integration service is required when esign_google is enabled")
+	}
+	if m.googleImportQueue == nil {
+		return fmt.Errorf("esign module: google import queue is required when esign_google is enabled")
+	}
+	health := m.google.ProviderHealth(ctx)
+	if health.Healthy {
+		return nil
+	}
+	if strict {
+		return fmt.Errorf("esign module: google provider degraded at startup (mode=%s reason=%s)", strings.TrimSpace(health.Mode), strings.TrimSpace(health.Reason))
+	}
+	slog.Warn("esign module: google provider degraded at startup", "mode", health.Mode, "reason", health.Reason)
+	return nil
+}
+
+func resolveESignStrictStartup() bool {
+	raw, ok := os.LookupEnv("ESIGN_STRICT_STARTUP")
+	if !ok {
+		return false
+	}
+	parsed, err := strconv.ParseBool(strings.TrimSpace(raw))
+	if err != nil {
+		return false
+	}
+	return parsed
 }

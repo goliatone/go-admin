@@ -930,6 +930,12 @@ func (s *SQLiteStore) DeleteIntegrationCredential(ctx context.Context, scope Sco
 	return s.persistMaybe(ctx)
 }
 
+func (s *SQLiteStore) ListIntegrationCredentials(ctx context.Context, scope Scope, provider string, baseUserIDPrefix string) ([]IntegrationCredentialRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.InMemoryStore.ListIntegrationCredentials(ctx, scope, provider, baseUserIDPrefix)
+}
+
 func (s *SQLiteStore) UpsertMappingSpec(ctx context.Context, scope Scope, record MappingSpecRecord) (MappingSpecRecord, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

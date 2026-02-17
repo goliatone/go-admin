@@ -287,7 +287,10 @@ func TestGoogleImportAsyncEndpointsQueueAndPollSuccess(t *testing.T) {
 		Pipeline:         services.NewArtifactPipelineService(store, nil),
 		GoogleImporter:   google,
 	})
-	queue := jobs.NewGoogleDriveImportQueue(jobHandlers)
+	queue, err := jobs.NewGoogleDriveImportQueue(jobHandlers)
+	if err != nil {
+		t.Fatalf("NewGoogleDriveImportQueue: %v", err)
+	}
 	t.Cleanup(queue.Close)
 
 	app := setupRegisterTestApp(t,
@@ -404,7 +407,10 @@ func TestGoogleImportAsyncEndpointsPropagateTerminalFailure(t *testing.T) {
 		Pipeline:         services.NewArtifactPipelineService(store, nil),
 		GoogleImporter:   google,
 	})
-	queue := jobs.NewGoogleDriveImportQueue(jobHandlers)
+	queue, err := jobs.NewGoogleDriveImportQueue(jobHandlers)
+	if err != nil {
+		t.Fatalf("NewGoogleDriveImportQueue: %v", err)
+	}
 	t.Cleanup(queue.Close)
 
 	app := setupRegisterTestApp(t,

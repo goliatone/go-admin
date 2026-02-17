@@ -294,6 +294,71 @@ func (s GoogleServicesIntegrationService) Status(ctx context.Context, scope stor
 	}, nil
 }
 
+// ListAccounts returns connected account metadata for the provided base user.
+// With the go-services ConnectionStore contract this is currently a best-effort
+// lookup for the base/default scoped account.
+func (s GoogleServicesIntegrationService) ListAccounts(ctx context.Context, scope stores.Scope, baseUserID string) ([]GoogleAccountInfo, error) {
+	baseUserID = normalizeRequiredID("google", "user_id", baseUserID)
+	if baseUserID == "" {
+		return nil, domainValidationError("google", "user_id", "required")
+	}
+	parsedBaseUserID, requestedAccountID := ParseGoogleScopedUserID(baseUserID)
+	if parsedBaseUserID != "" {
+		baseUserID = parsedBaseUserID
+	}
+	scopedUserID := ComposeGoogleScopedUserID(baseUserID, requestedAccountID)
+
+	status, err := s.Status(ctx, scope, scopedUserID)
+	if err != nil {
+		return nil, err
+	}
+	if !status.Connected {
+		return []GoogleAccountInfo{}, nil
+	}
+
+	accountStatus := "connected"
+	if status.Degraded {
+		accountStatus = "degraded"
+	} else if status.IsExpired {
+		accountStatus = "expired"
+	} else if status.NeedsReauthorization {
+		accountStatus = "needs_reauth"
+	}
+
+	accountID := strings.TrimSpace(status.AccountID)
+	email := strings.TrimSpace(status.AccountEmail)
+	createdAt := s.now().UTC()
+	var lastUsedAt *time.Time
+
+	if svc, svcErr := s.serviceRuntime(); svcErr == nil {
+		connection, found, connErr := s.findScopedConnection(ctx, svc, scope, ComposeGoogleScopedUserID(baseUserID, accountID))
+		if connErr != nil {
+			return nil, connErr
+		}
+		if found {
+			if !connection.CreatedAt.IsZero() {
+				createdAt = connection.CreatedAt.UTC()
+			}
+			if email == "" && strings.Contains(connection.ExternalAccountID, "@") {
+				email = strings.TrimSpace(connection.ExternalAccountID)
+			}
+		}
+	}
+
+	return []GoogleAccountInfo{
+		{
+			AccountID:  accountID,
+			Email:      email,
+			Status:     accountStatus,
+			Scopes:     normalizeScopes(status.Scopes),
+			ExpiresAt:  cloneGoogleTimePtr(status.ExpiresAt),
+			CreatedAt:  createdAt,
+			LastUsedAt: lastUsedAt,
+			IsDefault:  accountID == "",
+		},
+	}, nil
+}
+
 // RotateCredentialEncryption is a compatibility no-op under go-services-backed storage.
 func (s GoogleServicesIntegrationService) RotateCredentialEncryption(ctx context.Context, scope stores.Scope, userID string) (GoogleOAuthStatus, error) {
 	return s.Status(ctx, scope, userID)

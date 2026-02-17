@@ -56,6 +56,8 @@ export interface SchemaAction {
   context_required?: string[];
   /** Permission required for this action */
   permission?: string;
+  /** Server-authoritative display order (lower numbers appear first) */
+  order?: number;
 }
 
 export interface ActionState {
@@ -118,6 +120,8 @@ export interface SchemaActionBuilderConfig {
   appendDefaultActions?: boolean;
   /** Action rendering context (DataGrid row actions use 'row') */
   actionContext?: 'row' | 'detail' | 'bulk';
+  /** Optional client-side action order override (action name -> order) */
+  actionOrderOverride?: Record<string, number>;
 }
 
 /**
@@ -148,6 +152,46 @@ export interface TranslationBlockerContext {
 // Schema Action Builder
 // ============================================================================
 
+// ============================================================================
+// Action Ordering Constants
+// ============================================================================
+
+/**
+ * Stable fallback order map for common actions.
+ * Used when server doesn't provide explicit order.
+ * Lower numbers appear first.
+ */
+const STABLE_ACTION_ORDER: Record<string, number> = {
+  view: 100,
+  edit: 200,
+  duplicate: 300,
+  create_translation: 400,
+  publish: 500,
+  unpublish: 600,
+  submit: 700,
+  approve: 800,
+  reject: 900,
+  archive: 1000,
+  restore: 1100,
+  delete: 9000, // Destructive actions last
+};
+
+/** Default order for unknown actions (before destructive actions) */
+const DEFAULT_ACTION_ORDER = 5000;
+
+/** Maximum order value for insertion-order tie-breaking */
+const MAX_ORDER = 10000;
+
+/**
+ * Internal wrapper for action with ordering metadata
+ */
+interface OrderedAction {
+  action: ActionButton;
+  name: string;
+  order: number;
+  insertionIndex: number;
+}
+
 /**
  * Builds row actions from schema.actions with proper precedence and deduplication.
  *
@@ -157,6 +201,7 @@ export interface TranslationBlockerContext {
  * 3. All other schema actions: POST to /admin/api/{panel}/actions/{action.name}
  * 4. Duplicate prevention by action name
  * 5. Schema actions take precedence over defaults
+ * 6. Action ordering precedence: schema.order > actionOrderOverride > stable fallback > insertion
  */
 export class SchemaActionBuilder {
   private config: SchemaActionBuilderConfig;
@@ -180,7 +225,8 @@ export class SchemaActionBuilder {
    */
   buildRowActions(record: Record<string, unknown>, schemaActions?: SchemaAction[]): ActionButton[] {
     this.seenActions.clear();
-    const actions: ActionButton[] = [];
+    const orderedActions: OrderedAction[] = [];
+    let insertionIndex = 0;
 
     // Build URL query context
     const queryContext = this.buildQueryContext();
@@ -199,20 +245,62 @@ export class SchemaActionBuilder {
         const actionState = this.resolveRecordActionState(record, schemaAction.name);
         const actionButton = this.buildActionFromSchema(record, schemaAction, queryContext, actionState);
         if (actionButton) {
-          actions.push(actionButton);
+          orderedActions.push({
+            action: actionButton,
+            name: schemaAction.name,
+            order: this.resolveActionOrder(schemaAction.name, schemaAction.order),
+            insertionIndex: insertionIndex++,
+          });
         }
       }
 
       // Only append defaults if explicitly requested (compatibility mode)
       if (this.config.appendDefaultActions) {
-        this.appendDefaultActions(actions, record, queryContext);
+        this.appendDefaultActionsOrdered(orderedActions, record, queryContext, insertionIndex);
       }
     } else if (this.config.useDefaultFallback) {
       // No schema actions - use defaults as fallback
-      this.appendDefaultActions(actions, record, queryContext);
+      this.appendDefaultActionsOrdered(orderedActions, record, queryContext, insertionIndex);
     }
 
-    return actions;
+    // Sort actions by order (ascending), then by insertion index for tie-breaking
+    orderedActions.sort((a, b) => {
+      if (a.order !== b.order) {
+        return a.order - b.order;
+      }
+      return a.insertionIndex - b.insertionIndex;
+    });
+
+    return orderedActions.map((oa) => oa.action);
+  }
+
+  /**
+   * Resolve action order using precedence:
+   * 1. schema.actions[*].order (server authoritative)
+   * 2. actionOrderOverride (optional client override)
+   * 3. stable fallback map
+   * 4. default order
+   */
+  private resolveActionOrder(actionName: string, schemaOrder?: number): number {
+    // 1. Server-provided order takes highest precedence
+    if (typeof schemaOrder === 'number' && Number.isFinite(schemaOrder)) {
+      return schemaOrder;
+    }
+
+    const normalizedName = actionName.toLowerCase();
+
+    // 2. Client-side override
+    if (this.config.actionOrderOverride?.[normalizedName] !== undefined) {
+      return this.config.actionOrderOverride[normalizedName];
+    }
+
+    // 3. Stable fallback map
+    if (STABLE_ACTION_ORDER[normalizedName] !== undefined) {
+      return STABLE_ACTION_ORDER[normalizedName];
+    }
+
+    // 4. Default order for unknown actions
+    return DEFAULT_ACTION_ORDER;
   }
 
   /**
@@ -482,6 +570,12 @@ export class SchemaActionBuilder {
 
     if (result.success) {
       this.config.onActionSuccess?.(input.actionName, result);
+
+      // Post-create handoff for create_translation action
+      if (input.actionName.toLowerCase() === 'create_translation' && result.data) {
+        this.handleCreateTranslationSuccess(result.data, input.payload);
+      }
+
       return result;
     }
 
@@ -515,6 +609,73 @@ export class SchemaActionBuilder {
       message: formattedMessage,
     });
     throw new Error(formattedMessage);
+  }
+
+  /**
+   * Handle successful create_translation action:
+   * - Show success toast with source locale shortcut
+   * - Redirect to new locale edit page
+   */
+  private handleCreateTranslationSuccess(
+    data: Record<string, unknown>,
+    originalPayload: Record<string, unknown>
+  ): void {
+    // Extract new record info from response
+    const newId = typeof data.id === 'string' ? data.id : String(data.id || '');
+    const newLocale = typeof data.locale === 'string' ? data.locale : '';
+
+    if (!newId) {
+      console.warn('[SchemaActionBuilder] create_translation response missing id');
+      return;
+    }
+
+    // Build redirect URL to edit the new translation
+    const basePath = this.config.actionBasePath;
+    const params = new URLSearchParams();
+    if (newLocale) {
+      params.set('locale', newLocale);
+    }
+    if (this.config.environment) {
+      params.set('env', this.config.environment);
+    }
+    const queryString = params.toString();
+    const editUrl = `${basePath}/${newId}/edit${queryString ? `?${queryString}` : ''}`;
+
+    // Show success toast with source locale shortcut
+    const sourceLocale = typeof originalPayload.source_locale === 'string'
+      ? originalPayload.source_locale
+      : this.config.locale || 'source';
+    const localeLabel = this.localeLabel(newLocale || 'unknown');
+
+    // Use toast if available, otherwise console log
+    if (typeof window !== 'undefined' && 'toastManager' in window) {
+      const toastManager = (window as unknown as {
+        toastManager: { success: (msg: string, opts?: { action?: { label: string; handler: () => void } }) => void }
+      }).toastManager;
+
+      toastManager.success(`${localeLabel} translation created`, {
+        action: {
+          label: `View ${sourceLocale.toUpperCase()}`,
+          handler: () => {
+            // Navigate back to source locale
+            const sourceParams = new URLSearchParams();
+            sourceParams.set('locale', sourceLocale);
+            if (this.config.environment) {
+              sourceParams.set('env', this.config.environment);
+            }
+            const sourceId = typeof originalPayload.id === 'string'
+              ? originalPayload.id
+              : String(originalPayload.id || newId);
+            window.location.href = `${basePath}/${sourceId}/edit?${sourceParams.toString()}`;
+          },
+        },
+      });
+    } else {
+      console.log(`[SchemaActionBuilder] Translation created: ${newLocale}`);
+    }
+
+    // Redirect to new translation edit page
+    window.location.href = editUrl;
   }
 
   /**
@@ -694,7 +855,7 @@ export class SchemaActionBuilder {
     fieldName: string,
     actionName: string,
     record?: Record<string, unknown>
-  ): Array<{ value: string; label: string }> | undefined {
+  ): Array<{ value: string; label: string; description?: string; recommended?: boolean }> | undefined {
     if (fieldName.trim().toLowerCase() !== 'locale') {
       return undefined;
     }
@@ -719,20 +880,63 @@ export class SchemaActionBuilder {
       return undefined;
     }
 
+    // Extract context for hints
+    const recommendedLocale = this.extractStringField(record, 'recommended_locale');
+    const requiredForPublish = this.asStringArray(readiness?.required_for_publish ?? readiness?.required_locales);
+    const existingLocales = this.asStringArray(readiness?.available_locales ?? record.existing_locales);
+
     const seen = new Set<string>();
-    const options: Array<{ value: string; label: string }> = [];
+    const options: Array<{ value: string; label: string; description?: string; recommended?: boolean }> = [];
     for (const rawLocale of locales) {
       const locale = rawLocale.trim().toLowerCase();
       if (!locale || seen.has(locale)) {
         continue;
       }
       seen.add(locale);
+
+      const isRecommended = recommendedLocale?.toLowerCase() === locale;
+      const isRequiredForPublish = requiredForPublish.includes(locale);
+
+      // Build description hint
+      const hints: string[] = [];
+      if (isRequiredForPublish) {
+        hints.push('Required for publishing');
+      }
+      if (existingLocales.length > 0) {
+        hints.push(`${existingLocales.length} translation${existingLocales.length > 1 ? 's' : ''} exist`);
+      }
+      const description = hints.length > 0 ? hints.join(' • ') : undefined;
+
+      // Build label with explicit format: "FR - French (recommended)"
+      let label = `${locale.toUpperCase()} - ${this.localeLabel(locale)}`;
+      if (isRecommended) {
+        label += ' (recommended)';
+      }
+
       options.push({
         value: locale,
-        label: this.localeLabel(locale),
+        label,
+        description,
+        recommended: isRecommended,
       });
     }
+
+    // Sort: recommended first, then alphabetically
+    options.sort((a, b) => {
+      if (a.recommended && !b.recommended) return -1;
+      if (!a.recommended && b.recommended) return 1;
+      return a.value.localeCompare(b.value);
+    });
+
     return options.length > 0 ? options : undefined;
+  }
+
+  private extractStringField(record: Record<string, unknown>, field: string): string | null {
+    const value = record[field];
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim();
+    }
+    return null;
   }
 
   private asObject(value: unknown): Record<string, unknown> | null {
@@ -986,6 +1190,80 @@ export class SchemaActionBuilder {
       if (!this.seenActions.has(def.name)) {
         this.seenActions.add(def.name);
         actions.push(def.button);
+      }
+    }
+  }
+
+  /**
+   * Append default actions with ordering metadata
+   */
+  private appendDefaultActionsOrdered(
+    orderedActions: OrderedAction[],
+    record: Record<string, unknown>,
+    queryContext: string,
+    startingIndex: number
+  ): void {
+    const recordId = String(record.id || '');
+    const basePath = this.config.actionBasePath;
+    const apiEndpoint = this.config.apiEndpoint;
+
+    const defaults: Array<{ name: string; button: ActionButton }> = [
+      {
+        name: 'view',
+        button: {
+          label: 'View',
+          icon: 'eye',
+          variant: 'secondary',
+          action: () => {
+            let url = `${basePath}/${recordId}`;
+            if (queryContext) url += `?${queryContext}`;
+            window.location.href = url;
+          },
+        },
+      },
+      {
+        name: 'edit',
+        button: {
+          label: 'Edit',
+          icon: 'edit',
+          variant: 'primary',
+          action: () => {
+            let url = `${basePath}/${recordId}/edit`;
+            if (queryContext) url += `?${queryContext}`;
+            window.location.href = url;
+          },
+        },
+      },
+      {
+        name: 'delete',
+        button: {
+          label: 'Delete',
+          icon: 'trash',
+          variant: 'danger',
+          action: async () => {
+            if (!window.confirm('Are you sure you want to delete this item?')) return;
+            const response = await fetch(`${apiEndpoint}/${recordId}`, {
+              method: 'DELETE',
+              headers: { 'Accept': 'application/json' },
+            });
+            if (!response.ok) {
+              throw new Error('Delete failed');
+            }
+          },
+        },
+      },
+    ];
+
+    let insertionIndex = startingIndex;
+    for (const def of defaults) {
+      if (!this.seenActions.has(def.name)) {
+        this.seenActions.add(def.name);
+        orderedActions.push({
+          action: def.button,
+          name: def.name,
+          order: this.resolveActionOrder(def.name, undefined),
+          insertionIndex: insertionIndex++,
+        });
       }
     }
   }

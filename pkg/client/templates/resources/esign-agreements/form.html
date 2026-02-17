@@ -145,6 +145,23 @@
 </div>
 
 <div class="flex-1 p-8 overflow-y-auto">
+  {# Page marker for esign module auto-init #}
+  <div data-esign-page="agreement-form" hidden></div>
+  <script id="esign-page-config" type="application/json">
+  {
+    "base_path": "{{ base_path }}",
+    "api_base_path": "{{ api_base_path|default:"" }}",
+    "user_id": "{{ user_id|default:session_user.id|default:session_user.subject|default:""|escapejs }}",
+    "is_edit": {{ is_edit|default:false|yesno:"true,false" }},
+    "create_success": {{ create_success|default:false|yesno:"true,false" }},
+    "routes": {
+      "index": "{{ routes.index|default:"" }}",
+      "documents": "{{ routes.documents|default:"" }}",
+      "create": "{{ routes.create|default:"" }}"
+    }
+  }
+  </script>
+
   {# Live region for form validation announcements #}
   <div id="form-announcements" class="sr-only" role="alert" aria-live="polite"></div>
   {% if create_success %}
@@ -810,6 +827,12 @@
 {% endblock %}
 
 {% block scripts %}
+{# E-Sign module for progressive migration - TypeScript controller foundation #}
+{% if esign_module_path %}
+<script type="module" src="{{ esign_module_path }}"></script>
+{% endif %}
+
+{# Inline script retained during incremental migration - contains full wizard logic #}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   const basePath = '{{ base_path }}';
@@ -819,6 +842,20 @@ document.addEventListener('DOMContentLoaded', function() {
   const draftsEndpoint = `${apiVersionBase}/esign/drafts`;
   const isEditMode = {{ is_edit|default:false|yesno:"true,false" }};
   const createSuccess = {{ create_success|default:false|yesno:"true,false" }};
+  const currentUserID = '{{ user_id|default:session_user.id|default:session_user.subject|default:""|escapejs }}'.trim();
+
+  function draftEndpointWithUserID(url) {
+    if (!currentUserID) return url;
+    const sep = url.includes('?') ? '&' : '?';
+    return `${url}${sep}user_id=${encodeURIComponent(currentUserID)}`;
+  }
+
+  function draftRequestHeaders(includeContentType = true) {
+    const headers = { 'Accept': 'application/json' };
+    if (includeContentType) headers['Content-Type'] = 'application/json';
+    if (currentUserID) headers['X-User-ID'] = currentUserID;
+    return headers;
+  }
 
   // =============================================================================
   // Wizard State Persistence (Phase 30)
@@ -1079,13 +1116,14 @@ document.addEventListener('DOMContentLoaded', function() {
         wizard_state: state,
         title: state.details.title || 'Untitled Agreement',
         current_step: state.currentStep,
-        document_id: state.document.id || null
+        document_id: state.document.id || null,
+        created_by_user_id: currentUserID
       };
 
-      const response = await fetch(draftsEndpoint, {
+      const response = await fetch(draftEndpointWithUserID(draftsEndpoint), {
         method: 'POST',
         credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        headers: draftRequestHeaders(),
         body: JSON.stringify(payload)
       });
 
@@ -1103,13 +1141,14 @@ document.addEventListener('DOMContentLoaded', function() {
         wizard_state: state,
         title: state.details.title || 'Untitled Agreement',
         current_step: state.currentStep,
-        document_id: state.document.id || null
+        document_id: state.document.id || null,
+        updated_by_user_id: currentUserID
       };
 
-      const response = await fetch(`${draftsEndpoint}/${draftId}`, {
+      const response = await fetch(draftEndpointWithUserID(`${draftsEndpoint}/${draftId}`), {
         method: 'PUT',
         credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        headers: draftRequestHeaders(),
         body: JSON.stringify(payload)
       });
 
@@ -1130,9 +1169,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     async load(draftId) {
-      const response = await fetch(`${draftsEndpoint}/${draftId}`, {
+      const response = await fetch(draftEndpointWithUserID(`${draftsEndpoint}/${draftId}`), {
         credentials: 'same-origin',
-        headers: { 'Accept': 'application/json' }
+        headers: draftRequestHeaders(false)
       });
 
       if (!response.ok) {
@@ -1143,10 +1182,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     async delete(draftId) {
-      const response = await fetch(`${draftsEndpoint}/${draftId}`, {
+      const response = await fetch(draftEndpointWithUserID(`${draftsEndpoint}/${draftId}`), {
         method: 'DELETE',
         credentials: 'same-origin',
-        headers: { 'Accept': 'application/json' }
+        headers: draftRequestHeaders(false)
       });
 
       if (!response.ok && response.status !== 404) {
@@ -1155,9 +1194,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     async list() {
-      const response = await fetch(`${draftsEndpoint}?limit=10`, {
+      const response = await fetch(draftEndpointWithUserID(`${draftsEndpoint}?limit=10`), {
         credentials: 'same-origin',
-        headers: { 'Accept': 'application/json' }
+        headers: draftRequestHeaders(false)
       });
 
       if (!response.ok) {
@@ -1322,9 +1361,10 @@ document.addEventListener('DOMContentLoaded', function() {
           wizard_state: state,
           title: state.details.title || 'Untitled Agreement',
           current_step: state.currentStep,
-          document_id: state.document.id || null
+          document_id: state.document.id || null,
+          updated_by_user_id: currentUserID
         });
-        navigator.sendBeacon(`${draftsEndpoint}/${state.serverDraftId}`, new Blob([payload], { type: 'application/json' }));
+        navigator.sendBeacon(draftEndpointWithUserID(`${draftsEndpoint}/${state.serverDraftId}`), new Blob([payload], { type: 'application/json' }));
       } else {
         await this.performSync();
       }
@@ -3605,11 +3645,20 @@ document.addEventListener('DOMContentLoaded', function() {
             </svg>
             <span class="text-sm">${escapeHtml(issue.message)}</span>
           </div>
-          <button type="button" class="text-xs text-blue-600 hover:text-blue-800" onclick="goToStep(${issue.step})">
+          <button type="button" class="text-xs text-blue-600 hover:text-blue-800" data-go-to-step="${issue.step}">
             ${escapeHtml(issue.action)}
           </button>
         `;
         sendIssuesList.appendChild(li);
+      });
+
+      sendIssuesList.querySelectorAll('[data-go-to-step]').forEach((button) => {
+        button.addEventListener('click', () => {
+          const step = Number(button.getAttribute('data-go-to-step'));
+          if (Number.isFinite(step)) {
+            goToStep(step);
+          }
+        });
       });
     } else {
       sendValidationIssues.classList.add('hidden');
@@ -3619,9 +3668,6 @@ document.addEventListener('DOMContentLoaded', function() {
     sendReadinessLoading.classList.add('hidden');
     sendReadinessResults.classList.remove('hidden');
   }
-
-  // Make goToStep available globally for issue action buttons
-  window.goToStep = goToStep;
 
   // =============================================================================
   // Wire up state change tracking

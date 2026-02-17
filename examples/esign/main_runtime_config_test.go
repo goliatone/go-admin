@@ -159,3 +159,21 @@ func TestValidateRuntimeProviderConfigurationAllowsPublicBaseURLInStaging(t *tes
 		t.Fatalf("expected staging public base URL validation to pass, got %v", err)
 	}
 }
+
+func TestResolveESignStartupPolicyDefaultsToEnforce(t *testing.T) {
+	t.Setenv("ESIGN_STARTUP_POLICY", "")
+	if got := string(resolveESignStartupPolicy()); got != "enforce" {
+		t.Fatalf("expected enforce startup policy by default, got %q", got)
+	}
+}
+
+func TestResolveESignStartupPolicySupportsWarnAliases(t *testing.T) {
+	t.Setenv("ESIGN_STARTUP_POLICY", "warn")
+	if got := string(resolveESignStartupPolicy()); got != "warn" {
+		t.Fatalf("expected warn startup policy for warn alias, got %q", got)
+	}
+	t.Setenv("ESIGN_STARTUP_POLICY", "warning")
+	if got := string(resolveESignStartupPolicy()); got != "warn" {
+		t.Fatalf("expected warn startup policy for warning alias, got %q", got)
+	}
+}

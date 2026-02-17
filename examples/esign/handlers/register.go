@@ -19,6 +19,7 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	"github.com/goliatone/go-admin/quickstart"
+	auth "github.com/goliatone/go-auth"
 	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
 )
@@ -71,11 +72,14 @@ func (r routeRegistrar) withMiddleware(mw []router.MiddlewareFunc) []router.Midd
 }
 
 // Register attaches baseline phase-0 routes for admin and signer entry points.
-func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOption) {
+func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOption) error {
 	if r == nil {
-		return
+		return fmt.Errorf("esign handlers: router is nil")
 	}
-	cfg := buildRegisterConfig(options)
+	cfg, err := buildRegisterConfig(options)
+	if err != nil {
+		return fmt.Errorf("esign handlers: invalid registration config: %w", err)
+	}
 	adminRoutes := wrapRouteRegistrar(r, cfg.adminRouteAuth)
 
 	adminRoutes.Get(routes.AdminStatus, func(c router.Context) error {
@@ -138,6 +142,7 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 				"google_oauth_disconnect":           routes.AdminGoogleOAuthDisconnect,
 				"google_oauth_rotate":               routes.AdminGoogleOAuthRotate,
 				"google_oauth_status":               routes.AdminGoogleOAuthStatus,
+				"google_oauth_accounts":             routes.AdminGoogleOAuthAccounts,
 				"google_drive_search":               routes.AdminGoogleDriveSearch,
 				"google_drive_browse":               routes.AdminGoogleDriveBrowse,
 				"google_drive_import":               routes.AdminGoogleDriveImport,
@@ -1114,6 +1119,29 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 			return c.JSON(http.StatusOK, map[string]any{
 				"status":      "ok",
 				"integration": status,
+			})
+		}, requireAdminPermission(cfg, cfg.permissions.AdminSettings))
+
+		adminRoutes.Get(routes.AdminGoogleOAuthAccounts, func(c router.Context) error {
+			if err := enforceTransportSecurity(c, cfg); err != nil {
+				return asHandlerError(err)
+			}
+			userID := resolveAdminUserID(c)
+			if userID == "" {
+				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "user_id is required", nil)
+			}
+			// Get base user ID (strip any account suffix)
+			baseUserID, _ := services.ParseGoogleScopedUserID(userID)
+			if baseUserID == "" {
+				baseUserID = userID
+			}
+			accounts, err := cfg.google.ListAccounts(c.Context(), cfg.resolveScope(c), baseUserID)
+			if err != nil {
+				return writeAPIError(c, err, http.StatusInternalServerError, "GOOGLE_ACCOUNTS_UNAVAILABLE", "failed to list google accounts", nil)
+			}
+			return c.JSON(http.StatusOK, map[string]any{
+				"status":   "ok",
+				"accounts": accounts,
 			})
 		}, requireAdminPermission(cfg, cfg.permissions.AdminSettings))
 
@@ -2486,6 +2514,8 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 			"decline": result,
 		})
 	})
+
+	return nil
 }
 
 func resolveAdminUserID(c router.Context) string {
@@ -2495,6 +2525,21 @@ func resolveAdminUserID(c router.Context) string {
 	userID := strings.TrimSpace(c.Query("user_id"))
 	if userID == "" {
 		userID = strings.TrimSpace(c.Header("X-User-ID"))
+	}
+	if userID == "" {
+		if actor, ok := auth.ActorFromRouterContext(c); ok && actor != nil {
+			userID = firstNonEmpty(strings.TrimSpace(actor.Subject), strings.TrimSpace(actor.ActorID))
+		}
+	}
+	if userID == "" {
+		if claims, ok := auth.GetClaims(c.Context()); ok && claims != nil {
+			userID = firstNonEmpty(strings.TrimSpace(claims.UserID()), strings.TrimSpace(claims.Subject()))
+		}
+	}
+	if userID == "" {
+		if claims, ok := auth.GetRouterClaims(c, ""); ok && claims != nil {
+			userID = firstNonEmpty(strings.TrimSpace(claims.UserID()), strings.TrimSpace(claims.Subject()))
+		}
 	}
 	return userID
 }

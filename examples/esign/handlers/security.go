@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -156,6 +157,7 @@ type GoogleIntegrationService interface {
 	Disconnect(ctx context.Context, scope stores.Scope, userID string) error
 	RotateCredentialEncryption(ctx context.Context, scope stores.Scope, userID string) (services.GoogleOAuthStatus, error)
 	Status(ctx context.Context, scope stores.Scope, userID string) (services.GoogleOAuthStatus, error)
+	ListAccounts(ctx context.Context, scope stores.Scope, baseUserID string) ([]services.GoogleAccountInfo, error)
 	SearchFiles(ctx context.Context, scope stores.Scope, input services.GoogleDriveQueryInput) (services.GoogleDriveListResult, error)
 	BrowseFiles(ctx context.Context, scope stores.Scope, input services.GoogleDriveQueryInput) (services.GoogleDriveListResult, error)
 	ImportDocument(ctx context.Context, scope stores.Scope, input services.GoogleImportInput) (services.GoogleImportResult, error)
@@ -188,6 +190,30 @@ type IntegrationFoundationService interface {
 
 // GoogleImportEnqueueFunc enqueues async Google Drive import jobs.
 type GoogleImportEnqueueFunc func(ctx context.Context, msg jobs.GoogleDriveImportMsg) error
+
+// GoogleRuntimeConfig captures Google integration + async import runtime wiring.
+type GoogleRuntimeConfig struct {
+	Enabled       bool
+	Integration   GoogleIntegrationService
+	ImportRuns    stores.GoogleImportRunStore
+	ImportEnqueue GoogleImportEnqueueFunc
+}
+
+// Validate returns an error when Google runtime wiring is incomplete.
+func (cfg GoogleRuntimeConfig) Validate() error {
+	if cfg.Enabled && cfg.Integration == nil {
+		return fmt.Errorf("google runtime requires integration service when enabled")
+	}
+	hasRuns := cfg.ImportRuns != nil
+	hasEnqueue := cfg.ImportEnqueue != nil
+	if hasRuns != hasEnqueue {
+		return fmt.Errorf("google runtime requires import run store and enqueue function together")
+	}
+	if (hasRuns || hasEnqueue) && cfg.Integration == nil {
+		return fmt.Errorf("google runtime requires integration service when async imports are configured")
+	}
+	return nil
+}
 
 // ScopeResolver resolves tenant/org scope from request context.
 type ScopeResolver func(c router.Context, fallback stores.Scope) stores.Scope
@@ -341,6 +367,19 @@ func WithGoogleIntegrationService(service GoogleIntegrationService) RegisterOpti
 	}
 }
 
+// WithGoogleRuntime configures Google integration + async import runtime as a single unit.
+func WithGoogleRuntime(runtime GoogleRuntimeConfig) RegisterOption {
+	return func(cfg *registerConfig) {
+		if cfg == nil {
+			return
+		}
+		cfg.googleEnabled = runtime.Enabled
+		cfg.google = runtime.Integration
+		cfg.googleImportRuns = runtime.ImportRuns
+		cfg.googleImportEnqueue = runtime.ImportEnqueue
+	}
+}
+
 // WithGoogleImportRunStore configures async import-run persistence.
 func WithGoogleImportRunStore(store stores.GoogleImportRunStore) RegisterOption {
 	return func(cfg *registerConfig) {
@@ -451,7 +490,7 @@ func WithSecurityLogEvent(handler SecurityLogEvent) RegisterOption {
 	}
 }
 
-func buildRegisterConfig(options []RegisterOption) registerConfig {
+func buildRegisterConfig(options []RegisterOption) (registerConfig, error) {
 	cfg := defaultRegisterConfig()
 	for _, opt := range options {
 		if opt == nil {
@@ -459,7 +498,26 @@ func buildRegisterConfig(options []RegisterOption) registerConfig {
 		}
 		opt(&cfg)
 	}
-	return cfg
+	if err := cfg.validate(); err != nil {
+		return registerConfig{}, err
+	}
+	return cfg, nil
+}
+
+func (cfg registerConfig) validate() error {
+	if err := cfg.googleRuntimeConfig().Validate(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (cfg registerConfig) googleRuntimeConfig() GoogleRuntimeConfig {
+	return GoogleRuntimeConfig{
+		Enabled:       cfg.googleEnabled,
+		Integration:   cfg.google,
+		ImportRuns:    cfg.googleImportRuns,
+		ImportEnqueue: cfg.googleImportEnqueue,
+	}
 }
 
 func requireAdminPermission(cfg registerConfig, permission string) router.MiddlewareFunc {

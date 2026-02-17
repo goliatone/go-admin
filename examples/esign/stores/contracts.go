@@ -118,6 +118,9 @@ type IntegrationCredentialStore interface {
 	UpsertIntegrationCredential(ctx context.Context, scope Scope, record IntegrationCredentialRecord) (IntegrationCredentialRecord, error)
 	GetIntegrationCredential(ctx context.Context, scope Scope, provider, userID string) (IntegrationCredentialRecord, error)
 	DeleteIntegrationCredential(ctx context.Context, scope Scope, provider, userID string) error
+	// ListIntegrationCredentials returns all credentials for a provider, optionally filtered by base user ID prefix.
+	// The baseUserIDPrefix filters credentials whose UserID starts with the given prefix (supports scoped user IDs).
+	ListIntegrationCredentials(ctx context.Context, scope Scope, provider string, baseUserIDPrefix string) ([]IntegrationCredentialRecord, error)
 }
 
 // IntegrationFoundationStore defines provider-agnostic integration mapping/sync/conflict/event persistence.

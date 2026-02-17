@@ -25,6 +25,8 @@ export { TranslationBlockerModal, showTranslationBlocker } from './translation-b
 export type { TranslationBlockerModalConfig, CreateTranslationResult } from './translation-blocker-modal.js';
 export { extractTranslationContext, isInFallbackMode, hasTranslationContext, renderLocaleBadge, renderAvailableLocalesIndicator, renderTranslationStatusCell, renderStatusBadge, renderFallbackWarning, createTranslationStatusRenderer, createLocaleBadgeRenderer, extractTranslationReadiness, hasTranslationReadiness, isReadyForTransition, renderReadinessIndicator, renderPublishReadinessBadge, renderLocaleCompleteness, renderMissingTranslationsBadge, hasMissingTranslations, getMissingTranslationsCount } from './translation-context.js';
 export type { TranslationContext, LocaleBadgeOptions, TranslationStatusOptions, TranslationReadiness, ReadinessState, ReadinessBadgeOptions } from './translation-context.js';
+export { StatusLegend, createStatusLegend, initStatusLegends, renderStatusLegendHTML, DEFAULT_STATUS_LEGEND_ITEMS } from './status-legend.js';
+export type { StatusLegendItem, StatusLegendConfig } from './status-legend.js';
 export { isExchangeError, extractExchangeError, parseImportResult, groupRowResultsByStatus, generateExchangeReport } from '../toast/error-helpers.js';
 export type { ExchangeErrorCode, ExchangeRowStatus, ExchangeRowResult, ExchangeConflictInfo, ExchangeResultSummary, ExchangeImportResult, ExchangeExportOptions, ExchangeExportResult, ExchangeErrorInfo } from '../toast/error-helpers.js';
 //# sourceMappingURL=index.d.ts.map

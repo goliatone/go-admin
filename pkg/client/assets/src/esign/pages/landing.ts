@@ -71,7 +71,11 @@ export class LandingPageController {
  * Auto-initialize landing page from page config
  */
 export function initLandingPage(config?: LandingPageConfig): LandingPageController {
-  const pageConfig = config || getPageConfig<LandingPageConfig>('[data-esign-page="landing"]');
+  const pageConfig =
+    config ||
+    getPageConfig<LandingPageConfig>(
+      '[data-esign-page="admin.landing"], [data-esign-page="landing"]'
+    );
 
   if (!pageConfig) {
     throw new Error('Landing page config not found. Add data-esign-page="landing" with config.');
@@ -98,17 +102,36 @@ export function bootstrapLandingPage(basePath: string, apiBasePath?: string): vo
 // Auto-init if page marker is present
 if (typeof document !== 'undefined') {
   onReady(() => {
-    const pageEl = document.querySelector('[data-esign-page="landing"]');
+    const pageEl = document.querySelector(
+      '[data-esign-page="admin.landing"], [data-esign-page="landing"]'
+    );
     if (pageEl) {
+      const configScript = document.getElementById('esign-page-config');
       const configAttr = pageEl.getAttribute('data-esign-config');
-      if (configAttr) {
-        try {
-          const config = JSON.parse(configAttr) as LandingPageConfig;
-          const controller = new LandingPageController(config);
-          controller.init();
-        } catch (e) {
-          console.warn('Failed to parse landing page config:', e);
+      const rawConfig = (() => {
+        if (configScript?.textContent) {
+          try {
+            return JSON.parse(configScript.textContent) as Record<string, unknown>;
+          } catch (e) {
+            console.warn('Failed to parse landing page config script:', e);
+          }
         }
+        if (configAttr) {
+          try {
+            return JSON.parse(configAttr) as Record<string, unknown>;
+          } catch (e) {
+            console.warn('Failed to parse landing page config attribute:', e);
+          }
+        }
+        return null;
+      })();
+      if (rawConfig) {
+        const basePath = String(rawConfig.basePath || rawConfig.base_path || '/admin');
+        const apiBasePath = String(
+          rawConfig.apiBasePath || rawConfig.api_base_path || `${basePath}/api`
+        );
+        const controller = new LandingPageController({ basePath, apiBasePath });
+        controller.init();
       }
     }
   });

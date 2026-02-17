@@ -68,6 +68,97 @@
   {% endif %}
 {% endblock %}
 
+{% block after_card %}
+  {# PDF Preview Section - Lazy Loaded #}
+  {% if resource_item.source_object_key %}
+  <div class="mt-6 bg-white border border-gray-200 rounded-xl overflow-hidden"
+       id="pdf-preview-container"
+       data-esign-page="document-detail"
+       data-document-id="{{ resource_item.id }}"
+       data-page-count="{{ resource_item.page_count|default:1 }}"
+       data-pdf-url="{{ api_base_path }}/{{ panel_name|default:"esign_documents" }}/{{ resource_item.id }}/source/pdf">
+
+    {# Preview Header #}
+    <div class="p-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="text-xs uppercase tracking-wider text-gray-500 font-semibold">Document Preview</div>
+        <span id="pdf-status" class="text-xs text-gray-400"></span>
+      </div>
+      <div class="flex items-center gap-2">
+        {# Pagination Controls #}
+        <div id="pdf-pagination" class="hidden flex items-center gap-2 mr-4">
+          <button type="button" id="pdf-prev-page" class="p-1.5 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed" disabled aria-label="Previous page">
+            <svg class="w-4 h-4 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+            </svg>
+          </button>
+          <span class="text-sm text-gray-600">
+            <span id="pdf-current-page">1</span> / <span id="pdf-total-pages">{{ resource_item.page_count|default:1 }}</span>
+          </span>
+          <button type="button" id="pdf-next-page" class="p-1.5 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed" aria-label="Next page">
+            <svg class="w-4 h-4 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+            </svg>
+          </button>
+        </div>
+
+        {# Download Button #}
+        <a href="{{ api_base_path }}/{{ panel_name|default:"esign_documents" }}/{{ resource_item.id }}/source/pdf?disposition=attachment"
+           class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+           download="{{ resource_item.title|default:'document' }}.pdf"
+           aria-label="Download PDF">
+          <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+          </svg>
+          Download
+        </a>
+      </div>
+    </div>
+
+    {# Preview Content Area #}
+    <div class="relative bg-gray-100" style="min-height: 400px;">
+      {# Loading State (shown initially) #}
+      <div id="pdf-loading" class="absolute inset-0 flex flex-col items-center justify-center">
+        <button type="button" id="pdf-load-btn" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+          <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+          </svg>
+          Load Preview
+        </button>
+        <p class="mt-2 text-xs text-gray-500">Click to load the document preview</p>
+      </div>
+
+      {# Loading Spinner (shown while fetching PDF) #}
+      <div id="pdf-spinner" class="hidden absolute inset-0 flex flex-col items-center justify-center bg-gray-100">
+        <svg class="animate-spin h-8 w-8 text-blue-600 mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <p class="text-sm text-gray-600">Loading document...</p>
+      </div>
+
+      {# Error State #}
+      <div id="pdf-error" class="hidden absolute inset-0 flex flex-col items-center justify-center">
+        <div class="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mb-3">
+          <svg class="w-6 h-6 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+          </svg>
+        </div>
+        <p class="text-sm text-gray-900 font-medium">Failed to load preview</p>
+        <p id="pdf-error-message" class="text-xs text-gray-500 mt-1"></p>
+        <button type="button" id="pdf-retry-btn" class="mt-3 text-sm text-blue-600 hover:text-blue-800">Try Again</button>
+      </div>
+
+      {# PDF Canvas Container #}
+      <div id="pdf-viewer" class="hidden p-4 flex items-start justify-center overflow-auto" style="max-height: 600px;">
+        <canvas id="pdf-canvas" class="shrink-0 shadow-lg bg-white"></canvas>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+{% endblock %}
+
 {% block fields_section %}
 <div class="p-6">
   <div class="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-4">Document Details</div>
@@ -148,6 +239,12 @@
 {% endblock %}
 
 {% block detail_scripts %}
+{# PDF.js library for document preview #}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+</script>
+
 <script type="module">
 import { initDetailFormatters } from '{{ base_path }}/assets/dist/esign/index.js';
 

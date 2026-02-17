@@ -34,6 +34,10 @@ export declare class SignerCompletePageController {
      */
     init(): Promise<void>;
     /**
+     * Setup event listeners
+     */
+    private setupEventListeners;
+    /**
      * Load artifacts from the assets endpoint
      */
     loadArtifacts(): Promise<void>;

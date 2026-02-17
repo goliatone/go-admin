@@ -43,6 +43,13 @@ import {
   SchemaActionBuilder,
   extractSchemaActions
 } from '{{ base_path }}/assets/dist/datatable/index.js';
+import {
+  PanelPaginationBehavior,
+  PanelSearchBehavior,
+  normalizeFilterType,
+  normalizeFilterOptions,
+  normalizeFilterOperators
+} from '{{ base_path }}/assets/dist/esign/index.js';
 
 const basePath = '{{ base_path }}';
 const apiBasePath = '{{ api_base_path|default:"" }}';
@@ -116,75 +123,6 @@ const agreementCellRenderers = {
     }
   }
 };
-
-class PanelPaginationBehavior {
-  buildQuery(page, perPage) {
-    const params = { page, per_page: perPage };
-    if (env) params.env = env;
-    return params;
-  }
-  async onPageChange(page, grid) {
-    await grid.refresh();
-  }
-}
-
-class PanelSearchBehavior {
-  buildQuery(term) {
-    const params = {};
-    const value = term ? term.trim() : '';
-    if (value) params.search = value;
-    if (env) params.env = env;
-    return params;
-  }
-  async onSearch(term, grid) {
-    grid.resetPagination();
-    await grid.refresh();
-  }
-}
-
-function normalizeFilterType(type) {
-  switch ((type || '').toLowerCase()) {
-    case 'select':
-    case 'enum':
-      return 'select';
-    case 'number':
-    case 'integer':
-      return 'number';
-    case 'date':
-    case 'datetime':
-    case 'time':
-      return 'date';
-    default:
-      return 'text';
-  }
-}
-
-function normalizeFilterOptions(options) {
-  if (!Array.isArray(options)) return undefined;
-  const normalized = options
-    .map(option => {
-      if (!option) return null;
-      const value = option.value ?? '';
-      const label = option.label ?? String(value);
-      return { label: String(label), value: String(value) };
-    })
-    .filter(Boolean);
-  return normalized.length > 0 ? normalized : undefined;
-}
-
-function normalizeFilterOperators(operators, defaultOperator) {
-  if (!Array.isArray(operators) || operators.length === 0) return undefined;
-  const normalized = operators
-    .map(op => String(op || '').trim().toLowerCase())
-    .filter(Boolean);
-  if (normalized.length === 0) return undefined;
-  const deduped = Array.from(new Set(normalized));
-  const preferred = defaultOperator ? String(defaultOperator).trim().toLowerCase() : '';
-  if (preferred && deduped.includes(preferred)) {
-    return [preferred, ...deduped.filter(op => op !== preferred)];
-  }
-  return deduped;
-}
 
 const datatableId = '{{ datatable_id|default:resource }}-datatable';
 

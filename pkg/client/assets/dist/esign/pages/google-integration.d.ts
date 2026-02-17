@@ -11,9 +11,11 @@ export declare class GoogleIntegrationController {
     private readonly config;
     private readonly apiBase;
     private currentAccountId;
+    private accounts;
     private oauthWindow;
     private oauthTimeout;
     private pendingOAuthAccountId;
+    private pendingDisconnectAccountId;
     private messageHandler;
     private readonly elements;
     constructor(config: GoogleIntegrationPageConfig);
@@ -98,13 +100,37 @@ export declare class GoogleIntegrationController {
      */
     private renderDegradedState;
     /**
+     * Load all connected Google accounts
+     */
+    loadAccounts(): Promise<void>;
+    /**
+     * Render the account dropdown (Option A)
+     */
+    private renderAccountDropdown;
+    /**
+     * Render the accounts cards grid (Option B)
+     */
+    private renderAccountsGrid;
+    /**
+     * Render a single account card
+     */
+    private renderAccountCard;
+    /**
+     * Render the "Connect New Account" card
+     */
+    private renderConnectNewCard;
+    /**
+     * Attach event listeners to account cards
+     */
+    private attachCardEventListeners;
+    /**
      * Escape HTML for safe rendering
      */
     private escapeHtml;
     /**
      * Start OAuth flow
      */
-    startOAuthFlow(): Promise<void>;
+    startOAuthFlow(targetAccountId?: string): Promise<void>;
     /**
      * Resolve OAuth redirect URI
      */
