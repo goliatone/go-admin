@@ -1,6 +1,7 @@
 package quickstart
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"sync"
@@ -21,6 +22,12 @@ func TranslationCapabilities(adm *admin.Admin) map[string]any {
 	return translationCapabilitiesForAdmin(adm)
 }
 
+// TranslationCapabilitiesForContext returns a translation capability snapshot
+// merged with request-scoped permission and action states.
+func TranslationCapabilitiesForContext(adm *admin.Admin, reqCtx context.Context) map[string]any {
+	return translationCapabilitiesForContext(adm, reqCtx)
+}
+
 func registerTranslationCapabilities(adm *admin.Admin, productCfg TranslationProductConfig, warnings []string, modules translationCapabilityModuleState) {
 	if adm == nil {
 		return
@@ -30,15 +37,23 @@ func registerTranslationCapabilities(adm *admin.Admin, productCfg TranslationPro
 }
 
 func translationCapabilitiesForAdmin(adm *admin.Admin) map[string]any {
+	return translationCapabilitiesForContext(adm, nil)
+}
+
+func translationCapabilitiesForContext(adm *admin.Admin, reqCtx context.Context) map[string]any {
 	if adm == nil {
 		return map[string]any{}
 	}
+	base := admin.TranslationCapabilitiesForContext(adm, reqCtx)
+	if len(base) == 0 {
+		base = map[string]any{}
+	}
 	if cached, ok := translationCapabilitiesStore.Load(adm); ok {
 		if typed, ok := cached.(map[string]any); ok {
-			return cloneAnyMap(typed)
+			return mergeTranslationCapabilities(base, typed)
 		}
 	}
-	return buildTranslationCapabilities(adm, TranslationProductConfig{}, nil, translationCapabilityModuleState{})
+	return base
 }
 
 func buildTranslationCapabilities(adm *admin.Admin, productCfg TranslationProductConfig, warnings []string, modules translationCapabilityModuleState) map[string]any {
@@ -46,7 +61,7 @@ func buildTranslationCapabilities(adm *admin.Admin, productCfg TranslationProduc
 		return map[string]any{}
 	}
 
-	base := admin.TranslationCapabilities(adm)
+	base := admin.TranslationCapabilitiesForContext(adm, nil)
 	if len(base) == 0 {
 		base = map[string]any{}
 	}
@@ -75,14 +90,12 @@ func buildTranslationCapabilities(adm *admin.Admin, productCfg TranslationProduc
 	routes := translationRoutesToStrings(base["routes"])
 	resolverKeys := translationStringSlice(base["resolver_keys"])
 	panels := translationStringSlice(base["panels"])
-
-	return map[string]any{
-		"profile":        profile,
-		"schema_version": schemaVersion,
-		"modules": map[string]any{
-			"exchange": map[string]any{"enabled": exchangeEnabled},
-			"queue":    map[string]any{"enabled": queueEnabled},
-		},
+	out := map[string]any{
+		"profile":            profile,
+		"capability_mode":    profile,
+		"supported_profiles": []string{"none", "core", "core+exchange", "core+queue", "full"},
+		"schema_version":     schemaVersion,
+		"modules":            cloneAnyMap(baseModules),
 		"features": map[string]any{
 			"cms":       cmsEnabled,
 			"dashboard": dashboardEnabled,
@@ -91,7 +104,149 @@ func buildTranslationCapabilities(adm *admin.Admin, productCfg TranslationProduc
 		"panels":        panels,
 		"resolver_keys": resolverKeys,
 		"warnings":      dedupeStringSlice(warnings),
+		"contracts":     base["contracts"],
 	}
+	overrideModuleEnabled(out, "exchange", exchangeEnabled)
+	overrideModuleEnabled(out, "queue", queueEnabled)
+	return out
+}
+
+func mergeTranslationCapabilities(base, overlay map[string]any) map[string]any {
+	if len(base) == 0 {
+		return cloneAnyMap(overlay)
+	}
+	out := cloneAnyMap(base)
+	if out == nil {
+		out = map[string]any{}
+	}
+
+	copyCapabilityField(out, overlay, "profile")
+	copyCapabilityField(out, overlay, "capability_mode")
+	copyCapabilityField(out, overlay, "supported_profiles")
+	copyCapabilityField(out, overlay, "schema_version")
+	copyCapabilityField(out, overlay, "warnings")
+	copyCapabilityField(out, overlay, "contracts")
+	copyCapabilityField(out, overlay, "features")
+	copyCapabilityField(out, overlay, "routes")
+	copyCapabilityField(out, overlay, "panels")
+	copyCapabilityField(out, overlay, "resolver_keys")
+
+	overlayModules, _ := overlay["modules"].(map[string]any)
+	if len(overlayModules) > 0 {
+		baseModules, _ := out["modules"].(map[string]any)
+		mergedModules := cloneAnyMap(baseModules)
+		if mergedModules == nil {
+			mergedModules = map[string]any{}
+		}
+		for moduleName, rawModule := range overlayModules {
+			moduleName = strings.TrimSpace(moduleName)
+			if moduleName == "" {
+				continue
+			}
+			moduleOverlay, ok := rawModule.(map[string]any)
+			if !ok {
+				continue
+			}
+			enabled, hasEnabled := moduleOverlay["enabled"].(bool)
+			rawBaseModule, _ := mergedModules[moduleName].(map[string]any)
+			baseModule := cloneAnyMap(rawBaseModule)
+			if baseModule == nil {
+				baseModule = map[string]any{}
+			}
+			if hasEnabled {
+				baseModule["enabled"] = enabled
+				applyModuleEntryState(baseModule, enabled)
+				applyModuleActionStates(baseModule, enabled)
+			}
+			mergedModules[moduleName] = baseModule
+		}
+		out["modules"] = mergedModules
+	}
+
+	return out
+}
+
+func copyCapabilityField(out, overlay map[string]any, key string) {
+	key = strings.TrimSpace(key)
+	if key == "" || len(overlay) == 0 {
+		return
+	}
+	value, ok := overlay[key]
+	if !ok || value == nil {
+		return
+	}
+	out[key] = value
+}
+
+func overrideModuleEnabled(payload map[string]any, moduleName string, enabled bool) {
+	if len(payload) == 0 {
+		return
+	}
+	modules, _ := payload["modules"].(map[string]any)
+	if modules == nil {
+		modules = map[string]any{}
+	}
+	rawModule, _ := modules[moduleName].(map[string]any)
+	module := cloneAnyMap(rawModule)
+	if module == nil {
+		module = map[string]any{}
+	}
+	module["enabled"] = enabled
+	applyModuleEntryState(module, enabled)
+	applyModuleActionStates(module, enabled)
+	modules[moduleName] = module
+	payload["modules"] = modules
+}
+
+func applyModuleEntryState(module map[string]any, moduleEnabled bool) {
+	if len(module) == 0 {
+		return
+	}
+	rawEntry, _ := module["entry"].(map[string]any)
+	entry := cloneAnyMap(rawEntry)
+	if entry == nil {
+		entry = map[string]any{}
+	}
+	if !moduleEnabled {
+		module["visible"] = false
+		applyActionStateDisabled(entry, true)
+	} else if _, ok := module["visible"].(bool); !ok {
+		module["visible"] = true
+	}
+	module["entry"] = entry
+}
+
+func applyModuleActionStates(module map[string]any, moduleEnabled bool) {
+	rawActions, _ := module["actions"].(map[string]any)
+	actions := cloneAnyMap(rawActions)
+	if actions == nil {
+		if !moduleEnabled {
+			module["actions"] = map[string]any{}
+		}
+		return
+	}
+	for actionName, rawAction := range actions {
+		actionMap, _ := rawAction.(map[string]any)
+		clonedAction := cloneAnyMap(actionMap)
+		if clonedAction == nil {
+			clonedAction = map[string]any{}
+		}
+		applyActionStateDisabled(clonedAction, !moduleEnabled)
+		actions[actionName] = clonedAction
+	}
+	module["actions"] = actions
+}
+
+func applyActionStateDisabled(action map[string]any, disabled bool) {
+	if !disabled {
+		if _, ok := action["enabled"].(bool); !ok {
+			action["enabled"] = true
+		}
+		return
+	}
+	action["enabled"] = false
+	action["reason"] = "module disabled by capability mode"
+	action["reason_code"] = admin.ActionDisabledReasonCodeFeatureDisabled
 }
 
 func translationCapabilityRoutes(adm *admin.Admin) (map[string]string, []string) {
