@@ -168,12 +168,29 @@ func TestDynamicPanelFactoryAddsCreateTranslationActionForEditorialPanels(t *tes
 			},
 			expectedSlug: "posts",
 		},
+		{
+			name: "news",
+			contentType: CMSContentType{
+				ID:     "ct-news",
+				Name:   "News",
+				Slug:   "news",
+				Status: "active",
+				Schema: minimalContentTypeSchema(),
+				Capabilities: map[string]any{
+					"panel_slug":   "news",
+					"workflow":     "news",
+					"panel_traits": []any{"editorial"},
+					"translations": true,
+				},
+			},
+			expectedSlug: "news",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
-			adm.WithWorkflow(workflowEngineWithPagesAndPosts())
+			adm.WithWorkflow(workflowEngineWithPagesPostsAndNews())
 			factory := NewDynamicPanelFactory(adm)
 
 			panel, err := factory.CreatePanelFromContentType(context.Background(), &tt.contentType)
@@ -191,11 +208,32 @@ func TestDynamicPanelFactoryAddsCreateTranslationActionForEditorialPanels(t *tes
 			if translationAction.PayloadSchema == nil {
 				t.Fatalf("expected payload schema for create_translation")
 			}
+			properties, ok := translationAction.PayloadSchema["properties"].(map[string]any)
+			if !ok {
+				t.Fatalf("expected payload schema properties, got %+v", translationAction.PayloadSchema)
+			}
+			for _, key := range []string{"missing_locales", "existing_locales", "recommended_locale", "required_for_publish"} {
+				if _, exists := properties[key]; !exists {
+					t.Fatalf("expected create_translation payload schema to include %q", key)
+				}
+			}
+			if _, exists := properties["available_locales"]; exists {
+				t.Fatalf("expected create_translation payload schema not to include available_locales")
+			}
 			if !hasAction(actions, "submit_for_approval") || !hasAction(actions, "publish") {
 				t.Fatalf("expected workflow actions on %s panel, got %+v", tt.expectedSlug, actions)
 			}
 			if !hasAction(actions, "view") || !hasAction(actions, "edit") || !hasAction(actions, "delete") {
 				t.Fatalf("expected default CRUD actions on %s panel, got %+v", tt.expectedSlug, actions)
+			}
+			for _, actionName := range []string{"edit", "create_translation", "submit_for_approval", "publish", "delete"} {
+				action, exists := findActionByName(actions, actionName)
+				if !exists {
+					t.Fatalf("expected action %q in schema", actionName)
+				}
+				if action.Order <= 0 {
+					t.Fatalf("expected action %q to include server order, got %+v", actionName, action)
+				}
 			}
 		})
 	}

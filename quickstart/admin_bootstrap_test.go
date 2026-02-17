@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/goliatone/go-admin/admin"
+	router "github.com/goliatone/go-router"
 )
 
 type stubActivitySink struct {
@@ -310,4 +311,57 @@ func TestNewAdminAdapterFlagsSupplied(t *testing.T) {
 	if result.ActivityBackend != "go-users activity sink" || result.ActivitySink != activitySink {
 		t.Fatalf("expected activity sink wired, got backend=%q sink=%v", result.ActivityBackend, result.ActivitySink)
 	}
+}
+
+func TestNewAdminWithStartupPolicyWarnAllowsModuleStartupValidationErrors(t *testing.T) {
+	cfg := NewAdminConfig("", "", "")
+	adm, _, err := NewAdmin(cfg, AdapterHooks{}, WithStartupPolicy(StartupPolicyWarn))
+	if err != nil {
+		t.Fatalf("NewAdmin error: %v", err)
+	}
+	if err := adm.RegisterModule(&quickstartStartupValidatorModule{
+		id:          "quickstart.startup.warn",
+		validateErr: errors.New("startup validation warning"),
+	}); err != nil {
+		t.Fatalf("RegisterModule: %v", err)
+	}
+	server := router.NewHTTPServer()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("Initialize should succeed with warn startup policy, got %v", err)
+	}
+}
+
+func TestNewAdminWithStartupPolicyEnforceFailsOnModuleStartupValidationErrors(t *testing.T) {
+	cfg := NewAdminConfig("", "", "")
+	adm, _, err := NewAdmin(cfg, AdapterHooks{}, WithStartupPolicy(StartupPolicyEnforce))
+	if err != nil {
+		t.Fatalf("NewAdmin error: %v", err)
+	}
+	if err := adm.RegisterModule(&quickstartStartupValidatorModule{
+		id:          "quickstart.startup.enforce",
+		validateErr: errors.New("startup validation failed"),
+	}); err != nil {
+		t.Fatalf("RegisterModule: %v", err)
+	}
+	server := router.NewHTTPServer()
+	if err := adm.Initialize(server.Router()); err == nil {
+		t.Fatalf("Initialize should fail with enforce startup policy")
+	}
+}
+
+type quickstartStartupValidatorModule struct {
+	id          string
+	validateErr error
+}
+
+func (m *quickstartStartupValidatorModule) Manifest() admin.ModuleManifest {
+	return admin.ModuleManifest{ID: m.id}
+}
+
+func (m *quickstartStartupValidatorModule) Register(admin.ModuleContext) error {
+	return nil
+}
+
+func (m *quickstartStartupValidatorModule) ValidateStartup(context.Context) error {
+	return m.validateErr
 }

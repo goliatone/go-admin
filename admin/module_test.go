@@ -269,6 +269,41 @@ func TestModuleContextUsesProtectedRouterByDefaultAndExposesPublicRouter(t *test
 	}
 }
 
+func TestModuleStartupValidationFailsWhenPolicyIsEnforce(t *testing.T) {
+	adm := mustNewAdmin(t, Config{DefaultLocale: "en"}, Dependencies{})
+	mod := &startupValidatorModule{
+		id:          "startup.validator.enforce",
+		validateErr: errors.New("startup validation failed"),
+	}
+	if err := adm.RegisterModule(mod); err != nil {
+		t.Fatalf("register failed: %v", err)
+	}
+	if err := adm.loadModules(context.Background()); err == nil {
+		t.Fatal("expected startup validation failure when policy is enforce")
+	}
+	if mod.validated == 0 {
+		t.Fatal("expected startup validator to be executed")
+	}
+}
+
+func TestModuleStartupValidationWarnPolicyAllowsStartup(t *testing.T) {
+	adm := mustNewAdmin(t, Config{DefaultLocale: "en"}, Dependencies{})
+	adm.WithModuleStartupPolicy(ModuleStartupPolicyWarn)
+	mod := &startupValidatorModule{
+		id:          "startup.validator.warn",
+		validateErr: errors.New("startup validation warning"),
+	}
+	if err := adm.RegisterModule(mod); err != nil {
+		t.Fatalf("register failed: %v", err)
+	}
+	if err := adm.loadModules(context.Background()); err != nil {
+		t.Fatalf("expected startup to continue under warn policy, got %v", err)
+	}
+	if mod.validated == 0 {
+		t.Fatal("expected startup validator to be executed")
+	}
+}
+
 type stubModule struct {
 	id         string
 	onRegister func()
@@ -396,4 +431,23 @@ func (m *moduleRouteProbe) Register(ctx ModuleContext) error {
 		return c.JSON(http.StatusOK, map[string]any{"auth": state})
 	})
 	return nil
+}
+
+type startupValidatorModule struct {
+	id          string
+	validateErr error
+	validated   int
+}
+
+func (m *startupValidatorModule) Manifest() ModuleManifest {
+	return ModuleManifest{ID: m.id}
+}
+
+func (m *startupValidatorModule) Register(_ ModuleContext) error {
+	return nil
+}
+
+func (m *startupValidatorModule) ValidateStartup(context.Context) error {
+	m.validated++
+	return m.validateErr
 }

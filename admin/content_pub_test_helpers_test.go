@@ -38,6 +38,30 @@ func workflowEngineWithPagesAndPosts() *SimpleWorkflowEngine {
 	return engine
 }
 
+func workflowEngineWithPagesPostsAndNews() *SimpleWorkflowEngine {
+	engine := workflowEngineWithPagesAndPosts()
+	news := WorkflowDefinition{
+		EntityType:   "news",
+		InitialState: "draft",
+		Transitions: []WorkflowTransition{
+			{
+				Name:        "submit_for_approval",
+				Description: "Submit for approval",
+				From:        "draft",
+				To:          "approval",
+			},
+			{
+				Name:        "publish",
+				Description: "Publish",
+				From:        "approval",
+				To:          "published",
+			},
+		},
+	}
+	engine.RegisterWorkflow("news", news)
+	return engine
+}
+
 func hasAction(actions []Action, name string) bool {
 	for _, action := range actions {
 		if action.Name == name {
