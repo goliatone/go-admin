@@ -333,14 +333,7 @@ func normalizeRequiredFieldNames(fields []string) []string {
 }
 
 func normalizePolicyEntity(value string) string {
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return ""
-	}
-	if idx := strings.Index(value, "@"); idx > 0 {
-		value = value[:idx]
-	}
-	return strings.TrimSpace(value)
+	return admin.CanonicalPolicyEntityKey(value)
 }
 
 func uuidFromString(id string) uuid.UUID {
