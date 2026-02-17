@@ -101,7 +101,7 @@ Quickstart can wire go-users repositories and expose the built-in users module. 
 
 Use `WithGoUsersUserManagement` to provide the required repositories (`AuthRepo`, `InventoryRepo`, `RoleRegistry`) and optional `ProfileRepo` + `ScopeResolver`. This wires `UserRepository`, `RoleRepository`, and (when provided) `ProfileStore`.
 
-Bulk role operations should use panel bulk routes (`/:panel/bulk/:action`, e.g. `/admin/api/users/bulk/assign-role`). Legacy static routes are disabled by default; enable them only for compatibility:
+Bulk role operations should use panel bulk routes (`/panels/:panel/bulk/:action`, e.g. `/admin/api/panels/users/bulk/assign-role`). Legacy static routes are disabled by default; enable them only for compatibility:
 
 ```go
 quickstart.WithLegacyUserRoleBulkRoutes()
@@ -144,10 +144,9 @@ The managed profiles panel and activity tab are opt-in; omit `WithUserProfilesPa
 All user management URLs should resolve via URLKit (admin namespace). Defaults:
 - `adm.URLs().Resolve("admin.users")` -> `/admin/users`
 - `adm.URLs().Resolve("admin.roles")` -> `/admin/roles`
-- `adm.URLs().Resolve("admin.api.users")` -> `/admin/api/users`
-- `adm.URLs().Resolve("admin.api.roles")` -> `/admin/api/roles`
+- Panel API collection endpoints are canonical under `/admin/api/panels/<panel>` (for example `/admin/api/panels/users`, `/admin/api/panels/roles`).
+- Panel API detail endpoints are canonical under `/admin/api/panels/<panel>/<id>`.
 - `adm.URLs().Resolve("admin.user_profiles")` -> `/admin/user-profiles` (when the profiles panel is enabled)
-- `adm.URLs().Resolve("admin.api.user_profiles")` -> `/admin/api/user-profiles` (when the profiles panel is enabled)
 
 Panel entry behavior:
 - Canonical panel UI routes (registered by `RegisterContentEntryUIRoutes`) now
@@ -1231,7 +1230,7 @@ Expected runtime routes when modules are enabled:
 - Exchange UI route: `/admin/translations/exchange`
 - Queue UI route: `/admin/content/translations`
 - Exchange API routes: `/admin/api/translations/export`, `/admin/api/translations/import/validate`, `/admin/api/translations/import/apply`
-- Queue panel API route: `/admin/api/translations`
+- Queue panel API route: `/admin/api/panels/translations`
 
 When a module is disabled:
 - Exchange UI route is not registered.

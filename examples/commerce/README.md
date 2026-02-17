@@ -27,7 +27,7 @@ APIs require `Authorization: Bearer <token>` header. Startup logs print demo tok
 ### What’s wired
 
 - Dashboard widget `commerce.widget.sales_overview` with seeded orders/products/revenue stats.
-- Panels: `users`, `products`, and `orders` under `/admin/api/<panel>`.
+- Panels: `users`, `products`, and `orders` under `/admin/api/panels/<panel>`.
 - Navigation from the commerce module (dashboard + panels) via `/admin/api/navigation`.
 - Search adapters for all three entities at `/admin/api/search?query=<q>`.
 - Commands: `commerce.restock_low` (CLI) and `commerce.daily_report` (cron-enabled, exposed through `/admin/api/jobs`).
@@ -36,7 +36,7 @@ APIs require `Authorization: Bearer <token>` header. Startup logs print demo tok
 
 ```bash
 # List users
-curl -H "Authorization: Bearer <token>" http://localhost:8081/admin/api/users
+curl -H "Authorization: Bearer <token>" http://localhost:8081/admin/api/panels/users
 
 # Trigger search
 curl -H "Authorization: Bearer <token>" "http://localhost:8081/admin/api/search?query=hoodie"

@@ -445,7 +445,7 @@ Both formats carry:
 ### Usage
 
 1. **Generate**: Call `admin.Preview().Generate(entity, id, duration)` or `GenerateJWT(...)`.
-2. **Admin URL**: `/admin/api/:panel/:id/preview?format=jwt` (or `?token_type=jwt`) returns a JWT token.
+2. **Admin URL**: `/admin/api/panels/:panel/:id/preview?format=jwt` (or `?token_type=jwt`) returns a JWT token.
 3. **Public URL**: `/api/v1/preview/<token>` (or `/admin/api/preview/<token>`) resolves the content. The admin preview route is always registered when preview is enabled, even if `EnablePublicAPI` is false.
 4. **Validate**: The public API or site handler calls `Validate(token)` to retrieve content regardless of status.
 
@@ -538,10 +538,10 @@ Preview and draft access can be enabled with query flags on the management API:
 
 | Method | Path                                         | Description                            |
 | ------ | -------------------------------------------- | -------------------------------------- |
-| GET    | `/admin/api/:panel/:id/preview`              | Generate preview token (`?format=jwt`) |
+| GET    | `/admin/api/panels/:panel/:id/preview`              | Generate preview token (`?format=jwt`) |
 | GET    | `/admin/api/preview/:token`                  | Resolve preview token                  |
-| POST   | `/admin/api/:panel/actions/request_approval` | Submit for review                      |
-| POST   | `/admin/api/:panel/actions/approve`          | Approve and publish                    |
+| POST   | `/admin/api/panels/:panel/actions/request_approval` | Submit for review                      |
+| POST   | `/admin/api/panels/:panel/actions/approve`          | Approve and publish                    |
 
 ### Admin UI Routes (Content Entry UI + Aliases)
 
