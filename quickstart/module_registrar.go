@@ -469,6 +469,29 @@ func translationCapabilityMenuItems(adm *admin.Admin, cfg admin.Config, menuCode
 	items := []admin.MenuItem{}
 
 	if queueEnabled {
+		// TODO: Use proper URL management
+		dashboardPath := strings.TrimSpace(resolveRoutePath(urls, "admin", "translations.dashboard"))
+		if dashboardPath == "" {
+			dashboardPath = prefixBasePath(basePath, path.Join("translations", "dashboard"))
+		}
+		items = append(items, admin.MenuItem{
+			ID:       parentID + ".translations.dashboard",
+			Type:     admin.MenuItemTypeItem,
+			Label:    "Translation Dashboard",
+			LabelKey: "menu.translations.dashboard",
+			Icon:     "dashboard-dots",
+			Target: map[string]any{
+				"type": "url",
+				"path": dashboardPath,
+				"name": "admin.translations.dashboard",
+				"key":  "translation_dashboard",
+			},
+			Position: intPtr(49),
+			ParentID: parentID,
+			Menu:     menuCode,
+			Locale:   locale,
+		})
+
 		queuePath := strings.TrimSpace(resolveAdminPanelURL(urls, cfg.BasePath, "translations"))
 		if queuePath == "" {
 			queuePath = prefixBasePath(basePath, path.Join("content", "translations"))
