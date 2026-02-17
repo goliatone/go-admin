@@ -208,8 +208,8 @@ func requiredURLKitRoutes(cfg Config) map[string][]string {
 		"admin":       {"dashboard"},
 		adminAPIGroup: {"errors", "preview"},
 		publicAPIGroup: {
-			"pages",
-			"page",
+			"pages", //TODO: We should not need these, they come from dynamic content
+			"page",  //TODO: We should not need these, they come from dynamic content
 			"preview",
 		},
 	}
@@ -252,8 +252,8 @@ func defaultAdminRoutes() map[string]string {
 		"content.panel.preview": "/content/:panel/:id/preview",
 		"translations.queue":    "/content/translations",
 		"translations.exchange": "/translations/exchange",
-		"content.alias.pages":   "/pages",
-		"content.alias.posts":   "/posts",
+		"content.alias.pages":   "/pages", //TODO: We should not need these, they come from dynamic content
+		"content.alias.posts":   "/posts", //TODO: We should not need these, they come from dynamic content
 		"block_conflicts":       "/block_conflicts",
 	}
 }
@@ -354,8 +354,8 @@ func defaultAdminDebugAPIRoutes() map[string]string {
 
 func defaultPublicAPIRoutes() map[string]string {
 	return map[string]string{
-		"pages":        "/pages",
-		"page":         "/pages/:slug",
+		"pages":        "/pages",       //TODO: We should not need these, they come from dynamic content
+		"page":         "/pages/:slug", //TODO: We should not need these, they come from dynamic content
 		"content":      "/content",
 		"content.type": "/content/:type",
 		"content.item": "/content/:type/:slug",

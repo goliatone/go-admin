@@ -194,6 +194,7 @@ type Action struct {
 	Permission       string         `json:"permission,omitempty"`
 	Type             string         `json:"type,omitempty"`
 	Href             string         `json:"href,omitempty"`
+	Order            int            `json:"order,omitempty"`
 	Scope            ActionScope    `json:"scope,omitempty"`
 	ContextRequired  []string       `json:"context_required,omitempty"`
 	Icon             string         `json:"icon,omitempty"`
@@ -618,7 +619,7 @@ func normalizePanelActionsForSchema(actions []Action, perms PanelPermissions) []
 	for _, action := range actions {
 		out = append(out, normalizeActionContract(action, ActionScopeRow))
 	}
-	return out
+	return ensureActionOrderContract(out, 900)
 }
 
 func normalizeBulkActionsForSchema(actions []Action) []Action {
@@ -626,7 +627,40 @@ func normalizeBulkActionsForSchema(actions []Action) []Action {
 	for _, action := range actions {
 		out = append(out, normalizeActionContract(action, ActionScopeBulk))
 	}
-	return out
+	return ensureActionOrderContract(out, 1900)
+}
+
+func ensureActionOrderContract(actions []Action, fallbackStart int) []Action {
+	if len(actions) == 0 {
+		return nil
+	}
+	used := map[int]struct{}{}
+	next := fallbackStart
+	if next <= 0 {
+		next = 1
+	}
+	for _, action := range actions {
+		if action.Order <= 0 {
+			continue
+		}
+		used[action.Order] = struct{}{}
+	}
+	for index := range actions {
+		if actions[index].Order > 0 {
+			continue
+		}
+		for {
+			if _, exists := used[next]; exists {
+				next++
+				continue
+			}
+			actions[index].Order = next
+			used[next] = struct{}{}
+			next++
+			break
+		}
+	}
+	return actions
 }
 
 func normalizePanelSubresources(subresources []PanelSubresource) []PanelSubresource {
@@ -693,8 +727,14 @@ func normalizeActionContract(action Action, defaultScope ActionScope) Action {
 	action.Variant = strings.TrimSpace(action.Variant)
 	action.IdempotencyField = strings.TrimSpace(action.IdempotencyField)
 	action.Scope = normalizeActionScope(action.Scope, defaultScope)
+	if action.Order <= 0 {
+		action.Order = defaultActionOrder(action.Name)
+	}
 	action.ContextRequired = normalizeActionFieldList(action.ContextRequired)
 	action.PayloadRequired = normalizeActionFieldList(action.PayloadRequired)
+	if strings.EqualFold(action.Name, CreateTranslationKey) && !containsActionField(action.PayloadRequired, "locale") {
+		action.PayloadRequired = append(action.PayloadRequired, "locale")
+	}
 
 	if action.Idempotent {
 		field := actionIdempotencyField(action)
@@ -704,6 +744,9 @@ func normalizeActionContract(action Action, defaultScope ActionScope) Action {
 	}
 	if len(action.PayloadRequired) > 0 || len(action.PayloadSchema) > 0 {
 		action.PayloadSchema = ensureActionPayloadSchemaContract(action.PayloadSchema, action.PayloadRequired)
+	}
+	if strings.EqualFold(action.Name, CreateTranslationKey) {
+		action.PayloadSchema = ensureCreateTranslationPayloadSchemaContract(action.PayloadSchema)
 	}
 	return action
 }
@@ -853,6 +896,160 @@ func actionIdempotencyField(action Action) string {
 		return field
 	}
 	return "idempotency_key"
+}
+
+func defaultActionOrder(name string) int {
+	switch strings.ToLower(strings.TrimSpace(name)) {
+	case "edit":
+		return 10
+	case "view":
+		return 11
+	case CreateTranslationKey:
+		return 20
+	case "request_approval", "submit_for_approval", "submit_review":
+		return 30
+	case "approve":
+		return 35
+	case "reject":
+		return 36
+	case "publish":
+		return 40
+	case "unpublish":
+		return 50
+	case "archive":
+		return 60
+	case "restore":
+		return 61
+	case "duplicate":
+		return 70
+	case "schedule":
+		return 80
+	case "delete":
+		return 1000
+	default:
+		return 0
+	}
+}
+
+func ensureCreateTranslationPayloadSchemaContract(schema map[string]any) map[string]any {
+	out := cloneAnyMap(schema)
+	if out == nil {
+		out = map[string]any{}
+	}
+	out["type"] = "object"
+	out["additionalProperties"] = false
+	required := ensureActionPayloadRequiredFields(out["required"], "locale")
+	if len(required) > 0 {
+		out["required"] = required
+	}
+	props, _ := out["properties"].(map[string]any)
+	if props == nil {
+		props = map[string]any{}
+	}
+	localeProp, _ := props["locale"].(map[string]any)
+	if localeProp == nil {
+		localeProp = map[string]any{}
+	}
+	if _, ok := localeProp["type"].(string); !ok {
+		localeProp["type"] = "string"
+	}
+	if _, ok := localeProp["title"].(string); !ok {
+		localeProp["title"] = "Locale"
+	}
+	props["locale"] = localeProp
+	delete(props, "available_locales")
+
+	requiredForPublishDefault := actionSchemaLocaleEnum(localeProp["enum"])
+	props["missing_locales"] = createTranslationLocaleArraySchema("Missing Locales", nil)
+	props["existing_locales"] = createTranslationLocaleArraySchema("Existing Locales", nil)
+	props["recommended_locale"] = map[string]any{
+		"type":  "string",
+		"title": "Recommended Locale",
+	}
+	props["required_for_publish"] = createTranslationLocaleArraySchema("Required for Publish", requiredForPublishDefault)
+	out["properties"] = props
+
+	out["x-translation-context"] = map[string]any{
+		"missing_locales":      "translation_readiness.missing_required_locales",
+		"existing_locales":     "translation_readiness.available_locales",
+		"recommended_locale":   "translation_readiness.recommended_locale",
+		"required_for_publish": "translation_readiness.required_locales",
+	}
+	return out
+}
+
+func createTranslationLocaleArraySchema(title string, defaultLocales []string) map[string]any {
+	schema := map[string]any{
+		"type":  "array",
+		"title": strings.TrimSpace(title),
+		"items": map[string]any{
+			"type": "string",
+		},
+	}
+	if len(defaultLocales) > 0 {
+		schema["default"] = append([]string{}, defaultLocales...)
+	}
+	return schema
+}
+
+func ensureActionPayloadRequiredFields(raw any, fields ...string) []string {
+	out := []string{}
+	seen := map[string]struct{}{}
+	appendField := func(field string) {
+		normalized := strings.TrimSpace(field)
+		if normalized == "" {
+			return
+		}
+		if _, ok := seen[normalized]; ok {
+			return
+		}
+		seen[normalized] = struct{}{}
+		out = append(out, normalized)
+	}
+	switch typed := raw.(type) {
+	case []string:
+		for _, field := range typed {
+			appendField(field)
+		}
+	case []any:
+		for _, field := range typed {
+			appendField(toString(field))
+		}
+	}
+	for _, field := range fields {
+		appendField(field)
+	}
+	return out
+}
+
+func actionSchemaLocaleEnum(raw any) []string {
+	values := []string{}
+	seen := map[string]struct{}{}
+	appendLocale := func(locale string) {
+		normalized := strings.ToLower(strings.TrimSpace(locale))
+		if normalized == "" {
+			return
+		}
+		if _, ok := seen[normalized]; ok {
+			return
+		}
+		seen[normalized] = struct{}{}
+		values = append(values, normalized)
+	}
+	switch typed := raw.(type) {
+	case []string:
+		for _, locale := range typed {
+			appendLocale(locale)
+		}
+	case []any:
+		for _, locale := range typed {
+			appendLocale(toString(locale))
+		}
+	}
+	if len(values) == 0 {
+		return nil
+	}
+	return values
 }
 
 func filterActionsForScope(actions []Action, scope ActionScope) []Action {

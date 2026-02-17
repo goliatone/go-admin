@@ -82,12 +82,18 @@ func (b *translationQueueBinding) MyWork(c router.Context) (any, error) {
 	if err != nil {
 		return nil, err
 	}
+	summaryAssignments, err := b.listAssignmentsForSummary(adminCtx.Context, repo, "due_date", filters)
+	if err != nil {
+		return nil, err
+	}
 
 	rows := make([]map[string]any, 0, len(assignments))
 	for _, assignment := range assignments {
 		row := b.assignmentContractRow(adminCtx.Context, assignment, now)
 		rows = append(rows, row)
-		dueState := normalizeTranslationQueueDueState(toString(row["due_state"]))
+	}
+	for _, assignment := range summaryAssignments {
+		dueState := translationQueueDueState(assignment.DueDate, now)
 		summary[dueState]++
 		summary["total"]++
 		if assignment.Status == AssignmentStatusReview {
@@ -146,6 +152,10 @@ func (b *translationQueueBinding) Queue(c router.Context) (any, error) {
 	if err != nil {
 		return nil, err
 	}
+	summaryAssignments, err := b.listAssignmentsForSummary(adminCtx.Context, repo, "updated_at", filters)
+	if err != nil {
+		return nil, err
+	}
 
 	rows := make([]map[string]any, 0, len(assignments))
 	byQueueState := map[string]int{}
@@ -153,16 +163,18 @@ func (b *translationQueueBinding) Queue(c router.Context) (any, error) {
 	for _, assignment := range assignments {
 		row := b.assignmentContractRow(adminCtx.Context, assignment, now)
 		rows = append(rows, row)
-		queueState := normalizeTranslationQueueState(toString(row["queue_state"]))
+	}
+	for _, assignment := range summaryAssignments {
+		queueState := normalizeTranslationQueueState(string(assignment.Status))
 		byQueueState[queueState]++
-		dueState := normalizeTranslationQueueDueState(toString(row["due_state"]))
+		dueState := translationQueueDueState(assignment.DueDate, now)
 		byDueState[dueState]++
 	}
 
 	return map[string]any{
 		"scope": "queue",
 		"summary": map[string]any{
-			"total":          len(rows),
+			"total":          len(summaryAssignments),
 			"by_queue_state": byQueueState,
 			"by_due_state":   byDueState,
 		},
@@ -173,6 +185,38 @@ func (b *translationQueueBinding) Queue(c router.Context) (any, error) {
 		"per_page":    perPage,
 		"updated_at":  now,
 	}, nil
+}
+
+func (b *translationQueueBinding) listAssignmentsForSummary(ctx context.Context, repo TranslationAssignmentRepository, sortBy string, filters map[string]any) ([]TranslationAssignment, error) {
+	if repo == nil {
+		return nil, nil
+	}
+	const summaryPerPage = 200
+	page := 1
+	summary := make([]TranslationAssignment, 0, summaryPerPage)
+	for {
+		batch, total, err := repo.List(ctx, ListOptions{
+			Page:    page,
+			PerPage: summaryPerPage,
+			SortBy:  strings.TrimSpace(sortBy),
+			Filters: cloneAnyMap(filters),
+		})
+		if err != nil {
+			return nil, err
+		}
+		if len(batch) == 0 {
+			break
+		}
+		summary = append(summary, batch...)
+		if total > 0 && page*summaryPerPage >= total {
+			break
+		}
+		if len(batch) < summaryPerPage {
+			break
+		}
+		page++
+	}
+	return summary, nil
 }
 
 func (b *translationQueueBinding) assignmentRepository() (TranslationAssignmentRepository, error) {
