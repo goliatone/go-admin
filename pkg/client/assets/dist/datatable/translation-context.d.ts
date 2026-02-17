@@ -200,6 +200,34 @@ export declare function hasMissingTranslations(record: Record<string, unknown>):
  */
 export declare function getMissingTranslationsCount(record: Record<string, unknown>): number;
 /**
+ * Matrix cell rendering options
+ */
+export interface MatrixCellOptions {
+    /** Size variant: 'sm' or 'md' */
+    size?: 'sm' | 'md';
+    /** Maximum number of locales to show before truncating */
+    maxLocales?: number;
+    /** Show locale labels alongside icons */
+    showLabels?: boolean;
+}
+/**
+ * Render a compact translation matrix cell showing locale status for each required locale.
+ * Uses translation_readiness data to show ● ready, ◐ incomplete, ○ missing states.
+ *
+ * @param record - The record from API response
+ * @param options - Matrix cell rendering options
+ * @returns HTML string for the matrix cell
+ */
+export declare function renderTranslationMatrixCell(record: Record<string, unknown>, options?: MatrixCellOptions): string;
+/**
+ * Create a cell renderer for translation matrix that can be used with DataGrid.
+ * Returns a function compatible with the CellRenderer type.
+ *
+ * @param options - Matrix cell rendering options
+ * @returns CellRenderer function
+ */
+export declare function createTranslationMatrixRenderer(options?: MatrixCellOptions): (value: unknown, record: Record<string, unknown>, column: string) => string;
+/**
  * Render a fallback warning banner for detail/edit views.
  * Shows when the requested locale doesn't exist and fallback content is displayed.
  *

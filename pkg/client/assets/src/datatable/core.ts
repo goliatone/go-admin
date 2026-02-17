@@ -7,11 +7,27 @@ import type {
 import type { ActionButton, BulkActionConfig, ActionRenderMode } from './actions.js';
 import type { CellRenderer, CellRendererContext } from './renderers.js';
 import type { ToastNotifier } from '../toast/types.js';
+import type { ViewMode, GroupedData, RecordGroup } from './grouped-mode.js';
 import { ActionRenderer } from './actions.js';
 import { CellRendererRegistry } from './renderers.js';
 import { FallbackNotifier } from '../toast/toast-manager.js';
 import { extractErrorMessage } from '../toast/error-helpers.js';
 import { ColumnManager } from './column-manager.js';
+import {
+  transformToGroups,
+  extractBackendSummaries,
+  mergeBackendSummaries,
+  getPersistedExpandState,
+  persistExpandState,
+  getPersistedViewMode,
+  persistViewMode,
+  renderGroupHeaderRow,
+  renderGroupedEmptyState,
+  renderGroupedLoadingState,
+  renderGroupedErrorState,
+  getViewModeForViewport,
+  getExpandedGroupIds,
+} from './grouped-mode.js';
 
 /**
  * DataGrid configuration
@@ -59,6 +75,23 @@ export interface DataGridConfig {
    * If not provided, falls back to native alert/confirm
    */
   notifier?: ToastNotifier;
+  /**
+   * Panel identifier for state persistence (Phase 2 grouped mode)
+   */
+  panelId?: string;
+  /**
+   * Enable grouped mode support (Phase 2)
+   * When true, records can be grouped by translation_group_id
+   */
+  enableGroupedMode?: boolean;
+  /**
+   * Default view mode: 'flat', 'grouped', or 'matrix' (Phase 2)
+   */
+  defaultViewMode?: ViewMode;
+  /**
+   * Field to group by (default: translation_group_id)
+   */
+  groupByField?: string;
 }
 
 /**
@@ -96,6 +129,10 @@ interface DataGridState {
   selectedRows: Set<string>;
   hiddenColumns: Set<string>;
   columnOrder: string[];  // Ordered list of column fields (Phase FE2)
+  // Phase 2: Grouped mode state
+  viewMode: ViewMode;
+  groupedData: GroupedData | null;
+  expandedGroups: Set<string>;
 }
 
 /**
@@ -174,6 +211,16 @@ export class DataGrid {
       ...config.selectors
     };
 
+    // Restore persisted grouped mode state if enabled
+    const panelId = this.config.panelId || this.config.tableId;
+    const persistedViewMode = this.config.enableGroupedMode
+      ? getPersistedViewMode(panelId)
+      : null;
+    const persistedExpandState = this.config.enableGroupedMode
+      ? getPersistedExpandState(panelId)
+      : new Set<string>();
+    const initialViewMode = persistedViewMode || this.config.defaultViewMode || 'flat';
+
     this.state = {
       currentPage: 1,
       perPage: this.config.perPage || 10,
@@ -185,7 +232,11 @@ export class DataGrid {
       hiddenColumns: new Set(
         this.config.columns.filter(col => col.hidden).map(col => col.field)
       ),
-      columnOrder: this.config.columns.map(col => col.field)  // Initialize with config column order
+      columnOrder: this.config.columns.map(col => col.field),  // Initialize with config column order
+      // Phase 2: Grouped mode state
+      viewMode: initialViewMode,
+      groupedData: null,
+      expandedGroups: persistedExpandState,
     };
 
     // Initialize action renderer and cell renderer registry
@@ -700,29 +751,31 @@ export class DataGrid {
     this.state.totalRows = total ?? items.length;
 
     if (items.length === 0) {
-      tbody.innerHTML = `
-        <tr>
-          <td colspan="${this.config.columns.length + 2}" class="px-6 py-8 text-center text-gray-500">
-            No results found
-          </td>
-        </tr>
-      `;
+      // Use grouped empty state if in grouped mode
+      if (this.config.enableGroupedMode && this.state.viewMode === 'grouped') {
+        tbody.innerHTML = renderGroupedEmptyState(this.config.columns.length);
+      } else {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="${this.config.columns.length + 2}" class="px-6 py-8 text-center text-gray-500">
+              No results found
+            </td>
+          </tr>
+        `;
+      }
       return;
     }
 
-    // Clear and populate records by ID cache
+    // Clear records by ID cache
     this.recordsById = {};
-    items.forEach((item: any, index: number) => {
-      console.log(`[DataGrid] Rendering row ${index + 1}: id=${item.id}, email=${item.email}, role=${item.role}, status=${item.status}`);
-      if (item.id) {
-        this.recordsById[item.id] = item;
-      }
-      const row = this.createTableRow(item);
-      tbody.appendChild(row);
-    });
 
-    console.log(`[DataGrid] Finished appending ${items.length} rows to tbody`);
-    console.log(`[DataGrid] tbody.children.length =`, tbody.children.length);
+    // Phase 2: Check if grouped mode is enabled and active
+    if (this.config.enableGroupedMode && this.state.viewMode === 'grouped') {
+      this.renderGroupedData(data, items, tbody);
+    } else {
+      // Flat mode rendering (original behavior)
+      this.renderFlatData(items, tbody);
+    }
 
     // Apply column visibility to new body cells
     // Note: config.columns is already in the correct order, but some may be hidden
@@ -738,6 +791,183 @@ export class DataGrid {
 
     // Rebind selection after rendering
     this.updateSelectionBindings();
+  }
+
+  /**
+   * Render data in flat mode (original behavior)
+   */
+  private renderFlatData(items: any[], tbody: HTMLElement): void {
+    items.forEach((item: any, index: number) => {
+      console.log(`[DataGrid] Rendering row ${index + 1}: id=${item.id}`);
+      if (item.id) {
+        this.recordsById[item.id] = item;
+      }
+      const row = this.createTableRow(item);
+      tbody.appendChild(row);
+    });
+
+    console.log(`[DataGrid] Finished appending ${items.length} rows to tbody`);
+    console.log(`[DataGrid] tbody.children.length =`, tbody.children.length);
+  }
+
+  /**
+   * Render data in grouped mode (Phase 2)
+   */
+  private renderGroupedData(data: ApiResponse, items: any[], tbody: HTMLElement): void {
+    const groupByField = this.config.groupByField || 'translation_group_id';
+
+    // Transform to grouped structure
+    let groupedData = transformToGroups(items, {
+      groupByField,
+      defaultExpanded: true,
+      expandedGroups: this.state.expandedGroups,
+    });
+
+    // Merge backend summaries if available
+    const backendSummaries = extractBackendSummaries(data as Record<string, unknown>);
+    if (backendSummaries.size > 0) {
+      groupedData = mergeBackendSummaries(groupedData, backendSummaries);
+    }
+
+    // Store grouped data in state
+    this.state.groupedData = groupedData;
+
+    const colSpan = this.config.columns.length;
+
+    // Render grouped rows
+    for (const group of groupedData.groups) {
+      // Render group header row
+      const headerHtml = renderGroupHeaderRow(group, colSpan);
+      tbody.insertAdjacentHTML('beforeend', headerHtml);
+
+      // Get the header row and bind click handler
+      const headerRow = tbody.lastElementChild as HTMLElement;
+      if (headerRow) {
+        headerRow.addEventListener('click', () => this.toggleGroup(group.groupId));
+        headerRow.addEventListener('keydown', (e: KeyboardEvent) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            this.toggleGroup(group.groupId);
+          }
+        });
+      }
+
+      // Render child rows if expanded
+      if (group.expanded) {
+        for (const record of group.records) {
+          if (record.id) {
+            this.recordsById[record.id as string] = record;
+          }
+          const row = this.createTableRow(record);
+          row.dataset.groupId = group.groupId;
+          row.classList.add('group-child-row');
+          tbody.appendChild(row);
+        }
+      }
+    }
+
+    // Render ungrouped rows (if any)
+    for (const record of groupedData.ungrouped) {
+      if (record.id) {
+        this.recordsById[record.id as string] = record;
+      }
+      const row = this.createTableRow(record);
+      tbody.appendChild(row);
+    }
+
+    console.log(`[DataGrid] Rendered ${groupedData.groups.length} groups, ${groupedData.ungrouped.length} ungrouped`);
+  }
+
+  /**
+   * Toggle group expand/collapse state (Phase 2)
+   */
+  toggleGroup(groupId: string): void {
+    if (!this.state.groupedData) return;
+
+    // Toggle in state
+    if (this.state.expandedGroups.has(groupId)) {
+      this.state.expandedGroups.delete(groupId);
+    } else {
+      this.state.expandedGroups.add(groupId);
+    }
+
+    // Persist state
+    const panelId = this.config.panelId || this.config.tableId;
+    persistExpandState(panelId, this.state.expandedGroups);
+
+    // Update the group's expanded state
+    const group = this.state.groupedData.groups.find(g => g.groupId === groupId);
+    if (group) {
+      group.expanded = this.state.expandedGroups.has(groupId);
+    }
+
+    // Re-render the affected group (toggle child row visibility)
+    this.updateGroupVisibility(groupId);
+  }
+
+  /**
+   * Update visibility of child rows for a group
+   */
+  private updateGroupVisibility(groupId: string): void {
+    const tbody = this.tableEl?.querySelector('tbody');
+    if (!tbody) return;
+
+    const headerRow = tbody.querySelector(`tr[data-group-id="${groupId}"]`) as HTMLElement;
+    if (!headerRow) return;
+
+    const isExpanded = this.state.expandedGroups.has(groupId);
+
+    // Update header row state
+    headerRow.dataset.expanded = String(isExpanded);
+    headerRow.setAttribute('aria-expanded', String(isExpanded));
+
+    // Update expand icon
+    const expandIcon = headerRow.querySelector('.expand-icon');
+    if (expandIcon) {
+      expandIcon.textContent = isExpanded ? '▼' : '▶';
+    }
+
+    // Toggle child rows visibility
+    const childRows = tbody.querySelectorAll<HTMLElement>(`tr.group-child-row[data-group-id="${groupId}"]`);
+    childRows.forEach(row => {
+      row.style.display = isExpanded ? '' : 'none';
+    });
+  }
+
+  /**
+   * Set view mode (flat, grouped, matrix) - Phase 2
+   */
+  setViewMode(mode: ViewMode): void {
+    if (!this.config.enableGroupedMode) {
+      console.warn('[DataGrid] Grouped mode not enabled');
+      return;
+    }
+
+    // Apply viewport-specific adjustments
+    const effectiveMode = getViewModeForViewport(mode);
+
+    this.state.viewMode = effectiveMode;
+
+    // Persist mode
+    const panelId = this.config.panelId || this.config.tableId;
+    persistViewMode(panelId, effectiveMode);
+
+    // Re-fetch data with new mode
+    this.refresh();
+  }
+
+  /**
+   * Get current view mode
+   */
+  getViewMode(): ViewMode {
+    return this.state.viewMode;
+  }
+
+  /**
+   * Get grouped data (if available)
+   */
+  getGroupedData(): GroupedData | null {
+    return this.state.groupedData;
   }
 
   /**

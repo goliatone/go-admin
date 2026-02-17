@@ -2005,6 +2005,258 @@ describe('Dual-mode compatibility: form edit guard behavior', () => {
 console.log('All translation context tests completed');
 
 // ============================================================================
+// Phase 2: Translation Matrix Cell Tests (TX-032)
+// ============================================================================
+
+describe('renderTranslationMatrixCell', () => {
+  // Helper function to extract incomplete locales
+  function getIncompleteLocales(fieldsByLocale) {
+    const incomplete = new Set();
+    if (fieldsByLocale && typeof fieldsByLocale === 'object') {
+      for (const [locale, fields] of Object.entries(fieldsByLocale)) {
+        if (Array.isArray(fields) && fields.length > 0) {
+          incomplete.add(locale);
+        }
+      }
+    }
+    return incomplete;
+  }
+
+  // Simulate the renderTranslationMatrixCell logic
+  function renderTranslationMatrixCell(record, options = {}) {
+    const { size = 'sm', maxLocales = 5, showLabels = false } = options;
+
+    // Extract readiness
+    const readinessObj = record?.translation_readiness;
+    if (!readinessObj || typeof readinessObj !== 'object') {
+      return '<span class="text-gray-400">-</span>';
+    }
+
+    const requiredLocales = Array.isArray(readinessObj.required_locales)
+      ? readinessObj.required_locales.filter(v => typeof v === 'string')
+      : [];
+    const availableLocales = Array.isArray(readinessObj.available_locales)
+      ? readinessObj.available_locales.filter(v => typeof v === 'string')
+      : [];
+    const missingRequiredFieldsByLocale = readinessObj.missing_required_fields_by_locale || {};
+
+    const allLocales = requiredLocales.length > 0 ? requiredLocales : availableLocales;
+
+    if (allLocales.length === 0) {
+      return '<span class="text-gray-400">-</span>';
+    }
+
+    const availableSet = new Set(availableLocales);
+    const incompleteLocales = getIncompleteLocales(missingRequiredFieldsByLocale);
+
+    const chips = allLocales
+      .slice(0, maxLocales)
+      .map((locale) => {
+        const isAvailable = availableSet.has(locale);
+        const isIncomplete = isAvailable && incompleteLocales.has(locale);
+        const isComplete = isAvailable && !isIncomplete;
+
+        let stateClass;
+        let icon;
+        let stateLabel;
+
+        if (isComplete) {
+          stateClass = 'bg-green-100 text-green-700 border-green-300';
+          icon = '●';
+          stateLabel = 'Complete';
+        } else if (isIncomplete) {
+          stateClass = 'bg-amber-100 text-amber-700 border-amber-300';
+          icon = '◐';
+          stateLabel = 'Incomplete';
+        } else {
+          stateClass = 'bg-white text-gray-400 border-gray-300 border-dashed';
+          icon = '○';
+          stateLabel = 'Missing';
+        }
+
+        const sizeClass = size === 'sm'
+          ? 'text-[10px] px-1.5 py-0.5'
+          : 'text-xs px-2 py-1';
+
+        const labelHtml = showLabels
+          ? `<span class="font-medium">${locale.toUpperCase()}</span>`
+          : '';
+
+        return `<span class="inline-flex items-center gap-0.5 ${sizeClass} rounded border ${stateClass}" title="${locale.toUpperCase()}: ${stateLabel}" data-locale="${locale}" data-state="${stateLabel.toLowerCase()}">${labelHtml}<span aria-hidden="true">${icon}</span></span>`;
+      })
+      .join('');
+
+    const overflow = allLocales.length > maxLocales
+      ? `<span class="text-[10px] text-gray-500">+${allLocales.length - maxLocales}</span>`
+      : '';
+
+    return `<div class="flex items-center gap-1 flex-wrap" data-matrix-cell="true">${chips}${overflow}</div>`;
+  }
+
+  it('should return dash when no readiness metadata', () => {
+    const html = renderTranslationMatrixCell({});
+    assert.ok(html.includes('-'));
+    assert.ok(!html.includes('data-matrix-cell'));
+  });
+
+  it('should return dash when no locales', () => {
+    const html = renderTranslationMatrixCell({
+      translation_readiness: {
+        required_locales: [],
+        available_locales: [],
+      },
+    });
+    assert.ok(html.includes('-'));
+  });
+
+  it('should render complete locales with green styling and ● icon', () => {
+    const record = {
+      translation_readiness: {
+        required_locales: ['en', 'es'],
+        available_locales: ['en', 'es'],
+        missing_required_locales: [],
+        missing_required_fields_by_locale: {},
+      },
+    };
+    const html = renderTranslationMatrixCell(record);
+    assert.ok(html.includes('data-matrix-cell="true"'), 'Should have matrix cell marker');
+    assert.ok(html.includes('data-locale="en"'), 'Should have en locale chip');
+    assert.ok(html.includes('data-locale="es"'), 'Should have es locale chip');
+    assert.ok(html.includes('data-state="complete"'), 'Should mark complete state');
+    assert.ok(html.includes('●'), 'Should have complete icon');
+    assert.ok(html.includes('bg-green-100'), 'Should have green background');
+  });
+
+  it('should render missing locales with gray/dashed styling and ○ icon', () => {
+    const record = {
+      translation_readiness: {
+        required_locales: ['en', 'es', 'fr'],
+        available_locales: ['en'],
+        missing_required_locales: ['es', 'fr'],
+        missing_required_fields_by_locale: {},
+      },
+    };
+    const html = renderTranslationMatrixCell(record);
+    assert.ok(html.includes('data-locale="es"'), 'Should have es locale chip');
+    assert.ok(html.includes('data-state="missing"'), 'Should mark missing state');
+    assert.ok(html.includes('○'), 'Should have missing icon');
+    assert.ok(html.includes('border-dashed'), 'Should have dashed border for missing');
+  });
+
+  it('should render incomplete locales with amber styling and ◐ icon', () => {
+    const record = {
+      translation_readiness: {
+        required_locales: ['en', 'es'],
+        available_locales: ['en', 'es'],
+        missing_required_locales: [],
+        missing_required_fields_by_locale: {
+          es: ['title', 'summary'],
+        },
+      },
+    };
+    const html = renderTranslationMatrixCell(record);
+    assert.ok(html.includes('data-locale="es"'), 'Should have es locale chip');
+    assert.ok(html.includes('data-state="incomplete"'), 'Should mark incomplete state');
+    assert.ok(html.includes('◐'), 'Should have incomplete icon');
+    assert.ok(html.includes('bg-amber-100'), 'Should have amber background for incomplete');
+  });
+
+  it('should truncate when over maxLocales and show overflow count', () => {
+    const record = {
+      translation_readiness: {
+        required_locales: ['en', 'es', 'fr', 'de', 'it', 'pt'],
+        available_locales: ['en', 'es'],
+        missing_required_locales: ['fr', 'de', 'it', 'pt'],
+        missing_required_fields_by_locale: {},
+      },
+    };
+    const html = renderTranslationMatrixCell(record, { maxLocales: 3 });
+    assert.ok(html.includes('data-locale="en"'), 'Should have first locale');
+    assert.ok(html.includes('data-locale="es"'), 'Should have second locale');
+    assert.ok(html.includes('data-locale="fr"'), 'Should have third locale');
+    assert.ok(!html.includes('data-locale="de"'), 'Should not have fourth locale');
+    assert.ok(html.includes('+3'), 'Should show +3 overflow');
+  });
+
+  it('should show labels when showLabels is true', () => {
+    const record = {
+      translation_readiness: {
+        required_locales: ['en', 'es'],
+        available_locales: ['en', 'es'],
+        missing_required_locales: [],
+        missing_required_fields_by_locale: {},
+      },
+    };
+    const html = renderTranslationMatrixCell(record, { showLabels: true });
+    assert.ok(html.includes('EN'), 'Should show uppercase EN label');
+    assert.ok(html.includes('ES'), 'Should show uppercase ES label');
+    assert.ok(html.includes('font-medium'), 'Should have font-medium for labels');
+  });
+
+  it('should use size=md styling when specified', () => {
+    const record = {
+      translation_readiness: {
+        required_locales: ['en'],
+        available_locales: ['en'],
+        missing_required_locales: [],
+        missing_required_fields_by_locale: {},
+      },
+    };
+    const html = renderTranslationMatrixCell(record, { size: 'md' });
+    assert.ok(html.includes('text-xs'), 'Should have text-xs for md size');
+    assert.ok(html.includes('px-2'), 'Should have px-2 for md size');
+  });
+
+  it('should handle mixed states correctly', () => {
+    const record = {
+      translation_readiness: {
+        required_locales: ['en', 'es', 'fr'],
+        available_locales: ['en', 'es'],
+        missing_required_locales: ['fr'],
+        missing_required_fields_by_locale: {
+          es: ['title'],
+        },
+      },
+    };
+    const html = renderTranslationMatrixCell(record);
+    // en should be complete
+    assert.ok(html.includes('●'), 'Should have complete icon for en');
+    // es should be incomplete (available but has missing fields)
+    assert.ok(html.includes('◐'), 'Should have incomplete icon for es');
+    // fr should be missing
+    assert.ok(html.includes('○'), 'Should have missing icon for fr');
+  });
+
+  it('should use availableLocales when requiredLocales is empty', () => {
+    const record = {
+      translation_readiness: {
+        required_locales: [],
+        available_locales: ['en', 'es'],
+        missing_required_locales: [],
+        missing_required_fields_by_locale: {},
+      },
+    };
+    const html = renderTranslationMatrixCell(record);
+    assert.ok(html.includes('data-locale="en"'), 'Should render en from available locales');
+    assert.ok(html.includes('data-locale="es"'), 'Should render es from available locales');
+  });
+
+  it('should include proper accessibility attributes', () => {
+    const record = {
+      translation_readiness: {
+        required_locales: ['en'],
+        available_locales: ['en'],
+        missing_required_locales: [],
+        missing_required_fields_by_locale: {},
+      },
+    };
+    const html = renderTranslationMatrixCell(record);
+    assert.ok(html.includes('title="EN: Complete"'), 'Should have title attribute');
+    assert.ok(html.includes('aria-hidden="true"'), 'Icon should be aria-hidden');
+  });
+});
+
+// ============================================================================
 // Task 19.6: Schema-Driven Action Authority Tests
 // Verify that productized template affordances do not duplicate schema actions
 // ============================================================================
