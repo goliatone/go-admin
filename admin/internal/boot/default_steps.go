@@ -21,6 +21,7 @@ func DefaultBootSteps() []Step {
 		BulkStep,
 		UserImportRouteStep,
 		TranslationExchangeRouteStep,
+		TranslationQueueRouteStep,
 		MediaStep,
 		NotificationsRouteStep,
 		ActivityRouteStep,

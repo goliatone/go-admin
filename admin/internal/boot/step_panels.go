@@ -279,10 +279,15 @@ func PanelStep(ctx BootCtx) error {
 					if err != nil {
 						return responder.WriteError(c, err)
 					}
-					if err := binding.Bulk(c, localeFromRequest(c), actionName, body); err != nil {
+					data, err := binding.Bulk(c, localeFromRequest(c), actionName, body)
+					if err != nil {
 						return responder.WriteError(c, err)
 					}
-					return responder.WriteJSON(c, map[string]string{"status": "ok"})
+					payload := map[string]any{"status": "ok"}
+					if len(data) > 0 {
+						payload["data"] = data
+					}
+					return responder.WriteJSON(c, payload)
 				},
 			},
 			RouteSpec{

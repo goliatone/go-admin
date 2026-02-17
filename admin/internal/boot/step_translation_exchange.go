@@ -48,6 +48,14 @@ func TranslationExchangeRouteStep(ctx BootCtx) error {
 				return writeJSONOrError(responder, c, payload, err)
 			}),
 		},
+		{
+			Method: "GET",
+			Path:   routePath(ctx, ctx.AdminAPIGroup(), "translations.jobs.id"),
+			Handler: withFeatureGate(responder, gates, FeatureTranslationExchange, func(c router.Context) error {
+				payload, err := binding.JobStatus(c, c.Param("id", ""))
+				return writeJSONOrError(responder, c, payload, err)
+			}),
+		},
 	}
 	return applyRoutes(ctx, routes)
 }
