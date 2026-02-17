@@ -70,8 +70,8 @@ export type {
   PayloadSchemaProperty
 } from './schema-actions.js';
 
-// Export payload modal
-export { PayloadInputModal } from './payload-modal.js';
+// Export payload modal as lazy proxy so schema-actions can keep payload-modal in a split chunk.
+export { PayloadInputModal } from './payload-modal-lazy.js';
 export type {
   PayloadModalConfig,
   PayloadModalField,
@@ -158,6 +158,8 @@ export type {
 // Export grouped mode utilities (Phase 2)
 export {
   transformToGroups,
+  hasBackendGroupedRows,
+  normalizeBackendGroupedRows,
   mergeBackendSummaries,
   extractBackendSummaries,
   getPersistedExpandState,
@@ -168,6 +170,9 @@ export {
   getExpandedGroupIds,
   getPersistedViewMode,
   persistViewMode,
+  parseViewMode,
+  encodeExpandedGroupsToken,
+  decodeExpandedGroupsToken,
   renderGroupHeaderSummary,
   renderGroupHeaderRow,
   renderGroupedEmptyState,
@@ -444,3 +449,48 @@ export type {
   SideBySideEditorConfig,
   SideBySideLabels
 } from './side-by-side-editor.js';
+
+// Export translation status vocabulary (Phase 5 - TX-052)
+export {
+  // Display configurations
+  CORE_READINESS_DISPLAY,
+  QUEUE_STATE_DISPLAY,
+  QUEUE_CONTENT_STATE_DISPLAY,
+  QUEUE_DUE_STATE_DISPLAY,
+  EXCHANGE_ROW_STATUS_DISPLAY,
+  EXCHANGE_JOB_STATUS_DISPLAY,
+  DISABLED_REASON_DISPLAY,
+  // Lookup functions
+  getStatusDisplay,
+  getDisabledReasonDisplay,
+  isValidStatus,
+  isValidReasonCode,
+  getStatusesForDomain,
+  getAllReasonCodes,
+  // Rendering functions
+  renderVocabularyStatusBadge,
+  renderVocabularyStatusIcon,
+  renderReasonCodeBadge,
+  renderReasonCodeIndicator,
+  // Cell renderer factories
+  createStatusCellRenderer,
+  createReasonCodeCellRenderer,
+  // Initialization
+  initializeVocabularyFromPayload,
+  // Styles
+  getStatusVocabularyStyles
+} from './translation-status-vocabulary.js';
+export type {
+  StatusDomain,
+  CoreReadinessState,
+  QueueState as VocabularyQueueState,
+  QueueContentState,
+  QueueDueState,
+  ExchangeRowStatus as VocabularyExchangeRowStatus,
+  ExchangeJobStatus,
+  TranslationStatus,
+  DisabledReasonCode,
+  StatusDisplayConfig,
+  DisabledReasonDisplayConfig,
+  StatusVocabularyPayload
+} from './translation-status-vocabulary.js';

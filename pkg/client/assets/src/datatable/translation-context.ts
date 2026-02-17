@@ -14,6 +14,11 @@
  */
 
 import { badge } from '../shared/badge.js';
+import {
+  getStatusDisplay,
+  renderVocabularyStatusBadge,
+  renderVocabularyStatusIcon,
+} from './translation-status-vocabulary.js';
 
 // ============================================================================
 // Types
@@ -460,7 +465,11 @@ export function renderStatusBadge(status: string | null, size: 'sm' | 'default' 
     return '';
   }
 
-  const statusLower = status.toLowerCase();
+  const normalizedStatus = status.trim();
+  if (getStatusDisplay(normalizedStatus) !== null) {
+    return renderVocabularyStatusBadge(normalizedStatus, { size: size === 'sm' ? 'sm' : 'default' });
+  }
+  const statusLower = normalizedStatus.toLowerCase();
   return badge(status, 'status', statusLower, { size: size === 'sm' ? 'sm' : undefined });
 }
 
@@ -677,17 +686,21 @@ function getReadinessStateDisplay(
   readiness: TranslationReadiness,
   showDetailedTooltip: boolean
 ): { icon: string; label: string; bgClass: string; textClass: string; tooltip: string } {
-  const checkIcon = `<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>`;
-  const warningIcon = `<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>`;
+  const sharedDisplay = getStatusDisplay(state, 'core');
+  const sharedIcon = sharedDisplay ? renderVocabularyStatusIcon(sharedDisplay, 'sm') : '';
+  const sharedBgClass = sharedDisplay?.bgClass || 'bg-gray-100';
+  const sharedTextClass = sharedDisplay?.textClass || 'text-gray-600';
+  const sharedLabel = sharedDisplay?.label || 'Unknown';
+  const sharedDescription = sharedDisplay?.description || 'Unknown readiness state';
 
   switch (state) {
     case 'ready':
       return {
-        icon: checkIcon,
-        label: 'Ready',
-        bgClass: 'bg-green-100',
-        textClass: 'text-green-700',
-        tooltip: 'All required translations are complete',
+        icon: sharedIcon,
+        label: sharedLabel,
+        bgClass: sharedBgClass,
+        textClass: sharedTextClass,
+        tooltip: sharedDescription,
       };
 
     case 'missing_locales': {
@@ -696,10 +709,10 @@ function getReadinessStateDisplay(
         ? `Missing translations: ${missing.join(', ')}`
         : 'Missing required translations';
       return {
-        icon: warningIcon,
+        icon: sharedIcon,
         label: `${missing.length} missing`,
-        bgClass: 'bg-amber-100',
-        textClass: 'text-amber-700',
+        bgClass: sharedBgClass,
+        textClass: sharedTextClass,
         tooltip,
       };
     }
@@ -710,10 +723,10 @@ function getReadinessStateDisplay(
         ? `Incomplete fields in: ${localesWithMissingFields.join(', ')}`
         : 'Some translations have missing required fields';
       return {
-        icon: warningIcon,
+        icon: sharedIcon,
         label: 'Incomplete',
-        bgClass: 'bg-yellow-100',
-        textClass: 'text-yellow-700',
+        bgClass: sharedBgClass,
+        textClass: sharedTextClass,
         tooltip,
       };
     }
@@ -730,21 +743,21 @@ function getReadinessStateDisplay(
       }
       const tooltip = showDetailedTooltip ? parts.join('; ') : 'Missing translations and incomplete fields';
       return {
-        icon: warningIcon,
+        icon: sharedIcon,
         label: 'Not ready',
-        bgClass: 'bg-red-100',
-        textClass: 'text-red-700',
+        bgClass: sharedBgClass,
+        textClass: sharedTextClass,
         tooltip,
       };
     }
 
     default:
       return {
-        icon: '',
-        label: 'Unknown',
-        bgClass: 'bg-gray-100',
-        textClass: 'text-gray-600',
-        tooltip: 'Unknown readiness state',
+        icon: sharedIcon,
+        label: sharedLabel,
+        bgClass: sharedBgClass,
+        textClass: sharedTextClass,
+        tooltip: sharedDescription,
       };
   }
 }

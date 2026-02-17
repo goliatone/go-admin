@@ -16,6 +16,7 @@ import type {
   ExchangeResultSummary,
   ExchangeImportResult,
 } from '../toast/error-helpers.js';
+import { renderVocabularyStatusBadge } from './translation-status-vocabulary.js';
 
 // ============================================================================
 // Types
@@ -647,6 +648,10 @@ export class ExchangeImport {
     const labels = this.config.labels;
     const statusClass = getStatusClass(row.status);
     const isDisabled = row.status === 'error';
+    const statusBadge = renderVocabularyStatusBadge(row.status, {
+      domain: 'exchange',
+      size: 'sm',
+    });
 
     return `
       <tr class="preview-row ${statusClass} ${row.isSelected ? 'selected' : ''}" data-index="${row.index}">
@@ -659,7 +664,7 @@ export class ExchangeImport {
         </td>
         <td class="field-cell">${escapeHtml(row.fieldPath)}</td>
         <td class="status-cell">
-          <span class="status-badge ${statusClass}">${escapeHtml(formatStatus(row.status))}</span>
+          ${statusBadge}
           ${row.error ? `<span class="error-message" title="${escapeAttr(row.error)}">${escapeHtml(truncate(row.error, 30))}</span>` : ''}
         </td>
         <td class="translation-cell">
@@ -867,10 +872,6 @@ function getStatusClass(status: ExchangeRowStatus): string {
     default:
       return '';
   }
-}
-
-function formatStatus(status: ExchangeRowStatus): string {
-  return status.charAt(0).toUpperCase() + status.slice(1);
 }
 
 function truncate(str: string, maxLength: number): string {

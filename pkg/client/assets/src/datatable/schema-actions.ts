@@ -19,6 +19,8 @@ import {
   isTranslationBlocker,
   type StructuredError,
 } from '../toast/error-helpers.js';
+import { getDisabledReasonDisplay } from './translation-status-vocabulary.js';
+import { PayloadInputModal } from './payload-modal-lazy.js';
 
 // ============================================================================
 // Schema Action Types
@@ -403,14 +405,26 @@ export class SchemaActionBuilder {
     if (reason) {
       return reason;
     }
-    const code = typeof state.reason_code === 'string' ? state.reason_code.trim().toLowerCase() : '';
-    switch (code) {
+    const normalizedCode = typeof state.reason_code === 'string' ? state.reason_code.trim() : '';
+    if (normalizedCode) {
+      const shared = getDisabledReasonDisplay(normalizedCode);
+      if (shared?.message) {
+        return shared.message;
+      }
+    }
+    switch (normalizedCode.toLowerCase()) {
       case 'workflow_transition_not_available':
+      case 'invalid_status':
         return 'Action is not available in the current workflow state.';
       case 'permission_denied':
         return 'You do not have permission to execute this action.';
       case 'missing_context_required':
+      case 'missing_context':
         return 'Action is unavailable because required record context is missing.';
+      case 'translation_missing':
+        return 'Required translations are missing.';
+      case 'feature_disabled':
+        return 'This feature is currently disabled.';
       default:
         return 'Action is currently unavailable.';
     }
@@ -748,7 +762,7 @@ export class SchemaActionBuilder {
 
   /**
    * Prompt user for required payload values
-   * Uses the existing PayloadInputModal from actions.ts
+   * Uses the lazy payload modal proxy.
    */
   private async promptForPayload(
     schemaAction: SchemaAction,
@@ -760,8 +774,6 @@ export class SchemaActionBuilder {
     if (requiredFields.length === 0) {
       return {};
     }
-    // Import dynamically to avoid circular dependencies
-    const { PayloadInputModal } = await import('./payload-modal.js');
 
     const fields = requiredFields.map((name) => {
       const definition = schema?.properties?.[name];
@@ -792,8 +804,12 @@ export class SchemaActionBuilder {
     prop: PayloadSchemaProperty | undefined,
     record?: Record<string, unknown>
   ): Array<{ value: string; label: string }> | undefined {
+    const createTranslationOptions = this.deriveCreateTranslationLocaleOptions(fieldName, actionName, record, prop);
+    if (createTranslationOptions && createTranslationOptions.length > 0) {
+      return createTranslationOptions;
+    }
     if (!prop) {
-      return this.deriveCreateTranslationLocaleOptions(fieldName, actionName, record);
+      return undefined;
     }
     if (prop.oneOf) {
       return prop.oneOf
@@ -815,8 +831,7 @@ export class SchemaActionBuilder {
     if (extensionOptions && extensionOptions.length > 0) {
       return extensionOptions;
     }
-
-    return this.deriveCreateTranslationLocaleOptions(fieldName, actionName, record);
+    return undefined;
   }
 
   private buildExtensionFieldOptions(prop: PayloadSchemaProperty): Array<{ value: string; label: string }> | undefined {
@@ -857,7 +872,8 @@ export class SchemaActionBuilder {
   private deriveCreateTranslationLocaleOptions(
     fieldName: string,
     actionName: string,
-    record?: Record<string, unknown>
+    record?: Record<string, unknown>,
+    prop?: PayloadSchemaProperty
   ): Array<{ value: string; label: string; description?: string; recommended?: boolean }> | undefined {
     if (fieldName.trim().toLowerCase() !== 'locale') {
       return undefined;
@@ -879,14 +895,28 @@ export class SchemaActionBuilder {
       const availableSet = new Set(this.asStringArray(readiness.available_locales));
       locales = required.filter((locale) => !availableSet.has(locale));
     }
+    const allowedLocales = this.asStringArray(prop?.enum);
+    if (allowedLocales.length > 0) {
+      const allowedSet = new Set(allowedLocales);
+      locales = locales.filter((locale) => allowedSet.has(locale));
+    }
     if (locales.length === 0) {
       return undefined;
     }
 
     // Extract context for hints
-    const recommendedLocale = this.extractStringField(record, 'recommended_locale');
-    const requiredForPublish = this.asStringArray(readiness?.required_for_publish ?? readiness?.required_locales);
-    const existingLocales = this.asStringArray(readiness?.available_locales ?? record.existing_locales);
+    const recommendedLocale = this.extractStringField(record, 'recommended_locale')
+      || this.extractStringField(readiness || {}, 'recommended_locale');
+    const requiredForPublish = this.asStringArray(
+      record.required_for_publish
+      ?? readiness?.required_for_publish
+      ?? readiness?.required_locales
+    );
+    const existingLocales = this.asStringArray(
+      record.existing_locales
+      ?? readiness?.available_locales
+    );
+    const localizedLabels = this.createTranslationLocaleLabelMap(prop);
 
     const seen = new Set<string>();
     const options: Array<{ value: string; label: string; description?: string; recommended?: boolean }> = [];
@@ -911,7 +941,8 @@ export class SchemaActionBuilder {
       const description = hints.length > 0 ? hints.join(' • ') : undefined;
 
       // Build label with explicit format: "FR - French (recommended)"
-      let label = `${locale.toUpperCase()} - ${this.localeLabel(locale)}`;
+      const languageLabel = localizedLabels[locale] || this.localeLabel(locale);
+      let label = `${locale.toUpperCase()} - ${languageLabel}`;
       if (isRecommended) {
         label += ' (recommended)';
       }
@@ -932,6 +963,40 @@ export class SchemaActionBuilder {
     });
 
     return options.length > 0 ? options : undefined;
+  }
+
+  private createTranslationLocaleLabelMap(prop?: PayloadSchemaProperty): Record<string, string> {
+    const labels: Record<string, string> = {};
+    if (!prop) {
+      return labels;
+    }
+    if (Array.isArray(prop.oneOf)) {
+      for (const option of prop.oneOf) {
+        const value = this.stringifyDefault(option?.const).trim().toLowerCase();
+        if (!value) {
+          continue;
+        }
+        const label = this.stringifyDefault(option?.title).trim();
+        if (label) {
+          labels[value] = label;
+        }
+      }
+    }
+    const raw = prop as Record<string, unknown>;
+    const candidate = raw['x-options'] ?? raw.x_options ?? raw.xOptions;
+    if (Array.isArray(candidate)) {
+      for (const option of candidate) {
+        if (!option || typeof option !== 'object') {
+          continue;
+        }
+        const value = this.stringifyDefault((option as Record<string, unknown>).value).trim().toLowerCase();
+        const label = this.stringifyDefault((option as Record<string, unknown>).label).trim();
+        if (value && label) {
+          labels[value] = label;
+        }
+      }
+    }
+    return labels;
   }
 
   private extractStringField(record: Record<string, unknown>, field: string): string | null {

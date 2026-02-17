@@ -1172,6 +1172,33 @@ test('create_translation derives options with recommended locale', () => {
   // Action is built; locale options would be derived during payload modal
 });
 
+test('create_translation locale options prefer missing locales even when schema enum is broader', () => {
+  const builder = createBuilder();
+  const record = createMockRecord({
+    translation_readiness: {
+      missing_required_locales: ['es', 'fr'],
+      available_locales: ['en'],
+      recommended_locale: 'fr',
+      required_locales: ['en', 'es', 'fr'],
+    },
+  });
+  const localeSchema = {
+    type: 'string',
+    enum: ['en', 'es', 'fr'],
+    'x-options': [
+      { value: 'en', label: 'English' },
+      { value: 'es', label: 'Spanish' },
+      { value: 'fr', label: 'French' },
+    ],
+  };
+
+  const options = builder.buildFieldOptions('locale', 'create_translation', localeSchema, record);
+  assert.ok(Array.isArray(options));
+  assert.deepEqual(options.map((opt) => opt.value), ['fr', 'es']);
+  assert.ok(options[0].label.includes('(recommended)'));
+  assert.ok(options.every((opt) => opt.value !== 'en'));
+});
+
 test('create_translation options sorted with recommended first', () => {
   // This tests the deriveCreateTranslationLocaleOptions logic
   // Recommended locale should be sorted first
