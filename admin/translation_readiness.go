@@ -96,7 +96,7 @@ func buildRecordTranslationReadinessWithCache(
 	groupID := strings.TrimSpace(toString(record["translation_group_id"]))
 	readyForPublish := readinessState == translationReadinessStateReady
 
-	return map[string]any{
+	readiness := map[string]any{
 		"translation_group_id":              groupID,
 		"required_locales":                  requiredLocales,
 		"available_locales":                 availableLocales,
@@ -106,6 +106,10 @@ func buildRecordTranslationReadinessWithCache(
 		"ready_for_transition":              map[string]bool{translationReadinessTransitionPublish: readyForPublish},
 		"evaluated_environment":             environment,
 	}
+	if localeMetadata := translationReadinessLocaleMetadata(record); len(localeMetadata) > 0 {
+		readiness["locale_metadata"] = localeMetadata
+	}
+	return readiness
 }
 
 func translationReadinessApplicable(panelName string, record map[string]any) bool {
@@ -373,6 +377,59 @@ func translationReadinessRequiredLocalesFromFields(fields map[string][]string) [
 			continue
 		}
 		out = append(out, trimmed)
+	}
+	return out
+}
+
+func translationReadinessLocaleMetadata(record map[string]any) map[string]map[string]any {
+	out := map[string]map[string]any{}
+	merge := func(locale string, metadata map[string]any) {
+		normalizedLocale := strings.ToLower(strings.TrimSpace(locale))
+		if normalizedLocale == "" || len(metadata) == 0 {
+			return
+		}
+		cleaned := map[string]any{}
+		if updatedBy := strings.TrimSpace(toString(metadata["updated_by"])); updatedBy != "" {
+			cleaned["updated_by"] = updatedBy
+		}
+		if updatedAt := strings.TrimSpace(toString(metadata["updated_at"])); updatedAt != "" {
+			cleaned["updated_at"] = updatedAt
+		}
+		if len(cleaned) == 0 {
+			return
+		}
+		out[normalizedLocale] = cleaned
+	}
+
+	for _, key := range []string{"locale_metadata", "translation_locale_metadata"} {
+		raw := extractMap(record[key])
+		if len(raw) == 0 {
+			continue
+		}
+		for locale, payload := range raw {
+			merge(locale, extractMap(payload))
+		}
+	}
+
+	recordLocale := strings.ToLower(strings.TrimSpace(toString(record["locale"])))
+	if recordLocale != "" {
+		recordMeta := map[string]any{
+			"updated_by": firstNonEmpty(
+				toString(record["updated_by"]),
+				toString(record["updated_by_id"]),
+				toString(record["updated_by_name"]),
+			),
+			"updated_at": firstNonEmpty(
+				toString(record["updated_at"]),
+				toString(record["translated_at"]),
+				toString(record["last_translated_at"]),
+			),
+		}
+		merge(recordLocale, recordMeta)
+	}
+
+	if len(out) == 0 {
+		return nil
 	}
 	return out
 }

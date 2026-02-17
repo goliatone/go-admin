@@ -62,6 +62,7 @@ func (translationExchangeDispatcherExecutor) Apply(ctx context.Context, input Tr
 type translationExchangeBinding struct {
 	admin    *Admin
 	executor translationExchangeCommandExecutor
+	jobs     *translationExchangeAsyncJobStore
 }
 
 func newTranslationExchangeBinding(a *Admin) *translationExchangeBinding {
@@ -71,6 +72,7 @@ func newTranslationExchangeBinding(a *Admin) *translationExchangeBinding {
 	return &translationExchangeBinding{
 		admin:    a,
 		executor: translationExchangeDispatcherExecutor{},
+		jobs:     newTranslationExchangeAsyncJobStore(nil),
 	}
 }
 
@@ -84,9 +86,13 @@ func (b *translationExchangeBinding) Export(c router.Context) (any, error) {
 	if err := b.admin.requirePermission(adminCtx, translationExchangePermissionExport, "translations"); err != nil {
 		return nil, err
 	}
-	input, err := parseTranslationExportInput(c)
+	input, payload, err := parseTranslationExportInput(c)
 	if err != nil {
 		return nil, err
+	}
+	asyncRequested := translationExchangeAsyncRequested(c, payload)
+	if asyncRequested {
+		return b.exportAsync(adminCtx, input)
 	}
 	result, err := b.executor.Export(adminCtx.Context, input)
 	if err != nil {
@@ -196,6 +202,9 @@ func (b *translationExchangeBinding) ImportApply(c router.Context) (any, error) 
 		ContinueOnError:         toBool(payload["continue_on_error"]),
 		DryRun:                  toBool(payload["dry_run"]),
 	}
+	if translationExchangeAsyncRequested(c, payload) {
+		return b.importApplyAsync(adminCtx, input)
+	}
 	result, err := b.executor.Apply(adminCtx.Context, input)
 	if err != nil {
 		return nil, err
@@ -212,10 +221,181 @@ func (b *translationExchangeBinding) ImportApply(c router.Context) (any, error) 
 	return result, nil
 }
 
-func parseTranslationExportInput(c router.Context) (TranslationExportInput, error) {
+func (b *translationExchangeBinding) JobStatus(c router.Context, id string) (any, error) {
+	if b == nil || b.admin == nil {
+		return nil, serviceNotConfiguredDomainError("translation exchange binding", map[string]any{
+			"component": "translation_exchange_binding",
+		})
+	}
+	if strings.TrimSpace(id) == "" {
+		id = strings.TrimSpace(c.Param("id", ""))
+	}
+	if strings.TrimSpace(id) == "" {
+		return nil, requiredFieldDomainError("id", map[string]any{
+			"component": "translation_exchange_binding",
+		})
+	}
+	if b.jobs == nil {
+		return nil, serviceNotConfiguredDomainError("translation exchange async jobs", map[string]any{
+			"component": "translation_exchange_binding",
+		})
+	}
+	job, ok := b.jobs.Get(id)
+	if !ok {
+		return nil, ErrNotFound
+	}
+	adminCtx := b.admin.adminContextFromRequest(c, b.admin.config.DefaultLocale)
+	if err := b.admin.requirePermission(adminCtx, strings.TrimSpace(job.Permission), "translations"); err != nil {
+		return nil, err
+	}
+	return map[string]any{
+		"job": translationExchangeAsyncJobPayload(job),
+	}, nil
+}
+
+func (b *translationExchangeBinding) exportAsync(adminCtx AdminContext, input TranslationExportInput) (any, error) {
+	if b == nil || b.jobs == nil {
+		return nil, serviceNotConfiguredDomainError("translation exchange async jobs", map[string]any{
+			"component": "translation_exchange_binding",
+		})
+	}
+	job := b.jobs.Create("export", translationExchangePermissionExport, adminCtx.UserID)
+	b.jobs.SetPollEndpoint(job.ID, b.jobStatusEndpoint(job.ID))
+	b.jobs.MarkRunning(job.ID, map[string]any{
+		"total":     0,
+		"processed": 0,
+		"succeeded": 0,
+		"failed":    0,
+	})
+
+	result, err := b.executor.Export(adminCtx.Context, input)
+	if err != nil {
+		b.jobs.Fail(job.ID, map[string]any{
+			"total":     0,
+			"processed": 0,
+			"succeeded": 0,
+			"failed":    1,
+		}, err)
+		failed, _ := b.jobs.Get(job.ID)
+		return map[string]any{
+			"status": "accepted",
+			"job":    translationExchangeAsyncJobPayload(failed),
+		}, nil
+	}
+
+	b.admin.recordActivity(adminCtx.Context, adminCtx.UserID, "translation.exchange.export.created", "translation_exchange", map[string]any{
+		"row_count":      result.RowCount,
+		"resource_count": len(input.Filter.Resources),
+		"source_locale":  strings.TrimSpace(input.Filter.SourceLocale),
+		"target_locales": append([]string{}, input.Filter.TargetLocales...),
+	})
+
+	progress := map[string]any{
+		"total":     result.RowCount,
+		"processed": result.RowCount,
+		"succeeded": result.RowCount,
+		"failed":    0,
+	}
+	resultPayload := map[string]any{
+		"summary": map[string]any{
+			"row_count": result.RowCount,
+			"format":    strings.TrimSpace(result.Format),
+		},
+	}
+	b.jobs.Complete(job.ID, progress, resultPayload)
+	complete, _ := b.jobs.Get(job.ID)
+	return map[string]any{
+		"status": "accepted",
+		"job":    translationExchangeAsyncJobPayload(complete),
+	}, nil
+}
+
+func (b *translationExchangeBinding) importApplyAsync(adminCtx AdminContext, input TranslationImportApplyInput) (any, error) {
+	if b == nil || b.jobs == nil {
+		return nil, serviceNotConfiguredDomainError("translation exchange async jobs", map[string]any{
+			"component": "translation_exchange_binding",
+		})
+	}
+	totalRows := len(input.Rows)
+	job := b.jobs.Create("import.apply", translationExchangePermissionImportApply, adminCtx.UserID)
+	b.jobs.SetPollEndpoint(job.ID, b.jobStatusEndpoint(job.ID))
+	b.jobs.MarkRunning(job.ID, map[string]any{
+		"total":     totalRows,
+		"processed": 0,
+		"succeeded": 0,
+		"failed":    0,
+	})
+
+	result, err := b.executor.Apply(adminCtx.Context, input)
+	if err != nil {
+		b.jobs.Fail(job.ID, map[string]any{
+			"total":     totalRows,
+			"processed": 0,
+			"succeeded": 0,
+			"failed":    1,
+		}, err)
+		failed, _ := b.jobs.Get(job.ID)
+		return map[string]any{
+			"status": "accepted",
+			"job":    translationExchangeAsyncJobPayload(failed),
+		}, nil
+	}
+
+	b.admin.recordActivity(adminCtx.Context, adminCtx.UserID, "translation.exchange.import.applied", "translation_exchange", map[string]any{
+		"processed":            result.Summary.Processed,
+		"succeeded":            result.Summary.Succeeded,
+		"failed":               result.Summary.Failed,
+		"allow_create_missing": input.AllowCreateMissing,
+		"continue_on_error":    input.ContinueOnError,
+		"dry_run":              input.DryRun,
+	})
+	recordTranslationExchangeConflicts(b.admin, adminCtx, "apply", result.Results)
+
+	progress := map[string]any{
+		"total":     totalRows,
+		"processed": result.Summary.Processed,
+		"succeeded": result.Summary.Succeeded,
+		"failed":    result.Summary.Failed,
+	}
+	resultPayload := map[string]any{
+		"summary":   result.Summary,
+		"conflicts": translationExchangeConflictSummary(result.Results),
+	}
+	b.jobs.Complete(job.ID, progress, resultPayload)
+	complete, _ := b.jobs.Get(job.ID)
+	return map[string]any{
+		"status": "accepted",
+		"job":    translationExchangeAsyncJobPayload(complete),
+	}, nil
+}
+
+func (b *translationExchangeBinding) jobStatusEndpoint(id string) string {
+	if b == nil || b.admin == nil {
+		return ""
+	}
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return ""
+	}
+	adminAPIGroup := strings.TrimSpace(b.admin.AdminAPIGroup())
+	if adminAPIGroup == "" {
+		adminAPIGroup = "admin.api"
+	}
+	path := resolveURLWith(b.admin.URLs(), adminAPIGroup, "translations.jobs.id", map[string]any{"id": id}, nil)
+	if strings.TrimSpace(path) != "" {
+		return path
+	}
+	base := strings.TrimSuffix(adminAPIBasePath(b.admin), "/")
+	if base == "" {
+		return "/admin/api/translations/jobs/" + id
+	}
+	return base + "/translations/jobs/" + id
+}
+
+func parseTranslationExportInput(c router.Context) (TranslationExportInput, map[string]any, error) {
 	body, err := parseOptionalJSONMap(c.Body())
 	if err != nil {
-		return TranslationExportInput{}, err
+		return TranslationExportInput{}, nil, err
 	}
 	filterPayload := extractMap(body["filter"])
 	if len(filterPayload) == 0 {
@@ -231,13 +411,17 @@ func parseTranslationExportInput(c router.Context) (TranslationExportInput, erro
 		Options:           extractMap(filterPayload["options"]),
 	}
 	if len(filter.Resources) == 0 {
-		return TranslationExportInput{}, TranslationExchangeInvalidPayloadError{
+		return TranslationExportInput{}, nil, TranslationExchangeInvalidPayloadError{
 			Message: "resources required",
 			Field:   "resources",
 			Format:  "json",
 		}
 	}
-	return TranslationExportInput{Filter: filter}, nil
+	return TranslationExportInput{Filter: filter}, body, nil
+}
+
+func translationExchangeAsyncRequested(c router.Context, payload map[string]any) bool {
+	return toBool(payload["async"]) || toBool(c.Query("async"))
 }
 
 func parseTranslationImportRows(c router.Context, requireTranslatedText bool) ([]TranslationExchangeRow, map[string]any, string, error) {

@@ -88,6 +88,7 @@ func (r *TranslationExchangeResult) Add(row TranslationExchangeRowResult) {
 	if r == nil {
 		return
 	}
+	row.Status = normalizeTranslationExchangeRowStatus(row.Status)
 	r.Results = append(r.Results, row)
 	r.Summary.Processed++
 	switch row.Status {
