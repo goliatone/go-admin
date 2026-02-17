@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -18,12 +19,19 @@ const translationCapabilitiesSchemaVersionCurrent = 1
 // - panels
 // - resolver_keys
 // - warnings
+// - contracts
 func TranslationCapabilities(adm *Admin) map[string]any {
+	return TranslationCapabilitiesForContext(adm, nil)
+}
+
+// TranslationCapabilitiesForContext returns a translation capability snapshot
+// with request-scoped permission states when context is available.
+func TranslationCapabilitiesForContext(adm *Admin, reqCtx context.Context) map[string]any {
 	if adm == nil {
 		return map[string]any{}
 	}
 
-	modules := translationCapabilityModules(adm)
+	modules := translationCapabilityModules(adm, reqCtx)
 	features := translationCapabilityFeatures(adm)
 	routes, resolverKeys := translationCapabilityRoutes(adm)
 	panels := translationCapabilityPanels(adm)
@@ -31,31 +39,126 @@ func TranslationCapabilities(adm *Admin) map[string]any {
 	cmsEnabled := translationCapabilityFeatureEnabled(features, "cms")
 	exchangeEnabled := translationCapabilityModuleEnabled(modules, "exchange")
 	queueEnabled := translationCapabilityModuleEnabled(modules, "queue")
+	profile := inferTranslationCapabilityProfile(cmsEnabled, exchangeEnabled, queueEnabled)
 
 	return map[string]any{
-		"profile":        inferTranslationCapabilityProfile(cmsEnabled, exchangeEnabled, queueEnabled),
-		"schema_version": translationCapabilitiesSchemaVersionCurrent,
-		"modules":        modules,
-		"features":       features,
-		"routes":         routes,
-		"panels":         panels,
-		"resolver_keys":  resolverKeys,
-		"warnings":       []string{},
+		"profile":            profile,
+		"capability_mode":    profile,
+		"supported_profiles": []string{"none", "core", "core+exchange", "core+queue", "full"},
+		"schema_version":     translationCapabilitiesSchemaVersionCurrent,
+		"modules":            modules,
+		"features":           features,
+		"routes":             routes,
+		"panels":             panels,
+		"resolver_keys":      resolverKeys,
+		"warnings":           []string{},
+		"contracts":          TranslationSharedContractsPayload(),
 	}
 }
 
-func translationCapabilityModules(adm *Admin) map[string]any {
+func translationCapabilityModules(adm *Admin, reqCtx context.Context) map[string]any {
 	if adm == nil {
 		return map[string]any{}
 	}
+	exchangeEnabled := featureEnabled(adm.featureGate, FeatureTranslationExchange)
+	queueEnabled := featureEnabled(adm.featureGate, FeatureTranslationQueue)
 	return map[string]any{
-		"exchange": map[string]any{
-			"enabled": featureEnabled(adm.featureGate, FeatureTranslationExchange),
-		},
-		"queue": map[string]any{
-			"enabled": featureEnabled(adm.featureGate, FeatureTranslationQueue),
-		},
+		"exchange": translationCapabilityModuleState(
+			adm,
+			reqCtx,
+			"translations",
+			exchangeEnabled,
+			PermAdminTranslationsImportView,
+			map[string]string{
+				"export":          PermAdminTranslationsExport,
+				"import.view":     PermAdminTranslationsImportView,
+				"import.validate": PermAdminTranslationsImportValidate,
+				"import.apply":    PermAdminTranslationsImportApply,
+			},
+		),
+		"queue": translationCapabilityModuleState(
+			adm,
+			reqCtx,
+			"translations",
+			queueEnabled,
+			PermAdminTranslationsView,
+			map[string]string{
+				"view":          PermAdminTranslationsView,
+				"claim":         PermAdminTranslationsClaim,
+				"assign":        PermAdminTranslationsAssign,
+				"release":       PermAdminTranslationsAssign,
+				"submit_review": PermAdminTranslationsEdit,
+				"approve":       PermAdminTranslationsApprove,
+				"reject":        PermAdminTranslationsApprove,
+				"archive":       PermAdminTranslationsManage,
+			},
+		),
 	}
+}
+
+func translationCapabilityModuleState(adm *Admin, reqCtx context.Context, resource string, enabled bool, entryPermission string, actionPermissions map[string]string) map[string]any {
+	resource = strings.TrimSpace(resource)
+	if resource == "" {
+		resource = "translations"
+	}
+	entryAllowed := translationCapabilityPermissionAllowed(adm, reqCtx, entryPermission, resource)
+	out := map[string]any{
+		"enabled": enabled,
+		"visible": enabled && entryAllowed,
+		"entry":   translationCapabilityActionState(enabled, entryAllowed, entryPermission),
+	}
+
+	actions := map[string]any{}
+	actionNames := make([]string, 0, len(actionPermissions))
+	for name := range actionPermissions {
+		actionNames = append(actionNames, strings.TrimSpace(name))
+	}
+	sort.Strings(actionNames)
+	for _, name := range actionNames {
+		if name == "" {
+			continue
+		}
+		permission := strings.TrimSpace(actionPermissions[name])
+		allowed := translationCapabilityPermissionAllowed(adm, reqCtx, permission, resource)
+		actions[name] = translationCapabilityActionState(enabled, allowed, permission)
+	}
+	out["actions"] = actions
+
+	return out
+}
+
+func translationCapabilityPermissionAllowed(adm *Admin, reqCtx context.Context, permission, resource string) bool {
+	if strings.TrimSpace(permission) == "" {
+		return true
+	}
+	if adm == nil || adm.authorizer == nil {
+		return true
+	}
+	if reqCtx == nil {
+		return true
+	}
+	return adm.authorizer.Can(reqCtx, strings.TrimSpace(permission), strings.TrimSpace(resource))
+}
+
+func translationCapabilityActionState(moduleEnabled, permissionAllowed bool, permission string) map[string]any {
+	out := map[string]any{
+		"enabled": moduleEnabled && permissionAllowed,
+	}
+	permission = strings.TrimSpace(permission)
+	if permission != "" {
+		out["permission"] = permission
+	}
+	if moduleEnabled && permissionAllowed {
+		return out
+	}
+	if !moduleEnabled {
+		out["reason"] = "module disabled by capability mode"
+		out["reason_code"] = ActionDisabledReasonCodeFeatureDisabled
+		return out
+	}
+	out["reason"] = "missing permission: " + permission
+	out["reason_code"] = ActionDisabledReasonCodePermissionDenied
+	return out
 }
 
 func translationCapabilityFeatures(adm *Admin) map[string]any {
@@ -97,6 +200,9 @@ func translationCapabilityRoutes(adm *Admin) (map[string]string, []string) {
 	register(adminGroup, "translations.exchange", "admin.translations.exchange")
 	register(adminAPIGroup, "translations.export", fmt.Sprintf("%s.%s", adminAPIGroup, "translations.export"))
 	register(adminAPIGroup, "translations.template", fmt.Sprintf("%s.%s", adminAPIGroup, "translations.template"))
+	register(adminAPIGroup, "translations.my_work", fmt.Sprintf("%s.%s", adminAPIGroup, "translations.my_work"))
+	register(adminAPIGroup, "translations.queue", fmt.Sprintf("%s.%s", adminAPIGroup, "translations.queue"))
+	register(adminAPIGroup, "translations.jobs.id", fmt.Sprintf("%s.%s", adminAPIGroup, "translations.jobs.id"))
 	register(adminAPIGroup, "translations.import.validate", fmt.Sprintf("%s.%s", adminAPIGroup, "translations.import.validate"))
 	register(adminAPIGroup, "translations.import.apply", fmt.Sprintf("%s.%s", adminAPIGroup, "translations.import.apply"))
 
