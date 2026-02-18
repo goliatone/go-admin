@@ -9,6 +9,7 @@ import (
 
 	"github.com/goliatone/go-admin/admin"
 	fggate "github.com/goliatone/go-featuregate/gate"
+	urlkit "github.com/goliatone/go-urlkit"
 )
 
 // ModuleRegistrarOption customizes module registration behavior.
@@ -17,6 +18,10 @@ type ModuleRegistrarOption func(*moduleRegistrarOptions)
 type moduleRegistrarOptions struct {
 	ctx                           context.Context
 	menuItems                     []admin.MenuItem
+	toolsMenuItems                []admin.MenuItem
+	sidebarUtilityMenuItems       []admin.MenuItem
+	defaultSidebarUtilityMenu     bool
+	sidebarUtilityMenuCode        string
 	seed                          bool
 	seedOpts                      SeedNavigationOptions
 	gates                         fggate.FeatureGate
@@ -34,9 +39,10 @@ type TranslationCapabilityMenuMode string
 
 const (
 	// TranslationCapabilityMenuModeNone keeps translation links out of server-seeded menus.
-	// Use this when the frontend renders translation entrypoints in a dedicated section.
+	// Use this when translation links are intentionally omitted from server-seeded navigation.
 	TranslationCapabilityMenuModeNone TranslationCapabilityMenuMode = "none"
-	// TranslationCapabilityMenuModeTools seeds translation links into the Tools group.
+	// TranslationCapabilityMenuModeTools seeds translation links into a dedicated Translations group.
+	// The name is retained for backward compatibility.
 	TranslationCapabilityMenuModeTools TranslationCapabilityMenuMode = "tools"
 )
 
@@ -59,6 +65,46 @@ func WithModuleMenuItems(items ...admin.MenuItem) ModuleRegistrarOption {
 			return
 		}
 		opts.menuItems = append(opts.menuItems, items...)
+	}
+}
+
+// WithToolsMenuItems appends menu items to the quickstart Tools group.
+func WithToolsMenuItems(items ...admin.MenuItem) ModuleRegistrarOption {
+	return func(opts *moduleRegistrarOptions) {
+		if opts == nil || len(items) == 0 {
+			return
+		}
+		opts.toolsMenuItems = append(opts.toolsMenuItems, items...)
+	}
+}
+
+// WithSidebarUtilityMenuItems appends utility links for the fixed sidebar utility zone.
+func WithSidebarUtilityMenuItems(items ...admin.MenuItem) ModuleRegistrarOption {
+	return func(opts *moduleRegistrarOptions) {
+		if opts == nil || len(items) == 0 {
+			return
+		}
+		opts.sidebarUtilityMenuItems = append(opts.sidebarUtilityMenuItems, items...)
+	}
+}
+
+// WithDefaultSidebarUtilityItems toggles quickstart-provided utility links.
+func WithDefaultSidebarUtilityItems(enabled bool) ModuleRegistrarOption {
+	return func(opts *moduleRegistrarOptions) {
+		if opts == nil {
+			return
+		}
+		opts.defaultSidebarUtilityMenu = enabled
+	}
+}
+
+// WithSidebarUtilityMenuCode overrides the menu code used for utility links.
+func WithSidebarUtilityMenuCode(menuCode string) ModuleRegistrarOption {
+	return func(opts *moduleRegistrarOptions) {
+		if opts == nil {
+			return
+		}
+		opts.sidebarUtilityMenuCode = admin.NormalizeMenuSlug(menuCode)
 	}
 }
 
@@ -137,6 +183,7 @@ func NewModuleRegistrar(adm *admin.Admin, cfg admin.Config, modules []admin.Modu
 			MenuCode: menuCode,
 			Locale:   locale,
 		},
+		sidebarUtilityMenuCode:        admin.NormalizeMenuSlug(DefaultSidebarUtilityMenuCode),
 		translationCapabilityMenuMode: TranslationCapabilityMenuModeTools,
 	}
 	for _, opt := range opts {
@@ -180,15 +227,55 @@ func NewModuleRegistrar(adm *admin.Admin, cfg admin.Config, modules []admin.Modu
 	}
 
 	if options.seed && options.seedOpts.MenuSvc != nil {
-		baseItems := append([]admin.MenuItem{}, options.menuItems...)
-		if options.translationCapabilityMenuMode == TranslationCapabilityMenuModeTools {
-			baseItems = append(baseItems, translationCapabilityMenuItems(adm, cfg, menuCode, locale)...)
+		mainMenuCode := admin.NormalizeMenuSlug(strings.TrimSpace(options.seedOpts.MenuCode))
+		if mainMenuCode == "" {
+			mainMenuCode = admin.NormalizeMenuSlug(menuCode)
 		}
-		items := buildSeedMenuItems(menuCode, locale, ordered, baseItems)
-		options.seedOpts.Items = items
-		if err := SeedNavigation(options.ctx, options.seedOpts); err != nil {
+		if mainMenuCode == "" {
+			mainMenuCode = admin.NormalizeMenuSlug(DefaultNavMenuCode)
+		}
+		menuLocale := strings.TrimSpace(options.seedOpts.Locale)
+		if menuLocale == "" {
+			menuLocale = locale
+		}
+		if menuLocale == "" {
+			menuLocale = "en"
+		}
+
+		baseItems := append([]admin.MenuItem{}, options.menuItems...)
+		baseItems = append(baseItems, normalizeToolsMenuItems(options.toolsMenuItems, mainMenuCode, menuLocale)...)
+		if options.translationCapabilityMenuMode == TranslationCapabilityMenuModeTools {
+			baseItems = append(baseItems, translationCapabilityMenuItems(adm, cfg, mainMenuCode, menuLocale)...)
+		}
+
+		items := buildSeedMenuItems(mainMenuCode, menuLocale, ordered, baseItems)
+		primarySeedOpts := options.seedOpts
+		primarySeedOpts.MenuCode = mainMenuCode
+		primarySeedOpts.Locale = menuLocale
+		primarySeedOpts.Items = items
+		if err := SeedNavigation(options.ctx, primarySeedOpts); err != nil {
 			return err
 		}
+
+		utilityItems := append([]admin.MenuItem{}, options.sidebarUtilityMenuItems...)
+		if options.defaultSidebarUtilityMenu {
+			utilityItems = append(utilityItems, defaultSidebarUtilityMenuItems(adm, cfg, "", menuLocale)...)
+		}
+		utilityItems = dedupeMenuItems(utilityItems)
+		if len(utilityItems) > 0 {
+			utilityMenuCode := admin.NormalizeMenuSlug(strings.TrimSpace(options.sidebarUtilityMenuCode))
+			if utilityMenuCode == "" {
+				utilityMenuCode = DefaultPlacements(cfg).MenuCodeFor(SidebarPlacementUtility, DefaultSidebarUtilityMenuCode)
+			}
+			utilitySeedOpts := options.seedOpts
+			utilitySeedOpts.MenuCode = utilityMenuCode
+			utilitySeedOpts.Locale = menuLocale
+			utilitySeedOpts.Items = normalizeMenuItemsForMenu(utilityItems, utilityMenuCode, menuLocale)
+			if err := SeedNavigation(options.ctx, utilitySeedOpts); err != nil {
+				return err
+			}
+		}
+
 		if err := runMenuSeedHooks(options.ctx, adm, ordered); err != nil {
 			return err
 		}
@@ -422,16 +509,87 @@ func dedupeMenuItems(items []admin.MenuItem) []admin.MenuItem {
 	seen := map[string]bool{}
 	out := make([]admin.MenuItem, 0, len(items))
 	for _, item := range items {
-		id := strings.TrimSpace(item.ID)
-		if id == "" {
-			out = append(out, item)
+		keys := dedupeMenuItemKeys(item)
+		duplicate := false
+		for _, key := range keys {
+			if seen[key] {
+				duplicate = true
+				break
+			}
+		}
+		if duplicate {
 			continue
 		}
-		if seen[id] {
-			continue
+		for _, key := range keys {
+			seen[key] = true
 		}
-		seen[id] = true
 		out = append(out, item)
+	}
+	return out
+}
+
+func dedupeMenuItemKeys(item admin.MenuItem) []string {
+	keys := []string{}
+	if id := strings.TrimSpace(item.ID); id != "" {
+		keys = append(keys, "id:"+id)
+	}
+	if item.Target != nil {
+		if key, ok := item.Target["key"].(string); ok {
+			if key = strings.TrimSpace(key); key != "" {
+				keys = append(keys, "target:"+key)
+			}
+		}
+		if pathValue, ok := item.Target["path"].(string); ok {
+			if pathValue = strings.TrimSpace(pathValue); pathValue != "" {
+				keys = append(keys, "path:"+pathValue)
+			}
+		}
+	}
+	if len(keys) == 0 {
+		// Preserve previous behavior for entries with no explicit identity.
+		fallback := strings.TrimSpace(item.Type) + "|" + strings.TrimSpace(item.Label) + "|" +
+			strings.TrimSpace(item.LabelKey) + "|" + strings.TrimSpace(item.ParentID) + "|" + strings.TrimSpace(item.Menu)
+		if fallback == "||||" {
+			fallback = fmt.Sprintf("anon:%s", strings.TrimSpace(item.GroupTitle))
+		}
+		return []string{"anon:" + fallback}
+	}
+	return keys
+}
+
+func normalizeToolsMenuItems(items []admin.MenuItem, menuCode, locale string) []admin.MenuItem {
+	if len(items) == 0 {
+		return nil
+	}
+	out := make([]admin.MenuItem, 0, len(items))
+	for _, item := range items {
+		normalized := item
+		if strings.TrimSpace(normalized.ParentID) == "" {
+			normalized.ParentID = NavigationGroupToolsID
+		}
+		if strings.TrimSpace(normalized.Menu) == "" {
+			normalized.Menu = menuCode
+		}
+		if strings.TrimSpace(normalized.Locale) == "" {
+			normalized.Locale = locale
+		}
+		out = append(out, normalized)
+	}
+	return out
+}
+
+func normalizeMenuItemsForMenu(items []admin.MenuItem, menuCode, locale string) []admin.MenuItem {
+	if len(items) == 0 {
+		return nil
+	}
+	out := make([]admin.MenuItem, 0, len(items))
+	for _, item := range items {
+		normalized := item
+		normalized.Menu = menuCode
+		if strings.TrimSpace(normalized.Locale) == "" {
+			normalized.Locale = locale
+		}
+		out = append(out, normalized)
 	}
 	return out
 }
@@ -460,7 +618,7 @@ func translationCapabilityMenuItems(adm *admin.Admin, cfg admin.Config, menuCode
 
 	urls := adm.URLs()
 	basePath := resolveAdminBasePath(urls, cfg.BasePath)
-	parentID := "nav-group-others"
+	parentID := NavigationGroupTranslationsID
 	items := []admin.MenuItem{}
 
 	if queueEnabled {
@@ -535,6 +693,100 @@ func translationCapabilityMenuItems(adm *admin.Admin, cfg admin.Config, menuCode
 	}
 
 	return items
+}
+
+func defaultSidebarUtilityMenuItems(adm *admin.Admin, cfg admin.Config, menuCode, locale string) []admin.MenuItem {
+	menuCode = admin.NormalizeMenuSlug(strings.TrimSpace(menuCode))
+	if menuCode == "" {
+		menuCode = admin.NormalizeMenuSlug(DefaultSidebarUtilityMenuCode)
+	}
+	if strings.TrimSpace(locale) == "" {
+		locale = cfg.DefaultLocale
+	}
+	if strings.TrimSpace(locale) == "" {
+		locale = "en"
+	}
+	var urls urlkit.Resolver
+	if adm != nil {
+		urls = adm.URLs()
+	}
+	basePath := resolveAdminBasePath(urls, cfg.BasePath)
+	resolvePath := func(routeName string, fallbackSegments ...string) string {
+		pathValue := strings.TrimSpace(resolveRoutePath(urls, "admin", routeName))
+		if pathValue != "" {
+			return pathValue
+		}
+		if len(fallbackSegments) == 0 {
+			return ""
+		}
+		return prefixBasePath(basePath, path.Join(fallbackSegments...))
+	}
+	return []admin.MenuItem{
+		{
+			ID:       "utility.settings",
+			Type:     admin.MenuItemTypeItem,
+			Label:    "Settings",
+			LabelKey: "menu.settings",
+			Icon:     "settings",
+			Target: map[string]any{
+				"type": "url",
+				"path": resolvePath("settings", "settings"),
+				"name": "admin.settings",
+				"key":  "settings",
+			},
+			Position: intPtr(10),
+			Menu:     menuCode,
+			Locale:   locale,
+		},
+		{
+			ID:       "utility.preferences",
+			Type:     admin.MenuItemTypeItem,
+			Label:    "Preferences",
+			LabelKey: "menu.preferences",
+			Icon:     "user-circle",
+			Target: map[string]any{
+				"type": "url",
+				"path": resolvePath("preferences", "preferences"),
+				"name": "admin.preferences",
+				"key":  "preferences",
+			},
+			Position: intPtr(20),
+			Menu:     menuCode,
+			Locale:   locale,
+		},
+		{
+			ID:       "utility.profile",
+			Type:     admin.MenuItemTypeItem,
+			Label:    "Profile",
+			LabelKey: "menu.profile",
+			Icon:     "user",
+			Target: map[string]any{
+				"type": "url",
+				"path": resolvePath("profile", "profile"),
+				"name": "admin.profile",
+				"key":  "profile",
+			},
+			Position: intPtr(30),
+			Menu:     menuCode,
+			Locale:   locale,
+		},
+		{
+			ID:       "utility.help",
+			Type:     admin.MenuItemTypeItem,
+			Label:    "Help",
+			LabelKey: "menu.help",
+			Icon:     "question-mark",
+			Target: map[string]any{
+				"type": "url",
+				"path": resolvePath("help", "help"),
+				"name": "admin.help",
+				"key":  "help",
+			},
+			Position: intPtr(40),
+			Menu:     menuCode,
+			Locale:   locale,
+		},
+	}
 }
 
 func normalizeTranslationCapabilityMenuMode(mode TranslationCapabilityMenuMode) TranslationCapabilityMenuMode {
