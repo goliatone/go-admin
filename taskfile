@@ -93,6 +93,14 @@ function dev:test {
     go test ./...
 }
 
+function dev:test:verbose {
+    go test ./... -v -cms-test-logs
+}
+
+function dev:race {
+    go test ./... -race -count=1
+}
+
 function dev:cover {
     go test -coverprofile=coverage.out ./... && go tool cover -func coverage.out
 }
