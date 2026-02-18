@@ -260,7 +260,7 @@ export interface ServerColumnVisibilityConfig {
   basePath?: string;
   /** Full API base path (preferred when using versioned admin APIs) */
   apiBasePath?: string;
-  /** Base path for preferences API (default: '/api/preferences' unless basePath is provided) */
+  /** Full preferences collection endpoint (defaults to '/api/panels/preferences') */
   preferencesEndpoint?: string;
   /** localStorage key for local cache (default: '<resource>_datatable_columns') */
   localStorageKey?: string;
@@ -295,11 +295,11 @@ export class ServerColumnVisibilityBehavior extends DefaultColumnVisibilityBehav
     if (config.preferencesEndpoint) {
       this.preferencesEndpoint = config.preferencesEndpoint;
     } else if (apiBasePath) {
-      this.preferencesEndpoint = `${apiBasePath}/preferences`;
+      this.preferencesEndpoint = `${apiBasePath}/panels/preferences`;
     } else if (basePath) {
-      this.preferencesEndpoint = `${basePath}/api/preferences`;
+      this.preferencesEndpoint = `${basePath}/api/panels/preferences`;
     } else {
-      this.preferencesEndpoint = '/api/preferences';
+      this.preferencesEndpoint = '/api/panels/preferences';
     }
     this.syncDebounce = config.syncDebounce ?? 1000;
   }

@@ -76,7 +76,7 @@ export interface ServerColumnVisibilityConfig {
     basePath?: string;
     /** Full API base path (preferred when using versioned admin APIs) */
     apiBasePath?: string;
-    /** Base path for preferences API (default: '/api/preferences' unless basePath is provided) */
+    /** Full preferences collection endpoint (defaults to '/api/panels/preferences') */
     preferencesEndpoint?: string;
     /** localStorage key for local cache (default: '<resource>_datatable_columns') */
     localStorageKey?: string;

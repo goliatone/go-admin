@@ -84,4 +84,44 @@ document.addEventListener('DOMContentLoaded', () => {
       setExpanded(!isExpanded);
     });
   });
+
+  // Group collapse toggle (top-level menu groups like Navigation, Tools, Translations)
+  document.querySelectorAll('[data-group-toggle]').forEach((container) => {
+    const target = container.getAttribute('data-group-toggle');
+    if (!target) {
+      return;
+    }
+
+    const childrenContainer = container.querySelector(`[data-group="${target}"]`);
+    const toggleButton = container.querySelector('button');
+    if (!childrenContainer || !toggleButton) {
+      return;
+    }
+
+    const storageKey = `group-${target}-collapsed`;
+    const indicator = toggleButton.querySelector('.group-indicator');
+    const saved = localStorage.getItem(storageKey);
+
+    const setExpanded = (expanded) => {
+      container.setAttribute('data-expanded', expanded.toString());
+      childrenContainer.classList.toggle('expanded', expanded);
+      childrenContainer.classList.toggle('collapsed', !expanded);
+      if (indicator) {
+        indicator.classList.toggle('rotate-180', expanded);
+      }
+      localStorage.setItem(storageKey, (!expanded).toString());
+    };
+
+    if (saved === 'true') {
+      setExpanded(false);
+    } else if (container.getAttribute('data-expanded') === 'true') {
+      setExpanded(true);
+    }
+
+    toggleButton.addEventListener('click', (event) => {
+      event.preventDefault();
+      const isExpanded = container.getAttribute('data-expanded') === 'true';
+      setExpanded(!isExpanded);
+    });
+  });
 });

@@ -541,6 +541,7 @@ import { ImportModal } from '{{ base_path }}/assets/dist/components/import-modal
 // Template variables
 const basePath = '{{ base_path }}';
 const apiBasePath = '{{ api_base_path|default:"" }}';
+const preferencesAPIPath = '{{ preferences_api_path|default:"" }}';
 const actionBasePath = '{{ routes.index }}';
 const columns = {{ toJSON(columns)|safe }};
 const exportConfig = {{ toJSON(export_config)|safe }};
@@ -617,7 +618,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
   // Prefer server-backed preferences for cross-device persistence (falls back to local cache automatically).
   const apiRoot = apiBasePath || `${basePath}/api`;
-  const preferencesEndpoint = `${apiRoot}/preferences`;
+  const preferencesEndpoint = preferencesAPIPath || (apiBasePath ? `${apiBasePath}/panels/preferences` : `${basePath}/api/panels/preferences`);
   const columnVisibility = new ServerColumnVisibilityBehavior(columnFields, {
     resource: 'users',
     localStorageKey: 'users_datatable_columns',
