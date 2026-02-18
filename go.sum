@@ -150,8 +150,6 @@ github.com/goliatone/go-auth/adapters/featuregate v0.31.0 h1:ESPkmGxQGDIizP1m7OL
 github.com/goliatone/go-auth/adapters/featuregate v0.31.0/go.mod h1:Vq57Ew3CX+5mUGm1mssSZpoO2hhOO82n6pdwKfFCHPA=
 github.com/goliatone/go-cms v0.36.0 h1:Bi/SKFOqD7jdZR7/gfoa5MD1dNUZCvNjAdfLi7+kDAk=
 github.com/goliatone/go-cms v0.36.0/go.mod h1:U3i1dhjtxNp/DcSVzWkAVyKJa64nc8nXTNHiEeNt2+A=
-github.com/goliatone/go-command v0.13.0 h1:AQ8LHwkkt7BCDcAFdbkY/XAjnwGqBFPNfXSsWUfhh9g=
-github.com/goliatone/go-command v0.13.0/go.mod h1:E9/Yki61QfTWSdA4Mxh6XV+4ox84in0VSQz+ycVFr2E=
 github.com/goliatone/go-command v0.14.0 h1:9aU3vyfPIuEQDGWubs/cYsLeTz5wIBZf4lZ3D7lfGHI=
 github.com/goliatone/go-command v0.14.0/go.mod h1:E9/Yki61QfTWSdA4Mxh6XV+4ox84in0VSQz+ycVFr2E=
 github.com/goliatone/go-composite-fs v0.3.0 h1:dM/iD097b7FWyMVduGpS9HK3Swig7FVNUWfIUs/hp7o=
