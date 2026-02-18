@@ -121,26 +121,27 @@ func (p GoCMSTranslationPolicy) Validate(ctx context.Context, input TranslationP
 		RequiredFields:         cloneRequiredFields(req.RequiredFields),
 		RequiredFieldsStrategy: req.RequiredFieldsStrategy,
 	}
-	entity := strings.TrimSpace(input.effectiveEntity())
-	var missing []string
-	switch {
-	case strings.EqualFold(entity, pageWorkflowEntityType):
-		if p.Pages == nil {
-			return serviceNotConfiguredDomainError("page translation checker", map[string]any{
-				"component": "translation_policy",
-			})
+	checkers := translationPolicyCheckers(p)
+	if len(checkers) == 0 {
+		return serviceNotConfiguredDomainError("translation checker", map[string]any{
+			"component": "translation_policy",
+		})
+	}
+	var (
+		missing  []string
+		firstErr error
+	)
+	for _, checker := range checkers {
+		missing, err = checker.CheckTranslations(ctx, entityID, required, opts)
+		if err == nil {
+			break
 		}
-		missing, err = p.Pages.CheckTranslations(ctx, entityID, required, opts)
-	default:
-		if p.Content == nil {
-			return serviceNotConfiguredDomainError("content translation checker", map[string]any{
-				"component": "translation_policy",
-			})
+		if firstErr == nil {
+			firstErr = err
 		}
-		missing, err = p.Content.CheckTranslations(ctx, entityID, required, opts)
 	}
 	if err != nil {
-		return err
+		return firstErr
 	}
 	if len(missing) == 0 {
 		return nil
@@ -162,7 +163,10 @@ func (p GoCMSTranslationPolicy) Validate(ctx context.Context, input TranslationP
 	}
 }
 
-func normalizePolicyEntityKey(value string) string {
+// CanonicalPolicyEntityKey performs structural normalization for policy entities.
+// Semantic aliasing (for example singular/plural preferences) is resolved by
+// policy-level lookup code where configured entity keys are available.
+func CanonicalPolicyEntityKey(value string) string {
 	value = strings.TrimSpace(value)
 	if value == "" {
 		return ""
@@ -170,7 +174,28 @@ func normalizePolicyEntityKey(value string) string {
 	if idx := strings.Index(value, "@"); idx > 0 {
 		value = value[:idx]
 	}
-	return strings.TrimSpace(value)
+	normalized := strings.ToLower(strings.TrimSpace(value))
+	normalized = strings.ReplaceAll(normalized, "-", "_")
+	return normalized
+}
+
+func normalizePolicyEntityKey(value string) string {
+	return CanonicalPolicyEntityKey(value)
+}
+
+type translationPolicyChecker interface {
+	CheckTranslations(context.Context, uuid.UUID, []string, cmsinterfaces.TranslationCheckOptions) ([]string, error)
+}
+
+func translationPolicyCheckers(policy GoCMSTranslationPolicy) []translationPolicyChecker {
+	out := []translationPolicyChecker{}
+	if policy.Content != nil {
+		out = append(out, policy.Content)
+	}
+	if policy.Pages != nil {
+		out = append(out, policy.Pages)
+	}
+	return out
 }
 
 // ErrMissingTranslations marks translation policy failures due to missing locales.
