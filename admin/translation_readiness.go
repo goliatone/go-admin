@@ -24,6 +24,7 @@ type translationRequirementsProvider interface {
 type translationReadinessRequirementsCache struct {
 	valuesByKey             map[translationReadinessRequirementsCacheKey]translationReadinessRequirementsCacheValue
 	availableLocalesByGroup map[string][]string
+	policyEntityLookupByKey map[string]string
 }
 
 type translationReadinessRequirementsCacheKey struct {
@@ -60,6 +61,8 @@ func buildRecordTranslationReadinessWithCache(
 	if len(record) == 0 {
 		return nil
 	}
+	environment := translationReadinessEnvironment(ctx, filters)
+	environmentKey := strings.ToLower(strings.TrimSpace(environment))
 
 	requiredLocales := []string{}
 	requiredFields := map[string][]string{}
@@ -69,9 +72,9 @@ func buildRecordTranslationReadinessWithCache(
 	} else {
 		key := translationReadinessRequirementsCacheKey{
 			entityType:   strings.ToLower(strings.TrimSpace(panelName)),
-			policyEntity: translationReadinessPolicyEntityLookupKey(translationPolicyEntity(panelName, record)),
+			policyEntity: translationReadinessPolicyEntityLookupKeyCached(translationPolicyEntity(panelName, record), cache),
 			transition:   translationReadinessTransitionPublish,
-			environment:  strings.ToLower(strings.TrimSpace(translationReadinessEnvironment(ctx, filters))),
+			environment:  environmentKey,
 		}
 		if cache.valuesByKey == nil {
 			cache.valuesByKey = map[translationReadinessRequirementsCacheKey]translationReadinessRequirementsCacheValue{}
@@ -98,7 +101,6 @@ func buildRecordTranslationReadinessWithCache(
 	missingFields := translationReadinessMissingFields(record, requiredFields, availableLocales)
 	readinessState := translationReadinessState(missingLocales, missingFields)
 
-	environment := translationReadinessEnvironment(ctx, filters)
 	groupID := translationGroupIDFromRecord(record)
 	readyForPublish := readinessState == translationReadinessStateReady
 
@@ -248,6 +250,25 @@ func translationReadinessPolicyEntityLookupKey(value string) string {
 	return normalized
 }
 
+func translationReadinessPolicyEntityLookupKeyCached(value string, cache *translationReadinessRequirementsCache) string {
+	normalized := normalizePolicyEntityKey(value)
+	if normalized == "" {
+		return ""
+	}
+	if cache == nil {
+		return translationReadinessPolicyEntityLookupKey(normalized)
+	}
+	if cache.policyEntityLookupByKey == nil {
+		cache.policyEntityLookupByKey = map[string]string{}
+	}
+	if cached, ok := cache.policyEntityLookupByKey[normalized]; ok {
+		return cached
+	}
+	resolved := translationReadinessPolicyEntityLookupKey(normalized)
+	cache.policyEntityLookupByKey[normalized] = resolved
+	return resolved
+}
+
 func translationReadinessEnvironment(ctx context.Context, filters map[string]any) string {
 	env := environmentFromContext(ctx)
 	if len(filters) > 0 {
@@ -282,15 +303,23 @@ func translationReadinessAvailableLocales(record map[string]any) []string {
 }
 
 func translationReadinessAvailableLocalesWithBatch(record map[string]any, cache *translationReadinessRequirementsCache) []string {
-	locales := translationReadinessLocaleList(normalizedLocaleList(record["available_locales"]))
+	locales := []string(nil)
 	if cache != nil && len(cache.availableLocalesByGroup) > 0 {
 		if grouped := cache.availableLocalesByGroup[translationReadinessGroupKey(record)]; len(grouped) > 0 {
 			locales = append([]string{}, grouped...)
 		}
 	}
+	if len(locales) == 0 {
+		locales = translationReadinessLocaleList(normalizedLocaleList(record["available_locales"]))
+	}
 	recordLocale := strings.ToLower(strings.TrimSpace(toString(record["locale"])))
 	if recordLocale == "" {
 		return locales
+	}
+	for _, locale := range locales {
+		if locale == recordLocale {
+			return locales
+		}
 	}
 	locales = append(locales, recordLocale)
 	return translationReadinessLocaleList(locales)
@@ -347,23 +376,39 @@ func translationReadinessBatchAvailableLocales(records []map[string]any) map[str
 	if len(records) == 0 {
 		return nil
 	}
-	grouped := map[string][]string{}
+	grouped := map[string]map[string]struct{}{}
 	for _, record := range records {
 		key := translationReadinessGroupKey(record)
 		if key == "" {
 			continue
 		}
-		combined := append([]string{}, grouped[key]...)
-		combined = append(combined, normalizedLocaleList(record["available_locales"])...)
-		if locale := strings.TrimSpace(toString(record["locale"])); locale != "" {
-			combined = append(combined, locale)
+		if grouped[key] == nil {
+			grouped[key] = map[string]struct{}{}
 		}
-		grouped[key] = translationReadinessLocaleList(combined)
+		for _, locale := range normalizedLocaleList(record["available_locales"]) {
+			normalized := strings.ToLower(strings.TrimSpace(locale))
+			if normalized == "" {
+				continue
+			}
+			grouped[key][normalized] = struct{}{}
+		}
+		if locale := strings.TrimSpace(toString(record["locale"])); locale != "" {
+			grouped[key][strings.ToLower(locale)] = struct{}{}
+		}
 	}
 	if len(grouped) == 0 {
 		return nil
 	}
-	return grouped
+	out := make(map[string][]string, len(grouped))
+	for key, values := range grouped {
+		locales := make([]string, 0, len(values))
+		for locale := range values {
+			locales = append(locales, locale)
+		}
+		sort.Strings(locales)
+		out[key] = locales
+	}
+	return out
 }
 
 func translationReadinessMissingLocales(required, available []string) []string {
