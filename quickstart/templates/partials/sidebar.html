@@ -1,16 +1,24 @@
 <link rel="stylesheet" href="{{ asset_base_path }}/assets/sidebar.css">
 <aside id="sidebar" class="sidebar bg-sidebar-bg text-sidebar-text flex flex-col overflow-hidden" data-collapsed="false" style="width: var(--sidebar-width, 260px);">
-  <!-- Header: Logo -->
   <div class="sidebar-header flex items-center gap-2" style="padding: var(--sidebar-padding-y, 12px) var(--sidebar-padding-x, 12px);">
-    <a href="{{ base_path }}" class="flex items-center no-underline flex-1 min-w-0">
-      <img src="{{ asset_base_path }}/assets/logo.svg" alt="{{ title }}" class="sidebar-logo w-full h-auto" style="max-height: 32px;" />
+    <a href="{{ base_path }}" class="flex items-center no-underline flex-1 min-w-0 overflow-hidden">
+      <img src="{{ asset_base_path }}/assets/logo.svg" alt="{{ title }}" class="sidebar-logo" />
     </a>
     <button id="sidebar-toggle" class="sidebar-toggle-btn p-1.5 rounded hover:bg-sidebar-bg-hover flex-shrink-0" aria-label="Toggle sidebar">
       <i class="iconoir-menu text-lg text-sidebar-text-muted"></i>
     </button>
   </div>
 
-  <!-- Scrollable Main Navigation -->
+  <div class="sidebar-search-container px-3 pb-3">
+    <div class="relative">
+      <input type="text"
+             class="w-full h-9 pl-9 pr-12 bg-sidebar-bg-hover border border-sidebar-border rounded-lg text-sm text-sidebar-text placeholder-sidebar-text-muted focus:outline-none focus:border-sidebar-text-muted"
+             placeholder="Search">
+      <i class="iconoir-search absolute left-3 top-1/2 -translate-y-1/2 text-sidebar-text-muted text-base"></i>
+      <kbd class="absolute right-3 top-1/2 -translate-y-1/2">⌘K</kbd>
+    </div>
+  </div>
+
   <nav class="flex-1 overflow-y-auto" style="padding: 0 var(--sidebar-padding-x, 12px);">
     {% for item in nav_items %}
       {% if item.type == "separator" %}
@@ -26,11 +34,11 @@
             {% for child in item.children %}
               {% if child.has_children and child.collapsible %}
                 <div class="collapsible-menu-item mb-2" data-submenu-toggle="{{ child.id }}" data-expanded="{% if not child.collapsed %}true{% else %}false{% endif %}">
-                  <button class="nav-item w-full" style="height: var(--sidebar-item-height, 36px);">
+                  <button class="nav-item w-full text-left" style="height: var(--sidebar-item-height, 36px);">
                     {% if child.icon %}
                       {{ renderMenuIcon(child.icon)|safe }}
                     {% endif %}
-                    <span class="nav-text flex-1">{{ child.label }}</span>
+                    <span class="nav-text flex-1 text-left">{{ child.label }}</span>
                     <i class="iconoir-nav-arrow-down submenu-indicator text-xs transition-transform{% if not child.collapsed %} rotate-180{% endif %} flex-shrink-0"></i>
                   </button>
                   <div class="submenu space-y-0.5 mt-1 pl-8 {% if child.collapsed %}collapsed{% else %}expanded{% endif %}" data-submenu="{{ child.id }}">
@@ -57,11 +65,11 @@
         </div>
       {% elif item.children and item.collapsible %}
         <div class="collapsible-menu-item mb-2" data-submenu-toggle="{{ item.id }}" data-expanded="{% if not item.collapsed %}true{% else %}false{% endif %}">
-          <button class="nav-item w-full" style="height: var(--sidebar-item-height, 36px);">
+          <button class="nav-item w-full text-left" style="height: var(--sidebar-item-height, 36px);">
             {% if item.icon %}
               {{ renderMenuIcon(item.icon)|safe }}
             {% endif %}
-            <span class="nav-text flex-1">{{ item.label }}</span>
+            <span class="nav-text flex-1 text-left">{{ item.label }}</span>
             <i class="iconoir-nav-arrow-down submenu-indicator text-xs transition-transform{% if not item.collapsed %} rotate-180{% endif %} flex-shrink-0"></i>
           </button>
           <div class="submenu space-y-0.5 mt-1 pl-8 {% if item.collapsed %}collapsed{% else %}expanded{% endif %}" data-submenu="{{ item.id }}">
@@ -89,10 +97,39 @@
     {% endif %}
   </nav>
 
-  <!-- Fixed Bottom Section -->
+  {% if nav_utility_items and nav_utility_items|length > 0 %}
+    <nav class="sidebar-utility border-t border-sidebar-border px-3 py-3 space-y-0.5">
+      {% for item in nav_utility_items %}
+        {% if item.type == "group" %}
+          {% if item.group_title %}
+            <div class="px-3 py-1 text-[11px] font-medium uppercase tracking-wider text-sidebar-text-muted">{{ item.group_title }}</div>
+          {% endif %}
+          {% for child in item.children %}
+            <a href="{{ child.href|default:'#' }}" class="nav-item{% if child.active %} active{% endif %}" style="height: var(--sidebar-item-height, 36px);">
+              {% if child.icon %}
+                {{ renderMenuIcon(child.icon)|safe }}
+              {% endif %}
+              <span class="nav-text flex-1">{{ child.label }}</span>
+            </a>
+          {% endfor %}
+        {% else %}
+          <a href="{{ item.href|default:'#' }}" class="nav-item{% if item.active %} active{% endif %}" style="height: var(--sidebar-item-height, 36px);">
+            {% if item.icon %}
+              {{ renderMenuIcon(item.icon)|safe }}
+            {% endif %}
+            <span class="nav-text flex-1">{{ item.label }}</span>
+          </a>
+        {% endif %}
+      {% endfor %}
+    </nav>
+  {% endif %}
+
+  {% if nav_utility_items and nav_utility_items|length > 0 %}
+  <div class="sidebar-bottom" style="padding: var(--sidebar-padding-x, 12px);">
+  {% else %}
   <div class="sidebar-bottom border-t border-sidebar-border" style="padding: var(--sidebar-padding-x, 12px);">
-    <!-- User Profile -->
-    <div class="border-t border-sidebar-border pt-3 pb-3 relative">
+  {% endif %}
+    <div class="pt-3 pb-3 relative">
       <button id="user-menu-toggle" class="flex items-center gap-3 px-3 py-2.5 hover:bg-sidebar-bg-hover rounded-lg cursor-pointer transition-colors w-full text-left">
         <div class="relative flex-shrink-0">
           {% if session_user.avatar_url %}
@@ -115,9 +152,7 @@
         <i class="iconoir-nav-arrow-down flex-shrink-0 text-sidebar-text-muted text-sm sidebar-user-info transition-transform" id="user-menu-arrow"></i>
       </button>
 
-      <!-- User Dropdown Menu -->
       <div id="user-menu" class="hidden absolute bottom-full left-0 right-0 mb-2 bg-sidebar-bg border border-sidebar-border rounded-xl shadow-2xl overflow-hidden" style="margin-left: 12px; margin-right: 12px;">
-        <!-- User Header -->
         <div class="flex items-center gap-3 p-4 border-b border-sidebar-border">
           <div class="relative flex-shrink-0">
             {% if session_user.avatar_url %}
@@ -139,7 +174,6 @@
           </div>
         </div>
 
-        <!-- Danger Zone -->
         <div class="p-2">
           <a href="{{ base_path }}/logout" class="flex items-center gap-3 px-3 py-2.5 text-sidebar-text hover:bg-sidebar-bg-hover rounded-lg transition-colors">
             <i class="iconoir-log-out flex-shrink-0 text-sidebar-text-muted" style="font-size: 20px;"></i>
