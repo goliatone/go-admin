@@ -75,8 +75,6 @@ func defaultCMSWorkflowDefinitions() []WorkflowDefinition {
 			},
 		},
 	}
-	pagesWorkflow := contentWorkflow
-	pagesWorkflow.EntityType = "pages"
 
 	blockDefinitionsWorkflow := WorkflowDefinition{
 		EntityType:   "block_definitions",
@@ -130,7 +128,6 @@ func defaultCMSWorkflowDefinitions() []WorkflowDefinition {
 
 	return []WorkflowDefinition{
 		contentWorkflow,
-		pagesWorkflow,
 		blockDefinitionsWorkflow,
 		contentTypesWorkflow,
 	}
