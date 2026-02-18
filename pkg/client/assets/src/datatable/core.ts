@@ -1,230 +1,61 @@
 import type {
+  DataGridConfig,
+  DataGridURLStateConfig,
+  DataGridSelectors,
+  DataGridState,
+  ApiResponse,
+  DetailResponse,
   ColumnDefinition,
-  ColumnFilter,
-  SortColumn,
-  DataGridBehaviors
-} from './behaviors/types.js';
-import type { ActionButton, BulkActionConfig, ActionRenderMode } from './actions.js';
-import type { CellRenderer, CellRendererContext } from './renderers.js';
-import type { ToastNotifier } from '../toast/types.js';
-import type { ViewMode, GroupedData, GroupExpandMode } from './grouped-mode.js';
-import type {
   DataGridStateStore,
-  DataGridPersistedState,
-  DataGridShareState,
-  DataGridStateStoreConfig,
-} from './state-store.js';
+} from './core-types.js';
 import { ActionRenderer } from './actions.js';
 import { CellRendererRegistry } from './renderers.js';
 import { FallbackNotifier } from '../toast/toast-manager.js';
-import { extractErrorMessage } from '../toast/error-helpers.js';
-import { ColumnManager } from './column-manager.js';
 import { createDataGridStateStore } from './state-store.js';
 import {
-  transformToGroups,
-  hasBackendGroupedRows,
-  normalizeBackendGroupedRows,
-  extractBackendSummaries,
-  mergeBackendSummaries,
-  hasPersistedExpandState,
-  getPersistedExpandState,
   getPersistedExpandMode,
+  getPersistedExpandState,
   getPersistedViewMode,
-  parseViewMode,
-  decodeExpandedGroupsToken,
+  hasPersistedExpandState,
   normalizeExpandMode,
-  renderGroupHeaderRow,
-  renderGroupedEmptyState,
-  renderGroupedLoadingState,
-  renderGroupedErrorState,
-  getViewModeForViewport,
 } from './grouped-mode.js';
+import {
+  DATAGRID_DEFAULT_MAX_FILTERS_LENGTH,
+  DATAGRID_DEFAULT_MAX_URL_LENGTH,
+  DATAGRID_MANAGED_URL_KEYS,
+  DATAGRID_URL_KEY_EXPANDED_GROUPS,
+  DATAGRID_URL_KEY_FILTERS,
+  DATAGRID_URL_KEY_HIDDEN_COLUMNS,
+  DATAGRID_URL_KEY_PAGE,
+  DATAGRID_URL_KEY_PER_PAGE,
+  DATAGRID_URL_KEY_SEARCH,
+  DATAGRID_URL_KEY_SORT,
+  DATAGRID_URL_KEY_STATE,
+  DATAGRID_URL_KEY_VIEW_MODE,
+} from './core-constants.js';
+import * as stateOps from './core-state.js';
+import * as fetchOps from './core-fetch-query.js';
+import * as groupedOps from './core-grouped.js';
+import * as renderOps from './core-rendering.js';
+import * as lifecycleOps from './core-lifecycle.js';
+import * as columnOps from './core-columns.js';
 
-/**
- * DataGrid configuration
- */
-export interface DataGridConfig {
-  tableId: string;
-  apiEndpoint: string;
-  /**
-   * Optional base path for view/edit links (UI routes). Falls back to apiEndpoint.
-   */
-  actionBasePath?: string;
-  columns: ColumnDefinition[];
-  perPage?: number;
-  searchDelay?: number;
-  behaviors?: DataGridBehaviors;
-  selectors?: Partial<DataGridSelectors>;
+export type { DataGridConfig } from './core-types.js';
 
-  // Extension points
-  /**
-   * Custom row actions (overrides default view/edit/delete)
-   */
-  rowActions?: (record: any) => ActionButton[];
-  /**
-   * Custom bulk actions
-   */
-  bulkActions?: BulkActionConfig[];
-  /**
-   * Custom cell renderers (field name -> renderer function)
-   */
-  cellRenderers?: Record<string, CellRenderer>;
-  /**
-   * Custom row class provider
-   */
-  rowClassProvider?: (record: any) => string[];
-  /**
-   * Use default actions (view, edit, delete)
-   */
-  useDefaultActions?: boolean;
-  /**
-   * Action rendering mode: 'inline' (buttons) or 'dropdown' (menu)
-   */
-  actionRenderMode?: ActionRenderMode;
-  /**
-   * Toast notification handler (optional)
-   * If not provided, falls back to native alert/confirm
-   */
-  notifier?: ToastNotifier;
-  /**
-   * Panel identifier for state persistence (Phase 2 grouped mode)
-   */
-  panelId?: string;
-  /**
-   * Enable grouped mode support (Phase 2)
-   * When true, records can be grouped by translation_group_id
-   */
-  enableGroupedMode?: boolean;
-  /**
-   * Default view mode: 'flat', 'grouped', or 'matrix' (Phase 2)
-   */
-  defaultViewMode?: ViewMode;
-  /**
-   * Field to group by (default: translation_group_id)
-   */
-  groupByField?: string;
-  /**
-   * Optional state store implementation for heavy UI state and share tokens.
-   */
-  stateStore?: DataGridStateStore;
-  /**
-   * State store configuration when no explicit store instance is provided.
-   */
-  stateStoreConfig?: Omit<DataGridStateStoreConfig, 'key'>;
-  /**
-   * URL state synchronization tuning and limits.
-   */
-  urlState?: DataGridURLStateConfig;
-}
-
-export interface DataGridURLStateConfig {
-  /**
-   * Hard URL length budget. When exceeded, DataGrid falls back to state token.
-   */
-  maxURLLength?: number;
-  /**
-   * Maximum serialized `filters` payload length for URL sync.
-   */
-  maxFiltersLength?: number;
-  /**
-   * Enables `state=<token>` fallback when URL budget is exceeded.
-   */
-  enableStateToken?: boolean;
-}
-
-/**
- * DOM element selectors
- */
-interface DataGridSelectors {
-  table: string;
-  searchInput: string;
-  perPageSelect: string;
-  filterRow: string;
-  columnToggleBtn: string;
-  columnToggleMenu: string;
-  exportBtn: string;
-  exportMenu: string;
-  paginationContainer: string;
-  tableInfoStart: string;
-  tableInfoEnd: string;
-  tableInfoTotal: string;
-  selectAllCheckbox: string;
-  rowCheckboxes: string;
-  bulkActionsBar: string;
-  selectedCount: string;
-}
-
-/**
- * DataGrid state
- */
-interface DataGridState {
-  currentPage: number;
-  perPage: number;
-  totalRows: number;
-  search: string;
-  filters: ColumnFilter[];
-  sort: SortColumn[];
-  selectedRows: Set<string>;
-  hiddenColumns: Set<string>;
-  columnOrder: string[];  // Ordered list of column fields (Phase FE2)
-  // Phase 2: Grouped mode state
-  viewMode: ViewMode;
-  expandMode: GroupExpandMode;
-  groupedData: GroupedData | null;
-  expandedGroups: Set<string>;
-  hasPersistedExpandState: boolean;
-}
-
-/**
- * API response format (go-crud default)
- */
-interface ApiResponse<T = any> {
-  success?: boolean;
-  data?: T[];
-  records?: T[];
-  total?: number;
-  count?: number;
-  $meta?: {
-    count?: number;
-  };
-  schema?: Record<string, any>;
-  form?: Record<string, any>;
-}
-
-interface DetailResponse<T = any> {
-  data?: T;
-  schema?: Record<string, any>;
-  form?: Record<string, any>;
-}
-
-/**
- * DataGrid component
- * Behavior-agnostic data grid with pluggable behaviors
- */
 export class DataGrid {
-  private static readonly URL_KEY_SEARCH = 'search';
-  private static readonly URL_KEY_PAGE = 'page';
-  private static readonly URL_KEY_PER_PAGE = 'perPage';
-  private static readonly URL_KEY_FILTERS = 'filters';
-  private static readonly URL_KEY_SORT = 'sort';
-  private static readonly URL_KEY_STATE = 'state';
-  // Legacy URL keys (read + cleanup only)
-  private static readonly URL_KEY_HIDDEN_COLUMNS = 'hiddenColumns';
-  private static readonly URL_KEY_VIEW_MODE = 'view_mode';
-  private static readonly URL_KEY_EXPANDED_GROUPS = 'expanded_groups';
-  private static readonly MANAGED_URL_KEYS = [
-    DataGrid.URL_KEY_SEARCH,
-    DataGrid.URL_KEY_PAGE,
-    DataGrid.URL_KEY_PER_PAGE,
-    DataGrid.URL_KEY_FILTERS,
-    DataGrid.URL_KEY_SORT,
-    DataGrid.URL_KEY_STATE,
-    DataGrid.URL_KEY_HIDDEN_COLUMNS,
-    DataGrid.URL_KEY_VIEW_MODE,
-    DataGrid.URL_KEY_EXPANDED_GROUPS,
-  ];
-  private static readonly DEFAULT_MAX_URL_LENGTH = 1800;
-  private static readonly DEFAULT_MAX_FILTERS_LENGTH = 600;
+  private static readonly URL_KEY_SEARCH = DATAGRID_URL_KEY_SEARCH;
+  private static readonly URL_KEY_PAGE = DATAGRID_URL_KEY_PAGE;
+  private static readonly URL_KEY_PER_PAGE = DATAGRID_URL_KEY_PER_PAGE;
+  private static readonly URL_KEY_FILTERS = DATAGRID_URL_KEY_FILTERS;
+  private static readonly URL_KEY_SORT = DATAGRID_URL_KEY_SORT;
+  private static readonly URL_KEY_STATE = DATAGRID_URL_KEY_STATE;
+  private static readonly URL_KEY_HIDDEN_COLUMNS = DATAGRID_URL_KEY_HIDDEN_COLUMNS;
+  private static readonly URL_KEY_VIEW_MODE = DATAGRID_URL_KEY_VIEW_MODE;
+  private static readonly URL_KEY_EXPANDED_GROUPS = DATAGRID_URL_KEY_EXPANDED_GROUPS;
+  private static readonly MANAGED_URL_KEYS = DATAGRID_MANAGED_URL_KEYS;
+  private static readonly DEFAULT_MAX_URL_LENGTH = DATAGRID_DEFAULT_MAX_URL_LENGTH;
+  private static readonly DEFAULT_MAX_FILTERS_LENGTH = DATAGRID_DEFAULT_MAX_FILTERS_LENGTH;
+
   public config: DataGridConfig;
   public state: DataGridState;
   private selectors: DataGridSelectors;
@@ -237,8 +68,8 @@ export class DataGrid {
   private actionRenderer: ActionRenderer;
   private cellRendererRegistry: CellRendererRegistry;
   private recordsById: Record<string, any> = {};
-  private notifier: ToastNotifier;
-  private columnManager: ColumnManager | null = null;
+  private notifier: any;
+  private columnManager: any = null;
   private defaultColumns: ColumnDefinition[];
   private lastSchema: Record<string, any> | null = null;
   private lastForm: Record<string, any> | null = null;
@@ -252,10 +83,9 @@ export class DataGrid {
       perPage: 10,
       searchDelay: 300,
       behaviors: {},
-      ...config
+      ...config,
     };
 
-    // Initialize notifier (use provided or fallback to alert/confirm)
     this.notifier = config.notifier || new FallbackNotifier();
 
     this.selectors = {
@@ -275,7 +105,7 @@ export class DataGrid {
       rowCheckboxes: '.table-checkbox',
       bulkActionsBar: '#bulk-actions-bar',
       selectedCount: '#selected-count',
-      ...config.selectors
+      ...config.selectors,
     };
 
     const panelId = this.config.panelId || this.config.tableId;
@@ -287,14 +117,14 @@ export class DataGrid {
     const persistedState = this.stateStore.loadPersistedState();
     const validFields = new Set(this.config.columns.map((col) => col.field));
     const defaultHiddenColumns = new Set(
-      this.config.columns.filter(col => col.hidden).map(col => col.field)
+      this.config.columns.filter((col) => col.hidden).map((col) => col.field),
     );
     const hasPersistedHiddenColumns = !!persistedState && Array.isArray(persistedState.hiddenColumns);
     this.hasPersistedHiddenColumnState = hasPersistedHiddenColumns;
     const persistedHiddenColumns = new Set(
-      (persistedState?.hiddenColumns || []).filter((field) => validFields.has(field))
+      (persistedState?.hiddenColumns || []).filter((field) => validFields.has(field)),
     );
-    const defaultColumnOrder = this.config.columns.map(col => col.field);
+    const defaultColumnOrder = this.config.columns.map((col) => col.field);
     const hasPersistedColumnOrder = !!persistedState && Array.isArray(persistedState.columnOrder) && persistedState.columnOrder.length > 0;
     this.hasPersistedColumnOrderState = hasPersistedColumnOrder;
     const persistedColumnOrder = (persistedState?.columnOrder || []).filter((field) => validFields.has(field));
@@ -302,7 +132,6 @@ export class DataGrid {
       ? [...persistedColumnOrder, ...defaultColumnOrder.filter((field) => !persistedColumnOrder.includes(field))]
       : defaultColumnOrder;
 
-    // Backward compatibility: migrate existing grouped-mode localStorage state
     const legacyHasPersistedExpandState = this.config.enableGroupedMode
       ? hasPersistedExpandState(panelId)
       : false;
@@ -318,12 +147,12 @@ export class DataGrid {
 
     const persistedExpandMode = normalizeExpandMode(
       persistedState?.expandMode,
-      legacyExpandMode
+      legacyExpandMode,
     );
     const persistedExpandState = new Set(
       (persistedState?.expandedGroups || Array.from(legacyExpandedGroups))
         .map((groupId) => String(groupId).trim())
-        .filter(Boolean)
+        .filter(Boolean),
     );
     const hasPersistedGroupedExpandState = this.config.enableGroupedMode
       ? persistedState?.expandMode !== undefined || persistedExpandState.size > 0 || legacyHasPersistedExpandState
@@ -343,7 +172,6 @@ export class DataGrid {
       selectedRows: new Set(),
       hiddenColumns: hasPersistedHiddenColumns ? persistedHiddenColumns : defaultHiddenColumns,
       columnOrder: mergedColumnOrder,
-      // Phase 2: Grouped mode state
       viewMode: initialViewMode,
       expandMode: persistedExpandMode,
       groupedData: null,
@@ -351,29 +179,22 @@ export class DataGrid {
       hasPersistedExpandState: hasPersistedGroupedExpandState,
     };
 
-    // Initialize action renderer and cell renderer registry
     this.actionRenderer = new ActionRenderer({
-      mode: this.config.actionRenderMode || 'dropdown',  // Default to dropdown
+      mode: this.config.actionRenderMode || 'dropdown',
       actionBasePath: this.config.actionBasePath || this.config.apiEndpoint,
-      notifier: this.notifier  // Pass notifier to ActionRenderer
+      notifier: this.notifier,
     });
     this.cellRendererRegistry = new CellRendererRegistry();
 
-    // Register custom cell renderers if provided
     if (this.config.cellRenderers) {
       Object.entries(this.config.cellRenderers).forEach(([field, renderer]) => {
         this.cellRendererRegistry.register(field, renderer);
       });
     }
 
-    // Snapshot default columns for "Reset to Default" behavior.
-    // Keep a shallow copy so functions (renderers) remain intact.
-    this.defaultColumns = this.config.columns.map(col => ({ ...col }));
+    this.defaultColumns = this.config.columns.map((col) => ({ ...col }));
   }
 
-  /**
-   * Initialize the data grid
-   */
   init(): void {
     console.log('[DataGrid] Initializing with config:', this.config);
     this.tableEl = document.querySelector(this.selectors.table);
@@ -383,11 +204,6 @@ export class DataGrid {
     }
     console.log('[DataGrid] Table element found:', this.tableEl);
 
-    // Don't auto-inject bulk actions toolbar - we use a custom overlay in the template
-    // that's positioned at the bottom of the page
-    // The auto-injection creates duplicate IDs and conflicts with our custom overlay
-
-    // Restore state from URL before binding
     this.restoreStateFromURL();
 
     this.bindSearchInput();
@@ -401,10 +217,8 @@ export class DataGrid {
     this.bindBulkClearButton();
     this.bindDropdownToggles();
 
-    // Initial data load
     void this.refresh();
 
-    // Optional async hydrate from user-state backend.
     if (typeof this.stateStore.hydrate === 'function') {
       void this.stateStore.hydrate().then(() => {
         if (this.hasURLStateOverrides) {
@@ -425,2485 +239,321 @@ export class DataGrid {
   }
 
   private getURLStateConfig(): Required<DataGridURLStateConfig> {
-    const maxURLLength = Math.max(
-      256,
-      this.config.urlState?.maxURLLength || DataGrid.DEFAULT_MAX_URL_LENGTH
-    );
-    const maxFiltersLength = Math.max(
-      64,
-      this.config.urlState?.maxFiltersLength || DataGrid.DEFAULT_MAX_FILTERS_LENGTH
-    );
-    const enableStateToken = this.config.urlState?.enableStateToken !== false;
-    return {
-      maxURLLength,
-      maxFiltersLength,
-      enableStateToken,
-    };
+    return stateOps.getURLStateConfig(this);
   }
 
   private parseJSONArray(raw: string, label: string): unknown[] | null {
-    const normalized = String(raw || '').trim();
-    if (!normalized) {
-      return null;
-    }
-    try {
-      const parsed = JSON.parse(normalized) as unknown;
-      if (!Array.isArray(parsed)) {
-        console.warn(`[DataGrid] Invalid ${label} payload in URL (expected array)`);
-        return null;
-      }
-      return parsed;
-    } catch (error) {
-      console.warn(`[DataGrid] Failed to parse ${label} payload from URL:`, error);
-      return null;
-    }
+    return stateOps.parseJSONArray(this, raw, label);
   }
 
-  private applyPersistedStateSnapshot(
-    snapshot: DataGridPersistedState,
-    options: { merge?: boolean } = {}
-  ): void {
-    const merge = options.merge === true;
-    const validFields = new Set(this.config.columns.map((col) => col.field));
-
-    const persistedHidden = Array.isArray(snapshot.hiddenColumns)
-      ? new Set(
-        snapshot.hiddenColumns
-          .map((field) => String(field || '').trim())
-          .filter((field) => field.length > 0 && validFields.has(field))
-      )
-      : null;
-    if (persistedHidden) {
-      this.state.hiddenColumns = persistedHidden;
-      this.hasPersistedHiddenColumnState = true;
-    } else if (!merge) {
-      this.state.hiddenColumns = new Set(
-        this.config.columns.filter(col => col.hidden).map(col => col.field)
-      );
-      this.hasPersistedHiddenColumnState = false;
-    }
-
-    const persistedOrder = Array.isArray(snapshot.columnOrder)
-      ? snapshot.columnOrder
-        .map((field) => String(field || '').trim())
-        .filter((field) => field.length > 0 && validFields.has(field))
-      : null;
-    if (persistedOrder && persistedOrder.length > 0) {
-      const validOrder = this.mergeColumnOrder(persistedOrder);
-      this.state.columnOrder = validOrder;
-      this.hasPersistedColumnOrderState = true;
-      this.didRestoreColumnOrder = true;
-      const defaultOrder = this.defaultColumns.map(col => col.field);
-      this.shouldReorderDOMOnRestore = defaultOrder.join('|') !== validOrder.join('|');
-
-      const columnMap = new Map(this.config.columns.map(c => [c.field, c]));
-      this.config.columns = validOrder
-        .map(field => columnMap.get(field))
-        .filter((c): c is ColumnDefinition => c !== undefined);
-    } else if (!merge) {
-      this.state.columnOrder = this.config.columns.map(col => col.field);
-      this.hasPersistedColumnOrderState = false;
-      this.didRestoreColumnOrder = false;
-      this.shouldReorderDOMOnRestore = false;
-    }
-
-    if (!this.config.enableGroupedMode) {
-      return;
-    }
-
-    if (snapshot.viewMode) {
-      const parsed = parseViewMode(snapshot.viewMode);
-      if (parsed) {
-        this.state.viewMode = getViewModeForViewport(parsed);
-      }
-    }
-
-    this.state.expandMode = normalizeExpandMode(snapshot.expandMode, this.state.expandMode);
-
-    if (Array.isArray(snapshot.expandedGroups)) {
-      this.state.expandedGroups = new Set(
-        snapshot.expandedGroups
-          .map((groupId) => String(groupId || '').trim())
-          .filter(Boolean)
-      );
-      this.state.hasPersistedExpandState = true;
-    } else if (snapshot.expandMode !== undefined) {
-      this.state.hasPersistedExpandState = true;
-    }
+  private applyPersistedStateSnapshot(snapshot: any, options: { merge?: boolean } = {}): void {
+    stateOps.applyPersistedStateSnapshot(this, snapshot, options);
   }
 
-  private applyShareStateSnapshot(snapshot: DataGridShareState): void {
-    if (snapshot.persisted) {
-      this.applyPersistedStateSnapshot(snapshot.persisted, { merge: true });
-    }
-    if (typeof snapshot.search === 'string') {
-      this.state.search = snapshot.search;
-    }
-    if (typeof snapshot.page === 'number' && Number.isFinite(snapshot.page)) {
-      this.state.currentPage = Math.max(1, Math.trunc(snapshot.page));
-    }
-    if (typeof snapshot.perPage === 'number' && Number.isFinite(snapshot.perPage)) {
-      this.state.perPage = Math.max(1, Math.trunc(snapshot.perPage));
-    }
-    if (Array.isArray(snapshot.filters)) {
-      this.state.filters = snapshot.filters as ColumnFilter[];
-    }
-    if (Array.isArray(snapshot.sort)) {
-      this.state.sort = snapshot.sort as SortColumn[];
-    }
+  private applyShareStateSnapshot(snapshot: any): void {
+    stateOps.applyShareStateSnapshot(this, snapshot);
   }
 
-  private buildPersistedStateSnapshot(): DataGridPersistedState {
-    const persisted: DataGridPersistedState = {
-      version: 1,
-      hiddenColumns: Array.from(this.state.hiddenColumns),
-      columnOrder: [...this.state.columnOrder],
-      updatedAt: Date.now(),
-    };
-    if (this.config.enableGroupedMode) {
-      persisted.viewMode = this.state.viewMode;
-      persisted.expandMode = this.state.expandMode;
-      persisted.expandedGroups = Array.from(this.state.expandedGroups);
-    }
-    return persisted;
+  private buildPersistedStateSnapshot(): any {
+    return stateOps.buildPersistedStateSnapshot(this);
   }
 
-  private buildShareStateSnapshot(): DataGridShareState {
-    const shareState: DataGridShareState = {
-      version: 1,
-      search: this.state.search || undefined,
-      page: this.state.currentPage > 1 ? this.state.currentPage : undefined,
-      perPage: this.state.perPage !== (this.config.perPage || 10) ? this.state.perPage : undefined,
-      filters: this.state.filters.length > 0 ? [...this.state.filters] : undefined,
-      sort: this.state.sort.length > 0 ? [...this.state.sort] : undefined,
-      persisted: this.buildPersistedStateSnapshot(),
-      updatedAt: Date.now(),
-    };
-    return shareState;
+  private buildShareStateSnapshot(): any {
+    return stateOps.buildShareStateSnapshot(this);
   }
 
   private persistStateSnapshot(): void {
-    this.stateStore.savePersistedState(this.buildPersistedStateSnapshot());
+    stateOps.persistStateSnapshot(this);
   }
 
-  /**
-   * Restore DataGrid state from URL parameters
-   */
   private restoreStateFromURL(): void {
-    const params = new URLSearchParams(window.location.search);
-    this.didRestoreColumnOrder = false;
-    this.shouldReorderDOMOnRestore = false;
-    this.hasURLStateOverrides = DataGrid.MANAGED_URL_KEYS.some((key) => params.has(key));
-
-    // Resolve short share-state token first, then allow explicit URL params to override.
-    const stateToken = params.get(DataGrid.URL_KEY_STATE);
-    if (stateToken) {
-      const shared = this.stateStore.resolveShareState(stateToken);
-      if (shared) {
-        this.applyShareStateSnapshot(shared);
-      }
-    }
-
-    // Restore search
-    const search = params.get(DataGrid.URL_KEY_SEARCH);
-    if (search) {
-      this.state.search = search;
-      const searchInput = document.querySelector<HTMLInputElement>(this.selectors.searchInput);
-      if (searchInput) {
-        searchInput.value = search;
-      }
-    }
-
-    // Restore page
-    const page = params.get(DataGrid.URL_KEY_PAGE);
-    if (page) {
-      const parsedPage = parseInt(page, 10);
-      this.state.currentPage = Number.isNaN(parsedPage) ? 1 : Math.max(1, parsedPage);
-    }
-
-    // Restore perPage
-    const perPage = params.get(DataGrid.URL_KEY_PER_PAGE);
-    if (perPage) {
-      const parsedPerPage = parseInt(perPage, 10);
-      const fallbackPerPage = this.config.perPage || 10;
-      this.state.perPage = Number.isNaN(parsedPerPage)
-        ? fallbackPerPage
-        : Math.max(1, parsedPerPage);
-      const perPageSelect = document.querySelector<HTMLSelectElement>(this.selectors.perPageSelect);
-      if (perPageSelect) {
-        perPageSelect.value = String(this.state.perPage);
-      }
-    }
-
-    // Restore filters
-    const filtersParam = params.get(DataGrid.URL_KEY_FILTERS);
-    if (filtersParam) {
-      const parsed = this.parseJSONArray(filtersParam, 'filters');
-      if (parsed) {
-        this.state.filters = parsed as ColumnFilter[];
-      }
-    }
-
-    // Restore sort
-    const sortParam = params.get(DataGrid.URL_KEY_SORT);
-    if (sortParam) {
-      const parsed = this.parseJSONArray(sortParam, 'sort');
-      if (parsed) {
-        this.state.sort = parsed as SortColumn[];
-      }
-    }
-
-    // Restore grouped mode legacy URL state with precedence: URL > localStorage > defaults.
-    if (this.config.enableGroupedMode) {
-      const urlViewMode = parseViewMode(params.get(DataGrid.URL_KEY_VIEW_MODE));
-      if (urlViewMode) {
-        this.state.viewMode = getViewModeForViewport(urlViewMode);
-      }
-
-      if (params.has(DataGrid.URL_KEY_EXPANDED_GROUPS)) {
-        this.state.expandedGroups = decodeExpandedGroupsToken(
-          params.get(DataGrid.URL_KEY_EXPANDED_GROUPS)
-        );
-        this.state.expandMode = 'explicit';
-        this.state.hasPersistedExpandState = true;
-      }
-    }
-
-    // Restore legacy hidden columns URL state.
-    const hiddenColumnsParam = params.get(DataGrid.URL_KEY_HIDDEN_COLUMNS);
-    if (hiddenColumnsParam) {
-      const hiddenArray = this.parseJSONArray(hiddenColumnsParam, 'hidden columns');
-      if (hiddenArray) {
-        const validFields = new Set(this.config.columns.map(col => col.field));
-        this.state.hiddenColumns = new Set(
-          hiddenArray
-            .map((field) => (typeof field === 'string' ? field.trim() : ''))
-            .filter((field) => field.length > 0 && validFields.has(field))
-        );
-      }
-    } else if (!this.hasPersistedHiddenColumnState && this.config.behaviors?.columnVisibility) {
-      // Fallback to behavior-managed cache when no URL override exists.
-      const allColumnFields = this.config.columns.map(col => col.field);
-      const cachedHidden = this.config.behaviors.columnVisibility.loadHiddenColumnsFromCache(allColumnFields);
-      if (cachedHidden.size > 0) {
-        this.state.hiddenColumns = cachedHidden;
-      }
-    }
-
-    // Restore column order from behavior cache (preferences/state only).
-    if (!this.hasPersistedColumnOrderState && this.config.behaviors?.columnVisibility?.loadColumnOrderFromCache) {
-      const allColumnFields = this.config.columns.map(col => col.field);
-      const cachedOrder = this.config.behaviors.columnVisibility.loadColumnOrderFromCache(allColumnFields);
-      if (cachedOrder && cachedOrder.length > 0) {
-        const validOrder = this.mergeColumnOrder(cachedOrder);
-        this.state.columnOrder = validOrder;
-
-        this.didRestoreColumnOrder = true;
-        const defaultOrder = this.defaultColumns.map(col => col.field);
-        this.shouldReorderDOMOnRestore = defaultOrder.join('|') !== validOrder.join('|');
-
-        const columnMap = new Map(this.config.columns.map(c => [c.field, c]));
-        this.config.columns = validOrder
-          .map(field => columnMap.get(field))
-          .filter((c): c is ColumnDefinition => c !== undefined);
-      }
-    }
-
-    this.persistStateSnapshot();
-
-    console.log('[DataGrid] State restored from URL:', this.state);
-
-    // Apply restored state to UI after a short delay to ensure DOM is ready
-    setTimeout(() => {
-      this.applyRestoredState();
-    }, 0);
+    stateOps.restoreStateFromURL(this);
   }
 
-  /**
-   * Apply restored state to UI elements
-   */
   private applyRestoredState(): void {
-    const searchInput = document.querySelector<HTMLInputElement>(this.selectors.searchInput);
-    if (searchInput) {
-      searchInput.value = this.state.search;
-    }
-
-    const perPageSelect = document.querySelector<HTMLSelectElement>(this.selectors.perPageSelect);
-    if (perPageSelect) {
-      perPageSelect.value = String(this.state.perPage);
-    }
-
-    // Apply filter values to inputs
-    if (this.state.filters.length > 0) {
-      this.state.filters.forEach(filter => {
-        const input = document.querySelector<HTMLInputElement>(
-          `[data-filter-column="${filter.column}"]`
-        );
-        if (input) {
-          input.value = String(filter.value);
-        }
-      });
-    }
-
-    // Apply column order if restored from cache
-    // Note: This reorders header/filter rows in DOM to match state.columnOrder
-    if (this.didRestoreColumnOrder && this.shouldReorderDOMOnRestore) {
-      this.reorderTableColumns(this.state.columnOrder);
-    }
-
-    // Apply column visibility (always, even if all visible)
-    const visibleColumns = this.config.columns
-      .filter(col => !this.state.hiddenColumns.has(col.field))
-      .map(col => col.field);
-
-    this.updateColumnVisibility(visibleColumns, true); // Skip URL update during restoration
-
-    // Apply sort indicators
-    if (this.state.sort.length > 0) {
-      this.updateSortIndicators();
-    }
+    stateOps.applyRestoredState(this);
   }
 
-  /**
-   * Push current state to URL without reloading page
-   */
   private pushStateToURL(options: { replace?: boolean } = {}): void {
-    this.persistStateSnapshot();
-    const urlState = this.getURLStateConfig();
-    const params = new URLSearchParams(window.location.search);
-
-    // Reset keys managed by DataGrid while preserving unrelated query params.
-    for (const key of DataGrid.MANAGED_URL_KEYS) {
-      params.delete(key);
-    }
-
-    // Add search
-    if (this.state.search) {
-      params.set(DataGrid.URL_KEY_SEARCH, this.state.search);
-    }
-
-    // Add page (only if not page 1)
-    if (this.state.currentPage > 1) {
-      params.set(DataGrid.URL_KEY_PAGE, String(this.state.currentPage));
-    }
-
-    // Add perPage (only if different from default)
-    if (this.state.perPage !== (this.config.perPage || 10)) {
-      params.set(DataGrid.URL_KEY_PER_PAGE, String(this.state.perPage));
-    }
-
-    // Add filters (bounded to avoid oversized query strings).
-    let filtersTooLong = false;
-    if (this.state.filters.length > 0) {
-      const serializedFilters = JSON.stringify(this.state.filters);
-      if (serializedFilters.length <= urlState.maxFiltersLength) {
-        params.set(DataGrid.URL_KEY_FILTERS, serializedFilters);
-      } else {
-        filtersTooLong = true;
-      }
-    }
-
-    // Add sort
-    if (this.state.sort.length > 0) {
-      params.set(DataGrid.URL_KEY_SORT, JSON.stringify(this.state.sort));
-    }
-
-    // Keep view mode in URL (compact + shareable); heavy grouped state stays in state store.
-    if (this.config.enableGroupedMode) {
-      params.set(DataGrid.URL_KEY_VIEW_MODE, this.state.viewMode);
-    }
-
-    const buildURL = (value: URLSearchParams): string => value.toString()
-      ? `${window.location.pathname}?${value.toString()}`
-      : window.location.pathname;
-    let newURL = buildURL(params);
-
-    const exceedsBudget = newURL.length > urlState.maxURLLength;
-    if (urlState.enableStateToken && (filtersTooLong || exceedsBudget)) {
-      // Encode full query state as a short token and keep URL compact.
-      params.delete(DataGrid.URL_KEY_SEARCH);
-      params.delete(DataGrid.URL_KEY_PAGE);
-      params.delete(DataGrid.URL_KEY_PER_PAGE);
-      params.delete(DataGrid.URL_KEY_FILTERS);
-      params.delete(DataGrid.URL_KEY_SORT);
-
-      const token = this.stateStore.createShareState(this.buildShareStateSnapshot());
-      if (token) {
-        params.set(DataGrid.URL_KEY_STATE, token);
-        newURL = buildURL(params);
-      } else {
-        // Best-effort fallback when token creation fails.
-        newURL = buildURL(params);
-      }
-    }
-
-    if (options.replace) {
-      window.history.replaceState({}, '', newURL);
-    } else {
-      window.history.pushState({}, '', newURL);
-    }
-    console.log('[DataGrid] URL updated:', newURL);
+    stateOps.pushStateToURL(this, options);
   }
 
-  /**
-   * Public API: sync current grid state to the URL.
-   * Heavy UI state is persisted via the state store; URL keeps shareable query state.
-   */
   syncURL(): void {
     this.pushStateToURL();
   }
 
-  /**
-   * Refresh data from API
-   */
   async refresh(): Promise<void> {
-    console.log('[DataGrid] ===== refresh() CALLED =====');
-    console.log('[DataGrid] Current sort state:', JSON.stringify(this.state.sort));
-
-    if (this.abortController) {
-      this.abortController.abort();
-    }
-
-    this.abortController = new AbortController();
-
-    try {
-      const url = this.buildApiUrl();
-      const response = await fetch(url, {
-        signal: this.abortController.signal,
-        headers: {
-          'Accept': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        if (this.handleGroupedModeStatusFallback(response.status)) {
-          return;
-        }
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data: ApiResponse = await response.json();
-      console.log('[DataGrid] API Response:', data);
-      console.log('[DataGrid] API Response data array:', data.data);
-      console.log('[DataGrid] API Response total:', data.total, 'count:', data.count, '$meta:', data.$meta);
-      const items = data.data || data.records || [];
-      if (this.handleGroupedModePayloadFallback(items)) {
-        return;
-      }
-      this.lastSchema = data.schema || null;
-      this.lastForm = data.form || null;
-      const total = this.getResponseTotal(data);
-      if (this.normalizePagination(total)) {
-        return this.refresh();
-      }
-      console.log('[DataGrid] About to call renderData()...');
-      this.renderData(data);
-      console.log('[DataGrid] renderData() completed');
-      this.updatePaginationUI(data);
-      console.log('[DataGrid] ===== refresh() COMPLETED =====');
-    } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        console.log('[DataGrid] Request aborted');
-        return;
-      }
-      console.error('[DataGrid] Error fetching data:', error);
-      this.showError('Failed to load data');
-    }
+    return fetchOps.refresh(this);
   }
 
-  /**
-   * Build API URL with all query parameters
-   */
   buildApiUrl(): string {
-    const params = new URLSearchParams();
-    const queryParams = this.buildQueryParams();
-
-    Object.entries(queryParams).forEach(([key, value]) => {
-      if (value !== null && value !== undefined) {
-        params.append(key, String(value));
-      }
-    });
-
-    const url = `${this.config.apiEndpoint}?${params.toString()}`;
-    console.log(`[DataGrid] API URL: ${url}`);
-    return url;
+    return fetchOps.buildApiUrl(this);
   }
 
-  /**
-   * Build query string (for exports, etc.)
-   */
   buildQueryString(): string {
-    const params = new URLSearchParams();
-    const queryParams = this.buildQueryParams();
-
-    Object.entries(queryParams).forEach(([key, value]) => {
-      if (value !== null && value !== undefined) {
-        params.append(key, String(value));
-      }
-    });
-
-    return params.toString();
+    return fetchOps.buildQueryString(this);
   }
 
-  /**
-   * Build query parameters from state using behaviors
-   */
   private buildQueryParams(): Record<string, any> {
-    const params: Record<string, any> = {};
-
-    // Pagination
-    if (this.config.behaviors?.pagination) {
-      const paginationParams = this.config.behaviors.pagination.buildQuery(
-        this.state.currentPage,
-        this.state.perPage
-      );
-      Object.assign(params, paginationParams);
-    }
-
-    // Search
-    if (this.state.search && this.config.behaviors?.search) {
-      const searchParams = this.config.behaviors.search.buildQuery(this.state.search);
-      Object.assign(params, searchParams);
-    }
-
-    // Filters
-    if (this.state.filters.length > 0 && this.config.behaviors?.filter) {
-      const filterParams = this.config.behaviors.filter.buildFilters(this.state.filters);
-      Object.assign(params, filterParams);
-    }
-
-    // Sorting
-    if (this.state.sort.length > 0 && this.config.behaviors?.sort) {
-      const sortParams = this.config.behaviors.sort.buildQuery(this.state.sort);
-      Object.assign(params, sortParams);
-    }
-
-    // Grouping (Phase 2 / TX-058)
-    if (this.isGroupedViewActive()) {
-      params.group_by = this.config.groupByField || 'translation_group_id';
-    }
-
-    return params;
+    return fetchOps.buildQueryParams(this);
   }
 
   private getResponseTotal(data: ApiResponse): number | null {
-    if (data.total !== undefined && data.total !== null) return data.total;
-    if (data.$meta?.count !== undefined && data.$meta?.count !== null) return data.$meta.count;
-    if (data.count !== undefined && data.count !== null) return data.count;
-    return null;
+    return fetchOps.getResponseTotal(this, data);
   }
 
   private normalizePagination(total: number | null): boolean {
-    if (total === null) {
-      return false;
-    }
-
-    const nextPerPage = Math.max(1, this.state.perPage || this.config.perPage || 10);
-    const maxPage = Math.max(1, Math.ceil(total / nextPerPage));
-    let nextPage = this.state.currentPage;
-
-    if (total === 0) {
-      nextPage = 1;
-    } else if (nextPage > maxPage) {
-      nextPage = maxPage;
-    } else if (nextPage < 1) {
-      nextPage = 1;
-    }
-
-    const didCorrect = nextPerPage !== this.state.perPage || nextPage !== this.state.currentPage;
-    if (didCorrect) {
-      this.state.perPage = nextPerPage;
-      this.state.currentPage = nextPage;
-      this.pushStateToURL();
-    }
-
-    if (total === 0) {
-      return false;
-    }
-
-    return didCorrect;
+    return fetchOps.normalizePagination(this, total);
   }
 
-  /**
-   * Reset pagination to first page
-   */
   resetPagination(): void {
     this.state.currentPage = 1;
   }
 
-  /**
-   * Update column visibility
-   */
   updateColumnVisibility(visibleColumns: string[], skipURLUpdate: boolean = false): void {
-    if (!this.tableEl) return;
-
-    const visibleSet = new Set(visibleColumns);
-
-    // Update hidden columns state
-    this.state.hiddenColumns.clear();
-    this.config.columns.forEach(col => {
-      if (!visibleSet.has(col.field)) {
-        this.state.hiddenColumns.add(col.field);
-      }
-    });
-
-    // Update URL with new hidden columns state (unless during restoration)
-    if (!skipURLUpdate) {
-      this.pushStateToURL();
-    }
-
-    // Update header and filter row visibility
-    // Note: This selector matches both header row th[data-column] and filter row th[data-column]
-    // Filter row cells must have data-column attributes to stay aligned with headers
-    const headerCells = this.tableEl.querySelectorAll('thead th[data-column]');
-    headerCells.forEach((th) => {
-      const field = (th as HTMLElement).dataset.column;
-      if (field) {
-        (th as HTMLElement).style.display = visibleSet.has(field) ? '' : 'none';
-      }
-    });
-
-    // Update body cell visibility
-    const bodyCells = this.tableEl.querySelectorAll('tbody td[data-column]');
-    bodyCells.forEach((td) => {
-      const field = (td as HTMLElement).dataset.column;
-      if (field) {
-        (td as HTMLElement).style.display = visibleSet.has(field) ? '' : 'none';
-      }
-    });
-
-    // Sync checkbox state in column visibility menu
-    this.syncColumnVisibilityCheckboxes();
+    renderOps.updateColumnVisibility(this, visibleColumns, skipURLUpdate);
   }
 
-  /**
-   * Sync column visibility switches with current state
-   * Uses ColumnManager if available, falls back to direct DOM manipulation
-   */
   private syncColumnVisibilityCheckboxes(): void {
-    // Prefer ColumnManager if initialized
-    if (this.columnManager) {
-      this.columnManager.syncWithGridState();
-      return;
-    }
-
-    // Fallback to direct DOM manipulation for legacy checkboxes
-    const menu = document.querySelector(this.selectors.columnToggleMenu);
-    if (!menu) return;
-
-    this.config.columns.forEach(col => {
-      const checkbox = menu.querySelector<HTMLInputElement>(
-        `input[data-column="${col.field}"]`
-      );
-      if (checkbox) {
-        checkbox.checked = !this.state.hiddenColumns.has(col.field);
-      }
-    });
+    renderOps.syncColumnVisibilityCheckboxes(this);
   }
 
-  /**
-   * Render data into table
-   */
   private renderData(data: ApiResponse): void {
-    const tbody = this.tableEl?.querySelector('tbody');
-    if (!tbody) {
-      console.error('[DataGrid] tbody not found!');
-      return;
-    }
-
-    tbody.innerHTML = '';
-
-    const items = data.data || data.records || [];
-    console.log(`[DataGrid] renderData() called with ${items.length} items`);
-    console.log('[DataGrid] First 3 items:', items.slice(0, 3));
-    const total = this.getResponseTotal(data);
-    this.state.totalRows = total ?? items.length;
-
-    if (items.length === 0) {
-      // Use grouped empty state if in grouped mode
-      if (this.isGroupedViewActive()) {
-        tbody.innerHTML = renderGroupedEmptyState(this.config.columns.length);
-      } else {
-        tbody.innerHTML = `
-          <tr>
-            <td colspan="${this.config.columns.length + 2}" class="px-6 py-8 text-center text-gray-500">
-              No results found
-            </td>
-          </tr>
-        `;
-      }
-      return;
-    }
-
-    // Clear records by ID cache
-    this.recordsById = {};
-
-    // Phase 2: Check if grouped mode is enabled and active
-    if (this.isGroupedViewActive()) {
-      this.renderGroupedData(data, items, tbody);
-    } else {
-      // Flat mode rendering (original behavior)
-      this.renderFlatData(items, tbody);
-    }
-
-    // Apply column visibility to new body cells
-    // Note: config.columns is already in the correct order, but some may be hidden
-    if (this.state.hiddenColumns.size > 0) {
-      const bodyCells = tbody.querySelectorAll('td[data-column]');
-      bodyCells.forEach((td) => {
-        const field = (td as HTMLElement).dataset.column;
-        if (field && this.state.hiddenColumns.has(field)) {
-          (td as HTMLElement).style.display = 'none';
-        }
-      });
-    }
-
-    // Rebind selection after rendering
-    this.updateSelectionBindings();
+    renderOps.renderData(this, data);
   }
 
-  /**
-   * Render data in flat mode (original behavior)
-   */
   private renderFlatData(items: any[], tbody: HTMLElement): void {
-    items.forEach((item: any, index: number) => {
-      console.log(`[DataGrid] Rendering row ${index + 1}: id=${item.id}`);
-      if (item.id) {
-        this.recordsById[item.id] = item;
-      }
-      const row = this.createTableRow(item);
-      tbody.appendChild(row);
-    });
-
-    console.log(`[DataGrid] Finished appending ${items.length} rows to tbody`);
-    console.log(`[DataGrid] tbody.children.length =`, tbody.children.length);
+    renderOps.renderFlatData(this, items, tbody);
   }
 
-  /**
-   * Render data in grouped mode (Phase 2)
-   */
   private renderGroupedData(data: ApiResponse, items: any[], tbody: HTMLElement): void {
-    const groupByField = this.config.groupByField || 'translation_group_id';
-    const records = items.filter((item): item is Record<string, unknown> => {
-      return !!item && typeof item === 'object' && !Array.isArray(item);
-    });
-
-    // Prefer backend grouped payload when contract is available.
-    let groupedData = normalizeBackendGroupedRows(records, {
-      groupByField,
-      defaultExpanded: !this.state.hasPersistedExpandState,
-      expandMode: this.state.expandMode,
-      expandedGroups: this.state.expandedGroups,
-    });
-
-    // Fallback for legacy flat payloads (local grouping).
-    if (!groupedData) {
-      groupedData = transformToGroups(records, {
-        groupByField,
-        defaultExpanded: !this.state.hasPersistedExpandState,
-        expandMode: this.state.expandMode,
-        expandedGroups: this.state.expandedGroups,
-      });
-    }
-
-    // Merge backend summaries if available
-    const backendSummaries = extractBackendSummaries(data as Record<string, unknown>);
-    if (backendSummaries.size > 0) {
-      groupedData = mergeBackendSummaries(groupedData, backendSummaries);
-    }
-
-    // Store grouped data in state
-    this.state.groupedData = groupedData;
-
-    const colSpan = this.config.columns.length;
-
-    // Render grouped rows
-    for (const group of groupedData.groups) {
-      // Render group header row
-      const headerHtml = renderGroupHeaderRow(group, colSpan);
-      tbody.insertAdjacentHTML('beforeend', headerHtml);
-
-      // Get the header row and bind click handler
-      const headerRow = tbody.lastElementChild as HTMLElement;
-      if (headerRow) {
-        headerRow.addEventListener('click', () => this.toggleGroup(group.groupId));
-        headerRow.addEventListener('keydown', (e: KeyboardEvent) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            this.toggleGroup(group.groupId);
-          }
-        });
-      }
-
-      // Render child rows (collapsed groups keep rows hidden for fast toggle updates).
-      for (const record of group.records) {
-        if (record.id) {
-          this.recordsById[record.id as string] = record;
-        }
-        const row = this.createTableRow(record);
-        row.dataset.groupId = group.groupId;
-        row.classList.add('group-child-row');
-        if (!group.expanded) {
-          row.style.display = 'none';
-        }
-        tbody.appendChild(row);
-      }
-    }
-
-    // Render ungrouped rows (if any)
-    for (const record of groupedData.ungrouped) {
-      if (record.id) {
-        this.recordsById[record.id as string] = record;
-      }
-      const row = this.createTableRow(record);
-      tbody.appendChild(row);
-    }
-
-    console.log(`[DataGrid] Rendered ${groupedData.groups.length} groups, ${groupedData.ungrouped.length} ungrouped`);
+    groupedOps.renderGroupedData(this, data, items, tbody);
   }
 
-  /**
-   * Whether grouped or matrix view is currently active and enabled.
-   */
   private isGroupedViewActive(): boolean {
-    if (!this.config.enableGroupedMode) {
-      return false;
-    }
-    return this.state.viewMode === 'grouped' || this.state.viewMode === 'matrix';
+    return groupedOps.isGroupedViewActive(this);
   }
 
-  /**
-   * Fallback to flat mode when grouped pagination contract is unavailable.
-   */
   private fallbackGroupedMode(reason: string): void {
-    if (!this.isGroupedViewActive()) {
-      return;
-    }
-
-    this.state.viewMode = 'flat';
-    this.state.groupedData = null;
-    this.pushStateToURL({ replace: true });
-
-    this.notify(reason, 'warning');
-    void this.refresh();
+    groupedOps.fallbackGroupedMode(this, reason);
   }
 
-  /**
-   * Fallback on grouped mode request errors that indicate unsupported contract.
-   */
   private handleGroupedModeStatusFallback(status: number): boolean {
-    if (!this.isGroupedViewActive()) {
-      return false;
-    }
-    if (![400, 404, 405, 422].includes(status)) {
-      return false;
-    }
-    this.fallbackGroupedMode('Grouped pagination is not supported by this panel. Switched to flat view.');
-    return true;
+    return groupedOps.handleGroupedModeStatusFallback(this, status);
   }
 
-  /**
-   * Fallback when payload does not follow backend grouped-row contract.
-   */
   private handleGroupedModePayloadFallback(items: unknown[]): boolean {
-    if (!this.isGroupedViewActive() || items.length === 0) {
-      return false;
-    }
-
-    const records = items.filter((item): item is Record<string, unknown> => {
-      return !!item && typeof item === 'object' && !Array.isArray(item);
-    });
-    if (records.length !== items.length || !hasBackendGroupedRows(records)) {
-      this.fallbackGroupedMode('Grouped pagination contract is unavailable. Switched to flat view to avoid split groups.');
-      return true;
-    }
-    return false;
+    return groupedOps.handleGroupedModePayloadFallback(this, items);
   }
 
-  /**
-   * Toggle group expand/collapse state (Phase 2)
-   */
   toggleGroup(groupId: string): void {
-    if (!this.state.groupedData) return;
-    const normalizedGroupID = String(groupId || '').trim();
-    if (!normalizedGroupID) return;
-    const currentlyExpanded = this.isGroupExpandedByState(normalizedGroupID, !this.state.hasPersistedExpandState);
-
-    if (this.state.expandMode === 'all') {
-      if (currentlyExpanded) {
-        this.state.expandedGroups.add(normalizedGroupID);
-      } else {
-        this.state.expandedGroups.delete(normalizedGroupID);
-      }
-    } else if (this.state.expandMode === 'none') {
-      if (currentlyExpanded) {
-        this.state.expandedGroups.delete(normalizedGroupID);
-      } else {
-        this.state.expandedGroups.add(normalizedGroupID);
-      }
-    } else {
-      // When default-expanded and no explicit state exists yet, seed with all groups first.
-      if (!this.state.hasPersistedExpandState && this.state.expandedGroups.size === 0) {
-        this.state.expandedGroups = new Set(this.state.groupedData.groups.map((group) => group.groupId));
-      }
-      if (this.state.expandedGroups.has(normalizedGroupID)) {
-        this.state.expandedGroups.delete(normalizedGroupID);
-      } else {
-        this.state.expandedGroups.add(normalizedGroupID);
-      }
-    }
-
-    this.state.hasPersistedExpandState = true;
-
-    // Update the group's expanded state
-    const group = this.state.groupedData.groups.find(g => g.groupId === normalizedGroupID);
-    if (group) {
-      group.expanded = this.isGroupExpandedByState(normalizedGroupID);
-    }
-
-    // Re-render the affected group (toggle child row visibility)
-    this.updateGroupVisibility(normalizedGroupID);
-    this.pushStateToURL({ replace: true });
+    groupedOps.toggleGroup(this, groupId);
   }
 
-  /**
-   * Set explicit expanded group IDs and switch expand mode to explicit.
-   */
   setExpandedGroups(groupIDs: string[]): void {
-    if (!this.config.enableGroupedMode) {
-      return;
-    }
-    const next = new Set(
-      (groupIDs || [])
-        .map((value) => String(value || '').trim())
-        .filter(Boolean)
-    );
-    this.state.expandMode = 'explicit';
-    this.state.expandedGroups = next;
-    this.state.hasPersistedExpandState = true;
-    this.updateGroupedRowsFromState();
-    this.pushStateToURL({ replace: true });
-    if (!this.state.groupedData && this.isGroupedViewActive()) {
-      void this.refresh();
-    }
+    groupedOps.setExpandedGroups(this, groupIDs);
   }
 
-  /**
-   * Expand all groups using compact mode semantics.
-   */
   expandAllGroups(): void {
-    if (!this.config.enableGroupedMode) {
-      return;
-    }
-    this.state.expandMode = 'all';
-    this.state.expandedGroups.clear();
-    this.state.hasPersistedExpandState = true;
-    this.updateGroupedRowsFromState();
-    this.pushStateToURL({ replace: true });
-    if (!this.state.groupedData && this.isGroupedViewActive()) {
-      void this.refresh();
-    }
+    groupedOps.expandAllGroups(this);
   }
 
-  /**
-   * Collapse all groups using compact mode semantics.
-   */
   collapseAllGroups(): void {
-    if (!this.config.enableGroupedMode) {
-      return;
-    }
-    this.state.expandMode = 'none';
-    this.state.expandedGroups.clear();
-    this.state.hasPersistedExpandState = true;
-    this.updateGroupedRowsFromState();
-    this.pushStateToURL({ replace: true });
-    if (!this.state.groupedData && this.isGroupedViewActive()) {
-      void this.refresh();
-    }
+    groupedOps.collapseAllGroups(this);
   }
 
-  /**
-   * Update visibility of child rows for a group
-   */
   private updateGroupVisibility(groupId: string): void {
-    const tbody = this.tableEl?.querySelector('tbody');
-    if (!tbody) return;
-
-    const headerRow = tbody.querySelector(`tr[data-group-id="${groupId}"]`) as HTMLElement;
-    if (!headerRow) return;
-
-    const isExpanded = this.isGroupExpandedByState(groupId);
-
-    // Update header row state
-    headerRow.dataset.expanded = String(isExpanded);
-    headerRow.setAttribute('aria-expanded', String(isExpanded));
-
-    // Update expand icon
-    const expandIcon = headerRow.querySelector('.expand-icon');
-    if (expandIcon) {
-      expandIcon.textContent = isExpanded ? '▼' : '▶';
-    }
-
-    // Toggle child rows visibility
-    const childRows = tbody.querySelectorAll<HTMLElement>(`tr.group-child-row[data-group-id="${groupId}"]`);
-    childRows.forEach(row => {
-      row.style.display = isExpanded ? '' : 'none';
-    });
+    groupedOps.updateGroupVisibility(this, groupId);
   }
 
   private updateGroupedRowsFromState(): void {
-    if (!this.state.groupedData) {
-      return;
-    }
-    for (const group of this.state.groupedData.groups) {
-      group.expanded = this.isGroupExpandedByState(group.groupId);
-      this.updateGroupVisibility(group.groupId);
-    }
+    groupedOps.updateGroupedRowsFromState(this);
   }
 
   private isGroupExpandedByState(groupId: string, defaultExpanded: boolean = false): boolean {
-    const mode = normalizeExpandMode(this.state.expandMode, 'explicit');
-    if (mode === 'all') {
-      return !this.state.expandedGroups.has(groupId);
-    }
-    if (mode === 'none') {
-      return this.state.expandedGroups.has(groupId);
-    }
-    if (this.state.expandedGroups.size === 0) {
-      return defaultExpanded;
-    }
-    return this.state.expandedGroups.has(groupId);
+    return groupedOps.isGroupExpandedByState(this, groupId, defaultExpanded);
   }
 
-  /**
-   * Set view mode (flat, grouped, matrix) - Phase 2
-   */
-  setViewMode(mode: ViewMode): void {
-    if (!this.config.enableGroupedMode) {
-      console.warn('[DataGrid] Grouped mode not enabled');
-      return;
-    }
-
-    // Apply viewport-specific adjustments
-    const effectiveMode = getViewModeForViewport(mode);
-
-    this.state.viewMode = effectiveMode;
-    if (effectiveMode === 'flat') {
-      this.state.groupedData = null;
-    }
-    this.pushStateToURL();
-
-    // Re-fetch data with new mode
-    void this.refresh();
+  setViewMode(mode: any): void {
+    groupedOps.setViewMode(this, mode);
   }
 
-  /**
-   * Get current view mode
-   */
-  getViewMode(): ViewMode {
-    return this.state.viewMode;
+  getViewMode(): any {
+    return groupedOps.getViewMode(this);
   }
 
-  /**
-   * Get grouped data (if available)
-   */
-  getGroupedData(): GroupedData | null {
-    return this.state.groupedData;
+  getGroupedData(): any {
+    return groupedOps.getGroupedData(this);
   }
 
-  /**
-   * Fetch a detail payload and unwrap the record from the `data` field.
-   */
   async fetchDetail(id: string): Promise<{ data: any; schema?: Record<string, any>; form?: Record<string, any>; tabs?: any[] }> {
-    const response = await fetch(`${this.config.apiEndpoint}/${id}`, {
-      headers: {
-        'Accept': 'application/json'
-      }
-    });
-    if (!response.ok) {
-      throw new Error(`Detail request failed: ${response.status}`);
-    }
-    const payload = await response.json();
-    const detail = this.normalizeDetailResponse(payload);
-    if (detail.schema) {
-      this.lastSchema = detail.schema;
-    }
-    if (detail.form) {
-      this.lastForm = detail.form;
-    }
-    return {
-      ...detail,
-      tabs: detail.schema?.tabs || [],
-    };
+    return fetchOps.fetchDetail(this, id);
   }
 
-  /**
-   * Access the most recent schema returned by the API (list or detail).
-   */
   getSchema(): Record<string, any> | null {
-    return this.lastSchema;
+    return fetchOps.getSchema(this);
   }
 
-  /**
-   * Access the most recent form returned by the API (list or detail).
-   */
   getForm(): Record<string, any> | null {
-    return this.lastForm;
+    return fetchOps.getForm(this);
   }
 
-  /**
-   * Access tabs from the most recent schema payload.
-   */
   getTabs(): any[] {
-    return this.lastSchema?.tabs || [];
+    return fetchOps.getTabs(this);
   }
 
   private normalizeDetailResponse(payload: any): { data: any; schema?: Record<string, any>; form?: Record<string, any> } {
-    if (payload && typeof payload === 'object' && 'data' in payload) {
-      const detail = payload as DetailResponse;
-      return {
-        data: detail.data,
-        schema: detail.schema,
-        form: detail.form,
-      };
-    }
-    return { data: payload };
+    return fetchOps.normalizeDetailResponse(this, payload);
   }
 
   private resolveRendererOptions(col: ColumnDefinition): Record<string, any> {
-    const options = col.rendererOptions ?? col.renderer_options;
-    if (!options || typeof options !== 'object' || Array.isArray(options)) {
-      return {};
-    }
-    return options;
+    return renderOps.resolveRendererOptions(this, col);
   }
 
-  /**
-   * Create table row element
-   */
   private createTableRow(item: any): HTMLTableRowElement {
-    const row = document.createElement('tr');
-
-    // Apply custom row classes if provider is configured
-    let rowClasses = ['hover:bg-gray-50'];
-    if (this.config.rowClassProvider) {
-      rowClasses = rowClasses.concat(this.config.rowClassProvider(item));
-    }
-    row.className = rowClasses.join(' ');
-
-    // Checkbox cell
-    const checkboxCell = document.createElement('td');
-    checkboxCell.className = 'px-6 py-4 whitespace-nowrap';
-    checkboxCell.dataset.role = 'selection';
-    checkboxCell.dataset.fixed = 'left';
-    checkboxCell.innerHTML = `
-      <label class="flex">
-        <input type="checkbox"
-               class="table-checkbox shrink-0 border-gray-300 rounded text-blue-600 focus:ring-blue-500"
-               data-id="${item.id}">
-        <span class="sr-only">Select</span>
-      </label>
-    `;
-    row.appendChild(checkboxCell);
-
-    // Data cells
-    this.config.columns.forEach((col) => {
-      const cell = document.createElement('td');
-      cell.className = 'px-6 py-4 whitespace-nowrap text-sm text-gray-800';
-      cell.setAttribute('data-column', col.field);
-
-      const value = item[col.field];
-      const rendererName = typeof col.renderer === 'string' ? col.renderer.trim() : '';
-      const rendererContext: CellRendererContext = {
-        options: this.resolveRendererOptions(col),
-      };
-
-      // Priority: column render > field renderer > named renderer > default renderer
-      if (col.render) {
-        cell.innerHTML = col.render(value, item);
-      } else if (this.cellRendererRegistry.has(col.field)) {
-        const renderer = this.cellRendererRegistry.get(col.field);
-        cell.innerHTML = renderer(value, item, col.field, rendererContext);
-      } else if (rendererName && this.cellRendererRegistry.has(rendererName)) {
-        const renderer = this.cellRendererRegistry.get(rendererName);
-        cell.innerHTML = renderer(value, item, col.field, rendererContext);
-      } else if (value === null || value === undefined) {
-        cell.textContent = '-';
-      } else if (col.field.includes('_at')) {
-        cell.textContent = new Date(value).toLocaleDateString();
-      } else {
-        cell.textContent = String(value);
-      }
-
-      row.appendChild(cell);
-    });
-
-    // Actions cell
-    const actionBase = this.config.actionBasePath || this.config.apiEndpoint;
-    const actionsCell = document.createElement('td');
-    actionsCell.className = 'px-6 py-4 whitespace-nowrap text-end text-sm font-medium';
-    actionsCell.dataset.role = 'actions';
-    actionsCell.dataset.fixed = 'right';
-
-    // Use custom row actions if provided, otherwise use default actions
-    if (this.config.rowActions) {
-      const actions = this.config.rowActions(item);
-      actionsCell.innerHTML = this.actionRenderer.renderRowActions(item, actions);
-
-      // Attach event listeners for each action button
-      actions.forEach(action => {
-        const actionId = this.sanitizeActionId(action.label);
-        const button = actionsCell.querySelector(`[data-action-id="${actionId}"]`);
-        if (action.disabled) {
-          return;
-        }
-        if (button) {
-          button.addEventListener('click', async (e) => {
-            e.preventDefault();
-            if ((button as HTMLButtonElement).disabled) {
-              return;
-            }
-            try {
-              await action.action(item);
-            } catch (error) {
-              console.error(`Action "${action.label}" failed:`, error);
-              const errorMsg = error instanceof Error ? error.message : `Action "${action.label}" failed`;
-              this.notify(errorMsg, 'error');
-            }
-          });
-        }
-      });
-    } else if (this.config.useDefaultActions !== false) {
-      // Default actions (view, edit, delete)
-      const defaultActions = [
-        {
-          label: 'View',
-          icon: 'eye',
-          action: () => { window.location.href = `${actionBase}/${item.id}`; },
-          variant: 'secondary' as const
-        },
-        {
-          label: 'Edit',
-          icon: 'edit',
-          action: () => { window.location.href = `${actionBase}/${item.id}/edit`; },
-          variant: 'primary' as const
-        },
-        {
-          label: 'Delete',
-          icon: 'trash',
-          action: async () => { await this.handleDelete(item.id); },
-          variant: 'danger' as const
-        }
-      ];
-
-      actionsCell.innerHTML = this.actionRenderer.renderRowActions(item, defaultActions);
-
-      // Attach event listeners for each default action
-      defaultActions.forEach(action => {
-        const actionId = this.sanitizeActionId(action.label);
-        const button = actionsCell.querySelector(`[data-action-id="${actionId}"]`);
-        if (button) {
-          button.addEventListener('click', async (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            if ((button as HTMLButtonElement).disabled) {
-              return;
-            }
-            try {
-              await action.action();
-            } catch (error) {
-              console.error(`Action "${action.label}" failed:`, error);
-              const errorMsg = error instanceof Error ? error.message : `Action "${action.label}" failed`;
-              this.notify(errorMsg, 'error');
-            }
-          });
-        }
-      });
-    }
-
-    row.appendChild(actionsCell);
-
-    return row;
+    return renderOps.createTableRow(this, item);
   }
 
-  /**
-   * Sanitize action label to create a valid ID
-   */
   private sanitizeActionId(label: string): string {
-    return label.toLowerCase().replace(/[^a-z0-9]/g, '-');
+    return renderOps.sanitizeActionId(this, label);
   }
 
-  /**
-   * Handle delete action
-   */
   private async handleDelete(id: string): Promise<void> {
-    const confirmed = await this.confirmAction('Are you sure you want to delete this item?');
-    if (!confirmed) {
-      return;
-    }
-
-    try {
-      const response = await fetch(`${this.config.apiEndpoint}/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Accept': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Delete failed');
-      }
-
-      await this.refresh();
-    } catch (error) {
-      console.error('Error deleting item:', error);
-      this.showError('Failed to delete item');
-    }
+    return renderOps.handleDelete(this, id);
   }
 
-  /**
-   * Update pagination UI
-   */
   private updatePaginationUI(data: ApiResponse): void {
-    const total = this.getResponseTotal(data) ?? this.state.totalRows;
-    const offset = this.state.perPage * (this.state.currentPage - 1);
-    const start = total === 0 ? 0 : offset + 1;
-    const end = Math.min(offset + this.state.perPage, total);
-
-    const startEl = document.querySelector(this.selectors.tableInfoStart);
-    const endEl = document.querySelector(this.selectors.tableInfoEnd);
-    const totalEl = document.querySelector(this.selectors.tableInfoTotal);
-
-    if (startEl) startEl.textContent = String(start);
-    if (endEl) endEl.textContent = String(end);
-    if (totalEl) totalEl.textContent = String(total);
-
-    this.renderPaginationButtons(total);
+    renderOps.updatePaginationUI(this, data);
   }
 
-  /**
-   * Render pagination buttons
-   */
   private renderPaginationButtons(total: number): void {
-    const container = document.querySelector(this.selectors.paginationContainer);
-    if (!container) return;
-
-    const totalPages = Math.ceil(total / this.state.perPage);
-    if (totalPages <= 1) {
-      container.innerHTML = '';
-      return;
-    }
-
-    const buttons: string[] = [];
-    const current = this.state.currentPage;
-
-    // Previous button
-    buttons.push(`
-      <button type="button"
-              data-page="${current - 1}"
-              ${current === 1 ? 'disabled' : ''}
-              class="min-h-[38px] min-w-[38px] py-2 px-2.5 inline-flex justify-center items-center gap-x-1.5 text-sm rounded-lg text-gray-800 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 disabled:opacity-50 disabled:pointer-events-none">
-        <svg class="shrink-0 size-3.5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="m15 18-6-6 6-6"></path>
-        </svg>
-        <span>Previous</span>
-      </button>
-    `);
-
-    // Page numbers
-    const maxButtons = 5;
-    let startPage = Math.max(1, current - Math.floor(maxButtons / 2));
-    let endPage = Math.min(totalPages, startPage + maxButtons - 1);
-
-    if (endPage - startPage < maxButtons - 1) {
-      startPage = Math.max(1, endPage - maxButtons + 1);
-    }
-
-    for (let i = startPage; i <= endPage; i++) {
-      const isActive = i === current;
-      buttons.push(`
-        <button type="button"
-                data-page="${i}"
-                class="min-h-[38px] min-w-[38px] flex justify-center items-center ${
-                  isActive
-                    ? 'bg-gray-200 text-gray-800 focus:outline-none focus:bg-gray-300'
-                    : 'text-gray-800 hover:bg-gray-100 focus:outline-none focus:bg-gray-100'
-                } py-2 px-3 text-sm rounded-lg">
-          ${i}
-        </button>
-      `);
-    }
-
-    // Next button
-    buttons.push(`
-      <button type="button"
-              data-page="${current + 1}"
-              ${current === totalPages ? 'disabled' : ''}
-              class="min-h-[38px] min-w-[38px] py-2 px-2.5 inline-flex justify-center items-center gap-x-1.5 text-sm rounded-lg text-gray-800 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 disabled:opacity-50 disabled:pointer-events-none">
-        <span>Next</span>
-        <svg class="shrink-0 size-3.5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="m9 18 6-6-6-6"></path>
-        </svg>
-      </button>
-    `);
-
-    container.innerHTML = buttons.join('');
-
-    // Bind click handlers
-    container.querySelectorAll('[data-page]').forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        const page = parseInt((btn as HTMLElement).dataset.page || '1', 10);
-        if (page >= 1 && page <= totalPages) {
-          this.state.currentPage = page;
-          this.pushStateToURL();
-          if (this.config.behaviors?.pagination) {
-            await this.config.behaviors.pagination.onPageChange(page, this);
-          } else {
-            await this.refresh();
-          }
-        }
-      });
-    });
+    renderOps.renderPaginationButtons(this, total);
   }
 
-  /**
-   * Bind search input
-   */
   private bindSearchInput(): void {
-    const input = document.querySelector<HTMLInputElement>(this.selectors.searchInput);
-    if (!input) {
-      console.warn(`[DataGrid] Search input not found: ${this.selectors.searchInput}`);
-      return;
-    }
-
-    console.log(`[DataGrid] Search input bound to: ${this.selectors.searchInput}`);
-
-    const clearBtn = document.getElementById('clear-search-btn');
-
-    // Toggle clear button visibility
-    const toggleClearBtn = () => {
-      if (clearBtn) {
-        if (input.value.trim()) {
-          clearBtn.classList.remove('hidden');
-        } else {
-          clearBtn.classList.add('hidden');
-        }
-      }
-    };
-
-    input.addEventListener('input', () => {
-      toggleClearBtn();
-
-      if (this.searchTimeout) {
-        clearTimeout(this.searchTimeout);
-      }
-
-      this.searchTimeout = window.setTimeout(async () => {
-        console.log(`[DataGrid] Search triggered: "${input.value}"`);
-        this.state.search = input.value;
-        this.pushStateToURL();
-        if (this.config.behaviors?.search) {
-          await this.config.behaviors.search.onSearch(input.value, this);
-        } else {
-          this.resetPagination();
-          await this.refresh();
-        }
-      }, this.config.searchDelay);
-    });
-
-    // Clear button handler
-    if (clearBtn) {
-      clearBtn.addEventListener('click', async () => {
-        input.value = '';
-        input.focus();
-        toggleClearBtn();
-
-        // Trigger search with empty value
-        this.state.search = '';
-        this.pushStateToURL();
-        if (this.config.behaviors?.search) {
-          await this.config.behaviors.search.onSearch('', this);
-        } else {
-          this.resetPagination();
-          await this.refresh();
-        }
-      });
-    }
-
-    // Initial toggle on page load
-    toggleClearBtn();
+    lifecycleOps.bindSearchInput(this);
   }
 
-  /**
-   * Bind per-page select
-   */
   private bindPerPageSelect(): void {
-    const select = document.querySelector<HTMLSelectElement>(this.selectors.perPageSelect);
-    if (!select) return;
-
-    select.addEventListener('change', async () => {
-      this.state.perPage = parseInt(select.value, 10);
-      this.resetPagination();
-      this.pushStateToURL();
-      await this.refresh();
-    });
+    lifecycleOps.bindPerPageSelect(this);
   }
 
-  /**
-   * Bind filter inputs
-   */
   private bindFilterInputs(): void {
-    const filterInputs = document.querySelectorAll<HTMLInputElement | HTMLSelectElement>(this.selectors.filterRow);
-
-    filterInputs.forEach((input) => {
-      // Handler function for both input and change events
-      const handleFilterChange = async () => {
-        const column = input.dataset.filterColumn;
-        const inputType = input instanceof HTMLInputElement ? input.type.toLowerCase() : '';
-        const inferredOperator = input instanceof HTMLSelectElement
-          ? 'eq'
-          : (inputType === '' || inputType === 'text' || inputType === 'search' || inputType === 'email' || inputType === 'tel' || inputType === 'url')
-            ? 'ilike'
-            : 'eq';
-        const operator = (input.dataset.filterOperator as any) || inferredOperator;
-        const value = input.value;
-
-        if (!column) return;
-
-        // Update filters state
-        const existingIndex = this.state.filters.findIndex(f => f.column === column);
-        if (value) {
-          const filter: ColumnFilter = { column, operator, value };
-          if (existingIndex >= 0) {
-            this.state.filters[existingIndex] = filter;
-          } else {
-            this.state.filters.push(filter);
-          }
-        } else {
-          // Remove filter if value is empty
-          if (existingIndex >= 0) {
-            this.state.filters.splice(existingIndex, 1);
-          }
-        }
-
-        this.pushStateToURL();
-        if (this.config.behaviors?.filter) {
-          await this.config.behaviors.filter.onFilterChange(column, value, this);
-        } else {
-          this.resetPagination();
-          await this.refresh();
-        }
-      };
-
-      // Bind both input (for text inputs) and change (for selects) events
-      input.addEventListener('input', handleFilterChange);
-      input.addEventListener('change', handleFilterChange);
-    });
+    lifecycleOps.bindFilterInputs(this);
   }
 
-  /**
-   * Bind column visibility toggle using ColumnManager
-   */
   private bindColumnVisibility(): void {
-    const toggleBtn = document.querySelector(this.selectors.columnToggleBtn);
-    const menu = document.querySelector<HTMLElement>(this.selectors.columnToggleMenu);
-
-    if (!toggleBtn || !menu) return;
-
-    // Initialize ColumnManager to render column items with switches and drag handles
-    this.columnManager = new ColumnManager({
-      container: menu,
-      grid: this,
-      onToggle: (field, visible) => {
-        console.log(`[DataGrid] Column ${field} visibility toggled to ${visible}`);
-      },
-      onReorder: (order) => {
-        console.log(`[DataGrid] Columns reordered:`, order);
-      }
-    });
+    lifecycleOps.bindColumnVisibility(this);
   }
 
-  /**
-   * Bind export buttons
-   */
   private bindExportButtons(): void {
-    const menu = document.querySelector(this.selectors.exportMenu);
-    if (!menu) return;
-
-    const exportButtons = menu.querySelectorAll<HTMLButtonElement>('[data-export-format]');
-
-    exportButtons.forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        const format = (btn as HTMLElement).dataset.exportFormat as 'csv' | 'json' | 'excel' | 'pdf';
-        if (!format || !this.config.behaviors?.export) return;
-
-        // Get concurrency mode (default to 'single')
-        const concurrency = this.config.behaviors.export.getConcurrency?.() || 'single';
-
-        // Determine which buttons to disable based on concurrency mode
-        const buttonsToDisable: HTMLButtonElement[] = [];
-        if (concurrency === 'single') {
-          // Disable all export buttons
-          exportButtons.forEach(b => buttonsToDisable.push(b));
-        } else if (concurrency === 'per-format') {
-          // Disable only the clicked button
-          buttonsToDisable.push(btn);
-        }
-        // 'none' mode: no buttons disabled, but clicked button still shows spinner
-
-        // Helper to toggle spinner visibility on a button
-        const showSpinner = (b: HTMLButtonElement) => {
-          const icon = b.querySelector('.export-icon');
-          const spinner = b.querySelector('.export-spinner');
-          if (icon) icon.classList.add('hidden');
-          if (spinner) spinner.classList.remove('hidden');
-        };
-
-        const hideSpinner = (b: HTMLButtonElement) => {
-          const icon = b.querySelector('.export-icon');
-          const spinner = b.querySelector('.export-spinner');
-          if (icon) icon.classList.remove('hidden');
-          if (spinner) spinner.classList.add('hidden');
-        };
-
-        // Apply loading state to buttons that should be disabled
-        buttonsToDisable.forEach(b => {
-          b.setAttribute('data-export-loading', 'true');
-          b.disabled = true;
-          showSpinner(b);
-        });
-
-        // For 'none' mode, still show spinner on clicked button (but don't disable)
-        const showSpinnerOnly = concurrency === 'none';
-        if (showSpinnerOnly) {
-          btn.setAttribute('data-export-loading', 'true');
-          showSpinner(btn);
-        }
-
-        try {
-          await this.config.behaviors.export.export(format, this);
-        } catch (error) {
-          // Error already handled by the export behavior (toast shown)
-          console.error('[DataGrid] Export failed:', error);
-        } finally {
-          // Clear loading state from disabled buttons
-          buttonsToDisable.forEach(b => {
-            b.removeAttribute('data-export-loading');
-            b.disabled = false;
-            hideSpinner(b);
-          });
-
-          // Clear spinner-only state for 'none' mode
-          if (showSpinnerOnly) {
-            btn.removeAttribute('data-export-loading');
-            hideSpinner(btn);
-          }
-        }
-      });
-    });
+    lifecycleOps.bindExportButtons(this);
   }
 
-  /**
-   * Bind table sorting
-   */
   private bindSorting(): void {
-    if (!this.tableEl) return;
-
-    // Bind new sort buttons ([data-sort-column])
-    const sortButtons = this.tableEl.querySelectorAll<HTMLButtonElement>('[data-sort-column]');
-
-    sortButtons.forEach((button) => {
-      button.addEventListener('click', async (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-
-        const field = button.dataset.sortColumn;
-        if (!field) return;
-
-        console.log(`[DataGrid] Sort button clicked for field: ${field}`);
-
-        // Triple-click cycle: none -> asc -> desc -> none -> asc -> ...
-        const existing = this.state.sort.find(s => s.field === field);
-        let direction: 'asc' | 'desc' | null = null;
-
-        if (existing) {
-          if (existing.direction === 'asc') {
-            // asc -> desc
-            direction = 'desc';
-            existing.direction = direction;
-          } else {
-            // desc -> none (clear sort)
-            this.state.sort = this.state.sort.filter(s => s.field !== field);
-            direction = null;
-            console.log(`[DataGrid] Sort cleared for field: ${field}`);
-          }
-        } else {
-          // none -> asc
-          direction = 'asc';
-          this.state.sort = [{ field, direction }];
-        }
-
-        console.log(`[DataGrid] New sort state:`, this.state.sort);
-
-        this.pushStateToURL();
-
-        if (direction !== null && this.config.behaviors?.sort) {
-          console.log('[DataGrid] Calling custom sort behavior');
-          await this.config.behaviors.sort.onSort(field, direction, this);
-        } else {
-          console.log('[DataGrid] Calling refresh() for sort');
-          await this.refresh();
-        }
-
-        // Update UI
-        console.log('[DataGrid] Updating sort indicators');
-        this.updateSortIndicators();
-      });
-    });
-
-    // Also bind legacy sortable headers ([data-sort])
-    const sortableHeaders = this.tableEl.querySelectorAll<HTMLElement>('[data-sort]');
-
-    sortableHeaders.forEach((header) => {
-      header.addEventListener('click', async () => {
-        const field = header.dataset.sort;
-        if (!field) return;
-
-        // Triple-click cycle: none -> asc -> desc -> none -> asc -> ...
-        const existing = this.state.sort.find(s => s.field === field);
-        let direction: 'asc' | 'desc' | null = null;
-
-        if (existing) {
-          if (existing.direction === 'asc') {
-            // asc -> desc
-            direction = 'desc';
-            existing.direction = direction;
-          } else {
-            // desc -> none (clear sort)
-            this.state.sort = this.state.sort.filter(s => s.field !== field);
-            direction = null;
-          }
-        } else {
-          // none -> asc
-          direction = 'asc';
-          this.state.sort = [{ field, direction }];
-        }
-
-        this.pushStateToURL();
-
-        if (direction !== null && this.config.behaviors?.sort) {
-          await this.config.behaviors.sort.onSort(field, direction, this);
-        } else {
-          await this.refresh();
-        }
-
-        // Update UI
-        this.updateSortIndicators();
-      });
-    });
+    lifecycleOps.bindSorting(this);
   }
 
-  /**
-   * Update sort indicators in table headers
-   */
   private updateSortIndicators(): void {
-    if (!this.tableEl) return;
-
-    // Handle both old [data-sort] and new [data-sort-column] buttons
-    const sortButtons = this.tableEl.querySelectorAll<HTMLButtonElement>('[data-sort-column]');
-
-    sortButtons.forEach((button) => {
-      const field = button.dataset.sortColumn;
-      if (!field) return;
-
-      const sorted = this.state.sort.find(s => s.field === field);
-      const svg = button.querySelector('svg');
-
-      if (svg) {
-        // Update button visibility and styling based on sort state
-        if (sorted) {
-          button.classList.remove('opacity-0');
-          button.classList.add('opacity-100');
-
-          // Update icon based on direction
-          if (sorted.direction === 'asc') {
-            // Show ascending arrow (up arrow only)
-            svg.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />';
-            svg.classList.add('text-blue-600');
-            svg.classList.remove('text-gray-400');
-          } else {
-            // Show descending arrow (down arrow only)
-            svg.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />';
-            svg.classList.add('text-blue-600');
-            svg.classList.remove('text-gray-400');
-          }
-        } else {
-          // Reset to default double arrow
-          svg.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />';
-          svg.classList.remove('text-blue-600');
-          svg.classList.add('text-gray-400');
-        }
-      }
-    });
-
-    // Also handle legacy [data-sort] headers with .sort-indicator
-    const headers = this.tableEl.querySelectorAll<HTMLElement>('[data-sort]');
-    headers.forEach((header) => {
-      const field = header.dataset.sort;
-      const sorted = this.state.sort.find(s => s.field === field);
-
-      const indicator = header.querySelector('.sort-indicator');
-      if (indicator) {
-        indicator.textContent = sorted ? (sorted.direction === 'asc' ? '↑' : '↓') : '';
-      }
-    });
+    lifecycleOps.updateSortIndicators(this);
   }
 
-  /**
-   * Bind selection checkboxes
-   */
   private bindSelection(): void {
-    const selectAll = document.querySelector<HTMLInputElement>(this.selectors.selectAllCheckbox);
-
-    if (selectAll) {
-      selectAll.addEventListener('change', () => {
-        const checkboxes = document.querySelectorAll<HTMLInputElement>(this.selectors.rowCheckboxes);
-        checkboxes.forEach((cb) => {
-          cb.checked = selectAll.checked;
-          const id = cb.dataset.id;
-          if (id) {
-            if (selectAll.checked) {
-              this.state.selectedRows.add(id);
-            } else {
-              this.state.selectedRows.delete(id);
-            }
-          }
-        });
-        this.updateBulkActionsBar();
-      });
-    }
-
-    this.updateSelectionBindings();
+    lifecycleOps.bindSelection(this);
   }
 
-  /**
-   * Update selection bindings after rendering
-   * This syncs checkbox states with the selectedRows Set
-   */
   private updateSelectionBindings(): void {
-    const checkboxes = document.querySelectorAll<HTMLInputElement>(this.selectors.rowCheckboxes);
-
-    checkboxes.forEach((cb) => {
-      const id = cb.dataset.id;
-
-      // Sync checkbox state with selectedRows Set
-      if (id) {
-        cb.checked = this.state.selectedRows.has(id);
-      }
-
-      // Remove old listeners to avoid duplicates (use once: true or track bound status in production)
-      cb.addEventListener('change', () => {
-        if (id) {
-          if (cb.checked) {
-            this.state.selectedRows.add(id);
-          } else {
-            this.state.selectedRows.delete(id);
-          }
-        }
-        this.updateBulkActionsBar();
-      });
-    });
+    lifecycleOps.updateSelectionBindings(this);
   }
 
-  /**
-   * Bind bulk action buttons
-   */
   private bindBulkActions(): void {
-    const overlay = document.getElementById('bulk-actions-overlay');
-    const bulkBase = overlay?.dataset?.bulkBase || '';
-    const bulkActionButtons = document.querySelectorAll('[data-bulk-action]');
-
-    bulkActionButtons.forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        const el = btn as HTMLElement;
-        const actionId = el.dataset.bulkAction;
-        if (!actionId) return;
-
-        const ids = Array.from(this.state.selectedRows);
-        if (ids.length === 0) {
-          this.notify('Please select items first', 'warning');
-          return;
-        }
-
-        // 1. Try config.bulkActions first (inline JS config)
-        if (this.config.bulkActions) {
-          const bulkActionConfig = this.config.bulkActions.find(ba => ba.id === actionId);
-          if (bulkActionConfig) {
-            try {
-              await this.actionRenderer.executeBulkAction(bulkActionConfig, ids);
-              this.state.selectedRows.clear();
-              this.updateBulkActionsBar();
-              await this.refresh();
-            } catch (error) {
-              console.error('Bulk action failed:', error);
-              this.showError('Bulk action failed');
-            }
-            return;
-          }
-        }
-
-        // 2. Try DOM data-driven config (from server-rendered data-bulk-* attributes)
-        if (bulkBase) {
-          const endpoint = `${bulkBase}/${actionId}`;
-          const confirmMsg = el.dataset.bulkConfirm;
-          const payloadRequired = this.parseDatasetStringArray(el.dataset.bulkPayloadRequired);
-          const payloadSchema = this.parseDatasetObject(el.dataset.bulkPayloadSchema);
-          const domConfig = {
-            id: actionId,
-            label: el.textContent?.trim() || actionId,
-            endpoint: endpoint,
-            confirm: confirmMsg,
-            payloadRequired: payloadRequired,
-            payloadSchema: payloadSchema,
-          };
-          try {
-            await this.actionRenderer.executeBulkAction(domConfig, ids);
-            this.state.selectedRows.clear();
-            this.updateBulkActionsBar();
-            await this.refresh();
-          } catch (error) {
-            console.error('Bulk action failed:', error);
-            this.showError('Bulk action failed');
-          }
-          return;
-        }
-
-        // 3. Fall back to behaviors.bulkActions (old system)
-        if (this.config.behaviors?.bulkActions) {
-          try {
-            await this.config.behaviors.bulkActions.execute(actionId, ids, this);
-            this.state.selectedRows.clear();
-            this.updateBulkActionsBar();
-          } catch (error) {
-            console.error('Bulk action failed:', error);
-            this.showError('Bulk action failed');
-          }
-        }
-      });
-    });
-
-    // Bind clear selection button
-    const clearBtn = document.getElementById('clear-selection-btn');
-    if (clearBtn) {
-      clearBtn.addEventListener('click', () => {
-        this.state.selectedRows.clear();
-        this.updateBulkActionsBar();
-        // Uncheck all checkboxes
-        const checkboxes = document.querySelectorAll<HTMLInputElement>('.table-checkbox');
-        checkboxes.forEach(cb => cb.checked = false);
-        const selectAll = document.querySelector<HTMLInputElement>(this.selectors.selectAllCheckbox);
-        if (selectAll) selectAll.checked = false;
-      });
-    }
-
-    // Bind overflow menu toggle
-    this.bindOverflowMenu();
+    lifecycleOps.bindBulkActions(this);
   }
 
-  /**
-   * Bind overflow menu toggle (three-dot "More" button)
-   */
   private bindOverflowMenu(): void {
-    const moreBtn = document.getElementById('bulk-more-btn');
-    const menu = document.getElementById('bulk-overflow-menu');
-    if (!moreBtn || !menu) return;
-
-    moreBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      menu.classList.toggle('hidden');
-    });
-
-    // Close on outside click
-    document.addEventListener('click', () => {
-      menu.classList.add('hidden');
-    });
-
-    // Close on Escape
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        menu.classList.add('hidden');
-      }
-    });
-
-    // Prevent menu clicks from closing the menu
-    menu.addEventListener('click', (e) => {
-      e.stopPropagation();
-    });
+    lifecycleOps.bindOverflowMenu(this);
   }
 
-  /**
-   * Update bulk actions bar visibility with animation
-   */
   private updateBulkActionsBar(): void {
-    const overlay = document.getElementById('bulk-actions-overlay');
-    const countEl = document.getElementById('selected-count');
-    const selectedCount = this.state.selectedRows.size;
-
-    console.log('[DataGrid] updateBulkActionsBar - overlay:', overlay, 'countEl:', countEl, 'count:', selectedCount);
-
-    if (!overlay || !countEl) {
-      console.error('[DataGrid] Missing bulk actions elements!');
-      return;
-    }
-
-    // Update count
-    countEl.textContent = String(selectedCount);
-
-    // Show/hide with animation
-    if (selectedCount > 0) {
-      overlay.classList.remove('hidden');
-      // Trigger reflow for animation
-      void overlay.offsetHeight;
-    } else {
-      overlay.classList.add('hidden');
-    }
+    lifecycleOps.updateBulkActionsBar(this);
   }
 
-  /**
-   * Bind clear selection button
-   */
   private bindBulkClearButton(): void {
-    const clearBtn = document.getElementById('bulk-clear-selection');
-    console.log('[DataGrid] Binding clear button:', clearBtn);
-    if (clearBtn) {
-      clearBtn.addEventListener('click', () => {
-        console.log('[DataGrid] Clear button clicked!');
-        this.clearSelection();
-      });
-    } else {
-      console.error('[DataGrid] Clear button not found!');
-    }
+    lifecycleOps.bindBulkClearButton(this);
   }
 
-  /**
-   * Clear all selections
-   */
   private clearSelection(): void {
-    console.log('[DataGrid] Clearing selection...');
-    this.state.selectedRows.clear();
-
-    // Uncheck the "select all" checkbox in the table header
-    const selectAllCheckbox = document.querySelector<HTMLInputElement>(this.selectors.selectAllCheckbox);
-    if (selectAllCheckbox) {
-      selectAllCheckbox.checked = false;
-    }
-
-    this.updateBulkActionsBar();
-    this.updateSelectionBindings();
+    lifecycleOps.clearSelection(this);
   }
 
-  /**
-   * Position dropdown menu intelligently based on available space
-   */
   private positionDropdownMenu(trigger: HTMLElement, menu: HTMLElement): void {
-    const triggerRect = trigger.getBoundingClientRect();
-    const menuHeight = menu.offsetHeight || 300; // Estimate if not rendered
-    const viewportHeight = window.innerHeight;
-    const spaceBelow = viewportHeight - triggerRect.bottom;
-    const spaceAbove = triggerRect.top;
-
-    // Determine if menu should open upward or downward
-    const shouldOpenUpward = spaceBelow < menuHeight && spaceAbove > spaceBelow;
-
-    // Position horizontally (align right edge of menu with trigger)
-    const left = triggerRect.right - (menu.offsetWidth || 224); // 224px = 14rem default width
-    menu.style.left = `${Math.max(10, left)}px`; // At least 10px from left edge
-
-    // Position vertically
-    if (shouldOpenUpward) {
-      // Open upward
-      menu.style.top = `${triggerRect.top - menuHeight - 8}px`;
-      menu.style.bottom = 'auto';
-    } else {
-      // Open downward (default)
-      menu.style.top = `${triggerRect.bottom + 8}px`;
-      menu.style.bottom = 'auto';
-    }
+    lifecycleOps.positionDropdownMenu(this, trigger, menu);
   }
 
-  /**
-   * Bind dropdown toggles
-   */
   private bindDropdownToggles(): void {
-    // Ensure we don't stack global listeners across in-page navigations.
-    if (this.dropdownAbortController) {
-      this.dropdownAbortController.abort();
-    }
-    this.dropdownAbortController = new AbortController();
-    const { signal } = this.dropdownAbortController;
-
-    // Existing dropdown toggles (column visibility, export, etc.)
-    // Defensive: ensure all dropdown menus start hidden
-    document.querySelectorAll('[data-dropdown-toggle]').forEach((toggle) => {
-      const targetId = (toggle as HTMLElement).dataset.dropdownToggle;
-      const target = document.getElementById(targetId || '');
-      if (target && !target.classList.contains('hidden')) {
-        target.classList.add('hidden');
-      }
-    });
-
-    document.querySelectorAll('[data-dropdown-toggle]').forEach((toggle) => {
-      toggle.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const targetId = (toggle as HTMLElement).dataset.dropdownToggle;
-        const target = document.getElementById(targetId || '');
-
-        if (target) {
-          const isOpening = target.classList.contains('hidden');
-
-          // Close all other toggle dropdowns before opening this one
-          document.querySelectorAll('[data-dropdown-toggle]').forEach((otherToggle) => {
-            const otherId = (otherToggle as HTMLElement).dataset.dropdownToggle;
-            const otherTarget = document.getElementById(otherId || '');
-            if (otherTarget && otherTarget !== target) {
-              otherTarget.classList.add('hidden');
-            }
-          });
-
-          // Toggle this dropdown
-          target.classList.toggle('hidden');
-        }
-      }, { signal });
-    });
-
-    // Action dropdown menus (row actions)
-    document.addEventListener('click', (e) => {
-      const trigger = (e.target as HTMLElement).closest('[data-dropdown-trigger]');
-
-      if (trigger) {
-        e.stopPropagation();
-        const dropdown = trigger.closest('[data-dropdown]');
-        const menu = dropdown?.querySelector('.actions-menu') as HTMLElement;
-
-        // Close other action dropdowns
-        document.querySelectorAll('.actions-menu').forEach(m => {
-          if (m !== menu) m.classList.add('hidden');
-        });
-
-        // Toggle this dropdown
-        const isOpening = menu?.classList.contains('hidden');
-        menu?.classList.toggle('hidden');
-        trigger.setAttribute('aria-expanded', isOpening ? 'true' : 'false');
-
-        // Position the dropdown intelligently (only when opening)
-        if (isOpening && menu) {
-          this.positionDropdownMenu(trigger as HTMLElement, menu);
-        }
-      } else {
-        // Check if the click is inside an open dropdown menu (e.g., column toggle menu)
-        const clickedInsideDropdownMenu = (e.target as HTMLElement).closest('[data-dropdown-toggle], #column-toggle-menu, #export-menu');
-
-        if (!clickedInsideDropdownMenu) {
-          // Close all action dropdowns when clicking outside
-          document.querySelectorAll('.actions-menu').forEach(m =>
-            m.classList.add('hidden')
-          );
-
-          // Also close existing dropdowns
-          document.querySelectorAll('[data-dropdown-toggle]').forEach((toggle) => {
-            const targetId = (toggle as HTMLElement).dataset.dropdownToggle;
-            const target = document.getElementById(targetId || '');
-            if (target) {
-              target.classList.add('hidden');
-            }
-          });
-        }
-      }
-    }, { signal });
-
-    // ESC key closes all dropdowns
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        // Close action dropdowns
-        document.querySelectorAll('.actions-menu').forEach(m => {
-          m.classList.add('hidden');
-          const trigger = m.closest('[data-dropdown]')?.querySelector('[data-dropdown-trigger]');
-          if (trigger) trigger.setAttribute('aria-expanded', 'false');
-        });
-
-        // Close toggle dropdowns (column visibility, export, etc.)
-        document.querySelectorAll('[data-dropdown-toggle]').forEach((toggle) => {
-          const targetId = (toggle as HTMLElement).dataset.dropdownToggle;
-          const target = document.getElementById(targetId || '');
-          if (target) {
-            target.classList.add('hidden');
-          }
-        });
-      }
-    }, { signal });
+    lifecycleOps.bindDropdownToggles(this);
   }
 
-  /**
-   * Show error message using notifier
-   */
   private showError(message: string): void {
-    console.error(message);
-    this.notifier.error(message);
+    lifecycleOps.showError(this, message);
   }
 
-  /**
-   * Show notification using notifier
-   */
   private notify(message: string, type: 'success' | 'error' | 'warning' | 'info'): void {
-    this.notifier.show({ message, type });
+    lifecycleOps.notify(this, message, type);
   }
 
-  /**
-   * Show confirmation dialog using notifier
-   */
   private async confirmAction(message: string): Promise<boolean> {
-    return this.notifier.confirm(message);
+    return lifecycleOps.confirmAction(this, message);
   }
 
-  /**
-   * Extract error message from Response or Error
-   */
   private async extractError(error: unknown): Promise<string> {
-    if (error instanceof Response) {
-      return extractErrorMessage(error);
-    }
-    if (error instanceof Error) {
-      return error.message;
-    }
-    return 'An unexpected error occurred';
+    return lifecycleOps.extractError(this, error);
   }
 
   private parseDatasetStringArray(raw: string | undefined): string[] | undefined {
-    if (!raw) {
-      return undefined;
-    }
-    try {
-      const parsed = JSON.parse(raw) as unknown;
-      if (!Array.isArray(parsed)) {
-        return undefined;
-      }
-      const result = parsed
-        .map((item) => (typeof item === 'string' ? item.trim() : ''))
-        .filter((item) => item.length > 0);
-      return result.length > 0 ? result : undefined;
-    } catch (error) {
-      console.warn('[DataGrid] Failed to parse bulk payload_required:', error);
-      return undefined;
-    }
+    return lifecycleOps.parseDatasetStringArray(this, raw);
   }
 
   private parseDatasetObject(raw: string | undefined): Record<string, unknown> | undefined {
-    if (!raw) {
-      return undefined;
-    }
-    try {
-      const parsed = JSON.parse(raw) as unknown;
-      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-        return undefined;
-      }
-      return parsed as Record<string, unknown>;
-    } catch (error) {
-      console.warn('[DataGrid] Failed to parse bulk payload_schema:', error);
-      return undefined;
-    }
+    return lifecycleOps.parseDatasetObject(this, raw);
   }
 
-  /**
-   * Reorder columns based on the provided order array
-   * Updates config.columns order and triggers DOM reordering
-   * Note: Column order is NOT pushed to URL by default (per guiding notes)
-   */
   reorderColumns(newOrder: string[]): void {
-    if (!this.tableEl) return;
-
-    // Validate and merge order with current columns
-    // - Keep only columns that exist in config.columns
-    // - Append any new columns not in newOrder
-    const validOrder = this.mergeColumnOrder(newOrder);
-
-    // Update state
-    this.state.columnOrder = validOrder;
-
-    // Reorder config.columns to match the new order
-    const columnMap = new Map(this.config.columns.map(c => [c.field, c]));
-    this.config.columns = validOrder
-      .map(field => columnMap.get(field))
-      .filter((c): c is ColumnDefinition => c !== undefined);
-
-    // Reorder DOM elements
-    this.reorderTableColumns(validOrder);
-    this.persistStateSnapshot();
-
-    console.log('[DataGrid] Columns reordered:', validOrder);
+    columnOps.reorderColumns(this, newOrder);
   }
 
-  /**
-   * Reset columns to their initial/default order and visibility.
-   * Intended to be called by ColumnManager's "Reset to Default" action.
-   */
   resetColumnsToDefault(): void {
-    // Clear persisted preferences first (localStorage + optional server sync)
-    // so "Reset to Default" truly removes saved state instead of re-saving defaults.
-    this.config.behaviors?.columnVisibility?.clearSavedPrefs?.();
-
-    // Restore default config columns (shallow copies)
-    this.config.columns = this.defaultColumns.map(col => ({ ...col }));
-    this.state.columnOrder = this.config.columns.map(col => col.field);
-
-    // Default visibility: visible unless column.hidden is true
-    const visibleColumns = this.config.columns
-      .filter(col => !col.hidden)
-      .map(col => col.field);
-
-    // Apply DOM updates if table is initialized
-    if (this.tableEl) {
-      this.reorderTableColumns(this.state.columnOrder);
-      this.updateColumnVisibility(visibleColumns);
-    } else {
-      this.state.hiddenColumns = new Set(
-        this.config.columns.filter(col => col.hidden).map(col => col.field)
-      );
-      this.persistStateSnapshot();
-    }
-
-    // Re-render the column menu to reflect defaults (Sortable is re-initialized in refresh()).
-    if (this.columnManager) {
-      this.columnManager.refresh();
-      this.columnManager.syncWithGridState();
-    }
-
-    console.log('[DataGrid] Columns reset to default');
+    columnOps.resetColumnsToDefault(this);
   }
 
-  /**
-   * Merge and validate saved column order with current columns
-   * - Drops columns that no longer exist
-   * - Appends new columns that aren't in saved order
-   */
   private mergeColumnOrder(savedOrder: string[]): string[] {
-    const currentFields = new Set(this.config.columns.map(c => c.field));
-    const savedSet = new Set(savedOrder);
-
-    // Keep only saved columns that still exist
-    const validSaved = savedOrder.filter(field => currentFields.has(field));
-
-    // Find new columns not in saved order (append at end)
-    const newColumns = this.config.columns
-      .map(c => c.field)
-      .filter(field => !savedSet.has(field));
-
-    return [...validSaved, ...newColumns];
+    return columnOps.mergeColumnOrder(this, savedOrder);
   }
 
-  /**
-   * Reorder table DOM elements (header, filter row, body rows)
-   * Moves existing nodes rather than recreating them to preserve event listeners
-   */
   private reorderTableColumns(order: string[]): void {
-    if (!this.tableEl) return;
-
-    // Reorder header row
-    const headerRow = this.tableEl.querySelector('thead tr:first-child');
-    if (headerRow) {
-      this.reorderRowCells(headerRow, order, 'th');
-    }
-
-    // Reorder filter row
-    const filterRow = this.tableEl.querySelector('#filter-row');
-    if (filterRow) {
-      this.reorderRowCells(filterRow, order, 'th');
-    }
-
-    // Reorder body rows
-    const bodyRows = this.tableEl.querySelectorAll('tbody tr');
-    bodyRows.forEach(row => {
-      this.reorderRowCells(row, order, 'td');
-    });
+    columnOps.reorderTableColumns(this, order);
   }
 
-  /**
-   * Reorder cells within a single row
-   * Preserves fixed columns (selection on left, actions on right)
-   */
   private reorderRowCells(row: Element, order: string[], cellTag: 'th' | 'td'): void {
-    // Get data cells (those with data-column attribute)
-    const dataCells = Array.from(row.querySelectorAll(`${cellTag}[data-column]`));
-    const cellMap = new Map(
-      dataCells.map(cell => [(cell as HTMLElement).dataset.column!, cell])
-    );
-
-    // Get fixed cells (selection/actions)
-    // Prefer explicit markers; fall back to heuristics for legacy tables.
-    const allCells = Array.from(row.querySelectorAll(cellTag));
-    const selectionCell =
-      row.querySelector(`${cellTag}[data-role="selection"]`) ||
-      allCells.find(cell => cell.querySelector('input[type="checkbox"]'));
-    const actionsCell =
-      row.querySelector(`${cellTag}[data-role="actions"]`) ||
-      allCells.find(cell =>
-        !((cell as HTMLElement).dataset.column) && (
-          cell.querySelector('[data-action]') ||
-          cell.querySelector('[data-action-id]') ||
-          cell.querySelector('.dropdown')
-        )
-      );
-
-    // Build reordered cells array
-    const reorderedCells: Element[] = [];
-
-    // Add selection cell first (if exists)
-    if (selectionCell) {
-      reorderedCells.push(selectionCell);
-    }
-
-    // Add data cells in new order
-    order.forEach(field => {
-      const cell = cellMap.get(field);
-      if (cell) {
-        reorderedCells.push(cell);
-      }
-    });
-
-    // Add actions cell last (if exists)
-    if (actionsCell) {
-      reorderedCells.push(actionsCell);
-    }
-
-    // Move cells to new positions (appending moves, doesn't clone)
-    reorderedCells.forEach(cell => {
-      row.appendChild(cell);
-    });
+    columnOps.reorderRowCells(this, row, order, cellTag);
   }
 
-  /**
-   * Cleanup and destroy the DataGrid instance
-   * Call this when removing the grid from the DOM to prevent memory leaks
-   */
   destroy(): void {
-    // Destroy ColumnManager (cleans up SortableJS instance)
     if (this.columnManager) {
       this.columnManager.destroy();
       this.columnManager = null;
     }
 
-    // Remove global dropdown listeners
     if (this.dropdownAbortController) {
       this.dropdownAbortController.abort();
       this.dropdownAbortController = null;
     }
 
-    // Abort any pending API requests
     if (this.abortController) {
       this.abortController.abort();
       this.abortController = null;
     }
 
-    // Clear search timeout
     if (this.searchTimeout) {
       clearTimeout(this.searchTimeout);
       this.searchTimeout = null;
@@ -2913,7 +563,6 @@ export class DataGrid {
   }
 }
 
-// Export for global usage
 if (typeof window !== 'undefined') {
   (window as any).DataGrid = DataGrid;
 }

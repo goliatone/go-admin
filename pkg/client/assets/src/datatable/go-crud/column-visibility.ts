@@ -1,5 +1,6 @@
 import type { ColumnVisibilityBehavior } from '../behaviors/types.js';
 import type { DataGrid } from '../core.js';
+import { httpRequest } from '../../shared/transport/http-client.js';
 
 /**
  * Legacy V1 storage format (visibility only)
@@ -340,12 +341,12 @@ export class ServerColumnVisibilityBehavior extends DefaultColumnVisibilityBehav
    */
   async loadFromServer(): Promise<ColumnPrefsV2 | null> {
     try {
-      const response = await fetch(this.preferencesEndpoint, {
+      const response = await httpRequest(this.preferencesEndpoint, {
         method: 'GET',
         credentials: 'same-origin',
         headers: {
-          'Accept': 'application/json'
-        }
+          'Accept': 'application/json',
+        },
       });
 
       if (!response.ok) {
@@ -456,18 +457,18 @@ export class ServerColumnVisibilityBehavior extends DefaultColumnVisibilityBehav
     };
 
     try {
-      const response = await fetch(this.preferencesEndpoint, {
+      const response = await httpRequest(this.preferencesEndpoint, {
         method: 'POST',
         credentials: 'same-origin',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Accept': 'application/json',
         },
-        body: JSON.stringify({
+        json: {
           raw: {
-            [this.serverPrefsKey]: prefs
-          }
-        })
+            [this.serverPrefsKey]: prefs,
+          },
+        },
       });
 
       if (!response.ok) {
@@ -504,18 +505,18 @@ export class ServerColumnVisibilityBehavior extends DefaultColumnVisibilityBehav
    */
   private async clearServerPrefs(): Promise<void> {
     try {
-      const response = await fetch(this.preferencesEndpoint, {
+      const response = await httpRequest(this.preferencesEndpoint, {
         method: 'POST',
         credentials: 'same-origin',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Accept': 'application/json',
         },
-        body: JSON.stringify({
+        json: {
           raw: {
-            [this.serverPrefsKey]: null
-          }
-        })
+            [this.serverPrefsKey]: null,
+          },
+        },
       });
 
       if (!response.ok) {

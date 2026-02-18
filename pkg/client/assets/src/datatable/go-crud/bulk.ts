@@ -1,5 +1,6 @@
 import type { BulkActionBehavior } from '../behaviors/types.js';
 import type { DataGrid } from '../core.js';
+import { httpRequest, readHTTPError } from '../../shared/transport/http-client.js';
 
 /**
  * go-crud bulk action behavior
@@ -25,16 +26,14 @@ export class GoCrudBulkActionBehavior implements BulkActionBehavior {
   async execute(action: string, ids: string[], grid: DataGrid): Promise<void> {
     const endpoint = this.getActionEndpoint(action);
 
-    const response = await fetch(endpoint, {
+    const response = await httpRequest(endpoint, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ ids })
+      json: { ids },
+      accept: 'application/json',
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
+      const errorText = await readHTTPError(response, `Bulk action '${action}' failed`);
       throw new Error(`Bulk action '${action}' failed: ${errorText}`);
     }
 
