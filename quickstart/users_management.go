@@ -66,7 +66,11 @@ func WithGoUsersUserManagement(cfg GoUsersUserManagementConfig) AdminOption {
 
 // NewUsersModule returns the built-in user management module with options applied.
 func NewUsersModule(opts ...admin.UserManagementModuleOption) *admin.UserManagementModule {
-	return admin.NewUserManagementModule(opts...)
+	moduleOpts := []admin.UserManagementModuleOption{
+		admin.WithUserMenuParent(NavigationGroupMainID),
+	}
+	moduleOpts = append(moduleOpts, opts...)
+	return admin.NewUserManagementModule(moduleOpts...)
 }
 
 func validateGoUsersUserManagementConfig(cfg GoUsersUserManagementConfig) error {
