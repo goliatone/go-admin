@@ -360,12 +360,3 @@ func selectSource(suggestions []models.Suggestion) string {
 	}
 	return selected
 }
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if trimmed := strings.TrimSpace(value); trimmed != "" {
-			return trimmed
-		}
-	}
-	return ""
-}
