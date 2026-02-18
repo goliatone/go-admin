@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"errors"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"sort"
 	"strings"
 	"time"
@@ -54,7 +55,7 @@ func (o *Orchestrator) Run(ctx context.Context, input RunInput) (models.Run, err
 	}
 	startedAt := o.now()
 	run := models.Run{
-		ID:              firstNonEmpty(strings.TrimSpace(input.RunID), uuid.NewString()),
+		ID:              primitives.FirstNonEmpty(strings.TrimSpace(input.RunID), uuid.NewString()),
 		AgreementID:     strings.TrimSpace(input.AgreementID),
 		CreatedByUserID: strings.TrimSpace(input.CreatedByUserID),
 		CreatedAt:       startedAt,
@@ -163,7 +164,7 @@ func (o *Orchestrator) Run(ctx context.Context, input RunInput) (models.Run, err
 		mergeSuggestions(accepted, result.Suggestions)
 		if result.Terminate {
 			run.Status = models.RunStatusPartial
-			run.ReasonCode = firstNonEmpty(strings.TrimSpace(result.TerminationReason), models.RunReasonResolverShortStop)
+			run.ReasonCode = primitives.FirstNonEmpty(strings.TrimSpace(result.TerminationReason), models.RunReasonResolverShortStop)
 			break
 		}
 	}
