@@ -24,13 +24,13 @@
       {% if item.type == "separator" %}
         <div style="height: var(--sidebar-gap-sections, 24px);"></div>
       {% elif item.type == "group" %}
-        <div class="menu-group mb-4">
+        <div class="menu-group mb-4" data-group-toggle="{{ item.id }}" data-expanded="{% if not item.collapsed %}true{% else %}false{% endif %}">
           <button class="flex items-center w-full gap-2 px-3 py-2 text-xs font-medium text-sidebar-text-muted hover:text-sidebar-text transition-colors rounded-lg hover:bg-sidebar-bg-hover">
-            <i class="iconoir-nav-arrow-down text-xs transition-transform"></i>
+            <i class="iconoir-nav-arrow-down group-indicator text-xs transition-transform{% if not item.collapsed %} rotate-180{% endif %}"></i>
             <span class="flex-1 text-left uppercase tracking-wider">{% if item.group_title %}{{ item.group_title }}{% else %}{{ item.label }}{% endif %}</span>
             <span class="menu-group-ellipsis text-sidebar-text-muted">...</span>
           </button>
-          <div class="space-y-0.5 mt-1">
+          <div class="group-children space-y-0.5 mt-1 {% if item.collapsed %}collapsed{% else %}expanded{% endif %}" data-group="{{ item.id }}">
             {% for child in item.children %}
               {% if child.has_children and child.collapsible %}
                 <div class="collapsible-menu-item mb-2" data-submenu-toggle="{{ child.id }}" data-expanded="{% if not child.collapsed %}true{% else %}false{% endif %}">
@@ -124,11 +124,7 @@
     </nav>
   {% endif %}
 
-  {% if nav_utility_items and nav_utility_items|length > 0 %}
-  <div class="sidebar-bottom" style="padding: var(--sidebar-padding-x, 12px);">
-  {% else %}
   <div class="sidebar-bottom border-t border-sidebar-border" style="padding: var(--sidebar-padding-x, 12px);">
-  {% endif %}
     <div class="pt-3 pb-3 relative">
       <button id="user-menu-toggle" class="flex items-center gap-3 px-3 py-2.5 hover:bg-sidebar-bg-hover rounded-lg cursor-pointer transition-colors w-full text-left">
         <div class="relative flex-shrink-0">
