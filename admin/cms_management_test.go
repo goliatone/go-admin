@@ -44,8 +44,8 @@ func TestRegisterCMSDemoPanelsRoutesAndLocale(t *testing.T) {
 	if _, ok := routerCapture.routes["/admin/api/content/:id/blocks"]; !ok {
 		t.Fatalf("expected content blocks route to be registered")
 	}
-	if _, ok := routerCapture.routes["/admin/api/pages-tree"]; !ok {
-		t.Fatalf("expected page tree route to be registered")
+	if _, ok := routerCapture.routes["/admin/api/content-tree"]; !ok {
+		t.Fatalf("expected content tree route to be registered")
 	}
 	panel, ok := adm.Registry().Panel("content")
 	if !ok || panel == nil {
@@ -59,9 +59,9 @@ func TestRegisterCMSDemoPanelsRoutesAndLocale(t *testing.T) {
 	if total == 0 || len(records) == 0 || records[0]["locale"] != "es" {
 		t.Fatalf("expected spanish content, got %+v", records)
 	}
-	pagePanel, ok := adm.Registry().Panel("pages")
-	if !ok || pagePanel == nil || !pagePanel.Schema().UseBlocks || !pagePanel.Schema().UseSEO || !pagePanel.Schema().TreeView {
-		t.Fatalf("page panel missing CMS flags")
+	treePanel, ok := adm.Registry().Panel("content_tree")
+	if !ok || treePanel == nil || !treePanel.Schema().UseBlocks || !treePanel.Schema().UseSEO || !treePanel.Schema().TreeView {
+		t.Fatalf("content tree panel missing CMS flags")
 	}
 }
 

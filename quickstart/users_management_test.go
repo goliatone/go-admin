@@ -211,3 +211,29 @@ func TestWithGoUsersUserManagementSkipsProfileStoreWhenMissing(t *testing.T) {
 		t.Fatalf("expected bulk user import command to be set")
 	}
 }
+
+func TestNewUsersModuleDefaultsMenuParentToMainGroup(t *testing.T) {
+	module := NewUsersModule(admin.WithUserProfilesPanel())
+	items := module.MenuItems("en")
+	if len(items) == 0 {
+		t.Fatalf("expected users module menu items")
+	}
+	for _, item := range items {
+		if got := item.ParentID; got != NavigationGroupMainID {
+			t.Fatalf("expected parent %q, got %q", NavigationGroupMainID, got)
+		}
+	}
+}
+
+func TestNewUsersModuleAllowsMenuParentOverride(t *testing.T) {
+	module := NewUsersModule(admin.WithUserMenuParent("custom.parent"))
+	items := module.MenuItems("en")
+	if len(items) == 0 {
+		t.Fatalf("expected users module menu items")
+	}
+	for _, item := range items {
+		if got := item.ParentID; got != "custom.parent" {
+			t.Fatalf("expected overridden parent custom.parent, got %q", got)
+		}
+	}
+}

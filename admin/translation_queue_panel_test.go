@@ -159,19 +159,36 @@ func TestTranslationQueuePanelRunActionRequiresPermission(t *testing.T) {
 	}
 }
 
-func TestRegisterTranslationQueuePanelAlsoRegistersPageAndPostTabs(t *testing.T) {
+func TestRegisterTranslationQueuePanelRegistersTabsForExistingAndFutureTranslationPanels(t *testing.T) {
 	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{FeatureGate: featureGateFromKeys(FeatureCMS)})
+	registerTranslationPanel := func(name string) {
+		t.Helper()
+		builder := (&PanelBuilder{}).
+			WithRepository(NewMemoryRepository()).
+			Actions(Action{Name: CreateTranslationKey, CommandName: name + ".create_translation"})
+		if _, err := adm.RegisterPanel(name, builder); err != nil {
+			t.Fatalf("register panel %s: %v", name, err)
+		}
+	}
+	registerTranslationPanel("articles")
+
 	repo := NewInMemoryTranslationAssignmentRepository()
 	if _, err := RegisterTranslationQueuePanel(adm, repo); err != nil {
 		t.Fatalf("register queue panel: %v", err)
 	}
-	for _, panelName := range []string{"pages", "posts"} {
-		tabs := adm.registry.PanelTabs(panelName)
-		if len(tabs) != 1 {
-			t.Fatalf("expected one queue tab on %s, got %d", panelName, len(tabs))
-		}
-		if tabs[0].Target.Panel != translationQueuePanelID {
-			t.Fatalf("expected %s tab target, got %+v", translationQueuePanelID, tabs[0].Target)
-		}
+
+	if got := len(adm.registry.PanelTabs("articles")); got != 1 {
+		t.Fatalf("expected queue tab on existing translation panel, got %d", got)
+	}
+	if adm.registry.PanelTabs("articles")[0].Target.Panel != translationQueuePanelID {
+		t.Fatalf("expected %s tab target for existing translation panel, got %+v", translationQueuePanelID, adm.registry.PanelTabs("articles")[0].Target)
+	}
+
+	registerTranslationPanel("announcements")
+	if got := len(adm.registry.PanelTabs("announcements")); got != 1 {
+		t.Fatalf("expected queue tab on future translation panel, got %d", got)
+	}
+	if adm.registry.PanelTabs("announcements")[0].Target.Panel != translationQueuePanelID {
+		t.Fatalf("expected %s tab target for future translation panel, got %+v", translationQueuePanelID, adm.registry.PanelTabs("announcements")[0].Target)
 	}
 }

@@ -339,7 +339,7 @@ func TestPanelBindingCreateTranslationUsesRepositoryCommandWhenAvailable(t *test
 	}
 }
 
-func TestPanelBindingCreateTranslationReturnsErrorWhenRepositoryCommandUnsupported(t *testing.T) {
+func TestPanelBindingCreateTranslationFallsBackToCloneWhenRepositoryCommandUnsupported(t *testing.T) {
 	repo := &translationActionRepoStub{
 		records: map[string]map[string]any{
 			"post_123": {
@@ -362,21 +362,21 @@ func TestPanelBindingCreateTranslationReturnsErrorWhenRepositoryCommandUnsupport
 	c := router.NewMockContext()
 	c.On("Context").Return(context.Background())
 
-	_, err := binding.Action(c, "en", "create_translation", map[string]any{
+	data, err := binding.Action(c, "en", "create_translation", map[string]any{
 		"id":     "post_123",
 		"locale": "fr",
 	})
-	if err == nil {
-		t.Fatalf("expected unsupported translation create error")
+	if err != nil {
+		t.Fatalf("expected clone fallback to succeed, got %v", err)
 	}
 	if repo.createTranslationCalls != 1 {
 		t.Fatalf("expected one repository translation command call, got %d", repo.createTranslationCalls)
 	}
-	if !errors.Is(err, ErrTranslationCreateUnsupported) {
-		t.Fatalf("expected ErrTranslationCreateUnsupported, got %v", err)
+	if len(repo.created) != 1 {
+		t.Fatalf("expected one clone fallback create call, got %d", len(repo.created))
 	}
-	if len(repo.created) != 0 {
-		t.Fatalf("expected no legacy clone fallback create call, got %d", len(repo.created))
+	if data["locale"] != "fr" {
+		t.Fatalf("expected locale fr, got %v", data["locale"])
 	}
 }
 

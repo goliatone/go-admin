@@ -7,41 +7,33 @@ import (
 	"github.com/goliatone/go-admin/admin"
 )
 
-func TestDefaultContentTranslationPolicyConfigIncludesPagesAndPostsPublishRules(t *testing.T) {
+func TestDefaultContentTranslationPolicyConfigIsPermissiveAndAgnostic(t *testing.T) {
 	cfg := DefaultContentTranslationPolicyConfig()
+	if cfg.RequiredFieldsStrategy != admin.RequiredFieldsValidationError {
+		t.Fatalf("expected required_fields_strategy=error, got %q", cfg.RequiredFieldsStrategy)
+	}
+	if len(cfg.Required) != 0 {
+		t.Fatalf("expected no default required entity rules, got %+v", cfg.Required)
+	}
+	if len(cfg.PageEntities) != 0 {
+		t.Fatalf("expected no default page_entities, got %+v", cfg.PageEntities)
+	}
+	if len(cfg.EntityAliases) != 0 {
+		t.Fatalf("expected no default entity aliases, got %+v", cfg.EntityAliases)
+	}
+}
 
-	pagesCfg, ok := cfg.Required["pages"]
-	if !ok {
-		t.Fatalf("expected pages requirements")
-	}
-	postsCfg, ok := cfg.Required["posts"]
-	if !ok {
-		t.Fatalf("expected posts requirements")
-	}
-	pagesPublish, ok := pagesCfg["publish"]
-	if !ok {
-		t.Fatalf("expected pages.publish requirements")
-	}
-	postsPublish, ok := postsCfg["publish"]
-	if !ok {
-		t.Fatalf("expected posts.publish requirements")
-	}
-	staging, ok := pagesPublish.Environments["staging"]
-	if !ok {
-		t.Fatalf("expected pages.publish.staging requirements")
-	}
-	production, ok := pagesPublish.Environments["production"]
-	if !ok {
-		t.Fatalf("expected pages.publish.production requirements")
-	}
-	if got := strings.Join(staging.Locales, ","); got != "en,es" {
-		t.Fatalf("expected pages staging locales en,es got %q", got)
-	}
-	if got := strings.Join(production.Locales, ","); got != "en,es,fr" {
-		t.Fatalf("expected pages production locales en,es,fr got %q", got)
-	}
-	if got := strings.Join(postsPublish.RequiredFields["fr"], ","); got != "title,path,excerpt" {
-		t.Fatalf("expected posts fr required fields title,path,excerpt got %q", got)
+func translationPolicyValidationCatalogFixture() TranslationPolicyValidationCatalog {
+	return TranslationPolicyValidationCatalog{
+		Entities: map[string]TranslationPolicyEntityCatalog{
+			"articles": {
+				Transitions: map[string]TranslationPolicyTransitionCatalog{
+					"publish": {
+						RequiredFields: []string{"title", "path", "summary"},
+					},
+				},
+			},
+		},
 	}
 }
 
@@ -49,7 +41,7 @@ func TestValidateTranslationPolicyConfigUnknownKeysErrorStrategy(t *testing.T) {
 	cfg := TranslationPolicyConfig{
 		RequiredFieldsStrategy: admin.RequiredFieldsValidationError,
 		Required: map[string]TranslationPolicyEntityConfig{
-			"pages": {
+			"articles": {
 				"publish": {
 					RequiredFields: map[string][]string{"en": {"title", "unknown_field"}},
 				},
@@ -62,7 +54,7 @@ func TestValidateTranslationPolicyConfigUnknownKeysErrorStrategy(t *testing.T) {
 			},
 		},
 	}
-	result, err := ValidateTranslationPolicyConfig(cfg, DefaultTranslationPolicyValidationCatalog())
+	result, err := ValidateTranslationPolicyConfig(cfg, translationPolicyValidationCatalogFixture())
 	if err == nil {
 		t.Fatalf("expected validation error")
 	}
@@ -73,7 +65,7 @@ func TestValidateTranslationPolicyConfigUnknownKeysErrorStrategy(t *testing.T) {
 	if !strings.Contains(msg, `unknown policy entity "widgets"`) {
 		t.Fatalf("expected unknown entity in error, got %q", msg)
 	}
-	if !strings.Contains(msg, `unknown transition "approve" for entity "pages"`) {
+	if !strings.Contains(msg, `unknown transition "approve" for entity "articles"`) {
 		t.Fatalf("expected unknown transition in error, got %q", msg)
 	}
 	if !strings.Contains(msg, `unknown required field key "unknown_field"`) {
@@ -90,7 +82,7 @@ func TestValidateTranslationPolicyConfigUnknownKeysWarnStrategy(t *testing.T) {
 			},
 		},
 	}
-	result, err := ValidateTranslationPolicyConfig(cfg, DefaultTranslationPolicyValidationCatalog())
+	result, err := ValidateTranslationPolicyConfig(cfg, translationPolicyValidationCatalogFixture())
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -111,11 +103,31 @@ func TestValidateTranslationPolicyConfigUnknownKeysIgnoreStrategy(t *testing.T) 
 			},
 		},
 	}
-	result, err := ValidateTranslationPolicyConfig(cfg, DefaultTranslationPolicyValidationCatalog())
+	result, err := ValidateTranslationPolicyConfig(cfg, translationPolicyValidationCatalogFixture())
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 	if len(result.Warnings) != 0 {
 		t.Fatalf("expected no warnings, got %+v", result.Warnings)
+	}
+}
+
+func TestNormalizeTranslationPolicyConfigNormalizesEntityAliases(t *testing.T) {
+	cfg := NormalizeTranslationPolicyConfig(TranslationPolicyConfig{
+		PageEntities: []string{" Landing-Pages ", "landing_pages", ""},
+		EntityAliases: map[string]string{
+			" Article-Type ": "News",
+			"":               "posts",
+			"legacy":         "",
+		},
+	})
+	if got := strings.Join(cfg.PageEntities, ","); got != "landing_page" {
+		t.Fatalf("expected normalized page_entities [landing_page], got %q", got)
+	}
+	if len(cfg.EntityAliases) != 1 {
+		t.Fatalf("expected one normalized alias, got %+v", cfg.EntityAliases)
+	}
+	if got := cfg.EntityAliases["article_type"]; got != "news" {
+		t.Fatalf("expected alias article_type -> news, got %q", got)
 	}
 }

@@ -402,7 +402,7 @@ func mustBuildContentEntryTestPanel(t *testing.T) *admin.Panel {
 	return panel
 }
 
-func TestResolveContentEntryPreviewPathSupportsPagesAndPosts(t *testing.T) {
+func TestResolveContentEntryPreviewPathUsesGenericSlugFallback(t *testing.T) {
 	tests := []struct {
 		name      string
 		panelName string
@@ -422,10 +422,10 @@ func TestResolveContentEntryPreviewPathSupportsPagesAndPosts(t *testing.T) {
 			expected:  "/home",
 		},
 		{
-			name:      "posts slug fallback",
+			name:      "slug fallback",
 			panelName: "posts",
 			record:    map[string]any{"slug": "launch"},
-			expected:  "/posts/launch",
+			expected:  "/launch",
 		},
 		{
 			name:      "default path-like slug",
@@ -434,10 +434,10 @@ func TestResolveContentEntryPreviewPathSupportsPagesAndPosts(t *testing.T) {
 			expected:  "/legal/privacy",
 		},
 		{
-			name:      "unsupported panel without path",
+			name:      "generic panel slug fallback",
 			panelName: "article",
 			record:    map[string]any{"slug": "plain-slug"},
-			expected:  "",
+			expected:  "/plain-slug",
 		},
 	}
 	for _, tc := range tests {
@@ -884,6 +884,87 @@ func TestListForPanelEnablesTranslationDataGridUXWhenConfigured(t *testing.T) {
 			dataGridCfg["enable_grouped_mode"] == true &&
 			strings.TrimSpace(anyToString(dataGridCfg["default_view_mode"])) == "grouped" &&
 			strings.TrimSpace(anyToString(dataGridCfg["group_by_field"])) == "translation_group_id"
+	})).Return(nil).Once()
+
+	if err := handler.listForPanel(ctx, "pages"); err != nil {
+		t.Fatalf("listForPanel(pages): %v", err)
+	}
+	ctx.AssertExpectations(t)
+}
+
+func TestListForPanelIncludesDataGridPersistenceConfigWhenConfigured(t *testing.T) {
+	cfg := admin.Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+	}
+	adm, err := admin.New(cfg, admin.Dependencies{})
+	if err != nil {
+		t.Fatalf("new admin: %v", err)
+	}
+	if _, err := adm.RegisterPanel("pages", (&admin.PanelBuilder{}).
+		WithRepository(admin.NewMemoryRepository()).
+		ListFields(admin.Field{Name: "title", Label: "Title", Type: "text"})); err != nil {
+		t.Fatalf("register panel: %v", err)
+	}
+
+	enableStateToken := true
+	handler := newContentEntryHandlers(adm, cfg, nil, contentEntryUIOptions{
+		listTemplate:   "resources/content/list",
+		templateExists: func(name string) bool { return name == "resources/content/list" },
+		dataGridStateStore: PanelDataGridStateStoreOptions{
+			Mode:            "preferences",
+			SyncDebounceMS:  1200,
+			MaxShareEntries: 30,
+		},
+		dataGridURLState: PanelDataGridURLStateOptions{
+			MaxURLLength:     1700,
+			MaxFiltersLength: 500,
+			EnableStateToken: &enableStateToken,
+		},
+	})
+
+	ctx := router.NewMockContext()
+	ctx.On("Context").Return(context.Background())
+	ctx.On("Render", "resources/content/list", mock.MatchedBy(func(arg any) bool {
+		viewCtx, ok := arg.(router.ViewContext)
+		if !ok {
+			return false
+		}
+		dataGridCfg, ok := viewCtx["datagrid_config"].(map[string]any)
+		if !ok {
+			return false
+		}
+		stateStore, ok := dataGridCfg["state_store"].(map[string]any)
+		if !ok {
+			return false
+		}
+		urlState, ok := dataGridCfg["url_state"].(map[string]any)
+		if !ok {
+			return false
+		}
+		toInt := func(value any) int {
+			switch typed := value.(type) {
+			case int:
+				return typed
+			case int64:
+				return int(typed)
+			case float64:
+				return int(typed)
+			default:
+				return 0
+			}
+		}
+		toBool := func(value any) bool {
+			typed, ok := value.(bool)
+			return ok && typed
+		}
+		return strings.TrimSpace(anyToString(stateStore["mode"])) == "preferences" &&
+			strings.TrimSpace(anyToString(stateStore["resource"])) == "pages" &&
+			toInt(stateStore["sync_debounce_ms"]) == 1200 &&
+			toInt(stateStore["max_share_entries"]) == 30 &&
+			toInt(urlState["max_url_length"]) == 1700 &&
+			toInt(urlState["max_filters_length"]) == 500 &&
+			toBool(urlState["enable_state_token"]) == true
 	})).Return(nil).Once()
 
 	if err := handler.listForPanel(ctx, "pages"); err != nil {

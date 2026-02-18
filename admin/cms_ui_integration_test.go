@@ -121,7 +121,7 @@ func TestCMSBlockAdapterRoutes(t *testing.T) {
 		t.Fatalf("expected block definitions, got %+v", defsPayload)
 	}
 
-	pageID := fetchFirstPageID(t, server)
+	pageID := fetchFirstContentTreeID(t, server)
 
 	blockBody := `{"definition_id":"hero","content_id":"` + pageID + `","region":"main","locale":"en","status":"draft","data":{"title":"Hello"}}`
 	blockReq := httptest.NewRequest("POST", "/admin/api/panels/blocks", strings.NewReader(blockBody))
@@ -156,13 +156,13 @@ func TestCMSBlockAdapterRoutes(t *testing.T) {
 	}
 }
 
-func fetchFirstPageID(t *testing.T, server router.Server[*httprouter.Router]) string {
+func fetchFirstContentTreeID(t *testing.T, server router.Server[*httprouter.Router]) string {
 	t.Helper()
-	listReq := httptest.NewRequest("GET", "/admin/api/panels/pages", nil)
+	listReq := httptest.NewRequest("GET", "/admin/api/panels/content_tree", nil)
 	listRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(listRes, listReq)
 	if listRes.Code != http.StatusOK {
-		t.Fatalf("list pages status: %d body=%s", listRes.Code, listRes.Body.String())
+		t.Fatalf("list content tree status: %d body=%s", listRes.Code, listRes.Body.String())
 	}
 	payload := decodeJSONMap(t, listRes)
 	items := extractRecords(payload)
@@ -172,12 +172,12 @@ func fetchFirstPageID(t *testing.T, server router.Server[*httprouter.Router]) st
 		}
 	}
 	if len(items) == 0 {
-		t.Fatalf("expected pages list, got %+v", payload)
+		t.Fatalf("expected content tree list, got %+v", payload)
 	}
 	first := items[0]
 	id := toString(first["id"])
 	if id == "" {
-		t.Fatalf("expected page id, got %+v", first)
+		t.Fatalf("expected content tree item id, got %+v", first)
 	}
 	return id
 }

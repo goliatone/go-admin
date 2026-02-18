@@ -95,7 +95,7 @@ func TestCMSContentTypeEntryRepositoryListOptInTranslations(t *testing.T) {
 	ctx := context.Background()
 	pageType := CMSContentType{
 		Slug:         "page",
-		Capabilities: map[string]any{"panel_slug": "pages"},
+		Capabilities: map[string]any{"translations": true},
 	}
 	otherType := CMSContentType{Slug: "product"}
 	contentSvc := &stubGoCMSContentService{

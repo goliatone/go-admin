@@ -52,7 +52,8 @@ func TestEnsureDefaultMenuParentsNestsChildren(t *testing.T) {
 
 	mainID := code + ".nav-group-main"
 	contentID := mainID + ".content"
-	othersID := code + ".nav-group-others"
+	othersID := code + "." + NavigationGroupToolsID
+	translationsID := code + "." + NavigationGroupTranslationsID
 
 	seen := map[string]bool{}
 	var walk func(items []admin.MenuItem)
@@ -65,8 +66,14 @@ func TestEnsureDefaultMenuParentsNestsChildren(t *testing.T) {
 		}
 	}
 	walk(menu.Items)
-	if !seen[mainID] || !seen[contentID] || !seen[othersID] {
-		t.Fatalf("missing scaffolded ids: main=%v content=%v others=%v", seen[mainID], seen[contentID], seen[othersID])
+	if !seen[mainID] || !seen[contentID] || !seen[othersID] || !seen[translationsID] {
+		t.Fatalf(
+			"missing scaffolded ids: main=%v content=%v tools=%v translations=%v",
+			seen[mainID],
+			seen[contentID],
+			seen[othersID],
+			seen[translationsID],
+		)
 	}
 
 	children := []admin.MenuItem{
@@ -123,8 +130,6 @@ func TestDefaultMenuParentsContentPermissionsIncludeContentSurfaces(t *testing.T
 	}
 
 	required := []string{
-		"admin.pages.view",
-		"admin.posts.view",
 		"admin.media.view",
 		"admin.content_types.view",
 		"admin.block_definitions.view",

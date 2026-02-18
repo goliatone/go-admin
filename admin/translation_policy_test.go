@@ -232,12 +232,13 @@ func TestGoCMSTranslationPolicyNormalizesEntityMetadata(t *testing.T) {
 	}
 }
 
-func TestCanonicalPolicyEntityKeyNormalizesSingularAliases(t *testing.T) {
+func TestCanonicalPolicyEntityKeyNormalizesStructure(t *testing.T) {
 	tests := map[string]string{
-		"post":          "posts",
+		"post":          "post",
 		"posts":         "posts",
-		"page":          "pages",
+		"page":          "page",
 		"pages@staging": "pages",
+		"blog-entry":    "blog_entry",
 		"news":          "news",
 	}
 	for input, expected := range tests {

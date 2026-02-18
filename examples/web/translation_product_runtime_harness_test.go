@@ -56,7 +56,7 @@ func TestDevServeEquivalentTranslationRuntimeContracts(t *testing.T) {
 		quickstart.WithTranslationProductConfig(
 			buildTranslationProductConfig(resolveTranslationProfile(), exchangeStore, queueRepo),
 		),
-		quickstart.WithTranslationPolicyConfig(quickstart.DefaultContentTranslationPolicyConfig()),
+		quickstart.WithTranslationPolicyConfig(exampleTranslationPolicyConfig()),
 	)
 	require.NoError(t, err)
 	adm.WithAuth(nil, nil)
