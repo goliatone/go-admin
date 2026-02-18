@@ -10,6 +10,7 @@ import (
 	cms "github.com/goliatone/go-cms"
 	cmsinterfaces "github.com/goliatone/go-cms/pkg/interfaces"
 	"github.com/google/uuid"
+	"github.com/jinzhu/inflection"
 )
 
 // TranslationChecker is the minimal contract needed to validate translations.
@@ -84,21 +85,26 @@ func (p translationPolicy) Validate(ctx context.Context, input admin.Translation
 		RequiredFieldsStrategy: req.RequiredFieldsStrategy,
 	}
 	entity := resolvePolicyEntity(input)
-	var checker TranslationChecker
-	if strings.EqualFold(entity, "pages") {
-		checker = p.services.Pages
-		if checker == nil {
-			return fmt.Errorf("page translation checker unavailable")
+	checkers := translationCheckerCandidates(p.cfg, entity, p.services)
+	if len(checkers) == 0 {
+		return fmt.Errorf("translation checker unavailable")
+	}
+	var (
+		missing  []string
+		err      error
+		firstErr error
+	)
+	for _, checker := range checkers {
+		missing, err = checker.CheckTranslations(ctx, entityID, requiredLocales, opts)
+		if err == nil {
+			break
 		}
-	} else {
-		checker = p.services.Content
-		if checker == nil {
-			return fmt.Errorf("content translation checker unavailable")
+		if firstErr == nil {
+			firstErr = err
 		}
 	}
-	missing, err := checker.CheckTranslations(ctx, entityID, requiredLocales, opts)
 	if err != nil {
-		return err
+		return firstErr
 	}
 	if len(missing) == 0 {
 		return nil
@@ -129,7 +135,7 @@ func resolveTranslationRequirements(cfg TranslationPolicyConfig, input admin.Tra
 	if entityKey == "" {
 		return admin.TranslationRequirements{}, false
 	}
-	entityCfg, ok := findEntityConfig(cfg.Required, entityKey)
+	entityCfg, ok := findEntityConfig(cfg.Required, entityKey, cfg.EntityAliases)
 	if !ok {
 		return admin.TranslationRequirements{}, false
 	}
@@ -165,8 +171,42 @@ func resolvePolicyEntity(input admin.TranslationPolicyInput) string {
 	return entity
 }
 
-func findEntityConfig(required map[string]TranslationPolicyEntityConfig, entity string) (TranslationPolicyEntityConfig, bool) {
-	return caseInsensitiveMapLookup(required, entity)
+func findEntityConfig(
+	required map[string]TranslationPolicyEntityConfig,
+	entity string,
+	aliases map[string]string,
+) (TranslationPolicyEntityConfig, bool) {
+	if cfg, ok := caseInsensitiveMapLookup(required, entity); ok {
+		return cfg, true
+	}
+	candidates := policyEntityLookupCandidates(entity, aliases)
+	if len(candidates) == 0 {
+		return TranslationPolicyEntityConfig{}, false
+	}
+	keys := make([]string, 0, len(required))
+	for key := range required {
+		keys = append(keys, key)
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		li := strings.ToLower(strings.TrimSpace(keys[i]))
+		lj := strings.ToLower(strings.TrimSpace(keys[j]))
+		if li == lj {
+			return keys[i] < keys[j]
+		}
+		return li < lj
+	})
+	for _, candidate := range candidates {
+		target := policyEntityLookupKey(candidate)
+		if target == "" {
+			continue
+		}
+		for _, key := range keys {
+			if policyEntityLookupKey(key) == target {
+				return required[key], true
+			}
+		}
+	}
+	return TranslationPolicyEntityConfig{}, false
 }
 
 func findTransitionConfig(entityCfg TranslationPolicyEntityConfig, transition string) (TranslationPolicyTransitionConfig, bool) {
@@ -334,6 +374,101 @@ func normalizeRequiredFieldNames(fields []string) []string {
 
 func normalizePolicyEntity(value string) string {
 	return admin.CanonicalPolicyEntityKey(value)
+}
+
+func policyEntityLookupKey(value string) string {
+	normalized := normalizePolicyEntity(value)
+	if normalized == "" {
+		return ""
+	}
+	singular := normalizePolicyEntity(inflection.Singular(normalized))
+	if singular == "" {
+		return normalizeLookupKey(normalized)
+	}
+	return normalizeLookupKey(singular)
+}
+
+func policyEntityLookupCandidates(entity string, aliases map[string]string) []string {
+	base := normalizePolicyEntity(entity)
+	if base == "" {
+		return nil
+	}
+	out := make([]string, 0, 8)
+	seen := map[string]struct{}{}
+	add := func(value string) {
+		normalized := normalizePolicyEntity(value)
+		if normalized == "" {
+			return
+		}
+		if _, ok := seen[normalized]; ok {
+			return
+		}
+		seen[normalized] = struct{}{}
+		out = append(out, normalized)
+	}
+	add(base)
+	add(inflection.Singular(base))
+	add(inflection.Plural(base))
+	for i := 0; i < len(out); i++ {
+		if mapped := resolvePolicyEntityAlias(aliases, out[i]); mapped != "" {
+			add(mapped)
+			add(inflection.Singular(mapped))
+			add(inflection.Plural(mapped))
+		}
+	}
+	return out
+}
+
+func resolvePolicyEntityAlias(aliases map[string]string, entity string) string {
+	if len(aliases) == 0 {
+		return ""
+	}
+	if entity == "" {
+		return ""
+	}
+	if mapped, ok := aliases[normalizePolicyEntity(entity)]; ok {
+		return normalizePolicyEntity(mapped)
+	}
+	return ""
+}
+
+func translationCheckerCandidates(
+	cfg TranslationPolicyConfig,
+	entity string,
+	services TranslationPolicyServices,
+) []TranslationChecker {
+	preferPages := translationPolicyEntityInSet(cfg.PageEntities, entity)
+	out := []TranslationChecker{}
+	add := func(checker TranslationChecker) {
+		if checker == nil {
+			return
+		}
+		out = append(out, checker)
+	}
+	if preferPages {
+		add(services.Pages)
+		add(services.Content)
+	} else {
+		add(services.Content)
+		add(services.Pages)
+	}
+	return out
+}
+
+func translationPolicyEntityInSet(values []string, entity string) bool {
+	if len(values) == 0 {
+		return false
+	}
+	target := policyEntityLookupKey(entity)
+	if target == "" {
+		return false
+	}
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+	return false
 }
 
 func uuidFromString(id string) uuid.UUID {
