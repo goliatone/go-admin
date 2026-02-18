@@ -20,6 +20,7 @@ type PathViewContextConfig struct {
 // - base_path
 // - api_base_path
 // - asset_base_path
+// - preferences_api_path
 func PathViewContext(cfg admin.Config, pathCfg PathViewContextConfig) router.ViewContext {
 	basePath := resolveAdminBasePath(pathCfg.URLResolver, firstNonEmpty(pathCfg.BasePath, cfg.BasePath))
 	basePath = normalizeBasePathValue(basePath)
@@ -33,11 +34,13 @@ func PathViewContext(cfg admin.Config, pathCfg PathViewContextConfig) router.Vie
 	if assetBasePath == "" {
 		assetBasePath = basePath
 	}
+	preferencesAPIPath := resolveAdminPreferencesAPICollectionPath(pathCfg.URLResolver, cfg, basePath)
 
 	return router.ViewContext{
-		"base_path":       basePath,
-		"api_base_path":   strings.TrimSpace(apiBasePath),
-		"asset_base_path": assetBasePath,
+		"base_path":            basePath,
+		"api_base_path":        strings.TrimSpace(apiBasePath),
+		"asset_base_path":      assetBasePath,
+		"preferences_api_path": strings.TrimSpace(preferencesAPIPath),
 	}
 }
 
