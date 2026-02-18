@@ -16,6 +16,13 @@ type TranslationPolicyConfig struct {
 	// RequiredFieldsStrategy controls how unknown required-field keys are handled.
 	// Valid values: error, warn, ignore (defaults to error).
 	RequiredFieldsStrategy admin.RequiredFieldsValidationStrategy `json:"required_fields_strategy,omitempty"`
+	// PageEntities declares policy entities that should prefer the page translation
+	// checker when both page/content checkers are configured.
+	PageEntities []string `json:"page_entities,omitempty"`
+	// EntityAliases maps input policy entities to canonical policy keys.
+	// Useful for irregular nouns or legacy names that singular/plural inflection
+	// cannot resolve deterministically.
+	EntityAliases map[string]string `json:"entity_aliases,omitempty"`
 	// Required maps entity -> transition -> requirements.
 	Required map[string]TranslationPolicyEntityConfig `json:"required,omitempty"`
 }
@@ -64,111 +71,16 @@ func DefaultTranslationPolicyConfig() TranslationPolicyConfig {
 	}
 }
 
-// DefaultContentTranslationPolicyConfig returns a page/post publish-focused policy fixture.
+// DefaultContentTranslationPolicyConfig returns a permissive, content-type agnostic
+// baseline with no built-in entity assumptions.
 func DefaultContentTranslationPolicyConfig() TranslationPolicyConfig {
-	return TranslationPolicyConfig{
-		RequiredFieldsStrategy: admin.RequiredFieldsValidationError,
-		Required: map[string]TranslationPolicyEntityConfig{
-			"pages": {
-				"publish": {
-					Locales: []string{"en", "es", "fr"},
-					RequiredFields: map[string][]string{
-						"en": {"title", "path"},
-						"es": {"title", "path"},
-						"fr": {"title", "path"},
-					},
-					Environments: map[string]TranslationCriteria{
-						"staging": {
-							Locales: []string{"en", "es"},
-							RequiredFields: map[string][]string{
-								"en": {"title", "path"},
-								"es": {"title", "path"},
-							},
-						},
-						"production": {
-							Locales: []string{"en", "es", "fr"},
-							RequiredFields: map[string][]string{
-								"en": {"title", "path"},
-								"es": {"title", "path"},
-								"fr": {"title", "path"},
-							},
-						},
-					},
-				},
-			},
-			"posts": {
-				"publish": {
-					Locales: []string{"en", "es", "fr"},
-					RequiredFields: map[string][]string{
-						"en": {"title", "path", "excerpt"},
-						"es": {"title", "path", "excerpt"},
-						"fr": {"title", "path", "excerpt"},
-					},
-					Environments: map[string]TranslationCriteria{
-						"staging": {
-							Locales: []string{"en", "es"},
-							RequiredFields: map[string][]string{
-								"en": {"title", "path", "excerpt"},
-								"es": {"title", "path", "excerpt"},
-							},
-						},
-						"production": {
-							Locales: []string{"en", "es", "fr"},
-							RequiredFields: map[string][]string{
-								"en": {"title", "path", "excerpt"},
-								"es": {"title", "path", "excerpt"},
-								"fr": {"title", "path", "excerpt"},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
+	return DefaultTranslationPolicyConfig()
 }
 
-// DefaultTranslationPolicyValidationCatalog defines known page/post publish contracts.
+// DefaultTranslationPolicyValidationCatalog is empty by default so hosts can
+// supply their own entity catalogs.
 func DefaultTranslationPolicyValidationCatalog() TranslationPolicyValidationCatalog {
-	return TranslationPolicyValidationCatalog{
-		Entities: map[string]TranslationPolicyEntityCatalog{
-			"pages": {
-				Transitions: map[string]TranslationPolicyTransitionCatalog{
-					"publish": {
-						RequiredFields: []string{
-							"title",
-							"slug",
-							"path",
-							"content",
-							"template_id",
-							"parent_id",
-							"meta_title",
-							"meta_description",
-							"blocks",
-						},
-					},
-				},
-			},
-			"posts": {
-				Transitions: map[string]TranslationPolicyTransitionCatalog{
-					"publish": {
-						RequiredFields: []string{
-							"title",
-							"slug",
-							"path",
-							"content",
-							"excerpt",
-							"category",
-							"featured_image",
-							"tags",
-							"meta_title",
-							"meta_description",
-							"author",
-						},
-					},
-				},
-			},
-		},
-	}
+	return TranslationPolicyValidationCatalog{}
 }
 
 // ValidateTranslationPolicyConfig validates policy keys against a known catalog.
@@ -185,7 +97,7 @@ func ValidateTranslationPolicyConfig(cfg TranslationPolicyConfig, catalog Transl
 	catalogEntities := normalizeEntityCatalog(catalog.Entities)
 	errorsOut := []string{}
 	for _, entity := range sortedKeys(cfg.Required) {
-		entityKey := normalizeLookupKey(entity)
+		entityKey := policyEntityLookupKey(firstNonEmpty(resolvePolicyEntityAlias(cfg.EntityAliases, entity), entity))
 		entityCfg := cfg.Required[entity]
 		entityCatalog, ok := catalogEntities[entityKey]
 		if !ok {
@@ -237,7 +149,52 @@ func ValidateTranslationPolicyConfig(cfg TranslationPolicyConfig, catalog Transl
 // NormalizeTranslationPolicyConfig applies defaults and normalizes strategy values.
 func NormalizeTranslationPolicyConfig(cfg TranslationPolicyConfig) TranslationPolicyConfig {
 	cfg.RequiredFieldsStrategy = normalizeRequiredFieldsStrategy(cfg.RequiredFieldsStrategy)
+	cfg.PageEntities = normalizeTranslationPolicyEntities(cfg.PageEntities)
+	cfg.EntityAliases = normalizeTranslationPolicyEntityAliases(cfg.EntityAliases)
 	return cfg
+}
+
+func normalizeTranslationPolicyEntities(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(values))
+	seen := map[string]struct{}{}
+	for _, value := range values {
+		normalized := policyEntityLookupKey(value)
+		if normalized == "" {
+			continue
+		}
+		if _, ok := seen[normalized]; ok {
+			continue
+		}
+		seen[normalized] = struct{}{}
+		out = append(out, normalized)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	sort.Strings(out)
+	return out
+}
+
+func normalizeTranslationPolicyEntityAliases(values map[string]string) map[string]string {
+	if len(values) == 0 {
+		return nil
+	}
+	out := map[string]string{}
+	for key, value := range values {
+		normalizedKey := admin.CanonicalPolicyEntityKey(key)
+		normalizedValue := admin.CanonicalPolicyEntityKey(value)
+		if normalizedKey == "" || normalizedValue == "" {
+			continue
+		}
+		out[normalizedKey] = normalizedValue
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func validateRequiredFieldLocales(
@@ -287,7 +244,7 @@ func appendValidationIssue(
 func normalizeEntityCatalog(values map[string]TranslationPolicyEntityCatalog) map[string]TranslationPolicyEntityCatalog {
 	out := map[string]TranslationPolicyEntityCatalog{}
 	for key, value := range values {
-		normalized := normalizeLookupKey(key)
+		normalized := policyEntityLookupKey(key)
 		if normalized == "" {
 			continue
 		}
