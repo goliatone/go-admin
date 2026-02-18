@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"sort"
 	"strings"
 	"sync"
@@ -92,7 +93,7 @@ func (s *OrganizationService) SaveOrganization(ctx context.Context, org Organiza
 	if org.ID == "" {
 		org.ID = s.idBuilder()
 	}
-	org.Status = firstNonEmpty(strings.ToLower(strings.TrimSpace(org.Status)), "active")
+	org.Status = primitives.FirstNonEmptyRaw(strings.ToLower(strings.TrimSpace(org.Status)), "active")
 	if org.Slug == "" {
 		org.Slug = slugify(org.Name)
 	}
@@ -377,7 +378,7 @@ func cloneOrganization(record OrganizationRecord) OrganizationRecord {
 		cloned.Members = cloneOrganizationMembers(record.Members)
 	}
 	if record.Metadata != nil {
-		cloned.Metadata = cloneAnyMap(record.Metadata)
+		cloned.Metadata = primitives.CloneAnyMap(record.Metadata)
 	}
 	return cloned
 }

@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"github.com/goliatone/go-admin/internal/primitives"
 	urlkit "github.com/goliatone/go-urlkit"
 )
 
@@ -72,7 +73,7 @@ func (m *ActivityModule) MenuItems(locale string) []MenuItem {
 			Permissions: permissions,
 			Menu:        m.menuCode,
 			Locale:      locale,
-			Position:    intPtr(45),
+			Position:    primitives.Int(45),
 			ParentID:    m.menuParent,
 		},
 	}

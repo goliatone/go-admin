@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"github.com/goliatone/go-admin/internal/primitives"
 	"sort"
 	"strings"
 	"sync"
@@ -130,7 +131,7 @@ func (r *FieldTypeRegistry) FieldTypes() []FieldTypeDefinition {
 	out := make([]FieldTypeDefinition, 0, len(r.entries))
 	for _, def := range r.entries {
 		clone := def
-		clone.Defaults = cloneAnyMap(def.Defaults)
+		clone.Defaults = primitives.CloneAnyMap(def.Defaults)
 		out = append(out, clone)
 	}
 	categoryOrder := map[string]int{}

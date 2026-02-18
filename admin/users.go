@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"sort"
 	"strings"
 	"sync"
@@ -1312,7 +1313,7 @@ func (r *GoUsersRoleRepository) Create(ctx context.Context, role RoleRecord) (Ro
 		RoleKey:     role.RoleKey,
 		Description: role.Description,
 		Permissions: role.Permissions,
-		Metadata:    cloneAnyMap(role.Metadata),
+		Metadata:    primitives.CloneAnyMap(role.Metadata),
 		IsSystem:    role.IsSystem,
 		Scope:       r.scope(ctx),
 		ActorID:     actor,
@@ -1342,7 +1343,7 @@ func (r *GoUsersRoleRepository) Update(ctx context.Context, role RoleRecord) (Ro
 		RoleKey:     role.RoleKey,
 		Description: role.Description,
 		Permissions: role.Permissions,
-		Metadata:    cloneAnyMap(role.Metadata),
+		Metadata:    primitives.CloneAnyMap(role.Metadata),
 		IsSystem:    role.IsSystem,
 		Scope:       r.scope(ctx),
 		ActorID:     actor,
@@ -1537,7 +1538,7 @@ func fromUsersAuthUser(u users.AuthUser) UserRecord {
 		Role:      u.Role,
 		FirstName: u.FirstName,
 		LastName:  u.LastName,
-		Metadata:  cloneAnyMap(u.Metadata),
+		Metadata:  primitives.CloneAnyMap(u.Metadata),
 	}
 }
 
@@ -1551,7 +1552,7 @@ func toUsersAuthUser(u UserRecord) users.AuthUser {
 		Role:      u.Role,
 		FirstName: u.FirstName,
 		LastName:  u.LastName,
-		Metadata:  cloneAnyMap(u.Metadata),
+		Metadata:  primitives.CloneAnyMap(u.Metadata),
 	}
 }
 
@@ -1562,7 +1563,7 @@ func fromUsersRole(role users.RoleDefinition) RoleRecord {
 		RoleKey:     role.RoleKey,
 		Description: role.Description,
 		Permissions: append([]string{}, role.Permissions...),
-		Metadata:    cloneAnyMap(role.Metadata),
+		Metadata:    primitives.CloneAnyMap(role.Metadata),
 		IsSystem:    role.IsSystem,
 		CreatedAt:   role.CreatedAt,
 		UpdatedAt:   role.UpdatedAt,
@@ -1607,7 +1608,7 @@ func cloneUser(u UserRecord) UserRecord {
 		RoleDisplay: u.RoleDisplay,
 		RoleLabels:  append([]string{}, u.RoleLabels...),
 		Permissions: append([]string{}, u.Permissions...),
-		Metadata:    cloneAnyMap(u.Metadata),
+		Metadata:    primitives.CloneAnyMap(u.Metadata),
 		CreatedAt:   u.CreatedAt,
 		UpdatedAt:   u.UpdatedAt,
 	}
@@ -1620,7 +1621,7 @@ func cloneRole(r RoleRecord) RoleRecord {
 		RoleKey:     r.RoleKey,
 		Description: r.Description,
 		Permissions: append([]string{}, r.Permissions...),
-		Metadata:    cloneAnyMap(r.Metadata),
+		Metadata:    primitives.CloneAnyMap(r.Metadata),
 		IsSystem:    r.IsSystem,
 		CreatedAt:   r.CreatedAt,
 		UpdatedAt:   r.UpdatedAt,

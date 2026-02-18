@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"net/http"
 	"strings"
 
@@ -248,7 +249,7 @@ func parseFeatureOverrideScope(ctx AdminContext, body map[string]any) (string, f
 	case featureOverrideScopeSystem:
 		return scopeName, fggate.ScopeRef{Kind: fggate.ScopeSystem}, "", nil
 	case featureOverrideScopeTenant:
-		id := firstNonEmpty(tenantID, scopeID, ctx.TenantID)
+		id := primitives.FirstNonEmptyRaw(tenantID, scopeID, ctx.TenantID)
 		if id == "" {
 			return "", fggate.ScopeRef{}, "", goerrors.New("tenant scope requires tenant_id", goerrors.CategoryBadInput).
 				WithCode(http.StatusBadRequest).
@@ -256,7 +257,7 @@ func parseFeatureOverrideScope(ctx AdminContext, body map[string]any) (string, f
 		}
 		return scopeName, fggate.ScopeRef{Kind: fggate.ScopeTenant, ID: id}, id, nil
 	case featureOverrideScopeOrg:
-		id := firstNonEmpty(orgID, scopeID, ctx.OrgID)
+		id := primitives.FirstNonEmptyRaw(orgID, scopeID, ctx.OrgID)
 		if id == "" {
 			return "", fggate.ScopeRef{}, "", goerrors.New("org scope requires org_id", goerrors.CategoryBadInput).
 				WithCode(http.StatusBadRequest).
@@ -264,7 +265,7 @@ func parseFeatureOverrideScope(ctx AdminContext, body map[string]any) (string, f
 		}
 		return scopeName, fggate.ScopeRef{Kind: fggate.ScopeOrg, ID: id}, id, nil
 	case featureOverrideScopeUser:
-		id := firstNonEmpty(userID, scopeID, ctx.UserID)
+		id := primitives.FirstNonEmptyRaw(userID, scopeID, ctx.UserID)
 		if id == "" {
 			return "", fggate.ScopeRef{}, "", goerrors.New("user scope requires user_id", goerrors.CategoryBadInput).
 				WithCode(http.StatusBadRequest).

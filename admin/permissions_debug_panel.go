@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"sort"
 	"strings"
 
@@ -268,7 +269,7 @@ func (p *PermissionsDebugPanel) collectUserInfo(ctx context.Context, snapshot *P
 
 	if actor, ok := auth.ActorFromContext(ctx); ok && actor != nil {
 		if snapshot.UserInfo.UserID == "" {
-			snapshot.UserInfo.UserID = firstNonEmpty(strings.TrimSpace(actor.ActorID), strings.TrimSpace(actor.Subject))
+			snapshot.UserInfo.UserID = primitives.FirstNonEmptyRaw(strings.TrimSpace(actor.ActorID), strings.TrimSpace(actor.Subject))
 		}
 		if snapshot.UserInfo.Role == "" {
 			snapshot.UserInfo.Role = strings.TrimSpace(actor.Role)

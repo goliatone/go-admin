@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"sync"
 	"time"
 
@@ -230,7 +231,7 @@ func debugREPLSessionExpired(session DebugREPLSession, now time.Time) bool {
 func cloneDebugREPLSession(session DebugREPLSession) DebugREPLSession {
 	clone := session
 	if session.Metadata != nil {
-		clone.Metadata = cloneAnyMap(session.Metadata)
+		clone.Metadata = primitives.CloneAnyMap(session.Metadata)
 	}
 	if session.ClosedAt != nil {
 		closedAt := *session.ClosedAt

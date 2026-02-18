@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"sort"
 	"sync"
 
@@ -283,9 +284,9 @@ func cloneProfile(profile UserProfile) UserProfile {
 		Locale:      profile.Locale,
 		Timezone:    profile.Timezone,
 		Bio:         profile.Bio,
-		Contact:     cloneAnyMap(profile.Contact),
-		Metadata:    cloneAnyMap(profile.Metadata),
-		Raw:         cloneAnyMap(profile.Raw),
+		Contact:     primitives.CloneAnyMap(profile.Contact),
+		Metadata:    primitives.CloneAnyMap(profile.Metadata),
+		Raw:         primitives.CloneAnyMap(profile.Raw),
 	}
 }
 
@@ -362,8 +363,8 @@ func fromUsersProfile(userID string, p users.UserProfile) UserProfile {
 		Locale:      p.Locale,
 		Timezone:    p.Timezone,
 		Bio:         p.Bio,
-		Contact:     cloneAnyMap(p.Contact),
-		Metadata:    cloneAnyMap(p.Metadata),
+		Contact:     primitives.CloneAnyMap(p.Contact),
+		Metadata:    primitives.CloneAnyMap(p.Metadata),
 		Email:       email,
 		Raw: map[string]any{
 			profileKeyDisplayName: p.DisplayName,
@@ -385,7 +386,7 @@ func toUsersProfile(id uuid.UUID, profile UserProfile, scope users.ScopeFilter) 
 		Timezone:    profile.Timezone,
 		Bio:         profile.Bio,
 		Contact:     mergeAnyMaps(profile.Contact, map[string]any{profileKeyEmail: profile.Email}),
-		Metadata:    cloneAnyMap(profile.Metadata),
+		Metadata:    primitives.CloneAnyMap(profile.Metadata),
 		Scope:       scope,
 	}
 }

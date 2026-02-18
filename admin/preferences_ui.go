@@ -3,6 +3,7 @@ package admin
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 
 	goerrors "github.com/goliatone/go-errors"
@@ -168,7 +169,7 @@ func (m *PreferencesModule) savePreferencesForm(admin *Admin, c router.Context, 
 		if err != nil {
 			return err
 		}
-		mergedRaw := cloneAnyMap(existing.Raw)
+		mergedRaw := primitives.CloneAnyMap(existing.Raw)
 		if mergedRaw == nil {
 			mergedRaw = map[string]any{}
 		}

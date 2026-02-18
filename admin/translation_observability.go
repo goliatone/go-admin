@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"expvar"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"log/slog"
 	"sort"
 	"strings"
@@ -62,10 +63,10 @@ func recordTranslationBlockedTransitionMetric(ctx context.Context, input Transla
 		return
 	}
 	tags := map[string]string{
-		"entity":      firstNonEmpty(normalizePolicyEntityKey(input.PolicyEntity), normalizePolicyEntityKey(input.EntityType), normalizePolicyEntityKey(missing.PolicyEntity), normalizePolicyEntityKey(missing.EntityType), "unknown"),
-		"locale":      firstNonEmpty(strings.TrimSpace(input.RequestedLocale), strings.TrimSpace(missing.RequestedLocale), "unknown"),
-		"transition":  firstNonEmpty(strings.TrimSpace(input.Transition), strings.TrimSpace(missing.Transition), "unknown"),
-		"environment": firstNonEmpty(strings.TrimSpace(input.Environment), strings.TrimSpace(missing.Environment), "unknown"),
+		"entity":      primitives.FirstNonEmptyRaw(normalizePolicyEntityKey(input.PolicyEntity), normalizePolicyEntityKey(input.EntityType), normalizePolicyEntityKey(missing.PolicyEntity), normalizePolicyEntityKey(missing.EntityType), "unknown"),
+		"locale":      primitives.FirstNonEmptyRaw(strings.TrimSpace(input.RequestedLocale), strings.TrimSpace(missing.RequestedLocale), "unknown"),
+		"transition":  primitives.FirstNonEmptyRaw(strings.TrimSpace(input.Transition), strings.TrimSpace(missing.Transition), "unknown"),
+		"environment": primitives.FirstNonEmptyRaw(strings.TrimSpace(input.Environment), strings.TrimSpace(missing.Environment), "unknown"),
 	}
 	defaultTranslationMetrics.IncrementBlockedTransition(ctx, tags)
 	logTranslationBlockedTransition(ctx, input, missing, tags["entity"], tags["locale"], tags["transition"], tags["environment"])
@@ -76,11 +77,11 @@ func recordTranslationCreateActionMetric(ctx context.Context, event translationC
 		return
 	}
 	tags := map[string]string{
-		"entity":      firstNonEmpty(strings.TrimSpace(event.Entity), "unknown"),
-		"locale":      firstNonEmpty(strings.TrimSpace(event.Locale), "unknown"),
-		"transition":  firstNonEmpty(strings.TrimSpace(event.Transition), "create_translation"),
-		"environment": firstNonEmpty(strings.TrimSpace(event.Environment), "unknown"),
-		"outcome":     firstNonEmpty(strings.TrimSpace(event.Outcome), "unknown"),
+		"entity":      primitives.FirstNonEmptyRaw(strings.TrimSpace(event.Entity), "unknown"),
+		"locale":      primitives.FirstNonEmptyRaw(strings.TrimSpace(event.Locale), "unknown"),
+		"transition":  primitives.FirstNonEmptyRaw(strings.TrimSpace(event.Transition), "create_translation"),
+		"environment": primitives.FirstNonEmptyRaw(strings.TrimSpace(event.Environment), "unknown"),
+		"outcome":     primitives.FirstNonEmptyRaw(strings.TrimSpace(event.Outcome), "unknown"),
 	}
 	defaultTranslationMetrics.IncrementCreateAction(ctx, tags)
 	logTranslationCreateAction(ctx, event, tags)
@@ -130,7 +131,7 @@ func logTranslationBlockedTransition(ctx context.Context, input TranslationPolic
 	attrs := []any{
 		"event", "translation.transition.blocked",
 		"entity", entity,
-		"entity_id", firstNonEmpty(strings.TrimSpace(input.EntityID), strings.TrimSpace(missing.EntityID), "unknown"),
+		"entity_id", primitives.FirstNonEmptyRaw(strings.TrimSpace(input.EntityID), strings.TrimSpace(missing.EntityID), "unknown"),
 		"transition", transition,
 		"locale", locale,
 		"environment", environment,
@@ -152,11 +153,11 @@ func logTranslationCreateAction(ctx context.Context, event translationCreateActi
 		"action", tags["transition"],
 		"outcome", tags["outcome"],
 		"entity", tags["entity"],
-		"entity_id", firstNonEmpty(strings.TrimSpace(event.EntityID), "unknown"),
-		"source_locale", firstNonEmpty(strings.TrimSpace(event.SourceLocale), "unknown"),
+		"entity_id", primitives.FirstNonEmptyRaw(strings.TrimSpace(event.EntityID), "unknown"),
+		"source_locale", primitives.FirstNonEmptyRaw(strings.TrimSpace(event.SourceLocale), "unknown"),
 		"target_locale", tags["locale"],
 		"environment", tags["environment"],
-		"translation_group_id", firstNonEmpty(strings.TrimSpace(event.TranslationGroupID), "unknown"),
+		"translation_group_id", primitives.FirstNonEmptyRaw(strings.TrimSpace(event.TranslationGroupID), "unknown"),
 	}
 	if event.Err != nil {
 		attrs = append(attrs, "error", event.Err.Error())

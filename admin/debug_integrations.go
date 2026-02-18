@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"log/slog"
 	"net/http"
 	"runtime"
@@ -225,7 +226,7 @@ func buildDebugSessionSnapshot(c router.Context, sessionMeta debugSessionContext
 			snapshot["role"] = strings.TrimSpace(actor.Role)
 		}
 		if strings.TrimSpace(toString(snapshot["user_id"])) == "" {
-			snapshot["user_id"] = firstNonEmpty(strings.TrimSpace(actor.ActorID), strings.TrimSpace(actor.Subject))
+			snapshot["user_id"] = primitives.FirstNonEmptyRaw(strings.TrimSpace(actor.ActorID), strings.TrimSpace(actor.Subject))
 		}
 		snapshot["actor_id"] = strings.TrimSpace(actor.ActorID)
 		snapshot["tenant_id"] = strings.TrimSpace(actor.TenantID)
@@ -430,7 +431,7 @@ func debugRequestHeaders(c router.Context) map[string]string {
 }
 
 func debugRequestQueries(c router.Context) map[string]string {
-	queries := cloneStringMap(c.Queries())
+	queries := primitives.CloneStringMapNilOnEmpty(c.Queries())
 	if len(queries) == 0 {
 		return nil
 	}
@@ -917,7 +918,7 @@ func debugDebugConfigSnapshot(cfg DebugConfig) map[string]any {
 	if cfg.SessionInactivityExpiry > 0 {
 		out["session_inactivity_expiry"] = cfg.SessionInactivityExpiry
 	}
-	if mask := cloneStringMap(cfg.MaskFieldTypes); len(mask) > 0 {
+	if mask := primitives.CloneStringMapNilOnEmpty(cfg.MaskFieldTypes); len(mask) > 0 {
 		out["mask_field_types"] = mask
 	}
 	if repl := debugReplConfigSnapshot(cfg.Repl); len(repl) > 0 {
@@ -1026,7 +1027,7 @@ func debugThemeSnapshot(cfg Config) map[string]any {
 	if cfg.ThemeAssetPrefix != "" {
 		out["asset_prefix"] = cfg.ThemeAssetPrefix
 	}
-	if tokens := cloneStringMap(cfg.ThemeTokens); len(tokens) > 0 {
+	if tokens := primitives.CloneStringMapNilOnEmpty(cfg.ThemeTokens); len(tokens) > 0 {
 		out["tokens"] = tokens
 	}
 	return out

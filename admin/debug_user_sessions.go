@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 	"sync"
 	"time"
@@ -163,7 +164,7 @@ func debugUserSessionKey(userID, sessionID string) string {
 func cloneDebugUserSession(session DebugUserSession) DebugUserSession {
 	clone := session
 	if session.Metadata != nil {
-		clone.Metadata = cloneAnyMap(session.Metadata)
+		clone.Metadata = primitives.CloneAnyMap(session.Metadata)
 	}
 	return clone
 }
@@ -172,7 +173,7 @@ func mergeDebugUserSessionMetadata(base, next map[string]any) map[string]any {
 	if len(base) == 0 && len(next) == 0 {
 		return nil
 	}
-	out := cloneAnyMap(base)
+	out := primitives.CloneAnyMap(base)
 	if out == nil {
 		out = map[string]any{}
 	}

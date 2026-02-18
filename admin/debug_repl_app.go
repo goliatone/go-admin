@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"go/parser"
 	"io"
 	"reflect"
@@ -128,7 +129,7 @@ func handleDebugREPLAppWebSocket(admin *Admin, cfg DebugConfig, c router.WebSock
 	closeReason := debugREPLAppCloseReasonUser
 	defer func() {
 		_ = sessionManager.Close(adminCtx.Context, session.ID, time.Now())
-		closeMeta := cloneAnyMap(baseMeta)
+		closeMeta := primitives.CloneAnyMap(baseMeta)
 		closeMeta["reason"] = closeReason
 		recordDebugREPLActivity(admin, adminCtx.Context, debugREPLActivityActionClose, sessionObject, closeMeta)
 	}()

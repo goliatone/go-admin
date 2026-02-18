@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"net/url"
 	"path"
 	"sort"
@@ -455,13 +456,13 @@ func (a *Admin) seedCMSDemoData(ctx context.Context) {
 			contentTarget := map[string]any{"type": "url", "path": resolveURLWith(a.urlManager, "admin", "content", nil, nil)}
 			treeTarget := map[string]any{"type": "url", "path": resolveURLWith(a.urlManager, "admin", "content.panel", map[string]string{"panel": "content_tree"}, nil)}
 			conflictsTarget := map[string]any{"type": "url", "path": resolveURLWith(a.urlManager, "admin", "block_conflicts", nil, nil)}
-			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Dashboard", Icon: "dashboard", Position: intPtr(1), Locale: "en", Target: dashboardTarget})
-			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Content", Icon: "file", Position: intPtr(2), Locale: "en", Target: contentTarget})
-			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Content Tree", Icon: "file-text", Position: intPtr(3), Locale: "en", Target: treeTarget})
-			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Block Conflicts", Icon: "alert-triangle", Position: intPtr(4), Locale: "en", Target: conflictsTarget})
-			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Contenido", Icon: "file", Position: intPtr(2), Locale: "es", Target: contentTarget})
-			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Arbol de Contenido", Icon: "file-text", Position: intPtr(3), Locale: "es", Target: treeTarget})
-			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Conflictos de Bloques", Icon: "alert-triangle", Position: intPtr(4), Locale: "es", Target: conflictsTarget})
+			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Dashboard", Icon: "dashboard", Position: primitives.Int(1), Locale: "en", Target: dashboardTarget})
+			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Content", Icon: "file", Position: primitives.Int(2), Locale: "en", Target: contentTarget})
+			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Content Tree", Icon: "file-text", Position: primitives.Int(3), Locale: "en", Target: treeTarget})
+			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Block Conflicts", Icon: "alert-triangle", Position: primitives.Int(4), Locale: "en", Target: conflictsTarget})
+			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Contenido", Icon: "file", Position: primitives.Int(2), Locale: "es", Target: contentTarget})
+			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Arbol de Contenido", Icon: "file-text", Position: primitives.Int(3), Locale: "es", Target: treeTarget})
+			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Conflictos de Bloques", Icon: "alert-triangle", Position: primitives.Int(4), Locale: "es", Target: conflictsTarget})
 		}
 	}
 }
@@ -533,7 +534,7 @@ func (r *repoSearchAdapter) resolveTitle(record map[string]any, fallback string)
 			return title
 		}
 	}
-	return strings.TrimSpace(firstNonEmpty(
+	return strings.TrimSpace(primitives.FirstNonEmptyRaw(
 		toString(record["title"]),
 		toString(record["name"]),
 		toString(record["label"]),
@@ -549,7 +550,7 @@ func (r *repoSearchAdapter) resolveDescription(record map[string]any) string {
 	if field := strings.TrimSpace(r.descriptionField); field != "" {
 		return strings.TrimSpace(toString(record[field]))
 	}
-	return strings.TrimSpace(firstNonEmpty(
+	return strings.TrimSpace(primitives.FirstNonEmptyRaw(
 		toString(record["status"]),
 		toString(record["summary"]),
 	))
@@ -610,11 +611,11 @@ func (a *Admin) contentTypeOptions(ctx context.Context) ([]Option, error) {
 	options := make([]Option, 0, len(types))
 	seen := map[string]bool{}
 	for _, ct := range types {
-		value := strings.TrimSpace(firstNonEmpty(ct.Slug, ct.Name, ct.ID))
+		value := strings.TrimSpace(primitives.FirstNonEmptyRaw(ct.Slug, ct.Name, ct.ID))
 		if value == "" || seen[value] {
 			continue
 		}
-		label := strings.TrimSpace(firstNonEmpty(ct.Name, ct.Slug, value))
+		label := strings.TrimSpace(primitives.FirstNonEmptyRaw(ct.Name, ct.Slug, value))
 		options = append(options, Option{Value: value, Label: label})
 		seen[value] = true
 	}

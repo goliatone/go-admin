@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"sort"
 	"strings"
 	"sync"
@@ -92,7 +93,7 @@ func (s *TenantService) SaveTenant(ctx context.Context, tenant TenantRecord) (Te
 	if tenant.ID == "" {
 		tenant.ID = s.idBuilder()
 	}
-	tenant.Status = firstNonEmpty(strings.ToLower(strings.TrimSpace(tenant.Status)), "active")
+	tenant.Status = primitives.FirstNonEmptyRaw(strings.ToLower(strings.TrimSpace(tenant.Status)), "active")
 	if tenant.Slug == "" {
 		tenant.Slug = slugify(tenant.Name)
 	}
@@ -367,7 +368,7 @@ func cloneTenant(record TenantRecord) TenantRecord {
 		cloned.Members = cloneTenantMembers(record.Members)
 	}
 	if record.Metadata != nil {
-		cloned.Metadata = cloneAnyMap(record.Metadata)
+		cloned.Metadata = primitives.CloneAnyMap(record.Metadata)
 	}
 	return cloned
 }

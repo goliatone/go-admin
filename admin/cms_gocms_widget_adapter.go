@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 	"sync"
 
@@ -149,7 +150,7 @@ func (a *GoCMSWidgetAdapter) RegisterAreaDefinition(ctx context.Context, def Wid
 	}
 	_, err := a.service.RegisterAreaDefinition(ctx, cmswidgets.RegisterAreaDefinitionInput{
 		Code:  strings.TrimSpace(def.Code),
-		Name:  firstNonEmpty(strings.TrimSpace(def.Name), strings.TrimSpace(def.Code)),
+		Name:  primitives.FirstNonEmptyRaw(strings.TrimSpace(def.Name), strings.TrimSpace(def.Code)),
 		Scope: scope,
 	})
 	return err
@@ -170,7 +171,7 @@ func (a *GoCMSWidgetAdapter) RegisterDefinition(ctx context.Context, def WidgetD
 	created, err := a.service.RegisterDefinition(ctx, cmswidgets.RegisterDefinitionInput{
 		Name:        code,
 		Description: &name,
-		Schema:      cloneAnyMap(schema),
+		Schema:      primitives.CloneAnyMap(schema),
 	})
 	if err != nil {
 		return err
@@ -237,7 +238,7 @@ func (a *GoCMSWidgetAdapter) Definitions() []WidgetDefinition {
 		out = append(out, WidgetDefinition{
 			Code:   code,
 			Name:   code,
-			Schema: cloneAnyMap(def.Schema),
+			Schema: primitives.CloneAnyMap(def.Schema),
 		})
 	}
 	return out
@@ -274,9 +275,9 @@ func (a *GoCMSWidgetAdapter) SaveInstance(ctx context.Context, instance WidgetIn
 		return nil, err
 	}
 	if updated != nil {
-		updated.Area = firstNonEmpty(instance.Area, updated.Area)
-		updated.PageID = firstNonEmpty(instance.PageID, updated.PageID)
-		updated.Locale = firstNonEmpty(instance.Locale, updated.Locale)
+		updated.Area = primitives.FirstNonEmptyRaw(instance.Area, updated.Area)
+		updated.PageID = primitives.FirstNonEmptyRaw(instance.PageID, updated.PageID)
+		updated.Locale = primitives.FirstNonEmptyRaw(instance.Locale, updated.Locale)
 		if err := a.assignWidgetPlacement(ctx, updated, instance); err != nil {
 			return nil, err
 		}
@@ -295,7 +296,7 @@ func (a *GoCMSWidgetAdapter) createInstance(ctx context.Context, defID uuid.UUID
 	ctx = widgetCallContext(ctx)
 	input := cmswidgets.CreateInstanceInput{
 		DefinitionID:  defID,
-		Configuration: cloneAnyMap(instance.Config),
+		Configuration: primitives.CloneAnyMap(instance.Config),
 		Placement:     widgetPlacementMetadata(instance),
 		CreatedBy:     actorUUID(ctx),
 		UpdatedBy:     actorUUID(ctx),
@@ -329,7 +330,7 @@ func (a *GoCMSWidgetAdapter) updateInstance(ctx context.Context, instance Widget
 	}
 	input := cmswidgets.UpdateInstanceInput{
 		InstanceID:    uid,
-		Configuration: cloneAnyMap(instance.Config),
+		Configuration: primitives.CloneAnyMap(instance.Config),
 		Placement:     widgetPlacementMetadata(instance),
 		UpdatedBy:     actorUUID(ctx),
 	}
@@ -623,7 +624,7 @@ func convertGoCMSWidgetInstance(val *cmswidgets.Instance) WidgetInstance {
 	inst := WidgetInstance{
 		ID:             val.ID.String(),
 		DefinitionCode: val.DefinitionID.String(),
-		Config:         cloneAnyMap(val.Configuration),
+		Config:         primitives.CloneAnyMap(val.Configuration),
 		Position:       val.Position,
 	}
 	if val.AreaCode != nil {
@@ -646,7 +647,7 @@ func convertGoCMSResolvedWidget(entry *cmswidgets.ResolvedWidget) WidgetInstance
 	}
 	inst := convertGoCMSWidgetInstance(entry.Instance)
 	if entry.Placement != nil {
-		inst.Area = firstNonEmpty(entry.Placement.AreaCode, inst.Area)
+		inst.Area = primitives.FirstNonEmptyRaw(entry.Placement.AreaCode, inst.Area)
 		inst.Position = entry.Placement.Position
 		if entry.Placement.Metadata != nil {
 			if inst.PageID == "" {

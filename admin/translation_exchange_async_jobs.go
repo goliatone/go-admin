@@ -3,6 +3,7 @@ package admin
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"strconv"
 	"strings"
 	"sync"
@@ -137,7 +138,7 @@ func (s *translationExchangeAsyncJobStore) MarkRunning(id string, progress map[s
 	}
 	job.Status = translationExchangeAsyncJobStatusRunning
 	if len(progress) > 0 {
-		job.Progress = cloneAnyMap(progress)
+		job.Progress = primitives.CloneAnyMap(progress)
 	}
 	job.UpdatedAt = s.nowFn().UTC()
 	s.jobs[id] = job
@@ -155,8 +156,8 @@ func (s *translationExchangeAsyncJobStore) Complete(id string, progress map[stri
 	}
 	job.Status = translationExchangeAsyncJobStatusCompleted
 	job.Error = ""
-	job.Progress = cloneAnyMap(progress)
-	job.Result = cloneAnyMap(result)
+	job.Progress = primitives.CloneAnyMap(progress)
+	job.Result = primitives.CloneAnyMap(result)
 	job.UpdatedAt = s.nowFn().UTC()
 	s.jobs[id] = job
 }
@@ -173,7 +174,7 @@ func (s *translationExchangeAsyncJobStore) Fail(id string, progress map[string]a
 	}
 	job.Status = translationExchangeAsyncJobStatusFailed
 	if len(progress) > 0 {
-		job.Progress = cloneAnyMap(progress)
+		job.Progress = primitives.CloneAnyMap(progress)
 	}
 	if err != nil {
 		job.Error = strings.TrimSpace(err.Error())
@@ -198,8 +199,8 @@ func (s *translationExchangeAsyncJobStore) Get(id string) (translationExchangeAs
 
 func cloneTranslationExchangeAsyncJob(job translationExchangeAsyncJob) translationExchangeAsyncJob {
 	clone := job
-	clone.Progress = cloneAnyMap(job.Progress)
-	clone.Result = cloneAnyMap(job.Result)
+	clone.Progress = primitives.CloneAnyMap(job.Progress)
+	clone.Result = primitives.CloneAnyMap(job.Result)
 	return clone
 }
 
@@ -209,7 +210,7 @@ func translationExchangeAsyncJobPayload(job translationExchangeAsyncJob) map[str
 		"kind":          strings.TrimSpace(job.Kind),
 		"status":        normalizeTranslationExchangeJobStatus(job.Status),
 		"poll_endpoint": strings.TrimSpace(job.PollEndpoint),
-		"progress":      cloneAnyMap(job.Progress),
+		"progress":      primitives.CloneAnyMap(job.Progress),
 		"created_at":    job.CreatedAt,
 		"updated_at":    job.UpdatedAt,
 	}
@@ -217,7 +218,7 @@ func translationExchangeAsyncJobPayload(job translationExchangeAsyncJob) map[str
 		payload["error"] = strings.TrimSpace(job.Error)
 	}
 	if len(job.Result) > 0 {
-		payload["result"] = cloneAnyMap(job.Result)
+		payload["result"] = primitives.CloneAnyMap(job.Result)
 	}
 	return payload
 }

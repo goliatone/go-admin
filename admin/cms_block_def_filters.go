@@ -1,9 +1,12 @@
 package admin
 
-import "strings"
+import (
+	"github.com/goliatone/go-admin/internal/primitives"
+	"strings"
+)
 
 func blockDefinitionType(def CMSBlockDefinition) string {
-	return strings.TrimSpace(firstNonEmpty(def.Slug, def.Type, def.ID, def.Name))
+	return strings.TrimSpace(primitives.FirstNonEmptyRaw(def.Slug, def.Type, def.ID, def.Name))
 }
 
 func blockTypesFromContentType(ct CMSContentType) ([]string, bool) {
@@ -68,7 +71,7 @@ func blockTypesFromSchema(schema map[string]any) ([]string, bool) {
 		return nil, false
 	}
 	if looksLikeJSONSchema(schema) {
-		schema = ensureObjectSchema(cloneAnyMap(schema))
+		schema = ensureObjectSchema(primitives.CloneAnyMap(schema))
 	}
 	props, ok := schema["properties"].(map[string]any)
 	if !ok || props == nil {

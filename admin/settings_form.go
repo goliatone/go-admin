@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"github.com/goliatone/go-admin/internal/primitives"
 
 	settingsinternal "github.com/goliatone/go-admin/admin/internal/settings"
 	opts "github.com/goliatone/go-options"
@@ -150,7 +151,7 @@ func (a *SettingsFormAdapter) themePayload(ctx context.Context) map[string]map[s
 	}
 	selection := &ThemeSelection{
 		Name:   a.themeName,
-		Tokens: cloneStringMap(a.themeToken),
+		Tokens: primitives.CloneStringMapNilOnEmpty(a.themeToken),
 	}
 	return selection.payload()
 }

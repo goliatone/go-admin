@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"path"
 	"strings"
 	"unicode/utf8"
@@ -303,11 +304,11 @@ func debugViewSessionUser(c router.Context, basePath string) map[string]any {
 		if actor.Role != "" {
 			session["role"] = actor.Role
 		}
-		session["id"] = firstNonEmpty(strings.TrimSpace(actor.ActorID), strings.TrimSpace(actor.Subject))
+		session["id"] = primitives.FirstNonEmptyRaw(strings.TrimSpace(actor.ActorID), strings.TrimSpace(actor.Subject))
 	}
 	claims, hasClaims := auth.GetClaims(reqCtx)
 	if hasClaims && claims != nil {
-		session["id"] = firstNonEmpty(toString(session["id"]), strings.TrimSpace(claims.UserID()), strings.TrimSpace(claims.Subject()))
+		session["id"] = primitives.FirstNonEmptyRaw(toString(session["id"]), strings.TrimSpace(claims.UserID()), strings.TrimSpace(claims.Subject()))
 		if role := strings.TrimSpace(claims.Role()); role != "" && strings.TrimSpace(toString(session["role"])) == "" {
 			session["role"] = role
 		}
@@ -323,7 +324,7 @@ func debugViewSessionUser(c router.Context, basePath string) map[string]any {
 		session["id"] = strings.TrimSpace(userIDFromContext(reqCtx))
 	}
 
-	displayName := firstNonEmpty(
+	displayName := primitives.FirstNonEmptyRaw(
 		debugSessionUsernameFromRequest(c),
 		strings.TrimSpace(toString(metadata["display_name"])),
 		strings.TrimSpace(toString(metadata["name"])),
@@ -337,7 +338,7 @@ func debugViewSessionUser(c router.Context, basePath string) map[string]any {
 		session["initial"] = initial
 	}
 
-	if avatarURL := firstNonEmpty(
+	if avatarURL := primitives.FirstNonEmptyRaw(
 		strings.TrimSpace(toString(metadata["avatar_url"])),
 		strings.TrimSpace(toString(metadata["avatar"])),
 		strings.TrimSpace(toString(metadata["picture"])),

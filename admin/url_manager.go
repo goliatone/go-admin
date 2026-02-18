@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 
 	urlkit "github.com/goliatone/go-urlkit"
@@ -180,7 +181,7 @@ func applyNamespaceTemplate(cfg URLNamespaceConfig, group *urlkit.GroupConfig) {
 		group.URLTemplate = strings.TrimSpace(cfg.URLTemplate)
 	}
 	if len(cfg.TemplateVars) > 0 {
-		group.TemplateVars = cloneStringMap(cfg.TemplateVars)
+		group.TemplateVars = primitives.CloneStringMapNilOnEmpty(cfg.TemplateVars)
 	}
 }
 

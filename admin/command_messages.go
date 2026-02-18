@@ -1,6 +1,9 @@
 package admin
 
-import "strings"
+import (
+	"github.com/goliatone/go-admin/internal/primitives"
+	"strings"
+)
 
 const (
 	bulkCommandName                 = "admin.bulk"
@@ -248,7 +251,7 @@ func buildBulkStartMsg(payload map[string]any, _ []string) (BulkStartMsg, error)
 		Name:    name,
 		Action:  action,
 		Total:   total,
-		Payload: cloneAnyMap(payload),
+		Payload: primitives.CloneAnyMap(payload),
 	}
 	if msg.Name == "" {
 		return msg, validationDomainError("bulk name required", map[string]any{
@@ -342,9 +345,9 @@ func buildDashboardProviderMsg(commandName, code string, payload map[string]any)
 	cfg := map[string]any{}
 	if payload != nil {
 		if config, ok := payload["config"].(map[string]any); ok {
-			cfg = cloneAnyMap(config)
+			cfg = primitives.CloneAnyMap(config)
 		} else {
-			cfg = cloneAnyMap(payload)
+			cfg = primitives.CloneAnyMap(payload)
 		}
 	}
 	return DashboardProviderMsg{
@@ -356,11 +359,11 @@ func buildDashboardProviderMsg(commandName, code string, payload map[string]any)
 
 // RegisterDashboardProviderFactory registers a factory for a dashboard provider command name.
 func RegisterDashboardProviderFactory(bus *CommandBus, commandName, code string, defaultConfig map[string]any) error {
-	cfg := cloneAnyMap(defaultConfig)
+	cfg := primitives.CloneAnyMap(defaultConfig)
 	return RegisterMessageFactory(bus, commandName, func(payload map[string]any, _ []string) (DashboardProviderMsg, error) {
 		msg := buildDashboardProviderMsg(commandName, code, payload)
 		if len(msg.Config) == 0 && len(cfg) > 0 {
-			msg.Config = cloneAnyMap(cfg)
+			msg.Config = primitives.CloneAnyMap(cfg)
 		}
 		return msg, nil
 	})

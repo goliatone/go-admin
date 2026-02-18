@@ -1,6 +1,9 @@
 package dashboard
 
-import "context"
+import (
+	"context"
+	"github.com/goliatone/go-admin/internal/primitives"
+)
 
 // WidgetAreaDefinition captures CMS widget area metadata.
 type WidgetAreaDefinition struct {
@@ -111,7 +114,7 @@ func CloneDashboardInstances(in []DashboardWidgetInstance) []DashboardWidgetInst
 			ID:             inst.ID,
 			DefinitionCode: inst.DefinitionCode,
 			AreaCode:       inst.AreaCode,
-			Config:         cloneAnyMap(inst.Config),
+			Config:         primitives.CloneAnyMap(inst.Config),
 			Position:       inst.Position,
 			Span:           inst.Span,
 			Hidden:         inst.Hidden,

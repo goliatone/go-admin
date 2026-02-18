@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"github.com/goliatone/go-admin/internal/primitives"
 	"strconv"
 	"strings"
 	"time"
@@ -48,7 +49,7 @@ func buildTranslationQueueClaimInput(payload map[string]any, ids []string) (Tran
 	}
 	msg := TranslationQueueClaimInput{
 		AssignmentID:    assignmentID,
-		ClaimerID:       strings.TrimSpace(firstNonEmpty(toString(payload["claimer_id"]), toString(payload["user_id"]), toString(payload["actor_id"]))),
+		ClaimerID:       strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(payload["claimer_id"]), toString(payload["user_id"]), toString(payload["actor_id"]))),
 		ExpectedVersion: queueExpectedVersion(payload),
 	}
 	if err := msg.Validate(); err != nil {
@@ -65,7 +66,7 @@ func buildTranslationQueueAssignInput(payload map[string]any, ids []string) (Tra
 	msg := TranslationQueueAssignInput{
 		AssignmentID:    assignmentID,
 		AssigneeID:      strings.TrimSpace(toString(payload["assignee_id"])),
-		AssignerID:      strings.TrimSpace(firstNonEmpty(toString(payload["assigner_id"]), toString(payload["actor_id"]))),
+		AssignerID:      strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(payload["assigner_id"]), toString(payload["actor_id"]))),
 		Priority:        queuePriority(payload),
 		DueDate:         queueDueDate(payload),
 		ExpectedVersion: queueExpectedVersion(payload),
@@ -83,7 +84,7 @@ func buildTranslationQueueReleaseInput(payload map[string]any, ids []string) (Tr
 	}
 	msg := TranslationQueueReleaseInput{
 		AssignmentID:    assignmentID,
-		ActorID:         strings.TrimSpace(firstNonEmpty(toString(payload["actor_id"]), toString(payload["assigner_id"]), toString(payload["user_id"]))),
+		ActorID:         strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(payload["actor_id"]), toString(payload["assigner_id"]), toString(payload["user_id"]))),
 		ExpectedVersion: queueExpectedVersion(payload),
 	}
 	if err := msg.Validate(); err != nil {
@@ -99,7 +100,7 @@ func buildTranslationQueueSubmitInput(payload map[string]any, ids []string) (Tra
 	}
 	msg := TranslationQueueSubmitInput{
 		AssignmentID:    assignmentID,
-		TranslatorID:    strings.TrimSpace(firstNonEmpty(toString(payload["translator_id"]), toString(payload["actor_id"]), toString(payload["user_id"]))),
+		TranslatorID:    strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(payload["translator_id"]), toString(payload["actor_id"]), toString(payload["user_id"]))),
 		ExpectedVersion: queueExpectedVersion(payload),
 	}
 	if err := msg.Validate(); err != nil {
@@ -115,7 +116,7 @@ func buildTranslationQueueApproveInput(payload map[string]any, ids []string) (Tr
 	}
 	msg := TranslationQueueApproveInput{
 		AssignmentID:    assignmentID,
-		ReviewerID:      strings.TrimSpace(firstNonEmpty(toString(payload["reviewer_id"]), toString(payload["actor_id"]), toString(payload["user_id"]))),
+		ReviewerID:      strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(payload["reviewer_id"]), toString(payload["actor_id"]), toString(payload["user_id"]))),
 		ExpectedVersion: queueExpectedVersion(payload),
 	}
 	if err := msg.Validate(); err != nil {
@@ -131,7 +132,7 @@ func buildTranslationQueueRejectInput(payload map[string]any, ids []string) (Tra
 	}
 	msg := TranslationQueueRejectInput{
 		AssignmentID:    assignmentID,
-		ReviewerID:      strings.TrimSpace(firstNonEmpty(toString(payload["reviewer_id"]), toString(payload["actor_id"]), toString(payload["user_id"]))),
+		ReviewerID:      strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(payload["reviewer_id"]), toString(payload["actor_id"]), toString(payload["user_id"]))),
 		Reason:          strings.TrimSpace(toString(payload["reason"])),
 		ExpectedVersion: queueExpectedVersion(payload),
 	}
@@ -148,7 +149,7 @@ func buildTranslationQueueArchiveInput(payload map[string]any, ids []string) (Tr
 	}
 	msg := TranslationQueueArchiveInput{
 		AssignmentID:    assignmentID,
-		ActorID:         strings.TrimSpace(firstNonEmpty(toString(payload["actor_id"]), toString(payload["user_id"]))),
+		ActorID:         strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(payload["actor_id"]), toString(payload["user_id"]))),
 		ExpectedVersion: queueExpectedVersion(payload),
 	}
 	if err := msg.Validate(); err != nil {
@@ -161,7 +162,7 @@ func buildTranslationQueueBulkAssignInput(payload map[string]any, ids []string) 
 	msg := TranslationQueueBulkAssignInput{
 		AssignmentIDs: queueIDsFromPayload(payload, ids),
 		AssigneeID:    strings.TrimSpace(toString(payload["assignee_id"])),
-		AssignerID:    strings.TrimSpace(firstNonEmpty(toString(payload["assigner_id"]), toString(payload["actor_id"]))),
+		AssignerID:    strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(payload["assigner_id"]), toString(payload["actor_id"]))),
 		Priority:      queuePriority(payload),
 		DueDate:       queueDueDate(payload),
 	}
@@ -174,7 +175,7 @@ func buildTranslationQueueBulkAssignInput(payload map[string]any, ids []string) 
 func buildTranslationQueueBulkReleaseInput(payload map[string]any, ids []string) (TranslationQueueBulkReleaseInput, error) {
 	msg := TranslationQueueBulkReleaseInput{
 		AssignmentIDs: queueIDsFromPayload(payload, ids),
-		ActorID:       strings.TrimSpace(firstNonEmpty(toString(payload["actor_id"]), toString(payload["user_id"]))),
+		ActorID:       strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(payload["actor_id"]), toString(payload["user_id"]))),
 	}
 	if err := msg.Validate(); err != nil {
 		return msg, err
@@ -186,7 +187,7 @@ func buildTranslationQueueBulkPriorityInput(payload map[string]any, ids []string
 	msg := TranslationQueueBulkPriorityInput{
 		AssignmentIDs: queueIDsFromPayload(payload, ids),
 		Priority:      queuePriority(payload),
-		ActorID:       strings.TrimSpace(firstNonEmpty(toString(payload["actor_id"]), toString(payload["user_id"]))),
+		ActorID:       strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(payload["actor_id"]), toString(payload["user_id"]))),
 	}
 	if err := msg.Validate(); err != nil {
 		return msg, err
@@ -197,7 +198,7 @@ func buildTranslationQueueBulkPriorityInput(payload map[string]any, ids []string
 func buildTranslationQueueBulkArchiveInput(payload map[string]any, ids []string) (TranslationQueueBulkArchiveInput, error) {
 	msg := TranslationQueueBulkArchiveInput{
 		AssignmentIDs: queueIDsFromPayload(payload, ids),
-		ActorID:       strings.TrimSpace(firstNonEmpty(toString(payload["actor_id"]), toString(payload["user_id"]))),
+		ActorID:       strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(payload["actor_id"]), toString(payload["user_id"]))),
 	}
 	if err := msg.Validate(); err != nil {
 		return msg, err
@@ -267,7 +268,7 @@ func queueDueDate(payload map[string]any) *time.Time {
 	if payload == nil {
 		return nil
 	}
-	raw := strings.TrimSpace(firstNonEmpty(toString(payload["due_date"]), toString(payload["due_at"])))
+	raw := strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(payload["due_date"]), toString(payload["due_at"])))
 	if raw == "" {
 		return nil
 	}

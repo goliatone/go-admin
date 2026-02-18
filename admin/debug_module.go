@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -152,7 +153,7 @@ func (m *DebugModule) MenuItems(locale string) []MenuItem {
 			Permissions: permissions,
 			Menu:        m.menuCode,
 			Locale:      locale,
-			Position:    intPtr(999),
+			Position:    primitives.Int(999),
 			ParentID:    m.menuParent,
 		},
 	}
