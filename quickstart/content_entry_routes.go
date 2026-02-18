@@ -32,17 +32,19 @@ type ContentEntryUIOption func(*contentEntryUIOptions)
 type templateExistsFunc func(string) bool
 
 type contentEntryUIOptions struct {
-	basePath         string
-	listTemplate     string
-	formTemplate     string
-	detailTemplate   string
-	viewContext      UIViewContextBuilder
-	permission       string
-	authResource     string
-	formRenderer     *admin.FormgenSchemaValidator
-	templateExists   templateExistsFunc
-	defaultRenderers map[string]string
-	translationUX    bool
+	basePath           string
+	listTemplate       string
+	formTemplate       string
+	detailTemplate     string
+	viewContext        UIViewContextBuilder
+	permission         string
+	authResource       string
+	formRenderer       *admin.FormgenSchemaValidator
+	templateExists     templateExistsFunc
+	defaultRenderers   map[string]string
+	translationUX      bool
+	dataGridStateStore PanelDataGridStateStoreOptions
+	dataGridURLState   PanelDataGridURLStateOptions
 }
 
 const textCodeTranslationFallbackEditBlocked = "TRANSLATION_FALLBACK_EDIT_BLOCKED"
@@ -177,6 +179,26 @@ func WithContentEntryTranslationUX(enabled bool) ContentEntryUIOption {
 		if opts != nil {
 			opts.translationUX = enabled
 		}
+	}
+}
+
+// WithContentEntryDataGridStateStore configures DataGrid persisted-state storage for content list templates.
+func WithContentEntryDataGridStateStore(cfg PanelDataGridStateStoreOptions) ContentEntryUIOption {
+	return func(opts *contentEntryUIOptions) {
+		if opts == nil {
+			return
+		}
+		opts.dataGridStateStore = cfg
+	}
+}
+
+// WithContentEntryDataGridURLState configures DataGrid URL-state limits for content list templates.
+func WithContentEntryDataGridURLState(cfg PanelDataGridURLStateOptions) ContentEntryUIOption {
+	return func(opts *contentEntryUIOptions) {
+		if opts == nil {
+			return
+		}
+		opts.dataGridURLState = cfg
 	}
 }
 
@@ -419,19 +441,21 @@ func contentEntryTranslationGroupByField(enabled bool) string {
 }
 
 type contentEntryHandlers struct {
-	admin            *admin.Admin
-	cfg              admin.Config
-	viewContext      UIViewContextBuilder
-	listTemplate     string
-	formTemplate     string
-	detailTemplate   string
-	permission       string
-	authResource     string
-	contentTypes     admin.CMSContentTypeService
-	formRenderer     *admin.FormgenSchemaValidator
-	templateExists   templateExistsFunc
-	defaultRenderers map[string]string
-	translationUX    bool
+	admin              *admin.Admin
+	cfg                admin.Config
+	viewContext        UIViewContextBuilder
+	listTemplate       string
+	formTemplate       string
+	detailTemplate     string
+	permission         string
+	authResource       string
+	contentTypes       admin.CMSContentTypeService
+	formRenderer       *admin.FormgenSchemaValidator
+	templateExists     templateExistsFunc
+	defaultRenderers   map[string]string
+	translationUX      bool
+	dataGridStateStore PanelDataGridStateStoreOptions
+	dataGridURLState   PanelDataGridURLStateOptions
 }
 
 func newContentEntryHandlers(adm *admin.Admin, cfg admin.Config, viewCtx UIViewContextBuilder, opts contentEntryUIOptions) *contentEntryHandlers {
@@ -440,19 +464,21 @@ func newContentEntryHandlers(adm *admin.Admin, cfg admin.Config, viewCtx UIViewC
 		contentTypes = adm.ContentTypeService()
 	}
 	return &contentEntryHandlers{
-		admin:            adm,
-		cfg:              cfg,
-		viewContext:      viewCtx,
-		listTemplate:     opts.listTemplate,
-		formTemplate:     opts.formTemplate,
-		detailTemplate:   opts.detailTemplate,
-		permission:       strings.TrimSpace(opts.permission),
-		authResource:     strings.TrimSpace(opts.authResource),
-		contentTypes:     contentTypes,
-		formRenderer:     opts.formRenderer,
-		templateExists:   opts.templateExists,
-		defaultRenderers: cloneStringMap(opts.defaultRenderers),
-		translationUX:    opts.translationUX,
+		admin:              adm,
+		cfg:                cfg,
+		viewContext:        viewCtx,
+		listTemplate:       opts.listTemplate,
+		formTemplate:       opts.formTemplate,
+		detailTemplate:     opts.detailTemplate,
+		permission:         strings.TrimSpace(opts.permission),
+		authResource:       strings.TrimSpace(opts.authResource),
+		contentTypes:       contentTypes,
+		formRenderer:       opts.formRenderer,
+		templateExists:     opts.templateExists,
+		defaultRenderers:   cloneStringMap(opts.defaultRenderers),
+		translationUX:      opts.translationUX,
+		dataGridStateStore: opts.dataGridStateStore,
+		dataGridURLState:   opts.dataGridURLState,
 	}
 }
 
@@ -496,6 +522,14 @@ func (h *contentEntryHandlers) listForPanel(c router.Context, panelSlug string) 
 	dataTableID := "content-" + slug
 	listAPI := resolveAdminPanelAPICollectionURL(urls, h.cfg, basePath, panelName)
 	translationUXEnabled := h.translationUX && contentEntryPanelSupportsTranslationUX(panel)
+	stateStoreCfg := h.dataGridStateStore
+	stateStoreConfigured := strings.TrimSpace(stateStoreCfg.Mode) != "" ||
+		strings.TrimSpace(stateStoreCfg.Resource) != "" ||
+		stateStoreCfg.SyncDebounceMS > 0 ||
+		stateStoreCfg.MaxShareEntries > 0
+	if stateStoreConfigured && strings.TrimSpace(stateStoreCfg.Resource) == "" {
+		stateStoreCfg.Resource = panelName
+	}
 
 	viewCtx := router.ViewContext{
 		"title":          h.cfg.Title,
@@ -533,6 +567,8 @@ func (h *contentEntryHandlers) listForPanel(c router.Context, panelSlug string) 
 			EnableGroupedMode: translationUXEnabled,
 			DefaultViewMode:   contentEntryTranslationDefaultViewMode(translationUXEnabled),
 			GroupByField:      contentEntryTranslationGroupByField(translationUXEnabled),
+			StateStore:        stateStoreCfg,
+			URLState:          h.dataGridURLState,
 		},
 	}))
 	if h.viewContext != nil {
@@ -1156,6 +1192,7 @@ func (h *contentEntryHandlers) previewURLForRecord(ctx context.Context, panelNam
 }
 
 func resolveContentEntryPreviewPath(panelName string, record map[string]any) string {
+	_ = panelName
 	if record == nil {
 		return ""
 	}
@@ -1175,17 +1212,7 @@ func resolveContentEntryPreviewPath(panelName string, record map[string]any) str
 	if slug == "" {
 		return ""
 	}
-	switch strings.ToLower(strings.TrimSpace(panelName)) {
-	case "pages", "page":
-		return normalizePreviewPath(slug)
-	case "posts", "post":
-		return normalizePreviewPath(path.Join("posts", strings.TrimLeft(slug, "/")))
-	default:
-		if strings.HasPrefix(slug, "/") {
-			return normalizePreviewPath(slug)
-		}
-	}
-	return ""
+	return normalizePreviewPath(slug)
 }
 
 func normalizePreviewPath(raw string) string {
