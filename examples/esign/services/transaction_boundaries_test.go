@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"errors"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 	"testing"
 	"time"
@@ -116,7 +117,7 @@ func TestAgreementServiceSendDoesNotRunPostCommitHooksWhenCommitFails(t *testing
 	signer, err := svc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        stringPtr("signer@example.com"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: intPtr(1),
+		SigningOrder: primitives.Int(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft: %v", err)
@@ -124,7 +125,7 @@ func TestAgreementServiceSendDoesNotRunPostCommitHooksWhenCommitFails(t *testing
 	if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        stringPtr(stores.FieldTypeSignature),
-		PageNumber:  intPtr(1),
+		PageNumber:  primitives.Int(1),
 		Required:    boolPtr(true),
 	}); err != nil {
 		t.Fatalf("UpsertFieldDraft: %v", err)
@@ -166,7 +167,7 @@ func TestSigningServiceSubmitDoesNotRunPostCommitHooksWhenCommitFails(t *testing
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        stringPtr("signer@example.com"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: intPtr(1),
+		SigningOrder: primitives.Int(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft: %v", err)
@@ -174,7 +175,7 @@ func TestSigningServiceSubmitDoesNotRunPostCommitHooksWhenCommitFails(t *testing
 	signatureField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        stringPtr(stores.FieldTypeSignature),
-		PageNumber:  intPtr(1),
+		PageNumber:  primitives.Int(1),
 		Required:    boolPtr(true),
 	})
 	if err != nil {

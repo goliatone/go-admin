@@ -19,12 +19,7 @@ import (
 func setupDraftWorkflowApp(t *testing.T, draftSvc services.DraftService, scope stores.Scope) *fiber.App {
 	t.Helper()
 	return setupRegisterTestApp(t,
-		WithAuthorizer(mapAuthorizer{allowed: map[string]bool{
-			DefaultPermissions.AdminCreate: true,
-			DefaultPermissions.AdminView:   true,
-			DefaultPermissions.AdminEdit:   true,
-			DefaultPermissions.AdminSend:   true,
-		}}),
+		WithAuthorizer(authorizerFromAllowedMap(draftWorkflowPermissionSet())),
 		WithDraftWorkflowService(draftSvc),
 		WithDefaultScope(scope),
 	)
@@ -61,23 +56,22 @@ func doDraftRequest(t *testing.T, app *fiber.App, method, path, userID string, p
 }
 
 func TestRegisterDraftEndpointsRequirePermissions(t *testing.T) {
-	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
-	store := stores.NewInMemoryStore()
+	_, scope, store := newScopeStoreFixture()
 	draftSvc := services.NewDraftService(store,
 		services.WithDraftAgreementService(services.NewAgreementService(store)),
 	)
 	app := setupRegisterTestApp(t,
-		WithAuthorizer(mapAuthorizer{allowed: map[string]bool{}}),
+		WithAuthorizer(authorizerFromAllowedMap(nil)),
 		WithDraftWorkflowService(draftSvc),
 		WithDefaultScope(scope),
 	)
 
-	status, body := doDraftRequest(t, app, http.MethodGet, "/admin/api/v1/esign/drafts", "admin-user", nil)
+	status, body := doDraftRequest(t, app, http.MethodGet, "/admin/api/v1/esign/drafts", testAdminUserID, nil)
 	if status != http.StatusForbidden {
 		t.Fatalf("expected list status 403, got %d body=%s", status, string(body))
 	}
 
-	status, body = doDraftRequest(t, app, http.MethodPost, "/admin/api/v1/esign/drafts", "admin-user", map[string]any{
+	status, body = doDraftRequest(t, app, http.MethodPost, "/admin/api/v1/esign/drafts", testAdminUserID, map[string]any{
 		"wizard_id":    "wiz-unauthorized",
 		"wizard_state": map[string]any{"details": map[string]any{"title": "Unauthorized"}},
 		"title":        "Unauthorized",
@@ -89,19 +83,13 @@ func TestRegisterDraftEndpointsRequirePermissions(t *testing.T) {
 }
 
 func TestRegisterDraftEndpointsResolveUserFromClaimsContext(t *testing.T) {
-	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
-	store := stores.NewInMemoryStore()
+	_, scope, store := newScopeStoreFixture()
 	draftSvc := services.NewDraftService(store,
 		services.WithDraftAgreementService(services.NewAgreementService(store)),
 	)
 
 	app := setupRegisterTestApp(t,
-		WithAuthorizer(mapAuthorizer{allowed: map[string]bool{
-			DefaultPermissions.AdminCreate: true,
-			DefaultPermissions.AdminView:   true,
-			DefaultPermissions.AdminEdit:   true,
-			DefaultPermissions.AdminSend:   true,
-		}}),
+		WithAuthorizer(authorizerFromAllowedMap(draftWorkflowPermissionSet())),
 		WithAdminRouteMiddleware(withClaimsPermissions(
 			DefaultPermissions.AdminCreate,
 			DefaultPermissions.AdminView,
@@ -159,9 +147,7 @@ func TestRegisterDraftEndpointsResolveUserFromClaimsContext(t *testing.T) {
 }
 
 func TestRegisterDraftLifecycleEndpoints(t *testing.T) {
-	ctx := context.Background()
-	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
-	store := stores.NewInMemoryStore()
+	ctx, scope, store := newScopeStoreFixture()
 
 	docSvc := services.NewDocumentService(store)
 	doc, err := docSvc.Upload(ctx, scope, services.DocumentUploadInput{
@@ -177,7 +163,7 @@ func TestRegisterDraftLifecycleEndpoints(t *testing.T) {
 		services.WithDraftAgreementService(services.NewAgreementService(store)),
 	)
 	app := setupDraftWorkflowApp(t, draftSvc, scope)
-	userID := "admin-user"
+	userID := testAdminUserID
 
 	initialState := map[string]any{
 		"document": map[string]any{"id": doc.ID, "title": doc.Title},
@@ -306,9 +292,7 @@ func TestRegisterDraftLifecycleEndpoints(t *testing.T) {
 }
 
 func TestRegisterDraftSendAndExpiryFlows(t *testing.T) {
-	ctx := context.Background()
-	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
-	store := stores.NewInMemoryStore()
+	ctx, scope, store := newScopeStoreFixture()
 
 	docSvc := services.NewDocumentService(store)
 	doc, err := docSvc.Upload(ctx, scope, services.DocumentUploadInput{
@@ -326,7 +310,7 @@ func TestRegisterDraftSendAndExpiryFlows(t *testing.T) {
 		services.WithDraftTTL(50*time.Millisecond),
 	)
 	app := setupDraftWorkflowApp(t, draftSvc, scope)
-	userID := "admin-user"
+	userID := testAdminUserID
 
 	invalidState := map[string]any{
 		"document": map[string]any{"id": doc.ID},

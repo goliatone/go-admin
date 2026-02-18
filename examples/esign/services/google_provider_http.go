@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"io"
 	"net/http"
 	"net/url"
@@ -116,11 +117,11 @@ func NewGoogleHTTPProviderFromEnv() (*GoogleHTTPProvider, error) {
 	return NewGoogleHTTPProvider(GoogleHTTPProviderConfig{
 		ClientID:         strings.TrimSpace(os.Getenv(EnvGoogleClientID)),
 		ClientSecret:     strings.TrimSpace(os.Getenv(EnvGoogleClientSecret)),
-		TokenEndpoint:    firstNonEmpty(strings.TrimSpace(os.Getenv(EnvGoogleTokenEndpoint)), defaultGoogleTokenEndpoint),
-		RevokeEndpoint:   firstNonEmpty(strings.TrimSpace(os.Getenv(EnvGoogleRevokeEndpoint)), defaultGoogleRevokeEndpoint),
-		DriveBaseURL:     firstNonEmpty(strings.TrimSpace(os.Getenv(EnvGoogleDriveBaseURL)), defaultGoogleDriveBaseURL),
-		UserInfoEndpoint: firstNonEmpty(strings.TrimSpace(os.Getenv(EnvGoogleUserInfoEndpoint)), defaultGoogleUserInfoEndpoint),
-		HealthEndpoint:   firstNonEmpty(strings.TrimSpace(os.Getenv(EnvGoogleHealthEndpoint)), defaultGoogleHealthEndpoint),
+		TokenEndpoint:    primitives.FirstNonEmpty(strings.TrimSpace(os.Getenv(EnvGoogleTokenEndpoint)), defaultGoogleTokenEndpoint),
+		RevokeEndpoint:   primitives.FirstNonEmpty(strings.TrimSpace(os.Getenv(EnvGoogleRevokeEndpoint)), defaultGoogleRevokeEndpoint),
+		DriveBaseURL:     primitives.FirstNonEmpty(strings.TrimSpace(os.Getenv(EnvGoogleDriveBaseURL)), defaultGoogleDriveBaseURL),
+		UserInfoEndpoint: primitives.FirstNonEmpty(strings.TrimSpace(os.Getenv(EnvGoogleUserInfoEndpoint)), defaultGoogleUserInfoEndpoint),
+		HealthEndpoint:   primitives.FirstNonEmpty(strings.TrimSpace(os.Getenv(EnvGoogleHealthEndpoint)), defaultGoogleHealthEndpoint),
 		HTTPClient: &http.Client{
 			Timeout: time.Duration(timeoutSeconds) * time.Second,
 		},
@@ -134,11 +135,11 @@ func NewGoogleHTTPProvider(cfg GoogleHTTPProviderConfig) (*GoogleHTTPProvider, e
 	if strings.TrimSpace(cfg.ClientSecret) == "" {
 		return nil, fmt.Errorf("%s is required when google provider mode is real", EnvGoogleClientSecret)
 	}
-	tokenEndpoint := firstNonEmpty(strings.TrimSpace(cfg.TokenEndpoint), defaultGoogleTokenEndpoint)
-	revokeEndpoint := firstNonEmpty(strings.TrimSpace(cfg.RevokeEndpoint), defaultGoogleRevokeEndpoint)
-	driveBaseURL := firstNonEmpty(strings.TrimSpace(cfg.DriveBaseURL), defaultGoogleDriveBaseURL)
-	userInfoEndpoint := firstNonEmpty(strings.TrimSpace(cfg.UserInfoEndpoint), defaultGoogleUserInfoEndpoint)
-	healthEndpoint := firstNonEmpty(strings.TrimSpace(cfg.HealthEndpoint), defaultGoogleHealthEndpoint)
+	tokenEndpoint := primitives.FirstNonEmpty(strings.TrimSpace(cfg.TokenEndpoint), defaultGoogleTokenEndpoint)
+	revokeEndpoint := primitives.FirstNonEmpty(strings.TrimSpace(cfg.RevokeEndpoint), defaultGoogleRevokeEndpoint)
+	driveBaseURL := primitives.FirstNonEmpty(strings.TrimSpace(cfg.DriveBaseURL), defaultGoogleDriveBaseURL)
+	userInfoEndpoint := primitives.FirstNonEmpty(strings.TrimSpace(cfg.UserInfoEndpoint), defaultGoogleUserInfoEndpoint)
+	healthEndpoint := primitives.FirstNonEmpty(strings.TrimSpace(cfg.HealthEndpoint), defaultGoogleHealthEndpoint)
 
 	for envKey, endpoint := range map[string]string{
 		EnvGoogleTokenEndpoint:    tokenEndpoint,

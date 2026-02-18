@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"regexp"
 	"sort"
 	"strconv"
@@ -403,7 +404,7 @@ func (r *agreementPanelRepository) Create(ctx context.Context, record map[string
 		DocumentID:      strings.TrimSpace(toString(record["document_id"])),
 		Title:           strings.TrimSpace(toString(record["title"])),
 		Message:         strings.TrimSpace(toString(record["message"])),
-		CreatedByUserID: strings.TrimSpace(firstNonEmpty(strings.TrimSpace(toString(record["created_by_user_id"])), userIDFromContext(ctx))),
+		CreatedByUserID: strings.TrimSpace(primitives.FirstNonEmpty(strings.TrimSpace(toString(record["created_by_user_id"])), userIDFromContext(ctx))),
 	})
 	if err != nil {
 		return nil, err

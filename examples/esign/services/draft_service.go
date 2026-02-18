@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 	"time"
 
@@ -361,7 +362,7 @@ func (s DraftService) Send(ctx context.Context, scope stores.Scope, id string, i
 		})
 		result = DraftSendResult{
 			AgreementID:  strings.TrimSpace(sent.ID),
-			Status:       firstNonEmpty(strings.TrimSpace(sent.Status), stores.AgreementStatusSent),
+			Status:       primitives.FirstNonEmpty(strings.TrimSpace(sent.Status), stores.AgreementStatusSent),
 			DraftID:      strings.TrimSpace(draft.ID),
 			DraftDeleted: true,
 		}
@@ -427,14 +428,14 @@ func (s DraftService) materializeDraftAgreement(ctx context.Context, scope store
 	if err != nil {
 		return stores.AgreementRecord{}, domainValidationError("drafts", "wizard_state", "invalid json payload")
 	}
-	documentID := firstNonEmpty(strings.TrimSpace(draft.DocumentID), strings.TrimSpace(state.Document.ID))
+	documentID := primitives.FirstNonEmpty(strings.TrimSpace(draft.DocumentID), strings.TrimSpace(state.Document.ID))
 	if documentID == "" {
 		return stores.AgreementRecord{}, domainValidationError("drafts", "document_id", "required")
 	}
 
 	agreement, err := s.agreements.CreateDraft(ctx, scope, CreateDraftInput{
 		DocumentID:      documentID,
-		Title:           firstNonEmpty(strings.TrimSpace(state.Details.Title), strings.TrimSpace(draft.Title), "Untitled Agreement"),
+		Title:           primitives.FirstNonEmpty(strings.TrimSpace(state.Details.Title), strings.TrimSpace(draft.Title), "Untitled Agreement"),
 		Message:         strings.TrimSpace(state.Details.Message),
 		CreatedByUserID: strings.TrimSpace(draft.CreatedByUserID),
 	})
