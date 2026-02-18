@@ -131,6 +131,18 @@ ADMIN_TRANSLATION_PROFILE=core go run .
 ADMIN_TRANSLATION_PROFILE=none go run .
 ```
 
+### DataGrid state persistence (content pages/posts)
+
+Content-entry DataGrid persistence is local-first by default, with optional user-preferences sync.
+
+Environment toggles:
+- `ADMIN_DATAGRID_STATE_STORE_MODE=local|preferences` (default: local when unset)
+- `ADMIN_DATAGRID_STATE_SYNC_DEBOUNCE_MS=<int>` (optional; preferences mode)
+- `ADMIN_DATAGRID_STATE_MAX_SHARE_ENTRIES=<int>` (optional)
+- `ADMIN_DATAGRID_URL_MAX_LENGTH=<int>` (optional URL budget)
+- `ADMIN_DATAGRID_URL_MAX_FILTERS_LENGTH=<int>` (optional filters budget)
+- `ADMIN_DATAGRID_URL_ENABLE_STATE_TOKEN=true|false` (optional; enables `state=<token>` fallback when URL budget is exceeded)
+
 ### API Endpoints
 
 - **Health**: `GET /admin/health`
@@ -148,7 +160,7 @@ ADMIN_TRANSLATION_PROFILE=none go run .
 - **Roles Panel**: `GET /admin/api/roles`, `POST /admin/api/roles`, etc.
 - **User Actions**: `/admin/api/users/:id/{activate,suspend,disable,archive,reset-password,invite}` plus `/admin/api/users/bulk/{activate,suspend,disable,archive,assign-role,unassign-role}`.
 - **Profile UI**: `GET /admin/profile` (canonical entry route; opens current authenticated user detail view)
-- **Profile & Preferences**: `GET/POST /admin/api/profile`, `GET/POST /admin/api/preferences`
+- **Profile & Preferences**: `GET/POST /admin/api/panels/profile`, `GET/POST /admin/api/panels/preferences`
 - **Onboarding**: `POST /admin/api/onboarding/invite`, `POST /admin/api/onboarding/password/reset/request`, `POST /admin/api/onboarding/password/reset/confirm`, `POST /admin/api/onboarding/register` (flagged)
 - **Users CRUD API**: `GET /admin/crud/users` (go-crud JSON endpoints)
 - **Tenants Panel**: `GET /admin/api/tenants`
@@ -180,7 +192,7 @@ if err != nil {
 _ = adm
 ```
 
-If `/admin/api/preferences` returns 403, grant `admin.preferences.view` and `admin.preferences.edit`.
+If `/admin/api/panels/preferences` returns 403, grant `admin.preferences.view` and `admin.preferences.edit`.
 
 Preferences UI extras in the web example:
 - `ADMIN_PREFERENCES_SCHEMA` sets a custom form schema path (file or directory containing `schema.json`).

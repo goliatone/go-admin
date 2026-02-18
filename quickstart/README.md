@@ -54,9 +54,9 @@ Each helper is optional and composable.
 - `WithNav(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context) router.ViewContext` - Inputs: base view context + admin/config/request state. Outputs: context enriched with feature flags (`activity_enabled`, `activity_feature_enabled`, `translation_capabilities`, `body_classes`), session user payload, nav items, theme payload, and path helpers.
 - `WithNavPlacements(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, placements PlacementConfig, placement string, active string, reqCtx context.Context) router.ViewContext` - Inputs: same as `WithNav`, plus placement mapping. Outputs: placement-aware nav context for non-sidebar menus while preserving the same feature/session/theme enrichment.
 - `BuildPanelExportConfig(cfg admin.Config, opts PanelViewCapabilityOptions) map[string]any` - Inputs: admin config and panel capability options. Outputs: normalized `export_config` payload (`endpoint`, `definition`, optional `variant`).
-- `BuildPanelDataGridConfig(opts PanelDataGridConfigOptions) map[string]any` - Inputs: datagrid options. Outputs: normalized `datagrid_config` payload (`table_id`, `api_endpoint`, `action_base`, `column_storage_key`, optional `state_store` and `url_state`).
+- `BuildPanelDataGridConfig(opts PanelDataGridConfigOptions) map[string]any` - Inputs: datagrid options. Outputs: normalized `datagrid_config` payload (`table_id`, `api_endpoint`, `action_base`, optional `preferences_endpoint`, `column_storage_key`, optional `state_store` and `url_state`).
 - `BuildPanelViewCapabilities(cfg admin.Config, opts PanelViewCapabilityOptions) router.ViewContext` - Inputs: admin config and panel capability options. Outputs: template capability context including `export_config` and `datagrid_config`.
-- `PathViewContext(cfg admin.Config, pathCfg PathViewContextConfig) router.ViewContext` - Inputs: config + path resolver hints. Outputs: normalized `base_path`, `api_base_path`, `asset_base_path`.
+- `PathViewContext(cfg admin.Config, pathCfg PathViewContextConfig) router.ViewContext` - Inputs: config + path resolver hints. Outputs: normalized `base_path`, `api_base_path`, `asset_base_path`, `preferences_api_path`.
 - `WithPathViewContext(ctx router.ViewContext, cfg admin.Config, pathCfg PathViewContextConfig) router.ViewContext` - Inputs: existing context + path resolver hints. Outputs: merged context with canonical path keys.
 - `WithThemeSelector(selector theme.ThemeSelector, manifest *theme.Manifest) AdminOption` - Inputs: go-theme selector + manifest; outputs: option that wires theme selection + manifest into `NewAdmin` (including Preferences variant options).
 - `NewFiberServer(viewEngine fiber.Views, cfg admin.Config, adm *admin.Admin, isDev bool, opts ...FiberServerOption) (router.Server[*fiber.App], router.Router[*fiber.App])` - Inputs: views, config, admin, dev flag, server options. Outputs: go-router server adapter and router.
@@ -64,9 +64,11 @@ Each helper is optional and composable.
 - `NewStaticAssets(r router.Router[T], cfg admin.Config, assetsFS fs.FS, opts ...StaticAssetsOption)` - Inputs: router, config, host assets FS, asset options. Outputs: none (registers static routes).
 - `ResolveDiskAssetsDir(marker string, candidates ...string) string` - Inputs: marker file + candidate directories. Outputs: first matching directory.
 - `RegisterAdminUIRoutes(r router.Router[T], cfg admin.Config, adm *admin.Admin, auth admin.HandlerAuthenticator, opts ...UIRouteOption) error` - Inputs: router/config/admin/auth wrapper + options. Outputs: error (registers dashboard + notifications UI routes, and injects feature-aware view context such as `activity_enabled` + `body_classes`).
+- `WithContentEntryDataGridStateStore(cfg PanelDataGridStateStoreOptions) ContentEntryUIOption` - Inputs: DataGrid state-store config for content-entry list templates. Outputs: content-entry route option (default mode remains localStorage when unset).
+- `WithContentEntryDataGridURLState(cfg PanelDataGridURLStateOptions) ContentEntryUIOption` - Inputs: URL sync limits/token config for content-entry list templates. Outputs: content-entry route option.
 - `RegisterAuthUIRoutes(r router.Router[T], cfg admin.Config, auther *auth.Auther, cookieName string, opts ...AuthUIOption) error` - Inputs: router/config/go-auth auther/cookie name + options. Outputs: error (registers login/logout/reset UI routes).
 - `RegisterRegistrationUIRoutes(r router.Router[T], cfg admin.Config, opts ...RegistrationUIOption) error` - Inputs: router/config + options. Outputs: error (registers signup UI route).
-- `AuthUIViewContext(cfg admin.Config, state AuthUIState, paths AuthUIPaths) router.ViewContext` - Inputs: config/state/paths; outputs: view context with auth flags + paths (`base_path`, `api_base_path`, `asset_base_path`).
+- `AuthUIViewContext(cfg admin.Config, state AuthUIState, paths AuthUIPaths) router.ViewContext` - Inputs: config/state/paths; outputs: view context with auth flags + paths (`base_path`, `api_base_path`, `asset_base_path`, `preferences_api_path`).
 - `AttachDebugMiddleware(r router.Router[T], cfg admin.Config, adm *admin.Admin)` - Inputs: router/config/admin; outputs: none (registers debug request capture middleware).
 - `AttachDebugLogHandler(cfg admin.Config, adm *admin.Admin)` - Inputs: config/admin; outputs: none (wires slog debug handler).
 - `ConfigureExportRenderers(bundle *ExportBundle, templatesFS fs.FS, opts ...ExportTemplateOption) error` - Inputs: export bundle + templates FS + options. Outputs: error (registers template/PDF renderers).
@@ -500,6 +502,13 @@ if err := quickstart.RegisterContentEntryUIRoutes(
 	cfg,
 	adm,
 	authn,
+	quickstart.WithContentEntryDataGridStateStore(quickstart.PanelDataGridStateStoreOptions{
+		Mode: "preferences", // optional; default is local storage when unset
+	}),
+	quickstart.WithContentEntryDataGridURLState(quickstart.PanelDataGridURLStateOptions{
+		MaxURLLength:     1800,
+		MaxFiltersLength: 600,
+	}),
 ); err != nil {
 	return err
 }
@@ -516,10 +525,16 @@ For list templates rendered from quickstart panel/content-entry routes, use `dat
 - `datagrid_config.table_id`
 - `datagrid_config.api_endpoint`
 - `datagrid_config.action_base`
+- `datagrid_config.preferences_endpoint` (optional; resolved panel preferences API path)
 - `datagrid_config.column_storage_key`
 - `datagrid_config.state_store` (optional: `{mode, resource, sync_debounce_ms, max_share_entries}`)
 - `datagrid_config.url_state` (optional: `{max_url_length, max_filters_length, enable_state_token}`)
 - `datagrid_config.export_config`
+
+State persistence behavior:
+- default mode is localStorage (`state_store` omitted or `mode=local`).
+- optional preferences mode (`mode=preferences`) hydrates/syncs user state through `/api/panels/preferences`, with local cache fallback.
+- URL sync writes compact query state; when limits are exceeded, DataGrid can fallback to `state=<token>` instead of writing large query payloads.
 
 Compatibility keys (`datatable_id`, `list_api`, `action_base`, `export_config`) are still present for legacy templates, but new/updated templates should read from `datagrid_config` first.
 
@@ -1125,7 +1140,7 @@ r.Get(path.Join(cfg.BasePath, "api", "debug", "scope"), wrapAuthed(quickstart.Sc
 
 ## Preferences quickstart
 - `FeaturePreferences` remains opt-in: pass `EnablePreferences()` or supply `WithFeatureDefaults(map[string]bool{"preferences": true})` when building the admin gate.
-- A 403 on `/admin/api/preferences` usually means the default permissions are missing (`admin.preferences.view`, `admin.preferences.edit`).
+- A 403 on `/admin/api/panels/preferences` usually means the default permissions are missing (`admin.preferences.view`, `admin.preferences.edit`).
 - Read query params: `levels`, `keys`, `include_traces`, `include_versions`, `tenant_id`, `org_id`.
 - Clear/delete semantics: send `clear_raw_keys` or `clear: true` (for all raw keys), plus empty values for known keys to delete user-level overrides.
 - Non-user writes (tenant/org/system) require `admin.preferences.manage_tenant`, `admin.preferences.manage_org`, `admin.preferences.manage_system`.
