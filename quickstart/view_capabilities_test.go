@@ -30,9 +30,10 @@ func TestBuildPanelViewCapabilitiesIncludesVariantWhenProvided(t *testing.T) {
 		Definition: "pages",
 		Variant:    "staging",
 		DataGrid: PanelDataGridConfigOptions{
-			TableID:     "content-pages",
-			APIEndpoint: "/admin/api/panels/pages",
-			ActionBase:  "/admin/content/pages",
+			TableID:             "content-pages",
+			APIEndpoint:         "/admin/api/panels/pages",
+			ActionBase:          "/admin/content/pages",
+			PreferencesEndpoint: "/admin/api/panels/preferences",
 		},
 	})
 	exportCfg, ok := viewCtx["export_config"].(map[string]any)
@@ -61,6 +62,9 @@ func TestBuildPanelViewCapabilitiesIncludesVariantWhenProvided(t *testing.T) {
 	}
 	if actionBase := dataGridCfg["action_base"]; actionBase != "/admin/content/pages" {
 		t.Fatalf("expected action_base /admin/content/pages, got %v", actionBase)
+	}
+	if endpoint := dataGridCfg["preferences_endpoint"]; endpoint != "/admin/api/panels/preferences" {
+		t.Fatalf("expected preferences endpoint /admin/api/panels/preferences, got %v", endpoint)
 	}
 	if key := dataGridCfg["column_storage_key"]; key != "content_pages_datatable_columns" {
 		t.Fatalf("expected derived column storage key content_pages_datatable_columns, got %v", key)
@@ -137,6 +141,7 @@ func TestBuildPanelDataGridConfigIncludesStateAndURLConfig(t *testing.T) {
 			SyncDebounceMS:  1200,
 			MaxShareEntries: 25,
 		},
+		PreferencesEndpoint: "/admin/api/panels/preferences",
 		URLState: PanelDataGridURLStateOptions{
 			MaxURLLength:     1700,
 			MaxFiltersLength: 550,
@@ -162,6 +167,9 @@ func TestBuildPanelDataGridConfigIncludesStateAndURLConfig(t *testing.T) {
 	}
 	if maxEntries := stateStore["max_share_entries"]; maxEntries != 25 {
 		t.Fatalf("expected state_store.max_share_entries 25, got %v", maxEntries)
+	}
+	if endpoint := cfg["preferences_endpoint"]; endpoint != "/admin/api/panels/preferences" {
+		t.Fatalf("expected preferences_endpoint /admin/api/panels/preferences, got %v", endpoint)
 	}
 
 	urlState, ok := cfg["url_state"].(map[string]any)

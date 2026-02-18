@@ -24,6 +24,9 @@ func TestPathViewContextDefaults(t *testing.T) {
 	if got := ctx["asset_base_path"]; got != "/admin" {
 		t.Fatalf("expected asset_base_path /admin, got %v", got)
 	}
+	if got := ctx["preferences_api_path"]; got != "/admin/api/v1/panels/preferences" {
+		t.Fatalf("expected preferences_api_path /admin/api/v1/panels/preferences, got %v", got)
+	}
 }
 
 func TestPathViewContextUsesURLResolver(t *testing.T) {
@@ -64,6 +67,9 @@ func TestPathViewContextUsesURLResolver(t *testing.T) {
 	if got := ctx["asset_base_path"]; got != "/console" {
 		t.Fatalf("expected asset_base_path /console, got %v", got)
 	}
+	if got := ctx["preferences_api_path"]; got != "/console/api/v1/panels/preferences" {
+		t.Fatalf("expected preferences_api_path /console/api/v1/panels/preferences, got %v", got)
+	}
 }
 
 func TestPathViewContextSupportsAssetCDNOverride(t *testing.T) {
@@ -92,6 +98,9 @@ func TestWithPathViewContextMergesPaths(t *testing.T) {
 	}
 	if got := out["asset_base_path"]; got != "/console" {
 		t.Fatalf("expected asset_base_path /console, got %v", got)
+	}
+	if got := out["preferences_api_path"]; got != "/console/api/panels/preferences" {
+		t.Fatalf("expected preferences_api_path /console/api/panels/preferences, got %v", got)
 	}
 }
 

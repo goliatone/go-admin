@@ -960,6 +960,8 @@ func TestListForPanelIncludesDataGridPersistenceConfigWhenConfigured(t *testing.
 		}
 		return strings.TrimSpace(anyToString(stateStore["mode"])) == "preferences" &&
 			strings.TrimSpace(anyToString(stateStore["resource"])) == "pages" &&
+			strings.TrimSpace(anyToString(dataGridCfg["preferences_endpoint"])) == "/admin/api/panels/preferences" &&
+			strings.TrimSpace(anyToString(viewCtx["preferences_api_path"])) == "/admin/api/panels/preferences" &&
 			toInt(stateStore["sync_debounce_ms"]) == 1200 &&
 			toInt(stateStore["max_share_entries"]) == 30 &&
 			toInt(urlState["max_url_length"]) == 1700 &&
