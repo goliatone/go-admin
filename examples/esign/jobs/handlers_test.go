@@ -16,7 +16,6 @@ import (
 )
 
 func strPtr(v string) *string { return &v }
-func intPtr(v int) *int       { return &v }
 func boolPtr(v bool) *bool    { return &v }
 
 type flakyEmailProvider struct {

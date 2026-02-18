@@ -11,10 +11,6 @@ func strPtr(value string) *string {
 	return &value
 }
 
-func intPtr(value int) *int {
-	return &value
-}
-
 func boolPtr(value bool) *bool {
 	return &value
 }
