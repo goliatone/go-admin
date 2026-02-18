@@ -126,8 +126,8 @@ func (b *translationExchangeBinding) Template(c router.Context) error {
 		c.SetHeader("Content-Disposition", "attachment; filename=translation_exchange_template.json")
 		return c.JSON(200, []map[string]any{
 			{
-				"resource":             "pages",
-				"entity_id":            "page_123",
+				"resource":             "content_items",
+				"entity_id":            "item_123",
 				"translation_group_id": "tg_123",
 				"source_locale":        "en",
 				"target_locale":        "es",
@@ -135,8 +135,8 @@ func (b *translationExchangeBinding) Template(c router.Context) error {
 				"source_text":          "Hello world",
 				"translated_text":      "Hola mundo",
 				"source_hash":          "0123456789abcdef",
-				"path":                 "/home",
-				"title":                "Home",
+				"path":                 "/example",
+				"title":                "Example",
 				"status":               "draft",
 				"notes":                "",
 			},
@@ -146,7 +146,7 @@ func (b *translationExchangeBinding) Template(c router.Context) error {
 		c.SetHeader("Content-Disposition", "attachment; filename=translation_exchange_template.csv")
 		template := strings.Join([]string{
 			"resource,entity_id,translation_group_id,source_locale,target_locale,field_path,source_text,translated_text,source_hash,path,title,status,notes",
-			"pages,page_123,tg_123,en,es,title,Hello world,Hola mundo,0123456789abcdef,/home,Home,draft,",
+			"content_items,item_123,tg_123,en,es,title,Hello world,Hola mundo,0123456789abcdef,/example,Example,draft,",
 		}, "\n")
 		return c.SendString(template)
 	}
