@@ -2,6 +2,7 @@ package stores
 
 import (
 	"context"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 	"time"
 
@@ -384,11 +385,11 @@ func (s *CMSPostStore) postPayload(record map[string]any, existing map[string]an
 	metaTitle := asString(record["meta_title"], asString(existing["meta_title"], ""))
 	metaDescription := asString(record["meta_description"], asString(existing["meta_description"], ""))
 	excerpt := asString(record["excerpt"], asString(record["summary"], asString(existing["excerpt"], asString(existing["summary"], ""))))
-	seoData := cloneAnyMap(nil)
+	seoData := primitives.CloneAnyMapNilOnEmpty(nil)
 	if raw, ok := record["seo"].(map[string]any); ok {
-		seoData = cloneAnyMap(raw)
+		seoData = primitives.CloneAnyMapNilOnEmpty(raw)
 	} else if raw, ok := existing["seo"].(map[string]any); ok {
-		seoData = cloneAnyMap(raw)
+		seoData = primitives.CloneAnyMapNilOnEmpty(raw)
 	}
 	if metaTitle == "" {
 		metaTitle = asString(seoData["title"], "")
@@ -424,17 +425,17 @@ func (s *CMSPostStore) postPayload(record map[string]any, existing map[string]an
 	}
 	category := asString(record["category"], asString(existing["category"], ""))
 	featuredImage := asString(record["featured_image"], asString(existing["featured_image"], ""))
-	meta := cloneAnyMap(nil)
+	meta := primitives.CloneAnyMapNilOnEmpty(nil)
 	if raw, ok := record["meta"].(map[string]any); ok {
-		meta = cloneAnyMap(raw)
+		meta = primitives.CloneAnyMapNilOnEmpty(raw)
 	} else if raw, ok := existing["meta"].(map[string]any); ok {
-		meta = cloneAnyMap(raw)
+		meta = primitives.CloneAnyMapNilOnEmpty(raw)
 	}
-	markdown := cloneAnyMap(nil)
+	markdown := primitives.CloneAnyMapNilOnEmpty(nil)
 	if raw, ok := record["markdown"].(map[string]any); ok {
-		markdown = cloneAnyMap(raw)
+		markdown = primitives.CloneAnyMapNilOnEmpty(raw)
 	} else if raw, ok := existing["markdown"].(map[string]any); ok {
-		markdown = cloneAnyMap(raw)
+		markdown = primitives.CloneAnyMapNilOnEmpty(raw)
 	}
 	if metaTitle != "" {
 		tags = append(tags, metaTitle)
@@ -460,7 +461,7 @@ func (s *CMSPostStore) postPayload(record map[string]any, existing map[string]an
 		"updated_at":     updatedAt,
 	}
 	payload["data"] = payloadData
-	seo := cloneAnyMap(seoData)
+	seo := primitives.CloneAnyMapNilOnEmpty(seoData)
 	if seo == nil {
 		seo = map[string]any{}
 	}
@@ -477,7 +478,7 @@ func (s *CMSPostStore) postPayload(record map[string]any, existing map[string]an
 	}
 	generatedMarkdown := map[string]any{
 		"frontmatter": map[string]any{
-			"seo":              cloneAnyMap(seo),
+			"seo":              primitives.CloneAnyMapNilOnEmpty(seo),
 			"tags":             tags,
 			"category":         category,
 			"featured_image":   featuredImage,

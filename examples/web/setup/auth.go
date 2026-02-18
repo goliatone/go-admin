@@ -3,6 +3,7 @@ package setup
 import (
 	"context"
 	"fmt"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"log"
 	"net/http"
 	"sort"
@@ -371,7 +372,7 @@ func applySessionClaimsMetadata(ctx context.Context, identity auth.Identity, cla
 	setIfPresent("username", identity.Username())
 	setIfPresent("email", identity.Email())
 	setIfPresent("role", identity.Role())
-	display := firstNonEmpty(identity.Username(), identity.Email(), identity.ID())
+	display := primitives.FirstNonEmpty(identity.Username(), identity.Email(), identity.ID())
 	setIfPresent("display_name", display)
 	setIfMissing("tenant_id", defaults.defaultTenantID)
 	setIfMissing("organization_id", defaults.defaultOrgID)
@@ -477,8 +478,8 @@ func scopeFromClaims(claims *auth.JWTClaims, defaults authOptions) userstypes.Sc
 		tenant = strings.TrimSpace(toString(metadata["tenant_id"]))
 		org = strings.TrimSpace(toString(metadata["organization_id"]))
 	}
-	tenant = firstNonEmpty(tenant, defaults.defaultTenantID)
-	org = firstNonEmpty(org, defaults.defaultOrgID)
+	tenant = primitives.FirstNonEmpty(tenant, defaults.defaultTenantID)
+	org = primitives.FirstNonEmpty(org, defaults.defaultOrgID)
 	if tenant != "" {
 		if tid, err := uuid.Parse(tenant); err == nil {
 			scope.TenantID = tid

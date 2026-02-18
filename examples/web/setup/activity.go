@@ -2,6 +2,7 @@ package setup
 
 import (
 	"context"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 	"sync"
 	"time"
@@ -158,7 +159,7 @@ func matchesFilter(record types.ActivityRecord, filter types.ActivityFilter) boo
 }
 
 func toUsersRecord(record admin.ActivityRecord) types.ActivityRecord {
-	data := cloneAnyMap(record.Data)
+	data := primitives.CloneAnyMapEmptyOnEmpty(record.Data)
 	actor := strings.TrimSpace(record.ActorID)
 	actorID := parseUUID(actor)
 	if actorID == uuid.Nil && actor != "" && data["actor"] == nil {
@@ -195,7 +196,7 @@ func toUsersRecord(record admin.ActivityRecord) types.ActivityRecord {
 }
 
 func fromUsersRecord(record types.ActivityRecord) admin.ActivityRecord {
-	data := cloneAnyMap(record.Data)
+	data := primitives.CloneAnyMapEmptyOnEmpty(record.Data)
 
 	actor := ""
 	if record.ActorID != uuid.Nil {
@@ -307,7 +308,7 @@ func cloneUsersRecord(record types.ActivityRecord) types.ActivityRecord {
 		IP:         record.IP,
 		TenantID:   record.TenantID,
 		OrgID:      record.OrgID,
-		Data:       cloneAnyMap(record.Data),
+		Data:       primitives.CloneAnyMapEmptyOnEmpty(record.Data),
 		OccurredAt: record.OccurredAt,
 	}
 }

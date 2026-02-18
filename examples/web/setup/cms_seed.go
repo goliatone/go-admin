@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"io/fs"
 	"reflect"
 	"sort"
@@ -1228,7 +1229,7 @@ func mergeSeedCustomFields(record map[string]any, custom map[string]any, exclude
 }
 
 func importSeed(ctx context.Context, md interfaces.MarkdownService, seed contentSeed, opts interfaces.ImportOptions, locale string) error {
-	custom := cloneAnyMap(seed.Custom)
+	custom := primitives.CloneAnyMapEmptyOnEmpty(seed.Custom)
 	if custom == nil {
 		custom = map[string]any{}
 	}
@@ -1249,8 +1250,8 @@ func importSeed(ctx context.Context, md interfaces.MarkdownService, seed content
 			Summary: seed.Summary,
 			Status:  seed.Status,
 			Tags:    append([]string(nil), seed.Tags...),
-			Custom:  cloneAnyMap(custom),
-			Raw:     cloneAnyMap(custom),
+			Custom:  primitives.CloneAnyMapEmptyOnEmpty(custom),
+			Raw:     primitives.CloneAnyMapEmptyOnEmpty(custom),
 		},
 		Body:         bodyBytes,
 		Checksum:     checksum[:],
@@ -1566,7 +1567,7 @@ func buildSeedContentPayload(seed contentSeed) map[string]any {
 		},
 	}
 
-	custom := cloneAnyMap(seed.Custom)
+	custom := primitives.CloneAnyMapEmptyOnEmpty(seed.Custom)
 	if custom == nil {
 		custom = map[string]any{}
 	}
@@ -1578,7 +1579,7 @@ func buildSeedContentPayload(seed contentSeed) map[string]any {
 }
 
 func seedSEO(seed contentSeed) (string, string) {
-	meta := cloneAnyMap(seed.Custom)
+	meta := primitives.CloneAnyMapEmptyOnEmpty(seed.Custom)
 	seoRaw, ok := meta["seo"].(map[string]any)
 	if !ok || len(seoRaw) == 0 {
 		return "", ""

@@ -3,6 +3,7 @@ package setup
 import (
 	"context"
 	"fmt"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"path"
 	"strings"
 
@@ -218,7 +219,7 @@ func toSeedMenuItems(menuCode, locale string, items []admin.MenuItem) []cms.Seed
 			Collapsed:   item.Collapsed,
 			Metadata: map[string]any{
 				"path":        path,
-				"parent_path": canonicalMenuItemPath(menuCode, firstNonEmpty(item.ParentID, item.ParentCode)),
+				"parent_path": canonicalMenuItemPath(menuCode, primitives.FirstNonEmpty(item.ParentID, item.ParentCode)),
 			},
 		}
 
@@ -226,10 +227,10 @@ func toSeedMenuItems(menuCode, locale string, items []admin.MenuItem) []cms.Seed
 			tr := cms.MenuItemTranslationInput{Locale: locale}
 			switch itemType {
 			case admin.MenuItemTypeGroup:
-				tr.GroupTitle = firstNonEmpty(strings.TrimSpace(item.GroupTitle), strings.TrimSpace(item.GroupTitleKey), fmt.Sprintf("group:%s", path))
+				tr.GroupTitle = primitives.FirstNonEmpty(strings.TrimSpace(item.GroupTitle), strings.TrimSpace(item.GroupTitleKey), fmt.Sprintf("group:%s", path))
 				tr.GroupTitleKey = strings.TrimSpace(item.GroupTitleKey)
 			default:
-				tr.Label = firstNonEmpty(strings.TrimSpace(item.Label), strings.TrimSpace(item.LabelKey), fmt.Sprintf("item:%s", path))
+				tr.Label = primitives.FirstNonEmpty(strings.TrimSpace(item.Label), strings.TrimSpace(item.LabelKey), fmt.Sprintf("item:%s", path))
 				tr.LabelKey = strings.TrimSpace(item.LabelKey)
 			}
 			seedItem.Translations = []cms.MenuItemTranslationInput{tr}
