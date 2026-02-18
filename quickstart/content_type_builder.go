@@ -3,6 +3,7 @@ package quickstart
 import (
 	"fmt"
 	"html/template"
+	"strings"
 
 	"github.com/goliatone/go-admin/admin"
 )
@@ -26,6 +27,10 @@ func DefaultContentTypePreviewFallback() admin.SchemaPreviewFallback {
 
 // NewContentTypeBuilderModule builds a content type builder module with quickstart defaults.
 func NewContentTypeBuilderModule(cfg admin.Config, menuParent string, opts ...admin.ContentTypeBuilderOption) admin.Module {
+	menuParent = strings.TrimSpace(menuParent)
+	if menuParent == "" {
+		menuParent = NavigationSectionContentID
+	}
 	moduleOpts := []admin.ContentTypeBuilderOption{
 		admin.WithContentTypeBuilderBasePath(cfg.BasePath),
 		admin.WithContentTypeBuilderMenu(cfg.NavMenuCode, menuParent),
