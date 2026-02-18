@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"net/http"
 	"reflect"
 	"sort"
@@ -402,7 +403,7 @@ func (m *Module) handleBeginInstallation(c router.Context, body map[string]any) 
 	installation, err := m.service.UpsertInstallation(c.Context(), gocore.UpsertInstallationInput{
 		ProviderID:  providerID,
 		Scope:       scope,
-		InstallType: firstNonEmpty(toString(body["install_type"]), "standard"),
+		InstallType: primitives.FirstNonEmpty(toString(body["install_type"]), "standard"),
 		Status:      gocore.InstallationStatusActive,
 		GrantedAt:   ptrTime(time.Now().UTC()),
 		Metadata:    extractMetadata(body),
@@ -467,7 +468,7 @@ func (m *Module) handleUninstallInstallation(c router.Context, body map[string]a
 		return 0, nil, err
 	}
 
-	reason := strings.TrimSpace(firstNonEmpty(toString(body["reason"]), "installation_uninstall"))
+	reason := strings.TrimSpace(primitives.FirstNonEmpty(toString(body["reason"]), "installation_uninstall"))
 	if err := m.service.UpdateInstallationStatus(c.Context(), installationID, string(gocore.InstallationStatusUninstalled), reason); err != nil {
 		return 0, nil, err
 	}
@@ -961,7 +962,7 @@ func (m *Module) handleRunSync(c router.Context, body map[string]any) (int, any,
 	if connectionID == "" {
 		return 0, nil, validationError("connection id is required", map[string]any{"field": "ref"})
 	}
-	providerID := firstNonEmpty(strings.TrimSpace(toString(body["provider_id"])), m.lookupConnectionProvider(c.Context(), connectionID))
+	providerID := primitives.FirstNonEmpty(strings.TrimSpace(toString(body["provider_id"])), m.lookupConnectionProvider(c.Context(), connectionID))
 	if providerID == "" {
 		return 0, nil, validationError("provider id is required", map[string]any{"field": "provider_id"})
 	}
@@ -1037,7 +1038,7 @@ func (m *Module) handleListRateLimits(c router.Context, _ map[string]any) (int, 
 		ScopeType:    strings.TrimSpace(c.Query("scope_type")),
 		ScopeID:      strings.TrimSpace(c.Query("scope_id")),
 		BucketKey:    strings.TrimSpace(c.Query("bucket_key")),
-		ConnectionID: strings.TrimSpace(firstNonEmpty(c.Query("connection_id"), c.Query("connection_ref"), c.Query("ref"))),
+		ConnectionID: strings.TrimSpace(primitives.FirstNonEmpty(c.Query("connection_id"), c.Query("connection_ref"), c.Query("ref"))),
 	}
 	if filter.ConnectionID != "" && (filter.ProviderID == "" || filter.ScopeType == "" || filter.ScopeID == "") {
 		connection := connectionRecord{}
@@ -1104,7 +1105,7 @@ func (m *Module) handleListRateLimitsRuntime(c router.Context, _ map[string]any)
 		ScopeType:    strings.TrimSpace(c.Query("scope_type")),
 		ScopeID:      strings.TrimSpace(c.Query("scope_id")),
 		BucketKey:    strings.TrimSpace(c.Query("bucket_key")),
-		ConnectionID: strings.TrimSpace(firstNonEmpty(c.Query("connection_id"), c.Query("connection_ref"), c.Query("ref"))),
+		ConnectionID: strings.TrimSpace(primitives.FirstNonEmpty(c.Query("connection_id"), c.Query("connection_ref"), c.Query("ref"))),
 	}
 	if filter.ConnectionID != "" && (filter.ProviderID == "" || filter.ScopeType == "" || filter.ScopeID == "") {
 		connection := connectionRecord{}
@@ -1202,7 +1203,7 @@ func (m *Module) handleListProviderOperationStatus(c router.Context, _ map[strin
 		query = query.Where("scope_id = ?", scopeID)
 		countQuery = countQuery.Where("scope_id = ?", scopeID)
 	}
-	if connectionID := strings.TrimSpace(firstNonEmpty(c.Query("connection_id"), c.Query("ref"))); connectionID != "" {
+	if connectionID := strings.TrimSpace(primitives.FirstNonEmpty(c.Query("connection_id"), c.Query("ref"))); connectionID != "" {
 		query = query.Where("id = ?", connectionID)
 		countQuery = countQuery.Where("id = ?", connectionID)
 	}
@@ -1287,7 +1288,7 @@ func (m *Module) handleListProviderOperationStatus(c router.Context, _ map[strin
 		"provider_id":   strings.TrimSpace(c.Query("provider_id")),
 		"scope_type":    strings.TrimSpace(c.Query("scope_type")),
 		"scope_id":      strings.TrimSpace(c.Query("scope_id")),
-		"connection_id": strings.TrimSpace(firstNonEmpty(c.Query("connection_id"), c.Query("ref"))),
+		"connection_id": strings.TrimSpace(primitives.FirstNonEmpty(c.Query("connection_id"), c.Query("ref"))),
 	})
 	response["operation_statuses"] = items
 	return http.StatusOK, response, nil
@@ -1355,8 +1356,8 @@ func parseActivityFilter(c router.Context) (gocore.ServicesActivityFilter, error
 }
 
 func resolveScope(ctx context.Context, c router.Context, payload map[string]any) (gocore.ScopeRef, error) {
-	scopeType := strings.ToLower(strings.TrimSpace(firstNonEmpty(toString(payload["scope_type"]), c.Query("scope_type"))))
-	scopeID := strings.TrimSpace(firstNonEmpty(toString(payload["scope_id"]), c.Query("scope_id")))
+	scopeType := strings.ToLower(strings.TrimSpace(primitives.FirstNonEmpty(toString(payload["scope_type"]), c.Query("scope_type"))))
+	scopeID := strings.TrimSpace(primitives.FirstNonEmpty(toString(payload["scope_id"]), c.Query("scope_id")))
 
 	if scopeType != "" && scopeID != "" {
 		scope := gocore.ScopeRef{Type: scopeType, ID: scopeID}
@@ -1371,13 +1372,13 @@ func resolveScope(ctx context.Context, c router.Context, payload map[string]any)
 		return gocore.ScopeRef{}, validationError("scope is required", map[string]any{"field": "scope"})
 	}
 	if scopeType == "org" {
-		candidate := strings.TrimSpace(firstNonEmpty(scopeID, actor.OrganizationID, toString(payload["org_id"]), c.Query("org_id")))
+		candidate := strings.TrimSpace(primitives.FirstNonEmpty(scopeID, actor.OrganizationID, toString(payload["org_id"]), c.Query("org_id")))
 		if candidate == "" {
 			return gocore.ScopeRef{}, validationError("scope_id is required for org scope", map[string]any{"field": "scope_id"})
 		}
 		return gocore.ScopeRef{Type: "org", ID: candidate}, nil
 	}
-	userID := strings.TrimSpace(firstNonEmpty(actor.ActorID, actor.Subject, toString(payload["user_id"]), c.Query("user_id")))
+	userID := strings.TrimSpace(primitives.FirstNonEmpty(actor.ActorID, actor.Subject, toString(payload["user_id"]), c.Query("user_id")))
 	if userID == "" {
 		return gocore.ScopeRef{}, validationError("scope_id is required for user scope", map[string]any{"field": "scope_id"})
 	}

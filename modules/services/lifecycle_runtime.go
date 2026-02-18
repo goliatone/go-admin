@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"sort"
 	"strings"
 	"sync"
@@ -429,7 +430,7 @@ func (l retryableNotificationLedger) Record(ctx context.Context, record gocore.N
 		strings.TrimSpace(record.DefinitionCode),
 		strings.TrimSpace(record.RecipientKey),
 		key,
-		firstNonEmpty(strings.TrimSpace(record.Status), "sent"),
+		primitives.FirstNonEmpty(strings.TrimSpace(record.Status), "sent"),
 		strings.TrimSpace(record.Error),
 		copyAnyMap(record.Metadata),
 		now,
