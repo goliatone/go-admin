@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"io"
 	"strings"
 
@@ -404,11 +405,11 @@ func adaptTheme(t *ThemeSelection) *dashcmp.ThemeSelection {
 	return &dashcmp.ThemeSelection{
 		Name:       t.Name,
 		Variant:    t.Variant,
-		Tokens:     cloneStringMap(t.Tokens),
-		Templates:  cloneStringMap(t.Partials),
+		Tokens:     primitives.CloneStringMapNilOnEmpty(t.Tokens),
+		Templates:  primitives.CloneStringMapNilOnEmpty(t.Partials),
 		ChartTheme: t.ChartTheme,
 		Assets: dashcmp.ThemeAssets{
-			Values: cloneStringMap(t.Assets),
+			Values: primitives.CloneStringMapNilOnEmpty(t.Assets),
 			Prefix: t.AssetPrefix,
 		},
 	}

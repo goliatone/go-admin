@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"net/url"
 	"path"
 	"sort"
@@ -267,7 +268,7 @@ func (f *DynamicPanelFactory) createPanel(ctx context.Context, contentType *CMSC
 	}
 
 	if len(contentType.Schema) > 0 {
-		builder.FormSchema(cloneAnyMap(contentType.Schema))
+		builder.FormSchema(primitives.CloneAnyMap(contentType.Schema))
 	}
 
 	if tabs := extractTabs(contentType.UISchema, panelName); len(tabs) > 0 {
@@ -355,7 +356,7 @@ func (f *DynamicPanelFactory) validateSchema(ctx context.Context, contentType *C
 	}
 	opts := SchemaValidationOptions{
 		Slug:     strings.TrimSpace(contentType.Slug),
-		UISchema: cloneAnyMap(contentType.UISchema),
+		UISchema: primitives.CloneAnyMap(contentType.UISchema),
 	}
 	if err := f.schemaValidator.Validate(ctx, contentType.Schema, opts); err != nil {
 		return validationDomainError("invalid schema", map[string]any{"error": err.Error()})
@@ -422,7 +423,7 @@ func (f *DynamicPanelFactory) addToNavigation(ctx context.Context, contentType *
 		locale = f.admin.config.DefaultLocale
 	}
 
-	label := strings.TrimSpace(firstNonEmpty(contentType.Name, contentType.Slug))
+	label := strings.TrimSpace(primitives.FirstNonEmptyRaw(contentType.Name, contentType.Slug))
 	if override := strings.TrimSpace(panelSlug); override != "" {
 		label = titleCase(override)
 	}
@@ -462,7 +463,7 @@ func (f *DynamicPanelFactory) addToNavigation(ctx context.Context, contentType *
 		ParentID: strings.TrimSpace(f.menuParent),
 	}
 	if navPosition != nil {
-		item.Position = intPtr(*navPosition)
+		item.Position = primitives.Int(*navPosition)
 	}
 	perms := panelPermissionsForContentType(*contentType)
 	if strings.TrimSpace(perms.View) != "" {
@@ -514,7 +515,7 @@ func (f *DynamicPanelFactory) updateExistingNavigationItem(ctx context.Context, 
 		item.ParentCode = strings.TrimSpace(existing.ParentCode)
 	}
 	if item.Position == nil && existing.Position != nil {
-		item.Position = intPtr(*existing.Position)
+		item.Position = primitives.Int(*existing.Position)
 	}
 	if err := f.admin.menuSvc.UpdateMenuItem(ctx, menuCode, item); err != nil {
 		if isMenuItemMissing(err) || errors.Is(err, ErrNotFound) {
@@ -788,7 +789,7 @@ func panelPermissionsForContentType(contentType CMSContentType) PanelPermissions
 	if perms, ok := permissionsFromCapabilities(contentType.Capabilities); ok {
 		return perms
 	}
-	slug := strings.TrimSpace(firstNonEmpty(contentType.Slug, contentType.Name, contentType.ID))
+	slug := strings.TrimSpace(primitives.FirstNonEmptyRaw(contentType.Slug, contentType.Name, contentType.ID))
 	if slug == "" {
 		return PanelPermissions{}
 	}
@@ -1127,9 +1128,9 @@ func permissionsFromCapabilities(capabilities map[string]any) (PanelPermissions,
 			return panelPermissionsFromBase(base), true
 		}
 		perms := PanelPermissions{
-			View:   strings.TrimSpace(firstNonEmpty(toString(value["view"]), toString(value["read"]))),
+			View:   strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(value["view"]), toString(value["read"]))),
 			Create: strings.TrimSpace(toString(value["create"])),
-			Edit:   strings.TrimSpace(firstNonEmpty(toString(value["edit"]), toString(value["update"]))),
+			Edit:   strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(value["edit"]), toString(value["update"]))),
 			Delete: strings.TrimSpace(toString(value["delete"])),
 		}
 		if perms.View != "" || perms.Create != "" || perms.Edit != "" || perms.Delete != "" {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 	"time"
 
@@ -375,9 +376,9 @@ func (m *UserManagementModule) MenuItems(locale string) []MenuItem {
 
 func menuPosition(pos *int, fallback int) *int {
 	if pos != nil {
-		return intPtr(*pos)
+		return primitives.Int(*pos)
 	}
-	return intPtr(fallback)
+	return primitives.Int(fallback)
 }
 
 // WithMenuParent nests the module navigation under a parent menu item ID.
@@ -800,7 +801,7 @@ func roleToRecord(role RoleRecord) map[string]any {
 		"role_key":    role.RoleKey,
 		"description": role.Description,
 		"permissions": append([]string{}, role.Permissions...),
-		"metadata":    cloneAnyMap(role.Metadata),
+		"metadata":    primitives.CloneAnyMap(role.Metadata),
 		"is_system":   role.IsSystem,
 	}
 	if !role.CreatedAt.IsZero() {
@@ -847,7 +848,7 @@ func roleMetadata(value any) map[string]any {
 	}
 	switch v := value.(type) {
 	case map[string]any:
-		return cloneAnyMap(v)
+		return primitives.CloneAnyMap(v)
 	case map[string]string:
 		out := map[string]any{}
 		for key, val := range v {

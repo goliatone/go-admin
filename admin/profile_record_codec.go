@@ -1,5 +1,7 @@
 package admin
 
+import "github.com/goliatone/go-admin/internal/primitives"
+
 func applyUserProfileDefaults(profile UserProfile, defaultLocale string) UserProfile {
 	if profile.Locale == "" {
 		profile.Locale = defaultLocale
@@ -18,12 +20,12 @@ func userProfileToRecord(profile UserProfile) map[string]any {
 		profileKeyBio:         profile.Bio,
 	}
 	if len(profile.Contact) > 0 {
-		record["contact"] = cloneAnyMap(profile.Contact)
+		record["contact"] = primitives.CloneAnyMap(profile.Contact)
 	}
 	if len(profile.Metadata) > 0 {
-		record["metadata"] = cloneAnyMap(profile.Metadata)
+		record["metadata"] = primitives.CloneAnyMap(profile.Metadata)
 		if avatar := extractMap(profile.Metadata[profileKeyAvatar]); len(avatar) > 0 {
-			record[profileKeyAvatar] = cloneAnyMap(avatar)
+			record[profileKeyAvatar] = primitives.CloneAnyMap(avatar)
 		}
 	}
 	return record
@@ -31,7 +33,7 @@ func userProfileToRecord(profile UserProfile) map[string]any {
 
 func userProfileFromRecord(record map[string]any) UserProfile {
 	profile := UserProfile{
-		Raw: cloneAnyMap(record),
+		Raw: primitives.CloneAnyMap(record),
 	}
 	if val, ok := record[profileKeyDisplayName]; ok {
 		profile.DisplayName = toString(val)
@@ -52,16 +54,16 @@ func userProfileFromRecord(record map[string]any) UserProfile {
 		profile.Bio = toString(val)
 	}
 	if contact := extractMap(record["contact"]); len(contact) > 0 {
-		profile.Contact = cloneAnyMap(contact)
+		profile.Contact = primitives.CloneAnyMap(contact)
 	}
 	if metadata := extractMap(record["metadata"]); len(metadata) > 0 {
-		profile.Metadata = cloneAnyMap(metadata)
+		profile.Metadata = primitives.CloneAnyMap(metadata)
 	}
 	if avatar := extractMap(record[profileKeyAvatar]); len(avatar) > 0 {
 		if profile.Metadata == nil {
 			profile.Metadata = map[string]any{}
 		}
-		profile.Metadata[profileKeyAvatar] = cloneAnyMap(avatar)
+		profile.Metadata[profileKeyAvatar] = primitives.CloneAnyMap(avatar)
 	}
 	return profile
 }

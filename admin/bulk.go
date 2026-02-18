@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"strconv"
 	"sync"
 	"time"
@@ -95,7 +96,7 @@ func (s *InMemoryBulkService) Start(ctx context.Context, req BulkRequest) (BulkJ
 		Status:    "running",
 		Total:     req.Total,
 		Processed: 0,
-		Payload:   cloneAnyMap(req.Payload),
+		Payload:   primitives.CloneAnyMap(req.Payload),
 		Errors:    []string{},
 		StartedAt: time.Now(),
 	}
@@ -116,7 +117,7 @@ func (s *InMemoryBulkService) List(ctx context.Context) []BulkJob {
 			jobCopy.Progress = float64(jobCopy.Processed) / float64(jobCopy.Total)
 		}
 		if jobCopy.Payload != nil {
-			jobCopy.Payload = cloneAnyMap(jobCopy.Payload)
+			jobCopy.Payload = primitives.CloneAnyMap(jobCopy.Payload)
 		}
 		out[i] = jobCopy
 	}
@@ -214,7 +215,7 @@ func (c *BulkCommand) Execute(ctx context.Context, msg BulkStartMsg) error {
 		Name:    msg.Name,
 		Action:  msg.Action,
 		Total:   msg.Total,
-		Payload: cloneAnyMap(msg.Payload),
+		Payload: primitives.CloneAnyMap(msg.Payload),
 	}
 	if req.Name == "" {
 		return requiredFieldDomainError("name", map[string]any{"component": "bulk"})

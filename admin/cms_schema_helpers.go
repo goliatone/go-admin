@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"sort"
 	"strconv"
 	"strings"
@@ -81,7 +82,7 @@ func contentTypeSchemaToForm(schema map[string]any) ([]Field, map[string]any) {
 		return nil, nil
 	}
 	if looksLikeJSONSchema(schema) {
-		normalized := ensureObjectSchema(cloneAnyMap(schema))
+		normalized := ensureObjectSchema(primitives.CloneAnyMap(schema))
 		fields := fieldsFromJSONSchema(normalized)
 		return fields, normalized
 	}
@@ -147,11 +148,11 @@ func mergeFormFields(base []Field, extra []Field) []Field {
 }
 
 func mergeFormSchemas(base, extra map[string]any) map[string]any {
-	base = ensureObjectSchema(cloneAnyMap(base))
+	base = ensureObjectSchema(primitives.CloneAnyMap(base))
 	if len(extra) == 0 {
 		return base
 	}
-	extra = ensureObjectSchema(cloneAnyMap(extra))
+	extra = ensureObjectSchema(primitives.CloneAnyMap(extra))
 	baseProps := base["properties"].(map[string]any)
 	extraProps := extra["properties"].(map[string]any)
 	for key, value := range extraProps {
@@ -304,7 +305,7 @@ func parseSchemaFieldMap(raw map[string]any) (Field, bool) {
 	if name == "" {
 		return Field{}, false
 	}
-	label := strings.TrimSpace(firstNonEmpty(toString(raw["label"]), toString(raw["title"])))
+	label := strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(raw["label"]), toString(raw["title"])))
 	if label == "" {
 		label = labelizeFieldName(name)
 	}

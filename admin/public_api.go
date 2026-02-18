@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 
 	router "github.com/goliatone/go-router"
@@ -209,7 +210,7 @@ func buildContentURL(content *CMSContent) string {
 	if slug == "" {
 		return ""
 	}
-	segment := strings.Trim(firstNonEmpty(content.ContentTypeSlug, content.ContentType), "/")
+	segment := strings.Trim(primitives.FirstNonEmptyRaw(content.ContentTypeSlug, content.ContentType), "/")
 	if segment == "" {
 		segment = "content"
 	}
@@ -231,7 +232,7 @@ func publicContentType(c router.Context) string {
 	if c == nil {
 		return ""
 	}
-	return strings.TrimSpace(firstNonEmpty(
+	return strings.TrimSpace(primitives.FirstNonEmptyRaw(
 		c.Param("type", ""),
 		c.Query("type"),
 		c.Query("content_type"),

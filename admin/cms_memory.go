@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"fmt"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"net/http"
 	"sort"
 	"strconv"
@@ -126,7 +127,7 @@ func (s *InMemoryWidgetService) SaveInstance(ctx context.Context, instance Widge
 	if instance.Position == 0 {
 		instance.Position = len(s.instances) + 1
 	}
-	instance.Config = cloneAnyMap(instance.Config)
+	instance.Config = primitives.CloneAnyMap(instance.Config)
 	s.instances[instance.ID] = instance
 	cp := cloneWidgetInstance(instance)
 	activity := s.activity
@@ -210,7 +211,7 @@ func (s *InMemoryWidgetService) HasInstanceForDefinition(_ context.Context, defi
 
 func cloneWidgetInstance(in WidgetInstance) WidgetInstance {
 	out := in
-	out.Config = cloneAnyMap(in.Config)
+	out.Config = primitives.CloneAnyMap(in.Config)
 	return out
 }
 
@@ -392,7 +393,7 @@ func (s *InMemoryMenuService) AddMenuItem(ctx context.Context, menuCode string, 
 	}
 	if item.Position == nil {
 		pos := state.parentCounters[item.ParentID] + 1
-		item.Position = intPtr(pos)
+		item.Position = primitives.Int(pos)
 	}
 	state.parentCounters[item.ParentID] = maxInt(state.parentCounters[item.ParentID], intFromPtr(item.Position))
 	if strings.TrimSpace(item.Type) == "" {
@@ -521,7 +522,7 @@ func (s *InMemoryMenuService) ReorderMenu(ctx context.Context, menuCode string, 
 		if !ok {
 			continue
 		}
-		item.Position = intPtr(idx + 1)
+		item.Position = primitives.Int(idx + 1)
 		state.items[id] = item
 	}
 	activity := s.activity
@@ -843,9 +844,9 @@ func (s *InMemoryContentService) CreateContentType(ctx context.Context, contentT
 	} else if contentType.Status == "" {
 		contentType.Status = "draft"
 	}
-	contentType.Schema = cloneAnyMap(contentType.Schema)
-	contentType.UISchema = cloneAnyMap(contentType.UISchema)
-	contentType.Capabilities = cloneAnyMap(contentType.Capabilities)
+	contentType.Schema = primitives.CloneAnyMap(contentType.Schema)
+	contentType.UISchema = primitives.CloneAnyMap(contentType.UISchema)
+	contentType.Capabilities = primitives.CloneAnyMap(contentType.Capabilities)
 	contentType.UpdatedAt = time.Now().UTC()
 	if contentType.CreatedAt.IsZero() {
 		contentType.CreatedAt = contentType.UpdatedAt
@@ -889,15 +890,15 @@ func (s *InMemoryContentService) UpdateContentType(ctx context.Context, contentT
 		existing.Name = name
 	}
 	if contentType.Schema != nil {
-		existing.Schema = cloneAnyMap(contentType.Schema)
+		existing.Schema = primitives.CloneAnyMap(contentType.Schema)
 	}
 	if contentType.UISchema != nil {
-		existing.UISchema = cloneAnyMap(contentType.UISchema)
+		existing.UISchema = primitives.CloneAnyMap(contentType.UISchema)
 	}
 	if contentType.ReplaceCapabilities {
-		existing.Capabilities = cloneAnyMap(contentType.Capabilities)
+		existing.Capabilities = primitives.CloneAnyMap(contentType.Capabilities)
 	} else if contentType.Capabilities != nil {
-		existing.Capabilities = mergeAnyMap(cloneAnyMap(existing.Capabilities), cloneAnyMap(contentType.Capabilities))
+		existing.Capabilities = mergeAnyMap(primitives.CloneAnyMap(existing.Capabilities), primitives.CloneAnyMap(contentType.Capabilities))
 	}
 	if contentType.DescriptionSet {
 		existing.Description = contentType.Description
@@ -1032,7 +1033,7 @@ func (s *InMemoryContentService) CreateContent(ctx context.Context, content CMSC
 		"title":        cp.Title,
 		"slug":         cp.Slug,
 		"locale":       cp.Locale,
-		"content_type": firstNonEmpty(cp.ContentTypeSlug, cp.ContentType),
+		"content_type": primitives.FirstNonEmptyRaw(cp.ContentTypeSlug, cp.ContentType),
 		"status":       cp.Status,
 	}
 	s.mu.Unlock()
@@ -1064,7 +1065,7 @@ func (s *InMemoryContentService) UpdateContent(ctx context.Context, content CMSC
 		"title":        cp.Title,
 		"slug":         cp.Slug,
 		"locale":       cp.Locale,
-		"content_type": firstNonEmpty(cp.ContentTypeSlug, cp.ContentType),
+		"content_type": primitives.FirstNonEmptyRaw(cp.ContentTypeSlug, cp.ContentType),
 		"status":       cp.Status,
 	}
 	s.mu.Unlock()
@@ -1271,7 +1272,7 @@ func (s *InMemoryContentService) upsertBlockDefinitionVersionLocked(def CMSBlock
 		if entry.SchemaVersion != version {
 			continue
 		}
-		entry.Schema = cloneAnyMap(def.Schema)
+		entry.Schema = primitives.CloneAnyMap(def.Schema)
 		entry.MigrationStatus = def.MigrationStatus
 		entry.UpdatedAt = now
 		entries[i] = entry
@@ -1282,7 +1283,7 @@ func (s *InMemoryContentService) upsertBlockDefinitionVersionLocked(def CMSBlock
 		ID:              fmt.Sprintf("%s@%s", def.ID, version),
 		DefinitionID:    def.ID,
 		SchemaVersion:   version,
-		Schema:          cloneAnyMap(def.Schema),
+		Schema:          primitives.CloneAnyMap(def.Schema),
 		Defaults:        nil,
 		MigrationStatus: def.MigrationStatus,
 		CreatedAt:       now,
@@ -1458,13 +1459,13 @@ func cloneCMSContent(in CMSContent) CMSContent {
 func cloneCMSContentType(in CMSContentType) CMSContentType {
 	out := in
 	if in.Schema != nil {
-		out.Schema = cloneAnyMap(in.Schema)
+		out.Schema = primitives.CloneAnyMap(in.Schema)
 	}
 	if in.UISchema != nil {
-		out.UISchema = cloneAnyMap(in.UISchema)
+		out.UISchema = primitives.CloneAnyMap(in.UISchema)
 	}
 	if in.Capabilities != nil {
-		out.Capabilities = cloneAnyMap(in.Capabilities)
+		out.Capabilities = primitives.CloneAnyMap(in.Capabilities)
 	}
 	return out
 }
@@ -1472,10 +1473,10 @@ func cloneCMSContentType(in CMSContentType) CMSContentType {
 func cloneCMSBlockDefinition(in CMSBlockDefinition) CMSBlockDefinition {
 	out := in
 	if in.Schema != nil {
-		out.Schema = cloneAnyMap(in.Schema)
+		out.Schema = primitives.CloneAnyMap(in.Schema)
 	}
 	if in.UISchema != nil {
-		out.UISchema = cloneAnyMap(in.UISchema)
+		out.UISchema = primitives.CloneAnyMap(in.UISchema)
 	}
 	return out
 }
@@ -1483,10 +1484,10 @@ func cloneCMSBlockDefinition(in CMSBlockDefinition) CMSBlockDefinition {
 func cloneCMSBlockDefinitionVersion(in CMSBlockDefinitionVersion) CMSBlockDefinitionVersion {
 	out := in
 	if in.Schema != nil {
-		out.Schema = cloneAnyMap(in.Schema)
+		out.Schema = primitives.CloneAnyMap(in.Schema)
 	}
 	if in.Defaults != nil {
-		out.Defaults = cloneAnyMap(in.Defaults)
+		out.Defaults = primitives.CloneAnyMap(in.Defaults)
 	}
 	return out
 }
@@ -1494,7 +1495,7 @@ func cloneCMSBlockDefinitionVersion(in CMSBlockDefinitionVersion) CMSBlockDefini
 func cloneCMSBlock(in CMSBlock) CMSBlock {
 	out := in
 	if in.Data != nil {
-		out.Data = cloneAnyMap(in.Data)
+		out.Data = primitives.CloneAnyMap(in.Data)
 	}
 	return out
 }

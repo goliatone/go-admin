@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"github.com/goliatone/go-admin/internal/primitives"
 	"reflect"
 
 	"github.com/google/uuid"
@@ -54,7 +55,7 @@ func mapFieldAny(val reflect.Value, fieldName string) map[string]any {
 		return nil
 	}
 	if m, ok := field.Interface().(map[string]any); ok {
-		return cloneAnyMap(m)
+		return primitives.CloneAnyMap(m)
 	}
 	if field.Kind() == reflect.Map && field.Type().Key().Kind() == reflect.String {
 		out := map[string]any{}

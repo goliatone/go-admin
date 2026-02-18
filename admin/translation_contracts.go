@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"github.com/goliatone/go-admin/internal/primitives"
 	"sort"
 	"strings"
 )
@@ -282,19 +283,19 @@ func sourceTargetDriftPayload(record map[string]any) map[string]any {
 		return nil
 	}
 	existing := extractMap(record[translationSourceTargetDriftKey])
-	sourceHash := strings.TrimSpace(firstNonEmpty(
+	sourceHash := strings.TrimSpace(primitives.FirstNonEmptyRaw(
 		toString(existing[translationSourceTargetDriftSourceHashKey]),
 		toString(record[translationSourceTargetDriftSourceHashKey]),
 		toString(record[translationSourceTargetDriftCurrentSourceHashKey]),
 	))
-	sourceVersion := strings.TrimSpace(firstNonEmpty(
+	sourceVersion := strings.TrimSpace(primitives.FirstNonEmptyRaw(
 		toString(existing[translationSourceTargetDriftSourceVersionKey]),
 		toString(record[translationSourceTargetDriftSourceVersionKey]),
 	))
 
-	summary := cloneAnyMap(extractMap(existing[translationSourceTargetDriftChangedSummaryKey]))
+	summary := primitives.CloneAnyMap(extractMap(existing[translationSourceTargetDriftChangedSummaryKey]))
 	if len(summary) == 0 {
-		summary = cloneAnyMap(extractMap(record[translationSourceTargetDriftChangedSummaryKey]))
+		summary = primitives.CloneAnyMap(extractMap(record[translationSourceTargetDriftChangedSummaryKey]))
 	}
 	if summary == nil {
 		summary = map[string]any{}

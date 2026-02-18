@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"net/http"
 	"sort"
 	"strings"
@@ -126,7 +127,7 @@ func (m *PreferencesModule) MenuItems(locale string) []MenuItem {
 			Permissions: []string{m.permission},
 			Menu:        m.menuCode,
 			Locale:      locale,
-			Position:    intPtr(60),
+			Position:    primitives.Int(60),
 			ParentID:    m.menuParent,
 		},
 	}
@@ -435,7 +436,7 @@ func (r *PreferencesRepository) recordFromSnapshot(scope PreferenceScope, snapsh
 		if effective == nil {
 			effective = map[string]any{}
 		}
-		record["effective"] = cloneAnyMap(effective)
+		record["effective"] = primitives.CloneAnyMap(effective)
 	}
 	if opts.IncludeTraces {
 		record["traces"] = snapshot.Traces

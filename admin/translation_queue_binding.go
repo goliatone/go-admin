@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 	"time"
 
@@ -40,7 +41,7 @@ func (b *translationQueueBinding) MyWork(c router.Context) (any, error) {
 		return nil, err
 	}
 
-	userID := strings.TrimSpace(firstNonEmpty(adminCtx.UserID, actorFromContext(adminCtx.Context)))
+	userID := strings.TrimSpace(primitives.FirstNonEmptyRaw(adminCtx.UserID, actorFromContext(adminCtx.Context)))
 	page := clampInt(atoiDefault(c.Query("page"), 1), 1, 10_000)
 	perPage := clampInt(atoiDefault(c.Query("per_page"), 25), 1, 200)
 	now := b.now().UTC()
@@ -199,7 +200,7 @@ func (b *translationQueueBinding) listAssignmentsForSummary(ctx context.Context,
 			Page:    page,
 			PerPage: summaryPerPage,
 			SortBy:  strings.TrimSpace(sortBy),
-			Filters: cloneAnyMap(filters),
+			Filters: primitives.CloneAnyMap(filters),
 		})
 		if err != nil {
 			return nil, err

@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"log/slog"
 	"strings"
 	"time"
@@ -71,7 +72,7 @@ func withDebugCollectorLogger(name string, logger Logger, collector *DebugCollec
 			collector: wrapped.collector,
 			name:      normalized,
 			ctx:       wrapped.ctx,
-			fields:    cloneAnyMap(wrapped.fields),
+			fields:    primitives.CloneAnyMap(wrapped.fields),
 		}
 	}
 
@@ -133,7 +134,7 @@ func (l *debugCollectorLogger) WithContext(ctx context.Context) Logger {
 		collector: l.collector,
 		name:      l.name,
 		ctx:       ctx,
-		fields:    cloneAnyMap(l.fields),
+		fields:    primitives.CloneAnyMap(l.fields),
 	}
 }
 
@@ -172,7 +173,7 @@ func (l *debugCollectorLogger) capture(level, msg string, args []any) {
 }
 
 func debugCollectorLogFields(loggerName string, base map[string]any, args []any) map[string]any {
-	fields := cloneAnyMap(base)
+	fields := primitives.CloneAnyMap(base)
 	if fields == nil {
 		fields = map[string]any{}
 	}
@@ -206,7 +207,7 @@ func mergeDebugCollectorFields(base, extra map[string]any) map[string]any {
 	if len(base) == 0 && len(extra) == 0 {
 		return nil
 	}
-	out := cloneAnyMap(base)
+	out := primitives.CloneAnyMap(base)
 	if out == nil {
 		out = map[string]any{}
 	}

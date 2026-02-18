@@ -6,6 +6,7 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"errors"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"io"
 	"mime/multipart"
 	"path/filepath"
@@ -381,7 +382,7 @@ func (b *translationExchangeBinding) importApplyAsync(adminCtx AdminContext, inp
 }
 
 func translationExchangeActorID(ctx AdminContext) string {
-	return strings.TrimSpace(firstNonEmpty(ctx.UserID, actorFromContext(ctx.Context)))
+	return strings.TrimSpace(primitives.FirstNonEmptyRaw(ctx.UserID, actorFromContext(ctx.Context)))
 }
 
 func translationExchangeJobOwnedByActor(job translationExchangeAsyncJob, actorID string) bool {
@@ -427,7 +428,7 @@ func parseTranslationExportInput(c router.Context) (TranslationExportInput, map[
 	filter := TranslationExportFilter{
 		Resources:         nonEmptyStrings(toStringSlice(filterPayload["resources"]), splitIDs(c.Query("resources")), splitIDs(c.Query("resource"))),
 		EntityIDs:         nonEmptyStrings(toStringSlice(filterPayload["entity_ids"]), splitIDs(c.Query("entity_ids")), splitIDs(c.Query("entity_id")), splitIDs(c.Query("id")), splitIDs(c.Query("ids"))),
-		SourceLocale:      firstNonEmpty(strings.TrimSpace(toString(filterPayload["source_locale"])), strings.TrimSpace(c.Query("source_locale")), strings.TrimSpace(c.Query("locale"))),
+		SourceLocale:      primitives.FirstNonEmptyRaw(strings.TrimSpace(toString(filterPayload["source_locale"])), strings.TrimSpace(c.Query("source_locale")), strings.TrimSpace(c.Query("locale"))),
 		TargetLocales:     nonEmptyStrings(toStringSlice(filterPayload["target_locales"]), splitIDs(c.Query("target_locales")), splitIDs(c.Query("target_locale"))),
 		FieldPaths:        nonEmptyStrings(toStringSlice(filterPayload["field_paths"]), splitIDs(c.Query("field_paths")), splitIDs(c.Query("field_path"))),
 		IncludeSourceHash: toBool(filterPayload["include_source_hash"]) || toBool(c.Query("include_source_hash")),
@@ -791,7 +792,7 @@ func isTranslationCSVRowEmpty(row TranslationExchangeRow) bool {
 func extractTranslationImportOptions(c router.Context, payload map[string]any) map[string]any {
 	out := map[string]any{}
 	if len(payload) > 0 {
-		out = cloneAnyMap(payload)
+		out = primitives.CloneAnyMap(payload)
 	}
 	assignQueryOrForm := func(key string) {
 		if value := strings.TrimSpace(c.Query(key)); value != "" {
@@ -853,7 +854,7 @@ func recordTranslationExchangeConflicts(admin *Admin, ctx AdminContext, mode str
 		metadata := map[string]any{
 			"mode":                 strings.TrimSpace(mode),
 			"index":                row.Index,
-			"type":                 firstNonEmpty(conflictType, "missing_linkage"),
+			"type":                 primitives.FirstNonEmptyRaw(conflictType, "missing_linkage"),
 			"resource":             strings.TrimSpace(row.Resource),
 			"entity_id":            strings.TrimSpace(row.EntityID),
 			"translation_group_id": strings.TrimSpace(row.TranslationGroupID),

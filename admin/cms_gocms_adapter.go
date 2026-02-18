@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 
 	cms "github.com/goliatone/go-cms"
@@ -90,7 +91,7 @@ func (a *GoCMSMenuAdapter) AddMenuItem(ctx context.Context, menuCode string, ite
 		Type:        itemType,
 		Target:      target,
 		Icon:        strings.TrimSpace(item.Icon),
-		Badge:       cloneAnyMap(item.Badge),
+		Badge:       primitives.CloneAnyMap(item.Badge),
 		Permissions: cloneStringSliceOrNil(item.Permissions),
 		Classes:     cloneStringSliceOrNil(item.Classes),
 		Styles:      cloneStringMapOrNil(item.Styles),
@@ -151,7 +152,7 @@ func (a *GoCMSMenuAdapter) UpdateMenuItem(ctx context.Context, menuCode string, 
 		update.Icon = &trimmed
 	}
 	if item.Badge != nil {
-		update.Badge = cloneAnyMap(item.Badge)
+		update.Badge = primitives.CloneAnyMap(item.Badge)
 	}
 	if item.Permissions != nil {
 		update.Permissions = cloneStringSliceOrNil(item.Permissions)
@@ -377,7 +378,7 @@ func normalizeMenuItemTranslationFields(item MenuItem) (label, labelKey, groupTi
 }
 
 func deriveMenuItemPaths(menuCode string, item MenuItem) (string, string, error) {
-	parent := firstNonEmpty(item.ParentID, item.ParentCode)
+	parent := primitives.FirstNonEmptyRaw(item.ParentID, item.ParentCode)
 	if err := validateMenuParentLink(item.ID, parent); err != nil {
 		return "", "", err
 	}
@@ -385,7 +386,7 @@ func deriveMenuItemPaths(menuCode string, item MenuItem) (string, string, error)
 		menuCode,
 		item.ID,
 		parent,
-		firstNonEmpty(item.Label, item.GroupTitle, item.LabelKey, item.GroupTitleKey),
+		primitives.FirstNonEmptyRaw(item.Label, item.GroupTitle, item.LabelKey, item.GroupTitleKey),
 	)
 	if err != nil {
 		return "", "", err
@@ -412,7 +413,7 @@ func cloneStringMapOrNil(in map[string]string) map[string]string {
 	if in == nil {
 		return nil
 	}
-	return cloneStringMap(in)
+	return primitives.CloneStringMapNilOnEmpty(in)
 }
 
 func convertPublicNavigationNodes(nodes []cms.NavigationNode, menuCode, parentPath string) []MenuItem {
@@ -433,9 +434,9 @@ func convertPublicNavigationNodes(nodes []cms.NavigationNode, menuCode, parentPa
 			LabelKey:      strings.TrimSpace(node.LabelKey),
 			GroupTitle:    node.GroupTitle,
 			GroupTitleKey: strings.TrimSpace(node.GroupTitleKey),
-			Target:        cloneAnyMap(node.Target),
+			Target:        primitives.CloneAnyMap(node.Target),
 			Icon:          strings.TrimSpace(node.Icon),
-			Badge:         cloneAnyMap(node.Badge),
+			Badge:         primitives.CloneAnyMap(node.Badge),
 			Permissions:   cloneStringSliceOrNil(node.Permissions),
 			Classes:       cloneStringSliceOrNil(node.Classes),
 			Styles:        cloneStringMapOrNil(node.Styles),
@@ -484,5 +485,5 @@ func navigationNodePath(node cms.NavigationNode, menuCode string) string {
 }
 
 func mergeMenuTarget(item MenuItem) map[string]any {
-	return cloneAnyMap(item.Target)
+	return primitives.CloneAnyMap(item.Target)
 }

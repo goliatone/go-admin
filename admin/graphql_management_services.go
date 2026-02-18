@@ -2,6 +2,7 @@ package admin
 
 import (
 	"errors"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 
 	admingraphql "github.com/goliatone/go-admin/admin/graphql"
@@ -405,7 +406,7 @@ func mapManagementContent(record CMSContent) admingraphql.Content {
 		Slug:   record.Slug,
 		Locale: record.Locale,
 		Status: record.Status,
-		Data:   cloneAnyMap(record.Data),
+		Data:   primitives.CloneAnyMap(record.Data),
 	}
 }
 
@@ -417,7 +418,7 @@ func mapManagementContentToCMS(record admingraphql.Content) CMSContent {
 		Slug:            record.Slug,
 		Locale:          record.Locale,
 		Status:          record.Status,
-		Data:            cloneAnyMap(record.Data),
+		Data:            primitives.CloneAnyMap(record.Data),
 	}
 }
 
@@ -428,7 +429,7 @@ func mapManagementPage(record CMSPage) admingraphql.Page {
 		Slug:   record.Slug,
 		Locale: record.Locale,
 		Status: record.Status,
-		Data:   cloneAnyMap(record.Data),
+		Data:   primitives.CloneAnyMap(record.Data),
 	}
 }
 
@@ -439,7 +440,7 @@ func mapManagementPageToCMS(record admingraphql.Page) CMSPage {
 		Slug:   record.Slug,
 		Locale: record.Locale,
 		Status: record.Status,
-		Data:   cloneAnyMap(record.Data),
+		Data:   primitives.CloneAnyMap(record.Data),
 	}
 }
 
@@ -449,8 +450,8 @@ func mapContentType(record CMSContentType) admingraphql.ContentType {
 		Name:         record.Name,
 		Slug:         record.Slug,
 		Description:  record.Description,
-		Schema:       cloneAnyMap(record.Schema),
-		Capabilities: cloneAnyMap(record.Capabilities),
+		Schema:       primitives.CloneAnyMap(record.Schema),
+		Capabilities: primitives.CloneAnyMap(record.Capabilities),
 		Icon:         record.Icon,
 	}
 }
@@ -461,8 +462,8 @@ func mapContentTypeToCMS(record admingraphql.ContentType) CMSContentType {
 		Name:         record.Name,
 		Slug:         record.Slug,
 		Description:  record.Description,
-		Schema:       cloneAnyMap(record.Schema),
-		Capabilities: cloneAnyMap(record.Capabilities),
+		Schema:       primitives.CloneAnyMap(record.Schema),
+		Capabilities: primitives.CloneAnyMap(record.Capabilities),
 		Icon:         record.Icon,
 	}
 }

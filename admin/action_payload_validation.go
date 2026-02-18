@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"reflect"
 	"strings"
 	"time"
@@ -104,7 +105,7 @@ func normalizeActionPayloadForSchema(schema map[string]any, payload map[string]a
 		return payload
 	}
 	properties := schemaProperties(schema)
-	out := cloneAnyMap(payload)
+	out := primitives.CloneAnyMap(payload)
 	for field := range actionPayloadSystemFields {
 		if _, declared := properties[field]; declared {
 			continue

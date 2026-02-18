@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"path"
 	"strings"
 	"time"
@@ -138,7 +139,7 @@ func (m *TenantsModule) MenuItems(locale string) []MenuItem {
 			Permissions: []string{m.viewPerm},
 			Menu:        m.menuCode,
 			Locale:      locale,
-			Position:    intPtr(32),
+			Position:    primitives.Int(32),
 			ParentID:    m.menuParent,
 		},
 	}
@@ -269,7 +270,7 @@ func (m *OrganizationsModule) MenuItems(locale string) []MenuItem {
 			Permissions: []string{m.viewPerm},
 			Menu:        m.menuCode,
 			Locale:      locale,
-			Position:    intPtr(33),
+			Position:    primitives.Int(33),
 			ParentID:    m.menuParent,
 		},
 	}
@@ -420,7 +421,7 @@ func tenantToRecord(tenant TenantRecord) map[string]any {
 		"members": tenantMembersToAny(tenant.Members),
 	}
 	if tenant.Metadata != nil {
-		record["metadata"] = cloneAnyMap(tenant.Metadata)
+		record["metadata"] = primitives.CloneAnyMap(tenant.Metadata)
 	}
 	if !tenant.CreatedAt.IsZero() {
 		record["created_at"] = tenant.CreatedAt.Format(time.RFC3339)
@@ -442,7 +443,7 @@ func organizationToRecord(org OrganizationRecord) map[string]any {
 		"members":   organizationMembersToAny(org.Members),
 	}
 	if org.Metadata != nil {
-		record["metadata"] = cloneAnyMap(org.Metadata)
+		record["metadata"] = primitives.CloneAnyMap(org.Metadata)
 	}
 	if !org.CreatedAt.IsZero() {
 		record["created_at"] = org.CreatedAt.Format(time.RFC3339)
@@ -596,7 +597,7 @@ func (a *tenantSearchAdapter) Search(ctx context.Context, query string, limit in
 		return nil, err
 	}
 	for _, tenant := range tenants {
-		descParts := []string{titleCase(firstNonEmpty(tenant.Status, "active"))}
+		descParts := []string{titleCase(primitives.FirstNonEmptyRaw(tenant.Status, "active"))}
 		if tenant.Domain != "" {
 			descParts = append(descParts, tenant.Domain)
 		}
@@ -605,7 +606,7 @@ func (a *tenantSearchAdapter) Search(ctx context.Context, query string, limit in
 			ID:          tenant.ID,
 			Title:       tenant.Name,
 			Description: strings.Join(descParts, " "),
-			URL:         firstNonEmpty(resolveURLWith(a.urls, "admin", "tenants.id", map[string]string{"id": tenant.ID}, nil), path.Join("/", a.basePath, tenantsModuleID, tenant.ID)),
+			URL:         primitives.FirstNonEmptyRaw(resolveURLWith(a.urls, "admin", "tenants.id", map[string]string{"id": tenant.ID}, nil), path.Join("/", a.basePath, tenantsModuleID, tenant.ID)),
 			Icon:        "building",
 		})
 	}
@@ -636,7 +637,7 @@ func (a *organizationSearchAdapter) Search(ctx context.Context, query string, li
 		return nil, err
 	}
 	for _, org := range orgs {
-		descParts := []string{titleCase(firstNonEmpty(org.Status, "active"))}
+		descParts := []string{titleCase(primitives.FirstNonEmptyRaw(org.Status, "active"))}
 		if org.TenantID != "" {
 			descParts = append(descParts, "Tenant:"+org.TenantID)
 		}
@@ -645,7 +646,7 @@ func (a *organizationSearchAdapter) Search(ctx context.Context, query string, li
 			ID:          org.ID,
 			Title:       org.Name,
 			Description: strings.Join(descParts, " "),
-			URL:         firstNonEmpty(resolveURLWith(a.urls, "admin", "organizations.id", map[string]string{"id": org.ID}, nil), path.Join("/", a.basePath, organizationsModuleID, org.ID)),
+			URL:         primitives.FirstNonEmptyRaw(resolveURLWith(a.urls, "admin", "organizations.id", map[string]string{"id": org.ID}, nil), path.Join("/", a.basePath, organizationsModuleID, org.ID)),
 			Icon:        "briefcase",
 		})
 	}

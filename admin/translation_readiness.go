@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"sort"
 	"strings"
 
@@ -574,12 +575,12 @@ func translationReadinessLocaleMetadata(record map[string]any) map[string]map[st
 	recordLocale := strings.ToLower(strings.TrimSpace(toString(record["locale"])))
 	if recordLocale != "" {
 		recordMeta := map[string]any{
-			"updated_by": firstNonEmpty(
+			"updated_by": primitives.FirstNonEmptyRaw(
 				toString(record["updated_by"]),
 				toString(record["updated_by_id"]),
 				toString(record["updated_by_name"]),
 			),
-			"updated_at": firstNonEmpty(
+			"updated_at": primitives.FirstNonEmptyRaw(
 				toString(record["updated_at"]),
 				toString(record["translated_at"]),
 				toString(record["last_translated_at"]),

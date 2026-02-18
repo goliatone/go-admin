@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"encoding/json"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"io/fs"
 	"path"
 	"sort"
@@ -292,7 +293,7 @@ func (m *ContentTypeBuilderModule) MenuItems(locale string) []MenuItem {
 		Locale:   locale,
 		Menu:     m.menuCode,
 		ParentID: m.menuParent,
-		Position: intPtr(4),
+		Position: primitives.Int(4),
 	}
 	blocks := MenuItem{
 		Label:    "Block Library",
@@ -301,7 +302,7 @@ func (m *ContentTypeBuilderModule) MenuItems(locale string) []MenuItem {
 		Locale:   locale,
 		Menu:     m.menuCode,
 		ParentID: m.menuParent,
-		Position: intPtr(5),
+		Position: primitives.Int(5),
 	}
 	return []MenuItem{contentModeling, blocks}
 }
@@ -521,7 +522,7 @@ func (m *ContentTypeBuilderModule) resolveContentType(ctx context.Context, recor
 			return ct, nil
 		}
 	}
-	if id := strings.TrimSpace(firstNonEmpty(toString(record["content_type_id"]), toString(record["id"]))); id != "" {
+	if id := strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(record["content_type_id"]), toString(record["id"]))); id != "" {
 		return m.contentTypeSvc.ContentType(ctx, id)
 	}
 	return nil, ErrNotFound
@@ -747,11 +748,11 @@ func (a *contentTypeSearchAdapter) Search(ctx context.Context, query string, lim
 		}
 		results = append(results, SearchResult{
 			Type:        "content_type",
-			ID:          firstNonEmpty(ct.ID, ct.Slug),
-			Title:       firstNonEmpty(ct.Name, ct.Slug),
+			ID:          primitives.FirstNonEmptyRaw(ct.ID, ct.Slug),
+			Title:       primitives.FirstNonEmptyRaw(ct.Name, ct.Slug),
 			Description: ct.Description,
 			URL:         a.basePath,
-			Icon:        firstNonEmpty(ct.Icon, "puzzle"),
+			Icon:        primitives.FirstNonEmptyRaw(ct.Icon, "puzzle"),
 		})
 		if len(results) >= limit {
 			break
@@ -778,7 +779,7 @@ func recordContentTypeActivity(ctx context.Context, sink ActivitySink, action st
 		"channel": "cms",
 	}
 	if ct != nil {
-		metadata["content_type_id"] = firstNonEmpty(ct.ID, ct.Slug)
+		metadata["content_type_id"] = primitives.FirstNonEmptyRaw(ct.ID, ct.Slug)
 		metadata["content_type_slug"] = ct.Slug
 		metadata["content_type_name"] = ct.Name
 		if ct.Status != "" {
@@ -961,7 +962,7 @@ type ContentTypeUpdateMsg struct {
 func (ContentTypeUpdateMsg) Type() string { return contentTypeUpdateCommandName }
 
 func (m ContentTypeUpdateMsg) Validate() error {
-	if strings.TrimSpace(firstNonEmpty(m.ContentType.ID, m.ContentType.Slug)) == "" {
+	if strings.TrimSpace(primitives.FirstNonEmptyRaw(m.ContentType.ID, m.ContentType.Slug)) == "" {
 		return validationDomainError("content type id required", map[string]any{
 			"field": "id",
 		})
@@ -1019,7 +1020,7 @@ func buildContentTypeUpdateMsg(payload map[string]any, ids []string) (ContentTyp
 	}
 	ct := mapToCMSContentType(payload)
 	if ct.ID == "" {
-		ct.ID = firstNonEmpty(firstString(ids...), toString(payload["id"]))
+		ct.ID = primitives.FirstNonEmptyRaw(firstString(ids...), toString(payload["id"]))
 	}
 	if ct.ID == "" && ct.Slug == "" {
 		ct.Slug = toString(payload["slug"])
@@ -1031,7 +1032,7 @@ func buildContentTypePublishMsg(payload map[string]any, ids []string) (ContentTy
 	if payload == nil {
 		payload = map[string]any{}
 	}
-	id := firstNonEmpty(firstString(ids...), toString(payload["id"]), toString(payload["slug"]))
+	id := primitives.FirstNonEmptyRaw(firstString(ids...), toString(payload["id"]), toString(payload["slug"]))
 	if id == "" {
 		return ContentTypePublishMsg{}, validationDomainError("content type id required", map[string]any{
 			"field": "id",
@@ -1043,7 +1044,7 @@ func buildContentTypePublishMsg(payload map[string]any, ids []string) (ContentTy
 }
 
 func buildContentTypeDeleteMsg(payload map[string]any, ids []string) (ContentTypeDeleteMsg, error) {
-	id := firstNonEmpty(firstString(ids...), toString(payload["id"]))
+	id := primitives.FirstNonEmptyRaw(firstString(ids...), toString(payload["id"]))
 	if id == "" && payload != nil {
 		id = toString(payload["slug"])
 	}
@@ -1147,7 +1148,7 @@ func (v *FormgenSchemaValidator) RenderForm(ctx context.Context, schema map[stri
 		FormID:            formID,
 	}
 	if len(opts.UISchema) > 0 {
-		overlayDoc := cloneAnyMap(opts.UISchema)
+		overlayDoc := primitives.CloneAnyMap(opts.UISchema)
 		if overlayDoc != nil {
 			if _, ok := overlayDoc["$schema"]; !ok {
 				overlayDoc["$schema"] = "x-ui-overlay/v1"
@@ -1201,7 +1202,7 @@ func (v *FormgenSchemaValidator) generate(ctx context.Context, schema map[string
 		FormID:            formID,
 	}
 	if len(opts.UISchema) > 0 {
-		overlayDoc := cloneAnyMap(opts.UISchema)
+		overlayDoc := primitives.CloneAnyMap(opts.UISchema)
 		if overlayDoc != nil {
 			if _, ok := overlayDoc["$schema"]; !ok {
 				overlayDoc["$schema"] = "x-ui-overlay/v1"
@@ -1593,14 +1594,14 @@ func parseSchemaPayload(body map[string]any) (map[string]any, map[string]any, Sc
 			"field": "payload",
 		})
 	}
-	opts.Slug = strings.TrimSpace(firstNonEmpty(toString(body["slug"]), toString(body["content_type"]), toString(body["name"])))
-	opts.FormID = strings.TrimSpace(firstNonEmpty(toString(body["form_id"]), toString(body["operation_id"])))
+	opts.Slug = strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(body["slug"]), toString(body["content_type"]), toString(body["name"])))
+	opts.FormID = strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(body["form_id"]), toString(body["operation_id"])))
 
 	schema := map[string]any{}
 	if raw, ok := body["schema"]; ok {
 		switch value := raw.(type) {
 		case map[string]any:
-			schema = cloneAnyMap(value)
+			schema = primitives.CloneAnyMap(value)
 		case string:
 			if strings.TrimSpace(value) != "" {
 				if err := json.Unmarshal([]byte(value), &schema); err != nil {
@@ -1609,7 +1610,7 @@ func parseSchemaPayload(body map[string]any) (map[string]any, map[string]any, Sc
 			}
 		}
 	} else if _, ok := body["$schema"]; ok {
-		schema = cloneAnyMap(body)
+		schema = primitives.CloneAnyMap(body)
 	}
 	if len(schema) == 0 {
 		return nil, nil, opts, validationDomainError("schema required", map[string]any{
@@ -1620,7 +1621,7 @@ func parseSchemaPayload(body map[string]any) (map[string]any, map[string]any, Sc
 	var uiSchema map[string]any
 	if raw, ok := body["ui_schema"]; ok {
 		if m, ok := raw.(map[string]any); ok {
-			uiSchema = cloneAnyMap(m)
+			uiSchema = primitives.CloneAnyMap(m)
 		} else if rawStr, ok := raw.(string); ok && strings.TrimSpace(rawStr) != "" {
 			if err := json.Unmarshal([]byte(rawStr), &uiSchema); err != nil {
 				return nil, nil, opts, err

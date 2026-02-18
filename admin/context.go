@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 
 	auth "github.com/goliatone/go-auth"
@@ -87,7 +88,7 @@ func newAdminContextFromRouter(c router.Context, locale string) AdminContext {
 			actor.OrganizationID = orgID
 		}
 		if userID == "" {
-			userID = firstNonEmpty(actor.ActorID, actor.Subject)
+			userID = primitives.FirstNonEmptyRaw(actor.ActorID, actor.Subject)
 		}
 		ctx = auth.WithActorContext(ctx, actor)
 	}

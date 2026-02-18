@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 
 	crud "github.com/goliatone/go-crud"
@@ -298,7 +299,7 @@ func (b *PanelBuilder) FormFields(fields ...Field) *PanelBuilder {
 
 // FormSchema overrides the generated form schema for the panel.
 func (b *PanelBuilder) FormSchema(schema map[string]any) *PanelBuilder {
-	b.formSchema = cloneAnyMap(schema)
+	b.formSchema = primitives.CloneAnyMap(schema)
 	return b
 }
 
@@ -445,7 +446,7 @@ func (b *PanelBuilder) Build() (*Panel, error) {
 		repo:                           b.repo,
 		listFields:                     b.listFields,
 		formFields:                     b.formFields,
-		formSchema:                     cloneAnyMap(b.formSchema),
+		formSchema:                     primitives.CloneAnyMap(b.formSchema),
 		detailFields:                   b.detailFields,
 		filters:                        b.filters,
 		actions:                        b.actions,
@@ -562,7 +563,7 @@ func normalizePanelEntryMode(mode PanelEntryMode) PanelEntryMode {
 func (p *Panel) Schema() Schema {
 	formSchema := buildFormSchema(p.formFields)
 	if len(p.formSchema) > 0 {
-		formSchema = cloneAnyMap(p.formSchema)
+		formSchema = primitives.CloneAnyMap(p.formSchema)
 	}
 	actions := normalizePanelActionsForSchema(p.actions, p.permissions)
 	bulkActions := normalizeBulkActionsForSchema(p.bulkActions)
@@ -787,7 +788,7 @@ func normalizeActionFieldList(fields []string) []string {
 }
 
 func ensureActionPayloadSchemaContract(schema map[string]any, required []string) map[string]any {
-	out := cloneAnyMap(schema)
+	out := primitives.CloneAnyMap(schema)
 	if out == nil {
 		out = map[string]any{}
 	}
@@ -932,7 +933,7 @@ func defaultActionOrder(name string) int {
 }
 
 func ensureCreateTranslationPayloadSchemaContract(schema map[string]any) map[string]any {
-	out := cloneAnyMap(schema)
+	out := primitives.CloneAnyMap(schema)
 	if out == nil {
 		out = map[string]any{}
 	}

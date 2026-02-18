@@ -2,6 +2,7 @@ package navigation
 
 import (
 	"context"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 
 	cms "github.com/goliatone/go-cms"
@@ -91,7 +92,7 @@ func NormalizeMenuItem(item MenuItem, menuCode string) MenuItem {
 	menuCode = canonicalMenuCode(menuCode)
 	item.Menu = menuCode
 
-	parent := canonicalMenuItemPath(menuCode, firstNonEmpty(item.ParentID, item.ParentCode))
+	parent := canonicalMenuItemPath(menuCode, primitives.FirstNonEmptyRaw(item.ParentID, item.ParentCode))
 	item.ParentID = parent
 	item.ParentCode = parent
 
@@ -100,7 +101,7 @@ func NormalizeMenuItem(item MenuItem, menuCode string) MenuItem {
 		if key := strings.TrimSpace(ExtractTargetKey(item.Target)); key != "" {
 			rawID = key
 		} else {
-			rawID = cms.SanitizeMenuItemSegment(firstNonEmpty(item.Label, item.GroupTitle, item.LabelKey, item.GroupTitleKey))
+			rawID = cms.SanitizeMenuItemSegment(primitives.FirstNonEmptyRaw(item.Label, item.GroupTitle, item.LabelKey, item.GroupTitleKey))
 		}
 	}
 	if parent != "" && rawID != "" {
@@ -205,13 +206,13 @@ func MapMenuIDs(item MenuItem) MenuItem {
 	}
 	item.Menu = menuCode
 
-	rawID := firstNonEmpty(item.ID, item.Code)
+	rawID := primitives.FirstNonEmptyRaw(item.ID, item.Code)
 	item.ID = canonicalMenuItemPath(menuCode, rawID)
-	item.Code = canonicalMenuItemPath(menuCode, firstNonEmpty(item.Code, item.ID))
+	item.Code = canonicalMenuItemPath(menuCode, primitives.FirstNonEmptyRaw(item.Code, item.ID))
 
-	rawParent := firstNonEmpty(item.ParentID, item.ParentCode)
+	rawParent := primitives.FirstNonEmptyRaw(item.ParentID, item.ParentCode)
 	item.ParentID = canonicalMenuItemPath(menuCode, rawParent)
-	item.ParentCode = canonicalMenuItemPath(menuCode, firstNonEmpty(item.ParentCode, item.ParentID))
+	item.ParentCode = canonicalMenuItemPath(menuCode, primitives.FirstNonEmptyRaw(item.ParentCode, item.ParentID))
 	return item
 }
 

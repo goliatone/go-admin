@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"github.com/goliatone/go-admin/internal/primitives"
 
 	gotheme "github.com/goliatone/go-theme"
 )
@@ -23,9 +24,9 @@ func (a *Admin) WithGoTheme(selector gotheme.ThemeSelector) *Admin {
 		return &ThemeSelection{
 			Name:        snapshot.Theme,
 			Variant:     snapshot.Variant,
-			Tokens:      cloneStringMap(snapshot.Tokens),
-			Assets:      cloneStringMap(snapshot.Assets),
-			Partials:    cloneStringMap(snapshot.Templates),
+			Tokens:      primitives.CloneStringMapNilOnEmpty(snapshot.Tokens),
+			Assets:      primitives.CloneStringMapNilOnEmpty(snapshot.Assets),
+			Partials:    primitives.CloneStringMapNilOnEmpty(snapshot.Templates),
 			ChartTheme:  snapshot.Variant,
 			AssetPrefix: snapshot.AssetPrefix,
 		}, nil

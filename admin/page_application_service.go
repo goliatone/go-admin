@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 	"time"
 )
@@ -187,7 +188,7 @@ func (s PageApplicationService) Create(ctx context.Context, payload map[string]a
 	if s.Write == nil {
 		return nil, ErrNotFound
 	}
-	update := cloneAnyMap(payload)
+	update := primitives.CloneAnyMap(payload)
 	if update == nil {
 		update = map[string]any{}
 	}
@@ -202,7 +203,7 @@ func (s PageApplicationService) Update(ctx context.Context, id string, payload m
 	if s.Write == nil {
 		return nil, ErrNotFound
 	}
-	update := cloneAnyMap(payload)
+	update := primitives.CloneAnyMap(payload)
 	if update == nil {
 		update = map[string]any{}
 	}
@@ -228,7 +229,7 @@ func (s PageApplicationService) Publish(ctx context.Context, id string, payload 
 	if s.Write == nil {
 		return nil, ErrNotFound
 	}
-	update := cloneAnyMap(payload)
+	update := primitives.CloneAnyMap(payload)
 	if update == nil {
 		update = map[string]any{}
 	}
@@ -247,7 +248,7 @@ func (s PageApplicationService) Unpublish(ctx context.Context, id string, payloa
 	if s.Write == nil {
 		return nil, ErrNotFound
 	}
-	update := cloneAnyMap(payload)
+	update := primitives.CloneAnyMap(payload)
 	if update == nil {
 		update = map[string]any{}
 	}
@@ -362,7 +363,7 @@ func (DefaultPageMapper) ToFormValues(record AdminPageRecord) map[string]any {
 	setValue(values, "schema", schema)
 	setValue(values, "_schema", schema)
 
-	if data := cloneAnyMap(record.Data); data != nil {
+	if data := primitives.CloneAnyMap(record.Data); data != nil {
 		values["data"] = data
 	} else {
 		values["data"] = map[string]any{}

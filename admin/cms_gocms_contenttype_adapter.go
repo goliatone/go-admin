@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 
 	cmscontent "github.com/goliatone/go-cms/content"
@@ -129,9 +130,9 @@ func (a *GoCMSContentTypeAdapter) CreateContentType(ctx context.Context, content
 	req := cmscontent.CreateContentTypeRequest{
 		Name:         strings.TrimSpace(contentType.Name),
 		Slug:         strings.TrimSpace(contentType.Slug),
-		Schema:       cloneAnyMap(contentType.Schema),
-		UISchema:     cloneAnyMap(contentType.UISchema),
-		Capabilities: cloneAnyMap(contentType.Capabilities),
+		Schema:       primitives.CloneAnyMap(contentType.Schema),
+		UISchema:     primitives.CloneAnyMap(contentType.UISchema),
+		Capabilities: primitives.CloneAnyMap(contentType.Capabilities),
 		Status:       strings.TrimSpace(contentType.Status),
 		CreatedBy:    actorUUID(ctx),
 		UpdatedBy:    actorUUID(ctx),
@@ -164,9 +165,9 @@ func (a *GoCMSContentTypeAdapter) UpdateContentType(ctx context.Context, content
 	}
 	req := cmscontent.UpdateContentTypeRequest{
 		ID:                   uuidFromString(contentType.ID),
-		Schema:               cloneAnyMap(contentType.Schema),
-		UISchema:             cloneAnyMap(contentType.UISchema),
-		Capabilities:         cloneAnyMap(contentType.Capabilities),
+		Schema:               primitives.CloneAnyMap(contentType.Schema),
+		UISchema:             primitives.CloneAnyMap(contentType.UISchema),
+		Capabilities:         primitives.CloneAnyMap(contentType.Capabilities),
 		AllowBreakingChanges: contentType.AllowBreakingChanges,
 		UpdatedBy:            actorUUID(ctx),
 	}
@@ -227,9 +228,9 @@ func convertGoCMSContentType(value *cmscontent.ContentType) CMSContentType {
 		ID:           value.ID.String(),
 		Name:         strings.TrimSpace(value.Name),
 		Slug:         strings.TrimSpace(value.Slug),
-		Schema:       cloneAnyMap(value.Schema),
-		UISchema:     cloneAnyMap(value.UISchema),
-		Capabilities: cloneAnyMap(value.Capabilities),
+		Schema:       primitives.CloneAnyMap(value.Schema),
+		UISchema:     primitives.CloneAnyMap(value.UISchema),
+		Capabilities: primitives.CloneAnyMap(value.Capabilities),
 		Status:       strings.TrimSpace(value.Status),
 		CreatedAt:    value.CreatedAt,
 		UpdatedAt:    value.UpdatedAt,

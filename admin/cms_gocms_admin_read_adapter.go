@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 
 	cms "github.com/goliatone/go-cms"
@@ -37,7 +38,7 @@ func (a goCMSAdminPageReadAdapter) List(ctx context.Context, opts AdminPageListO
 		SortBy:                   opts.SortBy,
 		SortDesc:                 opts.SortDesc,
 		Search:                   opts.Search,
-		Filters:                  cloneAnyMap(opts.Filters),
+		Filters:                  primitives.CloneAnyMap(opts.Filters),
 	}
 	if !cmsOpts.AllowMissingTranslations {
 		cmsOpts.AllowMissingTranslations = true
@@ -113,7 +114,7 @@ func mapCMSAdminPageRecord(record cms.AdminPageRecord) AdminPageRecord {
 		Summary:            record.Summary,
 		Tags:               append([]string{}, record.Tags...),
 		SchemaVersion:      strings.TrimSpace(record.SchemaVersion),
-		Data:               cloneAnyMap(record.Data),
+		Data:               primitives.CloneAnyMap(record.Data),
 		Content:            record.Content,
 		Blocks:             record.Blocks,
 		PreviewURL:         strings.TrimSpace(record.PreviewURL),

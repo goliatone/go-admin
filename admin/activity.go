@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"strconv"
 	"strings"
 	"sync"
@@ -311,11 +312,11 @@ func recordFromEntry(entry ActivityEntry) ActivityRecord {
 func entryFromRecord(record ActivityRecord) ActivityEntry {
 	return ActivityEntry{
 		ID:        record.ID,
-		Actor:     firstNonEmpty(record.ActorID, record.UserID),
+		Actor:     primitives.FirstNonEmptyRaw(record.ActorID, record.UserID),
 		Action:    record.Verb,
 		Object:    joinObject(record.ObjectType, record.ObjectID),
 		Channel:   record.Channel,
-		Metadata:  cloneAnyMap(record.Data),
+		Metadata:  primitives.CloneAnyMap(record.Data),
 		CreatedAt: record.OccurredAt,
 	}
 }
@@ -400,7 +401,7 @@ func attachSessionIDToRecord(ctx context.Context, record ActivityRecord, provide
 		key = usersactivity.DataKeySessionID
 	}
 	out := record
-	out.Data = cloneAnyMap(record.Data)
+	out.Data = primitives.CloneAnyMap(record.Data)
 	if out.Data == nil {
 		out.Data = map[string]any{}
 	}
@@ -437,7 +438,7 @@ func applyUsersEnricher(ctx context.Context, record userstypes.ActivityRecord, e
 }
 
 func toUsersActivityRecord(record ActivityRecord) userstypes.ActivityRecord {
-	data := cloneAnyMap(record.Data)
+	data := primitives.CloneAnyMap(record.Data)
 	if data == nil {
 		data = map[string]any{}
 	}
@@ -475,7 +476,7 @@ func toUsersActivityRecord(record ActivityRecord) userstypes.ActivityRecord {
 }
 
 func fromUsersActivityRecord(record userstypes.ActivityRecord) ActivityRecord {
-	data := cloneAnyMap(record.Data)
+	data := primitives.CloneAnyMap(record.Data)
 	if data == nil {
 		data = map[string]any{}
 	}

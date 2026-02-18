@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 )
 
@@ -68,9 +69,9 @@ func cloneThemeSelection(sel *ThemeSelection) *ThemeSelection {
 	return &ThemeSelection{
 		Name:        sel.Name,
 		Variant:     sel.Variant,
-		Tokens:      cloneStringMap(sel.Tokens),
-		Assets:      cloneStringMap(sel.Assets),
-		Partials:    cloneStringMap(sel.Partials),
+		Tokens:      primitives.CloneStringMapNilOnEmpty(sel.Tokens),
+		Assets:      primitives.CloneStringMapNilOnEmpty(sel.Assets),
+		Partials:    primitives.CloneStringMapNilOnEmpty(sel.Partials),
 		ChartTheme:  sel.ChartTheme,
 		AssetPrefix: sel.AssetPrefix,
 	}
@@ -175,9 +176,9 @@ func (t *ThemeSelection) payload() map[string]map[string]string {
 		out["selection"] = selection
 	}
 	if len(t.Tokens) > 0 {
-		out["tokens"] = cloneStringMap(t.Tokens)
+		out["tokens"] = primitives.CloneStringMapNilOnEmpty(t.Tokens)
 	}
-	assets := cloneStringMap(t.Assets)
+	assets := primitives.CloneStringMapNilOnEmpty(t.Assets)
 	if t.AssetPrefix != "" {
 		if assets == nil {
 			assets = map[string]string{}
@@ -188,7 +189,7 @@ func (t *ThemeSelection) payload() map[string]map[string]string {
 		out["assets"] = assets
 	}
 	if len(t.Partials) > 0 {
-		out["partials"] = cloneStringMap(t.Partials)
+		out["partials"] = primitives.CloneStringMapNilOnEmpty(t.Partials)
 	}
 	if t.ChartTheme != "" {
 		out["chart"] = map[string]string{"theme": t.ChartTheme}

@@ -2,6 +2,7 @@ package admin
 
 import (
 	"encoding/json"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 )
 
@@ -45,7 +46,7 @@ func buildTranslationExportInput(payload map[string]any, _ []string) (Translatio
 				toStringSlice(filterPayload["ids"]),
 				[]string{toString(filterPayload["id"])},
 			),
-			SourceLocale: strings.TrimSpace(firstNonEmpty(
+			SourceLocale: strings.TrimSpace(primitives.FirstNonEmptyRaw(
 				toString(filterPayload["source_locale"]),
 				toString(filterPayload["locale"]),
 			)),

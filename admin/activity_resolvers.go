@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 	"time"
 
@@ -516,7 +517,7 @@ func newWidgetInstanceObjectResolver() usersactivity.ObjectResolver {
 		area := metadataValue(ids, meta, "area")
 		pageID := metadataValue(ids, meta, "page_id")
 		label := objectTypeLabel(objectType)
-		value := firstNonEmpty(definition, area, pageID)
+		value := primitives.FirstNonEmptyRaw(definition, area, pageID)
 		return resolveObjectIDs(ids, func(id string) (usersactivity.ObjectInfo, bool, error) {
 			display := formatObjectDisplay(label, value, id)
 			return objectInfo(objectType, id, display), true, nil
@@ -580,15 +581,15 @@ func newPageObjectResolver(content CMSContentService) usersactivity.ObjectResolv
 				page, err := content.Page(ctx, id, metaLocale)
 				if err != nil {
 					if errors.Is(err, ErrNotFound) {
-						return tombstoneObjectInfo(objectType, id, firstNonEmpty(metaTitle, metaSlug)), true, nil
+						return tombstoneObjectInfo(objectType, id, primitives.FirstNonEmptyRaw(metaTitle, metaSlug)), true, nil
 					}
 					return usersactivity.ObjectInfo{}, false, err
 				}
-				value := firstNonEmpty(page.Title, page.Slug)
+				value := primitives.FirstNonEmptyRaw(page.Title, page.Slug)
 				display := formatObjectDisplay(label, value, id)
 				return objectInfo(objectType, id, display), true, nil
 			}
-			display := formatObjectDisplay(label, firstNonEmpty(metaTitle, metaSlug), id)
+			display := formatObjectDisplay(label, primitives.FirstNonEmptyRaw(metaTitle, metaSlug), id)
 			return objectInfo(objectType, id, display), true, nil
 		})
 	})
@@ -609,15 +610,15 @@ func newContentObjectResolver(content CMSContentService) usersactivity.ObjectRes
 				entry, err := content.Content(ctx, id, metaLocale)
 				if err != nil {
 					if errors.Is(err, ErrNotFound) {
-						return tombstoneObjectInfo(objectType, id, firstNonEmpty(metaTitle, metaSlug)), true, nil
+						return tombstoneObjectInfo(objectType, id, primitives.FirstNonEmptyRaw(metaTitle, metaSlug)), true, nil
 					}
 					return usersactivity.ObjectInfo{}, false, err
 				}
-				value := firstNonEmpty(entry.Title, entry.Slug)
+				value := primitives.FirstNonEmptyRaw(entry.Title, entry.Slug)
 				display := formatObjectDisplay(label, value, id)
 				return objectInfo(objectType, id, display), true, nil
 			}
-			display := formatObjectDisplay(label, firstNonEmpty(metaTitle, metaSlug), id)
+			display := formatObjectDisplay(label, primitives.FirstNonEmptyRaw(metaTitle, metaSlug), id)
 			return objectInfo(objectType, id, display), true, nil
 		})
 	})
@@ -644,14 +645,14 @@ func newBlockDefinitionObjectResolver(content CMSContentService) usersactivity.O
 		}
 		return resolveObjectIDs(ids, func(id string) (usersactivity.ObjectInfo, bool, error) {
 			if def, ok := defs[id]; ok {
-				value := firstNonEmpty(def.Name, def.Type)
+				value := primitives.FirstNonEmptyRaw(def.Name, def.Type)
 				display := formatObjectDisplay(label, value, id)
 				return objectInfo(objectType, id, display), true, nil
 			}
 			if content != nil {
-				return tombstoneObjectInfo(objectType, id, firstNonEmpty(metaName, metaType)), true, nil
+				return tombstoneObjectInfo(objectType, id, primitives.FirstNonEmptyRaw(metaName, metaType)), true, nil
 			}
-			display := formatObjectDisplay(label, firstNonEmpty(metaName, metaType), id)
+			display := formatObjectDisplay(label, primitives.FirstNonEmptyRaw(metaName, metaType), id)
 			return objectInfo(objectType, id, display), true, nil
 		})
 	})
@@ -666,7 +667,7 @@ func newBlockObjectResolver() usersactivity.ObjectResolver {
 		metaContent := metadataValue(ids, meta, "content_id")
 		metaRegion := metadataValue(ids, meta, "region")
 		label := objectTypeLabel(objectType)
-		value := firstNonEmpty(metaRegion, metaContent)
+		value := primitives.FirstNonEmptyRaw(metaRegion, metaContent)
 		return resolveObjectIDs(ids, func(id string) (usersactivity.ObjectInfo, bool, error) {
 			display := formatObjectDisplay(label, value, id)
 			return objectInfo(objectType, id, display), true, nil
@@ -695,7 +696,7 @@ type adminActivityEnricher struct {
 }
 
 func (e adminActivityEnricher) Enrich(ctx context.Context, record userstypes.ActivityRecord) (userstypes.ActivityRecord, error) {
-	data := cloneAnyMap(record.Data)
+	data := primitives.CloneAnyMap(record.Data)
 	if data == nil {
 		data = map[string]any{}
 	}
@@ -877,19 +878,19 @@ func formatUserDisplay(user UserRecord) string {
 		return ""
 	}
 	fullName := strings.TrimSpace(strings.Join([]string{user.FirstName, user.LastName}, " "))
-	return firstNonEmpty(fullName, user.Username, user.Email, user.ID)
+	return primitives.FirstNonEmptyRaw(fullName, user.Username, user.Email, user.ID)
 }
 
 func formatRoleDisplay(role RoleRecord) string {
-	return firstNonEmpty(role.Name, role.RoleKey, role.ID)
+	return primitives.FirstNonEmptyRaw(role.Name, role.RoleKey, role.ID)
 }
 
 func formatTenantDisplay(tenant TenantRecord) string {
-	return firstNonEmpty(tenant.Name, tenant.Slug, tenant.Domain, tenant.ID)
+	return primitives.FirstNonEmptyRaw(tenant.Name, tenant.Slug, tenant.Domain, tenant.ID)
 }
 
 func formatOrganizationDisplay(org OrganizationRecord) string {
-	return firstNonEmpty(org.Name, org.Slug, org.ID)
+	return primitives.FirstNonEmptyRaw(org.Name, org.Slug, org.ID)
 }
 
 func objectInfo(objectType, id, display string) usersactivity.ObjectInfo {

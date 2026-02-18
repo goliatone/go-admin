@@ -2,6 +2,7 @@ package admin
 
 import (
 	"errors"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"net/http"
 	"strings"
 
@@ -100,7 +101,7 @@ func mapToGoError(err error, mappers []goerrors.ErrorMapper) (*goerrors.Error, i
 			meta["latest_server_state"] = latestState
 		}
 		if len(autosaveConflict.LatestServerState) > 0 {
-			meta["latest_server_state_record"] = cloneAnyMap(autosaveConflict.LatestServerState)
+			meta["latest_server_state_record"] = primitives.CloneAnyMap(autosaveConflict.LatestServerState)
 		}
 		mapped = NewDomainError(TextCodeAutosaveConflict, autosaveConflict.Error(), meta)
 		status = mapped.Code
@@ -224,7 +225,7 @@ func mapToGoError(err error, mappers []goerrors.ErrorMapper) (*goerrors.Error, i
 			code = TextCodeTranslationExchangeStaleSourceHash
 		}
 		meta := map[string]any{
-			"type":                 firstNonEmpty(conflictType, "missing_linkage"),
+			"type":                 primitives.FirstNonEmptyRaw(conflictType, "missing_linkage"),
 			"index":                exchangeConflict.Index,
 			"resource":             strings.TrimSpace(exchangeConflict.Resource),
 			"entity_id":            strings.TrimSpace(exchangeConflict.EntityID),

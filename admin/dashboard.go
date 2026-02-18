@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"sort"
 	"strconv"
 	"strings"
@@ -285,7 +286,7 @@ func (d *Dashboard) RegisterProvider(spec DashboardProviderSpec) {
 	// Some CMS backends require a non-empty schema, so default to an empty schema
 	// to allow persistence/seed even for non-configurable widgets.
 	if d.widgetSvc != nil {
-		schema := cloneAnyMap(spec.Schema)
+		schema := primitives.CloneAnyMap(spec.Schema)
 		if len(schema) == 0 {
 			schema = map[string]any{"fields": []any{}}
 		}
@@ -382,7 +383,7 @@ func (d *Dashboard) AddDefaultInstance(area, defCode string, cfg map[string]any,
 	d.defaultInstances = append(d.defaultInstances, DashboardWidgetInstance{
 		DefinitionCode: defCode,
 		AreaCode:       area,
-		Config:         cloneAnyMap(cfg),
+		Config:         primitives.CloneAnyMap(cfg),
 		Span:           span,
 		Hidden:         false,
 		Locale:         locale,
@@ -392,7 +393,7 @@ func (d *Dashboard) AddDefaultInstance(area, defCode string, cfg map[string]any,
 		if _, err := d.widgetSvc.SaveInstance(context.Background(), WidgetInstance{
 			DefinitionCode: defCode,
 			Area:           area,
-			Config:         cloneAnyMap(cfg),
+			Config:         primitives.CloneAnyMap(cfg),
 			Span:           span,
 			Locale:         locale,
 		}); err != nil {
@@ -803,8 +804,8 @@ func convertDashboardTheme(theme *dashcmp.ThemeSelection) *ThemeSelection {
 	return &ThemeSelection{
 		Name:        theme.Name,
 		Variant:     theme.Variant,
-		Tokens:      cloneStringMap(theme.Tokens),
-		Assets:      cloneStringMap(assets),
+		Tokens:      primitives.CloneStringMapNilOnEmpty(theme.Tokens),
+		Assets:      primitives.CloneStringMapNilOnEmpty(assets),
 		ChartTheme:  theme.ChartTheme,
 		AssetPrefix: theme.Assets.Prefix,
 	}
@@ -845,9 +846,9 @@ func (c *dashboardProviderCommand) Execute(ctx context.Context, msg DashboardPro
 	if !ok || provider.handler == nil {
 		return ErrNotFound
 	}
-	cfg := cloneAnyMap(msg.Config)
+	cfg := primitives.CloneAnyMap(msg.Config)
 	if len(cfg) == 0 {
-		cfg = cloneAnyMap(provider.spec.DefaultConfig)
+		cfg = primitives.CloneAnyMap(provider.spec.DefaultConfig)
 	}
 	_, err := provider.handler(adminCtx, cfg)
 	return err

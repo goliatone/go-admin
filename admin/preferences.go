@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"net/http"
 	"sort"
 	"strings"
@@ -118,7 +119,7 @@ func (s *InMemoryPreferencesStore) Resolve(ctx context.Context, input Preference
 		return PreferenceSnapshot{}, preferencesConfigError("preferences store not configured")
 	}
 	levelOrder := resolvePreferenceLevels(input.Levels)
-	base := cloneAnyMap(input.Base)
+	base := primitives.CloneAnyMap(input.Base)
 	if base == nil {
 		base = map[string]any{}
 	}
@@ -140,7 +141,7 @@ func (s *InMemoryPreferencesStore) Resolve(ctx context.Context, input Preference
 		PreferenceLevelUser:   user,
 	}
 
-	effective := cloneAnyMap(base)
+	effective := primitives.CloneAnyMap(base)
 	versionLookup := map[string]int{}
 	for _, level := range levelOrder {
 		records := levelRecords[level]
@@ -501,7 +502,7 @@ func (s *PreferencesService) applyDefaultsToBase(base map[string]any) map[string
 	if base == nil {
 		base = map[string]any{}
 	} else {
-		base = cloneAnyMap(base)
+		base = primitives.CloneAnyMap(base)
 	}
 	if s.defaultTheme != "" {
 		if _, ok := base[preferencesKeyTheme]; !ok {
@@ -697,7 +698,7 @@ func flattenPreferenceRecords(records map[string]preferenceRecord) map[string]an
 func clonePreferenceValue(value any) any {
 	switch typed := value.(type) {
 	case map[string]any:
-		return cloneAnyMap(typed)
+		return primitives.CloneAnyMap(typed)
 	default:
 		return value
 	}
@@ -796,7 +797,7 @@ func filterPreferenceKeys(values map[string]any, keys []string) map[string]any {
 func preferencesFromMap(userID string, raw map[string]any) UserPreferences {
 	prefs := UserPreferences{
 		UserID: userID,
-		Raw:    cloneAnyMap(raw),
+		Raw:    primitives.CloneAnyMap(raw),
 	}
 	if theme, ok := raw[preferencesKeyTheme]; ok {
 		prefs.Theme = toString(theme)
@@ -854,7 +855,7 @@ func flattenDashboardLayout(layout []DashboardWidgetInstance) []map[string]any {
 			"id":         inst.ID,
 			"definition": inst.DefinitionCode,
 			"area":       inst.AreaCode,
-			"config":     cloneAnyMap(inst.Config),
+			"config":     primitives.CloneAnyMap(inst.Config),
 			"position":   inst.Position,
 			"span":       inst.Span,
 			"hidden":     inst.Hidden,
@@ -875,7 +876,7 @@ func expandDashboardLayout(input any) []DashboardWidgetInstance {
 				ID:             toString(obj["id"]),
 				DefinitionCode: toString(obj["definition"]),
 				AreaCode:       toString(obj["area"]),
-				Config:         cloneAnyMap(extractMap(obj["config"])),
+				Config:         primitives.CloneAnyMap(extractMap(obj["config"])),
 				Position:       atoiDefault(toString(obj["position"]), 0),
 				Span:           atoiDefault(toString(obj["span"]), 0),
 				Hidden:         toBool(obj["hidden"]),
@@ -892,7 +893,7 @@ func expandDashboardLayout(input any) []DashboardWidgetInstance {
 				ID:             toString(obj["id"]),
 				DefinitionCode: toString(obj["definition"]),
 				AreaCode:       toString(obj["area"]),
-				Config:         cloneAnyMap(extractMap(obj["config"])),
+				Config:         primitives.CloneAnyMap(extractMap(obj["config"])),
 				Position:       atoiDefault(toString(obj["position"]), 0),
 				Span:           atoiDefault(toString(obj["span"]), 0),
 				Hidden:         toBool(obj["hidden"]),

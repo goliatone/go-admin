@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"path"
 	"strings"
 
@@ -94,7 +95,7 @@ func blockDefinitionsFromLibrary(
 		// (same pattern as content_type_builder_module.go:1050-1059).
 		var overlay []byte
 		if len(uiSchema) > 0 {
-			overlayDoc := cloneAnyMap(uiSchema)
+			overlayDoc := primitives.CloneAnyMap(uiSchema)
 			if overlayDoc != nil {
 				if _, ok := overlayDoc["$schema"]; !ok {
 					overlayDoc["$schema"] = "x-ui-overlay/v1"

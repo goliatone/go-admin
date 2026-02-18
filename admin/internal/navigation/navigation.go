@@ -2,6 +2,7 @@ package navigation
 
 import (
 	"context"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"sort"
 	"strings"
 )
@@ -143,10 +144,10 @@ func ConvertMenuItems(items []MenuItem, t Translator, locale string) []Navigatio
 			GroupTitle:    item.GroupTitle,
 			GroupTitleKey: item.GroupTitleKey,
 			Icon:          item.Icon,
-			Target:        cloneAnyMap(item.Target),
-			Badge:         cloneAnyMap(item.Badge),
+			Target:        primitives.CloneAnyMap(item.Target),
+			Badge:         primitives.CloneAnyMap(item.Badge),
 			Classes:       append([]string{}, item.Classes...),
-			Styles:        cloneStringMap(item.Styles),
+			Styles:        primitives.CloneStringMap(item.Styles),
 			Permissions:   append([]string{}, item.Permissions...),
 			Locale:        item.Locale,
 			Collapsible:   item.Collapsible,

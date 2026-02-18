@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"sort"
 	"strings"
 
@@ -286,7 +287,7 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 	defaultTheme := &ThemeSelection{
 		Name:        cfg.Theme,
 		Variant:     cfg.ThemeVariant,
-		Tokens:      cloneStringMap(cfg.ThemeTokens),
+		Tokens:      primitives.CloneStringMapNilOnEmpty(cfg.ThemeTokens),
 		Assets:      map[string]string{},
 		ChartTheme:  cfg.ThemeVariant,
 		AssetPrefix: cfg.ThemeAssetPrefix,

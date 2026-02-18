@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 	"sync"
 	"time"
@@ -264,7 +265,7 @@ func (c *DebugCollector) CaptureTemplateData(viewCtx router.ViewContext) {
 	if c == nil || !c.panelEnabled(DebugPanelTemplate) {
 		return
 	}
-	data := debugMaskMap(c.config, cloneAnyMap(map[string]any(viewCtx)))
+	data := debugMaskMap(c.config, primitives.CloneAnyMap(map[string]any(viewCtx)))
 	c.mu.Lock()
 	c.templateData = data
 	c.mu.Unlock()
@@ -276,7 +277,7 @@ func (c *DebugCollector) CaptureSession(session map[string]any) {
 	if c == nil || !c.panelEnabled(DebugPanelSession) {
 		return
 	}
-	data := debugMaskMap(c.config, cloneAnyMap(session))
+	data := debugMaskMap(c.config, primitives.CloneAnyMap(session))
 	c.mu.Lock()
 	c.sessionData = data
 	c.mu.Unlock()
@@ -384,7 +385,7 @@ func (c *DebugCollector) CaptureConfigSnapshot(snapshot map[string]any) {
 	}
 	snapshot = debugMaskMap(c.config, snapshot)
 	c.mu.Lock()
-	c.configData = cloneAnyMap(snapshot)
+	c.configData = primitives.CloneAnyMap(snapshot)
 	c.mu.Unlock()
 }
 
@@ -556,10 +557,10 @@ func (c *DebugCollector) SnapshotWithContext(ctx context.Context) map[string]any
 		ctx = context.Background()
 	}
 	c.mu.RLock()
-	templateData := cloneAnyMap(c.templateData)
-	sessionData := cloneAnyMap(c.sessionData)
-	customData := cloneAnyMap(c.customData)
-	configData := cloneAnyMap(c.configData)
+	templateData := primitives.CloneAnyMap(c.templateData)
+	sessionData := primitives.CloneAnyMap(c.sessionData)
+	customData := primitives.CloneAnyMap(c.customData)
+	configData := primitives.CloneAnyMap(c.configData)
 	routesData := cloneRouteEntries(c.routesData)
 	panelData := clonePanelData(c.panelData)
 	panels := append([]DebugPanel{}, c.panels...)
@@ -655,8 +656,8 @@ func (c *DebugCollector) SessionSnapshot(sessionID string, opts DebugSessionSnap
 	}
 
 	c.mu.RLock()
-	templateData := cloneAnyMap(c.templateData)
-	configData := cloneAnyMap(c.configData)
+	templateData := primitives.CloneAnyMap(c.templateData)
+	configData := primitives.CloneAnyMap(c.configData)
 	routesData := cloneRouteEntries(c.routesData)
 	c.mu.RUnlock()
 
@@ -1019,7 +1020,7 @@ func clonePanelData(input map[string]debugPanelSnapshot) map[string]debugPanelSn
 func clonePanelPayload(value any) any {
 	switch typed := value.(type) {
 	case map[string]any:
-		return cloneAnyMap(typed)
+		return primitives.CloneAnyMap(typed)
 	case map[string]string:
 		out := make(map[string]string, len(typed))
 		for key, val := range typed {

@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"fmt"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 	"time"
 
@@ -262,7 +263,7 @@ func (s *DefaultTranslationQueueService) Archive(ctx context.Context, input Tran
 	now := time.Now().UTC()
 	assignment.Status = AssignmentStatusArchived
 	assignment.ArchivedAt = &now
-	assignment.LastReviewerID = strings.TrimSpace(firstNonEmpty(assignment.LastReviewerID, input.ActorID))
+	assignment.LastReviewerID = strings.TrimSpace(primitives.FirstNonEmptyRaw(assignment.LastReviewerID, input.ActorID))
 
 	updated, err := s.Repository.Update(ctx, assignment, input.ExpectedVersion)
 	if err != nil {
@@ -403,7 +404,7 @@ func (s *DefaultTranslationQueueService) recordTransition(ctx context.Context, a
 			Actor:    actorID,
 			Action:   "translation.queue." + action,
 			Object:   "translation_assignment:" + strings.TrimSpace(assignment.ID),
-			Metadata: cloneAnyMap(meta),
+			Metadata: primitives.CloneAnyMap(meta),
 		})
 	}
 
@@ -413,8 +414,8 @@ func (s *DefaultTranslationQueueService) recordTransition(ctx context.Context, a
 		_, _ = s.Notifications.Add(ctx, Notification{
 			Title:     title,
 			Message:   message,
-			ActionURL: firstNonEmpty(toString(meta["url"]), ""),
-			Metadata:  cloneAnyMap(meta),
+			ActionURL: primitives.FirstNonEmptyRaw(toString(meta["url"]), ""),
+			Metadata:  primitives.CloneAnyMap(meta),
 			UserID:    targetUser,
 			Read:      false,
 		})
@@ -473,7 +474,7 @@ func queueNotificationMessage(action string, assignment TranslationAssignment) (
 	case "approved":
 		title = "Translation Approved"
 	}
-	subject := strings.TrimSpace(firstNonEmpty(assignment.SourceTitle, assignment.TranslationGroupID, assignment.ID))
+	subject := strings.TrimSpace(primitives.FirstNonEmptyRaw(assignment.SourceTitle, assignment.TranslationGroupID, assignment.ID))
 	source := strings.TrimSpace(assignment.SourceLocale)
 	target := strings.TrimSpace(assignment.TargetLocale)
 	if source == "" || target == "" {

@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"reflect"
 	"strings"
 
@@ -84,9 +85,9 @@ func normalizeGoCMSTranslationCreateError(err error, input TranslationCreateInpu
 	if errors.As(err, &contentDup) && contentDup != nil {
 		return TranslationAlreadyExistsError{
 			Panel:              panel,
-			EntityID:           firstNonEmpty(entityID, nonNilUUIDString(contentDup.EntityID)),
+			EntityID:           primitives.FirstNonEmptyRaw(entityID, nonNilUUIDString(contentDup.EntityID)),
 			SourceLocale:       normalizeCreateTranslationLocale(contentDup.SourceLocale),
-			Locale:             normalizeCreateTranslationLocale(firstNonEmpty(contentDup.TargetLocale, locale)),
+			Locale:             normalizeCreateTranslationLocale(primitives.FirstNonEmptyRaw(contentDup.TargetLocale, locale)),
 			TranslationGroupID: nonNilUUIDPtrString(contentDup.TranslationGroupID),
 		}
 	}
@@ -95,9 +96,9 @@ func normalizeGoCMSTranslationCreateError(err error, input TranslationCreateInpu
 	if errors.As(err, &pageDup) && pageDup != nil {
 		return TranslationAlreadyExistsError{
 			Panel:              panel,
-			EntityID:           firstNonEmpty(entityID, nonNilUUIDString(pageDup.EntityID)),
+			EntityID:           primitives.FirstNonEmptyRaw(entityID, nonNilUUIDString(pageDup.EntityID)),
 			SourceLocale:       normalizeCreateTranslationLocale(pageDup.SourceLocale),
-			Locale:             normalizeCreateTranslationLocale(firstNonEmpty(pageDup.TargetLocale, locale)),
+			Locale:             normalizeCreateTranslationLocale(primitives.FirstNonEmptyRaw(pageDup.TargetLocale, locale)),
 			TranslationGroupID: nonNilUUIDPtrString(pageDup.TranslationGroupID),
 		}
 	}
@@ -148,7 +149,7 @@ func buildCreateTranslationMethodArgs(method reflect.Value, ctx context.Context,
 			if signature.In(3).Kind() != reflect.String {
 				return nil, ErrTranslationCreateUnsupported
 			}
-			env := strings.TrimSpace(firstNonEmpty(input.Environment, environmentFromContext(ctx)))
+			env := strings.TrimSpace(primitives.FirstNonEmptyRaw(input.Environment, environmentFromContext(ctx)))
 			args = append(args, reflect.ValueOf(env))
 		}
 		if signature.NumIn() > len(args) {

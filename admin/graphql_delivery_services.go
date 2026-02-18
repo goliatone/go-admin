@@ -2,6 +2,7 @@ package admin
 
 import (
 	"errors"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 
 	delivery "github.com/goliatone/go-admin/admin/graphql"
@@ -284,7 +285,7 @@ func mapDeliveryContent(record CMSContent) delivery.Content {
 		Slug:   record.Slug,
 		Locale: record.Locale,
 		Status: record.Status,
-		Data:   cloneAnyMap(record.Data),
+		Data:   primitives.CloneAnyMap(record.Data),
 	}
 }
 
@@ -296,7 +297,7 @@ func mapDeliveryPage(record CMSPage) delivery.Page {
 		Slug:   record.Slug,
 		Locale: record.Locale,
 		Status: record.Status,
-		Data:   cloneAnyMap(record.Data),
+		Data:   primitives.CloneAnyMap(record.Data),
 	}
 }
 
@@ -315,7 +316,7 @@ func mapDeliveryMenuItems(items []MenuItem) []delivery.MenuItem {
 	}
 	out := make([]delivery.MenuItem, 0, len(items))
 	for _, item := range items {
-		target := cloneAnyMap(item.Target)
+		target := primitives.CloneAnyMap(item.Target)
 		url := ""
 		if raw, ok := target["url"].(string); ok {
 			url = strings.TrimSpace(raw)

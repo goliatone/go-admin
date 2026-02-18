@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"sort"
 	"strconv"
 
@@ -81,7 +82,7 @@ func (s *CMSWidgetStore) CreateInstance(ctx context.Context, input godash.Create
 	}
 	instance := WidgetInstance{
 		DefinitionCode: input.DefinitionID,
-		Config:         cloneAnyMap(input.Configuration),
+		Config:         primitives.CloneAnyMap(input.Configuration),
 		Span:           spanFromMetadata(input.Metadata),
 		Hidden:         hiddenFromMetadata(input.Metadata),
 		Locale:         localeFromMetadata(input.Metadata),
@@ -114,7 +115,7 @@ func (s *CMSWidgetStore) UpdateInstance(ctx context.Context, input godash.Update
 		return godash.WidgetInstance{}, err
 	}
 	if input.Configuration != nil {
-		current.Config = cloneAnyMap(input.Configuration)
+		current.Config = primitives.CloneAnyMap(input.Configuration)
 	}
 	if input.Metadata != nil {
 		current.Span = spanFromMetadata(input.Metadata)
@@ -245,7 +246,7 @@ func toDashboardInstance(inst WidgetInstance) godash.WidgetInstance {
 		ID:            inst.ID,
 		DefinitionID:  inst.DefinitionCode,
 		AreaCode:      inst.Area,
-		Configuration: cloneAnyMap(inst.Config),
+		Configuration: primitives.CloneAnyMap(inst.Config),
 		Metadata: map[string]any{
 			"layout": map[string]any{
 				"width": inst.Span,

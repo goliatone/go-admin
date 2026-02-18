@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"log/slog"
 	"strings"
 	"time"
@@ -163,12 +164,12 @@ func translationQueueAutoCreateHookFromError(err error, policyInput TranslationP
 
 	return TranslationQueueAutoCreateInput{
 		TranslationGroupID: groupID,
-		EntityType:         firstNonEmpty(missing.PolicyEntity, missing.EntityType, policyInput.PolicyEntity, policyInput.EntityType),
-		EntityID:           firstNonEmpty(missing.EntityID, policyInput.EntityID),
-		SourceLocale:       firstNonEmpty(missing.RequestedLocale, policyInput.RequestedLocale),
+		EntityType:         primitives.FirstNonEmptyRaw(missing.PolicyEntity, missing.EntityType, policyInput.PolicyEntity, policyInput.EntityType),
+		EntityID:           primitives.FirstNonEmptyRaw(missing.EntityID, policyInput.EntityID),
+		SourceLocale:       primitives.FirstNonEmptyRaw(missing.RequestedLocale, policyInput.RequestedLocale),
 		MissingLocales:     missing.MissingLocales,
-		Transition:         firstNonEmpty(missing.Transition, policyInput.Transition),
-		Environment:        firstNonEmpty(missing.Environment, policyInput.Environment),
+		Transition:         primitives.FirstNonEmptyRaw(missing.Transition, policyInput.Transition),
+		Environment:        primitives.FirstNonEmptyRaw(missing.Environment, policyInput.Environment),
 		SourceTitle:        strings.TrimSpace(toString(record["title"])),
 		SourcePath:         strings.TrimSpace(toString(record["path"])),
 		Priority:           PriorityNormal,

@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 	"time"
 )
@@ -149,7 +150,7 @@ func (r *TranslationAssignmentPanelRepository) Update(ctx context.Context, id st
 		return nil, serviceNotConfiguredDomainError("translation assignment repository", nil)
 	}
 	assignment := translationAssignmentFromMap(record)
-	assignment.ID = strings.TrimSpace(firstNonEmpty(id, assignment.ID))
+	assignment.ID = strings.TrimSpace(primitives.FirstNonEmptyRaw(id, assignment.ID))
 	expected := queueExpectedVersion(record)
 	if expected <= 0 {
 		expected = assignment.Version

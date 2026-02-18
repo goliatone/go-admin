@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"encoding/json"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"sort"
 	"strings"
 )
@@ -17,7 +18,7 @@ func cloneEmbeddedBlocks(blocks []map[string]any) []map[string]any {
 			out = append(out, map[string]any{})
 			continue
 		}
-		out = append(out, cloneAnyMap(block))
+		out = append(out, primitives.CloneAnyMap(block))
 	}
 	return out
 }
@@ -108,7 +109,7 @@ func embeddedBlocksFromAnySlice(values []any) []map[string]any {
 	for _, item := range values {
 		switch v := item.(type) {
 		case map[string]any:
-			out = append(out, cloneAnyMap(v))
+			out = append(out, primitives.CloneAnyMap(v))
 			found = true
 		}
 	}
@@ -141,7 +142,7 @@ func embeddedBlocksFromLegacy(blocks []CMSBlock) []map[string]any {
 	})
 	out := make([]map[string]any, 0, len(ordered))
 	for _, block := range ordered {
-		payload := cloneAnyMap(block.Data)
+		payload := primitives.CloneAnyMap(block.Data)
 		if payload == nil {
 			payload = map[string]any{}
 		}
@@ -166,7 +167,7 @@ func embeddedBlocksToCMSBlocks(contentID, locale string, blocks []map[string]any
 	}
 	out := make([]CMSBlock, 0, len(blocks))
 	for idx, block := range blocks {
-		payload := cloneAnyMap(block)
+		payload := primitives.CloneAnyMap(block)
 		typeVal := strings.TrimSpace(toString(payload["_type"]))
 		schemaKey := strings.TrimSpace(toString(payload["_schema"]))
 		if schemaKey == "" {
@@ -208,7 +209,7 @@ func blockTypesFromEmbedded(blocks []map[string]any) []string {
 }
 
 func blockTypeFromLegacy(block CMSBlock) string {
-	return strings.TrimSpace(firstNonEmpty(block.BlockType, block.BlockSchemaKey, block.DefinitionID))
+	return strings.TrimSpace(primitives.FirstNonEmptyRaw(block.BlockType, block.BlockSchemaKey, block.DefinitionID))
 }
 
 func blockTypesFromLegacy(blocks []CMSBlock) []string {

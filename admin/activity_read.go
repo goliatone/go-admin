@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"strconv"
 	"strings"
 	"time"
@@ -181,16 +182,16 @@ func entriesFromUsersRecords(records []types.ActivityRecord) []ActivityEntry {
 }
 
 func entryFromUsersRecord(record types.ActivityRecord) ActivityEntry {
-	metadata := cloneAnyMap(record.Data)
+	metadata := primitives.CloneAnyMap(record.Data)
 	actorDisplay := strings.TrimSpace(toString(metadata[usersactivity.DataKeyActorDisplay]))
 	objectDisplay := strings.TrimSpace(toString(metadata[usersactivity.DataKeyObjectDisplay]))
-	actorID := firstNonEmpty(uuidString(record.ActorID), uuidString(record.UserID))
+	actorID := primitives.FirstNonEmptyRaw(uuidString(record.ActorID), uuidString(record.UserID))
 	objectRef := joinObject(strings.TrimSpace(record.ObjectType), strings.TrimSpace(record.ObjectID))
 	return ActivityEntry{
 		ID:        uuidString(record.ID),
-		Actor:     firstNonEmpty(actorDisplay, actorID),
+		Actor:     primitives.FirstNonEmptyRaw(actorDisplay, actorID),
 		Action:    strings.TrimSpace(record.Verb),
-		Object:    firstNonEmpty(objectDisplay, objectRef),
+		Object:    primitives.FirstNonEmptyRaw(objectDisplay, objectRef),
 		Channel:   strings.TrimSpace(record.Channel),
 		Metadata:  metadata,
 		CreatedAt: record.OccurredAt,
