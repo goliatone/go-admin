@@ -7,12 +7,19 @@ import type {
 import type { ActionButton, BulkActionConfig, ActionRenderMode } from './actions.js';
 import type { CellRenderer, CellRendererContext } from './renderers.js';
 import type { ToastNotifier } from '../toast/types.js';
-import type { ViewMode, GroupedData, RecordGroup } from './grouped-mode.js';
+import type { ViewMode, GroupedData, GroupExpandMode } from './grouped-mode.js';
+import type {
+  DataGridStateStore,
+  DataGridPersistedState,
+  DataGridShareState,
+  DataGridStateStoreConfig,
+} from './state-store.js';
 import { ActionRenderer } from './actions.js';
 import { CellRendererRegistry } from './renderers.js';
 import { FallbackNotifier } from '../toast/toast-manager.js';
 import { extractErrorMessage } from '../toast/error-helpers.js';
 import { ColumnManager } from './column-manager.js';
+import { createDataGridStateStore } from './state-store.js';
 import {
   transformToGroups,
   hasBackendGroupedRows,
@@ -21,18 +28,16 @@ import {
   mergeBackendSummaries,
   hasPersistedExpandState,
   getPersistedExpandState,
-  persistExpandState,
+  getPersistedExpandMode,
   getPersistedViewMode,
-  persistViewMode,
   parseViewMode,
-  encodeExpandedGroupsToken,
   decodeExpandedGroupsToken,
+  normalizeExpandMode,
   renderGroupHeaderRow,
   renderGroupedEmptyState,
   renderGroupedLoadingState,
   renderGroupedErrorState,
   getViewModeForViewport,
-  getExpandedGroupIds,
 } from './grouped-mode.js';
 
 /**
@@ -98,6 +103,33 @@ export interface DataGridConfig {
    * Field to group by (default: translation_group_id)
    */
   groupByField?: string;
+  /**
+   * Optional state store implementation for heavy UI state and share tokens.
+   */
+  stateStore?: DataGridStateStore;
+  /**
+   * State store configuration when no explicit store instance is provided.
+   */
+  stateStoreConfig?: Omit<DataGridStateStoreConfig, 'key'>;
+  /**
+   * URL state synchronization tuning and limits.
+   */
+  urlState?: DataGridURLStateConfig;
+}
+
+export interface DataGridURLStateConfig {
+  /**
+   * Hard URL length budget. When exceeded, DataGrid falls back to state token.
+   */
+  maxURLLength?: number;
+  /**
+   * Maximum serialized `filters` payload length for URL sync.
+   */
+  maxFiltersLength?: number;
+  /**
+   * Enables `state=<token>` fallback when URL budget is exceeded.
+   */
+  enableStateToken?: boolean;
 }
 
 /**
@@ -137,6 +169,7 @@ interface DataGridState {
   columnOrder: string[];  // Ordered list of column fields (Phase FE2)
   // Phase 2: Grouped mode state
   viewMode: ViewMode;
+  expandMode: GroupExpandMode;
   groupedData: GroupedData | null;
   expandedGroups: Set<string>;
   hasPersistedExpandState: boolean;
@@ -174,6 +207,8 @@ export class DataGrid {
   private static readonly URL_KEY_PER_PAGE = 'perPage';
   private static readonly URL_KEY_FILTERS = 'filters';
   private static readonly URL_KEY_SORT = 'sort';
+  private static readonly URL_KEY_STATE = 'state';
+  // Legacy URL keys (read + cleanup only)
   private static readonly URL_KEY_HIDDEN_COLUMNS = 'hiddenColumns';
   private static readonly URL_KEY_VIEW_MODE = 'view_mode';
   private static readonly URL_KEY_EXPANDED_GROUPS = 'expanded_groups';
@@ -183,10 +218,13 @@ export class DataGrid {
     DataGrid.URL_KEY_PER_PAGE,
     DataGrid.URL_KEY_FILTERS,
     DataGrid.URL_KEY_SORT,
+    DataGrid.URL_KEY_STATE,
     DataGrid.URL_KEY_HIDDEN_COLUMNS,
     DataGrid.URL_KEY_VIEW_MODE,
     DataGrid.URL_KEY_EXPANDED_GROUPS,
   ];
+  private static readonly DEFAULT_MAX_URL_LENGTH = 1800;
+  private static readonly DEFAULT_MAX_FILTERS_LENGTH = 600;
   public config: DataGridConfig;
   public state: DataGridState;
   private selectors: DataGridSelectors;
@@ -204,6 +242,10 @@ export class DataGrid {
   private defaultColumns: ColumnDefinition[];
   private lastSchema: Record<string, any> | null = null;
   private lastForm: Record<string, any> | null = null;
+  private stateStore: DataGridStateStore;
+  private hasURLStateOverrides: boolean = false;
+  private hasPersistedHiddenColumnState: boolean = false;
+  private hasPersistedColumnOrderState: boolean = false;
 
   constructor(config: DataGridConfig) {
     this.config = {
@@ -236,17 +278,59 @@ export class DataGrid {
       ...config.selectors
     };
 
-    // Restore persisted grouped mode state if enabled
     const panelId = this.config.panelId || this.config.tableId;
-    const hasPersistedGroupedExpandState = this.config.enableGroupedMode
+    this.stateStore = this.config.stateStore || createDataGridStateStore({
+      key: panelId,
+      ...(this.config.stateStoreConfig || {}),
+    });
+
+    const persistedState = this.stateStore.loadPersistedState();
+    const validFields = new Set(this.config.columns.map((col) => col.field));
+    const defaultHiddenColumns = new Set(
+      this.config.columns.filter(col => col.hidden).map(col => col.field)
+    );
+    const hasPersistedHiddenColumns = !!persistedState && Array.isArray(persistedState.hiddenColumns);
+    this.hasPersistedHiddenColumnState = hasPersistedHiddenColumns;
+    const persistedHiddenColumns = new Set(
+      (persistedState?.hiddenColumns || []).filter((field) => validFields.has(field))
+    );
+    const defaultColumnOrder = this.config.columns.map(col => col.field);
+    const hasPersistedColumnOrder = !!persistedState && Array.isArray(persistedState.columnOrder) && persistedState.columnOrder.length > 0;
+    this.hasPersistedColumnOrderState = hasPersistedColumnOrder;
+    const persistedColumnOrder = (persistedState?.columnOrder || []).filter((field) => validFields.has(field));
+    const mergedColumnOrder = hasPersistedColumnOrder
+      ? [...persistedColumnOrder, ...defaultColumnOrder.filter((field) => !persistedColumnOrder.includes(field))]
+      : defaultColumnOrder;
+
+    // Backward compatibility: migrate existing grouped-mode localStorage state
+    const legacyHasPersistedExpandState = this.config.enableGroupedMode
       ? hasPersistedExpandState(panelId)
       : false;
-    const persistedViewMode = this.config.enableGroupedMode
+    const legacyViewMode = this.config.enableGroupedMode
       ? getPersistedViewMode(panelId)
       : null;
-    const persistedExpandState = this.config.enableGroupedMode
+    const legacyExpandMode = this.config.enableGroupedMode
+      ? getPersistedExpandMode(panelId)
+      : 'explicit';
+    const legacyExpandedGroups = this.config.enableGroupedMode
       ? getPersistedExpandState(panelId)
       : new Set<string>();
+
+    const persistedExpandMode = normalizeExpandMode(
+      persistedState?.expandMode,
+      legacyExpandMode
+    );
+    const persistedExpandState = new Set(
+      (persistedState?.expandedGroups || Array.from(legacyExpandedGroups))
+        .map((groupId) => String(groupId).trim())
+        .filter(Boolean)
+    );
+    const hasPersistedGroupedExpandState = this.config.enableGroupedMode
+      ? persistedState?.expandMode !== undefined || persistedExpandState.size > 0 || legacyHasPersistedExpandState
+      : false;
+    const persistedViewMode = this.config.enableGroupedMode
+      ? (persistedState?.viewMode || legacyViewMode)
+      : null;
     const initialViewMode = persistedViewMode || this.config.defaultViewMode || 'flat';
 
     this.state = {
@@ -257,12 +341,11 @@ export class DataGrid {
       filters: [],
       sort: [],
       selectedRows: new Set(),
-      hiddenColumns: new Set(
-        this.config.columns.filter(col => col.hidden).map(col => col.field)
-      ),
-      columnOrder: this.config.columns.map(col => col.field),  // Initialize with config column order
+      hiddenColumns: hasPersistedHiddenColumns ? persistedHiddenColumns : defaultHiddenColumns,
+      columnOrder: mergedColumnOrder,
       // Phase 2: Grouped mode state
       viewMode: initialViewMode,
+      expandMode: persistedExpandMode,
       groupedData: null,
       expandedGroups: persistedExpandState,
       hasPersistedExpandState: hasPersistedGroupedExpandState,
@@ -319,7 +402,188 @@ export class DataGrid {
     this.bindDropdownToggles();
 
     // Initial data load
-    this.refresh();
+    void this.refresh();
+
+    // Optional async hydrate from user-state backend.
+    if (typeof this.stateStore.hydrate === 'function') {
+      void this.stateStore.hydrate().then(() => {
+        if (this.hasURLStateOverrides) {
+          return;
+        }
+        const hydrated = this.stateStore.loadPersistedState();
+        if (!hydrated) {
+          return;
+        }
+        this.applyPersistedStateSnapshot(hydrated, { merge: true });
+        this.applyRestoredState();
+        this.pushStateToURL({ replace: true });
+        void this.refresh();
+      }).catch(() => {
+        // Ignore async hydrate failures.
+      });
+    }
+  }
+
+  private getURLStateConfig(): Required<DataGridURLStateConfig> {
+    const maxURLLength = Math.max(
+      256,
+      this.config.urlState?.maxURLLength || DataGrid.DEFAULT_MAX_URL_LENGTH
+    );
+    const maxFiltersLength = Math.max(
+      64,
+      this.config.urlState?.maxFiltersLength || DataGrid.DEFAULT_MAX_FILTERS_LENGTH
+    );
+    const enableStateToken = this.config.urlState?.enableStateToken !== false;
+    return {
+      maxURLLength,
+      maxFiltersLength,
+      enableStateToken,
+    };
+  }
+
+  private parseJSONArray(raw: string, label: string): unknown[] | null {
+    const normalized = String(raw || '').trim();
+    if (!normalized) {
+      return null;
+    }
+    try {
+      const parsed = JSON.parse(normalized) as unknown;
+      if (!Array.isArray(parsed)) {
+        console.warn(`[DataGrid] Invalid ${label} payload in URL (expected array)`);
+        return null;
+      }
+      return parsed;
+    } catch (error) {
+      console.warn(`[DataGrid] Failed to parse ${label} payload from URL:`, error);
+      return null;
+    }
+  }
+
+  private applyPersistedStateSnapshot(
+    snapshot: DataGridPersistedState,
+    options: { merge?: boolean } = {}
+  ): void {
+    const merge = options.merge === true;
+    const validFields = new Set(this.config.columns.map((col) => col.field));
+
+    const persistedHidden = Array.isArray(snapshot.hiddenColumns)
+      ? new Set(
+        snapshot.hiddenColumns
+          .map((field) => String(field || '').trim())
+          .filter((field) => field.length > 0 && validFields.has(field))
+      )
+      : null;
+    if (persistedHidden) {
+      this.state.hiddenColumns = persistedHidden;
+      this.hasPersistedHiddenColumnState = true;
+    } else if (!merge) {
+      this.state.hiddenColumns = new Set(
+        this.config.columns.filter(col => col.hidden).map(col => col.field)
+      );
+      this.hasPersistedHiddenColumnState = false;
+    }
+
+    const persistedOrder = Array.isArray(snapshot.columnOrder)
+      ? snapshot.columnOrder
+        .map((field) => String(field || '').trim())
+        .filter((field) => field.length > 0 && validFields.has(field))
+      : null;
+    if (persistedOrder && persistedOrder.length > 0) {
+      const validOrder = this.mergeColumnOrder(persistedOrder);
+      this.state.columnOrder = validOrder;
+      this.hasPersistedColumnOrderState = true;
+      this.didRestoreColumnOrder = true;
+      const defaultOrder = this.defaultColumns.map(col => col.field);
+      this.shouldReorderDOMOnRestore = defaultOrder.join('|') !== validOrder.join('|');
+
+      const columnMap = new Map(this.config.columns.map(c => [c.field, c]));
+      this.config.columns = validOrder
+        .map(field => columnMap.get(field))
+        .filter((c): c is ColumnDefinition => c !== undefined);
+    } else if (!merge) {
+      this.state.columnOrder = this.config.columns.map(col => col.field);
+      this.hasPersistedColumnOrderState = false;
+      this.didRestoreColumnOrder = false;
+      this.shouldReorderDOMOnRestore = false;
+    }
+
+    if (!this.config.enableGroupedMode) {
+      return;
+    }
+
+    if (snapshot.viewMode) {
+      const parsed = parseViewMode(snapshot.viewMode);
+      if (parsed) {
+        this.state.viewMode = getViewModeForViewport(parsed);
+      }
+    }
+
+    this.state.expandMode = normalizeExpandMode(snapshot.expandMode, this.state.expandMode);
+
+    if (Array.isArray(snapshot.expandedGroups)) {
+      this.state.expandedGroups = new Set(
+        snapshot.expandedGroups
+          .map((groupId) => String(groupId || '').trim())
+          .filter(Boolean)
+      );
+      this.state.hasPersistedExpandState = true;
+    } else if (snapshot.expandMode !== undefined) {
+      this.state.hasPersistedExpandState = true;
+    }
+  }
+
+  private applyShareStateSnapshot(snapshot: DataGridShareState): void {
+    if (snapshot.persisted) {
+      this.applyPersistedStateSnapshot(snapshot.persisted, { merge: true });
+    }
+    if (typeof snapshot.search === 'string') {
+      this.state.search = snapshot.search;
+    }
+    if (typeof snapshot.page === 'number' && Number.isFinite(snapshot.page)) {
+      this.state.currentPage = Math.max(1, Math.trunc(snapshot.page));
+    }
+    if (typeof snapshot.perPage === 'number' && Number.isFinite(snapshot.perPage)) {
+      this.state.perPage = Math.max(1, Math.trunc(snapshot.perPage));
+    }
+    if (Array.isArray(snapshot.filters)) {
+      this.state.filters = snapshot.filters as ColumnFilter[];
+    }
+    if (Array.isArray(snapshot.sort)) {
+      this.state.sort = snapshot.sort as SortColumn[];
+    }
+  }
+
+  private buildPersistedStateSnapshot(): DataGridPersistedState {
+    const persisted: DataGridPersistedState = {
+      version: 1,
+      hiddenColumns: Array.from(this.state.hiddenColumns),
+      columnOrder: [...this.state.columnOrder],
+      updatedAt: Date.now(),
+    };
+    if (this.config.enableGroupedMode) {
+      persisted.viewMode = this.state.viewMode;
+      persisted.expandMode = this.state.expandMode;
+      persisted.expandedGroups = Array.from(this.state.expandedGroups);
+    }
+    return persisted;
+  }
+
+  private buildShareStateSnapshot(): DataGridShareState {
+    const shareState: DataGridShareState = {
+      version: 1,
+      search: this.state.search || undefined,
+      page: this.state.currentPage > 1 ? this.state.currentPage : undefined,
+      perPage: this.state.perPage !== (this.config.perPage || 10) ? this.state.perPage : undefined,
+      filters: this.state.filters.length > 0 ? [...this.state.filters] : undefined,
+      sort: this.state.sort.length > 0 ? [...this.state.sort] : undefined,
+      persisted: this.buildPersistedStateSnapshot(),
+      updatedAt: Date.now(),
+    };
+    return shareState;
+  }
+
+  private persistStateSnapshot(): void {
+    this.stateStore.savePersistedState(this.buildPersistedStateSnapshot());
   }
 
   /**
@@ -329,6 +593,16 @@ export class DataGrid {
     const params = new URLSearchParams(window.location.search);
     this.didRestoreColumnOrder = false;
     this.shouldReorderDOMOnRestore = false;
+    this.hasURLStateOverrides = DataGrid.MANAGED_URL_KEYS.some((key) => params.has(key));
+
+    // Resolve short share-state token first, then allow explicit URL params to override.
+    const stateToken = params.get(DataGrid.URL_KEY_STATE);
+    if (stateToken) {
+      const shared = this.stateStore.resolveShareState(stateToken);
+      if (shared) {
+        this.applyShareStateSnapshot(shared);
+      }
+    }
 
     // Restore search
     const search = params.get(DataGrid.URL_KEY_SEARCH);
@@ -364,24 +638,22 @@ export class DataGrid {
     // Restore filters
     const filtersParam = params.get(DataGrid.URL_KEY_FILTERS);
     if (filtersParam) {
-      try {
-        this.state.filters = JSON.parse(filtersParam);
-      } catch (e) {
-        console.warn('[DataGrid] Failed to parse filters from URL:', e);
+      const parsed = this.parseJSONArray(filtersParam, 'filters');
+      if (parsed) {
+        this.state.filters = parsed as ColumnFilter[];
       }
     }
 
     // Restore sort
     const sortParam = params.get(DataGrid.URL_KEY_SORT);
     if (sortParam) {
-      try {
-        this.state.sort = JSON.parse(sortParam);
-      } catch (e) {
-        console.warn('[DataGrid] Failed to parse sort from URL:', e);
+      const parsed = this.parseJSONArray(sortParam, 'sort');
+      if (parsed) {
+        this.state.sort = parsed as SortColumn[];
       }
     }
 
-    // Restore grouped mode URL state with precedence: URL > localStorage > defaults
+    // Restore grouped mode legacy URL state with precedence: URL > localStorage > defaults.
     if (this.config.enableGroupedMode) {
       const urlViewMode = parseViewMode(params.get(DataGrid.URL_KEY_VIEW_MODE));
       if (urlViewMode) {
@@ -392,57 +664,52 @@ export class DataGrid {
         this.state.expandedGroups = decodeExpandedGroupsToken(
           params.get(DataGrid.URL_KEY_EXPANDED_GROUPS)
         );
+        this.state.expandMode = 'explicit';
         this.state.hasPersistedExpandState = true;
       }
     }
 
-    // Restore hidden columns with precedence: URL > localStorage > defaults
+    // Restore legacy hidden columns URL state.
     const hiddenColumnsParam = params.get(DataGrid.URL_KEY_HIDDEN_COLUMNS);
     if (hiddenColumnsParam) {
-      // Priority 1: URL params (authoritative for shared links)
-      try {
-        const hiddenArray = JSON.parse(hiddenColumnsParam);
+      const hiddenArray = this.parseJSONArray(hiddenColumnsParam, 'hidden columns');
+      if (hiddenArray) {
         const validFields = new Set(this.config.columns.map(col => col.field));
         this.state.hiddenColumns = new Set(
-          (Array.isArray(hiddenArray) ? hiddenArray : []).filter((field) => validFields.has(field))
+          hiddenArray
+            .map((field) => (typeof field === 'string' ? field.trim() : ''))
+            .filter((field) => field.length > 0 && validFields.has(field))
         );
-      } catch (e) {
-        console.warn('[DataGrid] Failed to parse hidden columns from URL:', e);
       }
-    } else if (this.config.behaviors?.columnVisibility) {
-      // Priority 2: localStorage cache (fallback when no URL params)
+    } else if (!this.hasPersistedHiddenColumnState && this.config.behaviors?.columnVisibility) {
+      // Fallback to behavior-managed cache when no URL override exists.
       const allColumnFields = this.config.columns.map(col => col.field);
       const cachedHidden = this.config.behaviors.columnVisibility.loadHiddenColumnsFromCache(allColumnFields);
       if (cachedHidden.size > 0) {
         this.state.hiddenColumns = cachedHidden;
       }
-      // Priority 3: defaults (all visible) - already initialized in constructor
     }
 
-    // Restore column order from localStorage cache (not in URL by default per guiding notes)
-    // Note: Column order is preferences-only, not URL-shareable
-    if (this.config.behaviors?.columnVisibility?.loadColumnOrderFromCache) {
+    // Restore column order from behavior cache (preferences/state only).
+    if (!this.hasPersistedColumnOrderState && this.config.behaviors?.columnVisibility?.loadColumnOrderFromCache) {
       const allColumnFields = this.config.columns.map(col => col.field);
       const cachedOrder = this.config.behaviors.columnVisibility.loadColumnOrderFromCache(allColumnFields);
       if (cachedOrder && cachedOrder.length > 0) {
-        // Merge cached order with current columns (drop missing, append new)
         const validOrder = this.mergeColumnOrder(cachedOrder);
         this.state.columnOrder = validOrder;
 
-        // Track whether we restored an order, and whether it requires DOM reordering.
         this.didRestoreColumnOrder = true;
         const defaultOrder = this.defaultColumns.map(col => col.field);
         this.shouldReorderDOMOnRestore = defaultOrder.join('|') !== validOrder.join('|');
 
-        // Reorder config.columns to match
         const columnMap = new Map(this.config.columns.map(c => [c.field, c]));
         this.config.columns = validOrder
           .map(field => columnMap.get(field))
           .filter((c): c is ColumnDefinition => c !== undefined);
-
-        console.log('[DataGrid] Column order restored from cache:', validOrder);
       }
     }
+
+    this.persistStateSnapshot();
 
     console.log('[DataGrid] State restored from URL:', this.state);
 
@@ -456,6 +723,16 @@ export class DataGrid {
    * Apply restored state to UI elements
    */
   private applyRestoredState(): void {
+    const searchInput = document.querySelector<HTMLInputElement>(this.selectors.searchInput);
+    if (searchInput) {
+      searchInput.value = this.state.search;
+    }
+
+    const perPageSelect = document.querySelector<HTMLSelectElement>(this.selectors.perPageSelect);
+    if (perPageSelect) {
+      perPageSelect.value = String(this.state.perPage);
+    }
+
     // Apply filter values to inputs
     if (this.state.filters.length > 0) {
       this.state.filters.forEach(filter => {
@@ -491,6 +768,8 @@ export class DataGrid {
    * Push current state to URL without reloading page
    */
   private pushStateToURL(options: { replace?: boolean } = {}): void {
+    this.persistStateSnapshot();
+    const urlState = this.getURLStateConfig();
     const params = new URLSearchParams(window.location.search);
 
     // Reset keys managed by DataGrid while preserving unrelated query params.
@@ -513,9 +792,15 @@ export class DataGrid {
       params.set(DataGrid.URL_KEY_PER_PAGE, String(this.state.perPage));
     }
 
-    // Add filters
+    // Add filters (bounded to avoid oversized query strings).
+    let filtersTooLong = false;
     if (this.state.filters.length > 0) {
-      params.set(DataGrid.URL_KEY_FILTERS, JSON.stringify(this.state.filters));
+      const serializedFilters = JSON.stringify(this.state.filters);
+      if (serializedFilters.length <= urlState.maxFiltersLength) {
+        params.set(DataGrid.URL_KEY_FILTERS, serializedFilters);
+      } else {
+        filtersTooLong = true;
+      }
     }
 
     // Add sort
@@ -523,30 +808,34 @@ export class DataGrid {
       params.set(DataGrid.URL_KEY_SORT, JSON.stringify(this.state.sort));
     }
 
-    // Add hidden columns
-    if (this.state.hiddenColumns.size > 0) {
-      params.set(
-        DataGrid.URL_KEY_HIDDEN_COLUMNS,
-        JSON.stringify(Array.from(this.state.hiddenColumns))
-      );
-    }
-
-    // Add grouped-mode URL state
+    // Keep view mode in URL (compact + shareable); heavy grouped state stays in state store.
     if (this.config.enableGroupedMode) {
       params.set(DataGrid.URL_KEY_VIEW_MODE, this.state.viewMode);
-
-      if (this.isGroupedViewActive()) {
-        const expandedToken = encodeExpandedGroupsToken(this.state.expandedGroups);
-        if (expandedToken) {
-          params.set(DataGrid.URL_KEY_EXPANDED_GROUPS, expandedToken);
-        }
-      }
     }
 
-    // Update URL without reload
-    const newURL = params.toString()
-      ? `${window.location.pathname}?${params.toString()}`
+    const buildURL = (value: URLSearchParams): string => value.toString()
+      ? `${window.location.pathname}?${value.toString()}`
       : window.location.pathname;
+    let newURL = buildURL(params);
+
+    const exceedsBudget = newURL.length > urlState.maxURLLength;
+    if (urlState.enableStateToken && (filtersTooLong || exceedsBudget)) {
+      // Encode full query state as a short token and keep URL compact.
+      params.delete(DataGrid.URL_KEY_SEARCH);
+      params.delete(DataGrid.URL_KEY_PAGE);
+      params.delete(DataGrid.URL_KEY_PER_PAGE);
+      params.delete(DataGrid.URL_KEY_FILTERS);
+      params.delete(DataGrid.URL_KEY_SORT);
+
+      const token = this.stateStore.createShareState(this.buildShareStateSnapshot());
+      if (token) {
+        params.set(DataGrid.URL_KEY_STATE, token);
+        newURL = buildURL(params);
+      } else {
+        // Best-effort fallback when token creation fails.
+        newURL = buildURL(params);
+      }
+    }
 
     if (options.replace) {
       window.history.replaceState({}, '', newURL);
@@ -558,7 +847,7 @@ export class DataGrid {
 
   /**
    * Public API: sync current grid state to the URL.
-   * Keeps `hiddenColumns` shareable; column order stays preferences-only by default.
+   * Heavy UI state is persisted via the state store; URL keeps shareable query state.
    */
   syncURL(): void {
     this.pushStateToURL();
@@ -903,6 +1192,7 @@ export class DataGrid {
     let groupedData = normalizeBackendGroupedRows(records, {
       groupByField,
       defaultExpanded: !this.state.hasPersistedExpandState,
+      expandMode: this.state.expandMode,
       expandedGroups: this.state.expandedGroups,
     });
 
@@ -911,6 +1201,7 @@ export class DataGrid {
       groupedData = transformToGroups(records, {
         groupByField,
         defaultExpanded: !this.state.hasPersistedExpandState,
+        expandMode: this.state.expandMode,
         expandedGroups: this.state.expandedGroups,
       });
     }
@@ -944,17 +1235,18 @@ export class DataGrid {
         });
       }
 
-      // Render child rows if expanded
-      if (group.expanded) {
-        for (const record of group.records) {
-          if (record.id) {
-            this.recordsById[record.id as string] = record;
-          }
-          const row = this.createTableRow(record);
-          row.dataset.groupId = group.groupId;
-          row.classList.add('group-child-row');
-          tbody.appendChild(row);
+      // Render child rows (collapsed groups keep rows hidden for fast toggle updates).
+      for (const record of group.records) {
+        if (record.id) {
+          this.recordsById[record.id as string] = record;
         }
+        const row = this.createTableRow(record);
+        row.dataset.groupId = group.groupId;
+        row.classList.add('group-child-row');
+        if (!group.expanded) {
+          row.style.display = 'none';
+        }
+        tbody.appendChild(row);
       }
     }
 
@@ -990,9 +1282,6 @@ export class DataGrid {
 
     this.state.viewMode = 'flat';
     this.state.groupedData = null;
-
-    const panelId = this.config.panelId || this.config.tableId;
-    persistViewMode(panelId, 'flat');
     this.pushStateToURL({ replace: true });
 
     this.notify(reason, 'warning');
@@ -1036,28 +1325,101 @@ export class DataGrid {
    */
   toggleGroup(groupId: string): void {
     if (!this.state.groupedData) return;
+    const normalizedGroupID = String(groupId || '').trim();
+    if (!normalizedGroupID) return;
+    const currentlyExpanded = this.isGroupExpandedByState(normalizedGroupID, !this.state.hasPersistedExpandState);
 
-    // Toggle in state
-    if (this.state.expandedGroups.has(groupId)) {
-      this.state.expandedGroups.delete(groupId);
+    if (this.state.expandMode === 'all') {
+      if (currentlyExpanded) {
+        this.state.expandedGroups.add(normalizedGroupID);
+      } else {
+        this.state.expandedGroups.delete(normalizedGroupID);
+      }
+    } else if (this.state.expandMode === 'none') {
+      if (currentlyExpanded) {
+        this.state.expandedGroups.delete(normalizedGroupID);
+      } else {
+        this.state.expandedGroups.add(normalizedGroupID);
+      }
     } else {
-      this.state.expandedGroups.add(groupId);
+      // When default-expanded and no explicit state exists yet, seed with all groups first.
+      if (!this.state.hasPersistedExpandState && this.state.expandedGroups.size === 0) {
+        this.state.expandedGroups = new Set(this.state.groupedData.groups.map((group) => group.groupId));
+      }
+      if (this.state.expandedGroups.has(normalizedGroupID)) {
+        this.state.expandedGroups.delete(normalizedGroupID);
+      } else {
+        this.state.expandedGroups.add(normalizedGroupID);
+      }
     }
 
-    // Persist state
-    const panelId = this.config.panelId || this.config.tableId;
-    persistExpandState(panelId, this.state.expandedGroups);
     this.state.hasPersistedExpandState = true;
 
     // Update the group's expanded state
-    const group = this.state.groupedData.groups.find(g => g.groupId === groupId);
+    const group = this.state.groupedData.groups.find(g => g.groupId === normalizedGroupID);
     if (group) {
-      group.expanded = this.state.expandedGroups.has(groupId);
+      group.expanded = this.isGroupExpandedByState(normalizedGroupID);
     }
 
     // Re-render the affected group (toggle child row visibility)
-    this.updateGroupVisibility(groupId);
+    this.updateGroupVisibility(normalizedGroupID);
     this.pushStateToURL({ replace: true });
+  }
+
+  /**
+   * Set explicit expanded group IDs and switch expand mode to explicit.
+   */
+  setExpandedGroups(groupIDs: string[]): void {
+    if (!this.config.enableGroupedMode) {
+      return;
+    }
+    const next = new Set(
+      (groupIDs || [])
+        .map((value) => String(value || '').trim())
+        .filter(Boolean)
+    );
+    this.state.expandMode = 'explicit';
+    this.state.expandedGroups = next;
+    this.state.hasPersistedExpandState = true;
+    this.updateGroupedRowsFromState();
+    this.pushStateToURL({ replace: true });
+    if (!this.state.groupedData && this.isGroupedViewActive()) {
+      void this.refresh();
+    }
+  }
+
+  /**
+   * Expand all groups using compact mode semantics.
+   */
+  expandAllGroups(): void {
+    if (!this.config.enableGroupedMode) {
+      return;
+    }
+    this.state.expandMode = 'all';
+    this.state.expandedGroups.clear();
+    this.state.hasPersistedExpandState = true;
+    this.updateGroupedRowsFromState();
+    this.pushStateToURL({ replace: true });
+    if (!this.state.groupedData && this.isGroupedViewActive()) {
+      void this.refresh();
+    }
+  }
+
+  /**
+   * Collapse all groups using compact mode semantics.
+   */
+  collapseAllGroups(): void {
+    if (!this.config.enableGroupedMode) {
+      return;
+    }
+    this.state.expandMode = 'none';
+    this.state.expandedGroups.clear();
+    this.state.hasPersistedExpandState = true;
+    this.updateGroupedRowsFromState();
+    this.pushStateToURL({ replace: true });
+    if (!this.state.groupedData && this.isGroupedViewActive()) {
+      void this.refresh();
+    }
   }
 
   /**
@@ -1070,7 +1432,7 @@ export class DataGrid {
     const headerRow = tbody.querySelector(`tr[data-group-id="${groupId}"]`) as HTMLElement;
     if (!headerRow) return;
 
-    const isExpanded = this.state.expandedGroups.has(groupId);
+    const isExpanded = this.isGroupExpandedByState(groupId);
 
     // Update header row state
     headerRow.dataset.expanded = String(isExpanded);
@@ -1089,6 +1451,30 @@ export class DataGrid {
     });
   }
 
+  private updateGroupedRowsFromState(): void {
+    if (!this.state.groupedData) {
+      return;
+    }
+    for (const group of this.state.groupedData.groups) {
+      group.expanded = this.isGroupExpandedByState(group.groupId);
+      this.updateGroupVisibility(group.groupId);
+    }
+  }
+
+  private isGroupExpandedByState(groupId: string, defaultExpanded: boolean = false): boolean {
+    const mode = normalizeExpandMode(this.state.expandMode, 'explicit');
+    if (mode === 'all') {
+      return !this.state.expandedGroups.has(groupId);
+    }
+    if (mode === 'none') {
+      return this.state.expandedGroups.has(groupId);
+    }
+    if (this.state.expandedGroups.size === 0) {
+      return defaultExpanded;
+    }
+    return this.state.expandedGroups.has(groupId);
+  }
+
   /**
    * Set view mode (flat, grouped, matrix) - Phase 2
    */
@@ -1102,14 +1488,13 @@ export class DataGrid {
     const effectiveMode = getViewModeForViewport(mode);
 
     this.state.viewMode = effectiveMode;
-
-    // Persist mode
-    const panelId = this.config.panelId || this.config.tableId;
-    persistViewMode(panelId, effectiveMode);
+    if (effectiveMode === 'flat') {
+      this.state.groupedData = null;
+    }
     this.pushStateToURL();
 
     // Re-fetch data with new mode
-    this.refresh();
+    void this.refresh();
   }
 
   /**
@@ -2352,6 +2737,7 @@ export class DataGrid {
 
     // Reorder DOM elements
     this.reorderTableColumns(validOrder);
+    this.persistStateSnapshot();
 
     console.log('[DataGrid] Columns reordered:', validOrder);
   }
@@ -2382,6 +2768,7 @@ export class DataGrid {
       this.state.hiddenColumns = new Set(
         this.config.columns.filter(col => col.hidden).map(col => col.field)
       );
+      this.persistStateSnapshot();
     }
 
     // Re-render the column menu to reflect defaults (Sortable is re-initialized in refresh()).

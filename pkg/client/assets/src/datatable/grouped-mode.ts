@@ -41,6 +41,7 @@
  * the cell renderer switches to compact locale chips in matrix mode.
  */
 export type ViewMode = 'flat' | 'grouped' | 'matrix';
+export type GroupExpandMode = 'all' | 'none' | 'explicit';
 
 /**
  * Group summary from backend or computed locally
@@ -98,6 +99,8 @@ export interface GroupTransformOptions {
   groupByField?: string;
   /** Default expanded state for groups */
   defaultExpanded?: boolean;
+  /** Expansion mode */
+  expandMode?: GroupExpandMode;
   /** Previously expanded group IDs */
   expandedGroups?: Set<string>;
 }
@@ -133,6 +136,7 @@ export function transformToGroups(
   const {
     groupByField = 'translation_group_id',
     defaultExpanded = true,
+    expandMode = 'explicit',
     expandedGroups = new Set<string>(),
   } = options;
 
@@ -159,7 +163,7 @@ export function transformToGroups(
   const groups: RecordGroup[] = [];
   for (const [groupId, groupRecords] of groupMap) {
     const summary = computeGroupSummary(groupRecords);
-    const expanded = expandedGroups.has(groupId) || (expandedGroups.size === 0 && defaultExpanded);
+    const expanded = isGroupExpanded(groupId, expandMode, expandedGroups, defaultExpanded);
 
     groups.push({
       groupId,
@@ -221,6 +225,7 @@ export function normalizeBackendGroupedRows(
 ): GroupedData | null {
   const {
     defaultExpanded = true,
+    expandMode = 'explicit',
     expandedGroups = new Set<string>(),
   } = options;
 
@@ -245,7 +250,7 @@ export function normalizeBackendGroupedRows(
 
     const children = getBackendGroupChildren(row);
     const summary = getBackendGroupSummary(row, children);
-    const expanded = expandedGroups.has(groupId) || (expandedGroups.size === 0 && defaultExpanded);
+    const expanded = isGroupExpanded(groupId, expandMode, expandedGroups, defaultExpanded);
 
     groups.push({
       groupId,
@@ -265,6 +270,24 @@ export function normalizeBackendGroupedRows(
     totalGroups: groups.length,
     totalRecords,
   };
+}
+
+function isGroupExpanded(
+  groupId: string,
+  expandMode: GroupExpandMode,
+  expandedGroups: Set<string>,
+  defaultExpanded: boolean
+): boolean {
+  if (expandMode === 'all') {
+    return !expandedGroups.has(groupId);
+  }
+  if (expandMode === 'none') {
+    return expandedGroups.has(groupId);
+  }
+  if (expandedGroups.size === 0) {
+    return defaultExpanded;
+  }
+  return expandedGroups.has(groupId);
 }
 
 function isBackendGroupedRow(record: Record<string, unknown>): record is Record<string, unknown> & BackendGroupedRow {
@@ -599,23 +622,81 @@ function isValidReadinessState(
 
 const EXPAND_STATE_KEY_PREFIX = 'datagrid-expand-state-';
 
+interface PersistedExpandStateV2 {
+  version: 2;
+  mode: GroupExpandMode;
+  ids: string[];
+}
+
+function normalizeExpandIDs(values: unknown): string[] {
+  if (!Array.isArray(values)) {
+    return [];
+  }
+  const out: string[] = [];
+  for (const value of values) {
+    const normalized = sanitizeGroupId(value);
+    if (!normalized) continue;
+    if (out.includes(normalized)) continue;
+    if (out.length >= MAX_EXPANDED_GROUPS_TOKEN_ITEMS) break;
+    out.push(normalized);
+  }
+  return out;
+}
+
+function parsePersistedExpandState(raw: string | null): PersistedExpandStateV2 | null {
+  if (!raw) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return {
+        version: 2,
+        mode: 'explicit',
+        ids: normalizeExpandIDs(parsed),
+      };
+    }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return null;
+    }
+    const mode = normalizeExpandMode((parsed as Record<string, unknown>).mode, 'explicit');
+    const ids = normalizeExpandIDs((parsed as Record<string, unknown>).ids);
+    return { version: 2, mode, ids };
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Get persisted expand state for a panel.
  */
 export function getPersistedExpandState(panelId: string): Set<string> {
   try {
     const key = EXPAND_STATE_KEY_PREFIX + panelId;
-    const stored = localStorage.getItem(key);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed)) {
-        return new Set(parsed.filter(isString));
-      }
+    const parsed = parsePersistedExpandState(localStorage.getItem(key));
+    if (parsed) {
+      return new Set(parsed.ids);
     }
   } catch {
     // Ignore storage errors
   }
   return new Set<string>();
+}
+
+/**
+ * Get persisted expand mode for a panel.
+ */
+export function getPersistedExpandMode(panelId: string): GroupExpandMode {
+  try {
+    const key = EXPAND_STATE_KEY_PREFIX + panelId;
+    const parsed = parsePersistedExpandState(localStorage.getItem(key));
+    if (parsed) {
+      return parsed.mode;
+    }
+  } catch {
+    // Ignore storage errors.
+  }
+  return 'explicit';
 }
 
 /**
@@ -634,10 +715,20 @@ export function hasPersistedExpandState(panelId: string): boolean {
 /**
  * Persist expand state for a panel.
  */
-export function persistExpandState(panelId: string, expandedGroups: Set<string>): void {
+export function persistExpandState(
+  panelId: string,
+  expandedGroups: Set<string>,
+  mode: GroupExpandMode = 'explicit'
+): void {
   try {
     const key = EXPAND_STATE_KEY_PREFIX + panelId;
-    localStorage.setItem(key, JSON.stringify(Array.from(expandedGroups)));
+    const ids = normalizeExpandIDs(Array.from(expandedGroups));
+    const payload: PersistedExpandStateV2 = {
+      version: 2,
+      mode: normalizeExpandMode(mode, 'explicit'),
+      ids,
+    };
+    localStorage.setItem(key, JSON.stringify(payload));
   } catch {
     // Ignore storage errors
   }
@@ -713,6 +804,13 @@ const VIEW_MODE_KEY_PREFIX = 'datagrid-view-mode-';
 const MAX_EXPANDED_GROUPS_TOKEN_ITEMS = 200;
 const MAX_EXPANDED_GROUP_ID_LENGTH = 256;
 
+export function normalizeExpandMode(value: unknown, fallback: GroupExpandMode = 'explicit'): GroupExpandMode {
+  if (value === 'all' || value === 'none' || value === 'explicit') {
+    return value;
+  }
+  return fallback;
+}
+
 /**
  * Get persisted view mode for a panel.
  */
@@ -766,7 +864,9 @@ export function encodeExpandedGroupsToken(expandedGroups: Set<string>): string {
     Array.from(expandedGroups)
       .map((value) => sanitizeGroupId(value))
       .filter((value): value is string => value !== null)
-  )).sort();
+  ))
+    .slice(0, MAX_EXPANDED_GROUPS_TOKEN_ITEMS)
+    .sort();
 
   if (normalized.length === 0) {
     return '';
@@ -814,9 +914,20 @@ function sanitizeGroupId(value: unknown): string | null {
   if (typeof value !== 'string') {
     return null;
   }
-  const trimmed = value.trim();
+  let trimmed = value.trim();
   if (!trimmed) {
     return null;
+  }
+  // Normalize pre-encoded IDs once to avoid repeated %25 growth in URL tokens.
+  if (trimmed.includes('%')) {
+    try {
+      const decoded = decodeURIComponent(trimmed);
+      if (typeof decoded === 'string' && decoded.trim()) {
+        trimmed = decoded.trim();
+      }
+    } catch {
+      // Keep original when decoding fails.
+    }
   }
   if (trimmed.length > MAX_EXPANDED_GROUP_ID_LENGTH) {
     return null;
