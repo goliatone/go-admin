@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"sort"
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
@@ -44,7 +45,7 @@ func WithContentAliasRoutes(aliases ...string) ContentAliasRouteOption {
 	}
 }
 
-// RegisterContentEntryAliasRoutes registers alias routes (e.g., /pages, /posts) for content entry UI.
+// RegisterContentEntryAliasRoutes registers content entry alias routes for content panels.
 func RegisterContentEntryAliasRoutes[T any](
 	r router.Router[T],
 	cfg admin.Config,
@@ -58,7 +59,6 @@ func RegisterContentEntryAliasRoutes[T any](
 
 	options := contentAliasRouteOptions{
 		basePath: strings.TrimSpace(cfg.BasePath),
-		aliases:  []string{"pages", "posts"},
 	}
 	for _, opt := range opts {
 		if opt != nil {
@@ -67,6 +67,9 @@ func RegisterContentEntryAliasRoutes[T any](
 	}
 	if options.basePath == "" {
 		options.basePath = "/"
+	}
+	if len(options.aliases) == 0 {
+		options.aliases = contentEntryAliasesFromAdmin(adm)
 	}
 	if len(options.aliases) == 0 {
 		return nil
@@ -86,6 +89,44 @@ func RegisterContentEntryAliasRoutes[T any](
 		r.Get(aliasBase+"/*path", handler)
 	}
 	return nil
+}
+
+func contentEntryAliasesFromAdmin(adm *admin.Admin) []string {
+	if adm == nil || adm.ContentTypeService() == nil {
+		return nil
+	}
+	types, err := adm.ContentTypeService().ContentTypes(context.Background())
+	if err != nil {
+		return nil
+	}
+	seen := map[string]string{}
+	for _, ct := range types {
+		for _, candidate := range []string{
+			strings.TrimSpace(ct.Slug),
+			panelSlugFromCapabilities(ct.Capabilities),
+		} {
+			candidate = strings.TrimSpace(candidate)
+			if candidate == "" {
+				continue
+			}
+			key := strings.ToLower(candidate)
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = candidate
+		}
+	}
+	if len(seen) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(seen))
+	for _, alias := range seen {
+		out = append(out, alias)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		return strings.ToLower(out[i]) < strings.ToLower(out[j])
+	})
+	return out
 }
 
 func contentAliasHandler(adm *admin.Admin, alias string, aliasBase string, basePath string) router.HandlerFunc {
