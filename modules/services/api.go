@@ -1938,16 +1938,6 @@ func applyRateLimitFilterQuery(query *bun.SelectQuery, filter rateLimitListFilte
 	return query
 }
 
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		trimmed := strings.TrimSpace(value)
-		if trimmed != "" {
-			return trimmed
-		}
-	}
-	return ""
-}
-
 func routeParam(c router.Context, names ...string) string {
 	for _, name := range names {
 		if value := strings.TrimSpace(c.Param(name, "")); value != "" {
