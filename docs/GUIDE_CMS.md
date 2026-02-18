@@ -603,10 +603,21 @@ view context) instead of hardcoded table IDs or endpoints. Canonical keys:
 - `datagrid_config.api_endpoint`
 - `datagrid_config.action_base`
 - `datagrid_config.column_storage_key`
+- `datagrid_config.state_store` (optional: `mode`, `resource`, `sync_debounce_ms`, `max_share_entries`)
+- `datagrid_config.url_state` (optional: `max_url_length`, `max_filters_length`, `enable_state_token`)
 - `datagrid_config.export_config`
 
 Compatibility keys (`datatable_id`, `list_api`, `action_base`, `export_config`)
 are still provided for legacy templates, but should be treated as fallback-only.
+
+State persistence defaults to local browser storage when `state_store` is not
+provided (or `mode=local`). For deployments that need server-backed user state,
+set `state_store.mode=preferences` and provide a `resource` key.
+
+URL sync is bounded by `url_state` limits. When encoded DataGrid state would
+exceed configured URL budgets, the client falls back to compact `state=<token>`
+query encoding (when `enable_state_token=true`) to prevent oversized request
+headers.
 
 Built-in list renderer fallback:
 
