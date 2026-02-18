@@ -973,15 +973,6 @@ func (a *GoCMSContentAdapter) shouldApplyStructuralMetadata(ctx context.Context,
 		if hasTreeCapability(ct.Capabilities) {
 			return true
 		}
-		if strings.EqualFold(panelSlugForContentType(ct), "pages") {
-			return true
-		}
-		if strings.EqualFold(ct.Slug, "page") {
-			return true
-		}
-	}
-	if strings.EqualFold(content.ContentTypeSlug, "page") || strings.EqualFold(content.ContentType, "page") {
-		return true
 	}
 	return false
 }
