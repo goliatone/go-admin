@@ -821,82 +821,64 @@ func contentTypeWantsTranslations(contentType CMSContentType) bool {
 	if hasTranslationsCapability(contentType.Capabilities) {
 		return true
 	}
-	slug := strings.ToLower(strings.TrimSpace(panelSlugForContentType(&contentType)))
-	switch slug {
-	case "pages", "page", "posts", "post", "news":
-		return true
-	default:
+	for _, schema := range []map[string]any{contentType.Schema, contentType.UISchema} {
+		if schemaHasTranslationHints(schema) {
+			return true
+		}
+	}
+	return false
+}
+
+func schemaHasTranslationHints(schema map[string]any) bool {
+	if len(schema) == 0 {
 		return false
 	}
+	translationKeys := map[string]struct{}{
+		"translation_group_id":     {},
+		"available_locales":        {},
+		"requested_locale":         {},
+		"resolved_locale":          {},
+		"missing_requested_locale": {},
+		"translation":              {},
+		"content_translation":      {},
+		"translation_context":      {},
+	}
+	var walk func(any) bool
+	walk = func(value any) bool {
+		switch typed := value.(type) {
+		case map[string]any:
+			for key, nested := range typed {
+				normalized := strings.ToLower(strings.TrimSpace(key))
+				if _, ok := translationKeys[normalized]; ok {
+					return true
+				}
+				if walk(nested) {
+					return true
+				}
+			}
+		case []any:
+			for _, nested := range typed {
+				if walk(nested) {
+					return true
+				}
+			}
+		}
+		return false
+	}
+	return walk(schema)
 }
 
 func contentRecordRequiresCanonicalTopLevelFields(item CMSContent) bool {
-	key := strings.ToLower(strings.TrimSpace(firstNonEmpty(item.ContentTypeSlug, item.ContentType)))
-	switch key {
-	case "page", "pages", "post", "posts", "news":
-		return true
-	default:
+	if len(item.Data) == 0 {
 		return false
 	}
-}
-
-func ensureCanonicalTopLevelFields(item CMSContent) error {
-	missing := missingCanonicalTopLevelFields(item.Data)
-	if len(missing) == 0 {
-		return nil
+	if contentRecordLikelyTranslationEnabled(item) {
+		return len(missingCanonicalTopLevelFields(item.Data)) > 0
 	}
-	ensureLogger(nil).Warn(
-		"cms content payload missing canonical top-level derived fields",
-		"content_id", item.ID,
-		"content_type", firstNonEmpty(item.ContentTypeSlug, item.ContentType),
-		"missing_fields", missing,
-	)
-	return validationDomainError("cms content payload missing canonical top-level derived fields", map[string]any{
-		"component":    "cms_content_repository",
-		"content_id":   item.ID,
-		"content_type": firstNonEmpty(item.ContentTypeSlug, item.ContentType),
-		"locale":       item.Locale,
-		"missing":      missing,
-	})
-}
-
-func missingCanonicalTopLevelFields(data map[string]any) []string {
-	markdown := canonicalMapValue(data["markdown"])
-	if len(markdown) == 0 {
-		return nil
+	if !markdownCarriesCanonicalProjectionHints(item.Data) {
+		return false
 	}
-	out := []string{}
-	if isNonEmptyCanonicalValue(canonicalNestedLookup(data, "markdown", "body")) && !isNonEmptyCanonicalValue(data["content"]) {
-		out = append(out, "content")
-	}
-	if (isNonEmptyCanonicalValue(canonicalMarkdownSourceFieldValue(data, "summary")) ||
-		isNonEmptyCanonicalValue(canonicalMarkdownSourceFieldValue(data, "excerpt"))) &&
-		!isNonEmptyCanonicalValue(data["summary"]) &&
-		!isNonEmptyCanonicalValue(data["excerpt"]) {
-		out = append(out, "summary/excerpt")
-	}
-	for _, field := range []string{"path", "published_at", "featured_image", "meta", "tags"} {
-		if isNonEmptyCanonicalValue(canonicalMarkdownSourceFieldValue(data, field)) && !isNonEmptyCanonicalValue(data[field]) {
-			out = append(out, field)
-		}
-	}
-	if isNonEmptyCanonicalValue(
-		canonicalFirstNonEmpty(
-			canonicalMarkdownSourceFieldValue(data, "meta_title"),
-			canonicalSEOFieldValue(canonicalFirstNonEmpty(data["seo"], canonicalMarkdownSourceFieldValue(data, "seo")), "title"),
-		),
-	) && !isNonEmptyCanonicalValue(data["meta_title"]) {
-		out = append(out, "meta_title")
-	}
-	if isNonEmptyCanonicalValue(
-		canonicalFirstNonEmpty(
-			canonicalMarkdownSourceFieldValue(data, "meta_description"),
-			canonicalSEOFieldValue(canonicalFirstNonEmpty(data["seo"], canonicalMarkdownSourceFieldValue(data, "seo")), "description"),
-		),
-	) && !isNonEmptyCanonicalValue(data["meta_description"]) {
-		out = append(out, "meta_description")
-	}
-	return out
+	return len(missingCanonicalTopLevelFields(item.Data)) > 0
 }
 
 func canonicalTranslationGroupIDForContent(item CMSContent) string {
@@ -924,12 +906,28 @@ func canonicalTranslationGroupIDForContent(item CMSContent) string {
 	return ""
 }
 
-func contentRecordLikelyTranslationEnabled(item CMSContent) bool {
-	key := strings.ToLower(strings.TrimSpace(firstNonEmpty(item.ContentTypeSlug, item.ContentType)))
-	switch key {
-	case "page", "pages", "post", "posts", "news":
-		return true
+func markdownCarriesCanonicalProjectionHints(data map[string]any) bool {
+	if len(canonicalMapValue(data["markdown"])) == 0 {
+		return false
 	}
+	for _, field := range []string{
+		"path",
+		"published_at",
+		"featured_image",
+		"meta",
+		"tags",
+		"meta_title",
+		"meta_description",
+		"seo",
+	} {
+		if isNonEmptyCanonicalValue(canonicalMarkdownSourceFieldValue(data, field)) {
+			return true
+		}
+	}
+	return false
+}
+
+func contentRecordLikelyTranslationEnabled(item CMSContent) bool {
 	if strings.TrimSpace(item.TranslationGroupID) != "" {
 		return true
 	}
@@ -945,8 +943,24 @@ func contentRecordLikelyTranslationEnabled(item CMSContent) bool {
 		{"content_translation", "meta", "translation_group_id"},
 		{"translation_context", "translation_group_id"},
 		{"translation_readiness", "translation_group_id"},
+		{"translation", "meta", "requested_locale"},
+		{"translation", "meta", "resolved_locale"},
+		{"translation", "meta", "missing_requested_locale"},
+		{"translation", "meta", "fallback_used"},
+		{"content_translation", "meta", "requested_locale"},
+		{"content_translation", "meta", "resolved_locale"},
+		{"content_translation", "meta", "missing_requested_locale"},
+		{"content_translation", "meta", "fallback_used"},
 	} {
-		if groupID := strings.TrimSpace(toString(translationReadinessNestedValue(item.Data, path...))); groupID != "" {
+		value := translationReadinessNestedValue(item.Data, path...)
+		last := path[len(path)-1]
+		if last == "missing_requested_locale" || last == "fallback_used" {
+			if toBool(value) {
+				return true
+			}
+			continue
+		}
+		if strings.TrimSpace(toString(value)) != "" {
 			return true
 		}
 	}
@@ -1046,6 +1060,65 @@ func isNonEmptyCanonicalValue(value any) bool {
 	default:
 		return true
 	}
+}
+
+func ensureCanonicalTopLevelFields(item CMSContent) error {
+	missing := missingCanonicalTopLevelFields(item.Data)
+	if len(missing) == 0 {
+		return nil
+	}
+	ensureLogger(nil).Warn(
+		"cms content payload missing canonical top-level derived fields",
+		"content_id", item.ID,
+		"content_type", firstNonEmpty(item.ContentTypeSlug, item.ContentType),
+		"missing_fields", missing,
+	)
+	return validationDomainError("cms content payload missing canonical top-level derived fields", map[string]any{
+		"component":    "cms_content_repository",
+		"content_id":   item.ID,
+		"content_type": firstNonEmpty(item.ContentTypeSlug, item.ContentType),
+		"locale":       item.Locale,
+		"missing":      missing,
+	})
+}
+
+func missingCanonicalTopLevelFields(data map[string]any) []string {
+	markdown := canonicalMapValue(data["markdown"])
+	if len(markdown) == 0 {
+		return nil
+	}
+	out := []string{}
+	if isNonEmptyCanonicalValue(canonicalNestedLookup(data, "markdown", "body")) && !isNonEmptyCanonicalValue(data["content"]) {
+		out = append(out, "content")
+	}
+	if (isNonEmptyCanonicalValue(canonicalMarkdownSourceFieldValue(data, "summary")) ||
+		isNonEmptyCanonicalValue(canonicalMarkdownSourceFieldValue(data, "excerpt"))) &&
+		!isNonEmptyCanonicalValue(data["summary"]) &&
+		!isNonEmptyCanonicalValue(data["excerpt"]) {
+		out = append(out, "summary/excerpt")
+	}
+	for _, field := range []string{"path", "published_at", "featured_image", "meta", "tags"} {
+		if isNonEmptyCanonicalValue(canonicalMarkdownSourceFieldValue(data, field)) && !isNonEmptyCanonicalValue(data[field]) {
+			out = append(out, field)
+		}
+	}
+	if isNonEmptyCanonicalValue(
+		canonicalFirstNonEmpty(
+			canonicalMarkdownSourceFieldValue(data, "meta_title"),
+			canonicalSEOFieldValue(canonicalFirstNonEmpty(data["seo"], canonicalMarkdownSourceFieldValue(data, "seo")), "title"),
+		),
+	) && !isNonEmptyCanonicalValue(data["meta_title"]) {
+		out = append(out, "meta_title")
+	}
+	if isNonEmptyCanonicalValue(
+		canonicalFirstNonEmpty(
+			canonicalMarkdownSourceFieldValue(data, "meta_description"),
+			canonicalSEOFieldValue(canonicalFirstNonEmpty(data["seo"], canonicalMarkdownSourceFieldValue(data, "seo")), "description"),
+		),
+	) && !isNonEmptyCanonicalValue(data["meta_description"]) {
+		out = append(out, "meta_description")
+	}
+	return out
 }
 
 // Get retrieves content by id, enforcing content type membership.
