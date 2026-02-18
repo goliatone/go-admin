@@ -113,7 +113,7 @@ func (a *Admin) registerDashboardProviders() error {
 					actions, _ := cfg["actions"].([]any)
 					if len(actions) == 0 {
 						defaultActions := []any{}
-						if cmsURL := resolveURLWith(a.urlManager, "admin", "content.panel", map[string]string{"panel": "pages"}, nil); cmsURL != "" {
+						if cmsURL := resolveURLWith(a.urlManager, "admin", "content", nil, nil); cmsURL != "" {
 							defaultActions = append(defaultActions, map[string]any{"label": "Go to CMS", "url": cmsURL, "icon": "file"})
 						}
 						if usersURL := resolveURLWith(a.urlManager, "admin", "users", nil, nil); usersURL != "" {
