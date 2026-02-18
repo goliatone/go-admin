@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 	"testing"
 
@@ -44,7 +45,7 @@ func (s *stubGoCMSWidgetService) RegisterDefinition(_ context.Context, input cms
 		ID:          uuid.New(),
 		Name:        input.Name,
 		Description: input.Description,
-		Schema:      cloneAnyMap(input.Schema),
+		Schema:      primitives.CloneAnyMap(input.Schema),
 	}
 	s.defs[input.Name] = def
 	return def, nil
@@ -88,8 +89,8 @@ func (s *stubGoCMSWidgetService) CreateInstance(_ context.Context, input cmswidg
 		ID:            uuid.New(),
 		DefinitionID:  input.DefinitionID,
 		AreaCode:      input.AreaCode,
-		Placement:     cloneAnyMap(input.Placement),
-		Configuration: cloneAnyMap(input.Configuration),
+		Placement:     primitives.CloneAnyMap(input.Placement),
+		Configuration: primitives.CloneAnyMap(input.Configuration),
 		Position:      input.Position,
 	}
 	s.instances[inst.ID] = inst
@@ -188,7 +189,7 @@ func (s *stubGoCMSWidgetService) AssignWidgetToArea(_ context.Context, input cms
 		LocaleID:   input.LocaleID,
 		InstanceID: input.InstanceID,
 		Position:   position,
-		Metadata:   cloneAnyMap(input.Metadata),
+		Metadata:   primitives.CloneAnyMap(input.Metadata),
 	}
 	s.placementsByArea[input.AreaCode][input.InstanceID] = placement
 	areaCode := input.AreaCode

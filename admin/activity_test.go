@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 	"testing"
 	"time"
@@ -49,7 +50,7 @@ type staticUsersEnricher struct {
 }
 
 func (e staticUsersEnricher) Enrich(_ context.Context, record userstypes.ActivityRecord) (userstypes.ActivityRecord, error) {
-	data := cloneAnyMap(record.Data)
+	data := primitives.CloneAnyMap(record.Data)
 	if data == nil {
 		data = map[string]any{}
 	}
@@ -77,7 +78,7 @@ type failingUsersEnricher struct {
 }
 
 func (e failingUsersEnricher) Enrich(_ context.Context, record userstypes.ActivityRecord) (userstypes.ActivityRecord, error) {
-	data := cloneAnyMap(record.Data)
+	data := primitives.CloneAnyMap(record.Data)
 	if data == nil {
 		data = map[string]any{}
 	}

@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 	"testing"
 )
@@ -599,7 +600,7 @@ func TestDynamicPanelFactoryConvergesLegacyNavigationItemToCanonicalID(t *testin
 		Locale:   "en",
 		Target:   map[string]any{"type": "url", "path": "/admin/content/pages"},
 		Menu:     "admin.main",
-		Position: intPtr(3),
+		Position: primitives.Int(3),
 	}); err != nil {
 		t.Fatalf("seed existing menu item failed: %v", err)
 	}

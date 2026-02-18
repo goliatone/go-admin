@@ -323,6 +323,41 @@ func TestNewModuleRegistrarSeedsSidebarUtilityMenuItemsWhenOptedIn(t *testing.T)
 	}
 }
 
+func TestNewModuleRegistrarSkipsSettingsUtilityItemWhenSettingsFeatureDisabled(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	adm, _, err := NewAdmin(
+		cfg,
+		AdapterHooks{},
+		WithFeatureDefaults(map[string]bool{
+			"settings": false,
+		}),
+	)
+	if err != nil {
+		t.Fatalf("NewAdmin error: %v", err)
+	}
+	if err := NewModuleRegistrar(
+		adm,
+		cfg,
+		nil,
+		false,
+		WithDefaultSidebarUtilityItems(true),
+	); err != nil {
+		t.Fatalf("NewModuleRegistrar error: %v", err)
+	}
+
+	utilityMenuCode := DefaultPlacements(cfg).MenuCodeFor(SidebarPlacementUtility, "")
+	utilityMenu, err := adm.MenuService().Menu(context.Background(), utilityMenuCode, cfg.DefaultLocale)
+	if err != nil {
+		t.Fatalf("resolve utility menu: %v", err)
+	}
+	if utilityMenu == nil {
+		t.Fatalf("expected seeded utility menu")
+	}
+	if settingsItem := findMenuItemByRouteName(utilityMenu.Items, "admin.settings"); settingsItem != nil {
+		t.Fatalf("expected settings utility menu item to be omitted when settings feature is disabled")
+	}
+}
+
 func TestNewModuleRegistrarSeedsToolsMenuItemsUnderToolsGroup(t *testing.T) {
 	cfg := NewAdminConfig("/admin", "Admin", "en")
 	adm, _, err := NewAdmin(cfg, AdapterHooks{})
