@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"runtime"
+	"runtime/debug"
 	"sort"
 	"strings"
 	"testing"
@@ -2518,6 +2520,13 @@ func TestPanelBindingListTranslationReadinessAggregatesLocalesByGroup(t *testing
 }
 
 func TestPanelBindingListTranslationReadinessLatencyBudgetFor50Rows(t *testing.T) {
+	previousGCPercent := debug.SetGCPercent(-1)
+	previousMaxProcs := runtime.GOMAXPROCS(1)
+	t.Cleanup(func() {
+		runtime.GOMAXPROCS(previousMaxProcs)
+		debug.SetGCPercent(previousGCPercent)
+	})
+
 	repo := &translationActionRepoStub{list: make([]map[string]any, 0, 50)}
 	for i := 0; i < 50; i++ {
 		repo.list = append(repo.list, map[string]any{
