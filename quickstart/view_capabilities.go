@@ -29,6 +29,23 @@ type PanelDataGridConfigOptions struct {
 	DefaultViewMode   string
 	GroupByField      string
 	TranslationUX     bool
+	StateStore        PanelDataGridStateStoreOptions
+	URLState          PanelDataGridURLStateOptions
+}
+
+// PanelDataGridStateStoreOptions configures datagrid state store wiring for templates.
+type PanelDataGridStateStoreOptions struct {
+	Mode            string
+	Resource        string
+	SyncDebounceMS  int
+	MaxShareEntries int
+}
+
+// PanelDataGridURLStateOptions configures datagrid URL sync limits.
+type PanelDataGridURLStateOptions struct {
+	MaxURLLength     int
+	MaxFiltersLength int
+	EnableStateToken *bool
 }
 
 // BuildPanelViewCapabilities returns standard capability keys for panel templates.
@@ -117,10 +134,53 @@ func BuildPanelDataGridConfig(opts PanelDataGridConfigOptions) map[string]any {
 	if groupByField := strings.TrimSpace(opts.GroupByField); groupByField != "" {
 		dataGridConfig["group_by_field"] = groupByField
 	}
+	if stateStoreCfg := buildPanelDataGridStateStoreConfig(opts.StateStore); len(stateStoreCfg) > 0 {
+		dataGridConfig["state_store"] = stateStoreCfg
+	}
+	if urlStateCfg := buildPanelDataGridURLStateConfig(opts.URLState); len(urlStateCfg) > 0 {
+		dataGridConfig["url_state"] = urlStateCfg
+	}
 	if len(dataGridConfig) == 0 {
 		return nil
 	}
 	return dataGridConfig
+}
+
+func buildPanelDataGridStateStoreConfig(opts PanelDataGridStateStoreOptions) map[string]any {
+	cfg := map[string]any{}
+	if mode := strings.TrimSpace(opts.Mode); mode != "" {
+		cfg["mode"] = mode
+	}
+	if resource := strings.TrimSpace(opts.Resource); resource != "" {
+		cfg["resource"] = resource
+	}
+	if opts.SyncDebounceMS > 0 {
+		cfg["sync_debounce_ms"] = opts.SyncDebounceMS
+	}
+	if opts.MaxShareEntries > 0 {
+		cfg["max_share_entries"] = opts.MaxShareEntries
+	}
+	if len(cfg) == 0 {
+		return nil
+	}
+	return cfg
+}
+
+func buildPanelDataGridURLStateConfig(opts PanelDataGridURLStateOptions) map[string]any {
+	cfg := map[string]any{}
+	if opts.MaxURLLength > 0 {
+		cfg["max_url_length"] = opts.MaxURLLength
+	}
+	if opts.MaxFiltersLength > 0 {
+		cfg["max_filters_length"] = opts.MaxFiltersLength
+	}
+	if opts.EnableStateToken != nil {
+		cfg["enable_state_token"] = *opts.EnableStateToken
+	}
+	if len(cfg) == 0 {
+		return nil
+	}
+	return cfg
 }
 
 func defaultColumnStorageKeyForTable(tableID string) string {
