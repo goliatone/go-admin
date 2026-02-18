@@ -511,6 +511,7 @@ func (h *contentEntryHandlers) listForPanel(c router.Context, panelSlug string) 
 		urls = h.admin.URLs()
 	}
 	basePath := resolveAdminBasePath(urls, h.cfg.BasePath)
+	preferencesAPI := resolveAdminPreferencesAPICollectionPath(urls, h.cfg, basePath)
 	slug := contentTypeSlug(contentType, panelName)
 	actionBase := path.Join(basePath, "content", slug)
 	routes := newContentEntryRoutes(basePath, slug, adminCtx.Environment)
@@ -532,20 +533,21 @@ func (h *contentEntryHandlers) listForPanel(c router.Context, panelSlug string) 
 	}
 
 	viewCtx := router.ViewContext{
-		"title":          h.cfg.Title,
-		"base_path":      basePath,
-		"resource":       "content",
-		"resource_label": contentTypeLabel(contentType, panelName),
-		"routes":         routesMap,
-		"action_base":    actionBase,
-		"items":          items,
-		"columns":        columns,
-		"filters":        filters,
-		"total":          total,
-		"datatable_id":   dataTableID,
-		"list_api":       listAPI,
-		"env":            adminCtx.Environment,
-		"panel_name":     panelName,
+		"title":                h.cfg.Title,
+		"base_path":            basePath,
+		"resource":             "content",
+		"resource_label":       contentTypeLabel(contentType, panelName),
+		"routes":               routesMap,
+		"action_base":          actionBase,
+		"items":                items,
+		"columns":              columns,
+		"filters":              filters,
+		"total":                total,
+		"datatable_id":         dataTableID,
+		"list_api":             listAPI,
+		"env":                  adminCtx.Environment,
+		"panel_name":           panelName,
+		"preferences_api_path": preferencesAPI,
 		"content_type": map[string]any{
 			"id":     contentTypeID(contentType),
 			"name":   contentTypeLabel(contentType, panelName),
@@ -560,15 +562,16 @@ func (h *contentEntryHandlers) listForPanel(c router.Context, panelSlug string) 
 		Definition:  canonicalPanelName(panelName),
 		Variant:     adminCtx.Environment,
 		DataGrid: PanelDataGridConfigOptions{
-			TableID:           dataTableID,
-			APIEndpoint:       listAPI,
-			ActionBase:        actionBase,
-			TranslationUX:     translationUXEnabled,
-			EnableGroupedMode: translationUXEnabled,
-			DefaultViewMode:   contentEntryTranslationDefaultViewMode(translationUXEnabled),
-			GroupByField:      contentEntryTranslationGroupByField(translationUXEnabled),
-			StateStore:        stateStoreCfg,
-			URLState:          h.dataGridURLState,
+			TableID:             dataTableID,
+			APIEndpoint:         listAPI,
+			ActionBase:          actionBase,
+			PreferencesEndpoint: preferencesAPI,
+			TranslationUX:       translationUXEnabled,
+			EnableGroupedMode:   translationUXEnabled,
+			DefaultViewMode:     contentEntryTranslationDefaultViewMode(translationUXEnabled),
+			GroupByField:        contentEntryTranslationGroupByField(translationUXEnabled),
+			StateStore:          stateStoreCfg,
+			URLState:            h.dataGridURLState,
 		},
 	}))
 	if h.viewContext != nil {
