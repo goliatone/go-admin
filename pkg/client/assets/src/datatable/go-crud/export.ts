@@ -1,5 +1,6 @@
 import type { ExportBehavior, ExportConcurrencyMode } from '../behaviors/types.js';
 import type { DataGrid } from '../core.js';
+import { httpRequest } from '../../shared/transport/http-client.js';
 
 type ExportFormat = 'csv' | 'json' | 'excel' | 'pdf';
 type DeliveryMode = 'sync' | 'async' | 'auto';
@@ -123,13 +124,12 @@ export class GoCrudExportBehavior implements ExportBehavior {
 
     let response: Response;
     try {
-      response = await fetch(this.getEndpoint(), {
+      response = await httpRequest(this.getEndpoint(), {
         method: 'POST',
+        json: payload,
         headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json,application/octet-stream'
+          'Accept': 'application/json,application/octet-stream',
         },
-        body: JSON.stringify(payload)
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Network error during export';
@@ -148,10 +148,11 @@ export class GoCrudExportBehavior implements ExportBehavior {
             intervalMs: resolvePollIntervalMs(this.config),
             timeoutMs: resolvePollTimeoutMs(this.config)
           });
-          const downloadResponse = await fetch(downloadURL, {
+          const downloadResponse = await httpRequest(downloadURL, {
+            method: 'GET',
             headers: {
-              'Accept': 'application/octet-stream'
-            }
+              'Accept': 'application/octet-stream',
+            },
           });
           if (!downloadResponse.ok) {
             const message = await readErrorMessage(downloadResponse);
@@ -263,10 +264,11 @@ async function pollExportStatus(
   const interval = Math.max(250, opts.intervalMs);
 
   while (true) {
-    const response = await fetch(statusURL, {
+    const response = await httpRequest(statusURL, {
+      method: 'GET',
       headers: {
-        'Accept': 'application/json'
-      }
+        'Accept': 'application/json',
+      },
     });
     if (!response.ok) {
       const message = await readErrorMessage(response);
