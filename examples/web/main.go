@@ -243,10 +243,10 @@ func main() {
 		adminDeps.ActivityRepository = usersDeps.ActivityRepo
 		adminDeps.ActivityAccessPolicy = activity.NewDefaultAccessPolicy()
 	}
-	translationPolicyCfg := quickstart.DefaultContentTranslationPolicyConfig()
+	translationPolicyCfg := exampleTranslationPolicyConfig()
 	validationResult, err := quickstart.ValidateTranslationPolicyConfig(
 		translationPolicyCfg,
-		quickstart.DefaultTranslationPolicyValidationCatalog(),
+		exampleTranslationPolicyValidationCatalog(),
 	)
 	if err != nil {
 		log.Panicf("invalid translation policy config: %v", err)
@@ -701,7 +701,6 @@ func main() {
 		}),
 	)
 	usersModule := quickstart.NewUsersModule(
-		admin.WithUserMenuParent(setup.NavigationGroupMain),
 		admin.WithUsersPanelConfigurer(func(builder *admin.PanelBuilder) *admin.PanelBuilder {
 			if builder == nil {
 				return nil
@@ -755,11 +754,11 @@ func main() {
 				})
 			},
 		),
-		coreadmin.NewActivityModule().WithMenuParent(setup.NavigationGroupOthers),
-		coreadmin.NewFeatureFlagsModule().WithMenuParent(setup.NavigationGroupOthers),
+		quickstart.NewActivityModule(),
+		quickstart.NewFeatureFlagsModule(),
 	}
 	if debugEnabled {
-		modules = append(modules, admin.NewDebugModule(cfg.Debug).WithMenuParent(setup.NavigationGroupOthers))
+		modules = append(modules, quickstart.NewDebugModule(cfg.Debug))
 	}
 
 	if err := quickstart.NewModuleRegistrar(
@@ -768,6 +767,7 @@ func main() {
 		modules,
 		isDev,
 		quickstart.WithTranslationCapabilityMenuMode(quickstart.TranslationCapabilityMenuModeTools),
+		quickstart.WithDefaultSidebarUtilityItems(true),
 	); err != nil {
 		log.Panicf("failed to register modules: %v", err)
 	}
@@ -996,14 +996,49 @@ func main() {
 	if err := quickstart.RegisterContentTypeBuilderAPIRoutes(r, cfg, adm, authn); err != nil {
 		log.Panicf("failed to register content type builder API routes: %v", err)
 	}
+	parsePositiveEnvInt := func(key string) int {
+		raw := strings.TrimSpace(os.Getenv(key))
+		if raw == "" {
+			return 0
+		}
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || parsed <= 0 {
+			return 0
+		}
+		return parsed
+	}
+	contentEntryUIOpts := []quickstart.ContentEntryUIOption{
+		quickstart.WithContentEntryUITemplateFS(client.FS(), webFS),
+		quickstart.WithContentEntryRecommendedDefaults(),
+		quickstart.WithContentEntryTranslationUX(true),
+	}
+	stateStoreMode := strings.TrimSpace(os.Getenv("ADMIN_DATAGRID_STATE_STORE_MODE"))
+	if stateStoreMode != "" {
+		contentEntryUIOpts = append(contentEntryUIOpts, quickstart.WithContentEntryDataGridStateStore(
+			quickstart.PanelDataGridStateStoreOptions{
+				Mode:            stateStoreMode,
+				SyncDebounceMS:  parsePositiveEnvInt("ADMIN_DATAGRID_STATE_SYNC_DEBOUNCE_MS"),
+				MaxShareEntries: parsePositiveEnvInt("ADMIN_DATAGRID_STATE_MAX_SHARE_ENTRIES"),
+			},
+		))
+	}
+	urlStateCfg := quickstart.PanelDataGridURLStateOptions{
+		MaxURLLength:     parsePositiveEnvInt("ADMIN_DATAGRID_URL_MAX_LENGTH"),
+		MaxFiltersLength: parsePositiveEnvInt("ADMIN_DATAGRID_URL_MAX_FILTERS_LENGTH"),
+	}
+	if raw, has := os.LookupEnv("ADMIN_DATAGRID_URL_ENABLE_STATE_TOKEN"); has {
+		enabled := strings.EqualFold(strings.TrimSpace(raw), "true") || strings.TrimSpace(raw) == "1"
+		urlStateCfg.EnableStateToken = &enabled
+	}
+	if urlStateCfg.MaxURLLength > 0 || urlStateCfg.MaxFiltersLength > 0 || urlStateCfg.EnableStateToken != nil {
+		contentEntryUIOpts = append(contentEntryUIOpts, quickstart.WithContentEntryDataGridURLState(urlStateCfg))
+	}
 	if err := quickstart.RegisterContentEntryUIRoutes(
 		r,
 		cfg,
 		adm,
 		authn,
-		quickstart.WithContentEntryUITemplateFS(client.FS(), webFS),
-		quickstart.WithContentEntryRecommendedDefaults(),
-		quickstart.WithContentEntryTranslationUX(true),
+		contentEntryUIOpts...,
 	); err != nil {
 		log.Panicf("failed to register content entry UI routes: %v", err)
 	}
