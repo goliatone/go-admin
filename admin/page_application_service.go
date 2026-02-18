@@ -136,7 +136,7 @@ type PageGetOptions struct {
 // DefaultPageMapper provides a baseline mapping of admin read models to form values.
 type DefaultPageMapper struct{}
 
-const pageWorkflowEntityType = "pages"
+const pageWorkflowEntityType = "content"
 
 // List returns admin page records using list include defaults.
 func (s PageApplicationService) List(ctx context.Context, opts PageListOptions) ([]AdminPageRecord, int, error) {
