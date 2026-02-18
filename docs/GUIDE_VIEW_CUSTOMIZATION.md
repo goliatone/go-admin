@@ -126,6 +126,8 @@ Use these keys in templates:
 - `datagrid_config.api_endpoint`
 - `datagrid_config.action_base`
 - `datagrid_config.column_storage_key`
+- `datagrid_config.state_store` (optional: `mode`, `resource`, `sync_debounce_ms`, `max_share_entries`)
+- `datagrid_config.url_state` (optional: `max_url_length`, `max_filters_length`, `enable_state_token`)
 - `datagrid_config.export_config`
 
 Recommended template pattern:
@@ -135,8 +137,14 @@ const dataGridConfig = {{ toJSON(datagrid_config)|safe }} || {};
 const tableId = `${dataGridConfig.table_id || '{{ datatable_id|default:resource }}'}-datatable`;
 const apiEndpoint = dataGridConfig.api_endpoint || '{{ list_api|default:"" }}';
 const actionBasePath = dataGridConfig.action_base || '{{ action_base|default:"" }}';
+const stateStoreConfig = dataGridConfig.state_store || null;
+const urlStateConfig = dataGridConfig.url_state || null;
 const exportConfig = dataGridConfig.export_config || {{ toJSON(export_config)|safe }};
 ```
+
+`state_store` defaults to local browser storage when omitted. `url_state`
+controls URL sync guardrails and optional state-token fallback to avoid long
+query strings.
 
 Legacy keys (`datatable_id`, `list_api`, `action_base`, `export_config`) are
 still injected for compatibility, but treat them as fallback-only for custom
@@ -374,7 +382,7 @@ These keys are injected for quickstart panel/content-entry list templates:
 
 | Variable | Type | Description |
 |----------|------|-------------|
-| `datagrid_config` | `map[string]any` | Canonical DataGrid contract (`table_id`, `api_endpoint`, `action_base`, `column_storage_key`, `export_config`) |
+| `datagrid_config` | `map[string]any` | Canonical DataGrid contract (`table_id`, `api_endpoint`, `action_base`, `column_storage_key`, optional `state_store`, optional `url_state`, `export_config`) |
 | `datatable_id` | `string` | Legacy compatibility key for table base id (fallback) |
 | `list_api` | `string` | Legacy compatibility key for list endpoint (fallback) |
 | `action_base` | `string` | Legacy compatibility key for row action base path (fallback) |
