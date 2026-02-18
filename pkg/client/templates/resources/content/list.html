@@ -89,7 +89,6 @@ import {
   // Phase 19.2: Missing translations affordance
   renderMissingTranslationsBadge,
   hasMissingTranslations,
-  persistExpandState,
   // Phase 2 (TX-088): Translation UX primitives with template-level initialization
   createStatusLegend,
   createTranslationQuickFilters
@@ -203,6 +202,45 @@ function normalizeViewMode(value, fallback = 'flat') {
   return fallback;
 }
 
+function normalizeStateStoreMode(value, fallback = 'local') {
+  const mode = String(value || '').trim().toLowerCase();
+  if (mode === 'local' || mode === 'preferences') {
+    return mode;
+  }
+  return fallback;
+}
+
+function normalizePositiveInt(value, fallback) {
+  const parsed = Number(value);
+  if (Number.isFinite(parsed) && parsed > 0) {
+    return Math.trunc(parsed);
+  }
+  return fallback;
+}
+
+function normalizeBoolean(value, fallback = true) {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === 'true' || normalized === '1') {
+      return true;
+    }
+    if (normalized === 'false' || normalized === '0') {
+      return false;
+    }
+  }
+  return fallback;
+}
+
+function resolveObject(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {};
+  }
+  return value;
+}
+
 const envQuery = env ? `?env=${encodeURIComponent(env)}` : '';
 const datatableBaseId = dataGridConfig.table_id || '{{ datatable_id|default:resource }}';
 const datatableId = `${datatableBaseId}-datatable`;
@@ -217,6 +255,46 @@ document.addEventListener('DOMContentLoaded', async function() {
   }
 
   const preferencesEndpoint = apiBasePath ? `${apiBasePath}/preferences` : `${basePath}/api/preferences`;
+  const stateStoreOptions = resolveObject(dataGridConfig.state_store);
+  const urlStateOptions = resolveObject(dataGridConfig.url_state);
+  const stateStoreMode = normalizeStateStoreMode(
+    stateStoreOptions.mode || dataGridConfig.state_store_mode,
+    'local'
+  );
+  const stateStoreConfig = {
+    mode: stateStoreMode,
+    resource: String(
+      stateStoreOptions.resource ||
+      dataGridConfig.state_store_resource ||
+      panelName
+    ).trim() || panelName,
+    syncDebounceMs: normalizePositiveInt(
+      stateStoreOptions.sync_debounce_ms ?? dataGridConfig.state_store_sync_debounce_ms,
+      1000
+    ),
+    maxShareEntries: normalizePositiveInt(
+      stateStoreOptions.max_share_entries ?? dataGridConfig.state_store_max_share_entries,
+      20
+    )
+  };
+  if (stateStoreMode === 'preferences') {
+    stateStoreConfig.preferencesEndpoint = preferencesEndpoint;
+  }
+  const urlStateConfig = {
+    maxURLLength: normalizePositiveInt(
+      urlStateOptions.max_url_length ?? dataGridConfig.url_state_max_url_length,
+      1800
+    ),
+    maxFiltersLength: normalizePositiveInt(
+      urlStateOptions.max_filters_length ?? dataGridConfig.url_state_max_filters_length,
+      600
+    ),
+    enableStateToken: normalizeBoolean(
+      urlStateOptions.enable_state_token ?? dataGridConfig.url_state_enable_token,
+      true
+    )
+  };
+
   const columnVisibility = new ServerColumnVisibilityBehavior(columnFields, {
     resource: '{{ panel_name }}',
     localStorageKey: columnStorageKey,
@@ -367,6 +445,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     enableGroupedMode: groupedModeEnabled,
     defaultViewMode: defaultViewMode,
     groupByField: groupByField,
+    stateStoreConfig: stateStoreConfig,
+    urlState: urlStateConfig,
     columns: gridColumns,
     perPage: 10,
     searchDelay: 300,
@@ -429,19 +509,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     if (collapseAllBtn) collapseAllBtn.disabled = !canToggleGroups;
   };
 
-  const setExpandedGroups = async (groupIDs) => {
-    if (!groupedModeEnabled) {
-      return;
-    }
-    const nextExpanded = new Set((groupIDs || []).filter(Boolean));
-    grid.state.expandedGroups = nextExpanded;
-    grid.state.hasPersistedExpandState = true;
-    const panelID = grid.config.panelId || grid.config.tableId;
-    persistExpandState(panelID, nextExpanded);
-    grid.syncURL();
-    await grid.refresh();
-  };
-
   if (translationUXEnabled && groupedModeEnabled) {
     viewModeButtons.forEach((button) => {
       button.addEventListener('click', () => {
@@ -452,16 +519,16 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
 
     if (expandAllBtn) {
-      expandAllBtn.addEventListener('click', async () => {
-        const groupedData = grid.getGroupedData();
-        const groupIDs = groupedData?.groups?.map(group => String(group.groupId || '').trim()).filter(Boolean) || [];
-        await setExpandedGroups(groupIDs);
+      expandAllBtn.addEventListener('click', () => {
+        grid.expandAllGroups();
+        syncTranslationViewControls();
       });
     }
 
     if (collapseAllBtn) {
-      collapseAllBtn.addEventListener('click', async () => {
-        await setExpandedGroups([]);
+      collapseAllBtn.addEventListener('click', () => {
+        grid.collapseAllGroups();
+        syncTranslationViewControls();
       });
     }
   }

@@ -194,7 +194,7 @@ test('datatable grouped URL sync: preserves unrelated params and writes grouped 
     assert.equal(parsed.searchParams.get('env'), 'production');
     assert.equal(parsed.searchParams.get('tab'), 'translations');
     assert.equal(parsed.searchParams.get('view_mode'), 'grouped');
-    assert.equal(parsed.searchParams.get('expanded_groups'), 'tg_a,tg_b');
+    assert.equal(parsed.searchParams.get('expanded_groups'), null);
   } finally {
     cleanup();
   }
@@ -236,7 +236,34 @@ test('datatable grouped URL sync: toggleGroup uses replaceState for expanded tok
 
     const parsed = new URL(calls[0].url, 'http://localhost');
     assert.equal(parsed.searchParams.get('view_mode'), 'grouped');
-    assert.equal(parsed.searchParams.get('expanded_groups'), 'tg_alpha');
+    assert.equal(parsed.searchParams.get('expanded_groups'), null);
+  } finally {
+    cleanup();
+  }
+});
+
+test('datatable grouped URL sync: falls back to state token when filters payload is too large', () => {
+  const { calls, cleanup } = installTestGlobals({
+    search: '?env=production',
+  });
+
+  try {
+    const grid = createGrid();
+    grid.state.filters = Array.from({ length: 40 }, (_, index) => ({
+      column: `field_${index}`,
+      operator: 'ilike',
+      value: 'x'.repeat(40),
+    }));
+    grid.state.sort = [{ field: 'updated_at', direction: 'desc' }];
+
+    grid.syncURL();
+
+    assert.equal(calls.length, 1);
+    const parsed = new URL(calls[0].url, 'http://localhost');
+    assert.equal(parsed.searchParams.get('env'), 'production');
+    assert.equal(parsed.searchParams.get('filters'), null);
+    assert.equal(parsed.searchParams.get('sort'), null);
+    assert.ok(parsed.searchParams.get('state'));
   } finally {
     cleanup();
   }

@@ -66,16 +66,6 @@
 
   <script src="{{ asset_base_path }}/assets/sidebar.js"></script>
 
-  <!-- Initialize translation operations entrypoints (capability-gated) -->
-  {% if translation_capabilities and translation_capabilities.modules %}
-  <script type="module">
-    import { initTranslationOperations } from '{{ asset_base_path }}/assets/dist/translation-operations/index.js';
-    document.addEventListener('DOMContentLoaded', () => {
-      initTranslationOperations('{{ base_path }}');
-    });
-  </script>
-  {% endif %}
-
   {% block scripts %}{% endblock %}
 
   <!-- Debug toolbar (only shown when debug.ToolbarMode is enabled) -->

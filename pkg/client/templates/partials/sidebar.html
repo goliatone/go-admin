@@ -1,5 +1,4 @@
 <aside id="sidebar" class="sidebar bg-sidebar-bg text-sidebar-text flex flex-col overflow-hidden" data-collapsed="false" style="width: var(--sidebar-width, 260px);">
-  <!-- Header: Logo -->
   <div class="sidebar-header flex items-center gap-2" style="padding: var(--sidebar-padding-y, 12px) var(--sidebar-padding-x, 12px);">
     <a href="{{ base_path }}" class="flex items-center no-underline flex-1 min-w-0 overflow-hidden">
       <img src="{{ asset_base_path }}/assets/logo.svg" alt="{{ title }}" class="sidebar-logo" />
@@ -9,7 +8,6 @@
     </button>
   </div>
 
-  <!-- Search Bar -->
   <div class="sidebar-search-container px-3 pb-3">
     <div class="relative">
       <input type="text"
@@ -20,7 +18,6 @@
     </div>
   </div>
 
-  <!-- Scrollable Main Navigation -->
   <nav class="flex-1 overflow-y-auto" style="padding: 0 var(--sidebar-padding-x, 12px);">
     {% for item in nav_items %}
       {% if item.type == "separator" %}
@@ -97,32 +94,41 @@
     {% if nav_debug and nav_items_json %}
       <pre class="mt-4 text-[11px] bg-gray-900 text-gray-100 p-3 rounded-lg overflow-x-auto">{{ nav_items_json }}</pre>
     {% endif %}
-
-    <!-- Translation Operations Entrypoints (capability-gated) -->
-    <div data-translation-operations class="translation-operations-section mt-4" style="display: none;"></div>
   </nav>
 
-  <!-- Fixed Bottom Section -->
-  <div class="sidebar-bottom border-t border-sidebar-border" style="padding: var(--sidebar-padding-x, 12px);">
-    <!-- Bottom Menu Items -->
-    <div class="py-2 space-y-0.5">
-      <a href="{{ base_path }}/preferences" class="nav-item" style="height: var(--sidebar-item-height, 36px);">
-        <i class="iconoir-user-circle flex-shrink-0" style="font-size: var(--sidebar-icon-size, 20px);"></i>
-        <span class="nav-text flex-1">Preferences</span>
-      </a>
-      <a href="{{ base_path }}/profile" class="nav-item" style="height: var(--sidebar-item-height, 36px);">
-        <i class="iconoir-user flex-shrink-0" style="font-size: var(--sidebar-icon-size, 20px);"></i>
-        <span class="nav-text flex-1">Profile</span>
-      </a>
-      <a href="{{ base_path }}/help" class="nav-item" style="height: var(--sidebar-item-height, 36px);">
-        <i class="iconoir-question-mark flex-shrink-0" style="font-size: var(--sidebar-icon-size, 20px);"></i>
-        <span class="nav-text flex-1">Help</span>
-        <i class="iconoir-open-new-window ml-auto text-xs text-sidebar-text-dimmed"></i>
-      </a>
-    </div>
+  {% if nav_utility_items and nav_utility_items|length > 0 %}
+    <nav class="sidebar-utility border-t border-sidebar-border px-3 py-3 space-y-0.5">
+      {% for item in nav_utility_items %}
+        {% if item.type == "group" %}
+          {% if item.group_title %}
+            <div class="px-3 py-1 text-[11px] font-medium uppercase tracking-wider text-sidebar-text-muted">{{ item.group_title }}</div>
+          {% endif %}
+          {% for child in item.children %}
+            <a href="{{ child.href|default:'#' }}" class="nav-item{% if child.active %} active{% endif %}" style="height: var(--sidebar-item-height, 36px);">
+              {% if child.icon %}
+                {{ renderMenuIcon(child.icon)|safe }}
+              {% endif %}
+              <span class="nav-text flex-1">{{ child.label }}</span>
+            </a>
+          {% endfor %}
+        {% else %}
+          <a href="{{ item.href|default:'#' }}" class="nav-item{% if item.active %} active{% endif %}" style="height: var(--sidebar-item-height, 36px);">
+            {% if item.icon %}
+              {{ renderMenuIcon(item.icon)|safe }}
+            {% endif %}
+            <span class="nav-text flex-1">{{ item.label }}</span>
+          </a>
+        {% endif %}
+      {% endfor %}
+    </nav>
+  {% endif %}
 
-    <!-- User Profile -->
-    <div class="border-t border-sidebar-border pt-3 pb-3 relative">
+  {% if nav_utility_items and nav_utility_items|length > 0 %}
+  <div class="sidebar-bottom" style="padding: var(--sidebar-padding-x, 12px);">
+  {% else %}
+  <div class="sidebar-bottom border-t border-sidebar-border" style="padding: var(--sidebar-padding-x, 12px);">
+  {% endif %}
+    <div class="pt-3 pb-3 relative">
       <button id="user-menu-toggle" class="flex items-center gap-3 px-3 py-2.5 hover:bg-sidebar-bg-hover rounded-lg cursor-pointer transition-colors w-full text-left">
         <div class="relative flex-shrink-0">
           {% if session_user.avatar_url %}
@@ -145,9 +151,7 @@
         <i class="iconoir-nav-arrow-down flex-shrink-0 text-sidebar-text-muted text-sm sidebar-user-info transition-transform" id="user-menu-arrow"></i>
       </button>
 
-      <!-- User Dropdown Menu -->
       <div id="user-menu" class="hidden absolute bottom-full left-0 right-0 mb-2 bg-sidebar-bg border border-sidebar-border rounded-xl shadow-2xl overflow-hidden" style="margin-left: 12px; margin-right: 12px;">
-        <!-- User Header -->
         <div class="flex items-center gap-3 p-4 border-b border-sidebar-border">
           <div class="relative flex-shrink-0">
             {% if session_user.avatar_url %}
@@ -169,60 +173,7 @@
           </div>
         </div>
 
-        <!-- Quick Actions -->
-        <div class="p-2 border-b border-sidebar-border">
-          <a href="{{ base_path }}/themes" class="flex items-center gap-3 px-3 py-2.5 text-sidebar-text hover:bg-sidebar-bg-hover rounded-lg transition-colors">
-            <i class="iconoir-color-picker flex-shrink-0 text-sidebar-text-muted" style="font-size: 20px;"></i>
-            <span class="flex-1 text-sm">Themes</span>
-            <kbd class="text-xs">⌘T</kbd>
-          </a>
-          <a href="{{ base_path }}/settings" class="flex items-center gap-3 px-3 py-2.5 text-sidebar-text hover:bg-sidebar-bg-hover rounded-lg transition-colors">
-            <i class="iconoir-settings flex-shrink-0 text-sidebar-text-muted" style="font-size: 20px;"></i>
-            <span class="flex-1 text-sm">Settings</span>
-            <kbd class="text-xs">⌘S</kbd>
-          </a>
-          <a href="{{ base_path }}/notifications" class="flex items-center gap-3 px-3 py-2.5 text-sidebar-text hover:bg-sidebar-bg-hover rounded-lg transition-colors">
-            <i class="iconoir-bell flex-shrink-0 text-sidebar-text-muted" style="font-size: 20px;"></i>
-            <span class="flex-1 text-sm">Notification</span>
-            <kbd class="text-xs">⌘N</kbd>
-          </a>
-        </div>
-
-        <!-- Additional Menu Items -->
-        <div class="p-2 border-b border-sidebar-border">
-          <a href="{{ base_path }}/hotkeys" class="flex items-center gap-3 px-3 py-2.5 text-sidebar-text hover:bg-sidebar-bg-hover rounded-lg transition-colors">
-            <i class="iconoir-keyframes flex-shrink-0 text-sidebar-text-muted" style="font-size: 20px;"></i>
-            <span class="flex-1 text-sm">Hotkeys</span>
-            <i class="iconoir-nav-arrow-right flex-shrink-0 text-sidebar-text-muted text-xs"></i>
-          </a>
-          <a href="{{ base_path }}/downloads" class="flex items-center gap-3 px-3 py-2.5 text-sidebar-text hover:bg-sidebar-bg-hover rounded-lg transition-colors">
-            <i class="iconoir-download flex-shrink-0 text-sidebar-text-muted" style="font-size: 20px;"></i>
-            <span class="flex-1 text-sm">Download apps</span>
-            <i class="iconoir-nav-arrow-right flex-shrink-0 text-sidebar-text-muted text-xs"></i>
-          </a>
-          <a href="{{ base_path }}/referrals" class="flex items-center gap-3 px-3 py-2.5 text-sidebar-text hover:bg-sidebar-bg-hover rounded-lg transition-colors">
-            <i class="iconoir-gift flex-shrink-0 text-sidebar-text-muted" style="font-size: 20px;"></i>
-            <span class="flex-1 text-sm">Referrals</span>
-            <span class="ml-auto px-2 py-0.5 bg-blue-500/20 text-blue-400 text-xs font-medium rounded">New</span>
-          </a>
-          <a href="{{ base_path }}/plans" class="flex items-center gap-3 px-3 py-2.5 text-sidebar-text hover:bg-sidebar-bg-hover rounded-lg transition-colors">
-            <i class="iconoir-credit-card flex-shrink-0 text-sidebar-text-muted" style="font-size: 20px;"></i>
-            <span class="flex-1 text-sm">Plans</span>
-            <i class="iconoir-open-new-window flex-shrink-0 text-sidebar-text-muted text-xs"></i>
-          </a>
-          <a href="{{ base_path }}/help" class="flex items-center gap-3 px-3 py-2.5 text-sidebar-text hover:bg-sidebar-bg-hover rounded-lg transition-colors">
-            <i class="iconoir-question-mark flex-shrink-0 text-sidebar-text-muted" style="font-size: 20px;"></i>
-            <span class="flex-1 text-sm">Help</span>
-            <i class="iconoir-open-new-window flex-shrink-0 text-sidebar-text-muted text-xs"></i>
-          </a>
-        </div>
-
-        <!-- Danger Zone -->
         <div class="p-2">
-          <a href="{{ base_path }}/trash" class="flex items-center gap-3 px-3 py-2.5 text-sidebar-text hover:bg-sidebar-bg-hover rounded-lg transition-colors">
-            <i class="iconoir-trash flex-shrink-0 text-sidebar-text-muted" style="font-size: 20px;"></i>
-            <span class="flex-1 text-sm">Trash</span>
-          </a>
           <a href="{{ base_path }}/logout" class="flex items-center gap-3 px-3 py-2.5 text-sidebar-text hover:bg-sidebar-bg-hover rounded-lg transition-colors">
             <i class="iconoir-log-out flex-shrink-0 text-sidebar-text-muted" style="font-size: 20px;"></i>
             <span class="flex-1 text-sm">Log out</span>
