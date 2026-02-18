@@ -11,7 +11,7 @@ import (
 	urlkit "github.com/goliatone/go-urlkit"
 )
 
-// RegisterCMSDemoPanels seeds CMS-backed panels (content/pages/blocks/widgets/menus) using the configured CMS services.
+// RegisterCMSDemoPanels seeds CMS-backed panels (content/tree/blocks/widgets/menus) using the configured CMS services.
 // It provides tree/blocks/SEO metadata needed for the CMS management UI and demo block editor routes.
 func (a *Admin) RegisterCMSDemoPanels() error {
 	if a.contentSvc == nil || a.menuSvc == nil || a.widgetSvc == nil || a.contentTypeSvc == nil {
@@ -98,7 +98,7 @@ func (a *Admin) RegisterCMSDemoPanels() error {
 		return err
 	}
 
-	pagePanel := (&PanelBuilder{}).
+	treePanel := (&PanelBuilder{}).
 		WithRepository(NewCMSPageRepository(a.contentSvc)).
 		ListFields(
 			Field{Name: "id", Label: "ID", Type: "text"},
@@ -141,9 +141,11 @@ func (a *Admin) RegisterCMSDemoPanels() error {
 		UseSEO(true).
 		TreeView(true)
 	if workflow != nil {
-		pagePanel.WithWorkflow(workflow).Actions(workflowActions...)
+		if checker, ok := workflow.(WorkflowDefinitionChecker); !ok || checker.HasWorkflow("content_tree") {
+			treePanel.WithWorkflow(workflow).Actions(workflowActions...)
+		}
 	}
-	if _, err := a.RegisterPanel("pages", pagePanel); err != nil {
+	if _, err := a.RegisterPanel("content_tree", treePanel); err != nil {
 		return err
 	}
 
@@ -323,7 +325,7 @@ func (a *Admin) RegisterCMSDemoPanels() error {
 	}
 
 	a.registerCMSRoutesFromService()
-	a.registerDemoSearchAdapters(contentPanel.repo, pagePanel.repo)
+	a.registerDemoSearchAdapters(contentPanel.repo, treePanel.repo)
 	return nil
 }
 
@@ -333,11 +335,11 @@ func (a *Admin) registerCMSRoutesFromService() {
 	}
 	a.cmsRoutesRegistered = true
 	// Page tree endpoint
-	pagesTreePath := adminAPIRoutePath(a, "cms.pages_tree")
-	a.router.Get(pagesTreePath, func(c router.Context) error {
+	contentTreePath := adminAPIRoutePath(a, "cms.content_tree")
+	a.router.Get(contentTreePath, func(c router.Context) error {
 		locale := c.Query("locale")
-		pages, _ := a.contentSvc.Pages(a.ctx(), locale)
-		tree := buildPageTree(pages)
+		records, _ := a.contentSvc.Pages(a.ctx(), locale)
+		tree := buildPageTree(records)
 		return writeJSON(c, tree)
 	})
 
@@ -394,7 +396,7 @@ func buildPageTree(records []CMSPage) []map[string]any {
 	return roots
 }
 
-// seedCMSDemoData primes the in-memory CMS services with translatable content/pages/menus/widgets.
+// seedCMSDemoData primes the in-memory CMS services with translatable content/tree/menus/widgets.
 func (a *Admin) seedCMSDemoData(ctx context.Context) {
 	if svc, ok := a.contentTypeSvc.(*InMemoryContentService); ok {
 		if len(svc.types) == 0 {
@@ -451,20 +453,20 @@ func (a *Admin) seedCMSDemoData(ctx context.Context) {
 			_, _ = svc.CreateMenu(ctx, a.navMenuCode)
 			dashboardTarget := map[string]any{"type": "url", "path": resolveURLWith(a.urlManager, "admin", "dashboard", nil, nil)}
 			contentTarget := map[string]any{"type": "url", "path": resolveURLWith(a.urlManager, "admin", "content", nil, nil)}
-			pagesTarget := map[string]any{"type": "url", "path": resolveURLWith(a.urlManager, "admin", "content.panel", map[string]string{"panel": "pages"}, nil)}
+			treeTarget := map[string]any{"type": "url", "path": resolveURLWith(a.urlManager, "admin", "content.panel", map[string]string{"panel": "content_tree"}, nil)}
 			conflictsTarget := map[string]any{"type": "url", "path": resolveURLWith(a.urlManager, "admin", "block_conflicts", nil, nil)}
 			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Dashboard", Icon: "dashboard", Position: intPtr(1), Locale: "en", Target: dashboardTarget})
 			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Content", Icon: "file", Position: intPtr(2), Locale: "en", Target: contentTarget})
-			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Pages", Icon: "file-text", Position: intPtr(3), Locale: "en", Target: pagesTarget})
+			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Content Tree", Icon: "file-text", Position: intPtr(3), Locale: "en", Target: treeTarget})
 			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Block Conflicts", Icon: "alert-triangle", Position: intPtr(4), Locale: "en", Target: conflictsTarget})
 			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Contenido", Icon: "file", Position: intPtr(2), Locale: "es", Target: contentTarget})
-			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Paginas", Icon: "file-text", Position: intPtr(3), Locale: "es", Target: pagesTarget})
+			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Arbol de Contenido", Icon: "file-text", Position: intPtr(3), Locale: "es", Target: treeTarget})
 			_ = svc.AddMenuItem(ctx, a.navMenuCode, MenuItem{Label: "Conflictos de Bloques", Icon: "alert-triangle", Position: intPtr(4), Locale: "es", Target: conflictsTarget})
 		}
 	}
 }
 
-// search adapter using generic repository for content/pages.
+// search adapter using generic repository for content/tree items.
 type repoSearchAdapter struct {
 	repo             Repository
 	resource         string
@@ -581,15 +583,15 @@ func (r *repoSearchAdapter) resolveURL(id string) string {
 	return base
 }
 
-func (a *Admin) registerDemoSearchAdapters(contentRepo, pageRepo Repository) {
+func (a *Admin) registerDemoSearchAdapters(contentRepo, treeRepo Repository) {
 	if a.search == nil {
 		a.search = NewSearchEngine(a.authorizer)
 	}
 	if contentRepo != nil {
 		a.search.Register("content", &repoSearchAdapter{repo: contentRepo, resource: "content", urls: a.urlManager})
 	}
-	if pageRepo != nil {
-		a.search.Register("pages", &repoSearchAdapter{repo: pageRepo, resource: "page", urls: a.urlManager})
+	if treeRepo != nil {
+		a.search.Register("content_tree", &repoSearchAdapter{repo: treeRepo, resource: "content_tree_item", urls: a.urlManager})
 	}
 }
 
