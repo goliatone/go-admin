@@ -502,15 +502,6 @@ func statusFromIdentity(identity auth.Identity) auth.UserStatus {
 	return ""
 }
 
-func firstNonEmpty(values ...string) string {
-	for _, val := range values {
-		if strings.TrimSpace(val) != "" {
-			return strings.TrimSpace(val)
-		}
-	}
-	return ""
-}
-
 func toString(val any) string {
 	if val == nil {
 		return ""

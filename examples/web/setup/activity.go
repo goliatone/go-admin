@@ -320,17 +320,6 @@ func cloneUsersRecords(records []types.ActivityRecord) []types.ActivityRecord {
 	return out
 }
 
-func cloneAnyMap(src map[string]any) map[string]any {
-	if len(src) == 0 {
-		return map[string]any{}
-	}
-	out := make(map[string]any, len(src))
-	for k, v := range src {
-		out[k] = v
-	}
-	return out
-}
-
 func contains(list []string, target string) bool {
 	for _, item := range list {
 		if strings.EqualFold(item, target) {

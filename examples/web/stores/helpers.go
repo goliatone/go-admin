@@ -49,14 +49,3 @@ func isTranslationNotFoundErr(err error) bool {
 	// return admin.IsTranslationMissing(err)
 	return false
 }
-
-func cloneAnyMap(src map[string]any) map[string]any {
-	if len(src) == 0 {
-		return nil
-	}
-	dst := make(map[string]any, len(src))
-	for k, v := range src {
-		dst[k] = v
-	}
-	return dst
-}

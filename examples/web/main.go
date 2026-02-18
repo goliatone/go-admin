@@ -2080,28 +2080,6 @@ func adaptAuthActor(actor *authlib.ActorContext) crud.ActorContext {
 	}
 }
 
-func cloneStringMap(src map[string]string) map[string]string {
-	if len(src) == 0 {
-		return nil
-	}
-	dst := make(map[string]string, len(src))
-	for k, v := range src {
-		dst[k] = v
-	}
-	return dst
-}
-
-func cloneAnyMap(src map[string]any) map[string]any {
-	if len(src) == 0 {
-		return nil
-	}
-	dst := make(map[string]any, len(src))
-	for k, v := range src {
-		dst[k] = v
-	}
-	return dst
-}
-
 func userCRUDStatusResolver(err *goerrors.Error, _ crud.CrudOperation) int {
 	if err == nil {
 		return http.StatusInternalServerError
