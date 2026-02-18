@@ -135,12 +135,3 @@ func mergeJSONMetadata(dst map[string]any, raw string) {
 		dst[key] = value
 	}
 }
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if trimmed := strings.TrimSpace(value); trimmed != "" {
-			return trimmed
-		}
-	}
-	return ""
-}

@@ -686,14 +686,3 @@ func safeUUIDString(id uuid.UUID) string {
 	}
 	return id.String()
 }
-
-func cloneAnyMap(input map[string]any) map[string]any {
-	if len(input) == 0 {
-		return map[string]any{}
-	}
-	out := make(map[string]any, len(input))
-	for key, value := range input {
-		out[key] = value
-	}
-	return out
-}
