@@ -504,6 +504,13 @@ func defaultUIViewContextBuilder(adm *admin.Admin, cfg admin.Config) UIViewConte
 			}
 			ctx["api_base_path"] = resolveAdminAPIBasePath(urls, cfg, cfg.BasePath)
 		}
+		if _, ok := ctx["preferences_api_path"]; !ok {
+			var urls urlkit.Resolver
+			if adm != nil {
+				urls = adm.URLs()
+			}
+			ctx["preferences_api_path"] = resolveAdminPreferencesAPICollectionPath(urls, cfg, cfg.BasePath)
+		}
 		labels := cfg.ActivityActionLabels
 		if labels == nil {
 			labels = map[string]string{}
