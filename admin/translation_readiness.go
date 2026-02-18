@@ -4,6 +4,8 @@ import (
 	"context"
 	"sort"
 	"strings"
+
+	"github.com/jinzhu/inflection"
 )
 
 const (
@@ -32,8 +34,9 @@ type translationReadinessRequirementsCacheKey struct {
 }
 
 type translationReadinessRequirementsCacheValue struct {
-	locales []string
-	fields  map[string][]string
+	locales  []string
+	fields   map[string][]string
+	resolved bool
 }
 
 func buildRecordTranslationReadiness(
@@ -57,18 +60,16 @@ func buildRecordTranslationReadinessWithCache(
 	if len(record) == 0 {
 		return nil
 	}
-	if !translationReadinessApplicable(panelName, record) {
-		return nil
-	}
 
 	requiredLocales := []string{}
 	requiredFields := map[string][]string{}
+	requirementsResolved := false
 	if cache == nil {
-		requiredLocales, requiredFields = resolveReadinessRequirements(ctx, policy, panelName, record, filters)
+		requiredLocales, requiredFields, requirementsResolved = resolveReadinessRequirements(ctx, policy, panelName, record, filters)
 	} else {
 		key := translationReadinessRequirementsCacheKey{
 			entityType:   strings.ToLower(strings.TrimSpace(panelName)),
-			policyEntity: strings.ToLower(strings.TrimSpace(translationPolicyEntity(panelName, record))),
+			policyEntity: translationReadinessPolicyEntityLookupKey(translationPolicyEntity(panelName, record)),
 			transition:   translationReadinessTransitionPublish,
 			environment:  strings.ToLower(strings.TrimSpace(translationReadinessEnvironment(ctx, filters))),
 		}
@@ -78,13 +79,18 @@ func buildRecordTranslationReadinessWithCache(
 		if cached, ok := cache.valuesByKey[key]; ok {
 			requiredLocales = append([]string{}, cached.locales...)
 			requiredFields = cloneRequiredFields(cached.fields)
+			requirementsResolved = cached.resolved
 		} else {
-			requiredLocales, requiredFields = resolveReadinessRequirements(ctx, policy, panelName, record, filters)
+			requiredLocales, requiredFields, requirementsResolved = resolveReadinessRequirements(ctx, policy, panelName, record, filters)
 			cache.valuesByKey[key] = translationReadinessRequirementsCacheValue{
-				locales: append([]string{}, requiredLocales...),
-				fields:  cloneRequiredFields(requiredFields),
+				locales:  append([]string{}, requiredLocales...),
+				fields:   cloneRequiredFields(requiredFields),
+				resolved: requirementsResolved,
 			}
 		}
+	}
+	if !translationReadinessApplicable(record, requirementsResolved) {
+		return nil
 	}
 
 	availableLocales := translationReadinessAvailableLocalesWithBatch(record, cache)
@@ -106,6 +112,7 @@ func buildRecordTranslationReadinessWithCache(
 		"readiness_state":                   readinessState,
 		"ready_for_transition":              map[string]bool{translationReadinessTransitionPublish: readyForPublish},
 		"evaluated_environment":             environment,
+		"requirements_resolved":             requirementsResolved,
 	}
 	if localeMetadata := translationReadinessLocaleMetadata(record); len(localeMetadata) > 0 {
 		readiness["locale_metadata"] = localeMetadata
@@ -113,17 +120,57 @@ func buildRecordTranslationReadinessWithCache(
 	return readiness
 }
 
-func translationReadinessApplicable(panelName string, record map[string]any) bool {
-	panelName = strings.ToLower(strings.TrimSpace(panelName))
-	switch panelName {
-	case "pages", "posts", translationReadinessPolicyEntityFallbackPanels:
+func translationReadinessApplicable(record map[string]any, requirementsResolved bool) bool {
+	if requirementsResolved {
 		return true
+	}
+	if len(record) == 0 {
+		return false
 	}
 	if translationGroupIDFromRecord(record) != "" {
 		return true
 	}
 	if len(normalizedLocaleList(record["available_locales"])) > 0 {
 		return true
+	}
+	if strings.TrimSpace(toString(record["requested_locale"])) != "" {
+		return true
+	}
+	if strings.TrimSpace(toString(record["resolved_locale"])) != "" {
+		return true
+	}
+	if toBool(record["missing_requested_locale"]) {
+		return true
+	}
+	if toBool(record["fallback_used"]) {
+		return true
+	}
+	if len(translationReadinessLocaleMetadata(record)) > 0 {
+		return true
+	}
+	for _, path := range [][]string{
+		{"translation", "meta", "translation_group_id"},
+		{"content_translation", "meta", "translation_group_id"},
+		{"translation", "meta", "requested_locale"},
+		{"translation", "meta", "resolved_locale"},
+		{"translation", "meta", "missing_requested_locale"},
+		{"translation", "meta", "fallback_used"},
+		{"content_translation", "meta", "requested_locale"},
+		{"content_translation", "meta", "resolved_locale"},
+		{"content_translation", "meta", "missing_requested_locale"},
+		{"content_translation", "meta", "fallback_used"},
+	} {
+		value := translationReadinessNestedValue(record, path...)
+		last := path[len(path)-1]
+		if last == "missing_requested_locale" || last == "fallback_used" {
+			if toBool(value) {
+				return true
+			}
+			continue
+		}
+		if strings.TrimSpace(toString(value)) != "" {
+			return true
+		}
 	}
 	return false
 }
@@ -134,12 +181,12 @@ func resolveReadinessRequirements(
 	panelName string,
 	record map[string]any,
 	filters map[string]any,
-) ([]string, map[string][]string) {
+) ([]string, map[string][]string, bool) {
 	requiredLocales := []string{}
 	requiredFields := map[string][]string{}
 	provider, ok := policy.(translationRequirementsProvider)
 	if !ok || provider == nil {
-		return requiredLocales, requiredFields
+		return requiredLocales, requiredFields, false
 	}
 	input := TranslationPolicyInput{
 		EntityType:      strings.TrimSpace(panelName),
@@ -151,7 +198,7 @@ func resolveReadinessRequirements(
 	}
 	req, found, err := provider.Requirements(ctx, input)
 	if err != nil || !found {
-		return requiredLocales, requiredFields
+		return requiredLocales, requiredFields, false
 	}
 	requiredLocales = translationReadinessLocaleList(req.Locales)
 	if len(requiredLocales) == 0 {
@@ -167,26 +214,38 @@ func resolveReadinessRequirements(
 			requiredFields[normalizedLocale] = normalizeRequiredFieldNames(fields)
 		}
 	}
-	return requiredLocales, requiredFields
+	return requiredLocales, requiredFields, true
 }
 
 func translationPolicyEntity(panelName string, record map[string]any) string {
 	if value := strings.TrimSpace(toString(record["policy_entity"])); value != "" {
-		return value
+		return normalizePolicyEntityKey(value)
 	}
 	if value := strings.TrimSpace(toString(record["content_type_slug"])); value != "" {
-		return value
+		return normalizePolicyEntityKey(value)
 	}
 	if value := strings.TrimSpace(toString(record["content_type"])); value != "" {
-		return value
+		return normalizePolicyEntityKey(value)
 	}
 	panel := strings.TrimSpace(panelName)
 	if panel == translationReadinessPolicyEntityFallbackPanels {
 		if value := strings.TrimSpace(toString(record["panel"])); value != "" {
-			return value
+			return normalizePolicyEntityKey(value)
 		}
 	}
-	return panel
+	return normalizePolicyEntityKey(panel)
+}
+
+func translationReadinessPolicyEntityLookupKey(value string) string {
+	normalized := normalizePolicyEntityKey(value)
+	if normalized == "" {
+		return ""
+	}
+	singular := normalizePolicyEntityKey(inflection.Singular(normalized))
+	if singular != "" {
+		return singular
+	}
+	return normalized
 }
 
 func translationReadinessEnvironment(ctx context.Context, filters map[string]any) string {
