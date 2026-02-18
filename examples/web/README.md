@@ -599,6 +599,10 @@ func (c *UserActivateCommand) Execute(ctx admin.AdminContext) error {
 - Default: the example boots with go-cms persistence enabled. The Bun storage adapter lives in `examples/web/setup/cms_persistent.go`. Default DSN is `file:/tmp/go-admin-cms.db?cache=shared&_fk=1`; override with `CMS_DATABASE_DSN`.
 - Migrations: applied automatically at startup via go-persistence-bun using the embedded go-cms SQL migrations (no manual migration step needed).
 - Requirements: SQLite driver (sqliteshim is bundled; no additional install) and write access to the DSN path.
+- Test log noise control (for suites using `SetupPersistentCMS`):
+  - Default under `go test`: runtime CMS mutation logs are off.
+  - Enable for a specific run: `go test ./examples/web -args -cms-test-logs`
+  - Force on/off via env (CI/local): `GO_ADMIN_CMS_LOGS=true|false`
 - Smoke:
  1. `go run ./examples/web` → logs show `CMS backend: go-cms (sqlite)`.
   2. Call `GET /admin/api/navigation` and confirm menus load; stop the server, restart with the same DSN, and confirm the menu payload still resolves (data persisted).
