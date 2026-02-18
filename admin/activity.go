@@ -368,15 +368,6 @@ func actorFromContext(ctx context.Context) string {
 	return ""
 }
 
-func firstNonEmpty(values ...string) string {
-	for _, v := range values {
-		if strings.TrimSpace(v) != "" {
-			return v
-		}
-	}
-	return ""
-}
-
 func tagActivityActorType(metadata map[string]any, actorType string) map[string]any {
 	actorType = strings.TrimSpace(actorType)
 	if actorType == "" {

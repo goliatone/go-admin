@@ -196,8 +196,6 @@ func (s *inMemoryWidgetService) ListInstances(_ context.Context, filter WidgetIn
 	return out, nil
 }
 
-func intPtr(v int) *int { return &v }
-
 type stubActivityRecorder struct {
 	events []recordedEvent
 }

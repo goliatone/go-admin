@@ -198,14 +198,3 @@ func (t *ThemeSelection) payload() map[string]map[string]string {
 	}
 	return out
 }
-
-func cloneStringMap(in map[string]string) map[string]string {
-	if len(in) == 0 {
-		return nil
-	}
-	out := make(map[string]string, len(in))
-	for k, v := range in {
-		out[k] = v
-	}
-	return out
-}

@@ -119,9 +119,9 @@ func (a *Admin) Prepare(ctx context.Context) error {
 			return err
 		}
 	}
-	if err := a.ensureSettingsNavigation(ctx); err != nil {
-		return err
-	}
+	// if err := a.ensureSettingsNavigation(ctx); err != nil {
+	// 	return err
+	// }
 	return nil
 }
 

@@ -240,10 +240,6 @@ func maxInt(a, b int) int {
 	return b
 }
 
-func intPtr(v int) *int {
-	return &v
-}
-
 func intFromPtr(v *int) int {
 	if v == nil {
 		return 0
