@@ -244,6 +244,130 @@ func TestNewModuleRegistrarSeedsTranslationCapabilityMenuItemsByDefault(t *testi
 	}
 }
 
+func TestNewModuleRegistrarDoesNotSeedSidebarUtilityMenuItemsByDefault(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	adm, _, err := NewAdmin(cfg, AdapterHooks{})
+	if err != nil {
+		t.Fatalf("NewAdmin error: %v", err)
+	}
+	if err := NewModuleRegistrar(adm, cfg, nil, false); err != nil {
+		t.Fatalf("NewModuleRegistrar error: %v", err)
+	}
+
+	menu, err := adm.MenuService().Menu(context.Background(), cfg.NavMenuCode, cfg.DefaultLocale)
+	if err != nil {
+		t.Fatalf("resolve menu: %v", err)
+	}
+	if menu == nil {
+		t.Fatalf("expected seeded menu")
+	}
+
+	preferencesItem := findMenuItemByRouteName(menu.Items, "admin.preferences")
+	if preferencesItem != nil {
+		t.Fatalf("expected preferences menu item to be opt-in")
+	}
+}
+
+func TestNewModuleRegistrarSeedsSidebarUtilityMenuItemsWhenOptedIn(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	adm, _, err := NewAdmin(cfg, AdapterHooks{})
+	if err != nil {
+		t.Fatalf("NewAdmin error: %v", err)
+	}
+	if err := NewModuleRegistrar(
+		adm,
+		cfg,
+		nil,
+		false,
+		WithDefaultSidebarUtilityItems(true),
+	); err != nil {
+		t.Fatalf("NewModuleRegistrar error: %v", err)
+	}
+
+	utilityMenuCode := DefaultPlacements(cfg).MenuCodeFor(SidebarPlacementUtility, "")
+	utilityMenu, err := adm.MenuService().Menu(context.Background(), utilityMenuCode, cfg.DefaultLocale)
+	if err != nil {
+		t.Fatalf("resolve utility menu: %v", err)
+	}
+	if utilityMenu == nil {
+		t.Fatalf("expected seeded utility menu")
+	}
+
+	preferencesItem := findMenuItemByRouteName(utilityMenu.Items, "admin.preferences")
+	if preferencesItem == nil {
+		t.Fatalf("expected preferences utility menu item seeded")
+	}
+	if parent := strings.TrimSpace(preferencesItem.ParentID); parent != "" {
+		t.Fatalf("expected preferences utility link to be top-level, got parent %q", parent)
+	}
+
+	profileItem := findMenuItemByRouteName(utilityMenu.Items, "admin.profile")
+	if profileItem == nil {
+		t.Fatalf("expected profile utility menu item seeded")
+	}
+
+	helpItem := findMenuItemByRouteName(utilityMenu.Items, "admin.help")
+	if helpItem == nil {
+		t.Fatalf("expected help utility menu item seeded")
+	}
+
+	mainMenu, err := adm.MenuService().Menu(context.Background(), cfg.NavMenuCode, cfg.DefaultLocale)
+	if err != nil {
+		t.Fatalf("resolve main menu: %v", err)
+	}
+	if mainMenu == nil {
+		t.Fatalf("expected seeded main menu")
+	}
+	if item := findMenuItemByRouteName(mainMenu.Items, "admin.preferences"); item != nil {
+		t.Fatalf("expected preferences not to be seeded into main menu")
+	}
+}
+
+func TestNewModuleRegistrarSeedsToolsMenuItemsUnderToolsGroup(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	adm, _, err := NewAdmin(cfg, AdapterHooks{})
+	if err != nil {
+		t.Fatalf("NewAdmin error: %v", err)
+	}
+	if err := NewModuleRegistrar(
+		adm,
+		cfg,
+		nil,
+		false,
+		WithToolsMenuItems(admin.MenuItem{
+			ID:       "tools.audit-log",
+			Type:     admin.MenuItemTypeItem,
+			Label:    "Audit Log",
+			LabelKey: "menu.audit_log",
+			Target: map[string]any{
+				"type": "url",
+				"path": "/admin/audit-log",
+				"name": "admin.audit_log",
+				"key":  "audit_log",
+			},
+			Position: intPtr(65),
+		}),
+	); err != nil {
+		t.Fatalf("NewModuleRegistrar error: %v", err)
+	}
+
+	menu, err := adm.MenuService().Menu(context.Background(), cfg.NavMenuCode, cfg.DefaultLocale)
+	if err != nil {
+		t.Fatalf("resolve menu: %v", err)
+	}
+	if menu == nil {
+		t.Fatalf("expected seeded menu")
+	}
+
+	item := findMenuItemByRouteName(menu.Items, "admin.audit_log")
+	if item == nil {
+		t.Fatalf("expected tools menu item seeded")
+	}
+	if parent := strings.TrimSpace(item.ParentID); !strings.Contains(parent, NavigationGroupToolsID) {
+		t.Fatalf("expected tools item parent to include %q, got %q", NavigationGroupToolsID, parent)
+	}
+}
+
 func TestNewModuleRegistrarSeedsTranslationCapabilityMenuItemsWhenEnabled(t *testing.T) {
 	tests := []struct {
 		name            string
@@ -351,8 +475,8 @@ func TestNewModuleRegistrarSeedsTranslationCapabilityMenuItemsWhenEnabled(t *tes
 			}
 			if queueItem != nil {
 				parent := strings.TrimSpace(queueItem.ParentID)
-				if !strings.Contains(parent, "nav-group-others") {
-					t.Fatalf("expected queue item parent to include nav-group-others, got %q", parent)
+				if !strings.Contains(parent, "nav-group-translations") {
+					t.Fatalf("expected queue item parent to include nav-group-translations, got %q", parent)
 				}
 				path, _ := queueItem.Target["path"].(string)
 				if !strings.Contains(strings.TrimSpace(path), "/content/translations") {
@@ -369,8 +493,8 @@ func TestNewModuleRegistrarSeedsTranslationCapabilityMenuItemsWhenEnabled(t *tes
 			}
 			if dashboardItem != nil {
 				parent := strings.TrimSpace(dashboardItem.ParentID)
-				if !strings.Contains(parent, "nav-group-others") {
-					t.Fatalf("expected dashboard item parent to include nav-group-others, got %q", parent)
+				if !strings.Contains(parent, "nav-group-translations") {
+					t.Fatalf("expected dashboard item parent to include nav-group-translations, got %q", parent)
 				}
 				path, _ := dashboardItem.Target["path"].(string)
 				if !strings.Contains(strings.TrimSpace(path), "/translations/dashboard") {
@@ -387,8 +511,8 @@ func TestNewModuleRegistrarSeedsTranslationCapabilityMenuItemsWhenEnabled(t *tes
 			}
 			if exchangeItem != nil {
 				parent := strings.TrimSpace(exchangeItem.ParentID)
-				if !strings.Contains(parent, "nav-group-others") {
-					t.Fatalf("expected exchange item parent to include nav-group-others, got %q", parent)
+				if !strings.Contains(parent, "nav-group-translations") {
+					t.Fatalf("expected exchange item parent to include nav-group-translations, got %q", parent)
 				}
 				path, _ := exchangeItem.Target["path"].(string)
 				if !strings.Contains(strings.TrimSpace(path), "/translations/exchange") {

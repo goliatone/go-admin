@@ -126,3 +126,55 @@ func TestBuildPanelDataGridConfigIncludesTranslationUXOptions(t *testing.T) {
 		t.Fatalf("expected group_by_field translation_group_id, got %v", field)
 	}
 }
+
+func TestBuildPanelDataGridConfigIncludesStateAndURLConfig(t *testing.T) {
+	enableToken := true
+	cfg := BuildPanelDataGridConfig(PanelDataGridConfigOptions{
+		TableID: "content-pages",
+		StateStore: PanelDataGridStateStoreOptions{
+			Mode:            "preferences",
+			Resource:        "pages",
+			SyncDebounceMS:  1200,
+			MaxShareEntries: 25,
+		},
+		URLState: PanelDataGridURLStateOptions{
+			MaxURLLength:     1700,
+			MaxFiltersLength: 550,
+			EnableStateToken: &enableToken,
+		},
+	})
+	if cfg == nil {
+		t.Fatalf("expected datagrid config")
+	}
+
+	stateStore, ok := cfg["state_store"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected state_store map, got %T", cfg["state_store"])
+	}
+	if mode := stateStore["mode"]; mode != "preferences" {
+		t.Fatalf("expected state_store.mode preferences, got %v", mode)
+	}
+	if resource := stateStore["resource"]; resource != "pages" {
+		t.Fatalf("expected state_store.resource pages, got %v", resource)
+	}
+	if debounce := stateStore["sync_debounce_ms"]; debounce != 1200 {
+		t.Fatalf("expected state_store.sync_debounce_ms 1200, got %v", debounce)
+	}
+	if maxEntries := stateStore["max_share_entries"]; maxEntries != 25 {
+		t.Fatalf("expected state_store.max_share_entries 25, got %v", maxEntries)
+	}
+
+	urlState, ok := cfg["url_state"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected url_state map, got %T", cfg["url_state"])
+	}
+	if maxURL := urlState["max_url_length"]; maxURL != 1700 {
+		t.Fatalf("expected url_state.max_url_length 1700, got %v", maxURL)
+	}
+	if maxFilters := urlState["max_filters_length"]; maxFilters != 550 {
+		t.Fatalf("expected url_state.max_filters_length 550, got %v", maxFilters)
+	}
+	if enabled := urlState["enable_state_token"]; enabled != true {
+		t.Fatalf("expected url_state.enable_state_token true, got %v", enabled)
+	}
+}

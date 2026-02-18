@@ -28,7 +28,7 @@ func TestExampleTranslationPolicyUsesEnvironmentSpecificPublishRequirementsForPa
 	pagesChecker := &policyRecordingChecker{}
 	postsChecker := &policyRecordingChecker{}
 	policy := quickstart.NewTranslationPolicy(
-		quickstart.DefaultContentTranslationPolicyConfig(),
+		exampleTranslationPolicyConfig(),
 		quickstart.TranslationPolicyServices{
 			Pages:   pagesChecker,
 			Content: postsChecker,

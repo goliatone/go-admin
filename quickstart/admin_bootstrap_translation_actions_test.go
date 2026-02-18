@@ -9,10 +9,20 @@ import (
 
 func TestNewAdminConfiguresCreateTranslationActionLocalesFromPolicy(t *testing.T) {
 	cfg := NewAdminConfig("/admin", "Test", "en")
+	policyCfg := TranslationPolicyConfig{
+		RequiredFieldsStrategy: admin.RequiredFieldsValidationError,
+		Required: map[string]TranslationPolicyEntityConfig{
+			"posts": {
+				"publish": {
+					Locales: []string{"en", "es", "fr"},
+				},
+			},
+		},
+	}
 	adm, _, err := NewAdmin(
 		cfg,
 		AdapterHooks{},
-		WithTranslationPolicyConfig(DefaultContentTranslationPolicyConfig()),
+		WithTranslationPolicyConfig(policyCfg),
 	)
 	if err != nil {
 		t.Fatalf("new admin: %v", err)

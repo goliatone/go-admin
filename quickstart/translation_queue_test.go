@@ -32,6 +32,7 @@ func TestNewAdminTranslationQueueDisabledByDefault(t *testing.T) {
 }
 
 func TestNewAdminTranslationQueueEnabledRegistersPanelCommandsAndPermissions(t *testing.T) {
+	_ = registry.Stop(context.Background())
 	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
 
 	repo := admin.NewInMemoryTranslationAssignmentRepository()
@@ -72,8 +73,8 @@ func TestNewAdminTranslationQueueEnabledRegistersPanelCommandsAndPermissions(t *
 		t.Fatalf("expected translation queue panel to be registered")
 	}
 	for _, panelName := range []string{"pages", "posts"} {
-		if len(adm.Registry().PanelTabs(panelName)) == 0 {
-			t.Fatalf("expected translation tab registration for %s", panelName)
+		if len(adm.Registry().PanelTabs(panelName)) != 0 {
+			t.Fatalf("expected no hardcoded translation tab registration for %s", panelName)
 		}
 	}
 	if len(registered) != len(TranslationQueuePermissions()) {

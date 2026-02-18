@@ -730,7 +730,7 @@ func TestCMSContentTypeEntryRepositoryListUsesProjectedTopLevelFields(t *testing
 	}
 }
 
-func TestCMSContentRepositoryListEmitsCanonicalTranslationGroupIDForEditorialTypes(t *testing.T) {
+func TestCMSContentRepositoryListEmitsCanonicalTranslationGroupIDWhenTranslationMetadataPresent(t *testing.T) {
 	ctx := context.Background()
 	content := NewInMemoryContentService()
 	repo := NewCMSContentRepository(content)
@@ -741,6 +741,11 @@ func TestCMSContentRepositoryListEmitsCanonicalTranslationGroupIDForEditorialTyp
 		Locale:          "en",
 		Status:          "draft",
 		ContentTypeSlug: "page",
+		Data: map[string]any{
+			"translation_context": map[string]any{
+				"translation_group_id": "tg-page-1",
+			},
+		},
 	})
 	_, _ = content.CreateContent(ctx, CMSContent{
 		Title:           "Post One",
@@ -760,6 +765,11 @@ func TestCMSContentRepositoryListEmitsCanonicalTranslationGroupIDForEditorialTyp
 		Locale:          "en",
 		Status:          "draft",
 		ContentTypeSlug: "news",
+		Data: map[string]any{
+			"translation_context": map[string]any{
+				"translation_group_id": "tg-news-1",
+			},
+		},
 	})
 
 	list, total, err := repo.List(ctx, ListOptions{PerPage: 20})

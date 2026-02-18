@@ -2,6 +2,7 @@ package quickstart
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/goliatone/go-admin/admin"
@@ -79,6 +80,9 @@ func TestWithNavInjectsThemeAndSession(t *testing.T) {
 	if view["nav_items"] == nil {
 		t.Fatalf("expected nav_items in view context")
 	}
+	if view["nav_utility_items"] == nil {
+		t.Fatalf("expected nav_utility_items in view context")
+	}
 	if view["asset_base_path"] == nil {
 		t.Fatalf("expected asset_base_path in view context")
 	}
@@ -143,4 +147,98 @@ func TestResolveNavTargetUsesURLKitRoute(t *testing.T) {
 	if key != "settings" {
 		t.Fatalf("expected key settings, got %q", key)
 	}
+}
+
+func TestDefaultPlacementsIncludeSidebarUtilityMenu(t *testing.T) {
+	cfg := admin.Config{NavMenuCode: "admin.main"}
+	placements := DefaultPlacements(cfg)
+	code := placements.MenuCodeFor(SidebarPlacementUtility, "")
+	if code == "" {
+		t.Fatalf("expected non-empty sidebar utility menu code")
+	}
+	if code != admin.NormalizeMenuSlug(DefaultSidebarUtilityMenuCode) {
+		t.Fatalf("expected sidebar utility menu code %q, got %q", admin.NormalizeMenuSlug(DefaultSidebarUtilityMenuCode), code)
+	}
+}
+
+func TestBuildNavItemsPrunesEmptyGroupNodes(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	adm, _, err := NewAdmin(cfg, AdapterHooks{})
+	if err != nil {
+		t.Fatalf("NewAdmin: %v", err)
+	}
+	if err := SeedNavigation(context.Background(), SeedNavigationOptions{
+		MenuSvc:  adm.MenuService(),
+		MenuCode: cfg.NavMenuCode,
+		Locale:   cfg.DefaultLocale,
+		Items:    DefaultMenuParents(cfg.NavMenuCode),
+	}); err != nil {
+		t.Fatalf("SeedNavigation: %v", err)
+	}
+
+	items := BuildNavItems(adm, cfg, context.Background(), "")
+	if hasNavItemByGroupTitle(items, "Tools") {
+		t.Fatalf("expected empty Tools group to be pruned")
+	}
+	if hasNavItemByGroupTitle(items, "Translations") {
+		t.Fatalf("expected empty Translations group to be pruned")
+	}
+}
+
+func TestWithNavLoadsUtilityItemsFromUtilityPlacement(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	adm, _, err := NewAdmin(cfg, AdapterHooks{})
+	if err != nil {
+		t.Fatalf("NewAdmin: %v", err)
+	}
+	utilityMenuCode := DefaultPlacements(cfg).MenuCodeFor(SidebarPlacementUtility, "")
+	if err := SeedNavigation(context.Background(), SeedNavigationOptions{
+		MenuSvc:  adm.MenuService(),
+		MenuCode: utilityMenuCode,
+		Locale:   cfg.DefaultLocale,
+		Items: []admin.MenuItem{
+			{
+				ID:       "utility.custom-help",
+				Type:     admin.MenuItemTypeItem,
+				Label:    "Help",
+				LabelKey: "menu.help",
+				Target: map[string]any{
+					"type": "url",
+					"path": "/admin/help",
+					"key":  "help",
+				},
+			},
+		},
+	}); err != nil {
+		t.Fatalf("SeedNavigation utility: %v", err)
+	}
+
+	view := WithNav(nil, adm, cfg, "", context.Background())
+	utilityItems, ok := view["nav_utility_items"].([]map[string]any)
+	if !ok {
+		t.Fatalf("expected nav_utility_items slice, got %T", view["nav_utility_items"])
+	}
+	if len(utilityItems) == 0 {
+		t.Fatalf("expected utility nav items")
+	}
+	if utilityItems[0]["label"] != "Help" {
+		t.Fatalf("expected utility nav label Help, got %v", utilityItems[0]["label"])
+	}
+}
+
+func hasNavItemByGroupTitle(items []map[string]any, title string) bool {
+	title = strings.TrimSpace(title)
+	if title == "" {
+		return false
+	}
+	for _, item := range items {
+		if strings.EqualFold(strings.TrimSpace(toNavString(item["group_title"])), title) {
+			return true
+		}
+		children, _ := item["children"].([]map[string]any)
+		if hasNavItemByGroupTitle(children, title) {
+			return true
+		}
+	}
+	return false
 }
