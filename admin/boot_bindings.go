@@ -598,10 +598,7 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 				})
 				return nil, createErr
 			}
-			if errors.Is(createErr, ErrTranslationCreateUnsupported) && shouldUseLegacyCreateTranslationFallback(p.name) {
-				// Keep legacy clone+create only for page panels until a dedicated page
-				// translation command is wired through repository capabilities.
-			} else {
+			if !errors.Is(createErr, ErrTranslationCreateUnsupported) {
 				recordTranslationCreateActionMetric(ctx.Context, translationCreateActionEvent{
 					Entity:             p.name,
 					EntityID:           primaryID,
@@ -2116,10 +2113,6 @@ func mapCreateTranslationPersistenceError(err error, panel, entityID, sourceLoca
 
 func normalizeCreateTranslationLocale(locale string) string {
 	return strings.ToLower(strings.TrimSpace(locale))
-}
-
-func shouldUseLegacyCreateTranslationFallback(panel string) bool {
-	return strings.EqualFold(strings.TrimSpace(panel), "pages")
 }
 
 func prepareCreateTranslationClone(clone, source map[string]any, targetLocale string) {
