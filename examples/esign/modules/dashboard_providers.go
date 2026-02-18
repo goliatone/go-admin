@@ -2,6 +2,7 @@ package modules
 
 import (
 	"context"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"path"
 	"sort"
 	"strings"
@@ -113,8 +114,8 @@ func (m *ESignModule) signingActivityWidgetData(ctx context.Context) (map[string
 				CreatedAt:      formatTimePtr(&event.CreatedAt),
 				CreatedAtSort:  event.CreatedAt.UTC().Format("20060102150405.000000000"),
 				Type:           normalizeEventType(event.EventType),
-				Actor:          firstNonEmpty(strings.TrimSpace(event.ActorID), strings.TrimSpace(event.ActorType), "system"),
-				AgreementTitle: firstNonEmpty(strings.TrimSpace(agreement.Title), "Agreement"),
+				Actor:          primitives.FirstNonEmpty(strings.TrimSpace(event.ActorID), strings.TrimSpace(event.ActorType), "system"),
+				AgreementTitle: primitives.FirstNonEmpty(strings.TrimSpace(agreement.Title), "Agreement"),
 				AgreementURL:   m.panelItemURL(esignAgreementsPanelID, agreement.ID),
 			})
 		}
@@ -205,7 +206,7 @@ func (m *ESignModule) pendingSignaturesWidgetData(ctx context.Context) (map[stri
 			continue
 		}
 		rows = append(rows, map[string]any{
-			"title":              firstNonEmpty(strings.TrimSpace(agreement.Title), "Untitled"),
+			"title":              primitives.FirstNonEmpty(strings.TrimSpace(agreement.Title), "Untitled"),
 			"url":                m.panelItemURL(esignAgreementsPanelID, agreement.ID),
 			"pending_count":      len(pendingRecipients),
 			"total_recipients":   totalSigners,

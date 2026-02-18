@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 	"sync"
 	"time"
@@ -62,7 +63,7 @@ func (p *AuditActivityProjector) ProjectAgreement(ctx context.Context, scope sto
 
 		actor := strings.TrimSpace(event.ActorID)
 		if actor == "" {
-			actor = firstNonEmpty(strings.TrimSpace(event.ActorType), "system")
+			actor = primitives.FirstNonEmpty(strings.TrimSpace(event.ActorType), "system")
 		}
 		entry := coreadmin.ActivityEntry{
 			Actor:     actor,

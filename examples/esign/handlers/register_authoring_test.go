@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"bytes"
-	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -18,9 +17,7 @@ import (
 func setupAgreementAuthoringApp(t *testing.T, allowed map[string]bool) (*fiber.App, stores.Scope, string) {
 	t.Helper()
 
-	ctx := context.Background()
-	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
-	store := stores.NewInMemoryStore()
+	ctx, scope, store := newScopeStoreFixture()
 	docSvc := services.NewDocumentService(store, services.WithDocumentClock(func() time.Time {
 		return time.Date(2026, 2, 12, 8, 0, 0, 0, time.UTC)
 	}))
@@ -44,7 +41,7 @@ func setupAgreementAuthoringApp(t *testing.T, allowed map[string]bool) (*fiber.A
 	}
 
 	app := setupRegisterTestApp(t,
-		WithAuthorizer(mapAuthorizer{allowed: allowed}),
+		WithAuthorizer(authorizerFromAllowedMap(allowed)),
 		WithAgreementAuthoringService(agreementSvc),
 		WithDefaultScope(scope),
 	)

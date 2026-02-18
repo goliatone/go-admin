@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"testing"
 
 	"github.com/goliatone/go-admin/examples/esign/stores"
@@ -13,7 +14,7 @@ func TestSignerAssetContractResolveIncludesSourceObjectWhenBlobExists(t *testing
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        stringPtr("signer@example.com"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: intPtr(1),
+		SigningOrder: primitives.Int(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
@@ -49,7 +50,7 @@ func TestSignerAssetContractResolveMarksSourceUnavailableWhenBlobMissing(t *test
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        stringPtr("signer@example.com"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
-		SigningOrder: intPtr(1),
+		SigningOrder: primitives.Int(1),
 	}, 0)
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)

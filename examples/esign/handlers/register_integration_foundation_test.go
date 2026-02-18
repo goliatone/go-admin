@@ -15,14 +15,13 @@ import (
 )
 
 func TestRegisterIntegrationMappingAndPublishEndpoints(t *testing.T) {
-	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
-	store := stores.NewInMemoryStore()
+	_, scope, store := newScopeStoreFixture()
 	integration := services.NewIntegrationFoundationService(store)
 	app := setupRegisterTestApp(t,
-		WithAuthorizer(mapAuthorizer{allowed: map[string]bool{
-			DefaultPermissions.AdminSettings: true,
-			DefaultPermissions.AdminView:     true,
-		}}),
+		WithAuthorizer(authorizerWithPermissions(
+			DefaultPermissions.AdminSettings,
+			DefaultPermissions.AdminView,
+		)),
 		WithIntegrationFoundationService(integration),
 		WithDefaultScope(scope),
 	)
@@ -97,14 +96,13 @@ func TestRegisterIntegrationMappingAndPublishEndpoints(t *testing.T) {
 }
 
 func TestRegisterIntegrationSyncConflictInboundOutboundEndpoints(t *testing.T) {
-	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
-	store := stores.NewInMemoryStore()
+	_, scope, store := newScopeStoreFixture()
 	integration := services.NewIntegrationFoundationService(store)
 	app := setupRegisterTestApp(t,
-		WithAuthorizer(mapAuthorizer{allowed: map[string]bool{
-			DefaultPermissions.AdminSettings: true,
-			DefaultPermissions.AdminView:     true,
-		}}),
+		WithAuthorizer(authorizerWithPermissions(
+			DefaultPermissions.AdminSettings,
+			DefaultPermissions.AdminView,
+		)),
 		WithIntegrationFoundationService(integration),
 		WithDefaultScope(scope),
 	)

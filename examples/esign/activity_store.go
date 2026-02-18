@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"os"
 	"path/filepath"
 	"strings"
@@ -544,7 +545,7 @@ func rowToUsersActivityRecord(row eSignActivityRow) userstypes.ActivityRecord {
 }
 
 func toUsersActivityRecord(entry coreadmin.ActivityEntry) userstypes.ActivityRecord {
-	metadata := cloneAnyMap(entry.Metadata)
+	metadata := primitives.CloneAnyMapEmptyOnEmpty(entry.Metadata)
 
 	id := parseUUID(entry.ID)
 	if id == uuid.Nil {
@@ -583,7 +584,7 @@ func toUsersActivityRecord(entry coreadmin.ActivityEntry) userstypes.ActivityRec
 }
 
 func toAdminActivityEntry(record userstypes.ActivityRecord) coreadmin.ActivityEntry {
-	metadata := cloneAnyMap(record.Data)
+	metadata := primitives.CloneAnyMapEmptyOnEmpty(record.Data)
 	actor := safeUUIDString(record.ActorID)
 	if actor == "" {
 		actor = strings.TrimSpace(toString(metadata["actor"]))
