@@ -21,16 +21,17 @@ type PanelViewCapabilityOptions struct {
 
 // PanelDataGridConfigOptions configures datagrid wiring for panel templates.
 type PanelDataGridConfigOptions struct {
-	TableID           string
-	APIEndpoint       string
-	ActionBase        string
-	ColumnStorageKey  string
-	EnableGroupedMode bool
-	DefaultViewMode   string
-	GroupByField      string
-	TranslationUX     bool
-	StateStore        PanelDataGridStateStoreOptions
-	URLState          PanelDataGridURLStateOptions
+	TableID             string
+	APIEndpoint         string
+	ActionBase          string
+	PreferencesEndpoint string
+	ColumnStorageKey    string
+	EnableGroupedMode   bool
+	DefaultViewMode     string
+	GroupByField        string
+	TranslationUX       bool
+	StateStore          PanelDataGridStateStoreOptions
+	URLState            PanelDataGridURLStateOptions
 }
 
 // PanelDataGridStateStoreOptions configures datagrid state store wiring for templates.
@@ -103,6 +104,7 @@ func BuildPanelDataGridConfig(opts PanelDataGridConfigOptions) map[string]any {
 	tableID := strings.TrimSpace(opts.TableID)
 	apiEndpoint := strings.TrimSpace(opts.APIEndpoint)
 	actionBase := strings.TrimSpace(opts.ActionBase)
+	preferencesEndpoint := strings.TrimSpace(opts.PreferencesEndpoint)
 	columnStorageKey := strings.TrimSpace(opts.ColumnStorageKey)
 
 	if columnStorageKey == "" && tableID != "" {
@@ -118,6 +120,9 @@ func BuildPanelDataGridConfig(opts PanelDataGridConfigOptions) map[string]any {
 	}
 	if actionBase != "" {
 		dataGridConfig["action_base"] = actionBase
+	}
+	if preferencesEndpoint != "" {
+		dataGridConfig["preferences_endpoint"] = preferencesEndpoint
 	}
 	if columnStorageKey != "" {
 		dataGridConfig["column_storage_key"] = columnStorageKey
