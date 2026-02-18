@@ -1005,6 +1005,9 @@ func (a *Admin) RegisterPanel(name string, builder *PanelBuilder) (*Panel, error
 		if err := a.registry.RegisterPanel(name, panel); err != nil {
 			return nil, err
 		}
+		if err := syncTranslationQueueTabForPanel(a, name, panel); err != nil {
+			return nil, err
+		}
 	}
 	return panel, nil
 }
