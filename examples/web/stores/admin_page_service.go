@@ -2,6 +2,7 @@ package stores
 
 import (
 	"context"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 
 	"github.com/goliatone/go-admin/pkg/admin"
@@ -123,7 +124,7 @@ func (s *AdminPageStoreAdapter) Publish(ctx context.Context, id string, payload 
 	if s == nil || s.store == nil {
 		return nil, admin.ErrNotFound
 	}
-	update := cloneAnyMap(payload)
+	update := primitives.CloneAnyMapNilOnEmpty(payload)
 	if update == nil {
 		update = map[string]any{}
 	}
@@ -144,7 +145,7 @@ func (s *AdminPageStoreAdapter) Unpublish(ctx context.Context, id string, payloa
 	if s == nil || s.store == nil {
 		return nil, admin.ErrNotFound
 	}
-	update := cloneAnyMap(payload)
+	update := primitives.CloneAnyMapNilOnEmpty(payload)
 	if update == nil {
 		update = map[string]any{}
 	}
@@ -173,7 +174,7 @@ func buildAdminListOptions(opts admin.AdminPageListOptions) admin.ListOptions {
 		SortBy:   opts.SortBy,
 		SortDesc: opts.SortDesc,
 		Search:   opts.Search,
-		Filters:  cloneAnyMap(opts.Filters),
+		Filters:  primitives.CloneAnyMapNilOnEmpty(opts.Filters),
 	}
 	if list.Filters == nil {
 		list.Filters = map[string]any{}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"embed"
 	"fmt"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"io/fs"
 	"log"
 	"log/slog"
@@ -789,6 +790,9 @@ func main() {
 	// Initialize admin
 	if err := adm.Initialize(r); err != nil {
 		log.Panicf("failed to initialize admin: %v", err)
+	}
+	if err := setup.RemovePrimarySettingsMenuItems(context.Background(), adm.MenuService(), cfg.NavMenuCode, cfg.DefaultLocale); err != nil {
+		log.Printf("warning: failed to prune primary settings menu item: %v", err)
 	}
 	if _, err := setup.LogNavigationIntegritySummary(context.Background(), adm.MenuService(), cfg.NavMenuCode, cfg.DefaultLocale); err != nil {
 		log.Printf("warning: failed to repair/check navigation integrity: %v", err)
@@ -2071,10 +2075,10 @@ func adaptAuthActor(actor *authlib.ActorContext) crud.ActorContext {
 		ActorID:        actor.ActorID,
 		Subject:        actor.Subject,
 		Role:           actor.Role,
-		ResourceRoles:  cloneStringMap(actor.ResourceRoles),
+		ResourceRoles:  primitives.CloneStringMapNilOnEmpty(actor.ResourceRoles),
 		TenantID:       actor.TenantID,
 		OrganizationID: actor.OrganizationID,
-		Metadata:       cloneAnyMap(actor.Metadata),
+		Metadata:       primitives.CloneAnyMapNilOnEmpty(actor.Metadata),
 		ImpersonatorID: actor.ImpersonatorID,
 		IsImpersonated: actor.IsImpersonated,
 	}

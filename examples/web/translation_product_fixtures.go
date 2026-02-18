@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 	"time"
 
@@ -976,9 +977,9 @@ func cloneCMSPage(page coreadmin.CMSPage) coreadmin.CMSPage {
 	out.AvailableLocales = append([]string{}, page.AvailableLocales...)
 	out.Blocks = append([]string{}, page.Blocks...)
 	out.EmbeddedBlocks = cloneAnySlice(page.EmbeddedBlocks)
-	out.Data = cloneAnyMap(page.Data)
-	out.Metadata = cloneAnyMap(page.Metadata)
-	out.SEO = cloneAnyMap(page.SEO)
+	out.Data = primitives.CloneAnyMapNilOnEmpty(page.Data)
+	out.Metadata = primitives.CloneAnyMapNilOnEmpty(page.Metadata)
+	out.SEO = primitives.CloneAnyMapNilOnEmpty(page.SEO)
 	return out
 }
 
@@ -1018,7 +1019,7 @@ func cloneAnySlice(input []map[string]any) []map[string]any {
 	}
 	out := make([]map[string]any, 0, len(input))
 	for _, item := range input {
-		out = append(out, cloneAnyMap(item))
+		out = append(out, primitives.CloneAnyMapNilOnEmpty(item))
 	}
 	return out
 }

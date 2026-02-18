@@ -2,6 +2,7 @@ package commands
 
 import (
 	"errors"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"strconv"
 	"strings"
 
@@ -100,7 +101,7 @@ func buildMediaBulkDeleteMsg(payload map[string]any, ids []string) (MediaBulkDel
 }
 
 func normalizeSchedulePayload(payload map[string]any) map[string]any {
-	out := cloneAnyMap(payload)
+	out := primitives.CloneAnyMapNilOnEmpty(payload)
 	if out == nil {
 		return nil
 	}

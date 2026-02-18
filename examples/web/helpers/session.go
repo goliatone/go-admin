@@ -3,6 +3,7 @@ package helpers
 import (
 	"context"
 	"fmt"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"sort"
 	"strings"
 	"time"
@@ -44,25 +45,25 @@ func BuildSessionUser(ctx context.Context) SessionUser {
 	claims, _ := authlib.GetClaims(ctx)
 
 	if actor != nil {
-		session.ID = firstNonEmpty(session.ID, actor.ActorID, actor.Subject)
-		session.Subject = firstNonEmpty(session.Subject, actor.Subject, actor.ActorID)
-		session.Role = firstNonEmpty(session.Role, actor.Role)
+		session.ID = primitives.FirstNonEmpty(session.ID, actor.ActorID, actor.Subject)
+		session.Subject = primitives.FirstNonEmpty(session.Subject, actor.Subject, actor.ActorID)
+		session.Role = primitives.FirstNonEmpty(session.Role, actor.Role)
 		session.TenantID = actor.TenantID
 		session.OrganizationID = actor.OrganizationID
-		session.ResourceRoles = cloneStringMap(actor.ResourceRoles)
-		session.Metadata = cloneAnyMap(actor.Metadata)
+		session.ResourceRoles = primitives.CloneStringMapNilOnEmpty(actor.ResourceRoles)
+		session.Metadata = primitives.CloneAnyMapNilOnEmpty(actor.Metadata)
 	}
 
 	if claims != nil {
 		if session.ID == "" {
 			session.ID = claims.UserID()
 		}
-		session.Subject = firstNonEmpty(session.Subject, claims.Subject(), claims.UserID())
-		session.Role = firstNonEmpty(session.Role, claims.Role())
+		session.Subject = primitives.FirstNonEmpty(session.Subject, claims.Subject(), claims.UserID())
+		session.Role = primitives.FirstNonEmpty(session.Role, claims.Role())
 
 		if carrier, ok := claims.(interface{ ResourceRoles() map[string]string }); ok {
 			if session.ResourceRoles == nil {
-				session.ResourceRoles = cloneStringMap(carrier.ResourceRoles())
+				session.ResourceRoles = primitives.CloneStringMapNilOnEmpty(carrier.ResourceRoles())
 			} else {
 				session.ResourceRoles = mergeStringMaps(session.ResourceRoles, carrier.ResourceRoles())
 			}
@@ -80,25 +81,25 @@ func BuildSessionUser(ctx context.Context) SessionUser {
 		}
 	}
 
-	session.Email = firstNonEmpty(session.Email,
+	session.Email = primitives.FirstNonEmpty(session.Email,
 		stringFromMetadata(session.Metadata, "email", "user_email"),
 	)
-	session.Username = firstNonEmpty(session.Username,
+	session.Username = primitives.FirstNonEmpty(session.Username,
 		stringFromMetadata(session.Metadata, "username", "user", "name"),
 	)
-	session.TenantID = firstNonEmpty(session.TenantID,
+	session.TenantID = primitives.FirstNonEmpty(session.TenantID,
 		stringFromMetadata(session.Metadata, "tenant_id", "tenant", "default_tenant"),
 	)
-	session.OrganizationID = firstNonEmpty(session.OrganizationID,
+	session.OrganizationID = primitives.FirstNonEmpty(session.OrganizationID,
 		stringFromMetadata(session.Metadata, "organization_id", "org_id", "org"),
 	)
-	session.AvatarURL = firstNonEmpty(session.AvatarURL,
+	session.AvatarURL = primitives.FirstNonEmpty(session.AvatarURL,
 		stringFromMetadata(session.Metadata, "avatar", "avatar_url", "picture", "image_url"),
 	)
 
 	session.Scopes = collectScopes(session.Metadata, session.ResourceRoles)
 
-	session.DisplayName = firstNonEmpty(session.DisplayName,
+	session.DisplayName = primitives.FirstNonEmpty(session.DisplayName,
 		stringFromMetadata(session.Metadata, "name", "display_name"),
 		session.Username,
 		session.Email,
@@ -185,10 +186,10 @@ func stringFromMetadata(metadata map[string]any, keys ...string) string {
 
 func mergeAnyMaps(base map[string]any, src map[string]any) map[string]any {
 	if len(src) == 0 {
-		return cloneAnyMap(base)
+		return primitives.CloneAnyMapNilOnEmpty(base)
 	}
 
-	out := cloneAnyMap(base)
+	out := primitives.CloneAnyMapNilOnEmpty(base)
 	if out == nil {
 		out = map[string]any{}
 	}
@@ -200,9 +201,9 @@ func mergeAnyMaps(base map[string]any, src map[string]any) map[string]any {
 
 func mergeStringMaps(base map[string]string, src map[string]string) map[string]string {
 	if len(src) == 0 {
-		return cloneStringMap(base)
+		return primitives.CloneStringMapNilOnEmpty(base)
 	}
-	out := cloneStringMap(base)
+	out := primitives.CloneStringMapNilOnEmpty(base)
 	if out == nil {
 		out = map[string]string{}
 	}
@@ -216,7 +217,7 @@ func pruneSessionMetadata(metadata map[string]any, keys []string) map[string]any
 	if len(metadata) == 0 || len(keys) == 0 {
 		return metadata
 	}
-	out := cloneAnyMap(metadata)
+	out := primitives.CloneAnyMapNilOnEmpty(metadata)
 	for _, key := range keys {
 		delete(out, key)
 	}

@@ -3,6 +3,7 @@ package setup
 import (
 	"context"
 	"fmt"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"log/slog"
 	"reflect"
 	"strings"
@@ -107,7 +108,7 @@ func (b *goCMSContentBridge) DeletePage(ctx context.Context, id string) error {
 }
 
 func (b *goCMSContentBridge) pageFromContent(content admin.CMSContent) admin.CMSPage {
-	data := cloneAnyMap(content.Data)
+	data := primitives.CloneAnyMapEmptyOnEmpty(content.Data)
 	path := strings.TrimSpace(asString(data["path"], ""))
 	if path == "" && strings.TrimSpace(content.Slug) != "" {
 		path = "/" + strings.TrimPrefix(content.Slug, "/")
@@ -167,7 +168,7 @@ func (b *goCMSContentBridge) createPageFromContent(ctx context.Context, page adm
 	if locale == "" {
 		locale = "en"
 	}
-	data := cloneAnyMap(page.Data)
+	data := primitives.CloneAnyMapEmptyOnEmpty(page.Data)
 	if mt := asString(page.SEO["title"], asString(data["meta_title"], "")); strings.TrimSpace(mt) != "" {
 		data["meta_title"] = mt
 	}
@@ -226,8 +227,8 @@ func (b *goCMSContentBridge) updatePageFromContent(ctx context.Context, page adm
 		return nil, admin.ErrNotFound
 	}
 
-	data := cloneAnyMap(existing.Data)
-	for k, v := range cloneAnyMap(page.Data) {
+	data := primitives.CloneAnyMapEmptyOnEmpty(existing.Data)
+	for k, v := range primitives.CloneAnyMapEmptyOnEmpty(page.Data) {
 		data[k] = v
 	}
 	if mt := asString(page.SEO["title"], asString(data["meta_title"], "")); strings.TrimSpace(mt) != "" {
@@ -275,7 +276,7 @@ func (b *goCMSContentBridge) updatePageFromContent(ctx context.Context, page adm
 		Slug:               slug,
 		Status:             status,
 		Locale:             locale,
-		TranslationGroupID: strings.TrimSpace(firstNonEmpty(page.TranslationGroupID, existing.TranslationGroupID)),
+		TranslationGroupID: strings.TrimSpace(primitives.FirstNonEmpty(page.TranslationGroupID, existing.TranslationGroupID)),
 		ContentType:        "page",
 		Blocks:             blocks,
 		Data:               data,
@@ -673,7 +674,7 @@ func (b *goCMSContentBridge) CreateBlockDefinition(ctx context.Context, def admi
 		setStringField(input, "Status", status)
 	}
 	if def.UISchema != nil {
-		setMapField(input, "UISchema", cloneAnyMap(def.UISchema))
+		setMapField(input, "UISchema", primitives.CloneAnyMapEmptyOnEmpty(def.UISchema))
 	}
 	env := strings.TrimSpace(def.Environment)
 	if env == "" {
@@ -683,7 +684,7 @@ func (b *goCMSContentBridge) CreateBlockDefinition(ctx context.Context, def admi
 		setStringField(input, "EnvironmentKey", env)
 	}
 	if len(def.Schema) > 0 {
-		setMapField(input, "Schema", cloneAnyMap(def.Schema))
+		setMapField(input, "Schema", primitives.CloneAnyMapEmptyOnEmpty(def.Schema))
 	}
 	results := method.Call([]reflect.Value{reflect.ValueOf(ctx), input})
 	if err := reflectError(results); err != nil {
@@ -731,7 +732,7 @@ func (b *goCMSContentBridge) UpdateBlockDefinition(ctx context.Context, def admi
 		setStringPtr(input, "Status", status)
 	}
 	if def.UISchema != nil {
-		setMapField(input, "UISchema", cloneAnyMap(def.UISchema))
+		setMapField(input, "UISchema", primitives.CloneAnyMapEmptyOnEmpty(def.UISchema))
 	}
 	env := strings.TrimSpace(def.Environment)
 	if env == "" {
@@ -741,7 +742,7 @@ func (b *goCMSContentBridge) UpdateBlockDefinition(ctx context.Context, def admi
 		setStringPtr(input, "EnvironmentKey", env)
 	}
 	if len(def.Schema) > 0 {
-		setMapField(input, "Schema", cloneAnyMap(def.Schema))
+		setMapField(input, "Schema", primitives.CloneAnyMapEmptyOnEmpty(def.Schema))
 	}
 	results := method.Call([]reflect.Value{reflect.ValueOf(ctx), input})
 	if err := reflectError(results); err != nil {
@@ -886,7 +887,7 @@ func (b *goCMSContentBridge) buildTranslation(field reflect.Value, content admin
 	if summary := strings.TrimSpace(asString(content.Data["excerpt"], "")); summary != "" {
 		setStringPtr(tr, "Summary", summary)
 	}
-	if data := cloneAnyMap(content.Data); data != nil {
+	if data := primitives.CloneAnyMapEmptyOnEmpty(content.Data); data != nil {
 		setMapField(tr, "Content", data)
 	}
 	if blocks := embeddedBlocksFromContent(content); len(blocks) > 0 {
@@ -992,7 +993,7 @@ func (b *goCMSContentBridge) convertContent(value reflect.Value, locale string, 
 		}
 		if contentField := chosen.FieldByName("Content"); contentField.IsValid() && contentField.Kind() == reflect.Map {
 			if m, ok := contentField.Interface().(map[string]any); ok {
-				out.Data = cloneAnyMap(m)
+				out.Data = primitives.CloneAnyMapEmptyOnEmpty(m)
 			}
 		}
 	}
@@ -1089,7 +1090,7 @@ func (b *goCMSContentBridge) convertPage(value reflect.Value, locale string) adm
 		}
 		if contentField := chosen.FieldByName("Content"); contentField.IsValid() && contentField.Kind() == reflect.Map {
 			if m, ok := contentField.Interface().(map[string]any); ok {
-				merged := cloneAnyMap(m)
+				merged := primitives.CloneAnyMapEmptyOnEmpty(m)
 				if merged == nil {
 					merged = map[string]any{}
 				}
@@ -1349,7 +1350,7 @@ func (b *goCMSContentBridge) typeName(ctx context.Context, id uuid.UUID) string 
 	}
 	if b.contentTypes != nil {
 		if ct, err := b.contentTypes.ContentType(ctx, id.String()); err == nil && ct != nil {
-			name := strings.TrimSpace(firstNonEmpty(ct.Slug, ct.Name))
+			name := strings.TrimSpace(primitives.FirstNonEmpty(ct.Slug, ct.Name))
 			if name != "" {
 				b.cacheContentType(name, id, ct.Slug, ct.Name)
 				return name
@@ -1616,7 +1617,7 @@ func embeddedBlocksFromContent(content admin.CMSContent) []map[string]any {
 			out := make([]map[string]any, 0, len(raw))
 			for _, item := range raw {
 				if m, ok := item.(map[string]any); ok {
-					out = append(out, cloneAnyMap(m))
+					out = append(out, primitives.CloneAnyMapEmptyOnEmpty(m))
 				}
 			}
 			if len(out) > 0 {
@@ -1633,7 +1634,7 @@ func cloneBlockList(blocks []map[string]any) []map[string]any {
 	}
 	out := make([]map[string]any, 0, len(blocks))
 	for _, block := range blocks {
-		out = append(out, cloneAnyMap(block))
+		out = append(out, primitives.CloneAnyMapEmptyOnEmpty(block))
 	}
 	return out
 }
@@ -1765,7 +1766,7 @@ func (b *goCMSContentBridge) convertBlockDefinition(val reflect.Value) admin.CMS
 	def.MigrationStatus = strings.TrimSpace(stringField(val, "MigrationStatus"))
 	if schemaField := val.FieldByName("Schema"); schemaField.IsValid() {
 		if schema, ok := schemaField.Interface().(map[string]any); ok {
-			def.Schema = cloneAnyMap(schema)
+			def.Schema = primitives.CloneAnyMapEmptyOnEmpty(schema)
 			if def.Type == "" {
 				def.Type = strings.TrimSpace(asString(schema["x-block-type"], ""))
 			}
@@ -1773,7 +1774,7 @@ func (b *goCMSContentBridge) convertBlockDefinition(val reflect.Value) admin.CMS
 	}
 	if uiSchemaField := val.FieldByName("UISchema"); uiSchemaField.IsValid() {
 		if uiSchema, ok := uiSchemaField.Interface().(map[string]any); ok {
-			def.UISchema = cloneAnyMap(uiSchema)
+			def.UISchema = primitives.CloneAnyMapEmptyOnEmpty(uiSchema)
 		}
 	}
 	if def.Type == "" {
@@ -1818,12 +1819,12 @@ func (b *goCMSContentBridge) convertBlockDefinitionVersion(val reflect.Value) ad
 	}
 	if schemaField := val.FieldByName("Schema"); schemaField.IsValid() {
 		if schema, ok := schemaField.Interface().(map[string]any); ok {
-			version.Schema = cloneAnyMap(schema)
+			version.Schema = primitives.CloneAnyMapEmptyOnEmpty(schema)
 		}
 	}
 	if defaultsField := val.FieldByName("Defaults"); defaultsField.IsValid() {
 		if defaults, ok := defaultsField.Interface().(map[string]any); ok {
-			version.Defaults = cloneAnyMap(defaults)
+			version.Defaults = primitives.CloneAnyMapEmptyOnEmpty(defaults)
 		}
 	}
 	if version.MigrationStatus == "" {
@@ -1938,7 +1939,7 @@ func (b *goCMSContentBridge) convertBlockInstance(val reflect.Value, locale stri
 	if chosen.IsValid() {
 		if contentField := chosen.FieldByName("Content"); contentField.IsValid() && contentField.Kind() == reflect.Map {
 			if m, ok := contentField.Interface().(map[string]any); ok {
-				block.Data = cloneAnyMap(m)
+				block.Data = primitives.CloneAnyMapEmptyOnEmpty(m)
 			}
 		}
 	}
@@ -1965,7 +1966,7 @@ func (b *goCMSContentBridge) createBlockInstance(ctx context.Context, defID, pag
 		setIntField(input, "Position", block.Position)
 	}
 	if len(block.Data) > 0 {
-		setMapField(input, "Configuration", cloneAnyMap(block.Data))
+		setMapField(input, "Configuration", primitives.CloneAnyMapEmptyOnEmpty(block.Data))
 	}
 	setUUIDField(input, "CreatedBy", uuid.Nil)
 	setUUIDField(input, "UpdatedBy", uuid.Nil)
@@ -1982,7 +1983,7 @@ func (b *goCMSContentBridge) createBlockInstance(ctx context.Context, defID, pag
 	}
 	converted := b.convertBlockInstance(inst, block.Locale)
 	if len(converted.Data) == 0 && len(block.Data) > 0 {
-		converted.Data = cloneAnyMap(block.Data)
+		converted.Data = primitives.CloneAnyMapEmptyOnEmpty(block.Data)
 	}
 	if converted.Locale == "" {
 		converted.Locale = block.Locale
@@ -2011,7 +2012,7 @@ func (b *goCMSContentBridge) updateBlockInstance(ctx context.Context, defID, pag
 		setIntPtr(input, "Position", block.Position)
 	}
 	if len(block.Data) > 0 {
-		setMapField(input, "Configuration", cloneAnyMap(block.Data))
+		setMapField(input, "Configuration", primitives.CloneAnyMapEmptyOnEmpty(block.Data))
 	}
 	setUUIDField(input, "UpdatedBy", uuid.Nil)
 	results := method.Call([]reflect.Value{reflect.ValueOf(ctx), input})
@@ -2027,7 +2028,7 @@ func (b *goCMSContentBridge) updateBlockInstance(ctx context.Context, defID, pag
 	}
 	converted := b.convertBlockInstance(inst, block.Locale)
 	if len(converted.Data) == 0 && len(block.Data) > 0 {
-		converted.Data = cloneAnyMap(block.Data)
+		converted.Data = primitives.CloneAnyMapEmptyOnEmpty(block.Data)
 	}
 	if converted.Locale == "" {
 		converted.Locale = block.Locale
@@ -2045,7 +2046,7 @@ func (b *goCMSContentBridge) upsertBlockTranslation(ctx context.Context, instanc
 	if locale == "" {
 		return nil
 	}
-	payload := cloneAnyMap(block.Data)
+	payload := primitives.CloneAnyMapEmptyOnEmpty(block.Data)
 	if payload == nil {
 		payload = map[string]any{}
 	}

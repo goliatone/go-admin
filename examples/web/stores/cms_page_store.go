@@ -3,6 +3,7 @@ package stores
 import (
 	"context"
 	"encoding/json"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 	"time"
 
@@ -385,11 +386,11 @@ func (s *CMSPageStore) pagePayload(record map[string]any, existing map[string]an
 	if tags == nil {
 		tags = []string{}
 	}
-	seoData := cloneAnyMap(nil)
+	seoData := primitives.CloneAnyMapNilOnEmpty(nil)
 	if raw, ok := record["seo"].(map[string]any); ok {
-		seoData = cloneAnyMap(raw)
+		seoData = primitives.CloneAnyMapNilOnEmpty(raw)
 	} else if raw, ok := existing["seo"].(map[string]any); ok {
-		seoData = cloneAnyMap(raw)
+		seoData = primitives.CloneAnyMapNilOnEmpty(raw)
 	}
 	if metaTitle == "" {
 		metaTitle = asString(seoData["title"], "")
@@ -397,17 +398,17 @@ func (s *CMSPageStore) pagePayload(record map[string]any, existing map[string]an
 	if metaDescription == "" {
 		metaDescription = asString(seoData["description"], "")
 	}
-	meta := cloneAnyMap(nil)
+	meta := primitives.CloneAnyMapNilOnEmpty(nil)
 	if raw, ok := record["meta"].(map[string]any); ok {
-		meta = cloneAnyMap(raw)
+		meta = primitives.CloneAnyMapNilOnEmpty(raw)
 	} else if raw, ok := existing["meta"].(map[string]any); ok {
-		meta = cloneAnyMap(raw)
+		meta = primitives.CloneAnyMapNilOnEmpty(raw)
 	}
-	markdown := cloneAnyMap(nil)
+	markdown := primitives.CloneAnyMapNilOnEmpty(nil)
 	if raw, ok := record["markdown"].(map[string]any); ok {
-		markdown = cloneAnyMap(raw)
+		markdown = primitives.CloneAnyMapNilOnEmpty(raw)
 	} else if raw, ok := existing["markdown"].(map[string]any); ok {
-		markdown = cloneAnyMap(raw)
+		markdown = primitives.CloneAnyMapNilOnEmpty(raw)
 	}
 	rawStatus := asString(record["status"], asString(existing["status"], "draft"))
 	storageStatus, workflowStatus := normalizeCMSPageStatus(rawStatus)

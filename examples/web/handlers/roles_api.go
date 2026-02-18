@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"net/http"
 	"sort"
 	"strings"
@@ -93,7 +94,7 @@ func (h *RolesAPIHandlers) listAllRoles(ctx context.Context, query roleListQuery
 		Page:    1,
 		PerPage: rolesBatchSize,
 		Search:  query.Search,
-		Filters: cloneAnyMap(query.ServiceFilters),
+		Filters: primitives.CloneAnyMapEmptyOnEmpty(query.ServiceFilters),
 	}
 
 	all := make([]admin.RoleRecord, 0, rolesBatchSize)

@@ -1073,6 +1073,54 @@ func RemoveLegacyTranslationToolsMenuItems(ctx context.Context, menuSvc admin.CM
 	return nil
 }
 
+// RemovePrimarySettingsMenuItems removes settings links from a primary menu.
+// This keeps examples that use a dedicated utility menu from showing duplicates.
+func RemovePrimarySettingsMenuItems(ctx context.Context, menuSvc admin.CMSMenuService, menuCode, locale string) error {
+	if menuSvc == nil {
+		return nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	menuCode = strings.TrimSpace(menuCode)
+	if menuCode == "" {
+		menuCode = NavigationMenuCode
+	}
+	locale = strings.TrimSpace(locale)
+	if locale == "" {
+		locale = "en"
+	}
+
+	menu, err := menuSvc.Menu(ctx, menuCode, locale)
+	if err != nil || menu == nil {
+		return err
+	}
+
+	ids := []string{}
+	collectPrimarySettingsItemIDs(menu.Items, &ids)
+	if len(ids) == 0 {
+		return nil
+	}
+
+	for _, id := range ids {
+		itemID := strings.TrimSpace(id)
+		if itemID == "" {
+			continue
+		}
+		if err := menuSvc.DeleteMenuItem(ctx, menuCode, itemID); err != nil {
+			if errors.Is(err, admin.ErrNotFound) {
+				continue
+			}
+			msg := strings.ToLower(strings.TrimSpace(err.Error()))
+			if strings.Contains(msg, "not found") {
+				continue
+			}
+			return err
+		}
+	}
+	return nil
+}
+
 func collectLegacyTranslationToolItemIDs(items []admin.MenuItem, out *[]string) {
 	for _, item := range items {
 		if isLegacyTranslationToolsItem(item) {
@@ -1082,6 +1130,36 @@ func collectLegacyTranslationToolItemIDs(items []admin.MenuItem, out *[]string) 
 			collectLegacyTranslationToolItemIDs(item.Children, out)
 		}
 	}
+}
+
+func collectPrimarySettingsItemIDs(items []admin.MenuItem, out *[]string) {
+	for _, item := range items {
+		if isPrimarySettingsItem(item) {
+			*out = append(*out, item.ID)
+		}
+		if len(item.Children) > 0 {
+			collectPrimarySettingsItemIDs(item.Children, out)
+		}
+	}
+}
+
+func isPrimarySettingsItem(item admin.MenuItem) bool {
+	target := item.Target
+	if key := strings.ToLower(strings.TrimSpace(targetKey(target))); key == "settings" {
+		return true
+	}
+	if target != nil {
+		if routeName, ok := target["name"].(string); ok && strings.EqualFold(strings.TrimSpace(routeName), "admin.settings") {
+			return true
+		}
+		if rawPath, ok := target["path"].(string); ok {
+			normalized := strings.Trim(strings.ToLower(strings.TrimSpace(rawPath)), "/")
+			if normalized == "settings" || strings.HasSuffix(normalized, "/settings") {
+				return true
+			}
+		}
+	}
+	return strings.EqualFold(strings.TrimSpace(item.LabelKey), "menu.settings")
 }
 
 func isLegacyTranslationToolsItem(item admin.MenuItem) bool {
