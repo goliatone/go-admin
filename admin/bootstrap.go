@@ -3,12 +3,16 @@ package admin
 import (
 	"context"
 	"errors"
+	"github.com/goliatone/go-admin/internal/primitives"
+	"strings"
 
 	navinternal "github.com/goliatone/go-admin/admin/internal/navigation"
 	settingsinternal "github.com/goliatone/go-admin/admin/internal/settings"
 	"github.com/goliatone/go-command/registry"
 	goerrors "github.com/goliatone/go-errors"
 )
+
+const defaultSidebarUtilityMenuCode = "admin.utility"
 
 // Bootstrap initializes CMS seed data (CMS container, admin menu, settings defaults).
 func (a *Admin) Bootstrap(ctx context.Context) error {
@@ -119,9 +123,9 @@ func (a *Admin) Prepare(ctx context.Context) error {
 			return err
 		}
 	}
-	// if err := a.ensureSettingsNavigation(ctx); err != nil {
-	// 	return err
-	// }
+	if err := a.ensureSettingsNavigation(ctx); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -186,9 +190,15 @@ func (a *Admin) ensureSettingsNavigation(ctx context.Context) error {
 	const targetKey = "settings"
 
 	if a.menuSvc != nil {
-		menu, err := a.menuSvc.Menu(ctx, a.navMenuCode, a.config.DefaultLocale)
-		if err == nil && navinternal.MenuHasTarget(menu.Items, targetKey, settingsPath) {
-			return nil
+		for _, code := range []string{a.navMenuCode, defaultSidebarUtilityMenuCode} {
+			menuCode := NormalizeMenuSlug(strings.TrimSpace(code))
+			if menuCode == "" {
+				continue
+			}
+			menu, err := a.menuSvc.Menu(ctx, menuCode, a.config.DefaultLocale)
+			if err == nil && menu != nil && navinternal.MenuHasTarget(menu.Items, targetKey, settingsPath) {
+				return nil
+			}
 		}
 	}
 	if navinternal.NavigationHasTarget(a.nav.Fallback(), targetKey, settingsPath) {
@@ -196,13 +206,14 @@ func (a *Admin) ensureSettingsNavigation(ctx context.Context) error {
 	}
 
 	item := MenuItem{
+		ID:          "settings",
 		Label:       "Settings",
 		Icon:        "settings",
 		Target:      map[string]any{"type": "url", "path": settingsPath, "key": targetKey},
 		Permissions: []string{a.config.SettingsPermission},
 		Menu:        a.navMenuCode,
 		Locale:      a.config.DefaultLocale,
-		Position:    intPtr(80),
+		Position:    primitives.Int(80),
 		ParentID:    "nav-group-main",
 	}
 	return a.addMenuItems(ctx, []MenuItem{item})
