@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"net/http"
 	"strings"
 	"time"
@@ -131,11 +132,11 @@ func parseActivityListFilter(c router.Context) (activityListFilter, error) {
 		offset = 0
 	}
 
-	since, err := toTime(firstNonEmpty(c.Query("since"), c.Query("from")))
+	since, err := toTime(primitives.FirstNonEmpty(c.Query("since"), c.Query("from")))
 	if err != nil {
 		return activityListFilter{}, validationError("since must be RFC3339", map[string]any{"field": "since"})
 	}
-	until, err := toTime(firstNonEmpty(c.Query("until"), c.Query("to")))
+	until, err := toTime(primitives.FirstNonEmpty(c.Query("until"), c.Query("to")))
 	if err != nil {
 		return activityListFilter{}, validationError("until must be RFC3339", map[string]any{"field": "until"})
 	}
