@@ -54,7 +54,7 @@ Each helper is optional and composable.
 - `WithNav(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context) router.ViewContext` - Inputs: base view context + admin/config/request state. Outputs: context enriched with feature flags (`activity_enabled`, `activity_feature_enabled`, `translation_capabilities`, `body_classes`), session user payload, nav items, theme payload, and path helpers.
 - `WithNavPlacements(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, placements PlacementConfig, placement string, active string, reqCtx context.Context) router.ViewContext` - Inputs: same as `WithNav`, plus placement mapping. Outputs: placement-aware nav context for non-sidebar menus while preserving the same feature/session/theme enrichment.
 - `BuildPanelExportConfig(cfg admin.Config, opts PanelViewCapabilityOptions) map[string]any` - Inputs: admin config and panel capability options. Outputs: normalized `export_config` payload (`endpoint`, `definition`, optional `variant`).
-- `BuildPanelDataGridConfig(opts PanelDataGridConfigOptions) map[string]any` - Inputs: datagrid options. Outputs: normalized `datagrid_config` payload (`table_id`, `api_endpoint`, `action_base`, `column_storage_key`).
+- `BuildPanelDataGridConfig(opts PanelDataGridConfigOptions) map[string]any` - Inputs: datagrid options. Outputs: normalized `datagrid_config` payload (`table_id`, `api_endpoint`, `action_base`, `column_storage_key`, optional `state_store` and `url_state`).
 - `BuildPanelViewCapabilities(cfg admin.Config, opts PanelViewCapabilityOptions) router.ViewContext` - Inputs: admin config and panel capability options. Outputs: template capability context including `export_config` and `datagrid_config`.
 - `PathViewContext(cfg admin.Config, pathCfg PathViewContextConfig) router.ViewContext` - Inputs: config + path resolver hints. Outputs: normalized `base_path`, `api_base_path`, `asset_base_path`.
 - `WithPathViewContext(ctx router.ViewContext, cfg admin.Config, pathCfg PathViewContextConfig) router.ViewContext` - Inputs: existing context + path resolver hints. Outputs: merged context with canonical path keys.
@@ -73,8 +73,8 @@ Each helper is optional and composable.
 - `NewModuleRegistrar(adm *admin.Admin, cfg admin.Config, modules []admin.Module, isDev bool, opts ...ModuleRegistrarOption) error` - Inputs: admin, config, module list, dev flag, options. Outputs: error.
 - `WithModuleFeatureGates(gates gate.FeatureGate) ModuleRegistrarOption` - Inputs: feature gate; outputs: option to filter modules/menu items.
 - `WithModuleFeatureDisabledHandler(handler func(feature, moduleID string) error) ModuleRegistrarOption` - Inputs: handler; outputs: option for disabled modules.
-- `WithTranslationCapabilityMenuMode(mode TranslationCapabilityMenuMode) ModuleRegistrarOption` - Inputs: translation menu seeding mode (`none` default, `tools` legacy); outputs: option controlling whether translation queue/exchange links are added to server-seeded navigation.
-- `DefaultContentParentPermissions() []string` - Outputs: canonical permission set used by the default sidebar `Content` parent (`pages`, `posts`, `media`, `content_types`, `block_definitions`).
+- `WithTranslationCapabilityMenuMode(mode TranslationCapabilityMenuMode) ModuleRegistrarOption` - Inputs: translation menu seeding mode (`tools` default, `none` opt-out); outputs: option controlling whether translation dashboard/queue/exchange links are added to server-seeded navigation.
+- `DefaultContentParentPermissions() []string` - Outputs: canonical permission set used by the default sidebar `Content` parent (`media`, `content_types`, `block_definitions`).
 - `WithGoAuth(adm *admin.Admin, routeAuth *auth.RouteAuthenticator, cfg auth.Config, authz admin.GoAuthAuthorizerConfig, authCfg *admin.AuthConfig, opts ...admin.GoAuthAuthenticatorOption) (*admin.GoAuthAuthenticator, *admin.GoAuthAuthorizer)` - Inputs: admin, route auth, auth config, authz config, admin auth config, options. Outputs: adapters.
 - `WithDefaultDashboardRenderer(adm *admin.Admin, viewEngine fiber.Views, cfg admin.Config, opts ...DashboardRendererOption) error` - Inputs: admin, view engine, config, renderer options. Outputs: error.
 - `WithDashboardTemplatesFS(fsys fs.FS) DashboardRendererOption` - Inputs: template FS; outputs: renderer option for overrides.
@@ -328,10 +328,18 @@ Translation queue is disabled by default in quickstart. Enable it with
 Minimal wiring:
 
 ```go
+policyCfg := quickstart.TranslationPolicyConfig{
+	Required: map[string]quickstart.TranslationPolicyEntityConfig{
+		"catalog_items": {
+			"publish": {Locales: []string{"en", "es"}},
+		},
+	},
+}
+
 adm, _, err := quickstart.NewAdmin(
 	cfg,
 	quickstart.AdapterHooks{},
-	quickstart.WithTranslationPolicyConfig(quickstart.DefaultContentTranslationPolicyConfig()),
+	quickstart.WithTranslationPolicyConfig(policyCfg),
 	quickstart.WithTranslationQueueConfig(quickstart.TranslationQueueConfig{
 		Enabled: true,
 		// Optional: provide repository/service overrides.
@@ -509,6 +517,8 @@ For list templates rendered from quickstart panel/content-entry routes, use `dat
 - `datagrid_config.api_endpoint`
 - `datagrid_config.action_base`
 - `datagrid_config.column_storage_key`
+- `datagrid_config.state_store` (optional: `{mode, resource, sync_debounce_ms, max_share_entries}`)
+- `datagrid_config.url_state` (optional: `{max_url_length, max_filters_length, enable_state_token}`)
 - `datagrid_config.export_config`
 
 Compatibility keys (`datatable_id`, `list_api`, `action_base`, `export_config`) are still present for legacy templates, but new/updated templates should read from `datagrid_config` first.
@@ -589,8 +599,8 @@ Quickstart defaults wire CMS workflows for demo panels when you do not provide a
 ```go
 workflow := admin.NewSimpleWorkflowEngine()
 admin.RegisterDefaultCMSWorkflows(workflow)
-workflow.RegisterWorkflow("pages", admin.WorkflowDefinition{
-    EntityType:   "pages",
+workflow.RegisterWorkflow("content", admin.WorkflowDefinition{
+    EntityType:   "content",
     InitialState: "draft",
     Transitions: []admin.WorkflowTransition{
         {Name: "submit_for_approval", From: "draft", To: "approval"},
@@ -648,7 +658,7 @@ Content type capability examples:
 ```json
 {
   "panel_traits": ["editorial"],
-  "workflow": "posts"
+  "workflow": "editorial.default"
 }
 ```
 
@@ -756,8 +766,11 @@ Config example (YAML/JSON):
 translation_policy:
   deny_by_default: false
   required_fields_strategy: "error" # error|warn|ignore
+  page_entities: ["landing_pages"] # optional: entities that should use page checker
+  entity_aliases:
+    article: news
   required:
-    pages:
+    landing_pages:
       publish:
         locales: ["en", "es"]
       promote:
@@ -766,7 +779,7 @@ translation_policy:
             locales: ["en"]
           prod:
             locales: ["en", "es", "fr"]
-    posts:
+    articles:
       publish:
         locales: ["en"]
         required_fields:
@@ -776,6 +789,11 @@ translation_policy:
 Behavior notes:
 - `required` keys map to policy entities (panel slug or content type slug). If a
   payload includes `policy_entity`/`policyEntity`, it overrides the entity lookup.
+- When both page/content translation checkers are present, `page_entities` can
+  declare which entities should prefer the page checker.
+- Entity lookup is singular/plural tolerant (for example `item` vs `items`) using
+  inflection-based matching against configured `required` keys.
+- Use `entity_aliases` for irregular/legacy names that need explicit mapping.
 - Transition names are the workflow transition names (`publish`, `promote`, etc.).
 - If an `environment` match is present, it overrides transition-level
   `locales`/`required_fields` for that transition.
@@ -792,7 +810,7 @@ Wiring example:
 ```go
 policyCfg := quickstart.TranslationPolicyConfig{
 	Required: map[string]quickstart.TranslationPolicyEntityConfig{
-		"pages": {
+		"articles": {
 			"publish": {Locales: []string{"en", "es"}},
 		},
 	},
@@ -1285,6 +1303,6 @@ If you previously imported quickstart as part of the root module, keep the same 
 - Templates/Assets: prepend your own FS via `WithViewTemplatesFS`/`WithViewAssetsFS` to override the embedded sidebar.
 - Navigation seed: pass custom items to `SeedNavigation`; module menu contributions are deduped by ID.
 - Module gating: `WithModuleFeatureGates(customGate)` with optional `WithModuleFeatureDisabledHandler`.
-- Translation nav seeding: `WithTranslationCapabilityMenuMode(TranslationCapabilityMenuModeTools)` adds queue/exchange links into the Tools menu; default mode is `none` to avoid duplicate links when using the dedicated sidebar "Translations" section.
+- Translation nav seeding: `WithTranslationCapabilityMenuMode(TranslationCapabilityMenuModeTools)` adds dashboard/queue/exchange links into a dedicated `Translations` menu group in server-seeded navigation.
 - Dashboard SSR: provide `WithDashboardTemplatesFS` and/or disable embedded templates via `WithDashboardEmbeddedTemplates(false)`.
 - Error handler: swap `quickstart.NewFiberErrorHandler` with your own if needed.
