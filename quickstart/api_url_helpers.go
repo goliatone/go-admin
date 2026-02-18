@@ -92,3 +92,7 @@ func resolveAdminPanelAPIDetailPath(urls urlkit.Resolver, cfg admin.Config, fall
 	}
 	return prefixBasePath(collection, id)
 }
+
+func resolveAdminPreferencesAPICollectionPath(urls urlkit.Resolver, cfg admin.Config, fallbackBase string) string {
+	return resolveAdminPanelAPICollectionPath(urls, cfg, fallbackBase, "preferences")
+}
