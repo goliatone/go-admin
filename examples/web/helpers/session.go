@@ -169,15 +169,6 @@ func (s SessionUser) ToViewContext() map[string]any {
 	return view
 }
 
-func firstNonEmpty(values ...string) string {
-	for _, v := range values {
-		if strings.TrimSpace(v) != "" {
-			return strings.TrimSpace(v)
-		}
-	}
-	return ""
-}
-
 func stringFromMetadata(metadata map[string]any, keys ...string) string {
 	if len(metadata) == 0 {
 		return ""
@@ -215,28 +206,6 @@ func mergeStringMaps(base map[string]string, src map[string]string) map[string]s
 	if out == nil {
 		out = map[string]string{}
 	}
-	for k, v := range src {
-		out[k] = v
-	}
-	return out
-}
-
-func cloneAnyMap(src map[string]any) map[string]any {
-	if len(src) == 0 {
-		return nil
-	}
-	out := make(map[string]any, len(src))
-	for k, v := range src {
-		out[k] = v
-	}
-	return out
-}
-
-func cloneStringMap(src map[string]string) map[string]string {
-	if len(src) == 0 {
-		return nil
-	}
-	out := make(map[string]string, len(src))
 	for k, v := range src {
 		out[k] = v
 	}

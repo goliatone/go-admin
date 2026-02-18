@@ -696,17 +696,6 @@ func paginateBounds(offset, limit, total int) (int, int) {
 	return offset, end
 }
 
-func cloneAnyMap(source map[string]any) map[string]any {
-	if len(source) == 0 {
-		return map[string]any{}
-	}
-	out := make(map[string]any, len(source))
-	for key, value := range source {
-		out[key] = value
-	}
-	return out
-}
-
 func roleToMap(role admin.RoleRecord) map[string]any {
 	record := map[string]any{
 		"id":          role.ID,
