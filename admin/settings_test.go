@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	navinternal "github.com/goliatone/go-admin/admin/internal/navigation"
 	opts "github.com/goliatone/go-options"
 	router "github.com/goliatone/go-router"
 )
@@ -306,6 +308,55 @@ func TestSettingsNavigationRespectsPermission(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("expected navigation to include settings target")
+	}
+}
+
+func TestSettingsNavigationSkipsPrimaryMenuWhenUtilityAlreadyHasSettings(t *testing.T) {
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		NavMenuCode:   "admin.main",
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureSettings, FeatureCMS)})
+
+	ctx := context.Background()
+	if _, err := adm.MenuService().CreateMenu(ctx, defaultSidebarUtilityMenuCode); err != nil {
+		t.Fatalf("create utility menu: %v", err)
+	}
+	if err := adm.MenuService().AddMenuItem(ctx, defaultSidebarUtilityMenuCode, MenuItem{
+		ID:       "utility.settings",
+		Label:    "Settings",
+		Icon:     "settings",
+		Locale:   cfg.DefaultLocale,
+		Position: primitives.Int(10),
+		Target: map[string]any{
+			"type": "url",
+			"path": "/admin/settings",
+			"key":  "settings",
+		},
+	}); err != nil {
+		t.Fatalf("seed utility settings item: %v", err)
+	}
+
+	server := router.NewHTTPServer()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+
+	utilityMenu, err := adm.MenuService().Menu(ctx, defaultSidebarUtilityMenuCode, cfg.DefaultLocale)
+	if err != nil {
+		t.Fatalf("resolve utility menu: %v", err)
+	}
+	if utilityMenu == nil || !navinternal.MenuHasTarget(utilityMenu.Items, "settings", "/admin/settings") {
+		t.Fatalf("expected utility menu to include settings target")
+	}
+
+	mainMenu, err := adm.MenuService().Menu(ctx, cfg.NavMenuCode, cfg.DefaultLocale)
+	if err != nil {
+		t.Fatalf("resolve main menu: %v", err)
+	}
+	if mainMenu != nil && navinternal.MenuHasTarget(mainMenu.Items, "settings", "/admin/settings") {
+		t.Fatalf("expected primary menu to skip settings when utility menu already has target")
 	}
 }
 

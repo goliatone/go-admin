@@ -304,3 +304,71 @@ func TestRemoveLegacyTranslationToolsMenuItems(t *testing.T) {
 		t.Fatalf("expected non-translation tools item to remain")
 	}
 }
+
+func TestRemovePrimarySettingsMenuItems(t *testing.T) {
+	ctx := context.Background()
+	menuCode := NavigationMenuCode
+	locale := "en"
+	svc := admin.NewInMemoryMenuService()
+
+	if _, err := svc.CreateMenu(ctx, menuCode); err != nil {
+		t.Fatalf("create menu: %v", err)
+	}
+	if err := svc.AddMenuItem(ctx, menuCode, admin.MenuItem{
+		ID:            NavigationGroupMain,
+		Type:          admin.MenuItemTypeGroup,
+		GroupTitle:    "Navigation",
+		GroupTitleKey: "menu.group.main",
+		Position:      admin.IntPtr(0),
+		Menu:          menuCode,
+		Locale:        locale,
+	}); err != nil {
+		t.Fatalf("add main group: %v", err)
+	}
+	if err := svc.AddMenuItem(ctx, menuCode, admin.MenuItem{
+		ID:       NavigationGroupMain + ".settings",
+		Label:    "Settings",
+		LabelKey: "menu.settings",
+		Menu:     menuCode,
+		Locale:   locale,
+		ParentID: NavigationGroupMain,
+		Target: map[string]any{
+			"type": "url",
+			"path": "/admin/settings",
+			"name": "admin.settings",
+			"key":  "settings",
+		},
+	}); err != nil {
+		t.Fatalf("add settings item: %v", err)
+	}
+	if err := svc.AddMenuItem(ctx, menuCode, admin.MenuItem{
+		ID:       NavigationGroupMain + ".dashboard",
+		Label:    "Dashboard",
+		LabelKey: "menu.dashboard",
+		Menu:     menuCode,
+		Locale:   locale,
+		ParentID: NavigationGroupMain,
+		Target: map[string]any{
+			"type": "url",
+			"path": "/admin",
+			"key":  "dashboard",
+		},
+	}); err != nil {
+		t.Fatalf("add dashboard item: %v", err)
+	}
+
+	if err := RemovePrimarySettingsMenuItems(ctx, svc, menuCode, locale); err != nil {
+		t.Fatalf("remove primary settings items: %v", err)
+	}
+
+	menu, err := svc.Menu(ctx, menuCode, locale)
+	if err != nil || menu == nil {
+		t.Fatalf("menu fetch failed: err=%v menu=%v", err, menu)
+	}
+	if item := findMenuItemByID(menu.Items, strings.TrimSpace(NavigationGroupMain+".settings")); item != nil {
+		t.Fatalf("expected primary settings item removed, got %+v", *item)
+	}
+	if item := findMenuItemByID(menu.Items, strings.TrimSpace(NavigationGroupMain+".dashboard")); item == nil {
+		t.Fatalf("expected non-settings item to remain")
+	}
+}

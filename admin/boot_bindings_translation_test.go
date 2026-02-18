@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"runtime"
 	"runtime/debug"
 	"sort"
@@ -37,7 +38,7 @@ func (s *translationActionRepoStub) List(_ context.Context, opts ListOptions) ([
 	if len(s.list) > 0 {
 		out := make([]map[string]any, 0, len(s.list))
 		for _, record := range s.list {
-			out = append(out, cloneAnyMap(record))
+			out = append(out, primitives.CloneAnyMap(record))
 		}
 		return out, len(out), nil
 	}
@@ -52,19 +53,19 @@ func (s *translationActionRepoStub) Get(_ context.Context, id string) (map[strin
 	if !ok {
 		return nil, ErrNotFound
 	}
-	return cloneAnyMap(record), nil
+	return primitives.CloneAnyMap(record), nil
 }
 
 func (s *translationActionRepoStub) Create(_ context.Context, record map[string]any) (map[string]any, error) {
 	s.nextID++
 	id := fmt.Sprintf("page_%d", s.nextID)
-	created := cloneAnyMap(record)
+	created := primitives.CloneAnyMap(record)
 	created["id"] = id
-	s.created = append(s.created, cloneAnyMap(created))
+	s.created = append(s.created, primitives.CloneAnyMap(created))
 	if s.records == nil {
 		s.records = map[string]map[string]any{}
 	}
-	s.records[id] = cloneAnyMap(created)
+	s.records[id] = primitives.CloneAnyMap(created)
 	return created, nil
 }
 
@@ -75,7 +76,7 @@ func (s *translationActionRepoStub) CreateTranslation(_ context.Context, input T
 		return nil, s.createTranslationErr
 	}
 	if s.createTranslationResult != nil {
-		return cloneAnyMap(s.createTranslationResult), nil
+		return primitives.CloneAnyMap(s.createTranslationResult), nil
 	}
 	return nil, ErrTranslationCreateUnsupported
 }
@@ -88,11 +89,11 @@ func (s *translationActionRepoStub) Update(_ context.Context, id string, update 
 	if !ok {
 		return nil, ErrNotFound
 	}
-	next := cloneAnyMap(current)
+	next := primitives.CloneAnyMap(current)
 	for key, value := range update {
 		next[key] = value
 	}
-	s.records[id] = cloneAnyMap(next)
+	s.records[id] = primitives.CloneAnyMap(next)
 	return next, nil
 }
 

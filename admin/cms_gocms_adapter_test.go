@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 	"testing"
 
@@ -310,15 +311,15 @@ func (s *stubCMSMenuService) ListMenuItemsByCode(_ context.Context, menuCode str
 			Path:        item.path,
 			Type:        item.typeName,
 			Position:    item.position,
-			Target:      cloneAnyMap(item.target),
+			Target:      primitives.CloneAnyMap(item.target),
 			Icon:        item.icon,
-			Badge:       cloneAnyMap(item.badge),
+			Badge:       primitives.CloneAnyMap(item.badge),
 			Permissions: append([]string{}, item.perms...),
 			Classes:     append([]string{}, item.classes...),
-			Styles:      cloneStringMap(item.styles),
+			Styles:      primitives.CloneStringMapNilOnEmpty(item.styles),
 			Collapsible: item.collapsible,
 			Collapsed:   item.collapsed,
-			Metadata:    cloneAnyMap(item.meta),
+			Metadata:    primitives.CloneAnyMap(item.meta),
 		})
 	}
 	return out, nil
@@ -371,7 +372,7 @@ func (s *stubCMSMenuService) ResetMenuByCode(_ context.Context, code string, _ u
 }
 
 func (s *stubCMSMenuService) MoveMenuItemToTop(_ context.Context, menuCode string, path string, _ uuid.UUID) error {
-	_, err := s.UpdateMenuItemByPath(context.Background(), menuCode, path, cms.UpdateMenuItemByPathInput{Position: intPtr(1)})
+	_, err := s.UpdateMenuItemByPath(context.Background(), menuCode, path, cms.UpdateMenuItemByPathInput{Position: primitives.Int(1)})
 	return err
 }
 
@@ -380,7 +381,7 @@ func (s *stubCMSMenuService) MoveMenuItemToBottom(_ context.Context, menuCode st
 	if menu == nil {
 		return cms.ErrMenuNotFound
 	}
-	_, err := s.UpdateMenuItemByPath(context.Background(), menuCode, path, cms.UpdateMenuItemByPathInput{Position: intPtr(len(menu.items) + 1)})
+	_, err := s.UpdateMenuItemByPath(context.Background(), menuCode, path, cms.UpdateMenuItemByPathInput{Position: primitives.Int(len(menu.items) + 1)})
 	return err
 }
 
@@ -431,20 +432,20 @@ func (s *stubCMSMenuService) UpsertMenuItemByPath(_ context.Context, input cms.U
 	item.parentPath = parent
 	item.position = position
 	item.typeName = input.Type
-	item.target = cloneAnyMap(input.Target)
+	item.target = primitives.CloneAnyMap(input.Target)
 	item.icon = input.Icon
-	item.badge = cloneAnyMap(input.Badge)
+	item.badge = primitives.CloneAnyMap(input.Badge)
 	item.perms = append([]string{}, input.Permissions...)
 	item.classes = append([]string{}, input.Classes...)
-	item.styles = cloneStringMap(input.Styles)
-	item.meta = cloneAnyMap(input.Metadata)
+	item.styles = primitives.CloneStringMapNilOnEmpty(input.Styles)
+	item.meta = primitives.CloneAnyMap(input.Metadata)
 	item.collapsible = input.Collapsible
 	item.collapsed = input.Collapsed
 	for _, tr := range input.Translations {
 		item.tr[tr.Locale] = tr
 	}
 
-	return &cms.MenuItemInfo{Path: parsed.Path, Type: input.Type, Target: cloneAnyMap(input.Target)}, nil
+	return &cms.MenuItemInfo{Path: parsed.Path, Type: input.Type, Target: primitives.CloneAnyMap(input.Target)}, nil
 }
 
 func (s *stubCMSMenuService) UpdateMenuItemByPath(_ context.Context, menuCode string, path string, input cms.UpdateMenuItemByPathInput) (*cms.MenuItemInfo, error) {
@@ -470,13 +471,13 @@ func (s *stubCMSMenuService) UpdateMenuItemByPath(_ context.Context, menuCode st
 		item.typeName = *input.Type
 	}
 	if input.Target != nil {
-		item.target = cloneAnyMap(input.Target)
+		item.target = primitives.CloneAnyMap(input.Target)
 	}
 	if input.Icon != nil {
 		item.icon = *input.Icon
 	}
 	if input.Badge != nil {
-		item.badge = cloneAnyMap(input.Badge)
+		item.badge = primitives.CloneAnyMap(input.Badge)
 	}
 	if input.Permissions != nil {
 		item.perms = append([]string{}, input.Permissions...)
@@ -485,10 +486,10 @@ func (s *stubCMSMenuService) UpdateMenuItemByPath(_ context.Context, menuCode st
 		item.classes = append([]string{}, input.Classes...)
 	}
 	if input.Styles != nil {
-		item.styles = cloneStringMap(input.Styles)
+		item.styles = primitives.CloneStringMapNilOnEmpty(input.Styles)
 	}
 	if input.Metadata != nil {
-		item.meta = cloneAnyMap(input.Metadata)
+		item.meta = primitives.CloneAnyMap(input.Metadata)
 	}
 	if input.Collapsible != nil {
 		item.collapsible = *input.Collapsible
@@ -496,7 +497,7 @@ func (s *stubCMSMenuService) UpdateMenuItemByPath(_ context.Context, menuCode st
 	if input.Collapsed != nil {
 		item.collapsed = *input.Collapsed
 	}
-	return &cms.MenuItemInfo{Path: parsed.Path, Type: item.typeName, Target: cloneAnyMap(item.target)}, nil
+	return &cms.MenuItemInfo{Path: parsed.Path, Type: item.typeName, Target: primitives.CloneAnyMap(item.target)}, nil
 }
 
 func (s *stubCMSMenuService) DeleteMenuItemByPath(_ context.Context, menuCode string, path string, _ uuid.UUID, cascadeChildren bool) error {
@@ -566,15 +567,15 @@ func buildNode(menu *stubCMSMenu, item *stubCMSMenuItem, menuCode, locale string
 		GroupTitle:    groupTitle,
 		GroupTitleKey: groupTitleKey,
 		URL:           url,
-		Target:        cloneAnyMap(item.target),
+		Target:        primitives.CloneAnyMap(item.target),
 		Icon:          item.icon,
-		Badge:         cloneAnyMap(item.badge),
+		Badge:         primitives.CloneAnyMap(item.badge),
 		Permissions:   append([]string{}, item.perms...),
 		Classes:       append([]string{}, item.classes...),
-		Styles:        cloneStringMap(item.styles),
+		Styles:        primitives.CloneStringMapNilOnEmpty(item.styles),
 		Collapsible:   item.collapsible,
 		Collapsed:     item.collapsed,
-		Metadata:      cloneAnyMap(item.meta),
+		Metadata:      primitives.CloneAnyMap(item.meta),
 	}
 
 	children := []*stubCMSMenuItem{}

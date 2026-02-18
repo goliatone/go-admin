@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -441,7 +442,7 @@ func TestServicesAPI_BeginConnectionResolvesCallbackRedirectFromRequestOrigin(t 
 
 	payload := decodeJSONMap(t, response.Body.Bytes())
 	begin := toAnyMap(payload["begin"])
-	state := strings.TrimSpace(firstNonEmpty(toString(begin["state"]), toString(begin["State"])))
+	state := strings.TrimSpace(primitives.FirstNonEmpty(toString(begin["state"]), toString(begin["State"])))
 	record := consumeOAuthStateRecord(t, module, state)
 	expected := "http://example.com" + strings.TrimRight(adm.AdminAPIBasePath(), "/") + "/services/connections/github/callback"
 	if got := strings.TrimSpace(record.RedirectURI); got != expected {
@@ -472,7 +473,7 @@ func TestServicesAPI_BeginConnectionResolvesCallbackRedirectWithPublicBaseOverri
 
 	payload := decodeJSONMap(t, response.Body.Bytes())
 	begin := toAnyMap(payload["begin"])
-	state := strings.TrimSpace(firstNonEmpty(toString(begin["state"]), toString(begin["State"])))
+	state := strings.TrimSpace(primitives.FirstNonEmpty(toString(begin["state"]), toString(begin["State"])))
 	record := consumeOAuthStateRecord(t, module, state)
 	expected := "https://callbacks.example.com" + strings.TrimRight(adm.AdminAPIBasePath(), "/") + "/services/connections/github/callback"
 	if got := strings.TrimSpace(record.RedirectURI); got != expected {
@@ -516,7 +517,7 @@ func TestServicesAPI_BeginConnectionResolvesProviderSpecificCallbackRoute(t *tes
 
 	payload := decodeJSONMap(t, response.Body.Bytes())
 	begin := toAnyMap(payload["begin"])
-	state := strings.TrimSpace(firstNonEmpty(toString(begin["state"]), toString(begin["State"])))
+	state := strings.TrimSpace(primitives.FirstNonEmpty(toString(begin["state"]), toString(begin["State"])))
 	record := consumeOAuthStateRecord(t, module, state)
 	expected := "http://example.com" + strings.TrimRight(adm.AdminAPIBasePath(), "/") + "/services/oauth/github/custom-callback"
 	if got := strings.TrimSpace(record.RedirectURI); got != expected {
@@ -549,7 +550,7 @@ func TestServicesAPI_BeginConnectionResolvesProviderSpecificCallbackURLOverride(
 
 	payload := decodeJSONMap(t, response.Body.Bytes())
 	begin := toAnyMap(payload["begin"])
-	state := strings.TrimSpace(firstNonEmpty(toString(begin["state"]), toString(begin["State"])))
+	state := strings.TrimSpace(primitives.FirstNonEmpty(toString(begin["state"]), toString(begin["State"])))
 	record := consumeOAuthStateRecord(t, module, state)
 	if got := strings.TrimSpace(record.RedirectURI); got != "https://hooks.example.com/oauth/github/callback" {
 		t.Fatalf("expected override redirect, got %q", got)
@@ -585,7 +586,7 @@ func TestServicesAPI_BeginConnectionRedirectURIRequestValueHasPrecedence(t *test
 
 	payload := decodeJSONMap(t, response.Body.Bytes())
 	begin := toAnyMap(payload["begin"])
-	state := strings.TrimSpace(firstNonEmpty(toString(begin["state"]), toString(begin["State"])))
+	state := strings.TrimSpace(primitives.FirstNonEmpty(toString(begin["state"]), toString(begin["State"])))
 	record := consumeOAuthStateRecord(t, module, state)
 	if got := strings.TrimSpace(record.RedirectURI); got != "https://request.example.com/oauth/direct-callback" {
 		t.Fatalf("expected request redirect URI precedence, got %q", got)

@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"testing"
 
 	cmsinterfaces "github.com/goliatone/go-cms/pkg/interfaces"
@@ -98,7 +99,7 @@ func (s *stubPanelRepository) Get(ctx context.Context, id string) (map[string]an
 	if s.record == nil {
 		return nil, ErrNotFound
 	}
-	return cloneAnyMap(s.record), nil
+	return primitives.CloneAnyMap(s.record), nil
 }
 
 func (s *stubPanelRepository) Create(context.Context, map[string]any) (map[string]any, error) {

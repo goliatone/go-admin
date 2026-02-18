@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"testing"
 )
 
@@ -12,7 +13,7 @@ func TestNavigationDeterministicOrdering(t *testing.T) {
 
 	// Mixed explicit and auto positions on the root.
 	_ = menuSvc.AddMenuItem(ctx, "admin.main", MenuItem{Label: "AutoOne"})
-	_ = menuSvc.AddMenuItem(ctx, "admin.main", MenuItem{Label: "ExplicitOne", Position: intPtr(1)})
+	_ = menuSvc.AddMenuItem(ctx, "admin.main", MenuItem{Label: "ExplicitOne", Position: primitives.Int(1)})
 	_ = menuSvc.AddMenuItem(ctx, "admin.main", MenuItem{Label: "AutoTwo"})
 
 	// Children under a collapsible parent.
@@ -27,7 +28,7 @@ func TestNavigationDeterministicOrdering(t *testing.T) {
 	})
 	_ = menuSvc.AddMenuItem(ctx, "admin.main", MenuItem{
 		Label:    "ChildExplicit",
-		Position: intPtr(2),
+		Position: primitives.Int(2),
 		ParentID: "parent",
 	})
 	_ = menuSvc.AddMenuItem(ctx, "admin.main", MenuItem{

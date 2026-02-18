@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"fmt"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"io"
 	"log/slog"
 	"net/http/httptest"
@@ -112,12 +113,12 @@ func (s *translationActionBenchmarkRepo) Get(_ context.Context, id string) (map[
 	if s.source == nil || strings.TrimSpace(id) != strings.TrimSpace(toString(s.source["id"])) {
 		return nil, ErrNotFound
 	}
-	return cloneAnyMap(s.source), nil
+	return primitives.CloneAnyMap(s.source), nil
 }
 
 func (s *translationActionBenchmarkRepo) Create(_ context.Context, record map[string]any) (map[string]any, error) {
 	s.nextID++
-	out := cloneAnyMap(record)
+	out := primitives.CloneAnyMap(record)
 	out["id"] = fmt.Sprintf("translation_%d", s.nextID)
 	return out, nil
 }
