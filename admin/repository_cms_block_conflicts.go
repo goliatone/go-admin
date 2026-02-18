@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"reflect"
 	"sort"
 	"strings"
@@ -134,7 +135,7 @@ func (r *CMSBlockConflictRepository) collectConflicts(ctx context.Context, opts 
 			return nil, err
 		}
 		for _, item := range items {
-			contentType := firstNonEmpty(item.ContentTypeSlug, item.ContentType)
+			contentType := primitives.FirstNonEmptyRaw(item.ContentTypeSlug, item.ContentType)
 			if contentTypeFilter != "" && strings.ToLower(contentType) != contentTypeFilter {
 				continue
 			}
