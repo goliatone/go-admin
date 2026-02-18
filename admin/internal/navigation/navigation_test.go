@@ -44,10 +44,6 @@ func TestNavigationFallbackFiltersSeparatorsAndEmptyNodes(t *testing.T) {
 	}
 }
 
-func intPtr(v int) *int {
-	return &v
-}
-
 func TestConvertMenuItemsTranslatesLabelAndGroupTitle(t *testing.T) {
 	items := ConvertMenuItems([]MenuItem{
 		{ID: "one", Label: "Raw", LabelKey: "nav.one", Locale: "en"},

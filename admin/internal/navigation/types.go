@@ -190,15 +190,6 @@ func canonicalMenuItemPath(menuCode, raw string) string {
 	return path
 }
 
-func firstNonEmpty(values ...string) string {
-	for _, v := range values {
-		if strings.TrimSpace(v) != "" {
-			return v
-		}
-	}
-	return ""
-}
-
 // EnsureMenuUUID is retained for compatibility but no longer maps strings into UUIDs.
 // Menu identity is string-first and should use menu codes + item paths.
 func EnsureMenuUUID(raw string) string {
