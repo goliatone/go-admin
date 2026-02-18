@@ -5,14 +5,10 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"sort"
 	"strings"
 
 	router "github.com/goliatone/go-router"
-)
-
-const (
-	contentAliasPages = "pages"
-	contentAliasPosts = "posts"
 )
 
 func (a *Admin) registerContentEntryAliases() {
@@ -22,19 +18,57 @@ func (a *Admin) registerContentEntryAliases() {
 	if !featureEnabled(a.featureGate, FeatureCMS) {
 		return
 	}
+	aliases := a.contentEntryAliases()
+	if len(aliases) == 0 {
+		return
+	}
 	a.contentAliasRoutesRegistered = true
 
 	wrap := a.authWrapper()
-	for _, alias := range []string{contentAliasPages, contentAliasPosts} {
-		aliasRoute := "content.alias." + alias
-		aliasBase := adminRoutePath(a, aliasRoute)
-		if aliasBase == "" {
-			aliasBase = joinBasePath(adminBasePath(a.config), alias)
-		}
+	for _, alias := range aliases {
+		aliasBase := joinBasePath(adminBasePath(a.config), alias)
 		handler := a.contentAliasHandler(alias, aliasBase)
 		a.router.Get(aliasBase, wrap(handler))
 		a.router.Get(aliasBase+"/*path", wrap(handler))
 	}
+}
+
+func (a *Admin) contentEntryAliases() []string {
+	if a == nil || a.contentTypeSvc == nil {
+		return nil
+	}
+	types, err := a.contentTypeSvc.ContentTypes(context.Background())
+	if err != nil {
+		return nil
+	}
+	seen := map[string]string{}
+	for _, ct := range types {
+		for _, candidate := range []string{
+			strings.TrimSpace(ct.Slug),
+			panelSlugForContentType(&ct),
+		} {
+			candidate = strings.TrimSpace(candidate)
+			if candidate == "" {
+				continue
+			}
+			key := strings.ToLower(candidate)
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = candidate
+		}
+	}
+	if len(seen) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(seen))
+	for _, alias := range seen {
+		out = append(out, alias)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		return strings.ToLower(out[i]) < strings.ToLower(out[j])
+	})
+	return out
 }
 
 func (a *Admin) contentAliasHandler(alias string, aliasBase string) router.HandlerFunc {
