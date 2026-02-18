@@ -52,6 +52,7 @@ func DefaultMenuParents(menuCode string) []admin.MenuItem {
 		GroupTitleKey: "menu.group.main",
 		Position:      intPtr(0),
 		Menu:          menuCode,
+		Collapsible:   true,
 	}
 	content := admin.MenuItem{
 		ID:          NavigationSectionContentID,
@@ -80,6 +81,7 @@ func DefaultMenuParents(menuCode string) []admin.MenuItem {
 		GroupTitleKey: "menu.group.others",
 		Position:      intPtr(90),
 		Menu:          menuCode,
+		Collapsible:   true,
 	}
 	translations := admin.MenuItem{
 		ID:            NavigationGroupTranslationsID,
@@ -88,6 +90,7 @@ func DefaultMenuParents(menuCode string) []admin.MenuItem {
 		GroupTitleKey: "menu.group.translations",
 		Position:      intPtr(80),
 		Menu:          menuCode,
+		Collapsible:   true,
 	}
 	return []admin.MenuItem{mainGroup, content, translations, tools}
 }
