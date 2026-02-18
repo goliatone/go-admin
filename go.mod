@@ -46,7 +46,13 @@ require (
 	github.com/uptrace/bun/dialect/sqlitedialect v1.2.16
 	github.com/uptrace/bun/driver/sqliteshim v1.2.16
 	golang.org/x/crypto v0.46.0
+	golang.org/x/tools v0.40.0
 	gopkg.in/yaml.v3 v3.0.1
+)
+
+require (
+	golang.org/x/mod v0.31.0 // indirect
+	golang.org/x/sync v0.19.0 // indirect
 )
 
 require (
@@ -122,7 +128,7 @@ require (
 	github.com/google/pprof v0.0.0-20251208000136-3d256cb9ff16 // indirect
 	github.com/gorilla/css v1.0.0 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
-	github.com/jinzhu/inflection v1.0.0 // indirect
+	github.com/jinzhu/inflection v1.0.0
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/jszwec/s3fs/v2 v2.0.0 // indirect
 	github.com/klauspost/compress v1.18.2 // indirect
