@@ -123,7 +123,7 @@ function normalizeShareState(value: unknown): DataGridShareState | null {
 
 function normalizePreferencesEndpoint(value?: string): string {
   const trimmed = String(value || '').trim();
-  if (!trimmed) return '/api/preferences';
+  if (!trimmed) return '/api/panels/preferences';
   return trimmed.replace(/\/+$/, '');
 }
 

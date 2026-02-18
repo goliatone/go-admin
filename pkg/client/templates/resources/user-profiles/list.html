@@ -334,6 +334,7 @@ import { DataGrid, FilterBuilder, GoCrudSearchBehavior, GoCrudFilterBehavior, Go
 // Template variables
 const basePath = '{{ base_path }}';
 const apiBasePath = '{{ api_base_path|default:"" }}';
+const preferencesAPIPath = '{{ preferences_api_path|default:"" }}';
 const actionBasePath = '{{ routes.index }}';
 const columns = {{ toJSON(columns)|safe }};
 const exportConfig = {{ toJSON(export_config)|safe }};
@@ -352,7 +353,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   }
 
   // Prefer server-backed preferences for cross-device persistence (falls back to local cache automatically).
-  const preferencesEndpoint = apiBasePath ? `${apiBasePath}/preferences` : `${basePath}/api/preferences`;
+  const preferencesEndpoint = preferencesAPIPath || (apiBasePath ? `${apiBasePath}/panels/preferences` : `${basePath}/api/panels/preferences`);
   const columnVisibility = new ServerColumnVisibilityBehavior(columnFields, {
     resource: 'user-profiles',
     localStorageKey: 'user_profiles_datatable_columns',

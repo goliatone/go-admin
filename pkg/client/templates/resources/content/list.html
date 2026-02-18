@@ -97,6 +97,7 @@ import {
 const basePath = '{{ base_path }}';
 const apiBasePath = '{{ api_base_path|default:"" }}';
 const dataGridConfig = {{ toJSON(datagrid_config)|safe }} || {};
+const preferencesAPIPath = String(dataGridConfig.preferences_endpoint || '{{ preferences_api_path|default:"" }}').trim();
 const apiEndpoint = dataGridConfig.api_endpoint || '{{ list_api|default:"" }}';
 const actionBasePath = dataGridConfig.action_base || '{{ action_base|default:"" }}';
 const columns = {{ toJSON(columns)|safe }};
@@ -254,7 +255,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     return;
   }
 
-  const preferencesEndpoint = apiBasePath ? `${apiBasePath}/preferences` : `${basePath}/api/preferences`;
+  const preferencesEndpoint = preferencesAPIPath || (apiBasePath ? `${apiBasePath}/panels/preferences` : `${basePath}/api/panels/preferences`);
   const stateStoreOptions = resolveObject(dataGridConfig.state_store);
   const urlStateOptions = resolveObject(dataGridConfig.url_state);
   const stateStoreMode = normalizeStateStoreMode(

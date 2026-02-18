@@ -166,6 +166,18 @@
     @apply max-h-screen opacity-100;
   }
 
+  .group-children {
+    @apply overflow-hidden transition-all duration-300;
+  }
+
+  .group-children.collapsed {
+    @apply max-h-0 opacity-0;
+  }
+
+  .group-children.expanded {
+    @apply max-h-screen opacity-100;
+  }
+
   .submenu-toggle .submenu-indicator {
     @apply ml-auto text-sm transition-transform duration-200;
   }

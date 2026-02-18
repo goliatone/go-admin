@@ -2,7 +2,8 @@ import type { ColumnDefinition, ColumnFilter, SortColumn, DataGridBehaviors } fr
 import type { ActionButton, BulkActionConfig, ActionRenderMode } from './actions.js';
 import type { CellRenderer } from './renderers.js';
 import type { ToastNotifier } from '../toast/types.js';
-import type { ViewMode, GroupedData } from './grouped-mode.js';
+import type { ViewMode, GroupedData, GroupExpandMode } from './grouped-mode.js';
+import type { DataGridStateStore, DataGridStateStoreConfig } from './state-store.js';
 /**
  * DataGrid configuration
  */
@@ -64,6 +65,32 @@ export interface DataGridConfig {
      * Field to group by (default: translation_group_id)
      */
     groupByField?: string;
+    /**
+     * Optional state store implementation for heavy UI state and share tokens.
+     */
+    stateStore?: DataGridStateStore;
+    /**
+     * State store configuration when no explicit store instance is provided.
+     */
+    stateStoreConfig?: Omit<DataGridStateStoreConfig, 'key'>;
+    /**
+     * URL state synchronization tuning and limits.
+     */
+    urlState?: DataGridURLStateConfig;
+}
+export interface DataGridURLStateConfig {
+    /**
+     * Hard URL length budget. When exceeded, DataGrid falls back to state token.
+     */
+    maxURLLength?: number;
+    /**
+     * Maximum serialized `filters` payload length for URL sync.
+     */
+    maxFiltersLength?: number;
+    /**
+     * Enables `state=<token>` fallback when URL budget is exceeded.
+     */
+    enableStateToken?: boolean;
 }
 /**
  * DOM element selectors
@@ -100,6 +127,7 @@ interface DataGridState {
     hiddenColumns: Set<string>;
     columnOrder: string[];
     viewMode: ViewMode;
+    expandMode: GroupExpandMode;
     groupedData: GroupedData | null;
     expandedGroups: Set<string>;
     hasPersistedExpandState: boolean;
@@ -114,10 +142,13 @@ export declare class DataGrid {
     private static readonly URL_KEY_PER_PAGE;
     private static readonly URL_KEY_FILTERS;
     private static readonly URL_KEY_SORT;
+    private static readonly URL_KEY_STATE;
     private static readonly URL_KEY_HIDDEN_COLUMNS;
     private static readonly URL_KEY_VIEW_MODE;
     private static readonly URL_KEY_EXPANDED_GROUPS;
     private static readonly MANAGED_URL_KEYS;
+    private static readonly DEFAULT_MAX_URL_LENGTH;
+    private static readonly DEFAULT_MAX_FILTERS_LENGTH;
     config: DataGridConfig;
     state: DataGridState;
     private selectors;
@@ -135,11 +166,22 @@ export declare class DataGrid {
     private defaultColumns;
     private lastSchema;
     private lastForm;
+    private stateStore;
+    private hasURLStateOverrides;
+    private hasPersistedHiddenColumnState;
+    private hasPersistedColumnOrderState;
     constructor(config: DataGridConfig);
     /**
      * Initialize the data grid
      */
     init(): void;
+    private getURLStateConfig;
+    private parseJSONArray;
+    private applyPersistedStateSnapshot;
+    private applyShareStateSnapshot;
+    private buildPersistedStateSnapshot;
+    private buildShareStateSnapshot;
+    private persistStateSnapshot;
     /**
      * Restore DataGrid state from URL parameters
      */
@@ -154,7 +196,7 @@ export declare class DataGrid {
     private pushStateToURL;
     /**
      * Public API: sync current grid state to the URL.
-     * Keeps `hiddenColumns` shareable; column order stays preferences-only by default.
+     * Heavy UI state is persisted via the state store; URL keeps shareable query state.
      */
     syncURL(): void;
     /**
@@ -221,9 +263,23 @@ export declare class DataGrid {
      */
     toggleGroup(groupId: string): void;
     /**
+     * Set explicit expanded group IDs and switch expand mode to explicit.
+     */
+    setExpandedGroups(groupIDs: string[]): void;
+    /**
+     * Expand all groups using compact mode semantics.
+     */
+    expandAllGroups(): void;
+    /**
+     * Collapse all groups using compact mode semantics.
+     */
+    collapseAllGroups(): void;
+    /**
      * Update visibility of child rows for a group
      */
     private updateGroupVisibility;
+    private updateGroupedRowsFromState;
+    private isGroupExpandedByState;
     /**
      * Set view mode (flat, grouped, matrix) - Phase 2
      */

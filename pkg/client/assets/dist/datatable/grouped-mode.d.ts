@@ -36,6 +36,7 @@
  * the cell renderer switches to compact locale chips in matrix mode.
  */
 export type ViewMode = 'flat' | 'grouped' | 'matrix';
+export type GroupExpandMode = 'all' | 'none' | 'explicit';
 /**
  * Group summary from backend or computed locally
  */
@@ -89,6 +90,8 @@ export interface GroupTransformOptions {
     groupByField?: string;
     /** Default expanded state for groups */
     defaultExpanded?: boolean;
+    /** Expansion mode */
+    expandMode?: GroupExpandMode;
     /** Previously expanded group IDs */
     expandedGroups?: Set<string>;
 }
@@ -128,6 +131,10 @@ export declare function extractBackendSummaries(response: Record<string, unknown
  */
 export declare function getPersistedExpandState(panelId: string): Set<string>;
 /**
+ * Get persisted expand mode for a panel.
+ */
+export declare function getPersistedExpandMode(panelId: string): GroupExpandMode;
+/**
  * Whether a panel has persisted expand/collapse preferences.
  * Distinguishes "no preference stored yet" from an explicitly collapsed-all state.
  */
@@ -135,7 +142,7 @@ export declare function hasPersistedExpandState(panelId: string): boolean;
 /**
  * Persist expand state for a panel.
  */
-export declare function persistExpandState(panelId: string, expandedGroups: Set<string>): void;
+export declare function persistExpandState(panelId: string, expandedGroups: Set<string>, mode?: GroupExpandMode): void;
 /**
  * Toggle expand state for a group.
  */
@@ -162,6 +169,7 @@ export declare function collapseAllGroups(groupedData: GroupedData): GroupedData
  * Get set of currently expanded group IDs.
  */
 export declare function getExpandedGroupIds(groupedData: GroupedData): Set<string>;
+export declare function normalizeExpandMode(value: unknown, fallback?: GroupExpandMode): GroupExpandMode;
 /**
  * Get persisted view mode for a panel.
  */
