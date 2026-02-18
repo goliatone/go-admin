@@ -26,8 +26,9 @@ func DefaultPlacements(cfg admin.Config) PlacementConfig {
 	}
 	return PlacementConfig{
 		MenuCodes: map[string]string{
-			"sidebar": menuCode,
-			"footer":  admin.NormalizeMenuSlug("admin.footer"),
+			SidebarPlacementPrimary: menuCode,
+			SidebarPlacementUtility: admin.NormalizeMenuSlug(DefaultSidebarUtilityMenuCode),
+			FooterPlacement:         admin.NormalizeMenuSlug("admin.footer"),
 		},
 		DashboardAreas: map[string]string{
 			"main":    "admin.dashboard.main",
@@ -66,7 +67,7 @@ func (p PlacementConfig) DashboardAreaFor(placement, fallback string) string {
 
 // WithNav adds session, theme, and navigation payload to the view context.
 func WithNav(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context) router.ViewContext {
-	return WithNavPlacements(ctx, adm, cfg, DefaultPlacements(cfg), "sidebar", active, reqCtx)
+	return WithNavPlacements(ctx, adm, cfg, DefaultPlacements(cfg), SidebarPlacementPrimary, active, reqCtx)
 }
 
 // WithNavPlacements is like WithNav but allows selecting a placement-specific menu.
@@ -98,6 +99,7 @@ func WithNavPlacements(ctx router.ViewContext, adm *admin.Admin, cfg admin.Confi
 	ctx["session_user"] = sessionView
 	ctx = WithFeatureTemplateContext(ctx, reqCtx, scopeData, map[string]bool{})
 	ctx["nav_items"] = BuildNavItemsForPlacement(adm, cfg, placements, placement, reqCtx, active)
+	ctx["nav_utility_items"] = BuildNavItemsForPlacement(adm, cfg, placements, SidebarPlacementUtility, reqCtx, active)
 	ctx["theme"] = adm.ThemePayload(reqCtx)
 	ctx["users_import_available"] = adm.UserImportEnabled()
 	ctx["users_import_enabled"] = adm.UserImportAllowed(reqCtx)
@@ -115,7 +117,7 @@ func WithNavPlacements(ctx router.ViewContext, adm *admin.Admin, cfg admin.Confi
 
 // BuildNavItems builds navigation menu items from the admin menu service.
 func BuildNavItems(adm *admin.Admin, cfg admin.Config, ctx context.Context, active string) []map[string]any {
-	return BuildNavItemsForPlacement(adm, cfg, DefaultPlacements(cfg), "sidebar", ctx, active)
+	return BuildNavItemsForPlacement(adm, cfg, DefaultPlacements(cfg), SidebarPlacementPrimary, ctx, active)
 }
 
 // BuildNavItemsForPlacement resolves a menu for a placement and returns render-ready entries.
@@ -135,6 +137,9 @@ func BuildNavItemsForPlacement(adm *admin.Admin, cfg admin.Config, placements Pl
 	items := nav.ResolveMenu(ctx, menuCode, cfg.DefaultLocale)
 	for _, item := range items {
 		entry, _ := buildNavEntry(item, basePath, urls, active)
+		if entry == nil {
+			continue
+		}
 		entries = append(entries, entry)
 	}
 	entries = applyTranslationEntrypointDegradation(entries, resolveTranslationModuleExposureSnapshot(adm, ctx))
@@ -176,6 +181,12 @@ func applyTranslationEntrypointDegradationEntry(entry map[string]any, exposure t
 		entry["children"] = applyTranslationEntrypointDegradation(children, exposure)
 		updatedChildren, _ := entry["children"].([]map[string]any)
 		entry["has_children"] = len(updatedChildren) > 0
+	}
+	if strings.EqualFold(strings.TrimSpace(toNavString(entry["type"])), admin.MenuItemTypeGroup) {
+		updatedChildren, _ := entry["children"].([]map[string]any)
+		if len(updatedChildren) == 0 {
+			return nil, false
+		}
 	}
 
 	moduleName, ok := translationModuleForNavKey(strings.TrimSpace(toNavString(entry["key"])))
@@ -221,10 +232,13 @@ func toNavString(value any) string {
 }
 
 func buildNavEntry(item admin.NavigationItem, basePath string, urls urlkit.Resolver, active string) (map[string]any, bool) {
-	children := []map[string]any{}
+	children := make([]map[string]any, 0, len(item.Children))
 	childActive := false
 	for _, child := range item.Children {
 		childNode, hasActive := buildNavEntry(child, basePath, urls, active)
+		if childNode == nil {
+			continue
+		}
 		if hasActive {
 			childActive = true
 		}
@@ -266,6 +280,9 @@ func buildNavEntry(item admin.NavigationItem, basePath string, urls urlkit.Resol
 		"active":          isActive,
 		"expanded":        collapsible && !collapsed,
 		"child_active":    childActive,
+	}
+	if strings.EqualFold(strings.TrimSpace(item.Type), admin.MenuItemTypeGroup) && len(children) == 0 {
+		return nil, false
 	}
 	return entry, isActive || childActive
 }
