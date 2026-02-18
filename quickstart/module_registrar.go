@@ -721,8 +721,16 @@ func defaultSidebarUtilityMenuItems(adm *admin.Admin, cfg admin.Config, menuCode
 		}
 		return prefixBasePath(basePath, path.Join(fallbackSegments...))
 	}
-	return []admin.MenuItem{
-		{
+	featureIsEnabled := func(feature admin.FeatureKey) bool {
+		if adm == nil {
+			return true
+		}
+		return featureEnabled(adm.FeatureGate(), string(feature))
+	}
+
+	out := make([]admin.MenuItem, 0, 4)
+	if featureIsEnabled(admin.FeatureSettings) {
+		out = append(out, admin.MenuItem{
 			ID:       "utility.settings",
 			Type:     admin.MenuItemTypeItem,
 			Label:    "Settings",
@@ -737,8 +745,10 @@ func defaultSidebarUtilityMenuItems(adm *admin.Admin, cfg admin.Config, menuCode
 			Position: intPtr(10),
 			Menu:     menuCode,
 			Locale:   locale,
-		},
-		{
+		})
+	}
+	if featureIsEnabled(admin.FeaturePreferences) {
+		out = append(out, admin.MenuItem{
 			ID:       "utility.preferences",
 			Type:     admin.MenuItemTypeItem,
 			Label:    "Preferences",
@@ -753,8 +763,10 @@ func defaultSidebarUtilityMenuItems(adm *admin.Admin, cfg admin.Config, menuCode
 			Position: intPtr(20),
 			Menu:     menuCode,
 			Locale:   locale,
-		},
-		{
+		})
+	}
+	if featureIsEnabled(admin.FeatureProfile) {
+		out = append(out, admin.MenuItem{
 			ID:       "utility.profile",
 			Type:     admin.MenuItemTypeItem,
 			Label:    "Profile",
@@ -769,24 +781,25 @@ func defaultSidebarUtilityMenuItems(adm *admin.Admin, cfg admin.Config, menuCode
 			Position: intPtr(30),
 			Menu:     menuCode,
 			Locale:   locale,
-		},
-		{
-			ID:       "utility.help",
-			Type:     admin.MenuItemTypeItem,
-			Label:    "Help",
-			LabelKey: "menu.help",
-			Icon:     "question-mark",
-			Target: map[string]any{
-				"type": "url",
-				"path": resolvePath("help", "help"),
-				"name": "admin.help",
-				"key":  "help",
-			},
-			Position: intPtr(40),
-			Menu:     menuCode,
-			Locale:   locale,
-		},
+		})
 	}
+	out = append(out, admin.MenuItem{
+		ID:       "utility.help",
+		Type:     admin.MenuItemTypeItem,
+		Label:    "Help",
+		LabelKey: "menu.help",
+		Icon:     "question-mark",
+		Target: map[string]any{
+			"type": "url",
+			"path": resolvePath("help", "help"),
+			"name": "admin.help",
+			"key":  "help",
+		},
+		Position: intPtr(40),
+		Menu:     menuCode,
+		Locale:   locale,
+	})
+	return out
 }
 
 func normalizeTranslationCapabilityMenuMode(mode TranslationCapabilityMenuMode) TranslationCapabilityMenuMode {
