@@ -11,10 +11,10 @@ import (
 )
 
 var (
-	_ func(Config, Dependencies) (*Admin, error) = New
-	_ func(context.Context, string) context.Context = WithEnvironment
-	_ func(context.Context, string) context.Context = WithLocale
-	_ func() *MemoryRepository = NewMemoryRepository
+	_ func(Config, Dependencies) (*Admin, error)                                                        = New
+	_ func(context.Context, string) context.Context                                                     = WithEnvironment
+	_ func(context.Context, string) context.Context                                                     = WithLocale
+	_ func() *MemoryRepository                                                                          = NewMemoryRepository
 	_ func(*CommandBus, command.Commander[struct{}], ...runner.Option) (dispatcher.Subscription, error) = RegisterCommand[struct{}]
 )
 

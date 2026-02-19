@@ -153,3 +153,117 @@ WHERE name = ?`, item.name).Scan(&slug, &status, &capabilities, &schema)
 		}
 	}
 }
+
+func TestPersistentCMSSeedsCoreBlockDefinitions(t *testing.T) {
+	t.Helper()
+
+	ctx := context.Background()
+	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared&_fk=1", strings.ToLower(t.Name()))
+
+	opts, err := SetupPersistentCMS(ctx, "en", dsn)
+	if err != nil {
+		t.Fatalf("setup persistent cms: %v", err)
+	}
+	if opts.Container == nil || opts.Container.ContentService() == nil {
+		t.Fatalf("expected CMS content service")
+	}
+
+	defs, err := opts.Container.ContentService().BlockDefinitions(ctx)
+	if err != nil {
+		t.Fatalf("list block definitions: %v", err)
+	}
+
+	seenHero := false
+	seenRichText := false
+	for _, def := range defs {
+		id := strings.ToLower(strings.TrimSpace(def.ID))
+		switch id {
+		case "hero":
+			seenHero = true
+			if slug := strings.TrimSpace(def.Slug); slug != "hero" {
+				t.Fatalf("expected hero slug %q, got %q", "hero", slug)
+			}
+			if status := strings.ToLower(strings.TrimSpace(def.Status)); status != "active" {
+				t.Fatalf("expected hero status active, got %q", def.Status)
+			}
+		case "rich_text":
+			seenRichText = true
+			slug := strings.TrimSpace(def.Slug)
+			if slug != "rich_text" && slug != "rich-text" {
+				t.Fatalf("expected rich_text slug alias, got %q", slug)
+			}
+			if status := strings.ToLower(strings.TrimSpace(def.Status)); status != "active" {
+				t.Fatalf("expected rich_text status active, got %q", def.Status)
+			}
+		}
+	}
+
+	if !seenHero || !seenRichText {
+		t.Fatalf("expected seeded hero and rich_text block definitions, got %+v", defs)
+	}
+}
+
+func TestPersistentCMSReconcilesRichTextBlockSlugDrift(t *testing.T) {
+	t.Helper()
+
+	ctx := context.Background()
+	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared&_fk=1", strings.ToLower(t.Name()))
+
+	opts, err := SetupPersistentCMS(ctx, "en", dsn)
+	if err != nil {
+		t.Fatalf("setup persistent cms: %v", err)
+	}
+	if opts.Container == nil || opts.Container.ContentService() == nil {
+		t.Fatalf("expected CMS content service")
+	}
+
+	db, err := sql.Open("sqlite3", dsn)
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	defer db.Close()
+
+	result, err := db.ExecContext(ctx, `
+UPDATE block_definitions
+SET slug = 'rich_text'
+WHERE LOWER(slug) = 'rich-text'`)
+	if err != nil {
+		t.Fatalf("mutate rich_text slug to legacy alias: %v", err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		t.Fatalf("rows affected: %v", err)
+	}
+	if affected < 1 {
+		t.Fatalf("expected to mutate at least one rich_text block definition row")
+	}
+
+	opts, err = SetupPersistentCMS(ctx, "en", dsn)
+	if err != nil {
+		t.Fatalf("re-setup persistent cms: %v", err)
+	}
+	if opts.Container == nil || opts.Container.ContentService() == nil {
+		t.Fatalf("expected CMS content service")
+	}
+
+	defs, err := opts.Container.ContentService().BlockDefinitions(ctx)
+	if err != nil {
+		t.Fatalf("list block definitions: %v", err)
+	}
+	seenRichText := false
+	for _, def := range defs {
+		if !strings.EqualFold(strings.TrimSpace(def.ID), "rich_text") {
+			continue
+		}
+		seenRichText = true
+		if slug := strings.TrimSpace(def.Slug); slug != "rich-text" {
+			t.Fatalf("expected reconciled rich_text slug %q, got %q", "rich-text", slug)
+		}
+		if status := strings.ToLower(strings.TrimSpace(def.Status)); status != "active" {
+			t.Fatalf("expected rich_text status active, got %q", def.Status)
+		}
+	}
+	if !seenRichText {
+		t.Fatalf("expected rich_text block definition after reconciliation")
+	}
+}

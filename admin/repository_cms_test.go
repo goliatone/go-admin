@@ -921,6 +921,27 @@ func TestCMSContentTypeRepositoryListIncludesEnvironmentScopedRecordsWithoutFilt
 	}
 }
 
+func TestCMSContentTypeRepositoryListTreatsBlankEnvironmentAsDefault(t *testing.T) {
+	repo := NewCMSContentTypeRepository(&contentTypeListServiceStub{
+		items: []CMSContentType{
+			{ID: "page-legacy", Name: "Page Legacy", Slug: "page-legacy", Environment: ""},
+			{ID: "page-default", Name: "Page", Slug: "page", Environment: "default"},
+			{ID: "post-staging", Name: "Post", Slug: "post", Environment: "staging"},
+		},
+	})
+
+	items, total, err := repo.List(context.Background(), ListOptions{
+		PerPage: 20,
+		Filters: map[string]any{"environment": "default"},
+	})
+	if err != nil {
+		t.Fatalf("list failed: %v", err)
+	}
+	if total != 2 || len(items) != 2 {
+		t.Fatalf("expected 2 default-environment items (blank + default), got total=%d len=%d", total, len(items))
+	}
+}
+
 func TestCMSBlockDefinitionRepositoryListIncludesEnvironmentScopedRecordsWithoutFilter(t *testing.T) {
 	content := &blockDefinitionListServiceStub{
 		defs: []CMSBlockDefinition{
@@ -936,6 +957,28 @@ func TestCMSBlockDefinitionRepositoryListIncludesEnvironmentScopedRecordsWithout
 	}
 	if total != 2 || len(items) != 2 {
 		t.Fatalf("expected 2 items without explicit environment filter, got total=%d len=%d", total, len(items))
+	}
+}
+
+func TestCMSBlockDefinitionRepositoryListTreatsBlankEnvironmentAsDefault(t *testing.T) {
+	content := &blockDefinitionListServiceStub{
+		defs: []CMSBlockDefinition{
+			{ID: "hero-legacy", Name: "Hero Legacy", Slug: "hero-legacy", Environment: ""},
+			{ID: "hero-default", Name: "Hero", Slug: "hero", Environment: "default"},
+			{ID: "cta-staging", Name: "CTA", Slug: "cta", Environment: "staging"},
+		},
+	}
+	repo := NewCMSBlockDefinitionRepository(content, nil)
+
+	items, total, err := repo.List(context.Background(), ListOptions{
+		PerPage: 20,
+		Filters: map[string]any{"environment": "default"},
+	})
+	if err != nil {
+		t.Fatalf("list failed: %v", err)
+	}
+	if total != 2 || len(items) != 2 {
+		t.Fatalf("expected 2 default-environment defs (blank + default), got total=%d len=%d", total, len(items))
 	}
 }
 
@@ -984,6 +1027,60 @@ func TestCMSBlockDefinitionRepositoryFiltersByContentType(t *testing.T) {
 	}
 	if !seen["hero"] || !seen["gallery"] {
 		t.Fatalf("expected filtered defs, got %+v", defs)
+	}
+}
+
+func TestCMSBlockDefinitionRepositoryFiltersByContentTypeSupportsSlugAliases(t *testing.T) {
+	content := NewInMemoryContentService()
+	ctx := context.Background()
+	_, _ = content.CreateContentType(ctx, CMSContentType{
+		ID:   "ct-page",
+		Name: "Page",
+		Slug: "page",
+		Schema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"blocks": map[string]any{
+					"type": "array",
+					"items": map[string]any{
+						"oneOf": []any{
+							map[string]any{"$ref": "#/$defs/hero"},
+							map[string]any{"$ref": "#/$defs/rich_text"},
+						},
+					},
+				},
+			},
+		},
+	})
+	_, _ = content.CreateBlockDefinition(ctx, CMSBlockDefinition{
+		ID:     "hero",
+		Name:   "Hero",
+		Slug:   "hero",
+		Type:   "hero",
+		Status: "active",
+	})
+	_, _ = content.CreateBlockDefinition(ctx, CMSBlockDefinition{
+		ID:     "rich_text",
+		Name:   "Rich Text",
+		Slug:   "rich-text",
+		Type:   "rich-text",
+		Status: "active",
+	})
+
+	repo := NewCMSBlockDefinitionRepository(content, content)
+	defs, total, err := repo.List(ctx, ListOptions{Filters: map[string]any{"content_type": "page"}, PerPage: 10})
+	if err != nil {
+		t.Fatalf("list failed: %v", err)
+	}
+	if total != 2 || len(defs) != 2 {
+		t.Fatalf("expected 2 defs with alias matching, got total=%d len=%d defs=%+v", total, len(defs), defs)
+	}
+	seen := map[string]bool{}
+	for _, def := range defs {
+		seen[toString(def["id"])] = true
+	}
+	if !seen["hero"] || !seen["rich_text"] {
+		t.Fatalf("expected hero and rich_text, got %+v", defs)
 	}
 }
 

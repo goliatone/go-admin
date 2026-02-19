@@ -49,7 +49,7 @@ type testServicesProvider struct {
 
 func (p testServicesProvider) ID() string { return p.id }
 
-func (p testServicesProvider) AuthKind() string { return gocore.AuthKindOAuth2AuthCode }
+func (p testServicesProvider) AuthKind() gocore.AuthKind { return gocore.AuthKindOAuth2AuthCode }
 
 func (p testServicesProvider) SupportedScopeTypes() []string { return []string{"user", "org"} }
 
