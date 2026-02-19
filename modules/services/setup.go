@@ -356,38 +356,11 @@ func Setup(adminApp *goadmin.Admin, cfg Config, opts ...Option) (*Module, error)
 	if err != nil {
 		return nil, fmt.Errorf("modules/services: setup go-services: %w", err)
 	}
-	facade, err := goservices.NewFacade(service)
-	if err != nil {
-		return nil, fmt.Errorf("modules/services: build command/query facade: %w", err)
-	}
-	extensionBundles, err := extensionHooks.BuildCommandQueryBundles(service)
-	if err != nil {
-		return nil, fmt.Errorf("modules/services: build command/query bundles: %w", err)
-	}
-	lifecycleSubscribers := make([]string, 0, len(cfg.Lifecycle.Projectors.Subscribers))
-	for _, subscriber := range cfg.Lifecycle.Projectors.Subscribers {
-		if trimmed := strings.TrimSpace(subscriber.Name); trimmed != "" {
-			lifecycleSubscribers = append(lifecycleSubscribers, trimmed)
-		}
-	}
-	sort.Strings(lifecycleSubscribers)
-
 	module := &Module{
-		admin:            adminApp,
-		config:           cfg,
-		service:          service,
-		facade:           facade,
-		extensionHooks:   extensionHooks,
-		extensionBundles: extensionBundles,
-		extensionDiag: ExtensionDiagnostics{
-			RegisteredProviderPacks:  packNames(registeredPacks),
-			EnabledProviderPacks:     enabledProviderPacks,
-			DisabledProviderPacks:    disabledProviderPacks,
-			CommandQueryBundles:      extensionHooks.BundleNames(),
-			BuiltCommandQueryBundles: mapKeysSorted(extensionBundles),
-			LifecycleSubscribers:     lifecycleSubscribers,
-			FeatureFlags:             copyBoolMap(cfg.Extensions.FeatureFlags),
-		},
+		admin:             adminApp,
+		config:            cfg,
+		service:           service,
+		extensionHooks:    extensionHooks,
 		repositoryFactory: repositoryFactory,
 		runtime: RuntimeContracts{
 			LoggerProvider:    resolvedProvider,
@@ -395,6 +368,32 @@ func Setup(adminApp *goadmin.Admin, cfg Config, opts ...Option) (*Module, error)
 			JobLoggerProvider: jobProvider,
 			JobLogger:         jobLogger,
 		},
+	}
+	facade, err := goservices.NewFacade(service, goservices.WithActivityReader(module))
+	if err != nil {
+		return nil, fmt.Errorf("modules/services: build command/query facade: %w", err)
+	}
+	module.facade = facade
+	extensionBundles, err := extensionHooks.BuildCommandQueryBundles(service)
+	if err != nil {
+		return nil, fmt.Errorf("modules/services: build command/query bundles: %w", err)
+	}
+	module.extensionBundles = extensionBundles
+	lifecycleSubscribers := make([]string, 0, len(cfg.Lifecycle.Projectors.Subscribers))
+	for _, subscriber := range cfg.Lifecycle.Projectors.Subscribers {
+		if trimmed := strings.TrimSpace(subscriber.Name); trimmed != "" {
+			lifecycleSubscribers = append(lifecycleSubscribers, trimmed)
+		}
+	}
+	sort.Strings(lifecycleSubscribers)
+	module.extensionDiag = ExtensionDiagnostics{
+		RegisteredProviderPacks:  packNames(registeredPacks),
+		EnabledProviderPacks:     enabledProviderPacks,
+		DisabledProviderPacks:    disabledProviderPacks,
+		CommandQueryBundles:      extensionHooks.BundleNames(),
+		BuiltCommandQueryBundles: mapKeysSorted(extensionBundles),
+		LifecycleSubscribers:     lifecycleSubscribers,
+		FeatureFlags:             copyBoolMap(cfg.Extensions.FeatureFlags),
 	}
 	if err := module.ensureCallbackURLRoute(); err != nil {
 		return nil, err
