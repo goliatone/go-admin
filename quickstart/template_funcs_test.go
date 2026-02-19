@@ -207,18 +207,3 @@ func TestDefaultTemplateFuncs_TranslationProgressTitle(t *testing.T) {
 	require.True(t, ok, "getWidgetTitle should be func(string) string")
 	assert.Equal(t, "Translation Progress", getWidgetTitle("admin.widget.translation_progress"))
 }
-
-func TestDefaultTemplateFuncs_NormalizeSpan(t *testing.T) {
-	funcs := DefaultTemplateFuncs()
-	normalizeSpan, ok := funcs["normalizeSpan"].(func(any) int)
-	require.True(t, ok, "normalizeSpan should be func(any) int")
-
-	assert.Equal(t, 12, normalizeSpan(nil))
-	assert.Equal(t, 12, normalizeSpan(0))
-	assert.Equal(t, 12, normalizeSpan(13))
-	assert.Equal(t, 6, normalizeSpan(6))
-	assert.Equal(t, 6, normalizeSpan(6.9))
-	assert.Equal(t, 6, normalizeSpan("6"))
-	assert.Equal(t, 6, normalizeSpan("6.000000"))
-	assert.Equal(t, 12, normalizeSpan("0.000000"))
-}

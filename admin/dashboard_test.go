@@ -37,11 +37,13 @@ func TestDashboardProviderRegistersCommandAndResolvesInstances(t *testing.T) {
 			Name:        "Demo",
 			DefaultArea: "admin.dashboard.main",
 			CommandName: "dashboard.demo.widget",
-			Handler: func(ctx AdminContext, cfg map[string]any) (map[string]any, error) {
+			Handler: func(ctx AdminContext, cfg map[string]any) (WidgetPayload, error) {
 				_ = ctx
 				_ = cfg
 				called = true
-				return map[string]any{"ok": true}, nil
+				return WidgetPayloadOf(struct {
+					OK bool `json:"ok"`
+				}{OK: true}), nil
 			},
 		})
 
@@ -77,11 +79,13 @@ func TestDashboardProviderCommandRegistrationIsIdempotent(t *testing.T) {
 			Name:        "Demo",
 			DefaultArea: "admin.dashboard.main",
 			CommandName: "dashboard.demo.widget",
-			Handler: func(ctx AdminContext, cfg map[string]any) (map[string]any, error) {
+			Handler: func(ctx AdminContext, cfg map[string]any) (WidgetPayload, error) {
 				_ = ctx
 				_ = cfg
 				hits++
-				return map[string]any{"ok": true}, nil
+				return WidgetPayloadOf(struct {
+					OK bool `json:"ok"`
+				}{OK: true}), nil
 			},
 		}
 		dash.RegisterProvider(spec)
@@ -121,10 +125,12 @@ func TestDashboardLateProviderRegistrationUpdatesComponents(t *testing.T) {
 		Code:        "late.widget",
 		Name:        "Late Widget",
 		DefaultArea: "admin.dashboard.main",
-		Handler: func(ctx AdminContext, cfg map[string]any) (map[string]any, error) {
+		Handler: func(ctx AdminContext, cfg map[string]any) (WidgetPayload, error) {
 			_ = ctx
 			_ = cfg
-			return map[string]any{"ok": true}, nil
+			return WidgetPayloadOf(struct {
+				OK bool `json:"ok"`
+			}{OK: true}), nil
 		},
 	})
 
@@ -163,10 +169,12 @@ func TestDashboardResolveIncludesRegisteredCustomAreas(t *testing.T) {
 		Code:        "custom.profile",
 		Name:        "Custom Profile Widget",
 		DefaultArea: "admin.users.detail.profile",
-		Handler: func(ctx AdminContext, cfg map[string]any) (map[string]any, error) {
+		Handler: func(ctx AdminContext, cfg map[string]any) (WidgetPayload, error) {
 			_ = ctx
 			_ = cfg
-			return map[string]any{"ok": true}, nil
+			return WidgetPayloadOf(struct {
+				OK bool `json:"ok"`
+			}{OK: true}), nil
 		},
 	})
 
@@ -198,10 +206,12 @@ func TestDashboardLateAreaRegistrationRebuildsLayoutAreas(t *testing.T) {
 		Code:        "custom.activity",
 		Name:        "Custom Activity Widget",
 		DefaultArea: "admin.users.detail.activity",
-		Handler: func(ctx AdminContext, cfg map[string]any) (map[string]any, error) {
+		Handler: func(ctx AdminContext, cfg map[string]any) (WidgetPayload, error) {
 			_ = ctx
 			_ = cfg
-			return map[string]any{"ok": true}, nil
+			return WidgetPayloadOf(struct {
+				OK bool `json:"ok"`
+			}{OK: true}), nil
 		},
 	})
 
@@ -226,10 +236,12 @@ func TestDashboardVisibilityPermissionFilters(t *testing.T) {
 		Name:        "Secure",
 		DefaultArea: "admin.dashboard.main",
 		Permission:  "admin.dashboard.view",
-		Handler: func(ctx AdminContext, cfg map[string]any) (map[string]any, error) {
+		Handler: func(ctx AdminContext, cfg map[string]any) (WidgetPayload, error) {
 			_ = ctx
 			_ = cfg
-			return map[string]any{"value": 1}, nil
+			return WidgetPayloadOf(struct {
+				Value int `json:"value"`
+			}{Value: 1}), nil
 		},
 	})
 	widgets, err := dash.Resolve(AdminContext{Context: context.Background()})
@@ -286,16 +298,22 @@ func TestDashboardResolve_SanitizesProviderPayload(t *testing.T) {
 		Code:        "sanitized.widget",
 		Name:        "Sanitized",
 		DefaultArea: "admin.dashboard.main",
-		Handler: func(ctx AdminContext, cfg map[string]any) (map[string]any, error) {
+		Handler: func(ctx AdminContext, cfg map[string]any) (WidgetPayload, error) {
 			_ = ctx
 			_ = cfg
-			return map[string]any{
-				"chart_html":        "<html><body>bad</body></html>",
-				"chart_options":     map[string]any{"series": []any{}},
-				"footer_note":       "<script>alert('x')</script>",
-				"subtitle":          "ok",
-				"chart_assets_host": "/dashboard/assets/echarts/",
-			}, nil
+			return WidgetPayloadOf(struct {
+				ChartHTML      string         `json:"chart_html"`
+				ChartOptions   map[string]any `json:"chart_options"`
+				FooterNote     string         `json:"footer_note"`
+				Subtitle       string         `json:"subtitle"`
+				ChartAssetsURL string         `json:"chart_assets_host"`
+			}{
+				ChartHTML:      "<html><body>bad</body></html>",
+				ChartOptions:   map[string]any{"series": []any{}},
+				FooterNote:     "<script>alert('x')</script>",
+				Subtitle:       "ok",
+				ChartAssetsURL: "/dashboard/assets/echarts/",
+			}), nil
 		},
 	})
 

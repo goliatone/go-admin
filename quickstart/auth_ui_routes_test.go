@@ -113,7 +113,7 @@ func (r *captureRouter) WebSocket(path string, config router.WebSocketConfig, ha
 }
 
 func (r *captureRouter) Routes() []router.RouteDefinition { return nil }
-func (r *captureRouter) ValidateRoutes() []error         { return nil }
+func (r *captureRouter) ValidateRoutes() []error          { return nil }
 func (r *captureRouter) PrintRoutes()                     {}
 func (r *captureRouter) WithLogger(logger router.Logger) router.Router[*fiber.App] {
 	_ = logger
@@ -176,8 +176,7 @@ func TestAuthUIRoutesRespectPasswordResetGate(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected view context, got %v", rendered)
 	}
-	snapshot, ok := viewCtx["feature_snapshot"].(map[string]bool)
-	if !ok || snapshot["users.password_reset"] != true {
+	if !featureSnapshotFlag(viewCtx["feature_snapshot"], "users.password_reset") {
 		t.Fatalf("expected feature snapshot to include users.password_reset true, got %v", viewCtx["feature_snapshot"])
 	}
 }
@@ -225,8 +224,22 @@ func TestRegistrationUIRoutesRespectUsersSignupGate(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected view context, got %v", rendered)
 	}
-	snapshot, ok := viewCtx["feature_snapshot"].(map[string]bool)
-	if !ok || snapshot["users.signup"] != true {
+	if !featureSnapshotFlag(viewCtx["feature_snapshot"], "users.signup") {
 		t.Fatalf("expected feature snapshot to include users.signup true, got %v", viewCtx["feature_snapshot"])
 	}
+}
+
+func featureSnapshotFlag(snapshot any, key string) bool {
+	if key == "" {
+		return false
+	}
+	if typed, ok := snapshot.(map[string]bool); ok {
+		return typed[key]
+	}
+	if typed, ok := snapshot.(map[string]any); ok {
+		if value, ok := typed[key].(bool); ok {
+			return value
+		}
+	}
+	return false
 }

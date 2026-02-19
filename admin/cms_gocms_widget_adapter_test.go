@@ -309,8 +309,10 @@ func TestDashboardRegisterProviderSeedsDefaultInstanceWithGoCMSWidgetAdapter(t *
 		Code:        "admin.widget.seed_test",
 		Name:        "Seed Test",
 		DefaultArea: "admin.dashboard.main",
-		Handler: func(ctx AdminContext, cfg map[string]any) (map[string]any, error) {
-			return map[string]any{"ok": true}, nil
+		Handler: func(ctx AdminContext, cfg map[string]any) (WidgetPayload, error) {
+			return WidgetPayloadOf(struct {
+				OK bool `json:"ok"`
+			}{OK: true}), nil
 		},
 	})
 
@@ -357,8 +359,10 @@ func TestDashboardRegisterProviderSkipsSeedingWhenDefinitionHasExistingInstance(
 		Code:        "admin.widget.seed_test",
 		Name:        "Seed Test",
 		DefaultArea: "admin.dashboard.main",
-		Handler: func(ctx AdminContext, cfg map[string]any) (map[string]any, error) {
-			return map[string]any{"ok": true}, nil
+		Handler: func(ctx AdminContext, cfg map[string]any) (WidgetPayload, error) {
+			return WidgetPayloadOf(struct {
+				OK bool `json:"ok"`
+			}{OK: true}), nil
 		},
 	})
 

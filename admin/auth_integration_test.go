@@ -203,6 +203,29 @@ func TestGoAuthAuthorizerBatchChecks(t *testing.T) {
 	}
 }
 
+func TestGoAuthAuthorizerBatchChecksIgnoreEmptyPermissions(t *testing.T) {
+	claims := &auth.JWTClaims{
+		UID:      "actor-1",
+		UserRole: string(auth.RoleAdmin),
+	}
+	ctx := auth.WithClaimsContext(context.Background(), claims)
+	authz := NewGoAuthAuthorizer(GoAuthAuthorizerConfig{
+		DefaultResource: "admin",
+		ResolvePermissions: func(context.Context) ([]string, error) {
+			return []string{"admin.translations.export"}, nil
+		},
+	})
+	if authz.CanAny(ctx, "translations", "", " ", "\t") {
+		t.Fatalf("expected CanAny to deny when only empty permissions are provided")
+	}
+	if !authz.CanAny(ctx, "translations", "", "admin.translations.export", " ") {
+		t.Fatalf("expected CanAny to ignore empties and allow valid permission")
+	}
+	if !authz.CanAll(ctx, "translations", "", " ", "\t") {
+		t.Fatalf("expected CanAll to treat empty permission set as vacuously true")
+	}
+}
+
 func TestGoAuthAuthorizerResolverMetrics(t *testing.T) {
 	claims := &auth.JWTClaims{
 		UID:      "actor-1",
