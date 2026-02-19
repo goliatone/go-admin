@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/goliatone/go-admin/admin"
+	templateview "github.com/goliatone/go-admin/internal/templateview"
 	authlib "github.com/goliatone/go-auth"
 	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
@@ -236,9 +237,18 @@ type contentTypeBuilderHandlers struct {
 	contentTypesTemplate     string
 	blockDefinitionsTemplate string
 	contentSvc               admin.CMSContentService
+	contentTypeSvc           admin.CMSContentTypeService
 	versions                 *contentTypeVersionStore
 	permission               string
 	authResource             string
+}
+
+type contentEnvironmentDiagnostics struct {
+	EffectiveEnvironment  string
+	RequestedEnvironment  string
+	TotalEffective        int
+	TotalDefault          int
+	AvailableEnvironments []string
 }
 
 type panelReader interface {
@@ -350,17 +360,20 @@ func (s *contentTypeVersionStore) listVersions(key string) []contentTypeSchemaVe
 
 func newContentTypeBuilderHandlers(adm *admin.Admin, cfg admin.Config, viewCtx UIViewContextBuilder, permission string, authResource string) *contentTypeBuilderHandlers {
 	var contentSvc admin.CMSContentService
+	var contentTypeSvc admin.CMSContentTypeService
 	if adm != nil {
 		contentSvc = adm.ContentService()
+		contentTypeSvc = adm.ContentTypeService()
 	}
 	return &contentTypeBuilderHandlers{
-		admin:        adm,
-		cfg:          cfg,
-		viewContext:  viewCtx,
-		contentSvc:   contentSvc,
-		versions:     newContentTypeVersionStore(),
-		permission:   strings.TrimSpace(permission),
-		authResource: strings.TrimSpace(authResource),
+		admin:          adm,
+		cfg:            cfg,
+		viewContext:    viewCtx,
+		contentSvc:     contentSvc,
+		contentTypeSvc: contentTypeSvc,
+		versions:       newContentTypeVersionStore(),
+		permission:     strings.TrimSpace(permission),
+		authResource:   strings.TrimSpace(authResource),
 	}
 }
 
@@ -379,6 +392,8 @@ func (h *contentTypeBuilderHandlers) ContentTypes(c router.Context) error {
 	if selectedID == "" {
 		selectedID = strings.TrimSpace(c.Query("content_type"))
 	}
+	diagnostics := h.contentTypeDiagnostics(c)
+	diagnostics.TotalEffective = len(contentTypes)
 
 	var urls urlkit.Resolver
 	if h.admin != nil {
@@ -392,11 +407,16 @@ func (h *contentTypeBuilderHandlers) ContentTypes(c router.Context) error {
 		"content_types":              contentTypes,
 		"selected_content_type_id":   selectedID,
 		"selected_content_type_slug": selectedID,
+		"content_types_effective_environment":  diagnostics.EffectiveEnvironment,
+		"content_types_requested_environment":  diagnostics.RequestedEnvironment,
+		"content_types_total_effective":        diagnostics.TotalEffective,
+		"content_types_total_default":          diagnostics.TotalDefault,
+		"content_types_available_environments": diagnostics.AvailableEnvironments,
 	}
 	if h.viewContext != nil {
 		viewCtx = h.viewContext(viewCtx, "content_types", c)
 	}
-	return c.Render(h.contentTypesTemplate, viewCtx)
+	return templateview.RenderTemplateView(c, h.contentTypesTemplate, viewCtx)
 }
 
 func (h *contentTypeBuilderHandlers) BlockDefinitions(c router.Context) error {
@@ -421,7 +441,7 @@ func (h *contentTypeBuilderHandlers) BlockDefinitions(c router.Context) error {
 	if h.viewContext != nil {
 		viewCtx = h.viewContext(viewCtx, "block_definitions", c)
 	}
-	return c.Render(h.blockDefinitionsTemplate, viewCtx)
+	return templateview.RenderTemplateView(c, h.blockDefinitionsTemplate, viewCtx)
 }
 
 func (h *contentTypeBuilderHandlers) PublishContentType(c router.Context) error {
@@ -849,7 +869,8 @@ func (h *contentTypeBuilderHandlers) listPanelRecords(c router.Context, panelNam
 	}
 	adminCtx := adminContextFromRequest(c, h.cfg.DefaultLocale)
 	env := resolveEnvironment(c)
-	if strings.EqualFold(strings.TrimSpace(panelName), "block_definitions") {
+	if strings.EqualFold(strings.TrimSpace(panelName), "block_definitions") ||
+		strings.EqualFold(strings.TrimSpace(panelName), "content_types") {
 		env = normalizeEnvironmentKey(env)
 	}
 	if env != "" {
@@ -863,6 +884,68 @@ func (h *contentTypeBuilderHandlers) listPanelRecords(c router.Context, panelNam
 		opts.Filters = filters
 	}
 	return panel.List(adminCtx, opts)
+}
+
+func (h *contentTypeBuilderHandlers) contentTypeDiagnostics(c router.Context) contentEnvironmentDiagnostics {
+	requested := strings.ToLower(strings.TrimSpace(resolveEnvironment(c)))
+	effective := normalizeEnvironmentKey(requested)
+	diagnostics := contentEnvironmentDiagnostics{
+		EffectiveEnvironment: effective,
+		RequestedEnvironment: requested,
+		TotalEffective:       0,
+		TotalDefault:         0,
+		AvailableEnvironments: []string{
+			defaultEnvironmentKey,
+		},
+	}
+	if h.contentTypeSvc == nil {
+		return diagnostics
+	}
+
+	defaultTypes, defaultErr := h.contentTypeSvc.ContentTypes(admin.WithEnvironment(context.Background(), defaultEnvironmentKey))
+	effectiveTypes := defaultTypes
+	effectiveErr := defaultErr
+	if effective != defaultEnvironmentKey {
+		effectiveTypes, effectiveErr = h.contentTypeSvc.ContentTypes(admin.WithEnvironment(context.Background(), effective))
+	}
+	if defaultErr != nil || effectiveErr != nil {
+		return diagnostics
+	}
+
+	envSet := map[string]struct{}{
+		defaultEnvironmentKey: {},
+		effective:             {},
+	}
+	addEnv := func(types []admin.CMSContentType, fallback string) {
+		for _, ct := range types {
+			env := normalizeEnvironmentKey(ct.Environment)
+			if env == defaultEnvironmentKey && strings.TrimSpace(ct.Environment) == "" {
+				env = normalizeEnvironmentKey(fallback)
+			}
+			envSet[env] = struct{}{}
+		}
+	}
+	addEnv(defaultTypes, defaultEnvironmentKey)
+	addEnv(effectiveTypes, effective)
+
+	available := make([]string, 0, len(envSet))
+	for env := range envSet {
+		available = append(available, env)
+	}
+	sort.Strings(available)
+	if len(available) > 1 {
+		for i, env := range available {
+			if env == defaultEnvironmentKey {
+				available[0], available[i] = available[i], available[0]
+				break
+			}
+		}
+	}
+
+	diagnostics.TotalEffective = len(effectiveTypes)
+	diagnostics.TotalDefault = len(defaultTypes)
+	diagnostics.AvailableEnvironments = available
+	return diagnostics
 }
 
 func (h *contentTypeBuilderHandlers) panelFor(name string) (panelReader, error) {
