@@ -145,11 +145,15 @@ func (d *Dashboard) buildDashboardProviders() (dashcmp.ProviderRegistry, map[str
 				Locale:     meta.Viewer.Locale,
 				RenderMode: dashboardRenderModeFromContext(ctx),
 			}
-			data, err := handler(adminCtx, cfg)
+			payload, err := handler(adminCtx, cfg)
 			if err != nil {
 				return nil, err
 			}
-			return dashcmp.WidgetData(sanitizeDashboardWidgetData(data)), nil
+			data, err := encodeWidgetPayload(payload)
+			if err != nil {
+				return nil, err
+			}
+			return dashcmp.WidgetData(data), nil
 		}))
 	}
 	return registry, specs
