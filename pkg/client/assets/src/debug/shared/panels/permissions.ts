@@ -36,7 +36,7 @@ function getVerdictConfig(verdict: string): { label: string; color: string; bgCo
       };
     case 'claims_stale':
       return {
-        label: 'Claims Stale',
+        label: 'Resolver Drift',
         color: '#f97316',
         bgColor: 'rgba(249, 115, 22, 0.1)',
         icon: '\u26A0', // warning
@@ -136,7 +136,7 @@ function renderSummaryChips(data: PermissionsSnapshot): string {
   const chips = [
     { label: 'Modules', value: summary.module_count, color: '#3b82f6' },
     { label: 'Required', value: summary.required_keys, color: '#8b5cf6' },
-    { label: 'In Claims', value: summary.claims_keys, color: '#22c55e' },
+    { label: 'Resolved', value: summary.claims_keys, color: '#22c55e' },
     { label: 'Missing', value: summary.missing_keys, color: summary.missing_keys > 0 ? '#ef4444' : '#6b7280' },
   ];
 
@@ -243,7 +243,7 @@ function renderPermissionsTable(data: PermissionsSnapshot): string {
             <tr style="background: #1e293b; border-bottom: 2px solid #334155;">
               <th style="padding: 10px 12px; text-align: left; color: #94a3b8; font-weight: 600;">Permission</th>
               <th style="padding: 10px 12px; text-align: center; color: #94a3b8; font-weight: 600; width: 80px;">Required</th>
-              <th style="padding: 10px 12px; text-align: center; color: #94a3b8; font-weight: 600; width: 80px;">In Claims</th>
+              <th style="padding: 10px 12px; text-align: center; color: #94a3b8; font-weight: 600; width: 80px;">Listed</th>
               <th style="padding: 10px 12px; text-align: center; color: #94a3b8; font-weight: 600; width: 80px;">Allows</th>
               <th style="padding: 10px 12px; text-align: left; color: #94a3b8; font-weight: 600;">Diagnosis</th>
             </tr>

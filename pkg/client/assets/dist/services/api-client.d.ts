@@ -2,7 +2,7 @@
  * Services API Client
  * Unified client for all services integration platform endpoints
  */
-import type { ListProvidersResponse, ConnectionsListFilter, ListConnectionsResponse, ConnectionDetailResponse, BeginConnectionRequest, BeginConnectionResponse, CompleteCallbackResponse, GetConnectionGrantsResponse, BeginReconsentRequest, BeginReconsentResponse, RefreshConnectionRequest, RefreshConnectionResponse, RevokeConnectionRequest, RevokeConnectionResponse, InstallationsListFilter, ListInstallationsResponse, BeginInstallationRequest, BeginInstallationResponse, UninstallInstallationRequest, UninstallInstallationResponse, SubscriptionsListFilter, ListSubscriptionsResponse, RenewSubscriptionRequest, RenewSubscriptionResponse, CancelSubscriptionRequest, CancelSubscriptionResponse, RunSyncRequest, RunSyncResponse, GetSyncStatusResponse, InvokeCapabilityRequest, InvokeCapabilityResponse, ActivityListFilter, ListActivityResponse, GetStatusResponse, RunRetentionCleanupResponse, ProcessWebhookResponse, DispatchInboundResponse } from './types.js';
+import type { ListProvidersResponse, ConnectionsListFilter, ListConnectionsResponse, ConnectionDetailResponse, BeginConnectionRequest, BeginConnectionResponse, CompleteCallbackResponse, GetConnectionGrantsResponse, BeginReconsentRequest, BeginReconsentResponse, RefreshConnectionRequest, RefreshConnectionResponse, RevokeConnectionRequest, RevokeConnectionResponse, InstallationsListFilter, ListInstallationsResponse, BeginInstallationRequest, BeginInstallationResponse, UninstallInstallationRequest, UninstallInstallationResponse, SubscriptionsListFilter, ListSubscriptionsResponse, RenewSubscriptionRequest, RenewSubscriptionResponse, CancelSubscriptionRequest, CancelSubscriptionResponse, RunSyncRequest, RunSyncResponse, GetSyncStatusResponse, ListMappingsFilter, ListMappingsResponse, GetMappingRequest, GetMappingResponse, CreateMappingDraftRequest, CreateMappingDraftResponse, UpdateMappingDraftRequest, UpdateMappingDraftResponse, MarkMappingVersionRequest, MarkMappingVersionResponse, ValidateMappingRequest, ValidateMappingResponse, PreviewMappingRequest, PreviewMappingResponse, PlanWorkflowSyncRequest, PlanWorkflowSyncResponse, RunWorkflowSyncRequest, RunWorkflowSyncResponse, ListSyncRunsFilter, ListSyncRunsResponse, GetSyncRunRequest, GetSyncRunResponse, ResumeSyncRunRequest, ResumeSyncRunResponse, GetSyncCheckpointRequest, GetSyncCheckpointResponse, ListSyncConflictsFilter, ListSyncConflictsResponse, GetSyncConflictRequest, GetSyncConflictResponse, ResolveSyncConflictRequest, ResolveSyncConflictResponse, ListSchemaDriftFilter, ListSchemaDriftResponse, SetSchemaDriftBaselineRequest, SetSchemaDriftBaselineResponse, ListConnectionCandidatesFilter, ListConnectionCandidatesResponse, GetCallbackDiagnosticsStatusResponse, PreviewCallbackDiagnosticsRequest, PreviewCallbackDiagnosticsResponse, InvokeCapabilityRequest, InvokeCapabilityResponse, ActivityListFilter, ListActivityResponse, GetStatusResponse, RunRetentionCleanupResponse, ProcessWebhookResponse, DispatchInboundResponse } from './types.js';
 import { ServicesAPIError } from './types.js';
 export interface ServicesAPIClientConfig {
     /** Base path for admin API (default: /admin/api) */
@@ -86,6 +86,102 @@ export declare class ServicesAPIClient {
      * Get sync status summary for a connection
      */
     getSyncStatus(connectionId: string, signal?: AbortSignal): Promise<GetSyncStatusResponse>;
+    /**
+     * List mapping specs for provider/scope.
+     */
+    listMappings(filter: ListMappingsFilter, signal?: AbortSignal): Promise<ListMappingsResponse>;
+    /**
+     * Get latest mapping spec (or explicit version via query).
+     */
+    getMapping(specId: string, request: GetMappingRequest, signal?: AbortSignal): Promise<GetMappingResponse>;
+    /**
+     * Get a specific mapping version.
+     */
+    getMappingVersion(specId: string, version: number, request: Omit<GetMappingRequest, 'version'>, signal?: AbortSignal): Promise<GetMappingResponse>;
+    /**
+     * Create mapping draft.
+     */
+    createMappingDraft(request: CreateMappingDraftRequest, idempotencyKey?: string): Promise<CreateMappingDraftResponse>;
+    /**
+     * Update mapping draft.
+     */
+    updateMappingDraft(specId: string, request: UpdateMappingDraftRequest, idempotencyKey?: string): Promise<UpdateMappingDraftResponse>;
+    /**
+     * Mark mapping version validated.
+     */
+    markMappingValidated(specId: string, request: MarkMappingVersionRequest, idempotencyKey?: string): Promise<MarkMappingVersionResponse>;
+    /**
+     * Publish mapping version.
+     */
+    publishMapping(specId: string, request: MarkMappingVersionRequest, idempotencyKey?: string): Promise<MarkMappingVersionResponse>;
+    /**
+     * Unpublish mapping version.
+     */
+    unpublishMapping(specId: string, request: MarkMappingVersionRequest, idempotencyKey?: string): Promise<MarkMappingVersionResponse>;
+    /**
+     * Validate mapping spec against schema.
+     */
+    validateMapping(request: ValidateMappingRequest, idempotencyKey?: string): Promise<ValidateMappingResponse>;
+    /**
+     * Preview mapping transformations against samples.
+     */
+    previewMapping(request: PreviewMappingRequest, idempotencyKey?: string): Promise<PreviewMappingResponse>;
+    /**
+     * Build sync execution plan.
+     */
+    planWorkflowSync(request: PlanWorkflowSyncRequest, idempotencyKey?: string): Promise<PlanWorkflowSyncResponse>;
+    /**
+     * Execute sync run from a plan/binding.
+     */
+    runWorkflowSync(request: RunWorkflowSyncRequest, idempotencyKey?: string): Promise<RunWorkflowSyncResponse>;
+    /**
+     * List workflow sync runs for provider/scope.
+     */
+    listSyncRuns(filter: ListSyncRunsFilter, signal?: AbortSignal): Promise<ListSyncRunsResponse>;
+    /**
+     * Get workflow sync run detail.
+     */
+    getSyncRun(runId: string, request: GetSyncRunRequest, signal?: AbortSignal): Promise<GetSyncRunResponse>;
+    /**
+     * Resume a workflow sync run from its latest checkpoint.
+     */
+    resumeSyncRun(runId: string, request: ResumeSyncRunRequest, idempotencyKey?: string): Promise<ResumeSyncRunResponse>;
+    /**
+     * Get workflow sync checkpoint detail.
+     */
+    getSyncCheckpoint(checkpointId: string, request: GetSyncCheckpointRequest, signal?: AbortSignal): Promise<GetSyncCheckpointResponse>;
+    /**
+     * List sync conflicts for provider/scope.
+     */
+    listSyncConflicts(filter: ListSyncConflictsFilter, signal?: AbortSignal): Promise<ListSyncConflictsResponse>;
+    /**
+     * Get sync conflict detail.
+     */
+    getSyncConflict(conflictId: string, request: GetSyncConflictRequest, signal?: AbortSignal): Promise<GetSyncConflictResponse>;
+    /**
+     * Resolve/ignore/retry a sync conflict.
+     */
+    resolveSyncConflict(conflictId: string, request: ResolveSyncConflictRequest, idempotencyKey?: string): Promise<ResolveSyncConflictResponse>;
+    /**
+     * List schema drift status for mapping specs in provider/scope.
+     */
+    listSchemaDrift(filter: ListSchemaDriftFilter, signal?: AbortSignal): Promise<ListSchemaDriftResponse>;
+    /**
+     * Set/update schema drift baseline for a mapping spec.
+     */
+    setSchemaDriftBaseline(request: SetSchemaDriftBaselineRequest, idempotencyKey?: string): Promise<SetSchemaDriftBaselineResponse>;
+    /**
+     * List candidate connections for provider/scope ambiguity remediation.
+     */
+    listConnectionCandidates(filter: ListConnectionCandidatesFilter, signal?: AbortSignal): Promise<ListConnectionCandidatesResponse>;
+    /**
+     * Get callback resolver diagnostics status.
+     */
+    getCallbackDiagnosticsStatus(providerId?: string, signal?: AbortSignal): Promise<GetCallbackDiagnosticsStatusResponse>;
+    /**
+     * Preview callback resolver output for provider/flow.
+     */
+    previewCallbackDiagnostics(request: PreviewCallbackDiagnosticsRequest, idempotencyKey?: string): Promise<PreviewCallbackDiagnosticsResponse>;
     /**
      * Invoke a provider capability
      */

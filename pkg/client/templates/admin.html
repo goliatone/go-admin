@@ -52,6 +52,14 @@
 {% endblock %}
 
 {% block scripts %}
+{% if dashboard_ssr_path %}
+<script>
+window.location.replace('{{ dashboard_ssr_path }}');
+</script>
+<noscript>
+  <meta http-equiv="refresh" content="0; url={{ dashboard_ssr_path }}">
+</noscript>
+{% else %}
 <!-- Dashboard configuration (consumed by TypeScript module) -->
 <script type="application/json" id="admin-dashboard-config">
 {
@@ -66,4 +74,5 @@
 import { bootstrapAdminDashboard } from '{{ base_path }}/assets/dist/dashboard/index.js';
 window.addEventListener('DOMContentLoaded', bootstrapAdminDashboard);
 </script>
+{% endif %}
 {% endblock %}

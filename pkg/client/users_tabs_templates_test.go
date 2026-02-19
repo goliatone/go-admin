@@ -41,14 +41,17 @@ func TestDashboardUserProfileBranchSnapshot(t *testing.T) {
 	assertSnapshotEqual(t, "dashboard profile branch", expected, branch)
 
 	required := []string{
-		`{% if sections and sections|length > 0 %}`,
-		`{% if not field.hide_if_empty or field.value %}`,
-		`{% elif field.type == "status" %}`,
-		`{% elif field.type == "verified" %}`,
+		`{% set values = widget.data.values %}`,
+		`{% if values %}`,
+		`<dl class="space-y-2">`,
+		`{{ default("—", val) }}`,
 	}
 	assertContainsAll(t, branch, required...)
-	if strings.Contains(branch, `{% elif values %}`) {
-		t.Fatalf("legacy values fallback branch should be removed from profile widget template")
+	if strings.Contains(branch, `widget.data.sections`) {
+		t.Fatalf("legacy sections branch should be removed from profile widget template")
+	}
+	if strings.Contains(branch, `field.type == "status"`) {
+		t.Fatalf("legacy status field renderer should be removed from profile widget template")
 	}
 }
 
@@ -98,15 +101,65 @@ func TestUsersTabTemplateAccessibilityContract(t *testing.T) {
 	)
 
 	assertContainsAll(t, profileTemplate,
-		`class="profile-status inline-flex items-center gap-1.5" aria-label="{{ field.value|default:'unknown' }} status"`,
-		`{% else %}bg-gray-400{% endif %}" aria-hidden="true"></span>`,
-		`aria-hidden="true" focusable="false"`,
+		`{% set values = widget.data.values %}`,
+		`<dl class="space-y-2">`,
+		`{{ default("—", val) }}`,
 	)
 
 	assertContainsAll(t, renderersSource,
 		`class="profile-status inline-flex items-center gap-1.5" aria-label="${valueText} status"`,
 		`<span class="w-2 h-2 rounded-full ${tone.dot}" aria-hidden="true"></span>`,
 	)
+}
+
+func TestDashboardChartTemplateCanonicalContract(t *testing.T) {
+	template := mustReadEmbeddedTemplate(t, "dashboard_widget_content.html")
+	assertContainsAll(t, template,
+		`{% elif widget.definition == "admin.widget.bar_chart" or widget.definition == "admin.widget.line_chart" or widget.definition == "admin.widget.pie_chart" or widget.definition == "admin.widget.gauge_chart" or widget.definition == "admin.widget.scatter_chart" %}`,
+		`{% if widget.data.chart_options %}`,
+		`data-echart-widget`,
+		`data-chart-options`,
+	)
+	if strings.Contains(template, "chart_html") {
+		t.Fatalf("dashboard widget template must not reference legacy chart_html payload")
+	}
+	if strings.Contains(template, "chart_html_fragment") {
+		t.Fatalf("dashboard widget template must not reference legacy chart_html_fragment payload")
+	}
+}
+
+func TestDashboardUserStatsTemplateCanonicalContract(t *testing.T) {
+	template := mustReadEmbeddedTemplate(t, "dashboard_widget_content.html")
+	branch := extractTemplateBlock(
+		t,
+		template,
+		`{% if widget.definition == "admin.widget.user_stats" %}`,
+		`{% elif widget.definition == "admin.widget.settings_overview" %}`,
+	)
+	assertContainsAll(t, branch,
+		`widget.data.total`,
+		`widget.data.active`,
+		`widget.data.new_today`,
+	)
+	if strings.Contains(branch, "widget.data.values") {
+		t.Fatalf("user_stats template must consume canonical user stats fields, not legacy values map")
+	}
+}
+
+func TestDashboardClientHydrationCanonicalContract(t *testing.T) {
+	source := mustReadClientSourceFile(t, filepath.Join("assets", "src", "dashboard", "admin-dashboard.ts"))
+	assertContainsAll(t, source,
+		`querySelectorAll<HTMLElement>('[data-echart-widget]')`,
+		`script[data-chart-options]`,
+		`ensureEChartsAssets(theme, assetsHost)`,
+		`chart.setOption(options, true);`,
+	)
+	if strings.Contains(source, "executeChartScripts") {
+		t.Fatalf("legacy chart script execution path must be removed")
+	}
+	if strings.Contains(source, "document.body.appendChild(newScript)") {
+		t.Fatalf("dashboard hydration must not append inline chart scripts")
+	}
 }
 
 func mustReadEmbeddedTemplate(t *testing.T, name string) string {

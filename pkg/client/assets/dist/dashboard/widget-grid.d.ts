@@ -18,6 +18,8 @@ export declare class WidgetGrid {
     getTabs(): any[];
     private normalizePanelDetailState;
     private initializeDragDrop;
+    private normalizeRenderedWidgetSpans;
+    private normalizeSpan;
     private attachEventListeners;
     private saveLayout;
     private serializeLayout;

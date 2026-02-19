@@ -1,67 +1,14 @@
 {% elif widget.definition == "admin.widget.user_profile_overview" %}
-  {# User Profile Overview - sections payload only #}
-  {% set sections = widget.data.sections %}
-  {% if sections and sections|length > 0 %}
-    <div class="profile-sections space-y-6">
-      {% for section in sections %}
-        <div class="profile-section">
-          <div class="text-xs uppercase tracking-wider text-zinc-500 mb-3 font-semibold">{{ section.label }}</div>
-          <dl class="space-y-3">
-            {% for field in section.fields %}
-              {% if not field.hide_if_empty or field.value %}
-                <div class="profile-field flex items-start justify-between gap-4">
-                  <dt class="text-sm text-gray-600">{{ field.label }}</dt>
-                  <dd class="text-sm font-semibold text-gray-900 text-right">
-                    {% if field.type == "badge" %}
-                      <span class="profile-badge inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                        {{ field.value|default:"—" }}
-                      </span>
-                    {% elif field.type == "status" %}
-                      {% set status_val = field.value|lower %}
-                      <span class="profile-status inline-flex items-center gap-1.5" aria-label="{{ field.value|default:'unknown' }} status">
-                        <span class="w-2 h-2 rounded-full
-                          {% if status_val == 'active' %}bg-green-500
-                          {% elif status_val == 'inactive' %}bg-gray-400
-                          {% elif status_val == 'suspended' %}bg-red-500
-                          {% elif status_val == 'pending' %}bg-yellow-500
-                          {% else %}bg-gray-400{% endif %}" aria-hidden="true"></span>
-                        <span class="
-                          {% if status_val == 'active' %}text-green-700
-                          {% elif status_val == 'inactive' %}text-gray-600
-                          {% elif status_val == 'suspended' %}text-red-700
-                          {% elif status_val == 'pending' %}text-yellow-700
-                          {% else %}text-gray-700{% endif %}">
-                          {{ field.value|default:"—" }}
-                        </span>
-                      </span>
-                    {% elif field.type == "verified" %}
-                      <span class="profile-verified inline-flex items-center gap-1.5">
-                        <span>{{ field.value|default:"—" }}</span>
-                        {% if field.verified %}
-                          <svg class="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
-                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                          </svg>
-                        {% else %}
-                          <svg class="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
-                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
-                          </svg>
-                        {% endif %}
-                      </span>
-                    {% elif field.type == "date" %}
-                      <time datetime="{{ field.value }}" class="profile-date" data-absolute-time="{{ field.value }}">{{ field.value|default:"—" }}</time>
-                    {% elif field.type == "relative" %}
-                      <time datetime="{{ field.value }}" class="profile-relative" data-relative-time="{{ field.value }}">{{ field.value|default:"—" }}</time>
-                    {% else %}
-                      {{ field.value|default:"—" }}
-                    {% endif %}
-                  </dd>
-                </div>
-              {% endif %}
-            {% endfor %}
-          </dl>
+  {% set values = widget.data.values %}
+  {% if values %}
+    <dl class="space-y-2">
+      {% for key, val in values %}
+        <div class="flex items-start justify-between gap-4">
+          <dt class="text-sm text-gray-600">{{ key }}</dt>
+          <dd class="text-sm font-semibold text-gray-900">{{ default("—", val) }}</dd>
         </div>
       {% endfor %}
-    </div>
+    </dl>
   {% else %}
     <p class="text-gray-500">No profile data to display</p>
   {% endif %}

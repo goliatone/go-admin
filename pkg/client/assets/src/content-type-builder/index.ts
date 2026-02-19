@@ -122,11 +122,16 @@ export function initContentTypeEditors(scope: ParentNode = document): void {
     }
 
     const basePath = config.basePath ?? deriveAdminBasePath(config.apiBasePath);
+    const activeEnvironment = String(config.environment ?? '').trim().toLowerCase();
+    const envQuery = activeEnvironment && activeEnvironment !== 'default'
+      ? `env=${encodeURIComponent(activeEnvironment)}`
+      : '';
 
     // Wire default onCancel: navigate back to the content types list
     if (!config.onCancel) {
       config.onCancel = () => {
-        window.location.href = `${basePath}/content/types`;
+        const target = `${basePath}/content/types`;
+        window.location.href = envQuery ? `${target}?${envQuery}` : target;
       };
     }
 
@@ -135,7 +140,11 @@ export function initContentTypeEditors(scope: ParentNode = document): void {
       config.onSave = (saved) => {
         const slug = saved.slug ?? saved.id;
         if (slug) {
-          window.location.href = `${basePath}/content/types?slug=${encodeURIComponent(slug)}`;
+          const params = [`slug=${encodeURIComponent(slug)}`];
+          if (envQuery) {
+            params.push(envQuery);
+          }
+          window.location.href = `${basePath}/content/types?${params.join('&')}`;
         }
       };
     }
@@ -187,6 +196,7 @@ function parseConfig(root: HTMLElement): ContentTypeEditorConfig {
     apiBasePath,
     basePath,
     contentTypeId: config.contentTypeId ?? root.dataset.contentTypeId,
+    environment: config.environment ?? root.dataset.environment,
     locale: config.locale ?? root.dataset.locale,
   };
 }

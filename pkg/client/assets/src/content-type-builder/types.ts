@@ -425,6 +425,7 @@ export interface ContentTypeEditorConfig {
   apiBasePath: string;
   basePath?: string;
   contentTypeId?: string;
+  environment?: string;
   locale?: string;
   onSave?: (contentType: ContentType) => void;
   onCancel?: () => void;

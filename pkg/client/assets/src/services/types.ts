@@ -404,6 +404,496 @@ export interface GetSyncStatusResponse {
 }
 
 // =============================================================================
+// Workflow Mapping Types
+// =============================================================================
+
+export type MappingStatus = 'draft' | 'validated' | 'published';
+
+export interface MappingRule {
+  id?: string;
+  source_path: string;
+  target_path: string;
+  transform?: string;
+  required?: boolean;
+  constraints?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+}
+
+export interface MappingSpec {
+  spec_id: string;
+  provider_id: string;
+  scope_type: ScopeType;
+  scope_id: string;
+  name: string;
+  source_object: string;
+  target_model: string;
+  version: number;
+  status: MappingStatus;
+  schema_ref?: string;
+  rules: MappingRule[];
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ListMappingsFilter {
+  provider_id: string;
+  scope_type?: ScopeType;
+  scope_id?: string;
+}
+
+export interface ListMappingsResponse {
+  mappings: MappingSpec[];
+  total: number;
+  limit: number;
+  offset: number;
+  page?: number;
+  per_page?: number;
+  has_more?: boolean;
+  has_next?: boolean;
+  next_offset?: number;
+  filter_applied?: Record<string, unknown>;
+}
+
+export interface MappingScopeRequest {
+  provider_id: string;
+  scope_type?: ScopeType;
+  scope_id?: string;
+}
+
+export interface GetMappingRequest extends MappingScopeRequest {
+  version?: number;
+}
+
+export interface GetMappingResponse {
+  mapping: MappingSpec;
+}
+
+export interface CreateMappingDraftRequest extends MappingScopeRequest {
+  spec_id: string;
+  name: string;
+  source_object: string;
+  target_model: string;
+  schema_ref?: string;
+  rules: MappingRule[];
+}
+
+export interface CreateMappingDraftResponse {
+  mapping: MappingSpec;
+}
+
+export interface UpdateMappingDraftRequest extends MappingScopeRequest {
+  version: number;
+  name?: string;
+  source_object?: string;
+  target_model?: string;
+  schema_ref?: string;
+  rules?: MappingRule[];
+  metadata?: Record<string, unknown>;
+}
+
+export interface UpdateMappingDraftResponse {
+  mapping: MappingSpec;
+}
+
+export interface MarkMappingVersionRequest extends MappingScopeRequest {
+  version: number;
+}
+
+export interface MarkMappingVersionResponse {
+  mapping: MappingSpec;
+}
+
+export interface MappingValidationIssue {
+  code: string;
+  message: string;
+  severity?: 'error' | 'warning' | string;
+  field?: string;
+  path?: string;
+  details?: Record<string, unknown>;
+}
+
+export interface MappingValidationResult {
+  valid: boolean;
+  issues: MappingValidationIssue[];
+  normalized_spec?: MappingSpec | Record<string, unknown>;
+  compiled?: Record<string, unknown>;
+}
+
+export interface ValidateMappingRequest extends MappingScopeRequest {
+  spec: MappingSpec | Record<string, unknown>;
+  schema: Record<string, unknown>;
+}
+
+export interface ValidateMappingResponse {
+  validation: MappingValidationResult;
+}
+
+export interface MappingPreviewRecord {
+  input?: Record<string, unknown>;
+  output?: Record<string, unknown>;
+  diff?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+export interface MappingPreviewResult {
+  records: MappingPreviewRecord[];
+  report: Record<string, unknown>;
+  deterministic_hash?: string;
+}
+
+export interface PreviewMappingRequest extends MappingScopeRequest {
+  spec: MappingSpec | Record<string, unknown>;
+  schema: Record<string, unknown>;
+  samples: Record<string, unknown>[];
+}
+
+export interface PreviewMappingResponse {
+  preview: MappingPreviewResult;
+}
+
+// =============================================================================
+// Workflow Sync Types
+// =============================================================================
+
+export type WorkflowSyncMode = 'dry_run' | 'apply';
+export type WorkflowSyncDirection = 'import' | 'export' | string;
+export type SyncConflictStatus = 'pending' | 'resolved' | 'ignored' | string;
+export type SyncConflictAction = 'resolve' | 'ignore' | 'retry';
+
+export interface WorkflowSyncBinding {
+  id?: string;
+  provider_id: string;
+  scope?: ScopeRef;
+  scope_type?: ScopeType;
+  scope_id?: string;
+  connection_id?: string;
+  mapping_spec_id?: string;
+  source_object?: string;
+  target_model?: string;
+  direction?: WorkflowSyncDirection;
+  status?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface WorkflowSyncPlan {
+  id?: string;
+  provider_id?: string;
+  scope?: ScopeRef;
+  sync_binding_id?: string;
+  mode?: WorkflowSyncMode | string;
+  direction?: WorkflowSyncDirection;
+  from_checkpoint_id?: string;
+  limit?: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface WorkflowSyncChange {
+  source_object?: string;
+  external_id?: string;
+  source_version?: string;
+  payload?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+export interface WorkflowSyncConflict {
+  id?: string;
+  provider_id?: string;
+  scope?: ScopeRef;
+  connection_id?: string;
+  sync_binding_id?: string;
+  source_object?: string;
+  external_id?: string;
+  reason?: string;
+  status?: SyncConflictStatus;
+  policy?: string;
+  payload?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+export interface WorkflowSyncRunResult {
+  status: 'succeeded' | 'failed' | string;
+  run_id?: string;
+  processed_count?: number;
+  skipped_count?: number;
+  conflict_count?: number;
+  failed_count?: number;
+  next_checkpoint?: WorkflowSyncCheckpoint | null;
+  processed?: number;
+  skipped?: number;
+  conflicted?: number;
+  failed?: number;
+  errors?: Record<string, unknown>[];
+  [key: string]: unknown;
+}
+
+export interface WorkflowSyncCheckpoint {
+  id?: string;
+  provider_id?: string;
+  scope_type?: ScopeType | string;
+  scope_id?: string;
+  connection_id?: string;
+  sync_binding_id?: string;
+  direction?: WorkflowSyncDirection;
+  cursor?: string;
+  sequence?: number;
+  source_version?: string;
+  idempotency_seed?: string;
+  metadata?: Record<string, unknown>;
+  last_event_at?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface WorkflowSyncRunRecord {
+  run_id: string;
+  provider_id?: string;
+  scope_type?: ScopeType | string;
+  scope_id?: string;
+  sync_binding_id?: string;
+  mode?: WorkflowSyncMode | string;
+  direction?: WorkflowSyncDirection;
+  status?: string;
+  plan?: WorkflowSyncPlan;
+  result?: WorkflowSyncRunResult;
+  recorded_conflicts?: WorkflowSyncConflict[];
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface PlanWorkflowSyncRequest {
+  binding: WorkflowSyncBinding;
+  mode?: WorkflowSyncMode | string;
+  from_checkpoint_id?: string;
+  limit?: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface PlanWorkflowSyncResponse {
+  binding: WorkflowSyncBinding;
+  plan: WorkflowSyncPlan;
+}
+
+export interface RunWorkflowSyncRequest {
+  plan?: WorkflowSyncPlan;
+  binding?: WorkflowSyncBinding;
+  mode?: WorkflowSyncMode | string;
+  direction?: WorkflowSyncDirection;
+  changes?: WorkflowSyncChange[];
+  conflicts?: WorkflowSyncConflict[];
+  metadata?: Record<string, unknown>;
+}
+
+export interface RunWorkflowSyncResponse {
+  plan: WorkflowSyncPlan;
+  result: WorkflowSyncRunResult;
+  recorded_conflicts: WorkflowSyncConflict[];
+  run?: WorkflowSyncRunRecord;
+}
+
+export interface ListSyncRunsFilter extends MappingScopeRequest {
+  sync_binding_id?: string;
+  status?: 'planned' | 'running' | 'succeeded' | 'failed' | string;
+  mode?: WorkflowSyncMode | string;
+  page?: number;
+  per_page?: number;
+  limit?: number;
+  offset?: number;
+}
+
+export interface ListSyncRunsResponse {
+  runs: WorkflowSyncRunRecord[];
+  total: number;
+  limit: number;
+  offset: number;
+  page?: number;
+  per_page?: number;
+  has_more?: boolean;
+  has_next?: boolean;
+  next_offset?: number;
+  filter_applied?: Record<string, unknown>;
+}
+
+export interface GetSyncRunRequest extends MappingScopeRequest {}
+
+export interface GetSyncRunResponse {
+  run: WorkflowSyncRunRecord;
+}
+
+export interface ResumeSyncRunRequest extends MappingScopeRequest {
+  mode?: WorkflowSyncMode | string;
+  direction?: WorkflowSyncDirection;
+  limit?: number;
+  changes?: WorkflowSyncChange[];
+  conflicts?: WorkflowSyncConflict[];
+  metadata?: Record<string, unknown>;
+}
+
+export interface ResumeSyncRunResponse {
+  resumed_from_run_id: string;
+  resumed_from_checkpoint_id?: string;
+  plan: WorkflowSyncPlan;
+  result: WorkflowSyncRunResult;
+  recorded_conflicts: WorkflowSyncConflict[];
+  run: WorkflowSyncRunRecord;
+}
+
+export interface GetSyncCheckpointRequest extends MappingScopeRequest {}
+
+export interface GetSyncCheckpointResponse {
+  checkpoint: WorkflowSyncCheckpoint;
+}
+
+export interface ListSyncConflictsFilter extends MappingScopeRequest {
+  sync_binding_id?: string;
+  status?: SyncConflictStatus;
+}
+
+export interface ListSyncConflictsResponse {
+  conflicts: WorkflowSyncConflict[];
+  total: number;
+  limit: number;
+  offset: number;
+  page?: number;
+  per_page?: number;
+  has_more?: boolean;
+  has_next?: boolean;
+  next_offset?: number;
+  filter_applied?: Record<string, unknown>;
+}
+
+export interface GetSyncConflictRequest extends MappingScopeRequest {}
+
+export interface GetSyncConflictResponse {
+  conflict: WorkflowSyncConflict;
+}
+
+export interface ResolveSyncConflictRequest extends MappingScopeRequest {
+  action: SyncConflictAction;
+  patch?: Record<string, unknown>;
+  reason?: string;
+  resolved_by?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ResolveSyncConflictResponse {
+  conflict: WorkflowSyncConflict;
+}
+
+export interface SchemaDriftBaseline {
+  id?: string;
+  provider_id?: string;
+  scope_type?: ScopeType | string;
+  scope_id?: string;
+  spec_id: string;
+  version?: number;
+  schema_ref?: string;
+  captured_by?: string;
+  metadata?: Record<string, unknown>;
+  captured_at?: string;
+  updated_at?: string;
+}
+
+export interface SchemaDriftItem {
+  spec_id: string;
+  provider_id?: string;
+  scope_type?: ScopeType | string;
+  scope_id?: string;
+  mapping_version?: number;
+  mapping_schema_ref?: string;
+  baseline_found?: boolean;
+  baseline_version?: number;
+  baseline_schema_ref?: string;
+  baseline_captured_at?: string;
+  status?: 'baseline_missing' | 'in_sync' | 'drift_detected' | string;
+  drift_detected?: boolean;
+}
+
+export interface ListSchemaDriftFilter extends MappingScopeRequest {
+  spec_id?: string;
+}
+
+export interface ListSchemaDriftResponse {
+  drift_items: SchemaDriftItem[];
+  total: number;
+  limit: number;
+  offset: number;
+  page?: number;
+  per_page?: number;
+  has_more?: boolean;
+  has_next?: boolean;
+  next_offset?: number;
+  filter_applied?: Record<string, unknown>;
+}
+
+export interface SetSchemaDriftBaselineRequest extends MappingScopeRequest {
+  spec_id: string;
+  version?: number;
+  schema_ref?: string;
+  captured_by?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface SetSchemaDriftBaselineResponse {
+  baseline: SchemaDriftBaseline;
+  drift: SchemaDriftItem;
+}
+
+// =============================================================================
+// Diagnostics and Candidate Types
+// =============================================================================
+
+export interface ConnectionCandidate {
+  connection_id: string;
+  provider_id: string;
+  scope_type: ScopeType | string;
+  scope_id: string;
+  external_account_id?: string;
+  status?: string;
+  [key: string]: unknown;
+}
+
+export interface ListConnectionCandidatesFilter {
+  provider_id: string;
+  scope_type?: ScopeType;
+  scope_id?: string;
+}
+
+export interface ListConnectionCandidatesResponse {
+  candidates: ConnectionCandidate[];
+  total: number;
+  limit: number;
+  offset: number;
+  page?: number;
+  per_page?: number;
+  has_more?: boolean;
+  has_next?: boolean;
+  next_offset?: number;
+  filter_applied?: Record<string, unknown>;
+}
+
+export interface CallbackDiagnosticsStatus {
+  status: 'ok' | 'degraded' | string;
+  strict?: boolean;
+  checks?: Record<string, unknown>[];
+  errors?: Record<string, unknown>[];
+  [key: string]: unknown;
+}
+
+export interface GetCallbackDiagnosticsStatusResponse {
+  resolver: CallbackDiagnosticsStatus;
+}
+
+export interface PreviewCallbackDiagnosticsRequest {
+  provider_id: string;
+  flow?: 'connect' | 'reconsent' | string;
+}
+
+export interface PreviewCallbackDiagnosticsResponse {
+  preview: Record<string, unknown>;
+}
+
+// =============================================================================
 // Capability Types
 // =============================================================================
 
@@ -424,6 +914,8 @@ export interface CapabilityResult {
 
 export interface InvokeCapabilityResponse {
   result: CapabilityResult;
+  candidate_count?: number;
+  selected_connection?: string;
 }
 
 // =============================================================================

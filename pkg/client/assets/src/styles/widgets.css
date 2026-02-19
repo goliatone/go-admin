@@ -14,13 +14,14 @@
 
 /* Widget Base */
 .widget {
+  grid-column: span 12;
   grid-column: span var(--span, 12);
   background: white;
   border: 1px solid #e5e7eb;
   border-radius: 0.75rem;
   padding: 1.5rem;
   cursor: grab;
-  transition: all 200ms ease;
+  transition: box-shadow 200ms ease, opacity 200ms ease, transform 200ms ease, border-color 200ms ease, background-color 200ms ease;
   position: relative;
 }
 

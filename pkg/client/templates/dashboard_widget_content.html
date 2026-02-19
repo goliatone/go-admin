@@ -1,21 +1,35 @@
 {% if widget.definition == "admin.widget.user_stats" %}
   <div class="metrics">
-    {% set values = default(dict("Total", 0, "Active", 0, "New Today", 0), widget.data.values) %}
-    {% for key, value in values.items() %}
+    <div class="metric">
+      <small>Total</small>
+      <span>{{ formatNumber(widget.data.total|default:0) }}</span>
+    </div>
+    <div class="metric">
+      <small>Active</small>
+      <span>{{ formatNumber(widget.data.active|default:0) }}</span>
+    </div>
+    <div class="metric">
+      <small>New Today</small>
+      <span>{{ formatNumber(widget.data.new_today|default:0) }}</span>
+    </div>
+    {% if widget.data.trend %}
       <div class="metric">
-        <small>{{ key }}</small>
-        <span>{{ formatNumber(value) }}</span>
+        <small>Trend</small>
+        <span>{{ widget.data.trend }}</span>
       </div>
-    {% endfor %}
+    {% endif %}
   </div>
 {% elif widget.definition == "admin.widget.settings_overview" %}
   {% set values = widget.data.values %}
   {% if values %}
     <dl class="space-y-2">
-      {% for key, val in values.items() %}
+      {% for key, val in values %}
         <div class="flex items-start justify-between gap-4">
           <dt class="text-sm text-gray-600">{{ key }}</dt>
-          <dd class="text-sm font-semibold text-gray-900">{{ default("—", val) }}</dd>
+          <dd class="text-sm font-semibold text-gray-900">
+            {% set display_value = default(val, val.value) %}
+            {{ default("—", display_value) }}
+          </dd>
         </div>
       {% endfor %}
     </dl>
@@ -23,69 +37,16 @@
     <p class="text-gray-500">No settings to display</p>
   {% endif %}
 {% elif widget.definition == "admin.widget.user_profile_overview" %}
-  {# User Profile Overview - sections payload only #}
-  {% set sections = widget.data.sections %}
-  {% if sections and sections|length > 0 %}
-    <div class="profile-sections space-y-6">
-      {% for section in sections %}
-        <div class="profile-section">
-          <div class="text-xs uppercase tracking-wider text-zinc-500 mb-3 font-semibold">{{ section.label }}</div>
-          <dl class="space-y-3">
-            {% for field in section.fields %}
-              {% if not field.hide_if_empty or field.value %}
-                <div class="profile-field flex items-start justify-between gap-4">
-                  <dt class="text-sm text-gray-600">{{ field.label }}</dt>
-                  <dd class="text-sm font-semibold text-gray-900 text-right">
-                    {% if field.type == "badge" %}
-                      <span class="profile-badge inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                        {{ field.value|default:"—" }}
-                      </span>
-                    {% elif field.type == "status" %}
-                      {% set status_val = field.value|lower %}
-                      <span class="profile-status inline-flex items-center gap-1.5" aria-label="{{ field.value|default:'unknown' }} status">
-                        <span class="w-2 h-2 rounded-full
-                          {% if status_val == 'active' %}bg-green-500
-                          {% elif status_val == 'inactive' %}bg-gray-400
-                          {% elif status_val == 'suspended' %}bg-red-500
-                          {% elif status_val == 'pending' %}bg-yellow-500
-                          {% else %}bg-gray-400{% endif %}" aria-hidden="true"></span>
-                        <span class="
-                          {% if status_val == 'active' %}text-green-700
-                          {% elif status_val == 'inactive' %}text-gray-600
-                          {% elif status_val == 'suspended' %}text-red-700
-                          {% elif status_val == 'pending' %}text-yellow-700
-                          {% else %}text-gray-700{% endif %}">
-                          {{ field.value|default:"—" }}
-                        </span>
-                      </span>
-                    {% elif field.type == "verified" %}
-                      <span class="profile-verified inline-flex items-center gap-1.5">
-                        <span>{{ field.value|default:"—" }}</span>
-                        {% if field.verified %}
-                          <svg class="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
-                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                          </svg>
-                        {% else %}
-                          <svg class="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
-                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
-                          </svg>
-                        {% endif %}
-                      </span>
-                    {% elif field.type == "date" %}
-                      <time datetime="{{ field.value }}" class="profile-date" data-absolute-time="{{ field.value }}">{{ field.value|default:"—" }}</time>
-                    {% elif field.type == "relative" %}
-                      <time datetime="{{ field.value }}" class="profile-relative" data-relative-time="{{ field.value }}">{{ field.value|default:"—" }}</time>
-                    {% else %}
-                      {{ field.value|default:"—" }}
-                    {% endif %}
-                  </dd>
-                </div>
-              {% endif %}
-            {% endfor %}
-          </dl>
+  {% set values = widget.data.values %}
+  {% if values %}
+    <dl class="space-y-2">
+      {% for key, val in values %}
+        <div class="flex items-start justify-between gap-4">
+          <dt class="text-sm text-gray-600">{{ key }}</dt>
+          <dd class="text-sm font-semibold text-gray-900">{{ default("—", val) }}</dd>
         </div>
       {% endfor %}
-    </div>
+    </dl>
   {% else %}
     <p class="text-gray-500">No profile data to display</p>
   {% endif %}
@@ -123,6 +84,108 @@
       <span class="font-semibold">{{ default("unknown", widget.data.db_status) }}</span>
     </div>
   </div>
+{% elif widget.definition == "admin.widget.quick_actions" %}
+  {% set actions = widget.data.actions %}
+  {% if actions and actions|length > 0 %}
+    <div class="space-y-2">
+      {% for action in actions %}
+        <a class="block p-3 border border-gray-200 rounded-lg hover:border-blue-200 hover:bg-blue-50/50 transition"
+           href="{{ default('#', action.url) }}"
+           target="_blank"
+           rel="noreferrer">
+          <div class="flex items-center justify-between gap-2">
+            <div class="font-semibold text-gray-900 text-sm">{{ default("Action", action.label) }}</div>
+            {% if action.method %}
+              <span class="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">{{ action.method }}</span>
+            {% endif %}
+          </div>
+          {% if action.description %}
+            <div class="text-gray-600 text-sm mt-1">{{ action.description }}</div>
+          {% endif %}
+        </a>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="text-gray-500">No quick actions configured</p>
+  {% endif %}
+{% elif widget.definition == "admin.widget.content_stats" %}
+  <div class="metrics">
+    <div class="metric">
+      <small>Published</small>
+      <span>{{ formatNumber(widget.data.published|default:0) }}</span>
+    </div>
+    <div class="metric">
+      <small>Draft</small>
+      <span>{{ formatNumber(widget.data.draft|default:0) }}</span>
+    </div>
+    <div class="metric">
+      <small>Scheduled</small>
+      <span>{{ formatNumber(widget.data.scheduled|default:0) }}</span>
+    </div>
+  </div>
+{% elif widget.definition == "admin.widget.storage_stats" %}
+  <div class="metrics">
+    <div class="metric">
+      <small>Used</small>
+      <span>{{ default("0 GB", widget.data.used) }}</span>
+    </div>
+    <div class="metric">
+      <small>Total</small>
+      <span>{{ default("0 GB", widget.data.total) }}</span>
+    </div>
+    <div class="metric">
+      <small>Usage</small>
+      <span>{{ widget.data.percentage|default:0 }}%</span>
+    </div>
+  </div>
+{% elif widget.definition == "admin.widget.notifications" %}
+  {% set notifications = widget.data.notifications %}
+  {% if notifications and notifications|length > 0 %}
+    <ul class="space-y-3">
+      {% for notif in notifications %}
+        <li class="py-3 border-b border-gray-100 last:border-b-0">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <div class="font-semibold text-gray-900 text-sm">{{ notif.title }}</div>
+              <div class="text-gray-600 text-sm mt-1">{{ notif.message }}</div>
+            </div>
+            <span class="px-2 py-1 text-xs font-semibold {% if notif.read %}text-gray-600 bg-gray-100{% else %}text-white bg-blue-500{% endif %} rounded-full whitespace-nowrap">
+              {% if notif.read %}Read{% else %}New{% endif %}
+            </span>
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="text-gray-500">No notifications</p>
+  {% endif %}
+{% elif widget.definition == "admin.widget.chart_sample" %}
+  {% if widget.data.disabled %}
+    <p class="text-gray-500 text-sm italic">This legacy chart widget has been disabled.</p>
+  {% else %}
+    <p class="text-gray-500 text-sm italic">Legacy chart widgets are not supported in the canonical dashboard contract.</p>
+  {% endif %}
+{% elif widget.definition == "admin.widget.bar_chart" or widget.definition == "admin.widget.line_chart" or widget.definition == "admin.widget.pie_chart" or widget.definition == "admin.widget.gauge_chart" or widget.definition == "admin.widget.scatter_chart" %}
+  {% if widget.data.subtitle %}
+    <p class="text-sm text-gray-500 mb-3">{{ widget.data.subtitle }}</p>
+  {% endif %}
+  {% if widget.data.chart_options %}
+    <div
+      class="chart-container"
+      data-echart-widget
+      data-chart-id="chart-{{ widget.id }}"
+      data-chart-theme="{{ default('westeros', widget.data.theme) }}"
+      data-chart-assets-host="{{ default('/dashboard/assets/echarts/', widget.data.chart_assets_host) }}"
+    >
+      <div id="chart-{{ widget.id }}" class="w-full" style="height: 360px;"></div>
+      <script type="application/json" data-chart-options>{{ toJSON(widget.data.chart_options)|safe }}</script>
+    </div>
+  {% else %}
+    <p class="text-sm text-gray-500 italic">Chart configuration unavailable.</p>
+  {% endif %}
+  {% if widget.data.footer_note %}
+    <p class="text-xs text-gray-500 mt-2">{{ widget.data.footer_note }}</p>
+  {% endif %}
 {% elif widget.definition == "esign.widget.agreement_stats" %}
   {# E-Sign Agreement Statistics Widget #}
   {% set stats = widget.data %}
@@ -378,6 +441,116 @@
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
       </svg>
     </a>
+  </div>
+  {% endif %}
+{% elif widget.definition == "admin.widget.translation_progress" %}
+  {# Translation Progress Widget - Queue status and completion overview #}
+  {% set summary = widget.data.summary %}
+  {% set status_counts = widget.data.status_counts %}
+  {% set locale_counts = widget.data.locale_counts %}
+  {% set links = widget.data.links %}
+
+  {# Summary Metrics Grid #}
+  <div class="grid grid-cols-3 gap-3 mb-4">
+    {# Total #}
+    <div class="bg-gray-50 rounded-lg p-3 text-center">
+      <div class="text-2xl font-bold text-gray-900">{{ formatNumber(summary.total|default:0) }}</div>
+      <div class="text-xs text-gray-500 uppercase tracking-wide">Total</div>
+    </div>
+    {# Active #}
+    <div class="bg-blue-50 rounded-lg p-3 text-center">
+      <div class="text-2xl font-bold text-blue-700">{{ formatNumber(summary.active|default:0) }}</div>
+      <div class="text-xs text-blue-600 uppercase tracking-wide">Active</div>
+    </div>
+    {# Review #}
+    <div class="bg-purple-50 rounded-lg p-3 text-center">
+      <div class="text-2xl font-bold text-purple-700">{{ formatNumber(summary.review|default:0) }}</div>
+      <div class="text-xs text-purple-600 uppercase tracking-wide">Review</div>
+    </div>
+  </div>
+
+  {# Secondary Metrics Row #}
+  <div class="grid grid-cols-2 gap-3 mb-4">
+    {# Overdue - highlight if > 0 #}
+    {% set overdue_count = summary.overdue|default:0 %}
+    <div class="{% if overdue_count > 0 %}bg-red-50{% else %}bg-gray-50{% endif %} rounded-lg p-2 text-center">
+      <div class="text-lg font-bold {% if overdue_count > 0 %}text-red-700{% else %}text-gray-600{% endif %}">
+        {{ formatNumber(overdue_count) }}
+      </div>
+      <div class="text-xs {% if overdue_count > 0 %}text-red-600{% else %}text-gray-500{% endif %} uppercase tracking-wide">Overdue</div>
+    </div>
+    {# Approved #}
+    <div class="bg-green-50 rounded-lg p-2 text-center">
+      <div class="text-lg font-bold text-green-700">{{ formatNumber(summary.approved|default:0) }}</div>
+      <div class="text-xs text-green-600 uppercase tracking-wide">Approved</div>
+    </div>
+  </div>
+
+  {# Status Breakdown #}
+  {% if status_counts %}
+  <div class="mb-4 pt-3 border-t border-gray-100">
+    <div class="text-xs text-gray-500 uppercase tracking-wide mb-2">By Status</div>
+    <div class="flex flex-wrap gap-2">
+      {% for status, count in status_counts %}
+        {% set status_lower = status|lower %}
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium
+          {% if status_lower == 'pending' %}bg-yellow-100 text-yellow-800
+          {% elif status_lower == 'in_progress' %}bg-blue-100 text-blue-800
+          {% elif status_lower == 'review' %}bg-purple-100 text-purple-800
+          {% elif status_lower == 'approved' or status_lower == 'completed' %}bg-green-100 text-green-800
+          {% elif status_lower == 'rejected' %}bg-red-100 text-red-800
+          {% else %}bg-gray-100 text-gray-800{% endif %}">
+          <span class="w-1.5 h-1.5 rounded-full
+            {% if status_lower == 'pending' %}bg-yellow-500
+            {% elif status_lower == 'in_progress' %}bg-blue-500
+            {% elif status_lower == 'review' %}bg-purple-500
+            {% elif status_lower == 'approved' or status_lower == 'completed' %}bg-green-500
+          {% elif status_lower == 'rejected' %}bg-red-500
+          {% else %}bg-gray-500{% endif %}"></span>
+          {{ status|capfirst }}: {{ formatNumber(count) }}
+        </span>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {# Locale Breakdown #}
+  {% if locale_counts %}
+  <div class="mb-4 pt-3 border-t border-gray-100">
+    <div class="text-xs text-gray-500 uppercase tracking-wide mb-2">By Language</div>
+    <div class="flex flex-wrap gap-2">
+      {% for locale, count in locale_counts %}
+        <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-indigo-50 text-indigo-700">
+          <span class="uppercase font-semibold">{{ locale }}</span>
+          <span class="text-indigo-500">{{ formatNumber(count) }}</span>
+        </span>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {# Quick Links #}
+  {% if links and links|length > 0 %}
+  <div class="pt-3 border-t border-gray-100">
+    <div class="text-xs text-gray-500 uppercase tracking-wide mb-2">Quick Access</div>
+    <div class="flex flex-wrap gap-2">
+      {% for link in links %}
+        <a href="{{ link.url }}"
+           class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 transition-colors">
+          {{ link.label }}
+          <svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+          </svg>
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {# Updated timestamp #}
+  {% if widget.data.updated_at %}
+  <div class="mt-4 pt-2 border-t border-gray-100 text-xs text-gray-400 text-center">
+    Updated <time data-relative-time="{{ widget.data.updated_at }}">{{ widget.data.updated_at }}</time>
   </div>
   {% endif %}
 {% else %}

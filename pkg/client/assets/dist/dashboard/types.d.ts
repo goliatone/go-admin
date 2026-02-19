@@ -12,6 +12,41 @@ export interface Widget {
     data?: Record<string, any>;
     config?: Record<string, any>;
 }
+export interface LegacyChartSampleWidgetData {
+    disabled: boolean;
+}
+export interface UserStatsWidgetData {
+    type: 'stat_card';
+    stat_type: 'users';
+    total: number;
+    active: number;
+    new_today: number;
+    trend?: string;
+    trend_up?: boolean;
+}
+export interface ContentStatsWidgetData {
+    type: 'stat_card';
+    stat_type: 'content';
+    published: number;
+    draft: number;
+    scheduled: number;
+}
+export interface StorageStatsWidgetData {
+    type: 'stat_card';
+    stat_type: 'storage';
+    used: string;
+    total: string;
+    percentage: number;
+}
+export interface ChartWidgetData {
+    chart_type: 'bar' | 'line' | 'pie' | 'gauge' | 'scatter';
+    title: string;
+    subtitle?: string;
+    theme: string;
+    chart_assets_host: string;
+    chart_options: Record<string, any>;
+    footer_note?: string;
+}
 export interface WidgetArea {
     code: string;
     label?: string;
