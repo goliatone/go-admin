@@ -7,6 +7,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/admin"
+	templateview "github.com/goliatone/go-admin/internal/templateview"
 	goerrors "github.com/goliatone/go-errors"
 	fggate "github.com/goliatone/go-featuregate/gate"
 	router "github.com/goliatone/go-router"
@@ -198,7 +199,7 @@ func RegisterRegistrationUIRoutes[T any](r router.Router[T], cfg admin.Config, o
 		viewCtx = WithAuthUIViewThemeAssets(viewCtx, options.themeAssets, options.themeAssetPrefix)
 		viewCtx = WithFeatureTemplateContext(viewCtx, c.Context(), authScope, authSnapshot)
 		viewCtx = options.viewContext(viewCtx, c)
-		return c.Render(options.template, viewCtx)
+		return templateview.RenderTemplateView(c, options.template, viewCtx)
 	})
 
 	return nil
