@@ -60,11 +60,16 @@ func blockDefinitionsFromLibrary(
 		return nil, err
 	}
 
-	// Build slug allow-set for filtering.
-	slugSet := make(map[string]struct{}, len(allowedSlugs))
+	// Build allow-set for filtering, including block type aliases
+	// (e.g. rich_text <-> rich-text) for backwards compatibility.
+	slugSet := make(map[string]struct{}, len(allowedSlugs)*3)
 	for _, s := range allowedSlugs {
-		if trimmed := strings.ToLower(strings.TrimSpace(s)); trimmed != "" {
-			slugSet[trimmed] = struct{}{}
+		for _, candidate := range blockTypeAliasCandidates(strings.ToLower(strings.TrimSpace(s))) {
+			normalized := strings.ToLower(strings.TrimSpace(candidate))
+			if normalized == "" {
+				continue
+			}
+			slugSet[normalized] = struct{}{}
 		}
 	}
 
@@ -74,7 +79,23 @@ func blockDefinitionsFromLibrary(
 
 		// Filter by allowed slugs (empty set = all).
 		if len(slugSet) > 0 {
-			if _, ok := slugSet[strings.ToLower(slug)]; !ok {
+			matched := false
+			for _, value := range []string{
+				slug,
+				strings.TrimSpace(toString(item["type"])),
+				strings.TrimSpace(toString(item["id"])),
+			} {
+				for _, candidate := range blockTypeAliasCandidates(strings.ToLower(strings.TrimSpace(value))) {
+					if _, ok := slugSet[strings.ToLower(strings.TrimSpace(candidate))]; ok {
+						matched = true
+						break
+					}
+				}
+				if matched {
+					break
+				}
+			}
+			if !matched {
 				continue
 			}
 		}
