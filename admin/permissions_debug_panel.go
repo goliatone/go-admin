@@ -246,7 +246,10 @@ func (p *PermissionsDebugPanel) collectRequiredPermissions() map[string]string {
 }
 
 func (p *PermissionsDebugPanel) collectClaimsPermissions(ctx context.Context) []string {
-	perms := permissionsFromContext(ctx)
+	if p == nil || p.admin == nil {
+		return nil
+	}
+	perms := ResolvedPermissionsFromAuthorizer(ctx, p.admin.authorizer)
 	if len(perms) == 0 {
 		return nil
 	}
@@ -407,13 +410,13 @@ func (p *PermissionsDebugPanel) diagnose(required, inClaims, allows bool) (strin
 		return "OK", "ok"
 	}
 	if required && !inClaims && !allows {
-		return "Grant missing permission and refresh token", "error"
+		return "Grant missing permission in role assignment", "error"
 	}
 	if required && !inClaims && allows {
-		return "Claims payload missing permission; authorizer allows (refresh token/claims sync)", "warning"
+		return "Permission list missing key while authorizer allows access", "warning"
 	}
 	if required && inClaims && !allows {
-		return "Scope/policy mismatch - permission in claims but authorizer denies", "warning"
+		return "Scope/policy mismatch - permission listed but authorizer denies", "warning"
 	}
 	return "Unknown state", "info"
 }
@@ -469,10 +472,10 @@ func (p *PermissionsDebugPanel) computeNextActions(snapshot *PermissionsDebugSna
 		for _, perm := range missingGrants {
 			actions = append(actions, "  - "+perm)
 		}
-		actions = append(actions, "After updating the role, ask the user to re-authenticate")
+		actions = append(actions, "After updating the role, reload the page")
 
 	case "scope_mismatch":
-		actions = append(actions, "Permission exists in claims but authorizer denies access")
+		actions = append(actions, "Permission is listed but authorizer denies access")
 		actions = append(actions, "Mismatched permissions:")
 		for _, perm := range scopeMismatch {
 			actions = append(actions, "  - "+perm)
@@ -482,13 +485,12 @@ func (p *PermissionsDebugPanel) computeNextActions(snapshot *PermissionsDebugSna
 		actions = append(actions, "Review any conditional access rules that may apply")
 
 	case "claims_stale":
-		actions = append(actions, "Authorizer grants access but claims payload is missing permissions")
-		actions = append(actions, "Permissions missing in claims:")
+		actions = append(actions, "Authorizer grants access but the resolved permissions list is missing keys")
+		actions = append(actions, "Permissions missing in diagnostics list:")
 		for _, perm := range claimsStale {
 			actions = append(actions, "  - "+perm)
 		}
-		actions = append(actions, "Ask the user to log out and log back in")
-		actions = append(actions, "This refreshes the token with updated permissions")
+		actions = append(actions, "Verify permission resolver output and cache behavior")
 
 	case "healthy":
 		actions = append(actions, "All permissions are properly configured")
