@@ -13,7 +13,8 @@ import (
 )
 
 // WidgetProvider produces data for a widget given viewer context/config.
-type WidgetProvider func(ctx AdminContext, cfg map[string]any) (map[string]any, error)
+// Providers must return a canonical WidgetPayload.
+type WidgetProvider func(ctx AdminContext, cfg map[string]any) (WidgetPayload, error)
 
 var dashboardPayloadBlockedPattern = regexp.MustCompile(`(?is)<\s*(!doctype|html|head|body|script)\b`)
 
@@ -366,11 +367,15 @@ func (d *Dashboard) registerProviderInComponents(spec DashboardProviderSpec, han
 			Locale:     meta.Viewer.Locale,
 			RenderMode: dashboardRenderModeFromContext(ctx),
 		}
-		data, err := handler(adminCtx, cfg)
+		payload, err := handler(adminCtx, cfg)
 		if err != nil {
 			return nil, err
 		}
-		return dashcmp.WidgetData(sanitizeDashboardWidgetData(data)), nil
+		data, err := encodeWidgetPayload(payload)
+		if err != nil {
+			return nil, err
+		}
+		return dashcmp.WidgetData(data), nil
 	}))
 	if d.components.specs != nil {
 		d.components.specs[spec.Code] = spec
@@ -880,7 +885,11 @@ func (c *dashboardProviderCommand) Execute(ctx context.Context, msg DashboardPro
 	if len(cfg) == 0 {
 		cfg = primitives.CloneAnyMap(provider.spec.DefaultConfig)
 	}
-	_, err := provider.handler(adminCtx, cfg)
+	payload, err := provider.handler(adminCtx, cfg)
+	if err != nil {
+		return err
+	}
+	_, err = encodeWidgetPayload(payload)
 	return err
 }
 
