@@ -30,6 +30,7 @@ func (r *CMSBlockDefinitionRepository) List(ctx context.Context, opts ListOption
 	categoryFilter := ""
 	statusFilter := ""
 	environment := ""
+	hasEnvironmentFilter := false
 	if opts.Filters != nil {
 		categoryFilter = strings.ToLower(strings.TrimSpace(toString(opts.Filters["category"])))
 		statusFilter = strings.ToLower(strings.TrimSpace(toString(opts.Filters["status"])))
@@ -38,12 +39,13 @@ func (r *CMSBlockDefinitionRepository) List(ctx context.Context, opts ListOption
 	if environment == "" {
 		environment = strings.TrimSpace(environmentFromContext(ctx))
 	}
+	if environment != "" {
+		hasEnvironmentFilter = true
+	}
 	filtered := []CMSBlockDefinition{}
 	for _, def := range defs {
-		if environment != "" {
-			if !strings.EqualFold(strings.TrimSpace(def.Environment), environment) {
-				continue
-			}
+		if hasEnvironmentFilter && !cmsEnvironmentMatches(def.Environment, environment) {
+			continue
 		}
 		if search != "" &&
 			!strings.Contains(strings.ToLower(def.Name), search) &&
@@ -74,7 +76,11 @@ func (r *CMSBlockDefinitionRepository) List(ctx context.Context, opts ListOption
 				if types, ok := blockTypesFromContentType(*ct); ok {
 					restricted = true
 					for _, t := range types {
-						if trimmed := strings.ToLower(strings.TrimSpace(t)); trimmed != "" {
+						for _, candidate := range blockTypeAliasCandidates(strings.ToLower(strings.TrimSpace(t))) {
+							trimmed := strings.ToLower(strings.TrimSpace(candidate))
+							if trimmed == "" {
+								continue
+							}
 							allowedTypes[trimmed] = struct{}{}
 						}
 					}
@@ -88,10 +94,8 @@ func (r *CMSBlockDefinitionRepository) List(ctx context.Context, opts ListOption
 			if len(allowedTypes) == 0 {
 				break
 			}
-			if defType := strings.ToLower(strings.TrimSpace(blockDefinitionType(def))); defType != "" {
-				if _, ok := allowedTypes[defType]; ok {
-					filteredDefs = append(filteredDefs, def)
-				}
+			if blockDefinitionMatchesAllowedTypes(def, allowedTypes) {
+				filteredDefs = append(filteredDefs, def)
 			}
 		}
 		filtered = filteredDefs
@@ -163,11 +167,10 @@ func (r *CMSBlockDefinitionRepository) Get(ctx context.Context, id string) (map[
 		return nil, err
 	}
 	environment := strings.TrimSpace(environmentFromContext(ctx))
+	hasEnvironmentFilter := environment != ""
 	for _, def := range defs {
-		if environment != "" {
-			if !strings.EqualFold(strings.TrimSpace(def.Environment), environment) {
-				continue
-			}
+		if hasEnvironmentFilter && !cmsEnvironmentMatches(def.Environment, environment) {
+			continue
 		}
 		if strings.EqualFold(strings.TrimSpace(def.ID), target) ||
 			strings.EqualFold(strings.TrimSpace(def.Slug), target) ||
@@ -236,11 +239,10 @@ func (r *CMSBlockDefinitionRepository) findBlockDefinition(ctx context.Context, 
 		return nil, err
 	}
 	env := strings.TrimSpace(environment)
+	hasEnvironmentFilter := env != ""
 	for _, def := range defs {
-		if env != "" {
-			if !strings.EqualFold(strings.TrimSpace(def.Environment), env) {
-				continue
-			}
+		if hasEnvironmentFilter && !cmsEnvironmentMatches(def.Environment, env) {
+			continue
 		}
 		if strings.EqualFold(strings.TrimSpace(def.ID), target) ||
 			strings.EqualFold(strings.TrimSpace(def.Slug), target) ||
@@ -381,6 +383,35 @@ func (r *CMSBlockDefinitionRepository) resolveContentType(ctx context.Context, k
 		}
 	}
 	return nil
+}
+
+func blockDefinitionMatchesAllowedTypes(def CMSBlockDefinition, allowed map[string]struct{}) bool {
+	if len(allowed) == 0 {
+		return false
+	}
+	candidates := []string{
+		strings.TrimSpace(blockDefinitionType(def)),
+		strings.TrimSpace(def.Slug),
+		strings.TrimSpace(def.Type),
+		strings.TrimSpace(def.ID),
+		strings.TrimSpace(def.Name),
+		strings.TrimSpace(schemaBlockTypeFromSchema(def.Schema)),
+	}
+	for _, value := range candidates {
+		if value == "" {
+			continue
+		}
+		for _, alias := range blockTypeAliasCandidates(strings.ToLower(strings.TrimSpace(value))) {
+			key := strings.ToLower(strings.TrimSpace(alias))
+			if key == "" {
+				continue
+			}
+			if _, ok := allowed[key]; ok {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // CMSBlockRepository manages blocks assigned to content/pages.
