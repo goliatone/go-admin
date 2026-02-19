@@ -7,8 +7,10 @@ fi
 
 export LGR_NO_TIMESTAMP=true
 
-VERSION_FILE="./.version"
 GO_BIN="/Users/goliatone/.g/go/bin/go"
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # If we have a .taskenv file load it as source
 if [ -f .taskenv ]; then
@@ -16,18 +18,52 @@ if [ -f .taskenv ]; then
     source .taskenv
 fi
 
-# This makes all bin packages installed via npm available here
-# e.g. bogota, nyc, autocannon, etc.
-PATH=$(pwd)/node_modules/.bin:$PATH
-
 # This will make all scripts available in the ./src/bin directory
-PATH=$(pwd)/src/bin:$PATH
+PATH=$(pwd)/bin:$PATH
 
 
 ##########################################
 # Application management
 ##########################################
+function _install:mailpit {
+    local BIN_DIR="${SCRIPT_DIR}/bin"
 
+    lgr I "Create dir ${BIN_DIR}..."
+
+    # Create bin directory if it doesn't exist
+    mkdir -p "${BIN_DIR}"
+
+
+    # Check if already installed
+    if [[ -x "${BIN_DIR}/mailpit" ]]; then
+        lgr OK "mailpit already installed..."
+        return 0
+    fi
+
+    lgr I "Installing mailpit to ${BIN_DIR}"
+
+    local os="darwin"
+    local arch="arm64"
+    local version="1.18.3"
+    local BIN_URL="https://github.com/axllent/mailpit/releases/download/v${version}/mailpit-${os}-${arch}.tar.gz"
+    local TMP_ZIP="${TMPDIR:-/tmp}/mailpit.tar.gz"
+
+    curl --silent --show-error --location --fail "$BIN_URL" --output "${TMP_ZIP}" &&
+    tar -xvf "${TMP_ZIP}" -C "${BIN_DIR}" mailpit &&
+    chmod +x "${BIN_DIR}/mailpit" &&
+    lgr OK "mailpit installed to ${BIN_DIR}/mailpit"
+
+    if [[ -x "${BIN_DIR}/mailpit/development.txt" ]]; then
+        return 0
+    fi
+
+    dev:smtp:init
+}
+
+function dev:install {
+    _install:mailpit
+    lgr ok "dependencies intalled..."
+}
 
 function dev:test {
     "${GO_BIN}" test ./...
@@ -163,6 +199,28 @@ function dev:serve:rebuild {
     dev:serve
 }
 
+function dev:smtp {
+    lgr I "starting SMTP server..."
+    lgr W "more info at https://github.com/axllent/mailpit"
+    lgr OK "http://0.0.0.0:8025"
+    mailpit \
+        --smtp-auth-allow-insecure \
+        --smtp-tls-cert "$SCRIPT_DIR/ops/mailpit/pub_cert.pem" \
+        --smtp-tls-key "$SCRIPT_DIR/ops/mailpit/priv_key.pem" \
+        --ui-auth-file "$SCRIPT_DIR/ops/mailpit/development.txt" \
+        --smtp-auth-file "$SCRIPT_DIR/ops/mailpit/development.txt"
+}
+
+function dev:smtp:init {
+    mkdir -p "$SCRIPT_DIR/ops/mailpit"
+    openssl req -x509 -newkey rsa:4096 -nodes \
+        -keyout "$SCRIPT_DIR/ops/mailpit/priv_key.pem" \
+        -out "$SCRIPT_DIR/ops/mailpit/pub_cert.pem" \
+        -sha256 -days 3650
+
+    echo 'User1:$2y$05$lvT6Z111jzakwt2mmmmeZOi64AqK3vpzilT5mRYTzXHxLZgSfe4Pm' > "$SCRIPT_DIR/ops/mailpit/development.txt"
+}
+
 function release:verify {
     "${GO_BIN}" test ./release -run 'TestChecklistValidateRejectsUnapprovedSignoffs|TestChecklistValidatePassesForApprovedChecklist|TestValidateChecklistFileTemplateShowsPendingApprovals|TestChecklistValidateRejectsAPIOnlyFallback|TestChecklistValidateRejectsMissingProductizationAssertions|TestRunValidationProfilePassesSLOGates|TestSmokeE2EUsesRuntimeIssuedRecipientLinks|TestRunV2ValidationProfilePassesGates|TestEvaluateV2SLODetectsFailures|TestValidateV2ContractFreezeGuardPassesForCurrentSnapshot|TestValidateV2ContractFreezeGuardBlocksPostFreezeMismatchWithoutApproval|TestValidateV2ContractFreezeGuardAllowsApprovedPostFreezeException'
 }
@@ -171,223 +229,6 @@ function smoke:e2e {
     local script_dir
     script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     "${script_dir}/smoke_e2e.sh" "$@"
-}
-
-##
-## ########################################
-##           Version Management
-## ########################################
-
-##
-## -----
-##
-## version:upsert
-##
-## Save version to meta file.
-## First time will create file if not present
-##
-## Arguments:
-## @arg 1 {string} [tag=0.0.1]
-function version:upsert {
-    local tag=${1}
-
-    if [ -z "$tag" ]; then
-        version:get
-    else
-        version:set "$tag"
-        version:get
-    fi
-}
-
-##
-## -----
-##
-## version:get
-##
-## Get version from meta file.
-function version:get {
-
-    test -f "${VERSION_FILE}" || touch "${VERSION_FILE}"
-
-    local tag
-    tag=$(cat "${VERSION_FILE}")
-
-    if [ -z "$tag" ]; then
-        tag="0.0.1"
-        version:set "$tag"
-    fi
-
-    echo -n "$tag"
-}
-
-##
-## -----
-##
-## version:set
-##
-## Set and save version to meta file.
-## First time will create file if not present.
-##
-## Arguments:
-## @arg 1 {string} [tag=0.0.1]
-function version:set {
-
-    local tag
-    tag=${1}
-    if [ -z "$tag" ]; then
-        exit 1
-    fi
-
-    version:check
-
-    echo -e "$tag" > "${VERSION_FILE}"
-}
-
-##
-## -----
-##
-## version:bump
-## Bump sem ver by specifying a level.
-## Valid levels are:
-## - patch (default)
-## - minor
-## - major
-##
-## If you want to update the .version file
-## pass the `--write` flag.
-## @see https://github.com/fsaintjacques/semver-tool/blob/master/src/semver
-##
-## @arg 1 {string} [level=patch]
-## Outputs:
-##   Semver string "$major.$minor.$patch"
-##
-## @flag --write Will write to .version file
-##
-function version:bump {
-
-    version:check
-
-    # Default values
-    level='patch'
-    write_to_file=0
-
-    # Parse options
-    while [[ "$#" -gt 0 ]]; do
-        case $1 in
-            --write)
-                write_to_file=1
-                shift
-            ;;
-            patch|minor|major)
-                level=$1
-                shift
-            ;;
-            *)
-                echo "Invalid option: $1"
-                return 2
-            ;;
-        esac
-    done
-
-    # Read contents of version and store in
-    IFS='.' read -ra identifiers < "$VERSION_FILE"
-
-    [[ "${#identifiers[@]}" -ne 3 ]] && echo "Invalid semver string" && return 1
-
-    patch=${identifiers[2]}
-    minor=${identifiers[1]}
-    major=${identifiers[0]}
-
-    case $level in
-        patch)
-            patch=$((patch+1))
-        ;;
-        minor)
-            minor=$((minor+1))
-            patch=0
-        ;;
-        major)
-            major=$((major+1))
-            minor=0
-            patch=0
-        ;;
-        *)
-            echo "Invalid level passed"
-            return 2
-    esac
-
-    new_version="$major.$minor.$patch"
-
-    if [[ $write_to_file -eq 1 ]]; then
-        echo "$new_version" > "${VERSION_FILE}"
-    else
-        echo "$new_version"
-    fi
-}
-
-function version:check {
-    if [ ! -f "$VERSION_FILE" ]; then
-        echo "0.0.0" > "$VERSION_FILE"
-    fi
-}
-
-
-##
-## -----
-##
-## release
-##
-## Bump our current version, create a git tag
-## and push to trigger our release flow.
-##
-## Arguments:
-## @arg 1 {string} [level=patch]
-##        Accepted major, minor, patch
-function release {
-    local tag
-    local level
-    local message
-
-    release:verify || return $?
-
-    # Fetch all changes from origin
-    git fetch --all
-    # Make sure we have the latest version file
-    git checkout origin/main -- ".version"
-
-    # Pull tags to make sure we have
-    git pull --tags -f
-
-    level=${1:-"patch"}
-
-    # Bump our version
-    tag=$(version:bump "${level}")
-
-    # Set message: default to New major|minor|patch release: vx.x.x
-    message=${2:-"New ${level} release: v${tag}"}
-
-    # Update version file
-    version:set "${tag}"
-
-    # Add updated version file to git
-    git add "${VERSION_FILE}"
-
-    # Commit changes
-    git commit -m "Bump version: v${tag}"
-
-    # Create a new tag
-    git tag -a "v${tag}" -m "${message}"
-
-    # Push tags and trigger release 🚀 🥳
-    git push --tags
-    git push
-
-    # Generate changelog
-    git cliff --output CHANGELOG.md
-    git add CHANGELOG.md
-    git commit -m "docs: update changelog for v${tag}"
-
-    git push
 }
 
 ##########################################
