@@ -54,14 +54,18 @@ type BatchAuthorizer interface {
 
 // CanAny returns true when any provided permission is allowed.
 func CanAny(authorizer Authorizer, ctx context.Context, resource string, permissions ...string) bool {
-	if authorizer == nil || len(permissions) == 0 {
+	if authorizer == nil {
+		return false
+	}
+	filtered := compactPermissions(permissions...)
+	if len(filtered) == 0 {
 		return false
 	}
 	if batch, ok := authorizer.(BatchAuthorizer); ok && batch != nil {
-		return batch.CanAny(ctx, resource, permissions...)
+		return batch.CanAny(ctx, resource, filtered...)
 	}
-	for _, permission := range permissions {
-		if authorizer.Can(ctx, strings.TrimSpace(permission), resource) {
+	for _, permission := range filtered {
+		if authorizer.Can(ctx, permission, resource) {
 			return true
 		}
 	}
@@ -73,18 +77,37 @@ func CanAll(authorizer Authorizer, ctx context.Context, resource string, permiss
 	if authorizer == nil {
 		return false
 	}
-	if len(permissions) == 0 {
+	filtered := compactPermissions(permissions...)
+	if len(filtered) == 0 {
 		return true
 	}
 	if batch, ok := authorizer.(BatchAuthorizer); ok && batch != nil {
-		return batch.CanAll(ctx, resource, permissions...)
+		return batch.CanAll(ctx, resource, filtered...)
 	}
-	for _, permission := range permissions {
-		if !authorizer.Can(ctx, strings.TrimSpace(permission), resource) {
+	for _, permission := range filtered {
+		if !authorizer.Can(ctx, permission, resource) {
 			return false
 		}
 	}
 	return true
+}
+
+func compactPermissions(values ...string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		out = append(out, value)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 // newAdminContext builds an AdminContext from an HTTP request.
