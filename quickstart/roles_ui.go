@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/goliatone/go-admin/admin"
+	templateview "github.com/goliatone/go-admin/internal/templateview"
 	authlib "github.com/goliatone/go-auth"
 	formgenopenapi "github.com/goliatone/go-formgen/pkg/openapi"
 	formgenorchestrator "github.com/goliatone/go-formgen/pkg/orchestrator"
@@ -361,7 +362,7 @@ func (h *roleHandlers) renderRoleView(c router.Context, template string, viewCtx
 	if h.viewContext != nil {
 		viewCtx = h.viewContext(viewCtx, "roles", c)
 	}
-	return c.Render(template, viewCtx)
+	return templateview.RenderTemplateView(c, template, viewCtx)
 }
 
 func rewriteRolesFormHTML(raw []byte, rolesRoot string, id string) []byte {
