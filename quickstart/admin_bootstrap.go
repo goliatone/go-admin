@@ -51,6 +51,7 @@ type adminOptions struct {
 	translationQueueConfig       TranslationQueueConfig
 	translationQueueConfigSet    bool
 	startupPolicy                *admin.ModuleStartupPolicy
+	doctorChecks                 []admin.DoctorCheck
 	errors                       []error
 	registerUserRoleBulkRoutes   bool
 }
@@ -208,6 +209,21 @@ func WithStartupPolicy(policy StartupPolicy) AdminOption {
 	}
 }
 
+// WithDoctorChecks registers app-specific doctor diagnostics checks.
+func WithDoctorChecks(checks ...admin.DoctorCheck) AdminOption {
+	return func(opts *adminOptions) {
+		if opts == nil || len(checks) == 0 {
+			return
+		}
+		for _, check := range checks {
+			if strings.TrimSpace(check.ID) == "" || check.Run == nil {
+				continue
+			}
+			opts.doctorChecks = append(opts.doctorChecks, check)
+		}
+	}
+}
+
 // NewAdmin constructs an admin instance with adapter wiring applied.
 func NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin.Admin, AdapterResult, error) {
 	options := adminOptions{
@@ -341,6 +357,7 @@ func NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin
 	}
 	registerTranslationCapabilities(adm, options.translationProductConfig, options.translationProductWarnings, translationModules)
 	logTranslationCapabilitiesStartup(translationLogger, TranslationCapabilities(adm))
+	registerQuickstartDoctorChecks(adm, cfg, result, options)
 	return adm, result, nil
 }
 

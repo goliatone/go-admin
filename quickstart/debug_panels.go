@@ -1,6 +1,7 @@
 package quickstart
 
 import (
+	"os"
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
@@ -8,7 +9,9 @@ import (
 
 // DebugPanelDeps provides optional dependencies for debug panel registration.
 type DebugPanelDeps struct {
-	ScopeBuffer *ScopeDebugBuffer
+	ScopeBuffer   *ScopeDebugBuffer
+	IsDevelopment *bool
+	DoctorEnabled *bool
 }
 
 // DebugPanelRegistrar registers a debug panel definition.
@@ -54,6 +57,10 @@ func ConfigureDebugPanels(cfg *admin.Config, deps DebugPanelDeps, catalog DebugP
 
 	if deps.ScopeBuffer != nil {
 		addDebugPanel(cfg, ScopeDebugPanelID, cfg.Debug.ToolbarMode)
+	}
+	if doctorPanelEnabled(deps) {
+		// Doctor is a diagnostics panel; keep it in console by default (not toolbar).
+		AddDebugPanels(cfg, admin.DebugPanelDoctor)
 	}
 
 	RegisterDebugPanelCatalog(cfg, deps, catalog)
@@ -154,4 +161,47 @@ func removeDebugPanel(panels []string, panel string) []string {
 		return nil
 	}
 	return out
+}
+
+func doctorPanelEnabled(deps DebugPanelDeps) bool {
+	if deps.DoctorEnabled != nil {
+		return *deps.DoctorEnabled
+	}
+	isDev := isDevelopmentFromDeps(deps)
+	return DoctorDebugEnabledFromEnv(isDev)
+}
+
+func isDevelopmentFromDeps(deps DebugPanelDeps) bool {
+	if deps.IsDevelopment != nil {
+		return *deps.IsDevelopment
+	}
+	env := strings.ToLower(strings.TrimSpace(firstNonEmptyDebugEnv(
+		os.Getenv("GO_ENV"),
+		os.Getenv("ENV"),
+	)))
+	switch env {
+	case "development", "dev", "local":
+		return true
+	default:
+		return false
+	}
+}
+
+func firstNonEmptyDebugEnv(values ...string) string {
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+// DoctorDebugEnabledFromEnv resolves doctor panel enablement using env override.
+// ADMIN_DEBUG_DOCTOR=true|false takes precedence; otherwise development defaults apply.
+func DoctorDebugEnabledFromEnv(isDevelopment bool) bool {
+	if enabled, ok := envBool("ADMIN_DEBUG_DOCTOR"); ok {
+		return enabled
+	}
+	return isDevelopment
 }
