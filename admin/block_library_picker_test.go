@@ -638,6 +638,45 @@ func TestBlockDefinitionsFromLibrary_SlugFilteringCaseInsensitive(t *testing.T) 
 	}
 }
 
+func TestBlockDefinitionsFromLibrary_SlugFilteringSupportsHyphenUnderscoreAliases(t *testing.T) {
+	content := NewInMemoryContentService()
+	ctx := context.Background()
+	if _, err := content.CreateBlockDefinition(ctx, CMSBlockDefinition{
+		ID:       "rich-text-1",
+		Name:     "Rich Text",
+		Slug:     "rich-text",
+		Type:     "rich-text",
+		Status:   "active",
+		Category: "content",
+		Schema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"body": map[string]any{"type": "string"},
+			},
+		},
+	}); err != nil {
+		t.Fatalf("seed block definition: %v", err)
+	}
+	repo := NewCMSBlockDefinitionRepository(content, content)
+
+	defs, err := blockDefinitionsFromLibrary(
+		ctx,
+		repo,
+		[]string{"rich_text"},
+		testRenderChild,
+		false,
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(defs) != 1 {
+		t.Fatalf("expected 1 definition for alias slug filter, got %d", len(defs))
+	}
+	if defs[0].Type != "rich-text" {
+		t.Fatalf("expected rich-text definition, got %+v", defs[0])
+	}
+}
+
 func TestDeriveBlockRequiredFields(t *testing.T) {
 	tests := []struct {
 		name     string

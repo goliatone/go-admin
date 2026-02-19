@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -65,6 +66,55 @@ func TestDebugRoutesUseAuthenticator(t *testing.T) {
 	}
 	if authn.calls == 0 {
 		t.Fatalf("expected authenticator to be invoked")
+	}
+}
+
+func TestDebugDoctorActionEndpointRunsCheckAction(t *testing.T) {
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		Debug: DebugConfig{
+			Enabled: true,
+		},
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromFlags(map[string]bool{"debug": true})})
+	adm.WithAuthorizer(allowAuthorizer{})
+	called := false
+	adm.RegisterDoctorChecks(DoctorCheck{
+		ID:          "debug.autofix",
+		Description: "test",
+		Run: func(_ context.Context, _ *Admin) DoctorCheckOutput {
+			return DoctorCheckOutput{
+				Findings: []DoctorFinding{{Severity: DoctorSeverityWarn, Message: "fix me"}},
+			}
+		},
+		Action: &DoctorAction{
+			CTA: "Run auto fix",
+			Run: func(_ context.Context, _ *Admin, _ DoctorCheckResult, input map[string]any) (DoctorActionExecution, error) {
+				called = input["source"] == "transport-test"
+				return DoctorActionExecution{Status: "ok", Message: "fixed"}, nil
+			},
+		},
+	})
+	if err := adm.RegisterModule(NewDebugModule(cfg.Debug)); err != nil {
+		t.Fatalf("register debug module: %v", err)
+	}
+
+	server := router.NewHTTPServer()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+
+	path := strings.Replace(debugAPIPath(t, adm, cfg.Debug, "doctor.action"), ":check", "debug.autofix", 1)
+	req := httptest.NewRequest("POST", path, strings.NewReader(`{"source":"transport-test"}`))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != 200 {
+		t.Fatalf("expected 200 doctor action, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if !called {
+		t.Fatalf("expected doctor action handler invocation")
 	}
 }
 

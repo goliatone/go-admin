@@ -52,3 +52,22 @@ func TestCMSBlockDefinitionRepositoryGetBySlugRespectsEnvironment(t *testing.T) 
 		t.Fatalf("expected prod id, got %+v", record)
 	}
 }
+
+func TestCMSBlockDefinitionRepositoryGetBySlugTreatsBlankEnvironmentAsDefault(t *testing.T) {
+	content := &blockDefinitionListServiceStub{
+		defs: []CMSBlockDefinition{
+			{ID: "hero-legacy", Name: "Hero Legacy", Slug: "hero", Type: "hero", Environment: ""},
+			{ID: "hero-staging", Name: "Hero Staging", Slug: "hero", Type: "hero", Environment: "staging"},
+		},
+	}
+	repo := NewCMSBlockDefinitionRepository(content, content)
+	ctxDefault := WithEnvironment(context.Background(), "default")
+
+	record, err := repo.Get(ctxDefault, "hero")
+	if err != nil {
+		t.Fatalf("get by slug failed: %v", err)
+	}
+	if toString(record["id"]) != "hero-legacy" {
+		t.Fatalf("expected blank environment record to match default, got %+v", record)
+	}
+}
