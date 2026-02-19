@@ -116,7 +116,7 @@ func TestNormalizeDashboardTemplateData_PreservesIntegerSpan(t *testing.T) {
 				Widgets: []*admin.ResolvedWidget{
 					{
 						ID:         "widget-1",
-						Definition: WidgetUserStats,
+						Definition: admin.WidgetUserStats,
 						Area:       "admin.dashboard.main",
 						Span:       6,
 					},
@@ -172,7 +172,7 @@ func TestDashboardRendererRender_DoesNotEmitFloatSpanInHTML(t *testing.T) {
 				Widgets: []*admin.ResolvedWidget{
 					{
 						ID:         "widget-1",
-						Definition: WidgetUserStats,
+						Definition: admin.WidgetUserStats,
 						Area:       "admin.dashboard.main",
 						Span:       6,
 					},
@@ -218,7 +218,7 @@ func TestDashboardRendererNormalizesWidgetDataNumbersForTemplates(t *testing.T) 
 				Widgets: []*admin.ResolvedWidget{
 					{
 						ID:         "widget-1",
-						Definition: WidgetTranslationProgress,
+						Definition: admin.WidgetTranslationProgress,
 						Area:       "admin.dashboard.main",
 						Data: map[string]any{
 							"status_counts": map[string]any{

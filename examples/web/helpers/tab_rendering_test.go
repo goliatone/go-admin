@@ -192,13 +192,13 @@ func TestApplyUserProfileWidgetOverrides(t *testing.T) {
 		assert.False(t, hasLegacyValues, "legacy values payload should be removed")
 	})
 
-		t.Run("skips non-profile widgets", func(t *testing.T) {
-			widgets := []map[string]any{
-				{
-					"definition": UserActivityWidgetCode,
-					"data":       map[string]any{},
-				},
-			}
+	t.Run("skips non-profile widgets", func(t *testing.T) {
+		widgets := []map[string]any{
+			{
+				"definition": UserActivityWidgetCode,
+				"data":       map[string]any{},
+			},
+		}
 		record := map[string]any{"username": "test"}
 
 		ApplyUserProfileWidgetOverrides(widgets, record)
