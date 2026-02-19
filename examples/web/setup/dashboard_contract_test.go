@@ -12,14 +12,14 @@ func TestValidateCanonicalWidgetPayload_Definitions(t *testing.T) {
 		definition string
 		payload    map[string]any
 	}{
-		{
-			name:       "legacy chart sample",
-			definition: "admin.widget.chart_sample",
+			{
+				name:       "legacy chart sample",
+				definition: admin.WidgetChartSample,
 			payload:    toWidgetPayloadMap(LegacyChartSampleWidgetData{Disabled: true}),
 		},
-		{
-			name:       "user stats",
-			definition: "admin.widget.user_stats",
+			{
+				name:       "user stats",
+				definition: admin.WidgetUserStats,
 			payload: toWidgetPayloadMap(UserStatsWidgetData{
 				Type:     "stat_card",
 				StatType: "users",
@@ -30,9 +30,9 @@ func TestValidateCanonicalWidgetPayload_Definitions(t *testing.T) {
 				TrendUp:  true,
 			}),
 		},
-		{
-			name:       "content stats",
-			definition: "admin.widget.content_stats",
+			{
+				name:       "content stats",
+				definition: admin.WidgetContentStats,
 			payload: toWidgetPayloadMap(ContentStatsWidgetData{
 				Type:      "stat_card",
 				StatType:  "content",
@@ -41,9 +41,9 @@ func TestValidateCanonicalWidgetPayload_Definitions(t *testing.T) {
 				Scheduled: 1,
 			}),
 		},
-		{
-			name:       "storage stats",
-			definition: "admin.widget.storage_stats",
+			{
+				name:       "storage stats",
+				definition: admin.WidgetStorageStats,
 			payload: toWidgetPayloadMap(StorageStatsWidgetData{
 				Type:       "stat_card",
 				StatType:   "storage",
@@ -52,26 +52,26 @@ func TestValidateCanonicalWidgetPayload_Definitions(t *testing.T) {
 				Percentage: 21,
 			}),
 		},
-		{
-			name:       "quick actions",
-			definition: "admin.widget.quick_actions",
+			{
+				name:       "quick actions",
+				definition: admin.WidgetQuickActions,
 			payload: toWidgetPayloadMap(QuickActionsWidgetData{
 				Actions: []QuickActionWidgetItem{{Label: "Invite", URL: "/admin/api/onboarding/invite", Method: "POST"}},
 			}),
 		},
-		{
-			name:       "activity feed",
-			definition: "admin.widget.activity_feed",
+			{
+				name:       "activity feed",
+				definition: admin.WidgetActivityFeed,
 			payload:    toWidgetPayloadMap(ActivityFeedWidgetData{Entries: []admin.ActivityEntry{}}),
 		},
-		{
-			name:       "user profile",
-			definition: "admin.widget.user_profile_overview",
+			{
+				name:       "user profile",
+				definition: admin.WidgetUserProfileOverview,
 			payload:    toWidgetPayloadMap(UserProfileOverviewWidgetData{Values: map[string]any{"Username": "superadmin"}}),
 		},
-		{
-			name:       "system health",
-			definition: "admin.widget.system_health",
+			{
+				name:       "system health",
+				definition: admin.WidgetSystemHealth,
 			payload: toWidgetPayloadMap(SystemHealthWidgetData{
 				Status:     "healthy",
 				Uptime:     "7d 12h",
@@ -79,9 +79,9 @@ func TestValidateCanonicalWidgetPayload_Definitions(t *testing.T) {
 				DBStatus:   "connected",
 			}),
 		},
-		{
-			name:       "chart",
-			definition: "admin.widget.bar_chart",
+			{
+				name:       "chart",
+				definition: admin.WidgetBarChart,
 			payload: toWidgetPayloadMap(ChartWidgetData{
 				ChartType:       "bar",
 				Title:           "Monthly Content Creation",
@@ -115,7 +115,7 @@ func TestValidateCanonicalWidgetPayload_RejectsLegacyMarkup(t *testing.T) {
 		"chart_html":        "<html><body><script>alert(1)</script></body></html>",
 	}
 
-	if err := validateCanonicalWidgetPayload("admin.widget.bar_chart", payload); err == nil {
+	if err := validateCanonicalWidgetPayload(admin.WidgetBarChart, payload); err == nil {
 		t.Fatalf("expected canonical validator to reject legacy chart_html payload")
 	}
 }

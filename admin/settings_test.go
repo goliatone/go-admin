@@ -257,7 +257,7 @@ func TestSettingsWidgetResolvesValues(t *testing.T) {
 	}
 	found := false
 	for _, w := range widgets {
-		if w["definition"] == "admin.widget.settings_overview" {
+		if w["definition"] == WidgetSettingsOverview {
 			data, _ := w["data"].(map[string]any)
 			values, _ := data["values"].(map[string]any)
 			titleVal, ok := values["admin.title"].(map[string]any)

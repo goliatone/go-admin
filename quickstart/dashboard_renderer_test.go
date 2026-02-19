@@ -90,56 +90,19 @@ func TestWithDefaultDashboardRendererWiresRenderer(t *testing.T) {
 	}
 }
 
-func TestNormalizeDashboardTemplateData_AcceptsControllerPayload(t *testing.T) {
-	ctx, err := normalizeDashboardTemplateData(map[string]any{
-		"title": "Dashboard",
-		"ordered_areas": []map[string]any{
-			{
-				"code": "admin.dashboard.main",
-				"widgets": []map[string]any{
-					{
-						"id":         "widget-1",
-						"definition": "admin.widget.user_stats",
-						"area_code":  "admin.dashboard.main",
-						"metadata": map[string]any{
-							"layout": map[string]any{"width": 6},
-						},
-					},
-				},
-			},
-		},
-	})
-	if err != nil {
-		t.Fatalf("normalizeDashboardTemplateData error: %v", err)
-	}
-	areas, ok := ctx["areas"].([]any)
-	if !ok || len(areas) != 1 {
-		t.Fatalf("expected one normalized area")
-	}
-	area, ok := areas[0].(map[string]any)
-	if !ok {
-		t.Fatalf("expected normalized area map")
-	}
-	widgets, ok := area["widgets"].([]any)
-	if !ok || len(widgets) != 1 {
-		t.Fatalf("expected one normalized widget")
-	}
-	widget, ok := widgets[0].(map[string]any)
-	if !ok {
-		t.Fatalf("expected normalized widget map")
-	}
-	if widget["span"] != int64(6) {
-		t.Fatalf("expected normalized span=6, got %#v", widget["span"])
-	}
-	if widget["area"] != "admin.dashboard.main" {
-		t.Fatalf("expected normalized area code, got %#v", widget["area"])
-	}
-}
-
 func TestNormalizeDashboardTemplateData_RejectsUnsupportedPayload(t *testing.T) {
 	_, err := normalizeDashboardTemplateData("invalid payload")
 	if err == nil {
 		t.Fatalf("expected unsupported payload to be rejected")
+	}
+}
+
+func TestNormalizeDashboardTemplateData_RejectsMapPayload(t *testing.T) {
+	_, err := normalizeDashboardTemplateData(map[string]any{
+		"areas": []any{},
+	})
+	if err == nil {
+		t.Fatalf("expected map payload to be rejected")
 	}
 }
 
@@ -153,7 +116,7 @@ func TestNormalizeDashboardTemplateData_PreservesIntegerSpan(t *testing.T) {
 				Widgets: []*admin.ResolvedWidget{
 					{
 						ID:         "widget-1",
-						Definition: "admin.widget.user_stats",
+						Definition: WidgetUserStats,
 						Area:       "admin.dashboard.main",
 						Span:       6,
 					},
@@ -209,7 +172,7 @@ func TestDashboardRendererRender_DoesNotEmitFloatSpanInHTML(t *testing.T) {
 				Widgets: []*admin.ResolvedWidget{
 					{
 						ID:         "widget-1",
-						Definition: "admin.widget.user_stats",
+						Definition: WidgetUserStats,
 						Area:       "admin.dashboard.main",
 						Span:       6,
 					},
@@ -255,7 +218,7 @@ func TestDashboardRendererNormalizesWidgetDataNumbersForTemplates(t *testing.T) 
 				Widgets: []*admin.ResolvedWidget{
 					{
 						ID:         "widget-1",
-						Definition: "admin.widget.translation_progress",
+						Definition: WidgetTranslationProgress,
 						Area:       "admin.dashboard.main",
 						Data: map[string]any{
 							"status_counts": map[string]any{

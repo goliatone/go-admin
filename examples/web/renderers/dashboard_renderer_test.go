@@ -41,10 +41,10 @@ func TestNormalizeDataAcceptsControllerMapPayload(t *testing.T) {
 			{
 				"code": "admin.dashboard.main",
 				"widgets": []map[string]any{
-					{
-						"id":         "widget-1",
-						"definition": "admin.widget.user_stats",
-						"area_code":  "admin.dashboard.main",
+						{
+							"id":         "widget-1",
+							"definition": admin.WidgetUserStats,
+							"area_code":  "admin.dashboard.main",
 						"metadata": map[string]any{
 							"layout": map[string]any{"width": 6},
 						},
@@ -79,10 +79,10 @@ func TestRenderDashboardLayoutIntegration(t *testing.T) {
 			{
 				Code: "admin.dashboard.main",
 				Widgets: []*admin.ResolvedWidget{
-					{
-						ID:         "widget-stats",
-						Definition: "admin.widget.user_stats",
-						Area:       "admin.dashboard.main",
+						{
+							ID:         "widget-stats",
+							Definition: admin.WidgetUserStats,
+							Area:       "admin.dashboard.main",
 						Span:       12,
 						Data: map[string]any{
 							"total_users": 1000,
@@ -116,7 +116,7 @@ func TestRenderDoesNotEmitFloatSpanInHTML(t *testing.T) {
 			{
 				Code: "admin.dashboard.main",
 				Widgets: []*admin.ResolvedWidget{
-					{ID: "widget-1", Definition: "admin.widget.user_stats", Area: "admin.dashboard.main", Span: 6},
+						{ID: "widget-1", Definition: admin.WidgetUserStats, Area: "admin.dashboard.main", Span: 6},
 				},
 			},
 		},
@@ -146,10 +146,10 @@ func TestTemplateRendererNormalizesWidgetDataNumbersForTemplates(t *testing.T) {
 			{
 				Code: "admin.dashboard.main",
 				Widgets: []*admin.ResolvedWidget{
-					{
-						ID:         "widget-1",
-						Definition: "admin.widget.translation_progress",
-						Area:       "admin.dashboard.main",
+						{
+							ID:         "widget-1",
+							Definition: admin.WidgetTranslationProgress,
+							Area:       "admin.dashboard.main",
 						Span:       12,
 						Data: map[string]any{
 							"status_counts": map[string]any{

@@ -672,7 +672,7 @@ func TestNotificationsRoutes(t *testing.T) {
 	}
 	found := false
 	for _, w := range widgets {
-		if w["definition"] == "admin.widget.notifications" {
+		if w["definition"] == WidgetNotifications {
 			found = true
 			data, ok := w["data"].(map[string]any)
 			if !ok {
@@ -748,7 +748,7 @@ func TestActivityRouteAndWidget(t *testing.T) {
 	}
 	found := false
 	for _, w := range widgets {
-		if w["definition"] == "admin.widget.activity_feed" {
+		if w["definition"] == WidgetActivityFeed {
 			found = true
 		}
 	}
