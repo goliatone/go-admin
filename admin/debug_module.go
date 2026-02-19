@@ -211,16 +211,16 @@ func (m *DebugModule) registerDashboardProviders(admin *Admin) {
 			DefaultArea: debugWidgetAreaCode,
 			DefaultSpan: panelSpan,
 			Permission:  m.permission,
-			Handler: func(ctx AdminContext, cfg map[string]any) (map[string]any, error) {
+			Handler: func(ctx AdminContext, cfg map[string]any) (WidgetPayload, error) {
 				_ = ctx
 				_ = cfg
 				snapshot := m.collector.Snapshot()
-				return map[string]any{
-					"panel": panelID,
-					"label": panelLabel,
-					"icon":  panelIcon,
-					"data":  snapshot[panelID],
-				}, nil
+				return WidgetPayloadOf(DebugPanelWidgetPayload{
+					Panel: panelID,
+					Label: panelLabel,
+					Icon:  panelIcon,
+					Data:  snapshot[panelID],
+				}), nil
 			},
 		})
 	}
