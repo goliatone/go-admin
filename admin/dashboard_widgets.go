@@ -7,6 +7,33 @@ import (
 	dashinternal "github.com/goliatone/go-admin/admin/internal/dashboard"
 )
 
+type userStatsWidgetConfig struct {
+	Metric string `json:"metric"`
+	Title  string `json:"title"`
+}
+
+type quickActionsWidgetConfig struct {
+	Actions []QuickActionWidgetPayload `json:"actions"`
+}
+
+type chartSampleWidgetConfig struct {
+	Title string `json:"title"`
+	Type  string `json:"type"`
+}
+
+type settingsOverviewWidgetConfig struct {
+	Keys []string `json:"keys"`
+}
+
+type limitWidgetConfig struct {
+	Limit int `json:"limit"`
+}
+
+type activityWidgetConfig struct {
+	Limit   int    `json:"limit"`
+	Channel string `json:"channel"`
+}
+
 func (a *Admin) registerWidgetAreas() error {
 	if a == nil {
 		return nil
@@ -65,12 +92,16 @@ func (a *Admin) registerDashboardProviders() error {
 				DefaultSpan:   4,
 				Permission:    "",
 				CommandName:   "dashboard.provider.user_stats",
-				Handler: func(ctx AdminContext, cfg map[string]any) (map[string]any, error) {
-					metric := toString(cfg["metric"])
+				Handler: func(ctx AdminContext, cfg map[string]any) (WidgetPayload, error) {
+					resolvedCfg, err := DecodeWidgetConfig[userStatsWidgetConfig](cfg)
+					if err != nil {
+						return WidgetPayload{}, err
+					}
+					metric := strings.TrimSpace(resolvedCfg.Metric)
 					if metric == "" {
 						metric = "activity"
 					}
-					title := toString(cfg["title"])
+					title := strings.TrimSpace(resolvedCfg.Title)
 					if title == "" {
 						title = "Statistic"
 					}
@@ -96,7 +127,11 @@ func (a *Admin) registerDashboardProviders() error {
 							}
 						}
 					}
-					return map[string]any{"title": title, "metric": metric, "value": value}, nil
+					return WidgetPayloadOf(UserStatsWidgetPayload{
+						Title:  title,
+						Metric: metric,
+						Value:  value,
+					}), nil
 				},
 			}
 
@@ -106,24 +141,25 @@ func (a *Admin) registerDashboardProviders() error {
 				DefaultArea:   "admin.dashboard.sidebar",
 				DefaultConfig: map[string]any{},
 				Permission:    "admin.quick_actions.view",
-				Handler: func(ctx AdminContext, cfg map[string]any) (map[string]any, error) {
-					if cfg == nil {
-						cfg = map[string]any{}
+				Handler: func(_ AdminContext, cfg map[string]any) (WidgetPayload, error) {
+					resolvedCfg, err := DecodeWidgetConfig[quickActionsWidgetConfig](cfg)
+					if err != nil {
+						return WidgetPayload{}, err
 					}
-					actions, _ := cfg["actions"].([]any)
+					actions := append([]QuickActionWidgetPayload{}, resolvedCfg.Actions...)
 					if len(actions) == 0 {
-						defaultActions := []any{}
+						defaultActions := []QuickActionWidgetPayload{}
 						if cmsURL := resolveURLWith(a.urlManager, "admin", "content", nil, nil); cmsURL != "" {
-							defaultActions = append(defaultActions, map[string]any{"label": "Go to CMS", "url": cmsURL, "icon": "file"})
+							defaultActions = append(defaultActions, QuickActionWidgetPayload{Label: "Go to CMS", URL: cmsURL, Icon: "file"})
 						}
 						if usersURL := resolveURLWith(a.urlManager, "admin", "users", nil, nil); usersURL != "" {
-							defaultActions = append(defaultActions, map[string]any{"label": "View Users", "url": usersURL, "icon": "users"})
+							defaultActions = append(defaultActions, QuickActionWidgetPayload{Label: "View Users", URL: usersURL, Icon: "users"})
 						}
 						if len(defaultActions) > 0 {
 							actions = defaultActions
 						}
 					}
-					return map[string]any{"actions": actions}, nil
+					return WidgetPayloadOf(QuickActionsWidgetPayload{Actions: actions}), nil
 				},
 			}
 
@@ -132,7 +168,11 @@ func (a *Admin) registerDashboardProviders() error {
 				Name:          "Sample Chart",
 				DefaultArea:   "admin.dashboard.main",
 				DefaultConfig: map[string]any{"title": "Weekly Totals", "type": "line"},
-				Handler: func(ctx AdminContext, cfg map[string]any) (map[string]any, error) {
+				Handler: func(_ AdminContext, cfg map[string]any) (WidgetPayload, error) {
+					resolvedCfg, err := DecodeWidgetConfig[chartSampleWidgetConfig](cfg)
+					if err != nil {
+						return WidgetPayload{}, err
+					}
 					points := []map[string]any{
 						{"label": "Mon", "value": 10},
 						{"label": "Tue", "value": 15},
@@ -140,11 +180,18 @@ func (a *Admin) registerDashboardProviders() error {
 						{"label": "Thu", "value": 20},
 						{"label": "Fri", "value": 12},
 					}
-					return map[string]any{
-						"title": toString(cfg["title"]),
-						"type":  toString(cfg["type"]),
-						"data":  points,
-					}, nil
+					chartPoints := make([]ChartPointWidgetPayload, 0, len(points))
+					for _, point := range points {
+						chartPoints = append(chartPoints, ChartPointWidgetPayload{
+							Label: toString(point["label"]),
+							Value: numericToInt(point["value"]),
+						})
+					}
+					return WidgetPayloadOf(LegacyChartSampleWidgetPayload{
+						Title: resolvedCfg.Title,
+						Type:  resolvedCfg.Type,
+						Data:  chartPoints,
+					}), nil
 				},
 			}
 
@@ -163,24 +210,16 @@ func (a *Admin) registerSettingsWidget() error {
 	if a == nil || a.dashboard == nil || a.settings == nil || !featureEnabled(a.featureGate, FeatureSettings) {
 		return nil
 	}
-	handler := func(ctx AdminContext, cfg map[string]any) (map[string]any, error) {
+	handler := func(ctx AdminContext, cfg map[string]any) (WidgetPayload, error) {
 		if err := a.requirePermission(ctx, a.config.SettingsPermission, "settings"); err != nil {
-			return nil, err
+			return WidgetPayload{}, err
 		}
 		values := a.settings.ResolveAll(ctx.UserID)
-		keys := []string{}
-		if raw, ok := cfg["keys"]; ok {
-			switch v := raw.(type) {
-			case []string:
-				keys = append(keys, v...)
-			case []any:
-				for _, item := range v {
-					if s, ok := item.(string); ok {
-						keys = append(keys, s)
-					}
-				}
-			}
+		resolvedCfg, err := DecodeWidgetConfig[settingsOverviewWidgetConfig](cfg)
+		if err != nil {
+			return WidgetPayload{}, err
 		}
+		keys := append([]string{}, resolvedCfg.Keys...)
 		shouldInclude := func(key string) bool {
 			if len(keys) == 0 {
 				return true
@@ -192,17 +231,17 @@ func (a *Admin) registerSettingsWidget() error {
 			}
 			return false
 		}
-		payload := map[string]any{}
+		payload := map[string]SettingOverviewValuePayload{}
 		for key, val := range values {
 			if !shouldInclude(key) {
 				continue
 			}
-			payload[key] = map[string]any{
-				"value":      val.Value,
-				"provenance": val.Provenance,
+			payload[key] = SettingOverviewValuePayload{
+				Value:      val.Value,
+				Provenance: val.Provenance,
 			}
 		}
-		return map[string]any{"values": payload}, nil
+		return WidgetPayloadOf(SettingsOverviewWidgetPayload{Values: payload}), nil
 	}
 	a.dashboard.RegisterProvider(DashboardProviderSpec{
 		Code:          "admin.widget.settings_overview",
@@ -219,16 +258,18 @@ func (a *Admin) registerNotificationsWidget() error {
 	if a == nil || a.dashboard == nil || a.notifications == nil || !featureEnabled(a.featureGate, FeatureDashboard) || !featureEnabled(a.featureGate, FeatureNotifications) {
 		return nil
 	}
-	handler := func(ctx AdminContext, cfg map[string]any) (map[string]any, error) {
-		limit := 5
-		if raw, ok := cfg["limit"].(int); ok && raw > 0 {
-			limit = raw
-		} else if rawf, ok := cfg["limit"].(float64); ok && rawf > 0 {
-			limit = int(rawf)
+	handler := func(ctx AdminContext, cfg map[string]any) (WidgetPayload, error) {
+		resolvedCfg, err := DecodeWidgetConfig[limitWidgetConfig](cfg)
+		if err != nil {
+			return WidgetPayload{}, err
+		}
+		limit := resolvedCfg.Limit
+		if limit <= 0 {
+			limit = 5
 		}
 		items, err := a.notifications.List(ctx.Context)
 		if err != nil {
-			return nil, err
+			return WidgetPayload{}, err
 		}
 		unread := 0
 		if limit > 0 && len(items) > limit {
@@ -239,10 +280,10 @@ func (a *Admin) registerNotificationsWidget() error {
 				unread++
 			}
 		}
-		return map[string]any{
-			"notifications": items,
-			"unread":        unread,
-		}, nil
+		return WidgetPayloadOf(NotificationsWidgetPayload{
+			Notifications: items,
+			Unread:        unread,
+		}), nil
 	}
 	a.dashboard.RegisterProvider(DashboardProviderSpec{
 		Code:          "admin.widget.notifications",
@@ -258,22 +299,24 @@ func (a *Admin) registerActivityWidget() error {
 	if a == nil || a.dashboard == nil || a.activity == nil || !featureEnabled(a.featureGate, FeatureDashboard) {
 		return nil
 	}
-	handler := func(ctx AdminContext, cfg map[string]any) (map[string]any, error) {
-		limit := 5
-		if raw, ok := cfg["limit"].(int); ok && raw > 0 {
-			limit = raw
-		} else if rawf, ok := cfg["limit"].(float64); ok && rawf > 0 {
-			limit = int(rawf)
+	handler := func(ctx AdminContext, cfg map[string]any) (WidgetPayload, error) {
+		resolvedCfg, err := DecodeWidgetConfig[activityWidgetConfig](cfg)
+		if err != nil {
+			return WidgetPayload{}, err
+		}
+		limit := resolvedCfg.Limit
+		if limit <= 0 {
+			limit = 5
 		}
 		filters := []ActivityFilter{}
-		if channel, ok := cfg["channel"].(string); ok && strings.TrimSpace(channel) != "" {
-			filters = append(filters, ActivityFilter{Channel: strings.TrimSpace(channel)})
+		if channel := strings.TrimSpace(resolvedCfg.Channel); channel != "" {
+			filters = append(filters, ActivityFilter{Channel: channel})
 		}
 		entries, err := a.activity.List(ctx.Context, limit, filters...)
 		if err != nil {
-			return nil, err
+			return WidgetPayload{}, err
 		}
-		return map[string]any{"entries": entries}, nil
+		return WidgetPayloadOf(ActivityFeedWidgetPayload{Entries: entries}), nil
 	}
 	a.dashboard.RegisterProvider(DashboardProviderSpec{
 		Code:          "admin.widget.activity_feed",
