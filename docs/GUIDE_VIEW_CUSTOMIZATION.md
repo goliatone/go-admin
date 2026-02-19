@@ -598,6 +598,25 @@ err := quickstart.WithDefaultDashboardRenderer(
 )
 ```
 
+### Dashboard canonical payload contract
+
+Dashboard rendering now uses one canonical widget payload shape for both SSR and
+client hydration:
+
+- Widget handlers return `admin.WidgetPayload` built from typed view models.
+- SSR and client consume the same payload fields.
+- Render mode (`ssr` vs `client`) is a transport concern only, not a data-shape concern.
+- Dashboard payloads must not include full-document/script blobs (for example
+  `chart_html`, `<html>`, `<body>`, `<script>`).
+
+For chart widgets, return structured chart data (for example `chart_type`,
+`chart_options`, `theme`) and let templates/client renderers draw from those
+fields.
+
+Template context serialization should always go through
+`router.SerializeAsContext(...)` before rendering so numeric values stay stable
+for templates (for example integer spans stay `6`, not `6.000000`).
+
 ## Theming
 
 Use go-theme to standardize theme tokens across dashboard, CMS, and forms:
