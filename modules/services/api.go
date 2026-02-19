@@ -176,7 +176,7 @@ func (m *Module) handleListProviders(_ router.Context, _ map[string]any) (int, a
 		}
 		items = append(items, map[string]any{
 			"id":                    strings.TrimSpace(provider.ID()),
-			"auth_kind":             strings.TrimSpace(provider.AuthKind()),
+			"auth_kind":             strings.TrimSpace(string(provider.AuthKind())),
 			"supported_scope_types": append([]string(nil), provider.SupportedScopeTypes()...),
 			"capabilities":          caps,
 		})
@@ -431,7 +431,7 @@ func (m *Module) handleUpdateInstallationStatus(c router.Context, body map[strin
 		return 0, nil, providerUnavailableError("services runtime is not configured", nil)
 	}
 	reason := strings.TrimSpace(toString(body["reason"]))
-	if err := m.service.UpdateInstallationStatus(c.Context(), installationID, targetStatus, reason); err != nil {
+	if err := m.service.UpdateInstallationStatus(c.Context(), installationID, gocore.InstallationStatus(targetStatus), reason); err != nil {
 		if isNotFound(err) {
 			return 0, nil, missingResourceError("installation", map[string]any{"installation_id": installationID})
 		}
@@ -469,7 +469,7 @@ func (m *Module) handleUninstallInstallation(c router.Context, body map[string]a
 	}
 
 	reason := strings.TrimSpace(primitives.FirstNonEmpty(toString(body["reason"]), "installation_uninstall"))
-	if err := m.service.UpdateInstallationStatus(c.Context(), installationID, string(gocore.InstallationStatusUninstalled), reason); err != nil {
+	if err := m.service.UpdateInstallationStatus(c.Context(), installationID, gocore.InstallationStatusUninstalled, reason); err != nil {
 		return 0, nil, err
 	}
 
