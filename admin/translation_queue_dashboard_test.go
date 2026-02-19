@@ -88,8 +88,8 @@ func TestRegisterTranslationProgressWidgetUsesResolverLinks(t *testing.T) {
 	if len(widgets) != 1 {
 		t.Fatalf("expected one widget, got %d", len(widgets))
 	}
-	if widgets[0]["definition"] != translationQueueDashboardWidgetCode {
-		t.Fatalf("expected queue widget code %q, got %v", translationQueueDashboardWidgetCode, widgets[0]["definition"])
+	if widgets[0]["definition"] != WidgetTranslationProgress {
+		t.Fatalf("expected queue widget code %q, got %v", WidgetTranslationProgress, widgets[0]["definition"])
 	}
 
 	data, ok := widgets[0]["data"].(map[string]any)

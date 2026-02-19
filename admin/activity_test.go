@@ -324,7 +324,7 @@ func TestDashboardLayoutActivity(t *testing.T) {
 	dash.WithActivitySink(sink)
 	ctx := AdminContext{Context: context.Background(), UserID: "dash-user"}
 	dash.SetUserLayoutWithContext(ctx, []DashboardWidgetInstance{
-		{DefinitionCode: "admin.widget.activity_feed", AreaCode: "admin.dashboard.main"},
+		{DefinitionCode: WidgetActivityFeed, AreaCode: "admin.dashboard.main"},
 	})
 	if len(sink.entries) != 1 {
 		t.Fatalf("expected dashboard activity entry, got %d", len(sink.entries))

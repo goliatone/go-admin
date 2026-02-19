@@ -185,7 +185,7 @@ func TestEndToEndFlowCoversAuthDashboardSearchSettings(t *testing.T) {
 			if !ok {
 				continue
 			}
-			if toString(widget["definition"]) != "admin.widget.settings_overview" {
+			if toString(widget["definition"]) != WidgetSettingsOverview {
 				continue
 			}
 			data, _ := widget["data"].(map[string]any)

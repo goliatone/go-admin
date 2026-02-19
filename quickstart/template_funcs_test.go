@@ -205,5 +205,5 @@ func TestDefaultTemplateFuncs_TranslationProgressTitle(t *testing.T) {
 	funcs := DefaultTemplateFuncs()
 	getWidgetTitle, ok := funcs["getWidgetTitle"].(func(string) string)
 	require.True(t, ok, "getWidgetTitle should be func(string) string")
-	assert.Equal(t, "Translation Progress", getWidgetTitle("admin.widget.translation_progress"))
+	assert.Equal(t, "Translation Progress", getWidgetTitle(WidgetTranslationProgress))
 }
