@@ -846,9 +846,7 @@ func (m *DebugModule) registerDashboardWidgets(ctx ModuleContext) error {
 
     // Register widget providers for each panel
     for _, panel := range m.config.Panels {
-        if err := m.registerPanelWidget(ctx, panel); err != nil {
-            return err
-        }
+        m.registerPanelWidget(ctx, panel)
     }
 
     return nil
@@ -858,7 +856,7 @@ func (m *DebugModule) registerDashboardWidgets(ctx ModuleContext) error {
 ### Registering Widget Providers
 
 ```go
-func (m *DebugModule) registerPanelWidget(ctx ModuleContext, panelID string) error {
+func (m *DebugModule) registerPanelWidget(ctx ModuleContext, panelID string) {
     spec := DashboardProviderSpec{
         Code:        "debug." + panelID,
         Name:        m.panelDisplayName(panelID),
@@ -867,24 +865,24 @@ func (m *DebugModule) registerPanelWidget(ctx ModuleContext, panelID string) err
         Handler:     m.createPanelHandler(panelID),
     }
 
-    return ctx.Admin.Dashboard().RegisterProvider(spec)
+    ctx.Admin.Dashboard().RegisterProvider(spec)
 }
 
-func (m *DebugModule) createPanelHandler(panelID string) DashboardProviderHandler {
-    return func(ctx AdminContext, config map[string]any) (map[string]any, error) {
+func (m *DebugModule) createPanelHandler(panelID string) WidgetProvider {
+    return func(ctx AdminContext, config map[string]any) (WidgetPayload, error) {
         snapshot := m.collector.Snapshot()
 
         switch panelID {
         case "template":
-            return map[string]any{"data": snapshot["template"]}, nil
+            return WidgetPayloadOf(DebugPanelWidgetPayload{Panel: panelID, Data: snapshot["template"]}), nil
         case "session":
-            return map[string]any{"data": snapshot["session"]}, nil
+            return WidgetPayloadOf(DebugPanelWidgetPayload{Panel: panelID, Data: snapshot["session"]}), nil
         case "sql":
-            return map[string]any{"queries": snapshot["sql"]}, nil
+            return WidgetPayloadOf(DebugPanelWidgetPayload{Panel: panelID, Data: snapshot["sql"]}), nil
         case "logs":
-            return map[string]any{"entries": snapshot["logs"]}, nil
+            return WidgetPayloadOf(DebugPanelWidgetPayload{Panel: panelID, Data: snapshot["logs"]}), nil
         default:
-            return snapshot, nil
+            return WidgetPayloadOf(DebugPanelWidgetPayload{Panel: panelID, Data: snapshot[panelID]}), nil
         }
     }
 }
