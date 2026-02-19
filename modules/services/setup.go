@@ -35,6 +35,7 @@ type Module struct {
 	outboxDispatcher  gocore.LifecycleDispatcher
 	activityRuntime   *activityRuntime
 	idempotencyStore  *idempotencyStore
+	workflowRuntime   *workflowRuntime
 }
 
 // ExtensionDiagnostics exposes resolved extension wiring state for downstream integrations.

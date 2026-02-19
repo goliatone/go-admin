@@ -1,4 +1,4 @@
-# go-admin Services API Contract (v1)
+# go-admin Services API Contract (canonical)
 
 This document defines the backend contract exposed by `go-admin/modules/services` for frontend consumers.
 
@@ -70,7 +70,7 @@ Endpoint-specific aliases are preserved (for example `connections`, `subscriptio
 | GET | `/connections/:ref` | `admin.services.view` | `ref=connection_id` | `connection`, `credential_health`, `grants_summary`, `subscription_summary`, `sync_summary`, `rate_limit_summary` |
 | GET | `/connections/:ref/grants` | `admin.services.view` | `ref=connection_id` | `snapshot` |
 | GET | `/subscriptions` | `admin.services.view` | `provider_id`, `connection_id`, `status`, `page`, `per_page` | `subscriptions`, list envelope |
-| GET | `/sync/:ref/status` | `admin.services.view` | `ref=connection_id` | `connection_id`, `sync_summary` |
+| GET | `/sync/connections/:ref/status` | `admin.services.view` | `ref=connection_id` | `connection_id`, `sync_summary` |
 | GET | `/rate-limits` | `admin.services.view` | `provider_id`, `scope_type`, `scope_id`, `bucket_key`, optional `connection_id|connection_ref|ref`, `page`, `per_page` | `rate_limits`, `summary`, list envelope |
 
 ### Mutating/API workflow routes
@@ -85,10 +85,10 @@ Endpoint-specific aliases are preserved (for example `connections`, `subscriptio
 | POST | `/connections/:ref/reconsent/begin` | `admin.services.reconsent` | optional `redirect_uri`, `state`, `requested_grants`, `metadata` | `begin` |
 | POST | `/connections/:ref/refresh` | `admin.services.edit` | optional `provider_id`, `metadata` | queued payload (`202`) or `refresh` result (`200`) |
 | POST | `/connections/:ref/revoke` | `admin.services.revoke` | optional `reason` | `status`, `connection_id` |
-| POST | `/capabilities/:provider/:capability/invoke` | `admin.services.edit` | `scope_type`, `scope_id`, optional `connection_id`, `payload` | `result` |
+| POST | `/capabilities/:provider/:capability/invoke` | `admin.services.edit` | `scope_type`, `scope_id`, optional `connection_id`, `payload` | `result`, `candidate_count`, `selected_connection` |
 | POST | `/subscriptions/:ref/renew` | `admin.services.edit` | optional `metadata` | queued payload (`202`) or `subscription` (`200`) |
 | POST | `/subscriptions/:ref/cancel` | `admin.services.edit` | optional `reason` | `status`, `subscription_id` |
-| POST | `/sync/:ref/run` | `admin.services.edit` | required: `provider_id`, `resource_type`, `resource_id`; optional `metadata` | queued payload (`202`) or `job` (`200`) |
+| POST | `/sync/connections/:ref/run` | `admin.services.edit` | required: `provider_id`, `resource_type`, `resource_id`; optional `metadata` | queued payload (`202`) or `job` (`200`) |
 
 ### Provider ingress routes
 
@@ -128,3 +128,70 @@ Endpoint-specific aliases are preserved (for example `connections`, `subscriptio
 
 - `:ref` is the canonical route token for entity references (connection/subscription/installation).
 - Provider-specific routes use `:provider` and ingress uses `:surface` for inbound type.
+
+## Workflow and Diagnostics Contract
+
+Base path: `/admin/api/services`
+
+### Permissions
+
+- Read routes use `admin.services.view`.
+- Mutating workflow routes use `admin.services.edit`.
+- Callback diagnostics preview is read-only and uses `admin.services.view`.
+
+### Idempotency
+
+- `POST` workflow routes participate in canonical idempotency middleware (`Idempotency-Key`) under `api.require_idempotency_key=true`.
+- Replay semantics are the same as core routes:
+  - same key + same body -> replay prior response
+  - same key + different body -> `409 conflict`
+
+### Route Matrix
+
+| Method | Path | Permission | Request shape (high-level) | Response keys |
+| --- | --- | --- | --- | --- |
+| GET | `/mappings` | `admin.services.view` | query: `provider_id`, `scope_type`, `scope_id` | `mappings`, list envelope |
+| GET | `/mappings/spec/:spec_id` | `admin.services.view` | query: `provider_id`, `scope_type`, `scope_id`, optional `version` | `mapping` |
+| GET | `/mappings/spec/:spec_id/versions/:version` | `admin.services.view` | query: `provider_id`, `scope_type`, `scope_id` | `mapping` |
+| POST | `/mappings` | `admin.services.edit` | mapping draft create (`provider_id`, scope, `spec_id`, rule set) | `mapping` |
+| POST | `/mappings/spec/:spec_id/update` | `admin.services.edit` | mapping draft update (`version`, rule set, metadata) | `mapping` |
+| POST | `/mappings/spec/:spec_id/validate` | `admin.services.edit` | `provider_id`, scope, `version` | `mapping` |
+| POST | `/mappings/spec/:spec_id/publish` | `admin.services.edit` | `provider_id`, scope, `version` | `mapping` |
+| POST | `/mappings/spec/:spec_id/unpublish` | `admin.services.edit` | `provider_id`, scope, `version` | `mapping` |
+| POST | `/mappings/validate` | `admin.services.edit` | `spec`, `schema` | `validation` (`valid`, `issues`, normalized/compiled summaries) |
+| POST | `/mappings/preview` | `admin.services.edit` | `spec`, `schema`, `samples[]` | `preview` (`records`, `report`, deterministic hash) |
+| POST | `/sync/plan` | `admin.services.edit` | `binding`, optional `mode`, `from_checkpoint_id`, `limit`, `metadata` | `binding`, `plan` |
+| POST | `/sync/run` | `admin.services.edit` | `plan` or `binding`, `mode`, `direction`, `changes[]`, optional `conflicts[]`, `metadata` | `plan`, `result`, `recorded_conflicts`, `run` |
+| GET | `/sync/runs` | `admin.services.view` | query: `provider_id`, `scope_type`, `scope_id`, optional `sync_binding_id`, `status`, `mode`, pagination | `runs`, list envelope |
+| GET | `/sync/runs/:run_id` | `admin.services.view` | query: `provider_id`, `scope_type`, `scope_id` | `run` |
+| POST | `/sync/runs/:run_id/resume` | `admin.services.edit` | scope + optional `mode`, `direction`, `limit`, `changes[]`, optional `conflicts[]`, `metadata` | `resumed_from_run_id`, `resumed_from_checkpoint_id`, `plan`, `result`, `recorded_conflicts`, `run` |
+| GET | `/sync/checkpoints/:checkpoint_id` | `admin.services.view` | query: `provider_id`, `scope_type`, `scope_id` | `checkpoint` |
+| GET | `/sync/conflicts` | `admin.services.view` | query: `provider_id`, `scope_type`, `scope_id`, optional `sync_binding_id`, `status` | `conflicts`, list envelope |
+| GET | `/sync/conflicts/:conflict_id` | `admin.services.view` | query: `provider_id`, `scope_type`, `scope_id` | `conflict` |
+| POST | `/sync/conflicts/:conflict_id/resolve` | `admin.services.edit` | `provider_id`, scope, `action` (`resolve|ignore|retry`), optional `patch`, `reason` | `conflict` |
+| GET | `/sync/schema-drift` | `admin.services.view` | query: `provider_id`, `scope_type`, `scope_id`, optional `spec_id` | `drift_items`, list envelope |
+| POST | `/sync/schema-drift/baseline` | `admin.services.edit` | `provider_id`, scope, `spec_id`, optional `version`, `schema_ref`, `captured_by`, `metadata` | `baseline`, `drift` |
+| GET | `/connection-candidates` | `admin.services.view` | query: `provider_id`, `scope_type`, `scope_id` | `candidates`, list envelope |
+| POST | `/capabilities/:provider/:capability/invoke` | `admin.services.edit` | scope, optional `connection_id`, optional `payload` | `result`, `candidate_count`, `selected_connection` |
+| GET | `/callbacks/diagnostics/status` | `admin.services.view` | optional query: `provider_id` | `resolver` (status/checks/errors/config summary) |
+| POST | `/callbacks/diagnostics/preview` | `admin.services.view` | `provider_id`, optional `flow` (`connect` default) | `preview` |
+
+### Multi-Account Ambiguity Contract
+
+- Capability invoke fails closed when provider+scope resolves to multiple active connections and `connection_id` is omitted.
+- Ambiguous invoke response is `409 conflict` with remediation metadata:
+  - `candidate_count`
+  - `candidate_connections[]`
+  - `remediation` instruction
+- Frontend/operator remediation flow:
+  1. call `GET /connection-candidates`
+  2. retry invoke with explicit `connection_id`
+
+### Error Semantics
+
+- Uses the same canonical envelope/codes as core services routes:
+  - `validation_error` for malformed/missing required fields.
+  - `missing_resource` for missing mapping/conflict/version records.
+  - `missing_permissions` for capability grant failures.
+  - `conflict` for idempotency conflicts and ambiguous connection fail-closed behavior.
+  - `internal_error`/`provider_unavailable` for runtime and dependency failures.
