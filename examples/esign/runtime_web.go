@@ -21,6 +21,7 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/permissions"
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
+	"github.com/goliatone/go-admin/internal/templateview"
 	"github.com/goliatone/go-admin/pkg/client"
 	"github.com/goliatone/go-admin/quickstart"
 	auth "github.com/goliatone/go-auth"
@@ -212,7 +213,6 @@ func configureESignAuth(adm *coreadmin.Admin, cfg coreadmin.Config) (*coreadmin.
 			}
 			claims.Metadata["email"] = identity.Email()
 			claims.Metadata["role"] = identity.Role()
-			claims.Metadata["permissions"] = append([]string{}, provider.permissions...)
 			return nil
 		}))
 	routeAuth, err := auth.NewHTTPAuthenticator(auther, authCfg)
@@ -232,6 +232,9 @@ func configureESignAuth(adm *coreadmin.Admin, cfg coreadmin.Config) (*coreadmin.
 	})
 	adm.WithAuthorizer(coreadmin.NewGoAuthAuthorizer(coreadmin.GoAuthAuthorizerConfig{
 		DefaultResource: "admin",
+		ResolvePermissions: func(context.Context) ([]string, error) {
+			return append([]string{}, provider.permissions...), nil
+		},
 	}))
 	return authn, auther, authCfg.GetContextKey(), nil
 }
@@ -1052,7 +1055,7 @@ func renderSignerReviewPage(c router.Context, cfg SignerWebRouteConfig, apiBaseP
 		buildSignerReviewViewContext(token, apiBasePath, session),
 		buildESignSignerPageConfig(eSignPageSignerReview, cfg.AssetBasePath, apiBasePath, token),
 	)
-	return c.Render("esign-signer/review", signerTemplateViewContext(cfg, apiBasePath, viewCtx))
+	return templateview.RenderTemplateView(c, "esign-signer/review", signerTemplateViewContext(cfg, apiBasePath, viewCtx))
 }
 
 func canRenderUnifiedSession(session services.SignerSessionContext) bool {
@@ -1097,7 +1100,7 @@ func renderSignerCompletePage(c router.Context, cfg SignerWebRouteConfig, apiBas
 			viewCtx,
 			buildESignSignerPageConfig(eSignPageSignerComplete, cfg.AssetBasePath, apiBasePath, token),
 		)
-		return c.Render("esign-signer/complete", signerTemplateViewContext(cfg, apiBasePath, viewCtx))
+		return templateview.RenderTemplateView(c, "esign-signer/complete", signerTemplateViewContext(cfg, apiBasePath, viewCtx))
 	}
 
 	session, err := cfg.SigningService.GetSession(c.Context(), cfg.DefaultScope, tokenRecord)
@@ -1116,7 +1119,7 @@ func renderSignerCompletePage(c router.Context, cfg SignerWebRouteConfig, apiBas
 			viewCtx,
 			buildESignSignerPageConfig(eSignPageSignerComplete, cfg.AssetBasePath, apiBasePath, token),
 		)
-		return c.Render("esign-signer/complete", signerTemplateViewContext(cfg, apiBasePath, viewCtx))
+		return templateview.RenderTemplateView(c, "esign-signer/complete", signerTemplateViewContext(cfg, apiBasePath, viewCtx))
 	}
 
 	viewCtx := router.ViewContext{
@@ -1163,7 +1166,7 @@ func renderSignerCompletePage(c router.Context, cfg SignerWebRouteConfig, apiBas
 		viewCtx,
 		buildESignSignerPageConfig(eSignPageSignerComplete, cfg.AssetBasePath, apiBasePath, token),
 	)
-	return c.Render("esign-signer/complete", signerTemplateViewContext(cfg, apiBasePath, viewCtx))
+	return templateview.RenderTemplateView(c, "esign-signer/complete", signerTemplateViewContext(cfg, apiBasePath, viewCtx))
 }
 
 func renderSignerDeclinedPage(c router.Context, cfg SignerWebRouteConfig, apiBasePath string) error {
@@ -1202,7 +1205,7 @@ func renderSignerDeclinedPage(c router.Context, cfg SignerWebRouteConfig, apiBas
 		buildESignSignerPageConfig(eSignPageSignerDeclined, cfg.AssetBasePath, apiBasePath, token),
 	)
 
-	return c.Render("esign-signer/declined", signerTemplateViewContext(cfg, apiBasePath, viewCtx))
+	return templateview.RenderTemplateView(c, "esign-signer/declined", signerTemplateViewContext(cfg, apiBasePath, viewCtx))
 }
 
 func renderSignerErrorPage(c router.Context, cfg SignerWebRouteConfig, apiBasePath, errorCode, errorTitle, errorMessage string) error {
@@ -1217,7 +1220,7 @@ func renderSignerErrorPage(c router.Context, cfg SignerWebRouteConfig, apiBasePa
 		viewCtx,
 		buildESignSignerPageConfig(eSignPageSignerError, cfg.AssetBasePath, apiBasePath, ""),
 	)
-	return c.Render("esign-signer/error", signerTemplateViewContext(cfg, apiBasePath, viewCtx))
+	return templateview.RenderTemplateView(c, "esign-signer/error", signerTemplateViewContext(cfg, apiBasePath, viewCtx))
 }
 
 func applySignerSecurityHeaders(c router.Context, unified bool) {

@@ -63,6 +63,15 @@ export class WidgetRenderer {
 
     toolbarHTML += '</div>';
 
+    // Build drag handle HTML
+    const dragHandleHTML = `
+      <button type="button" class="widget-drag-handle" title="Drag to reorder" aria-label="Drag to reorder widget">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path>
+        </svg>
+      </button>
+    `;
+
     return `
       <article class="widget"
                data-widget="${widgetId}"
@@ -73,6 +82,7 @@ export class WidgetRenderer {
                style="--span: ${span}">
         ${toolbarHTML}
         <div class="widget__header mb-4">
+          ${dragHandleHTML}
           <h3 class="text-lg font-semibold text-gray-900">${title}</h3>
         </div>
         <div class="widget__content">

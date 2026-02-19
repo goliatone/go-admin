@@ -1,56 +1,41 @@
-class $ {
+import { S as $ } from "../chunks/sortable.esm-DOKudrbz.js";
+class S {
   constructor() {
-    this.draggedElement = null, this.cleanupFunctions = [];
+    this.sortableInstances = [];
   }
   enable(t, e) {
-    t.querySelectorAll("[data-widget]").forEach((a) => {
-      a.draggable = !0;
-      const i = () => {
-        this.draggedElement = a, a.classList.add("dragging");
-      }, o = () => {
-        a.classList.remove("dragging"), this.draggedElement = null;
-      };
-      a.addEventListener("dragstart", i), a.addEventListener("dragend", o), this.cleanupFunctions.push(() => {
-        a.removeEventListener("dragstart", i), a.removeEventListener("dragend", o);
+    t.querySelectorAll("[data-widgets-grid]").forEach((i) => {
+      const a = $.create(i, {
+        handle: ".widget-drag-handle",
+        draggable: "[data-widget]",
+        animation: 150,
+        ghostClass: "widget--ghost",
+        chosenClass: "widget--chosen",
+        dragClass: "widget--drag",
+        group: "dashboard-widgets",
+        onEnd: () => {
+          e();
+        }
       });
-    }), t.querySelectorAll("[data-widgets-grid]").forEach((a) => {
-      const i = (d) => {
-        if (d.preventDefault(), !this.draggedElement) return;
-        const l = this.getDragAfterElement(a, d.clientY);
-        l == null ? a.appendChild(this.draggedElement) : l !== this.draggedElement && a.insertBefore(this.draggedElement, l);
-      }, o = (d) => {
-        d.preventDefault(), e();
-      };
-      a.addEventListener("dragover", i), a.addEventListener("drop", o), this.cleanupFunctions.push(() => {
-        a.removeEventListener("dragover", i), a.removeEventListener("drop", o);
-      });
+      this.sortableInstances.push(a);
     });
   }
   disable() {
-    this.cleanupFunctions.forEach((t) => t()), this.cleanupFunctions = [], this.draggedElement = null;
-  }
-  getDragAfterElement(t, e) {
-    return Array.from(
-      t.querySelectorAll("[data-widget]:not(.dragging)")
-    ).reduce(
-      (r, a) => {
-        const i = a.getBoundingClientRect(), o = e - i.top - i.height / 2;
-        return o < 0 && o > r.offset ? { offset: o, element: a } : r;
-      },
-      { offset: Number.NEGATIVE_INFINITY, element: null }
-    ).element;
+    this.sortableInstances.forEach((t) => {
+      t.destroy();
+    }), this.sortableInstances = [];
   }
 }
-class S {
+class _ {
   toggleWidth(t, e, s) {
-    const r = e === s ? s / 2 : s;
-    return this.applyWidth(t, r), r;
+    const i = e === s ? s / 2 : s;
+    return this.applyWidth(t, i), i;
   }
   applyWidth(t, e) {
     t.dataset.span = e.toString(), t.style.setProperty("--span", e.toString());
   }
 }
-class E {
+class C {
   toggle(t) {
     const s = !(t.dataset.hidden === "true");
     return this.applyVisibility(t, s), s;
@@ -59,7 +44,7 @@ class E {
     e ? (t.dataset.hidden = "true", t.classList.add("is-hidden")) : (delete t.dataset.hidden, t.classList.remove("is-hidden"));
   }
 }
-class _ {
+class E {
   async save(t, e) {
     const s = await fetch(t, {
       method: "POST",
@@ -80,7 +65,7 @@ class _ {
     }
   }
 }
-class A {
+class T {
   constructor(t) {
     this.container = null, this.saveTimer = null, this.statusElement = null, this.panelSchema = null, this.panelTabs = [], this.config = {
       apiEndpoint: t.apiEndpoint,
@@ -102,10 +87,10 @@ class A {
       }),
       onError: t.onError || ((e) => console.error("WidgetGrid error:", e))
     }, this.behaviors = {
-      dragDrop: t.behaviors?.dragDrop || new $(),
-      resize: t.behaviors?.resize || new S(),
-      visibility: t.behaviors?.visibility || new E(),
-      persistence: t.behaviors?.persistence || new _()
+      dragDrop: t.behaviors?.dragDrop || new S(),
+      resize: t.behaviors?.resize || new _(),
+      visibility: t.behaviors?.visibility || new C(),
+      persistence: t.behaviors?.persistence || new E()
     };
   }
   async init(t) {
@@ -124,9 +109,9 @@ class A {
       return;
     const s = new Set(
       t.areas.map((a) => a?.code || a?.area_code || a?.id || "").filter((a) => typeof a == "string" && a.length > 0)
-    ), r = e.filter((a) => !s.has(a));
-    r.length > 0 && console.warn("Hydration mismatch: rendered area(s) missing from server state", {
-      missing: r,
+    ), i = e.filter((a) => !s.has(a));
+    i.length > 0 && console.warn("Hydration mismatch: rendered area(s) missing from server state", {
+      missing: i,
       server: Array.from(s),
       dom: e
     });
@@ -168,23 +153,23 @@ class A {
     this.container && (this.container.addEventListener("click", (t) => {
       const s = t.target.closest(this.config.selectors.hideBtn);
       if (s) {
-        const r = s.closest("[data-widget]");
-        r && (this.behaviors.visibility.toggle(r), this.saveLayout());
+        const i = s.closest("[data-widget]");
+        i && (this.behaviors.visibility.toggle(i), this.saveLayout());
       }
     }), this.container.addEventListener("click", (t) => {
       const s = t.target.closest(this.config.selectors.resizeBtn);
       if (s) {
-        const r = s.closest("[data-widget]");
-        if (r) {
-          const a = this.normalizeSpan(r.dataset.span), o = this.behaviors.resize.toggleWidth(r, a, this.config.maxColumns) === this.config.maxColumns ? "Half Width" : "Full Width", d = Array.from(s.childNodes).find((l) => l.nodeType === Node.TEXT_NODE);
-          d && (d.textContent = o), this.saveLayout();
+        const i = s.closest("[data-widget]");
+        if (i) {
+          const a = this.normalizeSpan(i.dataset.span), d = this.behaviors.resize.toggleWidth(i, a, this.config.maxColumns) === this.config.maxColumns ? "Half Width" : "Full Width", o = Array.from(s.childNodes).find((l) => l.nodeType === Node.TEXT_NODE);
+          o && (o.textContent = d), this.saveLayout();
         }
       }
     }), this.container.querySelectorAll(this.config.selectors.resizeBtn).forEach((t) => {
       const e = t.closest("[data-widget]");
       if (e) {
-        const r = this.normalizeSpan(e.dataset.span) === this.config.maxColumns ? "Half Width" : "Full Width", a = Array.from(t.childNodes).find((i) => i.nodeType === Node.TEXT_NODE);
-        a && (a.textContent = r);
+        const i = this.normalizeSpan(e.dataset.span) === this.config.maxColumns ? "Half Width" : "Full Width", a = Array.from(t.childNodes).find((r) => r.nodeType === Node.TEXT_NODE);
+        a && (a.textContent = i);
       }
     }));
   }
@@ -205,23 +190,23 @@ class A {
       layout_rows: {}
     };
     if (!this.container) return t;
-    this.container.querySelectorAll(this.config.selectors.areas).forEach((r) => {
-      const a = r.dataset.areaGrid || r.dataset.areaCode;
+    this.container.querySelectorAll(this.config.selectors.areas).forEach((i) => {
+      const a = i.dataset.areaGrid || i.dataset.areaCode;
       if (!a) return;
-      const i = Array.from(
-        r.querySelectorAll('[data-widget]:not([data-hidden="true"])')
+      const r = Array.from(
+        i.querySelectorAll('[data-widget]:not([data-hidden="true"])')
       );
-      t.area_order[a] = i.map((o) => o.dataset.widget), t.layout_rows[a] = this.serializeRows(i);
+      t.area_order[a] = r.map((d) => d.dataset.widget), t.layout_rows[a] = this.serializeRows(r);
     });
     const s = this.container.querySelectorAll('[data-widget][data-hidden="true"]');
-    return t.hidden_widget_ids = Array.from(s).map((r) => r.dataset.widget), t;
+    return t.hidden_widget_ids = Array.from(s).map((i) => i.dataset.widget), t;
   }
   serializeRows(t) {
     const e = [];
-    let s = [], r = 0;
+    let s = [], i = 0;
     return t.forEach((a) => {
-      const i = a.dataset.widget, o = this.normalizeSpan(a.dataset.span);
-      r + o > this.config.maxColumns && r > 0 && (e.push({ widgets: s }), s = [], r = 0), s.push({ id: i, width: o }), r += o, r >= this.config.maxColumns && (e.push({ widgets: s }), s = [], r = 0);
+      const r = a.dataset.widget, d = this.normalizeSpan(a.dataset.span);
+      i + d > this.config.maxColumns && i > 0 && (e.push({ widgets: s }), s = [], i = 0), s.push({ id: r, width: d }), i += d, i >= this.config.maxColumns && (e.push({ widgets: s }), s = [], i = 0);
     }), s.length > 0 && e.push({ widgets: s }), e;
   }
   updateStatus(t) {
@@ -231,7 +216,7 @@ class A {
     this.saveTimer !== null && clearTimeout(this.saveTimer), this.behaviors.dragDrop.disable();
   }
 }
-const C = {
+const A = {
   "admin.widget.user_stats": "User Statistics",
   "admin.widget.activity_feed": "Recent Activity",
   "admin.widget.quick_actions": "Quick Actions",
@@ -253,7 +238,7 @@ const C = {
   "admin.widget.gauge_chart",
   "admin.widget.scatter_chart"
 ]);
-class T {
+class z {
   constructor(t) {
     this.activityActionLabels = t.activityActionLabels || {};
   }
@@ -261,22 +246,29 @@ class T {
    * Render a complete widget with wrapper and toolbar
    */
   render(t, e) {
-    const s = e === "admin.dashboard.main" || e === "admin.dashboard.footer", r = this.normalizeSpan(t.metadata?.layout?.width ?? t.span), a = t.hidden || !1, i = t.data?.title || t.config?.title || this.getTitle(t.definition), o = t.id || t.definition || `widget-${Math.random().toString(36).substr(2, 9)}`, d = this.renderContent(t);
+    const s = e === "admin.dashboard.main" || e === "admin.dashboard.footer", i = this.normalizeSpan(t.metadata?.layout?.width ?? t.span), a = t.hidden || !1, r = t.data?.title || t.config?.title || this.getTitle(t.definition), d = t.id || t.definition || `widget-${Math.random().toString(36).substr(2, 9)}`, o = this.renderContent(t);
     let l = '<div class="widget__toolbar">';
     return l += '<button type="button" class="hide-widget">Toggle Hide</button>', s ? l += '<button type="button" class="resize-widget">Half Width</button>' : l += '<button type="button" class="resize-widget" disabled title="Resize only available in Main or Operations">Half Width</button>', l += "</div>", `
       <article class="widget"
-               data-widget="${o}"
-               data-span="${r}"
+               data-widget="${d}"
+               data-span="${i}"
                data-area-code="${e}"
                data-resizable="${s}"
                ${a ? 'data-hidden="true"' : ""}
-               style="--span: ${r}">
+               style="--span: ${i}">
         ${l}
         <div class="widget__header mb-4">
-          <h3 class="text-lg font-semibold text-gray-900">${i}</h3>
+          
+      <button type="button" class="widget-drag-handle" title="Drag to reorder" aria-label="Drag to reorder widget">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path>
+        </svg>
+      </button>
+    
+          <h3 class="text-lg font-semibold text-gray-900">${r}</h3>
         </div>
         <div class="widget__content">
-          ${d}
+          ${o}
         </div>
       </article>
     `;
@@ -285,7 +277,7 @@ class T {
    * Render widget content based on definition type
    */
   renderContent(t) {
-    const e = t.definition || "", s = t.data || {}, r = t.config || {};
+    const e = t.definition || "", s = t.data || {}, i = t.config || {};
     if (e === "admin.widget.user_stats") {
       const a = {
         Total: s.total ?? 0,
@@ -294,37 +286,37 @@ class T {
       };
       return s.trend && (a.Trend = s.trend), `
         <div class="metrics">
-          ${Object.entries(a).map(([i, o]) => `
+          ${Object.entries(a).map(([r, d]) => `
             <div class="metric">
-              <small>${i}</small>
-              <span>${this.formatNumber(o)}</span>
+              <small>${r}</small>
+              <span>${this.formatNumber(d)}</span>
             </div>
           `).join("")}
         </div>
       `;
     }
     if (e === "admin.widget.user_profile_overview") {
-      const a = s.values || {}, i = Object.entries(a);
-      return i.length === 0 ? '<p class="text-gray-500">No profile data to display</p>' : `
+      const a = s.values || {}, r = Object.entries(a);
+      return r.length === 0 ? '<p class="text-gray-500">No profile data to display</p>' : `
         <dl class="space-y-2">
-          ${i.map(([o, d]) => `
+          ${r.map(([d, o]) => `
             <div class="flex items-start justify-between gap-4">
-              <dt class="text-sm text-gray-600">${o}</dt>
-              <dd class="text-sm font-semibold text-gray-900">${d ?? "—"}</dd>
+              <dt class="text-sm text-gray-600">${d}</dt>
+              <dd class="text-sm font-semibold text-gray-900">${o ?? "—"}</dd>
             </div>
           `).join("")}
         </dl>
       `;
     }
     if (e === "admin.widget.settings_overview") {
-      const a = s.values || {}, i = Object.entries(a);
-      return i.length === 0 ? '<p class="text-gray-500">No settings to display</p>' : `
+      const a = s.values || {}, r = Object.entries(a);
+      return r.length === 0 ? '<p class="text-gray-500">No settings to display</p>' : `
         <dl class="space-y-2">
-          ${i.map(([o, d]) => {
-        const l = typeof d == "object" && d !== null ? d.value ?? d : d;
+          ${r.map(([d, o]) => {
+        const l = typeof o == "object" && o !== null ? o.value ?? o : o;
         return `
               <div class="flex items-start justify-between gap-4">
-                <dt class="text-sm text-gray-600">${o}</dt>
+                <dt class="text-sm text-gray-600">${d}</dt>
                 <dd class="text-sm font-semibold text-gray-900">${l ?? "—"}</dd>
               </div>
             `;
@@ -336,10 +328,10 @@ class T {
       const a = s.entries || [];
       return a.length === 0 ? '<p class="text-gray-500">No recent activity</p>' : `
         <ul class="space-y-3">
-          ${a.map((i) => `
+          ${a.map((r) => `
             <li class="py-3 border-b border-gray-100 last:border-b-0">
-              <div class="font-semibold text-gray-900 text-sm">${i.actor}</div>
-              <div class="text-gray-600 text-sm mt-1">${this.activityActionLabels?.[i.action] || i.action} ${i.object}</div>
+              <div class="font-semibold text-gray-900 text-sm">${r.actor}</div>
+              <div class="text-gray-600 text-sm mt-1">${this.activityActionLabels?.[r.action] || r.action} ${r.object}</div>
             </li>
           `).join("")}
         </ul>
@@ -349,13 +341,13 @@ class T {
       const a = s.actions || [];
       return a.length === 0 ? '<p class="text-gray-500">No quick actions configured</p>' : `
         <div class="space-y-2">
-          ${a.map((i) => `
-            <a class="block p-3 border border-gray-200 rounded-lg hover:border-blue-200 hover:bg-blue-50/50 transition" href="${i.url || "#"}" target="_blank" rel="noreferrer">
+          ${a.map((r) => `
+            <a class="block p-3 border border-gray-200 rounded-lg hover:border-blue-200 hover:bg-blue-50/50 transition" href="${r.url || "#"}" target="_blank" rel="noreferrer">
               <div class="flex items-center justify-between gap-2">
-                <div class="font-semibold text-gray-900 text-sm">${i.label || "Action"}</div>
-                ${i.method ? `<span class="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">${i.method}</span>` : ""}
+                <div class="font-semibold text-gray-900 text-sm">${r.label || "Action"}</div>
+                ${r.method ? `<span class="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded">${r.method}</span>` : ""}
               </div>
-              ${i.description ? `<div class="text-gray-600 text-sm mt-1">${i.description}</div>` : ""}
+              ${r.description ? `<div class="text-gray-600 text-sm mt-1">${r.description}</div>` : ""}
             </a>
           `).join("")}
         </div>
@@ -422,15 +414,15 @@ class T {
       const a = s.notifications || [];
       return a.length === 0 ? '<p class="text-gray-500">No notifications</p>' : `
         <ul class="space-y-3">
-          ${a.slice(0, 5).map((i) => `
+          ${a.slice(0, 5).map((r) => `
             <li class="py-3 border-b border-gray-100 last:border-b-0">
               <div class="flex items-start justify-between gap-3">
                 <div>
-                  <div class="font-semibold text-gray-900 text-sm">${i.title}</div>
-                  <div class="text-gray-600 text-sm mt-1">${i.message}</div>
+                  <div class="font-semibold text-gray-900 text-sm">${r.title}</div>
+                  <div class="text-gray-600 text-sm mt-1">${r.message}</div>
                 </div>
-                <span class="px-2 py-1 text-xs font-semibold ${i.read ? "text-gray-600 bg-gray-100" : "text-white bg-blue-500"} rounded-full whitespace-nowrap">
-                  ${i.read ? "Read" : "New"}
+                <span class="px-2 py-1 text-xs font-semibold ${r.read ? "text-gray-600 bg-gray-100" : "text-white bg-blue-500"} rounded-full whitespace-nowrap">
+                  ${r.read ? "Read" : "New"}
                 </span>
               </div>
             </li>
@@ -439,14 +431,14 @@ class T {
       `;
     }
     if (e === "admin.widget.translation_progress") {
-      const a = s.summary || {}, i = s.status_counts || {}, o = s.locale_counts || {}, d = Array.isArray(s.links) ? s.links : [], l = Number(a.overdue || 0), u = s.updated_at ? String(s.updated_at) : "", v = (c, m) => {
+      const a = s.summary || {}, r = s.status_counts || {}, d = s.locale_counts || {}, o = Array.isArray(s.links) ? s.links : [], l = Number(a.overdue || 0), h = s.updated_at ? String(s.updated_at) : "", f = (c, m) => {
         const g = String(c || "").trim().toLowerCase();
-        let p = "bg-gray-100 text-gray-800", h = "bg-gray-500";
-        g === "pending" ? (p = "bg-yellow-100 text-yellow-800", h = "bg-yellow-500") : g === "in_progress" ? (p = "bg-blue-100 text-blue-800", h = "bg-blue-500") : g === "review" ? (p = "bg-purple-100 text-purple-800", h = "bg-purple-500") : g === "approved" || g === "completed" ? (p = "bg-green-100 text-green-800", h = "bg-green-500") : g === "rejected" && (p = "bg-red-100 text-red-800", h = "bg-red-500");
+        let p = "bg-gray-100 text-gray-800", u = "bg-gray-500";
+        g === "pending" ? (p = "bg-yellow-100 text-yellow-800", u = "bg-yellow-500") : g === "in_progress" ? (p = "bg-blue-100 text-blue-800", u = "bg-blue-500") : g === "review" ? (p = "bg-purple-100 text-purple-800", u = "bg-purple-500") : g === "approved" || g === "completed" ? (p = "bg-green-100 text-green-800", u = "bg-green-500") : g === "rejected" && (p = "bg-red-100 text-red-800", u = "bg-red-500");
         const w = this.formatStatusLabel(c);
         return `
           <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${p}">
-            <span class="w-1.5 h-1.5 rounded-full ${h}"></span>
+            <span class="w-1.5 h-1.5 rounded-full ${u}"></span>
             ${w}: ${this.formatNumber(m)}
           </span>
         `;
@@ -480,20 +472,20 @@ class T {
           </div>
         </div>
 
-        ${Object.keys(i).length > 0 ? `
+        ${Object.keys(r).length > 0 ? `
           <div class="mb-4 pt-3 border-t border-gray-100">
             <div class="text-xs text-gray-500 uppercase tracking-wide mb-2">By Status</div>
             <div class="flex flex-wrap gap-2">
-              ${Object.entries(i).map(([c, m]) => v(c, m)).join("")}
+              ${Object.entries(r).map(([c, m]) => f(c, m)).join("")}
             </div>
           </div>
         ` : ""}
 
-        ${Object.keys(o).length > 0 ? `
+        ${Object.keys(d).length > 0 ? `
           <div class="mb-4 pt-3 border-t border-gray-100">
             <div class="text-xs text-gray-500 uppercase tracking-wide mb-2">By Language</div>
             <div class="flex flex-wrap gap-2">
-              ${Object.entries(o).map(([c, m]) => `
+              ${Object.entries(d).map(([c, m]) => `
                 <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-indigo-50 text-indigo-700">
                   <span class="uppercase font-semibold">${c}</span>
                   <span class="text-indigo-500">${this.formatNumber(m)}</span>
@@ -503,11 +495,11 @@ class T {
           </div>
         ` : ""}
 
-        ${d.length > 0 ? `
+        ${o.length > 0 ? `
           <div class="pt-3 border-t border-gray-100">
             <div class="text-xs text-gray-500 uppercase tracking-wide mb-2">Quick Access</div>
             <div class="flex flex-wrap gap-2">
-              ${d.map((c) => `
+              ${o.map((c) => `
                 <a href="${c.url || "#"}"
                    class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 transition-colors">
                   ${c.label || "Open"}
@@ -520,22 +512,22 @@ class T {
           </div>
         ` : ""}
 
-        ${u ? `
+        ${h ? `
           <div class="mt-4 pt-2 border-t border-gray-100 text-xs text-gray-400 text-center">
-            Updated <time data-relative-time="${u}">${u}</time>
+            Updated <time data-relative-time="${h}">${h}</time>
           </div>
         ` : ""}
       `;
     }
     if (N.has(e)) {
-      const a = s.subtitle || r.subtitle || "", i = String(s.theme || "westeros"), o = String(s.chart_assets_host || "/dashboard/assets/echarts/"), d = s.chart_options ? JSON.stringify(s.chart_options) : "", l = `chart-${t.id || t.definition || Math.random().toString(36).slice(2, 10)}`;
+      const a = s.subtitle || i.subtitle || "", r = String(s.theme || "westeros"), d = String(s.chart_assets_host || "/dashboard/assets/echarts/"), o = s.chart_options ? JSON.stringify(s.chart_options) : "", l = `chart-${t.id || t.definition || Math.random().toString(36).slice(2, 10)}`;
       return `
         <div>
           ${a ? `<p class="text-sm text-gray-500 mb-3">${a}</p>` : ""}
-          ${d ? `
-            <div class="chart-container" data-echart-widget data-chart-id="${l}" data-chart-theme="${i}" data-chart-assets-host="${o}">
+          ${o ? `
+            <div class="chart-container" data-echart-widget data-chart-id="${l}" data-chart-theme="${r}" data-chart-assets-host="${d}">
               <div id="${l}" class="w-full" style="height: 360px;"></div>
-              <script type="application/json" data-chart-options>${d}<\/script>
+              <script type="application/json" data-chart-options>${o}<\/script>
             </div>
           ` : '<p class="text-sm text-gray-500 italic">Chart configuration unavailable.</p>'}
           ${s.footer_note ? `<p class="text-xs text-gray-500 mt-2">${s.footer_note}</p>` : ""}
@@ -548,7 +540,7 @@ class T {
    * Get display title for widget definition
    */
   getTitle(t) {
-    return C[t] || t;
+    return A[t] || t;
   }
   /**
    * Format number with locale
@@ -565,16 +557,16 @@ class T {
     return !Number.isFinite(e) || e < 1 || e > 12 ? 12 : e;
   }
 }
-const f = /* @__PURE__ */ new Map(), b = /* @__PURE__ */ new WeakMap();
-async function z(n) {
-  const t = new T(n), e = n.apiBasePath ? `${n.apiBasePath}/dashboard` : `${n.basePath}/api/dashboard`, s = document.getElementById("dashboard-export");
+const b = /* @__PURE__ */ new Map(), v = /* @__PURE__ */ new WeakMap();
+async function j(n) {
+  const t = new z(n), e = n.apiBasePath ? `${n.apiBasePath}/dashboard` : `${n.basePath}/api/dashboard`, s = document.getElementById("dashboard-export");
   s && s.addEventListener("click", () => window.open(e));
-  const a = await (await fetch(e)).json(), i = j(a.widgets || []);
-  for (const [d, l] of Object.entries(i)) {
-    const u = document.querySelector(`[data-area-grid="${d}"]`);
-    u && (u.innerHTML = l.map((v) => t.render(v, d)).join(""));
+  const a = await (await fetch(e)).json(), r = k(a.widgets || []);
+  for (const [o, l] of Object.entries(r)) {
+    const h = document.querySelector(`[data-area-grid="${o}"]`);
+    h && (h.innerHTML = l.map((f) => t.render(f, o)).join(""));
   }
-  await x(), await new A({
+  await x(), await new T({
     apiEndpoint: e,
     preferencesEndpoint: `${e}/preferences`,
     areas: ["admin.dashboard.main", "admin.dashboard.sidebar", "admin.dashboard.footer"],
@@ -582,46 +574,46 @@ async function z(n) {
       hideBtn: ".hide-widget",
       resizeBtn: ".resize-widget"
     },
-    onSave: (d) => {
-      console.log("Layout saved:", d);
+    onSave: (o) => {
+      console.log("Layout saved:", o);
     },
-    onError: (d) => {
-      console.error("Widget grid error:", d);
+    onError: (o) => {
+      console.error("Widget grid error:", o);
       const l = document.getElementById("save-status");
       l && (l.textContent = "Failed to save layout");
     }
   }).init(), await x();
 }
-function j(n) {
+function k(n) {
   return n.reduce((t, e) => {
     const s = e.area || "admin.dashboard.main";
     return t[s] || (t[s] = []), t[s].push(e), t;
   }, {});
 }
-function L(n) {
+function B(n) {
   const t = (n || "").trim();
   return t ? t.endsWith("/") ? t : `${t}/` : "/dashboard/assets/echarts/";
 }
 function y(n) {
   if (!n)
     return Promise.resolve();
-  if (f.has(n))
-    return f.get(n);
+  if (b.has(n))
+    return b.get(n);
   if (document.querySelector(`script[src="${n}"]`)) {
     const s = Promise.resolve();
-    return f.set(n, s), s;
+    return b.set(n, s), s;
   }
-  const e = new Promise((s, r) => {
+  const e = new Promise((s, i) => {
     const a = document.createElement("script");
-    a.src = n, a.async = !0, a.onload = () => s(), a.onerror = () => r(new Error(`Failed to load chart asset: ${n}`)), document.head.appendChild(a);
+    a.src = n, a.async = !0, a.onload = () => s(), a.onerror = () => i(new Error(`Failed to load chart asset: ${n}`)), document.head.appendChild(a);
   });
-  return f.set(n, e), e;
+  return b.set(n, e), e;
 }
-async function B(n, t) {
-  const e = L(t);
+async function D(n, t) {
+  const e = B(t);
   await y(`${e}echarts.min.js`), n && n !== "default" && await y(`${e}themes/${n}.js`);
 }
-function k(n) {
+function L(n) {
   const t = n.querySelector("script[data-chart-options]");
   if (!t?.textContent)
     return null;
@@ -631,20 +623,20 @@ function k(n) {
     return console.error("[admin-dashboard] Failed to parse chart options", e), null;
   }
 }
-function D(n) {
-  const t = (n.dataset.chartId || "").trim(), e = (n.dataset.chartTheme || "westeros").trim(), s = k(n), r = t ? document.getElementById(t) : null, a = window.echarts;
-  if (!r || !s || !a)
+function O(n) {
+  const t = (n.dataset.chartId || "").trim(), e = (n.dataset.chartTheme || "westeros").trim(), s = L(n), i = t ? document.getElementById(t) : null, a = window.echarts;
+  if (!i || !s || !a)
     return;
-  const i = a.getInstanceByDom(r) || a.init(r, e, { renderer: "canvas" });
-  if (i.setOption(s, !0), !b.has(n) && window.ResizeObserver) {
-    const o = new ResizeObserver(() => {
+  const r = a.getInstanceByDom(i) || a.init(i, e, { renderer: "canvas" });
+  if (r.setOption(s, !0), !v.has(n) && window.ResizeObserver) {
+    const d = new ResizeObserver(() => {
       try {
-        i.resize();
-      } catch (d) {
-        console.warn("[admin-dashboard] Chart resize failed", d);
+        r.resize();
+      } catch (o) {
+        console.warn("[admin-dashboard] Chart resize failed", o);
       }
     });
-    o.observe(r), b.set(n, o);
+    d.observe(i), v.set(n, d);
   }
 }
 async function x() {
@@ -652,13 +644,13 @@ async function x() {
   for (const t of n) {
     const e = (t.dataset.chartTheme || "westeros").trim(), s = t.dataset.chartAssetsHost || "";
     try {
-      await B(e, s), D(t);
-    } catch (r) {
-      console.error("[admin-dashboard] Failed to hydrate chart widget", r);
+      await D(e, s), O(t);
+    } catch (i) {
+      console.error("[admin-dashboard] Failed to hydrate chart widget", i);
     }
   }
 }
-function O() {
+function W() {
   const n = document.getElementById("admin-dashboard-config");
   if (!n?.textContent) {
     console.error("[admin-dashboard] Missing #admin-dashboard-config element");
@@ -666,7 +658,7 @@ function O() {
   }
   try {
     const t = JSON.parse(n.textContent);
-    z(t).catch((e) => {
+    j(t).catch((e) => {
       console.error("[admin-dashboard] Failed to initialize:", e);
     });
   } catch (t) {
@@ -674,13 +666,13 @@ function O() {
   }
 }
 export {
-  $ as DefaultDragDropBehavior,
-  _ as DefaultPersistenceBehavior,
-  S as DefaultResizeBehavior,
-  E as DefaultVisibilityBehavior,
-  A as WidgetGrid,
-  T as WidgetRenderer,
-  O as bootstrapAdminDashboard,
-  z as initAdminDashboard
+  S as DefaultDragDropBehavior,
+  E as DefaultPersistenceBehavior,
+  _ as DefaultResizeBehavior,
+  C as DefaultVisibilityBehavior,
+  T as WidgetGrid,
+  z as WidgetRenderer,
+  W as bootstrapAdminDashboard,
+  j as initAdminDashboard
 };
 //# sourceMappingURL=index.js.map

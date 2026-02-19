@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 	coreadmin "github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
+	auth "github.com/goliatone/go-auth"
 	router "github.com/goliatone/go-router"
 )
 
@@ -53,7 +55,48 @@ func TestRegisterAdminRouteMiddlewareInjectsClaimsForGoAuthAuthorizer(t *testing
 		)
 	}
 
-	authz := coreadmin.NewGoAuthAuthorizer(coreadmin.GoAuthAuthorizerConfig{DefaultResource: "admin"})
+	authz := coreadmin.NewGoAuthAuthorizer(coreadmin.GoAuthAuthorizerConfig{
+		DefaultResource: "admin",
+		ResolvePermissions: func(ctx context.Context) ([]string, error) {
+			claims, ok := auth.GetClaims(ctx)
+			if !ok || claims == nil {
+				return nil, nil
+			}
+			var raw any
+			if carrier, ok := claims.(interface{ ClaimsMetadata() map[string]any }); ok && carrier != nil {
+				if metadata := carrier.ClaimsMetadata(); len(metadata) > 0 {
+					raw = metadata["permissions"]
+				}
+			}
+			if raw == nil {
+				if typed, ok := claims.(*auth.JWTClaims); ok && typed != nil && typed.Metadata != nil {
+					raw = typed.Metadata["permissions"]
+				}
+			}
+			if raw == nil {
+				return nil, nil
+			}
+			if typed, ok := raw.([]string); ok {
+				return append([]string{}, typed...), nil
+			}
+			if typed, ok := raw.([]any); ok {
+				perms := make([]string, 0, len(typed))
+				for _, item := range typed {
+					value, ok := item.(string)
+					if !ok {
+						continue
+					}
+					value = strings.TrimSpace(value)
+					if value == "" {
+						continue
+					}
+					perms = append(perms, value)
+				}
+				return perms, nil
+			}
+			return nil, nil
+		},
+	})
 	noClaimsApp := setupRegisterTestApp(t,
 		WithAuthorizer(authz),
 		WithGoogleIntegrationEnabled(true),
