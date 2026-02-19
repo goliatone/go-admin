@@ -975,6 +975,8 @@ func main() {
 	// When translation exchange is enabled via feature gate (profile or explicit toggle),
 	// register the translation exchange UI route for import/export operations.
 	uiRouteOpts := []quickstart.UIRouteOption{
+		// Keep dashboard HTML on the SSR transport route (/admin/dashboard).
+		quickstart.WithUIDashboardRoute(false),
 		quickstart.WithUIDashboardActive(setup.NavigationSectionDashboard),
 	}
 	if featureEnabled(adm.FeatureGate(), string(coreadmin.FeatureTranslationQueue)) {
@@ -994,6 +996,10 @@ func main() {
 	); err != nil {
 		log.Panicf("failed to register admin UI routes: %v", err)
 	}
+	dashboardPath := path.Join(cfg.BasePath, "dashboard")
+	r.Get(cfg.BasePath, wrapAuthed(func(c router.Context) error {
+		return c.Redirect(dashboardPath, fiber.StatusFound)
+	}))
 	if err := quickstart.RegisterSettingsUIRoutes(r, cfg, adm, authn); err != nil {
 		log.Panicf("failed to register settings UI routes: %v", err)
 	}
@@ -1939,7 +1945,10 @@ func permissionDiagnosticsSnapshot(adm *admin.Admin, ctx context.Context) map[st
 		gate = adm.FeatureGate()
 	}
 	session := helpers.FilterSessionUser(helpers.BuildSessionUser(ctx), gate)
-	granted := permissionListFromAny(session.Metadata["permissions"])
+	granted := []string(nil)
+	if adm != nil {
+		granted = coreadmin.ResolvedPermissionsFromAuthorizer(ctx, adm.Authorizer())
+	}
 	payload := buildPermissionDiagnosticsPayload(adm, ctx, granted)
 	payload["user"] = session
 	return payload
@@ -1967,7 +1976,7 @@ func buildPermissionDiagnosticsPayload(adm *admin.Admin, ctx context.Context, gr
 	hints := []string{}
 	if len(missing) > 0 {
 		hints = append(hints, "Grant missing permissions to the current role.")
-		hints = append(hints, "Sign out and sign back in to refresh JWT permission claims.")
+		hints = append(hints, "Reload the page after updating role assignments.")
 	}
 
 	return map[string]any{
@@ -1996,32 +2005,6 @@ func enabledModuleKeys(modules map[string]bool) []string {
 	}
 	sort.Strings(enabled)
 	return enabled
-}
-
-func permissionListFromAny(value any) []string {
-	switch typed := value.(type) {
-	case []string:
-		return dedupeSortedStrings(typed)
-	case []any:
-		out := make([]string, 0, len(typed))
-		for _, item := range typed {
-			if str, ok := item.(string); ok {
-				out = append(out, str)
-			}
-		}
-		return dedupeSortedStrings(out)
-	case string:
-		raw := strings.TrimSpace(typed)
-		if raw == "" {
-			return nil
-		}
-		parts := strings.FieldsFunc(raw, func(r rune) bool {
-			return r == ',' || r == ';' || r == ' '
-		})
-		return dedupeSortedStrings(parts)
-	default:
-		return nil
-	}
 }
 
 func isDevelopmentEnv() bool {

@@ -39,26 +39,26 @@ func TestMissingPermissionsCaseInsensitive(t *testing.T) {
 	}
 }
 
-func TestBuildPermissionDiagnosticsPayloadIncludesClaimsPermissions(t *testing.T) {
+func TestBuildPermissionDiagnosticsPayloadIncludesResolvedPermissions(t *testing.T) {
 	payload := buildPermissionDiagnosticsPayload(nil, context.Background(), []string{
 		"admin.translations.export",
 		"ADMIN.TRANSLATIONS.EXPORT",
 	})
 
-	claims, ok := payload["claims_permissions"].([]string)
+	resolved, ok := payload["claims_permissions"].([]string)
 	if !ok {
 		t.Fatalf("expected claims_permissions list, got %T", payload["claims_permissions"])
 	}
-	if len(claims) != 1 || claims[0] != "admin.translations.export" {
-		t.Fatalf("expected deduped claims_permissions, got %v", claims)
+	if len(resolved) != 1 || resolved[0] != "admin.translations.export" {
+		t.Fatalf("expected deduped resolved permissions, got %v", resolved)
 	}
 
 	granted, ok := payload["granted_permissions"].([]string)
 	if !ok {
 		t.Fatalf("expected granted_permissions list, got %T", payload["granted_permissions"])
 	}
-	if len(granted) != len(claims) || granted[0] != claims[0] {
-		t.Fatalf("expected granted_permissions to match claims_permissions, got claims=%v granted=%v", claims, granted)
+	if len(granted) != len(resolved) || granted[0] != resolved[0] {
+		t.Fatalf("expected granted_permissions to match resolved permissions, got resolved=%v granted=%v", resolved, granted)
 	}
 }
 
