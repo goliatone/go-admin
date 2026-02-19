@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
+	templateview "github.com/goliatone/go-admin/internal/templateview"
 	router "github.com/goliatone/go-router"
 	urlkit "github.com/goliatone/go-urlkit"
 )
@@ -428,7 +429,7 @@ func RegisterAdminUIRoutes[T any](r router.Router[T], cfg admin.Config, adm *adm
 		}
 		viewCtx = mergeViewContext(viewCtx, extra)
 		viewCtx = options.viewContext(viewCtx, active, c)
-		return c.Render(template, viewCtx)
+		return templateview.RenderTemplateView(c, template, viewCtx)
 	}
 	resolveAPIBase := func() string {
 		var urls urlkit.Resolver
@@ -497,6 +498,15 @@ func defaultUIViewContextBuilder(adm *admin.Admin, cfg admin.Config) UIViewConte
 		ctx = WithNav(ctx, adm, cfg, active, reqCtx)
 		ctx = WithThemeContext(ctx, adm, c)
 		ctx = withAssignedRoles(ctx, adm, reqCtx)
+		if _, ok := ctx["dashboard_ssr_path"]; !ok {
+			if adm != nil && adm.Dashboard() != nil && adm.Dashboard().HasRenderer() {
+				basePath := strings.TrimSpace(cfg.BasePath)
+				if basePath == "" {
+					basePath = "/"
+				}
+				ctx["dashboard_ssr_path"] = path.Join(basePath, "dashboard")
+			}
+		}
 		if _, ok := ctx["api_base_path"]; !ok {
 			var urls urlkit.Resolver
 			if adm != nil {
