@@ -269,13 +269,33 @@ export class ContentTypeAPIClient {
   // Block Definitions (for blocks field configuration)
   // ===========================================================================
 
+  private blockDefinitionsPanelBasePath(): string {
+    return `${this.config.basePath}/panels/block_definitions`;
+  }
+
+  private blockDefinitionsLegacyBasePath(): string {
+    return `${this.config.basePath}/block_definitions`;
+  }
+
+  private async fetchWithLegacyFallback(primaryURL: string, legacyURL: string, options: RequestInit): Promise<Response> {
+    try {
+      return await this.fetch(primaryURL, options);
+    } catch (err) {
+      if (err instanceof ContentTypeAPIError && err.status === 404) {
+        return await this.fetch(legacyURL, options);
+      }
+      throw err;
+    }
+  }
+
   /**
    * List available block definitions (summary)
    */
   async listBlockDefinitionsSummary(): Promise<BlockDefinitionSummary[]> {
-    const url = `${this.config.basePath}/block_definitions`;
+    const panelURL = this.blockDefinitionsPanelBasePath();
+    const legacyURL = this.blockDefinitionsLegacyBasePath();
     try {
-      const response = await this.fetch(url, { method: 'GET' });
+      const response = await this.fetchWithLegacyFallback(panelURL, legacyURL, { method: 'GET' });
       const data = await response.json();
       if (Array.isArray(data)) return data;
       if (data.items && Array.isArray(data.items)) return data.items;
@@ -305,10 +325,11 @@ export class ContentTypeAPIClient {
     if (params?.status) queryParams.set('filter_status', params.status);
 
     const query = queryParams.toString();
-    const url = `${this.config.basePath}/block_definitions${query ? `?${query}` : ''}`;
+    const panelURL = `${this.blockDefinitionsPanelBasePath()}${query ? `?${query}` : ''}`;
+    const legacyURL = `${this.blockDefinitionsLegacyBasePath()}${query ? `?${query}` : ''}`;
 
     try {
-      const response = await this.fetch(url, { method: 'GET' });
+      const response = await this.fetchWithLegacyFallback(panelURL, legacyURL, { method: 'GET' });
       const data = await response.json();
 
       if (Array.isArray(data)) {
@@ -331,8 +352,9 @@ export class ContentTypeAPIClient {
    * Get a single block definition by ID or type
    */
   async getBlockDefinition(idOrType: string): Promise<BlockDefinition> {
-    const url = `${this.config.basePath}/block_definitions/${encodeURIComponent(idOrType)}`;
-    const response = await this.fetch(url, { method: 'GET' });
+    const panelURL = `${this.blockDefinitionsPanelBasePath()}/${encodeURIComponent(idOrType)}`;
+    const legacyURL = `${this.blockDefinitionsLegacyBasePath()}/${encodeURIComponent(idOrType)}`;
+    const response = await this.fetchWithLegacyFallback(panelURL, legacyURL, { method: 'GET' });
     const data = await response.json();
     return data.item ?? data.data ?? data;
   }
@@ -341,8 +363,9 @@ export class ContentTypeAPIClient {
    * Create a new block definition
    */
   async createBlockDefinition(block: Partial<BlockDefinition>): Promise<BlockDefinition> {
-    const url = `${this.config.basePath}/block_definitions`;
-    const response = await this.fetch(url, {
+    const panelURL = this.blockDefinitionsPanelBasePath();
+    const legacyURL = this.blockDefinitionsLegacyBasePath();
+    const response = await this.fetchWithLegacyFallback(panelURL, legacyURL, {
       method: 'POST',
       body: JSON.stringify(block),
     });
@@ -354,8 +377,9 @@ export class ContentTypeAPIClient {
    * Update an existing block definition
    */
   async updateBlockDefinition(idOrType: string, block: Partial<BlockDefinition>): Promise<BlockDefinition> {
-    const url = `${this.config.basePath}/block_definitions/${encodeURIComponent(idOrType)}`;
-    const response = await this.fetch(url, {
+    const panelURL = `${this.blockDefinitionsPanelBasePath()}/${encodeURIComponent(idOrType)}`;
+    const legacyURL = `${this.blockDefinitionsLegacyBasePath()}/${encodeURIComponent(idOrType)}`;
+    const response = await this.fetchWithLegacyFallback(panelURL, legacyURL, {
       method: 'PUT',
       body: JSON.stringify(block),
     });
@@ -367,8 +391,9 @@ export class ContentTypeAPIClient {
    * Delete a block definition
    */
   async deleteBlockDefinition(idOrType: string): Promise<void> {
-    const url = `${this.config.basePath}/block_definitions/${encodeURIComponent(idOrType)}`;
-    await this.fetch(url, { method: 'DELETE' });
+    const panelURL = `${this.blockDefinitionsPanelBasePath()}/${encodeURIComponent(idOrType)}`;
+    const legacyURL = `${this.blockDefinitionsLegacyBasePath()}/${encodeURIComponent(idOrType)}`;
+    await this.fetchWithLegacyFallback(panelURL, legacyURL, { method: 'DELETE' });
   }
 
   /**

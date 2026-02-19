@@ -82,6 +82,9 @@ export declare class ContentTypeAPIClient {
      * Generate a preview of the schema as a rendered form
      */
     previewSchema(request: SchemaPreviewRequest): Promise<SchemaPreviewResponse>;
+    private blockDefinitionsPanelBasePath;
+    private blockDefinitionsLegacyBasePath;
+    private fetchWithLegacyFallback;
     /**
      * List available block definitions (summary)
      */
