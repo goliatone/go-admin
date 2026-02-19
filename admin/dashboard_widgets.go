@@ -85,7 +85,7 @@ func (a *Admin) registerDashboardProviders() error {
 		features,
 		func() error {
 			statsSpec := DashboardProviderSpec{
-				Code:          "admin.widget.user_stats",
+				Code:          WidgetUserStats,
 				Name:          "User Statistics",
 				DefaultArea:   "admin.dashboard.main",
 				DefaultConfig: map[string]any{"metric": "activity", "title": "Activity"},
@@ -136,7 +136,7 @@ func (a *Admin) registerDashboardProviders() error {
 			}
 
 			quickActionsSpec := DashboardProviderSpec{
-				Code:          "admin.widget.quick_actions",
+				Code:          WidgetQuickActions,
 				Name:          "Quick Actions",
 				DefaultArea:   "admin.dashboard.sidebar",
 				DefaultConfig: map[string]any{},
@@ -164,7 +164,7 @@ func (a *Admin) registerDashboardProviders() error {
 			}
 
 			chartSpec := DashboardProviderSpec{
-				Code:          "admin.widget.chart_sample",
+				Code:          WidgetChartSample,
 				Name:          "Sample Chart",
 				DefaultArea:   "admin.dashboard.main",
 				DefaultConfig: map[string]any{"title": "Weekly Totals", "type": "line"},
@@ -244,7 +244,7 @@ func (a *Admin) registerSettingsWidget() error {
 		return WidgetPayloadOf(SettingsOverviewWidgetPayload{Values: payload}), nil
 	}
 	a.dashboard.RegisterProvider(DashboardProviderSpec{
-		Code:          "admin.widget.settings_overview",
+		Code:          WidgetSettingsOverview,
 		Name:          "Settings Overview",
 		DefaultArea:   "admin.dashboard.sidebar",
 		DefaultConfig: map[string]any{"keys": []string{"admin.title", "admin.default_locale"}},
@@ -286,7 +286,7 @@ func (a *Admin) registerNotificationsWidget() error {
 		}), nil
 	}
 	a.dashboard.RegisterProvider(DashboardProviderSpec{
-		Code:          "admin.widget.notifications",
+		Code:          WidgetNotifications,
 		Name:          "Notifications",
 		DefaultArea:   "admin.dashboard.sidebar",
 		DefaultConfig: map[string]any{"limit": 5},
@@ -319,7 +319,7 @@ func (a *Admin) registerActivityWidget() error {
 		return WidgetPayloadOf(ActivityFeedWidgetPayload{Entries: entries}), nil
 	}
 	a.dashboard.RegisterProvider(DashboardProviderSpec{
-		Code:          "admin.widget.activity_feed",
+		Code:          WidgetActivityFeed,
 		Name:          "Recent Activity",
 		DefaultArea:   "admin.dashboard.main",
 		DefaultConfig: map[string]any{"limit": 5},
