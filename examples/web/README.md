@@ -107,7 +107,7 @@ Permission model for translation modules:
 - Required permission keys for translation operations:
   - Queue: `admin.translations.view`, `admin.translations.assign`, `admin.translations.edit`, `admin.translations.approve`, `admin.translations.manage`, `admin.translations.claim`
   - Exchange: `admin.translations.export`, `admin.translations.import.view`, `admin.translations.import.validate`, `admin.translations.import.apply`
-- If role permissions are changed while the app is running, sign out and sign back in to refresh JWT claims metadata.
+- If role permissions are changed while the app is running, reload the page to pick up current role assignments.
 - If using an existing DB seeded before these permissions existed, reseed roles (for example `ADMIN_SEEDS_TRUNCATE=true`) or update role permissions manually.
 
 Authz preflight (DX guardrail):
@@ -146,6 +146,7 @@ Environment toggles:
 ### API Endpoints
 
 - **Health**: `GET /admin/health`
+- **Dashboard Entry**: `GET /admin` - Redirects to `GET /admin/dashboard`
 - **Dashboard HTML** (SSR): `GET /admin/dashboard` - Server-side rendered dashboard with inline state
 - **Dashboard JSON**: `GET /admin/api/dashboard` - JSON API (backwards compatible)
 - **Navigation**: `GET /admin/api/navigation`
@@ -453,7 +454,7 @@ if err != nil {
 ```
 
 Template: `pkg/client/templates/dashboard_ssr.html`
-Renderer: `renderers/dashboard_renderer.go`
+Renderer: `quickstart/dashboard_renderer.go` (wired via `examples/web/setup/dashboard_renderer.go`)
 Hydration: `assets/src/dashboard/widget-grid.ts`
 
 ### Routes
@@ -529,7 +530,7 @@ go run . &
 curl -s http://localhost:8080/admin/api/dashboard | jq '.areas[0].widgets[0].id'
 
 # Test HTML SSR
-curl -s http://localhost:8080/admin | grep "dashboard-state"
+curl -s http://localhost:8080/admin/dashboard | grep "dashboard-state"
 
 # Test preferences persistence
 curl -s -X POST http://localhost:8080/admin/api/dashboard/preferences \
