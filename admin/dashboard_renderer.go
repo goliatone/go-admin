@@ -44,7 +44,7 @@ type ResolvedWidget struct {
 	// ID is the unique identifier for this widget instance
 	ID string `json:"id"`
 
-	// Definition is the widget type (e.g., "admin.widget.user_stats")
+	// Definition is the widget type (for example, WidgetUserStats).
 	Definition string `json:"definition"`
 
 	// Area is the area code this widget belongs to
