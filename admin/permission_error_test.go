@@ -11,8 +11,8 @@ func TestPermissionDeniedAddsTranslationHint(t *testing.T) {
 	if denied.Hint == "" {
 		t.Fatalf("expected translation permission hint")
 	}
-	if !denied.ReauthRequired {
-		t.Fatalf("expected reauth_required=true for translation permission denial")
+	if denied.ReauthRequired {
+		t.Fatalf("expected reauth_required=false for translation permission denial")
 	}
 }
 
@@ -33,7 +33,7 @@ func TestMapToGoErrorPermissionDeniedIncludesActionableMetadata(t *testing.T) {
 	if got := mapped.Metadata["hint"]; got == "" {
 		t.Fatalf("expected hint metadata, got %v", got)
 	}
-	if got := mapped.Metadata["reauth_required"]; got != true {
-		t.Fatalf("expected reauth_required=true, got %v", got)
+	if got, ok := mapped.Metadata["reauth_required"]; ok {
+		t.Fatalf("expected reauth_required to be omitted, got %v", got)
 	}
 }

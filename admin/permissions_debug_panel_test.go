@@ -26,21 +26,21 @@ func TestPermissionsDebugPanelDiagnoseRequiredStates(t *testing.T) {
 			name:      "missing grants when not in claims and denied",
 			inClaims:  false,
 			allows:    false,
-			wantDiag:  "Grant missing permission and refresh token",
+			wantDiag:  "Grant missing permission in role assignment",
 			wantState: "error",
 		},
 		{
 			name:      "claims stale when not in claims but allowed",
 			inClaims:  false,
 			allows:    true,
-			wantDiag:  "Claims payload missing permission; authorizer allows (refresh token/claims sync)",
+			wantDiag:  "Permission list missing key while authorizer allows access",
 			wantState: "warning",
 		},
 		{
 			name:      "scope mismatch when in claims but denied",
 			inClaims:  true,
 			allows:    false,
-			wantDiag:  "Scope/policy mismatch - permission in claims but authorizer denies",
+			wantDiag:  "Scope/policy mismatch - permission listed but authorizer denies",
 			wantState: "warning",
 		},
 	}
@@ -171,7 +171,7 @@ func TestPermissionsDebugPanelComputeNextActionsUsesClassifiedLists(t *testing.T
 		}
 		actions := panel.computeNextActions(snapshot)
 		joined := strings.Join(actions, "\n")
-		if !strings.Contains(joined, "Permissions missing in claims:") {
+		if !strings.Contains(joined, "Permissions missing in diagnostics list:") {
 			t.Fatalf("expected claims-stale guidance in next actions, got %v", actions)
 		}
 		if !strings.Contains(joined, "  - perm.stale") {

@@ -16,6 +16,7 @@ import (
 	router "github.com/goliatone/go-router"
 	usertypes "github.com/goliatone/go-users/pkg/types"
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/mock"
 )
 
 type stubActivityFeedQuery struct {
@@ -47,6 +48,7 @@ func TestGoAuthAuthenticatorWrapsMiddleware(t *testing.T) {
 
 	mockCtx := router.NewMockContext()
 	mockCtx.On("Context").Return(context.Background())
+	mockCtx.On("SetContext", mock.Anything).Return()
 
 	if err := authenticator.Wrap(mockCtx); err != nil {
 		t.Fatalf("wrap returned error: %v", err)

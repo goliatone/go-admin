@@ -241,6 +241,87 @@ func TestDashboardVisibilityPermissionFilters(t *testing.T) {
 	}
 }
 
+func TestSanitizeDashboardWidgetData_StripsBlockedKeysAndDocumentBlobs(t *testing.T) {
+	out := sanitizeDashboardWidgetData(map[string]any{
+		"chart_html":          "<html><body>legacy</body></html>",
+		"chart_html_fragment": "<div>legacy</div>",
+		"title":               "Safe",
+		"danger":              "<script>alert(1)</script>",
+		"nested": map[string]any{
+			"chart_html": "legacy",
+			"safe":       "ok",
+			"bad":        "<body>x</body>",
+		},
+	})
+
+	if _, exists := out["chart_html"]; exists {
+		t.Fatalf("expected chart_html to be stripped")
+	}
+	if _, exists := out["chart_html_fragment"]; exists {
+		t.Fatalf("expected chart_html_fragment to be stripped")
+	}
+	if out["danger"] != "" {
+		t.Fatalf("expected script payload to be scrubbed, got %#v", out["danger"])
+	}
+	nested, ok := out["nested"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected nested map, got %T", out["nested"])
+	}
+	if _, exists := nested["chart_html"]; exists {
+		t.Fatalf("expected nested chart_html to be stripped")
+	}
+	if nested["bad"] != "" {
+		t.Fatalf("expected nested html payload to be scrubbed")
+	}
+	if nested["safe"] != "ok" {
+		t.Fatalf("expected safe nested value preserved")
+	}
+}
+
+func TestDashboardResolve_SanitizesProviderPayload(t *testing.T) {
+	dash := NewDashboard()
+	dash.WithWidgetService(NewInMemoryWidgetService())
+	dash.RegisterArea(WidgetAreaDefinition{Code: "admin.dashboard.main"})
+	dash.RegisterProvider(DashboardProviderSpec{
+		Code:        "sanitized.widget",
+		Name:        "Sanitized",
+		DefaultArea: "admin.dashboard.main",
+		Handler: func(ctx AdminContext, cfg map[string]any) (map[string]any, error) {
+			_ = ctx
+			_ = cfg
+			return map[string]any{
+				"chart_html":        "<html><body>bad</body></html>",
+				"chart_options":     map[string]any{"series": []any{}},
+				"footer_note":       "<script>alert('x')</script>",
+				"subtitle":          "ok",
+				"chart_assets_host": "/dashboard/assets/echarts/",
+			}, nil
+		},
+	})
+
+	widgets, err := dash.Resolve(AdminContext{Context: context.Background(), Locale: "en"})
+	if err != nil {
+		t.Fatalf("resolve failed: %v", err)
+	}
+	if len(widgets) != 1 {
+		t.Fatalf("expected one widget, got %d", len(widgets))
+	}
+
+	data, ok := widgets[0]["data"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected widget data map, got %T", widgets[0]["data"])
+	}
+	if _, exists := data["chart_html"]; exists {
+		t.Fatalf("expected chart_html stripped from resolved widget payload")
+	}
+	if data["footer_note"] != "" {
+		t.Fatalf("expected script-like footer_note scrubbed, got %#v", data["footer_note"])
+	}
+	if _, ok := data["chart_options"].(map[string]any); !ok {
+		t.Fatalf("expected chart_options preserved in sanitized payload")
+	}
+}
+
 func TestDashboardConfigRoutePersistsLayoutPerUser(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
