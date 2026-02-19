@@ -2,6 +2,7 @@ package admin
 
 import (
 	"github.com/goliatone/go-admin/internal/primitives"
+	templateview "github.com/goliatone/go-admin/internal/templateview"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -269,7 +270,7 @@ func (a *Admin) registerDebugDashboardRoutes() error {
 				"slow_query_threshold_ms": cfg.SlowQueryThreshold.Milliseconds(),
 			}
 			viewCtx = buildDebugViewContext(a, cfg, c, viewCtx)
-			return c.Render(debugPageTemplate(cfg, c), viewCtx)
+			return templateview.RenderTemplateView(c, debugPageTemplate(cfg, c), viewCtx)
 		}
 		if access != nil {
 			a.router.Get(debugPath, handler, access)
