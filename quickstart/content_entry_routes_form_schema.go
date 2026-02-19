@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
+	templateview "github.com/goliatone/go-admin/internal/templateview"
 	goerrors "github.com/goliatone/go-errors"
 	formgenrender "github.com/goliatone/go-formgen/pkg/render"
 	router "github.com/goliatone/go-router"
@@ -1025,19 +1026,19 @@ func (h *contentEntryHandlers) renderTemplate(c router.Context, panelSlug string
 	}
 	customTemplate := contentEntryPanelTemplate(panelSlug, fallbackTemplate)
 	if customTemplate == "" || customTemplate == fallbackTemplate {
-		return c.Render(fallbackTemplate, viewCtx)
+		return templateview.RenderTemplateView(c, fallbackTemplate, viewCtx)
 	}
 	if h.templateExists != nil {
 		if h.templateExists(customTemplate) {
-			return c.Render(customTemplate, viewCtx)
+			return templateview.RenderTemplateView(c, customTemplate, viewCtx)
 		}
-		return c.Render(fallbackTemplate, viewCtx)
+		return templateview.RenderTemplateView(c, fallbackTemplate, viewCtx)
 	}
-	if err := c.Render(customTemplate, viewCtx); err != nil {
+	if err := templateview.RenderTemplateView(c, customTemplate, viewCtx); err != nil {
 		if !isTemplateResolutionError(err) {
 			return err
 		}
-		return c.Render(fallbackTemplate, viewCtx)
+		return templateview.RenderTemplateView(c, fallbackTemplate, viewCtx)
 	}
 	return nil
 }
