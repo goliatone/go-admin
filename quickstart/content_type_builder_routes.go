@@ -223,6 +223,7 @@ func RegisterContentTypeBuilderAPIRoutes[T any](
 	r.Post(path.Join(apiBase, "block_definitions", ":id", "clone"), wrap(handlers.CloneBlockDefinition))
 	r.Get(path.Join(apiBase, "block_definitions", ":id", "versions"), wrap(handlers.BlockDefinitionVersions))
 	r.Get(path.Join(apiBase, "block_definitions", "categories"), wrap(handlers.BlockDefinitionCategories))
+	r.Get(path.Join(apiBase, "block_definitions", "diagnostics"), wrap(handlers.BlockDefinitionDiagnostics))
 	r.Get(path.Join(apiBase, "block_definitions", "field_types"), wrap(handlers.BlockDefinitionFieldTypes))
 	return nil
 }
@@ -726,6 +727,72 @@ func (h *contentTypeBuilderHandlers) BlockDefinitionFieldTypes(c router.Context)
 	})
 }
 
+func (h *contentTypeBuilderHandlers) BlockDefinitionDiagnostics(c router.Context) error {
+	if err := h.guard(c, "read"); err != nil {
+		return err
+	}
+
+	requested := strings.ToLower(strings.TrimSpace(resolveEnvironment(c)))
+	effective := normalizeEnvironmentKey(requested)
+	response := map[string]any{
+		"effective_environment": effective,
+		"requested_environment": requested,
+		"total_effective":       0,
+		"total_default":         0,
+		"available_environments": []string{
+			defaultEnvironmentKey,
+		},
+	}
+	if h.contentSvc == nil {
+		return c.JSON(http.StatusOK, response)
+	}
+
+	defaultDefs, defaultErr := h.contentSvc.BlockDefinitions(admin.WithEnvironment(context.Background(), defaultEnvironmentKey))
+	effectiveDefs := defaultDefs
+	effectiveErr := defaultErr
+	if effective != defaultEnvironmentKey {
+		effectiveDefs, effectiveErr = h.contentSvc.BlockDefinitions(admin.WithEnvironment(context.Background(), effective))
+	}
+	if defaultErr != nil || effectiveErr != nil {
+		return c.JSON(http.StatusOK, response)
+	}
+
+	envSet := map[string]struct{}{
+		defaultEnvironmentKey: {},
+		effective:             {},
+	}
+	addEnv := func(defs []admin.CMSBlockDefinition, fallback string) {
+		for _, def := range defs {
+			env := normalizeEnvironmentKey(def.Environment)
+			if env == defaultEnvironmentKey && strings.TrimSpace(def.Environment) == "" {
+				env = normalizeEnvironmentKey(fallback)
+			}
+			envSet[env] = struct{}{}
+		}
+	}
+	addEnv(defaultDefs, defaultEnvironmentKey)
+	addEnv(effectiveDefs, effective)
+
+	available := make([]string, 0, len(envSet))
+	for env := range envSet {
+		available = append(available, env)
+	}
+	sort.Strings(available)
+	if len(available) > 1 {
+		for i, env := range available {
+			if env == defaultEnvironmentKey {
+				available[0], available[i] = available[i], available[0]
+				break
+			}
+		}
+	}
+
+	response["total_effective"] = len(effectiveDefs)
+	response["total_default"] = len(defaultDefs)
+	response["available_environments"] = available
+	return c.JSON(http.StatusOK, response)
+}
+
 func (h *contentTypeBuilderHandlers) UpdateEnvironment(c router.Context) error {
 	if err := h.guard(c, "read"); err != nil {
 		return err
@@ -781,7 +848,11 @@ func (h *contentTypeBuilderHandlers) listPanelRecords(c router.Context, panelNam
 		filters["status"] = status
 	}
 	adminCtx := adminContextFromRequest(c, h.cfg.DefaultLocale)
-	if env := resolveEnvironment(c); env != "" {
+	env := resolveEnvironment(c)
+	if strings.EqualFold(strings.TrimSpace(panelName), "block_definitions") {
+		env = normalizeEnvironmentKey(env)
+	}
+	if env != "" {
 		filters["environment"] = env
 	}
 	opts := admin.ListOptions{
@@ -2132,6 +2203,9 @@ func resolveEnvironment(c router.Context) string {
 		return env
 	}
 	if env := strings.TrimSpace(c.Header("X-Environment")); env != "" {
+		return env
+	}
+	if env := strings.TrimSpace(c.Cookies(environmentCookieName)); env != "" {
 		return env
 	}
 	return ""

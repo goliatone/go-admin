@@ -33,3 +33,22 @@ func TestUpdateEnvironmentSetsCookieAndResolve(t *testing.T) {
 		t.Fatalf("expected resolveEnvironment to use explicit query env, got %q", env)
 	}
 }
+
+func TestResolveEnvironmentFallsBackToCookie(t *testing.T) {
+	ctx := router.NewMockContext()
+	ctx.CookiesM[environmentCookieName] = "preview"
+
+	if env := resolveEnvironment(ctx); env != "preview" {
+		t.Fatalf("expected cookie fallback environment, got %q", env)
+	}
+}
+
+func TestResolveEnvironmentPrefersQueryOverCookie(t *testing.T) {
+	ctx := router.NewMockContext()
+	ctx.CookiesM[environmentCookieName] = "preview"
+	ctx.QueriesM["env"] = "staging"
+
+	if env := resolveEnvironment(ctx); env != "staging" {
+		t.Fatalf("expected query env precedence, got %q", env)
+	}
+}
