@@ -46,7 +46,6 @@ interface BlockLibraryIDEState {
 
 const DEFAULT_BLOCK_CATEGORIES = ['content', 'media', 'layout', 'interactive', 'custom'];
 const DEFAULT_ENVIRONMENT_KEY = 'default';
-const ENV_ADVANCED_STORAGE_KEY = 'block-library-env-advanced-mode';
 
 // =============================================================================
 // Block Library IDE
@@ -94,12 +93,11 @@ export class BlockLibraryIDE {
 
   // Environment (Phase 12 — Tasks 12.2 + 12.3)
   private envSelectEl: HTMLSelectElement | null = null;
-  private envStatusEl: HTMLElement | null = null;
   private envResetBtn: HTMLButtonElement | null = null;
-  private envAdvancedToggleBtn: HTMLButtonElement | null = null;
+  private envAddBtn: HTMLButtonElement | null = null;
+  private backToContentTypesLink: HTMLAnchorElement | null = null;
   private currentEnvironment: string = DEFAULT_ENVIRONMENT_KEY;
   private availableEnvironments: string[] = [DEFAULT_ENVIRONMENT_KEY];
-  private envAdvancedMode: boolean = false;
   private envDiagnostics: BlockDefinitionsDiagnostics | null = null;
 
   constructor(root: HTMLElement) {
@@ -465,16 +463,12 @@ export class BlockLibraryIDE {
     this.currentEnvironment = this.normalizeEnvironment(envFromUrl);
     this.api.setEnvironment(this.currentEnvironment);
 
-    this.envAdvancedMode = this.readEnvironmentAdvancedMode();
     this.refreshEnvironmentOptions();
     this.updateEnvironmentStatus();
+    this.updateBackLink();
 
     this.envSelectEl?.addEventListener('change', () => {
       const value = this.envSelectEl?.value ?? DEFAULT_ENVIRONMENT_KEY;
-      if (value === '__add__') {
-        this.promptForEnvironment();
-        return;
-      }
       this.setEnvironment(value);
     });
 
@@ -482,8 +476,8 @@ export class BlockLibraryIDE {
       this.setEnvironment(DEFAULT_ENVIRONMENT_KEY);
     });
 
-    this.envAdvancedToggleBtn?.addEventListener('click', () => {
-      this.toggleEnvironmentAdvancedMode();
+    this.envAddBtn?.addEventListener('click', () => {
+      this.promptForEnvironment();
     });
 
     this.api.setEnvironmentSession(this.currentEnvironment).catch(() => {
@@ -560,29 +554,6 @@ export class BlockLibraryIDE {
     return env || DEFAULT_ENVIRONMENT_KEY;
   }
 
-  private readEnvironmentAdvancedMode(): boolean {
-    try {
-      return sessionStorage.getItem(ENV_ADVANCED_STORAGE_KEY) === '1';
-    } catch {
-      return false;
-    }
-  }
-
-  private persistEnvironmentAdvancedMode(): void {
-    try {
-      sessionStorage.setItem(ENV_ADVANCED_STORAGE_KEY, this.envAdvancedMode ? '1' : '0');
-    } catch {
-      // Ignore storage errors
-    }
-  }
-
-  private toggleEnvironmentAdvancedMode(): void {
-    this.envAdvancedMode = !this.envAdvancedMode;
-    this.persistEnvironmentAdvancedMode();
-    this.refreshEnvironmentOptions();
-    this.updateEnvironmentStatus();
-  }
-
   private refreshEnvironmentOptions(): void {
     if (!this.envSelectEl) return;
 
@@ -606,12 +577,6 @@ export class BlockLibraryIDE {
       option.textContent = this.environmentLabel(env);
       this.envSelectEl.appendChild(option);
     }
-    if (this.envAdvancedMode) {
-      const addOption = document.createElement('option');
-      addOption.value = '__add__';
-      addOption.textContent = 'Add environment...';
-      this.envSelectEl.appendChild(addOption);
-    }
     this.envSelectEl.value = current;
   }
 
@@ -632,23 +597,22 @@ export class BlockLibraryIDE {
     const env = this.normalizeEnvironment(this.currentEnvironment);
     const isDefault = env === DEFAULT_ENVIRONMENT_KEY;
 
-    if (this.envStatusEl) {
-      this.envStatusEl.textContent = isDefault ? 'Default Environment' : `Environment: ${env}`;
-      this.envStatusEl.className = isDefault
-        ? 'inline-flex items-center rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 text-[11px] font-semibold'
-        : 'inline-flex items-center rounded-full bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 text-[11px] font-semibold';
-    }
-
     if (this.envResetBtn) {
       this.envResetBtn.classList.toggle('hidden', isDefault);
     }
 
-    if (this.envAdvancedToggleBtn) {
-      this.envAdvancedToggleBtn.textContent = this.envAdvancedMode ? 'Advanced: On' : 'Advanced: Off';
-      this.envAdvancedToggleBtn.setAttribute('aria-pressed', this.envAdvancedMode ? 'true' : 'false');
-      this.envAdvancedToggleBtn.className = this.envAdvancedMode
-        ? 'inline-flex items-center px-2 py-1 rounded border border-indigo-300 text-indigo-700 text-[11px] font-semibold hover:bg-indigo-50 transition-colors'
-        : 'inline-flex items-center px-2 py-1 rounded border border-gray-200 text-gray-500 text-[11px] font-semibold hover:bg-gray-100 transition-colors';
+    this.updateBackLink();
+  }
+
+  private updateBackLink(): void {
+    if (!this.backToContentTypesLink) return;
+    const env = this.normalizeEnvironment(this.currentEnvironment);
+    const basePath = this.root.dataset.basePath || '';
+    const baseUrl = `${basePath}/content/types`;
+    if (env && env !== DEFAULT_ENVIRONMENT_KEY) {
+      this.backToContentTypesLink.href = `${baseUrl}?env=${encodeURIComponent(env)}`;
+    } else {
+      this.backToContentTypesLink.href = baseUrl;
     }
   }
 
@@ -728,9 +692,9 @@ export class BlockLibraryIDE {
     // Sidebar toggle and env selector may be outside root (in the header)
     this.sidebarToggleBtn = document.querySelector('[data-block-ide-sidebar-toggle]');
     this.envSelectEl = document.querySelector('[data-block-ide-env]');
-    this.envStatusEl = document.querySelector('[data-block-ide-env-status]');
     this.envResetBtn = document.querySelector('[data-block-ide-env-reset]');
-    this.envAdvancedToggleBtn = document.querySelector('[data-block-ide-env-advanced-toggle]');
+    this.envAddBtn = document.querySelector('[data-block-ide-env-add]');
+    this.backToContentTypesLink = document.querySelector('[data-back-to-content-types]');
   }
 
   private bindEvents(): void {
@@ -979,10 +943,15 @@ export class BlockLibraryIDE {
 
     if (this.state.error) {
       this.listEl.innerHTML = `
-        <div class="px-4 py-6 text-center">
-          <p class="text-sm text-red-500">${esc(this.state.error)}</p>
+        <div class="mx-4 my-6 rounded-md border border-red-200 bg-red-50 px-3 py-3 dark:border-red-800/70 dark:bg-red-900/20">
+          <div class="flex items-start gap-2">
+            <svg class="mt-0.5 h-4 w-4 flex-shrink-0 text-red-500 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <p class="text-xs text-red-700 dark:text-red-300">${esc(this.state.error)}</p>
+          </div>
           <button type="button" data-block-ide-retry
-                  class="mt-2 text-xs text-blue-600 hover:text-blue-700">
+                  class="mt-2 ml-6 text-xs font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300">
             Retry
           </button>
         </div>`;

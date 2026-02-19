@@ -6,8 +6,8 @@ import { WidgetGrid } from './widget-grid.js';
 import { WidgetRenderer } from './widget-renderer.js';
 import type { Widget, AdminDashboardConfig, DashboardResponse } from './types.js';
 
-/** Track executed chart scripts to prevent redeclaration errors */
-const executedChartScripts = new Set<string>();
+const chartScriptCache = new Map<string, Promise<void>>();
+const chartResizeObservers = new WeakMap<HTMLElement, ResizeObserver>();
 
 /**
  * Initialize the admin dashboard
@@ -39,8 +39,7 @@ export async function initAdminDashboard(config: AdminDashboardConfig): Promise<
     }
   }
 
-  // Execute chart scripts (deduplicated)
-  executeChartScripts();
+  await hydrateCharts();
 
   // Initialize widget grid with drag & drop
   const grid = new WidgetGrid({
@@ -64,6 +63,7 @@ export async function initAdminDashboard(config: AdminDashboardConfig): Promise<
   });
 
   await grid.init();
+  await hydrateCharts();
 }
 
 /**
@@ -80,24 +80,98 @@ function groupWidgetsByArea(widgets: Widget[]): Record<string, Widget[]> {
   }, {} as Record<string, Widget[]>);
 }
 
-/**
- * Execute chart scripts from rendered widgets (deduplicated)
- */
-function executeChartScripts(): void {
-  document.querySelectorAll('.chart-container script').forEach(script => {
-    const scriptEl = script as HTMLScriptElement;
-    const key = scriptEl.src || script.textContent || '';
-    if (executedChartScripts.has(key)) return;
-    executedChartScripts.add(key);
+function normalizeChartAssetsHost(rawHost: string): string {
+  const trimmed = (rawHost || '').trim();
+  if (!trimmed) {
+    return '/dashboard/assets/echarts/';
+  }
+  return trimmed.endsWith('/') ? trimmed : `${trimmed}/`;
+}
 
-    const newScript = document.createElement('script');
-    if (scriptEl.src) {
-      newScript.src = scriptEl.src;
-    } else {
-      newScript.textContent = script.textContent;
-    }
-    document.body.appendChild(newScript);
+function ensureScript(src: string): Promise<void> {
+  if (!src) {
+    return Promise.resolve();
+  }
+  if (chartScriptCache.has(src)) {
+    return chartScriptCache.get(src)!;
+  }
+  const existing = document.querySelector(`script[src="${src}"]`) as HTMLScriptElement | null;
+  if (existing) {
+    const done = Promise.resolve();
+    chartScriptCache.set(src, done);
+    return done;
+  }
+  const pending = new Promise<void>((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = src;
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error(`Failed to load chart asset: ${src}`));
+    document.head.appendChild(script);
   });
+  chartScriptCache.set(src, pending);
+  return pending;
+}
+
+async function ensureEChartsAssets(theme: string, assetsHost: string): Promise<void> {
+  const host = normalizeChartAssetsHost(assetsHost);
+  await ensureScript(`${host}echarts.min.js`);
+  if (theme && theme !== 'default') {
+    await ensureScript(`${host}themes/${theme}.js`);
+  }
+}
+
+function parseChartOptions(container: HTMLElement): Record<string, any> | null {
+  const payloadEl = container.querySelector('script[data-chart-options]');
+  if (!payloadEl?.textContent) {
+    return null;
+  }
+  try {
+    return JSON.parse(payloadEl.textContent);
+  } catch (error) {
+    console.error('[admin-dashboard] Failed to parse chart options', error);
+    return null;
+  }
+}
+
+function mountChart(container: HTMLElement): void {
+  const targetId = (container.dataset.chartId || '').trim();
+  const theme = (container.dataset.chartTheme || 'westeros').trim();
+  const options = parseChartOptions(container);
+  const target = targetId ? document.getElementById(targetId) : null;
+  const echarts = (window as any).echarts;
+  if (!target || !options || !echarts) {
+    return;
+  }
+
+  const chart = echarts.getInstanceByDom(target) || echarts.init(target, theme, { renderer: 'canvas' });
+  chart.setOption(options, true);
+
+  if (!chartResizeObservers.has(container) && window.ResizeObserver) {
+    const observer = new ResizeObserver(() => {
+      try {
+        chart.resize();
+      } catch (resizeError) {
+        console.warn('[admin-dashboard] Chart resize failed', resizeError);
+      }
+    });
+    observer.observe(target);
+    chartResizeObservers.set(container, observer);
+  }
+}
+
+async function hydrateCharts(): Promise<void> {
+  const containers = Array.from(document.querySelectorAll<HTMLElement>('[data-echart-widget]'));
+  for (const container of containers) {
+    const theme = (container.dataset.chartTheme || 'westeros').trim();
+    const assetsHost = container.dataset.chartAssetsHost || '';
+    try {
+      await ensureEChartsAssets(theme, assetsHost);
+      mountChart(container);
+    } catch (error) {
+      console.error('[admin-dashboard] Failed to hydrate chart widget', error);
+    }
+  }
 }
 
 /**

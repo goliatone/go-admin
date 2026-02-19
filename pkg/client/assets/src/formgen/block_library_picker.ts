@@ -90,6 +90,14 @@ function blockSlugAliases(value: string): string[] {
   ]));
 }
 
+function escapeHTML(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 type PickerAPIBase = {
   listBase: string;
   templatesBase: string;
@@ -141,9 +149,25 @@ function renderPickerLoadError(root: HTMLElement, message: string): void {
   const node = document.createElement('div');
   node.setAttribute('data-picker-load-error', 'true');
   node.className =
-    'mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 ' +
-    'dark:border-red-800/70 dark:bg-red-900/20 dark:text-red-300';
-  node.textContent = message;
+    'mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-3 ' +
+    'dark:border-red-800/70 dark:bg-red-900/20';
+  node.innerHTML = `
+    <div class="flex items-start gap-2">
+      <svg class="mt-0.5 h-4 w-4 flex-shrink-0 text-red-500 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+      </svg>
+      <p class="text-xs text-red-700 dark:text-red-300">${escapeHTML(message)}</p>
+    </div>
+    <button type="button" data-picker-retry
+            class="mt-2 ml-6 text-xs font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300">
+      Retry
+    </button>
+  `;
+  const retryBtn = node.querySelector('[data-picker-retry]');
+  retryBtn?.addEventListener('click', () => {
+    node.remove();
+    initPicker(root);
+  });
   root.prepend(node);
 }
 

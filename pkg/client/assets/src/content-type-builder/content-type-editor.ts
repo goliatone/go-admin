@@ -74,6 +74,10 @@ export class ContentTypeEditor {
     this.container = container;
     this.config = config;
     this.api = new ContentTypeAPIClient({ basePath: config.apiBasePath });
+    const configuredEnvironment = this.normalizeEnvironment(config.environment);
+    if (configuredEnvironment) {
+      this.api.setEnvironment(configuredEnvironment);
+    }
     this.state = {
       contentType: null,
       fields: [],
@@ -89,6 +93,11 @@ export class ContentTypeEditor {
       originalSchema: null,
       initialFieldsSignature: '',
     };
+  }
+
+  private normalizeEnvironment(value?: string): string {
+    const normalized = String(value ?? '').trim().toLowerCase();
+    return normalized;
   }
 
   /**
@@ -1205,6 +1214,18 @@ export class ContentTypeEditor {
         return;
       }
 
+      // Retry loading blocks for field
+      const blocksRetry = target.closest<HTMLElement>('[data-ct-blocks-retry]');
+      if (blocksRetry) {
+        const fieldId = blocksRetry.dataset.ctBlocksRetry!;
+        const field = this.state.fields.find((f) => f.id === fieldId);
+        if (field) {
+          this.cachedBlocks = null;
+          this.loadBlocksForField(field);
+        }
+        return;
+      }
+
       // Field toggle (expand/collapse for inline blocks)
       const fieldToggle = target.closest<HTMLElement>('[data-field-toggle]');
       if (fieldToggle && !target.closest('button')) {
@@ -1953,8 +1974,17 @@ export class ContentTypeEditor {
     );
     if (!container) return;
     container.innerHTML = `
-      <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-800/70 dark:bg-red-900/20 dark:text-red-300">
-        ${escapeHtml(message)}
+      <div class="rounded-md border border-red-200 bg-red-50 px-3 py-3 dark:border-red-800/70 dark:bg-red-900/20">
+        <div class="flex items-start gap-2">
+          <svg class="mt-0.5 h-4 w-4 flex-shrink-0 text-red-500 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          <p class="text-xs text-red-700 dark:text-red-300">${escapeHtml(message)}</p>
+        </div>
+        <button type="button" data-ct-blocks-retry="${escapeHtml(fieldID)}"
+                class="mt-2 ml-6 text-xs font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300">
+          Retry
+        </button>
       </div>
     `;
   }

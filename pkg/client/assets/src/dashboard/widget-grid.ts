@@ -70,6 +70,7 @@ export class WidgetGrid {
 
     // Hydration mode: widgets already rendered by server
     // Just attach behaviors to existing DOM elements
+    this.normalizeRenderedWidgetSpans();
     this.attachEventListeners();
     this.initializeDragDrop();
 
@@ -80,16 +81,34 @@ export class WidgetGrid {
   }
 
   private validateHydration(serverState: any): void {
-    // Optional: Verify server-rendered state matches expected layout
-    // This helps detect hydration mismatches during development
-    if (serverState.areas) {
-      const renderedAreas = this.container?.querySelectorAll('[data-area-code]');
-      if (renderedAreas && renderedAreas.length !== serverState.areas.length) {
-        console.warn('Hydration mismatch: area count does not match', {
-          server: serverState.areas.length,
-          dom: renderedAreas.length,
-        });
-      }
+    if (!Array.isArray(serverState?.areas) || !this.container) {
+      return;
+    }
+
+    // Compare area grid containers only; widgets may also carry area metadata.
+    const renderedAreaCodes = Array.from(
+      this.container.querySelectorAll<HTMLElement>('[data-widgets-grid][data-area-grid]')
+    )
+      .map((node) => node.dataset.areaGrid || node.dataset.areaCode || '')
+      .filter((code): code is string => Boolean(code));
+
+    if (renderedAreaCodes.length === 0) {
+      return;
+    }
+
+    const serverAreaCodes = new Set(
+      serverState.areas
+        .map((area: any) => area?.code || area?.area_code || area?.id || '')
+        .filter((code: unknown): code is string => typeof code === 'string' && code.length > 0)
+    );
+
+    const missingFromServer = renderedAreaCodes.filter((code) => !serverAreaCodes.has(code));
+    if (missingFromServer.length > 0) {
+      console.warn('Hydration mismatch: rendered area(s) missing from server state', {
+        missing: missingFromServer,
+        server: Array.from(serverAreaCodes),
+        dom: renderedAreaCodes,
+      });
     }
   }
 
@@ -123,6 +142,25 @@ export class WidgetGrid {
     });
   }
 
+  private normalizeRenderedWidgetSpans(): void {
+    if (!this.container) return;
+
+    this.container.querySelectorAll<HTMLElement>('[data-widget]').forEach((widget) => {
+      const span = this.normalizeSpan(widget.dataset.span);
+      widget.dataset.span = span.toString();
+      widget.style.setProperty('--span', span.toString());
+    });
+  }
+
+  private normalizeSpan(value: unknown): number {
+    const parsed = Number.parseInt(String(value ?? ''), 10);
+    const fallback = Math.min(Math.max(this.config.defaultSpan, 1), this.config.maxColumns);
+    if (!Number.isFinite(parsed) || parsed < 1 || parsed > this.config.maxColumns) {
+      return fallback;
+    }
+    return parsed;
+  }
+
   private attachEventListeners(): void {
     if (!this.container) return;
 
@@ -148,7 +186,7 @@ export class WidgetGrid {
       if (resizeBtn) {
         const widget = resizeBtn.closest<HTMLElement>('[data-widget]');
         if (widget) {
-          const currentSpan = parseInt(widget.dataset.span || `${this.config.defaultSpan}`, 10);
+          const currentSpan = this.normalizeSpan(widget.dataset.span);
           const newSpan = this.behaviors.resize.toggleWidth(widget, currentSpan, this.config.maxColumns);
 
           // Update button text
@@ -167,7 +205,7 @@ export class WidgetGrid {
     this.container.querySelectorAll<HTMLElement>(this.config.selectors.resizeBtn!).forEach(btn => {
       const widget = btn.closest<HTMLElement>('[data-widget]');
       if (widget) {
-        const span = parseInt(widget.dataset.span || `${this.config.defaultSpan}`, 10);
+        const span = this.normalizeSpan(widget.dataset.span);
         const btnText = span === this.config.maxColumns ? 'Half Width' : 'Full Width';
         const textNode = Array.from(btn.childNodes).find(node => node.nodeType === Node.TEXT_NODE);
         if (textNode) {
@@ -235,7 +273,7 @@ export class WidgetGrid {
 
     widgets.forEach(widget => {
       const widgetId = widget.dataset.widget!;
-      const span = parseInt(widget.dataset.span || `${this.config.defaultSpan}`, 10);
+      const span = this.normalizeSpan(widget.dataset.span);
 
       if (currentRowWidth + span > this.config.maxColumns && currentRowWidth > 0) {
         rows.push({ widgets: currentRow });

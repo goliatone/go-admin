@@ -24,5 +24,7 @@ export declare class WidgetRenderer {
      * Format number with locale
      */
     private formatNumber;
+    private formatStatusLabel;
+    private normalizeSpan;
 }
 //# sourceMappingURL=widget-renderer.d.ts.map

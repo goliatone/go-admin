@@ -11,6 +11,7 @@ const WIDGET_TITLES: WidgetTitleMap = {
   'admin.widget.quick_actions': 'Quick Actions',
   'admin.widget.notifications': 'Notifications',
   'admin.widget.settings_overview': 'Settings Overview',
+  'admin.widget.translation_progress': 'Translation Progress',
   'admin.widget.content_stats': 'Content Stats',
   'admin.widget.storage_stats': 'Storage Stats',
   'admin.widget.system_health': 'System Health',
@@ -20,6 +21,14 @@ const WIDGET_TITLES: WidgetTitleMap = {
   'admin.widget.gauge_chart': 'Gauge',
   'admin.widget.scatter_chart': 'Scatter Chart',
 };
+
+const CHART_WIDGET_DEFINITIONS = new Set([
+  'admin.widget.bar_chart',
+  'admin.widget.line_chart',
+  'admin.widget.pie_chart',
+  'admin.widget.gauge_chart',
+  'admin.widget.scatter_chart',
+]);
 
 /**
  * Renders dashboard widgets to HTML strings
@@ -36,7 +45,7 @@ export class WidgetRenderer {
    */
   render(widget: Widget, areaCode: string): string {
     const areaResizable = areaCode === 'admin.dashboard.main' || areaCode === 'admin.dashboard.footer';
-    const span = widget.metadata?.layout?.width || widget.span || 12;
+    const span = this.normalizeSpan(widget.metadata?.layout?.width ?? widget.span);
     const hidden = widget.hidden || false;
     const title = widget.data?.title || widget.config?.title || this.getTitle(widget.definition);
     const widgetId = widget.id || widget.definition || `widget-${Math.random().toString(36).substr(2, 9)}`;
@@ -83,10 +92,10 @@ export class WidgetRenderer {
 
     // User stats widget
     if (def === 'admin.widget.user_stats') {
-      const values: Record<string, unknown> = data.values || {
-        Total: data.total,
-        Active: data.active,
-        'New Today': data.new_today,
+      const values: Record<string, unknown> = {
+        Total: data.total ?? 0,
+        Active: data.active ?? 0,
+        'New Today': data.new_today ?? 0,
       };
       if (data.trend) {
         values.Trend = data.trend;
@@ -100,6 +109,25 @@ export class WidgetRenderer {
             </div>
           `).join('')}
         </div>
+      `;
+    }
+
+    // User profile overview widget
+    if (def === 'admin.widget.user_profile_overview') {
+      const values = data.values || {};
+      const entries = Object.entries(values);
+      if (entries.length === 0) {
+        return '<p class="text-gray-500">No profile data to display</p>';
+      }
+      return `
+        <dl class="space-y-2">
+          ${entries.map(([key, val]) => `
+            <div class="flex items-start justify-between gap-4">
+              <dt class="text-sm text-gray-600">${key}</dt>
+              <dd class="text-sm font-semibold text-gray-900">${val ?? '—'}</dd>
+            </div>
+          `).join('')}
+        </dl>
       `;
     }
 
@@ -260,13 +288,138 @@ export class WidgetRenderer {
       `;
     }
 
-    // Chart widgets (bar, line, pie, gauge, scatter)
-    if (def.includes('_chart') && data.chart_html) {
+    // Translation progress widget
+    if (def === 'admin.widget.translation_progress') {
+      const summary = data.summary || {};
+      const statusCounts: Record<string, unknown> = data.status_counts || {};
+      const localeCounts: Record<string, unknown> = data.locale_counts || {};
+      const links = Array.isArray(data.links) ? data.links : [];
+      const overdueCount = Number(summary.overdue || 0);
+      const updatedAt = data.updated_at ? String(data.updated_at) : '';
+
+      const statusBadge = (statusRaw: string, count: unknown): string => {
+        const status = String(statusRaw || '').trim().toLowerCase();
+        let toneClass = 'bg-gray-100 text-gray-800';
+        let dotClass = 'bg-gray-500';
+        if (status === 'pending') {
+          toneClass = 'bg-yellow-100 text-yellow-800';
+          dotClass = 'bg-yellow-500';
+        } else if (status === 'in_progress') {
+          toneClass = 'bg-blue-100 text-blue-800';
+          dotClass = 'bg-blue-500';
+        } else if (status === 'review') {
+          toneClass = 'bg-purple-100 text-purple-800';
+          dotClass = 'bg-purple-500';
+        } else if (status === 'approved' || status === 'completed') {
+          toneClass = 'bg-green-100 text-green-800';
+          dotClass = 'bg-green-500';
+        } else if (status === 'rejected') {
+          toneClass = 'bg-red-100 text-red-800';
+          dotClass = 'bg-red-500';
+        }
+        const label = this.formatStatusLabel(statusRaw);
+        return `
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${toneClass}">
+            <span class="w-1.5 h-1.5 rounded-full ${dotClass}"></span>
+            ${label}: ${this.formatNumber(count)}
+          </span>
+        `;
+      };
+
+      return `
+        <div class="grid grid-cols-3 gap-3 mb-4">
+          <div class="bg-gray-50 rounded-lg p-3 text-center">
+            <div class="text-2xl font-bold text-gray-900">${this.formatNumber(summary.total || 0)}</div>
+            <div class="text-xs text-gray-500 uppercase tracking-wide">Total</div>
+          </div>
+          <div class="bg-blue-50 rounded-lg p-3 text-center">
+            <div class="text-2xl font-bold text-blue-700">${this.formatNumber(summary.active || 0)}</div>
+            <div class="text-xs text-blue-600 uppercase tracking-wide">Active</div>
+          </div>
+          <div class="bg-purple-50 rounded-lg p-3 text-center">
+            <div class="text-2xl font-bold text-purple-700">${this.formatNumber(summary.review || 0)}</div>
+            <div class="text-xs text-purple-600 uppercase tracking-wide">Review</div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 mb-4">
+          <div class="${overdueCount > 0 ? 'bg-red-50' : 'bg-gray-50'} rounded-lg p-2 text-center">
+            <div class="text-lg font-bold ${overdueCount > 0 ? 'text-red-700' : 'text-gray-600'}">
+              ${this.formatNumber(overdueCount)}
+            </div>
+            <div class="text-xs ${overdueCount > 0 ? 'text-red-600' : 'text-gray-500'} uppercase tracking-wide">Overdue</div>
+          </div>
+          <div class="bg-green-50 rounded-lg p-2 text-center">
+            <div class="text-lg font-bold text-green-700">${this.formatNumber(summary.approved || 0)}</div>
+            <div class="text-xs text-green-600 uppercase tracking-wide">Approved</div>
+          </div>
+        </div>
+
+        ${Object.keys(statusCounts).length > 0 ? `
+          <div class="mb-4 pt-3 border-t border-gray-100">
+            <div class="text-xs text-gray-500 uppercase tracking-wide mb-2">By Status</div>
+            <div class="flex flex-wrap gap-2">
+              ${Object.entries(statusCounts).map(([status, count]) => statusBadge(status, count)).join('')}
+            </div>
+          </div>
+        ` : ''}
+
+        ${Object.keys(localeCounts).length > 0 ? `
+          <div class="mb-4 pt-3 border-t border-gray-100">
+            <div class="text-xs text-gray-500 uppercase tracking-wide mb-2">By Language</div>
+            <div class="flex flex-wrap gap-2">
+              ${Object.entries(localeCounts).map(([locale, count]) => `
+                <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-indigo-50 text-indigo-700">
+                  <span class="uppercase font-semibold">${locale}</span>
+                  <span class="text-indigo-500">${this.formatNumber(count)}</span>
+                </span>
+              `).join('')}
+            </div>
+          </div>
+        ` : ''}
+
+        ${links.length > 0 ? `
+          <div class="pt-3 border-t border-gray-100">
+            <div class="text-xs text-gray-500 uppercase tracking-wide mb-2">Quick Access</div>
+            <div class="flex flex-wrap gap-2">
+              ${links.map((link: { url?: string; label?: string }) => `
+                <a href="${link.url || '#'}"
+                   class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 transition-colors">
+                  ${link.label || 'Open'}
+                  <svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                  </svg>
+                </a>
+              `).join('')}
+            </div>
+          </div>
+        ` : ''}
+
+        ${updatedAt ? `
+          <div class="mt-4 pt-2 border-t border-gray-100 text-xs text-gray-400 text-center">
+            Updated <time data-relative-time="${updatedAt}">${updatedAt}</time>
+          </div>
+        ` : ''}
+      `;
+    }
+
+    // Chart widgets (bar, line, pie, gauge, scatter) use canonical chart_options payload.
+    if (CHART_WIDGET_DEFINITIONS.has(def)) {
       const subtitle = data.subtitle || config.subtitle || '';
+      const chartTheme = String(data.theme || 'westeros');
+      const assetsHost = String(data.chart_assets_host || '/dashboard/assets/echarts/');
+      const chartOptions = data.chart_options ? JSON.stringify(data.chart_options) : '';
+      const chartId = `chart-${widget.id || widget.definition || Math.random().toString(36).slice(2, 10)}`;
       return `
         <div>
           ${subtitle ? `<p class="text-sm text-gray-500 mb-3">${subtitle}</p>` : ''}
-          <div class="chart-container">${data.chart_html}</div>
+          ${chartOptions ? `
+            <div class="chart-container" data-echart-widget data-chart-id="${chartId}" data-chart-theme="${chartTheme}" data-chart-assets-host="${assetsHost}">
+              <div id="${chartId}" class="w-full" style="height: 360px;"></div>
+              <script type="application/json" data-chart-options>${chartOptions}</script>
+            </div>
+          ` : `<p class="text-sm text-gray-500 italic">Chart configuration unavailable.</p>`}
+          ${data.footer_note ? `<p class="text-xs text-gray-500 mt-2">${data.footer_note}</p>` : ''}
         </div>
       `;
     }
@@ -290,5 +443,24 @@ export class WidgetRenderer {
       return value.toLocaleString();
     }
     return String(value);
+  }
+
+  private formatStatusLabel(status: unknown): string {
+    const value = String(status || '').trim();
+    if (!value) {
+      return 'Unknown';
+    }
+    return value
+      .split('_')
+      .map((word) => (word ? word.charAt(0).toUpperCase() + word.slice(1) : word))
+      .join(' ');
+  }
+
+  private normalizeSpan(value: unknown): number {
+    const parsed = Number.parseInt(String(value ?? ''), 10);
+    if (!Number.isFinite(parsed) || parsed < 1 || parsed > 12) {
+      return 12;
+    }
+    return parsed;
   }
 }

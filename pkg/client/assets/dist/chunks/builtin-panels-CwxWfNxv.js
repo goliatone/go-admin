@@ -22325,7 +22325,7 @@ function TT(E) {
       };
     case "claims_stale":
       return {
-        label: "Claims Stale",
+        label: "Resolver Drift",
         color: "#f97316",
         bgColor: "rgba(249, 115, 22, 0.1)",
         icon: "⚠"
@@ -22416,7 +22416,7 @@ function KI(E) {
       ${[
     { label: "Modules", value: T.module_count, color: "#3b82f6" },
     { label: "Required", value: T.required_keys, color: "#8b5cf6" },
-    { label: "In Claims", value: T.claims_keys, color: "#22c55e" },
+    { label: "Resolved", value: T.claims_keys, color: "#22c55e" },
     { label: "Missing", value: T.missing_keys, color: T.missing_keys > 0 ? "#ef4444" : "#6b7280" }
   ].map(
     (R) => `
@@ -22491,7 +22491,7 @@ function JI(E) {
             <tr style="background: #1e293b; border-bottom: 2px solid #334155;">
               <th style="padding: 10px 12px; text-align: left; color: #94a3b8; font-weight: 600;">Permission</th>
               <th style="padding: 10px 12px; text-align: center; color: #94a3b8; font-weight: 600; width: 80px;">Required</th>
-              <th style="padding: 10px 12px; text-align: center; color: #94a3b8; font-weight: 600; width: 80px;">In Claims</th>
+              <th style="padding: 10px 12px; text-align: center; color: #94a3b8; font-weight: 600; width: 80px;">Listed</th>
               <th style="padding: 10px 12px; text-align: center; color: #94a3b8; font-weight: 600; width: 80px;">Allows</th>
               <th style="padding: 10px 12px; text-align: left; color: #94a3b8; font-weight: 600;">Diagnosis</th>
             </tr>
@@ -23638,4 +23638,4 @@ export {
   NO as y,
   sO as z
 };
-//# sourceMappingURL=builtin-panels-DhCCPLES.js.map
+//# sourceMappingURL=builtin-panels-CwxWfNxv.js.map

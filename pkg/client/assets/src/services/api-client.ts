@@ -38,6 +38,50 @@ import type {
   RunSyncRequest,
   RunSyncResponse,
   GetSyncStatusResponse,
+  // Workflow mapping types
+  ListMappingsFilter,
+  ListMappingsResponse,
+  GetMappingRequest,
+  GetMappingResponse,
+  CreateMappingDraftRequest,
+  CreateMappingDraftResponse,
+  UpdateMappingDraftRequest,
+  UpdateMappingDraftResponse,
+  MarkMappingVersionRequest,
+  MarkMappingVersionResponse,
+  ValidateMappingRequest,
+  ValidateMappingResponse,
+  PreviewMappingRequest,
+  PreviewMappingResponse,
+  // Workflow sync types
+  PlanWorkflowSyncRequest,
+  PlanWorkflowSyncResponse,
+  RunWorkflowSyncRequest,
+  RunWorkflowSyncResponse,
+  ListSyncRunsFilter,
+  ListSyncRunsResponse,
+  GetSyncRunRequest,
+  GetSyncRunResponse,
+  ResumeSyncRunRequest,
+  ResumeSyncRunResponse,
+  GetSyncCheckpointRequest,
+  GetSyncCheckpointResponse,
+  ListSyncConflictsFilter,
+  ListSyncConflictsResponse,
+  GetSyncConflictRequest,
+  GetSyncConflictResponse,
+  ResolveSyncConflictRequest,
+  ResolveSyncConflictResponse,
+  ListSchemaDriftFilter,
+  ListSchemaDriftResponse,
+  SetSchemaDriftBaselineRequest,
+  SetSchemaDriftBaselineResponse,
+  // Diagnostics/candidate types
+  ListConnectionCandidatesFilter,
+  ListConnectionCandidatesResponse,
+  GetCallbackDiagnosticsStatusResponse,
+  PreviewCallbackDiagnosticsRequest,
+  PreviewCallbackDiagnosticsResponse,
   // Capability types
   InvokeCapabilityRequest,
   InvokeCapabilityResponse,
@@ -323,7 +367,7 @@ export class ServicesAPIClient {
     idempotencyKey?: string
   ): Promise<RunSyncResponse> {
     return this.post<RunSyncResponse>(
-      `/sync/${encodeURIComponent(connectionId)}/run`,
+      `/sync/connections/${encodeURIComponent(connectionId)}/run`,
       request,
       idempotencyKey
     );
@@ -337,9 +381,362 @@ export class ServicesAPIClient {
     signal?: AbortSignal
   ): Promise<GetSyncStatusResponse> {
     return this.get<GetSyncStatusResponse>(
-      `/sync/${encodeURIComponent(connectionId)}/status`,
+      `/sync/connections/${encodeURIComponent(connectionId)}/status`,
       {},
       signal
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Workflow Mapping Endpoints
+  // ---------------------------------------------------------------------------
+
+  /**
+   * List mapping specs for provider/scope.
+   */
+  async listMappings(
+    filter: ListMappingsFilter,
+    signal?: AbortSignal
+  ): Promise<ListMappingsResponse> {
+    const params = this.buildListParams(
+      filter as unknown as Record<string, string | number | boolean | string[] | undefined>
+    );
+    return this.get<ListMappingsResponse>('/mappings', params, signal);
+  }
+
+  /**
+   * Get latest mapping spec (or explicit version via query).
+   */
+  async getMapping(
+    specId: string,
+    request: GetMappingRequest,
+    signal?: AbortSignal
+  ): Promise<GetMappingResponse> {
+    const params = this.buildListParams(
+      request as unknown as Record<string, string | number | boolean | string[] | undefined>
+    );
+    return this.get<GetMappingResponse>(
+      `/mappings/spec/${encodeURIComponent(specId)}`,
+      params,
+      signal
+    );
+  }
+
+  /**
+   * Get a specific mapping version.
+   */
+  async getMappingVersion(
+    specId: string,
+    version: number,
+    request: Omit<GetMappingRequest, 'version'>,
+    signal?: AbortSignal
+  ): Promise<GetMappingResponse> {
+    const params = this.buildListParams(
+      request as unknown as Record<string, string | number | boolean | string[] | undefined>
+    );
+    return this.get<GetMappingResponse>(
+      `/mappings/spec/${encodeURIComponent(specId)}/versions/${encodeURIComponent(String(version))}`,
+      params,
+      signal
+    );
+  }
+
+  /**
+   * Create mapping draft.
+   */
+  async createMappingDraft(
+    request: CreateMappingDraftRequest,
+    idempotencyKey?: string
+  ): Promise<CreateMappingDraftResponse> {
+    return this.post<CreateMappingDraftResponse>('/mappings', request, idempotencyKey);
+  }
+
+  /**
+   * Update mapping draft.
+   */
+  async updateMappingDraft(
+    specId: string,
+    request: UpdateMappingDraftRequest,
+    idempotencyKey?: string
+  ): Promise<UpdateMappingDraftResponse> {
+    return this.post<UpdateMappingDraftResponse>(
+      `/mappings/spec/${encodeURIComponent(specId)}/update`,
+      request,
+      idempotencyKey
+    );
+  }
+
+  /**
+   * Mark mapping version validated.
+   */
+  async markMappingValidated(
+    specId: string,
+    request: MarkMappingVersionRequest,
+    idempotencyKey?: string
+  ): Promise<MarkMappingVersionResponse> {
+    return this.post<MarkMappingVersionResponse>(
+      `/mappings/spec/${encodeURIComponent(specId)}/validate`,
+      request,
+      idempotencyKey
+    );
+  }
+
+  /**
+   * Publish mapping version.
+   */
+  async publishMapping(
+    specId: string,
+    request: MarkMappingVersionRequest,
+    idempotencyKey?: string
+  ): Promise<MarkMappingVersionResponse> {
+    return this.post<MarkMappingVersionResponse>(
+      `/mappings/spec/${encodeURIComponent(specId)}/publish`,
+      request,
+      idempotencyKey
+    );
+  }
+
+  /**
+   * Unpublish mapping version.
+   */
+  async unpublishMapping(
+    specId: string,
+    request: MarkMappingVersionRequest,
+    idempotencyKey?: string
+  ): Promise<MarkMappingVersionResponse> {
+    return this.post<MarkMappingVersionResponse>(
+      `/mappings/spec/${encodeURIComponent(specId)}/unpublish`,
+      request,
+      idempotencyKey
+    );
+  }
+
+  /**
+   * Validate mapping spec against schema.
+   */
+  async validateMapping(
+    request: ValidateMappingRequest,
+    idempotencyKey?: string
+  ): Promise<ValidateMappingResponse> {
+    return this.post<ValidateMappingResponse>('/mappings/validate', request, idempotencyKey);
+  }
+
+  /**
+   * Preview mapping transformations against samples.
+   */
+  async previewMapping(
+    request: PreviewMappingRequest,
+    idempotencyKey?: string
+  ): Promise<PreviewMappingResponse> {
+    return this.post<PreviewMappingResponse>('/mappings/preview', request, idempotencyKey);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Workflow Sync/Conflict Endpoints
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Build sync execution plan.
+   */
+  async planWorkflowSync(
+    request: PlanWorkflowSyncRequest,
+    idempotencyKey?: string
+  ): Promise<PlanWorkflowSyncResponse> {
+    return this.post<PlanWorkflowSyncResponse>('/sync/plan', request, idempotencyKey);
+  }
+
+  /**
+   * Execute sync run from a plan/binding.
+   */
+  async runWorkflowSync(
+    request: RunWorkflowSyncRequest,
+    idempotencyKey?: string
+  ): Promise<RunWorkflowSyncResponse> {
+    return this.post<RunWorkflowSyncResponse>('/sync/run', request, idempotencyKey);
+  }
+
+  /**
+   * List workflow sync runs for provider/scope.
+   */
+  async listSyncRuns(
+    filter: ListSyncRunsFilter,
+    signal?: AbortSignal
+  ): Promise<ListSyncRunsResponse> {
+    const params = this.buildListParams(
+      filter as unknown as Record<string, string | number | boolean | string[] | undefined>
+    );
+    return this.get<ListSyncRunsResponse>('/sync/runs', params, signal);
+  }
+
+  /**
+   * Get workflow sync run detail.
+   */
+  async getSyncRun(
+    runId: string,
+    request: GetSyncRunRequest,
+    signal?: AbortSignal
+  ): Promise<GetSyncRunResponse> {
+    const params = this.buildListParams(
+      request as unknown as Record<string, string | number | boolean | string[] | undefined>
+    );
+    return this.get<GetSyncRunResponse>(
+      `/sync/runs/${encodeURIComponent(runId)}`,
+      params,
+      signal
+    );
+  }
+
+  /**
+   * Resume a workflow sync run from its latest checkpoint.
+   */
+  async resumeSyncRun(
+    runId: string,
+    request: ResumeSyncRunRequest,
+    idempotencyKey?: string
+  ): Promise<ResumeSyncRunResponse> {
+    return this.post<ResumeSyncRunResponse>(
+      `/sync/runs/${encodeURIComponent(runId)}/resume`,
+      request,
+      idempotencyKey
+    );
+  }
+
+  /**
+   * Get workflow sync checkpoint detail.
+   */
+  async getSyncCheckpoint(
+    checkpointId: string,
+    request: GetSyncCheckpointRequest,
+    signal?: AbortSignal
+  ): Promise<GetSyncCheckpointResponse> {
+    const params = this.buildListParams(
+      request as unknown as Record<string, string | number | boolean | string[] | undefined>
+    );
+    return this.get<GetSyncCheckpointResponse>(
+      `/sync/checkpoints/${encodeURIComponent(checkpointId)}`,
+      params,
+      signal
+    );
+  }
+
+  /**
+   * List sync conflicts for provider/scope.
+   */
+  async listSyncConflicts(
+    filter: ListSyncConflictsFilter,
+    signal?: AbortSignal
+  ): Promise<ListSyncConflictsResponse> {
+    const params = this.buildListParams(
+      filter as unknown as Record<string, string | number | boolean | string[] | undefined>
+    );
+    return this.get<ListSyncConflictsResponse>('/sync/conflicts', params, signal);
+  }
+
+  /**
+   * Get sync conflict detail.
+   */
+  async getSyncConflict(
+    conflictId: string,
+    request: GetSyncConflictRequest,
+    signal?: AbortSignal
+  ): Promise<GetSyncConflictResponse> {
+    const params = this.buildListParams(
+      request as unknown as Record<string, string | number | boolean | string[] | undefined>
+    );
+    return this.get<GetSyncConflictResponse>(
+      `/sync/conflicts/${encodeURIComponent(conflictId)}`,
+      params,
+      signal
+    );
+  }
+
+  /**
+   * Resolve/ignore/retry a sync conflict.
+   */
+  async resolveSyncConflict(
+    conflictId: string,
+    request: ResolveSyncConflictRequest,
+    idempotencyKey?: string
+  ): Promise<ResolveSyncConflictResponse> {
+    return this.post<ResolveSyncConflictResponse>(
+      `/sync/conflicts/${encodeURIComponent(conflictId)}/resolve`,
+      request,
+      idempotencyKey
+    );
+  }
+
+  /**
+   * List schema drift status for mapping specs in provider/scope.
+   */
+  async listSchemaDrift(
+    filter: ListSchemaDriftFilter,
+    signal?: AbortSignal
+  ): Promise<ListSchemaDriftResponse> {
+    const params = this.buildListParams(
+      filter as unknown as Record<string, string | number | boolean | string[] | undefined>
+    );
+    return this.get<ListSchemaDriftResponse>('/sync/schema-drift', params, signal);
+  }
+
+  /**
+   * Set/update schema drift baseline for a mapping spec.
+   */
+  async setSchemaDriftBaseline(
+    request: SetSchemaDriftBaselineRequest,
+    idempotencyKey?: string
+  ): Promise<SetSchemaDriftBaselineResponse> {
+    return this.post<SetSchemaDriftBaselineResponse>(
+      '/sync/schema-drift/baseline',
+      request,
+      idempotencyKey
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Diagnostics and Ambiguity Endpoints
+  // ---------------------------------------------------------------------------
+
+  /**
+   * List candidate connections for provider/scope ambiguity remediation.
+   */
+  async listConnectionCandidates(
+    filter: ListConnectionCandidatesFilter,
+    signal?: AbortSignal
+  ): Promise<ListConnectionCandidatesResponse> {
+    const params = this.buildListParams(
+      filter as unknown as Record<string, string | number | boolean | string[] | undefined>
+    );
+    return this.get<ListConnectionCandidatesResponse>('/connection-candidates', params, signal);
+  }
+
+  /**
+   * Get callback resolver diagnostics status.
+   */
+  async getCallbackDiagnosticsStatus(
+    providerId?: string,
+    signal?: AbortSignal
+  ): Promise<GetCallbackDiagnosticsStatusResponse> {
+    const params: Record<string, string | undefined> = {
+      provider_id: providerId?.trim() || undefined,
+    };
+    return this.get<GetCallbackDiagnosticsStatusResponse>(
+      '/callbacks/diagnostics/status',
+      params,
+      signal
+    );
+  }
+
+  /**
+   * Preview callback resolver output for provider/flow.
+   */
+  async previewCallbackDiagnostics(
+    request: PreviewCallbackDiagnosticsRequest,
+    idempotencyKey?: string
+  ): Promise<PreviewCallbackDiagnosticsResponse> {
+    return this.post<PreviewCallbackDiagnosticsResponse>(
+      '/callbacks/diagnostics/preview',
+      request,
+      idempotencyKey
     );
   }
 

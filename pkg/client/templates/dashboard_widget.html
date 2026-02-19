@@ -1,10 +1,11 @@
+{% set effective_span = normalizeSpan(widget.span) %}
 <article class="widget"
          data-widget="{{ widget.id }}"
-         data-span="{{ widget.span }}"
+         data-span="{{ effective_span }}"
          data-area-code="{{ widget.area }}"
          data-resizable="{% if widget.area == "admin.dashboard.main" or widget.area == "admin.dashboard.footer" %}true{% else %}false{% endif %}"
          {% if widget.hidden %}data-hidden="true"{% endif %}
-         style="--span: {{ widget.span }}">
+         style="--span: {{ effective_span }}">
   <div class="widget__toolbar">
     <button type="button" class="hide-widget">Toggle Hide</button>
     {% if widget.area == "admin.dashboard.main" or widget.area == "admin.dashboard.footer" %}
