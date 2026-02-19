@@ -80,6 +80,7 @@ const (
 	DebugPanelConfig                             = core.DebugPanelConfig
 	DebugPanelConsole                            = core.DebugPanelConsole
 	DebugPanelCustom                             = core.DebugPanelCustom
+	DebugPanelDoctor                             = core.DebugPanelDoctor
 	DebugPanelJSErrors                           = core.DebugPanelJSErrors
 	DebugPanelLogs                               = core.DebugPanelLogs
 	DebugPanelPermissions                        = core.DebugPanelPermissions
@@ -99,6 +100,10 @@ const (
 	DefaultSchemaMaxFields                       = core.DefaultSchemaMaxFields
 	DefaultSchemaMaxSizeBytes                    = core.DefaultSchemaMaxSizeBytes
 	DefaultUISchemaMaxSizeBytes                  = core.DefaultUISchemaMaxSizeBytes
+	DoctorSeverityError                          = core.DoctorSeverityError
+	DoctorSeverityInfo                           = core.DoctorSeverityInfo
+	DoctorSeverityOK                             = core.DoctorSeverityOK
+	DoctorSeverityWarn                           = core.DoctorSeverityWarn
 	FeatureActivity                              = core.FeatureActivity
 	FeatureBulk                                  = core.FeatureBulk
 	FeatureCMS                                   = core.FeatureCMS
@@ -383,6 +388,14 @@ type (
 	DisabledMediaLibrary                      = core.DisabledMediaLibrary
 	DisabledNotificationService               = core.DisabledNotificationService
 	DispatchFactory                           = core.DispatchFactory
+	DoctorCheck                               = core.DoctorCheck
+	DoctorCheckOutput                         = core.DoctorCheckOutput
+	DoctorCheckResult                         = core.DoctorCheckResult
+	DoctorDebugPanel                          = core.DoctorDebugPanel
+	DoctorFinding                             = core.DoctorFinding
+	DoctorReport                              = core.DoctorReport
+	DoctorSeverity                            = core.DoctorSeverity
+	DoctorSummary                             = core.DoctorSummary
 	DomainErrorCode                           = core.DomainErrorCode
 	DynamicPanelFactory                       = core.DynamicPanelFactory
 	DynamicPanelFactoryOption                 = core.DynamicPanelFactoryOption
@@ -1060,6 +1073,10 @@ func NewDeliveryServices(container CMSContainer, opts DeliveryOptions) DeliveryS
 	return core.NewDeliveryServices(container, opts)
 }
 
+func NewDoctorDebugPanel(admin *Admin) *DoctorDebugPanel {
+	return core.NewDoctorDebugPanel(admin)
+}
+
 func NewDomainError(code string, message string, meta map[string]any) *errors.Error {
 	return core.NewDomainError(code, message, meta)
 }
@@ -1470,6 +1487,10 @@ func RegisterDefaultCMSWorkflows(registrar WorkflowRegistrar) {
 
 func RegisterDeliveryGraphQLSchemas() {
 	core.RegisterDeliveryGraphQLSchemas()
+}
+
+func RegisterDoctorDebugPanel(admin *Admin) {
+	core.RegisterDoctorDebugPanel(admin)
 }
 
 func RegisterDomainErrorCodes(codes ...DomainErrorCode) {
