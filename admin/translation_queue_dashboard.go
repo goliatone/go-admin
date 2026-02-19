@@ -110,18 +110,24 @@ func RegisterTranslationProgressWidget(dash *Dashboard, stats TranslationQueueSt
 		DefaultArea: "admin.dashboard.main",
 		DefaultSpan: 6,
 		Permission:  PermAdminTranslationsView,
-		Handler: func(ctx AdminContext, _ map[string]any) (map[string]any, error) {
+		Handler: func(ctx AdminContext, _ map[string]any) (WidgetPayload, error) {
 			snapshot, err := stats.Snapshot(ctx.Context)
 			if err != nil {
-				return nil, err
+				return WidgetPayload{}, err
 			}
-			return map[string]any{
-				"summary":       snapshot.Summary,
-				"status_counts": snapshot.StatusCounts,
-				"locale_counts": snapshot.LocaleCounts,
-				"updated_at":    snapshot.UpdatedAt,
-				"links":         translationQueueDashboardLinks(urls, ctx.UserID),
-			}, nil
+			return WidgetPayloadOf(TranslationProgressWidgetPayload{
+				Summary: TranslationSummaryWidgetPayload{
+					Total:    snapshot.Summary["total"],
+					Active:   snapshot.Summary["active"],
+					Overdue:  snapshot.Summary["overdue"],
+					Review:   snapshot.Summary["review"],
+					Approved: snapshot.Summary["approved"],
+				},
+				StatusCounts: snapshot.StatusCounts,
+				LocaleCounts: snapshot.LocaleCounts,
+				UpdatedAt:    snapshot.UpdatedAt.UTC().Format(time.RFC3339Nano),
+				Links:        translationQueueDashboardLinks(urls, ctx.UserID),
+			}), nil
 		},
 	})
 }
@@ -141,19 +147,20 @@ func translationQueueStatsServiceFromAdmin(admin *Admin) TranslationQueueStatsSe
 	return &TranslationQueueStatsFromRepository{Repository: repo.repo}
 }
 
-func translationQueueDashboardLinks(urls urlkit.Resolver, userID string) []map[string]any {
-	build := func(label string, query map[string]string) map[string]any {
-		item := map[string]any{
-			"label":        label,
-			"resolver_key": translationQueueResolverKey,
-			"group":        "admin",
-			"route":        "translations.queue",
+func translationQueueDashboardLinks(urls urlkit.Resolver, userID string) []TranslationLinkWidgetPayload {
+	build := func(label string, query map[string]string) TranslationLinkWidgetPayload {
+		item := TranslationLinkWidgetPayload{
+			Label:       label,
+			ResolverKey: translationQueueResolverKey,
+			Group:       "admin",
+			Route:       "translations.queue",
+			Query:       query,
 		}
-		if len(query) > 0 {
-			item["query"] = query
+		if len(query) == 0 {
+			item.Query = nil
 		}
 		if url := resolveURLWith(urls, "admin", "translations.queue", nil, query); url != "" {
-			item["url"] = url
+			item.URL = url
 		}
 		return item
 	}
@@ -163,7 +170,7 @@ func translationQueueDashboardLinks(urls urlkit.Resolver, userID string) []map[s
 		myQueueQuery = nil
 	}
 
-	return []map[string]any{
+	return []TranslationLinkWidgetPayload{
 		build("All Translations", nil),
 		build("My Queue", myQueueQuery),
 		build("Open Pool", map[string]string{"assignment_type": string(AssignmentTypeOpenPool), "status": string(AssignmentStatusPending)}),
