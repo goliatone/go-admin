@@ -18,9 +18,17 @@ type AdminContext struct {
 	OrgID       string
 	Environment string
 	Locale      string
+	RenderMode  DashboardRenderMode
 	Theme       *ThemeSelection
 	Translator  Translator
 }
+
+type DashboardRenderMode string
+
+const (
+	DashboardRenderModeClient DashboardRenderMode = "client"
+	DashboardRenderModeSSR    DashboardRenderMode = "ssr"
+)
 
 type adminContextKey string
 
@@ -29,6 +37,7 @@ const localeContextKey adminContextKey = "admin.locale"
 const tenantIDContextKey adminContextKey = "admin.tenant_id"
 const orgIDContextKey adminContextKey = "admin.org_id"
 const environmentContextKey adminContextKey = "admin.environment"
+const renderModeContextKey adminContextKey = "admin.render_mode"
 const queryParamsContextKey adminContextKey = "admin.query_params"
 
 // Authorizer determines whether a subject can perform an action on a resource.
@@ -36,9 +45,55 @@ type Authorizer interface {
 	Can(ctx context.Context, action string, resource string) bool
 }
 
+// BatchAuthorizer allows evaluating multiple permissions in one call.
+type BatchAuthorizer interface {
+	Authorizer
+	CanAny(ctx context.Context, resource string, permissions ...string) bool
+	CanAll(ctx context.Context, resource string, permissions ...string) bool
+}
+
+// CanAny returns true when any provided permission is allowed.
+func CanAny(authorizer Authorizer, ctx context.Context, resource string, permissions ...string) bool {
+	if authorizer == nil || len(permissions) == 0 {
+		return false
+	}
+	if batch, ok := authorizer.(BatchAuthorizer); ok && batch != nil {
+		return batch.CanAny(ctx, resource, permissions...)
+	}
+	for _, permission := range permissions {
+		if authorizer.Can(ctx, strings.TrimSpace(permission), resource) {
+			return true
+		}
+	}
+	return false
+}
+
+// CanAll returns true when all provided permissions are allowed.
+func CanAll(authorizer Authorizer, ctx context.Context, resource string, permissions ...string) bool {
+	if authorizer == nil {
+		return false
+	}
+	if len(permissions) == 0 {
+		return true
+	}
+	if batch, ok := authorizer.(BatchAuthorizer); ok && batch != nil {
+		return batch.CanAll(ctx, resource, permissions...)
+	}
+	for _, permission := range permissions {
+		if !authorizer.Can(ctx, strings.TrimSpace(permission), resource) {
+			return false
+		}
+	}
+	return true
+}
+
 // newAdminContext builds an AdminContext from an HTTP request.
 func newAdminContextFromRouter(c router.Context, locale string) AdminContext {
 	ctx := c.Context()
+	renderMode := dashboardRenderModeFromContext(ctx)
+	if renderMode == "" {
+		renderMode = DashboardRenderModeClient
+	}
 	userID := strings.TrimSpace(c.Header("X-User-ID"))
 	tenantID := ""
 	orgID := ""
@@ -107,6 +162,7 @@ func newAdminContextFromRouter(c router.Context, locale string) AdminContext {
 	if locale != "" {
 		ctx = context.WithValue(ctx, localeContextKey, locale)
 	}
+	ctx = withDashboardRenderMode(ctx, renderMode)
 	if queries := c.Queries(); len(queries) > 0 {
 		ctx = withQueryParams(ctx, queries)
 	}
@@ -117,6 +173,7 @@ func newAdminContextFromRouter(c router.Context, locale string) AdminContext {
 		OrgID:       orgID,
 		Environment: environment,
 		Locale:      locale,
+		RenderMode:  renderMode,
 	}
 }
 
@@ -216,6 +273,16 @@ func EnvironmentFromContext(ctx context.Context) string {
 	return environmentFromContext(ctx)
 }
 
+// WithDashboardRenderMode stores the active dashboard render mode on context.
+func WithDashboardRenderMode(ctx context.Context, mode DashboardRenderMode) context.Context {
+	return withDashboardRenderMode(ctx, mode)
+}
+
+// DashboardRenderModeFromContext returns the active dashboard render mode.
+func DashboardRenderModeFromContext(ctx context.Context) DashboardRenderMode {
+	return dashboardRenderModeFromContext(ctx)
+}
+
 func environmentFromContext(ctx context.Context) string {
 	if ctx == nil {
 		return ""
@@ -224,6 +291,38 @@ func environmentFromContext(ctx context.Context) string {
 		return env
 	}
 	return ""
+}
+
+func withDashboardRenderMode(ctx context.Context, mode DashboardRenderMode) context.Context {
+	if ctx == nil {
+		return ctx
+	}
+	mode = normalizeDashboardRenderMode(mode)
+	if mode == "" {
+		return ctx
+	}
+	return context.WithValue(ctx, renderModeContextKey, string(mode))
+}
+
+func dashboardRenderModeFromContext(ctx context.Context) DashboardRenderMode {
+	if ctx == nil {
+		return ""
+	}
+	if mode, ok := ctx.Value(renderModeContextKey).(string); ok {
+		return normalizeDashboardRenderMode(DashboardRenderMode(mode))
+	}
+	return ""
+}
+
+func normalizeDashboardRenderMode(mode DashboardRenderMode) DashboardRenderMode {
+	switch DashboardRenderMode(strings.TrimSpace(string(mode))) {
+	case DashboardRenderModeSSR:
+		return DashboardRenderModeSSR
+	case DashboardRenderModeClient:
+		return DashboardRenderModeClient
+	default:
+		return ""
+	}
 }
 
 func defaultSessionIDProvider() usersactivity.SessionIDProvider {
