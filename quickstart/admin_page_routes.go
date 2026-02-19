@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
+	templateview "github.com/goliatone/go-admin/internal/templateview"
 	router "github.com/goliatone/go-router"
 	urlkit "github.com/goliatone/go-urlkit"
 )
@@ -106,7 +107,7 @@ func RegisterAdminPageRoutes[T any](
 			if viewBuilder != nil {
 				viewCtx = viewBuilder(viewCtx, active, c)
 			}
-			return c.Render(template, viewCtx)
+			return templateview.RenderTemplateView(c, template, viewCtx)
 		}
 
 		if auth != nil {
