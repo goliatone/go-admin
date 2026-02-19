@@ -59,17 +59,19 @@ func (m *Module) registerAPIRoutes() error {
 	r.Post(basePath+"/connections/:ref/reconsent/begin", m.wrapServiceRoute(permissionServicesReconsent, true, false, m.handleBeginReconsent))
 	r.Post(basePath+"/connections/:ref/refresh", m.wrapServiceRoute(permissionServicesEdit, true, false, m.handleRefreshConnection))
 	r.Post(basePath+"/connections/:ref/revoke", m.wrapServiceRoute(permissionServicesRevoke, true, false, m.handleRevokeConnection))
-	r.Post(basePath+"/capabilities/:provider/:capability/invoke", m.wrapServiceRoute(permissionServicesEdit, true, false, m.handleInvokeCapability))
 	r.Post(basePath+"/webhooks/:provider", m.wrapServiceRoute(permissionServicesWebhooks, true, true, m.handleProviderWebhook))
 	r.Get(basePath+"/subscriptions", m.wrapServiceRoute(permissionServicesView, false, false, m.handleListSubscriptions))
 	r.Post(basePath+"/subscriptions/:ref/renew", m.wrapServiceRoute(permissionServicesEdit, true, false, m.handleRenewSubscription))
 	r.Post(basePath+"/subscriptions/:ref/cancel", m.wrapServiceRoute(permissionServicesEdit, true, false, m.handleCancelSubscription))
-	r.Post(basePath+"/sync/:ref/run", m.wrapServiceRoute(permissionServicesEdit, true, false, m.handleRunSync))
-	r.Get(basePath+"/sync/:ref/status", m.wrapServiceRoute(permissionServicesView, false, false, m.handleGetSyncStatus))
+	r.Post(basePath+"/sync/connections/:ref/run", m.wrapServiceRoute(permissionServicesEdit, true, false, m.handleRunSync))
+	r.Get(basePath+"/sync/connections/:ref/status", m.wrapServiceRoute(permissionServicesView, false, false, m.handleGetSyncStatus))
 	r.Get(basePath+"/rate-limits", m.wrapServiceRoute(permissionServicesView, false, false, m.handleListRateLimits))
 	r.Get(basePath+"/rate-limits/runtime", m.wrapServiceRoute(permissionServicesView, false, false, m.handleListRateLimitsRuntime))
 	r.Get(basePath+"/operations/status", m.wrapServiceRoute(permissionServicesView, false, false, m.handleListProviderOperationStatus))
 	r.Post(basePath+"/inbound/:provider/:surface", m.wrapServiceRoute(permissionServicesWebhooks, true, true, m.handleProviderInbound))
+	if err := m.registerWorkflowAPIRoutes(basePath, r); err != nil {
+		return err
+	}
 	return nil
 }
 

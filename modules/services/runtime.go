@@ -271,6 +271,11 @@ func (m *Module) initializeRuntime() error {
 	m.outboxDispatcher = outboxDispatcher
 	m.activityRuntime = activityRuntime
 	m.idempotencyStore = newIdempotencyStore(m.config.API.IdempotencyTTL)
+	workflow, err := newWorkflowRuntime()
+	if err != nil {
+		return fmt.Errorf("modules/services: build workflow runtime: %w", err)
+	}
+	m.workflowRuntime = workflow
 
 	if m.config.API.Enabled {
 		m.admin.AddInitHook(func(_ goadmin.AdminRouter) error {
