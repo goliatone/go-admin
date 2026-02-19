@@ -35,6 +35,7 @@ const (
 	defaultFormIDOperationSuffix  = ".edit"
 	contentTypeSearchAdapterKey   = "content_types"
 	contentTypeBuilderPermissions = "content_types"
+	defaultContentEnvironmentKey  = "default"
 )
 
 // SchemaValidationOptions captures schema validation/preview context.
@@ -261,6 +262,7 @@ func (m *ContentTypeBuilderModule) Register(ctx ModuleContext) error {
 	m.registerSearchAdapter(ctx.Admin)
 	m.registerSchemaRoutes(ctx.Admin)
 	m.registerBlockDefinitionCategoriesRoute(ctx.Admin)
+	m.registerBlockDefinitionDiagnosticsRoute(ctx.Admin)
 	m.registerBlockDefinitionFieldTypesRoute(ctx.Admin)
 	m.registerBlockDefinitionTemplateRoutes(ctx.Admin)
 
@@ -688,6 +690,92 @@ func (m *ContentTypeBuilderModule) registerBlockDefinitionCategoriesRoute(admin 
 		handler = authWrap(handler)
 	}
 	admin.router.Get(categoriesPath, handler)
+}
+
+func (m *ContentTypeBuilderModule) registerBlockDefinitionDiagnosticsRoute(admin *Admin) {
+	if admin == nil || admin.router == nil || m.contentSvc == nil {
+		return
+	}
+	diagnosticsPath := adminAPIRoutePath(admin, "block_definitions_meta.diagnostics")
+
+	handler := func(c router.Context) error {
+		adminCtx := admin.adminContextFromRequest(c, admin.config.DefaultLocale)
+		if err := m.authorize(adminCtx, admin.authorizer); err != nil {
+			return writeError(c, err)
+		}
+
+		requestedEnv := strings.ToLower(strings.TrimSpace(c.Query("env")))
+		if requestedEnv == "" {
+			requestedEnv = strings.ToLower(strings.TrimSpace(c.Query("environment")))
+		}
+		effectiveEnv := requestedEnv
+		if effectiveEnv == "" {
+			effectiveEnv = defaultContentEnvironmentKey
+		}
+		defaultDefs, defaultErr := m.contentSvc.BlockDefinitions(WithEnvironment(context.Background(), defaultContentEnvironmentKey))
+		effectiveDefs := defaultDefs
+		effectiveErr := defaultErr
+		if effectiveEnv != defaultContentEnvironmentKey {
+			effectiveDefs, effectiveErr = m.contentSvc.BlockDefinitions(WithEnvironment(context.Background(), effectiveEnv))
+		}
+		if defaultErr != nil || effectiveErr != nil {
+			return writeJSON(c, map[string]any{
+				"effective_environment": effectiveEnv,
+				"requested_environment": requestedEnv,
+				"total_effective":       0,
+				"total_default":         0,
+				"available_environments": []string{
+					defaultContentEnvironmentKey,
+				},
+			})
+		}
+
+		envSet := map[string]struct{}{
+			defaultContentEnvironmentKey: {},
+			effectiveEnv:                 {},
+		}
+		addEnvFromDefs := func(defs []CMSBlockDefinition, fallback string) {
+			for _, def := range defs {
+				env := strings.ToLower(strings.TrimSpace(def.Environment))
+				if env == "" {
+					env = fallback
+				}
+				if env == "" {
+					env = defaultContentEnvironmentKey
+				}
+				envSet[env] = struct{}{}
+			}
+		}
+		addEnvFromDefs(defaultDefs, defaultContentEnvironmentKey)
+		addEnvFromDefs(effectiveDefs, effectiveEnv)
+
+		available := make([]string, 0, len(envSet))
+		for env := range envSet {
+			available = append(available, env)
+		}
+		sort.Strings(available)
+		if len(available) > 1 {
+			for i, env := range available {
+				if env == defaultContentEnvironmentKey {
+					available[0], available[i] = available[i], available[0]
+					break
+				}
+			}
+		}
+
+		return writeJSON(c, map[string]any{
+			"effective_environment":  effectiveEnv,
+			"requested_environment":  requestedEnv,
+			"total_effective":        len(effectiveDefs),
+			"total_default":          len(defaultDefs),
+			"available_environments": available,
+		})
+	}
+
+	if authWrap := admin.authWrapper(); authWrap != nil {
+		handler = authWrap(handler)
+	}
+	admin.router.Get(diagnosticsPath, handler)
 }
 
 func (m *ContentTypeBuilderModule) registerBlockDefinitionFieldTypesRoute(admin *Admin) {
