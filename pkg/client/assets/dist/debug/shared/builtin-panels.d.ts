@@ -61,6 +61,12 @@ declare const jserrorsPanel: PanelDefinition;
  */
 declare const permissionsPanel: PanelDefinition;
 /**
+ * Doctor panel - App diagnostics checks
+ * snapshotKey: "doctor"
+ * eventTypes: none (snapshot only)
+ */
+declare const doctorPanel: PanelDefinition;
+/**
  * Register all built-in panels with the registry.
  * Safe to call multiple times - will replace existing registrations.
  */
@@ -82,5 +88,5 @@ export declare function getToolbarCounts(snapshot: {
     errors: number;
     slowQueries: number;
 };
-export { requestsPanel, sqlPanel, logsPanel, jserrorsPanel, routesPanel, permissionsPanel, configPanel, templatePanel, sessionPanel, customPanel, };
+export { requestsPanel, sqlPanel, logsPanel, jserrorsPanel, routesPanel, permissionsPanel, doctorPanel, configPanel, templatePanel, sessionPanel, customPanel, };
 //# sourceMappingURL=builtin-panels.d.ts.map

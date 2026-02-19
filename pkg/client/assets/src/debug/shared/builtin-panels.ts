@@ -12,6 +12,7 @@ import type {
   CustomSnapshot,
   JSErrorEntry,
   PermissionsSnapshot,
+  DoctorReport,
 } from './types.js';
 import { isSlowDuration } from './utils.js';
 import {
@@ -24,6 +25,7 @@ import {
   renderJSErrorsPanel,
   renderPermissionsPanel,
   renderPermissionsPanelCompact,
+  renderDoctorPanel,
 } from './panels/index.js';
 
 // ============================================================================
@@ -548,6 +550,44 @@ const permissionsPanel: PanelDefinition = {
   supportsToolbar: true,
 };
 
+/**
+ * Doctor panel - App diagnostics checks
+ * snapshotKey: "doctor"
+ * eventTypes: none (snapshot only)
+ */
+const doctorPanel: PanelDefinition = {
+  id: 'doctor',
+  label: 'Doctor',
+  icon: 'iconoir-heartbeat',
+  snapshotKey: 'doctor',
+  eventTypes: [],
+  category: 'system',
+  order: 46,
+  showFilters: false,
+
+  render: (data, styles, options) => {
+    const report = data as DoctorReport;
+    return renderDoctorPanel(report, styles, {
+      showRawJSON: true,
+    });
+  },
+
+  renderConsole: (data, styles, options) => {
+    const report = data as DoctorReport;
+    return renderDoctorPanel(report, styles, {
+      showRawJSON: true,
+    });
+  },
+
+  getCount: (data) => {
+    const report = data as DoctorReport;
+    if (!report || !report.summary) return 0;
+    return (report.summary.error || 0) + (report.summary.warn || 0);
+  },
+
+  supportsToolbar: false,
+};
+
 // ============================================================================
 // Registration
 // ============================================================================
@@ -563,6 +603,7 @@ export function registerBuiltinPanels(): void {
   panelRegistry.register(jserrorsPanel);
   panelRegistry.register(routesPanel);
   panelRegistry.register(permissionsPanel);
+  panelRegistry.register(doctorPanel);
   panelRegistry.register(configPanel);
   panelRegistry.register(templatePanel);
   panelRegistry.register(sessionPanel);
@@ -625,6 +666,7 @@ export {
   jserrorsPanel,
   routesPanel,
   permissionsPanel,
+  doctorPanel,
   configPanel,
   templatePanel,
   sessionPanel,

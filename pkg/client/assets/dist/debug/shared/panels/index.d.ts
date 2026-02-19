@@ -6,4 +6,5 @@ export { renderJSONPanel, renderJSONViewer, type JSONPanelOptions } from './json
 export { renderCustomPanel, type CustomPanelOptions } from './custom.js';
 export { renderJSErrorsPanel, type JSErrorsPanelOptions } from './jserrors.js';
 export { renderPermissionsPanel, renderPermissionsPanelCompact, type PermissionsPanelOptions } from './permissions.js';
+export { renderDoctorPanel, renderDoctorPanelCompact, type DoctorPanelOptions } from './doctor.js';
 //# sourceMappingURL=index.d.ts.map

@@ -33,8 +33,23 @@
       </div>
       <select data-block-ide-env
               class="text-[13px] bg-transparent border-0 text-gray-700 font-medium py-0 pl-0 pr-5 focus:outline-none focus:ring-0 cursor-pointer">
-        <option value="">Default</option>
+        <option value="default">Default</option>
       </select>
+      <span data-block-ide-env-status
+            class="inline-flex items-center rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 text-[11px] font-semibold">
+        Default Environment
+      </span>
+      <button type="button"
+              data-block-ide-env-reset
+              class="hidden inline-flex items-center px-2 py-1 rounded border border-amber-300 text-amber-700 text-[11px] font-semibold hover:bg-amber-50 transition-colors">
+        Reset to Default
+      </button>
+      <button type="button"
+              data-block-ide-env-advanced-toggle
+              class="inline-flex items-center px-2 py-1 rounded border border-gray-200 text-gray-500 text-[11px] font-semibold hover:bg-gray-100 transition-colors"
+              aria-pressed="false">
+        Advanced: Off
+      </button>
     </div>
     <a class="inline-flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors" href="{{ base_path }}/content/types">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

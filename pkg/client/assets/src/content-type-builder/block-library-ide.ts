@@ -6,7 +6,13 @@
  * Phase 8: Block Editor Panel (center column) — metadata, field cards, sections
  */
 
-import type { BlockDefinition, BlockDefinitionStatus, FieldDefinition, FieldTypeMetadata } from './types';
+import type {
+  BlockDefinition,
+  BlockDefinitionStatus,
+  BlockDefinitionsDiagnostics,
+  FieldDefinition,
+  FieldTypeMetadata,
+} from './types';
 import { ContentTypeAPIClient, ContentTypeAPIError, fieldsToBlockSchema, generateFieldId } from './api-client';
 import { BlockEditorPanel } from './block-editor-panel';
 import { FieldPalettePanel } from './field-palette-panel';
@@ -39,6 +45,8 @@ interface BlockLibraryIDEState {
 // =============================================================================
 
 const DEFAULT_BLOCK_CATEGORIES = ['content', 'media', 'layout', 'interactive', 'custom'];
+const DEFAULT_ENVIRONMENT_KEY = 'default';
+const ENV_ADVANCED_STORAGE_KEY = 'block-library-env-advanced-mode';
 
 // =============================================================================
 // Block Library IDE
@@ -86,7 +94,13 @@ export class BlockLibraryIDE {
 
   // Environment (Phase 12 — Tasks 12.2 + 12.3)
   private envSelectEl: HTMLSelectElement | null = null;
-  private currentEnvironment: string = '';
+  private envStatusEl: HTMLElement | null = null;
+  private envResetBtn: HTMLButtonElement | null = null;
+  private envAdvancedToggleBtn: HTMLButtonElement | null = null;
+  private currentEnvironment: string = DEFAULT_ENVIRONMENT_KEY;
+  private availableEnvironments: string[] = [DEFAULT_ENVIRONMENT_KEY];
+  private envAdvancedMode: boolean = false;
+  private envDiagnostics: BlockDefinitionsDiagnostics | null = null;
 
   constructor(root: HTMLElement) {
     const apiBasePath = resolveApiBasePath(root.dataset.apiBasePath, root.dataset.basePath);
@@ -447,64 +461,53 @@ export class BlockLibraryIDE {
 
   /** Initialize environment from URL param and bind selector */
   private initEnvironment(): void {
-    // Read from URL
-    const urlParams = new URLSearchParams(window.location.search);
-    const envFromUrl = urlParams.get('env') ?? '';
-
-    // URL is the source of truth to keep environment scoping explicit/bookmarkable.
-    this.currentEnvironment = envFromUrl;
-
-    // Set on API client
+    const envFromUrl = new URLSearchParams(window.location.search).get('env');
+    this.currentEnvironment = this.normalizeEnvironment(envFromUrl);
     this.api.setEnvironment(this.currentEnvironment);
 
-    // Update selector
-    if (this.envSelectEl) {
-      this.ensureEnvironmentOption(this.currentEnvironment);
-      this.ensureEnvironmentOption('__add__', 'Add environment...');
-      this.envSelectEl.value = this.currentEnvironment;
-      this.envSelectEl.addEventListener('change', () => {
-        const value = this.envSelectEl!.value;
-        if (value === '__add__') {
-          this.promptForEnvironment();
-          return;
-        }
-        this.setEnvironment(value);
-      });
-    }
+    this.envAdvancedMode = this.readEnvironmentAdvancedMode();
+    this.refreshEnvironmentOptions();
+    this.updateEnvironmentStatus();
 
-    if (this.currentEnvironment) {
-      this.api.setEnvironmentSession(this.currentEnvironment).catch(() => {
-        // Ignore session persistence errors
-      });
-    }
+    this.envSelectEl?.addEventListener('change', () => {
+      const value = this.envSelectEl?.value ?? DEFAULT_ENVIRONMENT_KEY;
+      if (value === '__add__') {
+        this.promptForEnvironment();
+        return;
+      }
+      this.setEnvironment(value);
+    });
+
+    this.envResetBtn?.addEventListener('click', () => {
+      this.setEnvironment(DEFAULT_ENVIRONMENT_KEY);
+    });
+
+    this.envAdvancedToggleBtn?.addEventListener('click', () => {
+      this.toggleEnvironmentAdvancedMode();
+    });
+
+    this.api.setEnvironmentSession(this.currentEnvironment).catch(() => {
+      // Ignore session persistence errors
+    });
   }
 
   /** Change the active environment and reload data */
   private async setEnvironment(env: string): Promise<void> {
-    this.currentEnvironment = env;
-    this.api.setEnvironment(env);
-
-    if (this.envSelectEl) {
-      this.ensureEnvironmentOption(env);
-      this.envSelectEl.value = env;
-    }
-
-    // Persist to session
-    if (env) {
-      sessionStorage.setItem('block-library-env', env);
-    } else {
-      sessionStorage.removeItem('block-library-env');
-    }
+    const normalized = this.normalizeEnvironment(env);
+    this.currentEnvironment = normalized;
+    this.api.setEnvironment(normalized);
+    this.refreshEnvironmentOptions();
+    this.updateEnvironmentStatus();
 
     // Persist to server session (best-effort)
     try {
-      await this.api.setEnvironmentSession(env);
+      await this.api.setEnvironmentSession(normalized);
     } catch {
       // Ignore session persistence errors
     }
 
     // Update URL
-    this.updateUrlEnvironment(env);
+    this.updateUrlEnvironment(normalized);
 
     // Reset state and reload
     this.state.selectedBlockId = null;
@@ -520,25 +523,12 @@ export class BlockLibraryIDE {
   /** Update the ?env= query parameter in the URL without a page reload */
   private updateUrlEnvironment(env: string): void {
     const url = new URL(window.location.href);
-    if (env) {
+    if (env && env !== DEFAULT_ENVIRONMENT_KEY) {
       url.searchParams.set('env', env);
     } else {
       url.searchParams.delete('env');
     }
     window.history.replaceState({}, '', url.toString());
-  }
-
-  /** Ensure the environment select contains a specific option */
-  private ensureEnvironmentOption(value: string, label?: string): void {
-    if (!this.envSelectEl) return;
-    const val = value ?? '';
-    if (val === '' || Array.from(this.envSelectEl.options).some((opt) => opt.value === val)) {
-      return;
-    }
-    const option = document.createElement('option');
-    option.value = val;
-    option.textContent = label ?? val;
-    this.envSelectEl.appendChild(option);
   }
 
   private promptForEnvironment(): void {
@@ -551,9 +541,10 @@ export class BlockLibraryIDE {
       confirmLabel: 'Add',
       inputClass: inputClasses(),
       onConfirm: (value) => {
-        const env = value.trim();
-        if (!env) return;
-        this.ensureEnvironmentOption(env);
+        const raw = value.trim();
+        if (!raw) return;
+        const env = this.normalizeEnvironment(raw);
+        this.upsertEnvironmentOption(env);
         this.envSelectEl!.value = env;
         this.setEnvironment(env);
       },
@@ -562,6 +553,103 @@ export class BlockLibraryIDE {
       },
     });
     modal.show();
+  }
+
+  private normalizeEnvironment(value: string | null | undefined): string {
+    const env = String(value ?? '').trim().toLowerCase();
+    return env || DEFAULT_ENVIRONMENT_KEY;
+  }
+
+  private readEnvironmentAdvancedMode(): boolean {
+    try {
+      return sessionStorage.getItem(ENV_ADVANCED_STORAGE_KEY) === '1';
+    } catch {
+      return false;
+    }
+  }
+
+  private persistEnvironmentAdvancedMode(): void {
+    try {
+      sessionStorage.setItem(ENV_ADVANCED_STORAGE_KEY, this.envAdvancedMode ? '1' : '0');
+    } catch {
+      // Ignore storage errors
+    }
+  }
+
+  private toggleEnvironmentAdvancedMode(): void {
+    this.envAdvancedMode = !this.envAdvancedMode;
+    this.persistEnvironmentAdvancedMode();
+    this.refreshEnvironmentOptions();
+    this.updateEnvironmentStatus();
+  }
+
+  private refreshEnvironmentOptions(): void {
+    if (!this.envSelectEl) return;
+
+    const current = this.normalizeEnvironment(this.currentEnvironment);
+    const known = new Set<string>([DEFAULT_ENVIRONMENT_KEY]);
+    for (const env of this.availableEnvironments) {
+      known.add(this.normalizeEnvironment(env));
+    }
+    known.add(current);
+
+    const sorted = Array.from(known).sort((a, b) => {
+      if (a === DEFAULT_ENVIRONMENT_KEY) return -1;
+      if (b === DEFAULT_ENVIRONMENT_KEY) return 1;
+      return a.localeCompare(b);
+    });
+
+    this.envSelectEl.innerHTML = '';
+    for (const env of sorted) {
+      const option = document.createElement('option');
+      option.value = env;
+      option.textContent = this.environmentLabel(env);
+      this.envSelectEl.appendChild(option);
+    }
+    if (this.envAdvancedMode) {
+      const addOption = document.createElement('option');
+      addOption.value = '__add__';
+      addOption.textContent = 'Add environment...';
+      this.envSelectEl.appendChild(addOption);
+    }
+    this.envSelectEl.value = current;
+  }
+
+  private environmentLabel(env: string): string {
+    const normalized = this.normalizeEnvironment(env);
+    return normalized === DEFAULT_ENVIRONMENT_KEY ? 'Default' : normalized;
+  }
+
+  private upsertEnvironmentOption(env: string): void {
+    const normalized = this.normalizeEnvironment(env);
+    if (!this.availableEnvironments.includes(normalized)) {
+      this.availableEnvironments.push(normalized);
+    }
+    this.refreshEnvironmentOptions();
+  }
+
+  private updateEnvironmentStatus(): void {
+    const env = this.normalizeEnvironment(this.currentEnvironment);
+    const isDefault = env === DEFAULT_ENVIRONMENT_KEY;
+
+    if (this.envStatusEl) {
+      this.envStatusEl.textContent = isDefault ? 'Default Environment' : `Environment: ${env}`;
+      this.envStatusEl.className = isDefault
+        ? 'inline-flex items-center rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 text-[11px] font-semibold'
+        : 'inline-flex items-center rounded-full bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 text-[11px] font-semibold';
+    }
+
+    if (this.envResetBtn) {
+      this.envResetBtn.classList.toggle('hidden', isDefault);
+    }
+
+    if (this.envAdvancedToggleBtn) {
+      this.envAdvancedToggleBtn.textContent = this.envAdvancedMode ? 'Advanced: On' : 'Advanced: Off';
+      this.envAdvancedToggleBtn.setAttribute('aria-pressed', this.envAdvancedMode ? 'true' : 'false');
+      this.envAdvancedToggleBtn.className = this.envAdvancedMode
+        ? 'inline-flex items-center px-2 py-1 rounded border border-indigo-300 text-indigo-700 text-[11px] font-semibold hover:bg-indigo-50 transition-colors'
+        : 'inline-flex items-center px-2 py-1 rounded border border-gray-200 text-gray-500 text-[11px] font-semibold hover:bg-gray-100 transition-colors';
+    }
   }
 
   // ===========================================================================
@@ -640,6 +728,9 @@ export class BlockLibraryIDE {
     // Sidebar toggle and env selector may be outside root (in the header)
     this.sidebarToggleBtn = document.querySelector('[data-block-ide-sidebar-toggle]');
     this.envSelectEl = document.querySelector('[data-block-ide-env]');
+    this.envStatusEl = document.querySelector('[data-block-ide-env-status]');
+    this.envResetBtn = document.querySelector('[data-block-ide-env-reset]');
+    this.envAdvancedToggleBtn = document.querySelector('[data-block-ide-env-advanced-toggle]');
   }
 
   private bindEvents(): void {
@@ -699,8 +790,27 @@ export class BlockLibraryIDE {
     this.renderBlockList();
 
     try {
-      const response = await this.api.listBlockDefinitions();
+      const [response, diagnostics] = await Promise.all([
+        this.api.listBlockDefinitions(),
+        this.api.getBlockDefinitionDiagnostics(),
+      ]);
       this.state.blocks = response.items.map((block) => this.normalizeBlockDefinition(block));
+      this.envDiagnostics = diagnostics;
+      if (diagnostics && Array.isArray(diagnostics.available_environments)) {
+        this.availableEnvironments = diagnostics.available_environments
+          .map((env) => this.normalizeEnvironment(env))
+          .filter((env, index, arr) => env && arr.indexOf(env) === index);
+      }
+      if (diagnostics?.effective_environment) {
+        const effective = this.normalizeEnvironment(diagnostics.effective_environment);
+        if (effective !== this.currentEnvironment) {
+          this.currentEnvironment = effective;
+          this.api.setEnvironment(effective);
+          this.updateUrlEnvironment(effective);
+        }
+      }
+      this.refreshEnvironmentOptions();
+      this.updateEnvironmentStatus();
     } catch (err) {
       this.state.error = err instanceof Error ? err.message : 'Failed to load blocks';
     } finally {
@@ -859,6 +969,25 @@ export class BlockLibraryIDE {
 
     if (filtered.length === 0) {
       const hasFilters = this.state.search || this.state.categoryFilter;
+      const activeEnvironment = this.normalizeEnvironment(this.currentEnvironment);
+      const inDefault = activeEnvironment === DEFAULT_ENVIRONMENT_KEY;
+      const diagnosticHint = !hasFilters
+        ? inDefault
+          ? `No block definitions were found in the "${DEFAULT_ENVIRONMENT_KEY}" environment.`
+          : `No block definitions were found in environment "${activeEnvironment}".`
+        : '';
+      const resetHint =
+        !hasFilters && !inDefault
+          ? `<button type="button"
+                 data-block-ide-empty-reset-env
+                 class="mt-2 inline-flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700 hover:bg-amber-100 transition-colors">
+               Reset to Default Environment
+             </button>`
+          : '';
+      const totalsHint =
+        !hasFilters && this.envDiagnostics
+          ? `<p class="text-[11px] text-gray-400 dark:text-gray-500 mt-1">Visible in active env: ${this.envDiagnostics.total_effective}. Default env total: ${this.envDiagnostics.total_default}.</p>`
+          : '';
       this.listEl.innerHTML = `
         <div class="px-4 py-8 text-center">
           <svg class="w-10 h-10 mx-auto text-gray-300 dark:text-gray-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -867,6 +996,9 @@ export class BlockLibraryIDE {
           </svg>
           <p class="text-sm text-gray-500 dark:text-gray-400">${hasFilters ? 'No blocks match your filters.' : 'No blocks yet.'}</p>
           ${!hasFilters ? '<p class="text-xs text-gray-400 dark:text-gray-500 mt-1">Click "New Block" to create your first block definition.</p>' : ''}
+          ${diagnosticHint ? `<p class="text-[11px] text-gray-400 dark:text-gray-500 mt-2">${esc(diagnosticHint)}</p>` : ''}
+          ${totalsHint}
+          ${resetHint}
         </div>`;
       return;
     }
@@ -1282,6 +1414,11 @@ export class BlockLibraryIDE {
     // Retry button
     if (target.closest('[data-block-ide-retry]')) {
       this.loadBlocks();
+      return;
+    }
+
+    if (target.closest('[data-block-ide-empty-reset-env]')) {
+      this.setEnvironment(DEFAULT_ENVIRONMENT_KEY);
       return;
     }
 

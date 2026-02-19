@@ -463,6 +463,21 @@ export class DebugPanel {
         }
       });
     });
+
+    this.panelEl.addEventListener('click', (event) => {
+      const target = event.target as HTMLElement | null;
+      if (!target) {
+        return;
+      }
+      const button = target.closest<HTMLButtonElement>('[data-doctor-action-run]');
+      if (!button || button.disabled) {
+        return;
+      }
+      const checkID = button.dataset.doctorActionRun || '';
+      const confirmText = button.dataset.doctorActionConfirm || '';
+      const requiresConfirmation = button.dataset.doctorActionRequiresConfirmation === 'true';
+      this.runDoctorAction(checkID, confirmText, requiresConfirmation);
+    });
   }
 
   private renderTabs(): void {
@@ -1641,6 +1656,153 @@ export class DebugPanel {
     fetch(`${this.debugPath}/api/clear/${panel}`, { method: 'POST', credentials: 'same-origin' }).catch(() => {
       // ignore
     });
+  }
+
+  private async parseJSONResponse(response: Response): Promise<Record<string, any> | null> {
+    const contentType = (response.headers.get('content-type') || '').toLowerCase();
+    if (!contentType.includes('application/json')) {
+      return null;
+    }
+    try {
+      const payload = (await response.json()) as unknown;
+      if (payload && typeof payload === 'object') {
+        return payload as Record<string, any>;
+      }
+    } catch {
+      // ignore malformed json payloads
+    }
+    return null;
+  }
+
+  private readResponsePath(payload: Record<string, any> | null, path: string): unknown {
+    if (!payload || !path) {
+      return undefined;
+    }
+    const segments = path.split('.').map((part) => part.trim()).filter(Boolean);
+    if (segments.length === 0) {
+      return undefined;
+    }
+    let current: unknown = payload;
+    for (const segment of segments) {
+      if (!current || typeof current !== 'object') {
+        return undefined;
+      }
+      current = (current as Record<string, unknown>)[segment];
+    }
+    return current;
+  }
+
+  private responseMessage(payload: Record<string, any> | null, candidates: string[]): string {
+    for (const candidate of candidates) {
+      const value = this.readResponsePath(payload, candidate);
+      if (typeof value === 'string' && value.trim()) {
+        return value.trim();
+      }
+    }
+    return '';
+  }
+
+  private showDoctorActionToast(message: string, kind: 'success' | 'error'): void {
+    const text = message.trim();
+    if (!text) {
+      return;
+    }
+
+    if (window.getComputedStyle(this.container).position === 'static') {
+      this.container.style.position = 'relative';
+    }
+
+    let host = this.container.querySelector<HTMLElement>('[data-debug-toast-host]');
+    if (!host) {
+      host = document.createElement('div');
+      host.dataset.debugToastHost = 'true';
+      host.style.position = 'absolute';
+      host.style.right = '12px';
+      host.style.bottom = '12px';
+      host.style.display = 'flex';
+      host.style.flexDirection = 'column';
+      host.style.gap = '8px';
+      host.style.pointerEvents = 'none';
+      host.style.zIndex = '1000';
+      this.container.appendChild(host);
+    }
+
+    const palette =
+      kind === 'success'
+        ? { bg: 'rgba(34, 197, 94, 0.15)', border: 'rgba(34, 197, 94, 0.45)', color: '#bbf7d0' }
+        : { bg: 'rgba(239, 68, 68, 0.15)', border: 'rgba(239, 68, 68, 0.45)', color: '#fecaca' };
+
+    const toast = document.createElement('div');
+    toast.style.maxWidth = '380px';
+    toast.style.padding = '10px 12px';
+    toast.style.borderRadius = '8px';
+    toast.style.border = `1px solid ${palette.border}`;
+    toast.style.background = palette.bg;
+    toast.style.color = palette.color;
+    toast.style.fontSize = '12px';
+    toast.style.lineHeight = '1.4';
+    toast.style.boxShadow = '0 6px 24px rgba(0, 0, 0, 0.25)';
+    toast.style.pointerEvents = 'auto';
+    toast.textContent = text;
+    host.appendChild(toast);
+
+    window.setTimeout(() => {
+      toast.remove();
+      if (host && host.childElementCount === 0) {
+        host.remove();
+      }
+    }, 4200);
+  }
+
+  private async runDoctorAction(
+    checkID: string,
+    confirmText = '',
+    requiresConfirmation = false
+  ): Promise<void> {
+    if (!this.debugPath || this.activeSessionId) {
+      return;
+    }
+    const normalized = checkID.trim();
+    if (!normalized) {
+      return;
+    }
+
+    const confirmMessage = confirmText.trim();
+    const mustConfirm = requiresConfirmation || Boolean(confirmMessage);
+    if (mustConfirm) {
+      const prompt = confirmMessage || 'Are you sure you want to run this doctor action?';
+      if (!window.confirm(prompt)) {
+        return;
+      }
+    }
+
+    try {
+      const response = await fetch(`${this.debugPath}/api/doctor/${encodeURIComponent(normalized)}/action`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: '{}',
+      });
+      const payload = await this.parseJSONResponse(response);
+
+      if (!response.ok) {
+        const errorMessage =
+          this.responseMessage(payload, ['error.message', 'message', 'result.message']) ||
+          `Doctor action failed (${response.status})`;
+        this.showDoctorActionToast(errorMessage, 'error');
+        return;
+      }
+
+      const successMessage =
+        this.responseMessage(payload, ['message', 'result.message']) || 'Doctor action completed.';
+      this.showDoctorActionToast(successMessage, 'success');
+    } catch {
+      this.showDoctorActionToast('Doctor action failed: unable to reach debug API.', 'error');
+    } finally {
+      this.stream.requestSnapshot();
+    }
   }
 
   private togglePause(button: HTMLButtonElement): void {

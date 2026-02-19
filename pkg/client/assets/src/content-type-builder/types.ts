@@ -496,6 +496,14 @@ export interface BlockDefinitionListResponse {
   per_page?: number;
 }
 
+export interface BlockDefinitionsDiagnostics {
+  effective_environment: string;
+  requested_environment?: string;
+  total_effective: number;
+  total_default: number;
+  available_environments?: string[];
+}
+
 export interface BlockDefinitionSummary {
   id: string;
   name: string;

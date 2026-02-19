@@ -17,6 +17,7 @@ import type {
   BlockDefinition,
   BlockDefinitionListResponse,
   BlockDefinitionSummary,
+  BlockDefinitionsDiagnostics,
   BlockSchemaVersion,
   ContentTypeSchemaVersion,
   CompatibilityCheckResult,
@@ -428,6 +429,44 @@ export class ContentTypeAPIClient {
       return Array.isArray(data) ? data : data.categories ?? [];
     } catch {
       return ['content', 'media', 'layout', 'interactive', 'custom'];
+    }
+  }
+
+  /**
+   * Fetch block library diagnostics metadata (effective environment + counts).
+   * Returns null when the endpoint is unavailable.
+   */
+  async getBlockDefinitionDiagnostics(): Promise<BlockDefinitionsDiagnostics | null> {
+    const fromPrimary = await this.fetchBlockDefinitionDiagnostics(`${this.config.basePath}/block_definitions_meta/diagnostics`);
+    if (fromPrimary) {
+      return fromPrimary;
+    }
+    // Quickstart helper routes expose this at /block_definitions/diagnostics.
+    return await this.fetchBlockDefinitionDiagnostics(`${this.config.basePath}/block_definitions/diagnostics`);
+  }
+
+  private async fetchBlockDefinitionDiagnostics(url: string): Promise<BlockDefinitionsDiagnostics | null> {
+    try {
+      const response = await this.fetch(url, { method: 'GET' });
+      const data = await response.json();
+      if (!data || typeof data !== 'object') {
+        return null;
+      }
+      const diagnostics = data as Partial<BlockDefinitionsDiagnostics>;
+      if (typeof diagnostics.effective_environment !== 'string') {
+        return null;
+      }
+      return {
+        effective_environment: diagnostics.effective_environment,
+        requested_environment: diagnostics.requested_environment,
+        total_effective: Number.isFinite(diagnostics.total_effective) ? Number(diagnostics.total_effective) : 0,
+        total_default: Number.isFinite(diagnostics.total_default) ? Number(diagnostics.total_default) : 0,
+        available_environments: Array.isArray(diagnostics.available_environments)
+          ? diagnostics.available_environments.map((env) => String(env)).filter((env) => env.length > 0)
+          : [],
+      };
+    } catch {
+      return null;
     }
   }
 

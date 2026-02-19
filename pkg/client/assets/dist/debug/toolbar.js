@@ -1,4 +1,4 @@
-import { w as P, p as u, z, A as M, q as b, B as T, e as A, o as R, r as $, l as H, k as I, i as j, h as D, D as q, g as O, u as F, a as f, s as B, b as N, d as Q, M as _, f as G, x as E } from "../chunks/builtin-panels-BrE08f6x.js";
+import { w as P, p as u, z, A as M, q as b, B as T, e as A, o as R, r as $, l as H, k as I, i as j, h as D, D as q, g as O, u as F, a as f, s as B, b as N, d as Q, M as _, f as G, x as E } from "../chunks/builtin-panels-DhCCPLES.js";
 import { DebugReplPanel as K } from "./repl.js";
 const Y = `
   :host {
