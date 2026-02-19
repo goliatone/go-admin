@@ -121,7 +121,7 @@ const pickerMarkup = (opts = {}) => {
     <div data-block-editor="true"
          data-block-library-picker="true"
          data-block-init="manual"
-         data-api-base="/admin/api/block_definitions"
+         data-api-base="/admin/api/panels/block_definitions"
          data-allowed-blocks='${JSON.stringify(allowedBlocks)}'
          data-block-sortable="true"
          ${maxBlocks ? `data-max-blocks="${maxBlocks}"` : ''}
@@ -145,7 +145,7 @@ const pickerMarkup = (opts = {}) => {
 test('picker initializes: creates add button and dropdown', async () => {
   const calls = mockFetch([
     {
-      match: (url) => url.includes('/admin/api/block_definitions') && !url.includes('/template'),
+      match: (url) => url.includes('/admin/api/panels/block_definitions') && !url.includes('/template'),
       body: { items: metadataItems },
     },
   ]);
@@ -169,7 +169,7 @@ test('picker fetches templates for existing blocks before init', async () => {
 
   const calls = mockFetch([
     {
-      match: (url) => url.includes('/admin/api/block_definitions') && !url.includes('/template'),
+      match: (url) => url.includes('/admin/api/panels/block_definitions') && !url.includes('/template'),
       body: { items: metadataItems },
     },
     {
@@ -195,7 +195,7 @@ test('picker fetches templates for existing blocks before init', async () => {
 test('picker with includeInactive=true omits status filter', async () => {
   const calls = mockFetch([
     {
-      match: (url) => url.includes('/admin/api/block_definitions'),
+      match: (url) => url.includes('/admin/api/panels/block_definitions'),
       body: { items: [...metadataItems, inactiveItem] },
     },
   ]);
@@ -204,7 +204,7 @@ test('picker with includeInactive=true omits status filter', async () => {
   await initBlockLibraryPickers(dom.window.document);
 
   // Should NOT have filter_status param
-  const metaCall = calls.find((u) => u.includes('/admin/api/block_definitions') && !u.includes('/template'));
+  const metaCall = calls.find((u) => u.includes('/admin/api/panels/block_definitions') && !u.includes('/template'));
   assert.ok(metaCall, 'metadata call should exist');
   assert.ok(!metaCall.includes('filter_status'), 'should not include status filter');
 });
@@ -212,7 +212,7 @@ test('picker with includeInactive=true omits status filter', async () => {
 test('picker treats status case-insensitively for disabled flag', async () => {
   mockFetch([
     {
-      match: (url) => url.includes('/admin/api/block_definitions') && !url.includes('/template'),
+      match: (url) => url.includes('/admin/api/panels/block_definitions') && !url.includes('/template'),
       body: { items: [{ slug: 'case', name: 'Case Block', status: 'Active', category: 'layout' }] },
     },
   ]);
@@ -229,7 +229,7 @@ test('picker treats status case-insensitively for disabled flag', async () => {
 test('picker with lazyLoad=false prefetches all templates', async () => {
   const calls = mockFetch([
     {
-      match: (url) => url.includes('/admin/api/block_definitions') && !url.includes('/template'),
+      match: (url) => url.includes('/admin/api/panels/block_definitions') && !url.includes('/template'),
       body: { items: metadataItems },
     },
     {
@@ -256,7 +256,7 @@ test('picker with lazyLoad=false prefetches all templates', async () => {
 test('lazy-loaded blocks participate in validation after template refresh', async () => {
   mockFetch([
     {
-      match: (url) => url.includes('/admin/api/block_definitions') && !url.includes('/template'),
+      match: (url) => url.includes('/admin/api/panels/block_definitions') && !url.includes('/template'),
       body: { items: metadataItems },
     },
     {
@@ -287,7 +287,7 @@ test('lazy-loaded blocks participate in validation after template refresh', asyn
 test('picker dropdown shows block types from metadata', async () => {
   mockFetch([
     {
-      match: (url) => url.includes('/admin/api/block_definitions') && !url.includes('/template'),
+      match: (url) => url.includes('/admin/api/panels/block_definitions') && !url.includes('/template'),
       body: { items: metadataItems },
     },
   ]);
@@ -312,7 +312,7 @@ test('picker maxBlocks disables add button when limit reached', async () => {
 
   mockFetch([
     {
-      match: (url) => url.includes('/admin/api/block_definitions') && !url.includes('/template'),
+      match: (url) => url.includes('/admin/api/panels/block_definitions') && !url.includes('/template'),
       body: { items: metadataItems },
     },
     {
@@ -333,7 +333,7 @@ test('picker maxBlocks disables add button when limit reached', async () => {
 test('picker disabled/inactive blocks are visually disabled in dropdown', async () => {
   mockFetch([
     {
-      match: (url) => url.includes('/admin/api/block_definitions') && !url.includes('/template'),
+      match: (url) => url.includes('/admin/api/panels/block_definitions') && !url.includes('/template'),
       body: { items: [...metadataItems, { ...inactiveItem, disabled: true }] },
     },
   ]);
@@ -350,7 +350,7 @@ test('picker disabled/inactive blocks are visually disabled in dropdown', async 
 test('picker does not re-initialize already initialized pickers', async () => {
   mockFetch([
     {
-      match: (url) => url.includes('/admin/api/block_definitions'),
+      match: (url) => url.includes('/admin/api/panels/block_definitions'),
       body: { items: metadataItems },
     },
   ]);
@@ -372,7 +372,7 @@ test('picker does not re-initialize already initialized pickers', async () => {
 test('picker allowedBlocks filters definitions', async () => {
   mockFetch([
     {
-      match: (url) => url.includes('/admin/api/block_definitions') && !url.includes('/template'),
+      match: (url) => url.includes('/admin/api/panels/block_definitions') && !url.includes('/template'),
       body: { items: metadataItems },
     },
   ]);
@@ -393,7 +393,7 @@ test('picker allowedBlocks filters definitions', async () => {
 test('popover has search input by default (searchable !== false)', async () => {
   mockFetch([
     {
-      match: (url) => url.includes('/admin/api/block_definitions') && !url.includes('/template'),
+      match: (url) => url.includes('/admin/api/panels/block_definitions') && !url.includes('/template'),
       body: { items: metadataItems },
     },
   ]);
@@ -411,7 +411,7 @@ test('popover has search input by default (searchable !== false)', async () => {
 test('popover has search disabled when searchable=false', async () => {
   mockFetch([
     {
-      match: (url) => url.includes('/admin/api/block_definitions') && !url.includes('/template'),
+      match: (url) => url.includes('/admin/api/panels/block_definitions') && !url.includes('/template'),
       body: { items: metadataItems },
     },
   ]);
@@ -427,7 +427,7 @@ test('popover has search disabled when searchable=false', async () => {
 test('popover groups blocks by category', async () => {
   mockFetch([
     {
-      match: (url) => url.includes('/admin/api/block_definitions') && !url.includes('/template'),
+      match: (url) => url.includes('/admin/api/panels/block_definitions') && !url.includes('/template'),
       body: { items: metadataItems },
     },
   ]);
@@ -447,7 +447,7 @@ test('popover groups blocks by category', async () => {
 test('popover without category grouping renders flat list', async () => {
   mockFetch([
     {
-      match: (url) => url.includes('/admin/api/block_definitions') && !url.includes('/template'),
+      match: (url) => url.includes('/admin/api/panels/block_definitions') && !url.includes('/template'),
       body: { items: metadataItems },
     },
   ]);
@@ -466,7 +466,7 @@ test('popover without category grouping renders flat list', async () => {
 test('popover shows empty state when no definitions available', async () => {
   mockFetch([
     {
-      match: (url) => url.includes('/admin/api/block_definitions') && !url.includes('/template'),
+      match: (url) => url.includes('/admin/api/panels/block_definitions') && !url.includes('/template'),
       body: { items: [] },
     },
   ]);
@@ -487,7 +487,7 @@ test('popover shows empty state when no definitions available', async () => {
 test('popover has ARIA attributes for accessibility', async () => {
   mockFetch([
     {
-      match: (url) => url.includes('/admin/api/block_definitions') && !url.includes('/template'),
+      match: (url) => url.includes('/admin/api/panels/block_definitions') && !url.includes('/template'),
       body: { items: metadataItems },
     },
   ]);
@@ -511,7 +511,7 @@ test('popover has ARIA attributes for accessibility', async () => {
 test('popover disabled cards have aria-disabled and title', async () => {
   mockFetch([
     {
-      match: (url) => url.includes('/admin/api/block_definitions') && !url.includes('/template'),
+      match: (url) => url.includes('/admin/api/panels/block_definitions') && !url.includes('/template'),
       body: { items: [...metadataItems, { ...inactiveItem, disabled: true }] },
     },
   ]);
@@ -530,7 +530,7 @@ test('popover disabled cards have aria-disabled and title', async () => {
 test('popover card icons use blue styling for active and gray for disabled', async () => {
   mockFetch([
     {
-      match: (url) => url.includes('/admin/api/block_definitions') && !url.includes('/template'),
+      match: (url) => url.includes('/admin/api/panels/block_definitions') && !url.includes('/template'),
       body: { items: [...metadataItems, { ...inactiveItem, disabled: true }] },
     },
   ]);
@@ -562,7 +562,7 @@ test('picker blocks show schema version badge in header (7.1)', async () => {
 
   mockFetch([
     {
-      match: (url) => url.includes('/admin/api/block_definitions') && !url.includes('/template'),
+      match: (url) => url.includes('/admin/api/panels/block_definitions') && !url.includes('/template'),
       body: { items: metadataItems },
     },
     {
@@ -588,7 +588,7 @@ test('picker blocks show required field indicators (7.2)', async () => {
 
   mockFetch([
     {
-      match: (url) => url.includes('/admin/api/block_definitions') && !url.includes('/template'),
+      match: (url) => url.includes('/admin/api/panels/block_definitions') && !url.includes('/template'),
       body: { items: metadataItems },
     },
     {
@@ -614,7 +614,7 @@ test('picker blocks show validation error badge for empty required fields (7.3)'
 
   mockFetch([
     {
-      match: (url) => url.includes('/admin/api/block_definitions') && !url.includes('/template'),
+      match: (url) => url.includes('/admin/api/panels/block_definitions') && !url.includes('/template'),
       body: { items: metadataItems },
     },
     {
@@ -641,7 +641,7 @@ test('picker blocks with all required fields filled have no error badge (7.3)', 
 
   mockFetch([
     {
-      match: (url) => url.includes('/admin/api/block_definitions') && !url.includes('/template'),
+      match: (url) => url.includes('/admin/api/panels/block_definitions') && !url.includes('/template'),
       body: { items: metadataItems },
     },
     {

@@ -39,14 +39,9 @@ export interface InlineBlockPickerConfig {
 
 /**
  * Load available block definitions from the API.
- * Returns empty array on failure (graceful degradation).
  */
 export async function loadAvailableBlocks(api: ContentTypeAPIClient): Promise<BlockDefinitionSummary[]> {
-  try {
-    return await api.listBlockDefinitionsSummary();
-  } catch {
-    return [];
-  }
+  return await api.listBlockDefinitionsSummary();
 }
 
 // ---------------------------------------------------------------------------

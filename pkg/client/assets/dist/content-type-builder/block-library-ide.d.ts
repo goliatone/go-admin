@@ -98,6 +98,7 @@ export declare class BlockLibraryIDE {
     private bindDOM;
     private bindEvents;
     private loadBlocks;
+    private formatBlockLoadError;
     private loadCategories;
     private refreshCategoriesFromBlocks;
     private normalizeCategory;

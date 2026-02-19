@@ -26,7 +26,6 @@ export interface InlineBlockPickerConfig {
 }
 /**
  * Load available block definitions from the API.
- * Returns empty array on failure (graceful degradation).
  */
 export declare function loadAvailableBlocks(api: ContentTypeAPIClient): Promise<BlockDefinitionSummary[]>;
 /** Canonical key for a block: prefers slug, falls back to type */

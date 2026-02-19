@@ -86,6 +86,10 @@ export class ContentTypeAPIClient {
     });
   }
 
+  private contentTypesPanelBasePath(): string {
+    return `${this.config.basePath}/panels/content_types`;
+  }
+
   // ===========================================================================
   // Content Type CRUD
   // ===========================================================================
@@ -100,7 +104,7 @@ export class ContentTypeAPIClient {
     if (params?.search) queryParams.set('search', params.search);
 
     const query = queryParams.toString();
-    const url = `${this.config.basePath}/content_types${query ? `?${query}` : ''}`;
+    const url = `${this.contentTypesPanelBasePath()}${query ? `?${query}` : ''}`;
 
     const response = await this.fetch(url, { method: 'GET' });
     const data = await response.json();
@@ -123,7 +127,7 @@ export class ContentTypeAPIClient {
    * Get a single content type by ID or slug
    */
   async get(idOrSlug: string): Promise<ContentType> {
-    const url = `${this.config.basePath}/content_types/${encodeURIComponent(idOrSlug)}`;
+    const url = `${this.contentTypesPanelBasePath()}/${encodeURIComponent(idOrSlug)}`;
     const response = await this.fetch(url, { method: 'GET' });
     const data = await response.json();
 
@@ -135,7 +139,7 @@ export class ContentTypeAPIClient {
    * Create a new content type
    */
   async create(contentType: Partial<ContentType>): Promise<ContentType> {
-    const url = `${this.config.basePath}/content_types`;
+    const url = this.contentTypesPanelBasePath();
     const response = await this.fetch(url, {
       method: 'POST',
       body: JSON.stringify(contentType),
@@ -148,7 +152,7 @@ export class ContentTypeAPIClient {
    * Update an existing content type
    */
   async update(idOrSlug: string, contentType: Partial<ContentType>): Promise<ContentType> {
-    const url = `${this.config.basePath}/content_types/${encodeURIComponent(idOrSlug)}`;
+    const url = `${this.contentTypesPanelBasePath()}/${encodeURIComponent(idOrSlug)}`;
     const response = await this.fetch(url, {
       method: 'PUT',
       body: JSON.stringify(contentType),
@@ -161,7 +165,7 @@ export class ContentTypeAPIClient {
    * Delete a content type
    */
   async delete(idOrSlug: string): Promise<void> {
-    const url = `${this.config.basePath}/content_types/${encodeURIComponent(idOrSlug)}`;
+    const url = `${this.contentTypesPanelBasePath()}/${encodeURIComponent(idOrSlug)}`;
     await this.fetch(url, { method: 'DELETE' });
   }
 
@@ -273,38 +277,16 @@ export class ContentTypeAPIClient {
     return `${this.config.basePath}/panels/block_definitions`;
   }
 
-  private blockDefinitionsLegacyBasePath(): string {
-    return `${this.config.basePath}/block_definitions`;
-  }
-
-  private async fetchWithLegacyFallback(primaryURL: string, legacyURL: string, options: RequestInit): Promise<Response> {
-    try {
-      return await this.fetch(primaryURL, options);
-    } catch (err) {
-      if (err instanceof ContentTypeAPIError && err.status === 404) {
-        return await this.fetch(legacyURL, options);
-      }
-      throw err;
-    }
-  }
-
   /**
    * List available block definitions (summary)
    */
   async listBlockDefinitionsSummary(): Promise<BlockDefinitionSummary[]> {
-    const panelURL = this.blockDefinitionsPanelBasePath();
-    const legacyURL = this.blockDefinitionsLegacyBasePath();
-    try {
-      const response = await this.fetchWithLegacyFallback(panelURL, legacyURL, { method: 'GET' });
-      const data = await response.json();
-      if (Array.isArray(data)) return data;
-      if (data.items && Array.isArray(data.items)) return data.items;
-      if (data.data && Array.isArray(data.data)) return data.data;
-      return [];
-    } catch {
-      // Block definitions may not be available
-      return [];
-    }
+    const response = await this.fetch(this.blockDefinitionsPanelBasePath(), { method: 'GET' });
+    const data = await response.json();
+    if (Array.isArray(data)) return data;
+    if (data.items && Array.isArray(data.items)) return data.items;
+    if (data.data && Array.isArray(data.data)) return data.data;
+    return [];
   }
 
   /**
@@ -325,36 +307,29 @@ export class ContentTypeAPIClient {
     if (params?.status) queryParams.set('filter_status', params.status);
 
     const query = queryParams.toString();
-    const panelURL = `${this.blockDefinitionsPanelBasePath()}${query ? `?${query}` : ''}`;
-    const legacyURL = `${this.blockDefinitionsLegacyBasePath()}${query ? `?${query}` : ''}`;
+    const url = `${this.blockDefinitionsPanelBasePath()}${query ? `?${query}` : ''}`;
+    const response = await this.fetch(url, { method: 'GET' });
+    const data = await response.json();
 
-    try {
-      const response = await this.fetchWithLegacyFallback(panelURL, legacyURL, { method: 'GET' });
-      const data = await response.json();
-
-      if (Array.isArray(data)) {
-        return { items: data, total: data.length };
-      }
-      if (data.items && Array.isArray(data.items)) {
-        return data as BlockDefinitionListResponse;
-      }
-      if (data.data && Array.isArray(data.data)) {
-        return { items: data.data, total: data.total ?? data.data.length };
-      }
-
-      return { items: [], total: 0 };
-    } catch {
-      return { items: [], total: 0 };
+    if (Array.isArray(data)) {
+      return { items: data, total: data.length };
     }
+    if (data.items && Array.isArray(data.items)) {
+      return data as BlockDefinitionListResponse;
+    }
+    if (data.data && Array.isArray(data.data)) {
+      return { items: data.data, total: data.total ?? data.data.length };
+    }
+
+    return { items: [], total: 0 };
   }
 
   /**
    * Get a single block definition by ID or type
    */
   async getBlockDefinition(idOrType: string): Promise<BlockDefinition> {
-    const panelURL = `${this.blockDefinitionsPanelBasePath()}/${encodeURIComponent(idOrType)}`;
-    const legacyURL = `${this.blockDefinitionsLegacyBasePath()}/${encodeURIComponent(idOrType)}`;
-    const response = await this.fetchWithLegacyFallback(panelURL, legacyURL, { method: 'GET' });
+    const url = `${this.blockDefinitionsPanelBasePath()}/${encodeURIComponent(idOrType)}`;
+    const response = await this.fetch(url, { method: 'GET' });
     const data = await response.json();
     return data.item ?? data.data ?? data;
   }
@@ -363,9 +338,8 @@ export class ContentTypeAPIClient {
    * Create a new block definition
    */
   async createBlockDefinition(block: Partial<BlockDefinition>): Promise<BlockDefinition> {
-    const panelURL = this.blockDefinitionsPanelBasePath();
-    const legacyURL = this.blockDefinitionsLegacyBasePath();
-    const response = await this.fetchWithLegacyFallback(panelURL, legacyURL, {
+    const url = this.blockDefinitionsPanelBasePath();
+    const response = await this.fetch(url, {
       method: 'POST',
       body: JSON.stringify(block),
     });
@@ -377,9 +351,8 @@ export class ContentTypeAPIClient {
    * Update an existing block definition
    */
   async updateBlockDefinition(idOrType: string, block: Partial<BlockDefinition>): Promise<BlockDefinition> {
-    const panelURL = `${this.blockDefinitionsPanelBasePath()}/${encodeURIComponent(idOrType)}`;
-    const legacyURL = `${this.blockDefinitionsLegacyBasePath()}/${encodeURIComponent(idOrType)}`;
-    const response = await this.fetchWithLegacyFallback(panelURL, legacyURL, {
+    const url = `${this.blockDefinitionsPanelBasePath()}/${encodeURIComponent(idOrType)}`;
+    const response = await this.fetch(url, {
       method: 'PUT',
       body: JSON.stringify(block),
     });
@@ -391,9 +364,8 @@ export class ContentTypeAPIClient {
    * Delete a block definition
    */
   async deleteBlockDefinition(idOrType: string): Promise<void> {
-    const panelURL = `${this.blockDefinitionsPanelBasePath()}/${encodeURIComponent(idOrType)}`;
-    const legacyURL = `${this.blockDefinitionsLegacyBasePath()}/${encodeURIComponent(idOrType)}`;
-    await this.fetchWithLegacyFallback(panelURL, legacyURL, { method: 'DELETE' });
+    const url = `${this.blockDefinitionsPanelBasePath()}/${encodeURIComponent(idOrType)}`;
+    await this.fetch(url, { method: 'DELETE' });
   }
 
   /**
@@ -462,12 +434,7 @@ export class ContentTypeAPIClient {
    * Returns null when the endpoint is unavailable.
    */
   async getBlockDefinitionDiagnostics(): Promise<BlockDefinitionsDiagnostics | null> {
-    const fromPrimary = await this.fetchBlockDefinitionDiagnostics(`${this.config.basePath}/block_definitions_meta/diagnostics`);
-    if (fromPrimary) {
-      return fromPrimary;
-    }
-    // Quickstart helper routes expose this at /block_definitions/diagnostics.
-    return await this.fetchBlockDefinitionDiagnostics(`${this.config.basePath}/block_definitions/diagnostics`);
+    return await this.fetchBlockDefinitionDiagnostics(`${this.config.basePath}/block_definitions_meta/diagnostics`);
   }
 
   private async fetchBlockDefinitionDiagnostics(url: string): Promise<BlockDefinitionsDiagnostics | null> {

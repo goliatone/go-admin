@@ -812,13 +812,37 @@ export class BlockLibraryIDE {
       this.refreshEnvironmentOptions();
       this.updateEnvironmentStatus();
     } catch (err) {
-      this.state.error = err instanceof Error ? err.message : 'Failed to load blocks';
+      this.state.blocks = [];
+      this.envDiagnostics = null;
+      this.availableEnvironments = [DEFAULT_ENVIRONMENT_KEY];
+      this.state.error = this.formatBlockLoadError(err);
+      this.refreshEnvironmentOptions();
+      this.updateEnvironmentStatus();
     } finally {
       this.state.isLoading = false;
       this.refreshCategoriesFromBlocks();
       this.renderBlockList();
       this.updateCount();
     }
+  }
+
+  private formatBlockLoadError(err: unknown): string {
+    if (err instanceof ContentTypeAPIError) {
+      if (err.status === 404) {
+        return `Block Library API route not found. Expected GET ${this.api.getBasePath()}/panels/block_definitions.`;
+      }
+      if (err.status === 403) {
+        return 'Access denied while loading block definitions. Check your admin permissions.';
+      }
+      if (err.message) {
+        return `Failed to load block definitions: ${err.message}`;
+      }
+      return `Failed to load block definitions (HTTP ${err.status}).`;
+    }
+    if (err instanceof Error && err.message) {
+      return `Failed to load block definitions: ${err.message}`;
+    }
+    return 'Failed to load block definitions.';
   }
 
   private async loadCategories(): Promise<void> {
