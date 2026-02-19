@@ -2,6 +2,7 @@ package quickstart
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -259,8 +260,8 @@ func quickstartDoctorBlockDefinitionsCheck() admin.DoctorCheck {
 	return admin.DoctorCheck{
 		ID:          "quickstart.blocks.seeded_defaults",
 		Label:       "Block Library Seed Definitions",
-		Description: "Validates required seeded block definitions in the default environment.",
-		Help:        "Checks that canonical example block definitions (hero and rich_text) exist in the default environment. Missing entries usually indicate environment mismatch or incomplete seeding.",
+		Description: "Validates required seeded block definitions and Block Library visibility consistency in the default environment.",
+		Help:        "Checks that canonical example block definitions (hero and rich_text) exist in the default environment and verifies that list-path visibility matches raw content diagnostics for that same environment.",
 		Action: admin.NewManualDoctorAction(
 			"Seed block definitions in the default environment and verify the Block Library environment selector is set to default.",
 			"Seed default block definitions",
@@ -338,6 +339,7 @@ func quickstartDoctorBlockDefinitionsCheck() admin.DoctorCheck {
 				availableList = append(availableList, key)
 			}
 			sort.Strings(availableList)
+			findings := []admin.DoctorFinding{}
 			metadata := map[string]any{
 				"effective_environment": effectiveEnv,
 				"required":              required,
@@ -345,26 +347,105 @@ func quickstartDoctorBlockDefinitionsCheck() admin.DoctorCheck {
 				"available_types":       availableList,
 			}
 
-			if len(missing) == 0 {
+			visibleTotal := -1
+			visibleSource := ""
+			var panelListErr error
+			listCtx := admin.WithEnvironment(context.Background(), effectiveEnv)
+			if registry := adm.Registry(); registry != nil {
+				if panel, ok := registry.Panel("block_definitions"); ok && panel != nil {
+					adminCtx := admin.AdminContext{
+						Context:     listCtx,
+						Environment: effectiveEnv,
+						Locale:      strings.TrimSpace(adm.DefaultLocale()),
+					}
+					_, total, err := panel.List(adminCtx, admin.ListOptions{
+						Page:    1,
+						PerPage: 1,
+						Filters: map[string]any{"environment": effectiveEnv},
+					})
+					if err == nil {
+						visibleTotal = total
+						visibleSource = "panel"
+					} else {
+						panelListErr = err
+					}
+				}
+			}
+			if visibleSource == "" {
+				repo := admin.NewCMSBlockDefinitionRepository(content, adm.ContentTypeService())
+				_, total, err := repo.List(listCtx, admin.ListOptions{
+					Page:    1,
+					PerPage: 1,
+					Filters: map[string]any{"environment": effectiveEnv},
+				})
+				if err != nil {
+					visibilityErr := err
+					if panelListErr != nil && !errors.Is(panelListErr, admin.ErrForbidden) {
+						visibilityErr = fmt.Errorf("panel list failed: %w; repository fallback failed: %v", panelListErr, err)
+					}
+					findings = append(findings, admin.DoctorFinding{
+						Severity:  admin.DoctorSeverityWarn,
+						Code:      "quickstart.blocks.visibility_check_unavailable",
+						Component: "cms.blocks",
+						Message:   "Could not run Block Library visibility consistency check",
+						Hint:      "Ensure block_definitions panel and CMS repositories are healthy before relying on Block Library diagnostics",
+						Metadata: map[string]any{
+							"error": visibilityErr.Error(),
+						},
+					})
+				} else {
+					visibleTotal = total
+					visibleSource = "repository_fallback"
+				}
+			}
+			if panelListErr != nil {
+				metadata["panel_list_error"] = panelListErr.Error()
+			}
+			if visibleTotal >= 0 {
+				metadata["visible_total"] = visibleTotal
+			}
+			if visibleSource != "" {
+				metadata["visibility_source"] = visibleSource
+			}
+			metadata["service_total"] = len(defs)
+
+			if visibleTotal >= 0 && visibleTotal != len(defs) {
+				findings = append(findings, admin.DoctorFinding{
+					Severity:  admin.DoctorSeverityError,
+					Code:      "quickstart.blocks.visibility_mismatch",
+					Component: "cms.blocks",
+					Message:   fmt.Sprintf("Block Library visibility mismatch in %q environment: service=%d, visible=%d", effectiveEnv, len(defs), visibleTotal),
+					Hint:      "Align environment canonicalization between diagnostics and list-path filtering (blank vs default handling)",
+					Metadata: map[string]any{
+						"effective_environment": effectiveEnv,
+						"service_total":         len(defs),
+						"visible_total":         visibleTotal,
+						"visibility_source":     visibleSource,
+					},
+				})
+			}
+
+			if len(missing) > 0 {
+				findings = append(findings, admin.DoctorFinding{
+					Severity:  admin.DoctorSeverityError,
+					Code:      "quickstart.blocks.seed_missing",
+					Component: "cms.blocks",
+					Message:   fmt.Sprintf("Missing required default block definitions: %s", strings.Join(missing, ", ")),
+					Hint:      "Seed missing block definitions into the default environment or switch the Block Library back to default",
+					Metadata: map[string]any{
+						"missing": missing,
+					},
+				})
+			}
+
+			if len(findings) == 0 {
 				return admin.DoctorCheckOutput{
-					Summary:  "Required default block definitions are present",
+					Summary:  "Required default block definitions are present and list visibility is consistent",
 					Metadata: metadata,
 				}
 			}
-
 			return admin.DoctorCheckOutput{
-				Findings: []admin.DoctorFinding{
-					{
-						Severity:  admin.DoctorSeverityError,
-						Code:      "quickstart.blocks.seed_missing",
-						Component: "cms.blocks",
-						Message:   fmt.Sprintf("Missing required default block definitions: %s", strings.Join(missing, ", ")),
-						Hint:      "Seed missing block definitions into the default environment or switch the Block Library back to default",
-						Metadata: map[string]any{
-							"missing": missing,
-						},
-					},
-				},
+				Findings: findings,
 				Metadata: metadata,
 			}
 		},
