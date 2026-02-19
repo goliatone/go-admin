@@ -158,7 +158,7 @@ func (h *SiteHandlers) Page(c router.Context) error {
 		"is_preview":     previewData != nil,
 	}
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
-	return c.Render("site/page", viewCtx)
+	return helpers.RenderTemplateView(c, "site/page", viewCtx)
 }
 
 // PostsIndex renders a simple list of published posts.
@@ -187,7 +187,7 @@ func (h *SiteHandlers) PostsIndex(c router.Context) error {
 		"default_locale": h.DefaultLocale,
 	}
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
-	return c.Render("site/posts", viewCtx)
+	return helpers.RenderTemplateView(c, "site/posts", viewCtx)
 }
 
 // PostDetail renders a post detail page when a matching slug/path is found.
@@ -244,7 +244,7 @@ func (h *SiteHandlers) PostDetail(c router.Context) error {
 		"is_preview":     previewData != nil,
 	}
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
-	return c.Render("site/post", viewCtx)
+	return helpers.RenderTemplateView(c, "site/post", viewCtx)
 }
 
 func (h *SiteHandlers) resolvePage(ctx context.Context, requestPath, locale string) (*sitePage, error) {

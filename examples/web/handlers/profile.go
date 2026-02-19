@@ -80,7 +80,7 @@ func (h *ProfileHandlers) Show(c router.Context) error {
 	}, h.Admin, h.Config, "profile", c.Context(), c)
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
 
-	return c.Render("resources/profile/show", viewCtx)
+	return helpers.RenderTemplateView(c, "resources/profile/show", viewCtx)
 }
 
 func (h *ProfileHandlers) Save(c router.Context) error {
@@ -119,7 +119,7 @@ func (h *ProfileHandlers) Save(c router.Context) error {
 			"can_edit":  true,
 		}, h.Admin, h.Config, "profile", c.Context(), c)
 		viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
-		return c.Render("resources/profile/show", viewCtx)
+		return helpers.RenderTemplateView(c, "resources/profile/show", viewCtx)
 	}
 
 	ctx := c.Context()

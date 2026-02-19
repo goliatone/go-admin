@@ -133,7 +133,7 @@ func (h *UserHandlers) List(c router.Context) error {
 		"bulk_base":             bulkCtx.BaseURL,
 	}, h.Admin, h.Config, setup.NavigationGroupMain+".users", c.Context(), c)
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
-	return c.Render("resources/users/list", viewCtx)
+	return helpers.RenderTemplateView(c, "resources/users/list", viewCtx)
 }
 
 // Columns handles GET /admin/api/users/columns - returns allowlisted user columns for UI use.
@@ -249,7 +249,7 @@ func (h *UserHandlers) Detail(c router.Context) error {
 		"tab_panel":      tabPanel,
 	}, h.Admin, h.Config, setup.NavigationGroupMain+".users", c.Context(), c)
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
-	return c.Render("resources/users/detail", viewCtx)
+	return helpers.RenderTemplateView(c, "resources/users/detail", viewCtx)
 }
 
 // TabHTML handles GET /users/:id/tabs/:tab - renders tab panel HTML for hybrid mode.
@@ -300,7 +300,7 @@ func (h *UserHandlers) TabHTML(c router.Context) error {
 		"fields":         userDetailFields(user),
 		"tab_panel":      tabPanel,
 	}
-	return c.Render("partials/tab-panel", viewCtx)
+	return helpers.RenderTemplateView(c, "partials/tab-panel", viewCtx)
 }
 
 // TabJSON handles GET /admin/api/users/:id/tabs/:tab - returns tab panel JSON for client mode.
@@ -487,7 +487,7 @@ func (h *UserHandlers) renderUserForm(c router.Context, operationID string, opts
 		"form_html":      string(html),
 	}, h.Admin, h.Config, setup.NavigationGroupMain+".users", c.Context(), c)
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
-	return c.Render("resources/users/form", viewCtx)
+	return helpers.RenderTemplateView(c, "resources/users/form", viewCtx)
 }
 
 func (h *UserHandlers) guard(c router.Context, action string) error {

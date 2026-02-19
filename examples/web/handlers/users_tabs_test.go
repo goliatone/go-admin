@@ -1089,16 +1089,18 @@ func setupUserHandlersProfileActivityTest(t *testing.T, sink admin.ActivitySink)
 		Code:        helpers.UserProfileWidgetCode,
 		Name:        helpers.UserProfileWidgetLabel,
 		DefaultArea: helpers.UserProfileAreaCode,
-		Handler: func(_ admin.AdminContext, _ map[string]any) (map[string]any, error) {
-			return map[string]any{
-				"values": map[string]any{
+		Handler: func(_ admin.AdminContext, _ map[string]any) (admin.WidgetPayload, error) {
+			return admin.WidgetPayloadOf(struct {
+				Values map[string]any `json:"values"`
+			}{
+				Values: map[string]any{
 					"Username": "",
 					"Email":    "",
 					"Role":     "",
 					"Status":   "",
 					"Created":  "",
 				},
-			}, nil
+			}), nil
 		},
 	})
 

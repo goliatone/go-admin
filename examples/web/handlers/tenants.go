@@ -78,7 +78,7 @@ func (h *TenantHandlers) List(c router.Context) error {
 		"export_config":  helpers.BuildExportConfig(h.Config, "tenants", ""),
 	}, h.Admin, h.Config, setup.NavigationGroupMain+".tenants", c.Context(), c)
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
-	return c.Render("resources/tenants/list", viewCtx)
+	return helpers.RenderTemplateView(c, "resources/tenants/list", viewCtx)
 }
 
 // New renders the create tenant form.
@@ -101,7 +101,7 @@ func (h *TenantHandlers) New(c router.Context) error {
 		"form_html":      string(html),
 	}, h.Admin, h.Config, setup.NavigationGroupMain+".tenants", c.Context(), c)
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
-	return c.Render("resources/tenants/form", viewCtx)
+	return helpers.RenderTemplateView(c, "resources/tenants/form", viewCtx)
 }
 
 // Create handles POST /tenants.
@@ -152,7 +152,7 @@ func (h *TenantHandlers) Detail(c router.Context) error {
 		"fields":         fields,
 	}, h.Admin, h.Config, setup.NavigationGroupMain+".tenants", c.Context(), c)
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
-	return c.Render("resources/tenants/detail", viewCtx)
+	return helpers.RenderTemplateView(c, "resources/tenants/detail", viewCtx)
 }
 
 // Edit renders the edit form.
@@ -181,7 +181,7 @@ func (h *TenantHandlers) Edit(c router.Context) error {
 		"form_html":      string(html),
 	}, h.Admin, h.Config, setup.NavigationGroupMain+".tenants", c.Context(), c)
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
-	return c.Render("resources/tenants/form", viewCtx)
+	return helpers.RenderTemplateView(c, "resources/tenants/form", viewCtx)
 }
 
 // Update handles POST /tenants/:id.

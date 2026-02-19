@@ -78,7 +78,7 @@ type ChartWidgetData struct {
 	FooterNote      string         `json:"footer_note,omitempty"`
 }
 
-func toWidgetPayload(model any) map[string]any {
+func toWidgetPayloadMap(model any) map[string]any {
 	if model == nil {
 		return map[string]any{}
 	}
@@ -91,6 +91,20 @@ func toWidgetPayload(model any) map[string]any {
 		return map[string]any{}
 	}
 	return out
+}
+
+func toCanonicalWidgetPayload(model any) admin.WidgetPayload {
+	if model == nil {
+		return admin.EmptyWidgetPayload()
+	}
+	return admin.WidgetPayloadOf(model)
+}
+
+func toWidgetPayload(model any) admin.WidgetPayload {
+	if model == nil {
+		return admin.EmptyWidgetPayload()
+	}
+	return toCanonicalWidgetPayload(model)
 }
 
 func canonicalQuickAction(item map[string]any) QuickActionWidgetItem {
@@ -107,12 +121,31 @@ func toCanonicalQuickActions(items []map[string]any) []QuickActionWidgetItem {
 	out := make([]QuickActionWidgetItem, 0, len(items))
 	for _, item := range items {
 		action := canonicalQuickAction(item)
-		if action.Label == "" {
-			action.Label = "Action"
-		}
-		if action.URL == "" {
-			action.URL = "#"
-		}
+		action = canonicalQuickActionItem(action)
+		out = append(out, action)
+	}
+	return out
+}
+
+func canonicalQuickActionItem(item QuickActionWidgetItem) QuickActionWidgetItem {
+	item.Label = strings.TrimSpace(item.Label)
+	item.URL = strings.TrimSpace(item.URL)
+	item.Icon = strings.TrimSpace(item.Icon)
+	item.Method = strings.ToUpper(strings.TrimSpace(item.Method))
+	item.Description = strings.TrimSpace(item.Description)
+	if item.Label == "" {
+		item.Label = "Action"
+	}
+	if item.URL == "" {
+		item.URL = "#"
+	}
+	return item
+}
+
+func toCanonicalQuickActionItems(items []QuickActionWidgetItem) []QuickActionWidgetItem {
+	out := make([]QuickActionWidgetItem, 0, len(items))
+	for _, item := range items {
+		action := canonicalQuickActionItem(item)
 		out = append(out, action)
 	}
 	return out

@@ -51,7 +51,7 @@ func (h *MediaHandlers) List(c router.Context) error {
 		"export_config":  helpers.BuildExportConfig(h.Config, "media", ""),
 	}, h.Admin, h.Config, setup.NavigationSectionContent+".media", c.Context(), c)
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
-	return c.Render("resources/media/list", viewCtx)
+	return helpers.RenderTemplateView(c, "resources/media/list", viewCtx)
 }
 
 func (h *MediaHandlers) New(c router.Context) error {
@@ -68,7 +68,7 @@ func (h *MediaHandlers) New(c router.Context) error {
 		"is_edit":        false,
 	}, h.Admin, h.Config, setup.NavigationSectionContent+".media", c.Context(), c)
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
-	return c.Render("resources/media/form", viewCtx)
+	return helpers.RenderTemplateView(c, "resources/media/form", viewCtx)
 }
 
 func (h *MediaHandlers) Create(c router.Context) error {
@@ -123,7 +123,7 @@ func (h *MediaHandlers) Detail(c router.Context) error {
 		"fields":         fields,
 	}, h.Admin, h.Config, setup.NavigationSectionContent+".media", c.Context(), c)
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
-	return c.Render("resources/media/detail", viewCtx)
+	return helpers.RenderTemplateView(c, "resources/media/detail", viewCtx)
 }
 
 func (h *MediaHandlers) Edit(c router.Context) error {
@@ -147,7 +147,7 @@ func (h *MediaHandlers) Edit(c router.Context) error {
 		"item":           item,
 	}, h.Admin, h.Config, setup.NavigationSectionContent+".media", c.Context(), c)
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
-	return c.Render("resources/media/form", viewCtx)
+	return helpers.RenderTemplateView(c, "resources/media/form", viewCtx)
 }
 
 func (h *MediaHandlers) Update(c router.Context) error {
