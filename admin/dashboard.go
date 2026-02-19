@@ -362,10 +362,9 @@ func (d *Dashboard) registerProviderInComponents(spec DashboardProviderSpec, han
 			cfg[k] = v
 		}
 		adminCtx := AdminContext{
-			Context:    ctx,
-			UserID:     meta.Viewer.UserID,
-			Locale:     meta.Viewer.Locale,
-			RenderMode: dashboardRenderModeFromContext(ctx),
+			Context: ctx,
+			UserID:  meta.Viewer.UserID,
+			Locale:  meta.Viewer.Locale,
 		}
 		payload, err := handler(adminCtx, cfg)
 		if err != nil {
@@ -563,7 +562,6 @@ func (d *Dashboard) Providers() []DashboardProviderSpec {
 
 // Resolve returns widgets for a viewer, applying per-user preferences when present.
 func (d *Dashboard) Resolve(ctx AdminContext) ([]map[string]any, error) {
-	ctx = normalizeAdminContextRenderMode(ctx, DashboardRenderModeClient)
 	comp, err := d.ensureComponents(ctx.Context)
 	if err != nil || comp == nil {
 		return nil, err
@@ -579,7 +577,6 @@ func (d *Dashboard) Resolve(ctx AdminContext) ([]map[string]any, error) {
 // RenderLayout builds a DashboardLayout with resolved widgets grouped by area.
 // This is used for server-side rendering via the configured DashboardRenderer.
 func (d *Dashboard) RenderLayout(ctx AdminContext, theme *ThemeSelection, basePath string) (*DashboardLayout, error) {
-	ctx = normalizeAdminContextRenderMode(ctx, DashboardRenderModeSSR)
 	comp, err := d.ensureComponents(ctx.Context)
 	if err != nil || comp == nil {
 		return nil, err
@@ -597,7 +594,6 @@ func (d *Dashboard) RenderLayout(ctx AdminContext, theme *ThemeSelection, basePa
 }
 
 func (d *Dashboard) resolvedInstances(ctx AdminContext) []DashboardWidgetInstance {
-	ctx = normalizeAdminContextRenderMode(ctx, DashboardRenderModeClient)
 	comp, err := d.ensureComponents(ctx.Context)
 	if err != nil || comp == nil {
 		return nil
@@ -619,19 +615,6 @@ func viewerFromAdminContext(ctx AdminContext) dashcmp.ViewerContext {
 		UserID: ctx.UserID,
 		Locale: ctx.Locale,
 	}
-}
-
-func normalizeAdminContextRenderMode(ctx AdminContext, fallback DashboardRenderMode) AdminContext {
-	mode := normalizeDashboardRenderMode(ctx.RenderMode)
-	if mode == "" {
-		mode = dashboardRenderModeFromContext(ctx.Context)
-	}
-	if mode == "" {
-		mode = fallback
-	}
-	ctx.RenderMode = mode
-	ctx.Context = withDashboardRenderMode(ctx.Context, mode)
-	return ctx
 }
 
 func orderedAreaCodes(areaMap map[string][]dashcmp.WidgetInstance) []string {
@@ -869,10 +852,9 @@ func (c *dashboardProviderCommand) Execute(ctx context.Context, msg DashboardPro
 		code = c.dashboard.providerCodeForCommand(msg.CommandName)
 	}
 	adminCtx := AdminContext{
-		Context:    ctx,
-		UserID:     userIDFromContext(ctx),
-		Locale:     localeFromContext(ctx),
-		RenderMode: dashboardRenderModeFromContext(ctx),
+		Context: ctx,
+		UserID:  userIDFromContext(ctx),
+		Locale:  localeFromContext(ctx),
 	}
 	if adminCtx.Locale == "" {
 		adminCtx.Locale = "en"
