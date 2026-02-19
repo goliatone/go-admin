@@ -28,18 +28,20 @@ func (r *CMSContentTypeRepository) List(ctx context.Context, opts ListOptions) (
 	}
 	search := strings.ToLower(extractSearch(opts))
 	environment := ""
+	hasEnvironmentFilter := false
 	if opts.Filters != nil {
 		environment = strings.TrimSpace(toString(opts.Filters["environment"]))
 	}
 	if environment == "" {
 		environment = strings.TrimSpace(environmentFromContext(ctx))
 	}
+	if environment != "" {
+		hasEnvironmentFilter = true
+	}
 	filtered := make([]CMSContentType, 0, len(types))
 	for _, ct := range types {
-		if environment != "" {
-			if !strings.EqualFold(strings.TrimSpace(ct.Environment), environment) {
-				continue
-			}
+		if hasEnvironmentFilter && !cmsEnvironmentMatches(ct.Environment, environment) {
+			continue
 		}
 		if search != "" && !strings.Contains(strings.ToLower(ct.Name), search) &&
 			!strings.Contains(strings.ToLower(ct.Slug), search) &&
