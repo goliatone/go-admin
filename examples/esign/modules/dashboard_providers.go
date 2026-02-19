@@ -12,6 +12,75 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/stores"
 )
 
+type agreementStatsWidgetPayload struct {
+	Total     int    `json:"total"`
+	Pending   int    `json:"pending"`
+	Completed int    `json:"completed"`
+	Voided    int    `json:"voided"`
+	Declined  int    `json:"declined"`
+	Expired   int    `json:"expired"`
+	ListURL   string `json:"list_url"`
+}
+
+type signingActivityItemPayload struct {
+	Type           string `json:"type"`
+	Actor          string `json:"actor"`
+	Timestamp      string `json:"timestamp"`
+	AgreementTitle string `json:"agreement_title"`
+	AgreementURL   string `json:"agreement_url"`
+}
+
+type signingActivityWidgetPayload struct {
+	Activities  []signingActivityItemPayload `json:"activities"`
+	ActivityURL string                       `json:"activity_url"`
+}
+
+type pendingRecipientPayload struct {
+	Name  string `json:"name"`
+	Email string `json:"email"`
+}
+
+type pendingAgreementPayload struct {
+	Title             string                    `json:"title"`
+	URL               string                    `json:"url"`
+	PendingCount      int                       `json:"pending_count"`
+	TotalRecipients   int                       `json:"total_recipients"`
+	PendingRecipients []pendingRecipientPayload `json:"pending_recipients"`
+}
+
+type pendingSignaturesWidgetPayload struct {
+	Agreements []pendingAgreementPayload `json:"agreements"`
+	ListURL    string                    `json:"list_url"`
+}
+
+type deliveryHealthWidgetPayload struct {
+	SLOOverallPass                 bool                            `json:"slo_overall_pass"`
+	SLOTargets                     []observability.SLOTargetStatus `json:"slo_targets"`
+	Alerts                         []observability.Alert           `json:"alerts"`
+	EmailSuccessRate               float64                         `json:"email_success_rate"`
+	EmailsSent                     int64                           `json:"emails_sent"`
+	EmailsFailed                   int64                           `json:"emails_failed"`
+	JobSuccessRate                 float64                         `json:"job_success_rate"`
+	JobsCompleted                  int64                           `json:"jobs_completed"`
+	JobsFailed                     int64                           `json:"jobs_failed"`
+	GoogleImportSuccesses          int64                           `json:"google_import_successes"`
+	GoogleImportFailures           int64                           `json:"google_import_failures"`
+	GoogleAuthChurnTotal           int64                           `json:"google_auth_churn_total"`
+	SignerLinkOpenRate             float64                         `json:"signer_link_open_rate"`
+	SignerSubmitConversionRate     float64                         `json:"signer_submit_conversion_rate"`
+	UnifiedViewerLoadP95MS         float64                         `json:"unified_viewer_load_p95_ms"`
+	UnifiedFieldSaveP95MS          float64                         `json:"unified_field_save_p95_ms"`
+	UnifiedSignatureAttachP95MS    float64                         `json:"unified_signature_attach_p95_ms"`
+	UnifiedSubmitConversionRate    float64                         `json:"unified_submit_conversion_rate"`
+	CompletionDeliverySuccessRate  float64                         `json:"completion_delivery_success_rate"`
+	SignerLinkOpenSuccessTotal     int64                           `json:"signer_link_open_success_total"`
+	SignerLinkOpenFailureTotal     int64                           `json:"signer_link_open_failure_total"`
+	CompletionDeliverySuccessTotal int64                           `json:"completion_delivery_success_total"`
+	CompletionDeliveryFailureTotal int64                           `json:"completion_delivery_failure_total"`
+	Period                         string                          `json:"period"`
+	PendingRetries                 int                             `json:"pending_retries"`
+}
+
 func (m *ESignModule) registerDashboardProviders(adm *coreadmin.Admin) {
 	if m == nil || adm == nil {
 		return
@@ -25,7 +94,7 @@ func (m *ESignModule) registerDashboardProviders(adm *coreadmin.Admin) {
 		Code:        "esign.widget.agreement_stats",
 		Name:        "E-Sign Agreement Stats",
 		DefaultArea: "admin.dashboard.main",
-		Handler: func(ctx coreadmin.AdminContext, _ map[string]any) (map[string]any, error) {
+		Handler: func(ctx coreadmin.AdminContext, _ map[string]any) (coreadmin.WidgetPayload, error) {
 			return m.agreementStatsWidgetData(ctx.Context)
 		},
 	})
@@ -33,7 +102,7 @@ func (m *ESignModule) registerDashboardProviders(adm *coreadmin.Admin) {
 		Code:        "esign.widget.signing_activity",
 		Name:        "E-Sign Signing Activity",
 		DefaultArea: "admin.dashboard.main",
-		Handler: func(ctx coreadmin.AdminContext, _ map[string]any) (map[string]any, error) {
+		Handler: func(ctx coreadmin.AdminContext, _ map[string]any) (coreadmin.WidgetPayload, error) {
 			return m.signingActivityWidgetData(ctx.Context)
 		},
 	})
@@ -41,7 +110,7 @@ func (m *ESignModule) registerDashboardProviders(adm *coreadmin.Admin) {
 		Code:        "esign.widget.delivery_health",
 		Name:        "E-Sign Delivery Health",
 		DefaultArea: "admin.dashboard.sidebar",
-		Handler: func(ctx coreadmin.AdminContext, _ map[string]any) (map[string]any, error) {
+		Handler: func(ctx coreadmin.AdminContext, _ map[string]any) (coreadmin.WidgetPayload, error) {
 			return m.deliveryHealthWidgetData(ctx.Context)
 		},
 	})
@@ -49,49 +118,49 @@ func (m *ESignModule) registerDashboardProviders(adm *coreadmin.Admin) {
 		Code:        "esign.widget.pending_signatures",
 		Name:        "E-Sign Pending Signatures",
 		DefaultArea: "admin.dashboard.sidebar",
-		Handler: func(ctx coreadmin.AdminContext, _ map[string]any) (map[string]any, error) {
+		Handler: func(ctx coreadmin.AdminContext, _ map[string]any) (coreadmin.WidgetPayload, error) {
 			return m.pendingSignaturesWidgetData(ctx.Context)
 		},
 	})
 }
 
-func (m *ESignModule) agreementStatsWidgetData(ctx context.Context) (map[string]any, error) {
+func (m *ESignModule) agreementStatsWidgetData(ctx context.Context) (coreadmin.WidgetPayload, error) {
 	scope := m.defaultScope
 	agreements, err := m.store.ListAgreements(ctx, scope, stores.AgreementQuery{})
 	if err != nil {
-		return nil, err
+		return coreadmin.WidgetPayload{}, err
 	}
-	out := map[string]any{
-		"total":     len(agreements),
-		"pending":   0,
-		"completed": 0,
-		"voided":    0,
-		"declined":  0,
-		"expired":   0,
-		"list_url":  m.panelListURL(esignAgreementsPanelID),
+	out := agreementStatsWidgetPayload{
+		Total:     len(agreements),
+		Pending:   0,
+		Completed: 0,
+		Voided:    0,
+		Declined:  0,
+		Expired:   0,
+		ListURL:   m.panelListURL(esignAgreementsPanelID),
 	}
 	for _, agreement := range agreements {
 		switch strings.TrimSpace(agreement.Status) {
 		case stores.AgreementStatusSent, stores.AgreementStatusInProgress:
-			out["pending"] = out["pending"].(int) + 1
+			out.Pending++
 		case stores.AgreementStatusCompleted:
-			out["completed"] = out["completed"].(int) + 1
+			out.Completed++
 		case stores.AgreementStatusVoided:
-			out["voided"] = out["voided"].(int) + 1
+			out.Voided++
 		case stores.AgreementStatusDeclined:
-			out["declined"] = out["declined"].(int) + 1
+			out.Declined++
 		case stores.AgreementStatusExpired:
-			out["expired"] = out["expired"].(int) + 1
+			out.Expired++
 		}
 	}
-	return out, nil
+	return coreadmin.WidgetPayloadOf(out), nil
 }
 
-func (m *ESignModule) signingActivityWidgetData(ctx context.Context) (map[string]any, error) {
+func (m *ESignModule) signingActivityWidgetData(ctx context.Context) (coreadmin.WidgetPayload, error) {
 	scope := m.defaultScope
 	agreements, err := m.store.ListAgreements(ctx, scope, stores.AgreementQuery{})
 	if err != nil {
-		return nil, err
+		return coreadmin.WidgetPayload{}, err
 	}
 
 	type activityEntry struct {
@@ -107,7 +176,7 @@ func (m *ESignModule) signingActivityWidgetData(ctx context.Context) (map[string
 	for _, agreement := range agreements {
 		events, err := m.store.ListForAgreement(ctx, scope, agreement.ID, stores.AuditEventQuery{SortDesc: true, Limit: 5})
 		if err != nil {
-			return nil, err
+			return coreadmin.WidgetPayload{}, err
 		}
 		for _, event := range events {
 			items = append(items, activityEntry{
@@ -127,34 +196,34 @@ func (m *ESignModule) signingActivityWidgetData(ctx context.Context) (map[string
 	if len(items) > 10 {
 		items = items[:10]
 	}
-	out := make([]map[string]any, 0, len(items))
+	out := make([]signingActivityItemPayload, 0, len(items))
 	for _, item := range items {
-		out = append(out, map[string]any{
-			"type":            item.Type,
-			"actor":           item.Actor,
-			"timestamp":       item.CreatedAt,
-			"agreement_title": item.AgreementTitle,
-			"agreement_url":   item.AgreementURL,
+		out = append(out, signingActivityItemPayload{
+			Type:           item.Type,
+			Actor:          item.Actor,
+			Timestamp:      item.CreatedAt,
+			AgreementTitle: item.AgreementTitle,
+			AgreementURL:   item.AgreementURL,
 		})
 	}
-	return map[string]any{
-		"activities":   out,
-		"activity_url": m.panelListURL(esignAgreementsPanelID),
-	}, nil
+	return coreadmin.WidgetPayloadOf(signingActivityWidgetPayload{
+		Activities:  out,
+		ActivityURL: m.panelListURL(esignAgreementsPanelID),
+	}), nil
 }
 
-func (m *ESignModule) deliveryHealthWidgetData(ctx context.Context) (map[string]any, error) {
+func (m *ESignModule) deliveryHealthWidgetData(ctx context.Context) (coreadmin.WidgetPayload, error) {
 	scope := m.defaultScope
 	agreements, err := m.store.ListAgreements(ctx, scope, stores.AgreementQuery{})
 	if err != nil {
-		return nil, err
+		return coreadmin.WidgetPayload{}, err
 	}
 
 	pendingRetries := 0
 	for _, agreement := range agreements {
 		runs, err := m.store.ListJobRuns(ctx, scope, agreement.ID)
 		if err != nil {
-			return nil, err
+			return coreadmin.WidgetPayload{}, err
 		}
 		for _, run := range runs {
 			if strings.TrimSpace(run.Status) == stores.JobRunStatusRetrying {
@@ -166,18 +235,42 @@ func (m *ESignModule) deliveryHealthWidgetData(ctx context.Context) (map[string]
 	snapshot := observability.Snapshot()
 	alerts := observability.EvaluateAlerts(snapshot, observability.DefaultAlertPolicy())
 	slo := observability.EvaluateSLO(snapshot)
-	payload := observability.BuildSLODashboard(snapshot, slo, alerts)
-	payload["pending_retries"] = pendingRetries
-	return payload, nil
+	return coreadmin.WidgetPayloadOf(deliveryHealthWidgetPayload{
+		SLOOverallPass:                 slo.OverallPass,
+		SLOTargets:                     slo.Targets,
+		Alerts:                         alerts,
+		EmailSuccessRate:               snapshot.EmailSuccessRatePercent(),
+		EmailsSent:                     snapshot.EmailSuccessTotal,
+		EmailsFailed:                   snapshot.EmailFailureTotal,
+		JobSuccessRate:                 snapshot.JobSuccessRatePercent(),
+		JobsCompleted:                  snapshot.JobSuccessTotal,
+		JobsFailed:                     snapshot.JobFailureTotal,
+		GoogleImportSuccesses:          snapshot.GoogleImportSuccessTotal,
+		GoogleImportFailures:           snapshot.GoogleImportFailureTotal,
+		GoogleAuthChurnTotal:           snapshot.GoogleAuthChurnTotal,
+		SignerLinkOpenRate:             snapshot.SignerLinkOpenRatePercent(),
+		SignerSubmitConversionRate:     snapshot.SignerSubmitConversionPercent(),
+		UnifiedViewerLoadP95MS:         snapshot.UnifiedViewerLoadP95MS,
+		UnifiedFieldSaveP95MS:          snapshot.UnifiedFieldSaveP95MS,
+		UnifiedSignatureAttachP95MS:    snapshot.UnifiedSignatureP95MS,
+		UnifiedSubmitConversionRate:    snapshot.UnifiedSubmitConversionPercent(),
+		CompletionDeliverySuccessRate:  snapshot.CompletionDeliverySuccessRatePercent(),
+		SignerLinkOpenSuccessTotal:     snapshot.SignerLinkOpenSuccessTotal,
+		SignerLinkOpenFailureTotal:     snapshot.SignerLinkOpenFailureTotal,
+		CompletionDeliverySuccessTotal: snapshot.CompletionDeliverySuccessTotal,
+		CompletionDeliveryFailureTotal: snapshot.CompletionDeliveryFailureTotal,
+		Period:                         "rolling window",
+		PendingRetries:                 pendingRetries,
+	}), nil
 }
 
-func (m *ESignModule) pendingSignaturesWidgetData(ctx context.Context) (map[string]any, error) {
+func (m *ESignModule) pendingSignaturesWidgetData(ctx context.Context) (coreadmin.WidgetPayload, error) {
 	scope := m.defaultScope
 	agreements, err := m.store.ListAgreements(ctx, scope, stores.AgreementQuery{})
 	if err != nil {
-		return nil, err
+		return coreadmin.WidgetPayload{}, err
 	}
-	rows := make([]map[string]any, 0)
+	rows := make([]pendingAgreementPayload, 0)
 	for _, agreement := range agreements {
 		status := strings.TrimSpace(agreement.Status)
 		if status != stores.AgreementStatusSent && status != stores.AgreementStatusInProgress {
@@ -185,9 +278,9 @@ func (m *ESignModule) pendingSignaturesWidgetData(ctx context.Context) (map[stri
 		}
 		recipients, err := m.store.ListRecipients(ctx, scope, agreement.ID)
 		if err != nil {
-			return nil, err
+			return coreadmin.WidgetPayload{}, err
 		}
-		pendingRecipients := make([]map[string]any, 0)
+		pendingRecipients := make([]pendingRecipientPayload, 0)
 		totalSigners := 0
 		for _, recipient := range recipients {
 			if strings.TrimSpace(recipient.Role) != stores.RecipientRoleSigner {
@@ -197,26 +290,26 @@ func (m *ESignModule) pendingSignaturesWidgetData(ctx context.Context) (map[stri
 			if recipient.CompletedAt != nil || recipient.DeclinedAt != nil {
 				continue
 			}
-			pendingRecipients = append(pendingRecipients, map[string]any{
-				"name":  strings.TrimSpace(recipient.Name),
-				"email": strings.TrimSpace(recipient.Email),
+			pendingRecipients = append(pendingRecipients, pendingRecipientPayload{
+				Name:  strings.TrimSpace(recipient.Name),
+				Email: strings.TrimSpace(recipient.Email),
 			})
 		}
 		if len(pendingRecipients) == 0 {
 			continue
 		}
-		rows = append(rows, map[string]any{
-			"title":              primitives.FirstNonEmpty(strings.TrimSpace(agreement.Title), "Untitled"),
-			"url":                m.panelItemURL(esignAgreementsPanelID, agreement.ID),
-			"pending_count":      len(pendingRecipients),
-			"total_recipients":   totalSigners,
-			"pending_recipients": pendingRecipients,
+		rows = append(rows, pendingAgreementPayload{
+			Title:             primitives.FirstNonEmpty(strings.TrimSpace(agreement.Title), "Untitled"),
+			URL:               m.panelItemURL(esignAgreementsPanelID, agreement.ID),
+			PendingCount:      len(pendingRecipients),
+			TotalRecipients:   totalSigners,
+			PendingRecipients: pendingRecipients,
 		})
 	}
-	return map[string]any{
-		"agreements": rows,
-		"list_url":   m.panelListURL(esignAgreementsPanelID),
-	}, nil
+	return coreadmin.WidgetPayloadOf(pendingSignaturesWidgetPayload{
+		Agreements: rows,
+		ListURL:    m.panelListURL(esignAgreementsPanelID),
+	}), nil
 }
 
 func (m *ESignModule) panelListURL(panelID string) string {
