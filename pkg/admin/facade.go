@@ -75,6 +75,8 @@ const (
 	AssignmentTypeOpenPool                       = core.AssignmentTypeOpenPool
 	CreateRoleOperation                          = core.CreateRoleOperation
 	CreateTranslationKey                         = core.CreateTranslationKey
+	DashboardRenderModeClient                    = core.DashboardRenderModeClient
+	DashboardRenderModeSSR                       = core.DashboardRenderModeSSR
 	DebugLayoutAdmin                             = core.DebugLayoutAdmin
 	DebugLayoutStandalone                        = core.DebugLayoutStandalone
 	DebugPanelConfig                             = core.DebugPanelConfig
@@ -100,6 +102,8 @@ const (
 	DefaultSchemaMaxFields                       = core.DefaultSchemaMaxFields
 	DefaultSchemaMaxSizeBytes                    = core.DefaultSchemaMaxSizeBytes
 	DefaultUISchemaMaxSizeBytes                  = core.DefaultUISchemaMaxSizeBytes
+	DoctorActionKindAuto                         = core.DoctorActionKindAuto
+	DoctorActionKindManual                       = core.DoctorActionKindManual
 	DoctorSeverityError                          = core.DoctorSeverityError
 	DoctorSeverityInfo                           = core.DoctorSeverityInfo
 	DoctorSeverityOK                             = core.DoctorSeverityOK
@@ -224,6 +228,9 @@ const (
 
 var (
 	ErrAutosaveConflict                     = core.ErrAutosaveConflict
+	ErrDoctorActionNotRunnable              = core.ErrDoctorActionNotRunnable
+	ErrDoctorActionUnavailable              = core.ErrDoctorActionUnavailable
+	ErrDoctorCheckNotFound                  = core.ErrDoctorCheckNotFound
 	ErrFeatureDisabled                      = core.ErrFeatureDisabled
 	ErrForbidden                            = core.ErrForbidden
 	ErrInvalidDependencies                  = core.ErrInvalidDependencies
@@ -282,6 +289,7 @@ type (
 	AuthConfig                                = core.AuthConfig
 	Authenticator                             = core.Authenticator
 	Authorizer                                = core.Authorizer
+	BatchAuthorizer                           = core.BatchAuthorizer
 	AutosaveConflictError                     = core.AutosaveConflictError
 	BulkCommand                               = core.BulkCommand
 	BulkConfig                                = core.BulkConfig
@@ -350,6 +358,7 @@ type (
 	DashboardPreferencesWithContext           = core.DashboardPreferencesWithContext
 	DashboardProviderMsg                      = core.DashboardProviderMsg
 	DashboardProviderSpec                     = core.DashboardProviderSpec
+	DashboardRenderMode                       = core.DashboardRenderMode
 	DashboardRenderer                         = core.DashboardRenderer
 	DashboardWidgetInstance                   = core.DashboardWidgetInstance
 	DebugCollector                            = core.DebugCollector
@@ -388,6 +397,11 @@ type (
 	DisabledMediaLibrary                      = core.DisabledMediaLibrary
 	DisabledNotificationService               = core.DisabledNotificationService
 	DispatchFactory                           = core.DispatchFactory
+	DoctorAction                              = core.DoctorAction
+	DoctorActionExecution                     = core.DoctorActionExecution
+	DoctorActionKind                          = core.DoctorActionKind
+	DoctorActionRun                           = core.DoctorActionRun
+	DoctorActionState                         = core.DoctorActionState
 	DoctorCheck                               = core.DoctorCheck
 	DoctorCheckOutput                         = core.DoctorCheckOutput
 	DoctorCheckResult                         = core.DoctorCheckResult
@@ -548,6 +562,7 @@ type (
 	PanelUIRouteMode                          = core.PanelUIRouteMode
 	PermissionDeniedError                     = core.PermissionDeniedError
 	PermissionEntry                           = core.PermissionEntry
+	PermissionResolverMetrics                 = core.PermissionResolverMetrics
 	PermissionsDebugPanel                     = core.PermissionsDebugPanel
 	PermissionsDebugSnapshot                  = core.PermissionsDebugSnapshot
 	PersistedWorkflow                         = core.PersistedWorkflow
@@ -817,6 +832,14 @@ func CanonicalPolicyEntityKey(value string) string {
 	return core.CanonicalPolicyEntityKey(value)
 }
 
+func CanAll(authorizer Authorizer, ctx context.Context, resource string, permissions ...string) bool {
+	return core.CanAll(authorizer, ctx, resource, permissions...)
+}
+
+func CanAny(authorizer Authorizer, ctx context.Context, resource string, permissions ...string) bool {
+	return core.CanAny(authorizer, ctx, resource, permissions...)
+}
+
 func CaptureJSErrorContext(collector *DebugCollector, c router.Context, viewCtx router.ViewContext) router.ViewContext {
 	return core.CaptureJSErrorContext(collector, c, viewCtx)
 }
@@ -831,6 +854,10 @@ func CaptureViewContextForRequest(collector *DebugCollector, c router.Context, v
 
 func CollectIconContributions(contributor IconContributor, callbacks IconContributorCallbacks) error {
 	return core.CollectIconContributions(contributor, callbacks)
+}
+
+func DashboardRenderModeFromContext(ctx context.Context) DashboardRenderMode {
+	return core.DashboardRenderModeFromContext(ctx)
 }
 
 func DebugRequestMiddleware(collector *DebugCollector) router.MiddlewareFunc {
@@ -1261,6 +1288,10 @@ func NewManagementServices(container CMSContainer, opts DeliveryOptions) Managem
 	return core.NewManagementServices(container, opts)
 }
 
+func NewManualDoctorAction(description string, cta string) *DoctorAction {
+	return core.NewManualDoctorAction(description, cta)
+}
+
 func NewMemoryRepository() *MemoryRepository {
 	return core.NewMemoryRepository()
 }
@@ -1669,6 +1700,10 @@ func WithContentTypeBuilderWorkflowAuthorizer(authorizer WorkflowAuthorizer) Con
 	return core.WithContentTypeBuilderWorkflowAuthorizer(authorizer)
 }
 
+func WithDashboardRenderMode(ctx context.Context, mode DashboardRenderMode) context.Context {
+	return core.WithDashboardRenderMode(ctx, mode)
+}
+
 func WithDefaultLibrary(library string) IconServiceOption {
 	return core.WithDefaultLibrary(library)
 }
@@ -1735,6 +1770,10 @@ func WithMenuPositions(usersPos *int, rolesPos *int) UserManagementModuleOption 
 
 func WithOptionalAuth(optional bool) GoAuthAuthenticatorOption {
 	return core.WithOptionalAuth(optional)
+}
+
+func WithResolvedPermissionsCache(ctx context.Context) context.Context {
+	return core.WithResolvedPermissionsCache(ctx)
 }
 
 func WithRolesPanelConfigurer(fn func(*PanelBuilder) *PanelBuilder) UserManagementModuleOption {
