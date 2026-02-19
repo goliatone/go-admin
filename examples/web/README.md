@@ -420,7 +420,7 @@ The example demonstrates hybrid server-side rendering with client-side hydration
 - **Server-Side Rendering (SSR)**: Complete HTML is rendered server-side with widgets and data
 - **Client Hydration**: JavaScript attaches behaviors to existing DOM without re-rendering
 - **Zero API Fetches**: Initial page load requires no additional API calls
-- **Backwards Compatible**: JSON API (`/admin/api/dashboard`) remains available
+- **Canonical Contract**: Widget providers return typed `WidgetPayload` view-models
 
 ### How It Works
 
@@ -462,6 +462,30 @@ Hydration: `assets/src/dashboard/widget-grid.ts`
 - **SSR**: `GET /admin/dashboard` - Full HTML page with inline state
 - **JSON API**: `GET /admin/api/dashboard` - JSON payload (backwards compatible)
 - **Preferences**: `GET/POST /admin/api/dashboard/preferences` - Layout persistence
+
+### Canonical Widget Provider Contract
+
+Dashboard providers now return `admin.WidgetPayload` with struct roots only:
+
+```go
+type TranslationSummaryPayload struct {
+    Pending int `json:"pending"`
+}
+
+dash.RegisterProvider(admin.DashboardProviderSpec{
+    Code: "admin.widget.translation_progress",
+    Handler: func(ctx admin.AdminContext, cfg map[string]any) (admin.WidgetPayload, error) {
+        _ = ctx
+        _ = cfg
+        return admin.WidgetPayloadOf(TranslationSummaryPayload{Pending: 1}), nil
+    },
+})
+```
+
+Notes:
+- Root `map[string]any` payloads are rejected.
+- Unsafe keys/content (`chart_html`, full-document/script blobs) are sanitized centrally.
+- Both SSR and client hydration consume the same canonical payload shape.
 
 ### Customizing Templates
 
