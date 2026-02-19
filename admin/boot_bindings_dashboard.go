@@ -36,8 +36,6 @@ func (d *dashboardBinding) RenderHTML(c router.Context, locale string) (string, 
 		return "", nil
 	}
 	ctx := d.admin.adminContextFromRequest(c, locale)
-	ctx.RenderMode = DashboardRenderModeSSR
-	ctx.Context = WithDashboardRenderMode(ctx.Context, ctx.RenderMode)
 	theme := d.admin.resolveTheme(ctx.Context)
 	basePath := d.admin.config.BasePath
 	if basePath == "" {
@@ -83,8 +81,6 @@ func (d *dashboardBinding) Widgets(c router.Context, locale string) (map[string]
 		return nil, nil
 	}
 	ctx := d.admin.adminContextFromRequest(c, locale)
-	ctx.RenderMode = DashboardRenderModeClient
-	ctx.Context = WithDashboardRenderMode(ctx.Context, ctx.RenderMode)
 	widgets, err := d.admin.dashboard.Resolve(ctx)
 	if err != nil {
 		return nil, err
@@ -274,9 +270,8 @@ func (d *dashboardGoBinding) RenderHTML(c router.Context, locale string) (string
 		return "", nil
 	}
 	viewer := d.viewer(c, locale)
-	renderCtx := WithDashboardRenderMode(c.Context(), DashboardRenderModeSSR)
 	var buf strings.Builder
-	if err := d.admin.dash.controller.RenderTemplate(renderCtx, viewer, &buf); err != nil {
+	if err := d.admin.dash.controller.RenderTemplate(c.Context(), viewer, &buf); err != nil {
 		return "", err
 	}
 	return buf.String(), nil
@@ -290,8 +285,6 @@ func (d *dashboardGoBinding) Widgets(c router.Context, locale string) (map[strin
 		locale = d.admin.config.DefaultLocale
 	}
 	adminCtx := d.admin.adminContextFromRequest(c, locale)
-	adminCtx.RenderMode = DashboardRenderModeClient
-	adminCtx.Context = WithDashboardRenderMode(adminCtx.Context, adminCtx.RenderMode)
 	widgets, err := d.admin.dashboard.Resolve(adminCtx)
 	if err != nil {
 		return nil, err
