@@ -33,6 +33,7 @@ const (
 	DebugPanelJSErrors = "jserrors"
 	DebugPanelShell    = "shell"
 	DebugPanelConsole  = "console"
+	DebugPanelDoctor   = "doctor"
 )
 
 // DebugLayoutMode controls how the debug UI is rendered.

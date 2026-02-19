@@ -37,10 +37,12 @@ var debugPanelDefaults = map[string]debugPanelMeta{
 	DebugPanelCustom:      {Label: "Custom", Span: debugPanelDefaultSpan},
 	DebugPanelJSErrors:    {Label: "JS Errors", Icon: "iconoir-warning-triangle", Span: debugPanelDefaultSpan},
 	DebugPanelPermissions: {Label: "Permissions", Icon: "iconoir-shield-check", Span: debugPanelDefaultSpan},
+	DebugPanelDoctor:      {Label: "Doctor", Icon: "iconoir-heartbeat", Span: debugPanelDefaultSpan},
 }
 
 // DebugModule registers the debug dashboard integration and menu entry.
 type DebugModule struct {
+	admin         *Admin
 	collector     *DebugCollector
 	config        DebugConfig
 	basePath      string
@@ -100,6 +102,7 @@ func (m *DebugModule) Register(ctx ModuleContext) error {
 	if m.collector == nil {
 		m.collector = NewDebugCollector(cfg)
 	}
+	m.admin = ctx.Admin
 	m.collector.WithURLs(ctx.Admin.URLs())
 	if m.sessionStore == nil {
 		m.sessionStore = ctx.Admin.DebugUserSessions()
@@ -121,6 +124,7 @@ func (m *DebugModule) Register(ctx ModuleContext) error {
 	m.registerDebugREPLShellWebSocket(ctx.Admin)
 	m.registerDebugREPLAppWebSocket(ctx.Admin)
 	RegisterPermissionsDebugPanel(ctx.Admin)
+	RegisterDoctorDebugPanel(ctx.Admin)
 	return nil
 }
 
