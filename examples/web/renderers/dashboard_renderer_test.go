@@ -34,31 +34,13 @@ func TestTemplateRendererSupportsGoDashboardSignature(t *testing.T) {
 	assert.Greater(t, buf.Len(), 0)
 }
 
-func TestNormalizeDataAcceptsControllerMapPayload(t *testing.T) {
+func TestNormalizeDataRejectsControllerMapPayload(t *testing.T) {
 	renderer := &TemplateRenderer{}
 	result, err := renderer.normalizeData(map[string]any{
-		"ordered_areas": []map[string]any{
-			{
-				"code": "admin.dashboard.main",
-				"widgets": []map[string]any{
-						{
-							"id":         "widget-1",
-							"definition": admin.WidgetUserStats,
-							"area_code":  "admin.dashboard.main",
-						"metadata": map[string]any{
-							"layout": map[string]any{"width": 6},
-						},
-					},
-				},
-			},
-		},
+		"areas": []any{},
 	})
-	assert.NoError(t, err)
-	assert.NotNil(t, result)
-	areas, ok := result["areas"].([]map[string]any)
-	assert.True(t, ok)
-	assert.Len(t, areas, 1)
-	assert.Equal(t, "admin.dashboard.main", areas[0]["code"])
+	assert.Error(t, err)
+	assert.Nil(t, result)
 }
 
 func TestNormalizeDataUnsupportedType(t *testing.T) {
@@ -79,10 +61,10 @@ func TestRenderDashboardLayoutIntegration(t *testing.T) {
 			{
 				Code: "admin.dashboard.main",
 				Widgets: []*admin.ResolvedWidget{
-						{
-							ID:         "widget-stats",
-							Definition: admin.WidgetUserStats,
-							Area:       "admin.dashboard.main",
+					{
+						ID:         "widget-stats",
+						Definition: admin.WidgetUserStats,
+						Area:       "admin.dashboard.main",
 						Span:       12,
 						Data: map[string]any{
 							"total_users": 1000,
@@ -116,7 +98,7 @@ func TestRenderDoesNotEmitFloatSpanInHTML(t *testing.T) {
 			{
 				Code: "admin.dashboard.main",
 				Widgets: []*admin.ResolvedWidget{
-						{ID: "widget-1", Definition: admin.WidgetUserStats, Area: "admin.dashboard.main", Span: 6},
+					{ID: "widget-1", Definition: admin.WidgetUserStats, Area: "admin.dashboard.main", Span: 6},
 				},
 			},
 		},
@@ -146,10 +128,10 @@ func TestTemplateRendererNormalizesWidgetDataNumbersForTemplates(t *testing.T) {
 			{
 				Code: "admin.dashboard.main",
 				Widgets: []*admin.ResolvedWidget{
-						{
-							ID:         "widget-1",
-							Definition: admin.WidgetTranslationProgress,
-							Area:       "admin.dashboard.main",
+					{
+						ID:         "widget-1",
+						Definition: admin.WidgetTranslationProgress,
+						Area:       "admin.dashboard.main",
 						Span:       12,
 						Data: map[string]any{
 							"status_counts": map[string]any{

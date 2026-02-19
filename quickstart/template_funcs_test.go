@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/goliatone/go-admin/admin"
 	urlkit "github.com/goliatone/go-urlkit"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -205,5 +206,5 @@ func TestDefaultTemplateFuncs_TranslationProgressTitle(t *testing.T) {
 	funcs := DefaultTemplateFuncs()
 	getWidgetTitle, ok := funcs["getWidgetTitle"].(func(string) string)
 	require.True(t, ok, "getWidgetTitle should be func(string) string")
-	assert.Equal(t, "Translation Progress", getWidgetTitle(WidgetTranslationProgress))
+	assert.Equal(t, "Translation Progress", getWidgetTitle(admin.WidgetTranslationProgress))
 }
