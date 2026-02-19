@@ -1,0 +1,194 @@
+#!/usr/bin/env bash
+
+# Check for -debug flag
+if [[ $* == *-debug* ]]; then
+    set -x
+fi
+
+set -u
+
+export LGR_NO_TIMESTAMP=true
+
+EXAMPLE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${EXAMPLE_DIR}/../.." && pwd)"
+DEFAULT_CONFIG_PATH="${EXAMPLE_DIR}/config/app.yaml"
+
+GO_BIN_DEFAULT="/Users/goliatone/.g/go/bin/go"
+GO_BIN="${GO_BIN:-${GO_BIN_DEFAULT}}"
+if [ ! -x "${GO_BIN}" ]; then
+    GO_BIN="$(command -v go 2>/dev/null || true)"
+fi
+
+if [ -f .taskenv ]; then
+    # shellcheck disable=SC1091
+    source .taskenv
+fi
+
+PATH="${PROJECT_ROOT}/node_modules/.bin:${PATH}"
+PATH="${PROJECT_ROOT}/src/bin:${PATH}"
+
+##########################################
+# Helpers
+##########################################
+
+function _ensure:go {
+    if [ -z "${GO_BIN}" ] || [ ! -x "${GO_BIN}" ]; then
+        echo "Go binary not found. Set GO_BIN or install go."
+        return 1
+    fi
+}
+
+function _address:url {
+    local address="${APP_SERVER__ADDRESS:-:8082}"
+    if [[ "${address}" == http://* ]] || [[ "${address}" == https://* ]]; then
+        echo "${address}"
+        return
+    fi
+    if [[ "${address}" == :* ]]; then
+        echo "http://localhost${address}"
+        return
+    fi
+    echo "http://${address}"
+}
+
+##########################################
+# App shell tasks
+##########################################
+
+function dev:serve {
+    _ensure:go || return 1
+
+    export APP_CONFIG_PATH="${APP_CONFIG_PATH:-${DEFAULT_CONFIG_PATH}}"
+    export APP_ENV="${APP_ENV:-development}"
+    export APP_SERVER__PRINT_ROUTES="${APP_SERVER__PRINT_ROUTES:-true}"
+
+    echo "Starting admin-shell..."
+    echo "  config: ${APP_CONFIG_PATH}"
+    echo "  url:    $(_address:url)"
+
+    (
+        cd "${PROJECT_ROOT}" || exit 1
+        "${GO_BIN}" run ./examples/admin-shell/cmd/admin
+    )
+}
+
+function dev:serve:quiet {
+    export APP_SERVER__PRINT_ROUTES=false
+    dev:serve
+}
+
+function dev:serve:prod {
+    export APP_ENV=production
+    export APP_SERVER__PRINT_ROUTES=false
+    dev:serve
+}
+
+function dev:test {
+    _ensure:go || return 1
+    (
+        cd "${PROJECT_ROOT}" || exit 1
+        "${GO_BIN}" test ./examples/admin-shell/...
+    )
+}
+
+function dev:cover {
+    _ensure:go || return 1
+    (
+        cd "${PROJECT_ROOT}" || exit 1
+        "${GO_BIN}" test -coverprofile=coverage.out ./examples/admin-shell/... &&
+            "${GO_BIN}" tool cover -func=coverage.out
+    )
+}
+
+function dev:fmt {
+    _ensure:go || return 1
+    (
+        cd "${PROJECT_ROOT}" || exit 1
+        "${GO_BIN}" fmt ./examples/admin-shell/...
+    )
+}
+
+function dev:vet {
+    _ensure:go || return 1
+    (
+        cd "${PROJECT_ROOT}" || exit 1
+        "${GO_BIN}" vet ./examples/admin-shell/...
+    )
+}
+
+function dev:check {
+    dev:fmt &&
+        dev:vet &&
+        dev:test
+}
+
+function dev:clean {
+    (
+        cd "${PROJECT_ROOT}" || exit 1
+        rm -f coverage.out
+    )
+}
+
+function dev:config {
+    local config_path="${APP_CONFIG_PATH:-${DEFAULT_CONFIG_PATH}}"
+    echo "Config: ${config_path}"
+    if [ -f "${config_path}" ]; then
+        sed -n '1,220p' "${config_path}"
+    else
+        echo "Config file not found."
+        return 1
+    fi
+}
+
+function dev:env {
+    cat <<EOF
+APP_CONFIG_PATH=${APP_CONFIG_PATH:-${DEFAULT_CONFIG_PATH}}
+APP_ENV=${APP_ENV:-development}
+APP_SERVER__ADDRESS=${APP_SERVER__ADDRESS:-:8082}
+APP_SERVER__PRINT_ROUTES=${APP_SERVER__PRINT_ROUTES:-true}
+APP_ADMIN__BASE_PATH=${APP_ADMIN__BASE_PATH:-/admin}
+APP_AUTH__DEMO_USERNAME=${APP_AUTH__DEMO_USERNAME:-admin}
+APP_AUTH__DEMO_EMAIL=${APP_AUTH__DEMO_EMAIL:-admin@example.com}
+EOF
+}
+
+function dev:curl:home {
+    curl -i "$(_address:url)/"
+}
+
+function dev:curl:health {
+    curl -sS "$(_address:url)/healthz"
+}
+
+function dev:curl:ready {
+    curl -sS "$(_address:url)/readyz"
+}
+
+function dev:curl:admin {
+    local base_path="${APP_ADMIN__BASE_PATH:-/admin}"
+    curl -i "$(_address:url)${base_path}"
+}
+
+##########################################
+# Help
+##########################################
+
+function help:show {
+    declare -f "$1"
+}
+
+function help {
+    echo ""
+    echo "$0 <task> [...arguments]"
+    echo ""
+    echo "Project: admin-shell"
+    echo "Root:    ${PROJECT_ROOT}"
+    echo ""
+    echo "Tasks:"
+    compgen -A function | grep -v '^_' | cat -n
+    echo ""
+}
+
+TIMEFORMAT="Task completed in %3lR"
+time "${@:-help}"
+exit $?
