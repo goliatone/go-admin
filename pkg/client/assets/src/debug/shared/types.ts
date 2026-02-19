@@ -94,6 +94,7 @@ export type DebugSnapshot = {
   config?: Record<string, unknown>;
   routes?: RouteEntry[];
   custom?: CustomSnapshot;
+  doctor?: DoctorReport;
   repl_commands?: unknown;
   // Allow extra panels via index signature
   [key: string]: unknown;
@@ -161,4 +162,59 @@ export type PermissionsSnapshot = {
   summary: PermissionsSummary;
   next_actions: string[];
   user_info: PermissionsUserInfo;
+};
+
+export type DoctorSeverity = 'ok' | 'info' | 'warn' | 'error';
+
+export type DoctorFinding = {
+  check_id?: string;
+  severity?: DoctorSeverity;
+  code?: string;
+  component?: string;
+  message?: string;
+  hint?: string;
+  metadata?: Record<string, unknown>;
+};
+
+export type DoctorActionState = {
+  label?: string;
+  cta?: string;
+  description?: string;
+  kind?: 'manual' | 'auto';
+  allowed_statuses?: DoctorSeverity[];
+  requires_confirmation?: boolean;
+  confirm_text?: string;
+  applicable?: boolean;
+  runnable?: boolean;
+  metadata?: Record<string, unknown>;
+};
+
+export type DoctorCheckResult = {
+  id: string;
+  label?: string;
+  description?: string;
+  help?: string;
+  status?: DoctorSeverity;
+  summary?: string;
+  duration_ms?: number;
+  findings?: DoctorFinding[];
+  action?: DoctorActionState;
+  metadata?: Record<string, unknown>;
+};
+
+export type DoctorSummary = {
+  checks?: number;
+  ok?: number;
+  info?: number;
+  warn?: number;
+  error?: number;
+};
+
+export type DoctorReport = {
+  generated_at?: string;
+  verdict?: DoctorSeverity;
+  summary?: DoctorSummary;
+  checks?: DoctorCheckResult[];
+  findings?: DoctorFinding[];
+  next_actions?: string[];
 };

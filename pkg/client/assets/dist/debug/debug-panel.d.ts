@@ -102,6 +102,11 @@ export declare class DebugPanel {
     private fetchSnapshot;
     private clearAll;
     private clearActivePanel;
+    private parseJSONResponse;
+    private readResponsePath;
+    private responseMessage;
+    private showDoctorActionToast;
+    private runDoctorAction;
     private togglePause;
 }
 export declare const initDebugPanel: (container?: HTMLElement | null) => DebugPanel | null;

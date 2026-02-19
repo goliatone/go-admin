@@ -34,7 +34,13 @@ export declare class BlockLibraryIDE {
     private mediaQueryLg;
     private popoverPalettePanel;
     private envSelectEl;
+    private envStatusEl;
+    private envResetBtn;
+    private envAdvancedToggleBtn;
     private currentEnvironment;
+    private availableEnvironments;
+    private envAdvancedMode;
+    private envDiagnostics;
     constructor(root: HTMLElement);
     init(): Promise<void>;
     /** Initialize the field palette panel (Phase 9) */
@@ -73,9 +79,15 @@ export declare class BlockLibraryIDE {
     private setEnvironment;
     /** Update the ?env= query parameter in the URL without a page reload */
     private updateUrlEnvironment;
-    /** Ensure the environment select contains a specific option */
-    private ensureEnvironmentOption;
     private promptForEnvironment;
+    private normalizeEnvironment;
+    private readEnvironmentAdvancedMode;
+    private persistEnvironmentAdvancedMode;
+    private toggleEnvironmentAdvancedMode;
+    private refreshEnvironmentOptions;
+    private environmentLabel;
+    private upsertEnvironmentOption;
+    private updateEnvironmentStatus;
     getSelectedBlock(): BlockDefinition | null;
     selectBlock(blockId: string | null): void;
     markDirty(blockId: string): void;
