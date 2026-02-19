@@ -325,15 +325,17 @@ func seedCMSBlockDefinitions(ctx context.Context, svc admin.CMSContentService, l
 	if locale == "" {
 		locale = "en"
 	}
+	seedEnvironment := "default"
 
 	defs := []admin.CMSBlockDefinition{
 		{
-			ID:       "hero",
-			Name:     "Hero",
-			Type:     "hero",
-			Slug:     "hero",
-			Status:   "active",
-			Category: "layout",
+			ID:          "hero",
+			Name:        "Hero",
+			Type:        "hero",
+			Slug:        "hero",
+			Status:      "active",
+			Environment: seedEnvironment,
+			Category:    "layout",
 			Schema: map[string]any{
 				"$schema":  "https://json-schema.org/draft/2020-12/schema",
 				"type":     "object",
@@ -358,12 +360,13 @@ func seedCMSBlockDefinitions(ctx context.Context, svc admin.CMSContentService, l
 			},
 		},
 		{
-			ID:       "rich_text",
-			Name:     "Rich Text",
-			Type:     "rich_text",
-			Slug:     "rich-text",
-			Status:   "active",
-			Category: "content",
+			ID:          "rich_text",
+			Name:        "Rich Text",
+			Type:        "rich_text",
+			Slug:        "rich_text",
+			Status:      "active",
+			Environment: seedEnvironment,
+			Category:    "content",
 			Schema: map[string]any{
 				"$schema":  "https://json-schema.org/draft/2020-12/schema",
 				"type":     "object",
@@ -391,29 +394,26 @@ func seedCMSBlockDefinitions(ctx context.Context, svc admin.CMSContentService, l
 	}
 
 	existingByKey := map[string]admin.CMSBlockDefinition{}
-	if existing, err := svc.BlockDefinitions(ctx); err == nil {
-		for _, def := range existing {
-			keys := []string{def.ID, def.Slug, def.Type}
-			for _, key := range keys {
-				normalized := strings.ToLower(strings.TrimSpace(key))
-				if normalized == "" {
-					continue
-				}
-				existingByKey[normalized] = def
+	rebuildExistingIndex := func() error {
+		existing, err := svc.BlockDefinitions(ctx)
+		if err != nil {
+			return err
+		}
+		clear(existingByKey)
+		for _, existingDef := range existing {
+			for _, key := range blockDefinitionLookupKeys(existingDef.Environment, existingDef.ID, existingDef.Name, existingDef.Slug, existingDef.Type) {
+				existingByKey[key] = existingDef
 			}
 		}
-	} else {
+		return nil
+	}
+	if err := rebuildExistingIndex(); err != nil {
 		return err
 	}
 
 	lookupExisting := func(def admin.CMSBlockDefinition) (admin.CMSBlockDefinition, bool) {
-		candidates := []string{def.ID, def.Slug, def.Type}
-		for _, candidate := range candidates {
-			normalized := strings.ToLower(strings.TrimSpace(candidate))
-			if normalized == "" {
-				continue
-			}
-			if found, ok := existingByKey[normalized]; ok {
+		for _, candidate := range blockDefinitionLookupKeys(def.Environment, def.ID, def.Name, def.Slug, def.Type) {
+			if found, ok := existingByKey[candidate]; ok {
 				return found, true
 			}
 		}
@@ -427,7 +427,14 @@ func seedCMSBlockDefinitions(ctx context.Context, svc admin.CMSContentService, l
 			if existing.ID != "" {
 				update.ID = existing.ID
 			}
+			if existing.Name != "" {
+				// Keep existing canonical name to avoid backend-specific rename side effects.
+				update.Name = existing.Name
+			}
 			if _, err := svc.UpdateBlockDefinition(ctx, update); err == nil {
+				if refreshErr := rebuildExistingIndex(); refreshErr != nil {
+					return refreshErr
+				}
 				continue
 			} else {
 				lower := strings.ToLower(err.Error())
@@ -440,13 +447,72 @@ func seedCMSBlockDefinitions(ctx context.Context, svc admin.CMSContentService, l
 		if _, err := svc.CreateBlockDefinition(ctx, def); err != nil {
 			lower := strings.ToLower(err.Error())
 			if strings.Contains(lower, "already") || strings.Contains(lower, "exists") {
+				if refreshErr := rebuildExistingIndex(); refreshErr != nil {
+					return refreshErr
+				}
+				if existing, ok := lookupExisting(def); ok {
+					update := def
+					if existing.ID != "" {
+						update.ID = existing.ID
+					}
+					if existing.Name != "" {
+						update.Name = existing.Name
+					}
+					if _, updateErr := svc.UpdateBlockDefinition(ctx, update); updateErr == nil {
+						if refreshErr := rebuildExistingIndex(); refreshErr != nil {
+							return refreshErr
+						}
+						continue
+					}
+				}
 				continue
 			}
 			return err
 		}
+		if refreshErr := rebuildExistingIndex(); refreshErr != nil {
+			return refreshErr
+		}
 	}
 
 	return nil
+}
+
+func blockDefinitionLookupKeys(environment string, keys ...string) []string {
+	out := make([]string, 0, len(keys)*4)
+	seen := map[string]struct{}{}
+	env := strings.ToLower(strings.TrimSpace(environment))
+	if env == "" {
+		env = "default"
+	}
+	add := func(raw string) {
+		key := strings.ToLower(strings.TrimSpace(raw))
+		if key == "" {
+			return
+		}
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		out = append(out, key)
+		if env != "" {
+			envKey := env + "::" + key
+			if _, ok := seen[envKey]; ok {
+				return
+			}
+			seen[envKey] = struct{}{}
+			out = append(out, envKey)
+		}
+	}
+	for _, raw := range keys {
+		base := strings.TrimSpace(raw)
+		if base == "" {
+			continue
+		}
+		add(base)
+		add(strings.ReplaceAll(base, "-", "_"))
+		add(strings.ReplaceAll(base, "_", "-"))
+	}
+	return out
 }
 
 func resolveCMSMigrationsFS() fs.FS {

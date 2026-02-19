@@ -232,7 +232,10 @@ func main() {
 	}
 	quickstart.ConfigureDebugPanels(
 		&cfg,
-		quickstart.DebugPanelDeps{ScopeBuffer: scopeDebugBuffer},
+		quickstart.DebugPanelDeps{
+			ScopeBuffer:   scopeDebugBuffer,
+			IsDevelopment: coreadmin.BoolPtr(isDev),
+		},
 		debugPanelCatalog,
 	)
 	adminDeps := admin.Dependencies{
