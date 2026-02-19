@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"sort"
 	"strings"
@@ -32,6 +33,10 @@ const (
 var errDebugPanelRequired = goerrors.New("panel is required", goerrors.CategoryValidation).
 	WithCode(http.StatusBadRequest).
 	WithTextCode(TextCodeMissingPanel)
+
+var errDebugDoctorCheckRequired = goerrors.New("doctor check is required", goerrors.CategoryValidation).
+	WithCode(http.StatusBadRequest).
+	WithTextCode("MISSING_DOCTOR_CHECK")
 
 type debugCommand struct {
 	Type   string   `json:"type"`
@@ -177,6 +182,7 @@ func (m *DebugModule) registerDebugRoutes(admin *Admin) {
 	registerSession(debugAPIRoutePath(admin, m.config, "sessions"), m.handleDebugSessions)
 	registerPost(debugAPIRoutePath(admin, m.config, "clear"), m.handleDebugClear)
 	registerPost(debugAPIRoutePath(admin, m.config, "clear.panel"), m.handleDebugClearPanel)
+	registerPost(debugAPIRoutePath(admin, m.config, "doctor.action"), m.handleDebugDoctorAction)
 	// JS error ingestion endpoint — registered without access middleware so
 	// the global error collector on all app pages can report errors.
 	if path := debugAPIRoutePath(admin, m.config, "errors"); path != "" {
@@ -338,6 +344,53 @@ func (m *DebugModule) handleDebugClearPanel(c router.Context) error {
 	}
 	m.publishSnapshot()
 	return writeJSON(c, map[string]string{"status": "ok", "panel": panelID})
+}
+
+func (m *DebugModule) handleDebugDoctorAction(c router.Context) error {
+	checkID := strings.TrimSpace(c.Param("check", ""))
+	if checkID == "" {
+		return writeError(c, errDebugDoctorCheckRequired)
+	}
+	if m == nil || m.admin == nil {
+		return writeError(c, ErrNotFound)
+	}
+
+	payload := map[string]any{}
+	rawBody := strings.TrimSpace(string(c.Body()))
+	if rawBody != "" {
+		var decoded map[string]any
+		if err := json.Unmarshal([]byte(rawBody), &decoded); err != nil {
+			return writeError(c, goerrors.New("invalid JSON payload", goerrors.CategoryValidation).
+				WithCode(http.StatusBadRequest).
+				WithTextCode("INVALID_PAYLOAD"))
+		}
+		payload = decoded
+	}
+
+	result, err := m.admin.RunDoctorAction(c.Context(), checkID, payload)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrDoctorCheckNotFound):
+			return writeError(c, ErrNotFound)
+		case errors.Is(err, ErrDoctorActionUnavailable):
+			return writeError(c, goerrors.New("doctor action unavailable", goerrors.CategoryValidation).
+				WithCode(http.StatusConflict).
+				WithTextCode("DOCTOR_ACTION_UNAVAILABLE"))
+		case errors.Is(err, ErrDoctorActionNotRunnable):
+			return writeError(c, goerrors.New("doctor action not runnable", goerrors.CategoryValidation).
+				WithCode(http.StatusConflict).
+				WithTextCode("DOCTOR_ACTION_NOT_RUNNABLE"))
+		default:
+			return writeError(c, err)
+		}
+	}
+	m.publishSnapshot()
+	return writeJSON(c, map[string]any{
+		"status":  "ok",
+		"check":   result.CheckID,
+		"message": result.Message,
+		"result":  result,
+	})
 }
 
 var errJSErrorMessageRequired = goerrors.New("message is required", goerrors.CategoryValidation).
