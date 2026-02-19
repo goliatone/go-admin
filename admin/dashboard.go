@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"github.com/goliatone/go-admin/internal/primitives"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -13,6 +14,13 @@ import (
 
 // WidgetProvider produces data for a widget given viewer context/config.
 type WidgetProvider func(ctx AdminContext, cfg map[string]any) (map[string]any, error)
+
+var dashboardPayloadBlockedPattern = regexp.MustCompile(`(?is)<\s*(!doctype|html|head|body|script)\b`)
+
+var dashboardPayloadBlockedKeys = map[string]struct{}{
+	"chart_html":          {},
+	"chart_html_fragment": {},
+}
 
 // DashboardWidgetInstance represents a widget placed in an area.
 type DashboardWidgetInstance = dashinternal.DashboardWidgetInstance
@@ -352,12 +360,17 @@ func (d *Dashboard) registerProviderInComponents(spec DashboardProviderSpec, han
 		for k, v := range meta.Instance.Configuration {
 			cfg[k] = v
 		}
-		adminCtx := AdminContext{Context: ctx, UserID: meta.Viewer.UserID, Locale: meta.Viewer.Locale}
+		adminCtx := AdminContext{
+			Context:    ctx,
+			UserID:     meta.Viewer.UserID,
+			Locale:     meta.Viewer.Locale,
+			RenderMode: dashboardRenderModeFromContext(ctx),
+		}
 		data, err := handler(adminCtx, cfg)
 		if err != nil {
 			return nil, err
 		}
-		return dashcmp.WidgetData(data), nil
+		return dashcmp.WidgetData(sanitizeDashboardWidgetData(data)), nil
 	}))
 	if d.components.specs != nil {
 		d.components.specs[spec.Code] = spec
@@ -545,6 +558,7 @@ func (d *Dashboard) Providers() []DashboardProviderSpec {
 
 // Resolve returns widgets for a viewer, applying per-user preferences when present.
 func (d *Dashboard) Resolve(ctx AdminContext) ([]map[string]any, error) {
+	ctx = normalizeAdminContextRenderMode(ctx, DashboardRenderModeClient)
 	comp, err := d.ensureComponents(ctx.Context)
 	if err != nil || comp == nil {
 		return nil, err
@@ -560,6 +574,7 @@ func (d *Dashboard) Resolve(ctx AdminContext) ([]map[string]any, error) {
 // RenderLayout builds a DashboardLayout with resolved widgets grouped by area.
 // This is used for server-side rendering via the configured DashboardRenderer.
 func (d *Dashboard) RenderLayout(ctx AdminContext, theme *ThemeSelection, basePath string) (*DashboardLayout, error) {
+	ctx = normalizeAdminContextRenderMode(ctx, DashboardRenderModeSSR)
 	comp, err := d.ensureComponents(ctx.Context)
 	if err != nil || comp == nil {
 		return nil, err
@@ -577,6 +592,7 @@ func (d *Dashboard) RenderLayout(ctx AdminContext, theme *ThemeSelection, basePa
 }
 
 func (d *Dashboard) resolvedInstances(ctx AdminContext) []DashboardWidgetInstance {
+	ctx = normalizeAdminContextRenderMode(ctx, DashboardRenderModeClient)
 	comp, err := d.ensureComponents(ctx.Context)
 	if err != nil || comp == nil {
 		return nil
@@ -598,6 +614,19 @@ func viewerFromAdminContext(ctx AdminContext) dashcmp.ViewerContext {
 		UserID: ctx.UserID,
 		Locale: ctx.Locale,
 	}
+}
+
+func normalizeAdminContextRenderMode(ctx AdminContext, fallback DashboardRenderMode) AdminContext {
+	mode := normalizeDashboardRenderMode(ctx.RenderMode)
+	if mode == "" {
+		mode = dashboardRenderModeFromContext(ctx.Context)
+	}
+	if mode == "" {
+		mode = fallback
+	}
+	ctx.RenderMode = mode
+	ctx.Context = withDashboardRenderMode(ctx.Context, mode)
+	return ctx
 }
 
 func orderedAreaCodes(areaMap map[string][]dashcmp.WidgetInstance) []string {
@@ -835,9 +864,10 @@ func (c *dashboardProviderCommand) Execute(ctx context.Context, msg DashboardPro
 		code = c.dashboard.providerCodeForCommand(msg.CommandName)
 	}
 	adminCtx := AdminContext{
-		Context: ctx,
-		UserID:  userIDFromContext(ctx),
-		Locale:  localeFromContext(ctx),
+		Context:    ctx,
+		UserID:     userIDFromContext(ctx),
+		Locale:     localeFromContext(ctx),
+		RenderMode: dashboardRenderModeFromContext(ctx),
 	}
 	if adminCtx.Locale == "" {
 		adminCtx.Locale = "en"
@@ -864,4 +894,44 @@ func (d *Dashboard) providerCodeForCommand(name string) string {
 		}
 	}
 	return ""
+}
+
+func sanitizeDashboardWidgetData(data map[string]any) map[string]any {
+	if data == nil {
+		return map[string]any{}
+	}
+	out := map[string]any{}
+	for key, value := range data {
+		if _, blocked := dashboardPayloadBlockedKeys[strings.ToLower(strings.TrimSpace(key))]; blocked {
+			continue
+		}
+		out[key] = sanitizeDashboardWidgetValue(value)
+	}
+	return out
+}
+
+func sanitizeDashboardWidgetValue(value any) any {
+	switch typed := value.(type) {
+	case map[string]any:
+		return sanitizeDashboardWidgetData(typed)
+	case []any:
+		out := make([]any, 0, len(typed))
+		for _, item := range typed {
+			out = append(out, sanitizeDashboardWidgetValue(item))
+		}
+		return out
+	case []map[string]any:
+		out := make([]any, 0, len(typed))
+		for _, item := range typed {
+			out = append(out, sanitizeDashboardWidgetData(item))
+		}
+		return out
+	case string:
+		if dashboardPayloadBlockedPattern.MatchString(typed) {
+			return ""
+		}
+		return typed
+	default:
+		return value
+	}
 }
