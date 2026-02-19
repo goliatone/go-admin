@@ -289,8 +289,8 @@ type (
 	AuthConfig                                = core.AuthConfig
 	Authenticator                             = core.Authenticator
 	Authorizer                                = core.Authorizer
-	BatchAuthorizer                           = core.BatchAuthorizer
 	AutosaveConflictError                     = core.AutosaveConflictError
+	BatchAuthorizer                           = core.BatchAuthorizer
 	BulkCommand                               = core.BulkCommand
 	BulkConfig                                = core.BulkConfig
 	BulkJob                                   = core.BulkJob
@@ -562,6 +562,7 @@ type (
 	PanelUIRouteMode                          = core.PanelUIRouteMode
 	PermissionDeniedError                     = core.PermissionDeniedError
 	PermissionEntry                           = core.PermissionEntry
+	PermissionResolverFunc                    = core.PermissionResolverFunc
 	PermissionResolverMetrics                 = core.PermissionResolverMetrics
 	PermissionsDebugPanel                     = core.PermissionsDebugPanel
 	PermissionsDebugSnapshot                  = core.PermissionsDebugSnapshot
@@ -761,6 +762,7 @@ type (
 	WidgetInstanceRepository                  = core.WidgetInstanceRepository
 	WidgetLayout                              = core.WidgetLayout
 	WidgetMetadata                            = core.WidgetMetadata
+	WidgetPayload                             = core.WidgetPayload
 	WidgetProvider                            = core.WidgetProvider
 	WorkflowAuthorizer                        = core.WorkflowAuthorizer
 	WorkflowBinding                           = core.WorkflowBinding
@@ -828,16 +830,16 @@ func BuiltinLucideLibrary() IconLibrary {
 	return core.BuiltinLucideLibrary()
 }
 
-func CanonicalPolicyEntityKey(value string) string {
-	return core.CanonicalPolicyEntityKey(value)
-}
-
 func CanAll(authorizer Authorizer, ctx context.Context, resource string, permissions ...string) bool {
 	return core.CanAll(authorizer, ctx, resource, permissions...)
 }
 
 func CanAny(authorizer Authorizer, ctx context.Context, resource string, permissions ...string) bool {
 	return core.CanAny(authorizer, ctx, resource, permissions...)
+}
+
+func CanonicalPolicyEntityKey(value string) string {
+	return core.CanonicalPolicyEntityKey(value)
 }
 
 func CaptureJSErrorContext(collector *DebugCollector, c router.Context, viewCtx router.ViewContext) router.ViewContext {
@@ -852,12 +854,24 @@ func CaptureViewContextForRequest(collector *DebugCollector, c router.Context, v
 	return core.CaptureViewContextForRequest(collector, c, viewCtx)
 }
 
+func DecodeWidgetConfig[T any](cfg map[string]any) (T, error) {
+	return core.DecodeWidgetConfig[T](cfg)
+}
+
 func CollectIconContributions(contributor IconContributor, callbacks IconContributorCallbacks) error {
 	return core.CollectIconContributions(contributor, callbacks)
 }
 
 func DashboardRenderModeFromContext(ctx context.Context) DashboardRenderMode {
 	return core.DashboardRenderModeFromContext(ctx)
+}
+
+func EmptyWidgetPayload() WidgetPayload {
+	return core.EmptyWidgetPayload()
+}
+
+func WidgetPayloadOf[T any](value T) WidgetPayload {
+	return core.WidgetPayloadOf(value)
 }
 
 func DebugRequestMiddleware(collector *DebugCollector) router.MiddlewareFunc {
@@ -1582,6 +1596,10 @@ func RenderOptionsForTemplate() IconRenderOptions {
 
 func ResolveTranslationExchangeLinkageKey(row TranslationExchangeRow) (TranslationExchangeLinkageKey, error) {
 	return core.ResolveTranslationExchangeLinkageKey(row)
+}
+
+func ResolvedPermissionsFromAuthorizer(ctx context.Context, authorizer Authorizer) []string {
+	return core.ResolvedPermissionsFromAuthorizer(ctx, authorizer)
 }
 
 func SchemaEditorDescriptor(basePath string) components.Descriptor {
