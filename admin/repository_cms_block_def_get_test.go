@@ -60,7 +60,7 @@ func TestCMSBlockDefinitionRepositoryGetBySlugTreatsBlankEnvironmentAsDefault(t 
 			{ID: "hero-staging", Name: "Hero Staging", Slug: "hero", Type: "hero", Environment: "staging"},
 		},
 	}
-	repo := NewCMSBlockDefinitionRepository(content, content)
+	repo := NewCMSBlockDefinitionRepository(content, nil)
 	ctxDefault := WithEnvironment(context.Background(), "default")
 
 	record, err := repo.Get(ctxDefault, "hero")
