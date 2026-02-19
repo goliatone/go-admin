@@ -4,7 +4,6 @@ import (
 	"log"
 	"path"
 	"strings"
-	"time"
 
 	"github.com/goliatone/go-admin/examples/web/helpers"
 	"github.com/goliatone/go-admin/examples/web/stores"
@@ -27,8 +26,9 @@ func SetupDashboard(adm *admin.Admin, dataStores *stores.DataStores, basePath st
 		// NO DefaultArea - prevents creating default instance
 		Handler: func(ctx admin.AdminContext, cfg map[string]any) (map[string]any, error) {
 			log.Printf("WARNING: Legacy chart_sample handler was called! This widget instance should have been removed. Config: %+v", cfg)
-			// Return empty data - this provider should never be used
-			return map[string]any{"disabled": true}, nil
+			_ = ctx
+			// This provider should never be used, but contract stays canonical.
+			return toWidgetPayload(LegacyChartSampleWidgetData{Disabled: true}), nil
 		},
 	})
 
@@ -38,15 +38,17 @@ func SetupDashboard(adm *admin.Admin, dataStores *stores.DataStores, basePath st
 		Name: "User Stats",
 		Handler: func(ctx admin.AdminContext, cfg map[string]any) (map[string]any, error) {
 			stats := dataStores.Stats.GetUserStats()
-			return map[string]any{
-				"type":      "stat_card",
-				"stat_type": "users",
-				"total":     stats["total"],
-				"active":    stats["active"],
-				"new_today": stats["new_today"],
-				"trend":     "+12%",
-				"trend_up":  true,
-			}, nil
+			_ = ctx
+			_ = cfg
+			return toWidgetPayload(UserStatsWidgetData{
+				Type:     "stat_card",
+				StatType: "users",
+				Total:    stats["total"],
+				Active:   stats["active"],
+				NewToday: stats["new_today"],
+				Trend:    "+12%",
+				TrendUp:  true,
+			}), nil
 		},
 	})
 
@@ -57,13 +59,15 @@ func SetupDashboard(adm *admin.Admin, dataStores *stores.DataStores, basePath st
 		DefaultArea: "admin.dashboard.main",
 		Handler: func(ctx admin.AdminContext, cfg map[string]any) (map[string]any, error) {
 			stats := dataStores.Stats.GetContentStats()
-			return map[string]any{
-				"type":      "stat_card",
-				"stat_type": "content",
-				"published": stats["published"],
-				"draft":     stats["draft"],
-				"scheduled": stats["scheduled"],
-			}, nil
+			_ = ctx
+			_ = cfg
+			return toWidgetPayload(ContentStatsWidgetData{
+				Type:      "stat_card",
+				StatType:  "content",
+				Published: stats["published"],
+				Draft:     stats["draft"],
+				Scheduled: stats["scheduled"],
+			}), nil
 		},
 	})
 
@@ -74,13 +78,15 @@ func SetupDashboard(adm *admin.Admin, dataStores *stores.DataStores, basePath st
 		DefaultArea: "admin.dashboard.main",
 		Handler: func(ctx admin.AdminContext, cfg map[string]any) (map[string]any, error) {
 			stats := dataStores.Stats.GetStorageStats()
-			return map[string]any{
-				"type":       "stat_card",
-				"stat_type":  "storage",
-				"used":       stats["used"],
-				"total":      stats["total"],
-				"percentage": stats["percentage"],
-			}, nil
+			_ = ctx
+			_ = cfg
+			return toWidgetPayload(StorageStatsWidgetData{
+				Type:       "stat_card",
+				StatType:   "storage",
+				Used:       stats["used"],
+				Total:      stats["total"],
+				Percentage: stats["percentage"],
+			}), nil
 		},
 	})
 
@@ -128,7 +134,9 @@ func SetupDashboard(adm *admin.Admin, dataStores *stores.DataStores, basePath st
 					actions = custom
 				}
 			}
-			return map[string]any{"actions": actions}, nil
+			return toWidgetPayload(QuickActionsWidgetData{
+				Actions: toCanonicalQuickActions(actions),
+			}), nil
 		},
 	})
 
@@ -139,7 +147,7 @@ func SetupDashboard(adm *admin.Admin, dataStores *stores.DataStores, basePath st
 		Name: "User Activity",
 		Handler: func(ctx admin.AdminContext, cfg map[string]any) (map[string]any, error) {
 			if activitySink == nil {
-				return map[string]any{"entries": []admin.ActivityEntry{}}, nil
+				return toWidgetPayload(ActivityFeedWidgetData{Entries: []admin.ActivityEntry{}}), nil
 			}
 
 			limit := 5
@@ -158,7 +166,7 @@ func SetupDashboard(adm *admin.Admin, dataStores *stores.DataStores, basePath st
 			if err != nil {
 				return nil, err
 			}
-			return map[string]any{"entries": entries}, nil
+			return toWidgetPayload(ActivityFeedWidgetData{Entries: entries}), nil
 		},
 	})
 
@@ -170,12 +178,14 @@ func SetupDashboard(adm *admin.Admin, dataStores *stores.DataStores, basePath st
 		Name:        "System Health",
 		DefaultArea: "admin.dashboard.sidebar",
 		Handler: func(ctx admin.AdminContext, cfg map[string]any) (map[string]any, error) {
-			return map[string]any{
-				"status":      "healthy",
-				"uptime":      "7d 12h",
-				"api_latency": "45ms",
-				"db_status":   "connected",
-			}, nil
+			_ = ctx
+			_ = cfg
+			return toWidgetPayload(SystemHealthWidgetData{
+				Status:     "healthy",
+				Uptime:     "7d 12h",
+				APILatency: "45ms",
+				DBStatus:   "connected",
+			}), nil
 		},
 	})
 
@@ -220,7 +230,7 @@ func registerUserDetailWidgets(dash *admin.Dashboard, activitySink admin.Activit
 					values[key] = val
 				}
 			}
-			return map[string]any{"values": values}, nil
+			return toWidgetPayload(UserProfileOverviewWidgetData{Values: values}), nil
 		},
 	})
 	dash.RegisterProvider(admin.DashboardProviderSpec{
@@ -233,7 +243,7 @@ func registerUserDetailWidgets(dash *admin.Dashboard, activitySink admin.Activit
 		},
 		Handler: func(ctx admin.AdminContext, cfg map[string]any) (map[string]any, error) {
 			if activitySink == nil {
-				return map[string]any{"entries": []admin.ActivityEntry{}}, nil
+				return toWidgetPayload(ActivityFeedWidgetData{Entries: []admin.ActivityEntry{}}), nil
 			}
 			limit := 5
 			if raw, ok := cfg["limit"].(int); ok && raw > 0 {
@@ -249,17 +259,15 @@ func registerUserDetailWidgets(dash *admin.Dashboard, activitySink admin.Activit
 			if err != nil {
 				return nil, err
 			}
-			return map[string]any{"entries": entries}, nil
+			return toWidgetPayload(ActivityFeedWidgetData{Entries: entries}), nil
 		},
 	})
 }
 
 // registerChartWidgets sets up ECharts-based chart widgets
 func registerChartWidgets(dash *admin.Dashboard, dataStores *stores.DataStores) {
-	// Configure ECharts providers with caching and CDN
-	// Using dashboard.DefaultEChartsAssetsHost() to respect go-dashboard CDN configuration
+	// Use go-dashboard's configured assets host for runtime chart hydration.
 	cdnHost := dashboard.DefaultEChartsAssetsHost()
-	chartCache := dashboard.NewChartCache(10 * time.Minute)
 
 	// Bar chart widget - Monthly content creation
 	dash.RegisterProvider(admin.DashboardProviderSpec{
@@ -267,41 +275,17 @@ func registerChartWidgets(dash *admin.Dashboard, dataStores *stores.DataStores) 
 		Name:        "Monthly Content",
 		DefaultArea: "admin.dashboard.main",
 		Handler: func(ctx admin.AdminContext, cfg map[string]any) (map[string]any, error) {
-			log.Printf("DEBUG: Bar chart handler called with config: %+v", cfg)
-			provider := dashboard.NewEChartsProvider(
-				"bar",
-				dashboard.WithChartCache(chartCache),
-				dashboard.WithChartAssetsHost(cdnHost),
-			)
-
-			// Create widget context
-			widgetCtx := dashboard.WidgetContext{
-				Viewer: dashboard.ViewerContext{
-					UserID: ctx.UserID,
-					Locale: ctx.Locale,
+			_ = ctx
+			_ = cfg
+			return buildCanonicalChartPayload("bar", map[string]any{
+				"title":    "Monthly Content Creation",
+				"subtitle": "Posts and pages published",
+				"x_axis":   []string{"Jan", "Feb", "Mar", "Apr", "May", "Jun"},
+				"series": []map[string]any{
+					{"name": "Posts", "data": []float64{12, 19, 15, 22, 18, 25}},
+					{"name": "Pages", "data": []float64{5, 7, 6, 9, 8, 11}},
 				},
-				Instance: dashboard.WidgetInstance{
-					ID:           "content-bar-chart",
-					DefinitionID: "admin.widget.bar_chart",
-					Configuration: map[string]any{
-						"title":    "Monthly Content Creation",
-						"subtitle": "Posts and pages published",
-						"x_axis":   []string{"Jan", "Feb", "Mar", "Apr", "May", "Jun"},
-						"series": []map[string]any{
-							{"name": "Posts", "data": []float64{12, 19, 15, 22, 18, 25}},
-							{"name": "Pages", "data": []float64{5, 7, 6, 9, 8, 11}},
-						},
-					},
-				},
-			}
-
-			data, err := provider.Fetch(ctx.Context, widgetCtx)
-			if err != nil {
-				log.Printf("ERROR: Bar chart provider failed: %v", err)
-				return nil, err
-			}
-
-			return map[string]any(data), nil
+			}, cdnHost), nil
 		},
 	})
 
@@ -311,12 +295,6 @@ func registerChartWidgets(dash *admin.Dashboard, dataStores *stores.DataStores) 
 		Name:        "User Growth",
 		DefaultArea: "admin.dashboard.main",
 		Handler: func(ctx admin.AdminContext, cfg map[string]any) (map[string]any, error) {
-			provider := dashboard.NewEChartsProvider(
-				"line",
-				dashboard.WithChartCache(chartCache),
-				dashboard.WithChartAssetsHost(cdnHost),
-			)
-
 			stats := dataStores.Stats.GetUserStats()
 			total := stats["total"].(int)
 
@@ -330,33 +308,17 @@ func registerChartWidgets(dash *admin.Dashboard, dataStores *stores.DataStores) 
 				newSignups[i] = float64(total) * (0.05 + float64(i)*0.015)
 			}
 
-			widgetCtx := dashboard.WidgetContext{
-				Viewer: dashboard.ViewerContext{
-					UserID: ctx.UserID,
-					Locale: ctx.Locale,
+			_ = ctx
+			_ = cfg
+			return buildCanonicalChartPayload("line", map[string]any{
+				"title":  "User Growth Trend",
+				"x_axis": weeks,
+				"series": []map[string]any{
+					{"name": "Active Users", "data": activeUsers},
+					{"name": "New Signups", "data": newSignups},
 				},
-				Instance: dashboard.WidgetInstance{
-					ID:           "user-growth-chart",
-					DefinitionID: "admin.widget.line_chart",
-					Configuration: map[string]any{
-						"title":  "User Growth Trend",
-						"x_axis": weeks,
-						"series": []map[string]any{
-							{"name": "Active Users", "data": activeUsers},
-							{"name": "New Signups", "data": newSignups},
-						},
-						"footer_note": "Data refreshed daily",
-					},
-				},
-			}
-
-			data, err := provider.Fetch(ctx.Context, widgetCtx)
-			if err != nil {
-				log.Printf("ERROR: Line chart provider failed: %v", err)
-				return nil, err
-			}
-
-			return map[string]any(data), nil
+				"footer_note": "Data refreshed daily",
+			}, cdnHost), nil
 		},
 	})
 
@@ -366,45 +328,22 @@ func registerChartWidgets(dash *admin.Dashboard, dataStores *stores.DataStores) 
 		Name:        "Content Distribution",
 		DefaultArea: "admin.dashboard.sidebar",
 		Handler: func(ctx admin.AdminContext, cfg map[string]any) (map[string]any, error) {
-			provider := dashboard.NewEChartsProvider(
-				"pie",
-				dashboard.WithChartCache(chartCache),
-				dashboard.WithChartAssetsHost(cdnHost),
-			)
-
 			contentStats := dataStores.Stats.GetContentStats()
-
-			widgetCtx := dashboard.WidgetContext{
-				Viewer: dashboard.ViewerContext{
-					UserID: ctx.UserID,
-					Locale: ctx.Locale,
-				},
-				Instance: dashboard.WidgetInstance{
-					ID:           "content-pie-chart",
-					DefinitionID: "admin.widget.pie_chart",
-					Configuration: map[string]any{
-						"title": "Content Status",
-						"series": []map[string]any{
-							{
-								"name": "Content",
-								"data": []map[string]any{
-									{"name": "Published", "value": contentStats["published"]},
-									{"name": "Draft", "value": contentStats["draft"]},
-									{"name": "Scheduled", "value": contentStats["scheduled"]},
-								},
-							},
+			_ = ctx
+			_ = cfg
+			return buildCanonicalChartPayload("pie", map[string]any{
+				"title": "Content Status",
+				"series": []map[string]any{
+					{
+						"name": "Content",
+						"data": []map[string]any{
+							{"name": "Published", "value": contentStats["published"]},
+							{"name": "Draft", "value": contentStats["draft"]},
+							{"name": "Scheduled", "value": contentStats["scheduled"]},
 						},
 					},
 				},
-			}
-
-			data, err := provider.Fetch(ctx.Context, widgetCtx)
-			if err != nil {
-				log.Printf("ERROR: Pie chart provider failed: %v", err)
-				return nil, err
-			}
-
-			return map[string]any(data), nil
+			}, cdnHost), nil
 		},
 	})
 
@@ -414,12 +353,6 @@ func registerChartWidgets(dash *admin.Dashboard, dataStores *stores.DataStores) 
 		Name:        "Storage Usage",
 		DefaultArea: "admin.dashboard.sidebar",
 		Handler: func(ctx admin.AdminContext, cfg map[string]any) (map[string]any, error) {
-			provider := dashboard.NewEChartsProvider(
-				"gauge",
-				dashboard.WithChartCache(chartCache),
-				dashboard.WithChartAssetsHost(cdnHost),
-			)
-
 			storageStats := dataStores.Stats.GetStorageStats()
 			// Convert percentage to float64 (it comes as int)
 			percentageVal := storageStats["percentage"]
@@ -433,31 +366,15 @@ func registerChartWidgets(dash *admin.Dashboard, dataStores *stores.DataStores) 
 				percentage = 0
 			}
 
-			widgetCtx := dashboard.WidgetContext{
-				Viewer: dashboard.ViewerContext{
-					UserID: ctx.UserID,
-					Locale: ctx.Locale,
+			_ = ctx
+			_ = cfg
+			return buildCanonicalChartPayload("gauge", map[string]any{
+				"title": "Storage Utilization",
+				"series": []map[string]any{
+					{"name": "Usage", "data": []float64{percentage}},
 				},
-				Instance: dashboard.WidgetInstance{
-					ID:           "storage-gauge-chart",
-					DefinitionID: "admin.widget.gauge_chart",
-					Configuration: map[string]any{
-						"title": "Storage Utilization",
-						"series": []map[string]any{
-							{"name": "Usage", "data": []float64{percentage}},
-						},
-						"theme": "wonderland",
-					},
-				},
-			}
-
-			data, err := provider.Fetch(ctx.Context, widgetCtx)
-			if err != nil {
-				log.Printf("ERROR: Gauge chart provider failed: %v", err)
-				return nil, err
-			}
-
-			return map[string]any(data), nil
+				"theme": "wonderland",
+			}, cdnHost), nil
 		},
 	})
 
@@ -467,63 +384,321 @@ func registerChartWidgets(dash *admin.Dashboard, dataStores *stores.DataStores) 
 		Name:        "Engagement vs Retention",
 		DefaultArea: "admin.dashboard.main",
 		Handler: func(ctx admin.AdminContext, cfg map[string]any) (map[string]any, error) {
-			provider := dashboard.NewEChartsProvider(
-				"scatter",
-				dashboard.WithChartCache(chartCache),
-				dashboard.WithChartAssetsHost(cdnHost),
-			)
-
-			// Generate correlation data between user engagement and retention
-			// Simulating weekly cohort analysis
-			widgetCtx := dashboard.WidgetContext{
-				Viewer: dashboard.ViewerContext{
-					UserID: ctx.UserID,
-					Locale: ctx.Locale,
-				},
-				Instance: dashboard.WidgetInstance{
-					ID:           "engagement-retention-scatter",
-					DefinitionID: "admin.widget.scatter_chart",
-					Configuration: map[string]any{
-						"title":    "User Engagement vs Retention",
-						"subtitle": "Weekly cohort analysis",
-						"series": []map[string]any{
-							{
-								"name": "Week 1",
-								"data": []map[string]any{
-									{"name": "High Engagement", "x": 92, "y": 88},
-									{"name": "Medium Engagement", "x": 75, "y": 72},
-									{"name": "Low Engagement", "x": 45, "y": 38},
-								},
-							},
-							{
-								"name": "Week 2",
-								"data": []map[string]any{
-									{"name": "High Engagement", "x": 89, "y": 85},
-									{"name": "Medium Engagement", "x": 72, "y": 68},
-									{"name": "Low Engagement", "x": 42, "y": 35},
-								},
-							},
-							{
-								"name": "Week 3",
-								"data": []map[string]any{
-									{"name": "High Engagement", "x": 94, "y": 90},
-									{"name": "Medium Engagement", "x": 78, "y": 74},
-									{"name": "Low Engagement", "x": 48, "y": 40},
-								},
-							},
+			_ = ctx
+			_ = cfg
+			return buildCanonicalChartPayload("scatter", map[string]any{
+				"title":    "User Engagement vs Retention",
+				"subtitle": "Weekly cohort analysis",
+				"series": []map[string]any{
+					{
+						"name": "Week 1",
+						"data": []map[string]any{
+							{"name": "High Engagement", "x": 92, "y": 88},
+							{"name": "Medium Engagement", "x": 75, "y": 72},
+							{"name": "Low Engagement", "x": 45, "y": 38},
 						},
-						"footer_note": "Correlation coefficient: 0.94",
+					},
+					{
+						"name": "Week 2",
+						"data": []map[string]any{
+							{"name": "High Engagement", "x": 89, "y": 85},
+							{"name": "Medium Engagement", "x": 72, "y": 68},
+							{"name": "Low Engagement", "x": 42, "y": 35},
+						},
+					},
+					{
+						"name": "Week 3",
+						"data": []map[string]any{
+							{"name": "High Engagement", "x": 94, "y": 90},
+							{"name": "Medium Engagement", "x": 78, "y": 74},
+							{"name": "Low Engagement", "x": 48, "y": 40},
+						},
 					},
 				},
-			}
-
-			data, err := provider.Fetch(ctx.Context, widgetCtx)
-			if err != nil {
-				log.Printf("ERROR: Scatter chart provider failed: %v", err)
-				return nil, err
-			}
-
-			return map[string]any(data), nil
+				"footer_note": "Correlation coefficient: 0.94",
+			}, cdnHost), nil
 		},
 	})
+}
+
+func buildCanonicalChartPayload(chartType string, cfg map[string]any, assetsHost string) map[string]any {
+	theme := chartString(cfg["theme"], "westeros")
+	return toWidgetPayload(ChartWidgetData{
+		ChartType:       strings.TrimSpace(strings.ToLower(chartType)),
+		Title:           chartString(cfg["title"], "Chart"),
+		Subtitle:        chartString(cfg["subtitle"], ""),
+		Theme:           theme,
+		ChartAssetsHost: ensureTrailingSlash(assetsHost),
+		ChartOptions:    buildChartOptions(chartType, cfg),
+		FooterNote:      chartString(cfg["footer_note"], ""),
+	})
+}
+
+func buildChartOptions(chartType string, cfg map[string]any) map[string]any {
+	kind := strings.TrimSpace(strings.ToLower(chartType))
+	options := map[string]any{
+		"title":   map[string]any{},
+		"legend":  map[string]any{"show": true},
+		"tooltip": map[string]any{"show": true},
+		"toolbox": map[string]any{"show": true},
+	}
+
+	switch kind {
+	case "bar", "line":
+		options["series"] = buildCartesianSeries(kind, cfg["series"])
+		options["xAxis"] = []map[string]any{
+			{"data": toStringSlice(cfg["x_axis"])},
+		}
+		options["yAxis"] = []map[string]any{{}}
+	case "pie":
+		options["series"] = buildPieSeries(cfg["series"])
+	case "gauge":
+		options["series"] = buildGaugeSeries(cfg["series"])
+	case "scatter":
+		options["series"] = buildScatterSeries(cfg["series"])
+		options["xAxis"] = []map[string]any{{}}
+		options["yAxis"] = []map[string]any{{}}
+	default:
+		options["series"] = []map[string]any{}
+	}
+
+	return options
+}
+
+func buildCartesianSeries(kind string, raw any) []map[string]any {
+	seriesCfg := toSeriesConfigSlice(raw)
+	out := make([]map[string]any, 0, len(seriesCfg))
+	for _, entry := range seriesCfg {
+		values := []map[string]any{}
+		for _, point := range toAnySlice(entry["data"]) {
+			if pointMap, ok := point.(map[string]any); ok {
+				if value, ok := toFloat64(pointMap["value"]); ok {
+					values = append(values, map[string]any{"value": value})
+					continue
+				}
+				if value, ok := toFloat64(pointMap["y"]); ok {
+					values = append(values, map[string]any{"value": value})
+					continue
+				}
+			}
+			if value, ok := toFloat64(point); ok {
+				values = append(values, map[string]any{"value": value})
+			}
+		}
+
+		seriesItem := map[string]any{
+			"name": chartString(entry["name"], "Series"),
+			"type": kind,
+			"data": values,
+		}
+		if kind == "line" {
+			seriesItem["smooth"] = true
+		}
+		out = append(out, seriesItem)
+	}
+	return out
+}
+
+func buildPieSeries(raw any) []map[string]any {
+	seriesCfg := toSeriesConfigSlice(raw)
+	out := make([]map[string]any, 0, len(seriesCfg))
+	for idx, entry := range seriesCfg {
+		points := []map[string]any{}
+		for _, point := range toAnySlice(entry["data"]) {
+			pointMap, ok := point.(map[string]any)
+			if !ok {
+				continue
+			}
+			value, hasValue := toFloat64(pointMap["value"])
+			if !hasValue {
+				continue
+			}
+			points = append(points, map[string]any{
+				"name":  chartString(pointMap["name"], "Slice"),
+				"value": value,
+			})
+		}
+		out = append(out, map[string]any{
+			"name": chartString(entry["name"], "Series "+chartString(idx+1, "")),
+			"type": "pie",
+			"data": points,
+		})
+	}
+	return out
+}
+
+func buildGaugeSeries(raw any) []map[string]any {
+	seriesCfg := toSeriesConfigSlice(raw)
+	out := make([]map[string]any, 0, len(seriesCfg))
+	for _, entry := range seriesCfg {
+		dataPoints := toAnySlice(entry["data"])
+		if len(dataPoints) == 0 {
+			continue
+		}
+		value, ok := toFloat64(dataPoints[0])
+		if !ok {
+			continue
+		}
+		name := chartString(entry["name"], "Usage")
+		out = append(out, map[string]any{
+			"name": name,
+			"type": "gauge",
+			"data": []map[string]any{
+				{
+					"name":  name,
+					"value": value,
+				},
+			},
+		})
+	}
+	return out
+}
+
+func buildScatterSeries(raw any) []map[string]any {
+	seriesCfg := toSeriesConfigSlice(raw)
+	out := make([]map[string]any, 0, len(seriesCfg))
+	for _, entry := range seriesCfg {
+		points := []map[string]any{}
+		for _, point := range toAnySlice(entry["data"]) {
+			pointMap, ok := point.(map[string]any)
+			if !ok {
+				continue
+			}
+			name := chartString(pointMap["name"], "")
+			x, xOK := toFloat64(pointMap["x"])
+			y, yOK := toFloat64(pointMap["y"])
+			if !xOK || !yOK {
+				pair := toAnySlice(pointMap["value"])
+				if len(pair) >= 2 {
+					x, xOK = toFloat64(pair[0])
+					y, yOK = toFloat64(pair[1])
+				}
+			}
+			if !xOK || !yOK {
+				continue
+			}
+			points = append(points, map[string]any{
+				"name":  name,
+				"value": []float64{x, y},
+			})
+		}
+		out = append(out, map[string]any{
+			"name": chartString(entry["name"], "Series"),
+			"type": "scatter",
+			"data": points,
+		})
+	}
+	return out
+}
+
+func toSeriesConfigSlice(raw any) []map[string]any {
+	items := toAnySlice(raw)
+	out := make([]map[string]any, 0, len(items))
+	for _, item := range items {
+		if value, ok := item.(map[string]any); ok {
+			out = append(out, value)
+		}
+	}
+	return out
+}
+
+func toAnySlice(raw any) []any {
+	switch value := raw.(type) {
+	case []any:
+		return value
+	case []map[string]any:
+		out := make([]any, 0, len(value))
+		for _, item := range value {
+			out = append(out, item)
+		}
+		return out
+	case []string:
+		out := make([]any, 0, len(value))
+		for _, item := range value {
+			out = append(out, item)
+		}
+		return out
+	case []float64:
+		out := make([]any, 0, len(value))
+		for _, item := range value {
+			out = append(out, item)
+		}
+		return out
+	case []int:
+		out := make([]any, 0, len(value))
+		for _, item := range value {
+			out = append(out, item)
+		}
+		return out
+	default:
+		return nil
+	}
+}
+
+func toStringSlice(raw any) []string {
+	switch value := raw.(type) {
+	case []string:
+		return value
+	case []any:
+		out := make([]string, 0, len(value))
+		for _, item := range value {
+			text := chartString(item, "")
+			if text != "" {
+				out = append(out, text)
+			}
+		}
+		return out
+	default:
+		return nil
+	}
+}
+
+func toFloat64(raw any) (float64, bool) {
+	switch value := raw.(type) {
+	case float64:
+		return value, true
+	case float32:
+		return float64(value), true
+	case int:
+		return float64(value), true
+	case int8:
+		return float64(value), true
+	case int16:
+		return float64(value), true
+	case int32:
+		return float64(value), true
+	case int64:
+		return float64(value), true
+	case uint:
+		return float64(value), true
+	case uint8:
+		return float64(value), true
+	case uint16:
+		return float64(value), true
+	case uint32:
+		return float64(value), true
+	case uint64:
+		return float64(value), true
+	default:
+		return 0, false
+	}
+}
+
+func chartString(raw any, fallback string) string {
+	text := strings.TrimSpace(toString(raw))
+	if text == "" {
+		return fallback
+	}
+	return text
+}
+
+func ensureTrailingSlash(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return "/dashboard/assets/echarts/"
+	}
+	if strings.HasSuffix(trimmed, "/") {
+		return trimmed
+	}
+	return trimmed + "/"
 }

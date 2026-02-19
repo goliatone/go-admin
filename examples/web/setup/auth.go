@@ -2,10 +2,13 @@ package setup
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"github.com/goliatone/go-admin/internal/primitives"
 	"log"
 	"net/http"
+	"os"
 	"sort"
 	"strings"
 	"time"
@@ -34,6 +37,7 @@ func SetupAuth(adm *admin.Admin, dataStores *stores.DataStores, deps stores.User
 			opt(&options)
 		}
 	}
+	options = normalizeAuthOptions(options)
 
 	auther := auth.NewAuthenticator(provider, cfg)
 	auther.WithResourceRoleProvider(provider).
@@ -57,7 +61,8 @@ func SetupAuth(adm *admin.Admin, dataStores *stores.DataStores, deps stores.User
 		RedirectPath: "/admin",
 	})
 	adm.WithAuthorizer(admin.NewGoAuthAuthorizer(admin.GoAuthAuthorizerConfig{
-		DefaultResource: "admin",
+		DefaultResource:    "admin",
+		ResolvePermissions: newRolePermissionResolver(options, deps.RoleRegistry),
 	}))
 
 	logDemoTokens(context.Background(), auther, provider)
@@ -66,8 +71,10 @@ func SetupAuth(adm *admin.Admin, dataStores *stores.DataStores, deps stores.User
 }
 
 type authOptions struct {
-	defaultTenantID string
-	defaultOrgID    string
+	defaultTenantID            string
+	defaultOrgID               string
+	permissionResolverCacheTTL time.Duration
+	permissionResolverCacheSet bool
 }
 
 // AuthOption configures optional demo auth behavior.
@@ -81,6 +88,17 @@ func WithDefaultScope(tenantID, orgID string) AuthOption {
 		}
 		opts.defaultTenantID = strings.TrimSpace(tenantID)
 		opts.defaultOrgID = strings.TrimSpace(orgID)
+	}
+}
+
+// WithPermissionResolverCacheTTL overrides resolver cache TTL (cross-request cache).
+func WithPermissionResolverCacheTTL(ttl time.Duration) AuthOption {
+	return func(opts *authOptions) {
+		if opts == nil {
+			return
+		}
+		opts.permissionResolverCacheTTL = ttl
+		opts.permissionResolverCacheSet = true
 	}
 }
 
@@ -376,44 +394,126 @@ func applySessionClaimsMetadata(ctx context.Context, identity auth.Identity, cla
 	setIfPresent("display_name", display)
 	setIfMissing("tenant_id", defaults.defaultTenantID)
 	setIfMissing("organization_id", defaults.defaultOrgID)
-
-	if len(claims.Resources) > 0 {
-		scopes := make([]string, 0, len(claims.Resources))
-		for resource, role := range claims.Resources {
-			if strings.TrimSpace(resource) == "" || strings.TrimSpace(role) == "" {
-				continue
-			}
-			scopes = append(scopes, fmt.Sprintf("%s:%s", strings.TrimSpace(resource), strings.TrimSpace(role)))
-		}
-		sort.Strings(scopes)
-		if len(scopes) > 0 {
-			claims.Metadata["scopes"] = scopes
-		}
-	}
 	if registry != nil {
 		scope := scopeFromClaims(claims, defaults)
-		perms, err := resolveRolePermissions(ctx, registry, identity, scope)
-		if err != nil {
-			log.Printf("DEBUG: applySessionClaimsMetadata - permissions lookup failed: %v", err)
-		} else if len(perms) > 0 {
-			claims.Metadata["permissions"] = perms
+		if version, err := resolveRolePermissionsVersion(ctx, registry, identity, scope); err != nil {
+			log.Printf("DEBUG: applySessionClaimsMetadata - permissions version lookup failed: %v", err)
+		} else if strings.TrimSpace(version) != "" {
+			auth.SetPermissionsVersionMetadata(claims, version)
 		}
 	}
 
 	return nil
 }
 
+func newRolePermissionResolver(defaults authOptions, registry userstypes.RoleRegistry) func(context.Context) ([]string, error) {
+	if registry == nil {
+		return nil
+	}
+	baseResolver := func(ctx context.Context) ([]string, error) {
+		if ctx == nil {
+			return nil, nil
+		}
+		claims, ok := auth.GetClaims(ctx)
+		if !ok || claims == nil {
+			return nil, nil
+		}
+		identity := identityFromAuthContext(ctx, claims)
+		if identity == nil {
+			return nil, nil
+		}
+		scope := scopeFromAuthContext(ctx, claims, defaults)
+		return resolveRolePermissions(ctx, registry, identity, scope)
+	}
+	wrapped := auth.NewCachedPermissionsResolver(auth.CachedPermissionsResolverConfig{
+		Resolver: baseResolver,
+		KeyFunc:  auth.DefaultPermissionsCacheKeyFromContext,
+		TTL:      defaults.permissionResolverCacheTTL,
+	})
+	if wrapped == nil {
+		return baseResolver
+	}
+	return wrapped.ResolverFunc()
+}
+
+func identityFromAuthContext(ctx context.Context, claims auth.AuthClaims) auth.Identity {
+	if claims == nil {
+		return nil
+	}
+	userID := strings.TrimSpace(claims.UserID())
+	username := strings.TrimSpace(claims.Subject())
+	role := strings.TrimSpace(claims.Role())
+	if actor, ok := auth.ActorFromContext(ctx); ok && actor != nil {
+		if userID == "" {
+			userID = primitives.FirstNonEmpty(strings.TrimSpace(actor.ActorID), strings.TrimSpace(actor.Subject))
+		}
+		if role == "" {
+			role = strings.TrimSpace(actor.Role)
+		}
+	}
+	if userID == "" {
+		return nil
+	}
+	return userIdentity{
+		id:       userID,
+		username: username,
+		role:     role,
+		status:   auth.UserStatusActive,
+	}
+}
+
+func scopeFromAuthContext(ctx context.Context, claims auth.AuthClaims, defaults authOptions) userstypes.ScopeFilter {
+	scope := userstypes.ScopeFilter{}
+	if jwtClaims, ok := claims.(*auth.JWTClaims); ok {
+		scope = scopeFromClaims(jwtClaims, defaults)
+	}
+	if actor, ok := auth.ActorFromContext(ctx); ok && actor != nil {
+		if scope.TenantID == uuid.Nil {
+			if tid, err := uuid.Parse(strings.TrimSpace(actor.TenantID)); err == nil {
+				scope.TenantID = tid
+			}
+		}
+		if scope.OrgID == uuid.Nil {
+			if oid, err := uuid.Parse(strings.TrimSpace(actor.OrganizationID)); err == nil {
+				scope.OrgID = oid
+			}
+		}
+	}
+	return scope
+}
+
 func resolveRolePermissions(ctx context.Context, registry userstypes.RoleRegistry, identity auth.Identity, scope userstypes.ScopeFilter) ([]string, error) {
+	snapshot, err := resolveRolePermissionsSnapshot(ctx, registry, identity, scope)
+	if err != nil {
+		return nil, err
+	}
+	return snapshot.Permissions, nil
+}
+
+func resolveRolePermissionsVersion(ctx context.Context, registry userstypes.RoleRegistry, identity auth.Identity, scope userstypes.ScopeFilter) (string, error) {
+	snapshot, err := resolveRolePermissionsSnapshot(ctx, registry, identity, scope)
+	if err != nil {
+		return "", err
+	}
+	return snapshot.Version, nil
+}
+
+type rolePermissionSnapshot struct {
+	Permissions []string
+	Version     string
+}
+
+func resolveRolePermissionsSnapshot(ctx context.Context, registry userstypes.RoleRegistry, identity auth.Identity, scope userstypes.ScopeFilter) (rolePermissionSnapshot, error) {
 	if registry == nil || identity == nil {
-		return nil, nil
+		return rolePermissionSnapshot{}, nil
 	}
 	userID := strings.TrimSpace(identity.ID())
 	if userID == "" {
-		return nil, nil
+		return rolePermissionSnapshot{}, nil
 	}
 	uid, err := uuid.Parse(userID)
 	if err != nil || uid == uuid.Nil {
-		return nil, nil
+		return rolePermissionSnapshot{}, nil
 	}
 	actor := userstypes.ActorRef{ID: uid, Type: "user"}
 	assignments, err := registry.ListAssignments(ctx, userstypes.RoleAssignmentFilter{
@@ -422,10 +522,10 @@ func resolveRolePermissions(ctx context.Context, registry userstypes.RoleRegistr
 		UserID: uid,
 	})
 	if err != nil {
-		return nil, err
+		return rolePermissionSnapshot{}, err
 	}
 	if len(assignments) == 0 {
-		return nil, nil
+		return rolePermissionSnapshot{Version: "none"}, nil
 	}
 	roleIDs := make([]uuid.UUID, 0, len(assignments))
 	for _, assignment := range assignments {
@@ -435,7 +535,7 @@ func resolveRolePermissions(ctx context.Context, registry userstypes.RoleRegistr
 		roleIDs = append(roleIDs, assignment.RoleID)
 	}
 	if len(roleIDs) == 0 {
-		return nil, nil
+		return rolePermissionSnapshot{Version: "none"}, nil
 	}
 	roles, err := registry.ListRoles(ctx, userstypes.RoleFilter{
 		Actor:         actor,
@@ -444,7 +544,7 @@ func resolveRolePermissions(ctx context.Context, registry userstypes.RoleRegistr
 		IncludeSystem: true,
 	})
 	if err != nil {
-		return nil, err
+		return rolePermissionSnapshot{}, err
 	}
 	seen := map[string]bool{}
 	out := []string{}
@@ -463,7 +563,72 @@ func resolveRolePermissions(ctx context.Context, registry userstypes.RoleRegistr
 		}
 	}
 	sort.Strings(out)
-	return out, nil
+	return rolePermissionSnapshot{
+		Permissions: out,
+		Version:     buildRolePermissionVersion(uid, scope, assignments, roles.Roles),
+	}, nil
+}
+
+func buildRolePermissionVersion(
+	userID uuid.UUID,
+	scope userstypes.ScopeFilter,
+	assignments []userstypes.RoleAssignment,
+	roles []userstypes.RoleDefinition,
+) string {
+	hasher := sha256.New()
+	_, _ = hasher.Write([]byte(strings.ToLower(strings.TrimSpace(userID.String()))))
+	_, _ = hasher.Write([]byte("|"))
+	_, _ = hasher.Write([]byte(strings.ToLower(strings.TrimSpace(scope.TenantID.String()))))
+	_, _ = hasher.Write([]byte("|"))
+	_, _ = hasher.Write([]byte(strings.ToLower(strings.TrimSpace(scope.OrgID.String()))))
+
+	sortedAssignments := append([]userstypes.RoleAssignment(nil), assignments...)
+	sort.Slice(sortedAssignments, func(i, j int) bool {
+		return sortedAssignments[i].RoleID.String() < sortedAssignments[j].RoleID.String()
+	})
+	for _, assignment := range sortedAssignments {
+		_, _ = hasher.Write([]byte("|a:"))
+		_, _ = hasher.Write([]byte(strings.ToLower(strings.TrimSpace(assignment.RoleID.String()))))
+		_, _ = hasher.Write([]byte(":"))
+		_, _ = hasher.Write([]byte(fmt.Sprintf("%d", assignment.AssignedAt.UTC().UnixNano())))
+	}
+
+	sortedRoles := append([]userstypes.RoleDefinition(nil), roles...)
+	sort.Slice(sortedRoles, func(i, j int) bool {
+		return sortedRoles[i].ID.String() < sortedRoles[j].ID.String()
+	})
+	for _, role := range sortedRoles {
+		_, _ = hasher.Write([]byte("|r:"))
+		_, _ = hasher.Write([]byte(strings.ToLower(strings.TrimSpace(role.ID.String()))))
+		_, _ = hasher.Write([]byte(":"))
+		_, _ = hasher.Write([]byte(fmt.Sprintf("%d", role.UpdatedAt.UTC().UnixNano())))
+	}
+
+	sum := hasher.Sum(nil)
+	return hex.EncodeToString(sum[:8])
+}
+
+func normalizeAuthOptions(options authOptions) authOptions {
+	if !options.permissionResolverCacheSet {
+		options.permissionResolverCacheTTL = resolvePermissionResolverCacheTTLFromEnv(30 * time.Second)
+		return options
+	}
+	if options.permissionResolverCacheTTL < 0 {
+		options.permissionResolverCacheTTL = 0
+	}
+	return options
+}
+
+func resolvePermissionResolverCacheTTLFromEnv(fallback time.Duration) time.Duration {
+	raw := strings.TrimSpace(os.Getenv("ADMIN_PERMISSION_RESOLVER_CACHE_TTL"))
+	if raw == "" {
+		return fallback
+	}
+	ttl, err := time.ParseDuration(raw)
+	if err != nil || ttl < 0 {
+		return fallback
+	}
+	return ttl
 }
 
 func scopeFromClaims(claims *auth.JWTClaims, defaults authOptions) userstypes.ScopeFilter {

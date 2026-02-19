@@ -2,7 +2,10 @@ package renderers
 
 import (
 	"bytes"
+	"encoding/json"
+	"strings"
 	"testing"
+	"testing/fstest"
 
 	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/pkg/client"
@@ -203,7 +206,7 @@ func TestConvertGoDashboardPayload_WidgetWithoutMetadata(t *testing.T) {
 	widgetData, ok := widget["data"].(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, 123, widgetData["value"])
-	assert.Equal(t, 0, widget["span"], "span should be 0 when no metadata")
+	assert.Equal(t, 12, widget["span"], "span should default to 12 when metadata width is unavailable")
 }
 
 func TestWidthFromMetadata(t *testing.T) {
@@ -238,6 +241,15 @@ func TestWidthFromMetadata(t *testing.T) {
 			expected: 8,
 		},
 		{
+			name: "width as json number in layout",
+			metadata: map[string]any{
+				"layout": map[string]any{
+					"width": json.Number("6"),
+				},
+			},
+			expected: 6,
+		},
+		{
 			name:     "nil metadata",
 			metadata: nil,
 			expected: 0,
@@ -262,6 +274,27 @@ func TestWidthFromMetadata(t *testing.T) {
 			assert.Equal(t, tt.expected, result)
 		})
 	}
+}
+
+func TestNormalizeTemplateValue_PreservesWholeNumbers(t *testing.T) {
+	normalized := normalizeTemplateValue(map[string]any{
+		"span": 12,
+		"layout": map[string]any{
+			"width": 6,
+		},
+		"ratio": 2.5,
+	})
+
+	normalizedMap, ok := normalized.(map[string]any)
+	require.True(t, ok)
+	require.IsType(t, int64(0), normalizedMap["span"])
+	assert.EqualValues(t, 12, normalizedMap["span"])
+	require.IsType(t, float64(0), normalizedMap["ratio"])
+
+	layout, ok := normalizedMap["layout"].(map[string]any)
+	require.True(t, ok)
+	require.IsType(t, int64(0), layout["width"])
+	assert.EqualValues(t, 6, layout["width"])
 }
 
 func TestNormalizeData_GoDashboardPayload(t *testing.T) {
@@ -361,4 +394,104 @@ func TestRenderGoDashboardPayload_Integration(t *testing.T) {
 	assert.Contains(t, htmlStr, "admin.dashboard.main")
 	assert.Contains(t, htmlStr, "widget-stats")
 	assert.Contains(t, htmlStr, "dashboard-state")
+}
+
+func TestRender_DoesNotEmitFloatSpanInHTML(t *testing.T) {
+	customFS := fstest.MapFS{
+		"dashboard_ssr.html": {
+			Data: []byte(`{% for area in areas %}{% for widget in area.widgets %}<article data-span="{{ widget.span }}" style="--span: {{ widget.span }}"></article>{% endfor %}{% endfor %}`),
+		},
+	}
+	renderer, err := NewTemplateRenderer(customFS)
+	require.NoError(t, err)
+
+	payload := map[string]any{
+		"areas": []any{
+			map[string]any{
+				"code": "admin.dashboard.main",
+				"widgets": []any{
+					map[string]any{
+						"id":         "widget-1",
+						"definition": "admin.widget.user_stats",
+						"area":       "admin.dashboard.main",
+						"span":       6.0,
+					},
+				},
+			},
+		},
+	}
+
+	var buf bytes.Buffer
+	html, err := renderer.Render("dashboard_ssr.html", payload, &buf)
+	require.NoError(t, err)
+	assert.NotEmpty(t, html)
+	assert.NotEmpty(t, buf.String())
+	assert.Contains(t, html, `data-span="6"`)
+	assert.Contains(t, html, `style="--span: 6"`)
+	assert.NotContains(t, html, ".000000")
+	assert.NotContains(t, strings.ToLower(html), "nan")
+}
+
+func TestNormalizeWidgetData_StripsDeprecatedChartMarkupAndDocumentBlobs(t *testing.T) {
+	normalized, ok := normalizeWidgetData(map[string]any{
+		"chart_html":          "<html><body><script>alert(1)</script></body></html>",
+		"chart_html_fragment": "<div>legacy</div>",
+		"chart_options":       map[string]any{"series": []any{}},
+		"title":               "Chart",
+		"danger":              "<script>alert(1)</script>",
+		"nested": map[string]any{
+			"chart_html": "legacy",
+			"label":      "<body>bad</body>",
+			"safe":       "ok",
+		},
+	}).(map[string]any)
+	require.True(t, ok)
+
+	_, exists := normalized["chart_html"]
+	assert.False(t, exists)
+	_, exists = normalized["chart_html_fragment"]
+	assert.False(t, exists)
+	assert.Equal(t, "", normalized["danger"])
+
+	nested, ok := normalized["nested"].(map[string]any)
+	require.True(t, ok)
+	_, exists = nested["chart_html"]
+	assert.False(t, exists)
+	assert.Equal(t, "", nested["label"])
+	assert.Equal(t, "ok", nested["safe"])
+}
+
+func TestTemplateRendererNormalizesWidgetDataNumbersForTemplates(t *testing.T) {
+	customFS := fstest.MapFS{
+		"dashboard_ssr.html": {
+			Data: []byte(`{% for area in areas %}{% for widget in area.widgets %}Pending: {{ widget.data.status_counts.pending }}{% endfor %}{% endfor %}`),
+		},
+	}
+	renderer, err := NewTemplateRenderer(customFS)
+	require.NoError(t, err)
+
+	layout := &admin.DashboardLayout{
+		Areas: []*admin.WidgetArea{
+			{
+				Code: "admin.dashboard.main",
+				Widgets: []*admin.ResolvedWidget{
+					{
+						ID:         "widget-1",
+						Definition: "admin.widget.translation_progress",
+						Area:       "admin.dashboard.main",
+						Data: map[string]any{
+							"status_counts": map[string]any{
+								"pending": 1.0,
+							},
+						},
+						Metadata: &admin.WidgetMetadata{Layout: &admin.WidgetLayout{Width: 12}},
+					},
+				},
+			},
+		},
+	}
+
+	html, err := renderer.Render("dashboard_ssr.html", layout)
+	require.NoError(t, err)
+	assert.NotContains(t, html, "1.000000")
 }

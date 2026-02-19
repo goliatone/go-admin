@@ -270,7 +270,7 @@ func (m *dashboardModule) MenuItems(locale string) []admin.MenuItem {
 			Icon:     "home",
 			Target: map[string]any{
 				"type": "url",
-				"path": path.Join("/", m.basePath),
+				"path": path.Join("/", m.basePath, "dashboard"),
 				"key":  "dashboard",
 			},
 			ParentID: m.parentID,
