@@ -14,6 +14,11 @@ var (
 	_ func(Config, Dependencies) (*Admin, error)                                                        = New
 	_ func(context.Context, string) context.Context                                                     = WithEnvironment
 	_ func(context.Context, string) context.Context                                                     = WithLocale
+	_ func(context.Context, DashboardRenderMode) context.Context                                        = WithDashboardRenderMode
+	_ func(context.Context) context.Context                                                             = WithResolvedPermissionsCache
+	_ func(context.Context) DashboardRenderMode                                                         = DashboardRenderModeFromContext
+	_ func(Authorizer, context.Context, string, ...string) bool                                         = CanAny
+	_ func(Authorizer, context.Context, string, ...string) bool                                         = CanAll
 	_ func() *MemoryRepository                                                                          = NewMemoryRepository
 	_ func(*CommandBus, command.Commander[struct{}], ...runner.Option) (dispatcher.Subscription, error) = RegisterCommand[struct{}]
 )
@@ -45,6 +50,12 @@ func TestFacadeGeneratedAliases(t *testing.T) {
 	}
 	if CreateTranslationKey != core.CreateTranslationKey {
 		t.Fatalf("CreateTranslationKey alias mismatch")
+	}
+	if DashboardRenderModeSSR != core.DashboardRenderModeSSR {
+		t.Fatalf("DashboardRenderModeSSR alias mismatch")
+	}
+	if DashboardRenderModeClient != core.DashboardRenderModeClient {
+		t.Fatalf("DashboardRenderModeClient alias mismatch")
 	}
 	if ErrNotFound != core.ErrNotFound {
 		t.Fatalf("ErrNotFound alias mismatch")

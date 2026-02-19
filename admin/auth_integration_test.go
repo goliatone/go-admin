@@ -94,19 +94,202 @@ func TestGoAuthAuthorizerMapsPermissions(t *testing.T) {
 	}
 }
 
-func TestGoAuthAuthorizerAllowsCustomPermissionFromClaimsMetadata(t *testing.T) {
+func TestGoAuthAuthorizerAllowsCustomPermissionFromResolver(t *testing.T) {
 	claims := &auth.JWTClaims{
 		UID:      "actor-1",
 		UserRole: string(auth.RoleAdmin),
-		Metadata: map[string]any{
-			"permissions": []string{"admin.translations.export"},
-		},
 	}
 	ctx := auth.WithClaimsContext(context.Background(), claims)
-	authz := NewGoAuthAuthorizer(GoAuthAuthorizerConfig{DefaultResource: "admin"})
+	authz := NewGoAuthAuthorizer(GoAuthAuthorizerConfig{
+		DefaultResource: "admin",
+		ResolvePermissions: func(context.Context) ([]string, error) {
+			return []string{"admin.translations.export"}, nil
+		},
+	})
 
 	if !authz.Can(ctx, "admin.translations.export", "translations") {
-		t.Fatalf("expected export permission from claims metadata to be allowed")
+		t.Fatalf("expected export permission from resolver to be allowed")
+	}
+}
+
+func TestGoAuthAuthorizerResolvedPermissionsUsesRequestCache(t *testing.T) {
+	claims := &auth.JWTClaims{
+		UID:      "actor-1",
+		UserRole: string(auth.RoleAdmin),
+	}
+	ctx := auth.WithClaimsContext(context.Background(), claims)
+	ctx = WithResolvedPermissionsCache(ctx)
+	resolveCalls := 0
+	authz := NewGoAuthAuthorizer(GoAuthAuthorizerConfig{
+		DefaultResource: "admin",
+		ResolvePermissions: func(context.Context) ([]string, error) {
+			resolveCalls++
+			return []string{"admin.translations.export"}, nil
+		},
+	})
+
+	if !authz.Can(ctx, "admin.translations.export", "translations") {
+		t.Fatalf("expected first custom permission check to be allowed")
+	}
+	if !authz.Can(ctx, "admin.translations.export", "translations") {
+		t.Fatalf("expected second custom permission check to be allowed")
+	}
+	if resolveCalls != 1 {
+		t.Fatalf("expected resolver to run once with request cache, got %d", resolveCalls)
+	}
+}
+
+func TestGoAuthAuthorizerWarnsWhenResolverMissingForCustomPermissions(t *testing.T) {
+	claims := &auth.JWTClaims{
+		UID:      "actor-1",
+		UserRole: string(auth.RoleAdmin),
+	}
+	ctx := auth.WithClaimsContext(context.Background(), claims)
+	logger := &captureAdminLogger{}
+	authz := NewGoAuthAuthorizer(GoAuthAuthorizerConfig{
+		DefaultResource: "admin",
+		Logger:          logger,
+	})
+
+	if authz.Can(ctx, "admin.translations.export", "translations") {
+		t.Fatalf("expected export permission to be denied without resolver")
+	}
+	if authz.Can(ctx, "admin.translations.assign", "translations") {
+		t.Fatalf("expected assign permission to be denied without resolver")
+	}
+	if got := logger.count("warn", "auth permission resolver not configured; custom permissions will be denied"); got != 1 {
+		t.Fatalf("expected one startup warning, got %d", got)
+	}
+	if got := logger.count("warn", "auth custom permission check without resolver; denying"); got != 1 {
+		t.Fatalf("expected one runtime warning, got %d", got)
+	}
+}
+
+func TestGoAuthAuthorizerStrictModePanicsWithoutResolver(t *testing.T) {
+	defer func() {
+		if recover() == nil {
+			t.Fatalf("expected constructor panic in strict resolver mode")
+		}
+	}()
+	_ = NewGoAuthAuthorizer(GoAuthAuthorizerConfig{
+		DefaultResource: "admin",
+		StrictResolver:  true,
+	})
+}
+
+func TestGoAuthAuthorizerBatchChecks(t *testing.T) {
+	claims := &auth.JWTClaims{
+		UID:      "actor-1",
+		UserRole: string(auth.RoleAdmin),
+	}
+	ctx := auth.WithClaimsContext(context.Background(), claims)
+	authz := NewGoAuthAuthorizer(GoAuthAuthorizerConfig{
+		DefaultResource: "admin",
+		ResolvePermissions: func(context.Context) ([]string, error) {
+			return []string{
+				"admin.translations.export",
+				"admin.translations.assign",
+			}, nil
+		},
+	})
+	if !authz.CanAll(ctx, "translations", "admin.translations.export", "admin.translations.assign") {
+		t.Fatalf("expected CanAll to allow when all permissions exist")
+	}
+	if authz.CanAll(ctx, "translations", "admin.translations.export", "admin.translations.approve") {
+		t.Fatalf("expected CanAll to deny when one permission is missing")
+	}
+	if !authz.CanAny(ctx, "translations", "admin.translations.approve", "admin.translations.assign") {
+		t.Fatalf("expected CanAny to allow when one permission exists")
+	}
+}
+
+func TestGoAuthAuthorizerResolverMetrics(t *testing.T) {
+	claims := &auth.JWTClaims{
+		UID:      "actor-1",
+		UserRole: string(auth.RoleAdmin),
+	}
+	ctx := auth.WithClaimsContext(context.Background(), claims)
+	ctx = WithResolvedPermissionsCache(ctx)
+	authz := NewGoAuthAuthorizer(GoAuthAuthorizerConfig{
+		DefaultResource: "admin",
+		ResolvePermissions: func(context.Context) ([]string, error) {
+			return []string{"admin.translations.export"}, nil
+		},
+	})
+	_ = authz.Can(ctx, "admin.translations.export", "translations")
+	_ = authz.Can(ctx, "admin.translations.export", "translations")
+	metrics := authz.PermissionResolverMetrics()
+	if metrics.Calls < 2 {
+		t.Fatalf("expected at least two resolver calls, got %+v", metrics)
+	}
+	if metrics.ResolverRuns != 1 {
+		t.Fatalf("expected one resolver run with request cache, got %+v", metrics)
+	}
+	if metrics.CacheHits == 0 {
+		t.Fatalf("expected cache hit metrics, got %+v", metrics)
+	}
+}
+
+func TestGoAuthAuthenticatorWrapHandlerSeedsResolvedPermissionsCache(t *testing.T) {
+	cfg := testAuthConfig{signingKey: "test-secret"}
+	provider := &stubIdentityProvider{identity: testIdentity{
+		id:       "user-123",
+		username: "user@example.com",
+		email:    "user@example.com",
+		role:     string(auth.RoleAdmin),
+	}}
+	auther := auth.NewAuthenticator(provider, cfg)
+	routeAuth, err := auth.NewHTTPAuthenticator(auther, cfg)
+	if err != nil {
+		t.Fatalf("http authenticator: %v", err)
+	}
+	tokenService := auther.TokenService()
+	authenticator := NewGoAuthAuthenticator(routeAuth, cfg, WithAuthErrorHandler(func(c router.Context, err error) error {
+		raw := strings.TrimSpace(c.Header("Authorization"))
+		raw = strings.TrimPrefix(raw, "Bearer ")
+		if claims, valErr := tokenService.Validate(raw); valErr == nil {
+			ctxWithClaims := auth.WithClaimsContext(c.Context(), claims)
+			if actor := auth.ActorContextFromClaims(claims); actor != nil {
+				ctxWithClaims = auth.WithActorContext(ctxWithClaims, actor)
+			}
+			c.SetContext(ctxWithClaims)
+			return c.Next()
+		}
+		return err
+	}))
+	resolveCalls := 0
+	authz := NewGoAuthAuthorizer(GoAuthAuthorizerConfig{
+		DefaultResource: "admin",
+		ResolvePermissions: func(context.Context) ([]string, error) {
+			resolveCalls++
+			return []string{"admin.translations.export"}, nil
+		},
+	})
+	token, err := tokenService.Generate(provider.identity, nil)
+	if err != nil {
+		t.Fatalf("generate token: %v", err)
+	}
+
+	server := router.NewHTTPServer()
+	server.Router().Get("/cached", authenticator.WrapHandler(func(c router.Context) error {
+		if !authz.Can(c.Context(), "admin.translations.export", "translations") {
+			t.Fatalf("expected export permission to be allowed")
+		}
+		if !authz.Can(c.Context(), "admin.translations.export", "translations") {
+			t.Fatalf("expected repeated export permission check to be allowed")
+		}
+		return c.JSON(200, map[string]string{"status": "ok"})
+	}))
+
+	req := httptest.NewRequest("GET", "/cached", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	res := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(res, req)
+	if res.Code != 200 {
+		t.Fatalf("expected 200 from protected route, got %d", res.Code)
+	}
+	if resolveCalls != 1 {
+		t.Fatalf("expected resolver to run once per request context, got %d", resolveCalls)
 	}
 }
 
