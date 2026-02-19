@@ -299,12 +299,13 @@ func (a *GoAuthAuthorizer) Can(ctx context.Context, permission string, resource 
 
 // CanAll returns true when all permissions are allowed.
 func (a *GoAuthAuthorizer) CanAll(ctx context.Context, resource string, permissions ...string) bool {
-	if len(permissions) == 0 {
+	filtered := compactPermissions(permissions...)
+	if len(filtered) == 0 {
 		return true
 	}
 	ctx = WithResolvedPermissionsCache(ctx)
-	for _, permission := range permissions {
-		if !a.Can(ctx, strings.TrimSpace(permission), resource) {
+	for _, permission := range filtered {
+		if !a.Can(ctx, permission, resource) {
 			return false
 		}
 	}
@@ -313,12 +314,13 @@ func (a *GoAuthAuthorizer) CanAll(ctx context.Context, resource string, permissi
 
 // CanAny returns true when at least one permission is allowed.
 func (a *GoAuthAuthorizer) CanAny(ctx context.Context, resource string, permissions ...string) bool {
-	if len(permissions) == 0 {
+	filtered := compactPermissions(permissions...)
+	if len(filtered) == 0 {
 		return false
 	}
 	ctx = WithResolvedPermissionsCache(ctx)
-	for _, permission := range permissions {
-		if a.Can(ctx, strings.TrimSpace(permission), resource) {
+	for _, permission := range filtered {
+		if a.Can(ctx, permission, resource) {
 			return true
 		}
 	}
