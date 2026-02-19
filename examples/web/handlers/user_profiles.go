@@ -101,7 +101,7 @@ func (h *UserProfileHandlers) List(c router.Context) error {
 		"bulk_base":             bulkCtx.BaseURL,
 	}, h.Admin, h.Config, setup.NavigationGroupMain+".user-profiles", c.Context(), c)
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
-	return c.Render("resources/user-profiles/list", viewCtx)
+	return helpers.RenderTemplateView(c, "resources/user-profiles/list", viewCtx)
 }
 
 // Columns handles GET /admin/api/user-profiles/columns - returns allowlisted columns for UI use.
@@ -191,7 +191,7 @@ func (h *UserProfileHandlers) Detail(c router.Context) error {
 		"fields":         fields,
 	}, h.Admin, h.Config, setup.NavigationGroupMain+".user-profiles", c.Context(), c)
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
-	return c.Render("resources/user-profiles/detail", viewCtx)
+	return helpers.RenderTemplateView(c, "resources/user-profiles/detail", viewCtx)
 }
 
 func (h *UserProfileHandlers) Edit(c router.Context) error {
@@ -322,7 +322,7 @@ func (h *UserProfileHandlers) renderProfileForm(c router.Context, operationID st
 		"form_html":      string(html),
 	}, h.Admin, h.Config, setup.NavigationGroupMain+".user-profiles", c.Context(), c)
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
-	return c.Render("resources/user-profiles/form", viewCtx)
+	return helpers.RenderTemplateView(c, "resources/user-profiles/form", viewCtx)
 }
 
 func (h *UserProfileHandlers) guard(c router.Context, action string) error {

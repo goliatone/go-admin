@@ -11,6 +11,19 @@ import (
 	"github.com/goliatone/go-dashboard/components/dashboard"
 )
 
+type quickActionsWidgetConfig struct {
+	Actions []QuickActionWidgetItem `json:"actions"`
+}
+
+type activityFeedWidgetConfig struct {
+	Limit   int    `json:"limit"`
+	Channel string `json:"channel"`
+}
+
+type userProfileOverviewWidgetConfig struct {
+	Values map[string]any `json:"values"`
+}
+
 // SetupDashboard configures dashboard widgets for the admin panel
 func SetupDashboard(adm *admin.Admin, dataStores *stores.DataStores, basePath string) {
 	dash := adm.Dashboard()
@@ -24,7 +37,7 @@ func SetupDashboard(adm *admin.Admin, dataStores *stores.DataStores, basePath st
 		Code: "admin.widget.chart_sample",
 		Name: "Disabled Legacy Chart",
 		// NO DefaultArea - prevents creating default instance
-		Handler: func(ctx admin.AdminContext, cfg map[string]any) (map[string]any, error) {
+		Handler: func(ctx admin.AdminContext, cfg map[string]any) (admin.WidgetPayload, error) {
 			log.Printf("WARNING: Legacy chart_sample handler was called! This widget instance should have been removed. Config: %+v", cfg)
 			_ = ctx
 			// This provider should never be used, but contract stays canonical.
@@ -36,7 +49,7 @@ func SetupDashboard(adm *admin.Admin, dataStores *stores.DataStores, basePath st
 	dash.RegisterProvider(admin.DashboardProviderSpec{
 		Code: "admin.widget.user_stats",
 		Name: "User Stats",
-		Handler: func(ctx admin.AdminContext, cfg map[string]any) (map[string]any, error) {
+		Handler: func(ctx admin.AdminContext, cfg map[string]any) (admin.WidgetPayload, error) {
 			stats := dataStores.Stats.GetUserStats()
 			_ = ctx
 			_ = cfg
@@ -57,7 +70,7 @@ func SetupDashboard(adm *admin.Admin, dataStores *stores.DataStores, basePath st
 		Code:        "admin.widget.content_stats",
 		Name:        "Content Stats",
 		DefaultArea: "admin.dashboard.main",
-		Handler: func(ctx admin.AdminContext, cfg map[string]any) (map[string]any, error) {
+		Handler: func(ctx admin.AdminContext, cfg map[string]any) (admin.WidgetPayload, error) {
 			stats := dataStores.Stats.GetContentStats()
 			_ = ctx
 			_ = cfg
@@ -76,7 +89,7 @@ func SetupDashboard(adm *admin.Admin, dataStores *stores.DataStores, basePath st
 		Code:        "admin.widget.storage_stats",
 		Name:        "Storage Stats",
 		DefaultArea: "admin.dashboard.main",
-		Handler: func(ctx admin.AdminContext, cfg map[string]any) (map[string]any, error) {
+		Handler: func(ctx admin.AdminContext, cfg map[string]any) (admin.WidgetPayload, error) {
 			stats := dataStores.Stats.GetStorageStats()
 			_ = ctx
 			_ = cfg
@@ -94,48 +107,45 @@ func SetupDashboard(adm *admin.Admin, dataStores *stores.DataStores, basePath st
 	dash.RegisterProvider(admin.DashboardProviderSpec{
 		Code: "admin.widget.quick_actions",
 		Name: "User Quick Actions",
-		Handler: func(ctx admin.AdminContext, cfg map[string]any) (map[string]any, error) {
+		Handler: func(ctx admin.AdminContext, cfg map[string]any) (admin.WidgetPayload, error) {
+			resolvedCfg, err := admin.DecodeWidgetConfig[quickActionsWidgetConfig](cfg)
+			if err != nil {
+				return admin.WidgetPayload{}, err
+			}
+			_ = ctx
 			inviteURL := path.Join(basePath, "api", "onboarding", "invite")
 			resetURL := path.Join(basePath, "api", "onboarding", "password", "reset", "request")
 			lifecycleURL := path.Join(basePath, "api", "users") + "?status=suspended"
-			defaultActions := []map[string]any{
+			defaultActions := []QuickActionWidgetItem{
 				{
-					"label":       "Invite user",
-					"url":         inviteURL,
-					"icon":        "user-plus",
-					"method":      "POST",
-					"description": "POST {email, role, status} to issue an invite token",
+					Label:       "Invite user",
+					URL:         inviteURL,
+					Icon:        "user-plus",
+					Method:      "POST",
+					Description: "POST {email, role, status} to issue an invite token",
 				},
 				{
-					"label":       "Request password reset",
-					"url":         resetURL,
-					"icon":        "key",
-					"method":      "POST",
-					"description": "POST {identifier} to send a reset token",
+					Label:       "Request password reset",
+					URL:         resetURL,
+					Icon:        "key",
+					Method:      "POST",
+					Description: "POST {identifier} to send a reset token",
 				},
 				{
-					"label":       "Review suspended users",
-					"url":         lifecycleURL,
-					"icon":        "shield-check",
-					"method":      "GET",
-					"description": "Open suspended accounts for lifecycle actions",
+					Label:       "Review suspended users",
+					URL:         lifecycleURL,
+					Icon:        "shield-check",
+					Method:      "GET",
+					Description: "Open suspended accounts for lifecycle actions",
 				},
 			}
 
-			actions := defaultActions
-			if raw, ok := cfg["actions"].([]any); ok && len(raw) > 0 {
-				custom := []map[string]any{}
-				for _, item := range raw {
-					if val, ok := item.(map[string]any); ok {
-						custom = append(custom, val)
-					}
-				}
-				if len(custom) > 0 {
-					actions = custom
-				}
+			actions := append([]QuickActionWidgetItem{}, defaultActions...)
+			if len(resolvedCfg.Actions) > 0 {
+				actions = append([]QuickActionWidgetItem{}, resolvedCfg.Actions...)
 			}
 			return toWidgetPayload(QuickActionsWidgetData{
-				Actions: toCanonicalQuickActions(actions),
+				Actions: toCanonicalQuickActionItems(actions),
 			}), nil
 		},
 	})
@@ -145,26 +155,28 @@ func SetupDashboard(adm *admin.Admin, dataStores *stores.DataStores, basePath st
 	dash.RegisterProvider(admin.DashboardProviderSpec{
 		Code: "admin.widget.activity_feed",
 		Name: "User Activity",
-		Handler: func(ctx admin.AdminContext, cfg map[string]any) (map[string]any, error) {
+		Handler: func(ctx admin.AdminContext, cfg map[string]any) (admin.WidgetPayload, error) {
+			resolvedCfg, err := admin.DecodeWidgetConfig[activityFeedWidgetConfig](cfg)
+			if err != nil {
+				return admin.WidgetPayload{}, err
+			}
 			if activitySink == nil {
 				return toWidgetPayload(ActivityFeedWidgetData{Entries: []admin.ActivityEntry{}}), nil
 			}
 
-			limit := 5
-			if raw, ok := cfg["limit"].(int); ok && raw > 0 {
-				limit = raw
-			} else if rawf, ok := cfg["limit"].(float64); ok && rawf > 0 {
-				limit = int(rawf)
+			limit := resolvedCfg.Limit
+			if limit <= 0 {
+				limit = 5
 			}
 
-			channel := "users"
-			if raw, ok := cfg["channel"].(string); ok && strings.TrimSpace(raw) != "" {
-				channel = strings.TrimSpace(raw)
+			channel := strings.TrimSpace(resolvedCfg.Channel)
+			if channel == "" {
+				channel = "users"
 			}
 
 			entries, err := activitySink.List(ctx.Context, limit, admin.ActivityFilter{Channel: channel})
 			if err != nil {
-				return nil, err
+				return admin.WidgetPayload{}, err
 			}
 			return toWidgetPayload(ActivityFeedWidgetData{Entries: entries}), nil
 		},
@@ -177,7 +189,7 @@ func SetupDashboard(adm *admin.Admin, dataStores *stores.DataStores, basePath st
 		Code:        "admin.widget.system_health",
 		Name:        "System Health",
 		DefaultArea: "admin.dashboard.sidebar",
-		Handler: func(ctx admin.AdminContext, cfg map[string]any) (map[string]any, error) {
+		Handler: func(ctx admin.AdminContext, cfg map[string]any) (admin.WidgetPayload, error) {
 			_ = ctx
 			_ = cfg
 			return toWidgetPayload(SystemHealthWidgetData{
@@ -220,15 +232,14 @@ func registerUserDetailWidgets(dash *admin.Dashboard, activitySink admin.Activit
 				"Created":  "",
 			},
 		},
-		Handler: func(_ admin.AdminContext, cfg map[string]any) (map[string]any, error) {
-			values := map[string]any{}
-			switch raw := cfg["values"].(type) {
-			case map[string]any:
-				values = raw
-			case map[string]string:
-				for key, val := range raw {
-					values[key] = val
-				}
+		Handler: func(_ admin.AdminContext, cfg map[string]any) (admin.WidgetPayload, error) {
+			resolvedCfg, err := admin.DecodeWidgetConfig[userProfileOverviewWidgetConfig](cfg)
+			if err != nil {
+				return admin.WidgetPayload{}, err
+			}
+			values := resolvedCfg.Values
+			if values == nil {
+				values = map[string]any{}
 			}
 			return toWidgetPayload(UserProfileOverviewWidgetData{Values: values}), nil
 		},
@@ -241,23 +252,25 @@ func registerUserDetailWidgets(dash *admin.Dashboard, activitySink admin.Activit
 			"limit":   5,
 			"channel": "users",
 		},
-		Handler: func(ctx admin.AdminContext, cfg map[string]any) (map[string]any, error) {
+		Handler: func(ctx admin.AdminContext, cfg map[string]any) (admin.WidgetPayload, error) {
+			resolvedCfg, err := admin.DecodeWidgetConfig[activityFeedWidgetConfig](cfg)
+			if err != nil {
+				return admin.WidgetPayload{}, err
+			}
 			if activitySink == nil {
 				return toWidgetPayload(ActivityFeedWidgetData{Entries: []admin.ActivityEntry{}}), nil
 			}
-			limit := 5
-			if raw, ok := cfg["limit"].(int); ok && raw > 0 {
-				limit = raw
-			} else if rawf, ok := cfg["limit"].(float64); ok && rawf > 0 {
-				limit = int(rawf)
+			limit := resolvedCfg.Limit
+			if limit <= 0 {
+				limit = 5
 			}
-			channel := "users"
-			if raw, ok := cfg["channel"].(string); ok && strings.TrimSpace(raw) != "" {
-				channel = strings.TrimSpace(raw)
+			channel := strings.TrimSpace(resolvedCfg.Channel)
+			if channel == "" {
+				channel = "users"
 			}
 			entries, err := activitySink.List(ctx.Context, limit, admin.ActivityFilter{Channel: channel})
 			if err != nil {
-				return nil, err
+				return admin.WidgetPayload{}, err
 			}
 			return toWidgetPayload(ActivityFeedWidgetData{Entries: entries}), nil
 		},
@@ -274,7 +287,7 @@ func registerChartWidgets(dash *admin.Dashboard, dataStores *stores.DataStores) 
 		Code:        "admin.widget.bar_chart",
 		Name:        "Monthly Content",
 		DefaultArea: "admin.dashboard.main",
-		Handler: func(ctx admin.AdminContext, cfg map[string]any) (map[string]any, error) {
+		Handler: func(ctx admin.AdminContext, cfg map[string]any) (admin.WidgetPayload, error) {
 			_ = ctx
 			_ = cfg
 			return buildCanonicalChartPayload("bar", map[string]any{
@@ -294,7 +307,7 @@ func registerChartWidgets(dash *admin.Dashboard, dataStores *stores.DataStores) 
 		Code:        "admin.widget.line_chart",
 		Name:        "User Growth",
 		DefaultArea: "admin.dashboard.main",
-		Handler: func(ctx admin.AdminContext, cfg map[string]any) (map[string]any, error) {
+		Handler: func(ctx admin.AdminContext, cfg map[string]any) (admin.WidgetPayload, error) {
 			stats := dataStores.Stats.GetUserStats()
 			total := stats["total"].(int)
 
@@ -327,7 +340,7 @@ func registerChartWidgets(dash *admin.Dashboard, dataStores *stores.DataStores) 
 		Code:        "admin.widget.pie_chart",
 		Name:        "Content Distribution",
 		DefaultArea: "admin.dashboard.sidebar",
-		Handler: func(ctx admin.AdminContext, cfg map[string]any) (map[string]any, error) {
+		Handler: func(ctx admin.AdminContext, cfg map[string]any) (admin.WidgetPayload, error) {
 			contentStats := dataStores.Stats.GetContentStats()
 			_ = ctx
 			_ = cfg
@@ -352,7 +365,7 @@ func registerChartWidgets(dash *admin.Dashboard, dataStores *stores.DataStores) 
 		Code:        "admin.widget.gauge_chart",
 		Name:        "Storage Usage",
 		DefaultArea: "admin.dashboard.sidebar",
-		Handler: func(ctx admin.AdminContext, cfg map[string]any) (map[string]any, error) {
+		Handler: func(ctx admin.AdminContext, cfg map[string]any) (admin.WidgetPayload, error) {
 			storageStats := dataStores.Stats.GetStorageStats()
 			// Convert percentage to float64 (it comes as int)
 			percentageVal := storageStats["percentage"]
@@ -383,7 +396,7 @@ func registerChartWidgets(dash *admin.Dashboard, dataStores *stores.DataStores) 
 		Code:        "admin.widget.scatter_chart",
 		Name:        "Engagement vs Retention",
 		DefaultArea: "admin.dashboard.main",
-		Handler: func(ctx admin.AdminContext, cfg map[string]any) (map[string]any, error) {
+		Handler: func(ctx admin.AdminContext, cfg map[string]any) (admin.WidgetPayload, error) {
 			_ = ctx
 			_ = cfg
 			return buildCanonicalChartPayload("scatter", map[string]any{
@@ -421,7 +434,7 @@ func registerChartWidgets(dash *admin.Dashboard, dataStores *stores.DataStores) 
 	})
 }
 
-func buildCanonicalChartPayload(chartType string, cfg map[string]any, assetsHost string) map[string]any {
+func buildCanonicalChartPayload(chartType string, cfg map[string]any, assetsHost string) admin.WidgetPayload {
 	theme := chartString(cfg["theme"], "westeros")
 	return toWidgetPayload(ChartWidgetData{
 		ChartType:       strings.TrimSpace(strings.ToLower(chartType)),

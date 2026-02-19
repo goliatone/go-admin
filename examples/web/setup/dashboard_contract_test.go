@@ -15,12 +15,12 @@ func TestValidateCanonicalWidgetPayload_Definitions(t *testing.T) {
 		{
 			name:       "legacy chart sample",
 			definition: "admin.widget.chart_sample",
-			payload:    toWidgetPayload(LegacyChartSampleWidgetData{Disabled: true}),
+			payload:    toWidgetPayloadMap(LegacyChartSampleWidgetData{Disabled: true}),
 		},
 		{
 			name:       "user stats",
 			definition: "admin.widget.user_stats",
-			payload: toWidgetPayload(UserStatsWidgetData{
+			payload: toWidgetPayloadMap(UserStatsWidgetData{
 				Type:     "stat_card",
 				StatType: "users",
 				Total:    10,
@@ -33,7 +33,7 @@ func TestValidateCanonicalWidgetPayload_Definitions(t *testing.T) {
 		{
 			name:       "content stats",
 			definition: "admin.widget.content_stats",
-			payload: toWidgetPayload(ContentStatsWidgetData{
+			payload: toWidgetPayloadMap(ContentStatsWidgetData{
 				Type:      "stat_card",
 				StatType:  "content",
 				Published: 7,
@@ -44,7 +44,7 @@ func TestValidateCanonicalWidgetPayload_Definitions(t *testing.T) {
 		{
 			name:       "storage stats",
 			definition: "admin.widget.storage_stats",
-			payload: toWidgetPayload(StorageStatsWidgetData{
+			payload: toWidgetPayloadMap(StorageStatsWidgetData{
 				Type:       "stat_card",
 				StatType:   "storage",
 				Used:       "21.4 GB",
@@ -55,24 +55,24 @@ func TestValidateCanonicalWidgetPayload_Definitions(t *testing.T) {
 		{
 			name:       "quick actions",
 			definition: "admin.widget.quick_actions",
-			payload: toWidgetPayload(QuickActionsWidgetData{
+			payload: toWidgetPayloadMap(QuickActionsWidgetData{
 				Actions: []QuickActionWidgetItem{{Label: "Invite", URL: "/admin/api/onboarding/invite", Method: "POST"}},
 			}),
 		},
 		{
 			name:       "activity feed",
 			definition: "admin.widget.activity_feed",
-			payload:    toWidgetPayload(ActivityFeedWidgetData{Entries: []admin.ActivityEntry{}}),
+			payload:    toWidgetPayloadMap(ActivityFeedWidgetData{Entries: []admin.ActivityEntry{}}),
 		},
 		{
 			name:       "user profile",
 			definition: "admin.widget.user_profile_overview",
-			payload:    toWidgetPayload(UserProfileOverviewWidgetData{Values: map[string]any{"Username": "superadmin"}}),
+			payload:    toWidgetPayloadMap(UserProfileOverviewWidgetData{Values: map[string]any{"Username": "superadmin"}}),
 		},
 		{
 			name:       "system health",
 			definition: "admin.widget.system_health",
-			payload: toWidgetPayload(SystemHealthWidgetData{
+			payload: toWidgetPayloadMap(SystemHealthWidgetData{
 				Status:     "healthy",
 				Uptime:     "7d 12h",
 				APILatency: "45ms",
@@ -82,11 +82,17 @@ func TestValidateCanonicalWidgetPayload_Definitions(t *testing.T) {
 		{
 			name:       "chart",
 			definition: "admin.widget.bar_chart",
-			payload: buildCanonicalChartPayload("bar", map[string]any{
-				"title":  "Monthly Content Creation",
-				"x_axis": []string{"Jan", "Feb"},
-				"series": []map[string]any{{"name": "Posts", "data": []float64{1, 2}}},
-			}, "/dashboard/assets/echarts/"),
+			payload: toWidgetPayloadMap(ChartWidgetData{
+				ChartType:       "bar",
+				Title:           "Monthly Content Creation",
+				Theme:           "westeros",
+				ChartAssetsHost: "/dashboard/assets/echarts/",
+				ChartOptions: buildChartOptions("bar", map[string]any{
+					"title":  "Monthly Content Creation",
+					"x_axis": []string{"Jan", "Feb"},
+					"series": []map[string]any{{"name": "Posts", "data": []float64{1, 2}}},
+				}),
+			}),
 		},
 	}
 

@@ -1121,7 +1121,7 @@ func main() {
 		viewCtx = quickstart.WithAuthUIViewThemeAssets(viewCtx, authThemeAssets, authThemeAssetPrefix)
 		viewCtx = quickstart.WithFeatureTemplateContext(viewCtx, c.Context(), fggate.ScopeChain{{Kind: fggate.ScopeSystem}}, featureSnapshot)
 		viewCtx = authUIViewContext(viewCtx, c)
-		return c.Render(registerTemplate, viewCtx)
+		return helpers.RenderTemplateView(c, registerTemplate, viewCtx)
 	})
 
 	// User tab routes are custom and not part of canonical panel route wiring.
