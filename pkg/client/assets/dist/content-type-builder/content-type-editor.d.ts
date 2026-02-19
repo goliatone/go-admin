@@ -128,6 +128,7 @@ export declare class ContentTypeEditor {
     private toggleSection;
     private getBlocksPickerMode;
     private loadBlocksForField;
+    private renderInlineBlockPickerError;
     private renderInlineBlockPickerForField;
     private applyBlockSelection;
     private renderPreview;

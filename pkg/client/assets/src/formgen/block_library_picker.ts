@@ -102,29 +102,49 @@ function resolvePickerBases(apiBase: string): PickerAPIBase {
     const root = raw === '/' ? '/api' : '';
     if (!root) return { listBase: '', templatesBase: '' };
     return {
-      listBase: `${root}/block_definitions`,
+      listBase: `${root}/panels/block_definitions`,
       templatesBase: `${root}/block_definitions_meta`,
     };
   }
 
   if (trimmed.endsWith('/block_definitions_meta')) {
+    const apiRoot = trimmed.replace(/\/block_definitions_meta$/, '');
     return {
-      listBase: trimmed.replace(/_meta$/, ''),
+      listBase: `${apiRoot}/panels/block_definitions`,
       templatesBase: trimmed,
     };
   }
-  if (trimmed.endsWith('/block_definitions')) {
+  if (trimmed.endsWith('/panels/block_definitions')) {
     return {
       listBase: trimmed,
-      templatesBase: trimmed.replace(/block_definitions$/, 'block_definitions_meta'),
+      templatesBase: trimmed.replace(/\/panels\/block_definitions$/, '/block_definitions_meta'),
     };
+  }
+  if (trimmed.endsWith('/block_definitions')) {
+    // Legacy list endpoint input is no longer supported; require canonical API root
+    // or canonical panel path.
+    return { listBase: '', templatesBase: '' };
   }
 
   const apiRoot = /\/api(\/|$)/.test(trimmed) ? trimmed : `${trimmed}/api`;
   return {
-    listBase: `${apiRoot}/block_definitions`,
+    listBase: `${apiRoot}/panels/block_definitions`,
     templatesBase: `${apiRoot}/block_definitions_meta`,
   };
+}
+
+function renderPickerLoadError(root: HTMLElement, message: string): void {
+  const existing = root.querySelector('[data-picker-load-error]');
+  if (existing) {
+    existing.remove();
+  }
+  const node = document.createElement('div');
+  node.setAttribute('data-picker-load-error', 'true');
+  node.className =
+    'mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 ' +
+    'dark:border-red-800/70 dark:bg-red-900/20 dark:text-red-300';
+  node.textContent = message;
+  root.prepend(node);
 }
 
 async function fetchJSON<T>(url: string): Promise<T> {
@@ -753,6 +773,8 @@ async function initPicker(root: HTMLElement): Promise<void> {
     definitions = await fetchBlockMetadata(listBase, includeInactive);
   } catch (err) {
     console.error('block-library-picker: metadata fetch failed', err);
+    const message = err instanceof Error ? err.message : 'Failed to load block definitions.';
+    renderPickerLoadError(root, `Failed to load block definitions: ${message}`);
     return;
   }
 

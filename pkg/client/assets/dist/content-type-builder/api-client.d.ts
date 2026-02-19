@@ -28,6 +28,7 @@ export declare class ContentTypeAPIClient {
     getBasePath(): string;
     /** Persist environment selection to the server session (Phase 12) */
     setEnvironmentSession(env: string): Promise<void>;
+    private contentTypesPanelBasePath;
     /**
      * List all content types
      */
@@ -83,8 +84,6 @@ export declare class ContentTypeAPIClient {
      */
     previewSchema(request: SchemaPreviewRequest): Promise<SchemaPreviewResponse>;
     private blockDefinitionsPanelBasePath;
-    private blockDefinitionsLegacyBasePath;
-    private fetchWithLegacyFallback;
     /**
      * List available block definitions (summary)
      */

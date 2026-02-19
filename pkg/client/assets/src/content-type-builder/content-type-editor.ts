@@ -1933,11 +1933,30 @@ export class ContentTypeEditor {
     }
     if (this.blocksLoading) return;
     this.blocksLoading = true;
-    this.cachedBlocks = await loadAvailableBlocks(this.api);
-    this.blocksLoading = false;
-    if (this.state.selectedFieldId === field.id) {
-      this.renderInlineBlockPickerForField(field);
+    try {
+      this.cachedBlocks = await loadAvailableBlocks(this.api);
+      if (this.state.selectedFieldId === field.id) {
+        this.renderInlineBlockPickerForField(field);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to load block definitions';
+      this.renderInlineBlockPickerError(field.id, message);
+      this.showToast(`Failed to load block definitions: ${message}`, 'error');
+    } finally {
+      this.blocksLoading = false;
     }
+  }
+
+  private renderInlineBlockPickerError(fieldID: string, message: string): void {
+    const container = this.container.querySelector<HTMLElement>(
+      `[data-ct-blocks-picker-container="${fieldID}"]`
+    );
+    if (!container) return;
+    container.innerHTML = `
+      <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-800/70 dark:bg-red-900/20 dark:text-red-300">
+        ${escapeHtml(message)}
+      </div>
+    `;
   }
 
   private renderInlineBlockPickerForField(field: FieldDefinition): void {

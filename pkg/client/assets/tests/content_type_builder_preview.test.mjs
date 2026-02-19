@@ -185,10 +185,10 @@ test('ContentTypeEditor save preserves non-boolean capabilities when updating ic
       const href = String(url);
       const method = (init.method ?? 'GET').toUpperCase();
 
-      if (method === 'GET' && href.endsWith('/admin/api/content_types/page')) {
+      if (method === 'GET' && href.endsWith('/admin/api/panels/content_types/page')) {
         return jsonResponse(existingContentType);
       }
-      if (method === 'PUT' && href.endsWith('/admin/api/content_types/ct-page')) {
+      if (method === 'PUT' && href.endsWith('/admin/api/panels/content_types/ct-page')) {
         updatedPayload = JSON.parse(String(init.body ?? '{}'));
         return jsonResponse({ ...existingContentType, ...updatedPayload });
       }
