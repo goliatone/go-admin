@@ -44,7 +44,7 @@ func permissionDeniedHint(permission, resource string) (string, bool) {
 		return "", false
 	}
 	if strings.HasPrefix(permission, "admin.translations.") || resource == "translations" {
-		return "Grant the missing translation permission to the current role, then sign out and sign back in to refresh token claims.", true
+		return "Grant the missing translation permission to the current role and reload the page.", false
 	}
-	return "Grant the missing permission to the current role. If permissions were recently changed, sign out and sign back in to refresh token claims.", true
+	return "Grant the missing permission to the current role and reload the page.", false
 }
