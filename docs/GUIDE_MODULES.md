@@ -856,6 +856,11 @@ func (m *DebugModule) registerDashboardWidgets(ctx ModuleContext) error {
 ### Registering Widget Providers
 
 ```go
+type DebugPanelWidgetPayload struct {
+    Panel string `json:"panel"`
+    Data  any    `json:"data"`
+}
+
 func (m *DebugModule) registerPanelWidget(ctx ModuleContext, panelID string) {
     spec := DashboardProviderSpec{
         Code:        "debug." + panelID,
@@ -887,6 +892,10 @@ func (m *DebugModule) createPanelHandler(panelID string) WidgetProvider {
     }
 }
 ```
+
+Use canonical widget constants for built-in definitions (`admin.Widget...`), and
+prefer typed payload structs for handler output. Avoid opaque HTML/script
+payload fields and map-shape branching by render mode.
 
 ### Panel Configuration
 
