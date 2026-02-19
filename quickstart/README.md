@@ -377,7 +377,7 @@ Queue permission map:
 
 Auth note:
 - Non-CRUD permissions (for example `admin.translations.export` and `admin.translations.assign`) are checked as explicit permission strings.
-- After changing role permissions, mint a new auth token (log out/in) so claims metadata contains updated permissions.
+- After changing role permissions, reload the page so permission checks and diagnostics reflect current role assignments.
 
 ## URL configuration
 Quickstart defaults still mount admin under `/admin` and the public API under
