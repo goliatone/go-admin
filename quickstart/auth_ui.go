@@ -8,6 +8,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/admin"
+	templateview "github.com/goliatone/go-admin/internal/templateview"
 	auth "github.com/goliatone/go-auth"
 	goerrors "github.com/goliatone/go-errors"
 	fggate "github.com/goliatone/go-featuregate/gate"
@@ -356,7 +357,7 @@ func RegisterAuthUIRoutes[T any](r router.Router[T], cfg admin.Config, auther *a
 		viewCtx = WithAuthUIViewThemeAssets(viewCtx, options.themeAssets, options.themeAssetPrefix)
 		viewCtx = WithFeatureTemplateContext(viewCtx, c.Context(), authScope, authSnapshot)
 		viewCtx = options.viewContext(viewCtx, c)
-		return c.Render(options.loginTemplate, viewCtx)
+		return templateview.RenderTemplateView(c, options.loginTemplate, viewCtx)
 	})
 
 	r.Post(options.loginPath, func(c router.Context) error {
@@ -412,7 +413,7 @@ func RegisterAuthUIRoutes[T any](r router.Router[T], cfg admin.Config, auther *a
 		viewCtx = WithAuthUIViewThemeAssets(viewCtx, options.themeAssets, options.themeAssetPrefix)
 		viewCtx = WithFeatureTemplateContext(viewCtx, c.Context(), authScope, authSnapshot)
 		viewCtx = options.viewContext(viewCtx, c)
-		return c.Render(options.passwordResetTemplate, viewCtx)
+		return templateview.RenderTemplateView(c, options.passwordResetTemplate, viewCtx)
 	})
 
 	confirmHandler := func(c router.Context) error {
@@ -440,7 +441,7 @@ func RegisterAuthUIRoutes[T any](r router.Router[T], cfg admin.Config, auther *a
 		viewCtx = WithAuthUIViewThemeAssets(viewCtx, options.themeAssets, options.themeAssetPrefix)
 		viewCtx = WithFeatureTemplateContext(viewCtx, c.Context(), authScope, authSnapshot)
 		viewCtx = options.viewContext(viewCtx, c)
-		return c.Render(options.passwordResetConfirmTemplate, viewCtx)
+		return templateview.RenderTemplateView(c, options.passwordResetConfirmTemplate, viewCtx)
 	}
 
 	r.Get(options.passwordResetConfirmPath, confirmHandler)
