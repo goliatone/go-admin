@@ -5,6 +5,7 @@ import (
 	"github.com/goliatone/go-admin/internal/primitives"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/goliatone/go-featuregate/catalog"
 	fggate "github.com/goliatone/go-featuregate/gate"
@@ -86,6 +87,8 @@ type Admin struct {
 	cmsRoutesRegistered          bool
 	contentAliasRoutesRegistered bool
 	iconService                  *IconService
+	doctorMu                     sync.RWMutex
+	doctorChecks                 map[string]DoctorCheck
 }
 
 type activityAware interface {
@@ -372,7 +375,10 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 		translationPolicy:      deps.TranslationPolicy,
 		preview:                NewPreviewService(cfg.PreviewSecret),
 		iconService:            iconService,
+		doctorChecks:           map[string]DoctorCheck{},
 	}
+
+	adm.RegisterDoctorChecks(defaultDoctorChecks()...)
 
 	if _, err := RegisterQuery(commandBus, &dashboardDiagnosticsQuery{admin: adm}); err != nil {
 		return nil, err
