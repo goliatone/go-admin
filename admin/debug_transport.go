@@ -10,6 +10,7 @@ import (
 	"time"
 
 	debugregistry "github.com/goliatone/go-admin/debug"
+	templateview "github.com/goliatone/go-admin/internal/templateview"
 	dashcmp "github.com/goliatone/go-dashboard/components/dashboard"
 	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
@@ -319,7 +320,7 @@ func (m *DebugModule) handleDebugDashboard(admin *Admin, c router.Context) error
 		"slow_query_threshold_ms": m.config.SlowQueryThreshold.Milliseconds(),
 	}
 	viewCtx = buildDebugViewContext(admin, m.config, c, viewCtx)
-	return c.Render(debugPageTemplate(m.config, c), viewCtx)
+	return templateview.RenderTemplateView(c, debugPageTemplate(m.config, c), viewCtx)
 }
 
 func (m *DebugModule) handleDebugClear(c router.Context) error {
