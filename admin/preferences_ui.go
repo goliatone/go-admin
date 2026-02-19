@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/goliatone/go-admin/internal/primitives"
+	templateview "github.com/goliatone/go-admin/internal/templateview"
 	"strings"
 
 	goerrors "github.com/goliatone/go-errors"
@@ -121,7 +122,7 @@ func (m *PreferencesModule) renderPreferencesForm(admin *Admin, c router.Context
 	}
 	viewCtx = buildAdminLayoutViewContext(admin, c, viewCtx, preferencesModuleID)
 	viewCtx = CaptureViewContextForRequest(admin.Debug(), c, viewCtx)
-	return c.Render(preferencesFormTemplate, viewCtx)
+	return templateview.RenderTemplateView(c, preferencesFormTemplate, viewCtx)
 }
 
 func (m *PreferencesModule) savePreferencesForm(admin *Admin, c router.Context, prefPath string) error {
