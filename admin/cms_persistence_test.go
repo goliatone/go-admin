@@ -49,8 +49,10 @@ func TestGoCMSContainerBackedNavigationAndDashboard(t *testing.T) {
 		Code:   "stat",
 		Name:   "Stat",
 		Schema: map[string]any{"type": "object"},
-		Handler: func(ctx AdminContext, cfg map[string]any) (map[string]any, error) {
-			return map[string]any{"value": 1}, nil
+		Handler: func(ctx AdminContext, cfg map[string]any) (WidgetPayload, error) {
+			return WidgetPayloadOf(struct {
+				Value int `json:"value"`
+			}{Value: 1}), nil
 		},
 	})
 	if _, err := adm.widgetSvc.SaveInstance(ctx, WidgetInstance{DefinitionCode: "stat", Area: "admin.dashboard.main", Locale: "en", Config: map[string]any{"title": "Persisted"}}); err != nil {

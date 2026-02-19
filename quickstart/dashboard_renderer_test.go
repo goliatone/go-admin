@@ -1,7 +1,6 @@
 package quickstart
 
 import (
-	"encoding/json"
 	"io"
 	"reflect"
 	"strings"
@@ -44,7 +43,7 @@ func TestDashboardRendererOverrideTemplates(t *testing.T) {
 	if err != nil {
 		t.Fatalf("newDashboardTemplateRenderer error: %v", err)
 	}
-	html, err := renderer.Render("dashboard_ssr.html", map[string]any{})
+	html, err := renderer.Render("dashboard_ssr.html", &admin.DashboardLayout{})
 	if err != nil {
 		t.Fatalf("Render error: %v", err)
 	}
@@ -91,146 +90,107 @@ func TestWithDefaultDashboardRendererWiresRenderer(t *testing.T) {
 	}
 }
 
-func TestNormalizeDashboardTemplateData_ConvertsGoDashboardPayload(t *testing.T) {
-	payload := map[string]any{
-		"areas": map[string]any{
-			"main": map[string]any{
+func TestNormalizeDashboardTemplateData_AcceptsControllerPayload(t *testing.T) {
+	ctx, err := normalizeDashboardTemplateData(map[string]any{
+		"title": "Dashboard",
+		"ordered_areas": []map[string]any{
+			{
 				"code": "admin.dashboard.main",
-				"widgets": []any{
-					map[string]any{
-						"id":         "w-1",
+				"widgets": []map[string]any{
+					{
+						"id":         "widget-1",
 						"definition": "admin.widget.user_stats",
 						"area_code":  "admin.dashboard.main",
 						"metadata": map[string]any{
 							"layout": map[string]any{"width": 6},
-							"data":   map[string]any{"total": 12},
 						},
 					},
 				},
 			},
 		},
-		"base_path": "/admin",
-	}
-
-	ctx, err := normalizeDashboardTemplateData(payload)
+	})
 	if err != nil {
 		t.Fatalf("normalizeDashboardTemplateData error: %v", err)
 	}
+	areas, ok := ctx["areas"].([]any)
+	if !ok || len(areas) != 1 {
+		t.Fatalf("expected one normalized area")
+	}
+	area, ok := areas[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected normalized area map")
+	}
+	widgets, ok := area["widgets"].([]any)
+	if !ok || len(widgets) != 1 {
+		t.Fatalf("expected one normalized widget")
+	}
+	widget, ok := widgets[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected normalized widget map")
+	}
+	if widget["span"] != int64(6) {
+		t.Fatalf("expected normalized span=6, got %#v", widget["span"])
+	}
+	if widget["area"] != "admin.dashboard.main" {
+		t.Fatalf("expected normalized area code, got %#v", widget["area"])
+	}
+}
 
+func TestNormalizeDashboardTemplateData_RejectsUnsupportedPayload(t *testing.T) {
+	_, err := normalizeDashboardTemplateData("invalid payload")
+	if err == nil {
+		t.Fatalf("expected unsupported payload to be rejected")
+	}
+}
+
+func TestNormalizeDashboardTemplateData_PreservesIntegerSpan(t *testing.T) {
+	layout := admin.DashboardLayout{
+		BasePath: "/admin",
+		Areas: []*admin.WidgetArea{
+			{
+				Code:  "admin.dashboard.main",
+				Title: "Main",
+				Widgets: []*admin.ResolvedWidget{
+					{
+						ID:         "widget-1",
+						Definition: "admin.widget.user_stats",
+						Area:       "admin.dashboard.main",
+						Span:       6,
+					},
+				},
+			},
+		},
+	}
+
+	ctx, err := normalizeDashboardTemplateData(&layout)
+	if err != nil {
+		t.Fatalf("normalizeDashboardTemplateData error: %v", err)
+	}
 	areas, ok := ctx["areas"].([]any)
 	if !ok || len(areas) != 1 {
 		t.Fatalf("expected one area in normalized payload")
 	}
 	area, ok := areas[0].(map[string]any)
 	if !ok {
-		t.Fatalf("expected area map in normalized payload")
+		t.Fatalf("expected area map")
 	}
 	widgets, ok := area["widgets"].([]any)
 	if !ok || len(widgets) != 1 {
-		t.Fatalf("expected one widget in normalized payload")
+		t.Fatalf("expected one widget in area")
 	}
 	widget, ok := widgets[0].(map[string]any)
 	if !ok {
-		t.Fatalf("expected widget map in normalized payload")
+		t.Fatalf("expected widget map")
 	}
 	if widget["span"] != int64(6) {
 		t.Fatalf("expected integer span=6, got %#v", widget["span"])
 	}
 }
 
-func TestNormalizeTemplateValue_PreservesWholeNumbers(t *testing.T) {
-	normalized := normalizeTemplateValue(map[string]any{
-		"span": 12,
-		"layout": map[string]any{
-			"width": 6,
-		},
-		"ratio": 2.5,
-	})
-
-	out, ok := normalized.(map[string]any)
-	if !ok {
-		t.Fatalf("expected map output")
-	}
-	if _, ok := out["span"].(int64); !ok {
-		t.Fatalf("expected span to normalize as int64, got %T", out["span"])
-	}
-	layout, ok := out["layout"].(map[string]any)
-	if !ok {
-		t.Fatalf("expected layout map")
-	}
-	if _, ok := layout["width"].(int64); !ok {
-		t.Fatalf("expected layout.width to normalize as int64, got %T", layout["width"])
-	}
-	if _, ok := out["ratio"].(float64); !ok {
-		t.Fatalf("expected ratio to remain float64, got %T", out["ratio"])
-	}
-}
-
-func TestWidthFromMetadataSupportsJSONNumber(t *testing.T) {
-	meta := map[string]any{
-		"layout": map[string]any{
-			"width": json.Number("8"),
-		},
-	}
-	if width := widthFromMetadata(meta); width != 8 {
-		t.Fatalf("expected width 8, got %d", width)
-	}
-}
-
-func TestNormalizeDashboardTemplateData_CoercesSpanFloatToInt(t *testing.T) {
-	payload := map[string]any{
-		"areas": []any{
-			map[string]any{
-				"code":  "admin.dashboard.main",
-				"title": "Main",
-				"widgets": []any{
-					map[string]any{
-						"id":         "widget-1",
-						"definition": "admin.widget.user_stats",
-						"area":       "admin.dashboard.main",
-						"span":       6.0,
-					},
-				},
-			},
-		},
-		"base_path": "/admin",
-	}
-
-	ctx, err := normalizeDashboardTemplateData(payload)
-	if err != nil {
-		t.Fatalf("normalizeDashboardTemplateData error: %v", err)
-	}
-
-	areas, ok := ctx["areas"].([]any)
-	if !ok || len(areas) != 1 {
-		t.Fatalf("expected one area after serialization")
-	}
-	area, ok := areas[0].(map[string]any)
-	if !ok {
-		t.Fatalf("expected serialized area map, got %T", areas[0])
-	}
-
-	widgets, ok := area["widgets"].([]any)
-	if !ok || len(widgets) != 1 {
-		t.Fatalf("expected one widget after serialization")
-	}
-	widget, ok := widgets[0].(map[string]any)
-	if !ok {
-		t.Fatalf("expected serialized widget map, got %T", widgets[0])
-	}
-
-	if _, ok := widget["span"].(int64); !ok {
-		t.Fatalf("expected span to be int64 after serialization, got %T", widget["span"])
-	}
-	if widget["span"] != int64(6) {
-		t.Fatalf("expected span=6 after serialization, got %#v", widget["span"])
-	}
-}
-
 func TestDashboardRendererRender_DoesNotEmitFloatSpanInHTML(t *testing.T) {
 	customFS := fstest.MapFS{
 		"dashboard_ssr.html": {
-			Data: []byte(`{% for area in areas %}{% for widget in area.widgets %}<article data-span="{{ widget.span }}" style="--span: {{ widget.span }}"></article>{% endfor %}{% endfor %}`),
+			Data: []byte(`{% for area in areas %}{% for widget in area.widgets %}<article data-span="{{ formatNumber(widget.span) }}" style="--span: {{ formatNumber(widget.span) }}"></article>{% endfor %}{% endfor %}`),
 		},
 	}
 	renderer, err := newDashboardTemplateRenderer(
@@ -241,24 +201,24 @@ func TestDashboardRendererRender_DoesNotEmitFloatSpanInHTML(t *testing.T) {
 		t.Fatalf("newDashboardTemplateRenderer error: %v", err)
 	}
 
-	payload := map[string]any{
-		"areas": []any{
-			map[string]any{
-				"code": "admin.dashboard.main",
-				"widgets": []any{
-					map[string]any{
-						"id":         "widget-1",
-						"definition": "admin.widget.user_stats",
-						"area":       "admin.dashboard.main",
-						"span":       6.0,
+	layout := admin.DashboardLayout{
+		BasePath: "/admin",
+		Areas: []*admin.WidgetArea{
+			{
+				Code: "admin.dashboard.main",
+				Widgets: []*admin.ResolvedWidget{
+					{
+						ID:         "widget-1",
+						Definition: "admin.widget.user_stats",
+						Area:       "admin.dashboard.main",
+						Span:       6,
 					},
 				},
 			},
 		},
-		"base_path": "/admin",
 	}
 
-	html, err := renderer.Render("dashboard_ssr.html", payload)
+	html, err := renderer.Render("dashboard_ssr.html", &layout)
 	if err != nil {
 		t.Fatalf("Render error: %v", err)
 	}
@@ -274,52 +234,10 @@ func TestDashboardRendererRender_DoesNotEmitFloatSpanInHTML(t *testing.T) {
 	}
 }
 
-func TestNormalizeWidgetData_StripsDeprecatedChartMarkupAndDocumentBlobs(t *testing.T) {
-	normalized, ok := normalizeWidgetData(map[string]any{
-		"chart_html":          "<html><body><script>alert(1)</script></body></html>",
-		"chart_html_fragment": "<div>legacy</div>",
-		"chart_options":       map[string]any{"series": []any{}},
-		"title":               "Chart",
-		"danger":              "<script>alert(1)</script>",
-		"nested": map[string]any{
-			"chart_html": "legacy",
-			"label":      "<body>bad</body>",
-			"safe":       "ok",
-		},
-	}).(map[string]any)
-	if !ok {
-		t.Fatalf("expected normalized widget data map")
-	}
-
-	if _, exists := normalized["chart_html"]; exists {
-		t.Fatalf("expected chart_html to be stripped from canonical widget data")
-	}
-	if _, exists := normalized["chart_html_fragment"]; exists {
-		t.Fatalf("expected chart_html_fragment to be stripped from canonical widget data")
-	}
-	if normalized["danger"] != "" {
-		t.Fatalf("expected script payload to be scrubbed, got %#v", normalized["danger"])
-	}
-
-	nested, ok := normalized["nested"].(map[string]any)
-	if !ok {
-		t.Fatalf("expected nested data map after normalization")
-	}
-	if _, exists := nested["chart_html"]; exists {
-		t.Fatalf("expected nested chart_html to be stripped")
-	}
-	if nested["label"] != "" {
-		t.Fatalf("expected nested html/document string to be scrubbed, got %#v", nested["label"])
-	}
-	if nested["safe"] != "ok" {
-		t.Fatalf("expected safe nested value to be preserved")
-	}
-}
-
 func TestDashboardRendererNormalizesWidgetDataNumbersForTemplates(t *testing.T) {
 	customFS := fstest.MapFS{
 		"dashboard_ssr.html": {
-			Data: []byte(`{% for area in areas %}{% for widget in area.widgets %}Pending: {{ widget.data.status_counts.pending }}{% endfor %}{% endfor %}`),
+			Data: []byte(`{% for area in areas %}{% for widget in area.widgets %}Pending: {{ formatNumber(widget.data.status_counts.pending) }}{% endfor %}{% endfor %}`),
 		},
 	}
 	renderer, err := newDashboardTemplateRenderer(

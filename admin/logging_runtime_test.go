@@ -86,10 +86,12 @@ func TestDashboardLateProviderRegistrationLogsWarningViaInjectedLogger(t *testin
 		Code:        "late.widget",
 		Name:        "Late",
 		DefaultArea: "admin.dashboard.main",
-		Handler: func(ctx AdminContext, cfg map[string]any) (map[string]any, error) {
+		Handler: func(ctx AdminContext, cfg map[string]any) (WidgetPayload, error) {
 			_ = ctx
 			_ = cfg
-			return map[string]any{"ok": true}, nil
+			return WidgetPayloadOf(struct {
+				OK bool `json:"ok"`
+			}{OK: true}), nil
 		},
 	})
 

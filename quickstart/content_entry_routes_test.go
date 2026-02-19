@@ -926,12 +926,16 @@ func TestListForPanelOmitsCreateRoutesWhenPanelHasNoRenderableFormSchema(t *test
 		if !ok {
 			return false
 		}
-		routes, ok := viewCtx["routes"].(map[string]string)
-		if !ok {
+		switch routes := viewCtx["routes"].(type) {
+		case map[string]string:
+			return strings.TrimSpace(routes["new"]) == "" &&
+				strings.TrimSpace(routes["create"]) == ""
+		case map[string]any:
+			return strings.TrimSpace(anyToString(routes["new"])) == "" &&
+				strings.TrimSpace(anyToString(routes["create"])) == ""
+		default:
 			return false
 		}
-		return strings.TrimSpace(routes["new"]) == "" &&
-			strings.TrimSpace(routes["create"]) == ""
 	})).Return(nil).Once()
 
 	if err := handler.listForPanel(ctx, "translations"); err != nil {

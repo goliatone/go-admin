@@ -254,8 +254,7 @@ func TestPreferencesViewContextIncludesAdminLayoutContext(t *testing.T) {
 		if !ok {
 			return false
 		}
-		navItems, ok := viewCtx["nav_items"].([]map[string]any)
-		if !ok || len(navItems) == 0 {
+		if !hasNavItems(viewCtx["nav_items"]) {
 			return false
 		}
 		sessionUser, ok := viewCtx["session_user"].(map[string]any)
@@ -266,7 +265,7 @@ func TestPreferencesViewContextIncludesAdminLayoutContext(t *testing.T) {
 		if displayName == "" || strings.EqualFold(displayName, "Guest") {
 			return false
 		}
-		if _, ok := viewCtx["theme"].(map[string]map[string]string); !ok {
+		if !hasThemeMap(viewCtx["theme"]) {
 			return false
 		}
 		if strings.TrimSpace(toString(viewCtx["api_base_path"])) == "" {
@@ -326,8 +325,7 @@ func TestPreferencesViewContextRehydratesAdminLayoutAfterCustomBuilder(t *testin
 		if toString(viewCtx["title"]) != "Custom" {
 			return false
 		}
-		navItems, ok := viewCtx["nav_items"].([]map[string]any)
-		if !ok || len(navItems) == 0 {
+		if !hasNavItems(viewCtx["nav_items"]) {
 			return false
 		}
 		sessionUser, ok := viewCtx["session_user"].(map[string]any)
@@ -344,4 +342,26 @@ func TestPreferencesViewContextRehydratesAdminLayoutAfterCustomBuilder(t *testin
 		t.Fatalf("render preferences form: %v", err)
 	}
 	mockCtx.AssertExpectations(t)
+}
+
+func hasNavItems(value any) bool {
+	switch typed := value.(type) {
+	case []map[string]any:
+		return len(typed) > 0
+	case []any:
+		return len(typed) > 0
+	default:
+		return false
+	}
+}
+
+func hasThemeMap(value any) bool {
+	if value == nil {
+		return false
+	}
+	if _, ok := value.(map[string]map[string]string); ok {
+		return true
+	}
+	_, ok := value.(map[string]any)
+	return ok
 }

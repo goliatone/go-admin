@@ -678,8 +678,17 @@ func TestNotificationsRoutes(t *testing.T) {
 			if !ok {
 				t.Fatalf("expected widget data map")
 			}
-			if notifications, ok := data["notifications"].([]Notification); !ok || len(notifications) == 0 {
-				t.Fatalf("expected notifications widget data")
+			switch notifications := data["notifications"].(type) {
+			case []Notification:
+				if len(notifications) == 0 {
+					t.Fatalf("expected notifications widget data")
+				}
+			case []any:
+				if len(notifications) == 0 {
+					t.Fatalf("expected notifications widget data")
+				}
+			default:
+				t.Fatalf("expected notifications widget data array, got %T", data["notifications"])
 			}
 		}
 	}
