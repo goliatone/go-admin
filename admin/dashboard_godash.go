@@ -139,12 +139,17 @@ func (d *Dashboard) buildDashboardProviders() (dashcmp.ProviderRegistry, map[str
 			for k, v := range meta.Instance.Configuration {
 				cfg[k] = v
 			}
-			adminCtx := AdminContext{Context: ctx, UserID: meta.Viewer.UserID, Locale: meta.Viewer.Locale}
+			adminCtx := AdminContext{
+				Context:    ctx,
+				UserID:     meta.Viewer.UserID,
+				Locale:     meta.Viewer.Locale,
+				RenderMode: dashboardRenderModeFromContext(ctx),
+			}
 			data, err := handler(adminCtx, cfg)
 			if err != nil {
 				return nil, err
 			}
-			return dashcmp.WidgetData(data), nil
+			return dashcmp.WidgetData(sanitizeDashboardWidgetData(data)), nil
 		}))
 	}
 	return registry, specs
