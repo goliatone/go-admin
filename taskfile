@@ -105,6 +105,148 @@ function dev:cover {
     go test -coverprofile=coverage.out ./... && go tool cover -func coverage.out
 }
 
+##
+## -----
+##
+## release:contracts:refresh
+##
+## Recompute and persist esign contract guard snapshots and
+## synchronize the required Track C ledger entry hash marker.
+function release:contracts:refresh {
+    local repo_root
+    local go_bin
+
+    repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+    if command -v go >/dev/null 2>&1; then
+        go_bin="$(command -v go)"
+    elif [ -x "/Users/goliatone/.g/go/bin/go" ]; then
+        go_bin="/Users/goliatone/.g/go/bin/go"
+    else
+        echo "go binary not found in PATH or /Users/goliatone/.g/go/bin/go"
+        return 1
+    fi
+
+    (
+        cd "${repo_root}" || exit "$?"
+
+        local refresh_script
+        mkdir -p "${repo_root}/.tmp"
+        refresh_script="${repo_root}/.tmp/release_contract_refresh.$$.$RANDOM.go"
+
+        cat > "${refresh_script}" <<'EOF'
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
+
+	"github.com/goliatone/go-admin/examples/esign/release"
+)
+
+func writeJSON(path string, value any) error {
+	raw, err := json.MarshalIndent(value, "", "  ")
+	if err != nil {
+		return err
+	}
+	raw = append(raw, '\n')
+	return os.WriteFile(path, raw, 0644)
+}
+
+func updateLedgerHash(path, entryID, hash string) error {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+
+	text := string(raw)
+	heading := "## " + strings.TrimSpace(entryID)
+	start := strings.Index(text, heading)
+	if start < 0 {
+		return fmt.Errorf("track c ledger entry not found: %s", entryID)
+	}
+
+	sectionEnd := len(text)
+	rest := text[start+len(heading):]
+	if next := strings.Index(rest, "\n## "); next >= 0 {
+		sectionEnd = start + len(heading) + next
+	}
+
+	section := text[start:sectionEnd]
+	hashLine := "contract_hash: " + hash
+	linePattern := regexp.MustCompile(`(?m)^contract_hash:\s*.*$`)
+	if linePattern.MatchString(section) {
+		section = linePattern.ReplaceAllString(section, hashLine)
+	} else {
+		if !strings.HasSuffix(section, "\n") {
+			section += "\n"
+		}
+		section += hashLine + "\n"
+	}
+
+	updated := text[:start] + section + text[sectionEnd:]
+	return os.WriteFile(path, []byte(updated), 0644)
+}
+
+func main() {
+	repoRoot, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+
+	trackCPath := filepath.Join(repoRoot, "examples/esign/release/trackc_contract_guard.json")
+	trackC, err := release.LoadTrackCContractGuard(trackCPath)
+	if err != nil {
+		panic(err)
+	}
+	trackCHash, err := release.ComputeContractShapeHash(repoRoot, trackC.TrackedFiles)
+	if err != nil {
+		panic(err)
+	}
+	trackC.ContractHash = trackCHash
+	if err := writeJSON(trackCPath, trackC); err != nil {
+		panic(err)
+	}
+
+	ledgerPath := filepath.Join(repoRoot, filepath.FromSlash(strings.TrimSpace(trackC.LedgerPath)))
+	if err := updateLedgerHash(ledgerPath, trackC.RequiredLedgerEntryID, trackCHash); err != nil {
+		panic(err)
+	}
+
+	v2Path := filepath.Join(repoRoot, "examples/esign/release/v2_contract_freeze_guard.json")
+	v2Guard, err := release.LoadV2ContractFreezeGuard(v2Path)
+	if err != nil {
+		panic(err)
+	}
+	v2Hash, err := release.ComputeContractShapeHash(repoRoot, v2Guard.TrackedFiles)
+	if err != nil {
+		panic(err)
+	}
+	v2Guard.ContractHash = v2Hash
+	if err := writeJSON(v2Path, v2Guard); err != nil {
+		panic(err)
+	}
+
+	fmt.Println("updated trackc guard hash:", trackCHash)
+	fmt.Println("updated v2 freeze guard hash:", v2Hash)
+	fmt.Println("updated trackc ledger entry:", trackC.RequiredLedgerEntryID)
+}
+EOF
+
+        "${go_bin}" run "${refresh_script}" || {
+            rm -f "${refresh_script}"
+            exit 1
+        }
+        rm -f "${refresh_script}"
+
+        "${go_bin}" test ./examples/esign/release -run 'TestValidateTrackCContractGuardPassesForCurrentSnapshot|TestValidateV2ContractFreezeGuardPassesForCurrentSnapshot' -count=1
+    )
+}
+
 function go:mod:update {
     local modules
     local extra=()

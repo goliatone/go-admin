@@ -1,15 +1,71 @@
 # Go Admin
 
-The core `github.com/goliatone/go-admin` module stays dependency-light and focused on the admin orchestrator. The optional quickstart submodule (`github.com/goliatone/go-admin/quickstart`) bundles heavier integrations (Fiber, go-dashboard, go-formgen, go-theme) and turnkey bootstrap helpers. Import core packages for minimal deps; import quickstart when you want the defaults and adapters.
+`go-admin` is a feature-gated admin orchestration runtime for Go services. It wires modules, panels, commands, navigation, and route surfaces while letting hosts swap dependencies (auth, persistence, CMS container, activity, media, export, settings).
 
-- Quickstart docs: `quickstart/README.md`
-- Canonical `ADMIN_*` env flags: `ENVS_REF.md`
-- Translation operations guide: `docs/GUIDE_CMS.md#17-translation-workflow-operations`
-- Persisted workflow runtime guide: `docs/WORKFLOW_PERSISTENCE.md`
-- Design notes: `QUICKBOOT_TDD.md`
-- Task plan: `QUICKBOOT_TSK.md`
-- Export refactor design: `EXPORT_REF_TDD.md`
-- Export refactor plan: `EXPORT_REF_TSK.md`
+The repo provides two modules:
+- Core: `github.com/goliatone/go-admin` (dependency-light, framework-agnostic orchestration)
+- Quickstart: `github.com/goliatone/go-admin/quickstart` (opinionated defaults + adapters for faster bootstrap)
+
+## When to use core vs quickstart
+
+- Use core when you need strict control over dependencies, router/runtime wiring, and module registration.
+- Use quickstart when you want a working admin quickly with prewired defaults (feature gates, adapter hooks, Fiber/view helpers, theme/form/dashboard integrations) and then override selectively.
+
+## Runtime lifecycle (core mental model)
+
+1. Build `admin.Config` (title/base path, locales, URLs, permissions, feature-related config).
+2. Construct `*admin.Admin` with `admin.New(cfg, deps)`.
+3. Optionally register custom modules before boot with `adm.RegisterModule(...)`.
+4. Call `adm.Initialize(router)` once to run prepare + boot steps and mount routes.
+
+`Initialize` runs the boot pipeline (panels, dashboard, search, settings, jobs, notifications, translation routes, etc.) and auto-registers built-in modules according to feature gates.
+
+Quickstart follows the same lifecycle, but uses `quickstart.NewAdminConfig(...)` and `quickstart.NewAdmin(...)` to preload defaults and adapter wiring.
+
+```go
+cfg := quickstart.NewAdminConfig("/admin", "Admin", "en")
+
+adm, _, err := quickstart.NewAdmin(
+	cfg,
+	quickstart.AdapterHooks{},
+	quickstart.WithFeatureDefaults(quickstart.DefaultMinimalFeatures()),
+)
+if err != nil {
+	panic(err)
+}
+
+server := router.NewHTTPServer()
+if err := adm.Initialize(server.Router()); err != nil {
+	panic(err)
+}
+```
+
+Core-only wiring is the same shape, but you construct directly from `admin.New`:
+
+```go
+cfg := admin.Config{BasePath: "/admin", Title: "Admin", DefaultLocale: "en"}
+adm, err := admin.New(cfg, admin.Dependencies{})
+if err != nil {
+	panic(err)
+}
+
+if err := adm.RegisterModule(myModule); err != nil {
+	panic(err)
+}
+
+server := router.NewHTTPServer()
+if err := adm.Initialize(server.Router()); err != nil {
+	panic(err)
+}
+```
+
+## Key extension points
+
+- Features: provide/override feature defaults with your gate implementation (core) or `quickstart.WithFeatureDefaults(...)`.
+- Modules: register host modules with `RegisterModule`; control startup validation behavior with `WithModuleStartupPolicy`.
+- URLs: use `Config.URLs` + URLKit route names instead of hardcoding paths.
+- Commands: register typed commands and message factories for panel/API dispatch.
+- Panels: control canonical UI ownership (`PanelUIRouteMode*`) and canonical entry behavior (`PanelEntryMode*`).
 
 ## URL Configuration
 
@@ -86,3 +142,11 @@ admin.RegisterMessageFactory(adm.Commands(), "pages.publish", func(payload map[s
 ```
 
 CLI/cron metadata is optional via `command.CLICommand` (`CLIOptions`) and `command.CronCommand` (`CronOptions`).
+
+## References
+
+- Quickstart API and helpers: `quickstart/README.md`
+- Canonical `ADMIN_*` flags: `ENVS_REF.md`
+- CMS and translation workflow guide: `docs/GUIDE_CMS.md`
+- Persisted workflow runtime: `docs/WORKFLOW_PERSISTENCE.md`
+- End-to-end examples: `examples/web/main.go`, `examples/esign/main.go`
