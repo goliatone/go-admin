@@ -1,6 +1,10 @@
 package dashboard
 
-import "context"
+import (
+	"context"
+
+	"github.com/goliatone/go-admin/internal/widgetcodes"
+)
 
 // FeatureFlags captures the minimal flags needed for dashboard helpers.
 type FeatureFlags struct {
@@ -75,7 +79,7 @@ func RegisterDefaultWidgets(widgetSvc WidgetService, features FeatureFlags, regi
 	}
 	definitions := []WidgetDefinition{
 		{
-			Code: "admin.widget.user_stats",
+			Code: widgetcodes.WidgetUserStats,
 			Name: "User Statistics",
 			Schema: map[string]any{
 				"type": "object",
@@ -89,7 +93,7 @@ func RegisterDefaultWidgets(widgetSvc WidgetService, features FeatureFlags, regi
 			},
 		},
 		{
-			Code: "admin.widget.activity_feed",
+			Code: widgetcodes.WidgetActivityFeed,
 			Name: "Activity Feed",
 			Schema: map[string]any{
 				"type":       "object",
@@ -97,7 +101,7 @@ func RegisterDefaultWidgets(widgetSvc WidgetService, features FeatureFlags, regi
 			},
 		},
 		{
-			Code: "admin.widget.quick_actions",
+			Code: widgetcodes.WidgetQuickActions,
 			Name: "Quick Actions",
 			Schema: map[string]any{
 				"type": "object",
@@ -117,7 +121,7 @@ func RegisterDefaultWidgets(widgetSvc WidgetService, features FeatureFlags, regi
 			},
 		},
 		{
-			Code: "admin.widget.chart_sample",
+			Code: widgetcodes.WidgetChartSample,
 			Name: "Sample Chart",
 			Schema: map[string]any{
 				"type": "object",
@@ -130,7 +134,7 @@ func RegisterDefaultWidgets(widgetSvc WidgetService, features FeatureFlags, regi
 	}
 	if features.Settings {
 		definitions = append(definitions, WidgetDefinition{
-			Code: "admin.widget.settings_overview",
+			Code: widgetcodes.WidgetSettingsOverview,
 			Name: "Settings Overview",
 			Schema: map[string]any{
 				"type": "object",
