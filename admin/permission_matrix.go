@@ -2,6 +2,7 @@ package admin
 
 import (
 	"bytes"
+	"encoding/json"
 	"path"
 	"sort"
 	"strings"
@@ -87,6 +88,8 @@ func permissionMatrixRenderer(buf *bytes.Buffer, field model.Field, data compone
 		}
 	}
 	sort.Strings(extraPerms)
+	extraOptions := optionStringSlice(data.Config, "extraOptions", nil)
+	extraOptions = mergePermissionOptions(extraOptions, extraPerms)
 	extraPermsValue := strings.Join(extraPerms, "\n")
 
 	fieldName := field.Name
@@ -122,6 +125,8 @@ func permissionMatrixRenderer(buf *bytes.Buffer, field model.Field, data compone
 		"current_perms": currentPerms,
 		"serialized":    serialized,
 		"extra_perms":   extraPermsValue,
+		"extra_options": extraOptions,
+		"extra_selected": append([]string{}, extraPerms...),
 		"show_extra":    showExtra,
 		"rows":          rows,
 		"field_name":    fieldName,
@@ -136,32 +141,11 @@ func permissionMatrixRenderer(buf *bytes.Buffer, field model.Field, data compone
 
 func parsePermissionsMap(value any) map[string]bool {
 	perms := make(map[string]bool)
-	if value == nil {
-		return perms
-	}
-
-	switch v := value.(type) {
-	case string:
-		for _, line := range strings.Split(v, "\n") {
-			p := strings.TrimSpace(line)
-			if p != "" {
-				perms[p] = true
-			}
+	for _, perm := range permissionStrings(value) {
+		if perm == "" {
+			continue
 		}
-	case []string:
-		for _, p := range v {
-			if trimmed := strings.TrimSpace(p); trimmed != "" {
-				perms[trimmed] = true
-			}
-		}
-	case []any:
-		for _, item := range v {
-			if s, ok := item.(string); ok {
-				if trimmed := strings.TrimSpace(s); trimmed != "" {
-					perms[trimmed] = true
-				}
-			}
-		}
+		perms[perm] = true
 	}
 	return perms
 }
@@ -232,34 +216,101 @@ func isIgnoredExtraPermission(permission string, ignoreSet map[string]struct{}, 
 }
 
 func permissionsValueFromDefault(value any) string {
-	if value == nil {
-		return ""
-	}
+	return strings.Join(permissionStrings(value), "\n")
+}
 
+func permissionStrings(value any) []string {
+	if value == nil {
+		return nil
+	}
 	switch v := value.(type) {
 	case string:
-		return strings.TrimSpace(v)
+		return parsePermissionString(v)
 	case []string:
-		out := make([]string, 0, len(v))
-		for _, item := range v {
-			if trimmed := strings.TrimSpace(item); trimmed != "" {
-				out = append(out, trimmed)
-			}
-		}
-		return strings.Join(out, "\n")
+		return normalizePermissionSlice(v)
 	case []any:
 		out := make([]string, 0, len(v))
 		for _, item := range v {
 			if s, ok := item.(string); ok {
-				if trimmed := strings.TrimSpace(s); trimmed != "" {
-					out = append(out, trimmed)
-				}
+				out = append(out, s)
 			}
 		}
-		return strings.Join(out, "\n")
+		return normalizePermissionSlice(out)
+	default:
+		return nil
 	}
+}
 
-	return ""
+func parsePermissionString(raw string) []string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return nil
+	}
+	if strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]") {
+		jsonList := []string{}
+		if err := json.Unmarshal([]byte(trimmed), &jsonList); err == nil {
+			return normalizePermissionSlice(jsonList)
+		}
+		inner := strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(trimmed, "["), "]"))
+		return parseDelimitedPermissionString(inner, true)
+	}
+	return parseDelimitedPermissionString(trimmed, false)
+}
+
+func parseDelimitedPermissionString(raw string, splitOnSpace bool) []string {
+	if raw == "" {
+		return nil
+	}
+	parts := strings.FieldsFunc(raw, func(r rune) bool {
+		if r == ',' || r == '\n' || r == '\r' || r == '\t' {
+			return true
+		}
+		return splitOnSpace && r == ' '
+	})
+	return normalizePermissionSlice(parts)
+}
+
+func normalizePermissionSlice(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		if _, ok := seen[trimmed]; ok {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		out = append(out, trimmed)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func mergePermissionOptions(values ...[]string) []string {
+	merged := []string{}
+	seen := map[string]struct{}{}
+	for _, group := range values {
+		for _, value := range group {
+			trimmed := strings.TrimSpace(value)
+			if trimmed == "" {
+				continue
+			}
+			if _, ok := seen[trimmed]; ok {
+				continue
+			}
+			seen[trimmed] = struct{}{}
+			merged = append(merged, trimmed)
+		}
+	}
+	sort.Strings(merged)
+	return merged
 }
 
 func capitalizeFirst(s string) string {
