@@ -510,6 +510,7 @@ func (p *panelBinding) panelDetailPath(id string) string {
 func (p *panelBinding) Action(c router.Context, locale, action string, body map[string]any) (map[string]any, error) {
 	body = mergePanelActionContext(body, locale, c.Query("locale"), c.Query("environment"), c.Query("env"), c.Query("policy_entity"), c.Query("policyEntity"))
 	ctx := p.admin.adminContextFromRequest(c, locale)
+	body = mergePanelActionActorContext(body, ctx)
 	ids := parseCommandIDs(body, c.Query("id"), c.Query("ids"))
 	primaryID := resolvePrimaryActionID(body, ids)
 	actionDef, actionDefined := p.panel.findAction(action)
