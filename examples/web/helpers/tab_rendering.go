@@ -22,8 +22,8 @@ const (
 const (
 	UserProfileAreaCode        = "admin.users.detail.profile"
 	UserActivityAreaCode       = "admin.users.detail.activity"
-	UserProfileWidgetCode      = "admin.widget.user_profile_overview"
-	UserActivityWidgetCode     = "admin.widget.user_activity_feed"
+	UserProfileWidgetCode      = admin.WidgetUserProfileOverview
+	UserActivityWidgetCode     = admin.WidgetUserActivityFeed
 	UserProfileWidgetLabel     = "Profile Overview"
 	UserActivityWidgetLabel    = "User Activity"
 	UserDetailAreaScope        = "users.detail"

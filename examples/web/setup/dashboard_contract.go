@@ -18,9 +18,9 @@ type LegacyChartSampleWidgetData struct {
 type UserStatsWidgetData struct {
 	Type     string `json:"type"`
 	StatType string `json:"stat_type"`
-	Total    any    `json:"total"`
-	Active   any    `json:"active"`
-	NewToday any    `json:"new_today"`
+	Total    int    `json:"total"`
+	Active   int    `json:"active"`
+	NewToday int    `json:"new_today"`
 	Trend    string `json:"trend"`
 	TrendUp  bool   `json:"trend_up"`
 }
@@ -28,17 +28,17 @@ type UserStatsWidgetData struct {
 type ContentStatsWidgetData struct {
 	Type      string `json:"type"`
 	StatType  string `json:"stat_type"`
-	Published any    `json:"published"`
-	Draft     any    `json:"draft"`
-	Scheduled any    `json:"scheduled"`
+	Published int    `json:"published"`
+	Draft     int    `json:"draft"`
+	Scheduled int    `json:"scheduled"`
 }
 
 type StorageStatsWidgetData struct {
 	Type       string `json:"type"`
 	StatType   string `json:"stat_type"`
-	Used       any    `json:"used"`
-	Total      any    `json:"total"`
-	Percentage any    `json:"percentage"`
+	Used       string `json:"used"`
+	Total      string `json:"total"`
+	Percentage int    `json:"percentage"`
 }
 
 type QuickActionWidgetItem struct {
@@ -58,7 +58,7 @@ type ActivityFeedWidgetData struct {
 }
 
 type UserProfileOverviewWidgetData struct {
-	Values map[string]any `json:"values"`
+	Values map[string]string `json:"values"`
 }
 
 type SystemHealthWidgetData struct {
@@ -78,21 +78,6 @@ type ChartWidgetData struct {
 	FooterNote      string         `json:"footer_note,omitempty"`
 }
 
-func toWidgetPayloadMap(model any) map[string]any {
-	if model == nil {
-		return map[string]any{}
-	}
-	raw, err := json.Marshal(model)
-	if err != nil {
-		return map[string]any{}
-	}
-	out := map[string]any{}
-	if err := json.Unmarshal(raw, &out); err != nil {
-		return map[string]any{}
-	}
-	return out
-}
-
 func toCanonicalWidgetPayload(model any) admin.WidgetPayload {
 	if model == nil {
 		return admin.EmptyWidgetPayload()
@@ -105,6 +90,21 @@ func toWidgetPayload(model any) admin.WidgetPayload {
 		return admin.EmptyWidgetPayload()
 	}
 	return toCanonicalWidgetPayload(model)
+}
+
+func canonicalPayloadMap(model any) (map[string]any, error) {
+	if model == nil {
+		return map[string]any{}, nil
+	}
+	raw, err := json.Marshal(model)
+	if err != nil {
+		return nil, fmt.Errorf("marshal canonical payload: %w", err)
+	}
+	out := map[string]any{}
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil, fmt.Errorf("unmarshal canonical payload: %w", err)
+	}
+	return out, nil
 }
 
 func canonicalQuickAction(item map[string]any) QuickActionWidgetItem {
@@ -151,7 +151,15 @@ func toCanonicalQuickActionItems(items []QuickActionWidgetItem) []QuickActionWid
 	return out
 }
 
-func validateCanonicalWidgetPayload(definition string, payload map[string]any) error {
+func validateCanonicalWidgetModel(definition string, model any) error {
+	payload, err := canonicalPayloadMap(model)
+	if err != nil {
+		return err
+	}
+	return validateCanonicalWidgetPayloadMap(definition, payload)
+}
+
+func validateCanonicalWidgetPayloadMap(definition string, payload map[string]any) error {
 	def := strings.TrimSpace(definition)
 	if payload == nil {
 		return fmt.Errorf("widget payload is nil")
@@ -161,15 +169,15 @@ func validateCanonicalWidgetPayload(definition string, payload map[string]any) e
 	}
 
 	switch def {
-	case "admin.widget.chart_sample":
+	case admin.WidgetChartSample:
 		return requireWidgetKeys(payload, "disabled")
-	case "admin.widget.user_stats":
+	case admin.WidgetUserStats:
 		return requireWidgetKeys(payload, "type", "stat_type", "total", "active", "new_today")
-	case "admin.widget.content_stats":
+	case admin.WidgetContentStats:
 		return requireWidgetKeys(payload, "type", "stat_type", "published", "draft", "scheduled")
-	case "admin.widget.storage_stats":
+	case admin.WidgetStorageStats:
 		return requireWidgetKeys(payload, "type", "stat_type", "used", "total", "percentage")
-	case "admin.widget.quick_actions":
+	case admin.WidgetQuickActions:
 		if err := requireWidgetKeys(payload, "actions"); err != nil {
 			return err
 		}
@@ -187,17 +195,17 @@ func validateCanonicalWidgetPayload(definition string, payload map[string]any) e
 			}
 		}
 		return nil
-	case "admin.widget.activity_feed", "admin.widget.user_activity_feed":
+	case admin.WidgetActivityFeed, admin.WidgetUserActivityFeed:
 		return requireWidgetKeys(payload, "entries")
-	case "admin.widget.user_profile_overview":
+	case admin.WidgetUserProfileOverview:
 		return requireWidgetKeys(payload, "values")
-	case "admin.widget.system_health":
+	case admin.WidgetSystemHealth:
 		return requireWidgetKeys(payload, "status", "uptime", "api_latency", "db_status")
-	case "admin.widget.bar_chart",
-		"admin.widget.line_chart",
-		"admin.widget.pie_chart",
-		"admin.widget.gauge_chart",
-		"admin.widget.scatter_chart":
+	case admin.WidgetBarChart,
+		admin.WidgetLineChart,
+		admin.WidgetPieChart,
+		admin.WidgetGaugeChart,
+		admin.WidgetScatterChart:
 		if err := requireWidgetKeys(payload, "chart_type", "title", "theme", "chart_assets_host", "chart_options"); err != nil {
 			return err
 		}
