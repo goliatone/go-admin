@@ -41,6 +41,74 @@ func TestNewTranslationQueuePanelSchemaIncludesQueueActionsAndFilters(t *testing
 			t.Fatalf("expected form field %q to be required", requiredField)
 		}
 	}
+	sourceLocaleField, ok := findFormField(schema.FormFields, "source_locale")
+	if !ok {
+		t.Fatalf("expected source_locale form field")
+	}
+	if !sourceLocaleField.ReadOnly {
+		t.Fatalf("expected source_locale form field to be read only")
+	}
+	for expected, expectedType := range map[string]string{
+		"translation_group_id": "select",
+		"entity_type":          "select",
+		"source_record_id":     "select",
+		"target_locale":        "select",
+		"assignee_id":          "select",
+		"priority":             "select",
+		"due_date":             "date",
+	} {
+		field, ok := findFormField(schema.FormFields, expected)
+		if !ok {
+			t.Fatalf("expected form field %q", expected)
+		}
+		if strings.TrimSpace(field.Type) != expectedType {
+			t.Fatalf("expected form field %q type %q, got %q", expected, expectedType, field.Type)
+		}
+	}
+	if schema.FormSchema == nil {
+		t.Fatalf("expected form schema")
+	}
+	required, _ := schema.FormSchema["required"].([]string)
+	for _, expected := range []string{"translation_group_id", "entity_type", "source_record_id", "source_locale", "target_locale"} {
+		found := false
+		for _, field := range required {
+			if field == expected {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("expected required field %q in form schema, got %v", expected, required)
+		}
+	}
+	properties, _ := schema.FormSchema["properties"].(map[string]any)
+	dueDate, _ := properties["due_date"].(map[string]any)
+	if strings.TrimSpace(toString(dueDate["format"])) != "date" {
+		t.Fatalf("expected due_date format date, got %+v", dueDate)
+	}
+	priority, _ := properties["priority"].(map[string]any)
+	enumValues, _ := priority["enum"].([]any)
+	if len(enumValues) == 0 {
+		t.Fatalf("expected priority enum values in form schema")
+	}
+	assignee, _ := properties["assignee_id"].(map[string]any)
+	assigneeEndpoint, _ := assignee["x-endpoint"].(map[string]any)
+	if strings.TrimSpace(toString(assigneeEndpoint["url"])) == "" {
+		t.Fatalf("expected assignee_id x-endpoint url")
+	}
+	sourceRecord, _ := properties["source_record_id"].(map[string]any)
+	sourceRecordEndpoint, _ := sourceRecord["x-endpoint"].(map[string]any)
+	if strings.TrimSpace(toString(sourceRecordEndpoint["url"])) == "" {
+		t.Fatalf("expected source_record_id x-endpoint url")
+	}
+	sourceLocale, _ := properties["source_locale"].(map[string]any)
+	if readonly, _ := sourceLocale["readOnly"].(bool); !readonly {
+		t.Fatalf("expected source_locale schema readOnly=true, got %+v", sourceLocale)
+	}
+	sourceLocaleFormgen, _ := sourceLocale["x-formgen"].(map[string]any)
+	if strings.TrimSpace(toString(sourceLocaleFormgen["readonly"])) != "true" {
+		t.Fatalf("expected source_locale x-formgen readonly=true, got %+v", sourceLocaleFormgen)
+	}
 	if schema.Permissions.View != PermAdminTranslationsView || schema.Permissions.Delete != PermAdminTranslationsManage {
 		t.Fatalf("unexpected permissions: %+v", schema.Permissions)
 	}
@@ -51,6 +119,16 @@ func TestNewTranslationQueuePanelSchemaIncludesQueueActionsAndFilters(t *testing
 		if !strings.HasPrefix(action.Permission, "admin.translations.") {
 			t.Fatalf("expected queue action permission namespace admin.translations.*, got %q for %q", action.Permission, action.Name)
 		}
+	}
+}
+
+func TestQueueTimeParsesDateOnlyValue(t *testing.T) {
+	parsed := queueTime("2026-03-01")
+	if parsed.IsZero() {
+		t.Fatalf("expected parsed date-only value")
+	}
+	if parsed.UTC().Format("2006-01-02") != "2026-03-01" {
+		t.Fatalf("expected parsed date 2026-03-01, got %s", parsed.UTC().Format("2006-01-02"))
 	}
 }
 

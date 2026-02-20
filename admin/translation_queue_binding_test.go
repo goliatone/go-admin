@@ -453,6 +453,50 @@ func TestTranslationQueueBindingQueueSummaryIncludesAllFilteredAssignmentsAcross
 	}
 }
 
+func TestTranslationQueueSourceRecordOptionIncludesSourceLocale(t *testing.T) {
+	option := translationQueueSourceRecordOption(map[string]any{
+		"id":            "page_1",
+		"title":         "Homepage",
+		"source_locale": "EN",
+	}, "pages")
+	if option == nil {
+		t.Fatalf("expected option")
+	}
+	if got := strings.TrimSpace(toString(option["source_locale"])); got != "en" {
+		t.Fatalf("expected source_locale en, got %q", got)
+	}
+}
+
+func TestTranslationQueueAssigneeOptionBuildsLabelAndDescription(t *testing.T) {
+	option := translationQueueAssigneeOption(map[string]any{
+		"id":           "user_1",
+		"display_name": "Jane Doe",
+		"email":        "jane@example.com",
+		"role":         "translator",
+		"status":       "active",
+		"avatar_url":   "https://cdn.example.com/jane.png",
+	})
+	if option == nil {
+		t.Fatalf("expected option")
+	}
+	if got := strings.TrimSpace(toString(option["value"])); got != "user_1" {
+		t.Fatalf("expected value user_1, got %q", got)
+	}
+	if got := strings.TrimSpace(toString(option["label"])); got != "Jane Doe" {
+		t.Fatalf("expected label Jane Doe, got %q", got)
+	}
+	if got := strings.TrimSpace(toString(option["display_name"])); got != "Jane Doe" {
+		t.Fatalf("expected display_name Jane Doe, got %q", got)
+	}
+	if got := strings.TrimSpace(toString(option["avatar_url"])); got != "https://cdn.example.com/jane.png" {
+		t.Fatalf("expected avatar_url in option, got %q", got)
+	}
+	desc := strings.TrimSpace(toString(option["description"]))
+	if !strings.Contains(desc, "jane@example.com") || !strings.Contains(desc, "translator") {
+		t.Fatalf("expected description to include email and role, got %q", desc)
+	}
+}
+
 func newTranslationQueueTestApp(t *testing.T, binding *translationQueueBinding) *fiber.App {
 	t.Helper()
 	adapter := router.NewFiberAdapter(func(_ *fiber.App) *fiber.App {
