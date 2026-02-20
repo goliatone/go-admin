@@ -473,7 +473,7 @@ type TranslationSummaryPayload struct {
 }
 
 dash.RegisterProvider(admin.DashboardProviderSpec{
-    Code: "admin.widget.translation_progress",
+    Code: admin.WidgetTranslationProgress,
     Handler: func(ctx admin.AdminContext, cfg map[string]any) (admin.WidgetPayload, error) {
         _ = ctx
         _ = cfg
