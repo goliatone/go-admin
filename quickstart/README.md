@@ -445,6 +445,7 @@ Template function options let you override widget title labels without touching 
 - `WithWidgetTitleOverrides(overrides map[string]string) TemplateFuncOption` - merges label overrides into defaults.
 - `WithWidgetTitleMap(titles map[string]string) TemplateFuncOption` - replaces the default map entirely.
 - `WithWidgetTitleFunc(fn func(string) string) TemplateFuncOption` - provides a custom resolver.
+- Widget definition constants are available via `admin.Widget...`, for example `admin.WidgetUserProfileOverview`.
 - `WithTemplateBasePath(basePath string) TemplateFuncOption` - sets the fallback base path used by the `adminURL` helper.
 - `WithTemplateURLResolver(urls urlkit.Resolver) TemplateFuncOption` - configures the URLKit resolver used by `adminURL`.
 - `WithTemplateFeatureGate(gate fggate.FeatureGate, opts ...fgtemplates.HelperOption) TemplateFuncOption` - registers feature gate template helpers (`featureEnabled`, `featureDisabled`, etc.) from go-featuregate.
@@ -458,7 +459,7 @@ funcs := quickstart.MergeTemplateFuncs(
 	quickstart.WithTemplateURLResolver(adm.URLs()),
 	quickstart.WithTemplateBasePath(cfg.BasePath),
 	quickstart.WithWidgetTitleOverrides(map[string]string{
-		"admin.widget.user_profile_overview": "Profile Overview",
+		admin.WidgetUserProfileOverview: "Profile Overview",
 	}),
 )
 
@@ -1320,4 +1321,5 @@ If you previously imported quickstart as part of the root module, keep the same 
 - Module gating: `WithModuleFeatureGates(customGate)` with optional `WithModuleFeatureDisabledHandler`.
 - Translation nav seeding: `WithTranslationCapabilityMenuMode(TranslationCapabilityMenuModeTools)` adds dashboard/queue/exchange links into a dedicated `Translations` menu group in server-seeded navigation.
 - Dashboard SSR: provide `WithDashboardTemplatesFS` and/or disable embedded templates via `WithDashboardEmbeddedTemplates(false)`.
+- Dashboard widget contract: handlers should return typed `admin.WidgetPayload` models consumed by both SSR and client hydration; avoid render-mode payload branching and disallow `chart_html`/full-document/script blobs in payload data.
 - Error handler: swap `quickstart.NewFiberErrorHandler` with your own if needed.
