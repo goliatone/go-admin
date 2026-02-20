@@ -154,6 +154,11 @@ type TranslationExchangeBinding interface {
 type TranslationQueueBinding interface {
 	MyWork(router.Context) (any, error)
 	Queue(router.Context) (any, error)
+	EntityTypesOptions(router.Context) (any, error)
+	SourceRecordsOptions(router.Context) (any, error)
+	LocalesOptions(router.Context) (any, error)
+	TranslationGroupsOptions(router.Context) (any, error)
+	AssigneesOptions(router.Context) (any, error)
 }
 
 // NotificationsBinding exposes notifications operations.
