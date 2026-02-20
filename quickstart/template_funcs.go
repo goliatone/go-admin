@@ -8,6 +8,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/goliatone/go-admin/admin"
 	"github.com/gobuffalo/flect"
 	fggate "github.com/goliatone/go-featuregate/gate"
 	fgtemplates "github.com/goliatone/go-featuregate/templates"
@@ -243,19 +244,20 @@ func IconRendererFunc(renderer TemplateIconRenderer) func(ref string, variant st
 
 func defaultWidgetTitles() map[string]string {
 	return map[string]string{
-		"admin.widget.user_stats":        "User Statistics",
-		"admin.widget.activity_feed":     "Recent Activity",
-		"admin.widget.quick_actions":     "Quick Actions",
-		"admin.widget.notifications":     "Notifications",
-		"admin.widget.settings_overview": "Settings Overview",
-		"admin.widget.content_stats":     "Content Stats",
-		"admin.widget.storage_stats":     "Storage Stats",
-		"admin.widget.system_health":     "System Health",
-		"admin.widget.bar_chart":         "Bar Chart",
-		"admin.widget.line_chart":        "Line Chart",
-		"admin.widget.pie_chart":         "Pie Chart",
-		"admin.widget.gauge_chart":       "Gauge",
-		"admin.widget.scatter_chart":     "Scatter Chart",
+		admin.WidgetUserStats:           "User Statistics",
+		admin.WidgetActivityFeed:        "Recent Activity",
+		admin.WidgetQuickActions:        "Quick Actions",
+		admin.WidgetNotifications:       "Notifications",
+		admin.WidgetSettingsOverview:    "Settings Overview",
+		admin.WidgetTranslationProgress: "Translation Progress",
+		admin.WidgetContentStats:        "Content Stats",
+		admin.WidgetStorageStats:        "Storage Stats",
+		admin.WidgetSystemHealth:        "System Health",
+		admin.WidgetBarChart:            "Bar Chart",
+		admin.WidgetLineChart:           "Line Chart",
+		admin.WidgetPieChart:            "Pie Chart",
+		admin.WidgetGaugeChart:          "Gauge",
+		admin.WidgetScatterChart:        "Scatter Chart",
 	}
 }
 
