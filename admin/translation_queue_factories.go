@@ -244,7 +244,16 @@ func queueExpectedVersion(payload map[string]any) int64 {
 	if payload == nil {
 		return 0
 	}
-	raw := payload["expected_version"]
+	for _, key := range []string{"expected_version", "expectedVersion", "version"} {
+		value := queueVersionFromAny(payload[key])
+		if value > 0 {
+			return value
+		}
+	}
+	return 0
+}
+
+func queueVersionFromAny(raw any) int64 {
 	switch value := raw.(type) {
 	case int:
 		return int64(value)
@@ -272,8 +281,8 @@ func queueDueDate(payload map[string]any) *time.Time {
 	if raw == "" {
 		return nil
 	}
-	parsed, err := time.Parse(time.RFC3339, raw)
-	if err != nil {
+	parsed, ok := parseQueueTimeString(raw)
+	if !ok {
 		return nil
 	}
 	return &parsed

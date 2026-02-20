@@ -13,6 +13,7 @@ const translationQueuePanelID = "translations"
 func NewTranslationQueuePanel(repo Repository) *PanelBuilder {
 	return (&PanelBuilder{}).
 		WithRepository(repo).
+		FormSchema(translationQueueFormSchema()).
 		ListFields(
 			Field{Name: "source_title", Label: "Content", Type: "text"},
 			Field{Name: "entity_type", Label: "Type", Type: "text"},
@@ -24,17 +25,17 @@ func NewTranslationQueuePanel(repo Repository) *PanelBuilder {
 			Field{Name: "due_date", Label: "Due", Type: "datetime"},
 		).
 		FormFields(
-			Field{Name: "translation_group_id", Label: "Translation Group", Type: "text", Required: true},
-			Field{Name: "entity_type", Label: "Entity Type", Type: "text", Required: true},
-			Field{Name: "source_record_id", Label: "Source Record ID", Type: "text", Required: true},
-			Field{Name: "source_locale", Label: "Source Locale", Type: "text", Required: true},
-			Field{Name: "target_locale", Label: "Target Locale", Type: "text", Required: true},
+			Field{Name: "translation_group_id", Label: "Translation Group", Type: "select", Required: true},
+			Field{Name: "entity_type", Label: "Entity Type", Type: "select", Required: true},
+			Field{Name: "source_record_id", Label: "Source Record ID", Type: "select", Required: true},
+			Field{Name: "source_locale", Label: "Source Locale", Type: "text", Required: true, ReadOnly: true},
+			Field{Name: "target_locale", Label: "Target Locale", Type: "select", Required: true},
 			Field{Name: "source_title", Label: "Source Title", Type: "text"},
 			Field{Name: "source_path", Label: "Source Path", Type: "text"},
 			Field{Name: "assignment_type", Label: "Assignment Type", Type: "select", Options: assignmentTypeOptions()},
-			Field{Name: "assignee_id", Label: "Assignee", Type: "text"},
+			Field{Name: "assignee_id", Label: "Assignee", Type: "select"},
 			Field{Name: "priority", Label: "Priority", Type: "select", Options: assignmentPriorityOptions()},
-			Field{Name: "due_date", Label: "Due Date", Type: "datetime"},
+			Field{Name: "due_date", Label: "Due Date", Type: "date"},
 		).
 		DetailFields(
 			Field{Name: "id", Label: "ID", Type: "text", ReadOnly: true},
@@ -77,6 +78,160 @@ func NewTranslationQueuePanel(repo Repository) *PanelBuilder {
 			Edit:   PermAdminTranslationsEdit,
 			Delete: PermAdminTranslationsManage,
 		})
+}
+
+func translationQueueFormSchema() map[string]any {
+	return map[string]any{
+		"$schema": "https://json-schema.org/draft/2020-12/schema",
+		"type":    "object",
+		"required": []string{
+			"translation_group_id",
+			"entity_type",
+			"source_record_id",
+			"source_locale",
+			"target_locale",
+		},
+		"properties": map[string]any{
+			"translation_group_id": map[string]any{
+				"type":  "string",
+				"title": "Translation Group",
+				"x-relationships": map[string]any{
+					"type":       "belongsTo",
+					"target":     "#/components/schemas/TranslationGroup",
+					"foreignKey": "translation_group_id",
+				},
+				"x-endpoint": map[string]any{
+					"url":         "/api/translations/options/groups",
+					"method":      "GET",
+					"mode":        "search",
+					"searchParam": "search",
+					"labelField":  "label",
+					"valueField":  "value",
+					"dynamicParams": map[string]any{
+						"entity_type":      "{{field:entity_type}}",
+						"source_record_id": "{{field:source_record_id}}",
+					},
+				},
+			},
+			"entity_type": map[string]any{
+				"type":  "string",
+				"title": "Entity Type",
+				"x-relationships": map[string]any{
+					"type":       "belongsTo",
+					"target":     "#/components/schemas/ContentType",
+					"foreignKey": "entity_type",
+				},
+				"x-endpoint": map[string]any{
+					"url":        "/api/translations/options/entity-types",
+					"method":     "GET",
+					"labelField": "label",
+					"valueField": "value",
+				},
+			},
+			"source_record_id": map[string]any{
+				"type":  "string",
+				"title": "Source Record",
+				"x-relationships": map[string]any{
+					"type":       "belongsTo",
+					"target":     "#/components/schemas/Content",
+					"foreignKey": "source_record_id",
+				},
+				"x-endpoint": map[string]any{
+					"url":         "/api/translations/options/source-records",
+					"method":      "GET",
+					"mode":        "search",
+					"searchParam": "search",
+					"labelField":  "label",
+					"valueField":  "value",
+					"dynamicParams": map[string]any{
+						"entity_type": "{{field:entity_type}}",
+					},
+				},
+			},
+			"source_locale": map[string]any{
+				"type":     "string",
+				"title":    "Source Locale",
+				"readOnly": true,
+				"x-formgen": map[string]any{
+					"readonly": true,
+				},
+			},
+			"target_locale": map[string]any{
+				"type":  "string",
+				"title": "Target Locale",
+				"x-relationships": map[string]any{
+					"type":       "belongsTo",
+					"target":     "#/components/schemas/Locale",
+					"foreignKey": "target_locale",
+				},
+				"x-endpoint": map[string]any{
+					"url":        "/api/translations/options/locales",
+					"method":     "GET",
+					"labelField": "label",
+					"valueField": "value",
+					"dynamicParams": map[string]any{
+						"entity_type":      "{{field:entity_type}}",
+						"source_record_id": "{{field:source_record_id}}",
+						"source_locale":    "{{field:source_locale}}",
+					},
+				},
+			},
+			"source_title": map[string]any{
+				"type":  "string",
+				"title": "Source Title",
+			},
+			"source_path": map[string]any{
+				"type":  "string",
+				"title": "Source Path",
+			},
+			"assignment_type": map[string]any{
+				"type":  "string",
+				"title": "Assignment Type",
+				"enum":  optionValues(assignmentTypeOptions()),
+			},
+			"assignee_id": map[string]any{
+				"type":  "string",
+				"title": "Assignee",
+				"x-relationships": map[string]any{
+					"type":       "belongsTo",
+					"target":     "#/components/schemas/User",
+					"foreignKey": "assignee_id",
+				},
+				"x-endpoint": map[string]any{
+					"url":         "/api/translations/options/assignees",
+					"method":      "GET",
+					"mode":        "search",
+					"searchParam": "search",
+					"labelField":  "label",
+					"valueField":  "value",
+				},
+			},
+			"priority": map[string]any{
+				"type":  "string",
+				"title": "Priority",
+				"enum":  optionValues(assignmentPriorityOptions()),
+			},
+			"due_date": map[string]any{
+				"type":   "string",
+				"title":  "Due Date",
+				"format": "date",
+				"x-formgen": map[string]any{
+					"inputType": "date",
+				},
+			},
+		},
+	}
+}
+
+func optionValues(options []Option) []any {
+	if len(options) == 0 {
+		return nil
+	}
+	out := make([]any, 0, len(options))
+	for _, option := range options {
+		out = append(out, option.Value)
+	}
+	return out
 }
 
 // RegisterTranslationQueuePanel registers the translation queue panel.
@@ -299,12 +454,33 @@ func queueTime(value any) time.Time {
 			return *typed
 		}
 	case string:
-		parsed, err := time.Parse(time.RFC3339, strings.TrimSpace(typed))
-		if err == nil {
+		parsed, ok := parseQueueTimeString(typed)
+		if ok {
 			return parsed
 		}
 	}
 	return time.Time{}
+}
+
+func parseQueueTimeString(raw string) (time.Time, bool) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return time.Time{}, false
+	}
+	layouts := []string{
+		time.RFC3339Nano,
+		time.RFC3339,
+		"2006-01-02",
+		"2006-01-02T15:04:05",
+		"2006-01-02 15:04:05",
+	}
+	for _, layout := range layouts {
+		parsed, err := time.Parse(layout, raw)
+		if err == nil {
+			return parsed, true
+		}
+	}
+	return time.Time{}, false
 }
 
 func queueTimePtr(value any) *time.Time {
