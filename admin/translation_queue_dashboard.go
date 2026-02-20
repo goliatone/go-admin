@@ -9,8 +9,7 @@ import (
 )
 
 const (
-	translationQueueDashboardWidgetCode = "admin.widget.translation_progress"
-	translationQueueResolverKey         = "admin.translations.queue"
+	translationQueueResolverKey = "admin.translations.queue"
 )
 
 // TranslationQueueStatsSnapshot captures queue dashboard aggregate counts.
@@ -104,7 +103,7 @@ func RegisterTranslationProgressWidget(dash *Dashboard, stats TranslationQueueSt
 	}
 
 	dash.RegisterProvider(DashboardProviderSpec{
-		Code:        translationQueueDashboardWidgetCode,
+		Code:        WidgetTranslationProgress,
 		Name:        "Translation Progress",
 		Description: "Overview of translation queue and completion status",
 		DefaultArea: "admin.dashboard.main",
