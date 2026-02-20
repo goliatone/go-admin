@@ -487,6 +487,78 @@ func TestPanelRoutesActionPayloadValidation(t *testing.T) {
 	})
 }
 
+func TestPanelRoutesActionInjectsActorContextIntoPayload(t *testing.T) {
+	registry.WithTestRegistry(func() {
+		cfg := Config{
+			BasePath:      "/admin",
+			DefaultLocale: "en",
+		}
+		adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureCommands)})
+		defer adm.Commands().Reset()
+		server := router.NewHTTPServer()
+		r := server.Router()
+
+		repo := NewMemoryRepository()
+		cmd := &calledCommand{}
+		if _, err := RegisterCommand(adm.Commands(), cmd); err != nil {
+			t.Fatalf("register command: %v", err)
+		}
+		if err := RegisterMessageFactory(adm.Commands(), "items.refresh", func(payload map[string]any, ids []string) (calledCommandMsg, error) {
+			return calledCommandMsg{Payload: payload}, nil
+		}); err != nil {
+			t.Fatalf("register factory: %v", err)
+		}
+
+		builder := (&PanelBuilder{}).
+			WithRepository(repo).
+			ListFields(Field{Name: "id", Label: "ID", Type: "text"}).
+			FormFields(Field{Name: "name", Label: "Name", Type: "text"}).
+			Actions(Action{Name: "refresh", CommandName: "items.refresh"})
+		if _, err := adm.RegisterPanel("items", builder); err != nil {
+			t.Fatalf("register panel: %v", err)
+		}
+		if err := adm.Initialize(r); err != nil {
+			t.Fatalf("initialize: %v", err)
+		}
+
+		req := httptest.NewRequest("POST", "/admin/api/panels/items/actions/refresh", strings.NewReader(`{"source":"panel"}`))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-User-ID", "translator-1")
+		rr := httptest.NewRecorder()
+		server.WrappedRouter().ServeHTTP(rr, req)
+		if rr.Code != 200 {
+			t.Fatalf("action status: %d body=%s", rr.Code, rr.Body.String())
+		}
+		if !cmd.called {
+			t.Fatalf("expected command executed")
+		}
+		if got := toString(cmd.payload["source"]); got != "panel" {
+			t.Fatalf("expected source payload forwarded, got %q", got)
+		}
+		if got := toString(cmd.payload["user_id"]); got != "translator-1" {
+			t.Fatalf("expected injected user_id translator-1, got %q", got)
+		}
+		if got := toString(cmd.payload["actor_id"]); got != "translator-1" {
+			t.Fatalf("expected injected actor_id translator-1, got %q", got)
+		}
+
+		req = httptest.NewRequest("POST", "/admin/api/panels/items/actions/refresh", strings.NewReader(`{"source":"panel","user_id":"explicit-user","actor_id":"explicit-actor"}`))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-User-ID", "translator-1")
+		rr = httptest.NewRecorder()
+		server.WrappedRouter().ServeHTTP(rr, req)
+		if rr.Code != 200 {
+			t.Fatalf("action status: %d body=%s", rr.Code, rr.Body.String())
+		}
+		if got := toString(cmd.payload["user_id"]); got != "explicit-user" {
+			t.Fatalf("expected explicit user_id preserved, got %q", got)
+		}
+		if got := toString(cmd.payload["actor_id"]); got != "explicit-actor" {
+			t.Fatalf("expected explicit actor_id preserved, got %q", got)
+		}
+	})
+}
+
 func TestPanelListSchemaFiltersActionsToRowScope(t *testing.T) {
 	registry.WithTestRegistry(func() {
 		cfg := Config{

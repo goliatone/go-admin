@@ -22,3 +22,25 @@ func TestContentListTemplateQuickFilterUsesCanonicalIncompletePredicate(t *testi
 		t.Fatalf("expected quick filter to avoid legacy readiness_state predicate path")
 	}
 }
+
+func TestContentListTemplateIncludesTranslationsQueueCellRenderers(t *testing.T) {
+	template := mustReadClientTemplate(t, "resources/content/list.html")
+
+	required := []string{
+		`async function loadTranslationAssigneeLookup()`,
+		`createTranslationsQueueCellRenderers`,
+		`assignee_id: (value, record) =>`,
+		`source_locale: (value) =>`,
+		`target_locale: (value) =>`,
+		`priority: (value) =>`,
+		`status: (value) =>`,
+		`panelName !== 'translations'`,
+		`renderVocabularyStatusBadge`,
+	}
+	for _, fragment := range required {
+		if strings.Contains(template, fragment) {
+			continue
+		}
+		t.Fatalf("expected translations queue renderer fragment not found: %q", fragment)
+	}
+}

@@ -169,6 +169,11 @@ func newTestURLManager(basePath string) *urlkit.RouteManager {
 							"translations.template":        "/translations/template",
 							"translations.my_work":         "/translations/my-work",
 							"translations.queue":           "/translations/queue",
+							"translations.options.entity_types":  "/translations/options/entity-types",
+							"translations.options.source_records": "/translations/options/source-records",
+							"translations.options.locales":       "/translations/options/locales",
+							"translations.options.groups":        "/translations/options/groups",
+							"translations.options.assignees":     "/translations/options/assignees",
 							"translations.jobs.id":         "/translations/jobs/:id",
 							"translations.import.validate": "/translations/import/validate",
 							"translations.import.apply":    "/translations/import/apply",
@@ -1000,8 +1005,13 @@ func TestTranslationExchangeRouteStepRegistersRoutes(t *testing.T) {
 }
 
 type stubTranslationQueueBinding struct {
-	myWorkCalled int
-	queueCalled  int
+	myWorkCalled               int
+	queueCalled                int
+	entityTypesOptionsCalled   int
+	sourceRecordsOptionsCalled int
+	localesOptionsCalled       int
+	groupsOptionsCalled        int
+	assigneesOptionsCalled     int
 }
 
 func (s *stubTranslationQueueBinding) MyWork(_ router.Context) (any, error) {
@@ -1012,6 +1022,31 @@ func (s *stubTranslationQueueBinding) MyWork(_ router.Context) (any, error) {
 func (s *stubTranslationQueueBinding) Queue(_ router.Context) (any, error) {
 	s.queueCalled++
 	return map[string]any{"scope": "queue"}, nil
+}
+
+func (s *stubTranslationQueueBinding) EntityTypesOptions(_ router.Context) (any, error) {
+	s.entityTypesOptionsCalled++
+	return []map[string]any{}, nil
+}
+
+func (s *stubTranslationQueueBinding) SourceRecordsOptions(_ router.Context) (any, error) {
+	s.sourceRecordsOptionsCalled++
+	return []map[string]any{}, nil
+}
+
+func (s *stubTranslationQueueBinding) LocalesOptions(_ router.Context) (any, error) {
+	s.localesOptionsCalled++
+	return []map[string]any{}, nil
+}
+
+func (s *stubTranslationQueueBinding) TranslationGroupsOptions(_ router.Context) (any, error) {
+	s.groupsOptionsCalled++
+	return []map[string]any{}, nil
+}
+
+func (s *stubTranslationQueueBinding) AssigneesOptions(_ router.Context) (any, error) {
+	s.assigneesOptionsCalled++
+	return []map[string]any{}, nil
 }
 
 func TestTranslationQueueRouteStepRegistersRoutes(t *testing.T) {
@@ -1026,19 +1061,29 @@ func TestTranslationQueueRouteStepRegistersRoutes(t *testing.T) {
 	}
 
 	require.NoError(t, TranslationQueueRouteStep(ctx))
-	require.Len(t, rr.calls, 2)
+	require.Len(t, rr.calls, 7)
 	methodPaths := map[string]bool{}
 	for _, call := range rr.calls {
 		methodPaths[call.method+" "+call.path] = true
 	}
 	require.True(t, methodPaths["GET "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.my_work")])
 	require.True(t, methodPaths["GET "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.queue")])
+	require.True(t, methodPaths["GET "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.options.entity_types")])
+	require.True(t, methodPaths["GET "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.options.source_records")])
+	require.True(t, methodPaths["GET "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.options.locales")])
+	require.True(t, methodPaths["GET "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.options.groups")])
+	require.True(t, methodPaths["GET "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.options.assignees")])
 
 	for _, call := range rr.calls {
 		require.NoError(t, call.handler(router.NewMockContext()))
 	}
 	require.Equal(t, 1, binding.myWorkCalled)
 	require.Equal(t, 1, binding.queueCalled)
+	require.Equal(t, 1, binding.entityTypesOptionsCalled)
+	require.Equal(t, 1, binding.sourceRecordsOptionsCalled)
+	require.Equal(t, 1, binding.localesOptionsCalled)
+	require.Equal(t, 1, binding.groupsOptionsCalled)
+	require.Equal(t, 1, binding.assigneesOptionsCalled)
 }
 
 func TestPanelAndTranslationQueueRoutesDoNotShadowEachOther(t *testing.T) {

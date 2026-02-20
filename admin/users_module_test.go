@@ -667,6 +667,117 @@ func TestRoleOptionsUsesSyntheticActorContext(t *testing.T) {
 	}
 }
 
+func TestRolesPanelFormSchemaUsesPermissionMatrix(t *testing.T) {
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureUsers)})
+	adm.WithAuthorizer(allowAll{})
+	server := router.NewHTTPServer()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+
+	panel, ok := adm.Registry().Panel(rolesPanelID)
+	if !ok || panel == nil {
+		t.Fatalf("expected roles panel to be registered")
+	}
+	schema := panel.Schema().FormSchema
+	props, ok := schema["properties"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected roles form schema properties, got %T", schema["properties"])
+	}
+
+	permsProp, _ := props["permissions"].(map[string]any)
+	permsFormgen, _ := permsProp["x-formgen"].(map[string]any)
+	if got := permsFormgen["widget"]; got != "permission-matrix" {
+		t.Fatalf("expected permissions widget permission-matrix, got %v", got)
+	}
+	permsConfig, _ := permsFormgen["component.config"].(map[string]any)
+	if len(toStringSlice(permsConfig["actions"])) == 0 {
+		t.Fatalf("expected permission matrix actions, got %v", permsConfig["actions"])
+	}
+	ignorePrefixes := toStringSlice(permsConfig["extraIgnorePrefixes"])
+	if !containsString(ignorePrefixes, "admin.debug.") {
+		t.Fatalf("expected admin.debug. ignored in additional permissions, got %v", ignorePrefixes)
+	}
+	if !containsString(ignorePrefixes, "admin.translations.") {
+		t.Fatalf("expected admin.translations. ignored in additional permissions, got %v", ignorePrefixes)
+	}
+
+	debugProp, _ := props["permissions_debug"].(map[string]any)
+	debugFormgen, _ := debugProp["x-formgen"].(map[string]any)
+	if got := debugFormgen["widget"]; got != "permission-matrix" {
+		t.Fatalf("expected debug permissions widget permission-matrix, got %v", got)
+	}
+	debugConfig, _ := debugFormgen["component.config"].(map[string]any)
+	if showExtra, _ := debugConfig["showExtra"].(bool); showExtra {
+		t.Fatalf("expected permissions_debug showExtra=false, got true")
+	}
+
+	translationProp, _ := props["permissions_translation"].(map[string]any)
+	translationFormgen, _ := translationProp["x-formgen"].(map[string]any)
+	if got := translationFormgen["widget"]; got != "permission-matrix" {
+		t.Fatalf("expected translation permissions widget permission-matrix, got %v", got)
+	}
+	translationConfig, _ := translationFormgen["component.config"].(map[string]any)
+	if showExtra, _ := translationConfig["showExtra"].(bool); showExtra {
+		t.Fatalf("expected permissions_translation showExtra=false, got true")
+	}
+	translationActions := toStringSlice(translationConfig["actions"])
+	if !containsString(translationActions, "import.apply") {
+		t.Fatalf("expected translation actions to include import.apply, got %v", translationActions)
+	}
+}
+
+func TestRecordToRoleMergesPermissionsDebugField(t *testing.T) {
+	role := recordToRole(map[string]any{
+		"name":                    "Admins",
+		"permissions":             "[admin.users.view admin.debug.repl]",
+		"permissions_debug":       "admin.debug.repl.exec",
+		"permissions_translation": []string{"admin.translations.manage", "admin.translations.import.apply"},
+	}, "")
+
+	if !containsString(role.Permissions, "admin.users.view") {
+		t.Fatalf("expected admin.users.view in role permissions, got %+v", role.Permissions)
+	}
+	if !containsString(role.Permissions, "admin.debug.repl") {
+		t.Fatalf("expected admin.debug.repl in role permissions, got %+v", role.Permissions)
+	}
+	if !containsString(role.Permissions, "admin.debug.repl.exec") {
+		t.Fatalf("expected admin.debug.repl.exec in role permissions, got %+v", role.Permissions)
+	}
+	if !containsString(role.Permissions, "admin.translations.manage") {
+		t.Fatalf("expected admin.translations.manage in role permissions, got %+v", role.Permissions)
+	}
+	if !containsString(role.Permissions, "admin.translations.import.apply") {
+		t.Fatalf("expected admin.translations.import.apply in role permissions, got %+v", role.Permissions)
+	}
+}
+
+func TestRoleToRecordExposesDebugPermissionsField(t *testing.T) {
+	record := roleToRecord(RoleRecord{
+		ID:          "role-1",
+		Name:        "Admins",
+		Permissions: []string{"admin.users.view", "admin.debug.repl", "admin.debug.repl.exec", "admin.translations.manage", "admin.translations.import.apply"},
+	})
+	debugPerms := toStringSlice(record["permissions_debug"])
+	if !containsString(debugPerms, "admin.debug.repl") {
+		t.Fatalf("expected admin.debug.repl in permissions_debug, got %+v", debugPerms)
+	}
+	if !containsString(debugPerms, "admin.debug.repl.exec") {
+		t.Fatalf("expected admin.debug.repl.exec in permissions_debug, got %+v", debugPerms)
+	}
+	translationPerms := toStringSlice(record["permissions_translation"])
+	if !containsString(translationPerms, "admin.translations.manage") {
+		t.Fatalf("expected admin.translations.manage in permissions_translation, got %+v", translationPerms)
+	}
+	if !containsString(translationPerms, "admin.translations.import.apply") {
+		t.Fatalf("expected admin.translations.import.apply in permissions_translation, got %+v", translationPerms)
+	}
+}
+
 type stubGoUsersAuthRepo struct{}
 
 func (stubGoUsersAuthRepo) GetByID(context.Context, uuid.UUID) (*users.AuthUser, error) {

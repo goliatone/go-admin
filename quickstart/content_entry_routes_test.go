@@ -1018,6 +1018,108 @@ func TestRenderFormIncludesCreateActionInViewContext(t *testing.T) {
 	ctx.AssertExpectations(t)
 }
 
+func TestRenderFormRolesPanelIncludesPermissionMatrixHTML(t *testing.T) {
+	panel, err := newInMemoryPanelBuilder().
+		FormSchema(map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"permissions": map[string]any{
+					"type": "string",
+					"x-formgen": map[string]any{
+						"widget":         "permission-matrix",
+						"component.name": "permission-matrix",
+						"component.config": map[string]any{
+							"resources": []string{"admin.users", "admin.debug"},
+							"actions":   []string{"view", "edit"},
+						},
+					},
+				},
+				"permissions_debug": map[string]any{
+					"type": "string",
+					"x-formgen": map[string]any{
+						"widget":         "permission-matrix",
+						"component.name": "permission-matrix",
+						"component.config": map[string]any{
+							"showExtra": false,
+							"resources": []string{"admin.debug"},
+							"actions":   []string{"repl"},
+						},
+					},
+				},
+				"permissions_translation": map[string]any{
+					"type": "string",
+					"x-formgen": map[string]any{
+						"widget":         "permission-matrix",
+						"component.name": "permission-matrix",
+						"component.config": map[string]any{
+							"showExtra": false,
+							"resources": []string{"admin.translations"},
+							"actions":   []string{"view", "manage", "import.apply"},
+						},
+					},
+				},
+			},
+		}).
+		Build()
+	if err != nil {
+		t.Fatalf("build panel: %v", err)
+	}
+
+	cfg := admin.Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+	}
+	validator, err := admin.NewFormgenSchemaValidatorWithAPIBase("/admin", "/admin/api")
+	if err != nil {
+		t.Fatalf("validator init failed: %v", err)
+	}
+
+	ctx := router.NewMockContext()
+	ctx.On("Context").Return(context.Background())
+	ctx.On("Render", "resources/content/form", mock.MatchedBy(func(arg any) bool {
+		viewCtx, ok := arg.(router.ViewContext)
+		if !ok {
+			return false
+		}
+		html := strings.TrimSpace(anyToString(viewCtx["form_html"]))
+		return strings.Contains(html, `class="permission-matrix"`) &&
+			strings.Contains(html, `name="permissions_debug"`) &&
+			strings.Contains(html, `name="permissions_translation"`) &&
+			strings.Contains(html, `permission_matrix.js`)
+	})).Return(nil).Once()
+
+	handler := &contentEntryHandlers{
+		cfg:          cfg,
+		formTemplate: "resources/content/form",
+		formRenderer: validator,
+		templateExists: func(name string) bool {
+			return name == "resources/content/form"
+		},
+	}
+	err = handler.renderForm(
+		ctx,
+		"roles",
+		panel,
+		nil,
+		admin.AdminContext{Context: context.Background()},
+		map[string]any{
+			"name":              "Admins",
+			"permissions":       []string{"admin.users.view", "admin.debug.repl"},
+			"permissions_debug": []string{"admin.debug.repl"},
+			"permissions_translation": []string{
+				"admin.translations.manage",
+			},
+		},
+		nil,
+		false,
+		"",
+	)
+	if err != nil {
+		t.Fatalf("render form: %v", err)
+	}
+	ctx.AssertExpectations(t)
+}
+
 func TestRenderFormIncludesResourceItemForEdit(t *testing.T) {
 	validator, err := admin.NewFormgenSchemaValidatorWithAPIBase("/admin", "/admin/api")
 	if err != nil {
