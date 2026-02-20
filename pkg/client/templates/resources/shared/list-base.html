@@ -78,6 +78,25 @@
 
         <!-- Right: Controls -->
         <div class="flex items-center gap-x-3">
+          {% if datagrid_config and datagrid_config.translation_ux_enabled %}
+          <!-- Translation Panel Toggle -->
+          <button id="translation-panel-toggle" type="button"
+                  aria-expanded="false"
+                  aria-controls="translation-panel"
+                  class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-sm hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 transition-colors">
+            <svg class="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M2 12h20"/>
+              <path d="M12 2a14 14 0 0 1 0 20"/>
+              <path d="M12 2a14 14 0 0 0 0 20"/>
+            </svg>
+            Translation
+            <svg class="w-3 h-3 shrink-0 transition-transform duration-200" data-chevron xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="m6 9 6 6 6-6"/>
+            </svg>
+          </button>
+          {% endif %}
+
           <!-- Column Visibility Toggle -->
           <div class="relative">
             <button id="column-toggle-btn" type="button"
@@ -168,6 +187,14 @@
         </div>
       </div>
   </div>
+
+  {% block translation_panel %}
+  {% if datagrid_config and datagrid_config.translation_ux_enabled %}
+  <div id="translation-panel" class="hidden bg-gray-50 border border-gray-200 rounded-xl mb-4 p-4 shadow-sm">
+    {% block translation_panel_content %}{% endblock %}
+  </div>
+  {% endif %}
+  {% endblock %}
 
   <!-- DataTable Table -->
   <div class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">

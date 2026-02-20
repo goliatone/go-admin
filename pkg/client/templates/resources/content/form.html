@@ -28,12 +28,27 @@
   {% if not fallback_requested_locale and resource_item.translation and resource_item.translation.meta %}
     {% set fallback_requested_locale = resource_item.translation.meta.requested_locale %}
   {% endif %}
+  {% if not fallback_requested_locale and resource_item.target_locale %}
+    {% set fallback_requested_locale = resource_item.target_locale %}
+  {% endif %}
   {% set fallback_resolved_locale = resource_item.resolved_locale %}
+  {% if not fallback_resolved_locale and resource_item.target_locale %}
+    {% set fallback_resolved_locale = resource_item.target_locale %}
+  {% endif %}
   {% if not fallback_resolved_locale and resource_item.locale %}
     {% set fallback_resolved_locale = resource_item.locale %}
   {% endif %}
+  {% if not fallback_resolved_locale and resource_item.source_locale %}
+    {% set fallback_resolved_locale = resource_item.source_locale %}
+  {% endif %}
   {% if not fallback_resolved_locale and resource_item.translation and resource_item.translation.meta %}
     {% set fallback_resolved_locale = resource_item.translation.meta.resolved_locale %}
+  {% endif %}
+  {% if not fallback_requested_locale and fallback_resolved_locale %}
+    {% set fallback_requested_locale = fallback_resolved_locale %}
+  {% endif %}
+  {% if not fallback_resolved_locale and fallback_requested_locale %}
+    {% set fallback_resolved_locale = fallback_requested_locale %}
   {% endif %}
   {% set fallback_mode = resource_item.fallback_used %}
   {% if not fallback_mode and resource_item.translation and resource_item.translation.meta and resource_item.translation.meta.fallback_used %}
@@ -74,12 +89,27 @@
       {% if not requested_locale and resource_item.translation and resource_item.translation.meta %}
         {% set requested_locale = resource_item.translation.meta.requested_locale %}
       {% endif %}
+      {% if not requested_locale and resource_item.target_locale %}
+        {% set requested_locale = resource_item.target_locale %}
+      {% endif %}
       {% set resolved_locale = resource_item.resolved_locale %}
+      {% if not resolved_locale and resource_item.target_locale %}
+        {% set resolved_locale = resource_item.target_locale %}
+      {% endif %}
       {% if not resolved_locale and resource_item.locale %}
         {% set resolved_locale = resource_item.locale %}
       {% endif %}
+      {% if not resolved_locale and resource_item.source_locale %}
+        {% set resolved_locale = resource_item.source_locale %}
+      {% endif %}
       {% if not resolved_locale and resource_item.translation and resource_item.translation.meta %}
         {% set resolved_locale = resource_item.translation.meta.resolved_locale %}
+      {% endif %}
+      {% if not requested_locale and resolved_locale %}
+        {% set requested_locale = resolved_locale %}
+      {% endif %}
+      {% if not resolved_locale and requested_locale %}
+        {% set resolved_locale = requested_locale %}
       {% endif %}
       {% set available_locales = resource_item.available_locales %}
       {% if not available_locales and resource_item.translation and resource_item.translation.meta %}
@@ -113,7 +143,85 @@
     // Initialize formgen relationships
     const api = window.FormgenRelationships;
     if (api && typeof api.initRelationships === "function") {
+      const basePath = "{{ base_path }}".replace(/\/+$/, "");
+      document.querySelectorAll("[data-endpoint-url]").forEach((el) => {
+        const raw = el.getAttribute("data-endpoint-url");
+        if (!raw || /^https?:\/\//i.test(raw)) {
+          return;
+        }
+        if (raw === "/api") {
+          el.setAttribute("data-endpoint-url", `${basePath}/api`);
+          return;
+        }
+        if (raw.startsWith("/api/")) {
+          el.setAttribute("data-endpoint-url", `${basePath}${raw}`);
+        }
+      });
       api.initRelationships();
+    }
+
+    const sourceRecordField = document.querySelector('[name="source_record_id"]');
+    const sourceLocaleField = document.querySelector('[name="source_locale"]');
+    const sourceRecordLocales = new Map();
+
+    const setFieldValue = (field, value) => {
+      if (!field) return;
+      if (field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement) {
+        field.value = value || "";
+      } else if (field instanceof HTMLSelectElement) {
+        const matched = Array.from(field.options).some(opt => opt.value === (value || ""));
+        if (!matched && value) {
+          const option = document.createElement("option");
+          option.value = value;
+          option.textContent = value.toUpperCase();
+          field.appendChild(option);
+        }
+        field.value = value || "";
+      }
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+      field.dispatchEvent(new Event("change", { bubbles: true }));
+    };
+
+    const selectedSourceLocale = () => {
+      if (!(sourceRecordField instanceof HTMLSelectElement)) return "";
+      const selected = sourceRecordField.value || "";
+      if (!selected) return "";
+      return sourceRecordLocales.get(selected) || "";
+    };
+
+    const syncSourceLocale = () => {
+      const locale = selectedSourceLocale();
+      if (!locale) return;
+      setFieldValue(sourceLocaleField, locale);
+    };
+
+    if (sourceLocaleField) {
+      if (sourceLocaleField instanceof HTMLInputElement || sourceLocaleField instanceof HTMLTextAreaElement) {
+        sourceLocaleField.readOnly = true;
+        sourceLocaleField.setAttribute("aria-readonly", "true");
+        sourceLocaleField.classList.add("bg-gray-50", "text-gray-600", "cursor-not-allowed");
+      } else if (sourceLocaleField instanceof HTMLSelectElement) {
+        sourceLocaleField.setAttribute("aria-readonly", "true");
+        sourceLocaleField.classList.add("bg-gray-50", "text-gray-600", "pointer-events-none");
+      }
+    }
+
+    if (sourceRecordField instanceof HTMLSelectElement && sourceLocaleField) {
+      sourceRecordField.addEventListener("change", syncSourceLocale);
+      document.addEventListener("formgen:relationship:success", (event) => {
+        const detail = event && event.detail ? event.detail : null;
+        if (!detail || detail.element !== sourceRecordField || !Array.isArray(detail.options)) return;
+        sourceRecordLocales.clear();
+        detail.options.forEach((option) => {
+          if (!option || !option.value || !option.raw || typeof option.raw !== "object") return;
+          const raw = option.raw;
+          const locale = String(raw.source_locale || raw.locale || raw.resolved_locale || "").trim().toLowerCase();
+          if (!locale) return;
+          sourceRecordLocales.set(String(option.value), locale);
+        });
+        syncSourceLocale();
+      });
+      syncSourceLocale();
     }
 
     // Handle create-translation actions from translation summary

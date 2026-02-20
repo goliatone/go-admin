@@ -31,6 +31,8 @@ export { StatusLegend, createStatusLegend, initStatusLegends, renderStatusLegend
 export type { StatusLegendItem, StatusLegendConfig } from './status-legend.js';
 export { QuickFilters, createTranslationQuickFilters, initQuickFilters, renderQuickFiltersHTML, DEFAULT_TRANSLATION_QUICK_FILTERS } from './quick-filters.js';
 export type { QuickFilter, QuickFilterCapability, QuickFilterState, QuickFiltersConfig } from './quick-filters.js';
+export { TranslationPanel, createTranslationPanel } from './translation-panel.js';
+export type { TranslationPanelConfig, TranslationPanelViewMode } from './translation-panel.js';
 export { transformToGroups, hasBackendGroupedRows, normalizeBackendGroupedRows, mergeBackendSummaries, extractBackendSummaries, getPersistedExpandState, persistExpandState, toggleGroupExpand, expandAllGroups, collapseAllGroups, getExpandedGroupIds, getPersistedViewMode, persistViewMode, parseViewMode, encodeExpandedGroupsToken, decodeExpandedGroupsToken, renderGroupHeaderSummary, renderGroupHeaderRow, renderGroupedEmptyState, renderGroupedLoadingState, renderGroupedErrorState, isNarrowViewport, getViewModeForViewport } from './grouped-mode.js';
 export type { ViewMode, GroupSummary, RecordGroup, GroupedData, GroupTransformOptions } from './grouped-mode.js';
 export { executeBulkCreateMissing, renderBulkResultSummary, renderBulkResultInline, createBulkCreateMissingHandler } from './translation-bulk-actions.js';

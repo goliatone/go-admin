@@ -20,4 +20,15 @@
 
 {% block scripts %}
 <script src="{{ adminURL("runtime/formgen-behaviors.min.js") }}" defer></script>
+<script src="{{ adminURL("runtime/formgen-relationships.min.js") }}" defer></script>
+<script type="module">
+  window.addEventListener("DOMContentLoaded", () => {
+    const api = window.FormgenRelationships;
+    if (api && typeof api.initRelationships === "function") {
+      api.initRelationships({
+        baseUrl: "{{ base_path }}",
+      });
+    }
+  });
+</script>
 {% endblock %}

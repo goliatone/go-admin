@@ -96,6 +96,10 @@ export const DEFAULT_STATUS_LEGEND_ITEMS: StatusLegendItem[] = [
 // Status Legend Component
 // ============================================================================
 
+/**
+ * @deprecated Since v2.x - status icons are now inline in quick filters.
+ * Retained for compatibility with existing custom templates; planned removal in v3.0.
+ */
 export class StatusLegend {
   private container: HTMLElement | null = null;
   private config: Required<Omit<StatusLegendConfig, 'container'>> & { container: HTMLElement | null };

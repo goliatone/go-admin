@@ -33,6 +33,12 @@
 {% if not summary_readiness_state and (summary_fallback_used or summary_missing_requested_locale) %}
   {% set summary_readiness_state = "missing_locales" %}
 {% endif %}
+{% if not summary_requested_locale and summary_resolved_locale %}
+  {% set summary_requested_locale = summary_resolved_locale %}
+{% endif %}
+{% if not summary_resolved_locale and summary_requested_locale %}
+  {% set summary_resolved_locale = summary_requested_locale %}
+{% endif %}
 
 {% if summary_translation_group_id %}
 <div class="translation-summary bg-white border border-gray-200 rounded-lg overflow-hidden mb-4"

@@ -13,54 +13,57 @@
 </div>
 {% endblock %}
 
-{% block quick_filters %}
+{% block translation_panel %}
 {% if datagrid_config and datagrid_config.translation_ux_enabled %}
-<!-- Translation UX: Quick filters container -->
-<div id="translation-quick-filters" class="inline-flex items-center" data-quick-filters data-size="sm"></div>
-{% endif %}
-{% endblock %}
+<div id="translation-panel" class="hidden bg-gray-50/80 border border-gray-200 rounded-xl mb-4 px-4 py-3 shadow-sm">
+  <div class="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
+    <div class="flex items-center gap-3 flex-wrap">
+      <span class="text-[11px] font-semibold text-gray-500 uppercase">Status</span>
+      <div id="translation-quick-filters" class="inline-flex items-center" data-quick-filters data-size="sm"></div>
+    </div>
 
-{% block toolbar_right_extra %}
-{% if datagrid_config and datagrid_config.translation_ux_enabled %}
-<!-- Translation UX: Status legend (Phase 1 contract: always visible, non-collapsible) -->
-<div id="translation-status-legend" data-status-legend data-size="sm" data-orientation="horizontal"></div>
+    <div class="flex items-center gap-3 flex-wrap">
+      <span class="text-[11px] font-semibold text-gray-500 uppercase">View</span>
+      <div class="inline-flex items-center border border-gray-200 rounded-lg bg-white p-1">
+        <button type="button"
+                data-view-mode="flat"
+                aria-pressed="false"
+                class="translation-view-mode-btn px-2.5 py-1.5 text-xs font-medium rounded text-gray-700 hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1"
+                title="Flat list view">
+          Flat
+        </button>
+        <button type="button"
+                data-view-mode="grouped"
+                aria-pressed="false"
+                class="translation-view-mode-btn px-2.5 py-1.5 text-xs font-medium rounded text-gray-700 hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1"
+                title="Grouped by translation group">
+          Grouped
+        </button>
+        <button type="button"
+                data-view-mode="matrix"
+                aria-pressed="false"
+                class="translation-view-mode-btn px-2.5 py-1.5 text-xs font-medium rounded text-gray-700 hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1"
+                title="Matrix summary view mode">
+          Matrix Summary
+        </button>
+      </div>
 
-<!-- Translation UX: View mode toggle (flat/grouped/matrix) -->
-<div class="inline-flex items-center gap-2 border border-gray-200 rounded-lg bg-white p-1">
-  <button type="button"
-          data-view-mode="flat"
-          class="translation-view-mode-btn px-2.5 py-1.5 text-xs font-medium rounded text-gray-700 hover:bg-gray-100"
-          title="Flat list view">
-    Flat
-  </button>
-  <button type="button"
-          data-view-mode="grouped"
-          class="translation-view-mode-btn px-2.5 py-1.5 text-xs font-medium rounded text-gray-700 hover:bg-gray-100"
-          title="Grouped by translation group">
-    Grouped
-  </button>
-  <button type="button"
-          data-view-mode="matrix"
-          class="translation-view-mode-btn px-2.5 py-1.5 text-xs font-medium rounded text-gray-700 hover:bg-gray-100"
-          title="Matrix summary view mode">
-    Matrix Summary
-  </button>
-</div>
-
-<!-- Translation UX: Expand/Collapse controls for grouped mode -->
-<div class="inline-flex items-center gap-1 border border-gray-200 rounded-lg bg-white p-1">
-  <button type="button"
-          id="group-expand-all-btn"
-          class="px-2.5 py-1.5 text-xs font-medium rounded text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-          title="Expand all translation groups">
-    Expand All
-  </button>
-  <button type="button"
-          id="group-collapse-all-btn"
-          class="px-2.5 py-1.5 text-xs font-medium rounded text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-          title="Collapse all translation groups">
-    Collapse All
-  </button>
+      <div id="group-controls" class="hidden inline-flex items-center gap-1 border border-gray-200 rounded-lg bg-white p-1">
+        <button type="button"
+                id="group-expand-all-btn"
+                class="px-2.5 py-1.5 text-xs font-medium rounded text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1"
+                title="Expand all translation groups">
+          Expand All
+        </button>
+        <button type="button"
+                id="group-collapse-all-btn"
+                class="px-2.5 py-1.5 text-xs font-medium rounded text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1"
+                title="Collapse all translation groups">
+          Collapse All
+        </button>
+      </div>
+    </div>
+  </div>
 </div>
 {% endif %}
 {% endblock %}
@@ -90,8 +93,8 @@ import {
   renderMissingTranslationsBadge,
   hasMissingTranslations,
   // Phase 2 (TX-088): Translation UX primitives with template-level initialization
-  createStatusLegend,
-  createTranslationQuickFilters
+  createTranslationQuickFilters,
+  createTranslationPanel
 } from '{{ base_path }}/assets/dist/datatable/index.js';
 
 const basePath = '{{ base_path }}';
@@ -121,6 +124,7 @@ const translationUXEnabled = dataGridConfig.translation_ux_enabled === true;
 const groupedModeEnabled = dataGridConfig.enable_grouped_mode === true;
 const groupByField = String(dataGridConfig.group_by_field || 'translation_group_id').trim() || 'translation_group_id';
 const defaultViewMode = normalizeViewMode(dataGridConfig.default_view_mode, groupedModeEnabled ? 'grouped' : 'flat');
+const translationPanelStorageKey = `go-admin:translation-panel-expanded:${panelName}${env ? `:${env}` : ''}`;
 
 // Schema action builder for server-authoritative row actions
 let schemaActionBuilder = null;
@@ -488,12 +492,35 @@ document.addEventListener('DOMContentLoaded', async function() {
   const viewModeButtons = Array.from(document.querySelectorAll('.translation-view-mode-btn'));
   const expandAllBtn = document.getElementById('group-expand-all-btn');
   const collapseAllBtn = document.getElementById('group-collapse-all-btn');
+  const translationPanel = translationUXEnabled
+    ? createTranslationPanel({
+      toggleButtonId: 'translation-panel-toggle',
+      panelId: 'translation-panel',
+      expandAllBtnId: 'group-expand-all-btn',
+      collapseAllBtnId: 'group-collapse-all-btn',
+      groupControlsId: 'group-controls',
+      viewModeSelector: '[data-view-mode]',
+      storageKey: translationPanelStorageKey
+    })
+    : null;
+  if (translationPanel) {
+    translationPanel.init();
+  }
 
   const syncTranslationViewControls = () => {
-    if (!translationUXEnabled || !groupedModeEnabled) {
+    if (!translationUXEnabled) {
       return;
     }
+
     const currentMode = normalizeViewMode(grid.getViewMode(), defaultViewMode);
+    if (translationPanel) {
+      translationPanel.onViewModeChange(groupedModeEnabled ? currentMode : 'flat');
+    }
+
+    if (!groupedModeEnabled) {
+      return;
+    }
+
     viewModeButtons.forEach((button) => {
       const mode = normalizeViewMode(button.dataset.viewMode, 'flat');
       const isActive = mode === currentMode;
@@ -552,16 +579,6 @@ document.addEventListener('DOMContentLoaded', async function() {
   // ============================================================================
   // Translation UX Primitives Initialization (TX-088)
   // ============================================================================
-
-  // Initialize status legend if container exists
-  const statusLegendContainer = document.getElementById('translation-status-legend');
-  if (statusLegendContainer && translationUXEnabled) {
-    createStatusLegend({
-      container: statusLegendContainer,
-      size: 'sm',
-      orientation: 'horizontal'
-    });
-  }
 
   // Initialize quick filters if container exists
   const quickFiltersContainer = document.getElementById('translation-quick-filters');

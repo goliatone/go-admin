@@ -51,6 +51,10 @@ export interface StatusLegendConfig {
  * Default translation status legend items per contract
  */
 export declare const DEFAULT_STATUS_LEGEND_ITEMS: StatusLegendItem[];
+/**
+ * @deprecated Since v2.x - status icons are now inline in quick filters.
+ * Retained for compatibility with existing custom templates; planned removal in v3.0.
+ */
 export declare class StatusLegend {
     private container;
     private config;
