@@ -832,6 +832,23 @@ func mergePanelActionContext(body map[string]any, locale string, values ...strin
 	return body
 }
 
+func mergePanelActionActorContext(body map[string]any, ctx AdminContext) map[string]any {
+	if body == nil {
+		body = map[string]any{}
+	}
+	userID := strings.TrimSpace(primitives.FirstNonEmptyRaw(ctx.UserID, userIDFromContext(ctx.Context), actorFromContext(ctx.Context)))
+	if userID == "" {
+		return body
+	}
+	if strings.TrimSpace(toString(body["user_id"])) == "" {
+		body["user_id"] = userID
+	}
+	if strings.TrimSpace(toString(body["actor_id"])) == "" {
+		body["actor_id"] = userID
+	}
+	return body
+}
+
 func resolvePrimaryActionID(body map[string]any, ids []string) string {
 	if len(body) > 0 {
 		if id := strings.TrimSpace(toString(body["id"])); id != "" {
@@ -1123,6 +1140,8 @@ func (p *panelBinding) recordBlockedTransition(ctx AdminContext, entityID, trans
 
 func (p *panelBinding) Bulk(c router.Context, locale, action string, body map[string]any) (map[string]any, error) {
 	ctx := p.admin.adminContextFromRequest(c, locale)
+	body = mergePanelActionContext(body, locale, c.Query("locale"), c.Query("environment"), c.Query("env"), c.Query("policy_entity"), c.Query("policyEntity"))
+	body = mergePanelActionActorContext(body, ctx)
 	ids := parseCommandIDs(body, c.Query("id"), c.Query("ids"))
 	if isBulkCreateMissingTranslationsAction(action) {
 		return p.bulkCreateMissingTranslations(c, ctx, locale, body, ids)
