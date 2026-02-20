@@ -192,6 +192,7 @@ Features:
 - User listing with filters (status, role)
 - Role assignment and permission management
 - Search adapter for global user search
+- Role form permission matrix with dedicated debug/translation rows and chips-based Additional permissions (see `GUIDES_PERMISSION_MATRIX.md`)
 
 ### Tenants Module
 
