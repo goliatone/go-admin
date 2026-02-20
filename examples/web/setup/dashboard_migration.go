@@ -41,22 +41,22 @@ func migrateDashboardWidgetDefinitions(ctx context.Context, db *bun.DB, widgetSv
 	}
 
 	aliases := map[string][]string{
-		"admin.widget.user_stats":            {"User Statistics", "User Stats", "Stats", "stats"},
-		"admin.widget.activity_feed":         {"Activity Feed", "Recent Activity"},
-		"admin.widget.quick_actions":         {"Quick Actions", "User Quick Actions"},
-		"admin.widget.chart_sample":          {"Sample Chart", "Disabled Legacy Chart"},
-		"admin.widget.settings_overview":     {"Settings Overview"},
-		"admin.widget.notifications":         {"Notifications"},
-		"admin.widget.content_stats":         {"Content Stats"},
-		"admin.widget.storage_stats":         {"Storage Stats"},
-		"admin.widget.bar_chart":             {"Monthly Content", "Monthly Content Creation"},
-		"admin.widget.line_chart":            {"User Growth"},
-		"admin.widget.pie_chart":             {"Content Distribution"},
-		"admin.widget.gauge_chart":           {"Storage Usage"},
-		"admin.widget.scatter_chart":         {"Engagement vs Retention"},
-		"admin.widget.system_health":         {"System Health"},
-		"admin.widget.user_profile_overview": {"Profile Overview"},
-		"admin.widget.user_activity_feed":    {"User Activity"},
+		admin.WidgetUserStats:           {"User Statistics", "User Stats", "Stats", "stats"},
+		admin.WidgetActivityFeed:        {"Activity Feed", "Recent Activity"},
+		admin.WidgetQuickActions:        {"Quick Actions", "User Quick Actions"},
+		admin.WidgetChartSample:         {"Sample Chart", "Disabled Legacy Chart"},
+		admin.WidgetSettingsOverview:    {"Settings Overview"},
+		admin.WidgetNotifications:       {"Notifications"},
+		admin.WidgetContentStats:        {"Content Stats"},
+		admin.WidgetStorageStats:        {"Storage Stats"},
+		admin.WidgetBarChart:            {"Monthly Content", "Monthly Content Creation"},
+		admin.WidgetLineChart:           {"User Growth"},
+		admin.WidgetPieChart:            {"Content Distribution"},
+		admin.WidgetGaugeChart:          {"Storage Usage"},
+		admin.WidgetScatterChart:        {"Engagement vs Retention"},
+		admin.WidgetSystemHealth:        {"System Health"},
+		admin.WidgetUserProfileOverview: {"Profile Overview"},
+		admin.WidgetUserActivityFeed:    {"User Activity"},
 	}
 
 	for code, names := range aliases {

@@ -34,7 +34,7 @@ func SetupDashboard(adm *admin.Admin, dataStores *stores.DataStores, basePath st
 
 	// Override the default chart_sample widget to prevent old chart from showing
 	dash.RegisterProvider(admin.DashboardProviderSpec{
-		Code: "admin.widget.chart_sample",
+		Code: admin.WidgetChartSample,
 		Name: "Disabled Legacy Chart",
 		// NO DefaultArea - prevents creating default instance
 		Handler: func(ctx admin.AdminContext, cfg map[string]any) (admin.WidgetPayload, error) {
@@ -47,7 +47,7 @@ func SetupDashboard(adm *admin.Admin, dataStores *stores.DataStores, basePath st
 
 	// User stats widget (override default, no DefaultArea to avoid duplicates)
 	dash.RegisterProvider(admin.DashboardProviderSpec{
-		Code: "admin.widget.user_stats",
+		Code: admin.WidgetUserStats,
 		Name: "User Stats",
 		Handler: func(ctx admin.AdminContext, cfg map[string]any) (admin.WidgetPayload, error) {
 			stats := dataStores.Stats.GetUserStats()
@@ -56,9 +56,9 @@ func SetupDashboard(adm *admin.Admin, dataStores *stores.DataStores, basePath st
 			return toWidgetPayload(UserStatsWidgetData{
 				Type:     "stat_card",
 				StatType: "users",
-				Total:    stats["total"],
-				Active:   stats["active"],
-				NewToday: stats["new_today"],
+				Total:    intFromAny(stats["total"]),
+				Active:   intFromAny(stats["active"]),
+				NewToday: intFromAny(stats["new_today"]),
 				Trend:    "+12%",
 				TrendUp:  true,
 			}), nil
@@ -67,7 +67,7 @@ func SetupDashboard(adm *admin.Admin, dataStores *stores.DataStores, basePath st
 
 	// Content stats widget
 	dash.RegisterProvider(admin.DashboardProviderSpec{
-		Code:        "admin.widget.content_stats",
+		Code:        admin.WidgetContentStats,
 		Name:        "Content Stats",
 		DefaultArea: "admin.dashboard.main",
 		Handler: func(ctx admin.AdminContext, cfg map[string]any) (admin.WidgetPayload, error) {
@@ -77,16 +77,16 @@ func SetupDashboard(adm *admin.Admin, dataStores *stores.DataStores, basePath st
 			return toWidgetPayload(ContentStatsWidgetData{
 				Type:      "stat_card",
 				StatType:  "content",
-				Published: stats["published"],
-				Draft:     stats["draft"],
-				Scheduled: stats["scheduled"],
+				Published: intFromAny(stats["published"]),
+				Draft:     intFromAny(stats["draft"]),
+				Scheduled: intFromAny(stats["scheduled"]),
 			}), nil
 		},
 	})
 
 	// Storage stats widget
 	dash.RegisterProvider(admin.DashboardProviderSpec{
-		Code:        "admin.widget.storage_stats",
+		Code:        admin.WidgetStorageStats,
 		Name:        "Storage Stats",
 		DefaultArea: "admin.dashboard.main",
 		Handler: func(ctx admin.AdminContext, cfg map[string]any) (admin.WidgetPayload, error) {
@@ -96,16 +96,16 @@ func SetupDashboard(adm *admin.Admin, dataStores *stores.DataStores, basePath st
 			return toWidgetPayload(StorageStatsWidgetData{
 				Type:       "stat_card",
 				StatType:   "storage",
-				Used:       stats["used"],
-				Total:      stats["total"],
-				Percentage: stats["percentage"],
+				Used:       chartString(stats["used"], ""),
+				Total:      chartString(stats["total"], ""),
+				Percentage: intFromAny(stats["percentage"]),
 			}), nil
 		},
 	})
 
 	// Quick actions widget (override default, no DefaultArea to avoid duplicates)
 	dash.RegisterProvider(admin.DashboardProviderSpec{
-		Code: "admin.widget.quick_actions",
+		Code: admin.WidgetQuickActions,
 		Name: "User Quick Actions",
 		Handler: func(ctx admin.AdminContext, cfg map[string]any) (admin.WidgetPayload, error) {
 			resolvedCfg, err := admin.DecodeWidgetConfig[quickActionsWidgetConfig](cfg)
@@ -153,7 +153,7 @@ func SetupDashboard(adm *admin.Admin, dataStores *stores.DataStores, basePath st
 	// Activity widget focused on user channel
 	activitySink := adm.ActivityFeed()
 	dash.RegisterProvider(admin.DashboardProviderSpec{
-		Code: "admin.widget.activity_feed",
+		Code: admin.WidgetActivityFeed,
 		Name: "User Activity",
 		Handler: func(ctx admin.AdminContext, cfg map[string]any) (admin.WidgetPayload, error) {
 			resolvedCfg, err := admin.DecodeWidgetConfig[activityFeedWidgetConfig](cfg)
@@ -186,7 +186,7 @@ func SetupDashboard(adm *admin.Admin, dataStores *stores.DataStores, basePath st
 
 	// System health widget
 	dash.RegisterProvider(admin.DashboardProviderSpec{
-		Code:        "admin.widget.system_health",
+		Code:        admin.WidgetSystemHealth,
 		Name:        "System Health",
 		DefaultArea: "admin.dashboard.sidebar",
 		Handler: func(ctx admin.AdminContext, cfg map[string]any) (admin.WidgetPayload, error) {
@@ -241,7 +241,7 @@ func registerUserDetailWidgets(dash *admin.Dashboard, activitySink admin.Activit
 			if values == nil {
 				values = map[string]any{}
 			}
-			return toWidgetPayload(UserProfileOverviewWidgetData{Values: values}), nil
+			return toWidgetPayload(UserProfileOverviewWidgetData{Values: toStringMap(values)}), nil
 		},
 	})
 	dash.RegisterProvider(admin.DashboardProviderSpec{
@@ -284,7 +284,7 @@ func registerChartWidgets(dash *admin.Dashboard, dataStores *stores.DataStores) 
 
 	// Bar chart widget - Monthly content creation
 	dash.RegisterProvider(admin.DashboardProviderSpec{
-		Code:        "admin.widget.bar_chart",
+		Code:        admin.WidgetBarChart,
 		Name:        "Monthly Content",
 		DefaultArea: "admin.dashboard.main",
 		Handler: func(ctx admin.AdminContext, cfg map[string]any) (admin.WidgetPayload, error) {
@@ -304,7 +304,7 @@ func registerChartWidgets(dash *admin.Dashboard, dataStores *stores.DataStores) 
 
 	// Line chart widget - User growth
 	dash.RegisterProvider(admin.DashboardProviderSpec{
-		Code:        "admin.widget.line_chart",
+		Code:        admin.WidgetLineChart,
 		Name:        "User Growth",
 		DefaultArea: "admin.dashboard.main",
 		Handler: func(ctx admin.AdminContext, cfg map[string]any) (admin.WidgetPayload, error) {
@@ -337,7 +337,7 @@ func registerChartWidgets(dash *admin.Dashboard, dataStores *stores.DataStores) 
 
 	// Pie chart widget - Content distribution
 	dash.RegisterProvider(admin.DashboardProviderSpec{
-		Code:        "admin.widget.pie_chart",
+		Code:        admin.WidgetPieChart,
 		Name:        "Content Distribution",
 		DefaultArea: "admin.dashboard.sidebar",
 		Handler: func(ctx admin.AdminContext, cfg map[string]any) (admin.WidgetPayload, error) {
@@ -362,7 +362,7 @@ func registerChartWidgets(dash *admin.Dashboard, dataStores *stores.DataStores) 
 
 	// Gauge chart widget - Storage usage
 	dash.RegisterProvider(admin.DashboardProviderSpec{
-		Code:        "admin.widget.gauge_chart",
+		Code:        admin.WidgetGaugeChart,
 		Name:        "Storage Usage",
 		DefaultArea: "admin.dashboard.sidebar",
 		Handler: func(ctx admin.AdminContext, cfg map[string]any) (admin.WidgetPayload, error) {
@@ -393,7 +393,7 @@ func registerChartWidgets(dash *admin.Dashboard, dataStores *stores.DataStores) 
 
 	// Scatter chart widget - Correlation analysis
 	dash.RegisterProvider(admin.DashboardProviderSpec{
-		Code:        "admin.widget.scatter_chart",
+		Code:        admin.WidgetScatterChart,
 		Name:        "Engagement vs Retention",
 		DefaultArea: "admin.dashboard.main",
 		Handler: func(ctx admin.AdminContext, cfg map[string]any) (admin.WidgetPayload, error) {
@@ -695,6 +695,48 @@ func toFloat64(raw any) (float64, bool) {
 	default:
 		return 0, false
 	}
+}
+
+func intFromAny(raw any) int {
+	switch value := raw.(type) {
+	case int:
+		return value
+	case int8:
+		return int(value)
+	case int16:
+		return int(value)
+	case int32:
+		return int(value)
+	case int64:
+		return int(value)
+	case uint:
+		return int(value)
+	case uint8:
+		return int(value)
+	case uint16:
+		return int(value)
+	case uint32:
+		return int(value)
+	case uint64:
+		return int(value)
+	case float32:
+		return int(value)
+	case float64:
+		return int(value)
+	default:
+		return 0
+	}
+}
+
+func toStringMap(raw map[string]any) map[string]string {
+	if len(raw) == 0 {
+		return map[string]string{}
+	}
+	out := make(map[string]string, len(raw))
+	for key, value := range raw {
+		out[key] = strings.TrimSpace(toString(value))
+	}
+	return out
 }
 
 func chartString(raw any, fallback string) string {
