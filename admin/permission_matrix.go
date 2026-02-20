@@ -117,19 +117,19 @@ func permissionMatrixRenderer(buf *bytes.Buffer, field model.Field, data compone
 	}
 
 	payload := map[string]any{
-		"field":         field,
-		"config":        data.Config,
-		"theme":         data.Theme,
-		"resources":     resources,
-		"actions":       actions,
-		"current_perms": currentPerms,
-		"serialized":    serialized,
-		"extra_perms":   extraPermsValue,
-		"extra_options": extraOptions,
+		"field":          field,
+		"config":         data.Config,
+		"theme":          data.Theme,
+		"resources":      resources,
+		"actions":        actions,
+		"current_perms":  currentPerms,
+		"serialized":     serialized,
+		"extra_perms":    extraPermsValue,
+		"extra_options":  extraOptions,
 		"extra_selected": append([]string{}, extraPerms...),
-		"show_extra":    showExtra,
-		"rows":          rows,
-		"field_name":    fieldName,
+		"show_extra":     showExtra,
+		"rows":           rows,
+		"field_name":     fieldName,
 	}
 	rendered, err := data.Template.RenderTemplate(templateName, payload)
 	if err != nil {
