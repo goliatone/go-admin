@@ -90,6 +90,10 @@
             "type": "string",
             "title": "Debug permissions"
           },
+          "permissions_translation": {
+            "type": "string",
+            "title": "Translation permissions"
+          },
           "metadata": {
             "type": "object",
             "title": "Metadata",

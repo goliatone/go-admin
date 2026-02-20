@@ -167,6 +167,16 @@ export type {
   QuickFiltersConfig
 } from './quick-filters.js';
 
+// Export translation panel controller
+export {
+  TranslationPanel,
+  createTranslationPanel
+} from './translation-panel.js';
+export type {
+  TranslationPanelConfig,
+  TranslationPanelViewMode
+} from './translation-panel.js';
+
 // Export grouped mode utilities (Phase 2)
 export {
   transformToGroups,

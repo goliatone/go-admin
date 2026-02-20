@@ -210,6 +210,7 @@ export declare class SchemaActionBuilder {
     private clonePayloadValue;
     private createTranslationLocaleLabelMap;
     private extractStringField;
+    private resolveExpectedVersion;
     private asObject;
     private asStringArray;
     private localeLabel;

@@ -187,7 +187,7 @@ export class QuickFilters {
       .join('');
 
     this.container.innerHTML = `
-      <div class="quick-filters inline-flex items-center gap-2 flex-wrap ${containerClass}"
+      <div class="quick-filters inline-flex items-center gap-1 flex-wrap ${containerClass}"
            role="group"
            aria-label="Quick filters">
         ${filtersHtml}
@@ -452,7 +452,7 @@ export function renderQuickFiltersHTML(options: {
     })
     .join('');
 
-  return `<div class="quick-filters inline-flex items-center gap-2 flex-wrap ${containerClass}">${filtersHtml}</div>`;
+  return `<div class="quick-filters inline-flex items-center gap-1 flex-wrap ${containerClass}">${filtersHtml}</div>`;
 }
 
 // ============================================================================

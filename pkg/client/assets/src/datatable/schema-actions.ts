@@ -719,6 +719,12 @@ export class SchemaActionBuilder {
     if (this.config.panelName) {
       payload.policy_entity = this.config.panelName;
     }
+    if (payload.expected_version === undefined) {
+      const expectedVersion = this.resolveExpectedVersion(record);
+      if (expectedVersion !== null) {
+        payload.expected_version = expectedVersion;
+      }
+    }
 
     const schema = this.normalizePayloadSchema(schemaAction.payload_schema);
     const requiredFields = this.collectRequiredFields(schemaAction.payload_required, schema);
@@ -1076,6 +1082,31 @@ export class SchemaActionBuilder {
     const value = record[field];
     if (typeof value === 'string' && value.trim()) {
       return value.trim();
+    }
+    return null;
+  }
+
+  private resolveExpectedVersion(record: Record<string, unknown>): number | string | null {
+    const candidates: unknown[] = [
+      record.expected_version,
+      record.expectedVersion,
+      record.version,
+      record._version,
+    ];
+    for (const candidate of candidates) {
+      if (typeof candidate === 'number' && Number.isFinite(candidate) && candidate > 0) {
+        return candidate;
+      }
+      if (typeof candidate === 'string') {
+        const trimmed = candidate.trim();
+        if (!trimmed) {
+          continue;
+        }
+        const parsed = Number(trimmed);
+        if (Number.isFinite(parsed) && parsed > 0) {
+          return trimmed;
+        }
+      }
     }
     return null;
   }

@@ -53,6 +53,7 @@ operations:
             - delete
           extraIgnorePrefixes:
             - admin.debug.
+            - admin.translations.
       permissions_debug:
         order: 5
         grid:
@@ -66,8 +67,29 @@ operations:
           actions:
             - repl
             - repl.exec
-      metadata:
+      permissions_translation:
         order: 6
+        grid:
+          span: 12
+        component: permission-matrix
+        componentOptions:
+          label: Translation Permissions
+          showExtra: false
+          resources:
+            - admin.translations
+          actions:
+            - view
+            - edit
+            - manage
+            - assign
+            - approve
+            - claim
+            - export
+            - import.view
+            - import.validate
+            - import.apply
+      metadata:
+        order: 7
         grid:
           span: 12
         component: json_editor
@@ -129,6 +151,7 @@ operations:
             - delete
           extraIgnorePrefixes:
             - admin.debug.
+            - admin.translations.
       permissions_debug:
         order: 5
         grid:
@@ -142,8 +165,29 @@ operations:
           actions:
             - repl
             - repl.exec
-      metadata:
+      permissions_translation:
         order: 6
+        grid:
+          span: 12
+        component: permission-matrix
+        componentOptions:
+          label: Translation Permissions
+          showExtra: false
+          resources:
+            - admin.translations
+          actions:
+            - view
+            - edit
+            - manage
+            - assign
+            - approve
+            - claim
+            - export
+            - import.view
+            - import.validate
+            - import.apply
+      metadata:
+        order: 7
         grid:
           span: 12
         component: json_editor
