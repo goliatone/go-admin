@@ -33,6 +33,46 @@ func TranslationQueueRouteStep(ctx BootCtx) error {
 				return writeJSONOrError(responder, c, payload, err)
 			}),
 		},
+		{
+			Method: "GET",
+			Path:   routePath(ctx, ctx.AdminAPIGroup(), "translations.options.entity_types"),
+			Handler: withFeatureGate(responder, gates, FeatureTranslationQueue, func(c router.Context) error {
+				payload, err := binding.EntityTypesOptions(c)
+				return writeJSONOrError(responder, c, payload, err)
+			}),
+		},
+		{
+			Method: "GET",
+			Path:   routePath(ctx, ctx.AdminAPIGroup(), "translations.options.source_records"),
+			Handler: withFeatureGate(responder, gates, FeatureTranslationQueue, func(c router.Context) error {
+				payload, err := binding.SourceRecordsOptions(c)
+				return writeJSONOrError(responder, c, payload, err)
+			}),
+		},
+		{
+			Method: "GET",
+			Path:   routePath(ctx, ctx.AdminAPIGroup(), "translations.options.locales"),
+			Handler: withFeatureGate(responder, gates, FeatureTranslationQueue, func(c router.Context) error {
+				payload, err := binding.LocalesOptions(c)
+				return writeJSONOrError(responder, c, payload, err)
+			}),
+		},
+		{
+			Method: "GET",
+			Path:   routePath(ctx, ctx.AdminAPIGroup(), "translations.options.groups"),
+			Handler: withFeatureGate(responder, gates, FeatureTranslationQueue, func(c router.Context) error {
+				payload, err := binding.TranslationGroupsOptions(c)
+				return writeJSONOrError(responder, c, payload, err)
+			}),
+		},
+		{
+			Method: "GET",
+			Path:   routePath(ctx, ctx.AdminAPIGroup(), "translations.options.assignees"),
+			Handler: withFeatureGate(responder, gates, FeatureTranslationQueue, func(c router.Context) error {
+				payload, err := binding.AssigneesOptions(c)
+				return writeJSONOrError(responder, c, payload, err)
+			}),
+		},
 	}
 	return applyRoutes(ctx, routes)
 }
