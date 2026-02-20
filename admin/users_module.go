@@ -12,9 +12,52 @@ import (
 	"github.com/google/uuid"
 )
 
-const usersModuleID = "users"
-const rolesPanelID = "roles"
-const userProfilesPanelID = "user-profiles"
+const (
+	usersModuleID                   = "users"
+	rolesPanelID                    = "roles"
+	userProfilesPanelID             = "user-profiles"
+	roleDebugPermissionPrefix       = "admin.debug."
+	roleTranslationPermissionPrefix = "admin.translations."
+)
+
+var defaultRolePermissionMatrixResources = []string{
+	"admin.dashboard",
+	"admin.settings",
+	"admin.users",
+	"admin.roles",
+	"admin.activity",
+	"admin.jobs",
+	"admin.search",
+	"admin.preferences",
+	"admin.profile",
+	"admin.debug",
+}
+
+var defaultRolePermissionMatrixActions = []string{
+	"view",
+	"create",
+	"import",
+	"edit",
+	"delete",
+}
+
+var defaultRoleDebugPermissionMatrixActions = []string{
+	"repl",
+	"repl.exec",
+}
+
+var defaultRoleTranslationPermissionMatrixActions = []string{
+	"view",
+	"edit",
+	"manage",
+	"assign",
+	"approve",
+	"claim",
+	"export",
+	"import.view",
+	"import.validate",
+	"import.apply",
+}
 
 // UserManagementModule registers user and role management panels and navigation.
 type UserManagementModule struct {
@@ -229,6 +272,7 @@ func (m *UserManagementModule) Register(ctx ModuleContext) error {
 			Field{Name: "metadata", Label: "Metadata", Type: "textarea"},
 			Field{Name: "is_system", Label: "System Role", Type: "boolean"},
 		).
+		FormSchema(defaultRolesPanelFormSchema()).
 		DetailFields(
 			Field{Name: "name", Label: "Name", Type: "text"},
 			Field{Name: "role_key", Label: "Role Key", Type: "text"},
@@ -794,15 +838,114 @@ func recordToUser(record map[string]any, id string) UserRecord {
 	}
 }
 
+func defaultRolesPanelFormSchema() map[string]any {
+	mainConfig := map[string]any{
+		"resources": append([]string{}, defaultRolePermissionMatrixResources...),
+		"actions":   append([]string{}, defaultRolePermissionMatrixActions...),
+		"extraIgnorePrefixes": []string{
+			roleDebugPermissionPrefix,
+			roleTranslationPermissionPrefix,
+		},
+	}
+	debugConfig := map[string]any{
+		"showExtra": false,
+		"resources": []string{"admin.debug"},
+		"actions":   append([]string{}, defaultRoleDebugPermissionMatrixActions...),
+	}
+	translationConfig := map[string]any{
+		"showExtra": false,
+		"resources": []string{"admin.translations"},
+		"actions":   append([]string{}, defaultRoleTranslationPermissionMatrixActions...),
+	}
+	return map[string]any{
+		"type":     "object",
+		"required": []string{"name"},
+		"properties": map[string]any{
+			"name": map[string]any{
+				"type":  "string",
+				"title": "Name",
+			},
+			"role_key": map[string]any{
+				"type":  "string",
+				"title": "Role Key",
+			},
+			"description": map[string]any{
+				"type":  "string",
+				"title": "Description",
+				"x-formgen": map[string]any{
+					"widget": "textarea",
+				},
+			},
+			"permissions": map[string]any{
+				"type":  "string",
+				"title": "Permissions",
+				"x-formgen": map[string]any{
+					"widget":         "permission-matrix",
+					"component.name": "permission-matrix",
+					"component.config": map[string]any{
+						"resources":           mainConfig["resources"],
+						"actions":             mainConfig["actions"],
+						"extraIgnorePrefixes": mainConfig["extraIgnorePrefixes"],
+					},
+				},
+			},
+			"permissions_debug": map[string]any{
+				"type":  "string",
+				"title": "Debug Permissions",
+				"x-formgen": map[string]any{
+					"widget":         "permission-matrix",
+					"component.name": "permission-matrix",
+					"component.config": map[string]any{
+						"showExtra": debugConfig["showExtra"],
+						"resources": debugConfig["resources"],
+						"actions":   debugConfig["actions"],
+					},
+				},
+			},
+			"permissions_translation": map[string]any{
+				"type":  "string",
+				"title": "Translation Permissions",
+				"x-formgen": map[string]any{
+					"widget":         "permission-matrix",
+					"component.name": "permission-matrix",
+					"component.config": map[string]any{
+						"showExtra": translationConfig["showExtra"],
+						"resources": translationConfig["resources"],
+						"actions":   translationConfig["actions"],
+					},
+				},
+			},
+			"metadata": map[string]any{
+				"type":  "string",
+				"title": "Metadata",
+				"x-formgen": map[string]any{
+					"widget": "textarea",
+				},
+			},
+			"is_system": map[string]any{
+				"type":  "boolean",
+				"title": "System Role",
+			},
+		},
+	}
+}
+
 func roleToRecord(role RoleRecord) map[string]any {
+	permissions := dedupeStrings(append([]string{}, role.Permissions...))
 	record := map[string]any{
 		"id":          role.ID,
 		"name":        role.Name,
 		"role_key":    role.RoleKey,
 		"description": role.Description,
-		"permissions": append([]string{}, role.Permissions...),
+		"permissions": permissions,
 		"metadata":    primitives.CloneAnyMap(role.Metadata),
 		"is_system":   role.IsSystem,
+	}
+	if debugPermissions := rolePermissionsWithPrefix(permissions, roleDebugPermissionPrefix); len(debugPermissions) > 0 {
+		record["permissions_debug"] = debugPermissions
+	}
+	if translationPermissions := rolePermissionsWithPrefix(permissions, roleTranslationPermissionPrefix); len(translationPermissions) > 0 {
+		record["permissions_translation"] = translationPermissions
 	}
 	if !role.CreatedAt.IsZero() {
 		record["created_at"] = role.CreatedAt.Format(time.RFC3339)
@@ -820,17 +963,16 @@ func recordToRole(record map[string]any, id string) RoleRecord {
 	if id == "" {
 		id = toString(record["id"])
 	}
-	perms := toStringSlice(record["permissions"])
-	if len(perms) == 0 && record["permissions"] != nil {
-		raw := toString(record["permissions"])
-		if raw != "" {
-			for _, part := range strings.FieldsFunc(raw, func(r rune) bool { return r == ',' || r == '\n' }) {
-				if trimmed := strings.TrimSpace(part); trimmed != "" {
-					perms = append(perms, trimmed)
-				}
-			}
-		}
+	perms := rolePermissionsFromRecordField(record["permissions"])
+	debugPerms := rolePermissionsFromRecordField(record["permissions_debug"])
+	if len(debugPerms) > 0 {
+		perms = append(perms, debugPerms...)
 	}
+	translationPerms := rolePermissionsFromRecordField(record["permissions_translation"])
+	if len(translationPerms) > 0 {
+		perms = append(perms, translationPerms...)
+	}
+	perms = dedupeStrings(perms)
 	return RoleRecord{
 		ID:          id,
 		Name:        toString(record["name"]),
@@ -840,6 +982,35 @@ func recordToRole(record map[string]any, id string) RoleRecord {
 		Metadata:    roleMetadata(record["metadata"]),
 		IsSystem:    toBool(record["is_system"]),
 	}
+}
+
+func rolePermissionsFromRecordField(value any) []string {
+	perms := permissionStrings(value)
+	if len(perms) == 0 {
+		perms = toStringSlice(value)
+	}
+	return dedupeStrings(perms)
+}
+
+func rolePermissionsWithPrefix(perms []string, prefix string) []string {
+	if len(perms) == 0 {
+		return nil
+	}
+	needle := strings.TrimSpace(prefix)
+	if needle == "" {
+		return nil
+	}
+	filtered := []string{}
+	for _, perm := range perms {
+		trimmed := strings.TrimSpace(perm)
+		if trimmed == "" {
+			continue
+		}
+		if strings.HasPrefix(trimmed, needle) {
+			filtered = append(filtered, trimmed)
+		}
+	}
+	return dedupeStrings(filtered)
 }
 
 func roleMetadata(value any) map[string]any {
