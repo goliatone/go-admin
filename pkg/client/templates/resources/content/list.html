@@ -83,6 +83,7 @@ import {
   renderLocaleBadge,
   renderTranslationStatusCell,
   renderTranslationMatrixCell,
+  renderVocabularyStatusBadge,
   // Phase 19 productization: translation readiness
   extractTranslationReadiness,
   hasTranslationReadiness,
@@ -129,6 +130,230 @@ const translationPanelStorageKey = `go-admin:translation-panel-expanded:${panelN
 // Schema action builder for server-authoritative row actions
 let schemaActionBuilder = null;
 let cachedSchemaActions = null;
+
+const translationQueueSharedStatusVariants = new Set([
+  'active',
+  'inactive',
+  'suspended',
+  'disabled',
+  'pending',
+  'published',
+  'draft',
+  'archived',
+  'deprecated',
+  'breaking',
+  'migrating',
+  'migrated',
+  'failed',
+  'required',
+  'readonly',
+  'hidden',
+  'unknown'
+]);
+
+const translationQueueStatusLabels = {
+  in_progress: 'In Progress',
+  assigned: 'Assigned',
+  review: 'Review',
+  rejected: 'Rejected',
+  approved: 'Approved',
+  published: 'Published',
+  pending: 'Pending',
+  archived: 'Archived'
+};
+
+const translationQueuePriorityChipClasses = {
+  urgent: 'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border bg-red-100 text-red-800 border-red-200',
+  high: 'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border bg-amber-100 text-amber-800 border-amber-200',
+  normal: 'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border bg-slate-100 text-slate-700 border-slate-200',
+  low: 'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border bg-gray-100 text-gray-600 border-gray-200'
+};
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function escapeAttr(value) {
+  return escapeHtml(value).replace(/"/g, '&quot;');
+}
+
+function normalizeQueueStatus(value) {
+  return String(value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+}
+
+function formatQueueStatusLabel(value) {
+  const normalized = normalizeQueueStatus(value);
+  if (!normalized) {
+    return '';
+  }
+  if (translationQueueStatusLabels[normalized]) {
+    return translationQueueStatusLabels[normalized];
+  }
+  return normalized
+    .split('_')
+    .filter(Boolean)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function renderTranslationQueueStatusChip(value) {
+  const normalized = normalizeQueueStatus(value);
+  if (!normalized) {
+    return '<span class="text-gray-400">-</span>';
+  }
+  if (translationQueueSharedStatusVariants.has(normalized)) {
+    return `<span class="status-badge status-${normalized}">${escapeHtml(formatQueueStatusLabel(normalized))}</span>`;
+  }
+  return renderVocabularyStatusBadge(normalized, {
+    domain: 'queue',
+    size: 'sm',
+    showIcon: false
+  });
+}
+
+function normalizePriority(value) {
+  return String(value ?? '').trim().toLowerCase();
+}
+
+function formatPriorityLabel(value) {
+  const normalized = normalizePriority(value);
+  if (!normalized) {
+    return '';
+  }
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+}
+
+function renderPriorityChip(value) {
+  const normalized = normalizePriority(value);
+  if (!normalized) {
+    return '<span class="text-gray-400">-</span>';
+  }
+  const classes = translationQueuePriorityChipClasses[normalized] || translationQueuePriorityChipClasses.normal;
+  return `<span class="${classes}">${escapeHtml(formatPriorityLabel(normalized))}</span>`;
+}
+
+function localeContextFromValue(value) {
+  const localeValue = String(value ?? '').trim().toLowerCase();
+  return {
+    requestedLocale: localeValue || null,
+    resolvedLocale: localeValue || null,
+    fallbackUsed: false,
+    missingRequestedLocale: false,
+    availableLocales: localeValue ? [localeValue] : [],
+    status: null,
+    translationGroupID: null
+  };
+}
+
+function translationsAssigneesEndpoint() {
+  const base = String(apiBasePath || '').trim();
+  if (base) {
+    return `${base.replace(/\/$/, '')}/translations/options/assignees`;
+  }
+  return `${basePath}/api/translations/options/assignees`;
+}
+
+async function loadTranslationAssigneeLookup() {
+  if (panelName !== 'translations') {
+    return {};
+  }
+  try {
+    const params = new URLSearchParams({ per_page: '200' });
+    if (env) {
+      params.set('env', String(env).trim());
+    }
+    const response = await fetch(`${translationsAssigneesEndpoint()}?${params.toString()}`);
+    if (!response.ok) {
+      return {};
+    }
+    const payload = await response.json();
+    const options = Array.isArray(payload)
+      ? payload
+      : (Array.isArray(payload?.options) ? payload.options : (Array.isArray(payload?.data) ? payload.data : []));
+    const lookup = {};
+    options.forEach((option) => {
+      if (!option || typeof option !== 'object') {
+        return;
+      }
+      const id = String(option.value ?? option.id ?? '').trim();
+      if (!id) {
+        return;
+      }
+      const displayName = String(option.display_name ?? option.label ?? id).trim();
+      const avatarURL = String(option.avatar_url ?? '').trim();
+      lookup[id] = {
+        id,
+        displayName: displayName || id,
+        avatarURL
+      };
+    });
+    return lookup;
+  } catch (_error) {
+    return {};
+  }
+}
+
+function createTranslationsQueueCellRenderers(assigneeLookup) {
+  if (panelName !== 'translations') {
+    return {};
+  }
+  const lookup = assigneeLookup && typeof assigneeLookup === 'object' ? assigneeLookup : {};
+  return {
+    assignee_id: (value, record) => {
+      const assigneeID = String(value ?? record?.assignee_id ?? '').trim();
+      if (!assigneeID) {
+        return '<span class="text-gray-400">Unassigned</span>';
+      }
+      const assignee = lookup[assigneeID] || {};
+      const displayName = String(assignee.displayName ?? assigneeID).trim() || assigneeID;
+      const avatarURL = String(assignee.avatarURL ?? '').trim();
+      const initials = displayName.charAt(0).toUpperCase();
+      const avatar = avatarURL
+        ? `<img src="${escapeAttr(avatarURL)}" alt="${escapeAttr(displayName)}" class="w-6 h-6 rounded-full object-cover border border-gray-200" loading="lazy">`
+        : `<span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-200 text-gray-700 text-[10px] font-semibold">${escapeHtml(initials || '?')}</span>`;
+      return `
+        <div class="inline-flex items-center gap-2 max-w-full">
+          ${avatar}
+          <span class="truncate">${escapeHtml(displayName)}</span>
+        </div>
+      `;
+    },
+    status: (value) => {
+      return renderTranslationQueueStatusChip(value);
+    },
+    source_locale: (value) => {
+      const localeValue = String(value ?? '').trim();
+      if (!localeValue) {
+        return '<span class="text-gray-400">-</span>';
+      }
+      return renderLocaleBadge(localeContextFromValue(localeValue), {
+        showFallbackIndicator: false,
+        size: 'sm'
+      });
+    },
+    target_locale: (value) => {
+      const localeValue = String(value ?? '').trim();
+      if (!localeValue) {
+        return '<span class="text-gray-400">-</span>';
+      }
+      return renderLocaleBadge(localeContextFromValue(localeValue), {
+        showFallbackIndicator: false,
+        size: 'sm'
+      });
+    },
+    priority: (value) => {
+      return renderPriorityChip(value);
+    }
+  };
+}
 
 class PanelPaginationBehavior {
   buildQuery(page, perPage) {
@@ -434,12 +659,16 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
   };
 
+  const translationQueueAssigneeLookup = await loadTranslationAssigneeLookup();
+  const queueCellRenderers = createTranslationsQueueCellRenderers(translationQueueAssigneeLookup);
+
   const extensionCellRenderers = (window.contentEntryCellRenderers && typeof window.contentEntryCellRenderers === 'object')
     ? window.contentEntryCellRenderers
     : {};
   const mergedCellRenderers = {
     ...extensionCellRenderers,
-    ...translationCellRenderers
+    ...translationCellRenderers,
+    ...queueCellRenderers
   };
 
   grid = new DataGrid({
