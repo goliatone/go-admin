@@ -1168,6 +1168,7 @@ func NewFormgenSchemaValidatorWithAPIBase(basePath, apiBase string) (*FormgenSch
 	componentRegistry.MustRegister("schema-editor", SchemaEditorDescriptor(basePath))
 	componentRegistry.MustRegister("block", BlockEditorDescriptor(basePath))
 	componentRegistry.MustRegister("block-library-picker", BlockLibraryPickerDescriptorWithAPIBase(basePath, apiBase))
+	componentRegistry.MustRegister("permission-matrix", PermissionMatrixDescriptor(basePath))
 
 	registry := formgenrender.NewRegistry()
 	renderer, err := formgenvanilla.New(
