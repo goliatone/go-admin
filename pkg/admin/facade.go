@@ -75,8 +75,6 @@ const (
 	AssignmentTypeOpenPool                       = core.AssignmentTypeOpenPool
 	CreateRoleOperation                          = core.CreateRoleOperation
 	CreateTranslationKey                         = core.CreateTranslationKey
-	DashboardRenderModeClient                    = core.DashboardRenderModeClient
-	DashboardRenderModeSSR                       = core.DashboardRenderModeSSR
 	DebugLayoutAdmin                             = core.DebugLayoutAdmin
 	DebugLayoutStandalone                        = core.DebugLayoutStandalone
 	DebugPanelConfig                             = core.DebugPanelConfig
@@ -216,6 +214,23 @@ const (
 	TextCodeWorkflowInvalidTransition            = core.TextCodeWorkflowInvalidTransition
 	TextCodeWorkflowNotFound                     = core.TextCodeWorkflowNotFound
 	UpdateRoleOperation                          = core.UpdateRoleOperation
+	WidgetActivityFeed                           = core.WidgetActivityFeed
+	WidgetBarChart                               = core.WidgetBarChart
+	WidgetChartSample                            = core.WidgetChartSample
+	WidgetContentStats                           = core.WidgetContentStats
+	WidgetGaugeChart                             = core.WidgetGaugeChart
+	WidgetLineChart                              = core.WidgetLineChart
+	WidgetNotifications                          = core.WidgetNotifications
+	WidgetPieChart                               = core.WidgetPieChart
+	WidgetQuickActions                           = core.WidgetQuickActions
+	WidgetScatterChart                           = core.WidgetScatterChart
+	WidgetSettingsOverview                       = core.WidgetSettingsOverview
+	WidgetStorageStats                           = core.WidgetStorageStats
+	WidgetSystemHealth                           = core.WidgetSystemHealth
+	WidgetTranslationProgress                    = core.WidgetTranslationProgress
+	WidgetUserActivityFeed                       = core.WidgetUserActivityFeed
+	WidgetUserProfileOverview                    = core.WidgetUserProfileOverview
+	WidgetUserStats                              = core.WidgetUserStats
 	WorkflowBindingScopeContentType              = core.WorkflowBindingScopeContentType
 	WorkflowBindingScopeGlobal                   = core.WorkflowBindingScopeGlobal
 	WorkflowBindingScopeTrait                    = core.WorkflowBindingScopeTrait
@@ -266,6 +281,7 @@ type (
 	ActivityEntry                             = core.ActivityEntry
 	ActivityFeed                              = core.ActivityFeed
 	ActivityFeedQuerier                       = core.ActivityFeedQuerier
+	ActivityFeedWidgetPayload                 = core.ActivityFeedWidgetPayload
 	ActivityFilter                            = core.ActivityFilter
 	ActivityLogger                            = core.ActivityLogger
 	ActivityModule                            = core.ActivityModule
@@ -335,6 +351,7 @@ type (
 	CMSPageRepository                         = core.CMSPageRepository
 	CMSWidgetService                          = core.CMSWidgetService
 	CRUDRepositoryAdapter                     = core.CRUDRepositoryAdapter
+	ChartPointWidgetPayload                   = core.ChartPointWidgetPayload
 	CommandBus                                = core.CommandBus
 	Config                                    = core.Config
 	ContentTranslation                        = core.ContentTranslation
@@ -358,7 +375,6 @@ type (
 	DashboardPreferencesWithContext           = core.DashboardPreferencesWithContext
 	DashboardProviderMsg                      = core.DashboardProviderMsg
 	DashboardProviderSpec                     = core.DashboardProviderSpec
-	DashboardRenderMode                       = core.DashboardRenderMode
 	DashboardRenderer                         = core.DashboardRenderer
 	DashboardWidgetInstance                   = core.DashboardWidgetInstance
 	DebugCollector                            = core.DebugCollector
@@ -368,6 +384,7 @@ type (
 	DebugLogHandler                           = core.DebugLogHandler
 	DebugModule                               = core.DebugModule
 	DebugPanel                                = core.DebugPanel
+	DebugPanelWidgetPayload                   = core.DebugPanelWidgetPayload
 	DebugQueryHook                            = core.DebugQueryHook
 	DebugREPLCommand                          = core.DebugREPLCommand
 	DebugREPLCommandCatalog                   = core.DebugREPLCommandCatalog
@@ -494,6 +511,7 @@ type (
 	JSErrorEntry                              = core.JSErrorEntry
 	Job                                       = core.Job
 	JobRegistry                               = core.JobRegistry
+	LegacyChartSampleWidgetPayload            = core.LegacyChartSampleWidgetPayload
 	ListOptions                               = core.ListOptions
 	ListPredicate                             = core.ListPredicate
 	LogEntry                                  = core.LogEntry
@@ -527,6 +545,7 @@ type (
 	NotificationMarkCommand                   = core.NotificationMarkCommand
 	NotificationMarkMsg                       = core.NotificationMarkMsg
 	NotificationService                       = core.NotificationService
+	NotificationsWidgetPayload                = core.NotificationsWidgetPayload
 	ObjectResolverFunc                        = core.ObjectResolverFunc
 	ObjectResolverMap                         = core.ObjectResolverMap
 	Option                                    = core.Option
@@ -591,6 +610,8 @@ type (
 	ProfileRepository                         = core.ProfileRepository
 	ProfileService                            = core.ProfileService
 	ProfileStore                              = core.ProfileStore
+	QuickActionWidgetPayload                  = core.QuickActionWidgetPayload
+	QuickActionsWidgetPayload                 = core.QuickActionsWidgetPayload
 	RateLimiter                               = core.RateLimiter
 	Registry                                  = core.Registry
 	Repository                                = core.Repository
@@ -629,12 +650,14 @@ type (
 	SettingFieldEnricher                      = core.SettingFieldEnricher
 	SettingOption                             = core.SettingOption
 	SettingOptionsProvider                    = core.SettingOptionsProvider
+	SettingOverviewValuePayload               = core.SettingOverviewValuePayload
 	SettingRecord                             = core.SettingRecord
 	SettingValidator                          = core.SettingValidator
 	SettingsAdapter                           = core.SettingsAdapter
 	SettingsBundle                            = core.SettingsBundle
 	SettingsForm                              = core.SettingsForm
 	SettingsFormAdapter                       = core.SettingsFormAdapter
+	SettingsOverviewWidgetPayload             = core.SettingsOverviewWidgetPayload
 	SettingsScope                             = core.SettingsScope
 	SettingsService                           = core.SettingsService
 	SettingsUpdateCommand                     = core.SettingsUpdateCommand
@@ -696,11 +719,13 @@ type (
 	TranslationImportRunTriggerInput          = core.TranslationImportRunTriggerInput
 	TranslationImportValidateCommand          = core.TranslationImportValidateCommand
 	TranslationImportValidateInput            = core.TranslationImportValidateInput
+	TranslationLinkWidgetPayload              = core.TranslationLinkWidgetPayload
 	TranslationMeta                           = core.TranslationMeta
 	TranslationMetrics                        = core.TranslationMetrics
 	TranslationPolicy                         = core.TranslationPolicy
 	TranslationPolicyFunc                     = core.TranslationPolicyFunc
 	TranslationPolicyInput                    = core.TranslationPolicyInput
+	TranslationProgressWidgetPayload          = core.TranslationProgressWidgetPayload
 	TranslationQueueApproveCommand            = core.TranslationQueueApproveCommand
 	TranslationQueueApproveInput              = core.TranslationQueueApproveInput
 	TranslationQueueArchiveCommand            = core.TranslationQueueArchiveCommand
@@ -733,6 +758,7 @@ type (
 	TranslationRequirements                   = core.TranslationRequirements
 	TranslationRequirementsResolver           = core.TranslationRequirementsResolver
 	TranslationRequirementsResolverFunc       = core.TranslationRequirementsResolverFunc
+	TranslationSummaryWidgetPayload           = core.TranslationSummaryWidgetPayload
 	Translator                                = core.Translator
 	TranslatorAware                           = core.TranslatorAware
 	URLConfig                                 = core.URLConfig
@@ -752,6 +778,7 @@ type (
 	UserProfilesPanelRepository               = core.UserProfilesPanelRepository
 	UserRecord                                = core.UserRecord
 	UserRepository                            = core.UserRepository
+	UserStatsWidgetPayload                    = core.UserStatsWidgetPayload
 	UserSuspendMsg                            = core.UserSuspendMsg
 	WidgetArea                                = core.WidgetArea
 	WidgetAreaDefinition                      = core.WidgetAreaDefinition
@@ -854,28 +881,16 @@ func CaptureViewContextForRequest(collector *DebugCollector, c router.Context, v
 	return core.CaptureViewContextForRequest(collector, c, viewCtx)
 }
 
-func DecodeWidgetConfig[T any](cfg map[string]any) (T, error) {
-	return core.DecodeWidgetConfig[T](cfg)
-}
-
 func CollectIconContributions(contributor IconContributor, callbacks IconContributorCallbacks) error {
 	return core.CollectIconContributions(contributor, callbacks)
 }
 
-func DashboardRenderModeFromContext(ctx context.Context) DashboardRenderMode {
-	return core.DashboardRenderModeFromContext(ctx)
-}
-
-func EmptyWidgetPayload() WidgetPayload {
-	return core.EmptyWidgetPayload()
-}
-
-func WidgetPayloadOf[T any](value T) WidgetPayload {
-	return core.WidgetPayloadOf(value)
-}
-
 func DebugRequestMiddleware(collector *DebugCollector) router.MiddlewareFunc {
 	return core.DebugRequestMiddleware(collector)
+}
+
+func DecodeWidgetConfig[T any](cfg map[string]any) (T, error) {
+	return core.DecodeWidgetConfig[T](cfg)
 }
 
 func DefaultBlockFieldTypeRegistry() *FieldTypeRegistry {
@@ -916,6 +931,10 @@ func DomainErrorCodeFor(code string) (DomainErrorCode, bool) {
 
 func DomainErrorCodes() []DomainErrorCode {
 	return core.DomainErrorCodes()
+}
+
+func EmptyWidgetPayload() WidgetPayload {
+	return core.EmptyWidgetPayload()
 }
 
 func EnrichLayoutViewContext(adm *Admin, c router.Context, view router.ViewContext, active string) router.ViewContext {
@@ -1638,6 +1657,10 @@ func ValidateJSONPointerFormat(pointer string) bool {
 	return core.ValidateJSONPointerFormat(pointer)
 }
 
+func WidgetPayloadOf[T any](value T) WidgetPayload {
+	return core.WidgetPayloadOf[T](value)
+}
+
 func WithActivityRetention(limit int) func(*ActivityFeed) {
 	return core.WithActivityRetention(limit)
 }
@@ -1716,10 +1739,6 @@ func WithContentTypeBuilderWorkflow(workflow WorkflowEngine) ContentTypeBuilderO
 
 func WithContentTypeBuilderWorkflowAuthorizer(authorizer WorkflowAuthorizer) ContentTypeBuilderOption {
 	return core.WithContentTypeBuilderWorkflowAuthorizer(authorizer)
-}
-
-func WithDashboardRenderMode(ctx context.Context, mode DashboardRenderMode) context.Context {
-	return core.WithDashboardRenderMode(ctx, mode)
 }
 
 func WithDefaultLibrary(library string) IconServiceOption {
