@@ -163,3 +163,46 @@ func TestFormgenSchemaValidator_RenderForm_UsesBlockLibraryPickerComponent(t *te
 		t.Fatalf("expected no blocksItem fallback JSON editor in html: %s", html)
 	}
 }
+
+func TestFormgenSchemaValidator_RenderForm_UsesPermissionMatrixComponent(t *testing.T) {
+	validator, err := NewFormgenSchemaValidatorWithAPIBase("/admin", "/admin/api")
+	if err != nil {
+		t.Fatalf("validator init failed: %v", err)
+	}
+	schema := map[string]any{
+		"$schema": "https://json-schema.org/draft/2020-12/schema",
+		"type":    "object",
+		"properties": map[string]any{
+			"permissions": map[string]any{
+				"type": "string",
+				"x-formgen": map[string]any{
+					"widget":         "permission-matrix",
+					"component.name": "permission-matrix",
+					"component.config": map[string]any{
+						"resources": []string{"admin.users"},
+						"actions":   []string{"view", "edit"},
+					},
+				},
+			},
+		},
+	}
+
+	html, err := validator.RenderForm(
+		context.Background(),
+		schema,
+		SchemaValidationOptions{Slug: "roles"},
+		formgenrender.RenderOptions{},
+	)
+	if err != nil {
+		t.Fatalf("render failed: %v", err)
+	}
+	if !strings.Contains(html, `class="permission-matrix"`) {
+		t.Fatalf("expected permission matrix markup in html: %s", html)
+	}
+	if !strings.Contains(html, `name="permissions"`) {
+		t.Fatalf("expected permission matrix hidden input for permissions field in html: %s", html)
+	}
+	if !strings.Contains(html, `permission_matrix.js`) {
+		t.Fatalf("expected permission matrix script in html: %s", html)
+	}
+}
