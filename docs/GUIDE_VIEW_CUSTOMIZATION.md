@@ -246,6 +246,24 @@ quickstart.RegisterContentEntryUIRoutes(
 The server automatically attaches `block_icons_map` by querying active block
 definitions for the current environment. User-provided values take precedence.
 
+### permission-matrix component
+
+Roles use a custom `permission-matrix` form component registered through
+`admin.PermissionMatrixDescriptor(basePath)`.
+
+Template override key:
+
+- `forms.permission-matrix` (defaults to `templates/components/permission_matrix.tmpl`)
+
+If you override the template and keep chips-based Additional permissions, ensure
+the host page loads and initializes relationship runtime:
+
+- `runtime/formgen-relationships.min.js`
+- `window.FormgenRelationships.initRelationships(...)`
+
+For full component behavior, options, and roles split configuration, see
+`GUIDES_PERMISSION_MATRIX.md`.
+
 ## Auth UI slots (login extra)
 
 The login template now exposes a slot block you can extend without modifying the base template:
