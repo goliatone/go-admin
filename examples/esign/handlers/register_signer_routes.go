@@ -50,6 +50,106 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 		})
 	})
 
+	r.Get(routes.SignerProfile, func(c router.Context) error {
+		if err := enforceTransportSecurity(c, cfg); err != nil {
+			return asHandlerError(err)
+		}
+		token := strings.TrimSpace(c.Param("token"))
+		if token == "" {
+			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "token is required", nil)
+		}
+		key := strings.TrimSpace(c.Query("key"))
+		if key == "" {
+			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "key is required", nil)
+		}
+		if err := enforceRateLimit(c, cfg, OperationSignerSession); err != nil {
+			return asHandlerError(err)
+		}
+		tokenRecord, err := resolveSignerToken(c, cfg, token)
+		if err != nil {
+			return asHandlerError(err)
+		}
+		if cfg.signerProfile == nil {
+			return writeAPIError(c, nil, http.StatusNotImplemented, string(services.ErrorCodeInvalidSignerState), "signer profile service not configured", nil)
+		}
+		profile, err := cfg.signerProfile.Get(c.Context(), cfg.resolveScope(c), resolveSignerProfileSubject(c, cfg, tokenRecord), key)
+		if err != nil {
+			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "unable to load signer profile", nil)
+		}
+		return c.JSON(http.StatusOK, map[string]any{
+			"status":  "ok",
+			"profile": profile,
+		})
+	})
+
+	registerSignerPatchRoute(r, routes.SignerProfile, func(c router.Context) error {
+		if err := enforceTransportSecurity(c, cfg); err != nil {
+			return asHandlerError(err)
+		}
+		token := strings.TrimSpace(c.Param("token"))
+		if token == "" {
+			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "token is required", nil)
+		}
+		key := strings.TrimSpace(c.Query("key"))
+		if key == "" {
+			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "key is required", nil)
+		}
+		if err := enforceRateLimit(c, cfg, OperationSignerSession); err != nil {
+			return asHandlerError(err)
+		}
+		tokenRecord, err := resolveSignerToken(c, cfg, token)
+		if err != nil {
+			return asHandlerError(err)
+		}
+		if cfg.signerProfile == nil {
+			return writeAPIError(c, nil, http.StatusNotImplemented, string(services.ErrorCodeInvalidSignerState), "signer profile service not configured", nil)
+		}
+		var payload struct {
+			Patch services.SignerProfilePatch `json:"patch"`
+		}
+		if err := c.Bind(&payload); err != nil {
+			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid signer profile payload", nil)
+		}
+		profile, err := cfg.signerProfile.Save(c.Context(), cfg.resolveScope(c), resolveSignerProfileSubject(c, cfg, tokenRecord), key, payload.Patch)
+		if err != nil {
+			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "unable to save signer profile", nil)
+		}
+		return c.JSON(http.StatusOK, map[string]any{
+			"status":  "ok",
+			"profile": profile,
+		})
+	})
+
+	r.Delete(routes.SignerProfile, func(c router.Context) error {
+		if err := enforceTransportSecurity(c, cfg); err != nil {
+			return asHandlerError(err)
+		}
+		token := strings.TrimSpace(c.Param("token"))
+		if token == "" {
+			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "token is required", nil)
+		}
+		key := strings.TrimSpace(c.Query("key"))
+		if key == "" {
+			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "key is required", nil)
+		}
+		if err := enforceRateLimit(c, cfg, OperationSignerSession); err != nil {
+			return asHandlerError(err)
+		}
+		tokenRecord, err := resolveSignerToken(c, cfg, token)
+		if err != nil {
+			return asHandlerError(err)
+		}
+		if cfg.signerProfile == nil {
+			return writeAPIError(c, nil, http.StatusNotImplemented, string(services.ErrorCodeInvalidSignerState), "signer profile service not configured", nil)
+		}
+		if err := cfg.signerProfile.Clear(c.Context(), cfg.resolveScope(c), resolveSignerProfileSubject(c, cfg, tokenRecord), key); err != nil {
+			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "unable to clear signer profile", nil)
+		}
+		return c.JSON(http.StatusOK, map[string]any{
+			"status": "ok",
+		})
+	})
+
 	r.Get(routes.SignerAssets, func(c router.Context) error {
 		if err := enforceTransportSecurity(c, cfg); err != nil {
 			return asHandlerError(err)
@@ -606,4 +706,34 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 			"decline": result,
 		})
 	})
+}
+
+func resolveSignerProfileSubject(c router.Context, cfg registerConfig, token stores.SigningTokenRecord) string {
+	subject := strings.ToLower(strings.TrimSpace(token.RecipientID))
+	if cfg.signerSession == nil {
+		return subject
+	}
+	session, err := cfg.signerSession.GetSession(c.Context(), cfg.resolveScope(c), token)
+	if err != nil {
+		return subject
+	}
+	email := strings.ToLower(strings.TrimSpace(session.RecipientEmail))
+	if email != "" {
+		return email
+	}
+	if id := strings.ToLower(strings.TrimSpace(session.RecipientID)); id != "" {
+		return id
+	}
+	return subject
+}
+
+func registerSignerPatchRoute(r coreadmin.AdminRouter, path string, handler router.HandlerFunc) {
+	type patchCapableRouter interface {
+		Patch(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo
+	}
+	if patchRouter, ok := any(r).(patchCapableRouter); ok {
+		patchRouter.Patch(path, handler)
+		return
+	}
+	r.Put(path, handler)
 }

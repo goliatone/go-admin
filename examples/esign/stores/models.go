@@ -362,6 +362,24 @@ type SignatureArtifactRecord struct {
 	CreatedAt   time.Time
 }
 
+// SignerProfileRecord stores signer profile fields for cross-agreement reuse.
+type SignerProfileRecord struct {
+	ID                    string
+	TenantID              string
+	OrgID                 string
+	Subject               string
+	Key                   string
+	FullName              string
+	Initials              string
+	TypedSignature        string
+	DrawnSignatureDataURL string
+	DrawnInitialsDataURL  string
+	Remember              bool
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
+	ExpiresAt             time.Time
+}
+
 // AuditEventRecord represents append-only lifecycle and security events.
 type AuditEventRecord struct {
 	ID           string

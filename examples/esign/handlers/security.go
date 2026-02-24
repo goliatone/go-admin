@@ -13,6 +13,7 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/permissions"
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
+	"github.com/goliatone/go-admin/quickstart"
 	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
 	"github.com/goliatone/go-uploader"
@@ -51,6 +52,7 @@ type registerConfig struct {
 	adminRouteAuth      router.MiddlewareFunc
 	tokenValidator      SignerTokenValidator
 	signerSession       SignerSessionService
+	signerProfile       SignerProfileService
 	signerAssets        SignerAssetContractService
 	agreementDelivery   AgreementDeliveryService
 	agreementAuthoring  AgreementAuthoringService
@@ -70,6 +72,7 @@ type registerConfig struct {
 	actorScope          ActorScopeResolver
 	transportGuard      TransportGuard
 	rateLimiter         RequestRateLimiter
+	trustForwardedIP    bool
 	securityLogEvent    SecurityLogEvent
 }
 
@@ -96,6 +99,13 @@ type SignerSessionService interface {
 	AttachSignatureArtifact(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord, input services.SignerSignatureInput) (services.SignerSignatureResult, error)
 	Submit(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord, input services.SignerSubmitInput) (services.SignerSubmitResult, error)
 	Decline(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord, input services.SignerDeclineInput) (services.SignerDeclineResult, error)
+}
+
+// SignerProfileService handles token-scoped signer profile persistence.
+type SignerProfileService interface {
+	Get(ctx context.Context, scope stores.Scope, subject, key string) (*services.SignerProfile, error)
+	Save(ctx context.Context, scope stores.Scope, subject, key string, patch services.SignerProfilePatch) (services.SignerProfile, error)
+	Clear(ctx context.Context, scope stores.Scope, subject, key string) error
 }
 
 // SignerAssetContractService resolves token-scoped signer asset contract metadata.
@@ -284,6 +294,16 @@ func WithSignerSessionService(service SignerSessionService) RegisterOption {
 			return
 		}
 		cfg.signerSession = service
+	}
+}
+
+// WithSignerProfileService configures signer profile persistence APIs.
+func WithSignerProfileService(service SignerProfileService) RegisterOption {
+	return func(cfg *registerConfig) {
+		if cfg == nil {
+			return
+		}
+		cfg.signerProfile = service
 	}
 }
 
@@ -480,6 +500,17 @@ func WithRequestRateLimiter(limiter RequestRateLimiter) RegisterOption {
 	}
 }
 
+// WithTrustForwardedClientIP allows forwarded IP headers to influence request IP resolution.
+// Keep disabled unless upstream proxies sanitize these headers.
+func WithTrustForwardedClientIP(enabled bool) RegisterOption {
+	return func(cfg *registerConfig) {
+		if cfg == nil {
+			return
+		}
+		cfg.trustForwardedIP = enabled
+	}
+}
+
 // WithSecurityLogEvent captures redacted security events from authz/token checks.
 func WithSecurityLogEvent(handler SecurityLogEvent) RegisterOption {
 	return func(cfg *registerConfig) {
@@ -648,10 +679,9 @@ func enforceRateLimit(c router.Context, cfg registerConfig, operation string) er
 	if op == "" {
 		return nil
 	}
-	key := strings.TrimSpace(c.Header("X-Forwarded-For"))
-	if key == "" {
-		key = strings.TrimSpace(c.IP())
-	}
+	key := strings.TrimSpace(quickstart.ResolveRequestIP(c, quickstart.RequestIPOptions{
+		TrustForwardedHeaders: cfg.trustForwardedIP,
+	}))
 	if key == "" {
 		key = "unknown"
 	}

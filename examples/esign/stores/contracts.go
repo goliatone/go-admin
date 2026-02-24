@@ -63,6 +63,13 @@ type SignatureArtifactStore interface {
 	GetSignatureArtifact(ctx context.Context, scope Scope, id string) (SignatureArtifactRecord, error)
 }
 
+// SignerProfileStore defines persistence for signer profile preference snapshots.
+type SignerProfileStore interface {
+	UpsertSignerProfile(ctx context.Context, scope Scope, record SignerProfileRecord) (SignerProfileRecord, error)
+	GetSignerProfile(ctx context.Context, scope Scope, subject, key string, now time.Time) (SignerProfileRecord, error)
+	DeleteSignerProfile(ctx context.Context, scope Scope, subject, key string) error
+}
+
 // SigningTokenStore defines persistence for hashed signer tokens.
 type SigningTokenStore interface {
 	CreateSigningToken(ctx context.Context, scope Scope, record SigningTokenRecord) (SigningTokenRecord, error)
@@ -167,6 +174,7 @@ type TxStore interface {
 	DraftStore
 	SigningStore
 	SignatureArtifactStore
+	SignerProfileStore
 	SigningTokenStore
 	AuditEventStore
 	AgreementArtifactStore

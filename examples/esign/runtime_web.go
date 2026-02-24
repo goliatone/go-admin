@@ -290,6 +290,26 @@ func applyESignRuntimeDefaults(cfg *coreadmin.Config) {
 	if cfg.Debug.LayoutMode == "" {
 		cfg.Debug.LayoutMode = coreadmin.DebugLayoutAdmin
 	}
+	defaultLabels := map[string]string{
+		"cms.widget_instance.save":       "Saved widget",
+		"cms.widget_instance.delete":     "Deleted widget",
+		"cms.widget_definition.register": "Registered widget definition",
+		"cms.widget_definition.delete":   "Deleted widget definition",
+		"dashboard.layout.save":          "Saved dashboard layout",
+	}
+	if cfg.ActivityActionLabels == nil {
+		cfg.ActivityActionLabels = map[string]string{}
+	}
+	for key, value := range defaultLabels {
+		key = strings.TrimSpace(key)
+		if key == "" {
+			continue
+		}
+		if _, exists := cfg.ActivityActionLabels[key]; exists {
+			continue
+		}
+		cfg.ActivityActionLabels[key] = value
+	}
 }
 
 func newESignViewEngine(cfg coreadmin.Config, adm *coreadmin.Admin) (fiber.Views, error) {
@@ -299,20 +319,39 @@ func newESignViewEngine(cfg coreadmin.Config, adm *coreadmin.Admin) (fiber.Views
 	if err := validateESignRuntimeAssetContracts(); err != nil {
 		return nil, err
 	}
-	templateOpts := []quickstart.TemplateFuncOption{
-		quickstart.WithTemplateBasePath(cfg.BasePath),
-	}
-	if adm != nil {
-		templateOpts = append(templateOpts,
-			quickstart.WithTemplateURLResolver(adm.URLs()),
-			quickstart.WithTemplateFeatureGate(adm.FeatureGate()),
-		)
-	}
+	templateOpts := eSignTemplateFuncOptions(cfg, adm)
 	return quickstart.NewViewEngine(
 		client.FS(),
 		quickstart.WithViewTemplateFuncs(quickstart.DefaultTemplateFuncs(templateOpts...)),
 		quickstart.WithViewTemplatesFS(eSignTemplatesFS),
 		quickstart.WithViewDebug(cfg.Debug.Enabled),
+	)
+}
+
+func eSignTemplateFuncOptions(cfg coreadmin.Config, adm *coreadmin.Admin) []quickstart.TemplateFuncOption {
+	templateOpts := []quickstart.TemplateFuncOption{
+		quickstart.WithTemplateBasePath(cfg.BasePath),
+	}
+	if adm == nil {
+		return templateOpts
+	}
+	return append(templateOpts,
+		quickstart.WithTemplateURLResolver(adm.URLs()),
+		quickstart.WithTemplateFeatureGate(adm.FeatureGate()),
+	)
+}
+
+func configureESignDashboardRenderer(adm *coreadmin.Admin, viewEngine fiber.Views, cfg coreadmin.Config) error {
+	if adm == nil {
+		return fmt.Errorf("admin is required")
+	}
+	return quickstart.WithDefaultDashboardRenderer(
+		adm,
+		viewEngine,
+		cfg,
+		quickstart.WithDashboardTemplatesFS(client.Templates()),
+		quickstart.WithDashboardEmbeddedTemplates(false),
+		quickstart.WithDashboardTemplateFuncOptions(eSignTemplateFuncOptions(cfg, adm)...),
 	)
 }
 
@@ -352,9 +391,19 @@ func registerESignWebRoutes(
 		return c.Redirect(basePath, http.StatusFound)
 	})
 
-	if err := quickstart.RegisterAdminUIRoutes(r, cfg, adm, authn); err != nil {
+	if err := quickstart.RegisterAdminUIRoutes(
+		r,
+		cfg,
+		adm,
+		authn,
+		quickstart.WithUIDashboardRoute(false),
+	); err != nil {
 		return err
 	}
+	dashboardPath := path.Join(basePath, "dashboard")
+	r.Get(basePath, authn.WrapHandler(func(c router.Context) error {
+		return c.Redirect(dashboardPath, http.StatusFound)
+	}))
 	if err := quickstart.RegisterSettingsUIRoutes(r, cfg, adm, authn); err != nil {
 		return err
 	}
@@ -411,16 +460,26 @@ func registerESignWebRoutes(
 			Active:     "esign",
 			Feature:    "esign",
 			Permission: permissions.AdminESignView,
-			BuildContext: func(_ router.Context) (router.ViewContext, error) {
+			BuildContext: func(c router.Context) (router.ViewContext, error) {
+				stats := map[string]int{
+					"draft":           0,
+					"pending":         0,
+					"completed":       0,
+					"action_required": 0,
+					"total":           0,
+				}
+				recentAgreements := []map[string]any{}
+				if esignModule != nil {
+					scope := resolveESignUploadScope(c, esignModule.DefaultScope())
+					if liveStats, liveRecent, err := esignModule.LandingOverview(c.Context(), scope, 5); err == nil {
+						stats = liveStats
+						recentAgreements = liveRecent
+					}
+				}
 				viewCtx := router.ViewContext{
-					"api_base_path": apiBasePath,
-					"stats": map[string]int{
-						"draft":           0,
-						"pending":         0,
-						"completed":       0,
-						"action_required": 0,
-					},
-					"recent_agreements": []map[string]any{},
+					"api_base_path":     apiBasePath,
+					"stats":             stats,
+					"recent_agreements": recentAgreements,
 				}
 				viewCtx = withESignPageConfig(viewCtx, buildESignAdminLandingPageConfig(basePath, apiBasePath, googleEnabled))
 				return viewCtx, nil
@@ -486,7 +545,7 @@ func registerESignGoogleIntegrationUIRoutes(
 		return nil
 	}
 
-	return quickstart.RegisterAdminPageRoutes(
+	if err := quickstart.RegisterAdminPageRoutes(
 		r,
 		cfg,
 		adm,
@@ -528,36 +587,6 @@ func registerESignGoogleIntegrationUIRoutes(
 				pageCfg.Context["google_account_id"] = accountID
 				viewCtx = withESignPageConfig(
 					viewCtx,
-					pageCfg,
-				)
-				return viewCtx, nil
-			},
-		},
-		quickstart.AdminPageSpec{
-			Path:       googleCallbackPath,
-			Template:   "resources/esign-integrations/google-callback",
-			Title:      "Google Authorization",
-			Active:     "esign",
-			Permission: permissions.AdminESignSettings,
-			BuildContext: func(c router.Context) (router.ViewContext, error) {
-				userID := resolveESignAdminUserID(c)
-				accountID := resolveGoogleAccountID(c)
-				pageCfg := buildESignGoogleIntegrationPageConfig(
-					eSignPageGoogleCallback,
-					basePath,
-					apiBasePath,
-					userID,
-					googleEnabled,
-					map[string]string{},
-				)
-				if pageCfg.Context == nil {
-					pageCfg.Context = map[string]any{}
-				}
-				pageCfg.Context["google_account_id"] = accountID
-				viewCtx := withESignPageConfig(
-					router.ViewContext{
-						"google_account_id": accountID,
-					},
 					pageCfg,
 				)
 				return viewCtx, nil
@@ -607,7 +636,40 @@ func registerESignGoogleIntegrationUIRoutes(
 				return viewCtx, nil
 			},
 		},
-	)
+	); err != nil {
+		return err
+	}
+
+	// OAuth callback must be reachable from Google redirect even when auth cookies
+	// are absent (e.g. localhost vs 127.0.0.1 callback host mismatch).
+	r.Get(googleCallbackPath, func(c router.Context) error {
+		userID := resolveESignAdminUserID(c)
+		accountID := resolveGoogleAccountID(c)
+		pageCfg := buildESignGoogleIntegrationPageConfig(
+			eSignPageGoogleCallback,
+			basePath,
+			apiBasePath,
+			userID,
+			googleEnabled,
+			map[string]string{},
+		)
+		if pageCfg.Context == nil {
+			pageCfg.Context = map[string]any{}
+		}
+		pageCfg.Context["google_account_id"] = accountID
+		viewCtx := withESignPageConfig(
+			router.ViewContext{
+				"base_path":         basePath,
+				"api_base_path":     apiBasePath,
+				"google_account_id": accountID,
+				"google_enabled":    googleEnabled,
+			},
+			pageCfg,
+		)
+		return templateview.RenderTemplateView(c, "resources/esign-integrations/google-callback", viewCtx)
+	})
+
+	return nil
 }
 
 func registerESignDocumentUploadRoute(
@@ -1306,14 +1368,34 @@ func buildSignerReviewViewContext(token, apiBasePath string, session services.Si
 		"token":         token,
 		"api_base_path": apiBasePath,
 		"flow_mode":     signerFlowModeUnified,
-		"session":       sessionCtx,
-		"viewer":        viewerCtx,
+		"profile_mode":  resolveSignerProfileMode(),
+		"profile_ttl_days": func() int {
+			days := envInt("ESIGN_SIGNER_PROFILE_TTL_DAYS", 90)
+			if days < 1 || days > 365 {
+				return 90
+			}
+			return days
+		}(),
+		"profile_persist_drawn_signature": envBool("ESIGN_SIGNER_PROFILE_PERSIST_DRAWN_SIGNATURE", true),
+		"profile_endpoint_base_path":      apiBasePath,
+		"session":                         sessionCtx,
+		"viewer":                          viewerCtx,
 		"agreement": map[string]any{
 			"title":         "Agreement",
 			"status":        session.AgreementStatus,
 			"page_count":    maxInt(session.PageCount, 1),
 			"document_name": firstNonEmptyValue(session.DocumentName, "Document.pdf"),
 		},
+	}
+}
+
+func resolveSignerProfileMode() string {
+	mode := strings.ToLower(strings.TrimSpace(os.Getenv("ESIGN_SIGNER_PROFILE_MODE")))
+	switch mode {
+	case "hybrid", "remote_only", "local_only":
+		return mode
+	default:
+		return "hybrid"
 	}
 }
 

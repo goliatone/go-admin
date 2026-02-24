@@ -53,6 +53,8 @@ type sqliteStoreSnapshot struct {
 	SigningTokens              map[string]SigningTokenRecord           `json:"signing_tokens"`
 	TokenHashIndex             map[string]string                       `json:"token_hash_index"`
 	SignatureArtifacts         map[string]SignatureArtifactRecord      `json:"signature_artifacts"`
+	SignerProfiles             map[string]SignerProfileRecord          `json:"signer_profiles"`
+	SignerProfileIndex         map[string]string                       `json:"signer_profile_index"`
 	FieldValues                map[string]FieldValueRecord             `json:"field_values"`
 	AuditEvents                map[string]AuditEventRecord             `json:"audit_events"`
 	AgreementArtifacts         map[string]AgreementArtifactRecord      `json:"agreement_artifacts"`
@@ -184,6 +186,8 @@ func loadSQLiteSnapshot(ctx context.Context, db *sql.DB) (*InMemoryStore, error)
 	mem.signingTokens = ensureSigningTokenMap(snapshot.SigningTokens)
 	mem.tokenHashIndex = ensureStringMap(snapshot.TokenHashIndex)
 	mem.signatureArtifacts = ensureSignatureArtifactMap(snapshot.SignatureArtifacts)
+	mem.signerProfiles = ensureSignerProfileMap(snapshot.SignerProfiles)
+	mem.signerProfileIndex = ensureStringMap(snapshot.SignerProfileIndex)
 	mem.fieldValues = ensureFieldValueMap(snapshot.FieldValues)
 	mem.auditEvents = ensureAuditEventMap(snapshot.AuditEvents)
 	mem.agreementArtifacts = ensureAgreementArtifactMap(snapshot.AgreementArtifacts)
@@ -245,6 +249,8 @@ func (s *SQLiteStore) persist(ctx context.Context) error {
 		SigningTokens:              maps.Clone(s.signingTokens),
 		TokenHashIndex:             maps.Clone(s.tokenHashIndex),
 		SignatureArtifacts:         maps.Clone(s.signatureArtifacts),
+		SignerProfiles:             maps.Clone(s.signerProfiles),
+		SignerProfileIndex:         maps.Clone(s.signerProfileIndex),
 		FieldValues:                maps.Clone(s.fieldValues),
 		AuditEvents:                maps.Clone(s.auditEvents),
 		AgreementArtifacts:         maps.Clone(s.agreementArtifacts),
@@ -695,6 +701,28 @@ func (s *SQLiteStore) CreateSignatureArtifact(ctx context.Context, scope Scope, 
 		return SignatureArtifactRecord{}, err
 	}
 	return out, nil
+}
+
+func (s *SQLiteStore) UpsertSignerProfile(ctx context.Context, scope Scope, record SignerProfileRecord) (SignerProfileRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.UpsertSignerProfile(ctx, scope, record)
+	if err != nil {
+		return SignerProfileRecord{}, err
+	}
+	if err := s.persistMaybe(ctx); err != nil {
+		return SignerProfileRecord{}, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) DeleteSignerProfile(ctx context.Context, scope Scope, subject, key string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.InMemoryStore.DeleteSignerProfile(ctx, scope, subject, key); err != nil {
+		return err
+	}
+	return s.persistMaybe(ctx)
 }
 
 func (s *SQLiteStore) UpsertFieldValue(ctx context.Context, scope Scope, value FieldValueRecord, expectedVersion int64) (FieldValueRecord, error) {
@@ -1148,6 +1176,13 @@ func ensureSigningTokenMap(in map[string]SigningTokenRecord) map[string]SigningT
 func ensureSignatureArtifactMap(in map[string]SignatureArtifactRecord) map[string]SignatureArtifactRecord {
 	if in == nil {
 		return map[string]SignatureArtifactRecord{}
+	}
+	return in
+}
+
+func ensureSignerProfileMap(in map[string]SignerProfileRecord) map[string]SignerProfileRecord {
+	if in == nil {
+		return map[string]SignerProfileRecord{}
 	}
 	return in
 }

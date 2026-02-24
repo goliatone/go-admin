@@ -269,6 +269,7 @@ func withClaimsPermissions(perms ...string) router.MiddlewareFunc {
 			claims := &auth.JWTClaims{
 				UID:      "test-admin",
 				UserRole: string(auth.RoleAdmin),
+				Scopes:   append([]string{}, normalized...),
 				Metadata: map[string]any{
 					"permissions": append([]string{}, normalized...),
 				},

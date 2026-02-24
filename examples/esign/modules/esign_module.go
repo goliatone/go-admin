@@ -74,6 +74,7 @@ type ESignModule struct {
 	agreements        services.AgreementService
 	drafts            services.DraftService
 	signing           services.SigningService
+	signerProfiles    services.SignerProfileService
 	artifacts         services.ArtifactPipelineService
 	google            googleIntegrationService
 	googleImportQueue *jobs.GoogleDriveImportQueue
@@ -274,6 +275,12 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		services.WithSignatureUploadConfig(signatureUploadTTL, signatureUploadSecret),
 		services.WithSigningObjectStore(objectStore),
 	)
+	profileTTL, persistDrawnSignature := resolveSignerProfilePersistencePolicy()
+	m.signerProfiles = services.NewSignerProfileService(
+		m.store,
+		services.WithSignerProfileTTL(profileTTL),
+		services.WithSignerProfilePersistDrawnSignature(persistDrawnSignature),
+	)
 	m.integrations = services.NewIntegrationFoundationService(
 		m.store,
 		services.WithIntegrationAuditStore(m.store),
@@ -356,6 +363,7 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		handlers.WithPermissions(handlers.DefaultPermissions),
 		handlers.WithSignerTokenValidator(m.tokens),
 		handlers.WithSignerSessionService(m.signing),
+		handlers.WithSignerProfileService(m.signerProfiles),
 		handlers.WithSignerAssetContractService(
 			services.NewSignerAssetContractService(m.store,
 				services.WithSignerAssetObjectStore(objectStore),
@@ -370,6 +378,7 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		handlers.WithDefaultScope(m.defaultScope),
 		handlers.WithTransportGuard(handlers.TLSTransportGuard{AllowLocalInsecure: true}),
 		handlers.WithRequestRateLimiter(handlers.NewSlidingWindowRateLimiter(handlers.DefaultRateLimitRules())),
+		handlers.WithTrustForwardedClientIP(resolveRateLimitClientIPTrustForwarded()),
 		handlers.WithSecurityLogEvent(func(event string, fields map[string]any) {
 			correlationID := observability.ResolveCorrelationID(strings.TrimSpace(fmt.Sprint(fields["correlation_id"])), strings.TrimSpace(event), moduleID)
 			observability.LogOperation(context.Background(), slog.LevelWarn, "api", "security_event", "warning", correlationID, 0, nil, map[string]any{
@@ -696,6 +705,40 @@ func cloneBoolMap(in map[string]bool) map[string]bool {
 		out[key] = value
 	}
 	return out
+}
+
+func resolveSignerProfilePersistencePolicy() (time.Duration, bool) {
+	ttlDays := 90
+	if raw := strings.TrimSpace(os.Getenv("ESIGN_SIGNER_PROFILE_TTL_DAYS")); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil {
+			ttlDays = parsed
+		}
+	}
+	if ttlDays < 1 {
+		ttlDays = 1
+	}
+	if ttlDays > 365 {
+		ttlDays = 365
+	}
+	persistDrawn := true
+	if raw := strings.TrimSpace(os.Getenv("ESIGN_SIGNER_PROFILE_PERSIST_DRAWN_SIGNATURE")); raw != "" {
+		if parsed, err := strconv.ParseBool(raw); err == nil {
+			persistDrawn = parsed
+		}
+	}
+	return time.Duration(ttlDays) * 24 * time.Hour, persistDrawn
+}
+
+func resolveRateLimitClientIPTrustForwarded() bool {
+	raw := strings.TrimSpace(os.Getenv("ESIGN_RATE_LIMIT_TRUST_PROXY_HEADERS"))
+	if raw == "" {
+		return false
+	}
+	parsed, err := strconv.ParseBool(raw)
+	if err != nil {
+		return false
+	}
+	return parsed
 }
 
 func resolveSignatureUploadSecurityPolicy() (time.Duration, string) {

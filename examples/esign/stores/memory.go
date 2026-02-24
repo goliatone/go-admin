@@ -31,6 +31,8 @@ type InMemoryStore struct {
 	signingTokens              map[string]SigningTokenRecord
 	tokenHashIndex             map[string]string
 	signatureArtifacts         map[string]SignatureArtifactRecord
+	signerProfiles             map[string]SignerProfileRecord
+	signerProfileIndex         map[string]string
 	fieldValues                map[string]FieldValueRecord
 	auditEvents                map[string]AuditEventRecord
 	agreementArtifacts         map[string]AgreementArtifactRecord
@@ -68,6 +70,8 @@ func NewInMemoryStore() *InMemoryStore {
 		signingTokens:              map[string]SigningTokenRecord{},
 		tokenHashIndex:             map[string]string{},
 		signatureArtifacts:         map[string]SignatureArtifactRecord{},
+		signerProfiles:             map[string]SignerProfileRecord{},
+		signerProfileIndex:         map[string]string{},
 		fieldValues:                map[string]FieldValueRecord{},
 		auditEvents:                map[string]AuditEventRecord{},
 		agreementArtifacts:         map[string]AgreementArtifactRecord{},
@@ -159,6 +163,8 @@ func (s *InMemoryStore) snapshot() (sqliteStoreSnapshot, error) {
 		SigningTokens:              s.signingTokens,
 		TokenHashIndex:             s.tokenHashIndex,
 		SignatureArtifacts:         s.signatureArtifacts,
+		SignerProfiles:             s.signerProfiles,
+		SignerProfileIndex:         s.signerProfileIndex,
 		FieldValues:                s.fieldValues,
 		AuditEvents:                s.auditEvents,
 		AgreementArtifacts:         s.agreementArtifacts,
@@ -205,6 +211,8 @@ func (s *InMemoryStore) applySnapshot(snapshot sqliteStoreSnapshot) {
 	s.signingTokens = ensureSigningTokenMap(snapshot.SigningTokens)
 	s.tokenHashIndex = ensureStringMap(snapshot.TokenHashIndex)
 	s.signatureArtifacts = ensureSignatureArtifactMap(snapshot.SignatureArtifacts)
+	s.signerProfiles = ensureSignerProfileMap(snapshot.SignerProfiles)
+	s.signerProfileIndex = ensureStringMap(snapshot.SignerProfileIndex)
 	s.fieldValues = ensureFieldValueMap(snapshot.FieldValues)
 	s.auditEvents = ensureAuditEventMap(snapshot.AuditEvents)
 	s.agreementArtifacts = ensureAgreementArtifactMap(snapshot.AgreementArtifacts)
@@ -1895,6 +1903,138 @@ func (s *InMemoryStore) GetSignatureArtifact(ctx context.Context, scope Scope, i
 	return record, nil
 }
 
+func (s *InMemoryStore) UpsertSignerProfile(ctx context.Context, scope Scope, record SignerProfileRecord) (SignerProfileRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return SignerProfileRecord{}, err
+	}
+	record.Subject = strings.ToLower(strings.TrimSpace(record.Subject))
+	record.Key = strings.TrimSpace(record.Key)
+	record.FullName = strings.TrimSpace(record.FullName)
+	record.Initials = strings.TrimSpace(record.Initials)
+	record.TypedSignature = strings.TrimSpace(record.TypedSignature)
+	record.DrawnSignatureDataURL = strings.TrimSpace(record.DrawnSignatureDataURL)
+	record.DrawnInitialsDataURL = strings.TrimSpace(record.DrawnInitialsDataURL)
+	if record.Subject == "" {
+		return SignerProfileRecord{}, invalidRecordError("signer_profiles", "subject", "required")
+	}
+	if record.Key == "" {
+		return SignerProfileRecord{}, invalidRecordError("signer_profiles", "key", "required")
+	}
+	if record.ExpiresAt.IsZero() {
+		return SignerProfileRecord{}, invalidRecordError("signer_profiles", "expires_at", "required")
+	}
+
+	record.TenantID = scope.TenantID
+	record.OrgID = scope.OrgID
+	indexKey := signerProfileIndexKey(scope, record.Subject, record.Key)
+	now := time.Now().UTC()
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if existingID, ok := s.signerProfileIndex[indexKey]; ok {
+		existing, ok := s.signerProfiles[scopedKey(scope, existingID)]
+		if !ok {
+			return SignerProfileRecord{}, notFoundError("signer_profiles", existingID)
+		}
+		record.ID = existing.ID
+		record.CreatedAt = normalizeRecordTime(existing.CreatedAt)
+		record.UpdatedAt = normalizeRecordTime(record.UpdatedAt)
+		if record.UpdatedAt.IsZero() {
+			record.UpdatedAt = now
+		}
+		record.ExpiresAt = record.ExpiresAt.UTC()
+		record = cloneSignerProfileRecord(record)
+		s.signerProfiles[scopedKey(scope, record.ID)] = record
+		s.signerProfileIndex[indexKey] = record.ID
+		return record, nil
+	}
+
+	if normalizeID(record.ID) == "" {
+		record.ID = uuid.NewString()
+	}
+	record.ID = normalizeID(record.ID)
+	record.CreatedAt = normalizeRecordTime(record.CreatedAt)
+	record.UpdatedAt = normalizeRecordTime(record.UpdatedAt)
+	if record.UpdatedAt.Before(record.CreatedAt) {
+		record.UpdatedAt = record.CreatedAt
+	}
+	record.ExpiresAt = record.ExpiresAt.UTC()
+	record = cloneSignerProfileRecord(record)
+	s.signerProfiles[scopedKey(scope, record.ID)] = record
+	s.signerProfileIndex[indexKey] = record.ID
+	return record, nil
+}
+
+func (s *InMemoryStore) GetSignerProfile(ctx context.Context, scope Scope, subject, key string, now time.Time) (SignerProfileRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return SignerProfileRecord{}, err
+	}
+	subject = strings.ToLower(strings.TrimSpace(subject))
+	key = strings.TrimSpace(key)
+	if subject == "" {
+		return SignerProfileRecord{}, invalidRecordError("signer_profiles", "subject", "required")
+	}
+	if key == "" {
+		return SignerProfileRecord{}, invalidRecordError("signer_profiles", "key", "required")
+	}
+	if now.IsZero() {
+		now = time.Now().UTC()
+	} else {
+		now = now.UTC()
+	}
+
+	indexKey := signerProfileIndexKey(scope, subject, key)
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	id, ok := s.signerProfileIndex[indexKey]
+	if !ok {
+		return SignerProfileRecord{}, notFoundError("signer_profiles", subject+"|"+key)
+	}
+	record, ok := s.signerProfiles[scopedKey(scope, id)]
+	if !ok {
+		return SignerProfileRecord{}, notFoundError("signer_profiles", id)
+	}
+	if !record.ExpiresAt.IsZero() && now.After(record.ExpiresAt.UTC()) {
+		return SignerProfileRecord{}, notFoundError("signer_profiles", subject+"|"+key)
+	}
+	return cloneSignerProfileRecord(record), nil
+}
+
+func (s *InMemoryStore) DeleteSignerProfile(ctx context.Context, scope Scope, subject, key string) error {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return err
+	}
+	subject = strings.ToLower(strings.TrimSpace(subject))
+	key = strings.TrimSpace(key)
+	if subject == "" {
+		return invalidRecordError("signer_profiles", "subject", "required")
+	}
+	if key == "" {
+		return invalidRecordError("signer_profiles", "key", "required")
+	}
+	indexKey := signerProfileIndexKey(scope, subject, key)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	id, ok := s.signerProfileIndex[indexKey]
+	if !ok {
+		return notFoundError("signer_profiles", subject+"|"+key)
+	}
+	delete(s.signerProfiles, scopedKey(scope, id))
+	delete(s.signerProfileIndex, indexKey)
+	return nil
+}
+
 func (s *InMemoryStore) UpsertFieldValue(ctx context.Context, scope Scope, value FieldValueRecord, expectedVersion int64) (FieldValueRecord, error) {
 	_ = ctx
 	scope, err := validateScope(scope)
@@ -2197,6 +2337,20 @@ func cloneIntegrationCredentialRecord(record IntegrationCredentialRecord) Integr
 	return record
 }
 
+func cloneSignerProfileRecord(record SignerProfileRecord) SignerProfileRecord {
+	record.Subject = strings.ToLower(strings.TrimSpace(record.Subject))
+	record.Key = strings.TrimSpace(record.Key)
+	record.FullName = strings.TrimSpace(record.FullName)
+	record.Initials = strings.TrimSpace(record.Initials)
+	record.TypedSignature = strings.TrimSpace(record.TypedSignature)
+	record.DrawnSignatureDataURL = strings.TrimSpace(record.DrawnSignatureDataURL)
+	record.DrawnInitialsDataURL = strings.TrimSpace(record.DrawnInitialsDataURL)
+	record.CreatedAt = normalizeRecordTime(record.CreatedAt)
+	record.UpdatedAt = normalizeRecordTime(record.UpdatedAt)
+	record.ExpiresAt = normalizeRecordTime(record.ExpiresAt)
+	return record
+}
+
 func cloneExternalSchema(schema ExternalSchema) ExternalSchema {
 	out := schema
 	if len(schema.Fields) > 0 {
@@ -2332,6 +2486,14 @@ func integrationCredentialIndexKey(scope Scope, provider, userID string) string 
 		scope.key(),
 		strings.ToLower(strings.TrimSpace(provider)),
 		normalizeID(userID),
+	}, "|")
+}
+
+func signerProfileIndexKey(scope Scope, subject, key string) string {
+	return strings.Join([]string{
+		scope.key(),
+		strings.ToLower(strings.TrimSpace(subject)),
+		strings.TrimSpace(key),
 	}, "|")
 }
 
