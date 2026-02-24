@@ -8,8 +8,8 @@ require (
 	github.com/gofiber/fiber/v2 v2.52.11
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/goliatone/go-admin/quickstart v0.0.0-00010101000000-000000000000
-	github.com/goliatone/go-auth v0.33.0
-	github.com/goliatone/go-auth/adapters/featuregate v0.33.0
+	github.com/goliatone/go-auth v0.35.0
+	github.com/goliatone/go-auth/adapters/featuregate v0.35.0
 	github.com/goliatone/go-cms v0.36.0
 	github.com/goliatone/go-command v0.14.0
 	github.com/goliatone/go-crud v0.21.1
@@ -51,6 +51,7 @@ require (
 )
 
 require (
+	go.beyondstorage.io/v5 v5.0.0 // indirect
 	golang.org/x/mod v0.32.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect
 )
@@ -116,11 +117,11 @@ require (
 	github.com/gofiber/template/django/v3 v3.1.14 // indirect
 	github.com/gofiber/utils v1.2.0 // indirect
 	github.com/goliatone/go-composite-fs v0.3.0 // indirect
-	github.com/goliatone/go-config v0.8.0
+	github.com/goliatone/go-config v0.11.0
 	github.com/goliatone/go-export/adapters/template/go-template v0.7.0 // indirect
 	github.com/goliatone/go-print v0.4.1 // indirect
 	github.com/goliatone/go-repository-cache v0.7.1 // indirect
-	github.com/goliatone/go-services v0.2.0
+	github.com/goliatone/go-services v0.4.0
 	github.com/goliatone/go-slug v0.1.0 // indirect
 	github.com/goodsign/monday v1.0.2 // indirect
 	github.com/google/cel-go v0.26.1 // indirect
@@ -209,11 +210,3 @@ require (
 )
 
 replace github.com/goliatone/go-admin/quickstart => ./quickstart
-
-replace github.com/goliatone/go-auth => ../go-auth
-
-replace github.com/goliatone/go-auth/adapters/featuregate => ../go-auth/adapters/featuregate
-
-replace github.com/goliatone/go-router => ../go-router
-
-replace github.com/goliatone/go-services => ../go-services
