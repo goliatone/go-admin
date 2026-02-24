@@ -110,6 +110,7 @@ quickstart.WithLegacyUserRoleBulkRoutes()
 ```
 
 Quickstart Fiber defaults now use `ADMIN_ROUTE_PATH_CONFLICT_MODE=prefer_static`, so absolute static routes (for example `/users/bulk/assign-role`) can coexist with wildcard siblings (for example `/users/bulk/:action`) deterministically; set `ADMIN_ROUTE_PATH_CONFLICT_MODE=strict` to restore strict conflict behavior.
+Quickstart also defaults Fiber request-header `ReadBufferSize` to `16KB`; override with `ADMIN_FIBER_READ_BUFFER_SIZE` when your deployment needs a different limit.
 
 ```go
 cfg := quickstart.NewAdminConfig("/admin", "Admin", "en")
