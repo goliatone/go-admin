@@ -48,6 +48,7 @@ func BuildSessionUser(ctx context.Context) SessionUser {
 
 	actor, _ := authlib.ActorFromContext(ctx)
 	claims, _ := authlib.GetClaims(ctx)
+	claimScopes := claimScopesFromClaims(claims)
 
 	if actor != nil {
 		session.ID = firstNonEmpty(session.ID, actor.ActorID, actor.Subject)
@@ -107,7 +108,7 @@ func BuildSessionUser(ctx context.Context) SessionUser {
 		stringFromMetadata(session.Metadata, "avatar", "avatar_url", "picture", "image_url"),
 	)
 
-	session.Scopes = collectScopes(session.Metadata, session.ResourceRoles)
+	session.Scopes = collectScopes(session.Metadata, session.ResourceRoles, claimScopes)
 
 	session.DisplayName = firstNonEmpty(session.DisplayName,
 		stringFromMetadata(session.Metadata, "name", "display_name"),
@@ -226,7 +227,7 @@ func pruneSessionMetadata(metadata map[string]any, keys []string) map[string]any
 	return out
 }
 
-func collectScopes(meta map[string]any, roles map[string]string) []string {
+func collectScopes(meta map[string]any, roles map[string]string, claimScopes []string) []string {
 	scopes := map[string]struct{}{}
 
 	for resource, role := range roles {
@@ -236,6 +237,14 @@ func collectScopes(meta map[string]any, roles map[string]string) []string {
 			continue
 		}
 		scopes[resource+":"+role] = struct{}{}
+	}
+
+	for _, scope := range claimScopes {
+		scope = strings.TrimSpace(scope)
+		if scope == "" {
+			continue
+		}
+		scopes[scope] = struct{}{}
 	}
 
 	if raw, ok := meta["scopes"]; ok {
@@ -272,6 +281,28 @@ func collectScopes(meta map[string]any, roles map[string]string) []string {
 		out = append(out, scope)
 	}
 	sort.Strings(out)
+	return out
+}
+
+func claimScopesFromClaims(claims authlib.AuthClaims) []string {
+	if claims == nil {
+		return nil
+	}
+	typed, ok := claims.(*authlib.JWTClaims)
+	if !ok || typed == nil || len(typed.Scopes) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(typed.Scopes))
+	for _, scope := range typed.Scopes {
+		scope = strings.TrimSpace(scope)
+		if scope == "" {
+			continue
+		}
+		out = append(out, scope)
+	}
+	if len(out) == 0 {
+		return nil
+	}
 	return out
 }
 
