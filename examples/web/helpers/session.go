@@ -43,6 +43,7 @@ func BuildSessionUser(ctx context.Context) SessionUser {
 
 	actor, _ := authlib.ActorFromContext(ctx)
 	claims, _ := authlib.GetClaims(ctx)
+	claimScopes := claimScopesFromClaims(claims)
 
 	if actor != nil {
 		session.ID = primitives.FirstNonEmpty(session.ID, actor.ActorID, actor.Subject)
@@ -97,7 +98,7 @@ func BuildSessionUser(ctx context.Context) SessionUser {
 		stringFromMetadata(session.Metadata, "avatar", "avatar_url", "picture", "image_url"),
 	)
 
-	session.Scopes = collectScopes(session.Metadata, session.ResourceRoles)
+	session.Scopes = collectScopes(session.Metadata, session.ResourceRoles, claimScopes)
 
 	session.DisplayName = primitives.FirstNonEmpty(session.DisplayName,
 		stringFromMetadata(session.Metadata, "name", "display_name"),
@@ -224,7 +225,7 @@ func pruneSessionMetadata(metadata map[string]any, keys []string) map[string]any
 	return out
 }
 
-func collectScopes(metadata map[string]any, resourceRoles map[string]string) []string {
+func collectScopes(metadata map[string]any, resourceRoles map[string]string, claimScopes []string) []string {
 	scopes := map[string]struct{}{}
 
 	if raw, ok := metadata["scopes"]; ok {
@@ -257,6 +258,14 @@ func collectScopes(metadata map[string]any, resourceRoles map[string]string) []s
 		scopes[fmt.Sprintf("%s:%s", resource, role)] = struct{}{}
 	}
 
+	for _, scope := range claimScopes {
+		scope = strings.TrimSpace(scope)
+		if scope == "" {
+			continue
+		}
+		scopes[scope] = struct{}{}
+	}
+
 	if len(scopes) == 0 {
 		return nil
 	}
@@ -266,6 +275,28 @@ func collectScopes(metadata map[string]any, resourceRoles map[string]string) []s
 		out = append(out, scope)
 	}
 	sort.Strings(out)
+	return out
+}
+
+func claimScopesFromClaims(claims authlib.AuthClaims) []string {
+	if claims == nil {
+		return nil
+	}
+	typed, ok := claims.(*authlib.JWTClaims)
+	if !ok || typed == nil || len(typed.Scopes) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(typed.Scopes))
+	for _, scope := range typed.Scopes {
+		scope = strings.TrimSpace(scope)
+		if scope == "" {
+			continue
+		}
+		out = append(out, scope)
+	}
+	if len(out) == 0 {
+		return nil
+	}
 	return out
 }
 
