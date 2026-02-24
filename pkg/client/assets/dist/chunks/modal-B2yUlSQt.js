@@ -1,3 +1,4 @@
+import { e as p } from "./html-DyksyvcZ.js";
 const l = {
   sm: "max-w-sm",
   md: "max-w-md",
@@ -6,13 +7,13 @@ const l = {
   "2xl": "max-w-2xl",
   "3xl": "max-w-3xl",
   "4xl": "max-w-4xl"
-}, p = 100, m = 10;
-class f {
+}, m = 100, f = 10;
+class b {
   constructor() {
     this.stack = [];
   }
   push(t) {
-    return this.stack.push(t), p + this.stack.length * m;
+    return this.stack.push(t), m + this.stack.length * f;
   }
   remove(t) {
     const e = this.stack.indexOf(t);
@@ -25,7 +26,7 @@ class f {
     return this.stack.length;
   }
 }
-const r = new f();
+const r = new b();
 class d {
   constructor(t = {}) {
     this.backdrop = null, this.container = null, this._escHandler = null, this._isOpen = !1, this._options = {
@@ -169,7 +170,7 @@ class h extends d {
   }
 }
 const g = "w-full border rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:border-gray-600 dark:bg-slate-800 dark:text-white dark:placeholder-gray-500 px-3 py-2 text-sm border-gray-300";
-class b extends d {
+class k extends d {
   constructor(t) {
     super({ size: "sm", initialFocus: "[data-prompt-input]" }), this.config = t;
   }
@@ -217,12 +218,12 @@ class b extends d {
   }
 }
 function i(n) {
-  return n.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  return p(n);
 }
 export {
   h as C,
   d as M,
-  b as T,
+  k as T,
   i as e
 };
-//# sourceMappingURL=modal-DXPBR0f5.js.map
+//# sourceMappingURL=modal-B2yUlSQt.js.map

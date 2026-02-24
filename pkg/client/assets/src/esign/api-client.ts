@@ -52,7 +52,7 @@ export class ESignAPIClient {
     if (params?.search) queryParams.set('search', params.search);
 
     return this.get<ListResponse<AgreementSummary>>(
-      `/esign_agreements?${queryParams.toString()}`
+      `/panels/esign_agreements?${queryParams.toString()}`
     );
   }
 
@@ -108,13 +108,13 @@ export class ESignAPIClient {
     if (params?.search) queryParams.set('search', params.search);
 
     return this.get<ListResponse<DocumentSummary>>(
-      `/esign_documents?${queryParams.toString()}`
+      `/panels/esign_documents?${queryParams.toString()}`
     );
   }
 
   // Google integration endpoints
   async getGoogleIntegrationStatus(): Promise<GoogleIntegrationStatus> {
-    return this.get<GoogleIntegrationStatus>('/v1/esign/integrations/google/status');
+    return this.get<GoogleIntegrationStatus>('/esign/integrations/google/status');
   }
 
   async startGoogleImport(params: {
@@ -122,11 +122,11 @@ export class ESignAPIClient {
     document_title?: string;
     agreement_title?: string;
   }): Promise<GoogleImportRun> {
-    return this.post<GoogleImportRun>('/v1/esign/google-drive/imports', params);
+    return this.post<GoogleImportRun>('/esign/google-drive/imports', params);
   }
 
   async getGoogleImportStatus(importRunId: string): Promise<GoogleImportRun> {
-    return this.get<GoogleImportRun>(`/v1/esign/google-drive/imports/${importRunId}`);
+    return this.get<GoogleImportRun>(`/esign/google-drive/imports/${importRunId}`);
   }
 
   // Draft persistence endpoints
@@ -138,11 +138,11 @@ export class ESignAPIClient {
     if (params?.limit) queryParams.set('limit', String(params.limit));
     if (params?.cursor) queryParams.set('cursor', params.cursor);
 
-    return this.get(`/v1/esign/drafts?${queryParams.toString()}`);
+    return this.get(`/esign/drafts?${queryParams.toString()}`);
   }
 
   async getDraft(id: string): Promise<DraftDetail> {
-    return this.get<DraftDetail>(`/v1/esign/drafts/${id}`);
+    return this.get<DraftDetail>(`/esign/drafts/${id}`);
   }
 
   async createDraft(params: {
@@ -152,7 +152,7 @@ export class ESignAPIClient {
     current_step: number;
     document_id?: string | null;
   }): Promise<DraftDetail> {
-    return this.post<DraftDetail>('/v1/esign/drafts', params);
+    return this.post<DraftDetail>('/esign/drafts', params);
   }
 
   async updateDraft(
@@ -165,11 +165,11 @@ export class ESignAPIClient {
       document_id?: string | null;
     }
   ): Promise<DraftDetail> {
-    return this.put<DraftDetail>(`/v1/esign/drafts/${id}`, params);
+    return this.put<DraftDetail>(`/esign/drafts/${id}`, params);
   }
 
   async deleteDraft(id: string): Promise<void> {
-    return this.delete(`/v1/esign/drafts/${id}`);
+    return this.delete(`/esign/drafts/${id}`);
   }
 
   async sendDraft(
@@ -181,7 +181,7 @@ export class ESignAPIClient {
     draft_id: string;
     draft_deleted: boolean;
   }> {
-    return this.post(`/v1/esign/drafts/${id}/send`, params);
+    return this.post(`/esign/drafts/${id}/send`, params);
   }
 
   // Generic HTTP methods

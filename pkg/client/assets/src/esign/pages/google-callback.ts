@@ -161,7 +161,9 @@ export class GoogleCallbackController {
    */
   private sendToOpener(data: GoogleOAuthCallbackData): void {
     if (window.opener && !window.opener.closed) {
-      window.opener.postMessage(data, window.location.origin);
+      // Use wildcard target so callback still reaches opener when localhost and
+      // loopback IP hosts differ (e.g. localhost vs 127.0.0.1).
+      window.opener.postMessage(data, '*');
     }
   }
 

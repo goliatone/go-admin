@@ -76,7 +76,7 @@
        data-esign-page="document-detail"
        data-document-id="{{ resource_item.id }}"
        data-page-count="{{ resource_item.page_count|default:1 }}"
-       data-pdf-url="{{ api_base_path }}/{{ panel_name|default:"esign_documents" }}/{{ resource_item.id }}/source/pdf">
+       data-pdf-url="{{ api_base_path }}/panels/{{ panel_name|default:"esign_documents" }}/{{ resource_item.id }}/source/pdf">
 
     {# Preview Header #}
     <div class="p-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
@@ -103,7 +103,7 @@
         </div>
 
         {# Download Button #}
-        <a href="{{ api_base_path }}/{{ panel_name|default:"esign_documents" }}/{{ resource_item.id }}/source/pdf?disposition=attachment"
+        <a href="{{ api_base_path }}/panels/{{ panel_name|default:"esign_documents" }}/{{ resource_item.id }}/source/pdf?disposition=attachment"
            class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
            download="{{ resource_item.title|default:'document' }}.pdf"
            aria-label="Download PDF">

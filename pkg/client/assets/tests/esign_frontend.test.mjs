@@ -1125,8 +1125,8 @@ test('agreement detail template JS uses warning icon for runtime unavailable dow
 test('document detail template uses panel-scoped source PDF API path', () => {
   const template = fs.readFileSync(documentDetailTemplatePath, 'utf8');
 
-  assert.match(template, /data-pdf-url="\{\{ api_base_path \}\}\/\{\{ panel_name\|default:"esign_documents" \}\}\/\{\{ resource_item\.id \}\}\/source\/pdf"/);
-  assert.match(template, /href="\{\{ api_base_path \}\}\/\{\{ panel_name\|default:"esign_documents" \}\}\/\{\{ resource_item\.id \}\}\/source\/pdf\?disposition=attachment"/);
+  assert.match(template, /data-pdf-url="\{\{ api_base_path \}\}\/panels\/\{\{ panel_name\|default:"esign_documents" \}\}\/\{\{ resource_item\.id \}\}\/source\/pdf"/);
+  assert.match(template, /href="\{\{ api_base_path \}\}\/panels\/\{\{ panel_name\|default:"esign_documents" \}\}\/\{\{ resource_item\.id \}\}\/source\/pdf\?disposition=attachment"/);
   assert.doesNotMatch(template, /\/api\/\{\{ resource \}\}\/\{\{ resource_item\.id \}\}\/source\/pdf/);
 });
 

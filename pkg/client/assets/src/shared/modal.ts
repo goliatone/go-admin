@@ -16,6 +16,8 @@
  *   new MyModal().show();
  */
 
+import { escapeHTML } from './html.js';
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -494,9 +496,5 @@ export class TextPromptModal extends Modal {
 // ---------------------------------------------------------------------------
 
 export function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+  return escapeHTML(str);
 }
