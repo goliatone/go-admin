@@ -25,6 +25,8 @@ type fiberServerOptions struct {
 	enableLogger bool
 }
 
+const defaultFiberReadBufferSize = 16 * 1024
+
 // WithFiberConfig overrides the default Fiber config.
 func WithFiberConfig(mutator func(*fiber.Config)) FiberServerOption {
 	return func(opts *fiberServerOptions) {
@@ -88,6 +90,7 @@ func NewFiberServer(viewEngine fiber.Views, cfg admin.Config, adm *admin.Admin, 
 			StrictRouting:     false,
 			PassLocalsToViews: true,
 			Views:             viewEngine,
+			ReadBufferSize:    resolveFiberReadBufferSize(),
 		},
 		routerConfig: defaultFiberAdapterConfig(cfg, isDev),
 		enableLogger: true,
@@ -150,6 +153,14 @@ func resolveFiberPathConflictMode() router.PathConflictMode {
 	return router.PathConflictModePreferStatic
 }
 
+func resolveFiberReadBufferSize() int {
+	value, ok := intEnv("ADMIN_FIBER_READ_BUFFER_SIZE")
+	if !ok || value <= 0 {
+		return defaultFiberReadBufferSize
+	}
+	return value
+}
+
 func resolveFiberStrictRoutes(cfg admin.Config, isDev bool) bool {
 	if strict, ok := boolEnv("ADMIN_STRICT_ROUTES"); ok {
 		return strict
@@ -204,6 +215,18 @@ func boolEnv(key string) (bool, bool) {
 	parsed, err := strconv.ParseBool(strings.TrimSpace(raw))
 	if err != nil {
 		return false, false
+	}
+	return parsed, true
+}
+
+func intEnv(key string) (int, bool) {
+	raw, ok := os.LookupEnv(strings.TrimSpace(key))
+	if !ok {
+		return 0, false
+	}
+	parsed, err := strconv.Atoi(strings.TrimSpace(raw))
+	if err != nil {
+		return 0, false
 	}
 	return parsed, true
 }
