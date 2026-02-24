@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -272,6 +273,29 @@ func TestRuntimeGoogleIntegrationUIRoutesRenderWhenEnabled(t *testing.T) {
 	}
 }
 
+func TestRuntimeGoogleIntegrationCallbackRouteAccessibleWithoutAuthCookie(t *testing.T) {
+	t.Setenv("ESIGN_GOOGLE_CREDENTIAL_ACTIVE_KEY", "test-google-active-key")
+	t.Setenv("ESIGN_GOOGLE_PROVIDER_MODE", "deterministic")
+	app, err := newESignRuntimeWebAppForTestsWithGoogleEnabled(true)
+	if err != nil {
+		t.Fatalf("setup e-sign runtime app with google enabled: %v", err)
+	}
+
+	callbackResp := doRequest(t, app, http.MethodGet, "/admin/esign/integrations/google/callback?code=test-code", "", nil)
+	defer callbackResp.Body.Close()
+	if callbackResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(callbackResp.Body)
+		t.Fatalf("expected public callback route status 200, got %d body=%s", callbackResp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	callbackBody, err := io.ReadAll(callbackResp.Body)
+	if err != nil {
+		t.Fatalf("read callback response: %v", err)
+	}
+	if !strings.Contains(string(callbackBody), "Google Authorization - E-Sign") {
+		t.Fatalf("expected google callback page content in response body")
+	}
+}
+
 func TestRuntimeNewDocumentRouteInjectsGoogleIngestionFlagsWhenEnabled(t *testing.T) {
 	t.Setenv("ESIGN_GOOGLE_CREDENTIAL_ACTIVE_KEY", "test-google-active-key")
 	t.Setenv("ESIGN_GOOGLE_PROVIDER_MODE", "deterministic")
@@ -508,11 +532,8 @@ func TestRuntimeLoginUnlocksAdminShellAndLandingRoute(t *testing.T) {
 		t.Fatal("expected auth cookie after login")
 	}
 
-	adminResp := doRequestWithCookie(t, app, http.MethodGet, "/admin", authCookie)
-	defer adminResp.Body.Close()
-	if adminResp.StatusCode != http.StatusOK {
-		t.Fatalf("expected authenticated /admin status 200, got %d", adminResp.StatusCode)
-	}
+	assertRedirectWithCookie(t, app, authCookie, http.MethodGet, "/admin", "/admin/dashboard")
+	assertStatusWithCookie(t, app, authCookie, http.MethodGet, "/admin/dashboard", http.StatusOK)
 
 	landingResp := doRequestWithCookie(t, app, http.MethodGet, "/admin/esign", authCookie)
 	defer landingResp.Body.Close()
@@ -563,6 +584,55 @@ func TestRuntimeLoginUnlocksAdminShellAndLandingRoute(t *testing.T) {
 	defer statsResp.Body.Close()
 	if statsResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected /admin/api/v1/esign/agreements/stats status 200, got %d", statsResp.StatusCode)
+	}
+}
+
+func TestRuntimeLandingRendersRecentAgreementsFromStoreData(t *testing.T) {
+	fixture, err := newESignRuntimeWebFixtureForTestsWithGoogleEnabled(false)
+	if err != nil {
+		t.Fatalf("setup e-sign runtime app fixture: %v", err)
+	}
+	app := fixture.App
+	scope := fixture.Module.DefaultScope()
+	query := fmt.Sprintf("tenant_id=%s&org_id=%s", url.QueryEscape(scope.TenantID), url.QueryEscape(scope.OrgID))
+
+	form := url.Values{}
+	form.Set("identifier", defaultESignDemoAdminEmail)
+	form.Set("password", defaultESignDemoAdminPassword)
+	loginResp := doRequest(t, app, http.MethodPost, "/admin/login", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
+	defer loginResp.Body.Close()
+	authCookie := firstAuthCookie(loginResp)
+	if authCookie == nil {
+		t.Fatal("expected auth cookie after login")
+	}
+
+	documentID := createPanelRecordWithCookie(t, app, authCookie, "/admin/api/v1/panels/esign_documents?"+query, map[string]any{
+		"title":      fmt.Sprintf("Landing Recent Doc %d", time.Now().UnixNano()),
+		"pdf_base64": base64.StdEncoding.EncodeToString(services.GenerateDeterministicPDF(1)),
+	})
+	agreementTitle := fmt.Sprintf("Landing Recent Agreement %d", time.Now().UnixNano())
+	createPanelRecordWithCookie(t, app, authCookie, "/admin/api/v1/panels/esign_agreements?"+query, map[string]any{
+		"document_id": documentID,
+		"title":       agreementTitle,
+		"message":     "Landing recent agreement verification",
+	})
+
+	landingResp := doRequestWithCookie(t, app, http.MethodGet, "/admin/esign?"+query, authCookie)
+	defer landingResp.Body.Close()
+	if landingResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(landingResp.Body)
+		t.Fatalf("expected /admin/esign status 200, got %d body=%s", landingResp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	landingBody, err := io.ReadAll(landingResp.Body)
+	if err != nil {
+		t.Fatalf("read /admin/esign body: %v", err)
+	}
+	landingMarkup := string(landingBody)
+	if !strings.Contains(landingMarkup, agreementTitle) {
+		t.Fatalf("expected landing page recent agreements to contain %q", agreementTitle)
+	}
+	if strings.Contains(landingMarkup, "No agreements yet") {
+		t.Fatalf("expected landing page to avoid empty-state recent agreements message when records exist")
 	}
 }
 
@@ -1341,6 +1411,9 @@ func newESignRuntimeWebFixtureForTestsWithGoogleEnabled(googleEnabled bool) (eSi
 	if err != nil {
 		return eSignRuntimeWebFixture{}, fmt.Errorf("new view engine: %w", err)
 	}
+	if err := configureESignDashboardRenderer(adm, viewEngine, cfg); err != nil {
+		return eSignRuntimeWebFixture{}, fmt.Errorf("configure dashboard renderer: %w", err)
+	}
 
 	server := router.NewFiberAdapter(func(_ *fiber.App) *fiber.App {
 		return fiber.New(fiber.Config{
@@ -1495,6 +1568,41 @@ func doRequestWithBody(t *testing.T, app *fiber.App, method, endpoint, contentTy
 		t.Fatalf("request failed (%s %s): %v", method, endpoint, err)
 	}
 	return resp
+}
+
+func createPanelRecordWithCookie(t *testing.T, app *fiber.App, cookie *http.Cookie, endpoint string, payload map[string]any) string {
+	t.Helper()
+	body, _ := json.Marshal(payload)
+	resp := doRequestWithCookieAndBody(
+		t,
+		app,
+		cookie,
+		http.MethodPost,
+		endpoint,
+		"application/json",
+		bytes.NewReader(body),
+	)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected create status 200, got %d body=%s", resp.StatusCode, strings.TrimSpace(string(respBody)))
+	}
+	out := map[string]any{}
+	rawBody, _ := io.ReadAll(resp.Body)
+	if err := json.Unmarshal(rawBody, &out); err != nil {
+		t.Fatalf("decode create payload: %v body=%s", err, strings.TrimSpace(string(rawBody)))
+	}
+	id := strings.TrimSpace(fmt.Sprint(out["id"]))
+	if id != "" {
+		return id
+	}
+	if data, ok := out["data"].(map[string]any); ok && data != nil {
+		id = strings.TrimSpace(fmt.Sprint(data["id"]))
+	}
+	if id == "" {
+		t.Fatalf("expected id in create payload, got %+v", out)
+	}
+	return id
 }
 
 func parseIDFromLocation(prefix, location string) string {

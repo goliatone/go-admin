@@ -103,6 +103,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("initialize view engine: %v", err)
 	}
+	if err := configureESignDashboardRenderer(adm, viewEngine, cfg); err != nil {
+		log.Fatalf("configure dashboard renderer: %v", err)
+	}
 
 	server, r := quickstart.NewFiberServer(viewEngine, cfg, adm, isDev)
 	quickstart.NewStaticAssets(r, cfg, client.Assets(), quickstart.WithDiskAssetsDir(resolveESignDiskAssetsDir()))

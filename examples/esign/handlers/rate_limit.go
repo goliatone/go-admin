@@ -91,6 +91,9 @@ func ResolveOperationForPath(method, requestPath string) string {
 	if strings.Contains(requestPath, "/signing/session/") {
 		return OperationSignerSession
 	}
+	if strings.Contains(requestPath, "/signing/profile/") {
+		return OperationSignerSession
+	}
 	if strings.Contains(requestPath, "/signing/consent/") {
 		return OperationSignerConsent
 	}

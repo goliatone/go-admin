@@ -613,3 +613,46 @@ func TestInMemoryPlacementRunPersistence(t *testing.T) {
 		t.Fatalf("expected one placement run, got %d", len(runs))
 	}
 }
+
+func TestInMemorySignerProfileCRUDAndExpiry(t *testing.T) {
+	store := NewInMemoryStore()
+	ctx := context.Background()
+	scope := Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	now := time.Now().UTC()
+
+	created, err := store.UpsertSignerProfile(ctx, scope, SignerProfileRecord{
+		Subject:               "signer@example.com",
+		Key:                   "https%3A%2F%2Flocal%3Asigner%40example.com",
+		FullName:              "Signer Example",
+		Initials:              "SE",
+		TypedSignature:        "Signer Example",
+		DrawnSignatureDataURL: "data:image/png;base64,ZmFrZQ==",
+		Remember:              true,
+		ExpiresAt:             now.Add(24 * time.Hour),
+	})
+	if err != nil {
+		t.Fatalf("UpsertSignerProfile create: %v", err)
+	}
+	if created.ID == "" {
+		t.Fatal("expected profile id")
+	}
+
+	got, err := store.GetSignerProfile(ctx, scope, "signer@example.com", "https%3A%2F%2Flocal%3Asigner%40example.com", now)
+	if err != nil {
+		t.Fatalf("GetSignerProfile: %v", err)
+	}
+	if got.FullName != "Signer Example" {
+		t.Fatalf("expected full name persisted, got %q", got.FullName)
+	}
+
+	if _, err := store.GetSignerProfile(ctx, scope, "signer@example.com", "https%3A%2F%2Flocal%3Asigner%40example.com", now.Add(48*time.Hour)); err == nil {
+		t.Fatal("expected expired profile lookup to return not found")
+	}
+
+	if err := store.DeleteSignerProfile(ctx, scope, "signer@example.com", "https%3A%2F%2Flocal%3Asigner%40example.com"); err != nil {
+		t.Fatalf("DeleteSignerProfile: %v", err)
+	}
+	if _, err := store.GetSignerProfile(ctx, scope, "signer@example.com", "https%3A%2F%2Flocal%3Asigner%40example.com", now); err == nil {
+		t.Fatal("expected deleted profile lookup to fail")
+	}
+}

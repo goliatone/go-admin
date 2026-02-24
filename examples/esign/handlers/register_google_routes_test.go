@@ -62,6 +62,9 @@ func TestRegisterAdminRouteMiddlewareInjectsClaimsForGoAuthAuthorizer(t *testing
 			if !ok || claims == nil {
 				return nil, nil
 			}
+			if typed, ok := claims.(*auth.JWTClaims); ok && typed != nil && len(typed.Scopes) > 0 {
+				return append([]string{}, typed.Scopes...), nil
+			}
 			var raw any
 			if carrier, ok := claims.(interface{ ClaimsMetadata() map[string]any }); ok && carrier != nil {
 				if metadata := carrier.ClaimsMetadata(); len(metadata) > 0 {

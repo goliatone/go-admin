@@ -355,7 +355,7 @@ if [[ -z "${AGREEMENT_ID}" || "${AGREEMENT_ID}" == "${AG_LOCATION}" ]]; then
 fi
 
 log "Resolving recipient from agreement detail"
-DETAIL_URL_BASE="${BASE_URL}/admin/api/v1/esign_agreements/${AGREEMENT_ID}"
+DETAIL_URL_BASE="${BASE_URL}/admin/api/v1/panels/esign_agreements/${AGREEMENT_ID}"
 DETAIL_URL="$(append_query_string "${DETAIL_URL_BASE}" "${REQUESTED_SCOPE_QUERY}")"
 DETAIL_STATUS="$(
   curl -sS \
@@ -396,7 +396,7 @@ SIGNATURE_FIELD_ID="$(jq -r '((.record.fields // .data.fields // .fields // [])[
 [[ -n "${SIGNATURE_FIELD_ID}" ]] || fail "signature field ID missing in agreement detail: $(cat "${DETAIL_JSON_PATH}")"
 
 log "Sending agreement"
-SEND_URL_BASE="${BASE_URL}/admin/api/v1/esign_agreements/actions/send?id=${AGREEMENT_ID}"
+SEND_URL_BASE="${BASE_URL}/admin/api/v1/panels/esign_agreements/actions/send?id=${AGREEMENT_ID}"
 SEND_URL="$(append_query_string "${SEND_URL_BASE}" "${EFFECTIVE_API_SCOPE_QUERY}")"
 SEND_STATUS="$(
   curl -sS \
