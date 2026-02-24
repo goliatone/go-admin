@@ -144,6 +144,15 @@ export declare class GoogleIntegrationController {
      */
     private resolveOAuthRedirectURI;
     /**
+     * Validate callback origin for popup postMessage events.
+     * Allows exact origin match and localhost/loopback-equivalent origins.
+     */
+    private isAllowedOAuthCallbackOrigin;
+    private normalizeOrigin;
+    private resolveOriginFromURL;
+    private areEquivalentLoopbackOrigins;
+    private isLoopbackHost;
+    /**
      * Build OAuth state parameter
      */
     private buildOAuthState;

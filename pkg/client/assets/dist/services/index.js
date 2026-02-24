@@ -1,5 +1,5 @@
 import { r as u } from "../chunks/icon-renderer-CRbgoQtj.js";
-import { C as at } from "../chunks/modal-DXPBR0f5.js";
+import { C as at } from "../chunks/modal-B2yUlSQt.js";
 class R extends Error {
   constructor(t, e, s, i) {
     super(t), this.name = "ServicesAPIError", this.code = e, this.statusCode = s, this.details = i;

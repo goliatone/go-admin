@@ -1189,6 +1189,67 @@ export class GoogleIntegrationController {
   }
 
   /**
+   * Validate callback origin for popup postMessage events.
+   * Allows exact origin match and localhost/loopback-equivalent origins.
+   */
+  private isAllowedOAuthCallbackOrigin(origin: string): boolean {
+    const normalizedOrigin = this.normalizeOrigin(origin);
+    if (!normalizedOrigin) return false;
+
+    const candidates = new Set<string>();
+    const localOrigin = this.normalizeOrigin(window.location.origin);
+    if (localOrigin) candidates.add(localOrigin);
+
+    const redirectOrigin = this.resolveOriginFromURL(this.resolveOAuthRedirectURI());
+    if (redirectOrigin) candidates.add(redirectOrigin);
+
+    for (const candidate of candidates) {
+      if (
+        normalizedOrigin === candidate ||
+        this.areEquivalentLoopbackOrigins(normalizedOrigin, candidate)
+      ) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private normalizeOrigin(raw: string): string {
+    try {
+      const parsed = new URL(raw);
+      return parsed.origin;
+    } catch {
+      return '';
+    }
+  }
+
+  private resolveOriginFromURL(raw: string): string {
+    try {
+      return new URL(raw).origin;
+    } catch {
+      return '';
+    }
+  }
+
+  private areEquivalentLoopbackOrigins(left: string, right: string): boolean {
+    try {
+      const a = new URL(left);
+      const b = new URL(right);
+      if (a.protocol !== b.protocol) return false;
+      if (a.port !== b.port) return false;
+      return this.isLoopbackHost(a.hostname) && this.isLoopbackHost(b.hostname);
+    } catch {
+      return false;
+    }
+  }
+
+  private isLoopbackHost(hostname: string): boolean {
+    const host = hostname.trim().toLowerCase();
+    return host === 'localhost' || host === '127.0.0.1' || host === '::1';
+  }
+
+  /**
    * Build OAuth state parameter
    */
   private buildOAuthState(accountId: string): string {
@@ -1232,7 +1293,7 @@ export class GoogleIntegrationController {
    */
   private async handleOAuthCallback(event: MessageEvent): Promise<void> {
     // Verify origin
-    if (event.origin !== window.location.origin) return;
+    if (!this.isAllowedOAuthCallbackOrigin(event.origin)) return;
 
     const data = event.data as GoogleOAuthCallbackData;
     if (data.type !== 'google_oauth_callback') return;

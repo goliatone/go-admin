@@ -23,6 +23,10 @@ const WIDGET_TITLES: Record<string, string> = {
   'admin.widget.content_stats': 'Content Stats',
   'admin.widget.storage_stats': 'Storage Stats',
   'admin.widget.system_health': 'System Health',
+  'esign.widget.agreement_stats': 'E-Sign Agreement Stats',
+  'esign.widget.signing_activity': 'E-Sign Signing Activity',
+  'esign.widget.delivery_health': 'E-Sign Delivery Health',
+  'esign.widget.pending_signatures': 'E-Sign Pending Signatures',
 };
 
 function getWidgetTitle(definition?: string): string {
@@ -121,13 +125,243 @@ function renderWidgetContent(widget: Widget): string {
   if (def === 'admin.widget.activity_feed' || def === 'admin.widget.user_activity_feed') {
     const entries = data.entries || [];
     if (!entries.length) return '<p class="text-gray-500">No recent activity</p>';
-    return `<ul class="space-y-3">${entries.map((e) =>
-      `<li class="py-3 border-b border-gray-100 last:border-b-0">
-        <div class="font-medium text-gray-900 text-sm">${escapeHTML(e.actor)}</div>
-        <div class="text-gray-500 text-sm mt-1">${escapeHTML(e.action)} ${escapeHTML(e.object)}</div>
+    return `<ul class="space-y-3">${entries.map((e) => {
+      const actor = String(e.actor || 'system').trim() || 'system';
+      const action = String(e.action || 'updated').trim() || 'updated';
+      const object = String(e.object || '').trim();
+      return `
+      <li class="py-3 border-b border-gray-100 last:border-b-0">
+        <div class="font-medium text-gray-900 text-sm">${escapeHTML(actor)}</div>
+        <div class="text-gray-500 text-sm mt-1">${escapeHTML(action)}${object ? ` ${escapeHTML(object)}` : ''}</div>
         ${e.created_at ? `<time class="text-xs text-gray-400 mt-1 block" datetime="${escapeHTML(e.created_at)}" data-relative-time="${escapeHTML(e.created_at)}">${escapeHTML(e.created_at)}</time>` : ''}
       </li>`
-    ).join('')}</ul>`;
+      ;
+    }).join('')}</ul>`;
+  }
+
+  if (def === 'esign.widget.agreement_stats') {
+    const esign = data as Record<string, unknown>;
+    const total = Number(esign.total || 0);
+    const pending = Number(esign.pending || 0);
+    const completed = Number(esign.completed || 0);
+    const cancelled = Number(esign.voided || 0) + Number(esign.declined || 0) + Number(esign.expired || 0);
+    const completionRate = total > 0 ? Math.round((completed * 100) / total) : 0;
+    const listURL = String(esign.list_url || '').trim();
+    return `
+      <div>
+        <div class="grid grid-cols-2 gap-4">
+          <div class="bg-gray-50 rounded-lg p-3 text-center">
+            <div class="text-2xl font-bold text-gray-900">${escapeHTML(formatNumber(total))}</div>
+            <div class="text-xs text-gray-500 uppercase tracking-wide">Total</div>
+          </div>
+          <div class="bg-blue-50 rounded-lg p-3 text-center">
+            <div class="text-2xl font-bold text-blue-700">${escapeHTML(formatNumber(pending))}</div>
+            <div class="text-xs text-blue-600 uppercase tracking-wide">In Progress</div>
+          </div>
+          <div class="bg-green-50 rounded-lg p-3 text-center">
+            <div class="text-2xl font-bold text-green-700">${escapeHTML(formatNumber(completed))}</div>
+            <div class="text-xs text-green-600 uppercase tracking-wide">Completed</div>
+          </div>
+          <div class="bg-red-50 rounded-lg p-3 text-center">
+            <div class="text-2xl font-bold text-red-700">${escapeHTML(formatNumber(cancelled))}</div>
+            <div class="text-xs text-red-600 uppercase tracking-wide">Cancelled</div>
+          </div>
+        </div>
+        ${total > 0 ? `
+          <div class="mt-4 pt-4 border-t border-gray-100">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-sm text-gray-600">Completion Rate</span>
+              <span class="text-sm font-semibold text-gray-900">${completionRate}%</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-2">
+              <div class="bg-green-500 h-2 rounded-full" style="width: ${completionRate}%"></div>
+            </div>
+          </div>
+        ` : ''}
+        ${listURL ? `
+          <div class="mt-4 pt-3 border-t border-gray-100 text-center">
+            <a href="${escapeHTML(listURL)}" class="text-sm text-blue-600 hover:text-blue-800 inline-flex items-center gap-1">
+              View All Agreements
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+              </svg>
+            </a>
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }
+
+  if (def === 'esign.widget.signing_activity') {
+    const esign = data as Record<string, unknown>;
+    const activities = Array.isArray(esign.activities) ? esign.activities as Array<Record<string, unknown>> : [];
+    const activityURL = String(esign.activity_url || '').trim();
+    const eventColorClass = (eventType: unknown): string => {
+      const value = String(eventType || '').toLowerCase();
+      if (value === 'signed' || value === 'completed') return 'bg-green-500';
+      if (value === 'viewed') return 'bg-purple-500';
+      if (value === 'sent') return 'bg-blue-500';
+      if (value === 'declined') return 'bg-orange-500';
+      if (value === 'voided' || value === 'expired') return 'bg-red-500';
+      return 'bg-gray-400';
+    };
+
+    return `
+      ${activities.length ? `
+        <ul class="space-y-3">
+          ${activities.map((activity) => `
+            <li class="flex items-start gap-3 pb-3 border-b border-gray-100 last:border-b-0 last:pb-0">
+              <div class="flex-shrink-0 mt-0.5">
+                <span class="w-2 h-2 inline-block rounded-full ${eventColorClass(activity.type)}" aria-hidden="true"></span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="text-sm font-medium text-gray-900 truncate">
+                  ${activity.agreement_url
+                    ? `<a href="${escapeHTML(activity.agreement_url)}" class="hover:text-blue-600">${escapeHTML(activity.agreement_title || 'Agreement')}</a>`
+                    : `${escapeHTML(activity.agreement_title || 'Agreement')}`
+                  }
+                </div>
+                <div class="text-xs text-gray-500 mt-0.5">
+                  <span class="capitalize">${escapeHTML(activity.type || 'event')}</span>
+                  ${activity.actor ? `<span class="mx-1">·</span><span>${escapeHTML(activity.actor)}</span>` : ''}
+                </div>
+              </div>
+              ${activity.timestamp ? `
+                <div class="flex-shrink-0 text-xs text-gray-400" title="${escapeHTML(activity.timestamp)}">
+                  <time data-relative-time="${escapeHTML(activity.timestamp)}">${escapeHTML(activity.timestamp)}</time>
+                </div>
+              ` : ''}
+            </li>
+          `).join('')}
+        </ul>
+      ` : `
+        <div class="text-center py-4 text-gray-500">
+          <svg class="w-8 h-8 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+          <p class="text-sm">No recent signing activity</p>
+        </div>
+      `}
+      ${activityURL ? `
+        <div class="mt-3 pt-3 border-t border-gray-100 text-center">
+          <a href="${escapeHTML(activityURL)}" class="text-sm text-blue-600 hover:text-blue-800 inline-flex items-center gap-1">
+            View All Activity
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+            </svg>
+          </a>
+        </div>
+      ` : ''}
+    `;
+  }
+
+  if (def === 'esign.widget.delivery_health') {
+    const esign = data as Record<string, unknown>;
+    const emailRate = Math.max(0, Math.min(100, Number(esign.email_success_rate ?? 100)));
+    const jobRate = Math.max(0, Math.min(100, Number(esign.job_success_rate ?? 100)));
+    const pendingRetries = Number(esign.pending_retries || 0);
+    const period = String(esign.period || '').trim();
+    const toneClasses = (rate: number): { text: string; bar: string } => {
+      if (rate >= 95) return { text: 'text-green-600', bar: 'bg-green-500' };
+      if (rate >= 80) return { text: 'text-yellow-600', bar: 'bg-yellow-500' };
+      return { text: 'text-red-600', bar: 'bg-red-500' };
+    };
+    const emailTone = toneClasses(emailRate);
+    const jobTone = toneClasses(jobRate);
+
+    return `
+      <div class="space-y-4">
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm text-gray-600">Email Delivery</span>
+            <span class="text-sm font-semibold ${emailTone.text}">${emailRate}%</span>
+          </div>
+          <div class="w-full bg-gray-200 rounded-full h-2">
+            <div class="h-2 rounded-full ${emailTone.bar}" style="width: ${emailRate}%"></div>
+          </div>
+          <div class="flex justify-between mt-1 text-xs text-gray-400">
+            <span>${escapeHTML(formatNumber(esign.emails_sent || 0))} sent</span>
+            <span>${escapeHTML(formatNumber(esign.emails_failed || 0))} failed</span>
+          </div>
+        </div>
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm text-gray-600">Job Processing</span>
+            <span class="text-sm font-semibold ${jobTone.text}">${jobRate}%</span>
+          </div>
+          <div class="w-full bg-gray-200 rounded-full h-2">
+            <div class="h-2 rounded-full ${jobTone.bar}" style="width: ${jobRate}%"></div>
+          </div>
+          <div class="flex justify-between mt-1 text-xs text-gray-400">
+            <span>${escapeHTML(formatNumber(esign.jobs_completed || 0))} completed</span>
+            <span>${escapeHTML(formatNumber(esign.jobs_failed || 0))} failed</span>
+          </div>
+        </div>
+        ${pendingRetries > 0 ? `
+          <div class="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
+            ${escapeHTML(formatNumber(pendingRetries))} items pending retry
+          </div>
+        ` : ''}
+      </div>
+      ${period ? `<div class="mt-4 pt-3 border-t border-gray-100 text-xs text-gray-400 text-center">Last ${escapeHTML(period)}</div>` : ''}
+    `;
+  }
+
+  if (def === 'esign.widget.pending_signatures') {
+    const esign = data as Record<string, unknown>;
+    const agreements = Array.isArray(esign.agreements) ? esign.agreements as Array<Record<string, unknown>> : [];
+    const listURL = String(esign.list_url || '').trim();
+    return `
+      ${agreements.length ? `
+        <ul class="space-y-2">
+          ${agreements.map((agreement) => {
+            const pendingRecipients = Array.isArray(agreement.pending_recipients) ? agreement.pending_recipients as Array<Record<string, unknown>> : [];
+            return `
+              <li class="bg-gray-50 rounded-lg p-3 hover:bg-gray-100 transition-colors">
+                <div class="text-sm font-medium text-gray-900 truncate">
+                  ${agreement.url
+                    ? `<a href="${escapeHTML(agreement.url)}" class="hover:text-blue-600">${escapeHTML(agreement.title || 'Untitled')}</a>`
+                    : `${escapeHTML(agreement.title || 'Untitled')}`
+                  }
+                </div>
+                <div class="text-xs text-gray-500 mt-0.5">
+                  ${escapeHTML(formatNumber(agreement.pending_count || 0))} of ${escapeHTML(formatNumber(agreement.total_recipients || 0))} signatures pending
+                </div>
+                ${pendingRecipients.length ? `
+                  <div class="mt-2 flex flex-wrap gap-1">
+                    ${pendingRecipients.slice(0, 3).map((recipient) => `
+                      <span class="inline-flex items-center px-2 py-0.5 rounded text-xs bg-blue-100 text-blue-700">
+                        ${escapeHTML(recipient.name || recipient.email || 'Recipient')}
+                      </span>
+                    `).join('')}
+                    ${pendingRecipients.length > 3 ? `
+                      <span class="inline-flex items-center px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-600">
+                        +${pendingRecipients.length - 3} more
+                      </span>
+                    ` : ''}
+                  </div>
+                ` : ''}
+              </li>
+            `;
+          }).join('')}
+        </ul>
+      ` : `
+        <div class="text-center py-6 text-gray-500">
+          <p class="text-sm font-medium">All caught up!</p>
+          <p class="text-xs mt-1">No agreements pending signature</p>
+        </div>
+      `}
+      ${listURL ? `
+        <div class="mt-3 pt-3 border-t border-gray-100 text-center">
+          <a href="${escapeHTML(listURL)}" class="text-sm text-blue-600 hover:text-blue-800 inline-flex items-center gap-1">
+            View All Pending
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+            </svg>
+          </a>
+        </div>
+      ` : ''}
+    `;
   }
 
   return `<pre class="text-xs text-gray-600 overflow-auto">${escapeHTML(JSON.stringify(data, null, 2))}</pre>`;

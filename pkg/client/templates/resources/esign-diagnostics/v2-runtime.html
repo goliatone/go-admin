@@ -720,7 +720,7 @@
       tbody.innerHTML = data.agreements.map(agr => `
         <tr class="border-b border-gray-100 hover:bg-gray-50">
           <td class="py-3">
-            <a href="/admin/esign-agreements/${agr.id}" class="text-blue-600 hover:underline font-medium">${agr.id}</a>
+            <a href="/admin/content/esign_agreements/${agr.id}" class="text-blue-600 hover:underline font-medium">${agr.id}</a>
             <p class="text-xs text-gray-500">${agr.title}</p>
           </td>
           <td class="py-3">
@@ -1130,7 +1130,7 @@
   };
 
   window.viewConflict = function(id) {
-    window.location.href = `/admin/esign-integrations/conflicts/${id}`;
+    window.location.href = `${apiBase}/esign/integrations/conflicts/${id}`;
   };
 })();
 </script>

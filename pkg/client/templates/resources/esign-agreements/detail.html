@@ -1107,7 +1107,7 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   function buildAssetDownloadURL(assetType) {
-    const endpoint = new URL(`${apiBase}/${panelName}/${agreementId}/artifact/${assetType}`, window.location.origin);
+    const endpoint = new URL(`${apiBase}/panels/${panelName}/${agreementId}/artifact/${assetType}`, window.location.origin);
     appendScopeParams(endpoint);
     endpoint.searchParams.set('disposition', 'attachment');
     return endpoint.toString();
@@ -1210,7 +1210,7 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   async function executeAction(action, payload = {}) {
-    const endpoint = buildScopedURL(`${apiBase}/${panelName}/actions/${action}`);
+    const endpoint = buildScopedURL(`${apiBase}/panels/${panelName}/actions/${action}`);
     try {
       const response = await fetch(endpoint, {
         method: 'POST',

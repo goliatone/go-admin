@@ -504,6 +504,12 @@
                     <input type="checkbox" name="field_definitions[].required" checked class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
                     <span class="text-sm text-gray-700">Required</span>
                   </label>
+                  <button type="button" class="jump-to-place-btn p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" aria-label="Jump to place this field on the document" title="Place on document">
+                    <svg class="w-4 h-4" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    </svg>
+                  </button>
                 </div>
               </div>
               <button type="button" class="remove-field-definition-btn p-2 text-gray-400 hover:text-red-600" aria-label="Remove this field">
@@ -1320,18 +1326,18 @@ document.addEventListener('DOMContentLoaded', function() {
       // Force sync on visibility change
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'hidden') {
-          this.forceSync();
+          this.forceSync({ keepalive: true });
         }
       });
 
       // Force sync on page hide
       window.addEventListener('pagehide', () => {
-        this.forceSync();
+        this.forceSync({ keepalive: true });
       });
 
       // Force sync on beforeunload
       window.addEventListener('beforeunload', () => {
-        this.forceSync();
+        this.forceSync({ keepalive: true });
       });
     }
 
@@ -1347,15 +1353,21 @@ document.addEventListener('DOMContentLoaded', function() {
       }, SYNC_DEBOUNCE_MS);
     }
 
-    async forceSync() {
+    async forceSync(options = {}) {
       if (this.debounceTimer) {
         clearTimeout(this.debounceTimer);
         this.debounceTimer = null;
       }
 
-      // Use sendBeacon for pagehide if available
+      const useKeepalive = options && options.keepalive === true;
       const state = this.stateManager.getState();
-      if (state.syncPending && state.serverDraftId && navigator.sendBeacon) {
+      if (!useKeepalive) {
+        await this.performSync();
+        return;
+      }
+
+      // Use keepalive PUT so route method remains canonical on unload/pagehide.
+      if (state.syncPending && state.serverDraftId) {
         const payload = JSON.stringify({
           expected_revision: state.serverRevision,
           wizard_state: state,
@@ -1364,10 +1376,43 @@ document.addEventListener('DOMContentLoaded', function() {
           document_id: state.document.id || null,
           updated_by_user_id: currentUserID
         });
-        navigator.sendBeacon(draftEndpointWithUserID(`${draftsEndpoint}/${state.serverDraftId}`), new Blob([payload], { type: 'application/json' }));
-      } else {
-        await this.performSync();
+        try {
+          const response = await fetch(draftEndpointWithUserID(`${draftsEndpoint}/${state.serverDraftId}`), {
+            method: 'PUT',
+            credentials: 'same-origin',
+            headers: draftRequestHeaders(),
+            body: payload,
+            keepalive: true
+          });
+
+          if (response.status === 409) {
+            const error = await response.json().catch(() => ({}));
+            const currentRevision = Number(error?.error?.details?.current_revision || 0);
+            this.statusUpdater('conflict');
+            this.showConflictDialog(currentRevision > 0 ? currentRevision : state.serverRevision);
+            return;
+          }
+
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+
+          const data = await response.json().catch(() => ({}));
+          const syncedDraftID = String(data?.id || data?.draft_id || state.serverDraftId || '').trim();
+          const syncedRevision = Number(data?.revision || 0);
+          if (syncedDraftID && Number.isFinite(syncedRevision) && syncedRevision > 0) {
+            this.stateManager.markSynced(syncedDraftID, syncedRevision);
+            this.statusUpdater('saved');
+            this.retryCount = 0;
+            this.broadcastSyncCompleted(syncedDraftID, syncedRevision);
+            return;
+          }
+        } catch (error) {
+          // Fall back to canonical sync path.
+        }
       }
+
+      await this.performSync();
     }
 
     async performSync() {
@@ -1636,7 +1681,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   async function loadDocuments() {
     try {
-      const response = await fetch(`${apiBase}/esign_documents?per_page=100`, {
+      const response = await fetch(`${apiBase}/panels/esign_documents?per_page=100`, {
         credentials: 'same-origin',
         headers: { 'Accept': 'application/json' }
       });
@@ -1952,6 +1997,53 @@ document.addEventListener('DOMContentLoaded', function() {
       entry.remove();
       updateFieldDefinitionsEmptyState();
     });
+
+    // Jump to Place button - navigates to Step 5 and sets the PDF viewer to the field's target page
+    const fieldPageInput = entry.querySelector('input[name*=".page"]');
+    const jumpToPlaceBtn = entry.querySelector('.jump-to-place-btn');
+
+    jumpToPlaceBtn.addEventListener('click', async () => {
+      const targetPage = parseInt(fieldPageInput?.value || '1', 10);
+      const fieldId = entry.getAttribute('data-field-definition-id');
+
+      // Navigate to Step 5 (placement)
+      goToStep(5);
+
+      // Wait for placement editor to initialize if needed
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Set the current page in the placement viewer
+      if (typeof placementState !== 'undefined' && placementState.pdfDoc) {
+        const validPage = Math.max(1, Math.min(targetPage, placementState.totalPages || 1));
+        if (placementState.currentPage !== validPage) {
+          placementState.currentPage = validPage;
+          await renderPage(validPage);
+        }
+
+        // Highlight the corresponding field in the placement panel
+        const fieldItems = document.querySelectorAll('.placement-field-item');
+        fieldItems.forEach(item => item.classList.remove('ring-2', 'ring-blue-500', 'bg-blue-50'));
+        const targetFieldItem = document.querySelector(`.placement-field-item[data-definition-id="${fieldId}"]`);
+        if (targetFieldItem) {
+          targetFieldItem.classList.add('ring-2', 'ring-blue-500', 'bg-blue-50');
+          targetFieldItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // Remove highlight after 3 seconds
+          setTimeout(() => {
+            targetFieldItem.classList.remove('ring-2', 'ring-blue-500', 'bg-blue-50');
+          }, 3000);
+        }
+      }
+    });
+
+    // Update the jump-to-place button tooltip when page number changes
+    const updateJumpBtnTooltip = () => {
+      const page = fieldPageInput?.value || '1';
+      jumpToPlaceBtn.title = `Place on page ${page}`;
+      jumpToPlaceBtn.setAttribute('aria-label', `Jump to place this field on page ${page}`);
+    };
+    updateJumpBtnTooltip();
+    fieldPageInput?.addEventListener('input', updateJumpBtnTooltip);
+    fieldPageInput?.addEventListener('change', updateJumpBtnTooltip);
 
     fieldDefinitionsContainer.appendChild(clone);
     updateFieldDefinitionsEmptyState();
@@ -2513,7 +2605,7 @@ document.addEventListener('DOMContentLoaded', function() {
       }
 
       // Fetch document PDF URL
-      const docResponse = await fetch(`${apiBase}/esign_documents/${documentIdInput.value}`, {
+      const docResponse = await fetch(`${apiBase}/panels/esign_documents/${documentIdInput.value}`, {
         credentials: 'same-origin',
         headers: { 'Accept': 'application/json' }
       });
@@ -2975,7 +3067,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
       try {
         // Call placement orchestrator API
-        const response = await fetch(`${apiBase}/esign-agreements/${agreementId}/actions/auto-place`, {
+        const response = await fetch(`${apiVersionBase}/esign/agreements/${agreementId}/auto-place`, {
           method: 'POST',
           credentials: 'same-origin',
           headers: {
@@ -2993,9 +3085,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         const result = await response.json();
-        autoPlaceState.currentRunId = result.run_id;
-        autoPlaceState.suggestions = result.suggestions || [];
-        autoPlaceState.resolverScores = result.resolver_scores || [];
+        const run = (result && typeof result === 'object' && result.run && typeof result.run === 'object')
+          ? result.run
+          : result;
+        autoPlaceState.currentRunId = run?.run_id || run?.id || null;
+        autoPlaceState.suggestions = run?.suggestions || [];
+        autoPlaceState.resolverScores = run?.resolver_scores || [];
 
         if (autoPlaceState.suggestions.length === 0) {
           showToast('No placement suggestions found. Try placing fields manually.', 'warning');
@@ -3439,29 +3534,11 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   async function sendPlacementFeedback(acceptedCount, rejectedCount) {
-    if (!autoPlaceState.currentRunId) return;
-
-    try {
-      const agreementId = document.querySelector('input[name="id"]')?.value;
-      if (!agreementId) return;
-
-      await fetch(`${apiBase}/esign-agreements/${agreementId}/placement-runs/${autoPlaceState.currentRunId}/feedback`, {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify({
-          accepted_count: acceptedCount,
-          rejected_count: rejectedCount,
-          manual_override_count: placementState.fieldInstances.filter(f => f.placementSource === 'manual').length
-        })
-      });
-    } catch (error) {
-      console.warn('Failed to send placement feedback:', error);
-      // Non-critical, don't show error to user
-    }
+    void acceptedCount;
+    void rejectedCount;
+    // Feedback transport endpoint is not implemented in the current admin API.
+    // Keep this as a no-op to avoid noisy 404s during placement workflows.
+    return;
   }
 
   function showToast(message, type = 'info') {
