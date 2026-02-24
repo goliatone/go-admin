@@ -366,11 +366,12 @@ func RegisterAuthUIRoutes[T any](r router.Router[T], cfg admin.Config, auther *a
 
 		token, err := auther.Login(c.Context(), payload.Identifier, payload.Password)
 		if err != nil {
+			errorCode := classifyLoginErrorCode(err)
 			return c.Redirect(
 				buildLoginFailureRedirect(
 					options.loginPath,
 					options.loginErrorQueryKey,
-					"invalid_credentials",
+					errorCode,
 					options.loginIdentifierQueryKey,
 					payload.Identifier,
 					options.loginRememberQueryKey,
@@ -530,9 +531,21 @@ func resolveLoginErrorMessage(code string) string {
 		return "Invalid credentials. Please check your identifier and password."
 	case "account_disabled":
 		return "This account is currently disabled."
+	case "token_too_large":
+		return "Unable to sign in due to session size limits. Contact support."
 	default:
 		return "Unable to sign in. Please try again."
 	}
+}
+
+func classifyLoginErrorCode(err error) string {
+	if err == nil {
+		return "invalid_credentials"
+	}
+	if goerrors.Is(err, auth.ErrTokenTooLarge) {
+		return "token_too_large"
+	}
+	return "invalid_credentials"
 }
 
 func parseLoginRemember(raw string) bool {
