@@ -310,6 +310,34 @@ func TestDefaultFiberAdapterConfigPathConflictModeCanBeOverriddenFromEnv(t *test
 	}
 }
 
+func TestResolveFiberReadBufferSizeDefaults(t *testing.T) {
+	t.Setenv("ADMIN_FIBER_READ_BUFFER_SIZE", "")
+	if got := resolveFiberReadBufferSize(); got != defaultFiberReadBufferSize {
+		t.Fatalf("expected default fiber read buffer size %d, got %d", defaultFiberReadBufferSize, got)
+	}
+}
+
+func TestResolveFiberReadBufferSizeFromEnv(t *testing.T) {
+	t.Setenv("ADMIN_FIBER_READ_BUFFER_SIZE", "32768")
+	if got := resolveFiberReadBufferSize(); got != 32768 {
+		t.Fatalf("expected env fiber read buffer size 32768, got %d", got)
+	}
+}
+
+func TestResolveFiberReadBufferSizeInvalidEnvFallsBack(t *testing.T) {
+	t.Setenv("ADMIN_FIBER_READ_BUFFER_SIZE", "invalid")
+	if got := resolveFiberReadBufferSize(); got != defaultFiberReadBufferSize {
+		t.Fatalf("expected invalid env to fallback to %d, got %d", defaultFiberReadBufferSize, got)
+	}
+}
+
+func TestResolveFiberReadBufferSizeNonPositiveFallsBack(t *testing.T) {
+	t.Setenv("ADMIN_FIBER_READ_BUFFER_SIZE", "0")
+	if got := resolveFiberReadBufferSize(); got != defaultFiberReadBufferSize {
+		t.Fatalf("expected non-positive env to fallback to %d, got %d", defaultFiberReadBufferSize, got)
+	}
+}
+
 func TestDebugLogCaptureIncludesFiberRequestsAndDILogs(t *testing.T) {
 	cfg := NewAdminConfig(
 		"/admin",
