@@ -232,7 +232,8 @@ func (p *panelBinding) Detail(c router.Context, locale string, id string) (map[s
 		if s, ok := record["status"].(string); ok {
 			state = s
 		}
-		if transitions, err := p.panel.workflow.AvailableTransitions(ctx.Context, p.name, state); err == nil {
+		recordID := strings.TrimSpace(toString(record["id"]))
+		if transitions, err := workflowSnapshotTransitions(ctx.Context, p.panel.workflow, p.name, recordID, state, record, true); err == nil {
 			res["workflow"] = map[string]any{
 				"transitions": transitions,
 			}
@@ -703,7 +704,7 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 			if s, ok := record["status"].(string); ok {
 				state = s
 			}
-			transitions, err := p.panel.workflow.AvailableTransitions(ctx.Context, p.name, state)
+			transitions, err := workflowSnapshotTransitions(ctx.Context, p.panel.workflow, p.name, primaryID, state, record, true)
 			if err != nil {
 				if workflowBackedAction {
 					return nil, err
@@ -711,10 +712,10 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 			} else {
 				candidates := workflowTransitionCandidates(action)
 				for _, t := range transitions {
-					if !containsTransitionName(candidates, t.Name) {
+					if !containsTransitionEvent(candidates, t.Event) {
 						continue
 					}
-					transitionName := t.Name
+					transitionName := strings.TrimSpace(t.Event)
 					for _, a := range p.panel.actions {
 						if a.Name == action && a.Permission != "" && p.panel.authorizer != nil {
 							if !p.panel.authorizer.Can(ctx.Context, a.Permission, p.name) {
@@ -736,18 +737,33 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 						p.recordBlockedTransition(ctx, primaryID, action, policyInput, err)
 						return nil, err
 					}
-					_, err := p.panel.workflow.Transition(ctx.Context, TransitionInput{
-						EntityID:     primaryID,
-						EntityType:   p.name,
-						CurrentState: state,
-						Transition:   transitionName,
-						TargetState:  t.To,
-						ActorID:      ctx.UserID,
-						Metadata:     body,
-					})
+					req := buildWorkflowApplyRequest(ctx.Context, p.name, primaryID, state, workflowTransitionTargetState(t), body)
+					req.Event = transitionName
+					response, err := p.panel.workflow.ApplyEvent(ctx.Context, req)
 					if err == nil {
-						// Successfully transitioned, now update the record status without re-evaluating workflow.
-						_, _ = p.panel.Update(ctx, primaryID, map[string]any{"status": t.To, "_workflow_skip": true})
+						persisted := map[string]any{}
+						nextState := workflowCurrentStateFromResponse(response)
+						if nextState == "" {
+							nextState = workflowTransitionTargetState(t)
+						}
+						if nextState != "" {
+							persisted["status"] = nextState
+						}
+						if len(persisted) > 0 {
+							updated, updateErr := p.panel.repo.Update(ctx.Context, primaryID, persisted)
+							if updateErr != nil {
+								return nil, updateErr
+							}
+							if updated != nil {
+								return map[string]any{
+									"workflow": response,
+									"record":   updated,
+								}, nil
+							}
+						}
+						return map[string]any{
+							"workflow": response,
+						}, nil
 					}
 					if err != nil {
 						return nil, err
@@ -805,7 +821,7 @@ func shouldReturnWorkflowInvalidTransition(definition Action, action string) boo
 	return ok
 }
 
-func workflowInvalidTransitionDomainError(panelName, entityID, action, currentState string, transitions []WorkflowTransition) error {
+func workflowInvalidTransitionDomainError(panelName, entityID, action, currentState string, transitions []WorkflowTransitionInfo) error {
 	currentState = strings.TrimSpace(currentState)
 	if currentState == "" {
 		currentState = "unknown"
@@ -824,14 +840,14 @@ func workflowInvalidTransitionDomainError(panelName, entityID, action, currentSt
 	)
 }
 
-func workflowTransitionNamesList(transitions []WorkflowTransition) []string {
+func workflowTransitionNamesList(transitions []WorkflowTransitionInfo) []string {
 	if len(transitions) == 0 {
 		return []string{}
 	}
 	out := make([]string, 0, len(transitions))
 	seen := make(map[string]struct{}, len(transitions))
 	for _, transition := range transitions {
-		name := strings.TrimSpace(transition.Name)
+		name := strings.TrimSpace(transition.Event)
 		if name == "" {
 			continue
 		}
@@ -848,20 +864,21 @@ func (p *panelBinding) withRowActionState(ctx AdminContext, records []map[string
 	if len(records) == 0 || len(actions) == 0 {
 		return records
 	}
-	workflowTransitionsByState := map[string][]WorkflowTransition{}
-	workflowTransitionErrByState := map[string]error{}
+	workflowTransitionsByRecord := map[string][]WorkflowTransitionInfo{}
+	workflowTransitionErrByRecord := map[string]error{}
 	out := make([]map[string]any, 0, len(records))
 	for _, record := range records {
 		cloned := primitives.CloneAnyMap(record)
 		state := strings.TrimSpace(toString(cloned["status"]))
+		recordID := strings.TrimSpace(toString(cloned["id"]))
 		if p.panel.workflow != nil {
-			if _, seen := workflowTransitionsByState[state]; !seen {
-				transitions, err := p.panel.workflow.AvailableTransitions(ctx.Context, p.name, state)
-				workflowTransitionsByState[state] = append([]WorkflowTransition{}, transitions...)
-				workflowTransitionErrByState[state] = err
+			if _, seen := workflowTransitionsByRecord[recordID]; !seen {
+				transitions, err := workflowSnapshotTransitions(ctx.Context, p.panel.workflow, p.name, recordID, state, cloned, true)
+				workflowTransitionsByRecord[recordID] = append([]WorkflowTransitionInfo{}, transitions...)
+				workflowTransitionErrByRecord[recordID] = err
 			}
 		}
-		actionState := p.rowActionStateForRecord(ctx, cloned, actions, workflowTransitionsByState[state], workflowTransitionErrByState[state])
+		actionState := p.rowActionStateForRecord(ctx, cloned, actions, workflowTransitionsByRecord[recordID], workflowTransitionErrByRecord[recordID])
 		if len(actionState) > 0 {
 			cloned["_action_state"] = actionState
 		}
