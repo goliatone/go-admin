@@ -162,6 +162,67 @@ func normalizedLocaleList(raw any) []string {
 	return locales
 }
 
+func normalizeEffectiveMenuLocations(raw any) []string {
+	return normalizeStringListAny(raw)
+}
+
+func normalizeNavigationVisibilityMap(raw any) map[string]string {
+	if raw == nil {
+		return nil
+	}
+	source, ok := raw.(map[string]any)
+	if !ok {
+		if typed, ok := raw.(map[string]string); ok {
+			out := map[string]string{}
+			for key, value := range typed {
+				location := strings.TrimSpace(key)
+				mode := strings.TrimSpace(strings.ToLower(value))
+				if location == "" || mode == "" {
+					continue
+				}
+				out[location] = mode
+			}
+			if len(out) == 0 {
+				return nil
+			}
+			return out
+		}
+		return nil
+	}
+	out := map[string]string{}
+	for key, value := range source {
+		location := strings.TrimSpace(key)
+		mode := strings.TrimSpace(strings.ToLower(toString(value)))
+		if location == "" || mode == "" {
+			continue
+		}
+		out[location] = mode
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func navigationVisibilityMapAny(in map[string]string) map[string]any {
+	if len(in) == 0 {
+		return nil
+	}
+	out := map[string]any{}
+	for key, value := range in {
+		location := strings.TrimSpace(key)
+		mode := strings.TrimSpace(value)
+		if location == "" || mode == "" {
+			continue
+		}
+		out[location] = mode
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
 func preserveStringField(record map[string]any, key string, target *string, fallback string) {
 	if target == nil {
 		return
@@ -252,6 +313,20 @@ func mapToCMSPage(record map[string]any) CMSPage {
 	page.Blocks = mapped.Blocks
 	page.EmbeddedBlocks = mapped.Embedded
 	page.SchemaVersion = mapped.SchemaVersion
+	page.Navigation = normalizeNavigationVisibilityMap(record["_navigation"])
+	if len(page.Navigation) == 0 {
+		page.Navigation = normalizeNavigationVisibilityMap(page.Data["_navigation"])
+	}
+	page.EffectiveMenuLocations = normalizeEffectiveMenuLocations(record["effective_menu_locations"])
+	if len(page.EffectiveMenuLocations) == 0 {
+		page.EffectiveMenuLocations = normalizeEffectiveMenuLocations(page.Data["effective_menu_locations"])
+	}
+	if len(page.Navigation) > 0 {
+		page.Data["_navigation"] = navigationVisibilityMapAny(page.Navigation)
+	}
+	if len(page.EffectiveMenuLocations) > 0 {
+		page.Data["effective_menu_locations"] = append([]string{}, page.EffectiveMenuLocations...)
+	}
 	if seo, ok := record["seo"].(map[string]any); ok {
 		page.SEO = primitives.CloneAnyMap(seo)
 	}
@@ -302,9 +377,27 @@ func mergeCMSPageUpdate(existing CMSPage, page CMSPage, record map[string]any) C
 	} else {
 		page.SEO = primitives.CloneAnyMap(existing.SEO)
 	}
-	page.Data = mergeCMSDataUpdate(existing.Data, page.Data, recordHasKey(record, "data") || recordHasKey(record, "path") || recordHasKey(record, "blocks") || recordHasKey(record, "_schema"))
+	page.Data = mergeCMSDataUpdate(existing.Data, page.Data, cmsPageDataUpdated(record))
 	page.Data, page.SchemaVersion, page.EmbeddedBlocks = finalizeCMSDataSchemaAndBlocks(record, page.Data, page.SchemaVersion, existing.SchemaVersion, page.EmbeddedBlocks)
+	if len(page.Navigation) == 0 {
+		page.Navigation = normalizeNavigationVisibilityMap(page.Data["_navigation"])
+	}
+	if len(page.EffectiveMenuLocations) == 0 {
+		page.EffectiveMenuLocations = normalizeEffectiveMenuLocations(page.Data["effective_menu_locations"])
+	}
 	return page
+}
+
+func cmsPageDataUpdated(record map[string]any) bool {
+	if record == nil {
+		return false
+	}
+	return recordHasKey(record, "data") ||
+		recordHasKey(record, "path") ||
+		recordHasKey(record, "blocks") ||
+		recordHasKey(record, "_schema") ||
+		recordHasKey(record, "_navigation") ||
+		recordHasKey(record, "effective_menu_locations")
 }
 
 var cmsContentReservedKeys = map[string]struct{}{
@@ -326,6 +419,8 @@ var cmsContentReservedKeys = map[string]struct{}{
 	"metadata":                 {},
 	"schema":                   {},
 	"_schema":                  {},
+	"_navigation":              {},
+	"effective_menu_locations": {},
 }
 
 func mapToCMSContent(record map[string]any) CMSContent {
@@ -380,6 +475,20 @@ func mapToCMSContent(record map[string]any) CMSContent {
 	content.Blocks = mapped.Blocks
 	content.EmbeddedBlocks = mapped.Embedded
 	content.SchemaVersion = mapped.SchemaVersion
+	content.Navigation = normalizeNavigationVisibilityMap(record["_navigation"])
+	if len(content.Navigation) == 0 {
+		content.Navigation = normalizeNavigationVisibilityMap(content.Data["_navigation"])
+	}
+	content.EffectiveMenuLocations = normalizeEffectiveMenuLocations(record["effective_menu_locations"])
+	if len(content.EffectiveMenuLocations) == 0 {
+		content.EffectiveMenuLocations = normalizeEffectiveMenuLocations(content.Data["effective_menu_locations"])
+	}
+	if len(content.Navigation) > 0 {
+		content.Data["_navigation"] = navigationVisibilityMapAny(content.Navigation)
+	}
+	if len(content.EffectiveMenuLocations) > 0 {
+		content.Data["effective_menu_locations"] = append([]string{}, content.EffectiveMenuLocations...)
+	}
 	if meta, ok := record["metadata"].(map[string]any); ok {
 		content.Metadata = primitives.CloneAnyMap(meta)
 	}
@@ -412,6 +521,12 @@ func mergeCMSContentUpdate(existing CMSContent, content CMSContent, record map[s
 	mergeCMSMetadataUpdate(record, &content.Metadata, existing.Metadata)
 	content.Data = mergeCMSDataUpdate(existing.Data, content.Data, cmsContentDataUpdated(record))
 	content.Data, content.SchemaVersion, content.EmbeddedBlocks = finalizeCMSDataSchemaAndBlocks(record, content.Data, content.SchemaVersion, existing.SchemaVersion, content.EmbeddedBlocks)
+	if len(content.Navigation) == 0 {
+		content.Navigation = normalizeNavigationVisibilityMap(content.Data["_navigation"])
+	}
+	if len(content.EffectiveMenuLocations) == 0 {
+		content.EffectiveMenuLocations = normalizeEffectiveMenuLocations(content.Data["effective_menu_locations"])
+	}
 	content.Data = pruneNilMapValues(content.Data)
 	return content
 }
@@ -429,6 +544,12 @@ func cmsContentDataUpdated(record map[string]any) bool {
 		return false
 	}
 	if _, ok := record["_schema"]; ok {
+		return true
+	}
+	if _, ok := record["_navigation"]; ok {
+		return true
+	}
+	if _, ok := record["effective_menu_locations"]; ok {
 		return true
 	}
 	if _, ok := record["blocks"]; ok {
@@ -620,6 +741,9 @@ func mapToCMSContentType(record map[string]any) CMSContentType {
 		if err := json.Unmarshal([]byte(raw), &m); err == nil {
 			ct.Capabilities = m
 		}
+	}
+	if normalized, _, _ := normalizeContentTypeCapabilitiesInternal(ct.Capabilities); normalized != nil {
+		ct.Capabilities = normalized
 	}
 	return ct
 }

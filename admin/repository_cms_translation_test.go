@@ -98,3 +98,76 @@ func TestCMSContentRepositoryUpdateRequiresCreateTranslation(t *testing.T) {
 		t.Fatalf("expected fallback content unchanged, got %+v", item)
 	}
 }
+
+func TestCMSPageRepositoryGetReturnsTranslationMissingWhenFallbackDisabled(t *testing.T) {
+	ctx := context.Background()
+	content := NewInMemoryContentService()
+	repo := NewCMSPageRepository(content)
+
+	created, err := repo.Create(ctx, map[string]any{
+		"title":  "Home",
+		"slug":   "/home",
+		"locale": "en",
+	})
+	if err != nil {
+		t.Fatalf("create failed: %v", err)
+	}
+	id := toString(created["id"])
+
+	_, err = repo.Get(WithLocaleFallback(WithLocale(ctx, "es"), false), id)
+	if err == nil {
+		t.Fatalf("expected translation missing error")
+	}
+	var typedErr *goerrors.Error
+	if !goerrors.As(err, &typedErr) {
+		t.Fatalf("expected typed translation error, got %T", err)
+	}
+	if typedErr.TextCode != TextCodeTranslationMissing {
+		t.Fatalf("expected text code %s, got %q", TextCodeTranslationMissing, typedErr.TextCode)
+	}
+	if typedErr.Code != 404 {
+		t.Fatalf("expected 404 translation missing status, got %d", typedErr.Code)
+	}
+	if val, ok := typedErr.Metadata["translation_missing"].(bool); !ok || !val {
+		t.Fatalf("expected translation_missing metadata, got %+v", typedErr.Metadata)
+	}
+	if got := toString(typedErr.Metadata["requested_locale"]); got != "es" {
+		t.Fatalf("expected requested_locale es, got %+v", typedErr.Metadata["requested_locale"])
+	}
+}
+
+func TestCMSContentRepositoryGetReturnsTranslationMissingWhenFallbackDisabled(t *testing.T) {
+	ctx := context.Background()
+	content := NewInMemoryContentService()
+	repo := NewCMSContentRepository(content)
+
+	created, err := repo.Create(ctx, map[string]any{
+		"title":        "Post",
+		"slug":         "post",
+		"locale":       "en",
+		"content_type": "post",
+		"status":       "draft",
+	})
+	if err != nil {
+		t.Fatalf("create failed: %v", err)
+	}
+	id := toString(created["id"])
+
+	_, err = repo.Get(WithLocaleFallback(WithLocale(ctx, "es"), false), id)
+	if err == nil {
+		t.Fatalf("expected translation missing error")
+	}
+	var typedErr *goerrors.Error
+	if !goerrors.As(err, &typedErr) {
+		t.Fatalf("expected typed translation error, got %T", err)
+	}
+	if typedErr.TextCode != TextCodeTranslationMissing {
+		t.Fatalf("expected text code %s, got %q", TextCodeTranslationMissing, typedErr.TextCode)
+	}
+	if typedErr.Code != 404 {
+		t.Fatalf("expected 404 translation missing status, got %d", typedErr.Code)
+	}
+	if got := toString(typedErr.Metadata["requested_locale"]); got != "es" {
+		t.Fatalf("expected requested_locale es, got %+v", typedErr.Metadata["requested_locale"])
+	}
+}

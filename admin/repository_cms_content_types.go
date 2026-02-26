@@ -55,6 +55,9 @@ func (r *CMSContentTypeRepository) List(ctx context.Context, opts ListOptions) (
 	for _, ct := range sliced {
 		out = append(out, mapFromCMSContentType(ct))
 	}
+	if len(opts.Fields) > 0 {
+		out = projectRecordMapsByFields(out, opts.Fields)
+	}
 	return out, total, nil
 }
 
@@ -79,6 +82,11 @@ func (r *CMSContentTypeRepository) Create(ctx context.Context, record map[string
 	if ct.Slug == "" {
 		ct.Slug = strings.TrimSpace(ct.ID)
 	}
+	normalizedCaps, err := ValidateAndNormalizeContentTypeCapabilities(ct.Capabilities)
+	if err != nil {
+		return nil, err
+	}
+	ct.Capabilities = normalizedCaps
 	created, err := r.types.CreateContentType(ctx, ct)
 	if err != nil {
 		return nil, err
@@ -156,6 +164,11 @@ func (r *CMSContentTypeRepository) Update(ctx context.Context, id string, record
 	if existing != nil && schemaProvided && ct.Schema != nil {
 		ct.Schema = mergeCMSContentTypeSchema(existing.Schema, ct.Schema)
 	}
+	normalizedCaps, err := ValidateAndNormalizeContentTypeCapabilities(ct.Capabilities)
+	if err != nil {
+		return nil, err
+	}
+	ct.Capabilities = normalizedCaps
 	updated, err := r.types.UpdateContentType(ctx, ct)
 	if err != nil {
 		return nil, err
@@ -192,6 +205,7 @@ func (r *CMSContentTypeRepository) resolveContentType(ctx context.Context, id st
 }
 
 func mapFromCMSContentType(ct CMSContentType) map[string]any {
+	contracts := ReadContentTypeCapabilityContracts(ct)
 	id := strings.TrimSpace(ct.ID)
 	if id == "" {
 		id = strings.TrimSpace(ct.Slug)
@@ -204,9 +218,24 @@ func mapFromCMSContentType(ct CMSContentType) map[string]any {
 		"environment":  ct.Environment,
 		"schema":       primitives.CloneAnyMap(ct.Schema),
 		"ui_schema":    primitives.CloneAnyMap(ct.UISchema),
-		"capabilities": primitives.CloneAnyMap(ct.Capabilities),
+		"capabilities": primitives.CloneAnyMap(contracts.Normalized),
 		"icon":         ct.Icon,
 		"status":       ct.Status,
+		"capability_contracts": map[string]any{
+			"delivery":   primitives.CloneAnyMap(contracts.Delivery),
+			"navigation": primitives.CloneAnyMap(contracts.Navigation),
+			"search":     primitives.CloneAnyMap(contracts.Search),
+		},
+	}
+	if len(contracts.Validation) > 0 {
+		fields := map[string]any{}
+		for key, value := range contracts.Validation {
+			fields[key] = value
+		}
+		out["capability_validation"] = fields
+	}
+	if contracts.MigratedDeliveryMenu {
+		out["legacy_delivery_menu_migrated"] = true
 	}
 	if ct.ID != "" {
 		out["content_type_id"] = ct.ID

@@ -28,32 +28,29 @@ func (r *CMSContentRepository) List(ctx context.Context, opts ListOptions) ([]ma
 	if err != nil {
 		return nil, 0, err
 	}
-	search := strings.ToLower(extractSearch(opts))
-	filtered := []CMSContent{}
+	records := make([]map[string]any, 0, len(contents))
 	for _, item := range contents {
-		contentType := primitives.FirstNonEmptyRaw(item.ContentTypeSlug, item.ContentType)
-		if search != "" && !strings.Contains(strings.ToLower(item.Title), search) &&
-			!strings.Contains(strings.ToLower(item.Slug), search) &&
-			!strings.Contains(strings.ToLower(contentType), search) {
-			continue
-		}
 		if contentRecordRequiresCanonicalTopLevelFields(item) {
 			if err := ensureCanonicalTopLevelFields(item); err != nil {
 				return nil, 0, err
 			}
 		}
-		filtered = append(filtered, item)
-	}
-	sliced, total := paginateCMS(filtered, opts)
-	out := make([]map[string]any, 0, len(sliced))
-	for _, item := range sliced {
-		out = append(out, cmsContentRecord(item, cmsContentRecordOptions{
+		item = normalizeCMSContentLocaleState(item, locale)
+		records = append(records, cmsContentRecord(item, cmsContentRecordOptions{
 			includeBlocks:   true,
 			includeData:     true,
 			includeMetadata: true,
 		}))
 	}
-	return out, total, nil
+	listOpts := opts
+	if strings.TrimSpace(listOpts.SortBy) == "" {
+		listOpts.SortBy = "id"
+	}
+	list, total := applyListOptionsToRecordMaps(records, listOpts, listRecordOptions{
+		PredicateMatcher: cmsContentRecordPredicateMatcher,
+		SearchMatcher:    cmsContentRecordSearchMatcher,
+	})
+	return list, total, nil
 }
 
 // Get retrieves content by id.
@@ -70,11 +67,26 @@ func (r *CMSContentRepository) Get(ctx context.Context, id string) (map[string]a
 	if err != nil {
 		return nil, err
 	}
-	if item != nil && contentRecordRequiresCanonicalTopLevelFields(*item) {
+	if item == nil {
+		return nil, ErrNotFound
+	}
+	if contentRecordRequiresCanonicalTopLevelFields(*item) {
 		if err := ensureCanonicalTopLevelFields(*item); err != nil {
 			return nil, err
 		}
 	}
+	requested := strings.TrimSpace(primitives.FirstNonEmptyRaw(localeFromContext(ctx), item.RequestedLocale))
+	normalized := normalizeCMSContentLocaleState(*item, requested)
+	if requested != "" && normalized.MissingRequestedLocale && !localeFallbackAllowed(ctx) {
+		return nil, translationMissingNotFoundError(requested, normalized.AvailableLocales, map[string]any{
+			"entity":       "content",
+			"id":           normalized.ID,
+			"slug":         normalized.Slug,
+			"content_type": primitives.FirstNonEmptyRaw(normalized.ContentTypeSlug, normalized.ContentType),
+			"locale":       normalized.Locale,
+		})
+	}
+	item = &normalized
 	return cmsContentRecord(*item, cmsContentRecordOptions{
 		includeBlocks:   true,
 		includeData:     true,
@@ -228,6 +240,7 @@ func (r *CMSContentTypeEntryRepository) List(ctx context.Context, opts ListOptio
 				return nil, 0, err
 			}
 		}
+		item = normalizeCMSContentLocaleState(item, locale)
 		records = append(records, cmsContentRecord(item, cmsContentRecordOptions{
 			includeBlocks:   true,
 			includeData:     true,
@@ -291,8 +304,17 @@ type cmsContentRecordOptions struct {
 }
 
 func cmsContentRecord(item CMSContent, opts cmsContentRecordOptions) map[string]any {
+	item = normalizeCMSContentLocaleState(item, item.RequestedLocale)
 	contentType := primitives.FirstNonEmptyRaw(item.ContentTypeSlug, item.ContentType)
 	schema := strings.TrimSpace(primitives.FirstNonEmptyRaw(item.SchemaVersion, toString(item.Data["_schema"])))
+	navigation := item.Navigation
+	if len(navigation) == 0 {
+		navigation = normalizeNavigationVisibilityMap(item.Data["_navigation"])
+	}
+	effectiveLocations := item.EffectiveMenuLocations
+	if len(effectiveLocations) == 0 {
+		effectiveLocations = normalizeEffectiveMenuLocations(item.Data["effective_menu_locations"])
+	}
 	record := map[string]any{
 		"id":                       item.ID,
 		"title":                    item.Title,
@@ -305,6 +327,8 @@ func cmsContentRecord(item CMSContent, opts cmsContentRecordOptions) map[string]
 		"missing_requested_locale": item.MissingRequestedLocale,
 		"content_type":             contentType,
 		"status":                   item.Status,
+		"_navigation":              navigationVisibilityMapAny(navigation),
+		"effective_menu_locations": append([]string{}, effectiveLocations...),
 	}
 	if opts.includeContentTypeSlug {
 		record["content_type_slug"] = contentType
@@ -323,6 +347,28 @@ func cmsContentRecord(item CMSContent, opts cmsContentRecordOptions) map[string]
 	}
 	mergeCMSRecordData(record, item.Data, cmsContentReservedKeys)
 	return record
+}
+
+func normalizeCMSContentLocaleState(item CMSContent, requested string) CMSContent {
+	requested = strings.TrimSpace(primitives.FirstNonEmptyRaw(requested, item.RequestedLocale, item.Locale))
+	resolved := strings.TrimSpace(primitives.FirstNonEmptyRaw(item.ResolvedLocale, item.Locale))
+	if resolved == "" {
+		resolved = requested
+	}
+	available := append([]string{}, item.AvailableLocales...)
+	if len(available) == 0 && strings.TrimSpace(item.Locale) != "" {
+		available = []string{item.Locale}
+	}
+	available = dedupeStrings(available)
+	missing := item.MissingRequestedLocale
+	if requested != "" && len(available) > 0 && !containsStringInsensitive(available, requested) {
+		missing = true
+	}
+	item.RequestedLocale = requested
+	item.ResolvedLocale = resolved
+	item.AvailableLocales = available
+	item.MissingRequestedLocale = missing
+	return item
 }
 
 func isSupportedCMSFilterOperator(operator string) bool {
