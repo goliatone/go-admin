@@ -475,8 +475,8 @@ func main() {
 	adm.WithTranslator(translator)
 
 	// Setup workflow engine
-	workflow := coreadmin.NewSimpleWorkflowEngine()
-	workflow.RegisterWorkflow("pages", coreadmin.WorkflowDefinition{
+	workflow := coreadmin.NewFSMWorkflowEngine()
+	_ = workflow.RegisterWorkflow("pages", coreadmin.WorkflowDefinition{
 		EntityType:   "pages",
 		InitialState: "draft",
 		Transitions: []coreadmin.WorkflowTransition{
@@ -489,7 +489,7 @@ func main() {
 			{Name: "unpublish", Description: "Move back to draft", From: "published", To: "draft"},
 		},
 	})
-	workflow.RegisterWorkflow("posts", coreadmin.WorkflowDefinition{
+	_ = workflow.RegisterWorkflow("posts", coreadmin.WorkflowDefinition{
 		EntityType:   "posts",
 		InitialState: "draft",
 		Transitions: []coreadmin.WorkflowTransition{
@@ -503,7 +503,7 @@ func main() {
 			{Name: "archive", Description: "Archive post", From: "published", To: "archived"},
 		},
 	})
-	workflow.RegisterWorkflow("block_definitions", coreadmin.WorkflowDefinition{
+	_ = workflow.RegisterWorkflow("block_definitions", coreadmin.WorkflowDefinition{
 		EntityType:   "block_definitions",
 		InitialState: "draft",
 		Transitions: []coreadmin.WorkflowTransition{
@@ -512,7 +512,7 @@ func main() {
 			{Name: "republish", Description: "Republish block definition", From: "deprecated", To: "active"},
 		},
 	})
-	workflow.RegisterWorkflow("content_types", coreadmin.WorkflowDefinition{
+	_ = workflow.RegisterWorkflow("content_types", coreadmin.WorkflowDefinition{
 		EntityType:   "content_types",
 		InitialState: "draft",
 		Transitions: []coreadmin.WorkflowTransition{
@@ -700,7 +700,7 @@ func main() {
 	// Register modules
 	blockWorkflowAuth := coreadmin.NewRoleWorkflowAuthorizer(
 		string(authlib.RoleAdmin),
-		coreadmin.WithWorkflowExtraCheck(func(ctx context.Context, _ coreadmin.TransitionInput) bool {
+		coreadmin.WithWorkflowExtraCheck(func(ctx context.Context, _ coreadmin.WorkflowApplyEventRequest) bool {
 			return authlib.Can(ctx, "admin", "edit")
 		}),
 	)
@@ -1489,12 +1489,7 @@ func seedWorkflowRuntimeFromConfig(ctx context.Context, runtime coreadmin.Workfl
 	if err != nil {
 		return err
 	}
-
-	definitions := quickstart.WorkflowDefinitionsFromConfig(cfg)
-	if err := upsertWorkflowDefinitions(ctx, runtime, definitions); err != nil {
-		return err
-	}
-	return upsertTraitDefaultBindings(ctx, runtime, quickstart.WorkflowTraitDefaultsFromConfig(cfg))
+	return quickstart.SeedWorkflowRuntimeFromConfig(ctx, runtime, cfg)
 }
 
 func upsertWorkflowDefinitions(
