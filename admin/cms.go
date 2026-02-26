@@ -60,11 +60,32 @@ type CMSBlockDefinitionVersion = cmsboot.CMSBlockDefinitionVersion
 // WorkflowEngine coordinates lifecycle transitions for domain entities.
 type WorkflowEngine = cmsboot.WorkflowEngine
 
-// TransitionInput captures the data required to run a workflow transition.
-type TransitionInput = cmsboot.TransitionInput
+// WorkflowMessage captures workflow event payload for guards/resolvers/hooks.
+type WorkflowMessage = cmsboot.WorkflowMessage
 
-// TransitionResult describes the outcome of a workflow transition.
-type TransitionResult = cmsboot.TransitionResult
+// WorkflowExecutionContext captures workflow actor/tenant context.
+type WorkflowExecutionContext = cmsboot.WorkflowExecutionContext
+
+// WorkflowApplyEventRequest is the canonical transition envelope.
+type WorkflowApplyEventRequest = cmsboot.WorkflowApplyEventRequest
+
+// WorkflowApplyEventResponse is the canonical transition response envelope.
+type WorkflowApplyEventResponse = cmsboot.WorkflowApplyEventResponse
+
+// WorkflowSnapshotRequest requests workflow snapshot/transition availability.
+type WorkflowSnapshotRequest = cmsboot.WorkflowSnapshotRequest
+
+// WorkflowSnapshot reports current state and transition availability.
+type WorkflowSnapshot = cmsboot.WorkflowSnapshot
+
+// WorkflowTransitionInfo describes one transition in snapshot output.
+type WorkflowTransitionInfo = cmsboot.WorkflowTransitionInfo
+
+// WorkflowGuardRejection captures blocked transition details.
+type WorkflowGuardRejection = cmsboot.WorkflowGuardRejection
+
+// WorkflowTransitionResult describes the transition mutation result.
+type WorkflowTransitionResult = cmsboot.WorkflowTransitionResult
 
 // WorkflowTransition declares an allowed transition between two states.
 type WorkflowTransition = cmsboot.WorkflowTransition
