@@ -9,6 +9,8 @@ import (
 	"sort"
 	"strings"
 	"sync"
+
+	"github.com/goliatone/go-command/flow"
 )
 
 // DynamicPanelFactory builds CRUD panels from CMS content types.
@@ -1368,25 +1370,30 @@ type workflowAlias struct {
 	entityType string
 }
 
-func (w workflowAlias) Transition(ctx context.Context, input TransitionInput) (*TransitionResult, error) {
+func (w workflowAlias) ApplyEvent(ctx context.Context, input WorkflowApplyEventRequest) (*WorkflowApplyEventResponse, error) {
 	if w.engine == nil {
-		return nil, ErrWorkflowNotFound
+		return nil, workflowRuntimeError(flow.ErrStateNotFound, "workflow machine not found", nil, map[string]any{
+			"machine_id": strings.TrimSpace(w.entityType),
+		})
 	}
 	if strings.TrimSpace(w.entityType) != "" {
-		input.EntityType = w.entityType
+		input.MachineID = strings.TrimSpace(w.entityType)
+		input.Msg.EntityType = strings.TrimSpace(w.entityType)
 	}
-	return w.engine.Transition(ctx, input)
+	return w.engine.ApplyEvent(ctx, input)
 }
 
-func (w workflowAlias) AvailableTransitions(ctx context.Context, _ string, state string) ([]WorkflowTransition, error) {
+func (w workflowAlias) Snapshot(ctx context.Context, input WorkflowSnapshotRequest) (*WorkflowSnapshot, error) {
 	if w.engine == nil {
-		return nil, nil
+		return nil, workflowRuntimeError(flow.ErrStateNotFound, "workflow machine not found", nil, map[string]any{
+			"machine_id": strings.TrimSpace(w.entityType),
+		})
 	}
-	entityType := strings.TrimSpace(w.entityType)
-	if entityType == "" {
-		return nil, nil
+	if strings.TrimSpace(w.entityType) != "" {
+		input.MachineID = strings.TrimSpace(w.entityType)
+		input.Msg.EntityType = strings.TrimSpace(w.entityType)
 	}
-	return w.engine.AvailableTransitions(ctx, entityType, state)
+	return w.engine.Snapshot(ctx, input)
 }
 
 func (f *DynamicPanelFactory) ensurePanelSlugUnique(env string, slug string, id string) error {
