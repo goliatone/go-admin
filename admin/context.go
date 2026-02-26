@@ -29,6 +29,8 @@ const localeContextKey adminContextKey = "admin.locale"
 const tenantIDContextKey adminContextKey = "admin.tenant_id"
 const orgIDContextKey adminContextKey = "admin.org_id"
 const environmentContextKey adminContextKey = "admin.environment"
+const requestIDContextKey adminContextKey = "admin.request_id"
+const correlationIDContextKey adminContextKey = "admin.correlation_id"
 const queryParamsContextKey adminContextKey = "admin.query_params"
 
 // Authorizer determines whether a subject can perform an action on a resource.
@@ -108,8 +110,16 @@ func newAdminContextFromRouter(c router.Context, locale string) AdminContext {
 	tenantID := ""
 	orgID := ""
 	environment := strings.TrimSpace(c.Query("env"))
+	requestID := strings.TrimSpace(primitives.FirstNonEmptyRaw(c.Header("X-Request-ID"), c.Header("X-Request-Id"), c.Header("x-request-id")))
+	correlationID := strings.TrimSpace(primitives.FirstNonEmptyRaw(c.Header("X-Correlation-ID"), c.Header("X-Correlation-Id"), c.Header("x-correlation-id")))
 	if environment == "" {
 		environment = strings.TrimSpace(c.Query("environment"))
+	}
+	if requestID == "" {
+		requestID = strings.TrimSpace(primitives.FirstNonEmptyRaw(c.Query("request_id"), c.Query("requestId")))
+	}
+	if correlationID == "" {
+		correlationID = strings.TrimSpace(primitives.FirstNonEmptyRaw(c.Query("correlation_id"), c.Query("correlationId")))
 	}
 	actor := actorFromRouterOrClaims(c, ctx)
 	if actor != nil {
@@ -168,6 +178,12 @@ func newAdminContextFromRouter(c router.Context, locale string) AdminContext {
 	}
 	if environment != "" {
 		ctx = WithEnvironment(ctx, environment)
+	}
+	if requestID != "" {
+		ctx = context.WithValue(ctx, requestIDContextKey, requestID)
+	}
+	if correlationID != "" {
+		ctx = context.WithValue(ctx, correlationIDContextKey, correlationID)
 	}
 	if locale != "" {
 		ctx = context.WithValue(ctx, localeContextKey, locale)
@@ -287,6 +303,26 @@ func environmentFromContext(ctx context.Context) string {
 	}
 	if env, ok := ctx.Value(environmentContextKey).(string); ok && env != "" {
 		return env
+	}
+	return ""
+}
+
+func requestIDFromContext(ctx context.Context) string {
+	if ctx == nil {
+		return ""
+	}
+	if requestID, ok := ctx.Value(requestIDContextKey).(string); ok && requestID != "" {
+		return requestID
+	}
+	return ""
+}
+
+func correlationIDFromContext(ctx context.Context) string {
+	if ctx == nil {
+		return ""
+	}
+	if correlationID, ok := ctx.Value(correlationIDContextKey).(string); ok && correlationID != "" {
+		return correlationID
 	}
 	return ""
 }
