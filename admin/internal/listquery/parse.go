@@ -24,6 +24,7 @@ type Result struct {
 	Search     string
 	Filters    map[string]any
 	Predicates []Predicate
+	Fields     []string
 }
 
 // Options projects Result into consumer-specific predicate types.
@@ -35,6 +36,7 @@ type Options[T any] struct {
 	SortDesc   bool
 	Filters    map[string]any
 	Predicates []T
+	Fields     []string
 	Search     string
 }
 
@@ -65,6 +67,10 @@ func ParseContext(c router.Context, defaultPage, defaultPerPage int) Result {
 	sortBy := strings.TrimSpace(c.Query("sort"))
 	sortDesc := strings.EqualFold(strings.TrimSpace(c.Query("sort_desc")), "true")
 	search := strings.TrimSpace(c.Query("search"))
+	if search == "" {
+		search = strings.TrimSpace(c.Query("q"))
+	}
+	fields := ValuesFromAny(c.Query("fields"))
 
 	if sortBy == "" {
 		order := strings.TrimSpace(c.Query("order"))
@@ -82,17 +88,23 @@ func ParseContext(c router.Context, defaultPage, defaultPerPage int) Result {
 
 	filters := map[string]any{}
 	reserved := map[string]struct{}{
-		"page":        {},
-		"per_page":    {},
-		"sort":        {},
-		"sort_desc":   {},
-		"search":      {},
-		"limit":       {},
-		"offset":      {},
-		"order":       {},
-		"env":         {},
-		"environment": {},
-		"locale":      {},
+		"page":                  {},
+		"per_page":              {},
+		"sort":                  {},
+		"sort_desc":             {},
+		"search":                {},
+		"q":                     {},
+		"limit":                 {},
+		"offset":                {},
+		"order":                 {},
+		"fields":                {},
+		"env":                   {},
+		"environment":           {},
+		"locale":                {},
+		"include_drafts":        {},
+		"include_contributions": {},
+		"preview_token":         {},
+		"view_profile":          {},
 	}
 	for key, value := range c.Queries() {
 		rawKey := strings.TrimSpace(key)
@@ -105,7 +117,12 @@ func ParseContext(c router.Context, defaultPage, defaultPerPage int) Result {
 		if _, isReserved := reserved[rawKey]; isReserved {
 			continue
 		}
-		targetKey := strings.TrimPrefix(rawKey, "filter_")
+		targetKey := rawKey
+		if strings.HasPrefix(targetKey, "filter_") {
+			targetKey = strings.TrimPrefix(targetKey, "filter_")
+		} else if strings.HasPrefix(targetKey, "filter.") {
+			targetKey = strings.TrimPrefix(targetKey, "filter.")
+		}
 		targetKey = strings.TrimSpace(targetKey)
 		if targetKey == "" {
 			continue
@@ -134,6 +151,7 @@ func ParseContext(c router.Context, defaultPage, defaultPerPage int) Result {
 		Search:     search,
 		Filters:    filters,
 		Predicates: predicates,
+		Fields:     fields,
 	}
 }
 
@@ -147,6 +165,7 @@ func ParseOptions[T any](c router.Context, defaultPage, defaultPerPage int, mapp
 		SortDesc:   parsed.SortDesc,
 		Filters:    parsed.Filters,
 		Predicates: MapPredicates(parsed.Predicates, mapper),
+		Fields:     append([]string{}, parsed.Fields...),
 		Search:     parsed.Search,
 	}
 }
