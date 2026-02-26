@@ -12,7 +12,7 @@ type RoleWorkflowAuthorizer struct {
 	MinRole    string
 	Resource   string
 	Permission string
-	Extra      func(context.Context, TransitionInput) bool
+	Extra      func(context.Context, WorkflowApplyEventRequest) bool
 }
 
 // RoleWorkflowAuthorizerOption customizes a RoleWorkflowAuthorizer.
@@ -30,7 +30,7 @@ func WithWorkflowPermission(resource, permission string) RoleWorkflowAuthorizerO
 }
 
 // WithWorkflowExtraCheck adds an extra custom check for workflow transitions.
-func WithWorkflowExtraCheck(fn func(context.Context, TransitionInput) bool) RoleWorkflowAuthorizerOption {
+func WithWorkflowExtraCheck(fn func(context.Context, WorkflowApplyEventRequest) bool) RoleWorkflowAuthorizerOption {
 	return func(auth *RoleWorkflowAuthorizer) {
 		if auth == nil || fn == nil {
 			return
@@ -50,8 +50,8 @@ func NewRoleWorkflowAuthorizer(minRole string, opts ...RoleWorkflowAuthorizerOpt
 	return authorizer
 }
 
-// CanTransition validates the workflow transition against role + optional permission checks.
-func (a *RoleWorkflowAuthorizer) CanTransition(ctx context.Context, input TransitionInput) bool {
+// CanApplyEvent validates the workflow transition against role + optional permission checks.
+func (a *RoleWorkflowAuthorizer) CanApplyEvent(ctx context.Context, input WorkflowApplyEventRequest) bool {
 	if a == nil {
 		return true
 	}
@@ -69,7 +69,10 @@ func (a *RoleWorkflowAuthorizer) CanTransition(ctx context.Context, input Transi
 	if permission != "" {
 		resource := strings.TrimSpace(a.Resource)
 		if resource == "" {
-			resource = input.EntityType
+			resource = strings.TrimSpace(input.MachineID)
+			if resource == "" {
+				resource = strings.TrimSpace(input.Msg.EntityType)
+			}
 		}
 		if !authlib.Can(ctx, resource, permission) {
 			return false

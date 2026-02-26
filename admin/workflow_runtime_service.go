@@ -224,7 +224,7 @@ func (s *WorkflowRuntimeService) DeleteBinding(ctx context.Context, id string) e
 }
 
 func (s *WorkflowRuntimeService) ResolveBinding(ctx context.Context, input WorkflowBindingResolveInput) (WorkflowBindingResolution, error) {
-	if s == nil || s.bindings == nil {
+	if s == nil || s.bindings == nil || s.workflows == nil {
 		return WorkflowBindingResolution{}, serviceNotConfiguredDomainError("workflow runtime", nil)
 	}
 	contentType := strings.ToLower(strings.TrimSpace(input.ContentType))
@@ -239,17 +239,27 @@ func (s *WorkflowRuntimeService) ResolveBinding(ctx context.Context, input Workf
 	}
 
 	if contentType != "" {
-		if binding, ok := selectBindingCandidate(activeBindings, WorkflowBindingScopeContentType, contentType, environment); ok {
-			return bindingResolutionFrom(binding, workflowResolutionSourceBindingContentType), nil
+		candidates := bindingCandidates(activeBindings, WorkflowBindingScopeContentType, contentType, environment)
+		if resolution, ok, err := s.resolveFirstActiveBinding(ctx, candidates, workflowResolutionSourceBindingContentType); err != nil {
+			return WorkflowBindingResolution{}, err
+		} else if ok {
+			return resolution, nil
 		}
 	}
 	for _, trait := range traits {
-		if binding, ok := selectBindingCandidate(activeBindings, WorkflowBindingScopeTrait, trait, environment); ok {
-			return bindingResolutionFrom(binding, workflowResolutionSourceBindingTrait), nil
+		candidates := bindingCandidates(activeBindings, WorkflowBindingScopeTrait, trait, environment)
+		if resolution, ok, err := s.resolveFirstActiveBinding(ctx, candidates, workflowResolutionSourceBindingTrait); err != nil {
+			return WorkflowBindingResolution{}, err
+		} else if ok {
+			return resolution, nil
 		}
 	}
-	if binding, ok := selectBindingCandidate(activeBindings, WorkflowBindingScopeGlobal, "", environment); ok {
-		return bindingResolutionFrom(binding, workflowResolutionSourceBindingGlobal), nil
+	if candidates := bindingCandidates(activeBindings, WorkflowBindingScopeGlobal, "", environment); len(candidates) > 0 {
+		if resolution, ok, err := s.resolveFirstActiveBinding(ctx, candidates, workflowResolutionSourceBindingGlobal); err != nil {
+			return WorkflowBindingResolution{}, err
+		} else if ok {
+			return resolution, nil
+		}
 	}
 
 	return WorkflowBindingResolution{}, nil
@@ -292,8 +302,9 @@ func (s *WorkflowRuntimeService) registerActiveWorkflow(workflow PersistedWorkfl
 		return
 	}
 	def := cloneWorkflowDefinition(workflow.Definition)
-	def.EntityType = strings.TrimSpace(workflow.ID)
-	s.registrar.RegisterWorkflow(def.EntityType, def)
+	def.EntityType = canonicalMachineIDForWorkflow(workflow)
+	def.MachineVersion = canonicalMachineVersionForWorkflow(workflow)
+	_ = s.registrar.RegisterWorkflow(def.EntityType, def)
 }
 
 func (s *WorkflowRuntimeService) normalizeAndValidateWorkflow(workflow PersistedWorkflow) (PersistedWorkflow, error) {
@@ -304,7 +315,10 @@ func (s *WorkflowRuntimeService) normalizeAndValidateWorkflow(workflow Persisted
 	if next.Version <= 0 {
 		next.Version = 1
 	}
-	next.Definition.EntityType = next.ID
+	next.MachineID = canonicalMachineIDForWorkflow(next)
+	next.MachineVersion = canonicalMachineVersionForWorkflow(next)
+	next.Definition.EntityType = next.MachineID
+	next.Definition.MachineVersion = next.MachineVersion
 
 	fields := map[string]string{}
 	if next.ID == "" {
@@ -334,8 +348,13 @@ func (s *WorkflowRuntimeService) normalizeAndValidateWorkflow(workflow Persisted
 		if strings.TrimSpace(transition.From) == "" {
 			fields[prefix+".from"] = "required"
 		}
-		if strings.TrimSpace(transition.To) == "" {
-			fields[prefix+".to"] = "required"
+		to := strings.TrimSpace(transition.To)
+		dynamicTo := strings.TrimSpace(transition.DynamicTo)
+		if to == "" && dynamicTo == "" {
+			fields[prefix+".to"] = "required when dynamic_to is empty"
+		}
+		if to != "" && dynamicTo != "" {
+			fields[prefix+".to"] = "cannot be set with dynamic_to"
 		}
 		name := strings.ToLower(strings.TrimSpace(transition.Name))
 		if name == "" {
@@ -400,10 +419,11 @@ func (s *WorkflowRuntimeService) normalizeAndValidateBinding(ctx context.Context
 	return next, nil
 }
 
-func selectBindingCandidate(bindings []WorkflowBinding, scopeType WorkflowBindingScopeType, scopeRef string, environment string) (WorkflowBinding, bool) {
+func bindingCandidates(bindings []WorkflowBinding, scopeType WorkflowBindingScopeType, scopeRef string, environment string) []WorkflowBinding {
 	scopeRef = strings.ToLower(strings.TrimSpace(scopeRef))
 	environment = strings.ToLower(strings.TrimSpace(environment))
 
+	out := make([]WorkflowBinding, 0, len(bindings))
 	for _, binding := range bindings {
 		if binding.ScopeType != scopeType {
 			continue
@@ -412,7 +432,8 @@ func selectBindingCandidate(bindings []WorkflowBinding, scopeType WorkflowBindin
 			if !bindingMatchesEnvironment(binding, environment) {
 				continue
 			}
-			return binding, true
+			out = append(out, binding)
+			continue
 		}
 		if strings.ToLower(strings.TrimSpace(binding.ScopeRef)) != scopeRef {
 			continue
@@ -420,9 +441,9 @@ func selectBindingCandidate(bindings []WorkflowBinding, scopeType WorkflowBindin
 		if !bindingMatchesEnvironment(binding, environment) {
 			continue
 		}
-		return binding, true
+		out = append(out, binding)
 	}
-	return WorkflowBinding{}, false
+	return out
 }
 
 func bindingMatchesEnvironment(binding WorkflowBinding, environment string) bool {
@@ -436,16 +457,61 @@ func bindingMatchesEnvironment(binding WorkflowBinding, environment string) bool
 	return bindingEnv == environment
 }
 
-func bindingResolutionFrom(binding WorkflowBinding, source string) WorkflowBindingResolution {
-	return WorkflowBindingResolution{
-		WorkflowID:  binding.WorkflowID,
-		Source:      source,
-		BindingID:   binding.ID,
-		ScopeType:   binding.ScopeType,
-		ScopeRef:    binding.ScopeRef,
-		Priority:    binding.Priority,
-		Environment: binding.Environment,
+func (s *WorkflowRuntimeService) resolveFirstActiveBinding(ctx context.Context, candidates []WorkflowBinding, source string) (WorkflowBindingResolution, bool, error) {
+	for _, binding := range candidates {
+		workflow, err := s.workflows.Get(ctx, binding.WorkflowID)
+		if err != nil {
+			if err == ErrNotFound {
+				continue
+			}
+			return WorkflowBindingResolution{}, false, err
+		}
+		if workflow.Status != WorkflowStatusActive {
+			continue
+		}
+		return bindingResolutionFrom(binding, workflow, source), true, nil
 	}
+	return WorkflowBindingResolution{}, false, nil
+}
+
+func bindingResolutionFrom(binding WorkflowBinding, workflow PersistedWorkflow, source string) WorkflowBindingResolution {
+	return WorkflowBindingResolution{
+		WorkflowID:      binding.WorkflowID,
+		WorkflowVersion: workflow.Version,
+		MachineID:       canonicalMachineIDForWorkflow(workflow),
+		MachineVersion:  canonicalMachineVersionForWorkflow(workflow),
+		Source:          source,
+		BindingID:       binding.ID,
+		ScopeType:       binding.ScopeType,
+		ScopeRef:        binding.ScopeRef,
+		Priority:        binding.Priority,
+		Environment:     binding.Environment,
+	}
+}
+
+func canonicalMachineIDForWorkflow(workflow PersistedWorkflow) string {
+	machineID := strings.TrimSpace(workflow.MachineID)
+	if machineID != "" {
+		return machineID
+	}
+	if machineID = strings.TrimSpace(workflow.Definition.EntityType); machineID != "" {
+		return machineID
+	}
+	return strings.TrimSpace(workflow.ID)
+}
+
+func canonicalMachineVersionForWorkflow(workflow PersistedWorkflow) string {
+	machineVersion := strings.TrimSpace(workflow.MachineVersion)
+	if machineVersion != "" {
+		return machineVersion
+	}
+	if machineVersion = strings.TrimSpace(workflow.Definition.MachineVersion); machineVersion != "" {
+		return machineVersion
+	}
+	if workflow.Version > 0 {
+		return strconv.Itoa(workflow.Version)
+	}
+	return "1"
 }
 
 func normalizeBindingTraits(raw []string) []string {
