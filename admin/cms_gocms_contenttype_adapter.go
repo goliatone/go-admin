@@ -127,12 +127,16 @@ func (a *GoCMSContentTypeAdapter) CreateContentType(ctx context.Context, content
 	if a == nil || a.service == nil {
 		return nil, ErrNotFound
 	}
+	normalizedCaps, err := ValidateAndNormalizeContentTypeCapabilities(contentType.Capabilities)
+	if err != nil {
+		return nil, err
+	}
 	req := cmscontent.CreateContentTypeRequest{
 		Name:         strings.TrimSpace(contentType.Name),
 		Slug:         strings.TrimSpace(contentType.Slug),
 		Schema:       primitives.CloneAnyMap(contentType.Schema),
 		UISchema:     primitives.CloneAnyMap(contentType.UISchema),
-		Capabilities: primitives.CloneAnyMap(contentType.Capabilities),
+		Capabilities: primitives.CloneAnyMap(normalizedCaps),
 		Status:       strings.TrimSpace(contentType.Status),
 		CreatedBy:    actorUUID(ctx),
 		UpdatedBy:    actorUUID(ctx),
@@ -163,11 +167,15 @@ func (a *GoCMSContentTypeAdapter) UpdateContentType(ctx context.Context, content
 	if a == nil || a.service == nil {
 		return nil, ErrNotFound
 	}
+	normalizedCaps, err := ValidateAndNormalizeContentTypeCapabilities(contentType.Capabilities)
+	if err != nil {
+		return nil, err
+	}
 	req := cmscontent.UpdateContentTypeRequest{
 		ID:                   uuidFromString(contentType.ID),
 		Schema:               primitives.CloneAnyMap(contentType.Schema),
 		UISchema:             primitives.CloneAnyMap(contentType.UISchema),
-		Capabilities:         primitives.CloneAnyMap(contentType.Capabilities),
+		Capabilities:         primitives.CloneAnyMap(normalizedCaps),
 		AllowBreakingChanges: contentType.AllowBreakingChanges,
 		UpdatedBy:            actorUUID(ctx),
 	}
@@ -243,6 +251,9 @@ func convertGoCMSContentType(value *cmscontent.ContentType) CMSContentType {
 	}
 	if contentType.Capabilities == nil {
 		contentType.Capabilities = map[string]any{}
+	}
+	if normalized, _, _ := normalizeContentTypeCapabilitiesInternal(contentType.Capabilities); normalized != nil {
+		contentType.Capabilities = normalized
 	}
 	if value.Description != nil {
 		contentType.Description = strings.TrimSpace(*value.Description)

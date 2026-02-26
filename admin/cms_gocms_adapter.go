@@ -333,6 +333,48 @@ func (a *GoCMSMenuAdapter) MenuByLocation(ctx context.Context, location, locale 
 	return &Menu{ID: menuCode, Code: menuCode, Slug: menuCode, Location: resolvedLocation, Items: items}, nil
 }
 
+// MenuByLocationWithOptions resolves a localized navigation tree by location using
+// draft/preview/profile options when supported by the underlying go-cms service.
+func (a *GoCMSMenuAdapter) MenuByLocationWithOptions(ctx context.Context, location, locale string, opts SiteMenuReadOptions) (*Menu, error) {
+	if a == nil || a.service == nil {
+		return nil, ErrNotFound
+	}
+	resolved, err := a.service.ResolveMenuByLocation(ctx, strings.TrimSpace(location), locale, cms.MenuResolveOptions{
+		IncludeDrafts:        opts.IncludeDrafts,
+		PreviewToken:         strings.TrimSpace(opts.PreviewToken),
+		ViewProfile:          strings.TrimSpace(opts.ViewProfile),
+		IncludeContributions: boolPointer(opts.IncludeContributions),
+	})
+	if err != nil {
+		if errors.Is(err, cms.ErrMenuNotFound) {
+			return a.MenuByLocation(ctx, location, locale)
+		}
+		return nil, err
+	}
+	return convertResolvedMenuInfo(resolved, location), nil
+}
+
+// MenuByCodeWithOptions resolves a localized navigation tree by code using
+// draft/preview/profile options when supported by the underlying go-cms service.
+func (a *GoCMSMenuAdapter) MenuByCodeWithOptions(ctx context.Context, code, locale string, opts SiteMenuReadOptions) (*Menu, error) {
+	if a == nil || a.service == nil {
+		return nil, ErrNotFound
+	}
+	resolved, err := a.service.ResolveMenuByCode(ctx, strings.TrimSpace(code), locale, cms.MenuResolveOptions{
+		IncludeDrafts:        opts.IncludeDrafts,
+		PreviewToken:         strings.TrimSpace(opts.PreviewToken),
+		ViewProfile:          strings.TrimSpace(opts.ViewProfile),
+		IncludeContributions: boolPointer(opts.IncludeContributions),
+	})
+	if err != nil {
+		if errors.Is(err, cms.ErrMenuNotFound) {
+			return a.Menu(ctx, code, locale)
+		}
+		return nil, err
+	}
+	return convertResolvedMenuInfo(resolved, code), nil
+}
+
 // ResetMenuContext resets the menu contents.
 // It is used by quickstart navigation tooling to allow rebuilds during development.
 func (a *GoCMSMenuAdapter) ResetMenuContext(ctx context.Context, code string) error {
@@ -486,4 +528,34 @@ func navigationNodePath(node cms.NavigationNode, menuCode string) string {
 
 func mergeMenuTarget(item MenuItem) map[string]any {
 	return primitives.CloneAnyMap(item.Target)
+}
+
+func boolPointer(v bool) *bool {
+	return &v
+}
+
+func convertResolvedMenuInfo(info *cms.ResolvedMenuInfo, fallback string) *Menu {
+	if info == nil {
+		return nil
+	}
+	menuCode := strings.TrimSpace(fallback)
+	if info.Menu != nil {
+		menuCode = strings.TrimSpace(primitives.FirstNonEmptyRaw(info.Menu.Code, menuCode))
+	}
+	if menuCode == "" {
+		menuCode = strings.TrimSpace(fallback)
+	}
+	menuCode = cms.CanonicalMenuCode(menuCode)
+	location := strings.TrimSpace(primitives.FirstNonEmptyRaw(info.Location, fallback))
+	if location == "" {
+		location = menuCode
+	}
+	items := convertPublicNavigationNodes(info.Items, menuCode, "")
+	return &Menu{
+		ID:       menuCode,
+		Code:     menuCode,
+		Slug:     menuCode,
+		Location: location,
+		Items:    items,
+	}
 }
