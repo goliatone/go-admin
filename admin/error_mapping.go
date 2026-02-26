@@ -9,6 +9,7 @@ import (
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	cmscontent "github.com/goliatone/go-cms/content"
 	cmspages "github.com/goliatone/go-cms/pages"
+	"github.com/goliatone/go-command/flow"
 	goerrors "github.com/goliatone/go-errors"
 	jsonschema "github.com/santhosh-tekuri/jsonschema/v5"
 )
@@ -49,6 +50,18 @@ func mapToGoError(err error, mappers []goerrors.ErrorMapper) (*goerrors.Error, i
 		status = mapped.Code
 	case errors.Is(err, ErrWorkflowInvalidTransition):
 		mapped = NewDomainError(TextCodeWorkflowInvalidTransition, err.Error(), nil)
+		status = mapped.Code
+	case hasFlowTextCode(err, flow.ErrCodeStateNotFound):
+		mapped = NewDomainError(TextCodeWorkflowNotFound, err.Error(), flowErrorMetadata(err))
+		status = mapped.Code
+	case hasFlowTextCode(err, flow.ErrCodeInvalidTransition), hasFlowTextCode(err, flow.ErrCodeGuardRejected):
+		mapped = NewDomainError(TextCodeWorkflowInvalidTransition, err.Error(), flowErrorMetadata(err))
+		status = mapped.Code
+	case hasFlowTextCode(err, flow.ErrCodeVersionConflict), hasFlowTextCode(err, flow.ErrCodeIdempotencyConflict):
+		mapped = NewDomainError(TextCodeConflict, err.Error(), flowErrorMetadata(err))
+		status = mapped.Code
+	case hasFlowTextCode(err, flow.ErrCodePreconditionFailed):
+		mapped = NewDomainError(TextCodeValidationError, err.Error(), flowErrorMetadata(err))
 		status = mapped.Code
 	case errors.As(err, &missingTranslations):
 		missingLocales := normalizeLocaleList(missingTranslations.MissingLocales)
@@ -485,4 +498,20 @@ func hasMissingFieldFailures(missingFieldsByLocale map[string][]string) bool {
 		}
 	}
 	return false
+}
+
+func hasFlowTextCode(err error, textCode string) bool {
+	var typed *goerrors.Error
+	if !goerrors.As(err, &typed) || typed == nil {
+		return false
+	}
+	return strings.EqualFold(strings.TrimSpace(typed.TextCode), strings.TrimSpace(textCode))
+}
+
+func flowErrorMetadata(err error) map[string]any {
+	var typed *goerrors.Error
+	if !goerrors.As(err, &typed) || typed == nil || len(typed.Metadata) == 0 {
+		return nil
+	}
+	return primitives.CloneAnyMap(typed.Metadata)
 }
