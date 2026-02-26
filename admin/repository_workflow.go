@@ -455,11 +455,36 @@ func workflowBindingConflictKey(binding WorkflowBinding) string {
 
 func normalizePersistedWorkflow(in PersistedWorkflow) PersistedWorkflow {
 	in.ID = strings.TrimSpace(in.ID)
+	in.MachineID = strings.TrimSpace(in.MachineID)
+	in.MachineVersion = strings.TrimSpace(in.MachineVersion)
 	in.Name = strings.TrimSpace(in.Name)
 	in.Environment = strings.TrimSpace(strings.ToLower(in.Environment))
 	in.Status = PersistedWorkflowStatus(strings.ToLower(strings.TrimSpace(string(in.Status))))
 	in.Definition = cloneWorkflowDefinition(in.Definition)
 	in.Definition.EntityType = strings.TrimSpace(in.Definition.EntityType)
+	in.Definition.MachineVersion = strings.TrimSpace(in.Definition.MachineVersion)
+	if in.MachineID == "" {
+		in.MachineID = strings.TrimSpace(in.Definition.EntityType)
+	}
+	if in.MachineID == "" {
+		in.MachineID = strings.TrimSpace(in.ID)
+	}
+	if in.MachineID == "" {
+		in.MachineID = in.ID
+	}
+	if in.MachineID != "" {
+		in.Definition.EntityType = in.MachineID
+	}
+	if in.MachineVersion == "" {
+		in.MachineVersion = strings.TrimSpace(in.Definition.MachineVersion)
+	}
+	if in.MachineVersion == "" && in.Version > 0 {
+		in.MachineVersion = strconv.Itoa(in.Version)
+	}
+	if in.MachineVersion == "" {
+		in.MachineVersion = "1"
+	}
+	in.Definition.MachineVersion = in.MachineVersion
 	in.Definition.InitialState = strings.TrimSpace(in.Definition.InitialState)
 	for i := range in.Definition.Transitions {
 		in.Definition.Transitions[i].Name = strings.TrimSpace(in.Definition.Transitions[i].Name)
