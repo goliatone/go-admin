@@ -572,6 +572,16 @@ func (s *InMemoryMenuService) MenuByLocation(ctx context.Context, location, loca
 	return s.Menu(ctx, location, locale)
 }
 
+// MenuByLocationWithOptions supports site menu reads with explicit query options.
+func (s *InMemoryMenuService) MenuByLocationWithOptions(ctx context.Context, location, locale string, _ SiteMenuReadOptions) (*Menu, error) {
+	return s.MenuByLocation(ctx, location, locale)
+}
+
+// MenuByCodeWithOptions supports site menu reads with explicit query options.
+func (s *InMemoryMenuService) MenuByCodeWithOptions(ctx context.Context, code, locale string, _ SiteMenuReadOptions) (*Menu, error) {
+	return s.Menu(ctx, code, locale)
+}
+
 func sortMenuChildren(children *[]MenuItem) {
 	posKey := func(item MenuItem) int {
 		if item.Position == nil {
@@ -847,6 +857,12 @@ func (s *InMemoryContentService) CreateContentType(ctx context.Context, contentT
 	contentType.Schema = primitives.CloneAnyMap(contentType.Schema)
 	contentType.UISchema = primitives.CloneAnyMap(contentType.UISchema)
 	contentType.Capabilities = primitives.CloneAnyMap(contentType.Capabilities)
+	normalizedCaps, err := ValidateAndNormalizeContentTypeCapabilities(contentType.Capabilities)
+	if err != nil {
+		s.mu.Unlock()
+		return nil, err
+	}
+	contentType.Capabilities = normalizedCaps
 	contentType.UpdatedAt = time.Now().UTC()
 	if contentType.CreatedAt.IsZero() {
 		contentType.CreatedAt = contentType.UpdatedAt
@@ -945,6 +961,12 @@ func (s *InMemoryContentService) UpdateContentType(ctx context.Context, contentT
 		s.typeSlugs[cmsScopedKey(env, newSlug)] = id
 		existing.Slug = newSlug
 	}
+	normalizedCaps, err := ValidateAndNormalizeContentTypeCapabilities(existing.Capabilities)
+	if err != nil {
+		s.mu.Unlock()
+		return nil, err
+	}
+	existing.Capabilities = normalizedCaps
 	existing.UpdatedAt = time.Now().UTC()
 	s.types[cmsScopedKey(env, id)] = cloneCMSContentType(existing)
 	cp := cloneCMSContentType(existing)
@@ -1409,6 +1431,15 @@ func cloneCMSPage(in CMSPage) CMSPage {
 	if in.EmbeddedBlocks != nil {
 		out.EmbeddedBlocks = cloneEmbeddedBlocks(in.EmbeddedBlocks)
 	}
+	if in.Navigation != nil {
+		out.Navigation = make(map[string]string, len(in.Navigation))
+		for k, v := range in.Navigation {
+			out.Navigation[k] = v
+		}
+	}
+	if in.EffectiveMenuLocations != nil {
+		out.EffectiveMenuLocations = append([]string{}, in.EffectiveMenuLocations...)
+	}
 	if in.SEO != nil {
 		out.SEO = make(map[string]any, len(in.SEO))
 		for k, v := range in.SEO {
@@ -1440,6 +1471,15 @@ func cloneCMSContent(in CMSContent) CMSContent {
 	}
 	if in.EmbeddedBlocks != nil {
 		out.EmbeddedBlocks = cloneEmbeddedBlocks(in.EmbeddedBlocks)
+	}
+	if in.Navigation != nil {
+		out.Navigation = make(map[string]string, len(in.Navigation))
+		for k, v := range in.Navigation {
+			out.Navigation[k] = v
+		}
+	}
+	if in.EffectiveMenuLocations != nil {
+		out.EffectiveMenuLocations = append([]string{}, in.EffectiveMenuLocations...)
 	}
 	if in.Data != nil {
 		out.Data = make(map[string]any, len(in.Data))

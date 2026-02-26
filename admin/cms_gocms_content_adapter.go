@@ -1433,6 +1433,14 @@ func (a *GoCMSContentAdapter) convertContent(ctx context.Context, value reflect.
 	if meta := mapFieldAny(val, "Metadata"); meta != nil {
 		out.Metadata = primitives.CloneAnyMap(meta)
 	}
+	out.Navigation = normalizeNavigationVisibilityMap(out.Data["_navigation"])
+	out.EffectiveMenuLocations = normalizeEffectiveMenuLocations(out.Data["effective_menu_locations"])
+	if len(out.Navigation) > 0 {
+		out.Data["_navigation"] = navigationVisibilityMapAny(out.Navigation)
+	}
+	if len(out.EffectiveMenuLocations) > 0 {
+		out.Data["effective_menu_locations"] = append([]string{}, out.EffectiveMenuLocations...)
+	}
 	if a.shouldApplyStructuralMetadata(ctx, out, nil) {
 		if len(out.Metadata) == 0 {
 			if derived := structuralMetadataFromData(out.Data); len(derived) > 0 {
@@ -1596,6 +1604,14 @@ func (a *GoCMSContentAdapter) convertPage(value reflect.Value, locale string) CM
 	}
 	if meta := mapFieldAny(val, "Metadata"); meta != nil {
 		out.Metadata = primitives.CloneAnyMap(meta)
+	}
+	out.Navigation = normalizeNavigationVisibilityMap(out.Data["_navigation"])
+	out.EffectiveMenuLocations = normalizeEffectiveMenuLocations(out.Data["effective_menu_locations"])
+	if len(out.Navigation) > 0 {
+		out.Data["_navigation"] = navigationVisibilityMapAny(out.Navigation)
+	}
+	if len(out.EffectiveMenuLocations) > 0 {
+		out.Data["effective_menu_locations"] = append([]string{}, out.EffectiveMenuLocations...)
 	}
 	return out
 }
