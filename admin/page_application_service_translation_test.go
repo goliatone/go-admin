@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	cmsinterfaces "github.com/goliatone/go-cms/pkg/interfaces"
+	"github.com/goliatone/go-command/flow"
 	"github.com/google/uuid"
 )
 
@@ -64,25 +65,28 @@ func (s *stubAppPageWriteService) Unpublish(context.Context, string, map[string]
 }
 
 type stubWorkflowEngine struct {
-	transitions     []WorkflowTransition
+	transitions     []WorkflowTransitionInfo
 	transitionCalls int
-	lastInput       TransitionInput
+	lastInput       WorkflowApplyEventRequest
 }
 
-func (s *stubWorkflowEngine) Transition(ctx context.Context, input TransitionInput) (*TransitionResult, error) {
+func (s *stubWorkflowEngine) ApplyEvent(ctx context.Context, input WorkflowApplyEventRequest) (*WorkflowApplyEventResponse, error) {
 	s.transitionCalls++
 	s.lastInput = input
-	return &TransitionResult{
-		EntityID:   input.EntityID,
-		EntityType: input.EntityType,
-		Transition: input.Transition,
-		FromState:  input.CurrentState,
-		ToState:    input.TargetState,
+	return &WorkflowApplyEventResponse{
+		Transition: &WorkflowTransitionResult{
+			PreviousState: input.ExpectedState,
+			CurrentState:  input.Msg.TargetState,
+		},
 	}, nil
 }
 
-func (s *stubWorkflowEngine) AvailableTransitions(context.Context, string, string) ([]WorkflowTransition, error) {
-	return s.transitions, nil
+func (s *stubWorkflowEngine) Snapshot(_ context.Context, input WorkflowSnapshotRequest) (*WorkflowSnapshot, error) {
+	return &WorkflowSnapshot{
+		EntityID:           input.EntityID,
+		CurrentState:       input.Msg.CurrentState,
+		AllowedTransitions: s.transitions,
+	}, nil
 }
 
 type stubPanelRepository struct {
@@ -201,8 +205,8 @@ func TestPageApplicationServicePublishBlockedByTranslationPolicy(t *testing.T) {
 	}
 	write := &stubAppPageWriteService{}
 	workflow := &stubWorkflowEngine{
-		transitions: []WorkflowTransition{
-			{Name: "publish", From: "approval", To: "published"},
+		transitions: []WorkflowTransitionInfo{
+			{Event: "publish", Allowed: true, Target: flow.TargetInfo{To: "published"}},
 		},
 	}
 	pageSvc := &stubPageTranslationService{missing: []string{"es"}}
@@ -240,8 +244,8 @@ func TestWorkflowUpdateHookBlocksMissingTranslations(t *testing.T) {
 	id := uuid.New().String()
 	repo := &stubPanelRepository{record: map[string]any{"id": id, "status": "staging"}}
 	workflow := &stubWorkflowEngine{
-		transitions: []WorkflowTransition{
-			{Name: "promote", From: "staging", To: "prod"},
+		transitions: []WorkflowTransitionInfo{
+			{Event: "promote", Allowed: true, Target: flow.TargetInfo{To: "prod"}},
 		},
 	}
 	pageSvc := &stubPageTranslationService{missing: []string{"fr"}}
@@ -276,8 +280,8 @@ func TestWorkflowUpdateHookPropagatesPolicyContextForPosts(t *testing.T) {
 	id := uuid.New().String()
 	repo := &stubPanelRepository{record: map[string]any{"id": id, "status": "approval"}}
 	workflow := &stubWorkflowEngine{
-		transitions: []WorkflowTransition{
-			{Name: "publish", From: "approval", To: "published"},
+		transitions: []WorkflowTransitionInfo{
+			{Event: "publish", Allowed: true, Target: flow.TargetInfo{To: "published"}},
 		},
 	}
 	var received TranslationPolicyInput

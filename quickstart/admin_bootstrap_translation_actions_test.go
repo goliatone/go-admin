@@ -31,7 +31,7 @@ func TestNewAdminConfiguresCreateTranslationActionLocalesFromPolicy(t *testing.T
 		t.Fatal("expected admin instance")
 	}
 
-	workflow := admin.NewSimpleWorkflowEngine()
+	workflow := admin.NewFSMWorkflowEngine()
 	admin.RegisterDefaultCMSWorkflows(workflow)
 	workflow.RegisterWorkflow("posts", admin.WorkflowDefinition{
 		EntityType:   "posts",

@@ -60,6 +60,15 @@ func TestWorkflowRuntimeServiceResolveBindingPrecedence(t *testing.T) {
 	if resolved.WorkflowID != "editorial.news" {
 		t.Fatalf("expected content_type workflow, got %q", resolved.WorkflowID)
 	}
+	if resolved.MachineID != "editorial.news" {
+		t.Fatalf("expected machine_id editorial.news, got %q", resolved.MachineID)
+	}
+	if resolved.MachineVersion != "1" {
+		t.Fatalf("expected machine_version 1, got %q", resolved.MachineVersion)
+	}
+	if resolved.WorkflowVersion != 1 {
+		t.Fatalf("expected workflow_version 1, got %d", resolved.WorkflowVersion)
+	}
 
 	resolved, err = runtime.ResolveBinding(ctx, WorkflowBindingResolveInput{
 		ContentType: "other",
@@ -71,6 +80,9 @@ func TestWorkflowRuntimeServiceResolveBindingPrecedence(t *testing.T) {
 	if resolved.WorkflowID != "editorial.trait" {
 		t.Fatalf("expected trait workflow, got %q", resolved.WorkflowID)
 	}
+	if resolved.MachineID != "editorial.trait" {
+		t.Fatalf("expected machine_id editorial.trait, got %q", resolved.MachineID)
+	}
 
 	resolved, err = runtime.ResolveBinding(ctx, WorkflowBindingResolveInput{
 		ContentType: "other",
@@ -80,6 +92,9 @@ func TestWorkflowRuntimeServiceResolveBindingPrecedence(t *testing.T) {
 	}
 	if resolved.WorkflowID != "editorial.global" {
 		t.Fatalf("expected global workflow, got %q", resolved.WorkflowID)
+	}
+	if resolved.MachineID != "editorial.global" {
+		t.Fatalf("expected machine_id editorial.global, got %q", resolved.MachineID)
 	}
 }
 
@@ -165,11 +180,76 @@ func TestWorkflowRuntimeServiceBindWorkflowEngineSyncsActiveDefinitions(t *testi
 		t.Fatalf("create workflow: %v", err)
 	}
 
-	engine := NewSimpleWorkflowEngine()
+	engine := NewFSMWorkflowEngine()
 	if err := runtime.BindWorkflowEngine(engine); err != nil {
 		t.Fatalf("bind workflow engine: %v", err)
 	}
 	if !engine.HasWorkflow("editorial.default") {
 		t.Fatalf("expected active workflow to be registered in engine")
+	}
+}
+
+func TestWorkflowRuntimeServiceResolveBindingSkipsInactiveWorkflowDefinitions(t *testing.T) {
+	ctx := context.Background()
+	runtime := NewWorkflowRuntimeService(NewInMemoryWorkflowDefinitionRepository(), NewInMemoryWorkflowBindingRepository())
+
+	_, err := runtime.CreateWorkflow(ctx, PersistedWorkflow{
+		ID:     "editorial.inactive",
+		Name:   "Inactive",
+		Status: WorkflowStatusDeprecated,
+		Definition: WorkflowDefinition{
+			InitialState: "draft",
+			Transitions: []WorkflowTransition{
+				{Name: "publish", From: "draft", To: "published"},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create inactive workflow: %v", err)
+	}
+	_, err = runtime.CreateWorkflow(ctx, PersistedWorkflow{
+		ID:     "editorial.active",
+		Name:   "Active",
+		Status: WorkflowStatusActive,
+		Definition: WorkflowDefinition{
+			InitialState: "draft",
+			Transitions: []WorkflowTransition{
+				{Name: "publish", From: "draft", To: "published"},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create active workflow: %v", err)
+	}
+
+	if _, err := runtime.CreateBinding(ctx, WorkflowBinding{
+		ScopeType:  WorkflowBindingScopeTrait,
+		ScopeRef:   "editorial",
+		WorkflowID: "editorial.inactive",
+		Priority:   10,
+		Status:     WorkflowBindingStatusInactive,
+	}); err != nil {
+		t.Fatalf("create inactive binding: %v", err)
+	}
+	if _, err := runtime.CreateBinding(ctx, WorkflowBinding{
+		ScopeType:  WorkflowBindingScopeGlobal,
+		WorkflowID: "editorial.active",
+		Priority:   100,
+		Status:     WorkflowBindingStatusActive,
+	}); err != nil {
+		t.Fatalf("create active global binding: %v", err)
+	}
+
+	resolved, err := runtime.ResolveBinding(ctx, WorkflowBindingResolveInput{
+		Traits: []string{"editorial"},
+	})
+	if err != nil {
+		t.Fatalf("resolve binding: %v", err)
+	}
+	if resolved.WorkflowID != "editorial.active" {
+		t.Fatalf("expected fallback to active workflow, got %q", resolved.WorkflowID)
+	}
+	if resolved.MachineVersion != "1" {
+		t.Fatalf("expected machine_version 1, got %q", resolved.MachineVersion)
 	}
 }

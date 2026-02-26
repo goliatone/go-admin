@@ -9,8 +9,8 @@ func minimalContentTypeSchema() map[string]any {
 	}
 }
 
-func workflowEngineWithPagesAndPosts() *SimpleWorkflowEngine {
-	engine := NewSimpleWorkflowEngine()
+func workflowEngineWithPagesAndPosts() *FSMWorkflowEngine {
+	engine := NewFSMWorkflowEngine()
 	base := WorkflowDefinition{
 		InitialState: "draft",
 		Transitions: []WorkflowTransition{
@@ -30,15 +30,15 @@ func workflowEngineWithPagesAndPosts() *SimpleWorkflowEngine {
 	}
 	pages := base
 	pages.EntityType = "pages"
-	engine.RegisterWorkflow("pages", pages)
+	_ = engine.RegisterWorkflow("pages", pages)
 
 	posts := base
 	posts.EntityType = "posts"
-	engine.RegisterWorkflow("posts", posts)
+	_ = engine.RegisterWorkflow("posts", posts)
 	return engine
 }
 
-func workflowEngineWithPagesPostsAndNews() *SimpleWorkflowEngine {
+func workflowEngineWithPagesPostsAndNews() *FSMWorkflowEngine {
 	engine := workflowEngineWithPagesAndPosts()
 	news := WorkflowDefinition{
 		EntityType:   "news",
@@ -58,7 +58,7 @@ func workflowEngineWithPagesPostsAndNews() *SimpleWorkflowEngine {
 			},
 		},
 	}
-	engine.RegisterWorkflow("news", news)
+	_ = engine.RegisterWorkflow("news", news)
 	return engine
 }
 
@@ -71,9 +71,9 @@ func hasAction(actions []Action, name string) bool {
 	return false
 }
 
-func hasTransition(transitions []WorkflowTransition, name string) bool {
+func hasTransition(transitions []WorkflowTransitionInfo, name string) bool {
 	for _, transition := range transitions {
-		if transition.Name == name {
+		if transition.Event == name {
 			return true
 		}
 	}

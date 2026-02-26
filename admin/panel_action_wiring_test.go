@@ -13,8 +13,8 @@ func (panelActionWiringMsg) Type() string { return "items.refresh" }
 
 func TestValidatePanelActionWiringFailsForMissingWorkflowTransition(t *testing.T) {
 	cfg := Config{BasePath: "/admin", DefaultLocale: "en"}
-	workflow := NewSimpleWorkflowEngine()
-	workflow.RegisterWorkflow("pages", WorkflowDefinition{
+	workflow := NewFSMWorkflowEngine()
+	_ = workflow.RegisterWorkflow("pages", WorkflowDefinition{
 		EntityType:   "pages",
 		InitialState: "draft",
 		Transitions: []WorkflowTransition{
@@ -42,8 +42,8 @@ func TestValidatePanelActionWiringFailsForMissingWorkflowTransition(t *testing.T
 
 func TestValidatePanelActionWiringAcceptsWorkflowAliasActions(t *testing.T) {
 	cfg := Config{BasePath: "/admin", DefaultLocale: "en"}
-	workflow := NewSimpleWorkflowEngine()
-	workflow.RegisterWorkflow("pages", WorkflowDefinition{
+	workflow := NewFSMWorkflowEngine()
+	_ = workflow.RegisterWorkflow("pages", WorkflowDefinition{
 		EntityType:   "pages",
 		InitialState: "draft",
 		Transitions: []WorkflowTransition{

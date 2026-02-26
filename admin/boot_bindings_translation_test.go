@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/goliatone/go-admin/admin/internal/boot"
+	"github.com/goliatone/go-command/flow"
 	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
 )
@@ -103,41 +104,55 @@ func (s *translationActionRepoStub) Delete(context.Context, string) error {
 
 type translationWorkflowStub struct{}
 
-func (translationWorkflowStub) Transition(_ context.Context, input TransitionInput) (*TransitionResult, error) {
-	return &TransitionResult{
-		EntityID:   input.EntityID,
-		EntityType: input.EntityType,
-		Transition: input.Transition,
-		FromState:  input.CurrentState,
-		ToState:    input.TargetState,
+func (translationWorkflowStub) ApplyEvent(_ context.Context, input WorkflowApplyEventRequest) (*WorkflowApplyEventResponse, error) {
+	return &WorkflowApplyEventResponse{
+		Transition: &WorkflowTransitionResult{
+			PreviousState: input.ExpectedState,
+			CurrentState:  input.Msg.TargetState,
+		},
 	}, nil
 }
 
-func (translationWorkflowStub) AvailableTransitions(context.Context, string, string) ([]WorkflowTransition, error) {
-	return []WorkflowTransition{{Name: "publish", To: "published"}}, nil
+func (translationWorkflowStub) Snapshot(_ context.Context, input WorkflowSnapshotRequest) (*WorkflowSnapshot, error) {
+	return &WorkflowSnapshot{
+		EntityID:     input.EntityID,
+		CurrentState: input.Msg.CurrentState,
+		AllowedTransitions: []WorkflowTransitionInfo{
+			{
+				Event:   "publish",
+				Allowed: true,
+				Target:  flow.TargetInfo{To: "published"},
+			},
+		},
+	}, nil
 }
 
 type translationWorkflowAliasStub struct {
 	calls     []string
 	entityIDs []string
+	inputs    []WorkflowApplyEventRequest
 }
 
-func (s *translationWorkflowAliasStub) Transition(_ context.Context, input TransitionInput) (*TransitionResult, error) {
-	s.calls = append(s.calls, input.Transition)
+func (s *translationWorkflowAliasStub) ApplyEvent(_ context.Context, input WorkflowApplyEventRequest) (*WorkflowApplyEventResponse, error) {
+	s.calls = append(s.calls, input.Event)
 	s.entityIDs = append(s.entityIDs, input.EntityID)
-	return &TransitionResult{
-		EntityID:   input.EntityID,
-		EntityType: input.EntityType,
-		Transition: input.Transition,
-		FromState:  input.CurrentState,
-		ToState:    input.TargetState,
+	s.inputs = append(s.inputs, input)
+	return &WorkflowApplyEventResponse{
+		Transition: &WorkflowTransitionResult{
+			PreviousState: input.ExpectedState,
+			CurrentState:  input.Msg.TargetState,
+		},
 	}, nil
 }
 
-func (s *translationWorkflowAliasStub) AvailableTransitions(context.Context, string, string) ([]WorkflowTransition, error) {
-	return []WorkflowTransition{
-		{Name: "request_approval", To: "pending_approval"},
-		{Name: "approve", To: "published"},
+func (s *translationWorkflowAliasStub) Snapshot(_ context.Context, input WorkflowSnapshotRequest) (*WorkflowSnapshot, error) {
+	return &WorkflowSnapshot{
+		EntityID:     input.EntityID,
+		CurrentState: input.Msg.CurrentState,
+		AllowedTransitions: []WorkflowTransitionInfo{
+			{Event: "request_approval", Allowed: true, Target: flow.TargetInfo{To: "pending_approval"}},
+			{Event: "approve", Allowed: true, Target: flow.TargetInfo{To: "published"}},
+		},
 	}, nil
 }
 
@@ -146,27 +161,36 @@ type translationWorkflowStateStub struct {
 	err                error
 }
 
-func (s translationWorkflowStateStub) Transition(_ context.Context, input TransitionInput) (*TransitionResult, error) {
-	return &TransitionResult{
-		EntityID:   input.EntityID,
-		EntityType: input.EntityType,
-		Transition: input.Transition,
-		FromState:  input.CurrentState,
-		ToState:    input.TargetState,
+func (s translationWorkflowStateStub) ApplyEvent(_ context.Context, input WorkflowApplyEventRequest) (*WorkflowApplyEventResponse, error) {
+	return &WorkflowApplyEventResponse{
+		Transition: &WorkflowTransitionResult{
+			PreviousState: input.ExpectedState,
+			CurrentState:  input.Msg.TargetState,
+		},
 	}, nil
 }
 
-func (s translationWorkflowStateStub) AvailableTransitions(_ context.Context, _ string, state string) ([]WorkflowTransition, error) {
+func (s translationWorkflowStateStub) Snapshot(_ context.Context, input WorkflowSnapshotRequest) (*WorkflowSnapshot, error) {
 	if s.err != nil {
 		return nil, s.err
 	}
 	if len(s.transitionsByState) == 0 {
-		return nil, nil
+		return &WorkflowSnapshot{EntityID: input.EntityID, CurrentState: input.Msg.CurrentState}, nil
 	}
-	transitions := s.transitionsByState[state]
-	out := make([]WorkflowTransition, len(transitions))
-	copy(out, transitions)
-	return out, nil
+	transitions := s.transitionsByState[input.Msg.CurrentState]
+	out := make([]WorkflowTransitionInfo, 0, len(transitions))
+	for _, transition := range transitions {
+		out = append(out, WorkflowTransitionInfo{
+			Event:   transition.Name,
+			Allowed: true,
+			Target:  flow.TargetInfo{To: transition.To},
+		})
+	}
+	return &WorkflowSnapshot{
+		EntityID:           input.EntityID,
+		CurrentState:       input.Msg.CurrentState,
+		AllowedTransitions: out,
+	}, nil
 }
 
 type readinessRequirementsPolicyRecorder struct {
@@ -673,6 +697,56 @@ func TestPanelBindingWorkflowActionsUsePrimaryIDWhenSelectionContainsMultipleIDs
 	}
 	if len(workflow.entityIDs) != 1 || workflow.entityIDs[0] != "page_123" {
 		t.Fatalf("expected primary entity id page_123, got %+v", workflow.entityIDs)
+	}
+}
+
+func TestPanelBindingWorkflowActionPropagatesCanonicalRequestMetadata(t *testing.T) {
+	repo := &translationActionRepoStub{
+		records: map[string]map[string]any{
+			"page_123": {
+				"id":     "page_123",
+				"status": "draft",
+			},
+		},
+	}
+	workflow := &translationWorkflowAliasStub{}
+	panel := &Panel{
+		name:     "pages",
+		repo:     repo,
+		workflow: workflow,
+		actions:  []Action{{Name: "publish"}},
+	}
+	binding := &panelBinding{
+		admin: &Admin{config: Config{DefaultLocale: "en"}},
+		name:  "pages",
+		panel: panel,
+	}
+	c := router.NewMockContext()
+	c.HeadersM["X-User-ID"] = "actor-1"
+	c.HeadersM["X-Request-ID"] = "req-123"
+	c.HeadersM["X-Correlation-ID"] = "corr-789"
+	c.QueriesM["tenant_id"] = "tenant-xyz"
+	c.On("Context").Return(context.Background())
+
+	_, err := binding.Action(c, "en", "publish", map[string]any{"id": "page_123"})
+	if err != nil {
+		t.Fatalf("publish action: %v", err)
+	}
+	if len(workflow.inputs) != 1 {
+		t.Fatalf("expected one workflow input, got %d", len(workflow.inputs))
+	}
+	input := workflow.inputs[0]
+	if input.ExecCtx.ActorID != "actor-1" {
+		t.Fatalf("expected actor id actor-1, got %q", input.ExecCtx.ActorID)
+	}
+	if input.ExecCtx.Tenant != "tenant-xyz" {
+		t.Fatalf("expected tenant tenant-xyz, got %q", input.ExecCtx.Tenant)
+	}
+	if got := toString(input.Metadata["requestId"]); got != "req-123" {
+		t.Fatalf("expected requestId req-123, got %q", got)
+	}
+	if got := toString(input.Metadata["correlationId"]); got != "corr-789" {
+		t.Fatalf("expected correlationId corr-789, got %q", got)
 	}
 }
 

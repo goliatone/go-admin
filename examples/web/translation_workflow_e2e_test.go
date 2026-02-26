@@ -15,6 +15,7 @@ import (
 	"github.com/goliatone/go-admin/examples/web/commands"
 	"github.com/goliatone/go-admin/examples/web/setup"
 	"github.com/goliatone/go-admin/examples/web/stores"
+	"github.com/goliatone/go-command/flow"
 	commandregistry "github.com/goliatone/go-command/registry"
 	fggate "github.com/goliatone/go-featuregate/gate"
 	router "github.com/goliatone/go-router"
@@ -36,39 +37,44 @@ type translationWorkflowPolicy struct {
 	contentSvc coreadmin.CMSContentService
 }
 
-func (translationWorkflowEngine) AvailableTransitions(_ context.Context, _ string, state string) ([]coreadmin.WorkflowTransition, error) {
+func workflowTransitionsForState(state string) []coreadmin.WorkflowTransitionInfo {
 	switch strings.ToLower(strings.TrimSpace(state)) {
 	case "", "draft":
-		return []coreadmin.WorkflowTransition{
-			{Name: "publish", From: "draft", To: "published"},
-			{Name: "submit_for_approval", From: "draft", To: "pending_approval"},
-			{Name: "request_approval", From: "draft", To: "pending_approval"},
-		}, nil
+		return []coreadmin.WorkflowTransitionInfo{
+			{Event: "publish", Allowed: true, Target: flow.TargetInfo{To: "published"}},
+			{Event: "submit_for_approval", Allowed: true, Target: flow.TargetInfo{To: "pending_approval"}},
+			{Event: "request_approval", Allowed: true, Target: flow.TargetInfo{To: "pending_approval"}},
+		}
 	case "pending_approval":
-		return []coreadmin.WorkflowTransition{
-			{Name: "publish", From: "pending_approval", To: "published"},
-			{Name: "approve", From: "pending_approval", To: "published"},
-			{Name: "reject", From: "pending_approval", To: "draft"},
-		}, nil
+		return []coreadmin.WorkflowTransitionInfo{
+			{Event: "publish", Allowed: true, Target: flow.TargetInfo{To: "published"}},
+			{Event: "approve", Allowed: true, Target: flow.TargetInfo{To: "published"}},
+			{Event: "reject", Allowed: true, Target: flow.TargetInfo{To: "draft"}},
+		}
 	case "published":
-		return []coreadmin.WorkflowTransition{
-			{Name: "unpublish", From: "published", To: "draft"},
-		}, nil
+		return []coreadmin.WorkflowTransitionInfo{
+			{Event: "unpublish", Allowed: true, Target: flow.TargetInfo{To: "draft"}},
+		}
 	default:
-		return nil, nil
+		return nil
 	}
 }
 
-func (w translationWorkflowEngine) Transition(ctx context.Context, input coreadmin.TransitionInput) (*coreadmin.TransitionResult, error) {
-	target := strings.TrimSpace(input.TargetState)
+func (translationWorkflowEngine) Snapshot(_ context.Context, input coreadmin.WorkflowSnapshotRequest) (*coreadmin.WorkflowSnapshot, error) {
+	return &coreadmin.WorkflowSnapshot{
+		EntityID:           input.EntityID,
+		CurrentState:       strings.TrimSpace(input.Msg.CurrentState),
+		AllowedTransitions: workflowTransitionsForState(input.Msg.CurrentState),
+	}, nil
+}
+
+func (w translationWorkflowEngine) ApplyEvent(_ context.Context, input coreadmin.WorkflowApplyEventRequest) (*coreadmin.WorkflowApplyEventResponse, error) {
+	target := strings.TrimSpace(input.Msg.TargetState)
 	if target == "" {
-		transitions, err := w.AvailableTransitions(ctx, input.EntityType, input.CurrentState)
-		if err != nil {
-			return nil, err
-		}
+		transitions := workflowTransitionsForState(input.ExpectedState)
 		for _, transition := range transitions {
-			if strings.EqualFold(transition.Name, input.Transition) {
-				target = transition.To
+			if strings.EqualFold(transition.Event, input.Event) {
+				target = strings.TrimSpace(transition.Target.To)
 				break
 			}
 		}
@@ -76,12 +82,11 @@ func (w translationWorkflowEngine) Transition(ctx context.Context, input coreadm
 	if target == "" {
 		return nil, errors.New("invalid workflow transition")
 	}
-	return &coreadmin.TransitionResult{
-		EntityID:   input.EntityID,
-		EntityType: input.EntityType,
-		Transition: input.Transition,
-		FromState:  input.CurrentState,
-		ToState:    target,
+	return &coreadmin.WorkflowApplyEventResponse{
+		Transition: &coreadmin.WorkflowTransitionResult{
+			PreviousState: input.ExpectedState,
+			CurrentState:  target,
+		},
 	}, nil
 }
 

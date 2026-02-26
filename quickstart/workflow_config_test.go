@@ -223,7 +223,7 @@ func TestMergeWorkflowConfigsOverrideWins(t *testing.T) {
 }
 
 func TestValidateWorkflowTraitDefaultsReferencesRejectsUnknownWorkflow(t *testing.T) {
-	engine := admin.NewSimpleWorkflowEngine()
+	engine := admin.NewFSMWorkflowEngine()
 	engine.RegisterWorkflow("editorial.default", admin.WorkflowDefinition{
 		EntityType:   "editorial.default",
 		InitialState: "draft",
@@ -245,5 +245,73 @@ func TestValidateWorkflowTraitDefaultsReferencesRejectsUnknownWorkflow(t *testin
 	}
 	if !strings.Contains(err.Error(), "trait_defaults.editorial") {
 		t.Fatalf("expected actionable trait_defaults field path, got %v", err)
+	}
+}
+
+func TestWorkflowBindingsFromConfigEmitsCanonicalBindings(t *testing.T) {
+	cfg := WorkflowConfig{
+		SchemaVersion: 1,
+		Workflows: map[string]WorkflowDefinitionSpec{
+			"editorial.default": {
+				InitialState: "draft",
+				Transitions: []WorkflowTransitionSpec{
+					{Name: "publish", From: "draft", To: "published"},
+				},
+			},
+		},
+		Bindings: []WorkflowBindingSpec{
+			{
+				ScopeType:  "content_type",
+				ScopeRef:   "news",
+				WorkflowID: "editorial.default",
+				Priority:   10,
+			},
+		},
+		TraitDefaults: map[string]string{
+			"editorial": "editorial.default",
+		},
+	}
+
+	bindings := WorkflowBindingsFromConfig(cfg)
+	if len(bindings) != 2 {
+		t.Fatalf("expected explicit + trait-default bindings, got %+v", bindings)
+	}
+	if bindings[0].ScopeType != admin.WorkflowBindingScopeContentType || bindings[0].ScopeRef != "news" {
+		t.Fatalf("expected first binding content_type/news, got %+v", bindings[0])
+	}
+	if bindings[1].ScopeType != admin.WorkflowBindingScopeTrait || bindings[1].ScopeRef != "editorial" {
+		t.Fatalf("expected second binding trait/editorial, got %+v", bindings[1])
+	}
+}
+
+func TestValidateWorkflowConfigRejectsBindingUnknownWorkflowReference(t *testing.T) {
+	cfg := WorkflowConfig{
+		SchemaVersion: 1,
+		Workflows: map[string]WorkflowDefinitionSpec{
+			"editorial.default": {
+				InitialState: "draft",
+				Transitions: []WorkflowTransitionSpec{
+					{Name: "publish", From: "draft", To: "published"},
+				},
+			},
+		},
+		Bindings: []WorkflowBindingSpec{
+			{
+				ScopeType:  "trait",
+				ScopeRef:   "editorial",
+				WorkflowID: "editorial.missing",
+			},
+		},
+	}
+
+	err := ValidateWorkflowConfig(cfg)
+	if err == nil {
+		t.Fatalf("expected validation error")
+	}
+	if !errors.Is(err, ErrWorkflowConfig) {
+		t.Fatalf("expected ErrWorkflowConfig, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "bindings[0].workflow_id") {
+		t.Fatalf("expected actionable bindings field path, got %v", err)
 	}
 }

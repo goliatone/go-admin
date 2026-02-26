@@ -219,12 +219,68 @@ func TestAdminBootstrapFailsFastWhenWorkflowEngineCannotRegisterDefinitions(t *t
 	}
 }
 
+func TestAdminBootstrapSeedsWorkflowRuntimeFromCanonicalConfig(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Test", "en")
+	runtime := admin.NewWorkflowRuntimeService(admin.NewInMemoryWorkflowDefinitionRepository(), admin.NewInMemoryWorkflowBindingRepository())
+
+	_, _, err := NewAdmin(
+		cfg,
+		AdapterHooks{},
+		WithWorkflowRuntime(runtime),
+		WithWorkflowConfig(WorkflowConfig{
+			SchemaVersion: 1,
+			Workflows: map[string]WorkflowDefinitionSpec{
+				"editorial.default": {
+					MachineVersion: "7",
+					InitialState:   "draft",
+					Transitions: []WorkflowTransitionSpec{
+						{Name: "publish", From: "draft", To: "published"},
+					},
+				},
+			},
+			Bindings: []WorkflowBindingSpec{
+				{
+					ScopeType:  "content_type",
+					ScopeRef:   "news",
+					WorkflowID: "editorial.default",
+					Priority:   10,
+				},
+			},
+		}),
+	)
+	if err != nil {
+		t.Fatalf("new admin with workflow runtime: %v", err)
+	}
+
+	workflows, total, err := runtime.ListWorkflows(context.Background(), admin.PersistedWorkflowListOptions{})
+	if err != nil {
+		t.Fatalf("list workflows: %v", err)
+	}
+	if total != 1 || len(workflows) != 1 {
+		t.Fatalf("expected one seeded workflow, got total=%d workflows=%+v", total, workflows)
+	}
+	if workflows[0].MachineVersion != "7" {
+		t.Fatalf("expected seeded machine version 7, got %q", workflows[0].MachineVersion)
+	}
+
+	bindings, totalBindings, err := runtime.ListBindings(context.Background(), admin.WorkflowBindingListOptions{})
+	if err != nil {
+		t.Fatalf("list bindings: %v", err)
+	}
+	if totalBindings != 1 || len(bindings) != 1 {
+		t.Fatalf("expected one seeded binding, got total=%d bindings=%+v", totalBindings, bindings)
+	}
+	if bindings[0].ScopeType != admin.WorkflowBindingScopeContentType || bindings[0].ScopeRef != "news" {
+		t.Fatalf("expected seeded content_type/news binding, got %+v", bindings[0])
+	}
+}
+
 type nonRegistrarWorkflowEngine struct{}
 
-func (nonRegistrarWorkflowEngine) Transition(context.Context, admin.TransitionInput) (*admin.TransitionResult, error) {
+func (nonRegistrarWorkflowEngine) ApplyEvent(context.Context, admin.WorkflowApplyEventRequest) (*admin.WorkflowApplyEventResponse, error) {
 	return nil, nil
 }
 
-func (nonRegistrarWorkflowEngine) AvailableTransitions(context.Context, string, string) ([]admin.WorkflowTransition, error) {
+func (nonRegistrarWorkflowEngine) Snapshot(context.Context, admin.WorkflowSnapshotRequest) (*admin.WorkflowSnapshot, error) {
 	return nil, nil
 }
