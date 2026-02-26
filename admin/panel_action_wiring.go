@@ -140,8 +140,6 @@ func workflowActionIsResolvable(panel *Panel, actionName string) bool {
 
 func workflowTransitionNames(engine WorkflowEngine, panelName string) (map[string]struct{}, bool) {
 	switch typed := engine.(type) {
-	case *SimpleWorkflowEngine:
-		return simpleWorkflowTransitionNames(typed, panelName), true
 	case workflowAlias:
 		return aliasWorkflowTransitionNames(typed), true
 	case *workflowAlias:
@@ -149,6 +147,8 @@ func workflowTransitionNames(engine WorkflowEngine, panelName string) (map[strin
 			return map[string]struct{}{}, true
 		}
 		return aliasWorkflowTransitionNames(*typed), true
+	case WorkflowDefinitionProvider:
+		return workflowDefinitionTransitionNames(typed, panelName), true
 	default:
 		return nil, false
 	}
@@ -159,24 +159,22 @@ func aliasWorkflowTransitionNames(alias workflowAlias) map[string]struct{} {
 	if entityType == "" {
 		return map[string]struct{}{}
 	}
-	switch typed := alias.engine.(type) {
-	case *SimpleWorkflowEngine:
-		return simpleWorkflowTransitionNames(typed, entityType)
-	default:
-		return map[string]struct{}{}
+	if provider, ok := alias.engine.(WorkflowDefinitionProvider); ok && provider != nil {
+		return workflowDefinitionTransitionNames(provider, entityType)
 	}
+	return map[string]struct{}{}
 }
 
-func simpleWorkflowTransitionNames(engine *SimpleWorkflowEngine, entityType string) map[string]struct{} {
+func workflowDefinitionTransitionNames(provider WorkflowDefinitionProvider, entityType string) map[string]struct{} {
 	names := map[string]struct{}{}
-	if engine == nil {
+	if provider == nil {
 		return names
 	}
 	entityType = strings.TrimSpace(entityType)
 	if entityType == "" {
 		return names
 	}
-	definition, ok := engine.definitions[entityType]
+	definition, ok := provider.WorkflowDefinition(entityType)
 	if !ok {
 		return names
 	}
