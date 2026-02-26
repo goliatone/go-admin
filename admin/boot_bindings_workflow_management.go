@@ -150,11 +150,13 @@ func (w *workflowManagementBinding) DeleteBinding(c router.Context, id string) e
 
 func workflowFromPayload(id string, body map[string]any) PersistedWorkflow {
 	workflow := PersistedWorkflow{
-		ID:          strings.TrimSpace(primitives.FirstNonEmptyRaw(id, toString(body["id"]))),
-		Name:        strings.TrimSpace(toString(body["name"])),
-		Status:      PersistedWorkflowStatus(strings.ToLower(strings.TrimSpace(toString(body["status"])))),
-		Environment: strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(body["environment"]), toString(body["env"]))),
-		Version:     atoiDefault(toString(body["version"]), 0),
+		ID:             strings.TrimSpace(primitives.FirstNonEmptyRaw(id, toString(body["id"]))),
+		MachineID:      strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(body["machine_id"]), toString(body["machineId"]))),
+		MachineVersion: strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(body["machine_version"]), toString(body["machineVersion"]))),
+		Name:           strings.TrimSpace(toString(body["name"])),
+		Status:         PersistedWorkflowStatus(strings.ToLower(strings.TrimSpace(toString(body["status"])))),
+		Environment:    strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(body["environment"]), toString(body["env"]))),
+		Version:        atoiDefault(toString(body["version"]), 0),
 	}
 	workflow.Definition = workflowDefinitionFromPayload(body)
 	return workflow
@@ -166,7 +168,8 @@ func workflowDefinitionFromPayload(body map[string]any) WorkflowDefinition {
 		return WorkflowDefinition{}
 	}
 	def := WorkflowDefinition{
-		InitialState: strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(rawDef["initial_state"]), toString(rawDef["initialState"]))),
+		InitialState:   strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(rawDef["initial_state"]), toString(rawDef["initialState"]))),
+		MachineVersion: strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(rawDef["machine_version"]), toString(rawDef["machineVersion"]))),
 	}
 	if rawTransitions, ok := rawDef["transitions"].([]any); ok {
 		for _, raw := range rawTransitions {
@@ -179,6 +182,9 @@ func workflowDefinitionFromPayload(body map[string]any) WorkflowDefinition {
 				Description: strings.TrimSpace(toString(item["description"])),
 				From:        strings.TrimSpace(toString(item["from"])),
 				To:          strings.TrimSpace(toString(item["to"])),
+				Guard:       strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(item["guard"]), toString(item["guard_ref"]))),
+				DynamicTo:   strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(item["dynamic_to"]), toString(item["dynamicTo"]))),
+				Metadata:    extractMap(item["metadata"]),
 			})
 		}
 	}
