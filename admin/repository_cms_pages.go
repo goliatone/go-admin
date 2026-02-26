@@ -34,7 +34,8 @@ func (r *CMSPageRepository) List(ctx context.Context, opts ListOptions) ([]map[s
 	}
 	records := make([]map[string]any, 0, len(pages))
 	for _, page := range pages {
-		records = append(records, cmsPageRecord(page, cmsPageRecordOptions{
+		normalized := normalizeCMSPageLocaleState(page, locale)
+		records = append(records, cmsPageRecord(normalized, cmsPageRecordOptions{
 			includeTemplateID: true,
 		}))
 	}
@@ -63,7 +64,22 @@ func (r *CMSPageRepository) Get(ctx context.Context, id string) (map[string]any,
 	if err != nil {
 		return nil, err
 	}
-	return cmsPageRecord(*page, cmsPageRecordOptions{
+	if page == nil {
+		return nil, ErrNotFound
+	}
+	requested := strings.TrimSpace(primitives.FirstNonEmptyRaw(localeFromContext(ctx), page.RequestedLocale))
+	normalized := normalizeCMSPageLocaleState(*page, requested)
+	if requested != "" && normalized.MissingRequestedLocale && !localeFallbackAllowed(ctx) {
+		return nil, translationMissingNotFoundError(requested, normalized.AvailableLocales, map[string]any{
+			"entity":     "page",
+			"id":         normalized.ID,
+			"slug":       normalized.Slug,
+			"path":       resolveCMSPagePath(normalized),
+			"locale":     normalized.Locale,
+			"content_id": normalized.ID,
+		})
+	}
+	return cmsPageRecord(normalized, cmsPageRecordOptions{
 		includeTemplateID: true,
 	}), nil
 }
@@ -169,8 +185,17 @@ type cmsPageRecordOptions struct {
 }
 
 func cmsPageRecord(page CMSPage, opts cmsPageRecordOptions) map[string]any {
+	page = normalizeCMSPageLocaleState(page, page.RequestedLocale)
 	path := resolveCMSPagePath(page)
 	schema := strings.TrimSpace(primitives.FirstNonEmptyRaw(page.SchemaVersion, toString(page.Data["_schema"])))
+	navigation := page.Navigation
+	if len(navigation) == 0 {
+		navigation = normalizeNavigationVisibilityMap(page.Data["_navigation"])
+	}
+	effectiveLocations := page.EffectiveMenuLocations
+	if len(effectiveLocations) == 0 {
+		effectiveLocations = normalizeEffectiveMenuLocations(page.Data["effective_menu_locations"])
+	}
 	record := map[string]any{
 		"id":                       page.ID,
 		"title":                    page.Title,
@@ -189,6 +214,8 @@ func cmsPageRecord(page CMSPage, opts cmsPageRecordOptions) map[string]any {
 		"data":                     primitives.CloneAnyMap(page.Data),
 		"metadata":                 primitives.CloneAnyMap(page.Metadata),
 		"preview_url":              page.PreviewURL,
+		"_navigation":              navigationVisibilityMapAny(navigation),
+		"effective_menu_locations": append([]string{}, effectiveLocations...),
 	}
 	if opts.includeTemplateID {
 		record["template_id"] = page.TemplateID
@@ -197,6 +224,28 @@ func cmsPageRecord(page CMSPage, opts cmsPageRecordOptions) map[string]any {
 		record["_schema"] = schema
 	}
 	return record
+}
+
+func normalizeCMSPageLocaleState(page CMSPage, requested string) CMSPage {
+	requested = strings.TrimSpace(primitives.FirstNonEmptyRaw(requested, page.RequestedLocale, page.Locale))
+	resolved := strings.TrimSpace(primitives.FirstNonEmptyRaw(page.ResolvedLocale, page.Locale))
+	if resolved == "" {
+		resolved = requested
+	}
+	available := append([]string{}, page.AvailableLocales...)
+	if len(available) == 0 && strings.TrimSpace(page.Locale) != "" {
+		available = []string{page.Locale}
+	}
+	available = dedupeStrings(available)
+	missing := page.MissingRequestedLocale
+	if requested != "" && len(available) > 0 && !containsStringInsensitive(available, requested) {
+		missing = true
+	}
+	page.RequestedLocale = requested
+	page.ResolvedLocale = resolved
+	page.AvailableLocales = available
+	page.MissingRequestedLocale = missing
+	return page
 }
 
 func (r *CMSPageRepository) resolvePageLocale(ctx context.Context, id string) string {
