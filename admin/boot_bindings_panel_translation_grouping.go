@@ -600,7 +600,7 @@ func (p *panelBinding) translationReadinessPolicy() TranslationPolicy {
 	return nil
 }
 
-func (p *panelBinding) rowActionStateForRecord(ctx AdminContext, record map[string]any, actions []Action, transitions []WorkflowTransition, transitionsErr error) map[string]map[string]any {
+func (p *panelBinding) rowActionStateForRecord(ctx AdminContext, record map[string]any, actions []Action, transitions []WorkflowTransitionInfo, transitionsErr error) map[string]map[string]any {
 	if len(record) == 0 || len(actions) == 0 {
 		return nil
 	}
@@ -734,13 +734,13 @@ func uppercaseLocaleList(locales []string) []string {
 	return out
 }
 
-func actionMatchesAvailableWorkflowTransition(action string, transitions []WorkflowTransition) bool {
+func actionMatchesAvailableWorkflowTransition(action string, transitions []WorkflowTransitionInfo) bool {
 	if len(transitions) == 0 {
 		return false
 	}
 	candidates := workflowTransitionCandidates(action)
 	for _, transition := range transitions {
-		if containsTransitionName(candidates, transition.Name) {
+		if containsTransitionEvent(candidates, transition.Event) {
 			return true
 		}
 	}
@@ -837,14 +837,37 @@ func mergePanelActionActorContext(body map[string]any, ctx AdminContext) map[str
 		body = map[string]any{}
 	}
 	userID := strings.TrimSpace(primitives.FirstNonEmptyRaw(ctx.UserID, userIDFromContext(ctx.Context), actorFromContext(ctx.Context)))
-	if userID == "" {
-		return body
+	if userID != "" {
+		if strings.TrimSpace(toString(body["user_id"])) == "" {
+			body["user_id"] = userID
+		}
+		if strings.TrimSpace(toString(body["actor_id"])) == "" {
+			body["actor_id"] = userID
+		}
+		if strings.TrimSpace(toString(body["actorId"])) == "" {
+			body["actorId"] = userID
+		}
 	}
-	if strings.TrimSpace(toString(body["user_id"])) == "" {
-		body["user_id"] = userID
+	if tenantID := strings.TrimSpace(primitives.FirstNonEmptyRaw(ctx.TenantID, tenantIDFromContext(ctx.Context))); tenantID != "" {
+		if strings.TrimSpace(toString(body["tenant"])) == "" {
+			body["tenant"] = tenantID
+		}
 	}
-	if strings.TrimSpace(toString(body["actor_id"])) == "" {
-		body["actor_id"] = userID
+	if requestID := strings.TrimSpace(requestIDFromContext(ctx.Context)); requestID != "" {
+		if strings.TrimSpace(toString(body["request_id"])) == "" {
+			body["request_id"] = requestID
+		}
+		if strings.TrimSpace(toString(body["requestId"])) == "" {
+			body["requestId"] = requestID
+		}
+	}
+	if correlationID := strings.TrimSpace(correlationIDFromContext(ctx.Context)); correlationID != "" {
+		if strings.TrimSpace(toString(body["correlation_id"])) == "" {
+			body["correlation_id"] = correlationID
+		}
+		if strings.TrimSpace(toString(body["correlationId"])) == "" {
+			body["correlationId"] = correlationID
+		}
 	}
 	return body
 }
