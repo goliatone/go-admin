@@ -66,3 +66,32 @@ func TestApplyListOptionsToRecordMapsSupportsILikeAndComparators(t *testing.T) {
 		t.Fatalf("expected id 2, got %q", got)
 	}
 }
+
+func TestApplyListOptionsToRecordMapsProjectsRequestedFields(t *testing.T) {
+	records := []map[string]any{
+		{"id": "1", "title": "Alpha", "status": "published", "slug": "/alpha"},
+		{"id": "2", "title": "Beta", "status": "draft", "slug": "/beta"},
+	}
+
+	paged, total := applyListOptionsToRecordMaps(records, ListOptions{
+		Page:    1,
+		PerPage: 10,
+		Fields:  []string{"title", "status"},
+	}, listRecordOptions{})
+
+	if total != 2 {
+		t.Fatalf("expected total 2, got %d", total)
+	}
+	if len(paged) != 2 {
+		t.Fatalf("expected 2 records, got %d", len(paged))
+	}
+	if _, ok := paged[0]["id"]; !ok {
+		t.Fatalf("expected id to remain present in projected record, got %+v", paged[0])
+	}
+	if _, ok := paged[0]["slug"]; ok {
+		t.Fatalf("expected slug to be omitted from projected record, got %+v", paged[0])
+	}
+	if got := toString(paged[0]["title"]); got != "Alpha" {
+		t.Fatalf("expected projected title Alpha, got %q", got)
+	}
+}

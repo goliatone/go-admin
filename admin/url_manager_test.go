@@ -79,6 +79,20 @@ func TestDefaultURLKitConfigPaths(t *testing.T) {
 	if publicPreview != "/api/v1/preview/token" {
 		t.Fatalf("expected /api/v1/preview/token, got %q", publicPreview)
 	}
+	siteMenuByLocation, err := manager.Resolve("public.api.v1", SiteRouteMenuByLocation, urlkit.Params{"location": "site.main"}, nil)
+	if err != nil {
+		t.Fatalf("resolve public.api.v1 site.menus.location: %v", err)
+	}
+	if siteMenuByLocation != "/api/v1/site/menus/site.main" {
+		t.Fatalf("expected /api/v1/site/menus/site.main, got %q", siteMenuByLocation)
+	}
+	siteMenuByCode, err := manager.Resolve("public.api.v1", SiteRouteMenuByCode, urlkit.Params{"code": "primary"}, nil)
+	if err != nil {
+		t.Fatalf("resolve public.api.v1 site.menus.code: %v", err)
+	}
+	if siteMenuByCode != "/api/v1/site/menus/code/primary" {
+		t.Fatalf("expected /api/v1/site/menus/code/primary, got %q", siteMenuByCode)
+	}
 
 	panelSubresource, err := manager.Resolve("admin.api", "panel.subresource", urlkit.Params{
 		"panel":       "agreements",
@@ -129,6 +143,49 @@ func TestDefaultAdminAPIRoutesPanelTemplatesAreNamespaced(t *testing.T) {
 		}
 		if got != want {
 			t.Fatalf("route %q: expected %q, got %q", key, want, got)
+		}
+	}
+}
+
+func TestDefaultURLKitConfigMenuBuilderPaths(t *testing.T) {
+	cfg := applyConfigDefaults(Config{BasePath: "/admin"})
+	manager, err := newURLManager(cfg)
+	if err != nil {
+		t.Fatalf("newURLManager: %v", err)
+	}
+
+	resolved := map[string]string{
+		"menus":                  "/admin/api/menus",
+		"menus.id":               "/admin/api/menus/primary",
+		"menus.publish":          "/admin/api/menus/primary/publish",
+		"menus.unpublish":        "/admin/api/menus/primary/unpublish",
+		"menus.items":            "/admin/api/menus/primary/items",
+		"menus.preview":          "/admin/api/menus/primary/preview",
+		"menus.clone":            "/admin/api/menus/primary/clone",
+		"menus.archive":          "/admin/api/menus/primary/archive",
+		"menu.bindings":          "/admin/api/menu-bindings",
+		"menu.bindings.location": "/admin/api/menu-bindings/site.main",
+		"menu.view_profiles":     "/admin/api/menu-view-profiles",
+		"menu.view_profiles.code": "/admin/api/menu-view-profiles/footer",
+		"menu.view_profiles.publish": "/admin/api/menu-view-profiles/footer/publish",
+	}
+
+	for key, want := range resolved {
+		params := map[string]string{}
+		switch key {
+		case "menus.id", "menus.publish", "menus.unpublish", "menus.items", "menus.preview", "menus.clone", "menus.archive":
+			params["id"] = "primary"
+		case "menu.bindings.location":
+			params["location"] = "site.main"
+		case "menu.view_profiles.code", "menu.view_profiles.publish":
+			params["code"] = "footer"
+		}
+		got, resolveErr := manager.ResolveWith("admin.api", key, params, nil)
+		if resolveErr != nil {
+			t.Fatalf("resolve admin.api %s: %v", key, resolveErr)
+		}
+		if got != want {
+			t.Fatalf("expected %s path %q, got %q", key, want, got)
 		}
 	}
 }
