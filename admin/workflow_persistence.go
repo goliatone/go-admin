@@ -48,14 +48,16 @@ var (
 
 // PersistedWorkflow stores a workflow definition with lifecycle metadata.
 type PersistedWorkflow struct {
-	ID          string                  `json:"id"`
-	Name        string                  `json:"name"`
-	Definition  WorkflowDefinition      `json:"definition"`
-	Status      PersistedWorkflowStatus `json:"status"`
-	Version     int                     `json:"version"`
-	Environment string                  `json:"environment,omitempty"`
-	CreatedAt   time.Time               `json:"created_at"`
-	UpdatedAt   time.Time               `json:"updated_at"`
+	ID             string                  `json:"id"`
+	MachineID      string                  `json:"machine_id,omitempty"`
+	MachineVersion string                  `json:"machine_version,omitempty"`
+	Name           string                  `json:"name"`
+	Definition     WorkflowDefinition      `json:"definition"`
+	Status         PersistedWorkflowStatus `json:"status"`
+	Version        int                     `json:"version"`
+	Environment    string                  `json:"environment,omitempty"`
+	CreatedAt      time.Time               `json:"created_at"`
+	UpdatedAt      time.Time               `json:"updated_at"`
 }
 
 // PersistedWorkflowListOptions filters workflow list queries.
@@ -95,13 +97,16 @@ type WorkflowBindingResolveInput struct {
 
 // WorkflowBindingResolution describes the resolved binding winner.
 type WorkflowBindingResolution struct {
-	WorkflowID  string                   `json:"workflow_id"`
-	Source      string                   `json:"source"`
-	BindingID   string                   `json:"binding_id,omitempty"`
-	ScopeType   WorkflowBindingScopeType `json:"scope_type,omitempty"`
-	ScopeRef    string                   `json:"scope_ref,omitempty"`
-	Priority    int                      `json:"priority,omitempty"`
-	Environment string                   `json:"environment,omitempty"`
+	WorkflowID      string                   `json:"workflow_id"`
+	WorkflowVersion int                      `json:"workflow_version,omitempty"`
+	MachineID       string                   `json:"machine_id,omitempty"`
+	MachineVersion  string                   `json:"machine_version,omitempty"`
+	Source          string                   `json:"source"`
+	BindingID       string                   `json:"binding_id,omitempty"`
+	ScopeType       WorkflowBindingScopeType `json:"scope_type,omitempty"`
+	ScopeRef        string                   `json:"scope_ref,omitempty"`
+	Priority        int                      `json:"priority,omitempty"`
+	Environment     string                   `json:"environment,omitempty"`
 }
 
 // WorkflowVersionConflictError indicates optimistic-lock mismatch for workflows.
