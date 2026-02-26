@@ -576,6 +576,11 @@ func resolveWorkflowConfigOptions(opts *adminOptions) error {
 	opts.workflowConfigSet = true
 	opts.deps.Workflow = workflowEngine
 	opts.traitWorkflowDefaults = mergeTraitWorkflowDefaults(opts.traitWorkflowDefaults, traitDefaults)
+	if opts.workflowRuntime != nil {
+		if err := SeedWorkflowRuntimeFromConfig(context.Background(), opts.workflowRuntime, merged); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -585,7 +590,7 @@ func resolveWorkflowConfigEngine(existing admin.WorkflowEngine, definitions map[
 	}
 	engine := existing
 	if engine == nil {
-		engine = admin.NewSimpleWorkflowEngine()
+		engine = admin.NewFSMWorkflowEngine()
 	}
 	registrar, ok := engine.(admin.WorkflowRegistrar)
 	if !ok {
@@ -595,7 +600,11 @@ func resolveWorkflowConfigEngine(existing admin.WorkflowEngine, definitions map[
 	}
 	for _, workflowID := range sortedKeys(definitions) {
 		definition := definitions[workflowID]
-		registrar.RegisterWorkflow(workflowID, definition)
+		if err := registrar.RegisterWorkflow(workflowID, definition); err != nil {
+			return nil, workflowConfigError{
+				Reason: "failed to register workflow definition " + workflowID + ": " + err.Error(),
+			}
+		}
 	}
 	return engine, nil
 }
