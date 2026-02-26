@@ -418,9 +418,6 @@ func (s PageApplicationService) applyWorkflowWithCurrent(ctx context.Context, id
 	if s.Workflow == nil || payload == nil {
 		return nil
 	}
-	if shouldSkipWorkflow(payload) {
-		return nil
-	}
 	target := strings.TrimSpace(toString(payload["status"]))
 	if target == "" {
 		return nil
@@ -436,44 +433,44 @@ func (s PageApplicationService) applyWorkflowTransition(ctx context.Context, id,
 	if s.Workflow == nil || payload == nil {
 		return nil
 	}
-	if shouldSkipWorkflow(payload) {
-		return nil
-	}
 	target := strings.TrimSpace(toString(payload["status"]))
 	current = strings.TrimSpace(current)
 	if current == "" || target == "" || strings.EqualFold(current, target) {
 		return nil
 	}
-	input := TransitionInput{
-		EntityID:     id,
-		EntityType:   pageWorkflowEntityType,
-		CurrentState: current,
-		TargetState:  target,
-		ActorID:      userIDFromContext(ctx),
-	}
+	input := buildWorkflowApplyRequest(ctx, pageWorkflowEntityType, id, current, target, payload)
 	if transition := strings.TrimSpace(toString(payload["transition"])); transition != "" {
-		input.Transition = transition
+		input.Event = transition
 	}
-	if input.Transition == "" {
-		if transitions, err := s.Workflow.AvailableTransitions(ctx, pageWorkflowEntityType, current); err == nil {
-			for _, t := range transitions {
-				if strings.EqualFold(strings.TrimSpace(t.To), target) {
-					input.Transition = t.Name
-					break
-				}
-			}
+	if input.Event == "" {
+		snapshot, err := s.Workflow.Snapshot(ctx, WorkflowSnapshotRequest{
+			MachineID: pageWorkflowEntityType,
+			EntityID:  id,
+			Msg: WorkflowMessage{
+				EntityID:     id,
+				EntityType:   pageWorkflowEntityType,
+				CurrentState: current,
+				TargetState:  target,
+				Payload:      cloneWorkflowTransitionMetadata(payload),
+			},
+			ExecCtx:        input.ExecCtx,
+			EvaluateGuards: true,
+			IncludeBlocked: true,
+		})
+		if err == nil {
+			input.Event = workflowEventForTargetState(snapshot, target)
 		}
 	}
-	policyInput := buildTranslationPolicyInput(ctx, pageWorkflowEntityType, id, current, input.Transition, payload)
+	policyInput := buildTranslationPolicyInput(ctx, pageWorkflowEntityType, id, current, input.Event, payload)
 	if err := applyTranslationPolicy(ctx, s.TranslationPolicy, policyInput); err != nil {
 		return err
 	}
-	result, err := s.Workflow.Transition(ctx, input)
+	result, err := s.Workflow.ApplyEvent(ctx, input)
 	if err != nil {
 		return err
 	}
-	if result != nil && strings.TrimSpace(result.ToState) != "" {
-		payload["status"] = result.ToState
+	if next := workflowCurrentStateFromResponse(result); next != "" {
+		payload["status"] = next
 	}
 	return nil
 }
