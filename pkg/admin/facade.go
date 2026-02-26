@@ -664,7 +664,7 @@ type (
 	SettingsUpdateMsg                         = core.SettingsUpdateMsg
 	SettingsValidationErrors                  = core.SettingsValidationErrors
 	SignedTokenStrategy                       = core.SignedTokenStrategy
-	SimpleWorkflowEngine                      = core.SimpleWorkflowEngine
+	FSMWorkflowEngine                         = core.FSMWorkflowEngine
 	SourceContext                             = core.SourceContext
 	SourceLine                                = core.SourceLine
 	StackFrameInfo                            = core.StackFrameInfo
@@ -678,8 +678,8 @@ type (
 	ThemeProvider                             = core.ThemeProvider
 	ThemeSelection                            = core.ThemeSelection
 	ThemeSelector                             = core.ThemeSelector
-	TransitionInput                           = core.TransitionInput
-	TransitionResult                          = core.TransitionResult
+	WorkflowApplyEventRequest                 = core.WorkflowApplyEventRequest
+	WorkflowApplyEventResponse                = core.WorkflowApplyEventResponse
 	TranslationAlreadyExistsError             = core.TranslationAlreadyExistsError
 	TranslationAssignment                     = core.TranslationAssignment
 	TranslationAssignmentConflictError        = core.TranslationAssignmentConflictError
@@ -1429,8 +1429,8 @@ func NewSettingsService() *SettingsService {
 	return core.NewSettingsService()
 }
 
-func NewSimpleWorkflowEngine() *SimpleWorkflowEngine {
-	return core.NewSimpleWorkflowEngine()
+func NewFSMWorkflowEngine() *FSMWorkflowEngine {
+	return core.NewFSMWorkflowEngine()
 }
 
 func NewTenantPanelRepository(service *TenantService) *TenantPanelRepository {
@@ -1861,7 +1861,7 @@ func WithUsersPanelConfigurer(fn func(*PanelBuilder) *PanelBuilder) UserManageme
 	return core.WithUsersPanelConfigurer(fn)
 }
 
-func WithWorkflowExtraCheck(fn func(context.Context, TransitionInput) bool) RoleWorkflowAuthorizerOption {
+func WithWorkflowExtraCheck(fn func(context.Context, WorkflowApplyEventRequest) bool) RoleWorkflowAuthorizerOption {
 	return core.WithWorkflowExtraCheck(fn)
 }
 
