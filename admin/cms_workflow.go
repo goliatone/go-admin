@@ -2,12 +2,17 @@ package admin
 
 // WorkflowRegistrar registers workflow definitions for entity types.
 type WorkflowRegistrar interface {
-	RegisterWorkflow(entityType string, definition WorkflowDefinition)
+	RegisterWorkflow(entityType string, definition WorkflowDefinition) error
 }
 
 // WorkflowDefinitionChecker reports whether a workflow exists for an entity type.
 type WorkflowDefinitionChecker interface {
 	HasWorkflow(entityType string) bool
+}
+
+// WorkflowDefinitionProvider exposes registered workflow definitions for introspection.
+type WorkflowDefinitionProvider interface {
+	WorkflowDefinition(entityType string) (WorkflowDefinition, bool)
 }
 
 func resolveCMSWorkflowEngine(a *Admin) WorkflowEngine {
@@ -18,7 +23,11 @@ func resolveCMSWorkflowEngine(a *Admin) WorkflowEngine {
 		applyCMSWorkflowDefaults(a)
 		return a.workflow
 	}
-	engine := NewSimpleWorkflowEngine()
+	opts := []FSMWorkflowEngineOption{}
+	if a.activity != nil {
+		opts = append(opts, WithFSMWorkflowActivitySink(a.activity))
+	}
+	engine := NewFSMWorkflowEngine(opts...)
 	RegisterDefaultCMSWorkflows(engine)
 	a.workflow = engine
 	return a.workflow
@@ -52,7 +61,7 @@ func RegisterDefaultCMSWorkflows(registrar WorkflowRegistrar) {
 		if checker != nil && checker.HasWorkflow(definition.EntityType) {
 			continue
 		}
-		registrar.RegisterWorkflow(definition.EntityType, definition)
+		_ = registrar.RegisterWorkflow(definition.EntityType, definition)
 	}
 }
 
