@@ -165,6 +165,8 @@ type CMSPage struct {
 	ResolvedLocale         string
 	AvailableLocales       []string
 	MissingRequestedLocale bool
+	Navigation             map[string]string
+	EffectiveMenuLocations []string
 	ParentID               string
 	Blocks                 []string
 	EmbeddedBlocks         []map[string]any
@@ -187,6 +189,8 @@ type CMSContent struct {
 	ResolvedLocale         string
 	AvailableLocales       []string
 	MissingRequestedLocale bool
+	Navigation             map[string]string
+	EffectiveMenuLocations []string
 	ContentType            string
 	ContentTypeSlug        string
 	Status                 string
