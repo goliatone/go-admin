@@ -87,8 +87,10 @@ type Admin struct {
 	cmsRoutesRegistered          bool
 	contentAliasRoutesRegistered bool
 	iconService                  *IconService
+	menuBuilder                  *MenuBuilderService
 	doctorMu                     sync.RWMutex
 	doctorChecks                 map[string]DoctorCheck
+	menuBuilderRoutesRegistered  bool
 }
 
 type activityAware interface {
@@ -375,6 +377,7 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 		translationPolicy:      deps.TranslationPolicy,
 		preview:                NewPreviewService(cfg.PreviewSecret),
 		iconService:            iconService,
+		menuBuilder:            NewMenuBuilderService(),
 		doctorChecks:           map[string]DoctorCheck{},
 	}
 

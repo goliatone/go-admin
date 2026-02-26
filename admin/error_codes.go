@@ -46,6 +46,9 @@ const (
 	TextCodeConflict                             = "CONFLICT"
 	TextCodeServiceUnavailable                   = "SERVICE_UNAVAILABLE"
 	TextCodeActivityActorContextInvalid          = "ACTIVITY_ACTOR_CONTEXT_INVALID"
+	TextCodeMenuValidationCycle                  = "MENU_VALIDATION_CYCLE"
+	TextCodeMenuValidationDepth                  = "MENU_VALIDATION_DEPTH"
+	TextCodeMenuValidationInvalidTarget          = "MENU_VALIDATION_INVALID_TARGET"
 )
 
 // DomainErrorCode describes a text code exposed to clients.
@@ -94,6 +97,9 @@ var defaultDomainErrorCodes = []DomainErrorCode{
 	{Code: TextCodeConflict, Description: "The request conflicts with an existing resource or state.", Category: goerrors.CategoryConflict, HTTPStatus: 409},
 	{Code: TextCodeServiceUnavailable, Description: "A required service dependency is unavailable.", Category: goerrors.CategoryInternal, HTTPStatus: 500},
 	{Code: TextCodeActivityActorContextInvalid, Description: "Activity access requires auth actor_id to be a UUID.", Category: goerrors.CategoryValidation, HTTPStatus: 400},
+	{Code: TextCodeMenuValidationCycle, Description: "Menu tree contains a cycle.", Category: goerrors.CategoryValidation, HTTPStatus: 400},
+	{Code: TextCodeMenuValidationDepth, Description: "Menu tree exceeds maximum supported depth.", Category: goerrors.CategoryValidation, HTTPStatus: 400},
+	{Code: TextCodeMenuValidationInvalidTarget, Description: "Menu item target is invalid.", Category: goerrors.CategoryValidation, HTTPStatus: 400},
 	{Code: ferrors.TextCodeInvalidKey, Description: "Feature key is required.", Category: goerrors.CategoryBadInput, HTTPStatus: 400},
 	{Code: ferrors.TextCodeScopeMetadataMissing, Description: "Scope metadata is missing.", Category: goerrors.CategoryBadInput, HTTPStatus: 400},
 	{Code: ferrors.TextCodeScopeInvalid, Description: "Scope is invalid.", Category: goerrors.CategoryBadInput, HTTPStatus: 400},

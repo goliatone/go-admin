@@ -32,6 +32,7 @@ const environmentContextKey adminContextKey = "admin.environment"
 const requestIDContextKey adminContextKey = "admin.request_id"
 const correlationIDContextKey adminContextKey = "admin.correlation_id"
 const queryParamsContextKey adminContextKey = "admin.query_params"
+const localeFallbackContextKey adminContextKey = "admin.locale_fallback_allowed"
 
 // Authorizer determines whether a subject can perform an action on a resource.
 type Authorizer interface {
@@ -292,6 +293,21 @@ func WithEnvironment(ctx context.Context, environment string) context.Context {
 	return context.WithValue(ctx, environmentContextKey, environment)
 }
 
+// WithLocaleFallback stores locale fallback policy on the context.
+// The default behavior remains enabled when this value is not set.
+func WithLocaleFallback(ctx context.Context, allow bool) context.Context {
+	if ctx == nil {
+		return ctx
+	}
+	return context.WithValue(ctx, localeFallbackContextKey, allow)
+}
+
+// LocaleFallbackAllowed reports locale fallback policy from context.
+// When no explicit value exists, fallback remains enabled.
+func LocaleFallbackAllowed(ctx context.Context) bool {
+	return localeFallbackAllowed(ctx)
+}
+
 // EnvironmentFromContext returns the active environment stored on the context.
 func EnvironmentFromContext(ctx context.Context) string {
 	return environmentFromContext(ctx)
@@ -305,6 +321,16 @@ func environmentFromContext(ctx context.Context) string {
 		return env
 	}
 	return ""
+}
+
+func localeFallbackAllowed(ctx context.Context) bool {
+	if ctx == nil {
+		return true
+	}
+	if allow, ok := ctx.Value(localeFallbackContextKey).(bool); ok {
+		return allow
+	}
+	return true
 }
 
 func requestIDFromContext(ctx context.Context) string {
