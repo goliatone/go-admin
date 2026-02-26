@@ -18,6 +18,7 @@ var reservedListPredicateFields = map[string]struct{}{
 	"limit":       {},
 	"offset":      {},
 	"order":       {},
+	"fields":      {},
 	"sort":        {},
 	"sort_desc":   {},
 }
@@ -46,7 +47,55 @@ func applyListOptionsToRecordMaps(records []map[string]any, opts ListOptions, op
 	}
 
 	applyRecordMapSort(filtered, opts.SortBy, opts.SortDesc)
-	return paginateInMemory(filtered, opts, 10)
+	paged, total := paginateInMemory(filtered, opts, 10)
+	if len(opts.Fields) == 0 {
+		return paged, total
+	}
+	return projectRecordMapsByFields(paged, opts.Fields), total
+}
+
+func projectRecordMapsByFields(records []map[string]any, fields []string) []map[string]any {
+	requested := normalizeListProjectionFields(fields)
+	if len(requested) == 0 {
+		return records
+	}
+	projected := make([]map[string]any, 0, len(records))
+	for _, record := range records {
+		item := map[string]any{}
+		if id, ok := record["id"]; ok {
+			item["id"] = id
+		}
+		for _, field := range requested {
+			if value, ok := lookupRecordMapValue(record, field); ok {
+				item[field] = value
+			}
+		}
+		projected = append(projected, item)
+	}
+	return projected
+}
+
+func normalizeListProjectionFields(fields []string) []string {
+	if len(fields) == 0 {
+		return nil
+	}
+	seen := map[string]bool{}
+	out := make([]string, 0, len(fields))
+	for _, field := range fields {
+		current := strings.TrimSpace(field)
+		if current == "" || strings.EqualFold(current, "id") {
+			continue
+		}
+		if seen[current] {
+			continue
+		}
+		seen[current] = true
+		out = append(out, current)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func recordMatchesListQuery(record map[string]any, search string, predicates []ListPredicate, options listRecordOptions) bool {

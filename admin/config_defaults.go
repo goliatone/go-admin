@@ -14,6 +14,19 @@ func applyConfigDefaults(cfg Config) Config {
 	if cfg.PreviewSecret == "" {
 		cfg.PreviewSecret = "admin-preview-secret-change-me"
 	}
+	if cfg.Site.AllowLocaleFallback == nil {
+		allow := true
+		cfg.Site.AllowLocaleFallback = &allow
+	}
+	if cfg.Site.ReadPermission == "" {
+		cfg.Site.ReadPermission = "admin.site.read"
+	}
+	if cfg.Site.DraftReadPermission == "" {
+		cfg.Site.DraftReadPermission = "admin.site.read_drafts"
+	}
+	if cfg.Site.ViewProfileOverridePermission == "" {
+		cfg.Site.ViewProfileOverridePermission = "admin.site.view_profile_override"
+	}
 	cfg.URLs = normalizeURLConfig(cfg.URLs, cfg.BasePath)
 
 	if cfg.SettingsPermission == "" {
@@ -114,6 +127,15 @@ func applyConfigDefaults(cfg Config) Config {
 	}
 	if cfg.OrganizationsDeletePermission == "" {
 		cfg.OrganizationsDeletePermission = "admin.organizations.delete"
+	}
+	if cfg.MenuBuilderPermission == "" {
+		cfg.MenuBuilderPermission = "admin.menus.view"
+	}
+	if cfg.MenuBuilderEditPermission == "" {
+		cfg.MenuBuilderEditPermission = "admin.menus.edit"
+	}
+	if cfg.MenuBuilderPublishPermission == "" {
+		cfg.MenuBuilderPublishPermission = "admin.menus.publish"
 	}
 	if cfg.JobsPermission == "" {
 		cfg.JobsPermission = "admin.jobs.view"

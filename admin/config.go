@@ -70,6 +70,9 @@ type Config struct {
 	OrganizationsCreatePermission        string
 	OrganizationsUpdatePermission        string
 	OrganizationsDeletePermission        string
+	MenuBuilderPermission                string
+	MenuBuilderEditPermission            string
+	MenuBuilderPublishPermission         string
 
 	AuthConfig *AuthConfig
 
@@ -78,10 +81,26 @@ type Config struct {
 	FeatureFlagKeys    []string
 	FeatureCatalogPath string
 	EnablePublicAPI    bool
+	Site               SiteConfig
 
 	ScopeMode       string
 	DefaultTenantID string
 	DefaultOrgID    string
+}
+
+// SiteConfig controls public site API behavior exposed by go-admin.
+type SiteConfig struct {
+	// AllowLocaleFallback controls missing translation fallback behavior for site APIs.
+	// Nil defaults to true.
+	AllowLocaleFallback *bool
+	// Protected enables auth wrapping for site endpoints when an authenticator is configured.
+	Protected bool
+	// ReadPermission optionally guards site endpoint reads when Protected is enabled.
+	ReadPermission string
+	// DraftReadPermission optionally guards include_drafts access.
+	DraftReadPermission string
+	// ViewProfileOverridePermission optionally guards view_profile overrides.
+	ViewProfileOverridePermission string
 }
 
 // URLNamespaceConfig defines URL defaults for a namespace (admin or public).

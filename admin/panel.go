@@ -115,6 +115,7 @@ type ListOptions struct {
 	SortDesc   bool
 	Filters    map[string]any
 	Predicates []ListPredicate
+	Fields     []string
 	Search     string
 }
 

@@ -147,6 +147,12 @@ func mapToGoError(err error, mappers []goerrors.ErrorMapper) (*goerrors.Error, i
 		mapped = NewDomainError(TextCodeValidationError, err.Error(), map[string]any{"field": "locale"})
 		status = http.StatusBadRequest
 		mapped.WithCode(status)
+	case IsTranslationMissing(err):
+		mapped = NewDomainError(TextCodeTranslationMissing, err.Error(), map[string]any{
+			"translation_missing": true,
+		})
+		status = http.StatusNotFound
+		mapped.WithCode(status)
 	case errors.Is(err, cmscontent.ErrSourceNotFound), errors.Is(err, cmspages.ErrSourceNotFound):
 		mapped = NewDomainError(TextCodeNotFound, err.Error(), nil)
 		status = mapped.Code

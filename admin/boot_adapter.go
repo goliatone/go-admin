@@ -22,6 +22,7 @@ func (a *Admin) Boot(steps ...boot.Step) error {
 		a.RegisterPublicAPI(a.router)
 	}
 	a.registerPreviewRoutes()
+	a.registerMenuBuilderRoutes()
 
 	return a.registerDebugDashboardRoutes()
 }

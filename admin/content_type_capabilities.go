@@ -5,8 +5,6 @@ import (
 	"reflect"
 	"sort"
 	"strings"
-
-	"github.com/goliatone/go-admin/internal/primitives"
 )
 
 const (
@@ -35,14 +33,11 @@ func ReadContentTypeCapabilityContracts(contentType CMSContentType) ContentTypeC
 // from a raw capabilities payload.
 func ParseContentTypeCapabilityContracts(capabilities map[string]any) ContentTypeCapabilityContracts {
 	normalized, validation, migrated := normalizeContentTypeCapabilitiesInternal(capabilities)
-	delivery := normalizeCapabilityMap(normalized["delivery"])
-	navigation := normalizeCapabilityMap(normalized["navigation"])
-	search := normalizeCapabilityMap(normalized["search"])
 	return ContentTypeCapabilityContracts{
 		Normalized:           normalized,
-		Delivery:             delivery,
-		Navigation:           navigation,
-		Search:               search,
+		Delivery:             normalizeCapabilityMap(normalized["delivery"]),
+		Navigation:           normalizeCapabilityMap(normalized["navigation"]),
+		Search:               normalizeCapabilityMap(normalized["search"]),
 		Validation:           validation,
 		MigratedDeliveryMenu: migrated,
 	}
@@ -77,7 +72,10 @@ func BackfillContentTypeNavigationDefaults(ctx context.Context, service CMSConte
 	}
 	updated := 0
 	for _, item := range types {
-		normalized, _, _ := normalizeContentTypeCapabilitiesInternal(item.Capabilities)
+		normalized, validation := NormalizeContentTypeCapabilities(item.Capabilities)
+		if len(validation) > 0 {
+			return updated, contentTypeValidationError(validation)
+		}
 		if reflect.DeepEqual(normalized, item.Capabilities) {
 			continue
 		}
@@ -93,51 +91,72 @@ func BackfillContentTypeNavigationDefaults(ctx context.Context, service CMSConte
 }
 
 func normalizeContentTypeCapabilitiesInternal(capabilities map[string]any) (map[string]any, map[string]string, bool) {
-	normalized := primitives.CloneAnyMap(capabilities)
+	sourceWasNil := capabilities == nil
+	normalized := cloneCapabilityMap(capabilities)
 	if normalized == nil {
 		normalized = map[string]any{}
 	}
 
 	validation := map[string]string{}
-	migratedLegacy := false
 
 	delivery := normalizeCapabilityMap(normalized["delivery"])
 	delivery = mergeFlatDeliveryAliases(normalized, delivery)
-	delivery = normalizeDeliveryContract(delivery)
 
 	navigation := normalizeCapabilityMap(normalized["navigation"])
 	navigation = mergeFlatNavigationAliases(normalized, navigation)
-	navigation, usedLegacyMenu := migrateLegacyDeliveryMenu(delivery, navigation)
-	navigation = normalizeNavigationContract(navigation, validation)
 
 	search := normalizeCapabilityMap(normalized["search"])
 	search = mergeFlatSearchAliases(normalized, search, validation)
+
+	legacyDeliveryMenu := false
+	delivery, navigation, legacyDeliveryMenu = migrateLegacyDeliveryMenu(delivery, navigation)
+
+	delivery = normalizeDeliveryContract(delivery, validation)
+	navigation = normalizeNavigationContract(navigation, validation)
 	search = normalizeSearchContract(search, validation)
 
 	if len(delivery) > 0 {
 		normalized["delivery"] = delivery
+	} else {
+		delete(normalized, "delivery")
 	}
 	if len(navigation) > 0 {
 		normalized["navigation"] = navigation
+	} else {
+		delete(normalized, "navigation")
 	}
 	if len(search) > 0 {
 		normalized["search"] = search
+	} else {
+		delete(normalized, "search")
+	}
+
+	if len(normalized) == 0 && sourceWasNil {
+		normalized = nil
 	}
 	if len(validation) == 0 {
 		validation = nil
 	}
-	if usedLegacyMenu {
-		migratedLegacy = true
+	return normalized, validation, legacyDeliveryMenu
+}
+
+func cloneCapabilityMap(src map[string]any) map[string]any {
+	if src == nil {
+		return nil
 	}
-	return normalized, validation, migratedLegacy
+	out := make(map[string]any, len(src))
+	for key, value := range src {
+		out[key] = value
+	}
+	return out
 }
 
 func normalizeCapabilityMap(raw any) map[string]any {
 	switch typed := raw.(type) {
 	case map[string]any:
-		return primitives.CloneAnyMap(typed)
+		return cloneCapabilityMap(typed)
 	case map[string]string:
-		out := map[string]any{}
+		out := make(map[string]any, len(typed))
 		for key, value := range typed {
 			out[key] = value
 		}
@@ -151,7 +170,7 @@ func mergeFlatDeliveryAliases(capabilities map[string]any, delivery map[string]a
 	if len(capabilities) == 0 {
 		return delivery
 	}
-	out := primitives.CloneAnyMap(delivery)
+	out := cloneCapabilityMap(delivery)
 	if out == nil {
 		out = map[string]any{}
 	}
@@ -227,7 +246,7 @@ func mergeFlatNavigationAliases(capabilities map[string]any, navigation map[stri
 	if len(capabilities) == 0 {
 		return navigation
 	}
-	out := primitives.CloneAnyMap(navigation)
+	out := cloneCapabilityMap(navigation)
 	if out == nil {
 		out = map[string]any{}
 	}
@@ -275,11 +294,10 @@ func mergeFlatSearchAliases(capabilities map[string]any, search map[string]any, 
 	if len(capabilities) == 0 {
 		return search
 	}
-	out := primitives.CloneAnyMap(search)
+	out := cloneCapabilityMap(search)
 	if out == nil {
 		out = map[string]any{}
 	}
-
 	if raw, ok := capabilities["search_enabled"]; ok {
 		out["enabled"] = raw
 	}
@@ -310,13 +328,19 @@ func mergeFlatSearchAliases(capabilities map[string]any, search map[string]any, 
 	if raw, ok := capabilities["searchPublishedOnly"]; ok {
 		out["published_only"] = raw
 	}
+	if raw, ok := capabilities["search_fields"]; ok {
+		out["fields"] = raw
+	}
+	if raw, ok := capabilities["searchFields"]; ok {
+		out["fields"] = raw
+	}
 
 	if raw, exists := capabilities["search"]; exists && len(out) == 0 {
 		switch typed := raw.(type) {
 		case bool:
 			out["enabled"] = typed
 		case map[string]any:
-			out = primitives.CloneAnyMap(typed)
+			out = cloneCapabilityMap(typed)
 		case map[string]string:
 			out = normalizeCapabilityMap(typed)
 		default:
@@ -326,74 +350,20 @@ func mergeFlatSearchAliases(capabilities map[string]any, search map[string]any, 
 	return out
 }
 
-func normalizeDeliveryContract(delivery map[string]any) map[string]any {
+func migrateLegacyDeliveryMenu(delivery map[string]any, navigation map[string]any) (map[string]any, map[string]any, bool) {
 	if len(delivery) == 0 {
-		return delivery
-	}
-	out := primitives.CloneAnyMap(delivery)
-	out["kind"] = strings.TrimSpace(toString(out["kind"]))
-	if out["kind"] == "" {
-		delete(out, "kind")
-	}
-
-	routes := normalizeCapabilityMap(out["routes"])
-	if list := strings.TrimSpace(toString(routes["list"])); list != "" {
-		routes["list"] = list
-	} else {
-		delete(routes, "list")
-	}
-	if detail := strings.TrimSpace(toString(routes["detail"])); detail != "" {
-		routes["detail"] = detail
-	} else {
-		delete(routes, "detail")
-	}
-	if len(routes) > 0 {
-		out["routes"] = routes
-	}
-
-	templates := normalizeCapabilityMap(out["templates"])
-	if list := strings.TrimSpace(toString(templates["list"])); list != "" {
-		templates["list"] = list
-	} else {
-		delete(templates, "list")
-	}
-	if detail := strings.TrimSpace(toString(templates["detail"])); detail != "" {
-		templates["detail"] = detail
-	} else {
-		delete(templates, "detail")
-	}
-	if len(templates) > 0 {
-		out["templates"] = templates
-	}
-
-	menu := normalizeCapabilityMap(out["menu"])
-	if location := strings.TrimSpace(toString(menu["location"])); location != "" {
-		menu["location"] = location
-	} else {
-		delete(menu, "location")
-	}
-	if labelKey := strings.TrimSpace(toString(menu["label_key"])); labelKey != "" {
-		menu["label_key"] = labelKey
-	} else {
-		delete(menu, "label_key")
-	}
-	if len(menu) > 0 {
-		out["menu"] = menu
-	}
-	return out
-}
-
-func migrateLegacyDeliveryMenu(delivery map[string]any, navigation map[string]any) (map[string]any, bool) {
-	if len(delivery) == 0 {
-		return navigation, false
+		return delivery, navigation, false
 	}
 	menu := normalizeCapabilityMap(delivery["menu"])
 	location := strings.TrimSpace(toString(menu["location"]))
 	if location == "" {
-		return navigation, false
+		return delivery, navigation, false
 	}
 
-	out := primitives.CloneAnyMap(navigation)
+	nextDelivery := cloneCapabilityMap(delivery)
+	delete(nextDelivery, "menu")
+
+	out := cloneCapabilityMap(navigation)
 	if out == nil {
 		out = map[string]any{}
 	}
@@ -420,14 +390,77 @@ func migrateLegacyDeliveryMenu(delivery map[string]any, navigation map[string]an
 	if strings.TrimSpace(toString(out["merge_mode"])) == "" {
 		out["merge_mode"] = defaultNavigationMergeMode
 	}
-	return out, true
+	return nextDelivery, out, true
+}
+
+func normalizeDeliveryContract(delivery map[string]any, validation map[string]string) map[string]any {
+	if len(delivery) == 0 {
+		return delivery
+	}
+	out := cloneCapabilityMap(delivery)
+
+	if raw, exists := out["enabled"]; exists {
+		if value, ok := strictBool(raw); ok {
+			out["enabled"] = value
+		} else {
+			validation["capabilities.delivery.enabled"] = "must be a boolean"
+		}
+	}
+
+	kind := strings.ToLower(strings.TrimSpace(toString(out["kind"])))
+	if kind != "" {
+		switch kind {
+		case "page", "collection", "detail", "hybrid":
+			out["kind"] = kind
+		default:
+			validation["capabilities.delivery.kind"] = "must be one of page|collection|detail|hybrid"
+		}
+	} else {
+		delete(out, "kind")
+	}
+
+	routes := normalizeCapabilityMap(out["routes"])
+	if list := strings.TrimSpace(toString(routes["list"])); list != "" {
+		routes["list"] = list
+	} else {
+		delete(routes, "list")
+	}
+	if detail := strings.TrimSpace(toString(routes["detail"])); detail != "" {
+		routes["detail"] = detail
+	} else {
+		delete(routes, "detail")
+	}
+	if len(routes) > 0 {
+		out["routes"] = routes
+	} else {
+		delete(out, "routes")
+	}
+
+	templates := normalizeCapabilityMap(out["templates"])
+	if list := strings.TrimSpace(toString(templates["list"])); list != "" {
+		templates["list"] = list
+	} else {
+		delete(templates, "list")
+	}
+	if detail := strings.TrimSpace(toString(templates["detail"])); detail != "" {
+		templates["detail"] = detail
+	} else {
+		delete(templates, "detail")
+	}
+	if len(templates) > 0 {
+		out["templates"] = templates
+	} else {
+		delete(out, "templates")
+	}
+
+	return out
 }
 
 func normalizeNavigationContract(navigation map[string]any, validation map[string]string) map[string]any {
 	if len(navigation) == 0 {
 		return navigation
 	}
-	out := primitives.CloneAnyMap(navigation)
+	out := cloneCapabilityMap(navigation)
 
 	if raw, exists := out["allow_instance_override"]; exists {
 		if value, ok := strictBool(raw); ok {
@@ -465,12 +498,16 @@ func normalizeNavigationContract(navigation map[string]any, validation map[strin
 
 	if len(eligible) > 0 {
 		out["eligible_locations"] = eligible
+	} else {
+		delete(out, "eligible_locations")
 	}
 	if len(defaults) > 0 {
 		out["default_locations"] = defaults
+	} else {
+		delete(out, "default_locations")
 	}
 
-	eligibleSet := map[string]struct{}{}
+	eligibleSet := make(map[string]struct{}, len(eligible))
 	for _, location := range eligible {
 		eligibleSet[location] = struct{}{}
 	}
@@ -498,7 +535,6 @@ func normalizeNavigationContract(navigation map[string]any, validation map[strin
 	if _, exists := out["default_visible"]; !exists {
 		out["default_visible"] = true
 	}
-
 	return out
 }
 
@@ -506,7 +542,8 @@ func normalizeSearchContract(search map[string]any, validation map[string]string
 	if len(search) == 0 {
 		return search
 	}
-	out := primitives.CloneAnyMap(search)
+	out := cloneCapabilityMap(search)
+
 	if raw, exists := out["enabled"]; exists {
 		if value, ok := strictBool(raw); ok {
 			out["enabled"] = value
@@ -523,13 +560,32 @@ func normalizeSearchContract(search map[string]any, validation map[string]string
 	}
 	if collection := strings.TrimSpace(toString(out["collection"])); collection != "" {
 		out["collection"] = collection
+	} else {
+		delete(out, "collection")
 	}
 	if facets := dedupeAndSortStrings(normalizeStringListAny(out["facets"])); len(facets) > 0 {
 		out["facets"] = facets
+	} else {
+		delete(out, "facets")
 	}
 	if filters := dedupeAndSortStrings(normalizeStringListAny(out["filters"])); len(filters) > 0 {
 		out["filters"] = filters
+	} else {
+		delete(out, "filters")
 	}
+	if raw, exists := out["fields"]; exists {
+		switch typed := raw.(type) {
+		case nil:
+			delete(out, "fields")
+		case map[string]any:
+			out["fields"] = cloneCapabilityMap(typed)
+		case map[string]string:
+			out["fields"] = normalizeCapabilityMap(typed)
+		default:
+			validation["capabilities.search.fields"] = "must be an object"
+		}
+	}
+
 	return out
 }
 

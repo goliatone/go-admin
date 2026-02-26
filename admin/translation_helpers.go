@@ -89,3 +89,34 @@ func translationCreateRequiredError(locale string) error {
 	err.Metadata["translation_missing"] = true
 	return err
 }
+
+func translationMissingNotFoundError(requestedLocale string, availableLocales []string, metadata map[string]any) error {
+	err := goerrors.New("translation missing", goerrors.CategoryNotFound).
+		WithCode(http.StatusNotFound).
+		WithTextCode(TextCodeTranslationMissing)
+	if err.Metadata == nil {
+		err.Metadata = map[string]any{}
+	}
+	err.Metadata["translation_missing"] = true
+	if requested := strings.TrimSpace(requestedLocale); requested != "" {
+		err.Metadata["requested_locale"] = requested
+	}
+	if len(availableLocales) > 0 {
+		out := make([]string, 0, len(availableLocales))
+		for _, locale := range availableLocales {
+			if trimmed := strings.TrimSpace(locale); trimmed != "" {
+				out = append(out, trimmed)
+			}
+		}
+		if len(out) > 0 {
+			err.Metadata["available_locales"] = out
+		}
+	}
+	for key, value := range metadata {
+		if strings.TrimSpace(key) == "" || value == nil {
+			continue
+		}
+		err.Metadata[key] = value
+	}
+	return err
+}

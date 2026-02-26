@@ -94,6 +94,7 @@ func (p *panelBinding) List(c router.Context, locale string, opts boot.ListOptio
 		SortBy:   opts.SortBy,
 		SortDesc: opts.SortDesc,
 		Filters:  opts.Filters,
+		Fields:   append([]string{}, opts.Fields...),
 		Search:   opts.Search,
 	}
 	if len(opts.Predicates) > 0 {
@@ -1000,6 +1001,7 @@ func cloneListOptions(opts ListOptions) ListOptions {
 		PerPage:  opts.PerPage,
 		SortBy:   opts.SortBy,
 		SortDesc: opts.SortDesc,
+		Fields:   append([]string{}, opts.Fields...),
 		Search:   opts.Search,
 	}
 	if len(opts.Filters) > 0 {
