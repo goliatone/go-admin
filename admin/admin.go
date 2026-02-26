@@ -689,6 +689,11 @@ func (a *Admin) applyActivitySink(sink ActivitySink) {
 	if aware, ok := a.contentSvc.(activityAware); ok {
 		aware.WithActivitySink(sink)
 	}
+	if aware, ok := a.workflow.(workflowActivityAware); ok {
+		if err := aware.AttachActivitySink(sink); err != nil {
+			a.loggerFor("admin.workflow").Warn("failed to attach workflow activity sink", "error", err)
+		}
+	}
 	if a.preferences != nil {
 		a.preferences.WithActivitySink(sink)
 	}
@@ -704,6 +709,10 @@ func (a *Admin) applyActivitySink(sink ActivitySink) {
 	if a.organizations != nil {
 		a.organizations.WithActivitySink(sink)
 	}
+}
+
+type workflowActivityAware interface {
+	AttachActivitySink(ActivitySink) error
 }
 
 func (a *Admin) resolveTheme(ctx context.Context) *ThemeSelection {
