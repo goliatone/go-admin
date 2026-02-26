@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
@@ -25,15 +26,17 @@ const WorkflowConfigSchemaVersionMinimumSupported = 0
 type WorkflowConfig struct {
 	SchemaVersion int                               `json:"schema_version,omitempty" yaml:"schema_version,omitempty"`
 	Workflows     map[string]WorkflowDefinitionSpec `json:"workflows,omitempty" yaml:"workflows,omitempty"`
+	Bindings      []WorkflowBindingSpec             `json:"bindings,omitempty" yaml:"bindings,omitempty"`
 	TraitDefaults map[string]string                 `json:"trait_defaults,omitempty" yaml:"trait_defaults,omitempty"`
 }
 
 // WorkflowDefinitionSpec describes one workflow definition declared in config.
 // The map key under WorkflowConfig.Workflows is treated as workflow ID unless ID is set.
 type WorkflowDefinitionSpec struct {
-	ID           string                   `json:"id,omitempty" yaml:"id,omitempty"`
-	InitialState string                   `json:"initial_state,omitempty" yaml:"initial_state,omitempty"`
-	Transitions  []WorkflowTransitionSpec `json:"transitions,omitempty" yaml:"transitions,omitempty"`
+	ID             string                   `json:"id,omitempty" yaml:"id,omitempty"`
+	MachineVersion string                   `json:"machine_version,omitempty" yaml:"machine_version,omitempty"`
+	InitialState   string                   `json:"initial_state,omitempty" yaml:"initial_state,omitempty"`
+	Transitions    []WorkflowTransitionSpec `json:"transitions,omitempty" yaml:"transitions,omitempty"`
 }
 
 // WorkflowTransitionSpec describes one workflow transition in external config.
@@ -45,9 +48,21 @@ type WorkflowTransitionSpec struct {
 	Guard       string `json:"guard,omitempty" yaml:"guard,omitempty"`
 }
 
+// WorkflowBindingSpec describes one canonical runtime binding in external config.
+type WorkflowBindingSpec struct {
+	ID          string `json:"id,omitempty" yaml:"id,omitempty"`
+	ScopeType   string `json:"scope_type,omitempty" yaml:"scope_type,omitempty"`
+	ScopeRef    string `json:"scope_ref,omitempty" yaml:"scope_ref,omitempty"`
+	WorkflowID  string `json:"workflow_id,omitempty" yaml:"workflow_id,omitempty"`
+	Priority    int    `json:"priority,omitempty" yaml:"priority,omitempty"`
+	Status      string `json:"status,omitempty" yaml:"status,omitempty"`
+	Environment string `json:"environment,omitempty" yaml:"environment,omitempty"`
+}
+
 type workflowConfigWire struct {
 	SchemaVersion         int                               `json:"schema_version,omitempty" yaml:"schema_version,omitempty"`
 	Workflows             map[string]WorkflowDefinitionSpec `json:"workflows,omitempty" yaml:"workflows,omitempty"`
+	Bindings              []WorkflowBindingSpec             `json:"bindings,omitempty" yaml:"bindings,omitempty"`
 	TraitDefaults         map[string]string                 `json:"trait_defaults,omitempty" yaml:"trait_defaults,omitempty"`
 	TraitWorkflowDefaults map[string]string                 `json:"trait_workflow_defaults,omitempty" yaml:"trait_workflow_defaults,omitempty"`
 }
@@ -126,6 +141,7 @@ func MergeWorkflowConfigs(base WorkflowConfig, override WorkflowConfig) Workflow
 	merged := WorkflowConfig{
 		SchemaVersion: base.SchemaVersion,
 		Workflows:     map[string]WorkflowDefinitionSpec{},
+		Bindings:      nil,
 		TraitDefaults: map[string]string{},
 	}
 	if override.SchemaVersion != 0 {
@@ -137,6 +153,8 @@ func MergeWorkflowConfigs(base WorkflowConfig, override WorkflowConfig) Workflow
 	for _, key := range sortedKeys(override.Workflows) {
 		merged.Workflows[key] = override.Workflows[key]
 	}
+	merged.Bindings = append(merged.Bindings, base.Bindings...)
+	merged.Bindings = append(merged.Bindings, override.Bindings...)
 	for _, key := range sortedKeys(base.TraitDefaults) {
 		merged.TraitDefaults[key] = base.TraitDefaults[key]
 	}
@@ -146,6 +164,9 @@ func MergeWorkflowConfigs(base WorkflowConfig, override WorkflowConfig) Workflow
 
 	if len(merged.Workflows) == 0 {
 		merged.Workflows = nil
+	}
+	if len(merged.Bindings) == 0 {
+		merged.Bindings = nil
 	}
 	if len(merged.TraitDefaults) == 0 {
 		merged.TraitDefaults = nil
@@ -185,6 +206,7 @@ func ParseWorkflowConfigContents(raw []byte, ext string) (WorkflowConfig, error)
 	return NormalizeWorkflowConfig(WorkflowConfig{
 		SchemaVersion: normalizeWorkflowConfigSchemaVersion(wire.SchemaVersion),
 		Workflows:     wire.Workflows,
+		Bindings:      wire.Bindings,
 		TraitDefaults: normalizeWorkflowTraitDefaults(wire.TraitDefaults, wire.TraitWorkflowDefaults),
 	}), nil
 }
@@ -253,6 +275,62 @@ func ValidateWorkflowConfig(cfg WorkflowConfig) error {
 			}
 		}
 	}
+	knownWorkflows := map[string]struct{}{}
+	for _, workflowID := range sortedKeys(cfg.Workflows) {
+		knownWorkflows[workflowID] = struct{}{}
+	}
+	for i, binding := range cfg.Bindings {
+		prefix := fmt.Sprintf("bindings[%d]", i)
+		scopeType := strings.ToLower(strings.TrimSpace(binding.ScopeType))
+		scopeRef := normalizeLookupKey(binding.ScopeRef)
+		workflowID := strings.TrimSpace(binding.WorkflowID)
+		status := strings.ToLower(strings.TrimSpace(binding.Status))
+
+		if scopeType == "" {
+			issues = append(issues, WorkflowConfigValidationIssue{
+				Field:   prefix + ".scope_type",
+				Message: "required",
+			})
+		} else {
+			switch admin.WorkflowBindingScopeType(scopeType) {
+			case admin.WorkflowBindingScopeTrait, admin.WorkflowBindingScopeContentType, admin.WorkflowBindingScopeGlobal:
+			default:
+				issues = append(issues, WorkflowConfigValidationIssue{
+					Field:   prefix + ".scope_type",
+					Message: "must be one of trait|content_type|global",
+				})
+			}
+		}
+		if admin.WorkflowBindingScopeType(scopeType) != admin.WorkflowBindingScopeGlobal && scopeRef == "" {
+			issues = append(issues, WorkflowConfigValidationIssue{
+				Field:   prefix + ".scope_ref",
+				Message: "required",
+			})
+		}
+		if workflowID == "" {
+			issues = append(issues, WorkflowConfigValidationIssue{
+				Field:   prefix + ".workflow_id",
+				Message: "required",
+			})
+		} else if _, ok := knownWorkflows[workflowID]; !ok {
+			issues = append(issues, WorkflowConfigValidationIssue{
+				Field:   prefix + ".workflow_id",
+				Message: fmt.Sprintf("references unknown workflow_id %q", workflowID),
+			})
+		}
+		if binding.Priority < 0 {
+			issues = append(issues, WorkflowConfigValidationIssue{
+				Field:   prefix + ".priority",
+				Message: "must be >= 0",
+			})
+		}
+		if status != "" && status != string(admin.WorkflowBindingStatusActive) && status != string(admin.WorkflowBindingStatusInactive) {
+			issues = append(issues, WorkflowConfigValidationIssue{
+				Field:   prefix + ".status",
+				Message: "must be one of active|inactive",
+			})
+		}
+	}
 
 	if len(issues) > 0 {
 		return WorkflowConfigValidationError{Issues: issues}
@@ -264,6 +342,7 @@ func ValidateWorkflowConfig(cfg WorkflowConfig) error {
 func NormalizeWorkflowConfig(cfg WorkflowConfig) WorkflowConfig {
 	cfg.SchemaVersion = normalizeWorkflowConfigSchemaVersion(cfg.SchemaVersion)
 	cfg.Workflows = normalizeWorkflowDefinitions(cfg.Workflows)
+	cfg.Bindings = normalizeWorkflowBindings(cfg.Bindings)
 	cfg.TraitDefaults = normalizeWorkflowTraitDefaults(cfg.TraitDefaults, nil)
 	return cfg
 }
@@ -295,11 +374,84 @@ func WorkflowDefinitionsFromConfig(cfg WorkflowConfig) map[string]admin.Workflow
 			})
 		}
 		out[id] = admin.WorkflowDefinition{
-			EntityType:   id,
-			InitialState: strings.TrimSpace(spec.InitialState),
-			Transitions:  transitions,
+			EntityType:     id,
+			MachineVersion: strings.TrimSpace(spec.MachineVersion),
+			InitialState:   strings.TrimSpace(spec.InitialState),
+			Transitions:    transitions,
 		}
 	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// WorkflowBindingsFromConfig converts runtime binding config into canonical admin workflow bindings.
+func WorkflowBindingsFromConfig(cfg WorkflowConfig) []admin.WorkflowBinding {
+	cfg = NormalizeWorkflowConfig(cfg)
+	out := []admin.WorkflowBinding{}
+	for _, binding := range cfg.Bindings {
+		scopeType := admin.WorkflowBindingScopeType(strings.ToLower(strings.TrimSpace(binding.ScopeType)))
+		scopeRef := normalizeLookupKey(binding.ScopeRef)
+		if scopeType == admin.WorkflowBindingScopeGlobal && scopeRef == "" {
+			scopeRef = "global"
+		}
+		next := admin.WorkflowBinding{
+			ID:          strings.TrimSpace(binding.ID),
+			ScopeType:   scopeType,
+			ScopeRef:    scopeRef,
+			WorkflowID:  strings.TrimSpace(binding.WorkflowID),
+			Priority:    binding.Priority,
+			Status:      admin.WorkflowBindingStatus(strings.ToLower(strings.TrimSpace(binding.Status))),
+			Environment: strings.ToLower(strings.TrimSpace(binding.Environment)),
+		}
+		if next.Priority == 0 {
+			next.Priority = 100
+		}
+		if next.Status == "" {
+			next.Status = admin.WorkflowBindingStatusActive
+		}
+		out = append(out, next)
+	}
+
+	// Trait defaults remain supported for non-runtime lookup and are also emitted as
+	// canonical trait bindings when no explicit equivalent binding is configured.
+	for _, trait := range sortedKeys(cfg.TraitDefaults) {
+		workflowID := strings.TrimSpace(cfg.TraitDefaults[trait])
+		if workflowID == "" {
+			continue
+		}
+		traitKey := normalizeLookupKey(trait)
+		if traitKey == "" {
+			continue
+		}
+		exists := false
+		for _, binding := range out {
+			if binding.ScopeType != admin.WorkflowBindingScopeTrait {
+				continue
+			}
+			if normalizeLookupKey(binding.ScopeRef) != traitKey {
+				continue
+			}
+			if strings.TrimSpace(binding.Environment) != "" {
+				continue
+			}
+			exists = true
+			break
+		}
+		if exists {
+			continue
+		}
+		out = append(out, admin.WorkflowBinding{
+			ID:         "",
+			ScopeType:  admin.WorkflowBindingScopeTrait,
+			ScopeRef:   traitKey,
+			WorkflowID: workflowID,
+			Priority:   100,
+			Status:     admin.WorkflowBindingStatusActive,
+		})
+	}
+
 	if len(out) == 0 {
 		return nil
 	}
@@ -389,9 +541,10 @@ func normalizeWorkflowDefinitions(values map[string]WorkflowDefinitionSpec) map[
 			continue
 		}
 		normalized := WorkflowDefinitionSpec{
-			ID:           id,
-			InitialState: strings.TrimSpace(spec.InitialState),
-			Transitions:  normalizeWorkflowTransitions(spec.Transitions),
+			ID:             id,
+			MachineVersion: strings.TrimSpace(spec.MachineVersion),
+			InitialState:   strings.TrimSpace(spec.InitialState),
+			Transitions:    normalizeWorkflowTransitions(spec.Transitions),
 		}
 		out[id] = normalized
 	}
@@ -435,6 +588,53 @@ func normalizeWorkflowTraitDefaults(primary map[string]string, legacy map[string
 	}
 	appendDefaults(legacy)
 	appendDefaults(primary)
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func normalizeWorkflowBindings(values []WorkflowBindingSpec) []WorkflowBindingSpec {
+	if len(values) == 0 {
+		return nil
+	}
+	out := make([]WorkflowBindingSpec, 0, len(values))
+	seen := map[string]int{}
+	for _, binding := range values {
+		next := WorkflowBindingSpec{
+			ID:          strings.TrimSpace(binding.ID),
+			ScopeType:   strings.ToLower(strings.TrimSpace(binding.ScopeType)),
+			ScopeRef:    normalizeLookupKey(binding.ScopeRef),
+			WorkflowID:  strings.TrimSpace(binding.WorkflowID),
+			Priority:    binding.Priority,
+			Status:      strings.ToLower(strings.TrimSpace(binding.Status)),
+			Environment: strings.ToLower(strings.TrimSpace(binding.Environment)),
+		}
+		if next.Priority == 0 {
+			next.Priority = 100
+		}
+		if next.Status == "" {
+			next.Status = string(admin.WorkflowBindingStatusActive)
+		}
+		if next.ScopeType == string(admin.WorkflowBindingScopeGlobal) && next.ScopeRef == "" {
+			next.ScopeRef = "global"
+		}
+		key := strings.Join([]string{
+			next.ID,
+			next.ScopeType,
+			next.ScopeRef,
+			next.WorkflowID,
+			next.Environment,
+			strconv.Itoa(next.Priority),
+			next.Status,
+		}, "::")
+		if idx, ok := seen[key]; ok {
+			out[idx] = next
+			continue
+		}
+		seen[key] = len(out)
+		out = append(out, next)
+	}
 	if len(out) == 0 {
 		return nil
 	}
