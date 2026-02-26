@@ -2,10 +2,12 @@ package cmsboot
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	dashinternal "github.com/goliatone/go-admin/admin/internal/dashboard"
 	navinternal "github.com/goliatone/go-admin/admin/internal/navigation"
+	"github.com/goliatone/go-command/flow"
 )
 
 // CMSContainer abstracts CMS services used by admin.
@@ -73,34 +75,54 @@ type CMSContentService interface {
 
 // WorkflowEngine coordinates lifecycle transitions for domain entities.
 type WorkflowEngine interface {
-	// Transition applies the named transition (or explicit state change) to the entity.
-	Transition(ctx context.Context, input TransitionInput) (*TransitionResult, error)
-	// AvailableTransitions lists the possible transitions from the supplied state.
-	AvailableTransitions(ctx context.Context, entityType, state string) ([]WorkflowTransition, error)
+	// ApplyEvent applies a workflow event to the entity and returns canonical FSM response envelope.
+	ApplyEvent(ctx context.Context, input WorkflowApplyEventRequest) (*WorkflowApplyEventResponse, error)
+	// Snapshot returns current state plus transition availability/rejections for the entity.
+	Snapshot(ctx context.Context, input WorkflowSnapshotRequest) (*WorkflowSnapshot, error)
 }
 
-// TransitionInput captures the data required to run a workflow transition.
-type TransitionInput struct {
+// WorkflowMessage captures workflow event payload used for guards/resolvers/hooks.
+type WorkflowMessage struct {
 	EntityID     string
 	EntityType   string
 	CurrentState string
-	Transition   string
 	TargetState  string
-	ActorID      string
-	Metadata     map[string]any
+	Event        string
+	Payload      map[string]any
 }
 
-// TransitionResult describes the outcome of a workflow transition.
-type TransitionResult struct {
-	EntityID    string
-	EntityType  string
-	Transition  string
-	FromState   string
-	ToState     string
-	CompletedAt time.Time
-	ActorID     string
-	Metadata    map[string]any
+// Type implements command.Message.
+func (m WorkflowMessage) Type() string {
+	entityType := strings.ToLower(strings.TrimSpace(m.EntityType))
+	if entityType == "" {
+		return "admin.workflow"
+	}
+	return "admin.workflow." + entityType
 }
+
+// WorkflowExecutionContext aliases canonical FSM execution identity context.
+type WorkflowExecutionContext = flow.ExecutionContext
+
+// WorkflowApplyEventRequest aliases canonical FSM apply envelope.
+type WorkflowApplyEventRequest = flow.ApplyEventRequest[WorkflowMessage]
+
+// WorkflowApplyEventResponse aliases canonical FSM apply response envelope.
+type WorkflowApplyEventResponse = flow.ApplyEventResponse[WorkflowMessage]
+
+// WorkflowSnapshotRequest aliases canonical FSM snapshot request envelope.
+type WorkflowSnapshotRequest = flow.SnapshotRequest[WorkflowMessage]
+
+// WorkflowSnapshot aliases canonical FSM snapshot response envelope.
+type WorkflowSnapshot = flow.Snapshot
+
+// WorkflowTransitionInfo aliases canonical FSM transition snapshot metadata.
+type WorkflowTransitionInfo = flow.TransitionInfo
+
+// WorkflowGuardRejection aliases canonical FSM guard rejection diagnostics.
+type WorkflowGuardRejection = flow.GuardRejection
+
+// WorkflowTransitionResult aliases canonical FSM transition result.
+type WorkflowTransitionResult = flow.TransitionResult[WorkflowMessage]
 
 // WorkflowTransition declares an allowed transition between two states.
 type WorkflowTransition struct {
@@ -109,6 +131,8 @@ type WorkflowTransition struct {
 	From        string
 	To          string
 	Guard       string
+	DynamicTo   string
+	Metadata    map[string]any
 }
 
 // WidgetAreaDefinition captures CMS widget area metadata.
