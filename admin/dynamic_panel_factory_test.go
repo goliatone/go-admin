@@ -327,8 +327,8 @@ func TestDynamicPanelFactorySkipsCreateTranslationWhenTranslationsDisabled(t *te
 }
 
 func TestDynamicPanelFactoryEditorialActionsRespectWorkflowTransitions(t *testing.T) {
-	engine := NewSimpleWorkflowEngine()
-	engine.RegisterWorkflow("news", WorkflowDefinition{
+	engine := NewFSMWorkflowEngine()
+	_ = engine.RegisterWorkflow("news", WorkflowDefinition{
 		EntityType:   "news",
 		InitialState: "draft",
 		Transitions: []WorkflowTransition{
@@ -366,8 +366,8 @@ func TestDynamicPanelFactoryEditorialActionsRespectWorkflowTransitions(t *testin
 }
 
 func TestDynamicPanelFactoryWorkflowLookupUsesResolvedWorkflowID(t *testing.T) {
-	engine := NewSimpleWorkflowEngine()
-	engine.RegisterWorkflow("editorial.news", WorkflowDefinition{
+	engine := NewFSMWorkflowEngine()
+	_ = engine.RegisterWorkflow("editorial.news", WorkflowDefinition{
 		EntityType:   "editorial.news",
 		InitialState: "draft",
 		Transitions: []WorkflowTransition{
@@ -400,7 +400,7 @@ func TestDynamicPanelFactoryWorkflowLookupUsesResolvedWorkflowID(t *testing.T) {
 		t.Fatalf("expected workflow attached from resolved workflow_id")
 	}
 
-	transitions, err := panel.workflow.AvailableTransitions(context.Background(), panel.name, "draft")
+	transitions, err := workflowSnapshotTransitions(context.Background(), panel.workflow, panel.name, "resolved-workflow", "draft", map[string]any{}, true)
 	if err != nil {
 		t.Fatalf("available transitions failed: %v", err)
 	}
@@ -414,15 +414,15 @@ func TestDynamicPanelFactoryWorkflowLookupUsesResolvedWorkflowID(t *testing.T) {
 
 func TestDynamicPanelFactoryWorkflowResolutionPrecedenceRegression(t *testing.T) {
 	t.Run("legacy workflow still works", func(t *testing.T) {
-		engine := NewSimpleWorkflowEngine()
-		engine.RegisterWorkflow("legacy.pages", WorkflowDefinition{
+		engine := NewFSMWorkflowEngine()
+		_ = engine.RegisterWorkflow("legacy.pages", WorkflowDefinition{
 			EntityType:   "legacy.pages",
 			InitialState: "draft",
 			Transitions: []WorkflowTransition{
 				{Name: "publish", From: "draft", To: "published"},
 			},
 		})
-		engine.RegisterWorkflow("editorial.default", WorkflowDefinition{
+		_ = engine.RegisterWorkflow("editorial.default", WorkflowDefinition{
 			EntityType:   "editorial.default",
 			InitialState: "draft",
 			Transitions: []WorkflowTransition{
@@ -462,8 +462,8 @@ func TestDynamicPanelFactoryWorkflowResolutionPrecedenceRegression(t *testing.T)
 	})
 
 	t.Run("trait default works", func(t *testing.T) {
-		engine := NewSimpleWorkflowEngine()
-		engine.RegisterWorkflow("editorial.default", WorkflowDefinition{
+		engine := NewFSMWorkflowEngine()
+		_ = engine.RegisterWorkflow("editorial.default", WorkflowDefinition{
 			EntityType:   "editorial.default",
 			InitialState: "draft",
 			Transitions: []WorkflowTransition{
@@ -498,15 +498,15 @@ func TestDynamicPanelFactoryWorkflowResolutionPrecedenceRegression(t *testing.T)
 	})
 
 	t.Run("explicit workflow_id override works", func(t *testing.T) {
-		engine := NewSimpleWorkflowEngine()
-		engine.RegisterWorkflow("editorial.default", WorkflowDefinition{
+		engine := NewFSMWorkflowEngine()
+		_ = engine.RegisterWorkflow("editorial.default", WorkflowDefinition{
 			EntityType:   "editorial.default",
 			InitialState: "draft",
 			Transitions: []WorkflowTransition{
 				{Name: "publish", From: "draft", To: "published"},
 			},
 		})
-		engine.RegisterWorkflow("editorial.news", WorkflowDefinition{
+		_ = engine.RegisterWorkflow("editorial.news", WorkflowDefinition{
 			EntityType:   "editorial.news",
 			InitialState: "draft",
 			Transitions: []WorkflowTransition{
@@ -542,15 +542,15 @@ func TestDynamicPanelFactoryWorkflowResolutionPrecedenceRegression(t *testing.T)
 	})
 
 	t.Run("conflicting keys prefer workflow_id", func(t *testing.T) {
-		engine := NewSimpleWorkflowEngine()
-		engine.RegisterWorkflow("legacy.pages", WorkflowDefinition{
+		engine := NewFSMWorkflowEngine()
+		_ = engine.RegisterWorkflow("legacy.pages", WorkflowDefinition{
 			EntityType:   "legacy.pages",
 			InitialState: "draft",
 			Transitions: []WorkflowTransition{
 				{Name: "publish", From: "draft", To: "published"},
 			},
 		})
-		engine.RegisterWorkflow("editorial.news", WorkflowDefinition{
+		_ = engine.RegisterWorkflow("editorial.news", WorkflowDefinition{
 			EntityType:   "editorial.news",
 			InitialState: "draft",
 			Transitions: []WorkflowTransition{
@@ -786,14 +786,14 @@ func assertWorkflowActions(t *testing.T, panel *Panel) {
 	if !hasAction(actions, "view") || !hasAction(actions, "edit") || !hasAction(actions, "delete") {
 		t.Fatalf("expected default CRUD actions, got %+v", actions)
 	}
-	transitions, err := panel.workflow.AvailableTransitions(context.Background(), panel.name, "draft")
+	transitions, err := workflowSnapshotTransitions(context.Background(), panel.workflow, panel.name, "resolved-workflow-draft", "draft", map[string]any{}, true)
 	if err != nil {
 		t.Fatalf("available transitions failed: %v", err)
 	}
 	if !hasTransition(transitions, "submit_for_approval") {
 		t.Fatalf("expected submit_for_approval transition, got %+v", transitions)
 	}
-	transitions, err = panel.workflow.AvailableTransitions(context.Background(), panel.name, "approval")
+	transitions, err = workflowSnapshotTransitions(context.Background(), panel.workflow, panel.name, "resolved-workflow-approval", "approval", map[string]any{}, true)
 	if err != nil {
 		t.Fatalf("available transitions failed: %v", err)
 	}

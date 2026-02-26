@@ -102,6 +102,22 @@ func TestNewAdminContextDerivesActorFromClaims(t *testing.T) {
 	mockCtx.AssertExpectations(t)
 }
 
+func TestNewAdminContextCapturesRequestAndCorrelationIDs(t *testing.T) {
+	mockCtx := router.NewMockContext()
+	mockCtx.HeadersM["X-Request-ID"] = "req-123"
+	mockCtx.HeadersM["X-Correlation-ID"] = "corr-789"
+	mockCtx.On("Context").Return(context.Background())
+
+	result := newAdminContextFromRouter(mockCtx, "en")
+	if got := requestIDFromContext(result.Context); got != "req-123" {
+		t.Fatalf("expected request id req-123, got %q", got)
+	}
+	if got := correlationIDFromContext(result.Context); got != "corr-789" {
+		t.Fatalf("expected correlation id corr-789, got %q", got)
+	}
+	mockCtx.AssertExpectations(t)
+}
+
 func TestInitializeRegistersHealth(t *testing.T) {
 	cfg := Config{
 		Title:         "test admin",

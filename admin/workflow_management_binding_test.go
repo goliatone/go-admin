@@ -11,7 +11,7 @@ import (
 func TestWorkflowManagementBindingWorkflowCRUDAndRollback(t *testing.T) {
 	runtime := NewWorkflowRuntimeService(NewInMemoryWorkflowDefinitionRepository(), NewInMemoryWorkflowBindingRepository())
 	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
-		Workflow:        NewSimpleWorkflowEngine(),
+		Workflow:        NewFSMWorkflowEngine(),
 		WorkflowRuntime: runtime,
 	})
 	binding := newWorkflowManagementBinding(adm)
@@ -73,7 +73,7 @@ func TestWorkflowManagementBindingWorkflowCRUDAndRollback(t *testing.T) {
 func TestWorkflowManagementBindingBindingCRUDAndValidation(t *testing.T) {
 	runtime := NewWorkflowRuntimeService(NewInMemoryWorkflowDefinitionRepository(), NewInMemoryWorkflowBindingRepository())
 	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
-		Workflow:        NewSimpleWorkflowEngine(),
+		Workflow:        NewFSMWorkflowEngine(),
 		WorkflowRuntime: runtime,
 	})
 	binding := newWorkflowManagementBinding(adm)

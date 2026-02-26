@@ -29,7 +29,7 @@ func TestWithTraitWorkflowDefaultsNormalizesKeysAndValues(t *testing.T) {
 func TestNewAdminAppliesTraitWorkflowDefaultsToDynamicPanelResolution(t *testing.T) {
 	cfg := NewAdminConfig("/admin", "Test", "en")
 
-	workflow := admin.NewSimpleWorkflowEngine()
+	workflow := admin.NewFSMWorkflowEngine()
 	workflow.RegisterWorkflow("editorial.default", admin.WorkflowDefinition{
 		EntityType:   "editorial.default",
 		InitialState: "draft",
@@ -76,7 +76,7 @@ func TestNewAdminAppliesTraitWorkflowDefaultsToDynamicPanelResolution(t *testing
 func TestNewAdminPrefersWorkflowIDOverLegacyWorkflowCapability(t *testing.T) {
 	cfg := NewAdminConfig("/admin", "Test", "en")
 
-	workflow := admin.NewSimpleWorkflowEngine()
+	workflow := admin.NewFSMWorkflowEngine()
 	workflow.RegisterWorkflow("legacy.pages", admin.WorkflowDefinition{
 		EntityType:   "legacy.pages",
 		InitialState: "draft",
@@ -162,7 +162,7 @@ func TestNewAdminAppliesPersistedWorkflowRuntimeBindings(t *testing.T) {
 	adm, _, err := NewAdmin(
 		cfg,
 		AdapterHooks{},
-		WithAdminDependencies(admin.Dependencies{Workflow: admin.NewSimpleWorkflowEngine()}),
+		WithAdminDependencies(admin.Dependencies{Workflow: admin.NewFSMWorkflowEngine()}),
 		WithWorkflowRuntime(runtime),
 	)
 	if err != nil {

@@ -94,15 +94,15 @@ func TestResolveWorkflowIDForContentTypeFallsBackToLegacyWorkflow(t *testing.T) 
 }
 
 func TestWorkflowEngineForContentTypePrefersWorkflowIDCapability(t *testing.T) {
-	engine := NewSimpleWorkflowEngine()
-	engine.RegisterWorkflow("legacy.pages", WorkflowDefinition{
+	engine := NewFSMWorkflowEngine()
+	_ = engine.RegisterWorkflow("legacy.pages", WorkflowDefinition{
 		EntityType:   "legacy.pages",
 		InitialState: "draft",
 		Transitions: []WorkflowTransition{
 			{Name: "legacy_publish", From: "draft", To: "published"},
 		},
 	})
-	engine.RegisterWorkflow("editorial.news", WorkflowDefinition{
+	_ = engine.RegisterWorkflow("editorial.news", WorkflowDefinition{
 		EntityType:   "editorial.news",
 		InitialState: "draft",
 		Transitions: []WorkflowTransition{
@@ -124,7 +124,7 @@ func TestWorkflowEngineForContentTypePrefersWorkflowIDCapability(t *testing.T) {
 		t.Fatalf("expected workflow to resolve")
 	}
 
-	transitions, err := workflow.AvailableTransitions(context.Background(), "ignored", "draft")
+	transitions, err := workflowSnapshotTransitions(context.Background(), workflow, "editorial.news", "wf-prefers-id", "draft", map[string]any{}, true)
 	if err != nil {
 		t.Fatalf("available transitions failed: %v", err)
 	}
@@ -166,8 +166,8 @@ func TestAdminWithTraitWorkflowDefaultsNormalizesAndClones(t *testing.T) {
 }
 
 func TestWorkflowEngineForContentTypeUsesAdminTraitWorkflowDefaults(t *testing.T) {
-	engine := NewSimpleWorkflowEngine()
-	engine.RegisterWorkflow("editorial.default", WorkflowDefinition{
+	engine := NewFSMWorkflowEngine()
+	_ = engine.RegisterWorkflow("editorial.default", WorkflowDefinition{
 		EntityType:   "editorial.default",
 		InitialState: "draft",
 		Transitions: []WorkflowTransition{
@@ -191,7 +191,7 @@ func TestWorkflowEngineForContentTypeUsesAdminTraitWorkflowDefaults(t *testing.T
 		t.Fatalf("expected workflow resolved from trait defaults")
 	}
 
-	transitions, err := workflow.AvailableTransitions(context.Background(), "ignored", "draft")
+	transitions, err := workflowSnapshotTransitions(context.Background(), workflow, "editorial.default", "wf-trait-default", "draft", map[string]any{}, true)
 	if err != nil {
 		t.Fatalf("available transitions failed: %v", err)
 	}
@@ -202,7 +202,7 @@ func TestWorkflowEngineForContentTypeUsesAdminTraitWorkflowDefaults(t *testing.T
 
 func TestWorkflowEngineForContentTypeUsesPersistedBindingPrecedence(t *testing.T) {
 	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
-	engine := NewSimpleWorkflowEngine()
+	engine := NewFSMWorkflowEngine()
 	adm.WithWorkflow(engine)
 	runtime := NewWorkflowRuntimeService(NewInMemoryWorkflowDefinitionRepository(), NewInMemoryWorkflowBindingRepository())
 	adm.WithWorkflowRuntime(runtime)
@@ -266,7 +266,7 @@ func TestWorkflowEngineForContentTypeUsesPersistedBindingPrecedence(t *testing.T
 	if workflow == nil {
 		t.Fatalf("expected persisted binding workflow")
 	}
-	transitions, err := workflow.AvailableTransitions(context.Background(), "ignored", "draft")
+	transitions, err := workflowSnapshotTransitions(context.Background(), workflow, "editorial.news", "wf-binding-news", "draft", map[string]any{}, true)
 	if err != nil {
 		t.Fatalf("available transitions failed: %v", err)
 	}
@@ -277,7 +277,7 @@ func TestWorkflowEngineForContentTypeUsesPersistedBindingPrecedence(t *testing.T
 
 func TestWorkflowEngineForContentTypeExplicitWorkflowIDStillWinsPersistedBindings(t *testing.T) {
 	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
-	engine := NewSimpleWorkflowEngine()
+	engine := NewFSMWorkflowEngine()
 	adm.WithWorkflow(engine)
 	runtime := NewWorkflowRuntimeService(NewInMemoryWorkflowDefinitionRepository(), NewInMemoryWorkflowBindingRepository())
 	adm.WithWorkflowRuntime(runtime)
@@ -331,7 +331,7 @@ func TestWorkflowEngineForContentTypeExplicitWorkflowIDStillWinsPersistedBinding
 	if workflow == nil {
 		t.Fatalf("expected workflow")
 	}
-	transitions, err := workflow.AvailableTransitions(context.Background(), "ignored", "draft")
+	transitions, err := workflowSnapshotTransitions(context.Background(), workflow, "editorial.explicit", "wf-explicit", "draft", map[string]any{}, true)
 	if err != nil {
 		t.Fatalf("available transitions failed: %v", err)
 	}
