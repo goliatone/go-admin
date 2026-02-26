@@ -3,8 +3,16 @@ schema_version: 1
 trait_defaults:
   editorial: editorial.default
 
+bindings:
+  - scope_type: trait
+    scope_ref: editorial
+    workflow_id: editorial.default
+    priority: 100
+    status: active
+
 workflows:
   editorial.default:
+    machine_version: "1"
     initial_state: draft
     transitions:
       - name: submit_for_approval
@@ -15,6 +23,7 @@ workflows:
         to: published
 
   editorial.news:
+    machine_version: "1"
     initial_state: draft
     transitions:
       - name: submit_for_approval
