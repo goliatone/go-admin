@@ -118,6 +118,7 @@ func toAdminListOptions(opts admincontract.ListOptions) ListOptions {
 		SortBy:   opts.SortBy,
 		SortDesc: opts.SortDesc,
 		Filters:  map[string]any{},
+		Fields:   append([]string{}, opts.Fields...),
 		Search:   opts.Search,
 	}
 	if len(opts.Filters) > 0 {

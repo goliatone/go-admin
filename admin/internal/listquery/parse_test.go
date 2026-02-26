@@ -15,6 +15,8 @@ func TestParseContextPreservesOperatorQualifiedFilters(t *testing.T) {
 	ctx.QueriesM["status__in"] = "draft,published"
 	ctx.QueriesM["title__ilike"] = "landing"
 	ctx.QueriesM["filter_category__in"] = "news,updates"
+	ctx.QueriesM["filter.locale"] = "en"
+	ctx.QueriesM["fields"] = "id,title,status"
 	ctx.QueriesM["env"] = "staging"
 
 	result := ParseContext(ctx, 1, 10)
@@ -39,19 +41,29 @@ func TestParseContextPreservesOperatorQualifiedFilters(t *testing.T) {
 	if got := toString(result.Filters["category__in"]); got != "news,updates" {
 		t.Fatalf("expected category__in filter, got %q", got)
 	}
+	if got := toString(result.Filters["locale"]); got != "en" {
+		t.Fatalf("expected locale filter from filter.locale syntax, got %q", got)
+	}
 	if got := toString(result.Filters["environment"]); got != "staging" {
 		t.Fatalf("expected environment staging, got %q", got)
+	}
+	if len(result.Fields) != 3 || result.Fields[0] != "id" || result.Fields[1] != "title" || result.Fields[2] != "status" {
+		t.Fatalf("expected parsed fields [id title status], got %+v", result.Fields)
 	}
 }
 
 func TestParseContextBuildsPredicates(t *testing.T) {
 	ctx := router.NewMockContext()
+	ctx.QueriesM["q"] = "home"
 	ctx.QueriesM["status"] = "published"
 	ctx.QueriesM["title__ilike"] = "home,landing"
 
 	result := ParseContext(ctx, 1, 10)
 	if len(result.Predicates) != 2 {
 		t.Fatalf("expected 2 predicates, got %d", len(result.Predicates))
+	}
+	if result.Search != "home" {
+		t.Fatalf("expected q fallback to search=home, got %q", result.Search)
 	}
 
 	byKey := map[string]Predicate{}

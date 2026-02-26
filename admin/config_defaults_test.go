@@ -38,6 +38,18 @@ func TestNewAppliesPermissionAndFeatureDefaults(t *testing.T) {
 	if adm.config.URLs.Public.APIVersion != "v1" {
 		t.Fatalf("expected public URL API version default, got %q", adm.config.URLs.Public.APIVersion)
 	}
+	if adm.config.Site.AllowLocaleFallback == nil || !*adm.config.Site.AllowLocaleFallback {
+		t.Fatalf("expected site locale fallback default true")
+	}
+	if adm.config.Site.ReadPermission != "admin.site.read" {
+		t.Fatalf("expected site read permission default, got %q", adm.config.Site.ReadPermission)
+	}
+	if adm.config.Site.DraftReadPermission != "admin.site.read_drafts" {
+		t.Fatalf("expected site draft read permission default, got %q", adm.config.Site.DraftReadPermission)
+	}
+	if adm.config.Site.ViewProfileOverridePermission != "admin.site.view_profile_override" {
+		t.Fatalf("expected site view profile override permission default, got %q", adm.config.Site.ViewProfileOverridePermission)
+	}
 	if adm.config.PreferencesPermission != "admin.preferences.view" {
 		t.Fatalf("expected preferences permission default, got %q", adm.config.PreferencesPermission)
 	}
@@ -82,6 +94,15 @@ func TestNewAppliesPermissionAndFeatureDefaults(t *testing.T) {
 	}
 	if adm.config.UsersDeletePermission != "admin.users.delete" {
 		t.Fatalf("expected users delete permission default, got %q", adm.config.UsersDeletePermission)
+	}
+	if adm.config.MenuBuilderPermission != "admin.menus.view" {
+		t.Fatalf("expected menu builder view permission default, got %q", adm.config.MenuBuilderPermission)
+	}
+	if adm.config.MenuBuilderEditPermission != "admin.menus.edit" {
+		t.Fatalf("expected menu builder edit permission default, got %q", adm.config.MenuBuilderEditPermission)
+	}
+	if adm.config.MenuBuilderPublishPermission != "admin.menus.publish" {
+		t.Fatalf("expected menu builder publish permission default, got %q", adm.config.MenuBuilderPublishPermission)
 	}
 	if adm.config.ThemeTokens == nil || adm.config.SettingsThemeTokens == nil {
 		t.Fatalf("expected theme token maps to be initialized")
