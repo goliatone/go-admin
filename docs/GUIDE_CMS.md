@@ -211,14 +211,15 @@ Typical states include:
 - `published`: Content is live and accessible via public APIs.
 - `archived`: Content is no longer live but preserved.
 
-### `SimpleWorkflowEngine`
+### `FSMWorkflowEngine`
 
-`go-admin` provides a reference implementation for state transitions:
+`go-admin` provides an FSM adapter backed by `go-command/flow`:
 
 ```go
-workflow := admin.NewSimpleWorkflowEngine()
-workflow.RegisterWorkflow("pages", admin.WorkflowDefinition{
+workflow := admin.NewFSMWorkflowEngine()
+_ = workflow.RegisterWorkflow("pages", admin.WorkflowDefinition{
     EntityType: "pages",
+    InitialState: "draft",
     Transitions: []admin.WorkflowTransition{
         {Name: "request_approval", From: "draft", To: "pending_approval"},
         {Name: "approve", From: "pending_approval", To: "published"},
@@ -226,7 +227,7 @@ workflow.RegisterWorkflow("pages", admin.WorkflowDefinition{
 })
 ```
 
-Transitions are exposed as Panel actions and enforced during updates. Workflow enforcement runs inside panel update hooks so status changes always pass through the workflow engine.
+Transitions are exposed as panel actions and enforced during updates via canonical FSM envelopes (`ApplyEvent` + `Snapshot`). The adapter supports guard/dynamic resolver registries, idempotency keys, dry-run requests, optimistic preconditions, and lifecycle hooks.
 CMS demo panels default to the `submit_for_approval` and `publish` actions. Override them with `adm.WithCMSWorkflowActions(...)` (use `admin.DefaultCMSWorkflowActions()` as a base).
 
 ### Workflow ID Resolution and Migration
@@ -747,7 +748,7 @@ Key configuration fields in `admin.Config`:
 | `admin/public_api.go`             | Public content delivery routes and handlers       |
 | `admin/preview.go`                | Preview token generation and validation           |
 | `admin/cms_workflow.go`           | Default CMS workflow registrations                |
-| `admin/workflow_simple.go`        | Reference state-machine workflow engine           |
+| `admin/workflow_fsm.go`           | FSM-backed workflow engine adapter                |
 | `admin/workflow_authorizer.go`    | Workflow authorization helpers                    |
 | `admin/content_type_builder_module.go` | Content type builder module wiring          |
 | `admin/internal/cmsboot/types.go` | Core CMS entity definitions (Page, Content, Menu) |

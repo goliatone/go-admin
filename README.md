@@ -143,6 +143,49 @@ admin.RegisterMessageFactory(adm.Commands(), "pages.publish", func(payload map[s
 
 CLI/cron metadata is optional via `command.CLICommand` (`CLIOptions`) and `command.CronCommand` (`CronOptions`).
 
+## FSM Lifecycle Activity Projection
+
+When you use `go-command/flow` state machines and want lifecycle audit events in the admin-local feed, wire the FSM lifecycle hook to an admin activity sink adapter:
+
+```go
+import (
+	"context"
+
+	coreadmin "github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-command/flow"
+)
+
+hook := &flow.LifecycleActivityHook[MyMsg]{
+	Sink: coreadmin.NewFSMLifecycleActivitySinkAdapter(adm.ActivityFeed()),
+}
+
+machine, err := flow.NewStateMachineFromDefinition(
+	definition,
+	store,
+	req,
+	resolvers,
+	actions,
+	flow.WithExecutionPolicy[MyMsg](flow.ExecutionPolicyLightweight),
+	flow.WithLifecycleHooks[MyMsg](hook),
+	flow.WithHookFailureMode[MyMsg](flow.HookFailureModeFailOpen), // or FailClosed
+)
+if err != nil {
+	panic(err)
+}
+
+_, err = machine.ApplyEvent(context.Background(), flow.ApplyEventRequest[MyMsg]{
+	EntityID: "entity-1",
+	Event:    "approve",
+	Msg:      MyMsg{EntityID: "entity-1"},
+})
+```
+
+Mapping behavior:
+
+- `LifecycleActivityEnvelope.Verb` -> `ActivityEntry.Action` (for example `fsm.transition.attempted|committed|rejected`)
+- `LifecycleActivityEnvelope.ObjectType` + `ObjectID` -> `ActivityEntry.Object`
+- Envelope metadata is copied into `ActivityEntry.Metadata` (including correlation fields like `machine_id`, `machine_version`, `entity_id`, `execution_id`, `event`, `transition_id`, `phase`)
+
 ## References
 
 - Quickstart API and helpers: `quickstart/README.md`

@@ -614,7 +614,7 @@ Templates use a conditional fallback pattern:
 Quickstart defaults wire CMS workflows for demo panels when you do not provide a custom engine. To start from defaults and override only a subset, register defaults before your overrides or opt in to default registration on a custom engine:
 
 ```go
-workflow := admin.NewSimpleWorkflowEngine()
+workflow := admin.NewFSMWorkflowEngine()
 admin.RegisterDefaultCMSWorkflows(workflow)
 workflow.RegisterWorkflow("content", admin.WorkflowDefinition{
     EntityType:   "content",
@@ -738,7 +738,7 @@ adm, _, err := quickstart.NewAdmin(
     cfg,
     hooks,
     quickstart.WithAdminDependencies(admin.Dependencies{
-        Workflow: admin.NewSimpleWorkflowEngine(),
+        Workflow: admin.NewFSMWorkflowEngine(),
     }),
     quickstart.WithWorkflowRuntime(runtime),
 )
