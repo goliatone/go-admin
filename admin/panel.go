@@ -229,7 +229,7 @@ type PanelHooks struct {
 
 // WorkflowAuthorizer optionally guards workflow transitions.
 type WorkflowAuthorizer interface {
-	CanTransition(ctx context.Context, input TransitionInput) bool
+	CanApplyEvent(ctx context.Context, input WorkflowApplyEventRequest) bool
 }
 
 // Schema renders list/form/detail schema descriptions.
@@ -1471,9 +1471,6 @@ func buildWorkflowUpdateHook(repo Repository, workflow WorkflowEngine, auth Work
 		if record == nil {
 			return nil
 		}
-		if shouldSkipWorkflow(record) {
-			return nil
-		}
 		targetState := strings.TrimSpace(toString(record["status"]))
 		if targetState == "" {
 			return nil
@@ -1486,51 +1483,42 @@ func buildWorkflowUpdateHook(repo Repository, workflow WorkflowEngine, auth Work
 		if currentState == "" || currentState == targetState {
 			return nil
 		}
-		input := TransitionInput{
-			EntityID:     id,
-			EntityType:   panelName,
-			CurrentState: currentState,
-			TargetState:  targetState,
-		}
+		input := buildWorkflowApplyRequest(ctx.Context, panelName, id, currentState, targetState, record)
 		if transition := strings.TrimSpace(toString(record["transition"])); transition != "" {
-			input.Transition = transition
+			input.Event = transition
 		}
-		if input.Transition == "" {
-			if transitions, err := workflow.AvailableTransitions(ctx.Context, panelName, currentState); err == nil {
-				for _, t := range transitions {
-					if strings.EqualFold(strings.TrimSpace(t.To), targetState) {
-						input.Transition = t.Name
-						break
-					}
-				}
+		if input.Event == "" {
+			snapshot, err := workflow.Snapshot(ctx.Context, WorkflowSnapshotRequest{
+				MachineID: panelName,
+				EntityID:  id,
+				Msg: WorkflowMessage{
+					EntityID:     id,
+					EntityType:   panelName,
+					CurrentState: currentState,
+					TargetState:  targetState,
+					Payload:      cloneWorkflowTransitionMetadata(record),
+				},
+				ExecCtx:        input.ExecCtx,
+				EvaluateGuards: true,
+				IncludeBlocked: true,
+			})
+			if err == nil {
+				input.Event = workflowEventForTargetState(snapshot, targetState)
 			}
 		}
-		if auth != nil && !auth.CanTransition(ctx.Context, input) {
+		if auth != nil && !auth.CanApplyEvent(ctx.Context, input) {
 			return permissionDenied("workflow.transition", panelName)
 		}
-		if err := applyTranslationPolicy(ctx.Context, policy, buildTranslationPolicyInput(ctx.Context, panelName, id, currentState, input.Transition, record)); err != nil {
+		if err := applyTranslationPolicy(ctx.Context, policy, buildTranslationPolicyInput(ctx.Context, panelName, id, currentState, input.Event, record)); err != nil {
 			return err
 		}
-		result, err := workflow.Transition(ctx.Context, input)
+		result, err := workflow.ApplyEvent(ctx.Context, input)
 		if err != nil {
 			return err
 		}
-		if result != nil && strings.TrimSpace(result.ToState) != "" {
-			record["status"] = result.ToState
+		if next := workflowCurrentStateFromResponse(result); next != "" {
+			record["status"] = next
 		}
 		return nil
 	}
-}
-
-func shouldSkipWorkflow(record map[string]any) bool {
-	if record == nil {
-		return false
-	}
-	if raw, ok := record["workflow_skip"]; ok && toBool(raw) {
-		return true
-	}
-	if raw, ok := record["_workflow_skip"]; ok && toBool(raw) {
-		return true
-	}
-	return false
 }
