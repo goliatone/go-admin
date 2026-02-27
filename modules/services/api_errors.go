@@ -75,8 +75,30 @@ func classifyServiceError(err error) (int, string, string, map[string]any, bool)
 	case goerrors.CategoryRateLimit:
 		return http.StatusTooManyRequests, "rate_limited", message, details, true
 	case goerrors.CategoryOperation:
-		if mapped.Code == http.StatusServiceUnavailable || strings.Contains(textCode, "provider") {
+		status := mapped.Code
+		if status < 400 {
+			status = http.StatusInternalServerError
+		}
+		if status == http.StatusServiceUnavailable || strings.Contains(textCode, "provider") {
 			return http.StatusServiceUnavailable, "provider_unavailable", message, details, true
+		}
+		if status >= http.StatusInternalServerError {
+			return status, "internal_error", message, details, true
+		}
+		if status == http.StatusTooManyRequests {
+			return status, "rate_limited", message, details, true
+		}
+		if status == http.StatusBadRequest {
+			return status, "validation_error", message, details, false
+		}
+		if status == http.StatusUnauthorized {
+			return status, "unauthorized", message, details, false
+		}
+		if status == http.StatusForbidden {
+			return status, "forbidden", message, details, false
+		}
+		if status == http.StatusNotFound {
+			return status, "not_found", message, details, false
 		}
 		return http.StatusConflict, "conflict", message, details, false
 	default:
