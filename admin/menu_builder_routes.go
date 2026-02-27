@@ -518,7 +518,11 @@ func (b *menuBuilderBinding) ListViewProfiles(c router.Context) error {
 	}
 	service := b.admin.menuBuilderService()
 	records := service.ListViewProfiles()
-	return writeJSON(c, map[string]any{"profiles": records, "total": len(records)})
+	return writeJSON(c, map[string]any{
+		"view_profiles": records,
+		"profiles":      records, // Backward-compatible alias.
+		"total":         len(records),
+	})
 }
 
 func (b *menuBuilderBinding) CreateViewProfile(c router.Context) error {
@@ -538,7 +542,10 @@ func (b *menuBuilderBinding) CreateViewProfile(c router.Context) error {
 	b.admin.recordActivity(adminCtx.Context, adminCtx.UserID, "menu.view_profile.create", "menu_view_profile:"+profile.Code, map[string]any{
 		"code": profile.Code,
 	})
-	return writeJSON(c, map[string]any{"profile": profile})
+	return writeJSON(c, map[string]any{
+		"view_profile": profile,
+		"profile":      profile, // Backward-compatible alias.
+	})
 }
 
 func (b *menuBuilderBinding) UpdateViewProfile(c router.Context) error {
@@ -562,7 +569,10 @@ func (b *menuBuilderBinding) UpdateViewProfile(c router.Context) error {
 	b.admin.recordActivity(adminCtx.Context, adminCtx.UserID, "menu.view_profile.update", "menu_view_profile:"+profile.Code, map[string]any{
 		"code": profile.Code,
 	})
-	return writeJSON(c, map[string]any{"profile": profile})
+	return writeJSON(c, map[string]any{
+		"view_profile": profile,
+		"profile":      profile, // Backward-compatible alias.
+	})
 }
 
 func (b *menuBuilderBinding) DeleteViewProfile(c router.Context) error {
@@ -614,7 +624,10 @@ func (b *menuBuilderBinding) PublishViewProfile(c router.Context) error {
 		"code":   profile.Code,
 		"status": profile.Status,
 	})
-	return writeJSON(c, map[string]any{"profile": profile})
+	return writeJSON(c, map[string]any{
+		"view_profile": profile,
+		"profile":      profile, // Backward-compatible alias.
+	})
 }
 
 func parseMenuItemsPayload(raw any) []MenuItem {
