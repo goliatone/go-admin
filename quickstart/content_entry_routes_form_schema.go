@@ -80,6 +80,8 @@ func (h *contentEntryHandlers) renderForm(
 			"slug":   baseSlug,
 			"icon":   contentTypeIcon(contentType),
 			"status": contentTypeStatus(contentType),
+			"capabilities": contentTypeCapabilities(contentType),
+			"navigation":   contentTypeNavigationCapability(contentType),
 		},
 	}
 	if h.viewContext != nil {
@@ -931,6 +933,21 @@ func contentTypeStatus(contentType *admin.CMSContentType) string {
 		return ""
 	}
 	return strings.TrimSpace(contentType.Status)
+}
+
+func contentTypeCapabilities(contentType *admin.CMSContentType) map[string]any {
+	if contentType == nil {
+		return nil
+	}
+	return cloneAnyMap(contentType.Capabilities)
+}
+
+func contentTypeNavigationCapability(contentType *admin.CMSContentType) map[string]any {
+	if contentType == nil {
+		return nil
+	}
+	contracts := admin.ReadContentTypeCapabilityContracts(*contentType)
+	return cloneAnyMap(contracts.Navigation)
 }
 
 func schemaFromPanelFields(fields []admin.Field) map[string]any {
