@@ -1,0 +1,23 @@
+{
+  "contracts": {
+    "endpoints": {
+      "menus": "/admin/api/menus",
+      "menus.id": "/admin/api/menus/:id",
+      "menus.items": "/admin/api/menus/:id/items",
+      "menu.bindings": "/admin/api/menu-bindings",
+      "menu.view_profiles": "/admin/api/menu-view-profiles",
+      "content.navigation": "/admin/api/content/:type/:id/navigation"
+    },
+    "error_codes": {
+      "cycle": "MENU_VALIDATION_CYCLE",
+      "depth": "MENU_VALIDATION_DEPTH",
+      "invalid_target": "MENU_VALIDATION_INVALID_TARGET"
+    },
+    "content_navigation": {
+      "entry_navigation_overrides": {
+        "value_enum": ["inherit", "show", "hide"],
+        "write_endpoint": "/admin/api/content/:type/:id/navigation"
+      }
+    }
+  }
+}

@@ -801,6 +801,20 @@ export class ContentTypeEditor {
 
   private renderCapabilitiesSection(): string {
     const caps = this.state.contentType?.capabilities ?? {};
+    const navigation = typeof caps.navigation === 'object' && caps.navigation !== null
+      ? (caps.navigation as Record<string, unknown>)
+      : {};
+    const navEnabled = navigation.enabled === true;
+    const eligible = Array.isArray(navigation.eligible_locations)
+      ? navigation.eligible_locations.map(item => String(item).trim()).filter(Boolean).join(', ')
+      : '';
+    const defaults = Array.isArray(navigation.default_locations)
+      ? navigation.default_locations.map(item => String(item).trim()).filter(Boolean).join(', ')
+      : '';
+    const allowInstanceOverride = navigation.allow_instance_override !== false;
+    const defaultVisible = navigation.default_visible !== false;
+    const mergeMode = String(navigation.merge_mode ?? 'append').trim().toLowerCase();
+    const validMergeMode = ['append', 'prepend', 'replace'].includes(mergeMode) ? mergeMode : 'append';
 
     return `
       <div class="bg-white dark:bg-slate-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
@@ -856,6 +870,77 @@ export class ContentTypeEditor {
             />
             <span class="text-sm text-gray-700 dark:text-gray-300">Block Editor</span>
           </label>
+        </div>
+
+        <div class="mt-6 pt-5 border-t border-gray-200 dark:border-gray-700 space-y-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Navigation Settings</h3>
+              <p class="text-xs text-gray-500 dark:text-gray-400">Configure eligible/default locations and per-entry override policy.</p>
+            </div>
+            <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+              <input
+                type="checkbox"
+                data-ct-navigation-enabled
+                ${navEnabled ? 'checked' : ''}
+                class="w-4 h-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500"
+              />
+              Enabled
+            </label>
+          </div>
+
+          <div class="grid gap-3 md:grid-cols-2">
+            <label class="text-xs text-gray-600 dark:text-gray-300">
+              Eligible Locations (csv)
+              <input
+                type="text"
+                data-ct-navigation-eligible
+                value="${escapeHtml(eligible)}"
+                placeholder="site.main, site.footer"
+                class="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-700 px-2 py-1.5 text-sm bg-white dark:bg-slate-800"
+              />
+            </label>
+            <label class="text-xs text-gray-600 dark:text-gray-300">
+              Default Locations (csv)
+              <input
+                type="text"
+                data-ct-navigation-defaults
+                value="${escapeHtml(defaults)}"
+                placeholder="site.main"
+                class="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-700 px-2 py-1.5 text-sm bg-white dark:bg-slate-800"
+              />
+            </label>
+            <label class="inline-flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
+              <input
+                type="checkbox"
+                data-ct-navigation-allow-override
+                ${allowInstanceOverride ? 'checked' : ''}
+                class="w-4 h-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500"
+              />
+              Allow instance override
+            </label>
+            <label class="inline-flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
+              <input
+                type="checkbox"
+                data-ct-navigation-default-visible
+                ${defaultVisible ? 'checked' : ''}
+                class="w-4 h-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500"
+              />
+              Default visible
+            </label>
+            <label class="text-xs text-gray-600 dark:text-gray-300 md:col-span-2">
+              Merge Mode
+              <select
+                data-ct-navigation-merge-mode
+                class="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-700 px-2 py-1.5 text-sm bg-white dark:bg-slate-800"
+              >
+                <option value="append" ${validMergeMode === 'append' ? 'selected' : ''}>append</option>
+                <option value="prepend" ${validMergeMode === 'prepend' ? 'selected' : ''}>prepend</option>
+                <option value="replace" ${validMergeMode === 'replace' ? 'selected' : ''}>replace</option>
+              </select>
+            </label>
+          </div>
+          <p class="text-[11px] text-gray-500 dark:text-gray-400">Task 13.8: defaults must remain a subset of eligible locations.</p>
         </div>
       </div>
     `;
@@ -1677,6 +1762,44 @@ export class ContentTypeEditor {
         caps[key] = input.checked;
       }
     });
+
+    const parseCSV = (value: string): string[] =>
+      value
+        .split(',')
+        .map(entry => entry.trim())
+        .filter(Boolean)
+        .filter((entry, index, array) => array.indexOf(entry) === index)
+        .sort();
+
+    const navEnabledInput = this.container.querySelector<HTMLInputElement>('[data-ct-navigation-enabled]');
+    const navEligibleInput = this.container.querySelector<HTMLInputElement>('[data-ct-navigation-eligible]');
+    const navDefaultsInput = this.container.querySelector<HTMLInputElement>('[data-ct-navigation-defaults]');
+    const navAllowOverrideInput = this.container.querySelector<HTMLInputElement>('[data-ct-navigation-allow-override]');
+    const navDefaultVisibleInput = this.container.querySelector<HTMLInputElement>('[data-ct-navigation-default-visible]');
+    const navMergeModeInput = this.container.querySelector<HTMLSelectElement>('[data-ct-navigation-merge-mode]');
+
+    if (navEnabledInput) {
+      const eligible = parseCSV(navEligibleInput?.value ?? '');
+      const defaults = parseCSV(navDefaultsInput?.value ?? '');
+      const eligibleSet = new Set(eligible);
+      const invalidDefaults = defaults.filter(location => !eligibleSet.has(location));
+      if (invalidDefaults.length > 0) {
+        this.showToast(
+          `Navigation defaults must be a subset of eligible locations. Invalid: ${invalidDefaults.join(', ')}`,
+          'error'
+        );
+      }
+
+      caps.navigation = {
+        enabled: navEnabledInput.checked,
+        eligible_locations: eligible,
+        default_locations: defaults.filter(location => eligibleSet.has(location)),
+        allow_instance_override: navAllowOverrideInput ? navAllowOverrideInput.checked : true,
+        default_visible: navDefaultVisibleInput ? navDefaultVisibleInput.checked : true,
+        merge_mode: navMergeModeInput?.value || 'append',
+      };
+    }
+
     return caps;
   }
 
