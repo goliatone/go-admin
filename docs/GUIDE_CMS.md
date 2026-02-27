@@ -729,6 +729,52 @@ Key configuration fields in `admin.Config`:
 | `EnablePublicAPI` | Whether to mount `/api/v1` routes.              | `false`                          |
 | `PreviewSecret`   | Secret key for signing HMAC/JWT preview tokens. | `admin-preview-secret-change-me` |
 
+### Site runtime environment scoping (`quickstart/site`)
+
+CMS delivery uses environment-scoped reads for content types, content entries,
+and menus. For site runtime, treat runtime env and content env as separate
+inputs:
+
+- Runtime env: app/runtime behavior (`dev`, `staging`, `prod`).
+- Content env: CMS partition key for reads (`default`, `dev`, `staging`, `prod`, custom).
+
+Recommended host wiring:
+
+```go
+siteCfg := quicksite.SiteConfig{
+    Environment:        os.Getenv("SITE_RUNTIME_ENV"),
+    ContentEnvironment: os.Getenv("SITE_CONTENT_ENV"), // fallback to SITE_ENV, then default
+}
+```
+
+Failure signature for env mismatch:
+
+- `GET /` renders site 404 (`Page not found`) while seeded home exists.
+- Site header/footer render, but main nav shows:
+  `No primary navigation items configured.`
+
+Typical cause:
+
+- runtime defaults to `dev` (for example `ENV=development`)
+- seeded content/menu rows exist in `default`
+- request context scopes CMS reads to `dev`, so no page/menu rows are found.
+
+Guardrails:
+
+- Default content env to `default` for local persistent runs.
+- Log startup diagnostics comparing active content env vs `default`.
+- Use strict mode (`SITE_ENV_STRICT=true`) in CI/staging to fail early on scope mismatch.
+
+Routing compatibility note:
+
+- If `GET /` works but non-root routes (for example `/about`) return router-level
+  `Cannot GET /about`, this is usually not locale/env scoping.
+- It indicates catch-all route registration mismatch for the active adapter.
+  - Fiber catch-all: `/*`
+  - HTTPRouter catch-all: `/*path`
+- Prefer `quickstart/site.RegisterSiteRoutes` from current go-admin, which
+  resolves catch-all syntax per adapter.
+
 ---
 
 ## 12. Best Practices
