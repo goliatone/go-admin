@@ -110,6 +110,20 @@ func DefaultTemplateFuncs(opts ...TemplateFuncOption) map[string]any {
 		"oauthNeedsReauthorization": func(isExpired, isExpiringSoon, canAutoRefresh bool) bool {
 			return OAuthNeedsReauthorization(isExpired, isExpiringSoon, canAutoRefresh)
 		},
+		"siteLocaleItems":  siteLocaleItems,
+		"siteLocaleItem":   siteLocaleItem,
+		"siteLocaleURL":    siteLocaleURL,
+		"sitePreviewState": sitePreviewState,
+		"sitePreviewActive": func(preview any) bool {
+			return sitePreviewActive(preview)
+		},
+		"siteMenuItems":   siteMenuItems,
+		"siteMenuChildren": func(item any) []map[string]any {
+			return siteMenuChildren(item)
+		},
+		"siteMenuHasActive": func(menu any) bool {
+			return siteMenuHasActive(menu)
+		},
 		"dict": func(values ...any) (map[string]any, error) {
 			if len(values)%2 != 0 {
 				return nil, fmt.Errorf("dict requires even number of arguments")
