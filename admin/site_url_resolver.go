@@ -91,3 +91,45 @@ func CanonicalContentURL(baseURL, contentType, slug string) string {
 	parsed.Path = strings.TrimSuffix(parsed.Path, "/") + path
 	return parsed.String()
 }
+
+// ExtractContentPath resolves canonical content path from data/metadata maps with fallback support.
+func ExtractContentPath(data, metadata map[string]any, fallback string) string {
+	if path := contentPathFromMap(data); path != "" {
+		return CanonicalPath(path, "")
+	}
+	if path := contentPathFromMap(metadata); path != "" {
+		return CanonicalPath(path, "")
+	}
+	return CanonicalPath("", fallback)
+}
+
+// ResolveContentPath resolves canonical content path from CMSContent fields.
+func ResolveContentPath(content CMSContent, fallback string) string {
+	if strings.TrimSpace(fallback) == "" {
+		fallback = strings.TrimSpace(content.Slug)
+	}
+	return ExtractContentPath(content.Data, content.Metadata, fallback)
+}
+
+func contentPathFromMap(values map[string]any) string {
+	if len(values) == 0 {
+		return ""
+	}
+	if raw, ok := values["path"]; ok {
+		if path := strings.TrimSpace(contentPathValue(raw)); path != "" {
+			return path
+		}
+	}
+	return ""
+}
+
+func contentPathValue(raw any) string {
+	switch typed := raw.(type) {
+	case string:
+		return typed
+	case []byte:
+		return string(typed)
+	default:
+		return ""
+	}
+}
