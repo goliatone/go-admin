@@ -1,10 +1,12 @@
-# `ADMIN_*` Environment Flags Reference
+# Environment Flags Reference (`ADMIN_*` + site runtime)
 
-Canonical reference for runtime `ADMIN_*` flags in this repo.
+Canonical reference for runtime environment flags in this repo.
 
 - Scope: keys read by Go runtime code (`*.go`, excluding tests).
-- Last updated: February 13, 2026.
+- Last updated: February 27, 2026.
 - Note: `ADMIN_UNAVAILABLE` is not an env var; it is an internal error text code.
+
+## `ADMIN_*` Flags
 
 | Name | Description | Possible values | Default value |
 |---|---|---|---|
@@ -65,3 +67,47 @@ Canonical reference for runtime `ADMIN_*` flags in this repo.
 | `ADMIN_TRANSLATION_EXCHANGE` | Explicit override for translation exchange module enablement. | boolean (`strconv.ParseBool`) | profile-derived |
 | `ADMIN_TRANSLATION_PROFILE` | Baseline translation capability profile. | `none`, `core`, `core+exchange` (`exchange` alias), `core+queue` (`queue` alias), `full` | empty; resolves to `core` when CMS is enabled, `none` when CMS is disabled |
 | `ADMIN_TRANSLATION_QUEUE` | Explicit override for translation queue module enablement. | boolean (`strconv.ParseBool`) | profile-derived |
+
+## Site Runtime Environment Contract (`SITE_*`, `ENV`, `APP_ENV`)
+
+These keys control `quickstart/site` request and delivery scoping.
+
+| Name | Description | Possible values | Default value |
+|---|---|---|---|
+| `SITE_RUNTIME_ENV` | Runtime environment label (feature/runtime behavior, preview/runtime context). | `dev`, `staging`, `prod`, custom | `dev` in development mode, `prod` otherwise |
+| `SITE_CONTENT_ENV` | CMS content environment key used for content/menu/content-type reads. | `default`, `dev`, `staging`, `prod`, custom | `default` |
+| `SITE_ENV` | Backward-compatible alias for content environment when `SITE_CONTENT_ENV` is unset. | same as `SITE_CONTENT_ENV` | unset |
+| `SITE_ENV_STRICT` | Fail startup when active content env is empty but `default` has seeded data. | boolean (`strconv.ParseBool`) | `false` (warn only) |
+| `ENV` / `APP_ENV` / `ENVIRONMENT` / `GO_ENV` | Runtime env fallbacks used by `quickstart/site` if `SITE_RUNTIME_ENV` is unset. | environment labels | unset |
+
+### Resolution precedence
+
+Runtime environment (`ResolvedSiteConfig.Environment`):
+1. `SiteConfig.Environment` (host app explicit value)
+2. `SITE_RUNTIME_ENV`
+3. `APP_ENV`, `ENVIRONMENT`, `ENV`, `GO_ENV`
+4. debug-aware fallback (`dev` if debug on, else `prod`)
+
+Content environment (`ResolvedSiteConfig.ContentEnvironment`):
+1. `SiteConfig.ContentEnvironment` (host app explicit value)
+2. `SITE_CONTENT_ENV`
+3. `SITE_ENV`
+4. `default`
+
+### Required local profile for persistent CMS in `examples/web`
+
+Use this profile unless intentionally testing non-default promoted environments:
+
+```bash
+ENV=development
+SITE_RUNTIME_ENV=dev
+SITE_CONTENT_ENV=default
+SITE_ENV=default
+USE_PERSISTENT_CMS=true
+```
+
+### Scope vs routing quick check
+
+- Env-scope mismatch usually shows site runtime 404 with empty nav (`Page not found` + no primary menu).
+- If `/` works but `/about` returns `Cannot GET /about`, that is typically route wiring
+  (adapter catch-all syntax), not `SITE_CONTENT_ENV`/`SITE_ENV` configuration.

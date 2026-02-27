@@ -180,6 +180,21 @@ If tests fail outside changed scope:
 2. Confirm your targeted tests for changed scope still pass.
 3. Report blockers before widening refactors.
 
+If site runtime returns 404 with empty primary nav in persistent CMS:
+
+1. Check effective runtime/content env pair in startup logs (`Site Environments: runtime=... content=...`).
+2. Verify local profile uses `SITE_RUNTIME_ENV=dev` and `SITE_CONTENT_ENV=default` (or your promoted target env).
+3. Confirm seed/promoted data exists in that content env (content types, contents, and `site.main` menu bindings/items).
+4. Enable strict mismatch detection in non-local runs: `SITE_ENV_STRICT=true`.
+
+If `/` works but menu links like `/about` return `Cannot GET /about`:
+
+1. Treat this as a route registration issue, not an env/locale issue.
+2. Verify site catch-all route syntax for your adapter:
+   - Fiber expects `/*`
+   - HTTPRouter expects `/*path`
+3. Ensure host wiring uses `quickstart/site.RegisterSiteRoutes` from the current package version (adapter-aware catch-all handling).
+
 ## 9. Definition of Done
 
 A change is done when:
