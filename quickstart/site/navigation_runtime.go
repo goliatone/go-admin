@@ -137,7 +137,10 @@ func (r *navigationRuntime) resolveReadOptions(c router.Context, state RequestSt
 		opts.DedupPolicy = menuDedupByURL
 	}
 
-	if state.PreviewTokenPresent && state.PreviewTokenValid && r.siteCfg.Features.EnableMenuDraftPreview {
+	if state.PreviewTokenPresent &&
+		state.PreviewTokenValid &&
+		r.siteCfg.Features.EnableMenuDraftPreview &&
+		previewEntityAllowsMenuDrafts(state.PreviewEntityType) {
 		opts.IncludeDrafts = true
 		opts.PreviewToken = strings.TrimSpace(state.PreviewToken)
 	}
@@ -934,6 +937,19 @@ func normalizeDedupPolicy(raw string) string {
 		return menuDedupNone
 	default:
 		return menuDedupByURL
+	}
+}
+
+func previewEntityAllowsMenuDrafts(raw string) bool {
+	entityType := strings.ToLower(strings.TrimSpace(raw))
+	if entityType == "" {
+		return false
+	}
+	switch entityType {
+	case "menu", "menus", "navigation", "menu_binding", "menu_bindings", "menu_view_profile", "menu_view_profiles":
+		return true
+	default:
+		return false
 	}
 }
 
