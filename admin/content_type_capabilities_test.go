@@ -141,4 +141,18 @@ func TestContentTypeCapabilityContractsStableAcrossLocaleContexts(t *testing.T) 
 	if !reflect.DeepEqual(enContracts, esContracts) {
 		t.Fatalf("expected locale-stable capability contracts, en=%+v es=%+v", enContracts, esContracts)
 	}
+	if len(extractMap(enContracts["navigation_defaults_editor"])) == 0 {
+		t.Fatalf("expected navigation defaults editor contract in capability_contracts")
+	}
+	overrideContract := extractMap(enContracts["entry_navigation_overrides"])
+	valueEnum := toStringSlice(overrideContract["value_enum"])
+	if len(valueEnum) != 3 || valueEnum[0] != NavigationOverrideInherit || valueEnum[1] != NavigationOverrideShow || valueEnum[2] != NavigationOverrideHide {
+		t.Fatalf("expected entry navigation override tri-state contract, got %+v", valueEnum)
+	}
+	if len(extractMap(enContracts["entry_navigation_examples"])) == 0 {
+		t.Fatalf("expected entry navigation examples contract")
+	}
+	if len(extractMap(enContracts["entry_navigation_validation"])) == 0 {
+		t.Fatalf("expected entry navigation validation contract")
+	}
 }
