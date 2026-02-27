@@ -153,6 +153,31 @@ func TestMenuBuilderRoutesEnforcePermissionsAndValidation(t *testing.T) {
 			t.Fatalf("expected non-empty endpoint for %s", key)
 		}
 	}
+	contentNavigation := extractMap(contracts["content_navigation"])
+	defaultsEditor := extractMap(contentNavigation["content_type_navigation_defaults"])
+	if got := strings.TrimSpace(toString(defaultsEditor["field"])); got != "capabilities.navigation" {
+		t.Fatalf("expected defaults editor field capabilities.navigation, got %q", got)
+	}
+	overrideContract := extractMap(contentNavigation["entry_navigation_overrides"])
+	if got := strings.TrimSpace(toString(overrideContract["field"])); got != "_navigation" {
+		t.Fatalf("expected entry override field _navigation, got %q", got)
+	}
+	valueEnum := toStringSlice(overrideContract["value_enum"])
+	if len(valueEnum) != 3 || valueEnum[0] != NavigationOverrideInherit || valueEnum[1] != NavigationOverrideShow || valueEnum[2] != NavigationOverrideHide {
+		t.Fatalf("expected tri-state enum inherit|show|hide, got %+v", valueEnum)
+	}
+	examples := extractMap(contentNavigation["examples"])
+	if len(extractMap(examples["show_hide"])) == 0 {
+		t.Fatalf("expected show_hide example payload in content_navigation contracts")
+	}
+	validation := extractMap(contentNavigation["validation"])
+	if len(extractMap(validation["invalid_location"])) == 0 {
+		t.Fatalf("expected invalid_location validation guidance in content_navigation contracts")
+	}
+	contentEndpoints := extractMap(contentNavigation["endpoints"])
+	if got := strings.TrimSpace(toString(contentEndpoints["content.navigation"])); got == "" {
+		t.Fatalf("expected content.navigation endpoint contract")
+	}
 
 	upsertPath := mustResolveURL(t, allowedAdmin.URLs(), allowedGroup, "menus.items", map[string]string{"id": "main"}, nil)
 	invalidTargetRes := menuBuilderDoRequest(allowedServer, http.MethodPut, upsertPath, `{"items":[{"id":"home","label":"Home","type":"item","target":{"type":"external","url":"not-a-url"}}]}`)

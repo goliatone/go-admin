@@ -33,6 +33,7 @@ func (a *Admin) menuBuilderEndpoints() map[string]string {
 	return map[string]string{
 		"menus":                adminAPIRoutePath(a, "menus"),
 		"menus.contracts":      adminAPIRoutePath(a, "menus.contracts"),
+		"content.navigation":   adminAPIRoutePath(a, "content.navigation"),
 		"menus.id":             adminAPIRoutePath(a, "menus.id"),
 		"menus.publish":        adminAPIRoutePath(a, "menus.publish"),
 		"menus.unpublish":      adminAPIRoutePath(a, "menus.unpublish"),

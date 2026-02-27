@@ -242,12 +242,14 @@ func (a *Admin) handlePublicMenu(c router.Context) error {
 		if err != nil {
 			return writeError(c, err)
 		}
-		previewValidated = true
+		previewValidated = previewTokenAllowsMenuDrafts(validated)
 		_, env := splitPreviewEntityType(validated.EntityType)
 		if env != "" {
 			ctx = WithEnvironment(ctx, env)
 		}
-		options.Query.IncludeDrafts = true
+		if previewValidated {
+			options.Query.IncludeDrafts = true
+		}
 	}
 	if err := a.authorizeSiteDraftRead(c, options.Query, previewValidated); err != nil {
 		return writeError(c, err)
@@ -307,12 +309,14 @@ func (a *Admin) handleSiteMenuByLocationPath(c router.Context, location string) 
 		if err != nil {
 			return writeError(c, err)
 		}
-		previewValidated = true
+		previewValidated = previewTokenAllowsMenuDrafts(validated)
 		_, env := splitPreviewEntityType(validated.EntityType)
 		if env != "" {
 			ctx = WithEnvironment(ctx, env)
 		}
-		options.Query.IncludeDrafts = true
+		if previewValidated {
+			options.Query.IncludeDrafts = true
+		}
 	}
 	if err := a.authorizeSiteDraftRead(c, options.Query, previewValidated); err != nil {
 		return writeError(c, err)
@@ -354,12 +358,14 @@ func (a *Admin) handleSiteMenuByCodePath(c router.Context, code string) error {
 		if err != nil {
 			return writeError(c, err)
 		}
-		previewValidated = true
+		previewValidated = previewTokenAllowsMenuDrafts(validated)
 		_, env := splitPreviewEntityType(validated.EntityType)
 		if env != "" {
 			ctx = WithEnvironment(ctx, env)
 		}
-		options.Query.IncludeDrafts = true
+		if previewValidated {
+			options.Query.IncludeDrafts = true
+		}
 	}
 	if err := a.authorizeSiteDraftRead(c, options.Query, previewValidated); err != nil {
 		return writeError(c, err)
@@ -504,7 +510,10 @@ func (a *Admin) authorizeSiteDraftRead(c router.Context, query SiteQuery, previe
 	if !query.IncludeDrafts {
 		return nil
 	}
-	if previewValidated || isInternalSiteRequest(c) || hasAuthActor(c.Context()) {
+	if previewValidated || hasAuthActor(c.Context()) {
+		return nil
+	}
+	if a != nil && a.config.Site.TrustPrivateNetworkDraftReads && isInternalSiteRequest(c) {
 		return nil
 	}
 	permission := strings.TrimSpace(a.config.Site.DraftReadPermission)
@@ -668,6 +677,27 @@ func splitPreviewEntityType(raw string) (string, string) {
 		return entityType, env
 	}
 	return entityType, ""
+}
+
+func previewTokenAllowsMenuDrafts(token *PreviewToken) bool {
+	if token == nil {
+		return false
+	}
+	entityType, _ := splitPreviewEntityType(token.EntityType)
+	return previewEntityAllowsMenuDrafts(entityType)
+}
+
+func previewEntityAllowsMenuDrafts(raw string) bool {
+	entityType := strings.ToLower(strings.TrimSpace(raw))
+	if entityType == "" {
+		return false
+	}
+	switch entityType {
+	case "menu", "menus", "navigation", "menu_binding", "menu_bindings", "menu_view_profile", "menu_view_profiles":
+		return true
+	default:
+		return false
+	}
 }
 
 func (a *Admin) listPublicContentsRaw(ctx context.Context, locale, contentType, category string, includeDrafts bool) ([]CMSContent, error) {

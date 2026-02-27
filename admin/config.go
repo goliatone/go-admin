@@ -99,6 +99,10 @@ type SiteConfig struct {
 	ReadPermission string
 	// DraftReadPermission optionally guards include_drafts access.
 	DraftReadPermission string
+	// TrustPrivateNetworkDraftReads allows include_drafts reads from private/loopback
+	// network origins without actor permission checks. Disabled by default to avoid
+	// network-topology-based authorization.
+	TrustPrivateNetworkDraftReads bool
 	// ViewProfileOverridePermission optionally guards view_profile overrides.
 	ViewProfileOverridePermission string
 }

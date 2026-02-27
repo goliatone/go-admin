@@ -66,6 +66,7 @@ type AdminMenuPreviewSimulation struct {
 
 // AdminMenuContracts exposes endpoint metadata and machine-readable menu error mapping.
 type AdminMenuContracts struct {
-	Endpoints map[string]string `json:"endpoints"`
-	ErrorCode map[string]string `json:"error_codes"`
+	Endpoints         map[string]string `json:"endpoints"`
+	ErrorCode         map[string]string `json:"error_codes"`
+	ContentNavigation map[string]any    `json:"content_navigation,omitempty"`
 }

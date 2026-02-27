@@ -189,3 +189,21 @@ func TestDefaultURLKitConfigMenuBuilderPaths(t *testing.T) {
 		}
 	}
 }
+
+func TestDefaultURLKitConfigContentNavigationPath(t *testing.T) {
+	cfg := applyConfigDefaults(Config{BasePath: "/admin"})
+	manager, err := newURLManager(cfg)
+	if err != nil {
+		t.Fatalf("newURLManager: %v", err)
+	}
+	got, resolveErr := manager.ResolveWith("admin.api", "content.navigation", map[string]string{
+		"type": "page",
+		"id":   "home-1",
+	}, nil)
+	if resolveErr != nil {
+		t.Fatalf("resolve admin.api content.navigation: %v", resolveErr)
+	}
+	if got != "/admin/api/content/page/home-1/navigation" {
+		t.Fatalf("expected content navigation path, got %q", got)
+	}
+}

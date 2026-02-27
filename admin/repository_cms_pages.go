@@ -196,6 +196,10 @@ func cmsPageRecord(page CMSPage, opts cmsPageRecordOptions) map[string]any {
 	if len(effectiveLocations) == 0 {
 		effectiveLocations = normalizeEffectiveMenuLocations(page.Data["effective_menu_locations"])
 	}
+	effectiveVisibility := normalizeNavigationVisibilityBoolMap(page.Data["effective_navigation_visibility"])
+	if len(effectiveVisibility) == 0 {
+		effectiveVisibility = inferEffectiveNavigationVisibility(navigation, effectiveLocations)
+	}
 	record := map[string]any{
 		"id":                       page.ID,
 		"title":                    page.Title,
@@ -216,6 +220,7 @@ func cmsPageRecord(page CMSPage, opts cmsPageRecordOptions) map[string]any {
 		"preview_url":              page.PreviewURL,
 		"_navigation":              navigationVisibilityMapAny(navigation),
 		"effective_menu_locations": append([]string{}, effectiveLocations...),
+		"effective_navigation_visibility": navigationVisibilityBoolMapAny(effectiveVisibility),
 	}
 	if opts.includeTemplateID {
 		record["template_id"] = page.TemplateID
