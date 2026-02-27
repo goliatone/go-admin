@@ -186,12 +186,13 @@ func TestRegisterSiteRoutesDeterministicOrdering(t *testing.T) {
 
 	moduleA := indexOfRoute(first.routes, "GET", "/module-a")
 	moduleB := indexOfRoute(first.routes, "GET", "/module-b")
+	baseRoute := indexOfRoute(first.routes, "GET", "/")
 	catchAll := indexOfRoute(first.routes, "GET", "/*path")
-	if moduleA == -1 || moduleB == -1 || catchAll == -1 {
-		t.Fatalf("expected module + catch-all routes, got %+v", first.routes)
+	if moduleA == -1 || moduleB == -1 || baseRoute == -1 || catchAll == -1 {
+		t.Fatalf("expected module + base + catch-all routes, got %+v", first.routes)
 	}
-	if moduleA > catchAll || moduleB > catchAll {
-		t.Fatalf("expected module routes before catch-all, got %+v", first.routes)
+	if moduleA > baseRoute || moduleB > baseRoute || baseRoute > catchAll {
+		t.Fatalf("expected module routes before base and base before catch-all, got %+v", first.routes)
 	}
 	if len(first.middlewares) != 1 {
 		t.Fatalf("expected one site middleware, got %d", len(first.middlewares))
@@ -285,6 +286,9 @@ func TestRegisterSiteRoutesUsesSingleCatchAllForLocaleModes(t *testing.T) {
 	if indexOfRoute(nonDefault.routes, "GET", "/site/*path") == -1 {
 		t.Fatalf("expected generic catch-all route in non_default mode, got %+v", nonDefault.routes)
 	}
+	if indexOfRoute(nonDefault.routes, "GET", "/site") == -1 {
+		t.Fatalf("expected base site route in non_default mode, got %+v", nonDefault.routes)
+	}
 
 	always := &recordingRouter{}
 	if err := RegisterSiteRoutes(always, nil, cfg, SiteConfig{
@@ -296,6 +300,9 @@ func TestRegisterSiteRoutesUsesSingleCatchAllForLocaleModes(t *testing.T) {
 	if indexOfRoute(always.routes, "GET", "/site/*path") == -1 {
 		t.Fatalf("expected generic catch-all route in always mode, got %+v", always.routes)
 	}
+	if indexOfRoute(always.routes, "GET", "/site") == -1 {
+		t.Fatalf("expected base site route in always mode, got %+v", always.routes)
+	}
 
 	i18nDisabled := &recordingRouter{}
 	if err := RegisterSiteRoutes(i18nDisabled, nil, cfg, SiteConfig{
@@ -306,9 +313,51 @@ func TestRegisterSiteRoutesUsesSingleCatchAllForLocaleModes(t *testing.T) {
 	if indexOfRoute(i18nDisabled.routes, "GET", "/*path") == -1 {
 		t.Fatalf("expected catch-all route when i18n disabled, got %+v", i18nDisabled.routes)
 	}
+	if indexOfRoute(i18nDisabled.routes, "GET", "/") == -1 {
+		t.Fatalf("expected base site route when i18n disabled, got %+v", i18nDisabled.routes)
+	}
+}
+
+func TestRegisterSiteRoutesUsesFiberCatchAllSyntax(t *testing.T) {
+	adapter := router.NewFiberAdapterWithConfig(router.FiberAdapterConfig{
+		PathConflictMode: router.PathConflictModePreferStatic,
+		StrictRoutes:     true,
+	})
+	if err := RegisterSiteRoutes(adapter.Router(), nil, admin.Config{DefaultLocale: "en"}, SiteConfig{}); err != nil {
+		t.Fatalf("register site routes on fiber adapter: %v", err)
+	}
+
+	routes := adapter.Router().Routes()
+	if indexOfRouteDef(routes, router.GET, "/*") == -1 {
+		t.Fatalf("expected fiber catch-all route /*, got %+v", routes)
+	}
+	if indexOfRouteDef(routes, router.GET, "/*path") != -1 {
+		t.Fatalf("did not expect httprouter-style catch-all on fiber, got %+v", routes)
+	}
+}
+
+func TestRegisterSiteRoutesUsesHTTPRouterCatchAllSyntax(t *testing.T) {
+	adapter := router.NewHTTPServer()
+	if err := RegisterSiteRoutes(adapter.Router(), nil, admin.Config{DefaultLocale: "en"}, SiteConfig{}); err != nil {
+		t.Fatalf("register site routes on httprouter adapter: %v", err)
+	}
+
+	routes := adapter.Router().Routes()
+	if indexOfRouteDef(routes, router.GET, "/*path") == -1 {
+		t.Fatalf("expected httprouter catch-all route /*path, got %+v", routes)
+	}
 }
 
 func indexOfRoute(routes []recordedRoute, method, path string) int {
+	for index, route := range routes {
+		if route.Method == method && route.Path == path {
+			return index
+		}
+	}
+	return -1
+}
+
+func indexOfRouteDef(routes []router.RouteDefinition, method router.HTTPMethod, path string) int {
 	for index, route := range routes {
 		if route.Method == method && route.Path == path {
 			return index

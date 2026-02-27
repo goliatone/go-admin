@@ -24,6 +24,7 @@ type RequestState struct {
 	DefaultLocale       string
 	SupportedLocales    []string
 	Environment         string
+	ContentEnvironment  string
 	AllowLocaleFallback bool
 
 	PreviewTokenPresent bool
@@ -125,13 +126,17 @@ func ResolveRequestState(
 	}
 
 	environment := resolveRequestEnvironment(c, siteCfg.Environment)
+	contentEnvironment := resolveRequestContentEnvironment(c, siteCfg.ContentEnvironment)
 	locale := resolveRequestLocale(c, siteCfg.Features.EnableI18N, siteCfg.DefaultLocale, siteCfg.SupportedLocales)
 	preview := resolveRequestPreview(c, adm, siteCfg.Features.EnablePreview)
 	if preview.Environment != "" {
-		environment = preview.Environment
+		if previewRuntimeEnvironment := normalizeRuntimeEnvironment(preview.Environment); previewRuntimeEnvironment != "" {
+			environment = previewRuntimeEnvironment
+		}
+		contentEnvironment = normalizeContentEnvironment(preview.Environment)
 	}
 
-	requestCtx = admin.WithEnvironment(requestCtx, environment)
+	requestCtx = admin.WithEnvironment(requestCtx, contentEnvironment)
 	requestCtx = admin.WithLocale(requestCtx, locale)
 	requestCtx = admin.WithLocaleFallback(requestCtx, siteCfg.AllowLocaleFallback)
 
@@ -154,6 +159,7 @@ func ResolveRequestState(
 		DefaultLocale:       siteCfg.DefaultLocale,
 		SupportedLocales:    cloneStrings(siteCfg.SupportedLocales),
 		Environment:         environment,
+		ContentEnvironment:  contentEnvironment,
 		AllowLocaleFallback: siteCfg.AllowLocaleFallback,
 		PreviewTokenPresent: preview.Present,
 		PreviewTokenValid:   preview.Valid,
@@ -181,6 +187,7 @@ func ResolveRequestState(
 		"is_preview":            state.IsPreview,
 		"allow_locale_fallback": state.AllowLocaleFallback,
 		"environment":           state.Environment,
+		"content_environment":   state.ContentEnvironment,
 		"preview_banner": map[string]any{
 			"enabled":       state.PreviewTokenPresent,
 			"is_preview":    state.IsPreview,
@@ -260,7 +267,7 @@ func resolveRequestPreview(c router.Context, adm *admin.Admin, enabled bool) pre
 	out.Valid = true
 	out.EntityType = entityType
 	out.ContentID = contentID
-	out.Environment = normalizeRuntimeEnvironment(entityEnv)
+	out.Environment = normalizeContentEnvironment(entityEnv)
 	return out
 }
 
@@ -297,6 +304,34 @@ func resolveRequestEnvironment(c router.Context, fallback string) string {
 		}
 	}
 	return "prod"
+}
+
+func resolveRequestContentEnvironment(c router.Context, fallback string) string {
+	fallback = normalizeContentEnvironment(fallback)
+	if c == nil {
+		if fallback != "" {
+			return fallback
+		}
+		return "default"
+	}
+	candidates := []string{
+		c.Query("content_env"),
+		c.Query("site_env"),
+		c.Query("env"),
+		c.Query("environment"),
+		c.Header("X-Site-Content-Environment"),
+		c.Header("X-Site-Environment"),
+		c.Header("X-Admin-Environment"),
+		c.Header("X-Environment"),
+		c.Cookies(defaultEnvironmentCookie),
+		fallback,
+	}
+	for _, candidate := range candidates {
+		if normalized := normalizeContentEnvironment(candidate); normalized != "" {
+			return normalized
+		}
+	}
+	return "default"
 }
 
 func resolveRequestLocale(c router.Context, i18nEnabled bool, fallback string, supported []string) string {

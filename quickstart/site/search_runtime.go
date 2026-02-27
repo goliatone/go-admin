@@ -62,7 +62,7 @@ func (r *searchRuntime) PageHandler() router.HandlerFunc {
 				})
 			}
 			c.Status(502)
-			if err := c.Render(searchTemplate, ctx); err == nil {
+			if err := renderSiteTemplate(c, searchTemplate, ctx); err == nil {
 				return nil
 			}
 			return renderSiteRuntimeError(c, state, r.siteCfg, SiteRuntimeError{
@@ -79,7 +79,7 @@ func (r *searchRuntime) PageHandler() router.HandlerFunc {
 				"context":  ctx,
 			})
 		}
-		if err := c.Render(searchTemplate, ctx); err == nil {
+		if err := renderSiteTemplate(c, searchTemplate, ctx); err == nil {
 			return nil
 		}
 		return renderSiteRuntimeError(c, state, r.siteCfg, SiteRuntimeError{

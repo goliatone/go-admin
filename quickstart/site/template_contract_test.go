@@ -7,13 +7,24 @@ import (
 	"testing"
 )
 
-func TestSiteTemplateContractsForPhase8(t *testing.T) {
+func TestSiteTemplateContractsForPhase14(t *testing.T) {
 	baseTemplatePath := filepath.Join("..", "..", "pkg", "client", "templates", "site", "base.html")
 	baseRaw, err := os.ReadFile(baseTemplatePath)
 	if err != nil {
 		t.Fatalf("read base template: %v", err)
 	}
 	base := string(baseRaw)
+	mainMenuPartialPath := filepath.Join("..", "..", "pkg", "client", "templates", "site", "partials", "menu_main.html")
+	mainMenuRaw, err := os.ReadFile(mainMenuPartialPath)
+	if err != nil {
+		t.Fatalf("read main menu partial: %v", err)
+	}
+	footerMenuPartialPath := filepath.Join("..", "..", "pkg", "client", "templates", "site", "partials", "menu_footer.html")
+	footerMenuRaw, err := os.ReadFile(footerMenuPartialPath)
+	if err != nil {
+		t.Fatalf("read footer menu partial: %v", err)
+	}
+	navigationTemplates := base + "\n" + string(mainMenuRaw) + "\n" + string(footerMenuRaw)
 	for _, required := range []string{
 		"preview_banner",
 		"locale_switcher",
@@ -25,9 +36,19 @@ func TestSiteTemplateContractsForPhase8(t *testing.T) {
 		"navigation_debug",
 		"active_match",
 		"contribution_origin",
+		"data-site-menu-item",
+		"data-site-menu-children",
+		"md:group-hover:flex",
+		"md:group-focus-within:flex",
+		"theme_name",
+		"theme_variant",
+		"base_path",
+		"asset_base_path",
+		"active_path",
+		"supported_locales",
 	} {
-		if !strings.Contains(base, required) {
-			t.Fatalf("expected base template to include %q contract", required)
+		if !strings.Contains(navigationTemplates, required) {
+			t.Fatalf("expected site base/menu templates to include %q contract", required)
 		}
 	}
 
@@ -42,6 +63,12 @@ func TestSiteTemplateContractsForPhase8(t *testing.T) {
 		"error_status",
 		"requested_locale",
 		"available_locales",
+		"theme_name",
+		"theme_variant",
+		"base_path",
+		"asset_base_path",
+		"active_path",
+		"supported_locales",
 	} {
 		if !strings.Contains(errorTemplate, required) {
 			t.Fatalf("expected error template to include %q contract", required)
@@ -51,9 +78,11 @@ func TestSiteTemplateContractsForPhase8(t *testing.T) {
 	for _, path := range []string{
 		filepath.Join("..", "..", "pkg", "client", "templates", "site", "error", "404.html"),
 		filepath.Join("..", "..", "pkg", "client", "templates", "site", "error", "missing_translation.html"),
+		filepath.Join("..", "..", "pkg", "client", "templates", "site", "partials", "menu_main.html"),
+		filepath.Join("..", "..", "pkg", "client", "templates", "site", "partials", "menu_footer.html"),
 	} {
 		if _, err := os.Stat(path); err != nil {
-			t.Fatalf("expected default error template %s to exist: %v", path, err)
+			t.Fatalf("expected default site template %s to exist: %v", path, err)
 		}
 	}
 
@@ -71,6 +100,12 @@ func TestSiteTemplateContractsForPhase8(t *testing.T) {
 		"search_sort_options",
 		"search_state",
 		"search_error",
+		"theme_name",
+		"theme_variant",
+		"base_path",
+		"asset_base_path",
+		"active_path",
+		"supported_locales",
 	} {
 		if !strings.Contains(searchTemplate, required) {
 			t.Fatalf("expected search template to include %q contract", required)

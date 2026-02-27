@@ -192,3 +192,85 @@ func TestDeliveryRuntimeResolvesCapabilityKinds(t *testing.T) {
 	assertMode("/blog", "collection", "post")
 	assertMode("/blog/hello", "detail", "post")
 }
+
+func TestRecordDeliveryPathPrefersCanonicalContentPathFromMetadata(t *testing.T) {
+	capability := deliveryCapability{TypeSlug: "page", Kind: "page"}
+	record := admin.CMSContent{
+		Slug:     "home",
+		Data:     map[string]any{},
+		Metadata: map[string]any{"path": "/"},
+	}
+	if got := recordDeliveryPath(record, capability); got != "/" {
+		t.Fatalf("expected canonical metadata path /, got %q", got)
+	}
+}
+
+func TestDeliveryRuntimePreviewFallbackResolvesByRecordIDWhenRoutePathMisses(t *testing.T) {
+	content := admin.NewInMemoryContentService()
+	_, err := content.CreateContentType(context.Background(), admin.CMSContentType{
+		ID:   "page-type",
+		Name: "page",
+		Slug: "page",
+		Schema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{},
+		},
+		Capabilities: map[string]any{
+			"delivery": map[string]any{
+				"enabled": true,
+				"kind":    "page",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create content type page: %v", err)
+	}
+	_, err = content.CreateContent(context.Background(), admin.CMSContent{
+		ID:              "page-draft-home",
+		Slug:            "home",
+		Title:           "Home Draft",
+		Locale:          "en",
+		Status:          "draft",
+		ContentType:     "page",
+		ContentTypeSlug: "page",
+		Data:            map[string]any{},
+	})
+	if err != nil {
+		t.Fatalf("create content page-draft-home: %v", err)
+	}
+
+	runtime := newDeliveryRuntime(
+		ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{}),
+		nil,
+		content,
+		content,
+	)
+	if runtime == nil {
+		t.Fatalf("expected delivery runtime instance")
+	}
+
+	state := RequestState{
+		Locale:              "en",
+		DefaultLocale:       "en",
+		SupportedLocales:    []string{"en"},
+		AllowLocaleFallback: true,
+		PreviewTokenPresent: true,
+		PreviewTokenValid:   true,
+		IsPreview:           true,
+		PreviewEntityType:   "pages",
+		PreviewContentID:    "page-draft-home",
+	}
+	resolution, siteErr := runtime.resolve(context.Background(), state, "/")
+	if hasSiteRuntimeError(siteErr) {
+		t.Fatalf("resolve / unexpected error %+v", siteErr)
+	}
+	if resolution == nil {
+		t.Fatalf("expected preview fallback resolution")
+	}
+	if resolution.Capability.TypeSlug != "page" || resolution.Mode != "detail" {
+		t.Fatalf("expected detail/page resolution, got %+v", resolution)
+	}
+	if resolution.Record == nil || resolution.Record.ID != "page-draft-home" {
+		t.Fatalf("expected preview fallback to resolve page-draft-home, got %+v", resolution.Record)
+	}
+}

@@ -37,6 +37,7 @@ type SiteConfig struct {
 	AllowLocaleFallback *bool
 	LocalePrefixMode    LocalePrefixMode
 	Environment         string
+	ContentEnvironment  string
 
 	Navigation SiteNavigationConfig
 	Views      SiteViewConfig
@@ -100,6 +101,7 @@ type ResolvedSiteConfig struct {
 	AllowLocaleFallback bool
 	LocalePrefixMode    LocalePrefixMode
 	Environment         string
+	ContentEnvironment  string
 
 	Navigation SiteNavigationConfig
 	Views      ResolvedSiteViewConfig
@@ -159,7 +161,13 @@ func ResolveSiteConfig(cfg admin.Config, input SiteConfig) ResolvedSiteConfig {
 
 	environment := normalizeRuntimeEnvironment(input.Environment)
 	if environment == "" {
-		environment = normalizeRuntimeEnvironment(firstNonEmpty(os.Getenv("SITE_ENV"), os.Getenv("APP_ENV"), os.Getenv("ENVIRONMENT")))
+		environment = normalizeRuntimeEnvironment(firstNonEmpty(
+			os.Getenv("SITE_RUNTIME_ENV"),
+			os.Getenv("APP_ENV"),
+			os.Getenv("ENVIRONMENT"),
+			os.Getenv("ENV"),
+			os.Getenv("GO_ENV"),
+		))
 	}
 	if environment == "" {
 		if cfg.Debug.Enabled {
@@ -167,6 +175,16 @@ func ResolveSiteConfig(cfg admin.Config, input SiteConfig) ResolvedSiteConfig {
 		} else {
 			environment = "prod"
 		}
+	}
+	contentEnvironment := normalizeContentEnvironment(input.ContentEnvironment)
+	if contentEnvironment == "" {
+		contentEnvironment = normalizeContentEnvironment(firstNonEmpty(
+			os.Getenv("SITE_CONTENT_ENV"),
+			os.Getenv("SITE_ENV"),
+		))
+	}
+	if contentEnvironment == "" {
+		contentEnvironment = "default"
 	}
 
 	navCfg := SiteNavigationConfig{
@@ -219,6 +237,7 @@ func ResolveSiteConfig(cfg admin.Config, input SiteConfig) ResolvedSiteConfig {
 		AllowLocaleFallback: allowLocaleFallback,
 		LocalePrefixMode:    localePrefixMode,
 		Environment:         environment,
+		ContentEnvironment:  contentEnvironment,
 		Navigation:          navCfg,
 		Views:               views,
 		Search:              search,
@@ -301,6 +320,21 @@ func normalizeRuntimeEnvironment(value string) string {
 	switch strings.ToLower(strings.TrimSpace(value)) {
 	case "", "default":
 		return ""
+	case "dev", "development", "local", "test":
+		return "dev"
+	case "staging", "stage":
+		return "staging"
+	case "prod", "production":
+		return "prod"
+	default:
+		return strings.ToLower(strings.TrimSpace(value))
+	}
+}
+
+func normalizeContentEnvironment(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "", "default":
+		return "default"
 	case "dev", "development", "local", "test":
 		return "dev"
 	case "staging", "stage":
