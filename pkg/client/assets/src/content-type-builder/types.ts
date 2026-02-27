@@ -17,6 +17,7 @@ export interface ContentType {
   schema: JSONSchema;
   ui_schema?: UISchemaOverlay;
   capabilities?: ContentTypeCapabilities;
+  capability_contracts?: ContentTypeCapabilityContracts;
   schema_version?: string;
   status?: ContentTypeStatus;
   created_at?: string;
@@ -26,11 +27,100 @@ export interface ContentType {
 export type ContentTypeStatus = 'draft' | 'active' | 'deprecated' | 'published';
 
 export interface ContentTypeCapabilities {
+  delivery?: DeliveryCapability;
+  navigation?: NavigationCapability;
+  search?: SearchCapability;
   versioning?: boolean;
   scheduling?: boolean;
   seo?: boolean;
   localization?: boolean;
   blocks?: boolean;
+  [key: string]: ContentTypeCapabilityValue | undefined;
+}
+
+export interface ContentTypeCapabilityContracts {
+  delivery?: DeliveryCapability;
+  navigation?: NavigationCapability;
+  search?: SearchCapability;
+  navigation_defaults_editor?: NavigationDefaultsEditorContract;
+  entry_navigation_overrides?: EntryNavigationOverrideContract;
+  entry_navigation_examples?: EntryNavigationExamplesContract;
+  entry_navigation_validation?: EntryNavigationValidationContract;
+  [key: string]: unknown;
+}
+
+export interface NavigationDefaultsEditorContract {
+  field?: string;
+  fields?: string[];
+  merge_mode_values?: string[];
+  subset_rule?: string;
+}
+
+export interface EntryNavigationOverrideContract {
+  field?: string;
+  value_enum?: Array<'inherit' | 'show' | 'hide' | string>;
+  value_meanings?: Record<string, string>;
+  write_endpoint?: string;
+}
+
+export interface EntryNavigationExamplesContract {
+  inherit?: { _navigation?: Record<string, 'inherit' | 'show' | 'hide' | string> };
+  show_hide?: { _navigation?: Record<string, 'inherit' | 'show' | 'hide' | string> };
+  [key: string]: unknown;
+}
+
+export interface EntryNavigationValidationContract {
+  invalid_location?: {
+    field_pattern?: string;
+    rule?: string;
+    hint?: string;
+  };
+  invalid_value?: {
+    allowed_values?: string[];
+  };
+}
+
+export interface DeliveryCapability {
+  enabled?: boolean;
+  kind?: 'page' | 'collection' | 'detail' | 'hybrid' | string;
+  routes?: {
+    list?: string;
+    detail?: string;
+  };
+  templates?: {
+    list?: string;
+    detail?: string;
+  };
+  menu?: {
+    location?: string;
+    label_key?: string;
+  };
+  preview?: {
+    path_field?: string;
+    token_query?: string;
+  };
+  [key: string]: ContentTypeCapabilityValue | undefined;
+}
+
+export interface NavigationCapability {
+  enabled?: boolean;
+  eligible_locations?: string[];
+  default_locations?: string[];
+  default_visible?: boolean;
+  allow_instance_override?: boolean;
+  label_field?: string;
+  url_field?: string;
+  merge_mode?: 'append' | 'prepend' | 'replace' | string;
+  [key: string]: ContentTypeCapabilityValue | undefined;
+}
+
+export interface SearchCapability {
+  enabled?: boolean;
+  collection?: string;
+  fields?: Record<string, ContentTypeCapabilityObject>;
+  facets?: string[];
+  filters?: string[];
+  published_only?: boolean;
   [key: string]: ContentTypeCapabilityValue | undefined;
 }
 

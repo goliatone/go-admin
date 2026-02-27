@@ -1,0 +1,20 @@
+{% extends "site/base.html" %}
+
+{% block title %}Error · CMS Demo{% endblock %}
+
+{% block content %}
+<section class="max-w-3xl mx-auto bg-white rounded-2xl shadow border border-slate-100 p-8 space-y-4">
+  <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Error</p>
+  <h1 class="text-3xl font-semibold text-slate-900">Something went wrong</h1>
+  <p class="text-slate-600">Status: {{ error_status|default:500 }}</p>
+  {% if error_code %}
+    <p class="text-slate-600">Code: {{ error_code }}</p>
+  {% endif %}
+  {% if requested_locale %}
+    <p class="text-slate-500">Requested locale: {{ requested_locale }}</p>
+  {% endif %}
+  {% if available_locales %}
+    <p class="text-slate-500">Available locales: {{ available_locales|join:", " }}</p>
+  {% endif %}
+</section>
+{% endblock %}

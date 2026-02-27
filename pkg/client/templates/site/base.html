@@ -10,6 +10,17 @@
   {% block head_extra %}{% endblock %}
 </head>
 <body class="min-h-screen bg-slate-50 text-slate-900">
+  {% if preview_banner and preview_banner.enabled %}
+    <div class="bg-amber-100 border-b border-amber-300 text-amber-900">
+      <div class="max-w-6xl mx-auto px-6 py-2 text-sm font-medium">
+        {% if preview_banner.is_preview %}
+          Preview mode active. You are viewing draft content.
+        {% else %}
+          Preview token detected but not valid for this content.
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
   <header class="bg-gradient-to-r from-slate-900 via-sky-900 to-slate-800 text-white shadow-lg">
     <div class="max-w-6xl mx-auto px-6 py-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
       <div class="flex items-center gap-3">
@@ -22,13 +33,37 @@
         </div>
       </div>
       <nav class="flex flex-wrap items-center gap-2">
-        {% for item in nav_items %}
-          <a href="{{ item.href|default:'#' }}"
-             class="px-3 py-2 rounded-lg text-sm font-medium transition-colors {% if item.active %}bg-white text-slate-900 shadow{% else %}text-sky-100 hover:bg-white/10{% endif %}">
-            {{ item.label }}
-          </a>
-        {% endfor %}
+        {% if main_menu and main_menu.items %}
+          {% for item in main_menu.items %}
+            <a href="{{ item.href|default:'#' }}"
+               class="px-3 py-2 rounded-lg text-sm font-medium transition-colors {% if item.active %}bg-white text-slate-900 shadow{% else %}text-sky-100 hover:bg-white/10{% endif %}">
+              {{ item.label|default:item.group_title|default:item.key|default:"Link" }}
+            </a>
+            {% if navigation_debug and item.origin %}
+              <span class="px-2 py-1 rounded-full border border-white/30 text-[10px] uppercase tracking-wide text-sky-100">
+                {{ item.origin }}{% if item.active_match %}:{{ item.active_match }}{% endif %}
+              </span>
+            {% endif %}
+          {% endfor %}
+        {% else %}
+          {% for item in nav_items %}
+            <a href="{{ item.href|default:'#' }}"
+               class="px-3 py-2 rounded-lg text-sm font-medium transition-colors {% if item.active %}bg-white text-slate-900 shadow{% else %}text-sky-100 hover:bg-white/10{% endif %}">
+              {{ item.label }}
+            </a>
+          {% endfor %}
+        {% endif %}
       </nav>
+      {% if locale_switcher and locale_switcher.items %}
+        <div class="flex flex-wrap items-center gap-2 text-xs">
+          {% for item in locale_switcher.items %}
+            <a href="{{ item.url }}"
+               class="px-2 py-1 rounded-full border transition-colors {% if item.active %}bg-white text-slate-900 border-white{% elif item.available %}border-white/30 text-sky-100 hover:bg-white/10{% else %}border-white/20 text-slate-300 opacity-60{% endif %}">
+              {{ item.locale|upper }}
+            </a>
+          {% endfor %}
+        </div>
+      {% endif %}
     </div>
   </header>
 
@@ -36,7 +71,20 @@
     {% block content %}{% endblock %}
   </main>
 
-  <footer class="max-w-6xl mx-auto px-6 pb-10 text-sm text-slate-500 flex flex-col gap-1">
+  <footer class="max-w-6xl mx-auto px-6 pb-10 text-sm text-slate-500 flex flex-col gap-3">
+    {% if footer_menu and footer_menu.items %}
+      <nav class="flex flex-wrap items-center gap-3">
+        {% for item in footer_menu.items %}
+          <a href="{{ item.href|default:'#' }}"
+             class="text-slate-600 hover:text-slate-900 transition-colors {% if item.active %}font-semibold{% endif %}">
+            {{ item.label|default:item.group_title|default:item.key|default:"Link" }}
+          </a>
+          {% if navigation_debug and item.contribution_origin %}
+            <span class="text-[10px] uppercase tracking-wide text-slate-400">{{ item.contribution_origin }}</span>
+          {% endif %}
+        {% endfor %}
+      </nav>
+    {% endif %}
     <span>Navigation and pages are resolved from go-cms menus and translations.</span>
     <span class="flex items-center gap-2 text-slate-400">
       <i class="iconoir-database-check"></i>
