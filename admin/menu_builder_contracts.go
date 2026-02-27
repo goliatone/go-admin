@@ -54,14 +54,14 @@ type AdminMenuViewProfileRecord struct {
 
 // AdminMenuPreviewSimulation captures preview-specific location/profile context.
 type AdminMenuPreviewSimulation struct {
-	RequestedID          string                  `json:"requested_id"`
-	Location             string                  `json:"location,omitempty"`
-	Locale               string                  `json:"locale,omitempty"`
-	ViewProfile          string                  `json:"view_profile,omitempty"`
-	IncludeDrafts        bool                    `json:"include_drafts"`
-	PreviewTokenPresent  bool                    `json:"preview_token_present"`
-	Binding              *AdminMenuBindingRecord `json:"binding,omitempty"`
-	Profile              *AdminMenuViewProfileRecord `json:"profile,omitempty"`
+	RequestedID         string                      `json:"requested_id"`
+	Location            string                      `json:"location,omitempty"`
+	Locale              string                      `json:"locale,omitempty"`
+	ViewProfile         string                      `json:"view_profile,omitempty"`
+	IncludeDrafts       bool                        `json:"include_drafts"`
+	PreviewTokenPresent bool                        `json:"preview_token_present"`
+	Binding             *AdminMenuBindingRecord     `json:"binding,omitempty"`
+	Profile             *AdminMenuViewProfileRecord `json:"profile,omitempty"`
 }
 
 // AdminMenuContracts exposes endpoint metadata and machine-readable menu error mapping.

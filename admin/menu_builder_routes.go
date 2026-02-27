@@ -31,20 +31,20 @@ func (a *Admin) menuBuilderService() *MenuBuilderService {
 
 func (a *Admin) menuBuilderEndpoints() map[string]string {
 	return map[string]string{
-		"menus":                adminAPIRoutePath(a, "menus"),
-		"menus.contracts":      adminAPIRoutePath(a, "menus.contracts"),
-		"content.navigation":   adminAPIRoutePath(a, "content.navigation"),
-		"menus.id":             adminAPIRoutePath(a, "menus.id"),
-		"menus.publish":        adminAPIRoutePath(a, "menus.publish"),
-		"menus.unpublish":      adminAPIRoutePath(a, "menus.unpublish"),
-		"menus.items":          adminAPIRoutePath(a, "menus.items"),
-		"menus.preview":        adminAPIRoutePath(a, "menus.preview"),
-		"menus.clone":          adminAPIRoutePath(a, "menus.clone"),
-		"menus.archive":        adminAPIRoutePath(a, "menus.archive"),
-		"menu.bindings":        adminAPIRoutePath(a, "menu.bindings"),
-		"menu.bindings.location": adminAPIRoutePath(a, "menu.bindings.location"),
-		"menu.view_profiles":   adminAPIRoutePath(a, "menu.view_profiles"),
-		"menu.view_profiles.code": adminAPIRoutePath(a, "menu.view_profiles.code"),
+		"menus":                      adminAPIRoutePath(a, "menus"),
+		"menus.contracts":            adminAPIRoutePath(a, "menus.contracts"),
+		"content.navigation":         adminAPIRoutePath(a, "content.navigation"),
+		"menus.id":                   adminAPIRoutePath(a, "menus.id"),
+		"menus.publish":              adminAPIRoutePath(a, "menus.publish"),
+		"menus.unpublish":            adminAPIRoutePath(a, "menus.unpublish"),
+		"menus.items":                adminAPIRoutePath(a, "menus.items"),
+		"menus.preview":              adminAPIRoutePath(a, "menus.preview"),
+		"menus.clone":                adminAPIRoutePath(a, "menus.clone"),
+		"menus.archive":              adminAPIRoutePath(a, "menus.archive"),
+		"menu.bindings":              adminAPIRoutePath(a, "menu.bindings"),
+		"menu.bindings.location":     adminAPIRoutePath(a, "menu.bindings.location"),
+		"menu.view_profiles":         adminAPIRoutePath(a, "menu.view_profiles"),
+		"menu.view_profiles.code":    adminAPIRoutePath(a, "menu.view_profiles.code"),
 		"menu.view_profiles.publish": adminAPIRoutePath(a, "menu.view_profiles.publish"),
 	}
 }
@@ -162,9 +162,9 @@ func (b *menuBuilderBinding) ListMenus(c router.Context) error {
 	service := b.admin.menuBuilderService()
 	records := service.ListMenus()
 	return writeJSON(c, map[string]any{
-		"menus":  records,
-		"total":  len(records),
-		"meta":   map[string]any{"endpoints": b.admin.menuBuilderEndpoints()},
+		"menus": records,
+		"total": len(records),
+		"meta":  map[string]any{"endpoints": b.admin.menuBuilderEndpoints()},
 	})
 }
 
@@ -504,8 +504,8 @@ func (b *menuBuilderBinding) UpsertBindingByLocation(c router.Context) error {
 		return writeError(c, err)
 	}
 	b.admin.recordActivity(adminCtx.Context, adminCtx.UserID, "menu.binding.upsert", "menu_binding:"+binding.ID, map[string]any{
-		"location": binding.Location,
-		"menu_code": binding.MenuCode,
+		"location":          binding.Location,
+		"menu_code":         binding.MenuCode,
 		"view_profile_code": binding.ViewProfileCode,
 	})
 	return writeJSON(c, map[string]any{"binding": binding})

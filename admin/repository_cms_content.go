@@ -376,19 +376,19 @@ func cmsContentRecord(item CMSContent, opts cmsContentRecordOptions) map[string]
 		effectiveVisibility = inferEffectiveNavigationVisibility(navigation, effectiveLocations)
 	}
 	record := map[string]any{
-		"id":                       item.ID,
-		"title":                    item.Title,
-		"slug":                     item.Slug,
-		"locale":                   item.Locale,
-		"translation_group_id":     canonicalTranslationGroupIDForContent(item),
-		"requested_locale":         item.RequestedLocale,
-		"resolved_locale":          item.ResolvedLocale,
-		"available_locales":        append([]string{}, item.AvailableLocales...),
-		"missing_requested_locale": item.MissingRequestedLocale,
-		"content_type":             contentType,
-		"status":                   item.Status,
-		"_navigation":              navigationVisibilityMapAny(navigation),
-		"effective_menu_locations": append([]string{}, effectiveLocations...),
+		"id":                              item.ID,
+		"title":                           item.Title,
+		"slug":                            item.Slug,
+		"locale":                          item.Locale,
+		"translation_group_id":            canonicalTranslationGroupIDForContent(item),
+		"requested_locale":                item.RequestedLocale,
+		"resolved_locale":                 item.ResolvedLocale,
+		"available_locales":               append([]string{}, item.AvailableLocales...),
+		"missing_requested_locale":        item.MissingRequestedLocale,
+		"content_type":                    contentType,
+		"status":                          item.Status,
+		"_navigation":                     navigationVisibilityMapAny(navigation),
+		"effective_menu_locations":        append([]string{}, effectiveLocations...),
 		"effective_navigation_visibility": navigationVisibilityBoolMapAny(effectiveVisibility),
 	}
 	if opts.includeContentTypeSlug {
