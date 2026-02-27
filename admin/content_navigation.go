@@ -29,8 +29,8 @@ type contentEntryNavigationPolicy struct {
 }
 
 type contentEntryNavigationEvaluation struct {
-	Overrides          map[string]string
-	EffectiveLocations []string
+	Overrides           map[string]string
+	EffectiveLocations  []string
 	EffectiveVisibility map[string]bool
 }
 
@@ -62,7 +62,7 @@ func normalizeNavigationOverrideMap(raw any) (map[string]string, error) {
 		}
 	default:
 		return nil, validationDomainError("navigation override map must be an object", map[string]any{
-			"field":        "_navigation",
+			"field":         "_navigation",
 			"allowed_modes": navigationOverrideModesContract(),
 		})
 	}
@@ -323,8 +323,8 @@ func contentNavigationDefaultsEditorContract() map[string]any {
 
 func contentNavigationEntryOverrideContract() map[string]any {
 	return map[string]any{
-		"field":         "_navigation",
-		"value_enum":    navigationOverrideModesContract(),
+		"field":      "_navigation",
+		"value_enum": navigationOverrideModesContract(),
 		"value_meanings": map[string]any{
 			NavigationOverrideInherit: "use content type defaults",
 			NavigationOverrideShow:    "force include in location",

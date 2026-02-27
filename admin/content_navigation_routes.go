@@ -67,8 +67,8 @@ func (a *Admin) registerContentNavigationOverrideRoute() {
 		}
 		if !ok {
 			return writeError(c, requiredFieldDomainError("_navigation", map[string]any{
-				"field":   "_navigation",
-				"hint":    "Provide an object map with tri-state values inherit|show|hide.",
+				"field":    "_navigation",
+				"hint":     "Provide an object map with tri-state values inherit|show|hide.",
 				"examples": contentNavigationExamplesContract(),
 			}))
 		}
@@ -83,12 +83,12 @@ func (a *Admin) registerContentNavigationOverrideRoute() {
 			updated = applyContentEntryNavigationReadContract(updated, policy)
 		}
 		return writeJSON(c, map[string]any{
-			"id":                            id,
-			"type":                          typeKey,
-			"panel":                         panelName,
-			"data":                          updated,
-			"_navigation":                   updated["_navigation"],
-			"effective_menu_locations":      updated["effective_menu_locations"],
+			"id":                              id,
+			"type":                            typeKey,
+			"panel":                           panelName,
+			"data":                            updated,
+			"_navigation":                     updated["_navigation"],
+			"effective_menu_locations":        updated["effective_menu_locations"],
 			"effective_navigation_visibility": updated["effective_navigation_visibility"],
 		})
 	}

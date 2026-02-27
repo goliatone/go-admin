@@ -25,12 +25,12 @@ type MenuBuilderService struct {
 func NewMenuBuilderService() *MenuBuilderService {
 	now := time.Now().UTC()
 	full := AdminMenuViewProfileRecord{
-		Code:      "full",
-		Name:      "Full",
-		Mode:      "full",
-		Status:    MenuRecordStatusPublished,
-		CreatedAt: now,
-		UpdatedAt: now,
+		Code:        "full",
+		Name:        "Full",
+		Mode:        "full",
+		Status:      MenuRecordStatusPublished,
+		CreatedAt:   now,
+		UpdatedAt:   now,
 		PublishedAt: &now,
 	}
 	return &MenuBuilderService{
