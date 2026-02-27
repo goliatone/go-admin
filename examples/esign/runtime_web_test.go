@@ -1213,8 +1213,9 @@ func TestRuntimeSignerWebE2EUnifiedFlowConsentFieldSignatureSubmit(t *testing.T)
 		t.Fatalf("read review page body: %v", err)
 	}
 	reviewMarkup := string(reviewBody)
-	if !strings.Contains(reviewMarkup, "flowMode: 'unified'") {
-		t.Fatalf("expected unified flow marker in review markup, got %s", strings.TrimSpace(reviewMarkup))
+	reviewConfig := extractJSONScriptPayloadFromHTML(t, reviewMarkup, "esign-signer-review-config")
+	if got := strings.TrimSpace(fmt.Sprint(reviewConfig["flowMode"])); got != "unified" {
+		t.Fatalf("expected unified flow mode in signer review config, got %q payload=%+v", got, reviewConfig)
 	}
 
 	sessionResp := doRequestWithBody(
@@ -1439,19 +1440,24 @@ func newESignRuntimeWebFixtureForTestsWithGoogleEnabled(googleEnabled bool) (eSi
 }
 
 func extractESignPageConfigFromHTML(t *testing.T, html string) map[string]any {
+	return extractJSONScriptPayloadFromHTML(t, html, "esign-page-config")
+}
+
+func extractJSONScriptPayloadFromHTML(t *testing.T, html string, scriptID string) map[string]any {
 	t.Helper()
-	re := regexp.MustCompile(`(?s)<script[^>]*id="esign-page-config"[^>]*>(.*?)</script>`)
+	scriptID = strings.TrimSpace(scriptID)
+	re := regexp.MustCompile(`(?s)<script[^>]*id="` + regexp.QuoteMeta(scriptID) + `"[^>]*>(.*?)</script>`)
 	matches := re.FindStringSubmatch(html)
 	if len(matches) < 2 {
-		t.Fatalf("expected esign page config script tag in html response")
+		t.Fatalf("expected %s script tag in html response", scriptID)
 	}
 	raw := strings.TrimSpace(matches[1])
 	if raw == "" {
-		t.Fatalf("expected esign page config payload in script tag")
+		t.Fatalf("expected %s payload in script tag", scriptID)
 	}
 	payload := map[string]any{}
 	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
-		t.Fatalf("unmarshal esign page config payload: %v", err)
+		t.Fatalf("unmarshal %s payload: %v", scriptID, err)
 	}
 	return payload
 }
