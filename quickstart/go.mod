@@ -6,6 +6,8 @@ replace github.com/goliatone/go-admin => ..
 
 replace github.com/goliatone/go-router => ../../go-router
 
+replace github.com/goliatone/go-cms => ../../go-cms
+
 require (
 	github.com/flosch/pongo2/v6 v6.0.0
 	github.com/gobuffalo/flect v1.0.3
@@ -13,7 +15,7 @@ require (
 	github.com/goliatone/go-admin v0.25.0
 	github.com/goliatone/go-auth v0.35.0
 	github.com/goliatone/go-auth/adapters/featuregate v0.35.0
-	github.com/goliatone/go-cms v0.36.0
+	github.com/goliatone/go-cms v0.38.0
 	github.com/goliatone/go-command v0.16.1
 	github.com/goliatone/go-dashboard v0.7.0
 	github.com/goliatone/go-errors v0.10.0
