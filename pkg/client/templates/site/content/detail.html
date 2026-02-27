@@ -1,0 +1,21 @@
+{% extends "site/base.html" %}
+
+{% block title %}{{ record.title|default:record.slug }} · CMS Demo{% endblock %}
+
+{% block content %}
+<article class="bg-white rounded-2xl shadow border border-slate-100 p-8 space-y-4">
+  <header class="space-y-2">
+    <h1 class="text-3xl font-semibold text-slate-900">{{ record.title|default:"Untitled" }}</h1>
+    <p class="text-sm text-slate-500">{{ record.path|default:"/" }}</p>
+  </header>
+  <div class="text-sm text-slate-600">
+    <p>Locale: {{ resolved_locale|default:locale }}</p>
+    {% if missing_requested_locale %}
+      <p>Requested locale unavailable, fallback record rendered.</p>
+    {% endif %}
+  </div>
+  <div class="prose prose-slate max-w-none">
+    {{ record.data.content|default:record.data.body|default:"No rich content field was found for this record." }}
+  </div>
+</article>
+{% endblock %}
