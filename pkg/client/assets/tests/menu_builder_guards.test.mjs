@@ -3,10 +3,19 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
+if (typeof globalThis.document === 'undefined') {
+  globalThis.document = {
+    readyState: 'complete',
+    addEventListener: () => {},
+    querySelectorAll: () => [],
+  };
+}
+
 const {
   parseMenuContracts,
   parseMenuRecord,
   parseNavigationOverrides,
+  MenuBuilderAPIClient,
   MenuBuilderStore,
 } = await import('../dist/menu-builder/index.js');
 
@@ -166,4 +175,69 @@ test('MenuBuilderStore emits validation issues for depth, cycle, duplicate targe
   assert.ok(codes.has('cycle'));
   assert.ok(codes.has('duplicate_target'));
   assert.ok(codes.has('invalid_target'));
+});
+
+test('MenuBuilderAPIClient accepts legacy profile response keys', async () => {
+  const originalFetch = globalThis.fetch;
+  const responses = [
+    {
+      contracts: {
+        endpoints: {
+          'menu.view_profiles': '/admin/api/menu-view-profiles',
+          'menu.view_profiles.code': '/admin/api/menu-view-profiles/:code',
+          'menu.view_profiles.publish': '/admin/api/menu-view-profiles/:code/publish',
+        },
+        error_codes: {},
+      },
+    },
+    {
+      profiles: [
+        { code: 'legacy', name: 'Legacy', mode: 'full', status: 'draft' },
+      ],
+    },
+    {
+      profile: { code: 'legacy', name: 'Legacy', mode: 'full', status: 'draft' },
+    },
+  ];
+
+  globalThis.fetch = async () => {
+    const payload = responses.shift();
+    return {
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      json: async () => payload,
+    };
+  };
+
+  try {
+    const client = new MenuBuilderAPIClient({ basePath: '/admin/api', credentials: 'omit' });
+    const listed = await client.listProfiles();
+    assert.equal(listed[0]?.code, 'legacy');
+
+    const created = await client.createProfile({ code: 'legacy', name: 'Legacy' });
+    assert.equal(created.code, 'legacy');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('MenuBuilderStore clears preview_result when selected menu changes', async () => {
+  const client = {
+    getMenu: async (id) => ({
+      menu: { id, code: id, name: id, status: 'draft' },
+      items: [],
+    }),
+    previewMenu: async () => ({
+      menu: { code: 'first', items: [] },
+      simulation: { requested_id: 'first' },
+    }),
+  };
+
+  const store = new MenuBuilderStore(client);
+  await store.preview({ menuId: 'first' });
+  assert.ok(store.snapshot().preview_result);
+
+  await store.selectMenu('second');
+  assert.equal(store.snapshot().preview_result, null);
 });

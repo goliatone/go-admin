@@ -214,7 +214,9 @@ export class MenuBuilderAPIClient {
     const payload = await this.fetchFromEndpoint('menu.view_profiles', { method: 'GET' });
     const rawProfiles = Array.isArray(payload.view_profiles)
       ? payload.view_profiles
-      : (Array.isArray(payload.data) ? payload.data : []);
+      : (Array.isArray(payload.profiles)
+        ? payload.profiles
+        : (Array.isArray(payload.data) ? payload.data : []));
     return rawProfiles.map(item => parseMenuViewProfileRecord(item));
   }
 
@@ -223,7 +225,7 @@ export class MenuBuilderAPIClient {
       method: 'POST',
       body: input,
     });
-    return parseMenuViewProfileRecord(payload.view_profile ?? payload.data ?? payload);
+    return parseMenuViewProfileRecord(payload.view_profile ?? payload.profile ?? payload.data ?? payload);
   }
 
   async updateProfile(code: string, input: Partial<MenuViewProfileRecord>): Promise<MenuViewProfileRecord> {
@@ -232,7 +234,7 @@ export class MenuBuilderAPIClient {
       params: { code },
       body: input,
     });
-    return parseMenuViewProfileRecord(payload.view_profile ?? payload.data ?? payload);
+    return parseMenuViewProfileRecord(payload.view_profile ?? payload.profile ?? payload.data ?? payload);
   }
 
   async deleteProfile(code: string): Promise<void> {
@@ -248,7 +250,7 @@ export class MenuBuilderAPIClient {
       params: { code },
       body: { publish },
     });
-    return parseMenuViewProfileRecord(payload.view_profile ?? payload.data ?? payload);
+    return parseMenuViewProfileRecord(payload.view_profile ?? payload.profile ?? payload.data ?? payload);
   }
 
   async patchEntryNavigation(
@@ -297,9 +299,8 @@ export class MenuBuilderAPIClient {
     }
 
     const endpoint = normalizePath(this.config.basePath, fillPath(template, options.params ?? {}));
-    const queryString = options.query && Array.from(options.query.keys()).length > 0
-      ? `?${options.query.toString()}`
-      : '';
+    const query = String(options.query ?? '').trim();
+    const queryString = query ? `?${query}` : '';
 
     const payload = await this.fetchJSON(`${endpoint}${queryString}`, {
       method: options.method,
@@ -333,7 +334,7 @@ export class MenuBuilderAPIClient {
 
     if (!response.ok) {
       const error = asRecord((payload as Record<string, unknown>)?.error ?? payload);
-      const message = String(error.message ?? response.statusText || 'request failed').trim() || 'request failed';
+      const message = String(error.message ?? (response.statusText || 'request failed')).trim() || 'request failed';
       const textCode = String(error.text_code ?? '').trim();
       const metadata = asRecord(error.metadata);
       throw new MenuBuilderAPIError(message, response.status, textCode, metadata);

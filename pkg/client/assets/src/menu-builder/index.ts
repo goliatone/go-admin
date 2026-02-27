@@ -11,7 +11,8 @@ export type {
 
 export { MenuBuilderAPIClient, MenuBuilderAPIError } from './api-client.js';
 export { MenuBuilderStore } from './store.js';
-export { MenuBuilderUI, EntryNavigationOverrideUI, initMenuBuilder, initEntryNavigationOverrides } from './editor.js';
+import { MenuBuilderUI, EntryNavigationOverrideUI, initMenuBuilder, initEntryNavigationOverrides } from './editor.js';
+export { MenuBuilderUI, EntryNavigationOverrideUI, initMenuBuilder, initEntryNavigationOverrides };
 export {
   parseMenuContracts,
   parseMenuRecord,
@@ -36,7 +37,7 @@ onReady(() => {
       .then(() => {
         root.dataset.initialized = 'true';
       })
-      .catch((error) => {
+      .catch((error: unknown) => {
         console.error('[menu-builder] failed to initialize', error);
         root.innerHTML = `<div class="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">${error instanceof Error ? error.message : String(error)}</div>`;
       });
@@ -48,7 +49,7 @@ onReady(() => {
       .then(() => {
         root.dataset.initialized = 'true';
       })
-      .catch((error) => {
+      .catch((error: unknown) => {
         console.error('[entry-navigation] failed to initialize', error);
         root.innerHTML = `<div class="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">${error instanceof Error ? error.message : String(error)}</div>`;
       });

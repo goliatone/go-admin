@@ -3,8 +3,8 @@ import { M as H, C as ie, T as oe } from "../chunks/modal-B2yUlSQt.js";
 import { r as jt } from "../chunks/icon-renderer-CRbgoQtj.js";
 import { b as K } from "../chunks/badge-CqKzZ9y5.js";
 class ge extends Error {
-  constructor(e, t, r, a) {
-    super(e), this.name = "ContentTypeAPIError", this.status = t, this.textCode = r, this.fields = a;
+  constructor(e, t, a, r) {
+    super(e), this.name = "ContentTypeAPIError", this.status = t, this.textCode = a, this.fields = r;
   }
 }
 class W {
@@ -49,31 +49,31 @@ class W {
   async list(e) {
     const t = new URLSearchParams();
     e?.page && t.set("page", String(e.page)), e?.per_page && t.set("per_page", String(e.per_page)), e?.search && t.set("search", e.search);
-    const r = t.toString(), a = `${this.contentTypesPanelBasePath()}${r ? `?${r}` : ""}`, i = await (await this.fetch(a, { method: "GET" })).json();
+    const a = t.toString(), r = `${this.contentTypesPanelBasePath()}${a ? `?${a}` : ""}`, i = await (await this.fetch(r, { method: "GET" })).json();
     return Array.isArray(i) ? { items: i, total: i.length } : i.items && Array.isArray(i.items) ? i : i.data && Array.isArray(i.data) ? { items: i.data, total: i.total ?? i.data.length } : { items: [], total: 0 };
   }
   /**
    * Get a single content type by ID or slug
    */
   async get(e) {
-    const t = `${this.contentTypesPanelBasePath()}/${encodeURIComponent(e)}`, a = await (await this.fetch(t, { method: "GET" })).json();
-    return a.item ?? a.data ?? a;
+    const t = `${this.contentTypesPanelBasePath()}/${encodeURIComponent(e)}`, r = await (await this.fetch(t, { method: "GET" })).json();
+    return r.item ?? r.data ?? r;
   }
   /**
    * Create a new content type
    */
   async create(e) {
-    const t = this.contentTypesPanelBasePath(), a = await (await this.fetch(t, {
+    const t = this.contentTypesPanelBasePath(), r = await (await this.fetch(t, {
       method: "POST",
       body: JSON.stringify(e)
     })).json();
-    return a.item ?? a.data ?? a;
+    return r.item ?? r.data ?? r;
   }
   /**
    * Update an existing content type
    */
   async update(e, t) {
-    const r = `${this.contentTypesPanelBasePath()}/${encodeURIComponent(e)}`, s = await (await this.fetch(r, {
+    const a = `${this.contentTypesPanelBasePath()}/${encodeURIComponent(e)}`, s = await (await this.fetch(a, {
       method: "PUT",
       body: JSON.stringify(t)
     })).json();
@@ -93,7 +93,7 @@ class W {
    * Publish a content type (change status to active)
    */
   async publish(e, t) {
-    const r = `${this.config.basePath}/content_types/${encodeURIComponent(e)}/publish`, s = await (await this.fetch(r, {
+    const a = `${this.config.basePath}/content_types/${encodeURIComponent(e)}/publish`, s = await (await this.fetch(a, {
       method: "POST",
       body: JSON.stringify({ force: t ?? !1 })
     })).json();
@@ -103,27 +103,27 @@ class W {
    * Deprecate a content type
    */
   async deprecate(e) {
-    const t = `${this.config.basePath}/content_types/${encodeURIComponent(e)}/deprecate`, a = await (await this.fetch(t, { method: "POST" })).json();
-    return a.item ?? a.data ?? a;
+    const t = `${this.config.basePath}/content_types/${encodeURIComponent(e)}/deprecate`, r = await (await this.fetch(t, { method: "POST" })).json();
+    return r.item ?? r.data ?? r;
   }
   /**
    * Clone a content type
    */
-  async clone(e, t, r) {
-    const a = `${this.config.basePath}/content_types/${encodeURIComponent(e)}/clone`, i = await (await this.fetch(a, {
+  async clone(e, t, a) {
+    const r = `${this.config.basePath}/content_types/${encodeURIComponent(e)}/clone`, i = await (await this.fetch(r, {
       method: "POST",
-      body: JSON.stringify({ slug: t, name: r })
+      body: JSON.stringify({ slug: t, name: a })
     })).json();
     return i.item ?? i.data ?? i;
   }
   /**
    * Check compatibility between current schema and a new schema
    */
-  async checkCompatibility(e, t, r) {
-    const a = `${this.config.basePath}/content_types/${encodeURIComponent(e)}/compatibility`;
-    return await (await this.fetch(a, {
+  async checkCompatibility(e, t, a) {
+    const r = `${this.config.basePath}/content_types/${encodeURIComponent(e)}/compatibility`;
+    return await (await this.fetch(r, {
       method: "POST",
-      body: JSON.stringify({ schema: t, ui_schema: r })
+      body: JSON.stringify({ schema: t, ui_schema: a })
     })).json();
   }
   /**
@@ -132,8 +132,8 @@ class W {
   async getVersionHistory(e) {
     const t = `${this.config.basePath}/content_types/${encodeURIComponent(e)}/versions`;
     try {
-      const a = await (await this.fetch(t, { method: "GET" })).json();
-      return { versions: a.versions ?? a.items ?? a ?? [] };
+      const r = await (await this.fetch(t, { method: "GET" })).json();
+      return { versions: r.versions ?? r.items ?? r ?? [] };
     } catch {
       return { versions: [] };
     }
@@ -180,31 +180,31 @@ class W {
   async listBlockDefinitions(e) {
     const t = new URLSearchParams();
     e?.page && t.set("page", String(e.page)), e?.per_page && t.set("per_page", String(e.per_page)), e?.search && t.set("search", e.search), e?.category && t.set("filter_category", e.category), e?.status && t.set("filter_status", e.status);
-    const r = t.toString(), a = `${this.blockDefinitionsPanelBasePath()}${r ? `?${r}` : ""}`, i = await (await this.fetch(a, { method: "GET" })).json();
+    const a = t.toString(), r = `${this.blockDefinitionsPanelBasePath()}${a ? `?${a}` : ""}`, i = await (await this.fetch(r, { method: "GET" })).json();
     return Array.isArray(i) ? { items: i, total: i.length } : i.items && Array.isArray(i.items) ? i : i.data && Array.isArray(i.data) ? { items: i.data, total: i.total ?? i.data.length } : { items: [], total: 0 };
   }
   /**
    * Get a single block definition by ID or type
    */
   async getBlockDefinition(e) {
-    const t = `${this.blockDefinitionsPanelBasePath()}/${encodeURIComponent(e)}`, a = await (await this.fetch(t, { method: "GET" })).json();
-    return a.item ?? a.data ?? a;
+    const t = `${this.blockDefinitionsPanelBasePath()}/${encodeURIComponent(e)}`, r = await (await this.fetch(t, { method: "GET" })).json();
+    return r.item ?? r.data ?? r;
   }
   /**
    * Create a new block definition
    */
   async createBlockDefinition(e) {
-    const t = this.blockDefinitionsPanelBasePath(), a = await (await this.fetch(t, {
+    const t = this.blockDefinitionsPanelBasePath(), r = await (await this.fetch(t, {
       method: "POST",
       body: JSON.stringify(e)
     })).json();
-    return a.item ?? a.data ?? a;
+    return r.item ?? r.data ?? r;
   }
   /**
    * Update an existing block definition
    */
   async updateBlockDefinition(e, t) {
-    const r = `${this.blockDefinitionsPanelBasePath()}/${encodeURIComponent(e)}`, s = await (await this.fetch(r, {
+    const a = `${this.blockDefinitionsPanelBasePath()}/${encodeURIComponent(e)}`, s = await (await this.fetch(a, {
       method: "PUT",
       body: JSON.stringify(t)
     })).json();
@@ -221,23 +221,23 @@ class W {
    * Publish a block definition (change status to active)
    */
   async publishBlockDefinition(e) {
-    const t = `${this.config.basePath}/block_definitions/${encodeURIComponent(e)}/publish`, a = await (await this.fetch(t, { method: "POST" })).json();
-    return a.item ?? a.data ?? a;
+    const t = `${this.config.basePath}/block_definitions/${encodeURIComponent(e)}/publish`, r = await (await this.fetch(t, { method: "POST" })).json();
+    return r.item ?? r.data ?? r;
   }
   /**
    * Deprecate a block definition
    */
   async deprecateBlockDefinition(e) {
-    const t = `${this.config.basePath}/block_definitions/${encodeURIComponent(e)}/deprecate`, a = await (await this.fetch(t, { method: "POST" })).json();
-    return a.item ?? a.data ?? a;
+    const t = `${this.config.basePath}/block_definitions/${encodeURIComponent(e)}/deprecate`, r = await (await this.fetch(t, { method: "POST" })).json();
+    return r.item ?? r.data ?? r;
   }
   /**
    * Clone a block definition
    */
-  async cloneBlockDefinition(e, t, r) {
-    const a = `${this.config.basePath}/block_definitions/${encodeURIComponent(e)}/clone`, i = await (await this.fetch(a, {
+  async cloneBlockDefinition(e, t, a) {
+    const r = `${this.config.basePath}/block_definitions/${encodeURIComponent(e)}/clone`, i = await (await this.fetch(r, {
       method: "POST",
-      body: JSON.stringify({ type: t, slug: r })
+      body: JSON.stringify({ type: t, slug: a })
     })).json();
     return i.item ?? i.data ?? i;
   }
@@ -247,8 +247,8 @@ class W {
   async getBlockDefinitionVersions(e) {
     const t = `${this.config.basePath}/block_definitions/${encodeURIComponent(e)}/versions`;
     try {
-      const a = await (await this.fetch(t, { method: "GET" })).json();
-      return { versions: a.versions ?? a.items ?? a ?? [] };
+      const r = await (await this.fetch(t, { method: "GET" })).json();
+      return { versions: r.versions ?? r.items ?? r ?? [] };
     } catch {
       return { versions: [] };
     }
@@ -259,8 +259,8 @@ class W {
   async getBlockCategories() {
     const e = `${this.config.basePath}/block_definitions_meta/categories`;
     try {
-      const r = await (await this.fetch(e, { method: "GET" })).json();
-      return Array.isArray(r) ? r : r.categories ?? [];
+      const a = await (await this.fetch(e, { method: "GET" })).json();
+      return Array.isArray(a) ? a : a.categories ?? [];
     } catch {
       return ["content", "media", "layout", "interactive", "custom"];
     }
@@ -274,16 +274,16 @@ class W {
   }
   async fetchBlockDefinitionDiagnostics(e) {
     try {
-      const r = await (await this.fetch(e, { method: "GET" })).json();
-      if (!r || typeof r != "object")
+      const a = await (await this.fetch(e, { method: "GET" })).json();
+      if (!a || typeof a != "object")
         return null;
-      const a = r;
-      return typeof a.effective_environment != "string" ? null : {
-        effective_environment: a.effective_environment,
-        requested_environment: a.requested_environment,
-        total_effective: Number.isFinite(a.total_effective) ? Number(a.total_effective) : 0,
-        total_default: Number.isFinite(a.total_default) ? Number(a.total_default) : 0,
-        available_environments: Array.isArray(a.available_environments) ? a.available_environments.map((s) => String(s)).filter((s) => s.length > 0) : []
+      const r = a;
+      return typeof r.effective_environment != "string" ? null : {
+        effective_environment: r.effective_environment,
+        requested_environment: r.requested_environment,
+        total_effective: Number.isFinite(r.total_effective) ? Number(r.total_effective) : 0,
+        total_default: Number.isFinite(r.total_default) ? Number(r.total_default) : 0,
+        available_environments: Array.isArray(r.available_environments) ? r.available_environments.map((s) => String(s)).filter((s) => s.length > 0) : []
       };
     } catch {
       return null;
@@ -299,8 +299,8 @@ class W {
   async getFieldTypes() {
     const e = `${this.config.basePath}/block_definitions_meta/field_types`;
     try {
-      const r = await (await this.fetch(e, { method: "GET" })).json();
-      return Array.isArray(r) ? r : r.items && Array.isArray(r.items) ? r.items : r.field_types && Array.isArray(r.field_types) ? r.field_types : null;
+      const a = await (await this.fetch(e, { method: "GET" })).json();
+      return Array.isArray(a) ? a : a.items && Array.isArray(a.items) ? a.items : a.field_types && Array.isArray(a.field_types) ? a.field_types : null;
     } catch {
       return null;
     }
@@ -312,8 +312,8 @@ class W {
   async getBlockFieldTypeGroups() {
     const e = `${this.config.basePath}/block_definitions_meta/field_types`;
     try {
-      const r = await (await this.fetch(e, { method: "GET" })).json();
-      return r && Array.isArray(r.categories) ? r.categories : null;
+      const a = await (await this.fetch(e, { method: "GET" })).json();
+      return a && Array.isArray(a.categories) ? a.categories : null;
     } catch {
       return null;
     }
@@ -322,22 +322,22 @@ class W {
   // Helpers
   // ===========================================================================
   async fetch(e, t) {
-    const r = {
+    const a = {
       "Content-Type": "application/json",
       Accept: "application/json",
       ...this.config.headers
     };
     if (this.environment) {
-      r["X-Admin-Environment"] = this.environment;
+      a["X-Admin-Environment"] = this.environment;
       const s = e.includes("?") ? "&" : "?";
       e = `${e}${s}env=${encodeURIComponent(this.environment)}`;
     }
-    const a = await fetch(e, {
+    const r = await fetch(e, {
       ...t,
-      headers: r,
+      headers: a,
       credentials: this.config.credentials
     });
-    return a.ok || await this.handleError(a), a;
+    return r.ok || await this.handleError(r), r;
   }
   async handleError(e) {
     let t = null;
@@ -345,11 +345,11 @@ class W {
       t = await e.clone().json();
     } catch {
     }
-    const r = await Lt(e);
-    let a = t?.text_code, s = t?.fields;
+    const a = await Lt(e);
+    let r = t?.text_code, s = t?.fields;
     if (t && typeof t.error == "object" && t.error) {
       const i = t.error;
-      if (!a && typeof i.text_code == "string" && (a = i.text_code), !s) {
+      if (!r && typeof i.text_code == "string" && (r = i.text_code), !s) {
         const l = i.metadata?.fields;
         l && typeof l == "object" && (s = l);
       }
@@ -362,7 +362,7 @@ class W {
         Object.keys(n).length > 0 && (s = n);
       }
     }
-    throw new ge(r, e.status, a, s);
+    throw new ge(a, e.status, r, s);
   }
 }
 function me(o) {
@@ -375,18 +375,18 @@ function D(o) {
   if (!o || o.length === 0)
     return [];
   const e = /* @__PURE__ */ new Set(), t = [];
-  for (const r of o) {
-    const a = String(r ?? "").trim();
-    !a || e.has(a) || (e.add(a), t.push(a));
+  for (const a of o) {
+    const r = String(a ?? "").trim();
+    !r || e.has(r) || (e.add(r), t.push(r));
   }
   return t;
 }
 function Ye(o, e) {
-  const t = D(o), r = D(e);
-  if (t.length !== r.length)
+  const t = D(o), a = D(e);
+  if (t.length !== a.length)
     return !1;
-  const a = new Set(r);
-  return t.every((s) => a.has(s));
+  const r = new Set(a);
+  return t.every((s) => r.has(s));
 }
 function Mt(o) {
   if (typeof o != "string")
@@ -405,19 +405,19 @@ function Tt(o) {
     return null;
   const e = [];
   let t;
-  for (const a of o) {
-    if (!a || typeof a != "object")
+  for (const r of o) {
+    if (!r || typeof r != "object")
       continue;
-    const i = Mt(a.$ref);
+    const i = Mt(r.$ref);
     i.type && (e.push(i.type), !t && i.prefix && (t = i.prefix));
   }
   if (e.length > 0)
     return { allowed: D(e), mode: "refs", refPrefix: t };
-  const r = o.map((a) => {
-    const i = a?.properties?._type;
+  const a = o.map((r) => {
+    const i = r?.properties?._type;
     return typeof i?.const == "string" ? i.const : void 0;
-  }).filter((a) => !!a);
-  return r.length > 0 ? { allowed: D(r), mode: "inline" } : null;
+  }).filter((r) => !!r);
+  return a.length > 0 ? { allowed: D(a), mode: "inline" } : null;
 }
 function Ft(o) {
   const e = {
@@ -445,40 +445,40 @@ function Ft(o) {
 function Pt(o, e) {
   const t = typeof e == "string" && e.trim() ? e : "#/$defs/";
   return {
-    oneOf: o.map((r) => ({
-      $ref: `${t}${r}`
+    oneOf: o.map((a) => ({
+      $ref: `${t}${a}`
     }))
   };
 }
 function At(o, e) {
   if (!o)
     return me(e);
-  const t = me(e), r = o.$defs ?? {}, a = t.$defs ?? {};
-  (Object.keys(r).length > 0 || Object.keys(a).length > 0) && (t.$defs = We(r, a));
+  const t = me(e), a = o.$defs ?? {}, r = t.$defs ?? {};
+  (Object.keys(a).length > 0 || Object.keys(r).length > 0) && (t.$defs = We(a, r));
   const s = o.metadata, i = t.metadata;
   return (s || i) && (t.metadata = We(s ?? {}, i ?? {})), t;
 }
 function fe(o, e) {
-  const t = {}, r = [];
+  const t = {}, a = [];
   for (const s of o)
-    t[s.name] = It(s), s.required && r.push(s.name);
-  const a = {
+    t[s.name] = It(s), s.required && a.push(s.name);
+  const r = {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
     properties: t
   };
-  return e && (a.$id = e), r.length > 0 && (a.required = r), a;
+  return e && (r.$id = e), a.length > 0 && (r.required = a), r;
 }
 function st(o, e) {
   const t = fe(o, e);
   if (!e)
     return t;
   t.properties = t.properties ?? {}, t.properties._type = { type: "string", const: e };
-  const r = new Set(t.required ?? []);
-  return r.add("_type"), t.required = Array.from(r), t;
+  const a = new Set(t.required ?? []);
+  return a.add("_type"), t.required = Array.from(a), t;
 }
 function It(o) {
-  const e = {}, r = {
+  const e = {}, a = {
     text: { type: "string" },
     textarea: { type: "string" },
     "rich-text": { type: "string" },
@@ -511,9 +511,9 @@ function It(o) {
     color: { type: "string" },
     location: { type: "object" }
   }[o.type] ?? { type: "string" };
-  e.type = r.type, r.format && (e.format = r.format), o.label && (e.title = o.label), o.description && (e.description = o.description), o.defaultValue !== void 0 && (e.default = o.defaultValue), o.validation && (o.validation.minLength !== void 0 && (e.minLength = o.validation.minLength), o.validation.maxLength !== void 0 && (e.maxLength = o.validation.maxLength), o.validation.min !== void 0 && (e.minimum = o.validation.min), o.validation.max !== void 0 && (e.maximum = o.validation.max), o.validation.pattern && (e.pattern = o.validation.pattern));
-  const a = {}, s = _t(o.type);
-  switch (s && (a.widget = s), o.placeholder && (a.placeholder = o.placeholder), o.helpText && (a.helpText = o.helpText), o.section && (a.section = o.section), o.order !== void 0 && (a.order = o.order), o.gridSpan !== void 0 && (a.grid = { span: o.gridSpan }), o.readonly && (a.readonly = !0), o.hidden && (a.hidden = !0), o.filterable && (a.filterable = !0), Object.keys(a).length > 0 && (e["x-formgen"] = a), o.filterable && (e["x-admin"] = { filterable: !0 }), o.type) {
+  e.type = a.type, a.format && (e.format = a.format), o.label && (e.title = o.label), o.description && (e.description = o.description), o.defaultValue !== void 0 && (e.default = o.defaultValue), o.validation && (o.validation.minLength !== void 0 && (e.minLength = o.validation.minLength), o.validation.maxLength !== void 0 && (e.maxLength = o.validation.maxLength), o.validation.min !== void 0 && (e.minimum = o.validation.min), o.validation.max !== void 0 && (e.maximum = o.validation.max), o.validation.pattern && (e.pattern = o.validation.pattern));
+  const r = {}, s = _t(o.type);
+  switch (s && (r.widget = s), o.placeholder && (r.placeholder = o.placeholder), o.helpText && (r.helpText = o.helpText), o.section && (r.section = o.section), o.order !== void 0 && (r.order = o.order), o.gridSpan !== void 0 && (r.grid = { span: o.gridSpan }), o.readonly && (r.readonly = !0), o.hidden && (r.hidden = !0), o.filterable && (r.filterable = !0), Object.keys(r).length > 0 && (e["x-formgen"] = r), o.filterable && (e["x-admin"] = { filterable: !0 }), o.type) {
     case "select":
     case "radio":
       o.config && "options" in o.config && o.config.options && (e.enum = o.config.options.map((i) => i.value));
@@ -529,14 +529,14 @@ function It(o) {
       o.config && "fields" in o.config && o.config.fields ? e.items = fe(o.config.fields) : e.items = { type: "string" };
       break;
     case "blocks": {
-      const i = o.config, n = D(i?.allowedBlocks), l = D(i?.deniedBlocks), d = D(i?.__sourceAllowedBlocks), c = D(i?.__sourceDeniedBlocks), g = n.length > 0, m = l.length > 0, f = !Ye(n, d), h = !Ye(l, c), v = i?.__sourceItemsSchema, S = i?.__sourceRepresentation ?? "inline";
-      v && !f ? e.items = me(v) : S === "refs" && g ? e.items = Pt(n, i?.__sourceRefPrefix) : e.items = Ft(g ? n : void 0), i?.minBlocks !== void 0 && (e.minItems = i.minBlocks), i?.maxBlocks !== void 0 && (e.maxItems = i.maxBlocks);
+      const i = o.config, n = D(i?.allowedBlocks), l = D(i?.deniedBlocks), d = D(i?.__sourceAllowedBlocks), c = D(i?.__sourceDeniedBlocks), p = n.length > 0, m = l.length > 0, f = !Ye(n, d), h = !Ye(l, c), v = i?.__sourceItemsSchema, $ = i?.__sourceRepresentation ?? "inline";
+      v && !f ? e.items = me(v) : $ === "refs" && p ? e.items = Pt(n, i?.__sourceRefPrefix) : e.items = Ft(p ? n : void 0), i?.minBlocks !== void 0 && (e.minItems = i.minBlocks), i?.maxBlocks !== void 0 && (e.maxItems = i.maxBlocks);
       const y = {
-        ...a,
+        ...r,
         widget: i?.__sourceWidget || "block",
         sortable: i?.__sourceSortable ?? !0
       };
-      g && (i?.__sourceHadAllowedBlocks || S !== "refs" || f) && (y.allowedBlocks = n), (m || i?.__sourceHadDeniedBlocks && h) && (y.deniedBlocks = l), e["x-formgen"] = y;
+      p && (i?.__sourceHadAllowedBlocks || $ !== "refs" || f) && (y.allowedBlocks = n), (m || i?.__sourceHadDeniedBlocks && h) && (y.deniedBlocks = l), e["x-formgen"] = y;
       break;
     }
   }
@@ -563,27 +563,27 @@ function be(o) {
   if (!o.properties)
     return [];
   const e = new Set(o.required ?? []), t = [];
-  for (const [r, a] of Object.entries(o.properties))
-    r === "_type" || r === "_schema" || t.push(qt(r, a, e.has(r)));
-  return t.sort((r, a) => (r.order ?? 999) - (a.order ?? 999)), t;
+  for (const [a, r] of Object.entries(o.properties))
+    a === "_type" || a === "_schema" || t.push(qt(a, r, e.has(a)));
+  return t.sort((a, r) => (a.order ?? 999) - (r.order ?? 999)), t;
 }
 function qt(o, e, t) {
-  const r = e["x-formgen"], s = e["x-admin"]?.filterable ?? r?.filterable, i = {
+  const a = e["x-formgen"], s = e["x-admin"]?.filterable ?? a?.filterable, i = {
     id: X(),
     name: o,
     type: Dt(e),
     label: e.title ?? Qe(o),
     description: e.description,
-    placeholder: r?.placeholder,
-    helpText: r?.helpText,
+    placeholder: a?.placeholder,
+    helpText: a?.helpText,
     required: t,
-    readonly: r?.readonly,
-    hidden: r?.hidden,
+    readonly: a?.readonly,
+    hidden: a?.hidden,
     filterable: s === !0,
     defaultValue: e.default,
-    section: r?.section,
-    gridSpan: r?.grid?.span,
-    order: r?.order
+    section: a?.section,
+    gridSpan: a?.grid?.span,
+    order: a?.order
   }, n = {};
   if (e.minLength !== void 0 && (n.minLength = e.minLength), e.maxLength !== void 0 && (n.maxLength = e.maxLength), e.minimum !== void 0 && (n.min = e.minimum), e.maximum !== void 0 && (n.max = e.maximum), e.pattern && (n.pattern = e.pattern), Object.keys(n).length > 0 && (i.validation = n), e.enum && Array.isArray(e.enum) && (i.config = {
     options: e.enum.map((l) => ({
@@ -592,16 +592,16 @@ function qt(o, e, t) {
     }))
   }), i.type === "blocks" && e.type === "array") {
     const l = {}, d = e.items ? me(e.items) : void 0;
-    d && (l.__sourceItemsSchema = d), typeof r?.widget == "string" && r.widget.trim() && (l.__sourceWidget = r.widget.trim()), typeof r?.sortable == "boolean" && (l.__sourceSortable = r.sortable), l.__sourceHadAllowedBlocks = Array.isArray(r?.allowedBlocks), l.__sourceHadDeniedBlocks = Array.isArray(r?.deniedBlocks), e.minItems !== void 0 && (l.minBlocks = e.minItems), e.maxItems !== void 0 && (l.maxBlocks = e.maxItems);
+    d && (l.__sourceItemsSchema = d), typeof a?.widget == "string" && a.widget.trim() && (l.__sourceWidget = a.widget.trim()), typeof a?.sortable == "boolean" && (l.__sourceSortable = a.sortable), l.__sourceHadAllowedBlocks = Array.isArray(a?.allowedBlocks), l.__sourceHadDeniedBlocks = Array.isArray(a?.deniedBlocks), e.minItems !== void 0 && (l.minBlocks = e.minItems), e.maxItems !== void 0 && (l.maxBlocks = e.maxItems);
     const c = d?.oneOf ? Tt(d.oneOf) : null;
     c && (l.__sourceRepresentation = c.mode, c.refPrefix && (l.__sourceRefPrefix = c.refPrefix));
-    let g;
-    if (r?.allowedBlocks && Array.isArray(r.allowedBlocks)) {
-      const m = D(r.allowedBlocks);
-      g = c?.allowed.length ? c.allowed : m, m.length > 0 && (l.allowedBlocks = m);
-    } else c?.allowed.length && (g = c.allowed, l.allowedBlocks = c.allowed);
-    if (l.__sourceRepresentation || (l.__sourceRepresentation = "inline"), g && g.length > 0 && (l.__sourceAllowedBlocks = g), r?.deniedBlocks && Array.isArray(r.deniedBlocks)) {
-      const m = D(r.deniedBlocks);
+    let p;
+    if (a?.allowedBlocks && Array.isArray(a.allowedBlocks)) {
+      const m = D(a.allowedBlocks);
+      p = c?.allowed.length ? c.allowed : m, m.length > 0 && (l.allowedBlocks = m);
+    } else c?.allowed.length && (p = c.allowed, l.allowedBlocks = c.allowed);
+    if (l.__sourceRepresentation || (l.__sourceRepresentation = "inline"), p && p.length > 0 && (l.__sourceAllowedBlocks = p), a?.deniedBlocks && Array.isArray(a.deniedBlocks)) {
+      const m = D(a.deniedBlocks);
       m.length > 0 && (l.deniedBlocks = m), l.__sourceDeniedBlocks = m;
     }
     Object.keys(l).length > 0 && (i.config = l);
@@ -613,19 +613,19 @@ function Dt(o) {
   switch (t) {
     case "array": {
       if (o.items) {
-        const r = o.items;
-        if (r.oneOf) return "blocks";
-        if (r.enum) return "chips";
+        const a = o.items;
+        if (a.oneOf) return "blocks";
+        if (a.enum) return "chips";
         if (e?.widget === "block") return "blocks";
         if (e?.widget === "chips") return "chips";
         if (e?.widget === "media-picker") return "media-gallery";
-        if (r.format === "uuid" || r.format === "uri") return "references";
+        if (a.format === "uuid" || a.format === "uri") return "references";
       }
       return "repeater";
     }
   }
   if (e?.widget) {
-    const r = {
+    const a = {
       textarea: "textarea",
       "rich-text": "rich-text",
       markdown: "markdown",
@@ -639,8 +639,8 @@ function Dt(o) {
       slug: "slug",
       color: "color"
     };
-    if (r[e.widget])
-      return r[e.widget];
+    if (a[e.widget])
+      return a[e.widget];
   }
   switch (t) {
     case "string":
@@ -730,16 +730,16 @@ function I(o) {
     hidden: "text"
   }[e] ?? e;
 }
-function k(o) {
+function x(o) {
   return ee(o);
 }
-const Se = [
+const $e = [
   // Text Fields
   {
     type: "text",
     label: "Text",
     description: "Single line text input",
-    icon: k("text"),
+    icon: x("text"),
     category: "text",
     defaultConfig: { validation: { maxLength: 255 } }
   },
@@ -747,7 +747,7 @@ const Se = [
     type: "textarea",
     label: "Textarea",
     description: "Multi-line text input",
-    icon: k("textarea"),
+    icon: x("textarea"),
     category: "text",
     defaultConfig: { config: { multiline: !0, rows: 4 } }
   },
@@ -755,21 +755,21 @@ const Se = [
     type: "rich-text",
     label: "Rich Text",
     description: "WYSIWYG editor with formatting",
-    icon: k("rich-text"),
+    icon: x("rich-text"),
     category: "text"
   },
   {
     type: "markdown",
     label: "Markdown",
     description: "Markdown text editor",
-    icon: k("markdown"),
+    icon: x("markdown"),
     category: "text"
   },
   {
     type: "code",
     label: "Code",
     description: "Code editor with syntax highlighting",
-    icon: k("code"),
+    icon: x("code"),
     category: "text",
     defaultConfig: { config: { language: "json", lineNumbers: !0 } }
   },
@@ -778,21 +778,21 @@ const Se = [
     type: "number",
     label: "Number",
     description: "Decimal number input",
-    icon: k("number"),
+    icon: x("number"),
     category: "number"
   },
   {
     type: "integer",
     label: "Integer",
     description: "Whole number input",
-    icon: k("integer"),
+    icon: x("integer"),
     category: "number"
   },
   {
     type: "currency",
     label: "Currency",
     description: "Money amount with currency symbol",
-    icon: k("currency"),
+    icon: x("currency"),
     category: "number",
     defaultConfig: { config: { precision: 2, prefix: "$" } }
   },
@@ -800,7 +800,7 @@ const Se = [
     type: "percentage",
     label: "Percentage",
     description: "Percentage value (0-100)",
-    icon: k("percentage"),
+    icon: x("percentage"),
     category: "number",
     defaultConfig: { validation: { min: 0, max: 100 }, config: { suffix: "%" } }
   },
@@ -809,7 +809,7 @@ const Se = [
     type: "select",
     label: "Select",
     description: "Dropdown selection",
-    icon: k("select"),
+    icon: x("select"),
     category: "selection",
     defaultConfig: { config: { options: [] } }
   },
@@ -817,7 +817,7 @@ const Se = [
     type: "radio",
     label: "Radio",
     description: "Radio button selection",
-    icon: k("radio"),
+    icon: x("radio"),
     category: "selection",
     defaultConfig: { config: { options: [] } }
   },
@@ -825,14 +825,14 @@ const Se = [
     type: "checkbox",
     label: "Checkbox",
     description: "Single checkbox (true/false)",
-    icon: k("checkbox"),
+    icon: x("checkbox"),
     category: "selection"
   },
   {
     type: "chips",
     label: "Chips",
     description: "Tag-style multi-select",
-    icon: k("chips"),
+    icon: x("chips"),
     category: "selection",
     defaultConfig: { config: { options: [], multiple: !0 } }
   },
@@ -840,7 +840,7 @@ const Se = [
     type: "toggle",
     label: "Toggle",
     description: "Boolean switch",
-    icon: k("toggle"),
+    icon: x("toggle"),
     category: "selection"
   },
   // Date/Time Fields
@@ -848,21 +848,21 @@ const Se = [
     type: "date",
     label: "Date",
     description: "Date picker",
-    icon: k("date"),
+    icon: x("date"),
     category: "datetime"
   },
   {
     type: "time",
     label: "Time",
     description: "Time picker",
-    icon: k("time"),
+    icon: x("time"),
     category: "datetime"
   },
   {
     type: "datetime",
     label: "Date & Time",
     description: "Date and time picker",
-    icon: k("datetime"),
+    icon: x("datetime"),
     category: "datetime"
   },
   // Media Fields
@@ -870,7 +870,7 @@ const Se = [
     type: "media-picker",
     label: "Media",
     description: "Single media asset picker",
-    icon: k("media-picker"),
+    icon: x("media-picker"),
     category: "media",
     defaultConfig: { config: { accept: "image/*" } }
   },
@@ -878,7 +878,7 @@ const Se = [
     type: "media-gallery",
     label: "Gallery",
     description: "Multiple media assets",
-    icon: k("media-gallery"),
+    icon: x("media-gallery"),
     category: "media",
     defaultConfig: { config: { accept: "image/*", multiple: !0 } }
   },
@@ -886,7 +886,7 @@ const Se = [
     type: "file-upload",
     label: "File",
     description: "File attachment",
-    icon: k("file-upload"),
+    icon: x("file-upload"),
     category: "media"
   },
   // Reference Fields
@@ -894,7 +894,7 @@ const Se = [
     type: "reference",
     label: "Reference",
     description: "Link to another content type",
-    icon: k("reference"),
+    icon: x("reference"),
     category: "reference",
     defaultConfig: { config: { target: "", displayField: "name" } }
   },
@@ -902,7 +902,7 @@ const Se = [
     type: "references",
     label: "References",
     description: "Multiple links to another content type",
-    icon: k("references"),
+    icon: x("references"),
     category: "reference",
     defaultConfig: { config: { target: "", displayField: "name", multiple: !0 } }
   },
@@ -910,7 +910,7 @@ const Se = [
     type: "user",
     label: "User",
     description: "User reference",
-    icon: k("user"),
+    icon: x("user"),
     category: "reference"
   },
   // Structural Fields
@@ -918,14 +918,14 @@ const Se = [
     type: "group",
     label: "Group",
     description: "Collapsible field group",
-    icon: k("group"),
+    icon: x("group"),
     category: "structural"
   },
   {
     type: "repeater",
     label: "Repeater",
     description: "Repeatable field group",
-    icon: k("repeater"),
+    icon: x("repeater"),
     category: "structural",
     defaultConfig: { config: { fields: [], minItems: 0, maxItems: 10 } }
   },
@@ -933,7 +933,7 @@ const Se = [
     type: "blocks",
     label: "Blocks",
     description: "Modular content blocks",
-    icon: k("blocks"),
+    icon: x("blocks"),
     category: "structural",
     defaultConfig: { config: { allowedBlocks: [] } }
   },
@@ -942,14 +942,14 @@ const Se = [
     type: "json",
     label: "JSON",
     description: "Raw JSON editor",
-    icon: k("json"),
+    icon: x("json"),
     category: "advanced"
   },
   {
     type: "slug",
     label: "Slug",
     description: "URL-friendly identifier",
-    icon: k("slug"),
+    icon: x("slug"),
     category: "advanced",
     defaultConfig: { validation: { pattern: "^[a-z0-9-]+$" } }
   },
@@ -957,32 +957,32 @@ const Se = [
     type: "color",
     label: "Color",
     description: "Color picker",
-    icon: k("color"),
+    icon: x("color"),
     category: "advanced"
   },
   {
     type: "location",
     label: "Location",
     description: "Geographic coordinates",
-    icon: k("location"),
+    icon: x("location"),
     category: "advanced"
   }
 ], it = [
-  { id: "text", label: "Text", icon: k("cat-text") },
-  { id: "number", label: "Numbers", icon: k("cat-number") },
-  { id: "selection", label: "Selection", icon: k("cat-selection") },
-  { id: "datetime", label: "Date & Time", icon: k("cat-datetime") },
-  { id: "media", label: "Media", icon: k("cat-media") },
-  { id: "reference", label: "References", icon: k("cat-reference") },
-  { id: "structural", label: "Structural", icon: k("cat-structural") },
-  { id: "advanced", label: "Advanced", icon: k("cat-advanced") }
+  { id: "text", label: "Text", icon: x("cat-text") },
+  { id: "number", label: "Numbers", icon: x("cat-number") },
+  { id: "selection", label: "Selection", icon: x("cat-selection") },
+  { id: "datetime", label: "Date & Time", icon: x("cat-datetime") },
+  { id: "media", label: "Media", icon: x("cat-media") },
+  { id: "reference", label: "References", icon: x("cat-reference") },
+  { id: "structural", label: "Structural", icon: x("cat-structural") },
+  { id: "advanced", label: "Advanced", icon: x("cat-advanced") }
 ];
 function Ce(o) {
   const e = I(String(o));
-  return Se.find((t) => t.type === e);
+  return $e.find((t) => t.type === e);
 }
-function Hr(o) {
-  return Se.filter((e) => e.category === o);
+function Ha(o) {
+  return $e.filter((e) => e.category === o);
 }
 class ot extends H {
   constructor(e) {
@@ -1048,14 +1048,14 @@ class ot extends H {
   }
   renderFieldTypes() {
     const e = new Set(this.config.excludeTypes ?? []);
-    let t = Se.filter((r) => !e.has(r.type));
+    let t = $e.filter((a) => !e.has(a.type));
     if (this.searchQuery) {
-      const r = this.searchQuery.toLowerCase();
+      const a = this.searchQuery.toLowerCase();
       t = t.filter(
-        (a) => a.label.toLowerCase().includes(r) || a.description.toLowerCase().includes(r) || a.type.toLowerCase().includes(r)
+        (r) => r.label.toLowerCase().includes(a) || r.description.toLowerCase().includes(a) || r.type.toLowerCase().includes(a)
       );
     } else
-      t = t.filter((r) => r.category === this.selectedCategory);
+      t = t.filter((a) => a.category === this.selectedCategory);
     return t.length === 0 ? `
         <div class="flex flex-col items-center justify-center h-full text-gray-400">
           <svg class="w-12 h-12 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1065,7 +1065,7 @@ class ot extends H {
         </div>
       ` : `
       <div class="grid grid-cols-2 gap-3">
-        ${t.map((r) => this.renderFieldTypeCard(r)).join("")}
+        ${t.map((a) => this.renderFieldTypeCard(a)).join("")}
       </div>
     `;
   }
@@ -1093,14 +1093,14 @@ class ot extends H {
     }), this.container.querySelectorAll("[data-field-category]").forEach((t) => {
       t.addEventListener("click", () => {
         this.selectedCategory = t.getAttribute("data-field-category"), this.searchQuery = "";
-        const r = this.container?.querySelector("[data-field-type-search]");
-        r && (r.value = ""), this.updateView();
+        const a = this.container?.querySelector("[data-field-type-search]");
+        a && (a.value = ""), this.updateView();
       });
     }), this.container.addEventListener("click", (t) => {
-      const r = t.target.closest("[data-field-type-select]");
-      if (r) {
-        const a = r.getAttribute("data-field-type-select");
-        this.config.onSelect(a), this.hide();
+      const a = t.target.closest("[data-field-type-select]");
+      if (a) {
+        const r = a.getAttribute("data-field-type-select");
+        this.config.onSelect(r), this.hide();
       }
     });
     const e = this.container.querySelector("[data-field-type-search]");
@@ -1111,11 +1111,11 @@ class ot extends H {
   updateView() {
     if (!this.container) return;
     const e = this.container.querySelector("[data-field-type-categories]");
-    e && (e.innerHTML = this.renderCategories(), e.querySelectorAll("[data-field-category]").forEach((r) => {
-      r.addEventListener("click", () => {
-        this.selectedCategory = r.getAttribute("data-field-category"), this.searchQuery = "";
-        const a = this.container?.querySelector("[data-field-type-search]");
-        a && (a.value = ""), this.updateView();
+    e && (e.innerHTML = this.renderCategories(), e.querySelectorAll("[data-field-category]").forEach((a) => {
+      a.addEventListener("click", () => {
+        this.selectedCategory = a.getAttribute("data-field-category"), this.searchQuery = "";
+        const r = this.container?.querySelector("[data-field-type-search]");
+        r && (r.value = ""), this.updateView();
       });
     }));
     const t = this.container.querySelector("[data-field-type-list]");
@@ -1123,7 +1123,7 @@ class ot extends H {
   }
 }
 const Ze = "w-full border rounded-lg bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:border-gray-600 dark:bg-slate-800 dark:text-white dark:placeholder-gray-500", nt = "px-3 py-2 text-sm border-gray-300", lt = "px-2 py-1 text-[12px] border-gray-200";
-function p(o = "sm") {
+function g(o = "sm") {
   return o === "xs" ? `${Ze} ${lt}` : `${Ze} ${nt}`;
 }
 function z(o = "sm") {
@@ -1131,8 +1131,8 @@ function z(o = "sm") {
   return o === "xs" ? `${e} ${lt}` : `${e} ${nt}`;
 }
 function Oe(o = {}) {
-  const e = o.size ?? "sm", t = o.resize ?? "y", r = t === "none" ? "resize-none" : t === "x" ? "resize-x" : t === "both" ? "resize" : "resize-y";
-  return `${p(e)} ${r}`;
+  const e = o.size ?? "sm", t = o.resize ?? "y", a = t === "none" ? "resize-none" : t === "x" ? "resize-x" : t === "both" ? "resize" : "resize-y";
+  return `${g(e)} ${a}`;
 }
 function P() {
   return "w-4 h-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500";
@@ -1471,11 +1471,11 @@ const Ot = [
 ];
 function Rt() {
   const o = [], e = [], t = ["Content", "Objects", "People", "Business", "Media", "Communication", "System", "Misc"];
-  for (const r of t) {
-    const a = Nt.filter((s) => s.category === r);
-    if (a.length !== 0) {
-      e.push({ id: r.toLowerCase(), label: r, startIndex: o.length });
-      for (const s of a)
+  for (const a of t) {
+    const r = Nt.filter((s) => s.category === a);
+    if (r.length !== 0) {
+      e.push({ id: a.toLowerCase(), label: a, startIndex: o.length });
+      for (const s of r)
         o.push({
           value: s.value,
           label: s.label,
@@ -1528,12 +1528,12 @@ function Ut() {
   const o = [], e = [];
   for (const t of Ot) {
     e.push({ id: t.id, label: t.label, startIndex: o.length });
-    for (const r of t.entries)
+    for (const a of t.entries)
       o.push({
-        value: r.emoji,
-        label: r.name,
-        keywords: r.keywords,
-        display: r.emoji
+        value: a.emoji,
+        label: a.name,
+        keywords: a.keywords,
+        display: a.emoji
       });
   }
   return {
@@ -1567,12 +1567,12 @@ let Xe = !1;
 function de() {
   Xe || (Xe = !0, _.push(Rt()), _.push(Ut()), _.push(Gt()));
 }
-function Or(o) {
+function Oa(o) {
   de();
   const e = _.findIndex((t) => t.id === o.id);
   e >= 0 ? _[e] = o : _.push(o);
 }
-function Nr(o) {
+function Na(o) {
   de();
   const e = _.findIndex((t) => t.id === o);
   e >= 0 && _.splice(e, 1);
@@ -1586,8 +1586,8 @@ function ce(o) {
   if (e) return e;
   de();
   for (const t of _) {
-    const r = t.entries.find((a) => a.value === o);
-    if (r) return r.display;
+    const a = t.entries.find((r) => r.value === o);
+    if (a) return a.display;
   }
   return O(o);
 }
@@ -1595,13 +1595,13 @@ function ct(o) {
   if (!o) return "";
   de();
   for (const e of _) {
-    const t = e.entries.find((r) => r.value === o);
+    const t = e.entries.find((a) => a.value === o);
     if (t) return t.label;
   }
   return o;
 }
 function Be(o, e, t) {
-  const r = ce(o), a = ct(o), s = o.length > 0, i = t ? "h-[30px]" : "h-[38px]", n = t ? "text-[12px]" : "text-sm", l = t ? "w-5 h-5 text-[14px]" : "w-6 h-6 text-base", d = t ? "w-5 h-5" : "w-6 h-6";
+  const a = ce(o), r = ct(o), s = o.length > 0, i = t ? "h-[30px]" : "h-[38px]", n = t ? "text-[12px]" : "text-sm", l = t ? "w-5 h-5 text-[14px]" : "w-6 h-6 text-base", d = t ? "w-5 h-5" : "w-6 h-6";
   return `
     <div data-icon-trigger
          class="flex items-center gap-1.5 ${i} px-2 border rounded-lg bg-white text-gray-900
@@ -1611,11 +1611,11 @@ function Be(o, e, t) {
       <span data-icon-preview
             class="flex-shrink-0 ${l} flex items-center justify-center rounded
                    ${s ? "" : "text-gray-300 dark:text-gray-600"}">
-        ${s ? r : "?"}
+        ${s ? a : "?"}
       </span>
       <span data-icon-label
             class="flex-1 min-w-0 truncate ${n} ${s ? "text-gray-700 dark:text-gray-300" : "text-gray-400 dark:text-gray-500"}">
-        ${s ? O(a) : "Choose icon…"}
+        ${s ? O(r) : "Choose icon…"}
       </span>
       <button type="button" data-icon-clear
               class="flex-shrink-0 ${d} flex items-center justify-center rounded
@@ -1639,13 +1639,13 @@ function Be(o, e, t) {
 }
 let C = null, U = null, G = null, ve = "iconoir", J = "", Z = null, se = null;
 function Jt(o, e) {
-  N(), U = e, G = o, J = "", ve = dt()[0]?.id ?? "emoji", C = document.createElement("div"), C.setAttribute("data-icon-picker-popover", ""), C.className = "fixed", C.style.zIndex = String(Wt(o) + 5), C.innerHTML = Pe(), document.body.appendChild(C), Kt(o), Ae(), C.querySelector("[data-icon-search]")?.focus(), Z = (r) => {
-    const a = r.target;
-    !a.closest("[data-icon-picker-popover]") && !a.closest("[data-icon-trigger]") && N();
+  N(), U = e, G = o, J = "", ve = dt()[0]?.id ?? "emoji", C = document.createElement("div"), C.setAttribute("data-icon-picker-popover", ""), C.className = "fixed", C.style.zIndex = String(Wt(o) + 5), C.innerHTML = Pe(), document.body.appendChild(C), Kt(o), Ae(), C.querySelector("[data-icon-search]")?.focus(), Z = (a) => {
+    const r = a.target;
+    !r.closest("[data-icon-picker-popover]") && !r.closest("[data-icon-trigger]") && N();
   }, setTimeout(() => {
     Z && document.addEventListener("mousedown", Z);
-  }, 0), se = (r) => {
-    r.key === "Escape" && N();
+  }, 0), se = (a) => {
+    a.key === "Escape" && N();
   }, document.addEventListener("keydown", se);
 }
 function N() {
@@ -1653,9 +1653,9 @@ function N() {
 }
 function Kt(o) {
   if (!C) return;
-  const e = o.getBoundingClientRect(), t = 320, r = 380;
-  let a = e.bottom + 4, s = e.left;
-  a + r > window.innerHeight - 8 && (a = e.top - r - 4), s + t > window.innerWidth - 8 && (s = window.innerWidth - t - 8), s < 8 && (s = 8), C.style.top = `${a}px`, C.style.left = `${s}px`, C.style.width = `${t}px`;
+  const e = o.getBoundingClientRect(), t = 320, a = 380;
+  let r = e.bottom + 4, s = e.left;
+  r + a > window.innerHeight - 8 && (r = e.top - a - 4), s + t > window.innerWidth - 8 && (s = window.innerWidth - t - 8), s < 8 && (s = 8), C.style.top = `${r}px`, C.style.left = `${s}px`, C.style.width = `${t}px`;
 }
 function Pe() {
   const o = dt(), e = o.find((s) => s.id === ve) ?? o[0];
@@ -1666,7 +1666,7 @@ function Pe() {
       for (const n of i.entries)
         (n.label.toLowerCase().includes(s) || n.value.toLowerCase().includes(s) || (n.keywords ?? "").toLowerCase().includes(s)) && t.push({ entry: n, tabId: i.id });
   } else e && (t = e.entries.map((s) => ({ entry: s, tabId: e.id })));
-  const r = o.map((s) => {
+  const a = o.map((s) => {
     const i = s.id === ve;
     return `
       <button type="button" data-icon-tab="${O(s.id)}"
@@ -1675,20 +1675,20 @@ function Pe() {
         ${s.icon ? `<span class="mr-0.5">${s.icon}</span>` : ""}${O(s.label)}
       </button>`;
   }).join("");
-  let a;
+  let r;
   if (t.length === 0)
-    a = '<div class="text-center py-6 text-xs text-gray-400 dark:text-gray-500">No matching icons</div>';
+    r = '<div class="text-center py-6 text-xs text-gray-400 dark:text-gray-500">No matching icons</div>';
   else if (J)
-    a = Te(t.map((s) => s.entry));
+    r = Te(t.map((s) => s.entry));
   else if (e?.categories && e.categories.length > 0) {
-    a = "";
+    r = "";
     for (let s = 0; s < e.categories.length; s++) {
       const i = e.categories[s], n = e.categories[s + 1]?.startIndex ?? e.entries.length, l = e.entries.slice(i.startIndex, n);
-      l.length !== 0 && (a += `
-        <div class="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-1 pt-2 pb-1">${O(i.label)}</div>`, a += Te(l));
+      l.length !== 0 && (r += `
+        <div class="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-1 pt-2 pb-1">${O(i.label)}</div>`, r += Te(l));
     }
   } else
-    a = Te(t.map((s) => s.entry));
+    r = Te(t.map((s) => s.entry));
   return `
     <div class="bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl
                 flex flex-col overflow-hidden" style="max-height: 380px;">
@@ -1697,14 +1697,14 @@ function Pe() {
           <input type="text" data-icon-search
                  placeholder="Search icons…"
                  value="${O(J)}"
-                 class="${p("xs")}" />
+                 class="${g("xs")}" />
         </div>
         <div class="flex items-center gap-1 overflow-x-auto" data-icon-tab-bar>
-          ${r}
+          ${a}
         </div>
       </div>
       <div class="flex-1 overflow-y-auto px-3 pb-2" data-icon-grid-area>
-        ${a}
+        ${r}
       </div>
       <div class="flex-shrink-0 border-t border-gray-100 dark:border-gray-700 px-3 py-2">
         <button type="button" data-icon-clear-btn
@@ -1718,15 +1718,15 @@ function Pe() {
 function Te(o) {
   let e = '<div class="grid grid-cols-8 gap-0.5">';
   for (const t of o) {
-    const r = !t.display.startsWith("<");
+    const a = !t.display.startsWith("<");
     e += `
       <button type="button" data-icon-pick="${O(t.value)}"
               title="${O(t.label)}"
               class="w-8 h-8 flex items-center justify-center rounded-md
                      hover:bg-gray-100 dark:hover:bg-gray-700
                      transition-colors cursor-pointer
-                     ${r ? "text-lg" : "text-gray-600 dark:text-gray-300"}">
-        ${r ? t.display : `<span class="w-5 h-5 flex items-center justify-center">${t.display}</span>`}
+                     ${a ? "text-lg" : "text-gray-600 dark:text-gray-300"}">
+        ${a ? t.display : `<span class="w-5 h-5 flex items-center justify-center">${t.display}</span>`}
       </button>`;
   }
   return e += "</div>", e;
@@ -1737,14 +1737,14 @@ function Ae() {
   o?.addEventListener("input", () => {
     J = o.value, et();
   }), C.addEventListener("click", (e) => {
-    const t = e.target, r = t.closest("[data-icon-tab]");
-    if (r) {
-      ve = r.dataset.iconTab, J = "", et();
+    const t = e.target, a = t.closest("[data-icon-tab]");
+    if (a) {
+      ve = a.dataset.iconTab, J = "", et();
       return;
     }
-    const a = t.closest("[data-icon-pick]");
-    if (a && U) {
-      const i = a.dataset.iconPick;
+    const r = t.closest("[data-icon-pick]");
+    if (r && U) {
+      const i = r.dataset.iconPick;
       U.onSelect(i), G && Ie(G, i), N();
       return;
     }
@@ -1761,23 +1761,23 @@ function et() {
   C.innerHTML = Pe(), Ae();
   const t = C.querySelector("[data-icon-grid-area]");
   t && (t.scrollTop = e);
-  const r = C.querySelector("[data-icon-search]");
-  r && (r.focus(), r.setSelectionRange(r.value.length, r.value.length));
+  const a = C.querySelector("[data-icon-search]");
+  a && (a.focus(), a.setSelectionRange(a.value.length, a.value.length));
 }
 function Ie(o, e) {
-  const t = e.length > 0, r = o.querySelector("[data-icon-preview]"), a = o.querySelector("[data-icon-label]"), s = o.querySelector("[data-icon-clear]");
-  r && (r.innerHTML = t ? ce(e) : "?", r.classList.toggle("text-gray-300", !t), r.classList.toggle("dark:text-gray-600", !t)), a && (a.textContent = t ? ct(e) : "Choose icon…", a.classList.toggle("text-gray-400", !t), a.classList.toggle("dark:text-gray-500", !t), a.classList.toggle("text-gray-700", t), a.classList.toggle("dark:text-gray-300", t)), s && (s.classList.toggle("hidden", !t), s.setAttribute("aria-hidden", t ? "false" : "true"));
+  const t = e.length > 0, a = o.querySelector("[data-icon-preview]"), r = o.querySelector("[data-icon-label]"), s = o.querySelector("[data-icon-clear]");
+  a && (a.innerHTML = t ? ce(e) : "?", a.classList.toggle("text-gray-300", !t), a.classList.toggle("dark:text-gray-600", !t)), r && (r.textContent = t ? ct(e) : "Choose icon…", r.classList.toggle("text-gray-400", !t), r.classList.toggle("dark:text-gray-500", !t), r.classList.toggle("text-gray-700", t), r.classList.toggle("dark:text-gray-300", t)), s && (s.classList.toggle("hidden", !t), s.setAttribute("aria-hidden", t ? "false" : "true"));
 }
 function Ee(o, e, t) {
-  o.querySelectorAll(e).forEach((r) => {
-    r.addEventListener("click", (a) => {
-      if (a.target.closest("[data-icon-clear]")) {
-        a.stopPropagation();
-        const i = t(r);
-        i.onClear ? i.onClear() : i.onSelect(""), Ie(r, "");
+  o.querySelectorAll(e).forEach((a) => {
+    a.addEventListener("click", (r) => {
+      if (r.target.closest("[data-icon-clear]")) {
+        r.stopPropagation();
+        const i = t(a);
+        i.onClear ? i.onClear() : i.onSelect(""), Ie(a, "");
         return;
       }
-      G === r && C ? N() : Jt(r, t(r));
+      G === a && C ? N() : Jt(a, t(a));
     });
   });
 }
@@ -1801,33 +1801,33 @@ function ke(o) {
 }
 function ne(o, e) {
   if (o.size === 0 || e.length === 0) return new Set(o);
-  const t = /* @__PURE__ */ new Set(), r = /* @__PURE__ */ new Set();
-  for (const a of e) {
-    const s = ke(a);
+  const t = /* @__PURE__ */ new Set(), a = /* @__PURE__ */ new Set();
+  for (const r of e) {
+    const s = ke(r);
     if (!s) continue;
-    const i = o.has(s), n = o.has(a.type);
-    (i || n) && (t.add(s), n && a.slug && a.slug !== a.type && r.add(a.type));
+    const i = o.has(s), n = o.has(r.type);
+    (i || n) && (t.add(s), n && r.slug && r.slug !== r.type && a.add(r.type));
   }
-  for (const a of o)
-    r.has(a) || t.has(a) || t.add(a);
+  for (const r of o)
+    a.has(r) || t.has(r) || t.add(r);
   return t;
 }
 function le(o) {
-  const { availableBlocks: e, selectedBlocks: t, searchQuery: r } = o, a = o.accent ?? "blue", s = o.label ?? "Allowed Blocks", i = o.emptySelectionText;
+  const { availableBlocks: e, selectedBlocks: t, searchQuery: a } = o, r = o.accent ?? "blue", s = o.label ?? "Allowed Blocks", i = o.emptySelectionText;
   if (e.length === 0)
     return `
       <div class="text-center py-4 text-xs text-gray-400 dark:text-gray-500">
         No block definitions available.
       </div>`;
-  const n = r ? e.filter((h) => {
-    const v = r.toLowerCase();
+  const n = a ? e.filter((h) => {
+    const v = a.toLowerCase();
     return h.name.toLowerCase().includes(v) || ke(h).toLowerCase().includes(v) || (h.category ?? "").toLowerCase().includes(v);
   }) : e, l = /* @__PURE__ */ new Map();
   for (const h of n) {
     const v = h.category || "uncategorized";
     l.has(v) || l.set(v, []), l.get(v).push(h);
   }
-  const d = t.size, c = d === 0 && i ? i : `${d} selected`, g = a === "red" ? "focus:ring-red-500" : "focus:ring-blue-500", m = a === "red" ? "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700" : "bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700";
+  const d = t.size, c = d === 0 && i ? i : `${d} selected`, p = r === "red" ? "focus:ring-red-500" : "focus:ring-blue-500", m = r === "red" ? "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700" : "bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700";
   let f = `
     <div class="space-y-2" data-block-picker-inline>
       <div class="flex items-center justify-between">
@@ -1837,8 +1837,8 @@ function le(o) {
       <div class="relative">
         <input type="text" data-block-picker-search
                placeholder="Search blocks..."
-               value="${V(r ?? "")}"
-               class="w-full px-2 py-1 text-[12px] border border-gray-200 dark:border-gray-600 rounded-md bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-1 ${g}" />
+               value="${V(a ?? "")}"
+               class="w-full px-2 py-1 text-[12px] border border-gray-200 dark:border-gray-600 rounded-md bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-1 ${p}" />
       </div>
       <div class="max-h-[200px] overflow-y-auto space-y-1" data-block-picker-list>`;
   if (n.length === 0)
@@ -1848,18 +1848,18 @@ function le(o) {
     for (const [h, v] of l) {
       l.size > 1 && (f += `
         <div class="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider pt-1">${V(Yt(h))}</div>`);
-      for (const S of v) {
-        const y = ke(S), $ = t.has(y) || t.has(S.type);
+      for (const $ of v) {
+        const y = ke($), S = t.has(y) || t.has($.type);
         f += `
-        <label class="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer transition-colors ${$ ? m : "hover:bg-gray-50 dark:hover:bg-gray-800 border border-transparent"}">
-          <input type="checkbox" value="${V(y)}" data-block-type="${V(S.type)}"
-                 ${$ ? "checked" : ""}
+        <label class="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer transition-colors ${S ? m : "hover:bg-gray-50 dark:hover:bg-gray-800 border border-transparent"}">
+          <input type="checkbox" value="${V(y)}" data-block-type="${V($.type)}"
+                 ${S ? "checked" : ""}
                  class="${P()}" />
           <div class="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-[10px] font-medium">
-            ${S.icon ? ce(S.icon) : y.charAt(0).toUpperCase()}
+            ${$.icon ? ce($.icon) : y.charAt(0).toUpperCase()}
           </div>
           <div class="flex-1 min-w-0">
-            <span class="text-[12px] font-medium text-gray-800 dark:text-gray-200">${V(S.name)}</span>
+            <span class="text-[12px] font-medium text-gray-800 dark:text-gray-200">${V($.name)}</span>
             <span class="text-[10px] text-gray-400 dark:text-gray-500 font-mono ml-1">${V(y)}</span>
           </div>
         </label>`;
@@ -1872,18 +1872,18 @@ function le(o) {
 function ut(o, e) {
   const t = o.querySelector("[data-block-picker-inline]");
   if (!t) return;
-  const r = t.querySelector("[data-block-picker-search]");
-  r?.addEventListener("input", () => {
-    e.searchQuery = r.value, pt(t, e);
+  const a = t.querySelector("[data-block-picker-search]");
+  a?.addEventListener("input", () => {
+    e.searchQuery = a.value, pt(t, e);
   });
-  const a = t.querySelector("[data-block-picker-list]");
-  a && ht(a, e);
+  const r = t.querySelector("[data-block-picker-list]");
+  r && ht(r, e);
 }
 function ht(o, e) {
   o.querySelectorAll('input[type="checkbox"]').forEach((t) => {
     t.addEventListener("change", () => {
-      const r = t.value, a = t.dataset.blockType;
-      t.checked ? (e.selectedBlocks.add(r), a && a !== r && e.selectedBlocks.delete(a)) : (e.selectedBlocks.delete(r), a && e.selectedBlocks.delete(a)), e.onSelectionChange(e.selectedBlocks);
+      const a = t.value, r = t.dataset.blockType;
+      t.checked ? (e.selectedBlocks.add(a), r && r !== a && e.selectedBlocks.delete(r)) : (e.selectedBlocks.delete(a), r && e.selectedBlocks.delete(r)), e.onSelectionChange(e.selectedBlocks);
       const s = o.closest("[data-block-picker-inline]");
       s && pt(s, e);
     });
@@ -1892,10 +1892,10 @@ function ht(o, e) {
 function pt(o, e) {
   const t = o.querySelector("[data-block-picker-list]");
   if (!t) return;
-  const r = t.scrollTop, a = document.createElement("div");
-  a.innerHTML = le(e);
-  const s = a.querySelector("[data-block-picker-list]"), i = a.querySelector("[data-block-picker-inline] > div > span:last-child");
-  s && (t.innerHTML = s.innerHTML, t.scrollTop = r, ht(t, e));
+  const a = t.scrollTop, r = document.createElement("div");
+  r.innerHTML = le(e);
+  const s = r.querySelector("[data-block-picker-list]"), i = r.querySelector("[data-block-picker-inline] > div > span:last-child");
+  s && (t.innerHTML = s.innerHTML, t.scrollTop = a, ht(t, e));
   const n = o.querySelector(":scope > div > span:last-child");
   n && i && (n.textContent = i.textContent);
 }
@@ -1915,8 +1915,8 @@ function te(o) {
   return t ? /\/api(\/|$)/.test(t) ? t : `${t}/api` : "/api";
 }
 function Le(...o) {
-  for (const a of o) {
-    const s = (a || "").trim();
+  for (const r of o) {
+    const s = (r || "").trim();
     if (s) return te(s);
   }
   const e = document.documentElement?.getAttribute("data-api-base-path") || document.body?.getAttribute("data-api-base-path");
@@ -1925,16 +1925,16 @@ function Le(...o) {
   const t = document.documentElement?.getAttribute("data-base-path") || document.body?.getAttribute("data-base-path");
   if (t && t.trim())
     return te(t.trim());
-  const r = window?.DEBUG_CONFIG;
-  return typeof r?.apiBasePath == "string" && r.apiBasePath.trim() ? te(r.apiBasePath.trim()) : typeof r?.basePath == "string" && r.basePath.trim() ? te(r.basePath.trim()) : "";
+  const a = window?.DEBUG_CONFIG;
+  return typeof a?.apiBasePath == "string" && a.apiBasePath.trim() ? te(a.apiBasePath.trim()) : typeof a?.basePath == "string" && a.basePath.trim() ? te(a.basePath.trim()) : "";
 }
 function Re(o, e) {
   const t = (e || "").trim();
   if (t) return _e(t);
-  const r = _e((o || "").trim());
-  if (!r) return "";
-  const a = r.match(/^(.*)\/api(?:\/[^/]+)?$/);
-  return a ? a[1] || "" : r;
+  const a = _e((o || "").trim());
+  if (!a) return "";
+  const r = a.match(/^(.*)\/api(?:\/[^/]+)?$/);
+  return r ? r[1] || "" : a;
 }
 class xe extends H {
   constructor(e) {
@@ -2013,7 +2013,7 @@ class xe extends H {
               placeholder="field_name"
               pattern="^[a-z][a-z0-9_]*$"
               required
-              class="${p()}"
+              class="${g()}"
             />
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Lowercase letters, numbers, underscores. Starts with letter.</p>
           </div>
@@ -2028,7 +2028,7 @@ class xe extends H {
               value="${w(this.field.label)}"
               placeholder="Field Label"
               required
-              class="${p()}"
+              class="${g()}"
             />
           </div>
         </div>
@@ -2054,7 +2054,7 @@ class xe extends H {
             name="placeholder"
             value="${w(this.field.placeholder ?? "")}"
             placeholder="Placeholder text"
-            class="${p()}"
+            class="${g()}"
           />
         </div>
 
@@ -2105,8 +2105,8 @@ class xe extends H {
   renderValidationSection() {
     const e = this.field.validation ?? {}, t = ["text", "textarea", "rich-text", "markdown", "code", "slug"].includes(
       this.field.type
-    ), r = ["number", "integer", "currency", "percentage"].includes(this.field.type);
-    return !t && !r ? "" : `
+    ), a = ["number", "integer", "currency", "percentage"].includes(this.field.type);
+    return !t && !a ? "" : `
       <div class="space-y-4 pt-4 border-t border-gray-200 dark:border-gray-700">
         <h3 class="text-sm font-medium text-gray-900 dark:text-white">Validation</h3>
 
@@ -2121,7 +2121,7 @@ class xe extends H {
                 name="minLength"
                 value="${e.minLength ?? ""}"
                 min="0"
-                class="${p()}"
+                class="${g()}"
               />
             </div>
             <div>
@@ -2133,12 +2133,12 @@ class xe extends H {
                 name="maxLength"
                 value="${e.maxLength ?? ""}"
                 min="0"
-                class="${p()}"
+                class="${g()}"
               />
             </div>
           ` : ""}
 
-          ${r ? `
+          ${a ? `
             <div>
               <label class="${b()}">
                 Minimum
@@ -2148,7 +2148,7 @@ class xe extends H {
                 name="min"
                 value="${e.min ?? ""}"
                 step="any"
-                class="${p()}"
+                class="${g()}"
               />
             </div>
             <div>
@@ -2160,7 +2160,7 @@ class xe extends H {
                 name="max"
                 value="${e.max ?? ""}"
                 step="any"
-                class="${p()}"
+                class="${g()}"
               />
             </div>
           ` : ""}
@@ -2198,7 +2198,7 @@ class xe extends H {
               name="section"
               value="${w(this.field.section ?? "")}"
               placeholder="main"
-              class="${p()}"
+              class="${g()}"
             />
           </div>
 
@@ -2213,7 +2213,7 @@ class xe extends H {
               min="1"
               max="12"
               placeholder="12"
-              class="${p()}"
+              class="${g()}"
             />
           </div>
         </div>
@@ -2223,7 +2223,7 @@ class xe extends H {
   renderTypeSpecificSection() {
     const e = [];
     if (["select", "radio", "chips"].includes(this.field.type)) {
-      const r = this.field.config?.options ?? [];
+      const a = this.field.config?.options ?? [];
       e.push(`
         <div class="space-y-4 pt-4 border-t border-gray-200 dark:border-gray-700">
           <div class="flex items-center justify-between">
@@ -2238,20 +2238,20 @@ class xe extends H {
           </div>
 
           <div data-options-list class="space-y-2">
-            ${r.map(
-        (a, s) => `
+            ${a.map(
+        (r, s) => `
               <div class="flex items-center gap-2" data-option-row="${s}">
                 <input
                   type="text"
                   name="option_value_${s}"
-                  value="${w(String(a.value))}"
+                  value="${w(String(r.value))}"
                   placeholder="value"
                   class="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <input
                   type="text"
                   name="option_label_${s}"
-                  value="${w(a.label)}"
+                  value="${w(r.label)}"
                   placeholder="label"
                   class="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
@@ -2287,7 +2287,7 @@ class xe extends H {
                 name="target"
                 value="${w(t?.target ?? "")}"
                 placeholder="users"
-                class="${p()}"
+                class="${g()}"
               />
             </div>
             <div>
@@ -2299,7 +2299,7 @@ class xe extends H {
                 name="displayField"
                 value="${w(t?.displayField ?? "")}"
                 placeholder="name"
-                class="${p()}"
+                class="${g()}"
               />
             </div>
           </div>
@@ -2322,7 +2322,7 @@ class xe extends H {
                 name="accept"
                 value="${w(t?.accept ?? "")}"
                 placeholder="image/*"
-                class="${p()}"
+                class="${g()}"
               />
             </div>
             <div>
@@ -2335,7 +2335,7 @@ class xe extends H {
                 value="${t?.maxSize ?? ""}"
                 min="0"
                 placeholder="10"
-                class="${p()}"
+                class="${g()}"
               />
             </div>
           </div>
@@ -2406,7 +2406,7 @@ class xe extends H {
               name="sourceField"
               value="${w(t?.sourceField ?? "")}"
               placeholder="title"
-              class="${p()}"
+              class="${g()}"
             />
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Field name to generate slug from (e.g., title)</p>
           </div>
@@ -2421,7 +2421,7 @@ class xe extends H {
                 name="slugPrefix"
                 value="${w(t?.prefix ?? "")}"
                 placeholder=""
-                class="${p()}"
+                class="${g()}"
               />
             </div>
             <div>
@@ -2433,7 +2433,7 @@ class xe extends H {
                 name="slugSuffix"
                 value="${w(t?.suffix ?? "")}"
                 placeholder=""
-                class="${p()}"
+                class="${g()}"
               />
             </div>
             <div>
@@ -2494,7 +2494,7 @@ class xe extends H {
               name="colorPresets"
               value="${w(t?.presets?.join(", ") ?? "")}"
               placeholder="#ff0000, #00ff00, #0000ff"
-              class="${p()}"
+              class="${g()}"
             />
           </div>
         </div>
@@ -2517,7 +2517,7 @@ class xe extends H {
                 value="${t?.defaultCenter?.lat ?? ""}"
                 step="any"
                 placeholder="40.7128"
-                class="${p()}"
+                class="${g()}"
               />
             </div>
             <div>
@@ -2530,7 +2530,7 @@ class xe extends H {
                 value="${t?.defaultCenter?.lng ?? ""}"
                 step="any"
                 placeholder="-74.0060"
-                class="${p()}"
+                class="${g()}"
               />
             </div>
             <div>
@@ -2544,7 +2544,7 @@ class xe extends H {
                 min="1"
                 max="20"
                 placeholder="12"
-                class="${p()}"
+                class="${g()}"
               />
             </div>
           </div>
@@ -2576,7 +2576,7 @@ class xe extends H {
                 type="date"
                 name="minDate"
                 value="${w(t?.minDate ?? "")}"
-                class="${p()}"
+                class="${g()}"
               />
             </div>
             <div>
@@ -2587,7 +2587,7 @@ class xe extends H {
                 type="date"
                 name="maxDate"
                 value="${w(t?.maxDate ?? "")}"
-                class="${p()}"
+                class="${g()}"
               />
             </div>
           </div>
@@ -2621,7 +2621,7 @@ class xe extends H {
                 value="${t?.minItems ?? ""}"
                 min="0"
                 placeholder="0"
-                class="${p()}"
+                class="${g()}"
               />
             </div>
             <div>
@@ -2634,7 +2634,7 @@ class xe extends H {
                 value="${t?.maxItems ?? ""}"
                 min="1"
                 placeholder="10"
-                class="${p()}"
+                class="${g()}"
               />
             </div>
           </div>
@@ -2658,7 +2658,7 @@ class xe extends H {
       `);
     }
     if (this.field.type === "blocks") {
-      const t = this.field.config, r = t?.allowedBlocks ? JSON.stringify(t.allowedBlocks) : "[]", a = t?.deniedBlocks ? JSON.stringify(t.deniedBlocks) : "[]";
+      const t = this.field.config, a = t?.allowedBlocks ? JSON.stringify(t.allowedBlocks) : "[]", r = t?.deniedBlocks ? JSON.stringify(t.deniedBlocks) : "[]";
       e.push(`
         <div class="space-y-4 pt-4 border-t border-gray-200 dark:border-gray-700">
           <h3 class="text-sm font-medium text-gray-900 dark:text-white">Blocks Settings</h3>
@@ -2674,7 +2674,7 @@ class xe extends H {
                 value="${t?.minBlocks ?? ""}"
                 min="0"
                 placeholder="0"
-                class="${p()}"
+                class="${g()}"
               />
             </div>
             <div>
@@ -2687,7 +2687,7 @@ class xe extends H {
                 value="${t?.maxBlocks ?? ""}"
                 min="1"
                 placeholder="No limit"
-                class="${p()}"
+                class="${g()}"
               />
             </div>
           </div>
@@ -2715,7 +2715,7 @@ class xe extends H {
       ).join("") : '<span class="text-xs text-gray-400 dark:text-gray-500">All blocks allowed (no restrictions)</span>'}
               </div>
             </div>
-            <input type="hidden" name="allowedBlocks" value='${w(r)}' />
+            <input type="hidden" name="allowedBlocks" value='${w(a)}' />
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Leave empty to allow all block types</p>
           </div>
 
@@ -2742,7 +2742,7 @@ class xe extends H {
       ).join("") : '<span class="text-xs text-gray-400 dark:text-gray-500">No blocks denied</span>'}
               </div>
             </div>
-            <input type="hidden" name="deniedBlocks" value='${w(a)}' />
+            <input type="hidden" name="deniedBlocks" value='${w(r)}' />
           </div>
         </div>
       `);
@@ -2757,8 +2757,8 @@ class xe extends H {
       this.config.onCancel(), this.hide();
     }), this.container.querySelector("[data-field-config-save]")?.addEventListener("click", () => {
       this.handleSave();
-    }), this.container.querySelector("[data-field-config-form-element]")?.addEventListener("submit", (r) => {
-      r.preventDefault(), this.handleSave();
+    }), this.container.querySelector("[data-field-config-form-element]")?.addEventListener("submit", (a) => {
+      a.preventDefault(), this.handleSave();
     });
     const e = this.container.querySelector('input[name="name"]'), t = this.container.querySelector('input[name="label"]');
     e && t && this.isNewField && (t.addEventListener("input", () => {
@@ -2771,8 +2771,8 @@ class xe extends H {
     this.container && (this.container.querySelector("[data-add-option]")?.addEventListener("click", () => {
       const e = this.container?.querySelector("[data-options-list]");
       if (!e) return;
-      const t = e.querySelectorAll("[data-option-row]").length, r = document.createElement("div");
-      r.className = "flex items-center gap-2", r.setAttribute("data-option-row", String(t)), r.innerHTML = `
+      const t = e.querySelectorAll("[data-option-row]").length, a = document.createElement("div");
+      a.className = "flex items-center gap-2", a.setAttribute("data-option-row", String(t)), a.innerHTML = `
         <input
           type="text"
           name="option_value_${t}"
@@ -2794,9 +2794,9 @@ class xe extends H {
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
           </svg>
         </button>
-      `, e.appendChild(r), r.querySelector("[data-remove-option]")?.addEventListener("click", () => {
-        r.remove();
-      }), r.querySelector(`input[name="option_value_${t}"]`)?.focus();
+      `, e.appendChild(a), a.querySelector("[data-remove-option]")?.addEventListener("click", () => {
+        a.remove();
+      }), a.querySelector(`input[name="option_value_${t}"]`)?.focus();
     }), this.container.querySelectorAll("[data-remove-option]").forEach((e) => {
       e.addEventListener("click", () => {
         e.closest("[data-option-row]")?.remove();
@@ -2811,22 +2811,22 @@ class xe extends H {
     }), this.container.querySelectorAll("[data-remove-allowed]").forEach((e) => {
       e.addEventListener("click", (t) => {
         t.preventDefault();
-        const r = e.getAttribute("data-remove-allowed");
-        r && this.removeBlockFromList("allowed", r);
+        const a = e.getAttribute("data-remove-allowed");
+        a && this.removeBlockFromList("allowed", a);
       });
     }), this.container.querySelectorAll("[data-remove-denied]").forEach((e) => {
       e.addEventListener("click", (t) => {
         t.preventDefault();
-        const r = e.getAttribute("data-remove-denied");
-        r && this.removeBlockFromList("denied", r);
+        const a = e.getAttribute("data-remove-denied");
+        a && this.removeBlockFromList("denied", a);
       });
     }));
   }
   async showBlockPicker(e) {
-    const t = this.container?.querySelector(`input[name="${e}Blocks"]`), r = t?.value ? JSON.parse(t.value) : [], a = Le(this.config.apiBasePath);
+    const t = this.container?.querySelector(`input[name="${e}Blocks"]`), a = t?.value ? JSON.parse(t.value) : [], r = Le(this.config.apiBasePath);
     new Zt({
-      apiBasePath: a,
-      selectedBlocks: r,
+      apiBasePath: r,
+      selectedBlocks: a,
       title: e === "allowed" ? "Select Allowed Blocks" : "Select Denied Blocks",
       onSelect: (i) => {
         this.updateBlockList(e, i);
@@ -2834,16 +2834,16 @@ class xe extends H {
     }).show();
   }
   updateBlockList(e, t) {
-    const r = this.container?.querySelector(`input[name="${e}Blocks"]`), a = this.container?.querySelector(`[data-${e}-blocks-chips]`);
-    if (!(!r || !a))
-      if (r.value = JSON.stringify(t), t.length === 0) {
+    const a = this.container?.querySelector(`input[name="${e}Blocks"]`), r = this.container?.querySelector(`[data-${e}-blocks-chips]`);
+    if (!(!a || !r))
+      if (a.value = JSON.stringify(t), t.length === 0) {
         const s = e === "allowed" ? "All blocks allowed (no restrictions)" : "No blocks denied";
-        a.innerHTML = `<span class="text-xs text-gray-400 dark:text-gray-500">${s}</span>`;
+        r.innerHTML = `<span class="text-xs text-gray-400 dark:text-gray-500">${s}</span>`;
       } else {
         const s = e === "allowed" ? "blue" : "red";
-        a.innerHTML = t.map(
+        r.innerHTML = t.map(
           (i) => `<span class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-${s}-100 text-${s}-700 dark:bg-${s}-900/30 dark:text-${s}-400" data-block-chip="${w(i)}">${w(i)}<button type="button" data-remove-${e}="${w(i)}" class="hover:text-${s}-900 dark:hover:text-${s}-200">&times;</button></span>`
-        ).join(""), a.querySelectorAll(`[data-remove-${e}]`).forEach((i) => {
+        ).join(""), r.querySelectorAll(`[data-remove-${e}]`).forEach((i) => {
           i.addEventListener("click", (n) => {
             n.preventDefault();
             const l = i.getAttribute(`data-remove-${e}`);
@@ -2853,25 +2853,25 @@ class xe extends H {
       }
   }
   removeBlockFromList(e, t) {
-    const r = this.container?.querySelector(`input[name="${e}Blocks"]`);
-    if (!r) return;
-    const s = (r.value ? JSON.parse(r.value) : []).filter((i) => i !== t);
+    const a = this.container?.querySelector(`input[name="${e}Blocks"]`);
+    if (!a) return;
+    const s = (a.value ? JSON.parse(a.value) : []).filter((i) => i !== t);
     this.updateBlockList(e, s);
   }
   handleSave() {
     const e = this.container?.querySelector("[data-field-config-form-element]");
     if (!e) return;
-    const t = new FormData(e), r = t.get("name")?.trim();
-    if (!r) {
+    const t = new FormData(e), a = t.get("name")?.trim();
+    if (!a) {
       this.showError("name", "Field name is required");
       return;
     }
-    if (!/^[a-z][a-z0-9_]*$/.test(r)) {
+    if (!/^[a-z][a-z0-9_]*$/.test(a)) {
       this.showError("name", "Invalid field name format");
       return;
     }
-    const a = this.config.existingFieldNames ?? [], s = this.config.field.name;
-    if (r !== s && a.includes(r)) {
+    const r = this.config.existingFieldNames ?? [], s = this.config.field.name;
+    if (a !== s && r.includes(a)) {
       this.showError("name", "A field with this name already exists");
       return;
     }
@@ -2882,7 +2882,7 @@ class xe extends H {
     }
     const n = {
       id: this.field.id || X(),
-      name: r,
+      name: a,
       type: this.field.type,
       order: this.field.order,
       label: i,
@@ -2898,8 +2898,8 @@ class xe extends H {
     d !== null && d !== "" && (l.minLength = parseInt(d, 10));
     const c = t.get("maxLength");
     c !== null && c !== "" && (l.maxLength = parseInt(c, 10));
-    const g = t.get("min");
-    g !== null && g !== "" && (l.min = parseFloat(g));
+    const p = t.get("min");
+    p !== null && p !== "" && (l.min = parseFloat(p));
     const m = t.get("max");
     m !== null && m !== "" && (l.max = parseFloat(m));
     const f = t.get("pattern");
@@ -2913,83 +2913,83 @@ class xe extends H {
       case "radio":
       case "chips": {
         const t = [];
-        let r = 0;
-        for (; e.has(`option_value_${r}`); ) {
-          const a = e.get(`option_value_${r}`)?.trim(), s = e.get(`option_label_${r}`)?.trim();
-          a && t.push({ value: a, label: s || a }), r++;
+        let a = 0;
+        for (; e.has(`option_value_${a}`); ) {
+          const r = e.get(`option_value_${a}`)?.trim(), s = e.get(`option_label_${a}`)?.trim();
+          r && t.push({ value: r, label: s || r }), a++;
         }
         return t.length > 0 ? { options: t } : void 0;
       }
       case "reference":
       case "references":
       case "user": {
-        const t = e.get("target")?.trim(), r = e.get("displayField")?.trim();
-        return t ? { target: t, displayField: r || void 0 } : void 0;
+        const t = e.get("target")?.trim(), a = e.get("displayField")?.trim();
+        return t ? { target: t, displayField: a || void 0 } : void 0;
       }
       case "media-picker":
       case "media-gallery":
       case "file-upload": {
-        const t = e.get("accept")?.trim(), r = e.get("maxSize") ? parseInt(e.get("maxSize"), 10) : void 0, a = e.get("multiple") === "on";
+        const t = e.get("accept")?.trim(), a = e.get("maxSize") ? parseInt(e.get("maxSize"), 10) : void 0, r = e.get("multiple") === "on";
         return {
           accept: t || void 0,
-          maxSize: r,
-          multiple: this.field.type === "media-gallery" ? a : void 0
+          maxSize: a,
+          multiple: this.field.type === "media-gallery" ? r : void 0
         };
       }
       case "code": {
-        const t = e.get("language")?.trim() || "json", r = e.get("lineNumbers") === "on";
-        return { language: t, lineNumbers: r };
+        const t = e.get("language")?.trim() || "json", a = e.get("lineNumbers") === "on";
+        return { language: t, lineNumbers: a };
       }
       case "slug": {
-        const t = e.get("sourceField")?.trim(), r = e.get("slugPrefix")?.trim(), a = e.get("slugSuffix")?.trim(), s = e.get("slugSeparator")?.trim() || "-";
+        const t = e.get("sourceField")?.trim(), a = e.get("slugPrefix")?.trim(), r = e.get("slugSuffix")?.trim(), s = e.get("slugSeparator")?.trim() || "-";
         return {
           sourceField: t || void 0,
-          prefix: r || void 0,
-          suffix: a || void 0,
+          prefix: a || void 0,
+          suffix: r || void 0,
           separator: s
         };
       }
       case "color": {
-        const t = e.get("colorFormat")?.trim() || "hex", r = e.get("allowAlpha") === "on", a = e.get("colorPresets")?.trim(), s = a ? a.split(",").map((i) => i.trim()).filter(Boolean) : void 0;
+        const t = e.get("colorFormat")?.trim() || "hex", a = e.get("allowAlpha") === "on", r = e.get("colorPresets")?.trim(), s = r ? r.split(",").map((i) => i.trim()).filter(Boolean) : void 0;
         return {
           format: t,
-          allowAlpha: r,
+          allowAlpha: a,
           presets: s
         };
       }
       case "location": {
-        const t = e.get("defaultLat"), r = e.get("defaultLng"), a = e.get("defaultZoom"), i = { searchEnabled: e.get("searchEnabled") === "on" };
-        return t && r && (i.defaultCenter = {
+        const t = e.get("defaultLat"), a = e.get("defaultLng"), r = e.get("defaultZoom"), i = { searchEnabled: e.get("searchEnabled") === "on" };
+        return t && a && (i.defaultCenter = {
           lat: parseFloat(t),
-          lng: parseFloat(r)
-        }), a && (i.defaultZoom = parseInt(a, 10)), i;
+          lng: parseFloat(a)
+        }), r && (i.defaultZoom = parseInt(r, 10)), i;
       }
       case "daterange": {
-        const t = e.get("minDate")?.trim(), r = e.get("maxDate")?.trim(), a = e.get("allowSameDay") === "on";
+        const t = e.get("minDate")?.trim(), a = e.get("maxDate")?.trim(), r = e.get("allowSameDay") === "on";
         return {
           minDate: t || void 0,
-          maxDate: r || void 0,
-          allowSameDay: a
+          maxDate: a || void 0,
+          allowSameDay: r
         };
       }
       case "repeater": {
-        const t = e.get("minItems"), r = e.get("maxItems"), a = e.get("collapsed") === "on";
+        const t = e.get("minItems"), a = e.get("maxItems"), r = e.get("collapsed") === "on";
         return {
           fields: this.field.config?.fields ?? [],
           minItems: t ? parseInt(t, 10) : void 0,
-          maxItems: r ? parseInt(r, 10) : void 0,
-          collapsed: a
+          maxItems: a ? parseInt(a, 10) : void 0,
+          collapsed: r
         };
       }
       case "blocks": {
-        const t = e.get("minBlocks"), r = e.get("maxBlocks"), a = e.get("allowedBlocks")?.trim(), s = e.get("deniedBlocks")?.trim(), i = this.field.config;
+        const t = e.get("minBlocks"), a = e.get("maxBlocks"), r = e.get("allowedBlocks")?.trim(), s = e.get("deniedBlocks")?.trim(), i = this.field.config;
         let n, l;
-        if (a)
+        if (r)
           try {
-            const d = JSON.parse(a);
+            const d = JSON.parse(r);
             n = Array.isArray(d) && d.length > 0 ? d : void 0;
           } catch {
-            n = a.split(",").map((d) => d.trim()).filter(Boolean), n.length === 0 && (n = void 0);
+            n = r.split(",").map((d) => d.trim()).filter(Boolean), n.length === 0 && (n = void 0);
           }
         if (s)
           try {
@@ -3009,7 +3009,7 @@ class xe extends H {
           __sourceHadAllowedBlocks: i?.__sourceHadAllowedBlocks,
           __sourceHadDeniedBlocks: i?.__sourceHadDeniedBlocks,
           minBlocks: t ? parseInt(t, 10) : void 0,
-          maxBlocks: r ? parseInt(r, 10) : void 0,
+          maxBlocks: a ? parseInt(a, 10) : void 0,
           allowedBlocks: n,
           deniedBlocks: l
         };
@@ -3019,15 +3019,15 @@ class xe extends H {
     }
   }
   showError(e, t) {
-    const r = this.container?.querySelector(`[name="${e}"]`);
-    if (!r) return;
-    r.classList.add("border-red-500", "focus:ring-red-500"), r.focus(), r.parentElement?.querySelector(".field-error")?.remove();
+    const a = this.container?.querySelector(`[name="${e}"]`);
+    if (!a) return;
+    a.classList.add("border-red-500", "focus:ring-red-500"), a.focus(), a.parentElement?.querySelector(".field-error")?.remove();
     const s = document.createElement("p");
-    s.className = "field-error text-xs text-red-500 mt-1", s.textContent = t, r.parentElement?.appendChild(s);
+    s.className = "field-error text-xs text-red-500 mt-1", s.textContent = t, a.parentElement?.appendChild(s);
     const i = () => {
-      r.classList.remove("border-red-500", "focus:ring-red-500"), s.remove(), r.removeEventListener("input", i);
+      a.classList.remove("border-red-500", "focus:ring-red-500"), s.remove(), a.removeEventListener("input", i);
     };
-    r.addEventListener("input", i);
+    a.addEventListener("input", i);
   }
 }
 function w(o) {
@@ -3092,42 +3092,42 @@ class Zt extends H {
     }));
   }
   async loadBlocks() {
-    const e = this.container?.querySelector("[data-blocks-loading]"), t = this.container?.querySelector("[data-blocks-list]"), r = this.container?.querySelector("[data-blocks-empty]");
+    const e = this.container?.querySelector("[data-blocks-loading]"), t = this.container?.querySelector("[data-blocks-list]"), a = this.container?.querySelector("[data-blocks-empty]");
     try {
-      this.availableBlocks = await Ne(this.api), this.selectedBlocks = ne(this.selectedBlocks, this.availableBlocks), e?.classList.add("hidden"), this.availableBlocks.length === 0 ? r?.classList.remove("hidden") : (t?.classList.remove("hidden"), this.renderBlocksList());
+      this.availableBlocks = await Ne(this.api), this.selectedBlocks = ne(this.selectedBlocks, this.availableBlocks), e?.classList.add("hidden"), this.availableBlocks.length === 0 ? a?.classList.remove("hidden") : (t?.classList.remove("hidden"), this.renderBlocksList());
     } catch {
-      e?.classList.add("hidden"), r?.classList.remove("hidden");
-      const a = r?.querySelector("span") || r;
-      a && (a.textContent = "Failed to load block definitions");
+      e?.classList.add("hidden"), a?.classList.remove("hidden");
+      const r = a?.querySelector("span") || a;
+      r && (r.textContent = "Failed to load block definitions");
     }
   }
   renderBlocksList() {
     const e = this.container?.querySelector("[data-blocks-list]");
     e && (e.innerHTML = this.availableBlocks.map((t) => {
-      const r = ke(t), a = this.selectedBlocks.has(r) || this.selectedBlocks.has(t.type);
+      const a = ke(t), r = this.selectedBlocks.has(a) || this.selectedBlocks.has(t.type);
       return `
-          <label class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${a ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-600" : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"}">
+          <label class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${r ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-600" : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"}">
             <input
               type="checkbox"
-              value="${w(r)}"
+              value="${w(a)}"
               data-block-type="${w(t.type)}"
-              ${a ? "checked" : ""}
+              ${r ? "checked" : ""}
               class="${P()}"
             />
             <div class="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-sm font-medium">
-              ${t.icon || r.charAt(0).toUpperCase()}
+              ${t.icon || a.charAt(0).toUpperCase()}
             </div>
             <div class="flex-1 min-w-0">
               <div class="text-sm font-medium text-gray-900 dark:text-white">${w(t.name)}</div>
-              <div class="text-xs text-gray-500 dark:text-gray-400 font-mono">${w(r)}</div>
+              <div class="text-xs text-gray-500 dark:text-gray-400 font-mono">${w(a)}</div>
             </div>
             ${t.schema_version ? `<span class="text-xs text-gray-400 dark:text-gray-500">v${w(t.schema_version)}</span>` : ""}
           </label>
         `;
     }).join(""), e.querySelectorAll('input[type="checkbox"]').forEach((t) => {
       t.addEventListener("change", () => {
-        const r = t.value, a = t.dataset.blockType;
-        t.checked ? (this.selectedBlocks.add(r), a && a !== r && this.selectedBlocks.delete(a)) : (this.selectedBlocks.delete(r), a && this.selectedBlocks.delete(a)), this.updateSelectionCount(), this.renderBlocksList();
+        const a = t.value, r = t.dataset.blockType;
+        t.checked ? (this.selectedBlocks.add(a), r && r !== a && this.selectedBlocks.delete(r)) : (this.selectedBlocks.delete(a), r && this.selectedBlocks.delete(r)), this.updateSelectionCount(), this.renderBlocksList();
       });
     }), this.updateSelectionCount());
   }
@@ -3291,7 +3291,7 @@ class Xt extends H {
             <div class="text-sm text-gray-500 dark:text-gray-400 p-4 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-center">
               No ${t.toLowerCase()}s defined. Fields without a section will appear in a default "${t.toLowerCase()}".
             </div>
-          ` : e.map((r, a) => this.renderTabRow(r, a)).join("")}
+          ` : e.map((a, r) => this.renderTabRow(a, r)).join("")}
         </div>
       </div>
     `;
@@ -3344,13 +3344,13 @@ class Xt extends H {
   renderFieldAssignment() {
     if (this.layout.type !== "tabs" && this.layout.type !== "sections")
       return "";
-    const e = this.layout.tabs ?? [], t = this.layout.type === "tabs" ? "tab" : "section", r = /* @__PURE__ */ new Map();
-    r.set("", []);
-    for (const a of e)
-      r.set(a.id, []);
-    for (const a of this.config.fields) {
-      const s = a.section ?? "";
-      r.has(s) || r.set(s, []), r.get(s).push(a);
+    const e = this.layout.tabs ?? [], t = this.layout.type === "tabs" ? "tab" : "section", a = /* @__PURE__ */ new Map();
+    a.set("", []);
+    for (const r of e)
+      a.set(r.id, []);
+    for (const r of this.config.fields) {
+      const s = r.section ?? "";
+      a.has(s) || a.set(s, []), a.get(s).push(r);
     }
     return `
       <div class="space-y-4 pt-4 border-t border-gray-200 dark:border-gray-700">
@@ -3360,11 +3360,11 @@ class Xt extends H {
         </p>
 
         <div class="grid grid-cols-2 gap-4">
-          ${Array.from(r.entries()).map(
-      ([a, s]) => `
+          ${Array.from(a.entries()).map(
+      ([r, s]) => `
             <div class="p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
               <div class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                ${a || "(Unassigned)"}
+                ${r || "(Unassigned)"}
               </div>
               <div class="space-y-1">
                 ${s.length === 0 ? '<div class="text-xs text-gray-400">No fields</div>' : s.map((i) => `<div class="text-xs text-gray-500 dark:text-gray-400 truncate">${he(i.label)} <span class="font-mono">(${he(i.name)})</span></div>`).join("")}
@@ -3399,39 +3399,39 @@ class Xt extends H {
     if (!this.container) return;
     this.container.querySelectorAll("[data-remove-tab]").forEach((t) => {
       t.addEventListener("click", () => {
-        const r = t.getAttribute("data-remove-tab");
-        r && this.removeTab(r);
+        const a = t.getAttribute("data-remove-tab");
+        a && this.removeTab(a);
       });
     }), this.container.querySelectorAll('input[name^="tab_id_"]').forEach((t) => {
       t.addEventListener("input", () => {
         this.updateTabsFromForm();
       });
     }), Ee(this.container, "[data-icon-trigger]", (t) => {
-      const r = t.querySelector('input[name^="tab_icon_"]');
+      const a = t.querySelector('input[name^="tab_icon_"]');
       return {
-        value: r?.value ?? "",
-        onSelect: (a) => {
-          r && (r.value = a);
+        value: a?.value ?? "",
+        onSelect: (r) => {
+          a && (a.value = r);
         },
         onClear: () => {
-          r && (r.value = "");
+          a && (a.value = "");
         }
       };
     });
     const e = this.container.querySelector("[data-tabs-list]");
     e && (e.addEventListener("dragstart", (t) => {
-      const a = t.target.closest("[data-tab-row]");
-      a && (this.dragState = {
-        tabId: a.getAttribute("data-tab-row") ?? "",
-        startIndex: parseInt(a.getAttribute("data-tab-index") ?? "0", 10)
-      }, a.classList.add("opacity-50"));
+      const r = t.target.closest("[data-tab-row]");
+      r && (this.dragState = {
+        tabId: r.getAttribute("data-tab-row") ?? "",
+        startIndex: parseInt(r.getAttribute("data-tab-index") ?? "0", 10)
+      }, r.classList.add("opacity-50"));
     }), e.addEventListener("dragover", (t) => {
       t.preventDefault();
     }), e.addEventListener("drop", (t) => {
       if (t.preventDefault(), !this.dragState) return;
-      const a = t.target.closest("[data-tab-row]");
-      if (!a) return;
-      const s = parseInt(a.getAttribute("data-tab-index") ?? "0", 10);
+      const r = t.target.closest("[data-tab-row]");
+      if (!r) return;
+      const s = parseInt(r.getAttribute("data-tab-index") ?? "0", 10);
       this.moveTab(this.dragState.tabId, s), this.dragState = null;
     }), e.addEventListener("dragend", () => {
       e.querySelectorAll(".opacity-50").forEach((t) => t.classList.remove("opacity-50")), this.dragState = null;
@@ -3450,17 +3450,17 @@ class Xt extends H {
   }
   moveTab(e, t) {
     if (!this.layout.tabs) return;
-    const r = this.layout.tabs.findIndex((s) => s.id === e);
-    if (r === -1 || r === t) return;
-    const a = this.layout.tabs.splice(r, 1)[0];
-    this.layout.tabs.splice(t, 0, a), this.layout.tabs.forEach((s, i) => {
+    const a = this.layout.tabs.findIndex((s) => s.id === e);
+    if (a === -1 || a === t) return;
+    const r = this.layout.tabs.splice(a, 1)[0];
+    this.layout.tabs.splice(t, 0, r), this.layout.tabs.forEach((s, i) => {
       s.order = i;
     }), this.updateView();
   }
   updateTabsFromForm() {
     !this.container || !this.layout.tabs || this.layout.tabs.forEach((e, t) => {
-      const r = this.container.querySelector(`input[name="tab_id_${t}"]`), a = this.container.querySelector(`input[name="tab_label_${t}"]`), s = this.container.querySelector(`input[name="tab_icon_${t}"]`);
-      r && (e.id = r.value.trim()), a && (e.label = a.value.trim()), s && (e.icon = s.value.trim() || void 0);
+      const a = this.container.querySelector(`input[name="tab_id_${t}"]`), r = this.container.querySelector(`input[name="tab_label_${t}"]`), s = this.container.querySelector(`input[name="tab_icon_${t}"]`);
+      a && (e.id = a.value.trim()), r && (e.label = r.value.trim()), s && (e.icon = s.value.trim() || void 0);
     });
   }
   updateView() {
@@ -3474,12 +3474,12 @@ class Xt extends H {
         ${this.renderFieldAssignment()}
       `, this.container.querySelectorAll("[data-layout-type]").forEach((t) => {
       t.addEventListener("click", () => {
-        const r = t.getAttribute("data-layout-type");
-        this.layout.type = r, this.updateView();
+        const a = t.getAttribute("data-layout-type");
+        this.layout.type = a, this.updateView();
       });
     }), this.container.querySelector("[data-grid-columns]")?.addEventListener("change", (t) => {
-      const r = t.target.value;
-      this.layout.gridColumns = parseInt(r, 10);
+      const a = t.target.value;
+      this.layout.gridColumns = parseInt(a, 10);
     }), this.container.querySelector("[data-add-tab]")?.addEventListener("click", () => {
       this.addTab();
     }), this.bindTabEvents());
@@ -3505,15 +3505,15 @@ class Xt extends H {
     const t = this.container?.querySelector("[data-layout-error]");
     if (!t) return;
     t.classList.remove("hidden");
-    const r = t.querySelector("p");
-    r && (r.textContent = e), setTimeout(() => t.classList.add("hidden"), 5e3);
+    const a = t.querySelector("p");
+    a && (a.textContent = e), setTimeout(() => t.classList.add("hidden"), 5e3);
   }
 }
 function he(o) {
   const e = document.createElement("div");
   return e.textContent = o, e.innerHTML;
 }
-const er = {
+const ea = {
   text: "text",
   media: "media",
   choice: "selection",
@@ -3522,7 +3522,7 @@ const er = {
   relationship: "reference",
   structure: "structural",
   advanced: "advanced"
-}, tr = {
+}, ta = {
   text: "cat-text",
   media: "cat-media",
   choice: "cat-selection",
@@ -3532,28 +3532,28 @@ const er = {
   structure: "cat-structural",
   advanced: "cat-advanced"
 };
-function rr(o) {
+function aa(o) {
   const e = (o ?? "").trim().toLowerCase();
-  return er[e] ?? "advanced";
+  return ea[e] ?? "advanced";
 }
-function ar(o, e) {
+function ra(o, e) {
   const t = (o ?? "").trim();
   if (t) return t;
-  const r = (e ?? "").trim();
-  return r ? yt(r) : "Advanced";
+  const a = (e ?? "").trim();
+  return a ? yt(a) : "Advanced";
 }
-function sr(o) {
-  const e = (o ?? "").trim().toLowerCase(), t = tr[e] ?? "cat-advanced";
+function sa(o) {
+  const e = (o ?? "").trim().toLowerCase(), t = ta[e] ?? "cat-advanced";
   return ee(t);
 }
-function ir(o) {
+function ia(o) {
   const e = o.defaults;
   return !e || typeof e != "object" ? void 0 : e;
 }
-function or(o, e) {
-  const t = (o.type ?? "text").trim().toLowerCase(), r = t === "text" ? "textarea" : I(t), a = (o.label ?? "").trim() || yt(o.type ?? r), s = (o.description ?? "").trim(), i = ee(o.icon ?? "") || ee(r) || "", n = ir(o), l = {
-    type: r,
-    label: a,
+function oa(o, e) {
+  const t = (o.type ?? "text").trim().toLowerCase(), a = t === "text" ? "textarea" : I(t), r = (o.label ?? "").trim() || yt(o.type ?? a), s = (o.description ?? "").trim(), i = ee(o.icon ?? "") || ee(a) || "", n = ia(o), l = {
+    type: a,
+    label: r,
     description: s,
     icon: i,
     category: e,
@@ -3566,21 +3566,21 @@ function or(o, e) {
 }
 function gt(o) {
   const e = [], t = [];
-  for (const r of o) {
-    const a = r.category ?? {}, s = (a.id ?? "").trim().toLowerCase(), i = rr(s);
+  for (const a of o) {
+    const r = a.category ?? {}, s = (r.id ?? "").trim().toLowerCase(), i = aa(s);
     e.push({
       id: i,
-      label: ar(a.label, s),
-      icon: sr(s),
-      collapsed: a.collapsed
+      label: ra(r.label, s),
+      icon: sa(s),
+      collapsed: r.collapsed
     });
-    const n = Array.isArray(r.field_types) ? r.field_types : [];
+    const n = Array.isArray(a.field_types) ? a.field_types : [];
     for (const l of n)
-      t.push(or(l, i));
+      t.push(oa(l, i));
   }
   return { categories: e, fieldTypes: t };
 }
-const nr = gt([
+const na = gt([
   {
     category: { id: "text", label: "Text", icon: "text", order: 10 },
     field_types: [
@@ -3784,11 +3784,11 @@ const nr = gt([
 function yt(o) {
   return o.replace(/_/g, " ").replace(/\b\w/g, (e) => e.toUpperCase());
 }
-function lr() {
+function la() {
   const o = /* @__PURE__ */ new Map();
-  for (const t of Se)
+  for (const t of $e)
     o.set(t.type, t);
-  for (const t of nr.fieldTypes)
+  for (const t of na.fieldTypes)
     o.has(t.type) || o.set(t.type, t);
   return {
     categories: it.map((t) => ({
@@ -3799,8 +3799,8 @@ function lr() {
     fieldTypes: Array.from(o.values())
   };
 }
-const ye = lr();
-async function dr(o) {
+const ye = la();
+async function da(o) {
   try {
     const e = await o.getBlockFieldTypeGroups();
     if (e && e.length > 0) {
@@ -3826,7 +3826,7 @@ async function dr(o) {
     fieldTypes: [...ye.fieldTypes]
   };
 }
-const cr = /* @__PURE__ */ new Set(["advanced"]), we = "application/x-field-palette-type", Ve = "application/x-field-palette-meta";
+const ca = /* @__PURE__ */ new Set(["advanced"]), we = "application/x-field-palette-type", Ve = "application/x-field-palette-meta";
 class qe {
   constructor(e) {
     this.fieldTypes = [], this.fieldTypeByKey = /* @__PURE__ */ new Map(), this.fieldTypeKeyByRef = /* @__PURE__ */ new Map(), this.categoryOrder = [], this.searchQuery = "", this.categoryStates = /* @__PURE__ */ new Map(), this.isLoading = !0, this.enabled = !1, this.config = e, this.categoryOrder = [...ye.categories];
@@ -3854,7 +3854,7 @@ class qe {
   // Data Loading (Task 9.1)
   // ===========================================================================
   async loadFieldTypes() {
-    const e = await dr(this.config.api);
+    const e = await da(this.config.api);
     this.fieldTypes = e.fieldTypes, this.categoryOrder = e.categories, this.initCategoryStates(), this.buildFieldTypeKeyMap();
   }
   initCategoryStates() {
@@ -3863,17 +3863,17 @@ class qe {
       e.add(t.id);
     for (const t of e)
       this.categoryStates.has(t) || this.categoryStates.set(t, {
-        collapsed: cr.has(t)
+        collapsed: ca.has(t)
       });
     for (const t of this.categoryOrder) {
-      const r = this.categoryStates.get(t.id) ?? { collapsed: !1 };
-      t.collapsed !== void 0 && (r.collapsed = t.collapsed), this.categoryStates.set(t.id, r);
+      const a = this.categoryStates.get(t.id) ?? { collapsed: !1 };
+      t.collapsed !== void 0 && (a.collapsed = t.collapsed), this.categoryStates.set(t.id, a);
     }
   }
   buildFieldTypeKeyMap() {
     this.fieldTypeByKey.clear(), this.fieldTypeKeyByRef.clear(), this.fieldTypes.forEach((e, t) => {
-      const r = `${e.type}:${t}`;
-      this.fieldTypeByKey.set(r, e), this.fieldTypeKeyByRef.set(e, r);
+      const a = `${e.type}:${t}`;
+      this.fieldTypeByKey.set(a, e), this.fieldTypeKeyByRef.set(e, a);
     });
   }
   // ===========================================================================
@@ -3912,8 +3912,8 @@ class qe {
                value="${q(this.searchQuery)}"
                class="w-full pl-9 pr-3 py-2 text-[13px] border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white dark:focus:bg-slate-700 transition-colors" />
       </div>`, e.appendChild(t);
-    const r = document.createElement("div");
-    r.className = "overflow-y-auto flex-1 min-h-0", r.setAttribute("data-palette-list", ""), this.searchQuery ? r.innerHTML = this.renderSearchResults() : r.innerHTML = this.renderCategoryGroups(), e.appendChild(r), this.bindEvents(e);
+    const a = document.createElement("div");
+    a.className = "overflow-y-auto flex-1 min-h-0", a.setAttribute("data-palette-list", ""), this.searchQuery ? a.innerHTML = this.renderSearchResults() : a.innerHTML = this.renderCategoryGroups(), e.appendChild(a), this.bindEvents(e);
   }
   // ===========================================================================
   // Rendering – Category Groups (Task 9.2)
@@ -3921,8 +3921,8 @@ class qe {
   renderCategoryGroups() {
     let e = "";
     for (const t of this.categoryOrder) {
-      const r = this.fieldTypes.filter((i) => i.category === t.id);
-      if (r.length === 0) continue;
+      const a = this.fieldTypes.filter((i) => i.category === t.id);
+      if (a.length === 0) continue;
       const s = this.categoryStates.get(t.id)?.collapsed ?? !1;
       e += `
         <div data-palette-category="${q(t.id)}" class="border-b border-gray-50 dark:border-gray-800">
@@ -3933,11 +3933,11 @@ class qe {
             </span>
             <span class="flex-shrink-0 w-4 h-4 flex items-center justify-center text-gray-400 dark:text-gray-500">${t.icon}</span>
             <span class="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider flex-1">${q(t.label)}</span>
-            <span class="text-[11px] text-gray-400 dark:text-gray-500">${r.length}</span>
+            <span class="text-[11px] text-gray-400 dark:text-gray-500">${a.length}</span>
           </button>
           <div class="${s ? "hidden" : ""}" data-palette-category-body="${q(t.id)}">
             <div class="px-2 pb-2 space-y-0.5">
-              ${r.map((i) => this.renderPaletteItem(i)).join("")}
+              ${a.map((i) => this.renderPaletteItem(i)).join("")}
             </div>
           </div>
         </div>`;
@@ -3952,7 +3952,7 @@ class qe {
   // ===========================================================================
   renderSearchResults() {
     const e = this.searchQuery.toLowerCase(), t = this.fieldTypes.filter(
-      (r) => r.label.toLowerCase().includes(e) || (r.description ?? "").toLowerCase().includes(e) || r.type.toLowerCase().includes(e)
+      (a) => a.label.toLowerCase().includes(e) || (a.description ?? "").toLowerCase().includes(e) || a.type.toLowerCase().includes(e)
     );
     return t.length === 0 ? `
         <div class="px-4 py-8 text-center">
@@ -3963,7 +3963,7 @@ class qe {
           <p class="text-xs text-gray-400 dark:text-gray-500">No fields match "${q(this.searchQuery)}"</p>
         </div>` : `
       <div class="px-2 py-2 space-y-0.5">
-        ${t.map((r) => this.renderPaletteItem(r)).join("")}
+        ${t.map((a) => this.renderPaletteItem(a)).join("")}
       </div>`;
   }
   // ===========================================================================
@@ -3998,32 +3998,32 @@ class qe {
     const t = e.querySelector("[data-palette-search]");
     t?.addEventListener("input", () => {
       this.searchQuery = t.value;
-      const a = e.querySelector("[data-palette-list]");
-      a && (a.innerHTML = this.searchQuery ? this.renderSearchResults() : this.renderCategoryGroups(), this.bindListEvents(a));
+      const r = e.querySelector("[data-palette-list]");
+      r && (r.innerHTML = this.searchQuery ? this.renderSearchResults() : this.renderCategoryGroups(), this.bindListEvents(r));
     });
-    const r = e.querySelector("[data-palette-list]");
-    r && this.bindListEvents(r);
+    const a = e.querySelector("[data-palette-list]");
+    a && this.bindListEvents(a);
   }
   bindListEvents(e) {
     e.querySelectorAll("[data-palette-toggle]").forEach((t) => {
       t.addEventListener("click", () => {
-        const r = t.dataset.paletteToggle, a = this.categoryStates.get(r) ?? { collapsed: !1 };
-        a.collapsed = !a.collapsed, this.categoryStates.set(r, a);
-        const s = e.querySelector(`[data-palette-category-body="${r}"]`), i = e.querySelector(`[data-palette-chevron="${r}"]`);
-        s && s.classList.toggle("hidden", a.collapsed), i && (i.innerHTML = a.collapsed ? '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>' : '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>');
+        const a = t.dataset.paletteToggle, r = this.categoryStates.get(a) ?? { collapsed: !1 };
+        r.collapsed = !r.collapsed, this.categoryStates.set(a, r);
+        const s = e.querySelector(`[data-palette-category-body="${a}"]`), i = e.querySelector(`[data-palette-chevron="${a}"]`);
+        s && s.classList.toggle("hidden", r.collapsed), i && (i.innerHTML = r.collapsed ? '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>' : '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>');
       });
     }), e.querySelectorAll("[data-palette-item]").forEach((t) => {
-      t.addEventListener("click", (r) => {
-        if (r.detail === 0) return;
-        const a = t.dataset.paletteItem, s = this.fieldTypeByKey.get(a) ?? this.fieldTypes.find((i) => i.type === a);
+      t.addEventListener("click", (a) => {
+        if (a.detail === 0) return;
+        const r = t.dataset.paletteItem, s = this.fieldTypeByKey.get(r) ?? this.fieldTypes.find((i) => i.type === r);
         s && this.config.onAddField(s);
       });
     }), e.querySelectorAll("[data-palette-item]").forEach((t) => {
-      t.addEventListener("dragstart", (r) => {
-        const a = t.dataset.paletteItem;
-        r.dataTransfer.effectAllowed = "copy";
-        const s = this.fieldTypeByKey.get(a) ?? this.fieldTypes.find((i) => i.type === a);
-        s ? (r.dataTransfer.setData(we, s.type), r.dataTransfer.setData(Ve, JSON.stringify(s))) : r.dataTransfer.setData(we, a), r.dataTransfer.setData("text/plain", s?.type ?? a), t.classList.add("opacity-50");
+      t.addEventListener("dragstart", (a) => {
+        const r = t.dataset.paletteItem;
+        a.dataTransfer.effectAllowed = "copy";
+        const s = this.fieldTypeByKey.get(r) ?? this.fieldTypes.find((i) => i.type === r);
+        s ? (a.dataTransfer.setData(we, s.type), a.dataTransfer.setData(Ve, JSON.stringify(s))) : a.dataTransfer.setData(we, r), a.dataTransfer.setData("text/plain", s?.type ?? r), t.classList.add("opacity-50");
       }), t.addEventListener("dragend", () => {
         t.classList.remove("opacity-50");
       });
@@ -4034,7 +4034,7 @@ function q(o) {
   const e = document.createElement("div");
   return e.textContent = o, e.innerHTML;
 }
-function ae(o) {
+function re(o) {
   return o.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 function mt(o, e) {
@@ -4052,7 +4052,7 @@ function mt(o, e) {
         Saved
       </span>`;
     case "error":
-      return `<span data-save-state class="inline-flex items-center gap-1.5 text-[11px] font-medium text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/30 px-2.5 py-1 rounded-md"${e ? ` title="${ae(e)}"` : ""}>
+      return `<span data-save-state class="inline-flex items-center gap-1.5 text-[11px] font-medium text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/30 px-2.5 py-1 rounded-md"${e ? ` title="${re(e)}"` : ""}>
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
         </svg>
@@ -4066,23 +4066,23 @@ function ft(o) {
   const {
     name: e,
     subtitle: t,
-    subtitleMono: r = !1,
-    status: a,
+    subtitleMono: a = !1,
+    status: r,
     version: s,
     saveState: i = "idle",
     saveMessage: n,
     actions: l,
     compact: d = !1
-  } = o, c = d ? "px-5" : "px-6", g = d ? "h2" : "h1", m = d ? "text-lg" : "text-xl", f = d ? "gap-2.5" : "gap-3", h = mt(i, n), v = a ? K(
-    d ? a : a.charAt(0).toUpperCase() + a.slice(1),
+  } = o, c = d ? "px-5" : "px-6", p = d ? "h2" : "h1", m = d ? "text-lg" : "text-xl", f = d ? "gap-2.5" : "gap-3", h = mt(i, n), v = r ? K(
+    d ? r : r.charAt(0).toUpperCase() + r.slice(1),
     "status",
-    a,
+    r,
     d ? { uppercase: !0, attrs: { "data-entity-status-badge": "" } } : { attrs: { "data-entity-status-badge": "" } }
-  ) : "", S = s ? `<span class="text-xs text-gray-400 dark:text-gray-500">v${ae(s)}</span>` : "", y = t ? `<p class="${r ? "text-[11px] font-mono text-gray-400 dark:text-gray-500" : "text-sm text-gray-500 dark:text-gray-400"} mt-0.5 truncate">${ae(t)}</p>` : "";
+  ) : "", $ = s ? `<span class="text-xs text-gray-400 dark:text-gray-500">v${re(s)}</span>` : "", y = t ? `<p class="${a ? "text-[11px] font-mono text-gray-400 dark:text-gray-500" : "text-sm text-gray-500 dark:text-gray-400"} mt-0.5 truncate">${re(t)}</p>` : "";
   return d ? `
       <div class="${c} py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-900 flex items-center justify-between shrink-0">
         <div class="min-w-0 flex-1">
-          <${g} class="${m} font-semibold text-gray-900 dark:text-white truncate leading-snug" data-entity-name>${ae(e)}</${g}>
+          <${p} class="${m} font-semibold text-gray-900 dark:text-white truncate leading-snug" data-entity-name>${re(e)}</${p}>
           ${y}
         </div>
         <div class="flex items-center ${f} shrink-0">
@@ -4094,9 +4094,9 @@ function ft(o) {
     <div class="${c} py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-900 flex items-center justify-between shrink-0">
       <div>
         <div class="flex items-center gap-3">
-          <${g} class="${m} font-semibold text-gray-900 dark:text-white" data-entity-name>${ae(e)}</${g}>
+          <${p} class="${m} font-semibold text-gray-900 dark:text-white" data-entity-name>${re(e)}</${p}>
           ${v}
-          ${S}
+          ${$}
         </div>
         ${y}
       </div>
@@ -4109,28 +4109,28 @@ function ft(o) {
 function j(o) {
   return o.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
-const ur = '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>', hr = '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>', pr = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>', gr = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>', yr = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+const ua = '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>', ha = '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>', pa = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>', ga = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>', ya = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
 function bt(o) {
   const {
     field: e,
     isExpanded: t = !1,
-    isSelected: r = !1,
-    isDropTarget: a = !1,
+    isSelected: a = !1,
+    isDropTarget: r = !1,
     hasErrors: s = !1,
     errorMessages: i = [],
     showReorderButtons: n = !1,
     isFirst: l = !1,
     isLast: d = !1,
     compact: c = !1,
-    renderExpandedContent: g,
+    renderExpandedContent: p,
     actionsHtml: m = "",
     constraintBadges: f = [],
     sectionName: h,
     index: v
-  } = o, S = Ce(e.type), y = typeof g == "function";
-  let $;
-  s ? $ = "border-red-400 bg-red-50 dark:bg-red-900/10" : t ? $ = "border-blue-200 dark:border-blue-800 bg-blue-50/30 dark:bg-blue-900/20" : r ? $ = "border-blue-500 bg-blue-50 dark:bg-blue-900/20" : $ = "border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-900 hover:border-gray-300 dark:hover:border-gray-600";
-  const B = a ? "border-t-2 border-t-blue-400" : "", A = c ? "gap-1.5 px-2 py-2" : "gap-3 p-3", vt = c ? "w-7 h-7 rounded-md" : "w-8 h-8 rounded-lg", kt = c ? "text-[13px]" : "text-sm", xt = c ? "text-[10px]" : "text-xs", wt = c ? "xs" : "sm", $t = s ? "bg-red-100 dark:bg-red-900/30 text-red-600" : "bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-gray-400", St = s ? yr : S?.icon ?? "?", ue = [];
+  } = o, $ = Ce(e.type), y = typeof p == "function";
+  let S;
+  s ? S = "border-red-400 bg-red-50 dark:bg-red-900/10" : t ? S = "border-blue-200 dark:border-blue-800 bg-blue-50/30 dark:bg-blue-900/20" : a ? S = "border-blue-500 bg-blue-50 dark:bg-blue-900/20" : S = "border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-900 hover:border-gray-300 dark:hover:border-gray-600";
+  const B = r ? "border-t-2 border-t-blue-400" : "", A = c ? "gap-1.5 px-2 py-2" : "gap-3 p-3", vt = c ? "w-7 h-7 rounded-md" : "w-8 h-8 rounded-lg", kt = c ? "text-[13px]" : "text-sm", xt = c ? "text-[10px]" : "text-xs", wt = c ? "xs" : "sm", St = s ? "bg-red-100 dark:bg-red-900/30 text-red-600" : "bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-gray-400", $t = s ? ya : $?.icon ?? "?", ue = [];
   e.required && ue.push(K("req", "status", "required", { size: "sm", uppercase: !0, extraClass: "flex-shrink-0" })), e.readonly && ue.push(K("ro", "status", "readonly", { size: "sm", uppercase: !0, extraClass: "flex-shrink-0" })), e.hidden && ue.push(K("hid", "status", "hidden", { size: "sm", uppercase: !0, extraClass: "flex-shrink-0" }));
   const Ct = ue.join(`
           `);
@@ -4140,7 +4140,7 @@ function bt(o) {
   if (c)
     Me = `${j(e.name)} &middot; ${j(e.type)}`;
   else {
-    const R = S?.label ?? e.type, Y = [
+    const R = $?.label ?? e.type, Y = [
       `<span class="font-mono">${j(e.name)}</span>`,
       "<span>&middot;</span>",
       `<span>${j(R)}</span>`
@@ -4165,30 +4165,30 @@ function bt(o) {
             <button type="button" data-field-move-up="${j(e.id)}"
                     class="px-0.5 py-px ${Bt} transition-colors"
                     title="Move up" ${R ? "disabled" : ""}>
-              ${ur}
+              ${ua}
             </button>
             <span class="block h-px bg-gray-200 dark:bg-gray-700"></span>
             <button type="button" data-field-move-down="${j(e.id)}"
                     class="px-0.5 py-px ${Et} transition-colors"
                     title="Move down" ${Y ? "disabled" : ""}>
-              ${hr}
+              ${ha}
             </button>
           </span>`;
   }
   let Ke = "";
   return y && (Ke = `
           <span class="flex-shrink-0 w-5 h-5 flex items-center justify-center rounded text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 cursor-pointer transition-colors">
-            ${t ? gr : pr}
+            ${t ? ga : pa}
           </span>`), `
       <div ${je}
            draggable="true"
-           class="rounded-lg border ${B} ${$} transition-colors">
+           class="rounded-lg border ${B} ${S} transition-colors">
         <div class="flex items-center ${A} select-none" ${y ? `data-field-toggle="${j(e.id)}"` : ""}>
           <span class="flex-shrink-0 text-gray-300 dark:text-gray-600 hover:text-gray-400 dark:hover:text-gray-500 cursor-grab active:cursor-grabbing" data-field-grip="${j(e.id)}">
             ${Ht(wt)}
           </span>
-          <span class="flex-shrink-0 ${vt} flex items-center justify-center ${$t} text-[11px]">
-            ${St}
+          <span class="flex-shrink-0 ${vt} flex items-center justify-center ${St} text-[11px]">
+            ${$t}
           </span>
           <span class="flex-1 min-w-0 ${y ? "cursor-pointer" : ""}">
             <span class="block ${kt} font-medium text-gray-800 dark:text-gray-100 truncate">${j(e.label || e.name)}</span>
@@ -4199,15 +4199,15 @@ function bt(o) {
           ${m}
           ${Ke}
         </div>
-        ${t && y ? g() : ""}
+        ${t && y ? p() : ""}
       </div>`;
 }
-const mr = '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"></path></svg>';
-function fr(o) {
+const ma = '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"></path></svg>';
+function fa(o) {
   return `<button type="button" data-field-actions="${j(o)}"
                     class="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                     title="Field actions">
-              ${mr}
+              ${ma}
             </button>`;
 }
 function De(o = {}) {
@@ -4222,11 +4222,11 @@ function De(o = {}) {
       </div>`;
 }
 const E = "main";
-class br {
+class ba {
   constructor(e, t) {
     this.dragState = null, this.dropIndicator = null, this.dragOverRAF = null, this.staticEventsBound = !1, this.previewDebounceTimer = null, this.palettePanel = null, this.paletteVisible = !1, this.sectionStates = /* @__PURE__ */ new Map(), this.lifecycleOutsideClickHandler = null, this.cachedBlocks = null, this.blocksLoading = !1, this.blockPickerModes = /* @__PURE__ */ new Map(), this.fieldActionsMenuId = null, this.container = e, this.config = t, this.api = new W({ basePath: t.apiBasePath });
-    const r = this.normalizeEnvironment(t.environment);
-    r && this.api.setEnvironment(r), this.state = {
+    const a = this.normalizeEnvironment(t.environment);
+    a && this.api.setEnvironment(a), this.state = {
       contentType: null,
       fields: [],
       isDirty: !1,
@@ -4279,19 +4279,19 @@ class br {
       this.showToast("Name is required", "error"), e?.focus();
       return;
     }
-    const r = this.buildSchemaPayload(), a = {
+    const a = this.buildSchemaPayload(), r = {
       name: t,
       slug: this.getSlug(),
       description: this.getDescription(),
       icon: this.getIcon(),
-      schema: r,
+      schema: a,
       ui_schema: this.buildUISchema(),
       capabilities: this.getCapabilities()
     };
     this.state.isSaving = !0, this.updateSavingState();
     try {
       let s;
-      this.state.contentType?.id ? s = await this.api.update(this.state.contentType.id, a) : s = await this.api.create(a), this.state.contentType = s, this.state.originalSchema = s.schema ?? null, this.state.initialFieldsSignature = this.serializeFields(this.state.fields), this.state.isDirty = !1, this.showToast("Content type saved successfully", "success"), this.config.onSave?.(s);
+      this.state.contentType?.id ? s = await this.api.update(this.state.contentType.id, r) : s = await this.api.create(r), this.state.contentType = s, this.state.originalSchema = s.schema ?? null, this.state.initialFieldsSignature = this.serializeFields(this.state.fields), this.state.isDirty = !1, this.showToast("Content type saved successfully", "success"), this.config.onSave?.(s);
     } catch (s) {
       console.error("Failed to save content type:", s);
       const i = s instanceof Error ? s.message : "Failed to save content type";
@@ -4308,23 +4308,23 @@ class br {
     return this.state.initialFieldsSignature ? this.serializeFields(this.state.fields) !== this.state.initialFieldsSignature : !0;
   }
   serializeFields(e) {
-    const t = e.map((r) => ({
-      name: r.name,
-      type: r.type,
-      label: r.label,
-      description: r.description,
-      placeholder: r.placeholder,
-      helpText: r.helpText,
-      required: r.required,
-      readonly: r.readonly,
-      hidden: r.hidden,
-      filterable: r.filterable,
-      defaultValue: r.defaultValue,
-      section: r.section,
-      gridSpan: r.gridSpan,
-      order: r.order,
-      validation: r.validation,
-      config: r.config
+    const t = e.map((a) => ({
+      name: a.name,
+      type: a.type,
+      label: a.label,
+      description: a.description,
+      placeholder: a.placeholder,
+      helpText: a.helpText,
+      required: a.required,
+      readonly: a.readonly,
+      hidden: a.hidden,
+      filterable: a.filterable,
+      defaultValue: a.defaultValue,
+      section: a.section,
+      gridSpan: a.gridSpan,
+      order: a.order,
+      validation: a.validation,
+      config: a.config
     }));
     return JSON.stringify(t);
   }
@@ -4350,7 +4350,7 @@ class br {
       this.state.fields.push(d), this.state.selectedFieldId = d.id, this.state.isDirty = !0, this.renderFieldList(), this.updateDirtyState(), this.schedulePreview(), this.loadBlocksForField(d);
       return;
     }
-    const r = {
+    const a = {
       id: X(),
       name: `new_${e}_${this.state.fields.length + 1}`,
       type: e,
@@ -4360,7 +4360,7 @@ class br {
       ...t?.defaultConfig ?? {}
     };
     new xe({
-      field: r,
+      field: a,
       existingFieldNames: this.state.fields.map((s) => s.name),
       apiBasePath: this.config.apiBasePath,
       onSave: (s) => {
@@ -4374,15 +4374,15 @@ class br {
    * Edit an existing field
    */
   editField(e) {
-    const t = this.state.fields.find((a) => a.id === e);
+    const t = this.state.fields.find((r) => r.id === e);
     if (!t) return;
     new xe({
       field: t,
-      existingFieldNames: this.state.fields.filter((a) => a.id !== e).map((a) => a.name),
+      existingFieldNames: this.state.fields.filter((r) => r.id !== e).map((r) => r.name),
       apiBasePath: this.config.apiBasePath,
-      onSave: (a) => {
+      onSave: (r) => {
         const s = this.state.fields.findIndex((i) => i.id === e);
-        s !== -1 && (this.state.fields[s] = a, this.state.isDirty = !0, this.renderFieldList(), this.updateDirtyState(), this.schedulePreview());
+        s !== -1 && (this.state.fields[s] = r, this.state.isDirty = !0, this.renderFieldList(), this.updateDirtyState(), this.schedulePreview());
       },
       onCancel: () => {
       }
@@ -4394,26 +4394,26 @@ class br {
   async removeField(e) {
     const t = this.state.fields.findIndex((s) => s.id === e);
     if (t === -1) return;
-    const r = this.state.fields[t];
+    const a = this.state.fields[t];
     await ie.confirm(
-      `Remove field "${r.label}"?`,
+      `Remove field "${a.label}"?`,
       { title: "Remove Field", confirmText: "Remove", confirmVariant: "danger" }
     ) && (this.state.fields.splice(t, 1), this.state.isDirty = !0, this.renderFieldList(), this.updateDirtyState(), this.schedulePreview());
   }
   /**
    * Move a field to a new position (optionally across sections)
    */
-  moveField(e, t, r) {
-    const a = this.state.fields.findIndex((h) => h.id === e);
-    if (a === -1) return;
-    const s = this.state.fields[a], i = s.section || E, n = t || E, l = this.groupFieldsBySection(), d = l.get(i);
+  moveField(e, t, a) {
+    const r = this.state.fields.findIndex((h) => h.id === e);
+    if (r === -1) return;
+    const s = this.state.fields[r], i = s.section || E, n = t || E, l = this.groupFieldsBySection(), d = l.get(i);
     if (!d) return;
     const c = d.findIndex((h) => h.id === e);
     if (c === -1) return;
     d.splice(c, 1), d.length === 0 && l.delete(i), l.has(n) || l.set(n, []);
-    const g = l.get(n);
-    let m = Math.max(0, Math.min(r, g.length));
-    i === n && c < m && (m -= 1), g.splice(m, 0, s), s.section = n === E ? void 0 : n;
+    const p = l.get(n);
+    let m = Math.max(0, Math.min(a, p.length));
+    i === n && c < m && (m -= 1), p.splice(m, 0, s), s.section = n === E ? void 0 : n;
     const f = /* @__PURE__ */ new Map();
     l.has(E) && f.set(E, l.get(E));
     for (const [h, v] of l)
@@ -4426,9 +4426,9 @@ class br {
    * Move a field up (-1) or down (+1) within its section
    */
   moveFieldByDirection(e, t) {
-    const r = this.state.fields.find((c) => c.id === e);
-    if (!r) return;
-    const a = r.section || E, s = this.state.fields.filter((c) => (c.section || E) === a), i = s.findIndex((c) => c.id === e), n = i + t;
+    const a = this.state.fields.find((c) => c.id === e);
+    if (!a) return;
+    const r = a.section || E, s = this.state.fields.filter((c) => (c.section || E) === r), i = s.findIndex((c) => c.id === e), n = i + t;
     if (n < 0 || n >= s.length) return;
     const l = this.state.fields.indexOf(s[i]), d = this.state.fields.indexOf(s[n]);
     [this.state.fields[l], this.state.fields[d]] = [this.state.fields[d], this.state.fields[l]], this.state.isDirty = !0, this.renderFieldList(), this.updateDirtyState(), this.schedulePreview();
@@ -4447,8 +4447,8 @@ class br {
       t.valid ? (this.state.validationErrors = [], this.showToast("Schema is valid", "success")) : (this.state.validationErrors = t.errors ?? [], this.showToast("Schema has validation errors", "error"));
     } catch (t) {
       console.error("Validation failed:", t);
-      const r = t instanceof Error ? t.message : "Validation failed";
-      this.showToast(r, "error");
+      const a = t instanceof Error ? t.message : "Validation failed";
+      this.showToast(a, "error");
     }
     this.renderValidationErrors();
   }
@@ -4481,8 +4481,8 @@ class br {
       this.state.previewHtml = t.html, this.state.previewError = null, this.renderPreview();
     } catch (t) {
       console.error("Preview failed:", t);
-      const r = t instanceof Error ? t.message : "Preview failed";
-      this.state.previewHtml = null, this.state.previewError = r, this.renderPreview();
+      const a = t instanceof Error ? t.message : "Preview failed";
+      this.state.previewHtml = null, this.state.previewError = a, this.renderPreview();
     } finally {
       this.state.isPreviewing = !1, this.updatePreviewState();
     }
@@ -4530,10 +4530,10 @@ class br {
             <input
               type="text"
               data-ct-name
-              value="${x(e?.name ?? "")}"
+              value="${k(e?.name ?? "")}"
               placeholder="Blog Post"
               required
-              class="${p()}"
+              class="${g()}"
             />
           </div>
 
@@ -4544,10 +4544,10 @@ class br {
             <input
               type="text"
               data-ct-slug
-              value="${x(e?.slug ?? "")}"
+              value="${k(e?.slug ?? "")}"
               placeholder="blog-post"
               pattern="^[a-z][a-z0-9_\\-]*$"
-              class="${p()}"
+              class="${g()}"
             />
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Auto-generated from name if empty</p>
           </div>
@@ -4562,7 +4562,7 @@ class br {
             rows="2"
             placeholder="Describe this content type"
             class="${Oe()}"
-          >${x(e?.description ?? "")}</textarea>
+          >${k(e?.description ?? "")}</textarea>
         </div>
 
         <div class="mt-4">
@@ -4631,15 +4631,15 @@ class br {
   renderFieldListHTML() {
     return this.renderFieldListContent();
   }
-  renderFieldCard(e, t, r) {
-    const a = I(e.type) === "blocks", s = a && this.state.selectedFieldId === e.id, i = this.state.validationErrors.filter(
+  renderFieldCard(e, t, a) {
+    const r = I(e.type) === "blocks", s = r && this.state.selectedFieldId === e.id, i = this.state.validationErrors.filter(
       (f) => f.path.includes(`/${e.name}`) || f.path.includes(`properties.${e.name}`)
     ), n = i.length > 0, l = [];
     e.validation?.minLength !== void 0 && l.push(`min: ${e.validation.minLength}`), e.validation?.maxLength !== void 0 && l.push(`max: ${e.validation.maxLength}`), e.validation?.min !== void 0 && l.push(`>= ${e.validation.min}`), e.validation?.max !== void 0 && l.push(`<= ${e.validation.max}`), e.validation?.pattern && l.push("pattern");
-    const d = r ?? this.state.fields, c = d.indexOf(e), g = this.fieldActionsMenuId === e.id, m = `
+    const d = a ?? this.state.fields, c = d.indexOf(e), p = this.fieldActionsMenuId === e.id, m = `
           <div class="relative flex-shrink-0">
-            ${fr(e.id)}
-            ${g ? this.renderFieldActionsMenu(e) : ""}
+            ${fa(e.id)}
+            ${p ? this.renderFieldActionsMenu(e) : ""}
           </div>`;
     return bt({
       field: e,
@@ -4655,20 +4655,20 @@ class br {
       isFirst: c === 0,
       isLast: c === d.length - 1,
       compact: !1,
-      renderExpandedContent: a ? () => this.renderBlocksInlineContent(e) : void 0
+      renderExpandedContent: r ? () => this.renderBlocksInlineContent(e) : void 0
     });
   }
   renderFieldActionsMenu(e) {
     const t = "w-full text-left px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2";
     return `
       <div data-ct-field-actions-menu class="absolute right-0 top-full mt-1 z-30 w-40 bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 text-sm">
-        <button type="button" data-field-action-edit="${x(e.id)}" class="${t}">
+        <button type="button" data-field-action-edit="${k(e.id)}" class="${t}">
           <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
           </svg>
           Edit
         </button>
-        <button type="button" data-field-action-remove="${x(e.id)}" class="${t} text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20">
+        <button type="button" data-field-action-remove="${k(e.id)}" class="${t} text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
           </svg>
@@ -4677,9 +4677,9 @@ class br {
       </div>`;
   }
   renderBlocksInlineContent(e) {
-    const t = e.config ?? {}, a = this.getBlocksPickerMode(e.id) === "allowed", s = new Set(
-      a ? t.allowedBlocks ?? [] : t.deniedBlocks ?? []
-    ), i = "px-2 py-1 text-[10px] font-semibold uppercase tracking-wider rounded", n = a ? "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300" : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800", l = a ? "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800" : "bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-300", d = a ? "Allowed Blocks" : "Denied Blocks", c = a ? "blue" : "red", g = a ? "All blocks allowed (no restrictions)" : "No blocks denied";
+    const t = e.config ?? {}, r = this.getBlocksPickerMode(e.id) === "allowed", s = new Set(
+      r ? t.allowedBlocks ?? [] : t.deniedBlocks ?? []
+    ), i = "px-2 py-1 text-[10px] font-semibold uppercase tracking-wider rounded", n = r ? "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300" : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800", l = r ? "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800" : "bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-300", d = r ? "Allowed Blocks" : "Denied Blocks", c = r ? "blue" : "red", p = r ? "All blocks allowed (no restrictions)" : "No blocks denied";
     let m;
     if (this.cachedBlocks) {
       const f = ne(s, this.cachedBlocks);
@@ -4688,37 +4688,37 @@ class br {
         selectedBlocks: f,
         label: d,
         accent: c,
-        emptySelectionText: g
+        emptySelectionText: p
       });
     } else
       m = `
-        <div class="flex items-center justify-center py-6" data-ct-blocks-loading="${x(e.id)}">
+        <div class="flex items-center justify-center py-6" data-ct-blocks-loading="${k(e.id)}">
           <div class="animate-spin w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full"></div>
           <span class="ml-2 text-xs text-gray-400 dark:text-gray-500">Loading blocks...</span>
         </div>`;
     return `
-      <div class="px-3 pb-3 space-y-3 border-t border-gray-100 dark:border-gray-800 mt-1 pt-3" data-field-props="${x(e.id)}">
+      <div class="px-3 pb-3 space-y-3 border-t border-gray-100 dark:border-gray-800 mt-1 pt-3" data-field-props="${k(e.id)}">
         <div class="flex items-center justify-between">
           <div class="inline-flex items-center gap-1 p-0.5 rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-            <button type="button" data-ct-blocks-mode-toggle="${x(e.id)}" data-ct-blocks-mode="allowed"
+            <button type="button" data-ct-blocks-mode-toggle="${k(e.id)}" data-ct-blocks-mode="allowed"
                     class="${i} ${n}">
               Allowed
             </button>
-            <button type="button" data-ct-blocks-mode-toggle="${x(e.id)}" data-ct-blocks-mode="denied"
+            <button type="button" data-ct-blocks-mode-toggle="${k(e.id)}" data-ct-blocks-mode="denied"
                     class="${i} ${l}">
               Denied
             </button>
           </div>
-          <button type="button" data-ct-blocks-open-library="${x(e.id)}"
+          <button type="button" data-ct-blocks-open-library="${k(e.id)}"
                   class="text-[11px] text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium">
             Open Block Library
           </button>
         </div>
-        <div data-ct-blocks-picker-container="${x(e.id)}">
+        <div data-ct-blocks-picker-container="${k(e.id)}">
           ${m}
         </div>
         <div class="flex items-center justify-between">
-          <button type="button" data-ct-blocks-advanced="${x(e.id)}"
+          <button type="button" data-ct-blocks-advanced="${k(e.id)}"
                   class="text-[11px] text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 font-medium">
             Advanced settings...
           </button>
@@ -4726,7 +4726,7 @@ class br {
       </div>`;
   }
   renderCapabilitiesSection() {
-    const e = this.state.contentType?.capabilities ?? {};
+    const e = this.state.contentType?.capabilities ?? {}, t = typeof e.navigation == "object" && e.navigation !== null ? e.navigation : {}, a = t.enabled === !0, r = Array.isArray(t.eligible_locations) ? t.eligible_locations.map((c) => String(c).trim()).filter(Boolean).join(", ") : "", s = Array.isArray(t.default_locations) ? t.default_locations.map((c) => String(c).trim()).filter(Boolean).join(", ") : "", i = t.allow_instance_override !== !1, n = t.default_visible !== !1, l = String(t.merge_mode ?? "append").trim().toLowerCase(), d = ["append", "prepend", "replace"].includes(l) ? l : "append";
     return `
       <div class="bg-white dark:bg-slate-900 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
         <h2 class="text-sm font-medium text-gray-900 dark:text-white mb-4">Capabilities</h2>
@@ -4781,6 +4781,77 @@ class br {
             />
             <span class="text-sm text-gray-700 dark:text-gray-300">Block Editor</span>
           </label>
+        </div>
+
+        <div class="mt-6 pt-5 border-t border-gray-200 dark:border-gray-700 space-y-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Navigation Settings</h3>
+              <p class="text-xs text-gray-500 dark:text-gray-400">Configure eligible/default locations and per-entry override policy.</p>
+            </div>
+            <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+              <input
+                type="checkbox"
+                data-ct-navigation-enabled
+                ${a ? "checked" : ""}
+                class="w-4 h-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500"
+              />
+              Enabled
+            </label>
+          </div>
+
+          <div class="grid gap-3 md:grid-cols-2">
+            <label class="text-xs text-gray-600 dark:text-gray-300">
+              Eligible Locations (csv)
+              <input
+                type="text"
+                data-ct-navigation-eligible
+                value="${k(r)}"
+                placeholder="site.main, site.footer"
+                class="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-700 px-2 py-1.5 text-sm bg-white dark:bg-slate-800"
+              />
+            </label>
+            <label class="text-xs text-gray-600 dark:text-gray-300">
+              Default Locations (csv)
+              <input
+                type="text"
+                data-ct-navigation-defaults
+                value="${k(s)}"
+                placeholder="site.main"
+                class="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-700 px-2 py-1.5 text-sm bg-white dark:bg-slate-800"
+              />
+            </label>
+            <label class="inline-flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
+              <input
+                type="checkbox"
+                data-ct-navigation-allow-override
+                ${i ? "checked" : ""}
+                class="w-4 h-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500"
+              />
+              Allow instance override
+            </label>
+            <label class="inline-flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
+              <input
+                type="checkbox"
+                data-ct-navigation-default-visible
+                ${n ? "checked" : ""}
+                class="w-4 h-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500"
+              />
+              Default visible
+            </label>
+            <label class="text-xs text-gray-600 dark:text-gray-300 md:col-span-2">
+              Merge Mode
+              <select
+                data-ct-navigation-merge-mode
+                class="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-700 px-2 py-1.5 text-sm bg-white dark:bg-slate-800"
+              >
+                <option value="append" ${d === "append" ? "selected" : ""}>append</option>
+                <option value="prepend" ${d === "prepend" ? "selected" : ""}>prepend</option>
+                <option value="replace" ${d === "replace" ? "selected" : ""}>replace</option>
+              </select>
+            </label>
+          </div>
+          <p class="text-[11px] text-gray-500 dark:text-gray-400">Task 13.8: defaults must remain a subset of eligible locations.</p>
         </div>
       </div>
     `;
@@ -4929,7 +5000,7 @@ class br {
   async publishContentType() {
     if (!this.state.contentType?.id) return;
     const e = this.buildSchemaPayload();
-    let t = null, r = null;
+    let t = null, a = null;
     try {
       t = await this.api.checkCompatibility(
         this.state.contentType.id,
@@ -4937,12 +5008,12 @@ class br {
         this.buildUISchema()
       );
     } catch (s) {
-      r = s instanceof Error ? s.message : "Compatibility check failed";
+      a = s instanceof Error ? s.message : "Compatibility check failed";
     }
-    new kr({
+    new ka({
       contentType: this.state.contentType,
       compatibilityResult: t,
-      compatibilityError: r ?? void 0,
+      compatibilityError: a ?? void 0,
       onConfirm: async (s) => {
         try {
           const i = await this.api.publish(this.state.contentType.id, s);
@@ -4968,8 +5039,8 @@ class br {
         const t = await this.api.deprecate(this.state.contentType.id);
         this.state.contentType = t, this.render(), this.bindEvents(), this.showToast("Content type deprecated successfully", "success"), this.config.onSave?.(t);
       } catch (t) {
-        const r = t instanceof Error ? t.message : "Failed to deprecate content type";
-        this.showToast(r, "error");
+        const a = t instanceof Error ? t.message : "Failed to deprecate content type";
+        this.showToast(a, "error");
       }
   }
   /**
@@ -4977,14 +5048,14 @@ class br {
    */
   async cloneContentType() {
     if (!this.state.contentType?.id) return;
-    new xr({
+    new xa({
       contentType: this.state.contentType,
-      onConfirm: async (t, r) => {
+      onConfirm: async (t, a) => {
         try {
-          const a = await this.api.clone(this.state.contentType.id, t, r);
-          this.showToast(`Content type cloned as "${a.name}"`, "success"), this.config.onSave && this.config.onSave(a);
-        } catch (a) {
-          const s = a instanceof Error ? a.message : "Failed to clone content type";
+          const r = await this.api.clone(this.state.contentType.id, t, a);
+          this.showToast(`Content type cloned as "${r.name}"`, "success"), this.config.onSave && this.config.onSave(r);
+        } catch (r) {
+          const s = r instanceof Error ? r.message : "Failed to clone content type";
           this.showToast(s, "error");
         }
       },
@@ -4997,7 +5068,7 @@ class br {
    */
   showVersionHistory() {
     if (!this.state.contentType?.id) return;
-    new wr({
+    new wa({
       apiBasePath: this.config.apiBasePath,
       contentType: this.state.contentType
     }).show();
@@ -5010,16 +5081,16 @@ class br {
   }
   bindStaticEvents() {
     this.container.addEventListener("click", (e) => {
-      const t = e.target, r = t.closest("[data-field-actions]");
-      if (r) {
+      const t = e.target, a = t.closest("[data-field-actions]");
+      if (a) {
         e.stopPropagation();
-        const h = r.dataset.fieldActions;
+        const h = a.dataset.fieldActions;
         this.fieldActionsMenuId = this.fieldActionsMenuId === h ? null : h, this.renderFieldList();
         return;
       }
-      const a = t.closest("[data-field-action-edit]");
-      if (a) {
-        const h = a.dataset.fieldActionEdit;
+      const r = t.closest("[data-field-action-edit]");
+      if (r) {
+        const h = r.dataset.fieldActionEdit;
         this.fieldActionsMenuId = null, this.editField(h);
         return;
       }
@@ -5047,8 +5118,8 @@ class br {
       if (l) {
         const h = l.dataset.ctBlocksModeToggle, v = l.dataset.ctBlocksMode ?? "allowed";
         this.blockPickerModes.set(h, v), this.renderFieldList();
-        const S = this.state.fields.find((y) => y.id === h);
-        S && I(S.type) === "blocks" && this.loadBlocksForField(S);
+        const $ = this.state.fields.find((y) => y.id === h);
+        $ && I($.type) === "blocks" && this.loadBlocksForField($);
         return;
       }
       if (t.closest("[data-ct-blocks-open-library]")) {
@@ -5062,9 +5133,9 @@ class br {
         h && this.editField(h);
         return;
       }
-      const g = t.closest("[data-ct-blocks-retry]");
-      if (g) {
-        const h = g.dataset.ctBlocksRetry, v = this.state.fields.find((S) => S.id === h);
+      const p = t.closest("[data-ct-blocks-retry]");
+      if (p) {
+        const h = p.dataset.ctBlocksRetry, v = this.state.fields.find(($) => $.id === h);
         v && (this.cachedBlocks = null, this.loadBlocksForField(v));
         return;
       }
@@ -5072,7 +5143,7 @@ class br {
       if (m && !t.closest("button")) {
         const h = m.dataset.fieldToggle;
         if (this.state.selectedFieldId = this.state.selectedFieldId === h ? null : h, this.renderFieldList(), this.state.selectedFieldId) {
-          const v = this.state.fields.find((S) => S.id === this.state.selectedFieldId);
+          const v = this.state.fields.find(($) => $.id === this.state.selectedFieldId);
           v && I(v.type) === "blocks" && this.loadBlocksForField(v);
         }
         return;
@@ -5086,13 +5157,13 @@ class br {
     }), this.container.addEventListener("input", (e) => {
       const t = e.target;
       if ((t.matches("[data-ct-name], [data-ct-slug], [data-ct-description], [data-ct-icon]") || t.matches("[data-ct-cap]")) && (this.state.isDirty = !0, this.updateDirtyState()), t.matches("[data-ct-name]")) {
-        const r = t, a = this.container.querySelector("[data-ct-slug]");
-        a && !a.dataset.userModified && !this.state.contentType?.slug && (a.value = tt(r.value)), this.schedulePreview();
+        const a = t, r = this.container.querySelector("[data-ct-slug]");
+        r && !r.dataset.userModified && !this.state.contentType?.slug && (r.value = tt(a.value)), this.schedulePreview();
         return;
       }
       if (t.matches("[data-ct-slug]")) {
-        const r = t;
-        r.dataset.userModified = "true", this.schedulePreview();
+        const a = t;
+        a.dataset.userModified = "true", this.schedulePreview();
         return;
       }
     });
@@ -5105,8 +5176,8 @@ class br {
       const t = e.querySelector("[data-ct-icon]");
       return {
         value: t?.value ?? "",
-        onSelect: (r) => {
-          t && (t.value = r, this.state.isDirty = !0, this.updateDirtyState());
+        onSelect: (a) => {
+          t && (t.value = a, this.state.isDirty = !0, this.updateDirtyState());
         },
         onClear: () => {
           t && (t.value = "", this.state.isDirty = !0, this.updateDirtyState());
@@ -5123,7 +5194,7 @@ class br {
   bindDragEvents() {
     const e = this.container.querySelector("[data-ct-field-list]");
     e && (e.addEventListener("dragstart", (t) => {
-      const r = t, s = r.target.closest("[data-field-card]");
+      const a = t, s = a.target.closest("[data-field-card]");
       if (!s) return;
       const i = s.getAttribute("data-field-card"), n = parseInt(s.getAttribute("data-field-index") ?? "0", 10), l = s.getAttribute("data-field-section") ?? E;
       this.dragState = {
@@ -5132,44 +5203,44 @@ class br {
         currentSection: l,
         startIndex: n,
         currentIndex: n
-      }, s.classList.add("opacity-50"), r.dataTransfer?.setData("text/plain", i ?? ""), r.dataTransfer && (r.dataTransfer.effectAllowed = "move");
+      }, s.classList.add("opacity-50"), a.dataTransfer?.setData("text/plain", i ?? ""), a.dataTransfer && (a.dataTransfer.effectAllowed = "move");
     }), e.addEventListener("dragenter", (t) => {
       t.preventDefault();
     }), e.addEventListener("dragover", (t) => {
       t.preventDefault();
-      const r = t;
+      const a = t;
       if (!this.dragState) return;
-      const a = r.clientY, s = r.target;
+      const r = a.clientY, s = a.target;
       this.dragOverRAF || (this.dragOverRAF = requestAnimationFrame(() => {
         if (this.dragOverRAF = null, !this.dragState) return;
         const i = s.closest("[data-field-card]");
         if (!i || i.getAttribute("data-field-card") === this.dragState.fieldId) return;
-        const n = i.getBoundingClientRect(), l = n.top + n.height / 2, d = a < l, c = this.getOrCreateDropIndicator(), g = d ? i : i.nextSibling;
-        (c.nextSibling !== g || c.parentNode !== i.parentElement) && i.parentElement?.insertBefore(c, g);
+        const n = i.getBoundingClientRect(), l = n.top + n.height / 2, d = r < l, c = this.getOrCreateDropIndicator(), p = d ? i : i.nextSibling;
+        (c.nextSibling !== p || c.parentNode !== i.parentElement) && i.parentElement?.insertBefore(c, p);
         const m = parseInt(i.getAttribute("data-field-index") ?? "0", 10), f = i.getAttribute("data-field-section") ?? E;
         this.dragState.currentSection = f, this.dragState.currentIndex = d ? m : m + 1;
       }));
     }), e.addEventListener("dragleave", (t) => {
-      const a = t.relatedTarget;
-      (!a || !e.contains(a)) && this.removeDropIndicator();
+      const r = t.relatedTarget;
+      (!r || !e.contains(r)) && this.removeDropIndicator();
     }), e.addEventListener("drop", (t) => {
       if (t.preventDefault(), this.removeDropIndicator(), !this.dragState) return;
-      const { fieldId: r, startIndex: a, currentIndex: s, startSection: i, currentSection: n } = this.dragState;
-      (a !== s || i !== n) && this.moveField(r, n, s), this.dragState = null;
+      const { fieldId: a, startIndex: r, currentIndex: s, startSection: i, currentSection: n } = this.dragState;
+      (r !== s || i !== n) && this.moveField(a, n, s), this.dragState = null;
     }), e.addEventListener("dragend", () => {
       e.querySelectorAll(".opacity-50").forEach((t) => t.classList.remove("opacity-50")), this.removeDropIndicator(), this.dragOverRAF && (cancelAnimationFrame(this.dragOverRAF), this.dragOverRAF = null), this.dragState = null;
     }));
   }
   /** Bind drag-and-drop events on [data-field-drop-zone] for palette drops */
   bindFieldDropZoneEvents(e) {
-    e.querySelectorAll("[data-field-drop-zone]").forEach((r) => {
-      r.addEventListener("dragover", (a) => {
-        a.preventDefault(), a.dataTransfer.dropEffect = "copy", r.classList.remove("border-gray-200", "hover:border-gray-300", "border-transparent"), r.classList.add("border-blue-400", "bg-blue-50/50");
-      }), r.addEventListener("dragleave", (a) => {
-        r.contains(a.relatedTarget) || (r.classList.remove("border-blue-400", "bg-blue-50/50"), r.classList.add("border-gray-200", "hover:border-gray-300"));
-      }), r.addEventListener("drop", (a) => {
-        a.preventDefault(), r.classList.remove("border-blue-400", "bg-blue-50/50"), r.classList.add("border-gray-200", "hover:border-gray-300");
-        const s = a.dataTransfer?.getData(Ve);
+    e.querySelectorAll("[data-field-drop-zone]").forEach((a) => {
+      a.addEventListener("dragover", (r) => {
+        r.preventDefault(), r.dataTransfer.dropEffect = "copy", a.classList.remove("border-gray-200", "hover:border-gray-300", "border-transparent"), a.classList.add("border-blue-400", "bg-blue-50/50");
+      }), a.addEventListener("dragleave", (r) => {
+        a.contains(r.relatedTarget) || (a.classList.remove("border-blue-400", "bg-blue-50/50"), a.classList.add("border-gray-200", "hover:border-gray-300"));
+      }), a.addEventListener("drop", (r) => {
+        r.preventDefault(), a.classList.remove("border-blue-400", "bg-blue-50/50"), a.classList.add("border-gray-200", "hover:border-gray-300");
+        const s = r.dataTransfer?.getData(Ve);
         if (s)
           try {
             const n = JSON.parse(s);
@@ -5179,7 +5250,7 @@ class br {
             }
           } catch {
           }
-        const i = a.dataTransfer?.getData(we);
+        const i = r.dataTransfer?.getData(we);
         i && this.addField(i);
       });
     });
@@ -5190,19 +5261,19 @@ class br {
       this.lifecycleOutsideClickHandler && (document.removeEventListener("click", this.lifecycleOutsideClickHandler), this.lifecycleOutsideClickHandler = null);
       return;
     }
-    const t = e.querySelector("[data-ct-lifecycle-trigger]"), r = e.querySelector("[data-ct-lifecycle-dropdown]");
-    t && r && (t.addEventListener("click", (a) => {
-      a.stopPropagation(), r.classList.toggle("hidden");
-    }), this.lifecycleOutsideClickHandler && document.removeEventListener("click", this.lifecycleOutsideClickHandler), this.lifecycleOutsideClickHandler = (a) => {
-      e.contains(a.target) || r.classList.add("hidden");
+    const t = e.querySelector("[data-ct-lifecycle-trigger]"), a = e.querySelector("[data-ct-lifecycle-dropdown]");
+    t && a && (t.addEventListener("click", (r) => {
+      r.stopPropagation(), a.classList.toggle("hidden");
+    }), this.lifecycleOutsideClickHandler && document.removeEventListener("click", this.lifecycleOutsideClickHandler), this.lifecycleOutsideClickHandler = (r) => {
+      e.contains(r.target) || a.classList.add("hidden");
     }, document.addEventListener("click", this.lifecycleOutsideClickHandler)), this.container.querySelector("[data-ct-publish]")?.addEventListener("click", () => {
-      r?.classList.add("hidden"), this.publishContentType();
+      a?.classList.add("hidden"), this.publishContentType();
     }), this.container.querySelector("[data-ct-deprecate]")?.addEventListener("click", () => {
-      r?.classList.add("hidden"), this.deprecateContentType();
+      a?.classList.add("hidden"), this.deprecateContentType();
     }), this.container.querySelector("[data-ct-clone]")?.addEventListener("click", () => {
-      r?.classList.add("hidden"), this.cloneContentType();
+      a?.classList.add("hidden"), this.cloneContentType();
     }), this.container.querySelector("[data-ct-versions]")?.addEventListener("click", () => {
-      r?.classList.add("hidden"), this.showVersionHistory();
+      a?.classList.add("hidden"), this.showVersionHistory();
     });
   }
   togglePalette() {
@@ -5234,10 +5305,10 @@ class br {
       fields: this.state.fields,
       onSave: (t) => {
         this.state.layout = t, this.state.isDirty = !0, this.renderFieldList(), this.updateDirtyState(), this.schedulePreview();
-        const r = this.container.querySelector("[data-ct-field-list]")?.closest(".rounded-lg");
-        if (r) {
-          const a = document.createElement("div");
-          a.innerHTML = this.renderFieldsSection(), r.replaceWith(a.firstElementChild), this.bindFieldsEvents();
+        const a = this.container.querySelector("[data-ct-field-list]")?.closest(".rounded-lg");
+        if (a) {
+          const r = document.createElement("div");
+          r.innerHTML = this.renderFieldsSection(), a.replaceWith(r.firstElementChild), this.bindFieldsEvents();
         }
       },
       onCancel: () => {
@@ -5257,8 +5328,8 @@ class br {
   // Helpers
   // ===========================================================================
   getSlug() {
-    const e = this.container.querySelector("[data-ct-slug]"), t = this.container.querySelector("[data-ct-name]"), r = e?.value?.trim();
-    return r || tt(t?.value ?? "");
+    const e = this.container.querySelector("[data-ct-slug]"), t = this.container.querySelector("[data-ct-name]"), a = e?.value?.trim();
+    return a || tt(t?.value ?? "");
   }
   getDescription() {
     const e = this.container.querySelector("[data-ct-description]");
@@ -5272,10 +5343,26 @@ class br {
   }
   getCapabilities() {
     const e = this.state.contentType?.capabilities, t = e && typeof e == "object" ? { ...e } : {};
-    return this.container.querySelectorAll("[data-ct-cap]").forEach((r) => {
-      const a = r.getAttribute("data-ct-cap");
-      a && (t[a] = r.checked);
-    }), t;
+    this.container.querySelectorAll("[data-ct-cap]").forEach((c) => {
+      const p = c.getAttribute("data-ct-cap");
+      p && (t[p] = c.checked);
+    });
+    const a = (c) => c.split(",").map((p) => p.trim()).filter(Boolean).filter((p, m, f) => f.indexOf(p) === m).sort(), r = this.container.querySelector("[data-ct-navigation-enabled]"), s = this.container.querySelector("[data-ct-navigation-eligible]"), i = this.container.querySelector("[data-ct-navigation-defaults]"), n = this.container.querySelector("[data-ct-navigation-allow-override]"), l = this.container.querySelector("[data-ct-navigation-default-visible]"), d = this.container.querySelector("[data-ct-navigation-merge-mode]");
+    if (r) {
+      const c = a(s?.value ?? ""), p = a(i?.value ?? ""), m = new Set(c), f = p.filter((h) => !m.has(h));
+      f.length > 0 && this.showToast(
+        `Navigation defaults must be a subset of eligible locations. Invalid: ${f.join(", ")}`,
+        "error"
+      ), t.navigation = {
+        enabled: r.checked,
+        eligible_locations: c,
+        default_locations: p.filter((h) => m.has(h)),
+        allow_instance_override: n ? n.checked : !0,
+        default_visible: l ? l.checked : !0,
+        merge_mode: d?.value || "append"
+      };
+    }
+    return t;
   }
   buildUISchema() {
     const e = {}, t = {
@@ -5283,28 +5370,28 @@ class br {
       gridColumns: this.state.layout.gridColumns ?? 12
     };
     if (t.type === "tabs" || t.type === "sections") {
-      const a = /* @__PURE__ */ new Map();
+      const r = /* @__PURE__ */ new Map();
       (this.state.layout.tabs ?? []).forEach((s, i) => {
-        a.set(s.id, {
+        r.set(s.id, {
           id: s.id,
           label: s.label,
           order: s.order ?? i,
           icon: s.icon
         });
       }), this.state.fields.forEach((s) => {
-        s.section && !a.has(s.section) && a.set(s.section, {
+        s.section && !r.has(s.section) && r.set(s.section, {
           id: s.section,
-          label: rt(s.section),
-          order: a.size
+          label: at(s.section),
+          order: r.size
         });
-      }), a.size > 0 && (t.tabs = Array.from(a.values()).sort((s, i) => s.order - i.order));
+      }), r.size > 0 && (t.tabs = Array.from(r.values()).sort((s, i) => s.order - i.order));
     }
     e.layout = t;
-    const r = [];
-    if (this.state.fields.forEach((a) => {
-      const s = { path: `#/properties/${a.name}` }, i = {};
-      a.section && (i.section = a.section), a.gridSpan && (i.grid = { span: a.gridSpan }), a.order !== void 0 && (i.order = a.order), a.readonly && (i.readonly = !0), a.hidden && (i.hidden = !0), Object.keys(i).length > 0 && (s["x-formgen"] = i, r.push(s));
-    }), r.length > 0 && (e.overrides = r), !(t.type === "flat" && !t.tabs?.length && r.length === 0 || !e.layout && !e.overrides))
+    const a = [];
+    if (this.state.fields.forEach((r) => {
+      const s = { path: `#/properties/${r.name}` }, i = {};
+      r.section && (i.section = r.section), r.gridSpan && (i.grid = { span: r.gridSpan }), r.order !== void 0 && (i.order = r.order), r.readonly && (i.readonly = !0), r.hidden && (i.hidden = !0), Object.keys(i).length > 0 && (s["x-formgen"] = i, a.push(s));
+    }), a.length > 0 && (e.overrides = a), !(t.type === "flat" && !t.tabs?.length && a.length === 0 || !e.layout && !e.overrides))
       return e;
   }
   updateLoadingState() {
@@ -5322,20 +5409,20 @@ class br {
   updateDirtyState() {
     const e = this.container.querySelector("[data-ct-save]");
     if (e) {
-      let r = e.querySelector("[data-dirty-dot]");
-      this.state.isDirty ? r || (r = document.createElement("span"), r.setAttribute("data-dirty-dot", ""), r.className = "inline-block w-2 h-2 rounded-full bg-orange-400 ml-1.5 align-middle", r.setAttribute("title", "Unsaved changes"), e.appendChild(r)) : r?.remove();
+      let a = e.querySelector("[data-dirty-dot]");
+      this.state.isDirty ? a || (a = document.createElement("span"), a.setAttribute("data-dirty-dot", ""), a.className = "inline-block w-2 h-2 rounded-full bg-orange-400 ml-1.5 align-middle", a.setAttribute("title", "Unsaved changes"), e.appendChild(a)) : a?.remove();
     }
     const t = this.container.querySelector("[data-content-type-editor] h1");
     if (t) {
-      let r = t.parentElement?.querySelector("[data-dirty-badge]");
-      this.state.isDirty ? r || (r = document.createElement("span"), r.setAttribute("data-dirty-badge", ""), r.className = "px-2 py-0.5 text-xs font-medium rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400", r.textContent = "Modified", t.parentElement?.appendChild(r)) : r?.remove();
+      let a = t.parentElement?.querySelector("[data-dirty-badge]");
+      this.state.isDirty ? a || (a = document.createElement("span"), a.setAttribute("data-dirty-badge", ""), a.className = "px-2 py-0.5 text-xs font-medium rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400", a.textContent = "Modified", t.parentElement?.appendChild(a)) : a?.remove();
     }
   }
   renderFieldList() {
     const e = this.container.querySelector("[data-ct-field-list]");
     if (e) {
       e.innerHTML = this.renderFieldListContent(), this.bindSectionToggleEvents(), this.bindDragEvents(), this.bindFieldDropZoneEvents(e);
-      const t = this.state.fields.find((r) => r.id === this.state.selectedFieldId);
+      const t = this.state.fields.find((a) => a.id === this.state.selectedFieldId);
       t && I(t.type) === "blocks" && this.cachedBlocks && this.renderInlineBlockPickerForField(t);
     }
   }
@@ -5358,36 +5445,36 @@ class br {
       `;
     const e = this.groupFieldsBySection(), t = Array.from(e.keys());
     if (t.length <= 1) {
-      const a = this.state.fields;
+      const r = this.state.fields;
       return `
         <div class="space-y-2">
-          ${a.map((s, i) => this.renderFieldCard(s, i, a)).join("")}
+          ${r.map((s, i) => this.renderFieldCard(s, i, r)).join("")}
         </div>
         ${De({ highlight: !1 })}
       `;
     }
-    let r = "";
-    for (const a of t) {
-      const s = e.get(a), n = this.getSectionState(a).collapsed;
-      r += `
-        <div data-ct-section="${x(a)}" class="border-b border-gray-100 dark:border-gray-800 last:border-b-0">
-          <button type="button" data-ct-toggle-section="${x(a)}"
+    let a = "";
+    for (const r of t) {
+      const s = e.get(r), n = this.getSectionState(r).collapsed;
+      a += `
+        <div data-ct-section="${k(r)}" class="border-b border-gray-100 dark:border-gray-800 last:border-b-0">
+          <button type="button" data-ct-toggle-section="${k(r)}"
                   class="w-full flex items-center gap-2 px-3 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group">
             <span class="w-4 h-4 text-gray-400 dark:text-gray-500 flex items-center justify-center">
               ${n ? '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>' : '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>'}
             </span>
-            <span class="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">${x(rt(a))}</span>
+            <span class="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">${k(at(r))}</span>
             <span class="text-[10px] text-gray-400 dark:text-gray-500 ml-auto">${s.length}</span>
           </button>
 
-          <div class="${n ? "hidden" : ""}" data-ct-section-body="${x(a)}">
+          <div class="${n ? "hidden" : ""}" data-ct-section-body="${k(r)}">
             <div class="space-y-2 px-1 pb-2">
               ${s.map((l, d) => this.renderFieldCard(l, d, s)).join("")}
             </div>
           </div>
         </div>`;
     }
-    return r += De({ highlight: !1 }), r;
+    return a += De({ highlight: !1 }), a;
   }
   // ===========================================================================
   // Section Grouping
@@ -5395,16 +5482,16 @@ class br {
   groupFieldsBySection() {
     const e = /* @__PURE__ */ new Map();
     for (const t of this.state.fields) {
-      const r = t.section || E;
-      e.has(r) || e.set(r, []), e.get(r).push(t);
+      const a = t.section || E;
+      e.has(a) || e.set(a, []), e.get(a).push(t);
     }
     if (e.has(E)) {
       const t = e.get(E);
       e.delete(E);
-      const r = /* @__PURE__ */ new Map();
-      r.set(E, t);
-      for (const [a, s] of e) r.set(a, s);
-      return r;
+      const a = /* @__PURE__ */ new Map();
+      a.set(E, t);
+      for (const [r, s] of e) a.set(r, s);
+      return a;
     }
     return e;
   }
@@ -5414,8 +5501,8 @@ class br {
   toggleSection(e) {
     const t = this.getSectionState(e);
     t.collapsed = !t.collapsed;
-    const r = this.container.querySelector(`[data-ct-section-body="${e}"]`);
-    r && r.classList.toggle("hidden", t.collapsed);
+    const a = this.container.querySelector(`[data-ct-section-body="${e}"]`);
+    a && a.classList.toggle("hidden", t.collapsed);
     const s = this.container.querySelector(`[data-ct-toggle-section="${e}"]`)?.querySelector("span:first-child");
     s && (s.innerHTML = t.collapsed ? '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>' : '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>');
   }
@@ -5432,26 +5519,26 @@ class br {
       try {
         this.cachedBlocks = await Ne(this.api), this.state.selectedFieldId === e.id && this.renderInlineBlockPickerForField(e);
       } catch (t) {
-        const r = t instanceof Error ? t.message : "Failed to load block definitions";
-        this.renderInlineBlockPickerError(e.id, r), this.showToast(`Failed to load block definitions: ${r}`, "error");
+        const a = t instanceof Error ? t.message : "Failed to load block definitions";
+        this.renderInlineBlockPickerError(e.id, a), this.showToast(`Failed to load block definitions: ${a}`, "error");
       } finally {
         this.blocksLoading = !1;
       }
     }
   }
   renderInlineBlockPickerError(e, t) {
-    const r = this.container.querySelector(
+    const a = this.container.querySelector(
       `[data-ct-blocks-picker-container="${e}"]`
     );
-    r && (r.innerHTML = `
+    a && (a.innerHTML = `
       <div class="rounded-md border border-red-200 bg-red-50 px-3 py-3 dark:border-red-800/70 dark:bg-red-900/20">
         <div class="flex items-start gap-2">
           <svg class="mt-0.5 h-4 w-4 flex-shrink-0 text-red-500 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
           </svg>
-          <p class="text-xs text-red-700 dark:text-red-300">${x(t)}</p>
+          <p class="text-xs text-red-700 dark:text-red-300">${k(t)}</p>
         </div>
-        <button type="button" data-ct-blocks-retry="${x(e)}"
+        <button type="button" data-ct-blocks-retry="${k(e)}"
                 class="mt-2 ml-6 text-xs font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300">
           Retry
         </button>
@@ -5463,8 +5550,8 @@ class br {
       `[data-ct-blocks-picker-container="${e.id}"]`
     );
     if (!t || !this.cachedBlocks) return;
-    const r = e.config ?? {}, a = this.getBlocksPickerMode(e.id), s = a === "allowed", i = ne(
-      new Set(s ? r.allowedBlocks ?? [] : r.deniedBlocks ?? []),
+    const a = e.config ?? {}, r = this.getBlocksPickerMode(e.id), s = r === "allowed", i = ne(
+      new Set(s ? a.allowedBlocks ?? [] : a.deniedBlocks ?? []),
       this.cachedBlocks
     ), n = s ? "Allowed Blocks" : "Denied Blocks", l = s ? "blue" : "red", d = s ? "All blocks allowed (no restrictions)" : "No blocks denied";
     t.innerHTML = le({
@@ -5476,16 +5563,16 @@ class br {
     }), ut(t, {
       availableBlocks: this.cachedBlocks,
       selectedBlocks: i,
-      onSelectionChange: (c) => this.applyBlockSelection(e, a, c),
+      onSelectionChange: (c) => this.applyBlockSelection(e, r, c),
       label: n,
       accent: l,
       emptySelectionText: d
     });
   }
-  applyBlockSelection(e, t, r) {
+  applyBlockSelection(e, t, a) {
     e.config || (e.config = {});
-    const a = e.config;
-    t === "allowed" ? r.size > 0 ? a.allowedBlocks = Array.from(r) : delete a.allowedBlocks : r.size > 0 ? a.deniedBlocks = Array.from(r) : delete a.deniedBlocks, Object.keys(e.config).length === 0 && (e.config = void 0), this.state.isDirty = !0, this.updateDirtyState(), this.schedulePreview();
+    const r = e.config;
+    t === "allowed" ? a.size > 0 ? r.allowedBlocks = Array.from(a) : delete r.allowedBlocks : a.size > 0 ? r.deniedBlocks = Array.from(a) : delete r.deniedBlocks, Object.keys(e.config).length === 0 && (e.config = void 0), this.state.isDirty = !0, this.updateDirtyState(), this.schedulePreview();
   }
   renderPreview() {
     const e = this.container.querySelector("[data-ct-preview-container]");
@@ -5507,8 +5594,8 @@ class br {
   initPreviewEditors() {
     const e = window.FormgenBehaviors;
     typeof e?.initJSONEditors == "function" && e.initJSONEditors();
-    const r = window.FormgenRelationships?.autoInitWysiwyg ?? e?.autoInitWysiwyg;
-    typeof r == "function" && r();
+    const a = window.FormgenRelationships?.autoInitWysiwyg ?? e?.autoInitWysiwyg;
+    typeof a == "function" && a();
   }
   renderValidationErrors() {
     const e = this.container.querySelector("[data-ct-validation-errors]");
@@ -5517,14 +5604,14 @@ class br {
       e.classList.add("hidden"), e.innerHTML = "", this.renderFieldList();
       return;
     }
-    const t = /* @__PURE__ */ new Map(), r = [];
-    for (const a of this.state.validationErrors) {
-      const s = a.path.match(/properties[./](\w+)/);
+    const t = /* @__PURE__ */ new Map(), a = [];
+    for (const r of this.state.validationErrors) {
+      const s = r.path.match(/properties[./](\w+)/);
       if (s) {
         const i = s[1];
-        t.has(i) || t.set(i, []), t.get(i).push(a);
+        t.has(i) || t.set(i, []), t.get(i).push(r);
       } else
-        r.push(a);
+        a.push(r);
     }
     e.classList.remove("hidden"), e.innerHTML = `
       <div class="fixed bottom-4 right-4 max-w-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg shadow-lg overflow-hidden z-40">
@@ -5544,23 +5631,23 @@ class br {
           </button>
         </div>
         <div class="px-4 py-3 max-h-64 overflow-y-auto">
-          ${r.length > 0 ? `
+          ${a.length > 0 ? `
             <div class="mb-3">
               <div class="text-xs font-medium text-red-700 dark:text-red-300 uppercase mb-1">Schema</div>
               <ul class="text-sm text-red-600 dark:text-red-400 space-y-1">
-                ${r.map((a) => `<li class="flex items-start gap-2"><span class="text-red-400">•</span>${x(a.message)}</li>`).join("")}
+                ${a.map((r) => `<li class="flex items-start gap-2"><span class="text-red-400">•</span>${k(r.message)}</li>`).join("")}
               </ul>
             </div>
           ` : ""}
-          ${Array.from(t.entries()).map(([a, s]) => {
-      const i = this.state.fields.find((n) => n.name === a);
+          ${Array.from(t.entries()).map(([r, s]) => {
+      const i = this.state.fields.find((n) => n.name === r);
       return `
               <div class="mb-3 last:mb-0">
                 <div class="text-xs font-medium text-red-700 dark:text-red-300 mb-1">
-                  ${x(i?.label ?? a)} <span class="font-mono">(${x(a)})</span>
+                  ${k(i?.label ?? r)} <span class="font-mono">(${k(r)})</span>
                 </div>
                 <ul class="text-sm text-red-600 dark:text-red-400 space-y-1">
-                  ${s.map((n) => `<li class="flex items-start gap-2"><span class="text-red-400">•</span>${x(n.message)}</li>`).join("")}
+                  ${s.map((n) => `<li class="flex items-start gap-2"><span class="text-red-400">•</span>${k(n.message)}</li>`).join("")}
                 </ul>
               </div>
             `;
@@ -5572,9 +5659,9 @@ class br {
     }), this.renderFieldList();
   }
   showToast(e, t) {
-    const a = window.notify?.[t];
-    if (typeof a == "function") {
-      a(e);
+    const r = window.notify?.[t];
+    if (typeof r == "function") {
+      r(e);
       return;
     }
     t === "error" ? console.error(e) : console.log(e);
@@ -5585,24 +5672,24 @@ class br {
     }, e);
   }
 }
-function x(o) {
+function k(o) {
   const e = document.createElement("div");
   return e.textContent = o, e.innerHTML;
 }
 function tt(o) {
   return o.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
-function rt(o) {
+function at(o) {
   return o.replace(/([A-Z])/g, " $1").replace(/[_-]/g, " ").replace(/\s+/g, " ").trim().split(" ").map((e) => e.charAt(0).toUpperCase() + e.slice(1).toLowerCase()).join(" ");
 }
-function vr(o) {
+function va(o) {
   try {
     return new Date(o).toLocaleDateString(void 0, { month: "short", day: "numeric", year: "numeric" });
   } catch {
     return o;
   }
 }
-class kr extends H {
+class ka extends H {
   constructor(e) {
     super({ size: "lg", flexColumn: !1 }), this.config = e;
   }
@@ -5610,7 +5697,7 @@ class kr extends H {
     return this.config.onCancel(), !0;
   }
   renderContent() {
-    const { contentType: e, compatibilityResult: t, compatibilityError: r } = this.config, a = !!r, s = (t?.breaking_changes?.length ?? 0) > 0, i = (t?.warnings?.length ?? 0) > 0, n = t?.affected_entries_count ?? 0, l = a || s, d = a ? "bg-gray-400 cursor-not-allowed" : s ? "bg-red-600 hover:bg-red-700 disabled:opacity-50" : "bg-green-600 hover:bg-green-700";
+    const { contentType: e, compatibilityResult: t, compatibilityError: a } = this.config, r = !!a, s = (t?.breaking_changes?.length ?? 0) > 0, i = (t?.warnings?.length ?? 0) > 0, n = t?.affected_entries_count ?? 0, l = r || s, d = r ? "bg-gray-400 cursor-not-allowed" : s ? "bg-red-600 hover:bg-red-700 disabled:opacity-50" : "bg-green-600 hover:bg-green-700";
     return `
       <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
         <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
@@ -5620,11 +5707,11 @@ class kr extends H {
 
       <div class="px-6 py-4 space-y-4">
         <p class="text-sm text-gray-600 dark:text-gray-400">
-          You are about to publish <strong class="text-gray-900 dark:text-white">${x(e.name)}</strong>.
+          You are about to publish <strong class="text-gray-900 dark:text-white">${k(e.name)}</strong>.
           ${e.status === "draft" ? "This will make it available for content creation." : "This will create a new version of the schema."}
         </p>
 
-        ${a ? `
+        ${r ? `
           <div class="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
             <div class="flex items-center gap-2 mb-2">
               <svg class="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -5635,15 +5722,15 @@ class kr extends H {
             <p class="ml-7 text-sm text-red-700 dark:text-red-300">
               Publishing is blocked until compatibility can be verified.
             </p>
-            ${r ? `
+            ${a ? `
               <p class="mt-2 ml-7 text-xs text-red-600 dark:text-red-400">
-                ${x(r)}
+                ${k(a)}
               </p>
             ` : ""}
           </div>
         ` : ""}
 
-        ${!a && s ? `
+        ${!r && s ? `
           <div class="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
             <div class="flex items-center gap-2 mb-2">
               <svg class="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -5653,7 +5740,7 @@ class kr extends H {
             </div>
             <ul class="text-sm text-red-700 dark:text-red-300 space-y-1 ml-7">
               ${t.breaking_changes.map((c) => `
-                <li>• ${x(c.description || `${c.type}: ${c.path}`)}</li>
+                <li>• ${k(c.description || `${c.type}: ${c.path}`)}</li>
               `).join("")}
             </ul>
             ${n > 0 ? `
@@ -5664,7 +5751,7 @@ class kr extends H {
           </div>
         ` : ""}
 
-        ${!a && i ? `
+        ${!r && i ? `
           <div class="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
             <div class="flex items-center gap-2 mb-2">
               <svg class="w-5 h-5 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -5674,13 +5761,13 @@ class kr extends H {
             </div>
             <ul class="text-sm text-yellow-700 dark:text-yellow-300 space-y-1 ml-7">
               ${t.warnings.map((c) => `
-                <li>• ${x(c.description || `${c.type}: ${c.path}`)}</li>
+                <li>• ${k(c.description || `${c.type}: ${c.path}`)}</li>
               `).join("")}
             </ul>
           </div>
         ` : ""}
 
-        ${!a && !s && !i ? `
+        ${!r && !s && !i ? `
           <div class="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
             <div class="flex items-center gap-2">
               <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -5694,7 +5781,7 @@ class kr extends H {
           </div>
         ` : ""}
 
-        ${!a && s ? `
+        ${!r && s ? `
           <label class="flex items-start gap-2">
             <input
               type="checkbox"
@@ -5731,18 +5818,18 @@ class kr extends H {
     this.container?.querySelector("[data-publish-cancel]")?.addEventListener("click", () => {
       this.config.onCancel(), this.hide();
     });
-    const e = this.container?.querySelector("[data-publish-confirm]"), t = this.container?.querySelector("[data-publish-force]"), r = !!this.config.compatibilityError;
+    const e = this.container?.querySelector("[data-publish-confirm]"), t = this.container?.querySelector("[data-publish-force]"), a = !!this.config.compatibilityError;
     t?.addEventListener("change", () => {
-      e && !r && (e.disabled = !t.checked);
+      e && !a && (e.disabled = !t.checked);
     }), e?.addEventListener("click", () => {
-      if (r)
+      if (a)
         return;
-      const a = t?.checked ?? !1;
-      this.config.onConfirm(a), this.hide();
+      const r = t?.checked ?? !1;
+      this.config.onConfirm(r), this.hide();
     });
   }
 }
-class xr extends H {
+class xa extends H {
   constructor(e) {
     super({ size: "md", initialFocus: "[data-clone-slug]" }), this.config = e;
   }
@@ -5750,7 +5837,7 @@ class xr extends H {
     return this.config.onCancel(), !0;
   }
   renderContent() {
-    const { contentType: e } = this.config, t = `${e.slug}-copy`, r = `${e.name} (Copy)`;
+    const { contentType: e } = this.config, t = `${e.slug}-copy`, a = `${e.name} (Copy)`;
     return `
       <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
         <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
@@ -5760,7 +5847,7 @@ class xr extends H {
 
       <div class="px-6 py-4 space-y-4">
         <p class="text-sm text-gray-600 dark:text-gray-400">
-          Create a copy of <strong class="text-gray-900 dark:text-white">${x(e.name)}</strong> with a new slug and name.
+          Create a copy of <strong class="text-gray-900 dark:text-white">${k(e.name)}</strong> with a new slug and name.
         </p>
 
         <div>
@@ -5770,11 +5857,11 @@ class xr extends H {
           <input
             type="text"
             data-clone-slug
-            value="${x(t)}"
+            value="${k(t)}"
             placeholder="my-content-type"
             pattern="^[a-z][a-z0-9_\\-]*$"
             required
-            class="${p()}"
+            class="${g()}"
           />
           <p class="mt-1 text-xs text-gray-500">Lowercase letters, numbers, hyphens, underscores</p>
           <div data-clone-error class="hidden text-xs text-red-600 dark:text-red-400 mt-1"></div>
@@ -5787,9 +5874,9 @@ class xr extends H {
           <input
             type="text"
             data-clone-name
-            value="${x(r)}"
+            value="${k(a)}"
             placeholder="My Content Type"
-            class="${p()}"
+            class="${g()}"
           />
         </div>
       </div>
@@ -5816,24 +5903,24 @@ class xr extends H {
     this.container?.querySelector("[data-clone-cancel]")?.addEventListener("click", () => {
       this.config.onCancel(), this.hide();
     }), this.container?.querySelector("[data-clone-confirm]")?.addEventListener("click", () => {
-      const e = this.container?.querySelector("[data-clone-slug]"), t = this.container?.querySelector("[data-clone-name]"), r = e?.value?.trim(), a = t?.value?.trim(), s = this.container?.querySelector("[data-clone-error]"), i = (n) => {
+      const e = this.container?.querySelector("[data-clone-slug]"), t = this.container?.querySelector("[data-clone-name]"), a = e?.value?.trim(), r = t?.value?.trim(), s = this.container?.querySelector("[data-clone-error]"), i = (n) => {
         s && (s.textContent = n, s.classList.remove("hidden"));
       };
-      if (!r) {
+      if (!a) {
         i("Slug is required"), e?.focus();
         return;
       }
-      if (!/^[a-z][a-z0-9_\-]*$/.test(r)) {
+      if (!/^[a-z][a-z0-9_\-]*$/.test(a)) {
         i("Invalid slug format. Use lowercase letters, numbers, hyphens, underscores. Must start with a letter."), e?.focus();
         return;
       }
-      this.config.onConfirm(r, a || void 0), this.hide();
+      this.config.onConfirm(a, r || void 0), this.hide();
     }), this.container?.addEventListener("keydown", (e) => {
       e.key === "Enter" && (e.preventDefault(), this.container?.querySelector("[data-clone-confirm]")?.click());
     });
   }
 }
-class wr extends H {
+class wa extends H {
   constructor(e) {
     super({ size: "2xl", maxHeight: "max-h-[80vh]" }), this.versions = [], this.expandedVersions = /* @__PURE__ */ new Set(), this.config = e, this.api = new W({ basePath: e.apiBasePath });
   }
@@ -5845,7 +5932,7 @@ class wr extends H {
       <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
         <div>
           <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Version History</h2>
-          <p class="text-sm text-gray-500 dark:text-gray-400">${x(this.config.contentType.name)} (${x(this.config.contentType.slug)})</p>
+          <p class="text-sm text-gray-500 dark:text-gray-400">${k(this.config.contentType.name)} (${k(this.config.contentType.slug)})</p>
         </div>
         <button type="button" data-viewer-close class="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -5883,45 +5970,45 @@ class wr extends H {
         e.innerHTML = `
         <div class="text-center py-8 text-gray-500 dark:text-gray-400">
           <p class="text-sm">No version history available.</p>
-          <p class="text-xs mt-2">Current version: ${x(this.config.contentType.schema_version ?? "1.0.0")}</p>
+          <p class="text-xs mt-2">Current version: ${k(this.config.contentType.schema_version ?? "1.0.0")}</p>
         </div>
       `;
         return;
       }
       e.innerHTML = `
       <div class="space-y-3">
-        ${this.versions.map((t, r) => this.renderVersionCard(t, r === 0)).join("")}
+        ${this.versions.map((t, a) => this.renderVersionCard(t, a === 0)).join("")}
       </div>
     `, e.querySelectorAll("[data-toggle-version]").forEach((t) => {
         t.addEventListener("click", () => {
-          const r = t.getAttribute("data-toggle-version");
-          r && (this.expandedVersions.has(r) ? this.expandedVersions.delete(r) : this.expandedVersions.add(r), this.renderVersionsList());
+          const a = t.getAttribute("data-toggle-version");
+          a && (this.expandedVersions.has(a) ? this.expandedVersions.delete(a) : this.expandedVersions.add(a), this.renderVersionsList());
         });
       });
     }
   }
   renderVersionCard(e, t) {
-    const r = this.expandedVersions.has(e.version), a = (e.changes?.length ?? 0) > 0, s = e.is_breaking || e.changes?.some((i) => i.is_breaking);
+    const a = this.expandedVersions.has(e.version), r = (e.changes?.length ?? 0) > 0, s = e.is_breaking || e.changes?.some((i) => i.is_breaking);
     return `
       <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
         <div class="p-4 flex items-center justify-between bg-gray-50 dark:bg-gray-800/50">
           <div class="flex items-center gap-3">
             <div class="flex items-center gap-2">
-              <span class="text-sm font-medium text-gray-900 dark:text-white">v${x(e.version)}</span>
+              <span class="text-sm font-medium text-gray-900 dark:text-white">v${k(e.version)}</span>
               ${t ? '<span class="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">Current</span>' : ""}
               ${s ? '<span class="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">Breaking</span>' : ""}
               ${this.getMigrationBadge(e.migration_status)}
             </div>
           </div>
           <div class="flex items-center gap-3">
-            <span class="text-xs text-gray-500 dark:text-gray-400">${vr(e.created_at)}</span>
-            ${a ? `
+            <span class="text-xs text-gray-500 dark:text-gray-400">${va(e.created_at)}</span>
+            ${r ? `
               <button
                 type="button"
-                data-toggle-version="${x(e.version)}"
+                data-toggle-version="${k(e.version)}"
                 class="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded"
               >
-                <svg class="w-4 h-4 transition-transform ${r ? "rotate-180" : ""}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-4 h-4 transition-transform ${a ? "rotate-180" : ""}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                 </svg>
               </button>
@@ -5941,7 +6028,7 @@ class wr extends H {
           </div>
         ` : ""}
 
-        ${r && a ? `
+        ${a && r ? `
           <div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-900">
             <h4 class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Changes</h4>
             <ul class="space-y-2">
@@ -5957,7 +6044,7 @@ class wr extends H {
       added: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
       removed: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
       modified: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
-    }, r = {
+    }, a = {
       added: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>',
       removed: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>',
       modified: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>'
@@ -5966,14 +6053,14 @@ class wr extends H {
       <li class="flex items-start gap-2 text-sm">
         <span class="flex-shrink-0 px-2 py-0.5 text-xs font-medium rounded ${t[e.type]}">
           <svg class="w-3 h-3 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            ${r[e.type]}
+            ${a[e.type]}
           </svg>
           ${e.type}
         </span>
         <div class="flex-1">
-          <span class="font-mono text-xs text-gray-600 dark:text-gray-400">${x(e.path)}</span>
-          ${e.field ? `<span class="text-gray-500 dark:text-gray-400"> (${x(e.field)})</span>` : ""}
-          ${e.description ? `<p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">${x(e.description)}</p>` : ""}
+          <span class="font-mono text-xs text-gray-600 dark:text-gray-400">${k(e.path)}</span>
+          ${e.field ? `<span class="text-gray-500 dark:text-gray-400"> (${k(e.field)})</span>` : ""}
+          ${e.description ? `<p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">${k(e.description)}</p>` : ""}
           ${e.is_breaking ? '<span class="ml-1 text-xs text-red-500 dark:text-red-400">Breaking</span>' : ""}
         </div>
       </li>
@@ -5994,7 +6081,7 @@ class wr extends H {
     }
   }
 }
-class $r extends H {
+class Sa extends H {
   constructor(e) {
     super({ size: "4xl", backdropDataAttr: "data-block-library-backdrop" }), this.categories = [], this.config = e, this.api = new W({ basePath: e.apiBasePath }), this.state = {
       blocks: [],
@@ -6108,8 +6195,8 @@ class $r extends H {
       this.state.categoryFilter = t.value || null, this.renderBlockList();
     }), this.container?.querySelector("[data-block-create]")?.addEventListener("click", () => {
       this.showBlockEditor(null);
-    }), this.container?.querySelector("[data-block-list]")?.addEventListener("click", (a) => {
-      const s = a.target, i = s.closest("[data-block-id]");
+    }), this.container?.querySelector("[data-block-list]")?.addEventListener("click", (r) => {
+      const s = r.target, i = s.closest("[data-block-id]");
       if (i && this.config.mode === "picker") {
         const n = i.getAttribute("data-block-id"), l = this.state.blocks.find((d) => d.id === n);
         if (l && this.isBlockAllowed(l)) {
@@ -6177,8 +6264,8 @@ class $r extends H {
   refreshCategoriesFromBlocks() {
     const e = new Set(this.categories);
     for (const t of this.state.blocks) {
-      const r = (t.category || "").trim().toLowerCase();
-      r && !e.has(r) && (e.add(r), this.categories.push(r));
+      const a = (t.category || "").trim().toLowerCase();
+      a && !e.has(a) && (e.add(a), this.categories.push(a));
     }
     this.renderCategoryOptions();
   }
@@ -6187,8 +6274,8 @@ class $r extends H {
     if (e) {
       e.innerHTML = '<option value="">All Categories</option>';
       for (const t of this.categories) {
-        const r = document.createElement("option");
-        r.value = t, r.textContent = ze(t), e.appendChild(r);
+        const a = document.createElement("option");
+        a.value = t, a.textContent = ze(t), e.appendChild(a);
       }
     }
   }
@@ -6228,14 +6315,14 @@ class $r extends H {
       });
       return;
     }
-    const r = /* @__PURE__ */ new Map();
+    const a = /* @__PURE__ */ new Map();
     for (const s of t) {
       const i = s.category || "custom";
-      r.has(i) || r.set(i, []), r.get(i).push(s);
+      a.has(i) || a.set(i, []), a.get(i).push(s);
     }
-    let a = "";
-    for (const [s, i] of r)
-      a += `
+    let r = "";
+    for (const [s, i] of a)
+      r += `
         <div class="mb-6">
           <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">${ze(s)}</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -6243,14 +6330,14 @@ class $r extends H {
           </div>
         </div>
       `;
-    e.innerHTML = a;
+    e.innerHTML = r;
   }
   renderBlockCard(e) {
-    const t = this.config.mode !== "picker", r = this.isBlockAllowed(e), a = this.getStatusBadge(e.status), s = this.blockKey(e);
+    const t = this.config.mode !== "picker", a = this.isBlockAllowed(e), r = this.getStatusBadge(e.status), s = this.blockKey(e);
     return `
       <div
         data-block-id="${e.id}"
-        class="relative p-4 border rounded-lg ${r ? "border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 hover:border-blue-300 dark:hover:border-blue-600 cursor-pointer" : "border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 opacity-60 cursor-not-allowed"} transition-colors"
+        class="relative p-4 border rounded-lg ${a ? "border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 hover:border-blue-300 dark:hover:border-blue-600 cursor-pointer" : "border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 opacity-60 cursor-not-allowed"} transition-colors"
       >
         <div class="flex items-start gap-3">
           <div class="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-lg font-medium">
@@ -6259,7 +6346,7 @@ class $r extends H {
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2">
               <h4 class="text-sm font-medium text-gray-900 dark:text-white truncate">${F(e.name)}</h4>
-              ${a}
+              ${r}
             </div>
             <p class="text-xs text-gray-500 dark:text-gray-400 font-mono">${F(s)}</p>
             ${e.description ? `<p class="mt-1 text-xs text-gray-500 dark:text-gray-400 line-clamp-2">${F(e.description)}</p>` : ""}
@@ -6324,20 +6411,20 @@ class $r extends H {
           </div>
         ` : ""}
 
-        ${r ? "" : '<div class="absolute inset-0 flex items-center justify-center bg-gray-100/50 dark:bg-gray-900/50 rounded-lg"><span class="text-xs text-gray-500 dark:text-gray-400">Not allowed</span></div>'}
+        ${a ? "" : '<div class="absolute inset-0 flex items-center justify-center bg-gray-100/50 dark:bg-gray-900/50 rounded-lg"><span class="text-xs text-gray-500 dark:text-gray-400">Not allowed</span></div>'}
       </div>
     `;
   }
   getStatusBadge(e) {
-    const t = e || "active", r = t.charAt(0).toUpperCase() + t.slice(1);
-    return K(r, "status", t);
+    const t = e || "active", a = t.charAt(0).toUpperCase() + t.slice(1);
+    return K(a, "status", t);
   }
   getFilteredBlocks() {
     let e = [...this.state.blocks];
     if (this.state.filter) {
       const t = this.state.filter.toLowerCase();
       e = e.filter(
-        (r) => r.name.toLowerCase().includes(t) || r.type.toLowerCase().includes(t) || (r.slug?.toLowerCase().includes(t) ?? !1) || (r.description?.toLowerCase().includes(t) ?? !1)
+        (a) => a.name.toLowerCase().includes(t) || a.type.toLowerCase().includes(t) || (a.slug?.toLowerCase().includes(t) ?? !1) || (a.description?.toLowerCase().includes(t) ?? !1)
       );
     }
     return this.state.categoryFilter && (e = e.filter((t) => t.category === this.state.categoryFilter)), e;
@@ -6347,19 +6434,19 @@ class $r extends H {
   }
   blockInList(e, t) {
     if (!e || e.length === 0) return !1;
-    const r = this.blockKey(t);
-    return !!(r && e.includes(r) || t.slug && e.includes(t.type));
+    const a = this.blockKey(t);
+    return !!(a && e.includes(a) || t.slug && e.includes(t.type));
   }
   isBlockAllowed(e) {
-    const { allowedBlocks: t, deniedBlocks: r } = this.config;
-    return this.blockInList(r, e) ? !1 : t && t.length > 0 ? this.blockInList(t, e) : !0;
+    const { allowedBlocks: t, deniedBlocks: a } = this.config;
+    return this.blockInList(a, e) ? !1 : t && t.length > 0 ? this.blockInList(t, e) : !0;
   }
   showBlockEditor(e) {
-    new Sr({
+    new $a({
       apiBasePath: this.config.apiBasePath,
       block: e,
       categories: this.categories,
-      onSave: async (r) => {
+      onSave: async (a) => {
         await this.loadBlocks();
       },
       onCancel: () => {
@@ -6373,8 +6460,8 @@ class $r extends H {
     ))
       try {
         await this.api.deleteBlockDefinition(e.id), await this.loadBlocks();
-      } catch (r) {
-        this.showError(r instanceof Error ? r.message : "Failed to delete block");
+      } catch (a) {
+        this.showError(a instanceof Error ? a.message : "Failed to delete block");
       }
   }
   cloneBlock(e) {
@@ -6385,9 +6472,9 @@ class $r extends H {
       placeholder: "e.g. hero_copy",
       initialValue: `${t}_copy`,
       confirmLabel: "Clone",
-      inputClass: p(),
-      onConfirm: async (a) => {
-        const s = a.trim();
+      inputClass: g(),
+      onConfirm: async (r) => {
+        const s = r.trim();
         if (s)
           try {
             await this.api.cloneBlockDefinition(e.id, s, s), await this.loadBlocks();
@@ -6405,7 +6492,7 @@ class $r extends H {
     }
   }
   async showVersionHistory(e) {
-    new Cr({
+    new Ca({
       apiBasePath: this.config.apiBasePath,
       block: e
     }).show();
@@ -6414,13 +6501,13 @@ class $r extends H {
     const t = this.container?.querySelector("[data-block-error]");
     if (!t) return;
     t.classList.remove("hidden");
-    const r = t.querySelector("p");
-    r && (r.textContent = e), setTimeout(() => {
+    const a = t.querySelector("p");
+    a && (a.textContent = e), setTimeout(() => {
       t.classList.add("hidden");
     }, 5e3);
   }
 }
-class Sr extends H {
+class $a extends H {
   constructor(e) {
     super({ size: "3xl" }), this.fields = [], this.config = e, this.api = new W({ basePath: e.apiBasePath }), this.isNew = !e.block, e.block?.schema && (this.fields = be(e.block.schema));
   }
@@ -6454,7 +6541,7 @@ class Sr extends H {
                 value="${F(e?.name ?? "")}"
                 placeholder="Hero Section"
                 required
-                class="${p()}"
+                class="${g()}"
               />
             </div>
             <div>
@@ -6469,7 +6556,7 @@ class Sr extends H {
                 pattern="^[a-z][a-z0-9_\\-]*$"
                 required
                 ${e ? "readonly" : ""}
-                class="${p()} ${e ? "bg-gray-50 dark:bg-gray-800 cursor-not-allowed" : ""}"
+                class="${g()} ${e ? "bg-gray-50 dark:bg-gray-800 cursor-not-allowed" : ""}"
               />
               <p class="mt-1 text-xs text-gray-500">Unique identifier. Lowercase, numbers, hyphens, underscores.</p>
             </div>
@@ -6593,23 +6680,23 @@ class Sr extends H {
       const t = e.querySelector('[name="icon"]');
       return {
         value: t?.value ?? "",
-        onSelect: (r) => {
-          t && (t.value = r);
+        onSelect: (a) => {
+          t && (t.value = a);
         },
         onClear: () => {
           t && (t.value = "");
         }
       };
     }), this.container?.querySelector("[data-fields-list]")?.addEventListener("click", (e) => {
-      const t = e.target, r = t.closest("[data-edit-field]");
-      if (r) {
-        const s = parseInt(r.getAttribute("data-edit-field") ?? "-1", 10);
+      const t = e.target, a = t.closest("[data-edit-field]");
+      if (a) {
+        const s = parseInt(a.getAttribute("data-edit-field") ?? "-1", 10);
         s >= 0 && this.fields[s] && this.showFieldConfigForm(this.fields[s], s);
         return;
       }
-      const a = t.closest("[data-remove-field]");
-      if (a) {
-        const s = parseInt(a.getAttribute("data-remove-field") ?? "-1", 10);
+      const r = t.closest("[data-remove-field]");
+      if (r) {
+        const s = parseInt(r.getAttribute("data-remove-field") ?? "-1", 10);
         s >= 0 && (this.fields.splice(s, 1), this.updateFieldsList());
         return;
       }
@@ -6618,14 +6705,14 @@ class Sr extends H {
   showFieldTypePicker() {
     new ot({
       onSelect: (t) => {
-        const r = {
+        const a = {
           id: X(),
           name: "",
           type: t,
           label: "",
           required: !1
         };
-        this.showFieldConfigForm(r, -1);
+        this.showFieldConfigForm(a, -1);
       },
       onCancel: () => {
       },
@@ -6636,10 +6723,10 @@ class Sr extends H {
   showFieldConfigForm(e, t) {
     new xe({
       field: e,
-      existingFieldNames: this.fields.filter((a, s) => s !== t).map((a) => a.name),
+      existingFieldNames: this.fields.filter((r, s) => s !== t).map((r) => r.name),
       apiBasePath: this.config.apiBasePath,
-      onSave: (a) => {
-        t >= 0 ? this.fields[t] = a : this.fields.push(a), this.updateFieldsList();
+      onSave: (r) => {
+        t >= 0 ? this.fields[t] = r : this.fields.push(r), this.updateFieldsList();
       },
       onCancel: () => {
       }
@@ -6652,18 +6739,18 @@ class Sr extends H {
   async handleSave() {
     const e = this.container?.querySelector("[data-block-form]");
     if (!e) return;
-    const t = new FormData(e), r = t.get("name")?.trim(), a = t.get("type")?.trim();
-    if (!r || !a) {
+    const t = new FormData(e), a = t.get("name")?.trim(), r = t.get("type")?.trim();
+    if (!a || !r) {
       this.showEditorError("Name and Type are required");
       return;
     }
-    if (!/^[a-z][a-z0-9_\-]*$/.test(a)) {
+    if (!/^[a-z][a-z0-9_\-]*$/.test(r)) {
       this.showEditorError("Invalid type format. Use lowercase letters, numbers, hyphens, underscores. Must start with a letter.");
       return;
     }
-    const s = st(this.fields, a), i = t.get("description"), n = t.get("icon"), l = {
-      name: r,
-      type: a,
+    const s = st(this.fields, r), i = t.get("description"), n = t.get("icon"), l = {
+      name: a,
+      type: r,
       description: typeof i == "string" ? i.trim() : void 0,
       category: t.get("category") || "custom",
       icon: typeof n == "string" ? n.trim() : void 0,
@@ -6681,11 +6768,11 @@ class Sr extends H {
     const t = this.container?.querySelector("[data-editor-error]");
     if (!t) return;
     t.classList.remove("hidden");
-    const r = t.querySelector("p");
-    r && (r.textContent = e), setTimeout(() => t.classList.add("hidden"), 5e3);
+    const a = t.querySelector("p");
+    a && (a.textContent = e), setTimeout(() => t.classList.add("hidden"), 5e3);
   }
 }
-class Cr extends H {
+class Ca extends H {
   constructor(e) {
     super({ size: "2xl", maxHeight: "max-h-[80vh]" }), this.versions = [], this.config = e, this.api = new W({ basePath: e.apiBasePath });
   }
@@ -6751,7 +6838,7 @@ class Cr extends H {
                 ${t.is_breaking ? K("Breaking", "status", "breaking") : ""}
                 ${this.getMigrationBadge(t.migration_status)}
               </div>
-              <span class="text-xs text-gray-500 dark:text-gray-400">${Br(t.created_at)}</span>
+              <span class="text-xs text-gray-500 dark:text-gray-400">${Ba(t.created_at)}</span>
             </div>
             ${t.migration_status && t.total_count ? `
               <div class="mt-2">
@@ -6772,13 +6859,13 @@ class Cr extends H {
     }
   }
   getMigrationBadge(e) {
-    const r = e ? {
+    const a = e ? {
       pending: ["Pending", "pending"],
       in_progress: ["Migrating", "migrating"],
       completed: ["Migrated", "migrated"],
       failed: ["Failed", "failed"]
     }[e] : void 0;
-    return r ? K(r[0], "status", r[1]) : "";
+    return a ? K(a[0], "status", a[1]) : "";
   }
 }
 function F(o) {
@@ -6788,39 +6875,39 @@ function F(o) {
 function ze(o) {
   return o.charAt(0).toUpperCase() + o.slice(1).toLowerCase();
 }
-function Br(o) {
+function Ba(o) {
   try {
     return new Date(o).toLocaleDateString(void 0, { month: "short", day: "numeric", year: "numeric" });
   } catch {
     return o;
   }
 }
-function Er(o = document) {
+function Ea(o = document) {
   Array.from(o.querySelectorAll("[data-block-library-trigger]")).forEach((t) => {
     if (t.dataset.initialized === "true") return;
-    const r = Le(t.dataset.apiBasePath, t.dataset.basePath), a = Re(r, t.dataset.basePath), s = t.dataset.mode ?? "manage";
+    const a = Le(t.dataset.apiBasePath, t.dataset.basePath), r = Re(a, t.dataset.basePath), s = t.dataset.mode ?? "manage";
     if (s === "manage")
       t.addEventListener("click", () => {
-        window.location.href = `${a}/content/block-library`;
+        window.location.href = `${r}/content/block-library`;
       });
     else {
       const i = {
-        apiBasePath: r,
+        apiBasePath: a,
         mode: s
       };
       t.addEventListener("click", () => {
-        new $r(i).show();
+        new Sa(i).show();
       });
     }
     t.dataset.initialized = "true";
   });
 }
-function Lr(o) {
+function La(o) {
   document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", o, { once: !0 }) : o();
 }
-Lr(() => Er());
-const M = "main", at = "application/x-field-reorder";
-class jr {
+La(() => Ea());
+const M = "main", rt = "application/x-field-reorder";
+class ja {
   constructor(e) {
     this.expandedFieldId = null, this.sectionStates = /* @__PURE__ */ new Map(), this.moveMenuFieldId = null, this.dropHighlight = !1, this.dragReorder = null, this.dropTargetFieldId = null, this.saveState = "idle", this.saveMessage = "", this.saveDisplayTimer = null, this.cachedBlocks = null, this.blocksLoading = !1, this.blockPickerModes = /* @__PURE__ */ new Map(), this.config = e, this.block = { ...e.block }, this.fields = e.block.schema ? be(e.block.schema) : [];
   }
@@ -6866,11 +6953,11 @@ class jr {
   /** Update the save state indicator without a full re-render */
   updateSaveState(e, t) {
     this.saveDisplayTimer && (clearTimeout(this.saveDisplayTimer), this.saveDisplayTimer = null), this.saveState = e, this.saveMessage = t ?? "";
-    const r = this.config.container.querySelector("[data-entity-save-indicator]");
-    r && (r.innerHTML = mt(this.saveState, this.saveMessage)), e === "saved" && (this.saveDisplayTimer = setTimeout(() => {
+    const a = this.config.container.querySelector("[data-entity-save-indicator]");
+    a && (a.innerHTML = mt(this.saveState, this.saveMessage)), e === "saved" && (this.saveDisplayTimer = setTimeout(() => {
       this.saveState = "idle", this.saveMessage = "";
-      const a = this.config.container.querySelector("[data-entity-save-indicator]");
-      a && (a.innerHTML = "");
+      const r = this.config.container.querySelector("[data-entity-save-indicator]");
+      r && (r.innerHTML = "");
     }, 2e3));
   }
   /** Revert the status dropdown to a previous value (used on status change failure) */
@@ -6882,7 +6969,7 @@ class jr {
   // Rendering – Metadata (Task 8.1)
   // ===========================================================================
   renderMetadataSection() {
-    const e = this.block, t = e.slug || e.type || "", r = e.slug && e.type && e.slug !== e.type ? `<p class="mt-0.5 text-[10px] text-gray-400 dark:text-gray-500">Internal type: ${u(e.type)}</p>` : "";
+    const e = this.block, t = e.slug || e.type || "", a = e.slug && e.type && e.slug !== e.type ? `<p class="mt-0.5 text-[10px] text-gray-400 dark:text-gray-500">Internal type: ${u(e.type)}</p>` : "";
     return `
       <div class="border-b border-gray-200 dark:border-gray-700" data-editor-metadata>
         <button type="button" data-toggle-metadata
@@ -6902,26 +6989,26 @@ class jr {
             <div>
               <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Name</label>
               <input type="text" data-meta-field="name" value="${u(e.name)}"
-                     class="${p()}" />
+                     class="${g()}" />
             </div>
             <div>
               <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Slug</label>
               <input type="text" data-meta-field="slug" value="${u(t)}" pattern="^[a-z][a-z0-9_\\-]*$"
-                     class="${p()} font-mono" />
-              ${r}
+                     class="${g()} font-mono" />
+              ${a}
             </div>
           </div>
           <div>
             <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Description</label>
             <textarea data-meta-field="description" rows="2"
                       placeholder="Short description for other editors..."
-                      class="${p()} resize-none">${u(e.description ?? "")}</textarea>
+                      class="${g()} resize-none">${u(e.description ?? "")}</textarea>
           </div>
           <div class="grid grid-cols-3 gap-3">
             <div>
               <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Category</label>
               <select data-meta-field="category" class="${z()}">
-                ${this.config.categories.map((a) => `<option value="${u(a)}" ${a === (e.category ?? "") ? "selected" : ""}>${u(Q(a))}</option>`).join("")}
+                ${this.config.categories.map((r) => `<option value="${u(r)}" ${r === (e.category ?? "") ? "selected" : ""}>${u(Q(r))}</option>`).join("")}
               </select>
             </div>
             <div>
@@ -6970,7 +7057,7 @@ class jr {
           <p class="text-sm text-gray-400 dark:text-gray-500">No fields defined.</p>
           <p class="text-xs text-gray-300 dark:text-gray-600 mt-1">Drag fields from the palette or click a field type to add.</p>
         </div>`;
-    let r = `
+    let a = `
       <div class="px-5 py-3 border-b border-gray-200 flex items-center justify-between">
         <div class="flex items-center gap-2">
           <span class="w-1 h-4 rounded-full bg-emerald-400"></span>
@@ -6985,33 +7072,33 @@ class jr {
           Add Field
         </button>
       </div>`;
-    for (const a of t) {
-      const s = e.get(a), n = this.getSectionState(a).collapsed;
-      r += `
-        <div data-section="${u(a)}" class="border-b border-gray-100 dark:border-gray-800">
-          <button type="button" data-toggle-section="${u(a)}"
+    for (const r of t) {
+      const s = e.get(r), n = this.getSectionState(r).collapsed;
+      a += `
+        <div data-section="${u(r)}" class="border-b border-gray-100 dark:border-gray-800">
+          <button type="button" data-toggle-section="${u(r)}"
                   class="w-full flex items-center gap-2 px-5 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors group">
-            <span class="w-3.5 h-3.5 text-gray-400 dark:text-gray-500 flex items-center justify-center" data-section-chevron="${u(a)}">
+            <span class="w-3.5 h-3.5 text-gray-400 dark:text-gray-500 flex items-center justify-center" data-section-chevron="${u(r)}">
               ${n ? '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>' : '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>'}
             </span>
-            <span class="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">${u(Q(a))}</span>
+            <span class="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">${u(Q(r))}</span>
             <span class="text-[10px] text-gray-400 dark:text-gray-500 ml-auto">${s.length}</span>
           </button>
 
-          <div class="${n ? "hidden" : ""}" data-section-body="${u(a)}">
-            <div class="px-3 pb-2 space-y-1" data-section-fields="${u(a)}">
+          <div class="${n ? "hidden" : ""}" data-section-body="${u(r)}">
+            <div class="px-3 pb-2 space-y-1" data-section-fields="${u(r)}">
               ${s.map((l) => this.renderFieldCard(l, t, s)).join("")}
             </div>
           </div>
         </div>`;
     }
-    return r += De({ highlight: this.dropHighlight }), r;
+    return a += De({ highlight: this.dropHighlight }), a;
   }
   // ===========================================================================
   // Rendering – Single field card (Task 8.2)
   // ===========================================================================
-  renderFieldCard(e, t, r) {
-    const a = e.section || M, s = r.indexOf(e), i = [];
+  renderFieldCard(e, t, a) {
+    const r = e.section || M, s = a.indexOf(e), i = [];
     e.validation?.minLength !== void 0 && i.push(`min: ${e.validation.minLength}`), e.validation?.maxLength !== void 0 && i.push(`max: ${e.validation.maxLength}`), e.validation?.min !== void 0 && i.push(`>= ${e.validation.min}`), e.validation?.max !== void 0 && i.push(`<= ${e.validation.max}`), e.validation?.pattern && i.push("pattern");
     const n = `
           <div class="relative flex-shrink-0">
@@ -7022,7 +7109,7 @@ class jr {
                 <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"></path>
               </svg>
             </button>
-            ${this.moveMenuFieldId === e.id ? this.renderMoveToSectionMenu(e, t, a) : ""}
+            ${this.moveMenuFieldId === e.id ? this.renderMoveToSectionMenu(e, t, r) : ""}
           </div>`;
     return bt({
       field: e,
@@ -7030,9 +7117,9 @@ class jr {
       isDropTarget: this.dropTargetFieldId === e.id,
       showReorderButtons: !0,
       isFirst: s === 0,
-      isLast: s === r.length - 1,
+      isLast: s === a.length - 1,
       compact: !1,
-      sectionName: a,
+      sectionName: r,
       actionsHtml: n,
       constraintBadges: i,
       renderExpandedContent: () => this.renderFieldProperties(e, t)
@@ -7046,7 +7133,7 @@ class jr {
   }
   /** Standard field properties (non-blocks) */
   renderStandardFieldProperties(e, t) {
-    const r = e.validation ?? {}, a = I(e.type), s = ["text", "textarea", "rich-text", "markdown", "code", "slug"].includes(a), i = ["number", "integer", "currency", "percentage"].includes(a), n = e.section || M;
+    const a = e.validation ?? {}, r = I(e.type), s = ["text", "textarea", "rich-text", "markdown", "code", "slug"].includes(r), i = ["number", "integer", "currency", "percentage"].includes(r), n = e.section || M;
     return `
       <div class="px-3 pb-3 space-y-3 border-t border-gray-100 dark:border-gray-800 mt-1 pt-3" data-field-props="${u(e.id)}">
         <!-- General -->
@@ -7055,13 +7142,13 @@ class jr {
             <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Field Name</label>
             <input type="text" data-field-prop="${u(e.id)}" data-prop-key="name"
                    value="${u(e.name)}" pattern="^[a-z][a-z0-9_]*$"
-                   class="${p("xs")}" />
+                   class="${g("xs")}" />
           </div>
           <div>
             <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Label</label>
             <input type="text" data-field-prop="${u(e.id)}" data-prop-key="label"
                    value="${u(e.label)}"
-                   class="${p("xs")}" />
+                   class="${g("xs")}" />
           </div>
         </div>
 
@@ -7069,14 +7156,14 @@ class jr {
           <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Description</label>
           <input type="text" data-field-prop="${u(e.id)}" data-prop-key="description"
                  value="${u(e.description ?? "")}" placeholder="Help text for editors"
-                 class="${p("xs")}" />
+                 class="${g("xs")}" />
         </div>
 
         <div>
           <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Placeholder</label>
           <input type="text" data-field-prop="${u(e.id)}" data-prop-key="placeholder"
                  value="${u(e.placeholder ?? "")}"
-                 class="${p("xs")}" />
+                 class="${g("xs")}" />
         </div>
 
         <!-- Flags -->
@@ -7107,21 +7194,21 @@ class jr {
           <div>
             <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Min Length</label>
             <input type="number" data-field-prop="${u(e.id)}" data-prop-key="validation.minLength"
-                   value="${r.minLength ?? ""}" min="0"
-                   class="${p("xs")}" />
+                   value="${a.minLength ?? ""}" min="0"
+                   class="${g("xs")}" />
           </div>
           <div>
             <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Max Length</label>
             <input type="number" data-field-prop="${u(e.id)}" data-prop-key="validation.maxLength"
-                   value="${r.maxLength ?? ""}" min="0"
-                   class="${p("xs")}" />
+                   value="${a.maxLength ?? ""}" min="0"
+                   class="${g("xs")}" />
           </div>
         </div>
         <div>
           <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Pattern (RegEx)</label>
           <input type="text" data-field-prop="${u(e.id)}" data-prop-key="validation.pattern"
-                 value="${u(r.pattern ?? "")}" placeholder="^[a-z]+$"
-                 class="${p("xs")} font-mono" />
+                 value="${u(a.pattern ?? "")}" placeholder="^[a-z]+$"
+                 class="${g("xs")} font-mono" />
         </div>` : ""}
 
         ${i ? `
@@ -7129,14 +7216,14 @@ class jr {
           <div>
             <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Minimum</label>
             <input type="number" data-field-prop="${u(e.id)}" data-prop-key="validation.min"
-                   value="${r.min ?? ""}" step="any"
-                   class="${p("xs")}" />
+                   value="${a.min ?? ""}" step="any"
+                   class="${g("xs")}" />
           </div>
           <div>
             <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Maximum</label>
             <input type="number" data-field-prop="${u(e.id)}" data-prop-key="validation.max"
-                   value="${r.max ?? ""}" step="any"
-                   class="${p("xs")}" />
+                   value="${a.max ?? ""}" step="any"
+                   class="${g("xs")}" />
           </div>
         </div>` : ""}
 
@@ -7154,7 +7241,7 @@ class jr {
             <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Grid Span (1-12)</label>
             <input type="number" data-field-prop="${u(e.id)}" data-prop-key="gridSpan"
                    value="${e.gridSpan ?? ""}" min="1" max="12" placeholder="12"
-                   class="${p("xs")}" />
+                   class="${g("xs")}" />
           </div>
         </div>
 
@@ -7169,16 +7256,16 @@ class jr {
   }
   /** Blocks field properties: block picker primary, field settings secondary */
   renderBlocksFieldProperties(e, t) {
-    const r = e.config ?? {}, a = e.section || M, i = this.getBlocksPickerMode(e.id) === "allowed", n = new Set(
-      i ? r.allowedBlocks ?? [] : r.deniedBlocks ?? []
-    ), l = "px-2 py-1 text-[10px] font-semibold uppercase tracking-wider rounded", d = i ? "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300" : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800", c = i ? "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800" : "bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-300", g = i ? "Allowed Blocks" : "Denied Blocks", m = i ? "blue" : "red", f = i ? "All blocks allowed (no restrictions)" : "No blocks denied";
+    const a = e.config ?? {}, r = e.section || M, i = this.getBlocksPickerMode(e.id) === "allowed", n = new Set(
+      i ? a.allowedBlocks ?? [] : a.deniedBlocks ?? []
+    ), l = "px-2 py-1 text-[10px] font-semibold uppercase tracking-wider rounded", d = i ? "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300" : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800", c = i ? "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800" : "bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-300", p = i ? "Allowed Blocks" : "Denied Blocks", m = i ? "blue" : "red", f = i ? "All blocks allowed (no restrictions)" : "No blocks denied";
     let h;
     if (this.cachedBlocks) {
       const v = ne(n, this.cachedBlocks);
       h = le({
         availableBlocks: this.cachedBlocks,
         selectedBlocks: v,
-        label: g,
+        label: p,
         accent: m,
         emptySelectionText: f
       });
@@ -7222,14 +7309,14 @@ class jr {
           <div>
             <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Min Blocks</label>
             <input type="number" data-field-prop="${u(e.id)}" data-prop-key="config.minBlocks"
-                   value="${r.minBlocks ?? ""}" min="0" placeholder="0"
-                   class="${p("xs")}" />
+                   value="${a.minBlocks ?? ""}" min="0" placeholder="0"
+                   class="${g("xs")}" />
           </div>
           <div>
             <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Max Blocks</label>
             <input type="number" data-field-prop="${u(e.id)}" data-prop-key="config.maxBlocks"
-                   value="${r.maxBlocks ?? ""}" min="1" placeholder="No limit"
-                   class="${p("xs")}" />
+                   value="${a.maxBlocks ?? ""}" min="1" placeholder="No limit"
+                   class="${g("xs")}" />
           </div>
         </div>
 
@@ -7249,20 +7336,20 @@ class jr {
                 <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Field Name</label>
                 <input type="text" data-field-prop="${u(e.id)}" data-prop-key="name"
                        value="${u(e.name)}" pattern="^[a-z][a-z0-9_]*$"
-                       class="${p("xs")}" />
+                       class="${g("xs")}" />
               </div>
               <div>
                 <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Label</label>
                 <input type="text" data-field-prop="${u(e.id)}" data-prop-key="label"
                        value="${u(e.label)}"
-                       class="${p("xs")}" />
+                       class="${g("xs")}" />
               </div>
             </div>
             <div>
               <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Description</label>
               <input type="text" data-field-prop="${u(e.id)}" data-prop-key="description"
                      value="${u(e.description ?? "")}" placeholder="Help text for editors"
-                     class="${p("xs")}" />
+                     class="${g("xs")}" />
             </div>
             <div class="flex items-center gap-4">
               <label class="flex items-center gap-1.5 cursor-pointer">
@@ -7289,7 +7376,7 @@ class jr {
                 <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Section</label>
                 <select data-field-section-select="${u(e.id)}"
                         class="${z("xs")}">
-                  ${t.map((v) => `<option value="${u(v)}" ${v === a ? "selected" : ""}>${u(Q(v))}</option>`).join("")}
+                  ${t.map((v) => `<option value="${u(v)}" ${v === r ? "selected" : ""}>${u(Q(v))}</option>`).join("")}
                   <option value="__new__">+ New section...</option>
                 </select>
               </div>
@@ -7297,7 +7384,7 @@ class jr {
                 <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Grid Span (1-12)</label>
                 <input type="number" data-field-prop="${u(e.id)}" data-prop-key="gridSpan"
                        value="${e.gridSpan ?? ""}" min="1" max="12" placeholder="12"
-                       class="${p("xs")}" />
+                       class="${g("xs")}" />
               </div>
             </div>
           </div>
@@ -7315,9 +7402,9 @@ class jr {
   // ===========================================================================
   // Rendering – Move to Section menu (Task 8.4)
   // ===========================================================================
-  renderMoveToSectionMenu(e, t, r) {
-    const a = t.filter((s) => s !== r);
-    return a.length === 0 ? `
+  renderMoveToSectionMenu(e, t, a) {
+    const r = t.filter((s) => s !== a);
+    return r.length === 0 ? `
         <div data-move-menu class="absolute right-0 top-full mt-1 z-30 w-44 bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 text-sm">
           <div class="px-3 py-1.5 text-xs text-gray-400 dark:text-gray-500">Only one section exists.</div>
           <button type="button" data-move-new-section="${u(e.id)}"
@@ -7327,7 +7414,7 @@ class jr {
         </div>` : `
       <div data-move-menu class="absolute right-0 top-full mt-1 z-30 w-44 bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 text-sm">
         <div class="px-3 py-1 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Move to section</div>
-        ${a.map((s) => `
+        ${r.map((s) => `
           <button type="button" data-move-to="${u(s)}" data-move-field="${u(e.id)}"
                   class="w-full text-left px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2">
             <svg class="w-3 h-3 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -7349,16 +7436,16 @@ class jr {
   groupFieldsBySection() {
     const e = /* @__PURE__ */ new Map();
     for (const t of this.fields) {
-      const r = t.section || M;
-      e.has(r) || e.set(r, []), e.get(r).push(t);
+      const a = t.section || M;
+      e.has(a) || e.set(a, []), e.get(a).push(t);
     }
     if (e.has(M)) {
       const t = e.get(M);
       e.delete(M);
-      const r = /* @__PURE__ */ new Map();
-      r.set(M, t);
-      for (const [a, s] of e) r.set(a, s);
-      return r;
+      const a = /* @__PURE__ */ new Map();
+      a.set(M, t);
+      for (const [r, s] of e) a.set(r, s);
+      return a;
     }
     return e;
   }
@@ -7378,43 +7465,43 @@ class jr {
   // ===========================================================================
   bindEvents(e) {
     e.querySelector("[data-toggle-metadata]")?.addEventListener("click", () => {
-      const t = e.querySelector("[data-metadata-body]"), r = e.querySelector("[data-metadata-chevron]");
+      const t = e.querySelector("[data-metadata-body]"), a = e.querySelector("[data-metadata-chevron]");
       if (t) {
-        const a = t.classList.toggle("hidden");
-        r && (r.innerHTML = a ? '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>' : '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>');
+        const r = t.classList.toggle("hidden");
+        a && (a.innerHTML = r ? '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>' : '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>');
       }
     }), e.querySelectorAll("[data-meta-field]").forEach((t) => {
-      const r = t.dataset.metaField;
-      t.tagName === "SELECT" ? t.addEventListener("change", () => this.handleMetadataChange(r, t.value)) : (t.tagName === "TEXTAREA" || t.tagName === "INPUT") && t.addEventListener("input", () => this.handleMetadataChange(r, t.value));
+      const a = t.dataset.metaField;
+      t.tagName === "SELECT" ? t.addEventListener("change", () => this.handleMetadataChange(a, t.value)) : (t.tagName === "TEXTAREA" || t.tagName === "INPUT") && t.addEventListener("input", () => this.handleMetadataChange(a, t.value));
     }), Ee(e, "[data-icon-trigger]", (t) => {
-      const r = t.querySelector('[data-meta-field="icon"]');
+      const a = t.querySelector('[data-meta-field="icon"]');
       return {
-        value: r?.value ?? "",
-        onSelect: (a) => {
-          r && (r.value = a, r.dispatchEvent(new Event("input", { bubbles: !0 })));
+        value: a?.value ?? "",
+        onSelect: (r) => {
+          a && (a.value = r, a.dispatchEvent(new Event("input", { bubbles: !0 })));
         },
         onClear: () => {
-          r && (r.value = "", r.dispatchEvent(new Event("input", { bubbles: !0 })));
+          a && (a.value = "", a.dispatchEvent(new Event("input", { bubbles: !0 })));
         },
         compact: !0
       };
     }), e.addEventListener("click", (t) => this.handleClick(t, e)), e.addEventListener("input", (t) => this.handleInput(t)), e.addEventListener("change", (t) => this.handleChange(t, e)), document.addEventListener("click", (t) => {
       if (this.moveMenuFieldId) {
-        const r = t.target;
-        !r.closest("[data-move-menu]") && !r.closest("[data-field-actions]") && (this.moveMenuFieldId = null, this.render());
+        const a = t.target;
+        !a.closest("[data-move-menu]") && !a.closest("[data-field-actions]") && (this.moveMenuFieldId = null, this.render());
       }
     }), this.bindDropZoneEvents(e), this.bindFieldReorderEvents(e), this.bindSectionSelectEvents(e);
   }
   /** Bind drag-and-drop events on all [data-field-drop-zone] elements */
   bindDropZoneEvents(e) {
-    e.querySelectorAll("[data-field-drop-zone]").forEach((r) => {
-      r.addEventListener("dragover", (a) => {
-        a.preventDefault(), a.dataTransfer.dropEffect = "copy", this.dropHighlight || (this.dropHighlight = !0, r.classList.remove("border-gray-200", "hover:border-gray-300", "border-transparent"), r.classList.add("border-blue-400", "bg-blue-50/50"));
-      }), r.addEventListener("dragleave", (a) => {
-        r.contains(a.relatedTarget) || (this.dropHighlight = !1, r.classList.remove("border-blue-400", "bg-blue-50/50"), r.classList.add("border-gray-200", "hover:border-gray-300"));
-      }), r.addEventListener("drop", (a) => {
-        if (a.preventDefault(), this.dropHighlight = !1, r.classList.remove("border-blue-400", "bg-blue-50/50"), r.classList.add("border-gray-200", "hover:border-gray-300"), this.config.onFieldDrop) {
-          const s = a.dataTransfer?.getData(Ve);
+    e.querySelectorAll("[data-field-drop-zone]").forEach((a) => {
+      a.addEventListener("dragover", (r) => {
+        r.preventDefault(), r.dataTransfer.dropEffect = "copy", this.dropHighlight || (this.dropHighlight = !0, a.classList.remove("border-gray-200", "hover:border-gray-300", "border-transparent"), a.classList.add("border-blue-400", "bg-blue-50/50"));
+      }), a.addEventListener("dragleave", (r) => {
+        a.contains(r.relatedTarget) || (this.dropHighlight = !1, a.classList.remove("border-blue-400", "bg-blue-50/50"), a.classList.add("border-gray-200", "hover:border-gray-300"));
+      }), a.addEventListener("drop", (r) => {
+        if (r.preventDefault(), this.dropHighlight = !1, a.classList.remove("border-blue-400", "bg-blue-50/50"), a.classList.add("border-gray-200", "hover:border-gray-300"), this.config.onFieldDrop) {
+          const s = r.dataTransfer?.getData(Ve);
           if (s)
             try {
               const n = JSON.parse(s);
@@ -7424,7 +7511,7 @@ class jr {
               }
             } catch {
             }
-          const i = a.dataTransfer?.getData(we);
+          const i = r.dataTransfer?.getData(we);
           if (i) {
             const n = I(i), l = Ce(n) ?? {
               type: n,
@@ -7440,34 +7527,34 @@ class jr {
     });
   }
   handleClick(e, t) {
-    const r = e.target;
-    if (r.closest("[data-block-add-field]")) {
+    const a = e.target;
+    if (a.closest("[data-block-add-field]")) {
       this.config.onAddFieldClick && this.config.onAddFieldClick();
       return;
     }
-    const s = r.closest("[data-toggle-section]");
+    const s = a.closest("[data-toggle-section]");
     if (s) {
-      const y = s.dataset.toggleSection, $ = this.getSectionState(y);
-      $.collapsed = !$.collapsed, this.sectionStates.set(y, $);
+      const y = s.dataset.toggleSection, S = this.getSectionState(y);
+      S.collapsed = !S.collapsed, this.sectionStates.set(y, S);
       const B = t.querySelector(`[data-section-body="${y}"]`), A = t.querySelector(`[data-section-chevron="${y}"]`);
-      B && B.classList.toggle("hidden", $.collapsed), A && (A.innerHTML = $.collapsed ? '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>' : '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>');
+      B && B.classList.toggle("hidden", S.collapsed), A && (A.innerHTML = S.collapsed ? '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>' : '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>');
       return;
     }
-    const i = r.closest("[data-field-actions]");
+    const i = a.closest("[data-field-actions]");
     if (i) {
       e.stopPropagation();
       const y = i.dataset.fieldActions;
       this.moveMenuFieldId = this.moveMenuFieldId === y ? null : y, this.render();
       return;
     }
-    const n = r.closest("[data-move-to]");
+    const n = a.closest("[data-move-to]");
     if (n) {
       e.stopPropagation();
-      const y = n.dataset.moveTo, $ = n.dataset.moveField;
-      this.moveFieldToSection($, y);
+      const y = n.dataset.moveTo, S = n.dataset.moveField;
+      this.moveFieldToSection(S, y);
       return;
     }
-    const l = r.closest("[data-move-new-section]");
+    const l = a.closest("[data-move-new-section]");
     if (l) {
       e.stopPropagation();
       const y = l.dataset.moveNewSection;
@@ -7476,7 +7563,7 @@ class jr {
         label: "Section name",
         placeholder: "e.g. sidebar",
         confirmLabel: "Create",
-        inputClass: p(),
+        inputClass: g(),
         onConfirm: (B) => {
           const A = B.trim().toLowerCase().replace(/\s+/g, "_");
           A && this.moveFieldToSection(y, A);
@@ -7484,24 +7571,24 @@ class jr {
       }).show();
       return;
     }
-    const d = r.closest("[data-field-move-up]");
+    const d = a.closest("[data-field-move-up]");
     if (d) {
       e.stopPropagation();
       const y = d.dataset.fieldMoveUp;
       d.hasAttribute("disabled") || this.moveFieldInSection(y, -1);
       return;
     }
-    const c = r.closest("[data-field-move-down]");
+    const c = a.closest("[data-field-move-down]");
     if (c) {
       e.stopPropagation();
       const y = c.dataset.fieldMoveDown;
       c.hasAttribute("disabled") || this.moveFieldInSection(y, 1);
       return;
     }
-    const g = r.closest("[data-field-remove]");
-    if (g) {
-      const y = g.dataset.fieldRemove, $ = this.fields.find((B) => B.id === y);
-      $ && ie.confirm(`Remove field "${$.label || $.name}"?`, {
+    const p = a.closest("[data-field-remove]");
+    if (p) {
+      const y = p.dataset.fieldRemove, S = this.fields.find((B) => B.id === y);
+      S && ie.confirm(`Remove field "${S.label || S.name}"?`, {
         title: "Remove Field",
         confirmText: "Remove",
         confirmVariant: "danger"
@@ -7510,59 +7597,59 @@ class jr {
       });
       return;
     }
-    const m = r.closest("[data-blocks-settings-toggle]");
+    const m = a.closest("[data-blocks-settings-toggle]");
     if (m) {
-      const y = m.dataset.blocksSettingsToggle, $ = t.querySelector(`[data-blocks-settings-body="${y}"]`), B = t.querySelector(`[data-blocks-settings-chevron="${y}"]`);
-      if ($) {
-        const A = $.classList.toggle("hidden");
+      const y = m.dataset.blocksSettingsToggle, S = t.querySelector(`[data-blocks-settings-body="${y}"]`), B = t.querySelector(`[data-blocks-settings-chevron="${y}"]`);
+      if (S) {
+        const A = S.classList.toggle("hidden");
         B && (B.innerHTML = A ? '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>' : '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>');
       }
       return;
     }
-    const f = r.closest("[data-blocks-mode-toggle]");
+    const f = a.closest("[data-blocks-mode-toggle]");
     if (f) {
       e.stopPropagation();
-      const y = f.dataset.blocksModeToggle, $ = f.dataset.blocksMode ?? "allowed";
-      this.blockPickerModes.set(y, $), this.render();
+      const y = f.dataset.blocksModeToggle, S = f.dataset.blocksMode ?? "allowed";
+      this.blockPickerModes.set(y, S), this.render();
       return;
     }
-    if (r.closest("[data-blocks-open-library]")) {
+    if (a.closest("[data-blocks-open-library]")) {
       e.stopPropagation();
       const y = this.config.api.getBasePath();
       window.location.href = `${y}/content/block-library`;
       return;
     }
-    const v = r.closest("[data-blocks-advanced]");
+    const v = a.closest("[data-blocks-advanced]");
     if (v) {
       e.stopPropagation();
-      const y = v.dataset.blocksAdvanced, $ = this.fields.find((B) => B.id === y);
-      $ && this.openFieldConfigModal($);
+      const y = v.dataset.blocksAdvanced, S = this.fields.find((B) => B.id === y);
+      S && this.openFieldConfigModal(S);
       return;
     }
-    const S = r.closest("[data-field-toggle]");
-    if (S) {
-      if (r.closest("[data-field-grip]")) return;
-      const y = S.dataset.fieldToggle;
+    const $ = a.closest("[data-field-toggle]");
+    if ($) {
+      if (a.closest("[data-field-grip]")) return;
+      const y = $.dataset.fieldToggle;
       if (this.expandedFieldId = this.expandedFieldId === y ? null : y, this.render(), this.expandedFieldId) {
-        const $ = this.fields.find((B) => B.id === this.expandedFieldId);
-        $ && I($.type) === "blocks" && this.loadBlocksForField($);
+        const S = this.fields.find((B) => B.id === this.expandedFieldId);
+        S && I(S.type) === "blocks" && this.loadBlocksForField(S);
       }
       return;
     }
   }
   handleInput(e) {
-    const r = e.target.closest("[data-field-prop]");
-    if (r) {
-      const a = r.dataset.fieldProp, s = r.dataset.propKey;
-      this.updateFieldProp(a, s, r.value);
+    const a = e.target.closest("[data-field-prop]");
+    if (a) {
+      const r = a.dataset.fieldProp, s = a.dataset.propKey;
+      this.updateFieldProp(r, s, a.value);
       return;
     }
   }
   handleChange(e, t) {
-    const a = e.target.closest("[data-field-check]");
-    if (a) {
-      const s = a.dataset.fieldCheck, i = a.dataset.checkKey;
-      this.updateFieldProp(s, i, a.checked);
+    const r = e.target.closest("[data-field-check]");
+    if (r) {
+      const s = r.dataset.fieldCheck, i = r.dataset.checkKey;
+      this.updateFieldProp(s, i, r.checked);
       return;
     }
   }
@@ -7574,46 +7661,46 @@ class jr {
       this.config.onStatusChange(this.block.id, t);
       return;
     }
-    const r = {}, a = this.block;
+    const a = {}, r = this.block;
     switch (e) {
       case "name":
-        r.name = t, a.name = t;
+        a.name = t, r.name = t;
         break;
       case "slug": {
         const s = (this.block.slug || this.block.type || "").toString();
-        r.slug = t, a.slug = t, (!a.type || a.type === s) && (r.type = t, a.type = t);
+        a.slug = t, r.slug = t, (!r.type || r.type === s) && (a.type = t, r.type = t);
         break;
       }
       case "description":
-        r.description = t, a.description = t;
+        a.description = t, r.description = t;
         break;
       case "category":
-        r.category = t, a.category = t;
+        a.category = t, r.category = t;
         break;
       case "icon":
-        r.icon = t, a.icon = t;
+        a.icon = t, r.icon = t;
         break;
       case "status":
-        r.status = t, a.status = t;
+        a.status = t, r.status = t;
         break;
     }
-    this.config.onMetadataChange(this.block.id, r);
+    this.config.onMetadataChange(this.block.id, a);
   }
-  updateFieldProp(e, t, r) {
-    const a = this.fields.find((i) => i.id === e);
-    if (!a) return;
+  updateFieldProp(e, t, a) {
+    const r = this.fields.find((i) => i.id === e);
+    if (!r) return;
     const s = t.split(".");
     if (s.length === 1) {
-      const i = s[0], n = a;
-      typeof r == "boolean" ? n[i] = r : i === "gridSpan" ? n[i] = r ? parseInt(r, 10) : void 0 : n[i] = r || void 0;
+      const i = s[0], n = r;
+      typeof a == "boolean" ? n[i] = a : i === "gridSpan" ? n[i] = a ? parseInt(a, 10) : void 0 : n[i] = a || void 0;
     } else if (s[0] === "config") {
-      a.config || (a.config = {});
-      const i = s[1], n = a.config;
-      typeof r == "string" && (r === "" ? delete n[i] : ["minBlocks", "maxBlocks"].includes(i) ? n[i] = parseInt(r, 10) : n[i] = r), Object.keys(a.config).length === 0 && (a.config = void 0);
+      r.config || (r.config = {});
+      const i = s[1], n = r.config;
+      typeof a == "string" && (a === "" ? delete n[i] : ["minBlocks", "maxBlocks"].includes(i) ? n[i] = parseInt(a, 10) : n[i] = a), Object.keys(r.config).length === 0 && (r.config = void 0);
     } else if (s[0] === "validation") {
-      a.validation || (a.validation = {});
+      r.validation || (r.validation = {});
       const i = s[1];
-      typeof r == "string" && (r === "" ? delete a.validation[i] : ["minLength", "maxLength"].includes(i) ? a.validation[i] = parseInt(r, 10) : ["min", "max"].includes(i) ? a.validation[i] = parseFloat(r) : a.validation[i] = r), Object.keys(a.validation).length === 0 && (a.validation = void 0);
+      typeof a == "string" && (a === "" ? delete r.validation[i] : ["minLength", "maxLength"].includes(i) ? r.validation[i] = parseInt(a, 10) : ["min", "max"].includes(i) ? r.validation[i] = parseFloat(a) : r.validation[i] = a), Object.keys(r.validation).length === 0 && (r.validation = void 0);
     }
     this.notifySchemaChange();
   }
@@ -7631,8 +7718,8 @@ class jr {
       `[data-blocks-picker-container="${e.id}"]`
     );
     if (!t || !this.cachedBlocks) return;
-    const r = e.config ?? {}, s = this.getBlocksPickerMode(e.id) === "allowed", i = ne(
-      new Set(s ? r.allowedBlocks ?? [] : r.deniedBlocks ?? []),
+    const a = e.config ?? {}, s = this.getBlocksPickerMode(e.id) === "allowed", i = ne(
+      new Set(s ? a.allowedBlocks ?? [] : a.deniedBlocks ?? []),
       this.cachedBlocks
     ), n = s ? "Allowed Blocks" : "Denied Blocks", l = s ? "blue" : "red", d = s ? "All blocks allowed (no restrictions)" : "No blocks denied";
     t.innerHTML = le({
@@ -7646,8 +7733,8 @@ class jr {
       selectedBlocks: i,
       onSelectionChange: (c) => {
         e.config || (e.config = {});
-        const g = e.config;
-        s ? c.size > 0 ? g.allowedBlocks = Array.from(c) : delete g.allowedBlocks : c.size > 0 ? g.deniedBlocks = Array.from(c) : delete g.deniedBlocks, Object.keys(e.config).length === 0 && (e.config = void 0), this.notifySchemaChange();
+        const p = e.config;
+        s ? c.size > 0 ? p.allowedBlocks = Array.from(c) : delete p.allowedBlocks : c.size > 0 ? p.deniedBlocks = Array.from(c) : delete p.deniedBlocks, Object.keys(e.config).length === 0 && (e.config = void 0), this.notifySchemaChange();
       },
       label: n,
       accent: l,
@@ -7657,28 +7744,28 @@ class jr {
   openFieldConfigModal(e) {
     new xe({
       field: e,
-      existingFieldNames: this.fields.filter((r) => r.id !== e.id).map((r) => r.name),
+      existingFieldNames: this.fields.filter((a) => a.id !== e.id).map((a) => a.name),
       apiBasePath: this.config.api.getBasePath(),
-      onSave: (r) => {
-        const a = this.fields.findIndex((s) => s.id === e.id);
-        a !== -1 && (this.fields[a] = r, this.notifySchemaChange(), this.render());
+      onSave: (a) => {
+        const r = this.fields.findIndex((s) => s.id === e.id);
+        r !== -1 && (this.fields[r] = a, this.notifySchemaChange(), this.render());
       },
       onCancel: () => {
       }
     }).show();
   }
   moveFieldToSection(e, t) {
-    const r = this.fields.find((a) => a.id === e);
-    r && (r.section = t === M ? void 0 : t, this.moveMenuFieldId = null, this.notifySchemaChange(), this.render());
+    const a = this.fields.find((r) => r.id === e);
+    a && (a.section = t === M ? void 0 : t, this.moveMenuFieldId = null, this.notifySchemaChange(), this.render());
   }
   // ===========================================================================
   // Field Reorder (Phase 10 — Task 10.1 drag, Task 10.2 keyboard)
   // ===========================================================================
   /** Move a field up (-1) or down (+1) within its section */
   moveFieldInSection(e, t) {
-    const r = this.fields.find((c) => c.id === e);
-    if (!r) return;
-    const a = r.section || M, s = this.fields.filter((c) => (c.section || M) === a), i = s.findIndex((c) => c.id === e), n = i + t;
+    const a = this.fields.find((c) => c.id === e);
+    if (!a) return;
+    const r = a.section || M, s = this.fields.filter((c) => (c.section || M) === r), i = s.findIndex((c) => c.id === e), n = i + t;
     if (n < 0 || n >= s.length) return;
     const l = this.fields.indexOf(s[i]), d = this.fields.indexOf(s[n]);
     [this.fields[l], this.fields[d]] = [this.fields[d], this.fields[l]], this.notifySchemaChange(), this.render();
@@ -7686,42 +7773,42 @@ class jr {
   /** Reorder a field by moving it before a target field in the same section */
   reorderFieldBefore(e, t) {
     if (e === t) return;
-    const r = this.fields.find((d) => d.id === e), a = this.fields.find((d) => d.id === t);
-    if (!r || !a) return;
-    const s = r.section || M, i = a.section || M;
+    const a = this.fields.find((d) => d.id === e), r = this.fields.find((d) => d.id === t);
+    if (!a || !r) return;
+    const s = a.section || M, i = r.section || M;
     if (s !== i) return;
-    const n = this.fields.indexOf(r);
+    const n = this.fields.indexOf(a);
     this.fields.splice(n, 1);
-    const l = this.fields.indexOf(a);
-    this.fields.splice(l, 0, r), this.notifySchemaChange(), this.render();
+    const l = this.fields.indexOf(r);
+    this.fields.splice(l, 0, a), this.notifySchemaChange(), this.render();
   }
   /** Bind drag events on [data-field-card] for intra-section reordering */
   bindFieldReorderEvents(e) {
-    e.querySelectorAll("[data-field-card]").forEach((r) => {
-      const a = r.dataset.fieldCard, s = r.dataset.fieldSection;
+    e.querySelectorAll("[data-field-card]").forEach((a) => {
+      const r = a.dataset.fieldCard, s = a.dataset.fieldSection;
       let i = !1;
-      r.addEventListener("mousedown", (n) => {
+      a.addEventListener("mousedown", (n) => {
         i = !!n.target.closest("[data-field-grip]");
-      }), r.addEventListener("dragstart", (n) => {
+      }), a.addEventListener("dragstart", (n) => {
         if (!i) {
           n.preventDefault();
           return;
         }
-        this.dragReorder = { fieldId: a, sectionName: s }, n.dataTransfer.effectAllowed = "move", n.dataTransfer.setData(at, a), r.classList.add("opacity-50");
-      }), r.addEventListener("dragend", () => {
-        this.dragReorder = null, this.dropTargetFieldId = null, r.classList.remove("opacity-50"), e.querySelectorAll("[data-field-card]").forEach((n) => {
+        this.dragReorder = { fieldId: r, sectionName: s }, n.dataTransfer.effectAllowed = "move", n.dataTransfer.setData(rt, r), a.classList.add("opacity-50");
+      }), a.addEventListener("dragend", () => {
+        this.dragReorder = null, this.dropTargetFieldId = null, a.classList.remove("opacity-50"), e.querySelectorAll("[data-field-card]").forEach((n) => {
           n.classList.remove("border-t-2", "border-t-blue-400");
         });
-      }), r.addEventListener("dragover", (n) => {
-        this.dragReorder && this.dragReorder.sectionName === s && this.dragReorder.fieldId !== a && (n.preventDefault(), n.dataTransfer.dropEffect = "move", this.dropTargetFieldId !== a && (e.querySelectorAll("[data-field-card]").forEach((l) => {
+      }), a.addEventListener("dragover", (n) => {
+        this.dragReorder && this.dragReorder.sectionName === s && this.dragReorder.fieldId !== r && (n.preventDefault(), n.dataTransfer.dropEffect = "move", this.dropTargetFieldId !== r && (e.querySelectorAll("[data-field-card]").forEach((l) => {
           l.classList.remove("border-t-2", "border-t-blue-400");
-        }), r.classList.add("border-t-2", "border-t-blue-400"), this.dropTargetFieldId = a));
-      }), r.addEventListener("dragleave", () => {
-        this.dropTargetFieldId === a && (r.classList.remove("border-t-2", "border-t-blue-400"), this.dropTargetFieldId = null);
-      }), r.addEventListener("drop", (n) => {
+        }), a.classList.add("border-t-2", "border-t-blue-400"), this.dropTargetFieldId = r));
+      }), a.addEventListener("dragleave", () => {
+        this.dropTargetFieldId === r && (a.classList.remove("border-t-2", "border-t-blue-400"), this.dropTargetFieldId = null);
+      }), a.addEventListener("drop", (n) => {
         n.preventDefault();
-        const l = n.dataTransfer?.getData(at);
-        r.classList.remove("border-t-2", "border-t-blue-400"), this.dropTargetFieldId = null, this.dragReorder = null, l && l !== a && this.reorderFieldBefore(l, a);
+        const l = n.dataTransfer?.getData(rt);
+        a.classList.remove("border-t-2", "border-t-blue-400"), this.dropTargetFieldId = null, this.dragReorder = null, l && l !== r && this.reorderFieldBefore(l, r);
       });
     });
   }
@@ -7729,18 +7816,18 @@ class jr {
   bindSectionSelectEvents(e) {
     e.querySelectorAll("[data-field-section-select]").forEach((t) => {
       t.addEventListener("change", () => {
-        const r = t.dataset.fieldSectionSelect, a = t.value;
-        if (a === "__new__") {
-          const i = this.fields.find((l) => l.id === r)?.section || M;
+        const a = t.dataset.fieldSectionSelect, r = t.value;
+        if (r === "__new__") {
+          const i = this.fields.find((l) => l.id === a)?.section || M;
           new oe({
             title: "Create New Section",
             label: "Section name",
             placeholder: "e.g. sidebar",
             confirmLabel: "Create",
-            inputClass: p(),
+            inputClass: g(),
             onConfirm: (l) => {
               const d = l.trim().toLowerCase().replace(/\s+/g, "_");
-              d && this.moveFieldToSection(r, d);
+              d && this.moveFieldToSection(a, d);
             },
             onCancel: () => {
               t.value = i;
@@ -7748,7 +7835,7 @@ class jr {
           }).show();
           return;
         }
-        this.moveFieldToSection(r, a);
+        this.moveFieldToSection(a, r);
       });
     });
   }
@@ -7763,7 +7850,7 @@ function u(o) {
 function Q(o) {
   return o.replace(/_/g, " ").replace(/\b\w/g, (e) => e.toUpperCase());
 }
-const Fe = ["content", "media", "layout", "interactive", "custom"], L = "default", $e = class $e {
+const Fe = ["content", "media", "layout", "interactive", "custom"], L = "default", Se = class Se {
   constructor(e) {
     this.listEl = null, this.searchInput = null, this.categorySelect = null, this.countEl = null, this.createBtn = null, this.editorEl = null, this.paletteEl = null, this.activeMenu = null, this.editorPanel = null, this.palettePanel = null, this.autosaveTimers = /* @__PURE__ */ new Map(), this.boundVisibilityChange = null, this.boundBeforeUnload = null, this.sidebarEl = null, this.paletteAsideEl = null, this.sidebarToggleBtn = null, this.gridEl = null, this.addFieldBar = null, this.paletteTriggerBtn = null, this.sidebarCollapsed = !1, this.mediaQueryLg = null, this.popoverPalettePanel = null, this.envSelectEl = null, this.envResetBtn = null, this.envAddBtn = null, this.backToContentTypesLink = null, this.currentEnvironment = L, this.availableEnvironments = [L], this.envDiagnostics = null;
     const t = Le(e.dataset.apiBasePath, e.dataset.basePath);
@@ -7809,11 +7896,11 @@ const Fe = ["content", "media", "layout", "interactive", "custom"], L = "default
   /** Persist a dirty block to the backend */
   async saveBlock(e) {
     if (!this.state.dirtyBlocks.has(e)) return !0;
-    const t = this.state.blocks.find((r) => r.id === e);
+    const t = this.state.blocks.find((a) => a.id === e);
     if (!t) return !1;
     this.cancelScheduledSave(e), this.markSaving(e), this.notifySaveState(e, "saving");
     try {
-      const r = await this.api.updateBlockDefinition(e, {
+      const a = await this.api.updateBlockDefinition(e, {
         name: t.name,
         slug: t.slug,
         type: t.type,
@@ -7823,10 +7910,10 @@ const Fe = ["content", "media", "layout", "interactive", "custom"], L = "default
         schema: t.schema,
         ui_schema: t.ui_schema
       });
-      return this.updateBlockInState(e, r), this.markClean(e), this.notifySaveState(e, "saved"), !0;
-    } catch (r) {
-      const a = r instanceof Error ? r.message : "Save failed";
-      return this.markSaveError(e, a), this.notifySaveState(e, "error", a), !1;
+      return this.updateBlockInState(e, a), this.markClean(e), this.notifySaveState(e, "saved"), !0;
+    } catch (a) {
+      const r = a instanceof Error ? a.message : "Save failed";
+      return this.markSaveError(e, r), this.notifySaveState(e, "error", r), !1;
     }
   }
   /** Schedule an autosave after the debounce delay */
@@ -7834,7 +7921,7 @@ const Fe = ["content", "media", "layout", "interactive", "custom"], L = "default
     this.cancelScheduledSave(e);
     const t = setTimeout(() => {
       this.autosaveTimers.delete(e), this.saveBlock(e);
-    }, $e.AUTOSAVE_DELAY);
+    }, Se.AUTOSAVE_DELAY);
     this.autosaveTimers.set(e, t);
   }
   /** Cancel a pending autosave for a block */
@@ -7852,20 +7939,20 @@ const Fe = ["content", "media", "layout", "interactive", "custom"], L = "default
     await Promise.all(e.map((t) => this.saveBlock(t)));
   }
   /** Notify the editor panel of a save state change */
-  notifySaveState(e, t, r) {
-    this.editorPanel && this.state.selectedBlockId === e && this.editorPanel.updateSaveState(t, r);
+  notifySaveState(e, t, a) {
+    this.editorPanel && this.state.selectedBlockId === e && this.editorPanel.updateSaveState(t, a);
   }
   // ===========================================================================
   // Status lifecycle (Phase 11 — Task 11.3)
   // ===========================================================================
   /** Handle status changes from the editor dropdown (publish/deprecate flow) */
   async handleEditorStatusChange(e, t) {
-    const r = this.state.blocks.find((s) => s.id === e);
-    if (!r) return;
-    const a = r.status;
-    if (a !== t) {
+    const a = this.state.blocks.find((s) => s.id === e);
+    if (!a) return;
+    const r = a.status;
+    if (r !== t) {
       if (this.state.dirtyBlocks.has(e) && !await this.saveBlock(e)) {
-        this.showToast("Please fix save errors before changing status.", "error"), this.editorPanel?.revertStatus(a);
+        this.showToast("Please fix save errors before changing status.", "error"), this.editorPanel?.revertStatus(r);
         return;
       }
       try {
@@ -7889,7 +7976,7 @@ const Fe = ["content", "media", "layout", "interactive", "custom"], L = "default
             console.error("Status change fallback failed:", l);
           }
         const n = s instanceof Error ? s.message : "Status change failed";
-        console.error("Status change failed:", s), this.showToast(n, "error"), this.editorPanel?.revertStatus(a);
+        console.error("Status change failed:", s), this.showToast(n, "error"), this.editorPanel?.revertStatus(r);
       }
     }
   }
@@ -7915,8 +8002,8 @@ const Fe = ["content", "media", "layout", "interactive", "custom"], L = "default
     this.closePalettePopover();
     const t = document.createElement("div");
     t.className = "fixed inset-0 z-40", t.dataset.paletteBackdrop = "", t.addEventListener("click", () => this.closePalettePopover());
-    const r = document.createElement("div");
-    r.className = "fixed z-50 w-72 max-h-[60vh] bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl flex flex-col overflow-hidden", r.dataset.palettePopover = "", r.innerHTML = `
+    const a = document.createElement("div");
+    a.className = "fixed z-50 w-72 max-h-[60vh] bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl flex flex-col overflow-hidden", a.dataset.palettePopover = "", a.innerHTML = `
       <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between shrink-0">
         <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Add Field</h3>
         <button type="button" data-palette-popover-close
@@ -7927,13 +8014,13 @@ const Fe = ["content", "media", "layout", "interactive", "custom"], L = "default
         </button>
       </div>
       <div class="flex-1 overflow-y-auto" data-palette-popover-content></div>
-    `, r.querySelector("[data-palette-popover-close]")?.addEventListener("click", () => this.closePalettePopover());
-    const a = e.getBoundingClientRect(), s = 288;
-    let i = a.left, n = a.top - 8;
+    `, a.querySelector("[data-palette-popover-close]")?.addEventListener("click", () => this.closePalettePopover());
+    const r = e.getBoundingClientRect(), s = 288;
+    let i = r.left, n = r.top - 8;
     i + s > window.innerWidth - 16 && (i = window.innerWidth - s - 16), i < 16 && (i = 16);
     const l = Math.min(window.innerHeight * 0.6, 480);
-    n - l < 16 ? n = a.bottom + 8 : n = n - l, r.style.top = `${n}px`, r.style.left = `${i}px`, document.body.appendChild(t), document.body.appendChild(r);
-    const d = r.querySelector("[data-palette-popover-content]");
+    n - l < 16 ? n = r.bottom + 8 : n = n - l, a.style.top = `${n}px`, a.style.left = `${i}px`, document.body.appendChild(t), document.body.appendChild(a);
+    const d = a.querySelector("[data-palette-popover-content]");
     d && (this.popoverPalettePanel = new qe({
       container: d,
       api: this.api,
@@ -7989,11 +8076,11 @@ const Fe = ["content", "media", "layout", "interactive", "custom"], L = "default
       label: "Environment name",
       placeholder: "e.g. staging",
       confirmLabel: "Add",
-      inputClass: p(),
-      onConfirm: (r) => {
-        const a = r.trim();
-        if (!a) return;
-        const s = this.normalizeEnvironment(a);
+      inputClass: g(),
+      onConfirm: (a) => {
+        const r = a.trim();
+        if (!r) return;
+        const s = this.normalizeEnvironment(r);
         this.upsertEnvironmentOption(s), this.envSelectEl.value = s, this.setEnvironment(s);
       },
       onCancel: () => {
@@ -8007,14 +8094,14 @@ const Fe = ["content", "media", "layout", "interactive", "custom"], L = "default
   refreshEnvironmentOptions() {
     if (!this.envSelectEl) return;
     const e = this.normalizeEnvironment(this.currentEnvironment), t = /* @__PURE__ */ new Set([L]);
-    for (const a of this.availableEnvironments)
-      t.add(this.normalizeEnvironment(a));
+    for (const r of this.availableEnvironments)
+      t.add(this.normalizeEnvironment(r));
     t.add(e);
-    const r = Array.from(t).sort((a, s) => a === L ? -1 : s === L ? 1 : a.localeCompare(s));
+    const a = Array.from(t).sort((r, s) => r === L ? -1 : s === L ? 1 : r.localeCompare(s));
     this.envSelectEl.innerHTML = "";
-    for (const a of r) {
+    for (const r of a) {
       const s = document.createElement("option");
-      s.value = a, s.textContent = this.environmentLabel(a), this.envSelectEl.appendChild(s);
+      s.value = r, s.textContent = this.environmentLabel(r), this.envSelectEl.appendChild(s);
     }
     this.envSelectEl.value = e;
   }
@@ -8032,8 +8119,8 @@ const Fe = ["content", "media", "layout", "interactive", "custom"], L = "default
   }
   updateBackLink() {
     if (!this.backToContentTypesLink) return;
-    const e = this.normalizeEnvironment(this.currentEnvironment), r = `${this.root.dataset.basePath || ""}/content/types`;
-    e && e !== L ? this.backToContentTypesLink.href = `${r}?env=${encodeURIComponent(e)}` : this.backToContentTypesLink.href = r;
+    const e = this.normalizeEnvironment(this.currentEnvironment), a = `${this.root.dataset.basePath || ""}/content/types`;
+    e && e !== L ? this.backToContentTypesLink.href = `${a}?env=${encodeURIComponent(e)}` : this.backToContentTypesLink.href = a;
   }
   // ===========================================================================
   // Public API (for cross-panel communication in later phases)
@@ -8094,9 +8181,9 @@ const Fe = ["content", "media", "layout", "interactive", "custom"], L = "default
         this.api.listBlockDefinitions(),
         this.api.getBlockDefinitionDiagnostics()
       ]);
-      if (this.state.blocks = e.items.map((r) => this.normalizeBlockDefinition(r)), this.envDiagnostics = t, t && Array.isArray(t.available_environments) && (this.availableEnvironments = t.available_environments.map((r) => this.normalizeEnvironment(r)).filter((r, a, s) => r && s.indexOf(r) === a)), t?.effective_environment) {
-        const r = this.normalizeEnvironment(t.effective_environment);
-        r !== this.currentEnvironment && (this.currentEnvironment = r, this.api.setEnvironment(r), this.updateUrlEnvironment(r));
+      if (this.state.blocks = e.items.map((a) => this.normalizeBlockDefinition(a)), this.envDiagnostics = t, t && Array.isArray(t.available_environments) && (this.availableEnvironments = t.available_environments.map((a) => this.normalizeEnvironment(a)).filter((a, r, s) => a && s.indexOf(a) === r)), t?.effective_environment) {
+        const a = this.normalizeEnvironment(t.effective_environment);
+        a !== this.currentEnvironment && (this.currentEnvironment = a, this.api.setEnvironment(a), this.updateUrlEnvironment(a));
       }
       this.refreshEnvironmentOptions(), this.updateEnvironmentStatus();
     } catch (e) {
@@ -8122,8 +8209,8 @@ const Fe = ["content", "media", "layout", "interactive", "custom"], L = "default
     const e = new Set(this.state.categories.map((t) => this.normalizeCategory(t)));
     this.state.categories = Array.from(e);
     for (const t of this.state.blocks) {
-      const r = this.normalizeCategory(t.category || "");
-      r && !e.has(r) && (e.add(r), this.state.categories.push(r));
+      const a = this.normalizeCategory(t.category || "");
+      a && !e.has(a) && (e.add(a), this.state.categories.push(a));
     }
     this.renderCategoryOptions(), this.updateCreateCategorySelect();
   }
@@ -8132,8 +8219,8 @@ const Fe = ["content", "media", "layout", "interactive", "custom"], L = "default
   }
   mergeCategories(e) {
     for (const t of e) {
-      const r = this.normalizeCategory(t);
-      r && (this.state.categories.includes(r) || this.state.categories.push(r));
+      const a = this.normalizeCategory(t);
+      a && (this.state.categories.includes(a) || this.state.categories.push(a));
     }
   }
   loadUserCategories() {
@@ -8141,7 +8228,7 @@ const Fe = ["content", "media", "layout", "interactive", "custom"], L = "default
       const e = sessionStorage.getItem("block-library-user-categories");
       if (!e) return [];
       const t = JSON.parse(e);
-      return Array.isArray(t) ? t.map((r) => this.normalizeCategory(r)).filter((r) => r.length > 0) : [];
+      return Array.isArray(t) ? t.map((a) => this.normalizeCategory(a)).filter((a) => a.length > 0) : [];
     } catch {
       return [];
     }
@@ -8160,8 +8247,8 @@ const Fe = ["content", "media", "layout", "interactive", "custom"], L = "default
   updateCreateCategorySelect(e) {
     const t = this.listEl?.querySelector("[data-create-category]");
     if (!t) return;
-    const r = e ?? t.value;
-    t.innerHTML = this.state.categories.map((a) => `<option value="${T(a)}">${T(pe(a))}</option>`).join(""), t.innerHTML += '<option value="__add__">Add category...</option>', r && this.state.categories.includes(r) && (t.value = r);
+    const a = e ?? t.value;
+    t.innerHTML = this.state.categories.map((r) => `<option value="${T(r)}">${T(pe(r))}</option>`).join(""), t.innerHTML += '<option value="__add__">Add category...</option>', a && this.state.categories.includes(a) && (t.value = a);
   }
   promptForCategory(e, t) {
     new oe({
@@ -8169,9 +8256,9 @@ const Fe = ["content", "media", "layout", "interactive", "custom"], L = "default
       label: "Category name",
       placeholder: "e.g. marketing",
       confirmLabel: "Add",
-      inputClass: p(),
-      onConfirm: (a) => {
-        const s = this.addCategory(a);
+      inputClass: g(),
+      onConfirm: (r) => {
+        const s = this.addCategory(r);
         if (s) {
           this.updateCreateCategorySelect(s), e.value = s, e.dataset.prevValue = s;
           return;
@@ -8213,19 +8300,19 @@ const Fe = ["content", "media", "layout", "interactive", "custom"], L = "default
     }
     const e = this.getFilteredBlocks();
     if (e.length === 0) {
-      const r = this.state.search || this.state.categoryFilter, a = this.normalizeEnvironment(this.currentEnvironment), s = a === L, i = r ? "" : s ? `No block definitions were found in the "${L}" environment.` : `No block definitions were found in environment "${a}".`, n = !r && !s ? `<button type="button"
+      const a = this.state.search || this.state.categoryFilter, r = this.normalizeEnvironment(this.currentEnvironment), s = r === L, i = a ? "" : s ? `No block definitions were found in the "${L}" environment.` : `No block definitions were found in environment "${r}".`, n = !a && !s ? `<button type="button"
                  data-block-ide-empty-reset-env
                  class="mt-2 inline-flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700 hover:bg-amber-100 transition-colors">
                Reset to Default Environment
-             </button>` : "", l = !r && this.envDiagnostics ? `<p class="text-[11px] text-gray-400 dark:text-gray-500 mt-1">Visible in active env: ${this.envDiagnostics.total_effective}. Default env total: ${this.envDiagnostics.total_default}.</p>` : "";
+             </button>` : "", l = !a && this.envDiagnostics ? `<p class="text-[11px] text-gray-400 dark:text-gray-500 mt-1">Visible in active env: ${this.envDiagnostics.total_effective}. Default env total: ${this.envDiagnostics.total_default}.</p>` : "";
       this.listEl.innerHTML = `
         <div class="px-4 py-8 text-center">
           <svg class="w-10 h-10 mx-auto text-gray-300 dark:text-gray-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                   d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2z"></path>
           </svg>
-          <p class="text-sm text-gray-500 dark:text-gray-400">${r ? "No blocks match your filters." : "No blocks yet."}</p>
-          ${r ? "" : '<p class="text-xs text-gray-400 dark:text-gray-500 mt-1">Click "New Block" to create your first block definition.</p>'}
+          <p class="text-sm text-gray-500 dark:text-gray-400">${a ? "No blocks match your filters." : "No blocks yet."}</p>
+          ${a ? "" : '<p class="text-xs text-gray-400 dark:text-gray-500 mt-1">Click "New Block" to create your first block definition.</p>'}
           ${i ? `<p class="text-[11px] text-gray-400 dark:text-gray-500 mt-2">${T(i)}</p>` : ""}
           ${l}
           ${n}
@@ -8234,14 +8321,14 @@ const Fe = ["content", "media", "layout", "interactive", "custom"], L = "default
     }
     let t = "";
     this.state.isCreating && (t += this.renderCreateForm()), t += '<ul class="p-2 space-y-0.5">';
-    for (const r of e)
-      t += this.renderBlockItem(r);
+    for (const a of e)
+      t += this.renderBlockItem(a);
     if (t += "</ul>", this.listEl.innerHTML = t, this.state.isCreating) {
-      const r = this.listEl.querySelector("[data-create-name]"), a = this.listEl.querySelector("[data-create-slug]"), s = this.listEl.querySelector("[data-create-category]");
-      r?.focus(), r && a && (r.addEventListener("input", () => {
-        a.dataset.userModified || (a.value = Mr(r.value));
-      }), a.addEventListener("input", () => {
-        a.dataset.userModified = "true";
+      const a = this.listEl.querySelector("[data-create-name]"), r = this.listEl.querySelector("[data-create-slug]"), s = this.listEl.querySelector("[data-create-category]");
+      a?.focus(), a && r && (a.addEventListener("input", () => {
+        r.dataset.userModified || (r.value = Ma(a.value));
+      }), r.addEventListener("input", () => {
+        r.dataset.userModified = "true";
       })), s && (s.dataset.prevValue = s.value, s.addEventListener("change", () => {
         const i = s.value;
         if (i === "__add__") {
@@ -8253,16 +8340,16 @@ const Fe = ["content", "media", "layout", "interactive", "custom"], L = "default
       }));
     }
     if (this.state.renamingBlockId) {
-      const r = this.listEl.querySelector("[data-rename-input]");
-      r?.focus(), r?.select();
+      const a = this.listEl.querySelector("[data-rename-input]");
+      a?.focus(), a?.select();
     }
   }
   renderBlockItem(e) {
-    const t = e.id === this.state.selectedBlockId, r = e.id === this.state.renamingBlockId, a = this.state.dirtyBlocks.has(e.id), s = this.state.savingBlocks.has(e.id), i = this.state.saveErrors.get(e.id), n = e.slug || e.type || "", l = t ? "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200" : "hover:bg-gray-50 dark:hover:bg-gray-800 border-transparent", d = r ? `<input type="text" data-rename-input data-rename-block-id="${T(e.id)}"
+    const t = e.id === this.state.selectedBlockId, a = e.id === this.state.renamingBlockId, r = this.state.dirtyBlocks.has(e.id), s = this.state.savingBlocks.has(e.id), i = this.state.saveErrors.get(e.id), n = e.slug || e.type || "", l = t ? "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200" : "hover:bg-gray-50 dark:hover:bg-gray-800 border-transparent", d = a ? `<input type="text" data-rename-input data-rename-block-id="${T(e.id)}"
                value="${T(e.name)}"
                class="block w-full text-[13px] font-medium text-gray-800 dark:text-gray-100 bg-white dark:bg-slate-800 border border-blue-400 rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-500" />` : `<span class="block font-medium text-gray-800 dark:text-gray-100 truncate text-[13px]">${T(e.name || "Untitled")}</span>`;
     let c = "";
-    return i ? c = `<span class="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-red-500" title="Save failed: ${T(i)}"></span>` : s ? c = '<span class="flex-shrink-0 w-2 h-2 rounded-full border border-blue-400 border-t-transparent animate-spin" title="Saving..."></span>' : a ? c = '<span class="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-orange-400" title="Unsaved changes"></span>' : c = Tr(e.status), `
+    return i ? c = `<span class="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-red-500" title="Save failed: ${T(i)}"></span>` : s ? c = '<span class="flex-shrink-0 w-2 h-2 rounded-full border border-blue-400 border-t-transparent animate-spin" title="Saving..."></span>' : r ? c = '<span class="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-orange-400" title="Unsaved changes"></span>' : c = Ta(e.status), `
       <li>
         <div data-block-id="${T(e.id)}"
              class="relative group w-full text-left px-3 py-2 text-sm rounded-lg border ${l} transition-colors flex items-center gap-2.5 cursor-pointer">
@@ -8291,12 +8378,12 @@ const Fe = ["content", "media", "layout", "interactive", "custom"], L = "default
           <div>
             <label class="block text-[11px] font-medium text-gray-600 dark:text-gray-400 mb-0.5">Name</label>
             <input type="text" data-create-name placeholder="e.g. Hero Section"
-                   class="${p()}" />
+                   class="${g()}" />
           </div>
           <div>
             <label class="block text-[11px] font-medium text-gray-600 dark:text-gray-400 mb-0.5">Slug</label>
             <input type="text" data-create-slug placeholder="e.g. hero_section" pattern="^[a-z][a-z0-9_\\-]*$"
-                   class="${p()} font-mono" />
+                   class="${g()} font-mono" />
             <p class="mt-0.5 text-[10px] text-gray-400 dark:text-gray-500">Lowercase, numbers, hyphens, underscores.</p>
           </div>
           <div>
@@ -8323,15 +8410,15 @@ const Fe = ["content", "media", "layout", "interactive", "custom"], L = "default
   }
   renderContextMenu(e, t) {
     this.closeContextMenu();
-    const r = this.state.blocks.find((c) => c.id === e);
-    if (!r) return;
-    const a = document.createElement("div");
-    a.setAttribute("data-block-context-menu", e), a.className = "absolute z-50 w-44 bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 text-sm text-gray-700 dark:text-gray-300";
+    const a = this.state.blocks.find((c) => c.id === e);
+    if (!a) return;
+    const r = document.createElement("div");
+    r.setAttribute("data-block-context-menu", e), r.className = "absolute z-50 w-44 bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 text-sm text-gray-700 dark:text-gray-300";
     const s = [
-      { label: "Rename", action: "rename", icon: re.rename },
-      { label: "Duplicate", action: "duplicate", icon: re.duplicate }
+      { label: "Rename", action: "rename", icon: ae.rename },
+      { label: "Duplicate", action: "duplicate", icon: ae.duplicate }
     ];
-    r.status === "draft" ? s.push({ label: "Publish", action: "publish", icon: re.publish }) : r.status === "active" && s.push({ label: "Deprecate", action: "deprecate", icon: re.deprecate }), s.push({ label: "Delete", action: "delete", icon: re.delete, danger: !0 }), a.innerHTML = s.map(
+    a.status === "draft" ? s.push({ label: "Publish", action: "publish", icon: ae.publish }) : a.status === "active" && s.push({ label: "Deprecate", action: "deprecate", icon: ae.deprecate }), s.push({ label: "Delete", action: "delete", icon: ae.delete, danger: !0 }), r.innerHTML = s.map(
       (c) => `
         <button type="button" data-menu-action="${c.action}" data-menu-block-id="${T(e)}"
                 class="w-full text-left px-3 py-1.5 flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-700 ${c.danger ? "text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20" : ""}">
@@ -8340,17 +8427,17 @@ const Fe = ["content", "media", "layout", "interactive", "custom"], L = "default
         </button>`
     ).join("");
     const i = t.getBoundingClientRect(), n = 176;
-    a.style.position = "fixed", a.style.top = `${i.bottom + 4}px`;
+    r.style.position = "fixed", r.style.top = `${i.bottom + 4}px`;
     let l = i.left;
-    l + n > window.innerWidth - 8 && (l = window.innerWidth - n - 8), l < 8 && (l = 8), a.style.left = `${l}px`, document.body.appendChild(a);
-    const d = a.getBoundingClientRect();
-    d.bottom > window.innerHeight - 8 && (a.style.top = `${i.top - d.height - 4}px`), a.addEventListener("click", (c) => {
-      const g = c.target.closest("[data-menu-action]");
-      if (!g) return;
-      const m = g.dataset.menuAction, f = g.dataset.menuBlockId;
+    l + n > window.innerWidth - 8 && (l = window.innerWidth - n - 8), l < 8 && (l = 8), r.style.left = `${l}px`, document.body.appendChild(r);
+    const d = r.getBoundingClientRect();
+    d.bottom > window.innerHeight - 8 && (r.style.top = `${i.top - d.height - 4}px`), r.addEventListener("click", (c) => {
+      const p = c.target.closest("[data-menu-action]");
+      if (!p) return;
+      const m = p.dataset.menuAction, f = p.dataset.menuBlockId;
       this.closeContextMenu(), this.handleAction(m, f);
     }), this.activeMenu = () => {
-      a.remove(), this.activeMenu = null;
+      r.remove(), this.activeMenu = null;
     };
   }
   closeContextMenu() {
@@ -8386,36 +8473,36 @@ const Fe = ["content", "media", "layout", "interactive", "custom"], L = "default
         </div>`, this.palettePanel?.disable(), this.updateAddFieldBar();
       return;
     }
-    this.editorPanel ? this.editorPanel.update(e) : (this.editorPanel = new jr({
+    this.editorPanel ? this.editorPanel.update(e) : (this.editorPanel = new ja({
       container: this.editorEl,
       block: e,
       categories: this.state.categories,
       api: this.api,
-      onMetadataChange: (t, r) => this.handleEditorMetadataChange(t, r),
-      onSchemaChange: (t, r) => this.handleEditorSchemaChange(t, r),
+      onMetadataChange: (t, a) => this.handleEditorMetadataChange(t, a),
+      onSchemaChange: (t, a) => this.handleEditorSchemaChange(t, a),
       onFieldDrop: (t) => this.handlePaletteAddField(t),
       onAddFieldClick: () => this.handleAddFieldClick(),
-      onStatusChange: (t, r) => this.handleEditorStatusChange(t, r),
+      onStatusChange: (t, a) => this.handleEditorStatusChange(t, a),
       onSave: (t) => this.saveBlock(t)
     }), this.editorPanel.render()), this.palettePanel?.enable(), this.updateAddFieldBar();
   }
   handleEditorMetadataChange(e, t) {
-    const r = this.state.blocks.findIndex((i) => i.id === e);
-    if (r < 0) return;
-    const a = this.state.blocks[r], s = { ...a, ...t };
-    if (t.slug !== void 0 && t.slug !== a.slug) {
+    const a = this.state.blocks.findIndex((i) => i.id === e);
+    if (a < 0) return;
+    const r = this.state.blocks[a], s = { ...r, ...t };
+    if (t.slug !== void 0 && t.slug !== r.slug) {
       const i = (t.slug ?? "").trim();
-      i && (!t.type && (!a.type || a.type === a.slug) && (s.type = i, t.type = i), s.schema && typeof s.schema == "object" && (s.schema = { ...s.schema, $id: i }));
+      i && (!t.type && (!r.type || r.type === r.slug) && (s.type = i, t.type = i), s.schema && typeof s.schema == "object" && (s.schema = { ...s.schema, $id: i }));
     }
-    this.state.blocks[r] = s, this.markDirty(e), (t.name !== void 0 || t.status !== void 0 || t.slug !== void 0 || t.type !== void 0) && this.updateBlockItemDOM(e, s), this.scheduleSave(e);
+    this.state.blocks[a] = s, this.markDirty(e), (t.name !== void 0 || t.status !== void 0 || t.slug !== void 0 || t.type !== void 0) && this.updateBlockItemDOM(e, s), this.scheduleSave(e);
   }
   handleEditorSchemaChange(e, t) {
-    const r = this.state.blocks.findIndex((n) => n.id === e);
-    if (r < 0) return;
-    const a = this.state.blocks[r].schema, s = this.state.blocks[r].slug || this.state.blocks[r].type;
+    const a = this.state.blocks.findIndex((n) => n.id === e);
+    if (a < 0) return;
+    const r = this.state.blocks[a].schema, s = this.state.blocks[a].slug || this.state.blocks[a].type;
     let i = st(t, s);
-    i = this.mergeSchemaExtras(a, i), this.state.blocks[r] = {
-      ...this.state.blocks[r],
+    i = this.mergeSchemaExtras(r, i), this.state.blocks[a] = {
+      ...this.state.blocks[a],
       schema: i
     }, this.markDirty(e), this.scheduleSave(e);
   }
@@ -8426,15 +8513,15 @@ const Fe = ["content", "media", "layout", "interactive", "custom"], L = "default
   /** Handle adding a field from the palette (Phase 9 — click or drop) */
   handlePaletteAddField(e) {
     if (!this.editorPanel || !this.state.selectedBlockId) return;
-    const t = e.type === "blocks", r = t ? "Content Blocks" : e?.label ?? pe(e.type), a = t ? "content_blocks" : e.type.replace(/-/g, "_"), s = new Set(this.editorPanel.getFields().map((d) => d.name));
-    let i = a, n = 1;
+    const t = e.type === "blocks", a = t ? "Content Blocks" : e?.label ?? pe(e.type), r = t ? "content_blocks" : e.type.replace(/-/g, "_"), s = new Set(this.editorPanel.getFields().map((d) => d.name));
+    let i = r, n = 1;
     for (; s.has(i); )
-      i = t ? `content_blocks_${n++}` : `${a}_${n++}`;
+      i = t ? `content_blocks_${n++}` : `${r}_${n++}`;
     const l = {
       id: X(),
       name: i,
       type: e.type,
-      label: n > 1 && t ? `Content Blocks ${n - 1}` : r,
+      label: n > 1 && t ? `Content Blocks ${n - 1}` : a,
       required: !1,
       ...e.defaultConfig ?? {}
     };
@@ -8448,12 +8535,12 @@ const Fe = ["content", "media", "layout", "interactive", "custom"], L = "default
     if (this.state.search) {
       const t = this.state.search.toLowerCase();
       e = e.filter(
-        (r) => r.name.toLowerCase().includes(t) || r.type.toLowerCase().includes(t) || (r.slug?.toLowerCase().includes(t) ?? !1) || (r.description?.toLowerCase().includes(t) ?? !1)
+        (a) => a.name.toLowerCase().includes(t) || a.type.toLowerCase().includes(t) || (a.slug?.toLowerCase().includes(t) ?? !1) || (a.description?.toLowerCase().includes(t) ?? !1)
       );
     }
     if (this.state.categoryFilter) {
       const t = this.state.categoryFilter.toLowerCase().trim();
-      e = e.filter((r) => (r.category || "custom").toLowerCase().trim() === t);
+      e = e.filter((a) => (a.category || "custom").toLowerCase().trim() === t);
     }
     return e;
   }
@@ -8478,11 +8565,11 @@ const Fe = ["content", "media", "layout", "interactive", "custom"], L = "default
       this.cancelCreate();
       return;
     }
-    const r = t.closest("[data-block-actions]");
-    if (r) {
+    const a = t.closest("[data-block-actions]");
+    if (a) {
       e.stopPropagation();
-      const i = r.dataset.blockActions;
-      this.renderContextMenu(i, r);
+      const i = a.dataset.blockActions;
+      this.renderContextMenu(i, a);
       return;
     }
     if (t.closest("[data-rename-input]")) {
@@ -8525,18 +8612,18 @@ const Fe = ["content", "media", "layout", "interactive", "custom"], L = "default
     this.state.isCreating = !1, this.renderBlockList();
   }
   async handleCreateSave() {
-    const e = this.listEl?.querySelector("[data-create-name]"), t = this.listEl?.querySelector("[data-create-slug]"), r = this.listEl?.querySelector("[data-create-category]"), a = this.listEl?.querySelector("[data-create-error]"), s = e?.value.trim() ?? "", i = t?.value.trim() ?? "";
-    let n = r?.value ?? "custom";
+    const e = this.listEl?.querySelector("[data-create-name]"), t = this.listEl?.querySelector("[data-create-slug]"), a = this.listEl?.querySelector("[data-create-category]"), r = this.listEl?.querySelector("[data-create-error]"), s = e?.value.trim() ?? "", i = t?.value.trim() ?? "";
+    let n = a?.value ?? "custom";
     if (n === "__add__" && (n = "custom"), !s) {
-      this.showCreateError(a, "Name is required."), e?.focus();
+      this.showCreateError(r, "Name is required."), e?.focus();
       return;
     }
     if (!i) {
-      this.showCreateError(a, "Slug is required."), t?.focus();
+      this.showCreateError(r, "Slug is required."), t?.focus();
       return;
     }
     if (!/^[a-z][a-z0-9_\-]*$/.test(i)) {
-      this.showCreateError(a, "Slug must start with a letter and contain only lowercase, numbers, hyphens, underscores."), t?.focus();
+      this.showCreateError(r, "Slug must start with a letter and contain only lowercase, numbers, hyphens, underscores."), t?.focus();
       return;
     }
     const l = this.listEl?.querySelector("[data-create-save]");
@@ -8555,7 +8642,7 @@ const Fe = ["content", "media", "layout", "interactive", "custom"], L = "default
       this.state.isCreating = !1, this.state.blocks.unshift(c), this.state.selectedBlockId = c.id, this.updateCount(), this.renderBlockList(), this.renderEditor();
     } catch (d) {
       const c = d instanceof ge ? d.message : "Failed to create block.";
-      this.showCreateError(a, c), l && (l.disabled = !1, l.textContent = "Create");
+      this.showCreateError(r, c), l && (l.disabled = !1, l.textContent = "Create");
     }
   }
   showCreateError(e, t) {
@@ -8567,11 +8654,11 @@ const Fe = ["content", "media", "layout", "interactive", "custom"], L = "default
   startRename(e) {
     this.state.renamingBlockId = e, this.renderBlockList();
     const t = this.listEl?.querySelector("[data-rename-input]");
-    t && (t.addEventListener("keydown", (r) => {
-      r.key === "Enter" && (r.preventDefault(), this.commitRename(e, t.value.trim())), r.key === "Escape" && (r.preventDefault(), this.cancelRename());
+    t && (t.addEventListener("keydown", (a) => {
+      a.key === "Enter" && (a.preventDefault(), this.commitRename(e, t.value.trim())), a.key === "Escape" && (a.preventDefault(), this.cancelRename());
     }), t.addEventListener("blur", () => {
-      const r = this.state.blocks.find((a) => a.id === e);
-      r && t.value.trim() && t.value.trim() !== r.name ? this.commitRename(e, t.value.trim()) : this.cancelRename();
+      const a = this.state.blocks.find((r) => r.id === e);
+      a && t.value.trim() && t.value.trim() !== a.name ? this.commitRename(e, t.value.trim()) : this.cancelRename();
     }));
   }
   async commitRename(e, t) {
@@ -8579,16 +8666,16 @@ const Fe = ["content", "media", "layout", "interactive", "custom"], L = "default
       this.cancelRename();
       return;
     }
-    const r = this.state.blocks.find((a) => a.id === e);
-    if (!r || r.name === t) {
+    const a = this.state.blocks.find((r) => r.id === e);
+    if (!a || a.name === t) {
       this.cancelRename();
       return;
     }
     try {
-      const a = await this.api.updateBlockDefinition(e, { name: t });
-      this.updateBlockInState(e, a);
-    } catch (a) {
-      console.error("Rename failed:", a);
+      const r = await this.api.updateBlockDefinition(e, { name: t });
+      this.updateBlockInState(e, r);
+    } catch (r) {
+      console.error("Rename failed:", r);
     } finally {
       this.state.renamingBlockId = null, this.renderBlockList();
     }
@@ -8602,9 +8689,9 @@ const Fe = ["content", "media", "layout", "interactive", "custom"], L = "default
   async duplicateBlock(e) {
     const t = this.state.blocks.find((i) => i.id === e);
     if (!t) return;
-    const a = `${(t.slug || t.type || "block").trim()}_copy`, s = a;
+    const r = `${(t.slug || t.type || "block").trim()}_copy`, s = r;
     try {
-      const i = await this.api.cloneBlockDefinition(e, s, a), n = this.normalizeBlockDefinition(i);
+      const i = await this.api.cloneBlockDefinition(e, s, r), n = this.normalizeBlockDefinition(i);
       this.state.blocks.unshift(n), this.state.selectedBlockId = n.id, this.updateCount(), this.renderBlockList(), this.renderEditor();
     } catch (i) {
       console.error("Duplicate failed:", i), this.showToast(i instanceof Error ? i.message : "Failed to duplicate block.", "error");
@@ -8621,8 +8708,8 @@ const Fe = ["content", "media", "layout", "interactive", "custom"], L = "default
     try {
       const t = await this.api.publishBlockDefinition(e);
       if (this.updateBlockInState(e, t), this.renderBlockList(), this.showToast("Block published.", "success"), this.state.selectedBlockId === e && this.editorPanel) {
-        const r = this.state.blocks.find((a) => a.id === e);
-        r && this.editorPanel.update(r);
+        const a = this.state.blocks.find((r) => r.id === e);
+        a && this.editorPanel.update(a);
       }
     } catch (t) {
       console.error("Publish failed:", t), this.showToast(t instanceof Error ? t.message : "Failed to publish block.", "error");
@@ -8636,8 +8723,8 @@ const Fe = ["content", "media", "layout", "interactive", "custom"], L = "default
     try {
       const t = await this.api.deprecateBlockDefinition(e);
       if (this.updateBlockInState(e, t), this.renderBlockList(), this.showToast("Block deprecated.", "info"), this.state.selectedBlockId === e && this.editorPanel) {
-        const r = this.state.blocks.find((a) => a.id === e);
-        r && this.editorPanel.update(r);
+        const a = this.state.blocks.find((r) => r.id === e);
+        a && this.editorPanel.update(a);
       }
     } catch (t) {
       console.error("Deprecate failed:", t), this.showToast(t instanceof Error ? t.message : "Failed to deprecate block.", "error");
@@ -8647,15 +8734,15 @@ const Fe = ["content", "media", "layout", "interactive", "custom"], L = "default
   // Delete Block (Task 7.3)
   // ===========================================================================
   async deleteBlock(e) {
-    const t = this.state.blocks.find((a) => a.id === e);
+    const t = this.state.blocks.find((r) => r.id === e);
     if (!(!t || !await ie.confirm(
       `Delete "${t.name}"? This cannot be undone.`,
       { title: "Delete Block", confirmText: "Delete", confirmVariant: "danger" }
     )))
       try {
-        await this.api.deleteBlockDefinition(e), this.state.blocks = this.state.blocks.filter((a) => a.id !== e), this.state.dirtyBlocks.delete(e), this.state.savingBlocks.delete(e), this.state.saveErrors.delete(e), this.state.selectedBlockId === e && (this.state.selectedBlockId = null, this.renderEditor()), this.updateCount(), this.renderBlockList();
-      } catch (a) {
-        console.error("Delete failed:", a), this.showToast(a instanceof Error ? a.message : "Failed to delete block.", "error");
+        await this.api.deleteBlockDefinition(e), this.state.blocks = this.state.blocks.filter((r) => r.id !== e), this.state.dirtyBlocks.delete(e), this.state.savingBlocks.delete(e), this.state.saveErrors.delete(e), this.state.selectedBlockId === e && (this.state.selectedBlockId = null, this.renderEditor()), this.updateCount(), this.renderBlockList();
+      } catch (r) {
+        console.error("Delete failed:", r), this.showToast(r instanceof Error ? r.message : "Failed to delete block.", "error");
       }
   }
   // ===========================================================================
@@ -8663,50 +8750,50 @@ const Fe = ["content", "media", "layout", "interactive", "custom"], L = "default
   // ===========================================================================
   /** Update a single block item in the sidebar DOM without re-rendering the entire list */
   updateBlockItemDOM(e, t) {
-    const r = this.listEl?.querySelector(`[data-block-id="${e}"]`);
-    if (!r) return;
-    const a = r.querySelector(".flex-1.min-w-0");
+    const a = this.listEl?.querySelector(`[data-block-id="${e}"]`);
     if (!a) return;
-    const s = a.querySelectorAll(":scope > span");
+    const r = a.querySelector(".flex-1.min-w-0");
+    if (!r) return;
+    const s = r.querySelectorAll(":scope > span");
     s.length >= 1 && !this.state.renamingBlockId && (s[0].textContent = t.name || "Untitled"), s.length >= 2 && (s[1].textContent = t.slug || t.type || "");
   }
   updateBlockInState(e, t) {
-    const r = this.state.blocks.findIndex((a) => a.id === e);
-    if (r >= 0) {
-      const a = this.state.blocks[r], s = this.mergeBlockDefinition(a, t);
-      this.state.blocks[r] = s;
+    const a = this.state.blocks.findIndex((r) => r.id === e);
+    if (a >= 0) {
+      const r = this.state.blocks[a], s = this.mergeBlockDefinition(r, t);
+      this.state.blocks[a] = s;
     }
   }
   normalizeBlockDefinition(e) {
-    const t = { ...e }, r = (t.slug ?? "").trim(), a = (t.type ?? "").trim();
-    return !r && a && (t.slug = a), !a && r && (t.type = r), t;
+    const t = { ...e }, a = (t.slug ?? "").trim(), r = (t.type ?? "").trim();
+    return !a && r && (t.slug = r), !r && a && (t.type = a), t;
   }
   mergeBlockDefinition(e, t) {
-    const r = { ...e, ...t };
-    t.icon == null && e.icon && (r.icon = e.icon), t.description == null && e.description && (r.description = e.description), t.category == null && e.category && (r.category = e.category);
-    const a = (t.slug ?? "").trim(), s = (t.type ?? "").trim();
-    !a && e.slug && (r.slug = e.slug), !s && e.type && (r.type = e.type);
-    const i = (r.slug ?? "").trim(), n = (r.type ?? "").trim();
-    return !i && n && (r.slug = n), !n && i && (r.type = i), r;
+    const a = { ...e, ...t };
+    t.icon == null && e.icon && (a.icon = e.icon), t.description == null && e.description && (a.description = e.description), t.category == null && e.category && (a.category = e.category);
+    const r = (t.slug ?? "").trim(), s = (t.type ?? "").trim();
+    !r && e.slug && (a.slug = e.slug), !s && e.type && (a.type = e.type);
+    const i = (a.slug ?? "").trim(), n = (a.type ?? "").trim();
+    return !i && n && (a.slug = n), !n && i && (a.type = i), a;
   }
   mergeSchemaExtras(e, t) {
     if (!e || typeof e != "object")
       return t;
-    const r = { ...t }, a = /* @__PURE__ */ new Set(["properties", "required", "type", "$schema"]);
+    const a = { ...t }, r = /* @__PURE__ */ new Set(["properties", "required", "type", "$schema"]);
     for (const [s, i] of Object.entries(e))
-      if (!a.has(s)) {
+      if (!r.has(s)) {
         if (s === "$id") {
-          !r.$id && i && (r.$id = i);
+          !a.$id && i && (a.$id = i);
           continue;
         }
-        s in r || (r[s] = i);
+        s in a || (a[s] = i);
       }
-    return r;
+    return a;
   }
   showToast(e, t = "info") {
-    const a = window.notify?.[t];
-    if (typeof a == "function") {
-      a(e);
+    const r = window.notify?.[t];
+    if (typeof r == "function") {
+      r(e);
       return;
     }
     const s = this.root.querySelector("[data-ide-toast]");
@@ -8717,8 +8804,8 @@ const Fe = ["content", "media", "layout", "interactive", "custom"], L = "default
     }, 3e3);
   }
 };
-$e.AUTOSAVE_DELAY = 1500;
-let He = $e;
+Se.AUTOSAVE_DELAY = 1500;
+let He = Se;
 function T(o) {
   const e = document.createElement("div");
   return e.textContent = o, e.innerHTML;
@@ -8726,10 +8813,10 @@ function T(o) {
 function pe(o) {
   return o.charAt(0).toUpperCase() + o.slice(1).toLowerCase();
 }
-function Mr(o) {
+function Ma(o) {
   return o.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
-function Tr(o) {
+function Ta(o) {
   switch (o) {
     case "draft":
       return '<span class="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-yellow-400" title="Draft"></span>';
@@ -8740,44 +8827,44 @@ function Tr(o) {
       return '<span class="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-green-400" title="Active"></span>';
   }
 }
-const re = {
+const ae = {
   rename: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>',
   duplicate: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>',
   publish: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>',
   deprecate: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path></svg>',
   delete: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>'
 };
-function Fr(o = document) {
+function Fa(o = document) {
   Array.from(o.querySelectorAll("[data-block-library-ide]")).forEach((t) => {
     if (t.dataset.ideInitialized !== "true")
       try {
         new He(t).init(), t.dataset.ideInitialized = "true";
-      } catch (r) {
-        console.error("Block Library IDE failed to initialize:", r);
+      } catch (a) {
+        console.error("Block Library IDE failed to initialize:", a);
       }
   });
 }
-function Pr(o = document) {
+function Pa(o = document) {
   Array.from(o.querySelectorAll("[data-content-type-editor-root]")).forEach((t) => {
     if (t.dataset.initialized === "true") return;
-    const r = Ar(t);
-    if (!r.apiBasePath) {
+    const a = Aa(t);
+    if (!a.apiBasePath) {
       console.warn("Content type editor missing apiBasePath", t);
       return;
     }
-    const a = r.basePath ?? Re(r.apiBasePath), s = String(r.environment ?? "").trim().toLowerCase(), i = s && s !== "default" ? `env=${encodeURIComponent(s)}` : "";
-    r.onCancel || (r.onCancel = () => {
-      const n = `${a}/content/types`;
+    const r = a.basePath ?? Re(a.apiBasePath), s = String(a.environment ?? "").trim().toLowerCase(), i = s && s !== "default" ? `env=${encodeURIComponent(s)}` : "";
+    a.onCancel || (a.onCancel = () => {
+      const n = `${r}/content/types`;
       window.location.href = i ? `${n}?${i}` : n;
-    }), r.onSave || (r.onSave = (n) => {
+    }), a.onSave || (a.onSave = (n) => {
       const l = n.slug ?? n.id;
       if (l) {
         const d = [`slug=${encodeURIComponent(l)}`];
-        i && d.push(i), window.location.href = `${a}/content/types?${d.join("&")}`;
+        i && d.push(i), window.location.href = `${r}/content/types?${d.join("&")}`;
       }
     });
     try {
-      new br(t, r).init(), t.dataset.initialized = "true";
+      new ba(t, a).init(), t.dataset.initialized = "true";
     } catch (n) {
       console.error("Content type editor failed to initialize:", n), t.innerHTML = `
         <div class="flex flex-col items-center justify-center min-h-[300px] p-8 text-center">
@@ -8800,7 +8887,7 @@ function Pr(o = document) {
     }
   });
 }
-function Ar(o) {
+function Aa(o) {
   let e = {};
   const t = o.getAttribute("data-content-type-editor-config");
   if (t)
@@ -8808,31 +8895,31 @@ function Ar(o) {
       e = JSON.parse(t);
     } catch {
     }
-  const r = Le(e.apiBasePath, o.dataset.apiBasePath, o.dataset.basePath), a = e.basePath ?? Re(r, o.dataset.basePath);
+  const a = Le(e.apiBasePath, o.dataset.apiBasePath, o.dataset.basePath), r = e.basePath ?? Re(a, o.dataset.basePath);
   return {
     ...e,
-    apiBasePath: r,
-    basePath: a,
+    apiBasePath: a,
+    basePath: r,
     contentTypeId: e.contentTypeId ?? o.dataset.contentTypeId,
     environment: e.environment ?? o.dataset.environment,
     locale: e.locale ?? o.dataset.locale
   };
 }
-function Ir(o) {
+function Ia(o) {
   document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", o, { once: !0 }) : o();
 }
-Ir(() => {
-  Pr(), Fr();
+Ia(() => {
+  Pa(), Fa();
 });
 export {
-  jr as BlockEditorPanel,
+  ja as BlockEditorPanel,
   He as BlockLibraryIDE,
-  $r as BlockLibraryManager,
+  Sa as BlockLibraryManager,
   W as ContentTypeAPIClient,
   ge as ContentTypeAPIError,
-  br as ContentTypeEditor,
+  ba as ContentTypeEditor,
   it as FIELD_CATEGORIES,
-  Se as FIELD_TYPES,
+  $e as FIELD_TYPES,
   xe as FieldConfigForm,
   qe as FieldPalettePanel,
   ot as FieldTypePicker,
@@ -8841,14 +8928,14 @@ export {
   fe as fieldsToSchema,
   X as generateFieldId,
   Ce as getFieldTypeMetadata,
-  Hr as getFieldTypesByCategory,
+  Ha as getFieldTypesByCategory,
   dt as getIconTabs,
-  Fr as initBlockLibraryIDE,
-  Er as initBlockLibraryManagers,
-  Pr as initContentTypeEditors,
-  Or as registerIconTab,
+  Fa as initBlockLibraryIDE,
+  Ea as initBlockLibraryManagers,
+  Pa as initContentTypeEditors,
+  Oa as registerIconTab,
   ce as resolveIcon,
   be as schemaToFields,
-  Nr as unregisterIconTab
+  Na as unregisterIconTab
 };
 //# sourceMappingURL=index.js.map

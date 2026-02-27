@@ -1,0 +1,45 @@
+{% if main_menu and main_menu.items %}
+  {% set main_items = main_menu.items %}
+{% elif nav_items %}
+  {% set main_items = nav_items %}
+{% else %}
+  {% set main_items = siteMenuItems(main_menu) %}
+{% endif %}
+
+{% if main_items %}
+  <ul class="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center" data-site-menu="main">
+    {% for item in main_items %}
+      {% set item_children = siteMenuChildren(item) %}
+      <li class="flex flex-col gap-1 md:relative md:group" data-site-menu-item>
+        <a href="{{ item.href|default:'#' }}"
+           class="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors {% if item.active %}bg-white text-slate-900 shadow-sm{% else %}text-slate-100 hover:bg-white/10{% endif %}">
+          <span>{{ item.label|default:item.group_title|default:item.key|default:"Link" }}</span>
+          {% if navigation_debug and item.contribution_origin %}
+            <span class="rounded-full border border-white/30 px-2 py-0.5 text-[10px] uppercase tracking-wide text-slate-100">
+              {{ item.contribution_origin }}
+            </span>
+          {% endif %}
+          {% if navigation_debug and item.active_match %}
+            <span class="rounded-full border border-white/20 px-2 py-0.5 text-[10px] uppercase tracking-wide text-slate-200">
+              {{ item.active_match }}
+            </span>
+          {% endif %}
+        </a>
+        {% if item_children %}
+          <ul class="ml-4 flex flex-col gap-1 border-l border-white/20 pl-3 md:absolute md:left-0 md:top-full md:z-20 md:mt-2 md:ml-0 md:hidden md:min-w-56 md:rounded-xl md:border md:border-white/20 md:bg-slate-900/95 md:p-2 md:pl-2 md:shadow-2xl md:backdrop-blur md:group-hover:flex md:group-focus-within:flex" data-site-menu-children>
+            {% for child in item_children %}
+              <li>
+                <a href="{{ child.href|default:'#' }}"
+                   class="inline-flex items-center rounded-lg px-2 py-1 text-xs transition-colors md:text-sm {% if child.active %}bg-white text-slate-900{% else %}text-slate-200 hover:bg-white/10{% endif %}">
+                  {{ child.label|default:child.key|default:"Link" }}
+                </a>
+              </li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      </li>
+    {% endfor %}
+  </ul>
+{% else %}
+  <p class="text-sm text-slate-200/80">No primary navigation items configured.</p>
+{% endif %}

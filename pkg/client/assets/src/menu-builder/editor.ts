@@ -390,7 +390,7 @@ export class MenuBuilderUI {
       if (fieldName.startsWith('target.')) {
         const key = fieldName.replace('target.', '');
         nextTarget[key] = String(input.value || '').trim();
-        this.store.updateItem(itemID, { target: nextTarget as MenuItemNode['target'] });
+        this.store.updateItem(itemID, { target: nextTarget as unknown as MenuItemNode['target'] });
       }
       return;
     }

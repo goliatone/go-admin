@@ -281,10 +281,24 @@ export class MenuBuilderStore extends EventTarget {
   async selectMenu(menuID: string): Promise<void> {
     const selected = menuID.trim();
     if (!selected) {
-      this.setState({ selected_menu_id: '', selected_menu: null, draft_items: [] });
+      this.setState({
+        selected_menu_id: '',
+        selected_menu: null,
+        draft_items: [],
+        validation_issues: [],
+        preview_result: null,
+      });
       return;
     }
-    this.setState({ loading: true, error: '' });
+    this.setState({
+      selected_menu_id: selected,
+      selected_menu: null,
+      draft_items: [],
+      validation_issues: [],
+      preview_result: null,
+      loading: true,
+      error: '',
+    });
     try {
       const payload = await this.client.getMenu(selected);
       this.setState({
@@ -567,10 +581,19 @@ export class MenuBuilderStore extends EventTarget {
   }
 
   private setState(update: Partial<MenuBuilderState>): void {
+    const selectedMenuChanged =
+      Object.prototype.hasOwnProperty.call(update, 'selected_menu_id') &&
+      update.selected_menu_id !== this.state.selected_menu_id;
+
     this.state = {
       ...this.state,
       ...update,
     };
+
+    if (selectedMenuChanged && !Object.prototype.hasOwnProperty.call(update, 'preview_result')) {
+      this.state.preview_result = null;
+    }
+
     this.dispatchEvent(new CustomEvent<MenuBuilderState>('change', { detail: this.snapshot() }));
   }
 }

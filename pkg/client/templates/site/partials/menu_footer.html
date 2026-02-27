@@ -1,0 +1,21 @@
+{% if footer_menu and footer_menu.items %}
+  {% set footer_items = footer_menu.items %}
+{% else %}
+  {% set footer_items = siteMenuItems(footer_menu) %}
+{% endif %}
+
+{% if footer_items %}
+  <ul class="flex flex-wrap items-center gap-3" data-site-menu="footer">
+    {% for item in footer_items %}
+      <li class="inline-flex items-center gap-2">
+        <a href="{{ item.href|default:'#' }}"
+           class="text-sm transition-colors {% if item.active %}font-semibold text-slate-900{% else %}text-slate-600 hover:text-slate-900{% endif %}">
+          {{ item.label|default:item.group_title|default:item.key|default:"Link" }}
+        </a>
+        {% if navigation_debug and item.contribution_origin %}
+          <span class="text-[10px] uppercase tracking-wide text-slate-400">{{ item.contribution_origin }}</span>
+        {% endif %}
+      </li>
+    {% endfor %}
+  </ul>
+{% endif %}
