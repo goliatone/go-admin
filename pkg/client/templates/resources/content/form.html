@@ -129,6 +129,25 @@
     {% endif %}
   {% endif %}
 
+  {% set navigation_cap = content_type.navigation %}
+  {% if is_edit and resource_item and navigation_cap and navigation_cap.enabled %}
+  <div
+    class="mb-6"
+    data-entry-navigation-root
+    data-base-path="{{ base_path|default:"/admin" }}"
+    data-api-base-path="{{ api_base_path|default:base_path|default:"/admin" }}"
+    data-panel-name="{{ panel_name }}"
+    data-record-id="{{ resource_item.id }}"
+    data-navigation-enabled="{{ navigation_cap.enabled }}"
+    data-navigation-eligible-locations='{{ toJSON(navigation_cap.eligible_locations|default:[])|safe }}'
+    data-navigation-default-locations='{{ toJSON(navigation_cap.default_locations|default:[])|safe }}'
+    data-navigation-allow-instance-override="{{ navigation_cap.allow_instance_override }}"
+    data-navigation-merge-mode="{{ navigation_cap.merge_mode|default:"append" }}"
+    data-navigation-overrides='{{ toJSON(resource_item._navigation|default:{})|safe }}'
+    data-navigation-effective-visibility='{{ toJSON(resource_item.effective_navigation_visibility|default:{})|safe }}'
+  ></div>
+  {% endif %}
+
   {{ form_html|safe }}
 </div>
 {% endblock %}
@@ -136,6 +155,7 @@
 {% block scripts %}
 <script src="{{ adminURL("runtime/formgen-behaviors.min.js") }}" defer></script>
 <script src="{{ adminURL("runtime/formgen-relationships.min.js") }}" defer></script>
+<script type="module" src="{{ base_path }}/assets/dist/menu-builder/index.js"></script>
 <script type="module">
   import { executeActionRequest } from '{{ base_path }}/assets/dist/toast/error-helpers.js';
 
