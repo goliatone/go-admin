@@ -1,21 +1,39 @@
 {% extends "site/base.html" %}
 
-{% block title %}{{ record.title|default:record.slug }} · CMS Demo{% endblock %}
+{% block title %}{{ record.title|default:record.slug|default:"Content" }} · Site Runtime{% endblock %}
 
 {% block content %}
-<article class="bg-white rounded-2xl shadow border border-slate-100 p-8 space-y-4">
-  <header class="space-y-2">
-    <h1 class="text-3xl font-semibold text-slate-900">{{ record.title|default:"Untitled" }}</h1>
-    <p class="text-sm text-slate-500">{{ record.path|default:"/" }}</p>
-  </header>
-  <div class="text-sm text-slate-600">
-    <p>Locale: {{ resolved_locale|default:locale }}</p>
-    {% if missing_requested_locale %}
-      <p>Requested locale unavailable, fallback record rendered.</p>
-    {% endif %}
-  </div>
-  <div class="prose prose-slate max-w-none">
-    {{ record.data.content|default:record.data.body|default:"No rich content field was found for this record." }}
-  </div>
-</article>
+<section class="space-y-6">
+  <article class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
+    <header class="space-y-3 border-b border-slate-100 pb-4">
+      <p class="text-xs uppercase tracking-[0.2em] text-slate-500">{{ content_type_slug|default:content_type|default:"content" }}</p>
+      <h1 class="text-3xl font-semibold text-slate-900">{{ record.title|default:record.slug|default:"Untitled" }}</h1>
+      <p class="text-sm text-slate-500">{{ record.path|default:slug_path|default:active_path|default:"/" }}</p>
+      <div class="flex flex-wrap gap-2 text-xs text-slate-500">
+        <span class="rounded-full border border-slate-200 px-2 py-1">requested: {{ requested_locale|default:locale }}</span>
+        <span class="rounded-full border border-slate-200 px-2 py-1">resolved: {{ resolved_locale|default:locale }}</span>
+        {% if translation_group_id %}
+          <span class="rounded-full border border-slate-200 px-2 py-1">group: {{ translation_group_id }}</span>
+        {% endif %}
+      </div>
+      {% if missing_requested_locale %}
+        <p class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          Requested locale content is unavailable; a fallback translation is rendered.
+        </p>
+      {% endif %}
+    </header>
+
+    <div class="prose prose-slate mt-6 max-w-none">
+      {% if record.data.content %}
+        {{ record.data.content }}
+      {% elif record.data.body %}
+        {{ record.data.body }}
+      {% elif record.summary %}
+        <p>{{ record.summary }}</p>
+      {% else %}
+        <p>No rich content field is available for this entry.</p>
+      {% endif %}
+    </div>
+  </article>
+</section>
 {% endblock %}

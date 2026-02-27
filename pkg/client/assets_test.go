@@ -12,6 +12,17 @@ func TestAssetsEmbedIncludesOutputCSS(t *testing.T) {
 	}
 }
 
+func TestAssetsEmbedIncludesSiteRuntimeAssets(t *testing.T) {
+	for _, path := range []string{
+		"dist/styles/site-runtime.css",
+		"dist/runtime/site-runtime.js",
+	} {
+		if _, err := fs.Stat(Assets(), path); err != nil {
+			t.Fatalf("expected embedded site runtime asset %q: %v", path, err)
+		}
+	}
+}
+
 func TestAssetsEmbedExcludesFrontendTestFiles(t *testing.T) {
 	if _, err := fs.Stat(Assets(), "tests/error_helpers.test.mjs"); err == nil {
 		t.Fatalf("did not expect frontend test files to be embedded")

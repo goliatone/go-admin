@@ -139,12 +139,12 @@
     data-panel-name="{{ panel_name }}"
     data-record-id="{{ resource_item.id }}"
     data-navigation-enabled="{{ navigation_cap.enabled }}"
-    data-navigation-eligible-locations='{{ toJSON(navigation_cap.eligible_locations|default:[])|safe }}'
-    data-navigation-default-locations='{{ toJSON(navigation_cap.default_locations|default:[])|safe }}'
+    data-navigation-eligible-locations='{% if navigation_cap.eligible_locations %}{{ toJSON(navigation_cap.eligible_locations)|safe }}{% else %}[]{% endif %}'
+    data-navigation-default-locations='{% if navigation_cap.default_locations %}{{ toJSON(navigation_cap.default_locations)|safe }}{% else %}[]{% endif %}'
     data-navigation-allow-instance-override="{{ navigation_cap.allow_instance_override }}"
     data-navigation-merge-mode="{{ navigation_cap.merge_mode|default:"append" }}"
-    data-navigation-overrides='{{ toJSON(resource_item._navigation|default:{})|safe }}'
-    data-navigation-effective-visibility='{{ toJSON(resource_item.effective_navigation_visibility|default:{})|safe }}'
+    data-navigation-overrides='{% if resource_item._navigation %}{{ toJSON(resource_item._navigation)|safe }}{% else %}{}{% endif %}'
+    data-navigation-effective-visibility='{% if resource_item.effective_navigation_visibility %}{{ toJSON(resource_item.effective_navigation_visibility)|safe }}{% else %}{}{% endif %}'
   ></div>
   {% endif %}
 

@@ -1,0 +1,953 @@
+/*
+ * Activity Feed Styles
+ * Color coding, icons, and expandable metadata
+ */
+
+/* CSS Variables for action colors */
+:root {
+  --activity-created: #10b981;
+  --activity-created-bg: #ecfdf5;
+  --activity-created-border: #a7f3d0;
+
+  --activity-updated: #3b82f6;
+  --activity-updated-bg: #eff6ff;
+  --activity-updated-border: #bfdbfe;
+
+  --activity-deleted: #ef4444;
+  --activity-deleted-bg: #fef2f2;
+  --activity-deleted-border: #fecaca;
+
+  --activity-auth: #f59e0b;
+  --activity-auth-bg: #fffbeb;
+  --activity-auth-border: #fde68a;
+
+  --activity-viewed: #8b5cf6;
+  --activity-viewed-bg: #f5f3ff;
+  --activity-viewed-border: #ddd6fe;
+
+  --activity-system: #6b7280;
+  --activity-system-bg: #f9fafb;
+  --activity-system-border: #e5e7eb;
+}
+
+/* Feature-disabled layout state */
+body.feature-activity-disabled #activity-view-switcher,
+body.feature-activity-disabled #activity-refresh,
+body.feature-activity-disabled #activity-enabled-content {
+  display: none;
+}
+
+body.feature-activity-disabled #activity-disabled {
+  display: block;
+}
+
+/* Table base styles */
+.activity-table {
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+.activity-table thead th {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 11px;
+  color: #6b7280;
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+/* Row styles */
+.activity-row {
+  transition: background-color 0.15s ease;
+}
+
+.activity-row:hover {
+  background-color: #f9fafb;
+}
+
+/* Left border indicator is now applied inline via JS */
+
+/* Activity sentence styling */
+.activity-sentence {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #374151;
+}
+
+.activity-sentence strong {
+  font-weight: 600;
+  color: #111827;
+}
+
+/* Expandable metadata */
+.activity-metadata {
+  position: relative;
+}
+
+.activity-metadata-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: #6b7280;
+  background: #f3f4f6;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.activity-metadata-toggle:hover {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.activity-metadata-toggle[aria-expanded="true"] {
+  background: #e5e7eb;
+}
+
+.activity-metadata-toggle[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+.activity-metadata-content {
+  display: none;
+  margin-top: 8px;
+  padding: 12px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  max-width: 320px;
+}
+
+.activity-metadata-content[data-expanded="true"] {
+  display: block;
+}
+
+/* Timestamp styling */
+.activity-timestamp {
+  font-size: 13px;
+  color: #374151;
+  white-space: nowrap;
+}
+
+.activity-timestamp-relative {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-top: 2px;
+}
+
+/* Channel badge */
+.activity-channel {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  color: #6b7280;
+  background: #f3f4f6;
+  border-radius: 4px;
+}
+
+/* Namespace icon box */
+.activity-namespace-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: #f3f4f6;
+  border-radius: 6px;
+  color: #6b7280;
+}
+
+.activity-namespace-icon i {
+  font-size: 14px;
+}
+
+/* Action badge base */
+.activity-action-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Action badge colors */
+.activity-action-badge--created {
+  background-color: var(--activity-created-bg);
+  color: var(--activity-created);
+  border: 1px solid var(--activity-created-border);
+}
+
+.activity-action-badge--updated {
+  background-color: var(--activity-updated-bg);
+  color: var(--activity-updated);
+  border: 1px solid var(--activity-updated-border);
+}
+
+.activity-action-badge--deleted {
+  background-color: var(--activity-deleted-bg);
+  color: var(--activity-deleted);
+  border: 1px solid var(--activity-deleted-border);
+}
+
+.activity-action-badge--auth {
+  background-color: var(--activity-auth-bg);
+  color: var(--activity-auth);
+  border: 1px solid var(--activity-auth-border);
+}
+
+.activity-action-badge--viewed {
+  background-color: var(--activity-viewed-bg);
+  color: var(--activity-viewed);
+  border: 1px solid var(--activity-viewed-border);
+}
+
+.activity-action-badge--system {
+  background-color: var(--activity-system-bg);
+  color: var(--activity-system);
+  border: 1px solid var(--activity-system-border);
+}
+
+/* Timeline action badge colors */
+.timeline-action-badge--created {
+  background-color: var(--activity-created-bg);
+  color: var(--activity-created);
+  border-color: var(--activity-created-border);
+}
+
+.timeline-action-badge--updated {
+  background-color: var(--activity-updated-bg);
+  color: var(--activity-updated);
+  border-color: var(--activity-updated-border);
+}
+
+.timeline-action-badge--deleted {
+  background-color: var(--activity-deleted-bg);
+  color: var(--activity-deleted);
+  border-color: var(--activity-deleted-border);
+}
+
+.timeline-action-badge--auth {
+  background-color: var(--activity-auth-bg);
+  color: var(--activity-auth);
+  border-color: var(--activity-auth-border);
+}
+
+.timeline-action-badge--viewed {
+  background-color: var(--activity-viewed-bg);
+  color: var(--activity-viewed);
+  border-color: var(--activity-viewed-border);
+}
+
+.timeline-action-badge--system {
+  background-color: var(--activity-system-bg);
+  color: var(--activity-system);
+  border-color: var(--activity-system-border);
+}
+
+/* Timeline marker colors */
+.timeline-entry-dot--created {
+  border-color: var(--activity-created);
+  background-color: var(--activity-created-bg);
+}
+
+.timeline-entry-dot--updated {
+  border-color: var(--activity-updated);
+  background-color: var(--activity-updated-bg);
+}
+
+.timeline-entry-dot--deleted {
+  border-color: var(--activity-deleted);
+  background-color: var(--activity-deleted-bg);
+}
+
+.timeline-entry-dot--auth {
+  border-color: var(--activity-auth);
+  background-color: var(--activity-auth-bg);
+}
+
+.timeline-entry-dot--viewed {
+  border-color: var(--activity-viewed);
+  background-color: var(--activity-viewed-bg);
+}
+
+.timeline-entry-dot--system {
+  border-color: var(--activity-system);
+  background-color: var(--activity-system-bg);
+}
+
+/* Row category left border (applied via inline styles, but CSS fallback) */
+.activity-row--created td:first-child {
+  border-left: 3px solid var(--activity-created);
+}
+
+.activity-row--updated td:first-child {
+  border-left: 3px solid var(--activity-updated);
+}
+
+.activity-row--deleted td:first-child {
+  border-left: 3px solid var(--activity-deleted);
+}
+
+.activity-row--auth td:first-child {
+  border-left: 3px solid var(--activity-auth);
+}
+
+.activity-row--viewed td:first-child {
+  border-left: 3px solid var(--activity-viewed);
+}
+
+.activity-row--system td:first-child {
+  border-left: 3px solid var(--activity-system);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .activity-metadata-content {
+    max-width: 100%;
+  }
+
+  .activity-action-badge {
+    padding: 3px 8px;
+    font-size: 11px;
+  }
+
+  .activity-table {
+    font-size: 12px;
+  }
+}
+
+/* =============================================================================
+   VIEW SWITCHER
+   ============================================================================= */
+
+.activity-view-switcher {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: #f3f4f6;
+  border-radius: 8px;
+}
+
+.activity-view-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b7280;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.activity-view-tab:hover {
+  color: #374151;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.activity-view-tab.active,
+.activity-view-tab[aria-selected="true"] {
+  color: #111827;
+  background: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.activity-view-tab i {
+  font-size: 16px;
+}
+
+/* =============================================================================
+   TIMELINE VIEW
+   ============================================================================= */
+
+.timeline {
+  position: relative;
+  padding: 16px 0;
+}
+
+/* Timeline vertical line */
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 24px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #e5e7eb;
+}
+
+/* Date group */
+.timeline-group {
+  margin-bottom: 24px;
+}
+
+.timeline-group:last-child {
+  margin-bottom: 0;
+}
+
+/* Date header */
+.timeline-date-header {
+  position: relative;
+  margin-bottom: 16px;
+  padding-left: 48px;
+}
+
+.timeline-date-toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.timeline-date-toggle:hover {
+  background: #f3f4f6;
+}
+
+.timeline-date-label {
+  flex: 1;
+}
+
+.timeline-date-count {
+  font-size: 12px;
+  font-weight: 500;
+  color: #9ca3af;
+}
+
+.timeline-date-chevron {
+  width: 16px;
+  height: 16px;
+  color: #9ca3af;
+  transition: transform 0.2s ease;
+}
+
+.timeline-date-toggle[aria-expanded="false"] .timeline-date-chevron {
+  transform: rotate(-90deg);
+}
+
+/* Entries container */
+.timeline-entries {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease, opacity 0.2s ease;
+}
+
+.timeline-entries.collapsed {
+  max-height: 0 !important;
+  opacity: 0;
+}
+
+/* Timeline entry */
+.timeline-entry {
+  position: relative;
+  display: flex;
+  padding-left: 48px;
+  padding-bottom: 16px;
+}
+
+.timeline-entry:last-child {
+  padding-bottom: 0;
+}
+
+/* Connector dot */
+.timeline-entry-connector {
+  position: absolute;
+  left: 19px;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.timeline-entry-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid;
+  background: white;
+  z-index: 1;
+}
+
+/* Entry card */
+.timeline-entry-card {
+  flex: 1;
+  padding: 16px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.timeline-entry-card:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+/* Entry header */
+.timeline-entry-header {
+  display: flex;
+  gap: 12px;
+}
+
+/* Avatar */
+.timeline-entry-avatar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 8px;
+}
+
+/* Content */
+.timeline-entry-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.timeline-entry-action {
+  margin-bottom: 4px;
+}
+
+.timeline-action-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 6px;
+  border: 1px solid;
+}
+
+.timeline-action-badge i {
+  font-size: 12px;
+}
+
+.timeline-entry-sentence {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #374151;
+  word-break: break-word;
+}
+
+.timeline-entry-sentence strong {
+  font-weight: 600;
+  color: #111827;
+}
+
+.timeline-entry-time {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+/* Metadata section */
+.timeline-entry-metadata {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #f3f4f6;
+}
+
+.timeline-metadata-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: #6b7280;
+  background: #f3f4f6;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.timeline-metadata-toggle:hover {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.timeline-metadata-chevron {
+  width: 12px;
+  height: 12px;
+  transition: transform 0.15s ease;
+}
+
+.timeline-metadata-content {
+  display: none;
+  margin-top: 12px;
+}
+
+.timeline-metadata-content.expanded {
+  display: block;
+}
+
+.timeline-metadata-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+/* Empty state */
+.timeline-empty {
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.timeline-empty-icon {
+  font-size: 48px;
+  color: #d1d5db;
+  margin-bottom: 16px;
+}
+
+.timeline-empty-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 4px;
+}
+
+.timeline-empty-subtitle {
+  font-size: 14px;
+  color: #9ca3af;
+}
+
+/* Loading indicator */
+.timeline-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.timeline-loading-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #e5e7eb;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: timeline-spin 0.8s linear infinite;
+}
+
+@keyframes timeline-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* End indicator */
+.timeline-end {
+  padding: 24px;
+  text-align: center;
+  font-size: 13px;
+  color: #9ca3af;
+}
+
+/* Scroll sentinel */
+.timeline-sentinel {
+  height: 1px;
+  pointer-events: none;
+}
+
+/* =============================================================================
+   SESSION GROUPING
+   ============================================================================= */
+
+.timeline-session-header {
+  position: relative;
+  margin: 8px 0;
+  padding-left: 56px;
+}
+
+.timeline-session-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #6b7280;
+  background: #f3f4f6;
+  border: 1px dashed #d1d5db;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.timeline-session-toggle:hover {
+  background: #e5e7eb;
+  border-color: #9ca3af;
+}
+
+.timeline-session-label {
+  flex: 1;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+.timeline-session-count {
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+.timeline-session-chevron {
+  width: 14px;
+  height: 14px;
+  color: #9ca3af;
+  transition: transform 0.2s ease;
+}
+
+.timeline-session-toggle[aria-expanded="false"] .timeline-session-chevron {
+  transform: rotate(-90deg);
+}
+
+.timeline-session-entries {
+  overflow: hidden;
+  transition: max-height 0.3s ease, opacity 0.2s ease;
+}
+
+.timeline-session-entries.collapsed {
+  max-height: 0 !important;
+  opacity: 0;
+}
+
+/* =============================================================================
+   DELETED MARKER
+   ============================================================================= */
+
+.activity-deleted-marker {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: 500;
+  color: #ef4444;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 4px;
+  margin-left: 4px;
+}
+
+/* =============================================================================
+   ACTOR TYPE BADGES
+   ============================================================================= */
+
+.activity-actor-type-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  vertical-align: middle;
+}
+
+.activity-actor-type-badge--system {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.activity-actor-type-badge--job {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.activity-actor-type-badge--api {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.activity-actor-type-icon {
+  vertical-align: middle;
+}
+
+.activity-actor-type-icon--system {
+  color: #6b7280;
+}
+
+.activity-actor-type-icon--job {
+  color: #d97706;
+}
+
+.activity-actor-type-icon--api {
+  color: #2563eb;
+}
+
+/* Actor type indicator on avatar */
+.timeline-entry-avatar {
+  position: relative;
+}
+
+.timeline-entry-actor-type {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+}
+
+.timeline-entry-actor-type .activity-actor-type-badge {
+  width: 16px;
+  height: 16px;
+  font-size: 10px;
+  border: 2px solid white;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* =============================================================================
+   MASKED VALUES
+   ============================================================================= */
+
+.activity-masked-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 11px;
+  color: #9ca3af;
+  background: #f9fafb;
+  border: 1px dashed #d1d5db;
+  border-radius: 4px;
+  font-style: italic;
+}
+
+.activity-metadata-item--masked {
+  opacity: 0.7;
+}
+
+.activity-metadata-hidden {
+  padding: 12px;
+  background: #f9fafb;
+  border-radius: 6px;
+  border: 1px dashed #d1d5db;
+  text-align: center;
+}
+
+/* =============================================================================
+   ENRICHMENT DEBUG INFO
+   ============================================================================= */
+
+.activity-enrichment-debug {
+  margin-top: 8px;
+  padding: 8px;
+  background: #f9fafb;
+  border-radius: 4px;
+  border: 1px dashed #e5e7eb;
+}
+
+.timeline-metadata-toggle--debug {
+  color: #9ca3af;
+  background: transparent;
+  border: 1px dashed #d1d5db;
+}
+
+.timeline-metadata-toggle--debug:hover {
+  background: #f3f4f6;
+}
+
+.timeline-metadata-toggle--hidden,
+.activity-metadata-toggle--hidden {
+  color: #9ca3af;
+  background: transparent;
+  border: 1px dashed #d1d5db;
+}
+
+.timeline-metadata-toggle--hidden:hover,
+.activity-metadata-toggle--hidden:hover {
+  background: #f3f4f6;
+}
+
+/* =============================================================================
+   TIMELINE RESPONSIVE
+   ============================================================================= */
+
+@media (max-width: 768px) {
+  .timeline::before {
+    left: 16px;
+  }
+
+  .timeline-date-header {
+    padding-left: 40px;
+  }
+
+  .timeline-entry {
+    padding-left: 40px;
+  }
+
+  .timeline-entry-connector {
+    left: 11px;
+  }
+
+  .timeline-entry-dot {
+    width: 10px;
+    height: 10px;
+  }
+
+  .timeline-entry-card {
+    padding: 12px;
+  }
+
+  .timeline-entry-avatar {
+    width: 32px;
+    height: 32px;
+    font-size: 11px;
+  }
+
+  .timeline-entry-sentence {
+    font-size: 13px;
+  }
+
+  .timeline-metadata-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .activity-view-switcher {
+    width: 100%;
+  }
+
+  .activity-view-tab {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .timeline-entry-header {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .timeline-entry-avatar {
+    width: 28px;
+    height: 28px;
+  }
+}
