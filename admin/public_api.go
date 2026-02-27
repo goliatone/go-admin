@@ -625,15 +625,7 @@ func (a *Admin) resolveMenuTargets(ctx context.Context, items []MenuItem, locale
 }
 
 func extractPathFromData(data map[string]any, fallback string) string {
-	if data == nil {
-		return strings.TrimSpace(fallback)
-	}
-	if raw, ok := data["path"]; ok {
-		if path := strings.TrimSpace(toString(raw)); path != "" {
-			return path
-		}
-	}
-	return strings.TrimSpace(fallback)
+	return ExtractContentPath(data, nil, fallback)
 }
 
 func buildContentURL(content *CMSContent) string {
