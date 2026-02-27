@@ -115,7 +115,7 @@ func renderSiteRuntimeError(c router.Context, state RequestState, cfg ResolvedSi
 	templates := ResolveErrorTemplateCandidates(cfg.Views, code, status)
 	for _, templateName := range templates {
 		c.Status(status)
-		if err := c.Render(templateName, errorCtx); err == nil {
+		if err := renderSiteTemplate(c, templateName, errorCtx); err == nil {
 			return nil
 		}
 	}

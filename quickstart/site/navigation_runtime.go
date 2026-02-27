@@ -279,7 +279,7 @@ func (r *navigationRuntime) generatedFallbackMenu(ctx context.Context, state Req
 	if r == nil || !r.siteCfg.Navigation.EnableGeneratedFallback || r.contentSvc == nil {
 		return nil
 	}
-	records, err := r.contentSvc.Contents(ctx, "")
+	records, err := listSiteContents(ctx, r.contentSvc, state.Locale)
 	if err != nil || len(records) == 0 {
 		return nil
 	}

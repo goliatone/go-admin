@@ -189,7 +189,7 @@ func (r *deliveryRuntime) resolve(ctx context.Context, state RequestState, reque
 	if len(capabilities) == 0 {
 		return nil, SiteRuntimeError{}
 	}
-	contents, err := r.contentSvc.Contents(ctx, "")
+	contents, err := listSiteContents(ctx, r.contentSvc, state.Locale)
 	if err != nil {
 		return nil, SiteRuntimeError{Status: 500, Message: err.Error()}
 	}
@@ -230,6 +230,13 @@ func (r *deliveryRuntime) resolve(ctx context.Context, state RequestState, reque
 		if resolution, matched := r.resolveCollectionKind(capability, recordsByType[capability.TypeSlug], state, requestPath); matched {
 			return resolution, SiteRuntimeError{}
 		}
+	}
+
+	if resolution, siteErr, matched := r.resolvePreviewFallbackByRecordID(capabilities, recordsByType, state); matched {
+		if hasSiteRuntimeError(siteErr) {
+			return nil, siteErr
+		}
+		return resolution, SiteRuntimeError{}
 	}
 
 	return nil, SiteRuntimeError{}
@@ -417,6 +424,49 @@ func (r *deliveryRuntime) resolveCollectionKind(
 	}, true
 }
 
+func (r *deliveryRuntime) resolvePreviewFallbackByRecordID(
+	capabilities []deliveryCapability,
+	recordsByType map[string][]admin.CMSContent,
+	state RequestState,
+) (*deliveryResolution, SiteRuntimeError, bool) {
+	if !state.PreviewTokenPresent || !state.PreviewTokenValid || !state.IsPreview {
+		return nil, SiteRuntimeError{}, false
+	}
+	previewContentID := strings.TrimSpace(state.PreviewContentID)
+	if previewContentID == "" {
+		return nil, SiteRuntimeError{}, false
+	}
+
+	for _, capability := range capabilities {
+		records := recordsByType[capability.TypeSlug]
+		candidates := make([]admin.CMSContent, 0, len(records))
+		for _, record := range records {
+			if strings.TrimSpace(record.ID) != previewContentID {
+				continue
+			}
+			if !previewEntityMatchesContentType(state.PreviewEntityType, capability, record) {
+				continue
+			}
+			candidates = append(candidates, record)
+		}
+		if len(candidates) == 0 {
+			continue
+		}
+
+		selected, missing, available, fallbackUsed := resolveLocaleRecord(candidates, state, capability, r.siteCfg.AllowLocaleFallback, r.siteCfg.DefaultLocale)
+		if !missing && selected.ID == "" {
+			continue
+		}
+		if missing && !r.siteCfg.AllowLocaleFallback {
+			return nil, translationMissingSiteError(state.Locale, available, capability.TypeSlug, previewContentID), true
+		}
+		resolution := resolutionFromDetailRecord(capability, selected, state.Locale, available, fallbackUsed, candidates)
+		return resolution, SiteRuntimeError{}, true
+	}
+
+	return nil, SiteRuntimeError{}, false
+}
+
 func resolutionFromDetailRecord(
 	capability deliveryCapability,
 	record admin.CMSContent,
@@ -587,7 +637,7 @@ func (r *deliveryRuntime) renderResolution(c router.Context, state RequestState,
 		if strings.TrimSpace(templateName) == "" {
 			continue
 		}
-		if err := c.Render(templateName, viewCtx); err == nil {
+		if err := renderSiteTemplate(c, templateName, viewCtx); err == nil {
 			return nil
 		}
 	}
@@ -853,10 +903,8 @@ func mapDeliveryRecord(record admin.CMSContent, capability deliveryCapability) m
 }
 
 func recordDeliveryPath(record admin.CMSContent, capability deliveryCapability) string {
-	if record.Data != nil {
-		if value := strings.TrimSpace(anyString(record.Data["path"])); value != "" {
-			return normalizeLocalePath(value)
-		}
+	if value := strings.TrimSpace(admin.ResolveContentPath(record, "")); value != "" {
+		return normalizeLocalePath(value)
 	}
 	slug := strings.Trim(strings.TrimSpace(record.Slug), "/")
 	if slug == "" {
@@ -884,11 +932,9 @@ func deliverySlugMatches(record admin.CMSContent, slug string) bool {
 	if strings.Trim(strings.ToLower(strings.TrimSpace(record.Slug)), "/") == slug {
 		return true
 	}
-	if record.Data != nil {
-		path := strings.Trim(strings.ToLower(strings.TrimSpace(anyString(record.Data["path"]))), "/")
-		if path == slug {
-			return true
-		}
+	path := strings.Trim(strings.ToLower(strings.TrimSpace(admin.ResolveContentPath(record, ""))), "/")
+	if path == slug {
+		return true
 	}
 	return false
 }

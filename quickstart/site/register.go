@@ -175,7 +175,10 @@ func RegisterSiteRoutes[T any](
 		r.Get(suggestAPIPath, options.suggestAPIHandler)
 	}
 
-	catchAllPath := prefixedRoutePath(resolved.BasePath, "/*path")
+	baseRoutePath := prefixedRoutePath(resolved.BasePath, "/")
+	r.Get(baseRoutePath, options.contentHandler)
+
+	catchAllPath := siteCatchAllRoutePath(r, resolved.BasePath)
 	r.Get(catchAllPath, options.contentHandler)
 
 	return nil
@@ -203,6 +206,19 @@ func prefixedRoutePath(basePath, routePath string) string {
 		return "/" + routePath
 	}
 	return admin.PrefixBasePath(basePath, routePath)
+}
+
+func siteCatchAllRoutePath[T any](r router.Router[T], basePath string) string {
+	// go-router uses adapter-specific catch-all syntax:
+	// - Fiber: "/*"
+	// - HTTPRouter: "/*param"
+	// Keep registration explicit so public site routes resolve across adapters.
+	switch any(r).(type) {
+	case *router.FiberRouter:
+		return prefixedRoutePath(basePath, "/*")
+	default:
+		return prefixedRoutePath(basePath, "/*path")
+	}
 }
 
 func searchSuggestRoute(searchEndpoint string) string {

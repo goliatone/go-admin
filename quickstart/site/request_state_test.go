@@ -34,6 +34,9 @@ func TestResolveRequestStateContextResolution(t *testing.T) {
 	if state.Environment != "staging" {
 		t.Fatalf("expected environment staging from preview token, got %q", state.Environment)
 	}
+	if state.ContentEnvironment != "staging" {
+		t.Fatalf("expected content environment staging from preview token, got %q", state.ContentEnvironment)
+	}
 	if !state.PreviewTokenPresent || !state.PreviewTokenValid || !state.IsPreview {
 		t.Fatalf("expected valid preview state, got %+v", state)
 	}
@@ -48,6 +51,9 @@ func TestResolveRequestStateContextResolution(t *testing.T) {
 	}
 	if got := state.ViewContext["asset_base_path"]; got != "/" {
 		t.Fatalf("expected asset_base_path /, got %v", got)
+	}
+	if got := state.ViewContext["content_environment"]; got != "staging" {
+		t.Fatalf("expected content_environment staging, got %v", got)
 	}
 
 	if locale := admin.LocaleFromContext(requestCtx); locale != "es" {
@@ -201,5 +207,57 @@ func TestResolveRequestStatePreviewValidationRequiresSecurityClaims(t *testing.T
 		if state.PreviewTokenValid || state.IsPreview {
 			t.Fatalf("%s expected preview token to be rejected, got %+v", name, state)
 		}
+	}
+}
+
+func TestResolveRequestStatePreviewDefaultEnvironmentOverridesContentScopeOnly(t *testing.T) {
+	adm := mustAdminWithTheme(t, "admin", "light")
+	previewToken, err := adm.Preview().Generate("pages@default", "page-1", time.Minute)
+	if err != nil {
+		t.Fatalf("generate preview token: %v", err)
+	}
+
+	siteCfg := ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{
+		Environment:        "dev",
+		ContentEnvironment: "dev",
+	})
+
+	ctx := router.NewMockContext()
+	ctx.On("Context").Return(context.Background())
+	ctx.On("Path").Return("/preview-default")
+	ctx.QueriesM["preview_token"] = previewToken
+
+	requestCtx, state := ResolveRequestState(context.Background(), ctx, adm, admin.Config{}, siteCfg, nil)
+
+	if state.Environment != "dev" {
+		t.Fatalf("expected runtime environment to remain dev, got %q", state.Environment)
+	}
+	if state.ContentEnvironment != "default" {
+		t.Fatalf("expected preview token to switch content environment to default, got %q", state.ContentEnvironment)
+	}
+	if got := admin.EnvironmentFromContext(requestCtx); got != "default" {
+		t.Fatalf("expected context environment default, got %q", got)
+	}
+}
+
+func TestResolveRequestStateSeparatesRuntimeAndContentEnvironmentDefaults(t *testing.T) {
+	siteCfg := ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{
+		Environment:        "dev",
+		ContentEnvironment: "default",
+	})
+
+	ctx := router.NewMockContext()
+	ctx.On("Context").Return(context.Background())
+	ctx.On("Path").Return("/site")
+
+	requestCtx, state := ResolveRequestState(context.Background(), ctx, nil, admin.Config{}, siteCfg, nil)
+	if state.Environment != "dev" {
+		t.Fatalf("expected runtime environment dev, got %q", state.Environment)
+	}
+	if state.ContentEnvironment != "default" {
+		t.Fatalf("expected content environment default, got %q", state.ContentEnvironment)
+	}
+	if got := admin.EnvironmentFromContext(requestCtx); got != "default" {
+		t.Fatalf("expected context environment to use content environment default, got %q", got)
 	}
 }
