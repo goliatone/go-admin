@@ -414,13 +414,36 @@ func TestSitePublicAPIDraftReadAndProtectedEnforcement(t *testing.T) {
 	internalReq.RemoteAddr = "127.0.0.1:12345"
 	internalRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(internalRes, internalReq)
-	if internalRes.Code != http.StatusOK {
-		t.Fatalf("expected include_drafts allowed for internal request, got %d body=%s", internalRes.Code, internalRes.Body.String())
+	if internalRes.Code != http.StatusForbidden {
+		t.Fatalf("expected include_drafts denied for private-network request by default, got %d body=%s", internalRes.Code, internalRes.Body.String())
 	}
+
+	trustedCfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		Site: SiteConfig{
+			TrustPrivateNetworkDraftReads: true,
+		},
+	}
+	admTrusted, trustedServer := newSiteTestServer(t, trustedCfg, Dependencies{}, contentSvc, nil)
+	trustedPath := mustResolveURL(t, admTrusted.URLs(), publicAPIGroupName(admTrusted.config), SiteRouteContentList, map[string]string{"type": "article"}, map[string]string{"locale": "en", "include_drafts": "true"})
+	trustedReq := httptest.NewRequest(http.MethodGet, trustedPath, nil)
+	trustedReq.RemoteAddr = "127.0.0.1:12345"
+	trustedRes := httptest.NewRecorder()
+	trustedServer.WrappedRouter().ServeHTTP(trustedRes, trustedReq)
+	if trustedRes.Code != http.StatusOK {
+		t.Fatalf("expected include_drafts allowed for trusted private-network request, got %d body=%s", trustedRes.Code, trustedRes.Body.String())
+	}
+	trustedPayload := decodeJSONMap(t, trustedRes)
+	trustedMeta := extractMap(trustedPayload["meta"])
+	if got := int(toFloat64(trustedMeta["total"])); got != 2 {
+		t.Fatalf("expected trusted private-network include_drafts total=2, got %d", got)
+	}
+
 	internalPayload := decodeJSONMap(t, internalRes)
-	meta := extractMap(internalPayload["meta"])
-	if got := int(toFloat64(meta["total"])); got != 2 {
-		t.Fatalf("expected total including drafts = 2, got %d", got)
+	internalErr := extractMap(internalPayload["error"])
+	if got := strings.ToUpper(strings.TrimSpace(toString(internalErr["text_code"]))); got != TextCodeForbidden {
+		t.Fatalf("expected internal denied text_code=%s, got %q", TextCodeForbidden, got)
 	}
 
 	protectedCfg := Config{BasePath: "/admin", DefaultLocale: "en", Site: SiteConfig{Protected: true, ReadPermission: "admin.site.read"}}
@@ -516,6 +539,22 @@ func TestSitePublicAPIMenuRoutesAndQueryContracts(t *testing.T) {
 	overrideQuery := extractMap(overrideMeta["query"])
 	if includeDrafts, _ := overrideQuery["include_drafts"].(bool); !includeDrafts {
 		t.Fatalf("expected meta.query.include_drafts=true, got %+v", overrideQuery)
+	}
+
+	nonMenuToken, err := adm.Preview().Generate("page@staging", "page-1", time.Hour)
+	if err != nil {
+		t.Fatalf("generate non-menu preview token: %v", err)
+	}
+	nonMenuPath := mustResolveURL(t, adm.URLs(), publicGroup, SiteRouteMenuByLocation, map[string]string{"location": "site.main"}, map[string]string{
+		"locale":         "en",
+		"include_drafts": "true",
+		"preview_token":  nonMenuToken,
+	})
+	nonMenuReq := httptest.NewRequest(http.MethodGet, nonMenuPath, nil)
+	nonMenuRes := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(nonMenuRes, nonMenuReq)
+	if nonMenuRes.Code != http.StatusForbidden {
+		t.Fatalf("expected non-menu preview token to be rejected for menu draft reads, got %d body=%s", nonMenuRes.Code, nonMenuRes.Body.String())
 	}
 
 	prodPath := mustResolveURL(t, adm.URLs(), publicGroup, SiteRouteMenuByLocation, map[string]string{"location": "site.main"}, map[string]string{

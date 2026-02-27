@@ -155,18 +155,19 @@ func TestDefaultURLKitConfigMenuBuilderPaths(t *testing.T) {
 	}
 
 	resolved := map[string]string{
-		"menus":                  "/admin/api/menus",
-		"menus.id":               "/admin/api/menus/primary",
-		"menus.publish":          "/admin/api/menus/primary/publish",
-		"menus.unpublish":        "/admin/api/menus/primary/unpublish",
-		"menus.items":            "/admin/api/menus/primary/items",
-		"menus.preview":          "/admin/api/menus/primary/preview",
-		"menus.clone":            "/admin/api/menus/primary/clone",
-		"menus.archive":          "/admin/api/menus/primary/archive",
-		"menu.bindings":          "/admin/api/menu-bindings",
-		"menu.bindings.location": "/admin/api/menu-bindings/site.main",
-		"menu.view_profiles":     "/admin/api/menu-view-profiles",
-		"menu.view_profiles.code": "/admin/api/menu-view-profiles/footer",
+		"menus":                      "/admin/api/menus",
+		"menus.contracts":            "/admin/api/menu-contracts",
+		"menus.id":                   "/admin/api/menus/primary",
+		"menus.publish":              "/admin/api/menus/primary/publish",
+		"menus.unpublish":            "/admin/api/menus/primary/unpublish",
+		"menus.items":                "/admin/api/menus/primary/items",
+		"menus.preview":              "/admin/api/menus/primary/preview",
+		"menus.clone":                "/admin/api/menus/primary/clone",
+		"menus.archive":              "/admin/api/menus/primary/archive",
+		"menu.bindings":              "/admin/api/menu-bindings",
+		"menu.bindings.location":     "/admin/api/menu-bindings/site.main",
+		"menu.view_profiles":         "/admin/api/menu-view-profiles",
+		"menu.view_profiles.code":    "/admin/api/menu-view-profiles/footer",
 		"menu.view_profiles.publish": "/admin/api/menu-view-profiles/footer/publish",
 	}
 

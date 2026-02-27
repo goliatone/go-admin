@@ -360,6 +360,64 @@ func (s *stubCMSMenuService) ResolveNavigationByLocation(ctx context.Context, lo
 	return s.ResolveNavigation(ctx, code, locale)
 }
 
+func (s *stubCMSMenuService) ResolveMenuByLocation(ctx context.Context, location string, locale string, opts cms.MenuResolveOptions) (*cms.ResolvedMenuInfo, error) {
+	code, ok := s.locations[location]
+	if !ok {
+		return nil, cms.ErrMenuNotFound
+	}
+	return s.resolveMenu(ctx, code, location, locale, opts)
+}
+
+func (s *stubCMSMenuService) ResolveMenuByCode(ctx context.Context, code string, locale string, opts cms.MenuResolveOptions) (*cms.ResolvedMenuInfo, error) {
+	menu := s.menus[code]
+	if menu == nil {
+		return nil, cms.ErrMenuNotFound
+	}
+	location := strings.TrimSpace(menu.location)
+	if location == "" {
+		location = code
+	}
+	return s.resolveMenu(ctx, code, location, locale, opts)
+}
+
+func (s *stubCMSMenuService) resolveMenu(ctx context.Context, code, location, locale string, opts cms.MenuResolveOptions) (*cms.ResolvedMenuInfo, error) {
+	nodes, err := s.ResolveNavigation(ctx, code, locale)
+	if err != nil {
+		return nil, err
+	}
+	info := &cms.ResolvedMenuInfo{
+		Location:        location,
+		RequestedLocale: strings.TrimSpace(locale),
+		ResolvedLocale:  strings.TrimSpace(locale),
+		Menu: &cms.MenuInfo{
+			Code:     code,
+			Location: location,
+			Status:   "published",
+		},
+		Binding: &cms.MenuLocationBindingInfo{
+			Location: location,
+			MenuCode: code,
+			Status:   "published",
+		},
+		Items: nodes,
+		Preview: cms.ResolvedMenuPreviewInfo{
+			IncludeDrafts:       opts.IncludeDrafts,
+			PreviewTokenPresent: strings.TrimSpace(opts.PreviewToken) != "",
+			MenuStatus:          "published",
+			BindingStatus:       "published",
+		},
+	}
+	if profile := strings.TrimSpace(opts.ViewProfile); profile != "" {
+		info.ViewProfile = &cms.MenuViewProfileInfo{
+			Code:   profile,
+			Name:   profile,
+			Mode:   "full",
+			Status: "published",
+		}
+	}
+	return info, nil
+}
+
 func (s *stubCMSMenuService) ResetMenuByCode(_ context.Context, code string, _ uuid.UUID, _ bool) error {
 	if s.resetErr != nil {
 		return s.resetErr
