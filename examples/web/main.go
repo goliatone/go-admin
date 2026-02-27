@@ -56,6 +56,7 @@ const (
 	exportPipelineSnapshotLimit   = 25
 	exportPipelinePublishInterval = 750 * time.Millisecond
 	authzPreflightDefaultRolesCSV = "superadmin,owner"
+	defaultSiteContentEnv         = "default"
 )
 
 func main() {
@@ -1141,6 +1142,9 @@ func main() {
 	); err != nil {
 		log.Panicf("failed to register site runtime routes: %v", err)
 	}
+	if err := logSiteRuntimeEnvironmentDiagnostics(adm, cmsContentSvc, cfg, siteCfg); err != nil {
+		log.Panicf("site runtime environment diagnostics failed: %v", err)
+	}
 
 	listenAddr := resolveListenAddr()
 	log.Printf("Enterprise Admin available at %s", urlForListenAddr(listenAddr))
@@ -1189,13 +1193,20 @@ func resolveSiteRuntimeConfig(cfg admin.Config, isDev bool) quicksite.SiteConfig
 		allowLocaleFallback = coreadmin.BoolPtr(value)
 	}
 
-	siteEnv := strings.TrimSpace(os.Getenv("SITE_ENV"))
-	if siteEnv == "" {
+	siteRuntimeEnv := strings.TrimSpace(os.Getenv("SITE_RUNTIME_ENV"))
+	if siteRuntimeEnv == "" {
 		if isDev {
-			siteEnv = "dev"
+			siteRuntimeEnv = "dev"
 		} else {
-			siteEnv = "prod"
+			siteRuntimeEnv = "prod"
 		}
+	}
+	siteContentEnv := strings.TrimSpace(os.Getenv("SITE_CONTENT_ENV"))
+	if siteContentEnv == "" {
+		siteContentEnv = strings.TrimSpace(os.Getenv("SITE_ENV"))
+	}
+	if siteContentEnv == "" {
+		siteContentEnv = defaultSiteContentEnv
 	}
 
 	enableGeneratedFallback := false
@@ -1228,7 +1239,8 @@ func resolveSiteRuntimeConfig(cfg admin.Config, isDev bool) quicksite.SiteConfig
 		SupportedLocales:    resolveSiteSupportedLocales(defaultLocale),
 		AllowLocaleFallback: allowLocaleFallback,
 		LocalePrefixMode:    resolveSiteLocalePrefixMode(os.Getenv("SITE_LOCALE_PREFIX_MODE")),
-		Environment:         siteEnv,
+		Environment:         siteRuntimeEnv,
+		ContentEnvironment:  siteContentEnv,
 		Navigation: quicksite.SiteNavigationConfig{
 			MainMenuLocation:        quicksite.DefaultMainMenuLocation,
 			FooterMenuLocation:      quicksite.DefaultFooterMenuLocation,
@@ -1268,6 +1280,131 @@ func resolveSiteRuntimeConfig(cfg admin.Config, isDev bool) quicksite.SiteConfig
 			Variant: themeVariant,
 		},
 	}
+}
+
+type menuByLocationWithOptions interface {
+	MenuByLocationWithOptions(ctx context.Context, location, locale string, opts coreadmin.SiteMenuReadOptions) (*admin.Menu, error)
+}
+
+type siteEnvironmentCounts struct {
+	ContentTypes int
+	Contents     int
+	MainMenu     int
+
+	ContentTypeErr error
+	ContentErr     error
+	MenuErr        error
+}
+
+func logSiteRuntimeEnvironmentDiagnostics(
+	adm *admin.Admin,
+	contentSvc admin.CMSContentService,
+	cfg admin.Config,
+	siteCfg quicksite.SiteConfig,
+) error {
+	if adm == nil {
+		return nil
+	}
+	resolved := quicksite.ResolveSiteConfig(cfg, siteCfg)
+	contentEnv := strings.TrimSpace(resolved.ContentEnvironment)
+	if contentEnv == "" {
+		contentEnv = defaultSiteContentEnv
+	}
+	locale := strings.TrimSpace(resolved.DefaultLocale)
+	if locale == "" {
+		locale = "en"
+	}
+	collect := func(environment string) siteEnvironmentCounts {
+		environment = strings.TrimSpace(environment)
+		if environment == "" {
+			environment = defaultSiteContentEnv
+		}
+		ctx := admin.WithEnvironment(context.Background(), environment)
+		out := siteEnvironmentCounts{}
+
+		if typeSvc := adm.ContentTypeService(); typeSvc != nil {
+			items, err := typeSvc.ContentTypes(ctx)
+			if err != nil {
+				out.ContentTypeErr = err
+			} else {
+				out.ContentTypes = len(items)
+			}
+		}
+		if contentSvc != nil {
+			items, err := contentSvc.Contents(ctx, "")
+			if err != nil {
+				out.ContentErr = err
+			} else {
+				out.Contents = len(items)
+			}
+		}
+		if menuSvc := adm.MenuService(); menuSvc != nil {
+			var (
+				menu *admin.Menu
+				err  error
+			)
+			if withOpts, ok := menuSvc.(menuByLocationWithOptions); ok {
+				menu, err = withOpts.MenuByLocationWithOptions(ctx, resolved.Navigation.MainMenuLocation, locale, coreadmin.SiteMenuReadOptions{
+					Locale:               locale,
+					IncludeContributions: true,
+				})
+			} else {
+				menu, err = menuSvc.MenuByLocation(ctx, resolved.Navigation.MainMenuLocation, locale)
+			}
+			if err != nil {
+				out.MenuErr = err
+			} else if menu != nil {
+				out.MainMenu = len(menu.Items)
+			}
+		}
+		return out
+	}
+
+	active := collect(contentEnv)
+	log.Printf(
+		"  Site Environments: runtime=%s content=%s content_types=%d contents=%d main_menu_items=%d",
+		resolved.Environment,
+		contentEnv,
+		active.ContentTypes,
+		active.Contents,
+		active.MainMenu,
+	)
+	if active.ContentTypeErr != nil {
+		log.Printf("warning: site env diagnostics content type read failed (env=%s): %v", contentEnv, active.ContentTypeErr)
+	}
+	if active.ContentErr != nil {
+		log.Printf("warning: site env diagnostics content read failed (env=%s): %v", contentEnv, active.ContentErr)
+	}
+	if active.MenuErr != nil {
+		log.Printf("warning: site env diagnostics menu read failed (env=%s): %v", contentEnv, active.MenuErr)
+	}
+
+	if strings.EqualFold(contentEnv, defaultSiteContentEnv) {
+		return nil
+	}
+
+	defaults := collect(defaultSiteContentEnv)
+	activeEmpty := active.ContentTypes == 0 && active.Contents == 0 && active.MainMenu == 0
+	defaultHasSeedData := defaults.ContentTypes > 0 || defaults.Contents > 0 || defaults.MainMenu > 0
+	if !activeEmpty || !defaultHasSeedData {
+		return nil
+	}
+
+	message := fmt.Sprintf(
+		"site content environment %q has no content/menu records while %q has data (types=%d contents=%d menu_items=%d). Set SITE_ENV or SITE_CONTENT_ENV to %q or seed/promote into %q",
+		contentEnv,
+		defaultSiteContentEnv,
+		defaults.ContentTypes,
+		defaults.Contents,
+		defaults.MainMenu,
+		defaultSiteContentEnv,
+		contentEnv,
+	)
+	if strict, ok := envBool("SITE_ENV_STRICT"); ok && strict {
+		return fmt.Errorf(message)
+	}
+	log.Printf("warning: %s", message)
+	return nil
 }
 
 func resolveSiteSupportedLocales(defaultLocale string) []string {

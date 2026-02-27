@@ -981,6 +981,7 @@ func (b *goCMSContentBridge) convertContent(value reflect.Value, locale string, 
 		}
 	}
 	if chosen.IsValid() {
+		translationPath := strings.TrimSpace(stringField(chosen, "Path"))
 		if groupID := uuidStringField(chosen, "TranslationGroupID"); groupID != "" {
 			out.TranslationGroupID = groupID
 		}
@@ -995,6 +996,12 @@ func (b *goCMSContentBridge) convertContent(value reflect.Value, locale string, 
 			if m, ok := contentField.Interface().(map[string]any); ok {
 				out.Data = primitives.CloneAnyMapEmptyOnEmpty(m)
 			}
+		}
+		if translationPath != "" {
+			if out.Data == nil {
+				out.Data = map[string]any{}
+			}
+			out.Data["path"] = translationPath
 		}
 	}
 	if out.Locale == "" {
