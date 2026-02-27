@@ -47,6 +47,9 @@ func TestNewAppliesPermissionAndFeatureDefaults(t *testing.T) {
 	if adm.config.Site.DraftReadPermission != "admin.site.read_drafts" {
 		t.Fatalf("expected site draft read permission default, got %q", adm.config.Site.DraftReadPermission)
 	}
+	if adm.config.Site.TrustPrivateNetworkDraftReads {
+		t.Fatalf("expected private-network draft read trust to default false")
+	}
 	if adm.config.Site.ViewProfileOverridePermission != "admin.site.view_profile_override" {
 		t.Fatalf("expected site view profile override permission default, got %q", adm.config.Site.ViewProfileOverridePermission)
 	}

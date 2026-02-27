@@ -222,9 +222,13 @@ func mapFromCMSContentType(ct CMSContentType) map[string]any {
 		"icon":         ct.Icon,
 		"status":       ct.Status,
 		"capability_contracts": map[string]any{
-			"delivery":   primitives.CloneAnyMap(contracts.Delivery),
-			"navigation": primitives.CloneAnyMap(contracts.Navigation),
-			"search":     primitives.CloneAnyMap(contracts.Search),
+			"delivery":                      primitives.CloneAnyMap(contracts.Delivery),
+			"navigation":                    primitives.CloneAnyMap(contracts.Navigation),
+			"search":                        primitives.CloneAnyMap(contracts.Search),
+			"navigation_defaults_editor":    contentNavigationDefaultsEditorContract(),
+			"entry_navigation_overrides":    contentNavigationEntryOverrideContract(),
+			"entry_navigation_examples":     contentNavigationExamplesContract(),
+			"entry_navigation_validation":   contentNavigationValidationContract(),
 		},
 	}
 	if len(contracts.Validation) > 0 {

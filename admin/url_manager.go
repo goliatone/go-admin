@@ -342,6 +342,7 @@ func defaultAdminAPIRoutes() map[string]string {
 		"block_definitions_meta.template":     "/block_definitions_meta/templates/:slug",
 		"cms.content_tree":                    "/content-tree",
 		"cms.content.blocks":                  "/content/:id/blocks",
+		"content.navigation":                  "/content/:type/:id/navigation",
 		"icons.libraries":                     "/icons/libraries",
 		"icons.library":                       "/icons/libraries/:id",
 		"icons.library.icons":                 "/icons/libraries/:id/icons",

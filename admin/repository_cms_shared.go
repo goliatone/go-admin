@@ -379,6 +379,23 @@ func mergeCMSPageUpdate(existing CMSPage, page CMSPage, record map[string]any) C
 	}
 	page.Data = mergeCMSDataUpdate(existing.Data, page.Data, cmsPageDataUpdated(record))
 	page.Data, page.SchemaVersion, page.EmbeddedBlocks = finalizeCMSDataSchemaAndBlocks(record, page.Data, page.SchemaVersion, existing.SchemaVersion, page.EmbeddedBlocks)
+	if recordHasKey(record, "_navigation") {
+		if len(page.Navigation) > 0 {
+			page.Data["_navigation"] = navigationVisibilityMapAny(page.Navigation)
+		} else {
+			delete(page.Data, "_navigation")
+		}
+	}
+	if recordHasKey(record, "effective_menu_locations") {
+		if len(page.EffectiveMenuLocations) > 0 {
+			page.Data["effective_menu_locations"] = append([]string{}, page.EffectiveMenuLocations...)
+		} else {
+			delete(page.Data, "effective_menu_locations")
+		}
+	}
+	if recordHasKey(record, "effective_navigation_visibility") {
+		delete(page.Data, "effective_navigation_visibility")
+	}
 	if len(page.Navigation) == 0 {
 		page.Navigation = normalizeNavigationVisibilityMap(page.Data["_navigation"])
 	}
@@ -397,7 +414,8 @@ func cmsPageDataUpdated(record map[string]any) bool {
 		recordHasKey(record, "blocks") ||
 		recordHasKey(record, "_schema") ||
 		recordHasKey(record, "_navigation") ||
-		recordHasKey(record, "effective_menu_locations")
+		recordHasKey(record, "effective_menu_locations") ||
+		recordHasKey(record, "effective_navigation_visibility")
 }
 
 var cmsContentReservedKeys = map[string]struct{}{
@@ -421,6 +439,7 @@ var cmsContentReservedKeys = map[string]struct{}{
 	"_schema":                  {},
 	"_navigation":              {},
 	"effective_menu_locations": {},
+	"effective_navigation_visibility": {},
 }
 
 func mapToCMSContent(record map[string]any) CMSContent {
@@ -521,6 +540,23 @@ func mergeCMSContentUpdate(existing CMSContent, content CMSContent, record map[s
 	mergeCMSMetadataUpdate(record, &content.Metadata, existing.Metadata)
 	content.Data = mergeCMSDataUpdate(existing.Data, content.Data, cmsContentDataUpdated(record))
 	content.Data, content.SchemaVersion, content.EmbeddedBlocks = finalizeCMSDataSchemaAndBlocks(record, content.Data, content.SchemaVersion, existing.SchemaVersion, content.EmbeddedBlocks)
+	if recordHasKey(record, "_navigation") {
+		if len(content.Navigation) > 0 {
+			content.Data["_navigation"] = navigationVisibilityMapAny(content.Navigation)
+		} else {
+			delete(content.Data, "_navigation")
+		}
+	}
+	if recordHasKey(record, "effective_menu_locations") {
+		if len(content.EffectiveMenuLocations) > 0 {
+			content.Data["effective_menu_locations"] = append([]string{}, content.EffectiveMenuLocations...)
+		} else {
+			delete(content.Data, "effective_menu_locations")
+		}
+	}
+	if recordHasKey(record, "effective_navigation_visibility") {
+		delete(content.Data, "effective_navigation_visibility")
+	}
 	if len(content.Navigation) == 0 {
 		content.Navigation = normalizeNavigationVisibilityMap(content.Data["_navigation"])
 	}
@@ -550,6 +586,9 @@ func cmsContentDataUpdated(record map[string]any) bool {
 		return true
 	}
 	if _, ok := record["effective_menu_locations"]; ok {
+		return true
+	}
+	if _, ok := record["effective_navigation_visibility"]; ok {
 		return true
 	}
 	if _, ok := record["blocks"]; ok {

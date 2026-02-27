@@ -65,13 +65,20 @@ func menuBindingKey(location, locale, menuCode, profile string) string {
 }
 
 func (s *MenuBuilderService) Contracts(endpoints map[string]string) AdminMenuContracts {
+	contractsEndpoints := map[string]string{}
+	for key, value := range endpoints {
+		contractsEndpoints[key] = value
+	}
 	return AdminMenuContracts{
-		Endpoints: endpoints,
+		Endpoints: contractsEndpoints,
 		ErrorCode: map[string]string{
 			"cycle":          TextCodeMenuValidationCycle,
 			"depth":          TextCodeMenuValidationDepth,
 			"invalid_target": TextCodeMenuValidationInvalidTarget,
 		},
+		ContentNavigation: contentNavigationContractsPayload(map[string]string{
+			"content.navigation": contractsEndpoints["content.navigation"],
+		}),
 	}
 }
 

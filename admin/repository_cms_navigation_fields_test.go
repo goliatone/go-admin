@@ -30,6 +30,10 @@ func TestCMSContentRepositoryPersistsNavigationFields(t *testing.T) {
 	if len(locations) != 1 || locations[0] != "site.main" {
 		t.Fatalf("expected effective_menu_locations=[site.main], got %+v", created["effective_menu_locations"])
 	}
+	visibility := extractMap(created["effective_navigation_visibility"])
+	if !toBool(visibility["site.main"]) {
+		t.Fatalf("expected effective_navigation_visibility.site.main=true, got %+v", visibility)
+	}
 
 	id := toString(created["id"])
 	record, err := repo.Get(context.Background(), id)
@@ -39,6 +43,10 @@ func TestCMSContentRepositoryPersistsNavigationFields(t *testing.T) {
 	recordNav, _ := record["_navigation"].(map[string]any)
 	if toString(recordNav["site.main"]) != "show" {
 		t.Fatalf("expected persisted _navigation.site.main=show, got %+v", record["_navigation"])
+	}
+	recordVisibility := extractMap(record["effective_navigation_visibility"])
+	if !toBool(recordVisibility["site.main"]) {
+		t.Fatalf("expected persisted effective_navigation_visibility.site.main=true, got %+v", recordVisibility)
 	}
 }
 
@@ -64,6 +72,10 @@ func TestCMSPageRepositoryPersistsNavigationFields(t *testing.T) {
 	if len(locations) != 1 || locations[0] != "site.footer" {
 		t.Fatalf("expected effective_menu_locations=[site.footer], got %+v", created["effective_menu_locations"])
 	}
+	visibility := extractMap(created["effective_navigation_visibility"])
+	if !toBool(visibility["site.footer"]) {
+		t.Fatalf("expected effective_navigation_visibility.site.footer=true, got %+v", visibility)
+	}
 
 	id := toString(created["id"])
 	record, err := repo.Get(context.Background(), id)
@@ -73,5 +85,9 @@ func TestCMSPageRepositoryPersistsNavigationFields(t *testing.T) {
 	recordNav, _ := record["_navigation"].(map[string]any)
 	if toString(recordNav["site.footer"]) != "show" {
 		t.Fatalf("expected persisted _navigation.site.footer=show, got %+v", record["_navigation"])
+	}
+	recordVisibility := extractMap(record["effective_navigation_visibility"])
+	if !toBool(recordVisibility["site.footer"]) {
+		t.Fatalf("expected persisted effective_navigation_visibility.site.footer=true, got %+v", recordVisibility)
 	}
 }

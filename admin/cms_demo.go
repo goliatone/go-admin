@@ -335,6 +335,7 @@ func (a *Admin) registerCMSRoutesFromService() {
 		return
 	}
 	a.cmsRoutesRegistered = true
+	a.registerContentNavigationOverrideRoute()
 	// Page tree endpoint
 	contentTreePath := adminAPIRoutePath(a, "cms.content_tree")
 	a.router.Get(contentTreePath, func(c router.Context) error {
