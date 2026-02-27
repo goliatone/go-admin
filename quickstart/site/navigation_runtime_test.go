@@ -129,7 +129,7 @@ func TestSiteNavigationPreviewTokenEnablesDraftMenuReads(t *testing.T) {
 		},
 	}
 	adm := adminWithMenuStub(t, menuSvc, nil)
-	token, err := adm.Preview().Generate("pages", "page-1", time.Minute)
+	token, err := adm.Preview().Generate("menu", "site_primary", time.Minute)
 	if err != nil {
 		t.Fatalf("generate preview token: %v", err)
 	}
@@ -147,6 +147,44 @@ func TestSiteNavigationPreviewTokenEnablesDraftMenuReads(t *testing.T) {
 	}
 	if menuSvc.lastLocationOpts.PreviewToken != token {
 		t.Fatalf("expected preview token to be forwarded to menu read options")
+	}
+}
+
+func TestSiteNavigationIgnoresNonMenuPreviewTokenForDraftReads(t *testing.T) {
+	content := admin.NewInMemoryContentService()
+	seedDeliveryPageType(t, content)
+	seedDeliveryPageRecord(t, content, "page-1", "home", "/home")
+
+	menuSvc := &siteNavigationMenuStub{
+		byLocation: map[string]*admin.Menu{
+			"site.main": {
+				Code:     "site_primary",
+				Location: "site.main",
+				Items: []admin.MenuItem{
+					{ID: "home", Label: "Home", Position: intPtr(1), Target: map[string]any{"url": "/home"}},
+				},
+			},
+		},
+	}
+	adm := adminWithMenuStub(t, menuSvc, nil)
+	token, err := adm.Preview().Generate("pages", "page-1", time.Minute)
+	if err != nil {
+		t.Fatalf("generate preview token: %v", err)
+	}
+
+	server := router.NewHTTPServer()
+	if err := RegisterSiteRoutes(server.Router(), adm, admin.Config{DefaultLocale: "en"}, SiteConfig{
+		SupportedLocales: []string{"en"},
+	}, WithDeliveryServices(content, content)); err != nil {
+		t.Fatalf("register site routes: %v", err)
+	}
+
+	_ = performSiteRequest(t, server, "/home?locale=en&format=json&preview_token="+token)
+	if menuSvc.lastLocationOpts.IncludeDrafts {
+		t.Fatalf("expected non-menu preview token to keep include_drafts=false, got %+v", menuSvc.lastLocationOpts)
+	}
+	if menuSvc.lastLocationOpts.PreviewToken != "" {
+		t.Fatalf("expected non-menu preview token to be omitted from menu options, got %+v", menuSvc.lastLocationOpts)
 	}
 }
 

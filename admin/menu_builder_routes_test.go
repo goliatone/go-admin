@@ -292,8 +292,11 @@ func TestMenuBuilderLifecyclePreviewCloneArchiveAndAudit(t *testing.T) {
 	}
 	previewMenu := extractMap(previewPayload["menu"])
 	previewItems, _ := previewMenu["items"].([]any)
+	if len(previewItems) == 0 {
+		previewItems, _ = previewMenu["Items"].([]any)
+	}
 	if len(previewItems) != 1 {
-		t.Fatalf("expected view profile top_level_limit projection to return 1 item, got %d", len(previewItems))
+		t.Fatalf("expected view profile top_level_limit projection to return 1 item, got %d body=%s", len(previewItems), previewRes.Body.String())
 	}
 
 	token, err := adm.Preview().Generate("menu@staging", "main", time.Hour)
@@ -301,10 +304,10 @@ func TestMenuBuilderLifecyclePreviewCloneArchiveAndAudit(t *testing.T) {
 		t.Fatalf("generate preview token: %v", err)
 	}
 	previewWithTokenPath := mustResolveURL(t, adm.URLs(), group, "menus.preview", map[string]string{"id": "main"}, map[string]string{
-		"location":        "site.footer",
-		"locale":          "en",
-		"include_drafts":  "false",
-		"preview_token":   token,
+		"location":       "site.footer",
+		"locale":         "en",
+		"include_drafts": "false",
+		"preview_token":  token,
 	})
 	previewWithTokenRes := menuBuilderDoRequest(server, http.MethodGet, previewWithTokenPath, "")
 	if previewWithTokenRes.Code != http.StatusOK {

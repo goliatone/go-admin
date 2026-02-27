@@ -113,12 +113,41 @@ func TestPersistentCMSSeedsRequiredContentTypes(t *testing.T) {
 	defer db.Close()
 
 	required := []struct {
-		name  string
-		slug  string
-		panel string
+		name   string
+		slug   string
+		panel  string
+		expect []string
 	}{
-		{name: "page", slug: "page", panel: "pages"},
-		{name: "post", slug: "post", panel: "posts"},
+		{
+			name:  "page",
+			slug:  "page",
+			panel: "pages",
+			expect: []string{
+				`"delivery":{"enabled":true,"kind":"page"`,
+				`"navigation":{"allow_instance_override":true`,
+				`"default_locations":["site.main"]`,
+			},
+		},
+		{
+			name:  "post",
+			slug:  "post",
+			panel: "posts",
+			expect: []string{
+				`"delivery":{"enabled":true,"kind":"hybrid"`,
+				`"routes":{"detail":"/posts/:slug","list":"/posts"}`,
+				`"search":{"collection":"site_content","enabled":true`,
+			},
+		},
+		{
+			name:  "news",
+			slug:  "news",
+			panel: "news",
+			expect: []string{
+				`"delivery":{"enabled":true,"kind":"hybrid"`,
+				`"routes":{"detail":"/news/:slug","list":"/news"}`,
+				`"navigation":{"allow_instance_override":true`,
+			},
+		},
 	}
 
 	for _, item := range required {
@@ -150,6 +179,82 @@ WHERE name = ?`, item.name).Scan(&slug, &status, &capabilities, &schema)
 		}
 		if !strings.Contains(strings.ToLower(capabilities), `"panel_slug":"`+item.panel+`"`) {
 			t.Fatalf("expected %s capabilities panel_slug=%s, got %s", item.name, item.panel, capabilities)
+		}
+		lowerCaps := strings.ToLower(capabilities)
+		for _, expected := range item.expect {
+			if !strings.Contains(lowerCaps, strings.ToLower(expected)) {
+				t.Fatalf("expected %s capabilities to include %s, got %s", item.name, expected, capabilities)
+			}
+		}
+	}
+}
+
+func TestPersistentCMSSeedsSiteMenuBindingsAndViewProfiles(t *testing.T) {
+	t.Helper()
+
+	ctx := context.Background()
+	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared&_fk=1", strings.ToLower(t.Name()))
+
+	opts, err := SetupPersistentCMS(ctx, "en", dsn)
+	if err != nil {
+		t.Fatalf("setup persistent cms: %v", err)
+	}
+	if opts.Container == nil {
+		t.Fatalf("expected CMS container")
+	}
+
+	db, err := sql.Open("sqlite3", dsn)
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	defer db.Close()
+
+	for _, profile := range []string{"full", "footer_top_5"} {
+		var status string
+		err := db.QueryRowContext(ctx, `
+SELECT COALESCE(status, '')
+FROM menu_view_profiles
+WHERE code = ?`, profile).Scan(&status)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				t.Fatalf("expected menu view profile %s", profile)
+			}
+			t.Fatalf("query menu view profile %s: %v", profile, err)
+		}
+		if !strings.EqualFold(strings.TrimSpace(status), "published") {
+			t.Fatalf("expected profile %s status published, got %q", profile, status)
+		}
+	}
+
+	type bindingExpectation struct {
+		location string
+		profile  string
+	}
+	for _, expected := range []bindingExpectation{
+		{location: "site.main", profile: "full"},
+		{location: "site.footer", profile: "footer_top_5"},
+	} {
+		var menuCode string
+		var viewProfile sql.NullString
+		var status string
+		err := db.QueryRowContext(ctx, `
+SELECT COALESCE(menu_code, ''), view_profile_code, COALESCE(status, '')
+FROM menu_location_bindings
+WHERE location = ?`, expected.location).Scan(&menuCode, &viewProfile, &status)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				t.Fatalf("expected menu location binding for %s", expected.location)
+			}
+			t.Fatalf("query menu location binding %s: %v", expected.location, err)
+		}
+		if strings.TrimSpace(menuCode) != SiteNavigationMenuCode {
+			t.Fatalf("expected menu_code=%s for %s, got %q", SiteNavigationMenuCode, expected.location, menuCode)
+		}
+		if strings.TrimSpace(viewProfile.String) != expected.profile {
+			t.Fatalf("expected view_profile_code=%s for %s, got %q", expected.profile, expected.location, viewProfile.String)
+		}
+		if !strings.EqualFold(strings.TrimSpace(status), "published") {
+			t.Fatalf("expected binding status published for %s, got %q", expected.location, status)
 		}
 	}
 }
