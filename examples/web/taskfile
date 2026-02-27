@@ -107,6 +107,12 @@ function dev:serve {
     fi
 
     export ENV=development;
+    # Runtime env ("dev"/"prod") is app behavior; content env scopes CMS reads.
+    export SITE_RUNTIME_ENV=dev;
+    export SITE_CONTENT_ENV=default;
+    export SITE_ALLOW_LOCALE_FALLBACK=true;
+    # Backward-compatible alias still consumed by some host wiring.
+    export SITE_ENV=default;
     export RESET_NAV_MENU=true;
     export USE_PERSISTENT_CMS=true;
     export NAV_DEBUG=false;

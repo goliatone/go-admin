@@ -3,6 +3,7 @@ package setup
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io/fs"
@@ -19,6 +20,7 @@ import (
 	"github.com/goliatone/go-cms/pkg/storage"
 	persistence "github.com/goliatone/go-persistence-bun"
 	"github.com/google/uuid"
+	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
 	"github.com/uptrace/bun/driver/sqliteshim"
 )
@@ -217,6 +219,9 @@ func SetupPersistentCMS(ctx context.Context, defaultLocale, dsn string) (admin.C
 			}
 		}
 	}
+	if _, err := backfillContentTranslationPathsFromPages(ctx, client.DB()); err != nil {
+		return admin.CMSOptions{}, fmt.Errorf("backfill content translation paths from pages: %w", err)
+	}
 
 	contentTypeSvc := admin.CMSContentTypeService(nil)
 	if adapter != nil {
@@ -302,6 +307,23 @@ func envBool(key string) (bool, bool) {
 	return parsed, true
 }
 
+func canonicalCMSPath(path, fallback string) string {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		path = strings.TrimSpace(fallback)
+	}
+	if path == "" {
+		return ""
+	}
+	if strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://") {
+		return path
+	}
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + strings.TrimLeft(path, "/")
+	}
+	return path
+}
+
 func resolveCMSDSN(input string) string {
 	if trimmed := strings.TrimSpace(input); trimmed != "" {
 		return trimmed
@@ -313,6 +335,91 @@ func resolveCMSDSN(input string) string {
 		return env
 	}
 	return defaultCMSDSN()
+}
+
+type contentTranslationPathBackfillRow struct {
+	ContentID string `bun:"content_id"`
+	LocaleID  string `bun:"locale_id"`
+	Content   string `bun:"content"`
+	Path      string `bun:"path"`
+}
+
+// backfillContentTranslationPathsFromPages ensures page translation paths are
+// projected into content_translations.content.path for delivery/runtime readers.
+func backfillContentTranslationPathsFromPages(ctx context.Context, db *bun.DB) (int, error) {
+	if db == nil {
+		return 0, nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	rows := []contentTranslationPathBackfillRow{}
+	query := `
+SELECT
+	ct.content_id AS content_id,
+	ct.locale_id AS locale_id,
+	COALESCE(ct.content, '') AS content,
+	pt.path AS path
+FROM content_translations ct
+JOIN pages p ON p.content_id = ct.content_id
+JOIN page_translations pt ON pt.page_id = p.id AND pt.locale_id = ct.locale_id
+WHERE TRIM(COALESCE(pt.path, '')) <> ''`
+	if err := db.NewRaw(query).Scan(ctx, &rows); err != nil {
+		return 0, err
+	}
+
+	updated := 0
+	for _, row := range rows {
+		path := strings.TrimSpace(canonicalCMSPath(row.Path, ""))
+		if path == "" {
+			continue
+		}
+
+		payload := map[string]any{}
+		raw := strings.TrimSpace(row.Content)
+		if raw != "" {
+			if err := json.Unmarshal([]byte(raw), &payload); err != nil {
+				return updated, fmt.Errorf("decode content translation %s/%s: %w", row.ContentID, row.LocaleID, err)
+			}
+		}
+		existingRaw := strings.TrimSpace(asString(payload["path"], ""))
+		existingCanonical := strings.TrimSpace(canonicalCMSPath(existingRaw, ""))
+		if existingCanonical != "" {
+			if existingCanonical == existingRaw {
+				continue
+			}
+			payload["path"] = existingCanonical
+		} else {
+			payload["path"] = path
+		}
+		encoded, err := json.Marshal(payload)
+		if err != nil {
+			return updated, fmt.Errorf("encode content translation %s/%s: %w", row.ContentID, row.LocaleID, err)
+		}
+		result, err := db.ExecContext(
+			ctx,
+			`UPDATE content_translations
+			 SET content = ?, updated_at = CURRENT_TIMESTAMP
+			 WHERE content_id = ? AND locale_id = ?`,
+			string(encoded),
+			row.ContentID,
+			row.LocaleID,
+		)
+		if err != nil {
+			return updated, err
+		}
+		if result == nil {
+			continue
+		}
+		affected, err := result.RowsAffected()
+		if err != nil {
+			return updated, err
+		}
+		updated += int(affected)
+	}
+
+	return updated, nil
 }
 
 func seedCMSBlockDefinitions(ctx context.Context, svc admin.CMSContentService, locale string) error {
