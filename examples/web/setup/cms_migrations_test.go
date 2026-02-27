@@ -3,6 +3,7 @@ package setup
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -370,5 +371,61 @@ WHERE LOWER(slug) = 'rich-text'`)
 	}
 	if !seenRichText {
 		t.Fatalf("expected rich_text block definition after reconciliation")
+	}
+}
+
+func TestPersistentCMSBackfillsContentTranslationPathFromPageTranslations(t *testing.T) {
+	t.Helper()
+
+	ctx := context.Background()
+	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared&_fk=1", strings.ToLower(t.Name()))
+
+	opts, err := SetupPersistentCMS(ctx, "en", dsn)
+	if err != nil {
+		t.Fatalf("setup persistent cms: %v", err)
+	}
+	if opts.Container == nil {
+		t.Fatalf("expected CMS container")
+	}
+
+	db, err := sql.Open("sqlite3", dsn)
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	defer db.Close()
+
+	rows, err := db.QueryContext(ctx, `
+SELECT ct.content
+FROM content_translations ct
+JOIN contents c ON c.id = ct.content_id
+WHERE c.slug = 'home'`)
+	if err != nil {
+		t.Fatalf("query home content translations: %v", err)
+	}
+	defer rows.Close()
+
+	rowCount := 0
+	for rows.Next() {
+		rowCount++
+		var raw string
+		if err := rows.Scan(&raw); err != nil {
+			t.Fatalf("scan content translation: %v", err)
+		}
+		if strings.TrimSpace(raw) == "" {
+			t.Fatalf("expected content translation payload for home")
+		}
+		payload := map[string]any{}
+		if err := json.Unmarshal([]byte(raw), &payload); err != nil {
+			t.Fatalf("decode content translation payload: %v", err)
+		}
+		if got := strings.TrimSpace(asString(payload["path"], "")); got != "/" {
+			t.Fatalf("expected backfilled path /, got %q", got)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("iterate content translations: %v", err)
+	}
+	if rowCount == 0 {
+		t.Fatalf("expected at least one home content translation row")
 	}
 }

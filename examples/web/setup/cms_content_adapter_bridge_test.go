@@ -35,6 +35,7 @@ type optionCapableBridgeContentTypeStub struct {
 type optionCapableBridgeTranslationStub struct {
 	LocaleCode         string
 	Title              string
+	Path               string
 	Content            map[string]any
 	TranslationGroupID *uuid.UUID
 }
@@ -220,6 +221,44 @@ func TestGoCMSContentBridgePagePreservesTranslationMetadata(t *testing.T) {
 	}
 	if page.AvailableLocales[0] != "en" || page.AvailableLocales[1] != "es" {
 		t.Fatalf("expected available locales [en es], got %#v", page.AvailableLocales)
+	}
+}
+
+func TestGoCMSContentBridgeContentHydratesPathFromTranslationPathField(t *testing.T) {
+	ctx := context.Background()
+	recordID := uuid.New()
+	contentSvc := &optionCapableBridgeContentServiceStub{
+		getRes: &optionCapableBridgeContentRecordStub{
+			ID:     recordID,
+			Slug:   "home",
+			Status: "published",
+			Type: optionCapableBridgeContentTypeStub{
+				Name: "page",
+			},
+			Translations: []optionCapableBridgeTranslationStub{
+				{
+					LocaleCode: "en",
+					Title:      "Home",
+					Path:       "/",
+					Content:    map[string]any{"body": "hello"},
+				},
+			},
+		},
+	}
+	bridge := newGoCMSContentBridge(contentSvc, nil, nil, uuid.Nil, nil, nil)
+	if bridge == nil {
+		t.Fatalf("expected bridge for option-capable signatures")
+	}
+
+	content, err := bridge.Content(ctx, recordID.String(), "en")
+	if err != nil {
+		t.Fatalf("content lookup failed: %v", err)
+	}
+	if content == nil {
+		t.Fatalf("expected content record")
+	}
+	if got := asString(content.Data["path"], ""); got != "/" {
+		t.Fatalf("expected content data path / from translation Path field, got %q", got)
 	}
 }
 

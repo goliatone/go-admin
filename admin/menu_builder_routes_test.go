@@ -247,11 +247,43 @@ func TestMenuBuilderLifecyclePreviewCloneArchiveAndAudit(t *testing.T) {
 	if createProfileRes.Code != http.StatusOK {
 		t.Fatalf("create view profile status=%d body=%s", createProfileRes.Code, createProfileRes.Body.String())
 	}
+	createProfilePayload := decodeJSONMap(t, createProfileRes)
+	createdViewProfile := extractMap(createProfilePayload["view_profile"])
+	if got := strings.TrimSpace(toString(createdViewProfile["code"])); got != "footer" {
+		t.Fatalf("expected view_profile.code=footer, got %q", got)
+	}
+	createdProfileAlias := extractMap(createProfilePayload["profile"])
+	if got := strings.TrimSpace(toString(createdProfileAlias["code"])); got != "footer" {
+		t.Fatalf("expected profile alias code=footer, got %q", got)
+	}
+
+	listProfilesRes := menuBuilderDoRequest(server, http.MethodGet, profilesPath, "")
+	if listProfilesRes.Code != http.StatusOK {
+		t.Fatalf("list view profiles status=%d body=%s", listProfilesRes.Code, listProfilesRes.Body.String())
+	}
+	listProfilesPayload := decodeJSONMap(t, listProfilesRes)
+	viewProfiles, _ := listProfilesPayload["view_profiles"].([]any)
+	profilesAlias, _ := listProfilesPayload["profiles"].([]any)
+	if len(viewProfiles) == 0 {
+		t.Fatalf("expected view_profiles array in list response, payload=%+v", listProfilesPayload)
+	}
+	if len(profilesAlias) == 0 {
+		t.Fatalf("expected profiles alias array in list response, payload=%+v", listProfilesPayload)
+	}
 
 	publishProfilePath := mustResolveURL(t, adm.URLs(), group, "menu.view_profiles.publish", map[string]string{"code": "footer"}, nil)
 	publishProfileRes := menuBuilderDoRequest(server, http.MethodPost, publishProfilePath, `{"publish":true}`)
 	if publishProfileRes.Code != http.StatusOK {
 		t.Fatalf("publish view profile status=%d body=%s", publishProfileRes.Code, publishProfileRes.Body.String())
+	}
+	publishedProfilePayload := decodeJSONMap(t, publishProfileRes)
+	publishedViewProfile := extractMap(publishedProfilePayload["view_profile"])
+	if got := strings.TrimSpace(toString(publishedViewProfile["code"])); got != "footer" {
+		t.Fatalf("expected published view_profile.code=footer, got %q", got)
+	}
+	publishedProfileAlias := extractMap(publishedProfilePayload["profile"])
+	if got := strings.TrimSpace(toString(publishedProfileAlias["code"])); got != "footer" {
+		t.Fatalf("expected published profile alias code=footer, got %q", got)
 	}
 
 	bindingPath := mustResolveURL(t, adm.URLs(), group, "menu.bindings.location", map[string]string{"location": "site.footer"}, nil)

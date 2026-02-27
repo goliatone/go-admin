@@ -345,8 +345,8 @@ func TestServicesAPI_WebhookVerificationAndClaimLifecycleRetry(t *testing.T) {
 		"X-Delivery-ID": "d-retry-1",
 	}
 	first := performJSONRequest(t, server, http.MethodPost, base+"/webhooks/github", map[string]any{"metadata": map[string]any{"delivery_id": "d-retry-1"}}, headers)
-	if first.Code != http.StatusInternalServerError {
-		t.Fatalf("expected first webhook attempt 500, got %d body=%s", first.Code, first.Body.String())
+	if first.Code != http.StatusBadGateway {
+		t.Fatalf("expected first webhook attempt 502, got %d body=%s", first.Code, first.Body.String())
 	}
 	assertErrorEnvelope(t, first.Body.Bytes(), "internal_error", true)
 
@@ -613,8 +613,8 @@ func TestServicesAPI_InboundVerificationAndClaimLifecycleRetry(t *testing.T) {
 		"X-Message-ID": "m-retry-1",
 	}
 	first := performJSONRequest(t, server, http.MethodPost, base+"/inbound/github/command", map[string]any{"metadata": map[string]any{"message_id": "m-retry-1"}}, headers)
-	if first.Code != http.StatusInternalServerError {
-		t.Fatalf("expected first inbound attempt 500, got %d body=%s", first.Code, first.Body.String())
+	if first.Code != http.StatusBadGateway {
+		t.Fatalf("expected first inbound attempt 502, got %d body=%s", first.Code, first.Body.String())
 	}
 	assertErrorEnvelope(t, first.Body.Bytes(), "internal_error", true)
 
