@@ -30,6 +30,7 @@ import (
 	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/pkg/client"
 	"github.com/goliatone/go-admin/quickstart"
+	quicksite "github.com/goliatone/go-admin/quickstart/site"
 	authlib "github.com/goliatone/go-auth"
 	"github.com/goliatone/go-crud"
 	dashboardactivity "github.com/goliatone/go-dashboard/pkg/activity"
@@ -1128,21 +1129,18 @@ func main() {
 	r.Get(path.Join(cfg.BasePath, "users/:id/tabs/:tab"), wrapAuthed(userHandlers.TabHTML))
 	r.Get(path.Join(adminAPIBasePath, "users", ":id", "tabs", ":tab"), wrapAuthed(userHandlers.TabJSON))
 
-	siteHandlers := handlers.NewSiteHandlers(handlers.SiteHandlersConfig{
-		Admin:         adm,
-		Pages:         dataStores.Pages,
-		Posts:         dataStores.Posts,
-		Nav:           adm.Navigation(),
-		DefaultLocale: cfg.DefaultLocale,
-		MenuCode:      setup.SiteNavigationMenuCode,
-		AssetBasePath: cfg.BasePath,
-		AdminBasePath: cfg.BasePath,
-		CMSEnabled:    featureEnabled(adm.FeatureGate(), "cms") && adm.MenuService() != nil,
-	})
-	r.Get("/", siteHandlers.Page)
-	r.Get("/posts", siteHandlers.PostsIndex)
-	r.Get("/posts/:slug", siteHandlers.PostDetail)
-	r.Get("/*", siteHandlers.Page)
+	siteCfg := resolveSiteRuntimeConfig(cfg, isDev)
+	siteSearchProvider := newExampleSiteSearchProvider(cmsContentSvc, cfg.DefaultLocale)
+	if err := quicksite.RegisterSiteRoutes(
+		r,
+		adm,
+		cfg,
+		siteCfg,
+		quicksite.WithSearchProvider(siteSearchProvider),
+		quicksite.WithDeliveryServices(cmsContentSvc, adm.ContentTypeService()),
+	); err != nil {
+		log.Panicf("failed to register site runtime routes: %v", err)
+	}
 
 	listenAddr := resolveListenAddr()
 	log.Printf("Enterprise Admin available at %s", urlForListenAddr(listenAddr))
@@ -1160,6 +1158,7 @@ func main() {
 	log.Printf("  CMS backend: %s (USE_PERSISTENT_CMS=%t)", cmsBackend, adapterResult.Flags.UsePersistentCMS)
 	log.Printf("  Settings backend: %s (USE_GO_OPTIONS=%t)", settingsBackend, adapterResult.Flags.UseGoOptions)
 	log.Printf("  Search API: %s?query=...", path.Join(adminAPIBasePath, "search"))
+	log.Printf("  Site Runtime: / (search: %s, search api: %s)", siteCfg.Search.Route, siteCfg.Search.Endpoint)
 
 	if err := server.Serve(listenAddr); err != nil {
 		log.Panicf("server stopped: %v", err)
@@ -1177,6 +1176,116 @@ func resolveListenAddr() string {
 		return ":" + port
 	}
 	return ":8080"
+}
+
+func resolveSiteRuntimeConfig(cfg admin.Config, isDev bool) quicksite.SiteConfig {
+	defaultLocale := strings.ToLower(strings.TrimSpace(cfg.DefaultLocale))
+	if defaultLocale == "" {
+		defaultLocale = "en"
+	}
+
+	allowLocaleFallback := cfg.Site.AllowLocaleFallback
+	if value, ok := envBool("SITE_ALLOW_LOCALE_FALLBACK"); ok {
+		allowLocaleFallback = coreadmin.BoolPtr(value)
+	}
+
+	siteEnv := strings.TrimSpace(os.Getenv("SITE_ENV"))
+	if siteEnv == "" {
+		if isDev {
+			siteEnv = "dev"
+		} else {
+			siteEnv = "prod"
+		}
+	}
+
+	enableGeneratedFallback := false
+	if value, ok := envBool("SITE_ENABLE_GENERATED_FALLBACK"); ok {
+		enableGeneratedFallback = value
+	}
+
+	enableSearch := true
+	if value, ok := envBool("SITE_ENABLE_SEARCH"); ok {
+		enableSearch = value
+	}
+
+	themeName := strings.TrimSpace(os.Getenv("SITE_THEME"))
+	if themeName == "" {
+		themeName = strings.TrimSpace(cfg.Theme)
+	}
+	themeVariant := strings.TrimSpace(os.Getenv("SITE_THEME_VARIANT"))
+	if themeVariant == "" {
+		themeVariant = strings.TrimSpace(cfg.ThemeVariant)
+	}
+
+	siteBasePath := strings.TrimSpace(os.Getenv("SITE_BASE_PATH"))
+	if siteBasePath == "" {
+		siteBasePath = "/"
+	}
+
+	return quicksite.SiteConfig{
+		BasePath:            siteBasePath,
+		DefaultLocale:       defaultLocale,
+		SupportedLocales:    resolveSiteSupportedLocales(defaultLocale),
+		AllowLocaleFallback: allowLocaleFallback,
+		LocalePrefixMode:    resolveSiteLocalePrefixMode(os.Getenv("SITE_LOCALE_PREFIX_MODE")),
+		Environment:         siteEnv,
+		Navigation: quicksite.SiteNavigationConfig{
+			MainMenuLocation:        quicksite.DefaultMainMenuLocation,
+			FooterMenuLocation:      quicksite.DefaultFooterMenuLocation,
+			FallbackMenuCode:        setup.SiteNavigationMenuCode,
+			EnableGeneratedFallback: enableGeneratedFallback, // Demo-only fallback; keep disabled unless explicitly enabled.
+		},
+		Views: quicksite.SiteViewConfig{
+			TemplateFS: []fs.FS{
+				client.FS(),
+				webFS,
+			},
+			BaseTemplate:  "site/base",
+			ErrorTemplate: "site/error",
+			ErrorTemplatesByStatus: map[int]string{
+				fiber.StatusNotFound: "site/error/404",
+			},
+			ErrorTemplatesByCode: map[string]string{
+				"translation_missing": "site/error/missing_translation",
+			},
+			AssetBasePath:       cfg.BasePath,
+			ReloadInDevelopment: coreadmin.BoolPtr(true),
+		},
+		Search: quicksite.SiteSearchConfig{
+			Route:       "/search",
+			Endpoint:    "/api/v1/site/search",
+			Collections: []string{"page", "post", "news"},
+		},
+		Features: quicksite.SiteFeatures{
+			EnablePreview:          coreadmin.BoolPtr(true),
+			EnableI18N:             coreadmin.BoolPtr(true),
+			EnableSearch:           coreadmin.BoolPtr(enableSearch),
+			EnableTheme:            coreadmin.BoolPtr(true),
+			EnableMenuDraftPreview: coreadmin.BoolPtr(true),
+		},
+		Theme: quicksite.SiteThemeConfig{
+			Name:    themeName,
+			Variant: themeVariant,
+		},
+	}
+}
+
+func resolveSiteSupportedLocales(defaultLocale string) []string {
+	raw := strings.TrimSpace(os.Getenv("SITE_SUPPORTED_LOCALES"))
+	if raw == "" {
+		return uniqueNonEmptyStrings(defaultLocale, "es", "fr")
+	}
+	parts := splitAndTrimCSV(raw)
+	return uniqueNonEmptyStrings(append([]string{defaultLocale}, parts...)...)
+}
+
+func resolveSiteLocalePrefixMode(raw string) quicksite.LocalePrefixMode {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "always", "always_prefixed":
+		return quicksite.LocalePrefixAlways
+	default:
+		return quicksite.LocalePrefixNonDefault
+	}
 }
 
 // resolveTranslationProfile reads the translation capability profile from environment.

@@ -4,11 +4,10 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
-	"github.com/goliatone/go-admin/pkg/admin"
+	admin "github.com/goliatone/go-admin/admin"
 )
 
 type exampleSiteSearchProvider struct {
@@ -575,12 +574,4 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
-}
-
-func parseIntString(value string, fallback int) int {
-	parsed, err := strconv.Atoi(strings.TrimSpace(value))
-	if err != nil || parsed <= 0 {
-		return fallback
-	}
-	return parsed
 }
