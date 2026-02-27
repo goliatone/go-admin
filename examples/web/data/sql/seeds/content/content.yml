@@ -71,6 +71,9 @@ pages:
     custom:
       featured_image: "/static/media/banner.jpg"
       published_at: "2025-11-12T10:00:00Z"
+      _navigation:
+        site.main: "show"
+        site.footer: "hide"
       meta:
         department: "platform"
         reading_time_minutes: 2
@@ -96,6 +99,9 @@ pages:
     custom:
       featured_image: "/static/media/logo.png"
       published_at: "2025-12-27T10:00:00Z"
+      _navigation:
+        site.main: "hide"
+        site.footer: "show"
       meta:
         owner_team: "customer-success"
         reading_time_minutes: 1
@@ -313,6 +319,9 @@ posts:
       category: "news"
       featured_image: "/static/media/banner.jpg"
       published_at: "2026-01-11T10:00:00Z"
+      _navigation:
+        site.main: "show"
+        site.footer: "show"
       meta:
         reading_time_minutes: 6
         quarter: "Q4-2024"
@@ -370,6 +379,9 @@ posts:
       category: "news"
       featured_image: "/static/media/banner.jpg"
       published_at: "2026-02-24T10:00:00Z"
+      _navigation:
+        site.main: "hide"
+        site.footer: "show"
       meta:
         reading_time_minutes: 5
         release_window: "2025-H1"
@@ -488,3 +500,42 @@ posts:
           featured_image: "/static/media/logo.png"
           tags: ["translation", "queue", "demo", "fixture"]
         body: "This post has an active queue assignment with in_progress status to demonstrate queue panel views and translation assignment lifecycle."
+
+news:
+  - slug: "site-runtime-rollout"
+    title: "Site Runtime Rollout"
+    summary: "Migration to quickstart/site with capability-driven delivery."
+    body: "This news record demonstrates /news collection/detail delivery through canonical delivery capabilities."
+    status: "published"
+    path: "/news/site-runtime-rollout"
+    tags: ["release", "site", "runtime"]
+    custom:
+      author: "platform.team"
+      category: "updates"
+      featured_image: "/static/media/banner.jpg"
+      published_at: "2026-02-20T10:00:00Z"
+      _navigation:
+        site.main: "show"
+        site.footer: "hide"
+      seo:
+        title: "Site Runtime Rollout"
+        description: "Quickstart site runtime rollout updates."
+
+  - slug: "menu-projection-preview"
+    title: "Menu Projection Preview"
+    summary: "Example entry used to show location/profile menu projection behavior."
+    body: "This news entry is contributed into navigation from content defaults and per-entry overrides."
+    status: "published"
+    path: "/news/menu-projection-preview"
+    tags: ["navigation", "menus", "projection"]
+    custom:
+      author: "platform.team"
+      category: "news"
+      featured_image: "/static/media/logo.png"
+      published_at: "2026-02-22T10:00:00Z"
+      _navigation:
+        site.main: "show"
+        site.footer: "show"
+      seo:
+        title: "Menu Projection Preview"
+        description: "How location bindings and view profiles shape rendered menus."

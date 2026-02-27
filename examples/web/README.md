@@ -169,6 +169,38 @@ Environment toggles:
 - **Session**: `GET /admin/api/session` (current authenticated user snapshot)
 - **Permission Diagnostics**: `GET /admin/api/debug/permissions` (current user granted/required/missing permissions + hints)
 
+### Public Site Runtime (`quickstart/site`)
+
+The web example now registers public routes through `quickstart/site.RegisterSiteRoutes` (catch-all delivery, menu projection, locale-aware routing, and optional search module).
+
+Defaults:
+- `LocalePrefixMode=non_default` (`/about`, `/es/about`)
+- locale fallback enabled unless `SITE_ALLOW_LOCALE_FALLBACK=false`
+- generated menu fallback disabled (`SITE_ENABLE_GENERATED_FALLBACK=false`) and intended only as a demo safety net
+- search routes enabled when the injected site search provider is available:
+  - page: `GET /search`
+  - API: `GET /api/v1/site/search`
+  - suggest: `GET /api/v1/site/search/suggest`
+
+Useful env toggles:
+- `SITE_SUPPORTED_LOCALES=en,es,fr`
+- `SITE_LOCALE_PREFIX_MODE=non_default|always`
+- `SITE_ALLOW_LOCALE_FALLBACK=true|false`
+- `SITE_ENABLE_GENERATED_FALLBACK=true|false`
+- `SITE_ENABLE_SEARCH=true|false`
+- `SITE_ENV=dev|staging|prod`
+- `SITE_THEME=<theme-name>`
+- `SITE_THEME_VARIANT=<variant>`
+
+Theme override behavior:
+- In `SITE_ENV=dev|staging`, request query overrides are allowed: `?theme=<name>&variant=<variant>`.
+- In `SITE_ENV=prod`, query overrides are ignored and configured defaults are used.
+
+Search UI state demos:
+- Normal results: `/search?q=go`
+- Zero results: `/search?q=zzzzzz`
+- Error state (simulated): `/search?q=error`
+
 ## Stage 1 quickstart helpers
 
 If you want a minimal Stage 1 admin (login + dashboard only), the quickstart helpers provide a smaller wiring surface:

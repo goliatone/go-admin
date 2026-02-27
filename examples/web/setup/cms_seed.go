@@ -27,6 +27,7 @@ import (
 
 var (
 	cmsSeedNamespace                     = uuid.MustParse("4e7b7b9f-24c0-4d6a-9e2f-6e5a0cc3d7b7")
+	cmsSeedEnvironmentID                 = uuid.MustParse("00000000-0000-0000-0000-000000000001")
 	seedAuthorID                         = uuid.MustParse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
 	pageContentTypeID                    = uuid.NewSHA1(cmsSeedNamespace, []byte("content_type:page"))
 	postContentTypeID                    = uuid.NewSHA1(cmsSeedNamespace, []byte("content_type:post"))
@@ -104,6 +105,7 @@ func translationSeedLocalesForSlug(defaultLocale, slug string) []string {
 type cmsSeedRefs struct {
 	PageContentTypeID uuid.UUID
 	PostContentTypeID uuid.UUID
+	NewsContentTypeID uuid.UUID
 	TemplateID        uuid.UUID
 }
 
@@ -204,6 +206,44 @@ type pageTranslationRow struct {
 	UpdatedAt          time.Time      `bun:"updated_at"`
 }
 
+type menuViewProfileRow struct {
+	bun.BaseModel `bun:"table:menu_view_profiles,alias:mvp"`
+
+	ID             uuid.UUID  `bun:",pk,type:uuid"`
+	Code           string     `bun:"code,notnull"`
+	Name           string     `bun:"name,notnull"`
+	Mode           string     `bun:"mode,notnull"`
+	MaxTopLevel    *int       `bun:"max_top_level"`
+	MaxDepth       *int       `bun:"max_depth"`
+	IncludeItemIDs []string   `bun:"include_item_ids,type:jsonb"`
+	ExcludeItemIDs []string   `bun:"exclude_item_ids,type:jsonb"`
+	Status         string     `bun:"status,notnull"`
+	PublishedAt    *time.Time `bun:"published_at"`
+	EnvironmentID  uuid.UUID  `bun:"environment_id,type:uuid"`
+	CreatedBy      uuid.UUID  `bun:"created_by,notnull,type:uuid"`
+	UpdatedBy      uuid.UUID  `bun:"updated_by,notnull,type:uuid"`
+	CreatedAt      time.Time  `bun:"created_at"`
+	UpdatedAt      time.Time  `bun:"updated_at"`
+}
+
+type menuLocationBindingRow struct {
+	bun.BaseModel `bun:"table:menu_location_bindings,alias:mlb"`
+
+	ID              uuid.UUID  `bun:",pk,type:uuid"`
+	Location        string     `bun:"location,notnull"`
+	MenuCode        string     `bun:"menu_code,notnull"`
+	ViewProfileCode *string    `bun:"view_profile_code"`
+	Locale          *string    `bun:"locale"`
+	Priority        int        `bun:"priority,notnull"`
+	Status          string     `bun:"status,notnull"`
+	PublishedAt     *time.Time `bun:"published_at"`
+	EnvironmentID   uuid.UUID  `bun:"environment_id,type:uuid"`
+	CreatedBy       uuid.UUID  `bun:"created_by,notnull,type:uuid"`
+	UpdatedBy       uuid.UUID  `bun:"updated_by,notnull,type:uuid"`
+	CreatedAt       time.Time  `bun:"created_at"`
+	UpdatedAt       time.Time  `bun:"updated_at"`
+}
+
 type contentSeed struct {
 	Slug    string         `yaml:"slug"`
 	Title   string         `yaml:"title"`
@@ -218,13 +258,14 @@ type contentSeed struct {
 type cmsContentSeedsFile struct {
 	Pages []contentSeed `yaml:"pages"`
 	Posts []contentSeed `yaml:"posts"`
+	News  []contentSeed `yaml:"news"`
 }
 
-func loadCMSContentSeeds() ([]contentSeed, []contentSeed, error) {
+func loadCMSContentSeeds() ([]contentSeed, []contentSeed, []contentSeed, error) {
 	fsys := data.SeedsFS()
 	raw, err := fs.ReadFile(fsys, cmsContentSeedsFilePath)
 	if err != nil {
-		return nil, nil, fmt.Errorf("read cms content seeds %s: %w", cmsContentSeedsFilePath, err)
+		return nil, nil, nil, fmt.Errorf("read cms content seeds %s: %w", cmsContentSeedsFilePath, err)
 	}
 
 	tmpl, err := template.New("cms-content-seeds").
@@ -232,17 +273,17 @@ func loadCMSContentSeeds() ([]contentSeed, []contentSeed, error) {
 		Option("missingkey=zero").
 		Parse(string(raw))
 	if err != nil {
-		return nil, nil, fmt.Errorf("parse cms content seed template: %w", err)
+		return nil, nil, nil, fmt.Errorf("parse cms content seed template: %w", err)
 	}
 
 	var rendered bytes.Buffer
 	if err := tmpl.Execute(&rendered, nil); err != nil {
-		return nil, nil, fmt.Errorf("render cms content seed template: %w", err)
+		return nil, nil, nil, fmt.Errorf("render cms content seed template: %w", err)
 	}
 
 	var payload cmsContentSeedsFile
 	if err := yaml.Unmarshal(rendered.Bytes(), &payload); err != nil {
-		return nil, nil, fmt.Errorf("decode cms content seeds yaml: %w", err)
+		return nil, nil, nil, fmt.Errorf("decode cms content seeds yaml: %w", err)
 	}
 
 	for idx := range payload.Pages {
@@ -257,8 +298,14 @@ func loadCMSContentSeeds() ([]contentSeed, []contentSeed, error) {
 			seed.Custom = map[string]any{}
 		}
 	}
+	for idx := range payload.News {
+		seed := &payload.News[idx]
+		if seed.Custom == nil {
+			seed.Custom = map[string]any{}
+		}
+	}
 
-	return payload.Pages, payload.Posts, nil
+	return payload.Pages, payload.Posts, payload.News, nil
 }
 
 func seedCMSPrereqs(ctx context.Context, db *bun.DB, defaultLocale string) (cmsSeedRefs, error) {
@@ -283,7 +330,7 @@ func seedCMSPrereqs(ctx context.Context, db *bun.DB, defaultLocale string) (cmsS
 	if err != nil {
 		return cmsSeedRefs{}, err
 	}
-	pageID, postID, err := ensureContentTypes(ctx, db)
+	pageID, postID, newsID, err := ensureContentTypes(ctx, db)
 	if err != nil {
 		return cmsSeedRefs{}, err
 	}
@@ -291,6 +338,7 @@ func seedCMSPrereqs(ctx context.Context, db *bun.DB, defaultLocale string) (cmsS
 	return cmsSeedRefs{
 		PageContentTypeID: pageID,
 		PostContentTypeID: postID,
+		NewsContentTypeID: newsID,
 		TemplateID:        templateID,
 	}, nil
 }
@@ -400,7 +448,7 @@ func ensureTemplate(ctx context.Context, db *bun.DB, themeID uuid.UUID) (uuid.UU
 	return seedTemplateID, nil
 }
 
-func ensureContentTypes(ctx context.Context, db *bun.DB) (uuid.UUID, uuid.UUID, error) {
+func ensureContentTypes(ctx context.Context, db *bun.DB) (uuid.UUID, uuid.UUID, uuid.UUID, error) {
 	blockDefs := map[string]any{
 		"hero": map[string]any{
 			"type":     "object",
@@ -606,6 +654,30 @@ func ensureContentTypes(ctx context.Context, db *bun.DB) (uuid.UUID, uuid.UUID, 
 		"panel_preset":      "editorial",
 		"panel_traits":      []string{"editorial"},
 		"policy_entity":     "pages",
+		"delivery": map[string]any{
+			"enabled": true,
+			"kind":    "page",
+			"templates": map[string]any{
+				"detail": "site/page",
+			},
+		},
+		"navigation": map[string]any{
+			"enabled":                 true,
+			"eligible_locations":      []string{"site.main", "site.footer"},
+			"default_locations":       []string{"site.main"},
+			"default_visible":         true,
+			"allow_instance_override": true,
+			"merge_mode":              "append",
+			"label_field":             "title",
+			"url_field":               "path",
+		},
+		"search": map[string]any{
+			"enabled":        true,
+			"collection":     "site_content",
+			"facets":         []string{"content_type", "locale", "tags"},
+			"filters":        []string{"locale", "content_type", "tag"},
+			"published_only": true,
+		},
 	}
 	postCapabilities := map[string]any{
 		"translations":  true,
@@ -617,6 +689,35 @@ func ensureContentTypes(ctx context.Context, db *bun.DB) (uuid.UUID, uuid.UUID, 
 		"panel_preset":  "editorial",
 		"panel_traits":  []string{"editorial"},
 		"policy_entity": "posts",
+		"delivery": map[string]any{
+			"enabled": true,
+			"kind":    "hybrid",
+			"routes": map[string]any{
+				"list":   "/posts",
+				"detail": "/posts/:slug",
+			},
+			"templates": map[string]any{
+				"list":   "site/posts",
+				"detail": "site/post",
+			},
+		},
+		"navigation": map[string]any{
+			"enabled":                 true,
+			"eligible_locations":      []string{"site.main", "site.footer"},
+			"default_locations":       []string{"site.main"},
+			"default_visible":         true,
+			"allow_instance_override": true,
+			"merge_mode":              "append",
+			"label_field":             "title",
+			"url_field":               "path",
+		},
+		"search": map[string]any{
+			"enabled":        true,
+			"collection":     "site_content",
+			"facets":         []string{"content_type", "locale", "category", "tag"},
+			"filters":        []string{"locale", "content_type", "category", "tag"},
+			"published_only": true,
+		},
 	}
 	newsCapabilities := map[string]any{
 		"translations":  true,
@@ -628,6 +729,35 @@ func ensureContentTypes(ctx context.Context, db *bun.DB) (uuid.UUID, uuid.UUID, 
 		"panel_preset":  "editorial",
 		"panel_traits":  []string{"editorial"},
 		"policy_entity": "posts",
+		"delivery": map[string]any{
+			"enabled": true,
+			"kind":    "hybrid",
+			"routes": map[string]any{
+				"list":   "/news",
+				"detail": "/news/:slug",
+			},
+			"templates": map[string]any{
+				"list":   "site/content/list",
+				"detail": "site/content/detail",
+			},
+		},
+		"navigation": map[string]any{
+			"enabled":                 true,
+			"eligible_locations":      []string{"site.main", "site.footer"},
+			"default_locations":       []string{"site.main"},
+			"default_visible":         true,
+			"allow_instance_override": true,
+			"merge_mode":              "append",
+			"label_field":             "title",
+			"url_field":               "path",
+		},
+		"search": map[string]any{
+			"enabled":        true,
+			"collection":     "site_content",
+			"facets":         []string{"content_type", "locale", "category", "tag"},
+			"filters":        []string{"locale", "content_type", "category", "tag"},
+			"published_only": true,
+		},
 	}
 
 	if err := validateSeedContentTypeCapabilities([]seedContentTypeSpec{
@@ -685,21 +815,22 @@ func ensureContentTypes(ctx context.Context, db *bun.DB) (uuid.UUID, uuid.UUID, 
 			RequiredTraits: []string{"editorial"},
 		},
 	}); err != nil {
-		return uuid.Nil, uuid.Nil, err
+		return uuid.Nil, uuid.Nil, uuid.Nil, err
 	}
 
 	pageID, err := ensureContentType(ctx, db, pageContentTypeID, "page", "Pages managed through go-cms", "file-text", pageSchema, pageCapabilities, "active")
 	if err != nil {
-		return uuid.Nil, uuid.Nil, err
+		return uuid.Nil, uuid.Nil, uuid.Nil, err
 	}
 	postID, err := ensureContentType(ctx, db, postContentTypeID, "post", "Posts managed through go-cms", "newspaper", postSchema, postCapabilities, "active")
 	if err != nil {
-		return uuid.Nil, uuid.Nil, err
+		return uuid.Nil, uuid.Nil, uuid.Nil, err
 	}
-	if _, err := ensureContentType(ctx, db, newsContentTypeID, "news", "News managed through go-cms", "newspaper", postSchema, newsCapabilities, "active"); err != nil {
-		return uuid.Nil, uuid.Nil, err
+	newsID, err := ensureContentType(ctx, db, newsContentTypeID, "news", "News managed through go-cms", "newspaper", postSchema, newsCapabilities, "active")
+	if err != nil {
+		return uuid.Nil, uuid.Nil, uuid.Nil, err
 	}
-	return pageID, postID, nil
+	return pageID, postID, newsID, nil
 }
 
 func ensureRequiredSeedContentTypes(ctx context.Context, db *bun.DB, refs cmsSeedRefs) error {
@@ -720,6 +851,12 @@ func ensureRequiredSeedContentTypes(ctx context.Context, db *bun.DB, refs cmsSee
 			ExpectedSlug:  "post",
 			ExpectedPanel: "posts",
 			ExpectedID:    refs.PostContentTypeID,
+		},
+		{
+			Name:          "news",
+			ExpectedSlug:  "news",
+			ExpectedPanel: "news",
+			ExpectedID:    refs.NewsContentTypeID,
 		},
 	}
 
@@ -1038,7 +1175,7 @@ func seedCMSDemoContent(ctx context.Context, db *bun.DB, md interfaces.MarkdownS
 		useContentFallback = false
 	}
 
-	pageSeeds, postSeeds, err := loadCMSContentSeeds()
+	pageSeeds, postSeeds, newsSeeds, err := loadCMSContentSeeds()
 	if err != nil {
 		return err
 	}
@@ -1069,8 +1206,21 @@ func seedCMSDemoContent(ctx context.Context, db *bun.DB, md interfaces.MarkdownS
 		}
 	}
 
+	newsOpts := interfaces.ImportOptions{
+		ContentTypeID:                   refs.NewsContentTypeID,
+		AuthorID:                        seedAuthorID,
+		ContentAllowMissingTranslations: true,
+	}
+	if md != nil {
+		for _, seed := range newsSeeds {
+			if err := importSeed(ctx, md, seed, newsOpts, seedLocale(seed, defaultLocale)); err != nil && !useContentFallback {
+				return err
+			}
+		}
+	}
+
 	if useContentFallback {
-		if err := ensureSeedContent(ctx, contentSvc, refs, defaultLocale, pageSeeds, postSeeds); err != nil {
+		if err := ensureSeedContent(ctx, contentSvc, refs, defaultLocale, pageSeeds, postSeeds, newsSeeds); err != nil {
 			return err
 		}
 	}
@@ -1079,14 +1229,14 @@ func seedCMSDemoContent(ctx context.Context, db *bun.DB, md interfaces.MarkdownS
 		return err
 	}
 
-	if err := backfillTranslations(ctx, db, defaultLocale, pageSeeds, postSeeds); err != nil {
+	if err := backfillTranslations(ctx, db, defaultLocale, pageSeeds, postSeeds, newsSeeds); err != nil {
 		return err
 	}
 
-	return seedSiteMenu(ctx, menuSvc, defaultLocale)
+	return seedSiteMenu(ctx, db, menuSvc, defaultLocale)
 }
 
-func ensureSeedContent(ctx context.Context, contentSvc admin.CMSContentService, refs cmsSeedRefs, defaultLocale string, pageSeeds, postSeeds []contentSeed) error {
+func ensureSeedContent(ctx context.Context, contentSvc admin.CMSContentService, refs cmsSeedRefs, defaultLocale string, pageSeeds, postSeeds, newsSeeds []contentSeed) error {
 	if contentSvc == nil {
 		return nil
 	}
@@ -1128,6 +1278,23 @@ func ensureSeedContent(ctx context.Context, contentSvc admin.CMSContentService, 
 			continue
 		}
 		postSlugs[strings.ToLower(slug)] = struct{}{}
+	}
+
+	existingContent, err := contentSvc.Contents(ctx, "")
+	if err != nil {
+		return err
+	}
+	newsSlugs := map[string]struct{}{}
+	for _, item := range existingContent {
+		typeSlug := strings.ToLower(strings.TrimSpace(primitives.FirstNonEmpty(item.ContentTypeSlug, item.ContentType)))
+		if typeSlug != "news" {
+			continue
+		}
+		slug := strings.ToLower(strings.TrimSpace(item.Slug))
+		if slug == "" {
+			continue
+		}
+		newsSlugs[slug] = struct{}{}
 	}
 
 	for _, seed := range pageSeeds {
@@ -1198,6 +1365,58 @@ func ensureSeedContent(ctx context.Context, contentSvc admin.CMSContentService, 
 		}
 		if _, err := postStore.Create(ctx, record); err != nil {
 			return fmt.Errorf("seed post %s: %w", seed.Slug, err)
+		}
+	}
+
+	for _, seed := range newsSeeds {
+		slug := strings.ToLower(strings.TrimSpace(seed.Slug))
+		if slug == "" {
+			continue
+		}
+		if _, exists := newsSlugs[slug]; exists {
+			continue
+		}
+		seoTitle, seoDescription := seedSEO(seed)
+		newsLocale := seedLocale(seed, locale)
+		record := map[string]any{
+			"title":            seed.Title,
+			"slug":             seed.Slug,
+			"content":          seed.Body,
+			"excerpt":          seed.Summary,
+			"summary":          seed.Summary,
+			"status":           seed.Status,
+			"locale":           newsLocale,
+			"path":             normalizePath(seed.Path, seed.Slug),
+			"meta_title":       seoTitle,
+			"meta_description": seoDescription,
+			"tags":             append([]string{}, seed.Tags...),
+		}
+		mergeSeedCustomFields(record, seed.Custom, "blocks")
+		if seed.Custom != nil {
+			if category := strings.TrimSpace(fmt.Sprint(seed.Custom["category"])); category != "" && category != "<nil>" {
+				record["category"] = category
+			}
+			if blocks, ok := seed.Custom["blocks"]; ok {
+				record["blocks"] = blocks
+			}
+		}
+
+		content := admin.CMSContent{
+			Title:       seed.Title,
+			Slug:        seed.Slug,
+			Locale:      newsLocale,
+			Status:      seed.Status,
+			ContentType: "news",
+			Data:        record,
+		}
+		if seed.Custom != nil {
+			groupID := strings.TrimSpace(fmt.Sprint(seed.Custom["translation_group_id"]))
+			if groupID != "" && groupID != "<nil>" {
+				content.TranslationGroupID = groupID
+			}
+		}
+		if _, err := contentSvc.CreateContent(ctx, content); err != nil {
+			return fmt.Errorf("seed news %s: %w", seed.Slug, err)
 		}
 	}
 
@@ -1334,7 +1553,7 @@ func prtInt(v int) *int {
 	return &o
 }
 
-func seedSiteMenu(ctx context.Context, menuSvc admin.CMSMenuService, defaultLocale string) error {
+func seedSiteMenu(ctx context.Context, db *bun.DB, menuSvc admin.CMSMenuService, defaultLocale string) error {
 	locale := strings.TrimSpace(defaultLocale)
 	if locale == "" {
 		locale = siteMenuLocaleDefault
@@ -1381,27 +1600,156 @@ func seedSiteMenu(ctx context.Context, menuSvc admin.CMSMenuService, defaultLoca
 			Locale:   locale,
 		},
 		{
+			ID:       "news",
+			Label:    "News",
+			Target:   map[string]any{"type": "url", "path": "/news"},
+			Position: prtInt(6),
+			Menu:     SiteNavigationMenuCode,
+			Locale:   locale,
+		},
+		{
 			ID:       "posts.getting-started-go",
 			Label:    "Getting Started with Go",
 			Target:   map[string]any{"type": "url", "path": "/posts/getting-started-go"},
 			ParentID: "posts",
-			Position: prtInt(6),
+			Position: prtInt(7),
+			Menu:     SiteNavigationMenuCode,
+			Locale:   locale,
+		},
+		{
+			ID:       "search",
+			Label:    "Search",
+			Target:   map[string]any{"type": "url", "path": "/search"},
+			Position: prtInt(8),
 			Menu:     SiteNavigationMenuCode,
 			Locale:   locale,
 		},
 	}
 
-	return quickstart.SeedNavigation(ctx, quickstart.SeedNavigationOptions{
+	if err := quickstart.SeedNavigation(ctx, quickstart.SeedNavigationOptions{
 		MenuSvc:           menuSvc,
 		MenuCode:          SiteNavigationMenuCode,
 		Items:             items,
 		Locale:            locale,
 		SkipLogger:        true,
 		AutoCreateParents: true,
-	})
+	}); err != nil {
+		return err
+	}
+	if db == nil {
+		return nil
+	}
+	return seedSiteMenuBindingsAndProfiles(ctx, db)
 }
 
-func backfillTranslations(ctx context.Context, db *bun.DB, locale string, pageSeeds, postSeeds []contentSeed) error {
+func seedSiteMenuBindingsAndProfiles(ctx context.Context, db *bun.DB) error {
+	now := time.Now().UTC()
+	publishedAt := now
+
+	profiles := []menuViewProfileRow{
+		{
+			ID:            uuid.NewSHA1(cmsSeedNamespace, []byte("menu_view_profile:full")),
+			Code:          "full",
+			Name:          "Full",
+			Mode:          "full",
+			Status:        "published",
+			PublishedAt:   &publishedAt,
+			EnvironmentID: cmsSeedEnvironmentID,
+			CreatedBy:     seedAuthorID,
+			UpdatedBy:     seedAuthorID,
+			CreatedAt:     now,
+			UpdatedAt:     now,
+		},
+		{
+			ID:            uuid.NewSHA1(cmsSeedNamespace, []byte("menu_view_profile:footer_top_5")),
+			Code:          "footer_top_5",
+			Name:          "Footer Top 5",
+			Mode:          "top_level_limit",
+			MaxTopLevel:   prtInt(5),
+			Status:        "published",
+			PublishedAt:   &publishedAt,
+			EnvironmentID: cmsSeedEnvironmentID,
+			CreatedBy:     seedAuthorID,
+			UpdatedBy:     seedAuthorID,
+			CreatedAt:     now,
+			UpdatedAt:     now,
+		},
+	}
+	for _, profile := range profiles {
+		profile := profile
+		if _, err := db.NewInsert().
+			Model(&profile).
+			On("CONFLICT (environment_id, code) DO UPDATE").
+			Set("name = EXCLUDED.name").
+			Set("mode = EXCLUDED.mode").
+			Set("max_top_level = EXCLUDED.max_top_level").
+			Set("max_depth = EXCLUDED.max_depth").
+			Set("include_item_ids = EXCLUDED.include_item_ids").
+			Set("exclude_item_ids = EXCLUDED.exclude_item_ids").
+			Set("status = EXCLUDED.status").
+			Set("published_at = EXCLUDED.published_at").
+			Set("updated_by = EXCLUDED.updated_by").
+			Set("updated_at = EXCLUDED.updated_at").
+			Exec(ctx); err != nil {
+			return fmt.Errorf("seed menu view profile %s: %w", profile.Code, err)
+		}
+	}
+
+	full := "full"
+	footer := "footer_top_5"
+	bindings := []menuLocationBindingRow{
+		{
+			ID:              uuid.NewSHA1(cmsSeedNamespace, []byte("menu_binding:site.main")),
+			Location:        "site.main",
+			MenuCode:        SiteNavigationMenuCode,
+			ViewProfileCode: &full,
+			Priority:        100,
+			Status:          "published",
+			PublishedAt:     &publishedAt,
+			EnvironmentID:   cmsSeedEnvironmentID,
+			CreatedBy:       seedAuthorID,
+			UpdatedBy:       seedAuthorID,
+			CreatedAt:       now,
+			UpdatedAt:       now,
+		},
+		{
+			ID:              uuid.NewSHA1(cmsSeedNamespace, []byte("menu_binding:site.footer")),
+			Location:        "site.footer",
+			MenuCode:        SiteNavigationMenuCode,
+			ViewProfileCode: &footer,
+			Priority:        90,
+			Status:          "published",
+			PublishedAt:     &publishedAt,
+			EnvironmentID:   cmsSeedEnvironmentID,
+			CreatedBy:       seedAuthorID,
+			UpdatedBy:       seedAuthorID,
+			CreatedAt:       now,
+			UpdatedAt:       now,
+		},
+	}
+	for _, binding := range bindings {
+		binding := binding
+		if _, err := db.NewInsert().
+			Model(&binding).
+			On("CONFLICT (id) DO UPDATE").
+			Set("location = EXCLUDED.location").
+			Set("menu_code = EXCLUDED.menu_code").
+			Set("view_profile_code = EXCLUDED.view_profile_code").
+			Set("locale = EXCLUDED.locale").
+			Set("priority = EXCLUDED.priority").
+			Set("status = EXCLUDED.status").
+			Set("published_at = EXCLUDED.published_at").
+			Set("environment_id = EXCLUDED.environment_id").
+			Set("updated_by = EXCLUDED.updated_by").
+			Set("updated_at = EXCLUDED.updated_at").
+			Exec(ctx); err != nil {
+			return fmt.Errorf("seed menu location binding %s: %w", binding.Location, err)
+		}
+	}
+	return nil
+}
+
+func backfillTranslations(ctx context.Context, db *bun.DB, locale string, pageSeeds, postSeeds, newsSeeds []contentSeed) error {
 	if db == nil {
 		return fmt.Errorf("db is nil")
 	}
@@ -1424,6 +1772,7 @@ func backfillTranslations(ctx context.Context, db *bun.DB, locale string, pageSe
 
 	seeds := append([]contentSeed{}, pageSeeds...)
 	seeds = append(seeds, postSeeds...)
+	seeds = append(seeds, newsSeeds...)
 	now := time.Now().UTC()
 
 	for _, seed := range seeds {
