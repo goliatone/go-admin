@@ -21,6 +21,7 @@ type ListOptions struct {
 	SortDesc   bool
 	Filters    map[string]any
 	Predicates []ListPredicate
+	Fields     []string
 	Search     string
 }
 
@@ -108,6 +109,7 @@ func buildListOptions(cfg PaginationContractConfig, page, perPage int) ListOptio
 		SortDesc:   cfg.SortDesc,
 		Filters:    cloneMap(cfg.Filters),
 		Predicates: clonePredicates(cfg.Predicates),
+		Fields:     nil,
 		Search:     cfg.Search,
 	}
 }
