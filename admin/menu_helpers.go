@@ -25,18 +25,7 @@ func hasAnyKey(set map[string]bool, keys []string) bool {
 	return helpers.HasAnyKey(set, keys)
 }
 
-// ensureMenuUUIDString returns a UUID string for an ID-like value; if already a UUID it is returned as-is.
-// When not a valid UUID, a deterministic UUID derived from the raw string is returned.
-func ensureMenuUUIDString(raw string) string {
-	return helpers.EnsureMenuUUID(raw)
-}
-
-// EnsureMenuUUID maps an arbitrary string to a UUID string, preserving valid UUID inputs.
-func EnsureMenuUUID(raw string) string {
-	return ensureMenuUUIDString(raw)
-}
-
-// mapMenuIDs applies deterministic UUID mapping to ID and ParentID when they are not valid UUIDs.
+// mapMenuIDs normalizes ID and ParentID values to canonical menu item paths.
 func mapMenuIDs(item MenuItem) MenuItem {
 	return helpers.MapMenuIDs(item)
 }

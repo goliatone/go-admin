@@ -77,6 +77,8 @@ type Config struct {
 	AuthConfig *AuthConfig
 
 	NavMenuCode string
+	NavDebug    bool
+	NavDebugLog bool
 
 	FeatureFlagKeys    []string
 	FeatureCatalogPath string

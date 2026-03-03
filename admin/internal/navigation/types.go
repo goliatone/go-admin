@@ -191,14 +191,7 @@ func canonicalMenuItemPath(menuCode, raw string) string {
 	return path
 }
 
-// EnsureMenuUUID is retained for compatibility but no longer maps strings into UUIDs.
-// Menu identity is string-first and should use menu codes + item paths.
-func EnsureMenuUUID(raw string) string {
-	return strings.TrimSpace(raw)
-}
-
 // MapMenuIDs normalizes ID and ParentID to menu item paths.
-// Deprecated: go-admin no longer maps menu IDs to UUIDs.
 func MapMenuIDs(item MenuItem) MenuItem {
 	menuCode := canonicalMenuCode(item.Menu)
 	if menuCode == "" {
