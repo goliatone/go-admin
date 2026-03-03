@@ -7,27 +7,12 @@ import (
 )
 
 func TestDoctorDebugEnabledFromEnv(t *testing.T) {
-	t.Run("defaults to development flag when unset", func(t *testing.T) {
-		t.Setenv("ADMIN_DEBUG_DOCTOR", "")
-		if !DoctorDebugEnabledFromEnv(true) {
-			t.Fatalf("expected doctor enabled in development by default")
-		}
-		if DoctorDebugEnabledFromEnv(false) {
-			t.Fatalf("expected doctor disabled outside development by default")
-		}
-	})
-
-	t.Run("env overrides development default", func(t *testing.T) {
-		t.Setenv("ADMIN_DEBUG_DOCTOR", "false")
-		if DoctorDebugEnabledFromEnv(true) {
-			t.Fatalf("expected env override to disable doctor panel")
-		}
-
-		t.Setenv("ADMIN_DEBUG_DOCTOR", "true")
-		if !DoctorDebugEnabledFromEnv(false) {
-			t.Fatalf("expected env override to enable doctor panel")
-		}
-	})
+	if !DoctorDebugEnabledFromEnv(true) {
+		t.Fatalf("expected development mode to enable doctor panel")
+	}
+	if DoctorDebugEnabledFromEnv(false) {
+		t.Fatalf("expected non-development mode to disable doctor panel")
+	}
 }
 
 func TestConfigureDebugPanelsDoctorDevDefault(t *testing.T) {

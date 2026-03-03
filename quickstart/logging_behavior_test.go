@@ -51,8 +51,6 @@ func (l *captureQuickstartLogger) count(level, msg string) int {
 }
 
 func TestNewAdminLogsAdapterFailuresViaDependencyLogger(t *testing.T) {
-	t.Setenv("USE_PERSISTENT_CMS", "true")
-
 	logger := &captureQuickstartLogger{}
 	cfg := NewAdminConfig("", "", "")
 	hooks := AdapterHooks{
@@ -62,9 +60,12 @@ func TestNewAdminLogsAdapterFailuresViaDependencyLogger(t *testing.T) {
 		},
 	}
 
-	_, _, err := NewAdmin(cfg, hooks, WithAdminDependencies(admin.Dependencies{
-		Logger: logger,
-	}))
+	_, _, err := NewAdmin(
+		cfg,
+		hooks,
+		WithAdapterFlags(AdapterFlags{UsePersistentCMS: true}),
+		WithAdminDependencies(admin.Dependencies{Logger: logger}),
+	)
 	if err == nil {
 		t.Fatalf("expected persistent cms setup error")
 	}
@@ -104,9 +105,10 @@ func TestNewModuleRegistrarLogsDisabledFeaturesViaAdminLogger(t *testing.T) {
 }
 
 func TestBuildNavItemsLogsDebugPayloadViaAdminLogger(t *testing.T) {
-	t.Setenv("NAV_DEBUG_LOG", "true")
-
-	cfg := admin.Config{DefaultLocale: "en"}
+	cfg := admin.Config{
+		DefaultLocale: "en",
+		Debug:         admin.DebugConfig{Enabled: true},
+	}
 	logger := &captureQuickstartLogger{}
 	adm, err := admin.New(cfg, admin.Dependencies{Logger: logger})
 	if err != nil {

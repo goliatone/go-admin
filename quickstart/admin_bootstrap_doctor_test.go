@@ -9,6 +9,8 @@ import (
 )
 
 func TestWithDoctorChecksRegistersCustomChecks(t *testing.T) {
+	resetCommandRegistryForTest(t)
+
 	cfg := NewAdminConfig("/admin", "Admin", "en")
 	custom := admin.DoctorCheck{
 		ID:    "app.custom.health",
@@ -29,6 +31,7 @@ func TestWithDoctorChecksRegistersCustomChecks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewAdmin error: %v", err)
 	}
+	t.Cleanup(adm.Commands().Reset)
 
 	ids := doctorCheckIDs(adm.DoctorChecks())
 	if !ids["quickstart.adapters"] || !ids["quickstart.routes"] || !ids["quickstart.blocks.seeded_defaults"] || !ids["quickstart.translation"] {

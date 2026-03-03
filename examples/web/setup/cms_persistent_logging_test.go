@@ -60,14 +60,22 @@ func TestShouldEnableCMSRuntimeLogsWith(t *testing.T) {
 	}
 }
 
-func TestEnvBool(t *testing.T) {
-	t.Setenv("GO_ADMIN_CMS_LOGS", "true")
-	if got, ok := envBool("GO_ADMIN_CMS_LOGS"); !ok || !got {
-		t.Fatalf("expected true env override, got (%v, %v)", got, ok)
+func TestShouldEnableCMSRuntimeLogsUsesRuntimeOverride(t *testing.T) {
+	original := runtimeConfig()
+	t.Cleanup(func() { ConfigureRuntime(original) })
+
+	enabled := true
+	override := original
+	override.CMSRuntimeLogs = &enabled
+	ConfigureRuntime(override)
+	if got := shouldEnableCMSRuntimeLogs(); !got {
+		t.Fatalf("expected runtime override to enable logs")
 	}
 
-	t.Setenv("GO_ADMIN_CMS_LOGS", "definitely-not-bool")
-	if got, ok := envBool("GO_ADMIN_CMS_LOGS"); ok {
-		t.Fatalf("expected invalid bool env to be ignored, got (%v, %v)", got, ok)
+	disabled := false
+	override.CMSRuntimeLogs = &disabled
+	ConfigureRuntime(override)
+	if got := shouldEnableCMSRuntimeLogs(); got {
+		t.Fatalf("expected runtime override to disable logs")
 	}
 }

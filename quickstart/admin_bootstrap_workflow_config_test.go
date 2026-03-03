@@ -12,6 +12,8 @@ import (
 )
 
 func TestAdminBootstrapLoadsWorkflowConfigAndRegistersDefinitions(t *testing.T) {
+	resetCommandRegistryForTest(t)
+
 	cfg := NewAdminConfig("/admin", "Test", "en")
 	workflowCfg := WorkflowConfig{
 		SchemaVersion: 1,
@@ -43,6 +45,7 @@ func TestAdminBootstrapLoadsWorkflowConfigAndRegistersDefinitions(t *testing.T) 
 	if err != nil {
 		t.Fatalf("new admin with workflow config: %v", err)
 	}
+	t.Cleanup(adm.Commands().Reset)
 
 	factory := admin.NewDynamicPanelFactory(adm)
 	defaultPanel, err := factory.CreatePanelFromContentType(context.Background(), &admin.CMSContentType{
@@ -89,6 +92,8 @@ func TestAdminBootstrapLoadsWorkflowConfigAndRegistersDefinitions(t *testing.T) 
 }
 
 func TestAdminBootstrapWorkflowConfigFileOverridesInlineDefaults(t *testing.T) {
+	resetCommandRegistryForTest(t)
+
 	cfg := NewAdminConfig("/admin", "Test", "en")
 	inline := WorkflowConfig{
 		SchemaVersion: 1,
@@ -135,6 +140,7 @@ workflows:
 	if err != nil {
 		t.Fatalf("new admin with workflow config file: %v", err)
 	}
+	t.Cleanup(adm.Commands().Reset)
 
 	factory := admin.NewDynamicPanelFactory(adm)
 	panel, err := factory.CreatePanelFromContentType(context.Background(), &admin.CMSContentType{
@@ -158,6 +164,8 @@ workflows:
 }
 
 func TestAdminBootstrapFailsFastOnUnknownWorkflowTraitReference(t *testing.T) {
+	resetCommandRegistryForTest(t)
+
 	cfg := NewAdminConfig("/admin", "Test", "en")
 	_, _, err := NewAdmin(
 		cfg,
@@ -189,6 +197,8 @@ func TestAdminBootstrapFailsFastOnUnknownWorkflowTraitReference(t *testing.T) {
 }
 
 func TestAdminBootstrapFailsFastWhenWorkflowEngineCannotRegisterDefinitions(t *testing.T) {
+	resetCommandRegistryForTest(t)
+
 	cfg := NewAdminConfig("/admin", "Test", "en")
 	_, _, err := NewAdmin(
 		cfg,
@@ -220,10 +230,12 @@ func TestAdminBootstrapFailsFastWhenWorkflowEngineCannotRegisterDefinitions(t *t
 }
 
 func TestAdminBootstrapSeedsWorkflowRuntimeFromCanonicalConfig(t *testing.T) {
+	resetCommandRegistryForTest(t)
+
 	cfg := NewAdminConfig("/admin", "Test", "en")
 	runtime := admin.NewWorkflowRuntimeService(admin.NewInMemoryWorkflowDefinitionRepository(), admin.NewInMemoryWorkflowBindingRepository())
 
-	_, _, err := NewAdmin(
+	adm, _, err := NewAdmin(
 		cfg,
 		AdapterHooks{},
 		WithWorkflowRuntime(runtime),
@@ -251,6 +263,7 @@ func TestAdminBootstrapSeedsWorkflowRuntimeFromCanonicalConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new admin with workflow runtime: %v", err)
 	}
+	t.Cleanup(adm.Commands().Reset)
 
 	workflows, total, err := runtime.ListWorkflows(context.Background(), admin.PersistedWorkflowListOptions{})
 	if err != nil {

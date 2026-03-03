@@ -57,9 +57,7 @@ func (stubUserRepo) Search(ctx context.Context, query string, limit int) ([]admi
 }
 
 func TestNewAdminAdapterHooksSuccess(t *testing.T) {
-	t.Setenv("USE_PERSISTENT_CMS", "true")
-	t.Setenv("USE_GO_OPTIONS", "true")
-	t.Setenv("USE_GO_USERS_ACTIVITY", "true")
+	resetCommandRegistryForTest(t)
 
 	cfg := NewAdminConfig("", "", "")
 	cmsContainer := admin.NewNoopCMSContainer()
@@ -89,13 +87,18 @@ func TestNewAdminAdapterHooksSuccess(t *testing.T) {
 		},
 	}
 
-	adm, result, err := NewAdmin(cfg, hooks)
+	adm, result, err := NewAdmin(cfg, hooks, WithAdapterFlags(AdapterFlags{
+		UsePersistentCMS:   true,
+		UseGoOptions:       true,
+		UseGoUsersActivity: true,
+	}))
 	if err != nil {
 		t.Fatalf("NewAdmin error: %v", err)
 	}
 	if adm == nil {
 		t.Fatalf("expected admin instance")
 	}
+	t.Cleanup(adm.Commands().Reset)
 	if !persistentCalled || !optionsCalled || !activityCalled {
 		t.Fatalf("expected hooks called, got persistent=%v options=%v activity=%v", persistentCalled, optionsCalled, activityCalled)
 	}
@@ -120,6 +123,8 @@ func TestNewAdminAdapterHooksSuccess(t *testing.T) {
 }
 
 func TestNewAdminInvalidDependencies(t *testing.T) {
+	resetCommandRegistryForTest(t)
+
 	cfg := NewAdminConfig("", "", "")
 	deps := admin.Dependencies{
 		UserRepository: stubUserRepo{},
@@ -135,8 +140,7 @@ func TestNewAdminInvalidDependencies(t *testing.T) {
 }
 
 func TestNewAdminAdapterHookErrors(t *testing.T) {
-	t.Setenv("USE_PERSISTENT_CMS", "true")
-	t.Setenv("USE_GO_OPTIONS", "true")
+	resetCommandRegistryForTest(t)
 
 	cfg := NewAdminConfig("", "", "")
 	hooks := AdapterHooks{
@@ -150,7 +154,10 @@ func TestNewAdminAdapterHookErrors(t *testing.T) {
 		},
 	}
 
-	_, result, err := NewAdmin(cfg, hooks)
+	_, result, err := NewAdmin(cfg, hooks, WithAdapterFlags(AdapterFlags{
+		UsePersistentCMS: true,
+		UseGoOptions:     true,
+	}))
 	if err == nil {
 		t.Fatalf("expected persistent cms setup error")
 	}
@@ -172,10 +179,12 @@ func TestNewAdminAdapterHookErrors(t *testing.T) {
 }
 
 func TestNewAdminPersistentCMSRequestedWithoutHookFails(t *testing.T) {
-	t.Setenv("USE_PERSISTENT_CMS", "true")
+	resetCommandRegistryForTest(t)
 
 	cfg := NewAdminConfig("", "", "")
-	_, result, err := NewAdmin(cfg, AdapterHooks{})
+	_, result, err := NewAdmin(cfg, AdapterHooks{}, WithAdapterFlags(AdapterFlags{
+		UsePersistentCMS: true,
+	}))
 	if err == nil {
 		t.Fatalf("expected persistent cms setup error when hook is missing")
 	}
@@ -191,7 +200,7 @@ func TestNewAdminPersistentCMSRequestedWithoutHookFails(t *testing.T) {
 }
 
 func TestNewAdminPersistentCMSNilContainerFails(t *testing.T) {
-	t.Setenv("USE_PERSISTENT_CMS", "true")
+	resetCommandRegistryForTest(t)
 
 	cfg := NewAdminConfig("", "", "")
 	hooks := AdapterHooks{
@@ -201,7 +210,9 @@ func TestNewAdminPersistentCMSNilContainerFails(t *testing.T) {
 		},
 	}
 
-	_, result, err := NewAdmin(cfg, hooks)
+	_, result, err := NewAdmin(cfg, hooks, WithAdapterFlags(AdapterFlags{
+		UsePersistentCMS: true,
+	}))
 	if err == nil {
 		t.Fatalf("expected persistent cms setup error when hook returns nil container")
 	}
@@ -217,9 +228,7 @@ func TestNewAdminPersistentCMSNilContainerFails(t *testing.T) {
 }
 
 func TestNewAdminAdapterFlagsOverrideEnv(t *testing.T) {
-	t.Setenv("USE_PERSISTENT_CMS", "true")
-	t.Setenv("USE_GO_OPTIONS", "true")
-	t.Setenv("USE_GO_USERS_ACTIVITY", "true")
+	resetCommandRegistryForTest(t)
 
 	cfg := NewAdminConfig("", "", "")
 	activitySink := &stubActivitySink{}
@@ -245,10 +254,11 @@ func TestNewAdminAdapterFlagsOverrideEnv(t *testing.T) {
 	}
 
 	flags := AdapterFlags{}
-	_, result, err := NewAdmin(cfg, hooks, WithAdapterFlags(flags))
+	adm, result, err := NewAdmin(cfg, hooks, WithAdapterFlags(flags))
 	if err != nil {
 		t.Fatalf("NewAdmin error: %v", err)
 	}
+	t.Cleanup(adm.Commands().Reset)
 	if persistentCalled || optionsCalled || activityCalled {
 		t.Fatalf("expected hooks skipped, got persistent=%v options=%v activity=%v", persistentCalled, optionsCalled, activityCalled)
 	}
@@ -261,6 +271,8 @@ func TestNewAdminAdapterFlagsOverrideEnv(t *testing.T) {
 }
 
 func TestNewAdminAdapterFlagsSupplied(t *testing.T) {
+	resetCommandRegistryForTest(t)
+
 	cfg := NewAdminConfig("", "", "")
 	cmsContainer := admin.NewNoopCMSContainer()
 	activitySink := &stubActivitySink{}
@@ -292,10 +304,11 @@ func TestNewAdminAdapterFlagsSupplied(t *testing.T) {
 		UseGoOptions:       true,
 		UseGoUsersActivity: true,
 	}
-	_, result, err := NewAdmin(cfg, hooks, WithAdapterFlags(flags))
+	adm, result, err := NewAdmin(cfg, hooks, WithAdapterFlags(flags))
 	if err != nil {
 		t.Fatalf("NewAdmin error: %v", err)
 	}
+	t.Cleanup(adm.Commands().Reset)
 	if !persistentCalled || !optionsCalled || !activityCalled {
 		t.Fatalf("expected hooks called, got persistent=%v options=%v activity=%v", persistentCalled, optionsCalled, activityCalled)
 	}
@@ -314,11 +327,14 @@ func TestNewAdminAdapterFlagsSupplied(t *testing.T) {
 }
 
 func TestNewAdminWithStartupPolicyWarnAllowsModuleStartupValidationErrors(t *testing.T) {
+	resetCommandRegistryForTest(t)
+
 	cfg := NewAdminConfig("", "", "")
 	adm, _, err := NewAdmin(cfg, AdapterHooks{}, WithStartupPolicy(StartupPolicyWarn))
 	if err != nil {
 		t.Fatalf("NewAdmin error: %v", err)
 	}
+	t.Cleanup(adm.Commands().Reset)
 	if err := adm.RegisterModule(&quickstartStartupValidatorModule{
 		id:          "quickstart.startup.warn",
 		validateErr: errors.New("startup validation warning"),
@@ -332,11 +348,14 @@ func TestNewAdminWithStartupPolicyWarnAllowsModuleStartupValidationErrors(t *tes
 }
 
 func TestNewAdminWithStartupPolicyEnforceFailsOnModuleStartupValidationErrors(t *testing.T) {
+	resetCommandRegistryForTest(t)
+
 	cfg := NewAdminConfig("", "", "")
 	adm, _, err := NewAdmin(cfg, AdapterHooks{}, WithStartupPolicy(StartupPolicyEnforce))
 	if err != nil {
 		t.Fatalf("NewAdmin error: %v", err)
 	}
+	t.Cleanup(adm.Commands().Reset)
 	if err := adm.RegisterModule(&quickstartStartupValidatorModule{
 		id:          "quickstart.startup.enforce",
 		validateErr: errors.New("startup validation failed"),

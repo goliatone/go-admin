@@ -111,29 +111,51 @@ func TestWithDebugConfigSetsFeatureDefaults(t *testing.T) {
 }
 
 func TestWithDebugFromEnvMapping(t *testing.T) {
-	t.Setenv("ADMIN_DEBUG", "true")
-	t.Setenv("ADMIN_DEBUG_ALLOWED_IPS", "1.1.1.1, 2.2.2.2")
-	t.Setenv("ADMIN_DEBUG_ALLOWED_ORIGINS", "https://one.example, https://two.example")
-	t.Setenv("ADMIN_DEBUG_APP_ID", "app-1")
-	t.Setenv("ADMIN_DEBUG_APP_NAME", "Admin Service")
-	t.Setenv("ADMIN_DEBUG_ENVIRONMENT", "staging")
-	t.Setenv("ADMIN_DEBUG_REMOTE", "true")
-	t.Setenv("ADMIN_DEBUG_TOKEN_TTL", "15m")
-	t.Setenv("ADMIN_DEBUG_SESSION_TRACKING", "true")
-	t.Setenv("ADMIN_DEBUG_SESSION_GLOBAL_PANELS", "false")
-	t.Setenv("ADMIN_DEBUG_SESSION_COOKIE", "debug_session_cookie")
-	t.Setenv("ADMIN_DEBUG_SESSION_EXPIRY", "45m")
-	t.Setenv("ADMIN_DEBUG_SQL", "false")
-	t.Setenv("ADMIN_DEBUG_LOGS", "true")
-	t.Setenv("ADMIN_DEBUG_JS_ERRORS", "false")
-	t.Setenv("ADMIN_DEBUG_REQUEST_BODY", "true")
-	t.Setenv("ADMIN_DEBUG_TOOLBAR", "false")
-	t.Setenv("ADMIN_DEBUG_TOOLBAR_PANELS", "requests,sql")
-	t.Setenv("ADMIN_DEBUG_LAYOUT", "admin")
-	t.Setenv("ADMIN_DEBUG_REPL", "true")
-	t.Setenv("ADMIN_DEBUG_REPL_READONLY", "false")
-
 	cfg := NewAdminConfig("/admin", "Admin", "en", WithDebugFromEnv())
+
+	if cfg.Debug.Enabled {
+		t.Fatalf("expected compatibility env option to be a no-op")
+	}
+}
+
+func TestWithDebugOptionsMapping(t *testing.T) {
+	tokenTTL := 15 * time.Minute
+	sessionTTL := 45 * time.Minute
+	enabled := true
+	remoteEnabled := true
+	sessionTracking := true
+	sessionIncludeGlobalPanels := false
+	captureSQL := false
+	captureLogs := true
+	captureJSErrors := false
+	captureRequestBody := true
+	toolbarMode := false
+	replEnabled := true
+	replReadOnly := false
+
+	cfg := NewAdminConfig("/admin", "Admin", "en", WithDebugOptions(DebugOption{
+		Enabled:                    &enabled,
+		AllowedIPs:                 []string{"1.1.1.1", "2.2.2.2"},
+		AllowedOrigins:             []string{"https://one.example", "https://two.example"},
+		AppID:                      "app-1",
+		AppName:                    "Admin Service",
+		Environment:                "staging",
+		RemoteEnabled:              &remoteEnabled,
+		TokenTTL:                   &tokenTTL,
+		SessionTracking:            &sessionTracking,
+		SessionIncludeGlobalPanels: &sessionIncludeGlobalPanels,
+		SessionCookieName:          "debug_session_cookie",
+		SessionInactivityExpiry:    &sessionTTL,
+		CaptureSQL:                 &captureSQL,
+		CaptureLogs:                &captureLogs,
+		CaptureJSErrors:            &captureJSErrors,
+		CaptureRequestBody:         &captureRequestBody,
+		ToolbarMode:                &toolbarMode,
+		ToolbarPanels:              []string{"requests", "sql"},
+		LayoutMode:                 "admin",
+		ReplEnabled:                &replEnabled,
+		ReplReadOnly:               &replReadOnly,
+	}))
 
 	if !cfg.Debug.Enabled {
 		t.Fatalf("expected debug enabled")

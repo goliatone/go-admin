@@ -8,6 +8,8 @@ import (
 )
 
 func TestNewAdminConfiguresCreateTranslationActionLocalesFromPolicy(t *testing.T) {
+	resetCommandRegistryForTest(t)
+
 	cfg := NewAdminConfig("/admin", "Test", "en")
 	policyCfg := TranslationPolicyConfig{
 		RequiredFieldsStrategy: admin.RequiredFieldsValidationError,
@@ -30,6 +32,7 @@ func TestNewAdminConfiguresCreateTranslationActionLocalesFromPolicy(t *testing.T
 	if adm == nil {
 		t.Fatal("expected admin instance")
 	}
+	t.Cleanup(adm.Commands().Reset)
 
 	workflow := admin.NewFSMWorkflowEngine()
 	admin.RegisterDefaultCMSWorkflows(workflow)

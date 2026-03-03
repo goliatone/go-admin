@@ -2,7 +2,6 @@ package setup
 
 import (
 	"context"
-	"os"
 	"testing"
 	"time"
 
@@ -145,7 +144,6 @@ func TestNewRolePermissionResolverCachesByContextKey(t *testing.T) {
 }
 
 func TestNormalizeAuthOptionsRespectsExplicitZeroTTL(t *testing.T) {
-	t.Setenv("ADMIN_PERMISSION_RESOLVER_CACHE_TTL", "45s")
 	options := authOptions{
 		permissionResolverCacheTTL: 0,
 		permissionResolverCacheSet: true,
@@ -156,19 +154,26 @@ func TestNormalizeAuthOptionsRespectsExplicitZeroTTL(t *testing.T) {
 	}
 }
 
-func TestNormalizeAuthOptionsLoadsZeroTTLFromEnv(t *testing.T) {
-	t.Setenv("ADMIN_PERMISSION_RESOLVER_CACHE_TTL", "0s")
+func TestNormalizeAuthOptionsLoadsTTLFromRuntimeConfig(t *testing.T) {
+	original := runtimeConfig()
+	t.Cleanup(func() { ConfigureRuntime(original) })
+	override := original
+	override.PermissionResolverCacheTTL = 45 * time.Second
+	ConfigureRuntime(override)
+
 	normalized := normalizeAuthOptions(authOptions{})
-	if normalized.permissionResolverCacheTTL != 0 {
-		t.Fatalf("expected env ttl of 0s to disable cache, got %s", normalized.permissionResolverCacheTTL)
+	if normalized.permissionResolverCacheTTL != 45*time.Second {
+		t.Fatalf("expected runtime ttl of 45s, got %s", normalized.permissionResolverCacheTTL)
 	}
 }
 
-func TestNormalizeAuthOptionsFallsBackWhenEnvInvalid(t *testing.T) {
-	if err := os.Setenv("ADMIN_PERMISSION_RESOLVER_CACHE_TTL", "not-a-duration"); err != nil {
-		t.Fatalf("set env: %v", err)
-	}
-	t.Cleanup(func() { _ = os.Unsetenv("ADMIN_PERMISSION_RESOLVER_CACHE_TTL") })
+func TestNormalizeAuthOptionsFallsBackWhenRuntimeTTLInvalid(t *testing.T) {
+	original := runtimeConfig()
+	t.Cleanup(func() { ConfigureRuntime(original) })
+	override := original
+	override.PermissionResolverCacheTTL = -1
+	ConfigureRuntime(override)
+
 	normalized := normalizeAuthOptions(authOptions{})
 	if normalized.permissionResolverCacheTTL != 30*time.Second {
 		t.Fatalf("expected fallback ttl, got %s", normalized.permissionResolverCacheTTL)

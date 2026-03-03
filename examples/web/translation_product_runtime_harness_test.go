@@ -14,6 +14,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	coreadmin "github.com/goliatone/go-admin/admin"
+	appcfg "github.com/goliatone/go-admin/examples/web/config"
 	"github.com/goliatone/go-admin/examples/web/setup"
 	"github.com/goliatone/go-admin/quickstart"
 	router "github.com/goliatone/go-router"
@@ -21,13 +22,6 @@ import (
 )
 
 func TestDevServeEquivalentTranslationRuntimeContracts(t *testing.T) {
-	t.Setenv("ADMIN_TRANSLATION_PROFILE", "full")
-	t.Setenv("ADMIN_TRANSLATION_EXCHANGE", "false")
-	t.Setenv("USE_PERSISTENT_CMS", "true")
-	t.Setenv("ADMIN_SEEDS", "true")
-	t.Setenv("ADMIN_ASSETS_DEBUG", "1")
-	t.Setenv("ADMIN_ASSETS_DIR", filepath.Join("pkg", "client", "assets"))
-
 	ctx := context.Background()
 	dsn := fmt.Sprintf("file:%s?cache=shared&_fk=1", filepath.Join(t.TempDir(), strings.ToLower(t.Name())+".db"))
 
@@ -54,7 +48,16 @@ func TestDevServeEquivalentTranslationRuntimeContracts(t *testing.T) {
 			UseGoUsersActivity: false,
 		}),
 		quickstart.WithTranslationProductConfig(
-			buildTranslationProductConfig(resolveTranslationProfile(), exchangeStore, queueRepo),
+			buildTranslationProductConfig(
+				resolveTranslationProfile("full"),
+				exchangeStore,
+				queueRepo,
+				appcfg.TranslationConfig{
+					Profile:  "full",
+					Exchange: false,
+					Queue:    true,
+				},
+			),
 		),
 		quickstart.WithTranslationPolicyConfig(exampleTranslationPolicyConfig()),
 	)
