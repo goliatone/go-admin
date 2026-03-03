@@ -189,7 +189,7 @@ Mapping behavior:
 ## References
 
 - Quickstart API and helpers: `quickstart/README.md`
-- Canonical `ADMIN_*` flags: `ENVS_REF.md`
+- Example runtime config conventions: `examples/web/config/app.json` and `examples/web/README.md`
 - CMS and translation workflow guide: `docs/GUIDE_CMS.md`
 - Persisted workflow runtime: `docs/WORKFLOW_PERSISTENCE.md`
 - End-to-end examples: `examples/web/main.go`, `examples/esign/main.go`
