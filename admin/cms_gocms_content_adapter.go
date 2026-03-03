@@ -1364,7 +1364,6 @@ func (a *GoCMSContentAdapter) convertContent(ctx context.Context, value reflect.
 		}
 		if code != "" && code == localeLower {
 			chosen = current
-			break
 		}
 	}
 	if chosen.IsValid() {
@@ -1495,7 +1494,6 @@ func (a *GoCMSContentAdapter) convertPage(value reflect.Value, locale string) CM
 		}
 		if code != "" && code == localeLower {
 			chosen = current
-			break
 		}
 	}
 	if chosen.IsValid() {
