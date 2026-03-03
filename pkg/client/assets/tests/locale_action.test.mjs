@@ -41,9 +41,9 @@ test('buildLocaleEditUrl builds correct URL with locale', () => {
   assert.equal(url, '/admin/content/pages/page_123/edit?locale=es');
 });
 
-test('buildLocaleEditUrl includes environment when provided', () => {
+test('buildLocaleEditUrl includes channel when provided', () => {
   const url = buildLocaleEditUrl('/admin/content/pages', 'page_123', 'fr', 'production');
-  assert.equal(url, '/admin/content/pages/page_123/edit?locale=fr&env=production');
+  assert.equal(url, '/admin/content/pages/page_123/edit?locale=fr&channel=production');
 });
 
 test('buildLocaleEditUrl handles missing environment', () => {
@@ -609,15 +609,15 @@ test('E2E: buildLocaleEditUrl produces consistent URLs across contexts', () => {
   assert.equal(url1, url2);
 });
 
-test('E2E: URL parameters are consistent (locale and env)', () => {
+test('E2E: URL parameters are consistent (locale and channel)', () => {
   const url = buildLocaleEditUrl('/admin/content/pages', 'page_123', 'fr', 'staging');
 
-  // URL should contain both locale and env params
+  // URL should contain both locale and channel params
   assert.match(url, /locale=fr/);
-  assert.match(url, /env=staging/);
+  assert.match(url, /channel=staging/);
 
   // Should be properly formatted
-  assert.match(url, /\?locale=fr&env=staging$/);
+  assert.match(url, /\?locale=fr&channel=staging$/);
 });
 
 // =============================================================================

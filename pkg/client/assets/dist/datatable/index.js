@@ -5364,6 +5364,9 @@ class jn {
       ...e
     };
   }
+  getContentChannel() {
+    return String(this.config.channel ?? this.config.environment ?? "").trim() || null;
+  }
   /**
    * Build row actions for a record from schema.actions
    *
@@ -5572,11 +5575,13 @@ class jn {
     if (Nt(t.error)) {
       const n = Gt(t.error);
       if (n && this.config.onTranslationBlocker) {
-        const o = { ...e.payload };
+        const o = { ...e.payload }, a = this.getContentChannel() || n.environment || null;
         return this.config.onTranslationBlocker({
           actionName: e.actionName,
           recordId: e.recordId,
           ...n,
+          channel: a,
+          environment: n.environment ?? a,
           retry: async () => this.executePostAction({
             actionName: e.actionName,
             endpoint: e.endpoint,
@@ -5604,19 +5609,21 @@ class jn {
       return;
     }
     const o = this.config.actionBasePath, a = new URLSearchParams();
-    n && a.set("locale", n), this.config.environment && a.set("env", this.config.environment);
-    const i = a.toString(), l = `${o}/${s}/edit${i ? `?${i}` : ""}`, c = typeof t.source_locale == "string" ? t.source_locale : this.config.locale || "source", d = this.localeLabel(n || "unknown");
-    typeof window < "u" && "toastManager" in window ? window.toastManager.success(`${d} translation created`, {
+    n && a.set("locale", n);
+    const i = this.getContentChannel();
+    i && a.set("channel", i);
+    const l = a.toString(), c = `${o}/${s}/edit${l ? `?${l}` : ""}`, d = typeof t.source_locale == "string" ? t.source_locale : this.config.locale || "source", u = this.localeLabel(n || "unknown");
+    typeof window < "u" && "toastManager" in window ? window.toastManager.success(`${u} translation created`, {
       action: {
-        label: `View ${c.toUpperCase()}`,
+        label: `View ${d.toUpperCase()}`,
         handler: () => {
-          const p = new URLSearchParams();
-          p.set("locale", c), this.config.environment && p.set("env", this.config.environment);
-          const h = typeof t.id == "string" ? t.id : String(t.id || s);
-          window.location.href = `${o}/${h}/edit?${p.toString()}`;
+          const h = new URLSearchParams();
+          h.set("locale", d), i && h.set("channel", i);
+          const f = typeof t.id == "string" ? t.id : String(t.id || s);
+          window.location.href = `${o}/${f}/edit?${h.toString()}`;
         }
       }
-    }) : console.log(`[SchemaActionBuilder] Translation created: ${n}`), window.location.href = l;
+    }) : console.log(`[SchemaActionBuilder] Translation created: ${n}`), window.location.href = c;
   }
   /**
    * Build action payload from record and schema
@@ -5625,26 +5632,28 @@ class jn {
     const s = t.name.trim().toLowerCase(), n = {
       id: e.id
     };
-    if (this.config.locale && s !== "create_translation" && (n.locale = this.config.locale), this.config.environment && (n.environment = this.config.environment), this.config.panelName && (n.policy_entity = this.config.panelName), n.expected_version === void 0) {
-      const c = this.resolveExpectedVersion(e);
-      c !== null && (n.expected_version = c);
+    this.config.locale && s !== "create_translation" && (n.locale = this.config.locale);
+    const o = this.getContentChannel();
+    if (o && (n.channel = o, n.environment = o), this.config.panelName && (n.policy_entity = this.config.panelName), n.expected_version === void 0) {
+      const d = this.resolveExpectedVersion(e);
+      d !== null && (n.expected_version = d);
     }
-    const o = this.normalizePayloadSchema(t.payload_schema), a = this.collectRequiredFields(t.payload_required, o);
-    if (s === "create_translation" && this.applySchemaTranslationContext(n, e, o), o?.properties)
-      for (const [c, d] of Object.entries(o.properties))
-        n[c] === void 0 && d.default !== void 0 && (n[c] = d.default);
-    a.includes("idempotency_key") && this.isEmptyPayloadValue(n.idempotency_key) && (n.idempotency_key = this.generateIdempotencyKey(t.name, String(e.id || "")));
-    const i = a.filter((c) => this.isEmptyPayloadValue(n[c]));
-    if (i.length === 0)
+    const a = this.normalizePayloadSchema(t.payload_schema), i = this.collectRequiredFields(t.payload_required, a);
+    if (s === "create_translation" && this.applySchemaTranslationContext(n, e, a), a?.properties)
+      for (const [d, u] of Object.entries(a.properties))
+        n[d] === void 0 && u.default !== void 0 && (n[d] = u.default);
+    i.includes("idempotency_key") && this.isEmptyPayloadValue(n.idempotency_key) && (n.idempotency_key = this.generateIdempotencyKey(t.name, String(e.id || "")));
+    const l = i.filter((d) => this.isEmptyPayloadValue(n[d]));
+    if (l.length === 0)
       return n;
-    const l = await this.promptForPayload(t, i, o, n, e);
-    if (l === null)
+    const c = await this.promptForPayload(t, l, a, n, e);
+    if (c === null)
       return null;
-    for (const c of i) {
-      const d = o?.properties?.[c], u = l[c] ?? "", p = this.coercePromptValue(u, c, d);
-      if (p.error)
-        throw new Error(p.error);
-      n[c] = p.value;
+    for (const d of l) {
+      const u = a?.properties?.[d], p = c[d] ?? "", h = this.coercePromptValue(p, d, u);
+      if (h.error)
+        throw new Error(h.error);
+      n[d] = h.value;
     }
     return n;
   }
@@ -5916,11 +5925,13 @@ class jn {
     return Ht(t, `${e} failed`);
   }
   /**
-   * Build URL query context from locale/environment
+   * Build URL query context from locale/channel
    */
   buildQueryContext() {
     const e = new URLSearchParams();
-    return this.config.locale && e.set("locale", this.config.locale), this.config.environment && e.set("env", this.config.environment), e.toString();
+    this.config.locale && e.set("locale", this.config.locale);
+    const t = this.getContentChannel();
+    return t && e.set("channel", t), e.toString();
   }
   /**
    * Append default actions (view, edit, delete) avoiding duplicates
@@ -6070,6 +6081,9 @@ class qe extends nt {
     for (const t of e.missingLocales)
       this.localeStates.set(t, { loading: !1, created: !1 });
   }
+  getContentChannel() {
+    return String(this.config.channel ?? this.config.environment ?? "").trim() || null;
+  }
   /**
    * Show the translation blocker modal.
    * Returns a promise that resolves when the modal is closed.
@@ -6212,10 +6226,12 @@ class qe extends nt {
   renderOpenButton(e, t, s = !1) {
     if (s) return "";
     const n = this.config.navigationBasePath, o = t || this.config.recordId, a = new URLSearchParams();
-    a.set("locale", e), this.config.environment && a.set("env", this.config.environment);
-    const i = `${n}/${o}/edit?${a.toString()}`;
+    a.set("locale", e);
+    const i = this.getContentChannel();
+    i && a.set("channel", i);
+    const l = `${n}/${o}/edit?${a.toString()}`;
     return `
-      <a href="${g(i)}"
+      <a href="${g(l)}"
          data-blocker-action="open"
          data-locale="${g(e)}"
          class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 cursor-pointer transition-colors"
@@ -6274,22 +6290,22 @@ class qe extends nt {
         const s = {
           id: this.config.recordId,
           locale: e
-        };
-        this.config.environment && (s.environment = this.config.environment), this.config.panelName && (s.policy_entity = this.config.panelName);
-        const n = `${this.config.apiEndpoint}/actions/create_translation`, o = await Re(n, s);
-        if (o.success) {
-          t.loading = !1, t.created = !0, o.data?.id && (t.newRecordId = String(o.data.id)), this.updateLocaleItemUI(e);
-          const a = {
+        }, n = this.getContentChannel();
+        n && (s.channel = n, s.environment = n), this.config.panelName && (s.policy_entity = this.config.panelName);
+        const o = `${this.config.apiEndpoint}/actions/create_translation`, a = await Re(o, s);
+        if (a.success) {
+          t.loading = !1, t.created = !0, a.data?.id && (t.newRecordId = String(a.data.id)), this.updateLocaleItemUI(e);
+          const i = {
             id: t.newRecordId || this.config.recordId,
             locale: e,
-            status: String(o.data?.status || "draft"),
-            translation_group_id: o.data?.translation_group_id ? String(o.data.translation_group_id) : void 0
+            status: String(a.data?.status || "draft"),
+            translation_group_id: a.data?.translation_group_id ? String(a.data.translation_group_id) : void 0
           };
-          this.config.onCreateSuccess?.(e, a);
+          this.config.onCreateSuccess?.(e, i);
         } else {
           t.loading = !1, this.updateLocaleItemUI(e);
-          const a = o.error?.message || "Failed to create translation";
-          this.config.onError?.(a);
+          const i = a.error?.message || "Failed to create translation";
+          this.config.onError?.(i);
         }
       } catch (s) {
         t.loading = !1, this.updateLocaleItemUI(e);
@@ -6916,6 +6932,9 @@ class le {
       error: null
     };
   }
+  getContentChannel() {
+    return String(this.config.channel ?? this.config.environment ?? "").trim() || void 0;
+  }
   /**
    * Render the locale action chip as HTML string.
    * Use when generating static HTML.
@@ -7001,26 +7020,26 @@ class le {
         const e = {
           id: this.config.recordId,
           locale: this.config.locale
-        };
-        this.config.environment && (e.environment = this.config.environment), this.config.panelName && (e.policy_entity = this.config.panelName);
-        const t = `${this.config.apiEndpoint}/actions/create_translation`, s = await Re(t, e);
-        if (s.success) {
-          const n = s.data?.id ? String(s.data.id) : void 0;
+        }, t = this.getContentChannel();
+        t && (e.channel = t, e.environment = t), this.config.panelName && (e.policy_entity = this.config.panelName);
+        const s = `${this.config.apiEndpoint}/actions/create_translation`, n = await Re(s, e);
+        if (n.success) {
+          const o = n.data?.id ? String(n.data.id) : void 0;
           this.setState({
             loading: !1,
             created: !0,
-            newRecordId: n
+            newRecordId: o
           });
-          const o = {
-            id: n || this.config.recordId,
+          const a = {
+            id: o || this.config.recordId,
             locale: this.config.locale,
-            status: String(s.data?.status || "draft"),
-            translationGroupId: s.data?.translation_group_id ? String(s.data.translation_group_id) : void 0
+            status: String(n.data?.status || "draft"),
+            translationGroupId: n.data?.translation_group_id ? String(n.data.translation_group_id) : void 0
           };
-          this.config.onCreateSuccess?.(this.config.locale, o);
+          this.config.onCreateSuccess?.(this.config.locale, a);
         } else {
-          const n = s.error?.message || "Failed to create translation";
-          this.setState({ loading: !1, error: n }), this.config.onError?.(this.config.locale, n);
+          const o = n.error?.message || "Failed to create translation";
+          this.setState({ loading: !1, error: o }), this.config.onError?.(this.config.locale, o);
         }
       } catch (e) {
         const t = e instanceof Error ? e.message : "Failed to create translation";
@@ -7032,9 +7051,11 @@ class le {
    * Handle open translation action.
    */
   handleOpen() {
-    const { locale: e, navigationBasePath: t, recordId: s, environment: n } = this.config, { newRecordId: o } = this.state, a = o || s, i = new URLSearchParams();
-    i.set("locale", e), n && i.set("env", n);
-    const l = `${t}/${a}/edit?${i.toString()}`;
+    const { locale: e, navigationBasePath: t, recordId: s } = this.config, { newRecordId: n } = this.state, o = n || s, a = new URLSearchParams();
+    a.set("locale", e);
+    const i = this.getContentChannel();
+    i && a.set("channel", i);
+    const l = `${t}/${o}/edit?${a.toString()}`;
     this.config.onOpen?.(e, l), window.location.href = l;
   }
   /**
@@ -7106,9 +7127,11 @@ function li(r, e) {
     c && (l.mount(c), t.set(o, l));
   }), t;
 }
-function Ze(r, e, t, s) {
-  const n = new URLSearchParams();
-  return n.set("locale", t), s && n.set("env", s), `${r}/${e}/edit?${n.toString()}`;
+function Ze(r, e, t, s, n) {
+  const o = new URLSearchParams();
+  o.set("locale", t);
+  const a = String(s ?? n ?? "").trim();
+  return a && o.set("channel", a), `${r}/${e}/edit?${o.toString()}`;
 }
 class je {
   constructor(e) {
@@ -7192,21 +7215,21 @@ class je {
    * Render the primary CTA (Create missing locale).
    */
   renderPrimaryCta() {
-    const { context: e, apiEndpoint: t, navigationBasePath: s, panelName: n, environment: o } = this.config, a = e.requestedLocale;
-    return !a || !e.recordId ? "" : `
+    const { context: e, apiEndpoint: t, navigationBasePath: s, panelName: n, channel: o, environment: a } = this.config, i = e.requestedLocale, l = String(o ?? a ?? "").trim();
+    return !i || !e.recordId ? "" : `
       <button type="button"
               class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-amber-600 rounded-lg hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors"
               data-action="create-translation"
-              data-locale="${g(a)}"
+              data-locale="${g(i)}"
               data-record-id="${g(e.recordId)}"
               data-api-endpoint="${g(t)}"
               data-panel="${g(n || "")}"
-              data-environment="${g(o || "")}"
-              aria-label="Create ${T(a)} translation">
+              data-channel="${g(l)}"
+              aria-label="Create ${T(i)} translation">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
         </svg>
-        Create ${g(a.toUpperCase())} translation
+        Create ${g(i.toUpperCase())} translation
       </button>
     `;
   }
@@ -7214,20 +7237,20 @@ class je {
    * Render the secondary CTA (Open source locale).
    */
   renderSecondaryCta() {
-    const { context: e, navigationBasePath: t, environment: s } = this.config, n = e.resolvedLocale;
-    if (!n || !e.recordId)
+    const { context: e, navigationBasePath: t, channel: s, environment: n } = this.config, o = e.resolvedLocale;
+    if (!o || !e.recordId)
       return "";
-    const o = Ze(t, e.recordId, n, s);
+    const a = Ze(t, e.recordId, o, s, n);
     return `
-      <a href="${g(o)}"
+      <a href="${g(a)}"
          class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-amber-700 bg-white border border-amber-300 rounded-lg hover:bg-amber-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors"
          data-action="open-source"
-         data-locale="${g(n)}"
-         aria-label="Open ${T(n)} translation">
+         data-locale="${g(o)}"
+         aria-label="Open ${T(o)} translation">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
         </svg>
-        Open ${g(n.toUpperCase())} (source)
+        Open ${g(o.toUpperCase())} (source)
       </a>
     `;
   }
@@ -7267,23 +7290,23 @@ class je {
    * Handle create translation action.
    */
   async handleCreate() {
-    const { context: e, apiEndpoint: t, panelName: s, environment: n, navigationBasePath: o } = this.config, a = e.requestedLocale, i = e.recordId;
-    if (!a || !i) return;
+    const { context: e, apiEndpoint: t, panelName: s, channel: n, environment: o, navigationBasePath: a } = this.config, i = e.requestedLocale, l = e.recordId, c = String(n ?? o ?? "").trim() || void 0;
+    if (!i || !l) return;
     await new le({
-      locale: a,
-      recordId: i,
+      locale: i,
+      recordId: l,
       apiEndpoint: t,
-      navigationBasePath: o,
+      navigationBasePath: a,
       panelName: s,
-      environment: n,
+      channel: c,
       localeExists: !1,
-      onCreateSuccess: (c, d) => {
-        this.config.onCreateSuccess?.(c, d);
-        const u = Ze(o, d.id, c, n);
-        window.location.href = u;
+      onCreateSuccess: (u, p) => {
+        this.config.onCreateSuccess?.(u, p);
+        const h = Ze(a, p.id, u, c);
+        window.location.href = h;
       },
-      onError: (c, d) => {
-        this.config.onError?.(d);
+      onError: (u, p) => {
+        this.config.onError?.(p);
       }
     }).handleCreate();
   }
@@ -7406,20 +7429,20 @@ class _t {
    * Render a single locale chip.
    */
   renderChip(e, t, s) {
-    const { recordId: n, apiEndpoint: o, navigationBasePath: a, panelName: i, environment: l, size: c } = this.config;
+    const { recordId: n, apiEndpoint: o, navigationBasePath: a, panelName: i, channel: l, environment: c, size: d } = this.config, u = String(l ?? c ?? "").trim() || void 0;
     return t ? Lt({
       locale: e,
       recordId: n,
       apiEndpoint: o,
       navigationBasePath: a,
       panelName: i,
-      environment: l,
+      channel: u,
       localeExists: !1,
-      size: c,
+      size: d,
       mode: "chip",
       onCreateSuccess: this.config.onCreateSuccess,
       onError: this.config.onError
-    }) : this.renderDisabledChip(e, s, c);
+    }) : this.renderDisabledChip(e, s, d);
   }
   /**
    * Render a disabled locale chip (no action buttons).
@@ -7473,7 +7496,7 @@ class _t {
         apiEndpoint: this.config.apiEndpoint,
         navigationBasePath: this.config.navigationBasePath,
         panelName: this.config.panelName,
-        environment: this.config.environment,
+        channel: String(this.config.channel ?? this.config.environment ?? "").trim() || void 0,
         localeExists: !1,
         size: this.config.size,
         onCreateSuccess: this.config.onCreateSuccess,

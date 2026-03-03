@@ -74,9 +74,9 @@ export class ContentTypeEditor {
     this.container = container;
     this.config = config;
     this.api = new ContentTypeAPIClient({ basePath: config.apiBasePath });
-    const configuredEnvironment = this.normalizeEnvironment(config.environment);
-    if (configuredEnvironment) {
-      this.api.setEnvironment(configuredEnvironment);
+    const configuredChannel = this.normalizeChannel(config.channel);
+    if (configuredChannel) {
+      this.api.setChannel(configuredChannel);
     }
     this.state = {
       contentType: null,
@@ -95,7 +95,7 @@ export class ContentTypeEditor {
     };
   }
 
-  private normalizeEnvironment(value?: string): string {
+  private normalizeChannel(value?: string): string {
     const normalized = String(value ?? '').trim().toLowerCase();
     return normalized;
   }

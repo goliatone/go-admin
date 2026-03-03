@@ -22,7 +22,9 @@ export interface InlineLocaleChipsConfig {
     navigationBasePath: string;
     /** Panel/entity name (e.g., 'pages') */
     panelName?: string;
-    /** Current environment context */
+    /** Current content channel context */
+    channel?: string;
+    /** @deprecated Use `channel` */
     environment?: string;
     /** Maximum number of chips to display (default: 3) */
     maxChips?: number;

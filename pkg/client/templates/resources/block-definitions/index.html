@@ -24,15 +24,15 @@
     </div>
   </div>
   <div class="flex items-center gap-3">
-    <div class="inline-flex items-center bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5 gap-2" data-block-ide-env-wrapper>
+    <div class="inline-flex items-center bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5 gap-2" data-block-ide-channel-wrapper>
       <div class="flex items-center gap-1.5 text-gray-500">
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
         </svg>
-        <span class="text-[11px] font-semibold uppercase tracking-wide">Env</span>
+        <span class="text-[11px] font-semibold uppercase tracking-wide">Channel</span>
       </div>
       <div class="relative inline-flex items-center">
-        <select data-block-ide-env
+        <select data-block-ide-channel
                 class="text-[13px] bg-transparent border-0 text-gray-700 font-medium py-0 pl-0 pr-6 focus:outline-none focus:ring-0 cursor-pointer"
                 style="-webkit-appearance: none; -moz-appearance: none; appearance: none;">
           <option value="default">Default</option>
@@ -43,17 +43,17 @@
       </div>
       <div class="w-px h-4 bg-gray-200"></div>
       <button type="button"
-              data-block-ide-env-reset
+              data-block-ide-channel-reset
               class="hidden inline-flex items-center px-2 py-1 rounded border border-amber-300 text-amber-700 text-[11px] font-semibold hover:bg-amber-50 transition-colors">
         Reset to Default
       </button>
       <button type="button"
-              data-block-ide-env-add
+              data-block-ide-channel-add
               class="inline-flex items-center gap-1 px-2 py-1 rounded border border-gray-200 text-gray-500 text-[11px] font-semibold hover:bg-gray-100 transition-colors">
         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
         </svg>
-        Add Environment
+        Add Channel
       </button>
     </div>
     <a class="inline-flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"

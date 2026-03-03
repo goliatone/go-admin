@@ -39,7 +39,9 @@ export interface InlineLocaleChipsConfig {
   navigationBasePath: string;
   /** Panel/entity name (e.g., 'pages') */
   panelName?: string;
-  /** Current environment context */
+  /** Current content channel context */
+  channel?: string;
+  /** @deprecated Use `channel` */
   environment?: string;
   /** Maximum number of chips to display (default: 3) */
   maxChips?: number;
@@ -206,7 +208,8 @@ export class InlineLocaleChips {
     isEnabled: boolean,
     disabledReason: string | null
   ): string {
-    const { recordId, apiEndpoint, navigationBasePath, panelName, environment, size } = this.config;
+    const { recordId, apiEndpoint, navigationBasePath, panelName, channel, environment, size } = this.config;
+    const activeChannel = String(channel ?? environment ?? '').trim() || undefined;
 
     if (!isEnabled) {
       // Render disabled chip without action buttons
@@ -220,7 +223,7 @@ export class InlineLocaleChips {
       apiEndpoint,
       navigationBasePath,
       panelName,
-      environment,
+      channel: activeChannel,
       localeExists: false,
       size,
       mode: 'chip',
@@ -306,7 +309,7 @@ export class InlineLocaleChips {
         apiEndpoint: this.config.apiEndpoint,
         navigationBasePath: this.config.navigationBasePath,
         panelName: this.config.panelName,
-        environment: this.config.environment,
+        channel: String(this.config.channel ?? this.config.environment ?? '').trim() || undefined,
         localeExists: false,
         size: this.config.size,
         onCreateSuccess: this.config.onCreateSuccess,

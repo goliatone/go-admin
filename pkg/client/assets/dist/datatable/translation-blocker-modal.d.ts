@@ -27,8 +27,10 @@ export interface TranslationBlockerModalConfig {
     missingFieldsByLocale: Record<string, string[]> | null;
     /** The locale that was requested */
     requestedLocale: string | null;
-    /** The environment context (e.g., 'production', 'staging') */
-    environment: string | null;
+    /** The content channel context (e.g., 'default', 'staging') */
+    channel?: string | null;
+    /** @deprecated Use `channel` */
+    environment?: string | null;
     /** API endpoint for panel actions (e.g., /admin/api/panels/pages) */
     apiEndpoint: string;
     /** Base path for navigation (e.g., /admin/content/pages) */
@@ -58,6 +60,7 @@ export declare class TranslationBlockerModal extends Modal {
     private localeStates;
     private resolved;
     constructor(config: TranslationBlockerModalConfig);
+    private getContentChannel;
     /**
      * Show the translation blocker modal.
      * Returns a promise that resolves when the modal is closed.

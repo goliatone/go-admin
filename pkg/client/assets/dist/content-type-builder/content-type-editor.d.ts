@@ -26,7 +26,7 @@ export declare class ContentTypeEditor {
     /** Currently open field kebab menu (null = none open) */
     private fieldActionsMenuId;
     constructor(container: HTMLElement, config: ContentTypeEditorConfig);
-    private normalizeEnvironment;
+    private normalizeChannel;
     /**
      * Initialize the editor
      */

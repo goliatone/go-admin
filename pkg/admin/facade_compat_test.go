@@ -12,7 +12,9 @@ import (
 
 var (
 	_ func(Config, Dependencies) (*Admin, error)                                                        = New
+	_ func(context.Context, string) context.Context                                                     = WithContentChannel
 	_ func(context.Context, string) context.Context                                                     = WithEnvironment
+	_ func(context.Context) string                                                                      = ContentChannelFromContext
 	_ func(context.Context, string) context.Context                                                     = WithLocale
 	_ func(context.Context) context.Context                                                             = WithResolvedPermissionsCache
 	_ func(Authorizer, context.Context, string, ...string) bool                                         = CanAny
@@ -23,9 +25,12 @@ var (
 
 func TestFacadeContextHelpersForward(t *testing.T) {
 	ctx := context.Background()
-	ctx = WithEnvironment(ctx, "staging")
+	ctx = WithContentChannel(ctx, "staging")
 	ctx = WithLocale(ctx, "es")
 
+	if got := ContentChannelFromContext(ctx); got != "staging" {
+		t.Fatalf("ContentChannelFromContext() = %q, want %q", got, "staging")
+	}
 	if got := EnvironmentFromContext(ctx); got != "staging" {
 		t.Fatalf("EnvironmentFromContext() = %q, want %q", got, "staging")
 	}
@@ -33,7 +38,10 @@ func TestFacadeContextHelpersForward(t *testing.T) {
 		t.Fatalf("LocaleFromContext() = %q, want %q", got, "es")
 	}
 
-	coreCtx := core.WithLocale(core.WithEnvironment(context.Background(), "prod"), "en")
+	coreCtx := core.WithLocale(core.WithContentChannel(context.Background(), "prod"), "en")
+	if got, want := ContentChannelFromContext(coreCtx), core.ContentChannelFromContext(coreCtx); got != want {
+		t.Fatalf("ContentChannelFromContext(coreCtx) = %q, want %q", got, want)
+	}
 	if got, want := EnvironmentFromContext(coreCtx), core.EnvironmentFromContext(coreCtx); got != want {
 		t.Fatalf("EnvironmentFromContext(coreCtx) = %q, want %q", got, want)
 	}

@@ -34,8 +34,10 @@ export interface TranslationBlockerModalConfig {
   missingFieldsByLocale: Record<string, string[]> | null;
   /** The locale that was requested */
   requestedLocale: string | null;
-  /** The environment context (e.g., 'production', 'staging') */
-  environment: string | null;
+  /** The content channel context (e.g., 'default', 'staging') */
+  channel?: string | null;
+  /** @deprecated Use `channel` */
+  environment?: string | null;
   /** API endpoint for panel actions (e.g., /admin/api/panels/pages) */
   apiEndpoint: string;
   /** Base path for navigation (e.g., /admin/content/pages) */
@@ -94,6 +96,11 @@ export class TranslationBlockerModal extends Modal {
     for (const locale of config.missingLocales) {
       this.localeStates.set(locale, { loading: false, created: false });
     }
+  }
+
+  private getContentChannel(): string | null {
+    const channel = String(this.config.channel ?? this.config.environment ?? '').trim();
+    return channel || null;
   }
 
   /**
@@ -265,8 +272,9 @@ export class TranslationBlockerModal extends Modal {
     const targetId = recordId || this.config.recordId;
     const params = new URLSearchParams();
     params.set('locale', locale);
-    if (this.config.environment) {
-      params.set('env', this.config.environment);
+    const channel = this.getContentChannel();
+    if (channel) {
+      params.set('channel', channel);
     }
     const url = `${baseUrl}/${targetId}/edit?${params.toString()}`;
 
@@ -366,8 +374,10 @@ export class TranslationBlockerModal extends Modal {
         locale: locale,
       };
 
-      if (this.config.environment) {
-        payload.environment = this.config.environment;
+      const channel = this.getContentChannel();
+      if (channel) {
+        payload.channel = channel;
+        payload.environment = channel;
       }
       if (this.config.panelName) {
         payload.policy_entity = this.config.panelName;

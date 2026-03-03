@@ -173,7 +173,7 @@ test('phase4 contract: datagrid query contract preserves filters/search/sort/gro
 });
 
 test('phase4 contract: URL state falls back to short token when payload exceeds budget', () => {
-  const { calls, cleanup } = installTestGlobals({ search: '?env=prod' });
+  const { calls, cleanup } = installTestGlobals({ search: '?channel=prod' });
 
   try {
     const stateStore = {
@@ -212,7 +212,7 @@ test('phase4 contract: URL state falls back to short token when payload exceeds 
     assert.equal(parsed.searchParams.get('state'), 'tok_phase4');
     assert.equal(parsed.searchParams.get('filters'), null);
     assert.equal(parsed.searchParams.get('search'), null);
-    assert.equal(parsed.searchParams.get('env'), 'prod');
+    assert.equal(parsed.searchParams.get('channel'), 'prod');
     assert.ok(stateStore.tokenSaved, 'expected share state snapshot to be created');
   } finally {
     cleanup();
