@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
-	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -32,36 +31,32 @@ type SeedConfig struct {
 	IgnoreDuplicates bool
 }
 
-// SeedConfigFromEnv builds the seed config from environment variables.
-func SeedConfigFromEnv() SeedConfig {
-	cfg := SeedConfig{
+// DefaultSeedConfig returns baseline fixture loading behavior.
+func DefaultSeedConfig() SeedConfig {
+	return SeedConfig{
 		Enabled:          true,
 		Truncate:         false,
 		IgnoreDuplicates: true,
 	}
-	if isProductionEnv() {
+}
+
+// SeedConfigFromEnv is retained for compatibility and returns configured runtime seed settings.
+// Deprecated: configure seeds through setup.ConfigureRuntime.
+func SeedConfigFromEnv() SeedConfig {
+	return ResolveSeedConfig(runtimeConfig().Seeds, isProductionEnv())
+}
+
+// ResolveSeedConfig normalizes seed settings for the current runtime profile.
+func ResolveSeedConfig(cfg SeedConfig, production bool) SeedConfig {
+	if production {
 		cfg.Enabled = false
-	}
-	if val := strings.TrimSpace(os.Getenv("ADMIN_SEEDS")); val != "" {
-		if parsed, err := strconv.ParseBool(val); err == nil {
-			cfg.Enabled = parsed
-		}
-	}
-	if val := strings.TrimSpace(os.Getenv("ADMIN_SEEDS_TRUNCATE")); val != "" {
-		if parsed, err := strconv.ParseBool(val); err == nil {
-			cfg.Truncate = parsed
-		}
-	}
-	if val := strings.TrimSpace(os.Getenv("ADMIN_SEEDS_IGNORE_DUPLICATES")); val != "" {
-		if parsed, err := strconv.ParseBool(val); err == nil {
-			cfg.IgnoreDuplicates = parsed
-		}
 	}
 	return cfg
 }
 
 func isProductionEnv() bool {
-	return strings.EqualFold(os.Getenv("GO_ENV"), "production") || strings.EqualFold(os.Getenv("ENV"), "production")
+	env := strings.ToLower(strings.TrimSpace(runtimeConfig().AppEnv))
+	return env == "production" || env == "prod"
 }
 
 type seedState struct {

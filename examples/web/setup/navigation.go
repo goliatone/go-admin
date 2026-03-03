@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"os"
 	"path"
 	"sort"
 	"strings"
@@ -250,13 +249,14 @@ func SetupNavigation(ctx context.Context, menuSvc admin.CMSMenuService, basePath
 		MenuCode: menuCode,
 		Items:    items,
 		Locale:   locale,
-		Reset:    strings.EqualFold(os.Getenv("RESET_NAV_MENU"), "true"),
+		Reset:    runtimeConfig().Navigation.ResetMenu,
 		Logf:     nil,
 	})
 }
 
 func navDebugEnabled() bool {
-	return strings.EqualFold(os.Getenv("NAV_DEBUG"), "true") || strings.EqualFold(os.Getenv("NAV_DEBUG_LOG"), "true")
+	runtime := runtimeConfig()
+	return runtime.Navigation.Debug || runtime.Navigation.DebugLog
 }
 
 func debugLogf(format string, args ...any) {
@@ -463,7 +463,7 @@ func EnsureDashboardFirstWithOptions(ctx context.Context, menuSvc admin.CMSMenuS
 			afterSummary = append(afterSummary, describeMenuItem(child))
 		}
 		debugLogf("[nav repair] after menu=%s locale=%s mainGroup=%s children=%v", menuCode, locale, updatedMainGroup.ID, afterSummary)
-		if navDebugEnabled() && strings.EqualFold(os.Getenv("NAV_DEBUG_LOG"), "true") {
+		if runtimeConfig().Navigation.DebugLog {
 			if raw, err := json.Marshal(updatedMainGroup.Children); err == nil {
 				debugLogf("[nav repair] after children json=%s", string(raw))
 			}

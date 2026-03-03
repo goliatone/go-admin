@@ -1,7 +1,6 @@
 package setup
 
 import (
-	"os"
 	"path"
 	"strings"
 	"time"
@@ -46,9 +45,13 @@ func NewSecureLinkManager() (userstypes.SecureLinkManager, error) {
 	return securelink.NewManager(cfg)
 }
 
-// SecureLinkUIConfigFromEnv returns securelink parsing defaults for templates.
+// SecureLinkUIConfigFromEnv is retained for compatibility and returns configured runtime values.
+// Deprecated: use setup.ConfigureRuntime and SecureLinkUIConfigFromConfig.
 func SecureLinkUIConfigFromEnv() SecureLinkUIConfig {
-	cfg := loadSecureLinkConfig()
+	return secureLinkUIConfigFromConfig(loadSecureLinkConfig())
+}
+
+func secureLinkUIConfigFromConfig(cfg secureLinkConfig) SecureLinkUIConfig {
 	return SecureLinkUIConfig{
 		QueryKey: cfg.queryKey,
 		AsQuery:  cfg.asQuery,
@@ -56,63 +59,40 @@ func SecureLinkUIConfigFromEnv() SecureLinkUIConfig {
 }
 
 func loadSecureLinkConfig() secureLinkConfig {
-	basePath := normalizeBasePath(os.Getenv("ADMIN_BASE_PATH"))
-	baseURL := strings.TrimSpace(os.Getenv("ADMIN_SECURELINK_BASE_URL"))
+	runtime := runtimeConfig()
+	basePath := normalizeBasePath(runtime.SecureLink.BasePath)
+	baseURL := strings.TrimSpace(runtime.SecureLink.BaseURL)
 	if baseURL == "" {
 		baseURL = defaultSecureLinkBaseURL
 	}
 
-	signingKey := strings.TrimSpace(os.Getenv("ADMIN_SECURELINK_KEY"))
+	signingKey := strings.TrimSpace(runtime.SecureLink.SigningKey)
 	if signingKey == "" {
 		signingKey = defaultSecureLinkKey
 	}
 
-	queryKey := strings.TrimSpace(os.Getenv("ADMIN_SECURELINK_QUERY_KEY"))
+	queryKey := strings.TrimSpace(runtime.SecureLink.QueryKey)
 	if queryKey == "" {
 		queryKey = defaultSecureLinkQueryKey
 	}
 
-	asQuery := envBoolDefault("ADMIN_SECURELINK_AS_QUERY", true)
-	expiration := envDurationDefault("ADMIN_SECURELINK_EXPIRATION", defaultSecureLinkExpiration)
+	expiration := runtime.SecureLink.Expiration
+	if expiration <= 0 {
+		expiration = defaultSecureLinkExpiration
+	}
 
 	return secureLinkConfig{
 		signingKey: signingKey,
 		expiration: expiration,
 		baseURL:    baseURL,
 		queryKey:   queryKey,
-		asQuery:    asQuery,
+		asQuery:    runtime.SecureLink.AsQuery,
 		routes: map[string]string{
 			command.SecureLinkRouteInviteAccept:  path.Join(basePath, "invite"),
 			command.SecureLinkRouteRegister:      path.Join(basePath, "register"),
 			command.SecureLinkRoutePasswordReset: path.Join(basePath, "password-reset", "confirm"),
 		},
 	}
-}
-
-func envBoolDefault(key string, fallback bool) bool {
-	raw := strings.TrimSpace(os.Getenv(key))
-	if raw == "" {
-		return fallback
-	}
-	switch strings.ToLower(raw) {
-	case "true", "1", "yes", "y", "on":
-		return true
-	case "false", "0", "no", "n", "off":
-		return false
-	default:
-		return fallback
-	}
-}
-
-func envDurationDefault(key string, fallback time.Duration) time.Duration {
-	raw := strings.TrimSpace(os.Getenv(key))
-	if raw == "" {
-		return fallback
-	}
-	if parsed, err := time.ParseDuration(raw); err == nil {
-		return parsed
-	}
-	return fallback
 }
 
 func normalizeBasePath(raw string) string {

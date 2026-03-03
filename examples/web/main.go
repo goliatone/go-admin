@@ -12,7 +12,6 @@ import (
 	"path"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -22,6 +21,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	coreadmin "github.com/goliatone/go-admin/admin"
 	debugregistry "github.com/goliatone/go-admin/debug"
+	appcfg "github.com/goliatone/go-admin/examples/web/config"
 	"github.com/goliatone/go-admin/examples/web/handlers"
 	"github.com/goliatone/go-admin/examples/web/helpers"
 	"github.com/goliatone/go-admin/examples/web/jobs"
@@ -61,17 +61,81 @@ const (
 )
 
 func main() {
-	defaultLocale := "en"
+	runtimeConfig, _, err := appcfg.Load(context.Background())
+	if err != nil {
+		log.Panicf("failed to load app config: %v", err)
+	}
 
-	cfg := quickstart.NewAdminConfig("/admin", "Enterprise Admin", defaultLocale,
+	scopeCfg := quickstart.NormalizeScopeConfig(quickstart.ScopeConfig{
+		Mode:            quickstart.ScopeMode(strings.ToLower(strings.TrimSpace(runtimeConfig.Admin.Scope.Mode))),
+		DefaultTenantID: strings.TrimSpace(runtimeConfig.Admin.Scope.DefaultTenantID),
+		DefaultOrgID:    strings.TrimSpace(runtimeConfig.Admin.Scope.DefaultOrgID),
+	})
+
+	stores.ConfigureRuntime(stores.RuntimeConfig{
+		CMSDSN:     runtimeConfig.Databases.CMSDSN,
+		ContentDSN: runtimeConfig.Databases.ContentDSN,
+	})
+	setup.ConfigureRuntime(setup.RuntimeConfig{
+		AppEnv: runtimeConfig.App.Env,
+		Scope:  scopeCfg,
+		Seeds: setup.ResolveSeedConfig(setup.SeedConfig{
+			Enabled:          runtimeConfig.Seeds.Enabled,
+			Truncate:         runtimeConfig.Seeds.Truncate,
+			IgnoreDuplicates: runtimeConfig.Seeds.IgnoreDuplicates,
+		}, isProductionEnv(runtimeConfig.App.Env)),
+		Navigation: setup.NavigationRuntimeConfig{
+			ResetMenu: runtimeConfig.Navigation.ResetMenu,
+			Debug:     runtimeConfig.Navigation.Debug,
+			DebugLog:  runtimeConfig.Navigation.DebugLog,
+		},
+		SecureLink: setup.SecureLinkRuntimeConfig{
+			BasePath:   runtimeConfig.Admin.BasePath,
+			BaseURL:    runtimeConfig.SecureLink.BaseURL,
+			SigningKey: runtimeConfig.SecureLink.SigningKey,
+			QueryKey:   runtimeConfig.SecureLink.QueryKey,
+			AsQuery:    runtimeConfig.SecureLink.AsQuery,
+			Expiration: runtimeConfig.SecureLink.Expiration,
+		},
+		PasswordPolicyHints:        append([]string{}, runtimeConfig.Admin.PasswordPolicyHints...),
+		PermissionResolverCacheTTL: runtimeConfig.Admin.PermissionResolverCacheTTL,
+		Databases: setup.DatabasesRuntimeConfig{
+			CMSDSN:     runtimeConfig.Databases.CMSDSN,
+			ContentDSN: runtimeConfig.Databases.ContentDSN,
+		},
+		CMSRuntimeLogs: runtimeConfig.CMS.RuntimeLogs,
+	})
+
+	defaultLocale := strings.TrimSpace(runtimeConfig.Admin.DefaultLocale)
+	if defaultLocale == "" {
+		defaultLocale = "en"
+	}
+
+	debugEnabledOption := runtimeConfig.Admin.Debug.Enabled
+	replEnabledOption := runtimeConfig.Admin.Debug.ReplEnabled
+	replReadOnlyOption := runtimeConfig.Admin.Debug.ReplReadOnly
+	errorDevModeOption := runtimeConfig.Admin.Errors.DevMode
+	errorStackOption := runtimeConfig.Admin.Errors.IncludeStackTrace
+	errorExposeOption := runtimeConfig.Admin.Errors.ExposeInternalErrors
+
+	cfg := quickstart.NewAdminConfig(runtimeConfig.Admin.BasePath, runtimeConfig.Admin.Title, defaultLocale,
 		quickstart.WithNavMenuCode(setup.NavigationMenuCode),
 		quickstart.WithThemeTokens(map[string]string{
 			"primary": "#2563eb",
 			"accent":  "#f59e0b",
 		}),
-		quickstart.WithDebugFromEnv(),
-		quickstart.WithErrorsFromEnv(),
-		quickstart.WithScopeFromEnv(),
+		quickstart.WithScopeConfig(scopeCfg),
+		quickstart.WithDebugOptions(quickstart.DebugOption{
+			Enabled:      &debugEnabledOption,
+			LayoutMode:   runtimeConfig.Admin.Debug.Layout,
+			ReplEnabled:  &replEnabledOption,
+			ReplReadOnly: &replReadOnlyOption,
+		}),
+		quickstart.WithErrorOptions(quickstart.ErrorOption{
+			DevMode:               &errorDevModeOption,
+			IncludeStackTrace:     &errorStackOption,
+			ExposeInternalMessage: &errorExposeOption,
+		}),
 	)
 	cfg.ActivityActionLabels = map[string]string{
 		"debug.repl.eval":       "Execute REPL",
@@ -82,22 +146,11 @@ func main() {
 		"dashboard.layout.save": "Saved",
 		"preferences.update":    "Updated",
 	}
-	cfg.EnablePublicAPI = true
-	if value, ok := os.LookupEnv("ADMIN_PUBLIC_API"); ok {
-		if parsed, err := strconv.ParseBool(strings.TrimSpace(value)); err == nil {
-			cfg.EnablePublicAPI = parsed
-		}
-	}
-	if value := strings.TrimSpace(os.Getenv("ADMIN_PREVIEW_SECRET")); value != "" {
-		cfg.PreviewSecret = value
-	}
-	if value, ok := os.LookupEnv("ADMIN_API_VERSION"); ok {
-		cfg.URLs.Admin.APIVersion = strings.TrimSpace(value)
-	}
-	if value, ok := os.LookupEnv("ADMIN_API_PREFIX"); ok {
-		cfg.URLs.Admin.APIPrefix = strings.TrimSpace(value)
-	}
-	cfg.FeatureCatalogPath = resolveFeatureCatalogPath()
+	cfg.EnablePublicAPI = runtimeConfig.Admin.PublicAPI
+	cfg.PreviewSecret = strings.TrimSpace(runtimeConfig.Admin.PreviewSecret)
+	cfg.URLs.Admin.APIVersion = strings.TrimSpace(runtimeConfig.Admin.APIVersion)
+	cfg.URLs.Admin.APIPrefix = strings.TrimSpace(runtimeConfig.Admin.APIPrefix)
+	cfg.FeatureCatalogPath = resolveFeatureCatalogPath(runtimeConfig.Admin.FeatureCatalogPath)
 	featureDefaults := map[string]bool{
 		"dashboard":                   true,
 		"cms":                         true,
@@ -114,33 +167,32 @@ func main() {
 		"users":                       true,
 		"tenants":                     false,
 		"organizations":               false,
-		setup.FeatureUserInvites:      true,
-		setup.FeaturePasswordReset:    true,
-		setup.FeatureSelfRegistration: false,
+		setup.FeatureUserInvites:      runtimeConfig.Features.UserInvites,
+		setup.FeaturePasswordReset:    runtimeConfig.Features.PasswordReset,
+		setup.FeatureSelfRegistration: runtimeConfig.Features.SelfRegistration,
 	}
-	applyFeatureFlagFromEnv(featureDefaults, "USE_USER_INVITES", setup.FeatureUserInvites)
-	applyFeatureFlagFromEnv(featureDefaults, "USE_PASSWORD_RESET", setup.FeaturePasswordReset)
-	applyFeatureFlagFromEnv(featureDefaults, "USE_SELF_REGISTRATION", setup.FeatureSelfRegistration)
 	registrationCfg := setup.DefaultRegistrationConfig()
-	if mode := strings.TrimSpace(os.Getenv("REGISTRATION_MODE")); mode != "" {
-		if parsed := parseRegistrationMode(mode, registrationCfg.Mode); parsed != "" {
-			registrationCfg.Mode = parsed
-			if parsed == setup.RegistrationOpen || parsed == setup.RegistrationAllowlist {
-				featureDefaults[setup.FeatureSelfRegistration] = true
-			}
+	if parsed := parseRegistrationMode(runtimeConfig.Registration.Mode, registrationCfg.Mode); parsed != "" {
+		registrationCfg.Mode = parsed
+		if parsed == setup.RegistrationOpen || parsed == setup.RegistrationAllowlist {
+			featureDefaults[setup.FeatureSelfRegistration] = true
 		}
 	}
-	if allowlist := strings.TrimSpace(os.Getenv("REGISTRATION_ALLOWLIST")); allowlist != "" {
-		registrationCfg.Allowlist = splitAndTrimCSV(allowlist)
+	if len(runtimeConfig.Registration.Allowlist) > 0 {
+		registrationCfg.Allowlist = append([]string{}, runtimeConfig.Registration.Allowlist...)
 	}
 
-	isDev := isDevelopmentEnv()
+	isDev := isDevelopmentEnv(runtimeConfig.App.Env)
 
 	debugEnabled := cfg.Debug.Enabled
-	scopeDebugEnabled := quickstart.ScopeDebugEnabledFromEnv()
+	scopeDebugEnabled := runtimeConfig.Admin.Debug.ScopeEnabled
 	var scopeDebugBuffer *quickstart.ScopeDebugBuffer
 	if scopeDebugEnabled {
-		scopeDebugBuffer = quickstart.NewScopeDebugBuffer(quickstart.ScopeDebugLimitFromEnv())
+		scopeLimit := runtimeConfig.Admin.Debug.ScopeLimit
+		if scopeLimit <= 0 {
+			scopeLimit = 200
+		}
+		scopeDebugBuffer = quickstart.NewScopeDebugBuffer(scopeLimit)
 	}
 	if debugEnabled {
 		cfg.Debug.ViewContextBuilder = func(adm *admin.Admin, _ admin.DebugConfig, c router.Context, view router.ViewContext) router.ViewContext {
@@ -180,12 +232,15 @@ func main() {
 		},
 		GoUsersActivity: setup.SetupActivityWithGoUsers,
 	}
-	adapterFlags := quickstart.ResolveAdapterFlags()
-	adapterFlags.UsePersistentCMS = true
+	adapterFlags := quickstart.AdapterFlags{
+		UsePersistentCMS:   runtimeConfig.Features.PersistentCMS,
+		UseGoOptions:       runtimeConfig.Features.GoOptions,
+		UseGoUsersActivity: runtimeConfig.Features.GoUsersActivity,
+	}
 
 	usersDeps, usersService, onboardingNotifier, err := setup.SetupUsersWithMigrations(
 		context.Background(),
-		"",
+		strings.TrimSpace(runtimeConfig.Databases.CMSDSN),
 		setup.QuickstartUserMigrations(),
 		debugHookOpts...,
 	)
@@ -222,6 +277,17 @@ func main() {
 			exportBundle,
 			exportTemplatesFS,
 			quickstart.WithExportTemplateFuncs(quickstart.DefaultTemplateFuncs(helpers.TemplateFuncOptions()...)),
+			quickstart.WithExportPDFConfig(quickstart.ExportPDFConfig{
+				Engine:            runtimeConfig.ExportPDF.Engine,
+				WKHTMLToPDFPath:   runtimeConfig.ExportPDF.WKHTMLToPDFPath,
+				BrowserPath:       runtimeConfig.ExportPDF.BrowserPath,
+				Timeout:           runtimeConfig.ExportPDF.Timeout,
+				PageSize:          runtimeConfig.ExportPDF.PageSize,
+				PrintBackground:   runtimeConfig.ExportPDF.PrintBackground,
+				PreferCSSPageSize: runtimeConfig.ExportPDF.PreferCSSPageSize,
+				Headless:          runtimeConfig.ExportPDF.Headless,
+				Args:              append([]string{}, runtimeConfig.ExportPDF.Args...),
+			}),
 		); err != nil {
 			log.Panicf("failed to configure export renderers: %v", err)
 		}
@@ -238,6 +304,7 @@ func main() {
 		quickstart.DebugPanelDeps{
 			ScopeBuffer:   scopeDebugBuffer,
 			IsDevelopment: coreadmin.BoolPtr(isDev),
+			DoctorEnabled: runtimeConfig.Admin.Debug.DoctorEnabled,
 		},
 		debugPanelCatalog,
 	)
@@ -262,15 +329,19 @@ func main() {
 		log.Printf("warning: translation policy config: %s", warning)
 	}
 
-	// Resolve translation profile and module wiring from environment.
-	// Profile sets defaults; module env vars override profile defaults.
+	// Resolve translation profile and module wiring from runtime config.
 	var exchangeContentService coreadmin.CMSContentService
 	exchangeStore := newExampleTranslationExchangeStore(func() coreadmin.CMSContentService {
 		return exchangeContentService
 	})
 	queueRepository := coreadmin.NewInMemoryTranslationAssignmentRepository()
-	translationProductCfg := buildTranslationProductConfig(resolveTranslationProfile(), exchangeStore, queueRepository)
-	workflowConfigPath := resolveWorkflowConfigPath()
+	translationProductCfg := buildTranslationProductConfig(
+		resolveTranslationProfile(runtimeConfig.Translation.Profile),
+		exchangeStore,
+		queueRepository,
+		runtimeConfig.Translation,
+	)
+	workflowConfigPath := resolveWorkflowConfigPath(runtimeConfig.Admin.WorkflowConfigPath)
 	var workflowRuntime coreadmin.WorkflowRuntime = coreadmin.NewWorkflowRuntimeService(
 		coreadmin.NewInMemoryWorkflowDefinitionRepository(),
 		coreadmin.NewInMemoryWorkflowBindingRepository(),
@@ -333,7 +404,16 @@ func main() {
 	cmsBackend := adapterResult.CMSBackend
 	settingsBackend := adapterResult.SettingsBackend
 	activityBackend := adapterResult.ActivityBackend
-	preflightReport, err := runTranslationAuthzPreflight(context.Background(), adm, cfg, usersDeps.RoleRegistry, isDev)
+	authzPreflightMode := resolveAuthzPreflightMode(runtimeConfig.Admin.AuthzPreflight.Mode, isDev)
+	authzPreflightRoles := resolveAuthzPreflightRoleKeys(runtimeConfig.Admin.AuthzPreflight.Roles)
+	preflightReport, err := runTranslationAuthzPreflight(
+		context.Background(),
+		adm,
+		cfg,
+		usersDeps.RoleRegistry,
+		authzPreflightMode,
+		authzPreflightRoles,
+	)
 	if err != nil {
 		log.Panicf("authorization preflight failed: %v", err)
 	}
@@ -532,10 +612,10 @@ func main() {
 	// both in-memory and persistent go-cms backends.
 
 	// Setup authentication and authorization
-	scopeCfg := quickstart.ScopeConfigFromAdmin(cfg)
+	resolvedScopeCfg := quickstart.ScopeConfigFromAdmin(cfg)
 	authOptions := []setup.AuthOption{}
-	if scopeCfg.Mode == quickstart.ScopeModeSingle {
-		authOptions = append(authOptions, setup.WithDefaultScope(scopeCfg.DefaultTenantID, scopeCfg.DefaultOrgID))
+	if resolvedScopeCfg.Mode == quickstart.ScopeModeSingle {
+		authOptions = append(authOptions, setup.WithDefaultScope(resolvedScopeCfg.DefaultTenantID, resolvedScopeCfg.DefaultOrgID))
 	}
 	authn, _, auther, authCookieName := setup.SetupAuth(adm, dataStores, usersDeps, authOptions...)
 	wrapAuthed := authn.WrapHandler
@@ -644,7 +724,7 @@ func main() {
 	// Prefer serving assets from disk when available (dev flow), and fall back to embedded assets.
 	// This avoids 404s when the running binary was compiled without the latest generated assets
 	// (e.g., output.css, assets/dist/*) and supports iterative frontend builds.
-	diskAssetsDir := strings.TrimSpace(os.Getenv("ADMIN_ASSETS_DIR"))
+	diskAssetsDir := strings.TrimSpace(runtimeConfig.Admin.AssetsDir)
 	if diskAssetsDir != "" {
 		if abs, err := filepath.Abs(diskAssetsDir); err == nil {
 			diskAssetsDir = abs
@@ -697,8 +777,8 @@ func main() {
 		})
 	}
 
-	preferencesSchemaPath := strings.TrimSpace(os.Getenv("ADMIN_PREFERENCES_SCHEMA"))
-	preferencesJSONStrict := strings.EqualFold(strings.TrimSpace(os.Getenv("ADMIN_PREFERENCES_JSON_STRICT")), "true")
+	preferencesSchemaPath := strings.TrimSpace(runtimeConfig.Admin.Preferences.SchemaPath)
+	preferencesJSONStrict := runtimeConfig.Admin.Preferences.JSONStrict
 
 	// Register modules
 	blockWorkflowAuth := coreadmin.NewRoleWorkflowAuthorizer(
@@ -818,7 +898,7 @@ func main() {
 	if report, err := setup.LogNavigationIntegritySummary(context.Background(), adm.MenuService(), cfg.NavMenuCode, cfg.DefaultLocale); err != nil {
 		log.Printf("warning: failed to compute final navigation integrity summary: %v", err)
 	} else if report.HasIssues() {
-		if strictIntegrity := strings.EqualFold(strings.TrimSpace(os.Getenv("NAV_INTEGRITY_STRICT")), "true"); strictIntegrity {
+		if strictIntegrity := runtimeConfig.Navigation.IntegrityStrict || runtimeConfig.Admin.Debug.NavigationStrict; strictIntegrity {
 			log.Panicf(
 				"navigation integrity check failed: menu=%s locale=%s orphans=%d cycles=%d self_parent=%d",
 				report.MenuCode, report.Locale, report.OrphanCount, report.CycleCount, report.SelfParentCount,
@@ -831,9 +911,7 @@ func main() {
 	}
 	if debugEnabled {
 		if collector := adm.Debug(); collector != nil {
-			enableSlog := !strings.EqualFold(os.Getenv("ADMIN_DEBUG_SLOG"), "false") &&
-				strings.TrimSpace(os.Getenv("ADMIN_DEBUG_SLOG")) != "0"
-			if enableSlog {
+			if runtimeConfig.Admin.Debug.EnableSlog {
 				logWriter := log.Writer()
 				delegate := slog.NewTextHandler(logWriter, &slog.HandlerOptions{Level: slog.LevelInfo})
 				handler := admin.NewDebugLogHandler(collector, delegate)
@@ -892,7 +970,7 @@ func main() {
 		session := helpers.FilterSessionUser(helpers.BuildSessionUser(c.Context()), adm.FeatureGate())
 		return c.JSON(fiber.StatusOK, session)
 	}))
-	r.Get(path.Join(adminAPIBasePath, "debug", "permissions"), wrapAuthed(permissionDiagnosticsHandler(adm)))
+	r.Get(path.Join(adminAPIBasePath, "debug", "permissions"), wrapAuthed(permissionDiagnosticsHandler(adm, authzPreflightMode)))
 	if scopeDebugEnabled {
 		r.Get(path.Join(adminAPIBasePath, "debug", "scope"), wrapAuthed(quickstart.ScopeDebugHandler(scopeDebugBuffer)))
 	}
@@ -1012,38 +1090,30 @@ func main() {
 	if err := quickstart.RegisterContentTypeBuilderAPIRoutes(r, cfg, adm, authn); err != nil {
 		log.Panicf("failed to register content type builder API routes: %v", err)
 	}
-	parsePositiveEnvInt := func(key string) int {
-		raw := strings.TrimSpace(os.Getenv(key))
-		if raw == "" {
-			return 0
-		}
-		parsed, err := strconv.Atoi(raw)
-		if err != nil || parsed <= 0 {
-			return 0
-		}
-		return parsed
-	}
 	contentEntryUIOpts := []quickstart.ContentEntryUIOption{
 		quickstart.WithContentEntryUITemplateFS(client.FS(), webFS),
 		quickstart.WithContentEntryRecommendedDefaults(),
 		quickstart.WithContentEntryTranslationUX(true),
 	}
-	stateStoreMode := strings.TrimSpace(os.Getenv("ADMIN_DATAGRID_STATE_STORE_MODE"))
+	stateStoreMode := strings.TrimSpace(runtimeConfig.Datagrid.StateStoreMode)
 	if stateStoreMode != "" {
 		contentEntryUIOpts = append(contentEntryUIOpts, quickstart.WithContentEntryDataGridStateStore(
 			quickstart.PanelDataGridStateStoreOptions{
 				Mode:            stateStoreMode,
-				SyncDebounceMS:  parsePositiveEnvInt("ADMIN_DATAGRID_STATE_SYNC_DEBOUNCE_MS"),
-				MaxShareEntries: parsePositiveEnvInt("ADMIN_DATAGRID_STATE_MAX_SHARE_ENTRIES"),
+				SyncDebounceMS:  maxInt(0, runtimeConfig.Datagrid.SyncDebounceMS),
+				MaxShareEntries: maxInt(0, runtimeConfig.Datagrid.MaxShareEntries),
 			},
 		))
 	}
 	urlStateCfg := quickstart.PanelDataGridURLStateOptions{
-		MaxURLLength:     parsePositiveEnvInt("ADMIN_DATAGRID_URL_MAX_LENGTH"),
-		MaxFiltersLength: parsePositiveEnvInt("ADMIN_DATAGRID_URL_MAX_FILTERS_LENGTH"),
+		MaxURLLength:     maxInt(0, runtimeConfig.Datagrid.URLMaxLength),
+		MaxFiltersLength: maxInt(0, runtimeConfig.Datagrid.URLMaxFiltersLength),
 	}
-	if raw, has := os.LookupEnv("ADMIN_DATAGRID_URL_ENABLE_STATE_TOKEN"); has {
-		enabled := strings.EqualFold(strings.TrimSpace(raw), "true") || strings.TrimSpace(raw) == "1"
+	if runtimeConfig.Datagrid.URLEnableStateToken != nil {
+		enabled := *runtimeConfig.Datagrid.URLEnableStateToken
+		urlStateCfg.EnableStateToken = &enabled
+	} else if runtimeConfig.Admin.DatagridURLStateEnableToken != nil {
+		enabled := *runtimeConfig.Admin.DatagridURLStateEnableToken
 		urlStateCfg.EnableStateToken = &enabled
 	}
 	if urlStateCfg.MaxURLLength > 0 || urlStateCfg.MaxFiltersLength > 0 || urlStateCfg.EnableStateToken != nil {
@@ -1074,7 +1144,7 @@ func main() {
 		ctx["password_reset_confirm_path"] = passwordResetConfirmPath
 		return ctx
 	}
-	registerTemplate := strings.TrimSpace(os.Getenv("ADMIN_REGISTER_TEMPLATE"))
+	registerTemplate := strings.TrimSpace(runtimeConfig.Admin.RegisterTemplate)
 	if registerTemplate == "" {
 		registerTemplate = "register"
 	}
@@ -1131,7 +1201,7 @@ func main() {
 	r.Get(path.Join(cfg.BasePath, "users/:id/tabs/:tab"), wrapAuthed(userHandlers.TabHTML))
 	r.Get(path.Join(adminAPIBasePath, "users", ":id", "tabs", ":tab"), wrapAuthed(userHandlers.TabJSON))
 
-	siteCfg := resolveSiteRuntimeConfig(cfg, isDev)
+	siteCfg := resolveSiteRuntimeConfig(cfg, runtimeConfig.Site, isDev)
 	siteSearchProvider := newExampleSiteSearchProvider(cmsContentSvc, cfg.DefaultLocale)
 	if err := quicksite.RegisterSiteRoutes(
 		r,
@@ -1143,11 +1213,11 @@ func main() {
 	); err != nil {
 		log.Panicf("failed to register site runtime routes: %v", err)
 	}
-	if err := logSiteRuntimeEnvironmentDiagnostics(adm, cmsContentSvc, cfg, siteCfg); err != nil {
+	if err := logSiteRuntimeEnvironmentDiagnostics(adm, cmsContentSvc, cfg, siteCfg, runtimeConfig.Site.EnvironmentStrict); err != nil {
 		log.Panicf("site runtime environment diagnostics failed: %v", err)
 	}
 
-	listenAddr := resolveListenAddr()
+	listenAddr := resolveListenAddr(runtimeConfig.Server)
 	log.Printf("Enterprise Admin available at %s", urlForListenAddr(listenAddr))
 	log.Printf("  Dashboard API: %s", path.Join(adminAPIBasePath, "dashboard"))
 	log.Printf("  Navigation API: %s", path.Join(adminAPIBasePath, "navigation"))
@@ -1159,9 +1229,9 @@ func main() {
 	log.Println("  Content UI (Pages): /admin/content/pages (alias: /admin/pages)")
 	log.Println("  Content UI (Posts): /admin/content/posts (alias: /admin/posts)")
 	log.Printf("  Dashboard: go-dashboard (persistent, requires CMS)")
-	log.Printf("  Activity backend: %s (USE_GO_USERS_ACTIVITY=%t)", activityBackend, adapterResult.Flags.UseGoUsersActivity)
-	log.Printf("  CMS backend: %s (USE_PERSISTENT_CMS=%t)", cmsBackend, adapterResult.Flags.UsePersistentCMS)
-	log.Printf("  Settings backend: %s (USE_GO_OPTIONS=%t)", settingsBackend, adapterResult.Flags.UseGoOptions)
+	log.Printf("  Activity backend: %s (features.go_users_activity=%t)", activityBackend, adapterResult.Flags.UseGoUsersActivity)
+	log.Printf("  CMS backend: %s (features.persistent_cms=%t)", cmsBackend, adapterResult.Flags.UsePersistentCMS)
+	log.Printf("  Settings backend: %s (features.go_options=%t)", settingsBackend, adapterResult.Flags.UseGoOptions)
 	log.Printf("  Search API: %s?query=...", path.Join(adminAPIBasePath, "search"))
 	log.Printf("  Site Runtime: / (search: %s, search api: %s)", siteCfg.Search.Route, siteCfg.Search.Endpoint)
 
@@ -1170,31 +1240,29 @@ func main() {
 	}
 }
 
-func resolveListenAddr() string {
-	if addr := strings.TrimSpace(os.Getenv("ADMIN_ADDR")); addr != "" {
+func resolveListenAddr(cfg appcfg.ServerConfig) string {
+	addr := strings.TrimSpace(cfg.Address)
+	if addr == "" {
+		return ":8080"
+	}
+	if strings.HasPrefix(addr, ":") {
 		return addr
 	}
-	if port := strings.TrimSpace(os.Getenv("PORT")); port != "" {
-		if strings.HasPrefix(port, ":") {
-			return port
-		}
-		return ":" + port
+	if strings.Contains(addr, ":") {
+		return addr
 	}
-	return ":8080"
+	return ":" + addr
 }
 
-func resolveSiteRuntimeConfig(cfg admin.Config, isDev bool) quicksite.SiteConfig {
+func resolveSiteRuntimeConfig(cfg admin.Config, siteRuntime appcfg.SiteConfig, isDev bool) quicksite.SiteConfig {
 	defaultLocale := strings.ToLower(strings.TrimSpace(cfg.DefaultLocale))
 	if defaultLocale == "" {
 		defaultLocale = "en"
 	}
 
-	allowLocaleFallback := cfg.Site.AllowLocaleFallback
-	if value, ok := envBool("SITE_ALLOW_LOCALE_FALLBACK"); ok {
-		allowLocaleFallback = coreadmin.BoolPtr(value)
-	}
+	allowLocaleFallback := coreadmin.BoolPtr(siteRuntime.AllowLocaleFallback)
 
-	siteRuntimeEnv := strings.TrimSpace(os.Getenv("SITE_RUNTIME_ENV"))
+	siteRuntimeEnv := strings.TrimSpace(siteRuntime.RuntimeEnv)
 	if siteRuntimeEnv == "" {
 		if isDev {
 			siteRuntimeEnv = "dev"
@@ -1202,42 +1270,21 @@ func resolveSiteRuntimeConfig(cfg admin.Config, isDev bool) quicksite.SiteConfig
 			siteRuntimeEnv = "prod"
 		}
 	}
-	siteContentEnv := strings.TrimSpace(os.Getenv("SITE_CONTENT_ENV"))
-	if siteContentEnv == "" {
-		siteContentEnv = strings.TrimSpace(os.Getenv("SITE_ENV"))
-	}
+	siteContentEnv := strings.TrimSpace(siteRuntime.ContentEnv)
 	if siteContentEnv == "" {
 		siteContentEnv = defaultSiteContentEnv
 	}
 
-	enableGeneratedFallback := false
-	if value, ok := envBool("SITE_ENABLE_GENERATED_FALLBACK"); ok {
-		enableGeneratedFallback = value
-	}
-
-	enableSearch := true
-	if value, ok := envBool("SITE_ENABLE_SEARCH"); ok {
-		enableSearch = value
-	}
-	enableCanonicalRedirect := true
-	if value, ok := envBool("SITE_ENABLE_CANONICAL_REDIRECT"); ok {
-		enableCanonicalRedirect = value
-	}
-	strictLocalizedPaths := false
-	if value, ok := envBool("SITE_STRICT_LOCALIZED_PATHS"); ok {
-		strictLocalizedPaths = value
-	}
-
-	themeName := strings.TrimSpace(os.Getenv("SITE_THEME"))
+	themeName := strings.TrimSpace(siteRuntime.Theme)
 	if themeName == "" {
 		themeName = strings.TrimSpace(cfg.Theme)
 	}
-	themeVariant := strings.TrimSpace(os.Getenv("SITE_THEME_VARIANT"))
+	themeVariant := strings.TrimSpace(siteRuntime.ThemeVariant)
 	if themeVariant == "" {
 		themeVariant = strings.TrimSpace(cfg.ThemeVariant)
 	}
 
-	siteBasePath := strings.TrimSpace(os.Getenv("SITE_BASE_PATH"))
+	siteBasePath := strings.TrimSpace(siteRuntime.BasePath)
 	if siteBasePath == "" {
 		siteBasePath = "/"
 	}
@@ -1245,16 +1292,16 @@ func resolveSiteRuntimeConfig(cfg admin.Config, isDev bool) quicksite.SiteConfig
 	return quicksite.SiteConfig{
 		BasePath:            siteBasePath,
 		DefaultLocale:       defaultLocale,
-		SupportedLocales:    resolveSiteSupportedLocales(defaultLocale),
+		SupportedLocales:    resolveSiteSupportedLocales(defaultLocale, siteRuntime.SupportedLocales),
 		AllowLocaleFallback: allowLocaleFallback,
-		LocalePrefixMode:    resolveSiteLocalePrefixMode(os.Getenv("SITE_LOCALE_PREFIX_MODE")),
+		LocalePrefixMode:    resolveSiteLocalePrefixMode(siteRuntime.LocalePrefixMode),
 		Environment:         siteRuntimeEnv,
 		ContentEnvironment:  siteContentEnv,
 		Navigation: quicksite.SiteNavigationConfig{
 			MainMenuLocation:        quicksite.DefaultMainMenuLocation,
 			FooterMenuLocation:      quicksite.DefaultFooterMenuLocation,
 			FallbackMenuCode:        setup.SiteNavigationMenuCode,
-			EnableGeneratedFallback: enableGeneratedFallback, // Demo-only fallback; keep disabled unless explicitly enabled.
+			EnableGeneratedFallback: siteRuntime.EnableGeneratedFallback, // Demo-only fallback; keep disabled unless explicitly enabled.
 		},
 		Views: quicksite.SiteViewConfig{
 			TemplateFS: []fs.FS{
@@ -1270,7 +1317,7 @@ func resolveSiteRuntimeConfig(cfg admin.Config, isDev bool) quicksite.SiteConfig
 				"translation_missing": "site/error/missing_translation",
 			},
 			AssetBasePath:       cfg.BasePath,
-			ReloadInDevelopment: coreadmin.BoolPtr(true),
+			ReloadInDevelopment: coreadmin.BoolPtr(isDev),
 		},
 		Search: quicksite.SiteSearchConfig{
 			Route:       "/search",
@@ -1280,11 +1327,11 @@ func resolveSiteRuntimeConfig(cfg admin.Config, isDev bool) quicksite.SiteConfig
 		Features: quicksite.SiteFeatures{
 			EnablePreview:           coreadmin.BoolPtr(true),
 			EnableI18N:              coreadmin.BoolPtr(true),
-			EnableSearch:            coreadmin.BoolPtr(enableSearch),
+			EnableSearch:            coreadmin.BoolPtr(siteRuntime.EnableSearch),
 			EnableTheme:             coreadmin.BoolPtr(true),
 			EnableMenuDraftPreview:  coreadmin.BoolPtr(true),
-			EnableCanonicalRedirect: coreadmin.BoolPtr(enableCanonicalRedirect),
-			StrictLocalizedPaths:    coreadmin.BoolPtr(strictLocalizedPaths),
+			EnableCanonicalRedirect: coreadmin.BoolPtr(siteRuntime.EnableCanonicalRedirect),
+			StrictLocalizedPaths:    coreadmin.BoolPtr(siteRuntime.StrictLocalizedPaths),
 		},
 		Theme: quicksite.SiteThemeConfig{
 			Name:    themeName,
@@ -1312,6 +1359,7 @@ func logSiteRuntimeEnvironmentDiagnostics(
 	contentSvc admin.CMSContentService,
 	cfg admin.Config,
 	siteCfg quicksite.SiteConfig,
+	environmentStrict bool,
 ) error {
 	if adm == nil {
 		return nil
@@ -1411,20 +1459,18 @@ func logSiteRuntimeEnvironmentDiagnostics(
 		defaultSiteContentEnv,
 		contentEnv,
 	)
-	if strict, ok := envBool("SITE_ENV_STRICT"); ok && strict {
+	if environmentStrict {
 		return fmt.Errorf("%s", message)
 	}
 	log.Printf("warning: %s", message)
 	return nil
 }
 
-func resolveSiteSupportedLocales(defaultLocale string) []string {
-	raw := strings.TrimSpace(os.Getenv("SITE_SUPPORTED_LOCALES"))
-	if raw == "" {
+func resolveSiteSupportedLocales(defaultLocale string, configured []string) []string {
+	if len(configured) == 0 {
 		return uniqueNonEmptyStrings(defaultLocale, "es", "fr")
 	}
-	parts := splitAndTrimCSV(raw)
-	return uniqueNonEmptyStrings(append([]string{defaultLocale}, parts...)...)
+	return uniqueNonEmptyStrings(append([]string{defaultLocale}, configured...)...)
 }
 
 func resolveSiteLocalePrefixMode(raw string) quicksite.LocalePrefixMode {
@@ -1436,11 +1482,11 @@ func resolveSiteLocalePrefixMode(raw string) quicksite.LocalePrefixMode {
 	}
 }
 
-// resolveTranslationProfile reads the translation capability profile from environment.
+// resolveTranslationProfile reads the translation capability profile from runtime configuration.
 // Supported profiles: none, core, core+exchange, core+queue, full
 // Default: "core" (will be auto-selected for CMS-enabled apps when omitted)
-func resolveTranslationProfile() quickstart.TranslationProfile {
-	value := strings.ToLower(strings.TrimSpace(os.Getenv("ADMIN_TRANSLATION_PROFILE")))
+func resolveTranslationProfile(raw string) quickstart.TranslationProfile {
+	value := strings.ToLower(strings.TrimSpace(raw))
 	switch value {
 	case "none":
 		return quickstart.TranslationProfileNone
@@ -1462,6 +1508,7 @@ func buildTranslationProductConfig(
 	profile quickstart.TranslationProfile,
 	exchangeStore coreadmin.TranslationExchangeStore,
 	queueRepository coreadmin.TranslationAssignmentRepository,
+	translationCfg appcfg.TranslationConfig,
 ) quickstart.TranslationProductConfig {
 	cfg := quickstart.TranslationProductConfig{
 		SchemaVersion: quickstart.TranslationProductSchemaVersionCurrent,
@@ -1471,12 +1518,10 @@ func buildTranslationProductConfig(
 	exchangeEnabled, queueEnabled := translationProfileModuleDefaults(profile)
 	exchangeOverride := false
 	queueOverride := false
-	if enabled, ok := envBool("ADMIN_TRANSLATION_EXCHANGE"); ok {
-		exchangeEnabled = enabled
+	if translationCfg != (appcfg.TranslationConfig{}) {
+		exchangeEnabled = translationCfg.Exchange
+		queueEnabled = translationCfg.Queue
 		exchangeOverride = true
-	}
-	if enabled, ok := envBool("ADMIN_TRANSLATION_QUEUE"); ok {
-		queueEnabled = enabled
 		queueOverride = true
 	}
 
@@ -1682,24 +1727,8 @@ func featureEnabled(gate fggate.FeatureGate, feature string) bool {
 	return err == nil && enabled
 }
 
-func applyFeatureFlagFromEnv(flags map[string]bool, envKey, featureKey string) {
-	if flags == nil {
-		return
-	}
-	envKey = strings.TrimSpace(envKey)
-	featureKey = strings.TrimSpace(featureKey)
-	if envKey == "" || featureKey == "" {
-		return
-	}
-	value, ok := envBool(envKey)
-	if !ok {
-		return
-	}
-	flags[featureKey] = value
-}
-
-func resolveFeatureCatalogPath() string {
-	if value := strings.TrimSpace(os.Getenv("ADMIN_FEATURE_CATALOG")); value != "" {
+func resolveFeatureCatalogPath(configPath string) string {
+	if value := strings.TrimSpace(configPath); value != "" {
 		return value
 	}
 	candidates := []string{
@@ -1716,8 +1745,8 @@ func resolveFeatureCatalogPath() string {
 	return ""
 }
 
-func resolveWorkflowConfigPath() string {
-	if value := strings.TrimSpace(os.Getenv("ADMIN_WORKFLOW_CONFIG")); value != "" {
+func resolveWorkflowConfigPath(configPath string) string {
+	if value := strings.TrimSpace(configPath); value != "" {
 		return value
 	}
 	candidates := []string{
@@ -1867,18 +1896,6 @@ func workflowSeedBindingID(trait string) string {
 	return "wfb_trait_" + trait
 }
 
-func envBool(key string) (bool, bool) {
-	value, ok := os.LookupEnv(key)
-	if !ok {
-		return false, false
-	}
-	parsed, err := strconv.ParseBool(strings.TrimSpace(value))
-	if err != nil {
-		return false, false
-	}
-	return parsed, true
-}
-
 type authzPreflightMode string
 
 const (
@@ -1907,17 +1924,18 @@ func runTranslationAuthzPreflight(
 	adm *admin.Admin,
 	cfg admin.Config,
 	roleRegistry userstypes.RoleRegistry,
-	isDev bool,
+	mode authzPreflightMode,
+	roleKeys []string,
 ) (translationAuthzPreflightReport, error) {
-	mode := resolveAuthzPreflightMode(isDev)
 	required, modules := translationOperationRequiredPermissions(nil)
 	if adm != nil {
 		required, modules = translationOperationRequiredPermissions(adm.FeatureGate())
 	}
+	resolvedRoleKeys := resolveAuthzPreflightRoleKeys(roleKeys)
 	report := translationAuthzPreflightReport{
 		Mode:                mode,
 		Modules:             modules,
-		RoleKeys:            resolveAuthzPreflightRoleKeys(),
+		RoleKeys:            resolvedRoleKeys,
 		RequiredPermissions: required,
 	}
 	if mode == authzPreflightModeOff || len(required) == 0 {
@@ -1982,8 +2000,8 @@ func finalizeTranslationAuthzPreflight(report translationAuthzPreflightReport) (
 	return report, fmt.Errorf("translation authz preflight failed (%s)", strings.Join(failures, "; "))
 }
 
-func resolveAuthzPreflightMode(isDev bool) authzPreflightMode {
-	raw := strings.ToLower(strings.TrimSpace(os.Getenv("ADMIN_AUTHZ_PREFLIGHT")))
+func resolveAuthzPreflightMode(raw string, isDev bool) authzPreflightMode {
+	raw = strings.ToLower(strings.TrimSpace(raw))
 	switch raw {
 	case "off", "false", "0", "disabled", "none":
 		return authzPreflightModeOff
@@ -2005,12 +2023,10 @@ func resolveAuthzPreflightMode(isDev bool) authzPreflightMode {
 	}
 }
 
-func resolveAuthzPreflightRoleKeys() []string {
-	raw := strings.TrimSpace(os.Getenv("ADMIN_AUTHZ_PREFLIGHT_ROLES"))
-	if raw == "" {
-		raw = authzPreflightDefaultRolesCSV
+func resolveAuthzPreflightRoleKeys(values []string) []string {
+	if len(values) == 0 {
+		values = splitAndTrimCSV(authzPreflightDefaultRolesCSV)
 	}
-	values := splitAndTrimCSV(raw)
 	if len(values) == 0 {
 		return []string{"superadmin", "owner"}
 	}
@@ -2184,14 +2200,14 @@ func dedupeSortedStrings(values []string) []string {
 	return out
 }
 
-func permissionDiagnosticsHandler(adm *admin.Admin) router.HandlerFunc {
+func permissionDiagnosticsHandler(adm *admin.Admin, preflightMode authzPreflightMode) router.HandlerFunc {
 	return func(c router.Context) error {
-		payload := permissionDiagnosticsSnapshot(adm, c.Context())
+		payload := permissionDiagnosticsSnapshot(adm, c.Context(), preflightMode)
 		return c.JSON(fiber.StatusOK, payload)
 	}
 }
 
-func permissionDiagnosticsSnapshot(adm *admin.Admin, ctx context.Context) map[string]any {
+func permissionDiagnosticsSnapshot(adm *admin.Admin, ctx context.Context, preflightMode authzPreflightMode) map[string]any {
 	gate := fggate.FeatureGate(nil)
 	if adm != nil {
 		gate = adm.FeatureGate()
@@ -2201,12 +2217,12 @@ func permissionDiagnosticsSnapshot(adm *admin.Admin, ctx context.Context) map[st
 	if adm != nil {
 		granted = coreadmin.ResolvedPermissionsFromAuthorizer(ctx, adm.Authorizer())
 	}
-	payload := buildPermissionDiagnosticsPayload(adm, ctx, granted)
+	payload := buildPermissionDiagnosticsPayload(adm, ctx, granted, preflightMode)
 	payload["user"] = session
 	return payload
 }
 
-func buildPermissionDiagnosticsPayload(adm *admin.Admin, ctx context.Context, granted []string) map[string]any {
+func buildPermissionDiagnosticsPayload(adm *admin.Admin, ctx context.Context, granted []string, preflightMode authzPreflightMode) map[string]any {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -2240,7 +2256,7 @@ func buildPermissionDiagnosticsPayload(adm *admin.Admin, ctx context.Context, gr
 		"granted_permissions":  granted,
 		"missing_permissions":  missing,
 		"permission_checks":    checks,
-		"preflight_mode":       resolveAuthzPreflightMode(isDevelopmentEnv()),
+		"preflight_mode":       preflightMode,
 		"hints":                hints,
 	}
 }
@@ -2259,8 +2275,12 @@ func enabledModuleKeys(modules map[string]bool) []string {
 	return enabled
 }
 
-func isDevelopmentEnv() bool {
-	return strings.EqualFold(os.Getenv("GO_ENV"), "development") || strings.EqualFold(os.Getenv("ENV"), "development")
+func isDevelopmentEnv(env string) bool {
+	return strings.EqualFold(strings.TrimSpace(env), "development")
+}
+
+func isProductionEnv(env string) bool {
+	return strings.EqualFold(strings.TrimSpace(env), "production") || strings.EqualFold(strings.TrimSpace(env), "prod")
 }
 
 func parseRegistrationMode(raw string, fallback setup.RegistrationMode) setup.RegistrationMode {
@@ -2288,6 +2308,13 @@ func splitAndTrimCSV(raw string) []string {
 		}
 	}
 	return out
+}
+
+func maxInt(minimum, value int) int {
+	if value < minimum {
+		return minimum
+	}
+	return value
 }
 
 func crudOperationAction(op crud.CrudOperation) string {

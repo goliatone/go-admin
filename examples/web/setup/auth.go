@@ -8,7 +8,6 @@ import (
 	"github.com/goliatone/go-admin/internal/primitives"
 	"log"
 	"net/http"
-	"os"
 	"sort"
 	"strings"
 	"time"
@@ -610,7 +609,7 @@ func buildRolePermissionVersion(
 
 func normalizeAuthOptions(options authOptions) authOptions {
 	if !options.permissionResolverCacheSet {
-		options.permissionResolverCacheTTL = resolvePermissionResolverCacheTTLFromEnv(30 * time.Second)
+		options.permissionResolverCacheTTL = resolvePermissionResolverCacheTTL(30 * time.Second)
 		return options
 	}
 	if options.permissionResolverCacheTTL < 0 {
@@ -619,13 +618,12 @@ func normalizeAuthOptions(options authOptions) authOptions {
 	return options
 }
 
-func resolvePermissionResolverCacheTTLFromEnv(fallback time.Duration) time.Duration {
-	raw := strings.TrimSpace(os.Getenv("ADMIN_PERMISSION_RESOLVER_CACHE_TTL"))
-	if raw == "" {
+func resolvePermissionResolverCacheTTL(fallback time.Duration) time.Duration {
+	ttl := runtimeConfig().PermissionResolverCacheTTL
+	if ttl < 0 {
 		return fallback
 	}
-	ttl, err := time.ParseDuration(raw)
-	if err != nil || ttl < 0 {
+	if ttl == 0 {
 		return fallback
 	}
 	return ttl

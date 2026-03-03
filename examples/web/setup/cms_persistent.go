@@ -10,7 +10,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
 	"time"
 
@@ -89,7 +88,8 @@ func SetupPersistentCMS(ctx context.Context, defaultLocale, dsn string) (admin.C
 		return admin.CMSOptions{}, fmt.Errorf("apply content overlay: %w", err)
 	}
 
-	seedCfg := SeedConfigFromEnv()
+	runtimeCfg := runtimeConfig()
+	seedCfg := ResolveSeedConfig(runtimeCfg.Seeds, isProductionEnv())
 	if err := LoadSeedGroup(ctx, client, seedCfg, SeedGroupCMS); err != nil {
 		return admin.CMSOptions{}, fmt.Errorf("load cms seeds: %w", err)
 	}
@@ -279,7 +279,13 @@ func defaultCMSDSN() string {
 }
 
 func shouldEnableCMSRuntimeLogs() bool {
-	envOverride, hasEnvOverride := envBool("GO_ADMIN_CMS_LOGS")
+	runtime := runtimeConfig()
+	envOverride := false
+	hasEnvOverride := false
+	if runtime.CMSRuntimeLogs != nil {
+		envOverride = *runtime.CMSRuntimeLogs
+		hasEnvOverride = true
+	}
 	isTest := flag.Lookup("test.v") != nil
 	testFlag := cmsTestLogs != nil && *cmsTestLogs
 	return shouldEnableCMSRuntimeLogsWith(isTest, testFlag, envOverride, hasEnvOverride)
@@ -293,18 +299,6 @@ func shouldEnableCMSRuntimeLogsWith(isTest bool, testFlag bool, envOverride bool
 		return testFlag
 	}
 	return true
-}
-
-func envBool(key string) (bool, bool) {
-	val := strings.TrimSpace(os.Getenv(key))
-	if val == "" {
-		return false, false
-	}
-	parsed, err := strconv.ParseBool(val)
-	if err != nil {
-		return false, false
-	}
-	return parsed, true
 }
 
 func canonicalCMSPath(path, fallback string) string {
@@ -328,11 +322,12 @@ func resolveCMSDSN(input string) string {
 	if trimmed := strings.TrimSpace(input); trimmed != "" {
 		return trimmed
 	}
-	if env := strings.TrimSpace(os.Getenv("CONTENT_DATABASE_DSN")); env != "" {
-		return env
+	runtime := runtimeConfig()
+	if value := strings.TrimSpace(runtime.Databases.ContentDSN); value != "" {
+		return value
 	}
-	if env := strings.TrimSpace(os.Getenv("CMS_DATABASE_DSN")); env != "" {
-		return env
+	if value := strings.TrimSpace(runtime.Databases.CMSDSN); value != "" {
+		return value
 	}
 	return defaultCMSDSN()
 }

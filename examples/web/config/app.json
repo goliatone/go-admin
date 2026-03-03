@@ -1,0 +1,154 @@
+{
+  "app": {
+    "name": "go-admin web",
+    "env": "development"
+  },
+  "server": {
+    "address": ":8080"
+  },
+  "admin": {
+    "base_path": "/admin",
+    "title": "Enterprise Admin",
+    "default_locale": "en",
+    "public_api": true,
+    "preview_secret": "",
+    "api_prefix": "api",
+    "api_version": "",
+    "assets_dir": "",
+    "feature_catalog_path": "feature_catalog.yaml",
+    "workflow_config_path": "workflow_config.yaml",
+    "register_template": "register",
+    "preferences": {
+      "schema_path": "",
+      "json_strict": false
+    },
+    "debug": {
+      "enabled": true,
+      "enable_slog": true,
+      "layout": "admin",
+      "repl_enabled": true,
+      "repl_read_only": false,
+      "scope_enabled": true,
+      "scope_limit": 200,
+      "navigation_integrity_strict": false
+    },
+    "errors": {
+      "dev_mode": true,
+      "include_stack_trace": true,
+      "expose_internal_errors": true
+    },
+    "scope": {
+      "mode": "single",
+      "default_tenant_id": "11111111-1111-1111-1111-111111111111",
+      "default_org_id": "22222222-2222-2222-2222-222222222222"
+    },
+    "authz_preflight": {
+      "mode": "warn",
+      "roles": [
+        "superadmin",
+        "owner"
+      ]
+    },
+    "permission_resolver_cache_ttl": "30s",
+    "password_policy_hints": [
+      "Use at least 8 characters",
+      "Mix letters, numbers, and symbols",
+      "Avoid reused passwords"
+    ]
+  },
+  "site": {
+    "base_path": "/",
+    "runtime_env": "dev",
+    "content_env": "default",
+    "supported_locales": [
+      "en",
+      "es",
+      "fr"
+    ],
+    "locale_prefix_mode": "non_default",
+    "allow_locale_fallback": true,
+    "enable_generated_fallback": false,
+    "enable_search": true,
+    "enable_canonical_redirect": true,
+    "strict_localized_paths": false,
+    "environment_strict": false,
+    "theme": "",
+    "theme_variant": ""
+  },
+  "features": {
+    "persistent_cms": true,
+    "go_options": false,
+    "go_users_activity": false,
+    "user_invites": true,
+    "password_reset": true,
+    "self_registration": false
+  },
+  "registration": {
+    "mode": "closed",
+    "allowlist": [
+      "example.com"
+    ]
+  },
+  "navigation": {
+    "reset_menu": true,
+    "debug": false,
+    "debug_log": false,
+    "integrity_strict": false
+  },
+  "seeds": {
+    "enabled": true,
+    "truncate": false,
+    "ignore_duplicates": true
+  },
+  "databases": {
+    "cms_dsn": "",
+    "content_dsn": ""
+  },
+  "securelink": {
+    "base_url": "http://localhost:8080",
+    "signing_key": "admin-demo-securelink-signing-key-change-me",
+    "query_key": "token",
+    "as_query": true,
+    "expiration": "72h"
+  },
+  "translation": {
+    "profile": "full",
+    "exchange": true,
+    "queue": true
+  },
+  "datagrid": {
+    "state_store_mode": "",
+    "sync_debounce_ms": 0,
+    "max_share_entries": 0,
+    "url_max_length": 0,
+    "url_max_filters_length": 0
+  },
+  "export_pdf": {
+    "engine": "chromium",
+    "wkhtmltopdf_path": "",
+    "browser_path": "",
+    "timeout": "30s",
+    "page_size": "",
+    "print_background": true,
+    "prefer_css_page_size": true,
+    "headless": true,
+    "args": [
+      "--no-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-gpu"
+    ]
+  },
+  "fiber": {
+    "strict_routes": true,
+    "route_conflict_policy": "log_and_continue",
+    "path_conflict_mode": "prefer_static",
+    "read_buffer_size": 16384
+  },
+  "auth": {
+    "debug": false,
+    "resolver_strict": false
+  },
+  "cms": {
+    "runtime_logs": null
+  }
+}

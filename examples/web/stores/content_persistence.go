@@ -39,14 +39,11 @@ func (c contentConfig) GetPingTimeout() time.Duration {
 func (c contentConfig) GetOtelIdentifier() string { return "" }
 
 // ResolveContentDSN returns the SQLite DSN for content persistence. It checks
-// CONTENT_DATABASE_DSN first, then CMS_DATABASE_DSN, and finally falls back
-// to a shared temp-file path to keep parity with the CMS/users examples.
+// configured runtime DSNs first, then falls back to a shared temp-file path to
+// keep parity with the CMS/users examples.
 func ResolveContentDSN() string {
-	if env := strings.TrimSpace(os.Getenv("CONTENT_DATABASE_DSN")); env != "" {
-		return env
-	}
-	if env := strings.TrimSpace(os.Getenv("CMS_DATABASE_DSN")); env != "" {
-		return env
+	if configured := configuredContentDSN(); configured != "" {
+		return configured
 	}
 	return defaultContentDSN()
 }
