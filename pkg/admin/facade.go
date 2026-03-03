@@ -949,10 +949,6 @@ func EnsureMenuParents(ctx context.Context, opts EnsureMenuParentsOptions) error
 	return core.EnsureMenuParents(ctx, opts)
 }
 
-func EnsureMenuUUID(raw string) string {
-	return core.EnsureMenuUUID(raw)
-}
-
 func EnvironmentFromContext(ctx context.Context) string {
 	return core.EnvironmentFromContext(ctx)
 }
