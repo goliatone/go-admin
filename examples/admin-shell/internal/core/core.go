@@ -67,7 +67,6 @@ func New(ctx context.Context, cfg *config.AppConfig, container *goconfig.Contain
 		cfg.Admin.BasePath,
 		cfg.Admin.Title,
 		cfg.Admin.DefaultLocale,
-		quickstart.WithScopeFromEnv(),
 	)
 
 	adm, _, err := quickstart.NewAdmin(
