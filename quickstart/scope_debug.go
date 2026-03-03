@@ -137,18 +137,6 @@ func (b *ScopeDebugBuffer) Clear() error {
 	return nil
 }
 
-// ScopeDebugEnabledFromEnv is retained for compatibility and always returns false.
-// Deprecated: pass explicit scope debug configuration from host application code.
-func ScopeDebugEnabledFromEnv() bool {
-	return false
-}
-
-// ScopeDebugLimitFromEnv is retained for compatibility and returns 200.
-// Deprecated: pass explicit scope debug configuration from host application code.
-func ScopeDebugLimitFromEnv() int {
-	return 200
-}
-
 // ScopeDebugWrap captures scope debug info for authenticated requests.
 func ScopeDebugWrap(authn *admin.GoAuthAuthenticator, cfg *admin.Config, buffer *ScopeDebugBuffer) func(router.HandlerFunc) router.HandlerFunc {
 	if authn == nil {

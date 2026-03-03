@@ -139,6 +139,26 @@ func WithNavMenuCode(code string) AdminConfigOption {
 	}
 }
 
+// WithNavDebug enables/disables navigation debug payloads in view context.
+func WithNavDebug(enabled bool) AdminConfigOption {
+	return func(cfg *admin.Config) {
+		if cfg == nil {
+			return
+		}
+		cfg.NavDebug = enabled
+	}
+}
+
+// WithNavDebugLog enables/disables navigation debug logging.
+func WithNavDebugLog(enabled bool) AdminConfigOption {
+	return func(cfg *admin.Config) {
+		if cfg == nil {
+			return
+		}
+		cfg.NavDebugLog = enabled
+	}
+}
+
 // WithThemeAssetPrefix sets a default asset prefix used by themes.
 func WithThemeAssetPrefix(prefix string) AdminConfigOption {
 	return func(cfg *admin.Config) {
@@ -185,9 +205,4 @@ func WithDefaultScope(tenantID, orgID string) AdminConfigOption {
 		cfg.DefaultTenantID = strings.TrimSpace(tenantID)
 		cfg.DefaultOrgID = strings.TrimSpace(orgID)
 	}
-}
-
-// WithScopeFromEnv applies scope defaults from ADMIN_SCOPE_* env vars.
-func WithScopeFromEnv() AdminConfigOption {
-	return WithScopeConfig(ScopeConfigFromEnv())
 }

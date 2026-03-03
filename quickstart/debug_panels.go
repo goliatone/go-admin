@@ -167,7 +167,7 @@ func doctorPanelEnabled(deps DebugPanelDeps) bool {
 		return *deps.DoctorEnabled
 	}
 	isDev := isDevelopmentFromDeps(deps)
-	return DoctorDebugEnabledFromEnv(isDev)
+	return doctorDebugEnabled(isDev)
 }
 
 func isDevelopmentFromDeps(deps DebugPanelDeps) bool {
@@ -177,8 +177,7 @@ func isDevelopmentFromDeps(deps DebugPanelDeps) bool {
 	return false
 }
 
-// DoctorDebugEnabledFromEnv resolves doctor panel enablement using env override.
-// ADMIN_DEBUG_DOCTOR=true|false takes precedence; otherwise development defaults apply.
-func DoctorDebugEnabledFromEnv(isDevelopment bool) bool {
+// doctorDebugEnabled resolves doctor panel enablement from runtime environment mode.
+func doctorDebugEnabled(isDevelopment bool) bool {
 	return isDevelopment
 }

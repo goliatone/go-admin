@@ -11,11 +11,6 @@ import (
 	cms "github.com/goliatone/go-cms"
 )
 
-// ErrSeedNavigationRequiresGoCMS is retained for backwards compatibility.
-//
-// Deprecated: SeedNavigation now works against the public admin.CMSMenuService contract.
-var ErrSeedNavigationRequiresGoCMS = fmt.Errorf("quickstart: SeedNavigation requires a go-cms backed menu service")
-
 type menuResetterWithContext interface {
 	ResetMenuContext(ctx context.Context, code string) error
 }

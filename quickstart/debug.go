@@ -11,32 +11,6 @@ import (
 	router "github.com/goliatone/go-router"
 )
 
-// DebugEnvOption is retained for compatibility.
-// Deprecated: use DebugOption and WithDebugOptions.
-type DebugEnvOption struct {
-	EnabledKey                    string
-	AllowedIPsKey                 string
-	AllowedOriginsKey             string
-	AppIDKey                      string
-	AppNameKey                    string
-	EnvironmentKey                string
-	RemoteEnabledKey              string
-	TokenTTLKey                   string
-	SessionTrackingKey            string
-	SessionIncludeGlobalPanelsKey string
-	SessionCookieNameKey          string
-	SessionInactivityExpiryKey    string
-	CaptureSQLKey                 string
-	CaptureLogsKey                string
-	CaptureJSErrorsKey            string
-	CaptureRequestBodyKey         string
-	ToolbarModeKey                string
-	ToolbarPanelsKey              string
-	LayoutModeKey                 string
-	ReplEnabledKey                string
-	ReplReadOnlyKey               string
-}
-
 // DebugOption applies explicit debug configuration overrides.
 type DebugOption struct {
 	Enabled                    *bool
@@ -162,12 +136,6 @@ func WithDebugOptions(opt DebugOption) AdminConfigOption {
 
 		cfg.Debug = debugCfg
 	}
-}
-
-// WithDebugFromEnv is retained for compatibility and no longer reads process environment.
-// Deprecated: use WithDebugOptions and an external config loader.
-func WithDebugFromEnv(_ ...DebugEnvOption) AdminConfigOption {
-	return func(_ *admin.Config) {}
 }
 
 // AttachDebugMiddleware registers the debug request capture middleware on the router.

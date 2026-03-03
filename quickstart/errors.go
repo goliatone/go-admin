@@ -2,14 +2,6 @@ package quickstart
 
 import "github.com/goliatone/go-admin/admin"
 
-// ErrorEnvOption is retained for compatibility.
-// Deprecated: use ErrorOption and WithErrorOptions.
-type ErrorEnvOption struct {
-	DevModeKey               string
-	IncludeStackTraceKey     string
-	ExposeInternalMessageKey string
-}
-
 // ErrorOption applies explicit error configuration overrides.
 type ErrorOption struct {
 	DevMode               *bool
@@ -45,10 +37,4 @@ func WithErrorOptions(opt ErrorOption) AdminConfigOption {
 		}
 		cfg.Errors = errCfg
 	}
-}
-
-// WithErrorsFromEnv is retained for compatibility and no longer reads process environment.
-// Deprecated: use WithErrorOptions and an external config loader.
-func WithErrorsFromEnv(_ ...ErrorEnvOption) AdminConfigOption {
-	return func(_ *admin.Config) {}
 }

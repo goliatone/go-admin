@@ -40,17 +40,10 @@ type AdapterResult struct {
 	Config             admin.Config
 }
 
-// ResolveAdapterFlags returns zero-value adapter toggles.
-// Host applications should pass explicit flags via WithAdapterFlags or
-// ConfigureAdaptersWithFlags.
-func ResolveAdapterFlags() AdapterFlags {
-	return AdapterFlags{}
-}
-
-// ConfigureAdapters mutates the admin config (CMS) based on env flags and available hooks.
+// ConfigureAdapters mutates the admin config (CMS) using explicit defaults and
+// available hooks.
 func ConfigureAdapters(ctx context.Context, cfg admin.Config, hooks AdapterHooks) (admin.Config, AdapterResult) {
-	flags := ResolveAdapterFlags()
-	return configureAdaptersWithFlagsLogger(ctx, cfg, hooks, flags, nil)
+	return configureAdaptersWithFlagsLogger(ctx, cfg, hooks, AdapterFlags{}, nil)
 }
 
 // ConfigureAdaptersWithFlags mutates the admin config (CMS) based on supplied flags.

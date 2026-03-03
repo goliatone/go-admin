@@ -59,12 +59,6 @@ func DefaultSecureLinkConfig(basePath string) SecureLinkConfig {
 	}
 }
 
-// SecureLinkConfigFromEnv is retained for compatibility and returns defaults.
-// Deprecated: use explicit SecureLinkConfig values from host configuration.
-func SecureLinkConfigFromEnv(basePath string) SecureLinkConfig {
-	return DefaultSecureLinkConfig(basePath)
-}
-
 // DefaultSecureLinkRoutes builds the route map used by securelink managers.
 func DefaultSecureLinkRoutes(basePath string) map[string]string {
 	basePath = strings.TrimSpace(basePath)
@@ -83,16 +77,6 @@ func DefaultSecureLinkRoutes(basePath string) map[string]string {
 type SecureLinkUIConfig struct {
 	QueryKey string
 	AsQuery  bool
-}
-
-// SecureLinkUIConfigFromEnv is retained for compatibility and returns defaults.
-// Deprecated: use SecureLinkUIConfigFromConfig with explicit values.
-func SecureLinkUIConfigFromEnv(basePath string) SecureLinkUIConfig {
-	cfg := SecureLinkConfigFromEnv(basePath)
-	return SecureLinkUIConfig{
-		QueryKey: cfg.QueryKey,
-		AsQuery:  cfg.AsQuery,
-	}
 }
 
 // SecureLinkUIConfigFromConfig reads securelink parsing defaults from config.

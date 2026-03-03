@@ -110,14 +110,6 @@ func TestWithDebugConfigSetsFeatureDefaults(t *testing.T) {
 	assertFeatureEnabled(t, gate, "custom.debug")
 }
 
-func TestWithDebugFromEnvMapping(t *testing.T) {
-	cfg := NewAdminConfig("/admin", "Admin", "en", WithDebugFromEnv())
-
-	if cfg.Debug.Enabled {
-		t.Fatalf("expected compatibility env option to be a no-op")
-	}
-}
-
 func TestWithDebugOptionsMapping(t *testing.T) {
 	tokenTTL := 15 * time.Minute
 	sessionTTL := 45 * time.Minute
