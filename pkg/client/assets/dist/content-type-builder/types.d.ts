@@ -383,7 +383,7 @@ export interface ContentTypeEditorConfig {
     apiBasePath: string;
     basePath?: string;
     contentTypeId?: string;
-    environment?: string;
+    channel?: string;
     locale?: string;
     onSave?: (contentType: ContentType) => void;
     onCancel?: () => void;
@@ -459,11 +459,11 @@ export interface BlockDefinitionListResponse {
     per_page?: number;
 }
 export interface BlockDefinitionsDiagnostics {
-    effective_environment: string;
-    requested_environment?: string;
+    effective_channel: string;
+    requested_channel?: string;
     total_effective: number;
     total_default: number;
-    available_environments?: string[];
+    available_channels?: string[];
 }
 export interface BlockDefinitionSummary {
     id: string;

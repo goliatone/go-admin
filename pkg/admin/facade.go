@@ -953,6 +953,10 @@ func EnvironmentFromContext(ctx context.Context) string {
 	return core.EnvironmentFromContext(ctx)
 }
 
+func ContentChannelFromContext(ctx context.Context) string {
+	return core.ContentChannelFromContext(ctx)
+}
+
 func ExtractSourceContext(filePath string, errorLine int, contextLines int) *SourceContext {
 	return core.ExtractSourceContext(filePath, errorLine, contextLines)
 }
@@ -1771,6 +1775,10 @@ func WithDynamicPanelSchemaValidator(validator SchemaValidator) DynamicPanelFact
 
 func WithEnvironment(ctx context.Context, environment string) context.Context {
 	return core.WithEnvironment(ctx, environment)
+}
+
+func WithContentChannel(ctx context.Context, channel string) context.Context {
+	return core.WithContentChannel(ctx, channel)
 }
 
 func WithFallbackIcon(icon string) IconServiceOption {

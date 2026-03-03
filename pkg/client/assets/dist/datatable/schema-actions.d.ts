@@ -85,7 +85,9 @@ export interface SchemaActionBuilderConfig {
     actionBasePath: string;
     /** Current locale context (passed to action payloads) */
     locale?: string;
-    /** Current environment context (passed to action payloads) */
+    /** Current content channel context (passed to action payloads) */
+    channel?: string;
+    /** @deprecated Use `channel` */
     environment?: string;
     /** Panel/entity name (e.g., 'pages') */
     panelName?: string;
@@ -123,7 +125,9 @@ export interface TranslationBlockerContext {
     transition: string | null;
     entityType: string | null;
     requestedLocale: string | null;
-    environment: string | null;
+    channel: string | null;
+    /** @deprecated Use `channel` */
+    environment?: string | null;
     retry?: () => Promise<ActionResult>;
 }
 /**
@@ -141,6 +145,7 @@ export declare class SchemaActionBuilder {
     private config;
     private seenActions;
     constructor(config: SchemaActionBuilderConfig);
+    private getContentChannel;
     /**
      * Build row actions for a record from schema.actions
      *
@@ -225,7 +230,7 @@ export declare class SchemaActionBuilder {
     private coercePromptValue;
     private buildActionErrorMessage;
     /**
-     * Build URL query context from locale/environment
+     * Build URL query context from locale/channel
      */
     private buildQueryContext;
     /**

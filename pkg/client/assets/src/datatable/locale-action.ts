@@ -31,7 +31,9 @@ export interface LocaleActionConfig {
   navigationBasePath: string;
   /** Panel/entity name (e.g., 'pages') */
   panelName?: string;
-  /** Current environment context */
+  /** Current content channel context */
+  channel?: string;
+  /** @deprecated Use `channel` */
   environment?: string;
   /** Whether the locale exists (for existing locales, only show open action) */
   localeExists?: boolean;
@@ -124,6 +126,11 @@ export class LocaleActionChip {
       created: false,
       error: null,
     };
+  }
+
+  private getContentChannel(): string | undefined {
+    const value = String(this.config.channel ?? this.config.environment ?? '').trim();
+    return value || undefined;
   }
 
   /**
@@ -275,8 +282,10 @@ export class LocaleActionChip {
         locale: this.config.locale,
       };
 
-      if (this.config.environment) {
-        payload.environment = this.config.environment;
+      const channel = this.getContentChannel();
+      if (channel) {
+        payload.channel = channel;
+        payload.environment = channel;
       }
       if (this.config.panelName) {
         payload.policy_entity = this.config.panelName;
@@ -319,14 +328,15 @@ export class LocaleActionChip {
    * Handle open translation action.
    */
   handleOpen(): void {
-    const { locale, navigationBasePath, recordId, environment } = this.config;
+    const { locale, navigationBasePath, recordId } = this.config;
     const { newRecordId } = this.state;
 
     const targetId = newRecordId || recordId;
     const params = new URLSearchParams();
     params.set('locale', locale);
-    if (environment) {
-      params.set('env', environment);
+    const channel = this.getContentChannel();
+    if (channel) {
+      params.set('channel', channel);
     }
 
     const url = `${navigationBasePath}/${targetId}/edit?${params.toString()}`;
@@ -466,12 +476,14 @@ export function buildLocaleEditUrl(
   basePath: string,
   recordId: string,
   locale: string,
+  channel?: string,
   environment?: string
 ): string {
   const params = new URLSearchParams();
   params.set('locale', locale);
-  if (environment) {
-    params.set('env', environment);
+  const effectiveChannel = String(channel ?? environment ?? '').trim();
+  if (effectiveChannel) {
+    params.set('channel', effectiveChannel);
   }
   return `${basePath}/${recordId}/edit?${params.toString()}`;
 }

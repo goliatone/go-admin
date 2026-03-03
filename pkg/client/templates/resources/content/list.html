@@ -106,9 +106,12 @@ const apiEndpoint = dataGridConfig.api_endpoint || '{{ list_api|default:"" }}';
 const actionBasePath = dataGridConfig.action_base || '{{ action_base|default:"" }}';
 const columns = {{ toJSON(columns)|safe }};
 const filters = {{ toJSON(filters)|safe }};
-const env = {{ toJSON(env)|safe }};
+const initialChannel = {{ toJSON(channel)|safe }};
 const locale = {{ toJSON(locale)|safe }};
 const panelName = '{{ panel_name }}';
+const queryParams = new URLSearchParams(window.location.search);
+const queryChannel = queryParams.get('channel');
+const channel = String(queryChannel || initialChannel || '').trim() || null;
 const columnFields = columns.map(c => c.field);
 const gridColumns = columns.map(col => ({
   ...col,
@@ -125,7 +128,7 @@ const translationUXEnabled = dataGridConfig.translation_ux_enabled === true;
 const groupedModeEnabled = dataGridConfig.enable_grouped_mode === true;
 const groupByField = String(dataGridConfig.group_by_field || 'translation_group_id').trim() || 'translation_group_id';
 const defaultViewMode = normalizeViewMode(dataGridConfig.default_view_mode, groupedModeEnabled ? 'grouped' : 'flat');
-const translationPanelStorageKey = `go-admin:translation-panel-expanded:${panelName}${env ? `:${env}` : ''}`;
+const translationPanelStorageKey = `go-admin:translation-panel-expanded:${panelName}${channel ? `:${channel}` : ''}`;
 
 // Schema action builder for server-authoritative row actions
 let schemaActionBuilder = null;
@@ -267,8 +270,8 @@ async function loadTranslationAssigneeLookup() {
   }
   try {
     const params = new URLSearchParams({ per_page: '200' });
-    if (env) {
-      params.set('env', String(env).trim());
+    if (channel) {
+      params.set('channel', String(channel).trim());
     }
     const response = await fetch(`${translationsAssigneesEndpoint()}?${params.toString()}`);
     if (!response.ok) {
@@ -358,7 +361,7 @@ function createTranslationsQueueCellRenderers(assigneeLookup) {
 class PanelPaginationBehavior {
   buildQuery(page, perPage) {
     const params = { page, per_page: perPage };
-    if (env) params.env = env;
+    if (channel) params.channel = channel;
     return params;
   }
   async onPageChange(page, grid) {
@@ -371,7 +374,7 @@ class PanelSearchBehavior {
     const params = {};
     const value = term ? term.trim() : '';
     if (value) params.search = value;
-    if (env) params.env = env;
+    if (channel) params.channel = channel;
     return params;
   }
   async onSearch(term, grid) {
@@ -471,7 +474,6 @@ function resolveObject(value) {
   return value;
 }
 
-const envQuery = env ? `?env=${encodeURIComponent(env)}` : '';
 const datatableBaseId = dataGridConfig.table_id || '{{ datatable_id|default:resource }}';
 const datatableId = `${datatableBaseId}-datatable`;
 const columnStorageKey = dataGridConfig.column_storage_key || `content_${'{{ panel_name }}'}_datatable_columns`;
@@ -538,7 +540,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     actionBasePath: actionBasePath,
     actionContext: 'row',
     locale: locale || undefined,
-    environment: env || undefined,
+    channel: channel || undefined,
     panelName: panelName,
     useDefaultFallback: true,
     onTranslationBlocker: async (info) => {
@@ -550,7 +552,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         missingLocales: info.missingLocales,
         missingFieldsByLocale: info.missingFieldsByLocale,
         requestedLocale: info.requestedLocale,
-        environment: info.environment,
+        channel: info.channel,
         apiEndpoint: apiEndpoint,
         navigationBasePath: actionBasePath,
         panelName: panelName,

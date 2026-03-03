@@ -261,7 +261,7 @@
         const payload = {
           id: recordId,
           locale: locale,
-          {% if env %}environment: '{{ env }}',{% endif %}
+          {% if channel %}channel: '{{ channel }}',{% endif %}
         };
 
         btn.disabled = true;
@@ -271,7 +271,7 @@
           const result = await executeActionRequest(endpoint, payload);
           if (result.success && result.data?.id) {
             // Navigate to the newly created translation
-            const newUrl = `{{ base_path }}/${panelName}/${result.data.id}/edit?locale=${locale}{% if env %}&env={{ env }}{% endif %}`;
+            const newUrl = `{{ base_path }}/${panelName}/${result.data.id}/edit?locale=${locale}{% if channel %}&channel={{ channel }}{% endif %}`;
             window.location.href = newUrl;
           } else if (result.success) {
             // Reload to show updated state

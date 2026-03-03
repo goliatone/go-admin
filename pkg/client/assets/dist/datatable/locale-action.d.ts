@@ -23,7 +23,9 @@ export interface LocaleActionConfig {
     navigationBasePath: string;
     /** Panel/entity name (e.g., 'pages') */
     panelName?: string;
-    /** Current environment context */
+    /** Current content channel context */
+    channel?: string;
+    /** @deprecated Use `channel` */
     environment?: string;
     /** Whether the locale exists (for existing locales, only show open action) */
     localeExists?: boolean;
@@ -69,6 +71,7 @@ export declare class LocaleActionChip {
     private state;
     private element;
     constructor(config: LocaleActionConfig);
+    private getContentChannel;
     /**
      * Render the locale action chip as HTML string.
      * Use when generating static HTML.
@@ -133,5 +136,5 @@ export declare function initLocaleActionChips(container: HTMLElement, baseConfig
 /**
  * Build URL for editing a specific locale of a record.
  */
-export declare function buildLocaleEditUrl(basePath: string, recordId: string, locale: string, environment?: string): string;
+export declare function buildLocaleEditUrl(basePath: string, recordId: string, locale: string, channel?: string, environment?: string): string;
 //# sourceMappingURL=locale-action.d.ts.map

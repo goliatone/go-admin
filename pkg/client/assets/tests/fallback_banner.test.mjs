@@ -444,7 +444,7 @@ test('FallbackBanner accepts panelName config', () => {
   assert.match(html, /data-panel="pages"/);
 });
 
-test('FallbackBanner accepts environment config', () => {
+test('FallbackBanner accepts channel config', () => {
   const context = extractTranslationContext({
     id: 'page_123',
     fallback_used: true,
@@ -456,11 +456,11 @@ test('FallbackBanner accepts environment config', () => {
     context,
     apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
-    environment: 'production',
+    channel: 'production',
   });
 
   const html = banner.render();
-  assert.match(html, /data-environment="production"/);
+  assert.match(html, /data-channel="production"/);
 });
 
 // =============================================================================
@@ -548,7 +548,7 @@ test('FallbackBanner secondary CTA has correct URL structure', () => {
   assert.match(html, /href="\/admin\/content\/pages\/page_123\/edit\?locale=en"/);
 });
 
-test('FallbackBanner secondary CTA includes environment in URL', () => {
+test('FallbackBanner secondary CTA includes channel in URL', () => {
   const context = extractTranslationContext({
     id: 'page_123',
     fallback_used: true,
@@ -560,11 +560,11 @@ test('FallbackBanner secondary CTA includes environment in URL', () => {
     context,
     apiEndpoint: '/admin/api/panels/pages',
     navigationBasePath: '/admin/content/pages',
-    environment: 'staging',
+    channel: 'staging',
   });
 
   const html = banner.render();
 
-  // Should have href with both locale and env params
-  assert.match(html, /href="\/admin\/content\/pages\/page_123\/edit\?locale=en&amp;env=staging"/);
+  // Should have href with both locale and channel params
+  assert.match(html, /href="\/admin\/content\/pages\/page_123\/edit\?locale=en&amp;channel=staging"/);
 });

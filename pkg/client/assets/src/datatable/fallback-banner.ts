@@ -37,7 +37,9 @@ export interface FallbackBannerConfig {
   navigationBasePath: string;
   /** Panel/entity name (e.g., 'pages') */
   panelName?: string;
-  /** Current environment context */
+  /** Current content channel context */
+  channel?: string;
+  /** @deprecated Use `channel` */
   environment?: string;
   /** Callback after successful create action */
   onCreateSuccess?: (locale: string, result: CreateActionResult) => void;
@@ -181,8 +183,9 @@ export class FallbackBanner {
    * Render the primary CTA (Create missing locale).
    */
   private renderPrimaryCta(): string {
-    const { context, apiEndpoint, navigationBasePath, panelName, environment } = this.config;
+    const { context, apiEndpoint, navigationBasePath, panelName, channel, environment } = this.config;
     const requestedLocale = context.requestedLocale;
+    const activeChannel = String(channel ?? environment ?? '').trim();
 
     if (!requestedLocale || !context.recordId) {
       return '';
@@ -196,7 +199,7 @@ export class FallbackBanner {
               data-record-id="${escapeHtml(context.recordId)}"
               data-api-endpoint="${escapeHtml(apiEndpoint)}"
               data-panel="${escapeHtml(panelName || '')}"
-              data-environment="${escapeHtml(environment || '')}"
+              data-channel="${escapeHtml(activeChannel)}"
               aria-label="Create ${getLocaleLabel(requestedLocale)} translation">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
@@ -210,14 +213,14 @@ export class FallbackBanner {
    * Render the secondary CTA (Open source locale).
    */
   private renderSecondaryCta(): string {
-    const { context, navigationBasePath, environment } = this.config;
+    const { context, navigationBasePath, channel, environment } = this.config;
     const resolvedLocale = context.resolvedLocale;
 
     if (!resolvedLocale || !context.recordId) {
       return '';
     }
 
-    const url = buildLocaleEditUrl(navigationBasePath, context.recordId, resolvedLocale, environment);
+    const url = buildLocaleEditUrl(navigationBasePath, context.recordId, resolvedLocale, channel, environment);
 
     return `
       <a href="${escapeHtml(url)}"
@@ -284,9 +287,10 @@ export class FallbackBanner {
    * Handle create translation action.
    */
   private async handleCreate(): Promise<void> {
-    const { context, apiEndpoint, panelName, environment, navigationBasePath } = this.config;
+    const { context, apiEndpoint, panelName, channel, environment, navigationBasePath } = this.config;
     const locale = context.requestedLocale;
     const recordId = context.recordId;
+    const activeChannel = String(channel ?? environment ?? '').trim() || undefined;
 
     if (!locale || !recordId) return;
 
@@ -297,12 +301,12 @@ export class FallbackBanner {
       apiEndpoint,
       navigationBasePath,
       panelName,
-      environment,
+      channel: activeChannel,
       localeExists: false,
       onCreateSuccess: (loc, result) => {
         this.config.onCreateSuccess?.(loc, result);
         // Redirect to edit the new translation
-        const url = buildLocaleEditUrl(navigationBasePath, result.id, loc, environment);
+        const url = buildLocaleEditUrl(navigationBasePath, result.id, loc, activeChannel);
         window.location.href = url;
       },
       onError: (_loc, message) => {

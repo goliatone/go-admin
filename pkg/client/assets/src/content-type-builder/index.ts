@@ -122,16 +122,16 @@ export function initContentTypeEditors(scope: ParentNode = document): void {
     }
 
     const basePath = config.basePath ?? deriveAdminBasePath(config.apiBasePath);
-    const activeEnvironment = String(config.environment ?? '').trim().toLowerCase();
-    const envQuery = activeEnvironment && activeEnvironment !== 'default'
-      ? `env=${encodeURIComponent(activeEnvironment)}`
+    const activeChannel = String(config.channel ?? '').trim().toLowerCase();
+    const channelQuery = activeChannel && activeChannel !== 'default'
+      ? `channel=${encodeURIComponent(activeChannel)}`
       : '';
 
     // Wire default onCancel: navigate back to the content types list
     if (!config.onCancel) {
       config.onCancel = () => {
         const target = `${basePath}/content/types`;
-        window.location.href = envQuery ? `${target}?${envQuery}` : target;
+        window.location.href = channelQuery ? `${target}?${channelQuery}` : target;
       };
     }
 
@@ -141,8 +141,8 @@ export function initContentTypeEditors(scope: ParentNode = document): void {
         const slug = saved.slug ?? saved.id;
         if (slug) {
           const params = [`slug=${encodeURIComponent(slug)}`];
-          if (envQuery) {
-            params.push(envQuery);
+          if (channelQuery) {
+            params.push(channelQuery);
           }
           window.location.href = `${basePath}/content/types?${params.join('&')}`;
         }
@@ -196,7 +196,7 @@ function parseConfig(root: HTMLElement): ContentTypeEditorConfig {
     apiBasePath,
     basePath,
     contentTypeId: config.contentTypeId ?? root.dataset.contentTypeId,
-    environment: config.environment ?? root.dataset.environment,
+    channel: config.channel ?? root.dataset.channel,
     locale: config.locale ?? root.dataset.locale,
   };
 }

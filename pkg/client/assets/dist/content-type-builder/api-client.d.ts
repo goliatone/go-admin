@@ -18,16 +18,16 @@ export declare class ContentTypeAPIError extends Error {
 }
 export declare class ContentTypeAPIClient {
     private config;
-    private environment;
+    private channel;
     constructor(config: ContentTypeAPIConfig);
-    /** Set the active environment for all subsequent API requests (Phase 12 — Task 12.3) */
-    setEnvironment(env: string): void;
-    /** Get the current environment */
-    getEnvironment(): string;
+    /** Set the active content channel for all subsequent API requests. */
+    setChannel(channel: string): void;
+    /** Get the current content channel. */
+    getChannel(): string;
     /** Get the configured base path */
     getBasePath(): string;
-    /** Persist environment selection to the server session (Phase 12) */
-    setEnvironmentSession(env: string): Promise<void>;
+    /** Persist channel selection to the server session. */
+    setChannelSession(channel: string): Promise<void>;
     private contentTypesPanelBasePath;
     /**
      * List all content types
@@ -137,11 +137,13 @@ export declare class ContentTypeAPIClient {
      */
     getBlockCategories(): Promise<string[]>;
     /**
-     * Fetch block library diagnostics metadata (effective environment + counts).
+     * Fetch block library diagnostics metadata (effective channel + counts).
      * Returns null when the endpoint is unavailable.
      */
     getBlockDefinitionDiagnostics(): Promise<BlockDefinitionsDiagnostics | null>;
     private fetchBlockDefinitionDiagnostics;
+    private toNonEmptyString;
+    private appendQueryParamIfMissing;
     /**
      * Fetch field types from the backend registry.
      * Falls back to null if the endpoint is not available (Phase 3 not deployed).

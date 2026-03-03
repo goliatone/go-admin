@@ -25,7 +25,9 @@ export interface FallbackBannerConfig {
     navigationBasePath: string;
     /** Panel/entity name (e.g., 'pages') */
     panelName?: string;
-    /** Current environment context */
+    /** Current content channel context */
+    channel?: string;
+    /** @deprecated Use `channel` */
     environment?: string;
     /** Callback after successful create action */
     onCreateSuccess?: (locale: string, result: CreateActionResult) => void;

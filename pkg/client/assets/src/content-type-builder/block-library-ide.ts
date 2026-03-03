@@ -45,7 +45,7 @@ interface BlockLibraryIDEState {
 // =============================================================================
 
 const DEFAULT_BLOCK_CATEGORIES = ['content', 'media', 'layout', 'interactive', 'custom'];
-const DEFAULT_ENVIRONMENT_KEY = 'default';
+const DEFAULT_CHANNEL_KEY = 'default';
 
 // =============================================================================
 // Block Library IDE
@@ -91,14 +91,14 @@ export class BlockLibraryIDE {
   private mediaQueryLg: MediaQueryList | null = null;
   private popoverPalettePanel: FieldPalettePanel | null = null;
 
-  // Environment (Phase 12 — Tasks 12.2 + 12.3)
-  private envSelectEl: HTMLSelectElement | null = null;
-  private envResetBtn: HTMLButtonElement | null = null;
-  private envAddBtn: HTMLButtonElement | null = null;
+  // Channel (Phase 12 — Tasks 12.2 + 12.3)
+  private channelSelectEl: HTMLSelectElement | null = null;
+  private channelResetBtn: HTMLButtonElement | null = null;
+  private channelAddBtn: HTMLButtonElement | null = null;
   private backToContentTypesLink: HTMLAnchorElement | null = null;
-  private currentEnvironment: string = DEFAULT_ENVIRONMENT_KEY;
-  private availableEnvironments: string[] = [DEFAULT_ENVIRONMENT_KEY];
-  private envDiagnostics: BlockDefinitionsDiagnostics | null = null;
+  private currentChannel: string = DEFAULT_CHANNEL_KEY;
+  private availableChannels: string[] = [DEFAULT_CHANNEL_KEY];
+  private channelDiagnostics: BlockDefinitionsDiagnostics | null = null;
 
   constructor(root: HTMLElement) {
     const apiBasePath = resolveApiBasePath(root.dataset.apiBasePath, root.dataset.basePath);
@@ -126,7 +126,7 @@ export class BlockLibraryIDE {
     this.initPalette();
     this.bindAutosaveListeners();
     this.bindResponsive();
-    this.initEnvironment();
+    this.initChannel();
     await Promise.all([this.loadBlocks(), this.loadCategories()]);
   }
 
@@ -454,54 +454,55 @@ export class BlockLibraryIDE {
   }
 
   // ===========================================================================
-  // Environment management (Phase 12 — Tasks 12.2 + 12.3)
+  // Channel management (Phase 12 — Tasks 12.2 + 12.3)
   // ===========================================================================
 
-  /** Initialize environment from URL param and bind selector */
-  private initEnvironment(): void {
-    const envFromUrl = new URLSearchParams(window.location.search).get('env');
-    this.currentEnvironment = this.normalizeEnvironment(envFromUrl);
-    this.api.setEnvironment(this.currentEnvironment);
+  /** Initialize channel from URL param and bind selector */
+  private initChannel(): void {
+    const params = new URLSearchParams(window.location.search);
+    const channelFromURL = params.get('channel');
+    this.currentChannel = this.normalizeChannel(channelFromURL);
+    this.api.setChannel(this.currentChannel);
 
-    this.refreshEnvironmentOptions();
-    this.updateEnvironmentStatus();
+    this.refreshChannelOptions();
+    this.updateChannelStatus();
     this.updateBackLink();
 
-    this.envSelectEl?.addEventListener('change', () => {
-      const value = this.envSelectEl?.value ?? DEFAULT_ENVIRONMENT_KEY;
-      this.setEnvironment(value);
+    this.channelSelectEl?.addEventListener('change', () => {
+      const value = this.channelSelectEl?.value ?? DEFAULT_CHANNEL_KEY;
+      this.setChannel(value);
     });
 
-    this.envResetBtn?.addEventListener('click', () => {
-      this.setEnvironment(DEFAULT_ENVIRONMENT_KEY);
+    this.channelResetBtn?.addEventListener('click', () => {
+      this.setChannel(DEFAULT_CHANNEL_KEY);
     });
 
-    this.envAddBtn?.addEventListener('click', () => {
-      this.promptForEnvironment();
+    this.channelAddBtn?.addEventListener('click', () => {
+      this.promptForChannel();
     });
 
-    this.api.setEnvironmentSession(this.currentEnvironment).catch(() => {
+    this.api.setChannelSession(this.currentChannel).catch(() => {
       // Ignore session persistence errors
     });
   }
 
-  /** Change the active environment and reload data */
-  private async setEnvironment(env: string): Promise<void> {
-    const normalized = this.normalizeEnvironment(env);
-    this.currentEnvironment = normalized;
-    this.api.setEnvironment(normalized);
-    this.refreshEnvironmentOptions();
-    this.updateEnvironmentStatus();
+  /** Change the active channel and reload data */
+  private async setChannel(channel: string): Promise<void> {
+    const normalized = this.normalizeChannel(channel);
+    this.currentChannel = normalized;
+    this.api.setChannel(normalized);
+    this.refreshChannelOptions();
+    this.updateChannelStatus();
 
     // Persist to server session (best-effort)
     try {
-      await this.api.setEnvironmentSession(normalized);
+      await this.api.setChannelSession(normalized);
     } catch {
       // Ignore session persistence errors
     }
 
     // Update URL
-    this.updateUrlEnvironment(normalized);
+    this.updateUrlChannel(normalized);
 
     // Reset state and reload
     this.state.selectedBlockId = null;
@@ -514,91 +515,91 @@ export class BlockLibraryIDE {
     await Promise.all([this.loadBlocks(), this.loadCategories()]);
   }
 
-  /** Update the ?env= query parameter in the URL without a page reload */
-  private updateUrlEnvironment(env: string): void {
+  /** Update the ?channel= query parameter in the URL without a page reload */
+  private updateUrlChannel(channel: string): void {
     const url = new URL(window.location.href);
-    if (env && env !== DEFAULT_ENVIRONMENT_KEY) {
-      url.searchParams.set('env', env);
+    if (channel && channel !== DEFAULT_CHANNEL_KEY) {
+      url.searchParams.set('channel', channel);
     } else {
-      url.searchParams.delete('env');
+      url.searchParams.delete('channel');
     }
     window.history.replaceState({}, '', url.toString());
   }
 
-  private promptForEnvironment(): void {
-    if (!this.envSelectEl) return;
-    const previous = this.currentEnvironment;
+  private promptForChannel(): void {
+    if (!this.channelSelectEl) return;
+    const previous = this.currentChannel;
     const modal = new TextPromptModal({
-      title: 'Add Environment',
-      label: 'Environment name',
+      title: 'Add Channel',
+      label: 'Channel name',
       placeholder: 'e.g. staging',
       confirmLabel: 'Add',
       inputClass: inputClasses(),
       onConfirm: (value) => {
         const raw = value.trim();
         if (!raw) return;
-        const env = this.normalizeEnvironment(raw);
-        this.upsertEnvironmentOption(env);
-        this.envSelectEl!.value = env;
-        this.setEnvironment(env);
+        const channel = this.normalizeChannel(raw);
+        this.upsertChannelOption(channel);
+        this.channelSelectEl!.value = channel;
+        this.setChannel(channel);
       },
       onCancel: () => {
-        this.envSelectEl!.value = previous;
+        this.channelSelectEl!.value = previous;
       },
     });
     modal.show();
   }
 
-  private normalizeEnvironment(value: string | null | undefined): string {
-    const env = String(value ?? '').trim().toLowerCase();
-    return env || DEFAULT_ENVIRONMENT_KEY;
+  private normalizeChannel(value: string | null | undefined): string {
+    const channel = String(value ?? '').trim().toLowerCase();
+    return channel || DEFAULT_CHANNEL_KEY;
   }
 
-  private refreshEnvironmentOptions(): void {
-    if (!this.envSelectEl) return;
+  private refreshChannelOptions(): void {
+    if (!this.channelSelectEl) return;
 
-    const current = this.normalizeEnvironment(this.currentEnvironment);
-    const known = new Set<string>([DEFAULT_ENVIRONMENT_KEY]);
-    for (const env of this.availableEnvironments) {
-      known.add(this.normalizeEnvironment(env));
+    const current = this.normalizeChannel(this.currentChannel);
+    const known = new Set<string>([DEFAULT_CHANNEL_KEY]);
+    for (const channel of this.availableChannels) {
+      known.add(this.normalizeChannel(channel));
     }
     known.add(current);
 
     const sorted = Array.from(known).sort((a, b) => {
-      if (a === DEFAULT_ENVIRONMENT_KEY) return -1;
-      if (b === DEFAULT_ENVIRONMENT_KEY) return 1;
+      if (a === DEFAULT_CHANNEL_KEY) return -1;
+      if (b === DEFAULT_CHANNEL_KEY) return 1;
       return a.localeCompare(b);
     });
 
-    this.envSelectEl.innerHTML = '';
-    for (const env of sorted) {
+    this.channelSelectEl.innerHTML = '';
+    for (const channel of sorted) {
       const option = document.createElement('option');
-      option.value = env;
-      option.textContent = this.environmentLabel(env);
-      this.envSelectEl.appendChild(option);
+      option.value = channel;
+      option.textContent = this.channelLabel(channel);
+      this.channelSelectEl.appendChild(option);
     }
-    this.envSelectEl.value = current;
+    this.channelSelectEl.value = current;
   }
 
-  private environmentLabel(env: string): string {
-    const normalized = this.normalizeEnvironment(env);
-    return normalized === DEFAULT_ENVIRONMENT_KEY ? 'Default' : normalized;
+  private channelLabel(channel: string): string {
+    const normalized = this.normalizeChannel(channel);
+    return normalized === DEFAULT_CHANNEL_KEY ? 'Default' : normalized;
   }
 
-  private upsertEnvironmentOption(env: string): void {
-    const normalized = this.normalizeEnvironment(env);
-    if (!this.availableEnvironments.includes(normalized)) {
-      this.availableEnvironments.push(normalized);
+  private upsertChannelOption(channel: string): void {
+    const normalized = this.normalizeChannel(channel);
+    if (!this.availableChannels.includes(normalized)) {
+      this.availableChannels.push(normalized);
     }
-    this.refreshEnvironmentOptions();
+    this.refreshChannelOptions();
   }
 
-  private updateEnvironmentStatus(): void {
-    const env = this.normalizeEnvironment(this.currentEnvironment);
-    const isDefault = env === DEFAULT_ENVIRONMENT_KEY;
+  private updateChannelStatus(): void {
+    const channel = this.normalizeChannel(this.currentChannel);
+    const isDefault = channel === DEFAULT_CHANNEL_KEY;
 
-    if (this.envResetBtn) {
-      this.envResetBtn.classList.toggle('hidden', isDefault);
+    if (this.channelResetBtn) {
+      this.channelResetBtn.classList.toggle('hidden', isDefault);
     }
 
     this.updateBackLink();
@@ -606,11 +607,11 @@ export class BlockLibraryIDE {
 
   private updateBackLink(): void {
     if (!this.backToContentTypesLink) return;
-    const env = this.normalizeEnvironment(this.currentEnvironment);
+    const channel = this.normalizeChannel(this.currentChannel);
     const basePath = this.root.dataset.basePath || '';
     const baseUrl = `${basePath}/content/types`;
-    if (env && env !== DEFAULT_ENVIRONMENT_KEY) {
-      this.backToContentTypesLink.href = `${baseUrl}?env=${encodeURIComponent(env)}`;
+    if (channel && channel !== DEFAULT_CHANNEL_KEY) {
+      this.backToContentTypesLink.href = `${baseUrl}?channel=${encodeURIComponent(channel)}`;
     } else {
       this.backToContentTypesLink.href = baseUrl;
     }
@@ -683,17 +684,17 @@ export class BlockLibraryIDE {
     this.createBtn = this.root.querySelector('[data-block-ide-create]');
     this.editorEl = this.root.querySelector('[data-block-ide-editor]');
     this.paletteEl = this.root.querySelector('[data-block-ide-palette]');
-    // Phase 12: responsive + environment elements
+    // Phase 12: responsive + channel elements
     this.sidebarEl = this.root.querySelector('[data-block-ide-sidebar]');
     this.paletteAsideEl = this.root.querySelector('[data-block-ide-palette-aside]');
     this.gridEl = this.root.querySelector('[data-block-ide-grid]');
     this.addFieldBar = this.root.querySelector('[data-block-ide-add-field-bar]');
     this.paletteTriggerBtn = this.root.querySelector('[data-block-ide-palette-trigger]');
-    // Sidebar toggle and env selector may be outside root (in the header)
+    // Sidebar toggle and channel selector may be outside root (in the header)
     this.sidebarToggleBtn = document.querySelector('[data-block-ide-sidebar-toggle]');
-    this.envSelectEl = document.querySelector('[data-block-ide-env]');
-    this.envResetBtn = document.querySelector('[data-block-ide-env-reset]');
-    this.envAddBtn = document.querySelector('[data-block-ide-env-add]');
+    this.channelSelectEl = document.querySelector('[data-block-ide-channel], [data-block-ide-env]');
+    this.channelResetBtn = document.querySelector('[data-block-ide-channel-reset], [data-block-ide-env-reset]');
+    this.channelAddBtn = document.querySelector('[data-block-ide-channel-add], [data-block-ide-env-add]');
     this.backToContentTypesLink = document.querySelector('[data-back-to-content-types]');
   }
 
@@ -759,29 +760,33 @@ export class BlockLibraryIDE {
         this.api.getBlockDefinitionDiagnostics(),
       ]);
       this.state.blocks = response.items.map((block) => this.normalizeBlockDefinition(block));
-      this.envDiagnostics = diagnostics;
-      if (diagnostics && Array.isArray(diagnostics.available_environments)) {
-        this.availableEnvironments = diagnostics.available_environments
-          .map((env) => this.normalizeEnvironment(env))
-          .filter((env, index, arr) => env && arr.indexOf(env) === index);
+      this.channelDiagnostics = diagnostics;
+      const availableChannels = Array.isArray(diagnostics?.available_channels)
+        ? diagnostics.available_channels
+        : [];
+      if (availableChannels.length > 0) {
+        this.availableChannels = availableChannels
+          .map((channel) => this.normalizeChannel(channel))
+          .filter((channel, index, arr) => channel && arr.indexOf(channel) === index);
       }
-      if (diagnostics?.effective_environment) {
-        const effective = this.normalizeEnvironment(diagnostics.effective_environment);
-        if (effective !== this.currentEnvironment) {
-          this.currentEnvironment = effective;
-          this.api.setEnvironment(effective);
-          this.updateUrlEnvironment(effective);
+      const effectiveChannel = diagnostics?.effective_channel;
+      if (effectiveChannel) {
+        const effective = this.normalizeChannel(effectiveChannel);
+        if (effective !== this.currentChannel) {
+          this.currentChannel = effective;
+          this.api.setChannel(effective);
+          this.updateUrlChannel(effective);
         }
       }
-      this.refreshEnvironmentOptions();
-      this.updateEnvironmentStatus();
+      this.refreshChannelOptions();
+      this.updateChannelStatus();
     } catch (err) {
       this.state.blocks = [];
-      this.envDiagnostics = null;
-      this.availableEnvironments = [DEFAULT_ENVIRONMENT_KEY];
+      this.channelDiagnostics = null;
+      this.availableChannels = [DEFAULT_CHANNEL_KEY];
       this.state.error = this.formatBlockLoadError(err);
-      this.refreshEnvironmentOptions();
-      this.updateEnvironmentStatus();
+      this.refreshChannelOptions();
+      this.updateChannelStatus();
     } finally {
       this.state.isLoading = false;
       this.refreshCategoriesFromBlocks();
@@ -962,24 +967,24 @@ export class BlockLibraryIDE {
 
     if (filtered.length === 0) {
       const hasFilters = this.state.search || this.state.categoryFilter;
-      const activeEnvironment = this.normalizeEnvironment(this.currentEnvironment);
-      const inDefault = activeEnvironment === DEFAULT_ENVIRONMENT_KEY;
+      const activeChannel = this.normalizeChannel(this.currentChannel);
+      const inDefault = activeChannel === DEFAULT_CHANNEL_KEY;
       const diagnosticHint = !hasFilters
         ? inDefault
-          ? `No block definitions were found in the "${DEFAULT_ENVIRONMENT_KEY}" environment.`
-          : `No block definitions were found in environment "${activeEnvironment}".`
+          ? `No block definitions were found in the "${DEFAULT_CHANNEL_KEY}" channel.`
+          : `No block definitions were found in channel "${activeChannel}".`
         : '';
       const resetHint =
         !hasFilters && !inDefault
           ? `<button type="button"
-                 data-block-ide-empty-reset-env
+                 data-block-ide-empty-reset-channel
                  class="mt-2 inline-flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700 hover:bg-amber-100 transition-colors">
-               Reset to Default Environment
+               Reset to Default Channel
              </button>`
           : '';
       const totalsHint =
-        !hasFilters && this.envDiagnostics
-          ? `<p class="text-[11px] text-gray-400 dark:text-gray-500 mt-1">Visible in active env: ${this.envDiagnostics.total_effective}. Default env total: ${this.envDiagnostics.total_default}.</p>`
+        !hasFilters && this.channelDiagnostics
+          ? `<p class="text-[11px] text-gray-400 dark:text-gray-500 mt-1">Visible in active channel: ${this.channelDiagnostics.total_effective}. Default channel total: ${this.channelDiagnostics.total_default}.</p>`
           : '';
       this.listEl.innerHTML = `
         <div class="px-4 py-8 text-center">
@@ -1410,8 +1415,8 @@ export class BlockLibraryIDE {
       return;
     }
 
-    if (target.closest('[data-block-ide-empty-reset-env]')) {
-      this.setEnvironment(DEFAULT_ENVIRONMENT_KEY);
+    if (target.closest('[data-block-ide-empty-reset-channel], [data-block-ide-empty-reset-env]')) {
+      this.setChannel(DEFAULT_CHANNEL_KEY);
       return;
     }
 

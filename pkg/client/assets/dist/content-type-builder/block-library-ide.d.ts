@@ -33,13 +33,13 @@ export declare class BlockLibraryIDE {
     private sidebarCollapsed;
     private mediaQueryLg;
     private popoverPalettePanel;
-    private envSelectEl;
-    private envResetBtn;
-    private envAddBtn;
+    private channelSelectEl;
+    private channelResetBtn;
+    private channelAddBtn;
     private backToContentTypesLink;
-    private currentEnvironment;
-    private availableEnvironments;
-    private envDiagnostics;
+    private currentChannel;
+    private availableChannels;
+    private channelDiagnostics;
     constructor(root: HTMLElement);
     init(): Promise<void>;
     /** Initialize the field palette panel (Phase 9) */
@@ -72,18 +72,18 @@ export declare class BlockLibraryIDE {
     private closePalettePopover;
     /** Show or hide the "Add Field" bar based on whether a block is selected */
     private updateAddFieldBar;
-    /** Initialize environment from URL param and bind selector */
-    private initEnvironment;
-    /** Change the active environment and reload data */
-    private setEnvironment;
-    /** Update the ?env= query parameter in the URL without a page reload */
-    private updateUrlEnvironment;
-    private promptForEnvironment;
-    private normalizeEnvironment;
-    private refreshEnvironmentOptions;
-    private environmentLabel;
-    private upsertEnvironmentOption;
-    private updateEnvironmentStatus;
+    /** Initialize channel from URL param and bind selector */
+    private initChannel;
+    /** Change the active channel and reload data */
+    private setChannel;
+    /** Update the ?channel= query parameter in the URL without a page reload */
+    private updateUrlChannel;
+    private promptForChannel;
+    private normalizeChannel;
+    private refreshChannelOptions;
+    private channelLabel;
+    private upsertChannelOption;
+    private updateChannelStatus;
     private updateBackLink;
     getSelectedBlock(): BlockDefinition | null;
     selectBlock(blockId: string | null): void;

@@ -177,7 +177,7 @@ test('datatable grouped URL restore: empty expanded_groups param clears persiste
 
 test('datatable grouped URL sync: preserves unrelated params and writes grouped state', () => {
   const { calls, cleanup } = installTestGlobals({
-    search: '?env=production&tab=translations',
+    search: '?channel=production&tab=translations',
   });
 
   try {
@@ -191,7 +191,7 @@ test('datatable grouped URL sync: preserves unrelated params and writes grouped 
     assert.equal(calls[0].type, 'push');
 
     const parsed = new URL(calls[0].url, 'http://localhost');
-    assert.equal(parsed.searchParams.get('env'), 'production');
+    assert.equal(parsed.searchParams.get('channel'), 'production');
     assert.equal(parsed.searchParams.get('tab'), 'translations');
     assert.equal(parsed.searchParams.get('view_mode'), 'grouped');
     assert.equal(parsed.searchParams.get('expanded_groups'), null);
@@ -244,7 +244,7 @@ test('datatable grouped URL sync: toggleGroup uses replaceState for expanded tok
 
 test('datatable grouped URL sync: falls back to state token when filters payload is too large', () => {
   const { calls, cleanup } = installTestGlobals({
-    search: '?env=production',
+    search: '?channel=production',
   });
 
   try {
@@ -260,7 +260,7 @@ test('datatable grouped URL sync: falls back to state token when filters payload
 
     assert.equal(calls.length, 1);
     const parsed = new URL(calls[0].url, 'http://localhost');
-    assert.equal(parsed.searchParams.get('env'), 'production');
+    assert.equal(parsed.searchParams.get('channel'), 'production');
     assert.equal(parsed.searchParams.get('filters'), null);
     assert.equal(parsed.searchParams.get('sort'), null);
     assert.ok(parsed.searchParams.get('state'));

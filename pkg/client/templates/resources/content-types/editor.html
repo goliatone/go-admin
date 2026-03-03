@@ -3,10 +3,11 @@
 {% block title %}Content Types - {{ title }}{% endblock %}
 
 {% block content %}
-{% set active_env = content_types_effective_environment|default:"default" %}
-{% set in_default_env = active_env == "default" %}
+{% set active_channel = content_types_effective_channel|default:"default" %}
+{% set in_default_channel = active_channel == "default" %}
 {% set visible_total = content_types_total_effective|default:0 %}
 {% set default_total = content_types_total_default|default:0 %}
+{% set available_channels = content_types_available_channels %}
 <header class="px-6 py-4 bg-white border-b border-gray-200 flex flex-wrap gap-4 items-center justify-between">
   <div>
     <h1 class="text-xl font-bold text-gray-900">Content Types</h1>
@@ -14,27 +15,27 @@
   </div>
   <div class="flex items-center gap-3">
     <div class="inline-flex items-center bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5 gap-2"
-         data-content-types-env-wrapper
+         data-content-types-channel-wrapper
          data-base-path="{{ base_path }}"
-         data-active-environment="{{ active_env }}"
-         data-default-environment="default">
+         data-active-channel="{{ active_channel }}"
+         data-default-channel="default">
       <div class="flex items-center gap-1.5 text-gray-500">
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
         </svg>
-        <span class="text-[11px] font-semibold uppercase tracking-wide">Env</span>
+        <span class="text-[11px] font-semibold uppercase tracking-wide">Channel</span>
       </div>
       <div class="relative inline-flex items-center">
-        <select data-content-types-env
+        <select data-content-types-channel
                 class="text-[13px] bg-transparent border-0 text-gray-700 font-medium py-0 pl-0 pr-6 focus:outline-none focus:ring-0 cursor-pointer"
                 style="-webkit-appearance: none; -moz-appearance: none; appearance: none;">
-          {% if content_types_available_environments and content_types_available_environments|length > 0 %}
-          {% for env in content_types_available_environments %}
-          {% set env_value = env|default:"default" %}
-          <option value="{{ env_value }}"{% if env_value == active_env %} selected{% endif %}>{{ env_value|title }}</option>
+          {% if available_channels and available_channels|length > 0 %}
+          {% for channel in available_channels %}
+          {% set channel_value = channel|default:"default" %}
+          <option value="{{ channel_value }}"{% if channel_value == active_channel %} selected{% endif %}>{{ channel_value|title }}</option>
           {% endfor %}
           {% else %}
-          <option value="default"{% if active_env == "default" %} selected{% endif %}>Default</option>
+          <option value="default"{% if active_channel == "default" %} selected{% endif %}>Default</option>
           {% endif %}
         </select>
         <svg class="pointer-events-none absolute right-0.5 w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -43,23 +44,23 @@
       </div>
       <div class="w-px h-4 bg-gray-200"></div>
       <button type="button"
-              data-content-types-env-reset
-              class="{% if in_default_env %}hidden {% endif %}inline-flex items-center px-2 py-1 rounded border border-amber-300 text-amber-700 text-[11px] font-semibold hover:bg-amber-50 transition-colors">
+              data-content-types-channel-reset
+              class="{% if in_default_channel %}hidden {% endif %}inline-flex items-center px-2 py-1 rounded border border-amber-300 text-amber-700 text-[11px] font-semibold hover:bg-amber-50 transition-colors">
         Reset to Default
       </button>
       <button type="button"
-              data-content-types-env-add
+              data-content-types-channel-add
               class="inline-flex items-center gap-1 px-2 py-1 rounded border border-gray-200 text-gray-500 text-[11px] font-semibold hover:bg-gray-100 transition-colors">
         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
         </svg>
-        Add Environment
+        Add Channel
       </button>
     </div>
-    <a class="btn btn-secondary" href="{{ base_path }}/content/block-library{% if not in_default_env %}?env={{ active_env|urlencode }}{% endif %}">
+    <a class="btn btn-secondary" href="{{ base_path }}/content/block-library{% if not in_default_channel %}?channel={{ active_channel|urlencode }}{% endif %}">
       Manage Blocks
     </a>
-    <a class="btn btn-primary" href="{{ base_path }}/content/types{% if not in_default_env %}?env={{ active_env|urlencode }}{% endif %}">New Content Type</a>
+    <a class="btn btn-primary" href="{{ base_path }}/content/types{% if not in_default_channel %}?channel={{ active_channel|urlencode }}{% endif %}">New Content Type</a>
   </div>
 </header>
 
@@ -78,7 +79,7 @@
         {% set ct_slug = ct.slug|default:ct_id %}
         {% set is_active = selected_content_type_id and (selected_content_type_id == ct_id or selected_content_type_id == ct_slug) %}
         <li>
-          <a href="{{ base_path }}/content/types?slug={{ ct_slug|urlencode }}{% if not in_default_env %}&env={{ active_env|urlencode }}{% endif %}"
+          <a href="{{ base_path }}/content/types?slug={{ ct_slug|urlencode }}{% if not in_default_channel %}&channel={{ active_channel|urlencode }}{% endif %}"
              class="flex items-center justify-between rounded-lg border px-3 py-2 text-sm transition-colors {% if is_active %}border-blue-200 bg-blue-50 text-blue-700{% else %}border-gray-200 hover:border-gray-300 text-gray-700{% endif %}">
             <span class="font-medium truncate">{{ ct.name|default:ct.slug|default:"Untitled" }}</span>
             <span class="text-xs uppercase tracking-wide text-gray-400">{{ ct.status|default:"draft" }}</span>
@@ -88,13 +89,13 @@
       </ul>
       {% else %}
       <div class="mt-4 rounded-lg border border-dashed border-gray-200 p-4 text-center text-sm text-gray-500">
-        <p>No content types found in environment "{{ active_env }}".</p>
-        <p class="mt-1 text-xs text-gray-400">Visible in active env: {{ visible_total }}. Default env total: {{ default_total }}.</p>
-        {% if not in_default_env %}
+        <p>No content types found in channel "{{ active_channel }}".</p>
+        <p class="mt-1 text-xs text-gray-400">Visible in active channel: {{ visible_total }}. Default channel total: {{ default_total }}.</p>
+        {% if not in_default_channel %}
         <button type="button"
-                data-content-types-empty-reset-env
+                data-content-types-empty-reset-channel
                 class="mt-3 inline-flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700 hover:bg-amber-100 transition-colors">
-          Reset to Default Environment
+          Reset to Default Channel
         </button>
         {% endif %}
       </div>
@@ -116,7 +117,7 @@
         data-content-type-editor-root
         data-api-base-path="{{ api_base_path }}"
         data-base-path="{{ base_path }}"
-        data-environment="{{ active_env }}"
+        data-channel="{{ active_channel }}"
         {% if selected_content_type_id %}data-content-type-id="{{ selected_content_type_id }}"{% endif %}
       ></div>
     </section>
@@ -129,68 +130,66 @@
 <script src="{{ adminURL("runtime/formgen-relationships.min.js") }}" defer></script>
 <script>
 (() => {
-  const wrapper = document.querySelector('[data-content-types-env-wrapper]');
+  const wrapper = document.querySelector('[data-content-types-channel-wrapper]');
   if (!wrapper) return;
 
-  const select = wrapper.querySelector('[data-content-types-env]');
-  const resetBtn = wrapper.querySelector('[data-content-types-env-reset]');
-  const addEnvBtn = wrapper.querySelector('[data-content-types-env-add]');
-  const emptyResetBtn = document.querySelector('[data-content-types-empty-reset-env]');
+  const select = wrapper.querySelector('[data-content-types-channel]');
+  const resetBtn = wrapper.querySelector('[data-content-types-channel-reset]');
+  const addChannelBtn = wrapper.querySelector('[data-content-types-channel-add]');
+  const emptyResetBtn = document.querySelector('[data-content-types-empty-reset-channel]');
   if (!select || !resetBtn) return;
 
-  const defaultEnv = String(wrapper.getAttribute('data-default-environment') || 'default').trim().toLowerCase() || 'default';
+  const defaultChannel = String(wrapper.getAttribute('data-default-channel') || 'default').trim().toLowerCase() || 'default';
   const normalize = (value) => {
     const next = String(value || '').trim().toLowerCase();
-    return next || defaultEnv;
+    return next || defaultChannel;
   };
 
-  const navigateToEnvironment = (nextEnv) => {
+  const navigateToChannel = (nextChannel) => {
     const url = new URL(window.location.href);
-    const env = normalize(nextEnv);
-    if (env === defaultEnv) {
-      url.searchParams.delete('env');
-      url.searchParams.delete('environment');
+    const channel = normalize(nextChannel);
+    if (channel === defaultChannel) {
+      url.searchParams.delete('channel');
     } else {
-      url.searchParams.set('env', env);
-      url.searchParams.delete('environment');
+      url.searchParams.set('channel', channel);
     }
     window.location.href = url.toString();
   };
 
-  const updateResetVisibility = (env) => {
-    const inDefault = env === defaultEnv;
+  const updateResetVisibility = (channel) => {
+    const inDefault = channel === defaultChannel;
     resetBtn.classList.toggle('hidden', inDefault);
     if (emptyResetBtn) emptyResetBtn.classList.toggle('hidden', inDefault);
   };
 
   const url = new URL(window.location.href);
-  const activeFromURL = normalize(url.searchParams.get('env') || url.searchParams.get('environment') || wrapper.getAttribute('data-active-environment'));
+  const activeFromURL = normalize(url.searchParams.get('channel') || wrapper.getAttribute('data-active-channel'));
   select.value = activeFromURL;
   updateResetVisibility(activeFromURL);
 
   select.addEventListener('change', () => {
     const next = normalize(select.value);
-    navigateToEnvironment(next);
+    navigateToChannel(next);
   });
 
-  resetBtn.addEventListener('click', () => navigateToEnvironment(defaultEnv));
+  resetBtn.addEventListener('click', () => navigateToChannel(defaultChannel));
   if (emptyResetBtn) {
-    emptyResetBtn.addEventListener('click', () => navigateToEnvironment(defaultEnv));
+    emptyResetBtn.addEventListener('click', () => navigateToChannel(defaultChannel));
   }
 
-  if (addEnvBtn) {
-    addEnvBtn.addEventListener('click', () => {
-      const envName = prompt('Enter new environment name:');
-      if (envName && envName.trim()) {
-        const normalized = envName.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '-');
+  if (addChannelBtn) {
+    addChannelBtn.addEventListener('click', () => {
+      const channelName = prompt('Enter new channel name:');
+      if (channelName && channelName.trim()) {
+        const normalized = channelName.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '-');
         if (normalized) {
           // Add the new option to the select
           const option = document.createElement('option');
           option.value = normalized;
           option.textContent = normalized.charAt(0).toUpperCase() + normalized.slice(1);
           select.appendChild(option);
-          // Navigate to the new environment
-          navigateToEnvironment(normalized);
+          // Navigate to the new channel
+          navigateToChannel(normalized);
         }
       }
     });

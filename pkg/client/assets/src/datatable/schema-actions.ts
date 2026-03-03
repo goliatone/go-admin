@@ -108,7 +108,9 @@ export interface SchemaActionBuilderConfig {
   actionBasePath: string;
   /** Current locale context (passed to action payloads) */
   locale?: string;
-  /** Current environment context (passed to action payloads) */
+  /** Current content channel context (passed to action payloads) */
+  channel?: string;
+  /** @deprecated Use `channel` */
   environment?: string;
   /** Panel/entity name (e.g., 'pages') */
   panelName?: string;
@@ -148,7 +150,9 @@ export interface TranslationBlockerContext {
   transition: string | null;
   entityType: string | null;
   requestedLocale: string | null;
-  environment: string | null;
+  channel: string | null;
+  /** @deprecated Use `channel` */
+  environment?: string | null;
   retry?: () => Promise<ActionResult>;
 }
 
@@ -218,6 +222,11 @@ export class SchemaActionBuilder {
       actionContext: 'row',
       ...config,
     };
+  }
+
+  private getContentChannel(): string | null {
+    const channel = String(this.config.channel ?? this.config.environment ?? '').trim();
+    return channel || null;
   }
 
   /**
@@ -607,10 +616,13 @@ export class SchemaActionBuilder {
       const blockerInfo = extractTranslationBlocker(result.error);
       if (blockerInfo && this.config.onTranslationBlocker) {
         const retryPayload = { ...input.payload };
+        const channel = this.getContentChannel() || blockerInfo.environment || null;
         this.config.onTranslationBlocker({
           actionName: input.actionName,
           recordId: input.recordId,
           ...blockerInfo,
+          channel,
+          environment: blockerInfo.environment ?? channel,
           retry: async () => this.executePostAction({
             actionName: input.actionName,
             endpoint: input.endpoint,
@@ -654,8 +666,9 @@ export class SchemaActionBuilder {
     if (newLocale) {
       params.set('locale', newLocale);
     }
-    if (this.config.environment) {
-      params.set('env', this.config.environment);
+    const channel = this.getContentChannel();
+    if (channel) {
+      params.set('channel', channel);
     }
     const queryString = params.toString();
     const editUrl = `${basePath}/${newId}/edit${queryString ? `?${queryString}` : ''}`;
@@ -679,8 +692,8 @@ export class SchemaActionBuilder {
             // Navigate back to source locale
             const sourceParams = new URLSearchParams();
             sourceParams.set('locale', sourceLocale);
-            if (this.config.environment) {
-              sourceParams.set('env', this.config.environment);
+            if (channel) {
+              sourceParams.set('channel', channel);
             }
             const sourceId = typeof originalPayload.id === 'string'
               ? originalPayload.id
@@ -709,12 +722,14 @@ export class SchemaActionBuilder {
       id: record.id,
     };
 
-    // Add locale/environment context
+    // Add locale/channel context
     if (this.config.locale && normalizedActionName !== 'create_translation') {
       payload.locale = this.config.locale;
     }
-    if (this.config.environment) {
-      payload.environment = this.config.environment;
+    const channel = this.getContentChannel();
+    if (channel) {
+      payload.channel = channel;
+      payload.environment = channel;
     }
     if (this.config.panelName) {
       payload.policy_entity = this.config.panelName;
@@ -1299,15 +1314,16 @@ export class SchemaActionBuilder {
   }
 
   /**
-   * Build URL query context from locale/environment
+   * Build URL query context from locale/channel
    */
   private buildQueryContext(): string {
     const params = new URLSearchParams();
     if (this.config.locale) {
       params.set('locale', this.config.locale);
     }
-    if (this.config.environment) {
-      params.set('env', this.config.environment);
+    const channel = this.getContentChannel();
+    if (channel) {
+      params.set('channel', channel);
     }
     return params.toString();
   }

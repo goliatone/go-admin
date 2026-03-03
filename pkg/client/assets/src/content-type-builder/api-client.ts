@@ -48,7 +48,7 @@ export class ContentTypeAPIError extends Error {
 
 export class ContentTypeAPIClient {
   private config: ContentTypeAPIConfig;
-  private environment: string = '';
+  private channel: string = '';
 
   constructor(config: ContentTypeAPIConfig) {
     let basePath = config.basePath.replace(/\/+$/, '');
@@ -62,14 +62,14 @@ export class ContentTypeAPIClient {
     };
   }
 
-  /** Set the active environment for all subsequent API requests (Phase 12 — Task 12.3) */
-  setEnvironment(env: string): void {
-    this.environment = env;
+  /** Set the active content channel for all subsequent API requests. */
+  setChannel(channel: string): void {
+    this.channel = channel;
   }
 
-  /** Get the current environment */
-  getEnvironment(): string {
-    return this.environment;
+  /** Get the current content channel. */
+  getChannel(): string {
+    return this.channel;
   }
 
   /** Get the configured base path */
@@ -77,12 +77,12 @@ export class ContentTypeAPIClient {
     return this.config.basePath;
   }
 
-  /** Persist environment selection to the server session (Phase 12) */
-  async setEnvironmentSession(env: string): Promise<void> {
-    const url = `${this.config.basePath}/session/environment`;
-    await this.fetch(url, {
+  /** Persist channel selection to the server session. */
+  async setChannelSession(channel: string): Promise<void> {
+    const normalized = String(channel ?? '').trim();
+    await this.fetch(`${this.config.basePath}/session/channel`, {
       method: 'POST',
-      body: JSON.stringify({ environment: env }),
+      body: JSON.stringify({ channel: normalized }),
     });
   }
 
@@ -430,7 +430,7 @@ export class ContentTypeAPIClient {
   }
 
   /**
-   * Fetch block library diagnostics metadata (effective environment + counts).
+   * Fetch block library diagnostics metadata (effective channel + counts).
    * Returns null when the endpoint is unavailable.
    */
   async getBlockDefinitionDiagnostics(): Promise<BlockDefinitionsDiagnostics | null> {
@@ -445,21 +445,48 @@ export class ContentTypeAPIClient {
         return null;
       }
       const diagnostics = data as Partial<BlockDefinitionsDiagnostics>;
-      if (typeof diagnostics.effective_environment !== 'string') {
+      const effectiveChannel = this.toNonEmptyString(diagnostics.effective_channel);
+      if (!effectiveChannel) {
         return null;
       }
+      const requestedChannel = this.toNonEmptyString(diagnostics.requested_channel);
+      const availableChannelsRaw = Array.isArray(diagnostics.available_channels)
+        ? diagnostics.available_channels
+        : [];
       return {
-        effective_environment: diagnostics.effective_environment,
-        requested_environment: diagnostics.requested_environment,
+        effective_channel: effectiveChannel,
+        requested_channel: requestedChannel,
         total_effective: Number.isFinite(diagnostics.total_effective) ? Number(diagnostics.total_effective) : 0,
         total_default: Number.isFinite(diagnostics.total_default) ? Number(diagnostics.total_default) : 0,
-        available_environments: Array.isArray(diagnostics.available_environments)
-          ? diagnostics.available_environments.map((env) => String(env)).filter((env) => env.length > 0)
-          : [],
+        available_channels: availableChannelsRaw
+          .map((item) => String(item))
+          .filter((item) => item.length > 0),
       };
     } catch {
       return null;
     }
+  }
+
+  private toNonEmptyString(...values: unknown[]): string {
+    for (const value of values) {
+      if (typeof value === 'string' && value.trim().length > 0) {
+        return value;
+      }
+    }
+    return '';
+  }
+
+  private appendQueryParamIfMissing(url: string, key: string, value: string): string {
+    if (!value) {
+      return url;
+    }
+    const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const existing = new RegExp(`(?:^|[?&])${escapedKey}=`);
+    if (existing.test(url)) {
+      return url;
+    }
+    const separator = url.includes('?') ? '&' : '?';
+    return `${url}${separator}${key}=${encodeURIComponent(value)}`;
   }
 
   // ===========================================================================
@@ -514,11 +541,9 @@ export class ContentTypeAPIClient {
       ...this.config.headers,
     };
 
-    // Include environment context (Phase 12 — Task 12.3)
-    if (this.environment) {
-      headers['X-Admin-Environment'] = this.environment;
-      const separator = url.includes('?') ? '&' : '?';
-      url = `${url}${separator}env=${encodeURIComponent(this.environment)}`;
+    if (this.channel) {
+      headers['X-Admin-Channel'] = this.channel;
+      url = this.appendQueryParamIfMissing(url, 'channel', this.channel);
     }
 
     const response = await fetch(url, {
