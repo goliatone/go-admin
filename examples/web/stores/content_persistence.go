@@ -376,7 +376,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_menu_items_menu_canonical_key
 		}
 		if strings.Contains(path, "20260415000000_environments.up.sql") {
 			content = `
--- Environments: core scoping for content, pages, menus, and blocks
 CREATE TABLE IF NOT EXISTS environments (
     id TEXT PRIMARY KEY,
     key TEXT NOT NULL UNIQUE,
@@ -390,12 +389,27 @@ CREATE TABLE IF NOT EXISTS environments (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_environments_default ON environments(is_default) WHERE is_default = 1;
-
--- Seed a default environment for backfill and opt-in behavior.
 INSERT OR IGNORE INTO environments (id, key, name, description, is_active, is_default, created_at, updated_at)
 VALUES ('00000000-0000-0000-0000-000000000001', 'default', 'Default', 'Default environment', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
--- Add environment_id columns.
+-- Channels are a compatibility alias over environment identities.
+CREATE TABLE IF NOT EXISTS channels (
+    id TEXT PRIMARY KEY,
+    key TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    description TEXT,
+    is_active INTEGER NOT NULL DEFAULT 1,
+    is_default INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_channels_default ON channels(is_default) WHERE is_default = 1;
+INSERT OR IGNORE INTO channels (id, key, name, description, is_active, is_default, created_at, updated_at)
+VALUES ('00000000-0000-0000-0000-000000000001', 'default', 'Default', 'Default channel', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+-- Add environment_id columns (go-cms canonical contract).
 ALTER TABLE content_types ADD COLUMN environment_id TEXT NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001';
 ALTER TABLE contents ADD COLUMN environment_id TEXT NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001';
 ALTER TABLE pages ADD COLUMN environment_id TEXT NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001';
@@ -409,7 +423,7 @@ ALTER TABLE block_definitions ADD COLUMN slug TEXT;
 -- Backfill environment_id to the default environment.
 UPDATE content_types
 SET environment_id = (SELECT id FROM environments WHERE key = 'default' LIMIT 1)
-WHERE environment_id IS NULL OR environment_id = '00000000-0000-0000-0000-000000000001';
+WHERE environment_id IS NULL OR environment_id = '';
 
 UPDATE contents
 SET environment_id = (SELECT environment_id FROM content_types WHERE content_types.id = contents.content_type_id)
@@ -417,7 +431,7 @@ WHERE content_type_id IS NOT NULL;
 
 UPDATE contents
 SET environment_id = (SELECT id FROM environments WHERE key = 'default' LIMIT 1)
-WHERE environment_id IS NULL OR environment_id = '00000000-0000-0000-0000-000000000001';
+WHERE environment_id IS NULL OR environment_id = '';
 
 UPDATE pages
 SET environment_id = (SELECT environment_id FROM contents WHERE contents.id = pages.content_id)
@@ -425,11 +439,11 @@ WHERE content_id IS NOT NULL;
 
 UPDATE pages
 SET environment_id = (SELECT id FROM environments WHERE key = 'default' LIMIT 1)
-WHERE environment_id IS NULL OR environment_id = '00000000-0000-0000-0000-000000000001';
+WHERE environment_id IS NULL OR environment_id = '';
 
 UPDATE menus
 SET environment_id = (SELECT id FROM environments WHERE key = 'default' LIMIT 1)
-WHERE environment_id IS NULL OR environment_id = '00000000-0000-0000-0000-000000000001';
+WHERE environment_id IS NULL OR environment_id = '';
 
 UPDATE menu_items
 SET environment_id = (SELECT environment_id FROM menus WHERE menus.id = menu_items.menu_id)
@@ -437,11 +451,52 @@ WHERE menu_id IS NOT NULL;
 
 UPDATE menu_items
 SET environment_id = (SELECT id FROM environments WHERE key = 'default' LIMIT 1)
-WHERE environment_id IS NULL OR environment_id = '00000000-0000-0000-0000-000000000001';
+WHERE environment_id IS NULL OR environment_id = '';
 
 UPDATE block_definitions
 SET environment_id = (SELECT id FROM environments WHERE key = 'default' LIMIT 1)
-WHERE environment_id IS NULL OR environment_id = '00000000-0000-0000-0000-000000000001';
+WHERE environment_id IS NULL OR environment_id = '';
+
+-- Keep channels table aligned with environment records.
+INSERT OR REPLACE INTO channels (id, key, name, description, is_active, is_default, created_at, updated_at, deleted_at)
+SELECT id, key, name, description, is_active, is_default, created_at, updated_at, deleted_at
+FROM environments;
+
+CREATE TRIGGER IF NOT EXISTS trg_channels_sync_insert
+AFTER INSERT ON environments
+BEGIN
+    INSERT INTO channels (id, key, name, description, is_active, is_default, created_at, updated_at, deleted_at)
+    VALUES (NEW.id, NEW.key, NEW.name, NEW.description, NEW.is_active, NEW.is_default, NEW.created_at, NEW.updated_at, NEW.deleted_at)
+    ON CONFLICT(id) DO UPDATE SET
+        key = excluded.key,
+        name = excluded.name,
+        description = excluded.description,
+        is_active = excluded.is_active,
+        is_default = excluded.is_default,
+        updated_at = excluded.updated_at,
+        deleted_at = excluded.deleted_at;
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_channels_sync_update
+AFTER UPDATE ON environments
+BEGIN
+    INSERT INTO channels (id, key, name, description, is_active, is_default, created_at, updated_at, deleted_at)
+    VALUES (NEW.id, NEW.key, NEW.name, NEW.description, NEW.is_active, NEW.is_default, NEW.created_at, NEW.updated_at, NEW.deleted_at)
+    ON CONFLICT(id) DO UPDATE SET
+        key = excluded.key,
+        name = excluded.name,
+        description = excluded.description,
+        is_active = excluded.is_active,
+        is_default = excluded.is_default,
+        updated_at = excluded.updated_at,
+        deleted_at = excluded.deleted_at;
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_channels_sync_delete
+AFTER DELETE ON environments
+BEGIN
+    DELETE FROM channels WHERE id = OLD.id;
+END;
 
 -- Backfill block definition slugs.
 UPDATE block_definitions
@@ -462,7 +517,7 @@ UPDATE block_definitions
 SET slug = slug || '-' || substr(id, 1, 8)
 WHERE (environment_id, slug) IN (SELECT environment_id, slug FROM duplicates);
 
--- Replace global slug indexes with env-scoped uniqueness.
+-- Replace global slug indexes with environment-scoped uniqueness.
 DROP INDEX IF EXISTS idx_menus_code;
 DROP INDEX IF EXISTS idx_content_types_slug;
 DROP INDEX IF EXISTS idx_contents_slug_unique;
@@ -471,11 +526,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_content_types_env_slug ON content_types(en
 CREATE UNIQUE INDEX IF NOT EXISTS idx_contents_env_type_slug ON contents(environment_id, content_type_id, slug);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_pages_env_slug ON pages(environment_id, slug) WHERE deleted_at IS NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_menus_env_code ON menus(environment_id, code);
-CREATE INDEX IF NOT EXISTS idx_menus_code ON menus(code);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_block_definitions_env_slug ON block_definitions(environment_id, slug) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_menus_code ON menus(code);
 
--- Enforce env consistency between contents and content types.
-CREATE TRIGGER IF NOT EXISTS trg_contents_env_check_insert
+-- Enforce environment consistency between contents and content types.
+CREATE TRIGGER IF NOT EXISTS trg_contents_environment_check_insert
 BEFORE INSERT ON contents
 BEGIN
     SELECT CASE
@@ -486,7 +541,7 @@ BEGIN
     END;
 END;
 
-CREATE TRIGGER IF NOT EXISTS trg_contents_env_check_update
+CREATE TRIGGER IF NOT EXISTS trg_contents_environment_check_update
 BEFORE UPDATE OF content_type_id, environment_id ON contents
 BEGIN
     SELECT CASE
@@ -497,8 +552,8 @@ BEGIN
     END;
 END;
 
--- Enforce env consistency between pages and contents.
-CREATE TRIGGER IF NOT EXISTS trg_pages_env_check_insert
+-- Enforce environment consistency between pages and contents.
+CREATE TRIGGER IF NOT EXISTS trg_pages_environment_check_insert
 BEFORE INSERT ON pages
 BEGIN
     SELECT CASE
@@ -509,7 +564,7 @@ BEGIN
     END;
 END;
 
-CREATE TRIGGER IF NOT EXISTS trg_pages_env_check_update
+CREATE TRIGGER IF NOT EXISTS trg_pages_environment_check_update
 BEFORE UPDATE OF content_id, environment_id ON pages
 BEGIN
     SELECT CASE
@@ -519,6 +574,71 @@ BEGIN
             RAISE(ABORT, 'pages.environment_id does not match contents.environment_id')
     END;
 END;
+`
+		}
+		if strings.Contains(path, "20260601000000_menu_bindings_view_profiles.up.sql") {
+			content = `
+ALTER TABLE menus ADD COLUMN status TEXT NOT NULL DEFAULT 'published';
+ALTER TABLE menus ADD COLUMN locale TEXT;
+ALTER TABLE menus ADD COLUMN translation_group_id TEXT;
+ALTER TABLE menus ADD COLUMN published_at TIMESTAMP;
+
+UPDATE menus
+SET status = 'published'
+WHERE status IS NULL OR trim(status) = '';
+
+CREATE INDEX IF NOT EXISTS idx_menus_status ON menus(status);
+CREATE INDEX IF NOT EXISTS idx_menus_translation_group_id ON menus(translation_group_id);
+
+CREATE TABLE IF NOT EXISTS menu_view_profiles (
+    id TEXT PRIMARY KEY,
+    code TEXT NOT NULL,
+    name TEXT NOT NULL,
+    mode TEXT NOT NULL DEFAULT 'full',
+    max_top_level INTEGER,
+    max_depth INTEGER,
+    include_item_ids TEXT,
+    exclude_item_ids TEXT,
+    status TEXT NOT NULL DEFAULT 'published',
+    published_at TIMESTAMP,
+    environment_id TEXT NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001',
+    created_by TEXT NOT NULL,
+    updated_by TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_menu_view_profiles_env_code
+    ON menu_view_profiles(environment_id, code);
+CREATE INDEX IF NOT EXISTS idx_menu_view_profiles_status
+    ON menu_view_profiles(status);
+
+CREATE TABLE IF NOT EXISTS menu_location_bindings (
+    id TEXT PRIMARY KEY,
+    location TEXT NOT NULL,
+    menu_code TEXT NOT NULL,
+    view_profile_code TEXT,
+    locale TEXT,
+    priority INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'published',
+    published_at TIMESTAMP,
+    environment_id TEXT NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001',
+    created_by TEXT NOT NULL,
+    updated_by TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_menu_location_bindings_env_location
+    ON menu_location_bindings(environment_id, location);
+CREATE INDEX IF NOT EXISTS idx_menu_location_bindings_env_menu
+    ON menu_location_bindings(environment_id, menu_code);
+CREATE INDEX IF NOT EXISTS idx_menu_location_bindings_env_profile
+    ON menu_location_bindings(environment_id, view_profile_code);
+CREATE INDEX IF NOT EXISTS idx_menu_location_bindings_priority
+    ON menu_location_bindings(environment_id, location, priority DESC);
+CREATE INDEX IF NOT EXISTS idx_menu_location_bindings_locale
+    ON menu_location_bindings(environment_id, location, locale);
 `
 		}
 		content = strings.ReplaceAll(content, "::jsonb", "")

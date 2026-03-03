@@ -104,19 +104,20 @@ type AdminAuthzConfig struct {
 }
 
 type SiteConfig struct {
-	BasePath                string   `koanf:"base_path" json:"base_path" yaml:"base_path"`
-	RuntimeEnv              string   `koanf:"runtime_env" json:"runtime_env" yaml:"runtime_env"`
-	ContentEnv              string   `koanf:"content_env" json:"content_env" yaml:"content_env"`
-	SupportedLocales        []string `koanf:"supported_locales" json:"supported_locales" yaml:"supported_locales"`
-	LocalePrefixMode        string   `koanf:"locale_prefix_mode" json:"locale_prefix_mode" yaml:"locale_prefix_mode"`
-	AllowLocaleFallback     bool     `koanf:"allow_locale_fallback" json:"allow_locale_fallback" yaml:"allow_locale_fallback"`
-	EnableGeneratedFallback bool     `koanf:"enable_generated_fallback" json:"enable_generated_fallback" yaml:"enable_generated_fallback"`
-	EnableSearch            bool     `koanf:"enable_search" json:"enable_search" yaml:"enable_search"`
-	EnableCanonicalRedirect bool     `koanf:"enable_canonical_redirect" json:"enable_canonical_redirect" yaml:"enable_canonical_redirect"`
-	StrictLocalizedPaths    bool     `koanf:"strict_localized_paths" json:"strict_localized_paths" yaml:"strict_localized_paths"`
-	EnvironmentStrict       bool     `koanf:"environment_strict" json:"environment_strict" yaml:"environment_strict"`
-	Theme                   string   `koanf:"theme" json:"theme" yaml:"theme"`
-	ThemeVariant            string   `koanf:"theme_variant" json:"theme_variant" yaml:"theme_variant"`
+	BasePath                 string   `koanf:"base_path" json:"base_path" yaml:"base_path"`
+	RuntimeEnv               string   `koanf:"runtime_env" json:"runtime_env" yaml:"runtime_env"`
+	ContentChannel           string   `koanf:"content_channel" json:"content_channel" yaml:"content_channel"`
+	SupportedLocales         []string `koanf:"supported_locales" json:"supported_locales" yaml:"supported_locales"`
+	LocalePrefixMode         string   `koanf:"locale_prefix_mode" json:"locale_prefix_mode" yaml:"locale_prefix_mode"`
+	AllowLocaleFallback      bool     `koanf:"allow_locale_fallback" json:"allow_locale_fallback" yaml:"allow_locale_fallback"`
+	ContributionLocalePolicy string   `koanf:"contribution_locale_policy" json:"contribution_locale_policy" yaml:"contribution_locale_policy"`
+	EnableGeneratedFallback  bool     `koanf:"enable_generated_fallback" json:"enable_generated_fallback" yaml:"enable_generated_fallback"`
+	EnableSearch             bool     `koanf:"enable_search" json:"enable_search" yaml:"enable_search"`
+	EnableCanonicalRedirect  bool     `koanf:"enable_canonical_redirect" json:"enable_canonical_redirect" yaml:"enable_canonical_redirect"`
+	StrictLocalizedPaths     bool     `koanf:"strict_localized_paths" json:"strict_localized_paths" yaml:"strict_localized_paths"`
+	EnvironmentStrict        bool     `koanf:"environment_strict" json:"environment_strict" yaml:"environment_strict"`
+	Theme                    string   `koanf:"theme" json:"theme" yaml:"theme"`
+	ThemeVariant             string   `koanf:"theme_variant" json:"theme_variant" yaml:"theme_variant"`
 }
 
 type FeatureConfig struct {
@@ -224,8 +225,8 @@ func (c Config) Validate() error {
 	if strings.TrimSpace(c.Site.RuntimeEnv) == "" {
 		return fmt.Errorf("site.runtime_env is required")
 	}
-	if strings.TrimSpace(c.Site.ContentEnv) == "" {
-		return fmt.Errorf("site.content_env is required")
+	if strings.TrimSpace(c.Site.ContentChannel) == "" {
+		return fmt.Errorf("site.content_channel is required")
 	}
 	if strings.TrimSpace(c.SecureLink.BaseURL) == "" {
 		return fmt.Errorf("securelink.base_url is required")
@@ -306,19 +307,20 @@ func Defaults() *Config {
 			},
 		},
 		Site: SiteConfig{
-			BasePath:                "/",
-			RuntimeEnv:              "dev",
-			ContentEnv:              "default",
-			SupportedLocales:        []string{"en", "es", "fr"},
-			LocalePrefixMode:        "non_default",
-			AllowLocaleFallback:     true,
-			EnableGeneratedFallback: false,
-			EnableSearch:            true,
-			EnableCanonicalRedirect: true,
-			StrictLocalizedPaths:    false,
-			EnvironmentStrict:       false,
-			Theme:                   "",
-			ThemeVariant:            "",
+			BasePath:                 "/",
+			RuntimeEnv:               "dev",
+			ContentChannel:           "default",
+			SupportedLocales:         []string{"en", "es", "fr"},
+			LocalePrefixMode:         "non_default",
+			AllowLocaleFallback:      true,
+			ContributionLocalePolicy: "fallback",
+			EnableGeneratedFallback:  false,
+			EnableSearch:             true,
+			EnableCanonicalRedirect:  true,
+			StrictLocalizedPaths:     false,
+			EnvironmentStrict:        false,
+			Theme:                    "",
+			ThemeVariant:             "",
 		},
 		Features: FeatureConfig{
 			PersistentCMS:    true,

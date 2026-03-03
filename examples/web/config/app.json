@@ -59,7 +59,7 @@
   "site": {
     "base_path": "/",
     "runtime_env": "dev",
-    "content_env": "default",
+    "content_channel": "default",
     "supported_locales": [
       "en",
       "es",
@@ -67,6 +67,7 @@
     ],
     "locale_prefix_mode": "non_default",
     "allow_locale_fallback": true,
+    "contribution_locale_policy": "fallback",
     "enable_generated_fallback": false,
     "enable_search": true,
     "enable_canonical_redirect": true,

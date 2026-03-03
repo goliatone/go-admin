@@ -22,6 +22,9 @@ func TestResolveSiteRuntimeConfigDefaults(t *testing.T) {
 	if siteCfg.Navigation.EnableGeneratedFallback {
 		t.Fatalf("expected generated fallback disabled by default")
 	}
+	if siteCfg.Navigation.ContributionLocalePolicy != quicksite.ContributionLocalePolicyFallback {
+		t.Fatalf("expected contribution locale policy fallback, got %q", siteCfg.Navigation.ContributionLocalePolicy)
+	}
 	if siteCfg.LocalePrefixMode != quicksite.LocalePrefixNonDefault {
 		t.Fatalf("expected locale prefix mode non_default, got %q", siteCfg.LocalePrefixMode)
 	}
@@ -34,8 +37,8 @@ func TestResolveSiteRuntimeConfigDefaults(t *testing.T) {
 	if siteCfg.Environment != "dev" {
 		t.Fatalf("expected runtime environment dev, got %q", siteCfg.Environment)
 	}
-	if siteCfg.ContentEnvironment != defaultSiteContentEnv {
-		t.Fatalf("expected content environment %q, got %q", defaultSiteContentEnv, siteCfg.ContentEnvironment)
+	if siteCfg.ContentChannel != defaultSiteContentChannel {
+		t.Fatalf("expected content channel %q, got %q", defaultSiteContentChannel, siteCfg.ContentChannel)
 	}
 	if siteCfg.Features.EnableCanonicalRedirect == nil || !*siteCfg.Features.EnableCanonicalRedirect {
 		t.Fatalf("expected canonical redirect feature enabled by default")
@@ -49,6 +52,7 @@ func TestResolveSiteRuntimeConfigEnvOverrides(t *testing.T) {
 	cfg := admin.Config{DefaultLocale: "en", BasePath: "/admin", Theme: "admin-demo", ThemeVariant: "light"}
 	runtimeSite := appcfg.Defaults().Site
 	runtimeSite.AllowLocaleFallback = false
+	runtimeSite.ContributionLocalePolicy = "strict"
 	runtimeSite.LocalePrefixMode = "always"
 	runtimeSite.EnableGeneratedFallback = true
 	runtimeSite.EnableSearch = false
@@ -56,7 +60,7 @@ func TestResolveSiteRuntimeConfigEnvOverrides(t *testing.T) {
 	runtimeSite.StrictLocalizedPaths = true
 	runtimeSite.SupportedLocales = []string{"en", "es", "de"}
 	runtimeSite.RuntimeEnv = "staging"
-	runtimeSite.ContentEnv = "qa"
+	runtimeSite.ContentChannel = "qa"
 	runtimeSite.Theme = "marketing"
 	runtimeSite.ThemeVariant = "clean"
 	siteCfg := resolveSiteRuntimeConfig(cfg, runtimeSite, false)
@@ -69,6 +73,9 @@ func TestResolveSiteRuntimeConfigEnvOverrides(t *testing.T) {
 	}
 	if !siteCfg.Navigation.EnableGeneratedFallback {
 		t.Fatalf("expected generated fallback enabled by env override")
+	}
+	if siteCfg.Navigation.ContributionLocalePolicy != quicksite.ContributionLocalePolicyStrict {
+		t.Fatalf("expected strict contribution locale policy, got %q", siteCfg.Navigation.ContributionLocalePolicy)
 	}
 	if siteCfg.Features.EnableSearch == nil || *siteCfg.Features.EnableSearch {
 		t.Fatalf("expected search feature disabled by env override")
@@ -85,25 +92,25 @@ func TestResolveSiteRuntimeConfigEnvOverrides(t *testing.T) {
 	if siteCfg.Environment != "staging" {
 		t.Fatalf("expected runtime environment staging, got %q", siteCfg.Environment)
 	}
-	if siteCfg.ContentEnvironment != "qa" {
-		t.Fatalf("expected content environment qa, got %q", siteCfg.ContentEnvironment)
+	if siteCfg.ContentChannel != "qa" {
+		t.Fatalf("expected content channel qa, got %q", siteCfg.ContentChannel)
 	}
 	if siteCfg.Theme.Name != "marketing" || siteCfg.Theme.Variant != "clean" {
 		t.Fatalf("expected theme override marketing/clean, got %s/%s", siteCfg.Theme.Name, siteCfg.Theme.Variant)
 	}
 }
 
-func TestResolveSiteRuntimeConfigContentEnvironmentFallbacksToDefault(t *testing.T) {
+func TestResolveSiteRuntimeConfigContentChannelFallbacksToDefault(t *testing.T) {
 	cfg := admin.Config{DefaultLocale: "en", BasePath: "/admin", Theme: "admin-demo", ThemeVariant: "light"}
 	runtimeSite := appcfg.Defaults().Site
 	runtimeSite.RuntimeEnv = "prod"
-	runtimeSite.ContentEnv = ""
+	runtimeSite.ContentChannel = ""
 	siteCfg := resolveSiteRuntimeConfig(cfg, runtimeSite, false)
 
 	if siteCfg.Environment != "prod" {
 		t.Fatalf("expected runtime environment prod, got %q", siteCfg.Environment)
 	}
-	if siteCfg.ContentEnvironment != defaultSiteContentEnv {
-		t.Fatalf("expected content environment fallback %q, got %q", defaultSiteContentEnv, siteCfg.ContentEnvironment)
+	if siteCfg.ContentChannel != defaultSiteContentChannel {
+		t.Fatalf("expected content channel fallback %q, got %q", defaultSiteContentChannel, siteCfg.ContentChannel)
 	}
 }

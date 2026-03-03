@@ -33,6 +33,8 @@ type persistentConfig struct {
 
 var cmsTestLogs = flag.Bool("cms-test-logs", false, "enable go-cms runtime logs during tests")
 
+const defaultContentScopeID = "00000000-0000-0000-0000-000000000001"
+
 func (c persistentConfig) GetDebug() bool    { return false }
 func (c persistentConfig) GetDriver() string { return c.driver }
 func (c persistentConfig) GetServer() string { return c.server }
@@ -82,6 +84,9 @@ func SetupPersistentCMS(ctx context.Context, defaultLocale, dsn string) (admin.C
 	client.RegisterSQLMigrations(stores.SanitizeSQLiteMigrations(resolveCMSMigrationsFS()))
 	if err := client.Migrate(ctx); err != nil {
 		return admin.CMSOptions{}, err
+	}
+	if err := ensureLegacyContentScopeSchema(ctx, client.DB()); err != nil {
+		return admin.CMSOptions{}, fmt.Errorf("repair content scope schema: %w", err)
 	}
 
 	if err := stores.EnsureContentOverlay(ctx, client.DB()); err != nil {
@@ -330,6 +335,350 @@ func resolveCMSDSN(input string) string {
 		return value
 	}
 	return defaultCMSDSN()
+}
+
+func ensureLegacyContentScopeSchema(ctx context.Context, db *bun.DB) error {
+	if db == nil {
+		return nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := ensureContentScopeLookupTables(ctx, db); err != nil {
+		return err
+	}
+
+	for _, table := range []string{
+		"content_types",
+		"contents",
+		"pages",
+		"menus",
+		"menu_items",
+		"block_definitions",
+		"menu_view_profiles",
+		"menu_location_bindings",
+	} {
+		if err := ensureEnvironmentIDColumn(ctx, db, table); err != nil {
+			return err
+		}
+		if err := backfillEnvironmentIDFromChannel(ctx, db, table); err != nil {
+			return err
+		}
+	}
+
+	for _, stmt := range []struct {
+		table string
+		sql   string
+	}{
+		{
+			table: "content_types",
+			sql: `UPDATE content_types
+		 SET environment_id = ?
+		 WHERE environment_id IS NULL OR TRIM(environment_id) = ''`,
+		},
+		{
+			table: "contents",
+			sql: `UPDATE contents
+		 SET environment_id = (
+		     SELECT ct.environment_id
+		     FROM content_types AS ct
+		     WHERE ct.id = contents.content_type_id
+		 )
+		 WHERE (environment_id IS NULL OR TRIM(environment_id) = '')
+		   AND content_type_id IS NOT NULL`,
+		},
+		{
+			table: "contents",
+			sql: `UPDATE contents
+		 SET environment_id = ?
+		 WHERE environment_id IS NULL OR TRIM(environment_id) = ''`,
+		},
+		{
+			table: "pages",
+			sql: `UPDATE pages
+		 SET environment_id = (
+		     SELECT c.environment_id
+		     FROM contents AS c
+		     WHERE c.id = pages.content_id
+		 )
+		 WHERE (environment_id IS NULL OR TRIM(environment_id) = '')
+		   AND content_id IS NOT NULL`,
+		},
+		{
+			table: "pages",
+			sql: `UPDATE pages
+		 SET environment_id = ?
+		 WHERE environment_id IS NULL OR TRIM(environment_id) = ''`,
+		},
+		{
+			table: "menus",
+			sql: `UPDATE menus
+		 SET environment_id = ?
+		 WHERE environment_id IS NULL OR TRIM(environment_id) = ''`,
+		},
+		{
+			table: "menu_items",
+			sql: `UPDATE menu_items
+		 SET environment_id = (
+		     SELECT m.environment_id
+		     FROM menus AS m
+		     WHERE m.id = menu_items.menu_id
+		 )
+		 WHERE (environment_id IS NULL OR TRIM(environment_id) = '')
+		   AND menu_id IS NOT NULL`,
+		},
+		{
+			table: "menu_items",
+			sql: `UPDATE menu_items
+		 SET environment_id = ?
+		 WHERE environment_id IS NULL OR TRIM(environment_id) = ''`,
+		},
+		{
+			table: "block_definitions",
+			sql: `UPDATE block_definitions
+		 SET environment_id = ?
+		 WHERE environment_id IS NULL OR TRIM(environment_id) = ''`,
+		},
+		{
+			table: "menu_view_profiles",
+			sql: `UPDATE menu_view_profiles
+		 SET environment_id = ?
+		 WHERE environment_id IS NULL OR TRIM(environment_id) = ''`,
+		},
+		{
+			table: "menu_location_bindings",
+			sql: `UPDATE menu_location_bindings
+		 SET environment_id = ?
+		 WHERE environment_id IS NULL OR TRIM(environment_id) = ''`,
+		},
+	} {
+		if err := execIfTableExists(ctx, db, stmt.table, stmt.sql, defaultContentScopeID); err != nil {
+			return err
+		}
+	}
+
+	if tableExists, err := sqliteTableExists(ctx, db, "menu_view_profiles"); err != nil {
+		return err
+	} else if tableExists {
+		if _, err := db.ExecContext(ctx, `
+CREATE UNIQUE INDEX IF NOT EXISTS idx_menu_view_profiles_env_code
+ON menu_view_profiles(environment_id, code);`); err != nil {
+			return err
+		}
+	}
+
+	if tableExists, err := sqliteTableExists(ctx, db, "menu_location_bindings"); err != nil {
+		return err
+	} else if tableExists {
+		if _, err := db.ExecContext(ctx, `
+CREATE INDEX IF NOT EXISTS idx_menu_location_bindings_env_location
+ON menu_location_bindings(environment_id, location);`); err != nil {
+			return err
+		}
+		if _, err := db.ExecContext(ctx, `
+CREATE INDEX IF NOT EXISTS idx_menu_location_bindings_env_menu
+ON menu_location_bindings(environment_id, menu_code);`); err != nil {
+			return err
+		}
+		if _, err := db.ExecContext(ctx, `
+CREATE INDEX IF NOT EXISTS idx_menu_location_bindings_env_profile
+ON menu_location_bindings(environment_id, view_profile_code);`); err != nil {
+			return err
+		}
+		if _, err := db.ExecContext(ctx, `
+CREATE INDEX IF NOT EXISTS idx_menu_location_bindings_priority
+ON menu_location_bindings(environment_id, location, priority DESC);`); err != nil {
+			return err
+		}
+		if _, err := db.ExecContext(ctx, `
+CREATE INDEX IF NOT EXISTS idx_menu_location_bindings_locale
+ON menu_location_bindings(environment_id, location, locale);`); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func ensureContentScopeLookupTables(ctx context.Context, db *bun.DB) error {
+	for _, stmt := range []string{
+		`CREATE TABLE IF NOT EXISTS environments (
+    id TEXT PRIMARY KEY,
+    key TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    description TEXT,
+    is_active INTEGER NOT NULL DEFAULT 1,
+    is_default INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP
+);`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_environments_default ON environments(is_default) WHERE is_default = 1;`,
+		`INSERT OR IGNORE INTO environments (id, key, name, description, is_active, is_default, created_at, updated_at)
+VALUES (?, 'default', 'Default', 'Default environment', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);`,
+		`CREATE TABLE IF NOT EXISTS channels (
+    id TEXT PRIMARY KEY,
+    key TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    description TEXT,
+    is_active INTEGER NOT NULL DEFAULT 1,
+    is_default INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP
+);`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_channels_default ON channels(is_default) WHERE is_default = 1;`,
+		`INSERT OR REPLACE INTO channels (id, key, name, description, is_active, is_default, created_at, updated_at, deleted_at)
+SELECT id, key, name, description, is_active, is_default, created_at, updated_at, deleted_at
+FROM environments;`,
+		`CREATE TRIGGER IF NOT EXISTS trg_channels_sync_insert
+AFTER INSERT ON environments
+BEGIN
+    INSERT INTO channels (id, key, name, description, is_active, is_default, created_at, updated_at, deleted_at)
+    VALUES (NEW.id, NEW.key, NEW.name, NEW.description, NEW.is_active, NEW.is_default, NEW.created_at, NEW.updated_at, NEW.deleted_at)
+    ON CONFLICT(id) DO UPDATE SET
+        key = excluded.key,
+        name = excluded.name,
+        description = excluded.description,
+        is_active = excluded.is_active,
+        is_default = excluded.is_default,
+        updated_at = excluded.updated_at,
+        deleted_at = excluded.deleted_at;
+END;`,
+		`CREATE TRIGGER IF NOT EXISTS trg_channels_sync_update
+AFTER UPDATE ON environments
+BEGIN
+    INSERT INTO channels (id, key, name, description, is_active, is_default, created_at, updated_at, deleted_at)
+    VALUES (NEW.id, NEW.key, NEW.name, NEW.description, NEW.is_active, NEW.is_default, NEW.created_at, NEW.updated_at, NEW.deleted_at)
+    ON CONFLICT(id) DO UPDATE SET
+        key = excluded.key,
+        name = excluded.name,
+        description = excluded.description,
+        is_active = excluded.is_active,
+        is_default = excluded.is_default,
+        updated_at = excluded.updated_at,
+        deleted_at = excluded.deleted_at;
+END;`,
+		`CREATE TRIGGER IF NOT EXISTS trg_channels_sync_delete
+AFTER DELETE ON environments
+BEGIN
+    DELETE FROM channels WHERE id = OLD.id;
+END;`,
+	} {
+		args := []any{}
+		if strings.Contains(stmt, "INSERT OR IGNORE INTO environments") {
+			args = append(args, defaultContentScopeID)
+		}
+		if _, err := db.ExecContext(ctx, stmt, args...); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func ensureEnvironmentIDColumn(ctx context.Context, db *bun.DB, table string) error {
+	tableExists, err := sqliteTableExists(ctx, db, table)
+	if err != nil || !tableExists {
+		return err
+	}
+	hasEnvironmentID, err := sqliteColumnExists(ctx, db, table, "environment_id")
+	if err != nil || hasEnvironmentID {
+		return err
+	}
+	_, err = db.ExecContext(
+		ctx,
+		fmt.Sprintf(
+			`ALTER TABLE %s ADD COLUMN environment_id TEXT NOT NULL DEFAULT '%s'`,
+			quoteSQLiteIdentifier(table),
+			defaultContentScopeID,
+		),
+	)
+	return err
+}
+
+func backfillEnvironmentIDFromChannel(ctx context.Context, db *bun.DB, table string) error {
+	tableExists, err := sqliteTableExists(ctx, db, table)
+	if err != nil || !tableExists {
+		return err
+	}
+	hasEnvironmentID, err := sqliteColumnExists(ctx, db, table, "environment_id")
+	if err != nil || !hasEnvironmentID {
+		return err
+	}
+	hasChannelID, err := sqliteColumnExists(ctx, db, table, "channel_id")
+	if err != nil || !hasChannelID {
+		return err
+	}
+	_, err = db.ExecContext(
+		ctx,
+		fmt.Sprintf(
+			`UPDATE %s
+SET environment_id = channel_id
+WHERE (environment_id IS NULL OR TRIM(environment_id) = '')
+  AND channel_id IS NOT NULL
+  AND TRIM(channel_id) != ''`,
+			quoteSQLiteIdentifier(table),
+		),
+	)
+	return err
+}
+
+func sqliteTableExists(ctx context.Context, db *bun.DB, table string) (bool, error) {
+	if db == nil {
+		return false, nil
+	}
+	var exists bool
+	if err := db.NewSelect().
+		ColumnExpr("EXISTS (SELECT 1 FROM sqlite_master WHERE type = 'table' AND LOWER(name) = LOWER(?))", table).
+		Scan(ctx, &exists); err != nil {
+		return false, err
+	}
+	return exists, nil
+}
+
+func sqliteColumnExists(ctx context.Context, db *bun.DB, table, column string) (bool, error) {
+	if db == nil {
+		return false, nil
+	}
+	rows, err := db.QueryContext(ctx, fmt.Sprintf("PRAGMA table_info(%s)", quoteSQLiteIdentifier(table)))
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var (
+			cid        int
+			name       string
+			columnType string
+			notNull    int
+			defaultVal any
+			primaryKey int
+		)
+		if err := rows.Scan(&cid, &name, &columnType, &notNull, &defaultVal, &primaryKey); err != nil {
+			return false, err
+		}
+		if strings.EqualFold(strings.TrimSpace(name), strings.TrimSpace(column)) {
+			return true, nil
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return false, err
+	}
+	return false, nil
+}
+
+func quoteSQLiteIdentifier(value string) string {
+	return `"` + strings.ReplaceAll(strings.TrimSpace(value), `"`, `""`) + `"`
+}
+
+func execIfTableExists(ctx context.Context, db *bun.DB, table, query string, args ...any) error {
+	tableExists, err := sqliteTableExists(ctx, db, table)
+	if err != nil || !tableExists {
+		return err
+	}
+	_, err = db.ExecContext(ctx, query, args...)
+	return err
 }
 
 type contentTranslationPathBackfillRow struct {

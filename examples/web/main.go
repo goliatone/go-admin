@@ -57,7 +57,7 @@ const (
 	exportPipelineSnapshotLimit   = 25
 	exportPipelinePublishInterval = 750 * time.Millisecond
 	authzPreflightDefaultRolesCSV = "superadmin,owner"
-	defaultSiteContentEnv         = "default"
+	defaultSiteContentChannel     = "default"
 )
 
 func main() {
@@ -1212,8 +1212,8 @@ func main() {
 	); err != nil {
 		log.Panicf("failed to register site runtime routes: %v", err)
 	}
-	if err := logSiteRuntimeEnvironmentDiagnostics(adm, cmsContentSvc, cfg, siteCfg, runtimeConfig.Site.EnvironmentStrict); err != nil {
-		log.Panicf("site runtime environment diagnostics failed: %v", err)
+	if err := logSiteRuntimeContentChannelDiagnostics(adm, cmsContentSvc, cfg, siteCfg, runtimeConfig.Site.EnvironmentStrict); err != nil {
+		log.Panicf("site runtime content channel diagnostics failed: %v", err)
 	}
 
 	listenAddr := resolveListenAddr(runtimeConfig.Server)
@@ -1269,9 +1269,9 @@ func resolveSiteRuntimeConfig(cfg admin.Config, siteRuntime appcfg.SiteConfig, i
 			siteRuntimeEnv = "prod"
 		}
 	}
-	siteContentEnv := strings.TrimSpace(siteRuntime.ContentEnv)
-	if siteContentEnv == "" {
-		siteContentEnv = defaultSiteContentEnv
+	siteContentChannel := strings.TrimSpace(siteRuntime.ContentChannel)
+	if siteContentChannel == "" {
+		siteContentChannel = defaultSiteContentChannel
 	}
 
 	themeName := strings.TrimSpace(siteRuntime.Theme)
@@ -1295,12 +1295,13 @@ func resolveSiteRuntimeConfig(cfg admin.Config, siteRuntime appcfg.SiteConfig, i
 		AllowLocaleFallback: allowLocaleFallback,
 		LocalePrefixMode:    resolveSiteLocalePrefixMode(siteRuntime.LocalePrefixMode),
 		Environment:         siteRuntimeEnv,
-		ContentEnvironment:  siteContentEnv,
+		ContentChannel:      siteContentChannel,
 		Navigation: quicksite.SiteNavigationConfig{
-			MainMenuLocation:        quicksite.DefaultMainMenuLocation,
-			FooterMenuLocation:      quicksite.DefaultFooterMenuLocation,
-			FallbackMenuCode:        setup.SiteNavigationMenuCode,
-			EnableGeneratedFallback: siteRuntime.EnableGeneratedFallback, // Demo-only fallback; keep disabled unless explicitly enabled.
+			MainMenuLocation:         quicksite.DefaultMainMenuLocation,
+			FooterMenuLocation:       quicksite.DefaultFooterMenuLocation,
+			FallbackMenuCode:         setup.SiteNavigationMenuCode,
+			ContributionLocalePolicy: strings.TrimSpace(siteRuntime.ContributionLocalePolicy),
+			EnableGeneratedFallback:  siteRuntime.EnableGeneratedFallback, // Demo-only fallback; keep disabled unless explicitly enabled.
 		},
 		Views: quicksite.SiteViewConfig{
 			TemplateFS: []fs.FS{
@@ -1353,31 +1354,31 @@ type siteEnvironmentCounts struct {
 	MenuErr        error
 }
 
-func logSiteRuntimeEnvironmentDiagnostics(
+func logSiteRuntimeContentChannelDiagnostics(
 	adm *admin.Admin,
 	contentSvc admin.CMSContentService,
 	cfg admin.Config,
 	siteCfg quicksite.SiteConfig,
-	environmentStrict bool,
+	channelStrict bool,
 ) error {
 	if adm == nil {
 		return nil
 	}
 	resolved := quicksite.ResolveSiteConfig(cfg, siteCfg)
-	contentEnv := strings.TrimSpace(resolved.ContentEnvironment)
-	if contentEnv == "" {
-		contentEnv = defaultSiteContentEnv
+	contentChannel := strings.TrimSpace(resolved.ContentChannel)
+	if contentChannel == "" {
+		contentChannel = defaultSiteContentChannel
 	}
 	locale := strings.TrimSpace(resolved.DefaultLocale)
 	if locale == "" {
 		locale = "en"
 	}
-	collect := func(environment string) siteEnvironmentCounts {
-		environment = strings.TrimSpace(environment)
-		if environment == "" {
-			environment = defaultSiteContentEnv
+	collect := func(channel string) siteEnvironmentCounts {
+		channel = strings.TrimSpace(channel)
+		if channel == "" {
+			channel = defaultSiteContentChannel
 		}
-		ctx := admin.WithEnvironment(context.Background(), environment)
+		ctx := coreadmin.WithContentChannel(context.Background(), channel)
 		out := siteEnvironmentCounts{}
 
 		if typeSvc := adm.ContentTypeService(); typeSvc != nil {
@@ -1418,30 +1419,30 @@ func logSiteRuntimeEnvironmentDiagnostics(
 		return out
 	}
 
-	active := collect(contentEnv)
+	active := collect(contentChannel)
 	log.Printf(
-		"  Site Environments: runtime=%s content=%s content_types=%d contents=%d main_menu_items=%d",
+		"  Site runtime scope: runtime_environment=%s content_channel=%s content_types=%d contents=%d main_menu_items=%d",
 		resolved.Environment,
-		contentEnv,
+		contentChannel,
 		active.ContentTypes,
 		active.Contents,
 		active.MainMenu,
 	)
 	if active.ContentTypeErr != nil {
-		log.Printf("warning: site env diagnostics content type read failed (env=%s): %v", contentEnv, active.ContentTypeErr)
+		log.Printf("warning: site content channel diagnostics content type read failed (channel=%s): %v", contentChannel, active.ContentTypeErr)
 	}
 	if active.ContentErr != nil {
-		log.Printf("warning: site env diagnostics content read failed (env=%s): %v", contentEnv, active.ContentErr)
+		log.Printf("warning: site content channel diagnostics content read failed (channel=%s): %v", contentChannel, active.ContentErr)
 	}
 	if active.MenuErr != nil {
-		log.Printf("warning: site env diagnostics menu read failed (env=%s): %v", contentEnv, active.MenuErr)
+		log.Printf("warning: site content channel diagnostics menu read failed (channel=%s): %v", contentChannel, active.MenuErr)
 	}
 
-	if strings.EqualFold(contentEnv, defaultSiteContentEnv) {
+	if strings.EqualFold(contentChannel, defaultSiteContentChannel) {
 		return nil
 	}
 
-	defaults := collect(defaultSiteContentEnv)
+	defaults := collect(defaultSiteContentChannel)
 	activeEmpty := active.ContentTypes == 0 && active.Contents == 0 && active.MainMenu == 0
 	defaultHasSeedData := defaults.ContentTypes > 0 || defaults.Contents > 0 || defaults.MainMenu > 0
 	if !activeEmpty || !defaultHasSeedData {
@@ -1449,16 +1450,16 @@ func logSiteRuntimeEnvironmentDiagnostics(
 	}
 
 	message := fmt.Sprintf(
-		"site content environment %q has no content/menu records while %q has data (types=%d contents=%d menu_items=%d). Set site.content_env to %q or seed/promote into %q",
-		contentEnv,
-		defaultSiteContentEnv,
+		"site content channel %q has no content/menu records while %q has data (types=%d contents=%d menu_items=%d). Set site.content_channel to %q or seed/promote into %q",
+		contentChannel,
+		defaultSiteContentChannel,
 		defaults.ContentTypes,
 		defaults.Contents,
 		defaults.MainMenu,
-		defaultSiteContentEnv,
-		contentEnv,
+		defaultSiteContentChannel,
+		contentChannel,
 	)
-	if environmentStrict {
+	if channelStrict {
 		return fmt.Errorf("%s", message)
 	}
 	log.Printf("warning: %s", message)
