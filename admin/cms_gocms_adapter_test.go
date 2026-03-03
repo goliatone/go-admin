@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 	"testing"
@@ -73,6 +74,49 @@ func TestGoCMSMenuAdapterAddsAndResolvesNavigation(t *testing.T) {
 	}
 	if key, ok := got.Target["key"].(string); !ok || key == "" {
 		t.Fatalf("expected key present in target, got %+v", got.Target)
+	}
+}
+
+func TestGoCMSMenuAdapterUsesTranslationURLOverride(t *testing.T) {
+	ctx := context.Background()
+	menuSvc := newStubCMSMenuService()
+	adapter := NewGoCMSMenuAdapterFromAny(menuSvc)
+
+	if _, err := adapter.CreateMenu(ctx, "site.main"); err != nil {
+		t.Fatalf("create menu: %v", err)
+	}
+	if err := adapter.AddMenuItem(ctx, "site.main", MenuItem{
+		ID:     "about",
+		Label:  "About",
+		Locale: "en",
+		Target: map[string]any{"type": "url", "path": "/about"},
+	}); err != nil {
+		t.Fatalf("add menu item: %v", err)
+	}
+
+	override := "/sobre-nosotros"
+	if err := adapter.UpdateMenuItem(ctx, "site.main", MenuItem{
+		ID:          "about",
+		Label:       "Sobre Nosotros",
+		Locale:      "es",
+		URLOverride: &override,
+	}); err != nil {
+		t.Fatalf("update menu item translation: %v", err)
+	}
+
+	menu, err := adapter.Menu(ctx, "site.main", "es")
+	if err != nil {
+		t.Fatalf("resolve menu es: %v", err)
+	}
+	if len(menu.Items) != 1 {
+		t.Fatalf("expected one menu item, got %d", len(menu.Items))
+	}
+	if menu.Items[0].Label != "Sobre Nosotros" {
+		t.Fatalf("expected localized label, got %q", menu.Items[0].Label)
+	}
+	url := strings.TrimSpace(fmt.Sprint(menu.Items[0].Target["url"]))
+	if url != "/sobre-nosotros" {
+		t.Fatalf("expected translated url override /sobre-nosotros, got %q (target=%+v)", url, menu.Items[0].Target)
 	}
 }
 
@@ -603,18 +647,31 @@ func buildNode(menu *stubCMSMenu, item *stubCMSMenuItem, menuCode, locale string
 	labelKey := ""
 	groupTitle := ""
 	groupTitleKey := ""
+	var urlOverride *string
 	if item.tr != nil {
 		if tr, ok := item.tr[locale]; ok {
 			label = tr.Label
 			labelKey = tr.LabelKey
 			groupTitle = tr.GroupTitle
 			groupTitleKey = tr.GroupTitleKey
+			urlOverride = tr.URLOverride
 		}
 	}
 	url := ""
-	if item.target != nil {
-		if slug, ok := item.target["slug"].(string); ok && slug != "" {
-			url = "/" + slug
+	if urlOverride != nil {
+		url = strings.TrimSpace(*urlOverride)
+	}
+	if url == "" && item.target != nil {
+		for _, key := range []string{"url", "href", "path"} {
+			if raw, ok := item.target[key].(string); ok && strings.TrimSpace(raw) != "" {
+				url = strings.TrimSpace(raw)
+				break
+			}
+		}
+		if url == "" {
+			if slug, ok := item.target["slug"].(string); ok && slug != "" {
+				url = "/" + slug
+			}
 		}
 	}
 

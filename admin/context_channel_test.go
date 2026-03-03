@@ -1,0 +1,40 @@
+package admin
+
+import (
+	"context"
+	"testing"
+
+	router "github.com/goliatone/go-router"
+)
+
+func TestWithContentChannelMaintainsEnvironmentCompatibility(t *testing.T) {
+	ctx := WithContentChannel(context.Background(), "preview")
+
+	if got := ContentChannelFromContext(ctx); got != "preview" {
+		t.Fatalf("expected content channel preview, got %q", got)
+	}
+	if got := EnvironmentFromContext(ctx); got != "preview" {
+		t.Fatalf("expected environment compatibility preview, got %q", got)
+	}
+}
+
+func TestNewAdminContextFromRouterPrefersChannelQuery(t *testing.T) {
+	mockCtx := router.NewMockContext()
+	mockCtx.QueriesM["channel"] = "public"
+	mockCtx.QueriesM["env"] = "staging"
+	mockCtx.On("Context").Return(context.Background())
+
+	adminCtx := newAdminContextFromRouter(mockCtx, "en")
+	if adminCtx.Channel != "public" {
+		t.Fatalf("expected channel public, got %q", adminCtx.Channel)
+	}
+	if adminCtx.Environment != "public" {
+		t.Fatalf("expected environment compatibility to follow channel public, got %q", adminCtx.Environment)
+	}
+	if got := ContentChannelFromContext(adminCtx.Context); got != "public" {
+		t.Fatalf("expected context channel public, got %q", got)
+	}
+	if got := EnvironmentFromContext(adminCtx.Context); got != "public" {
+		t.Fatalf("expected context environment public, got %q", got)
+	}
+}
