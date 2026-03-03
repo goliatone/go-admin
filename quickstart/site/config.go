@@ -85,6 +85,8 @@ type SiteFeatures struct {
 	EnableSearch           *bool
 	EnableTheme            *bool
 	EnableMenuDraftPreview *bool
+	EnableCanonicalRedirect *bool
+	StrictLocalizedPaths    *bool
 }
 
 // SiteThemeConfig controls site-level theme defaults.
@@ -134,6 +136,8 @@ type ResolvedSiteFeatures struct {
 	EnableSearch           bool
 	EnableTheme            bool
 	EnableMenuDraftPreview bool
+	EnableCanonicalRedirect bool
+	StrictLocalizedPaths    bool
 }
 
 // ResolveSiteConfig normalizes runtime defaults for site registration.
@@ -237,6 +241,8 @@ func ResolveSiteConfig(cfg admin.Config, input SiteConfig) ResolvedSiteConfig {
 		EnableSearch:           boolValue(input.Features.EnableSearch, true),
 		EnableTheme:            boolValue(input.Features.EnableTheme, true),
 		EnableMenuDraftPreview: boolValue(input.Features.EnableMenuDraftPreview, true),
+		EnableCanonicalRedirect: boolValue(input.Features.EnableCanonicalRedirect, true),
+		StrictLocalizedPaths:    boolValue(input.Features.StrictLocalizedPaths, false),
 	}
 
 	theme := SiteThemeConfig{
