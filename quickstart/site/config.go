@@ -176,12 +176,26 @@ func ResolveSiteConfig(cfg admin.Config, input SiteConfig) ResolvedSiteConfig {
 			environment = "prod"
 		}
 	}
-	contentEnvironment := normalizeContentEnvironment(input.ContentEnvironment)
+	contentEnvironment := ""
+	contentEnvironmentExplicit := false
+	if strings.TrimSpace(input.ContentEnvironment) != "" {
+		contentEnvironmentExplicit = true
+		contentEnvironment = normalizeContentEnvironment(input.ContentEnvironment)
+	}
 	if contentEnvironment == "" {
-		contentEnvironment = normalizeContentEnvironment(firstNonEmpty(
+		contentEnvFromRuntime := strings.TrimSpace(firstNonEmpty(
 			os.Getenv("SITE_CONTENT_ENV"),
 			os.Getenv("SITE_ENV"),
 		))
+		if contentEnvFromRuntime != "" {
+			contentEnvironmentExplicit = true
+			contentEnvironment = normalizeContentEnvironment(contentEnvFromRuntime)
+		}
+	}
+	if contentEnvironment == "" && !contentEnvironmentExplicit {
+		if inferred := normalizeContentEnvironment(environment); inferred != "" {
+			contentEnvironment = inferred
+		}
 	}
 	if contentEnvironment == "" {
 		contentEnvironment = "default"
