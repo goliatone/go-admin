@@ -1,7 +1,6 @@
 package setup
 
 import (
-	"os"
 	"strings"
 )
 
@@ -54,27 +53,17 @@ func (c RegistrationConfig) AllowsEmail(email string) bool {
 
 // PasswordPolicyHints returns UI hints for password requirements.
 func PasswordPolicyHints() []string {
-	defaultHints := []string{
+	hints := append([]string{}, runtimeConfig().PasswordPolicyHints...)
+	if len(hints) == 0 {
+		return defaultPasswordPolicyHints()
+	}
+	return hints
+}
+
+func defaultPasswordPolicyHints() []string {
+	return []string{
 		"Use at least 8 characters",
 		"Mix letters, numbers, and symbols",
 		"Avoid reused passwords",
 	}
-
-	raw := strings.TrimSpace(os.Getenv("ADMIN_PASSWORD_POLICY_HINTS"))
-	if raw == "" {
-		return defaultHints
-	}
-
-	parts := strings.Split(raw, ",")
-	hints := make([]string, 0, len(parts))
-	for _, item := range parts {
-		trimmed := strings.TrimSpace(item)
-		if trimmed != "" {
-			hints = append(hints, trimmed)
-		}
-	}
-	if len(hints) == 0 {
-		return defaultHints
-	}
-	return hints
 }

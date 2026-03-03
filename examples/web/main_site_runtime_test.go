@@ -3,15 +3,15 @@ package main
 import (
 	"testing"
 
+	appcfg "github.com/goliatone/go-admin/examples/web/config"
 	"github.com/goliatone/go-admin/pkg/admin"
 	quicksite "github.com/goliatone/go-admin/quickstart/site"
 )
 
 func TestResolveSiteRuntimeConfigDefaults(t *testing.T) {
-	clearSiteRuntimeEnvForTest(t)
-
 	cfg := admin.Config{DefaultLocale: "en", BasePath: "/admin", Theme: "admin-demo", ThemeVariant: "light"}
-	siteCfg := resolveSiteRuntimeConfig(cfg, true)
+	runtimeSite := appcfg.Defaults().Site
+	siteCfg := resolveSiteRuntimeConfig(cfg, runtimeSite, true)
 
 	if siteCfg.DefaultLocale != "en" {
 		t.Fatalf("expected default locale en, got %q", siteCfg.DefaultLocale)
@@ -46,23 +46,20 @@ func TestResolveSiteRuntimeConfigDefaults(t *testing.T) {
 }
 
 func TestResolveSiteRuntimeConfigEnvOverrides(t *testing.T) {
-	clearSiteRuntimeEnvForTest(t)
-
-	t.Setenv("SITE_ALLOW_LOCALE_FALLBACK", "false")
-	t.Setenv("SITE_LOCALE_PREFIX_MODE", "always")
-	t.Setenv("SITE_ENABLE_GENERATED_FALLBACK", "true")
-	t.Setenv("SITE_ENABLE_SEARCH", "false")
-	t.Setenv("SITE_ENABLE_CANONICAL_REDIRECT", "false")
-	t.Setenv("SITE_STRICT_LOCALIZED_PATHS", "true")
-	t.Setenv("SITE_SUPPORTED_LOCALES", "en,es,de")
-	t.Setenv("SITE_RUNTIME_ENV", "staging")
-	t.Setenv("SITE_ENV", "prod")
-	t.Setenv("SITE_CONTENT_ENV", "qa")
-	t.Setenv("SITE_THEME", "marketing")
-	t.Setenv("SITE_THEME_VARIANT", "clean")
-
 	cfg := admin.Config{DefaultLocale: "en", BasePath: "/admin", Theme: "admin-demo", ThemeVariant: "light"}
-	siteCfg := resolveSiteRuntimeConfig(cfg, false)
+	runtimeSite := appcfg.Defaults().Site
+	runtimeSite.AllowLocaleFallback = false
+	runtimeSite.LocalePrefixMode = "always"
+	runtimeSite.EnableGeneratedFallback = true
+	runtimeSite.EnableSearch = false
+	runtimeSite.EnableCanonicalRedirect = false
+	runtimeSite.StrictLocalizedPaths = true
+	runtimeSite.SupportedLocales = []string{"en", "es", "de"}
+	runtimeSite.RuntimeEnv = "staging"
+	runtimeSite.ContentEnv = "qa"
+	runtimeSite.Theme = "marketing"
+	runtimeSite.ThemeVariant = "clean"
+	siteCfg := resolveSiteRuntimeConfig(cfg, runtimeSite, false)
 
 	if siteCfg.AllowLocaleFallback == nil || *siteCfg.AllowLocaleFallback {
 		t.Fatalf("expected allow locale fallback override=false")
@@ -96,42 +93,17 @@ func TestResolveSiteRuntimeConfigEnvOverrides(t *testing.T) {
 	}
 }
 
-func TestResolveSiteRuntimeConfigContentEnvironmentFallbacksToSiteEnv(t *testing.T) {
-	clearSiteRuntimeEnvForTest(t)
-
-	t.Setenv("SITE_RUNTIME_ENV", "prod")
-	t.Setenv("SITE_ENV", "staging")
-	t.Setenv("SITE_CONTENT_ENV", "")
-
+func TestResolveSiteRuntimeConfigContentEnvironmentFallbacksToDefault(t *testing.T) {
 	cfg := admin.Config{DefaultLocale: "en", BasePath: "/admin", Theme: "admin-demo", ThemeVariant: "light"}
-	siteCfg := resolveSiteRuntimeConfig(cfg, false)
+	runtimeSite := appcfg.Defaults().Site
+	runtimeSite.RuntimeEnv = "prod"
+	runtimeSite.ContentEnv = ""
+	siteCfg := resolveSiteRuntimeConfig(cfg, runtimeSite, false)
 
 	if siteCfg.Environment != "prod" {
 		t.Fatalf("expected runtime environment prod, got %q", siteCfg.Environment)
 	}
-	if siteCfg.ContentEnvironment != "staging" {
-		t.Fatalf("expected content environment from SITE_ENV staging, got %q", siteCfg.ContentEnvironment)
-	}
-}
-
-func clearSiteRuntimeEnvForTest(t *testing.T) {
-	t.Helper()
-	keys := []string{
-		"SITE_ALLOW_LOCALE_FALLBACK",
-		"SITE_LOCALE_PREFIX_MODE",
-		"SITE_ENABLE_GENERATED_FALLBACK",
-		"SITE_ENABLE_SEARCH",
-		"SITE_ENABLE_CANONICAL_REDIRECT",
-		"SITE_STRICT_LOCALIZED_PATHS",
-		"SITE_SUPPORTED_LOCALES",
-		"SITE_RUNTIME_ENV",
-		"SITE_CONTENT_ENV",
-		"SITE_ENV",
-		"SITE_THEME",
-		"SITE_THEME_VARIANT",
-		"SITE_BASE_PATH",
-	}
-	for _, key := range keys {
-		t.Setenv(key, "")
+	if siteCfg.ContentEnvironment != defaultSiteContentEnv {
+		t.Fatalf("expected content environment fallback %q, got %q", defaultSiteContentEnv, siteCfg.ContentEnvironment)
 	}
 }

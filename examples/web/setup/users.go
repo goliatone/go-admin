@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -43,8 +42,8 @@ type UserMigrationsRegistrar func(*persistence.Client, UserMigrationsPhase) erro
 
 // ResolveUsersDSN returns the SQLite DSN shared with the rest of the example (CMS).
 func ResolveUsersDSN() string {
-	if env := strings.TrimSpace(os.Getenv("CMS_DATABASE_DSN")); env != "" {
-		return env
+	if value := strings.TrimSpace(runtimeConfig().Databases.CMSDSN); value != "" {
+		return value
 	}
 	return defaultCMSDSN()
 }
@@ -184,12 +183,13 @@ func SetupUsersWithMigrations(ctx context.Context, dsn string, registrar UserMig
 		ResetRepo:      resetRepo,
 	}
 
-	seedCfg := SeedConfigFromEnv()
+	runtimeCfg := runtimeConfig()
+	seedCfg := ResolveSeedConfig(runtimeCfg.Seeds, isProductionEnv())
 	if err := LoadSeedGroup(ctx, client, seedCfg, SeedGroupUsers); err != nil {
 		return stores.UserDependencies{}, nil, nil, err
 	}
 	if seedCfg.Enabled {
-		if err := rewriteSeedScope(ctx, client.DB(), quickstart.ScopeConfigFromEnv()); err != nil {
+		if err := rewriteSeedScope(ctx, client.DB(), quickstart.NormalizeScopeConfig(runtimeCfg.Scope)); err != nil {
 			return stores.UserDependencies{}, nil, nil, err
 		}
 		if err := ensureContentNavigationSeedPermissions(ctx, deps.RoleRegistry); err != nil {
