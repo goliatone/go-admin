@@ -109,15 +109,13 @@ The Debug Module provides development-time introspection for go-admin applicatio
 package main
 
 import (
-    "os"
-
     "github.com/goliatone/go-admin/admin"
     "github.com/goliatone/go-admin/quickstart"
 )
 
 func main() {
-    // Check if debug mode is enabled
-    debugEnabled := os.Getenv("ADMIN_DEBUG") == "true"
+    // Resolve from host runtime config
+    debugEnabled := hostConfig.Admin.Debug.Enabled
 
     // Configure admin with debug settings
     cfg := admin.Config{
@@ -411,16 +409,16 @@ if cfg.Debug.Enabled {
 }
 ```
 
-#### Method 3: Environment-Driven
+#### Method 3: Host-Config Driven
 
 ```go
-debugEnabled := os.Getenv("ADMIN_DEBUG") == "true"
+debugEnabled := hostConfig.Admin.Debug.Enabled
 
 cfg := admin.Config{
     Debug: admin.DebugConfig{
         Enabled:     debugEnabled,
-        CaptureSQL:  os.Getenv("ADMIN_DEBUG_SQL") != "false",
-        CaptureLogs: os.Getenv("ADMIN_DEBUG_LOGS") != "false",
+        CaptureSQL:  hostConfig.Admin.Debug.CaptureSQL,
+        CaptureLogs: hostConfig.Admin.Debug.CaptureLogs,
     },
 }
 featureDefaults := map[string]bool{
@@ -1001,7 +999,7 @@ Static key example:
 
 ```go
 cfg.Debug.Repl.OverrideStrategy = admin.StaticKeyStrategy{
-    Key:       os.Getenv("ADMIN_REPL_KEY"),
+    Key:       hostConfig.Admin.Debug.Repl.OverrideKey,
     ExpiresAt: time.Now().Add(30 * time.Minute),
 }
 ```
@@ -1010,7 +1008,7 @@ Signed token example:
 
 ```go
 cfg.Debug.Repl.OverrideStrategy = admin.SignedTokenStrategy{
-    Secret:   []byte(os.Getenv("ADMIN_REPL_HMAC")),
+    Secret:   []byte(hostConfig.Admin.Debug.Repl.HMACSecret),
     Audience: "admin-repl",
     Issuer:   "my-app",
 }
@@ -1025,7 +1023,7 @@ claims := jwt.RegisteredClaims{
     ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),
 }
 token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-signed, _ := token.SignedString([]byte(os.Getenv("ADMIN_REPL_HMAC")))
+signed, _ := token.SignedString([]byte(hostConfig.Admin.Debug.Repl.HMACSecret))
 ```
 
 ## 10. Custom Panels
@@ -1472,14 +1470,14 @@ cfg.Debug = admin.DebugConfig{
 ### 6. Production Recommendations
 
 - **Never enable in production** without IP restrictions
-- Use environment variables to control enablement
+- Use explicit host runtime config to control enablement
 - Consider separate debug permissions
 - Monitor access logs for debug endpoints
 
 ```go
 // Production-safe pattern
 cfg.Debug = admin.DebugConfig{
-    Enabled:    os.Getenv("ENV") == "development",
+    Enabled:    hostConfig.App.Env == "development",
     AllowedIPs: []string{"127.0.0.1"},
 }
 ```

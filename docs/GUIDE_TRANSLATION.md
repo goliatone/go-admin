@@ -20,7 +20,7 @@ Run the app with translation modules enabled:
 
 ```bash
 cd examples/web
-ADMIN_TRANSLATION_PROFILE=full go run .
+APP_TRANSLATION__PROFILE=full go run .
 ```
 
 Profile defaults:
@@ -33,16 +33,16 @@ Profile defaults:
 
 Important defaults in this repo:
 
-- If `ADMIN_TRANSLATION_PROFILE` is unset, profile resolves to `core` (for CMS enabled apps)
+- If `translation.profile` is unset, profile resolves to `core` (for CMS enabled apps)
 - Translation exchange and queue feature flags default to `false` in quickstart defaults
-- So with no env overrides, you get core translation mechanics but no Exchange/Queue UI routes
+- So with no overrides, you get core translation mechanics but no Exchange/Queue UI routes
 
 Optional explicit overrides:
 
-- `ADMIN_TRANSLATION_EXCHANGE=true|false`
-- `ADMIN_TRANSLATION_QUEUE=true|false`
+- `translation.exchange=true|false` (`APP_TRANSLATION__EXCHANGE`)
+- `translation.queue=true|false` (`APP_TRANSLATION__QUEUE`)
 
-In `examples/web/main.go`, profile defaults are resolved first, then explicit module env overrides are applied.
+In `examples/web/main.go`, profile defaults are resolved first, then explicit module overrides are applied from loaded runtime config.
 
 ## 2. Core Model
 

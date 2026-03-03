@@ -1,113 +1,79 @@
-# Environment Flags Reference (`ADMIN_*` + site runtime)
+# Runtime Config Reference (`examples/web`)
 
-Canonical reference for runtime environment flags in this repo.
+Canonical runtime configuration for `examples/web` is:
 
-- Scope: keys read by Go runtime code (`*.go`, excluding tests).
-- Last updated: February 27, 2026.
-- Note: `ADMIN_UNAVAILABLE` is not an env var; it is an internal error text code.
+1. `examples/web/config/app.json` (base file)
+2. `APP_*` environment overrides loaded via `examples/web/config.Load(...)`
 
-## `ADMIN_*` Flags
+`go-admin` and `quickstart` do not read process environment directly for runtime behavior. Host apps should load config and pass explicit option structs/config values.
 
-| Name | Description | Possible values | Default value |
-|---|---|---|---|
-| `ADMIN_ADDR` | Listen address for `examples/web` server. | `<host>:<port>` or `:<port>` | `:8080` |
-| `ADMIN_API_PREFIX` | Overrides admin API prefix (`cfg.URLs.Admin.APIPrefix`). | non-empty path segment | `api` |
-| `ADMIN_API_VERSION` | Overrides admin API version segment (`cfg.URLs.Admin.APIVersion`). | version segment (for example `v1`) or empty | empty |
-| `ADMIN_ASSETS_DIR` | Forces static assets to be served from disk path before embedded fallback. | directory path | auto-detect disk assets, then embedded assets |
-| `ADMIN_BASE_PATH` | Base path used by securelink helpers for route generation. | path (for example `/admin`) | `/admin` |
-| `ADMIN_DEBUG` | Enables debug mode. When `true`, bootstrap defaults also enable toolbar + SQL/log/JS/request capture unless explicitly overridden by specific flags. | boolean (`strconv.ParseBool`) | `false` |
-| `ADMIN_DEBUG_ALLOWED_IPS` | Allowed IP list for debug access controls. | comma/semicolon-separated IP list | empty |
-| `ADMIN_DEBUG_ALLOWED_ORIGINS` | Allowed origins for remote debug endpoints. | comma/semicolon-separated origins | empty |
-| `ADMIN_DEBUG_APP_ID` | Application instance identifier exposed by debug integration. | string | empty |
-| `ADMIN_DEBUG_APP_NAME` | Human-readable app name for debug integration. | string | empty |
-| `ADMIN_DEBUG_ENVIRONMENT` | Environment label for debug integration. | string | empty |
-| `ADMIN_DEBUG_JS_ERRORS` | Toggles JavaScript error capture panel/feed. | boolean (`strconv.ParseBool`) | `false` (auto-set `true` when `ADMIN_DEBUG=true` unless overridden) |
-| `ADMIN_DEBUG_LAYOUT` | Debug page layout mode. | `admin`, `standalone` | `standalone` |
-| `ADMIN_DEBUG_LOGS` | Toggles server log capture in debug tooling. | boolean (`strconv.ParseBool`) | `false` (auto-set `true` when `ADMIN_DEBUG=true` unless overridden) |
-| `ADMIN_DEBUG_REMOTE` | Enables remote debug identity/token endpoints. | boolean (`strconv.ParseBool`) | `false` |
-| `ADMIN_DEBUG_REPL` | Enables debug REPL. If enabled and sub-modes are unset, both app and shell REPL modes are enabled. | boolean (`strconv.ParseBool`) | `false` |
-| `ADMIN_DEBUG_REPL_READONLY` | Sets REPL read-only mode. | boolean (`strconv.ParseBool`) | `true` |
-| `ADMIN_DEBUG_REQUEST_BODY` | Toggles request-body capture in debug tooling. | boolean (`strconv.ParseBool`) | `false` (auto-set `true` when `ADMIN_DEBUG=true` unless overridden) |
-| `ADMIN_DEBUG_SCOPE` | Enables scope-resolution debug capture panel in quickstart host apps that wire it. | boolean (`strconv.ParseBool`) | `false` |
-| `ADMIN_DEBUG_SCOPE_LIMIT` | In-memory scope debug ring-buffer limit. | positive integer | `200` |
-| `ADMIN_DEBUG_SESSION_COOKIE` | Cookie name for debug session tracking. | string | `admin_debug_session` |
-| `ADMIN_DEBUG_SESSION_EXPIRY` | Session inactivity timeout for debug session tracking. | Go duration string (for example `30m`, `1h`) | `30m` |
-| `ADMIN_DEBUG_SESSION_GLOBAL_PANELS` | Includes global panels in session views. | boolean (`strconv.ParseBool`) | `true` |
-| `ADMIN_DEBUG_SESSION_TRACKING` | Enables debug session tracking. | boolean (`strconv.ParseBool`) | `false` |
-| `ADMIN_DEBUG_SLOG` | Controls debug slog bridge activation in example apps when debug mode is active. | disabled only when exactly `false` or `0`; any other value enables | enabled |
-| `ADMIN_DEBUG_SQL` | Toggles SQL query capture in debug tooling. | boolean (`strconv.ParseBool`) | `false` (auto-set `true` when `ADMIN_DEBUG=true` unless overridden) |
-| `ADMIN_DEBUG_TOKEN_TTL` | Override for debug exchange token TTL. | Go duration string | unset (uses integration default) |
-| `ADMIN_DEBUG_TOOLBAR` | Enables injected debug toolbar. | boolean (`strconv.ParseBool`) | `false` (auto-set `true` when `ADMIN_DEBUG=true` unless overridden) |
-| `ADMIN_DEBUG_TOOLBAR_PANELS` | Panel IDs shown in debug toolbar. | comma/semicolon-separated panel IDs | when toolbar is on: `requests,sql,logs,jserrors,routes,config` |
-| `ADMIN_DEFAULT_ORG_ID` | Default org ID applied in single-tenant scope mode. | UUID string | `22222222-2222-2222-2222-222222222222` |
-| `ADMIN_DEFAULT_TENANT_ID` | Default tenant ID applied in single-tenant scope mode. | UUID string | `11111111-1111-1111-1111-111111111111` |
-| `ADMIN_DEV` | Enables error dev-mode behavior (`cfg.Errors.DevMode`). | boolean (`strconv.ParseBool`) | `false` |
-| `ADMIN_ERROR_EXPOSE_INTERNAL` | Exposes internal error messages to clients. | boolean (`strconv.ParseBool`) | `false` (becomes `true` when dev mode is enabled) |
-| `ADMIN_ERROR_NONPROD` | Non-production override used by Fiber error presenter for auto dev-mode behavior when runtime env is non-prod. | boolean (`strconv.ParseBool`) | if unset: treated as `true` for non-prod env names; ignored in prod/unknown env |
-| `ADMIN_ERROR_STACKTRACE` | Forces stack traces in error responses outside dev mode. | boolean (`strconv.ParseBool`) | `false` |
-| `ADMIN_FEATURE_CATALOG` | Explicit feature catalog file path for `examples/web`. | file path | first existing of: `feature_catalog.yaml`, `examples/web/feature_catalog.yaml`, `feature_catalog.yml`, `examples/web/feature_catalog.yml` |
-| `ADMIN_PASSWORD_POLICY_HINTS` | UI password hint overrides for onboarding templates. | comma-separated strings | built-in hints: min length, complexity, avoid reuse |
-| `ADMIN_PREFERENCES_JSON_STRICT` | Enables strict JSON validation for preferences raw JSON editor in `examples/web`. | `true` to enable; any other value disables | `false` |
-| `ADMIN_PREFERENCES_SCHEMA` | Overrides preferences schema source for preferences module. | file path or directory containing `schema.json` | empty (module default schema) |
-| `ADMIN_PREVIEW_SECRET` | Preview token signing/validation secret. | string | `admin-preview-secret-change-me` |
-| `ADMIN_PUBLIC_API` | Enables/disables admin public API exposure in `examples/web`. | boolean (`strconv.ParseBool`) | `true` in `examples/web` bootstrap |
-| `ADMIN_REGISTER_TEMPLATE` | Template name used for the registration page in `examples/web`. | template name | `register` |
-| `ADMIN_ROUTE_CONFLICT_POLICY` | Route conflict action for Fiber adapter registration. | `panic`, `log_and_skip` (`log-skip`, `skip`), `log_and_continue` (`log-continue`, `continue`) | derived: `panic` when strict routes are enabled, else `log_and_continue` |
-| `ADMIN_ROUTE_PATH_CONFLICT_MODE` | Path conflict mode for Fiber adapter static/param sibling resolution. | `prefer_static` (`prefer-static`, `preferstatic`, `static`), `strict` | `prefer_static` |
-| `ADMIN_SCOPE_MODE` | Scope behavior mode. | `single`, `multi` | `single` |
-| `ADMIN_SECURELINK_AS_QUERY` | Securelink token placement mode. | boolean (`true/false/1/0/yes/no/on/off`) | `true` |
-| `ADMIN_SECURELINK_BASE_URL` | Base URL for securelink generation. | absolute URL | `http://localhost:8080` |
-| `ADMIN_SECURELINK_EXPIRATION` | Securelink token expiration. | Go duration string | `72h` |
-| `ADMIN_SECURELINK_KEY` | Securelink signing key. | string | quickstart helpers: empty (manager disabled); `examples/web`: demo fallback key if unset |
-| `ADMIN_SECURELINK_QUERY_KEY` | Query key name for securelink tokens. | string | `token` |
-| `ADMIN_SEEDS` | Master toggle for fixture seeding in `examples/web`. | boolean (`strconv.ParseBool`) | `true` outside production, `false` in production |
-| `ADMIN_SEEDS_IGNORE_DUPLICATES` | Ignores duplicate fixture errors when seeding. | boolean (`strconv.ParseBool`) | `true` |
-| `ADMIN_SEEDS_TRUNCATE` | Truncates seed target tables before load. | boolean (`strconv.ParseBool`) | `false` |
-| `ADMIN_STRICT_ROUTES` | Strict route conflict detection toggle for Fiber adapter. | boolean (`strconv.ParseBool`) | `true` in dev/debug/test contexts; `false` otherwise |
-| `ADMIN_TRANSLATION_EXCHANGE` | Explicit override for translation exchange module enablement. | boolean (`strconv.ParseBool`) | profile-derived |
-| `ADMIN_TRANSLATION_PROFILE` | Baseline translation capability profile. | `none`, `core`, `core+exchange` (`exchange` alias), `core+queue` (`queue` alias), `full` | empty; resolves to `core` when CMS is enabled, `none` when CMS is disabled |
-| `ADMIN_TRANSLATION_QUEUE` | Explicit override for translation queue module enablement. | boolean (`strconv.ParseBool`) | profile-derived |
+Last updated: March 2, 2026.
 
-## Site Runtime Environment Contract (`SITE_*`, `ENV`, `APP_ENV`)
+## Resolution order
 
-These keys control `quickstart/site` request and delivery scoping.
+`examples/web/config.Load(ctx)` resolves values in this order:
 
-| Name | Description | Possible values | Default value |
-|---|---|---|---|
-| `SITE_RUNTIME_ENV` | Runtime environment label (feature/runtime behavior, preview/runtime context). | `dev`, `staging`, `prod`, custom | `dev` in development mode, `prod` otherwise |
-| `SITE_CONTENT_ENV` | CMS content environment key used for content/menu/content-type reads. | `default`, `dev`, `staging`, `prod`, custom | `default` |
-| `SITE_ENV` | Backward-compatible alias for content environment when `SITE_CONTENT_ENV` is unset. | same as `SITE_CONTENT_ENV` | unset |
-| `SITE_ENV_STRICT` | Fail startup when active content env is empty but `default` has seeded data. | boolean (`strconv.ParseBool`) | `false` (warn only) |
-| `ENV` / `APP_ENV` / `ENVIRONMENT` / `GO_ENV` | Runtime env fallbacks used by `quickstart/site` if `SITE_RUNTIME_ENV` is unset. | environment labels | unset |
+1. `Defaults()` in `examples/web/config/config.go`
+2. `examples/web/config/app.json` (or explicit file paths passed to `Load`)
+3. environment overrides with prefix `APP_` and nested delimiter `__`
 
-### Resolution precedence
+Example:
 
-Runtime environment (`ResolvedSiteConfig.Environment`):
-1. `SiteConfig.Environment` (host app explicit value)
-2. `SITE_RUNTIME_ENV`
-3. `APP_ENV`, `ENVIRONMENT`, `ENV`, `GO_ENV`
-4. debug-aware fallback (`dev` if debug on, else `prod`)
+- `admin.scope.mode` -> `APP_ADMIN__SCOPE__MODE`
+- `translation.profile` -> `APP_TRANSLATION__PROFILE`
+- `site.runtime_env` -> `APP_SITE__RUNTIME_ENV`
 
-Content environment (`ResolvedSiteConfig.ContentEnvironment`):
-1. `SiteConfig.ContentEnvironment` (host app explicit value)
-2. `SITE_CONTENT_ENV`
-3. `SITE_ENV`
-4. `default`
+## Naming convention
 
-### Required local profile for persistent CMS in `examples/web`
+- Prefix: `APP_`
+- Nested fields: `__`
+- Key normalization: struct field names map to `snake_case` keys in config, then upper snake case for env.
 
-Use this profile unless intentionally testing non-default promoted environments:
+Examples:
 
-```bash
-ENV=development
-SITE_RUNTIME_ENV=dev
-SITE_CONTENT_ENV=default
-SITE_ENV=default
-USE_PERSISTENT_CMS=true
-```
+- `app.env` -> `APP_APP__ENV`
+- `features.persistent_cms` -> `APP_FEATURES__PERSISTENT_CMS`
+- `securelink.signing_key` -> `APP_SECURELINK__SIGNING_KEY`
 
-### Scope vs routing quick check
+## Common overrides
 
-- Env-scope mismatch usually shows site runtime 404 with empty nav (`Page not found` + no primary menu).
-- If `/` works but `/about` returns `Cannot GET /about`, that is typically route wiring
-  (adapter catch-all syntax), not `SITE_CONTENT_ENV`/`SITE_ENV` configuration.
+| Config key | Env override | Notes |
+|---|---|---|
+| `app.env` | `APP_APP__ENV` | `development`, `staging`, `production` |
+| `server.address` | `APP_SERVER__ADDRESS` | HTTP bind address (default `:8080`) |
+| `admin.base_path` | `APP_ADMIN__BASE_PATH` | Admin UI mount path |
+| `admin.debug.enabled` | `APP_ADMIN__DEBUG__ENABLED` | Debug module toggle |
+| `admin.debug.layout` | `APP_ADMIN__DEBUG__LAYOUT` | `admin` or `standalone` |
+| `admin.errors.dev_mode` | `APP_ADMIN__ERRORS__DEV_MODE` | Error presenter dev mode |
+| `admin.scope.mode` | `APP_ADMIN__SCOPE__MODE` | `single` or `multi` |
+| `admin.scope.default_tenant_id` | `APP_ADMIN__SCOPE__DEFAULT_TENANT_ID` | Default tenant in single mode |
+| `admin.scope.default_org_id` | `APP_ADMIN__SCOPE__DEFAULT_ORG_ID` | Default org in single mode |
+| `admin.authz_preflight.mode` | `APP_ADMIN__AUTHZ_PREFLIGHT__MODE` | `off`, `warn`, `strict` |
+| `site.runtime_env` | `APP_SITE__RUNTIME_ENV` | Runtime behavior environment (`dev`, `staging`, `prod`) |
+| `site.content_env` | `APP_SITE__CONTENT_ENV` | CMS content scope (`default`, `dev`, etc.) |
+| `site.environment_strict` | `APP_SITE__ENVIRONMENT_STRICT` | Fail-fast env mismatch detection |
+| `features.persistent_cms` | `APP_FEATURES__PERSISTENT_CMS` | Persistent CMS adapter toggle |
+| `features.go_options` | `APP_FEATURES__GO_OPTIONS` | go-options settings backend toggle |
+| `features.go_users_activity` | `APP_FEATURES__GO_USERS_ACTIVITY` | go-users activity sink toggle |
+| `navigation.reset_menu` | `APP_NAVIGATION__RESET_MENU` | Reset seeded menu before startup |
+| `databases.cms_dsn` | `APP_DATABASES__CMS_DSN` | CMS SQLite DSN/path |
+| `databases.content_dsn` | `APP_DATABASES__CONTENT_DSN` | Content DB DSN/path |
+| `seeds.enabled` | `APP_SEEDS__ENABLED` | Seed fixtures at startup |
+| `seeds.truncate` | `APP_SEEDS__TRUNCATE` | Truncate seed targets before load |
+| `translation.profile` | `APP_TRANSLATION__PROFILE` | `none`, `core`, `core+exchange`, `core+queue`, `full` |
+| `translation.exchange` | `APP_TRANSLATION__EXCHANGE` | Explicit exchange module override |
+| `translation.queue` | `APP_TRANSLATION__QUEUE` | Explicit queue module override |
+| `securelink.base_url` | `APP_SECURELINK__BASE_URL` | Public base URL used in secure links |
+| `securelink.signing_key` | `APP_SECURELINK__SIGNING_KEY` | Required to enable securelink manager |
+| `securelink.query_key` | `APP_SECURELINK__QUERY_KEY` | Token query parameter name |
+| `securelink.as_query` | `APP_SECURELINK__AS_QUERY` | Query vs path token mode |
+| `securelink.expiration` | `APP_SECURELINK__EXPIRATION` | Go duration string (default `72h`) |
+| `cms.runtime_logs` | `APP_CMS__RUNTIME_LOGS` | CMS runtime diagnostics toggle |
+
+## Compatibility aliases
+
+`examples/web/taskfile` `dev:serve` exports canonical `APP_*` keys, then mirrors a subset to legacy aliases (`ADMIN_*`, `SITE_*`, `USE_*`, etc.) for compatibility with older scripts. Those aliases are not canonical runtime config.
+
+## Quickstart note
+
+Legacy helpers such as `WithDebugFromEnv`, `WithErrorsFromEnv`, `WithScopeFromEnv`, and `SecureLinkConfigFromEnv` are compatibility shims only. They no longer parse environment variables and should be replaced with explicit option structs/config.
