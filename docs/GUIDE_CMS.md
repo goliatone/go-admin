@@ -729,25 +729,25 @@ Key configuration fields in `admin.Config`:
 | `EnablePublicAPI` | Whether to mount `/api/v1` routes.              | `false`                          |
 | `PreviewSecret`   | Secret key for signing HMAC/JWT preview tokens. | `admin-preview-secret-change-me` |
 
-### Site runtime environment scoping (`quickstart/site`)
+### Site runtime content channel scoping (`quickstart/site`)
 
-CMS delivery uses environment-scoped reads for content types, content entries,
-and menus. For site runtime, treat runtime env and content env as separate
+CMS delivery uses content-channel-scoped reads for content types, content entries,
+and menus. For site runtime, treat runtime env and content channel as separate
 inputs:
 
 - Runtime env: app/runtime behavior (`dev`, `staging`, `prod`).
-- Content env: CMS partition key for reads (`default`, `dev`, `staging`, `prod`, custom).
+- Content channel: CMS partition key for reads (`default`, `dev`, `staging`, `prod`, custom).
 
 Recommended host wiring:
 
 ```go
 siteCfg := quicksite.SiteConfig{
-    Environment:        os.Getenv("SITE_RUNTIME_ENV"),
-    ContentEnvironment: os.Getenv("SITE_CONTENT_ENV"), // fallback to SITE_ENV, then default
+    Environment:    os.Getenv("SITE_RUNTIME_ENV"),
+    ContentChannel: os.Getenv("SITE_CONTENT_CHANNEL"),
 }
 ```
 
-Failure signature for env mismatch:
+Failure signature for runtime/channel mismatch:
 
 - `GET /` renders site 404 (`Page not found`) while seeded home exists.
 - Site header/footer render, but main nav shows:
@@ -761,8 +761,8 @@ Typical cause:
 
 Guardrails:
 
-- Default content env to `default` for local persistent runs.
-- Log startup diagnostics comparing active content env vs `default`.
+- Default content channel to `default` for local persistent runs.
+- Log startup diagnostics comparing active content channel vs `default`.
 - Use strict mode (`SITE_ENV_STRICT=true`) in CI/staging to fail early on scope mismatch.
 
 Routing compatibility note:
