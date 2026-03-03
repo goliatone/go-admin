@@ -30,8 +30,8 @@ func TestResolveSiteConfigDefaults(t *testing.T) {
 	if resolved.Environment != "prod" {
 		t.Fatalf("expected default environment prod, got %q", resolved.Environment)
 	}
-	if resolved.ContentEnvironment != "prod" {
-		t.Fatalf("expected default content environment prod, got %q", resolved.ContentEnvironment)
+	if resolved.ContentEnvironment != "default" {
+		t.Fatalf("expected default content environment default, got %q", resolved.ContentEnvironment)
 	}
 
 	if resolved.Navigation.MainMenuLocation != DefaultMainMenuLocation {
@@ -84,8 +84,8 @@ func TestResolveSiteConfigHonorsFeatureAndFallbackOverrides(t *testing.T) {
 		Environment:         "staging",
 		ContentEnvironment:  "prod",
 		Features: SiteFeatures{
-			EnableSearch: boolPtr(false),
-			EnableTheme:  boolPtr(false),
+			EnableSearch:            boolPtr(false),
+			EnableTheme:             boolPtr(false),
 			EnableCanonicalRedirect: boolPtr(false),
 			StrictLocalizedPaths:    boolPtr(true),
 		},
@@ -160,6 +160,21 @@ func TestResolveSiteConfigResolvesRuntimeAndContentEnvironmentsIndependently(t *
 	}
 	if resolved.ContentEnvironment != "staging" {
 		t.Fatalf("expected SITE_ENV to remain the content environment source, got %q", resolved.ContentEnvironment)
+	}
+}
+
+func TestResolveSiteConfigContentEnvironmentDefaultsToDefaultWhenRuntimeIsSet(t *testing.T) {
+	clearSiteEnvForTest(t)
+
+	t.Setenv("SITE_RUNTIME_ENV", "staging")
+	cfg := admin.Config{DefaultLocale: "en"}
+	resolved := ResolveSiteConfig(cfg, SiteConfig{})
+
+	if resolved.Environment != "staging" {
+		t.Fatalf("expected runtime environment staging from SITE_RUNTIME_ENV, got %q", resolved.Environment)
+	}
+	if resolved.ContentEnvironment != "default" {
+		t.Fatalf("expected content environment default when SITE_CONTENT_ENV/SITE_ENV are unset, got %q", resolved.ContentEnvironment)
 	}
 }
 

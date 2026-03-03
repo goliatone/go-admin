@@ -392,7 +392,7 @@ func seedDeliveryPageType(t *testing.T, content *admin.InMemoryContentService) {
 		ID:          "page-type",
 		Name:        "Page",
 		Slug:        "page",
-		Environment: "prod",
+		Environment: "default",
 		Schema: map[string]any{
 			"type":       "object",
 			"properties": map[string]any{},

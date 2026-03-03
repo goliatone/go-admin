@@ -80,11 +80,11 @@ type SiteSearchConfig struct {
 
 // SiteFeatures controls runtime feature gates.
 type SiteFeatures struct {
-	EnablePreview          *bool
-	EnableI18N             *bool
-	EnableSearch           *bool
-	EnableTheme            *bool
-	EnableMenuDraftPreview *bool
+	EnablePreview           *bool
+	EnableI18N              *bool
+	EnableSearch            *bool
+	EnableTheme             *bool
+	EnableMenuDraftPreview  *bool
 	EnableCanonicalRedirect *bool
 	StrictLocalizedPaths    *bool
 }
@@ -131,11 +131,11 @@ type ResolvedSiteViewConfig struct {
 
 // ResolvedSiteFeatures contains concrete runtime feature flags.
 type ResolvedSiteFeatures struct {
-	EnablePreview          bool
-	EnableI18N             bool
-	EnableSearch           bool
-	EnableTheme            bool
-	EnableMenuDraftPreview bool
+	EnablePreview           bool
+	EnableI18N              bool
+	EnableSearch            bool
+	EnableTheme             bool
+	EnableMenuDraftPreview  bool
 	EnableCanonicalRedirect bool
 	StrictLocalizedPaths    bool
 }
@@ -181,9 +181,7 @@ func ResolveSiteConfig(cfg admin.Config, input SiteConfig) ResolvedSiteConfig {
 		}
 	}
 	contentEnvironment := ""
-	contentEnvironmentExplicit := false
 	if strings.TrimSpace(input.ContentEnvironment) != "" {
-		contentEnvironmentExplicit = true
 		contentEnvironment = normalizeContentEnvironment(input.ContentEnvironment)
 	}
 	if contentEnvironment == "" {
@@ -192,13 +190,7 @@ func ResolveSiteConfig(cfg admin.Config, input SiteConfig) ResolvedSiteConfig {
 			os.Getenv("SITE_ENV"),
 		))
 		if contentEnvFromRuntime != "" {
-			contentEnvironmentExplicit = true
 			contentEnvironment = normalizeContentEnvironment(contentEnvFromRuntime)
-		}
-	}
-	if contentEnvironment == "" && !contentEnvironmentExplicit {
-		if inferred := normalizeContentEnvironment(environment); inferred != "" {
-			contentEnvironment = inferred
 		}
 	}
 	if contentEnvironment == "" {
@@ -236,11 +228,11 @@ func ResolveSiteConfig(cfg admin.Config, input SiteConfig) ResolvedSiteConfig {
 	}
 
 	features := ResolvedSiteFeatures{
-		EnablePreview:          boolValue(input.Features.EnablePreview, true),
-		EnableI18N:             boolValue(input.Features.EnableI18N, true),
-		EnableSearch:           boolValue(input.Features.EnableSearch, true),
-		EnableTheme:            boolValue(input.Features.EnableTheme, true),
-		EnableMenuDraftPreview: boolValue(input.Features.EnableMenuDraftPreview, true),
+		EnablePreview:           boolValue(input.Features.EnablePreview, true),
+		EnableI18N:              boolValue(input.Features.EnableI18N, true),
+		EnableSearch:            boolValue(input.Features.EnableSearch, true),
+		EnableTheme:             boolValue(input.Features.EnableTheme, true),
+		EnableMenuDraftPreview:  boolValue(input.Features.EnableMenuDraftPreview, true),
 		EnableCanonicalRedirect: boolValue(input.Features.EnableCanonicalRedirect, true),
 		StrictLocalizedPaths:    boolValue(input.Features.StrictLocalizedPaths, false),
 	}

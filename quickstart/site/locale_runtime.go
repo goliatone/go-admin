@@ -2,6 +2,7 @@ package site
 
 import (
 	"net/url"
+	pathpkg "path"
 	"sort"
 	"strings"
 )
@@ -93,6 +94,9 @@ func BuildLocaleSwitcherContract(
 	query map[string]string,
 ) map[string]any {
 	currentPath = normalizeLocalePath(currentPath)
+	if stripped, _ := StripSupportedLocalePrefix(currentPath, cfg.SupportedLocales); stripped != "" {
+		currentPath = stripped
+	}
 	requestedLocale = normalizeRequestedLocale(requestedLocale, cfg.DefaultLocale, cfg.SupportedLocales)
 	resolvedLocale = normalizeRequestedLocale(resolvedLocale, requestedLocale, cfg.SupportedLocales)
 	availableSet := toLocaleSet(availableLocales)
@@ -105,7 +109,14 @@ func BuildLocaleSwitcherContract(
 		}
 		path := currentPath
 		if localizedPath := strings.TrimSpace(pathsByLocale[locale]); localizedPath != "" {
-			path = normalizeLocalePath(localizedPath)
+			if localePathUnsafe(localizedPath) {
+				// Ignore unsafe translated paths and keep the current in-site route.
+			} else if candidate := normalizeLocalePath(localizedPath); candidate != "" {
+				path = candidate
+				if stripped, _ := StripSupportedLocalePrefix(path, cfg.SupportedLocales); stripped != "" {
+					path = stripped
+				}
+			}
 		}
 		url := LocalizedPathWithQuery(path, locale, cfg.DefaultLocale, cfg.LocalePrefixMode, query)
 		item := map[string]any{
@@ -129,21 +140,65 @@ func BuildLocaleSwitcherContract(
 	return out
 }
 
-func normalizeLocalePath(path string) string {
-	path = strings.TrimSpace(path)
-	if path == "" {
+func normalizeLocalePath(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
 		return "/"
 	}
-	if !strings.HasPrefix(path, "/") {
-		path = "/" + path
+	lower := strings.ToLower(value)
+	if strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://") || strings.HasPrefix(value, "//") {
+		return "/"
 	}
-	if len(path) > 1 {
-		path = strings.TrimSuffix(path, "/")
-		if path == "" {
+	if idx := strings.IndexAny(value, "?#"); idx >= 0 {
+		value = strings.TrimSpace(value[:idx])
+	}
+	if value == "" || strings.Contains(value, "\\") {
+		return "/"
+	}
+	if !strings.HasPrefix(value, "/") {
+		value = "/" + strings.TrimLeft(value, "/")
+	} else {
+		value = "/" + strings.TrimLeft(value, "/")
+	}
+	for _, segment := range strings.Split(strings.Trim(value, "/"), "/") {
+		if segment == "." || segment == ".." {
 			return "/"
 		}
 	}
-	return path
+	cleaned := pathpkg.Clean(value)
+	if !strings.HasPrefix(cleaned, "/") {
+		cleaned = "/" + cleaned
+	}
+	if cleaned == "." || cleaned == "" {
+		return "/"
+	}
+	if len(cleaned) > 1 {
+		cleaned = strings.TrimSuffix(cleaned, "/")
+	}
+	if cleaned == "" {
+		return "/"
+	}
+	return cleaned
+}
+
+func localePathUnsafe(value string) bool {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return false
+	}
+	lower := strings.ToLower(value)
+	if strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://") || strings.HasPrefix(value, "//") {
+		return true
+	}
+	if strings.Contains(value, "\\") {
+		return true
+	}
+	for _, segment := range strings.Split(strings.Trim(value, "/"), "/") {
+		if segment == "." || segment == ".." {
+			return true
+		}
+	}
+	return false
 }
 
 func normalizeRequestedLocale(locale, fallback string, supported []string) string {

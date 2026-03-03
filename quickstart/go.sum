@@ -161,6 +161,8 @@ github.com/goliatone/go-composite-fs v0.3.0 h1:dM/iD097b7FWyMVduGpS9HK3Swig7FVNU
 github.com/goliatone/go-composite-fs v0.3.0/go.mod h1:soZ1AneoCf50zh28NYag/HozxlvqgvmePsZo2tv1TRk=
 github.com/goliatone/go-config v0.11.0 h1:r8qwi1rWjErBIHzVK2tWqNkQzy9n8Lrls1oeEO/327o=
 github.com/goliatone/go-config v0.11.0/go.mod h1:m9y5+WY2tK+cuSeMm0WatITImtZ8JU8UvaWCq01XgPk=
+github.com/goliatone/go-config v0.12.0 h1:82FJ9Vsp3iR5KIs0P6EjGWFtwtc3MX+RH2l7JrC70BQ=
+github.com/goliatone/go-config v0.12.0/go.mod h1:m9y5+WY2tK+cuSeMm0WatITImtZ8JU8UvaWCq01XgPk=
 github.com/goliatone/go-crud v0.23.0 h1:9lyh/p4RjP5AMoiyITm/88kIWekhu3dYda+emvoItmw=
 github.com/goliatone/go-crud v0.23.0/go.mod h1:+xogUsH4Mkg37IaB+DW8zfAq3fKJeVjxdqE0e2dOisc=
 github.com/goliatone/go-crud/gql v0.23.0 h1:WNAeYVHWw5A/j5b0/qfFHfSYzm/0tuQ3dbJyRwG2DM4=
