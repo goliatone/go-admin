@@ -730,7 +730,7 @@ func main() {
 			diskAssetsDir = abs
 		}
 		if info, err := os.Stat(diskAssetsDir); err != nil || !info.IsDir() {
-			log.Printf("warning: ADMIN_ASSETS_DIR %q not accessible: %v", diskAssetsDir, err)
+			log.Printf("warning: admin.assets_dir %q not accessible: %v", diskAssetsDir, err)
 			diskAssetsDir = ""
 		}
 	}
@@ -1450,7 +1450,7 @@ func logSiteRuntimeEnvironmentDiagnostics(
 	}
 
 	message := fmt.Sprintf(
-		"site content environment %q has no content/menu records while %q has data (types=%d contents=%d menu_items=%d). Set SITE_ENV or SITE_CONTENT_ENV to %q or seed/promote into %q",
+		"site content environment %q has no content/menu records while %q has data (types=%d contents=%d menu_items=%d). Set site.content_env to %q or seed/promote into %q",
 		contentEnv,
 		defaultSiteContentEnv,
 		defaults.ContentTypes,
@@ -1519,10 +1519,10 @@ func buildTranslationProductConfig(
 	exchangeOverride := false
 	queueOverride := false
 	if translationCfg != (appcfg.TranslationConfig{}) {
+		exchangeOverride = translationCfg.Exchange != exchangeEnabled
+		queueOverride = translationCfg.Queue != queueEnabled
 		exchangeEnabled = translationCfg.Exchange
 		queueEnabled = translationCfg.Queue
-		exchangeOverride = true
-		queueOverride = true
 	}
 
 	if exchangeEnabled || exchangeOverride {
@@ -2016,7 +2016,7 @@ func resolveAuthzPreflightMode(raw string, isDev bool) authzPreflightMode {
 		return authzPreflightModeOff
 	default:
 		if isDev {
-			log.Printf("warning: unknown ADMIN_AUTHZ_PREFLIGHT=%q, defaulting to warn", raw)
+			log.Printf("warning: unknown admin.authz_preflight.mode=%q, defaulting to warn", raw)
 			return authzPreflightModeWarn
 		}
 		return authzPreflightModeOff

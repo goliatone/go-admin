@@ -106,25 +106,41 @@ function dev:serve {
         echo "$current_hash" > "$hash_file"
     fi
 
-    export ENV=development;
+    # Canonical runtime config envs (examples/web/config uses APP_ + __ delimiters).
+    export APP_APP__ENV=development;
     # Runtime env ("dev"/"prod") is app behavior; content env scopes CMS reads.
-    export SITE_RUNTIME_ENV=dev;
-    export SITE_CONTENT_ENV=default;
-    export SITE_ALLOW_LOCALE_FALLBACK=true;
-    # Backward-compatible alias still consumed by some host wiring.
-    export SITE_ENV=default;
-    export RESET_NAV_MENU=true;
-    export USE_PERSISTENT_CMS=true;
-    export NAV_DEBUG=false;
-    export ADMIN_DEBUG=true;
-    export ADMIN_SEEDS=true;
-    export ADMIN_ASSETS_DEBUG=1;
-    export ADMIN_DEBUG_REPL=true;
-    export ADMIN_DEBUG_SCOPE=true;
-    export ADMIN_DEBUG_LAYOUT=admin;
-    export ADMIN_DEBUG_REPL_READONLY=false;
-    export ADMIN_TRANSLATION_PROFILE=full;
-    export ADMIN_ASSETS_DIR="${root_dir}/pkg/client/assets"
+    export APP_SITE__RUNTIME_ENV=dev;
+    export APP_SITE__CONTENT_ENV=default;
+    export APP_SITE__ALLOW_LOCALE_FALLBACK=true;
+    export APP_NAVIGATION__RESET_MENU=true;
+    export APP_NAVIGATION__DEBUG=false;
+    export APP_FEATURES__PERSISTENT_CMS=true;
+    export APP_ADMIN__DEBUG__ENABLED=true;
+    export APP_SEEDS__ENABLED=true;
+    export APP_ADMIN__DEBUG__REPL_ENABLED=true;
+    export APP_ADMIN__DEBUG__SCOPE_ENABLED=true;
+    export APP_ADMIN__DEBUG__LAYOUT=admin;
+    export APP_ADMIN__DEBUG__REPL_READ_ONLY=false;
+    export APP_TRANSLATION__PROFILE=full;
+    export APP_ADMIN__ASSETS_DIR="${root_dir}/pkg/client/assets";
+
+    # Legacy aliases for scripts/tools that still read old names.
+    export ENV="${APP_APP__ENV}";
+    export SITE_RUNTIME_ENV="${APP_SITE__RUNTIME_ENV}";
+    export SITE_CONTENT_ENV="${APP_SITE__CONTENT_ENV}";
+    export SITE_ENV="${APP_SITE__CONTENT_ENV}";
+    export SITE_ALLOW_LOCALE_FALLBACK="${APP_SITE__ALLOW_LOCALE_FALLBACK}";
+    export RESET_NAV_MENU="${APP_NAVIGATION__RESET_MENU}";
+    export USE_PERSISTENT_CMS="${APP_FEATURES__PERSISTENT_CMS}";
+    export NAV_DEBUG="${APP_NAVIGATION__DEBUG}";
+    export ADMIN_DEBUG="${APP_ADMIN__DEBUG__ENABLED}";
+    export ADMIN_SEEDS="${APP_SEEDS__ENABLED}";
+    export ADMIN_DEBUG_REPL="${APP_ADMIN__DEBUG__REPL_ENABLED}";
+    export ADMIN_DEBUG_SCOPE="${APP_ADMIN__DEBUG__SCOPE_ENABLED}";
+    export ADMIN_DEBUG_LAYOUT="${APP_ADMIN__DEBUG__LAYOUT}";
+    export ADMIN_DEBUG_REPL_READONLY="${APP_ADMIN__DEBUG__REPL_READ_ONLY}";
+    export ADMIN_TRANSLATION_PROFILE="${APP_TRANSLATION__PROFILE}";
+    export ADMIN_ASSETS_DIR="${APP_ADMIN__ASSETS_DIR}";
 
     go run .
 }
