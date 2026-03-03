@@ -6,11 +6,11 @@ import (
 	"github.com/goliatone/go-admin/admin"
 )
 
-func TestDoctorDebugEnabledFromEnv(t *testing.T) {
-	if !DoctorDebugEnabledFromEnv(true) {
+func TestDoctorDebugEnabled(t *testing.T) {
+	if !doctorDebugEnabled(true) {
 		t.Fatalf("expected development mode to enable doctor panel")
 	}
-	if DoctorDebugEnabledFromEnv(false) {
+	if doctorDebugEnabled(false) {
 		t.Fatalf("expected non-development mode to disable doctor panel")
 	}
 }

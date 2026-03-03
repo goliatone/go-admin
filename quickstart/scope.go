@@ -57,13 +57,6 @@ func NormalizeScopeConfig(cfg ScopeConfig) ScopeConfig {
 	return cfg
 }
 
-// ScopeConfigFromEnv is retained for compatibility and returns default scope
-// config. Host applications should pass explicit scope settings via
-// WithScopeConfig.
-func ScopeConfigFromEnv() ScopeConfig {
-	return NormalizeScopeConfig(DefaultScopeConfig())
-}
-
 // ScopeConfigFromAdmin maps admin.Config into a normalized ScopeConfig.
 func ScopeConfigFromAdmin(cfg admin.Config) ScopeConfig {
 	return NormalizeScopeConfig(ScopeConfig{

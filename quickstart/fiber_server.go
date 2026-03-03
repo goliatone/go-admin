@@ -25,6 +25,15 @@ type fiberServerOptions struct {
 
 const defaultFiberReadBufferSize = 16 * 1024
 
+// FiberRuntimeConfig captures typed runtime overrides for Fiber and router
+// adapter behavior.
+type FiberRuntimeConfig struct {
+	StrictRoutes        *bool
+	RouteConflictPolicy string
+	PathConflictMode    string
+	ReadBufferSize      int
+}
+
 // WithFiberConfig overrides the default Fiber config.
 func WithFiberConfig(mutator func(*fiber.Config)) FiberServerOption {
 	return func(opts *fiberServerOptions) {
@@ -72,6 +81,34 @@ func WithFiberAdapterConfig(mutator func(*router.FiberAdapterConfig)) FiberServe
 			return
 		}
 		mutator(&opts.routerConfig)
+	}
+}
+
+// WithFiberRuntimeConfig applies typed runtime overrides for Fiber defaults.
+func WithFiberRuntimeConfig(runtime FiberRuntimeConfig) FiberServerOption {
+	return func(opts *fiberServerOptions) {
+		if opts == nil {
+			return
+		}
+		if runtime.ReadBufferSize > 0 {
+			opts.config.ReadBufferSize = runtime.ReadBufferSize
+		}
+		if runtime.StrictRoutes != nil {
+			opts.routerConfig.StrictRoutes = *runtime.StrictRoutes
+			if strings.TrimSpace(runtime.RouteConflictPolicy) == "" {
+				policy := router.HTTPRouterConflictLogAndContinue
+				if *runtime.StrictRoutes {
+					policy = router.HTTPRouterConflictPanic
+				}
+				opts.routerConfig.ConflictPolicy = &policy
+			}
+		}
+		if mode, ok := parseFiberPathConflictMode(runtime.PathConflictMode); ok {
+			opts.routerConfig.PathConflictMode = mode
+		}
+		if policy, ok := parseFiberRouteConflictPolicy(runtime.RouteConflictPolicy); ok {
+			opts.routerConfig.ConflictPolicy = &policy
+		}
 	}
 }
 
@@ -154,6 +191,30 @@ func resolveFiberStrictRoutes(cfg admin.Config, isDev bool) bool {
 		return true
 	}
 	return false
+}
+
+func parseFiberRouteConflictPolicy(raw string) (router.HTTPRouterConflictPolicy, bool) {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "panic":
+		return router.HTTPRouterConflictPanic, true
+	case "log_and_skip", "log-skip", "skip":
+		return router.HTTPRouterConflictLogAndSkip, true
+	case "log_and_continue", "log-continue", "continue":
+		return router.HTTPRouterConflictLogAndContinue, true
+	default:
+		return 0, false
+	}
+}
+
+func parseFiberPathConflictMode(raw string) (router.PathConflictMode, bool) {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "strict":
+		return router.PathConflictModeStrict, true
+	case "prefer_static", "prefer-static", "preferstatic", "static":
+		return router.PathConflictModePreferStatic, true
+	default:
+		return "", false
+	}
 }
 
 func debugFiberSlogMiddleware(cfg admin.Config) fiber.Handler {

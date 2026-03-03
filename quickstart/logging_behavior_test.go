@@ -107,7 +107,7 @@ func TestNewModuleRegistrarLogsDisabledFeaturesViaAdminLogger(t *testing.T) {
 func TestBuildNavItemsLogsDebugPayloadViaAdminLogger(t *testing.T) {
 	cfg := admin.Config{
 		DefaultLocale: "en",
-		Debug:         admin.DebugConfig{Enabled: true},
+		NavDebugLog:   true,
 	}
 	logger := &captureQuickstartLogger{}
 	adm, err := admin.New(cfg, admin.Dependencies{Logger: logger})

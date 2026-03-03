@@ -336,6 +336,43 @@ func TestResolveFiberReadBufferSizeCanBeOverriddenByOption(t *testing.T) {
 	}
 }
 
+func TestFiberRuntimeConfigOverridesAdapterAndFiberDefaults(t *testing.T) {
+	strictRoutes := true
+	server, r := NewFiberServer(
+		nil,
+		admin.Config{},
+		nil,
+		true,
+		WithFiberRuntimeConfig(FiberRuntimeConfig{
+			StrictRoutes:        &strictRoutes,
+			RouteConflictPolicy: "panic",
+			PathConflictMode:    "strict",
+			ReadBufferSize:      32768,
+		}),
+	)
+	if server == nil {
+		t.Fatalf("expected server instance")
+	}
+	if got := server.WrappedRouter().Config().ReadBufferSize; got != 32768 {
+		t.Fatalf("expected read buffer size 32768 from runtime config, got %d", got)
+	}
+	r.Get("/runtime-conflict/:action", func(c gorouter.Context) error {
+		return c.SendStatus(fiber.StatusOK)
+	})
+	didPanic := false
+	func() {
+		defer func() {
+			didPanic = recover() != nil
+		}()
+		r.Get("/runtime-conflict/static", func(c gorouter.Context) error {
+			return c.SendStatus(fiber.StatusOK)
+		})
+	}()
+	if !didPanic {
+		t.Fatalf("expected strict path conflict mode from runtime config")
+	}
+}
+
 func TestDebugLogCaptureIncludesFiberRequestsAndDILogs(t *testing.T) {
 	cfg := NewAdminConfig(
 		"/admin",

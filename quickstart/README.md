@@ -8,15 +8,17 @@ Each helper is optional and composable.
 - `NewAdminConfig(basePath, title, defaultLocale string, opts ...AdminConfigOption) admin.Config` - Inputs: base path/title/locale plus option setters. Outputs: `admin.Config` with quickstart defaults and overrides applied.
 - `DefaultMinimalFeatures() map[string]bool` - Outputs: minimal Stage 1 feature set (`dashboard` + `cms`).
 - `WithDebugConfig(cfg admin.DebugConfig) AdminConfigOption` - Inputs: debug config; outputs: option that applies debug config (used to derive debug gate defaults).
-- `WithDebugFromEnv(opts ...DebugEnvOption) AdminConfigOption` - Inputs: env mapping overrides; outputs: option that applies ADMIN_DEBUG* config/envs to debug config.
+- `WithDebugOptions(opt DebugOption) AdminConfigOption` - Inputs: explicit debug option overrides; outputs: option that applies targeted debug fields.
+- `WithDebugFromEnv(opts ...DebugEnvOption) AdminConfigOption` - Deprecated compatibility shim; no longer reads process environment.
 - `WithErrorConfig(cfg admin.ErrorConfig) AdminConfigOption` - Inputs: error config; outputs: option that applies error presentation defaults.
-- `WithErrorsFromEnv(opts ...ErrorEnvOption) AdminConfigOption` - Inputs: env mapping overrides; outputs: option that applies ADMIN_ERROR* config/envs to error config.
+- `WithErrorOptions(opt ErrorOption) AdminConfigOption` - Inputs: explicit error option overrides; outputs: option that applies targeted error fields.
+- `WithErrorsFromEnv(opts ...ErrorEnvOption) AdminConfigOption` - Deprecated compatibility shim; no longer reads process environment.
 - `WithScopeConfig(scope ScopeConfig) AdminConfigOption` - Inputs: scope config; outputs: option that applies single/multi-tenant defaults.
 - `WithScopeMode(mode ScopeMode) AdminConfigOption` - Inputs: scope mode (`single` or `multi`); outputs: option that sets the mode.
 - `WithDefaultScope(tenantID, orgID string) AdminConfigOption` - Inputs: default tenant/org IDs; outputs: option that sets defaults for single-tenant mode.
-- `WithScopeFromEnv() AdminConfigOption` - Inputs: none; outputs: option that reads `ADMIN_SCOPE_*` env vars.
+- `WithScopeFromEnv() AdminConfigOption` - Deprecated compatibility shim; applies default scope config without env reads.
 - `NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin.Admin, AdapterResult, error)` - Inputs: config, adapter hooks, optional context/dependencies. Outputs: admin instance, adapter result summary, error.
-- `WithAdapterFlags(flags AdapterFlags) AdminOption` - Inputs: adapter flags; outputs: option that bypasses env resolution.
+- `WithAdapterFlags(flags AdapterFlags) AdminOption` - Inputs: adapter flags; outputs: option that applies explicit adapter toggles.
 - `WithFeatureDefaults(defaults map[string]bool) AdminOption` - Inputs: feature default map; outputs: option that extends gate defaults used by `NewAdmin`.
 - `WithStartupPolicy(policy StartupPolicy) AdminOption` - Inputs: startup policy (`enforce` or `warn`); outputs: option controlling module startup validation handling.
 - `WithTranslationProfile(profile TranslationProfile) AdminOption` - Inputs: profile (`none`, `core`, `core+exchange`, `core+queue`, `full`); outputs: option that applies productized translation defaults.
@@ -89,7 +91,8 @@ Each helper is optional and composable.
 - `WithComponentRegistryMergeDefaults(reg *components.Registry) FormGeneratorOption` - Inputs: custom registry; outputs: option that merges into defaults, overriding matching names.
 - `WithVanillaOption(opt formgenvanilla.Option) FormGeneratorOption` - Inputs: vanilla renderer option; outputs: option applied last so it can override templates/styles/registry.
 
-- `SecureLinkConfigFromEnv(basePath string) SecureLinkConfig` - Inputs: base path; outputs: securelink config (env-driven).
+- `DefaultSecureLinkConfig(basePath string) SecureLinkConfig` - Inputs: base path; outputs: securelink defaults.
+- `SecureLinkConfigFromEnv(basePath string) SecureLinkConfig` - Deprecated compatibility shim; returns defaults and does not read environment.
 - `DefaultSecureLinkRoutes(basePath string) map[string]string` - Inputs: base path; outputs: securelink routes map.
 - `NewSecureLinkManager(cfg SecureLinkConfig) (types.SecureLinkManager, error)` - Inputs: securelink config; outputs: go-users securelink manager.
 - `NewNotificationsSecureLinkManager(cfg SecureLinkConfig) (links.SecureLinkManager, error)` - Inputs: securelink config; outputs: go-notifications securelink manager (delegates to `go-notifications/adapters/securelink.NewManager`).
@@ -109,8 +112,8 @@ Bulk role operations should use panel bulk routes (`/panels/:panel/bulk/:action`
 quickstart.WithLegacyUserRoleBulkRoutes()
 ```
 
-Quickstart Fiber defaults now use `ADMIN_ROUTE_PATH_CONFLICT_MODE=prefer_static`, so absolute static routes (for example `/users/bulk/assign-role`) can coexist with wildcard siblings (for example `/users/bulk/:action`) deterministically; set `ADMIN_ROUTE_PATH_CONFLICT_MODE=strict` to restore strict conflict behavior.
-Quickstart also defaults Fiber request-header `ReadBufferSize` to `16KB`; override with `ADMIN_FIBER_READ_BUFFER_SIZE` when your deployment needs a different limit.
+Quickstart Fiber defaults use `prefer_static` path conflict resolution, so absolute static routes (for example `/users/bulk/assign-role`) can coexist with wildcard siblings (for example `/users/bulk/:action`) deterministically. Override path conflict behavior with `WithFiberAdapterConfig(...)`.
+Quickstart also defaults Fiber request-header `ReadBufferSize` to `16KB`; override with `WithFiberConfig(...)` when your deployment needs a different limit.
 
 ```go
 cfg := quickstart.NewAdminConfig("/admin", "Admin", "en")
@@ -416,27 +419,19 @@ Defaults:
 - tenant: `11111111-1111-1111-1111-111111111111`
 - org: `22222222-2222-2222-2222-222222222222`
 
-Environment variables:
-- `ADMIN_SCOPE_MODE=single|multi`
-- `ADMIN_DEFAULT_TENANT_ID=<uuid>`
-- `ADMIN_DEFAULT_ORG_ID=<uuid>`
-- Full `ADMIN_*` table (including route conflict flags `ADMIN_ROUTE_CONFLICT_POLICY`, `ADMIN_ROUTE_PATH_CONFLICT_MODE`, and `ADMIN_STRICT_ROUTES`): `../ENVS_REF.md`
-
-Example:
+Explicit config:
 
 ```go
 cfg := quickstart.NewAdminConfig("/admin", "Admin", "en",
-	quickstart.WithScopeFromEnv(),
+	quickstart.WithScopeConfig(quickstart.ScopeConfig{
+		Mode:            quickstart.ScopeModeSingle,
+		DefaultTenantID: "11111111-1111-1111-1111-111111111111",
+		DefaultOrgID:    "22222222-2222-2222-2222-222222222222",
+	}),
 )
 ```
 
-For explicit config:
-
-```go
-cfg := quickstart.NewAdminConfig("/admin", "Admin", "en",
-	quickstart.WithScopeMode(quickstart.ScopeModeMulti),
-)
-```
+`WithScopeFromEnv()` remains available for compatibility, but it no longer reads process environment and only applies normalized defaults.
 
 ## Template functions
 `NewViewEngine` wires `DefaultTemplateFuncs()` when no template functions are supplied. Prefer `WithViewURLResolver(adm.URLs())` (or `WithTemplateURLResolver(adm.URLs())`) so `adminURL` resolves via URLKit; `WithViewBasePath(cfg.BasePath)` remains as a fallback for legacy setups. `WithViewTemplateFuncs` is a strict override; use `MergeTemplateFuncs` if you want to keep defaults and add/override a subset.
@@ -882,13 +877,14 @@ Feature gate keys (system scope) used by onboarding flows:
 Enable these via gate defaults (for example `WithFeatureDefaults`) or runtime overrides.
 Alias policy: `users.self_registration` is not supported; use `users.signup`.
 
-Securelink env defaults:
+Securelink config defaults:
 
-- `ADMIN_SECURELINK_KEY` (required to enable manager in quickstart)
-- `ADMIN_SECURELINK_BASE_URL` (default `http://localhost:8080`)
-- `ADMIN_SECURELINK_QUERY_KEY` (default `token`)
-- `ADMIN_SECURELINK_AS_QUERY` (default `true`)
-- `ADMIN_SECURELINK_EXPIRATION` (default `72h`)
+- `quickstart.DefaultSecureLinkConfig(basePath)` returns:
+- `SigningKey=""` (manager disabled until a key is provided)
+- `BaseURL="http://localhost:8080"`
+- `QueryKey="token"`
+- `AsQuery=true`
+- `Expiration=72h`
 
 Route helpers:
 
@@ -1053,31 +1049,26 @@ _ = formgen
 ## Debug quickstart
 Debug is opt-in and requires module registration plus middleware/log wiring. Configure panels before constructing the admin; attach middleware/log helpers after the debug module is registered so the collector is available.
 
-Environment mapping defaults:
-- `ADMIN_DEBUG=true` enables `cfg.Debug.Enabled`, `ToolbarMode`, `CaptureSQL`, `CaptureLogs`, `CaptureJSErrors`, `CaptureRequestBody`, and sets the `debug` feature gate default.
-- `ADMIN_DEBUG_ALLOWED_IPS=1.2.3.4,5.6.7.8` populates `cfg.Debug.AllowedIPs`.
-- `ADMIN_DEBUG_ALLOWED_ORIGINS=https://app.example` populates `cfg.Debug.AllowedOrigins`.
-- `ADMIN_DEBUG_APP_ID`, `ADMIN_DEBUG_APP_NAME`, and `ADMIN_DEBUG_ENVIRONMENT` populate the debug identity fields.
-- `ADMIN_DEBUG_REMOTE=true` toggles remote debug endpoints.
-- `ADMIN_DEBUG_TOKEN_TTL=15m` overrides the debug token TTL.
-- `ADMIN_DEBUG_SESSION_TRACKING=true` toggles session tracking.
-- `ADMIN_DEBUG_SESSION_GLOBAL_PANELS=false` toggles global panels in session views.
-- `ADMIN_DEBUG_SESSION_COOKIE=admin_debug_session` overrides the session cookie name.
-- `ADMIN_DEBUG_SESSION_EXPIRY=30m` overrides the session inactivity expiry.
-- `ADMIN_DEBUG_SQL`, `ADMIN_DEBUG_LOGS`, `ADMIN_DEBUG_JS_ERRORS`, and `ADMIN_DEBUG_REQUEST_BODY` override the capture flags.
-- `ADMIN_DEBUG_TOOLBAR` and `ADMIN_DEBUG_TOOLBAR_PANELS` override toolbar behavior/panels.
-- `ADMIN_DEBUG_LAYOUT=admin|standalone` sets `cfg.Debug.LayoutMode`.
-- `ADMIN_DEBUG_REPL` and `ADMIN_DEBUG_REPL_READONLY` configure the REPL.
-- `ADMIN_DEV=true` enables `cfg.Errors.DevMode` (stack traces + internal messages by default).
-- `ADMIN_ERROR_STACKTRACE=true` forces stack traces in non-dev environments.
-- `ADMIN_ERROR_EXPOSE_INTERNAL=true` exposes internal error messages in responses.
+Use explicit option structs:
+- `quickstart.WithDebugOptions(quickstart.DebugOption{...})` for debug fields.
+- `quickstart.WithErrorOptions(quickstart.ErrorOption{...})` for error presentation fields.
+- `quickstart.WithDebugFromEnv(...)` / `quickstart.WithErrorsFromEnv(...)` remain compatibility shims and no longer read process environment.
 
 ```go
 cfg := quickstart.NewAdminConfig(
 	"/admin",
 	"Admin",
 	"en",
-	quickstart.WithDebugFromEnv(),
+	quickstart.WithDebugOptions(quickstart.DebugOption{
+		Enabled:     admin.BoolPtr(true),
+		LayoutMode:  "admin",
+		ReplEnabled: admin.BoolPtr(true),
+	}),
+	quickstart.WithErrorOptions(quickstart.ErrorOption{
+		DevMode:               admin.BoolPtr(true),
+		IncludeStackTrace:     admin.BoolPtr(true),
+		ExposeInternalMessage: admin.BoolPtr(true),
+	}),
 )
 
 quickstart.ConfigureDebugPanels(&cfg, quickstart.DebugPanelDeps{}, quickstart.DefaultDebugPanelCatalog())
@@ -1115,15 +1106,15 @@ repo := repository.MustNewRepositoryWithOptions[*MyModel](db, handlers, repoOpti
 ### Scope debug (optional)
 Scope debug captures the raw/resolved tenant/org scope for requests, adds an `X-Admin-Resolved-Scope` header, and exposes a JSON snapshot endpoint.
 
-Environment mapping defaults:
-- `ADMIN_DEBUG_SCOPE=true` enables the scope debug capture.
-- `ADMIN_DEBUG_SCOPE_LIMIT=200` sets the in-memory buffer size (default 200).
+Scope debug is explicit:
+- choose whether scope capture is enabled in your host config
+- set a ring buffer size (default `200`)
 
 ```go
-scopeDebugEnabled := quickstart.ScopeDebugEnabledFromEnv()
+scopeDebugEnabled := true
 var scopeDebugBuffer *quickstart.ScopeDebugBuffer
 if scopeDebugEnabled {
-	scopeDebugBuffer = quickstart.NewScopeDebugBuffer(quickstart.ScopeDebugLimitFromEnv())
+	scopeDebugBuffer = quickstart.NewScopeDebugBuffer(200)
 }
 
 quickstart.ConfigureDebugPanels(
@@ -1217,15 +1208,15 @@ if err := quickstart.NewModuleRegistrar(adm, cfg, modules, isDev); err != nil {
 
 ## Translation Profile Operational Runbook
 
-### Environment-based Configuration
+### Config-based Configuration
 
-Configure translation profiles via environment variables:
+Configure translation profiles via `WithTranslationProductConfig(...)`:
 
-| Variable | Values | Default | Description |
+| Field | Values | Default | Description |
 |----------|--------|---------|-------------|
-| `ADMIN_TRANSLATION_PROFILE` | `none`, `core`, `core+exchange`, `core+queue`, `full` | Empty (resolves to `core` when CMS enabled) | Sets the baseline translation capability profile |
-| `ADMIN_TRANSLATION_EXCHANGE` | `true`, `false` | Profile default | Overrides exchange module enablement |
-| `ADMIN_TRANSLATION_QUEUE` | `true`, `false` | Profile default | Overrides queue module enablement |
+| `Profile` | `none`, `core`, `core+exchange`, `core+queue`, `full` | Empty (resolves to `core` when CMS enabled) | Sets the baseline translation capability profile |
+| `Exchange.Enabled` | `true`, `false` | Profile default | Overrides exchange module enablement |
+| `Queue.Enabled` | `true`, `false` | Profile default | Overrides queue module enablement |
 
 Profile capability matrix:
 
@@ -1246,11 +1237,20 @@ Profile capability matrix:
 
 Example startup:
 
-```bash
-ADMIN_TRANSLATION_PROFILE=full \
-ADMIN_TRANSLATION_EXCHANGE=true \
-ADMIN_TRANSLATION_QUEUE=true \
-go run ./examples/web
+```go
+adm, _, err := quickstart.NewAdmin(
+	cfg,
+	hooks,
+	quickstart.WithTranslationProductConfig(quickstart.TranslationProductConfig{
+		SchemaVersion: quickstart.TranslationProductSchemaVersionCurrent,
+		Profile:       quickstart.TranslationProfileFull,
+		Exchange:      &quickstart.TranslationExchangeConfig{Enabled: true},
+		Queue:         &quickstart.TranslationQueueConfig{Enabled: true},
+	}),
+)
+if err != nil {
+	return err
+}
 ```
 
 Check startup logs for `translation.capabilities.startup` and verify:
@@ -1278,7 +1278,7 @@ When a module is disabled:
 | Symptom | Likely Cause | Resolution |
 |---------|--------------|------------|
 | `translation product config invalid` at startup | Missing CMS feature for non-`none` profile | Enable `cms` feature or use profile `none` |
-| Exchange routes not registered | Exchange module not enabled | Set `ADMIN_TRANSLATION_EXCHANGE=true` or use `core+exchange`/`full` profile |
+| Exchange routes not registered | Exchange module not enabled | Set `TranslationProductConfig.Exchange.Enabled=true` or use `core+exchange`/`full` profile |
 | `exchange.handlers_missing` error | Exchange store not configured | Provide `TranslationExchangeConfig.Store` implementation |
 | `queue.locales_invalid` error | Queue enabled without supported locales | Set `TranslationQueueConfig.SupportedLocales` or configure translation policy |
 | Translation UI not visible | Feature gate disabled | Check `FeatureTranslationExchange` in feature gate |
@@ -1302,19 +1302,16 @@ log.Printf("Registered routes: %v", caps["routes"])
 If you previously imported quickstart as part of the root module, keep the same import path but add a direct `require` on `github.com/goliatone/go-admin/quickstart` in your `go.mod` (or use a local `replace`/`go.work` entry during dev). The APIs are unchanged; only the module boundary moved.
 
 ## What’s included
-- Navigation: slug-derived menu IDs/lookup, parent scaffolder for grouped/collapsible defaults, canonical content-parent permission helper (`DefaultContentParentPermissions`), idempotent seeding (`SeedNavigation`), deterministic ordering, permission filtering, collapsible state, `NAV_DEBUG` logging/JSON, and view helpers (`WithNav`, `BuildNavItems`).
+- Navigation: slug-derived menu IDs/lookup, parent scaffolder for grouped/collapsible defaults, canonical content-parent permission helper (`DefaultContentParentPermissions`), idempotent seeding (`SeedNavigation`), deterministic ordering, permission filtering, collapsible state, and view helpers (`WithNav`, `BuildNavItems`).
 - Sidebar: embedded templates/partials and assets (CSS/JS) with collapse + submenu persistence; apps can override by adding their own template/assets FS ahead of the defaults.
 - Error handling: Fiber error handler that returns JSON for API paths and renders the branded error page (with nav/theme/session) for HTML routes.
-- Adapters: config- or env-flagged wiring for persistent CMS (`USE_PERSISTENT_CMS`), go-options settings (`USE_GO_OPTIONS`), and go-users activity sink (`USE_GO_USERS_ACTIVITY`) with safe in-memory fallbacks.
-- Auth debug: `GoAuthAuthorizer` supports `AUTH_DEBUG=true` or config flag for structured decision logging (logger injectable).
+- Adapters: explicit `AdapterFlags` wiring for persistent CMS, go-options settings, and go-users activity sink with safe in-memory fallbacks.
+- Auth debug: `GoAuthAuthorizer` supports explicit config debug mode for structured decision logging (logger injectable).
 
-## Flags and debug
-- `USE_PERSISTENT_CMS=true` – swap to persistent CMS via provided hook.
-- `USE_GO_OPTIONS=true` – swap settings backend to go-options adapter.
-- `USE_GO_USERS_ACTIVITY=true` – use go-users activity sink if available.
-- `RESET_NAV_MENU=true` – reset target menu before seeding (backends must expose reset hook).
-- `NAV_DEBUG=true` – include nav JSON in views; `NAV_DEBUG_LOG=true` – log nav payload.
-- `AUTH_DEBUG=true` – emit structured auth decisions.
+## Adapter and runtime toggles
+- Set adapter switches with `quickstart.WithAdapterFlags(quickstart.AdapterFlags{...})`.
+- For navigation reset/debug behavior, pass explicit host runtime config to your setup layer (for example `examples/web/setup.ConfigureRuntime(...)`).
+- For authz diagnostics, set `admin.GoAuthAuthorizerConfig.Debug` explicitly when constructing the authorizer.
 
 ## Overrides
 - Templates/Assets: prepend your own FS via `WithViewTemplatesFS`/`WithViewAssetsFS` to override the embedded sidebar.

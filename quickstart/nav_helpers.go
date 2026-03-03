@@ -105,7 +105,7 @@ func WithNavPlacements(ctx router.ViewContext, adm *admin.Admin, cfg admin.Confi
 	if active != "" {
 		ctx["active"] = active
 	}
-	if cfg.Debug.Enabled {
+	if cfg.NavDebug {
 		if raw, err := json.MarshalIndent(ctx["nav_items"], "", "  "); err == nil {
 			ctx["nav_items_json"] = string(raw)
 			ctx["nav_debug"] = true
@@ -132,7 +132,7 @@ func BuildNavItemsForPlacement(adm *admin.Admin, cfg admin.Config, placements Pl
 	basePath := resolveAdminBasePath(adm.URLs(), adm.BasePath())
 	urls := adm.URLs()
 	menuCode := placements.MenuCodeFor(placement, cfg.NavMenuCode)
-	logNav := cfg.Debug.Enabled
+	logNav := cfg.NavDebugLog
 	items := nav.ResolveMenu(ctx, menuCode, cfg.DefaultLocale)
 	for _, item := range items {
 		entry, _ := buildNavEntry(item, basePath, urls, active)
