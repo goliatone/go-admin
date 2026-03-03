@@ -204,22 +204,22 @@ func (r *deliveryRuntime) Handler() router.HandlerFunc {
 				SupportedLocales:    cloneStrings(r.siteCfg.SupportedLocales),
 				AllowLocaleFallback: r.siteCfg.AllowLocaleFallback,
 				Environment:         r.siteCfg.Environment,
-				ContentEnvironment:  r.siteCfg.ContentEnvironment,
+				ContentChannel:      r.siteCfg.ContentChannel,
 				BasePath:            r.siteCfg.BasePath,
 				AssetBasePath:       r.siteCfg.Views.AssetBasePath,
 				ActivePath:          c.Path(),
 				ViewContext:         router.ViewContext{},
 			}
 		}
-		if strings.TrimSpace(state.ContentEnvironment) == "" {
-			state.ContentEnvironment = r.siteCfg.ContentEnvironment
+		if strings.TrimSpace(state.ContentChannel) == "" {
+			state.ContentChannel = r.siteCfg.ContentChannel
 		}
 
 		path := r.requestPathForResolution(c)
 		cache := newLocaleContentCache()
 		requestCtx := c.Context()
-		if strings.TrimSpace(state.ContentEnvironment) != "" {
-			requestCtx = admin.WithEnvironment(requestCtx, state.ContentEnvironment)
+		if strings.TrimSpace(state.ContentChannel) != "" {
+			requestCtx = admin.WithContentChannel(requestCtx, state.ContentChannel)
 		}
 		resolution, siteErr := r.resolve(requestCtx, state, path, cache)
 		if hasSiteRuntimeError(siteErr) {

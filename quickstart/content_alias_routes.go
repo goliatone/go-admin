@@ -135,8 +135,8 @@ func contentAliasHandler(adm *admin.Admin, alias string, aliasBase string, baseP
 			return admin.ErrNotFound
 		}
 		ctx := c.Context()
-		if env := resolveEnvironment(c); env != "" {
-			ctx = admin.WithEnvironment(ctx, env)
+		if channel := resolveContentChannel(c); channel != "" {
+			ctx = admin.WithContentChannel(ctx, channel)
 		}
 		panelSlug := resolveContentEntryAliasPanelSlug(ctx, adm, alias)
 		if panelSlug == "" {

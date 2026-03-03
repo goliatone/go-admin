@@ -28,8 +28,8 @@ func TestResolveSiteConfigDefaults(t *testing.T) {
 	if resolved.Environment != "prod" {
 		t.Fatalf("expected default environment prod, got %q", resolved.Environment)
 	}
-	if resolved.ContentEnvironment != "default" {
-		t.Fatalf("expected default content environment default, got %q", resolved.ContentEnvironment)
+	if resolved.ContentChannel != "default" {
+		t.Fatalf("expected default content channel default, got %q", resolved.ContentChannel)
 	}
 
 	if resolved.Navigation.MainMenuLocation != DefaultMainMenuLocation {
@@ -40,6 +40,9 @@ func TestResolveSiteConfigDefaults(t *testing.T) {
 	}
 	if resolved.Navigation.FallbackMenuCode != DefaultFallbackMenuCode {
 		t.Fatalf("expected fallback menu code %q, got %q", DefaultFallbackMenuCode, resolved.Navigation.FallbackMenuCode)
+	}
+	if resolved.Navigation.ContributionLocalePolicy != ContributionLocalePolicyFallback {
+		t.Fatalf("expected contribution locale policy fallback, got %q", resolved.Navigation.ContributionLocalePolicy)
 	}
 
 	if resolved.Views.BaseTemplate != DefaultBaseTemplate {
@@ -78,12 +81,15 @@ func TestResolveSiteConfigHonorsFeatureAndFallbackOverrides(t *testing.T) {
 	resolved := ResolveSiteConfig(cfg, SiteConfig{
 		AllowLocaleFallback: boolPtr(false),
 		Environment:         "staging",
-		ContentEnvironment:  "prod",
+		ContentChannel:      "prod",
 		Features: SiteFeatures{
 			EnableSearch:            boolPtr(false),
 			EnableTheme:             boolPtr(false),
 			EnableCanonicalRedirect: boolPtr(false),
 			StrictLocalizedPaths:    boolPtr(true),
+		},
+		Navigation: SiteNavigationConfig{
+			ContributionLocalePolicy: ContributionLocalePolicyStrict,
 		},
 		Views: SiteViewConfig{
 			Reload: boolPtr(true),
@@ -102,8 +108,11 @@ func TestResolveSiteConfigHonorsFeatureAndFallbackOverrides(t *testing.T) {
 	if resolved.Environment != "staging" {
 		t.Fatalf("expected environment staging, got %q", resolved.Environment)
 	}
-	if resolved.ContentEnvironment != "prod" {
-		t.Fatalf("expected content environment prod, got %q", resolved.ContentEnvironment)
+	if resolved.ContentChannel != "prod" {
+		t.Fatalf("expected content channel prod, got %q", resolved.ContentChannel)
+	}
+	if resolved.Navigation.ContributionLocalePolicy != ContributionLocalePolicyStrict {
+		t.Fatalf("expected strict contribution locale policy, got %q", resolved.Navigation.ContributionLocalePolicy)
 	}
 	if resolved.Features.EnableSearch {
 		t.Fatalf("expected search feature disabled")
@@ -134,53 +143,53 @@ func TestResolveSiteConfigHonorsFeatureAndFallbackOverrides(t *testing.T) {
 	}
 }
 
-func TestResolveSiteConfigResolvesRuntimeAndContentEnvironmentsIndependently(t *testing.T) {
+func TestResolveSiteConfigResolvesRuntimeAndContentChannelsIndependently(t *testing.T) {
 	cfg := admin.Config{DefaultLocale: "en"}
-	resolved := ResolveSiteConfig(cfg, SiteConfig{ContentEnvironment: "staging"})
+	resolved := ResolveSiteConfig(cfg, SiteConfig{ContentChannel: "staging"})
 
-	if resolved.ContentEnvironment != "staging" {
-		t.Fatalf("expected content environment from config override, got %q", resolved.ContentEnvironment)
+	if resolved.ContentChannel != "staging" {
+		t.Fatalf("expected content channel from config override, got %q", resolved.ContentChannel)
 	}
 	if resolved.Environment != "prod" {
 		t.Fatalf("expected runtime environment default prod when Environment is unset, got %q", resolved.Environment)
 	}
 
 	resolved = ResolveSiteConfig(cfg, SiteConfig{
-		Environment:        "development",
-		ContentEnvironment: "staging",
+		Environment:    "development",
+		ContentChannel: "staging",
 	})
 	if resolved.Environment != "dev" {
 		t.Fatalf("expected runtime environment dev from Environment override, got %q", resolved.Environment)
 	}
-	if resolved.ContentEnvironment != "staging" {
-		t.Fatalf("expected content environment override to remain unchanged, got %q", resolved.ContentEnvironment)
+	if resolved.ContentChannel != "staging" {
+		t.Fatalf("expected content channel override to remain unchanged, got %q", resolved.ContentChannel)
 	}
 }
 
-func TestResolveSiteConfigContentEnvironmentDefaultsToDefaultWhenRuntimeIsSet(t *testing.T) {
+func TestResolveSiteConfigContentChannelDefaultsToDefaultWhenRuntimeIsSet(t *testing.T) {
 	cfg := admin.Config{DefaultLocale: "en"}
 	resolved := ResolveSiteConfig(cfg, SiteConfig{Environment: "staging"})
 
 	if resolved.Environment != "staging" {
 		t.Fatalf("expected runtime environment staging from Environment override, got %q", resolved.Environment)
 	}
-	if resolved.ContentEnvironment != "default" {
-		t.Fatalf("expected content environment default when ContentEnvironment is unset, got %q", resolved.ContentEnvironment)
+	if resolved.ContentChannel != "default" {
+		t.Fatalf("expected content channel default when ContentChannel is unset, got %q", resolved.ContentChannel)
 	}
 }
 
-func TestResolveSiteConfigPreservesExplicitDefaultContentEnvironment(t *testing.T) {
+func TestResolveSiteConfigPreservesExplicitDefaultContentChannel(t *testing.T) {
 	cfg := admin.Config{DefaultLocale: "en"}
 	resolved := ResolveSiteConfig(cfg, SiteConfig{
-		Environment:        "dev",
-		ContentEnvironment: "default",
+		Environment:    "dev",
+		ContentChannel: "default",
 	})
 
 	if resolved.Environment != "dev" {
 		t.Fatalf("expected runtime environment dev, got %q", resolved.Environment)
 	}
-	if resolved.ContentEnvironment != "default" {
-		t.Fatalf("expected explicit default content environment to be preserved, got %q", resolved.ContentEnvironment)
+	if resolved.ContentChannel != "default" {
+		t.Fatalf("expected explicit default content channel to be preserved, got %q", resolved.ContentChannel)
 	}
 }
 

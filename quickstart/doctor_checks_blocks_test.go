@@ -57,13 +57,14 @@ func TestQuickstartDoctorBlockDefinitionsCheckPassesWhenRequiredSeedsExist(t *te
 		t.Fatalf("content service unavailable")
 	}
 
-	ctx := admin.WithEnvironment(context.Background(), defaultEnvironmentKey)
+	ctx := admin.WithContentChannel(context.Background(), defaultChannelKey)
 	if _, err := content.CreateBlockDefinition(ctx, admin.CMSBlockDefinition{
 		ID:          "hero",
 		Name:        "Hero",
 		Slug:        "hero",
 		Type:        "hero",
-		Environment: defaultEnvironmentKey,
+		Channel:     defaultChannelKey,
+		Environment: defaultChannelKey,
 		Schema:      map[string]any{"type": "object"},
 	}); err != nil {
 		t.Fatalf("seed hero: %v", err)
@@ -73,7 +74,8 @@ func TestQuickstartDoctorBlockDefinitionsCheckPassesWhenRequiredSeedsExist(t *te
 		Name:        "Rich Text",
 		Slug:        "rich_text",
 		Type:        "rich_text",
-		Environment: defaultEnvironmentKey,
+		Channel:     defaultChannelKey,
+		Environment: defaultChannelKey,
 		Schema:      map[string]any{"type": "object"},
 	}); err != nil {
 		t.Fatalf("seed rich_text: %v", err)
@@ -100,13 +102,14 @@ func TestQuickstartDoctorBlockDefinitionsCheckReportsMissingSeeds(t *testing.T) 
 		t.Fatalf("content service unavailable")
 	}
 
-	ctx := admin.WithEnvironment(context.Background(), defaultEnvironmentKey)
+	ctx := admin.WithContentChannel(context.Background(), defaultChannelKey)
 	if _, err := content.CreateBlockDefinition(ctx, admin.CMSBlockDefinition{
 		ID:          "hero",
 		Name:        "Hero",
 		Slug:        "hero",
 		Type:        "hero",
-		Environment: defaultEnvironmentKey,
+		Channel:     defaultChannelKey,
+		Environment: defaultChannelKey,
 		Schema:      map[string]any{"type": "object"},
 	}); err != nil {
 		t.Fatalf("seed hero: %v", err)
@@ -136,13 +139,14 @@ func TestQuickstartDoctorBlockDefinitionsCheckReportsVisibilityMismatch(t *testi
 		t.Fatalf("content service unavailable")
 	}
 
-	ctx := admin.WithEnvironment(context.Background(), defaultEnvironmentKey)
+	ctx := admin.WithContentChannel(context.Background(), defaultChannelKey)
 	if _, err := content.CreateBlockDefinition(ctx, admin.CMSBlockDefinition{
 		ID:          "hero",
 		Name:        "Hero",
 		Slug:        "hero",
 		Type:        "hero",
-		Environment: defaultEnvironmentKey,
+		Channel:     defaultChannelKey,
+		Environment: defaultChannelKey,
 		Schema:      map[string]any{"type": "object"},
 	}); err != nil {
 		t.Fatalf("seed hero: %v", err)
@@ -152,7 +156,8 @@ func TestQuickstartDoctorBlockDefinitionsCheckReportsVisibilityMismatch(t *testi
 		Name:        "Rich Text",
 		Slug:        "rich_text",
 		Type:        "rich_text",
-		Environment: defaultEnvironmentKey,
+		Channel:     defaultChannelKey,
+		Environment: defaultChannelKey,
 		Schema:      map[string]any{"type": "object"},
 	}); err != nil {
 		t.Fatalf("seed rich_text: %v", err)

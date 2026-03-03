@@ -151,50 +151,50 @@ func panelRouteKeys(panelName string) []string {
 type contentEntryRoutes struct {
 	basePath string
 	slug     string
-	env      string
+	channel  string
 }
 
-func newContentEntryRoutes(basePath, slug, env string) contentEntryRoutes {
-	return contentEntryRoutes{basePath: strings.TrimSpace(basePath), slug: strings.TrimSpace(slug), env: strings.TrimSpace(env)}
+func newContentEntryRoutes(basePath, slug, channel string) contentEntryRoutes {
+	return contentEntryRoutes{basePath: strings.TrimSpace(basePath), slug: strings.TrimSpace(slug), channel: strings.TrimSpace(channel)}
 }
 
-func (r contentEntryRoutes) withEnv(raw string) string {
-	if r.env == "" {
+func (r contentEntryRoutes) withChannel(raw string) string {
+	if r.channel == "" {
 		return raw
 	}
 	separator := "?"
 	if strings.Contains(raw, "?") {
 		separator = "&"
 	}
-	return raw + separator + "env=" + url.QueryEscape(r.env)
+	return raw + separator + "channel=" + url.QueryEscape(r.channel)
 }
 
 func (r contentEntryRoutes) index() string {
-	return r.withEnv(path.Join(r.basePath, "content", r.slug))
+	return r.withChannel(path.Join(r.basePath, "content", r.slug))
 }
 
 func (r contentEntryRoutes) new() string {
-	return r.withEnv(path.Join(r.basePath, "content", r.slug, "new"))
+	return r.withChannel(path.Join(r.basePath, "content", r.slug, "new"))
 }
 
 func (r contentEntryRoutes) show(id string) string {
-	return r.withEnv(path.Join(r.basePath, "content", r.slug, id))
+	return r.withChannel(path.Join(r.basePath, "content", r.slug, id))
 }
 
 func (r contentEntryRoutes) edit(id string) string {
-	return r.withEnv(path.Join(r.basePath, "content", r.slug, id, "edit"))
+	return r.withChannel(path.Join(r.basePath, "content", r.slug, id, "edit"))
 }
 
 func (r contentEntryRoutes) update(id string) string {
-	return r.withEnv(path.Join(r.basePath, "content", r.slug, id))
+	return r.withChannel(path.Join(r.basePath, "content", r.slug, id))
 }
 
 func (r contentEntryRoutes) create() string {
-	return r.withEnv(path.Join(r.basePath, "content", r.slug))
+	return r.withChannel(path.Join(r.basePath, "content", r.slug))
 }
 
 func (r contentEntryRoutes) delete(id string) string {
-	return r.withEnv(path.Join(r.basePath, "content", r.slug, id, "delete"))
+	return r.withChannel(path.Join(r.basePath, "content", r.slug, id, "delete"))
 }
 
 func (r contentEntryRoutes) routesMap() map[string]string {

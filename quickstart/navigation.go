@@ -5,11 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"regexp"
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
 	cms "github.com/goliatone/go-cms"
 )
+
+var localeSuffixPattern = regexp.MustCompile(`^[a-z]{2}(?:[-_][a-z]{2})?$`)
 
 type menuResetterWithContext interface {
 	ResetMenuContext(ctx context.Context, code string) error
@@ -113,6 +116,10 @@ func SeedNavigation(ctx context.Context, opts SeedNavigationOptions) error {
 }
 
 func normalizeSeedMenuItem(menuCode string, defaultLocale string, item admin.MenuItem) (admin.MenuItem, error) {
+	if err := validateSeedMenuIdentity(item, defaultLocale); err != nil {
+		return admin.MenuItem{}, err
+	}
+
 	itemType := admin.NormalizeMenuItemType(item.Type)
 	derived, err := cms.DeriveMenuItemPaths(
 		menuCode,
@@ -173,6 +180,30 @@ func normalizeSeedMenuItem(menuCode string, defaultLocale string, item admin.Men
 	seed.GroupTitle = groupTitle
 	seed.GroupTitleKey = groupTitleKey
 	return seed, nil
+}
+
+func validateSeedMenuIdentity(item admin.MenuItem, defaultLocale string) error {
+	itemID := strings.TrimSpace(item.ID)
+	if itemID == "" {
+		return nil
+	}
+	locale := strings.ToLower(strings.TrimSpace(firstNonEmpty(item.Locale, defaultLocale)))
+	if locale == "" {
+		return nil
+	}
+	last := strings.TrimSpace(itemID)
+	if idx := strings.LastIndex(last, "."); idx >= 0 && idx+1 < len(last) {
+		last = last[idx+1:]
+	}
+	last = strings.ToLower(strings.ReplaceAll(strings.TrimSpace(last), "_", "-"))
+	if !localeSuffixPattern.MatchString(last) {
+		return nil
+	}
+	normalizedLocale := strings.ReplaceAll(locale, "_", "-")
+	if last != normalizedLocale {
+		return nil
+	}
+	return fmt.Errorf("seed menu item id %q must not encode locale suffix %q; use localized translations with stable IDs", itemID, locale)
 }
 
 func shouldAutoCreateParents(menuCode string, items []admin.MenuItem) bool {

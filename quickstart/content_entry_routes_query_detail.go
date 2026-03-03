@@ -45,7 +45,7 @@ func (h *contentEntryHandlers) listForPanel(c router.Context, panelSlug string) 
 	preferencesAPI := resolveAdminPreferencesAPICollectionPath(urls, h.cfg, basePath)
 	slug := contentTypeSlug(contentType, panelName)
 	actionBase := path.Join(basePath, "content", slug)
-	routes := newContentEntryRoutes(basePath, slug, adminCtx.Environment)
+	routes := newContentEntryRoutes(basePath, slug, adminCtx.Channel)
 	routesMap := routes.routesMap()
 	if contentTypeSchema(contentType, panel) == nil {
 		routesMap["new"] = ""
@@ -76,7 +76,7 @@ func (h *contentEntryHandlers) listForPanel(c router.Context, panelSlug string) 
 		"total":                total,
 		"datatable_id":         dataTableID,
 		"list_api":             listAPI,
-		"env":                  adminCtx.Environment,
+		"channel":              adminCtx.Channel,
 		"panel_name":           panelName,
 		"preferences_api_path": preferencesAPI,
 		"content_type": map[string]any{
@@ -91,7 +91,7 @@ func (h *contentEntryHandlers) listForPanel(c router.Context, panelSlug string) 
 		BasePath:    basePath,
 		URLResolver: urls,
 		Definition:  canonicalPanelName(panelName),
-		Variant:     adminCtx.Environment,
+		Variant:     adminCtx.Channel,
 		DataGrid: PanelDataGridConfigOptions{
 			TableID:             dataTableID,
 			APIEndpoint:         listAPI,
@@ -149,10 +149,10 @@ func (h *contentEntryHandlers) detailForPanelWithID(c router.Context, panelSlug 
 	if err != nil {
 		return err
 	}
-	routes := newContentEntryRoutes(h.cfg.BasePath, contentTypeSlug(contentType, panelName), adminCtx.Environment)
+	routes := newContentEntryRoutes(h.cfg.BasePath, contentTypeSlug(contentType, panelName), adminCtx.Channel)
 	baseSlug := contentTypeSlug(contentType, panelName)
 	if record != nil {
-		record = h.hydrateDetailRelationLinks(panelName, record, adminCtx.Environment)
+		record = h.hydrateDetailRelationLinks(panelName, record, adminCtx.Channel)
 		record["actions"] = map[string]string{
 			"edit":   routes.edit(id),
 			"delete": routes.delete(id),
@@ -197,7 +197,7 @@ func (h *contentEntryHandlers) resolvePanelContext(c router.Context, panelSlug s
 		return nil, "", nil, admin.AdminContext{}, admin.ErrNotFound
 	}
 	adminCtx := adminContextFromRequest(c, h.cfg.DefaultLocale)
-	panel, panelName, err := h.panelFor(name, adminCtx.Environment)
+	panel, panelName, err := h.panelFor(name, adminCtx.Channel)
 	if err != nil {
 		return nil, "", nil, adminCtx, err
 	}
@@ -206,7 +206,7 @@ func (h *contentEntryHandlers) resolvePanelContext(c router.Context, panelSlug s
 	if fromContentNameParam && panel != nil && panel.UIRouteMode() == admin.PanelUIRouteModeCustom {
 		return nil, "", nil, adminCtx, admin.ErrNotFound
 	}
-	contentType, err := h.contentTypeFor(adminCtx.Context, name, adminCtx.Environment)
+	contentType, err := h.contentTypeFor(adminCtx.Context, name, adminCtx.Channel)
 	if err != nil {
 		if !errors.Is(err, admin.ErrNotFound) {
 			return nil, "", nil, adminCtx, err
@@ -251,7 +251,11 @@ func (h *contentEntryHandlers) contentTypeFor(ctx context.Context, slug string, 
 		return nil, err
 	}
 	for _, ct := range types {
-		if !strings.EqualFold(strings.TrimSpace(ct.Environment), env) {
+		ctChannel := strings.TrimSpace(ct.Channel)
+		if ctChannel == "" {
+			ctChannel = strings.TrimSpace(ct.Environment)
+		}
+		if !strings.EqualFold(ctChannel, env) {
 			continue
 		}
 		panelSlug := contentTypePanelSlug(&ct)
@@ -263,7 +267,7 @@ func (h *contentEntryHandlers) contentTypeFor(ctx context.Context, slug string, 
 	return h.contentTypes.ContentTypeBySlug(ctx, slug)
 }
 
-func (h *contentEntryHandlers) hydrateDetailRelationLinks(panelName string, record map[string]any, env string) map[string]any {
+func (h *contentEntryHandlers) hydrateDetailRelationLinks(panelName string, record map[string]any, channel string) map[string]any {
 	if len(record) == 0 {
 		return record
 	}
@@ -282,7 +286,7 @@ func (h *contentEntryHandlers) hydrateDetailRelationLinks(panelName string, reco
 			continue
 		}
 		relationName := strings.TrimSuffix(key, "_id")
-		relationPanel := h.resolveRelationPanelName(panelName, relationName, env)
+		relationPanel := h.resolveRelationPanelName(panelName, relationName, channel)
 		if relationPanel == "" {
 			continue
 		}
@@ -290,7 +294,7 @@ func (h *contentEntryHandlers) hydrateDetailRelationLinks(panelName string, reco
 		if relationURL == "" {
 			continue
 		}
-		relationURL = contentEntryURLWithEnv(relationURL, env)
+		relationURL = contentEntryURLWithChannel(relationURL, channel)
 		record[relationName+"_url"] = relationURL
 		links[relationName] = relationURL
 		links[key] = relationURL
@@ -404,10 +408,10 @@ func contentEntryRecordLinks(raw any) map[string]string {
 	return links
 }
 
-func contentEntryURLWithEnv(rawURL, env string) string {
+func contentEntryURLWithChannel(rawURL, channel string) string {
 	rawURL = strings.TrimSpace(rawURL)
-	env = strings.TrimSpace(env)
-	if rawURL == "" || env == "" {
+	channel = strings.TrimSpace(channel)
+	if rawURL == "" || channel == "" {
 		return rawURL
 	}
 	parsed, err := url.Parse(rawURL)
@@ -415,8 +419,8 @@ func contentEntryURLWithEnv(rawURL, env string) string {
 		return rawURL
 	}
 	query := parsed.Query()
-	if strings.TrimSpace(query.Get("env")) == "" {
-		query.Set("env", env)
+	if strings.TrimSpace(query.Get("channel")) == "" {
+		query.Set("channel", channel)
 		parsed.RawQuery = query.Encode()
 	}
 	return parsed.String()

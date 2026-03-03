@@ -2,12 +2,12 @@ package quickstart
 
 import "strings"
 
-const defaultEnvironmentKey = "default"
+const defaultChannelKey = "default"
 
-func normalizeEnvironmentKey(value string) string {
+func normalizeChannelKey(value string) string {
 	normalized := strings.ToLower(strings.TrimSpace(value))
 	if normalized == "" {
-		return defaultEnvironmentKey
+		return defaultChannelKey
 	}
 	return normalized
 }

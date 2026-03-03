@@ -65,7 +65,7 @@ func (h *contentEntryHandlers) createForPanel(c router.Context, panelSlug string
 		return err
 	}
 	baseSlug := contentTypeSlug(contentType, panelName)
-	routes := newContentEntryRoutes(h.cfg.BasePath, baseSlug, adminCtx.Environment)
+	routes := newContentEntryRoutes(h.cfg.BasePath, baseSlug, adminCtx.Channel)
 	return c.Redirect(contentEntryCreateRedirectTarget(baseSlug, anyToString(created["id"]), routes))
 }
 
@@ -146,7 +146,7 @@ func (h *contentEntryHandlers) updateForPanel(c router.Context, panelSlug string
 	if err != nil {
 		return err
 	}
-	routes := newContentEntryRoutes(h.cfg.BasePath, contentTypeSlug(contentType, panelName), adminCtx.Environment)
+	routes := newContentEntryRoutes(h.cfg.BasePath, contentTypeSlug(contentType, panelName), adminCtx.Channel)
 	if updatedID := strings.TrimSpace(anyToString(updated["id"])); updatedID != "" {
 		target := routes.edit(updatedID)
 		if locale := contentEntryRequestedLocale(c, existingTranslationState.RequestedLocale); locale != "" {
@@ -176,7 +176,7 @@ func (h *contentEntryHandlers) deleteForPanel(c router.Context, panelSlug string
 	if err := panel.Delete(adminCtx, id); err != nil {
 		return err
 	}
-	routes := newContentEntryRoutes(h.cfg.BasePath, contentTypeSlug(contentType, panelName), adminCtx.Environment)
+	routes := newContentEntryRoutes(h.cfg.BasePath, contentTypeSlug(contentType, panelName), adminCtx.Channel)
 	return c.Redirect(routes.index())
 }
 

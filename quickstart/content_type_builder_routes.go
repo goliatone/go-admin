@@ -21,7 +21,7 @@ import (
 	urlkit "github.com/goliatone/go-urlkit"
 )
 
-const environmentCookieName = "admin_env"
+const channelCookieName = "admin_channel"
 
 // ContentTypeBuilderUIOption customizes content type builder UI routes.
 type ContentTypeBuilderUIOption func(*contentTypeBuilderUIOptions)
@@ -218,7 +218,7 @@ func RegisterContentTypeBuilderAPIRoutes[T any](
 	r.Post(path.Join(apiBase, "content_types", ":id", "clone"), wrap(handlers.CloneContentType))
 	r.Post(path.Join(apiBase, "content_types", ":id", "compatibility"), wrap(handlers.ContentTypeCompatibility))
 	r.Get(path.Join(apiBase, "content_types", ":id", "versions"), wrap(handlers.ContentTypeVersions))
-	r.Post(path.Join(apiBase, "session", "environment"), wrap(handlers.UpdateEnvironment))
+	r.Post(path.Join(apiBase, "session", "channel"), wrap(handlers.UpdateChannel))
 	r.Post(path.Join(apiBase, "block_definitions", ":id", "publish"), wrap(handlers.PublishBlockDefinition))
 	r.Post(path.Join(apiBase, "block_definitions", ":id", "deprecate"), wrap(handlers.DeprecateBlockDefinition))
 	r.Post(path.Join(apiBase, "block_definitions", ":id", "clone"), wrap(handlers.CloneBlockDefinition))
@@ -243,12 +243,12 @@ type contentTypeBuilderHandlers struct {
 	authResource             string
 }
 
-type contentEnvironmentDiagnostics struct {
-	EffectiveEnvironment  string
-	RequestedEnvironment  string
-	TotalEffective        int
-	TotalDefault          int
-	AvailableEnvironments []string
+type contentChannelDiagnostics struct {
+	EffectiveChannel  string
+	RequestedChannel  string
+	TotalEffective    int
+	TotalDefault      int
+	AvailableChannels []string
 }
 
 type panelReader interface {
@@ -400,18 +400,18 @@ func (h *contentTypeBuilderHandlers) ContentTypes(c router.Context) error {
 		urls = h.admin.URLs()
 	}
 	viewCtx := router.ViewContext{
-		"title":                      h.cfg.Title,
-		"base_path":                  h.cfg.BasePath,
-		"api_base_path":              resolveAdminAPIBasePath(urls, h.cfg, h.cfg.BasePath),
-		"resource":                   "content_types",
-		"content_types":              contentTypes,
-		"selected_content_type_id":   selectedID,
-		"selected_content_type_slug": selectedID,
-		"content_types_effective_environment":  diagnostics.EffectiveEnvironment,
-		"content_types_requested_environment":  diagnostics.RequestedEnvironment,
-		"content_types_total_effective":        diagnostics.TotalEffective,
-		"content_types_total_default":          diagnostics.TotalDefault,
-		"content_types_available_environments": diagnostics.AvailableEnvironments,
+		"title":                            h.cfg.Title,
+		"base_path":                        h.cfg.BasePath,
+		"api_base_path":                    resolveAdminAPIBasePath(urls, h.cfg, h.cfg.BasePath),
+		"resource":                         "content_types",
+		"content_types":                    contentTypes,
+		"selected_content_type_id":         selectedID,
+		"selected_content_type_slug":       selectedID,
+		"content_types_effective_channel":  diagnostics.EffectiveChannel,
+		"content_types_requested_channel":  diagnostics.RequestedChannel,
+		"content_types_total_effective":    diagnostics.TotalEffective,
+		"content_types_total_default":      diagnostics.TotalDefault,
+		"content_types_available_channels": diagnostics.AvailableChannels,
 	}
 	if h.viewContext != nil {
 		viewCtx = h.viewContext(viewCtx, "content_types", c)
@@ -752,45 +752,46 @@ func (h *contentTypeBuilderHandlers) BlockDefinitionDiagnostics(c router.Context
 		return err
 	}
 
-	requested := strings.ToLower(strings.TrimSpace(resolveEnvironment(c)))
-	effective := normalizeEnvironmentKey(requested)
+	requested := strings.ToLower(strings.TrimSpace(resolveContentChannel(c)))
+	effective := normalizeChannelKey(requested)
 	response := map[string]any{
-		"effective_environment": effective,
-		"requested_environment": requested,
-		"total_effective":       0,
-		"total_default":         0,
-		"available_environments": []string{
-			defaultEnvironmentKey,
-		},
+		"effective_channel":  effective,
+		"requested_channel":  requested,
+		"total_effective":    0,
+		"total_default":      0,
+		"available_channels": []string{defaultChannelKey},
 	}
 	if h.contentSvc == nil {
 		return c.JSON(http.StatusOK, response)
 	}
 
-	defaultDefs, defaultErr := h.contentSvc.BlockDefinitions(admin.WithEnvironment(context.Background(), defaultEnvironmentKey))
+	defaultDefs, defaultErr := h.contentSvc.BlockDefinitions(admin.WithContentChannel(context.Background(), defaultChannelKey))
 	effectiveDefs := defaultDefs
 	effectiveErr := defaultErr
-	if effective != defaultEnvironmentKey {
-		effectiveDefs, effectiveErr = h.contentSvc.BlockDefinitions(admin.WithEnvironment(context.Background(), effective))
+	if effective != defaultChannelKey {
+		effectiveDefs, effectiveErr = h.contentSvc.BlockDefinitions(admin.WithContentChannel(context.Background(), effective))
 	}
 	if defaultErr != nil || effectiveErr != nil {
 		return c.JSON(http.StatusOK, response)
 	}
 
 	envSet := map[string]struct{}{
-		defaultEnvironmentKey: {},
-		effective:             {},
+		defaultChannelKey: {},
+		effective:         {},
 	}
 	addEnv := func(defs []admin.CMSBlockDefinition, fallback string) {
 		for _, def := range defs {
-			env := normalizeEnvironmentKey(def.Environment)
-			if env == defaultEnvironmentKey && strings.TrimSpace(def.Environment) == "" {
-				env = normalizeEnvironmentKey(fallback)
+			env := normalizeChannelKey(strings.TrimSpace(def.Channel))
+			if strings.TrimSpace(def.Channel) == "" {
+				env = normalizeChannelKey(strings.TrimSpace(def.Environment))
+			}
+			if env == defaultChannelKey && strings.TrimSpace(def.Channel) == "" && strings.TrimSpace(def.Environment) == "" {
+				env = normalizeChannelKey(fallback)
 			}
 			envSet[env] = struct{}{}
 		}
 	}
-	addEnv(defaultDefs, defaultEnvironmentKey)
+	addEnv(defaultDefs, defaultChannelKey)
 	addEnv(effectiveDefs, effective)
 
 	available := make([]string, 0, len(envSet))
@@ -800,7 +801,7 @@ func (h *contentTypeBuilderHandlers) BlockDefinitionDiagnostics(c router.Context
 	sort.Strings(available)
 	if len(available) > 1 {
 		for i, env := range available {
-			if env == defaultEnvironmentKey {
+			if env == defaultChannelKey {
 				available[0], available[i] = available[i], available[0]
 				break
 			}
@@ -809,33 +810,51 @@ func (h *contentTypeBuilderHandlers) BlockDefinitionDiagnostics(c router.Context
 
 	response["total_effective"] = len(effectiveDefs)
 	response["total_default"] = len(defaultDefs)
-	response["available_environments"] = available
+	response["available_channels"] = available
 	return c.JSON(http.StatusOK, response)
 }
 
-func (h *contentTypeBuilderHandlers) UpdateEnvironment(c router.Context) error {
+func (h *contentTypeBuilderHandlers) UpdateChannel(c router.Context) error {
 	if err := h.guard(c, "read"); err != nil {
 		return err
 	}
 	req := struct {
-		Environment string `json:"environment"`
+		Channel        string `json:"channel"`
+		ContentChannel string `json:"content_channel"`
+		Environment    string `json:"environment"`
+		Env            string `json:"env"`
 	}{}
 	if err := parseJSONBody(c, &req); err != nil {
 		return err
 	}
-	env := strings.TrimSpace(req.Environment)
+	channelCandidate := strings.TrimSpace(req.Channel)
+	if channelCandidate == "" {
+		channelCandidate = strings.TrimSpace(req.ContentChannel)
+	}
+	if channelCandidate == "" {
+		channelCandidate = strings.TrimSpace(req.Environment)
+	}
+	if channelCandidate == "" {
+		channelCandidate = strings.TrimSpace(req.Env)
+	}
+	channel, ok := normalizeCookieChannel(channelCandidate)
+	if !ok {
+		return goerrors.New("invalid channel", goerrors.CategoryValidation).
+			WithCode(http.StatusBadRequest).
+			WithTextCode("INVALID_CHANNEL")
+	}
 	path := strings.TrimSpace(h.cfg.BasePath)
 	if path == "" {
 		path = "/"
 	}
 	cookie := router.Cookie{
-		Name:     environmentCookieName,
-		Value:    env,
+		Name:     channelCookieName,
+		Value:    channel,
 		Path:     path,
 		HTTPOnly: true,
 		SameSite: router.CookieSameSiteLaxMode,
 	}
-	if env == "" {
+	if channel == "" {
 		cookie.MaxAge = -1
 		cookie.Expires = time.Unix(0, 0)
 	} else {
@@ -843,7 +862,7 @@ func (h *contentTypeBuilderHandlers) UpdateEnvironment(c router.Context) error {
 	}
 	c.Cookie(&cookie)
 	return c.JSON(http.StatusOK, map[string]any{
-		"environment": env,
+		"channel": channel,
 	})
 }
 
@@ -868,13 +887,13 @@ func (h *contentTypeBuilderHandlers) listPanelRecords(c router.Context, panelNam
 		filters["status"] = status
 	}
 	adminCtx := adminContextFromRequest(c, h.cfg.DefaultLocale)
-	env := resolveEnvironment(c)
+	channel := resolveContentChannel(c)
 	if strings.EqualFold(strings.TrimSpace(panelName), "block_definitions") ||
 		strings.EqualFold(strings.TrimSpace(panelName), "content_types") {
-		env = normalizeEnvironmentKey(env)
+		channel = normalizeChannelKey(channel)
 	}
-	if env != "" {
-		filters["environment"] = env
+	if channel != "" {
+		filters["channel"] = channel
 	}
 	opts := admin.ListOptions{
 		PerPage: 200,
@@ -886,46 +905,47 @@ func (h *contentTypeBuilderHandlers) listPanelRecords(c router.Context, panelNam
 	return panel.List(adminCtx, opts)
 }
 
-func (h *contentTypeBuilderHandlers) contentTypeDiagnostics(c router.Context) contentEnvironmentDiagnostics {
-	requested := strings.ToLower(strings.TrimSpace(resolveEnvironment(c)))
-	effective := normalizeEnvironmentKey(requested)
-	diagnostics := contentEnvironmentDiagnostics{
-		EffectiveEnvironment: effective,
-		RequestedEnvironment: requested,
-		TotalEffective:       0,
-		TotalDefault:         0,
-		AvailableEnvironments: []string{
-			defaultEnvironmentKey,
-		},
+func (h *contentTypeBuilderHandlers) contentTypeDiagnostics(c router.Context) contentChannelDiagnostics {
+	requested := strings.ToLower(strings.TrimSpace(resolveContentChannel(c)))
+	effective := normalizeChannelKey(requested)
+	diagnostics := contentChannelDiagnostics{
+		EffectiveChannel:  effective,
+		RequestedChannel:  requested,
+		TotalEffective:    0,
+		TotalDefault:      0,
+		AvailableChannels: []string{defaultChannelKey},
 	}
 	if h.contentTypeSvc == nil {
 		return diagnostics
 	}
 
-	defaultTypes, defaultErr := h.contentTypeSvc.ContentTypes(admin.WithEnvironment(context.Background(), defaultEnvironmentKey))
+	defaultTypes, defaultErr := h.contentTypeSvc.ContentTypes(admin.WithContentChannel(context.Background(), defaultChannelKey))
 	effectiveTypes := defaultTypes
 	effectiveErr := defaultErr
-	if effective != defaultEnvironmentKey {
-		effectiveTypes, effectiveErr = h.contentTypeSvc.ContentTypes(admin.WithEnvironment(context.Background(), effective))
+	if effective != defaultChannelKey {
+		effectiveTypes, effectiveErr = h.contentTypeSvc.ContentTypes(admin.WithContentChannel(context.Background(), effective))
 	}
 	if defaultErr != nil || effectiveErr != nil {
 		return diagnostics
 	}
 
 	envSet := map[string]struct{}{
-		defaultEnvironmentKey: {},
-		effective:             {},
+		defaultChannelKey: {},
+		effective:         {},
 	}
 	addEnv := func(types []admin.CMSContentType, fallback string) {
 		for _, ct := range types {
-			env := normalizeEnvironmentKey(ct.Environment)
-			if env == defaultEnvironmentKey && strings.TrimSpace(ct.Environment) == "" {
-				env = normalizeEnvironmentKey(fallback)
+			env := normalizeChannelKey(strings.TrimSpace(ct.Channel))
+			if strings.TrimSpace(ct.Channel) == "" {
+				env = normalizeChannelKey(strings.TrimSpace(ct.Environment))
+			}
+			if env == defaultChannelKey && strings.TrimSpace(ct.Channel) == "" && strings.TrimSpace(ct.Environment) == "" {
+				env = normalizeChannelKey(fallback)
 			}
 			envSet[env] = struct{}{}
 		}
 	}
-	addEnv(defaultTypes, defaultEnvironmentKey)
+	addEnv(defaultTypes, defaultChannelKey)
 	addEnv(effectiveTypes, effective)
 
 	available := make([]string, 0, len(envSet))
@@ -935,7 +955,7 @@ func (h *contentTypeBuilderHandlers) contentTypeDiagnostics(c router.Context) co
 	sort.Strings(available)
 	if len(available) > 1 {
 		for i, env := range available {
-			if env == defaultEnvironmentKey {
+			if env == defaultChannelKey {
 				available[0], available[i] = available[i], available[0]
 				break
 			}
@@ -944,7 +964,7 @@ func (h *contentTypeBuilderHandlers) contentTypeDiagnostics(c router.Context) co
 
 	diagnostics.TotalEffective = len(effectiveTypes)
 	diagnostics.TotalDefault = len(defaultTypes)
-	diagnostics.AvailableEnvironments = available
+	diagnostics.AvailableChannels = available
 	return diagnostics
 }
 
@@ -2272,24 +2292,52 @@ func anyToString(value any) string {
 	return fmt.Sprint(value)
 }
 
-func resolveEnvironment(c router.Context) string {
+func normalizeCookieChannel(value string) (string, bool) {
+	channel := strings.ToLower(strings.TrimSpace(value))
+	if channel == "" {
+		return "", true
+	}
+	if len(channel) > 64 {
+		return "", false
+	}
+	for i, ch := range channel {
+		isLowerAlpha := ch >= 'a' && ch <= 'z'
+		isDigit := ch >= '0' && ch <= '9'
+		isPunctuation := ch == '-' || ch == '_'
+		if !isLowerAlpha && !isDigit && !isPunctuation {
+			return "", false
+		}
+		if i == 0 && !isLowerAlpha && !isDigit {
+			return "", false
+		}
+	}
+	return channel, true
+}
+
+func resolveContentChannel(c router.Context) string {
 	if c == nil {
 		return ""
 	}
-	if env := strings.TrimSpace(c.Query("env")); env != "" {
-		return env
+	candidates := []string{
+		c.Query("channel"),
+		c.Query("content_channel"),
+		c.Header("X-Admin-Channel"),
+		c.Header("X-Content-Channel"),
+		c.Cookies(channelCookieName),
+		// Legacy compatibility keys (Phase 6 cleanup target).
+		c.Query("env"),
+		c.Query("environment"),
+		c.Query("content_env"),
+		c.Query("site_env"),
+		c.Header("X-Admin-Environment"),
+		c.Header("X-Environment"),
+		c.Cookies("admin_env"),
+		c.Cookies("site_env"),
 	}
-	if env := strings.TrimSpace(c.Query("environment")); env != "" {
-		return env
-	}
-	if env := strings.TrimSpace(c.Header("X-Admin-Environment")); env != "" {
-		return env
-	}
-	if env := strings.TrimSpace(c.Header("X-Environment")); env != "" {
-		return env
-	}
-	if env := strings.TrimSpace(c.Cookies(environmentCookieName)); env != "" {
-		return env
+	for _, candidate := range candidates {
+		if channel, ok := normalizeCookieChannel(candidate); ok && channel != "" {
+			return channel
+		}
 	}
 	return ""
 }
@@ -2334,9 +2382,9 @@ func adminContextFromRequest(c router.Context, locale string) admin.AdminContext
 		}
 		ctx = authlib.WithActorContext(ctx, actor)
 	}
-	environment := resolveEnvironment(c)
-	if environment != "" {
-		ctx = admin.WithEnvironment(ctx, environment)
+	channel := resolveContentChannel(c)
+	if channel != "" {
+		ctx = admin.WithContentChannel(ctx, channel)
 	}
 	if locale != "" {
 		ctx = admin.WithLocale(ctx, locale)
@@ -2346,7 +2394,8 @@ func adminContextFromRequest(c router.Context, locale string) admin.AdminContext
 		UserID:      userID,
 		TenantID:    tenantID,
 		OrgID:       orgID,
-		Environment: environment,
+		Channel:     channel,
+		Environment: channel,
 		Locale:      locale,
 	}
 }

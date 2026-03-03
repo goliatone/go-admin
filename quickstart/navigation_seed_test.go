@@ -2,6 +2,7 @@ package quickstart
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/goliatone/go-admin/admin"
@@ -76,5 +77,30 @@ func TestSeedNavigationResetUsesMenuResetterWhenAvailable(t *testing.T) {
 	}
 	if menu == nil || len(menu.Items) != 1 {
 		t.Fatalf("expected reset menu to contain one item, got %+v", menu)
+	}
+}
+
+func TestSeedNavigationRejectsLocaleSuffixInMenuID(t *testing.T) {
+	ctx := context.Background()
+	menuSvc := admin.NewInMemoryMenuService()
+
+	err := SeedNavigation(ctx, SeedNavigationOptions{
+		MenuSvc:  menuSvc,
+		MenuCode: "site.main",
+		Locale:   "es",
+		Items: []admin.MenuItem{
+			{
+				ID:     "about.es",
+				Label:  "Sobre Nosotros",
+				Locale: "es",
+				Target: map[string]any{"type": "url", "path": "/sobre-nosotros"},
+			},
+		},
+	})
+	if err == nil {
+		t.Fatalf("expected locale-suffix menu id validation error")
+	}
+	if got := err.Error(); got == "" || !strings.Contains(got, "must not encode locale suffix") {
+		t.Fatalf("unexpected validation error: %v", err)
 	}
 }
