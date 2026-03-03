@@ -25,9 +25,6 @@ func main() {
 		"/admin",
 		"E-Sign Admin",
 		"en",
-		quickstart.WithDebugFromEnv(),
-		quickstart.WithErrorsFromEnv(),
-		quickstart.WithScopeFromEnv(),
 	)
 	applyESignRuntimeDefaults(&cfg)
 	applyESignEmailTransportDefault()
