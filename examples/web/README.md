@@ -200,7 +200,7 @@ Useful config toggles:
 - `site.enable_generated_fallback` (`APP_SITE__ENABLE_GENERATED_FALLBACK=true|false`)
 - `site.enable_search` (`APP_SITE__ENABLE_SEARCH=true|false`)
 - `site.runtime_env` (`APP_SITE__RUNTIME_ENV=dev|staging|prod`)
-- `site.content_env` (`APP_SITE__CONTENT_ENV=default|dev|staging|prod|<channel>`)
+- `site.content_channel` (`APP_SITE__CONTENT_CHANNEL=default|dev|staging|prod|<channel>`)
 - `site.theme` (`APP_SITE__THEME=<theme-name>`)
 - `site.theme_variant` (`APP_SITE__THEME_VARIANT=<variant>`)
 

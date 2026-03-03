@@ -27,7 +27,7 @@ import (
 
 var (
 	cmsSeedNamespace                     = uuid.MustParse("4e7b7b9f-24c0-4d6a-9e2f-6e5a0cc3d7b7")
-	cmsSeedEnvironmentID                 = uuid.MustParse("00000000-0000-0000-0000-000000000001")
+	cmsSeedChannelID                     = uuid.MustParse("00000000-0000-0000-0000-000000000001")
 	seedAuthorID                         = uuid.MustParse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
 	pageContentTypeID                    = uuid.NewSHA1(cmsSeedNamespace, []byte("content_type:page"))
 	postContentTypeID                    = uuid.NewSHA1(cmsSeedNamespace, []byte("content_type:post"))
@@ -1622,19 +1622,23 @@ func seedSiteMenu(ctx context.Context, db *bun.DB, menuSvc admin.CMSMenuService,
 	if len(locales) == 0 {
 		locales = []string{"en"}
 	}
-
-	for _, locale := range locales {
-		items := localizedSiteMenuItems(locale, defaultLocale)
-		if err := quickstart.SeedNavigation(ctx, quickstart.SeedNavigationOptions{
-			MenuSvc:           menuSvc,
-			MenuCode:          SiteNavigationMenuCode,
-			Items:             items,
-			Locale:            locale,
-			SkipLogger:        true,
-			AutoCreateParents: true,
-		}); err != nil {
-			return fmt.Errorf("seed site menu for locale %s: %w", locale, err)
-		}
+	items := localizedSiteMenuSeedItems(defaultLocale, locales)
+	if err := quickstart.SeedLocalizedNavigation(ctx, quickstart.SeedLocalizedNavigationOptions{
+		MenuSvc:           menuSvc,
+		MenuCode:          SiteNavigationMenuCode,
+		Items:             items,
+		DefaultLocale:     defaultLocale,
+		SkipLogger:        true,
+		AutoCreateParents: true,
+	}); err != nil {
+		return fmt.Errorf("seed localized site menu: %w", err)
+	}
+	if _, err := quickstart.MigrateLegacyLocalizedMenuItems(ctx, quickstart.LegacyLocalizedMenuMigrationOptions{
+		MenuSvc:  menuSvc,
+		MenuCode: SiteNavigationMenuCode,
+		Locales:  locales,
+	}); err != nil {
+		return fmt.Errorf("migrate legacy localized site menu entries: %w", err)
 	}
 	if db == nil {
 		return nil
@@ -1642,82 +1646,90 @@ func seedSiteMenu(ctx context.Context, db *bun.DB, menuSvc admin.CMSMenuService,
 	return seedSiteMenuBindingsAndProfiles(ctx, db)
 }
 
-func localizedSiteMenuItems(locale string, defaultLocale string) []admin.MenuItem {
-	baseID := func(id string) string {
-		locale = strings.ToLower(strings.TrimSpace(locale))
-		defaultLocale = strings.ToLower(strings.TrimSpace(defaultLocale))
-		if locale == "" || locale == defaultLocale {
-			return id
-		}
-		return id + "." + locale
+func localizedSiteMenuSeedItems(defaultLocale string, locales []string) []quickstart.LocalizedSeedMenuItem {
+	defaultLocale = strings.ToLower(strings.TrimSpace(defaultLocale))
+	if defaultLocale == "" {
+		defaultLocale = "en"
 	}
-	return []admin.MenuItem{
+	locales = normalizedSeedLocales(locales)
+	if len(locales) == 0 {
+		locales = []string{defaultLocale}
+	}
+	items := []admin.MenuItem{
 		{
-			ID:       baseID("home"),
-			Label:    localizedSiteMenuLabel(locale, "home"),
-			Target:   map[string]any{"type": "url", "path": localizedSiteMenuPath(locale, "home")},
+			ID:       "home",
+			Type:     admin.MenuItemTypeItem,
+			Target:   map[string]any{"type": "url", "path": localizedSiteMenuPath(defaultLocale, "home")},
 			Position: prtInt(1),
 			Menu:     SiteNavigationMenuCode,
-			Locale:   locale,
 		},
 		{
-			ID:       baseID("about"),
-			Label:    localizedSiteMenuLabel(locale, "about"),
-			Target:   map[string]any{"type": "url", "path": localizedSiteMenuPath(locale, "about")},
+			ID:       "about",
+			Type:     admin.MenuItemTypeItem,
+			Target:   map[string]any{"type": "url", "path": localizedSiteMenuPath(defaultLocale, "about")},
 			Position: prtInt(2),
 			Menu:     SiteNavigationMenuCode,
-			Locale:   locale,
 		},
 		{
-			ID:       baseID("team"),
-			Label:    localizedSiteMenuLabel(locale, "team"),
-			Target:   map[string]any{"type": "url", "path": localizedSiteMenuPath(locale, "team")},
+			ID:       "team",
+			Type:     admin.MenuItemTypeItem,
+			Target:   map[string]any{"type": "url", "path": localizedSiteMenuPath(defaultLocale, "team")},
 			Position: prtInt(3),
 			Menu:     SiteNavigationMenuCode,
-			Locale:   locale,
 		},
 		{
-			ID:       baseID("contact"),
-			Label:    localizedSiteMenuLabel(locale, "contact"),
-			Target:   map[string]any{"type": "url", "path": localizedSiteMenuPath(locale, "contact")},
+			ID:       "contact",
+			Type:     admin.MenuItemTypeItem,
+			Target:   map[string]any{"type": "url", "path": localizedSiteMenuPath(defaultLocale, "contact")},
 			Position: prtInt(4),
 			Menu:     SiteNavigationMenuCode,
-			Locale:   locale,
 		},
 		{
-			ID:       baseID("posts"),
-			Label:    localizedSiteMenuLabel(locale, "posts"),
-			Target:   map[string]any{"type": "url", "path": localizedSiteMenuPath(locale, "posts")},
+			ID:       "posts",
+			Type:     admin.MenuItemTypeItem,
+			Target:   map[string]any{"type": "url", "path": localizedSiteMenuPath(defaultLocale, "posts")},
 			Position: prtInt(5),
 			Menu:     SiteNavigationMenuCode,
-			Locale:   locale,
 		},
 		{
-			ID:       baseID("news"),
-			Label:    localizedSiteMenuLabel(locale, "news"),
-			Target:   map[string]any{"type": "url", "path": localizedSiteMenuPath(locale, "news")},
+			ID:       "news",
+			Type:     admin.MenuItemTypeItem,
+			Target:   map[string]any{"type": "url", "path": localizedSiteMenuPath(defaultLocale, "news")},
 			Position: prtInt(6),
 			Menu:     SiteNavigationMenuCode,
-			Locale:   locale,
 		},
 		{
-			ID:       baseID("posts.getting-started-go"),
-			Label:    localizedSiteMenuLabel(locale, "posts.getting-started-go"),
-			Target:   map[string]any{"type": "url", "path": localizedSiteMenuPath(locale, "posts.getting-started-go")},
-			ParentID: baseID("posts"),
+			ID:       "posts.getting-started-go",
+			Type:     admin.MenuItemTypeItem,
+			Target:   map[string]any{"type": "url", "path": localizedSiteMenuPath(defaultLocale, "posts.getting-started-go")},
+			ParentID: "posts",
 			Position: prtInt(7),
 			Menu:     SiteNavigationMenuCode,
-			Locale:   locale,
 		},
 		{
-			ID:       baseID("search"),
-			Label:    localizedSiteMenuLabel(locale, "search"),
-			Target:   map[string]any{"type": "url", "path": localizedSiteMenuPath(locale, "search")},
+			ID:       "search",
+			Type:     admin.MenuItemTypeItem,
+			Target:   map[string]any{"type": "url", "path": localizedSiteMenuPath(defaultLocale, "search")},
 			Position: prtInt(8),
 			Menu:     SiteNavigationMenuCode,
-			Locale:   locale,
 		},
 	}
+	out := make([]quickstart.LocalizedSeedMenuItem, 0, len(items))
+	for _, item := range items {
+		localized := quickstart.LocalizedSeedMenuItem{
+			Item:         item,
+			Translations: make([]quickstart.LocalizedMenuItemTranslation, 0, len(locales)),
+		}
+		for _, locale := range locales {
+			localized.Translations = append(localized.Translations, quickstart.LocalizedMenuItemTranslation{
+				Locale:      locale,
+				Label:       localizedSiteMenuLabel(locale, item.ID),
+				URLOverride: localizedSiteMenuPath(locale, item.ID),
+			})
+		}
+		out = append(out, localized)
+	}
+	return out
 }
 
 func localizedSiteMenuPath(locale string, itemID string) string {
@@ -1851,7 +1863,7 @@ func seedSiteMenuBindingsAndProfiles(ctx context.Context, db *bun.DB) error {
 			Mode:          "full",
 			Status:        "published",
 			PublishedAt:   &publishedAt,
-			EnvironmentID: cmsSeedEnvironmentID,
+			EnvironmentID: cmsSeedChannelID,
 			CreatedBy:     seedAuthorID,
 			UpdatedBy:     seedAuthorID,
 			CreatedAt:     now,
@@ -1865,7 +1877,7 @@ func seedSiteMenuBindingsAndProfiles(ctx context.Context, db *bun.DB) error {
 			MaxTopLevel:   prtInt(5),
 			Status:        "published",
 			PublishedAt:   &publishedAt,
-			EnvironmentID: cmsSeedEnvironmentID,
+			EnvironmentID: cmsSeedChannelID,
 			CreatedBy:     seedAuthorID,
 			UpdatedBy:     seedAuthorID,
 			CreatedAt:     now,
@@ -1903,7 +1915,7 @@ func seedSiteMenuBindingsAndProfiles(ctx context.Context, db *bun.DB) error {
 			Priority:        100,
 			Status:          "published",
 			PublishedAt:     &publishedAt,
-			EnvironmentID:   cmsSeedEnvironmentID,
+			EnvironmentID:   cmsSeedChannelID,
 			CreatedBy:       seedAuthorID,
 			UpdatedBy:       seedAuthorID,
 			CreatedAt:       now,
@@ -1917,7 +1929,7 @@ func seedSiteMenuBindingsAndProfiles(ctx context.Context, db *bun.DB) error {
 			Priority:        90,
 			Status:          "published",
 			PublishedAt:     &publishedAt,
-			EnvironmentID:   cmsSeedEnvironmentID,
+			EnvironmentID:   cmsSeedChannelID,
 			CreatedBy:       seedAuthorID,
 			UpdatedBy:       seedAuthorID,
 			CreatedAt:       now,

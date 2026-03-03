@@ -1400,6 +1400,9 @@ func (b *goCMSContentBridge) cacheContentType(key string, id uuid.UUID, slug, na
 }
 
 func environmentKeyFromContext(ctx context.Context) string {
+	if channel := strings.TrimSpace(admin.ContentChannelFromContext(ctx)); channel != "" {
+		return channel
+	}
 	return strings.TrimSpace(admin.EnvironmentFromContext(ctx))
 }
 

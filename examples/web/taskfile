@@ -108,9 +108,9 @@ function dev:serve {
 
     # Canonical runtime config envs (examples/web/config uses APP_ + __ delimiters).
     export APP_APP__ENV=development;
-    # Runtime env ("dev"/"prod") is app behavior; content env scopes CMS reads.
+    # Runtime env ("dev"/"prod") is app behavior; content channel scopes CMS reads.
     export APP_SITE__RUNTIME_ENV=dev;
-    export APP_SITE__CONTENT_ENV=default;
+    export APP_SITE__CONTENT_CHANNEL=default;
     export APP_SITE__ALLOW_LOCALE_FALLBACK=true;
     export APP_NAVIGATION__RESET_MENU=true;
     export APP_NAVIGATION__DEBUG=false;
@@ -124,11 +124,10 @@ function dev:serve {
     export APP_TRANSLATION__PROFILE=full;
     export APP_ADMIN__ASSETS_DIR="${root_dir}/pkg/client/assets";
 
-    # Legacy aliases for scripts/tools that still read old names.
+    # Compatibility aliases for scripts/tools still using generic names.
     export ENV="${APP_APP__ENV}";
     export SITE_RUNTIME_ENV="${APP_SITE__RUNTIME_ENV}";
-    export SITE_CONTENT_ENV="${APP_SITE__CONTENT_ENV}";
-    export SITE_ENV="${APP_SITE__CONTENT_ENV}";
+    export SITE_CONTENT_CHANNEL="${APP_SITE__CONTENT_CHANNEL}";
     export SITE_ALLOW_LOCALE_FALLBACK="${APP_SITE__ALLOW_LOCALE_FALLBACK}";
     export RESET_NAV_MENU="${APP_NAVIGATION__RESET_MENU}";
     export USE_PERSISTENT_CMS="${APP_FEATURES__PERSISTENT_CMS}";

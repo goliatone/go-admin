@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/goliatone/go-admin/pkg/admin"
+	coreadmin "github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-crud"
 )
 
@@ -19,24 +19,36 @@ func contentCRUDContextFactory(defaultLocale string) func(crud.Context) crud.Con
 			locale = strings.TrimSpace(ctx.Query("requested_locale"))
 		}
 		if locale == "" {
-			locale = admin.LocaleFromContext(base)
+			locale = coreadmin.LocaleFromContext(base)
 		}
 		if locale == "" {
 			locale = strings.TrimSpace(defaultLocale)
 		}
 		if locale != "" {
-			base = admin.WithLocale(base, locale)
+			base = coreadmin.WithLocale(base, locale)
 		}
 
-		environment := strings.TrimSpace(ctx.Query("env"))
-		if environment == "" {
-			environment = strings.TrimSpace(ctx.Query("environment"))
+		channel := strings.TrimSpace(ctx.Query("channel"))
+		if channel == "" {
+			channel = strings.TrimSpace(ctx.Query("content_channel"))
 		}
-		if environment == "" {
-			environment = admin.EnvironmentFromContext(base)
+		if channel == "" {
+			channel = strings.TrimSpace(ctx.Query("env"))
 		}
-		if environment != "" {
-			base = admin.WithEnvironment(base, environment)
+		if channel == "" {
+			channel = strings.TrimSpace(ctx.Query("environment"))
+		}
+		if channel == "" {
+			channel = strings.TrimSpace(ctx.Query("content_env"))
+		}
+		if channel == "" {
+			channel = strings.TrimSpace(ctx.Query("site_env"))
+		}
+		if channel == "" {
+			channel = coreadmin.ContentChannelFromContext(base)
+		}
+		if channel != "" {
+			base = coreadmin.WithContentChannel(base, channel)
 		}
 
 		if setter, ok := ctx.(interface{ SetUserContext(context.Context) }); ok {

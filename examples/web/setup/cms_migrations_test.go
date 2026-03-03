@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -428,4 +429,111 @@ WHERE c.slug = 'home'`)
 	if rowCount == 0 {
 		t.Fatalf("expected at least one home content translation row")
 	}
+}
+
+func TestPersistentCMSRepairsLegacyMenuChannelSchema(t *testing.T) {
+	t.Helper()
+
+	ctx := context.Background()
+	dsn := fmt.Sprintf("file:%s?cache=shared&_fk=1", filepath.Join(t.TempDir(), strings.ToLower(t.Name())+".db"))
+
+	if _, err := SetupPersistentCMS(ctx, "en", dsn); err != nil {
+		t.Fatalf("setup persistent cms: %v", err)
+	}
+
+	db, err := sql.Open("sqlite3", dsn)
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	defer db.Close()
+
+	_, err = db.ExecContext(ctx, `
+DROP TABLE IF EXISTS menu_view_profiles;
+DROP TABLE IF EXISTS menu_location_bindings;
+
+CREATE TABLE menu_view_profiles (
+    id TEXT PRIMARY KEY,
+    code TEXT NOT NULL,
+    name TEXT NOT NULL,
+    mode TEXT NOT NULL DEFAULT 'full',
+    max_top_level INTEGER,
+    max_depth INTEGER,
+    include_item_ids TEXT,
+    exclude_item_ids TEXT,
+    status TEXT NOT NULL DEFAULT 'published',
+    published_at TIMESTAMP,
+    channel_id TEXT NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001',
+    created_by TEXT NOT NULL,
+    updated_by TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE UNIQUE INDEX idx_menu_view_profiles_channel_code
+    ON menu_view_profiles(channel_id, code);
+
+CREATE TABLE menu_location_bindings (
+    id TEXT PRIMARY KEY,
+    location TEXT NOT NULL,
+    menu_code TEXT NOT NULL,
+    view_profile_code TEXT,
+    locale TEXT,
+    priority INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'published',
+    published_at TIMESTAMP,
+    channel_id TEXT NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001',
+    created_by TEXT NOT NULL,
+    updated_by TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_menu_location_bindings_channel_location
+    ON menu_location_bindings(channel_id, location);
+`)
+	if err != nil {
+		t.Fatalf("install legacy channel schema drift: %v", err)
+	}
+
+	if _, err := SetupPersistentCMS(ctx, "en", dsn); err != nil {
+		t.Fatalf("re-setup persistent cms after schema drift: %v", err)
+	}
+
+	if !sqliteTableHasColumn(t, db, "menu_view_profiles", "environment_id") {
+		t.Fatalf("expected menu_view_profiles.environment_id to be restored")
+	}
+	if !sqliteTableHasColumn(t, db, "menu_location_bindings", "environment_id") {
+		t.Fatalf("expected menu_location_bindings.environment_id to be restored")
+	}
+
+	var profileCount int
+	if err := db.QueryRowContext(ctx, `SELECT COUNT(1) FROM menu_view_profiles WHERE code = 'full'`).Scan(&profileCount); err != nil {
+		t.Fatalf("query repaired menu_view_profiles seed row: %v", err)
+	}
+	if profileCount < 1 {
+		t.Fatalf("expected menu_view_profiles to be reseeded after drift repair")
+	}
+}
+
+func sqliteTableHasColumn(t *testing.T, db *sql.DB, table, column string) bool {
+	t.Helper()
+	rows, err := db.Query(fmt.Sprintf(`PRAGMA table_info('%s')`, table))
+	if err != nil {
+		t.Fatalf("pragma table_info(%s): %v", table, err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var cid int
+		var name, columnType string
+		var notNull, pk int
+		var defValue sql.NullString
+		if err := rows.Scan(&cid, &name, &columnType, &notNull, &defValue, &pk); err != nil {
+			t.Fatalf("scan pragma row for %s: %v", table, err)
+		}
+		if strings.EqualFold(strings.TrimSpace(name), strings.TrimSpace(column)) {
+			return true
+		}
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("iterate pragma rows for %s: %v", table, err)
+	}
+	return false
 }
