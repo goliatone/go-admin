@@ -50,7 +50,7 @@ Examples:
 | `admin.scope.default_org_id` | `APP_ADMIN__SCOPE__DEFAULT_ORG_ID` | Default org in single mode |
 | `admin.authz_preflight.mode` | `APP_ADMIN__AUTHZ_PREFLIGHT__MODE` | `off`, `warn`, `strict` |
 | `site.runtime_env` | `APP_SITE__RUNTIME_ENV` | Runtime behavior environment (`dev`, `staging`, `prod`) |
-| `site.content_env` | `APP_SITE__CONTENT_ENV` | CMS content scope (`default`, `dev`, etc.) |
+| `site.content_channel` | `APP_SITE__CONTENT_CHANNEL` | CMS content scope (`default`, `dev`, etc.) |
 | `site.environment_strict` | `APP_SITE__ENVIRONMENT_STRICT` | Fail-fast env mismatch detection |
 | `features.persistent_cms` | `APP_FEATURES__PERSISTENT_CMS` | Persistent CMS adapter toggle |
 | `features.go_options` | `APP_FEATURES__GO_OPTIONS` | go-options settings backend toggle |

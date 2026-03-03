@@ -184,9 +184,9 @@ If tests fail outside changed scope:
 
 If site runtime returns 404 with empty primary nav in persistent CMS:
 
-1. Check effective runtime/content env pair in startup logs (`Site Environments: runtime=... content=...`).
-2. Verify local profile uses `site.runtime_env=dev` and `site.content_env=default` (or your promoted target env).
-3. Confirm seed/promoted data exists in that content env (content types, contents, and `site.main` menu bindings/items).
+1. Check effective runtime/content channel pair in startup logs (`Site Environments: runtime=... content=...`).
+2. Verify local profile uses `site.runtime_env=dev` and `site.content_channel=default` (or your promoted target channel).
+3. Confirm seed/promoted data exists in that content channel (content types, contents, and `site.main` menu bindings/items).
 4. Enable strict mismatch detection in non-local runs: `site.environment_strict=true` (`APP_SITE__ENVIRONMENT_STRICT=true`).
 
 If `/` works but menu links like `/about` return `Cannot GET /about`:
