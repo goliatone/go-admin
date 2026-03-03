@@ -6,6 +6,71 @@ pages:
     status: "published"
     path: "/"
     tags: ["platform", "enterprise", "overview"]
+    translations:
+      es:
+        title: "Inicio"
+        summary: "Resumen de la plataforma para equipos que operan flujos de contenido exigentes."
+        body: "Enterprise Admin centraliza publicacion, operaciones y gobernanza para que los equipos publiquen contenido de forma segura con aprobaciones claras y trazabilidad."
+        path: "/"
+        tags: ["plataforma", "enterprise", "resumen"]
+        custom:
+          featured_image: "/static/media/banner.jpg"
+          published_at: "2025-09-13T10:00:00Z"
+          meta:
+            audience: "operations"
+            funnel_stage: "awareness"
+            reading_time_minutes: 3
+          seo:
+            title: "Enterprise Admin | Plataforma de Operaciones de Contenido"
+            description: "Gestiona paginas, posts y flujos de trabajo desde un solo panel operativo."
+          markdown:
+            frontmatter:
+              title: "Inicio"
+              summary: "Resumen de la plataforma para equipos que operan flujos de contenido exigentes."
+              status: "published"
+              featured_image: "/static/media/banner.jpg"
+              tags: ["plataforma", "enterprise", "resumen"]
+            body: "Enterprise Admin centraliza publicacion, operaciones y gobernanza para que los equipos publiquen contenido de forma segura con aprobaciones claras y trazabilidad."
+          blocks:
+            - _type: "hero"
+              headline: "Enterprise Admin"
+              subheadline: "Construye experiencias de administracion modulares con go-cms."
+              cta_label: "Explorar"
+              cta_url: "/admin"
+            - _type: "rich_text"
+              body: "El panel CMS ahora soporta bloques definidos por esquema para paginas y posts."
+      fr:
+        title: "Accueil"
+        summary: "Vue d'ensemble de la plateforme pour les equipes qui pilotent des flux de contenu exigeants."
+        body: "Enterprise Admin centralise publication, operations et gouvernance pour aider les equipes a livrer du contenu en toute securite avec des validations claires et une tracabilite complete."
+        path: "/"
+        tags: ["plateforme", "enterprise", "apercu"]
+        custom:
+          featured_image: "/static/media/banner.jpg"
+          published_at: "2025-09-13T10:00:00Z"
+          meta:
+            audience: "operations"
+            funnel_stage: "awareness"
+            reading_time_minutes: 3
+          seo:
+            title: "Enterprise Admin | Plateforme d'Operations Contenu"
+            description: "Pilotez pages, posts et workflows depuis un seul panneau operationnel."
+          markdown:
+            frontmatter:
+              title: "Accueil"
+              summary: "Vue d'ensemble de la plateforme pour les equipes qui pilotent des flux de contenu exigeants."
+              status: "published"
+              featured_image: "/static/media/banner.jpg"
+              tags: ["plateforme", "enterprise", "apercu"]
+            body: "Enterprise Admin centralise publication, operations et gouvernance pour aider les equipes a livrer du contenu en toute securite avec des validations claires et une tracabilite complete."
+          blocks:
+            - _type: "hero"
+              headline: "Enterprise Admin"
+              subheadline: "Concevez des experiences d'administration modulaires avec go-cms."
+              cta_label: "Explorer"
+              cta_url: "/admin"
+            - _type: "rich_text"
+              body: "Le panneau CMS prend maintenant en charge des blocs bases sur des schemas pour les pages et les posts."
     custom:
       featured_image: "/static/media/banner.jpg"
       published_at: "2025-09-13T10:00:00Z"
@@ -40,6 +105,59 @@ pages:
     status: "published"
     path: "/about"
     tags: ["company", "mission", "engineering"]
+    translations:
+      es:
+        title: "Sobre Nosotros"
+        summary: "Como el equipo construye herramientas administrativas confiables para servicios Go."
+        body: "Creamos productos administrativos componibles sobre go-cms, go-formgen y go-featuregate, con foco en operaciones mantenibles."
+        path: "/sobre-nosotros"
+        tags: ["empresa", "mision", "ingenieria"]
+        custom:
+          featured_image: "/static/media/logo.png"
+          published_at: "2025-10-13T10:00:00Z"
+          meta:
+            audience: "customers"
+            reading_time_minutes: 4
+          seo:
+            title: "Sobre Enterprise Admin"
+            description: "Conoce al equipo que construye herramientas administrativas modulares para aplicaciones Go."
+          markdown:
+            frontmatter:
+              title: "Sobre Nosotros"
+              summary: "Como el equipo construye herramientas administrativas confiables para servicios Go."
+              status: "published"
+              featured_image: "/static/media/logo.png"
+              tags: ["empresa", "mision", "ingenieria"]
+            body: "Creamos productos administrativos componibles sobre go-cms, go-formgen y go-featuregate, con foco en operaciones mantenibles."
+          blocks:
+            - _type: "rich_text"
+              body: "Creamos experiencias administrativas modulares sobre go-cms y go-formgen."
+      fr:
+        title: "A Propos"
+        summary: "Comment l'equipe construit des outils d'administration fiables pour les services Go."
+        body: "Nous construisons des produits d'administration composables avec go-cms, go-formgen et go-featuregate, en mettant l'accent sur des operations maintenables."
+        path: "/a-propos"
+        tags: ["entreprise", "mission", "ingenierie"]
+        custom:
+          featured_image: "/static/media/logo.png"
+          published_at: "2025-10-13T10:00:00Z"
+          meta:
+            audience: "customers"
+            reading_time_minutes: 4
+          seo:
+            title: "A Propos d'Enterprise Admin"
+            description: "Rencontrez l'equipe qui construit une administration modulaire pour les applications Go."
+          markdown:
+            frontmatter:
+              title: "A Propos"
+              summary: "Comment l'equipe construit des outils d'administration fiables pour les services Go."
+              status: "published"
+              featured_image: "/static/media/logo.png"
+              tags: ["entreprise", "mission", "ingenierie"]
+            body: "Nous construisons des produits d'administration composables avec go-cms, go-formgen et go-featuregate, en mettant l'accent sur des operations maintenables."
+          blocks:
+            - _type: "rich_text"
+              body: "Nous construisons des experiences d'administration modulaires sur go-cms et go-formgen."
     custom:
       featured_image: "/static/media/logo.png"
       published_at: "2025-10-13T10:00:00Z"
@@ -68,6 +186,33 @@ pages:
     status: "published"
     path: "/about/team"
     tags: ["team", "culture", "delivery"]
+    translations:
+      fr:
+        title: "Notre Equipe"
+        summary: "L'equipe distribuee produit, design et plateforme derriere les livraisons."
+        body: "Notre equipe distribuee livre chaque semaine en alignant revues produit et plateforme pour maintenir la qualite sans ralentir la livraison."
+        path: "/a-propos/equipe"
+        tags: ["equipe", "culture", "livraison"]
+        custom:
+          featured_image: "/static/media/banner.jpg"
+          published_at: "2025-11-12T10:00:00Z"
+          _navigation:
+            site.main: "show"
+            site.footer: "hide"
+          meta:
+            department: "platform"
+            reading_time_minutes: 2
+          seo:
+            title: "Notre Equipe | Enterprise Admin"
+            description: "Rencontrez les ingenieurs et operateurs qui construisent Enterprise Admin."
+          markdown:
+            frontmatter:
+              title: "Notre Equipe"
+              summary: "L'equipe distribuee produit, design et plateforme derriere les livraisons."
+              status: "published"
+              featured_image: "/static/media/banner.jpg"
+              tags: ["equipe", "culture", "livraison"]
+            body: "Notre equipe distribuee livre chaque semaine en alignant revues produit et plateforme pour maintenir la qualite sans ralentir la livraison."
     custom:
       featured_image: "/static/media/banner.jpg"
       published_at: "2025-11-12T10:00:00Z"
@@ -96,6 +241,59 @@ pages:
     status: "published"
     path: "/contact"
     tags: ["support", "sales", "contact"]
+    translations:
+      es:
+        title: "Contacto"
+        summary: "Habla con soporte, solicita una demo o resuelve dudas de implementacion."
+        body: "Contactanos para onboarding, revisiones de arquitectura y planes de respuesta para soporte en produccion."
+        path: "/contacto"
+        tags: ["soporte", "ventas", "contacto"]
+        custom:
+          featured_image: "/static/media/logo.png"
+          published_at: "2025-12-27T10:00:00Z"
+          _navigation:
+            site.main: "hide"
+            site.footer: "show"
+          meta:
+            owner_team: "customer-success"
+            reading_time_minutes: 1
+          seo:
+            title: "Contacta a Enterprise Admin"
+            description: "Ponte en contacto para soporte, demos y guia de implementacion."
+          markdown:
+            frontmatter:
+              title: "Contacto"
+              summary: "Habla con soporte, solicita una demo o resuelve dudas de implementacion."
+              status: "published"
+              featured_image: "/static/media/logo.png"
+              tags: ["soporte", "ventas", "contacto"]
+            body: "Contactanos para onboarding, revisiones de arquitectura y planes de respuesta para soporte en produccion."
+      fr:
+        title: "Contact"
+        summary: "Parlez au support, demandez une demo ou posez vos questions d'implementation."
+        body: "Contactez-nous pour l'onboarding, les revues d'architecture et la planification du support de production."
+        path: "/contact"
+        tags: ["support", "ventes", "contact"]
+        custom:
+          featured_image: "/static/media/logo.png"
+          published_at: "2025-12-27T10:00:00Z"
+          _navigation:
+            site.main: "hide"
+            site.footer: "show"
+          meta:
+            owner_team: "customer-success"
+            reading_time_minutes: 1
+          seo:
+            title: "Contacter Enterprise Admin"
+            description: "Joignez-nous pour le support, les demos et l'accompagnement d'implementation."
+          markdown:
+            frontmatter:
+              title: "Contact"
+              summary: "Parlez au support, demandez une demo ou posez vos questions d'implementation."
+              status: "published"
+              featured_image: "/static/media/logo.png"
+              tags: ["support", "ventes", "contact"]
+            body: "Contactez-nous pour l'onboarding, les revues d'architecture et la planification du support de production."
     custom:
       featured_image: "/static/media/logo.png"
       published_at: "2025-12-27T10:00:00Z"

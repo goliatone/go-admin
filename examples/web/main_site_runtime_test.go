@@ -37,6 +37,12 @@ func TestResolveSiteRuntimeConfigDefaults(t *testing.T) {
 	if siteCfg.ContentEnvironment != defaultSiteContentEnv {
 		t.Fatalf("expected content environment %q, got %q", defaultSiteContentEnv, siteCfg.ContentEnvironment)
 	}
+	if siteCfg.Features.EnableCanonicalRedirect == nil || !*siteCfg.Features.EnableCanonicalRedirect {
+		t.Fatalf("expected canonical redirect feature enabled by default")
+	}
+	if siteCfg.Features.StrictLocalizedPaths == nil || *siteCfg.Features.StrictLocalizedPaths {
+		t.Fatalf("expected strict localized paths feature disabled by default")
+	}
 }
 
 func TestResolveSiteRuntimeConfigEnvOverrides(t *testing.T) {
@@ -46,6 +52,8 @@ func TestResolveSiteRuntimeConfigEnvOverrides(t *testing.T) {
 	t.Setenv("SITE_LOCALE_PREFIX_MODE", "always")
 	t.Setenv("SITE_ENABLE_GENERATED_FALLBACK", "true")
 	t.Setenv("SITE_ENABLE_SEARCH", "false")
+	t.Setenv("SITE_ENABLE_CANONICAL_REDIRECT", "false")
+	t.Setenv("SITE_STRICT_LOCALIZED_PATHS", "true")
 	t.Setenv("SITE_SUPPORTED_LOCALES", "en,es,de")
 	t.Setenv("SITE_RUNTIME_ENV", "staging")
 	t.Setenv("SITE_ENV", "prod")
@@ -67,6 +75,12 @@ func TestResolveSiteRuntimeConfigEnvOverrides(t *testing.T) {
 	}
 	if siteCfg.Features.EnableSearch == nil || *siteCfg.Features.EnableSearch {
 		t.Fatalf("expected search feature disabled by env override")
+	}
+	if siteCfg.Features.EnableCanonicalRedirect == nil || *siteCfg.Features.EnableCanonicalRedirect {
+		t.Fatalf("expected canonical redirect feature disabled by env override")
+	}
+	if siteCfg.Features.StrictLocalizedPaths == nil || !*siteCfg.Features.StrictLocalizedPaths {
+		t.Fatalf("expected strict localized paths feature enabled by env override")
 	}
 	if len(siteCfg.SupportedLocales) != 3 {
 		t.Fatalf("expected 3 supported locales, got %v", siteCfg.SupportedLocales)
@@ -107,6 +121,8 @@ func clearSiteRuntimeEnvForTest(t *testing.T) {
 		"SITE_LOCALE_PREFIX_MODE",
 		"SITE_ENABLE_GENERATED_FALLBACK",
 		"SITE_ENABLE_SEARCH",
+		"SITE_ENABLE_CANONICAL_REDIRECT",
+		"SITE_STRICT_LOCALIZED_PATHS",
 		"SITE_SUPPORTED_LOCALES",
 		"SITE_RUNTIME_ENV",
 		"SITE_CONTENT_ENV",

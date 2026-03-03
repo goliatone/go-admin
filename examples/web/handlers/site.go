@@ -127,6 +127,7 @@ func (h *SiteHandlers) Page(c router.Context) error {
 		return goerrors.New("not found", goerrors.CategoryNotFound).WithCode(goerrors.CodeNotFound)
 	}
 	locale := h.localeFromRequest(c)
+	path = stripLocalePrefix(path, locale)
 
 	var page *sitePage
 	var err error
@@ -174,6 +175,7 @@ func (h *SiteHandlers) PostsIndex(c router.Context) error {
 		return goerrors.New("not found", goerrors.CategoryNotFound).WithCode(goerrors.CodeNotFound)
 	}
 	locale := h.localeFromRequest(c)
+	path = stripLocalePrefix(path, locale)
 	posts, err := h.listPosts(c.Context(), locale)
 	if err != nil {
 		return err
@@ -214,6 +216,7 @@ func (h *SiteHandlers) PostDetail(c router.Context) error {
 		return goerrors.New("not found", goerrors.CategoryNotFound).WithCode(goerrors.CodeNotFound)
 	}
 	locale := h.localeFromRequest(c)
+	path = stripLocalePrefix(path, locale)
 	var post *sitePost
 	var err error
 
@@ -356,9 +359,12 @@ func (h *SiteHandlers) localeFromRequest(c router.Context) string {
 	}
 	locale := strings.TrimSpace(c.Query("locale"))
 	if locale == "" {
+		locale = localeFromPath(c.Path())
+	}
+	if locale == "" {
 		return h.DefaultLocale
 	}
-	return locale
+	return strings.ToLower(locale)
 }
 
 func (h *SiteHandlers) shouldSkip(path string) bool {
@@ -421,15 +427,16 @@ func mapToSitePage(record map[string]any) *sitePage {
 	if record == nil {
 		return &sitePage{}
 	}
+	data := asMap(record["data"])
 	title := asString(record["title"], "")
-	path := asString(record["path"], asString(record["slug"], "/"))
-	summary := asString(record["summary"], "")
-	content := asString(record["content"], "")
-	metaTitle := asString(record["meta_title"], "")
+	path := asString(record["path"], asString(data["path"], asString(record["slug"], "/")))
+	summary := asString(record["summary"], asString(data["summary"], asString(data["excerpt"], "")))
+	content := asString(record["content"], asString(data["content"], asString(data["body"], "")))
+	metaTitle := asString(record["meta_title"], asString(data["meta_title"], ""))
 	if metaTitle == "" {
 		metaTitle = title
 	}
-	metaDescription := asString(record["meta_description"], "")
+	metaDescription := asString(record["meta_description"], asString(data["meta_description"], ""))
 	updatedAt := parseTimePtr(record["updated_at"])
 	return &sitePage{
 		ID:              asString(record["id"], ""),
@@ -446,9 +453,10 @@ func mapToSitePage(record map[string]any) *sitePage {
 }
 
 func mapToSitePost(record map[string]any) sitePost {
+	data := asMap(record["data"])
 	title := asString(record["title"], "")
-	path := asString(record["path"], "/posts/"+strings.TrimPrefix(asString(record["slug"], ""), "/"))
-	metaTitle := asString(record["meta_title"], "")
+	path := asString(record["path"], asString(data["path"], "/posts/"+strings.TrimPrefix(asString(record["slug"], ""), "/")))
+	metaTitle := asString(record["meta_title"], asString(data["meta_title"], ""))
 	if metaTitle == "" {
 		metaTitle = title
 	}
@@ -457,15 +465,15 @@ func mapToSitePost(record map[string]any) sitePost {
 	return sitePost{
 		ID:              asString(record["id"], ""),
 		Title:           title,
-		Summary:         asString(record["excerpt"], ""),
-		Content:         asString(record["content"], ""),
+		Summary:         asString(record["excerpt"], asString(record["summary"], asString(data["summary"], asString(data["excerpt"], "")))),
+		Content:         asString(record["content"], asString(data["content"], asString(data["body"], ""))),
 		Path:            path,
 		Status:          strings.ToLower(asString(record["status"], "")),
 		MetaTitle:       metaTitle,
-		MetaDescription: asString(record["meta_description"], ""),
+		MetaDescription: asString(record["meta_description"], asString(data["meta_description"], "")),
 		PublishedAt:     publishedAt,
 		UpdatedAt:       updatedAt,
-		Tags:            asString(record["tags"], ""),
+		Tags:            asString(record["tags"], asString(data["tags"], "")),
 		PublishedAtText: formatDate(publishedAt),
 	}
 }
@@ -532,6 +540,51 @@ func asString(val any, def string) string {
 		}
 		return s
 	}
+}
+
+func asMap(val any) map[string]any {
+	if val == nil {
+		return nil
+	}
+	typed, ok := val.(map[string]any)
+	if !ok {
+		return nil
+	}
+	return typed
+}
+
+func localeFromPath(path string) string {
+	path = normalizeSitePath(path)
+	segments := strings.FieldsFunc(strings.Trim(path, "/"), func(r rune) bool { return r == '/' })
+	if len(segments) == 0 {
+		return ""
+	}
+	locale := strings.TrimSpace(strings.ToLower(segments[0]))
+	if len(locale) != 2 {
+		return ""
+	}
+	for _, r := range locale {
+		if r < 'a' || r > 'z' {
+			return ""
+		}
+	}
+	return locale
+}
+
+func stripLocalePrefix(path, locale string) string {
+	path = normalizeSitePath(path)
+	locale = strings.TrimSpace(strings.ToLower(locale))
+	if locale == "" || path == "/" {
+		return path
+	}
+	prefix := "/" + locale
+	if path == prefix {
+		return "/"
+	}
+	if strings.HasPrefix(path, prefix+"/") {
+		return normalizeSitePath(strings.TrimPrefix(path, prefix))
+	}
+	return path
 }
 
 func fallbackLabel(label, path string) string {

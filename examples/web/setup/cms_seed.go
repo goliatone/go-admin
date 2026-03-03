@@ -34,7 +34,6 @@ var (
 	newsContentTypeID                    = uuid.NewSHA1(cmsSeedNamespace, []byte("content_type:news"))
 	seedThemeID                          = uuid.NewSHA1(cmsSeedNamespace, []byte("theme:admin-demo"))
 	seedTemplateID                       = uuid.NewSHA1(cmsSeedNamespace, []byte("template:page-default"))
-	siteMenuLocaleDefault                = ""
 	translationScenarioMultilingualSlugs = map[string]struct{}{
 		"home":                          {},
 		"getting-started-go":            {},
@@ -79,12 +78,12 @@ func translationSeedLocales(defaultLocale string) []string {
 	return locales
 }
 
-func translationSeedLocalesForSlug(defaultLocale, slug string) []string {
+func translationSeedLocalesForSeed(defaultLocale string, seed contentSeed) []string {
 	primary := strings.ToLower(strings.TrimSpace(defaultLocale))
 	if primary == "" {
 		primary = "en"
 	}
-	slug = strings.ToLower(strings.TrimSpace(slug))
+	slug := strings.ToLower(strings.TrimSpace(seed.Slug))
 
 	// Missing locale scenario: seed en/es but NOT fr (for readiness testing)
 	if _, ok := translationScenarioMissingLocale[slug]; ok {
@@ -96,10 +95,35 @@ func translationSeedLocalesForSlug(defaultLocale, slug string) []string {
 		return []string{primary, "es"}
 	}
 
-	if _, ok := translationScenarioMultilingualSlugs[slug]; !ok {
-		return []string{primary}
+	locales := []string{primary}
+	for _, locale := range localesFromSeedTranslations(seed) {
+		if locale == "" {
+			continue
+		}
+		if strings.EqualFold(locale, primary) {
+			continue
+		}
+		locales = append(locales, locale)
 	}
-	return translationSeedLocales(primary)
+	if len(locales) > 1 {
+		return normalizedSeedLocales(locales)
+	}
+
+	if _, ok := translationScenarioMultilingualSlugs[slug]; ok {
+		return translationSeedLocales(primary)
+	}
+	return []string{primary}
+}
+
+func localesFromSeedTranslations(seed contentSeed) []string {
+	if len(seed.Translations) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(seed.Translations))
+	for locale := range seed.Translations {
+		out = append(out, locale)
+	}
+	return normalizedSeedLocales(out)
 }
 
 type cmsSeedRefs struct {
@@ -245,7 +269,18 @@ type menuLocationBindingRow struct {
 }
 
 type contentSeed struct {
-	Slug    string         `yaml:"slug"`
+	Slug         string                            `yaml:"slug"`
+	Title        string                            `yaml:"title"`
+	Summary      string                            `yaml:"summary"`
+	Body         string                            `yaml:"body"`
+	Status       string                            `yaml:"status"`
+	Path         string                            `yaml:"path"`
+	Tags         []string                          `yaml:"tags"`
+	Custom       map[string]any                    `yaml:"custom"`
+	Translations map[string]contentSeedTranslation `yaml:"translations"`
+}
+
+type contentSeedTranslation struct {
 	Title   string         `yaml:"title"`
 	Summary string         `yaml:"summary"`
 	Body    string         `yaml:"body"`
@@ -291,21 +326,46 @@ func loadCMSContentSeeds() ([]contentSeed, []contentSeed, []contentSeed, error) 
 		if seed.Custom == nil {
 			seed.Custom = map[string]any{}
 		}
+		normalizeContentSeedTranslations(seed)
 	}
 	for idx := range payload.Posts {
 		seed := &payload.Posts[idx]
 		if seed.Custom == nil {
 			seed.Custom = map[string]any{}
 		}
+		normalizeContentSeedTranslations(seed)
 	}
 	for idx := range payload.News {
 		seed := &payload.News[idx]
 		if seed.Custom == nil {
 			seed.Custom = map[string]any{}
 		}
+		normalizeContentSeedTranslations(seed)
 	}
 
 	return payload.Pages, payload.Posts, payload.News, nil
+}
+
+func normalizeContentSeedTranslations(seed *contentSeed) {
+	if seed == nil || len(seed.Translations) == 0 {
+		return
+	}
+	normalized := make(map[string]contentSeedTranslation, len(seed.Translations))
+	for locale, translation := range seed.Translations {
+		locale = strings.ToLower(strings.TrimSpace(locale))
+		if locale == "" {
+			continue
+		}
+		if translation.Custom == nil {
+			translation.Custom = map[string]any{}
+		}
+		normalized[locale] = translation
+	}
+	if len(normalized) == 0 {
+		seed.Translations = nil
+		return
+	}
+	seed.Translations = normalized
 }
 
 func seedCMSPrereqs(ctx context.Context, db *bun.DB, defaultLocale string) (cmsSeedRefs, error) {
@@ -1554,92 +1614,229 @@ func prtInt(v int) *int {
 }
 
 func seedSiteMenu(ctx context.Context, db *bun.DB, menuSvc admin.CMSMenuService, defaultLocale string) error {
-	locale := strings.TrimSpace(defaultLocale)
-	if locale == "" {
-		locale = siteMenuLocaleDefault
+	defaultLocale = strings.ToLower(strings.TrimSpace(defaultLocale))
+	if defaultLocale == "" {
+		defaultLocale = "en"
 	}
-	items := []admin.MenuItem{
-		{
-			ID:       "home",
-			Label:    "Home",
-			Target:   map[string]any{"type": "url", "path": "/"},
-			Position: prtInt(1),
-			Menu:     SiteNavigationMenuCode,
-			Locale:   locale,
-		},
-		{
-			ID:       "about",
-			Label:    "About Us",
-			Target:   map[string]any{"type": "url", "path": "/about"},
-			Position: prtInt(2),
-			Menu:     SiteNavigationMenuCode,
-			Locale:   locale,
-		},
-		{
-			ID:       "team",
-			Label:    "Our Team",
-			Target:   map[string]any{"type": "url", "path": "/about/team"},
-			Position: prtInt(3),
-			Menu:     SiteNavigationMenuCode,
-			Locale:   locale,
-		},
-		{
-			ID:       "contact",
-			Label:    "Contact",
-			Target:   map[string]any{"type": "url", "path": "/contact"},
-			Position: prtInt(4),
-			Menu:     SiteNavigationMenuCode,
-			Locale:   locale,
-		},
-		{
-			ID:       "posts",
-			Label:    "Posts",
-			Target:   map[string]any{"type": "url", "path": "/posts"},
-			Position: prtInt(5),
-			Menu:     SiteNavigationMenuCode,
-			Locale:   locale,
-		},
-		{
-			ID:       "news",
-			Label:    "News",
-			Target:   map[string]any{"type": "url", "path": "/news"},
-			Position: prtInt(6),
-			Menu:     SiteNavigationMenuCode,
-			Locale:   locale,
-		},
-		{
-			ID:       "posts.getting-started-go",
-			Label:    "Getting Started with Go",
-			Target:   map[string]any{"type": "url", "path": "/posts/getting-started-go"},
-			ParentID: "posts",
-			Position: prtInt(7),
-			Menu:     SiteNavigationMenuCode,
-			Locale:   locale,
-		},
-		{
-			ID:       "search",
-			Label:    "Search",
-			Target:   map[string]any{"type": "url", "path": "/search"},
-			Position: prtInt(8),
-			Menu:     SiteNavigationMenuCode,
-			Locale:   locale,
-		},
+	locales := normalizedSeedLocales([]string{defaultLocale, "en", "es", "fr"})
+	if len(locales) == 0 {
+		locales = []string{"en"}
 	}
 
-	if err := quickstart.SeedNavigation(ctx, quickstart.SeedNavigationOptions{
-		MenuSvc:           menuSvc,
-		MenuCode:          SiteNavigationMenuCode,
-		Items:             items,
-		Locale:            locale,
-		SkipLogger:        true,
-		AutoCreateParents: true,
-	}); err != nil {
-		return err
+	for _, locale := range locales {
+		items := localizedSiteMenuItems(locale, defaultLocale)
+		if err := quickstart.SeedNavigation(ctx, quickstart.SeedNavigationOptions{
+			MenuSvc:           menuSvc,
+			MenuCode:          SiteNavigationMenuCode,
+			Items:             items,
+			Locale:            locale,
+			SkipLogger:        true,
+			AutoCreateParents: true,
+		}); err != nil {
+			return fmt.Errorf("seed site menu for locale %s: %w", locale, err)
+		}
 	}
 	if db == nil {
 		return nil
 	}
 	return seedSiteMenuBindingsAndProfiles(ctx, db)
+}
+
+func localizedSiteMenuItems(locale string, defaultLocale string) []admin.MenuItem {
+	baseID := func(id string) string {
+		locale = strings.ToLower(strings.TrimSpace(locale))
+		defaultLocale = strings.ToLower(strings.TrimSpace(defaultLocale))
+		if locale == "" || locale == defaultLocale {
+			return id
+		}
+		return id + "." + locale
+	}
+	return []admin.MenuItem{
+		{
+			ID:       baseID("home"),
+			Label:    localizedSiteMenuLabel(locale, "home"),
+			Target:   map[string]any{"type": "url", "path": localizedSiteMenuPath(locale, "home")},
+			Position: prtInt(1),
+			Menu:     SiteNavigationMenuCode,
+			Locale:   locale,
+		},
+		{
+			ID:       baseID("about"),
+			Label:    localizedSiteMenuLabel(locale, "about"),
+			Target:   map[string]any{"type": "url", "path": localizedSiteMenuPath(locale, "about")},
+			Position: prtInt(2),
+			Menu:     SiteNavigationMenuCode,
+			Locale:   locale,
+		},
+		{
+			ID:       baseID("team"),
+			Label:    localizedSiteMenuLabel(locale, "team"),
+			Target:   map[string]any{"type": "url", "path": localizedSiteMenuPath(locale, "team")},
+			Position: prtInt(3),
+			Menu:     SiteNavigationMenuCode,
+			Locale:   locale,
+		},
+		{
+			ID:       baseID("contact"),
+			Label:    localizedSiteMenuLabel(locale, "contact"),
+			Target:   map[string]any{"type": "url", "path": localizedSiteMenuPath(locale, "contact")},
+			Position: prtInt(4),
+			Menu:     SiteNavigationMenuCode,
+			Locale:   locale,
+		},
+		{
+			ID:       baseID("posts"),
+			Label:    localizedSiteMenuLabel(locale, "posts"),
+			Target:   map[string]any{"type": "url", "path": localizedSiteMenuPath(locale, "posts")},
+			Position: prtInt(5),
+			Menu:     SiteNavigationMenuCode,
+			Locale:   locale,
+		},
+		{
+			ID:       baseID("news"),
+			Label:    localizedSiteMenuLabel(locale, "news"),
+			Target:   map[string]any{"type": "url", "path": localizedSiteMenuPath(locale, "news")},
+			Position: prtInt(6),
+			Menu:     SiteNavigationMenuCode,
+			Locale:   locale,
+		},
+		{
+			ID:       baseID("posts.getting-started-go"),
+			Label:    localizedSiteMenuLabel(locale, "posts.getting-started-go"),
+			Target:   map[string]any{"type": "url", "path": localizedSiteMenuPath(locale, "posts.getting-started-go")},
+			ParentID: baseID("posts"),
+			Position: prtInt(7),
+			Menu:     SiteNavigationMenuCode,
+			Locale:   locale,
+		},
+		{
+			ID:       baseID("search"),
+			Label:    localizedSiteMenuLabel(locale, "search"),
+			Target:   map[string]any{"type": "url", "path": localizedSiteMenuPath(locale, "search")},
+			Position: prtInt(8),
+			Menu:     SiteNavigationMenuCode,
+			Locale:   locale,
+		},
+	}
+}
+
+func localizedSiteMenuPath(locale string, itemID string) string {
+	locale = strings.ToLower(strings.TrimSpace(locale))
+	switch itemID {
+	case "home":
+		return "/"
+	case "about":
+		switch locale {
+		case "es":
+			return "/sobre-nosotros"
+		case "fr":
+			return "/a-propos"
+		default:
+			return "/about"
+		}
+	case "team":
+		switch locale {
+		case "fr":
+			return "/a-propos/equipe"
+		default:
+			return "/about/team"
+		}
+	case "contact":
+		switch locale {
+		case "es":
+			return "/contacto"
+		default:
+			return "/contact"
+		}
+	case "posts":
+		return "/posts"
+	case "news":
+		return "/news"
+	case "posts.getting-started-go":
+		return "/posts/getting-started-go"
+	case "search":
+		return "/search"
+	default:
+		return "/"
+	}
+}
+
+func localizedSiteMenuLabel(locale string, itemID string) string {
+	locale = strings.ToLower(strings.TrimSpace(locale))
+	switch itemID {
+	case "home":
+		switch locale {
+		case "es":
+			return "Inicio"
+		case "fr":
+			return "Accueil"
+		default:
+			return "Home"
+		}
+	case "about":
+		switch locale {
+		case "es":
+			return "Sobre Nosotros"
+		case "fr":
+			return "A Propos"
+		default:
+			return "About Us"
+		}
+	case "team":
+		switch locale {
+		case "es":
+			return "Nuestro Equipo"
+		case "fr":
+			return "Equipe"
+		default:
+			return "Our Team"
+		}
+	case "contact":
+		switch locale {
+		case "es":
+			return "Contacto"
+		default:
+			return "Contact"
+		}
+	case "posts":
+		switch locale {
+		case "es":
+			return "Publicaciones"
+		case "fr":
+			return "Articles"
+		default:
+			return "Posts"
+		}
+	case "news":
+		switch locale {
+		case "es":
+			return "Noticias"
+		case "fr":
+			return "Actualites"
+		default:
+			return "News"
+		}
+	case "posts.getting-started-go":
+		switch locale {
+		case "es":
+			return "Introduccion a Go"
+		case "fr":
+			return "Demarrer avec Go"
+		default:
+			return "Getting Started with Go"
+		}
+	case "search":
+		switch locale {
+		case "es":
+			return "Buscar"
+		case "fr":
+			return "Recherche"
+		default:
+			return "Search"
+		}
+	default:
+		return itemID
+	}
 }
 
 func seedSiteMenuBindingsAndProfiles(ctx context.Context, db *bun.DB) error {
@@ -1785,21 +1982,22 @@ func backfillTranslations(ctx context.Context, db *bun.DB, locale string, pageSe
 			continue
 		}
 
-		targetLocales := translationSeedLocalesForSlug(defaultCode, seed.Slug)
+		targetLocales := translationSeedLocalesForSeed(defaultCode, seed)
 		for _, targetLocale := range targetLocales {
 			loc, ok := localeLookup[strings.ToLower(targetLocale)]
 			if !ok {
 				return fmt.Errorf("seed locale unavailable for %s", targetLocale)
 			}
 
-			payload := buildSeedContentPayload(seed)
-			summary := strings.TrimSpace(seed.Summary)
+			localizedSeed := localizedContentSeed(seed, targetLocale, defaultCode)
+			payload := buildSeedContentPayload(localizedSeed)
+			summary := strings.TrimSpace(localizedSeed.Summary)
 			contentTranslation := &contentTranslationRow{
 				ID:                 uuid.NewSHA1(cmsSeedNamespace, []byte(seed.Slug+":"+targetLocale)),
 				ContentID:          contentID,
 				LocaleID:           loc.ID,
 				TranslationGroupID: &contentID,
-				Title:              seed.Title,
+				Title:              strings.TrimSpace(localizedSeed.Title),
 				Content:            payload,
 				CreatedAt:          now,
 				UpdatedAt:          now,
@@ -1837,14 +2035,14 @@ func backfillTranslations(ctx context.Context, db *bun.DB, locale string, pageSe
 				continue
 			}
 
-			seoTitle, seoDescription := seedSEO(seed)
-			path := normalizePath(seed.Path, seed.Slug)
+			seoTitle, seoDescription := seedSEO(localizedSeed)
+			path := normalizePath(localizedSeed.Path, seed.Slug)
 			pageTranslation := &pageTranslationRow{
 				ID:                 uuid.NewSHA1(cmsSeedNamespace, []byte(seed.Slug+":page:"+targetLocale)),
 				PageID:             pageID,
 				LocaleID:           loc.ID,
 				TranslationGroupID: &pageID,
-				Title:              seed.Title,
+				Title:              strings.TrimSpace(localizedSeed.Title),
 				Path:               path,
 				MediaBindings:      map[string]any{},
 				CreatedAt:          now,
@@ -1886,6 +2084,65 @@ func backfillTranslations(ctx context.Context, db *bun.DB, locale string, pageSe
 	}
 
 	return nil
+}
+
+func localizedContentSeed(seed contentSeed, locale, defaultLocale string) contentSeed {
+	locale = strings.ToLower(strings.TrimSpace(locale))
+	defaultLocale = strings.ToLower(strings.TrimSpace(defaultLocale))
+	if defaultLocale == "" {
+		defaultLocale = "en"
+	}
+	if locale == "" || strings.EqualFold(locale, defaultLocale) || len(seed.Translations) == 0 {
+		return seed
+	}
+
+	override, ok := seed.Translations[locale]
+	if !ok {
+		return seed
+	}
+
+	merged := seed
+	merged.Translations = nil
+	if value := strings.TrimSpace(override.Title); value != "" {
+		merged.Title = value
+	}
+	if value := strings.TrimSpace(override.Summary); value != "" {
+		merged.Summary = value
+	}
+	if value := strings.TrimSpace(override.Body); value != "" {
+		merged.Body = value
+	}
+	if value := strings.TrimSpace(override.Status); value != "" {
+		merged.Status = value
+	}
+	if value := strings.TrimSpace(override.Path); value != "" {
+		merged.Path = value
+	}
+	if len(override.Tags) > 0 {
+		merged.Tags = append([]string{}, override.Tags...)
+	} else if len(merged.Tags) > 0 {
+		merged.Tags = append([]string{}, merged.Tags...)
+	}
+	merged.Custom = mergedSeedCustom(merged.Custom, override.Custom)
+	return merged
+}
+
+func mergedSeedCustom(base, override map[string]any) map[string]any {
+	baseMap := primitives.CloneAnyMapEmptyOnEmpty(base)
+	overrideMap := primitives.CloneAnyMapEmptyOnEmpty(override)
+	if baseMap == nil && overrideMap == nil {
+		return map[string]any{}
+	}
+	if baseMap == nil {
+		return overrideMap
+	}
+	if overrideMap == nil {
+		return baseMap
+	}
+	for key, value := range overrideMap {
+		baseMap[key] = value
+	}
+	return baseMap
 }
 
 func buildSeedContentPayload(seed contentSeed) map[string]any {
@@ -1982,7 +2239,7 @@ func validateTranslationSeedFixtureCoverage(ctx context.Context, db *bun.DB) err
 	}
 
 	// Standalone fixtures (single-locale records used by grouped fallback/ungrouped UX paths).
-	if err := requireTranslationFixtureLocales(ctx, db, "admin_page_records", "contact", []string{"en"}); err != nil {
+	if err := requireTranslationFixtureLocales(ctx, db, "admin_page_records", "privacy", []string{"en"}); err != nil {
 		return err
 	}
 	if err := requireTranslationFixtureLocales(ctx, db, "admin_post_records", "database-optimization", []string{"en"}); err != nil {

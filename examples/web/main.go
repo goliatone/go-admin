@@ -4,7 +4,6 @@ import (
 	"context"
 	"embed"
 	"fmt"
-	"github.com/goliatone/go-admin/internal/primitives"
 	"io/fs"
 	"log"
 	"log/slog"
@@ -17,6 +16,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/goliatone/go-admin/internal/primitives"
 
 	"github.com/gofiber/fiber/v2"
 	coreadmin "github.com/goliatone/go-admin/admin"
@@ -1218,6 +1219,14 @@ func resolveSiteRuntimeConfig(cfg admin.Config, isDev bool) quicksite.SiteConfig
 	if value, ok := envBool("SITE_ENABLE_SEARCH"); ok {
 		enableSearch = value
 	}
+	enableCanonicalRedirect := true
+	if value, ok := envBool("SITE_ENABLE_CANONICAL_REDIRECT"); ok {
+		enableCanonicalRedirect = value
+	}
+	strictLocalizedPaths := false
+	if value, ok := envBool("SITE_STRICT_LOCALIZED_PATHS"); ok {
+		strictLocalizedPaths = value
+	}
 
 	themeName := strings.TrimSpace(os.Getenv("SITE_THEME"))
 	if themeName == "" {
@@ -1269,11 +1278,13 @@ func resolveSiteRuntimeConfig(cfg admin.Config, isDev bool) quicksite.SiteConfig
 			Collections: []string{"page", "post", "news"},
 		},
 		Features: quicksite.SiteFeatures{
-			EnablePreview:          coreadmin.BoolPtr(true),
-			EnableI18N:             coreadmin.BoolPtr(true),
-			EnableSearch:           coreadmin.BoolPtr(enableSearch),
-			EnableTheme:            coreadmin.BoolPtr(true),
-			EnableMenuDraftPreview: coreadmin.BoolPtr(true),
+			EnablePreview:           coreadmin.BoolPtr(true),
+			EnableI18N:              coreadmin.BoolPtr(true),
+			EnableSearch:            coreadmin.BoolPtr(enableSearch),
+			EnableTheme:             coreadmin.BoolPtr(true),
+			EnableMenuDraftPreview:  coreadmin.BoolPtr(true),
+			EnableCanonicalRedirect: coreadmin.BoolPtr(enableCanonicalRedirect),
+			StrictLocalizedPaths:    coreadmin.BoolPtr(strictLocalizedPaths),
 		},
 		Theme: quicksite.SiteThemeConfig{
 			Name:    themeName,
@@ -1401,7 +1412,7 @@ func logSiteRuntimeEnvironmentDiagnostics(
 		contentEnv,
 	)
 	if strict, ok := envBool("SITE_ENV_STRICT"); ok && strict {
-		return fmt.Errorf(message)
+		return fmt.Errorf("%s", message)
 	}
 	log.Printf("warning: %s", message)
 	return nil
