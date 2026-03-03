@@ -130,9 +130,6 @@ func ResolveRequestState(
 	locale := resolveRequestLocale(c, siteCfg.Features.EnableI18N, siteCfg.DefaultLocale, siteCfg.SupportedLocales)
 	preview := resolveRequestPreview(c, adm, siteCfg.Features.EnablePreview)
 	if preview.Environment != "" {
-		if previewRuntimeEnvironment := normalizeRuntimeEnvironment(preview.Environment); previewRuntimeEnvironment != "" {
-			environment = previewRuntimeEnvironment
-		}
 		contentEnvironment = normalizeContentEnvironment(preview.Environment)
 	}
 
@@ -267,7 +264,10 @@ func resolveRequestPreview(c router.Context, adm *admin.Admin, enabled bool) pre
 	out.Valid = true
 	out.EntityType = entityType
 	out.ContentID = contentID
-	out.Environment = normalizeContentEnvironment(entityEnv)
+	entityEnv = strings.TrimSpace(entityEnv)
+	if entityEnv != "" {
+		out.Environment = normalizeContentEnvironment(entityEnv)
+	}
 	return out
 }
 
@@ -290,12 +290,13 @@ func resolveRequestEnvironment(c router.Context, fallback string) string {
 		return normalizeRuntimeEnvironment(fallback)
 	}
 	candidates := []string{
+		c.Query("runtime_env"),
+		c.Query("site_runtime_env"),
 		c.Query("env"),
 		c.Query("environment"),
+		c.Header("X-Site-Runtime-Environment"),
 		c.Header("X-Site-Environment"),
-		c.Header("X-Admin-Environment"),
 		c.Header("X-Environment"),
-		c.Cookies(defaultEnvironmentCookie),
 		fallback,
 	}
 	for _, candidate := range candidates {
@@ -307,29 +308,36 @@ func resolveRequestEnvironment(c router.Context, fallback string) string {
 }
 
 func resolveRequestContentEnvironment(c router.Context, fallback string) string {
-	fallback = normalizeContentEnvironment(fallback)
+	fallback = strings.TrimSpace(fallback)
+	normalizedFallback := ""
+	if fallback != "" {
+		normalizedFallback = normalizeContentEnvironment(fallback)
+	}
 	if c == nil {
-		if fallback != "" {
-			return fallback
+		if normalizedFallback != "" {
+			return normalizedFallback
 		}
 		return "default"
 	}
 	candidates := []string{
 		c.Query("content_env"),
+		c.Query("site_content_env"),
 		c.Query("site_env"),
-		c.Query("env"),
-		c.Query("environment"),
 		c.Header("X-Site-Content-Environment"),
-		c.Header("X-Site-Environment"),
-		c.Header("X-Admin-Environment"),
-		c.Header("X-Environment"),
+		c.Header("X-Content-Environment"),
 		c.Cookies(defaultEnvironmentCookie),
-		fallback,
 	}
 	for _, candidate := range candidates {
+		candidate = strings.TrimSpace(candidate)
+		if candidate == "" {
+			continue
+		}
 		if normalized := normalizeContentEnvironment(candidate); normalized != "" {
 			return normalized
 		}
+	}
+	if normalizedFallback != "" {
+		return normalizedFallback
 	}
 	return "default"
 }

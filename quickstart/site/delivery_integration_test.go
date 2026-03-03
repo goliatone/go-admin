@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -19,7 +20,7 @@ func TestSiteDeliveryPreviewFidelityThroughRegisteredRoutes(t *testing.T) {
 		ID:          "post-type",
 		Name:        "Post",
 		Slug:        "post",
-		Environment: "prod",
+		Environment: "default",
 		Schema: map[string]any{
 			"type":       "object",
 			"properties": map[string]any{},
@@ -133,7 +134,7 @@ func TestSiteDeliveryLocaleFallbackPolicies(t *testing.T) {
 		ID:          "post-type",
 		Name:        "Post",
 		Slug:        "post",
-		Environment: "prod",
+		Environment: "default",
 		Schema: map[string]any{
 			"type":       "object",
 			"properties": map[string]any{},
@@ -196,6 +197,144 @@ func TestSiteDeliveryLocaleFallbackPolicies(t *testing.T) {
 	}
 }
 
+func TestSiteDeliveryRedirectsToCanonicalLocalizedPath(t *testing.T) {
+	adm := mustAdminWithTheme(t, "admin", "light")
+	content := admin.NewInMemoryContentService()
+
+	_, err := content.CreateContentType(t.Context(), admin.CMSContentType{
+		ID:          "page-type",
+		Name:        "Page",
+		Slug:        "page",
+		Environment: "default",
+		Schema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{},
+		},
+		Capabilities: map[string]any{
+			"delivery": map[string]any{
+				"enabled": true,
+				"kind":    "page",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create content type: %v", err)
+	}
+
+	_, err = content.CreateContent(t.Context(), admin.CMSContent{
+		ID:              "about-en",
+		Title:           "About Us",
+		Slug:            "about",
+		Locale:          "en",
+		Status:          "published",
+		ContentType:     "page",
+		ContentTypeSlug: "page",
+		Data:            map[string]any{"path": "/about"},
+	})
+	if err != nil {
+		t.Fatalf("create en content: %v", err)
+	}
+	_, err = content.CreateContent(t.Context(), admin.CMSContent{
+		ID:              "about-es",
+		Title:           "Sobre Nosotros",
+		Slug:            "about",
+		Locale:          "es",
+		Status:          "published",
+		ContentType:     "page",
+		ContentTypeSlug: "page",
+		Data:            map[string]any{"path": "/sobre-nosotros"},
+	})
+	if err != nil {
+		t.Fatalf("create es content: %v", err)
+	}
+
+	server := router.NewHTTPServer()
+	if err := RegisterSiteRoutes(server.Router(), adm, admin.Config{DefaultLocale: "en"}, SiteConfig{
+		SupportedLocales: []string{"en", "es"},
+	}, WithDeliveryServices(content, content)); err != nil {
+		t.Fatalf("register site routes: %v", err)
+	}
+
+	rec := performSiteRequestRaw(t, server, "/es/about?foo=bar", "text/html")
+	if rec.Code != http.StatusPermanentRedirect {
+		t.Fatalf("expected canonical redirect status %d, got %d body=%s", http.StatusPermanentRedirect, rec.Code, rec.Body.String())
+	}
+	if got := rec.Header().Get("Location"); got != "/es/sobre-nosotros?foo=bar" {
+		t.Fatalf("expected canonical redirect location /es/sobre-nosotros?foo=bar, got %q", got)
+	}
+}
+
+func TestSiteDeliveryStrictLocalizedPathsDisablesAliasResolution(t *testing.T) {
+	adm := mustAdminWithTheme(t, "admin", "light")
+	content := admin.NewInMemoryContentService()
+
+	_, err := content.CreateContentType(t.Context(), admin.CMSContentType{
+		ID:          "page-type",
+		Name:        "Page",
+		Slug:        "page",
+		Environment: "default",
+		Schema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{},
+		},
+		Capabilities: map[string]any{
+			"delivery": map[string]any{
+				"enabled": true,
+				"kind":    "page",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create content type: %v", err)
+	}
+
+	_, err = content.CreateContent(t.Context(), admin.CMSContent{
+		ID:              "about-en",
+		Title:           "About Us",
+		Slug:            "about",
+		Locale:          "en",
+		Status:          "published",
+		ContentType:     "page",
+		ContentTypeSlug: "page",
+		Data:            map[string]any{"path": "/about"},
+	})
+	if err != nil {
+		t.Fatalf("create en content: %v", err)
+	}
+	_, err = content.CreateContent(t.Context(), admin.CMSContent{
+		ID:              "about-es",
+		Title:           "Sobre Nosotros",
+		Slug:            "about",
+		Locale:          "es",
+		Status:          "published",
+		ContentType:     "page",
+		ContentTypeSlug: "page",
+		Data:            map[string]any{"path": "/sobre-nosotros"},
+	})
+	if err != nil {
+		t.Fatalf("create es content: %v", err)
+	}
+
+	server := router.NewHTTPServer()
+	if err := RegisterSiteRoutes(server.Router(), adm, admin.Config{DefaultLocale: "en"}, SiteConfig{
+		SupportedLocales: []string{"en", "es"},
+		Features: SiteFeatures{
+			StrictLocalizedPaths: coreBoolPtr(true),
+		},
+	}, WithDeliveryServices(content, content)); err != nil {
+		t.Fatalf("register site routes: %v", err)
+	}
+
+	rec := performSiteRequestRaw(t, server, "/es/about", "text/html")
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected strict localized path mismatch to return 404, got %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func coreBoolPtr(value bool) *bool {
+	return &value
+}
+
 func performSiteRequest[T interface {
 	ServeHTTP(http.ResponseWriter, *http.Request)
 }](t *testing.T, server router.Server[T], path string) map[string]any {
@@ -222,6 +361,19 @@ func performSiteRequestWithStatus[T interface {
 		t.Fatalf("request %q returned status %d body=%s", path, rec.Code, rec.Body.String())
 	}
 	return decodeSitePayload(t, path, rec)
+}
+
+func performSiteRequestRaw[T interface {
+	ServeHTTP(http.ResponseWriter, *http.Request)
+}](t *testing.T, server router.Server[T], path string, accept string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodGet, path, nil)
+	if strings.TrimSpace(accept) != "" {
+		req.Header.Set("Accept", accept)
+	}
+	rec := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rec, req)
+	return rec
 }
 
 func decodeSitePayload(t *testing.T, path string, rec *httptest.ResponseRecorder) map[string]any {

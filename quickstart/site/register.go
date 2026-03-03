@@ -178,8 +178,13 @@ func RegisterSiteRoutes[T any](
 	baseRoutePath := prefixedRoutePath(resolved.BasePath, "/")
 	r.Get(baseRoutePath, options.contentHandler)
 
-	catchAllPath := siteCatchAllRoutePath(r, resolved.BasePath)
-	r.Get(catchAllPath, options.contentHandler)
+	if isHTTPRouterAdapter(r) {
+		r.Get(prefixedRoutePath(resolved.BasePath, "/:path"), options.contentHandler)
+		r.Get(prefixedRoutePath(resolved.BasePath, "/:path/*rest"), options.contentHandler)
+	} else {
+		catchAllPath := siteCatchAllRoutePath(r, resolved.BasePath)
+		r.Get(catchAllPath, options.contentHandler)
+	}
 
 	return nil
 }
@@ -218,6 +223,15 @@ func siteCatchAllRoutePath[T any](r router.Router[T], basePath string) string {
 		return prefixedRoutePath(basePath, "/*")
 	default:
 		return prefixedRoutePath(basePath, "/*path")
+	}
+}
+
+func isHTTPRouterAdapter[T any](r router.Router[T]) bool {
+	switch any(r).(type) {
+	case *router.HTTPRouter:
+		return true
+	default:
+		return false
 	}
 }
 

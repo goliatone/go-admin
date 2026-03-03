@@ -2,6 +2,9 @@ package site
 
 import (
 	"context"
+	"net/http"
+	"net/url"
+	"path"
 	"sort"
 	"strings"
 
@@ -21,6 +24,20 @@ type deliveryCapability struct {
 	DetailRoute    string
 	ListTemplate   string
 	DetailTemplate string
+	PathPolicy     deliveryPathPolicy
+}
+
+type deliveryPathPolicy struct {
+	AllowExternalURLs bool
+	AllowRoot         bool
+	AllowedPrefixes   []string
+	allowRootSet      bool
+	allowedPrefixSet  bool
+}
+
+type localeContentCache struct {
+	loaded map[string]bool
+	items  map[string][]admin.CMSContent
 }
 
 func (c deliveryCapability) normalizedKind() string {
@@ -127,6 +144,50 @@ func newDeliveryRuntime(
 	}
 }
 
+func newLocaleContentCache() *localeContentCache {
+	return &localeContentCache{
+		loaded: map[string]bool{},
+		items:  map[string][]admin.CMSContent{},
+	}
+}
+
+func (r *deliveryRuntime) listSiteContentsCached(
+	ctx context.Context,
+	locale string,
+	cache *localeContentCache,
+) ([]admin.CMSContent, error) {
+	if r == nil || r.contentSvc == nil {
+		return nil, nil
+	}
+	locale = strings.ToLower(strings.TrimSpace(locale))
+	if cache == nil {
+		items, err := listSiteContents(ctx, r.contentSvc, locale)
+		if err != nil {
+			return nil, err
+		}
+		return cloneContentRecords(items), nil
+	}
+	if cache.loaded[locale] {
+		return cloneContentRecords(cache.items[locale]), nil
+	}
+	items, err := listSiteContents(ctx, r.contentSvc, locale)
+	cache.loaded[locale] = true
+	if err != nil {
+		return nil, err
+	}
+	cache.items[locale] = cloneContentRecords(items)
+	return cloneContentRecords(cache.items[locale]), nil
+}
+
+func cloneContentRecords(items []admin.CMSContent) []admin.CMSContent {
+	if len(items) == 0 {
+		return nil
+	}
+	out := make([]admin.CMSContent, len(items))
+	copy(out, items)
+	return out
+}
+
 func (r *deliveryRuntime) Handler() router.HandlerFunc {
 	if r == nil {
 		return defaultNotFoundHandler
@@ -142,14 +203,25 @@ func (r *deliveryRuntime) Handler() router.HandlerFunc {
 				DefaultLocale:       r.siteCfg.DefaultLocale,
 				SupportedLocales:    cloneStrings(r.siteCfg.SupportedLocales),
 				AllowLocaleFallback: r.siteCfg.AllowLocaleFallback,
+				Environment:         r.siteCfg.Environment,
+				ContentEnvironment:  r.siteCfg.ContentEnvironment,
 				BasePath:            r.siteCfg.BasePath,
+				AssetBasePath:       r.siteCfg.Views.AssetBasePath,
 				ActivePath:          c.Path(),
 				ViewContext:         router.ViewContext{},
 			}
 		}
+		if strings.TrimSpace(state.ContentEnvironment) == "" {
+			state.ContentEnvironment = r.siteCfg.ContentEnvironment
+		}
 
 		path := r.requestPathForResolution(c)
-		resolution, siteErr := r.resolve(c.Context(), state, path)
+		cache := newLocaleContentCache()
+		requestCtx := c.Context()
+		if strings.TrimSpace(state.ContentEnvironment) != "" {
+			requestCtx = admin.WithEnvironment(requestCtx, state.ContentEnvironment)
+		}
+		resolution, siteErr := r.resolve(requestCtx, state, path, cache)
 		if hasSiteRuntimeError(siteErr) {
 			return renderSiteRuntimeError(c, state, r.siteCfg, siteErr)
 		}
@@ -159,7 +231,7 @@ func (r *deliveryRuntime) Handler() router.HandlerFunc {
 				RequestedLocale: state.Locale,
 			})
 		}
-		return r.renderResolution(c, state, resolution, path)
+		return r.renderResolution(c, state, resolution, path, cache)
 	}
 }
 
@@ -167,6 +239,9 @@ func (r *deliveryRuntime) requestPathForResolution(c router.Context) string {
 	path := strings.TrimSpace(c.Path())
 	if routePath := strings.TrimSpace(c.Param("path", "")); routePath != "" {
 		path = "/" + strings.Trim(routePath, "/")
+		if rest := strings.TrimSpace(c.Param("rest", "")); rest != "" {
+			path = path + "/" + strings.Trim(rest, "/")
+		}
 	}
 	path = normalizeLocalePath(path)
 	basePath := normalizeLocalePath(r.siteCfg.BasePath)
@@ -181,7 +256,7 @@ func (r *deliveryRuntime) requestPathForResolution(c router.Context) string {
 	return normalizeLocalePath(path)
 }
 
-func (r *deliveryRuntime) resolve(ctx context.Context, state RequestState, requestPath string) (*deliveryResolution, SiteRuntimeError) {
+func (r *deliveryRuntime) resolve(ctx context.Context, state RequestState, requestPath string, cache *localeContentCache) (*deliveryResolution, SiteRuntimeError) {
 	capabilities, err := r.capabilities(ctx)
 	if err != nil {
 		return nil, SiteRuntimeError{Status: 500, Message: err.Error()}
@@ -189,7 +264,7 @@ func (r *deliveryRuntime) resolve(ctx context.Context, state RequestState, reque
 	if len(capabilities) == 0 {
 		return nil, SiteRuntimeError{}
 	}
-	contents, err := listSiteContents(ctx, r.contentSvc, state.Locale)
+	contents, err := r.listSiteContentsCached(ctx, state.Locale, cache)
 	if err != nil {
 		return nil, SiteRuntimeError{Status: 500, Message: err.Error()}
 	}
@@ -200,7 +275,7 @@ func (r *deliveryRuntime) resolve(ctx context.Context, state RequestState, reque
 		if capability.normalizedKind() != "page" {
 			continue
 		}
-		if resolution, siteErr, matched := r.resolvePageKind(capability, recordsByType[capability.TypeSlug], state, requestPath); matched {
+		if resolution, siteErr, matched := r.resolvePageKind(ctx, capability, recordsByType[capability.TypeSlug], state, requestPath, cache); matched {
 			if siteErr.Status > 0 || strings.TrimSpace(siteErr.Code) != "" {
 				return nil, siteErr
 			}
@@ -214,7 +289,7 @@ func (r *deliveryRuntime) resolve(ctx context.Context, state RequestState, reque
 		if kind != "detail" && kind != "hybrid" {
 			continue
 		}
-		if resolution, siteErr, matched := r.resolveDetailKind(capability, recordsByType[capability.TypeSlug], state, requestPath); matched {
+		if resolution, siteErr, matched := r.resolveDetailKind(ctx, capability, recordsByType[capability.TypeSlug], state, requestPath, cache); matched {
 			if siteErr.Status > 0 || strings.TrimSpace(siteErr.Code) != "" {
 				return nil, siteErr
 			}
@@ -300,6 +375,7 @@ func capabilityFromContentType(contentType admin.CMSContentType) (deliveryCapabi
 		ListTemplate:   strings.TrimSpace(anyString(templates["list"])),
 		DetailTemplate: strings.TrimSpace(anyString(templates["detail"])),
 	}
+	out.PathPolicy = deliveryPathPolicyFromContract(delivery, out)
 	return out, true
 }
 
@@ -326,10 +402,12 @@ func (r *deliveryRuntime) recordsByType(
 }
 
 func (r *deliveryRuntime) resolvePageKind(
+	ctx context.Context,
 	capability deliveryCapability,
 	records []admin.CMSContent,
 	state RequestState,
 	requestPath string,
+	cache *localeContentCache,
 ) (*deliveryResolution, SiteRuntimeError, bool) {
 	candidates := []admin.CMSContent{}
 	for _, record := range records {
@@ -341,6 +419,9 @@ func (r *deliveryRuntime) resolvePageKind(
 			continue
 		}
 		candidates = append(candidates, record)
+	}
+	if len(candidates) == 0 && !r.strictLocalizedPathsEnabled() {
+		candidates = r.resolvePagePathAliasCandidates(ctx, capability, records, state, requestPath, cache)
 	}
 	if len(candidates) == 0 {
 		return nil, SiteRuntimeError{}, false
@@ -357,11 +438,93 @@ func (r *deliveryRuntime) resolvePageKind(
 	return resolution, SiteRuntimeError{}, true
 }
 
-func (r *deliveryRuntime) resolveDetailKind(
+func (r *deliveryRuntime) resolvePagePathAliasCandidates(
+	ctx context.Context,
 	capability deliveryCapability,
 	records []admin.CMSContent,
 	state RequestState,
 	requestPath string,
+	cache *localeContentCache,
+) []admin.CMSContent {
+	if r == nil || r.contentSvc == nil || len(records) == 0 || !r.siteCfg.Features.EnableI18N {
+		return nil
+	}
+
+	identityToRecord := map[string]admin.CMSContent{}
+	for _, record := range records {
+		key := strings.TrimSpace(contentIdentityKey(record, capability))
+		if key == "" {
+			continue
+		}
+		if _, exists := identityToRecord[key]; exists {
+			continue
+		}
+		identityToRecord[key] = record
+	}
+	if len(identityToRecord) == 0 {
+		return nil
+	}
+
+	matchedKeys := map[string]struct{}{}
+	requestPath = normalizeLocalePath(requestPath)
+	locales := uniqueLocaleOrder(
+		state.SupportedLocales,
+		[]string{state.Locale},
+		[]string{state.DefaultLocale},
+		[]string{r.siteCfg.DefaultLocale},
+	)
+	for _, locale := range locales {
+		items, err := r.listSiteContentsCached(ctx, locale, cache)
+		if err != nil || len(items) == 0 {
+			continue
+		}
+
+		localeState := state
+		localeState.Locale = locale
+		for _, item := range items {
+			if !matchesCapabilityType(item, capability.TypeSlug) {
+				continue
+			}
+			if !recordVisibleForRequest(item, capability, localeState) {
+				continue
+			}
+			if !pathsMatch(recordDeliveryPath(item, capability), requestPath) {
+				continue
+			}
+			key := strings.TrimSpace(contentIdentityKey(item, capability))
+			if key == "" {
+				continue
+			}
+			if _, ok := identityToRecord[key]; !ok {
+				continue
+			}
+			matchedKeys[key] = struct{}{}
+		}
+	}
+	if len(matchedKeys) == 0 {
+		return nil
+	}
+
+	keys := make([]string, 0, len(matchedKeys))
+	for key := range matchedKeys {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	out := make([]admin.CMSContent, 0, len(keys))
+	for _, key := range keys {
+		out = append(out, identityToRecord[key])
+	}
+	return out
+}
+
+func (r *deliveryRuntime) resolveDetailKind(
+	ctx context.Context,
+	capability deliveryCapability,
+	records []admin.CMSContent,
+	state RequestState,
+	requestPath string,
+	cache *localeContentCache,
 ) (*deliveryResolution, SiteRuntimeError, bool) {
 	params, ok := matchRoutePattern(capability.detailRoutePattern(), requestPath)
 	if !ok {
@@ -371,7 +534,7 @@ func (r *deliveryRuntime) resolveDetailKind(
 	candidates := []admin.CMSContent{}
 	for _, record := range records {
 		if slug != "" {
-			if !deliverySlugMatches(record, slug) {
+			if !deliverySlugMatches(record, slug, capability) {
 				continue
 			}
 		} else {
@@ -381,6 +544,9 @@ func (r *deliveryRuntime) resolveDetailKind(
 			}
 		}
 		candidates = append(candidates, record)
+	}
+	if len(candidates) == 0 && !r.strictLocalizedPathsEnabled() {
+		candidates = r.resolveDetailPathAliasCandidates(ctx, capability, state, requestPath, slug, cache)
 	}
 	if len(candidates) == 0 {
 		return nil, SiteRuntimeError{}, false
@@ -395,6 +561,98 @@ func (r *deliveryRuntime) resolveDetailKind(
 	}
 	resolution := resolutionFromDetailRecord(capability, selected, state.Locale, available, fallbackUsed, candidates)
 	return resolution, SiteRuntimeError{}, true
+}
+
+func (r *deliveryRuntime) resolveDetailPathAliasCandidates(
+	ctx context.Context,
+	capability deliveryCapability,
+	state RequestState,
+	requestPath string,
+	slug string,
+	cache *localeContentCache,
+) []admin.CMSContent {
+	if r == nil || r.contentSvc == nil || !r.siteCfg.Features.EnableI18N {
+		return nil
+	}
+
+	requestPath = normalizeLocalePath(requestPath)
+	locales := uniqueLocaleOrder(
+		state.SupportedLocales,
+		[]string{state.Locale},
+		[]string{state.DefaultLocale},
+		[]string{r.siteCfg.DefaultLocale},
+	)
+	if len(locales) == 0 {
+		return nil
+	}
+
+	matchedIdentityKeys := map[string]struct{}{}
+	for _, locale := range locales {
+		items, err := r.listSiteContentsCached(ctx, locale, cache)
+		if err != nil || len(items) == 0 {
+			continue
+		}
+		localeState := state
+		localeState.Locale = locale
+		for _, item := range items {
+			if !matchesCapabilityType(item, capability.TypeSlug) {
+				continue
+			}
+			if !recordVisibleForRequest(item, capability, localeState) {
+				continue
+			}
+			matches := false
+			if slug != "" {
+				matches = deliverySlugMatches(item, slug, capability)
+			} else {
+				matches = pathsMatch(recordDeliveryPath(item, capability), requestPath)
+			}
+			if !matches {
+				continue
+			}
+			key := strings.TrimSpace(contentIdentityKey(item, capability))
+			if key == "" {
+				continue
+			}
+			matchedIdentityKeys[key] = struct{}{}
+		}
+	}
+	if len(matchedIdentityKeys) == 0 {
+		return nil
+	}
+
+	seen := map[string]struct{}{}
+	out := []admin.CMSContent{}
+	for _, locale := range locales {
+		items, err := r.listSiteContentsCached(ctx, locale, cache)
+		if err != nil || len(items) == 0 {
+			continue
+		}
+		localeState := state
+		localeState.Locale = locale
+		for _, item := range items {
+			if !matchesCapabilityType(item, capability.TypeSlug) {
+				continue
+			}
+			if !recordVisibleForRequest(item, capability, localeState) {
+				continue
+			}
+			key := strings.TrimSpace(contentIdentityKey(item, capability))
+			if _, ok := matchedIdentityKeys[key]; !ok {
+				continue
+			}
+			uniqueKey := strings.TrimSpace(item.ID) + "|" + strings.ToLower(strings.TrimSpace(item.Locale))
+			if uniqueKey == "|" {
+				uniqueKey = key + "|" + strings.ToLower(strings.TrimSpace(recordDeliveryPath(item, capability)))
+			}
+			if _, ok := seen[uniqueKey]; ok {
+				continue
+			}
+			seen[uniqueKey] = struct{}{}
+			out = append(out, item)
+		}
+	}
+	return out
 }
 
 func (r *deliveryRuntime) resolveCollectionKind(
@@ -572,10 +830,15 @@ func resolveLocaleRecordsForList(
 	return out
 }
 
-func (r *deliveryRuntime) renderResolution(c router.Context, state RequestState, resolution *deliveryResolution, requestPath string) error {
+func (r *deliveryRuntime) renderResolution(c router.Context, state RequestState, resolution *deliveryResolution, requestPath string, cache *localeContentCache) error {
+	if target := r.canonicalRedirectTarget(c, resolution); target != "" {
+		return c.Redirect(target, http.StatusPermanentRedirect)
+	}
+
 	viewCtx := cloneViewContext(state.ViewContext)
 	viewCtx["requested_locale"] = resolution.RequestedLocale
 	viewCtx["resolved_locale"] = resolution.ResolvedLocale
+	viewCtx["locale"] = resolution.ResolvedLocale
 	viewCtx["available_locales"] = cloneStrings(resolution.AvailableLocales)
 	viewCtx["content_type"] = resolution.Capability.TypeSlug
 	viewCtx["content_type_slug"] = resolution.Capability.TypeSlug
@@ -613,6 +876,17 @@ func (r *deliveryRuntime) renderResolution(c router.Context, state RequestState,
 	if token := strings.TrimSpace(state.PreviewToken); token != "" {
 		switcherQuery["preview_token"] = token
 	}
+	pathsByLocale := resolution.PathsByLocale
+	if resolution.Record != nil {
+		pathsByLocale = r.resolveLocalizedPathsByLocale(
+			c.Context(),
+			state,
+			resolution.Capability,
+			*resolution.Record,
+			pathsByLocale,
+			cache,
+		)
+	}
 	viewCtx["locale_switcher"] = BuildLocaleSwitcherContract(
 		r.siteCfg,
 		requestPath,
@@ -620,7 +894,7 @@ func (r *deliveryRuntime) renderResolution(c router.Context, state RequestState,
 		resolution.ResolvedLocale,
 		resolution.TranslationGroupID,
 		resolution.AvailableLocales,
-		resolution.PathsByLocale,
+		pathsByLocale,
 		switcherQuery,
 	)
 
@@ -649,6 +923,83 @@ func (r *deliveryRuntime) renderResolution(c router.Context, state RequestState,
 			resolution.AvailableLocales,
 		),
 	})
+}
+
+func (r *deliveryRuntime) strictLocalizedPathsEnabled() bool {
+	if r == nil {
+		return false
+	}
+	return r.siteCfg.Features.EnableI18N && r.siteCfg.Features.StrictLocalizedPaths
+}
+
+func (r *deliveryRuntime) canonicalRedirectTarget(c router.Context, resolution *deliveryResolution) string {
+	if r == nil || c == nil || resolution == nil || resolution.Record == nil {
+		return ""
+	}
+	if !r.siteCfg.Features.EnableCanonicalRedirect || wantsJSONResponse(c) {
+		return ""
+	}
+	method := strings.ToUpper(strings.TrimSpace(c.Method()))
+	if method != http.MethodGet && method != http.MethodHead {
+		return ""
+	}
+	canonical := recordDeliveryPath(*resolution.Record, resolution.Capability)
+	if canonical == "" {
+		return ""
+	}
+	resolvedLocale := normalizeRequestedLocale(
+		resolution.ResolvedLocale,
+		firstNonEmpty(resolution.RequestedLocale, r.siteCfg.DefaultLocale),
+		r.siteCfg.SupportedLocales,
+	)
+	publicPath := canonical
+	if r.siteCfg.Features.EnableI18N {
+		publicPath = LocalizedPath(publicPath, resolvedLocale, r.siteCfg.DefaultLocale, r.siteCfg.LocalePrefixMode)
+	}
+	publicPath = normalizeLocalePath(admin.PrefixBasePath(r.siteCfg.BasePath, publicPath))
+	if publicPath == "" {
+		return ""
+	}
+	currentPath := normalizeLocalePath(c.Path())
+	if currentPath == publicPath {
+		return ""
+	}
+	if query := encodeRequestQuery(c); query != "" {
+		return publicPath + "?" + query
+	}
+	return publicPath
+}
+
+func encodeRequestQuery(c router.Context) string {
+	if c == nil {
+		return ""
+	}
+	values := url.Values{}
+	keys := make([]string, 0, len(c.Queries()))
+	for key := range c.Queries() {
+		key = strings.TrimSpace(key)
+		if key == "" {
+			continue
+		}
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		added := false
+		func() {
+			defer func() { _ = recover() }()
+			for _, value := range c.QueryValues(key) {
+				values.Add(key, value)
+				added = true
+			}
+		}()
+		if !added {
+			if value := strings.TrimSpace(c.Query(key)); value != "" {
+				values.Add(key, value)
+			}
+		}
+	}
+	return values.Encode()
 }
 
 func translationMissingSiteError(requestedLocale string, availableLocales []string, contentType, slugOrPath string) SiteRuntimeError {
@@ -896,6 +1247,18 @@ func mapDeliveryRecord(record admin.CMSContent, capability deliveryCapability) m
 		"content_type_slug":        strings.TrimSpace(firstNonEmpty(record.ContentTypeSlug, capability.TypeSlug)),
 		"data":                     data,
 	}
+	if summary := strings.TrimSpace(firstNonEmpty(anyString(data["summary"]), anyString(data["excerpt"]))); summary != "" {
+		out["summary"] = summary
+	}
+	if content := strings.TrimSpace(firstNonEmpty(anyString(data["content"]), anyString(data["body"]))); content != "" {
+		out["content"] = content
+	}
+	if metaTitle := strings.TrimSpace(anyString(data["meta_title"])); metaTitle != "" {
+		out["meta_title"] = metaTitle
+	}
+	if metaDescription := strings.TrimSpace(anyString(data["meta_description"])); metaDescription != "" {
+		out["meta_description"] = metaDescription
+	}
 	if previewURL := strings.TrimSpace(anyString(data["preview_url"])); previewURL != "" {
 		out["preview_url"] = previewURL
 	}
@@ -903,28 +1266,39 @@ func mapDeliveryRecord(record admin.CMSContent, capability deliveryCapability) m
 }
 
 func recordDeliveryPath(record admin.CMSContent, capability deliveryCapability) string {
+	policy := effectiveDeliveryPathPolicy(capability)
 	if value := strings.TrimSpace(admin.ResolveContentPath(record, "")); value != "" {
-		return normalizeLocalePath(value)
+		if sanitized := sanitizeDeliveryPath(value, policy); sanitized != "" {
+			return sanitized
+		}
 	}
+	generated := generatedDeliveryPath(record, capability)
+	if generated == "" {
+		return ""
+	}
+	return sanitizeDeliveryPath(generated, policy)
+}
+
+func generatedDeliveryPath(record admin.CMSContent, capability deliveryCapability) string {
 	slug := strings.Trim(strings.TrimSpace(record.Slug), "/")
 	if slug == "" {
 		return "/"
 	}
 	switch capability.normalizedKind() {
 	case "page":
-		return normalizeLocalePath("/" + slug)
+		return "/" + slug
 	case "collection":
-		return normalizeLocalePath(capability.listRoutePattern())
+		return capability.listRoutePattern()
 	default:
 		pattern := capability.detailRoutePattern()
 		if strings.Contains(pattern, ":slug") {
-			return normalizeLocalePath(strings.Replace(pattern, ":slug", slug, 1))
+			return strings.Replace(pattern, ":slug", slug, 1)
 		}
-		return normalizeLocalePath("/" + pluralTypeSlug(capability.TypeSlug) + "/" + slug)
+		return "/" + pluralTypeSlug(capability.TypeSlug) + "/" + slug
 	}
 }
 
-func deliverySlugMatches(record admin.CMSContent, slug string) bool {
+func deliverySlugMatches(record admin.CMSContent, slug string, capability deliveryCapability) bool {
 	slug = strings.Trim(strings.ToLower(strings.TrimSpace(slug)), "/")
 	if slug == "" {
 		return false
@@ -932,7 +1306,7 @@ func deliverySlugMatches(record admin.CMSContent, slug string) bool {
 	if strings.Trim(strings.ToLower(strings.TrimSpace(record.Slug)), "/") == slug {
 		return true
 	}
-	path := strings.Trim(strings.ToLower(strings.TrimSpace(admin.ResolveContentPath(record, ""))), "/")
+	path := strings.Trim(strings.ToLower(strings.TrimSpace(recordDeliveryPath(record, capability))), "/")
 	if path == slug {
 		return true
 	}
@@ -970,12 +1344,128 @@ func localizedPathsFromGroup(group []admin.CMSContent, capability deliveryCapabi
 		if _, exists := byLocale[locale]; exists {
 			continue
 		}
-		byLocale[locale] = recordDeliveryPath(record, capability)
+		path := recordDeliveryPath(record, capability)
+		if path == "" {
+			continue
+		}
+		byLocale[locale] = path
 	}
 	if len(byLocale) == 0 {
 		return nil
 	}
 	return byLocale
+}
+
+func (r *deliveryRuntime) resolveLocalizedPathsByLocale(
+	ctx context.Context,
+	state RequestState,
+	capability deliveryCapability,
+	record admin.CMSContent,
+	existing map[string]string,
+	cache *localeContentCache,
+) map[string]string {
+	out := cloneLocalizedPaths(existing)
+	if r == nil || r.contentSvc == nil {
+		if len(out) == 0 {
+			return nil
+		}
+		return out
+	}
+
+	key := contentIdentityKey(record, capability)
+	if strings.TrimSpace(key) == "" {
+		if len(out) == 0 {
+			return nil
+		}
+		return out
+	}
+
+	for _, locale := range uniqueLocaleOrder(
+		state.SupportedLocales,
+		[]string{state.Locale},
+		[]string{state.DefaultLocale},
+		record.AvailableLocales,
+	) {
+		if locale == "" {
+			continue
+		}
+		if _, exists := out[locale]; exists {
+			continue
+		}
+		items, err := r.listSiteContentsCached(ctx, locale, cache)
+		if err != nil || len(items) == 0 {
+			continue
+		}
+
+		localeState := state
+		localeState.Locale = locale
+		for _, candidate := range items {
+			if !matchesCapabilityType(candidate, capability.TypeSlug) {
+				continue
+			}
+			if !recordVisibleForRequest(candidate, capability, localeState) {
+				continue
+			}
+			if !strings.EqualFold(contentIdentityKey(candidate, capability), key) {
+				continue
+			}
+			path := recordDeliveryPath(candidate, capability)
+			if path == "" {
+				break
+			}
+			out[locale] = normalizeLocalePath(path)
+			break
+		}
+	}
+
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func cloneLocalizedPaths(input map[string]string) map[string]string {
+	if len(input) == 0 {
+		return map[string]string{}
+	}
+	out := make(map[string]string, len(input))
+	for key, value := range input {
+		key = strings.ToLower(strings.TrimSpace(key))
+		value = strings.TrimSpace(value)
+		if key == "" || value == "" {
+			continue
+		}
+		out[key] = normalizeLocalePath(value)
+	}
+	if len(out) == 0 {
+		return map[string]string{}
+	}
+	return out
+}
+
+func uniqueLocaleOrder(groups ...[]string) []string {
+	if len(groups) == 0 {
+		return nil
+	}
+	seen := map[string]struct{}{}
+	out := []string{}
+	for _, group := range groups {
+		for _, locale := range group {
+			locale = strings.ToLower(strings.TrimSpace(locale))
+			if locale == "" {
+				continue
+			}
+			if _, ok := seen[locale]; ok {
+				continue
+			}
+			seen[locale] = struct{}{}
+			out = append(out, locale)
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func singularTypeSlug(value string) string {
@@ -1002,6 +1492,186 @@ func pluralTypeSlug(value string) string {
 		return value
 	}
 	return value + "s"
+}
+
+func deliveryPathPolicyFromContract(delivery map[string]any, capability deliveryCapability) deliveryPathPolicy {
+	policy := deliveryPathPolicy{
+		AllowExternalURLs: false,
+		AllowRoot:         capability.normalizedKind() == "page",
+		AllowedPrefixes:   defaultDeliveryPathPrefixes(capability),
+		allowRootSet:      false,
+		allowedPrefixSet:  false,
+	}
+	raw := anyMap(delivery["path_policy"])
+	if len(raw) == 0 {
+		return policy
+	}
+	if _, exists := raw["allow_external_urls"]; exists {
+		policy.AllowExternalURLs = anyBool(raw["allow_external_urls"])
+	}
+	if _, exists := raw["allow_root"]; exists {
+		policy.AllowRoot = anyBool(raw["allow_root"])
+		policy.allowRootSet = true
+	}
+	if _, exists := raw["allowed_prefixes"]; exists {
+		policy.allowedPrefixSet = true
+		policy.AllowedPrefixes = normalizePolicyPrefixes(anyStringList(raw["allowed_prefixes"]))
+		return policy
+	}
+	if values := normalizePolicyPrefixes(anyStringList(raw["allowed_prefixes"])); len(values) > 0 {
+		policy.AllowedPrefixes = values
+	}
+	return policy
+}
+
+func effectiveDeliveryPathPolicy(capability deliveryCapability) deliveryPathPolicy {
+	policy := capability.PathPolicy
+	if !policy.allowRootSet {
+		policy.AllowRoot = capability.normalizedKind() == "page"
+	}
+	if !policy.allowedPrefixSet {
+		policy.AllowedPrefixes = defaultDeliveryPathPrefixes(capability)
+	}
+	policy.AllowedPrefixes = normalizePolicyPrefixes(policy.AllowedPrefixes)
+	return policy
+}
+
+func defaultDeliveryPathPrefixes(capability deliveryCapability) []string {
+	switch capability.normalizedKind() {
+	case "collection":
+		if prefix := staticRoutePrefix(capability.listRoutePattern()); prefix != "" && prefix != "/" {
+			return []string{prefix}
+		}
+	case "detail", "hybrid":
+		if prefix := staticRoutePrefix(capability.detailRoutePattern()); prefix != "" && prefix != "/" {
+			return []string{prefix}
+		}
+	}
+	return nil
+}
+
+func staticRoutePrefix(pattern string) string {
+	pattern = normalizeLocalePath(pattern)
+	segments := splitPathSegments(pattern)
+	if len(segments) == 0 {
+		return "/"
+	}
+	prefix := make([]string, 0, len(segments))
+	for _, segment := range segments {
+		if strings.HasPrefix(segment, ":") || strings.Contains(segment, "*") {
+			break
+		}
+		prefix = append(prefix, segment)
+	}
+	if len(prefix) == 0 {
+		return "/"
+	}
+	return normalizeLocalePath("/" + strings.Join(prefix, "/"))
+}
+
+func normalizePolicyPrefixes(items []string) []string {
+	if len(items) == 0 {
+		return nil
+	}
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(items))
+	for _, item := range items {
+		path := normalizeLocalePath(item)
+		if path == "" || path == "/" {
+			continue
+		}
+		if _, exists := seen[path]; exists {
+			continue
+		}
+		seen[path] = struct{}{}
+		out = append(out, path)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	sort.Strings(out)
+	return out
+}
+
+func sanitizeDeliveryPath(raw string, policy deliveryPathPolicy) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	if !policy.AllowExternalURLs {
+		lower := strings.ToLower(raw)
+		if strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://") || strings.HasPrefix(raw, "//") {
+			return ""
+		}
+	}
+	if strings.Contains(raw, "\\") {
+		return ""
+	}
+	if idx := strings.IndexAny(raw, "?#"); idx >= 0 {
+		raw = strings.TrimSpace(raw[:idx])
+	}
+	if raw == "" {
+		return ""
+	}
+	if !strings.HasPrefix(raw, "/") {
+		raw = "/" + strings.TrimLeft(raw, "/")
+	}
+	for _, segment := range strings.Split(strings.Trim(raw, "/"), "/") {
+		if segment == "." || segment == ".." {
+			return ""
+		}
+	}
+	cleaned := path.Clean(raw)
+	if !strings.HasPrefix(cleaned, "/") {
+		cleaned = "/" + cleaned
+	}
+	cleaned = normalizeLocalePath(cleaned)
+	if cleaned == "" {
+		return ""
+	}
+	if cleaned == "/" && !policy.AllowRoot {
+		return ""
+	}
+	if len(policy.AllowedPrefixes) > 0 && !pathMatchesAllowedPrefixes(cleaned, policy.AllowedPrefixes) {
+		return ""
+	}
+	return cleaned
+}
+
+func pathMatchesAllowedPrefixes(path string, prefixes []string) bool {
+	path = normalizeLocalePath(path)
+	if path == "" || len(prefixes) == 0 {
+		return false
+	}
+	for _, prefix := range prefixes {
+		prefix = normalizeLocalePath(prefix)
+		if prefix == "" || prefix == "/" {
+			continue
+		}
+		if path == prefix || strings.HasPrefix(path, prefix+"/") {
+			return true
+		}
+	}
+	return false
+}
+
+func anyStringList(raw any) []string {
+	switch typed := raw.(type) {
+	case []string:
+		return append([]string{}, typed...)
+	case []any:
+		out := make([]string, 0, len(typed))
+		for _, item := range typed {
+			value := strings.TrimSpace(anyString(item))
+			if value == "" {
+				continue
+			}
+			out = append(out, value)
+		}
+		return out
+	default:
+		return nil
+	}
 }
 
 func anyMap(raw any) map[string]any {
