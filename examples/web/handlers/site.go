@@ -18,7 +18,6 @@ import (
 )
 
 // SiteHandlers renders CMS-backed pages and posts for the public site.
-// Deprecated: examples/web/main.go now wires public routes via quickstart/site.RegisterSiteRoutes.
 type SiteHandlers struct {
 	Admin         *admin.Admin
 	Pages         stores.PageRepository

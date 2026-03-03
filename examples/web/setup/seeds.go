@@ -40,12 +40,6 @@ func DefaultSeedConfig() SeedConfig {
 	}
 }
 
-// SeedConfigFromEnv is retained for compatibility and returns configured runtime seed settings.
-// Deprecated: configure seeds through setup.ConfigureRuntime.
-func SeedConfigFromEnv() SeedConfig {
-	return ResolveSeedConfig(runtimeConfig().Seeds, isProductionEnv())
-}
-
 // ResolveSeedConfig normalizes seed settings for the current runtime profile.
 func ResolveSeedConfig(cfg SeedConfig, production bool) SeedConfig {
 	if production {

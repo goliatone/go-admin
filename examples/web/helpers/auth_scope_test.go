@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/goliatone/go-admin/quickstart"
 	authlib "github.com/goliatone/go-auth"
 	userstypes "github.com/goliatone/go-users/pkg/types"
 	"github.com/goliatone/go-users/scope"
@@ -87,5 +88,28 @@ func TestScopePolicyAllowsWhenClaimsMissing(t *testing.T) {
 	expected := ScopeFromContext(context.Background())
 	if resolved.TenantID != expected.TenantID || resolved.OrgID != expected.OrgID {
 		t.Fatalf("expected scope %+v, got %+v", expected, resolved)
+	}
+}
+
+func TestScopeFromContextUsesConfiguredRuntimeDefaults(t *testing.T) {
+	original := runtimeConfig()
+	t.Cleanup(func() { ConfigureRuntime(original) })
+
+	tenantID := uuid.New()
+	orgID := uuid.New()
+	ConfigureRuntime(RuntimeConfig{
+		Scope: quickstart.ScopeConfig{
+			Mode:            quickstart.ScopeModeSingle,
+			DefaultTenantID: tenantID.String(),
+			DefaultOrgID:    orgID.String(),
+		},
+	})
+
+	scope := ScopeFromContext(context.Background())
+	if scope.TenantID != tenantID {
+		t.Fatalf("expected tenant %s, got %s", tenantID, scope.TenantID)
+	}
+	if scope.OrgID != orgID {
+		t.Fatalf("expected org %s, got %s", orgID, scope.OrgID)
 	}
 }

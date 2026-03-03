@@ -161,8 +161,8 @@ type SecureLinkConfig struct {
 
 type TranslationConfig struct {
 	Profile  string `koanf:"profile" json:"profile" yaml:"profile"`
-	Exchange bool   `koanf:"exchange" json:"exchange" yaml:"exchange"`
-	Queue    bool   `koanf:"queue" json:"queue" yaml:"queue"`
+	Exchange *bool  `koanf:"exchange" json:"exchange" yaml:"exchange"`
+	Queue    *bool  `koanf:"queue" json:"queue" yaml:"queue"`
 }
 
 type DatagridConfig struct {
@@ -352,9 +352,7 @@ func Defaults() *Config {
 			Expiration: 72 * time.Hour,
 		},
 		Translation: TranslationConfig{
-			Profile:  "full",
-			Exchange: true,
-			Queue:    true,
+			Profile: "full",
 		},
 		Datagrid: DatagridConfig{},
 		ExportPDF: ExportPDFConfig{

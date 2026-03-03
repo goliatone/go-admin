@@ -11,16 +11,13 @@ import (
 )
 
 func seedScopeDefaults() types.ScopeFilter {
-	cfg := quickstart.ScopeConfigFromEnv()
+	cfg := quickstart.NormalizeScopeConfig(runtimeConfig().Scope)
 	if cfg.Mode == quickstart.ScopeModeSingle {
 		tenantID, _ := parseScopeUUID(cfg.DefaultTenantID, "tenant")
 		orgID, _ := parseScopeUUID(cfg.DefaultOrgID, "org")
 		return types.ScopeFilter{TenantID: tenantID, OrgID: orgID}
 	}
-	seedDefaults := quickstart.DefaultScopeConfig()
-	tenantID, _ := parseScopeUUID(seedDefaults.DefaultTenantID, "tenant")
-	orgID, _ := parseScopeUUID(seedDefaults.DefaultOrgID, "org")
-	return types.ScopeFilter{TenantID: tenantID, OrgID: orgID}
+	return types.ScopeFilter{}
 }
 
 func rewriteSeedScope(ctx context.Context, db *bun.DB, cfg quickstart.ScopeConfig) error {
