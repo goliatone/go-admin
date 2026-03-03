@@ -559,7 +559,7 @@ func TestSitePublicAPIMenuRoutesAndQueryContracts(t *testing.T) {
 
 	prodPath := mustResolveURL(t, adm.URLs(), publicGroup, SiteRouteMenuByLocation, map[string]string{"location": "site.main"}, map[string]string{
 		"locale":       "en",
-		"environment":  "prod",
+		"runtime_env":  "prod",
 		"view_profile": "footer",
 	})
 	prodReq := httptest.NewRequest(http.MethodGet, prodPath, nil)

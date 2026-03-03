@@ -54,14 +54,14 @@ func TestContentAliasRoutesRedirectToContentEntryPanels(t *testing.T) {
 		t.Fatalf("unexpected pages redirect: %q", location)
 	}
 
-	req = httptest.NewRequest("GET", "/admin/posts/2024?env=staging&foo=bar", nil)
+	req = httptest.NewRequest("GET", "/admin/posts/2024?channel=staging&foo=bar", nil)
 	res = httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(res, req)
 	if res.Code != http.StatusFound {
 		t.Fatalf("expected redirect for posts alias, got %d", res.Code)
 	}
 	location := res.Header().Get("Location")
-	if !strings.HasPrefix(location, "/admin/content/posts/2024") || !strings.Contains(location, "env=staging") || !strings.Contains(location, "foo=bar") {
+	if !strings.HasPrefix(location, "/admin/content/posts/2024") || !strings.Contains(location, "channel=staging") || !strings.Contains(location, "foo=bar") {
 		t.Fatalf("unexpected posts redirect: %q", location)
 	}
 }
