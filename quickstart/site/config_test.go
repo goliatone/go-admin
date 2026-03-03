@@ -70,7 +70,7 @@ func TestResolveSiteConfigDefaults(t *testing.T) {
 		t.Fatalf("expected search endpoint %q, got %q", DefaultSearchEndpoint, resolved.Search.Endpoint)
 	}
 
-	if !resolved.Features.EnablePreview || !resolved.Features.EnableI18N || !resolved.Features.EnableSearch || !resolved.Features.EnableTheme || !resolved.Features.EnableMenuDraftPreview {
+	if !resolved.Features.EnablePreview || !resolved.Features.EnableI18N || !resolved.Features.EnableSearch || !resolved.Features.EnableTheme || !resolved.Features.EnableMenuDraftPreview || !resolved.Features.EnableCanonicalRedirect || resolved.Features.StrictLocalizedPaths {
 		t.Fatalf("expected all feature flags enabled by default, got %+v", resolved.Features)
 	}
 }
@@ -86,6 +86,8 @@ func TestResolveSiteConfigHonorsFeatureAndFallbackOverrides(t *testing.T) {
 		Features: SiteFeatures{
 			EnableSearch: boolPtr(false),
 			EnableTheme:  boolPtr(false),
+			EnableCanonicalRedirect: boolPtr(false),
+			StrictLocalizedPaths:    boolPtr(true),
 		},
 		Views: SiteViewConfig{
 			Reload: boolPtr(true),
@@ -115,6 +117,12 @@ func TestResolveSiteConfigHonorsFeatureAndFallbackOverrides(t *testing.T) {
 	}
 	if !resolved.Features.EnablePreview {
 		t.Fatalf("expected unspecified feature to keep default enabled")
+	}
+	if resolved.Features.EnableCanonicalRedirect {
+		t.Fatalf("expected canonical redirect feature disabled")
+	}
+	if !resolved.Features.StrictLocalizedPaths {
+		t.Fatalf("expected strict localized paths feature enabled")
 	}
 	if !resolved.Views.Reload {
 		t.Fatalf("expected explicit reload=true")
