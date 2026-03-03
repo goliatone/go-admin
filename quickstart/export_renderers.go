@@ -3,8 +3,6 @@ package quickstart
 import (
 	"fmt"
 	"io/fs"
-	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -23,6 +21,32 @@ type exportTemplateOptions struct {
 	templateName  string
 	maxRows       int
 	pdfBuilder    func(exporttemplate.Renderer) (exportpdf.Renderer, error)
+	pdfConfig     ExportPDFConfig
+}
+
+// ExportPDFConfig controls default PDF renderer behavior.
+type ExportPDFConfig struct {
+	Engine            string
+	WKHTMLToPDFPath   string
+	BrowserPath       string
+	Timeout           time.Duration
+	PageSize          string
+	PrintBackground   bool
+	PreferCSSPageSize bool
+	Headless          bool
+	Args              []string
+}
+
+// DefaultExportPDFConfig returns baseline PDF settings.
+func DefaultExportPDFConfig() ExportPDFConfig {
+	return ExportPDFConfig{
+		Engine:            "chromium",
+		Timeout:           30 * time.Second,
+		PrintBackground:   true,
+		PreferCSSPageSize: true,
+		Headless:          true,
+		Args:              []string{"--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"},
+	}
 }
 
 // WithExportTemplateFuncs sets the template helpers used by the export renderer.
@@ -52,6 +76,17 @@ func WithExportTemplateMaxRows(rows int) ExportTemplateOption {
 	}
 }
 
+// WithExportPDFConfig overrides default PDF renderer settings.
+func WithExportPDFConfig(cfg ExportPDFConfig) ExportTemplateOption {
+	return func(opts *exportTemplateOptions) {
+		if opts == nil {
+			return
+		}
+		normalized := normalizeExportPDFConfig(cfg)
+		opts.pdfConfig = normalized
+	}
+}
+
 // WithExportPDFRenderer overrides the default PDF renderer builder.
 func WithExportPDFRenderer(builder func(exporttemplate.Renderer) (exportpdf.Renderer, error)) ExportTemplateOption {
 	return func(opts *exportTemplateOptions) {
@@ -73,7 +108,10 @@ func ConfigureExportRenderers(bundle *ExportBundle, templatesFS fs.FS, opts ...E
 	options := exportTemplateOptions{
 		templateName: "export",
 		maxRows:      5000,
-		pdfBuilder:   buildPDFRenderer,
+		pdfConfig:    DefaultExportPDFConfig(),
+	}
+	options.pdfBuilder = func(renderer exporttemplate.Renderer) (exportpdf.Renderer, error) {
+		return buildPDFRenderer(options.pdfConfig, renderer)
 	}
 	for _, opt := range opts {
 		if opt != nil {
@@ -113,8 +151,9 @@ func ConfigureExportRenderers(bundle *ExportBundle, templatesFS fs.FS, opts ...E
 	return nil
 }
 
-func buildPDFRenderer(templateRenderer exporttemplate.Renderer) (exportpdf.Renderer, error) {
-	engineName := strings.ToLower(strings.TrimSpace(os.Getenv("EXPORT_PDF_ENGINE")))
+func buildPDFRenderer(cfg ExportPDFConfig, templateRenderer exporttemplate.Renderer) (exportpdf.Renderer, error) {
+	cfg = normalizeExportPDFConfig(cfg)
+	engineName := strings.ToLower(strings.TrimSpace(cfg.Engine))
 	if engineName == "" {
 		engineName = "chromium"
 	}
@@ -125,8 +164,8 @@ func buildPDFRenderer(templateRenderer exporttemplate.Renderer) (exportpdf.Rende
 			Enabled:      true,
 			HTMLRenderer: templateRenderer,
 			Engine: exportpdf.WKHTMLTOPDFEngine{
-				Command: strings.TrimSpace(os.Getenv("WKHTMLTOPDF_PATH")),
-				Timeout: envDurationSeconds("EXPORT_PDF_TIMEOUT_SECONDS", 30),
+				Command: strings.TrimSpace(cfg.WKHTMLToPDFPath),
+				Timeout: cfg.Timeout,
 			},
 		}, nil
 	case "chromium", "chromedp":
@@ -134,68 +173,33 @@ func buildPDFRenderer(templateRenderer exporttemplate.Renderer) (exportpdf.Rende
 		return exportpdf.Renderer{}, fmt.Errorf("unsupported export pdf engine: %s", engineName)
 	}
 
-	printBackground := exportEnvBool("EXPORT_PDF_PRINT_BACKGROUND", true)
-	preferCSS := exportEnvBool("EXPORT_PDF_PREFER_CSS_PAGE_SIZE", true)
-	headless := exportEnvBool("EXPORT_PDF_HEADLESS", true)
-	args := envCSV("EXPORT_PDF_ARGS")
-	if len(args) == 0 {
-		args = []string{"--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"}
-	}
-
 	return exportpdf.Renderer{
 		Enabled:      true,
 		HTMLRenderer: templateRenderer,
 		Engine: &exportpdf.ChromiumEngine{
-			BrowserPath: strings.TrimSpace(os.Getenv("EXPORT_PDF_BROWSER_PATH")),
-			Headless:    headless,
-			Args:        args,
-			Timeout:     envDurationSeconds("EXPORT_PDF_TIMEOUT_SECONDS", 30),
+			BrowserPath: strings.TrimSpace(cfg.BrowserPath),
+			Headless:    cfg.Headless,
+			Args:        append([]string{}, cfg.Args...),
+			Timeout:     cfg.Timeout,
 			DefaultPDF: export.PDFOptions{
-				PageSize:          strings.TrimSpace(os.Getenv("EXPORT_PDF_PAGE_SIZE")),
-				PrintBackground:   &printBackground,
-				PreferCSSPageSize: &preferCSS,
+				PageSize:          strings.TrimSpace(cfg.PageSize),
+				PrintBackground:   &cfg.PrintBackground,
+				PreferCSSPageSize: &cfg.PreferCSSPageSize,
 			},
 		},
 	}, nil
 }
 
-func envDurationSeconds(key string, fallback int) time.Duration {
-	raw := strings.TrimSpace(os.Getenv(key))
-	if raw == "" {
-		return time.Duration(fallback) * time.Second
+func normalizeExportPDFConfig(cfg ExportPDFConfig) ExportPDFConfig {
+	defaults := DefaultExportPDFConfig()
+	if strings.TrimSpace(cfg.Engine) == "" {
+		cfg.Engine = defaults.Engine
 	}
-	value, err := strconv.Atoi(raw)
-	if err != nil || value <= 0 {
-		return time.Duration(fallback) * time.Second
+	if cfg.Timeout <= 0 {
+		cfg.Timeout = defaults.Timeout
 	}
-	return time.Duration(value) * time.Second
-}
-
-func exportEnvBool(key string, fallback bool) bool {
-	raw := strings.TrimSpace(os.Getenv(key))
-	if raw == "" {
-		return fallback
+	if cfg.Args == nil || len(cfg.Args) == 0 {
+		cfg.Args = append([]string{}, defaults.Args...)
 	}
-	value, err := strconv.ParseBool(raw)
-	if err != nil {
-		return fallback
-	}
-	return value
-}
-
-func envCSV(key string) []string {
-	raw := strings.TrimSpace(os.Getenv(key))
-	if raw == "" {
-		return nil
-	}
-	parts := strings.FieldsFunc(raw, func(r rune) bool {
-		return r == ',' || r == ';'
-	})
-	out := make([]string, 0, len(parts))
-	for _, part := range parts {
-		if trimmed := strings.TrimSpace(part); trimmed != "" {
-			out = append(out, trimmed)
-		}
-	}
-	return out
+	return cfg
 }

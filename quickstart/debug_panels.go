@@ -1,7 +1,6 @@
 package quickstart
 
 import (
-	"os"
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
@@ -175,33 +174,11 @@ func isDevelopmentFromDeps(deps DebugPanelDeps) bool {
 	if deps.IsDevelopment != nil {
 		return *deps.IsDevelopment
 	}
-	env := strings.ToLower(strings.TrimSpace(firstNonEmptyDebugEnv(
-		os.Getenv("GO_ENV"),
-		os.Getenv("ENV"),
-	)))
-	switch env {
-	case "development", "dev", "local":
-		return true
-	default:
-		return false
-	}
-}
-
-func firstNonEmptyDebugEnv(values ...string) string {
-	for _, value := range values {
-		value = strings.TrimSpace(value)
-		if value != "" {
-			return value
-		}
-	}
-	return ""
+	return false
 }
 
 // DoctorDebugEnabledFromEnv resolves doctor panel enablement using env override.
 // ADMIN_DEBUG_DOCTOR=true|false takes precedence; otherwise development defaults apply.
 func DoctorDebugEnabledFromEnv(isDevelopment bool) bool {
-	if enabled, ok := envBool("ADMIN_DEBUG_DOCTOR"); ok {
-		return enabled
-	}
 	return isDevelopment
 }

@@ -2,7 +2,6 @@ package quickstart
 
 import (
 	"context"
-	"os"
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
@@ -58,19 +57,11 @@ func NormalizeScopeConfig(cfg ScopeConfig) ScopeConfig {
 	return cfg
 }
 
-// ScopeConfigFromEnv reads ADMIN_SCOPE_MODE and ADMIN_DEFAULT_* envs.
+// ScopeConfigFromEnv is retained for compatibility and returns default scope
+// config. Host applications should pass explicit scope settings via
+// WithScopeConfig.
 func ScopeConfigFromEnv() ScopeConfig {
-	cfg := DefaultScopeConfig()
-	if val := strings.TrimSpace(os.Getenv("ADMIN_SCOPE_MODE")); val != "" {
-		cfg.Mode = ScopeMode(strings.ToLower(val))
-	}
-	if val := strings.TrimSpace(os.Getenv("ADMIN_DEFAULT_TENANT_ID")); val != "" {
-		cfg.DefaultTenantID = val
-	}
-	if val := strings.TrimSpace(os.Getenv("ADMIN_DEFAULT_ORG_ID")); val != "" {
-		cfg.DefaultOrgID = val
-	}
-	return NormalizeScopeConfig(cfg)
+	return NormalizeScopeConfig(DefaultScopeConfig())
 }
 
 // ScopeConfigFromAdmin maps admin.Config into a normalized ScopeConfig.

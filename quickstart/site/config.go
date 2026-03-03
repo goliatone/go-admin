@@ -2,7 +2,6 @@ package site
 
 import (
 	"io/fs"
-	"os"
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
@@ -165,15 +164,6 @@ func ResolveSiteConfig(cfg admin.Config, input SiteConfig) ResolvedSiteConfig {
 
 	environment := normalizeRuntimeEnvironment(input.Environment)
 	if environment == "" {
-		environment = normalizeRuntimeEnvironment(firstNonEmpty(
-			os.Getenv("SITE_RUNTIME_ENV"),
-			os.Getenv("APP_ENV"),
-			os.Getenv("ENVIRONMENT"),
-			os.Getenv("ENV"),
-			os.Getenv("GO_ENV"),
-		))
-	}
-	if environment == "" {
 		if cfg.Debug.Enabled {
 			environment = "dev"
 		} else {
@@ -183,15 +173,6 @@ func ResolveSiteConfig(cfg admin.Config, input SiteConfig) ResolvedSiteConfig {
 	contentEnvironment := ""
 	if strings.TrimSpace(input.ContentEnvironment) != "" {
 		contentEnvironment = normalizeContentEnvironment(input.ContentEnvironment)
-	}
-	if contentEnvironment == "" {
-		contentEnvFromRuntime := strings.TrimSpace(firstNonEmpty(
-			os.Getenv("SITE_CONTENT_ENV"),
-			os.Getenv("SITE_ENV"),
-		))
-		if contentEnvFromRuntime != "" {
-			contentEnvironment = normalizeContentEnvironment(contentEnvFromRuntime)
-		}
 	}
 	if contentEnvironment == "" {
 		contentEnvironment = "default"

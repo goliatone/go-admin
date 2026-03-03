@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"path"
 	"runtime"
 	"strings"
@@ -235,17 +234,7 @@ func shouldEnableDevMode(isDev bool, cfg admin.ErrorConfig) bool {
 	if isDev || cfg.DevMode {
 		return true
 	}
-	env := resolveRuntimeEnv()
-	if env == "" {
-		return false
-	}
-	if isProdEnv(env) {
-		return false
-	}
-	if value, ok := envBool("ADMIN_ERROR_NONPROD"); ok {
-		return value
-	}
-	return true
+	return false
 }
 
 func serializeTemplateValue(value any) any {
@@ -262,23 +251,6 @@ func serializeTemplateValue(value any) any {
 		return converted
 	}
 	return value
-}
-
-func resolveRuntimeEnv() string {
-	env := strings.TrimSpace(os.Getenv("GO_ENV"))
-	if env == "" {
-		env = strings.TrimSpace(os.Getenv("ENV"))
-	}
-	return strings.ToLower(env)
-}
-
-func isProdEnv(env string) bool {
-	switch strings.TrimSpace(strings.ToLower(env)) {
-	case "prod", "production":
-		return true
-	default:
-		return false
-	}
 }
 
 func formatStackTrace(trace any) string {
@@ -415,9 +387,16 @@ func buildEnvironmentInfo(cfg admin.ErrorConfig) *admin.EnvironmentInfo {
 	return &admin.EnvironmentInfo{
 		GoVersion:   runtime.Version(),
 		AppVersion:  cfg.AppVersion,
-		Environment: resolveRuntimeEnv(),
+		Environment: environmentLabel(cfg.DevMode),
 		Debug:       cfg.DevMode,
 	}
+}
+
+func environmentLabel(isDev bool) string {
+	if isDev {
+		return "development"
+	}
+	return "production"
 }
 
 func errorContext(code int) (string, string) {

@@ -257,7 +257,7 @@ func NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin
 	if options.flags != nil {
 		cfg, result = configureAdaptersWithFlagsLogger(options.ctx, cfg, hooks, *options.flags, adaptersLogger)
 	} else {
-		cfg, result = configureAdaptersWithFlagsLogger(options.ctx, cfg, hooks, ResolveAdapterFlags(), adaptersLogger)
+		cfg, result = configureAdaptersWithFlagsLogger(options.ctx, cfg, hooks, AdapterFlags{}, adaptersLogger)
 	}
 	if result.Flags.UsePersistentCMS && !result.PersistentCMSSet {
 		if result.PersistentCMSError != nil {

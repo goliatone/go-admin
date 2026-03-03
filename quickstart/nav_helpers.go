@@ -3,7 +3,6 @@ package quickstart
 import (
 	"context"
 	"encoding/json"
-	"os"
 	"path"
 	"strings"
 
@@ -106,7 +105,7 @@ func WithNavPlacements(ctx router.ViewContext, adm *admin.Admin, cfg admin.Confi
 	if active != "" {
 		ctx["active"] = active
 	}
-	if strings.EqualFold(os.Getenv("NAV_DEBUG"), "true") {
+	if cfg.Debug.Enabled {
 		if raw, err := json.MarshalIndent(ctx["nav_items"], "", "  "); err == nil {
 			ctx["nav_items_json"] = string(raw)
 			ctx["nav_debug"] = true
@@ -133,7 +132,7 @@ func BuildNavItemsForPlacement(adm *admin.Admin, cfg admin.Config, placements Pl
 	basePath := resolveAdminBasePath(adm.URLs(), adm.BasePath())
 	urls := adm.URLs()
 	menuCode := placements.MenuCodeFor(placement, cfg.NavMenuCode)
-	logNav := strings.EqualFold(os.Getenv("NAV_DEBUG"), "true") || strings.EqualFold(os.Getenv("NAV_DEBUG_LOG"), "true")
+	logNav := cfg.Debug.Enabled
 	items := nav.ResolveMenu(ctx, menuCode, cfg.DefaultLocale)
 	for _, item := range items {
 		entry, _ := buildNavEntry(item, basePath, urls, active)

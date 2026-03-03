@@ -3,8 +3,6 @@ package quickstart
 import (
 	"context"
 	"net/http"
-	"os"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -139,24 +137,16 @@ func (b *ScopeDebugBuffer) Clear() error {
 	return nil
 }
 
-// ScopeDebugEnabledFromEnv returns true when ADMIN_DEBUG_SCOPE is set.
+// ScopeDebugEnabledFromEnv is retained for compatibility and always returns false.
+// Deprecated: pass explicit scope debug configuration from host application code.
 func ScopeDebugEnabledFromEnv() bool {
-	enabled, ok := envBool("ADMIN_DEBUG_SCOPE")
-	return ok && enabled
+	return false
 }
 
-// ScopeDebugLimitFromEnv reads ADMIN_DEBUG_SCOPE_LIMIT or returns 200.
+// ScopeDebugLimitFromEnv is retained for compatibility and returns 200.
+// Deprecated: pass explicit scope debug configuration from host application code.
 func ScopeDebugLimitFromEnv() int {
-	const defaultLimit = 200
-	val := strings.TrimSpace(os.Getenv("ADMIN_DEBUG_SCOPE_LIMIT"))
-	if val == "" {
-		return defaultLimit
-	}
-	parsed, err := strconv.Atoi(val)
-	if err != nil || parsed <= 0 {
-		return defaultLimit
-	}
-	return parsed
+	return 200
 }
 
 // ScopeDebugWrap captures scope debug info for authenticated requests.
@@ -369,7 +359,7 @@ func redactHeader(value string) string {
 
 func scopeConfigFromAdmin(cfg *admin.Config) ScopeConfig {
 	if cfg == nil {
-		return ScopeConfigFromEnv()
+		return DefaultScopeConfig()
 	}
 	return ScopeConfigFromAdmin(*cfg)
 }
