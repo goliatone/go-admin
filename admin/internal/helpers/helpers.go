@@ -44,12 +44,7 @@ func HasAnyKey(set map[string]bool, keys []string) bool {
 	return navinternal.HasAnyKey(set, keys)
 }
 
-// EnsureMenuUUID maps an arbitrary string to a UUID string, preserving valid UUID inputs.
-func EnsureMenuUUID(raw string) string {
-	return navinternal.EnsureMenuUUID(raw)
-}
-
-// MapMenuIDs applies deterministic UUID mapping to ID and ParentID when they are not valid UUIDs.
+// MapMenuIDs normalizes ID and ParentID values to canonical menu item paths.
 func MapMenuIDs(item navinternal.MenuItem) navinternal.MenuItem {
 	return navinternal.MapMenuIDs(item)
 }

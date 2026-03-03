@@ -42,5 +42,5 @@ func MenuUUIDFromSlug(slug string) string {
 	if normalized == "" {
 		normalized = strings.TrimSpace(slug)
 	}
-	return EnsureMenuUUID(normalized)
+	return normalized
 }
