@@ -55,12 +55,25 @@ module resolves it via either:
   the root `go.mod`, or
 - a `go.work` file that includes `./quickstart`.
 
+### Configuration model
+
+The web example uses typed config loaded from:
+- `examples/web/config/app.json` (base defaults)
+- `APP_*` env overrides using the `__` delimiter for nesting
+
+Examples:
+- `APP_ADMIN__SCOPE__MODE=single|multi`
+- `APP_ADMIN__SCOPE__DEFAULT_TENANT_ID=<uuid>`
+- `APP_ADMIN__SCOPE__DEFAULT_ORG_ID=<uuid>`
+- `APP_TRANSLATION__PROFILE=none|core|core+exchange|core+queue|full`
+
+For local development, `examples/web/taskfile` `dev:serve` exports canonical `APP_*` keys and also maps legacy aliases (`ADMIN_*`, `SITE_*`, `USE_*`) for compatibility.
+
 ### Scope defaults (single vs multi-tenant)
-The example uses quickstart scope defaults. Configure via env:
-- `ADMIN_SCOPE_MODE=single|multi` (default: `single`)
-- `ADMIN_DEFAULT_TENANT_ID=<uuid>` (default: `11111111-1111-1111-1111-111111111111`)
-- `ADMIN_DEFAULT_ORG_ID=<uuid>` (default: `22222222-2222-2222-2222-222222222222`)
-- Canonical `ADMIN_*` env reference (single table): `../../ENVS_REF.md`
+The example uses quickstart scope defaults. Configure via:
+- `admin.scope.mode` (`APP_ADMIN__SCOPE__MODE`) default: `single`
+- `admin.scope.default_tenant_id` (`APP_ADMIN__SCOPE__DEFAULT_TENANT_ID`) default: `11111111-1111-1111-1111-111111111111`
+- `admin.scope.default_org_id` (`APP_ADMIN__SCOPE__DEFAULT_ORG_ID`) default: `22222222-2222-2222-2222-222222222222`
 
 For multi-tenant mode, ensure your auth claims and seeded data share the same tenant/org IDs.
 When running in single-tenant mode, the seed loader rewrites seeded rows to the configured defaults so the demo data stays in scope.
@@ -69,17 +82,15 @@ When running in single-tenant mode, the seed loader rewrites seeded rows to the 
 
 The example app uses productized translation quickstart wiring through `WithTranslationProductConfig(...)`.
 
-Environment matrix:
-- `ADMIN_TRANSLATION_PROFILE=none|core|core+exchange|core+queue|full`
-  - Default when unset: `core` (CMS-enabled app baseline).
-- `ADMIN_TRANSLATION_EXCHANGE=true|false`
-  - Optional explicit override for exchange module enablement.
-- `ADMIN_TRANSLATION_QUEUE=true|false`
-  - Optional explicit override for queue module enablement.
+Config matrix:
+- `translation.profile` (`APP_TRANSLATION__PROFILE`) = `none|core|core+exchange|core+queue|full`
+  - Default in `app.json`: `full`
+- `translation.exchange` (`APP_TRANSLATION__EXCHANGE`) = `true|false`
+- `translation.queue` (`APP_TRANSLATION__QUEUE`) = `true|false`
 
 Override precedence:
-1. `ADMIN_TRANSLATION_PROFILE` sets module defaults.
-2. `ADMIN_TRANSLATION_EXCHANGE` / `ADMIN_TRANSLATION_QUEUE` explicitly override profile module defaults.
+1. `translation.profile` sets module defaults.
+2. `translation.exchange` / `translation.queue` override profile module defaults when set differently from the profile baseline.
 
 Module routes when enabled:
 - Exchange UI: `GET /admin/translations/exchange`
@@ -87,9 +98,9 @@ Module routes when enabled:
 - Queue panel route key: `admin.translations.queue` (resolved path typically `/admin/content/translations`)
 
 Operational verification:
-1. Start with `ADMIN_TRANSLATION_PROFILE=full` and optional explicit overrides:
-   - `ADMIN_TRANSLATION_EXCHANGE=true`
-   - `ADMIN_TRANSLATION_QUEUE=true`
+1. Start with `APP_TRANSLATION__PROFILE=full` and optional explicit overrides:
+   - `APP_TRANSLATION__EXCHANGE=true`
+   - `APP_TRANSLATION__QUEUE=true`
 2. Verify startup event `translation.capabilities.startup` includes expected `profile`, `modules`, `routes`, and `resolver_keys`.
 3. Verify enabled-module routes:
    - `GET /admin/translations/exchange` (exchange UI)
@@ -97,8 +108,8 @@ Operational verification:
    - `POST /admin/api/translations/export` (exchange API)
    - `GET /admin/api/translations` (queue panel API)
 4. Verify disabled-module behavior by switching profiles:
-   - `ADMIN_TRANSLATION_PROFILE=core`: exchange + queue routes should not be exposed.
-   - `ADMIN_TRANSLATION_PROFILE=none`: translation routes and translation operations entrypoints should not be exposed.
+   - `APP_TRANSLATION__PROFILE=core`: exchange + queue routes should not be exposed.
+   - `APP_TRANSLATION__PROFILE=none`: translation routes and translation operations entrypoints should not be exposed.
 5. Verify capabilities from runtime payload in templates (`translation_capabilities`) or backend call (`quickstart.TranslationCapabilities(adm)`), ensuring module flags match route availability; this payload is also available on custom handlers that call `helpers.WithNav` (for example `/admin/users`).
 
 Permission model for translation modules:
@@ -108,40 +119,40 @@ Permission model for translation modules:
   - Queue: `admin.translations.view`, `admin.translations.assign`, `admin.translations.edit`, `admin.translations.approve`, `admin.translations.manage`, `admin.translations.claim`
   - Exchange: `admin.translations.export`, `admin.translations.import.view`, `admin.translations.import.validate`, `admin.translations.import.apply`
 - If role permissions are changed while the app is running, reload the page to pick up current role assignments.
-- If using an existing DB seeded before these permissions existed, reseed roles (for example `ADMIN_SEEDS_TRUNCATE=true`) or update role permissions manually.
+- If using an existing DB seeded before these permissions existed, reseed roles (for example `APP_SEEDS__TRUNCATE=true`) or update role permissions manually.
 
 Authz preflight (DX guardrail):
-- `ADMIN_AUTHZ_PREFLIGHT=off|warn|strict`
+- `APP_ADMIN__AUTHZ_PREFLIGHT__MODE=off|warn|strict`
   - `warn` logs startup warnings for missing translation permissions on privileged roles.
   - `strict` fails startup when required permissions are missing.
   - default: `warn` in development, `off` otherwise.
-- `ADMIN_AUTHZ_PREFLIGHT_ROLES=superadmin,owner` overrides which role keys are checked.
+- `APP_ADMIN__AUTHZ_PREFLIGHT__ROLES=superadmin,owner` overrides which role keys are checked.
 - Checks run only when translation modules are enabled.
 
 Quick smoke command matrix:
 
 ```bash
 # full profile (exchange + queue expected)
-ADMIN_TRANSLATION_PROFILE=full go run .
+APP_TRANSLATION__PROFILE=full go run .
 
 # core profile (exchange + queue disabled)
-ADMIN_TRANSLATION_PROFILE=core go run .
+APP_TRANSLATION__PROFILE=core go run .
 
 # none profile (translation capabilities disabled)
-ADMIN_TRANSLATION_PROFILE=none go run .
+APP_TRANSLATION__PROFILE=none go run .
 ```
 
 ### DataGrid state persistence (content pages/posts)
 
 Content-entry DataGrid persistence is local-first by default, with optional user-preferences sync.
 
-Environment toggles:
-- `ADMIN_DATAGRID_STATE_STORE_MODE=local|preferences` (default: local when unset)
-- `ADMIN_DATAGRID_STATE_SYNC_DEBOUNCE_MS=<int>` (optional; preferences mode)
-- `ADMIN_DATAGRID_STATE_MAX_SHARE_ENTRIES=<int>` (optional)
-- `ADMIN_DATAGRID_URL_MAX_LENGTH=<int>` (optional URL budget)
-- `ADMIN_DATAGRID_URL_MAX_FILTERS_LENGTH=<int>` (optional filters budget)
-- `ADMIN_DATAGRID_URL_ENABLE_STATE_TOKEN=true|false` (optional; enables `state=<token>` fallback when URL budget is exceeded)
+Config toggles:
+- `datagrid.state_store_mode` (`APP_DATAGRID__STATE_STORE_MODE`) = `local|preferences` (default: unset)
+- `datagrid.sync_debounce_ms` (`APP_DATAGRID__SYNC_DEBOUNCE_MS`) optional, preferences mode
+- `datagrid.max_share_entries` (`APP_DATAGRID__MAX_SHARE_ENTRIES`) optional
+- `datagrid.url_max_length` (`APP_DATAGRID__URL_MAX_LENGTH`) optional URL budget
+- `datagrid.url_max_filters_length` (`APP_DATAGRID__URL_MAX_FILTERS_LENGTH`) optional filters budget
+- `datagrid.url_enable_state_token` (`APP_DATAGRID__URL_ENABLE_STATE_TOKEN`) optional; enables `state=<token>` fallback when URL budget is exceeded
 
 ### API Endpoints
 
@@ -175,24 +186,23 @@ The web example now registers public routes through `quickstart/site.RegisterSit
 
 Defaults:
 - `LocalePrefixMode=non_default` (`/about`, `/es/about`)
-- locale fallback enabled unless `SITE_ALLOW_LOCALE_FALLBACK=false`
-- generated menu fallback disabled (`SITE_ENABLE_GENERATED_FALLBACK=false`) and intended only as a demo safety net
+- locale fallback enabled unless `site.allow_locale_fallback=false`
+- generated menu fallback disabled (`site.enable_generated_fallback=false`) and intended only as a demo safety net
 - search routes enabled when the injected site search provider is available:
   - page: `GET /search`
   - API: `GET /api/v1/site/search`
   - suggest: `GET /api/v1/site/search/suggest`
 
-Useful env toggles:
-- `SITE_SUPPORTED_LOCALES=en,es,fr`
-- `SITE_LOCALE_PREFIX_MODE=non_default|always`
-- `SITE_ALLOW_LOCALE_FALLBACK=true|false`
-- `SITE_ENABLE_GENERATED_FALLBACK=true|false`
-- `SITE_ENABLE_SEARCH=true|false`
-- `SITE_RUNTIME_ENV=dev|staging|prod`
-- `SITE_CONTENT_ENV=default|dev|staging|prod|<channel>`
-- `SITE_ENV=<channel>` (legacy alias used only when `SITE_CONTENT_ENV` is unset)
-- `SITE_THEME=<theme-name>`
-- `SITE_THEME_VARIANT=<variant>`
+Useful config toggles:
+- `site.supported_locales` (`APP_SITE__SUPPORTED_LOCALES=en,es,fr`)
+- `site.locale_prefix_mode` (`APP_SITE__LOCALE_PREFIX_MODE=non_default|always`)
+- `site.allow_locale_fallback` (`APP_SITE__ALLOW_LOCALE_FALLBACK=true|false`)
+- `site.enable_generated_fallback` (`APP_SITE__ENABLE_GENERATED_FALLBACK=true|false`)
+- `site.enable_search` (`APP_SITE__ENABLE_SEARCH=true|false`)
+- `site.runtime_env` (`APP_SITE__RUNTIME_ENV=dev|staging|prod`)
+- `site.content_env` (`APP_SITE__CONTENT_ENV=default|dev|staging|prod|<channel>`)
+- `site.theme` (`APP_SITE__THEME=<theme-name>`)
+- `site.theme_variant` (`APP_SITE__THEME_VARIANT=<variant>`)
 
 Theme override behavior:
 - In runtime `dev|staging`, request query overrides are allowed: `?theme=<name>&variant=<variant>`.
