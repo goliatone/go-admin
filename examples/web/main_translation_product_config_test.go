@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	coreadmin "github.com/goliatone/go-admin/admin"
+	appcfg "github.com/goliatone/go-admin/examples/web/config"
 	"github.com/goliatone/go-admin/quickstart"
 )
 
@@ -23,13 +24,11 @@ func (noopExchangeStore) ApplyTranslation(context.Context, coreadmin.Translation
 }
 
 func TestBuildTranslationProductConfigUsesProfileDefaults(t *testing.T) {
-	t.Setenv("ADMIN_TRANSLATION_EXCHANGE", "")
-	t.Setenv("ADMIN_TRANSLATION_QUEUE", "")
-
 	cfg := buildTranslationProductConfig(
 		quickstart.TranslationProfileFull,
 		noopExchangeStore{},
 		coreadmin.NewInMemoryTranslationAssignmentRepository(),
+		appcfg.TranslationConfig{},
 	)
 
 	if cfg.Profile != quickstart.TranslationProfileFull {
@@ -44,13 +43,14 @@ func TestBuildTranslationProductConfigUsesProfileDefaults(t *testing.T) {
 }
 
 func TestBuildTranslationProductConfigAllowsExplicitModuleDisableOverride(t *testing.T) {
-	t.Setenv("ADMIN_TRANSLATION_EXCHANGE", "false")
-	t.Setenv("ADMIN_TRANSLATION_QUEUE", "")
-
 	cfg := buildTranslationProductConfig(
 		quickstart.TranslationProfileCoreExchange,
 		noopExchangeStore{},
 		coreadmin.NewInMemoryTranslationAssignmentRepository(),
+		appcfg.TranslationConfig{
+			Profile:  "core+exchange",
+			Exchange: false,
+		},
 	)
 
 	if cfg.Exchange == nil {
@@ -65,13 +65,14 @@ func TestBuildTranslationProductConfigAllowsExplicitModuleDisableOverride(t *tes
 }
 
 func TestBuildTranslationProductConfigAllowsExplicitModuleEnableOverride(t *testing.T) {
-	t.Setenv("ADMIN_TRANSLATION_EXCHANGE", "")
-	t.Setenv("ADMIN_TRANSLATION_QUEUE", "true")
-
 	cfg := buildTranslationProductConfig(
 		quickstart.TranslationProfileCore,
 		noopExchangeStore{},
 		coreadmin.NewInMemoryTranslationAssignmentRepository(),
+		appcfg.TranslationConfig{
+			Profile: "core",
+			Queue:   true,
+		},
 	)
 
 	if cfg.Exchange != nil {
@@ -108,7 +109,7 @@ func TestTranslationProfileModuleDefaults(t *testing.T) {
 	}
 }
 
-func TestResolveTranslationProfileParsesEnvironmentValues(t *testing.T) {
+func TestResolveTranslationProfileParsesConfiguredValues(t *testing.T) {
 	tests := []struct {
 		envValue        string
 		expectedProfile quickstart.TranslationProfile
@@ -130,8 +131,7 @@ func TestResolveTranslationProfileParsesEnvironmentValues(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.envValue, func(t *testing.T) {
-			t.Setenv("ADMIN_TRANSLATION_PROFILE", tc.envValue)
-			profile := resolveTranslationProfile()
+			profile := resolveTranslationProfile(tc.envValue)
 			if profile != tc.expectedProfile {
 				t.Fatalf("expected profile %q, got %q", tc.expectedProfile, profile)
 			}
@@ -144,6 +144,7 @@ func TestBuildTranslationProductConfigSchemaVersionIsSet(t *testing.T) {
 		quickstart.TranslationProfileCore,
 		noopExchangeStore{},
 		coreadmin.NewInMemoryTranslationAssignmentRepository(),
+		appcfg.TranslationConfig{},
 	)
 
 	if cfg.SchemaVersion != quickstart.TranslationProductSchemaVersionCurrent {
@@ -156,13 +157,15 @@ func TestBuildTranslationProductConfigAttachesStoreAndRepository(t *testing.T) {
 	exchangeStore := noopExchangeStore{}
 	queueRepo := coreadmin.NewInMemoryTranslationAssignmentRepository()
 
-	t.Setenv("ADMIN_TRANSLATION_EXCHANGE", "true")
-	t.Setenv("ADMIN_TRANSLATION_QUEUE", "true")
-
 	cfg := buildTranslationProductConfig(
 		quickstart.TranslationProfileFull,
 		exchangeStore,
 		queueRepo,
+		appcfg.TranslationConfig{
+			Profile:  "full",
+			Exchange: true,
+			Queue:    true,
+		},
 	)
 
 	if cfg.Exchange == nil || cfg.Exchange.Store == nil {

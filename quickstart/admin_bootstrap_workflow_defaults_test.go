@@ -27,6 +27,8 @@ func TestWithTraitWorkflowDefaultsNormalizesKeysAndValues(t *testing.T) {
 }
 
 func TestNewAdminAppliesTraitWorkflowDefaultsToDynamicPanelResolution(t *testing.T) {
+	resetCommandRegistryForTest(t)
+
 	cfg := NewAdminConfig("/admin", "Test", "en")
 
 	workflow := admin.NewFSMWorkflowEngine()
@@ -50,6 +52,7 @@ func TestNewAdminAppliesTraitWorkflowDefaultsToDynamicPanelResolution(t *testing
 	if err != nil {
 		t.Fatalf("new admin: %v", err)
 	}
+	t.Cleanup(adm.Commands().Reset)
 
 	factory := admin.NewDynamicPanelFactory(adm)
 	panel, err := factory.CreatePanelFromContentType(context.Background(), &admin.CMSContentType{
@@ -74,6 +77,8 @@ func TestNewAdminAppliesTraitWorkflowDefaultsToDynamicPanelResolution(t *testing
 }
 
 func TestNewAdminPrefersWorkflowIDOverLegacyWorkflowCapability(t *testing.T) {
+	resetCommandRegistryForTest(t)
+
 	cfg := NewAdminConfig("/admin", "Test", "en")
 
 	workflow := admin.NewFSMWorkflowEngine()
@@ -104,6 +109,7 @@ func TestNewAdminPrefersWorkflowIDOverLegacyWorkflowCapability(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new admin: %v", err)
 	}
+	t.Cleanup(adm.Commands().Reset)
 
 	factory := admin.NewDynamicPanelFactory(adm)
 	panel, err := factory.CreatePanelFromContentType(context.Background(), &admin.CMSContentType{
@@ -130,6 +136,8 @@ func TestNewAdminPrefersWorkflowIDOverLegacyWorkflowCapability(t *testing.T) {
 }
 
 func TestNewAdminAppliesPersistedWorkflowRuntimeBindings(t *testing.T) {
+	resetCommandRegistryForTest(t)
+
 	cfg := NewAdminConfig("/admin", "Test", "en")
 	runtime := admin.NewWorkflowRuntimeService(admin.NewInMemoryWorkflowDefinitionRepository(), admin.NewInMemoryWorkflowBindingRepository())
 	ctx := context.Background()
@@ -168,6 +176,7 @@ func TestNewAdminAppliesPersistedWorkflowRuntimeBindings(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new admin: %v", err)
 	}
+	t.Cleanup(adm.Commands().Reset)
 
 	factory := admin.NewDynamicPanelFactory(adm)
 	panel, err := factory.CreatePanelFromContentType(context.Background(), &admin.CMSContentType{

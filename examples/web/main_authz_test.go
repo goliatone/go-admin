@@ -6,25 +6,22 @@ import (
 )
 
 func TestResolveAuthzPreflightModeDefaults(t *testing.T) {
-	t.Setenv("ADMIN_AUTHZ_PREFLIGHT", "")
-	if got := resolveAuthzPreflightMode(true); got != authzPreflightModeWarn {
+	if got := resolveAuthzPreflightMode("", true); got != authzPreflightModeWarn {
 		t.Fatalf("expected dev default warn, got %q", got)
 	}
-	if got := resolveAuthzPreflightMode(false); got != authzPreflightModeOff {
+	if got := resolveAuthzPreflightMode("", false); got != authzPreflightModeOff {
 		t.Fatalf("expected non-dev default off, got %q", got)
 	}
 }
 
 func TestResolveAuthzPreflightModeExplicitStrict(t *testing.T) {
-	t.Setenv("ADMIN_AUTHZ_PREFLIGHT", "strict")
-	if got := resolveAuthzPreflightMode(false); got != authzPreflightModeStrict {
+	if got := resolveAuthzPreflightMode("strict", false); got != authzPreflightModeStrict {
 		t.Fatalf("expected strict, got %q", got)
 	}
 }
 
 func TestResolveAuthzPreflightRoleKeysDefault(t *testing.T) {
-	t.Setenv("ADMIN_AUTHZ_PREFLIGHT_ROLES", "")
-	keys := resolveAuthzPreflightRoleKeys()
+	keys := resolveAuthzPreflightRoleKeys(nil)
 	if len(keys) != 2 || keys[0] != "owner" || keys[1] != "superadmin" {
 		t.Fatalf("expected default sorted roles [owner superadmin], got %v", keys)
 	}
@@ -43,7 +40,7 @@ func TestBuildPermissionDiagnosticsPayloadIncludesResolvedPermissions(t *testing
 	payload := buildPermissionDiagnosticsPayload(nil, context.Background(), []string{
 		"admin.translations.export",
 		"ADMIN.TRANSLATIONS.EXPORT",
-	})
+	}, authzPreflightModeWarn)
 
 	resolved, ok := payload["claims_permissions"].([]string)
 	if !ok {

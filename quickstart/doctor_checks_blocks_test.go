@@ -43,11 +43,14 @@ func (r *doctorBlocksListRepoStub) Delete(_ context.Context, _ string) error {
 }
 
 func TestQuickstartDoctorBlockDefinitionsCheckPassesWhenRequiredSeedsExist(t *testing.T) {
+	resetCommandRegistryForTest(t)
+
 	cfg := NewAdminConfig("/admin", "Admin", "en")
 	adm, _, err := NewAdmin(cfg, AdapterHooks{})
 	if err != nil {
 		t.Fatalf("new admin: %v", err)
 	}
+	t.Cleanup(adm.Commands().Reset)
 
 	content := adm.ContentService()
 	if content == nil {
@@ -83,11 +86,14 @@ func TestQuickstartDoctorBlockDefinitionsCheckPassesWhenRequiredSeedsExist(t *te
 }
 
 func TestQuickstartDoctorBlockDefinitionsCheckReportsMissingSeeds(t *testing.T) {
+	resetCommandRegistryForTest(t)
+
 	cfg := NewAdminConfig("/admin", "Admin", "en")
 	adm, _, err := NewAdmin(cfg, AdapterHooks{})
 	if err != nil {
 		t.Fatalf("new admin: %v", err)
 	}
+	t.Cleanup(adm.Commands().Reset)
 
 	content := adm.ContentService()
 	if content == nil {
@@ -116,11 +122,14 @@ func TestQuickstartDoctorBlockDefinitionsCheckReportsMissingSeeds(t *testing.T) 
 }
 
 func TestQuickstartDoctorBlockDefinitionsCheckReportsVisibilityMismatch(t *testing.T) {
+	resetCommandRegistryForTest(t)
+
 	cfg := NewAdminConfig("/admin", "Admin", "en")
 	adm, _, err := NewAdmin(cfg, AdapterHooks{})
 	if err != nil {
 		t.Fatalf("new admin: %v", err)
 	}
+	t.Cleanup(adm.Commands().Reset)
 
 	content := adm.ContentService()
 	if content == nil {

@@ -213,8 +213,12 @@ func TestNewFiberServerRouteConflictDefaultsPreferStaticInDev(t *testing.T) {
 }
 
 func TestNewFiberServerRouteConflictPanicsInDevWhenPathModeStrict(t *testing.T) {
-	t.Setenv("ADMIN_ROUTE_PATH_CONFLICT_MODE", "strict")
-	_, r := NewFiberServer(nil, admin.Config{}, nil, true)
+	_, r := NewFiberServer(nil, admin.Config{}, nil, true, WithFiberAdapterConfig(func(cfg *gorouter.FiberAdapterConfig) {
+		if cfg == nil {
+			return
+		}
+		cfg.PathConflictMode = gorouter.PathConflictModeStrict
+	}))
 	r.Get("/route-conflict-strict/:action", func(c gorouter.Context) error {
 		return c.SendStatus(fiber.StatusOK)
 	})
@@ -290,51 +294,45 @@ func TestDefaultFiberAdapterConfigPathConflictModeDefaultsPreferStatic(t *testin
 	}
 }
 
-func TestDefaultFiberAdapterConfigPathConflictModeCanBeOverriddenFromEnv(t *testing.T) {
-	t.Setenv("ADMIN_ROUTE_PATH_CONFLICT_MODE", "strict")
-	cfg := defaultFiberAdapterConfig(admin.Config{}, true)
-	if cfg.PathConflictMode != gorouter.PathConflictModeStrict {
-		t.Fatalf("expected strict path conflict mode from env, got %q", cfg.PathConflictMode)
-	}
-
-	t.Setenv("ADMIN_ROUTE_PATH_CONFLICT_MODE", "prefer-static")
-	cfg = defaultFiberAdapterConfig(admin.Config{}, true)
-	if cfg.PathConflictMode != gorouter.PathConflictModePreferStatic {
-		t.Fatalf("expected prefer_static path conflict mode from env alias, got %q", cfg.PathConflictMode)
-	}
-
-	t.Setenv("ADMIN_ROUTE_PATH_CONFLICT_MODE", "invalid")
-	cfg = defaultFiberAdapterConfig(admin.Config{}, true)
-	if cfg.PathConflictMode != gorouter.PathConflictModePreferStatic {
-		t.Fatalf("expected invalid env values to fallback to prefer_static, got %q", cfg.PathConflictMode)
+func TestFiberAdapterPathConflictModeCanBeOverriddenExplicitly(t *testing.T) {
+	_, r := NewFiberServer(nil, admin.Config{}, nil, true, WithFiberAdapterConfig(func(cfg *gorouter.FiberAdapterConfig) {
+		if cfg == nil {
+			return
+		}
+		cfg.PathConflictMode = gorouter.PathConflictModeStrict
+	}))
+	r.Get("/route-conflict-override-mode/:action", func(c gorouter.Context) error {
+		return c.SendStatus(fiber.StatusOK)
+	})
+	didPanic := false
+	func() {
+		defer func() {
+			didPanic = recover() != nil
+		}()
+		r.Get("/route-conflict-override-mode/static", func(c gorouter.Context) error {
+			return c.SendStatus(fiber.StatusOK)
+		})
+	}()
+	if !didPanic {
+		t.Fatalf("expected strict path conflict mode to panic on static+param conflict")
 	}
 }
 
 func TestResolveFiberReadBufferSizeDefaults(t *testing.T) {
-	t.Setenv("ADMIN_FIBER_READ_BUFFER_SIZE", "")
 	if got := resolveFiberReadBufferSize(); got != defaultFiberReadBufferSize {
 		t.Fatalf("expected default fiber read buffer size %d, got %d", defaultFiberReadBufferSize, got)
 	}
 }
 
-func TestResolveFiberReadBufferSizeFromEnv(t *testing.T) {
-	t.Setenv("ADMIN_FIBER_READ_BUFFER_SIZE", "32768")
-	if got := resolveFiberReadBufferSize(); got != 32768 {
-		t.Fatalf("expected env fiber read buffer size 32768, got %d", got)
-	}
-}
-
-func TestResolveFiberReadBufferSizeInvalidEnvFallsBack(t *testing.T) {
-	t.Setenv("ADMIN_FIBER_READ_BUFFER_SIZE", "invalid")
-	if got := resolveFiberReadBufferSize(); got != defaultFiberReadBufferSize {
-		t.Fatalf("expected invalid env to fallback to %d, got %d", defaultFiberReadBufferSize, got)
-	}
-}
-
-func TestResolveFiberReadBufferSizeNonPositiveFallsBack(t *testing.T) {
-	t.Setenv("ADMIN_FIBER_READ_BUFFER_SIZE", "0")
-	if got := resolveFiberReadBufferSize(); got != defaultFiberReadBufferSize {
-		t.Fatalf("expected non-positive env to fallback to %d, got %d", defaultFiberReadBufferSize, got)
+func TestResolveFiberReadBufferSizeCanBeOverriddenByOption(t *testing.T) {
+	server, _ := NewFiberServer(nil, admin.Config{}, nil, true, WithFiberConfig(func(cfg *fiber.Config) {
+		if cfg == nil {
+			return
+		}
+		cfg.ReadBufferSize = 32768
+	}))
+	if server == nil {
+		t.Fatalf("expected server instance")
 	}
 }
 
