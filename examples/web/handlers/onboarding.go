@@ -773,7 +773,7 @@ func normalizeSecureLinkToken(raw string) string {
 	if err != nil {
 		return token
 	}
-	cfg := setup.SecureLinkUIConfigFromEnv()
+	cfg := setup.ResolveSecureLinkUIConfig()
 	queryKey := strings.TrimSpace(cfg.QueryKey)
 	if queryKey == "" {
 		queryKey = "token"

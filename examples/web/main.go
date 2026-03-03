@@ -105,6 +105,9 @@ func main() {
 		},
 		CMSRuntimeLogs: runtimeConfig.CMS.RuntimeLogs,
 	})
+	helpers.ConfigureRuntime(helpers.RuntimeConfig{
+		Scope: scopeCfg,
+	})
 
 	defaultLocale := strings.TrimSpace(runtimeConfig.Admin.DefaultLocale)
 	if defaultLocale == "" {
@@ -120,6 +123,8 @@ func main() {
 
 	cfg := quickstart.NewAdminConfig(runtimeConfig.Admin.BasePath, runtimeConfig.Admin.Title, defaultLocale,
 		quickstart.WithNavMenuCode(setup.NavigationMenuCode),
+		quickstart.WithNavDebug(runtimeConfig.Navigation.Debug),
+		quickstart.WithNavDebugLog(runtimeConfig.Navigation.DebugLog),
 		quickstart.WithThemeTokens(map[string]string{
 			"primary": "#2563eb",
 			"accent":  "#f59e0b",
@@ -711,13 +716,7 @@ func main() {
 		cfg,
 		adm,
 		isDev,
-		quickstart.WithFiberAdapterConfig(func(adapterCfg *router.FiberAdapterConfig) {
-			if adapterCfg == nil {
-				return
-			}
-			policy := router.HTTPRouterConflictLogAndContinue
-			adapterCfg.ConflictPolicy = &policy
-		}),
+		quickstart.WithFiberRuntimeConfig(resolveFiberRuntimeConfig(runtimeConfig.Fiber)),
 	)
 
 	// Static assets
@@ -1129,7 +1128,7 @@ func main() {
 		log.Panicf("failed to register content entry UI routes: %v", err)
 	}
 
-	secureLinkUI := setup.SecureLinkUIConfigFromEnv()
+	secureLinkUI := setup.ResolveSecureLinkUIConfig()
 	passwordPolicyHints := setup.PasswordPolicyHints()
 	registerPath := path.Join(cfg.BasePath, "register")
 	passwordResetPath := path.Join(cfg.BasePath, "password-reset")
@@ -1482,6 +1481,16 @@ func resolveSiteLocalePrefixMode(raw string) quicksite.LocalePrefixMode {
 	}
 }
 
+func resolveFiberRuntimeConfig(cfg appcfg.FiberConfig) quickstart.FiberRuntimeConfig {
+	strictRoutes := cfg.StrictRoutes
+	return quickstart.FiberRuntimeConfig{
+		StrictRoutes:        &strictRoutes,
+		RouteConflictPolicy: cfg.RouteConflictPolicy,
+		PathConflictMode:    cfg.PathConflictMode,
+		ReadBufferSize:      cfg.ReadBufferSize,
+	}
+}
+
 // resolveTranslationProfile reads the translation capability profile from runtime configuration.
 // Supported profiles: none, core, core+exchange, core+queue, full
 // Default: "core" (will be auto-selected for CMS-enabled apps when omitted)
@@ -1518,11 +1527,13 @@ func buildTranslationProductConfig(
 	exchangeEnabled, queueEnabled := translationProfileModuleDefaults(profile)
 	exchangeOverride := false
 	queueOverride := false
-	if translationCfg != (appcfg.TranslationConfig{}) {
-		exchangeOverride = translationCfg.Exchange != exchangeEnabled
-		queueOverride = translationCfg.Queue != queueEnabled
-		exchangeEnabled = translationCfg.Exchange
-		queueEnabled = translationCfg.Queue
+	if translationCfg.Exchange != nil {
+		exchangeOverride = *translationCfg.Exchange != exchangeEnabled
+		exchangeEnabled = *translationCfg.Exchange
+	}
+	if translationCfg.Queue != nil {
+		queueOverride = *translationCfg.Queue != queueEnabled
+		queueEnabled = *translationCfg.Queue
 	}
 
 	if exchangeEnabled || exchangeOverride {

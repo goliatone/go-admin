@@ -45,9 +45,8 @@ func NewSecureLinkManager() (userstypes.SecureLinkManager, error) {
 	return securelink.NewManager(cfg)
 }
 
-// SecureLinkUIConfigFromEnv is retained for compatibility and returns configured runtime values.
-// Deprecated: use setup.ConfigureRuntime and SecureLinkUIConfigFromConfig.
-func SecureLinkUIConfigFromEnv() SecureLinkUIConfig {
+// ResolveSecureLinkUIConfig resolves secure link UI parsing settings from runtime config.
+func ResolveSecureLinkUIConfig() SecureLinkUIConfig {
 	return secureLinkUIConfigFromConfig(loadSecureLinkConfig())
 }
 
