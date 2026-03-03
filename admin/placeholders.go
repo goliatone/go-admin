@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -227,9 +226,9 @@ type GoAuthAuthorizerConfig struct {
 func NewGoAuthAuthorizer(cfg GoAuthAuthorizerConfig) *GoAuthAuthorizer {
 	authorizer := &GoAuthAuthorizer{
 		defaultResource: cfg.DefaultResource,
-		debug:           cfg.Debug || strings.EqualFold(os.Getenv("AUTH_DEBUG"), "true"),
+		debug:           cfg.Debug,
 		logger:          ensureLogger(cfg.Logger),
-		strictResolver:  cfg.StrictResolver || strings.EqualFold(os.Getenv("ADMIN_AUTH_RESOLVER_STRICT"), "true"),
+		strictResolver:  cfg.StrictResolver,
 		resolvePerms:    cfg.ResolvePermissions,
 	}
 	if authorizer.resolvePerms == nil {
