@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
-	"strings"
 
 	"github.com/goliatone/go-admin/admin"
 )
@@ -42,13 +40,11 @@ type AdapterResult struct {
 	Config             admin.Config
 }
 
-// ResolveAdapterFlags reads environment toggles.
+// ResolveAdapterFlags returns zero-value adapter toggles.
+// Host applications should pass explicit flags via WithAdapterFlags or
+// ConfigureAdaptersWithFlags.
 func ResolveAdapterFlags() AdapterFlags {
-	return AdapterFlags{
-		UsePersistentCMS:   strings.EqualFold(os.Getenv("USE_PERSISTENT_CMS"), "true"),
-		UseGoOptions:       strings.EqualFold(os.Getenv("USE_GO_OPTIONS"), "true"),
-		UseGoUsersActivity: strings.EqualFold(os.Getenv("USE_GO_USERS_ACTIVITY"), "true"),
-	}
+	return AdapterFlags{}
 }
 
 // ConfigureAdapters mutates the admin config (CMS) based on env flags and available hooks.

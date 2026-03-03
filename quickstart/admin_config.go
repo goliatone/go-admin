@@ -1,9 +1,7 @@
 package quickstart
 
 import (
-	"os"
 	"path"
-	"strconv"
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
@@ -192,16 +190,4 @@ func WithDefaultScope(tenantID, orgID string) AdminConfigOption {
 // WithScopeFromEnv applies scope defaults from ADMIN_SCOPE_* env vars.
 func WithScopeFromEnv() AdminConfigOption {
 	return WithScopeConfig(ScopeConfigFromEnv())
-}
-
-func envBool(key string) (bool, bool) {
-	value, ok := os.LookupEnv(key)
-	if !ok {
-		return false, false
-	}
-	parsed, err := strconv.ParseBool(strings.TrimSpace(value))
-	if err != nil {
-		return false, false
-	}
-	return parsed, true
 }

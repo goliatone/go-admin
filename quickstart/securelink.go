@@ -1,7 +1,6 @@
 package quickstart
 
 import (
-	"os"
 	"path"
 	"strings"
 	"time"
@@ -42,40 +41,28 @@ func (c SecureLinkConfig) Enabled() bool {
 	return strings.TrimSpace(c.SigningKey) != ""
 }
 
-// SecureLinkConfigFromEnv builds a securelink config from environment variables.
-func SecureLinkConfigFromEnv(basePath string) SecureLinkConfig {
+// DefaultSecureLinkConfig returns securelink defaults for onboarding flows.
+func DefaultSecureLinkConfig(basePath string) SecureLinkConfig {
 	basePath = strings.TrimSpace(basePath)
-	if basePath == "" {
-		basePath = strings.TrimSpace(os.Getenv("ADMIN_BASE_PATH"))
-	}
 	if basePath == "" {
 		basePath = "/admin"
 	}
 	basePath = normalizeBasePathValue(basePath)
 
-	baseURL := strings.TrimSpace(os.Getenv("ADMIN_SECURELINK_BASE_URL"))
-	if baseURL == "" {
-		baseURL = defaultSecureLinkBaseURL
-	}
-
-	signingKey := strings.TrimSpace(os.Getenv("ADMIN_SECURELINK_KEY"))
-
-	queryKey := strings.TrimSpace(os.Getenv("ADMIN_SECURELINK_QUERY_KEY"))
-	if queryKey == "" {
-		queryKey = defaultSecureLinkQueryKey
-	}
-
-	asQuery := envBoolDefault("ADMIN_SECURELINK_AS_QUERY", true)
-	expiration := envDurationDefault("ADMIN_SECURELINK_EXPIRATION", defaultSecureLinkExpiration)
-
 	return SecureLinkConfig{
-		SigningKey: signingKey,
-		Expiration: expiration,
-		BaseURL:    baseURL,
-		QueryKey:   queryKey,
-		AsQuery:    asQuery,
+		SigningKey: "",
+		Expiration: defaultSecureLinkExpiration,
+		BaseURL:    defaultSecureLinkBaseURL,
+		QueryKey:   defaultSecureLinkQueryKey,
+		AsQuery:    true,
 		Routes:     DefaultSecureLinkRoutes(basePath),
 	}
+}
+
+// SecureLinkConfigFromEnv is retained for compatibility and returns defaults.
+// Deprecated: use explicit SecureLinkConfig values from host configuration.
+func SecureLinkConfigFromEnv(basePath string) SecureLinkConfig {
+	return DefaultSecureLinkConfig(basePath)
 }
 
 // DefaultSecureLinkRoutes builds the route map used by securelink managers.
@@ -98,11 +85,20 @@ type SecureLinkUIConfig struct {
 	AsQuery  bool
 }
 
-// SecureLinkUIConfigFromEnv reads securelink parsing defaults from env.
+// SecureLinkUIConfigFromEnv is retained for compatibility and returns defaults.
+// Deprecated: use SecureLinkUIConfigFromConfig with explicit values.
 func SecureLinkUIConfigFromEnv(basePath string) SecureLinkUIConfig {
 	cfg := SecureLinkConfigFromEnv(basePath)
 	return SecureLinkUIConfig{
 		QueryKey: cfg.QueryKey,
+		AsQuery:  cfg.AsQuery,
+	}
+}
+
+// SecureLinkUIConfigFromConfig reads securelink parsing defaults from config.
+func SecureLinkUIConfigFromConfig(cfg SecureLinkConfig) SecureLinkUIConfig {
+	return SecureLinkUIConfig{
+		QueryKey: strings.TrimSpace(cfg.QueryKey),
 		AsQuery:  cfg.AsQuery,
 	}
 }
@@ -211,30 +207,4 @@ func NewSecureLinkNotificationBuilder(manager links.SecureLinkManager, opts ...l
 		return nil
 	}
 	return linknotifications.NewBuilder(manager, opts...)
-}
-
-func envBoolDefault(key string, fallback bool) bool {
-	raw := strings.TrimSpace(os.Getenv(key))
-	if raw == "" {
-		return fallback
-	}
-	switch strings.ToLower(raw) {
-	case "true", "1", "yes", "y", "on":
-		return true
-	case "false", "0", "no", "n", "off":
-		return false
-	default:
-		return fallback
-	}
-}
-
-func envDurationDefault(key string, fallback time.Duration) time.Duration {
-	raw := strings.TrimSpace(os.Getenv(key))
-	if raw == "" {
-		return fallback
-	}
-	if parsed, err := time.ParseDuration(raw); err == nil {
-		return parsed
-	}
-	return fallback
 }

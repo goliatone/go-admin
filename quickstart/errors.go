@@ -1,16 +1,20 @@
 package quickstart
 
-import (
-	"strings"
+import "github.com/goliatone/go-admin/admin"
 
-	"github.com/goliatone/go-admin/admin"
-)
-
-// ErrorEnvOption customizes which environment variables map to error config.
+// ErrorEnvOption is retained for compatibility.
+// Deprecated: use ErrorOption and WithErrorOptions.
 type ErrorEnvOption struct {
 	DevModeKey               string
 	IncludeStackTraceKey     string
 	ExposeInternalMessageKey string
+}
+
+// ErrorOption applies explicit error configuration overrides.
+type ErrorOption struct {
+	DevMode               *bool
+	IncludeStackTrace     *bool
+	ExposeInternalMessage *bool
 }
 
 // WithErrorConfig merges an error config into the admin config.
@@ -23,45 +27,28 @@ func WithErrorConfig(errorCfg admin.ErrorConfig) AdminConfigOption {
 	}
 }
 
-// WithErrorsFromEnv maps ADMIN_ERROR* environment variables into the admin config.
-func WithErrorsFromEnv(opts ...ErrorEnvOption) AdminConfigOption {
+// WithErrorOptions applies explicit error options to the admin config.
+func WithErrorOptions(opt ErrorOption) AdminConfigOption {
 	return func(cfg *admin.Config) {
 		if cfg == nil {
 			return
 		}
-		envOpts := mergeErrorEnvOptions(opts...)
 		errCfg := cfg.Errors
-
-		if value, ok := envBoolKey(envOpts.DevModeKey); ok {
-			errCfg.DevMode = value
+		if opt.DevMode != nil {
+			errCfg.DevMode = *opt.DevMode
 		}
-		if value, ok := envBoolKey(envOpts.IncludeStackTraceKey); ok {
-			errCfg.IncludeStackTrace = value
+		if opt.IncludeStackTrace != nil {
+			errCfg.IncludeStackTrace = *opt.IncludeStackTrace
 		}
-		if value, ok := envBoolKey(envOpts.ExposeInternalMessageKey); ok {
-			errCfg.ExposeInternalMessages = value
+		if opt.ExposeInternalMessage != nil {
+			errCfg.ExposeInternalMessages = *opt.ExposeInternalMessage
 		}
-
 		cfg.Errors = errCfg
 	}
 }
 
-func mergeErrorEnvOptions(opts ...ErrorEnvOption) ErrorEnvOption {
-	out := ErrorEnvOption{
-		DevModeKey:               "ADMIN_DEV",
-		IncludeStackTraceKey:     "ADMIN_ERROR_STACKTRACE",
-		ExposeInternalMessageKey: "ADMIN_ERROR_EXPOSE_INTERNAL",
-	}
-	for _, opt := range opts {
-		if key := strings.TrimSpace(opt.DevModeKey); key != "" {
-			out.DevModeKey = key
-		}
-		if key := strings.TrimSpace(opt.IncludeStackTraceKey); key != "" {
-			out.IncludeStackTraceKey = key
-		}
-		if key := strings.TrimSpace(opt.ExposeInternalMessageKey); key != "" {
-			out.ExposeInternalMessageKey = key
-		}
-	}
-	return out
+// WithErrorsFromEnv is retained for compatibility and no longer reads process environment.
+// Deprecated: use WithErrorOptions and an external config loader.
+func WithErrorsFromEnv(_ ...ErrorEnvOption) AdminConfigOption {
+	return func(_ *admin.Config) {}
 }

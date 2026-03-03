@@ -11,7 +11,8 @@ import (
 	router "github.com/goliatone/go-router"
 )
 
-// DebugEnvOption customizes which environment variables map to debug config.
+// DebugEnvOption is retained for compatibility.
+// Deprecated: use DebugOption and WithDebugOptions.
 type DebugEnvOption struct {
 	EnabledKey                    string
 	AllowedIPsKey                 string
@@ -36,6 +37,31 @@ type DebugEnvOption struct {
 	ReplReadOnlyKey               string
 }
 
+// DebugOption applies explicit debug configuration overrides.
+type DebugOption struct {
+	Enabled                    *bool
+	AllowedIPs                 []string
+	AllowedOrigins             []string
+	AppID                      string
+	AppName                    string
+	Environment                string
+	RemoteEnabled              *bool
+	TokenTTL                   *time.Duration
+	SessionTracking            *bool
+	SessionIncludeGlobalPanels *bool
+	SessionCookieName          string
+	SessionInactivityExpiry    *time.Duration
+	CaptureSQL                 *bool
+	CaptureLogs                *bool
+	CaptureJSErrors            *bool
+	CaptureRequestBody         *bool
+	ToolbarMode                *bool
+	ToolbarPanels              []string
+	LayoutMode                 string
+	ReplEnabled                *bool
+	ReplReadOnly               *bool
+}
+
 // WithDebugConfig merges a debug config into the admin config.
 func WithDebugConfig(debugCfg admin.DebugConfig) AdminConfigOption {
 	return func(cfg *admin.Config) {
@@ -46,19 +72,17 @@ func WithDebugConfig(debugCfg admin.DebugConfig) AdminConfigOption {
 	}
 }
 
-// WithDebugFromEnv maps ADMIN_DEBUG* environment variables into the admin config.
-func WithDebugFromEnv(opts ...DebugEnvOption) AdminConfigOption {
+// WithDebugOptions applies explicit debug options into admin config.
+func WithDebugOptions(opt DebugOption) AdminConfigOption {
 	return func(cfg *admin.Config) {
 		if cfg == nil {
 			return
 		}
-		envOpts := mergeDebugEnvOptions(opts...)
 		debugCfg := cfg.Debug
 
-		enabled, enabledOK := envBoolKey(envOpts.EnabledKey)
-		if enabledOK {
-			debugCfg.Enabled = enabled
-			if enabled {
+		if opt.Enabled != nil {
+			debugCfg.Enabled = *opt.Enabled
+			if *opt.Enabled {
 				debugCfg.ToolbarMode = true
 				debugCfg.CaptureSQL = true
 				debugCfg.CaptureLogs = true
@@ -66,79 +90,84 @@ func WithDebugFromEnv(opts ...DebugEnvOption) AdminConfigOption {
 				debugCfg.CaptureRequestBody = true
 			}
 		}
-
-		if allowedIPs, ok := envCSVKey(envOpts.AllowedIPsKey); ok {
-			debugCfg.AllowedIPs = allowedIPs
+		if opt.AllowedIPs != nil {
+			debugCfg.AllowedIPs = append([]string{}, opt.AllowedIPs...)
 		}
-		if origins, ok := envCSVKey(envOpts.AllowedOriginsKey); ok {
-			debugCfg.AllowedOrigins = origins
+		if opt.AllowedOrigins != nil {
+			debugCfg.AllowedOrigins = append([]string{}, opt.AllowedOrigins...)
 		}
-		if value, ok := envStringKey(envOpts.AppIDKey); ok {
+		if value := strings.TrimSpace(opt.AppID); value != "" {
 			debugCfg.AppID = value
 		}
-		if value, ok := envStringKey(envOpts.AppNameKey); ok {
+		if value := strings.TrimSpace(opt.AppName); value != "" {
 			debugCfg.AppName = value
 		}
-		if value, ok := envStringKey(envOpts.EnvironmentKey); ok {
+		if value := strings.TrimSpace(opt.Environment); value != "" {
 			debugCfg.Environment = value
 		}
-		if value, ok := envBoolKey(envOpts.RemoteEnabledKey); ok {
-			debugCfg.RemoteEnabled = value
+		if opt.RemoteEnabled != nil {
+			debugCfg.RemoteEnabled = *opt.RemoteEnabled
 		}
-		if value, ok := envDurationKey(envOpts.TokenTTLKey); ok {
-			debugCfg.TokenTTL = value
+		if opt.TokenTTL != nil {
+			debugCfg.TokenTTL = *opt.TokenTTL
 		}
-		if value, ok := envBoolKey(envOpts.SessionTrackingKey); ok {
-			debugCfg.SessionTracking = value
+		if opt.SessionTracking != nil {
+			debugCfg.SessionTracking = *opt.SessionTracking
 		}
-		if value, ok := envBoolKey(envOpts.SessionIncludeGlobalPanelsKey); ok {
-			debugCfg.SessionIncludeGlobalPanels = admin.BoolPtr(value)
+		if opt.SessionIncludeGlobalPanels != nil {
+			debugCfg.SessionIncludeGlobalPanels = admin.BoolPtr(*opt.SessionIncludeGlobalPanels)
 		}
-		if value, ok := envStringKey(envOpts.SessionCookieNameKey); ok {
+		if value := strings.TrimSpace(opt.SessionCookieName); value != "" {
 			debugCfg.SessionCookieName = value
 		}
-		if value, ok := envDurationKey(envOpts.SessionInactivityExpiryKey); ok {
-			debugCfg.SessionInactivityExpiry = value
+		if opt.SessionInactivityExpiry != nil {
+			debugCfg.SessionInactivityExpiry = *opt.SessionInactivityExpiry
 		}
-		if value, ok := envBoolKey(envOpts.CaptureSQLKey); ok {
-			debugCfg.CaptureSQL = value
+		if opt.CaptureSQL != nil {
+			debugCfg.CaptureSQL = *opt.CaptureSQL
 		}
-		if value, ok := envBoolKey(envOpts.CaptureLogsKey); ok {
-			debugCfg.CaptureLogs = value
+		if opt.CaptureLogs != nil {
+			debugCfg.CaptureLogs = *opt.CaptureLogs
 		}
-		if value, ok := envBoolKey(envOpts.CaptureJSErrorsKey); ok {
-			debugCfg.CaptureJSErrors = value
+		if opt.CaptureJSErrors != nil {
+			debugCfg.CaptureJSErrors = *opt.CaptureJSErrors
 		}
-		if value, ok := envBoolKey(envOpts.CaptureRequestBodyKey); ok {
-			debugCfg.CaptureRequestBody = value
+		if opt.CaptureRequestBody != nil {
+			debugCfg.CaptureRequestBody = *opt.CaptureRequestBody
 		}
-		if value, ok := envBoolKey(envOpts.ToolbarModeKey); ok {
-			debugCfg.ToolbarMode = value
+		if opt.ToolbarMode != nil {
+			debugCfg.ToolbarMode = *opt.ToolbarMode
 		}
-		if panels, ok := envCSVKey(envOpts.ToolbarPanelsKey); ok {
-			debugCfg.ToolbarPanels = panels
+		if opt.ToolbarPanels != nil {
+			debugCfg.ToolbarPanels = append([]string{}, opt.ToolbarPanels...)
 		}
-		if mode, ok := envStringKey(envOpts.LayoutModeKey); ok {
-			switch strings.ToLower(mode) {
+		if mode := strings.ToLower(strings.TrimSpace(opt.LayoutMode)); mode != "" {
+			switch mode {
 			case "admin":
 				debugCfg.LayoutMode = admin.DebugLayoutAdmin
 			case "standalone":
 				debugCfg.LayoutMode = admin.DebugLayoutStandalone
 			}
 		}
-		if enabled, ok := envBoolKey(envOpts.ReplEnabledKey); ok {
-			debugCfg.Repl.Enabled = enabled
-			if enabled && !debugCfg.Repl.AppEnabled && !debugCfg.Repl.ShellEnabled {
+		if opt.ReplEnabled != nil {
+			debugCfg.Repl.Enabled = *opt.ReplEnabled
+			if *opt.ReplEnabled && !debugCfg.Repl.AppEnabled && !debugCfg.Repl.ShellEnabled {
 				debugCfg.Repl.AppEnabled = true
 				debugCfg.Repl.ShellEnabled = true
 			}
 		}
-		if value, ok := envBoolKey(envOpts.ReplReadOnlyKey); ok {
-			debugCfg.Repl.ReadOnly = admin.BoolPtr(value)
+		if opt.ReplReadOnly != nil {
+			debugCfg.Repl.ReadOnly = admin.BoolPtr(*opt.ReplReadOnly)
 		}
 
 		cfg.Debug = debugCfg
 	}
+}
+
+// WithDebugFromEnv is retained for compatibility and no longer reads process environment.
+// Deprecated: use WithDebugOptions and an external config loader.
+func WithDebugFromEnv(_ ...DebugEnvOption) AdminConfigOption {
+	return func(_ *admin.Config) {}
 }
 
 // AttachDebugMiddleware registers the debug request capture middleware on the router.
@@ -192,161 +221,4 @@ func safeDebugLogDelegate(delegate slog.Handler) slog.Handler {
 		return slog.NewTextHandler(os.Stderr, nil)
 	}
 	return delegate
-}
-
-func mergeDebugEnvOptions(opts ...DebugEnvOption) DebugEnvOption {
-	out := DebugEnvOption{
-		EnabledKey:                    "ADMIN_DEBUG",
-		AllowedIPsKey:                 "ADMIN_DEBUG_ALLOWED_IPS",
-		AllowedOriginsKey:             "ADMIN_DEBUG_ALLOWED_ORIGINS",
-		AppIDKey:                      "ADMIN_DEBUG_APP_ID",
-		AppNameKey:                    "ADMIN_DEBUG_APP_NAME",
-		EnvironmentKey:                "ADMIN_DEBUG_ENVIRONMENT",
-		RemoteEnabledKey:              "ADMIN_DEBUG_REMOTE",
-		TokenTTLKey:                   "ADMIN_DEBUG_TOKEN_TTL",
-		SessionTrackingKey:            "ADMIN_DEBUG_SESSION_TRACKING",
-		SessionIncludeGlobalPanelsKey: "ADMIN_DEBUG_SESSION_GLOBAL_PANELS",
-		SessionCookieNameKey:          "ADMIN_DEBUG_SESSION_COOKIE",
-		SessionInactivityExpiryKey:    "ADMIN_DEBUG_SESSION_EXPIRY",
-		CaptureSQLKey:                 "ADMIN_DEBUG_SQL",
-		CaptureLogsKey:                "ADMIN_DEBUG_LOGS",
-		CaptureJSErrorsKey:            "ADMIN_DEBUG_JS_ERRORS",
-		CaptureRequestBodyKey:         "ADMIN_DEBUG_REQUEST_BODY",
-		ToolbarModeKey:                "ADMIN_DEBUG_TOOLBAR",
-		ToolbarPanelsKey:              "ADMIN_DEBUG_TOOLBAR_PANELS",
-		LayoutModeKey:                 "ADMIN_DEBUG_LAYOUT",
-		ReplEnabledKey:                "ADMIN_DEBUG_REPL",
-		ReplReadOnlyKey:               "ADMIN_DEBUG_REPL_READONLY",
-	}
-	for _, opt := range opts {
-		if key := strings.TrimSpace(opt.EnabledKey); key != "" {
-			out.EnabledKey = key
-		}
-		if key := strings.TrimSpace(opt.AllowedIPsKey); key != "" {
-			out.AllowedIPsKey = key
-		}
-		if key := strings.TrimSpace(opt.AllowedOriginsKey); key != "" {
-			out.AllowedOriginsKey = key
-		}
-		if key := strings.TrimSpace(opt.AppIDKey); key != "" {
-			out.AppIDKey = key
-		}
-		if key := strings.TrimSpace(opt.AppNameKey); key != "" {
-			out.AppNameKey = key
-		}
-		if key := strings.TrimSpace(opt.EnvironmentKey); key != "" {
-			out.EnvironmentKey = key
-		}
-		if key := strings.TrimSpace(opt.RemoteEnabledKey); key != "" {
-			out.RemoteEnabledKey = key
-		}
-		if key := strings.TrimSpace(opt.TokenTTLKey); key != "" {
-			out.TokenTTLKey = key
-		}
-		if key := strings.TrimSpace(opt.SessionTrackingKey); key != "" {
-			out.SessionTrackingKey = key
-		}
-		if key := strings.TrimSpace(opt.SessionIncludeGlobalPanelsKey); key != "" {
-			out.SessionIncludeGlobalPanelsKey = key
-		}
-		if key := strings.TrimSpace(opt.SessionCookieNameKey); key != "" {
-			out.SessionCookieNameKey = key
-		}
-		if key := strings.TrimSpace(opt.SessionInactivityExpiryKey); key != "" {
-			out.SessionInactivityExpiryKey = key
-		}
-		if key := strings.TrimSpace(opt.CaptureSQLKey); key != "" {
-			out.CaptureSQLKey = key
-		}
-		if key := strings.TrimSpace(opt.CaptureLogsKey); key != "" {
-			out.CaptureLogsKey = key
-		}
-		if key := strings.TrimSpace(opt.CaptureJSErrorsKey); key != "" {
-			out.CaptureJSErrorsKey = key
-		}
-		if key := strings.TrimSpace(opt.CaptureRequestBodyKey); key != "" {
-			out.CaptureRequestBodyKey = key
-		}
-		if key := strings.TrimSpace(opt.ToolbarModeKey); key != "" {
-			out.ToolbarModeKey = key
-		}
-		if key := strings.TrimSpace(opt.ToolbarPanelsKey); key != "" {
-			out.ToolbarPanelsKey = key
-		}
-		if key := strings.TrimSpace(opt.LayoutModeKey); key != "" {
-			out.LayoutModeKey = key
-		}
-		if key := strings.TrimSpace(opt.ReplEnabledKey); key != "" {
-			out.ReplEnabledKey = key
-		}
-		if key := strings.TrimSpace(opt.ReplReadOnlyKey); key != "" {
-			out.ReplReadOnlyKey = key
-		}
-	}
-	return out
-}
-
-func envBoolKey(key string) (bool, bool) {
-	key = strings.TrimSpace(key)
-	if key == "" {
-		return false, false
-	}
-	return envBool(key)
-}
-
-func envCSVKey(key string) ([]string, bool) {
-	key = strings.TrimSpace(key)
-	if key == "" {
-		return nil, false
-	}
-	raw, ok := os.LookupEnv(key)
-	if !ok {
-		return nil, false
-	}
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return nil, true
-	}
-	parts := strings.FieldsFunc(raw, func(r rune) bool {
-		return r == ',' || r == ';'
-	})
-	out := make([]string, 0, len(parts))
-	for _, part := range parts {
-		if trimmed := strings.TrimSpace(part); trimmed != "" {
-			out = append(out, trimmed)
-		}
-	}
-	return out, true
-}
-
-func envStringKey(key string) (string, bool) {
-	key = strings.TrimSpace(key)
-	if key == "" {
-		return "", false
-	}
-	raw, ok := os.LookupEnv(key)
-	if !ok {
-		return "", false
-	}
-	return strings.TrimSpace(raw), true
-}
-
-func envDurationKey(key string) (time.Duration, bool) {
-	key = strings.TrimSpace(key)
-	if key == "" {
-		return 0, false
-	}
-	raw, ok := os.LookupEnv(key)
-	if !ok {
-		return 0, false
-	}
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return 0, true
-	}
-	parsed, err := time.ParseDuration(raw)
-	if err != nil {
-		return 0, false
-	}
-	return parsed, true
 }

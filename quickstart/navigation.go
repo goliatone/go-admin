@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"os"
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
@@ -54,7 +53,8 @@ func SeedNavigation(ctx context.Context, opts SeedNavigationOptions) error {
 	if resetEnv == "" {
 		resetEnv = "RESET_NAV_MENU"
 	}
-	reset := opts.Reset || strings.EqualFold(os.Getenv(resetEnv), "true")
+	_ = resetEnv
+	reset := opts.Reset
 
 	logf := opts.Logf
 	if logf == nil && !opts.SkipLogger {
