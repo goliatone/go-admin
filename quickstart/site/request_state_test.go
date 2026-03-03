@@ -34,8 +34,8 @@ func TestResolveRequestStateContextResolution(t *testing.T) {
 	if state.Environment != "prod" {
 		t.Fatalf("expected runtime environment to remain config default prod, got %q", state.Environment)
 	}
-	if state.ContentEnvironment != "staging" {
-		t.Fatalf("expected content environment staging from preview token, got %q", state.ContentEnvironment)
+	if state.ContentChannel != "staging" {
+		t.Fatalf("expected content channel staging from preview token, got %q", state.ContentChannel)
 	}
 	if !state.PreviewTokenPresent || !state.PreviewTokenValid || !state.IsPreview {
 		t.Fatalf("expected valid preview state, got %+v", state)
@@ -52,8 +52,8 @@ func TestResolveRequestStateContextResolution(t *testing.T) {
 	if got := state.ViewContext["asset_base_path"]; got != "/" {
 		t.Fatalf("expected asset_base_path /, got %v", got)
 	}
-	if got := state.ViewContext["content_environment"]; got != "staging" {
-		t.Fatalf("expected content_environment staging, got %v", got)
+	if got := state.ViewContext["content_channel"]; got != "staging" {
+		t.Fatalf("expected content_channel staging, got %v", got)
 	}
 
 	if locale := admin.LocaleFromContext(requestCtx); locale != "es" {
@@ -218,8 +218,8 @@ func TestResolveRequestStatePreviewDefaultEnvironmentOverridesContentScopeOnly(t
 	}
 
 	siteCfg := ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{
-		Environment:        "dev",
-		ContentEnvironment: "dev",
+		Environment:    "dev",
+		ContentChannel: "dev",
 	})
 
 	ctx := router.NewMockContext()
@@ -232,18 +232,18 @@ func TestResolveRequestStatePreviewDefaultEnvironmentOverridesContentScopeOnly(t
 	if state.Environment != "dev" {
 		t.Fatalf("expected runtime environment to remain dev, got %q", state.Environment)
 	}
-	if state.ContentEnvironment != "default" {
-		t.Fatalf("expected preview token to switch content environment to default, got %q", state.ContentEnvironment)
+	if state.ContentChannel != "default" {
+		t.Fatalf("expected preview token to switch content channel to default, got %q", state.ContentChannel)
 	}
 	if got := admin.EnvironmentFromContext(requestCtx); got != "default" {
 		t.Fatalf("expected context environment default, got %q", got)
 	}
 }
 
-func TestResolveRequestStateSeparatesRuntimeAndContentEnvironmentDefaults(t *testing.T) {
+func TestResolveRequestStateSeparatesRuntimeAndContentChannelDefaults(t *testing.T) {
 	siteCfg := ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{
-		Environment:        "dev",
-		ContentEnvironment: "default",
+		Environment:    "dev",
+		ContentChannel: "default",
 	})
 
 	ctx := router.NewMockContext()
@@ -254,18 +254,64 @@ func TestResolveRequestStateSeparatesRuntimeAndContentEnvironmentDefaults(t *tes
 	if state.Environment != "dev" {
 		t.Fatalf("expected runtime environment dev, got %q", state.Environment)
 	}
-	if state.ContentEnvironment != "default" {
-		t.Fatalf("expected content environment default, got %q", state.ContentEnvironment)
+	if state.ContentChannel != "default" {
+		t.Fatalf("expected content channel default, got %q", state.ContentChannel)
 	}
 	if got := admin.EnvironmentFromContext(requestCtx); got != "default" {
-		t.Fatalf("expected context environment to use content environment default, got %q", got)
+		t.Fatalf("expected context environment to use content channel default, got %q", got)
 	}
 }
 
-func TestResolveRequestStateRequestRuntimeEnvironmentDoesNotOverrideContentEnvironment(t *testing.T) {
+func TestResolveRequestStateRequestRuntimeEnvironmentDoesNotOverrideContentChannel(t *testing.T) {
 	siteCfg := ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{
-		Environment:        "prod",
-		ContentEnvironment: "default",
+		Environment:    "prod",
+		ContentChannel: "default",
+	})
+
+	ctx := router.NewMockContext()
+	ctx.On("Context").Return(context.Background())
+	ctx.On("Path").Return("/site")
+	ctx.QueriesM["runtime_env"] = "staging"
+
+	requestCtx, state := ResolveRequestState(context.Background(), ctx, nil, admin.Config{}, siteCfg, nil)
+	if state.Environment != "staging" {
+		t.Fatalf("expected runtime environment from request runtime_env=staging, got %q", state.Environment)
+	}
+	if state.ContentChannel != "default" {
+		t.Fatalf("expected content channel to remain default, got %q", state.ContentChannel)
+	}
+	if got := admin.EnvironmentFromContext(requestCtx); got != "default" {
+		t.Fatalf("expected context environment to remain content channel default, got %q", got)
+	}
+}
+
+func TestResolveRequestStateRequestContentChannelDoesNotOverrideRuntimeEnvironment(t *testing.T) {
+	siteCfg := ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{
+		Environment:    "prod",
+		ContentChannel: "default",
+	})
+
+	ctx := router.NewMockContext()
+	ctx.On("Context").Return(context.Background())
+	ctx.On("Path").Return("/site")
+	ctx.QueriesM["channel"] = "preview"
+
+	requestCtx, state := ResolveRequestState(context.Background(), ctx, nil, admin.Config{}, siteCfg, nil)
+	if state.Environment != "prod" {
+		t.Fatalf("expected runtime environment to remain prod, got %q", state.Environment)
+	}
+	if state.ContentChannel != "preview" {
+		t.Fatalf("expected content channel preview from request channel, got %q", state.ContentChannel)
+	}
+	if got := admin.EnvironmentFromContext(requestCtx); got != "preview" {
+		t.Fatalf("expected context environment preview, got %q", got)
+	}
+}
+
+func TestResolveRequestStateFallsBackToLegacyEnvQueryForContentChannel(t *testing.T) {
+	siteCfg := ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{
+		Environment:    "prod",
+		ContentChannel: "default",
 	})
 
 	ctx := router.NewMockContext()
@@ -273,37 +319,11 @@ func TestResolveRequestStateRequestRuntimeEnvironmentDoesNotOverrideContentEnvir
 	ctx.On("Path").Return("/site")
 	ctx.QueriesM["env"] = "staging"
 
-	requestCtx, state := ResolveRequestState(context.Background(), ctx, nil, admin.Config{}, siteCfg, nil)
-	if state.Environment != "staging" {
-		t.Fatalf("expected runtime environment from request env=staging, got %q", state.Environment)
-	}
-	if state.ContentEnvironment != "default" {
-		t.Fatalf("expected content environment to remain default, got %q", state.ContentEnvironment)
-	}
-	if got := admin.EnvironmentFromContext(requestCtx); got != "default" {
-		t.Fatalf("expected context environment to remain content environment default, got %q", got)
-	}
-}
-
-func TestResolveRequestStateRequestContentEnvironmentDoesNotOverrideRuntimeEnvironment(t *testing.T) {
-	siteCfg := ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{
-		Environment:        "prod",
-		ContentEnvironment: "default",
-	})
-
-	ctx := router.NewMockContext()
-	ctx.On("Context").Return(context.Background())
-	ctx.On("Path").Return("/site")
-	ctx.QueriesM["content_env"] = "preview"
-
-	requestCtx, state := ResolveRequestState(context.Background(), ctx, nil, admin.Config{}, siteCfg, nil)
+	_, state := ResolveRequestState(context.Background(), ctx, nil, admin.Config{}, siteCfg, nil)
 	if state.Environment != "prod" {
 		t.Fatalf("expected runtime environment to remain prod, got %q", state.Environment)
 	}
-	if state.ContentEnvironment != "preview" {
-		t.Fatalf("expected content environment preview from request content_env, got %q", state.ContentEnvironment)
-	}
-	if got := admin.EnvironmentFromContext(requestCtx); got != "preview" {
-		t.Fatalf("expected context environment preview, got %q", got)
+	if state.ContentChannel != "staging" {
+		t.Fatalf("expected content channel to fallback to legacy env query staging, got %q", state.ContentChannel)
 	}
 }

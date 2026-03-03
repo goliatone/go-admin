@@ -653,7 +653,7 @@ func TestHydrateDetailRelationLinksBuildsPanelLinks(t *testing.T) {
 	}
 }
 
-func TestHydrateDetailRelationLinksAddsEnvironmentQuery(t *testing.T) {
+func TestHydrateDetailRelationLinksAddsChannelQuery(t *testing.T) {
 	fixture := newContentEntryAdminFixture(t)
 	cfg := fixture.Config
 	adm := fixture.Admin
@@ -675,8 +675,8 @@ func TestHydrateDetailRelationLinksAddsEnvironmentQuery(t *testing.T) {
 	}
 	hydrated := handlers.hydrateDetailRelationLinks("esign_agreements@staging", record, "staging")
 	got := strings.TrimSpace(anyToString(hydrated["document_url"]))
-	if got != "/admin/content/esign_documents/doc-1?env=staging" {
-		t.Fatalf("expected env-aware document_url, got %q", got)
+	if got != "/admin/content/esign_documents/doc-1?channel=staging" {
+		t.Fatalf("expected channel-aware document_url, got %q", got)
 	}
 }
 
@@ -691,7 +691,7 @@ func TestContentEntryCreateRedirectTargetDefaultsToEdit(t *testing.T) {
 func TestContentEntryCreateRedirectTargetUsesDetailForESignDocuments(t *testing.T) {
 	routes := newContentEntryRoutes("/admin", "esign_documents", "staging")
 	got := contentEntryCreateRedirectTarget("esign_documents", "abc-123", routes)
-	if got != "/admin/content/esign_documents/abc-123?created=1&env=staging" {
+	if got != "/admin/content/esign_documents/abc-123?channel=staging&created=1" {
 		t.Fatalf("expected detail redirect with success marker, got %q", got)
 	}
 }
@@ -699,7 +699,7 @@ func TestContentEntryCreateRedirectTargetUsesDetailForESignDocuments(t *testing.
 func TestContentEntryCreateRedirectTargetUsesEditWithMarkerForESignAgreements(t *testing.T) {
 	routes := newContentEntryRoutes("/admin", "esign_agreements", "staging")
 	got := contentEntryCreateRedirectTarget("esign_agreements", "abc-123", routes)
-	if got != "/admin/content/esign_agreements/abc-123/edit?created=1&env=staging" {
+	if got != "/admin/content/esign_agreements/abc-123/edit?channel=staging&created=1" {
 		t.Fatalf("expected edit redirect with success marker, got %q", got)
 	}
 }

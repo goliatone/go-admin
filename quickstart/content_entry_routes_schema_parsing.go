@@ -243,7 +243,7 @@ func contentEntryNeedsBlocksChips(columns []map[string]any) bool {
 }
 
 // contentEntryBlockIconsMap builds a map of block type slugs to icon references
-// by querying the block_definitions panel for the current environment.
+// by querying the block_definitions panel for the current content channel.
 // Returns nil on error (logged once) so list rendering continues without icons.
 func contentEntryBlockIconsMap(ctx admin.AdminContext, adm *admin.Admin) map[string]string {
 	if adm == nil || adm.Registry() == nil {
@@ -256,8 +256,8 @@ func contentEntryBlockIconsMap(ctx admin.AdminContext, adm *admin.Admin) map[str
 	filters := map[string]any{
 		"status": "active",
 	}
-	if env := strings.TrimSpace(ctx.Environment); env != "" {
-		filters["environment"] = env
+	if channel := strings.TrimSpace(ctx.Channel); channel != "" {
+		filters["channel"] = channel
 	}
 	items, _, err := panel.List(ctx, admin.ListOptions{
 		PerPage: 10000,

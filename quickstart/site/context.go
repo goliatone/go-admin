@@ -24,7 +24,7 @@ type RequestState struct {
 	DefaultLocale       string
 	SupportedLocales    []string
 	Environment         string
-	ContentEnvironment  string
+	ContentChannel      string
 	AllowLocaleFallback bool
 
 	PreviewTokenPresent bool
@@ -126,14 +126,14 @@ func ResolveRequestState(
 	}
 
 	environment := resolveRequestEnvironment(c, siteCfg.Environment)
-	contentEnvironment := resolveRequestContentEnvironment(c, siteCfg.ContentEnvironment)
+	contentChannel := resolveRequestContentChannel(c, siteCfg.ContentChannel)
 	locale := resolveRequestLocale(c, siteCfg.Features.EnableI18N, siteCfg.DefaultLocale, siteCfg.SupportedLocales)
 	preview := resolveRequestPreview(c, adm, siteCfg.Features.EnablePreview)
-	if preview.Environment != "" {
-		contentEnvironment = normalizeContentEnvironment(preview.Environment)
+	if preview.Channel != "" {
+		contentChannel = normalizeContentChannel(preview.Channel)
 	}
 
-	requestCtx = admin.WithEnvironment(requestCtx, contentEnvironment)
+	requestCtx = admin.WithContentChannel(requestCtx, contentChannel)
 	requestCtx = admin.WithLocale(requestCtx, locale)
 	requestCtx = admin.WithLocaleFallback(requestCtx, siteCfg.AllowLocaleFallback)
 
@@ -156,7 +156,7 @@ func ResolveRequestState(
 		DefaultLocale:       siteCfg.DefaultLocale,
 		SupportedLocales:    cloneStrings(siteCfg.SupportedLocales),
 		Environment:         environment,
-		ContentEnvironment:  contentEnvironment,
+		ContentChannel:      contentChannel,
 		AllowLocaleFallback: siteCfg.AllowLocaleFallback,
 		PreviewTokenPresent: preview.Present,
 		PreviewTokenValid:   preview.Valid,
@@ -184,7 +184,7 @@ func ResolveRequestState(
 		"is_preview":            state.IsPreview,
 		"allow_locale_fallback": state.AllowLocaleFallback,
 		"environment":           state.Environment,
-		"content_environment":   state.ContentEnvironment,
+		"content_channel":       state.ContentChannel,
 		"preview_banner": map[string]any{
 			"enabled":       state.PreviewTokenPresent,
 			"is_preview":    state.IsPreview,
@@ -232,12 +232,12 @@ func ResolveRequestState(
 }
 
 type previewResolution struct {
-	Present     bool
-	Valid       bool
-	Token       string
-	EntityType  string
-	ContentID   string
-	Environment string
+	Present    bool
+	Valid      bool
+	Token      string
+	EntityType string
+	ContentID  string
+	Channel    string
 }
 
 func resolveRequestPreview(c router.Context, adm *admin.Admin, enabled bool) previewResolution {
@@ -256,7 +256,7 @@ func resolveRequestPreview(c router.Context, adm *admin.Admin, enabled bool) pre
 	if err != nil || validated == nil {
 		return out
 	}
-	entityType, entityEnv := splitPreviewEntityType(validated.EntityType)
+	entityType, entityChannel := splitPreviewEntityType(validated.EntityType)
 	contentID := strings.TrimSpace(validated.ContentID)
 	if entityType == "" || contentID == "" {
 		return out
@@ -264,9 +264,9 @@ func resolveRequestPreview(c router.Context, adm *admin.Admin, enabled bool) pre
 	out.Valid = true
 	out.EntityType = entityType
 	out.ContentID = contentID
-	entityEnv = strings.TrimSpace(entityEnv)
-	if entityEnv != "" {
-		out.Environment = normalizeContentEnvironment(entityEnv)
+	entityChannel = strings.TrimSpace(entityChannel)
+	if entityChannel != "" {
+		out.Channel = normalizeContentChannel(entityChannel)
 	}
 	return out
 }
@@ -281,8 +281,8 @@ func splitPreviewEntityType(raw string) (string, string) {
 		return raw, ""
 	}
 	entityType := strings.TrimSpace(raw[:idx])
-	environment := strings.TrimSpace(raw[idx+1:])
-	return entityType, environment
+	channel := strings.TrimSpace(raw[idx+1:])
+	return entityType, channel
 }
 
 func resolveRequestEnvironment(c router.Context, fallback string) string {
@@ -292,11 +292,8 @@ func resolveRequestEnvironment(c router.Context, fallback string) string {
 	candidates := []string{
 		c.Query("runtime_env"),
 		c.Query("site_runtime_env"),
-		c.Query("env"),
-		c.Query("environment"),
 		c.Header("X-Site-Runtime-Environment"),
 		c.Header("X-Site-Environment"),
-		c.Header("X-Environment"),
 		fallback,
 	}
 	for _, candidate := range candidates {
@@ -307,11 +304,11 @@ func resolveRequestEnvironment(c router.Context, fallback string) string {
 	return "prod"
 }
 
-func resolveRequestContentEnvironment(c router.Context, fallback string) string {
+func resolveRequestContentChannel(c router.Context, fallback string) string {
 	fallback = strings.TrimSpace(fallback)
 	normalizedFallback := ""
 	if fallback != "" {
-		normalizedFallback = normalizeContentEnvironment(fallback)
+		normalizedFallback = normalizeContentChannel(fallback)
 	}
 	if c == nil {
 		if normalizedFallback != "" {
@@ -320,19 +317,27 @@ func resolveRequestContentEnvironment(c router.Context, fallback string) string 
 		return "default"
 	}
 	candidates := []string{
+		c.Query("channel"),
+		c.Query("content_channel"),
+		c.Query("site_content_channel"),
+		c.Header("X-Site-Content-Channel"),
+		c.Header("X-Content-Channel"),
+		c.Cookies(defaultContentChannelCookie),
+		// Legacy compatibility keys (Phase 6 cleanup target).
+		c.Query("env"),
+		c.Query("environment"),
 		c.Query("content_env"),
-		c.Query("site_content_env"),
 		c.Query("site_env"),
-		c.Header("X-Site-Content-Environment"),
-		c.Header("X-Content-Environment"),
-		c.Cookies(defaultEnvironmentCookie),
+		c.Header("X-Site-Environment"),
+		c.Header("X-Environment"),
+		c.Cookies("site_env"),
 	}
 	for _, candidate := range candidates {
 		candidate = strings.TrimSpace(candidate)
 		if candidate == "" {
 			continue
 		}
-		if normalized := normalizeContentEnvironment(candidate); normalized != "" {
+		if normalized := normalizeContentChannel(candidate); normalized != "" {
 			return normalized
 		}
 	}

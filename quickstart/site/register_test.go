@@ -249,7 +249,7 @@ func TestResolveRequestStateThemePriority(t *testing.T) {
 	devCtx := router.NewMockContext()
 	devCtx.On("Context").Return(context.Background())
 	devCtx.On("Path").Return("/about")
-	devCtx.QueriesM["env"] = "dev"
+	devCtx.QueriesM["runtime_env"] = "dev"
 	devCtx.QueriesM["theme"] = "custom"
 	devCtx.QueriesM["variant"] = "solar"
 	devCtx.QueriesM["preview_token"] = token
@@ -264,7 +264,7 @@ func TestResolveRequestStateThemePriority(t *testing.T) {
 	prodCtx := router.NewMockContext()
 	prodCtx.On("Context").Return(context.Background())
 	prodCtx.On("Path").Return("/about")
-	prodCtx.QueriesM["env"] = "prod"
+	prodCtx.QueriesM["runtime_env"] = "prod"
 	prodCtx.QueriesM["theme"] = "custom"
 	prodCtx.QueriesM["variant"] = "solar"
 	_, prodState := ResolveRequestState(context.Background(), prodCtx, adm, admin.Config{}, resolved, nil)

@@ -37,7 +37,7 @@ func (h *contentEntryHandlers) renderForm(
 		return errors.New("form renderer is not configured")
 	}
 	baseSlug := contentTypeSlug(contentType, panelName)
-	routes := newContentEntryRoutes(h.cfg.BasePath, baseSlug, adminCtx.Environment)
+	routes := newContentEntryRoutes(h.cfg.BasePath, baseSlug, adminCtx.Channel)
 	translationState := contentEntryTranslationStateFromRecord(resourceItem)
 	formAction := routes.create()
 	if isEdit {
@@ -75,11 +75,11 @@ func (h *contentEntryHandlers) renderForm(
 		"create_success": queryParamEnabled(c, "created"),
 		"preview_url":    strings.TrimSpace(previewURL),
 		"content_type": map[string]any{
-			"id":     contentTypeID(contentType),
-			"name":   contentTypeLabel(contentType, panelName),
-			"slug":   baseSlug,
-			"icon":   contentTypeIcon(contentType),
-			"status": contentTypeStatus(contentType),
+			"id":           contentTypeID(contentType),
+			"name":         contentTypeLabel(contentType, panelName),
+			"slug":         baseSlug,
+			"icon":         contentTypeIcon(contentType),
+			"status":       contentTypeStatus(contentType),
 			"capabilities": contentTypeCapabilities(contentType),
 			"navigation":   contentTypeNavigationCapability(contentType),
 		},

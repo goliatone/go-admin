@@ -26,12 +26,13 @@ type menuByCodeWithOptions interface {
 }
 
 type navigationReadOptions struct {
-	Locale               string
-	IncludeContributions bool
-	IncludeDrafts        bool
-	PreviewToken         string
-	ViewProfile          string
-	DedupPolicy          string
+	Locale                   string
+	IncludeContributions     bool
+	IncludeDrafts            bool
+	PreviewToken             string
+	ViewProfile              string
+	DedupPolicy              string
+	ContributionLocalePolicy string
 }
 
 func (o navigationReadOptions) toSiteMenuReadOptions() admin.SiteMenuReadOptions {
@@ -132,6 +133,10 @@ func (r *navigationRuntime) resolveReadOptions(c router.Context, state RequestSt
 		Locale:               strings.TrimSpace(state.Locale),
 		IncludeContributions: queryBoolValue(c, "include_contributions", true),
 		DedupPolicy:          normalizeDedupPolicy(strings.TrimSpace(primitivesFirstNonEmpty(queryValue(c, "menu_dedupe_policy"), queryValue(c, "dedupe_policy"), queryValue(c, "contribution_duplicate_policy")))),
+		ContributionLocalePolicy: normalizeContributionLocalePolicy(strings.TrimSpace(primitivesFirstNonEmpty(
+			queryValue(c, "contribution_locale_policy"),
+			r.siteCfg.Navigation.ContributionLocalePolicy,
+		))),
 	}
 	if opts.DedupPolicy == "" {
 		opts.DedupPolicy = menuDedupByURL
@@ -189,6 +194,7 @@ func (r *navigationRuntime) resolveMenuForLocation(
 	}
 
 	filtered := r.filterMenuItems(ctx, menu.Items)
+	filtered = r.enforceContributionLocalePolicy(ctx, filtered, opts.Locale, opts.ContributionLocalePolicy)
 	projected := r.projectMenuItems(filtered, activePath, opts.DedupPolicy, debugMode)
 
 	return map[string]any{
@@ -916,6 +922,65 @@ func contributionInfoFromTarget(target map[string]any) (bool, string) {
 		contribution = strings.Contains(strings.ToLower(origin), "contribution") || strings.Contains(strings.ToLower(origin), "override")
 	}
 	return contribution, origin
+}
+
+func (r *navigationRuntime) enforceContributionLocalePolicy(ctx context.Context, items []admin.MenuItem, locale, policy string) []admin.MenuItem {
+	if len(items) == 0 {
+		return nil
+	}
+	if r == nil || r.contentSvc == nil || normalizeContributionLocalePolicy(policy) != ContributionLocalePolicyStrict {
+		return items
+	}
+	locale = strings.ToLower(strings.TrimSpace(locale))
+	if locale == "" {
+		return items
+	}
+	cache := map[string]bool{}
+	filtered := make([]admin.MenuItem, 0, len(items))
+	for _, item := range items {
+		item.Children = r.enforceContributionLocalePolicy(ctx, item.Children, locale, policy)
+		if !menuItemMatchesRequestedLocale(ctx, r.contentSvc, item, locale, cache) {
+			continue
+		}
+		filtered = append(filtered, item)
+	}
+	if len(filtered) == 0 {
+		return nil
+	}
+	return filtered
+}
+
+func menuItemMatchesRequestedLocale(ctx context.Context, contentSvc admin.CMSContentService, item admin.MenuItem, locale string, cache map[string]bool) bool {
+	target := item.Target
+	if len(target) == 0 {
+		return true
+	}
+	targetType := strings.ToLower(strings.TrimSpace(anyString(target["type"])))
+	if targetType != "content" {
+		return true
+	}
+	contentID := strings.TrimSpace(anyString(target["content_id"]))
+	if contentID == "" {
+		return true
+	}
+	if cached, ok := cache[contentID]; ok {
+		return cached
+	}
+	record, err := contentSvc.Content(ctx, contentID, locale)
+	if err != nil || record == nil {
+		cache[contentID] = false
+		return false
+	}
+	resolvedLocale := strings.ToLower(strings.TrimSpace(primitivesFirstNonEmpty(
+		record.ResolvedLocale,
+		record.Locale,
+		anyString(record.Data["resolved_locale"]),
+		anyString(record.Data["locale"]),
+	)))
+	missingRequested := record.MissingRequestedLocale || targetBool(record.Data, "missing_requested_locale")
+	match := resolvedLocale == locale && !missingRequested
+	cache[contentID] = match
+	return match
 }
 
 func normalizeMenuItemType(raw string) string {

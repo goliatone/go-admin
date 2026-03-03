@@ -260,10 +260,10 @@ func quickstartDoctorBlockDefinitionsCheck() admin.DoctorCheck {
 	return admin.DoctorCheck{
 		ID:          "quickstart.blocks.seeded_defaults",
 		Label:       "Block Library Seed Definitions",
-		Description: "Validates required seeded block definitions and Block Library visibility consistency in the default environment.",
-		Help:        "Checks that canonical example block definitions (hero and rich_text) exist in the default environment and verifies that list-path visibility matches raw content diagnostics for that same environment.",
+		Description: "Validates required seeded block definitions and Block Library visibility consistency in the default content channel.",
+		Help:        "Checks that canonical example block definitions (hero and rich_text) exist in the default content channel and verifies that list-path visibility matches raw content diagnostics for that same channel.",
 		Action: admin.NewManualDoctorAction(
-			"Seed block definitions in the default environment and verify the Block Library environment selector is set to default.",
+			"Seed block definitions in the default content channel and verify the Block Library channel selector is set to default.",
 			"Seed default block definitions",
 		),
 		Run: func(_ context.Context, adm *admin.Admin) admin.DoctorCheckOutput {
@@ -291,8 +291,8 @@ func quickstartDoctorBlockDefinitionsCheck() admin.DoctorCheck {
 				requiredSet[key] = true
 			}
 
-			effectiveEnv := defaultEnvironmentKey
-			defs, err := content.BlockDefinitions(admin.WithEnvironment(context.Background(), effectiveEnv))
+			effectiveEnv := defaultChannelKey
+			defs, err := content.BlockDefinitions(admin.WithContentChannel(context.Background(), effectiveEnv))
 			if err != nil {
 				return admin.DoctorCheckOutput{
 					Findings: []admin.DoctorFinding{
@@ -308,7 +308,7 @@ func quickstartDoctorBlockDefinitionsCheck() admin.DoctorCheck {
 						},
 					},
 					Metadata: map[string]any{
-						"effective_environment": effectiveEnv,
+						"effective_channel": effectiveEnv,
 					},
 				}
 			}
@@ -341,16 +341,16 @@ func quickstartDoctorBlockDefinitionsCheck() admin.DoctorCheck {
 			sort.Strings(availableList)
 			findings := []admin.DoctorFinding{}
 			metadata := map[string]any{
-				"effective_environment": effectiveEnv,
-				"required":              required,
-				"available_count":       len(availableList),
-				"available_types":       availableList,
+				"effective_channel": effectiveEnv,
+				"required":          required,
+				"available_count":   len(availableList),
+				"available_types":   availableList,
 			}
 
 			visibleTotal := -1
 			visibleSource := ""
 			var panelListErr error
-			listCtx := admin.WithEnvironment(context.Background(), effectiveEnv)
+			listCtx := admin.WithContentChannel(context.Background(), effectiveEnv)
 			if registry := adm.Registry(); registry != nil {
 				if panel, ok := registry.Panel("block_definitions"); ok && panel != nil {
 					adminCtx := admin.AdminContext{
@@ -361,7 +361,7 @@ func quickstartDoctorBlockDefinitionsCheck() admin.DoctorCheck {
 					_, total, err := panel.List(adminCtx, admin.ListOptions{
 						Page:    1,
 						PerPage: 1,
-						Filters: map[string]any{"environment": effectiveEnv},
+						Filters: map[string]any{"channel": effectiveEnv},
 					})
 					if err == nil {
 						visibleTotal = total
@@ -376,7 +376,7 @@ func quickstartDoctorBlockDefinitionsCheck() admin.DoctorCheck {
 				_, total, err := repo.List(listCtx, admin.ListOptions{
 					Page:    1,
 					PerPage: 1,
-					Filters: map[string]any{"environment": effectiveEnv},
+					Filters: map[string]any{"channel": effectiveEnv},
 				})
 				if err != nil {
 					visibilityErr := err
@@ -414,13 +414,13 @@ func quickstartDoctorBlockDefinitionsCheck() admin.DoctorCheck {
 					Severity:  admin.DoctorSeverityError,
 					Code:      "quickstart.blocks.visibility_mismatch",
 					Component: "cms.blocks",
-					Message:   fmt.Sprintf("Block Library visibility mismatch in %q environment: service=%d, visible=%d", effectiveEnv, len(defs), visibleTotal),
-					Hint:      "Align environment canonicalization between diagnostics and list-path filtering (blank vs default handling)",
+					Message:   fmt.Sprintf("Block Library visibility mismatch in %q channel: service=%d, visible=%d", effectiveEnv, len(defs), visibleTotal),
+					Hint:      "Align channel canonicalization between diagnostics and list-path filtering (blank vs default handling)",
 					Metadata: map[string]any{
-						"effective_environment": effectiveEnv,
-						"service_total":         len(defs),
-						"visible_total":         visibleTotal,
-						"visibility_source":     visibleSource,
+						"effective_channel": effectiveEnv,
+						"service_total":     len(defs),
+						"visible_total":     visibleTotal,
+						"visibility_source": visibleSource,
 					},
 				})
 			}
@@ -431,7 +431,7 @@ func quickstartDoctorBlockDefinitionsCheck() admin.DoctorCheck {
 					Code:      "quickstart.blocks.seed_missing",
 					Component: "cms.blocks",
 					Message:   fmt.Sprintf("Missing required default block definitions: %s", strings.Join(missing, ", ")),
-					Hint:      "Seed missing block definitions into the default environment or switch the Block Library back to default",
+					Hint:      "Seed missing block definitions into the default content channel or switch the Block Library back to default",
 					Metadata: map[string]any{
 						"missing": missing,
 					},

@@ -386,6 +386,59 @@ func TestProjectMenuItemsIsDeterministic(t *testing.T) {
 	}
 }
 
+func TestEnforceContributionLocalePolicyStrictFiltersFallbackContentTargets(t *testing.T) {
+	contentSvc := &strictLocaleContentStub{
+		records: map[string]admin.CMSContent{
+			"content-es": {
+				ID:                     "content-es",
+				Locale:                 "es",
+				ResolvedLocale:         "es",
+				MissingRequestedLocale: false,
+			},
+			"content-fallback": {
+				ID:                     "content-fallback",
+				Locale:                 "en",
+				ResolvedLocale:         "en",
+				MissingRequestedLocale: true,
+			},
+		},
+	}
+	runtime := &navigationRuntime{contentSvc: contentSvc}
+	items := []admin.MenuItem{
+		{
+			ID:     "home",
+			Label:  "Home",
+			Target: map[string]any{"type": "url", "path": "/"},
+		},
+		{
+			ID:    "localized",
+			Label: "Localized",
+			Target: map[string]any{
+				"type":       "content",
+				"content_id": "content-es",
+				"url":        "/es/localized",
+			},
+		},
+		{
+			ID:    "fallback",
+			Label: "Fallback",
+			Target: map[string]any{
+				"type":       "content",
+				"content_id": "content-fallback",
+				"url":        "/fallback",
+			},
+		},
+	}
+
+	filtered := runtime.enforceContributionLocalePolicy(context.Background(), items, "es", ContributionLocalePolicyStrict)
+	if len(filtered) != 2 {
+		t.Fatalf("expected strict contribution locale policy to keep two items, got %+v", filtered)
+	}
+	if filtered[0].ID != "home" || filtered[1].ID != "localized" {
+		t.Fatalf("unexpected filtered order/content: %+v", filtered)
+	}
+}
+
 func seedDeliveryPageType(t *testing.T, content *admin.InMemoryContentService) {
 	t.Helper()
 	_, err := content.CreateContentType(context.Background(), admin.CMSContentType{
@@ -407,6 +460,71 @@ func seedDeliveryPageType(t *testing.T, content *admin.InMemoryContentService) {
 	if err != nil {
 		t.Fatalf("create content type: %v", err)
 	}
+}
+
+type strictLocaleContentStub struct {
+	records map[string]admin.CMSContent
+}
+
+func (s *strictLocaleContentStub) Pages(context.Context, string) ([]admin.CMSPage, error) {
+	return nil, nil
+}
+func (s *strictLocaleContentStub) Page(context.Context, string, string) (*admin.CMSPage, error) {
+	return nil, admin.ErrNotFound
+}
+func (s *strictLocaleContentStub) CreatePage(context.Context, admin.CMSPage) (*admin.CMSPage, error) {
+	return nil, admin.ErrNotFound
+}
+func (s *strictLocaleContentStub) UpdatePage(context.Context, admin.CMSPage) (*admin.CMSPage, error) {
+	return nil, admin.ErrNotFound
+}
+func (s *strictLocaleContentStub) DeletePage(context.Context, string) error {
+	return nil
+}
+func (s *strictLocaleContentStub) Contents(context.Context, string) ([]admin.CMSContent, error) {
+	return nil, nil
+}
+func (s *strictLocaleContentStub) Content(_ context.Context, id, locale string) (*admin.CMSContent, error) {
+	record, ok := s.records[id]
+	if !ok {
+		return nil, admin.ErrNotFound
+	}
+	copy := record
+	copy.RequestedLocale = locale
+	return &copy, nil
+}
+func (s *strictLocaleContentStub) CreateContent(context.Context, admin.CMSContent) (*admin.CMSContent, error) {
+	return nil, admin.ErrNotFound
+}
+func (s *strictLocaleContentStub) UpdateContent(context.Context, admin.CMSContent) (*admin.CMSContent, error) {
+	return nil, admin.ErrNotFound
+}
+func (s *strictLocaleContentStub) DeleteContent(context.Context, string) error {
+	return nil
+}
+func (s *strictLocaleContentStub) BlockDefinitions(context.Context) ([]admin.CMSBlockDefinition, error) {
+	return nil, nil
+}
+func (s *strictLocaleContentStub) CreateBlockDefinition(context.Context, admin.CMSBlockDefinition) (*admin.CMSBlockDefinition, error) {
+	return nil, admin.ErrNotFound
+}
+func (s *strictLocaleContentStub) UpdateBlockDefinition(context.Context, admin.CMSBlockDefinition) (*admin.CMSBlockDefinition, error) {
+	return nil, admin.ErrNotFound
+}
+func (s *strictLocaleContentStub) DeleteBlockDefinition(context.Context, string) error {
+	return nil
+}
+func (s *strictLocaleContentStub) BlockDefinitionVersions(context.Context, string) ([]admin.CMSBlockDefinitionVersion, error) {
+	return nil, nil
+}
+func (s *strictLocaleContentStub) BlocksForContent(context.Context, string, string) ([]admin.CMSBlock, error) {
+	return nil, nil
+}
+func (s *strictLocaleContentStub) SaveBlock(context.Context, admin.CMSBlock) (*admin.CMSBlock, error) {
+	return nil, admin.ErrNotFound
+}
+func (s *strictLocaleContentStub) DeleteBlock(context.Context, string) error {
+	return nil
 }
 
 func seedDeliveryPageRecord(t *testing.T, content *admin.InMemoryContentService, id, slug, path string) {

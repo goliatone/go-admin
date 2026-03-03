@@ -8,16 +8,16 @@ import (
 )
 
 const (
-	DefaultMainMenuLocation   = "site.main"
-	DefaultFooterMenuLocation = "site.footer"
-	DefaultFallbackMenuCode   = "site_main"
-	DefaultBaseTemplate       = "site/base"
-	DefaultErrorTemplate      = "site/error"
-	DefaultSearchRoute        = "/search"
-	DefaultSearchEndpoint     = "/api/v1/site/search"
-	DefaultSearchSuggestRoute = "/api/v1/site/search/suggest"
-	defaultLocaleCookieName   = "site_locale"
-	defaultEnvironmentCookie  = "site_env"
+	DefaultMainMenuLocation     = "site.main"
+	DefaultFooterMenuLocation   = "site.footer"
+	DefaultFallbackMenuCode     = "site_main"
+	DefaultBaseTemplate         = "site/base"
+	DefaultErrorTemplate        = "site/error"
+	DefaultSearchRoute          = "/search"
+	DefaultSearchEndpoint       = "/api/v1/site/search"
+	DefaultSearchSuggestRoute   = "/api/v1/site/search/suggest"
+	defaultLocaleCookieName     = "site_locale"
+	defaultContentChannelCookie = "site_channel"
 )
 
 // LocalePrefixMode controls locale path prefix behavior.
@@ -36,7 +36,7 @@ type SiteConfig struct {
 	AllowLocaleFallback *bool
 	LocalePrefixMode    LocalePrefixMode
 	Environment         string
-	ContentEnvironment  string
+	ContentChannel      string
 
 	Navigation SiteNavigationConfig
 	Views      SiteViewConfig
@@ -48,11 +48,17 @@ type SiteConfig struct {
 
 // SiteNavigationConfig defines site menu defaults.
 type SiteNavigationConfig struct {
-	MainMenuLocation        string
-	FooterMenuLocation      string
-	FallbackMenuCode        string
-	EnableGeneratedFallback bool
+	MainMenuLocation         string
+	FooterMenuLocation       string
+	FallbackMenuCode         string
+	EnableGeneratedFallback  bool
+	ContributionLocalePolicy string
 }
+
+const (
+	ContributionLocalePolicyFallback = "fallback"
+	ContributionLocalePolicyStrict   = "strict"
+)
 
 // SiteViewConfig controls template contract defaults.
 type SiteViewConfig struct {
@@ -102,7 +108,7 @@ type ResolvedSiteConfig struct {
 	AllowLocaleFallback bool
 	LocalePrefixMode    LocalePrefixMode
 	Environment         string
-	ContentEnvironment  string
+	ContentChannel      string
 
 	Navigation SiteNavigationConfig
 	Views      ResolvedSiteViewConfig
@@ -170,19 +176,20 @@ func ResolveSiteConfig(cfg admin.Config, input SiteConfig) ResolvedSiteConfig {
 			environment = "prod"
 		}
 	}
-	contentEnvironment := ""
-	if strings.TrimSpace(input.ContentEnvironment) != "" {
-		contentEnvironment = normalizeContentEnvironment(input.ContentEnvironment)
+	contentChannel := ""
+	if strings.TrimSpace(input.ContentChannel) != "" {
+		contentChannel = normalizeContentChannel(input.ContentChannel)
 	}
-	if contentEnvironment == "" {
-		contentEnvironment = "default"
+	if contentChannel == "" {
+		contentChannel = "default"
 	}
 
 	navCfg := SiteNavigationConfig{
-		MainMenuLocation:        firstNonEmpty(input.Navigation.MainMenuLocation, DefaultMainMenuLocation),
-		FooterMenuLocation:      firstNonEmpty(input.Navigation.FooterMenuLocation, DefaultFooterMenuLocation),
-		FallbackMenuCode:        firstNonEmpty(input.Navigation.FallbackMenuCode, DefaultFallbackMenuCode),
-		EnableGeneratedFallback: input.Navigation.EnableGeneratedFallback,
+		MainMenuLocation:         firstNonEmpty(input.Navigation.MainMenuLocation, DefaultMainMenuLocation),
+		FooterMenuLocation:       firstNonEmpty(input.Navigation.FooterMenuLocation, DefaultFooterMenuLocation),
+		FallbackMenuCode:         firstNonEmpty(input.Navigation.FallbackMenuCode, DefaultFallbackMenuCode),
+		EnableGeneratedFallback:  input.Navigation.EnableGeneratedFallback,
+		ContributionLocalePolicy: normalizeContributionLocalePolicy(input.Navigation.ContributionLocalePolicy),
 	}
 
 	views := ResolvedSiteViewConfig{
@@ -230,7 +237,7 @@ func ResolveSiteConfig(cfg admin.Config, input SiteConfig) ResolvedSiteConfig {
 		AllowLocaleFallback: allowLocaleFallback,
 		LocalePrefixMode:    localePrefixMode,
 		Environment:         environment,
-		ContentEnvironment:  contentEnvironment,
+		ContentChannel:      contentChannel,
 		Navigation:          navCfg,
 		Views:               views,
 		Search:              search,
@@ -309,6 +316,15 @@ func normalizeLocalePrefixMode(mode LocalePrefixMode) LocalePrefixMode {
 	}
 }
 
+func normalizeContributionLocalePolicy(policy string) string {
+	switch strings.ToLower(strings.TrimSpace(policy)) {
+	case ContributionLocalePolicyStrict:
+		return ContributionLocalePolicyStrict
+	default:
+		return ContributionLocalePolicyFallback
+	}
+}
+
 func normalizeRuntimeEnvironment(value string) string {
 	switch strings.ToLower(strings.TrimSpace(value)) {
 	case "", "default":
@@ -324,7 +340,7 @@ func normalizeRuntimeEnvironment(value string) string {
 	}
 }
 
-func normalizeContentEnvironment(value string) string {
+func normalizeContentChannel(value string) string {
 	switch strings.ToLower(strings.TrimSpace(value)) {
 	case "", "default":
 		return "default"
