@@ -254,7 +254,10 @@ func TestCMSSeedsIncludeMonolingualAndMultilingualTranslationScenarios(t *testin
 	require.ElementsMatch(t, []string{"en", "es", "fr"}, pageHomeLocales, "home should be seeded as multilingual")
 
 	pageContactLocales := pageTranslationLocalesBySlug(t, ctx, db, "contact")
-	require.ElementsMatch(t, []string{"en"}, pageContactLocales, "contact should remain en-only")
+	require.ElementsMatch(t, []string{"en", "es", "fr"}, pageContactLocales, "contact should be seeded as multilingual")
+
+	pageTeamLocales := pageTranslationLocalesBySlug(t, ctx, db, "team")
+	require.ElementsMatch(t, []string{"en", "fr"}, pageTeamLocales, "team should include fr translation")
 
 	postGettingStartedLocales := contentTranslationLocalesBySlug(t, ctx, db, "getting-started-go")
 	require.ElementsMatch(t, []string{"en", "es", "fr"}, postGettingStartedLocales, "getting-started-go should be seeded as multilingual")
@@ -338,28 +341,28 @@ func TestAdminPageResponsesExposeTranslationMetadataForListAndDetail(t *testing.
 	require.False(t, home.Translation.Meta.MissingRequestedLocale)
 	require.False(t, home.Translation.Meta.FallbackUsed)
 
-	var contactID string
+	var fallbackPageID string
 	err = db.NewSelect().
 		Table("pages").
 		Column("id").
-		Where("slug = ?", "contact").
+		Where("slug = ?", "translation-missing-fr").
 		Limit(1).
-		Scan(ctx, &contactID)
-	require.NoError(t, err, "load contact page id")
-	require.NotEmpty(t, contactID)
+		Scan(ctx, &fallbackPageID)
+	require.NoError(t, err, "load fallback fixture page id")
+	require.NotEmpty(t, fallbackPageID)
 
-	contact, err := pageService.Get(ctx, contactID, admin.AdminPageGetOptions{Locale: "fr"})
-	require.NoError(t, err, "get contact page detail with fr request")
-	require.NotNil(t, contact)
-	require.Equal(t, "fr", strings.ToLower(contact.RequestedLocale))
-	require.Equal(t, "en", strings.ToLower(contact.ResolvedLocale))
-	require.NotEmpty(t, contact.TranslationGroupID)
-	require.True(t, contact.Translation.Meta.MissingRequestedLocale)
-	require.True(t, contact.Translation.Meta.FallbackUsed)
-	require.Contains(t, contact.Translation.Meta.AvailableLocales, "en")
-	require.NotContains(t, contact.Translation.Meta.AvailableLocales, "fr")
-	require.True(t, contact.ContentTranslation.Meta.MissingRequestedLocale)
-	require.True(t, contact.ContentTranslation.Meta.FallbackUsed)
+	fallbackPage, err := pageService.Get(ctx, fallbackPageID, admin.AdminPageGetOptions{Locale: "fr"})
+	require.NoError(t, err, "get fallback fixture page detail with fr request")
+	require.NotNil(t, fallbackPage)
+	require.Equal(t, "fr", strings.ToLower(fallbackPage.RequestedLocale))
+	require.Equal(t, "en", strings.ToLower(fallbackPage.ResolvedLocale))
+	require.NotEmpty(t, fallbackPage.TranslationGroupID)
+	require.True(t, fallbackPage.Translation.Meta.MissingRequestedLocale)
+	require.True(t, fallbackPage.Translation.Meta.FallbackUsed)
+	require.Contains(t, fallbackPage.Translation.Meta.AvailableLocales, "en")
+	require.NotContains(t, fallbackPage.Translation.Meta.AvailableLocales, "fr")
+	require.True(t, fallbackPage.ContentTranslation.Meta.MissingRequestedLocale)
+	require.True(t, fallbackPage.ContentTranslation.Meta.FallbackUsed)
 }
 
 func pageTranslationLocalesBySlug(t *testing.T, ctx context.Context, db *bun.DB, slug string) []string {

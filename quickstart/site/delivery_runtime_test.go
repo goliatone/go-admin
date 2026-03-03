@@ -7,6 +7,28 @@ import (
 	"github.com/goliatone/go-admin/admin"
 )
 
+type localeScopedContentListStub struct {
+	admin.CMSContentService
+	byLocale map[string][]admin.CMSContent
+}
+
+func (s *localeScopedContentListStub) Contents(ctx context.Context, locale string) ([]admin.CMSContent, error) {
+	if s == nil {
+		return nil, nil
+	}
+	if items, ok := s.byLocale[locale]; ok {
+		return append([]admin.CMSContent{}, items...), nil
+	}
+	if items, ok := s.byLocale[""]; ok {
+		return append([]admin.CMSContent{}, items...), nil
+	}
+	return nil, nil
+}
+
+func (s *localeScopedContentListStub) ContentsWithOptions(ctx context.Context, locale string, _ ...admin.CMSContentListOption) ([]admin.CMSContent, error) {
+	return s.Contents(ctx, locale)
+}
+
 func TestResolveLocaleRecordFallbackPolicy(t *testing.T) {
 	capability := deliveryCapability{TypeSlug: "post", Kind: "detail"}
 	state := RequestState{
@@ -47,6 +69,150 @@ func TestResolveLocaleRecordFallbackPolicy(t *testing.T) {
 	}
 	if fallbackUsed {
 		t.Fatalf("expected fallback not used when disabled")
+	}
+}
+
+func TestResolveLocalizedPathsByLocaleUsesLocaleVariants(t *testing.T) {
+	cfg := ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{
+		SupportedLocales: []string{"en", "es", "fr"},
+		LocalePrefixMode: LocalePrefixNonDefault,
+	})
+	stub := &localeScopedContentListStub{
+		CMSContentService: admin.NewInMemoryContentService(),
+		byLocale: map[string][]admin.CMSContent{
+			"en": []admin.CMSContent{{
+				ID:              "about-record",
+				Slug:            "about",
+				Locale:          "en",
+				Status:          "published",
+				ContentType:     "page",
+				ContentTypeSlug: "page",
+				Data:            map[string]any{"path": "/about"},
+			}},
+			"es": []admin.CMSContent{{
+				ID:              "about-record",
+				Slug:            "about",
+				Locale:          "es",
+				Status:          "published",
+				ContentType:     "page",
+				ContentTypeSlug: "page",
+				Data:            map[string]any{"path": "/sobre-nosotros"},
+			}},
+			"fr": []admin.CMSContent{{
+				ID:              "about-record",
+				Slug:            "about",
+				Locale:          "fr",
+				Status:          "published",
+				ContentType:     "page",
+				ContentTypeSlug: "page",
+				Data:            map[string]any{"path": "/a-propos"},
+			}},
+		},
+	}
+	runtime := &deliveryRuntime{
+		siteCfg:    cfg,
+		contentSvc: stub,
+	}
+	state := RequestState{
+		Locale:              "en",
+		DefaultLocale:       "en",
+		SupportedLocales:    []string{"en", "es", "fr"},
+		AllowLocaleFallback: true,
+	}
+	record := admin.CMSContent{
+		ID:              "about-record",
+		Slug:            "about",
+		Locale:          "en",
+		Status:          "published",
+		ContentType:     "page",
+		ContentTypeSlug: "page",
+		Data:            map[string]any{"path": "/about"},
+	}
+	got := runtime.resolveLocalizedPathsByLocale(
+		context.Background(),
+		state,
+		deliveryCapability{TypeSlug: "page", Kind: "page"},
+		record,
+		nil,
+		newLocaleContentCache(),
+	)
+
+	if got["en"] != "/about" {
+		t.Fatalf("expected en localized path /about, got %#v", got)
+	}
+	if got["es"] != "/sobre-nosotros" {
+		t.Fatalf("expected es localized path /sobre-nosotros, got %#v", got)
+	}
+	if got["fr"] != "/a-propos" {
+		t.Fatalf("expected fr localized path /a-propos, got %#v", got)
+	}
+}
+
+func TestResolvePageKindMatchesLocalizedAliasPath(t *testing.T) {
+	cfg := ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{
+		SupportedLocales: []string{"en", "es"},
+		LocalePrefixMode: LocalePrefixNonDefault,
+		Features: SiteFeatures{
+			EnableI18N: boolPtr(true),
+		},
+	})
+	stub := &localeScopedContentListStub{
+		CMSContentService: admin.NewInMemoryContentService(),
+		byLocale: map[string][]admin.CMSContent{
+			"en": []admin.CMSContent{
+				{
+					ID:              "about-record",
+					Slug:            "about",
+					Locale:          "en",
+					Status:          "published",
+					ContentType:     "page",
+					ContentTypeSlug: "page",
+					Data:            map[string]any{"path": "/about"},
+				},
+			},
+			"es": []admin.CMSContent{
+				{
+					ID:              "about-record",
+					Slug:            "about",
+					Locale:          "es",
+					Status:          "published",
+					ContentType:     "page",
+					ContentTypeSlug: "page",
+					Data:            map[string]any{"path": "/sobre-nosotros"},
+				},
+			},
+		},
+	}
+	runtime := &deliveryRuntime{
+		siteCfg:    cfg,
+		contentSvc: stub,
+	}
+	state := RequestState{
+		Locale:              "es",
+		DefaultLocale:       "en",
+		SupportedLocales:    []string{"en", "es"},
+		AllowLocaleFallback: true,
+	}
+	records := append([]admin.CMSContent{}, stub.byLocale["es"]...)
+	resolution, siteErr, matched := runtime.resolvePageKind(
+		context.Background(),
+		deliveryCapability{TypeSlug: "page", Kind: "page"},
+		records,
+		state,
+		"/about",
+		newLocaleContentCache(),
+	)
+	if !matched {
+		t.Fatalf("expected localized alias match for /about in es locale")
+	}
+	if hasSiteRuntimeError(siteErr) {
+		t.Fatalf("unexpected site error %+v", siteErr)
+	}
+	if resolution == nil || resolution.Record == nil {
+		t.Fatalf("expected detail resolution with record")
+	}
+	if resolution.Record.Locale != "es" {
+		t.Fatalf("expected resolved record locale es, got %+v", resolution.Record)
 	}
 }
 
@@ -174,7 +340,7 @@ func TestDeliveryRuntimeResolvesCapabilityKinds(t *testing.T) {
 
 	assertMode := func(path, expectedMode, expectedType string) {
 		t.Helper()
-		resolution, siteErr := runtime.resolve(context.Background(), state, path)
+		resolution, siteErr := runtime.resolve(context.Background(), state, path, newLocaleContentCache())
 		if hasSiteRuntimeError(siteErr) {
 			t.Fatalf("resolve %s unexpected error %+v", path, siteErr)
 		}
@@ -260,7 +426,7 @@ func TestDeliveryRuntimePreviewFallbackResolvesByRecordIDWhenRoutePathMisses(t *
 		PreviewEntityType:   "pages",
 		PreviewContentID:    "page-draft-home",
 	}
-	resolution, siteErr := runtime.resolve(context.Background(), state, "/")
+	resolution, siteErr := runtime.resolve(context.Background(), state, "/", newLocaleContentCache())
 	if hasSiteRuntimeError(siteErr) {
 		t.Fatalf("resolve / unexpected error %+v", siteErr)
 	}
@@ -272,5 +438,116 @@ func TestDeliveryRuntimePreviewFallbackResolvesByRecordIDWhenRoutePathMisses(t *
 	}
 	if resolution.Record == nil || resolution.Record.ID != "page-draft-home" {
 		t.Fatalf("expected preview fallback to resolve page-draft-home, got %+v", resolution.Record)
+	}
+}
+
+func TestRecordDeliveryPathAppliesContentTypePathPolicy(t *testing.T) {
+	capability, ok := capabilityFromContentType(admin.CMSContentType{
+		Name: "news",
+		Slug: "news",
+		Capabilities: map[string]any{
+			"delivery": map[string]any{
+				"enabled": true,
+				"kind":    "detail",
+				"routes": map[string]any{
+					"detail": "/news/:slug",
+				},
+				"path_policy": map[string]any{
+					"allow_root":       false,
+					"allowed_prefixes": []string{"/news"},
+				},
+			},
+		},
+	})
+	if !ok {
+		t.Fatalf("expected delivery capability to resolve")
+	}
+
+	externalPath := admin.CMSContent{
+		Slug: "site-runtime-rollout",
+		Data: map[string]any{"path": "https://example.com/phish"},
+	}
+	if got := recordDeliveryPath(externalPath, capability); got != "/news/site-runtime-rollout" {
+		t.Fatalf("expected external URL path to be ignored and fallback to route path, got %q", got)
+	}
+
+	offPrefixPath := admin.CMSContent{
+		Slug: "site-runtime-rollout",
+		Data: map[string]any{"path": "/admin/secret"},
+	}
+	if got := recordDeliveryPath(offPrefixPath, capability); got != "/news/site-runtime-rollout" {
+		t.Fatalf("expected disallowed prefix path to fallback to route path, got %q", got)
+	}
+
+	unrecoverable := admin.CMSContent{
+		Data: map[string]any{"path": "/admin/secret"},
+	}
+	if got := recordDeliveryPath(unrecoverable, capability); got != "" {
+		t.Fatalf("expected unrecoverable invalid path to be dropped, got %q", got)
+	}
+}
+
+func TestDeliveryRuntimeResolvesWithEnvironmentScopedContentTypes(t *testing.T) {
+	content := admin.NewInMemoryContentService()
+	_, err := content.CreateContentType(context.Background(), admin.CMSContentType{
+		ID:          "page-type",
+		Name:        "Page",
+		Slug:        "page",
+		Environment: "prod",
+		Schema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{},
+		},
+		Capabilities: map[string]any{
+			"delivery": map[string]any{
+				"enabled": true,
+				"kind":    "page",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create content type: %v", err)
+	}
+	_, err = content.CreateContent(context.Background(), admin.CMSContent{
+		ID:              "home-page",
+		Title:           "Home",
+		Slug:            "home",
+		Locale:          "en",
+		Status:          "published",
+		ContentType:     "page",
+		ContentTypeSlug: "page",
+		Data:            map[string]any{"path": "/home"},
+	})
+	if err != nil {
+		t.Fatalf("create content: %v", err)
+	}
+
+	runtime := newDeliveryRuntime(
+		ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{}),
+		nil,
+		content,
+		content,
+	)
+	if runtime == nil {
+		t.Fatalf("expected delivery runtime instance")
+	}
+	state := RequestState{
+		Locale:              "en",
+		DefaultLocale:       "en",
+		SupportedLocales:    []string{"en"},
+		AllowLocaleFallback: true,
+	}
+
+	resolution, siteErr := runtime.resolve(
+		admin.WithEnvironment(context.Background(), "prod"),
+		state,
+		"/home",
+		newLocaleContentCache(),
+	)
+	if hasSiteRuntimeError(siteErr) {
+		t.Fatalf("resolve /home unexpected error %+v", siteErr)
+	}
+	if resolution == nil || resolution.Record == nil || resolution.Record.ID != "home-page" {
+		t.Fatalf("expected home-page detail resolution, got %+v", resolution)
 	}
 }

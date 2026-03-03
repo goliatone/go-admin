@@ -66,6 +66,72 @@ func TestBuildLocaleSwitcherContractPreservesTranslationIdentity(t *testing.T) {
 	}
 }
 
+func TestBuildLocaleSwitcherContractAvoidsDoubleLocalePrefix(t *testing.T) {
+	cfg := ResolveSiteConfig(adminConfig("en"), SiteConfig{
+		SupportedLocales: []string{"en", "es", "fr"},
+		LocalePrefixMode: LocalePrefixNonDefault,
+	})
+	contract := BuildLocaleSwitcherContract(
+		cfg,
+		"/es/about",
+		"es",
+		"es",
+		"tg-about-1",
+		[]string{"en", "es", "fr"},
+		map[string]string{
+			"en": "/about",
+			"es": "/es/sobre-nosotros",
+			"fr": "/fr/a-propos",
+		},
+		nil,
+	)
+
+	items, ok := contract["items"].([]map[string]any)
+	if !ok || len(items) != 3 {
+		t.Fatalf("expected switcher items for all supported locales, got %#v", contract["items"])
+	}
+	if items[0]["locale"] != "en" || items[0]["url"] != "/about" {
+		t.Fatalf("expected en path /about, got %+v", items[0])
+	}
+	if items[1]["locale"] != "es" || items[1]["url"] != "/es/sobre-nosotros" {
+		t.Fatalf("expected es path /es/sobre-nosotros without double prefix, got %+v", items[1])
+	}
+	if items[2]["locale"] != "fr" || items[2]["url"] != "/fr/a-propos" {
+		t.Fatalf("expected fr path /fr/a-propos without mixed prefix, got %+v", items[2])
+	}
+}
+
+func TestBuildLocaleSwitcherContractSanitizesUnsafeLocalizedPaths(t *testing.T) {
+	cfg := ResolveSiteConfig(adminConfig("en"), SiteConfig{
+		SupportedLocales: []string{"en", "es"},
+		LocalePrefixMode: LocalePrefixNonDefault,
+	})
+	contract := BuildLocaleSwitcherContract(
+		cfg,
+		"/about",
+		"en",
+		"en",
+		"tg-about-1",
+		[]string{"en", "es"},
+		map[string]string{
+			"en": "/about",
+			"es": "https://example.com/phish",
+		},
+		nil,
+	)
+
+	items, ok := contract["items"].([]map[string]any)
+	if !ok || len(items) != 2 {
+		t.Fatalf("expected switcher items for all supported locales, got %#v", contract["items"])
+	}
+	if items[0]["url"] != "/about" {
+		t.Fatalf("expected safe en path /about, got %+v", items[0])
+	}
+	if items[1]["url"] != "/es/about" {
+		t.Fatalf("expected unsafe es path to fallback to localized current path, got %+v", items[1])
+	}
+}
+
 func adminConfig(locale string) admin.Config {
 	return admin.Config{DefaultLocale: locale}
 }
