@@ -454,8 +454,15 @@ func (b *goCMSContentBridge) listContents(ctx context.Context, locale string, op
 	}
 	slice := deref(results[0])
 	out := make([]admin.CMSContent, 0, slice.Len())
+	hydrateTranslations := hasBridgeContentListOption(listOpts, admin.WithTranslations())
 	for i := 0; i < slice.Len(); i++ {
-		out = append(out, b.convertContent(slice.Index(i), locale, ctx))
+		converted := b.convertContent(slice.Index(i), locale, ctx)
+		if hydrateTranslations && strings.TrimSpace(converted.ID) != "" {
+			if hydrated, err := b.Content(ctx, converted.ID, locale); err == nil && hydrated != nil {
+				converted = *hydrated
+			}
+		}
+		out = append(out, converted)
 	}
 	return out, nil
 }
@@ -977,7 +984,6 @@ func (b *goCMSContentBridge) convertContent(value reflect.Value, locale string, 
 		}
 		if strings.EqualFold(code, locale) {
 			chosen = current
-			break
 		}
 	}
 	if chosen.IsValid() {
@@ -1071,7 +1077,6 @@ func (b *goCMSContentBridge) convertPage(value reflect.Value, locale string) adm
 		}
 		if strings.EqualFold(code, locale) {
 			chosen = current
-			break
 		}
 	}
 	if chosen.IsValid() {

@@ -188,13 +188,15 @@ Useful env toggles:
 - `SITE_ALLOW_LOCALE_FALLBACK=true|false`
 - `SITE_ENABLE_GENERATED_FALLBACK=true|false`
 - `SITE_ENABLE_SEARCH=true|false`
-- `SITE_ENV=dev|staging|prod`
+- `SITE_RUNTIME_ENV=dev|staging|prod`
+- `SITE_CONTENT_ENV=default|dev|staging|prod|<channel>`
+- `SITE_ENV=<channel>` (legacy alias used only when `SITE_CONTENT_ENV` is unset)
 - `SITE_THEME=<theme-name>`
 - `SITE_THEME_VARIANT=<variant>`
 
 Theme override behavior:
-- In `SITE_ENV=dev|staging`, request query overrides are allowed: `?theme=<name>&variant=<variant>`.
-- In `SITE_ENV=prod`, query overrides are ignored and configured defaults are used.
+- In runtime `dev|staging`, request query overrides are allowed: `?theme=<name>&variant=<variant>`.
+- In runtime `prod`, query overrides are ignored and configured defaults are used.
 
 Search UI state demos:
 - Normal results: `/search?q=go`
