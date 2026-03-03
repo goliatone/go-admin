@@ -35,7 +35,7 @@ const (
 	defaultFormIDOperationSuffix  = ".edit"
 	contentTypeSearchAdapterKey   = "content_types"
 	contentTypeBuilderPermissions = "content_types"
-	defaultContentEnvironmentKey  = "default"
+	defaultContentChannelKey      = "default"
 )
 
 // SchemaValidationOptions captures schema validation/preview context.
@@ -704,50 +704,47 @@ func (m *ContentTypeBuilderModule) registerBlockDefinitionDiagnosticsRoute(admin
 			return writeError(c, err)
 		}
 
-		requestedEnv := strings.ToLower(strings.TrimSpace(c.Query("env")))
-		if requestedEnv == "" {
-			requestedEnv = strings.ToLower(strings.TrimSpace(c.Query("environment")))
+		requestedChannel := strings.ToLower(strings.TrimSpace(resolveContentChannelFromRouter(c)))
+		effectiveChannel := requestedChannel
+		if effectiveChannel == "" {
+			effectiveChannel = defaultContentChannelKey
 		}
-		effectiveEnv := requestedEnv
-		if effectiveEnv == "" {
-			effectiveEnv = defaultContentEnvironmentKey
-		}
-		defaultDefs, defaultErr := m.contentSvc.BlockDefinitions(WithEnvironment(context.Background(), defaultContentEnvironmentKey))
+		defaultDefs, defaultErr := m.contentSvc.BlockDefinitions(WithContentChannel(context.Background(), defaultContentChannelKey))
 		effectiveDefs := defaultDefs
 		effectiveErr := defaultErr
-		if effectiveEnv != defaultContentEnvironmentKey {
-			effectiveDefs, effectiveErr = m.contentSvc.BlockDefinitions(WithEnvironment(context.Background(), effectiveEnv))
+		if effectiveChannel != defaultContentChannelKey {
+			effectiveDefs, effectiveErr = m.contentSvc.BlockDefinitions(WithContentChannel(context.Background(), effectiveChannel))
 		}
 		if defaultErr != nil || effectiveErr != nil {
 			return writeJSON(c, map[string]any{
-				"effective_environment": effectiveEnv,
-				"requested_environment": requestedEnv,
-				"total_effective":       0,
-				"total_default":         0,
-				"available_environments": []string{
-					defaultContentEnvironmentKey,
+				"effective_channel": effectiveChannel,
+				"requested_channel": requestedChannel,
+				"total_effective":   0,
+				"total_default":     0,
+				"available_channels": []string{
+					defaultContentChannelKey,
 				},
 			})
 		}
 
 		envSet := map[string]struct{}{
-			defaultContentEnvironmentKey: {},
-			effectiveEnv:                 {},
+			defaultContentChannelKey: {},
+			effectiveChannel:         {},
 		}
 		addEnvFromDefs := func(defs []CMSBlockDefinition, fallback string) {
 			for _, def := range defs {
-				env := strings.ToLower(strings.TrimSpace(def.Environment))
+				env := strings.ToLower(strings.TrimSpace(firstNonEmptyRaw(def.Channel, def.Environment)))
 				if env == "" {
 					env = fallback
 				}
 				if env == "" {
-					env = defaultContentEnvironmentKey
+					env = defaultContentChannelKey
 				}
 				envSet[env] = struct{}{}
 			}
 		}
-		addEnvFromDefs(defaultDefs, defaultContentEnvironmentKey)
-		addEnvFromDefs(effectiveDefs, effectiveEnv)
+		addEnvFromDefs(defaultDefs, defaultContentChannelKey)
+		addEnvFromDefs(effectiveDefs, effectiveChannel)
 
 		available := make([]string, 0, len(envSet))
 		for env := range envSet {
@@ -756,7 +753,7 @@ func (m *ContentTypeBuilderModule) registerBlockDefinitionDiagnosticsRoute(admin
 		sort.Strings(available)
 		if len(available) > 1 {
 			for i, env := range available {
-				if env == defaultContentEnvironmentKey {
+				if env == defaultContentChannelKey {
 					available[0], available[i] = available[i], available[0]
 					break
 				}
@@ -764,11 +761,11 @@ func (m *ContentTypeBuilderModule) registerBlockDefinitionDiagnosticsRoute(admin
 		}
 
 		return writeJSON(c, map[string]any{
-			"effective_environment":  effectiveEnv,
-			"requested_environment":  requestedEnv,
-			"total_effective":        len(effectiveDefs),
-			"total_default":          len(defaultDefs),
-			"available_environments": available,
+			"effective_channel":  effectiveChannel,
+			"requested_channel":  requestedChannel,
+			"total_effective":    len(effectiveDefs),
+			"total_default":      len(defaultDefs),
+			"available_channels": available,
 		})
 	}
 

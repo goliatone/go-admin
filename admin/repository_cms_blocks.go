@@ -29,22 +29,26 @@ func (r *CMSBlockDefinitionRepository) List(ctx context.Context, opts ListOption
 	search := strings.ToLower(extractSearch(opts))
 	categoryFilter := ""
 	statusFilter := ""
-	environment := ""
-	hasEnvironmentFilter := false
+	channel := ""
+	hasChannelFilter := false
 	if opts.Filters != nil {
 		categoryFilter = strings.ToLower(strings.TrimSpace(toString(opts.Filters["category"])))
 		statusFilter = strings.ToLower(strings.TrimSpace(toString(opts.Filters["status"])))
-		environment = strings.TrimSpace(toString(opts.Filters["environment"]))
+		channel = strings.TrimSpace(firstNonEmptyRaw(
+			toString(opts.Filters["channel"]),
+			toString(opts.Filters["content_channel"]),
+			toString(opts.Filters["environment"]),
+		))
 	}
-	if environment == "" {
-		environment = strings.TrimSpace(environmentFromContext(ctx))
+	if channel == "" {
+		channel = resolveCMSContentChannel("", ctx)
 	}
-	if environment != "" {
-		hasEnvironmentFilter = true
+	if channel != "" {
+		hasChannelFilter = true
 	}
 	filtered := []CMSBlockDefinition{}
 	for _, def := range defs {
-		if hasEnvironmentFilter && !cmsEnvironmentMatches(def.Environment, environment) {
+		if hasChannelFilter && !cmsChannelMatches(cmsBlockDefinitionChannel(def), channel) {
 			continue
 		}
 		if search != "" &&
@@ -142,7 +146,8 @@ func (r *CMSBlockDefinitionRepository) List(ctx context.Context, opts ListOption
 			"icon":             def.Icon,
 			"category":         category,
 			"status":           status,
-			"environment":      def.Environment,
+			"channel":          cmsBlockDefinitionChannel(def),
+			"environment":      cmsBlockDefinitionChannel(def),
 			"schema":           primitives.CloneAnyMap(def.Schema),
 			"ui_schema":        primitives.CloneAnyMap(def.UISchema),
 			"schema_version":   schemaVersion,
@@ -166,10 +171,10 @@ func (r *CMSBlockDefinitionRepository) Get(ctx context.Context, id string) (map[
 	if err != nil {
 		return nil, err
 	}
-	environment := strings.TrimSpace(environmentFromContext(ctx))
-	hasEnvironmentFilter := environment != ""
+	channel := resolveCMSContentChannel("", ctx)
+	hasChannelFilter := channel != ""
 	for _, def := range defs {
-		if hasEnvironmentFilter && !cmsEnvironmentMatches(def.Environment, environment) {
+		if hasChannelFilter && !cmsChannelMatches(cmsBlockDefinitionChannel(def), channel) {
 			continue
 		}
 		if strings.EqualFold(strings.TrimSpace(def.ID), target) ||
@@ -214,7 +219,8 @@ func (r *CMSBlockDefinitionRepository) Get(ctx context.Context, id string) (map[
 				"icon":             def.Icon,
 				"category":         category,
 				"status":           status,
-				"environment":      def.Environment,
+				"channel":          cmsBlockDefinitionChannel(def),
+				"environment":      cmsBlockDefinitionChannel(def),
 				"schema":           primitives.CloneAnyMap(def.Schema),
 				"ui_schema":        primitives.CloneAnyMap(def.UISchema),
 				"schema_version":   schemaVersion,
@@ -226,7 +232,7 @@ func (r *CMSBlockDefinitionRepository) Get(ctx context.Context, id string) (map[
 	return nil, ErrNotFound
 }
 
-func (r *CMSBlockDefinitionRepository) findBlockDefinition(ctx context.Context, id, environment string) (*CMSBlockDefinition, error) {
+func (r *CMSBlockDefinitionRepository) findBlockDefinition(ctx context.Context, id, channel string) (*CMSBlockDefinition, error) {
 	if r.content == nil {
 		return nil, ErrNotFound
 	}
@@ -238,10 +244,10 @@ func (r *CMSBlockDefinitionRepository) findBlockDefinition(ctx context.Context, 
 	if err != nil {
 		return nil, err
 	}
-	env := strings.TrimSpace(environment)
-	hasEnvironmentFilter := env != ""
+	channel = strings.TrimSpace(channel)
+	hasChannelFilter := channel != ""
 	for _, def := range defs {
-		if hasEnvironmentFilter && !cmsEnvironmentMatches(def.Environment, env) {
+		if hasChannelFilter && !cmsChannelMatches(cmsBlockDefinitionChannel(def), channel) {
 			continue
 		}
 		if strings.EqualFold(strings.TrimSpace(def.ID), target) ||
@@ -260,8 +266,8 @@ func (r *CMSBlockDefinitionRepository) Create(ctx context.Context, record map[st
 		return nil, ErrNotFound
 	}
 	def := mapToCMSBlockDefinition(record)
-	if def.Environment == "" {
-		def.Environment = strings.TrimSpace(environmentFromContext(ctx))
+	if cmsBlockDefinitionChannel(def) == "" {
+		setCMSBlockDefinitionChannel(&def, resolveCMSContentChannel("", ctx))
 	}
 	applyBlockDefinitionDefaults(&def)
 	created, err := r.content.CreateBlockDefinition(ctx, def)
@@ -279,7 +285,8 @@ func (r *CMSBlockDefinitionRepository) Create(ctx context.Context, record map[st
 		"icon":             created.Icon,
 		"category":         created.Category,
 		"status":           created.Status,
-		"environment":      created.Environment,
+		"channel":          cmsBlockDefinitionChannel(*created),
+		"environment":      cmsBlockDefinitionChannel(*created),
 		"schema":           primitives.CloneAnyMap(created.Schema),
 		"ui_schema":        primitives.CloneAnyMap(created.UISchema),
 		"schema_version":   schemaVersion,
@@ -294,11 +301,11 @@ func (r *CMSBlockDefinitionRepository) Update(ctx context.Context, id string, re
 		return nil, ErrNotFound
 	}
 	def := mapToCMSBlockDefinition(record)
-	if def.Environment == "" {
-		def.Environment = strings.TrimSpace(environmentFromContext(ctx))
+	if cmsBlockDefinitionChannel(def) == "" {
+		setCMSBlockDefinitionChannel(&def, resolveCMSContentChannel("", ctx))
 	}
 	def.ID = id
-	if existing, err := r.findBlockDefinition(ctx, id, def.Environment); err == nil && existing != nil {
+	if existing, err := r.findBlockDefinition(ctx, id, cmsBlockDefinitionChannel(def)); err == nil && existing != nil {
 		if strings.TrimSpace(def.Name) == "" {
 			def.Name = existing.Name
 		}
@@ -343,7 +350,8 @@ func (r *CMSBlockDefinitionRepository) Update(ctx context.Context, id string, re
 		"icon":             updated.Icon,
 		"category":         updated.Category,
 		"status":           updated.Status,
-		"environment":      updated.Environment,
+		"channel":          cmsBlockDefinitionChannel(*updated),
+		"environment":      cmsBlockDefinitionChannel(*updated),
 		"schema":           primitives.CloneAnyMap(updated.Schema),
 		"ui_schema":        primitives.CloneAnyMap(updated.UISchema),
 		"schema_version":   schemaVersion,

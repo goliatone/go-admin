@@ -203,11 +203,13 @@ type CMSContent struct {
 
 // CMSContentType describes a content type definition.
 type CMSContentType struct {
-	ID                   string
-	Name                 string
-	Slug                 string
-	Description          string
-	DescriptionSet       bool
+	ID             string
+	Name           string
+	Slug           string
+	Description    string
+	DescriptionSet bool
+	Channel        string
+	// Deprecated: use Channel for content scoping.
 	Environment          string
 	Schema               map[string]any
 	UISchema             map[string]any
@@ -223,17 +225,19 @@ type CMSContentType struct {
 
 // CMSBlockDefinition describes a reusable block schema.
 type CMSBlockDefinition struct {
-	ID              string
-	Name            string
-	Slug            string
-	Type            string
-	Description     string
-	DescriptionSet  bool
-	Icon            string
-	IconSet         bool
-	Category        string
-	CategorySet     bool
-	Status          string
+	ID             string
+	Name           string
+	Slug           string
+	Type           string
+	Description    string
+	DescriptionSet bool
+	Icon           string
+	IconSet        bool
+	Category       string
+	CategorySet    bool
+	Status         string
+	Channel        string
+	// Deprecated: use Channel for content scoping.
 	Environment     string
 	Schema          map[string]any
 	UISchema        map[string]any

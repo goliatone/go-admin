@@ -405,8 +405,8 @@ func (a *GoCMSContentAdapter) CreateBlockDefinition(ctx context.Context, def CMS
 		Status: strings.TrimSpace(def.Status),
 		Schema: primitives.CloneAnyMap(def.Schema),
 	}
-	if env := strings.TrimSpace(def.Environment); env != "" {
-		req.EnvironmentKey = env
+	if channel := strings.TrimSpace(cmsBlockDefinitionChannel(def)); channel != "" {
+		req.EnvironmentKey = channel
 	}
 	if def.DescriptionSet {
 		desc := def.Description
@@ -467,8 +467,8 @@ func (a *GoCMSContentAdapter) UpdateBlockDefinition(ctx context.Context, def CMS
 	if status := strings.TrimSpace(def.Status); status != "" {
 		req.Status = &status
 	}
-	if env := strings.TrimSpace(def.Environment); env != "" {
-		req.EnvironmentKey = &env
+	if channel := strings.TrimSpace(cmsBlockDefinitionChannel(def)); channel != "" {
+		req.EnvironmentKey = &channel
 	}
 	if len(def.Schema) > 0 {
 		req.Schema = primitives.CloneAnyMap(def.Schema)
@@ -745,7 +745,7 @@ func (a *GoCMSContentAdapter) resolveBlockDefinitionID(ctx context.Context, id s
 		return parsed, nil
 	}
 	a.refreshBlockDefinitions(ctx)
-	if defID, ok := a.blockDefinitions[blockDefinitionCacheKey(EnvironmentFromContext(ctx), id)]; ok {
+	if defID, ok := a.blockDefinitions[blockDefinitionCacheKey(resolveCMSContentChannel("", ctx), id)]; ok {
 		return defID, nil
 	}
 	if defID, ok := a.blockDefinitions[blockDefinitionCacheKey("", id)]; ok {
@@ -778,7 +778,7 @@ func (a *GoCMSContentAdapter) refreshBlockDefinitions(ctx context.Context) {
 		}
 		name := strings.TrimSpace(definition.Name)
 		slug := strings.TrimSpace(definition.Slug)
-		env := EnvironmentFromContext(ctx)
+		env := resolveCMSContentChannel("", ctx)
 		id := definition.ID
 		if id == uuid.Nil || (name == "" && slug == "") {
 			continue
@@ -1743,11 +1743,12 @@ func convertBlockDefinition(value reflect.Value) CMSBlockDefinition {
 	if status := strings.TrimSpace(stringField(val, "MigrationStatus")); status != "" {
 		def.MigrationStatus = status
 	}
-	if env := strings.TrimSpace(stringField(val, "Environment")); env != "" {
-		def.Environment = env
-	} else if env := strings.TrimSpace(stringField(val, "Env")); env != "" {
-		def.Environment = env
-	}
+	channel := strings.TrimSpace(firstNonEmptyRaw(
+		stringField(val, "Channel"),
+		stringField(val, "Environment"),
+		stringField(val, "Env"),
+	))
+	setCMSBlockDefinitionChannel(&def, channel)
 	if def.MigrationStatus == "" {
 		def.MigrationStatus = schemaMigrationStatusFromSchema(def.Schema)
 	}
@@ -1806,10 +1807,10 @@ func blockDefinitionCacheKey(env, key string) string {
 }
 
 func blockDefinitionCacheEnv(ctx context.Context, def CMSBlockDefinition) string {
-	if env := strings.TrimSpace(def.Environment); env != "" {
-		return env
+	if channel := strings.TrimSpace(cmsBlockDefinitionChannel(def)); channel != "" {
+		return channel
 	}
-	return strings.TrimSpace(EnvironmentFromContext(ctx))
+	return strings.TrimSpace(resolveCMSContentChannel("", ctx))
 }
 
 func pageFromContent(content CMSContent) CMSPage {
@@ -1930,6 +1931,15 @@ func uuidFromString(id string) uuid.UUID {
 }
 
 func uuidStringField(val reflect.Value, name string) string {
+	if val.Kind() == reflect.Ptr {
+		if val.IsNil() {
+			return ""
+		}
+		val = val.Elem()
+	}
+	if val.Kind() != reflect.Struct {
+		return ""
+	}
 	field := val.FieldByName(name)
 	if !field.IsValid() {
 		return ""
@@ -1951,6 +1961,15 @@ func uuidStringField(val reflect.Value, name string) string {
 }
 
 func stringField(val reflect.Value, field string) string {
+	if val.Kind() == reflect.Ptr {
+		if val.IsNil() {
+			return ""
+		}
+		val = val.Elem()
+	}
+	if val.Kind() != reflect.Struct {
+		return ""
+	}
 	f := val.FieldByName(field)
 	if f.IsValid() {
 		switch f.Kind() {
@@ -1975,6 +1994,15 @@ func stringFieldAny(val reflect.Value, fields ...string) string {
 }
 
 func boolField(val reflect.Value, field string) (bool, bool) {
+	if val.Kind() == reflect.Ptr {
+		if val.IsNil() {
+			return false, false
+		}
+		val = val.Elem()
+	}
+	if val.Kind() != reflect.Struct {
+		return false, false
+	}
 	f := val.FieldByName(field)
 	if !f.IsValid() {
 		return false, false

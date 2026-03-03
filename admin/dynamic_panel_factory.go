@@ -95,13 +95,17 @@ func WithDynamicPanelMenu(basePath, menuCode, menuParent, locale string) Dynamic
 	}
 }
 
-func (f *DynamicPanelFactory) resolveEnvironment(ctx context.Context, contentType *CMSContentType) string {
+func (f *DynamicPanelFactory) resolveChannel(ctx context.Context, contentType *CMSContentType) string {
 	if contentType != nil {
-		if env := strings.TrimSpace(contentType.Environment); env != "" {
-			return env
+		if channel := strings.TrimSpace(firstNonEmptyRaw(contentType.Channel, contentType.Environment)); channel != "" {
+			return channel
 		}
 	}
-	return strings.TrimSpace(EnvironmentFromContext(ctx))
+	return strings.TrimSpace(resolveCMSContentChannel("", ctx))
+}
+
+func (f *DynamicPanelFactory) resolveEnvironment(ctx context.Context, contentType *CMSContentType) string {
+	return f.resolveChannel(ctx, contentType)
 }
 
 func (f *DynamicPanelFactory) panelName(slug, env string) string {
@@ -435,7 +439,7 @@ func (f *DynamicPanelFactory) addToNavigation(ctx context.Context, contentType *
 	params := map[string]string{"panel": panelSlug}
 	var query any
 	if env != "" {
-		query = map[string]string{"env": env}
+		query = map[string]string{"channel": env}
 	}
 	panelPath := resolveURLWith(f.admin.urlManager, "admin", "content.panel", params, query)
 	if panelPath == "" {
@@ -445,7 +449,7 @@ func (f *DynamicPanelFactory) addToNavigation(ctx context.Context, contentType *
 			if strings.Contains(panelPath, "?") {
 				separator = "&"
 			}
-			panelPath = panelPath + separator + "env=" + url.QueryEscape(env)
+			panelPath = panelPath + separator + "channel=" + url.QueryEscape(env)
 		}
 	}
 	if panelName == "" {
@@ -678,7 +682,7 @@ func (f *DynamicPanelFactory) removeFromNavigation(ctx context.Context, slug, en
 	params := map[string]string{"panel": slug}
 	var query any
 	if env != "" {
-		query = map[string]string{"env": env}
+		query = map[string]string{"channel": env}
 	}
 	panelPath := resolveURLWith(f.admin.urlManager, "admin", "content.panel", params, query)
 	if panelPath == "" {
@@ -688,7 +692,7 @@ func (f *DynamicPanelFactory) removeFromNavigation(ctx context.Context, slug, en
 			if strings.Contains(panelPath, "?") {
 				separator = "&"
 			}
-			panelPath = panelPath + separator + "env=" + url.QueryEscape(env)
+			panelPath = panelPath + separator + "channel=" + url.QueryEscape(env)
 		}
 	}
 	target := map[string]any{"type": "url", "path": panelPath, "key": panelName}
@@ -745,7 +749,7 @@ func (f *DynamicPanelFactory) menuItemID(menuCode, slug, env string) string {
 	params := map[string]string{"panel": slug}
 	var query any
 	if env != "" {
-		query = map[string]string{"env": env}
+		query = map[string]string{"channel": env}
 	}
 	panelPath := resolveURLWith(f.admin.urlManager, "admin", "content.panel", params, query)
 	if panelPath == "" {
@@ -755,7 +759,7 @@ func (f *DynamicPanelFactory) menuItemID(menuCode, slug, env string) string {
 			if strings.Contains(panelPath, "?") {
 				separator = "&"
 			}
-			panelPath = panelPath + separator + "env=" + url.QueryEscape(env)
+			panelPath = panelPath + separator + "channel=" + url.QueryEscape(env)
 		}
 	}
 	target := map[string]any{"type": "url", "path": panelPath, "key": panelName}
@@ -1330,9 +1334,9 @@ func persistedWorkflowResolutionForContentType(ctx context.Context, admin *Admin
 	if contentTypeRef == "" {
 		contentTypeRef = strings.TrimSpace(contentType.ID)
 	}
-	environment := strings.TrimSpace(contentType.Environment)
+	environment := strings.TrimSpace(firstNonEmptyRaw(contentType.Channel, contentType.Environment))
 	if environment == "" {
-		environment = strings.TrimSpace(EnvironmentFromContext(ctx))
+		environment = strings.TrimSpace(resolveCMSContentChannel("", ctx))
 	}
 	resolution, err := admin.workflowRuntime.ResolveBinding(ctx, WorkflowBindingResolveInput{
 		ContentType: contentTypeRef,

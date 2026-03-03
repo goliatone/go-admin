@@ -479,8 +479,8 @@ func (a *Admin) siteContextFromRequest(c router.Context, locale string) context.
 		ctx = WithLocale(ctx, locale)
 	}
 	ctx = WithLocaleFallback(ctx, siteLocaleFallbackAllowed(a))
-	if env := strings.TrimSpace(primitives.FirstNonEmptyRaw(c.Query("environment"), c.Query("env"))); env != "" {
-		ctx = WithEnvironment(ctx, env)
+	if channel := strings.TrimSpace(resolveContentChannelFromRouter(c)); channel != "" {
+		ctx = WithContentChannel(ctx, channel)
 	}
 	return ctx
 }
@@ -546,7 +546,7 @@ func siteViewProfileOverrideAllowed(c router.Context, admin *Admin) bool {
 	if c == nil {
 		return false
 	}
-	env := strings.ToLower(strings.TrimSpace(primitives.FirstNonEmptyRaw(c.Query("environment"), c.Query("env"))))
+	env := strings.ToLower(strings.TrimSpace(primitives.FirstNonEmptyRaw(c.Query("runtime_env"), c.Query("site_runtime_env"))))
 	if env != "" && env != "prod" && env != "production" {
 		return true
 	}

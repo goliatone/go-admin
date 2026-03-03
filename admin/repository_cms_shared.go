@@ -750,11 +750,17 @@ func mapToCMSContentType(record map[string]any) CMSContentType {
 	} else if raw, ok := record["replaceCapabilities"]; ok {
 		ct.ReplaceCapabilities = toBool(raw)
 	}
-	if env, ok := record["environment"].(string); ok {
-		ct.Environment = env
-	} else if env, ok := record["env"].(string); ok && ct.Environment == "" {
-		ct.Environment = env
+	channel := ""
+	if value, ok := record["channel"].(string); ok {
+		channel = value
+	} else if value, ok := record["content_channel"].(string); ok {
+		channel = value
+	} else if value, ok := record["environment"].(string); ok {
+		channel = value
+	} else if value, ok := record["env"].(string); ok {
+		channel = value
 	}
+	setCMSContentTypeChannel(&ct, channel)
 	if schema, ok := record["schema"].(map[string]any); ok {
 		ct.Schema = stripUnsupportedSchemaKeywords(primitives.CloneAnyMap(schema))
 	} else if raw, ok := record["schema"].(string); ok && raw != "" {
@@ -905,11 +911,17 @@ func mapToCMSBlockDefinition(record map[string]any) CMSBlockDefinition {
 	if status, ok := record["status"].(string); ok {
 		def.Status = status
 	}
-	if env, ok := record["environment"].(string); ok {
-		def.Environment = env
-	} else if env, ok := record["env"].(string); ok && def.Environment == "" {
-		def.Environment = env
+	channel := ""
+	if value, ok := record["channel"].(string); ok {
+		channel = value
+	} else if value, ok := record["content_channel"].(string); ok {
+		channel = value
+	} else if value, ok := record["environment"].(string); ok {
+		channel = value
+	} else if value, ok := record["env"].(string); ok {
+		channel = value
 	}
+	setCMSBlockDefinitionChannel(&def, channel)
 	if schema, ok := record["schema"].(map[string]any); ok {
 		def.Schema = primitives.CloneAnyMap(schema)
 	} else if raw, ok := record["schema"].(string); ok && raw != "" {

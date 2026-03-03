@@ -115,6 +115,7 @@ func (a *GoCMSMenuAdapter) AddMenuItem(ctx context.Context, menuCode string, ite
 			LabelKey:      labelKey,
 			GroupTitle:    groupTitle,
 			GroupTitleKey: groupTitleKey,
+			URLOverride:   normalizedURLOverride(item.URLOverride),
 		}}
 	}
 
@@ -202,6 +203,7 @@ func (a *GoCMSMenuAdapter) UpdateMenuItem(ctx context.Context, menuCode string, 
 		LabelKey:      labelKey,
 		GroupTitle:    groupTitle,
 		GroupTitleKey: groupTitleKey,
+		URLOverride:   normalizedURLOverride(item.URLOverride),
 	})
 }
 
@@ -532,6 +534,17 @@ func mergeMenuTarget(item MenuItem) map[string]any {
 
 func boolPointer(v bool) *bool {
 	return &v
+}
+
+func normalizedURLOverride(raw *string) *string {
+	if raw == nil {
+		return nil
+	}
+	value := strings.TrimSpace(*raw)
+	if value == "" {
+		return nil
+	}
+	return &value
 }
 
 func convertResolvedMenuInfo(info *cms.ResolvedMenuInfo, fallback string) *Menu {
