@@ -336,15 +336,24 @@ func TestRegisterSiteRoutesUsesFiberCatchAllSyntax(t *testing.T) {
 	}
 }
 
-func TestRegisterSiteRoutesUsesHTTPRouterCatchAllSyntax(t *testing.T) {
+func TestRegisterSiteRoutesUsesHTTPRouterSegmentFallbackRoutes(t *testing.T) {
 	adapter := router.NewHTTPServer()
 	if err := RegisterSiteRoutes(adapter.Router(), nil, admin.Config{DefaultLocale: "en"}, SiteConfig{}); err != nil {
 		t.Fatalf("register site routes on httprouter adapter: %v", err)
 	}
 
 	routes := adapter.Router().Routes()
-	if indexOfRouteDef(routes, router.GET, "/*path") == -1 {
-		t.Fatalf("expected httprouter catch-all route /*path, got %+v", routes)
+	if indexOfRouteDef(routes, router.GET, "/") == -1 {
+		t.Fatalf("expected httprouter root route /, got %+v", routes)
+	}
+	if indexOfRouteDef(routes, router.GET, "/:path") == -1 {
+		t.Fatalf("expected httprouter single-segment fallback route /:path, got %+v", routes)
+	}
+	if indexOfRouteDef(routes, router.GET, "/:path/*rest") == -1 {
+		t.Fatalf("expected httprouter nested fallback route /:path/*rest, got %+v", routes)
+	}
+	if indexOfRouteDef(routes, router.GET, "/*path") != -1 {
+		t.Fatalf("did not expect conflicting httprouter catch-all /*path, got %+v", routes)
 	}
 }
 

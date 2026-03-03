@@ -30,8 +30,8 @@ func TestResolveSiteConfigDefaults(t *testing.T) {
 	if resolved.Environment != "prod" {
 		t.Fatalf("expected default environment prod, got %q", resolved.Environment)
 	}
-	if resolved.ContentEnvironment != "default" {
-		t.Fatalf("expected default content environment default, got %q", resolved.ContentEnvironment)
+	if resolved.ContentEnvironment != "prod" {
+		t.Fatalf("expected default content environment prod, got %q", resolved.ContentEnvironment)
 	}
 
 	if resolved.Navigation.MainMenuLocation != DefaultMainMenuLocation {
@@ -152,6 +152,23 @@ func TestResolveSiteConfigResolvesRuntimeAndContentEnvironmentsIndependently(t *
 	}
 	if resolved.ContentEnvironment != "staging" {
 		t.Fatalf("expected SITE_ENV to remain the content environment source, got %q", resolved.ContentEnvironment)
+	}
+}
+
+func TestResolveSiteConfigPreservesExplicitDefaultContentEnvironment(t *testing.T) {
+	clearSiteEnvForTest(t)
+
+	cfg := admin.Config{DefaultLocale: "en"}
+	resolved := ResolveSiteConfig(cfg, SiteConfig{
+		Environment:        "dev",
+		ContentEnvironment: "default",
+	})
+
+	if resolved.Environment != "dev" {
+		t.Fatalf("expected runtime environment dev, got %q", resolved.Environment)
+	}
+	if resolved.ContentEnvironment != "default" {
+		t.Fatalf("expected explicit default content environment to be preserved, got %q", resolved.ContentEnvironment)
 	}
 }
 

@@ -11,8 +11,10 @@ import (
 
 type optionCapableBridgeContentServiceStub struct {
 	listOpts             []bridgeOptionToken
+	listRes              []optionCapableBridgeContentRecordStub
 	getOpts              []bridgeOptionToken
 	getRes               *optionCapableBridgeContentRecordStub
+	getByID              map[uuid.UUID]*optionCapableBridgeContentRecordStub
 	getErr               error
 	createTranslationReq bridgeCreateTranslationRequestStub
 	createTranslationRes *optionCapableBridgeContentRecordStub
@@ -56,6 +58,9 @@ type bridgeCreateTranslationRequestStub struct {
 
 func (s *optionCapableBridgeContentServiceStub) List(_ context.Context, opts ...bridgeOptionToken) ([]optionCapableBridgeContentRecordStub, error) {
 	s.listOpts = append([]bridgeOptionToken{}, opts...)
+	if s.listRes != nil {
+		return append([]optionCapableBridgeContentRecordStub{}, s.listRes...), nil
+	}
 	return []optionCapableBridgeContentRecordStub{}, nil
 }
 
@@ -63,6 +68,11 @@ func (s *optionCapableBridgeContentServiceStub) Get(_ context.Context, id uuid.U
 	s.getOpts = append([]bridgeOptionToken{}, opts...)
 	if s.getErr != nil {
 		return nil, s.getErr
+	}
+	if s.getByID != nil {
+		if rec, ok := s.getByID[id]; ok {
+			return rec, nil
+		}
 	}
 	if s.getRes != nil {
 		return s.getRes, nil
@@ -259,6 +269,95 @@ func TestGoCMSContentBridgeContentHydratesPathFromTranslationPathField(t *testin
 	}
 	if got := asString(content.Data["path"], ""); got != "/" {
 		t.Fatalf("expected content data path / from translation Path field, got %q", got)
+	}
+}
+
+func TestGoCMSContentBridgeListHydratesRecordsViaGetWhenTranslationsRequested(t *testing.T) {
+	ctx := context.Background()
+	recordID := uuid.New()
+	contentSvc := &optionCapableBridgeContentServiceStub{
+		listRes: []optionCapableBridgeContentRecordStub{
+			{
+				ID:     recordID,
+				Slug:   "about",
+				Status: "published",
+				Type: optionCapableBridgeContentTypeStub{
+					Name: "page",
+				},
+				Translations: []optionCapableBridgeTranslationStub{
+					{
+						LocaleCode: "en",
+						Title:      "About Us",
+						Path:       "/about",
+						Content:    map[string]any{"content": "about en"},
+					},
+				},
+			},
+		},
+		getByID: map[uuid.UUID]*optionCapableBridgeContentRecordStub{
+			recordID: {
+				ID:     recordID,
+				Slug:   "about",
+				Status: "published",
+				Type: optionCapableBridgeContentTypeStub{
+					Name: "page",
+				},
+				Translations: []optionCapableBridgeTranslationStub{
+					{
+						LocaleCode: "en",
+						Title:      "About Us",
+						Path:       "/about",
+						Content:    map[string]any{"content": "about en"},
+					},
+					{
+						LocaleCode: "es",
+						Title:      "Sobre Nosotros",
+						Path:       "/sobre-nosotros",
+						Content:    map[string]any{"content": "sobre es"},
+					},
+					{
+						LocaleCode: "fr",
+						Title:      "A Propos",
+						Path:       "/a-propos",
+						Content:    map[string]any{"content": "a propos fr"},
+					},
+				},
+			},
+		},
+	}
+
+	bridge := newGoCMSContentBridge(contentSvc, nil, nil, uuid.Nil, nil, nil)
+	if bridge == nil {
+		t.Fatalf("expected bridge for option-capable signatures")
+	}
+	withOptions, ok := bridge.(interface {
+		ContentsWithOptions(context.Context, string, ...admin.CMSContentListOption) ([]admin.CMSContent, error)
+	})
+	if !ok {
+		t.Fatalf("expected option-capable content listing")
+	}
+
+	items, err := withOptions.ContentsWithOptions(ctx, "es", admin.WithTranslations(), admin.WithDerivedFields())
+	if err != nil {
+		t.Fatalf("list content failed: %v", err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("expected one record, got %d", len(items))
+	}
+	if items[0].Locale != "es" {
+		t.Fatalf("expected resolved locale es, got %q", items[0].Locale)
+	}
+	if items[0].Title != "Sobre Nosotros" {
+		t.Fatalf("expected hydrated es title, got %q", items[0].Title)
+	}
+	if got := asString(items[0].Data["path"], ""); got != "/sobre-nosotros" {
+		t.Fatalf("expected hydrated es path /sobre-nosotros, got %q", got)
+	}
+	if len(items[0].AvailableLocales) != 3 {
+		t.Fatalf("expected hydrated available locales, got %#v", items[0].AvailableLocales)
+	}
+	if len(contentSvc.getOpts) == 0 {
+		t.Fatalf("expected list hydration to trigger get calls")
 	}
 }
 
