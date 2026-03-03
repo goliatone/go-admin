@@ -6,16 +6,20 @@
 <article class="bg-white rounded-2xl shadow border border-slate-100 p-8 space-y-4">
   <div class="flex items-center gap-3 text-sm text-slate-500">
     <span class="px-2 py-1 rounded-full bg-slate-100 text-slate-600">{{ page.path|default:"/" }}</span>
-    <span class="uppercase tracking-wide text-xs text-slate-400">Locale: {{ default_locale|default:"en" }}</span>
+    <span class="uppercase tracking-wide text-xs text-slate-400">Locale: {{ resolved_locale|default:requested_locale|default:locale|default:default_locale|default:"en" }}</span>
   </div>
   <header class="space-y-2">
     <h1 class="text-3xl font-semibold text-slate-900">{{ page.title|default:"Untitled Page" }}</h1>
     {% if page.summary %}
       <p class="text-lg text-slate-600">{{ page.summary }}</p>
+    {% elif page.data.summary %}
+      <p class="text-lg text-slate-600">{{ page.data.summary }}</p>
+    {% elif page.data.excerpt %}
+      <p class="text-lg text-slate-600">{{ page.data.excerpt }}</p>
     {% endif %}
   </header>
   <div class="prose prose-slate max-w-none leading-relaxed">
-    {{ page.content|default:"This page has no content yet." }}
+    {{ page.content|default:page.data.content|default:page.data.body|default:"This page has no content yet." }}
   </div>
 </article>
 {% endblock %}
