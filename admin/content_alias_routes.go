@@ -77,8 +77,8 @@ func (a *Admin) contentAliasHandler(alias string, aliasBase string) router.Handl
 			return ErrNotFound
 		}
 		ctx := c.Context()
-		if env := aliasEnvironment(c); env != "" {
-			ctx = WithEnvironment(ctx, env)
+		if channel := aliasChannel(c); channel != "" {
+			ctx = WithContentChannel(ctx, channel)
 		}
 
 		panelSlug := a.resolvePanelSlugAlias(ctx, alias)
@@ -144,15 +144,8 @@ func (a *Admin) resolvePanelSlugAlias(ctx context.Context, alias string) string 
 	return alias
 }
 
-func aliasEnvironment(c router.Context) string {
-	if c == nil {
-		return ""
-	}
-	env := strings.TrimSpace(c.Query("env"))
-	if env == "" {
-		env = strings.TrimSpace(c.Query("environment"))
-	}
-	return env
+func aliasChannel(c router.Context) string {
+	return strings.TrimSpace(resolveContentChannelFromRouter(c))
 }
 
 func rawQueryFromOriginalURL(raw string) string {

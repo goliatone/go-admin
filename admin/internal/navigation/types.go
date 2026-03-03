@@ -32,6 +32,7 @@ type MenuItem struct {
 	LabelKey      string            `json:"label_key,omitempty"`
 	GroupTitle    string            `json:"group_title,omitempty"`
 	GroupTitleKey string            `json:"group_title_key,omitempty"`
+	URLOverride   *string           `json:"url_override,omitempty"`
 	Target        map[string]any    `json:"target,omitempty"`
 	Icon          string            `json:"icon,omitempty"`
 	Position      *int              `json:"position,omitempty"`

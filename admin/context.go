@@ -16,6 +16,7 @@ type AdminContext struct {
 	UserID      string
 	TenantID    string
 	OrgID       string
+	Channel     string
 	Environment string
 	Locale      string
 	Theme       *ThemeSelection
@@ -29,6 +30,7 @@ const localeContextKey adminContextKey = "admin.locale"
 const tenantIDContextKey adminContextKey = "admin.tenant_id"
 const orgIDContextKey adminContextKey = "admin.org_id"
 const environmentContextKey adminContextKey = "admin.environment"
+const contentChannelContextKey adminContextKey = "admin.content_channel"
 const requestIDContextKey adminContextKey = "admin.request_id"
 const correlationIDContextKey adminContextKey = "admin.correlation_id"
 const queryParamsContextKey adminContextKey = "admin.query_params"
@@ -104,18 +106,45 @@ func compactPermissions(values ...string) []string {
 	return out
 }
 
+func resolveContentChannelFromRouter(c router.Context) string {
+	if c == nil {
+		return ""
+	}
+	candidates := []string{
+		c.Query("channel"),
+		c.Query("content_channel"),
+		c.Header("X-Admin-Channel"),
+		c.Header("X-Content-Channel"),
+		c.Cookies("admin_channel"),
+		// Legacy compatibility keys (Phase 6 cleanup target).
+		c.Query("env"),
+		c.Query("environment"),
+		c.Query("content_env"),
+		c.Query("site_env"),
+		c.Header("X-Admin-Environment"),
+		c.Header("X-Environment"),
+		c.Header("X-Site-Environment"),
+		c.Cookies("admin_env"),
+		c.Cookies("site_env"),
+	}
+	for _, candidate := range candidates {
+		if channel := strings.TrimSpace(candidate); channel != "" {
+			return channel
+		}
+	}
+	return ""
+}
+
 // newAdminContext builds an AdminContext from an HTTP request.
 func newAdminContextFromRouter(c router.Context, locale string) AdminContext {
 	ctx := c.Context()
 	userID := strings.TrimSpace(c.Header("X-User-ID"))
 	tenantID := ""
 	orgID := ""
-	environment := strings.TrimSpace(c.Query("env"))
+	channel := resolveContentChannelFromRouter(c)
+	environment := channel
 	requestID := strings.TrimSpace(primitives.FirstNonEmptyRaw(c.Header("X-Request-ID"), c.Header("X-Request-Id"), c.Header("x-request-id")))
 	correlationID := strings.TrimSpace(primitives.FirstNonEmptyRaw(c.Header("X-Correlation-ID"), c.Header("X-Correlation-Id"), c.Header("x-correlation-id")))
-	if environment == "" {
-		environment = strings.TrimSpace(c.Query("environment"))
-	}
 	if requestID == "" {
 		requestID = strings.TrimSpace(primitives.FirstNonEmptyRaw(c.Query("request_id"), c.Query("requestId")))
 	}
@@ -177,6 +206,9 @@ func newAdminContextFromRouter(c router.Context, locale string) AdminContext {
 	if orgID != "" {
 		ctx = context.WithValue(ctx, orgIDContextKey, orgID)
 	}
+	if channel != "" {
+		ctx = WithContentChannel(ctx, channel)
+	}
 	if environment != "" {
 		ctx = WithEnvironment(ctx, environment)
 	}
@@ -197,6 +229,7 @@ func newAdminContextFromRouter(c router.Context, locale string) AdminContext {
 		UserID:      userID,
 		TenantID:    tenantID,
 		OrgID:       orgID,
+		Channel:     strings.TrimSpace(primitives.FirstNonEmptyRaw(channel, environment)),
 		Environment: environment,
 		Locale:      locale,
 	}
@@ -293,6 +326,20 @@ func WithEnvironment(ctx context.Context, environment string) context.Context {
 	return context.WithValue(ctx, environmentContextKey, environment)
 }
 
+// WithContentChannel stores the active content channel on the context.
+func WithContentChannel(ctx context.Context, channel string) context.Context {
+	if ctx == nil {
+		return ctx
+	}
+	channel = strings.TrimSpace(channel)
+	if channel == "" {
+		return ctx
+	}
+	ctx = context.WithValue(ctx, contentChannelContextKey, channel)
+	// Keep environment key in sync for compatibility with existing call sites.
+	return context.WithValue(ctx, environmentContextKey, channel)
+}
+
 // WithLocaleFallback stores locale fallback policy on the context.
 // The default behavior remains enabled when this value is not set.
 func WithLocaleFallback(ctx context.Context, allow bool) context.Context {
@@ -313,9 +360,30 @@ func EnvironmentFromContext(ctx context.Context) string {
 	return environmentFromContext(ctx)
 }
 
+// ContentChannelFromContext returns the active content channel stored on the context.
+func ContentChannelFromContext(ctx context.Context) string {
+	return contentChannelFromContext(ctx)
+}
+
 func environmentFromContext(ctx context.Context) string {
 	if ctx == nil {
 		return ""
+	}
+	if env, ok := ctx.Value(environmentContextKey).(string); ok && env != "" {
+		return env
+	}
+	if channel, ok := ctx.Value(contentChannelContextKey).(string); ok && channel != "" {
+		return channel
+	}
+	return ""
+}
+
+func contentChannelFromContext(ctx context.Context) string {
+	if ctx == nil {
+		return ""
+	}
+	if channel, ok := ctx.Value(contentChannelContextKey).(string); ok && channel != "" {
+		return channel
 	}
 	if env, ok := ctx.Value(environmentContextKey).(string); ok && env != "" {
 		return env

@@ -626,11 +626,7 @@ type InMemoryContentService struct {
 }
 
 func cmsEnvironment(ctx context.Context, fallback string) string {
-	env := strings.TrimSpace(fallback)
-	if env == "" {
-		env = strings.TrimSpace(environmentFromContext(ctx))
-	}
-	return env
+	return strings.TrimSpace(resolveCMSContentChannel(fallback, ctx))
 }
 
 func cmsScopedKey(env, key string) string {
@@ -774,10 +770,10 @@ func (s *InMemoryContentService) ContentTypes(ctx context.Context) ([]CMSContent
 	out := make([]CMSContentType, 0, len(s.types))
 	for _, ct := range s.types {
 		if env != "" {
-			if !strings.EqualFold(strings.TrimSpace(ct.Environment), env) {
+			if !cmsChannelMatches(cmsContentTypeChannel(ct), env) {
 				continue
 			}
-		} else if strings.TrimSpace(ct.Environment) != "" {
+		} else if strings.TrimSpace(cmsContentTypeChannel(ct)) != "" {
 			continue
 		}
 		out = append(out, cloneCMSContentType(ct))
@@ -819,7 +815,7 @@ func (s *InMemoryContentService) ContentTypeBySlug(ctx context.Context, slug str
 // CreateContentType inserts a content type definition.
 func (s *InMemoryContentService) CreateContentType(ctx context.Context, contentType CMSContentType) (*CMSContentType, error) {
 	s.mu.Lock()
-	env := cmsEnvironment(ctx, contentType.Environment)
+	env := cmsEnvironment(ctx, cmsContentTypeChannel(contentType))
 	name := strings.TrimSpace(contentType.Name)
 	slug := normalizeContentTypeSlug(name, contentType.Slug)
 	fields := map[string]string{}
@@ -846,7 +842,7 @@ func (s *InMemoryContentService) CreateContentType(ctx context.Context, contentT
 	}
 	contentType.Name = name
 	contentType.Slug = slug
-	contentType.Environment = env
+	setCMSContentTypeChannel(&contentType, env)
 	contentType.Description = strings.TrimSpace(contentType.Description)
 	contentType.Icon = strings.TrimSpace(contentType.Icon)
 	if status := strings.TrimSpace(contentType.Status); status != "" {
@@ -883,7 +879,7 @@ func (s *InMemoryContentService) CreateContentType(ctx context.Context, contentT
 // UpdateContentType updates an existing content type definition.
 func (s *InMemoryContentService) UpdateContentType(ctx context.Context, contentType CMSContentType) (*CMSContentType, error) {
 	s.mu.Lock()
-	env := cmsEnvironment(ctx, contentType.Environment)
+	env := cmsEnvironment(ctx, cmsContentTypeChannel(contentType))
 	id := strings.TrimSpace(contentType.ID)
 	if id == "" {
 		if slug := strings.TrimSpace(contentType.Slug); slug != "" {
@@ -930,7 +926,7 @@ func (s *InMemoryContentService) UpdateContentType(ctx context.Context, contentT
 		existing.Status = status
 	}
 	if env != "" {
-		existing.Environment = env
+		setCMSContentTypeChannel(&existing, env)
 	}
 	if existing.Name == "" {
 		s.mu.Unlock()
@@ -1117,10 +1113,10 @@ func (s *InMemoryContentService) BlockDefinitions(ctx context.Context) ([]CMSBlo
 	out := []CMSBlockDefinition{}
 	for _, def := range s.blockDefs {
 		if env != "" {
-			if !strings.EqualFold(strings.TrimSpace(def.Environment), env) {
+			if !cmsChannelMatches(cmsBlockDefinitionChannel(def), env) {
 				continue
 			}
-		} else if strings.TrimSpace(def.Environment) != "" {
+		} else if strings.TrimSpace(cmsBlockDefinitionChannel(def)) != "" {
 			continue
 		}
 		out = append(out, cloneCMSBlockDefinition(def))
@@ -1131,7 +1127,7 @@ func (s *InMemoryContentService) BlockDefinitions(ctx context.Context) ([]CMSBlo
 // CreateBlockDefinition adds a block definition.
 func (s *InMemoryContentService) CreateBlockDefinition(ctx context.Context, def CMSBlockDefinition) (*CMSBlockDefinition, error) {
 	s.mu.Lock()
-	env := cmsEnvironment(ctx, def.Environment)
+	env := cmsEnvironment(ctx, cmsBlockDefinitionChannel(def))
 	if def.ID == "" {
 		def.ID = fmt.Sprintf("block-%d", s.nextBlockD)
 		s.nextBlockD++
@@ -1151,7 +1147,7 @@ func (s *InMemoryContentService) CreateBlockDefinition(ctx context.Context, def 
 	if def.MigrationStatus == "" {
 		def.MigrationStatus = blockDefinitionMigrationStatus(def)
 	}
-	def.Environment = env
+	setCMSBlockDefinitionChannel(&def, env)
 	s.upsertBlockDefinitionVersionLocked(def)
 	s.blockDefs[cmsScopedKey(env, def.ID)] = cloneCMSBlockDefinition(def)
 	cp := cloneCMSBlockDefinition(def)
@@ -1169,7 +1165,7 @@ func (s *InMemoryContentService) CreateBlockDefinition(ctx context.Context, def 
 // UpdateBlockDefinition updates an existing block definition.
 func (s *InMemoryContentService) UpdateBlockDefinition(ctx context.Context, def CMSBlockDefinition) (*CMSBlockDefinition, error) {
 	s.mu.Lock()
-	env := cmsEnvironment(ctx, def.Environment)
+	env := cmsEnvironment(ctx, cmsBlockDefinitionChannel(def))
 	if def.ID == "" {
 		s.mu.Unlock()
 		return nil, ErrNotFound
@@ -1225,7 +1221,7 @@ func (s *InMemoryContentService) UpdateBlockDefinition(ctx context.Context, def 
 	if def.MigrationStatus == "" {
 		def.MigrationStatus = blockDefinitionMigrationStatus(def)
 	}
-	def.Environment = env
+	setCMSBlockDefinitionChannel(&def, env)
 	s.upsertBlockDefinitionVersionLocked(def)
 	s.blockDefs[cmsScopedKey(env, def.ID)] = cloneCMSBlockDefinition(def)
 	cp := cloneCMSBlockDefinition(def)
@@ -1277,7 +1273,7 @@ func (s *InMemoryContentService) upsertBlockDefinitionVersionLocked(def CMSBlock
 	if def.ID == "" {
 		return
 	}
-	key := cmsScopedKey(def.Environment, def.ID)
+	key := cmsScopedKey(cmsBlockDefinitionChannel(def), def.ID)
 	if key == "" {
 		return
 	}

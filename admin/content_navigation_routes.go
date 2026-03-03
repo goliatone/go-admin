@@ -122,7 +122,7 @@ func (a *Admin) resolveContentNavigationPanel(ctx context.Context, typeKey strin
 		candidates = append(candidates, name)
 	}
 
-	env := strings.TrimSpace(environmentFromContext(ctx))
+	env := strings.TrimSpace(resolveCMSContentChannel("", ctx))
 	if contentType, ok := a.resolveContentNavigationType(ctx, typeKey); ok {
 		panelSlug := strings.TrimSpace(panelSlugForContentType(contentType))
 		if panelSlug == "" {
@@ -131,8 +131,8 @@ func (a *Admin) resolveContentNavigationPanel(ctx context.Context, typeKey strin
 		if env != "" {
 			addCandidate(panelSlug + "@" + env)
 		}
-		if contentType.Environment != "" {
-			addCandidate(panelSlug + "@" + strings.TrimSpace(contentType.Environment))
+		if channel := strings.TrimSpace(firstNonEmptyRaw(contentType.Channel, contentType.Environment)); channel != "" {
+			addCandidate(panelSlug + "@" + channel)
 		}
 		addCandidate(panelSlug)
 		addCandidate(strings.TrimSpace(contentType.Slug))

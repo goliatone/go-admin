@@ -27,20 +27,24 @@ func (r *CMSContentTypeRepository) List(ctx context.Context, opts ListOptions) (
 		return nil, 0, err
 	}
 	search := strings.ToLower(extractSearch(opts))
-	environment := ""
-	hasEnvironmentFilter := false
+	channel := ""
+	hasChannelFilter := false
 	if opts.Filters != nil {
-		environment = strings.TrimSpace(toString(opts.Filters["environment"]))
+		channel = strings.TrimSpace(firstNonEmptyRaw(
+			toString(opts.Filters["channel"]),
+			toString(opts.Filters["content_channel"]),
+			toString(opts.Filters["environment"]),
+		))
 	}
-	if environment == "" {
-		environment = strings.TrimSpace(environmentFromContext(ctx))
+	if channel == "" {
+		channel = resolveCMSContentChannel("", ctx)
 	}
-	if environment != "" {
-		hasEnvironmentFilter = true
+	if channel != "" {
+		hasChannelFilter = true
 	}
 	filtered := make([]CMSContentType, 0, len(types))
 	for _, ct := range types {
-		if hasEnvironmentFilter && !cmsEnvironmentMatches(ct.Environment, environment) {
+		if hasChannelFilter && !cmsChannelMatches(cmsContentTypeChannel(ct), channel) {
 			continue
 		}
 		if search != "" && !strings.Contains(strings.ToLower(ct.Name), search) &&
@@ -76,8 +80,8 @@ func (r *CMSContentTypeRepository) Create(ctx context.Context, record map[string
 		return nil, ErrNotFound
 	}
 	ct := mapToCMSContentType(record)
-	if ct.Environment == "" {
-		ct.Environment = strings.TrimSpace(environmentFromContext(ctx))
+	if cmsContentTypeChannel(ct) == "" {
+		setCMSContentTypeChannel(&ct, resolveCMSContentChannel("", ctx))
 	}
 	if ct.Slug == "" {
 		ct.Slug = strings.TrimSpace(ct.ID)
@@ -104,8 +108,8 @@ func (r *CMSContentTypeRepository) Update(ctx context.Context, id string, record
 	capsProvided := recordHasKey(record, "capabilities")
 	replaceCapabilities := capabilitiesReplaceRequested(record)
 	ct := mapToCMSContentType(record)
-	if ct.Environment == "" {
-		ct.Environment = strings.TrimSpace(environmentFromContext(ctx))
+	if cmsContentTypeChannel(ct) == "" {
+		setCMSContentTypeChannel(&ct, resolveCMSContentChannel("", ctx))
 	}
 	if ct.ID == "" {
 		ct.ID = id
@@ -134,8 +138,8 @@ func (r *CMSContentTypeRepository) Update(ctx context.Context, id string, record
 		if ct.Slug == "" {
 			ct.Slug = existing.Slug
 		}
-		if ct.Environment == "" {
-			ct.Environment = existing.Environment
+		if cmsContentTypeChannel(ct) == "" {
+			setCMSContentTypeChannel(&ct, cmsContentTypeChannel(*existing))
 		}
 		if strings.TrimSpace(ct.Name) == "" {
 			ct.Name = existing.Name
@@ -206,6 +210,7 @@ func (r *CMSContentTypeRepository) resolveContentType(ctx context.Context, id st
 
 func mapFromCMSContentType(ct CMSContentType) map[string]any {
 	contracts := ReadContentTypeCapabilityContracts(ct)
+	channel := cmsContentTypeChannel(ct)
 	id := strings.TrimSpace(ct.ID)
 	if id == "" {
 		id = strings.TrimSpace(ct.Slug)
@@ -215,7 +220,8 @@ func mapFromCMSContentType(ct CMSContentType) map[string]any {
 		"name":         ct.Name,
 		"slug":         ct.Slug,
 		"description":  ct.Description,
-		"environment":  ct.Environment,
+		"channel":      channel,
+		"environment":  channel,
 		"schema":       primitives.CloneAnyMap(ct.Schema),
 		"ui_schema":    primitives.CloneAnyMap(ct.UISchema),
 		"capabilities": primitives.CloneAnyMap(contracts.Normalized),

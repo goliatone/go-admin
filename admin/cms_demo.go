@@ -568,7 +568,7 @@ func (r *repoSearchAdapter) resolveURL(id string) string {
 	params := map[string]string{"panel": panelSlug, "id": id}
 	query := map[string]string{}
 	if env := strings.TrimSpace(r.environment); env != "" {
-		query["env"] = env
+		query["channel"] = env
 	}
 	resolved := resolveURLWith(r.urls, "admin", "content.panel.id", params, query)
 	if resolved != "" {
@@ -580,7 +580,7 @@ func (r *repoSearchAdapter) resolveURL(id string) string {
 		if strings.Contains(base, "?") {
 			separator = "&"
 		}
-		base = base + separator + "env=" + url.QueryEscape(env)
+		base = base + separator + "channel=" + url.QueryEscape(env)
 	}
 	return base
 }
