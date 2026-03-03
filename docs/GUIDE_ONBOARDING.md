@@ -30,17 +30,19 @@ Alias policy: `users.self_registration` is not supported; use `users.signup`.
 
 ## Securelink configuration (quickstart)
 
-Quickstart can build securelink managers from environment:
+Quickstart expects an explicit `quickstart.SecureLinkConfig`:
 
-- `ADMIN_SECURELINK_KEY`: required signing key (empty disables manager in quickstart).
-- `ADMIN_SECURELINK_BASE_URL`: default `http://localhost:8080`.
-- `ADMIN_SECURELINK_QUERY_KEY`: default `token`.
-- `ADMIN_SECURELINK_AS_QUERY`: default `true` (token in query string).
-- `ADMIN_SECURELINK_EXPIRATION`: default `72h` (Go duration).
+- `SigningKey`: required to enable manager wiring.
+- `BaseURL`: default `http://localhost:8080`.
+- `QueryKey`: default `token`.
+- `AsQuery`: default `true` (token in query string).
+- `Expiration`: default `72h` (Go duration).
+
+In `examples/web`, these fields are loaded from `examples/web/config/app.json` and can be overridden with `APP_SECURELINK__*` env keys.
 
 Key helpers:
 
-- `SecureLinkConfigFromEnv(basePath string)` builds config + default routes.
+- `DefaultSecureLinkConfig(basePath string)` builds config + default routes.
 - `NewSecureLinkManager(cfg)` returns a go-users compatible manager.
 - `NewNotificationsSecureLinkManager(cfg)` returns a go-notifications manager.
 - `ApplySecureLinkManager(cfg *userssvc.Config, manager, opts...)` wires routes/manager.
@@ -53,7 +55,7 @@ Securelink payloads reference route keys, which map to public-facing paths:
 - `register` -> `<basePath>/register`
 - `password-reset` -> `<basePath>/password-reset/confirm`
 
-`basePath` typically matches `admin.Config.BasePath` (or `ADMIN_BASE_PATH`).
+`basePath` typically matches `admin.Config.BasePath`.
 
 ## Onboarding API routes
 
@@ -152,7 +154,8 @@ additional mappers via `WithFiberErrorMappers(...)`.
 Use quickstart options to override routes, templates, and view context:
 
 ```go
-secureCfg := quickstart.SecureLinkConfigFromEnv(cfg.BasePath)
+secureCfg := quickstart.DefaultSecureLinkConfig(cfg.BasePath)
+secureCfg.SigningKey = "replace-with-real-key"
 
 if err := quickstart.RegisterAuthUIRoutes(
 	r,

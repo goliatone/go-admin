@@ -692,8 +692,9 @@ func (m *DebugModule) Manifest() ModuleManifest {
 ### FeatureGate Defaults
 
 ```go
+debugEnabled := hostConfig.Admin.Debug.Enabled
 featureDefaults := map[string]bool{
-    "debug": os.Getenv("ADMIN_DEBUG") == "true",
+    "debug": debugEnabled,
 }
 gate := resolver.New(resolver.WithDefaults(configadapter.NewDefaultsFromBools(featureDefaults)))
 
@@ -705,22 +706,19 @@ adm, err := admin.New(cfg, admin.Dependencies{
 Quickstart builds a FeatureGate automatically; override defaults via
 `quickstart.WithFeatureDefaults(...)`.
 
-### Environment Variables
+### Host Configuration Example
 
-```bash
-# Enable debug module
-ADMIN_DEBUG=true
-
-# Individual capture flags
-ADMIN_DEBUG_SQL=true
-ADMIN_DEBUG_LOGS=true
-
-# Buffer sizes
-ADMIN_DEBUG_MAX_LOGS=500
-ADMIN_DEBUG_MAX_SQL=200
+```go
+cfg.Debug = admin.DebugConfig{
+    Enabled:       hostConfig.Admin.Debug.Enabled,
+    CaptureSQL:    hostConfig.Admin.Debug.Enabled,
+    CaptureLogs:   hostConfig.Admin.Debug.Enabled,
+    MaxLogEntries: 500,
+    MaxSQLQueries: 200,
+}
 ```
 
-Note: go-admin does not parse environment variables directly. The host application is responsible for configuration.
+Note: go-admin does not parse environment variables directly. Load env in your host config layer, then pass explicit values into go-admin.
 
 ---
 
@@ -1813,7 +1811,7 @@ go-admin/
 ### Module Configuration
 
 ```go
-debugEnabled := os.Getenv("ADMIN_DEBUG") == "true"
+debugEnabled := hostConfig.Admin.Debug.Enabled
 cfg.Debug = admin.DebugConfig{
     Enabled:            debugEnabled,
     CaptureSQL:         debugEnabled,
@@ -1865,7 +1863,7 @@ func main() {
         BasePath: "/admin",
     }
 
-    debugEnabled := os.Getenv("ADMIN_DEBUG") == "true"
+    debugEnabled := hostConfig.Admin.Debug.Enabled
     cfg.Debug.Enabled = debugEnabled
     cfg.Debug.CaptureSQL = debugEnabled
     cfg.Debug.CaptureLogs = debugEnabled
@@ -2011,7 +2009,7 @@ quickstart.NewModuleRegistrar(
     adm, cfg, modules, isDev,
     quickstart.WithSeedNavigation(true),
     quickstart.WithSeedNavigationOptions(func(opts *quickstart.SeedNavigationOptions) {
-        opts.ResetMenu = os.Getenv("RESET_NAV_MENU") == "true"
+        opts.ResetMenu = hostConfig.Navigation.ResetMenu
     }),
 )
 ```
