@@ -217,7 +217,7 @@ Search UI state demos:
 
 If you want a minimal Stage 1 admin (login + dashboard only), the quickstart helpers provide a smaller wiring surface:
 - `WithFeatureDefaults(DefaultMinimalFeatures())` to keep a minimal gate default set.
-- `WithAdapterFlags(config.Admin.AdapterFlags)` to drive adapter wiring from config (env fallback still available).
+- `WithAdapterFlags(...)` to drive adapter wiring explicitly from config.
 - `NewModuleRegistrar` uses `adm.FeatureGate()` by default (pass `WithModuleFeatureGates(customGate)` to override).
 - `WithGoAuth(...)` to wire auth + authorizer in one call.
 - `WithDefaultDashboardRenderer(...)` for a basic SSR dashboard (override templates via `WithDashboardTemplatesFS`).
@@ -240,17 +240,17 @@ _ = adm
 If `/admin/api/panels/preferences` returns 403, grant `admin.preferences.view` and `admin.preferences.edit`.
 
 Preferences UI extras in the web example:
-- `ADMIN_PREFERENCES_SCHEMA` sets a custom form schema path (file or directory containing `schema.json`).
-- `ADMIN_PREFERENCES_JSON_STRICT=true` enables client-side JSON validation for `raw_ui`.
+- `admin.preferences.schema_path` (`APP_ADMIN__PREFERENCES__SCHEMA_PATH`) sets a custom form schema path (file or directory containing `schema.json`).
+- `admin.preferences.json_strict` (`APP_ADMIN__PREFERENCES__JSON_STRICT=true`) enables client-side JSON validation for `raw_ui`.
 
-Error handling env toggles (wired via `quickstart.WithErrorsFromEnv()`):
-- `ADMIN_DEV=true` enables dev-mode error output (stack traces + internal messages).
-- `ADMIN_ERROR_STACKTRACE=true` forces stack traces outside dev.
-- `ADMIN_ERROR_EXPOSE_INTERNAL=true` exposes internal error messages in responses.
+Error handling config toggles:
+- `admin.errors.dev_mode` (`APP_ADMIN__ERRORS__DEV_MODE=true`) enables dev-mode error output (stack traces + internal messages).
+- `admin.errors.include_stack_trace` (`APP_ADMIN__ERRORS__INCLUDE_STACK_TRACE=true`) forces stack traces outside dev mode.
+- `admin.errors.expose_internal_errors` (`APP_ADMIN__ERRORS__EXPOSE_INTERNAL_ERRORS=true`) exposes internal error messages in responses.
 
 ### Developer Error Page
 
-When running in dev mode (`GO_ENV=development`), the example includes an enhanced error page with:
+When running in dev mode (`app.env=development`), the example includes an enhanced error page with:
 - **Tabbed interface**: Error, Stack Trace, Request, and App tabs
 - **Source code context**: Shows code around the error location with syntax highlighting
 - **Enriched stack traces**: Collapsible frames with app vs vendor distinction, VS Code links
@@ -278,7 +278,7 @@ GET /admin/test-error/<type>
 Example:
 ```bash
 # Start in dev mode
-GO_ENV=development go run .
+APP_APP__ENV=development go run .
 
 # Test different error types
 curl http://localhost:8080/admin/test-error
@@ -296,23 +296,23 @@ curl http://localhost:8080/admin/test-error?type=nested
 - Workflow config fixture: `examples/web/workflow_config.yaml` declares:
   - `trait_defaults.editorial = editorial.default`
   - explicit workflow `editorial.news` used by the seeded `news` content type via `workflow_id`.
-  The app loads this file automatically when present (override path with `ADMIN_WORKFLOW_CONFIG`), seeds persisted runtime workflows as `active`, and seeds trait default bindings under `/admin/api/workflows/bindings`.
+  The app loads this file automatically when present (override path with `APP_ADMIN__WORKFLOW_CONFIG_PATH`), seeds persisted runtime workflows as `active`, and seeds trait default bindings under `/admin/api/workflows/bindings`.
 
 ### Content persistence (SQLite + go-repository-bun)
 
 - Pages/Posts are served via content entry APIs (`/admin/api/content`) backed by go-cms content entries; media continues to use go-crud at `/admin/crud/media`, backed by SQLite via go-repository-bun. go-cms migrations from `../go-cms/data/sql/migrations` are applied on startup with a light overlay that creates the demo tables for the example flows.
 - Workflow runtime migrations (`workflows`, `workflow_bindings`, `workflow_revisions`) are also applied in persistent mode so `/admin/api/workflows*` survives restarts.
-- Configure the DSN with `CONTENT_DATABASE_DSN` (preferred), falling back to `CMS_DATABASE_DSN`, else `file:/tmp/go-admin-cms.db?cache=shared&_fk=1`; fixtures load from `examples/web/data/sql/seeds` when `ADMIN_SEEDS` is enabled (default outside production). Use `ADMIN_SEEDS_TRUNCATE=true` to reseed.
+- Configure DSNs with `APP_DATABASES__CONTENT_DSN` and `APP_DATABASES__CMS_DSN`; fixtures load from `examples/web/data/sql/seeds` when `seeds.enabled` is true (`APP_SEEDS__ENABLED=true`). Use `APP_SEEDS__TRUNCATE=true` to reseed.
 - Controllers use canonical go-crud routes by default; only legacy user-profile compatibility routes are kept (`/admin/crud/user-profiles`, `/admin/crud/user-profiles/:id`, `/admin/crud/user-profiles/batch`) so existing DataGrid/HTML flows continue to work.
 - Smoke: create/edit/delete a page and post via the content entry UI, and a media item via `/admin/crud/media`; restart the server and confirm the records persist and still filter/sort in the lists.
 
 ## Sidebar Navigation & Quickstart defaults
 
-- Navigation can be seeded via `quickstart.SeedNavigation` in `examples/web/setup/navigation.go` (set `USE_NAV_SEED=true`); by default the app uses module menu contributions with `quickstart.EnsureDefaultMenuParents` so grouped/collapsible nav renders without seeding. Menus are addressed by slug (`cfg.NavMenuCode`) for deterministic IDs; reset persistent menus with `RESET_NAV_MENU=true` or delete `/tmp/go-admin-cms.db` when switching sources.
+- Navigation can be seeded via `quickstart.SeedNavigation` in `examples/web/setup/navigation.go`; by default the app uses module menu contributions with `quickstart.EnsureDefaultMenuParents` so grouped/collapsible nav renders without seeding. Menus are addressed by slug (`cfg.NavMenuCode`) for deterministic IDs; reset persistent menus with `navigation.reset_menu=true` (`APP_NAVIGATION__RESET_MENU=true`) or delete the local DB when switching sources.
 - Startup reconciliation in `examples/web/main.go` runs `setup.EnsureDashboardFirst(...)` and `setup.EnsureContentParentPermissions(...)` so persisted menus from older runs pick up new ordering and Content parent permission requirements without a full reset.
 - Sidebar templates/assets come from quickstart embeds (collapse + submenu persistence); override by layering your own template/assets FS via `quickstart.NewViewEngine` options in `examples/web/main.go`.
 - Menu items include both `Label`/`LabelKey` and `GroupTitleKey`; modules can nest under seeded groups via `ParentID`.
-- Collapse state persists (`admin-sidebar-collapsed`), submenu state persists per submenu key, and `NAV_DEBUG=true` exposes the ordered nav JSON in the sidebar (`NAV_DEBUG_LOG=true` logs payload).
+- Collapse state persists (`admin-sidebar-collapsed`), submenu state persists per submenu key, and debug mode exposes ordered nav JSON in the sidebar (`admin.debug.enabled=true`).
 - Logo shrinks in collapsed mode; separators and group titles remain visible.
 
 ## Template Functions
@@ -328,7 +328,7 @@ curl http://localhost:8080/admin/test-error?type=nested
 - Expand/collapse `Content` and `My Shop`; child links persist across reloads.
 - Group titles and separators render once after permission filtering; no duplicate children on reseed.
 - In collapsed mode, text hides while icons stay aligned; submenu chevrons hide until expanded.
-- With `NAV_DEBUG=true`, verify nav JSON matches rendered order; with `NAV_DEBUG_LOG=true`, payload logs once per build.
+- With debug enabled, verify nav JSON matches rendered order and payload logs once per build.
 
 ## Session Widget & API
 
@@ -404,19 +404,25 @@ curl -H "Authorization: Bearer <token>" http://localhost:8080/admin/api/dashboar
 
 ## User management (go-users + go-crud)
 
-- Users/roles/profiles/preferences are backed by go-users on the shared SQLite DSN (`CMS_DATABASE_DSN`); seeds create admin/editor/viewer/inactive with passwords `<username>.pwd`, and demo JWTs are printed from the DB on startup.
+- Users/roles/profiles/preferences are backed by go-users on the shared SQLite DSN (`databases.cms_dsn`); seeds create admin/editor/viewer/inactive with passwords `<username>.pwd`, and demo JWTs are printed from the DB on startup.
 - go-auth reads users from go-users and issues resource roles for `admin.users.*`, `admin.roles.*`, `admin.profile.*`, `admin.preferences.*` (admin → owner, editor → member, viewer → none); profile/preferences remain self-service even when broader perms are absent.
 - Panels (`/admin/api/users|roles|profile|preferences`), navigation, search, and `/admin/crud/users` all run through the same scope guard and permissions; unauthorized tokens get 403s and the menu hides.
-- Onboarding flags live in `main.go` (`users.invite` ✅, `users.password_reset` ✅, `users.signup` ❌ by default with allowlist mode). Override with `USE_USER_INVITES`, `USE_PASSWORD_RESET`, `USE_SELF_REGISTRATION`, `REGISTRATION_MODE` (`open|allowlist|closed`), and `REGISTRATION_ALLOWLIST`. Endpoints sit under `/admin/api/onboarding/*` for invite, accept/verify, reset request/confirm, and optional self-registration.
+- Onboarding flags live in `main.go` (`users.invite` ✅, `users.password_reset` ✅, `users.signup` ❌ by default with allowlist mode). Override with:
+  - `features.user_invites` (`APP_FEATURES__USER_INVITES`)
+  - `features.password_reset` (`APP_FEATURES__PASSWORD_RESET`)
+  - `features.self_registration` (`APP_FEATURES__SELF_REGISTRATION`)
+  - `registration.mode` (`APP_REGISTRATION__MODE`, values `open|allowlist|closed`)
+  - `registration.allowlist` (`APP_REGISTRATION__ALLOWLIST`)
+  Endpoints sit under `/admin/api/onboarding/*` for invite, accept/verify, reset request/confirm, and optional self-registration.
 - Lifecycle transitions, admin-triggered invites/password resets, and bulk role assign/unassign live under `/admin/api/users/*` (also `/admin/crud/users/*`) and emit `users` channel activity for the dashboard widget/search feeds.
 - Lifecycle actions (activate/suspend/disable/archive) and role assignment emit activity to the `users` channel and surface in the dashboard activity widget; preferences persist via go-users `PreferenceRepository`.
 - Quick wiring/seed notes live in `docs/prds/EXAMPLE_USERS_TDD.md`; the smoke checklist is in `docs/prds/EXAMPLE_SMOKE.md`.
 
 ### Onboarding + Secure Links
 
-- Securelink env vars: `ADMIN_SECURELINK_KEY`, `ADMIN_SECURELINK_BASE_URL`, `ADMIN_SECURELINK_QUERY_KEY`, `ADMIN_SECURELINK_AS_QUERY`, `ADMIN_SECURELINK_EXPIRATION`.
-- The example falls back to a demo signing key when `ADMIN_SECURELINK_KEY` is unset (see `examples/web/setup/securelink.go`).
-- Default securelink paths: `/admin/invite`, `/admin/register`, `/admin/password-reset/confirm` (base path mirrors `ADMIN_BASE_PATH`).
+- Securelink config keys: `securelink.signing_key`, `securelink.base_url`, `securelink.query_key`, `securelink.as_query`, `securelink.expiration` (env: `APP_SECURELINK__*`).
+- The example falls back to a demo signing key when `securelink.signing_key` is unset (see `examples/web/setup/securelink.go`).
+- Default securelink paths: `/admin/invite`, `/admin/register`, `/admin/password-reset/confirm` (base path mirrors `admin.base_path`).
 - UI routes: `/admin/password-reset` (request) and `/admin/password-reset/confirm` (apply token). Securelink reset URLs land on the confirm page.
 - API endpoints remain under `/admin/api/onboarding/*`; UI routes are registered in `examples/web/main.go` with custom view context for token parsing and policy hints.
 - Errors follow the go-errors response shape with `error.text_code` (see `docs/GUIDE_ONBOARDING.md` for the canonical list).
@@ -616,10 +622,10 @@ The example demonstrates the activity hooks pattern with bidirectional flow:
 2. **Command Execution** → Dashboard Hooks
 3. **Panel CRUD Operations** → Activity Sink
 
-See `main.go` for the composite activity sink setup; env flags can swap the primary sink:
+See `main.go` for the composite activity sink setup; config flags can swap the primary sink:
 
-- `USE_GO_USERS_ACTIVITY=true` enables the go-users sink when available; otherwise falls back to in-memory.
-- `USE_GO_OPTIONS=true` swaps the settings backend to go-options; falls back to in-memory settings.
+- `features.go_users_activity=true` (`APP_FEATURES__GO_USERS_ACTIVITY=true`) enables the go-users sink when available; otherwise falls back to in-memory.
+- `features.go_options=true` (`APP_FEATURES__GO_OPTIONS=true`) swaps the settings backend to go-options; falls back to in-memory settings.
 
 ```go
 dashboardHooks := dashboardactivity.Hooks{
@@ -671,31 +677,31 @@ func (c *UserActivateCommand) Execute(ctx admin.AdminContext) error {
 
 ### Activity backends & smoke
 
-- Flag: `USE_GO_USERS_ACTIVITY=true` swaps the activity sink to the go-users adapter (`examples/web/setup/activity.go`) while keeping dashboard hooks and the in-memory fallback buffer.
+- Flag: `features.go_users_activity=true` (`APP_FEATURES__GO_USERS_ACTIVITY=true`) swaps the activity sink to the go-users adapter (`examples/web/setup/activity.go`) while keeping dashboard hooks and the in-memory fallback buffer.
 - Smoke (in-memory): start normally, create a page (`POST /admin/api/content`), update a post (`PUT /admin/api/content/<id>`), delete a media item (`DELETE /admin/api/media/<id>`), then `GET /admin/api/activity?limit=10` and confirm `entries` show `page:<id>`, `post:<id>`, `media:<id>` with actor + metadata.
 - Smoke (go-users): restart with the flag, repeat the same create/update/delete calls, and verify `/admin/api/activity` still returns the new events in `entries` with intact IDs/actors; toggle the flag off again to confirm the feed keeps working.
 
 ## Persistent CMS (go-cms + Bun/SQLite)
 
-- Default: the example boots with go-cms persistence enabled. The Bun storage adapter lives in `examples/web/setup/cms_persistent.go`. Default DSN is `file:/tmp/go-admin-cms.db?cache=shared&_fk=1`; override with `CMS_DATABASE_DSN`.
+- Default: the example boots with go-cms persistence enabled. The Bun storage adapter lives in `examples/web/setup/cms_persistent.go`. Configure DSN via `databases.cms_dsn` (`APP_DATABASES__CMS_DSN`).
 - Migrations: applied automatically at startup via go-persistence-bun using the embedded go-cms SQL migrations (no manual migration step needed).
 - Requirements: SQLite driver (sqliteshim is bundled; no additional install) and write access to the DSN path.
 - Test log noise control (for suites using `SetupPersistentCMS`):
   - Default under `go test`: runtime CMS mutation logs are off.
   - Enable for a specific run: `go test ./examples/web -args -cms-test-logs`
-  - Force on/off via env (CI/local): `GO_ADMIN_CMS_LOGS=true|false`
+  - Force on/off via config: `APP_CMS__RUNTIME_LOGS=true|false`
 - Smoke:
  1. `go run ./examples/web` → logs show `CMS backend: go-cms (sqlite)`.
   2. Call `GET /admin/api/navigation` and confirm menus load; stop the server, restart with the same DSN, and confirm the menu payload still resolves (data persisted).
-  3. Optional: point `CMS_DATABASE_DSN` to a different file path and confirm a fresh database is created with the same migrations applied.
+  3. Optional: point `APP_DATABASES__CMS_DSN` to a different file path and confirm a fresh database is created with the same migrations applied.
 
 ## Content (Pages + Posts)
 
 - Pages and Posts panels use the go-cms backend by default (container from `examples/web/setup/cms_persistent.go`).
 - Navigation seeds a `Content` parent with canonical quickstart permissions: `admin.pages.view`, `admin.posts.view`, `admin.media.view`, `admin.content_types.view`, `admin.block_definitions.view`.
-- Existing persisted menus are reconciled on startup (`setup.EnsureContentParentPermissions`) so those permissions are merged in-place without forcing `RESET_NAV_MENU=true`.
+- Existing persisted menus are reconciled on startup (`setup.EnsureContentParentPermissions`) so those permissions are merged in-place without forcing `APP_NAVIGATION__RESET_MENU=true`.
 - CMS-backed stores emit `page:<id>`/`post:<id>` activity (actor + slug/status metadata) and drive search adapters from go-cms data, keeping search and activity aligned with the persistent backend.
-- Smoke: `CMS_DATABASE_DSN=file:/tmp/go-admin-cms.db?cache=shared&_fk=1 go run ./examples/web`, create/edit/delete a page and a post via `/admin/content/pages` and `/admin/content/posts`, confirm `/admin/api/search?query=<slug>` returns them and `/admin/api/activity?limit=5` shows create/update/delete in `entries` with correct actors.
+- Smoke: `APP_DATABASES__CMS_DSN=file:/tmp/go-admin-cms.db?cache=shared&_fk=1 go run ./examples/web`, create/edit/delete a page and a post via `/admin/content/pages` and `/admin/content/posts`, confirm `/admin/api/search?query=<slug>` returns them and `/admin/api/activity?limit=5` shows create/update/delete in `entries` with correct actors.
 
 ## User & Role Management
 
@@ -778,14 +784,14 @@ Panels are registered for tenants and organizations:
 Dynamic settings with hierarchical scopes (system/site/user):
 
 - Default in-memory backend: `setup.SetupSettings(adm)` via `setup/settings.go`
-- go-options backend: set `USE_GO_OPTIONS=true` to route through `setup.SetupSettingsWithOptions(adm)` in `setup/settings_options.go` (adds go-options scope metadata + snapshot IDs, seeds a site override for `features.release_channel`)
+- go-options backend: set `features.go_options=true` (`APP_FEATURES__GO_OPTIONS=true`) to route through `setup.SetupSettingsWithOptions(adm)` in `setup/settings_options.go` (adds go-options scope metadata + snapshot IDs, seeds a site override for `features.release_channel`)
 
 Endpoints:
 - `GET /admin/api/settings/form` - Form schema with current values + go-options scopes
 - `POST /admin/api/settings` - Update settings with validation
 
 Go-options flag smoke checklist:
-- `USE_GO_OPTIONS=true go run ./examples/web` then hit `/admin/api/settings/form` → `scopes` include `source: go-options` and snapshot IDs; `features.release_channel` shows `scope: site`
+- `APP_FEATURES__GO_OPTIONS=true go run ./examples/web` then hit `/admin/api/settings/form` → `scopes` include `source: go-options` and snapshot IDs; `features.release_channel` shows `scope: site`
 - POST `/admin/api/settings` with `{ "values": { "performance.cache_ttl": -1 }, "scope": "site" }` → `400` with `fields.performance.cache_ttl` error and `metadata.scope` in response
 - POST `/admin/api/settings` with `{ "values": { "features.release_channel": "stable" }, "scope": "site" }` → subsequent GET returns `provenance: site` and the new value
 
@@ -911,7 +917,7 @@ The example uses in-memory implementations by default. Swap with production adap
 
 **Settings**: Wire go-options registry (Phase 18 adapter available)
 
-**Activity**: Set `USE_GO_USERS_ACTIVITY=true` to use the go-users ActivityLogger adapter (Phase 17) defined in `setup/activity.go`. The example wires the read path with `admin.Dependencies{ActivityRepository: usersDeps.ActivityRepo, ActivityAccessPolicy: activity.NewDefaultAccessPolicy()}` in `examples/web/main.go` so `/admin/api/activity` uses the go-users policy.
+**Activity**: Set `APP_FEATURES__GO_USERS_ACTIVITY=true` to use the go-users ActivityLogger adapter (Phase 17) defined in `setup/activity.go`. The example wires the read path with `admin.Dependencies{ActivityRepository: usersDeps.ActivityRepo, ActivityAccessPolicy: activity.NewDefaultAccessPolicy()}` in `examples/web/main.go` so `/admin/api/activity` uses the go-users policy.
 
 **CMS**: Wire go-cms persistent container (Phase 20 adapter available)
 

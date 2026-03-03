@@ -121,11 +121,13 @@ When tests use `examples/web/setup.SetupPersistentCMS`, go-cms runtime mutation 
 Use these controls when you need verbose CMS logs for debugging:
 
 - Per test run flag: `go test ./examples/web -args -cms-test-logs`
-- Env override (works in tests and non-test contexts): `GO_ADMIN_CMS_LOGS=true` or `GO_ADMIN_CMS_LOGS=false`
+- Config/runtime override:
+  - in app runtime: `APP_CMS__RUNTIME_LOGS=true|false`
+  - in direct setup tests: `setup.ConfigureRuntime(setup.RuntimeConfig{CMSRuntimeLogs: &value})`
 
 Precedence:
 
-1. `GO_ADMIN_CMS_LOGS` env override (if set and parseable).
+1. Runtime config override (`cms.runtime_logs` / `APP_CMS__RUNTIME_LOGS`).
 2. Test flag `-cms-test-logs` (test runs only).
 3. Default behavior (`false` in tests, `true` outside tests).
 
@@ -183,9 +185,9 @@ If tests fail outside changed scope:
 If site runtime returns 404 with empty primary nav in persistent CMS:
 
 1. Check effective runtime/content env pair in startup logs (`Site Environments: runtime=... content=...`).
-2. Verify local profile uses `SITE_RUNTIME_ENV=dev` and `SITE_CONTENT_ENV=default` (or your promoted target env).
+2. Verify local profile uses `site.runtime_env=dev` and `site.content_env=default` (or your promoted target env).
 3. Confirm seed/promoted data exists in that content env (content types, contents, and `site.main` menu bindings/items).
-4. Enable strict mismatch detection in non-local runs: `SITE_ENV_STRICT=true`.
+4. Enable strict mismatch detection in non-local runs: `site.environment_strict=true` (`APP_SITE__ENVIRONMENT_STRICT=true`).
 
 If `/` works but menu links like `/about` return `Cannot GET /about`:
 
