@@ -1,6 +1,6 @@
 <!doctype html>
 <html
-  lang="{{ locale|default:default_locale|default:'en' }}"
+  lang="{{ resolved_locale|default:locale|default:default_locale|default:'en' }}"
   data-theme-name="{{ theme_name|default:'default' }}"
   data-theme-variant="{{ theme_variant|default:'default' }}"
   data-base-path="{{ base_path|default:'/' }}"
@@ -11,11 +11,11 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="site-active-path" content="{{ active_path|default:'/' }}">
   <meta name="site-runtime-active-path" content="{{ site_runtime.active_path|default:active_path|default:'/' }}">
-  <meta name="site-locale" content="{{ locale|default:default_locale|default:'en' }}">
+  <meta name="site-locale" content="{{ resolved_locale|default:locale|default:default_locale|default:'en' }}">
   <meta name="site-supported-locales" content="{{ supported_locales|join:',' }}">
   <title>{% block title %}{{ title|default:"Site Runtime" }}{% endblock %}</title>
 
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/iconoir-icons/iconoir@main/css/iconoir.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/iconoir@7.10.1/css/iconoir.css">
   <link rel="stylesheet" href="{{ asset_base_path|default:base_path|default:'/admin' }}/assets/output.css">
   <link rel="stylesheet" href="{{ asset_base_path|default:base_path|default:'/admin' }}/assets/dist/styles/site-runtime.css">
   {% include "partials/jserror-collector.html" %}
@@ -107,7 +107,7 @@
     {% include "site/partials/menu_footer.html" %}
     <div class="grid gap-1 text-xs text-slate-500 sm:grid-cols-2">
       <span>Theme: {{ theme_name|default:"default" }} / {{ theme_variant|default:"default" }}</span>
-      <span>Locale: {{ locale|default:default_locale|default:"en" }} · Supported: {{ supported_locales|join:", " }}</span>
+      <span>Locale: {{ resolved_locale|default:locale|default:default_locale|default:"en" }} · Supported: {{ supported_locales|join:", " }}</span>
       <span>Base path: {{ base_path|default:"/" }} · Assets: {{ asset_base_path|default:base_path|default:"/" }}</span>
       <span>Active path: {{ active_path|default:"/" }}</span>
     </div>
