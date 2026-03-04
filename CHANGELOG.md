@@ -1,21 +1,83 @@
 # Changelog
 
-# [Unreleased]
+# [0.26.0](https://github.com/goliatone/go-admin/compare/v0.25.0...v0.26.0) - (2026-03-04)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Content channel should use custom key ([689f900](https://github.com/goliatone/go-admin/commit/689f90081d21d8ff13aaa5af6c628343f4bacdd7))  - (goliatone)
+- Client tests ([5ef41cd](https://github.com/goliatone/go-admin/commit/5ef41cdc1d35410f8ff18c0f628df6434f81086e))  - (goliatone)
+- Localization for menus and content ([5bb14d3](https://github.com/goliatone/go-admin/commit/5bb14d31c6fdb7ac1cd9c2cb6b97349bd715ec95))  - (goliatone)
+- Update base template content ([546a240](https://github.com/goliatone/go-admin/commit/546a24083ab999030979896ca79ccd4345eb28e1))  - (goliatone)
+- Page content fallback ([b7399ba](https://github.com/goliatone/go-admin/commit/b7399ba9d2389a15e1f06c75051d53149ae9472e))  - (goliatone)
+- Localized url fallback and runtime content channel ([3534090](https://github.com/goliatone/go-admin/commit/35340908dadd9387f03c849fd56e79a4bc4f87a8))  - (goliatone)
+- Incrase header size in fiber ([fc36620](https://github.com/goliatone/go-admin/commit/fc366202e190cd61361bb42c1ff509f87c22819e))  - (goliatone)
 
 ## <!-- 13 -->📦 Bumps
 
-- Align target-package dependency baseline with the release train: `go-auth v0.35.0`, `go-users v0.16.0`, `go-services v0.4.0`, `go-cms v0.39.0`, `go-persistence-bun v0.11.0`.
+- Bump version: v0.26.0 ([341c60a](https://github.com/goliatone/go-admin/commit/341c60a75cc834f90295c1f8d80025d5ee5522c1))  - (goliatone)
 
 ## <!-- 16 -->➕ Add
 
-- Add canonical migration profile support for quickstart user migrations (`auth-only`, `users-standalone`, `combined`) and service migrations (`services-stack`, `combined`, `auth-only`).
-- Add migration source-label constants for quickstart and services registration paths.
-- Add profile integration coverage for migration registration order/labels across `auth-only`, `users-standalone`, `combined`, and `services-stack`.
+- Migrations for users ([786667e](https://github.com/goliatone/go-admin/commit/786667e4207525bfb1caabded31311bbd3ecf3cc))  - (goliatone)
+- Update migrations ([d164d8d](https://github.com/goliatone/go-admin/commit/d164d8d0f867cd4e805800a0f962dcd5023d1cc5))  - (goliatone)
+- Content channel query ([17e3b4f](https://github.com/goliatone/go-admin/commit/17e3b4f8234afff9e898660690c9d5f31e3fb653))  - (goliatone)
+- Refactor localized navigation ([208d15a](https://github.com/goliatone/go-admin/commit/208d15a574ac88c70ad3e4bd3066d85d5d896b17))  - (goliatone)
+- Content from env ([cbd2cd3](https://github.com/goliatone/go-admin/commit/cbd2cd39811e554632adbf55fcf1f3993075c13d))  - (goliatone)
+- Locale helpers ([ac099f5](https://github.com/goliatone/go-admin/commit/ac099f5f82f1ae48365ecea3909b6f0fa019ced5))  - (goliatone)
+- Updated error classifiers ([20ded87](https://github.com/goliatone/go-admin/commit/20ded87e6298ff6dcca78962eb01f7437896df1e))  - (goliatone)
+- Extract content path ([f3500a8](https://github.com/goliatone/go-admin/commit/f3500a852c693a35e793177e127e251a59f7071b))  - (goliatone)
+- Template site helpers ([40b1c3d](https://github.com/goliatone/go-admin/commit/40b1c3d9fb9e468aa2d7847d141e06ad2ce8f211))  - (goliatone)
+- Menu builder, and error pages ([dbbd85b](https://github.com/goliatone/go-admin/commit/dbbd85b899106152ea39ae99b6dcc7a9bc1cc2ee))  - (goliatone)
+- Quickstart site templates and loaders ([6d892e0](https://github.com/goliatone/go-admin/commit/6d892e018194e59f95d4e09ae86071e890914b9d))  - (goliatone)
+- Update site preview ([4c2a785](https://github.com/goliatone/go-admin/commit/4c2a7855c418ea6863c450f413230e6bc60428b8))  - (goliatone)
+- Content routes for navigation and capabilities ([51279fc](https://github.com/goliatone/go-admin/commit/51279fc1a2f3b6e029df0483db2c85b56f587c6e))  - (goliatone)
+- Fields to admin list contract ([ddb6827](https://github.com/goliatone/go-admin/commit/ddb6827ffbea8f3f43cd88e4dd01fa6da4f71120))  - (goliatone)
+- Urls for menu and menu managements ([a1a9bf6](https://github.com/goliatone/go-admin/commit/a1a9bf6e2141cf709304b4694c8b933f3c77dde0))  - (goliatone)
+- Menu builder and menu items ([5c339c7](https://github.com/goliatone/go-admin/commit/5c339c78df36416174eff333b3485166fcf5e120))  - (goliatone)
+- Quickstart sie ([edf5999](https://github.com/goliatone/go-admin/commit/edf5999a44cefa18f4f0966005cd18b0e5c73c55))  - (goliatone)
+- Menu builder and cms pages ([e431827](https://github.com/goliatone/go-admin/commit/e4318279319bc58df2804e5c6d0b00970c48d543))  - (goliatone)
+- Admin content navigation ([8df93c0](https://github.com/goliatone/go-admin/commit/8df93c05268c7262aec3c36519b3b395e40d4c2c))  - (goliatone)
+- Templates for site content ([9f232e6](https://github.com/goliatone/go-admin/commit/9f232e6bca6866f178eacdc3e292344adac29eb0))  - (goliatone)
+- Build support for public site management ([e3e583f](https://github.com/goliatone/go-admin/commit/e3e583f4da1c2b093fcd9d68f2a7e28851368d80))  - (goliatone)
+- Support CMS menu entities ([f7bade3](https://github.com/goliatone/go-admin/commit/f7bade3bcd41a77cde7d1582db62c296edd675df))  - (goliatone)
+- Udpated repository cms to handle menus ([3d28903](https://github.com/goliatone/go-admin/commit/3d2890362b1e2be1126c949a67a3a8d17d1040b8))  - (goliatone)
+- Site functionality ([2f3adc3](https://github.com/goliatone/go-admin/commit/2f3adc3e62bbaed046269cde06f82d68fdb2f544))  - (goliatone)
+- New menu builder func ([36ea84d](https://github.com/goliatone/go-admin/commit/36ea84dfa2fcb8a10ebc64b499524697a7a96cf4))  - (goliatone)
+- Content type capabilities ([3446247](https://github.com/goliatone/go-admin/commit/3446247f57db31ae9de7ac15e74e89c9d3ec97e6))  - (goliatone)
+- Expose FSM workflow engine ([736322c](https://github.com/goliatone/go-admin/commit/736322ce0f4de00340777adee7e871aabc429ab6))  - (goliatone)
+- Integrate flow machine with cms ([31098c8](https://github.com/goliatone/go-admin/commit/31098c894a2c7a7311d1d8820226e7976a319253))  - (goliatone)
+- New error mapping ([65cd1ba](https://github.com/goliatone/go-admin/commit/65cd1ba8671b4c3730ae46ad7914f05c921a8aa0))  - (goliatone)
+- Machine ID to panel ([f845d83](https://github.com/goliatone/go-admin/commit/f845d832596067675c61f555548c915236d83a3a))  - (goliatone)
+- Correlation IDs to context ([7c9f641](https://github.com/goliatone/go-admin/commit/7c9f641d8e49a9b6d162e77d200aba1c4e45e88f))  - (goliatone)
+- Integrate workflow and activity in admin ([5ed1315](https://github.com/goliatone/go-admin/commit/5ed13156a69c361627e43d5a33c4a22e8a2573f1))  - (goliatone)
+- Integrate activity with fsm ([a595600](https://github.com/goliatone/go-admin/commit/a595600663391d74340d948b634661abe926d816))  - (goliatone)
+- Workflot fsm ([61dc239](https://github.com/goliatone/go-admin/commit/61dc23972322331d5426184cfeab223905bc54d3))  - (goliatone)
+- Session claims to raduce scope ([d698c82](https://github.com/goliatone/go-admin/commit/d698c829b00f4b488df0ad40fdc90ecddf9f7d7a))  - (goliatone)
+- Track request IP ([3fc931f](https://github.com/goliatone/go-admin/commit/3fc931fab1acdd14fdbbf55071dd05dd4a6a88bb))  - (goliatone)
+- Update toast manager ([898dcdb](https://github.com/goliatone/go-admin/commit/898dcdb7b5d79321aedada36fc6b5f85ec68466a))  - (goliatone)
+
+## <!-- 2 -->🚜 Refactor
+
+- Rename content type environment to channel ([8e0e211](https://github.com/goliatone/go-admin/commit/8e0e2114e667fe8c6e8387782c33356181a79dbb))  - (goliatone)
+- Remove old legacy code ([693f760](https://github.com/goliatone/go-admin/commit/693f760e7d29fa208dfe29cf959933d8f81876f5))  - (goliatone)
+- Remove use of os.Getenv from package code ([ecf896c](https://github.com/goliatone/go-admin/commit/ecf896c2ce00cce0668924e517438182a438ad2b))  - (goliatone)
 
 ## <!-- 3 -->📚 Documentation
 
-- Update quickstart migration guide with canonical profile and source-label usage.
-- Document `services-stack` migration profile contract in services module release-gate documentation.
+- Update changelog for v0.25.0 ([d0a4be3](https://github.com/goliatone/go-admin/commit/d0a4be3197c38b0bf6bc58e8c1e1ead6251d765f))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Udpate docs ([3b7e751](https://github.com/goliatone/go-admin/commit/3b7e751d207751e11d82a69b84d878f0039420de))  - (goliatone)
+- Update deps ([6429136](https://github.com/goliatone/go-admin/commit/6429136078cd49765e8874aa76c9a7a35fbdb9e1))  - (goliatone)
+- Update tests ([541fa27](https://github.com/goliatone/go-admin/commit/541fa27b9534d07926c7955de8ffff45eec185a1))  - (goliatone)
+- Update examples ([c7f9139](https://github.com/goliatone/go-admin/commit/c7f913938b1d65c58952231d14e1c284e6468e9a))  - (goliatone)
+- Udpate example ([be25e96](https://github.com/goliatone/go-admin/commit/be25e9659bcb8119381bc41139d7cfad96dadbc6))  - (goliatone)
+- Update docs ([08dd480](https://github.com/goliatone/go-admin/commit/08dd4807d30b1ff7c9ab76a7266ddf35f884a891))  - (goliatone)
+- Update test ([788f163](https://github.com/goliatone/go-admin/commit/788f163e4713abbcb87d3cc3df2a02fcc2fa972c))  - (goliatone)
+- Update format ([83e4f91](https://github.com/goliatone/go-admin/commit/83e4f91b7a1854a89593fc13ed9567de6a0a9642))  - (goliatone)
+- Update readme ([c4cfa49](https://github.com/goliatone/go-admin/commit/c4cfa4992719eb2282289334f92efb44a6109812))  - (goliatone)
+- Udpate tests ([1f696ae](https://github.com/goliatone/go-admin/commit/1f696ae5af741e47a5fbf616fdb01e74758746fd))  - (goliatone)
 
 # [0.25.0](https://github.com/goliatone/go-admin/compare/v0.24.0...v0.25.0) - (2026-02-20)
 
@@ -1646,4 +1708,5 @@
 - Example templates ([74d23ed](https://github.com/goliatone/go-admin/commit/74d23ed807d5e312e8a61e009d19ad46d1632b5c))  - (goliatone)
 - Example update ([ff16170](https://github.com/goliatone/go-admin/commit/ff16170e3c7fdf46121bd546f3f6cd43f1dcdadc))  - (goliatone)
 - Initial commit ([2197564](https://github.com/goliatone/go-admin/commit/2197564725b64c8ef15d034763ee283ee95ac4ba))  - (goliatone)
+
 
