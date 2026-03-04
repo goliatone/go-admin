@@ -30,7 +30,12 @@ func TestRegisterServiceMigrations_OrderAndLabels(t *testing.T) {
 		t.Fatalf("register service migrations: %v", err)
 	}
 
-	expected := []string{"go-auth", "go-users", "go-services", "app-local"}
+	expected := []string{
+		ServiceMigrationsSourceLabelAuth,
+		ServiceMigrationsSourceLabelUsers,
+		ServiceMigrationsSourceLabelServices,
+		ServiceMigrationsSourceLabelAppLocal,
+	}
 	if !reflect.DeepEqual(labels, expected) {
 		t.Fatalf("migration registration order mismatch: got=%v want=%v", labels, expected)
 	}
@@ -55,9 +60,76 @@ func TestRegisterServiceMigrations_Toggles(t *testing.T) {
 		t.Fatalf("register service migrations: %v", err)
 	}
 
-	expected := []string{"go-services"}
+	expected := []string{ServiceMigrationsSourceLabelServices}
 	if !reflect.DeepEqual(labels, expected) {
 		t.Fatalf("migration toggle mismatch: got=%v want=%v", labels, expected)
+	}
+}
+
+func TestRegisterServiceMigrations_ProfileOrderAndLabels(t *testing.T) {
+	testCases := []struct {
+		name     string
+		profile  ServiceMigrationsProfile
+		expected []string
+	}{
+		{
+			name:     "auth-only",
+			profile:  ServiceMigrationsProfileAuthOnly,
+			expected: []string{ServiceMigrationsSourceLabelAuth},
+		},
+		{
+			name:    "combined",
+			profile: ServiceMigrationsProfileCombined,
+			expected: []string{
+				ServiceMigrationsSourceLabelAuth,
+				ServiceMigrationsSourceLabelUsers,
+			},
+		},
+		{
+			name:    "services-stack",
+			profile: ServiceMigrationsProfileServicesStack,
+			expected: []string{
+				ServiceMigrationsSourceLabelAuth,
+				ServiceMigrationsSourceLabelUsers,
+				ServiceMigrationsSourceLabelServices,
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			client := newTestPersistenceClient(t)
+			labels := []string{}
+
+			err := RegisterServiceMigrations(
+				client,
+				WithServiceMigrationsProfile(tc.profile),
+				WithServiceMigrationsObserver(func(step MigrationRegistration) {
+					labels = append(labels, step.Label)
+				}),
+			)
+			if err != nil {
+				t.Fatalf("register service migrations: %v", err)
+			}
+			if !reflect.DeepEqual(labels, tc.expected) {
+				t.Fatalf("migration registration order mismatch: got=%v want=%v", labels, tc.expected)
+			}
+			if err := client.ValidateDialects(context.Background()); err != nil {
+				t.Fatalf("validate dialects: %v", err)
+			}
+		})
+	}
+}
+
+func TestRegisterServiceMigrations_InvalidProfile(t *testing.T) {
+	client := newTestPersistenceClient(t)
+	err := RegisterServiceMigrations(
+		client,
+		WithServiceMigrationsProfile(ServiceMigrationsProfile("unknown")),
+	)
+	if err == nil {
+		t.Fatalf("expected profile validation error")
 	}
 }
 
