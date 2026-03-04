@@ -51,9 +51,9 @@ var (
 
 func defaultRuntimeConfig() RuntimeConfig {
 	return RuntimeConfig{
-		AppEnv:  "development",
-		Scope:   quickstart.DefaultScopeConfig(),
-		Seeds:   DefaultSeedConfig(),
+		AppEnv: "development",
+		Scope:  quickstart.DefaultScopeConfig(),
+		Seeds:  DefaultSeedConfig(),
 		Navigation: NavigationRuntimeConfig{
 			ResetMenu: true,
 			Debug:     false,
