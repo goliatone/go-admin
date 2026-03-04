@@ -2,12 +2,13 @@ package quickstart
 
 import (
 	"context"
+	"net/url"
 	"strings"
 	"testing"
 
 	"github.com/goliatone/go-admin/admin"
-	"github.com/goliatone/go-users/command"
 	urlkit "github.com/goliatone/go-urlkit"
+	"github.com/goliatone/go-users/command"
 )
 
 func TestBuildNavItemsOrdering(t *testing.T) {
@@ -139,13 +140,41 @@ func TestResolveNavTargetUsesURLKitRoute(t *testing.T) {
 
 	href, key, _ := resolveNavTarget(map[string]any{
 		"name": "admin.settings",
-	}, "/admin", manager)
+	}, "/admin", manager, navRequestScope{})
 
 	if href != "/console/settings" {
 		t.Fatalf("expected urlkit path, got %q", href)
 	}
 	if key != "settings" {
 		t.Fatalf("expected key settings, got %q", key)
+	}
+}
+
+func TestResolveNavTargetPrefersLocalizedURLOverrideAndAppliesRequestScope(t *testing.T) {
+	href, key, _ := resolveNavTarget(map[string]any{
+		"url":  "/sobre-nosotros",
+		"path": "/about",
+		"key":  "about",
+	}, "/admin", nil, navRequestScope{
+		Locale:  "es",
+		Channel: "preview",
+	})
+
+	parsed, err := url.Parse(href)
+	if err != nil {
+		t.Fatalf("parse href: %v", err)
+	}
+	if parsed.Path != "/sobre-nosotros" {
+		t.Fatalf("expected localized url override path /sobre-nosotros, got %q", parsed.Path)
+	}
+	if got := strings.TrimSpace(parsed.Query().Get("locale")); got != "es" {
+		t.Fatalf("expected locale query es, got %q", got)
+	}
+	if got := strings.TrimSpace(parsed.Query().Get(admin.ContentChannelScopeQueryParam)); got != "preview" {
+		t.Fatalf("expected %s query preview, got %q", admin.ContentChannelScopeQueryParam, got)
+	}
+	if key != "about" {
+		t.Fatalf("expected key about, got %q", key)
 	}
 }
 
@@ -223,6 +252,64 @@ func TestWithNavLoadsUtilityItemsFromUtilityPlacement(t *testing.T) {
 	}
 	if utilityItems[0]["label"] != "Help" {
 		t.Fatalf("expected utility nav label Help, got %v", utilityItems[0]["label"])
+	}
+}
+
+func TestBuildNavItemsForPlacementUsesRequestLocaleAndScope(t *testing.T) {
+	cfg := admin.Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		NavMenuCode:   "admin.main",
+	}
+	adm, err := admin.New(cfg, admin.Dependencies{})
+	if err != nil {
+		t.Fatalf("admin.New: %v", err)
+	}
+	adm.Navigation().UseCMS(false)
+	adm.Navigation().AddFallback(
+		admin.NavigationItem{
+			ID:     "content.en",
+			Type:   admin.MenuItemTypeItem,
+			Label:  "Content",
+			Locale: "en",
+			Target: map[string]any{"path": "/content"},
+		},
+		admin.NavigationItem{
+			ID:     "content.es",
+			Type:   admin.MenuItemTypeItem,
+			Label:  "Contenido",
+			Locale: "es",
+			Target: map[string]any{"path": "/contenido"},
+		},
+	)
+
+	reqCtx := admin.WithContentChannel(admin.WithLocale(context.Background(), "es"), "preview")
+	items := BuildNavItemsForPlacement(adm, cfg, DefaultPlacements(cfg), SidebarPlacementPrimary, reqCtx, "")
+
+	var selected map[string]any
+	for _, item := range items {
+		if strings.EqualFold(strings.TrimSpace(toNavString(item["label"])), "Contenido") {
+			selected = item
+			break
+		}
+	}
+	if selected == nil {
+		t.Fatalf("expected to resolve locale-specific navigation item Contenido, got %+v", items)
+	}
+
+	href := strings.TrimSpace(toNavString(selected["href"]))
+	parsed, err := url.Parse(href)
+	if err != nil {
+		t.Fatalf("parse href: %v", err)
+	}
+	if parsed.Path != "/admin/contenido" {
+		t.Fatalf("expected localized href path /admin/contenido, got %q", parsed.Path)
+	}
+	if got := strings.TrimSpace(parsed.Query().Get("locale")); got != "es" {
+		t.Fatalf("expected locale query es, got %q", got)
+	}
+	if got := strings.TrimSpace(parsed.Query().Get(admin.ContentChannelScopeQueryParam)); got != "preview" {
+		t.Fatalf("expected %s query preview, got %q", admin.ContentChannelScopeQueryParam, got)
 	}
 }
 

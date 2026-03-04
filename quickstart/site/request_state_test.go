@@ -7,6 +7,7 @@ import (
 
 	"github.com/goliatone/go-admin/admin"
 	router "github.com/goliatone/go-router"
+	"github.com/stretchr/testify/mock"
 )
 
 func TestResolveRequestStateContextResolution(t *testing.T) {
@@ -305,6 +306,52 @@ func TestResolveRequestStateRequestContentChannelDoesNotOverrideRuntimeEnvironme
 	}
 	if got := admin.EnvironmentFromContext(requestCtx); got != "preview" {
 		t.Fatalf("expected context environment preview, got %q", got)
+	}
+}
+
+func TestResolveRequestStateRequestDollarChannelHasPriority(t *testing.T) {
+	siteCfg := ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{
+		Environment:    "prod",
+		ContentChannel: "default",
+	})
+
+	ctx := router.NewMockContext()
+	ctx.On("Context").Return(context.Background())
+	ctx.On("Path").Return("/site")
+	ctx.QueriesM[admin.ContentChannelScopeQueryParam] = "preview"
+	ctx.QueriesM["channel"] = "staging"
+
+	_, state := ResolveRequestState(context.Background(), ctx, nil, admin.Config{}, siteCfg, nil)
+	if state.ContentChannel != "preview" {
+		t.Fatalf("expected $channel preview to have priority, got %q", state.ContentChannel)
+	}
+}
+
+func TestPersistLocaleCookieWritesLocaleForI18NRequests(t *testing.T) {
+	siteCfg := ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{
+		SupportedLocales: []string{"en", "es"},
+	})
+	ctx := router.NewMockContext()
+	ctx.On("Cookie", mock.Anything).Return()
+
+	persistLocaleCookie(ctx, siteCfg, RequestState{Locale: "es"})
+
+	if got := ctx.CookiesM[defaultLocaleCookieName]; got != "es" {
+		t.Fatalf("expected persisted locale cookie es, got %q", got)
+	}
+}
+
+func TestPersistLocaleCookieSkipsWhenLocaleUnchanged(t *testing.T) {
+	siteCfg := ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{
+		SupportedLocales: []string{"en", "es"},
+	})
+	ctx := router.NewMockContext()
+	ctx.CookiesM[defaultLocaleCookieName] = "es"
+
+	persistLocaleCookie(ctx, siteCfg, RequestState{Locale: "es"})
+
+	if got := ctx.CookiesM[defaultLocaleCookieName]; got != "es" {
+		t.Fatalf("expected locale cookie unchanged, got %q", got)
 	}
 }
 

@@ -43,6 +43,9 @@ func TestResolveSiteRuntimeConfigDefaults(t *testing.T) {
 	if siteCfg.Features.EnableCanonicalRedirect == nil || !*siteCfg.Features.EnableCanonicalRedirect {
 		t.Fatalf("expected canonical redirect feature enabled by default")
 	}
+	if siteCfg.Features.CanonicalRedirectMode != quicksite.CanonicalRedirectRequestedLocaleSticky {
+		t.Fatalf("expected canonical redirect mode sticky by default, got %q", siteCfg.Features.CanonicalRedirectMode)
+	}
 	if siteCfg.Features.StrictLocalizedPaths == nil || *siteCfg.Features.StrictLocalizedPaths {
 		t.Fatalf("expected strict localized paths feature disabled by default")
 	}
@@ -57,6 +60,7 @@ func TestResolveSiteRuntimeConfigEnvOverrides(t *testing.T) {
 	runtimeSite.EnableGeneratedFallback = true
 	runtimeSite.EnableSearch = false
 	runtimeSite.EnableCanonicalRedirect = false
+	runtimeSite.CanonicalRedirectMode = string(quicksite.CanonicalRedirectResolvedLocale)
 	runtimeSite.StrictLocalizedPaths = true
 	runtimeSite.SupportedLocales = []string{"en", "es", "de"}
 	runtimeSite.RuntimeEnv = "staging"
@@ -82,6 +86,9 @@ func TestResolveSiteRuntimeConfigEnvOverrides(t *testing.T) {
 	}
 	if siteCfg.Features.EnableCanonicalRedirect == nil || *siteCfg.Features.EnableCanonicalRedirect {
 		t.Fatalf("expected canonical redirect feature disabled by env override")
+	}
+	if siteCfg.Features.CanonicalRedirectMode != quicksite.CanonicalRedirectResolvedLocale {
+		t.Fatalf("expected canonical redirect mode resolved by env override, got %q", siteCfg.Features.CanonicalRedirectMode)
 	}
 	if siteCfg.Features.StrictLocalizedPaths == nil || !*siteCfg.Features.StrictLocalizedPaths {
 		t.Fatalf("expected strict localized paths feature enabled by env override")
