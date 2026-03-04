@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net/url"
-	"os"
 	"strconv"
 	"strings"
 
@@ -15,7 +14,6 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/jobs"
 	"github.com/goliatone/go-admin/examples/esign/modules"
 	"github.com/goliatone/go-admin/examples/esign/observability"
-	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	"github.com/goliatone/go-admin/pkg/client"
 	"github.com/goliatone/go-admin/quickstart"
@@ -33,7 +31,6 @@ func main() {
 		runtimeConfig.Admin.DefaultLocale,
 	)
 	applyESignRuntimeDefaults(&cfg)
-	applyESignEmailTransportDefault(runtimeConfig.Email.Transport)
 
 	// Explicit namespaces for admin and public signer API surfaces.
 	cfg.URLs.Admin.APIPrefix = strings.TrimSpace(runtimeConfig.Admin.APIPrefix)
@@ -163,34 +160,6 @@ func listenAddr(configured string) string {
 	return ":" + port
 }
 
-func envBool(key string, fallback bool) bool {
-	value, ok := os.LookupEnv(key)
-	if !ok {
-		return fallback
-	}
-	parsed, err := strconv.ParseBool(strings.TrimSpace(value))
-	if err != nil {
-		return fallback
-	}
-	return parsed
-}
-
-func envInt(key string, fallback int) int {
-	value, ok := os.LookupEnv(key)
-	if !ok {
-		return fallback
-	}
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return fallback
-	}
-	parsed, err := strconv.Atoi(value)
-	if err != nil {
-		return fallback
-	}
-	return parsed
-}
-
 func resolveESignStartupPolicy(raw string) quickstart.StartupPolicy {
 	policy := strings.ToLower(strings.TrimSpace(raw))
 	switch policy {
@@ -198,18 +167,6 @@ func resolveESignStartupPolicy(raw string) quickstart.StartupPolicy {
 		return quickstart.StartupPolicyWarn
 	default:
 		return quickstart.StartupPolicyEnforce
-	}
-}
-
-func applyESignEmailTransportDefault(rawTransport string) {
-	transport := strings.ToLower(strings.TrimSpace(rawTransport))
-	if transport == "" {
-		transport = "deterministic"
-	}
-	_ = os.Setenv(jobs.EnvEmailTransport, transport)
-
-	if transport == "mailpit" && strings.TrimSpace(os.Getenv(jobs.EnvEmailSMTPDisableSTARTTLS)) == "" {
-		_ = os.Setenv(jobs.EnvEmailSMTPDisableSTARTTLS, "true")
 	}
 }
 
@@ -246,31 +203,31 @@ func validateRuntimeProviderConfiguration(cfg appcfg.Config) error {
 	transport := strings.ToLower(strings.TrimSpace(cfg.Email.Transport))
 	switch transport {
 	case "", "deterministic", "mock":
-		return fmt.Errorf("production profile requires ESIGN_EMAIL_TRANSPORT to use a non-deterministic provider")
+		return fmt.Errorf("production profile requires APP_EMAIL__TRANSPORT to use a non-deterministic provider")
 	}
 	if strings.TrimSpace(cfg.Signer.UploadSigningKey) == "" {
-		return fmt.Errorf("production profile requires ESIGN_SIGNER_UPLOAD_SIGNING_KEY for signer upload contract signing")
+		return fmt.Errorf("production profile requires APP_SIGNER__UPLOAD_SIGNING_KEY for signer upload contract signing")
 	}
 	uploadTTLSeconds := cfg.Signer.UploadTTLSeconds
 	if uploadTTLSeconds <= 0 {
 		uploadTTLSeconds = 300
 	}
 	if uploadTTLSeconds < 60 || uploadTTLSeconds > 900 {
-		return fmt.Errorf("production profile requires ESIGN_SIGNER_UPLOAD_TTL_SECONDS between 60 and 900 seconds")
+		return fmt.Errorf("production profile requires APP_SIGNER__UPLOAD_TTL_SECONDS between 60 and 900 seconds")
 	}
 
 	if cfg.Features.ESignGoogle {
 		if !cfg.Services.ModuleEnabled {
-			return fmt.Errorf("production profile requires ESIGN_SERVICES_MODULE_ENABLED=true when ESIGN_GOOGLE_FEATURE_ENABLED=true")
+			return fmt.Errorf("production profile requires APP_SERVICES__MODULE_ENABLED=true when APP_FEATURES__ESIGN_GOOGLE=true")
 		}
 		if strings.TrimSpace(cfg.Google.ClientID) == "" {
-			return fmt.Errorf("production profile requires %s when ESIGN_GOOGLE_FEATURE_ENABLED=true", services.EnvGoogleClientID)
+			return fmt.Errorf("production profile requires APP_GOOGLE__CLIENT_ID when APP_FEATURES__ESIGN_GOOGLE=true")
 		}
 		if strings.TrimSpace(cfg.Google.ClientSecret) == "" {
-			return fmt.Errorf("production profile requires %s when ESIGN_GOOGLE_FEATURE_ENABLED=true", services.EnvGoogleClientSecret)
+			return fmt.Errorf("production profile requires APP_GOOGLE__CLIENT_SECRET when APP_FEATURES__ESIGN_GOOGLE=true")
 		}
 		if strings.TrimSpace(cfg.Services.EncryptionKey) == "" {
-			return fmt.Errorf("production profile requires ESIGN_SERVICES_ENCRYPTION_KEY when ESIGN_GOOGLE_FEATURE_ENABLED=true")
+			return fmt.Errorf("production profile requires APP_SERVICES__ENCRYPTION_KEY when APP_FEATURES__ESIGN_GOOGLE=true")
 		}
 		if err := validateGoogleOAuthRedirectURI(cfg.Google.OAuthRedirectURI); err != nil {
 			return err
@@ -291,20 +248,20 @@ func isProductionLikeRuntimeProfile(profile string) bool {
 func validatePublicBaseURLForRuntimeProfile(profile string, publicBaseURL string) error {
 	base := strings.TrimSpace(publicBaseURL)
 	if base == "" {
-		return fmt.Errorf("%s profile requires %s", strings.TrimSpace(profile), jobs.EnvPublicBaseURL)
+		return fmt.Errorf("%s profile requires %s", strings.TrimSpace(profile), jobs.ConfigPublicBaseURLKey)
 	}
 	parsed, err := url.Parse(base)
 	if err != nil || strings.TrimSpace(parsed.Scheme) == "" || strings.TrimSpace(parsed.Host) == "" {
-		return fmt.Errorf("%s must be a valid absolute URL", jobs.EnvPublicBaseURL)
+		return fmt.Errorf("%s must be a valid absolute URL", jobs.ConfigPublicBaseURLKey)
 	}
 	scheme := strings.ToLower(strings.TrimSpace(parsed.Scheme))
 	if scheme != "http" && scheme != "https" {
-		return fmt.Errorf("%s must use http or https", jobs.EnvPublicBaseURL)
+		return fmt.Errorf("%s must use http or https", jobs.ConfigPublicBaseURLKey)
 	}
 	host := strings.ToLower(strings.TrimSpace(parsed.Hostname()))
 	switch host {
 	case "", "localhost", "127.0.0.1", "::1", "0.0.0.0":
-		return fmt.Errorf("%s must not point to localhost in %s profile", jobs.EnvPublicBaseURL, strings.TrimSpace(profile))
+		return fmt.Errorf("%s must not point to localhost in %s profile", jobs.ConfigPublicBaseURLKey, strings.TrimSpace(profile))
 	}
 	return nil
 }
@@ -312,15 +269,15 @@ func validatePublicBaseURLForRuntimeProfile(profile string, publicBaseURL string
 func validateGoogleOAuthRedirectURI(rawRedirectURI string) error {
 	redirectURI := strings.TrimSpace(rawRedirectURI)
 	if redirectURI == "" {
-		return fmt.Errorf("production profile requires %s when ESIGN_GOOGLE_FEATURE_ENABLED=true", services.EnvGoogleOAuthRedirectURI)
+		return fmt.Errorf("production profile requires APP_GOOGLE__OAUTH_REDIRECT_URI when APP_FEATURES__ESIGN_GOOGLE=true")
 	}
 	parsed, err := url.Parse(redirectURI)
 	if err != nil || strings.TrimSpace(parsed.Scheme) == "" || strings.TrimSpace(parsed.Host) == "" {
-		return fmt.Errorf("%s must be a valid absolute URL", services.EnvGoogleOAuthRedirectURI)
+		return fmt.Errorf("%s must be a valid absolute URL", "APP_GOOGLE__OAUTH_REDIRECT_URI")
 	}
 	scheme := strings.ToLower(strings.TrimSpace(parsed.Scheme))
 	if scheme != "http" && scheme != "https" {
-		return fmt.Errorf("%s must use http or https", services.EnvGoogleOAuthRedirectURI)
+		return fmt.Errorf("%s must use http or https", "APP_GOOGLE__OAUTH_REDIRECT_URI")
 	}
 	return nil
 }

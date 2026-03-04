@@ -17,6 +17,14 @@
       "enable_slog": true
     }
   },
+  "auth": {
+    "admin_id": "63eb32ab-64f5-4ddf-b5a0-5f9a8db9f8ea",
+    "admin_email": "admin@example.com",
+    "admin_role": "admin",
+    "admin_password": "admin.pwd",
+    "signing_key": "esign-demo-secret",
+    "context_key": "esign_admin_user"
+  },
   "features": {
     "esign": true,
     "esign_google": false,
@@ -24,27 +32,61 @@
   },
   "runtime": {
     "profile": "development",
-    "startup_policy": "enforce"
+    "startup_policy": "enforce",
+    "strict_startup": false
   },
   "storage": {
     "encryption_algorithm": "aws:kms"
   },
   "email": {
-    "transport": "deterministic"
+    "transport": "deterministic",
+    "smtp": {
+      "host": "localhost",
+      "port": 1025,
+      "username": "",
+      "password": "",
+      "from_name": "E-Sign",
+      "from_address": "no-reply@example.test",
+      "timeout_seconds": 10,
+      "disable_starttls": false,
+      "insecure_tls": false
+    }
   },
   "signer": {
-    "upload_ttl_seconds": 300
+    "upload_signing_key": "",
+    "upload_ttl_seconds": 300,
+    "profile_ttl_days": 90,
+    "profile_persist_drawn_signature": true,
+    "profile_mode": "hybrid"
   },
   "services": {
     "module_enabled": true,
-    "encryption_key": "go-admin-esign-services-app-key"
+    "encryption_key": "go-admin-esign-services-app-key",
+    "callback_public_base_url": ""
   },
   "google": {
+    "provider_mode": "real",
     "client_id": "",
     "client_secret": "",
-    "oauth_redirect_uri": ""
+    "oauth_redirect_uri": "",
+    "token_endpoint": "https://oauth2.googleapis.com/token",
+    "revoke_endpoint": "https://oauth2.googleapis.com/revoke",
+    "drive_base_url": "https://www.googleapis.com/drive/v3",
+    "userinfo_endpoint": "https://www.googleapis.com/oauth2/v2/userinfo",
+    "health_endpoint": "https://www.googleapis.com/generate_204",
+    "http_timeout_seconds": 10,
+    "credential_active_key_id": "v1",
+    "credential_active_key": "go-admin-esign-google",
+    "credential_keys_json": ""
   },
   "public": {
-    "base_url": ""
+    "base_url": "http://localhost:8082"
+  },
+  "databases": {
+    "esign_dsn": "",
+    "content_dsn": ""
+  },
+  "network": {
+    "rate_limit_trust_proxy_headers": false
   }
 }

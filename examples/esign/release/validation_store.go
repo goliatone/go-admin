@@ -7,11 +7,13 @@ import (
 	"strings"
 	"time"
 
+	appcfg "github.com/goliatone/go-admin/examples/esign/config"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 )
 
 func resolveValidationSQLiteDSN(runLabel string) (string, func()) {
-	if strings.TrimSpace(os.Getenv("ESIGN_DATABASE_DSN")) != "" || strings.TrimSpace(os.Getenv("CONTENT_DATABASE_DSN")) != "" {
+	cfg := appcfg.Active()
+	if strings.TrimSpace(cfg.Databases.ESignDSN) != "" || strings.TrimSpace(cfg.Databases.ContentDSN) != "" {
 		return stores.ResolveSQLiteDSN(), nil
 	}
 

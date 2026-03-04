@@ -4,11 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
 	coreadmin "github.com/goliatone/go-admin/admin"
+	appcfg "github.com/goliatone/go-admin/examples/esign/config"
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	servicesmodule "github.com/goliatone/go-admin/modules/services"
@@ -50,7 +50,8 @@ func setupESignServicesModule(adm *coreadmin.Admin) (*servicesmodule.Module, fun
 	if adm == nil {
 		return nil, nil, fmt.Errorf("esign services module: admin is required")
 	}
-	if !envBool("ESIGN_SERVICES_MODULE_ENABLED", true) {
+	runtimeCfg := appcfg.Active()
+	if !runtimeCfg.Services.ModuleEnabled {
 		return nil, nil, nil
 	}
 
@@ -85,17 +86,20 @@ func setupESignServicesModule(adm *coreadmin.Admin) (*servicesmodule.Module, fun
 	cfg := servicesmodule.DefaultConfig()
 	cfg.Enabled = true
 	cfg.PersistenceClient = client
-	cfg.EncryptionKey = firstNonEmptyEnv("ESIGN_SERVICES_ENCRYPTION_KEY", defaultESignServicesEncryptionKey)
+	cfg.EncryptionKey = strings.TrimSpace(runtimeCfg.Services.EncryptionKey)
+	if cfg.EncryptionKey == "" {
+		cfg.EncryptionKey = defaultESignServicesEncryptionKey
+	}
 	cfg.Service.ServiceName = "go-admin-esign"
 
 	opts := []servicesmodule.Option{}
-	if envBool("ESIGN_GOOGLE_FEATURE_ENABLED", false) {
-		provider, providerErr := buildGoogleDriveProviderFromEnv()
+	if runtimeCfg.Features.ESignGoogle {
+		provider, providerErr := buildGoogleDriveProviderFromConfig(runtimeCfg)
 		if providerErr != nil {
 			_ = sqlDB.Close()
 			return nil, nil, providerErr
 		}
-		opts = append(opts, servicesmodule.WithCallbackURLConfig(resolveESignServicesCallbackConfig()))
+		opts = append(opts, servicesmodule.WithCallbackURLConfig(resolveESignServicesCallbackConfig(runtimeCfg)))
 		opts = append(opts, servicesmodule.WithProvider(provider))
 	}
 
@@ -145,14 +149,14 @@ func ensureESignServicesSchema(ctx context.Context, db *sql.DB) error {
 	return nil
 }
 
-func buildGoogleDriveProviderFromEnv() (servicesmodule.Provider, error) {
-	clientID := strings.TrimSpace(os.Getenv(services.EnvGoogleClientID))
-	clientSecret := strings.TrimSpace(os.Getenv(services.EnvGoogleClientSecret))
+func buildGoogleDriveProviderFromConfig(runtimeCfg appcfg.Config) (servicesmodule.Provider, error) {
+	clientID := strings.TrimSpace(runtimeCfg.Google.ClientID)
+	clientSecret := strings.TrimSpace(runtimeCfg.Google.ClientSecret)
 	if clientID == "" {
-		return nil, fmt.Errorf("esign services module: %s is required when google feature is enabled", services.EnvGoogleClientID)
+		return nil, fmt.Errorf("esign services module: APP_GOOGLE__CLIENT_ID is required when google feature is enabled")
 	}
 	if clientSecret == "" {
-		return nil, fmt.Errorf("esign services module: %s is required when google feature is enabled", services.EnvGoogleClientSecret)
+		return nil, fmt.Errorf("esign services module: APP_GOOGLE__CLIENT_SECRET is required when google feature is enabled")
 	}
 	cfg := gdrive.DefaultConfig()
 	cfg.ClientID = clientID
@@ -167,14 +171,18 @@ func buildGoogleDriveProviderFromEnv() (servicesmodule.Provider, error) {
 	return provider, nil
 }
 
-func resolveESignServicesCallbackConfig() servicesmodule.CallbackURLConfig {
+func resolveESignServicesCallbackConfig(runtimeCfg appcfg.Config) servicesmodule.CallbackURLConfig {
 	config := servicesmodule.CallbackURLConfig{
 		Strict: true,
 	}
-	if publicBaseURL := strings.TrimSpace(firstNonEmptyEnv("ESIGN_SERVICES_CALLBACK_PUBLIC_BASE_URL", strings.TrimSpace(os.Getenv("ESIGN_PUBLIC_BASE_URL")))); publicBaseURL != "" {
+	publicBaseURL := strings.TrimSpace(runtimeCfg.Services.CallbackPublicBaseURL)
+	if publicBaseURL == "" {
+		publicBaseURL = strings.TrimSpace(runtimeCfg.Public.BaseURL)
+	}
+	if publicBaseURL != "" {
 		config.PublicBaseURL = publicBaseURL
 	}
-	if googleRedirectURI := strings.TrimSpace(os.Getenv(services.EnvGoogleOAuthRedirectURI)); googleRedirectURI != "" {
+	if googleRedirectURI := strings.TrimSpace(runtimeCfg.Google.OAuthRedirectURI); googleRedirectURI != "" {
 		config.ProviderURLOverrides = map[string]string{
 			services.GoogleServicesProviderID: googleRedirectURI,
 		}

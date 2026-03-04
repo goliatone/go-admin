@@ -145,34 +145,35 @@ function dev:serve {
         echo "$current_hash" > "$hash_file"
     fi
 
-    export ENV=development;
+    export APP_APP__ENV=development;
+    export APP_SERVER__ADDRESS=:8082;
     export RESET_NAV_MENU=true;
     export ADMIN_DEBUG=true;
     export ADMIN_SEEDS=false;
     export ADMIN_ASSETS_DEBUG=1;
-    export ADMIN_PUBLIC_API=true;
-    export ADMIN_API_VERSION=v1;
-    export ESIGN_FEATURE_ENABLED=true;
-    export ESIGN_EMAIL_TRANSPORT=mailpit;
-    export ESIGN_EMAIL_SMTP_HOST=localhost;
-    export ESIGN_SIGNER_FLOW_MODE=unified;
-    export ESIGN_EMAIL_SMTP_PORT=1025;
-    export ESIGN_EMAIL_SMTP_DISABLE_STARTTLS=true;
-    export ESIGN_EMAIL_SMTP_USERNAME=User1;
-    export ESIGN_EMAIL_SMTP_PASSWORD=Password1;
+    export APP_ADMIN__PUBLIC_API=true;
+    export APP_ADMIN__API_VERSION=v1;
+    export APP_FEATURES__ESIGN=true;
+    export APP_FEATURES__ACTIVITY=true;
+    export APP_EMAIL__TRANSPORT=mailpit;
+    export APP_EMAIL__SMTP__HOST=localhost;
+    export APP_EMAIL__SMTP__PORT=1025;
+    export APP_EMAIL__SMTP__DISABLE_STARTTLS=true;
+    export APP_EMAIL__SMTP__USERNAME=User1;
+    export APP_EMAIL__SMTP__PASSWORD=Password1;
+    export APP_SIGNER__PROFILE_MODE=hybrid;
 
-
-	export ESIGN_GOOGLE_FEATURE_ENABLED=true;
-	export ESIGN_SERVICES_MODULE_ENABLED=true;
-	export ESIGN_GOOGLE_PROVIDER_MODE=real;
-	export ESIGN_GOOGLE_CLIENT_ID="${APP_PROVIDERS__GOOGLE__CLIENT_ID}";
-	export ESIGN_GOOGLE_CLIENT_SECRET="${APP_PROVIDERS__GOOGLE__CLIENT_SECRET}";
-	if [ -z "${ESIGN_SERVICES_ENCRYPTION_KEY:-}" ]; then
-	    echo "Missing ESIGN_SERVICES_ENCRYPTION_KEY. Define it in examples/esign/.taskenv to keep credentials decryptable across restarts."
+	export APP_FEATURES__ESIGN_GOOGLE=true;
+	export APP_SERVICES__MODULE_ENABLED=true;
+	export APP_GOOGLE__PROVIDER_MODE=real;
+	export APP_GOOGLE__CLIENT_ID="${APP_PROVIDERS__GOOGLE__CLIENT_ID}";
+	export APP_GOOGLE__CLIENT_SECRET="${APP_PROVIDERS__GOOGLE__CLIENT_SECRET}";
+	if [ -z "${APP_SERVICES__ENCRYPTION_KEY:-}" ]; then
+	    echo "Missing APP_SERVICES__ENCRYPTION_KEY. Define it in examples/esign/.taskenv to keep credentials decryptable across restarts."
 	    return 1
 	fi
-	if [ -z "${ESIGN_GOOGLE_OAUTH_REDIRECT_URI:-}" ]; then
-	    echo "Missing ESIGN_GOOGLE_OAUTH_REDIRECT_URI. Set it to your authorized callback, e.g. http://127.0.0.1:8082/admin/esign/integrations/google/callback"
+	if [ -z "${APP_GOOGLE__OAUTH_REDIRECT_URI:-}" ]; then
+	    echo "Missing APP_GOOGLE__OAUTH_REDIRECT_URI. Set it to your authorized callback, e.g. http://127.0.0.1:8082/admin/esign/integrations/google/callback"
 	    return 1
 	fi
 

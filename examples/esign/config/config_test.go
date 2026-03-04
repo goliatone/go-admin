@@ -25,8 +25,9 @@ func TestLoadAppliesAPPPrefixOverrides(t *testing.T) {
 	}
 }
 
-func TestLoadAppliesLegacyOverridesForPhaseOneCompatibility(t *testing.T) {
+func TestLoadIgnoresLegacyEnvAliases(t *testing.T) {
 	t.Setenv("APP_RUNTIME__PROFILE", "development")
+	t.Setenv("APP_SERVER__ADDRESS", ":9090")
 	t.Setenv("ESIGN_RUNTIME_PROFILE", "production")
 	t.Setenv("PORT", "9090")
 
@@ -34,10 +35,10 @@ func TestLoadAppliesLegacyOverridesForPhaseOneCompatibility(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
-	if cfg.Runtime.Profile != "production" {
-		t.Fatalf("expected legacy ESIGN_RUNTIME_PROFILE to override APP value, got %q", cfg.Runtime.Profile)
+	if cfg.Runtime.Profile != "development" {
+		t.Fatalf("expected APP_RUNTIME__PROFILE value, got %q", cfg.Runtime.Profile)
 	}
 	if cfg.Server.Address != ":9090" {
-		t.Fatalf("expected PORT override -> :9090, got %q", cfg.Server.Address)
+		t.Fatalf("expected APP_SERVER__ADDRESS override -> :9090, got %q", cfg.Server.Address)
 	}
 }

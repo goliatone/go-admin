@@ -7,12 +7,12 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
 	coreadmin "github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/examples/esign/commands"
+	appcfg "github.com/goliatone/go-admin/examples/esign/config"
 	"github.com/goliatone/go-admin/examples/esign/handlers"
 	"github.com/goliatone/go-admin/examples/esign/jobs"
 	"github.com/goliatone/go-admin/examples/esign/observability"
@@ -708,11 +708,10 @@ func cloneBoolMap(in map[string]bool) map[string]bool {
 }
 
 func resolveSignerProfilePersistencePolicy() (time.Duration, bool) {
-	ttlDays := 90
-	if raw := strings.TrimSpace(os.Getenv("ESIGN_SIGNER_PROFILE_TTL_DAYS")); raw != "" {
-		if parsed, err := strconv.Atoi(raw); err == nil {
-			ttlDays = parsed
-		}
+	cfg := appcfg.Active()
+	ttlDays := cfg.Signer.ProfileTTLDays
+	if ttlDays <= 0 {
+		ttlDays = 90
 	}
 	if ttlDays < 1 {
 		ttlDays = 1
@@ -720,33 +719,19 @@ func resolveSignerProfilePersistencePolicy() (time.Duration, bool) {
 	if ttlDays > 365 {
 		ttlDays = 365
 	}
-	persistDrawn := true
-	if raw := strings.TrimSpace(os.Getenv("ESIGN_SIGNER_PROFILE_PERSIST_DRAWN_SIGNATURE")); raw != "" {
-		if parsed, err := strconv.ParseBool(raw); err == nil {
-			persistDrawn = parsed
-		}
-	}
+	persistDrawn := cfg.Signer.ProfilePersistDrawnSignature
 	return time.Duration(ttlDays) * 24 * time.Hour, persistDrawn
 }
 
 func resolveRateLimitClientIPTrustForwarded() bool {
-	raw := strings.TrimSpace(os.Getenv("ESIGN_RATE_LIMIT_TRUST_PROXY_HEADERS"))
-	if raw == "" {
-		return false
-	}
-	parsed, err := strconv.ParseBool(raw)
-	if err != nil {
-		return false
-	}
-	return parsed
+	return appcfg.Active().Network.RateLimitTrustProxyHeaders
 }
 
 func resolveSignatureUploadSecurityPolicy() (time.Duration, string) {
-	ttlSeconds := 300
-	if raw := strings.TrimSpace(os.Getenv("ESIGN_SIGNER_UPLOAD_TTL_SECONDS")); raw != "" {
-		if parsed, err := strconv.Atoi(raw); err == nil {
-			ttlSeconds = parsed
-		}
+	cfg := appcfg.Active()
+	ttlSeconds := cfg.Signer.UploadTTLSeconds
+	if ttlSeconds <= 0 {
+		ttlSeconds = 300
 	}
 	if ttlSeconds < 60 {
 		ttlSeconds = 60
@@ -754,7 +739,7 @@ func resolveSignatureUploadSecurityPolicy() (time.Duration, string) {
 	if ttlSeconds > 900 {
 		ttlSeconds = 900
 	}
-	return time.Duration(ttlSeconds) * time.Second, strings.TrimSpace(os.Getenv("ESIGN_SIGNER_UPLOAD_SIGNING_KEY"))
+	return time.Duration(ttlSeconds) * time.Second, strings.TrimSpace(cfg.Signer.UploadSigningKey)
 }
 
 func (m *ESignModule) validateGoogleRuntimeWiring(ctx context.Context, strict bool) error {
@@ -782,13 +767,5 @@ func (m *ESignModule) validateGoogleRuntimeWiring(ctx context.Context, strict bo
 }
 
 func resolveESignStrictStartup() bool {
-	raw, ok := os.LookupEnv("ESIGN_STRICT_STARTUP")
-	if !ok {
-		return false
-	}
-	parsed, err := strconv.ParseBool(strings.TrimSpace(raw))
-	if err != nil {
-		return false
-	}
-	return parsed
+	return appcfg.Active().Runtime.StrictStartup
 }

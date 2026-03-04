@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	appcfg "github.com/goliatone/go-admin/examples/esign/config"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	goerrors "github.com/goliatone/go-errors"
 	gocore "github.com/goliatone/go-services/core"
@@ -556,9 +557,12 @@ func TestGoogleIntegrationRotateCredentialEncryptionRewrapsTokensToActiveKey(t *
 }
 
 func TestEnvGoogleCredentialKeyProviderResolve(t *testing.T) {
-	t.Setenv(EnvGoogleCredentialActiveKeyID, "v2")
-	t.Setenv(EnvGoogleCredentialActiveKey, "active-key-material")
-	t.Setenv(EnvGoogleCredentialKeysJSON, `{"v1":"legacy-key-material"}`)
+	cfg := appcfg.Defaults()
+	cfg.Google.CredentialActiveKeyID = "v2"
+	cfg.Google.CredentialActiveKey = "active-key-material"
+	cfg.Google.CredentialKeysJSON = `{"v1":"legacy-key-material"}`
+	appcfg.SetActive(cfg)
+	t.Cleanup(appcfg.ResetActive)
 
 	provider := NewEnvGoogleCredentialKeyProvider()
 	keyring, err := provider.Resolve(context.Background())
@@ -826,7 +830,11 @@ func TestGoogleIntegrationProviderHealthDegradedMode(t *testing.T) {
 }
 
 func TestNewGoogleProviderFromEnvRequiresExplicitDeterministicOptIn(t *testing.T) {
-	t.Setenv(EnvGoogleProviderMode, GoogleProviderModeDeterministic)
+	cfg := appcfg.Defaults()
+	cfg.Google.ProviderMode = GoogleProviderModeDeterministic
+	appcfg.SetActive(cfg)
+	t.Cleanup(appcfg.ResetActive)
+
 	provider, mode, err := NewGoogleProviderFromEnv()
 	if err != nil {
 		t.Fatalf("NewGoogleProviderFromEnv deterministic: %v", err)
@@ -977,7 +985,10 @@ func (e *googleProviderEmulatorServer) isRevokedBearer(r *http.Request) bool {
 }
 
 func TestGoogleServicesIntegrationResolveConnectRedirectURIRejectsConfiguredMismatch(t *testing.T) {
-	t.Setenv(EnvGoogleOAuthRedirectURI, "http://127.0.0.1:8082/admin/esign/integrations/google/callback")
+	cfg := appcfg.Defaults()
+	cfg.Google.OAuthRedirectURI = "http://127.0.0.1:8082/admin/esign/integrations/google/callback"
+	appcfg.SetActive(cfg)
+	t.Cleanup(appcfg.ResetActive)
 	service := GoogleServicesIntegrationService{providerMode: GoogleProviderModeReal}
 
 	_, err := service.resolveConnectRedirectURI("http://localhost:8082/admin/esign/integrations/google/callback")
@@ -994,7 +1005,10 @@ func TestGoogleServicesIntegrationResolveConnectRedirectURIRejectsConfiguredMism
 }
 
 func TestGoogleServicesIntegrationResolveConnectRedirectURIRequiresRealModeRedirect(t *testing.T) {
-	t.Setenv(EnvGoogleOAuthRedirectURI, "")
+	cfg := appcfg.Defaults()
+	cfg.Google.OAuthRedirectURI = ""
+	appcfg.SetActive(cfg)
+	t.Cleanup(appcfg.ResetActive)
 	service := GoogleServicesIntegrationService{providerMode: GoogleProviderModeReal}
 
 	_, err := service.resolveConnectRedirectURI("")
@@ -1004,7 +1018,10 @@ func TestGoogleServicesIntegrationResolveConnectRedirectURIRequiresRealModeRedir
 }
 
 func TestGoogleServicesIntegrationResolveConnectRedirectURIAcceptsCanonicalMatch(t *testing.T) {
-	t.Setenv(EnvGoogleOAuthRedirectURI, "http://127.0.0.1:8082/admin/esign/integrations/google/callback")
+	cfg := appcfg.Defaults()
+	cfg.Google.OAuthRedirectURI = "http://127.0.0.1:8082/admin/esign/integrations/google/callback"
+	appcfg.SetActive(cfg)
+	t.Cleanup(appcfg.ResetActive)
 	service := GoogleServicesIntegrationService{providerMode: GoogleProviderModeReal}
 
 	got, err := service.resolveConnectRedirectURI("http://127.0.0.1:8082/admin/esign/integrations/google/callback/")

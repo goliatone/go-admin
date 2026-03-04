@@ -7,17 +7,13 @@ import (
 	"testing"
 	"time"
 
+	appcfg "github.com/goliatone/go-admin/examples/esign/config"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 )
 
 func TestSMTPEmailProviderConfigFromEnvDefaults(t *testing.T) {
-	t.Setenv(EnvEmailSMTPHost, "")
-	t.Setenv(EnvEmailSMTPPort, "")
-	t.Setenv(EnvEmailDefaultFromName, "")
-	t.Setenv(EnvEmailDefaultFromAddress, "")
-	t.Setenv(EnvEmailSMTPTimeoutSeconds, "")
-	t.Setenv(EnvEmailSMTPDisableSTARTTLS, "")
-	t.Setenv(EnvEmailSMTPInsecureTLS, "")
+	appcfg.SetActive(appcfg.Defaults())
+	t.Cleanup(appcfg.ResetActive)
 
 	cfg := SMTPEmailProviderConfigFromEnv()
 	if cfg.Host != "localhost" {
@@ -38,20 +34,27 @@ func TestSMTPEmailProviderConfigFromEnvDefaults(t *testing.T) {
 }
 
 func TestSMTPEmailProviderConfigFromEnvTLSFlags(t *testing.T) {
-	t.Setenv(EnvEmailSMTPDisableSTARTTLS, "true")
-	t.Setenv(EnvEmailSMTPInsecureTLS, "1")
+	cfg := appcfg.Defaults()
+	cfg.Email.SMTP.DisableSTARTTLS = true
+	cfg.Email.SMTP.InsecureTLS = true
+	appcfg.SetActive(cfg)
+	t.Cleanup(appcfg.ResetActive)
 
-	cfg := SMTPEmailProviderConfigFromEnv()
-	if !cfg.DisableSTARTTLS {
+	resolved := SMTPEmailProviderConfigFromEnv()
+	if !resolved.DisableSTARTTLS {
 		t.Fatalf("expected disable STARTTLS true")
 	}
-	if !cfg.InsecureTLS {
+	if !resolved.InsecureTLS {
 		t.Fatalf("expected insecure TLS true")
 	}
 }
 
 func TestEmailProviderFromEnvDeterministic(t *testing.T) {
-	t.Setenv(EnvEmailTransport, "deterministic")
+	cfg := appcfg.Defaults()
+	cfg.Email.Transport = "deterministic"
+	appcfg.SetActive(cfg)
+	t.Cleanup(appcfg.ResetActive)
+
 	provider := EmailProviderFromEnv()
 	if _, ok := provider.(DeterministicEmailProvider); !ok {
 		t.Fatalf("expected deterministic provider, got %T", provider)
@@ -59,7 +62,11 @@ func TestEmailProviderFromEnvDeterministic(t *testing.T) {
 }
 
 func TestEmailProviderFromEnvDefaultDeterministic(t *testing.T) {
-	t.Setenv(EnvEmailTransport, "")
+	cfg := appcfg.Defaults()
+	cfg.Email.Transport = ""
+	appcfg.SetActive(cfg)
+	t.Cleanup(appcfg.ResetActive)
+
 	provider := EmailProviderFromEnv()
 	if _, ok := provider.(DeterministicEmailProvider); !ok {
 		t.Fatalf("expected deterministic provider by default, got %T", provider)
