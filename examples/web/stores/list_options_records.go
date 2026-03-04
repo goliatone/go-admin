@@ -11,17 +11,20 @@ import (
 )
 
 var reservedListPredicateFields = map[string]struct{}{
-	"_search":     {},
-	"search":      {},
-	"environment": {},
-	"env":         {},
-	"page":        {},
-	"per_page":    {},
-	"limit":       {},
-	"offset":      {},
-	"order":       {},
-	"sort":        {},
-	"sort_desc":   {},
+	"_search":              {},
+	"search":               {},
+	"$channel":             {},
+	"content_channel":      {},
+	"site_content_channel": {},
+	"environment":          {},
+	"env":                  {},
+	"page":                 {},
+	"per_page":             {},
+	"limit":                {},
+	"offset":               {},
+	"order":                {},
+	"sort":                 {},
+	"sort_desc":            {},
 }
 
 type listPredicate struct {
@@ -130,6 +133,9 @@ func recordMatchesListPredicates(record map[string]any, predicates []listPredica
 	for _, predicate := range predicates {
 		field := strings.TrimSpace(predicate.Field)
 		if field == "" {
+			continue
+		}
+		if strings.HasPrefix(field, "$") {
 			continue
 		}
 		if _, skip := reservedListPredicateFields[strings.ToLower(field)]; skip {

@@ -24,8 +24,6 @@ PATH=$(pwd)/src/bin:$PATH
 ##########################################
 # Application management
 ##########################################
-
-
 function dev:test {
     go test ./...
 }
@@ -112,6 +110,7 @@ function dev:serve {
     export APP_SITE__RUNTIME_ENV=dev;
     export APP_SITE__CONTENT_CHANNEL=default;
     export APP_SITE__ALLOW_LOCALE_FALLBACK=true;
+    export APP_SITE__CANONICAL_REDIRECT_MODE=requested_locale_sticky;
     export APP_NAVIGATION__RESET_MENU=true;
     export APP_NAVIGATION__DEBUG=false;
     export APP_FEATURES__PERSISTENT_CMS=true;
@@ -123,23 +122,6 @@ function dev:serve {
     export APP_ADMIN__DEBUG__REPL_READ_ONLY=false;
     export APP_TRANSLATION__PROFILE=full;
     export APP_ADMIN__ASSETS_DIR="${root_dir}/pkg/client/assets";
-
-    # Compatibility aliases for scripts/tools still using generic names.
-    export ENV="${APP_APP__ENV}";
-    export SITE_RUNTIME_ENV="${APP_SITE__RUNTIME_ENV}";
-    export SITE_CONTENT_CHANNEL="${APP_SITE__CONTENT_CHANNEL}";
-    export SITE_ALLOW_LOCALE_FALLBACK="${APP_SITE__ALLOW_LOCALE_FALLBACK}";
-    export RESET_NAV_MENU="${APP_NAVIGATION__RESET_MENU}";
-    export USE_PERSISTENT_CMS="${APP_FEATURES__PERSISTENT_CMS}";
-    export NAV_DEBUG="${APP_NAVIGATION__DEBUG}";
-    export ADMIN_DEBUG="${APP_ADMIN__DEBUG__ENABLED}";
-    export ADMIN_SEEDS="${APP_SEEDS__ENABLED}";
-    export ADMIN_DEBUG_REPL="${APP_ADMIN__DEBUG__REPL_ENABLED}";
-    export ADMIN_DEBUG_SCOPE="${APP_ADMIN__DEBUG__SCOPE_ENABLED}";
-    export ADMIN_DEBUG_LAYOUT="${APP_ADMIN__DEBUG__LAYOUT}";
-    export ADMIN_DEBUG_REPL_READONLY="${APP_ADMIN__DEBUG__REPL_READ_ONLY}";
-    export ADMIN_TRANSLATION_PROFILE="${APP_TRANSLATION__PROFILE}";
-    export ADMIN_ASSETS_DIR="${APP_ADMIN__ASSETS_DIR}";
 
     go run .
 }

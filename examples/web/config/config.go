@@ -114,6 +114,7 @@ type SiteConfig struct {
 	EnableGeneratedFallback  bool     `koanf:"enable_generated_fallback" json:"enable_generated_fallback" yaml:"enable_generated_fallback"`
 	EnableSearch             bool     `koanf:"enable_search" json:"enable_search" yaml:"enable_search"`
 	EnableCanonicalRedirect  bool     `koanf:"enable_canonical_redirect" json:"enable_canonical_redirect" yaml:"enable_canonical_redirect"`
+	CanonicalRedirectMode    string   `koanf:"canonical_redirect_mode" json:"canonical_redirect_mode" yaml:"canonical_redirect_mode"`
 	StrictLocalizedPaths     bool     `koanf:"strict_localized_paths" json:"strict_localized_paths" yaml:"strict_localized_paths"`
 	EnvironmentStrict        bool     `koanf:"environment_strict" json:"environment_strict" yaml:"environment_strict"`
 	Theme                    string   `koanf:"theme" json:"theme" yaml:"theme"`
@@ -317,6 +318,7 @@ func Defaults() *Config {
 			EnableGeneratedFallback:  false,
 			EnableSearch:             true,
 			EnableCanonicalRedirect:  true,
+			CanonicalRedirectMode:    "requested_locale_sticky",
 			StrictLocalizedPaths:     false,
 			EnvironmentStrict:        false,
 			Theme:                    "",
