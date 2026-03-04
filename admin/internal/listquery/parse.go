@@ -98,6 +98,9 @@ func ParseContext(c router.Context, defaultPage, defaultPerPage int) Result {
 		"offset":                {},
 		"order":                 {},
 		"fields":                {},
+		"$channel":              {},
+		"content_channel":       {},
+		"site_content_channel":  {},
 		"env":                   {},
 		"environment":           {},
 		"locale":                {},
@@ -109,6 +112,9 @@ func ParseContext(c router.Context, defaultPage, defaultPerPage int) Result {
 	for key, value := range c.Queries() {
 		rawKey := strings.TrimSpace(key)
 		if rawKey == "" {
+			continue
+		}
+		if strings.HasPrefix(rawKey, "$") {
 			continue
 		}
 		if strings.TrimSpace(value) == "" {
