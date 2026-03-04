@@ -1,6 +1,6 @@
 module github.com/goliatone/go-admin/quickstart
 
-go 1.24.10
+go 1.26.0
 
 replace github.com/goliatone/go-admin => ..
 
@@ -13,9 +13,9 @@ require (
 	github.com/gobuffalo/flect v1.0.3
 	github.com/gofiber/fiber/v2 v2.52.11
 	github.com/goliatone/go-admin v0.25.0
-	github.com/goliatone/go-auth v0.35.0
-	github.com/goliatone/go-auth/adapters/featuregate v0.35.0
-	github.com/goliatone/go-cms v0.39.0
+	github.com/goliatone/go-auth v0.36.0
+	github.com/goliatone/go-auth/adapters/featuregate v0.36.0
+	github.com/goliatone/go-cms v0.40.0
 	github.com/goliatone/go-command v0.16.1
 	github.com/goliatone/go-dashboard v0.7.0
 	github.com/goliatone/go-errors v0.10.0
@@ -25,13 +25,13 @@ require (
 	github.com/goliatone/go-formgen v0.18.0
 	github.com/goliatone/go-logger v0.8.0
 	github.com/goliatone/go-notifications v0.12.0
-	github.com/goliatone/go-persistence-bun v0.11.0
+	github.com/goliatone/go-persistence-bun v0.12.0
 	github.com/goliatone/go-router v0.50.0
 	github.com/goliatone/go-template v0.3.1
 	github.com/goliatone/go-theme v0.3.0
 	github.com/goliatone/go-uploader v0.3.0
 	github.com/goliatone/go-urlkit v0.5.0
-	github.com/goliatone/go-users v0.16.0
+	github.com/goliatone/go-users v0.17.0
 	github.com/google/uuid v1.6.0
 	github.com/jinzhu/inflection v1.0.0
 	github.com/stretchr/testify v1.11.1
