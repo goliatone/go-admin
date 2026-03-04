@@ -104,13 +104,14 @@ const dataGridConfig = {{ toJSON(datagrid_config)|safe }} || {};
 const preferencesAPIPath = String(dataGridConfig.preferences_endpoint || '{{ preferences_api_path|default:"" }}').trim();
 const apiEndpoint = dataGridConfig.api_endpoint || '{{ list_api|default:"" }}';
 const actionBasePath = dataGridConfig.action_base || '{{ action_base|default:"" }}';
+const channelQueryKey = String(dataGridConfig.channel_query_key || '{{ channel_query_key|default:"$channel" }}').trim() || '$channel';
 const columns = {{ toJSON(columns)|safe }};
 const filters = {{ toJSON(filters)|safe }};
 const initialChannel = {{ toJSON(channel)|safe }};
 const locale = {{ toJSON(locale)|safe }};
 const panelName = '{{ panel_name }}';
 const queryParams = new URLSearchParams(window.location.search);
-const queryChannel = queryParams.get('channel');
+const queryChannel = queryParams.get(channelQueryKey) || queryParams.get('channel');
 const channel = String(queryChannel || initialChannel || '').trim() || null;
 const columnFields = columns.map(c => c.field);
 const gridColumns = columns.map(col => ({
@@ -271,7 +272,7 @@ async function loadTranslationAssigneeLookup() {
   try {
     const params = new URLSearchParams({ per_page: '200' });
     if (channel) {
-      params.set('channel', String(channel).trim());
+      params.set(channelQueryKey, String(channel).trim());
     }
     const response = await fetch(`${translationsAssigneesEndpoint()}?${params.toString()}`);
     if (!response.ok) {
@@ -361,7 +362,7 @@ function createTranslationsQueueCellRenderers(assigneeLookup) {
 class PanelPaginationBehavior {
   buildQuery(page, perPage) {
     const params = { page, per_page: perPage };
-    if (channel) params.channel = channel;
+    if (channel) params[channelQueryKey] = channel;
     return params;
   }
   async onPageChange(page, grid) {
@@ -374,7 +375,7 @@ class PanelSearchBehavior {
     const params = {};
     const value = term ? term.trim() : '';
     if (value) params.search = value;
-    if (channel) params.channel = channel;
+    if (channel) params[channelQueryKey] = channel;
     return params;
   }
   async onSearch(term, grid) {

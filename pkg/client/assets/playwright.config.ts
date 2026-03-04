@@ -5,7 +5,7 @@ import { defineConfig, devices } from '@playwright/test';
  *
  * Prerequisites:
  * - Example web server running at localhost:8080 (./taskfile dev:serve from examples/web)
- * - ADMIN_TRANSLATION_PROFILE=full for full translation capabilities
+ * - APP_TRANSLATION__PROFILE=full for full translation capabilities
  *
  * Run:
  * - npm run e2e           (headless)
