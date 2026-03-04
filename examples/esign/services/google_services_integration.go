@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"os"
 	"path"
 	"sort"
 	"strings"
 	"time"
 
+	appcfg "github.com/goliatone/go-admin/examples/esign/config"
 	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	servicesmodule "github.com/goliatone/go-admin/modules/services"
@@ -626,7 +626,7 @@ func (s GoogleServicesIntegrationService) googleProviderID() string {
 
 func (s GoogleServicesIntegrationService) resolveConnectRedirectURI(requestRedirectURI string) (string, error) {
 	resolvedRedirectURI := strings.TrimSpace(requestRedirectURI)
-	configuredRedirectURI := strings.TrimSpace(os.Getenv(EnvGoogleOAuthRedirectURI))
+	configuredRedirectURI := strings.TrimSpace(appcfg.Active().Google.OAuthRedirectURI)
 	if configuredRedirectURI != "" {
 		if resolvedRedirectURI != "" && !redirectURIsMatch(resolvedRedirectURI, configuredRedirectURI) {
 			return "", goerrors.New("google redirect_uri does not match configured callback", goerrors.CategoryValidation).

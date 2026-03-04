@@ -13,11 +13,11 @@ import (
 	"io"
 	"net/http"
 	neturl "net/url"
-	"os"
 	"sort"
 	"strings"
 	"time"
 
+	appcfg "github.com/goliatone/go-admin/examples/esign/config"
 	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	"github.com/goliatone/go-admin/quickstart"
@@ -30,9 +30,9 @@ const (
 	// DefaultGoogleCredentialKeyID is the default active key id used for credential encryption.
 	DefaultGoogleCredentialKeyID   = "v1"
 	defaultGoogleCredentialKey     = "go-admin-esign-google"
-	EnvGoogleCredentialActiveKeyID = "ESIGN_GOOGLE_CREDENTIAL_ACTIVE_KEY_ID"
-	EnvGoogleCredentialActiveKey   = "ESIGN_GOOGLE_CREDENTIAL_ACTIVE_KEY"
-	EnvGoogleCredentialKeysJSON    = "ESIGN_GOOGLE_CREDENTIAL_KEYS_JSON"
+	EnvGoogleCredentialActiveKeyID = "APP_GOOGLE__CREDENTIAL_ACTIVE_KEY_ID"
+	EnvGoogleCredentialActiveKey   = "APP_GOOGLE__CREDENTIAL_ACTIVE_KEY"
+	EnvGoogleCredentialKeysJSON    = "APP_GOOGLE__CREDENTIAL_KEYS_JSON"
 )
 
 const (
@@ -177,41 +177,29 @@ func NewEnvGoogleCredentialKeyProvider() EnvGoogleCredentialKeyProvider {
 	}
 }
 
-// Resolve loads keyring material from env.
+// Resolve loads keyring material from active runtime config.
 // Required:
-// - ESIGN_GOOGLE_CREDENTIAL_ACTIVE_KEY
+// - APP_GOOGLE__CREDENTIAL_ACTIVE_KEY
 // Optional:
-// - ESIGN_GOOGLE_CREDENTIAL_ACTIVE_KEY_ID (default "v1")
-// - ESIGN_GOOGLE_CREDENTIAL_KEYS_JSON (JSON object: {"v0":"old-key","v-1":"older-key"})
+// - APP_GOOGLE__CREDENTIAL_ACTIVE_KEY_ID (default "v1")
+// - APP_GOOGLE__CREDENTIAL_KEYS_JSON (JSON object: {"v0":"old-key","v-1":"older-key"})
 func (p EnvGoogleCredentialKeyProvider) Resolve(_ context.Context) (GoogleCredentialKeyring, error) {
-	activeKeyIDEnv := strings.TrimSpace(p.ActiveKeyIDEnv)
-	if activeKeyIDEnv == "" {
-		activeKeyIDEnv = EnvGoogleCredentialActiveKeyID
-	}
-	activeKeyEnv := strings.TrimSpace(p.ActiveKeyEnv)
-	if activeKeyEnv == "" {
-		activeKeyEnv = EnvGoogleCredentialActiveKey
-	}
-	keysJSONEnv := strings.TrimSpace(p.KeysJSONEnv)
-	if keysJSONEnv == "" {
-		keysJSONEnv = EnvGoogleCredentialKeysJSON
-	}
-
-	activeKeyID := normalizeCredentialKeyID(os.Getenv(activeKeyIDEnv))
+	cfg := appcfg.Active()
+	activeKeyID := normalizeCredentialKeyID(cfg.Google.CredentialActiveKeyID)
 	if activeKeyID == "" {
 		activeKeyID = DefaultGoogleCredentialKeyID
 	}
-	activeKey := strings.TrimSpace(os.Getenv(activeKeyEnv))
+	activeKey := strings.TrimSpace(cfg.Google.CredentialActiveKey)
 	if activeKey == "" {
-		return GoogleCredentialKeyring{}, fmt.Errorf("%s is required when esign_google is enabled", activeKeyEnv)
+		return GoogleCredentialKeyring{}, fmt.Errorf("APP_GOOGLE__CREDENTIAL_ACTIVE_KEY is required when esign_google is enabled")
 	}
 
 	keys := map[string][]byte{}
-	rawJSON := strings.TrimSpace(os.Getenv(keysJSONEnv))
+	rawJSON := strings.TrimSpace(cfg.Google.CredentialKeysJSON)
 	if rawJSON != "" {
 		parsed := map[string]string{}
 		if err := json.Unmarshal([]byte(rawJSON), &parsed); err != nil {
-			return GoogleCredentialKeyring{}, fmt.Errorf("parse %s: %w", keysJSONEnv, err)
+			return GoogleCredentialKeyring{}, fmt.Errorf("parse APP_GOOGLE__CREDENTIAL_KEYS_JSON: %w", err)
 		}
 		for keyID, material := range parsed {
 			keyID = normalizeCredentialKeyID(keyID)

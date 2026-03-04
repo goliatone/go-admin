@@ -8,23 +8,24 @@ import (
 	"fmt"
 	"net/mail"
 	"net/smtp"
-	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	appcfg "github.com/goliatone/go-admin/examples/esign/config"
 )
 
 const (
-	EnvEmailTransport           = "ESIGN_EMAIL_TRANSPORT"
-	EnvEmailSMTPHost            = "ESIGN_EMAIL_SMTP_HOST"
-	EnvEmailSMTPPort            = "ESIGN_EMAIL_SMTP_PORT"
-	EnvEmailSMTPUsername        = "ESIGN_EMAIL_SMTP_USERNAME"
-	EnvEmailSMTPPassword        = "ESIGN_EMAIL_SMTP_PASSWORD"
-	EnvEmailDefaultFromName     = "ESIGN_EMAIL_FROM_NAME"
-	EnvEmailDefaultFromAddress  = "ESIGN_EMAIL_FROM_ADDRESS"
-	EnvEmailSMTPTimeoutSeconds  = "ESIGN_EMAIL_SMTP_TIMEOUT_SECONDS"
-	EnvEmailSMTPDisableSTARTTLS = "ESIGN_EMAIL_SMTP_DISABLE_STARTTLS"
-	EnvEmailSMTPInsecureTLS     = "ESIGN_EMAIL_SMTP_INSECURE_TLS"
+	EnvEmailTransport           = "APP_EMAIL__TRANSPORT"
+	EnvEmailSMTPHost            = "APP_EMAIL__SMTP__HOST"
+	EnvEmailSMTPPort            = "APP_EMAIL__SMTP__PORT"
+	EnvEmailSMTPUsername        = "APP_EMAIL__SMTP__USERNAME"
+	EnvEmailSMTPPassword        = "APP_EMAIL__SMTP__PASSWORD"
+	EnvEmailDefaultFromName     = "APP_EMAIL__SMTP__FROM_NAME"
+	EnvEmailDefaultFromAddress  = "APP_EMAIL__SMTP__FROM_ADDRESS"
+	EnvEmailSMTPTimeoutSeconds  = "APP_EMAIL__SMTP__TIMEOUT_SECONDS"
+	EnvEmailSMTPDisableSTARTTLS = "APP_EMAIL__SMTP__DISABLE_STARTTLS"
+	EnvEmailSMTPInsecureTLS     = "APP_EMAIL__SMTP__INSECURE_TLS"
 )
 
 // SMTPEmailProviderConfig captures SMTP transport settings.
@@ -53,37 +54,39 @@ func DefaultSMTPEmailProviderConfig() SMTPEmailProviderConfig {
 
 // SMTPEmailProviderConfigFromEnv resolves SMTP config from environment variables.
 func SMTPEmailProviderConfigFromEnv() SMTPEmailProviderConfig {
+	return SMTPEmailProviderConfigFromRuntime(appcfg.Active())
+}
+
+// SMTPEmailProviderConfigFromRuntime resolves SMTP config from runtime config.
+func SMTPEmailProviderConfigFromRuntime(runtimeCfg appcfg.Config) SMTPEmailProviderConfig {
 	cfg := DefaultSMTPEmailProviderConfig()
-	if value := strings.TrimSpace(os.Getenv(EnvEmailSMTPHost)); value != "" {
+	if value := strings.TrimSpace(runtimeCfg.Email.SMTP.Host); value != "" {
 		cfg.Host = value
 	}
-	if value := strings.TrimSpace(os.Getenv(EnvEmailSMTPPort)); value != "" {
-		if parsed, err := strconv.Atoi(value); err == nil && parsed > 0 {
-			cfg.Port = parsed
-		}
+	if runtimeCfg.Email.SMTP.Port > 0 {
+		cfg.Port = runtimeCfg.Email.SMTP.Port
 	}
-	if value := strings.TrimSpace(os.Getenv(EnvEmailSMTPUsername)); value != "" {
+	if value := strings.TrimSpace(runtimeCfg.Email.SMTP.Username); value != "" {
 		cfg.Username = value
 	}
-	if value := strings.TrimSpace(os.Getenv(EnvEmailSMTPPassword)); value != "" {
+	if value := strings.TrimSpace(runtimeCfg.Email.SMTP.Password); value != "" {
 		cfg.Password = value
 	}
-	if value := strings.TrimSpace(os.Getenv(EnvEmailDefaultFromName)); value != "" {
+	if value := strings.TrimSpace(runtimeCfg.Email.SMTP.FromName); value != "" {
 		cfg.FromName = value
 	}
-	if value := strings.TrimSpace(os.Getenv(EnvEmailDefaultFromAddress)); value != "" {
+	if value := strings.TrimSpace(runtimeCfg.Email.SMTP.FromAddress); value != "" {
 		cfg.FromAddress = value
 	}
-	if value := strings.TrimSpace(os.Getenv(EnvEmailSMTPTimeoutSeconds)); value != "" {
-		if parsed, err := strconv.Atoi(value); err == nil && parsed > 0 {
-			cfg.Timeout = time.Duration(parsed) * time.Second
-		}
+	if runtimeCfg.Email.SMTP.TimeoutSeconds > 0 {
+		cfg.Timeout = time.Duration(runtimeCfg.Email.SMTP.TimeoutSeconds) * time.Second
 	}
-	if value := strings.TrimSpace(os.Getenv(EnvEmailSMTPDisableSTARTTLS)); value != "" {
-		cfg.DisableSTARTTLS = parseEnvBool(value, cfg.DisableSTARTTLS)
-	}
-	if value := strings.TrimSpace(os.Getenv(EnvEmailSMTPInsecureTLS)); value != "" {
-		cfg.InsecureTLS = parseEnvBool(value, cfg.InsecureTLS)
+	cfg.DisableSTARTTLS = runtimeCfg.Email.SMTP.DisableSTARTTLS
+	cfg.InsecureTLS = runtimeCfg.Email.SMTP.InsecureTLS
+
+	transport := strings.ToLower(strings.TrimSpace(runtimeCfg.Email.Transport))
+	if transport == "mailpit" {
+		cfg.DisableSTARTTLS = true
 	}
 	return cfg
 }
@@ -91,10 +94,11 @@ func SMTPEmailProviderConfigFromEnv() SMTPEmailProviderConfig {
 // EmailProviderFromEnv resolves the runtime email provider.
 // Default transport is deterministic unless explicitly set to SMTP.
 func EmailProviderFromEnv() EmailProvider {
-	transport := strings.ToLower(strings.TrimSpace(os.Getenv(EnvEmailTransport)))
+	runtimeCfg := appcfg.Active()
+	transport := strings.ToLower(strings.TrimSpace(runtimeCfg.Email.Transport))
 	switch transport {
 	case "smtp", "mailpit":
-		return NewSMTPEmailProvider(SMTPEmailProviderConfigFromEnv())
+		return NewSMTPEmailProvider(SMTPEmailProviderConfigFromRuntime(runtimeCfg))
 	case "":
 		return DeterministicEmailProvider{}
 	case "deterministic", "mock":

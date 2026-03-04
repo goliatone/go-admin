@@ -19,6 +19,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	coreadmin "github.com/goliatone/go-admin/admin"
+	appcfg "github.com/goliatone/go-admin/examples/esign/config"
 	"github.com/goliatone/go-admin/examples/esign/handlers"
 	"github.com/goliatone/go-admin/examples/esign/modules"
 	"github.com/goliatone/go-admin/examples/esign/observability"
@@ -200,8 +201,6 @@ func TestRuntimeGoogleIntegrationUIRoutesFeatureGatedWhenDisabled(t *testing.T) 
 }
 
 func TestRuntimeGoogleIntegrationUIRoutesRenderWhenEnabled(t *testing.T) {
-	t.Setenv("ESIGN_GOOGLE_CREDENTIAL_ACTIVE_KEY", "test-google-active-key")
-	t.Setenv("ESIGN_GOOGLE_PROVIDER_MODE", "deterministic")
 	app, err := newESignRuntimeWebAppForTestsWithGoogleEnabled(true)
 	if err != nil {
 		t.Fatalf("setup e-sign runtime app with google enabled: %v", err)
@@ -274,8 +273,6 @@ func TestRuntimeGoogleIntegrationUIRoutesRenderWhenEnabled(t *testing.T) {
 }
 
 func TestRuntimeGoogleIntegrationCallbackRouteAccessibleWithoutAuthCookie(t *testing.T) {
-	t.Setenv("ESIGN_GOOGLE_CREDENTIAL_ACTIVE_KEY", "test-google-active-key")
-	t.Setenv("ESIGN_GOOGLE_PROVIDER_MODE", "deterministic")
 	app, err := newESignRuntimeWebAppForTestsWithGoogleEnabled(true)
 	if err != nil {
 		t.Fatalf("setup e-sign runtime app with google enabled: %v", err)
@@ -297,8 +294,6 @@ func TestRuntimeGoogleIntegrationCallbackRouteAccessibleWithoutAuthCookie(t *tes
 }
 
 func TestRuntimeNewDocumentRouteInjectsGoogleIngestionFlagsWhenEnabled(t *testing.T) {
-	t.Setenv("ESIGN_GOOGLE_CREDENTIAL_ACTIVE_KEY", "test-google-active-key")
-	t.Setenv("ESIGN_GOOGLE_PROVIDER_MODE", "deterministic")
 	app, err := newESignRuntimeWebAppForTestsWithGoogleEnabled(true)
 	if err != nil {
 		t.Fatalf("setup e-sign runtime app with google enabled: %v", err)
@@ -1341,6 +1336,7 @@ func TestRuntimeSignerWebE2EUnifiedFlowConsentFieldSignatureSubmit(t *testing.T)
 
 func setupESignRuntimeWebApp(t *testing.T) *fiber.App {
 	t.Helper()
+	setESignRuntimeTestConfig(false)
 	esignRuntimeAppOnce.Do(func() {
 		esignRuntimeApp, esignRuntimeAppErr = newESignRuntimeWebAppForTests()
 	})
@@ -1355,11 +1351,22 @@ func newESignRuntimeWebAppForTests() (*fiber.App, error) {
 }
 
 func newESignRuntimeWebAppForTestsWithGoogleEnabled(googleEnabled bool) (*fiber.App, error) {
+	setESignRuntimeTestConfig(googleEnabled)
 	fixture, err := newESignRuntimeWebFixtureForTestsWithGoogleEnabled(googleEnabled)
 	if err != nil {
 		return nil, err
 	}
 	return fixture.App, nil
+}
+
+func setESignRuntimeTestConfig(googleEnabled bool) {
+	cfg := appcfg.Defaults()
+	cfg.Features.ESignGoogle = googleEnabled
+	cfg.Google.ProviderMode = services.GoogleProviderModeDeterministic
+	cfg.Google.CredentialActiveKey = "test-google-active-key"
+	cfg.Google.CredentialActiveKeyID = "v1"
+	cfg.Public.BaseURL = "http://localhost:8082"
+	appcfg.SetActive(cfg)
 }
 
 type eSignRuntimeWebFixture struct {

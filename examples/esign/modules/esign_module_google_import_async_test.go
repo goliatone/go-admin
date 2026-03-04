@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	appcfg "github.com/goliatone/go-admin/examples/esign/config"
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/quickstart"
 	"github.com/goliatone/go-command/registry"
@@ -21,8 +22,12 @@ import (
 func TestESignModuleGoogleDriveImportAsyncUsesGoogleImporter(t *testing.T) {
 	_ = registry.Stop(context.Background())
 	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
-	t.Setenv(services.EnvGoogleProviderMode, services.GoogleProviderModeDeterministic)
-	t.Setenv(services.EnvGoogleCredentialActiveKey, "test-google-credential-key")
+	runtimeCfg := appcfg.Defaults()
+	runtimeCfg.Features.ESignGoogle = true
+	runtimeCfg.Google.ProviderMode = services.GoogleProviderModeDeterministic
+	runtimeCfg.Google.CredentialActiveKey = "test-google-credential-key"
+	appcfg.SetActive(runtimeCfg)
+	t.Cleanup(appcfg.ResetActive)
 
 	cfg := quickstart.NewAdminConfig("/admin", "E-Sign Test", "en")
 	cfg.URLs.Admin.APIPrefix = "api"

@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	appcfg "github.com/goliatone/go-admin/examples/esign/config"
 	"github.com/uptrace/bun/driver/sqliteshim"
 )
 
@@ -20,10 +21,11 @@ const defaultESignSQLiteFilename = "go-admin-esign.db"
 
 // ResolveSQLiteDSN returns the preferred DSN for the e-sign example store.
 func ResolveSQLiteDSN() string {
-	if value := strings.TrimSpace(os.Getenv("ESIGN_DATABASE_DSN")); value != "" {
+	cfg := appcfg.Active()
+	if value := strings.TrimSpace(cfg.Databases.ESignDSN); value != "" {
 		return value
 	}
-	if value := strings.TrimSpace(os.Getenv("CONTENT_DATABASE_DSN")); value != "" {
+	if value := strings.TrimSpace(cfg.Databases.ContentDSN); value != "" {
 		return value
 	}
 	filename := strings.TrimSuffix(defaultESignSQLiteFilename, ".db")

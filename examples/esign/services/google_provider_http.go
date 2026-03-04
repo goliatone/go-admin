@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	appcfg "github.com/goliatone/go-admin/examples/esign/config"
 	"github.com/goliatone/go-admin/internal/primitives"
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -18,16 +18,16 @@ const (
 	GoogleProviderModeReal          = "real"
 	GoogleProviderModeDeterministic = "deterministic"
 
-	EnvGoogleProviderMode       = "ESIGN_GOOGLE_PROVIDER_MODE"
-	EnvGoogleClientID           = "ESIGN_GOOGLE_CLIENT_ID"
-	EnvGoogleClientSecret       = "ESIGN_GOOGLE_CLIENT_SECRET"
-	EnvGoogleOAuthRedirectURI   = "ESIGN_GOOGLE_OAUTH_REDIRECT_URI"
-	EnvGoogleTokenEndpoint      = "ESIGN_GOOGLE_TOKEN_ENDPOINT"
-	EnvGoogleRevokeEndpoint     = "ESIGN_GOOGLE_REVOKE_ENDPOINT"
-	EnvGoogleDriveBaseURL       = "ESIGN_GOOGLE_DRIVE_BASE_URL"
-	EnvGoogleUserInfoEndpoint   = "ESIGN_GOOGLE_USERINFO_ENDPOINT"
-	EnvGoogleHealthEndpoint     = "ESIGN_GOOGLE_HEALTH_ENDPOINT"
-	EnvGoogleHTTPTimeoutSeconds = "ESIGN_GOOGLE_HTTP_TIMEOUT_SECONDS"
+	EnvGoogleProviderMode       = "APP_GOOGLE__PROVIDER_MODE"
+	EnvGoogleClientID           = "APP_GOOGLE__CLIENT_ID"
+	EnvGoogleClientSecret       = "APP_GOOGLE__CLIENT_SECRET"
+	EnvGoogleOAuthRedirectURI   = "APP_GOOGLE__OAUTH_REDIRECT_URI"
+	EnvGoogleTokenEndpoint      = "APP_GOOGLE__TOKEN_ENDPOINT"
+	EnvGoogleRevokeEndpoint     = "APP_GOOGLE__REVOKE_ENDPOINT"
+	EnvGoogleDriveBaseURL       = "APP_GOOGLE__DRIVE_BASE_URL"
+	EnvGoogleUserInfoEndpoint   = "APP_GOOGLE__USERINFO_ENDPOINT"
+	EnvGoogleHealthEndpoint     = "APP_GOOGLE__HEALTH_ENDPOINT"
+	EnvGoogleHTTPTimeoutSeconds = "APP_GOOGLE__HTTP_TIMEOUT_SECONDS"
 )
 
 const (
@@ -76,7 +76,7 @@ type googleDriveFilePayload struct {
 // ResolveGoogleProviderMode returns the configured runtime provider mode.
 // Default is "real" so production wiring does not silently fall back to deterministic behavior.
 func ResolveGoogleProviderMode() string {
-	mode := strings.ToLower(strings.TrimSpace(os.Getenv(EnvGoogleProviderMode)))
+	mode := strings.ToLower(strings.TrimSpace(appcfg.Active().Google.ProviderMode))
 	switch mode {
 	case "", GoogleProviderModeReal:
 		return GoogleProviderModeReal
@@ -106,22 +106,19 @@ func NewGoogleProviderFromEnv() (GoogleProvider, string, error) {
 
 // NewGoogleHTTPProviderFromEnv builds the real HTTP-backed provider from env configuration.
 func NewGoogleHTTPProviderFromEnv() (*GoogleHTTPProvider, error) {
-	timeoutSeconds := defaultGoogleHTTPTimeoutSeconds
-	if raw := strings.TrimSpace(os.Getenv(EnvGoogleHTTPTimeoutSeconds)); raw != "" {
-		parsed, err := strconv.Atoi(raw)
-		if err != nil || parsed <= 0 {
-			return nil, fmt.Errorf("invalid %s value: %q", EnvGoogleHTTPTimeoutSeconds, raw)
-		}
-		timeoutSeconds = parsed
+	runtimeCfg := appcfg.Active()
+	timeoutSeconds := runtimeCfg.Google.HTTPTimeoutSeconds
+	if timeoutSeconds <= 0 {
+		timeoutSeconds = defaultGoogleHTTPTimeoutSeconds
 	}
 	return NewGoogleHTTPProvider(GoogleHTTPProviderConfig{
-		ClientID:         strings.TrimSpace(os.Getenv(EnvGoogleClientID)),
-		ClientSecret:     strings.TrimSpace(os.Getenv(EnvGoogleClientSecret)),
-		TokenEndpoint:    primitives.FirstNonEmpty(strings.TrimSpace(os.Getenv(EnvGoogleTokenEndpoint)), defaultGoogleTokenEndpoint),
-		RevokeEndpoint:   primitives.FirstNonEmpty(strings.TrimSpace(os.Getenv(EnvGoogleRevokeEndpoint)), defaultGoogleRevokeEndpoint),
-		DriveBaseURL:     primitives.FirstNonEmpty(strings.TrimSpace(os.Getenv(EnvGoogleDriveBaseURL)), defaultGoogleDriveBaseURL),
-		UserInfoEndpoint: primitives.FirstNonEmpty(strings.TrimSpace(os.Getenv(EnvGoogleUserInfoEndpoint)), defaultGoogleUserInfoEndpoint),
-		HealthEndpoint:   primitives.FirstNonEmpty(strings.TrimSpace(os.Getenv(EnvGoogleHealthEndpoint)), defaultGoogleHealthEndpoint),
+		ClientID:         strings.TrimSpace(runtimeCfg.Google.ClientID),
+		ClientSecret:     strings.TrimSpace(runtimeCfg.Google.ClientSecret),
+		TokenEndpoint:    primitives.FirstNonEmpty(strings.TrimSpace(runtimeCfg.Google.TokenEndpoint), defaultGoogleTokenEndpoint),
+		RevokeEndpoint:   primitives.FirstNonEmpty(strings.TrimSpace(runtimeCfg.Google.RevokeEndpoint), defaultGoogleRevokeEndpoint),
+		DriveBaseURL:     primitives.FirstNonEmpty(strings.TrimSpace(runtimeCfg.Google.DriveBaseURL), defaultGoogleDriveBaseURL),
+		UserInfoEndpoint: primitives.FirstNonEmpty(strings.TrimSpace(runtimeCfg.Google.UserInfoEndpoint), defaultGoogleUserInfoEndpoint),
+		HealthEndpoint:   primitives.FirstNonEmpty(strings.TrimSpace(runtimeCfg.Google.HealthEndpoint), defaultGoogleHealthEndpoint),
 		HTTPClient: &http.Client{
 			Timeout: time.Duration(timeoutSeconds) * time.Second,
 		},

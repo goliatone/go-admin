@@ -3,11 +3,10 @@ package config
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
+	"sync"
 
 	goconfig "github.com/goliatone/go-config/config"
 )
@@ -19,17 +18,20 @@ const (
 
 // Config defines runtime configuration for the e-sign example application.
 type Config struct {
-	App      AppConfig      `koanf:"app" json:"app" yaml:"app"`
-	Server   ServerConfig   `koanf:"server" json:"server" yaml:"server"`
-	Admin    AdminConfig    `koanf:"admin" json:"admin" yaml:"admin"`
-	Features FeatureConfig  `koanf:"features" json:"features" yaml:"features"`
-	Runtime  RuntimeConfig  `koanf:"runtime" json:"runtime" yaml:"runtime"`
-	Storage  StorageConfig  `koanf:"storage" json:"storage" yaml:"storage"`
-	Email    EmailConfig    `koanf:"email" json:"email" yaml:"email"`
-	Signer   SignerConfig   `koanf:"signer" json:"signer" yaml:"signer"`
-	Services ServicesConfig `koanf:"services" json:"services" yaml:"services"`
-	Google   GoogleConfig   `koanf:"google" json:"google" yaml:"google"`
-	Public   PublicConfig   `koanf:"public" json:"public" yaml:"public"`
+	App       AppConfig       `koanf:"app" json:"app" yaml:"app"`
+	Server    ServerConfig    `koanf:"server" json:"server" yaml:"server"`
+	Admin     AdminConfig     `koanf:"admin" json:"admin" yaml:"admin"`
+	Auth      AuthConfig      `koanf:"auth" json:"auth" yaml:"auth"`
+	Features  FeatureConfig   `koanf:"features" json:"features" yaml:"features"`
+	Runtime   RuntimeConfig   `koanf:"runtime" json:"runtime" yaml:"runtime"`
+	Storage   StorageConfig   `koanf:"storage" json:"storage" yaml:"storage"`
+	Email     EmailConfig     `koanf:"email" json:"email" yaml:"email"`
+	Signer    SignerConfig    `koanf:"signer" json:"signer" yaml:"signer"`
+	Services  ServicesConfig  `koanf:"services" json:"services" yaml:"services"`
+	Google    GoogleConfig    `koanf:"google" json:"google" yaml:"google"`
+	Public    PublicConfig    `koanf:"public" json:"public" yaml:"public"`
+	Databases DatabasesConfig `koanf:"databases" json:"databases" yaml:"databases"`
+	Network   NetworkConfig   `koanf:"network" json:"network" yaml:"network"`
 
 	ConfigPath string `koanf:"-" json:"-" yaml:"-"`
 }
@@ -57,6 +59,15 @@ type AdminDebugConfig struct {
 	EnableSlog bool `koanf:"enable_slog" json:"enable_slog" yaml:"enable_slog"`
 }
 
+type AuthConfig struct {
+	AdminID       string `koanf:"admin_id" json:"admin_id" yaml:"admin_id"`
+	AdminEmail    string `koanf:"admin_email" json:"admin_email" yaml:"admin_email"`
+	AdminRole     string `koanf:"admin_role" json:"admin_role" yaml:"admin_role"`
+	AdminPassword string `koanf:"admin_password" json:"admin_password" yaml:"admin_password"`
+	SigningKey    string `koanf:"signing_key" json:"signing_key" yaml:"signing_key"`
+	ContextKey    string `koanf:"context_key" json:"context_key" yaml:"context_key"`
+}
+
 type FeatureConfig struct {
 	ESign       bool `koanf:"esign" json:"esign" yaml:"esign"`
 	ESignGoogle bool `koanf:"esign_google" json:"esign_google" yaml:"esign_google"`
@@ -66,6 +77,7 @@ type FeatureConfig struct {
 type RuntimeConfig struct {
 	Profile       string `koanf:"profile" json:"profile" yaml:"profile"`
 	StartupPolicy string `koanf:"startup_policy" json:"startup_policy" yaml:"startup_policy"`
+	StrictStartup bool   `koanf:"strict_startup" json:"strict_startup" yaml:"strict_startup"`
 }
 
 type StorageConfig struct {
@@ -73,12 +85,28 @@ type StorageConfig struct {
 }
 
 type EmailConfig struct {
-	Transport string `koanf:"transport" json:"transport" yaml:"transport"`
+	Transport string          `koanf:"transport" json:"transport" yaml:"transport"`
+	SMTP      EmailSMTPConfig `koanf:"smtp" json:"smtp" yaml:"smtp"`
+}
+
+type EmailSMTPConfig struct {
+	Host            string `koanf:"host" json:"host" yaml:"host"`
+	Port            int    `koanf:"port" json:"port" yaml:"port"`
+	Username        string `koanf:"username" json:"username" yaml:"username"`
+	Password        string `koanf:"password" json:"password" yaml:"password"`
+	FromName        string `koanf:"from_name" json:"from_name" yaml:"from_name"`
+	FromAddress     string `koanf:"from_address" json:"from_address" yaml:"from_address"`
+	TimeoutSeconds  int    `koanf:"timeout_seconds" json:"timeout_seconds" yaml:"timeout_seconds"`
+	DisableSTARTTLS bool   `koanf:"disable_starttls" json:"disable_starttls" yaml:"disable_starttls"`
+	InsecureTLS     bool   `koanf:"insecure_tls" json:"insecure_tls" yaml:"insecure_tls"`
 }
 
 type SignerConfig struct {
-	UploadSigningKey string `koanf:"upload_signing_key" json:"upload_signing_key" yaml:"upload_signing_key"`
-	UploadTTLSeconds int    `koanf:"upload_ttl_seconds" json:"upload_ttl_seconds" yaml:"upload_ttl_seconds"`
+	UploadSigningKey             string `koanf:"upload_signing_key" json:"upload_signing_key" yaml:"upload_signing_key"`
+	UploadTTLSeconds             int    `koanf:"upload_ttl_seconds" json:"upload_ttl_seconds" yaml:"upload_ttl_seconds"`
+	ProfileTTLDays               int    `koanf:"profile_ttl_days" json:"profile_ttl_days" yaml:"profile_ttl_days"`
+	ProfilePersistDrawnSignature bool   `koanf:"profile_persist_drawn_signature" json:"profile_persist_drawn_signature" yaml:"profile_persist_drawn_signature"`
+	ProfileMode                  string `koanf:"profile_mode" json:"profile_mode" yaml:"profile_mode"`
 }
 
 type ServicesConfig struct {
@@ -88,13 +116,37 @@ type ServicesConfig struct {
 }
 
 type GoogleConfig struct {
-	ClientID         string `koanf:"client_id" json:"client_id" yaml:"client_id"`
-	ClientSecret     string `koanf:"client_secret" json:"client_secret" yaml:"client_secret"`
-	OAuthRedirectURI string `koanf:"oauth_redirect_uri" json:"oauth_redirect_uri" yaml:"oauth_redirect_uri"`
+	ProviderMode          string `koanf:"provider_mode" json:"provider_mode" yaml:"provider_mode"`
+	ClientID              string `koanf:"client_id" json:"client_id" yaml:"client_id"`
+	ClientSecret          string `koanf:"client_secret" json:"client_secret" yaml:"client_secret"`
+	OAuthRedirectURI      string `koanf:"oauth_redirect_uri" json:"oauth_redirect_uri" yaml:"oauth_redirect_uri"`
+	TokenEndpoint         string `koanf:"token_endpoint" json:"token_endpoint" yaml:"token_endpoint"`
+	RevokeEndpoint        string `koanf:"revoke_endpoint" json:"revoke_endpoint" yaml:"revoke_endpoint"`
+	DriveBaseURL          string `koanf:"drive_base_url" json:"drive_base_url" yaml:"drive_base_url"`
+	UserInfoEndpoint      string `koanf:"userinfo_endpoint" json:"userinfo_endpoint" yaml:"userinfo_endpoint"`
+	HealthEndpoint        string `koanf:"health_endpoint" json:"health_endpoint" yaml:"health_endpoint"`
+	HTTPTimeoutSeconds    int    `koanf:"http_timeout_seconds" json:"http_timeout_seconds" yaml:"http_timeout_seconds"`
+	CredentialActiveKeyID string `koanf:"credential_active_key_id" json:"credential_active_key_id" yaml:"credential_active_key_id"`
+	CredentialActiveKey   string `koanf:"credential_active_key" json:"credential_active_key" yaml:"credential_active_key"`
+	CredentialKeysJSON    string `koanf:"credential_keys_json" json:"credential_keys_json" yaml:"credential_keys_json"`
 }
 
 type PublicConfig struct {
 	BaseURL string `koanf:"base_url" json:"base_url" yaml:"base_url"`
+}
+
+type DatabasesConfig struct {
+	ESignDSN   string `koanf:"esign_dsn" json:"esign_dsn" yaml:"esign_dsn"`
+	ContentDSN string `koanf:"content_dsn" json:"content_dsn" yaml:"content_dsn"`
+}
+
+type NetworkConfig struct {
+	RateLimitTrustProxyHeaders bool `koanf:"rate_limit_trust_proxy_headers" json:"rate_limit_trust_proxy_headers" yaml:"rate_limit_trust_proxy_headers"`
+}
+
+var activeConfig struct {
+	mu  sync.RWMutex
+	cfg *Config
 }
 
 func Defaults() *Config {
@@ -117,6 +169,14 @@ func Defaults() *Config {
 				EnableSlog: true,
 			},
 		},
+		Auth: AuthConfig{
+			AdminID:       "63eb32ab-64f5-4ddf-b5a0-5f9a8db9f8ea",
+			AdminEmail:    "admin@example.com",
+			AdminRole:     "admin",
+			AdminPassword: "admin.pwd",
+			SigningKey:    "esign-demo-secret",
+			ContextKey:    "esign_admin_user",
+		},
 		Features: FeatureConfig{
 			ESign:       true,
 			ESignGoogle: false,
@@ -125,22 +185,52 @@ func Defaults() *Config {
 		Runtime: RuntimeConfig{
 			Profile:       "development",
 			StartupPolicy: "enforce",
+			StrictStartup: false,
 		},
 		Storage: StorageConfig{
 			EncryptionAlgorithm: "aws:kms",
 		},
 		Email: EmailConfig{
 			Transport: "deterministic",
+			SMTP: EmailSMTPConfig{
+				Host:            "localhost",
+				Port:            1025,
+				FromName:        "E-Sign",
+				FromAddress:     "no-reply@example.test",
+				TimeoutSeconds:  10,
+				DisableSTARTTLS: false,
+				InsecureTLS:     false,
+			},
 		},
 		Signer: SignerConfig{
-			UploadTTLSeconds: 300,
+			UploadTTLSeconds:             300,
+			ProfileTTLDays:               90,
+			ProfilePersistDrawnSignature: true,
+			ProfileMode:                  "hybrid",
 		},
 		Services: ServicesConfig{
 			ModuleEnabled: true,
 			EncryptionKey: "go-admin-esign-services-app-key",
 		},
-		Google: GoogleConfig{},
-		Public: PublicConfig{},
+		Google: GoogleConfig{
+			ProviderMode:          "real",
+			TokenEndpoint:         "https://oauth2.googleapis.com/token",
+			RevokeEndpoint:        "https://oauth2.googleapis.com/revoke",
+			DriveBaseURL:          "https://www.googleapis.com/drive/v3",
+			UserInfoEndpoint:      "https://www.googleapis.com/oauth2/v2/userinfo",
+			HealthEndpoint:        "https://www.googleapis.com/generate_204",
+			HTTPTimeoutSeconds:    10,
+			CredentialActiveKeyID: "v1",
+			CredentialActiveKey:   "go-admin-esign-google",
+			CredentialKeysJSON:    "",
+		},
+		Public: PublicConfig{
+			BaseURL: "http://localhost:8082",
+		},
+		Databases: DatabasesConfig{},
+		Network: NetworkConfig{
+			RateLimitTrustProxyHeaders: false,
+		},
 	}
 }
 
@@ -159,6 +249,12 @@ func (c Config) Validate() error {
 	}
 	if c.Signer.UploadTTLSeconds <= 0 {
 		return fmt.Errorf("signer.upload_ttl_seconds must be greater than zero")
+	}
+	if c.Signer.ProfileTTLDays <= 0 {
+		return fmt.Errorf("signer.profile_ttl_days must be greater than zero")
+	}
+	if c.Email.SMTP.TimeoutSeconds <= 0 {
+		return fmt.Errorf("email.smtp.timeout_seconds must be greater than zero")
 	}
 	return nil
 }
@@ -198,11 +294,14 @@ func Load(ctx context.Context, paths ...string) (*Config, *goconfig.Container[*C
 	if loaded == nil {
 		return nil, container, fmt.Errorf("loaded config is nil")
 	}
-	applyLegacyEnvOverrides(loaded)
 	if len(resolvedPaths) > 0 {
 		loaded.ConfigPath = strings.TrimSpace(resolvedPaths[0])
 	}
-	return loaded, container, loaded.Validate()
+	if err := loaded.Validate(); err != nil {
+		return loaded, container, err
+	}
+	SetActive(loaded)
+	return loaded, container, nil
 }
 
 func resolveDefaultConfigPath() string {
@@ -213,108 +312,30 @@ func resolveDefaultConfigPath() string {
 	return filepath.Clean(filepath.Join(filepath.Dir(filename), "app.json"))
 }
 
-func applyLegacyEnvOverrides(cfg *Config) {
+// SetActive stores runtime config for cross-package access during app bootstrap.
+func SetActive(cfg *Config) {
+	activeConfig.mu.Lock()
+	defer activeConfig.mu.Unlock()
 	if cfg == nil {
+		activeConfig.cfg = nil
 		return
 	}
-	applyLegacyString(&cfg.App.Env, "GO_ENV", "ENV")
-	applyLegacyPort(&cfg.Server.Address, "PORT")
-
-	applyLegacyBool(&cfg.Admin.PublicAPI, "ADMIN_PUBLIC_API")
-	applyLegacyString(&cfg.Admin.APIPrefix, "ADMIN_API_PREFIX")
-	applyLegacyString(&cfg.Admin.APIVersion, "ADMIN_API_VERSION")
-	applyLegacyBool(&cfg.Admin.Debug.EnableSlog, "ADMIN_DEBUG_SLOG")
-
-	applyLegacyBool(&cfg.Features.ESign, "ESIGN_FEATURE_ENABLED")
-	applyLegacyBool(&cfg.Features.ESignGoogle, "ESIGN_GOOGLE_FEATURE_ENABLED")
-	applyLegacyBool(&cfg.Features.Activity, "ESIGN_ACTIVITY_FEATURE_ENABLED")
-
-	applyLegacyString(&cfg.Runtime.StartupPolicy, "ESIGN_STARTUP_POLICY")
-	applyLegacyString(&cfg.Runtime.Profile, "ESIGN_RUNTIME_PROFILE")
-
-	applyLegacyString(&cfg.Storage.EncryptionAlgorithm, "ESIGN_STORAGE_ENCRYPTION_ALGORITHM")
-	applyLegacyString(&cfg.Email.Transport, "ESIGN_EMAIL_TRANSPORT")
-	applyLegacyString(&cfg.Signer.UploadSigningKey, "ESIGN_SIGNER_UPLOAD_SIGNING_KEY")
-	applyLegacyInt(&cfg.Signer.UploadTTLSeconds, "ESIGN_SIGNER_UPLOAD_TTL_SECONDS")
-
-	applyLegacyBool(&cfg.Services.ModuleEnabled, "ESIGN_SERVICES_MODULE_ENABLED")
-	applyLegacyString(&cfg.Services.EncryptionKey, "ESIGN_SERVICES_ENCRYPTION_KEY")
-	applyLegacyString(&cfg.Services.CallbackPublicBaseURL, "ESIGN_SERVICES_CALLBACK_PUBLIC_BASE_URL")
-
-	applyLegacyString(&cfg.Google.ClientID, "ESIGN_GOOGLE_CLIENT_ID")
-	applyLegacyString(&cfg.Google.ClientSecret, "ESIGN_GOOGLE_CLIENT_SECRET")
-	applyLegacyString(&cfg.Google.OAuthRedirectURI, "ESIGN_GOOGLE_OAUTH_REDIRECT_URI")
-
-	applyLegacyString(&cfg.Public.BaseURL, "ESIGN_PUBLIC_BASE_URL")
+	clone := *cfg
+	activeConfig.cfg = &clone
 }
 
-func applyLegacyString(target *string, keys ...string) {
-	if target == nil {
-		return
-	}
-	for _, key := range keys {
-		value, ok := os.LookupEnv(strings.TrimSpace(key))
-		if !ok {
-			continue
-		}
-		*target = strings.TrimSpace(value)
-		return
-	}
+// ResetActive clears the globally active runtime config.
+func ResetActive() {
+	SetActive(nil)
 }
 
-func applyLegacyBool(target *bool, key string) {
-	if target == nil {
-		return
+// Active returns the currently active runtime config, or defaults when unset.
+func Active() Config {
+	activeConfig.mu.RLock()
+	defer activeConfig.mu.RUnlock()
+	if activeConfig.cfg == nil {
+		return *Defaults()
 	}
-	value, ok := os.LookupEnv(strings.TrimSpace(key))
-	if !ok {
-		return
-	}
-	parsed, err := strconv.ParseBool(strings.TrimSpace(value))
-	if err != nil {
-		return
-	}
-	*target = parsed
-}
-
-func applyLegacyInt(target *int, key string) {
-	if target == nil {
-		return
-	}
-	value, ok := os.LookupEnv(strings.TrimSpace(key))
-	if !ok {
-		return
-	}
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return
-	}
-	parsed, err := strconv.Atoi(value)
-	if err != nil {
-		return
-	}
-	*target = parsed
-}
-
-func applyLegacyPort(target *string, key string) {
-	if target == nil {
-		return
-	}
-	value, ok := os.LookupEnv(strings.TrimSpace(key))
-	if !ok {
-		return
-	}
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return
-	}
-	if strings.HasPrefix(value, ":") {
-		*target = value
-		return
-	}
-	if _, err := strconv.Atoi(value); err == nil {
-		*target = ":" + value
-		return
-	}
-	*target = value
+	clone := *activeConfig.cfg
+	return clone
 }

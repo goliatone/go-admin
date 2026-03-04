@@ -2,17 +2,18 @@ package jobs
 
 import (
 	"net/url"
-	"os"
 	"strings"
+
+	appcfg "github.com/goliatone/go-admin/examples/esign/config"
 )
 
 const (
-	EnvPublicBaseURL     = "ESIGN_PUBLIC_BASE_URL"
-	defaultPublicBaseURL = "http://localhost:8082"
+	ConfigPublicBaseURLKey = "APP_PUBLIC__BASE_URL"
+	defaultPublicBaseURL   = "http://localhost:8082"
 )
 
 func resolvePublicBaseURL() string {
-	base := strings.TrimSpace(os.Getenv(EnvPublicBaseURL))
+	base := strings.TrimSpace(appcfg.Active().Public.BaseURL)
 	if base == "" {
 		base = defaultPublicBaseURL
 	}

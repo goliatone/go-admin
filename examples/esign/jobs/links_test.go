@@ -3,10 +3,15 @@ package jobs
 import (
 	"strings"
 	"testing"
+
+	appcfg "github.com/goliatone/go-admin/examples/esign/config"
 )
 
 func TestBuildSignLinkUsesPublicBaseURL(t *testing.T) {
-	t.Setenv(EnvPublicBaseURL, "https://esign.example.com/")
+	cfg := appcfg.Defaults()
+	cfg.Public.BaseURL = "https://esign.example.com/"
+	appcfg.SetActive(cfg)
+	t.Cleanup(appcfg.ResetActive)
 	got := buildSignLink("token-123")
 	want := "https://esign.example.com/sign/token-123"
 	if got != want {
@@ -15,7 +20,10 @@ func TestBuildSignLinkUsesPublicBaseURL(t *testing.T) {
 }
 
 func TestBuildAssetContractLinkUsesPublicBaseURL(t *testing.T) {
-	t.Setenv(EnvPublicBaseURL, "https://esign.example.com/")
+	cfg := appcfg.Defaults()
+	cfg.Public.BaseURL = "https://esign.example.com/"
+	appcfg.SetActive(cfg)
+	t.Cleanup(appcfg.ResetActive)
 	got := buildAssetContractLink("token-123")
 	want := "https://esign.example.com/api/v1/esign/signing/assets/token-123"
 	if got != want {
@@ -24,7 +32,10 @@ func TestBuildAssetContractLinkUsesPublicBaseURL(t *testing.T) {
 }
 
 func TestBuildCompletionLinkUsesPublicBaseURL(t *testing.T) {
-	t.Setenv(EnvPublicBaseURL, "https://esign.example.com/")
+	cfg := appcfg.Defaults()
+	cfg.Public.BaseURL = "https://esign.example.com/"
+	appcfg.SetActive(cfg)
+	t.Cleanup(appcfg.ResetActive)
 	got := buildCompletionLink("token-123")
 	want := "https://esign.example.com/sign/token-123/complete"
 	if got != want {
@@ -33,7 +44,10 @@ func TestBuildCompletionLinkUsesPublicBaseURL(t *testing.T) {
 }
 
 func TestBuildSignLinkEscapesToken(t *testing.T) {
-	t.Setenv(EnvPublicBaseURL, "https://esign.example.com")
+	cfg := appcfg.Defaults()
+	cfg.Public.BaseURL = "https://esign.example.com"
+	appcfg.SetActive(cfg)
+	t.Cleanup(appcfg.ResetActive)
 	got := buildSignLink("token/with/slash")
 	if !strings.Contains(got, "token%2Fwith%2Fslash") {
 		t.Fatalf("expected escaped token in sign link, got %q", got)
@@ -43,11 +57,14 @@ func TestBuildSignLinkEscapesToken(t *testing.T) {
 func TestBuildSignLinkUsesConfiguredBaseAcrossRuntimeProfiles(t *testing.T) {
 	profiles := []string{"development", "staging", "production"}
 	for _, profile := range profiles {
-		t.Setenv("ESIGN_RUNTIME_PROFILE", profile)
-		t.Setenv(EnvPublicBaseURL, "https://links.example.com")
+		cfg := appcfg.Defaults()
+		cfg.Runtime.Profile = profile
+		cfg.Public.BaseURL = "https://links.example.com"
+		appcfg.SetActive(cfg)
 		got := buildSignLink("token-profile")
 		if got != "https://links.example.com/sign/token-profile" {
 			t.Fatalf("profile %q: expected profile-aware sign link, got %q", profile, got)
 		}
 	}
+	t.Cleanup(appcfg.ResetActive)
 }

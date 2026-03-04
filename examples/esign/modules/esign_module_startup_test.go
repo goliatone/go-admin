@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	appcfg "github.com/goliatone/go-admin/examples/esign/config"
 	"github.com/goliatone/go-admin/examples/esign/jobs"
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
@@ -78,20 +79,29 @@ func TestValidateGoogleRuntimeWiringStrictModeFailsOnDegradedProvider(t *testing
 }
 
 func TestResolveESignStrictStartupDefaultsFalse(t *testing.T) {
-	t.Setenv("ESIGN_STRICT_STARTUP", "")
+	cfg := appcfg.Defaults()
+	cfg.Runtime.StrictStartup = false
+	appcfg.SetActive(cfg)
+	t.Cleanup(appcfg.ResetActive)
+
 	if resolveESignStrictStartup() {
 		t.Fatal("expected strict startup to default to false")
 	}
 }
 
 func TestResolveESignStrictStartupParsesBooleanValues(t *testing.T) {
-	t.Setenv("ESIGN_STRICT_STARTUP", "true")
+	cfg := appcfg.Defaults()
+	cfg.Runtime.StrictStartup = true
+	appcfg.SetActive(cfg)
+	t.Cleanup(appcfg.ResetActive)
+
 	if !resolveESignStrictStartup() {
-		t.Fatal("expected strict startup true for ESIGN_STRICT_STARTUP=true")
+		t.Fatal("expected strict startup true for APP_RUNTIME__STRICT_STARTUP=true")
 	}
-	t.Setenv("ESIGN_STRICT_STARTUP", "invalid")
+	cfg.Runtime.StrictStartup = false
+	appcfg.SetActive(cfg)
 	if resolveESignStrictStartup() {
-		t.Fatal("expected strict startup false for invalid boolean value")
+		t.Fatal("expected strict startup false for config false value")
 	}
 }
 

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"os"
 	"path"
 	"sort"
 	"strings"
@@ -15,6 +14,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	coreadmin "github.com/goliatone/go-admin/admin"
+	appcfg "github.com/goliatone/go-admin/examples/esign/config"
 	"github.com/goliatone/go-admin/examples/esign/handlers"
 	"github.com/goliatone/go-admin/examples/esign/modules"
 	"github.com/goliatone/go-admin/examples/esign/observability"
@@ -189,16 +189,17 @@ func configureESignAuth(adm *coreadmin.Admin, cfg coreadmin.Config) (*coreadmin.
 	if basePath == "" {
 		basePath = "/admin"
 	}
+	runtimeCfg := appcfg.Active()
 	identity := eSignDemoIdentity{
-		id:       firstNonEmptyEnv("ESIGN_ADMIN_ID", defaultESignDemoAdminID),
-		email:    firstNonEmptyEnv("ESIGN_ADMIN_EMAIL", defaultESignDemoAdminEmail),
-		role:     firstNonEmptyEnv("ESIGN_ADMIN_ROLE", defaultESignDemoAdminRole),
-		password: firstNonEmptyEnv("ESIGN_ADMIN_PASSWORD", defaultESignDemoAdminPassword),
+		id:       firstNonEmptyValue(strings.TrimSpace(runtimeCfg.Auth.AdminID), defaultESignDemoAdminID),
+		email:    firstNonEmptyValue(strings.TrimSpace(runtimeCfg.Auth.AdminEmail), defaultESignDemoAdminEmail),
+		role:     firstNonEmptyValue(strings.TrimSpace(runtimeCfg.Auth.AdminRole), defaultESignDemoAdminRole),
+		password: firstNonEmptyValue(strings.TrimSpace(runtimeCfg.Auth.AdminPassword), defaultESignDemoAdminPassword),
 	}
 	authCfg := eSignAuthConfig{
 		basePath:   basePath,
-		signingKey: firstNonEmptyEnv("ESIGN_AUTH_SIGNING_KEY", defaultESignAuthSigningKey),
-		contextKey: firstNonEmptyEnv("ESIGN_AUTH_CONTEXT_KEY", defaultESignAuthContextKey),
+		signingKey: firstNonEmptyValue(strings.TrimSpace(runtimeCfg.Auth.SigningKey), defaultESignAuthSigningKey),
+		contextKey: firstNonEmptyValue(strings.TrimSpace(runtimeCfg.Auth.ContextKey), defaultESignAuthContextKey),
 	}
 
 	provider := newESignDemoIdentityProvider(identity)
@@ -563,7 +564,7 @@ func registerESignGoogleIntegrationUIRoutes(
 				viewCtx := router.ViewContext{
 					"api_base_path":       apiBasePath,
 					"google_enabled":      googleEnabled,
-					"google_client_id":    strings.TrimSpace(os.Getenv("ESIGN_GOOGLE_CLIENT_ID")),
+					"google_client_id":    strings.TrimSpace(appcfg.Active().Google.ClientID),
 					"google_redirect_uri": redirectURI,
 					"google_account_id":   accountID,
 					"user_id":             userID,
@@ -866,7 +867,7 @@ func resolveESignAdminUserID(c router.Context) string {
 			return userID
 		}
 	}
-	return firstNonEmptyEnv("ESIGN_ADMIN_ID", defaultESignDemoAdminID)
+	return firstNonEmptyValue(strings.TrimSpace(appcfg.Active().Auth.AdminID), defaultESignDemoAdminID)
 }
 
 func resolveGoogleAccountID(c router.Context) string {
@@ -924,7 +925,7 @@ func withESignDocumentIngestionViewContext(
 }
 
 func resolveGoogleOAuthRedirectURI(c router.Context, callbackPath string) string {
-	if configured := strings.TrimSpace(os.Getenv(services.EnvGoogleOAuthRedirectURI)); configured != "" {
+	if configured := strings.TrimSpace(appcfg.Active().Google.OAuthRedirectURI); configured != "" {
 		return configured
 	}
 	callbackPath = strings.TrimSpace(callbackPath)
@@ -1010,16 +1011,6 @@ func cloneStringBoolMap(input map[string]bool) map[string]bool {
 		out[key] = value
 	}
 	return out
-}
-
-func firstNonEmptyEnv(key, fallback string) string {
-	if value, ok := os.LookupEnv(key); ok {
-		trimmed := strings.TrimSpace(value)
-		if trimmed != "" {
-			return trimmed
-		}
-	}
-	return strings.TrimSpace(fallback)
 }
 
 // SignerWebRouteConfig holds dependencies for public signer web routes.
@@ -1364,19 +1355,18 @@ func buildSignerReviewViewContext(token, apiBasePath string, session services.Si
 		"pages_json":       viewerPagesJSON,
 	}
 
+	runtimeCfg := appcfg.Active()
+	profileTTLDays := runtimeCfg.Signer.ProfileTTLDays
+	if profileTTLDays < 1 || profileTTLDays > 365 {
+		profileTTLDays = 90
+	}
 	return router.ViewContext{
-		"token":         token,
-		"api_base_path": apiBasePath,
-		"flow_mode":     signerFlowModeUnified,
-		"profile_mode":  resolveSignerProfileMode(),
-		"profile_ttl_days": func() int {
-			days := envInt("ESIGN_SIGNER_PROFILE_TTL_DAYS", 90)
-			if days < 1 || days > 365 {
-				return 90
-			}
-			return days
-		}(),
-		"profile_persist_drawn_signature": envBool("ESIGN_SIGNER_PROFILE_PERSIST_DRAWN_SIGNATURE", true),
+		"token":                           token,
+		"api_base_path":                   apiBasePath,
+		"flow_mode":                       signerFlowModeUnified,
+		"profile_mode":                    resolveSignerProfileMode(),
+		"profile_ttl_days":                profileTTLDays,
+		"profile_persist_drawn_signature": runtimeCfg.Signer.ProfilePersistDrawnSignature,
 		"profile_endpoint_base_path":      apiBasePath,
 		"session":                         sessionCtx,
 		"viewer":                          viewerCtx,
@@ -1390,7 +1380,7 @@ func buildSignerReviewViewContext(token, apiBasePath string, session services.Si
 }
 
 func resolveSignerProfileMode() string {
-	mode := strings.ToLower(strings.TrimSpace(os.Getenv("ESIGN_SIGNER_PROFILE_MODE")))
+	mode := strings.ToLower(strings.TrimSpace(appcfg.Active().Signer.ProfileMode))
 	switch mode {
 	case "hybrid", "remote_only", "local_only":
 		return mode
