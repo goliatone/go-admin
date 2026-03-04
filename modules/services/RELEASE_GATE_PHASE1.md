@@ -82,7 +82,7 @@ Status: Complete
 
 Consumer migration strategy (ad-hoc integrations -> `go-services` primitives via `go-admin/modules/services`):
 
-1. Register migrations in dependency order: `go-auth -> go-users -> go-services -> app-local`.
+1. Register migrations using the canonical `services-stack` profile in dependency order: `go-auth -> go-users -> go-services -> app-local`.
 2. Configure credential encryption material (`encryption_key`, optional key-id/version).
 3. Enable/seed required RBAC permissions (`admin.services.*`).
 4. Route provider webhooks/inbound callbacks to services module endpoints.
