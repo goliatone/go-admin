@@ -111,6 +111,7 @@ func resolveContentChannelFromRouter(c router.Context) string {
 		return ""
 	}
 	candidates := []string{
+		c.Query(ContentChannelScopeQueryParam),
 		c.Query("channel"),
 		c.Query("content_channel"),
 		c.Header("X-Admin-Channel"),
