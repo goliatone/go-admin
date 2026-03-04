@@ -55,7 +55,7 @@ func TestBuildLocaleSwitcherContractPreservesTranslationIdentity(t *testing.T) {
 	if !ok || len(items) != 3 {
 		t.Fatalf("expected switcher items for all supported locales, got %#v", contract["items"])
 	}
-	if items[0]["locale"] != "en" || items[0]["url"] != "/news/welcome?preview_token=preview-123" || items[0]["active"] != true {
+	if items[0]["locale"] != "en" || items[0]["url"] != "/news/welcome?locale=en&preview_token=preview-123" || items[0]["active"] != true {
 		t.Fatalf("expected resolved locale item to be active with preserved query, got %+v", items[0])
 	}
 	if items[1]["locale"] != "es" || items[1]["url"] != "/es/noticias/bienvenida?preview_token=preview-123" {
@@ -90,7 +90,7 @@ func TestBuildLocaleSwitcherContractAvoidsDoubleLocalePrefix(t *testing.T) {
 	if !ok || len(items) != 3 {
 		t.Fatalf("expected switcher items for all supported locales, got %#v", contract["items"])
 	}
-	if items[0]["locale"] != "en" || items[0]["url"] != "/about" {
+	if items[0]["locale"] != "en" || items[0]["url"] != "/about?locale=en" {
 		t.Fatalf("expected en path /about, got %+v", items[0])
 	}
 	if items[1]["locale"] != "es" || items[1]["url"] != "/es/sobre-nosotros" {
@@ -124,7 +124,7 @@ func TestBuildLocaleSwitcherContractSanitizesUnsafeLocalizedPaths(t *testing.T) 
 	if !ok || len(items) != 2 {
 		t.Fatalf("expected switcher items for all supported locales, got %#v", contract["items"])
 	}
-	if items[0]["url"] != "/about" {
+	if items[0]["url"] != "/about?locale=en" {
 		t.Fatalf("expected safe en path /about, got %+v", items[0])
 	}
 	if items[1]["url"] != "/es/about" {

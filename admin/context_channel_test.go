@@ -38,3 +38,18 @@ func TestNewAdminContextFromRouterPrefersChannelQuery(t *testing.T) {
 		t.Fatalf("expected context environment public, got %q", got)
 	}
 }
+
+func TestNewAdminContextFromRouterPrefersDollarChannelQuery(t *testing.T) {
+	mockCtx := router.NewMockContext()
+	mockCtx.QueriesM[ContentChannelScopeQueryParam] = "preview"
+	mockCtx.QueriesM["channel"] = "public"
+	mockCtx.On("Context").Return(context.Background())
+
+	adminCtx := newAdminContextFromRouter(mockCtx, "en")
+	if adminCtx.Channel != "preview" {
+		t.Fatalf("expected $channel to win, got %q", adminCtx.Channel)
+	}
+	if adminCtx.Environment != "preview" {
+		t.Fatalf("expected environment compatibility to follow $channel preview, got %q", adminCtx.Environment)
+	}
+}

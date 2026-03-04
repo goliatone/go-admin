@@ -78,3 +78,30 @@ func TestParseContextBuildsPredicates(t *testing.T) {
 		t.Fatalf("expected title ilike predicate, got %+v", got)
 	}
 }
+
+func TestParseContextTreatsDollarScopeKeysAsReserved(t *testing.T) {
+	ctx := router.NewMockContext()
+	ctx.QueriesM["$channel"] = "staging"
+	ctx.QueriesM["channel"] = "editorial"
+	ctx.QueriesM["content_channel"] = "preview"
+	ctx.QueriesM["site_content_channel"] = "qa"
+	ctx.QueriesM["status"] = "published"
+
+	result := ParseContext(ctx, 1, 10)
+
+	if got := toString(result.Filters["status"]); got != "published" {
+		t.Fatalf("expected status filter to remain, got %q", got)
+	}
+	if _, ok := result.Filters["$channel"]; ok {
+		t.Fatalf("expected $channel to be reserved list scope, got filters=%+v", result.Filters)
+	}
+	if got := toString(result.Filters["channel"]); got != "editorial" {
+		t.Fatalf("expected plain channel to remain available for record filtering, got %q", got)
+	}
+	if _, ok := result.Filters["content_channel"]; ok {
+		t.Fatalf("expected content_channel to be reserved list scope, got filters=%+v", result.Filters)
+	}
+	if _, ok := result.Filters["site_content_channel"]; ok {
+		t.Fatalf("expected site_content_channel to be reserved list scope, got filters=%+v", result.Filters)
+	}
+}

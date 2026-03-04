@@ -197,6 +197,123 @@ func TestSiteDeliveryLocaleFallbackPolicies(t *testing.T) {
 	}
 }
 
+func TestSiteDeliveryFallbackCanonicalRedirectDefaultsToResolvedLocale(t *testing.T) {
+	adm := mustAdminWithTheme(t, "admin", "light")
+	content := admin.NewInMemoryContentService()
+
+	_, err := content.CreateContentType(t.Context(), admin.CMSContentType{
+		ID:          "post-type",
+		Name:        "Post",
+		Slug:        "post",
+		Environment: "default",
+		Schema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{},
+		},
+		Capabilities: map[string]any{
+			"delivery": map[string]any{
+				"enabled": true,
+				"kind":    "detail",
+				"routes": map[string]any{
+					"detail": "/posts/:slug",
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create content type: %v", err)
+	}
+
+	_, err = content.CreateContent(t.Context(), admin.CMSContent{
+		ID:              "post-en",
+		Title:           "Published",
+		Slug:            "welcome",
+		Locale:          "en",
+		Status:          "published",
+		ContentType:     "post",
+		ContentTypeSlug: "post",
+		Data:            map[string]any{"path": "/posts/welcome"},
+	})
+	if err != nil {
+		t.Fatalf("create content: %v", err)
+	}
+
+	server := router.NewHTTPServer()
+	if err := RegisterSiteRoutes(server.Router(), adm, admin.Config{DefaultLocale: "en"}, SiteConfig{
+		SupportedLocales: []string{"en", "es"},
+	}, WithDeliveryServices(content, content)); err != nil {
+		t.Fatalf("register site routes: %v", err)
+	}
+
+	rec := performSiteRequestRaw(t, server, "/es/posts/welcome", "text/html")
+	if rec.Code != http.StatusPermanentRedirect {
+		t.Fatalf("expected fallback canonical redirect status %d, got %d body=%s", http.StatusPermanentRedirect, rec.Code, rec.Body.String())
+	}
+	if got := rec.Header().Get("Location"); got != "/posts/welcome" {
+		t.Fatalf("expected fallback canonical redirect location /posts/welcome, got %q", got)
+	}
+}
+
+func TestSiteDeliveryFallbackCanonicalRedirectCanPreserveRequestedLocale(t *testing.T) {
+	adm := mustAdminWithTheme(t, "admin", "light")
+	content := admin.NewInMemoryContentService()
+
+	_, err := content.CreateContentType(t.Context(), admin.CMSContentType{
+		ID:          "post-type",
+		Name:        "Post",
+		Slug:        "post",
+		Environment: "default",
+		Schema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{},
+		},
+		Capabilities: map[string]any{
+			"delivery": map[string]any{
+				"enabled": true,
+				"kind":    "detail",
+				"routes": map[string]any{
+					"detail": "/posts/:slug",
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create content type: %v", err)
+	}
+
+	_, err = content.CreateContent(t.Context(), admin.CMSContent{
+		ID:              "post-en",
+		Title:           "Published",
+		Slug:            "welcome",
+		Locale:          "en",
+		Status:          "published",
+		ContentType:     "post",
+		ContentTypeSlug: "post",
+		Data:            map[string]any{"path": "/posts/welcome"},
+	})
+	if err != nil {
+		t.Fatalf("create content: %v", err)
+	}
+
+	server := router.NewHTTPServer()
+	if err := RegisterSiteRoutes(server.Router(), adm, admin.Config{DefaultLocale: "en"}, SiteConfig{
+		SupportedLocales: []string{"en", "es"},
+		Features: SiteFeatures{
+			CanonicalRedirectMode: CanonicalRedirectRequestedLocaleSticky,
+		},
+	}, WithDeliveryServices(content, content)); err != nil {
+		t.Fatalf("register site routes: %v", err)
+	}
+
+	rec := performSiteRequestRaw(t, server, "/es/posts/welcome", "text/html")
+	if rec.Code == http.StatusPermanentRedirect {
+		t.Fatalf("expected sticky fallback mode to avoid cross-locale redirect, got location=%q", rec.Header().Get("Location"))
+	}
+	if got := rec.Header().Get("Location"); got != "" {
+		t.Fatalf("expected no Location header in sticky fallback mode, got %q", got)
+	}
+}
+
 func TestSiteDeliveryRedirectsToCanonicalLocalizedPath(t *testing.T) {
 	adm := mustAdminWithTheme(t, "admin", "light")
 	content := admin.NewInMemoryContentService()
@@ -261,6 +378,176 @@ func TestSiteDeliveryRedirectsToCanonicalLocalizedPath(t *testing.T) {
 	}
 	if got := rec.Header().Get("Location"); got != "/es/sobre-nosotros?foo=bar" {
 		t.Fatalf("expected canonical redirect location /es/sobre-nosotros?foo=bar, got %q", got)
+	}
+}
+
+func TestSiteDeliveryPersistsLocaleCookieAndRedirectsUnscopedFallbackRequest(t *testing.T) {
+	adm := mustAdminWithTheme(t, "admin", "light")
+	content := admin.NewInMemoryContentService()
+
+	_, err := content.CreateContentType(t.Context(), admin.CMSContentType{
+		ID:          "post-type",
+		Name:        "Post",
+		Slug:        "post",
+		Environment: "default",
+		Schema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{},
+		},
+		Capabilities: map[string]any{
+			"delivery": map[string]any{
+				"enabled": true,
+				"kind":    "detail",
+				"routes": map[string]any{
+					"detail": "/posts/:slug",
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create content type: %v", err)
+	}
+
+	_, err = content.CreateContent(t.Context(), admin.CMSContent{
+		ID:              "post-en",
+		Title:           "Welcome",
+		Slug:            "welcome",
+		Locale:          "en",
+		Status:          "published",
+		ContentType:     "post",
+		ContentTypeSlug: "post",
+		Data:            map[string]any{"path": "/posts/welcome"},
+	})
+	if err != nil {
+		t.Fatalf("create en post: %v", err)
+	}
+
+	server := router.NewHTTPServer()
+	if err := RegisterSiteRoutes(server.Router(), adm, admin.Config{DefaultLocale: "en"}, SiteConfig{
+		SupportedLocales: []string{"en", "es"},
+		Features: SiteFeatures{
+			CanonicalRedirectMode: CanonicalRedirectRequestedLocaleSticky,
+		},
+	}, WithDeliveryServices(content, content)); err != nil {
+		t.Fatalf("register site routes: %v", err)
+	}
+
+	first := performSiteRequestRaw(t, server, "/es/posts/welcome?format=json", "application/json")
+	if first.Code != http.StatusOK {
+		t.Fatalf("expected first localized request to render 200, got %d body=%s", first.Code, first.Body.String())
+	}
+	localeCookie := cookieHeaderValue(first.Result().Cookies(), defaultLocaleCookieName)
+	if localeCookie != "es" {
+		t.Fatalf("expected persisted locale cookie %q=%q, got %q", defaultLocaleCookieName, "es", localeCookie)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/posts/welcome", nil)
+	req.Header.Set("Accept", "text/html")
+	req.Header.Set("Cookie", defaultLocaleCookieName+"="+localeCookie)
+	rec := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusPermanentRedirect {
+		t.Fatalf("expected stale unscoped request to redirect, got status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	if got := rec.Header().Get("Location"); got != "/es/posts/welcome" {
+		t.Fatalf("expected sticky locale redirect to /es/posts/welcome, got %q", got)
+	}
+}
+
+func TestSiteLocaleSwitcherCanSwitchToDefaultLocaleWithLocaleCookie(t *testing.T) {
+	adm := mustAdminWithTheme(t, "admin", "light")
+	content := admin.NewInMemoryContentService()
+
+	_, err := content.CreateContentType(t.Context(), admin.CMSContentType{
+		ID:          "page-type",
+		Name:        "Page",
+		Slug:        "page",
+		Environment: "default",
+		Schema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{},
+		},
+		Capabilities: map[string]any{
+			"delivery": map[string]any{
+				"enabled": true,
+				"kind":    "page",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create content type: %v", err)
+	}
+
+	_, err = content.CreateContent(t.Context(), admin.CMSContent{
+		ID:              "contact-en",
+		Title:           "Contact",
+		Slug:            "contact",
+		Locale:          "en",
+		Status:          "published",
+		ContentType:     "page",
+		ContentTypeSlug: "page",
+		Data:            map[string]any{"path": "/contact"},
+	})
+	if err != nil {
+		t.Fatalf("create en contact: %v", err)
+	}
+	_, err = content.CreateContent(t.Context(), admin.CMSContent{
+		ID:              "contact-fr",
+		Title:           "Contact (FR)",
+		Slug:            "contact",
+		Locale:          "fr",
+		Status:          "published",
+		ContentType:     "page",
+		ContentTypeSlug: "page",
+		Data:            map[string]any{"path": "/contact"},
+	})
+	if err != nil {
+		t.Fatalf("create fr contact: %v", err)
+	}
+
+	server := router.NewHTTPServer()
+	if err := RegisterSiteRoutes(server.Router(), adm, admin.Config{DefaultLocale: "en"}, SiteConfig{
+		SupportedLocales: []string{"en", "fr"},
+		Features: SiteFeatures{
+			CanonicalRedirectMode: CanonicalRedirectRequestedLocaleSticky,
+		},
+	}, WithDeliveryServices(content, content)); err != nil {
+		t.Fatalf("register site routes: %v", err)
+	}
+
+	firstPath := "/fr/contact?format=json"
+	first := performSiteRequestRaw(t, server, firstPath, "application/json")
+	if first.Code != http.StatusOK {
+		t.Fatalf("expected fr request status 200, got %d body=%s", first.Code, first.Body.String())
+	}
+	localeCookie := cookieHeaderValue(first.Result().Cookies(), defaultLocaleCookieName)
+	if localeCookie != "fr" {
+		t.Fatalf("expected persisted locale cookie fr, got %q", localeCookie)
+	}
+	firstPayload := decodeSitePayload(t, firstPath, first)
+	enURL := localeSwitcherURLByLocale(firstPayload, "en")
+	if enURL == "" {
+		t.Fatalf("expected locale switcher en URL, got payload=%+v", firstPayload)
+	}
+	if !strings.Contains(enURL, "locale=en") {
+		t.Fatalf("expected default-locale switch URL to include locale=en, got %q", enURL)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, enURL, nil)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Cookie", defaultLocaleCookieName+"="+localeCookie)
+	rec := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected default locale switch request status 200, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	switched := decodeSitePayload(t, enURL, rec)
+	if got := nestedString(switched, "context", "requested_locale"); got != "en" {
+		t.Fatalf("expected requested_locale en after switch, got %q payload=%+v", got, switched)
+	}
+	if got := nestedString(switched, "context", "resolved_locale"); got != "en" {
+		t.Fatalf("expected resolved_locale en after switch, got %q payload=%+v", got, switched)
 	}
 }
 
@@ -383,6 +670,45 @@ func decodeSitePayload(t *testing.T, path string, rec *httptest.ResponseRecorder
 		t.Fatalf("decode response %q: %v body=%s", path, err, rec.Body.String())
 	}
 	return payload
+}
+
+func cookieHeaderValue(cookies []*http.Cookie, name string) string {
+	for _, cookie := range cookies {
+		if cookie == nil {
+			continue
+		}
+		if strings.EqualFold(strings.TrimSpace(cookie.Name), strings.TrimSpace(name)) {
+			return strings.TrimSpace(cookie.Value)
+		}
+	}
+	return ""
+}
+
+func localeSwitcherURLByLocale(payload map[string]any, locale string) string {
+	contextMap, ok := payload["context"].(map[string]any)
+	if !ok || len(contextMap) == 0 {
+		return ""
+	}
+	switcher, ok := contextMap["locale_switcher"].(map[string]any)
+	if !ok || len(switcher) == 0 {
+		return ""
+	}
+	items, ok := switcher["items"].([]any)
+	if !ok || len(items) == 0 {
+		return ""
+	}
+	target := strings.ToLower(strings.TrimSpace(locale))
+	for _, raw := range items {
+		item, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		if strings.ToLower(strings.TrimSpace(anyString(item["locale"]))) != target {
+			continue
+		}
+		return strings.TrimSpace(anyString(item["url"]))
+	}
+	return ""
 }
 
 func nestedString(payload map[string]any, keys ...string) string {

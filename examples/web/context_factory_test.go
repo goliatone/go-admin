@@ -111,6 +111,23 @@ func TestContentCRUDContextFactoryUsesChannelQueryFirst(t *testing.T) {
 	}
 }
 
+func TestContentCRUDContextFactoryPrefersDollarChannelQuery(t *testing.T) {
+	factory := contentCRUDContextFactory("en")
+	ctx := &testCRUDContext{
+		userCtx: context.Background(),
+		query: map[string]string{
+			coreadmin.ContentChannelScopeQueryParam: "preview",
+			"channel":                               "legacy",
+		},
+	}
+
+	out := factory(ctx)
+	got := out.(*testCRUDContext).UserContext()
+	if channel := coreadmin.ContentChannelFromContext(got); channel != "preview" {
+		t.Fatalf("expected $channel query to win, got %q", channel)
+	}
+}
+
 func TestContentCRUDContextFactoryFallsBackToLegacyEnvQuery(t *testing.T) {
 	factory := contentCRUDContextFactory("en")
 	ctx := &testCRUDContext{

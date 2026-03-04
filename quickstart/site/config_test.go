@@ -74,6 +74,9 @@ func TestResolveSiteConfigDefaults(t *testing.T) {
 	if !resolved.Features.EnablePreview || !resolved.Features.EnableI18N || !resolved.Features.EnableSearch || !resolved.Features.EnableTheme || !resolved.Features.EnableMenuDraftPreview || !resolved.Features.EnableCanonicalRedirect || resolved.Features.StrictLocalizedPaths {
 		t.Fatalf("expected all feature flags enabled by default, got %+v", resolved.Features)
 	}
+	if resolved.Features.CanonicalRedirectMode != CanonicalRedirectResolvedLocale {
+		t.Fatalf("expected canonical redirect mode %q by default, got %q", CanonicalRedirectResolvedLocale, resolved.Features.CanonicalRedirectMode)
+	}
 }
 
 func TestResolveSiteConfigHonorsFeatureAndFallbackOverrides(t *testing.T) {
@@ -86,6 +89,7 @@ func TestResolveSiteConfigHonorsFeatureAndFallbackOverrides(t *testing.T) {
 			EnableSearch:            boolPtr(false),
 			EnableTheme:             boolPtr(false),
 			EnableCanonicalRedirect: boolPtr(false),
+			CanonicalRedirectMode:   CanonicalRedirectRequestedLocaleSticky,
 			StrictLocalizedPaths:    boolPtr(true),
 		},
 		Navigation: SiteNavigationConfig{
@@ -125,6 +129,9 @@ func TestResolveSiteConfigHonorsFeatureAndFallbackOverrides(t *testing.T) {
 	}
 	if resolved.Features.EnableCanonicalRedirect {
 		t.Fatalf("expected canonical redirect feature disabled")
+	}
+	if resolved.Features.CanonicalRedirectMode != CanonicalRedirectRequestedLocaleSticky {
+		t.Fatalf("expected canonical redirect mode sticky, got %q", resolved.Features.CanonicalRedirectMode)
 	}
 	if !resolved.Features.StrictLocalizedPaths {
 		t.Fatalf("expected strict localized paths feature enabled")

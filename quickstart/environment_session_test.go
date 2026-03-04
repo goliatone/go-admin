@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/goliatone/go-admin/admin"
 	auth "github.com/goliatone/go-auth"
 	router "github.com/goliatone/go-router"
 	"github.com/stretchr/testify/mock"
@@ -50,6 +51,16 @@ func TestResolveContentChannelPrefersQueryOverCookie(t *testing.T) {
 
 	if channel := resolveContentChannel(ctx); channel != "staging" {
 		t.Fatalf("expected query channel precedence, got %q", channel)
+	}
+}
+
+func TestResolveContentChannelPrefersDollarChannelOverLegacyQuery(t *testing.T) {
+	ctx := router.NewMockContext()
+	ctx.QueriesM[admin.ContentChannelScopeQueryParam] = "preview"
+	ctx.QueriesM["channel"] = "staging"
+
+	if channel := resolveContentChannel(ctx); channel != "preview" {
+		t.Fatalf("expected $channel to have highest precedence, got %q", channel)
 	}
 }
 

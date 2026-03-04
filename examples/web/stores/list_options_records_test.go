@@ -81,3 +81,48 @@ func TestApplyListOptionsToRecordsSupportsDateComparators(t *testing.T) {
 		t.Fatalf("expected id 2, got %q", got)
 	}
 }
+
+func TestApplyListOptionsToRecordsIgnoresDollarChannelScopeFilters(t *testing.T) {
+	records := []map[string]any{
+		{"id": "1", "title": "Alpha", "status": "published", "channel": "default"},
+		{"id": "2", "title": "Beta", "status": "published", "channel": "preview"},
+	}
+
+	paged, total := applyListOptionsToRecords(records, admin.ListOptions{
+		Filters: map[string]any{
+			"status":          "published",
+			"$channel":        "staging",
+			"content_channel": "preview",
+		},
+	}, nil)
+
+	if total != 2 {
+		t.Fatalf("expected channel scope filters to be ignored, got total=%d", total)
+	}
+	if len(paged) != 2 {
+		t.Fatalf("expected 2 records, got %d", len(paged))
+	}
+}
+
+func TestApplyListOptionsToRecordsSupportsPlainChannelFieldFilters(t *testing.T) {
+	records := []map[string]any{
+		{"id": "1", "title": "Alpha", "channel": "default"},
+		{"id": "2", "title": "Beta", "channel": "preview"},
+	}
+
+	paged, total := applyListOptionsToRecords(records, admin.ListOptions{
+		Filters: map[string]any{
+			"channel": "preview",
+		},
+	}, nil)
+
+	if total != 1 {
+		t.Fatalf("expected plain channel field filter to match one record, got total=%d", total)
+	}
+	if len(paged) != 1 {
+		t.Fatalf("expected one record, got %d", len(paged))
+	}
+	if got := asString(paged[0]["id"], ""); got != "2" {
+		t.Fatalf("expected id 2 after channel filter, got %q", got)
+	}
+}

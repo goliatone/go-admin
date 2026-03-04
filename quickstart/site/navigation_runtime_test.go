@@ -371,8 +371,8 @@ func TestProjectMenuItemsIsDeterministic(t *testing.T) {
 		},
 	}
 
-	first := runtime.projectMenuItems(items, "/a", menuDedupByURL, false)
-	second := runtime.projectMenuItems(items, "/a", menuDedupByURL, false)
+	first := runtime.projectMenuItems(items, "/a", "en", menuDedupByURL, false)
+	second := runtime.projectMenuItems(items, "/a", "en", menuDedupByURL, false)
 	if len(first) != len(second) || len(first) != 3 {
 		t.Fatalf("expected deterministic list length, got first=%d second=%d", len(first), len(second))
 	}
@@ -383,6 +383,77 @@ func TestProjectMenuItemsIsDeterministic(t *testing.T) {
 	}
 	if anyString(first[0]["label"]) != "A" || anyString(first[1]["label"]) != "B" || anyString(first[2]["label"]) != "C" {
 		t.Fatalf("expected position-based order A/B/C, got %+v", first)
+	}
+}
+
+func TestSiteNavigationLocalizesInternalMenuHrefForNonDefaultLocale(t *testing.T) {
+	content := admin.NewInMemoryContentService()
+	seedDeliveryPageType(t, content)
+
+	_, err := content.CreateContent(context.Background(), admin.CMSContent{
+		ID:              "about-es",
+		Title:           "Sobre Nosotros",
+		Slug:            "about",
+		Locale:          "es",
+		Status:          "published",
+		ContentType:     "page",
+		ContentTypeSlug: "page",
+		Data: map[string]any{
+			"path": "/sobre-nosotros",
+		},
+	})
+	if err != nil {
+		t.Fatalf("create es content: %v", err)
+	}
+
+	menuSvc := &siteNavigationMenuStub{
+		byLocation: map[string]*admin.Menu{
+			"site.main": {
+				Code:     "site_main",
+				Location: "site.main",
+				Items: []admin.MenuItem{
+					{
+						ID:    "main.team",
+						Label: "Nuestro Equipo",
+						Target: map[string]any{
+							"url": "/about/team",
+						},
+					},
+				},
+			},
+		},
+	}
+	adm := adminWithMenuStub(t, menuSvc, nil)
+	server := router.NewHTTPServer()
+	if err := RegisterSiteRoutes(server.Router(), adm, admin.Config{DefaultLocale: "en"}, SiteConfig{
+		SupportedLocales: []string{"en", "es"},
+	}, WithDeliveryServices(content, content)); err != nil {
+		t.Fatalf("register site routes: %v", err)
+	}
+
+	payload := performSiteRequest(t, server, "/es/sobre-nosotros?format=json")
+	items := menuItemsFromContext(t, nestedAny(payload, "context", "main_menu", "items"))
+	if len(items) != 1 {
+		t.Fatalf("expected one main menu item, got %+v", items)
+	}
+	if got := stringsTrimSpace(anyString(items[0]["href"])); got != "/es/about/team" {
+		t.Fatalf("expected localized href /es/about/team, got %q", got)
+	}
+}
+
+func TestSiteNavigationDoesNotDoublePrefixAlreadyLocalizedHref(t *testing.T) {
+	runtime := &navigationRuntime{
+		siteCfg: ResolvedSiteConfig{
+			DefaultLocale:    "en",
+			SupportedLocales: []string{"en", "es"},
+			LocalePrefixMode: LocalePrefixNonDefault,
+			Features: ResolvedSiteFeatures{
+				EnableI18N: true,
+			},
+		},
+	}
+	if got := runtime.localizeMenuHref("/es/about/team", "es"); got != "/es/about/team" {
+		t.Fatalf("expected already localized href to remain unchanged, got %q", got)
 	}
 }
 
