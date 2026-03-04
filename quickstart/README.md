@@ -99,7 +99,7 @@ Each helper is optional and composable.
 - `ApplySecureLinkManager(cfg *userssvc.Config, manager types.SecureLinkManager, opts ...SecureLinkUsersOption)` - Inputs: go-users config + manager; outputs: config mutated with securelink routes/manager.
 - `NewSecureLinkNotificationBuilder(manager links.SecureLinkManager, opts ...linksecure.Option) links.LinkBuilder` - Inputs: notification manager + options; outputs: notification link builder.
 - `RegisterOnboardingRoutes(r router.Router[T], cfg admin.Config, handlers OnboardingHandlers, opts ...OnboardingRouteOption) error` - Inputs: router/config/handlers; outputs: error (registers onboarding API routes).
-- `RegisterUserMigrations(client *persistence.Client, opts ...UserMigrationsOption) error` - Inputs: persistence client + options; outputs: error (registers go-auth + go-users migrations).
+- `RegisterUserMigrations(client *persistence.Client, opts ...UserMigrationsOption) error` - Inputs: persistence client + options; outputs: error (registers go-auth/go-users migrations using canonical profiles + source labels).
 
 ## User management
 Quickstart can wire go-users repositories and expose the built-in users module. The `users` feature flag is enabled by default in `DefaultAdminFeatures()`; if you disable it, the users module is skipped and user/role endpoints return `FeatureDisabledError`.
@@ -896,7 +896,7 @@ override hook examples.
 
 ## User migrations
 
-Quickstart registers go-auth + go-users core migrations out of the box:
+Quickstart registers the `combined` profile by default (`go-auth -> go-users`):
 
 ```go
 if err := quickstart.RegisterUserMigrations(client); err != nil {
@@ -904,18 +904,31 @@ if err := quickstart.RegisterUserMigrations(client); err != nil {
 }
 ```
 
-If you run without go-auth, disable auth migrations and enable go-users auth bootstrap/extras:
+Canonical profiles:
+
+- `quickstart.UserMigrationsProfileAuthOnly` -> `go-auth`
+- `quickstart.UserMigrationsProfileCombined` -> `go-auth -> go-users`
+- `quickstart.UserMigrationsProfileUsersStandalone` -> `go-users-auth -> go-users-auth-extras -> go-users`
+
+Canonical source labels:
+
+- `quickstart.UserMigrationsSourceLabelAuth`
+- `quickstart.UserMigrationsSourceLabelUsersCore`
+- `quickstart.UserMigrationsSourceLabelUsersAuthBootstrap`
+- `quickstart.UserMigrationsSourceLabelUsersAuthExtras`
+
+Example: register users standalone mode (no go-auth migrations):
 
 ```go
 if err := quickstart.RegisterUserMigrations(
 	client,
-	quickstart.WithUserMigrationsAuthEnabled(false),
-	quickstart.WithUserMigrationsAuthBootstrapEnabled(true),
-	quickstart.WithUserMigrationsAuthExtrasEnabled(true),
+	quickstart.WithUserMigrationsProfile(quickstart.UserMigrationsProfileUsersStandalone),
 ); err != nil {
 	return err
 }
 ```
+
+Services module migration registration uses `services-stack` (`go-auth -> go-users -> go-services -> app-local`) by default via `modules/services.RegisterServiceMigrations`.
 
 ## Static assets (opt-in disk fallback)
 ```go

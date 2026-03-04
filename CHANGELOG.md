@@ -1,5 +1,22 @@
 # Changelog
 
+# [Unreleased]
+
+## <!-- 13 -->📦 Bumps
+
+- Align target-package dependency baseline with the release train: `go-auth v0.35.0`, `go-users v0.16.0`, `go-services v0.4.0`, `go-cms v0.39.0`, `go-persistence-bun v0.11.0`.
+
+## <!-- 16 -->➕ Add
+
+- Add canonical migration profile support for quickstart user migrations (`auth-only`, `users-standalone`, `combined`) and service migrations (`services-stack`, `combined`, `auth-only`).
+- Add migration source-label constants for quickstart and services registration paths.
+- Add profile integration coverage for migration registration order/labels across `auth-only`, `users-standalone`, `combined`, and `services-stack`.
+
+## <!-- 3 -->📚 Documentation
+
+- Update quickstart migration guide with canonical profile and source-label usage.
+- Document `services-stack` migration profile contract in services module release-gate documentation.
+
 # [0.25.0](https://github.com/goliatone/go-admin/compare/v0.24.0...v0.25.0) - (2026-02-20)
 
 ## <!-- 1 -->🐛 Bug Fixes
@@ -1629,5 +1646,4 @@
 - Example templates ([74d23ed](https://github.com/goliatone/go-admin/commit/74d23ed807d5e312e8a61e009d19ad46d1632b5c))  - (goliatone)
 - Example update ([ff16170](https://github.com/goliatone/go-admin/commit/ff16170e3c7fdf46121bd546f3f6cd43f1dcdadc))  - (goliatone)
 - Initial commit ([2197564](https://github.com/goliatone/go-admin/commit/2197564725b64c8ef15d034763ee283ee95ac4ba))  - (goliatone)
-
 
