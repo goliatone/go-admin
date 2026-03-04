@@ -195,7 +195,7 @@ func (r *navigationRuntime) resolveMenuForLocation(
 
 	filtered := r.filterMenuItems(ctx, menu.Items)
 	filtered = r.enforceContributionLocalePolicy(ctx, filtered, opts.Locale, opts.ContributionLocalePolicy)
-	projected := r.projectMenuItems(filtered, activePath, opts.DedupPolicy, debugMode)
+	projected := r.projectMenuItems(filtered, activePath, opts.Locale, opts.DedupPolicy, debugMode)
 
 	return map[string]any{
 		"location":           strings.TrimSpace(primitivesFirstNonEmpty(menu.Location, location)),
@@ -680,7 +680,7 @@ func (r *navigationRuntime) isAuthorized(ctx context.Context, permissions []stri
 	return admin.CanAny(r.authorizer, ctx, "navigation", permissions...)
 }
 
-func (r *navigationRuntime) projectMenuItems(items []admin.MenuItem, activePath, dedupPolicy string, debugMode bool) []map[string]any {
+func (r *navigationRuntime) projectMenuItems(items []admin.MenuItem, activePath, locale, dedupPolicy string, debugMode bool) []map[string]any {
 	if len(items) == 0 {
 		return nil
 	}
@@ -690,7 +690,7 @@ func (r *navigationRuntime) projectMenuItems(items []admin.MenuItem, activePath,
 
 	out := make([]map[string]any, 0, len(deduped))
 	for _, item := range deduped {
-		projected := r.projectMenuItem(item, activePath, dedupPolicy, debugMode)
+		projected := r.projectMenuItem(item, activePath, locale, dedupPolicy, debugMode)
 		if projected == nil {
 			continue
 		}
@@ -702,17 +702,21 @@ func (r *navigationRuntime) projectMenuItems(items []admin.MenuItem, activePath,
 	return out
 }
 
-func (r *navigationRuntime) projectMenuItem(item admin.MenuItem, activePath, dedupPolicy string, debugMode bool) map[string]any {
+func (r *navigationRuntime) projectMenuItem(item admin.MenuItem, activePath, locale, dedupPolicy string, debugMode bool) map[string]any {
 	itemType := normalizeMenuItemType(item.Type)
 	target := cloneAnyMap(item.Target)
 	href := resolveMenuItemHref(item, target)
+	href = r.localizeMenuHref(href, locale)
+	if href != "" {
+		target["url"] = href
+	}
 	key := resolveMenuItemKey(item, href, target)
 
-	children := r.projectMenuItems(item.Children, activePath, dedupPolicy, debugMode)
+	children := r.projectMenuItems(item.Children, activePath, locale, dedupPolicy, debugMode)
 
 	activeMatch := normalizeActiveMatch(strings.TrimSpace(anyString(target["active_match"])))
 	pattern := strings.TrimSpace(anyString(target["active_pattern"]))
-	activeSelf := menuItemActive(normalizeNavigationPath(activePath), href, activeMatch, pattern)
+	activeSelf := r.menuItemActiveForRequestPath(normalizeNavigationPath(activePath), href, activeMatch, pattern)
 	childActive := anyProjectedChildActive(children)
 	active := activeSelf || childActive
 
@@ -880,6 +884,48 @@ func resolveMenuItemHref(item admin.MenuItem, target map[string]any) string {
 		return ""
 	}
 	return normalizeNavigationPath("/")
+}
+
+func (r *navigationRuntime) localizeMenuHref(href, locale string) string {
+	href = normalizeNavigationPath(href)
+	if href == "" {
+		return "/"
+	}
+	if r == nil || !r.siteCfg.Features.EnableI18N {
+		return href
+	}
+	locale = normalizeRequestedLocale(locale, r.siteCfg.DefaultLocale, r.siteCfg.SupportedLocales)
+	if locale == "" {
+		return href
+	}
+	if strings.HasPrefix(href, "http://") || strings.HasPrefix(href, "https://") || strings.HasPrefix(href, "//") {
+		return href
+	}
+	if canonical, _ := StripSupportedLocalePrefix(href, r.siteCfg.SupportedLocales); canonical != "" {
+		href = canonical
+	}
+	return LocalizedPath(href, locale, r.siteCfg.DefaultLocale, r.siteCfg.LocalePrefixMode)
+}
+
+func (r *navigationRuntime) menuItemActiveForRequestPath(activePath, href, mode, pattern string) bool {
+	if menuItemActive(activePath, href, mode, pattern) {
+		return true
+	}
+	if r == nil || !r.siteCfg.Features.EnableI18N {
+		return false
+	}
+	strippedActive, _ := StripSupportedLocalePrefix(activePath, r.siteCfg.SupportedLocales)
+	strippedHref, _ := StripSupportedLocalePrefix(href, r.siteCfg.SupportedLocales)
+	if strippedPattern, _ := StripSupportedLocalePrefix(pattern, r.siteCfg.SupportedLocales); strippedPattern != "" {
+		pattern = strippedPattern
+	}
+	if strippedActive == "" {
+		strippedActive = activePath
+	}
+	if strippedHref == "" {
+		strippedHref = href
+	}
+	return menuItemActive(strippedActive, strippedHref, mode, pattern)
 }
 
 func resolveMenuItemKey(item admin.MenuItem, href string, target map[string]any) string {

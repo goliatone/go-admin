@@ -257,7 +257,7 @@ func contentEntryBlockIconsMap(ctx admin.AdminContext, adm *admin.Admin) map[str
 		"status": "active",
 	}
 	if channel := strings.TrimSpace(ctx.Channel); channel != "" {
-		filters["channel"] = channel
+		filters[admin.ContentChannelScopeQueryParam] = channel
 	}
 	items, _, err := panel.List(ctx, admin.ListOptions{
 		PerPage: 10000,

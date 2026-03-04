@@ -77,6 +77,7 @@ func (h *contentEntryHandlers) listForPanel(c router.Context, panelSlug string) 
 		"datatable_id":         dataTableID,
 		"list_api":             listAPI,
 		"channel":              adminCtx.Channel,
+		"channel_query_key":    admin.ContentChannelScopeQueryParam,
 		"panel_name":           panelName,
 		"preferences_api_path": preferencesAPI,
 		"content_type": map[string]any{

@@ -893,7 +893,7 @@ func (h *contentTypeBuilderHandlers) listPanelRecords(c router.Context, panelNam
 		channel = normalizeChannelKey(channel)
 	}
 	if channel != "" {
-		filters["channel"] = channel
+		filters[admin.ContentChannelScopeQueryParam] = channel
 	}
 	opts := admin.ListOptions{
 		PerPage: 200,
@@ -2319,6 +2319,7 @@ func resolveContentChannel(c router.Context) string {
 		return ""
 	}
 	candidates := []string{
+		c.Query(admin.ContentChannelScopeQueryParam),
 		c.Query("channel"),
 		c.Query("content_channel"),
 		c.Header("X-Admin-Channel"),

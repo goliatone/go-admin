@@ -948,7 +948,7 @@ func (r *deliveryRuntime) canonicalRedirectTarget(c router.Context, resolution *
 		return ""
 	}
 	resolvedLocale := normalizeRequestedLocale(
-		resolution.ResolvedLocale,
+		r.canonicalRedirectLocale(resolution),
 		firstNonEmpty(resolution.RequestedLocale, r.siteCfg.DefaultLocale),
 		r.siteCfg.SupportedLocales,
 	)
@@ -968,6 +968,19 @@ func (r *deliveryRuntime) canonicalRedirectTarget(c router.Context, resolution *
 		return publicPath + "?" + query
 	}
 	return publicPath
+}
+
+func (r *deliveryRuntime) canonicalRedirectLocale(resolution *deliveryResolution) string {
+	if resolution == nil {
+		return ""
+	}
+	switch r.siteCfg.Features.CanonicalRedirectMode {
+	case CanonicalRedirectRequestedLocaleSticky:
+		if resolution.MissingRequested {
+			return resolution.RequestedLocale
+		}
+	}
+	return resolution.ResolvedLocale
 }
 
 func encodeRequestQuery(c router.Context) string {

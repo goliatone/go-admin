@@ -28,6 +28,18 @@ const (
 	LocalePrefixAlways     LocalePrefixMode = "always"
 )
 
+// CanonicalRedirectMode controls which locale is used when computing canonical redirects.
+type CanonicalRedirectMode string
+
+const (
+	// CanonicalRedirectResolvedLocale keeps existing behavior:
+	// canonical URL locale follows the resolved record locale.
+	CanonicalRedirectResolvedLocale CanonicalRedirectMode = "resolved_locale_canonical"
+	// CanonicalRedirectRequestedLocaleSticky preserves the requested locale prefix
+	// when fallback content is served.
+	CanonicalRedirectRequestedLocaleSticky CanonicalRedirectMode = "requested_locale_sticky"
+)
+
 // SiteConfig controls quickstart/site registration behavior.
 type SiteConfig struct {
 	BasePath            string
@@ -91,6 +103,7 @@ type SiteFeatures struct {
 	EnableTheme             *bool
 	EnableMenuDraftPreview  *bool
 	EnableCanonicalRedirect *bool
+	CanonicalRedirectMode   CanonicalRedirectMode
 	StrictLocalizedPaths    *bool
 }
 
@@ -142,6 +155,7 @@ type ResolvedSiteFeatures struct {
 	EnableTheme             bool
 	EnableMenuDraftPreview  bool
 	EnableCanonicalRedirect bool
+	CanonicalRedirectMode   CanonicalRedirectMode
 	StrictLocalizedPaths    bool
 }
 
@@ -222,6 +236,7 @@ func ResolveSiteConfig(cfg admin.Config, input SiteConfig) ResolvedSiteConfig {
 		EnableTheme:             boolValue(input.Features.EnableTheme, true),
 		EnableMenuDraftPreview:  boolValue(input.Features.EnableMenuDraftPreview, true),
 		EnableCanonicalRedirect: boolValue(input.Features.EnableCanonicalRedirect, true),
+		CanonicalRedirectMode:   normalizeCanonicalRedirectMode(input.Features.CanonicalRedirectMode),
 		StrictLocalizedPaths:    boolValue(input.Features.StrictLocalizedPaths, false),
 	}
 
@@ -313,6 +328,17 @@ func normalizeLocalePrefixMode(mode LocalePrefixMode) LocalePrefixMode {
 		return LocalePrefixAlways
 	default:
 		return LocalePrefixNonDefault
+	}
+}
+
+func normalizeCanonicalRedirectMode(mode CanonicalRedirectMode) CanonicalRedirectMode {
+	switch strings.ToLower(strings.TrimSpace(string(mode))) {
+	case "", string(CanonicalRedirectResolvedLocale):
+		return CanonicalRedirectResolvedLocale
+	case string(CanonicalRedirectRequestedLocaleSticky):
+		return CanonicalRedirectRequestedLocaleSticky
+	default:
+		return CanonicalRedirectResolvedLocale
 	}
 }
 

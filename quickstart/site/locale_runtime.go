@@ -118,7 +118,8 @@ func BuildLocaleSwitcherContract(
 				}
 			}
 		}
-		url := LocalizedPathWithQuery(path, locale, cfg.DefaultLocale, cfg.LocalePrefixMode, query)
+		switcherQuery := localeSwitcherQuery(query, cfg, locale)
+		url := LocalizedPathWithQuery(path, locale, cfg.DefaultLocale, cfg.LocalePrefixMode, switcherQuery)
 		item := map[string]any{
 			"locale":    locale,
 			"url":       url,
@@ -138,6 +139,36 @@ func BuildLocaleSwitcherContract(
 		out["available_locales"] = mapKeysSorted(availableSet)
 	}
 	return out
+}
+
+func localeSwitcherQuery(base map[string]string, cfg ResolvedSiteConfig, targetLocale string) map[string]string {
+	out := map[string]string{}
+	for key, value := range base {
+		key = strings.TrimSpace(key)
+		if key == "" {
+			continue
+		}
+		if strings.EqualFold(key, "locale") {
+			continue
+		}
+		out[key] = strings.TrimSpace(value)
+	}
+	if localeSwitcherRequiresExplicitDefaultLocale(cfg, targetLocale) {
+		out["locale"] = strings.ToLower(strings.TrimSpace(targetLocale))
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func localeSwitcherRequiresExplicitDefaultLocale(cfg ResolvedSiteConfig, targetLocale string) bool {
+	targetLocale = strings.ToLower(strings.TrimSpace(targetLocale))
+	defaultLocale := strings.ToLower(strings.TrimSpace(cfg.DefaultLocale))
+	if targetLocale == "" || defaultLocale == "" || targetLocale != defaultLocale {
+		return false
+	}
+	return normalizeLocalePrefixMode(cfg.LocalePrefixMode) == LocalePrefixNonDefault
 }
 
 func normalizeLocalePath(value string) string {
