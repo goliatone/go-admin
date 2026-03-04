@@ -1,6 +1,6 @@
 module github.com/goliatone/go-admin
 
-go 1.24.10
+go 1.26.0
 
 require (
 	github.com/creack/pty v1.1.20
@@ -8,9 +8,9 @@ require (
 	github.com/gofiber/fiber/v2 v2.52.11
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/goliatone/go-admin/quickstart v0.0.0-00010101000000-000000000000
-	github.com/goliatone/go-auth v0.35.0
-	github.com/goliatone/go-auth/adapters/featuregate v0.35.0
-	github.com/goliatone/go-cms v0.39.0
+	github.com/goliatone/go-auth v0.36.0
+	github.com/goliatone/go-auth/adapters/featuregate v0.36.0
+	github.com/goliatone/go-cms v0.40.0
 	github.com/goliatone/go-command v0.16.1
 	github.com/goliatone/go-crud v0.23.0
 	github.com/goliatone/go-crud/gql v0.23.0
@@ -25,14 +25,14 @@ require (
 	github.com/goliatone/go-masker v0.1.0
 	github.com/goliatone/go-notifications v0.12.0
 	github.com/goliatone/go-options v0.7.1
-	github.com/goliatone/go-persistence-bun v0.11.0
+	github.com/goliatone/go-persistence-bun v0.12.0
 	github.com/goliatone/go-repository-bun v0.15.1
 	github.com/goliatone/go-router v0.50.0
 	github.com/goliatone/go-template v0.3.1
 	github.com/goliatone/go-theme v0.3.0
 	github.com/goliatone/go-uploader v0.3.0
 	github.com/goliatone/go-urlkit v0.5.0
-	github.com/goliatone/go-users v0.16.0
+	github.com/goliatone/go-users v0.17.0
 	github.com/goliatone/hashid v0.2.0
 	github.com/google/uuid v1.6.0
 	github.com/julienschmidt/httprouter v1.3.0
@@ -121,7 +121,7 @@ require (
 	github.com/goliatone/go-export/adapters/template/go-template v0.7.0 // indirect
 	github.com/goliatone/go-print v0.4.1 // indirect
 	github.com/goliatone/go-repository-cache v0.7.1 // indirect
-	github.com/goliatone/go-services v0.4.0
+	github.com/goliatone/go-services v0.5.0
 	github.com/goliatone/go-slug v0.1.0 // indirect
 	github.com/goodsign/monday v1.0.2 // indirect
 	github.com/google/cel-go v0.26.1 // indirect
