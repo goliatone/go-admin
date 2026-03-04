@@ -1,0 +1,43 @@
+package config
+
+import (
+	"context"
+	"testing"
+)
+
+func TestLoadAppliesAPPPrefixOverrides(t *testing.T) {
+	t.Setenv("APP_ADMIN__TITLE", "E-Sign Test")
+	t.Setenv("APP_FEATURES__ESIGN_GOOGLE", "true")
+	t.Setenv("APP_RUNTIME__PROFILE", "staging")
+
+	cfg, _, err := Load(context.Background())
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if cfg.Admin.Title != "E-Sign Test" {
+		t.Fatalf("expected APP_ADMIN__TITLE override, got %q", cfg.Admin.Title)
+	}
+	if !cfg.Features.ESignGoogle {
+		t.Fatalf("expected APP_FEATURES__ESIGN_GOOGLE override=true")
+	}
+	if cfg.Runtime.Profile != "staging" {
+		t.Fatalf("expected APP_RUNTIME__PROFILE override, got %q", cfg.Runtime.Profile)
+	}
+}
+
+func TestLoadAppliesLegacyOverridesForPhaseOneCompatibility(t *testing.T) {
+	t.Setenv("APP_RUNTIME__PROFILE", "development")
+	t.Setenv("ESIGN_RUNTIME_PROFILE", "production")
+	t.Setenv("PORT", "9090")
+
+	cfg, _, err := Load(context.Background())
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if cfg.Runtime.Profile != "production" {
+		t.Fatalf("expected legacy ESIGN_RUNTIME_PROFILE to override APP value, got %q", cfg.Runtime.Profile)
+	}
+	if cfg.Server.Address != ":9090" {
+		t.Fatalf("expected PORT override -> :9090, got %q", cfg.Server.Address)
+	}
+}

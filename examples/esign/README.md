@@ -91,6 +91,22 @@ ADMIN_PASSWORD=admin.pwd \
 - `ADMIN_PUBLIC_API=true`
 - `ADMIN_API_VERSION=v1`
 
+### Configuration model (Phase 1)
+
+The e-sign example now loads typed runtime config via `examples/esign/config`:
+
+- `examples/esign/config/app.json` (base defaults)
+- `APP_*` environment overrides with `__` delimiter (same pattern as `examples/web`)
+
+Examples:
+- `APP_APP__ENV=development`
+- `APP_SERVER__ADDRESS=:8082`
+- `APP_FEATURES__ESIGN_GOOGLE=true`
+- `APP_RUNTIME__PROFILE=staging`
+
+Phase 1 compatibility note:
+- Legacy env keys (`ESIGN_*`, `ADMIN_*`, `PORT`, `ENV`, `GO_ENV`) are still accepted as temporary overrides while downstream modules are migrated.
+
 The e-sign runtime now uses SQLite-backed storage by default:
 
 - e-sign domain store (agreements/documents/signing/audit/email/job state)
