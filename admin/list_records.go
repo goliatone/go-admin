@@ -9,18 +9,21 @@ import (
 )
 
 var reservedListPredicateFields = map[string]struct{}{
-	"_search":     {},
-	"search":      {},
-	"environment": {},
-	"env":         {},
-	"page":        {},
-	"per_page":    {},
-	"limit":       {},
-	"offset":      {},
-	"order":       {},
-	"fields":      {},
-	"sort":        {},
-	"sort_desc":   {},
+	"_search":                     {},
+	"search":                      {},
+	ContentChannelScopeQueryParam: {},
+	"content_channel":             {},
+	"site_content_channel":        {},
+	"environment":                 {},
+	"env":                         {},
+	"page":                        {},
+	"per_page":                    {},
+	"limit":                       {},
+	"offset":                      {},
+	"order":                       {},
+	"fields":                      {},
+	"sort":                        {},
+	"sort_desc":                   {},
 }
 
 type listRecordPredicateMatcher func(record map[string]any, predicate ListPredicate) (matched bool, handled bool)
@@ -118,6 +121,9 @@ func recordMatchesListQuery(record map[string]any, search string, predicates []L
 	for _, predicate := range predicates {
 		field := strings.TrimSpace(predicate.Field)
 		if field == "" {
+			continue
+		}
+		if strings.HasPrefix(field, "$") {
 			continue
 		}
 		if _, skip := reservedListPredicateFields[strings.ToLower(field)]; skip {
