@@ -1,0 +1,50 @@
+{
+  "app": {
+    "name": "go-admin e-sign",
+    "env": "development"
+  },
+  "server": {
+    "address": ":8082"
+  },
+  "admin": {
+    "base_path": "/admin",
+    "title": "E-Sign Admin",
+    "default_locale": "en",
+    "public_api": true,
+    "api_prefix": "api",
+    "api_version": "v1",
+    "debug": {
+      "enable_slog": true
+    }
+  },
+  "features": {
+    "esign": true,
+    "esign_google": false,
+    "activity": true
+  },
+  "runtime": {
+    "profile": "development",
+    "startup_policy": "enforce"
+  },
+  "storage": {
+    "encryption_algorithm": "aws:kms"
+  },
+  "email": {
+    "transport": "deterministic"
+  },
+  "signer": {
+    "upload_ttl_seconds": 300
+  },
+  "services": {
+    "module_enabled": true,
+    "encryption_key": "go-admin-esign-services-app-key"
+  },
+  "google": {
+    "client_id": "",
+    "client_secret": "",
+    "oauth_redirect_uri": ""
+  },
+  "public": {
+    "base_url": ""
+  }
+}

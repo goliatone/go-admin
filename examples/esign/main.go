@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
+	appcfg "github.com/goliatone/go-admin/examples/esign/config"
 	"github.com/goliatone/go-admin/examples/esign/handlers"
 	"github.com/goliatone/go-admin/examples/esign/jobs"
 	"github.com/goliatone/go-admin/examples/esign/modules"
@@ -21,37 +22,47 @@ import (
 )
 
 func main() {
+	runtimeConfig, _, err := appcfg.Load(context.Background())
+	if err != nil {
+		log.Fatalf("load runtime config: %v", err)
+	}
+
 	cfg := quickstart.NewAdminConfig(
-		"/admin",
-		"E-Sign Admin",
-		"en",
+		runtimeConfig.Admin.BasePath,
+		runtimeConfig.Admin.Title,
+		runtimeConfig.Admin.DefaultLocale,
 	)
 	applyESignRuntimeDefaults(&cfg)
-	applyESignEmailTransportDefault()
+	applyESignEmailTransportDefault(runtimeConfig.Email.Transport)
 
 	// Explicit namespaces for admin and public signer API surfaces.
-	cfg.URLs.Admin.APIPrefix = "api"
-	cfg.URLs.Admin.APIVersion = "v1"
-	cfg.URLs.Public.APIPrefix = "api"
-	cfg.URLs.Public.APIVersion = "v1"
-	cfg.EnablePublicAPI = true
+	cfg.URLs.Admin.APIPrefix = strings.TrimSpace(runtimeConfig.Admin.APIPrefix)
+	if cfg.URLs.Admin.APIPrefix == "" {
+		cfg.URLs.Admin.APIPrefix = "api"
+	}
+	cfg.URLs.Admin.APIVersion = strings.TrimSpace(runtimeConfig.Admin.APIVersion)
+	if cfg.URLs.Admin.APIVersion == "" {
+		cfg.URLs.Admin.APIVersion = "v1"
+	}
+	cfg.URLs.Public.APIPrefix = cfg.URLs.Admin.APIPrefix
+	cfg.URLs.Public.APIVersion = cfg.URLs.Admin.APIVersion
+	cfg.EnablePublicAPI = runtimeConfig.Admin.PublicAPI
 	debugEnabled := cfg.Debug.Enabled
-	isDev := strings.EqualFold(os.Getenv("GO_ENV"), "development") ||
-		strings.EqualFold(os.Getenv("ENV"), "development")
+	isDev := isDevelopmentEnv(runtimeConfig.App.Env)
 
 	featureDefaults := map[string]bool{
-		"esign":                       envBool("ESIGN_FEATURE_ENABLED", true),
-		"esign_google":                envBool("ESIGN_GOOGLE_FEATURE_ENABLED", false),
-		string(admin.FeatureActivity): envBool("ESIGN_ACTIVITY_FEATURE_ENABLED", true),
+		"esign":                       runtimeConfig.Features.ESign,
+		"esign_google":                runtimeConfig.Features.ESignGoogle,
+		string(admin.FeatureActivity): runtimeConfig.Features.Activity,
 	}
 	adminDeps, err := newESignActivityDependencies()
 	if err != nil {
 		log.Fatalf("init activity sqlite dependencies: %v", err)
 	}
-	if err := validateRuntimeSecurityBaseline(); err != nil {
+	if err := validateRuntimeSecurityBaseline(*runtimeConfig); err != nil {
 		log.Fatalf("runtime security baseline: %v", err)
 	}
-	if err := validateRuntimeProviderConfiguration(); err != nil {
+	if err := validateRuntimeProviderConfiguration(*runtimeConfig); err != nil {
 		log.Fatalf("runtime provider configuration: %v", err)
 	}
 
@@ -61,7 +72,7 @@ func main() {
 		quickstart.WithAdminContext(context.Background()),
 		quickstart.WithAdminDependencies(adminDeps),
 		quickstart.WithFeatureDefaults(featureDefaults),
-		quickstart.WithStartupPolicy(resolveESignStartupPolicy()),
+		quickstart.WithStartupPolicy(resolveESignStartupPolicy(runtimeConfig.Runtime.StartupPolicy)),
 	)
 	if err != nil {
 		log.Fatalf("new admin: %v", err)
@@ -119,14 +130,12 @@ func main() {
 		log.Fatalf("register web routes: %v", err)
 	}
 	if debugEnabled {
-		enableSlog := !strings.EqualFold(os.Getenv("ADMIN_DEBUG_SLOG"), "false") &&
-			strings.TrimSpace(os.Getenv("ADMIN_DEBUG_SLOG")) != "0"
-		if enableSlog {
+		if runtimeConfig.Admin.Debug.EnableSlog {
 			quickstart.AttachDebugLogHandler(cfg, adm)
 		}
 	}
 
-	addr := listenAddr()
+	addr := listenAddr(runtimeConfig.Server.Address)
 	startupURL := "http://localhost" + addr + adm.BasePath()
 	adm.NamedLogger("esign.bootstrap").Info("e-sign admin ready", "url", startupURL)
 	if err := server.Serve(addr); err != nil {
@@ -134,16 +143,22 @@ func main() {
 	}
 }
 
-func listenAddr() string {
-	port := strings.TrimSpace(os.Getenv("PORT"))
+func listenAddr(configured string) string {
+	port := strings.TrimSpace(configured)
 	if port == "" {
 		return ":8082"
 	}
-	if _, err := strconv.Atoi(strings.TrimPrefix(port, ":")); err != nil {
-		return ":8082"
-	}
 	if strings.HasPrefix(port, ":") {
+		if _, err := strconv.Atoi(strings.TrimPrefix(port, ":")); err != nil {
+			return ":8082"
+		}
 		return port
+	}
+	if strings.Contains(port, ":") {
+		return port
+	}
+	if _, err := strconv.Atoi(port); err != nil {
+		return ":8082"
 	}
 	return ":" + port
 }
@@ -176,8 +191,8 @@ func envInt(key string, fallback int) int {
 	return parsed
 }
 
-func resolveESignStartupPolicy() quickstart.StartupPolicy {
-	policy := strings.ToLower(strings.TrimSpace(os.Getenv("ESIGN_STARTUP_POLICY")))
+func resolveESignStartupPolicy(raw string) quickstart.StartupPolicy {
+	policy := strings.ToLower(strings.TrimSpace(raw))
 	switch policy {
 	case "warn", "warning":
 		return quickstart.StartupPolicyWarn
@@ -186,21 +201,21 @@ func resolveESignStartupPolicy() quickstart.StartupPolicy {
 	}
 }
 
-func applyESignEmailTransportDefault() {
-	transport := strings.ToLower(strings.TrimSpace(os.Getenv(jobs.EnvEmailTransport)))
+func applyESignEmailTransportDefault(rawTransport string) {
+	transport := strings.ToLower(strings.TrimSpace(rawTransport))
 	if transport == "" {
-		_ = os.Setenv(jobs.EnvEmailTransport, "deterministic")
-		return
+		transport = "deterministic"
 	}
+	_ = os.Setenv(jobs.EnvEmailTransport, transport)
 
 	if transport == "mailpit" && strings.TrimSpace(os.Getenv(jobs.EnvEmailSMTPDisableSTARTTLS)) == "" {
 		_ = os.Setenv(jobs.EnvEmailSMTPDisableSTARTTLS, "true")
 	}
 }
 
-func validateRuntimeSecurityBaseline() error {
+func validateRuntimeSecurityBaseline(cfg appcfg.Config) error {
 	policy := stores.DefaultObjectStorageSecurityPolicy()
-	algorithm := strings.TrimSpace(os.Getenv("ESIGN_STORAGE_ENCRYPTION_ALGORITHM"))
+	algorithm := strings.TrimSpace(cfg.Storage.EncryptionAlgorithm)
 	if algorithm == "" {
 		algorithm = "aws:kms"
 	}
@@ -217,10 +232,10 @@ func validateRuntimeSecurityBaseline() error {
 	return nil
 }
 
-func validateRuntimeProviderConfiguration() error {
-	profile := strings.ToLower(strings.TrimSpace(os.Getenv("ESIGN_RUNTIME_PROFILE")))
+func validateRuntimeProviderConfiguration(cfg appcfg.Config) error {
+	profile := strings.ToLower(strings.TrimSpace(cfg.Runtime.Profile))
 	if isProductionLikeRuntimeProfile(profile) {
-		if err := validatePublicBaseURLForRuntimeProfile(profile); err != nil {
+		if err := validatePublicBaseURLForRuntimeProfile(profile, cfg.Public.BaseURL); err != nil {
 			return err
 		}
 	}
@@ -228,33 +243,36 @@ func validateRuntimeProviderConfiguration() error {
 		return nil
 	}
 
-	transport := strings.ToLower(strings.TrimSpace(os.Getenv(jobs.EnvEmailTransport)))
+	transport := strings.ToLower(strings.TrimSpace(cfg.Email.Transport))
 	switch transport {
 	case "", "deterministic", "mock":
 		return fmt.Errorf("production profile requires ESIGN_EMAIL_TRANSPORT to use a non-deterministic provider")
 	}
-	if strings.TrimSpace(os.Getenv("ESIGN_SIGNER_UPLOAD_SIGNING_KEY")) == "" {
+	if strings.TrimSpace(cfg.Signer.UploadSigningKey) == "" {
 		return fmt.Errorf("production profile requires ESIGN_SIGNER_UPLOAD_SIGNING_KEY for signer upload contract signing")
 	}
-	uploadTTLSeconds := envInt("ESIGN_SIGNER_UPLOAD_TTL_SECONDS", 300)
+	uploadTTLSeconds := cfg.Signer.UploadTTLSeconds
+	if uploadTTLSeconds <= 0 {
+		uploadTTLSeconds = 300
+	}
 	if uploadTTLSeconds < 60 || uploadTTLSeconds > 900 {
 		return fmt.Errorf("production profile requires ESIGN_SIGNER_UPLOAD_TTL_SECONDS between 60 and 900 seconds")
 	}
 
-	if envBool("ESIGN_GOOGLE_FEATURE_ENABLED", false) {
-		if !envBool("ESIGN_SERVICES_MODULE_ENABLED", true) {
+	if cfg.Features.ESignGoogle {
+		if !cfg.Services.ModuleEnabled {
 			return fmt.Errorf("production profile requires ESIGN_SERVICES_MODULE_ENABLED=true when ESIGN_GOOGLE_FEATURE_ENABLED=true")
 		}
-		if strings.TrimSpace(os.Getenv(services.EnvGoogleClientID)) == "" {
+		if strings.TrimSpace(cfg.Google.ClientID) == "" {
 			return fmt.Errorf("production profile requires %s when ESIGN_GOOGLE_FEATURE_ENABLED=true", services.EnvGoogleClientID)
 		}
-		if strings.TrimSpace(os.Getenv(services.EnvGoogleClientSecret)) == "" {
+		if strings.TrimSpace(cfg.Google.ClientSecret) == "" {
 			return fmt.Errorf("production profile requires %s when ESIGN_GOOGLE_FEATURE_ENABLED=true", services.EnvGoogleClientSecret)
 		}
-		if strings.TrimSpace(os.Getenv("ESIGN_SERVICES_ENCRYPTION_KEY")) == "" {
+		if strings.TrimSpace(cfg.Services.EncryptionKey) == "" {
 			return fmt.Errorf("production profile requires ESIGN_SERVICES_ENCRYPTION_KEY when ESIGN_GOOGLE_FEATURE_ENABLED=true")
 		}
-		if err := validateGoogleOAuthRedirectURI(); err != nil {
+		if err := validateGoogleOAuthRedirectURI(cfg.Google.OAuthRedirectURI); err != nil {
 			return err
 		}
 	}
@@ -270,8 +288,8 @@ func isProductionLikeRuntimeProfile(profile string) bool {
 	}
 }
 
-func validatePublicBaseURLForRuntimeProfile(profile string) error {
-	base := strings.TrimSpace(os.Getenv(jobs.EnvPublicBaseURL))
+func validatePublicBaseURLForRuntimeProfile(profile string, publicBaseURL string) error {
+	base := strings.TrimSpace(publicBaseURL)
 	if base == "" {
 		return fmt.Errorf("%s profile requires %s", strings.TrimSpace(profile), jobs.EnvPublicBaseURL)
 	}
@@ -291,8 +309,8 @@ func validatePublicBaseURLForRuntimeProfile(profile string) error {
 	return nil
 }
 
-func validateGoogleOAuthRedirectURI() error {
-	redirectURI := strings.TrimSpace(os.Getenv(services.EnvGoogleOAuthRedirectURI))
+func validateGoogleOAuthRedirectURI(rawRedirectURI string) error {
+	redirectURI := strings.TrimSpace(rawRedirectURI)
 	if redirectURI == "" {
 		return fmt.Errorf("production profile requires %s when ESIGN_GOOGLE_FEATURE_ENABLED=true", services.EnvGoogleOAuthRedirectURI)
 	}
@@ -305,6 +323,11 @@ func validateGoogleOAuthRedirectURI() error {
 		return fmt.Errorf("%s must use http or https", services.EnvGoogleOAuthRedirectURI)
 	}
 	return nil
+}
+
+func isDevelopmentEnv(raw string) bool {
+	value := strings.ToLower(strings.TrimSpace(raw))
+	return value == "development" || value == "dev" || value == "local"
 }
 
 func resolveESignDiskAssetsDir() string {
