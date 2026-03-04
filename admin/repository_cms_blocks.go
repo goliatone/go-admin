@@ -35,6 +35,7 @@ func (r *CMSBlockDefinitionRepository) List(ctx context.Context, opts ListOption
 		categoryFilter = strings.ToLower(strings.TrimSpace(toString(opts.Filters["category"])))
 		statusFilter = strings.ToLower(strings.TrimSpace(toString(opts.Filters["status"])))
 		channel = strings.TrimSpace(firstNonEmptyRaw(
+			toString(opts.Filters[ContentChannelScopeQueryParam]),
 			toString(opts.Filters["channel"]),
 			toString(opts.Filters["content_channel"]),
 			toString(opts.Filters["environment"]),
