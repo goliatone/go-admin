@@ -494,6 +494,21 @@ Menu targets can reference CMS content using:
 
 When a menu target lacks an explicit `url`, the public API resolves it from the linked content (`page_id` or `content_id`) and falls back to the content slug if needed.
 
+### Localized Menu URLs In Quickstart Admin
+
+When rendering admin sidebar links from CMS-backed menus, quickstart resolves targets using this order:
+
+1. `target.url` (locale-specific URL override)
+2. `target.path`
+3. `target.name` (route name)
+
+The renderer also carries request scope in generated links:
+
+- `locale` query for non-default locale requests
+- scoped channel query key `"$channel"` (`admin.ContentChannelScopeQueryParam`)
+
+This keeps menu labels, link targets, and downstream content grids aligned to the same locale/channel context.
+
 ```go
 type Menu struct {
     ID       string
@@ -738,14 +753,59 @@ inputs:
 - Runtime env: app/runtime behavior (`dev`, `staging`, `prod`).
 - Content channel: CMS partition key for reads (`default`, `dev`, `staging`, `prod`, custom).
 
+### Admin content channel query contract
+
+For admin list/read routes (content grids, content-type builder reads, panel API calls),
+use the scoped query key `"$channel"` (constant: `admin.ContentChannelScopeQueryParam`).
+
+- Canonical scoped query key: `?$channel=<channel>`
+- Compatibility readers still accept: `channel`, `content_channel`, `site_content_channel`
+- Plain `channel` is intentionally kept available as a normal filter/data field
+
+Why this matters:
+
+- `channel` can be a real field in domain data models.
+- Using `$channel` avoids accidental predicate collisions where scope metadata is
+  interpreted as a record field filter.
+
 Recommended host wiring:
 
 ```go
 siteCfg := quicksite.SiteConfig{
     Environment:    os.Getenv("SITE_RUNTIME_ENV"),
     ContentChannel: os.Getenv("SITE_CONTENT_CHANNEL"),
+    Features: quicksite.SiteFeatures{
+        CanonicalRedirectMode: quicksite.CanonicalRedirectRequestedLocaleSticky,
+    },
 }
 ```
+
+### Site i18n canonical redirect strategy
+
+When `quickstart/site` resolves fallback content (requested locale missing,
+resolved locale available), canonical redirect behavior is controlled by:
+
+- `SiteFeatures.EnableCanonicalRedirect` (default: `true`)
+- `SiteFeatures.CanonicalRedirectMode`
+
+Supported modes:
+
+- `resolved_locale_canonical` (quickstart default): redirect URL locale follows
+  `resolved_locale`.
+- `requested_locale_sticky` (recommended for locale continuity): when fallback
+  is used, preserve requested locale URL context instead of cross-locale redirect.
+- Site runtime also persists locale in `site_locale` cookie (SameSite=Lax). This
+  cookie is consulted for unprefixed requests so stale canonical links can be
+  redirected back into the active locale context.
+- In `LocalePrefixMode=non_default`, locale switcher default-locale links include
+  `?locale=<default>` so explicit switches back to default locale are not
+  overridden by the `site_locale` cookie.
+
+Example fallback request (`/es/...` requested, only EN record exists):
+
+- `resolved_locale_canonical` -> redirect to EN canonical path.
+- `requested_locale_sticky` -> keep `/es/...` URL path, render fallback content
+  with `missing_requested_locale=true`.
 
 Failure signature for runtime/channel mismatch:
 

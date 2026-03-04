@@ -7,7 +7,7 @@ Canonical runtime configuration for `examples/web` is:
 
 `go-admin` and `quickstart` do not read process environment directly for runtime behavior. Host apps should load config and pass explicit option structs/config values.
 
-Last updated: March 2, 2026.
+Last updated: March 4, 2026.
 
 ## Resolution order
 
@@ -51,6 +51,8 @@ Examples:
 | `admin.authz_preflight.mode` | `APP_ADMIN__AUTHZ_PREFLIGHT__MODE` | `off`, `warn`, `strict` |
 | `site.runtime_env` | `APP_SITE__RUNTIME_ENV` | Runtime behavior environment (`dev`, `staging`, `prod`) |
 | `site.content_channel` | `APP_SITE__CONTENT_CHANNEL` | CMS content scope (`default`, `dev`, etc.) |
+| `site.enable_canonical_redirect` | `APP_SITE__ENABLE_CANONICAL_REDIRECT` | Enable site canonical redirects |
+| `site.canonical_redirect_mode` | `APP_SITE__CANONICAL_REDIRECT_MODE` | Canonical locale strategy: `requested_locale_sticky` or `resolved_locale_canonical` |
 | `site.environment_strict` | `APP_SITE__ENVIRONMENT_STRICT` | Fail-fast env mismatch detection |
 | `features.persistent_cms` | `APP_FEATURES__PERSISTENT_CMS` | Persistent CMS adapter toggle |
 | `features.go_options` | `APP_FEATURES__GO_OPTIONS` | go-options settings backend toggle |
@@ -70,9 +72,13 @@ Examples:
 | `securelink.expiration` | `APP_SECURELINK__EXPIRATION` | Go duration string (default `72h`) |
 | `cms.runtime_logs` | `APP_CMS__RUNTIME_LOGS` | CMS runtime diagnostics toggle |
 
+Site locale continuity note:
+- `quickstart/site` persists request locale in `site_locale` cookie for i18n-enabled routes.
+- This is runtime behavior (not env-configured) and is used as locale fallback for unprefixed/stale links.
+
 ## Compatibility aliases
 
-`examples/web/taskfile` `dev:serve` exports canonical `APP_*` keys, then mirrors a subset to legacy aliases (`ADMIN_*`, `SITE_*`, `USE_*`, etc.) for compatibility with older scripts. Those aliases are not canonical runtime config.
+`examples/web/taskfile` `dev:serve` exports canonical `APP_*` keys only. Legacy aliases (`ADMIN_*`, `SITE_*`, `USE_*`, etc.) are not exported.
 
 ## Quickstart note
 
