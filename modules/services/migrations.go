@@ -1,6 +1,7 @@
 package services
 
 import (
+	"fmt"
 	"io/fs"
 	"strings"
 
@@ -8,6 +9,26 @@ import (
 	persistence "github.com/goliatone/go-persistence-bun"
 	goservices "github.com/goliatone/go-services"
 	users "github.com/goliatone/go-users"
+)
+
+// Service migration source labels for dialect-aware registration.
+const (
+	ServiceMigrationsSourceLabelAuth     = "go-auth"
+	ServiceMigrationsSourceLabelUsers    = "go-users"
+	ServiceMigrationsSourceLabelServices = "go-services"
+	ServiceMigrationsSourceLabelAppLocal = "app-local"
+)
+
+// ServiceMigrationsProfile controls which migration sources are registered.
+type ServiceMigrationsProfile string
+
+const (
+	// ServiceMigrationsProfileServicesStack registers go-auth + go-users + go-services.
+	ServiceMigrationsProfileServicesStack ServiceMigrationsProfile = "services-stack"
+	// ServiceMigrationsProfileCombined registers go-auth + go-users only.
+	ServiceMigrationsProfileCombined ServiceMigrationsProfile = "combined"
+	// ServiceMigrationsProfileAuthOnly registers only go-auth migrations.
+	ServiceMigrationsProfileAuthOnly ServiceMigrationsProfile = "auth-only"
 )
 
 // MigrationRegistration records an ordered migration registration step.
@@ -22,9 +43,11 @@ type MigrationObserver func(MigrationRegistration)
 type ServiceMigrationsOption func(*serviceMigrationsOptions)
 
 type serviceMigrationsOptions struct {
-	enableAuth     bool
-	enableUsers    bool
-	enableServices bool
+	profile ServiceMigrationsProfile
+
+	enableAuth     *bool
+	enableUsers    *bool
+	enableServices *bool
 
 	authFS     fs.FS
 	usersFS    fs.FS
@@ -47,12 +70,10 @@ func RegisterServiceMigrations(client *persistence.Client, opts ...ServiceMigrat
 	}
 
 	options := serviceMigrationsOptions{
-		enableAuth:        true,
-		enableUsers:       true,
-		enableServices:    true,
-		authLabel:         "go-auth",
-		usersLabel:        "go-users",
-		servicesLabel:     "go-services",
+		profile:           ServiceMigrationsProfileServicesStack,
+		authLabel:         ServiceMigrationsSourceLabelAuth,
+		usersLabel:        ServiceMigrationsSourceLabelUsers,
+		servicesLabel:     ServiceMigrationsSourceLabelServices,
 		validationTargets: []string{"postgres", "sqlite"},
 	}
 	for _, opt := range opts {
@@ -61,7 +82,21 @@ func RegisterServiceMigrations(client *persistence.Client, opts ...ServiceMigrat
 		}
 	}
 
-	if options.enableAuth {
+	enableAuth, enableUsers, enableServices, err := resolveServiceMigrationsProfile(options.profile)
+	if err != nil {
+		return err
+	}
+	if options.enableAuth != nil {
+		enableAuth = *options.enableAuth
+	}
+	if options.enableUsers != nil {
+		enableUsers = *options.enableUsers
+	}
+	if options.enableServices != nil {
+		enableServices = *options.enableServices
+	}
+
+	if enableAuth {
 		migrationsFS, err := resolveMigrationFS(options.authFS, auth.GetMigrationsFS(), "data/sql/migrations")
 		if err != nil {
 			return err
@@ -71,7 +106,7 @@ func RegisterServiceMigrations(client *persistence.Client, opts ...ServiceMigrat
 		}
 	}
 
-	if options.enableUsers {
+	if enableUsers {
 		migrationsFS, err := resolveMigrationFS(options.usersFS, users.GetCoreMigrationsFS(), "data/sql/migrations")
 		if err != nil {
 			return err
@@ -81,7 +116,7 @@ func RegisterServiceMigrations(client *persistence.Client, opts ...ServiceMigrat
 		}
 	}
 
-	if options.enableServices {
+	if enableServices {
 		migrationsFS, err := resolveMigrationFS(options.servicesFS, goservices.GetCoreMigrationsFS(), "data/sql/migrations")
 		if err != nil {
 			return err
@@ -97,7 +132,7 @@ func RegisterServiceMigrations(client *persistence.Client, opts ...ServiceMigrat
 		}
 		label := strings.TrimSpace(source.Label)
 		if label == "" {
-			label = "app-local"
+			label = ServiceMigrationsSourceLabelAppLocal
 		}
 		if err := registerDialectMigrations(client, source.Filesystem, label, options.validationTargets, options.observer); err != nil {
 			return err
@@ -107,11 +142,21 @@ func RegisterServiceMigrations(client *persistence.Client, opts ...ServiceMigrat
 	return nil
 }
 
+// WithServiceMigrationsProfile sets the canonical service migration registration profile.
+func WithServiceMigrationsProfile(profile ServiceMigrationsProfile) ServiceMigrationsOption {
+	return func(opts *serviceMigrationsOptions) {
+		if opts != nil {
+			opts.profile = profile
+		}
+	}
+}
+
 // WithServiceMigrationsAuthEnabled toggles go-auth migration registration.
 func WithServiceMigrationsAuthEnabled(enabled bool) ServiceMigrationsOption {
 	return func(opts *serviceMigrationsOptions) {
 		if opts != nil {
-			opts.enableAuth = enabled
+			value := enabled
+			opts.enableAuth = &value
 		}
 	}
 }
@@ -120,7 +165,8 @@ func WithServiceMigrationsAuthEnabled(enabled bool) ServiceMigrationsOption {
 func WithServiceMigrationsUsersEnabled(enabled bool) ServiceMigrationsOption {
 	return func(opts *serviceMigrationsOptions) {
 		if opts != nil {
-			opts.enableUsers = enabled
+			value := enabled
+			opts.enableUsers = &value
 		}
 	}
 }
@@ -129,7 +175,8 @@ func WithServiceMigrationsUsersEnabled(enabled bool) ServiceMigrationsOption {
 func WithServiceMigrationsServicesEnabled(enabled bool) ServiceMigrationsOption {
 	return func(opts *serviceMigrationsOptions) {
 		if opts != nil {
-			opts.enableServices = enabled
+			value := enabled
+			opts.enableServices = &value
 		}
 	}
 }
@@ -214,6 +261,19 @@ func resolveMigrationFS(override fs.FS, fallback fs.FS, subdir string) (fs.FS, e
 	return fs.Sub(fallback, subdir)
 }
 
+func resolveServiceMigrationsProfile(profile ServiceMigrationsProfile) (bool, bool, bool, error) {
+	switch ServiceMigrationsProfile(strings.TrimSpace(strings.ToLower(string(profile)))) {
+	case "", ServiceMigrationsProfileServicesStack:
+		return true, true, true, nil
+	case ServiceMigrationsProfileCombined:
+		return true, true, false, nil
+	case ServiceMigrationsProfileAuthOnly:
+		return true, false, false, nil
+	default:
+		return false, false, false, fmt.Errorf("modules/services: unsupported service migrations profile %q", profile)
+	}
+}
+
 func registerDialectMigrations(
 	client *persistence.Client,
 	migrationsFS fs.FS,
@@ -224,11 +284,15 @@ func registerDialectMigrations(
 	if client == nil || migrationsFS == nil {
 		return nil
 	}
+	normalizedLabel := strings.TrimSpace(label)
+	if normalizedLabel == "" {
+		return nil
+	}
 	if observer != nil {
-		observer(MigrationRegistration{Label: strings.TrimSpace(label)})
+		observer(MigrationRegistration{Label: normalizedLabel})
 	}
 	options := []persistence.DialectMigrationOption{
-		persistence.WithDialectSourceLabel(label),
+		persistence.WithDialectSourceLabel(normalizedLabel),
 	}
 	if len(targets) > 0 {
 		options = append(options, persistence.WithValidationTargets(targets...))
