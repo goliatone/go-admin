@@ -361,7 +361,7 @@ func quickstartDoctorBlockDefinitionsCheck() admin.DoctorCheck {
 					_, total, err := panel.List(adminCtx, admin.ListOptions{
 						Page:    1,
 						PerPage: 1,
-						Filters: map[string]any{"channel": effectiveEnv},
+						Filters: map[string]any{admin.ContentChannelScopeQueryParam: effectiveEnv},
 					})
 					if err == nil {
 						visibleTotal = total
@@ -376,7 +376,7 @@ func quickstartDoctorBlockDefinitionsCheck() admin.DoctorCheck {
 				_, total, err := repo.List(listCtx, admin.ListOptions{
 					Page:    1,
 					PerPage: 1,
-					Filters: map[string]any{"channel": effectiveEnv},
+					Filters: map[string]any{admin.ContentChannelScopeQueryParam: effectiveEnv},
 				})
 				if err != nil {
 					visibilityErr := err

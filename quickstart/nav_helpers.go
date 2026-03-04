@@ -3,6 +3,7 @@ package quickstart
 import (
 	"context"
 	"encoding/json"
+	"net/url"
 	"path"
 	"strings"
 
@@ -10,6 +11,12 @@ import (
 	router "github.com/goliatone/go-router"
 	urlkit "github.com/goliatone/go-urlkit"
 )
+
+type navRequestScope struct {
+	MenuLocale string
+	Locale     string
+	Channel    string
+}
 
 // PlacementConfig maps logical placements to menu codes and dashboard areas.
 type PlacementConfig struct {
@@ -133,9 +140,10 @@ func BuildNavItemsForPlacement(adm *admin.Admin, cfg admin.Config, placements Pl
 	urls := adm.URLs()
 	menuCode := placements.MenuCodeFor(placement, cfg.NavMenuCode)
 	logNav := cfg.NavDebugLog
-	items := nav.ResolveMenu(ctx, menuCode, cfg.DefaultLocale)
+	scope := resolveNavRequestScope(ctx, cfg.DefaultLocale)
+	items := nav.ResolveMenu(ctx, menuCode, scope.MenuLocale)
 	for _, item := range items {
-		entry, _ := buildNavEntry(item, basePath, urls, active)
+		entry, _ := buildNavEntry(item, basePath, urls, active, scope)
 		if entry == nil {
 			continue
 		}
@@ -148,11 +156,28 @@ func BuildNavItemsForPlacement(adm *admin.Admin, cfg admin.Config, placements Pl
 			logger.Debug("nav payload",
 				"placement", placement,
 				"menu_code", menuCode,
+				"menu_locale", scope.MenuLocale,
+				"link_locale", scope.Locale,
+				"link_channel", scope.Channel,
 				"payload", string(raw),
 			)
 		}
 	}
 	return entries
+}
+
+func resolveNavRequestScope(ctx context.Context, defaultLocale string) navRequestScope {
+	scope := navRequestScope{
+		MenuLocale: strings.TrimSpace(defaultLocale),
+	}
+	if scopedLocale := strings.TrimSpace(admin.LocaleFromContext(ctx)); scopedLocale != "" {
+		scope.MenuLocale = scopedLocale
+		if !strings.EqualFold(scopedLocale, strings.TrimSpace(defaultLocale)) {
+			scope.Locale = scopedLocale
+		}
+	}
+	scope.Channel = strings.TrimSpace(admin.ContentChannelFromContext(ctx))
+	return scope
 }
 
 func applyTranslationEntrypointDegradation(entries []map[string]any, exposure translationModuleExposureSnapshot) []map[string]any {
@@ -230,11 +255,11 @@ func toNavString(value any) string {
 	}
 }
 
-func buildNavEntry(item admin.NavigationItem, basePath string, urls urlkit.Resolver, active string) (map[string]any, bool) {
+func buildNavEntry(item admin.NavigationItem, basePath string, urls urlkit.Resolver, active string, scope navRequestScope) (map[string]any, bool) {
 	children := make([]map[string]any, 0, len(item.Children))
 	childActive := false
 	for _, child := range item.Children {
-		childNode, hasActive := buildNavEntry(child, basePath, urls, active)
+		childNode, hasActive := buildNavEntry(child, basePath, urls, active, scope)
 		if childNode == nil {
 			continue
 		}
@@ -244,7 +269,7 @@ func buildNavEntry(item admin.NavigationItem, basePath string, urls urlkit.Resol
 		children = append(children, childNode)
 	}
 
-	href, derivedKey, position := resolveNavTarget(item.Target, basePath, urls)
+	href, derivedKey, position := resolveNavTarget(item.Target, basePath, urls, scope)
 	// Prefer target key for active matching since IDs may include parent prefixes
 	key := derivedKey
 	if key == "" {
@@ -286,17 +311,19 @@ func buildNavEntry(item admin.NavigationItem, basePath string, urls urlkit.Resol
 	return entry, isActive || childActive
 }
 
-func resolveNavTarget(target map[string]any, basePath string, urls urlkit.Resolver) (string, string, int) {
+func resolveNavTarget(target map[string]any, basePath string, urls urlkit.Resolver, scope navRequestScope) (string, string, int) {
 	basePath = resolveAdminBasePath(urls, basePath)
 	href := basePath
 	key := ""
 	position := 0
 
 	if target == nil {
-		return href, key, position
+		return withNavScopeQuery(href, scope), key, position
 	}
 
-	if targetPath, ok := target["path"].(string); ok && strings.TrimSpace(targetPath) != "" {
+	if targetURL, ok := target["url"].(string); ok && strings.TrimSpace(targetURL) != "" {
+		href = strings.TrimSpace(targetURL)
+	} else if targetPath, ok := target["path"].(string); ok && strings.TrimSpace(targetPath) != "" {
 		href = strings.TrimSpace(targetPath)
 		if shouldPrefixBasePath(basePath, href) {
 			href = prefixBasePath(basePath, href)
@@ -316,10 +343,7 @@ func resolveNavTarget(target map[string]any, basePath string, urls urlkit.Resolv
 	} else if name, ok := target["name"].(string); ok && strings.TrimSpace(name) != "" {
 		key = strings.TrimPrefix(strings.TrimSpace(name), "admin.")
 	} else if href != "" {
-		parts := strings.Split(strings.Trim(href, "/"), "/")
-		if len(parts) > 0 {
-			key = parts[len(parts)-1]
-		}
+		key = navTargetKeyFromHref(href)
 	}
 
 	switch p := target["position"].(type) {
@@ -329,7 +353,66 @@ func resolveNavTarget(target map[string]any, basePath string, urls urlkit.Resolv
 		position = int(p)
 	}
 
-	return href, key, position
+	return withNavScopeQuery(href, scope), key, position
+}
+
+func navTargetKeyFromHref(href string) string {
+	trimmed := strings.TrimSpace(href)
+	if trimmed == "" {
+		return ""
+	}
+	parsed, err := url.Parse(trimmed)
+	if err == nil {
+		parts := strings.Split(strings.Trim(parsed.Path, "/"), "/")
+		if len(parts) > 0 {
+			return parts[len(parts)-1]
+		}
+		return ""
+	}
+	pathOnly := trimmed
+	if idx := strings.IndexAny(pathOnly, "?#"); idx >= 0 {
+		pathOnly = pathOnly[:idx]
+	}
+	parts := strings.Split(strings.Trim(pathOnly, "/"), "/")
+	if len(parts) == 0 {
+		return ""
+	}
+	return parts[len(parts)-1]
+}
+
+func withNavScopeQuery(href string, scope navRequestScope) string {
+	trimmed := strings.TrimSpace(href)
+	if trimmed == "" || !shouldDecorateNavHrefWithScope(trimmed) {
+		return trimmed
+	}
+	out := trimmed
+	if strings.TrimSpace(scope.Locale) != "" {
+		out = appendQueryParam(out, "locale", scope.Locale)
+	}
+	if strings.TrimSpace(scope.Channel) != "" {
+		out = appendQueryParam(out, admin.ContentChannelScopeQueryParam, scope.Channel)
+	}
+	return out
+}
+
+func shouldDecorateNavHrefWithScope(href string) bool {
+	trimmed := strings.TrimSpace(href)
+	if trimmed == "" || isAbsoluteURL(trimmed) {
+		return false
+	}
+	lower := strings.ToLower(trimmed)
+	switch {
+	case strings.HasPrefix(trimmed, "#"):
+		return false
+	case strings.HasPrefix(lower, "mailto:"):
+		return false
+	case strings.HasPrefix(lower, "tel:"):
+		return false
+	case strings.HasPrefix(lower, "javascript:"):
+		return false
+	default:
+		return true
+	}
 }
 
 func resolveNavRoute(urls urlkit.Resolver, name string) string {

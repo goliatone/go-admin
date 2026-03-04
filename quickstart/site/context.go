@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/goliatone/go-admin/admin"
 	router "github.com/goliatone/go-router"
@@ -107,9 +108,36 @@ func requestContextMiddleware(adm *admin.Admin, cfg admin.Config, siteCfg Resolv
 			c.SetContext(requestCtx)
 			c.Locals(requestStateLocalsKey, state)
 			c.Locals(viewContextLocalsKey, cloneViewContext(state.ViewContext))
+			persistLocaleCookie(c, siteCfg, state)
 			return next(c)
 		}
 	}
+}
+
+func persistLocaleCookie(c router.Context, siteCfg ResolvedSiteConfig, state RequestState) {
+	if c == nil || !siteCfg.Features.EnableI18N {
+		return
+	}
+	locale := matchSupportedLocale(state.Locale, siteCfg.SupportedLocales)
+	if locale == "" {
+		return
+	}
+	current := matchSupportedLocale(c.Cookies(defaultLocaleCookieName), siteCfg.SupportedLocales)
+	if current == locale {
+		return
+	}
+	path := normalizeLocalePath(siteCfg.BasePath)
+	if path == "" {
+		path = "/"
+	}
+	c.Cookie(&router.Cookie{
+		Name:     defaultLocaleCookieName,
+		Value:    locale,
+		Path:     path,
+		MaxAge:   int((365 * 24 * time.Hour).Seconds()),
+		Expires:  time.Now().Add(365 * 24 * time.Hour),
+		SameSite: router.CookieSameSiteLaxMode,
+	})
 }
 
 // ResolveRequestState computes the normalized request context + view context.
@@ -317,6 +345,7 @@ func resolveRequestContentChannel(c router.Context, fallback string) string {
 		return "default"
 	}
 	candidates := []string{
+		c.Query(admin.ContentChannelScopeQueryParam),
 		c.Query("channel"),
 		c.Query("content_channel"),
 		c.Query("site_content_channel"),
