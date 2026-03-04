@@ -189,6 +189,32 @@ If site runtime returns 404 with empty primary nav in persistent CMS:
 3. Confirm seed/promoted data exists in that content channel (content types, contents, and `site.main` menu bindings/items).
 4. Enable strict mismatch detection in non-local runs: `site.environment_strict=true` (`APP_SITE__ENVIRONMENT_STRICT=true`).
 
+If admin content grids are empty while menus/locales still work:
+
+1. Inspect list requests in DevTools and confirm scoped channel is sent as `$channel` (or `%24channel` in encoded URLs).
+2. If requests send `channel=...`, verify the resource does not have a real `channel` field filter that could zero results.
+3. Prefer `admin.ContentChannelScopeQueryParam` in backend-generated query maps and template view context (`channel_query_key`).
+
+If admin menu labels localize but clicks still open default-locale content:
+
+1. Ensure navigation is built through `quickstart.WithNav` / `quickstart.BuildNavItemsForPlacement` (not a custom renderer that only reads `target.path`).
+2. Quickstart nav link resolution contract:
+   - resolve menu with request locale from context (fallback: `cfg.DefaultLocale`)
+   - prefer localized `target.url` when present, then `target.path`/`target.name`
+   - propagate active scope in generated links via `?locale=...` and `?$channel=...` (`admin.ContentChannelScopeQueryParam`)
+3. If behavior diverges, turn on nav payload logging (`cfg.NavDebugLog=true`) and verify emitted `href` values include locale/scope query state.
+
+If site menu links are locale-prefixed but final page URL drops locale prefix (for example `/es/...` -> `/...`):
+
+1. Confirm rendered menu href payload is localized (`context.main_menu.items[*].href` includes `/es/...`).
+2. Check site redirect policy:
+   - `site.enable_canonical_redirect=true|false`
+   - `site.canonical_redirect_mode=requested_locale_sticky|resolved_locale_canonical`
+3. For locale continuity with fallback content, set `site.canonical_redirect_mode=requested_locale_sticky`.
+4. Verify `site_locale` cookie is being set on localized requests (`Set-Cookie: site_locale=<locale>`); unprefixed stale links rely on this cookie to retain locale continuity.
+5. Keep `resolved_locale_canonical` only when cross-locale canonical redirects are intentional (for example strict canonical SEO policy).
+6. In `LocalePrefixMode=non_default`, confirm locale switcher EN links include `?locale=en`; this disambiguates explicit default-locale switches from cookie-driven fallback.
+
 If `/` works but menu links like `/about` return `Cannot GET /about`:
 
 1. Treat this as a route registration issue, not an env/locale issue.
