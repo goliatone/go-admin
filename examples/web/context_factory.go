@@ -28,7 +28,10 @@ func contentCRUDContextFactory(defaultLocale string) func(crud.Context) crud.Con
 			base = coreadmin.WithLocale(base, locale)
 		}
 
-		channel := strings.TrimSpace(ctx.Query("channel"))
+		channel := strings.TrimSpace(ctx.Query(coreadmin.ContentChannelScopeQueryParam))
+		if channel == "" {
+			channel = strings.TrimSpace(ctx.Query("channel"))
+		}
 		if channel == "" {
 			channel = strings.TrimSpace(ctx.Query("content_channel"))
 		}

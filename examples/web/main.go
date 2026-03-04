@@ -1331,6 +1331,7 @@ func resolveSiteRuntimeConfig(cfg admin.Config, siteRuntime appcfg.SiteConfig, i
 			EnableTheme:             coreadmin.BoolPtr(true),
 			EnableMenuDraftPreview:  coreadmin.BoolPtr(true),
 			EnableCanonicalRedirect: coreadmin.BoolPtr(siteRuntime.EnableCanonicalRedirect),
+			CanonicalRedirectMode:   resolveSiteCanonicalRedirectMode(siteRuntime.CanonicalRedirectMode),
 			StrictLocalizedPaths:    coreadmin.BoolPtr(siteRuntime.StrictLocalizedPaths),
 		},
 		Theme: quicksite.SiteThemeConfig{
@@ -1479,6 +1480,17 @@ func resolveSiteLocalePrefixMode(raw string) quicksite.LocalePrefixMode {
 		return quicksite.LocalePrefixAlways
 	default:
 		return quicksite.LocalePrefixNonDefault
+	}
+}
+
+func resolveSiteCanonicalRedirectMode(raw string) quicksite.CanonicalRedirectMode {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case string(quicksite.CanonicalRedirectResolvedLocale):
+		return quicksite.CanonicalRedirectResolvedLocale
+	case string(quicksite.CanonicalRedirectRequestedLocaleSticky), "":
+		return quicksite.CanonicalRedirectRequestedLocaleSticky
+	default:
+		return quicksite.CanonicalRedirectRequestedLocaleSticky
 	}
 }
 

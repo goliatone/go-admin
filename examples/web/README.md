@@ -67,7 +67,7 @@ Examples:
 - `APP_ADMIN__SCOPE__DEFAULT_ORG_ID=<uuid>`
 - `APP_TRANSLATION__PROFILE=none|core|core+exchange|core+queue|full`
 
-For local development, `examples/web/taskfile` `dev:serve` exports canonical `APP_*` keys and also maps legacy aliases (`ADMIN_*`, `SITE_*`, `USE_*`) for compatibility.
+For local development, `examples/web/taskfile` `dev:serve` exports canonical `APP_*` keys only.
 
 ### Scope defaults (single vs multi-tenant)
 The example uses quickstart scope defaults. Configure via:
@@ -180,6 +180,11 @@ Config toggles:
 - **Session**: `GET /admin/api/session` (current authenticated user snapshot)
 - **Permission Diagnostics**: `GET /admin/api/debug/permissions` (current user granted/required/missing permissions + hints)
 
+Content channel query contract for admin/content routes:
+- Canonical scope query key is `$channel` (`admin.ContentChannelScopeQueryParam`).
+- For encoded URLs/curl, use `%24channel` (example: `/admin/api/v0/pages?page=1&per_page=10&%24channel=default`).
+- `channel` remains accepted as a compatibility input, but it can now be interpreted as a real record filter field.
+
 ### Public Site Runtime (`quickstart/site`)
 
 The web example now registers public routes through `quickstart/site.RegisterSiteRoutes` (catch-all delivery, menu projection, locale-aware routing, and optional search module).
@@ -187,6 +192,8 @@ The web example now registers public routes through `quickstart/site.RegisterSit
 Defaults:
 - `LocalePrefixMode=non_default` (`/about`, `/es/about`)
 - locale fallback enabled unless `site.allow_locale_fallback=false`
+- canonical redirects enabled with locale strategy `requested_locale_sticky` (fallback reads keep requested locale URL context)
+- request locale is persisted in `site_locale` cookie for locale continuity when a stale/non-prefixed link is followed
 - generated menu fallback disabled (`site.enable_generated_fallback=false`) and intended only as a demo safety net
 - search routes enabled when the injected site search provider is available:
   - page: `GET /search`
@@ -197,12 +204,20 @@ Useful config toggles:
 - `site.supported_locales` (`APP_SITE__SUPPORTED_LOCALES=en,es,fr`)
 - `site.locale_prefix_mode` (`APP_SITE__LOCALE_PREFIX_MODE=non_default|always`)
 - `site.allow_locale_fallback` (`APP_SITE__ALLOW_LOCALE_FALLBACK=true|false`)
+- `site.enable_canonical_redirect` (`APP_SITE__ENABLE_CANONICAL_REDIRECT=true|false`)
+- `site.canonical_redirect_mode` (`APP_SITE__CANONICAL_REDIRECT_MODE=requested_locale_sticky|resolved_locale_canonical`)
 - `site.enable_generated_fallback` (`APP_SITE__ENABLE_GENERATED_FALLBACK=true|false`)
 - `site.enable_search` (`APP_SITE__ENABLE_SEARCH=true|false`)
 - `site.runtime_env` (`APP_SITE__RUNTIME_ENV=dev|staging|prod`)
 - `site.content_channel` (`APP_SITE__CONTENT_CHANNEL=default|dev|staging|prod|<channel>`)
 - `site.theme` (`APP_SITE__THEME=<theme-name>`)
 - `site.theme_variant` (`APP_SITE__THEME_VARIANT=<variant>`)
+
+Canonical redirect mode behavior:
+- `requested_locale_sticky`: when fallback content is served (for example ES request resolves EN record), keep the requested locale URL prefix to preserve navigation locale continuity.
+- `resolved_locale_canonical`: canonical URL follows resolved content locale (for example fallback EN record redirects to EN canonical path).
+- `site_locale` cookie is used as locale fallback input for unprefixed requests, so stale `/...` links opened from an ES session are redirected back into `/es/...` when sticky mode is active.
+- in `LocalePrefixMode=non_default`, locale switcher links to default locale include `?locale=<default>` (for example `?locale=en`) so explicit EN switches are not shadowed by a non-default `site_locale` cookie.
 
 Theme override behavior:
 - In runtime `dev|staging`, request query overrides are allowed: `?theme=<name>&variant=<variant>`.
