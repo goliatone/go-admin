@@ -31,6 +31,7 @@ func (r *CMSContentTypeRepository) List(ctx context.Context, opts ListOptions) (
 	hasChannelFilter := false
 	if opts.Filters != nil {
 		channel = strings.TrimSpace(firstNonEmptyRaw(
+			toString(opts.Filters[ContentChannelScopeQueryParam]),
 			toString(opts.Filters["channel"]),
 			toString(opts.Filters["content_channel"]),
 			toString(opts.Filters["environment"]),
