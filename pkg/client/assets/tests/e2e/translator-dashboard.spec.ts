@@ -343,7 +343,7 @@ test.describe('Translator Dashboard - Capability Modes', () => {
   });
 
   test('dashboard available in full profile', async ({ page }) => {
-    // This test assumes ADMIN_TRANSLATION_PROFILE=full
+    // This test assumes APP_TRANSLATION__PROFILE=full
     await navigateToTranslationDashboard(page);
 
     const notFound = page.locator('text=404');
