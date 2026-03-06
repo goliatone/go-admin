@@ -656,3 +656,61 @@ func TestInMemorySignerProfileCRUDAndExpiry(t *testing.T) {
 		t.Fatal("expected deleted profile lookup to fail")
 	}
 }
+
+func TestInMemorySavedSignerSignaturesCRUD(t *testing.T) {
+	store := NewInMemoryStore()
+	ctx := context.Background()
+	scope := Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	now := time.Now().UTC()
+
+	createdOne, err := store.CreateSavedSignerSignature(ctx, scope, SavedSignerSignatureRecord{
+		Subject:          "signer@example.com",
+		Type:             FieldTypeInitials,
+		Label:            "Initials A",
+		ThumbnailDataURL: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO5+qf8AAAAASUVORK5CYII=",
+		CreatedAt:        now.Add(-time.Minute),
+	})
+	if err != nil {
+		t.Fatalf("CreateSavedSignerSignature one: %v", err)
+	}
+	createdTwo, err := store.CreateSavedSignerSignature(ctx, scope, SavedSignerSignatureRecord{
+		Subject:          "signer@example.com",
+		Type:             FieldTypeInitials,
+		Label:            "Initials B",
+		ThumbnailDataURL: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO5+qf8AAAAASUVORK5CYII=",
+		CreatedAt:        now,
+	})
+	if err != nil {
+		t.Fatalf("CreateSavedSignerSignature two: %v", err)
+	}
+
+	listed, err := store.ListSavedSignerSignatures(ctx, scope, "signer@example.com", FieldTypeInitials)
+	if err != nil {
+		t.Fatalf("ListSavedSignerSignatures: %v", err)
+	}
+	if len(listed) != 2 {
+		t.Fatalf("expected 2 signatures, got %d", len(listed))
+	}
+	if listed[0].ID != createdTwo.ID {
+		t.Fatalf("expected most recent first, got first=%q", listed[0].ID)
+	}
+
+	count, err := store.CountSavedSignerSignatures(ctx, scope, "signer@example.com", FieldTypeInitials)
+	if err != nil {
+		t.Fatalf("CountSavedSignerSignatures: %v", err)
+	}
+	if count != 2 {
+		t.Fatalf("expected count 2, got %d", count)
+	}
+
+	if err := store.DeleteSavedSignerSignature(ctx, scope, "signer@example.com", createdOne.ID); err != nil {
+		t.Fatalf("DeleteSavedSignerSignature: %v", err)
+	}
+	afterDelete, err := store.ListSavedSignerSignatures(ctx, scope, "signer@example.com", FieldTypeInitials)
+	if err != nil {
+		t.Fatalf("ListSavedSignerSignatures after delete: %v", err)
+	}
+	if len(afterDelete) != 1 || afterDelete[0].ID != createdTwo.ID {
+		t.Fatalf("unexpected records after delete: %+v", afterDelete)
+	}
+}

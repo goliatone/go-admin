@@ -844,6 +844,14 @@ func TestRegisterSignerSessionEmitsViewedAuditEventWithIPAndUserAgent(t *testing
 	}); err != nil {
 		t.Fatalf("UpsertFieldDraft: %v", err)
 	}
+	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &recipient.ID,
+		Type:        strPtr(stores.FieldTypeSignature),
+		PageNumber:  &page,
+		Required:    &required,
+	}); err != nil {
+		t.Fatalf("UpsertFieldDraft signature: %v", err)
+	}
 	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, services.SendInput{IdempotencyKey: "session-viewed-audit"}); err != nil {
 		t.Fatalf("Send: %v", err)
 	}

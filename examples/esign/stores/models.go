@@ -380,6 +380,19 @@ type SignerProfileRecord struct {
 	ExpiresAt             time.Time
 }
 
+// SavedSignerSignatureRecord stores signer-scoped reusable signature/initials payloads.
+type SavedSignerSignatureRecord struct {
+	ID               string
+	TenantID         string
+	OrgID            string
+	Subject          string
+	Type             string
+	Label            string
+	ObjectKey        string
+	ThumbnailDataURL string
+	CreatedAt        time.Time
+}
+
 // AuditEventRecord represents append-only lifecycle and security events.
 type AuditEventRecord struct {
 	ID           string

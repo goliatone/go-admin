@@ -70,6 +70,14 @@ type SignerProfileStore interface {
 	DeleteSignerProfile(ctx context.Context, scope Scope, subject, key string) error
 }
 
+// SavedSignerSignatureStore defines persistence for reusable signer signatures/initials.
+type SavedSignerSignatureStore interface {
+	CreateSavedSignerSignature(ctx context.Context, scope Scope, record SavedSignerSignatureRecord) (SavedSignerSignatureRecord, error)
+	ListSavedSignerSignatures(ctx context.Context, scope Scope, subject, signatureType string) ([]SavedSignerSignatureRecord, error)
+	CountSavedSignerSignatures(ctx context.Context, scope Scope, subject, signatureType string) (int, error)
+	DeleteSavedSignerSignature(ctx context.Context, scope Scope, subject, id string) error
+}
+
 // SigningTokenStore defines persistence for hashed signer tokens.
 type SigningTokenStore interface {
 	CreateSigningToken(ctx context.Context, scope Scope, record SigningTokenRecord) (SigningTokenRecord, error)
@@ -175,6 +183,7 @@ type TxStore interface {
 	SigningStore
 	SignatureArtifactStore
 	SignerProfileStore
+	SavedSignerSignatureStore
 	SigningTokenStore
 	AuditEventStore
 	AgreementArtifactStore

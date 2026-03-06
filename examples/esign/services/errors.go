@@ -30,6 +30,7 @@ const (
 	ErrorCodeIntegrationMapping     ErrorCode = "INTEGRATION_MAPPING_INVALID"
 	ErrorCodeIntegrationConflict    ErrorCode = "INTEGRATION_CONFLICT"
 	ErrorCodeIntegrationReplay      ErrorCode = "INTEGRATION_REPLAY"
+	ErrorCodeSignatureLibraryLimit  ErrorCode = "SIGNATURE_LIBRARY_LIMIT_REACHED"
 )
 
 // DomainErrorCodes is the phase-0 e-sign error namespace registration payload.
@@ -157,6 +158,12 @@ var DomainErrorCodes = []coreadmin.DomainErrorCode{
 	{
 		Code:        string(ErrorCodeIntegrationReplay),
 		Description: "Integration mutation idempotency replay detected.",
+		Category:    goerrors.CategoryConflict,
+		HTTPStatus:  409,
+	},
+	{
+		Code:        string(ErrorCodeSignatureLibraryLimit),
+		Description: "Signer saved signature library reached configured limit.",
 		Category:    goerrors.CategoryConflict,
 		HTTPStatus:  409,
 	},
