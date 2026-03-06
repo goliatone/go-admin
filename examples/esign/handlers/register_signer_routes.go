@@ -39,6 +39,27 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 			if err != nil {
 				return writeAPIError(c, err, http.StatusConflict, string(services.ErrorCodeInvalidSignerState), "unable to resolve signer session", nil)
 			}
+			if cfg.auditEvents != nil {
+				metadataJSON := "{}"
+				if encoded, merr := json.Marshal(map[string]any{
+					"recipient_id":   strings.TrimSpace(tokenRecord.RecipientID),
+					"agreement_id":   strings.TrimSpace(tokenRecord.AgreementID),
+					"session_state":  strings.TrimSpace(session.State),
+					"agreement_status": strings.TrimSpace(session.AgreementStatus),
+				}); merr == nil {
+					metadataJSON = string(encoded)
+				}
+				_, _ = cfg.auditEvents.Append(c.Context(), cfg.resolveScope(c), stores.AuditEventRecord{
+					AgreementID:  strings.TrimSpace(tokenRecord.AgreementID),
+					EventType:    "signer.viewed",
+					ActorType:    "signer_token",
+					ActorID:      strings.TrimSpace(tokenRecord.RecipientID),
+					IPAddress:    strings.TrimSpace(c.IP()),
+					UserAgent:    strings.TrimSpace(c.Header("User-Agent")),
+					MetadataJSON: metadataJSON,
+					CreatedAt:    time.Now().UTC(),
+				})
+			}
 			return c.JSON(http.StatusOK, map[string]any{
 				"status":  "ok",
 				"session": session,
