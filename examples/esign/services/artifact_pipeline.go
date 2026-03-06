@@ -40,6 +40,7 @@ type ExecutedRenderInput struct {
 	Recipients    []stores.RecipientRecord
 	Fields        []stores.FieldRecord
 	FieldValues   []stores.FieldValueRecord
+	Events        []stores.AuditEventRecord
 	CorrelationID string
 }
 
@@ -328,12 +329,20 @@ func (s ArtifactPipelineService) generateExecutedArtifact(ctx context.Context, s
 		}
 		allValues = append(allValues, values...)
 	}
+	events := make([]stores.AuditEventRecord, 0)
+	if s.audits != nil {
+		events, err = s.audits.ListForAgreement(ctx, scope, agreementID, stores.AuditEventQuery{SortDesc: false})
+		if err != nil {
+			return stores.AgreementArtifactRecord{}, err
+		}
+	}
 	rendered, err := s.renderer.RenderExecuted(ctx, ExecutedRenderInput{
 		Scope:         scope,
 		Agreement:     agreement,
 		Recipients:    recipients,
 		Fields:        fields,
 		FieldValues:   allValues,
+		Events:        events,
 		CorrelationID: correlationID,
 	})
 	if err != nil {

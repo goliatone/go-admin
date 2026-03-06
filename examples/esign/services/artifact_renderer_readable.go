@@ -99,7 +99,25 @@ func (r ReadableArtifactRenderer) RenderExecuted(ctx context.Context, input Exec
 		return RenderedArtifact{}, fmt.Errorf("render executed: source payload is not a pdf")
 	}
 
-	renderedPDF, err := r.renderExecutedWithOverlays(ctx, sourcePDF, document.PageCount, input)
+	trailDoc := BuildAuditTrailDocument(AuditTrailBuildInput{
+		Agreement:     input.Agreement,
+		Recipients:    input.Recipients,
+		Events:        input.Events,
+		GeneratedAt:   r.now().UTC(),
+		DocumentID:    strings.TrimSpace(document.ID),
+		DocumentTitle: strings.TrimSpace(document.Title),
+		DocumentKey:   strings.TrimSpace(document.SourceObjectKey),
+		DocumentHash:  strings.TrimSpace(document.SourceSHA256),
+		CorrelationID: strings.TrimSpace(input.CorrelationID),
+	})
+	renderedPDF, err := r.renderExecutedWithOverlays(
+		ctx,
+		sourcePDF,
+		document.PageCount,
+		strings.TrimSpace(document.SourceSHA256),
+		trailDoc,
+		input,
+	)
 	if err != nil {
 		// Phase 1 fallback: preserve readable source document even if overlay rendering fails.
 		renderedPDF = append([]byte{}, sourcePDF...)
@@ -117,6 +135,8 @@ func (r ReadableArtifactRenderer) renderExecutedWithOverlays(
 	ctx context.Context,
 	sourcePDF []byte,
 	sourcePageCount int,
+	sourceSHA256 string,
+	auditDoc AuditTrailDocument,
 	input ExecutedRenderInput,
 ) ([]byte, error) {
 	pageCount := sourcePageCount
@@ -132,6 +152,7 @@ func (r ReadableArtifactRenderer) renderExecutedWithOverlays(
 	importer := gofpdi.NewImporter()
 	overlaysByPage := r.buildExecutedOverlays(ctx, input)
 	rs := io.ReadSeeker(bytes.NewReader(sourcePDF))
+	footerText := executedDocumentHashFooter(sourceSHA256)
 
 	for page := 1; page <= pageCount; page++ {
 		// Import from /MediaBox first. Some PDFs expose zero-sized /CropBox values
@@ -153,6 +174,11 @@ func (r ReadableArtifactRenderer) renderExecutedWithOverlays(
 		for _, overlay := range overlaysByPage[page] {
 			drawExecutedOverlay(pdf, overlay)
 		}
+		drawExecutedFooter(pdf, width, height, footerText)
+	}
+
+	if err := r.renderAuditTrailPages(pdf, auditDoc, auditTrailRenderOptions{}); err != nil {
+		return nil, err
 	}
 
 	var out bytes.Buffer
@@ -243,92 +269,23 @@ func (r ReadableArtifactRenderer) RenderCertificate(_ context.Context, input Cer
 	if agreementID == "" {
 		return RenderedArtifact{}, fmt.Errorf("render certificate: agreement id required")
 	}
-
 	pdf := gofpdf.New("P", "pt", "Letter", "")
 	pdf.SetCompression(false)
-	pdf.SetMargins(54, 54, 54)
-	pdf.SetAutoPageBreak(true, 54)
-	pdf.AddPage()
-
-	pdf.SetFont("Helvetica", "B", 24)
-	pdf.CellFormat(0, 30, "Certificate of Completion", "", 1, "L", false, 0, "")
-
-	pdf.SetFont("Helvetica", "", 12)
-	pdf.CellFormat(0, 18, "Agreement completion audit trail and verification details.", "", 1, "L", false, 0, "")
-	pdf.Ln(4)
-
-	r.writeCertificateSectionTitle(pdf, "Agreement")
-	r.writeCertificateKV(pdf, "Agreement ID", agreementID)
-	r.writeCertificateKV(pdf, "Status", coalesce(strings.TrimSpace(input.Agreement.Status), stores.AgreementStatusCompleted))
-	r.writeCertificateKV(pdf, "Generated At", r.now().UTC().Format(time.RFC3339))
-	r.writeCertificateKV(pdf, "Executed SHA256", strings.TrimSpace(input.ExecutedSHA256))
-	r.writeCertificateKV(pdf, "Correlation ID", strings.TrimSpace(input.CorrelationID))
-
-	pdf.Ln(6)
-	r.writeCertificateSectionTitle(pdf, "Recipients")
-	recipients := append([]stores.RecipientRecord(nil), input.Recipients...)
-	sort.Slice(recipients, func(i, j int) bool {
-		if recipients[i].SigningOrder == recipients[j].SigningOrder {
-			return recipients[i].ID < recipients[j].ID
-		}
-		return recipients[i].SigningOrder < recipients[j].SigningOrder
+	pdf.SetMargins(54, 48, 54)
+	pdf.SetAutoPageBreak(false, 0)
+	trailDoc := BuildAuditTrailDocument(AuditTrailBuildInput{
+		Agreement:      input.Agreement,
+		Recipients:     input.Recipients,
+		Events:         input.Events,
+		GeneratedAt:    r.now().UTC(),
+		DocumentID:     strings.TrimSpace(input.Agreement.DocumentID),
+		DocumentTitle:  strings.TrimSpace(input.Agreement.Title),
+		DocumentHash:   strings.TrimSpace(input.ExecutedSHA256),
+		ExecutedSHA256: strings.TrimSpace(input.ExecutedSHA256),
+		CorrelationID:  strings.TrimSpace(input.CorrelationID),
 	})
-	if len(recipients) == 0 {
-		r.writeCertificateBody(pdf, "- None")
-	} else {
-		for _, recipient := range recipients {
-			status := "pending"
-			if recipient.CompletedAt != nil {
-				status = "completed at " + recipient.CompletedAt.UTC().Format(time.RFC3339)
-			}
-			if recipient.DeclinedAt != nil {
-				status = "declined at " + recipient.DeclinedAt.UTC().Format(time.RFC3339)
-			}
-			line := fmt.Sprintf("- %s <%s> role=%s stage=%d status=%s",
-				coalesce(strings.TrimSpace(recipient.Name), strings.TrimSpace(recipient.ID)),
-				strings.TrimSpace(recipient.Email),
-				strings.TrimSpace(recipient.Role),
-				normalizeSigningStage(recipient.SigningOrder),
-				status,
-			)
-			r.writeCertificateBody(pdf, line)
-		}
-	}
-
-	pdf.Ln(6)
-	r.writeCertificateSectionTitle(pdf, "Stage Timeline")
-	stageTimeline := buildCertificateStageTimeline(recipients)
-	if len(stageTimeline) == 0 {
-		r.writeCertificateBody(pdf, "- No signer stage data recorded")
-	} else {
-		for _, line := range stageTimeline {
-			r.writeCertificateBody(pdf, "- "+line)
-		}
-	}
-
-	pdf.Ln(6)
-	r.writeCertificateSectionTitle(pdf, "Audit Timeline")
-	events := append([]stores.AuditEventRecord(nil), input.Events...)
-	sort.Slice(events, func(i, j int) bool {
-		if events[i].CreatedAt.Equal(events[j].CreatedAt) {
-			return events[i].ID < events[j].ID
-		}
-		return events[i].CreatedAt.Before(events[j].CreatedAt)
-	})
-	if len(events) == 0 {
-		r.writeCertificateBody(pdf, "- No audit events recorded")
-	} else {
-		for _, event := range events {
-			parts := []string{
-				event.CreatedAt.UTC().Format(time.RFC3339),
-				coalesce(strings.TrimSpace(event.EventType), "event"),
-				fmt.Sprintf("actor=%s:%s", strings.TrimSpace(event.ActorType), strings.TrimSpace(event.ActorID)),
-			}
-			if metadata := compactMetadata(event.MetadataJSON); metadata != "" {
-				parts = append(parts, "metadata="+metadata)
-			}
-			r.writeCertificateBody(pdf, "- "+strings.Join(parts, " "))
-		}
+	if err := r.renderAuditTrailPages(pdf, trailDoc, auditTrailRenderOptions{StandaloneCertificate: true}); err != nil {
+		return RenderedArtifact{}, err
 	}
 
 	var out bytes.Buffer
@@ -342,6 +299,30 @@ func (r ReadableArtifactRenderer) RenderCertificate(_ context.Context, input Cer
 		SHA256:    hex.EncodeToString(sum[:]),
 		Payload:   payload,
 	}, nil
+}
+
+func executedDocumentHashFooter(sourceSHA256 string) string {
+	normalized := normalizeSHA256Hex(sourceSHA256)
+	if normalized == "" {
+		return ""
+	}
+	if len(normalized) < 24 {
+		return "Document Hash: " + normalized
+	}
+	return fmt.Sprintf("Document Hash: %s...%s", normalized[:16], normalized[len(normalized)-8:])
+}
+
+func drawExecutedFooter(pdf *gofpdf.Fpdf, pageWidth, pageHeight float64, footer string) {
+	footer = strings.TrimSpace(footer)
+	if footer == "" {
+		return
+	}
+	const footerYInset = 22.0
+	pdf.SetFont("Courier", "", 8)
+	pdf.SetTextColor(97, 99, 103)
+	pdf.Text(40, pageHeight-footerYInset, footer)
+	pdf.SetTextColor(20, 20, 20)
+	_ = pageWidth
 }
 
 func (r ReadableArtifactRenderer) writeCertificateSectionTitle(pdf *gofpdf.Fpdf, title string) {
