@@ -174,6 +174,8 @@
     <input type="hidden" name="recipients_present" value="1">
     <input type="hidden" name="fields_present" value="1">
     <input type="hidden" name="field_instances_present" value="1">
+    <input type="hidden" id="document_page_count" name="document_page_count" value="{{ resource_item.document_page_count|default:0 }}">
+    <input type="hidden" id="field_rules_json" name="field_rules_json" value="[]">
 
     {# Step 1: Document Selection #}
     <div id="wizard-step-1" class="wizard-step bg-white border border-gray-200 rounded-xl p-6" data-step="1">
@@ -441,6 +443,90 @@
               <span class="font-medium text-gray-900">Initials</span>
               <p class="text-gray-500">Abbreviated signature</p>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {# Field Automation Rules #}
+      <div class="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+        <div class="flex items-center justify-between gap-3 mb-3">
+          <div>
+            <h3 class="text-sm font-semibold text-blue-900">Automation Rules</h3>
+            <p class="text-xs text-blue-800 mt-1">Define repeated initials/signature patterns by page range.</p>
+          </div>
+          <button type="button" id="add-field-rule-btn" class="text-sm text-blue-700 hover:text-blue-900 font-medium">
+            + Add Rule
+          </button>
+        </div>
+
+        <div id="field-rules-container" class="space-y-3">
+          <template id="field-rule-template">
+            <div class="field-rule-entry p-3 bg-white border border-blue-100 rounded-lg" data-field-rule-id="">
+              <input type="hidden" class="field-rule-id-input" name="field_rules[].id" value="">
+              <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
+                <div>
+                  <label class="block text-xs font-medium text-gray-700 mb-1">Rule</label>
+                  <select class="field-rule-type-select w-full px-2 py-2 border border-gray-300 rounded-lg text-sm">
+                    <option value="initials_each_page">Initials each page</option>
+                    <option value="signature_once">Signature once</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-700 mb-1">Signer</label>
+                  <select class="field-rule-participant-select w-full px-2 py-2 border border-gray-300 rounded-lg text-sm">
+                    <option value="">Select signer...</option>
+                  </select>
+                </div>
+                <div class="field-rule-range-start-wrap">
+                  <label class="block text-xs font-medium text-gray-700 mb-1">From page</label>
+                  <input type="number" min="1" value="1" class="field-rule-from-page-input w-full px-2 py-2 border border-gray-300 rounded-lg text-sm">
+                </div>
+                <div class="field-rule-range-end-wrap">
+                  <label class="block text-xs font-medium text-gray-700 mb-1">To page</label>
+                  <input type="number" min="1" value="1" class="field-rule-to-page-input w-full px-2 py-2 border border-gray-300 rounded-lg text-sm">
+                </div>
+                <div class="field-rule-page-wrap hidden">
+                  <label class="block text-xs font-medium text-gray-700 mb-1">Page</label>
+                  <input type="number" min="1" value="1" class="field-rule-page-input w-full px-2 py-2 border border-gray-300 rounded-lg text-sm">
+                </div>
+                <div class="field-rule-required-wrap">
+                  <label class="block text-xs font-medium text-gray-700 mb-1">Required</label>
+                  <select class="field-rule-required-select w-full px-2 py-2 border border-gray-300 rounded-lg text-sm">
+                    <option value="1" selected>Yes</option>
+                    <option value="0">No</option>
+                  </select>
+                </div>
+              </div>
+              <div class="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div class="field-rule-exclude-last-wrap">
+                  <label class="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
+                    <input type="checkbox" class="field-rule-exclude-last-input w-4 h-4 text-blue-600 border-gray-300 rounded">
+                    Exclude last page
+                  </label>
+                </div>
+                <div class="field-rule-exclude-pages-wrap md:col-span-2">
+                  <label class="block text-xs font-medium text-gray-700 mb-1">Exclude pages</label>
+                  <input type="text" class="field-rule-exclude-pages-input w-full px-2 py-2 border border-gray-300 rounded-lg text-sm" placeholder="e.g. 2,5">
+                </div>
+              </div>
+              <div class="mt-3 flex items-center justify-between">
+                <p class="text-xs text-gray-500 field-rule-summary">Rule preview unavailable</p>
+                <button type="button" class="remove-field-rule-btn text-xs text-red-600 hover:text-red-800">
+                  Remove
+                </button>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <div id="field-rules-empty-state" class="text-xs text-blue-800">
+          No automation rules yet. Add one to generate repeated initials/signature fields.
+        </div>
+
+        <div class="mt-3 p-3 bg-white border border-blue-100 rounded-lg">
+          <p class="text-xs font-medium text-gray-700 mb-2">Generated preview</p>
+          <div id="field-rules-preview" class="space-y-1 text-xs text-gray-600">
+            <p>No rules configured.</p>
           </div>
         </div>
       </div>
@@ -918,6 +1004,7 @@ document.addEventListener('DOMContentLoaded', function() {
         participants: [],
         fieldDefinitions: [],
         fieldPlacements: [],
+        fieldRules: [],
         serverDraftId: null,
         serverRevision: 0,
         lastSyncedAt: null,
@@ -940,6 +1027,10 @@ document.addEventListener('DOMContentLoaded', function() {
         if (state.version !== WIZARD_STATE_VERSION) {
           console.warn('Wizard state version mismatch, migrating...');
           return this.migrateState(state);
+        }
+
+        if (!Array.isArray(state.fieldRules)) {
+          state.fieldRules = [];
         }
 
         return state;
@@ -1063,15 +1154,20 @@ document.addEventListener('DOMContentLoaded', function() {
         fieldDefinitions.push({ tempId: id, type, participantTempId: participantId, page, required });
       });
 
+      const fieldRules = collectFieldRulesForState();
+
+      const documentPageCount = parseInt(documentPageCountInput?.value || '0', 10) || null;
+
       return {
-        document: { id: docId, title: docTitle, pageCount: null },
+        document: { id: docId, title: docTitle, pageCount: documentPageCount },
         details: {
           title: titleInput?.value || '',
           message: messageInput?.value || ''
         },
         participants,
         fieldDefinitions,
-        fieldPlacements: placementState?.fieldInstances || []
+        fieldPlacements: placementState?.fieldInstances || [],
+        fieldRules
       };
     }
 
@@ -1090,6 +1186,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (docIdInput) docIdInput.value = state.document.id;
         if (docTitle) docTitle.textContent = state.document.title || 'Selected Document';
         if (docInfo) docInfo.textContent = state.document.pageCount ? `${state.document.pageCount} pages` : '';
+        if (documentPageCountInput && state.document.pageCount) {
+          documentPageCountInput.value = String(state.document.pageCount);
+        }
         if (selectedDoc) selectedDoc.classList.remove('hidden');
         if (docPicker) docPicker.classList.add('hidden');
       }
@@ -1660,8 +1759,17 @@ document.addEventListener('DOMContentLoaded', function() {
   const changeDocumentBtn = document.getElementById('change-document-btn');
   const selectedDocumentTitle = document.getElementById('selected-document-title');
   const selectedDocumentInfo = document.getElementById('selected-document-info');
+  const documentPageCountInput = document.getElementById('document_page_count');
 
   let documents = [];
+
+  function setDocumentPageCountValue(value) {
+    const parsed = parseInt(value || '0', 10);
+    const resolved = Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+    if (documentPageCountInput) {
+      documentPageCountInput.value = String(resolved);
+    }
+  }
 
   function hydrateSelectedDocumentFromList() {
     const currentID = (documentIdInput?.value || '').trim();
@@ -1675,6 +1783,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!selectedDocumentInfo.textContent.trim() || selectedDocumentInfo.textContent.trim() === 'pages') {
       selectedDocumentInfo.textContent = `${selected.page_count || 0} pages`;
     }
+    setDocumentPageCountValue(selected.page_count || 0);
     selectedDocument.classList.remove('hidden');
     documentPicker.classList.add('hidden');
   }
@@ -1765,9 +1874,11 @@ document.addEventListener('DOMContentLoaded', function() {
     documentIdInput.value = id;
     selectedDocumentTitle.textContent = title;
     selectedDocumentInfo.textContent = `${pages} pages`;
+    setDocumentPageCountValue(pages);
 
     selectedDocument.classList.remove('hidden');
     documentPicker.classList.add('hidden');
+    renderFieldRulePreview();
   }
 
   function escapeHtml(text) {
@@ -1890,13 +2001,24 @@ document.addEventListener('DOMContentLoaded', function() {
   const addFieldBtn = document.getElementById('add-field-btn');
   const addFieldDefinitionEmptyBtn = document.getElementById('add-field-definition-empty-btn');
   const fieldDefinitionsEmptyState = document.getElementById('field-definitions-empty-state');
+  const fieldRulesContainer = document.getElementById('field-rules-container');
+  const fieldRuleTemplate = document.getElementById('field-rule-template');
+  const addFieldRuleBtn = document.getElementById('add-field-rule-btn');
+  const fieldRulesEmptyState = document.getElementById('field-rules-empty-state');
+  const fieldRulesPreview = document.getElementById('field-rules-preview');
+  const fieldRulesJSONInput = document.getElementById('field_rules_json');
   let fieldDefinitionCounter = 0;
   let fieldInstanceFormIndex = 0;
+  let fieldRuleFormIndex = 0;
 
   function generateFieldDefinitionId() {
     // Generate a temporary client-side ID for new field definitions
     // Backend will assign permanent IDs on save
     return `temp_field_${Date.now()}_${fieldDefinitionCounter++}`;
+  }
+
+  function generateFieldRuleId() {
+    return `rule_${Date.now()}_${fieldRuleFormIndex}`;
   }
 
   function getSignerParticipants() {
@@ -1921,6 +2043,7 @@ document.addEventListener('DOMContentLoaded', function() {
   function updateFieldParticipantOptions() {
     const signers = getSignerParticipants();
     const participantSelects = fieldDefinitionsContainer.querySelectorAll('.field-participant-select');
+    const ruleParticipantSelects = fieldRulesContainer ? fieldRulesContainer.querySelectorAll('.field-rule-participant-select') : [];
 
     participantSelects.forEach(select => {
       const currentValue = select.value;
@@ -1936,6 +2059,319 @@ document.addEventListener('DOMContentLoaded', function() {
         select.value = currentValue;
       }
     });
+
+    ruleParticipantSelects.forEach((select) => {
+      const currentValue = select.value;
+      select.innerHTML = '<option value="">Select signer...</option>';
+      signers.forEach((signer) => {
+        const option = document.createElement('option');
+        option.value = signer.id;
+        option.textContent = signer.name;
+        select.appendChild(option);
+      });
+      if (currentValue && signers.some((signer) => signer.id === currentValue)) {
+        select.value = currentValue;
+      }
+    });
+
+    renderFieldRulePreview();
+  }
+
+  function getCurrentDocumentPageCount() {
+    const explicit = parseInt(documentPageCountInput?.value || '0', 10);
+    if (Number.isFinite(explicit) && explicit > 0) return explicit;
+    const match = String(selectedDocumentInfo?.textContent || '').match(/(\d+)\s+pages?/i);
+    if (match) {
+      const parsed = parseInt(match[1], 10);
+      if (Number.isFinite(parsed) && parsed > 0) return parsed;
+    }
+    return 1;
+  }
+
+  function updateFieldRulesEmptyState() {
+    if (!fieldRulesContainer || !fieldRulesEmptyState) return;
+    const rows = fieldRulesContainer.querySelectorAll('.field-rule-entry');
+    fieldRulesEmptyState.classList.toggle('hidden', rows.length > 0);
+  }
+
+  function parseRuleExcludePages(raw) {
+    if (!raw) return [];
+    return raw
+      .split(',')
+      .map((value) => parseInt(value.trim(), 10))
+      .filter((value) => Number.isFinite(value) && value > 0);
+  }
+
+  function collectFieldRulesForState() {
+    if (!fieldRulesContainer) return [];
+    const rows = fieldRulesContainer.querySelectorAll('.field-rule-entry');
+    const out = [];
+    rows.forEach((row) => {
+      const id = row.getAttribute('data-field-rule-id') || '';
+      const type = row.querySelector('.field-rule-type-select')?.value || '';
+      const participantId = row.querySelector('.field-rule-participant-select')?.value || '';
+      const fromPage = parseInt(row.querySelector('.field-rule-from-page-input')?.value || '0', 10) || 0;
+      const toPage = parseInt(row.querySelector('.field-rule-to-page-input')?.value || '0', 10) || 0;
+      const page = parseInt(row.querySelector('.field-rule-page-input')?.value || '0', 10) || 0;
+      const excludeLastPage = Boolean(row.querySelector('.field-rule-exclude-last-input')?.checked);
+      const excludePages = parseRuleExcludePages(row.querySelector('.field-rule-exclude-pages-input')?.value || '');
+      const required = (row.querySelector('.field-rule-required-select')?.value || '1') !== '0';
+      if (!type) return;
+      out.push({
+        id,
+        type,
+        participantId,
+        participantTempId: participantId,
+        fromPage,
+        toPage,
+        page,
+        excludeLastPage,
+        excludePages,
+        required,
+      });
+    });
+    return out;
+  }
+
+  function collectFieldRulesForForm() {
+    return collectFieldRulesForState().map((rule) => ({
+      id: rule.id,
+      type: rule.type,
+      participant_id: rule.participantId,
+      from_page: rule.fromPage,
+      to_page: rule.toPage,
+      page: rule.page,
+      exclude_last_page: rule.excludeLastPage,
+      exclude_pages: rule.excludePages,
+      required: rule.required,
+    }));
+  }
+
+  function resolveRuleExpansionBaseID(rule, index) {
+    const explicitID = String(rule?.id || '').trim();
+    if (explicitID) return explicitID;
+    return `rule-${index + 1}`;
+  }
+
+  function expandRulesForPreview(rules, terminalPage) {
+    const expanded = [];
+    rules.forEach((rule, index) => {
+      const baseRuleID = resolveRuleExpansionBaseID(rule, index);
+      if (rule.type === 'initials_each_page') {
+        let start = rule.fromPage > 0 ? rule.fromPage : 1;
+        let end = rule.toPage > 0 ? rule.toPage : terminalPage;
+        if (end < start) [start, end] = [end, start];
+        const excluded = new Set(rule.excludePages || []);
+        if (rule.excludeLastPage) excluded.add(terminalPage);
+        for (let page = start; page <= end; page++) {
+          if (excluded.has(page)) continue;
+          expanded.push({
+            id: `${baseRuleID}-initials-${page}`,
+            type: 'initials',
+            page,
+            participantId: rule.participantId,
+            required: rule.required !== false,
+          });
+        }
+      } else if (rule.type === 'signature_once') {
+        let page = rule.page > 0 ? rule.page : (rule.toPage > 0 ? rule.toPage : terminalPage);
+        if (page <= 0) page = 1;
+        expanded.push({
+          id: `${baseRuleID}-signature-${page}`,
+          type: 'signature',
+          page,
+          participantId: rule.participantId,
+          required: rule.required !== false,
+        });
+      }
+    });
+    expanded.sort((left, right) => {
+      if (left.page !== right.page) return left.page - right.page;
+      return String(left.id).localeCompare(String(right.id));
+    });
+    return expanded;
+  }
+
+  function renderFieldRulePreview() {
+    if (!fieldRulesPreview) return;
+    const rules = collectFieldRulesForState();
+    const terminalPage = getCurrentDocumentPageCount();
+    const expanded = expandRulesForPreview(rules, terminalPage);
+    const signers = getSignerParticipants();
+    const signerNames = new Map(signers.map((signer) => [String(signer.id), signer.name]));
+
+    if (fieldRulesJSONInput) {
+      fieldRulesJSONInput.value = JSON.stringify(collectFieldRulesForForm());
+    }
+
+    if (!expanded.length) {
+      fieldRulesPreview.innerHTML = '<p>No rules configured.</p>';
+      return;
+    }
+
+    const byType = expanded.reduce((acc, field) => {
+      const key = field.type;
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {});
+    const rows = expanded.slice(0, 8).map((field) => {
+      const signerName = signerNames.get(String(field.participantId)) || 'Unassigned signer';
+      return `<li class="flex items-center justify-between"><span>${field.type === 'initials' ? 'Initials' : 'Signature'} on page ${field.page}</span><span class="text-gray-500">${escapeHtml(String(signerName))}</span></li>`;
+    }).join('');
+    const moreCount = expanded.length - 8;
+
+    fieldRulesPreview.innerHTML = `
+      <p class="text-gray-700">${expanded.length} generated field${expanded.length !== 1 ? 's' : ''} (${byType.initials || 0} initials, ${byType.signature || 0} signatures)</p>
+      <ul class="space-y-1">${rows}</ul>
+      ${moreCount > 0 ? `<p class="text-gray-500">+${moreCount} more</p>` : ''}
+    `;
+  }
+
+  function collectPlacementFieldDefinitions() {
+    const signers = getSignerParticipants();
+    const signerNames = new Map(signers.map((signer) => [String(signer.id), signer.name || signer.email || 'Signer']));
+    const definitions = [];
+
+    const manualFieldEntries = fieldDefinitionsContainer.querySelectorAll('.field-definition-entry');
+    manualFieldEntries.forEach((field) => {
+      const definitionId = String(field.getAttribute('data-field-definition-id') || '').trim();
+      const typeSelect = field.querySelector('.field-type-select');
+      const participantSelect = field.querySelector('.field-participant-select');
+      const fieldType = String(typeSelect?.value || 'text').trim() || 'text';
+      const participantId = String(participantSelect?.value || '').trim();
+      definitions.push({
+        definitionId,
+        fieldType,
+        participantId,
+        participantName: signerNames.get(participantId) || 'Unassigned',
+      });
+    });
+
+    const generatedRuleFields = expandRulesForPreview(collectFieldRulesForState(), getCurrentDocumentPageCount());
+    generatedRuleFields.forEach((field) => {
+      const definitionId = String(field.id || '').trim();
+      if (!definitionId) return;
+      const participantId = String(field.participantId || '').trim();
+      definitions.push({
+        definitionId,
+        fieldType: String(field.type || 'text').trim() || 'text',
+        participantId,
+        participantName: signerNames.get(participantId) || 'Unassigned',
+      });
+    });
+
+    const seen = new Set();
+    return definitions.filter((definition) => {
+      const key = String(definition.definitionId || '').trim();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  function updateFieldRuleRowUI(entry) {
+    const typeSelect = entry.querySelector('.field-rule-type-select');
+    const rangeStart = entry.querySelector('.field-rule-range-start-wrap');
+    const rangeEnd = entry.querySelector('.field-rule-range-end-wrap');
+    const pageWrap = entry.querySelector('.field-rule-page-wrap');
+    const excludeLastWrap = entry.querySelector('.field-rule-exclude-last-wrap');
+    const excludePagesWrap = entry.querySelector('.field-rule-exclude-pages-wrap');
+    const summary = entry.querySelector('.field-rule-summary');
+    const fromPage = parseInt(entry.querySelector('.field-rule-from-page-input')?.value || '1', 10) || 1;
+    const toPage = parseInt(entry.querySelector('.field-rule-to-page-input')?.value || '1', 10) || 1;
+    const page = parseInt(entry.querySelector('.field-rule-page-input')?.value || '1', 10) || 1;
+    const excludeLast = Boolean(entry.querySelector('.field-rule-exclude-last-input')?.checked);
+    const excludePages = entry.querySelector('.field-rule-exclude-pages-input')?.value || '';
+
+    const isInitials = typeSelect?.value === 'initials_each_page';
+    rangeStart.classList.toggle('hidden', !isInitials);
+    rangeEnd.classList.toggle('hidden', !isInitials);
+    excludeLastWrap.classList.toggle('hidden', !isInitials);
+    excludePagesWrap.classList.toggle('hidden', !isInitials);
+    pageWrap.classList.toggle('hidden', isInitials);
+
+    if (isInitials) {
+      summary.textContent = `Generates initials fields from page ${fromPage} to ${toPage}${excludeLast ? ' (excluding last page)' : ''}${excludePages ? `; excluding ${excludePages}` : ''}.`;
+    } else {
+      summary.textContent = `Generates one signature field on page ${page}.`;
+    }
+  }
+
+  function addFieldRule(data = {}) {
+    if (!fieldRuleTemplate || !fieldRulesContainer) return;
+    const clone = fieldRuleTemplate.content.cloneNode(true);
+    const entry = clone.querySelector('.field-rule-entry');
+    const ruleID = data.id || generateFieldRuleId();
+    const formIndex = fieldRuleFormIndex++;
+    const terminalPage = getCurrentDocumentPageCount();
+
+    entry.setAttribute('data-field-rule-id', ruleID);
+    const idInput = entry.querySelector('.field-rule-id-input');
+    const typeSelect = entry.querySelector('.field-rule-type-select');
+    const participantSelect = entry.querySelector('.field-rule-participant-select');
+    const fromPageInput = entry.querySelector('.field-rule-from-page-input');
+    const toPageInput = entry.querySelector('.field-rule-to-page-input');
+    const pageInput = entry.querySelector('.field-rule-page-input');
+    const requiredSelect = entry.querySelector('.field-rule-required-select');
+    const excludeLastInput = entry.querySelector('.field-rule-exclude-last-input');
+    const excludePagesInput = entry.querySelector('.field-rule-exclude-pages-input');
+    const removeBtn = entry.querySelector('.remove-field-rule-btn');
+
+    idInput.name = `field_rules[${formIndex}].id`;
+    idInput.value = ruleID;
+    typeSelect.name = `field_rules[${formIndex}].type`;
+    participantSelect.name = `field_rules[${formIndex}].participant_id`;
+    fromPageInput.name = `field_rules[${formIndex}].from_page`;
+    toPageInput.name = `field_rules[${formIndex}].to_page`;
+    pageInput.name = `field_rules[${formIndex}].page`;
+    requiredSelect.name = `field_rules[${formIndex}].required`;
+    excludeLastInput.name = `field_rules[${formIndex}].exclude_last_page`;
+    excludePagesInput.name = `field_rules[${formIndex}].exclude_pages`;
+
+    const signers = getSignerParticipants();
+    participantSelect.innerHTML = '<option value="">Select signer...</option>';
+    signers.forEach((signer) => {
+      const option = document.createElement('option');
+      option.value = signer.id;
+      option.textContent = signer.name;
+      participantSelect.appendChild(option);
+    });
+
+    typeSelect.value = data.type || 'initials_each_page';
+    participantSelect.value = data.participant_id || data.participantId || '';
+    fromPageInput.value = String(data.from_page || data.fromPage || 1);
+    toPageInput.value = String(data.to_page || data.toPage || terminalPage);
+    pageInput.value = String(data.page || 1);
+    requiredSelect.value = data.required === false ? '0' : '1';
+    excludeLastInput.checked = Boolean(data.exclude_last_page || data.excludeLastPage);
+    const excludePages = data.exclude_pages || data.excludePages || [];
+    excludePagesInput.value = Array.isArray(excludePages) ? excludePages.join(',') : String(excludePages || '');
+
+    const onRuleInput = () => {
+      updateFieldRuleRowUI(entry);
+      renderFieldRulePreview();
+      debouncedTrackChanges();
+    };
+
+    typeSelect.addEventListener('change', onRuleInput);
+    participantSelect.addEventListener('change', onRuleInput);
+    fromPageInput.addEventListener('input', onRuleInput);
+    toPageInput.addEventListener('input', onRuleInput);
+    pageInput.addEventListener('input', onRuleInput);
+    requiredSelect.addEventListener('change', onRuleInput);
+    excludeLastInput.addEventListener('change', onRuleInput);
+    excludePagesInput.addEventListener('input', onRuleInput);
+    removeBtn.addEventListener('click', () => {
+      entry.remove();
+      updateFieldRulesEmptyState();
+      renderFieldRulePreview();
+      debouncedTrackChanges();
+    });
+
+    fieldRulesContainer.appendChild(clone);
+    updateFieldRuleRowUI(fieldRulesContainer.lastElementChild);
+    updateFieldRulesEmptyState();
+    renderFieldRulePreview();
   }
 
   function addFieldDefinition(data = {}) {
@@ -2078,6 +2514,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   addFieldBtn.addEventListener('click', () => addFieldDefinition());
   addFieldDefinitionEmptyBtn.addEventListener('click', () => addFieldDefinition());
+  addFieldRuleBtn?.addEventListener('click', () => addFieldRule({ to_page: getCurrentDocumentPageCount() }));
 
   window._initialFieldPlacementsData = [];
 
@@ -2107,6 +2544,9 @@ document.addEventListener('DOMContentLoaded', function() {
     {% endfor %}
   {% endif %}
   updateFieldDefinitionsEmptyState();
+  updateFieldParticipantOptions();
+  updateFieldRulesEmptyState();
+  renderFieldRulePreview();
 
   // Form submission
   const form = document.getElementById('agreement-form');
@@ -2142,6 +2582,13 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     });
 
+    const expandedRuleFields = expandRulesForPreview(collectFieldRulesForState(), getCurrentDocumentPageCount());
+    expandedRuleFields.forEach((field) => {
+      if (field.type === 'signature' && field.participantId && field.required) {
+        signerSignatureFields.set(field.participantId, true);
+      }
+    });
+
     return signers.filter((signer) => !signerSignatureFields.get(signer.id));
   }
 
@@ -2159,6 +2606,8 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   form.addEventListener('submit', function(e) {
+    renderFieldRulePreview();
+
     // Validate document selected
     if (!documentIdInput.value) {
       e.preventDefault();
@@ -2217,6 +2666,17 @@ document.addEventListener('DOMContentLoaded', function() {
       announceError('Please assign all fields to a signer');
       const firstUnassigned = fieldDefinitionsContainer.querySelector('.field-participant-select:invalid, .field-participant-select[value=""]');
       if (firstUnassigned) firstUnassigned.focus();
+      return;
+    }
+
+    const rules = collectFieldRulesForState();
+    const invalidRuleAssignment = rules.some((rule) => !rule.participantId);
+    if (invalidRuleAssignment) {
+      e.preventDefault();
+      announceError('Please assign all automation rules to a signer');
+      const firstUnassignedRule = Array.from(fieldRulesContainer?.querySelectorAll('.field-rule-participant-select') || [])
+        .find((select) => !select.value);
+      firstUnassignedRule?.focus();
       return;
     }
 
@@ -2381,6 +2841,13 @@ document.addEventListener('DOMContentLoaded', function() {
             return false;
           }
         }
+        const rules = collectFieldRulesForState();
+        const unassignedRule = rules.find((rule) => !rule.participantId);
+        if (unassignedRule) {
+          announceError('Please assign all automation rules to a signer');
+          fieldRulesContainer?.querySelector('.field-rule-participant-select')?.focus();
+          return false;
+        }
         const missingSigners = findSignersMissingRequiredSignatureField();
         if (missingSigners.length > 0) {
           announceError(missingSignatureFieldMessage(missingSigners));
@@ -2530,25 +2997,29 @@ document.addEventListener('DOMContentLoaded', function() {
     placementLoading.classList.remove('hidden');
     placementNoDocument.classList.add('hidden');
 
-    // Load field definitions into the panel
-    const fieldEntries = fieldDefinitionsContainer.querySelectorAll('.field-definition-entry');
-    const signers = getSignerParticipants();
+    // Load manual + generated field definitions into the placement panel.
+    const placementDefinitions = collectPlacementFieldDefinitions();
+    const validDefinitionIDs = new Set(
+      placementDefinitions.map((definition) => String(definition.definitionId || '').trim()).filter((id) => id)
+    );
+    placementState.fieldInstances = placementState.fieldInstances.filter((instance) =>
+      validDefinitionIDs.has(String(instance.definitionId || '').trim())
+    );
 
     placementFieldsList.innerHTML = '';
 
-    fieldEntries.forEach((field, index) => {
-      const definitionId = field.getAttribute('data-field-definition-id');
-      const typeSelect = field.querySelector('.field-type-select');
-      const participantSelect = field.querySelector('.field-participant-select');
-      const fieldType = typeSelect.value;
-      const participantId = participantSelect.value;
-      const participant = signers.find(s => s.id === participantId);
+    placementDefinitions.forEach((definition) => {
+      const definitionId = String(definition.definitionId || '').trim();
+      const fieldType = String(definition.fieldType || 'text').trim() || 'text';
+      const participantId = String(definition.participantId || '').trim();
+      const participantName = String(definition.participantName || 'Unassigned').trim() || 'Unassigned';
+      if (!definitionId) return;
 
       placementState.fieldInstances.forEach(instance => {
         if (instance.definitionId === definitionId) {
           instance.type = fieldType;
           instance.participantId = participantId;
-          instance.participantName = participant?.name || 'Unassigned';
+          instance.participantName = participantName;
         }
       });
 
@@ -2561,13 +3032,13 @@ document.addEventListener('DOMContentLoaded', function() {
       fieldItem.dataset.definitionId = definitionId;
       fieldItem.dataset.fieldType = fieldType;
       fieldItem.dataset.participantId = participantId;
-      fieldItem.dataset.participantName = participant?.name || 'Unassigned';
+      fieldItem.dataset.participantName = participantName;
 
       fieldItem.innerHTML = `
         <span class="w-3 h-3 rounded ${colors.bg}"></span>
         <div class="flex-1 text-xs">
           <div class="font-medium capitalize">${fieldType.replace('_', ' ')}</div>
-          <div class="text-gray-500">${participant?.name || 'Unassigned'}</div>
+          <div class="text-gray-500">${participantName}</div>
         </div>
         <span class="placement-status text-xs ${isPlaced ? 'text-green-600' : 'text-amber-600'}">
           ${isPlaced ? 'Placed' : 'Not placed'}
@@ -2584,7 +3055,7 @@ document.addEventListener('DOMContentLoaded', function() {
           definitionId,
           fieldType,
           participantId,
-          participantName: participant?.name || 'Unassigned'
+          participantName
         }));
         e.dataTransfer.effectAllowed = 'copy';
         fieldItem.classList.add('opacity-50');
@@ -2987,9 +3458,20 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   function updatePlacementStats() {
-    const totalFields = document.querySelectorAll('.placement-field-item').length;
-    const placedCount = placementState.fieldInstances.length;
-    const unplacedCount = totalFields - placedCount;
+    const paletteItems = Array.from(document.querySelectorAll('.placement-field-item'));
+    const totalFields = paletteItems.length;
+    const activeDefinitionIDs = new Set(
+      paletteItems.map((item) => String(item.dataset.definitionId || '').trim()).filter((id) => id)
+    );
+    const placedDefinitionIDs = new Set();
+    placementState.fieldInstances.forEach((instance) => {
+      const definitionID = String(instance.definitionId || '').trim();
+      if (activeDefinitionIDs.has(definitionID)) {
+        placedDefinitionIDs.add(definitionID);
+      }
+    });
+    const placedCount = placedDefinitionIDs.size;
+    const unplacedCount = Math.max(0, totalFields - placedCount);
 
     document.getElementById('placement-total-fields').textContent = totalFields;
     document.getElementById('placement-placed-count').textContent = placedCount;
@@ -3582,6 +4064,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const docTitle = selectedDocumentTitle.textContent || 'No document';
     const participantEntries = participantsContainer.querySelectorAll('.participant-entry');
     const fieldEntries = fieldDefinitionsContainer.querySelectorAll('.field-definition-entry');
+    const expandedRuleFields = expandRulesForPreview(collectFieldRulesForState(), getCurrentDocumentPageCount());
     const signers = getSignerParticipants();
 
     // Calculate stages
@@ -3626,7 +4109,8 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Populate fields summary
-    reviewFieldsSummary.textContent = `${fieldEntries.length} field${fieldEntries.length !== 1 ? 's' : ''} defined`;
+    const totalFields = fieldEntries.length + expandedRuleFields.length;
+    reviewFieldsSummary.textContent = `${totalFields} field${totalFields !== 1 ? 's' : ''} defined (${fieldEntries.length} manual, ${expandedRuleFields.length} generated)`;
 
     // Validation
     const issues = [];
@@ -3780,6 +4264,8 @@ document.addEventListener('DOMContentLoaded', function() {
   // Track field definition changes
   fieldDefinitionsContainer.addEventListener('input', debouncedTrackChanges);
   fieldDefinitionsContainer.addEventListener('change', debouncedTrackChanges);
+  fieldRulesContainer?.addEventListener('input', debouncedTrackChanges);
+  fieldRulesContainer?.addEventListener('change', debouncedTrackChanges);
 
   // Track placement changes (already have updateFieldInstancesFormData)
   const originalUpdateFieldInstancesFormData = updateFieldInstancesFormData;
@@ -3832,6 +4318,29 @@ document.addEventListener('DOMContentLoaded', function() {
     updateFieldDefinitionsEmptyState();
   }
 
+  function restoreFieldRulesFromState() {
+    const state = stateManager.getState();
+    if (!Array.isArray(state.fieldRules) || state.fieldRules.length === 0) return;
+    if (!fieldRulesContainer) return;
+    fieldRulesContainer.querySelectorAll('.field-rule-entry').forEach((entry) => entry.remove());
+    fieldRuleFormIndex = 0;
+    state.fieldRules.forEach((rule) => {
+      addFieldRule({
+        id: rule.id,
+        type: rule.type,
+        participantId: rule.participantId || rule.participantTempId,
+        fromPage: rule.fromPage,
+        toPage: rule.toPage,
+        page: rule.page,
+        excludeLastPage: rule.excludeLastPage,
+        excludePages: rule.excludePages,
+        required: rule.required,
+      });
+    });
+    updateFieldRulesEmptyState();
+    renderFieldRulePreview();
+  }
+
   function restoreFieldPlacementsFromState() {
     const state = stateManager.getState();
     if (!Array.isArray(state.fieldPlacements) || state.fieldPlacements.length === 0) return;
@@ -3844,6 +4353,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Restore participants and field definitions
     restoreParticipantsFromState();
     restoreFieldDefinitionsFromState();
+    restoreFieldRulesFromState();
+    updateFieldParticipantOptions();
     restoreFieldPlacementsFromState();
 
     // Navigate to saved step

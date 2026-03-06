@@ -50,6 +50,7 @@ interface WizardSessionState {
   participants: Participant[];
   fieldDefinitions: FieldDefinition[];
   fieldPlacements: FieldPlacement[];
+  fieldRules: FieldRule[];
   serverDraftId: string | null;
   serverRevision: number;
   lastSyncedAt: string | null;
@@ -80,6 +81,20 @@ interface FieldPlacement {
   y: number;
   width: number;
   height: number;
+}
+
+interface FieldRule {
+  id: string;
+  type: 'initials_each_page' | 'signature_once' | string;
+  participantTempId: string;
+  participantId?: string;
+  page?: number;
+  fromPage?: number;
+  toPage?: number;
+  excludeLastPage?: boolean;
+  excludePages?: number[];
+  required?: boolean;
+  label?: string;
 }
 
 // =============================================================================
@@ -118,6 +133,7 @@ class WizardStateManager {
       participants: [],
       fieldDefinitions: [],
       fieldPlacements: [],
+      fieldRules: [],
       serverDraftId: null,
       serverRevision: 0,
       lastSyncedAt: null,
@@ -140,6 +156,9 @@ class WizardStateManager {
       if (state.version !== WIZARD_STATE_VERSION) {
         console.warn('Wizard state version mismatch, migrating...');
         return this.migrateState(state);
+      }
+      if (!Array.isArray(state.fieldRules)) {
+        state.fieldRules = [];
       }
 
       return state;
@@ -248,6 +267,13 @@ class WizardStateManager {
 
   updateFieldPlacements(fieldPlacements: FieldPlacement[]): void {
     this.state.fieldPlacements = fieldPlacements;
+    this.saveToSession();
+    this.broadcastStateUpdate();
+    this.notifyListeners();
+  }
+
+  updateFieldRules(fieldRules: FieldRule[]): void {
+    this.state.fieldRules = fieldRules;
     this.saveToSession();
     this.broadcastStateUpdate();
     this.notifyListeners();
@@ -423,6 +449,7 @@ class ServerSyncManager {
       participants: state.participants,
       field_definitions: state.fieldDefinitions,
       field_placements: state.fieldPlacements,
+      field_rules: state.fieldRules,
     };
   }
 
@@ -461,6 +488,7 @@ class ServerSyncManager {
         participants: data.participants || [],
         fieldDefinitions: data.field_definitions || [],
         fieldPlacements: data.field_placements || [],
+        fieldRules: data.field_rules || [],
         serverRevision: data.revision || 0,
         syncPending: false,
       });
@@ -913,6 +941,7 @@ export class AgreementFormController {
           participants: state.participants,
           field_definitions: state.fieldDefinitions,
           field_placements: state.fieldPlacements,
+          field_rules: state.fieldRules,
         }),
       });
 
