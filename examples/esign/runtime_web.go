@@ -29,6 +29,7 @@ import (
 	auth "github.com/goliatone/go-auth"
 	goerrors "github.com/goliatone/go-errors"
 	fggate "github.com/goliatone/go-featuregate/gate"
+	"github.com/goliatone/go-masker"
 	router "github.com/goliatone/go-router"
 	"github.com/goliatone/go-uploader"
 )
@@ -102,6 +103,30 @@ func (i eSignDemoIdentity) ID() string       { return i.id }
 func (i eSignDemoIdentity) Username() string { return i.email }
 func (i eSignDemoIdentity) Email() string    { return i.email }
 func (i eSignDemoIdentity) Role() string     { return i.role }
+func (i eSignDemoIdentity) String() string {
+	return fmt.Sprintf(
+		"eSignDemoIdentity{id:%q,email:%q,role:%q,password:%q}",
+		strings.TrimSpace(i.id),
+		strings.TrimSpace(i.email),
+		strings.TrimSpace(i.role),
+		i.maskedPassword(),
+	)
+}
+func (i eSignDemoIdentity) GoString() string {
+	return i.String()
+}
+
+func (i eSignDemoIdentity) maskedPassword() string {
+	raw := strings.TrimSpace(i.password)
+	if raw == "" {
+		return ""
+	}
+	masked, err := masker.Default.String("filled32", raw)
+	if err != nil {
+		return "********************************"
+	}
+	return strings.TrimSpace(masked)
+}
 
 type eSignDemoIdentityProvider struct {
 	identity    eSignDemoIdentity

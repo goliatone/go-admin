@@ -142,8 +142,22 @@ type DatabasesConfig struct {
 	ContentDSN string `koanf:"content_dsn" json:"content_dsn" yaml:"content_dsn"`
 }
 
+type RateLimitBucketConfig struct {
+	MaxRequests   int `koanf:"max_requests" json:"max_requests" yaml:"max_requests"`
+	WindowSeconds int `koanf:"window_seconds" json:"window_seconds" yaml:"window_seconds"`
+}
+
+type NetworkRateLimitConfig struct {
+	SignerSession RateLimitBucketConfig `koanf:"signer_session" json:"signer_session" yaml:"signer_session"`
+	SignerConsent RateLimitBucketConfig `koanf:"signer_consent" json:"signer_consent" yaml:"signer_consent"`
+	SignerWrite   RateLimitBucketConfig `koanf:"signer_write" json:"signer_write" yaml:"signer_write"`
+	SignerSubmit  RateLimitBucketConfig `koanf:"signer_submit" json:"signer_submit" yaml:"signer_submit"`
+	AdminResend   RateLimitBucketConfig `koanf:"admin_resend" json:"admin_resend" yaml:"admin_resend"`
+}
+
 type NetworkConfig struct {
-	RateLimitTrustProxyHeaders bool `koanf:"rate_limit_trust_proxy_headers" json:"rate_limit_trust_proxy_headers" yaml:"rate_limit_trust_proxy_headers"`
+	RateLimitTrustProxyHeaders bool                   `koanf:"rate_limit_trust_proxy_headers" json:"rate_limit_trust_proxy_headers" yaml:"rate_limit_trust_proxy_headers"`
+	RateLimit                  NetworkRateLimitConfig `koanf:"rate_limit" json:"rate_limit" yaml:"rate_limit"`
 }
 
 var activeConfig struct {
@@ -234,6 +248,13 @@ func Defaults() *Config {
 		Databases: DatabasesConfig{},
 		Network: NetworkConfig{
 			RateLimitTrustProxyHeaders: false,
+			RateLimit: NetworkRateLimitConfig{
+				SignerSession: RateLimitBucketConfig{MaxRequests: 60, WindowSeconds: 60},
+				SignerConsent: RateLimitBucketConfig{MaxRequests: 30, WindowSeconds: 60},
+				SignerWrite:   RateLimitBucketConfig{MaxRequests: 120, WindowSeconds: 60},
+				SignerSubmit:  RateLimitBucketConfig{MaxRequests: 12, WindowSeconds: 60},
+				AdminResend:   RateLimitBucketConfig{MaxRequests: 12, WindowSeconds: 60},
+			},
 		},
 	}
 }
@@ -262,6 +283,21 @@ func (c Config) Validate() error {
 	}
 	if c.Email.SMTP.TimeoutSeconds <= 0 {
 		return fmt.Errorf("email.smtp.timeout_seconds must be greater than zero")
+	}
+	if c.Network.RateLimit.SignerSession.MaxRequests <= 0 || c.Network.RateLimit.SignerSession.WindowSeconds <= 0 {
+		return fmt.Errorf("network.rate_limit.signer_session max_requests and window_seconds must be greater than zero")
+	}
+	if c.Network.RateLimit.SignerConsent.MaxRequests <= 0 || c.Network.RateLimit.SignerConsent.WindowSeconds <= 0 {
+		return fmt.Errorf("network.rate_limit.signer_consent max_requests and window_seconds must be greater than zero")
+	}
+	if c.Network.RateLimit.SignerWrite.MaxRequests <= 0 || c.Network.RateLimit.SignerWrite.WindowSeconds <= 0 {
+		return fmt.Errorf("network.rate_limit.signer_write max_requests and window_seconds must be greater than zero")
+	}
+	if c.Network.RateLimit.SignerSubmit.MaxRequests <= 0 || c.Network.RateLimit.SignerSubmit.WindowSeconds <= 0 {
+		return fmt.Errorf("network.rate_limit.signer_submit max_requests and window_seconds must be greater than zero")
+	}
+	if c.Network.RateLimit.AdminResend.MaxRequests <= 0 || c.Network.RateLimit.AdminResend.WindowSeconds <= 0 {
+		return fmt.Errorf("network.rate_limit.admin_resend max_requests and window_seconds must be greater than zero")
 	}
 	return nil
 }

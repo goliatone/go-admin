@@ -387,6 +387,8 @@ func auditTrailStatusColor(status string) auditTrailColor {
 
 func auditTrailEventColor(entry AuditTrailEntry) auditTrailColor {
 	switch strings.ToUpper(strings.TrimSpace(entry.EventType)) {
+	case AuditTrailEventCreated:
+		return auditTrailColor{R: 71, G: 85, B: 105}
 	case AuditTrailEventSent:
 		return auditTrailColor{R: 37, G: 99, B: 235}
 	case AuditTrailEventViewed:

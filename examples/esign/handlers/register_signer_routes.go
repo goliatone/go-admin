@@ -484,7 +484,7 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 			}
 			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "token is required", nil)
 		}
-		if err := enforceRateLimit(c, cfg, OperationSignerSubmit); err != nil {
+		if err := enforceRateLimit(c, cfg, OperationSignerWrite); err != nil {
 			if unifiedFlow {
 				observability.ObserveUnifiedFieldSave(c.Context(), time.Since(startedAt), false)
 			}
@@ -562,7 +562,7 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 			}
 			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "token is required", nil)
 		}
-		if err := enforceRateLimit(c, cfg, OperationSignerSubmit); err != nil {
+		if err := enforceRateLimit(c, cfg, OperationSignerWrite); err != nil {
 			if unifiedFlow {
 				observability.ObserveUnifiedSignatureAttach(c.Context(), time.Since(startedAt), false)
 			}
@@ -638,7 +638,7 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 		if token == "" {
 			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "token is required", nil)
 		}
-		if err := enforceRateLimit(c, cfg, OperationSignerSubmit); err != nil {
+		if err := enforceRateLimit(c, cfg, OperationSignerWrite); err != nil {
 			return asHandlerError(err)
 		}
 		tokenRecord, err := resolveSignerToken(c, cfg, token)
@@ -686,7 +686,7 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 		if err := enforceTransportSecurity(c, cfg); err != nil {
 			return asHandlerError(err)
 		}
-		if err := enforceRateLimit(c, cfg, OperationSignerSubmit); err != nil {
+		if err := enforceRateLimit(c, cfg, OperationSignerWrite); err != nil {
 			return asHandlerError(err)
 		}
 		if cfg.signerSession == nil {

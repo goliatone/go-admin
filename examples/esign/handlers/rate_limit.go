@@ -9,6 +9,7 @@ import (
 const (
 	OperationSignerSession = "signer.session"
 	OperationSignerConsent = "signer.consent"
+	OperationSignerWrite   = "signer.write"
 	OperationSignerSubmit  = "signer.submit"
 	OperationAdminResend   = "admin.resend"
 )
@@ -17,6 +18,18 @@ const (
 type RateLimitRule struct {
 	MaxRequests int
 	Window      time.Duration
+}
+
+// RateLimitDecision captures allow/deny and retry metadata for the checked bucket.
+type RateLimitDecision struct {
+	Allowed    bool
+	Operation  string
+	Key        string
+	Limit      int
+	Remaining  int
+	Window     time.Duration
+	RetryAfter time.Duration
+	ResetAt    time.Time
 }
 
 // SlidingWindowRateLimiter enforces per-operation and per-key request limits.
@@ -43,19 +56,30 @@ func DefaultRateLimitRules() map[string]RateLimitRule {
 	return map[string]RateLimitRule{
 		OperationSignerSession: {MaxRequests: 60, Window: time.Minute},
 		OperationSignerConsent: {MaxRequests: 30, Window: time.Minute},
+		OperationSignerWrite:   {MaxRequests: 120, Window: time.Minute},
 		OperationSignerSubmit:  {MaxRequests: 12, Window: time.Minute},
 		OperationAdminResend:   {MaxRequests: 12, Window: time.Minute},
 	}
 }
 
 func (r *SlidingWindowRateLimiter) Allow(operationKey, key string) bool {
+	return r.Check(operationKey, key, RateLimitRule{}).Allowed
+}
+
+// Check evaluates request allowance for operation/key using an optional rule override.
+// When override is empty, limiter defaults to its configured rule for the operation.
+func (r *SlidingWindowRateLimiter) Check(operationKey, key string, override RateLimitRule) RateLimitDecision {
 	if r == nil {
-		return true
+		return RateLimitDecision{Allowed: true}
 	}
 	opKey := strings.TrimSpace(strings.ToLower(operationKey))
-	rule, ok := r.rules[opKey]
-	if !ok || rule.MaxRequests <= 0 || rule.Window <= 0 {
-		return true
+	rule := override
+	if rule.MaxRequests <= 0 || rule.Window <= 0 {
+		var ok bool
+		rule, ok = r.rules[opKey]
+		if !ok || rule.MaxRequests <= 0 || rule.Window <= 0 {
+			return RateLimitDecision{Allowed: true, Operation: opKey}
+		}
 	}
 	key = strings.TrimSpace(strings.ToLower(key))
 	if key == "" {
@@ -77,11 +101,34 @@ func (r *SlidingWindowRateLimiter) Allow(operationKey, key string) bool {
 	}
 	if len(kept) >= rule.MaxRequests {
 		r.requests[bucketKey] = kept
-		return false
+		retryAfter, resetAt := computeRetryWindow(now, kept, rule.Window)
+		return RateLimitDecision{
+			Allowed:    false,
+			Operation:  opKey,
+			Key:        key,
+			Limit:      rule.MaxRequests,
+			Remaining:  0,
+			Window:     rule.Window,
+			RetryAfter: retryAfter,
+			ResetAt:    resetAt,
+		}
 	}
 	kept = append(kept, now)
 	r.requests[bucketKey] = kept
-	return true
+	remaining := rule.MaxRequests - len(kept)
+	if remaining < 0 {
+		remaining = 0
+	}
+	_, resetAt := computeRetryWindow(now, kept, rule.Window)
+	return RateLimitDecision{
+		Allowed:   true,
+		Operation: opKey,
+		Key:       key,
+		Limit:     rule.MaxRequests,
+		Remaining: remaining,
+		Window:    rule.Window,
+		ResetAt:   resetAt,
+	}
 }
 
 // ResolveOperationForPath maps request path/method to the security operation rate-limit key.
@@ -100,6 +147,12 @@ func ResolveOperationForPath(method, requestPath string) string {
 	if strings.Contains(requestPath, "/signing/consent/") {
 		return OperationSignerConsent
 	}
+	if strings.Contains(requestPath, "/signing/field-values/") {
+		return OperationSignerWrite
+	}
+	if strings.Contains(requestPath, "/signing/signature-upload/") {
+		return OperationSignerWrite
+	}
 	if strings.Contains(requestPath, "/submit") {
 		return OperationSignerSubmit
 	}
@@ -107,4 +160,16 @@ func ResolveOperationForPath(method, requestPath string) string {
 		return OperationAdminResend
 	}
 	return ""
+}
+
+func computeRetryWindow(now time.Time, kept []time.Time, window time.Duration) (time.Duration, time.Time) {
+	if len(kept) == 0 || window <= 0 {
+		return 0, time.Time{}
+	}
+	resetAt := kept[0].Add(window)
+	retryAfter := resetAt.Sub(now)
+	if retryAfter < 0 {
+		retryAfter = 0
+	}
+	return retryAfter, resetAt
 }

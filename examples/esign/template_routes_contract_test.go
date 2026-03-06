@@ -8,20 +8,20 @@ import (
 	"github.com/goliatone/go-admin/pkg/client"
 )
 
-func TestESignAgreementFormTemplateUsesPUTKeepaliveForDraftForceSync(t *testing.T) {
+func TestESignAgreementFormTemplateUsesModuleBootstrapOnly(t *testing.T) {
 	template := mustReadESignTemplate(t, "resources/esign-agreements/form.html")
 
-	if strings.Contains(template, "navigator.sendBeacon(draftEndpointWithUserID") {
-		t.Fatal("expected form template to avoid navigator.sendBeacon for draft update endpoint")
+	if !strings.Contains(template, `<script id="esign-page-config" type="application/json">`) {
+		t.Fatal("expected form template to expose esign-page-config bootstrap payload")
 	}
-	if !strings.Contains(template, "await fetch(draftEndpointWithUserID(`${draftsEndpoint}/${state.serverDraftId}`), {") {
-		t.Fatal("expected force sync to issue a fetch request to draft detail endpoint")
+	if !strings.Contains(template, `<script type="module" src="{{ esign_module_path }}"></script>`) {
+		t.Fatal("expected form template to load the e-sign module script")
 	}
-	if !strings.Contains(template, "method: 'PUT'") {
-		t.Fatal("expected force sync request method to be PUT")
+	if strings.Contains(template, "document.addEventListener('DOMContentLoaded'") {
+		t.Fatal("expected form template to avoid legacy inline wizard bootstrap")
 	}
-	if !strings.Contains(template, "keepalive: true") {
-		t.Fatal("expected force sync request to use keepalive fetch")
+	if strings.Contains(template, "draftEndpointWithUserID") {
+		t.Fatal("expected form template to keep draft/sync implementation in TypeScript runtime only")
 	}
 }
 

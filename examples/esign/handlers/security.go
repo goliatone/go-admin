@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
+	"time"
 
 	coreadmin "github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/examples/esign/jobs"
@@ -74,6 +76,7 @@ type registerConfig struct {
 	actorScope            ActorScopeResolver
 	transportGuard        TransportGuard
 	rateLimiter           RequestRateLimiter
+	rateLimitRuleResolver RateLimitRuleResolver
 	trustForwardedIP      bool
 	securityLogEvent      SecurityLogEvent
 }
@@ -247,8 +250,11 @@ type TransportGuard interface {
 
 // RequestRateLimiter checks whether a request can proceed.
 type RequestRateLimiter interface {
-	Allow(operationKey, key string) bool
+	Check(operationKey, key string, rule RateLimitRule) RateLimitDecision
 }
+
+// RateLimitRuleResolver resolves an operation rule override for a request.
+type RateLimitRuleResolver func(c router.Context, operation string) RateLimitRule
 
 // SecurityLogEvent records security-relevant events.
 type SecurityLogEvent func(event string, fields map[string]any)
@@ -519,6 +525,16 @@ func WithRequestRateLimiter(limiter RequestRateLimiter) RegisterOption {
 	}
 }
 
+// WithRateLimitRuleResolver configures request-scoped rule overrides (for example from user options).
+func WithRateLimitRuleResolver(resolver RateLimitRuleResolver) RegisterOption {
+	return func(cfg *registerConfig) {
+		if cfg == nil || resolver == nil {
+			return
+		}
+		cfg.rateLimitRuleResolver = resolver
+	}
+}
+
 // WithTrustForwardedClientIP allows forwarded IP headers to influence request IP resolution.
 // Keep disabled unless upstream proxies sanitize these headers.
 func WithTrustForwardedClientIP(enabled bool) RegisterOption {
@@ -714,24 +730,55 @@ func enforceRateLimit(c router.Context, cfg registerConfig, operation string) er
 	if key == "" {
 		key = "unknown"
 	}
-	if cfg.rateLimiter.Allow(op, key) {
+	rule := RateLimitRule{}
+	if cfg.rateLimitRuleResolver != nil {
+		rule = cfg.rateLimitRuleResolver(c, op)
+	}
+	decision := cfg.rateLimiter.Check(op, key, rule)
+	if decision.Allowed {
 		return nil
 	}
+	retryAfterSeconds := ceilDurationSeconds(decision.RetryAfter)
+	if retryAfterSeconds <= 0 {
+		retryAfterSeconds = 1
+	}
+	c.SetHeader("Retry-After", strconv.Itoa(retryAfterSeconds))
+	if decision.Limit > 0 {
+		c.SetHeader("X-RateLimit-Limit", strconv.Itoa(decision.Limit))
+		c.SetHeader("X-RateLimit-Remaining", strconv.Itoa(decision.Remaining))
+	}
+	if !decision.ResetAt.IsZero() {
+		c.SetHeader("X-RateLimit-Reset", strconv.FormatInt(decision.ResetAt.UTC().Unix(), 10))
+	}
+	details := map[string]any{
+		"operation":           op,
+		"limit":               decision.Limit,
+		"remaining":           decision.Remaining,
+		"retry_after_seconds": retryAfterSeconds,
+		"window_seconds":      ceilDurationSeconds(decision.Window),
+	}
+	if !decision.ResetAt.IsZero() {
+		details["reset_at"] = decision.ResetAt.UTC().Format(time.RFC3339)
+	}
 	cfg.logSecurityEvent("request.rate_limited", map[string]any{
-		"operation": op,
-		"key":       key,
-		"path":      c.Path(),
-		"method":    c.Method(),
+		"operation":           op,
+		"key":                 key,
+		"path":                c.Path(),
+		"method":              c.Method(),
+		"limit":               decision.Limit,
+		"remaining":           decision.Remaining,
+		"retry_after_seconds": retryAfterSeconds,
+		"reset_at":            details["reset_at"],
 	})
 	_ = writeAPIError(c,
 		goerrors.New("rate limit exceeded", goerrors.CategoryRateLimit).
 			WithCode(http.StatusTooManyRequests).
 			WithTextCode(string(services.ErrorCodeRateLimited)).
-			WithMetadata(map[string]any{"operation": op}),
+			WithMetadata(details),
 		http.StatusTooManyRequests,
 		string(services.ErrorCodeRateLimited),
 		"rate limit exceeded",
-		map[string]any{"operation": op},
+		details,
 	)
 	return errResponseHandled
 }
@@ -931,6 +978,20 @@ func claimsMetadata(claims auth.AuthClaims) map[string]any {
 		return carrier.ClaimsMetadata()
 	}
 	return nil
+}
+
+func ceilDurationSeconds(value time.Duration) int {
+	if value <= 0 {
+		return 0
+	}
+	seconds := int(value / time.Second)
+	if value%time.Second != 0 {
+		seconds++
+	}
+	if seconds < 1 {
+		seconds = 1
+	}
+	return seconds
 }
 
 func metadataString(metadata map[string]any, keys ...string) string {
