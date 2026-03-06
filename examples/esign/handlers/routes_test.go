@@ -144,6 +144,12 @@ func TestBuildRouteSetUsesResolverNamespaces(t *testing.T) {
 	if routes.SignerProfile != "/api/v1/esign/signing/profile/:token" {
 		t.Fatalf("expected signer profile route fallback /api/v1/esign/signing/profile/:token, got %q", routes.SignerProfile)
 	}
+	if routes.SignerSavedSignatures != "/api/v1/esign/signing/signatures/:token" {
+		t.Fatalf("expected signer saved signatures route fallback /api/v1/esign/signing/signatures/:token, got %q", routes.SignerSavedSignatures)
+	}
+	if routes.SignerSavedSignature != "/api/v1/esign/signing/signatures/:token/:id" {
+		t.Fatalf("expected signer saved signature route fallback /api/v1/esign/signing/signatures/:token/:id, got %q", routes.SignerSavedSignature)
+	}
 	if routes.AdminGoogleOAuthStatus != "/suite/api/v9/esign/integrations/google/status" {
 		t.Fatalf("expected google oauth status route /suite/api/v9/esign/integrations/google/status, got %q", routes.AdminGoogleOAuthStatus)
 	}
@@ -253,6 +259,12 @@ func TestBuildRouteSetFallbacksWhenResolverMissing(t *testing.T) {
 	}
 	if routes.SignerProfile != "/api/v1/esign/signing/profile/:token" {
 		t.Fatalf("expected /api/v1/esign/signing/profile/:token, got %q", routes.SignerProfile)
+	}
+	if routes.SignerSavedSignatures != "/api/v1/esign/signing/signatures/:token" {
+		t.Fatalf("expected /api/v1/esign/signing/signatures/:token, got %q", routes.SignerSavedSignatures)
+	}
+	if routes.SignerSavedSignature != "/api/v1/esign/signing/signatures/:token/:id" {
+		t.Fatalf("expected /api/v1/esign/signing/signatures/:token/:id, got %q", routes.SignerSavedSignature)
 	}
 	if routes.AdminGoogleOAuthConnect != "/admin/api/v1/esign/integrations/google/connect" {
 		t.Fatalf("expected /admin/api/v1/esign/integrations/google/connect, got %q", routes.AdminGoogleOAuthConnect)

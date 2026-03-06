@@ -69,6 +69,8 @@ func registerAdminCoreRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg re
 				"signer_decline":                    routes.SignerDecline,
 				"signer_assets":                     routes.SignerAssets,
 				"signer_profile":                    routes.SignerProfile,
+				"signer_saved_signatures":           routes.SignerSavedSignatures,
+				"signer_saved_signature":            routes.SignerSavedSignature,
 				"google_oauth_connect":              routes.AdminGoogleOAuthConnect,
 				"google_oauth_disconnect":           routes.AdminGoogleOAuthDisconnect,
 				"google_oauth_rotate":               routes.AdminGoogleOAuthRotate,

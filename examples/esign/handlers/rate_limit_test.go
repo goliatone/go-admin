@@ -15,6 +15,7 @@ func TestResolveOperationForPathIncludesResendAndSubmit(t *testing.T) {
 	}{
 		{method: http.MethodGet, path: "/api/v1/esign/signing/session/token-1", want: OperationSignerSession},
 		{method: http.MethodGet, path: "/api/v1/esign/signing/profile/token-1", want: OperationSignerSession},
+		{method: http.MethodGet, path: "/api/v1/esign/signing/signatures/token-1?type=signature", want: OperationSignerSession},
 		{method: http.MethodPost, path: "/api/v1/esign/signing/consent/token-1", want: OperationSignerConsent},
 		{method: http.MethodPost, path: "/api/v1/esign/signing/submit/token-1", want: OperationSignerSubmit},
 		{method: http.MethodPost, path: "/admin/api/v1/esign/agreements/ag-1/resend", want: OperationAdminResend},

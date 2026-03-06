@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/goliatone/go-admin/internal/primitives"
+	"sort"
 	"strings"
 	"time"
 
@@ -473,7 +474,8 @@ func (s DraftService) materializeDraftAgreement(ctx context.Context, scope store
 		}
 	}
 
-	for idx, definition := range state.FieldDefinitions {
+	definitions := materializeFieldDefinitions(state)
+	for idx, definition := range definitions {
 		participantID := resolveFieldParticipantID(definition, participantMap)
 		if participantID == "" {
 			return stores.AgreementRecord{}, domainValidationError("field_definitions", "participant_id", "field definition participant is not resolvable")
@@ -634,10 +636,13 @@ type wizardStatePayload struct {
 	Participants     []wizardParticipantState     `json:"participants"`
 	FieldDefinitions []wizardFieldDefinitionState `json:"fieldDefinitions"`
 	FieldPlacements  []wizardFieldPlacementState  `json:"fieldPlacements"`
+	FieldRules       []wizardFieldRuleState       `json:"fieldRules"`
+	FieldRulesSnake  []wizardFieldRuleState       `json:"field_rules"`
 }
 
 type wizardDocumentState struct {
-	ID string `json:"id"`
+	ID        string `json:"id"`
+	PageCount int    `json:"pageCount"`
 }
 
 type wizardDetailsState struct {
@@ -663,6 +668,7 @@ type wizardFieldDefinitionState struct {
 	Label             string `json:"label"`
 	Required          bool   `json:"required"`
 	Page              int    `json:"page"`
+	TabIndex          int    `json:"tabIndex"`
 }
 
 type wizardFieldPlacementState struct {
@@ -673,6 +679,20 @@ type wizardFieldPlacementState struct {
 	Y                 float64 `json:"y"`
 	Width             float64 `json:"width"`
 	Height            float64 `json:"height"`
+}
+
+type wizardFieldRuleState struct {
+	ID                string `json:"id"`
+	Type              string `json:"type"`
+	ParticipantID     string `json:"participantId"`
+	ParticipantTempID string `json:"participantTempId"`
+	Page              int    `json:"page"`
+	FromPage          int    `json:"fromPage"`
+	ToPage            int    `json:"toPage"`
+	ExcludeLastPage   bool   `json:"excludeLastPage"`
+	ExcludePages      []int  `json:"excludePages"`
+	Label             string `json:"label"`
+	Required          *bool  `json:"required,omitempty"`
 }
 
 func decodeWizardState(raw string) (wizardStatePayload, error) {
@@ -693,7 +713,173 @@ func decodeWizardState(raw string) (wizardStatePayload, error) {
 	if state.FieldPlacements == nil {
 		state.FieldPlacements = []wizardFieldPlacementState{}
 	}
+	if state.FieldRules == nil {
+		state.FieldRules = []wizardFieldRuleState{}
+	}
+	if len(state.FieldRules) == 0 && len(state.FieldRulesSnake) > 0 {
+		state.FieldRules = append([]wizardFieldRuleState{}, state.FieldRulesSnake...)
+	}
 	return state, nil
+}
+
+func materializeFieldDefinitions(state wizardStatePayload) []wizardFieldDefinitionState {
+	definitions := make([]wizardFieldDefinitionState, 0, len(state.FieldDefinitions))
+	definitions = append(definitions, state.FieldDefinitions...)
+	definitions = append(definitions, expandFieldRules(state)...)
+
+	sort.SliceStable(definitions, func(i, j int) bool {
+		leftPage := definitions[i].Page
+		if leftPage <= 0 {
+			leftPage = 1
+		}
+		rightPage := definitions[j].Page
+		if rightPage <= 0 {
+			rightPage = 1
+		}
+		if leftPage != rightPage {
+			return leftPage < rightPage
+		}
+		leftTab := definitions[i].TabIndex
+		rightTab := definitions[j].TabIndex
+		if leftTab > 0 && rightTab > 0 && leftTab != rightTab {
+			return leftTab < rightTab
+		}
+		if (leftTab > 0) != (rightTab > 0) {
+			return leftTab > 0
+		}
+		leftY, leftX := placementSeedForDefinition(state, definitions[i])
+		rightY, rightX := placementSeedForDefinition(state, definitions[j])
+		if leftY != rightY {
+			return leftY < rightY
+		}
+		if leftX != rightX {
+			return leftX < rightX
+		}
+		return strings.TrimSpace(definitions[i].TempID) < strings.TrimSpace(definitions[j].TempID)
+	})
+	return definitions
+}
+
+func placementSeedForDefinition(state wizardStatePayload, definition wizardFieldDefinitionState) (float64, float64) {
+	placement := findPlacementForField(state.FieldPlacements, definition)
+	seedY := placement.Y
+	seedX := placement.X
+	if seedY <= 0 {
+		seedY = 1e9
+	}
+	if seedX <= 0 {
+		seedX = 1e9
+	}
+	return seedY, seedX
+}
+
+func expandFieldRules(state wizardStatePayload) []wizardFieldDefinitionState {
+	if len(state.FieldRules) == 0 {
+		return []wizardFieldDefinitionState{}
+	}
+	terminalPage := resolveWizardTerminalPage(state)
+	if terminalPage <= 0 {
+		terminalPage = 1
+	}
+	expanded := make([]wizardFieldDefinitionState, 0)
+	for index, rule := range state.FieldRules {
+		ruleType := strings.ToLower(strings.TrimSpace(rule.Type))
+		if ruleType == "" {
+			continue
+		}
+		required := true
+		if rule.Required != nil {
+			required = *rule.Required
+		}
+		switch ruleType {
+		case "initials_each_page":
+			startPage := rule.FromPage
+			if startPage <= 0 {
+				startPage = 1
+			}
+			endPage := rule.ToPage
+			if endPage <= 0 {
+				endPage = terminalPage
+			}
+			if endPage < startPage {
+				startPage, endPage = endPage, startPage
+			}
+			excludedPages := map[int]struct{}{}
+			for _, page := range rule.ExcludePages {
+				if page > 0 {
+					excludedPages[page] = struct{}{}
+				}
+			}
+			if rule.ExcludeLastPage {
+				excludedPages[terminalPage] = struct{}{}
+			}
+			for page := startPage; page <= endPage; page++ {
+				if _, excluded := excludedPages[page]; excluded {
+					continue
+				}
+				defID := fmt.Sprintf("rule-%d-initials-%d", index+1, page)
+				expanded = append(expanded, wizardFieldDefinitionState{
+					ID:                defID,
+					TempID:            defID,
+					Type:              stores.FieldTypeInitials,
+					ParticipantID:     strings.TrimSpace(rule.ParticipantID),
+					ParticipantTempID: strings.TrimSpace(rule.ParticipantTempID),
+					Label:             primitives.FirstNonEmpty(strings.TrimSpace(rule.Label), "Initials"),
+					Required:          required,
+					Page:              page,
+				})
+			}
+		case "signature_once":
+			page := rule.Page
+			if page <= 0 {
+				page = rule.ToPage
+			}
+			if page <= 0 {
+				page = terminalPage
+			}
+			if page <= 0 {
+				page = 1
+			}
+			defID := fmt.Sprintf("rule-%d-signature-%d", index+1, page)
+			expanded = append(expanded, wizardFieldDefinitionState{
+				ID:                defID,
+				TempID:            defID,
+				Type:              stores.FieldTypeSignature,
+				ParticipantID:     strings.TrimSpace(rule.ParticipantID),
+				ParticipantTempID: strings.TrimSpace(rule.ParticipantTempID),
+				Label:             primitives.FirstNonEmpty(strings.TrimSpace(rule.Label), "Signature"),
+				Required:          required,
+				Page:              page,
+			})
+		}
+	}
+	return expanded
+}
+
+func resolveWizardTerminalPage(state wizardStatePayload) int {
+	maxPage := state.Document.PageCount
+	for _, definition := range state.FieldDefinitions {
+		if definition.Page > maxPage {
+			maxPage = definition.Page
+		}
+	}
+	for _, placement := range state.FieldPlacements {
+		if placement.Page > maxPage {
+			maxPage = placement.Page
+		}
+	}
+	for _, rule := range state.FieldRules {
+		if rule.Page > maxPage {
+			maxPage = rule.Page
+		}
+		if rule.ToPage > maxPage {
+			maxPage = rule.ToPage
+		}
+	}
+	if maxPage <= 0 {
+		maxPage = 1
+	}
+	return maxPage
 }
 
 func draftIntPtr(value int) *int {

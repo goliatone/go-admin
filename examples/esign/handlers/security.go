@@ -48,32 +48,33 @@ var DefaultPermissions = Permissions{
 }
 
 type registerConfig struct {
-	authorizer          coreadmin.Authorizer
-	adminRouteAuth      router.MiddlewareFunc
-	tokenValidator      SignerTokenValidator
-	signerSession       SignerSessionService
-	signerProfile       SignerProfileService
-	signerAssets        SignerAssetContractService
-	agreementDelivery   AgreementDeliveryService
-	agreementAuthoring  AgreementAuthoringService
-	drafts              DraftWorkflowService
-	objectStore         SignerObjectStore
-	agreements          AgreementStatsService
-	auditEvents         stores.AuditEventStore
-	google              GoogleIntegrationService
-	googleImportRuns    stores.GoogleImportRunStore
-	googleImportEnqueue GoogleImportEnqueueFunc
-	integration         IntegrationFoundationService
-	googleEnabled       bool
-	documentUpload      router.HandlerFunc
-	permissions         Permissions
-	defaultScope        stores.Scope
-	scopeResolver       ScopeResolver
-	actorScope          ActorScopeResolver
-	transportGuard      TransportGuard
-	rateLimiter         RequestRateLimiter
-	trustForwardedIP    bool
-	securityLogEvent    SecurityLogEvent
+	authorizer            coreadmin.Authorizer
+	adminRouteAuth        router.MiddlewareFunc
+	tokenValidator        SignerTokenValidator
+	signerSession         SignerSessionService
+	signerProfile         SignerProfileService
+	signerSavedSignatures SignerSavedSignatureService
+	signerAssets          SignerAssetContractService
+	agreementDelivery     AgreementDeliveryService
+	agreementAuthoring    AgreementAuthoringService
+	drafts                DraftWorkflowService
+	objectStore           SignerObjectStore
+	agreements            AgreementStatsService
+	auditEvents           stores.AuditEventStore
+	google                GoogleIntegrationService
+	googleImportRuns      stores.GoogleImportRunStore
+	googleImportEnqueue   GoogleImportEnqueueFunc
+	integration           IntegrationFoundationService
+	googleEnabled         bool
+	documentUpload        router.HandlerFunc
+	permissions           Permissions
+	defaultScope          stores.Scope
+	scopeResolver         ScopeResolver
+	actorScope            ActorScopeResolver
+	transportGuard        TransportGuard
+	rateLimiter           RequestRateLimiter
+	trustForwardedIP      bool
+	securityLogEvent      SecurityLogEvent
 }
 
 func defaultRegisterConfig() registerConfig {
@@ -106,6 +107,13 @@ type SignerProfileService interface {
 	Get(ctx context.Context, scope stores.Scope, subject, key string) (*services.SignerProfile, error)
 	Save(ctx context.Context, scope stores.Scope, subject, key string, patch services.SignerProfilePatch) (services.SignerProfile, error)
 	Clear(ctx context.Context, scope stores.Scope, subject, key string) error
+}
+
+// SignerSavedSignatureService handles token-scoped signer saved-signature library APIs.
+type SignerSavedSignatureService interface {
+	ListSavedSignatures(ctx context.Context, scope stores.Scope, subject, signatureType string) ([]services.SavedSignerSignature, error)
+	SaveSignature(ctx context.Context, scope stores.Scope, subject string, input services.SaveSignerSignatureInput) (services.SavedSignerSignature, error)
+	DeleteSavedSignature(ctx context.Context, scope stores.Scope, subject, signatureID string) error
 }
 
 // SignerAssetContractService resolves token-scoped signer asset contract metadata.
@@ -304,6 +312,16 @@ func WithSignerProfileService(service SignerProfileService) RegisterOption {
 			return
 		}
 		cfg.signerProfile = service
+	}
+}
+
+// WithSignerSavedSignatureService configures signer saved-signature library APIs.
+func WithSignerSavedSignatureService(service SignerSavedSignatureService) RegisterOption {
+	return func(cfg *registerConfig) {
+		if cfg == nil {
+			return
+		}
+		cfg.signerSavedSignatures = service
 	}
 }
 
