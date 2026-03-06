@@ -46,19 +46,19 @@
   {% elif status == "completed" %}
     {% if executed_available %}
     <button type="button" class="btn btn-primary" data-action="download-executed" data-agreement-id="{{ resource_item.id }}"
-            aria-label="Download executed PDF" title="Download the fully signed document">
+            aria-label="Download executed PDF" title="Download signed document with appended audit trail">
       <svg class="w-4 h-4 mr-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
       </svg>
-      Download Executed PDF
+      Download Completion Package
     </button>
     {% else %}
     <button type="button" class="btn btn-warning" data-action="download-executed" data-agreement-id="{{ resource_item.id }}" data-download-state="unavailable"
-            disabled aria-disabled="true" aria-label="Executed PDF is unavailable" title="Executed PDF is unavailable">
+            disabled aria-disabled="true" aria-label="Executed completion package is unavailable" title="Executed completion package is unavailable">
       <svg class="w-4 h-4 mr-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
       </svg>
-      Unable To Download PDF
+      Unable To Download Package
     </button>
     {% endif %}
   {% endif %}
@@ -272,8 +272,8 @@
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
     </svg>
     <div>
-      <p class="font-medium">Executed PDF is not available yet.</p>
-      <p class="text-sm mt-1">The agreement is completed, but artifact generation or storage is still pending. Refresh the delivery status and try again.</p>
+      <p class="font-medium">Executed completion package is not available yet.</p>
+      <p class="text-sm mt-1">The agreement is completed, but completion package generation or storage is still pending. Refresh the delivery status and try again.</p>
     </div>
   </div>
 </div>
@@ -844,7 +844,8 @@
             <span class="w-2 h-2 rounded-full bg-gray-400" aria-hidden="true"></span>
             {% endif %}
             <div>
-              <div class="text-sm font-medium text-gray-900">Executed PDF</div>
+              <div class="text-sm font-medium text-gray-900">Executed PDF (Completion Package)</div>
+              <div class="text-xs text-gray-500">Signed document with appended audit trail</div>
               <div class="text-xs text-gray-500">
                 {% if executed.sha256 %}
                 SHA256: <span class="font-mono">{{ executed.sha256|slice:"0:16" }}...</span>
@@ -858,7 +859,7 @@
               Ready
             </span>
             <button type="button" class="btn btn-sm btn-primary" data-action="download-executed" data-agreement-id="{{ resource_item.id }}"
-                    aria-label="Download executed PDF" title="Download the signed document">
+                    aria-label="Download executed PDF" title="Download signed document with appended audit trail">
               <svg class="w-3 h-3 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
               </svg>
@@ -902,7 +903,8 @@
             <span class="w-2 h-2 rounded-full bg-gray-400" aria-hidden="true"></span>
             {% endif %}
             <div>
-              <div class="text-sm font-medium text-gray-900">Signing Certificate</div>
+              <div class="text-sm font-medium text-gray-900">Certificate of Completion</div>
+              <div class="text-xs text-gray-500">Standalone audit certificate</div>
               <div class="text-xs text-gray-500">
                 {% if cert.timeline_hash %}
                 Hash: <span class="font-mono">{{ cert.timeline_hash|slice:"0:16" }}...</span>
@@ -916,7 +918,7 @@
               Ready
             </span>
             <button type="button" class="btn btn-sm btn-secondary" data-action="download-certificate" data-agreement-id="{{ resource_item.id }}"
-                    aria-label="Download signing certificate" title="Download the signing certificate">
+                    aria-label="Download completion certificate" title="Download standalone audit certificate">
               <svg class="w-3 h-3 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
               </svg>
@@ -960,7 +962,7 @@
       </div>
       <div class="space-y-2">
         <div class="flex items-center justify-between bg-white rounded border border-gray-200 p-3">
-          <div class="text-sm font-medium text-gray-900">Executed PDF</div>
+          <div class="text-sm font-medium text-gray-900">Executed PDF (Completion Package)</div>
           {% set executed_status = resource_item.delivery.executed_status|lower %}
           {% if executed_status == "ready" %}
           <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-700" role="status">Ready</span>
@@ -973,7 +975,7 @@
           {% endif %}
         </div>
         <div class="flex items-center justify-between bg-white rounded border border-gray-200 p-3">
-          <div class="text-sm font-medium text-gray-900">Signing Certificate</div>
+          <div class="text-sm font-medium text-gray-900">Certificate of Completion</div>
           {% set certificate_status = resource_item.delivery.certificate_status|lower %}
           {% if certificate_status == "ready" %}
           <span class="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-700" role="status">Ready</span>
@@ -1152,9 +1154,9 @@ document.addEventListener('DOMContentLoaded', function() {
       if (!btn.classList.contains('btn-warning')) {
         btn.classList.add('btn-warning');
       }
-      btn.innerHTML = `${unavailableDownloadIcon}Unable To Download PDF`;
+      btn.innerHTML = `${unavailableDownloadIcon}Unable To Download Package`;
       btn.setAttribute('title', message);
-      btn.setAttribute('aria-label', 'Executed PDF is unavailable');
+      btn.setAttribute('aria-label', 'Executed completion package is unavailable');
     });
     if (message) {
       showDownloadNotice(message, 'warning');
@@ -1169,10 +1171,10 @@ document.addEventListener('DOMContentLoaded', function() {
       }
       if (loading) {
         btn.disabled = true;
-        btn.innerHTML = `${loadingDownloadIcon}Preparing PDF...`;
+        btn.innerHTML = `${loadingDownloadIcon}Preparing package...`;
       } else {
         btn.disabled = false;
-        btn.innerHTML = '<svg class="w-4 h-4 mr-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>Download Executed PDF';
+        btn.innerHTML = '<svg class="w-4 h-4 mr-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>Download Completion Package';
       }
     });
   }
@@ -1298,7 +1300,7 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
   if (executedDeliveryStatus !== 'ready' && !executedObjectKey) {
-    markExecutedDownloadUnavailable('Executed PDF is still unavailable for this agreement. Artifact generation may still be running.');
+    markExecutedDownloadUnavailable('Executed completion package is still unavailable for this agreement. Artifact generation may still be running.');
   }
 
   // Download executed PDF
@@ -1306,15 +1308,15 @@ document.addEventListener('DOMContentLoaded', function() {
     btn.addEventListener('click', async (event) => {
       event.preventDefault();
       if ((btn.dataset.downloadState || '').toLowerCase() === 'unavailable') {
-        showDownloadNotice('Executed PDF is still unavailable for this agreement. Refresh delivery status and try again.', 'warning');
+        showDownloadNotice('Executed completion package is still unavailable for this agreement. Refresh delivery status and try again.', 'warning');
         return;
       }
       setExecutedDownloadLoading(true);
       try {
-        await fetchAndDownloadAsset('executed', `${agreementId}-executed.pdf`, 'Executed PDF');
-        showDownloadNotice('Executed PDF downloaded successfully.', 'success');
+        await fetchAndDownloadAsset('executed', `${agreementId}-executed.pdf`, 'Executed completion package');
+        showDownloadNotice('Executed completion package downloaded successfully.', 'success');
       } catch (error) {
-        markExecutedDownloadUnavailable(error.message || 'Unable To Download PDF');
+        markExecutedDownloadUnavailable(error.message || 'Unable To Download Package');
       } finally {
         setExecutedDownloadLoading(false);
       }
@@ -1329,10 +1331,10 @@ document.addEventListener('DOMContentLoaded', function() {
       btn.disabled = true;
       btn.innerHTML = `${loadingDownloadIcon}Preparing...`;
       try {
-        await fetchAndDownloadAsset('certificate', `${agreementId}-certificate.pdf`, 'Signing Certificate');
-        showDownloadNotice('Signing certificate downloaded successfully.', 'success');
+        await fetchAndDownloadAsset('certificate', `${agreementId}-certificate.pdf`, 'Standalone audit certificate');
+        showDownloadNotice('Standalone audit certificate downloaded successfully.', 'success');
       } catch (error) {
-        showDownloadNotice(error.message || 'Unable to download certificate.', 'warning');
+        showDownloadNotice(error.message || 'Unable to download standalone audit certificate.', 'warning');
       } finally {
         btn.disabled = false;
         btn.innerHTML = originalHtml;

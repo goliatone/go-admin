@@ -97,11 +97,11 @@
             </li>
             <li class="flex items-start gap-3">
               <span class="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-medium text-gray-600">2</span>
-              <span class="text-sm text-gray-600">{% if agreement.completed %}You'll receive a copy of the executed document{% else %}Other signers will complete their sections{% endif %}</span>
+              <span class="text-sm text-gray-600">{% if agreement.completed %}You'll receive the signed completion package (document plus audit trail){% else %}Other signers will complete their sections{% endif %}</span>
             </li>
             <li class="flex items-start gap-3">
               <span class="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-medium text-gray-600">3</span>
-              <span class="text-sm text-gray-600">{% if agreement.completed %}A certificate of completion will be generated{% else %}Once complete, all parties receive the final document{% endif %}</span>
+              <span class="text-sm text-gray-600">{% if agreement.completed %}A standalone audit certificate will be generated{% else %}Once complete, all parties receive the final document{% endif %}</span>
             </li>
           </ul>
         </div>
@@ -152,7 +152,7 @@
                 </div>
                 <div class="flex-1 min-w-0 text-left">
                   <p class="font-medium text-gray-900">Executed Document</p>
-                  <p class="text-xs text-gray-500">Final signed version with all signatures</p>
+                  <p class="text-xs text-gray-500">Signed document with appended audit trail</p>
                 </div>
                 <i class="iconoir-download text-green-600" aria-hidden="true"></i>
               </a>
@@ -190,7 +190,7 @@
                 </div>
                 <div class="flex-1 min-w-0 text-left">
                   <p class="font-medium text-gray-900">Certificate of Completion</p>
-                  <p class="text-xs text-gray-500">Audit trail and verification details</p>
+                  <p class="text-xs text-gray-500">Standalone audit certificate</p>
                 </div>
                 <i class="iconoir-download text-purple-600" aria-hidden="true"></i>
               </a>
