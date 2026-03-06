@@ -12,6 +12,7 @@ import (
 )
 
 const (
+	AuditTrailEventCreated    = "CREATED"
 	AuditTrailEventSent       = "SENT"
 	AuditTrailEventViewed     = "VIEWED"
 	AuditTrailEventSigned     = "SIGNED"
@@ -94,6 +95,8 @@ func BuildAuditTrailDocument(input AuditTrailBuildInput) AuditTrailDocument {
 		}
 		entries = append(entries, entry)
 	}
+	sourceMarkers := collectAuditTrailSourceMarkers(input.Events)
+	entries = append(entries, deriveLifecycleAuditTrailEntries(input.Agreement, signerRecipients, sourceMarkers)...)
 
 	terminal := buildTerminalAuditTrailEntry(input.Agreement, now)
 	if terminal != nil && !auditTrailContainsEventType(entries, terminal.EventType) {
@@ -195,19 +198,26 @@ func normalizeAuditTrailEntry(
 	}
 
 	switch eventType {
-	case "agreement.sent":
+	case "agreement.created":
+		creator := coalesce(
+			toMetadataString(metadata, "created_by_user_id", "actor_id", "sender_email", "actor_email"),
+			strings.TrimSpace(agreement.CreatedByUserID),
+			strings.TrimSpace(actorID),
+			"system",
+		)
+		base.EventType = AuditTrailEventCreated
+		base.Description = fmt.Sprintf("Created by %s", creator)
+		base.ActorName = creator
+		base.ActorEmail = ""
+		return base, true
+	case "agreement.sent", "agreement.resent":
 		sender := coalesce(toMetadataString(metadata, "sender_email"), strings.TrimSpace(agreement.CreatedByUserID), "system")
-		recipients := make([]string, 0, len(signerRecipients))
-		for _, signer := range signerRecipients {
-			name := coalesce(strings.TrimSpace(signer.Name), strings.TrimSpace(signer.ID))
-			recipients = append(recipients, fmt.Sprintf("%s (%s)", name, strings.TrimSpace(signer.Email)))
-		}
-		joinedRecipients := "no recipients"
-		if len(recipients) > 0 {
-			joinedRecipients = strings.Join(recipients, ", ")
+		action := "Sent"
+		if eventType == "agreement.resent" {
+			action = "Re-sent"
 		}
 		base.EventType = AuditTrailEventSent
-		base.Description = fmt.Sprintf("Sent for signature to %s from %s", joinedRecipients, sender)
+		base.Description = buildAuditTrailSentDescription(action, sender, signerRecipients)
 		base.ActorName = sender
 		base.ActorEmail = ""
 		return base, true
@@ -241,6 +251,155 @@ func normalizeAuditTrailEntry(
 	default:
 		return AuditTrailEntry{}, false
 	}
+}
+
+type auditTrailSourceMarkers struct {
+	HasCreated            bool
+	HasSent               bool
+	HasViewedWithoutActor bool
+	HasSignedWithoutActor bool
+	ViewedRecipientIDs    map[string]struct{}
+	SignedRecipientIDs    map[string]struct{}
+}
+
+func collectAuditTrailSourceMarkers(events []stores.AuditEventRecord) auditTrailSourceMarkers {
+	markers := auditTrailSourceMarkers{
+		ViewedRecipientIDs: map[string]struct{}{},
+		SignedRecipientIDs: map[string]struct{}{},
+	}
+	for _, event := range events {
+		eventType := strings.TrimSpace(event.EventType)
+		switch eventType {
+		case "agreement.created":
+			markers.HasCreated = true
+		case "agreement.sent", "agreement.resent":
+			markers.HasSent = true
+		case "signer.viewed":
+			actorID := strings.TrimSpace(event.ActorID)
+			if actorID == "" {
+				markers.HasViewedWithoutActor = true
+				continue
+			}
+			markers.ViewedRecipientIDs[actorID] = struct{}{}
+		case "signer.submitted":
+			actorID := strings.TrimSpace(event.ActorID)
+			if actorID == "" {
+				markers.HasSignedWithoutActor = true
+				continue
+			}
+			markers.SignedRecipientIDs[actorID] = struct{}{}
+		}
+	}
+	return markers
+}
+
+func deriveLifecycleAuditTrailEntries(
+	agreement stores.AgreementRecord,
+	signerRecipients []stores.RecipientRecord,
+	markers auditTrailSourceMarkers,
+) []AuditTrailEntry {
+	entries := make([]AuditTrailEntry, 0, 2+(len(signerRecipients)*2))
+	creator := coalesce(strings.TrimSpace(agreement.CreatedByUserID), "system")
+
+	if !markers.HasCreated && !agreement.CreatedAt.IsZero() {
+		entries = append(entries, AuditTrailEntry{
+			EventType:     AuditTrailEventCreated,
+			Timestamp:     agreement.CreatedAt.UTC(),
+			ActorName:     creator,
+			Description:   fmt.Sprintf("Created by %s", creator),
+			Severity:      "normal",
+			SourceEvent:   "derived.lifecycle.created",
+			SourceEventID: "derived.created",
+		})
+	}
+	if !markers.HasSent && agreement.SentAt != nil && !agreement.SentAt.IsZero() {
+		entries = append(entries, AuditTrailEntry{
+			EventType:     AuditTrailEventSent,
+			Timestamp:     agreement.SentAt.UTC(),
+			ActorName:     creator,
+			Description:   buildAuditTrailSentDescription("Sent", creator, signerRecipients),
+			Severity:      "normal",
+			SourceEvent:   "derived.lifecycle.sent",
+			SourceEventID: "derived.sent",
+		})
+	}
+
+	if !markers.HasViewedWithoutActor {
+		for _, recipient := range signerRecipients {
+			recipientID := strings.TrimSpace(recipient.ID)
+			if recipientID == "" {
+				continue
+			}
+			if _, seen := markers.ViewedRecipientIDs[recipientID]; seen {
+				continue
+			}
+			viewedAt := recipient.FirstViewAt
+			if viewedAt == nil || viewedAt.IsZero() {
+				viewedAt = recipient.LastViewAt
+			}
+			if viewedAt == nil || viewedAt.IsZero() {
+				continue
+			}
+			entries = append(entries, AuditTrailEntry{
+				EventType:     AuditTrailEventViewed,
+				Timestamp:     viewedAt.UTC(),
+				ActorName:     strings.TrimSpace(recipient.Name),
+				ActorEmail:    strings.TrimSpace(recipient.Email),
+				Description:   fmt.Sprintf("Viewed by %s", formatActorIdentity(strings.TrimSpace(recipient.Name), strings.TrimSpace(recipient.Email), recipientID)),
+				Severity:      "normal",
+				SourceEvent:   "derived.lifecycle.viewed",
+				SourceEventID: "derived.viewed." + recipientID,
+			})
+		}
+	}
+
+	if !markers.HasSignedWithoutActor {
+		for _, recipient := range signerRecipients {
+			recipientID := strings.TrimSpace(recipient.ID)
+			if recipientID == "" {
+				continue
+			}
+			if _, seen := markers.SignedRecipientIDs[recipientID]; seen {
+				continue
+			}
+			if recipient.CompletedAt == nil || recipient.CompletedAt.IsZero() {
+				continue
+			}
+			entries = append(entries, AuditTrailEntry{
+				EventType:     AuditTrailEventSigned,
+				Timestamp:     recipient.CompletedAt.UTC(),
+				ActorName:     strings.TrimSpace(recipient.Name),
+				ActorEmail:    strings.TrimSpace(recipient.Email),
+				Description:   fmt.Sprintf("Signed by %s", formatActorIdentity(strings.TrimSpace(recipient.Name), strings.TrimSpace(recipient.Email), recipientID)),
+				Severity:      "normal",
+				SourceEvent:   "derived.lifecycle.signed",
+				SourceEventID: "derived.signed." + recipientID,
+			})
+		}
+	}
+
+	return entries
+}
+
+func buildAuditTrailSentDescription(action, sender string, signerRecipients []stores.RecipientRecord) string {
+	action = strings.TrimSpace(action)
+	if action == "" {
+		action = "Sent"
+	}
+	sender = strings.TrimSpace(sender)
+	if sender == "" {
+		sender = "system"
+	}
+	recipients := make([]string, 0, len(signerRecipients))
+	for _, signer := range signerRecipients {
+		name := coalesce(strings.TrimSpace(signer.Name), strings.TrimSpace(signer.ID))
+		recipients = append(recipients, fmt.Sprintf("%s (%s)", name, strings.TrimSpace(signer.Email)))
+	}
+	joinedRecipients := "no recipients"
+	if len(recipients) > 0 {
+		joinedRecipients = strings.Join(recipients, ", ")
+	}
+	return fmt.Sprintf("%s for signature to %s from %s", action, joinedRecipients, sender)
 }
 
 func buildTerminalAuditTrailEntry(agreement stores.AgreementRecord, now time.Time) *AuditTrailEntry {

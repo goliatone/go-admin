@@ -9,6 +9,8 @@ func TestLoadAppliesAPPPrefixOverrides(t *testing.T) {
 	t.Setenv("APP_ADMIN__TITLE", "E-Sign Test")
 	t.Setenv("APP_FEATURES__ESIGN_GOOGLE", "true")
 	t.Setenv("APP_RUNTIME__PROFILE", "staging")
+	t.Setenv("APP_NETWORK__RATE_LIMIT__SIGNER_WRITE__MAX_REQUESTS", "240")
+	t.Setenv("APP_NETWORK__RATE_LIMIT__SIGNER_WRITE__WINDOW_SECONDS", "30")
 
 	cfg, _, err := Load(context.Background())
 	if err != nil {
@@ -22,6 +24,12 @@ func TestLoadAppliesAPPPrefixOverrides(t *testing.T) {
 	}
 	if cfg.Runtime.Profile != "staging" {
 		t.Fatalf("expected APP_RUNTIME__PROFILE override, got %q", cfg.Runtime.Profile)
+	}
+	if cfg.Network.RateLimit.SignerWrite.MaxRequests != 240 {
+		t.Fatalf("expected APP_NETWORK__RATE_LIMIT__SIGNER_WRITE__MAX_REQUESTS override, got %d", cfg.Network.RateLimit.SignerWrite.MaxRequests)
+	}
+	if cfg.Network.RateLimit.SignerWrite.WindowSeconds != 30 {
+		t.Fatalf("expected APP_NETWORK__RATE_LIMIT__SIGNER_WRITE__WINDOW_SECONDS override, got %d", cfg.Network.RateLimit.SignerWrite.WindowSeconds)
 	}
 }
 

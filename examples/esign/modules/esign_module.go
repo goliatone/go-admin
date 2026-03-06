@@ -399,9 +399,16 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 			return m.googleImportQueue.Enqueue(ctx, msg)
 		}
 	}
+	rateLimitRules := resolveRateLimitRulesFromConfig()
+	var preferenceStore coreadmin.PreferencesStore
+	if prefs := ctx.Admin.PreferencesService(); prefs != nil {
+		preferenceStore = prefs.Store()
+	}
 	if err := handlers.Register(
 		routeRouter,
 		m.routes,
+		handlers.WithRequestRateLimiter(handlers.NewSlidingWindowRateLimiter(rateLimitRules)),
+		handlers.WithRateLimitRuleResolver(handlers.NewScopedRateLimitRuleResolver(preferenceStore, m.defaultScope, rateLimitRules)),
 		handlers.WithAuthorizer(ctx.Admin.Authorizer()),
 		handlers.WithAdminRouteMiddleware(ctx.AuthMiddleware),
 		handlers.WithPermissions(handlers.DefaultPermissions),
@@ -425,7 +432,6 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 			AllowLocalInsecure:    true,
 			TrustForwardedHeaders: resolveRateLimitClientIPTrustForwarded(),
 		}),
-		handlers.WithRequestRateLimiter(handlers.NewSlidingWindowRateLimiter(handlers.DefaultRateLimitRules())),
 		handlers.WithTrustForwardedClientIP(resolveRateLimitClientIPTrustForwarded()),
 		handlers.WithSecurityLogEvent(func(event string, fields map[string]any) {
 			correlationID := observability.ResolveCorrelationID(strings.TrimSpace(fmt.Sprint(fields["correlation_id"])), strings.TrimSpace(event), moduleID)
@@ -773,6 +779,32 @@ func resolveSignerProfilePersistencePolicy() (time.Duration, bool) {
 
 func resolveRateLimitClientIPTrustForwarded() bool {
 	return appcfg.Active().Network.RateLimitTrustProxyHeaders
+}
+
+func resolveRateLimitRulesFromConfig() map[string]handlers.RateLimitRule {
+	active := appcfg.Active().Network.RateLimit
+	return map[string]handlers.RateLimitRule{
+		handlers.OperationSignerSession: {
+			MaxRequests: active.SignerSession.MaxRequests,
+			Window:      time.Duration(active.SignerSession.WindowSeconds) * time.Second,
+		},
+		handlers.OperationSignerConsent: {
+			MaxRequests: active.SignerConsent.MaxRequests,
+			Window:      time.Duration(active.SignerConsent.WindowSeconds) * time.Second,
+		},
+		handlers.OperationSignerWrite: {
+			MaxRequests: active.SignerWrite.MaxRequests,
+			Window:      time.Duration(active.SignerWrite.WindowSeconds) * time.Second,
+		},
+		handlers.OperationSignerSubmit: {
+			MaxRequests: active.SignerSubmit.MaxRequests,
+			Window:      time.Duration(active.SignerSubmit.WindowSeconds) * time.Second,
+		},
+		handlers.OperationAdminResend: {
+			MaxRequests: active.AdminResend.MaxRequests,
+			Window:      time.Duration(active.AdminResend.WindowSeconds) * time.Second,
+		},
+	}
 }
 
 func resolveSignatureUploadSecurityPolicy() (time.Duration, string) {

@@ -171,6 +171,7 @@ func TestBuildAuditTrailDocumentMapsAllEventTypes(t *testing.T) {
 		{ID: "recipient-1", Name: "Signer One", Email: "one@example.com", Role: stores.RecipientRoleSigner, SigningOrder: 1},
 	}
 	events := []stores.AuditEventRecord{
+		{ID: "evt-0", EventType: "agreement.created", CreatedAt: now.Add(-60 * time.Minute)},
 		{ID: "evt-1", EventType: "agreement.sent", CreatedAt: now.Add(-50 * time.Minute)},
 		{ID: "evt-2", EventType: "signer.viewed", ActorID: "recipient-1", CreatedAt: now.Add(-40 * time.Minute)},
 		{ID: "evt-3", EventType: "signer.submitted", ActorID: "recipient-1", CreatedAt: now.Add(-30 * time.Minute)},
@@ -191,6 +192,7 @@ func TestBuildAuditTrailDocumentMapsAllEventTypes(t *testing.T) {
 		got = append(got, entry.EventType)
 	}
 	want := []string{
+		AuditTrailEventCreated,
 		AuditTrailEventSent,
 		AuditTrailEventViewed,
 		AuditTrailEventSigned,
@@ -201,8 +203,61 @@ func TestBuildAuditTrailDocumentMapsAllEventTypes(t *testing.T) {
 	if strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Fatalf("unexpected event mapping order: got=%v want=%v", got, want)
 	}
-	if !strings.Contains(doc.Entries[3].Description, "Reason: wrong amount") {
-		t.Fatalf("expected declined reason in description, got %q", doc.Entries[3].Description)
+	if !strings.Contains(doc.Entries[4].Description, "Reason: wrong amount") {
+		t.Fatalf("expected declined reason in description, got %q", doc.Entries[4].Description)
+	}
+}
+
+func TestBuildAuditTrailDocumentDerivesLifecycleFromAgreementAndRecipientTimestamps(t *testing.T) {
+	now := time.Date(2026, 3, 5, 12, 0, 0, 0, time.UTC)
+	createdAt := now.Add(-3 * time.Hour)
+	sentAt := now.Add(-2 * time.Hour)
+	viewedAt := now.Add(-90 * time.Minute)
+	signedAt := now.Add(-30 * time.Minute)
+	completedAt := now.Add(-20 * time.Minute)
+	agreement := stores.AgreementRecord{
+		ID:              "agreement-derived-1",
+		DocumentID:      "doc-derived-1",
+		Title:           "Derived Agreement",
+		Status:          stores.AgreementStatusCompleted,
+		CreatedByUserID: "owner@example.com",
+		CreatedAt:       createdAt,
+		SentAt:          &sentAt,
+		CompletedAt:     &completedAt,
+		UpdatedAt:       now,
+	}
+	recipients := []stores.RecipientRecord{
+		{
+			ID:           "recipient-1",
+			Name:         "Signer One",
+			Email:        "one@example.com",
+			Role:         stores.RecipientRoleSigner,
+			SigningOrder: 1,
+			FirstViewAt:  &viewedAt,
+			CompletedAt:  &signedAt,
+		},
+	}
+
+	doc := BuildAuditTrailDocument(AuditTrailBuildInput{
+		Agreement:   agreement,
+		Recipients:  recipients,
+		Events:      nil,
+		GeneratedAt: now,
+	})
+
+	got := make([]string, 0, len(doc.Entries))
+	for _, entry := range doc.Entries {
+		got = append(got, entry.EventType)
+	}
+	want := []string{
+		AuditTrailEventCreated,
+		AuditTrailEventSent,
+		AuditTrailEventViewed,
+		AuditTrailEventSigned,
+		AuditTrailEventCompleted,
+	}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("unexpected derived event mapping order: got=%v want=%v", got, want)
 	}
 }
 

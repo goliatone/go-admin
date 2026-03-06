@@ -506,6 +506,10 @@ func TestSignerSessionRateLimitErrorEnvelopeContract(t *testing.T) {
 	if limited.StatusCode != http.StatusTooManyRequests {
 		t.Fatalf("expected status 429, got %d", limited.StatusCode)
 	}
+	retryAfter := strings.TrimSpace(limited.Header.Get("Retry-After"))
+	if retryAfter == "" {
+		t.Fatalf("expected Retry-After header on rate-limited response")
+	}
 
 	payload := mustDecodeJSONMap(t, limited.Body)
 	errPayload, ok := payload["error"].(map[string]any)
@@ -521,6 +525,12 @@ func TestSignerSessionRateLimitErrorEnvelopeContract(t *testing.T) {
 	}
 	if details["operation"] != OperationSignerSession {
 		t.Fatalf("expected operation %q, got %+v", OperationSignerSession, details)
+	}
+	if details["retry_after_seconds"] == nil {
+		t.Fatalf("expected retry_after_seconds in details, got %+v", details)
+	}
+	if details["window_seconds"] == nil {
+		t.Fatalf("expected window_seconds in details, got %+v", details)
 	}
 }
 

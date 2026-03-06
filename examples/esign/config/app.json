@@ -89,6 +89,28 @@
     "content_dsn": ""
   },
   "network": {
-    "rate_limit_trust_proxy_headers": false
+    "rate_limit_trust_proxy_headers": false,
+    "rate_limit": {
+      "signer_session": {
+        "max_requests": 60,
+        "window_seconds": 60
+      },
+      "signer_consent": {
+        "max_requests": 30,
+        "window_seconds": 60
+      },
+      "signer_write": {
+        "max_requests": 120,
+        "window_seconds": 60
+      },
+      "signer_submit": {
+        "max_requests": 12,
+        "window_seconds": 60
+      },
+      "admin_resend": {
+        "max_requests": 12,
+        "window_seconds": 60
+      }
+    }
   }
 }
