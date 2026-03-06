@@ -107,7 +107,7 @@ func TestAdminAPIStatusEnvelopeContract(t *testing.T) {
 		"admin_smoke_recipient_links",
 		"admin_documents_upload",
 		"signer_session", "signer_consent", "signer_field_values", "signer_signature", "signer_signature_upload", "signer_signature_object", "signer_telemetry", "signer_submit", "signer_decline", "signer_assets",
-		"signer_profile",
+		"signer_profile", "signer_saved_signatures", "signer_saved_signature",
 		"google_oauth_connect", "google_oauth_disconnect", "google_oauth_rotate", "google_oauth_status",
 		"google_drive_search", "google_drive_browse", "google_drive_import", "google_drive_imports", "google_drive_import_run",
 	} {

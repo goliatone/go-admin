@@ -101,6 +101,11 @@ func BuildAuditTrailDocument(input AuditTrailBuildInput) AuditTrailDocument {
 	}
 
 	sort.SliceStable(entries, func(i, j int) bool {
+		leftDerived := strings.HasPrefix(strings.TrimSpace(entries[i].SourceEvent), "derived.status.")
+		rightDerived := strings.HasPrefix(strings.TrimSpace(entries[j].SourceEvent), "derived.status.")
+		if leftDerived != rightDerived {
+			return !leftDerived
+		}
 		if entries[i].Timestamp.Equal(entries[j].Timestamp) {
 			if entries[i].SourceEventID == entries[j].SourceEventID {
 				if entries[i].EventType == entries[j].EventType {

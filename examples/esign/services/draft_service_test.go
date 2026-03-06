@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"sort"
 	"testing"
 	"time"
 
@@ -131,5 +132,109 @@ func TestDraftServiceCreateReplayRefreshesExpiryAndCleanup(t *testing.T) {
 	}
 	if _, err := draftSvc.Get(ctx, scope, created.ID, "author-1"); err == nil {
 		t.Fatalf("expected cleaned-up draft to be unavailable")
+	}
+}
+
+func TestDraftServiceSendExpandsFieldRules(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+
+	docSvc := NewDocumentService(store)
+	doc, err := docSvc.Upload(ctx, scope, DocumentUploadInput{
+		Title:     "Rules Source",
+		ObjectKey: "tenant/tenant-1/org/org-1/docs/draft-rules/source.pdf",
+		PDF:       GenerateDeterministicPDF(3),
+	})
+	if err != nil {
+		t.Fatalf("Upload: %v", err)
+	}
+
+	agreementSvc := NewAgreementService(store)
+	draftSvc := NewDraftService(store, WithDraftAgreementService(agreementSvc))
+	state := map[string]any{
+		"document": map[string]any{
+			"id":        doc.ID,
+			"pageCount": 3,
+		},
+		"details": map[string]any{"title": "Rules Draft"},
+		"participants": []map[string]any{
+			{
+				"tempId": "participant-1",
+				"name":   "John Doe",
+				"email":  "john@example.com",
+				"role":   "signer",
+				"order":  1,
+			},
+		},
+		"fieldRules": []map[string]any{
+			{
+				"type":              "initials_each_page",
+				"participantTempId": "participant-1",
+				"excludeLastPage":   true,
+			},
+			{
+				"type":              "signature_once",
+				"participantTempId": "participant-1",
+			},
+		},
+	}
+
+	draft, replay, err := draftSvc.Create(ctx, scope, DraftCreateInput{
+		WizardID:        "wiz-rules-1",
+		WizardState:     state,
+		Title:           "Rules Draft",
+		CurrentStep:     6,
+		DocumentID:      doc.ID,
+		CreatedByUserID: "author-1",
+	})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if replay {
+		t.Fatalf("expected initial create replay=false")
+	}
+
+	sendResult, err := draftSvc.Send(ctx, scope, draft.ID, DraftSendInput{
+		ExpectedRevision: draft.Revision,
+		CreatedByUserID:  "author-1",
+	})
+	if err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	if sendResult.AgreementID == "" {
+		t.Fatalf("expected agreement id")
+	}
+
+	definitions, err := store.ListFieldDefinitions(ctx, scope, sendResult.AgreementID)
+	if err != nil {
+		t.Fatalf("ListFieldDefinitions: %v", err)
+	}
+	definitionTypeByID := map[string]string{}
+	for _, definition := range definitions {
+		definitionTypeByID[definition.ID] = definition.Type
+	}
+
+	instances, err := store.ListFieldInstances(ctx, scope, sendResult.AgreementID)
+	if err != nil {
+		t.Fatalf("ListFieldInstances: %v", err)
+	}
+	if len(instances) != 3 {
+		t.Fatalf("expected 3 generated instances, got %d", len(instances))
+	}
+	sort.Slice(instances, func(i, j int) bool {
+		return instances[i].TabIndex < instances[j].TabIndex
+	})
+	if definitionTypeByID[instances[0].FieldDefinitionID] != stores.FieldTypeInitials || instances[0].PageNumber != 1 {
+		t.Fatalf("expected first instance initials on page 1, got type=%s page=%d", definitionTypeByID[instances[0].FieldDefinitionID], instances[0].PageNumber)
+	}
+	if definitionTypeByID[instances[1].FieldDefinitionID] != stores.FieldTypeInitials || instances[1].PageNumber != 2 {
+		t.Fatalf("expected second instance initials on page 2, got type=%s page=%d", definitionTypeByID[instances[1].FieldDefinitionID], instances[1].PageNumber)
+	}
+	if definitionTypeByID[instances[2].FieldDefinitionID] != stores.FieldTypeSignature || instances[2].PageNumber != 3 {
+		t.Fatalf("expected third instance signature on page 3, got type=%s page=%d", definitionTypeByID[instances[2].FieldDefinitionID], instances[2].PageNumber)
+	}
+	if instances[0].TabIndex != 1 || instances[1].TabIndex != 2 || instances[2].TabIndex != 3 {
+		t.Fatalf("expected deterministic tab indexes 1..3, got [%d,%d,%d]", instances[0].TabIndex, instances[1].TabIndex, instances[2].TabIndex)
 	}
 }

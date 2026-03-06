@@ -64,6 +64,7 @@ const (
 	declineSegment          = "decline"
 	assetsSegment           = "assets"
 	profileSegment          = "profile"
+	signaturesSegment       = "signatures"
 	defaultAdminBasePath    = "/admin"
 )
 
@@ -104,6 +105,8 @@ type RouteSet struct {
 	SignerDecline                  string
 	SignerAssets                   string
 	SignerProfile                  string
+	SignerSavedSignatures          string
+	SignerSavedSignature           string
 
 	AdminGoogleOAuthConnect      string
 	AdminGoogleOAuthDisconnect   string
@@ -181,6 +184,8 @@ func BuildRouteSet(urls urlkit.Resolver, adminBasePath, adminAPIGroup string) Ro
 		SignerDecline:                  joinPath(signingBase, declineSegment, ":token"),
 		SignerAssets:                   joinPath(signingBase, assetsSegment, ":token"),
 		SignerProfile:                  joinPath(signingBase, profileSegment, ":token"),
+		SignerSavedSignatures:          joinPath(signingBase, signaturesSegment, ":token"),
+		SignerSavedSignature:           joinPath(signingBase, signaturesSegment, ":token", ":id"),
 
 		AdminGoogleOAuthConnect:      joinPath(adminAPIBase, esignSegment, integrationsSegment, googleSegment, connectSegment),
 		AdminGoogleOAuthDisconnect:   joinPath(adminAPIBase, esignSegment, integrationsSegment, googleSegment, disconnectSegment),
