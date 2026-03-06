@@ -12,13 +12,13 @@ func TestBuildAuditTrailDocumentNormalizesSortsAndAddsCompletedTerminal(t *testi
 	now := time.Date(2026, 3, 5, 12, 0, 0, 0, time.UTC)
 	agreementCompletedAt := now.Add(-time.Hour)
 	agreement := stores.AgreementRecord{
-		ID:          "agreement-1",
-		DocumentID:  "doc-1",
-		Title:       "Agreement",
-		Status:      stores.AgreementStatusCompleted,
+		ID:              "agreement-1",
+		DocumentID:      "doc-1",
+		Title:           "Agreement",
+		Status:          stores.AgreementStatusCompleted,
 		CreatedByUserID: "sender@example.com",
-		CompletedAt: &agreementCompletedAt,
-		UpdatedAt:   now,
+		CompletedAt:     &agreementCompletedAt,
+		UpdatedAt:       now,
 	}
 	recipients := []stores.RecipientRecord{
 		{ID: "recipient-1", Name: "Signer One", Email: "one@example.com", Role: stores.RecipientRoleSigner, SigningOrder: 1},
@@ -121,24 +121,116 @@ func TestBuildAuditTrailDocumentUsesMetadataAndFallbacks(t *testing.T) {
 	}
 	doc := BuildAuditTrailDocument(AuditTrailBuildInput{
 		Agreement: agreement,
-		Events: []stores.AuditEventRecord{{
-			ID:           "evt-1",
-			EventType:    "agreement.sent",
-			MetadataJSON: `{"sender_email":"owner@example.com"}`,
-			CreatedAt:    now,
-		}},
+		Events: []stores.AuditEventRecord{
+			{
+				ID:           "evt-1",
+				EventType:    "agreement.sent",
+				MetadataJSON: `{"sender_email":"owner@example.com"}`,
+				CreatedAt:    now,
+			},
+			{
+				ID:           "evt-2",
+				EventType:    "signer.viewed",
+				ActorID:      "recipient-missing",
+				MetadataJSON: `{"actor_name":"Fallback Name","actor_email":"fallback@example.com"}`,
+				CreatedAt:    now.Add(time.Minute),
+			},
+		},
 		DocumentID:    "doc-3",
 		DocumentTitle: "Contract",
 		GeneratedAt:   now,
 	})
-	if len(doc.Entries) != 1 {
-		t.Fatalf("expected one SENT event, got %d", len(doc.Entries))
+	if len(doc.Entries) != 2 {
+		t.Fatalf("expected SENT + VIEWED events, got %d", len(doc.Entries))
 	}
-	entry := doc.Entries[0]
-	if entry.EventType != AuditTrailEventSent {
-		t.Fatalf("expected SENT event, got %+v", entry)
+	sent := doc.Entries[0]
+	if sent.EventType != AuditTrailEventSent {
+		t.Fatalf("expected SENT event, got %+v", sent)
 	}
-	if !strings.Contains(entry.Description, "owner@example.com") {
-		t.Fatalf("expected sender email in description, got %q", entry.Description)
+	if !strings.Contains(sent.Description, "owner@example.com") {
+		t.Fatalf("expected sender email in description, got %q", sent.Description)
+	}
+	viewed := doc.Entries[1]
+	if viewed.EventType != AuditTrailEventViewed {
+		t.Fatalf("expected VIEWED event, got %+v", viewed)
+	}
+	if !strings.Contains(viewed.Description, "Fallback Name (fallback@example.com)") {
+		t.Fatalf("expected metadata fallback actor identity, got %q", viewed.Description)
+	}
+}
+
+func TestBuildAuditTrailDocumentMapsAllEventTypes(t *testing.T) {
+	now := time.Date(2026, 3, 5, 12, 0, 0, 0, time.UTC)
+	agreement := stores.AgreementRecord{
+		ID:        "agreement-4",
+		Title:     "Agreement 4",
+		Status:    stores.AgreementStatusSent,
+		UpdatedAt: now,
+	}
+	recipients := []stores.RecipientRecord{
+		{ID: "recipient-1", Name: "Signer One", Email: "one@example.com", Role: stores.RecipientRoleSigner, SigningOrder: 1},
+	}
+	events := []stores.AuditEventRecord{
+		{ID: "evt-1", EventType: "agreement.sent", CreatedAt: now.Add(-50 * time.Minute)},
+		{ID: "evt-2", EventType: "signer.viewed", ActorID: "recipient-1", CreatedAt: now.Add(-40 * time.Minute)},
+		{ID: "evt-3", EventType: "signer.submitted", ActorID: "recipient-1", CreatedAt: now.Add(-30 * time.Minute)},
+		{ID: "evt-4", EventType: "signer.declined", ActorID: "recipient-1", MetadataJSON: `{"decline_reason":"wrong amount"}`, CreatedAt: now.Add(-20 * time.Minute)},
+		{ID: "evt-5", EventType: "agreement.voided", CreatedAt: now.Add(-10 * time.Minute)},
+		{ID: "evt-6", EventType: "agreement.completed", CreatedAt: now.Add(-5 * time.Minute)},
+	}
+
+	doc := BuildAuditTrailDocument(AuditTrailBuildInput{
+		Agreement:   agreement,
+		Recipients:  recipients,
+		Events:      events,
+		GeneratedAt: now,
+	})
+
+	got := make([]string, 0, len(doc.Entries))
+	for _, entry := range doc.Entries {
+		got = append(got, entry.EventType)
+	}
+	want := []string{
+		AuditTrailEventSent,
+		AuditTrailEventViewed,
+		AuditTrailEventSigned,
+		AuditTrailEventDeclined,
+		AuditTrailEventIncomplete,
+		AuditTrailEventCompleted,
+	}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("unexpected event mapping order: got=%v want=%v", got, want)
+	}
+	if !strings.Contains(doc.Entries[3].Description, "Reason: wrong amount") {
+		t.Fatalf("expected declined reason in description, got %q", doc.Entries[3].Description)
+	}
+}
+
+func TestBuildAuditTrailDocumentOrdersSameTimestampByEventID(t *testing.T) {
+	now := time.Date(2026, 3, 5, 12, 0, 0, 0, time.UTC)
+	agreement := stores.AgreementRecord{
+		ID:        "agreement-5",
+		Status:    stores.AgreementStatusSent,
+		UpdatedAt: now,
+	}
+	recipients := []stores.RecipientRecord{
+		{ID: "recipient-1", Name: "Signer One", Email: "one@example.com", Role: stores.RecipientRoleSigner, SigningOrder: 1},
+	}
+	events := []stores.AuditEventRecord{
+		{ID: "evt-b", EventType: "signer.viewed", ActorID: "recipient-1", CreatedAt: now},
+		{ID: "evt-a", EventType: "signer.viewed", ActorID: "recipient-1", CreatedAt: now},
+	}
+
+	doc := BuildAuditTrailDocument(AuditTrailBuildInput{
+		Agreement:   agreement,
+		Recipients:  recipients,
+		Events:      events,
+		GeneratedAt: now,
+	})
+	if len(doc.Entries) != 2 {
+		t.Fatalf("expected two timeline entries, got %d", len(doc.Entries))
+	}
+	if doc.Entries[0].SourceEventID != "evt-a" {
+		t.Fatalf("expected event id tie-break ordering, got first=%q", doc.Entries[0].SourceEventID)
 	}
 }

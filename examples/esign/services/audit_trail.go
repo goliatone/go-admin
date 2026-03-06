@@ -22,29 +22,29 @@ const (
 
 // AuditTrailEntry is a normalized timeline event used by executed/certificate renderers.
 type AuditTrailEntry struct {
-	EventType    string
-	Timestamp    time.Time
-	ActorName    string
-	ActorEmail   string
-	IPAddress    string
-	Description  string
-	Severity     string
-	SourceEvent  string
+	EventType     string
+	Timestamp     time.Time
+	ActorName     string
+	ActorEmail    string
+	IPAddress     string
+	Description   string
+	Severity      string
+	SourceEvent   string
 	SourceEventID string
 }
 
 // AuditTrailDocument provides a canonical render model for timeline-based audit artifacts.
 type AuditTrailDocument struct {
-	AgreementID   string
-	Title         string
-	FileName      string
-	DocumentID    string
-	DocumentHash  string
-	Status        string
-	GeneratedAt   time.Time
+	AgreementID    string
+	Title          string
+	FileName       string
+	DocumentID     string
+	DocumentHash   string
+	Status         string
+	GeneratedAt    time.Time
 	ExecutedSHA256 string
-	CorrelationID string
-	Entries       []AuditTrailEntry
+	CorrelationID  string
+	Entries        []AuditTrailEntry
 }
 
 // AuditTrailBuildInput carries source entities required to construct a normalized audit trail.
@@ -87,8 +87,8 @@ func BuildAuditTrailDocument(input AuditTrailBuildInput) AuditTrailDocument {
 	})
 
 	entries := make([]AuditTrailEntry, 0, len(input.Events)+1)
-	for _, event := range input.Events {
-		entry, ok := normalizeAuditTrailEntry(event, input.Agreement, recipientsByID, signerRecipients)
+	for idx, event := range input.Events {
+		entry, ok := normalizeAuditTrailEntry(event, idx, now, input.Agreement, recipientsByID, signerRecipients)
 		if !ok {
 			continue
 		}
@@ -146,6 +146,8 @@ func BuildAuditTrailDocument(input AuditTrailBuildInput) AuditTrailDocument {
 
 func normalizeAuditTrailEntry(
 	event stores.AuditEventRecord,
+	sequence int,
+	fallbackAt time.Time,
 	agreement stores.AgreementRecord,
 	recipientsByID map[string]stores.RecipientRecord,
 	signerRecipients []stores.RecipientRecord,
@@ -156,13 +158,26 @@ func normalizeAuditTrailEntry(
 	}
 	ts := event.CreatedAt.UTC()
 	if ts.IsZero() {
-		ts = time.Now().UTC()
+		ts = fallbackAt.UTC()
+		if ts.IsZero() {
+			ts = time.Now().UTC()
+		}
 	}
 	metadata := parseAuditMetadata(event.MetadataJSON)
 	actorID := strings.TrimSpace(event.ActorID)
 	recipient := recipientsByID[actorID]
-	actorName := strings.TrimSpace(recipient.Name)
-	actorEmail := strings.TrimSpace(recipient.Email)
+	actorName := coalesce(
+		strings.TrimSpace(recipient.Name),
+		toMetadataString(metadata, "recipient_name", "actor_name", "name"),
+	)
+	actorEmail := coalesce(
+		strings.TrimSpace(recipient.Email),
+		toMetadataString(metadata, "recipient_email", "actor_email", "email"),
+	)
+	sourceEventID := strings.TrimSpace(event.ID)
+	if sourceEventID == "" {
+		sourceEventID = fmt.Sprintf("event-%06d", sequence)
+	}
 
 	base := AuditTrailEntry{
 		Timestamp:     ts,
@@ -171,7 +186,7 @@ func normalizeAuditTrailEntry(
 		IPAddress:     strings.TrimSpace(event.IPAddress),
 		Severity:      "normal",
 		SourceEvent:   eventType,
-		SourceEventID: strings.TrimSpace(event.ID),
+		SourceEventID: sourceEventID,
 	}
 
 	switch eventType {
@@ -209,7 +224,7 @@ func normalizeAuditTrailEntry(
 		}
 		base.Severity = "warning"
 		return base, true
-	case "agreement.voided", "agreement.expired":
+	case "agreement.voided", "agreement.expired", "agreement.incomplete":
 		base.EventType = AuditTrailEventIncomplete
 		base.Description = "This document has not been fully executed by all signers."
 		base.Severity = "warning"
@@ -234,20 +249,20 @@ func buildTerminalAuditTrailEntry(agreement stores.AgreementRecord, now time.Tim
 	switch status {
 	case stores.AgreementStatusCompleted:
 		return &AuditTrailEntry{
-			EventType:    AuditTrailEventCompleted,
-			Timestamp:    timestamp,
-			Description:  "This document has been fully executed by all signers.",
-			Severity:     "normal",
-			SourceEvent:  "derived.status.completed",
+			EventType:     AuditTrailEventCompleted,
+			Timestamp:     timestamp,
+			Description:   "This document has been fully executed by all signers.",
+			Severity:      "normal",
+			SourceEvent:   "derived.status.completed",
 			SourceEventID: "derived.completed",
 		}
 	case stores.AgreementStatusDeclined, stores.AgreementStatusVoided, stores.AgreementStatusExpired:
 		return &AuditTrailEntry{
-			EventType:    AuditTrailEventIncomplete,
-			Timestamp:    timestamp,
-			Description:  "This document has not been fully executed by all signers.",
-			Severity:     "warning",
-			SourceEvent:  "derived.status.incomplete",
+			EventType:     AuditTrailEventIncomplete,
+			Timestamp:     timestamp,
+			Description:   "This document has not been fully executed by all signers.",
+			Severity:      "warning",
+			SourceEvent:   "derived.status.incomplete",
 			SourceEventID: "derived.incomplete",
 		}
 	default:

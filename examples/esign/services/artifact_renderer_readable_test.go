@@ -126,12 +126,17 @@ func TestReadableArtifactRendererRenderExecutedUsesSourceAndOverlaysValues(t *te
 	}
 
 	agreement.Status = stores.AgreementStatusCompleted
+	events := []stores.AuditEventRecord{
+		{ID: "event-1", EventType: "agreement.sent", CreatedAt: time.Date(2026, 2, 12, 10, 0, 0, 0, time.UTC)},
+		{ID: "event-2", EventType: "signer.submitted", ActorID: recipient.ID, CreatedAt: time.Date(2026, 2, 12, 10, 5, 0, 0, time.UTC)},
+	}
 	withImage, err := renderer.RenderExecuted(ctx, ExecutedRenderInput{
 		Scope:       scope,
 		Agreement:   agreement,
 		Recipients:  recipients,
 		Fields:      fields,
 		FieldValues: values,
+		Events:      events,
 	})
 	if err != nil {
 		t.Fatalf("render executed with image: %v", err)
@@ -144,6 +149,13 @@ func TestReadableArtifactRendererRenderExecutedUsesSourceAndOverlaysValues(t *te
 	}
 	if !strings.Contains(string(withImage.Payload), "Approved by Finance") {
 		t.Fatalf("expected executed payload to include overlaid text value")
+	}
+	withImageRaw := string(withImage.Payload)
+	if !strings.Contains(withImageRaw, "Audit Trail") || !strings.Contains(withImageRaw, "Document History") {
+		t.Fatalf("expected executed payload to include appended audit trail section")
+	}
+	if got := strings.Count(withImageRaw, "Document Hash: "); got != 1 {
+		t.Fatalf("expected one source-page hash footer, got %d", got)
 	}
 
 	noImageValues := append([]stores.FieldValueRecord(nil), values...)
@@ -158,6 +170,7 @@ func TestReadableArtifactRendererRenderExecutedUsesSourceAndOverlaysValues(t *te
 		Recipients:  recipients,
 		Fields:      fields,
 		FieldValues: noImageValues,
+		Events:      events,
 	})
 	if err != nil {
 		t.Fatalf("render executed without image: %v", err)
@@ -245,6 +258,9 @@ func TestReadableArtifactRendererRenderExecutedMultiPageAvoidsInfiniteTemplateSc
 		Recipients:  recipients,
 		Fields:      fields,
 		FieldValues: values,
+		Events: []stores.AuditEventRecord{
+			{ID: "event-1", EventType: "agreement.completed", CreatedAt: time.Date(2026, 2, 15, 12, 0, 0, 0, time.UTC)},
+		},
 	})
 	if err != nil {
 		t.Fatalf("render executed: %v", err)
@@ -258,6 +274,12 @@ func TestReadableArtifactRendererRenderExecutedMultiPageAvoidsInfiniteTemplateSc
 	}
 	if strings.Contains(raw, "+Inf") {
 		t.Fatalf("expected rendered payload without invalid +Inf template transform")
+	}
+	if !strings.Contains(raw, "Audit Trail") || !strings.Contains(raw, "Document History") {
+		t.Fatalf("expected rendered payload to include appended audit section")
+	}
+	if got := strings.Count(raw, "Document Hash: "); got != 3 {
+		t.Fatalf("expected hash footer count to match source pages (3), got %d", got)
 	}
 	if strings.Count(raw, "/Type /Page") < 3 {
 		t.Fatalf("expected rendered payload to preserve multiple pages")
@@ -308,14 +330,133 @@ func TestReadableArtifactRendererRenderCertificateIncludesAuditDetails(t *testin
 	raw := string(payload.Payload)
 	for _, expected := range []string{
 		"Certificate of Completion",
-		"agreement.completed",
+		"Audit Trail",
+		"Document History",
+		"Executed SHA256",
+		"Correlation ID",
 		"corr-1",
 		strings.Repeat("a", 64),
-		"stage=1",
+		"COMPLETED",
 	} {
 		if !strings.Contains(raw, expected) {
 			t.Fatalf("expected certificate payload to include %q", expected)
 		}
+	}
+}
+
+func TestReadableArtifactRendererAuditPagesShareCoreMarkersBetweenExecutedAndCertificate(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+	objectStore := uploader.NewManager(uploader.WithProvider(uploader.NewFSProvider(t.TempDir())))
+	renderer := NewReadableArtifactRenderer(store, store, objectStore, WithReadableArtifactRendererClock(func() time.Time {
+		return time.Date(2026, 2, 13, 12, 0, 0, 0, time.UTC)
+	}))
+
+	sourcePDF := buildReadableTestPDF(t, "Master Services Agreement")
+	docSvc := NewDocumentService(store, WithDocumentObjectStore(objectStore))
+	document, err := docSvc.Upload(ctx, scope, DocumentUploadInput{
+		Title:     "MSA",
+		ObjectKey: "tenant/tenant-1/org/org-1/docs/doc-1/source.pdf",
+		PDF:       sourcePDF,
+	})
+	if err != nil {
+		t.Fatalf("upload source document: %v", err)
+	}
+	agreementSvc := NewAgreementService(store)
+	agreement, err := agreementSvc.CreateDraft(ctx, scope, CreateDraftInput{
+		DocumentID:      document.ID,
+		Title:           "Agreement",
+		CreatedByUserID: "user-1",
+	})
+	if err != nil {
+		t.Fatalf("create draft: %v", err)
+	}
+	recipient, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        strPtrReadable("signer@example.com"),
+		Name:         strPtrReadable("Signer One"),
+		Role:         strPtrReadable(stores.RecipientRoleSigner),
+		SigningOrder: intPtrReadable(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("upsert recipient: %v", err)
+	}
+	textField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &recipient.ID,
+		Type:        strPtrReadable(stores.FieldTypeText),
+		PageNumber:  intPtrReadable(1),
+		PosX:        floatPtrReadable(72),
+		PosY:        floatPtrReadable(260),
+		Width:       floatPtrReadable(240),
+		Height:      floatPtrReadable(36),
+		Required:    boolPtrReadable(true),
+	})
+	if err != nil {
+		t.Fatalf("upsert text field: %v", err)
+	}
+	if _, err := store.UpsertFieldValue(ctx, scope, stores.FieldValueRecord{
+		AgreementID: agreement.ID,
+		RecipientID: recipient.ID,
+		FieldID:     textField.ID,
+		ValueText:   "Marker",
+	}, 0); err != nil {
+		t.Fatalf("upsert text value: %v", err)
+	}
+
+	fields, err := store.ListFields(ctx, scope, agreement.ID)
+	if err != nil {
+		t.Fatalf("list fields: %v", err)
+	}
+	recipients, err := store.ListRecipients(ctx, scope, agreement.ID)
+	if err != nil {
+		t.Fatalf("list recipients: %v", err)
+	}
+	values, err := store.ListFieldValuesByRecipient(ctx, scope, agreement.ID, recipient.ID)
+	if err != nil {
+		t.Fatalf("list field values: %v", err)
+	}
+	agreement.Status = stores.AgreementStatusCompleted
+	events := []stores.AuditEventRecord{
+		{ID: "evt-1", EventType: "agreement.sent", CreatedAt: time.Date(2026, 2, 12, 10, 0, 0, 0, time.UTC)},
+		{ID: "evt-2", EventType: "signer.viewed", ActorID: recipient.ID, CreatedAt: time.Date(2026, 2, 12, 10, 2, 0, 0, time.UTC)},
+		{ID: "evt-3", EventType: "signer.submitted", ActorID: recipient.ID, CreatedAt: time.Date(2026, 2, 12, 10, 3, 0, 0, time.UTC)},
+		{ID: "evt-4", EventType: "agreement.completed", CreatedAt: time.Date(2026, 2, 12, 10, 5, 0, 0, time.UTC)},
+	}
+
+	executed, err := renderer.RenderExecuted(ctx, ExecutedRenderInput{
+		Scope:       scope,
+		Agreement:   agreement,
+		Recipients:  recipients,
+		Fields:      fields,
+		FieldValues: values,
+		Events:      events,
+	})
+	if err != nil {
+		t.Fatalf("render executed: %v", err)
+	}
+	certificate, err := renderer.RenderCertificate(ctx, CertificateRenderInput{
+		Scope:          scope,
+		Agreement:      agreement,
+		Recipients:     recipients,
+		Events:         events,
+		ExecutedSHA256: strings.Repeat("a", 64),
+		CorrelationID:  "corr-shared",
+	})
+	if err != nil {
+		t.Fatalf("render certificate: %v", err)
+	}
+	executedRaw := string(executed.Payload)
+	certificateRaw := string(certificate.Payload)
+	for _, marker := range []string{"Audit Trail", "Document History", "Status", "SENT", "SIGNED", "COMPLETED"} {
+		if !strings.Contains(executedRaw, marker) {
+			t.Fatalf("expected executed payload marker %q", marker)
+		}
+		if !strings.Contains(certificateRaw, marker) {
+			t.Fatalf("expected certificate payload marker %q", marker)
+		}
+	}
+	if strings.Contains(certificateRaw, "Document Hash: ") {
+		t.Fatalf("expected standalone certificate to omit executed hash footer")
 	}
 }
 
