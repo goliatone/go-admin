@@ -1,0 +1,10 @@
+{
+  "auth": {
+    "admin_id": "63eb32ab-64f5-4ddf-b5a0-5f9a8db9f8ea",
+    "admin_email": "admin@example.com",
+    "admin_role": "admin",
+    "admin_password": "admin.pwd",
+    "signing_key": "esign-demo-secret",
+    "context_key": "esign_admin_user"
+  }
+}

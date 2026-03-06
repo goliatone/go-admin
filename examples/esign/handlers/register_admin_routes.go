@@ -103,6 +103,9 @@ func registerAdminCoreRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg re
 	}, requireAdminPermission(cfg, cfg.permissions.AdminView))
 
 	adminRoutes.Get(routes.AdminAgreementsStats, func(c router.Context) error {
+		if err := enforceTransportSecurity(c, cfg); err != nil {
+			return asHandlerError(err)
+		}
 		stats := map[string]int{
 			"draft":           0,
 			"pending":         0,
@@ -134,7 +137,7 @@ func registerAdminCoreRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg re
 			"stats":     stats,
 			"by_status": byStatus,
 		})
-	})
+	}, requireAdminPermission(cfg, cfg.permissions.AdminView))
 
 	adminRoutes.Get(routes.AdminSmokeRecipientLinks, func(c router.Context) error {
 		if err := enforceTransportSecurity(c, cfg); err != nil {

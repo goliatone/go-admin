@@ -75,6 +75,7 @@ type ESignModule struct {
 	drafts            services.DraftService
 	signing           services.SigningService
 	signerProfiles    services.SignerProfileService
+	savedSignatures   services.SignerSavedSignatureService
 	artifacts         services.ArtifactPipelineService
 	google            googleIntegrationService
 	googleImportQueue *jobs.GoogleDriveImportQueue
@@ -281,6 +282,49 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		services.WithSignerProfileTTL(profileTTL),
 		services.WithSignerProfilePersistDrawnSignature(persistDrawnSignature),
 	)
+	savedSignatureLimit := int(m.settings.SavedSignaturesLimit)
+	if savedSignatureLimit <= 0 {
+		savedSignatureLimit = appcfg.Active().Signer.SavedSignaturesLimitPerType
+	}
+	if savedSignatureLimit <= 0 {
+		savedSignatureLimit = 10
+	}
+	settingsService := ctx.Admin.SettingsService()
+	m.savedSignatures = services.NewSignerSavedSignatureService(
+		m.store,
+		services.WithSignerSavedSignatureDefaultLimit(savedSignatureLimit),
+		services.WithSignerSavedSignatureObjectStore(objectStore),
+		services.WithSignerSavedSignatureLimitResolver(func(_ context.Context, _ stores.Scope, subject, _ string) int {
+			if settingsService == nil {
+				return 0
+			}
+			subject = strings.TrimSpace(subject)
+			if subject == "" {
+				return 0
+			}
+			resolved := settingsService.Resolve(settingSavedSignaturesLimit, subject)
+			switch raw := resolved.Value.(type) {
+			case int:
+				return raw
+			case int32:
+				return int(raw)
+			case int64:
+				return int(raw)
+			case float64:
+				return int(raw)
+			case string:
+				trimmed := strings.TrimSpace(raw)
+				if trimmed == "" {
+					return 0
+				}
+				var parsed int
+				if _, err := fmt.Sscan(trimmed, &parsed); err == nil {
+					return parsed
+				}
+			}
+			return 0
+		}),
+	)
 	m.integrations = services.NewIntegrationFoundationService(
 		m.store,
 		services.WithIntegrationAuditStore(m.store),
@@ -364,6 +408,7 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		handlers.WithSignerTokenValidator(m.tokens),
 		handlers.WithSignerSessionService(m.signing),
 		handlers.WithSignerProfileService(m.signerProfiles),
+		handlers.WithSignerSavedSignatureService(m.savedSignatures),
 		handlers.WithSignerAssetContractService(
 			services.NewSignerAssetContractService(m.store,
 				services.WithSignerAssetObjectStore(objectStore),
@@ -376,7 +421,10 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		handlers.WithAgreementStatsService(m.store),
 		handlers.WithAuditEventStore(m.store),
 		handlers.WithDefaultScope(m.defaultScope),
-		handlers.WithTransportGuard(handlers.TLSTransportGuard{AllowLocalInsecure: true}),
+		handlers.WithTransportGuard(handlers.TLSTransportGuard{
+			AllowLocalInsecure:    true,
+			TrustForwardedHeaders: resolveRateLimitClientIPTrustForwarded(),
+		}),
 		handlers.WithRequestRateLimiter(handlers.NewSlidingWindowRateLimiter(handlers.DefaultRateLimitRules())),
 		handlers.WithTrustForwardedClientIP(resolveRateLimitClientIPTrustForwarded()),
 		handlers.WithSecurityLogEvent(func(event string, fields map[string]any) {

@@ -6,7 +6,7 @@
     "examples/esign/services/agreement_service.go",
     "examples/esign/modules/panel_repositories.go"
   ],
-  "contract_hash": "5e38deadc319ecddacece3be802e84cb28024526df90f14f64b8c9f765ed20ae",
+  "contract_hash": "d1e98491d05e368f67c7ad22653d9220be55d45adec20d2846f7fe3979f89ab1",
   "ledger_path": "examples/esign/docs/GUIDES_ESIGN_TRACK_C_CONTRACT_LEDGER.md",
-  "required_ledger_entry_id": "TC-2026-02-16-002"
+  "required_ledger_entry_id": "TC-2026-03-05-003"
 }

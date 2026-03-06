@@ -95,10 +95,7 @@ func resolveAdminUserID(c router.Context) string {
 	if c == nil {
 		return ""
 	}
-	userID := stableString(c.Query("user_id"))
-	if userID == "" {
-		userID = stableString(c.Header("X-User-ID"))
-	}
+	userID := ""
 	if userID == "" {
 		if actor, ok := auth.ActorFromRouterContext(c); ok && actor != nil {
 			userID = firstNonEmpty(strings.TrimSpace(actor.Subject), strings.TrimSpace(actor.ActorID))
@@ -113,6 +110,12 @@ func resolveAdminUserID(c router.Context) string {
 		if claims, ok := auth.GetRouterClaims(c, ""); ok && claims != nil {
 			userID = firstNonEmpty(strings.TrimSpace(claims.UserID()), strings.TrimSpace(claims.Subject()))
 		}
+	}
+	if userID == "" {
+		userID = stableString(c.Query("user_id"))
+	}
+	if userID == "" {
+		userID = stableString(c.Header("X-User-ID"))
 	}
 	return stableString(userID)
 }

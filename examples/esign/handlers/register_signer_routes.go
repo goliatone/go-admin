@@ -730,7 +730,7 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 		startedAt := time.Now()
 		unifiedFlow := isUnifiedFlowRequest(c)
 		idempotencyKey := strings.TrimSpace(c.Header("Idempotency-Key"))
-		correlationID := apiCorrelationID(c, idempotencyKey, c.Param("token"), "signer_submit")
+		correlationID := apiCorrelationID(c, idempotencyKey, "signer_submit")
 		if err := enforceTransportSecurity(c, cfg); err != nil {
 			if unifiedFlow {
 				observability.ObserveUnifiedSubmitConversion(c.Context(), false)

@@ -113,6 +113,24 @@ func TestValidateRuntimeProviderConfigurationRejectsSignerUploadTTLPolicyOutOfRa
 	}
 }
 
+func TestValidateRuntimeProviderConfigurationRejectsAuthSeedFileInProduction(t *testing.T) {
+	cfg := productionRuntimeConfig()
+	cfg.Auth.SeedFile = "dev_seed.json"
+
+	if err := validateRuntimeProviderConfiguration(cfg); err == nil {
+		t.Fatal("expected production auth seed file usage to fail")
+	}
+}
+
+func TestValidateRuntimeProviderConfigurationRejectsDemoAuthSigningKeyInProduction(t *testing.T) {
+	cfg := productionRuntimeConfig()
+	cfg.Auth.SigningKey = defaultESignAuthSigningKey
+
+	if err := validateRuntimeProviderConfiguration(cfg); err == nil {
+		t.Fatal("expected demo auth signing key in production to fail")
+	}
+}
+
 func TestValidateRuntimeProviderConfigurationRejectsMissingPublicBaseURLInStaging(t *testing.T) {
 	cfg := defaultRuntimeConfig()
 	cfg.Runtime.Profile = "staging"
@@ -168,6 +186,13 @@ func productionRuntimeConfig() appcfg.Config {
 	cfg := defaultRuntimeConfig()
 	cfg.Runtime.Profile = "production"
 	cfg.Public.BaseURL = "https://esign.example.com"
+	cfg.Auth.SeedFile = ""
+	cfg.Auth.AdminID = "prod-admin-id"
+	cfg.Auth.AdminEmail = "admin@esign.example.com"
+	cfg.Auth.AdminRole = "admin"
+	cfg.Auth.AdminPassword = "prod-admin-password"
+	cfg.Auth.SigningKey = "prod-auth-signing-key"
+	cfg.Auth.ContextKey = "esign_admin_prod"
 	cfg.Email.Transport = "smtp"
 	cfg.Signer.UploadSigningKey = "upload-signing-key"
 	cfg.Features.ESignGoogle = false

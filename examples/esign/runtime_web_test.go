@@ -11,6 +11,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"path"
 	"regexp"
 	"strings"
 	"sync"
@@ -341,6 +343,7 @@ func TestRuntimeNewDocumentRouteInjectsGoogleIngestionFlagsWhenEnabled(t *testin
 	)
 	connectReq.Header.Set("Content-Type", "application/json")
 	connectReq.Header.Set("X-Forwarded-Proto", "https")
+	connectReq.Host = "localhost:8082"
 	connectReq.AddCookie(authCookie)
 	connectResp, err := app.Test(connectReq, -1)
 	if err != nil {
@@ -657,7 +660,8 @@ func TestRuntimeESignDocumentUploadEndpointStoresPDFAndReturnsObjectKey(t *testi
 		t.Fatalf("close multipart writer: %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/documents/upload?tenant_id=tenant-runtime&org_id=org-runtime", &body)
+	req := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/documents/upload", &body)
+	req.Host = "localhost:8082"
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 	req.AddCookie(authCookie)
 
@@ -678,7 +682,7 @@ func TestRuntimeESignDocumentUploadEndpointStoresPDFAndReturnsObjectKey(t *testi
 	if objectKey == "" {
 		t.Fatalf("expected object_key in upload response, got %+v", payload)
 	}
-	if !strings.HasPrefix(objectKey, "tenant/tenant-runtime/org/org-runtime/docs/") {
+	if !strings.HasPrefix(objectKey, "tenant/tenant-bootstrap/org/org-bootstrap/docs/") {
 		t.Fatalf("expected tenant/org scoped object key, got %q", objectKey)
 	}
 	if strings.TrimSpace(fmt.Sprint(payload["url"])) == "" {
@@ -734,6 +738,35 @@ func TestApplyESignRuntimeDefaultsSetsDebugAdminLayout(t *testing.T) {
 	}
 }
 
+func TestLoadESignAuthSeedResolvesRelativeConfigPath(t *testing.T) {
+	tempDir := t.TempDir()
+	seedPath := path.Join(tempDir, "dev_seed.json")
+	seedPayload := `{"auth":{"admin_id":"seed-admin-id","admin_email":"seed@example.com","admin_role":"admin","admin_password":"seed-password","signing_key":"seed-signing-key","context_key":"seed-context"}}`
+	if err := os.WriteFile(seedPath, []byte(seedPayload), 0o600); err != nil {
+		t.Fatalf("write seed file: %v", err)
+	}
+
+	runtimeCfg := *appcfg.Defaults()
+	runtimeCfg.ConfigPath = path.Join(tempDir, "app.json")
+	runtimeCfg.Auth.SeedFile = "dev_seed.json"
+	runtimeCfg.Auth.AdminID = ""
+	runtimeCfg.Auth.AdminEmail = ""
+	runtimeCfg.Auth.AdminPassword = ""
+	runtimeCfg.Auth.SigningKey = ""
+	runtimeCfg.Auth.ContextKey = ""
+
+	seed, err := loadESignAuthSeed(runtimeCfg)
+	if err != nil {
+		t.Fatalf("load seed: %v", err)
+	}
+	if strings.TrimSpace(seed.AdminID) != "seed-admin-id" {
+		t.Fatalf("expected seed admin id, got %q", seed.AdminID)
+	}
+	if strings.TrimSpace(seed.SigningKey) != "seed-signing-key" {
+		t.Fatalf("expected seed signing key, got %q", seed.SigningKey)
+	}
+}
+
 func TestRuntimeSignerWebE2ERecipientJourneyFromSignLinkToSubmit(t *testing.T) {
 	fixture, err := newESignRuntimeWebFixtureForTestsWithGoogleEnabled(false)
 	if err != nil {
@@ -768,6 +801,7 @@ func TestRuntimeSignerWebE2ERecipientJourneyFromSignLinkToSubmit(t *testing.T) {
 	}
 
 	uploadReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/documents/upload?"+query, &uploadBody)
+	uploadReq.Host = "localhost:8082"
 	uploadReq.Header.Set("Content-Type", uploadWriter.FormDataContentType())
 	uploadReq.AddCookie(authCookie)
 	uploadResp, err := app.Test(uploadReq, -1)
@@ -1055,6 +1089,7 @@ func TestRuntimeSignerWebE2EUnifiedFlowConsentFieldSignatureSubmit(t *testing.T)
 	}
 
 	uploadReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/documents/upload?"+query, &uploadBody)
+	uploadReq.Host = "localhost:8082"
 	uploadReq.Header.Set("Content-Type", uploadWriter.FormDataContentType())
 	uploadReq.AddCookie(authCookie)
 	uploadResp, err := app.Test(uploadReq, -1)
@@ -1525,6 +1560,7 @@ func assertStatusWithCookie(t *testing.T, app *fiber.App, cookie *http.Cookie, m
 func doRequest(t *testing.T, app *fiber.App, method, endpoint, contentType string, body io.Reader) *http.Response {
 	t.Helper()
 	req := httptest.NewRequest(method, endpoint, body)
+	req.Host = "localhost:8082"
 	if strings.TrimSpace(contentType) != "" {
 		req.Header.Set("Content-Type", contentType)
 	}
@@ -1538,6 +1574,7 @@ func doRequest(t *testing.T, app *fiber.App, method, endpoint, contentType strin
 func doRequestWithCookie(t *testing.T, app *fiber.App, method, endpoint string, cookie *http.Cookie) *http.Response {
 	t.Helper()
 	req := httptest.NewRequest(method, endpoint, nil)
+	req.Host = "localhost:8082"
 	if cookie != nil {
 		req.AddCookie(cookie)
 	}
@@ -1551,6 +1588,7 @@ func doRequestWithCookie(t *testing.T, app *fiber.App, method, endpoint string, 
 func doRequestWithCookieAndBody(t *testing.T, app *fiber.App, cookie *http.Cookie, method, endpoint, contentType string, body io.Reader) *http.Response {
 	t.Helper()
 	req := httptest.NewRequest(method, endpoint, body)
+	req.Host = "localhost:8082"
 	if cookie != nil {
 		req.AddCookie(cookie)
 	}
@@ -1567,6 +1605,7 @@ func doRequestWithCookieAndBody(t *testing.T, app *fiber.App, cookie *http.Cooki
 func doRequestWithBody(t *testing.T, app *fiber.App, method, endpoint, contentType string, body io.Reader, headers map[string]string) *http.Response {
 	t.Helper()
 	req := httptest.NewRequest(method, endpoint, body)
+	req.Host = "localhost:8082"
 	if strings.TrimSpace(contentType) != "" {
 		req.Header.Set("Content-Type", contentType)
 	}

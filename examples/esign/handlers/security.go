@@ -14,6 +14,7 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	"github.com/goliatone/go-admin/quickstart"
+	auth "github.com/goliatone/go-auth"
 	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
 	"github.com/goliatone/go-uploader"
@@ -619,13 +620,22 @@ func authorizerAllows(c router.Context, authorizer coreadmin.Authorizer, permiss
 func enforceScopeBoundary(c router.Context, cfg registerConfig) error {
 	requestScope := cfg.resolveScope(c)
 	actorScope := cfg.resolveActorScope(c)
+	actorScopeSource := "actor"
 	if actorScope.TenantID == "" && actorScope.OrgID == "" {
-		return nil
+		actorScope = stores.Scope{
+			TenantID: stableString(cfg.defaultScope.TenantID),
+			OrgID:    stableString(cfg.defaultScope.OrgID),
+		}
+		actorScopeSource = "default_scope"
+		if actorScope.TenantID == "" && actorScope.OrgID == "" {
+			return nil
+		}
 	}
 	if !scopeConflict(actorScope, requestScope) {
 		return nil
 	}
 	cfg.logSecurityEvent("scope.boundary.denied", map[string]any{
+		"scope_source":      actorScopeSource,
 		"actor_tenant_id":   actorScope.TenantID,
 		"actor_org_id":      actorScope.OrgID,
 		"request_tenant_id": requestScope.TenantID,
@@ -642,6 +652,7 @@ func enforceScopeBoundary(c router.Context, cfg registerConfig) error {
 				"actor_org_id":      actorScope.OrgID,
 				"request_tenant_id": requestScope.TenantID,
 				"request_org_id":    requestScope.OrgID,
+				"scope_source":      actorScopeSource,
 			}),
 		http.StatusForbidden,
 		string(services.ErrorCodeScopeDenied),
@@ -872,10 +883,81 @@ func defaultActorScopeResolver(c router.Context) stores.Scope {
 	if c == nil {
 		return stores.Scope{}
 	}
-	return stores.Scope{
-		TenantID: stableString(c.Header("X-Actor-Tenant-ID")),
-		OrgID:    stableString(c.Header("X-Actor-Org-ID")),
+	fromActor := func(tenantID, orgID string, metadata map[string]any) stores.Scope {
+		scope := stores.Scope{
+			TenantID: stableString(tenantID),
+			OrgID:    stableString(orgID),
+		}
+		if scope.TenantID == "" {
+			scope.TenantID = metadataString(metadata, "tenant_id", "tenant", "default_tenant", "default_tenant_id")
+		}
+		if scope.OrgID == "" {
+			scope.OrgID = metadataString(metadata, "organization_id", "org_id", "org", "default_org_id")
+		}
+		return scope
 	}
+	if actor, ok := auth.ActorFromRouterContext(c); ok && actor != nil {
+		scope := fromActor(actor.TenantID, actor.OrganizationID, actor.Metadata)
+		if scope.TenantID != "" || scope.OrgID != "" {
+			return scope
+		}
+	}
+	if actor, ok := auth.ActorFromContext(c.Context()); ok && actor != nil {
+		scope := fromActor(actor.TenantID, actor.OrganizationID, actor.Metadata)
+		if scope.TenantID != "" || scope.OrgID != "" {
+			return scope
+		}
+	}
+	if claims, ok := auth.GetClaims(c.Context()); ok && claims != nil {
+		return stores.Scope{
+			TenantID: metadataString(claimsMetadata(claims), "tenant_id", "tenant", "default_tenant", "default_tenant_id"),
+			OrgID:    metadataString(claimsMetadata(claims), "organization_id", "org_id", "org", "default_org_id"),
+		}
+	}
+	if claims, ok := auth.GetRouterClaims(c, ""); ok && claims != nil {
+		return stores.Scope{
+			TenantID: metadataString(claimsMetadata(claims), "tenant_id", "tenant", "default_tenant", "default_tenant_id"),
+			OrgID:    metadataString(claimsMetadata(claims), "organization_id", "org_id", "org", "default_org_id"),
+		}
+	}
+	return stores.Scope{}
+}
+
+func claimsMetadata(claims auth.AuthClaims) map[string]any {
+	if claims == nil {
+		return nil
+	}
+	if carrier, ok := claims.(interface{ ClaimsMetadata() map[string]any }); ok {
+		return carrier.ClaimsMetadata()
+	}
+	return nil
+}
+
+func metadataString(metadata map[string]any, keys ...string) string {
+	for _, key := range keys {
+		if metadata == nil {
+			return ""
+		}
+		raw, ok := metadata[key]
+		if !ok || raw == nil {
+			continue
+		}
+		switch value := raw.(type) {
+		case string:
+			if trimmed := strings.TrimSpace(value); trimmed != "" {
+				return trimmed
+			}
+		case []byte:
+			if trimmed := strings.TrimSpace(string(value)); trimmed != "" {
+				return trimmed
+			}
+		default:
+			if trimmed := strings.TrimSpace(fmt.Sprint(value)); trimmed != "" && trimmed != "<nil>" {
+				return trimmed
+			}
+		}
+	}
+	return ""
 }
 
 func stableString(value string) string {

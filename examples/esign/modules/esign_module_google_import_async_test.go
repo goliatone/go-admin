@@ -67,6 +67,7 @@ func TestESignModuleGoogleDriveImportAsyncUsesGoogleImporter(t *testing.T) {
 	connectReq.Header.Set("Content-Type", "application/json")
 	connectReq.Header.Set("X-User-ID", "ops-user")
 	connectReq.Header.Set("X-Forwarded-Proto", "https")
+	connectReq.Host = "localhost:8082"
 	connectResp, err := server.WrappedRouter().Test(connectReq, -1)
 	if err != nil {
 		t.Fatalf("google connect request failed: %v", err)
@@ -83,6 +84,7 @@ func TestESignModuleGoogleDriveImportAsyncUsesGoogleImporter(t *testing.T) {
 	createReq.Header.Set("Content-Type", "application/json")
 	createReq.Header.Set("X-User-ID", "ops-user")
 	createReq.Header.Set("X-Forwarded-Proto", "https")
+	createReq.Host = "localhost:8082"
 	createResp, err := server.WrappedRouter().Test(createReq, -1)
 	if err != nil {
 		t.Fatalf("google async import request failed: %v", err)
@@ -106,6 +108,7 @@ func TestESignModuleGoogleDriveImportAsyncUsesGoogleImporter(t *testing.T) {
 		statusReq := httptest.NewRequest(http.MethodGet, statusURL+"?user_id=ops-user", nil)
 		statusReq.Header.Set("X-User-ID", "ops-user")
 		statusReq.Header.Set("X-Forwarded-Proto", "https")
+		statusReq.Host = "localhost:8082"
 		statusResp, pollErr := server.WrappedRouter().Test(statusReq, -1)
 		if pollErr != nil {
 			t.Fatalf("status poll failed: %v", pollErr)

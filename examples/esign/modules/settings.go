@@ -6,6 +6,7 @@ import (
 	"time"
 
 	coreadmin "github.com/goliatone/go-admin/admin"
+	appcfg "github.com/goliatone/go-admin/examples/esign/config"
 )
 
 const (
@@ -13,6 +14,7 @@ const (
 	settingEmailDefaultFromAddress = "esign.email.default_from_address"
 	settingTokenTTLSeconds         = "esign.policy.token_ttl_seconds"
 	settingMaxSourceSizeBytes      = "esign.policy.max_source_pdf_bytes"
+	settingSavedSignaturesLimit    = "esign.policy.saved_signatures_limit_per_type"
 )
 
 // RuntimeSettings captures e-sign runtime settings resolved from SettingsService.
@@ -21,14 +23,20 @@ type RuntimeSettings struct {
 	EmailDefaultFromAddress string
 	TokenTTLSeconds         int64
 	MaxSourcePDFBytes       int64
+	SavedSignaturesLimit    int64
 }
 
 func defaultRuntimeSettings() RuntimeSettings {
+	savedSignatureLimit := int64(appcfg.Active().Signer.SavedSignaturesLimitPerType)
+	if savedSignatureLimit <= 0 {
+		savedSignatureLimit = 10
+	}
 	return RuntimeSettings{
 		EmailDefaultFromName:    "E-Sign",
 		EmailDefaultFromAddress: "no-reply@example.test",
 		TokenTTLSeconds:         int64((72 * time.Hour) / time.Second),
 		MaxSourcePDFBytes:       10 * 1024 * 1024,
+		SavedSignaturesLimit:    savedSignatureLimit,
 	}
 }
 
@@ -74,6 +82,15 @@ func registerRuntimeSettings(service *coreadmin.SettingsService) RuntimeSettings
 		Group:         "esign.policy",
 		AllowedScopes: []coreadmin.SettingsScope{coreadmin.SettingsScopeSystem, coreadmin.SettingsScopeSite},
 	})
+	service.RegisterDefinition(coreadmin.SettingDefinition{
+		Key:           settingSavedSignaturesLimit,
+		Title:         "Signer Saved Signatures Limit",
+		Description:   "Maximum saved signatures per signer and type (signature or initials)",
+		Default:       settings.SavedSignaturesLimit,
+		Type:          "integer",
+		Group:         "esign.policy",
+		AllowedScopes: []coreadmin.SettingsScope{coreadmin.SettingsScopeSystem, coreadmin.SettingsScopeSite, coreadmin.SettingsScopeUser},
+	})
 
 	return resolveRuntimeSettings(service)
 }
@@ -95,6 +112,9 @@ func resolveRuntimeSettings(service *coreadmin.SettingsService) RuntimeSettings 
 	}
 	if value := resolveSettingInt64(service, settingMaxSourceSizeBytes); value > 0 {
 		settings.MaxSourcePDFBytes = value
+	}
+	if value := resolveSettingInt64(service, settingSavedSignaturesLimit); value > 0 {
+		settings.SavedSignaturesLimit = value
 	}
 	return settings
 }

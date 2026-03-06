@@ -450,6 +450,24 @@ func TestRegisterAgreementStatsRouteAllowPermission(t *testing.T) {
 	}
 }
 
+func TestRegisterAgreementStatsRouteRequiresPermission(t *testing.T) {
+	app := setupRegisterTestApp(t,
+		WithAuthorizer(mapAuthorizer{allowed: map[string]bool{}}),
+		WithAgreementStatsService(agreementStatsStub{}),
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign/agreements/stats", nil)
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("expected status 403, got %d", resp.StatusCode)
+	}
+}
+
 func TestRegisterSignerRoutesRemainPublic(t *testing.T) {
 	app := setupRegisterTestApp(t, WithAuthorizer(mapAuthorizer{allowed: map[string]bool{}}))
 
@@ -582,11 +600,12 @@ func TestRegisterSignerSessionReturns410ForRevokedToken(t *testing.T) {
 }
 
 func TestRegisterAdminRouteDeniesCrossTenantScope(t *testing.T) {
-	app := setupRegisterTestApp(t, WithAuthorizer(mapAuthorizer{allowed: map[string]bool{DefaultPermissions.AdminView: true}}))
+	app := setupRegisterTestApp(t,
+		WithAuthorizer(mapAuthorizer{allowed: map[string]bool{DefaultPermissions.AdminView: true}}),
+		WithDefaultScope(stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}),
+	)
 
 	req := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign/status?tenant_id=tenant-2&org_id=org-1", nil)
-	req.Header.Set("X-Actor-Tenant-ID", "tenant-1")
-	req.Header.Set("X-Actor-Org-ID", "org-1")
 
 	resp, err := app.Test(req, -1)
 	if err != nil {

@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -372,6 +373,383 @@ func TestAgreementPanelRepositoryCreateMergesFieldPlacements(t *testing.T) {
 	}
 	if got := int(fields[0].Height); got != 42 {
 		t.Fatalf("expected merged height=42, got %v", fields[0].Height)
+	}
+}
+
+func TestAgreementPanelRepositoryCreateExpandsFieldRules(t *testing.T) {
+	store := stores.NewInMemoryStore()
+	scope := defaultModuleScope
+	now := time.Now().UTC()
+	if _, err := store.Create(context.Background(), scope, stores.DocumentRecord{
+		ID:              "doc-create-rules-1",
+		Title:           "Rules Document",
+		SourceObjectKey: "tenant/" + scope.TenantID + "/org/" + scope.OrgID + "/docs/doc-create-rules-1.pdf",
+		SourceSHA256:    strings.Repeat("a", 64),
+		SizeBytes:       2048,
+		PageCount:       4,
+		CreatedAt:       now,
+		UpdatedAt:       now,
+	}); err != nil {
+		t.Fatalf("seed document: %v", err)
+	}
+
+	repo := newAgreementPanelRepository(
+		store,
+		services.NewAgreementService(store),
+		services.NewArtifactPipelineService(store, nil),
+		nil,
+		nil,
+		scope,
+		RuntimeSettings{},
+	)
+
+	rulesJSON := `[{"id":"rule-1","type":"initials_each_page","participant_id":"participant-rules-1","from_page":1,"to_page":4,"exclude_last_page":true},{"id":"rule-2","type":"signature_once","participant_id":"participant-rules-1","page":4}]`
+	created, err := repo.Create(context.Background(), map[string]any{
+		"document_id":         "doc-create-rules-1",
+		"title":               "Rules Agreement",
+		"message":             "Rule-driven fields",
+		"document_page_count": "4",
+		"field_rules_json":    rulesJSON,
+		"recipients[0]": map[string]any{
+			"id":    "participant-rules-1",
+			"name":  "Rule Signer",
+			"email": "rules@example.com",
+			"role":  "signer",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	agreementID := strings.TrimSpace(toString(created["id"]))
+	if agreementID == "" {
+		t.Fatal("expected created agreement id")
+	}
+
+	fields, err := store.ListFields(context.Background(), scope, agreementID)
+	if err != nil {
+		t.Fatalf("ListFields: %v", err)
+	}
+	if len(fields) != 4 {
+		t.Fatalf("expected 4 expanded fields, got %d", len(fields))
+	}
+
+	initialsPages := []int{}
+	signaturePages := []int{}
+	for _, field := range fields {
+		switch strings.TrimSpace(field.Type) {
+		case stores.FieldTypeInitials:
+			initialsPages = append(initialsPages, field.PageNumber)
+		case stores.FieldTypeSignature:
+			signaturePages = append(signaturePages, field.PageNumber)
+		}
+	}
+	if len(initialsPages) != 3 {
+		t.Fatalf("expected 3 initials fields, got %d (%v)", len(initialsPages), initialsPages)
+	}
+	sort.Ints(initialsPages)
+	if initialsPages[0] != 1 || initialsPages[1] != 2 || initialsPages[2] != 3 {
+		t.Fatalf("expected initials pages [1 2 3], got %v", initialsPages)
+	}
+	if len(signaturePages) != 1 || signaturePages[0] != 4 {
+		t.Fatalf("expected signature page [4], got %v", signaturePages)
+	}
+
+	ids := make([]string, 0, len(fields))
+	for _, field := range fields {
+		ids = append(ids, strings.TrimSpace(field.ID))
+	}
+	sort.Strings(ids)
+	expectedIDs := []string{
+		"rule-1-initials-1",
+		"rule-1-initials-2",
+		"rule-1-initials-3",
+		"rule-2-signature-4",
+	}
+	if strings.Join(ids, ",") != strings.Join(expectedIDs, ",") {
+		t.Fatalf("expected deterministic expanded rule ids %v, got %v", expectedIDs, ids)
+	}
+}
+
+func TestAgreementPanelRepositoryCreateMergesFieldPlacementsForExpandedRuleFields(t *testing.T) {
+	store := stores.NewInMemoryStore()
+	scope := defaultModuleScope
+	now := time.Now().UTC()
+	if _, err := store.Create(context.Background(), scope, stores.DocumentRecord{
+		ID:              "doc-create-rules-placement-1",
+		Title:           "Rules Placement Document",
+		SourceObjectKey: "tenant/" + scope.TenantID + "/org/" + scope.OrgID + "/docs/doc-create-rules-placement-1.pdf",
+		SourceSHA256:    strings.Repeat("a", 64),
+		SizeBytes:       2048,
+		PageCount:       4,
+		CreatedAt:       now,
+		UpdatedAt:       now,
+	}); err != nil {
+		t.Fatalf("seed document: %v", err)
+	}
+
+	repo := newAgreementPanelRepository(
+		store,
+		services.NewAgreementService(store),
+		services.NewArtifactPipelineService(store, nil),
+		nil,
+		nil,
+		scope,
+		RuntimeSettings{},
+	)
+
+	rulesJSON := `[{"id":"custom-initials","type":"initials_each_page","participant_id":"participant-rules-placement-1","from_page":1,"to_page":3},{"id":"custom-signature","type":"signature_once","participant_id":"participant-rules-placement-1","page":4}]`
+	created, err := repo.Create(context.Background(), map[string]any{
+		"document_id":         "doc-create-rules-placement-1",
+		"title":               "Rules Placement Agreement",
+		"message":             "Placement merge for generated rules",
+		"document_page_count": "4",
+		"field_rules_json":    rulesJSON,
+		"recipients[0]": map[string]any{
+			"id":    "participant-rules-placement-1",
+			"name":  "Rule Placement Signer",
+			"email": "rules.placement@example.com",
+			"role":  "signer",
+		},
+		"field_placements[0]": map[string]any{
+			"definition_id": "custom-initials-initials-2",
+			"page":          "2",
+			"x":             "88",
+			"y":             "130",
+			"width":         "92",
+			"height":        "44",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	agreementID := strings.TrimSpace(toString(created["id"]))
+	if agreementID == "" {
+		t.Fatal("expected created agreement id")
+	}
+
+	fields, err := store.ListFields(context.Background(), scope, agreementID)
+	if err != nil {
+		t.Fatalf("ListFields: %v", err)
+	}
+	if len(fields) != 4 {
+		t.Fatalf("expected 4 expanded fields, got %d", len(fields))
+	}
+
+	var merged stores.FieldRecord
+	found := false
+	for _, field := range fields {
+		if strings.TrimSpace(field.ID) == "custom-initials-initials-2" {
+			merged = field
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected expanded rule field custom-initials-initials-2, got %+v", fields)
+	}
+	if merged.PageNumber != 2 {
+		t.Fatalf("expected merged generated field page 2, got %d", merged.PageNumber)
+	}
+	if int(merged.PosX) != 88 {
+		t.Fatalf("expected merged generated field x=88, got %v", merged.PosX)
+	}
+	if int(merged.PosY) != 130 {
+		t.Fatalf("expected merged generated field y=130, got %v", merged.PosY)
+	}
+	if int(merged.Width) != 92 {
+		t.Fatalf("expected merged generated field width=92, got %v", merged.Width)
+	}
+	if int(merged.Height) != 44 {
+		t.Fatalf("expected merged generated field height=44, got %v", merged.Height)
+	}
+}
+
+func TestAgreementPanelRepositoryCreateExpandsFieldRulesFromDecodedJSONPayload(t *testing.T) {
+	store := stores.NewInMemoryStore()
+	scope := defaultModuleScope
+	now := time.Now().UTC()
+	if _, err := store.Create(context.Background(), scope, stores.DocumentRecord{
+		ID:              "doc-create-rules-decoded-1",
+		Title:           "Rules Decoded Document",
+		SourceObjectKey: "tenant/" + scope.TenantID + "/org/" + scope.OrgID + "/docs/doc-create-rules-decoded-1.pdf",
+		SourceSHA256:    strings.Repeat("a", 64),
+		SizeBytes:       2048,
+		PageCount:       4,
+		CreatedAt:       now,
+		UpdatedAt:       now,
+	}); err != nil {
+		t.Fatalf("seed document: %v", err)
+	}
+
+	repo := newAgreementPanelRepository(
+		store,
+		services.NewAgreementService(store),
+		services.NewArtifactPipelineService(store, nil),
+		nil,
+		nil,
+		scope,
+		RuntimeSettings{},
+	)
+
+	decodedRules := []any{
+		map[string]any{
+			"id":                "rule-1",
+			"type":              "initials_each_page",
+			"participant_id":    "participant-rules-decoded-1",
+			"from_page":         float64(1),
+			"to_page":           float64(4),
+			"exclude_last_page": true,
+		},
+		map[string]any{
+			"id":             "rule-2",
+			"type":           "signature_once",
+			"participant_id": "participant-rules-decoded-1",
+			"page":           float64(4),
+		},
+	}
+
+	created, err := repo.Create(context.Background(), map[string]any{
+		"document_id":         "doc-create-rules-decoded-1",
+		"title":               "Rules Agreement Decoded",
+		"message":             "Rule-driven fields from decoded payload",
+		"document_page_count": "4",
+		"field_rules_json":    decodedRules,
+		"recipients[0]": map[string]any{
+			"id":    "participant-rules-decoded-1",
+			"name":  "Rule Signer",
+			"email": "rules.decoded@example.com",
+			"role":  "signer",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	agreementID := strings.TrimSpace(toString(created["id"]))
+	if agreementID == "" {
+		t.Fatal("expected created agreement id")
+	}
+
+	fields, err := store.ListFields(context.Background(), scope, agreementID)
+	if err != nil {
+		t.Fatalf("ListFields: %v", err)
+	}
+	if len(fields) != 4 {
+		t.Fatalf("expected 4 expanded fields, got %d", len(fields))
+	}
+}
+
+func TestAgreementPanelRepositoryCreateExpandsFieldRulesFromStringSliceJSONPayload(t *testing.T) {
+	store := stores.NewInMemoryStore()
+	scope := defaultModuleScope
+	seedESignDocument(t, store, scope, "doc-create-rules-string-slice-1")
+
+	repo := newAgreementPanelRepository(
+		store,
+		services.NewAgreementService(store),
+		services.NewArtifactPipelineService(store, nil),
+		nil,
+		nil,
+		scope,
+		RuntimeSettings{},
+	)
+
+	rulesJSON := `[{"id":"rule-1","type":"initials_each_page","participant_id":"participant-rules-slice-1","from_page":1,"to_page":3,"exclude_last_page":false}]`
+	created, err := repo.Create(context.Background(), map[string]any{
+		"document_id":         "doc-create-rules-string-slice-1",
+		"title":               "Rules Agreement String Slice",
+		"document_page_count": "3",
+		"field_rules_json":    []string{rulesJSON},
+		"recipients[0]": map[string]any{
+			"id":    "participant-rules-slice-1",
+			"name":  "Rule Signer",
+			"email": "rules.slice@example.com",
+			"role":  "signer",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	agreementID := strings.TrimSpace(toString(created["id"]))
+	if agreementID == "" {
+		t.Fatal("expected created agreement id")
+	}
+	fields, err := store.ListFields(context.Background(), scope, agreementID)
+	if err != nil {
+		t.Fatalf("ListFields: %v", err)
+	}
+	if len(fields) != 3 {
+		t.Fatalf("expected 3 expanded fields from string slice payload, got %d", len(fields))
+	}
+}
+
+func TestAgreementPanelRepositoryCreateRejectsInvalidDecodedFieldRulesJSONPayload(t *testing.T) {
+	store := stores.NewInMemoryStore()
+	scope := defaultModuleScope
+	seedESignDocument(t, store, scope, "doc-create-rule-invalid-decoded-1")
+
+	repo := newAgreementPanelRepository(
+		store,
+		services.NewAgreementService(store),
+		services.NewArtifactPipelineService(store, nil),
+		nil,
+		nil,
+		scope,
+		RuntimeSettings{},
+	)
+
+	_, err := repo.Create(context.Background(), map[string]any{
+		"document_id":      "doc-create-rule-invalid-decoded-1",
+		"title":            "Invalid decoded rule agreement",
+		"field_rules_json": []any{"not-an-object"},
+		"recipients[0]": map[string]any{
+			"id":    "participant-rule-invalid-decoded-1",
+			"name":  "Rule Signer",
+			"email": "rules.invalid.decoded@example.com",
+			"role":  "signer",
+		},
+	})
+	if err == nil {
+		t.Fatal("expected invalid decoded field_rules_json error")
+	}
+	if !strings.Contains(err.Error(), "field_rules_json has invalid json payload") {
+		t.Fatalf("expected field_rules_json payload validation error, got %v", err)
+	}
+}
+
+func TestAgreementPanelRepositoryCreateRejectsUnsupportedFieldRule(t *testing.T) {
+	store := stores.NewInMemoryStore()
+	scope := defaultModuleScope
+	seedESignDocument(t, store, scope, "doc-create-rule-invalid-1")
+
+	repo := newAgreementPanelRepository(
+		store,
+		services.NewAgreementService(store),
+		services.NewArtifactPipelineService(store, nil),
+		nil,
+		nil,
+		scope,
+		RuntimeSettings{},
+	)
+
+	_, err := repo.Create(context.Background(), map[string]any{
+		"document_id":      "doc-create-rule-invalid-1",
+		"title":            "Invalid rule agreement",
+		"field_rules_json": `[{"id":"rule-1","type":"stamp_every_page","participant_id":"participant-rule-invalid-1"}]`,
+		"recipients[0]": map[string]any{
+			"id":    "participant-rule-invalid-1",
+			"name":  "Rule Signer",
+			"email": "rules.invalid@example.com",
+			"role":  "signer",
+		},
+	})
+	if err == nil {
+		t.Fatal("expected unsupported field rule error")
+	}
+	if !strings.Contains(err.Error(), "field rule type") {
+		t.Fatalf("expected field rule type validation error, got %v", err)
 	}
 }
 
