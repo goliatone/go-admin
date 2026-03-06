@@ -779,6 +779,11 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     profileData: null,
     profileRemember: unifiedConfig.profile.rememberByDefault,
     guidedTargetFieldId: null,
+    writeCooldownUntil: 0,
+    writeCooldownTimer: null,
+    submitCooldownUntil: 0,
+    submitCooldownTimer: null,
+    isSubmitting: false,
   };
 
   // ============================================
@@ -932,13 +937,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       );
 
       if (!response.ok) {
-        let errorData = null;
-        try {
-          errorData = await response.json();
-        } catch (err) {
-          errorData = null;
-        }
-        throw new Error(errorData?.error?.message || 'Failed to get upload contract');
+        throw await parseAPIErrorResponse(response, 'Failed to get upload contract');
       }
 
       const responseData = await response.json();
@@ -985,7 +984,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       });
 
       if (!response.ok) {
-        throw new Error(`Upload failed: ${response.status} ${response.statusText}`);
+        throw await parseAPIErrorResponse(response, `Upload failed: ${response.status} ${response.statusText}`);
       }
 
       return true;
@@ -2463,6 +2462,9 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
         editorContent.querySelector('.sig-editor-tab[aria-selected="true"]')?.focus();
       }
     }, 100);
+    if (secondsUntil(state.writeCooldownUntil) > 0) {
+      applyWriteCooldown(secondsUntil(state.writeCooldownUntil));
+    }
   }
 
   function getFieldEditorTitle(type) {
@@ -2998,12 +3000,115 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
   // ============================================
   // Field Saving
   // ============================================
+  function secondsUntil(timestampMs) {
+    const ts = Number(timestampMs) || 0;
+    if (ts <= 0) return 0;
+    return Math.max(0, Math.ceil((ts - Date.now()) / 1000));
+  }
+
+  function parseRetryAfterSeconds(response, details = {}) {
+    const detailSeconds = Number(details.retry_after_seconds);
+    if (Number.isFinite(detailSeconds) && detailSeconds > 0) {
+      return Math.ceil(detailSeconds);
+    }
+    const header = String(response?.headers?.get?.('Retry-After') || '').trim();
+    if (!header) return 0;
+    const parsed = Number(header);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return Math.ceil(parsed);
+    }
+    return 0;
+  }
+
+  async function parseAPIErrorResponse(response, fallbackMessage) {
+    let payload = {};
+    try {
+      payload = await response.json();
+    } catch {
+      payload = {};
+    }
+    const envelope = payload?.error || {};
+    const details = envelope?.details && typeof envelope.details === 'object' ? envelope.details : {};
+    const retryAfterSeconds = parseRetryAfterSeconds(response, details);
+    const rateLimited = response?.status === 429;
+    const message = rateLimited
+      ? (retryAfterSeconds > 0
+          ? `Too many actions too quickly. Please wait ${retryAfterSeconds}s and try again.`
+          : 'Too many actions too quickly. Please wait and try again.')
+      : String(envelope?.message || fallbackMessage || 'Request failed');
+    const error = new Error(message);
+    error.status = response?.status || 0;
+    error.code = String(envelope?.code || '');
+    error.details = details;
+    error.rateLimited = rateLimited;
+    error.retryAfterSeconds = retryAfterSeconds;
+    return error;
+  }
+
+  function applyWriteCooldown(retryAfterSeconds) {
+    const seconds = Math.max(1, Number(retryAfterSeconds) || 1);
+    state.writeCooldownUntil = Date.now() + (seconds * 1000);
+    if (state.writeCooldownTimer) {
+      clearInterval(state.writeCooldownTimer);
+      state.writeCooldownTimer = null;
+    }
+    const tick = () => {
+      const saveBtn = document.getElementById('field-editor-save');
+      if (!saveBtn) return;
+      const remaining = secondsUntil(state.writeCooldownUntil);
+      if (remaining <= 0) {
+        if (!state.pendingSaves.has(state.activeFieldId || '')) {
+          saveBtn.disabled = false;
+          saveBtn.innerHTML = 'Insert';
+        }
+        if (state.writeCooldownTimer) {
+          clearInterval(state.writeCooldownTimer);
+          state.writeCooldownTimer = null;
+        }
+        return;
+      }
+      saveBtn.disabled = true;
+      saveBtn.innerHTML = `<i class="iconoir-clock mr-2"></i> Retry in ${remaining}s`;
+    };
+    tick();
+    state.writeCooldownTimer = setInterval(tick, 250);
+  }
+
+  function applySubmitCooldown(retryAfterSeconds) {
+    const seconds = Math.max(1, Number(retryAfterSeconds) || 1);
+    state.submitCooldownUntil = Date.now() + (seconds * 1000);
+    if (state.submitCooldownTimer) {
+      clearInterval(state.submitCooldownTimer);
+      state.submitCooldownTimer = null;
+    }
+    const tick = () => {
+      const remaining = secondsUntil(state.submitCooldownUntil);
+      updateSubmitButton();
+      if (remaining <= 0 && state.submitCooldownTimer) {
+        clearInterval(state.submitCooldownTimer);
+        state.submitCooldownTimer = null;
+      }
+    };
+    tick();
+    state.submitCooldownTimer = setInterval(tick, 250);
+  }
+
   async function saveFieldFromEditor() {
     const fieldId = state.activeFieldId;
     if (!fieldId) return;
 
     const fieldData = state.fieldState.get(fieldId);
     if (!fieldData) return;
+
+    const writeCooldownSeconds = secondsUntil(state.writeCooldownUntil);
+    if (writeCooldownSeconds > 0) {
+      const message = `Please wait ${writeCooldownSeconds}s before saving again.`;
+      if (window.toastManager) {
+        window.toastManager.error(message);
+      }
+      announceToScreenReader(message, 'assertive');
+      return;
+    }
 
     const saveBtn = document.getElementById('field-editor-save');
     saveBtn.disabled = true;
@@ -3047,6 +3152,9 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
         }
       }
     } catch (error) {
+      if (error?.rateLimited) {
+        applyWriteCooldown(error.retryAfterSeconds);
+      }
       if (window.toastManager) {
         window.toastManager.error(error.message);
       }
@@ -3054,8 +3162,14 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       // Announce error to screen readers
       announceToScreenReader(`Error saving field: ${error.message}`, 'assertive');
     } finally {
-      saveBtn.disabled = false;
-      saveBtn.innerHTML = 'Insert';
+      if (secondsUntil(state.writeCooldownUntil) > 0) {
+        const remaining = secondsUntil(state.writeCooldownUntil);
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = `<i class="iconoir-clock mr-2"></i> Retry in ${remaining}s`;
+      } else {
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = 'Insert';
+      }
     }
   }
 
@@ -3105,8 +3219,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || 'Failed to save field');
+        throw await parseAPIErrorResponse(response, 'Failed to save field');
       }
 
       // Update local state
@@ -3181,8 +3294,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || 'Failed to save signature');
+        throw await parseAPIErrorResponse(response, 'Failed to save signature');
       }
 
       // Update local state
@@ -3292,6 +3404,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     const submitBtn = document.getElementById('submit-btn');
     const incompleteWarning = document.getElementById('incomplete-warning');
     const incompleteMessage = document.getElementById('incomplete-message');
+    const submitCooldownSeconds = secondsUntil(state.submitCooldownUntil);
 
     let incompleteRequired = [];
     let hasErrors = false;
@@ -3303,13 +3416,26 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       if (field.hasError) hasErrors = true;
     });
 
-    const canSubmit = state.hasConsented && incompleteRequired.length === 0 && !hasErrors && state.pendingSaves.size === 0;
+    const canSubmit = state.hasConsented &&
+      incompleteRequired.length === 0 &&
+      !hasErrors &&
+      state.pendingSaves.size === 0 &&
+      submitCooldownSeconds === 0 &&
+      !state.isSubmitting;
 
     submitBtn.disabled = !canSubmit;
+    if (!state.isSubmitting && submitCooldownSeconds > 0) {
+      submitBtn.innerHTML = `<i class="iconoir-clock mr-2"></i> Retry in ${submitCooldownSeconds}s`;
+    } else if (!state.isSubmitting && submitCooldownSeconds === 0) {
+      submitBtn.innerHTML = '<i class="iconoir-send mr-2"></i> Submit Signature';
+    }
 
     if (!state.hasConsented) {
       incompleteWarning.classList.remove('hidden');
       incompleteMessage.textContent = 'Please accept the consent agreement';
+    } else if (submitCooldownSeconds > 0) {
+      incompleteWarning.classList.remove('hidden');
+      incompleteMessage.textContent = `Please wait ${submitCooldownSeconds}s before submitting again.`;
     } else if (hasErrors) {
       incompleteWarning.classList.remove('hidden');
       incompleteMessage.textContent = 'Some fields failed to save. Please retry.';
@@ -3464,8 +3590,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || 'Failed to accept consent');
+        throw await parseAPIErrorResponse(response, 'Failed to accept consent');
       }
 
       state.hasConsented = true;
@@ -3501,6 +3626,15 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
   // ============================================
   async function handleSubmit() {
     const submitBtn = document.getElementById('submit-btn');
+    const cooldownSeconds = secondsUntil(state.submitCooldownUntil);
+    if (cooldownSeconds > 0) {
+      if (window.toastManager) {
+        window.toastManager.error(`Please wait ${cooldownSeconds}s before submitting again.`);
+      }
+      updateSubmitButton();
+      return;
+    }
+    state.isSubmitting = true;
     submitBtn.disabled = true;
     submitBtn.innerHTML = '<i class="iconoir-refresh animate-spin mr-2"></i> Submitting...';
 
@@ -3513,8 +3647,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || 'Failed to submit');
+        throw await parseAPIErrorResponse(response, 'Failed to submit');
       }
 
       // Track successful submit
@@ -3525,12 +3658,16 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     } catch (error) {
       // Track failed submit
       telemetry.trackSubmit(false, error.message);
+      if (error?.rateLimited) {
+        applySubmitCooldown(error.retryAfterSeconds);
+      }
 
       if (window.toastManager) {
         window.toastManager.error(error.message);
       }
-      submitBtn.disabled = false;
-      submitBtn.innerHTML = '<i class="iconoir-send mr-2"></i> Submit Signature';
+    } finally {
+      state.isSubmitting = false;
+      updateSubmitButton();
     }
   }
 
@@ -3573,8 +3710,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || 'Failed to decline');
+        throw await parseAPIErrorResponse(response, 'Failed to decline');
       }
 
       window.location.href = `${unifiedConfig.signerBasePath}/${unifiedConfig.token}/declined`;

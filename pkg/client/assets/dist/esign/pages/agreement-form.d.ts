@@ -1,65 +1,42 @@
-/**
- * E-Sign Agreement Form Page Controller
- * Handles the 6-step wizard for creating/editing agreements
- *
- * Wizard Steps:
- * 1. Document Selection
- * 2. Agreement Details
- * 3. Participants (Recipients)
- * 4. Field Definitions
- * 5. Field Placement
- * 6. Review & Send
- */
-export interface AgreementFormConfig {
-    basePath: string;
+import { type AgreementFormRuntimeConfig } from './agreement-form-runtime.js';
+export interface AgreementFormConfig extends AgreementFormRuntimeConfig {
+    basePath?: string;
     apiBasePath?: string;
-    isEditMode: boolean;
+    isEditMode?: boolean;
     createSuccess?: boolean;
-    agreementId?: string;
     routes: {
         index: string;
         documents?: string;
         create?: string;
+        documents_upload_url?: string;
     };
 }
 export declare class AgreementFormController {
     private readonly config;
-    private readonly apiBase;
-    private stateManager;
-    private syncManager;
-    private currentStep;
-    private readonly elements;
+    private initialized;
     constructor(config: AgreementFormConfig);
-    init(): Promise<void>;
-    private setupEventListeners;
-    private checkForSavedProgress;
-    private showResumeDialog;
-    private hideResumeDialog;
-    private resumeSavedProgress;
-    private restoreStateToUI;
-    private showConflictDialog;
-    private hideConflictDialog;
-    private updateSyncStatusUI;
-    private handleDetailsChange;
-    private canNavigateToStep;
-    private goToStep;
-    private goToNextStep;
-    private goToPreviousStep;
-    private updateWizardUI;
-    private handleFormSubmit;
+    init(): void;
     destroy(): void;
 }
 export declare function initAgreementForm(config: AgreementFormConfig): AgreementFormController;
 export declare function bootstrapAgreementForm(config: {
-    basePath: string;
+    basePath?: string;
     apiBasePath?: string;
+    base_path?: string;
+    api_base_path?: string;
+    user_id?: string;
     isEditMode?: boolean;
+    is_edit?: boolean;
     createSuccess?: boolean;
-    agreementId?: string;
+    create_success?: boolean;
+    submit_mode?: 'form' | 'json' | string;
+    initial_participants?: Array<Record<string, any>>;
+    initial_field_instances?: Array<Record<string, any>>;
     routes: {
         index: string;
         documents?: string;
         create?: string;
+        documents_upload_url?: string;
     };
 }): void;
 //# sourceMappingURL=agreement-form.d.ts.map
