@@ -56,6 +56,15 @@ interface PersistedSignerProfile {
   expiresAt: number;
 }
 
+interface SavedSignatureEntry {
+  id: string;
+  type: 'signature' | 'initials';
+  label?: string;
+  thumbnail_data_url: string;
+  data_url?: string;
+  created_at?: string;
+}
+
 interface SignerProfileStore {
   load(key: string): Promise<PersistedSignerProfile | null>;
   save(key: string, patch: Partial<PersistedSignerProfile>): Promise<PersistedSignerProfile>;
@@ -65,6 +74,7 @@ interface SignerProfileStore {
 const SIGNER_PROFILE_STORAGE_PREFIX = 'esign.signer.profile.v1';
 const SIGNER_PROFILE_OUTBOX_KEY = 'esign.signer.profile.outbox.v1';
 const DEFAULT_PROFILE_TTL_DAYS = 90;
+const SIGNATURE_UPLOAD_MAX_BYTES = 500 * 1024;
 
 type SignerProfileOutboxEntry = {
   op: 'patch' | 'clear';
@@ -755,6 +765,8 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     activeFieldId: null,
     hasConsented: unifiedConfig.hasConsented,
     signatureCanvases: new Map(),
+    signatureTabByField: new Map(),
+    savedSignaturesByType: new Map(),
     pendingSaves: new Set(),
     // Performance state
     renderedPages: new Map(), // Map of page number to rendered canvas
@@ -766,6 +778,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     profileKey: signerProfileKey,
     profileData: null,
     profileRemember: unifiedConfig.profile.rememberByDefault,
+    guidedTargetFieldId: null,
   };
 
   // ============================================
@@ -1002,7 +1015,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       // Convert to blob for size calculation
       const blob = this.dataUrlToBlob(canvasDataUrl);
       const sizeBytes = blob.size;
-      const contentType = blob.type || 'image/png';
+      const contentType = 'image/png';
 
       // Calculate SHA256 of binary content
       const sha256 = await sha256Bytes(blob);
@@ -1027,6 +1040,249 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       };
     }
   };
+
+  const signatureLibraryAPI = {
+    endpoint(token, signatureID = '') {
+      const encodedToken = encodeURIComponent(token);
+      const suffix = signatureID ? `/${encodeURIComponent(signatureID)}` : '';
+      return `${unifiedConfig.apiBasePath}/signatures/${encodedToken}${suffix}`;
+    },
+
+    async list(fieldType) {
+      const url = new URL(this.endpoint(unifiedConfig.token), window.location.origin);
+      url.searchParams.set('type', fieldType);
+      const response = await fetch(url.toString(), {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+        credentials: 'same-origin',
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload?.error?.message || 'Failed to load saved signatures');
+      }
+      const payload = await response.json();
+      return Array.isArray(payload?.signatures) ? payload.signatures : [];
+    },
+
+    async save(fieldType, dataUrl, label = '') {
+      const response = await fetch(this.endpoint(unifiedConfig.token), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          type: fieldType,
+          label,
+          data_url: dataUrl,
+        }),
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        const error = new Error(payload?.error?.message || 'Failed to save signature');
+        (error as any).code = payload?.error?.code || '';
+        throw error;
+      }
+      const payload = await response.json();
+      return payload?.signature || null;
+    },
+
+    async delete(signatureID) {
+      const response = await fetch(this.endpoint(unifiedConfig.token, signatureID), {
+        method: 'DELETE',
+        headers: { Accept: 'application/json' },
+        credentials: 'same-origin',
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload?.error?.message || 'Failed to delete signature');
+      }
+    },
+  };
+
+  function resolveFieldSignatureType(fieldId) {
+    const fieldData = state.fieldState.get(fieldId);
+    if (!fieldData) return 'signature';
+    return fieldData.type === 'initials' ? 'initials' : 'signature';
+  }
+
+  function getSavedSignaturesForType(signatureType) {
+    return state.savedSignaturesByType.get(signatureType) || [];
+  }
+
+  async function ensureSavedSignaturesLoaded(fieldId, force = false) {
+    const signatureType = resolveFieldSignatureType(fieldId);
+    if (!force && state.savedSignaturesByType.has(signatureType)) {
+      renderSavedSignatureList(fieldId);
+      return;
+    }
+    const rows = await signatureLibraryAPI.list(signatureType);
+    state.savedSignaturesByType.set(signatureType, rows);
+    renderSavedSignatureList(fieldId);
+  }
+
+  function renderSavedSignatureList(fieldId) {
+    const signatureType = resolveFieldSignatureType(fieldId);
+    const rows = getSavedSignaturesForType(signatureType);
+    const container = document.getElementById('sig-saved-list');
+    if (!container) return;
+    if (!rows.length) {
+      container.innerHTML = '<p class="text-xs text-gray-500">No saved signatures yet.</p>';
+      return;
+    }
+    container.innerHTML = rows.map((entry) => {
+      const preview = escapeHTML(String(entry?.thumbnail_data_url || entry?.data_url || ''));
+      const label = escapeHTML(String(entry?.label || 'Saved signature'));
+      const signatureID = escapeHTML(String(entry?.id || ''));
+      return `
+      <div class="flex items-center gap-2 border border-gray-200 rounded-lg p-2">
+        <img src="${preview}" alt="${label}" class="w-16 h-10 object-contain bg-white border border-gray-100 rounded" />
+        <div class="flex-1 min-w-0">
+          <p class="text-xs text-gray-700 truncate">${label}</p>
+        </div>
+        <button type="button" data-esign-action="select-saved-signature" data-field-id="${escapeHTML(fieldId)}" data-signature-id="${signatureID}" class="text-xs text-blue-600 hover:text-blue-700 underline underline-offset-2">Use</button>
+        <button type="button" data-esign-action="delete-saved-signature" data-field-id="${escapeHTML(fieldId)}" data-signature-id="${signatureID}" class="text-xs text-red-600 hover:text-red-700 underline underline-offset-2">Delete</button>
+      </div>`;
+    }).join('');
+  }
+
+  async function saveCurrentSignatureToLibrary(fieldId) {
+    const canvasData = state.signatureCanvases.get(fieldId);
+    const signatureType = resolveFieldSignatureType(fieldId);
+    if (!canvasData || !hasSignatureCanvasContent(fieldId)) {
+      throw new Error(`Please add your ${signatureType === 'initials' ? 'initials' : 'signature'} first`);
+    }
+    const dataUrl = canvasData.canvas.toDataURL('image/png');
+    const entry = await signatureLibraryAPI.save(signatureType, dataUrl, signatureType === 'initials' ? 'Initials' : 'Signature');
+    if (!entry) {
+      throw new Error('Failed to save signature');
+    }
+    const rows = getSavedSignaturesForType(signatureType);
+    rows.unshift(entry);
+    state.savedSignaturesByType.set(signatureType, rows);
+    renderSavedSignatureList(fieldId);
+    if (window.toastManager) {
+      window.toastManager.success('Saved to your signature library');
+    }
+  }
+
+  async function selectSavedSignature(fieldId, signatureID) {
+    const signatureType = resolveFieldSignatureType(fieldId);
+    const rows = getSavedSignaturesForType(signatureType);
+    const found = rows.find((entry) => String(entry?.id || '') === String(signatureID));
+    if (!found) return;
+    requestAnimationFrame(() => initializeSignatureCanvas(fieldId));
+    await waitForSignatureCanvas(fieldId);
+    const dataUrl = String(found.data_url || found.thumbnail_data_url || '').trim();
+    if (!dataUrl) return;
+    await setSignatureBaseImage(fieldId, dataUrl, { clearStrokes: true });
+    switchSignatureTab('draw', fieldId);
+    announceToScreenReader('Saved signature selected.');
+  }
+
+  async function deleteSavedSignature(fieldId, signatureID) {
+    const signatureType = resolveFieldSignatureType(fieldId);
+    await signatureLibraryAPI.delete(signatureID);
+    const rows = getSavedSignaturesForType(signatureType).filter((entry) => String(entry?.id || '') !== String(signatureID));
+    state.savedSignaturesByType.set(signatureType, rows);
+    renderSavedSignatureList(fieldId);
+  }
+
+  function handleSavedSignatureError(error) {
+    const code = String(error?.code || '').trim();
+    const fallbackMessage = String(error?.message || 'Unable to update saved signatures');
+    const message = code === 'SIGNATURE_LIBRARY_LIMIT_REACHED'
+      ? 'You reached your saved-signature limit for this type. Delete one to save a new one.'
+      : fallbackMessage;
+    if (window.toastManager) {
+      window.toastManager.error(message);
+    }
+    announceToScreenReader(message, 'assertive');
+  }
+
+  async function waitForSignatureCanvas(fieldId, attempts = 8) {
+    for (let i = 0; i < attempts; i++) {
+      if (state.signatureCanvases.has(fieldId)) return true;
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((resolve) => setTimeout(resolve, 40));
+      initializeSignatureCanvas(fieldId);
+    }
+    return false;
+  }
+
+  async function processSignatureUploadFile(fieldId, file) {
+    const mimeType = String(file?.type || '').toLowerCase();
+    if (!['image/png', 'image/jpeg'].includes(mimeType)) {
+      throw new Error('Only PNG and JPEG images are supported');
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      throw new Error('Image file is too large');
+    }
+    requestAnimationFrame(() => initializeSignatureCanvas(fieldId));
+    await waitForSignatureCanvas(fieldId);
+    const canvasData = state.signatureCanvases.get(fieldId);
+    if (!canvasData) {
+      throw new Error('Signature canvas is not ready');
+    }
+
+    const rawDataUrl = await readFileAsDataURL(file);
+    const normalizedDataUrl = mimeType === 'image/png'
+      ? rawDataUrl
+      : await convertImageDataUrlToPNG(rawDataUrl, canvasData.drawWidth, canvasData.drawHeight);
+    const normalizedSize = estimateDataURLByteSize(normalizedDataUrl);
+    if (normalizedSize > SIGNATURE_UPLOAD_MAX_BYTES) {
+      throw new Error(`Image exceeds ${Math.round(SIGNATURE_UPLOAD_MAX_BYTES / 1024)}KB limit after conversion`);
+    }
+    await setSignatureBaseImage(fieldId, normalizedDataUrl, { clearStrokes: true });
+    const previewWrap = document.getElementById('sig-upload-preview-wrap');
+    const preview = document.getElementById('sig-upload-preview');
+    if (previewWrap) previewWrap.classList.remove('hidden');
+    if (preview) preview.setAttribute('src', normalizedDataUrl);
+    announceToScreenReader('Signature image uploaded. You can now insert it.');
+  }
+
+  function readFileAsDataURL(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () => reject(new Error('Unable to read image file'));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function estimateDataURLByteSize(dataUrl) {
+    const parts = String(dataUrl || '').split(',');
+    if (parts.length < 2) return 0;
+    const base64 = parts[1] || '';
+    const padding = (base64.match(/=+$/) || [''])[0].length;
+    return Math.floor((base64.length * 3) / 4) - padding;
+  }
+
+  async function convertImageDataUrlToPNG(dataUrl, targetWidth, targetHeight) {
+    return await new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => {
+        const canvas = document.createElement('canvas');
+        const drawWidth = Math.max(1, Math.round(Number(targetWidth) || 600));
+        const drawHeight = Math.max(1, Math.round(Number(targetHeight) || 160));
+        canvas.width = drawWidth;
+        canvas.height = drawHeight;
+        const context = canvas.getContext('2d');
+        if (!context) {
+          reject(new Error('Unable to process image'));
+          return;
+        }
+        context.clearRect(0, 0, drawWidth, drawHeight);
+        const scale = Math.min(drawWidth / image.width, drawHeight / image.height);
+        const width = image.width * scale;
+        const height = image.height * scale;
+        const x = (drawWidth - width) / 2;
+        const y = (drawHeight - height) / 2;
+        context.drawImage(image, x, y, width, height);
+        resolve(canvas.toDataURL('image/png'));
+      };
+      image.onerror = () => reject(new Error('Unable to decode image file'));
+      image.src = dataUrl;
+    });
+  }
 
   /**
    * SHA256 of binary blob
@@ -1109,7 +1365,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
           loadPdfDocument();
           break;
         case 'signature-tab': {
-          const tab = target.getAttribute('data-tab') || 'type';
+          const tab = target.getAttribute('data-tab') || 'draw';
           const fieldId = target.getAttribute('data-field-id');
           if (fieldId) switchSignatureTab(tab, fieldId);
           break;
@@ -1117,6 +1373,39 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
         case 'clear-signature-canvas': {
           const fieldId = target.getAttribute('data-field-id');
           if (fieldId) clearSignatureCanvas(fieldId);
+          break;
+        }
+        case 'undo-signature-canvas': {
+          const fieldId = target.getAttribute('data-field-id');
+          if (fieldId) undoSignatureCanvas(fieldId);
+          break;
+        }
+        case 'redo-signature-canvas': {
+          const fieldId = target.getAttribute('data-field-id');
+          if (fieldId) redoSignatureCanvas(fieldId);
+          break;
+        }
+        case 'save-current-signature-library': {
+          const fieldId = target.getAttribute('data-field-id');
+          if (fieldId) {
+            saveCurrentSignatureToLibrary(fieldId).catch(handleSavedSignatureError);
+          }
+          break;
+        }
+        case 'select-saved-signature': {
+          const fieldId = target.getAttribute('data-field-id');
+          const signatureId = target.getAttribute('data-signature-id');
+          if (fieldId && signatureId) {
+            selectSavedSignature(fieldId, signatureId).catch(handleSavedSignatureError);
+          }
+          break;
+        }
+        case 'delete-saved-signature': {
+          const fieldId = target.getAttribute('data-field-id');
+          const signatureId = target.getAttribute('data-signature-id');
+          if (fieldId && signatureId) {
+            deleteSavedSignature(fieldId, signatureId).catch(handleSavedSignatureError);
+          }
           break;
         }
         case 'clear-signer-profile':
@@ -1138,6 +1427,20 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
           debugMode.reloadViewer();
           break;
       }
+    });
+
+    document.addEventListener('change', (event) => {
+      const changed = event.target;
+      if (!(changed instanceof HTMLInputElement)) return;
+      if (!changed.matches('#sig-upload-input')) return;
+      const fieldId = changed.getAttribute('data-field-id');
+      const file = changed.files?.[0];
+      if (!fieldId || !file) return;
+      processSignatureUploadFile(fieldId, file).catch((error) => {
+        if (window.toastManager) {
+          window.toastManager.error(error?.message || 'Unable to process uploaded image');
+        }
+      });
     });
   }
 
@@ -1403,7 +1706,8 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
         posX: field.pos_x || 0,
         posY: field.pos_y || 0,
         width: field.width || 150,
-        height: field.height || 30
+        height: field.height || 30,
+        tabIndex: Number(field.tab_index || 0) || 0,
       });
     });
   }
@@ -1463,13 +1767,6 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       return sanitizeProfileText(state.profileData.typedSignature || '');
     }
     return '';
-  }
-
-  function shouldDefaultToDrawTab(fieldData) {
-    const current = String(fieldData?.value || '').trim();
-    if (isDrawnPlaceholder(current)) return true;
-    if (resolveTypedEditorValue(fieldData)) return false;
-    return Boolean(resolvePersistedDrawnDataUrl(fieldData));
   }
 
   function readRememberPreferenceFromEditor() {
@@ -2083,16 +2380,23 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       showConsentModal();
       return;
     }
+    focusField(fieldId, { openEditor: true });
+  }
 
-    state.activeFieldId = fieldId;
+  function focusField(fieldId, options = { openEditor: true }) {
     const fieldData = state.fieldState.get(fieldId);
+    if (!fieldData) return;
+
+    if (options.openEditor) {
+      state.activeFieldId = fieldId;
+    }
 
     // Update UI
-    document.querySelectorAll('.field-list-item').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.field-list-item').forEach(el => el.classList.remove('active', 'guided-next-target'));
     document.querySelector(`.field-list-item[data-field-id="${fieldId}"]`)?.classList.add('active');
 
     // Update overlays
-    document.querySelectorAll('.field-overlay').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.field-overlay').forEach(el => el.classList.remove('active', 'guided-next-target'));
     document.querySelector(`.field-overlay[data-field-id="${fieldId}"]`)?.classList.add('active');
 
     // Navigate to field's page if needed
@@ -2100,10 +2404,25 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       goToPage(fieldData.page);
     }
 
+    if (!options.openEditor) {
+      scrollFieldIntoView(fieldId);
+      return;
+    }
+
     // Open field editor (except for date_signed which is auto-filled)
     if (fieldData.type !== 'date_signed') {
       openFieldEditor(fieldId);
     }
+  }
+
+  function scrollFieldIntoView(fieldId) {
+    const listItem = document.querySelector(`.field-list-item[data-field-id="${fieldId}"]`);
+    listItem?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    requestAnimationFrame(() => {
+      const overlay = document.querySelector(`.field-overlay[data-field-id="${fieldId}"]`);
+      overlay?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+    });
   }
 
   function openFieldEditor(fieldId) {
@@ -2113,9 +2432,11 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     const editorOverlay = document.getElementById('field-editor-overlay');
     const editorContent = document.getElementById('field-editor-content');
     const editorTitle = document.getElementById('field-editor-title');
+    const legalDisclaimer = document.getElementById('field-editor-legal-disclaimer');
 
     editorTitle.textContent = getFieldEditorTitle(fieldData.type);
     editorContent.innerHTML = getFieldEditorContent(fieldData);
+    legalDisclaimer?.classList.toggle('hidden', !(fieldData.type === 'signature' || fieldData.type === 'initials'));
 
     // Initialize signature canvas if needed
     if (fieldData.type === 'signature' || fieldData.type === 'initials') {
@@ -2136,7 +2457,11 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     // Focus first input
     setTimeout(() => {
       const firstInput = editorContent.querySelector('input, textarea');
-      if (firstInput) firstInput.focus();
+      if (firstInput) {
+        firstInput.focus();
+      } else {
+        editorContent.querySelector('.sig-editor-tab[aria-selected="true"]')?.focus();
+      }
     }, 100);
   }
 
@@ -2158,24 +2483,36 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
 
     if (fieldData.type === 'signature' || fieldData.type === 'initials') {
       const labelText = fieldData.type === 'initials' ? 'initials' : 'signature';
-      const canDraw = fieldData.type === 'signature' || fieldData.type === 'initials';
       const typedEditorValue = escapeHTML(resolveTypedEditorValue(fieldData));
+      const tabs = [
+        { id: 'draw', label: 'Draw' },
+        { id: 'type', label: 'Type' },
+        { id: 'upload', label: 'Upload' },
+        { id: 'saved', label: 'Saved' },
+      ];
+      const activeTab = resolveSignatureTab(fieldData.id);
       return `
         <div class="space-y-4">
-          ${canDraw ? `
-          <!-- Type/Draw tabs -->
-          <div class="flex border-b border-gray-200" role="tablist">
-            <button type="button" class="sig-editor-tab flex-1 py-2 text-sm font-medium border-b-2 border-blue-600 text-blue-600" data-tab="type" data-esign-action="signature-tab" data-field-id="${escapedFieldID}">
-              Type
-            </button>
-            <button type="button" class="sig-editor-tab flex-1 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700" data-tab="draw" data-esign-action="signature-tab" data-field-id="${escapedFieldID}">
-              Draw
-            </button>
+          <div class="flex border-b border-gray-200" role="tablist" aria-label="Signature editor tabs">
+            ${tabs.map((tab) => `
+            <button
+              type="button"
+              id="sig-tab-${tab.id}"
+              class="sig-editor-tab flex-1 py-2 text-sm font-medium border-b-2 ${activeTab === tab.id ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}"
+              data-tab="${tab.id}"
+              data-esign-action="signature-tab"
+              data-field-id="${escapedFieldID}"
+              role="tab"
+              aria-selected="${activeTab === tab.id ? 'true' : 'false'}"
+              aria-controls="sig-editor-${tab.id}"
+              tabindex="${activeTab === tab.id ? '0' : '-1'}"
+            >
+              ${tab.label}
+            </button>`).join('')}
           </div>
-          ` : ''}
 
           <!-- Type panel -->
-          <div id="sig-editor-type" class="sig-editor-panel">
+          <div id="sig-editor-type" class="sig-editor-panel ${activeTab === 'type' ? '' : 'hidden'}" role="tabpanel" aria-labelledby="sig-tab-type">
             <input
               type="text"
               id="sig-type-input"
@@ -2187,18 +2524,54 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
             <p class="text-xs text-gray-500 mt-2 text-center">Your typed ${labelText} will appear as your ${escapedFieldType}</p>
           </div>
 
-          ${canDraw ? `
           <!-- Draw panel -->
-          <div id="sig-editor-draw" class="sig-editor-panel hidden">
+          <div id="sig-editor-draw" class="sig-editor-panel ${activeTab === 'draw' ? '' : 'hidden'}" role="tabpanel" aria-labelledby="sig-tab-draw">
             <div class="signature-canvas-container">
               <canvas id="sig-draw-canvas" class="signature-canvas" data-field-id="${escapedFieldID}"></canvas>
-              <button type="button" data-esign-action="clear-signature-canvas" data-field-id="${escapedFieldID}" class="absolute bottom-2 right-2 text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1">
-                <i class="iconoir-refresh"></i> Clear
+            </div>
+            <div class="grid grid-cols-3 gap-2 mt-2">
+              <button type="button" data-esign-action="undo-signature-canvas" data-field-id="${escapedFieldID}" class="btn btn-secondary text-xs justify-center">
+                Undo
+              </button>
+              <button type="button" data-esign-action="redo-signature-canvas" data-field-id="${escapedFieldID}" class="btn btn-secondary text-xs justify-center">
+                Redo
+              </button>
+              <button type="button" data-esign-action="clear-signature-canvas" data-field-id="${escapedFieldID}" class="btn btn-secondary text-xs justify-center">
+                Clear
               </button>
             </div>
             <p class="text-xs text-gray-500 mt-2 text-center">Draw your ${labelText} using mouse or touch</p>
           </div>
-          ` : ''}
+
+          <!-- Upload panel -->
+          <div id="sig-editor-upload" class="sig-editor-panel ${activeTab === 'upload' ? '' : 'hidden'}" role="tabpanel" aria-labelledby="sig-tab-upload">
+            <label class="block text-sm font-medium text-gray-700 mb-2" for="sig-upload-input">Upload signature image (PNG or JPEG)</label>
+            <input
+              type="file"
+              id="sig-upload-input"
+              accept="image/png,image/jpeg"
+              data-field-id="${escapedFieldID}"
+              data-esign-action="upload-signature-file"
+              class="block w-full text-sm text-gray-700 border border-gray-200 rounded-lg p-2"
+            />
+            <div id="sig-upload-preview-wrap" class="mt-3 p-3 border border-gray-100 rounded-lg bg-gray-50 hidden">
+              <img id="sig-upload-preview" alt="Upload preview" class="max-h-24 mx-auto object-contain" />
+            </div>
+            <p class="text-xs text-gray-500 mt-2">Image will be converted to PNG and centered in the signature area.</p>
+          </div>
+
+          <!-- Saved panel -->
+          <div id="sig-editor-saved" class="sig-editor-panel ${activeTab === 'saved' ? '' : 'hidden'}" role="tabpanel" aria-labelledby="sig-tab-saved">
+            <div class="flex items-center justify-between mb-2">
+              <p class="text-xs text-gray-500">Saved ${labelText}s</p>
+              <button type="button" data-esign-action="save-current-signature-library" data-field-id="${escapedFieldID}" class="text-xs text-blue-600 hover:text-blue-700 underline underline-offset-2">
+                Save current
+              </button>
+            </div>
+            <div id="sig-saved-list" class="space-y-2">
+              <p class="text-xs text-gray-500">Loading saved signatures...</p>
+            </div>
+          </div>
 
           ${preferenceMarkup}
         </div>
@@ -2276,32 +2649,48 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     `;
   }
 
+  function resolveSignatureTab(fieldId) {
+    const saved = String(state.signatureTabByField.get(fieldId) || '').trim();
+    if (saved === 'draw' || saved === 'type' || saved === 'upload' || saved === 'saved') {
+      return saved;
+    }
+    return 'draw';
+  }
+
   function switchSignatureTab(tab, fieldId) {
+    const resolvedTab = ['draw', 'type', 'upload', 'saved'].includes(tab) ? tab : 'draw';
+    state.signatureTabByField.set(fieldId, resolvedTab);
+
     // Update tab buttons
     document.querySelectorAll('.sig-editor-tab').forEach(btn => {
       btn.classList.remove('border-blue-600', 'text-blue-600');
       btn.classList.add('border-transparent', 'text-gray-500');
+      btn.setAttribute('aria-selected', 'false');
+      btn.setAttribute('tabindex', '-1');
     });
-    const selectedTab = document.querySelector(`.sig-editor-tab[data-tab="${tab}"]`);
+    const selectedTab = document.querySelector(`.sig-editor-tab[data-tab="${resolvedTab}"]`);
     selectedTab?.classList.add('border-blue-600', 'text-blue-600');
     selectedTab?.classList.remove('border-transparent', 'text-gray-500');
+    selectedTab?.setAttribute('aria-selected', 'true');
+    selectedTab?.setAttribute('tabindex', '0');
 
     // Update panels
-    document.getElementById('sig-editor-type')?.classList.toggle('hidden', tab !== 'type');
-    document.getElementById('sig-editor-draw')?.classList.toggle('hidden', tab !== 'draw');
+    document.getElementById('sig-editor-type')?.classList.toggle('hidden', resolvedTab !== 'type');
+    document.getElementById('sig-editor-draw')?.classList.toggle('hidden', resolvedTab !== 'draw');
+    document.getElementById('sig-editor-upload')?.classList.toggle('hidden', resolvedTab !== 'upload');
+    document.getElementById('sig-editor-saved')?.classList.toggle('hidden', resolvedTab !== 'saved');
 
-    // Initialize canvas if switching to draw
-    if (tab === 'draw' && selectedTab) {
+    if ((resolvedTab === 'draw' || resolvedTab === 'upload' || resolvedTab === 'saved') && selectedTab) {
       requestAnimationFrame(() => initializeSignatureCanvas(fieldId));
+    }
+    if (resolvedTab === 'saved') {
+      ensureSavedSignaturesLoaded(fieldId).catch(handleSavedSignatureError);
     }
   }
 
   function initializeSignatureEditor(fieldId) {
-    const fieldData = state.fieldState.get(fieldId);
-    if (!fieldData) return;
-    if (shouldDefaultToDrawTab(fieldData)) {
-      switchSignatureTab('draw', fieldId);
-    }
+    state.signatureTabByField.set(fieldId, 'draw');
+    switchSignatureTab('draw', fieldId);
   }
 
   function initializeSignatureCanvas(fieldId) {
@@ -2310,7 +2699,9 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
 
     const container = canvas.closest('.signature-canvas-container');
     const ctx = canvas.getContext('2d');
+    if (!ctx) return;
     const rect = canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
 
     // Use device pixel ratio for crisp drawing
     const dpr = window.devicePixelRatio || 1;
@@ -2319,13 +2710,13 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     ctx.scale(dpr, dpr);
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    ctx.lineWidth = 2.5;
     ctx.strokeStyle = '#1f2937';
+    ctx.lineWidth = 2.5;
 
     let isDrawing = false;
     let lastX = 0;
     let lastY = 0;
-    let drawingPath = []; // Track path for velocity-based stroke width
+    let currentStroke = [];
 
     const getPos = (e) => {
       const rect = canvas.getBoundingClientRect();
@@ -2354,7 +2745,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       const pos = getPos(e);
       lastX = pos.x;
       lastY = pos.y;
-      drawingPath = [{ x: pos.x, y: pos.y, t: pos.timestamp }];
+      currentStroke = [{ x: pos.x, y: pos.y, t: pos.timestamp, width: 2.5 }];
 
       // Visual feedback
       if (container) {
@@ -2366,12 +2757,12 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       if (!isDrawing) return;
 
       const pos = getPos(e);
-      drawingPath.push({ x: pos.x, y: pos.y, t: pos.timestamp });
+      currentStroke.push({ x: pos.x, y: pos.y, t: pos.timestamp, width: 2.5 });
 
       // Calculate velocity for variable stroke width
       const dx = pos.x - lastX;
       const dy = pos.y - lastY;
-      const dt = pos.timestamp - (drawingPath[drawingPath.length - 2]?.t || pos.timestamp);
+      const dt = pos.timestamp - (currentStroke[currentStroke.length - 2]?.t || pos.timestamp);
       const velocity = Math.sqrt(dx * dx + dy * dy) / Math.max(dt, 1);
 
       // Adjust line width based on velocity (faster = thinner)
@@ -2379,8 +2770,10 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       const minWidth = 1.5;
       const maxWidth = 4;
       const velocityFactor = Math.min(velocity / 5, 1);
-      ctx.lineWidth = Math.max(minWidth, Math.min(maxWidth, baseWidth - velocityFactor * 1.5));
+      const lineWidth = Math.max(minWidth, Math.min(maxWidth, baseWidth - velocityFactor * 1.5));
+      currentStroke[currentStroke.length - 1].width = lineWidth;
 
+      ctx.lineWidth = lineWidth;
       ctx.beginPath();
       ctx.moveTo(lastX, lastY);
       ctx.lineTo(pos.x, pos.y);
@@ -2392,7 +2785,14 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
 
     const stopDrawing = () => {
       isDrawing = false;
-      drawingPath = [];
+      if (currentStroke.length > 1) {
+        const canvasData = state.signatureCanvases.get(fieldId);
+        if (canvasData) {
+          canvasData.strokes.push(currentStroke.map(point => ({ ...point })));
+          canvasData.redoStack = [];
+        }
+      }
+      currentStroke = [];
 
       // Remove visual feedback
       if (container) {
@@ -2431,7 +2831,17 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     canvas.addEventListener('gesturechange', (e) => e.preventDefault());
     canvas.addEventListener('gestureend', (e) => e.preventDefault());
 
-    state.signatureCanvases.set(fieldId, { canvas, ctx, dpr });
+    state.signatureCanvases.set(fieldId, {
+      canvas,
+      ctx,
+      dpr,
+      drawWidth: rect.width,
+      drawHeight: rect.height,
+      strokes: [],
+      redoStack: [],
+      baseImageDataUrl: '',
+      baseImage: null,
+    });
     hydratePersistedDrawnImage(fieldId);
   }
 
@@ -2442,33 +2852,118 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
 
     const dataUrl = resolvePersistedDrawnDataUrl(fieldData);
     if (!dataUrl) return;
+    setSignatureBaseImage(fieldId, dataUrl, { clearStrokes: true }).catch(() => {});
+  }
 
-    const { canvas, ctx } = canvasData;
+  async function setSignatureBaseImage(fieldId, dataUrl, options = { clearStrokes: false }) {
+    const canvasData = state.signatureCanvases.get(fieldId);
+    if (!canvasData) return false;
+    const normalized = String(dataUrl || '').trim();
+    if (!normalized) {
+      canvasData.baseImageDataUrl = '';
+      canvasData.baseImage = null;
+      if (options.clearStrokes) {
+        canvasData.strokes = [];
+        canvasData.redoStack = [];
+      }
+      redrawSignatureCanvas(fieldId);
+      return true;
+    }
+
+    const { drawWidth, drawHeight } = canvasData;
     const img = new Image();
-    img.onload = () => {
-      const drawWidth = canvas.clientWidth || canvas.width / (window.devicePixelRatio || 1);
-      const drawHeight = canvas.clientHeight || canvas.height / (window.devicePixelRatio || 1);
-      if (drawWidth <= 0 || drawHeight <= 0) return;
+    return await new Promise((resolve) => {
+      img.onload = () => {
+        if (options.clearStrokes) {
+          canvasData.strokes = [];
+          canvasData.redoStack = [];
+        }
+        canvasData.baseImage = img;
+        canvasData.baseImageDataUrl = normalized;
+        if (drawWidth > 0 && drawHeight > 0) {
+          redrawSignatureCanvas(fieldId);
+        }
+        resolve(true);
+      };
+      img.onerror = () => resolve(false);
+      img.src = normalized;
+    });
+  }
 
-      ctx.clearRect(0, 0, drawWidth, drawHeight);
-      const scale = Math.min(drawWidth / img.width, drawHeight / img.height);
-      const width = img.width * scale;
-      const height = img.height * scale;
+  function redrawSignatureCanvas(fieldId) {
+    const canvasData = state.signatureCanvases.get(fieldId);
+    if (!canvasData) return;
+    const { ctx, drawWidth, drawHeight, baseImage, strokes } = canvasData;
+    ctx.clearRect(0, 0, drawWidth, drawHeight);
+
+    if (baseImage) {
+      const scale = Math.min(drawWidth / baseImage.width, drawHeight / baseImage.height);
+      const width = baseImage.width * scale;
+      const height = baseImage.height * scale;
       const x = (drawWidth - width) / 2;
       const y = (drawHeight - height) / 2;
-      ctx.drawImage(img, x, y, width, height);
-    };
-    img.onerror = () => {
-      // Ignore invalid persisted image payloads.
-    };
-    img.src = dataUrl;
+      ctx.drawImage(baseImage, x, y, width, height);
+    }
+
+    for (const stroke of strokes) {
+      for (let i = 1; i < stroke.length; i++) {
+        const prev = stroke[i - 1];
+        const curr = stroke[i];
+        ctx.lineWidth = Number(curr.width || 2.5) || 2.5;
+        ctx.beginPath();
+        ctx.moveTo(prev.x, prev.y);
+        ctx.lineTo(curr.x, curr.y);
+        ctx.stroke();
+      }
+    }
+  }
+
+  function undoSignatureCanvas(fieldId) {
+    const canvasData = state.signatureCanvases.get(fieldId);
+    if (!canvasData || canvasData.strokes.length === 0) return;
+    const stroke = canvasData.strokes.pop();
+    if (stroke) {
+      canvasData.redoStack.push(stroke);
+    }
+    redrawSignatureCanvas(fieldId);
+  }
+
+  function redoSignatureCanvas(fieldId) {
+    const canvasData = state.signatureCanvases.get(fieldId);
+    if (!canvasData || canvasData.redoStack.length === 0) return;
+    const stroke = canvasData.redoStack.pop();
+    if (stroke) {
+      canvasData.strokes.push(stroke);
+    }
+    redrawSignatureCanvas(fieldId);
+  }
+
+  function hasSignatureCanvasContent(fieldId) {
+    const canvasData = state.signatureCanvases.get(fieldId);
+    if (!canvasData) return false;
+    if ((canvasData.baseImageDataUrl || '').trim()) return true;
+    if (canvasData.strokes.length > 0) return true;
+    const { canvas, ctx } = canvasData;
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    return imageData.data.some((val, i) => i % 4 === 3 && val > 0);
   }
 
   function clearSignatureCanvas(fieldId) {
     const canvasData = state.signatureCanvases.get(fieldId);
     if (canvasData) {
-      const { canvas, ctx } = canvasData;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      canvasData.strokes = [];
+      canvasData.redoStack = [];
+      canvasData.baseImage = null;
+      canvasData.baseImageDataUrl = '';
+      redrawSignatureCanvas(fieldId);
+    }
+    const uploadPreviewWrap = document.getElementById('sig-upload-preview-wrap');
+    const uploadPreview = document.getElementById('sig-upload-preview');
+    if (uploadPreviewWrap) {
+      uploadPreviewWrap.classList.add('hidden');
+    }
+    if (uploadPreview) {
+      uploadPreview.removeAttribute('src');
     }
   }
 
@@ -2541,7 +3036,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
         updateA11yFieldProgress();
         renderFieldOverlays();
         updateFieldListItem(fieldId);
-        moveToNextIncomplete();
+        guideToNextRequiredField(fieldId);
 
         // Announce progress to screen readers
         const progress = calculateA11yProgress();
@@ -2560,31 +3055,24 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       announceToScreenReader(`Error saving field: ${error.message}`, 'assertive');
     } finally {
       saveBtn.disabled = false;
-      saveBtn.innerHTML = 'Apply';
+      saveBtn.innerHTML = 'Insert';
     }
   }
 
   async function saveSignatureField(fieldId) {
     const fieldData = state.fieldState.get(fieldId);
     const typeInput = document.getElementById('sig-type-input');
-    const drawPanel = document.getElementById('sig-editor-draw');
+    const activeTab = resolveSignatureTab(fieldId);
+    const usesCanvasMode = activeTab === 'draw' || activeTab === 'upload' || activeTab === 'saved';
 
-    const supportsDraw = fieldData?.type === 'signature' || fieldData?.type === 'initials';
-    const isDrawMode = supportsDraw && drawPanel && !drawPanel.classList.contains('hidden');
-
-    if (isDrawMode) {
+    if (usesCanvasMode) {
       const canvasData = state.signatureCanvases.get(fieldId);
       if (!canvasData) return false;
 
-      const { canvas, ctx } = canvasData;
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const hasContent = imageData.data.some((val, i) => i % 4 === 3 && val > 0);
-
-      if (!hasContent) {
+      if (!hasSignatureCanvasContent(fieldId)) {
         throw new Error(fieldData?.type === 'initials' ? 'Please draw your initials' : 'Please draw your signature');
       }
-
-      const dataUrl = canvas.toDataURL('image/png');
+      const dataUrl = canvasData.canvas.toDataURL('image/png');
       return await saveSignatureArtifact(fieldId, { type: 'drawn', dataUrl }, fieldData?.type === 'initials' ? '[Drawn Initials]' : '[Drawn]');
     } else {
       const value = typeInput?.value?.trim();
@@ -2858,18 +3346,78 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     }
   }
 
-  function moveToNextIncomplete() {
-    for (const [fieldId, fieldData] of state.fieldState) {
-      if (fieldData.required && !fieldData.completed) {
-        // Scroll to field in list
-        const listItem = document.querySelector(`.field-list-item[data-field-id="${fieldId}"]`);
-        listItem?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        return;
-      }
+  function sortedRequiredFields() {
+    const fields = Array.from(state.fieldState.values()).filter((field) => field.required);
+    fields.sort((left, right) => {
+      const leftPage = Number(left.page || 0);
+      const rightPage = Number(right.page || 0);
+      if (leftPage !== rightPage) return leftPage - rightPage;
+      const leftTab = Number(left.tabIndex || 0);
+      const rightTab = Number(right.tabIndex || 0);
+      if (leftTab > 0 && rightTab > 0 && leftTab !== rightTab) return leftTab - rightTab;
+      if ((leftTab > 0) !== (rightTab > 0)) return leftTab > 0 ? -1 : 1;
+      const leftY = Number(left.posY || 0);
+      const rightY = Number(right.posY || 0);
+      if (leftY !== rightY) return leftY - rightY;
+      const leftX = Number(left.posX || 0);
+      const rightX = Number(right.posX || 0);
+      if (leftX !== rightX) return leftX - rightX;
+      return String(left.id || '').localeCompare(String(right.id || ''));
+    });
+    return fields;
+  }
+
+  function highlightGuidedTarget(fieldId) {
+    state.guidedTargetFieldId = fieldId;
+    document.querySelectorAll('.field-list-item').forEach(el => el.classList.remove('guided-next-target'));
+    document.querySelectorAll('.field-overlay').forEach(el => el.classList.remove('guided-next-target'));
+    document.querySelector(`.field-list-item[data-field-id="${fieldId}"]`)?.classList.add('guided-next-target');
+    document.querySelector(`.field-overlay[data-field-id="${fieldId}"]`)?.classList.add('guided-next-target');
+  }
+
+  function guideToNextRequiredField(currentFieldId) {
+    const orderedRequired = sortedRequiredFields();
+    const remaining = orderedRequired.filter((field) => !field.completed);
+    if (remaining.length === 0) {
+      telemetry.track('guided_next_none_remaining', { fromFieldId: currentFieldId });
+      const submitBtn = document.getElementById('submit-btn');
+      submitBtn?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      submitBtn?.focus();
+      announceToScreenReader('All required fields are complete. Review the document and submit when ready.');
+      return;
     }
 
-    // All complete - scroll submit into view
-    document.getElementById('panel-content').scrollTo({ top: document.getElementById('panel-content').scrollHeight, behavior: 'smooth' });
+    const currentIndex = orderedRequired.findIndex((field) => String(field.id) === String(currentFieldId));
+    let nextField = null;
+    if (currentIndex >= 0) {
+      for (let i = currentIndex + 1; i < orderedRequired.length; i++) {
+        if (!orderedRequired[i].completed) {
+          nextField = orderedRequired[i];
+          break;
+        }
+      }
+    }
+    if (!nextField) {
+      nextField = remaining[0];
+    }
+    if (!nextField) return;
+
+    telemetry.track('guided_next_started', { fromFieldId: currentFieldId, toFieldId: nextField.id });
+
+    const nextPage = Number(nextField.page || 1);
+    if (nextPage !== state.currentPage) {
+      goToPage(nextPage);
+    }
+
+    focusField(nextField.id, { openEditor: false });
+    highlightGuidedTarget(nextField.id);
+
+    setTimeout(() => {
+      highlightGuidedTarget(nextField.id);
+      scrollFieldIntoView(nextField.id);
+      telemetry.track('guided_next_completed', { toFieldId: nextField.id, page: nextField.page });
+      announceToScreenReader(`Next required field highlighted on page ${nextField.page}.`);
+    }, 120);
   }
 
   // ============================================
@@ -3493,8 +4041,31 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       hideDeclineModal();
     }
 
+    if (e.target instanceof HTMLElement && e.target.classList.contains('sig-editor-tab')) {
+      const tabs = Array.from(document.querySelectorAll('.sig-editor-tab'));
+      const currentIndex = tabs.indexOf(e.target);
+      if (currentIndex !== -1) {
+        let nextIndex = currentIndex;
+        if (e.key === 'ArrowRight') nextIndex = (currentIndex + 1) % tabs.length;
+        if (e.key === 'ArrowLeft') nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+        if (e.key === 'Home') nextIndex = 0;
+        if (e.key === 'End') nextIndex = tabs.length - 1;
+        if (nextIndex !== currentIndex) {
+          e.preventDefault();
+          const nextTab = tabs[nextIndex];
+          const tabName = nextTab.getAttribute('data-tab') || 'draw';
+          const fieldId = nextTab.getAttribute('data-field-id');
+          if (fieldId) {
+            switchSignatureTab(tabName, fieldId);
+          }
+          nextTab.focus();
+          return;
+        }
+      }
+    }
+
     // Arrow key navigation in field list
-    if (e.target.classList.contains('field-list-item')) {
+    if (e.target instanceof HTMLElement && e.target.classList.contains('field-list-item')) {
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault();
         const currentFieldId = e.target.dataset.fieldId;

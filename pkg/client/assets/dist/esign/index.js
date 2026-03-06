@@ -1,5 +1,5 @@
-import { e as ae } from "../chunks/html-DyksyvcZ.js";
-class tn {
+import { e as V } from "../chunks/html-DyksyvcZ.js";
+class Ln {
   constructor(e) {
     this.basePath = e.basePath, this.apiBasePath = e.apiBasePath || `${e.basePath}/api`, this.defaultHeaders = {
       Accept: "application/json",
@@ -19,27 +19,27 @@ class tn {
     let t = 1;
     const n = 200, i = 25;
     for (; t <= i; ) {
-      const g = await this.listAgreements({ page: t, per_page: n }), h = g.items || g.records || [];
-      if (e.push(...h), h.length === 0 || e.length >= g.total)
+      const f = await this.listAgreements({ page: t, per_page: n }), g = f.items || f.records || [];
+      if (e.push(...g), g.length === 0 || e.length >= f.total)
         break;
       t += 1;
     }
-    const a = {};
-    for (const g of e) {
-      const h = String(g?.status || "").trim().toLowerCase();
-      h && (a[h] = (a[h] || 0) + 1);
+    const o = {};
+    for (const f of e) {
+      const g = String(f?.status || "").trim().toLowerCase();
+      g && (o[g] = (o[g] || 0) + 1);
     }
-    const l = (a.sent || 0) + (a.in_progress || 0), r = l + (a.declined || 0);
+    const d = (o.sent || 0) + (o.in_progress || 0), a = d + (o.declined || 0);
     return {
-      draft: a.draft || 0,
-      sent: a.sent || 0,
-      in_progress: a.in_progress || 0,
-      completed: a.completed || 0,
-      voided: a.voided || 0,
-      declined: a.declined || 0,
-      expired: a.expired || 0,
-      pending: l,
-      action_required: r
+      draft: o.draft || 0,
+      sent: o.sent || 0,
+      in_progress: o.in_progress || 0,
+      completed: o.completed || 0,
+      voided: o.voided || 0,
+      declined: o.declined || 0,
+      expired: o.expired || 0,
+      pending: d,
+      action_required: a
     };
   }
   // Document endpoints
@@ -124,36 +124,36 @@ class tn {
           message: e.statusText
         };
       }
-      throw new nn(t.code, t.message, t.details);
+      throw new An(t.code, t.message, t.details);
     }
     if (e.status !== 204)
       return e.json();
   }
 }
-class nn extends Error {
+class An extends Error {
   constructor(e, t, n) {
     super(t), this.code = e, this.details = n, this.name = "ESignAPIError";
   }
 }
-let Me = null;
-function Wn() {
-  if (!Me)
+let Fe = null;
+function wi() {
+  if (!Fe)
     throw new Error("ESign API client not initialized. Call setESignClient first.");
-  return Me;
+  return Fe;
 }
-function sn(s) {
-  Me = s;
+function kn(s) {
+  Fe = s;
 }
-function rn(s) {
-  const e = new tn(s);
-  return sn(e), e;
+function Pn(s) {
+  const e = new Ln(s);
+  return kn(e), e;
 }
-function ge(s) {
+function fe(s) {
   if (s == null || s === "" || s === 0) return "-";
   const e = typeof s == "string" ? parseInt(s, 10) : s;
   return !Number.isFinite(e) || e <= 0 ? "-" : e < 1024 ? `${e} B` : e < 1024 * 1024 ? `${(e / 1024).toFixed(1)} KB` : `${(e / (1024 * 1024)).toFixed(2)} MB`;
 }
-function Jn(s) {
+function yi(s) {
   if (!s) return "-";
   const e = typeof s == "string" ? parseInt(s, 10) : s;
   return !Number.isFinite(e) || e <= 0 ? "-" : e === 1 ? "1 page" : `${e} pages`;
@@ -172,7 +172,7 @@ function X(s, e) {
     return String(s);
   }
 }
-function Kn(s, e) {
+function bi(s, e) {
   if (!s) return "-";
   try {
     const t = s instanceof Date ? s : new Date(s);
@@ -185,7 +185,7 @@ function Kn(s, e) {
     return String(s);
   }
 }
-function Yn(s, e) {
+function xi(s, e) {
   if (!s) return "-";
   try {
     const t = s instanceof Date ? s : new Date(s);
@@ -199,30 +199,30 @@ function Yn(s, e) {
     return String(s);
   }
 }
-function Qn(s) {
+function Si(s) {
   if (!s) return "-";
   try {
     const e = s instanceof Date ? s : new Date(s);
     if (isNaN(e.getTime())) return "-";
-    const t = /* @__PURE__ */ new Date(), n = e.getTime() - t.getTime(), i = Math.round(n / 1e3), a = Math.round(i / 60), l = Math.round(a / 60), r = Math.round(l / 24), g = new Intl.RelativeTimeFormat(void 0, { numeric: "auto" });
-    return Math.abs(r) >= 1 ? g.format(r, "day") : Math.abs(l) >= 1 ? g.format(l, "hour") : Math.abs(a) >= 1 ? g.format(a, "minute") : g.format(i, "second");
+    const t = /* @__PURE__ */ new Date(), n = e.getTime() - t.getTime(), i = Math.round(n / 1e3), o = Math.round(i / 60), d = Math.round(o / 60), a = Math.round(d / 24), f = new Intl.RelativeTimeFormat(void 0, { numeric: "auto" });
+    return Math.abs(a) >= 1 ? f.format(a, "day") : Math.abs(d) >= 1 ? f.format(d, "hour") : Math.abs(o) >= 1 ? f.format(o, "minute") : f.format(i, "second");
   } catch {
     return String(s);
   }
 }
-function Xn(s) {
+function Ci(s) {
   return s == null ? "0 recipients" : s === 1 ? "1 recipient" : `${s} recipients`;
 }
-function an(s) {
+function Tn(s) {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : "";
 }
-function Zn(s) {
-  return s ? s.split("_").map((e) => an(e)).join(" ") : "";
+function Ei(s) {
+  return s ? s.split("_").map((e) => Tn(e)).join(" ") : "";
 }
-function ei(s, e) {
+function Ii(s, e) {
   return !s || s.length <= e ? s : `${s.slice(0, e - 3)}...`;
 }
-const on = {
+const Mn = {
   draft: {
     label: "Draft",
     bgClass: "bg-gray-100",
@@ -266,44 +266,44 @@ const on = {
     dotClass: "bg-gray-400"
   }
 };
-function rt(s) {
+function xt(s) {
   const e = String(s || "").trim().toLowerCase();
-  return on[e] || {
+  return Mn[e] || {
     label: s || "Unknown",
     bgClass: "bg-gray-100",
     textClass: "text-gray-600",
     dotClass: "bg-gray-400"
   };
 }
-function cn(s, e) {
-  const t = rt(s), n = e?.showDot ?? !1, i = e?.size ?? "sm", a = {
+function Dn(s, e) {
+  const t = xt(s), n = e?.showDot ?? !1, i = e?.size ?? "sm", o = {
     sm: "px-2.5 py-0.5 text-xs",
     md: "px-3 py-1 text-sm",
     lg: "px-4 py-1.5 text-base"
-  }, l = n ? `<span class="w-2 h-2 rounded-full ${t.dotClass} mr-1.5" aria-hidden="true"></span>` : "";
-  return `<span class="inline-flex items-center ${a[i]} rounded-full font-medium ${t.bgClass} ${t.textClass}">${l}${t.label}</span>`;
+  }, d = n ? `<span class="w-2 h-2 rounded-full ${t.dotClass} mr-1.5" aria-hidden="true"></span>` : "";
+  return `<span class="inline-flex items-center ${o[i]} rounded-full font-medium ${t.bgClass} ${t.textClass}">${d}${t.label}</span>`;
 }
-function ti(s, e) {
+function Li(s, e) {
   const t = document.createElement("span");
-  return t.innerHTML = cn(s, e), t.firstElementChild;
+  return t.innerHTML = Dn(s, e), t.firstElementChild;
 }
-function ni(s, e, t) {
-  const n = rt(e), i = t?.size ?? "sm", a = {
+function Ai(s, e, t) {
+  const n = xt(e), i = t?.size ?? "sm", o = {
     sm: "px-2.5 py-0.5 text-xs",
     md: "px-3 py-1 text-sm",
     lg: "px-4 py-1.5 text-base"
   };
-  if (s.className = "", s.className = `inline-flex items-center ${a[i]} rounded-full font-medium ${n.bgClass} ${n.textClass}`, t?.showDot ?? !1) {
-    const g = s.querySelector(".rounded-full");
-    if (g)
-      g.className = `w-2 h-2 rounded-full ${n.dotClass} mr-1.5`;
+  if (s.className = "", s.className = `inline-flex items-center ${o[i]} rounded-full font-medium ${n.bgClass} ${n.textClass}`, t?.showDot ?? !1) {
+    const f = s.querySelector(".rounded-full");
+    if (f)
+      f.className = `w-2 h-2 rounded-full ${n.dotClass} mr-1.5`;
     else {
-      const h = document.createElement("span");
-      h.className = `w-2 h-2 rounded-full ${n.dotClass} mr-1.5`, h.setAttribute("aria-hidden", "true"), s.prepend(h);
+      const g = document.createElement("span");
+      g.className = `w-2 h-2 rounded-full ${n.dotClass} mr-1.5`, g.setAttribute("aria-hidden", "true"), s.prepend(g);
     }
   }
-  const r = s.childNodes[s.childNodes.length - 1];
-  r && r.nodeType === Node.TEXT_NODE ? r.textContent = n.label : s.appendChild(document.createTextNode(n.label));
+  const a = s.childNodes[s.childNodes.length - 1];
+  a && a.nodeType === Node.TEXT_NODE ? a.textContent = n.label : s.appendChild(document.createTextNode(n.label));
 }
 function c(s, e = document) {
   try {
@@ -319,54 +319,54 @@ function W(s, e = document) {
     return [];
   }
 }
-function ii(s) {
+function ki(s) {
   return document.getElementById(s);
 }
-function ln(s, e, t) {
+function $n(s, e, t) {
   const n = document.createElement(s);
   if (e)
-    for (const [i, a] of Object.entries(e))
-      a !== void 0 && n.setAttribute(i, a);
+    for (const [i, o] of Object.entries(e))
+      o !== void 0 && n.setAttribute(i, o);
   if (t)
     for (const i of t)
       typeof i == "string" ? n.appendChild(document.createTextNode(i)) : n.appendChild(i);
   return n;
 }
-function si(s, e, t, n) {
+function Pi(s, e, t, n) {
   return s.addEventListener(e, t, n), () => s.removeEventListener(e, t, n);
 }
-function ri(s, e, t, n, i) {
-  const a = (l) => {
-    const r = l.target.closest(e);
-    r && s.contains(r) && n.call(r, l, r);
+function Ti(s, e, t, n, i) {
+  const o = (d) => {
+    const a = d.target.closest(e);
+    a && s.contains(a) && n.call(a, d, a);
   };
-  return s.addEventListener(t, a, i), () => s.removeEventListener(t, a, i);
+  return s.addEventListener(t, o, i), () => s.removeEventListener(t, o, i);
 }
-function k(s) {
+function M(s) {
   document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", s, { once: !0 }) : s();
 }
 function x(s) {
   s && (s.classList.remove("hidden", "invisible"), s.style.display = "");
 }
-function f(s) {
+function w(s) {
   s && s.classList.add("hidden");
 }
-function ai(s, e) {
+function Mi(s, e) {
   if (!s) return;
-  e ?? s.classList.contains("hidden") ? x(s) : f(s);
+  e ?? s.classList.contains("hidden") ? x(s) : w(s);
 }
-function oi(s, e, t) {
+function Di(s, e, t) {
   s && (e ? (s.setAttribute("aria-busy", "true"), s.classList.add("opacity-50", "pointer-events-none"), (s instanceof HTMLButtonElement || s instanceof HTMLInputElement) && (s.disabled = !0)) : (s.removeAttribute("aria-busy"), s.classList.remove("opacity-50", "pointer-events-none"), (s instanceof HTMLButtonElement || s instanceof HTMLInputElement) && (s.disabled = !1)));
 }
-function oe(s, e, t = document) {
+function ce(s, e, t = document) {
   const n = c(`[data-esign-${s}]`, t);
   n && (n.textContent = String(e));
 }
-function ci(s, e = document) {
+function $i(s, e = document) {
   for (const [t, n] of Object.entries(s))
-    oe(t, n, e);
+    ce(t, n, e);
 }
-function dn(s = "[data-esign-page]", e = "data-esign-config") {
+function Bn(s = "[data-esign-page]", e = "data-esign-config") {
   const t = c(s);
   if (!t) return null;
   const n = t.getAttribute(e);
@@ -390,7 +390,7 @@ function dn(s = "[data-esign-page]", e = "data-esign-config") {
 }
 function H(s, e = "polite") {
   const t = c(`[aria-live="${e}"]`) || (() => {
-    const n = ln("div", {
+    const n = $n("div", {
       "aria-live": e,
       "aria-atomic": "true",
       class: "sr-only"
@@ -401,70 +401,70 @@ function H(s, e = "polite") {
     t.textContent = s;
   });
 }
-async function li(s) {
+async function Bi(s) {
   const {
     fn: e,
     until: t,
     interval: n = 2e3,
     timeout: i = 6e4,
-    maxAttempts: a = 30,
-    onProgress: l,
-    signal: r
-  } = s, g = Date.now();
-  let h = 0, v;
-  for (; h < a; ) {
-    if (r?.aborted)
+    maxAttempts: o = 30,
+    onProgress: d,
+    signal: a
+  } = s, f = Date.now();
+  let g = 0, y;
+  for (; g < o; ) {
+    if (a?.aborted)
       throw new DOMException("Polling aborted", "AbortError");
-    if (Date.now() - g >= i)
+    if (Date.now() - f >= i)
       return {
-        result: v,
-        attempts: h,
+        result: y,
+        attempts: g,
         stopped: !1,
         timedOut: !0
       };
-    if (h++, v = await e(), l && l(v, h), t(v))
+    if (g++, y = await e(), d && d(y, g), t(y))
       return {
-        result: v,
-        attempts: h,
+        result: y,
+        attempts: g,
         stopped: !0,
         timedOut: !1
       };
-    await at(n, r);
+    await St(n, a);
   }
   return {
-    result: v,
-    attempts: h,
+    result: y,
+    attempts: g,
     stopped: !1,
     timedOut: !1
   };
 }
-async function di(s) {
+async function _i(s) {
   const {
     fn: e,
     maxAttempts: t = 3,
     baseDelay: n = 1e3,
     maxDelay: i = 3e4,
-    exponentialBackoff: a = !0,
-    shouldRetry: l = () => !0,
-    onRetry: r,
-    signal: g
+    exponentialBackoff: o = !0,
+    shouldRetry: d = () => !0,
+    onRetry: a,
+    signal: f
   } = s;
-  let h;
-  for (let v = 1; v <= t; v++) {
-    if (g?.aborted)
+  let g;
+  for (let y = 1; y <= t; y++) {
+    if (f?.aborted)
       throw new DOMException("Retry aborted", "AbortError");
     try {
       return await e();
-    } catch (w) {
-      if (h = w, v >= t || !l(w, v))
-        throw w;
-      const E = a ? Math.min(n * Math.pow(2, v - 1), i) : n;
-      r && r(w, v, E), await at(E, g);
+    } catch (b) {
+      if (g = b, y >= t || !d(b, y))
+        throw b;
+      const I = o ? Math.min(n * Math.pow(2, y - 1), i) : n;
+      a && a(b, y, I), await St(I, f);
     }
   }
-  throw h;
+  throw g;
 }
-function at(s, e) {
+function St(s, e) {
   return new Promise((t, n) => {
     if (e?.aborted) {
       n(new DOMException("Sleep aborted", "AbortError"));
@@ -472,10 +472,10 @@ function at(s, e) {
     }
     const i = setTimeout(t, s);
     if (e) {
-      const a = () => {
+      const o = () => {
         clearTimeout(i), n(new DOMException("Sleep aborted", "AbortError"));
       };
-      e.addEventListener("abort", a, { once: !0 });
+      e.addEventListener("abort", o, { once: !0 });
     }
   });
 }
@@ -487,30 +487,30 @@ function re(s, e) {
     }, e);
   };
 }
-function ui(s, e) {
+function Fi(s, e) {
   let t = 0, n = null;
   return (...i) => {
-    const a = Date.now();
-    a - t >= e ? (t = a, s(...i)) : n || (n = setTimeout(
+    const o = Date.now();
+    o - t >= e ? (t = o, s(...i)) : n || (n = setTimeout(
       () => {
         t = Date.now(), n = null, s(...i);
       },
-      e - (a - t)
+      e - (o - t)
     ));
   };
 }
-function hi(s) {
+function Ri(s) {
   const e = new AbortController(), t = setTimeout(() => e.abort(), s);
   return {
     controller: e,
     cleanup: () => clearTimeout(t)
   };
 }
-async function pi(s, e, t = "Operation timed out") {
+async function Hi(s, e, t = "Operation timed out") {
   let n;
-  const i = new Promise((a, l) => {
+  const i = new Promise((o, d) => {
     n = setTimeout(() => {
-      l(new Error(t));
+      d(new Error(t));
     }, e);
   });
   try {
@@ -519,9 +519,9 @@ async function pi(s, e, t = "Operation timed out") {
     clearTimeout(n);
   }
 }
-class _e {
+class Oe {
   constructor(e) {
-    this.config = e, this.client = rn({
+    this.config = e, this.client = Pn({
       basePath: e.basePath,
       apiBasePath: e.apiBasePath
     });
@@ -541,7 +541,7 @@ class _e {
    */
   async loadStats() {
     const e = await this.client.getAgreementStats();
-    oe('count="draft"', e.draft), oe('count="pending"', e.pending), oe('count="completed"', e.completed), oe('count="action_required"', e.action_required), this.updateStatElement("draft", e.draft), this.updateStatElement("pending", e.pending), this.updateStatElement("completed", e.completed), this.updateStatElement("action_required", e.action_required);
+    ce('count="draft"', e.draft), ce('count="pending"', e.pending), ce('count="completed"', e.completed), ce('count="action_required"', e.action_required), this.updateStatElement("draft", e.draft), this.updateStatElement("pending", e.pending), this.updateStatElement("completed", e.completed), this.updateStatElement("action_required", e.action_required);
   }
   /**
    * Update a stat element by key
@@ -551,23 +551,23 @@ class _e {
     n && (n.textContent = String(t));
   }
 }
-function gi(s) {
-  const e = s || dn(
+function ji(s) {
+  const e = s || Bn(
     '[data-esign-page="admin.landing"], [data-esign-page="landing"]'
   );
   if (!e)
     throw new Error('Landing page config not found. Add data-esign-page="landing" with config.');
-  const t = new _e(e);
-  return k(() => t.init()), t;
+  const t = new Oe(e);
+  return M(() => t.init()), t;
 }
-function mi(s, e) {
+function Oi(s, e) {
   const t = {
     basePath: s,
     apiBasePath: e || `${s}/api`
-  }, n = new _e(t);
-  k(() => n.init());
+  }, n = new Oe(t);
+  M(() => n.init());
 }
-typeof document < "u" && k(() => {
+typeof document < "u" && M(() => {
   const s = document.querySelector(
     '[data-esign-page="admin.landing"], [data-esign-page="landing"]'
   );
@@ -588,14 +588,14 @@ typeof document < "u" && k(() => {
       return null;
     })();
     if (n) {
-      const i = String(n.basePath || n.base_path || "/admin"), a = String(
+      const i = String(n.basePath || n.base_path || "/admin"), o = String(
         n.apiBasePath || n.api_base_path || `${i}/api`
       );
-      new _e({ basePath: i, apiBasePath: a }).init();
+      new Oe({ basePath: i, apiBasePath: o }).init();
     }
   }
 });
-class ot {
+class Ct {
   constructor(e) {
     this.state = {
       loaded: !1,
@@ -661,7 +661,7 @@ class ot {
   showArtifactState(e) {
     ["loading", "processing", "available", "unavailable", "fallback"].forEach((n) => {
       const i = c(`#artifacts-${n}`);
-      i && (n === e ? x(i) : f(i));
+      i && (n === e ? x(i) : w(i));
     });
   }
   /**
@@ -688,36 +688,36 @@ class ot {
     return { ...this.state };
   }
 }
-function fi(s) {
-  const e = new ot(s);
-  return k(() => e.init()), e;
+function zi(s) {
+  const e = new Ct(s);
+  return M(() => e.init()), e;
 }
-function vi(s) {
-  const e = new ot(s);
-  k(() => e.init()), typeof window < "u" && (window.esignCompletionController = e, window.loadArtifacts = () => e.loadArtifacts());
+function Ui(s) {
+  const e = new Ct(s);
+  M(() => e.init()), typeof window < "u" && (window.esignCompletionController = e, window.loadArtifacts = () => e.loadArtifacts());
 }
-function un(s = document) {
+function _n(s = document) {
   W("[data-size-bytes]", s).forEach((e) => {
     const t = e.getAttribute("data-size-bytes");
-    t && (e.textContent = ge(t));
+    t && (e.textContent = fe(t));
   });
 }
-function hn(s = document) {
+function Fn(s = document) {
   W("[data-timestamp]", s).forEach((e) => {
     const t = e.getAttribute("data-timestamp");
     t && (e.textContent = X(t));
   });
 }
-function pn(s = document) {
-  un(s), hn(s);
+function Rn(s = document) {
+  _n(s), Fn(s);
 }
-function gn() {
-  k(() => {
-    pn();
+function Hn() {
+  M(() => {
+    Rn();
   });
 }
-typeof document < "u" && gn();
-const Qe = {
+typeof document < "u" && Hn();
+const pt = {
   access_denied: "You denied access to your Google account.",
   invalid_request: "The authorization request was invalid.",
   unauthorized_client: "This application is not authorized.",
@@ -727,7 +727,7 @@ const Qe = {
   temporarily_unavailable: "Google is temporarily unavailable. Please try again.",
   unknown: "Authorization failed."
 };
-class ct {
+class Et {
   constructor(e) {
     this.config = e, this.elements = {
       loadingState: c("#loading-state"),
@@ -755,8 +755,8 @@ class ct {
    * Process the OAuth callback parameters
    */
   processCallback() {
-    const e = new URLSearchParams(window.location.search), t = e.get("code"), n = e.get("error"), i = e.get("error_description"), a = e.get("state"), l = this.parseOAuthState(a);
-    l.account_id || (l.account_id = (e.get("account_id") || "").trim()), n ? this.handleError(n, i, l) : t ? this.handleSuccess(t, l) : this.handleError("unknown", "No authorization code was received from Google.", l);
+    const e = new URLSearchParams(window.location.search), t = e.get("code"), n = e.get("error"), i = e.get("error_description"), o = e.get("state"), d = this.parseOAuthState(o);
+    d.account_id || (d.account_id = (e.get("account_id") || "").trim()), n ? this.handleError(n, i, d) : t ? this.handleSuccess(t, d) : this.handleError("unknown", "No authorization code was received from Google.", d);
   }
   /**
    * Parse OAuth state parameter
@@ -781,7 +781,7 @@ class ct {
    */
   showState(e) {
     const { loadingState: t, successState: n, errorState: i } = this.elements;
-    switch (f(t), f(n), f(i), e) {
+    switch (w(t), w(n), w(i), e) {
       case "loading":
         x(t);
         break;
@@ -804,8 +804,8 @@ class ct {
    */
   handleError(e, t, n) {
     this.showState("error");
-    const { errorMessage: i, errorDetail: a, closeBtn: l } = this.elements;
-    i && (i.textContent = Qe[e] || Qe.unknown), t && a && (a.textContent = t, x(a)), this.sendToOpener({
+    const { errorMessage: i, errorDetail: o, closeBtn: d } = this.elements;
+    i && (i.textContent = pt[e] || pt.unknown), t && o && (o.textContent = t, x(o)), this.sendToOpener({
       type: "google_oauth_callback",
       error: e,
       error_description: t || void 0,
@@ -838,26 +838,26 @@ class ct {
     if (window.opener)
       window.close();
     else {
-      const e = this.config.basePath || "/admin", t = this.config.fallbackRedirectPath || `${e}/esign/integrations/google`, n = new URL(t, window.location.origin), i = new URLSearchParams(window.location.search), a = i.get("state"), r = this.parseOAuthState(a).account_id || i.get("account_id");
-      r && n.searchParams.set("account_id", r), window.location.href = n.toString();
+      const e = this.config.basePath || "/admin", t = this.config.fallbackRedirectPath || `${e}/esign/integrations/google`, n = new URL(t, window.location.origin), i = new URLSearchParams(window.location.search), o = i.get("state"), a = this.parseOAuthState(o).account_id || i.get("account_id");
+      a && n.searchParams.set("account_id", a), window.location.href = n.toString();
     }
   }
 }
-function wi(s) {
+function Ni(s) {
   const e = s || {
     basePath: "/admin",
     apiBasePath: "/admin/api"
-  }, t = new ct(e);
-  return k(() => t.init()), t;
+  }, t = new Et(e);
+  return M(() => t.init()), t;
 }
-function yi(s) {
+function qi(s) {
   const e = {
     basePath: s,
     apiBasePath: `${s}/api`
-  }, t = new ct(e);
-  k(() => t.init());
+  }, t = new Et(e);
+  M(() => t.init());
 }
-const Ee = "esign.google.account_id", mn = {
+const Te = "esign.google.account_id", jn = {
   "https://www.googleapis.com/auth/drive.readonly": {
     label: "Drive (Read Only)",
     description: "View files in your Google Drive"
@@ -887,7 +887,7 @@ const Ee = "esign.google.account_id", mn = {
     description: "Access files opened with this app"
   }
 };
-class lt {
+class It {
   constructor(e) {
     this.accounts = [], this.oauthWindow = null, this.oauthTimeout = null, this.pendingOAuthAccountId = null, this.pendingDisconnectAccountId = null, this.messageHandler = null, this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api`, this.currentAccountId = this.resolveInitialAccountId(), this.elements = {
       loadingState: c("#loading-state"),
@@ -943,32 +943,32 @@ class lt {
       disconnectBtn: t,
       refreshBtn: n,
       retryBtn: i,
-      reauthBtn: a,
-      oauthCancelBtn: l,
-      disconnectCancelBtn: r,
-      disconnectConfirmBtn: g,
-      accountIdInput: h,
-      oauthModal: v,
-      disconnectModal: w
+      reauthBtn: o,
+      oauthCancelBtn: d,
+      disconnectCancelBtn: a,
+      disconnectConfirmBtn: f,
+      accountIdInput: g,
+      oauthModal: y,
+      disconnectModal: b
     } = this.elements;
-    e && e.addEventListener("click", () => this.startOAuthFlow()), a && a.addEventListener("click", () => this.startOAuthFlow()), t && t.addEventListener("click", () => {
-      this.pendingDisconnectAccountId = this.currentAccountId, w && x(w);
-    }), r && r.addEventListener("click", () => {
-      this.pendingDisconnectAccountId = null, w && f(w);
-    }), g && g.addEventListener("click", () => this.disconnect()), l && l.addEventListener("click", () => this.cancelOAuthFlow()), n && n.addEventListener("click", () => this.checkStatus()), i && i.addEventListener("click", () => this.checkStatus()), h && (h.addEventListener("change", () => {
-      this.setCurrentAccountId(h.value, !0);
-    }), h.addEventListener("keydown", (C) => {
-      C.key === "Enter" && (C.preventDefault(), this.setCurrentAccountId(h.value, !0));
+    e && e.addEventListener("click", () => this.startOAuthFlow()), o && o.addEventListener("click", () => this.startOAuthFlow()), t && t.addEventListener("click", () => {
+      this.pendingDisconnectAccountId = this.currentAccountId, b && x(b);
+    }), a && a.addEventListener("click", () => {
+      this.pendingDisconnectAccountId = null, b && w(b);
+    }), f && f.addEventListener("click", () => this.disconnect()), d && d.addEventListener("click", () => this.cancelOAuthFlow()), n && n.addEventListener("click", () => this.checkStatus()), i && i.addEventListener("click", () => this.checkStatus()), g && (g.addEventListener("change", () => {
+      this.setCurrentAccountId(g.value, !0);
+    }), g.addEventListener("keydown", (E) => {
+      E.key === "Enter" && (E.preventDefault(), this.setCurrentAccountId(g.value, !0));
     }));
-    const { accountDropdown: E, connectFirstBtn: S } = this.elements;
-    E && E.addEventListener("change", () => {
-      E.value === "__new__" ? (E.value = this.currentAccountId, this.startOAuthFlowForNewAccount()) : this.setCurrentAccountId(E.value, !0);
-    }), S && S.addEventListener("click", () => this.startOAuthFlowForNewAccount()), document.addEventListener("keydown", (C) => {
-      C.key === "Escape" && (v && !v.classList.contains("hidden") && this.cancelOAuthFlow(), w && !w.classList.contains("hidden") && (this.pendingDisconnectAccountId = null, f(w)));
-    }), [v, w].forEach((C) => {
-      C && C.addEventListener("click", (P) => {
-        const L = P.target;
-        (L === C || L.getAttribute("aria-hidden") === "true") && (f(C), C === v ? this.cancelOAuthFlow() : C === w && (this.pendingDisconnectAccountId = null));
+    const { accountDropdown: I, connectFirstBtn: C } = this.elements;
+    I && I.addEventListener("change", () => {
+      I.value === "__new__" ? (I.value = this.currentAccountId, this.startOAuthFlowForNewAccount()) : this.setCurrentAccountId(I.value, !0);
+    }), C && C.addEventListener("click", () => this.startOAuthFlowForNewAccount()), document.addEventListener("keydown", (E) => {
+      E.key === "Escape" && (y && !y.classList.contains("hidden") && this.cancelOAuthFlow(), b && !b.classList.contains("hidden") && (this.pendingDisconnectAccountId = null, w(b)));
+    }), [y, b].forEach((E) => {
+      E && E.addEventListener("click", (T) => {
+        const P = T.target;
+        (P === E || P.getAttribute("aria-hidden") === "true") && (w(E), E === y ? this.cancelOAuthFlow() : E === b && (this.pendingDisconnectAccountId = null));
       });
     });
   }
@@ -984,7 +984,7 @@ class lt {
       return n;
     try {
       return this.normalizeAccountId(
-        window.localStorage.getItem(Ee)
+        window.localStorage.getItem(Te)
       );
     } catch {
       return "";
@@ -1044,7 +1044,7 @@ class lt {
    */
   persistAccountId() {
     try {
-      this.currentAccountId ? window.localStorage.setItem(Ee, this.currentAccountId) : window.localStorage.removeItem(Ee);
+      this.currentAccountId ? window.localStorage.setItem(Te, this.currentAccountId) : window.localStorage.removeItem(Te);
     } catch {
     }
   }
@@ -1090,8 +1090,8 @@ class lt {
    * Show a specific state and hide others
    */
   showState(e) {
-    const { loadingState: t, disconnectedState: n, connectedState: i, errorState: a } = this.elements;
-    switch (f(t), f(n), f(i), f(a), e) {
+    const { loadingState: t, disconnectedState: n, connectedState: i, errorState: o } = this.elements;
+    switch (w(t), w(n), w(i), w(o), e) {
       case "loading":
         x(t);
         break;
@@ -1102,7 +1102,7 @@ class lt {
         x(i);
         break;
       case "error":
-        x(a);
+        x(o);
         break;
     }
   }
@@ -1157,13 +1157,13 @@ class lt {
           this.showState("disconnected"), this.updateStatusBadge(!1), this.announce("Google Drive is not connected");
           return;
         }
-        let a = `Failed to check status: ${e.status}`;
+        let o = `Failed to check status: ${e.status}`;
         try {
-          const l = await e.json();
-          l?.error?.message && (a = l.error.message);
+          const d = await e.json();
+          d?.error?.message && (o = d.error.message);
         } catch {
         }
-        throw new Error(a);
+        throw new Error(o);
       }
       const t = await e.json(), n = this.normalizeIntegrationPayload(t.integration || {});
       !this.currentAccountId && n.account_id && (this.currentAccountId = n.account_id, this.updateAccountScopeUI());
@@ -1183,54 +1183,54 @@ class lt {
    * Normalize integration payload from API (handles both camelCase and snake_case)
    */
   normalizeIntegrationPayload(e) {
-    const t = (P, L) => {
-      for (const M of P)
-        if (Object.prototype.hasOwnProperty.call(e, M) && e[M] !== void 0 && e[M] !== null)
-          return e[M];
-      return L;
-    }, n = t(["expires_at", "ExpiresAt"], ""), i = t(["scopes", "Scopes"], []), a = this.normalizeAccountId(
+    const t = (T, P) => {
+      for (const $ of T)
+        if (Object.prototype.hasOwnProperty.call(e, $) && e[$] !== void 0 && e[$] !== null)
+          return e[$];
+      return P;
+    }, n = t(["expires_at", "ExpiresAt"], ""), i = t(["scopes", "Scopes"], []), o = this.normalizeAccountId(
       t(["account_id", "AccountID"], "")
-    ), l = t(["connected", "Connected"], !1), r = t(["degraded", "Degraded"], !1), g = t(["degraded_reason", "DegradedReason"], ""), h = t(
+    ), d = t(["connected", "Connected"], !1), a = t(["degraded", "Degraded"], !1), f = t(["degraded_reason", "DegradedReason"], ""), g = t(
       ["email", "user_email", "account_email", "AccountEmail"],
       ""
-    ), v = t(
+    ), y = t(
       ["can_auto_refresh", "CanAutoRefresh"],
       !1
-    ), w = t(
+    ), b = t(
       ["needs_reauthorization", "NeedsReauthorization", "NeedsReauth"],
       void 0
     );
-    let E = t(["is_expired", "IsExpired"], void 0), S = t(
+    let I = t(["is_expired", "IsExpired"], void 0), C = t(
       ["is_expiring_soon", "IsExpiringSoon"],
       void 0
     );
-    if ((typeof E != "boolean" || typeof S != "boolean") && n) {
-      const P = new Date(n);
-      if (!Number.isNaN(P.getTime())) {
-        const L = P.getTime() - Date.now(), M = 5 * 60 * 1e3;
-        E = L <= 0, S = L > 0 && L <= M;
+    if ((typeof I != "boolean" || typeof C != "boolean") && n) {
+      const T = new Date(n);
+      if (!Number.isNaN(T.getTime())) {
+        const P = T.getTime() - Date.now(), $ = 5 * 60 * 1e3;
+        I = P <= 0, C = P > 0 && P <= $;
       }
     }
-    const C = typeof w == "boolean" ? w : (E === !0 || S === !0) && !v;
+    const E = typeof b == "boolean" ? b : (I === !0 || C === !0) && !y;
     return {
-      connected: l,
-      account_id: a,
-      email: h,
+      connected: d,
+      account_id: o,
+      email: g,
       scopes: Array.isArray(i) ? i : [],
       expires_at: n,
-      is_expired: E === !0,
-      is_expiring_soon: S === !0,
-      can_auto_refresh: v,
-      needs_reauthorization: C,
-      degraded: r,
-      degraded_reason: g
+      is_expired: I === !0,
+      is_expiring_soon: C === !0,
+      can_auto_refresh: y,
+      needs_reauthorization: E,
+      degraded: a,
+      degraded_reason: f
     };
   }
   /**
    * Render connected state details
    */
   renderConnectedState(e) {
-    const { connectedEmail: t, connectedAccountId: n, scopesList: i, expiryInfo: a, reauthWarning: l, reauthReason: r } = this.elements;
+    const { connectedEmail: t, connectedAccountId: n, scopesList: i, expiryInfo: o, reauthWarning: d, reauthReason: a } = this.elements;
     t && (t.textContent = e.email || "Connected"), n && (n.textContent = e.account_id || this.currentAccountId ? `Account ID: ${e.account_id || this.currentAccountId}` : "Account ID: default"), this.renderScopes(e.scopes || []), this.renderExpiry(
       e.expires_at,
       e.is_expired,
@@ -1250,7 +1250,7 @@ class lt {
         return;
       }
       t.innerHTML = e.map((n) => {
-        const i = mn[n] || { label: n, description: "" };
+        const i = jn[n] || { label: n, description: "" };
         return `
         <li class="flex items-start gap-2">
           <svg class="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1268,25 +1268,25 @@ class lt {
   /**
    * Render token expiry information
    */
-  renderExpiry(e, t, n, i, a) {
-    const { expiryInfo: l, reauthWarning: r, reauthReason: g } = this.elements;
-    if (!l) return;
-    if (l.classList.remove("text-red-600", "text-amber-600"), l.classList.add("text-gray-500"), !e) {
-      l.textContent = "Access token status unknown", r && f(r);
+  renderExpiry(e, t, n, i, o) {
+    const { expiryInfo: d, reauthWarning: a, reauthReason: f } = this.elements;
+    if (!d) return;
+    if (d.classList.remove("text-red-600", "text-amber-600"), d.classList.add("text-gray-500"), !e) {
+      d.textContent = "Access token status unknown", a && w(a);
       return;
     }
-    const h = new Date(e), v = /* @__PURE__ */ new Date(), w = Math.max(
+    const g = new Date(e), y = /* @__PURE__ */ new Date(), b = Math.max(
       1,
-      Math.round((h.getTime() - v.getTime()) / (1e3 * 60))
+      Math.round((g.getTime() - y.getTime()) / (1e3 * 60))
     );
-    t ? i ? (l.textContent = "Access token expired, but refresh is available and will be applied automatically.", l.classList.remove("text-gray-500"), l.classList.add("text-amber-600"), r && f(r)) : (l.textContent = "Access token has expired. Please re-authorize.", l.classList.remove("text-gray-500"), l.classList.add("text-red-600"), r && x(r), g && (g.textContent = "Your access token has expired and cannot be refreshed automatically. Re-authorize to continue using Google Drive import.")) : n ? (l.classList.remove("text-gray-500"), l.classList.add("text-amber-600"), i ? (l.textContent = `Token expires in approximately ${w} minute${w !== 1 ? "s" : ""}. Refresh is available automatically.`, r && f(r)) : (l.textContent = `Token expires in approximately ${w} minute${w !== 1 ? "s" : ""}`, r && x(r), g && (g.textContent = `Your access token will expire in ${w} minute${w !== 1 ? "s" : ""} and cannot be refreshed automatically. Re-authorize now to avoid interruption.`))) : (l.textContent = `Token valid until ${h.toLocaleDateString()} ${h.toLocaleTimeString()}`, r && f(r)), !a && r && f(r);
+    t ? i ? (d.textContent = "Access token expired, but refresh is available and will be applied automatically.", d.classList.remove("text-gray-500"), d.classList.add("text-amber-600"), a && w(a)) : (d.textContent = "Access token has expired. Please re-authorize.", d.classList.remove("text-gray-500"), d.classList.add("text-red-600"), a && x(a), f && (f.textContent = "Your access token has expired and cannot be refreshed automatically. Re-authorize to continue using Google Drive import.")) : n ? (d.classList.remove("text-gray-500"), d.classList.add("text-amber-600"), i ? (d.textContent = `Token expires in approximately ${b} minute${b !== 1 ? "s" : ""}. Refresh is available automatically.`, a && w(a)) : (d.textContent = `Token expires in approximately ${b} minute${b !== 1 ? "s" : ""}`, a && x(a), f && (f.textContent = `Your access token will expire in ${b} minute${b !== 1 ? "s" : ""} and cannot be refreshed automatically. Re-authorize now to avoid interruption.`))) : (d.textContent = `Token valid until ${g.toLocaleDateString()} ${g.toLocaleTimeString()}`, a && w(a)), !o && a && w(a);
   }
   /**
    * Render degraded provider state
    */
   renderDegradedState(e, t) {
     const { degradedWarning: n, degradedReason: i } = this.elements;
-    n && (e ? (x(n), i && (i.textContent = t || "Google API health checks are failing. Import actions may be unavailable until provider recovery.")) : f(n));
+    n && (e ? (x(n), i && (i.textContent = t || "Google API health checks are failing. Import actions may be unavailable until provider recovery.")) : w(n));
   }
   // Account Management Methods
   /**
@@ -1318,19 +1318,19 @@ class lt {
     const t = document.createElement("option");
     t.value = "", t.textContent = "Default Account", this.currentAccountId || (t.selected = !0), e.appendChild(t);
     const n = /* @__PURE__ */ new Set([""]);
-    for (const a of this.accounts) {
-      const l = this.normalizeAccountId(a.account_id);
-      if (n.has(l))
+    for (const o of this.accounts) {
+      const d = this.normalizeAccountId(o.account_id);
+      if (n.has(d))
         continue;
-      n.add(l);
-      const r = document.createElement("option");
-      r.value = l;
-      const g = a.email || l || "Default", h = a.status !== "connected" ? ` (${a.status})` : "";
-      r.textContent = `${g}${h}`, l === this.currentAccountId && (r.selected = !0), e.appendChild(r);
+      n.add(d);
+      const a = document.createElement("option");
+      a.value = d;
+      const f = o.email || d || "Default", g = o.status !== "connected" ? ` (${o.status})` : "";
+      a.textContent = `${f}${g}`, d === this.currentAccountId && (a.selected = !0), e.appendChild(a);
     }
     if (this.currentAccountId && !n.has(this.currentAccountId)) {
-      const a = document.createElement("option");
-      a.value = this.currentAccountId, a.textContent = `${this.currentAccountId} (new)`, a.selected = !0, e.appendChild(a);
+      const o = document.createElement("option");
+      o.value = this.currentAccountId, o.textContent = `${this.currentAccountId} (new)`, o.selected = !0, e.appendChild(o);
     }
     const i = document.createElement("option");
     i.value = "__new__", i.textContent = "+ Connect New Account...", e.appendChild(i);
@@ -1340,11 +1340,11 @@ class lt {
    */
   renderAccountsGrid() {
     const { accountsLoading: e, accountsEmpty: t, accountsGrid: n } = this.elements;
-    if (e && f(e), this.accounts.length === 0) {
-      t && x(t), n && f(n);
+    if (e && w(e), this.accounts.length === 0) {
+      t && x(t), n && w(n);
       return;
     }
-    t && f(t), n && (x(n), n.innerHTML = this.accounts.map((i) => this.renderAccountCard(i)).join("") + this.renderConnectNewCard(), this.attachCardEventListeners());
+    t && w(t), n && (x(n), n.innerHTML = this.accounts.map((i) => this.renderAccountCard(i)).join("") + this.renderConnectNewCard(), this.attachCardEventListeners());
   }
   /**
    * Render a single account card
@@ -1360,14 +1360,14 @@ class lt {
       expired: "bg-red-100 text-red-700",
       needs_reauth: "bg-amber-100 text-amber-700",
       degraded: "bg-gray-100 text-gray-700"
-    }, a = {
+    }, o = {
       connected: "Connected",
       expired: "Expired",
       needs_reauth: "Re-auth needed",
       degraded: "Degraded"
-    }, l = t ? "ring-2 ring-blue-500" : "", r = n[e.status] || "bg-white border-gray-200", g = i[e.status] || "bg-gray-100 text-gray-700", h = a[e.status] || e.status, v = e.account_id || "default", w = e.email || (e.account_id ? e.account_id : "Default account");
+    }, d = t ? "ring-2 ring-blue-500" : "", a = n[e.status] || "bg-white border-gray-200", f = i[e.status] || "bg-gray-100 text-gray-700", g = o[e.status] || e.status, y = e.account_id || "default", b = e.email || (e.account_id ? e.account_id : "Default account");
     return `
-      <div class="account-card ${r} ${l} border rounded-xl p-4 relative" data-account-id="${this.escapeHtml(e.account_id)}">
+      <div class="account-card ${a} ${d} border rounded-xl p-4 relative" data-account-id="${this.escapeHtml(e.account_id)}">
         ${t ? '<span class="absolute top-2 right-2 text-xs font-medium text-blue-600">Active</span>' : ""}
         <div class="flex items-start gap-3">
           <div class="w-10 h-10 rounded-full ${e.status === "connected" ? "bg-green-100" : "bg-gray-100"} flex items-center justify-center">
@@ -1379,10 +1379,10 @@ class lt {
     </svg>
           </div>
           <div class="flex-1 min-w-0">
-            <p class="text-sm font-medium text-gray-900 truncate">${this.escapeHtml(w)}</p>
-            <p class="text-xs text-gray-500">Account: ${this.escapeHtml(v)}</p>
-            <span class="inline-flex items-center mt-2 px-2 py-0.5 rounded text-xs font-medium ${g}">
-              ${h}
+            <p class="text-sm font-medium text-gray-900 truncate">${this.escapeHtml(b)}</p>
+            <p class="text-xs text-gray-500">Account: ${this.escapeHtml(y)}</p>
+            <span class="inline-flex items-center mt-2 px-2 py-0.5 rounded text-xs font-medium ${f}">
+              ${g}
             </span>
           </div>
         </div>
@@ -1417,19 +1417,19 @@ class lt {
     const { accountsGrid: e, disconnectModal: t } = this.elements;
     if (!e) return;
     e.querySelectorAll(".select-account-btn").forEach((i) => {
-      i.addEventListener("click", (a) => {
-        const r = a.target.closest(".account-card")?.getAttribute("data-account-id") || "";
-        this.setCurrentAccountId(r, !0);
+      i.addEventListener("click", (o) => {
+        const a = o.target.closest(".account-card")?.getAttribute("data-account-id") || "";
+        this.setCurrentAccountId(a, !0);
       });
     }), e.querySelectorAll(".reauth-account-btn").forEach((i) => {
-      i.addEventListener("click", (a) => {
-        const r = a.target.closest(".account-card")?.getAttribute("data-account-id") || "";
-        this.setCurrentAccountId(r, !1), this.startOAuthFlow(r);
+      i.addEventListener("click", (o) => {
+        const a = o.target.closest(".account-card")?.getAttribute("data-account-id") || "";
+        this.setCurrentAccountId(a, !1), this.startOAuthFlow(a);
       });
     }), e.querySelectorAll(".disconnect-account-btn").forEach((i) => {
-      i.addEventListener("click", (a) => {
-        const r = a.target.closest(".account-card")?.getAttribute("data-account-id") || "";
-        this.pendingDisconnectAccountId = r, t && x(t);
+      i.addEventListener("click", (o) => {
+        const a = o.target.closest(".account-card")?.getAttribute("data-account-id") || "";
+        this.pendingDisconnectAccountId = a, t && x(t);
       });
     });
     const n = e.querySelector("#connect-new-card");
@@ -1449,24 +1449,24 @@ class lt {
   async startOAuthFlow(e) {
     const { oauthModal: t, errorMessage: n } = this.elements;
     t && x(t);
-    const i = this.resolveOAuthRedirectURI(), a = e !== void 0 ? this.normalizeAccountId(e) : this.currentAccountId;
-    this.pendingOAuthAccountId = a;
-    const l = this.buildGoogleOAuthUrl(i, a);
-    if (!l) {
-      t && f(t), n && (n.textContent = "Google OAuth is not configured: missing client ID."), this.pendingOAuthAccountId = null, this.showState("error"), this.announce("Google OAuth is not configured");
+    const i = this.resolveOAuthRedirectURI(), o = e !== void 0 ? this.normalizeAccountId(e) : this.currentAccountId;
+    this.pendingOAuthAccountId = o;
+    const d = this.buildGoogleOAuthUrl(i, o);
+    if (!d) {
+      t && w(t), n && (n.textContent = "Google OAuth is not configured: missing client ID."), this.pendingOAuthAccountId = null, this.showState("error"), this.announce("Google OAuth is not configured");
       return;
     }
-    const r = 500, g = 600, h = (window.screen.width - r) / 2, v = (window.screen.height - g) / 2;
+    const a = 500, f = 600, g = (window.screen.width - a) / 2, y = (window.screen.height - f) / 2;
     if (this.oauthWindow = window.open(
-      l,
+      d,
       "google_oauth",
-      `width=${r},height=${g},left=${h},top=${v},popup=yes`
+      `width=${a},height=${f},left=${g},top=${y},popup=yes`
     ), !this.oauthWindow) {
-      t && f(t), this.pendingOAuthAccountId = null, this.showToast("Popup blocked. Allow popups for this site and try again.", "error"), this.announce("Popup blocked");
+      t && w(t), this.pendingOAuthAccountId = null, this.showToast("Popup blocked. Allow popups for this site and try again.", "error"), this.announce("Popup blocked");
       return;
     }
-    this.messageHandler = (w) => this.handleOAuthCallback(w), window.addEventListener("message", this.messageHandler), this.oauthTimeout = setTimeout(() => {
-      this.cleanupOAuthFlow(), t && f(t), this.pendingOAuthAccountId = null, this.showToast("Google authorization timed out. Please try again.", "error"), this.announce("Authorization timed out");
+    this.messageHandler = (b) => this.handleOAuthCallback(b), window.addEventListener("message", this.messageHandler), this.oauthTimeout = setTimeout(() => {
+      this.cleanupOAuthFlow(), t && w(t), this.pendingOAuthAccountId = null, this.showToast("Google authorization timed out. Please try again.", "error"), this.announce("Authorization timed out");
     }, 12e4);
   }
   /**
@@ -1484,10 +1484,10 @@ class lt {
     if (!t) return !1;
     const n = /* @__PURE__ */ new Set(), i = this.normalizeOrigin(window.location.origin);
     i && n.add(i);
-    const a = this.resolveOriginFromURL(this.resolveOAuthRedirectURI());
-    a && n.add(a);
-    for (const l of n)
-      if (t === l || this.areEquivalentLoopbackOrigins(t, l))
+    const o = this.resolveOriginFromURL(this.resolveOAuthRedirectURI());
+    o && n.add(o);
+    for (const d of n)
+      if (t === d || this.areEquivalentLoopbackOrigins(t, d))
         return !0;
     return !1;
   }
@@ -1557,16 +1557,16 @@ class lt {
     const t = e.data;
     if (t.type !== "google_oauth_callback") return;
     const { oauthModal: n } = this.elements;
-    if (this.cleanupOAuthFlow(), n && f(n), this.closeOAuthWindow(), t.error) {
+    if (this.cleanupOAuthFlow(), n && w(n), this.closeOAuthWindow(), t.error) {
       this.showToast(`OAuth failed: ${t.error}`, "error"), this.announce(`OAuth failed: ${t.error}`), this.pendingOAuthAccountId = null;
       return;
     }
     if (t.code) {
       try {
-        const i = this.resolveOAuthRedirectURI(), l = (typeof t.account_id == "string" ? this.normalizeAccountId(t.account_id) : null) ?? this.pendingOAuthAccountId ?? this.currentAccountId;
-        l !== this.currentAccountId && this.setCurrentAccountId(l, !1);
-        const r = await fetch(
-          this.buildScopedAPIURL("/esign/integrations/google/connect", l),
+        const i = this.resolveOAuthRedirectURI(), d = (typeof t.account_id == "string" ? this.normalizeAccountId(t.account_id) : null) ?? this.pendingOAuthAccountId ?? this.currentAccountId;
+        d !== this.currentAccountId && this.setCurrentAccountId(d, !1);
+        const a = await fetch(
+          this.buildScopedAPIURL("/esign/integrations/google/connect", d),
           {
             method: "POST",
             credentials: "same-origin",
@@ -1576,20 +1576,20 @@ class lt {
             },
             body: JSON.stringify({
               auth_code: t.code,
-              account_id: l || void 0,
+              account_id: d || void 0,
               redirect_uri: i
             })
           }
         );
-        if (!r.ok) {
-          const g = await r.json();
-          throw new Error(g.error?.message || "Failed to connect");
+        if (!a.ok) {
+          const f = await a.json();
+          throw new Error(f.error?.message || "Failed to connect");
         }
         this.showToast("Google Drive connected successfully", "success"), this.announce("Google Drive connected successfully"), await Promise.all([this.checkStatus(), this.loadAccounts()]);
       } catch (i) {
         console.error("Connect error:", i);
-        const a = i instanceof Error ? i.message : "Unknown error";
-        this.showToast(`Failed to connect: ${a}`, "error"), this.announce(`Failed to connect: ${a}`);
+        const o = i instanceof Error ? i.message : "Unknown error";
+        this.showToast(`Failed to connect: ${o}`, "error"), this.announce(`Failed to connect: ${o}`);
       } finally {
         this.pendingOAuthAccountId = null;
       }
@@ -1602,7 +1602,7 @@ class lt {
    */
   cancelOAuthFlow() {
     const { oauthModal: e } = this.elements;
-    e && f(e), this.pendingOAuthAccountId = null, this.closeOAuthWindow(), this.cleanupOAuthFlow();
+    e && w(e), this.pendingOAuthAccountId = null, this.closeOAuthWindow(), this.cleanupOAuthFlow();
   }
   /**
    * Cleanup OAuth flow resources
@@ -1627,7 +1627,7 @@ class lt {
    */
   async disconnect() {
     const { disconnectModal: e } = this.elements;
-    e && f(e);
+    e && w(e);
     const t = this.pendingDisconnectAccountId ?? this.currentAccountId;
     try {
       const n = await fetch(
@@ -1659,11 +1659,11 @@ class lt {
     i && (t === "success" ? i.success(e) : i.error(e));
   }
 }
-function bi(s) {
-  const e = new lt(s);
-  return k(() => e.init()), e;
+function Vi(s) {
+  const e = new It(s);
+  return M(() => e.init()), e;
 }
-function xi(s) {
+function Gi(s) {
   const e = {
     basePath: s.basePath,
     apiBasePath: s.apiBasePath || `${s.basePath}/api`,
@@ -1672,21 +1672,21 @@ function xi(s) {
     googleRedirectUri: s.googleRedirectUri,
     googleClientId: s.googleClientId,
     googleEnabled: s.googleEnabled !== !1
-  }, t = new lt(e);
-  k(() => t.init()), typeof window < "u" && (window.esignGoogleIntegrationController = t);
+  }, t = new It(e);
+  M(() => t.init()), typeof window < "u" && (window.esignGoogleIntegrationController = t);
 }
-const Le = "esign.google.account_id", Xe = {
+const Me = "esign.google.account_id", ht = {
   "application/vnd.google-apps.folder": "folder",
   "application/vnd.google-apps.document": "doc",
   "application/vnd.google-apps.spreadsheet": "sheet",
   "application/vnd.google-apps.presentation": "slide",
   "application/pdf": "pdf",
   default: "file"
-}, Ze = [
+}, gt = [
   "application/vnd.google-apps.document",
   "application/pdf"
 ];
-class dt {
+class Lt {
   constructor(e) {
     this.currentFiles = [], this.nextPageToken = null, this.currentFolderPath = [{ id: "root", name: "My Drive" }], this.selectedFile = null, this.searchQuery = "", this.isListView = !0, this.isLoading = !1, this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api`, this.currentAccountId = this.resolveInitialAccountId(), this.elements = {
       searchInput: c("#drive-search"),
@@ -1742,31 +1742,31 @@ class dt {
       clearSearchBtn: t,
       refreshBtn: n,
       loadMoreBtn: i,
-      importBtn: a,
-      clearSelectionBtn: l,
-      importCancelBtn: r,
-      importConfirmBtn: g,
-      importForm: h,
-      importModal: v,
-      viewListBtn: w,
-      viewGridBtn: E
+      importBtn: o,
+      clearSelectionBtn: d,
+      importCancelBtn: a,
+      importConfirmBtn: f,
+      importForm: g,
+      importModal: y,
+      viewListBtn: b,
+      viewGridBtn: I
     } = this.elements;
     if (e) {
-      const C = re(() => this.handleSearch(), 300);
-      e.addEventListener("input", C), e.addEventListener("keydown", (P) => {
-        P.key === "Enter" && (P.preventDefault(), this.handleSearch());
+      const E = re(() => this.handleSearch(), 300);
+      e.addEventListener("input", E), e.addEventListener("keydown", (T) => {
+        T.key === "Enter" && (T.preventDefault(), this.handleSearch());
       });
     }
-    t && t.addEventListener("click", () => this.clearSearch()), n && n.addEventListener("click", () => this.refresh()), i && i.addEventListener("click", () => this.loadMore()), a && a.addEventListener("click", () => this.showImportModal()), l && l.addEventListener("click", () => this.clearSelection()), r && r.addEventListener("click", () => this.hideImportModal()), g && h && h.addEventListener("submit", (C) => {
-      C.preventDefault(), this.handleImport();
-    }), v && v.addEventListener("click", (C) => {
-      const P = C.target;
-      (P === v || P.getAttribute("aria-hidden") === "true") && this.hideImportModal();
-    }), w && w.addEventListener("click", () => this.setViewMode("list")), E && E.addEventListener("click", () => this.setViewMode("grid")), document.addEventListener("keydown", (C) => {
-      C.key === "Escape" && v && !v.classList.contains("hidden") && this.hideImportModal();
+    t && t.addEventListener("click", () => this.clearSearch()), n && n.addEventListener("click", () => this.refresh()), i && i.addEventListener("click", () => this.loadMore()), o && o.addEventListener("click", () => this.showImportModal()), d && d.addEventListener("click", () => this.clearSelection()), a && a.addEventListener("click", () => this.hideImportModal()), f && g && g.addEventListener("submit", (E) => {
+      E.preventDefault(), this.handleImport();
+    }), y && y.addEventListener("click", (E) => {
+      const T = E.target;
+      (T === y || T.getAttribute("aria-hidden") === "true") && this.hideImportModal();
+    }), b && b.addEventListener("click", () => this.setViewMode("list")), I && I.addEventListener("click", () => this.setViewMode("grid")), document.addEventListener("keydown", (E) => {
+      E.key === "Escape" && y && !y.classList.contains("hidden") && this.hideImportModal();
     });
-    const { fileList: S } = this.elements;
-    S && S.addEventListener("click", (C) => this.handleFileListClick(C));
+    const { fileList: C } = this.elements;
+    C && C.addEventListener("click", (E) => this.handleFileListClick(E));
   }
   /**
    * Resolve initial account ID from various sources
@@ -1778,7 +1778,7 @@ class dt {
     if (n) return n;
     try {
       return this.normalizeAccountId(
-        window.localStorage.getItem(Le)
+        window.localStorage.getItem(Me)
       );
     } catch {
       return "";
@@ -1796,7 +1796,7 @@ class dt {
   updateScopedUI() {
     this.syncScopedURLState();
     const { accountScopeHelp: e, connectGoogleLink: t } = this.elements;
-    if (e && (this.currentAccountId ? (e.textContent = `Account scope: ${this.currentAccountId}`, x(e)) : f(e)), t) {
+    if (e && (this.currentAccountId ? (e.textContent = `Account scope: ${this.currentAccountId}`, x(e)) : w(e)), t) {
       const n = t.dataset.baseHref || t.getAttribute("href");
       n && t.setAttribute("href", this.applyAccountIdToPath(n));
     }
@@ -1808,7 +1808,7 @@ class dt {
     const e = new URL(window.location.href);
     this.currentAccountId ? e.searchParams.set("account_id", this.currentAccountId) : e.searchParams.delete("account_id"), window.history.replaceState({}, "", e.toString());
     try {
-      this.currentAccountId ? window.localStorage.setItem(Le, this.currentAccountId) : window.localStorage.removeItem(Le);
+      this.currentAccountId ? window.localStorage.setItem(Me, this.currentAccountId) : window.localStorage.removeItem(Me);
     } catch {
     }
   }
@@ -1840,17 +1840,17 @@ class dt {
         parents: [],
         owners: []
       };
-    const t = String(e.id || e.ID || "").trim(), n = String(e.name || e.Name || "").trim(), i = String(e.mimeType || e.MimeType || "").trim(), a = String(e.modifiedTime || e.ModifiedTime || "").trim(), l = String(
+    const t = String(e.id || e.ID || "").trim(), n = String(e.name || e.Name || "").trim(), i = String(e.mimeType || e.MimeType || "").trim(), o = String(e.modifiedTime || e.ModifiedTime || "").trim(), d = String(
       e.webViewLink || e.webViewURL || e.WebViewURL || ""
-    ).trim(), r = String(e.parentId || e.ParentID || "").trim(), g = String(e.ownerEmail || e.OwnerEmail || "").trim(), h = Array.isArray(e.parents) ? e.parents : r ? [r] : [], v = Array.isArray(e.owners) ? e.owners : g ? [{ emailAddress: g }] : [];
+    ).trim(), a = String(e.parentId || e.ParentID || "").trim(), f = String(e.ownerEmail || e.OwnerEmail || "").trim(), g = Array.isArray(e.parents) ? e.parents : a ? [a] : [], y = Array.isArray(e.owners) ? e.owners : f ? [{ emailAddress: f }] : [];
     return {
       id: t,
       name: n,
       mimeType: i,
-      modifiedTime: a,
-      webViewLink: l,
-      parents: h,
-      owners: v,
+      modifiedTime: o,
+      webViewLink: d,
+      parents: g,
+      owners: y,
       size: e.size,
       iconLink: e.iconLink,
       thumbnailLink: e.thumbnailLink
@@ -1866,26 +1866,26 @@ class dt {
     e || (this.currentFiles = [], this.nextPageToken = null, t && x(t));
     try {
       const i = this.currentFolderPath[this.currentFolderPath.length - 1];
-      let a;
-      this.searchQuery ? a = this.buildScopedAPIURL(
+      let o;
+      this.searchQuery ? o = this.buildScopedAPIURL(
         `/esign/integrations/google/files?q=${encodeURIComponent(this.searchQuery)}`
-      ) : a = this.buildScopedAPIURL(
+      ) : o = this.buildScopedAPIURL(
         `/esign/integrations/google/files?folder_id=${encodeURIComponent(i.id)}`
-      ), this.nextPageToken && (a += `&page_token=${encodeURIComponent(this.nextPageToken)}`);
-      const l = await fetch(a, {
+      ), this.nextPageToken && (o += `&page_token=${encodeURIComponent(this.nextPageToken)}`);
+      const d = await fetch(o, {
         credentials: "same-origin",
         headers: { Accept: "application/json" }
       });
-      if (!l.ok)
-        throw new Error(`Failed to load files: ${l.status}`);
-      const r = await l.json(), g = Array.isArray(r.files) ? r.files.map((h) => this.normalizeDriveFile(h)) : [];
-      e ? this.currentFiles = [...this.currentFiles, ...g] : this.currentFiles = g, this.nextPageToken = r.next_page_token || null, this.renderFiles(), this.updateResultCount(), this.updatePagination(), H(
+      if (!d.ok)
+        throw new Error(`Failed to load files: ${d.status}`);
+      const a = await d.json(), f = Array.isArray(a.files) ? a.files.map((g) => this.normalizeDriveFile(g)) : [];
+      e ? this.currentFiles = [...this.currentFiles, ...f] : this.currentFiles = f, this.nextPageToken = a.next_page_token || null, this.renderFiles(), this.updateResultCount(), this.updatePagination(), H(
         this.searchQuery ? `Found ${this.currentFiles.length} files` : `Loaded ${this.currentFiles.length} files`
       );
     } catch (i) {
       console.error("Error loading files:", i), this.renderError(i instanceof Error ? i.message : "Failed to load files"), H("Error loading files");
     } finally {
-      this.isLoading = !1, t && f(t);
+      this.isLoading = !1, t && w(t);
     }
   }
   /**
@@ -1894,7 +1894,7 @@ class dt {
   renderFiles() {
     const { fileList: e, loadingState: t } = this.elements;
     if (!e) return;
-    if (t && f(t), this.currentFiles.length === 0) {
+    if (t && w(t), this.currentFiles.length === 0) {
       e.innerHTML = `
         <div class="p-8 text-center">
           <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -1919,7 +1919,7 @@ class dt {
    * Render a single file item
    */
   renderFileItem(e) {
-    const t = e.mimeType === "application/vnd.google-apps.folder", n = Ze.includes(e.mimeType), i = this.selectedFile?.id === e.id, a = Xe[e.mimeType] || Xe.default, l = this.getFileIcon(a);
+    const t = e.mimeType === "application/vnd.google-apps.folder", n = gt.includes(e.mimeType), i = this.selectedFile?.id === e.id, o = ht[e.mimeType] || ht.default, d = this.getFileIcon(o);
     return `
       <div
         class="file-item flex items-center gap-4 px-4 py-3 hover:bg-gray-50 cursor-pointer ${i ? "bg-blue-50 border-l-2 border-blue-500" : ""}"
@@ -1930,7 +1930,7 @@ class dt {
         tabindex="0"
       >
         <div class="w-8 h-8 flex items-center justify-center flex-shrink-0">
-          ${l}
+          ${d}
         </div>
         <div class="flex-1 min-w-0">
           <p class="text-sm font-medium text-gray-900 truncate">
@@ -1964,8 +1964,8 @@ class dt {
   handleFileListClick(e) {
     const n = e.target.closest(".file-item");
     if (!n) return;
-    const i = n.dataset.fileId, a = n.dataset.isFolder === "true";
-    i && (a ? this.navigateToFolder(i) : this.selectFile(i));
+    const i = n.dataset.fileId, o = n.dataset.isFolder === "true";
+    i && (o ? this.navigateToFolder(i) : this.selectFile(i));
   }
   /**
    * Navigate into a folder
@@ -1996,20 +1996,20 @@ class dt {
       filePreview: t,
       previewIcon: n,
       previewTitle: i,
-      previewType: a,
-      previewFileId: l,
-      previewOwner: r,
-      previewModified: g,
-      importBtn: h,
-      openInGoogleBtn: v
+      previewType: o,
+      previewFileId: d,
+      previewOwner: a,
+      previewModified: f,
+      importBtn: g,
+      openInGoogleBtn: y
     } = this.elements;
     if (!this.selectedFile) {
-      e && x(e), t && f(t);
+      e && x(e), t && w(t);
       return;
     }
-    e && f(e), t && x(t);
-    const w = this.selectedFile, E = Ze.includes(w.mimeType);
-    i && (i.textContent = w.name), a && (a.textContent = this.getMimeTypeLabel(w.mimeType)), l && (l.textContent = w.id), r && w.owners.length > 0 && (r.textContent = w.owners[0].emailAddress || "-"), g && (g.textContent = X(w.modifiedTime)), h && (E ? (h.removeAttribute("disabled"), h.classList.remove("opacity-50", "cursor-not-allowed")) : (h.setAttribute("disabled", "true"), h.classList.add("opacity-50", "cursor-not-allowed"))), v && w.webViewLink && (v.href = w.webViewLink);
+    e && w(e), t && x(t);
+    const b = this.selectedFile, I = gt.includes(b.mimeType);
+    i && (i.textContent = b.name), o && (o.textContent = this.getMimeTypeLabel(b.mimeType)), d && (d.textContent = b.id), a && b.owners.length > 0 && (a.textContent = b.owners[0].emailAddress || "-"), f && (f.textContent = X(b.modifiedTime)), g && (I ? (g.removeAttribute("disabled"), g.classList.remove("opacity-50", "cursor-not-allowed")) : (g.setAttribute("disabled", "true"), g.classList.add("opacity-50", "cursor-not-allowed"))), y && b.webViewLink && (y.href = b.webViewLink);
   }
   /**
    * Get human-readable mime type label
@@ -2030,7 +2030,7 @@ class dt {
     const { breadcrumb: e, listTitle: t } = this.elements;
     if (!e) return;
     if (this.searchQuery) {
-      f(e), t && (t.textContent = "Search Results");
+      w(e), t && (t.textContent = "Search Results");
       return;
     }
     x(e);
@@ -2038,23 +2038,23 @@ class dt {
     t && (t.textContent = n.name);
     const i = e.querySelector("ol");
     i && (i.innerHTML = this.currentFolderPath.map(
-      (a, l) => `
+      (o, d) => `
         <li class="flex items-center">
-          ${l > 0 ? '<span class="text-gray-400 mx-2">/</span>' : ""}
+          ${d > 0 ? '<span class="text-gray-400 mx-2">/</span>' : ""}
           <button
             type="button"
-            data-folder-id="${this.escapeHtml(a.id)}"
-            data-folder-index="${l}"
+            data-folder-id="${this.escapeHtml(o.id)}"
+            data-folder-index="${d}"
             class="breadcrumb-item text-blue-600 hover:text-blue-800 hover:underline"
           >
-            ${this.escapeHtml(a.name)}
+            ${this.escapeHtml(o.name)}
           </button>
         </li>
       `
-    ).join(""), W(".breadcrumb-item", i).forEach((a) => {
-      a.addEventListener("click", () => {
-        const l = parseInt(a.dataset.folderIndex || "0", 10);
-        this.navigateToBreadcrumb(l);
+    ).join(""), W(".breadcrumb-item", i).forEach((o) => {
+      o.addEventListener("click", () => {
+        const d = parseInt(o.dataset.folderIndex || "0", 10);
+        this.navigateToBreadcrumb(d);
       });
     }));
   }
@@ -2076,7 +2076,7 @@ class dt {
    */
   updatePagination() {
     const { pagination: e, loadMoreBtn: t } = this.elements;
-    e && (this.nextPageToken ? x(e) : f(e));
+    e && (this.nextPageToken ? x(e) : w(e));
   }
   /**
    * Handle search
@@ -2085,14 +2085,14 @@ class dt {
     const { searchInput: e, clearSearchBtn: t } = this.elements;
     if (!e) return;
     const n = e.value.trim();
-    this.searchQuery = n, t && (n ? x(t) : f(t)), this.clearSelection(), this.loadFiles();
+    this.searchQuery = n, t && (n ? x(t) : w(t)), this.clearSelection(), this.loadFiles();
   }
   /**
    * Clear search
    */
   clearSearch() {
     const { searchInput: e, clearSearchBtn: t } = this.elements;
-    e && (e.value = ""), t && f(t), this.searchQuery = "", this.clearSelection(), this.updateBreadcrumb(), this.loadFiles();
+    e && (e.value = ""), t && w(t), this.searchQuery = "", this.clearSelection(), this.updateBreadcrumb(), this.loadFiles();
   }
   /**
    * Refresh file list
@@ -2120,8 +2120,8 @@ class dt {
     if (!this.selectedFile) return;
     const { importModal: e, importGoogleFileId: t, importDocumentTitle: n, importAgreementTitle: i } = this.elements;
     if (t && (t.value = this.selectedFile.id), n) {
-      const a = this.selectedFile.name.replace(/\.[^/.]+$/, "");
-      n.value = a;
+      const o = this.selectedFile.name.replace(/\.[^/.]+$/, "");
+      n.value = o;
     }
     i && (i.value = ""), e && x(e);
   }
@@ -2130,7 +2130,7 @@ class dt {
    */
   hideImportModal() {
     const { importModal: e } = this.elements;
-    e && f(e);
+    e && w(e);
   }
   /**
    * Handle import form submission
@@ -2142,11 +2142,11 @@ class dt {
       importSpinner: t,
       importBtnText: n,
       importDocumentTitle: i,
-      importAgreementTitle: a
-    } = this.elements, l = this.selectedFile.id, r = i?.value.trim() || this.selectedFile.name, g = a?.value.trim() || "";
+      importAgreementTitle: o
+    } = this.elements, d = this.selectedFile.id, a = i?.value.trim() || this.selectedFile.name, f = o?.value.trim() || "";
     e && e.setAttribute("disabled", "true"), t && x(t), n && (n.textContent = "Importing...");
     try {
-      const h = await fetch(this.buildScopedAPIURL("/esign/google-drive/imports"), {
+      const g = await fetch(this.buildScopedAPIURL("/esign/google-drive/imports"), {
         method: "POST",
         credentials: "same-origin",
         headers: {
@@ -2154,23 +2154,23 @@ class dt {
           Accept: "application/json"
         },
         body: JSON.stringify({
-          google_file_id: l,
-          document_title: r,
-          agreement_title: g || void 0
+          google_file_id: d,
+          document_title: a,
+          agreement_title: f || void 0
         })
       });
-      if (!h.ok) {
-        const w = await h.json();
-        throw new Error(w.error?.message || "Import failed");
+      if (!g.ok) {
+        const b = await g.json();
+        throw new Error(b.error?.message || "Import failed");
       }
-      const v = await h.json();
-      this.showToast("Import started successfully", "success"), H("Import started"), this.hideImportModal(), v.document?.id && this.config.pickerRoutes?.documents ? window.location.href = `${this.config.pickerRoutes.documents}/${v.document.id}` : v.agreement?.id && this.config.pickerRoutes?.agreements && (window.location.href = `${this.config.pickerRoutes.agreements}/${v.agreement.id}`);
-    } catch (h) {
-      console.error("Import error:", h);
-      const v = h instanceof Error ? h.message : "Import failed";
-      this.showToast(v, "error"), H(`Error: ${v}`);
+      const y = await g.json();
+      this.showToast("Import started successfully", "success"), H("Import started"), this.hideImportModal(), y.document?.id && this.config.pickerRoutes?.documents ? window.location.href = `${this.config.pickerRoutes.documents}/${y.document.id}` : y.agreement?.id && this.config.pickerRoutes?.agreements && (window.location.href = `${this.config.pickerRoutes.agreements}/${y.agreement.id}`);
+    } catch (g) {
+      console.error("Import error:", g);
+      const y = g instanceof Error ? g.message : "Import failed";
+      this.showToast(y, "error"), H(`Error: ${y}`);
     } finally {
-      e && e.removeAttribute("disabled"), t && f(t), n && (n.textContent = "Import");
+      e && e.removeAttribute("disabled"), t && w(t), n && (n.textContent = "Import");
     }
   }
   /**
@@ -2208,11 +2208,11 @@ class dt {
     return t.textContent = e, t.innerHTML;
   }
 }
-function Si(s) {
-  const e = new dt(s);
-  return k(() => e.init()), e;
+function Wi(s) {
+  const e = new Lt(s);
+  return M(() => e.init()), e;
 }
-function Ci(s) {
+function Ji(s) {
   const e = {
     basePath: s.basePath,
     apiBasePath: s.apiBasePath || `${s.basePath}/api`,
@@ -2220,10 +2220,10 @@ function Ci(s) {
     googleAccountId: s.googleAccountId,
     googleConnected: s.googleConnected !== !1,
     pickerRoutes: s.pickerRoutes
-  }, t = new dt(e);
-  k(() => t.init()), typeof window < "u" && (window.esignGoogleDrivePickerController = t);
+  }, t = new Lt(e);
+  M(() => t.init()), typeof window < "u" && (window.esignGoogleDrivePickerController = t);
 }
-class ut {
+class At {
   constructor(e) {
     this.healthData = null, this.autoRefreshTimer = null, this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api`, this.elements = {
       timeRange: c("#time-range"),
@@ -2290,21 +2290,21 @@ class ut {
   async loadHealthData() {
     const { timeRange: e, providerFilter: t } = this.elements, n = e?.value || "24h", i = t?.value || "";
     try {
-      const a = new URL(`${this.apiBase}/esign/integrations/health`, window.location.origin);
-      a.searchParams.set("range", n), i && a.searchParams.set("provider", i);
-      const l = await fetch(a.toString(), {
+      const o = new URL(`${this.apiBase}/esign/integrations/health`, window.location.origin);
+      o.searchParams.set("range", n), i && o.searchParams.set("provider", i);
+      const d = await fetch(o.toString(), {
         credentials: "same-origin",
         headers: { Accept: "application/json" }
       });
-      if (!l.ok)
+      if (!d.ok)
         this.healthData = this.generateMockHealthData(n, i);
       else {
-        const r = await l.json();
-        this.healthData = r;
+        const a = await d.json();
+        this.healthData = a;
       }
       this.renderHealthData(), H("Health data refreshed");
-    } catch (a) {
-      console.error("Failed to load health data:", a), this.healthData = this.generateMockHealthData(n, i), this.renderHealthData();
+    } catch (o) {
+      console.error("Failed to load health data:", o), this.healthData = this.generateMockHealthData(n, i), this.renderHealthData();
     }
   }
   /**
@@ -2343,10 +2343,10 @@ class ut {
           { provider: "bamboohr", entity: "Employee", time: "28m ago", status: "pending" }
         ]
       },
-      providerHealth: (t ? [t] : ["salesforce", "hubspot", "bamboohr", "workday"]).map((l) => ({
-        provider: l,
-        status: l === "workday" ? "degraded" : "healthy",
-        successRate: l === "workday" ? 89.2 : 97 + Math.random() * 3,
+      providerHealth: (t ? [t] : ["salesforce", "hubspot", "bamboohr", "workday"]).map((d) => ({
+        provider: d,
+        status: d === "workday" ? "degraded" : "healthy",
+        successRate: d === "workday" ? 89.2 : 97 + Math.random() * 3,
         lastSync: `${Math.floor(Math.random() * 30) + 1}m ago`,
         conflicts: Math.floor(Math.random() * 5),
         lagMinutes: Math.floor(Math.random() * 20) + 5
@@ -2367,14 +2367,14 @@ class ut {
    */
   generateActivityFeed(e) {
     const t = [], n = ["sync_completed", "sync_failed", "conflict_created", "conflict_resolved", "mapping_published"], i = ["salesforce", "hubspot", "bamboohr", "workday"];
-    for (let a = 0; a < e; a++) {
-      const l = n[Math.floor(Math.random() * n.length)], r = i[Math.floor(Math.random() * i.length)];
+    for (let o = 0; o < e; o++) {
+      const d = n[Math.floor(Math.random() * n.length)], a = i[Math.floor(Math.random() * i.length)];
       t.push({
-        type: l,
-        provider: r,
-        message: this.getActivityMessage(l, r),
+        type: d,
+        provider: a,
+        message: this.getActivityMessage(d, a),
         time: `${Math.floor(Math.random() * 60) + 1}m ago`,
-        status: l.includes("failed") || l.includes("created") ? "warning" : "success"
+        status: d.includes("failed") || d.includes("created") ? "warning" : "success"
       });
     }
     return t;
@@ -2395,11 +2395,11 @@ class ut {
    * Generate time series data
    */
   generateTimeSeriesData(e, t) {
-    const n = [], i = t === "sync" ? { success: [], failed: [] } : { pending: [], resolved: [] }, a = /* @__PURE__ */ new Date();
-    for (let l = e - 1; l >= 0; l--) {
-      const r = new Date(a.getTime() - l * 36e5);
+    const n = [], i = t === "sync" ? { success: [], failed: [] } : { pending: [], resolved: [] }, o = /* @__PURE__ */ new Date();
+    for (let d = e - 1; d >= 0; d--) {
+      const a = new Date(o.getTime() - d * 36e5);
       n.push(
-        r.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })
+        a.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })
       ), t === "sync" ? (i.success.push(Math.floor(Math.random() * 15) + 10), i.failed.push(Math.floor(Math.random() * 3))) : (i.pending.push(Math.floor(Math.random() * 5)), i.resolved.push(Math.floor(Math.random() * 8) + 2));
     }
     return { labels: n, datasets: i };
@@ -2417,8 +2417,8 @@ class ut {
     if (!this.healthData) return;
     const { healthScore: e, healthIndicator: t, healthTrend: n } = this.elements, i = this.healthData;
     if (e && (e.textContent = `${i.healthScore}%`, i.healthScore >= 95 ? e.className = "text-3xl font-bold text-green-600" : i.healthScore >= 80 ? e.className = "text-3xl font-bold text-yellow-600" : e.className = "text-3xl font-bold text-red-600"), t && (i.healthScore >= 95 ? (t.className = "w-12 h-12 rounded-full bg-green-100 flex items-center justify-center", t.innerHTML = '<svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>') : i.healthScore >= 80 ? (t.className = "w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center", t.innerHTML = '<svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>') : (t.className = "w-12 h-12 rounded-full bg-red-100 flex items-center justify-center", t.innerHTML = '<svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>')), n) {
-      const a = i.healthTrend >= 0 ? "+" : "";
-      n.textContent = `${a}${i.healthTrend}% from previous period`;
+      const o = i.healthTrend >= 0 ? "+" : "";
+      n.textContent = `${o}${i.healthTrend}% from previous period`;
     }
   }
   /**
@@ -2426,18 +2426,18 @@ class ut {
    */
   renderSyncStats() {
     if (!this.healthData) return;
-    const { syncSuccessRate: e, syncSuccessCount: t, syncFailedCount: n, syncSuccessBar: i } = this.elements, a = this.healthData.syncStats;
-    e && (e.textContent = `${a.successRate.toFixed(1)}%`), t && (t.textContent = `${a.succeeded} succeeded`), n && (n.textContent = `${a.failed} failed`), i && (i.style.width = `${a.successRate}%`);
+    const { syncSuccessRate: e, syncSuccessCount: t, syncFailedCount: n, syncSuccessBar: i } = this.elements, o = this.healthData.syncStats;
+    e && (e.textContent = `${o.successRate.toFixed(1)}%`), t && (t.textContent = `${o.succeeded} succeeded`), n && (n.textContent = `${o.failed} failed`), i && (i.style.width = `${o.successRate}%`);
   }
   /**
    * Render conflict statistics
    */
   renderConflictStats() {
     if (!this.healthData) return;
-    const { conflictCount: e, conflictPending: t, conflictResolved: n, conflictTrend: i } = this.elements, a = this.healthData.conflictStats;
-    if (e && (e.textContent = String(a.pending)), t && (t.textContent = `${a.pending} pending`), n && (n.textContent = `${a.resolvedToday} resolved today`), i) {
-      const l = a.trend >= 0 ? "+" : "";
-      i.textContent = `${l}${a.trend} from previous period`;
+    const { conflictCount: e, conflictPending: t, conflictResolved: n, conflictTrend: i } = this.elements, o = this.healthData.conflictStats;
+    if (e && (e.textContent = String(o.pending)), t && (t.textContent = `${o.pending} pending`), n && (n.textContent = `${o.resolvedToday} resolved today`), i) {
+      const d = o.trend >= 0 ? "+" : "";
+      i.textContent = `${d}${o.trend} from previous period`;
     }
   }
   /**
@@ -2453,12 +2453,12 @@ class ut {
    */
   renderRetryActivity() {
     if (!this.healthData) return;
-    const { retryTotal: e, retryRecovery: t, retryAvg: n, retryList: i } = this.elements, a = this.healthData.retryStats;
-    e && (e.textContent = String(a.total)), t && (t.textContent = `${a.recoveryRate}%`), n && (n.textContent = a.avgAttempts.toFixed(1)), i && (i.innerHTML = a.recent.map(
-      (l) => `
+    const { retryTotal: e, retryRecovery: t, retryAvg: n, retryList: i } = this.elements, o = this.healthData.retryStats;
+    e && (e.textContent = String(o.total)), t && (t.textContent = `${o.recoveryRate}%`), n && (n.textContent = o.avgAttempts.toFixed(1)), i && (i.innerHTML = o.recent.map(
+      (d) => `
           <div class="flex justify-between items-center py-1">
-            <span>${this.escapeHtml(l.provider)} / ${this.escapeHtml(l.entity)}</span>
-            <span class="${l.status === "recovered" ? "text-green-600" : "text-yellow-600"}">${this.escapeHtml(l.time)}</span>
+            <span>${this.escapeHtml(d.provider)} / ${this.escapeHtml(d.entity)}</span>
+            <span class="${d.status === "recovered" ? "text-green-600" : "text-yellow-600"}">${this.escapeHtml(d.time)}</span>
           </div>
         `
     ).join(""));
@@ -2517,7 +2517,7 @@ class ut {
             </div>
           `
     ).join(""), e.querySelectorAll(".dismiss-alert-btn").forEach((i) => {
-      i.addEventListener("click", (a) => this.dismissAlert(a));
+      i.addEventListener("click", (o) => this.dismissAlert(o));
     })));
   }
   /**
@@ -2532,8 +2532,8 @@ class ut {
   dismissAlert(e) {
     const n = e.currentTarget.closest(".flex.items-start");
     n && n.remove();
-    const { alertsList: i, noAlerts: a, alertCount: l } = this.elements, r = i?.querySelectorAll(":scope > div").length || 0;
-    l && (l.textContent = `${r} active`, r === 0 && (l.className = "px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full", i && i.classList.add("hidden"), a && a.classList.remove("hidden")));
+    const { alertsList: i, noAlerts: o, alertCount: d } = this.elements, a = i?.querySelectorAll(":scope > div").length || 0;
+    d && (d.textContent = `${a} active`, a === 0 && (d.className = "px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full", i && i.classList.add("hidden"), o && o.classList.remove("hidden")));
   }
   /**
    * Render activity feed
@@ -2573,23 +2573,23 @@ class ut {
    * Render a bar chart on canvas
    */
   renderBarChart(e, t, n, i) {
-    const a = document.getElementById(e);
-    if (!a) return;
-    const l = a.getContext("2d");
-    if (!l) return;
-    const r = a.width, g = a.height, h = 40, v = r - h * 2, w = g - h * 2;
-    l.clearRect(0, 0, r, g);
-    const E = t.labels, S = Object.values(t.datasets), C = v / E.length / (S.length + 1), P = Math.max(...S.flat()) || 1;
-    E.forEach((L, M) => {
-      const $ = h + M * v / E.length + C / 2;
-      S.forEach((_, j) => {
-        const N = _[M] / P * w, Z = $ + j * C, V = g - h - N;
-        l.fillStyle = n[j] || "#6b7280", l.fillRect(Z, V, C - 2, N);
-      }), M % Math.ceil(E.length / 6) === 0 && (l.fillStyle = "#6b7280", l.font = "10px sans-serif", l.textAlign = "center", l.fillText(L, $ + S.length * C / 2, g - h + 15));
-    }), l.fillStyle = "#6b7280", l.font = "10px sans-serif", l.textAlign = "right";
-    for (let L = 0; L <= 4; L++) {
-      const M = g - h - L * w / 4, $ = Math.round(P * L / 4);
-      l.fillText($.toString(), h - 5, M + 3);
+    const o = document.getElementById(e);
+    if (!o) return;
+    const d = o.getContext("2d");
+    if (!d) return;
+    const a = o.width, f = o.height, g = 40, y = a - g * 2, b = f - g * 2;
+    d.clearRect(0, 0, a, f);
+    const I = t.labels, C = Object.values(t.datasets), E = y / I.length / (C.length + 1), T = Math.max(...C.flat()) || 1;
+    I.forEach((P, $) => {
+      const B = g + $ * y / I.length + E / 2;
+      C.forEach((F, O) => {
+        const U = F[$] / T * b, ae = B + O * E, J = f - g - U;
+        d.fillStyle = n[O] || "#6b7280", d.fillRect(ae, J, E - 2, U);
+      }), $ % Math.ceil(I.length / 6) === 0 && (d.fillStyle = "#6b7280", d.font = "10px sans-serif", d.textAlign = "center", d.fillText(P, B + C.length * E / 2, f - g + 15));
+    }), d.fillStyle = "#6b7280", d.font = "10px sans-serif", d.textAlign = "right";
+    for (let P = 0; P <= 4; P++) {
+      const $ = f - g - P * b / 4, B = Math.round(T * P / 4);
+      d.fillText(B.toString(), g - 5, $ + 3);
     }
   }
   /**
@@ -2600,19 +2600,19 @@ class ut {
     return t.textContent = e, t.innerHTML;
   }
 }
-function Ii(s) {
-  const e = new ut(s);
-  return k(() => e.init()), e;
+function Yi(s) {
+  const e = new At(s);
+  return M(() => e.init()), e;
 }
-function Ei(s) {
+function Ki(s) {
   const e = {
     basePath: s.basePath,
     apiBasePath: s.apiBasePath || `${s.basePath}/api`,
     autoRefreshInterval: s.autoRefreshInterval || 3e4
-  }, t = new ut(e);
-  k(() => t.init()), typeof window < "u" && (window.esignIntegrationHealthController = t);
+  }, t = new At(e);
+  M(() => t.init()), typeof window < "u" && (window.esignIntegrationHealthController = t);
 }
-class ht {
+class kt {
   constructor(e) {
     this.mappings = [], this.editingMappingId = null, this.pendingPublishId = null, this.pendingDeleteId = null, this.currentPreviewMapping = null, this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api`, this.mappingsEndpoint = `${this.apiBase}/esign/integrations/mappings`, this.elements = {
       announcements: c("#mappings-announcements"),
@@ -2696,37 +2696,37 @@ class ht {
       createMappingEmptyBtn: t,
       closeModalBtn: n,
       cancelModalBtn: i,
-      refreshBtn: a,
-      retryBtn: l,
-      addFieldBtn: r,
-      addRuleBtn: g,
-      validateBtn: h,
-      mappingForm: v,
-      publishCancelBtn: w,
-      publishConfirmBtn: E,
-      deleteCancelBtn: S,
-      deleteConfirmBtn: C,
-      closePreviewBtn: P,
-      loadSampleBtn: L,
-      runPreviewBtn: M,
-      clearPreviewBtn: $,
-      previewSourceInput: _,
-      searchInput: j,
-      filterStatus: N,
-      filterProvider: Z,
-      mappingModal: V,
-      publishModal: J,
+      refreshBtn: o,
+      retryBtn: d,
+      addFieldBtn: a,
+      addRuleBtn: f,
+      validateBtn: g,
+      mappingForm: y,
+      publishCancelBtn: b,
+      publishConfirmBtn: I,
+      deleteCancelBtn: C,
+      deleteConfirmBtn: E,
+      closePreviewBtn: T,
+      loadSampleBtn: P,
+      runPreviewBtn: $,
+      clearPreviewBtn: B,
+      previewSourceInput: F,
+      searchInput: O,
+      filterStatus: U,
+      filterProvider: ae,
+      mappingModal: J,
+      publishModal: Z,
       deleteModal: ee,
       previewModal: te
     } = this.elements;
-    e?.addEventListener("click", () => this.openCreateModal()), t?.addEventListener("click", () => this.openCreateModal()), n?.addEventListener("click", () => this.closeModal()), i?.addEventListener("click", () => this.closeModal()), a?.addEventListener("click", () => this.loadMappings()), l?.addEventListener("click", () => this.loadMappings()), r?.addEventListener("click", () => this.addSchemaField()), g?.addEventListener("click", () => this.addMappingRule()), h?.addEventListener("click", () => this.validateMapping()), v?.addEventListener("submit", (O) => {
-      O.preventDefault(), this.saveMapping();
-    }), w?.addEventListener("click", () => this.closePublishModal()), E?.addEventListener("click", () => this.publishMapping()), S?.addEventListener("click", () => this.closeDeleteModal()), C?.addEventListener("click", () => this.deleteMapping()), P?.addEventListener("click", () => this.closePreviewModal()), L?.addEventListener("click", () => this.loadSamplePayload()), M?.addEventListener("click", () => this.runPreviewTransform()), $?.addEventListener("click", () => this.clearPreview()), _?.addEventListener("input", re(() => this.validateSourceJson(), 300)), j?.addEventListener("input", re(() => this.renderMappings(), 300)), N?.addEventListener("change", () => this.renderMappings()), Z?.addEventListener("change", () => this.renderMappings()), document.addEventListener("keydown", (O) => {
-      O.key === "Escape" && (V && !V.classList.contains("hidden") && this.closeModal(), J && !J.classList.contains("hidden") && this.closePublishModal(), ee && !ee.classList.contains("hidden") && this.closeDeleteModal(), te && !te.classList.contains("hidden") && this.closePreviewModal());
-    }), [V, J, ee, te].forEach((O) => {
-      O?.addEventListener("click", (ce) => {
-        const le = ce.target;
-        (le === O || le.getAttribute("aria-hidden") === "true") && (O === V ? this.closeModal() : O === J ? this.closePublishModal() : O === ee ? this.closeDeleteModal() : O === te && this.closePreviewModal());
+    e?.addEventListener("click", () => this.openCreateModal()), t?.addEventListener("click", () => this.openCreateModal()), n?.addEventListener("click", () => this.closeModal()), i?.addEventListener("click", () => this.closeModal()), o?.addEventListener("click", () => this.loadMappings()), d?.addEventListener("click", () => this.loadMappings()), a?.addEventListener("click", () => this.addSchemaField()), f?.addEventListener("click", () => this.addMappingRule()), g?.addEventListener("click", () => this.validateMapping()), y?.addEventListener("submit", (z) => {
+      z.preventDefault(), this.saveMapping();
+    }), b?.addEventListener("click", () => this.closePublishModal()), I?.addEventListener("click", () => this.publishMapping()), C?.addEventListener("click", () => this.closeDeleteModal()), E?.addEventListener("click", () => this.deleteMapping()), T?.addEventListener("click", () => this.closePreviewModal()), P?.addEventListener("click", () => this.loadSamplePayload()), $?.addEventListener("click", () => this.runPreviewTransform()), B?.addEventListener("click", () => this.clearPreview()), F?.addEventListener("input", re(() => this.validateSourceJson(), 300)), O?.addEventListener("input", re(() => this.renderMappings(), 300)), U?.addEventListener("change", () => this.renderMappings()), ae?.addEventListener("change", () => this.renderMappings()), document.addEventListener("keydown", (z) => {
+      z.key === "Escape" && (J && !J.classList.contains("hidden") && this.closeModal(), Z && !Z.classList.contains("hidden") && this.closePublishModal(), ee && !ee.classList.contains("hidden") && this.closeDeleteModal(), te && !te.classList.contains("hidden") && this.closePreviewModal());
+    }), [J, Z, ee, te].forEach((z) => {
+      z?.addEventListener("click", (ye) => {
+        const le = ye.target;
+        (le === z || le.getAttribute("aria-hidden") === "true") && (z === J ? this.closeModal() : z === Z ? this.closePublishModal() : z === ee ? this.closeDeleteModal() : z === te && this.closePreviewModal());
       });
     });
   }
@@ -2741,8 +2741,8 @@ class ht {
    * Show a specific page state
    */
   showState(e) {
-    const { loadingState: t, emptyState: n, errorState: i, mappingsList: a } = this.elements;
-    switch (f(t), f(n), f(i), f(a), e) {
+    const { loadingState: t, emptyState: n, errorState: i, mappingsList: o } = this.elements;
+    switch (w(t), w(n), w(i), w(o), e) {
       case "loading":
         x(t);
         break;
@@ -2753,7 +2753,7 @@ class ht {
         x(i);
         break;
       case "list":
-        x(a);
+        x(o);
         break;
     }
   }
@@ -2823,36 +2823,36 @@ class ht {
   renderMappings() {
     const { mappingsTbody: e, searchInput: t, filterStatus: n, filterProvider: i } = this.elements;
     if (!e) return;
-    const a = (t?.value || "").toLowerCase(), l = n?.value || "", r = i?.value || "", g = this.mappings.filter((h) => !(a && !h.name.toLowerCase().includes(a) && !h.provider.toLowerCase().includes(a) || l && h.status !== l || r && h.provider !== r));
-    if (g.length === 0) {
+    const o = (t?.value || "").toLowerCase(), d = n?.value || "", a = i?.value || "", f = this.mappings.filter((g) => !(o && !g.name.toLowerCase().includes(o) && !g.provider.toLowerCase().includes(o) || d && g.status !== d || a && g.provider !== a));
+    if (f.length === 0) {
       this.showState("empty");
       return;
     }
-    e.innerHTML = g.map(
-      (h) => `
+    e.innerHTML = f.map(
+      (g) => `
       <tr class="hover:bg-gray-50">
         <td class="px-6 py-4">
-          <div class="font-medium text-gray-900">${this.escapeHtml(h.name)}</div>
-          <div class="text-xs text-gray-500">${this.escapeHtml(h.compiled_hash ? h.compiled_hash.slice(0, 12) + "..." : "")}</div>
+          <div class="font-medium text-gray-900">${this.escapeHtml(g.name)}</div>
+          <div class="text-xs text-gray-500">${this.escapeHtml(g.compiled_hash ? g.compiled_hash.slice(0, 12) + "..." : "")}</div>
         </td>
-        <td class="px-6 py-4 text-sm text-gray-700">${this.escapeHtml(h.provider)}</td>
-        <td class="px-6 py-4">${this.getStatusBadge(h.status)}</td>
-        <td class="px-6 py-4 text-sm text-gray-700">v${h.version || 1}</td>
-        <td class="px-6 py-4 text-sm text-gray-500">${this.formatDate(h.updated_at)}</td>
+        <td class="px-6 py-4 text-sm text-gray-700">${this.escapeHtml(g.provider)}</td>
+        <td class="px-6 py-4">${this.getStatusBadge(g.status)}</td>
+        <td class="px-6 py-4 text-sm text-gray-700">v${g.version || 1}</td>
+        <td class="px-6 py-4 text-sm text-gray-500">${this.formatDate(g.updated_at)}</td>
         <td class="px-6 py-4 text-right">
           <div class="flex items-center justify-end gap-2">
-            <button type="button" class="preview-mapping-btn text-purple-600 hover:text-purple-700 text-sm font-medium" data-id="${this.escapeHtml(h.id)}" aria-label="Preview ${this.escapeHtml(h.name)}">
+            <button type="button" class="preview-mapping-btn text-purple-600 hover:text-purple-700 text-sm font-medium" data-id="${this.escapeHtml(g.id)}" aria-label="Preview ${this.escapeHtml(g.name)}">
               Preview
             </button>
-            <button type="button" class="edit-mapping-btn text-blue-600 hover:text-blue-700 text-sm font-medium" data-id="${this.escapeHtml(h.id)}" aria-label="Edit ${this.escapeHtml(h.name)}">
+            <button type="button" class="edit-mapping-btn text-blue-600 hover:text-blue-700 text-sm font-medium" data-id="${this.escapeHtml(g.id)}" aria-label="Edit ${this.escapeHtml(g.name)}">
               Edit
             </button>
-            ${h.status === "draft" ? `
-              <button type="button" class="publish-mapping-btn text-green-600 hover:text-green-700 text-sm font-medium" data-id="${this.escapeHtml(h.id)}" aria-label="Publish ${this.escapeHtml(h.name)}">
+            ${g.status === "draft" ? `
+              <button type="button" class="publish-mapping-btn text-green-600 hover:text-green-700 text-sm font-medium" data-id="${this.escapeHtml(g.id)}" aria-label="Publish ${this.escapeHtml(g.name)}">
                 Publish
               </button>
             ` : ""}
-            <button type="button" class="delete-mapping-btn text-red-600 hover:text-red-700 text-sm font-medium" data-id="${this.escapeHtml(h.id)}" aria-label="Delete ${this.escapeHtml(h.name)}">
+            <button type="button" class="delete-mapping-btn text-red-600 hover:text-red-700 text-sm font-medium" data-id="${this.escapeHtml(g.id)}" aria-label="Delete ${this.escapeHtml(g.name)}">
               Delete
             </button>
           </div>
@@ -2947,26 +2947,26 @@ class ht {
       mappingVersionInput: t,
       mappingNameInput: n,
       mappingProviderInput: i,
-      schemaObjectTypeInput: a,
-      schemaVersionInput: l,
-      schemaFieldsContainer: r,
-      mappingRulesContainer: g
-    } = this.elements, h = [];
-    r?.querySelectorAll(".schema-field-row").forEach((w) => {
-      h.push({
-        object: (w.querySelector(".field-object")?.value || "").trim(),
-        field: (w.querySelector(".field-name")?.value || "").trim(),
-        type: w.querySelector(".field-type")?.value || "string",
-        required: w.querySelector(".field-required")?.checked || !1
+      schemaObjectTypeInput: o,
+      schemaVersionInput: d,
+      schemaFieldsContainer: a,
+      mappingRulesContainer: f
+    } = this.elements, g = [];
+    a?.querySelectorAll(".schema-field-row").forEach((b) => {
+      g.push({
+        object: (b.querySelector(".field-object")?.value || "").trim(),
+        field: (b.querySelector(".field-name")?.value || "").trim(),
+        type: b.querySelector(".field-type")?.value || "string",
+        required: b.querySelector(".field-required")?.checked || !1
       });
     });
-    const v = [];
-    return g?.querySelectorAll(".mapping-rule-row").forEach((w) => {
-      v.push({
-        source_object: (w.querySelector(".rule-source-object")?.value || "").trim(),
-        source_field: (w.querySelector(".rule-source-field")?.value || "").trim(),
-        target_entity: w.querySelector(".rule-target-entity")?.value || "participant",
-        target_path: (w.querySelector(".rule-target-path")?.value || "").trim()
+    const y = [];
+    return f?.querySelectorAll(".mapping-rule-row").forEach((b) => {
+      y.push({
+        source_object: (b.querySelector(".rule-source-object")?.value || "").trim(),
+        source_field: (b.querySelector(".rule-source-field")?.value || "").trim(),
+        target_entity: b.querySelector(".rule-target-entity")?.value || "participant",
+        target_path: (b.querySelector(".rule-target-path")?.value || "").trim()
       });
     }), {
       id: e?.value.trim() || void 0,
@@ -2974,11 +2974,11 @@ class ht {
       name: n?.value.trim() || "",
       provider: i?.value.trim() || "",
       external_schema: {
-        object_type: a?.value.trim() || "",
-        version: l?.value.trim() || void 0,
-        fields: h
+        object_type: o?.value.trim() || "",
+        version: d?.value.trim() || void 0,
+        fields: g
       },
-      rules: v
+      rules: y
     };
   }
   /**
@@ -2989,17 +2989,17 @@ class ht {
       mappingIdInput: t,
       mappingVersionInput: n,
       mappingNameInput: i,
-      mappingProviderInput: a,
-      schemaObjectTypeInput: l,
-      schemaVersionInput: r,
-      schemaFieldsContainer: g,
-      mappingRulesContainer: h,
-      mappingStatusBadge: v,
-      formValidationStatus: w
+      mappingProviderInput: o,
+      schemaObjectTypeInput: d,
+      schemaVersionInput: a,
+      schemaFieldsContainer: f,
+      mappingRulesContainer: g,
+      mappingStatusBadge: y,
+      formValidationStatus: b
     } = this.elements;
-    t && (t.value = e.id || ""), n && (n.value = String(e.version || 0)), i && (i.value = e.name || ""), a && (a.value = e.provider || "");
-    const E = e.external_schema || { object_type: "", fields: [] };
-    l && (l.value = E.object_type || ""), r && (r.value = E.version || ""), g && (g.innerHTML = "", (E.fields || []).forEach((S) => g.appendChild(this.createSchemaFieldRow(S)))), h && (h.innerHTML = "", (e.rules || []).forEach((S) => h.appendChild(this.createMappingRuleRow(S)))), e.status && v ? (v.innerHTML = this.getStatusBadge(e.status), v.classList.remove("hidden")) : v && v.classList.add("hidden"), f(w);
+    t && (t.value = e.id || ""), n && (n.value = String(e.version || 0)), i && (i.value = e.name || ""), o && (o.value = e.provider || "");
+    const I = e.external_schema || { object_type: "", fields: [] };
+    d && (d.value = I.object_type || ""), a && (a.value = I.version || ""), f && (f.innerHTML = "", (I.fields || []).forEach((C) => f.appendChild(this.createSchemaFieldRow(C)))), g && (g.innerHTML = "", (e.rules || []).forEach((C) => g.appendChild(this.createMappingRuleRow(C)))), e.status && y ? (y.innerHTML = this.getStatusBadge(e.status), y.classList.remove("hidden")) : y && y.classList.add("hidden"), w(b);
   }
   /**
    * Reset the form to initial state
@@ -3010,11 +3010,11 @@ class ht {
       mappingIdInput: t,
       mappingVersionInput: n,
       schemaFieldsContainer: i,
-      mappingRulesContainer: a,
-      mappingStatusBadge: l,
-      formValidationStatus: r
+      mappingRulesContainer: o,
+      mappingStatusBadge: d,
+      formValidationStatus: a
     } = this.elements;
-    e?.reset(), t && (t.value = ""), n && (n.value = "0"), i && (i.innerHTML = ""), a && (a.innerHTML = ""), l && l.classList.add("hidden"), f(r), this.editingMappingId = null;
+    e?.reset(), t && (t.value = ""), n && (n.value = "0"), i && (i.innerHTML = ""), o && (o.innerHTML = ""), d && d.classList.add("hidden"), w(a), this.editingMappingId = null;
   }
   // Modal methods
   /**
@@ -3028,32 +3028,32 @@ class ht {
    * Open edit mapping modal
    */
   openEditModal(e) {
-    const t = this.mappings.find((l) => l.id === e);
+    const t = this.mappings.find((d) => d.id === e);
     if (!t) return;
-    const { mappingModal: n, mappingModalTitle: i, mappingNameInput: a } = this.elements;
-    this.editingMappingId = e, i && (i.textContent = "Edit Mapping Specification"), this.populateForm(t), x(n), a?.focus();
+    const { mappingModal: n, mappingModalTitle: i, mappingNameInput: o } = this.elements;
+    this.editingMappingId = e, i && (i.textContent = "Edit Mapping Specification"), this.populateForm(t), x(n), o?.focus();
   }
   /**
    * Close mapping modal
    */
   closeModal() {
     const { mappingModal: e } = this.elements;
-    f(e), this.resetForm();
+    w(e), this.resetForm();
   }
   /**
    * Open publish confirmation modal
    */
   openPublishModal(e) {
-    const t = this.mappings.find((l) => l.id === e);
+    const t = this.mappings.find((d) => d.id === e);
     if (!t) return;
-    const { publishModal: n, publishMappingName: i, publishMappingVersion: a } = this.elements;
-    this.pendingPublishId = e, i && (i.textContent = t.name), a && (a.textContent = `v${t.version || 1}`), x(n);
+    const { publishModal: n, publishMappingName: i, publishMappingVersion: o } = this.elements;
+    this.pendingPublishId = e, i && (i.textContent = t.name), o && (o.textContent = `v${t.version || 1}`), x(n);
   }
   /**
    * Close publish modal
    */
   closePublishModal() {
-    f(this.elements.publishModal), this.pendingPublishId = null;
+    w(this.elements.publishModal), this.pendingPublishId = null;
   }
   /**
    * Open delete confirmation modal
@@ -3065,7 +3065,7 @@ class ht {
    * Close delete modal
    */
   closeDeleteModal() {
-    f(this.elements.deleteModal), this.pendingDeleteId = null;
+    w(this.elements.deleteModal), this.pendingDeleteId = null;
   }
   // CRUD operations
   /**
@@ -3082,8 +3082,8 @@ class ht {
         credentials: "same-origin",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({ ...n, validate_only: !0 })
-      }), a = await i.json();
-      if (i.ok && a.status === "ok")
+      }), o = await i.json();
+      if (i.ok && o.status === "ok")
         t && (t.innerHTML = `
             <div class="flex items-start gap-3 text-green-700 bg-green-50 border border-green-200">
               <svg class="w-5 h-5 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -3091,12 +3091,12 @@ class ht {
               </svg>
               <div>
                 <p class="font-medium">Validation Passed</p>
-                <p class="text-sm mt-1">Mapping specification is valid. Compiled hash: <code class="text-xs bg-green-100 px-1 py-0.5 rounded">${this.escapeHtml((a.mapping?.compiled_hash || "").slice(0, 16))}</code></p>
+                <p class="text-sm mt-1">Mapping specification is valid. Compiled hash: <code class="text-xs bg-green-100 px-1 py-0.5 rounded">${this.escapeHtml((o.mapping?.compiled_hash || "").slice(0, 16))}</code></p>
               </div>
             </div>
           `, t.className = "rounded-lg p-4"), this.announce("Validation passed");
       else {
-        const l = a.errors || [a.error?.message || "Validation failed"];
+        const d = o.errors || [o.error?.message || "Validation failed"];
         t && (t.innerHTML = `
             <div class="flex items-start gap-3 text-red-700 bg-red-50 border border-red-200">
               <svg class="w-5 h-5 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -3104,7 +3104,7 @@ class ht {
               </svg>
               <div>
                 <p class="font-medium">Validation Failed</p>
-                <ul class="text-sm mt-1 list-disc list-inside">${l.map((r) => `<li>${this.escapeHtml(r)}</li>`).join("")}</ul>
+                <ul class="text-sm mt-1 list-disc list-inside">${d.map((a) => `<li>${this.escapeHtml(a)}</li>`).join("")}</ul>
               </div>
             </div>
           `, t.className = "rounded-lg p-4"), this.announce("Validation failed");
@@ -3125,15 +3125,15 @@ class ht {
     const t = this.collectFormData();
     e.setAttribute("disabled", "true"), e.innerHTML = '<svg class="animate-spin w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> Saving...';
     try {
-      const n = !!t.id, i = n ? `${this.mappingsEndpoint}/${t.id}` : this.mappingsEndpoint, l = await fetch(i, {
+      const n = !!t.id, i = n ? `${this.mappingsEndpoint}/${t.id}` : this.mappingsEndpoint, d = await fetch(i, {
         method: n ? "PUT" : "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify(t)
       });
-      if (!l.ok) {
-        const r = await l.json();
-        throw new Error(r.error?.message || `HTTP ${l.status}`);
+      if (!d.ok) {
+        const a = await d.json();
+        throw new Error(a.error?.message || `HTTP ${d.status}`);
       }
       this.showToast(n ? "Mapping updated" : "Mapping created", "success"), this.announce(n ? "Mapping updated" : "Mapping created"), this.closeModal(), await this.loadMappings();
     } catch (n) {
@@ -3208,31 +3208,31 @@ class ht {
    * Open preview modal
    */
   openPreviewModal(e) {
-    const t = this.mappings.find((v) => v.id === e);
+    const t = this.mappings.find((y) => y.id === e);
     if (!t) return;
     const {
       previewModal: n,
       previewMappingName: i,
-      previewMappingProvider: a,
-      previewObjectType: l,
-      previewMappingStatus: r,
-      previewSourceInput: g,
-      sourceSyntaxError: h
+      previewMappingProvider: o,
+      previewObjectType: d,
+      previewMappingStatus: a,
+      previewSourceInput: f,
+      sourceSyntaxError: g
     } = this.elements;
-    this.currentPreviewMapping = t, i && (i.textContent = t.name), a && (a.textContent = t.provider), l && (l.textContent = t.external_schema?.object_type || "-"), r && (r.innerHTML = this.getStatusBadge(t.status)), this.renderPreviewRules(t.rules || []), this.showPreviewState("empty"), g && (g.value = ""), f(h), x(n), g?.focus();
+    this.currentPreviewMapping = t, i && (i.textContent = t.name), o && (o.textContent = t.provider), d && (d.textContent = t.external_schema?.object_type || "-"), a && (a.innerHTML = this.getStatusBadge(t.status)), this.renderPreviewRules(t.rules || []), this.showPreviewState("empty"), f && (f.value = ""), w(g), x(n), f?.focus();
   }
   /**
    * Close preview modal
    */
   closePreviewModal() {
-    f(this.elements.previewModal), this.currentPreviewMapping = null, this.elements.previewSourceInput && (this.elements.previewSourceInput.value = "");
+    w(this.elements.previewModal), this.currentPreviewMapping = null, this.elements.previewSourceInput && (this.elements.previewSourceInput.value = "");
   }
   /**
    * Show preview state
    */
   showPreviewState(e) {
-    const { previewEmpty: t, previewLoading: n, previewError: i, previewSuccess: a } = this.elements;
-    switch (f(t), f(n), f(i), f(a), e) {
+    const { previewEmpty: t, previewLoading: n, previewError: i, previewSuccess: o } = this.elements;
+    switch (w(t), w(n), w(i), w(o), e) {
       case "empty":
         x(t);
         break;
@@ -3243,7 +3243,7 @@ class ht {
         x(i);
         break;
       case "success":
-        x(a);
+        x(o);
         break;
     }
   }
@@ -3279,26 +3279,26 @@ class ht {
    */
   loadSamplePayload() {
     if (!this.currentPreviewMapping) return;
-    const { previewSourceInput: e, sourceSyntaxError: t } = this.elements, n = this.currentPreviewMapping.external_schema || { object_type: "data", fields: [] }, i = n.object_type || "data", a = n.fields || [], l = {}, r = {};
-    a.forEach((g) => {
-      const h = g.field || "field";
-      switch (g.type) {
+    const { previewSourceInput: e, sourceSyntaxError: t } = this.elements, n = this.currentPreviewMapping.external_schema || { object_type: "data", fields: [] }, i = n.object_type || "data", o = n.fields || [], d = {}, a = {};
+    o.forEach((f) => {
+      const g = f.field || "field";
+      switch (f.type) {
         case "string":
-          r[h] = h === "email" ? "john.doe@example.com" : h === "name" ? "John Doe" : `sample_${h}`;
+          a[g] = g === "email" ? "john.doe@example.com" : g === "name" ? "John Doe" : `sample_${g}`;
           break;
         case "number":
-          r[h] = 123;
+          a[g] = 123;
           break;
         case "boolean":
-          r[h] = !0;
+          a[g] = !0;
           break;
         case "date":
-          r[h] = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
+          a[g] = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
           break;
         default:
-          r[h] = `sample_${h}`;
+          a[g] = `sample_${g}`;
       }
-    }), l[i] = r, e && (e.value = JSON.stringify(l, null, 2)), f(t);
+    }), d[i] = a, e && (e.value = JSON.stringify(d, null, 2)), w(t);
   }
   /**
    * Validate source JSON
@@ -3306,10 +3306,10 @@ class ht {
   validateSourceJson() {
     const { previewSourceInput: e, sourceSyntaxError: t } = this.elements, n = e?.value.trim() || "";
     if (!n)
-      return f(t), null;
+      return w(t), null;
     try {
       const i = JSON.parse(n);
-      return f(t), i;
+      return w(t), i;
     } catch (i) {
       return t && (t.textContent = `JSON Syntax Error: ${i instanceof Error ? i.message : "Invalid JSON"}`, x(t)), null;
     }
@@ -3345,30 +3345,30 @@ class ht {
       field_instances: [],
       agreement: {},
       matched_rules: []
-    }, a = {}, l = {}, r = [];
-    return n.forEach((g) => {
-      const h = this.resolveSourceValue(e, g.source_object, g.source_field), v = h !== void 0;
+    }, o = {}, d = {}, a = [];
+    return n.forEach((f) => {
+      const g = this.resolveSourceValue(e, f.source_object, f.source_field), y = g !== void 0;
       if (i.matched_rules.push({
-        source: g.source_field,
-        matched: v,
-        value: h
-      }), !!v)
-        switch (g.target_entity) {
+        source: f.source_field,
+        matched: y,
+        value: g
+      }), !!y)
+        switch (f.target_entity) {
           case "participant":
-            a[g.target_path] = h;
+            o[f.target_path] = g;
             break;
           case "agreement":
-            l[g.target_path] = h;
+            d[f.target_path] = g;
             break;
           case "field_definition":
-            r.push({ path: g.target_path, value: h });
+            a.push({ path: f.target_path, value: g });
             break;
         }
-    }), Object.keys(a).length > 0 && i.participants.push({
-      ...a,
-      role: a.role || "signer",
-      signing_stage: a.signing_stage || 1
-    }), i.agreement = l, i.field_definitions = r, i;
+    }), Object.keys(o).length > 0 && i.participants.push({
+      ...o,
+      role: o.role || "signer",
+      signing_stage: o.signing_stage || 1
+    }), i.agreement = d, i.field_definitions = a, i;
   }
   /**
    * Resolve source value from payload
@@ -3379,9 +3379,9 @@ class ht {
         return e[t][n];
       for (const i of Object.keys(e))
         if (typeof e[i] == "object" && e[i] !== null) {
-          const a = e[i];
-          if (n in a)
-            return a[n];
+          const o = e[i];
+          if (n in o)
+            return o[n];
         }
       return e[n];
     }
@@ -3394,49 +3394,49 @@ class ht {
       previewParticipants: t,
       participantsCount: n,
       previewFields: i,
-      fieldsCount: a,
-      previewMetadata: l,
-      previewRawJson: r,
-      previewRulesTbody: g
-    } = this.elements, h = e.participants || [];
-    n && (n.textContent = `(${h.length})`), t && (h.length === 0 ? t.innerHTML = '<p class="text-sm text-gray-500">No participants resolved</p>' : t.innerHTML = h.map(
-      (S) => `
+      fieldsCount: o,
+      previewMetadata: d,
+      previewRawJson: a,
+      previewRulesTbody: f
+    } = this.elements, g = e.participants || [];
+    n && (n.textContent = `(${g.length})`), t && (g.length === 0 ? t.innerHTML = '<p class="text-sm text-gray-500">No participants resolved</p>' : t.innerHTML = g.map(
+      (C) => `
           <div class="flex items-center gap-3 p-2 bg-gray-50 rounded-lg">
             <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-sm font-medium text-blue-700">
-              ${this.escapeHtml(String(S.name || S.email || "?").charAt(0).toUpperCase())}
+              ${this.escapeHtml(String(C.name || C.email || "?").charAt(0).toUpperCase())}
             </div>
             <div class="flex-1 min-w-0">
-              <p class="text-sm font-medium text-gray-900 truncate">${this.escapeHtml(String(S.name || "-"))}</p>
-              <p class="text-xs text-gray-500 truncate">${this.escapeHtml(String(S.email || "-"))}</p>
+              <p class="text-sm font-medium text-gray-900 truncate">${this.escapeHtml(String(C.name || "-"))}</p>
+              <p class="text-xs text-gray-500 truncate">${this.escapeHtml(String(C.email || "-"))}</p>
             </div>
             <div class="flex items-center gap-2">
-              <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-medium">${this.escapeHtml(String(S.role))}</span>
-              <span class="text-xs text-gray-500">Stage ${S.signing_stage}</span>
+              <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-medium">${this.escapeHtml(String(C.role))}</span>
+              <span class="text-xs text-gray-500">Stage ${C.signing_stage}</span>
             </div>
           </div>
         `
     ).join(""));
-    const v = e.field_definitions || [];
-    a && (a.textContent = `(${v.length})`), i && (v.length === 0 ? i.innerHTML = '<p class="text-sm text-gray-500">No field definitions resolved</p>' : i.innerHTML = v.map(
-      (S) => `
+    const y = e.field_definitions || [];
+    o && (o.textContent = `(${y.length})`), i && (y.length === 0 ? i.innerHTML = '<p class="text-sm text-gray-500">No field definitions resolved</p>' : i.innerHTML = y.map(
+      (C) => `
           <div class="flex items-center gap-2 p-2 bg-gray-50 rounded-lg text-sm">
-            <span class="font-mono text-xs text-gray-600">${this.escapeHtml(S.path)}</span>
+            <span class="font-mono text-xs text-gray-600">${this.escapeHtml(C.path)}</span>
             <span class="text-gray-400">=</span>
-            <span class="text-gray-900">${this.escapeHtml(String(S.value))}</span>
+            <span class="text-gray-900">${this.escapeHtml(String(C.value))}</span>
           </div>
         `
     ).join(""));
-    const w = e.agreement || {}, E = Object.entries(w);
-    l && (E.length === 0 ? l.innerHTML = '<p class="text-sm text-gray-500">No agreement metadata resolved</p>' : l.innerHTML = E.map(
-      ([S, C]) => `
+    const b = e.agreement || {}, I = Object.entries(b);
+    d && (I.length === 0 ? d.innerHTML = '<p class="text-sm text-gray-500">No agreement metadata resolved</p>' : d.innerHTML = I.map(
+      ([C, E]) => `
           <div class="flex items-center gap-2 text-sm">
-            <span class="text-gray-600">${this.escapeHtml(S)}:</span>
-            <span class="text-gray-900">${this.escapeHtml(String(C))}</span>
+            <span class="text-gray-600">${this.escapeHtml(C)}:</span>
+            <span class="text-gray-900">${this.escapeHtml(String(E))}</span>
           </div>
         `
-    ).join("")), r && (r.textContent = JSON.stringify(e, null, 2)), (e.matched_rules || []).forEach((S) => {
-      const C = g?.querySelector(`[data-rule-source="${this.escapeHtml(S.source)}"] span`);
-      C && (S.matched ? (C.className = "px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700", C.textContent = "Matched") : (C.className = "px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700", C.textContent = "Not Found"));
+    ).join("")), a && (a.textContent = JSON.stringify(e, null, 2)), (e.matched_rules || []).forEach((C) => {
+      const E = f?.querySelector(`[data-rule-source="${this.escapeHtml(C.source)}"] span`);
+      E && (C.matched ? (E.className = "px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700", E.textContent = "Matched") : (E.className = "px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700", E.textContent = "Not Found"));
     });
   }
   /**
@@ -3444,7 +3444,7 @@ class ht {
    */
   clearPreview() {
     const { previewSourceInput: e, sourceSyntaxError: t } = this.elements;
-    e && (e.value = ""), f(t), this.showPreviewState("empty"), this.renderPreviewRules(this.currentPreviewMapping?.rules || []);
+    e && (e.value = ""), w(t), this.showPreviewState("empty"), this.renderPreviewRules(this.currentPreviewMapping?.rules || []);
   }
   /**
    * Show toast notification
@@ -3454,18 +3454,18 @@ class ht {
     i && (t === "success" ? i.success(e) : i.error(e));
   }
 }
-function Li(s) {
-  const e = new ht(s);
-  return k(() => e.init()), e;
+function Qi(s) {
+  const e = new kt(s);
+  return M(() => e.init()), e;
 }
-function Pi(s) {
+function Xi(s) {
   const e = {
     basePath: s.basePath,
     apiBasePath: s.apiBasePath || `${s.basePath}/api`
-  }, t = new ht(e);
-  k(() => t.init()), typeof window < "u" && (window.esignIntegrationMappingsController = t);
+  }, t = new kt(e);
+  M(() => t.init()), typeof window < "u" && (window.esignIntegrationMappingsController = t);
 }
-class pt {
+class Pt {
   constructor(e) {
     this.conflicts = [], this.currentConflictId = null, this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api`, this.conflictsEndpoint = `${this.apiBase}/esign/integrations/conflicts`, this.elements = {
       announcements: c("#conflicts-announcements"),
@@ -3525,21 +3525,21 @@ class pt {
       retryBtn: t,
       closeDetailBtn: n,
       filterStatus: i,
-      filterProvider: a,
-      filterEntity: l,
-      actionResolveBtn: r,
-      actionIgnoreBtn: g,
-      cancelResolveBtn: h,
-      resolveForm: v,
-      conflictDetailModal: w,
-      resolveModal: E
+      filterProvider: o,
+      filterEntity: d,
+      actionResolveBtn: a,
+      actionIgnoreBtn: f,
+      cancelResolveBtn: g,
+      resolveForm: y,
+      conflictDetailModal: b,
+      resolveModal: I
     } = this.elements;
-    e?.addEventListener("click", () => this.loadConflicts()), t?.addEventListener("click", () => this.loadConflicts()), n?.addEventListener("click", () => this.closeConflictDetail()), i?.addEventListener("change", () => this.loadConflicts()), a?.addEventListener("change", () => this.renderConflicts()), l?.addEventListener("change", () => this.renderConflicts()), r?.addEventListener("click", () => this.openResolveModal("resolved")), g?.addEventListener("click", () => this.openResolveModal("ignored")), h?.addEventListener("click", () => this.closeResolveModal()), v?.addEventListener("submit", (S) => this.submitResolution(S)), document.addEventListener("keydown", (S) => {
-      S.key === "Escape" && (E && !E.classList.contains("hidden") ? this.closeResolveModal() : w && !w.classList.contains("hidden") && this.closeConflictDetail());
-    }), [w, E].forEach((S) => {
-      S?.addEventListener("click", (C) => {
-        const P = C.target;
-        (P === S || P.getAttribute("aria-hidden") === "true") && (S === w ? this.closeConflictDetail() : S === E && this.closeResolveModal());
+    e?.addEventListener("click", () => this.loadConflicts()), t?.addEventListener("click", () => this.loadConflicts()), n?.addEventListener("click", () => this.closeConflictDetail()), i?.addEventListener("change", () => this.loadConflicts()), o?.addEventListener("change", () => this.renderConflicts()), d?.addEventListener("change", () => this.renderConflicts()), a?.addEventListener("click", () => this.openResolveModal("resolved")), f?.addEventListener("click", () => this.openResolveModal("ignored")), g?.addEventListener("click", () => this.closeResolveModal()), y?.addEventListener("submit", (C) => this.submitResolution(C)), document.addEventListener("keydown", (C) => {
+      C.key === "Escape" && (I && !I.classList.contains("hidden") ? this.closeResolveModal() : b && !b.classList.contains("hidden") && this.closeConflictDetail());
+    }), [b, I].forEach((C) => {
+      C?.addEventListener("click", (E) => {
+        const T = E.target;
+        (T === C || T.getAttribute("aria-hidden") === "true") && (C === b ? this.closeConflictDetail() : C === I && this.closeResolveModal());
       });
     });
   }
@@ -3554,8 +3554,8 @@ class pt {
    * Show a specific page state
    */
   showState(e) {
-    const { loadingState: t, emptyState: n, errorState: i, conflictsList: a } = this.elements;
-    switch (f(t), f(n), f(i), f(a), e) {
+    const { loadingState: t, emptyState: n, errorState: i, conflictsList: o } = this.elements;
+    switch (w(t), w(n), w(i), w(o), e) {
       case "loading":
         x(t);
         break;
@@ -3566,7 +3566,7 @@ class pt {
         x(i);
         break;
       case "list":
-        x(a);
+        x(o);
         break;
     }
   }
@@ -3650,8 +3650,8 @@ class pt {
    * Update stats display
    */
   updateStats() {
-    const { statPending: e, statResolved: t, statIgnored: n } = this.elements, i = this.conflicts.filter((r) => r.status === "pending").length, a = this.conflicts.filter((r) => r.status === "resolved").length, l = this.conflicts.filter((r) => r.status === "ignored").length;
-    e && (e.textContent = String(i)), t && (t.textContent = String(a)), n && (n.textContent = String(l));
+    const { statPending: e, statResolved: t, statIgnored: n } = this.elements, i = this.conflicts.filter((a) => a.status === "pending").length, o = this.conflicts.filter((a) => a.status === "resolved").length, d = this.conflicts.filter((a) => a.status === "ignored").length;
+    e && (e.textContent = String(i)), t && (t.textContent = String(o)), n && (n.textContent = String(d));
   }
   /**
    * Render conflicts list with filters applied
@@ -3659,44 +3659,44 @@ class pt {
   renderConflicts() {
     const { conflictsList: e, filterStatus: t, filterProvider: n, filterEntity: i } = this.elements;
     if (!e) return;
-    const a = t?.value || "", l = n?.value || "", r = i?.value || "", g = this.conflicts.filter((h) => !(a && h.status !== a || l && h.provider !== l || r && h.entity_kind !== r));
-    if (g.length === 0) {
+    const o = t?.value || "", d = n?.value || "", a = i?.value || "", f = this.conflicts.filter((g) => !(o && g.status !== o || d && g.provider !== d || a && g.entity_kind !== a));
+    if (f.length === 0) {
       this.showState("empty");
       return;
     }
-    e.innerHTML = g.map(
-      (h) => `
-      <div class="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow cursor-pointer conflict-card" data-id="${this.escapeHtml(h.id)}">
+    e.innerHTML = f.map(
+      (g) => `
+      <div class="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow cursor-pointer conflict-card" data-id="${this.escapeHtml(g.id)}">
         <div class="p-4">
           <div class="flex items-start justify-between">
             <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-lg ${h.status === "pending" ? "bg-amber-100" : h.status === "resolved" ? "bg-green-100" : "bg-gray-100"} flex items-center justify-center">
-                <svg class="w-5 h-5 ${h.status === "pending" ? "text-amber-600" : h.status === "resolved" ? "text-green-600" : "text-gray-500"}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div class="w-10 h-10 rounded-lg ${g.status === "pending" ? "bg-amber-100" : g.status === "resolved" ? "bg-green-100" : "bg-gray-100"} flex items-center justify-center">
+                <svg class="w-5 h-5 ${g.status === "pending" ? "text-amber-600" : g.status === "resolved" ? "text-green-600" : "text-gray-500"}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
                 </svg>
               </div>
               <div>
                 <div class="flex items-center gap-2 mb-1">
-                  <span class="font-medium text-gray-900">${this.escapeHtml(h.reason || "Data conflict")}</span>
-                  ${this.getEntityBadge(h.entity_kind)}
+                  <span class="font-medium text-gray-900">${this.escapeHtml(g.reason || "Data conflict")}</span>
+                  ${this.getEntityBadge(g.entity_kind)}
                 </div>
                 <div class="flex items-center gap-2 text-xs text-gray-500">
-                  <span>${this.escapeHtml(h.provider)}</span>
+                  <span>${this.escapeHtml(g.provider)}</span>
                   <span>•</span>
-                  <span class="font-mono">${this.escapeHtml((h.external_id || "").slice(0, 12))}...</span>
+                  <span class="font-mono">${this.escapeHtml((g.external_id || "").slice(0, 12))}...</span>
                 </div>
               </div>
             </div>
             <div class="text-right">
-              ${this.getStatusBadge(h.status)}
-              <p class="text-xs text-gray-500 mt-1">${this.formatDate(h.created_at)}</p>
+              ${this.getStatusBadge(g.status)}
+              <p class="text-xs text-gray-500 mt-1">${this.formatDate(g.created_at)}</p>
             </div>
           </div>
         </div>
       </div>
     `
-    ).join(""), this.showState("list"), e.querySelectorAll(".conflict-card").forEach((h) => {
-      h.addEventListener("click", () => this.openConflictDetail(h.dataset.id || ""));
+    ).join(""), this.showState("list"), e.querySelectorAll(".conflict-card").forEach((g) => {
+      g.addEventListener("click", () => this.openConflictDetail(g.dataset.id || ""));
     });
   }
   /**
@@ -3704,52 +3704,52 @@ class pt {
    */
   openConflictDetail(e) {
     this.currentConflictId = e;
-    const t = this.conflicts.find((N) => N.id === e);
+    const t = this.conflicts.find((U) => U.id === e);
     if (!t) return;
     const {
       conflictDetailModal: n,
       detailReason: i,
-      detailEntityType: a,
-      detailStatusBadge: l,
-      detailProvider: r,
-      detailExternalId: g,
-      detailInternalId: h,
-      detailBindingId: v,
-      detailConflictId: w,
-      detailRunId: E,
-      detailCreatedAt: S,
-      detailVersion: C,
-      detailPayload: P,
-      resolutionSection: L,
-      actionButtons: M,
-      detailResolvedAt: $,
-      detailResolvedBy: _,
-      detailResolution: j
+      detailEntityType: o,
+      detailStatusBadge: d,
+      detailProvider: a,
+      detailExternalId: f,
+      detailInternalId: g,
+      detailBindingId: y,
+      detailConflictId: b,
+      detailRunId: I,
+      detailCreatedAt: C,
+      detailVersion: E,
+      detailPayload: T,
+      resolutionSection: P,
+      actionButtons: $,
+      detailResolvedAt: B,
+      detailResolvedBy: F,
+      detailResolution: O
     } = this.elements;
-    if (i && (i.textContent = t.reason || "Data conflict"), a && (a.textContent = t.entity_kind || "-"), l && (l.innerHTML = this.getStatusBadge(t.status)), r && (r.textContent = t.provider || "-"), g && (g.textContent = t.external_id || "-"), h && (h.textContent = t.internal_id || "-"), v && (v.textContent = t.binding_id || "-"), w && (w.textContent = t.id), E && (E.textContent = t.run_id || "-"), S && (S.textContent = this.formatDate(t.created_at)), C && (C.textContent = String(t.version || 1)), P)
+    if (i && (i.textContent = t.reason || "Data conflict"), o && (o.textContent = t.entity_kind || "-"), d && (d.innerHTML = this.getStatusBadge(t.status)), a && (a.textContent = t.provider || "-"), f && (f.textContent = t.external_id || "-"), g && (g.textContent = t.internal_id || "-"), y && (y.textContent = t.binding_id || "-"), b && (b.textContent = t.id), I && (I.textContent = t.run_id || "-"), C && (C.textContent = this.formatDate(t.created_at)), E && (E.textContent = String(t.version || 1)), T)
       try {
-        const N = t.payload_json ? JSON.parse(t.payload_json) : t.payload || {};
-        P.textContent = JSON.stringify(N, null, 2);
+        const U = t.payload_json ? JSON.parse(t.payload_json) : t.payload || {};
+        T.textContent = JSON.stringify(U, null, 2);
       } catch {
-        P.textContent = t.payload_json || "{}";
+        T.textContent = t.payload_json || "{}";
       }
     if (t.status === "resolved" || t.status === "ignored") {
-      if (x(L), f(M), $ && ($.textContent = t.resolved_at ? this.formatDate(t.resolved_at) : ""), _ && (_.textContent = t.resolved_by_user_id ? `By user ${t.resolved_by_user_id}` : "-"), j)
+      if (x(P), w($), B && (B.textContent = t.resolved_at ? this.formatDate(t.resolved_at) : ""), F && (F.textContent = t.resolved_by_user_id ? `By user ${t.resolved_by_user_id}` : "-"), O)
         try {
-          const N = t.resolution_json ? JSON.parse(t.resolution_json) : t.resolution || {};
-          j.textContent = JSON.stringify(N, null, 2);
+          const U = t.resolution_json ? JSON.parse(t.resolution_json) : t.resolution || {};
+          O.textContent = JSON.stringify(U, null, 2);
         } catch {
-          j.textContent = t.resolution_json || "{}";
+          O.textContent = t.resolution_json || "{}";
         }
     } else
-      f(L), x(M);
+      w(P), x($);
     x(n);
   }
   /**
    * Close conflict detail modal
    */
   closeConflictDetail() {
-    f(this.elements.conflictDetailModal), this.currentConflictId = null;
+    w(this.elements.conflictDetailModal), this.currentConflictId = null;
   }
   /**
    * Open resolve modal
@@ -3762,7 +3762,7 @@ class pt {
    * Close resolve modal
    */
   closeResolveModal() {
-    f(this.elements.resolveModal);
+    w(this.elements.resolveModal);
   }
   /**
    * Submit resolution
@@ -3772,23 +3772,23 @@ class pt {
     const { resolveForm: t, submitResolveBtn: n } = this.elements;
     if (!t || !n) return;
     const i = new FormData(t);
-    let a = {};
-    const l = i.get("resolution");
-    if (l)
+    let o = {};
+    const d = i.get("resolution");
+    if (d)
       try {
-        a = JSON.parse(l);
+        o = JSON.parse(d);
       } catch {
-        a = { raw: l };
+        o = { raw: d };
       }
-    const r = i.get("notes");
-    r && (a.notes = r);
-    const g = {
+    const a = i.get("notes");
+    a && (o.notes = a);
+    const f = {
       status: i.get("status"),
-      resolution: a
+      resolution: o
     };
     n.setAttribute("disabled", "true"), n.innerHTML = '<svg class="animate-spin w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> Submitting...';
     try {
-      const h = await fetch(`${this.conflictsEndpoint}/${this.currentConflictId}/resolve`, {
+      const g = await fetch(`${this.conflictsEndpoint}/${this.currentConflictId}/resolve`, {
         method: "POST",
         credentials: "same-origin",
         headers: {
@@ -3796,17 +3796,17 @@ class pt {
           Accept: "application/json",
           "Idempotency-Key": `resolve-${this.currentConflictId}-${Date.now()}`
         },
-        body: JSON.stringify(g)
+        body: JSON.stringify(f)
       });
-      if (!h.ok) {
-        const v = await h.json();
-        throw new Error(v.error?.message || `HTTP ${h.status}`);
+      if (!g.ok) {
+        const y = await g.json();
+        throw new Error(y.error?.message || `HTTP ${g.status}`);
       }
       this.showToast("Conflict resolved", "success"), this.announce("Conflict resolved"), this.closeResolveModal(), this.closeConflictDetail(), await this.loadConflicts();
-    } catch (h) {
-      console.error("Resolution error:", h);
-      const v = h instanceof Error ? h.message : "Unknown error";
-      this.showToast(`Failed: ${v}`, "error");
+    } catch (g) {
+      console.error("Resolution error:", g);
+      const y = g instanceof Error ? g.message : "Unknown error";
+      this.showToast(`Failed: ${y}`, "error");
     } finally {
       n.removeAttribute("disabled"), n.innerHTML = '<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Submit Resolution';
     }
@@ -3819,18 +3819,18 @@ class pt {
     i && (t === "success" ? i.success(e) : i.error(e));
   }
 }
-function Ai(s) {
-  const e = new pt(s);
-  return k(() => e.init()), e;
+function Zi(s) {
+  const e = new Pt(s);
+  return M(() => e.init()), e;
 }
-function ki(s) {
+function es(s) {
   const e = {
     basePath: s.basePath,
     apiBasePath: s.apiBasePath || `${s.basePath}/api`
-  }, t = new pt(e);
-  k(() => t.init()), typeof window < "u" && (window.esignIntegrationConflictsController = t);
+  }, t = new Pt(e);
+  M(() => t.init()), typeof window < "u" && (window.esignIntegrationConflictsController = t);
 }
-class gt {
+class Tt {
   constructor(e) {
     this.syncRuns = [], this.mappings = [], this.currentRunId = null, this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api`, this.syncRunsEndpoint = `${this.apiBase}/esign/integrations/sync-runs`, this.mappingsEndpoint = `${this.apiBase}/esign/integrations/mappings`, this.elements = {
       announcements: c("#sync-announcements"),
@@ -3890,26 +3890,26 @@ class gt {
       startSyncEmptyBtn: t,
       cancelSyncBtn: n,
       startSyncForm: i,
-      refreshBtn: a,
-      retryBtn: l,
-      closeDetailBtn: r,
-      filterProvider: g,
-      filterStatus: h,
-      filterDirection: v,
-      actionResumeBtn: w,
-      actionRetryBtn: E,
-      actionCompleteBtn: S,
-      actionFailBtn: C,
-      actionDiagnosticsBtn: P,
-      startSyncModal: L,
-      runDetailModal: M
+      refreshBtn: o,
+      retryBtn: d,
+      closeDetailBtn: a,
+      filterProvider: f,
+      filterStatus: g,
+      filterDirection: y,
+      actionResumeBtn: b,
+      actionRetryBtn: I,
+      actionCompleteBtn: C,
+      actionFailBtn: E,
+      actionDiagnosticsBtn: T,
+      startSyncModal: P,
+      runDetailModal: $
     } = this.elements;
-    e?.addEventListener("click", () => this.openStartSyncModal()), t?.addEventListener("click", () => this.openStartSyncModal()), n?.addEventListener("click", () => this.closeStartSyncModal()), i?.addEventListener("submit", ($) => this.startSync($)), a?.addEventListener("click", () => this.loadSyncRuns()), l?.addEventListener("click", () => this.loadSyncRuns()), r?.addEventListener("click", () => this.closeRunDetail()), g?.addEventListener("change", () => this.renderTimeline()), h?.addEventListener("change", () => this.renderTimeline()), v?.addEventListener("change", () => this.renderTimeline()), w?.addEventListener("click", () => this.runAction("resume")), E?.addEventListener("click", () => this.runAction("resume")), S?.addEventListener("click", () => this.runAction("complete")), C?.addEventListener("click", () => this.runAction("fail")), P?.addEventListener("click", () => this.openDiagnostics()), document.addEventListener("keydown", ($) => {
-      $.key === "Escape" && (L && !L.classList.contains("hidden") && this.closeStartSyncModal(), M && !M.classList.contains("hidden") && this.closeRunDetail());
-    }), [L, M].forEach(($) => {
-      $?.addEventListener("click", (_) => {
-        const j = _.target;
-        (j === $ || j.getAttribute("aria-hidden") === "true") && ($ === L ? this.closeStartSyncModal() : $ === M && this.closeRunDetail());
+    e?.addEventListener("click", () => this.openStartSyncModal()), t?.addEventListener("click", () => this.openStartSyncModal()), n?.addEventListener("click", () => this.closeStartSyncModal()), i?.addEventListener("submit", (B) => this.startSync(B)), o?.addEventListener("click", () => this.loadSyncRuns()), d?.addEventListener("click", () => this.loadSyncRuns()), a?.addEventListener("click", () => this.closeRunDetail()), f?.addEventListener("change", () => this.renderTimeline()), g?.addEventListener("change", () => this.renderTimeline()), y?.addEventListener("change", () => this.renderTimeline()), b?.addEventListener("click", () => this.runAction("resume")), I?.addEventListener("click", () => this.runAction("resume")), C?.addEventListener("click", () => this.runAction("complete")), E?.addEventListener("click", () => this.runAction("fail")), T?.addEventListener("click", () => this.openDiagnostics()), document.addEventListener("keydown", (B) => {
+      B.key === "Escape" && (P && !P.classList.contains("hidden") && this.closeStartSyncModal(), $ && !$.classList.contains("hidden") && this.closeRunDetail());
+    }), [P, $].forEach((B) => {
+      B?.addEventListener("click", (F) => {
+        const O = F.target;
+        (O === B || O.getAttribute("aria-hidden") === "true") && (B === P ? this.closeStartSyncModal() : B === $ && this.closeRunDetail());
       });
     });
   }
@@ -3924,8 +3924,8 @@ class gt {
    * Show a specific page state
    */
   showState(e) {
-    const { loadingState: t, emptyState: n, errorState: i, runsTimeline: a } = this.elements;
-    switch (f(t), f(n), f(i), f(a), e) {
+    const { loadingState: t, emptyState: n, errorState: i, runsTimeline: o } = this.elements;
+    switch (w(t), w(n), w(i), w(o), e) {
       case "loading":
         x(t);
         break;
@@ -3936,7 +3936,7 @@ class gt {
         x(i);
         break;
       case "list":
-        x(a);
+        x(o);
         break;
     }
   }
@@ -4051,10 +4051,10 @@ class gt {
    * Update stats display
    */
   updateStats() {
-    const { statTotal: e, statRunning: t, statCompleted: n, statFailed: i } = this.elements, a = this.syncRuns.length, l = this.syncRuns.filter(
-      (h) => h.status === "running" || h.status === "pending"
-    ).length, r = this.syncRuns.filter((h) => h.status === "completed").length, g = this.syncRuns.filter((h) => h.status === "failed").length;
-    e && (e.textContent = String(a)), t && (t.textContent = String(l)), n && (n.textContent = String(r)), i && (i.textContent = String(g));
+    const { statTotal: e, statRunning: t, statCompleted: n, statFailed: i } = this.elements, o = this.syncRuns.length, d = this.syncRuns.filter(
+      (g) => g.status === "running" || g.status === "pending"
+    ).length, a = this.syncRuns.filter((g) => g.status === "completed").length, f = this.syncRuns.filter((g) => g.status === "failed").length;
+    e && (e.textContent = String(o)), t && (t.textContent = String(d)), n && (n.textContent = String(a)), i && (i.textContent = String(f));
   }
   /**
    * Render sync runs timeline with filters applied
@@ -4062,52 +4062,52 @@ class gt {
   renderTimeline() {
     const { runsTimeline: e, filterStatus: t, filterDirection: n } = this.elements;
     if (!e) return;
-    const i = t?.value || "", a = n?.value || "", l = this.syncRuns.filter((r) => !(i && r.status !== i || a && r.direction !== a));
-    if (l.length === 0) {
+    const i = t?.value || "", o = n?.value || "", d = this.syncRuns.filter((a) => !(i && a.status !== i || o && a.direction !== o));
+    if (d.length === 0) {
       this.showState("empty");
       return;
     }
-    e.innerHTML = l.map(
-      (r) => `
-      <div class="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow cursor-pointer sync-run-card" data-id="${this.escapeHtml(r.id)}">
+    e.innerHTML = d.map(
+      (a) => `
+      <div class="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow cursor-pointer sync-run-card" data-id="${this.escapeHtml(a.id)}">
         <div class="p-4">
           <div class="flex items-start justify-between">
             <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-lg ${r.status === "running" ? "bg-blue-100" : r.status === "completed" ? "bg-green-100" : r.status === "failed" ? "bg-red-100" : "bg-gray-100"} flex items-center justify-center">
-                <svg class="w-5 h-5 ${r.status === "running" ? "text-blue-600 animate-spin" : r.status === "completed" ? "text-green-600" : r.status === "failed" ? "text-red-600" : "text-gray-400"}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div class="w-10 h-10 rounded-lg ${a.status === "running" ? "bg-blue-100" : a.status === "completed" ? "bg-green-100" : a.status === "failed" ? "bg-red-100" : "bg-gray-100"} flex items-center justify-center">
+                <svg class="w-5 h-5 ${a.status === "running" ? "text-blue-600 animate-spin" : a.status === "completed" ? "text-green-600" : a.status === "failed" ? "text-red-600" : "text-gray-400"}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                 </svg>
               </div>
               <div>
                 <div class="flex items-center gap-2">
-                  <span class="font-medium text-gray-900">${this.escapeHtml(r.provider)}</span>
-                  ${this.getDirectionBadge(r.direction)}
+                  <span class="font-medium text-gray-900">${this.escapeHtml(a.provider)}</span>
+                  ${this.getDirectionBadge(a.direction)}
                 </div>
-                <p class="text-xs text-gray-500 font-mono">${this.escapeHtml(r.id.slice(0, 8))}...</p>
+                <p class="text-xs text-gray-500 font-mono">${this.escapeHtml(a.id.slice(0, 8))}...</p>
               </div>
             </div>
             <div class="text-right">
-              ${this.getStatusBadge(r.status)}
-              <p class="text-xs text-gray-500 mt-1">${this.formatDate(r.started_at)}</p>
+              ${this.getStatusBadge(a.status)}
+              <p class="text-xs text-gray-500 mt-1">${this.formatDate(a.started_at)}</p>
             </div>
           </div>
 
-          ${r.cursor ? `
+          ${a.cursor ? `
             <div class="mt-3 pt-3 border-t border-gray-100">
-              <p class="text-xs text-gray-500">Cursor: <span class="font-mono text-gray-700">${this.escapeHtml(r.cursor)}</span></p>
+              <p class="text-xs text-gray-500">Cursor: <span class="font-mono text-gray-700">${this.escapeHtml(a.cursor)}</span></p>
             </div>
           ` : ""}
 
-          ${r.last_error ? `
+          ${a.last_error ? `
             <div class="mt-3 pt-3 border-t border-gray-100">
-              <p class="text-xs text-red-600 truncate">Error: ${this.escapeHtml(r.last_error)}</p>
+              <p class="text-xs text-red-600 truncate">Error: ${this.escapeHtml(a.last_error)}</p>
             </div>
           ` : ""}
         </div>
       </div>
     `
-    ).join(""), this.showState("list"), e.querySelectorAll(".sync-run-card").forEach((r) => {
-      r.addEventListener("click", () => this.openRunDetail(r.dataset.id || ""));
+    ).join(""), this.showState("list"), e.querySelectorAll(".sync-run-card").forEach((a) => {
+      a.addEventListener("click", () => this.openRunDetail(a.dataset.id || ""));
     });
   }
   /**
@@ -4121,7 +4121,7 @@ class gt {
    * Close start sync modal
    */
   closeStartSyncModal() {
-    f(this.elements.startSyncModal);
+    w(this.elements.startSyncModal);
   }
   /**
    * Start a new sync run
@@ -4130,7 +4130,7 @@ class gt {
     e.preventDefault();
     const { startSyncForm: t, submitSyncBtn: n } = this.elements;
     if (!t || !n) return;
-    const i = new FormData(t), a = {
+    const i = new FormData(t), o = {
       provider: i.get("provider"),
       direction: i.get("direction"),
       mapping_spec_id: i.get("mapping_spec_id"),
@@ -4138,7 +4138,7 @@ class gt {
     };
     n.setAttribute("disabled", "true"), n.innerHTML = '<svg class="animate-spin w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> Starting...';
     try {
-      const l = await fetch(this.syncRunsEndpoint, {
+      const d = await fetch(this.syncRunsEndpoint, {
         method: "POST",
         credentials: "same-origin",
         headers: {
@@ -4146,17 +4146,17 @@ class gt {
           Accept: "application/json",
           "Idempotency-Key": `sync-${Date.now()}`
         },
-        body: JSON.stringify(a)
+        body: JSON.stringify(o)
       });
-      if (!l.ok) {
-        const r = await l.json();
-        throw new Error(r.error?.message || `HTTP ${l.status}`);
+      if (!d.ok) {
+        const a = await d.json();
+        throw new Error(a.error?.message || `HTTP ${d.status}`);
       }
       this.showToast("Sync run started", "success"), this.announce("Sync run started"), this.closeStartSyncModal(), await this.loadSyncRuns();
-    } catch (l) {
-      console.error("Start sync error:", l);
-      const r = l instanceof Error ? l.message : "Unknown error";
-      this.showToast(`Failed to start: ${r}`, "error");
+    } catch (d) {
+      console.error("Start sync error:", d);
+      const a = d instanceof Error ? d.message : "Unknown error";
+      this.showToast(`Failed to start: ${a}`, "error");
     } finally {
       n.removeAttribute("disabled"), n.innerHTML = '<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/></svg> Start Sync';
     }
@@ -4166,39 +4166,39 @@ class gt {
    */
   async openRunDetail(e) {
     this.currentRunId = e;
-    const t = this.syncRuns.find((_) => _.id === e);
+    const t = this.syncRuns.find((F) => F.id === e);
     if (!t) return;
     const {
       runDetailModal: n,
       detailRunId: i,
-      detailProvider: a,
-      detailDirection: l,
-      detailStatus: r,
-      detailStarted: g,
-      detailCompleted: h,
-      detailCursor: v,
-      detailAttempt: w,
-      detailErrorSection: E,
-      detailLastError: S,
-      detailCheckpoints: C,
-      actionResumeBtn: P,
-      actionRetryBtn: L,
-      actionCompleteBtn: M,
-      actionFailBtn: $
+      detailProvider: o,
+      detailDirection: d,
+      detailStatus: a,
+      detailStarted: f,
+      detailCompleted: g,
+      detailCursor: y,
+      detailAttempt: b,
+      detailErrorSection: I,
+      detailLastError: C,
+      detailCheckpoints: E,
+      actionResumeBtn: T,
+      actionRetryBtn: P,
+      actionCompleteBtn: $,
+      actionFailBtn: B
     } = this.elements;
-    i && (i.textContent = t.id), a && (a.textContent = t.provider), l && (l.textContent = t.direction === "inbound" ? "Inbound (Import)" : "Outbound (Export)"), r && (r.innerHTML = this.getStatusBadge(t.status)), g && (g.textContent = this.formatDate(t.started_at)), h && (h.textContent = t.completed_at ? this.formatDate(t.completed_at) : "-"), v && (v.textContent = t.cursor || "-"), w && (w.textContent = String(t.attempt_count || 1)), t.last_error ? (S && (S.textContent = t.last_error), x(E)) : f(E), P && P.classList.toggle("hidden", t.status !== "running"), L && L.classList.toggle("hidden", t.status !== "failed"), M && M.classList.toggle("hidden", t.status !== "running"), $ && $.classList.toggle("hidden", t.status !== "running"), C && (C.innerHTML = '<p class="text-sm text-gray-500">Loading checkpoints...</p>'), x(n);
+    i && (i.textContent = t.id), o && (o.textContent = t.provider), d && (d.textContent = t.direction === "inbound" ? "Inbound (Import)" : "Outbound (Export)"), a && (a.innerHTML = this.getStatusBadge(t.status)), f && (f.textContent = this.formatDate(t.started_at)), g && (g.textContent = t.completed_at ? this.formatDate(t.completed_at) : "-"), y && (y.textContent = t.cursor || "-"), b && (b.textContent = String(t.attempt_count || 1)), t.last_error ? (C && (C.textContent = t.last_error), x(I)) : w(I), T && T.classList.toggle("hidden", t.status !== "running"), P && P.classList.toggle("hidden", t.status !== "failed"), $ && $.classList.toggle("hidden", t.status !== "running"), B && B.classList.toggle("hidden", t.status !== "running"), E && (E.innerHTML = '<p class="text-sm text-gray-500">Loading checkpoints...</p>'), x(n);
     try {
-      const _ = await fetch(`${this.syncRunsEndpoint}/${e}/checkpoints`, {
+      const F = await fetch(`${this.syncRunsEndpoint}/${e}/checkpoints`, {
         credentials: "same-origin",
         headers: { Accept: "application/json" }
       });
-      if (_.ok) {
-        const j = await _.json();
-        this.renderCheckpoints(j.checkpoints || []);
+      if (F.ok) {
+        const O = await F.json();
+        this.renderCheckpoints(O.checkpoints || []);
       } else
-        C && (C.innerHTML = '<p class="text-sm text-gray-500">No checkpoints available</p>');
-    } catch (_) {
-      console.error("Error loading checkpoints:", _), C && (C.innerHTML = '<p class="text-sm text-red-600">Failed to load checkpoints</p>');
+        E && (E.innerHTML = '<p class="text-sm text-gray-500">No checkpoints available</p>');
+    } catch (F) {
+      console.error("Error loading checkpoints:", F), E && (E.innerHTML = '<p class="text-sm text-red-600">Failed to load checkpoints</p>');
     }
   }
   /**
@@ -4233,20 +4233,20 @@ class gt {
    * Close run detail modal
    */
   closeRunDetail() {
-    f(this.elements.runDetailModal), this.currentRunId = null;
+    w(this.elements.runDetailModal), this.currentRunId = null;
   }
   /**
    * Run an action on the current sync run
    */
   async runAction(e) {
     if (!this.currentRunId) return;
-    const { actionResumeBtn: t, actionRetryBtn: n, actionCompleteBtn: i, actionFailBtn: a } = this.elements, l = e === "resume" ? t : e === "complete" ? i : a, r = e === "resume" ? n : null;
-    if (!l) return;
-    l.setAttribute("disabled", "true"), r?.setAttribute("disabled", "true");
-    const g = l.innerHTML;
-    l.innerHTML = '<svg class="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>';
+    const { actionResumeBtn: t, actionRetryBtn: n, actionCompleteBtn: i, actionFailBtn: o } = this.elements, d = e === "resume" ? t : e === "complete" ? i : o, a = e === "resume" ? n : null;
+    if (!d) return;
+    d.setAttribute("disabled", "true"), a?.setAttribute("disabled", "true");
+    const f = d.innerHTML;
+    d.innerHTML = '<svg class="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>';
     try {
-      const h = `${this.syncRunsEndpoint}/${this.currentRunId}/${e}`, v = await fetch(h, {
+      const g = `${this.syncRunsEndpoint}/${this.currentRunId}/${e}`, y = await fetch(g, {
         method: "POST",
         credentials: "same-origin",
         headers: {
@@ -4258,17 +4258,17 @@ class gt {
           e === "fail" ? { last_error: "Manually marked as failed" } : {}
         )
       });
-      if (!v.ok) {
-        const w = await v.json();
-        throw new Error(w.error?.message || `HTTP ${v.status}`);
+      if (!y.ok) {
+        const b = await y.json();
+        throw new Error(b.error?.message || `HTTP ${y.status}`);
       }
       this.showToast(`Sync run ${e} successful`, "success"), this.closeRunDetail(), await this.loadSyncRuns();
-    } catch (h) {
-      console.error(`${e} error:`, h);
-      const v = h instanceof Error ? h.message : "Unknown error";
-      this.showToast(`Failed: ${v}`, "error");
+    } catch (g) {
+      console.error(`${e} error:`, g);
+      const y = g instanceof Error ? g.message : "Unknown error";
+      this.showToast(`Failed: ${y}`, "error");
     } finally {
-      l.removeAttribute("disabled"), r?.removeAttribute("disabled"), l.innerHTML = g;
+      d.removeAttribute("disabled"), a?.removeAttribute("disabled"), d.innerHTML = f;
     }
   }
   /**
@@ -4300,21 +4300,21 @@ class gt {
     i && (t === "success" ? i.success(e) : t === "error" ? i.error(e) : t === "info" && i.info && i.info(e));
   }
 }
-function Ti(s) {
-  const e = new gt(s);
-  return k(() => e.init()), e;
+function ts(s) {
+  const e = new Tt(s);
+  return M(() => e.init()), e;
 }
-function Mi(s) {
+function ns(s) {
   const e = {
     basePath: s.basePath,
     apiBasePath: s.apiBasePath || `${s.basePath}/api`
-  }, t = new gt(e);
-  k(() => t.init()), typeof window < "u" && (window.esignIntegrationSyncRunsController = t);
+  }, t = new Tt(e);
+  M(() => t.init()), typeof window < "u" && (window.esignIntegrationSyncRunsController = t);
 }
-const Pe = "esign.google.account_id", fn = 25 * 1024 * 1024, vn = 2e3, et = 60, De = "application/vnd.google-apps.document", $e = "application/pdf", tt = "application/vnd.google-apps.folder", wn = [De, $e];
-class Fe {
+const De = "esign.google.account_id", On = 25 * 1024 * 1024, zn = 2e3, mt = 60, Re = "application/vnd.google-apps.document", He = "application/pdf", ft = "application/vnd.google-apps.folder", Un = [Re, He];
+class ze {
   constructor(e) {
-    this.isSubmitting = !1, this.currentSource = "upload", this.currentFiles = [], this.nextPageToken = null, this.currentFolderPath = [{ id: "root", name: "My Drive" }], this.selectedFile = null, this.searchQuery = "", this.searchTimeout = null, this.pollTimeout = null, this.pollAttempts = 0, this.currentImportRunId = null, this.connectedAccounts = [], this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api/v1`, this.maxFileSize = e.maxFileSize || fn, this.currentAccountId = this.resolveInitialAccountId(), this.elements = {
+    this.isSubmitting = !1, this.currentSource = "upload", this.currentFiles = [], this.nextPageToken = null, this.currentFolderPath = [{ id: "root", name: "My Drive" }], this.selectedFile = null, this.searchQuery = "", this.searchTimeout = null, this.pollTimeout = null, this.pollAttempts = 0, this.currentImportRunId = null, this.connectedAccounts = [], this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api/v1`, this.maxFileSize = e.maxFileSize || On, this.currentAccountId = this.resolveInitialAccountId(), this.elements = {
       // Upload panel
       form: c("#document-upload-form"),
       fileInput: c("#pdf_file"),
@@ -4405,24 +4405,24 @@ class Fe {
       fileInput: t,
       uploadZone: n,
       clearBtn: i,
-      titleInput: a
+      titleInput: o
     } = this.elements;
-    t && t.addEventListener("change", () => this.handleFileSelect()), i && i.addEventListener("click", (l) => {
-      l.preventDefault(), l.stopPropagation(), this.clearFileSelection();
-    }), a && a.addEventListener("input", () => this.updateSubmitState()), n && (["dragenter", "dragover"].forEach((l) => {
-      n.addEventListener(l, (r) => {
-        r.preventDefault(), r.stopPropagation(), n.classList.add("border-blue-400", "bg-blue-50");
+    t && t.addEventListener("change", () => this.handleFileSelect()), i && i.addEventListener("click", (d) => {
+      d.preventDefault(), d.stopPropagation(), this.clearFileSelection();
+    }), o && o.addEventListener("input", () => this.updateSubmitState()), n && (["dragenter", "dragover"].forEach((d) => {
+      n.addEventListener(d, (a) => {
+        a.preventDefault(), a.stopPropagation(), n.classList.add("border-blue-400", "bg-blue-50");
       });
-    }), ["dragleave", "drop"].forEach((l) => {
-      n.addEventListener(l, (r) => {
-        r.preventDefault(), r.stopPropagation(), n.classList.remove("border-blue-400", "bg-blue-50");
+    }), ["dragleave", "drop"].forEach((d) => {
+      n.addEventListener(d, (a) => {
+        a.preventDefault(), a.stopPropagation(), n.classList.remove("border-blue-400", "bg-blue-50");
       });
-    }), n.addEventListener("drop", (l) => {
-      const r = l.dataTransfer;
-      r?.files?.length && this.elements.fileInput && (this.elements.fileInput.files = r.files, this.handleFileSelect());
-    }), n.addEventListener("keydown", (l) => {
-      (l.key === "Enter" || l.key === " ") && (l.preventDefault(), this.elements.fileInput?.click());
-    })), e && e.addEventListener("submit", (l) => this.handleFormSubmit(l));
+    }), n.addEventListener("drop", (d) => {
+      const a = d.dataTransfer;
+      a?.files?.length && this.elements.fileInput && (this.elements.fileInput.files = a.files, this.handleFileSelect());
+    }), n.addEventListener("keydown", (d) => {
+      (d.key === "Enter" || d.key === " ") && (d.preventDefault(), this.elements.fileInput?.click());
+    })), e && e.addEventListener("submit", (d) => this.handleFormSubmit(d));
   }
   /**
    * Setup Google Drive listeners
@@ -4433,18 +4433,18 @@ class Fe {
       clearSearchBtn: t,
       loadMoreBtn: n,
       refreshBtn: i,
-      clearSelectionBtn: a,
-      importBtn: l,
-      importRetryBtn: r,
-      driveAccountDropdown: g
+      clearSelectionBtn: o,
+      importBtn: d,
+      importRetryBtn: a,
+      driveAccountDropdown: f
     } = this.elements;
     if (e) {
-      const h = re(() => this.handleSearch(), 300);
-      e.addEventListener("input", h);
+      const g = re(() => this.handleSearch(), 300);
+      e.addEventListener("input", g);
     }
-    t && t.addEventListener("click", () => this.clearSearch()), n && n.addEventListener("click", () => this.loadMoreFiles()), i && i.addEventListener("click", () => this.refreshFiles()), g && g.addEventListener("change", () => {
-      this.setCurrentAccountId(g.value, this.currentSource === "google");
-    }), a && a.addEventListener("click", () => this.clearFileSelection()), l && l.addEventListener("click", () => this.startImport()), r && r.addEventListener("click", () => {
+    t && t.addEventListener("click", () => this.clearSearch()), n && n.addEventListener("click", () => this.loadMoreFiles()), i && i.addEventListener("click", () => this.refreshFiles()), f && f.addEventListener("change", () => {
+      this.setCurrentAccountId(f.value, this.currentSource === "google");
+    }), o && o.addEventListener("click", () => this.clearFileSelection()), d && d.addEventListener("click", () => this.startImport()), a && a.addEventListener("click", () => {
       this.selectedFile ? this.startImport() : this.clearDriveSelection();
     });
   }
@@ -4461,7 +4461,7 @@ class Fe {
     if (n) return n;
     try {
       return this.normalizeAccountId(
-        window.localStorage.getItem(Pe)
+        window.localStorage.getItem(De)
       );
     } catch {
       return "";
@@ -4484,8 +4484,8 @@ class Fe {
     }
     if (this.currentAccountId = n, this.updateAccountScopeUI(), t && this.config.googleEnabled && this.config.googleConnected) {
       this.currentFolderPath = [{ id: "root", name: "My Drive" }], this.searchQuery = "";
-      const { searchInput: i, clearSearchBtn: a } = this.elements;
-      i && (i.value = ""), a && f(a), this.updateBreadcrumb(), this.loadFiles({ folderId: "root" });
+      const { searchInput: i, clearSearchBtn: o } = this.elements;
+      i && (i.value = ""), o && w(o), this.updateBreadcrumb(), this.loadFiles({ folderId: "root" });
     }
   }
   /**
@@ -4523,14 +4523,14 @@ class Fe {
     t.value = "", t.textContent = "Default account", this.currentAccountId || (t.selected = !0), e.appendChild(t);
     const n = /* @__PURE__ */ new Set([""]);
     for (const i of this.connectedAccounts) {
-      const a = this.normalizeAccountId(i?.account_id);
-      if (n.has(a))
+      const o = this.normalizeAccountId(i?.account_id);
+      if (n.has(o))
         continue;
-      n.add(a);
-      const l = document.createElement("option");
-      l.value = a;
-      const r = String(i?.email || "").trim(), g = String(i?.status || "").trim(), h = r || a || "Default account";
-      l.textContent = g && g !== "connected" ? `${h} (${g})` : h, a === this.currentAccountId && (l.selected = !0), e.appendChild(l);
+      n.add(o);
+      const d = document.createElement("option");
+      d.value = o;
+      const a = String(i?.email || "").trim(), f = String(i?.status || "").trim(), g = a || o || "Default account";
+      d.textContent = f && f !== "connected" ? `${g} (${f})` : g, o === this.currentAccountId && (d.selected = !0), e.appendChild(d);
     }
     if (this.currentAccountId && !n.has(this.currentAccountId)) {
       const i = document.createElement("option");
@@ -4544,7 +4544,7 @@ class Fe {
     const e = new URL(window.location.href);
     this.currentAccountId ? e.searchParams.set("account_id", this.currentAccountId) : e.searchParams.delete("account_id"), window.history.replaceState({}, "", e.toString());
     try {
-      this.currentAccountId ? window.localStorage.setItem(Pe, this.currentAccountId) : window.localStorage.removeItem(Pe);
+      this.currentAccountId ? window.localStorage.setItem(De, this.currentAccountId) : window.localStorage.removeItem(De);
     } catch {
     }
   }
@@ -4561,12 +4561,12 @@ class Fe {
   updateAccountScopeUI() {
     this.syncScopedAccountState();
     const { accountScopeHelp: e, connectGoogleLink: t, driveAccountDropdown: n } = this.elements;
-    if (e && (this.currentAccountId ? (e.textContent = `Account scope: ${this.currentAccountId}`, x(e)) : f(e)), t) {
+    if (e && (this.currentAccountId ? (e.textContent = `Account scope: ${this.currentAccountId}`, x(e)) : w(e)), t) {
       const i = t.dataset.baseHref || t.getAttribute("href");
       i && t.setAttribute("href", this.applyAccountIdToPath(i));
     }
     n && (Array.from(n.options).some(
-      (a) => this.normalizeAccountId(a.value) === this.currentAccountId
+      (o) => this.normalizeAccountId(o.value) === this.currentAccountId
     ) || this.renderConnectedAccountsDropdown(), n.value !== this.currentAccountId && (n.value = this.currentAccountId));
   }
   /**
@@ -4597,7 +4597,7 @@ class Fe {
         "hover:border-gray-300"
       ));
     }), this.elements.sourcePanels.forEach((n) => {
-      n.id.replace("panel-", "") === e ? x(n) : f(n);
+      n.id.replace("panel-", "") === e ? x(n) : w(n);
     });
     const t = new URL(window.location.href);
     e === "google" ? t.searchParams.set("source", "google") : t.searchParams.delete("source"), window.history.replaceState({}, "", t.toString()), e === "google" && this.config.googleEnabled && this.config.googleConnected && this.loadFiles({ folderId: "root" }), H(
@@ -4621,8 +4621,8 @@ class Fe {
     const { fileInput: e, titleInput: t, sourceObjectKeyInput: n } = this.elements, i = e?.files?.[0];
     if (i && this.validateFile(i)) {
       if (this.showPreview(i), n && (n.value = ""), t && !t.value.trim()) {
-        const a = i.name.replace(/\.pdf$/i, "");
-        t.value = a;
+        const o = i.name.replace(/\.pdf$/i, "");
+        t.value = o;
       }
     } else
       e && (e.value = ""), this.clearPreview(), n && (n.value = "");
@@ -4633,22 +4633,22 @@ class Fe {
    */
   validateFile(e) {
     return this.clearError(), e ? e.type !== "application/pdf" && !e.name.toLowerCase().endsWith(".pdf") ? (this.showError("Please select a PDF file."), !1) : e.size > this.maxFileSize ? (this.showError(
-      `File is too large (${ge(e.size)}). Maximum size is ${ge(this.maxFileSize)}.`
+      `File is too large (${fe(e.size)}). Maximum size is ${fe(this.maxFileSize)}.`
     ), !1) : e.size === 0 ? (this.showError("The selected file appears to be empty."), !1) : !0 : !1;
   }
   /**
    * Show file preview
    */
   showPreview(e) {
-    const { placeholder: t, preview: n, fileName: i, fileSize: a, uploadZone: l } = this.elements;
-    i && (i.textContent = e.name), a && (a.textContent = ge(e.size)), t && f(t), n && x(n), l && (l.classList.remove("border-gray-300"), l.classList.add("border-green-400", "bg-green-50"));
+    const { placeholder: t, preview: n, fileName: i, fileSize: o, uploadZone: d } = this.elements;
+    i && (i.textContent = e.name), o && (o.textContent = fe(e.size)), t && w(t), n && x(n), d && (d.classList.remove("border-gray-300"), d.classList.add("border-green-400", "bg-green-50"));
   }
   /**
    * Clear file preview
    */
   clearPreview() {
     const { placeholder: e, preview: t, uploadZone: n } = this.elements;
-    e && x(e), t && f(t), n && (n.classList.add("border-gray-300"), n.classList.remove("border-green-400", "bg-green-50"));
+    e && x(e), t && w(t), n && (n.classList.add("border-gray-300"), n.classList.remove("border-green-400", "bg-green-50"));
   }
   /**
    * Clear file selection
@@ -4669,14 +4669,14 @@ class Fe {
    */
   clearError() {
     const { errorEl: e } = this.elements;
-    e && (e.textContent = "", f(e));
+    e && (e.textContent = "", w(e));
   }
   /**
    * Update submit button state
    */
   updateSubmitState() {
-    const { fileInput: e, titleInput: t, submitBtn: n } = this.elements, i = e?.files && e.files.length > 0, a = t?.value.trim().length ?? !1, l = i && a;
-    n && (n.disabled = !l, n.setAttribute("aria-disabled", String(!l)));
+    const { fileInput: e, titleInput: t, submitBtn: n } = this.elements, i = e?.files && e.files.length > 0, o = t?.value.trim().length ?? !1, d = i && o;
+    n && (n.disabled = !d, n.setAttribute("aria-disabled", String(!d)));
   }
   /**
    * Set submitting state
@@ -4700,41 +4700,41 @@ class Fe {
    * Upload source PDF to API
    */
   async uploadSourcePDF(e) {
-    const t = new URLSearchParams(window.location.search), n = t.get("tenant_id"), i = t.get("org_id"), a = new URL(
+    const t = new URLSearchParams(window.location.search), n = t.get("tenant_id"), i = t.get("org_id"), o = new URL(
       `${this.apiBase}/esign/documents/upload`,
       window.location.origin
     );
-    n && a.searchParams.set("tenant_id", n), i && a.searchParams.set("org_id", i);
-    const l = new FormData();
-    l.append("file", e);
-    const r = await fetch(a.toString(), {
+    n && o.searchParams.set("tenant_id", n), i && o.searchParams.set("org_id", i);
+    const d = new FormData();
+    d.append("file", e);
+    const a = await fetch(o.toString(), {
       method: "POST",
-      body: l,
+      body: d,
       credentials: "same-origin"
-    }), g = await r.json().catch(() => ({}));
-    if (!r.ok) {
-      const v = g?.error?.message || g?.message || "Upload failed. Please try again.";
-      throw new Error(v);
+    }), f = await a.json().catch(() => ({}));
+    if (!a.ok) {
+      const y = f?.error?.message || f?.message || "Upload failed. Please try again.";
+      throw new Error(y);
     }
-    const h = g?.object_key ? String(g.object_key).trim() : "";
-    if (!h)
+    const g = f?.object_key ? String(f.object_key).trim() : "";
+    if (!g)
       throw new Error("Upload failed: missing source object key.");
-    return h;
+    return g;
   }
   /**
    * Handle form submission
    */
   async handleFormSubmit(e) {
     if (e.preventDefault(), this.isSubmitting) return;
-    const { fileInput: t, form: n, sourceObjectKeyInput: i } = this.elements, a = t?.files?.[0];
-    if (!(!a || !this.validateFile(a))) {
+    const { fileInput: t, form: n, sourceObjectKeyInput: i } = this.elements, o = t?.files?.[0];
+    if (!(!o || !this.validateFile(o))) {
       this.clearError(), this.isSubmitting = !0, this.setSubmittingState(!0);
       try {
-        const l = await this.uploadSourcePDF(a);
-        i && (i.value = l), n?.submit();
-      } catch (l) {
-        const r = l instanceof Error ? l.message : "Upload failed. Please try again.";
-        this.showError(r), this.setSubmittingState(!1), this.isSubmitting = !1, this.updateSubmitState();
+        const d = await this.uploadSourcePDF(o);
+        i && (i.value = d), n?.submit();
+      } catch (d) {
+        const a = d instanceof Error ? d.message : "Upload failed. Please try again.";
+        this.showError(a), this.setSubmittingState(!1), this.isSubmitting = !1, this.updateSubmitState();
       }
     }
   }
@@ -4755,49 +4755,49 @@ class Fe {
         parents: [],
         owners: []
       };
-    const t = String(e.id || e.ID || "").trim(), n = String(e.name || e.Name || "").trim(), i = String(e.mimeType || e.MimeType || "").trim(), a = String(e.modifiedTime || e.ModifiedTime || "").trim(), l = String(
+    const t = String(e.id || e.ID || "").trim(), n = String(e.name || e.Name || "").trim(), i = String(e.mimeType || e.MimeType || "").trim(), o = String(e.modifiedTime || e.ModifiedTime || "").trim(), d = String(
       e.webViewLink || e.webViewURL || e.WebViewURL || ""
-    ).trim(), r = String(e.parentId || e.ParentID || "").trim(), g = String(e.ownerEmail || e.OwnerEmail || "").trim(), h = Array.isArray(e.parents) ? e.parents : r ? [r] : [], v = Array.isArray(e.owners) ? e.owners : g ? [{ emailAddress: g }] : [];
+    ).trim(), a = String(e.parentId || e.ParentID || "").trim(), f = String(e.ownerEmail || e.OwnerEmail || "").trim(), g = Array.isArray(e.parents) ? e.parents : a ? [a] : [], y = Array.isArray(e.owners) ? e.owners : f ? [{ emailAddress: f }] : [];
     return {
       id: t,
       name: n,
       mimeType: i,
-      modifiedTime: a,
-      webViewLink: l,
-      parents: h,
-      owners: v
+      modifiedTime: o,
+      webViewLink: d,
+      parents: g,
+      owners: y
     };
   }
   /**
    * Check if file is a Google Doc
    */
   isGoogleDoc(e) {
-    return e.mimeType === De;
+    return e.mimeType === Re;
   }
   /**
    * Check if file is a PDF
    */
   isPDF(e) {
-    return e.mimeType === $e;
+    return e.mimeType === He;
   }
   /**
    * Check if file is a folder
    */
   isFolder(e) {
-    return e.mimeType === tt;
+    return e.mimeType === ft;
   }
   /**
    * Check if file is importable
    */
   isImportable(e) {
-    return wn.includes(e.mimeType);
+    return Un.includes(e.mimeType);
   }
   /**
    * Get file type name
    */
   getFileTypeName(e) {
     const t = String(e || "").trim().toLowerCase();
-    return t === De ? "Google Document" : t === $e ? "PDF Document" : t === "application/vnd.google-apps.spreadsheet" ? "Google Spreadsheet" : t === "application/vnd.google-apps.presentation" ? "Google Slides" : t === tt ? "Folder" : "File";
+    return t === Re ? "Google Document" : t === He ? "PDF Document" : t === "application/vnd.google-apps.spreadsheet" ? "Google Spreadsheet" : t === "application/vnd.google-apps.presentation" ? "Google Slides" : t === ft ? "Folder" : "File";
   }
   /**
    * Get file icon HTML
@@ -4841,8 +4841,8 @@ class Fe {
    * Load files from Google Drive
    */
   async loadFiles(e = {}) {
-    const { folderId: t, query: n, pageToken: i, append: a } = e, { fileList: l } = this.elements;
-    !a && l && (l.innerHTML = `
+    const { folderId: t, query: n, pageToken: i, append: o } = e, { fileList: d } = this.elements;
+    !o && d && (d.innerHTML = `
         <div class="p-8 text-center">
           <svg class="animate-spin h-8 w-8 mx-auto text-gray-400 mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -4852,22 +4852,22 @@ class Fe {
         </div>
       `);
     try {
-      let r;
-      n ? (r = this.buildScopedAPIURL("/esign/google-drive/search"), r.searchParams.set("q", n), r.searchParams.set("page_size", "20"), i && r.searchParams.set("page_token", i)) : (r = this.buildScopedAPIURL("/esign/google-drive/browse"), r.searchParams.set("page_size", "20"), t && t !== "root" && r.searchParams.set("folder_id", t), i && r.searchParams.set("page_token", i));
-      const g = await fetch(r.toString(), {
+      let a;
+      n ? (a = this.buildScopedAPIURL("/esign/google-drive/search"), a.searchParams.set("q", n), a.searchParams.set("page_size", "20"), i && a.searchParams.set("page_token", i)) : (a = this.buildScopedAPIURL("/esign/google-drive/browse"), a.searchParams.set("page_size", "20"), t && t !== "root" && a.searchParams.set("folder_id", t), i && a.searchParams.set("page_token", i));
+      const f = await fetch(a.toString(), {
         credentials: "same-origin",
         headers: { Accept: "application/json" }
-      }), h = await g.json();
-      if (!g.ok)
-        throw new Error(h.error?.message || "Failed to load files");
-      const v = Array.isArray(h.files) ? h.files.map((C) => this.normalizeDriveFile(C)) : [];
-      this.nextPageToken = h.next_page_token || null, a ? this.currentFiles = [...this.currentFiles, ...v] : this.currentFiles = v, this.renderFiles(a);
-      const { resultCount: w, listTitle: E } = this.elements;
-      n && w ? (w.textContent = `(${this.currentFiles.length} result${this.currentFiles.length !== 1 ? "s" : ""})`, E && (E.textContent = "Search Results")) : (w && (w.textContent = ""), E && (E.textContent = this.currentFolderPath[this.currentFolderPath.length - 1].name));
-      const { pagination: S } = this.elements;
-      S && (this.nextPageToken ? x(S) : f(S)), H(`Loaded ${v.length} files`);
-    } catch (r) {
-      console.error("Error loading files:", r), l && (l.innerHTML = `
+      }), g = await f.json();
+      if (!f.ok)
+        throw new Error(g.error?.message || "Failed to load files");
+      const y = Array.isArray(g.files) ? g.files.map((E) => this.normalizeDriveFile(E)) : [];
+      this.nextPageToken = g.next_page_token || null, o ? this.currentFiles = [...this.currentFiles, ...y] : this.currentFiles = y, this.renderFiles(o);
+      const { resultCount: b, listTitle: I } = this.elements;
+      n && b ? (b.textContent = `(${this.currentFiles.length} result${this.currentFiles.length !== 1 ? "s" : ""})`, I && (I.textContent = "Search Results")) : (b && (b.textContent = ""), I && (I.textContent = this.currentFolderPath[this.currentFolderPath.length - 1].name));
+      const { pagination: C } = this.elements;
+      C && (this.nextPageToken ? x(C) : w(C)), H(`Loaded ${y.length} files`);
+    } catch (a) {
+      console.error("Error loading files:", a), d && (d.innerHTML = `
           <div class="p-8 text-center">
             <div class="w-12 h-12 mx-auto mb-3 rounded-full bg-red-100 flex items-center justify-center">
               <svg class="w-6 h-6 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -4875,10 +4875,10 @@ class Fe {
               </svg>
             </div>
             <p class="text-sm text-gray-900 font-medium">Failed to load files</p>
-            <p class="text-xs text-gray-500 mt-1">${this.escapeHtml(r instanceof Error ? r.message : "Unknown error")}</p>
+            <p class="text-xs text-gray-500 mt-1">${this.escapeHtml(a instanceof Error ? a.message : "Unknown error")}</p>
             <button type="button" onclick="location.reload()" class="mt-3 text-sm text-blue-600 hover:text-blue-800">Try Again</button>
           </div>
-        `), H(`Error: ${r instanceof Error ? r.message : "Unknown error"}`);
+        `), H(`Error: ${a instanceof Error ? a.message : "Unknown error"}`);
     }
   }
   /**
@@ -4900,29 +4900,29 @@ class Fe {
       `;
       return;
     }
-    const n = this.currentFiles.map((i, a) => {
-      const l = this.getFileIcon(i), r = this.isImportable(i), g = this.isFolder(i), h = this.selectedFile && this.selectedFile.id === i.id, v = !r && !g;
+    const n = this.currentFiles.map((i, o) => {
+      const d = this.getFileIcon(i), a = this.isImportable(i), f = this.isFolder(i), g = this.selectedFile && this.selectedFile.id === i.id, y = !a && !f;
       return `
         <button
           type="button"
-          class="file-item w-full p-3 flex items-center gap-3 hover:bg-gray-50 text-left transition-colors ${h ? "bg-blue-50 border-l-2 border-l-blue-500" : ""} ${v ? "opacity-50 cursor-not-allowed" : ""}"
+          class="file-item w-full p-3 flex items-center gap-3 hover:bg-gray-50 text-left transition-colors ${g ? "bg-blue-50 border-l-2 border-l-blue-500" : ""} ${y ? "opacity-50 cursor-not-allowed" : ""}"
           role="option"
-          aria-selected="${h}"
-          data-file-index="${a}"
-          ${v ? 'disabled title="Only Google Docs and PDFs can be imported"' : ""}
+          aria-selected="${g}"
+          data-file-index="${o}"
+          ${y ? 'disabled title="Only Google Docs and PDFs can be imported"' : ""}
         >
-          <div class="w-10 h-10 rounded-lg ${l.bg} flex items-center justify-center flex-shrink-0 ${l.text}">
-            ${l.html}
+          <div class="w-10 h-10 rounded-lg ${d.bg} flex items-center justify-center flex-shrink-0 ${d.text}">
+            ${d.html}
           </div>
           <div class="flex-1 min-w-0">
             <p class="font-medium text-gray-900 truncate">${this.escapeHtml(i.name || "Untitled")}</p>
             <p class="text-xs text-gray-500">
               ${this.getFileTypeName(i.mimeType)}
               ${i.modifiedTime ? " • " + X(i.modifiedTime) : ""}
-              ${v ? " • Not importable" : ""}
+              ${y ? " • Not importable" : ""}
             </p>
           </div>
-          ${g ? `
+          ${f ? `
             <svg class="w-5 h-5 text-gray-400 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
             </svg>
@@ -4932,8 +4932,8 @@ class Fe {
     }).join("");
     e ? t.insertAdjacentHTML("beforeend", n) : t.innerHTML = n, t.querySelectorAll(".file-item").forEach((i) => {
       i.addEventListener("click", () => {
-        const a = parseInt(i.dataset.fileIndex || "0", 10), l = this.currentFiles[a];
-        this.isFolder(l) ? this.navigateToFolder(l) : this.isImportable(l) && this.selectFile(l);
+        const o = parseInt(i.dataset.fileIndex || "0", 10), d = this.currentFiles[o];
+        this.isFolder(d) ? this.navigateToFolder(d) : this.isImportable(d) && this.selectFile(d);
       });
     });
   }
@@ -4943,7 +4943,7 @@ class Fe {
   navigateToFolder(e) {
     this.currentFolderPath.push({ id: e.id, name: e.name }), this.updateBreadcrumb(), this.searchQuery = "";
     const { searchInput: t, clearSearchBtn: n } = this.elements;
-    t && (t.value = ""), n && f(n), this.loadFiles({ folderId: e.id });
+    t && (t.value = ""), n && w(n), this.loadFiles({ folderId: e.id });
   }
   /**
    * Update breadcrumb navigation
@@ -4952,17 +4952,17 @@ class Fe {
     const { breadcrumb: e } = this.elements;
     if (!e) return;
     if (this.currentFolderPath.length <= 1) {
-      f(e);
+      w(e);
       return;
     }
     x(e);
     const t = e.querySelector("ol");
     t && (t.innerHTML = this.currentFolderPath.map((n, i) => {
-      const a = i === this.currentFolderPath.length - 1;
+      const o = i === this.currentFolderPath.length - 1;
       return `
           <li class="flex items-center">
             ${i > 0 ? '<svg class="w-4 h-4 text-gray-400 mx-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>' : ""}
-            <button type="button" data-folder-index="${i}" class="breadcrumb-item ${a ? "text-gray-900 font-medium cursor-default" : "text-blue-600 hover:text-blue-800 hover:underline"}">
+            <button type="button" data-folder-index="${i}" class="breadcrumb-item ${o ? "text-gray-900 font-medium cursor-default" : "text-blue-600 hover:text-blue-800 hover:underline"}">
               ${this.escapeHtml(n.name)}
             </button>
           </li>
@@ -4971,8 +4971,8 @@ class Fe {
       n.addEventListener("click", () => {
         const i = parseInt(n.dataset.folderIndex || "0", 10);
         this.currentFolderPath = this.currentFolderPath.slice(0, i + 1), this.updateBreadcrumb();
-        const a = this.currentFolderPath[this.currentFolderPath.length - 1];
-        this.loadFiles({ folderId: a.id });
+        const o = this.currentFolderPath[this.currentFolderPath.length - 1];
+        this.loadFiles({ folderId: o.id });
       });
     }));
   }
@@ -4982,24 +4982,24 @@ class Fe {
   selectFile(e) {
     this.selectedFile = e;
     const t = this.getFileIcon(e), n = this.getImportTypeInfo(e), { fileList: i } = this.elements;
-    i && i.querySelectorAll(".file-item").forEach((L) => {
-      const M = parseInt(L.dataset.fileIndex || "0", 10);
-      this.currentFiles[M].id === e.id ? (L.classList.add("bg-blue-50", "border-l-2", "border-l-blue-500"), L.setAttribute("aria-selected", "true")) : (L.classList.remove("bg-blue-50", "border-l-2", "border-l-blue-500"), L.setAttribute("aria-selected", "false"));
+    i && i.querySelectorAll(".file-item").forEach((P) => {
+      const $ = parseInt(P.dataset.fileIndex || "0", 10);
+      this.currentFiles[$].id === e.id ? (P.classList.add("bg-blue-50", "border-l-2", "border-l-blue-500"), P.setAttribute("aria-selected", "true")) : (P.classList.remove("bg-blue-50", "border-l-2", "border-l-blue-500"), P.setAttribute("aria-selected", "false"));
     });
     const {
-      noSelection: a,
-      filePreview: l,
-      importStatus: r,
-      previewIcon: g,
-      previewTitle: h,
-      previewType: v,
-      importTypeInfo: w,
-      importTypeLabel: E,
-      importTypeDesc: S,
-      snapshotWarning: C,
-      importDocumentTitle: P
+      noSelection: o,
+      filePreview: d,
+      importStatus: a,
+      previewIcon: f,
+      previewTitle: g,
+      previewType: y,
+      importTypeInfo: b,
+      importTypeLabel: I,
+      importTypeDesc: C,
+      snapshotWarning: E,
+      importDocumentTitle: T
     } = this.elements;
-    a && f(a), l && x(l), r && f(r), g && (g.className = `w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 ${t.bg} ${t.text}`, g.innerHTML = t.html.replace("w-5 h-5", "w-6 h-6")), h && (h.textContent = e.name || "Untitled"), v && (v.textContent = this.getFileTypeName(e.mimeType)), n && w && (w.className = `p-3 rounded-lg border ${n.bgClass}`, E && (E.textContent = n.label, E.className = `text-xs font-medium ${n.textClass}`), S && (S.textContent = n.desc, S.className = `text-xs mt-1 ${n.textClass}`), C && (n.showSnapshot ? x(C) : f(C))), P && (P.value = e.name || ""), H(`Selected: ${e.name}`);
+    o && w(o), d && x(d), a && w(a), f && (f.className = `w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 ${t.bg} ${t.text}`, f.innerHTML = t.html.replace("w-5 h-5", "w-6 h-6")), g && (g.textContent = e.name || "Untitled"), y && (y.textContent = this.getFileTypeName(e.mimeType)), n && b && (b.className = `p-3 rounded-lg border ${n.bgClass}`, I && (I.textContent = n.label, I.className = `text-xs font-medium ${n.textClass}`), C && (C.textContent = n.desc, C.className = `text-xs mt-1 ${n.textClass}`), E && (n.showSnapshot ? x(E) : w(E))), T && (T.value = e.name || ""), H(`Selected: ${e.name}`);
   }
   /**
    * Clear drive selection
@@ -5007,8 +5007,8 @@ class Fe {
   clearDriveSelection() {
     this.selectedFile = null;
     const { noSelection: e, filePreview: t, importStatus: n, fileList: i } = this.elements;
-    e && x(e), t && f(t), n && f(n), i && i.querySelectorAll(".file-item").forEach((a) => {
-      a.classList.remove("bg-blue-50", "border-l-2", "border-l-blue-500"), a.setAttribute("aria-selected", "false");
+    e && x(e), t && w(t), n && w(n), i && i.querySelectorAll(".file-item").forEach((o) => {
+      o.classList.remove("bg-blue-50", "border-l-2", "border-l-blue-500"), o.setAttribute("aria-selected", "false");
     });
   }
   /**
@@ -5021,7 +5021,7 @@ class Fe {
     if (n)
       t && x(t), this.searchQuery = n, this.loadFiles({ query: n });
     else {
-      t && f(t), this.searchQuery = "";
+      t && w(t), this.searchQuery = "";
       const i = this.currentFolderPath[this.currentFolderPath.length - 1];
       this.loadFiles({ folderId: i.id });
     }
@@ -5031,7 +5031,7 @@ class Fe {
    */
   clearSearch() {
     const { searchInput: e, clearSearchBtn: t } = this.elements;
-    e && (e.value = ""), t && f(t), this.searchQuery = "";
+    e && (e.value = ""), t && w(t), this.searchQuery = "";
     const n = this.currentFolderPath[this.currentFolderPath.length - 1];
     this.loadFiles({ folderId: n.id });
   }
@@ -5071,20 +5071,20 @@ class Fe {
       noSelection: t,
       filePreview: n,
       importStatus: i,
-      importStatusQueued: a,
-      importStatusSuccess: l,
-      importStatusFailed: r
+      importStatusQueued: o,
+      importStatusSuccess: d,
+      importStatusFailed: a
     } = this.elements;
-    switch (t && f(t), n && f(n), i && x(i), a && f(a), l && f(l), r && f(r), e) {
+    switch (t && w(t), n && w(n), i && x(i), o && w(o), d && w(d), a && w(a), e) {
       case "queued":
       case "running":
-        a && x(a);
+        o && x(o);
         break;
       case "succeeded":
-        l && x(l);
+        d && x(d);
         break;
       case "failed":
-        r && x(r);
+        a && x(a);
         break;
     }
   }
@@ -5103,10 +5103,10 @@ class Fe {
     const { importErrorMessage: n, importReconnectLink: i } = this.elements;
     if (n && (n.textContent = e), i)
       if (t === "GOOGLE_ACCESS_REVOKED" || t === "GOOGLE_SCOPE_VIOLATION") {
-        const a = this.config.routes.integrations || "/admin/esign/integrations/google";
-        i.href = this.applyAccountIdToPath(a), x(i);
+        const o = this.config.routes.integrations || "/admin/esign/integrations/google";
+        i.href = this.applyAccountIdToPath(o), x(i);
       } else
-        f(i);
+        w(i);
   }
   /**
    * Start import process
@@ -5114,16 +5114,16 @@ class Fe {
   async startImport() {
     const { importDocumentTitle: e, importBtn: t, importBtnText: n, importReconnectLink: i } = this.elements;
     if (!this.selectedFile || !e) return;
-    const a = e.value.trim();
-    if (!a) {
+    const o = e.value.trim();
+    if (!o) {
       e.focus();
       return;
     }
-    this.pollTimeout && (clearTimeout(this.pollTimeout), this.pollTimeout = null), this.pollAttempts = 0, t && (t.disabled = !0), n && (n.textContent = "Starting..."), i && f(i), this.showImportStatus("queued"), this.updateImportStatusMessage("Submitting import request...");
+    this.pollTimeout && (clearTimeout(this.pollTimeout), this.pollTimeout = null), this.pollAttempts = 0, t && (t.disabled = !0), n && (n.textContent = "Starting..."), i && w(i), this.showImportStatus("queued"), this.updateImportStatusMessage("Submitting import request...");
     try {
-      const l = new URL(window.location.href);
-      l.searchParams.delete("import_run_id"), window.history.replaceState({}, "", l.toString());
-      const r = await fetch(
+      const d = new URL(window.location.href);
+      d.searchParams.delete("import_run_id"), window.history.replaceState({}, "", d.toString());
+      const a = await fetch(
         this.buildScopedAPIURL("/esign/google-drive/imports").toString(),
         {
           method: "POST",
@@ -5135,35 +5135,35 @@ class Fe {
           body: JSON.stringify({
             google_file_id: this.selectedFile.id,
             account_id: this.currentAccountId || void 0,
-            document_title: a
+            document_title: o
           })
         }
-      ), g = await r.json();
-      if (!r.ok) {
-        const v = g.error?.code || "";
-        throw { message: g.error?.message || "Failed to start import", code: v };
+      ), f = await a.json();
+      if (!a.ok) {
+        const y = f.error?.code || "";
+        throw { message: f.error?.message || "Failed to start import", code: y };
       }
-      this.currentImportRunId = g.import_run_id, this.pollAttempts = 0;
-      const h = new URL(window.location.href);
-      this.currentImportRunId && h.searchParams.set("import_run_id", this.currentImportRunId), window.history.replaceState({}, "", h.toString()), this.updateImportStatusMessage("Import queued..."), this.startPolling();
-    } catch (l) {
-      console.error("Import error:", l);
-      const r = l;
-      this.showImportError(r.message || "Failed to start import", r.code || ""), t && (t.disabled = !1), n && (n.textContent = "Import Document");
+      this.currentImportRunId = f.import_run_id, this.pollAttempts = 0;
+      const g = new URL(window.location.href);
+      this.currentImportRunId && g.searchParams.set("import_run_id", this.currentImportRunId), window.history.replaceState({}, "", g.toString()), this.updateImportStatusMessage("Import queued..."), this.startPolling();
+    } catch (d) {
+      console.error("Import error:", d);
+      const a = d;
+      this.showImportError(a.message || "Failed to start import", a.code || ""), t && (t.disabled = !1), n && (n.textContent = "Import Document");
     }
   }
   /**
    * Start polling for import status
    */
   startPolling() {
-    this.pollTimeout = setTimeout(() => this.pollImportStatus(), vn);
+    this.pollTimeout = setTimeout(() => this.pollImportStatus(), zn);
   }
   /**
    * Poll import status
    */
   async pollImportStatus() {
     if (this.currentImportRunId) {
-      if (this.pollTimeout = null, this.pollAttempts++, this.pollAttempts > et) {
+      if (this.pollTimeout = null, this.pollAttempts++, this.pollAttempts > mt) {
         this.showImportError(
           "Import is taking too long. Please check the documents list.",
           ""
@@ -5192,15 +5192,15 @@ class Fe {
             }, 1500);
             break;
           case "failed": {
-            const a = n.error?.code || "", l = n.error?.message || "Import failed";
-            this.showImportError(l, a), H("Import failed");
+            const o = n.error?.code || "", d = n.error?.message || "Import failed";
+            this.showImportError(d, o), H("Import failed");
             break;
           }
           default:
             this.startPolling();
         }
       } catch (e) {
-        console.error("Poll error:", e), this.pollAttempts < et ? this.startPolling() : this.showImportError("Unable to check import status", "");
+        console.error("Poll error:", e), this.pollAttempts < mt ? this.startPolling() : this.showImportError("Unable to check import status", "");
       }
     }
   }
@@ -5221,11 +5221,11 @@ class Fe {
     return t.textContent = e, t.innerHTML;
   }
 }
-function Di(s) {
-  const e = new Fe(s);
-  return k(() => e.init()), e;
+function is(s) {
+  const e = new ze(s);
+  return M(() => e.init()), e;
 }
-function $i(s) {
+function ss(s) {
   const e = {
     basePath: s.basePath,
     apiBasePath: s.apiBasePath || `${s.basePath}/api/v1`,
@@ -5235,12 +5235,12 @@ function $i(s) {
     googleAccountId: s.googleAccountId,
     maxFileSize: s.maxFileSize,
     routes: s.routes
-  }, t = new Fe(e);
-  k(() => t.init()), typeof window < "u" && (window.esignDocumentFormController = t);
+  }, t = new ze(e);
+  M(() => t.init()), typeof window < "u" && (window.esignDocumentFormController = t);
 }
-function yn(s) {
-  const e = String(s.basePath || s.base_path || "").trim(), t = s.routes && typeof s.routes == "object" ? s.routes : {}, n = s.features && typeof s.features == "object" ? s.features : {}, i = s.context && typeof s.context == "object" ? s.context : {}, a = String(t.index || "").trim();
-  return !e && !a ? null : {
+function Nn(s) {
+  const e = String(s.basePath || s.base_path || "").trim(), t = s.routes && typeof s.routes == "object" ? s.routes : {}, n = s.features && typeof s.features == "object" ? s.features : {}, i = s.context && typeof s.context == "object" ? s.context : {}, o = String(t.index || "").trim();
+  return !e && !o ? null : {
     basePath: e || "/admin",
     apiBasePath: String(s.apiBasePath || s.api_base_path || "").trim() || void 0,
     userId: String(s.userId || s.user_id || i.user_id || "").trim(),
@@ -5251,14 +5251,14 @@ function yn(s) {
     ).trim(),
     maxFileSize: typeof s.maxFileSize == "number" ? s.maxFileSize : typeof s.max_file_size == "number" ? s.max_file_size : void 0,
     routes: {
-      index: a,
+      index: o,
       create: String(t.create || "").trim() || void 0,
       agreements: String(t.agreements || "").trim() || void 0,
       integrations: String(t.integrations || "").trim() || void 0
     }
   };
 }
-typeof document < "u" && k(() => {
+typeof document < "u" && M(() => {
   if (document.querySelector(
     '[data-esign-page="admin.documents.ingestion"], [data-esign-page="document-form"]'
   )) {
@@ -5267,22 +5267,22 @@ typeof document < "u" && k(() => {
       try {
         const t = JSON.parse(
           e.textContent || "{}"
-        ), n = yn(t);
-        n && new Fe(n).init();
+        ), n = Nn(t);
+        n && new ze(n).init();
       } catch (t) {
         console.warn("Failed to parse document form page config:", t);
       }
   }
 });
-const nt = 1, Ae = "esign_wizard_state_v1", bn = "esign_wizard_sync", xn = 2e3, it = [1e3, 2e3, 5e3, 1e4, 3e4];
-class Sn {
+const vt = 1, $e = "esign_wizard_state_v1", qn = "esign_wizard_sync", Vn = 2e3, wt = [1e3, 2e3, 5e3, 1e4, 3e4];
+class Gn {
   constructor() {
     this.listeners = [], this.broadcastChannel = null, this.state = this.loadFromSession() || this.createInitialState(), this.setupBroadcastChannel();
   }
   createInitialState() {
     return {
       wizardId: this.generateWizardId(),
-      version: nt,
+      version: vt,
       createdAt: (/* @__PURE__ */ new Date()).toISOString(),
       updatedAt: (/* @__PURE__ */ new Date()).toISOString(),
       currentStep: 1,
@@ -5291,6 +5291,7 @@ class Sn {
       participants: [],
       fieldDefinitions: [],
       fieldPlacements: [],
+      fieldRules: [],
       serverDraftId: null,
       serverRevision: 0,
       lastSyncedAt: null,
@@ -5302,10 +5303,10 @@ class Sn {
   }
   loadFromSession() {
     try {
-      const e = sessionStorage.getItem(Ae);
+      const e = sessionStorage.getItem($e);
       if (!e) return null;
       const t = JSON.parse(e);
-      return t.version !== nt ? (console.warn("Wizard state version mismatch, migrating..."), this.migrateState(t)) : t;
+      return t.version !== vt ? (console.warn("Wizard state version mismatch, migrating..."), this.migrateState(t)) : (Array.isArray(t.fieldRules) || (t.fieldRules = []), t);
     } catch (e) {
       return console.warn("Failed to load wizard state from session:", e), null;
     }
@@ -5315,7 +5316,7 @@ class Sn {
   }
   saveToSession() {
     try {
-      this.state.updatedAt = (/* @__PURE__ */ new Date()).toISOString(), sessionStorage.setItem(Ae, JSON.stringify(this.state));
+      this.state.updatedAt = (/* @__PURE__ */ new Date()).toISOString(), sessionStorage.setItem($e, JSON.stringify(this.state));
     } catch (e) {
       console.warn("Failed to save wizard state to session:", e);
     }
@@ -5323,7 +5324,7 @@ class Sn {
   setupBroadcastChannel() {
     if (!(typeof BroadcastChannel > "u"))
       try {
-        this.broadcastChannel = new BroadcastChannel(bn), this.broadcastChannel.onmessage = (e) => {
+        this.broadcastChannel = new BroadcastChannel(qn), this.broadcastChannel.onmessage = (e) => {
           e.data?.type === "state_update" && e.data.wizardId === this.state.wizardId && this.handleExternalUpdate(e.data.state);
         };
       } catch (e) {
@@ -5370,6 +5371,9 @@ class Sn {
   updateFieldPlacements(e) {
     this.state.fieldPlacements = e, this.saveToSession(), this.broadcastStateUpdate(), this.notifyListeners();
   }
+  updateFieldRules(e) {
+    this.state.fieldRules = e, this.saveToSession(), this.broadcastStateUpdate(), this.notifyListeners();
+  }
   setCurrentStep(e) {
     this.state.currentStep = e, this.saveToSession(), this.broadcastStateUpdate(), this.notifyListeners();
   }
@@ -5387,7 +5391,7 @@ class Sn {
   }
   clearSession() {
     try {
-      sessionStorage.removeItem(Ae);
+      sessionStorage.removeItem($e);
     } catch (e) {
       console.warn("Failed to clear wizard session:", e);
     }
@@ -5409,12 +5413,12 @@ class Sn {
     this.broadcastChannel && (this.broadcastChannel.close(), this.broadcastChannel = null), this.listeners = [];
   }
 }
-class Cn {
+class Wn {
   constructor(e, t, n, i) {
     this.syncTimeout = null, this.retryCount = 0, this.isSyncing = !1, this.stateManager = e, this.apiBase = t, this.onStatusChange = n, this.onConflict = i;
   }
   scheduleSave() {
-    this.syncTimeout && clearTimeout(this.syncTimeout), this.syncTimeout = setTimeout(() => this.syncToServer(), xn);
+    this.syncTimeout && clearTimeout(this.syncTimeout), this.syncTimeout = setTimeout(() => this.syncToServer(), Vn);
   }
   async syncToServer() {
     if (this.isSyncing) return;
@@ -5422,7 +5426,7 @@ class Cn {
     if (e.syncPending) {
       this.isSyncing = !0, this.onStatusChange("syncing");
       try {
-        const t = this.buildDraftPayload(e), n = e.serverDraftId ? "PUT" : "POST", i = e.serverDraftId ? `${this.apiBase}/esign/drafts/${e.serverDraftId}` : `${this.apiBase}/esign/drafts`, a = await fetch(i, {
+        const t = this.buildDraftPayload(e), n = e.serverDraftId ? "PUT" : "POST", i = e.serverDraftId ? `${this.apiBase}/esign/drafts/${e.serverDraftId}` : `${this.apiBase}/esign/drafts`, o = await fetch(i, {
           method: n,
           credentials: "same-origin",
           headers: {
@@ -5432,15 +5436,15 @@ class Cn {
           },
           body: JSON.stringify(t)
         });
-        if (a.status === 409) {
-          const r = await a.json();
-          this.onStatusChange("conflict"), this.onConflict(e.updatedAt, r.server_updated_at || "", r.revision || 0);
+        if (o.status === 409) {
+          const a = await o.json();
+          this.onStatusChange("conflict"), this.onConflict(e.updatedAt, a.server_updated_at || "", a.revision || 0);
           return;
         }
-        if (!a.ok)
-          throw new Error(`Sync failed: ${a.status}`);
-        const l = await a.json();
-        this.stateManager.markSynced(l.id || l.draft_id, l.revision || 1), this.retryCount = 0, this.onStatusChange("synced");
+        if (!o.ok)
+          throw new Error(`Sync failed: ${o.status}`);
+        const d = await o.json();
+        this.stateManager.markSynced(d.id || d.draft_id, d.revision || 1), this.retryCount = 0, this.onStatusChange("synced");
       } catch (t) {
         console.error("Server sync error:", t), this.onStatusChange("error"), this.scheduleRetry();
       } finally {
@@ -5449,11 +5453,11 @@ class Cn {
     }
   }
   scheduleRetry() {
-    if (this.retryCount >= it.length) {
+    if (this.retryCount >= wt.length) {
       console.warn("Max sync retries reached");
       return;
     }
-    const e = it[this.retryCount];
+    const e = wt[this.retryCount];
     this.retryCount++, setTimeout(() => this.syncToServer(), e);
   }
   buildDraftPayload(e) {
@@ -5465,7 +5469,8 @@ class Cn {
       message: e.details.message,
       participants: e.participants,
       field_definitions: e.fieldDefinitions,
-      field_placements: e.fieldPlacements
+      field_placements: e.fieldPlacements,
+      field_rules: e.fieldRules
     };
   }
   async forceOverwrite() {
@@ -5495,6 +5500,7 @@ class Cn {
           participants: n.participants || [],
           fieldDefinitions: n.field_definitions || [],
           fieldPlacements: n.field_placements || [],
+          fieldRules: n.field_rules || [],
           serverRevision: n.revision || 0,
           syncPending: !1
         }), this.onStatusChange("synced");
@@ -5506,9 +5512,9 @@ class Cn {
     this.syncTimeout && (clearTimeout(this.syncTimeout), this.syncTimeout = null);
   }
 }
-class Re {
+class Ue {
   constructor(e) {
-    this.currentStep = 1, this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api/v1`, this.stateManager = new Sn(), this.syncManager = new Cn(
+    this.currentStep = 1, this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api/v1`, this.stateManager = new Gn(), this.syncManager = new Wn(
       this.stateManager,
       this.apiBase,
       (t) => this.updateSyncStatusUI(t),
@@ -5568,7 +5574,7 @@ class Re {
       this.syncManager.scheduleSave();
     });
     const e = this.stateManager.getState();
-    e.currentStep > 1 && (this.currentStep = e.currentStep), this.updateWizardUI(), this.config.isEditMode && this.elements.syncStatusIndicator && f(this.elements.syncStatusIndicator);
+    e.currentStep > 1 && (this.currentStep = e.currentStep), this.updateWizardUI(), this.config.isEditMode && this.elements.syncStatusIndicator && w(this.elements.syncStatusIndicator);
   }
   setupEventListeners() {
     this.elements.prevBtn && this.elements.prevBtn.addEventListener("click", () => this.goToPreviousStep()), this.elements.nextBtn && this.elements.nextBtn.addEventListener("click", () => this.goToNextStep()), this.elements.wizardSteps.forEach((e, t) => {
@@ -5603,11 +5609,11 @@ class Re {
     e && e.step > 1 && this.showResumeDialog(e);
   }
   showResumeDialog(e) {
-    const { resumeDialogModal: t, resumeDraftTitle: n, resumeDraftStep: i, resumeDraftTime: a } = this.elements;
-    n && (n.textContent = e.title), i && (i.textContent = String(e.step)), a && (a.textContent = X(e.updatedAt)), t && x(t);
+    const { resumeDialogModal: t, resumeDraftTitle: n, resumeDraftStep: i, resumeDraftTime: o } = this.elements;
+    n && (n.textContent = e.title), i && (i.textContent = String(e.step)), o && (o.textContent = X(e.updatedAt)), t && x(t);
   }
   hideResumeDialog() {
-    this.elements.resumeDialogModal && f(this.elements.resumeDialogModal);
+    this.elements.resumeDialogModal && w(this.elements.resumeDialogModal);
   }
   resumeSavedProgress() {
     const e = this.stateManager.getState();
@@ -5618,27 +5624,27 @@ class Re {
     this.elements.titleInput && (this.elements.titleInput.value = e.details.title), this.elements.messageInput && (this.elements.messageInput.value = e.details.message);
   }
   showConflictDialog(e, t, n) {
-    const { conflictDialogModal: i, conflictLocalTime: a, conflictServerTime: l, conflictServerRevision: r } = this.elements;
-    a && (a.textContent = X(e)), l && (l.textContent = X(t)), r && (r.textContent = String(n)), i && x(i);
+    const { conflictDialogModal: i, conflictLocalTime: o, conflictServerTime: d, conflictServerRevision: a } = this.elements;
+    o && (o.textContent = X(e)), d && (d.textContent = X(t)), a && (a.textContent = String(n)), i && x(i);
   }
   hideConflictDialog() {
-    this.elements.conflictDialogModal && f(this.elements.conflictDialogModal);
+    this.elements.conflictDialogModal && w(this.elements.conflictDialogModal);
   }
   updateSyncStatusUI(e) {
-    const { syncStatusIndicator: t, syncStatusIcon: n, syncStatusText: i, syncRetryBtn: a } = this.elements;
+    const { syncStatusIndicator: t, syncStatusIcon: n, syncStatusText: i, syncRetryBtn: o } = this.elements;
     if (!(!t || !n || !i))
       switch (x(t), e) {
         case "syncing":
-          n.className = "w-2 h-2 rounded-full bg-blue-500 animate-pulse", i.textContent = "Saving...", a && f(a);
+          n.className = "w-2 h-2 rounded-full bg-blue-500 animate-pulse", i.textContent = "Saving...", o && w(o);
           break;
         case "synced":
-          n.className = "w-2 h-2 rounded-full bg-green-500", i.textContent = "Saved", a && f(a);
+          n.className = "w-2 h-2 rounded-full bg-green-500", i.textContent = "Saved", o && w(o);
           break;
         case "error":
-          n.className = "w-2 h-2 rounded-full bg-red-500", i.textContent = "Save failed", a && x(a);
+          n.className = "w-2 h-2 rounded-full bg-red-500", i.textContent = "Save failed", o && x(o);
           break;
         case "conflict":
-          n.className = "w-2 h-2 rounded-full bg-amber-500", i.textContent = "Conflict", a && f(a);
+          n.className = "w-2 h-2 rounded-full bg-amber-500", i.textContent = "Conflict", o && w(o);
           break;
       }
   }
@@ -5660,11 +5666,11 @@ class Re {
   }
   updateWizardUI() {
     this.elements.wizardSteps.forEach((e, t) => {
-      const n = t + 1, i = n === this.currentStep, a = n < this.currentStep;
-      e.classList.toggle("active", i), e.classList.toggle("completed", a), e.setAttribute("aria-current", i ? "step" : "false");
+      const n = t + 1, i = n === this.currentStep, o = n < this.currentStep;
+      e.classList.toggle("active", i), e.classList.toggle("completed", o), e.setAttribute("aria-current", i ? "step" : "false");
     }), this.elements.stepPanels.forEach((e, t) => {
-      t + 1 === this.currentStep ? x(e) : f(e);
-    }), this.elements.prevBtn && (this.currentStep === 1 ? f(this.elements.prevBtn) : x(this.elements.prevBtn)), this.elements.nextBtn && (this.currentStep === 6 ? f(this.elements.nextBtn) : x(this.elements.nextBtn)), this.elements.submitBtn && (this.currentStep === 6 ? x(this.elements.submitBtn) : f(this.elements.submitBtn));
+      t + 1 === this.currentStep ? x(e) : w(e);
+    }), this.elements.prevBtn && (this.currentStep === 1 ? w(this.elements.prevBtn) : x(this.elements.prevBtn)), this.elements.nextBtn && (this.currentStep === 6 ? w(this.elements.nextBtn) : x(this.elements.nextBtn)), this.elements.submitBtn && (this.currentStep === 6 ? x(this.elements.submitBtn) : w(this.elements.submitBtn));
   }
   async handleFormSubmit(e) {
     e.preventDefault();
@@ -5683,12 +5689,13 @@ class Re {
           message: t.details.message,
           participants: t.participants,
           field_definitions: t.fieldDefinitions,
-          field_placements: t.fieldPlacements
+          field_placements: t.fieldPlacements,
+          field_rules: t.fieldRules
         })
       });
       if (!n.ok) {
-        const a = await n.json();
-        throw new Error(a.error?.message || "Failed to create agreement");
+        const o = await n.json();
+        throw new Error(o.error?.message || "Failed to create agreement");
       }
       const i = await n.json();
       this.stateManager.clearSession(), i.id ? window.location.href = `${this.config.routes.index}/${i.id}` : window.location.href = this.config.routes.index;
@@ -5700,11 +5707,11 @@ class Re {
     this.stateManager.destroy(), this.syncManager.destroy();
   }
 }
-function Bi(s) {
-  const e = new Re(s);
-  return k(() => e.init()), e;
+function rs(s) {
+  const e = new Ue(s);
+  return M(() => e.init()), e;
 }
-function _i(s) {
+function as(s) {
   const e = {
     basePath: s.basePath,
     apiBasePath: s.apiBasePath || `${s.basePath}/api/v1`,
@@ -5712,16 +5719,16 @@ function _i(s) {
     createSuccess: s.createSuccess,
     agreementId: s.agreementId,
     routes: s.routes
-  }, t = new Re(e);
-  k(() => t.init()), typeof window < "u" && (window.esignAgreementFormController = t);
+  }, t = new Ue(e);
+  M(() => t.init()), typeof window < "u" && (window.esignAgreementFormController = t);
 }
-typeof document < "u" && k(() => {
+typeof document < "u" && M(() => {
   if (document.querySelector('[data-esign-page="agreement-form"]')) {
     const e = document.getElementById("esign-page-config");
     if (e)
       try {
         const t = JSON.parse(e.textContent || "{}");
-        (t.basePath || t.routes?.index) && new Re({
+        (t.basePath || t.routes?.index) && new Ue({
           basePath: t.base_path || t.basePath || "",
           apiBasePath: t.api_base_path || t.apiBasePath,
           isEditMode: t.is_edit || t.isEditMode || !1,
@@ -5733,14 +5740,14 @@ typeof document < "u" && k(() => {
       }
   }
 });
-const In = "esign.signer.profile.v1", st = "esign.signer.profile.outbox.v1", Be = 90;
-class En {
+const Jn = "esign.signer.profile.v1", yt = "esign.signer.profile.outbox.v1", je = 90, bt = 500 * 1024;
+class Yn {
   constructor(e) {
-    const t = Number.isFinite(e) && e > 0 ? e : Be;
+    const t = Number.isFinite(e) && e > 0 ? e : je;
     this.ttlMs = t * 24 * 60 * 60 * 1e3;
   }
   storageKey(e) {
-    return `${In}:${e}`;
+    return `${Jn}:${e}`;
   }
   async load(e) {
     try {
@@ -5753,7 +5760,7 @@ class En {
     }
   }
   async save(e, t) {
-    const n = Date.now(), a = {
+    const n = Date.now(), o = {
       ...await this.load(e) || {
         schemaVersion: 1,
         key: e,
@@ -5773,10 +5780,10 @@ class En {
       expiresAt: n + this.ttlMs
     };
     try {
-      window.localStorage.setItem(this.storageKey(e), JSON.stringify(a));
+      window.localStorage.setItem(this.storageKey(e), JSON.stringify(o));
     } catch {
     }
-    return a;
+    return o;
   }
   async clear(e) {
     try {
@@ -5785,7 +5792,7 @@ class En {
     }
   }
 }
-class Ln {
+class Kn {
   constructor(e, t) {
     this.endpointBasePath = e.replace(/\/$/, ""), this.token = t;
   }
@@ -5824,34 +5831,34 @@ class Ln {
       throw new Error("remote profile clear failed");
   }
 }
-class ke {
+class Be {
   constructor(e, t, n) {
     this.mode = e, this.localStore = t, this.remoteStore = n;
   }
   outboxLoad() {
     try {
-      const e = window.localStorage.getItem(st);
+      const e = window.localStorage.getItem(yt);
       if (!e) return {};
       const t = JSON.parse(e);
       if (!t || typeof t != "object")
         return {};
       const n = {};
-      for (const [i, a] of Object.entries(t)) {
-        if (!a || typeof a != "object")
+      for (const [i, o] of Object.entries(t)) {
+        if (!o || typeof o != "object")
           continue;
-        const l = a;
-        if (l.op === "clear") {
+        const d = o;
+        if (d.op === "clear") {
           n[i] = {
             op: "clear",
-            updatedAt: Number(l.updatedAt) || Date.now()
+            updatedAt: Number(d.updatedAt) || Date.now()
           };
           continue;
         }
-        const r = l.op === "patch" ? l.patch : l;
+        const a = d.op === "patch" ? d.patch : d;
         n[i] = {
           op: "patch",
-          patch: r && typeof r == "object" ? r : {},
-          updatedAt: Number(l.updatedAt) || Date.now()
+          patch: a && typeof a == "object" ? a : {},
+          updatedAt: Number(d.updatedAt) || Date.now()
         };
       }
       return n;
@@ -5861,15 +5868,15 @@ class ke {
   }
   outboxSave(e) {
     try {
-      window.localStorage.setItem(st, JSON.stringify(e));
+      window.localStorage.setItem(yt, JSON.stringify(e));
     } catch {
     }
   }
   queuePatch(e, t) {
-    const n = this.outboxLoad(), i = n[e], a = i?.op === "patch" ? i.patch || {} : {};
+    const n = this.outboxLoad(), i = n[e], o = i?.op === "patch" ? i.patch || {} : {};
     n[e] = {
       op: "patch",
-      patch: { ...a, ...t, updatedAt: Date.now() },
+      patch: { ...o, ...t, updatedAt: Date.now() },
       updatedAt: Date.now()
     }, this.outboxSave(n);
   }
@@ -5905,8 +5912,8 @@ class ke {
       const [n, i] = await Promise.all([
         this.localStore.load(e),
         this.remoteStore.load(e).catch(() => null)
-      ]), a = this.pickLatest(n, i);
-      return a && await this.localStore.save(e, a), await this.flushOutboxForKey(e), a;
+      ]), o = this.pickLatest(n, i);
+      return o && await this.localStore.save(e, o), await this.flushOutboxForKey(e), o;
     }
     return this.localStore.load(e);
   }
@@ -5937,7 +5944,7 @@ class ke {
     this.removeOutboxEntry(e);
   }
 }
-function Pn(s) {
+function Qn(s) {
   const e = s.profile?.mode || "local_only";
   return {
     token: String(s.token || "").trim(),
@@ -5969,46 +5976,46 @@ function Pn(s) {
     profile: {
       mode: e,
       rememberByDefault: s.profile?.rememberByDefault !== !1,
-      ttlDays: Number(s.profile?.ttlDays || Be) || Be,
+      ttlDays: Number(s.profile?.ttlDays || je) || je,
       persistDrawnSignature: !!s.profile?.persistDrawnSignature,
       endpointBasePath: String(s.profile?.endpointBasePath || String(s.apiBasePath || "/api/v1/esign/signing")).trim()
     }
   };
 }
-function An(s) {
+function Xn(s) {
   const e = typeof window < "u" ? window.location.origin.toLowerCase() : "unknown", t = s.recipientEmail ? s.recipientEmail.trim().toLowerCase() : s.recipientId.trim().toLowerCase();
   return encodeURIComponent(`${e}:${t}`);
 }
-function Te(s) {
+function _e(s) {
   const e = String(s || "").trim().split(/\s+/).filter(Boolean);
   return e.length === 0 ? "" : e.slice(0, 3).map((t) => t[0].toUpperCase()).join("");
 }
-function mt(s) {
+function Zn(s) {
   const e = String(s || "").trim().toLowerCase();
   return e === "[drawn]" || e === "[drawn initials]";
 }
 function G(s) {
   const e = String(s || "").trim();
-  return mt(e) ? "" : e;
+  return Zn(e) ? "" : e;
 }
-function kn(s) {
-  const e = new En(s.profile.ttlDays), t = new Ln(s.profile.endpointBasePath, s.token);
-  return s.profile.mode === "local_only" ? new ke("local_only", e, null) : s.profile.mode === "remote_only" ? new ke("remote_only", e, t) : new ke("hybrid", e, t);
+function ei(s) {
+  const e = new Yn(s.profile.ttlDays), t = new Kn(s.profile.endpointBasePath, s.token);
+  return s.profile.mode === "local_only" ? new Be("local_only", e, null) : s.profile.mode === "remote_only" ? new Be("remote_only", e, t) : new Be("hybrid", e, t);
 }
-function Tn() {
+function ti() {
   const s = window;
   s.pdfjsLib && s.pdfjsLib.GlobalWorkerOptions && (s.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js");
 }
-function Mn(s) {
+function ni(s) {
   const e = document.querySelector('[data-esign-page="signer-review"], [data-esign-page="signer.review"]');
   if (!e) return;
   const t = e;
   if (t.dataset.esignBootstrapped === "true")
     return;
   t.dataset.esignBootstrapped = "true";
-  const n = Pn(s), i = An(n), a = kn(n);
-  Tn();
-  const l = {
+  const n = Qn(s), i = Xn(n), o = ei(n);
+  ti();
+  const d = {
     events: [],
     sessionId: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36),
     startTime: Date.now(),
@@ -6027,31 +6034,31 @@ function Mn(s) {
      * @param {string} eventName - Event name
      * @param {Object} data - Event data
      */
-    track(o, d = {}) {
+    track(r, l = {}) {
       if (!n.telemetryEnabled) return;
       const u = {
-        event: o,
+        event: r,
         timestamp: Date.now(),
         sessionId: this.sessionId,
         flowMode: n.flowMode,
         agreementId: n.agreementId,
-        ...d
+        ...l
       };
-      this.events.push(u), this.isCriticalEvent(o) && this.flush();
+      this.events.push(u), this.isCriticalEvent(r) && this.flush();
     },
     /**
      * Check if event is critical and should be sent immediately
      * @param {string} eventName - Event name
      * @returns {boolean}
      */
-    isCriticalEvent(o) {
+    isCriticalEvent(r) {
       return [
         "viewer_load_failed",
         "submit_success",
         "submit_failed",
         "viewer_critical_error",
         "consent_declined"
-      ].includes(o);
+      ].includes(r);
     },
     /**
      * Track viewer load completion
@@ -6059,9 +6066,9 @@ function Mn(s) {
      * @param {number} duration - Load duration in ms
      * @param {string} error - Error message if failed
      */
-    trackViewerLoad(o, d, u = null) {
-      this.metrics.viewerLoadTime = d, this.track(o ? "viewer_load_success" : "viewer_load_failed", {
-        duration: d,
+    trackViewerLoad(r, l, u = null) {
+      this.metrics.viewerLoadTime = l, this.track(r ? "viewer_load_success" : "viewer_load_failed", {
+        duration: l,
         error: u,
         pageCount: n.pageCount
       });
@@ -6074,12 +6081,12 @@ function Mn(s) {
      * @param {number} latency - Operation latency in ms
      * @param {string} error - Error message if failed
      */
-    trackFieldSave(o, d, u, p, m = null) {
-      this.metrics.fieldSaveLatencies.push(p), u ? this.metrics.fieldsCompleted++ : this.metrics.errorsEncountered.push({ type: "field_save", fieldId: o, error: m }), this.track(u ? "field_save_success" : "field_save_failed", {
-        fieldId: o,
-        fieldType: d,
+    trackFieldSave(r, l, u, p, h = null) {
+      this.metrics.fieldSaveLatencies.push(p), u ? this.metrics.fieldsCompleted++ : this.metrics.errorsEncountered.push({ type: "field_save", fieldId: r, error: h }), this.track(u ? "field_save_success" : "field_save_failed", {
+        fieldId: r,
+        fieldType: l,
         latency: p,
-        error: m
+        error: h
       });
     },
     /**
@@ -6090,20 +6097,20 @@ function Mn(s) {
      * @param {number} latency - Operation latency in ms
      * @param {string} error - Error message if failed
      */
-    trackSignatureAttach(o, d, u, p, m = null) {
+    trackSignatureAttach(r, l, u, p, h = null) {
       this.metrics.signatureAttachLatencies.push(p), this.track(u ? "signature_attach_success" : "signature_attach_failed", {
-        fieldId: o,
-        signatureType: d,
+        fieldId: r,
+        signatureType: l,
         latency: p,
-        error: m
+        error: h
       });
     },
     /**
      * Track consent action
      * @param {boolean} accepted - Whether consent was accepted
      */
-    trackConsent(o) {
-      this.metrics.consentTime = Date.now() - this.startTime, this.track(o ? "consent_accepted" : "consent_declined", {
+    trackConsent(r) {
+      this.metrics.consentTime = Date.now() - this.startTime, this.track(r ? "consent_accepted" : "consent_declined", {
         timeToConsent: this.metrics.consentTime
       });
     },
@@ -6112,21 +6119,21 @@ function Mn(s) {
      * @param {boolean} success - Whether submit succeeded
      * @param {string} error - Error message if failed
      */
-    trackSubmit(o, d = null) {
-      this.metrics.submitTime = Date.now() - this.startTime, this.track(o ? "submit_success" : "submit_failed", {
+    trackSubmit(r, l = null) {
+      this.metrics.submitTime = Date.now() - this.startTime, this.track(r ? "submit_success" : "submit_failed", {
         timeToSubmit: this.metrics.submitTime,
         fieldsCompleted: this.metrics.fieldsCompleted,
-        totalFields: r.fieldState.size,
-        error: d
+        totalFields: a.fieldState.size,
+        error: l
       });
     },
     /**
      * Track page navigation
      * @param {number} pageNum - Page number viewed
      */
-    trackPageView(o) {
-      this.metrics.pagesViewed.has(o) || (this.metrics.pagesViewed.add(o), this.track("page_viewed", {
-        pageNum: o,
+    trackPageView(r) {
+      this.metrics.pagesViewed.has(r) || (this.metrics.pagesViewed.add(r), this.track("page_viewed", {
+        pageNum: r,
         totalPagesViewed: this.metrics.pagesViewed.size
       }));
     },
@@ -6134,9 +6141,9 @@ function Mn(s) {
      * Track viewer critical error
      * @param {string} reason - Reason for error
      */
-    trackViewerCriticalError(o) {
+    trackViewerCriticalError(r) {
       this.track("viewer_critical_error", {
-        reason: o,
+        reason: r,
         timeBeforeError: Date.now() - this.startTime,
         pagesViewed: this.metrics.pagesViewed.size,
         fieldsCompleted: this.metrics.fieldsCompleted
@@ -6147,10 +6154,10 @@ function Mn(s) {
      * @param {string} degradationType - Type of degradation
      * @param {Object} details - Additional details
      */
-    trackDegradedMode(o, d = {}) {
+    trackDegradedMode(r, l = {}) {
       this.track("degraded_mode", {
-        degradationType: o,
-        ...d
+        degradationType: r,
+        ...l
       });
     },
     /**
@@ -6166,7 +6173,7 @@ function Mn(s) {
         avgFieldSaveLatency: this.calculateAverage(this.metrics.fieldSaveLatencies),
         avgSignatureAttachLatency: this.calculateAverage(this.metrics.signatureAttachLatencies),
         fieldsCompleted: this.metrics.fieldsCompleted,
-        totalFields: r.fieldState?.size || 0,
+        totalFields: a.fieldState?.size || 0,
         pagesViewed: this.metrics.pagesViewed.size,
         errorsCount: this.metrics.errorsEncountered.length,
         consentTime: this.metrics.consentTime,
@@ -6178,42 +6185,42 @@ function Mn(s) {
      * @param {number[]} arr - Array of numbers
      * @returns {number}
      */
-    calculateAverage(o) {
-      return o.length ? Math.round(o.reduce((d, u) => d + u, 0) / o.length) : 0;
+    calculateAverage(r) {
+      return r.length ? Math.round(r.reduce((l, u) => l + u, 0) / r.length) : 0;
     },
     /**
      * Flush events to backend
      */
     async flush() {
       if (!n.telemetryEnabled || this.events.length === 0) return;
-      const o = [...this.events];
+      const r = [...this.events];
       this.events = [];
       try {
         if (navigator.sendBeacon) {
-          const d = JSON.stringify({
-            events: o,
+          const l = JSON.stringify({
+            events: r,
             summary: this.getSessionSummary()
           });
-          navigator.sendBeacon(`${n.apiBasePath}/telemetry/${n.token}`, d);
+          navigator.sendBeacon(`${n.apiBasePath}/telemetry/${n.token}`, l);
         } else
           await fetch(`${n.apiBasePath}/telemetry/${n.token}`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              events: o,
+              events: r,
               summary: this.getSessionSummary()
             }),
             keepalive: !0
           });
-      } catch (d) {
-        this.events = [...o, ...this.events], console.warn("Telemetry flush failed:", d);
+      } catch (l) {
+        this.events = [...r, ...this.events], console.warn("Telemetry flush failed:", l);
       }
     }
   };
   window.addEventListener("beforeunload", () => {
-    l.track("session_end", l.getSessionSummary()), l.flush();
-  }), setInterval(() => l.flush(), 3e4);
-  const r = {
+    d.track("session_end", d.getSessionSummary()), d.flush();
+  }), setInterval(() => d.flush(), 3e4);
+  const a = {
     currentPage: 1,
     zoomLevel: 1,
     pdfDoc: null,
@@ -6223,6 +6230,8 @@ function Mn(s) {
     activeFieldId: null,
     hasConsented: n.hasConsented,
     signatureCanvases: /* @__PURE__ */ new Map(),
+    signatureTabByField: /* @__PURE__ */ new Map(),
+    savedSignaturesByType: /* @__PURE__ */ new Map(),
     pendingSaves: /* @__PURE__ */ new Set(),
     // Performance state
     renderedPages: /* @__PURE__ */ new Map(),
@@ -6235,8 +6244,9 @@ function Mn(s) {
     renderDebounceMs: 100,
     profileKey: i,
     profileData: null,
-    profileRemember: n.profile.rememberByDefault
-  }, g = {
+    profileRemember: n.profile.rememberByDefault,
+    guidedTargetFieldId: null
+  }, f = {
     /**
      * Device pixel ratio for high-DPI displays
      */
@@ -6248,15 +6258,15 @@ function Mn(s) {
     /**
      * Get page metadata from viewer config or field data
      */
-    getPageMetadata(o) {
-      const d = n.viewer.pages?.find((p) => p.page === o);
-      if (d)
+    getPageMetadata(r) {
+      const l = n.viewer.pages?.find((p) => p.page === r);
+      if (l)
         return {
-          width: d.width,
-          height: d.height,
-          rotation: d.rotation || 0
+          width: l.width,
+          height: l.height,
+          rotation: l.rotation || 0
         };
-      const u = this.pageViewports.get(o);
+      const u = this.pageViewports.get(r);
       return u ? {
         width: u.width,
         height: u.height,
@@ -6266,38 +6276,38 @@ function Mn(s) {
     /**
      * Cache PDF.js viewport for page
      */
-    setPageViewport(o, d) {
-      this.pageViewports.set(o, {
-        width: d.width,
-        height: d.height,
-        rotation: d.rotation || 0
+    setPageViewport(r, l) {
+      this.pageViewports.set(r, {
+        width: l.width,
+        height: l.height,
+        rotation: l.rotation || 0
       });
     },
     /**
      * Transform field coordinates from page-space to screen-space
      * Accounts for zoom level, DPR, container sizing, and origin
      */
-    pageToScreen(o, d) {
-      const u = o.page, p = this.getPageMetadata(u), m = d.offsetWidth, b = d.offsetHeight, y = o.pageWidth || p.width, I = o.pageHeight || p.height, A = m / y, F = b / I;
-      let D = o.posX || 0, R = o.posY || 0;
-      n.viewer.origin === "bottom-left" && (R = I - R - (o.height || 30));
-      const z = D * A, U = R * F, T = (o.width || 150) * A, B = (o.height || 30) * F;
+    pageToScreen(r, l) {
+      const u = r.page, p = this.getPageMetadata(u), h = l.offsetWidth, m = l.offsetHeight, v = r.pageWidth || p.width, S = r.pageHeight || p.height, L = h / v, D = m / S;
+      let k = r.posX || 0, R = r.posY || 0;
+      n.viewer.origin === "bottom-left" && (R = S - R - (r.height || 30));
+      const N = k * L, q = R * D, A = (r.width || 150) * L, _ = (r.height || 30) * D;
       return {
-        left: z,
-        top: U,
-        width: T,
-        height: B,
+        left: N,
+        top: q,
+        width: A,
+        height: _,
         // Store original values for debugging
         _debug: {
-          sourceX: D,
+          sourceX: k,
           sourceY: R,
-          sourceWidth: o.width,
-          sourceHeight: o.height,
-          pageWidth: y,
-          pageHeight: I,
-          scaleX: A,
-          scaleY: F,
-          zoom: r.zoomLevel,
+          sourceWidth: r.width,
+          sourceHeight: r.height,
+          pageWidth: v,
+          pageHeight: S,
+          scaleX: L,
+          scaleY: D,
+          zoom: a.zoomLevel,
           dpr: this.dpr
         }
       };
@@ -6305,8 +6315,8 @@ function Mn(s) {
     /**
      * Get CSS transform values for overlay positioning
      */
-    getOverlayStyles(o, d) {
-      const u = this.pageToScreen(o, d);
+    getOverlayStyles(r, l) {
+      const u = this.pageToScreen(r, l);
       return {
         left: `${Math.round(u.left)}px`,
         top: `${Math.round(u.top)}px`,
@@ -6316,219 +6326,416 @@ function Mn(s) {
         transform: this.dpr > 1 ? "translateZ(0)" : "none"
       };
     }
-  }, h = {
+  }, g = {
     /**
      * Request signed upload bootstrap from backend
      */
-    async requestUploadBootstrap(o, d, u, p) {
-      const m = await fetch(
+    async requestUploadBootstrap(r, l, u, p) {
+      const h = await fetch(
         `${n.apiBasePath}/signature-upload/${n.token}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "omit",
           body: JSON.stringify({
-            field_instance_id: o,
-            sha256: d,
+            field_instance_id: r,
+            sha256: l,
             content_type: u,
             size_bytes: p
           })
         }
       );
-      if (!m.ok) {
-        let I = null;
+      if (!h.ok) {
+        let S = null;
         try {
-          I = await m.json();
+          S = await h.json();
         } catch {
-          I = null;
+          S = null;
         }
-        throw new Error(I?.error?.message || "Failed to get upload contract");
+        throw new Error(S?.error?.message || "Failed to get upload contract");
       }
-      const b = await m.json(), y = b?.contract || b;
-      if (!y || typeof y != "object" || !y.upload_url)
+      const m = await h.json(), v = m?.contract || m;
+      if (!v || typeof v != "object" || !v.upload_url)
         throw new Error("Invalid upload contract response");
-      return y;
+      return v;
     },
     /**
      * Upload binary data to signed URL
      */
-    async uploadToSignedUrl(o, d) {
-      const u = new URL(o.upload_url, window.location.origin);
-      o.upload_token && u.searchParams.set("upload_token", String(o.upload_token)), o.object_key && u.searchParams.set("object_key", String(o.object_key));
+    async uploadToSignedUrl(r, l) {
+      const u = new URL(r.upload_url, window.location.origin);
+      r.upload_token && u.searchParams.set("upload_token", String(r.upload_token)), r.object_key && u.searchParams.set("object_key", String(r.object_key));
       const p = {
-        "Content-Type": o.content_type || "image/png"
+        "Content-Type": r.content_type || "image/png"
       };
-      o.headers && Object.entries(o.headers).forEach(([b, y]) => {
-        const I = String(b).toLowerCase();
-        I === "x-esign-upload-token" || I === "x-esign-upload-key" || (p[b] = String(y));
+      r.headers && Object.entries(r.headers).forEach(([m, v]) => {
+        const S = String(m).toLowerCase();
+        S === "x-esign-upload-token" || S === "x-esign-upload-key" || (p[m] = String(v));
       });
-      const m = await fetch(u.toString(), {
-        method: o.method || "PUT",
+      const h = await fetch(u.toString(), {
+        method: r.method || "PUT",
         headers: p,
-        body: d,
+        body: l,
         credentials: "omit"
       });
-      if (!m.ok)
-        throw new Error(`Upload failed: ${m.status} ${m.statusText}`);
+      if (!h.ok)
+        throw new Error(`Upload failed: ${h.status} ${h.statusText}`);
       return !0;
     },
     /**
      * Convert canvas data URL to binary blob
      */
-    dataUrlToBlob(o) {
-      const [d, u] = o.split(","), p = d.match(/data:([^;]+)/), m = p ? p[1] : "image/png", b = atob(u), y = new Uint8Array(b.length);
-      for (let I = 0; I < b.length; I++)
-        y[I] = b.charCodeAt(I);
-      return new Blob([y], { type: m });
+    dataUrlToBlob(r) {
+      const [l, u] = r.split(","), p = l.match(/data:([^;]+)/), h = p ? p[1] : "image/png", m = atob(u), v = new Uint8Array(m.length);
+      for (let S = 0; S < m.length; S++)
+        v[S] = m.charCodeAt(S);
+      return new Blob([v], { type: h });
     },
     /**
      * Full drawn signature upload flow with signed URL
      */
-    async uploadDrawnSignature(o, d) {
-      const u = this.dataUrlToBlob(d), p = u.size, m = u.type || "image/png", b = await v(u), y = await this.requestUploadBootstrap(
-        o,
-        b,
+    async uploadDrawnSignature(r, l) {
+      const u = this.dataUrlToBlob(l), p = u.size, h = "image/png", m = await Z(u), v = await this.requestUploadBootstrap(
+        r,
         m,
+        h,
         p
       );
-      return await this.uploadToSignedUrl(y, u), {
-        uploadToken: y.upload_token,
-        objectKey: y.object_key,
-        sha256: y.sha256,
-        contentType: y.content_type
+      return await this.uploadToSignedUrl(v, u), {
+        uploadToken: v.upload_token,
+        objectKey: v.object_key,
+        sha256: v.sha256,
+        contentType: v.content_type
       };
     }
+  }, y = {
+    endpoint(r, l = "") {
+      const u = encodeURIComponent(r), p = l ? `/${encodeURIComponent(l)}` : "";
+      return `${n.apiBasePath}/signatures/${u}${p}`;
+    },
+    async list(r) {
+      const l = new URL(this.endpoint(n.token), window.location.origin);
+      l.searchParams.set("type", r);
+      const u = await fetch(l.toString(), {
+        method: "GET",
+        headers: { Accept: "application/json" },
+        credentials: "same-origin"
+      });
+      if (!u.ok) {
+        const h = await u.json().catch(() => ({}));
+        throw new Error(h?.error?.message || "Failed to load saved signatures");
+      }
+      const p = await u.json();
+      return Array.isArray(p?.signatures) ? p.signatures : [];
+    },
+    async save(r, l, u = "") {
+      const p = await fetch(this.endpoint(n.token), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          type: r,
+          label: u,
+          data_url: l
+        })
+      });
+      if (!p.ok) {
+        const m = await p.json().catch(() => ({})), v = new Error(m?.error?.message || "Failed to save signature");
+        throw v.code = m?.error?.code || "", v;
+      }
+      return (await p.json())?.signature || null;
+    },
+    async delete(r) {
+      const l = await fetch(this.endpoint(n.token, r), {
+        method: "DELETE",
+        headers: { Accept: "application/json" },
+        credentials: "same-origin"
+      });
+      if (!l.ok) {
+        const u = await l.json().catch(() => ({}));
+        throw new Error(u?.error?.message || "Failed to delete signature");
+      }
+    }
   };
-  async function v(o) {
+  function b(r) {
+    const l = a.fieldState.get(r);
+    return l && l.type === "initials" ? "initials" : "signature";
+  }
+  function I(r) {
+    return a.savedSignaturesByType.get(r) || [];
+  }
+  async function C(r, l = !1) {
+    const u = b(r);
+    if (!l && a.savedSignaturesByType.has(u)) {
+      E(r);
+      return;
+    }
+    const p = await y.list(u);
+    a.savedSignaturesByType.set(u, p), E(r);
+  }
+  function E(r) {
+    const l = b(r), u = I(l), p = document.getElementById("sig-saved-list");
+    if (p) {
+      if (!u.length) {
+        p.innerHTML = '<p class="text-xs text-gray-500">No saved signatures yet.</p>';
+        return;
+      }
+      p.innerHTML = u.map((h) => {
+        const m = V(String(h?.thumbnail_data_url || h?.data_url || "")), v = V(String(h?.label || "Saved signature")), S = V(String(h?.id || ""));
+        return `
+      <div class="flex items-center gap-2 border border-gray-200 rounded-lg p-2">
+        <img src="${m}" alt="${v}" class="w-16 h-10 object-contain bg-white border border-gray-100 rounded" />
+        <div class="flex-1 min-w-0">
+          <p class="text-xs text-gray-700 truncate">${v}</p>
+        </div>
+        <button type="button" data-esign-action="select-saved-signature" data-field-id="${V(r)}" data-signature-id="${S}" class="text-xs text-blue-600 hover:text-blue-700 underline underline-offset-2">Use</button>
+        <button type="button" data-esign-action="delete-saved-signature" data-field-id="${V(r)}" data-signature-id="${S}" class="text-xs text-red-600 hover:text-red-700 underline underline-offset-2">Delete</button>
+      </div>`;
+      }).join("");
+    }
+  }
+  async function T(r) {
+    const l = a.signatureCanvases.get(r), u = b(r);
+    if (!l || !it(r))
+      throw new Error(`Please add your ${u === "initials" ? "initials" : "signature"} first`);
+    const p = l.canvas.toDataURL("image/png"), h = await y.save(u, p, u === "initials" ? "Initials" : "Signature");
+    if (!h)
+      throw new Error("Failed to save signature");
+    const m = I(u);
+    m.unshift(h), a.savedSignaturesByType.set(u, m), E(r), window.toastManager && window.toastManager.success("Saved to your signature library");
+  }
+  async function P(r, l) {
+    const u = b(r), h = I(u).find((v) => String(v?.id || "") === String(l));
+    if (!h) return;
+    requestAnimationFrame(() => me(r)), await F(r);
+    const m = String(h.data_url || h.thumbnail_data_url || "").trim();
+    m && (await Ce(r, m, { clearStrokes: !0 }), ge("draw", r), j("Saved signature selected."));
+  }
+  async function $(r, l) {
+    const u = b(r);
+    await y.delete(l);
+    const p = I(u).filter((h) => String(h?.id || "") !== String(l));
+    a.savedSignaturesByType.set(u, p), E(r);
+  }
+  function B(r) {
+    const l = String(r?.code || "").trim(), u = String(r?.message || "Unable to update saved signatures"), p = l === "SIGNATURE_LIBRARY_LIMIT_REACHED" ? "You reached your saved-signature limit for this type. Delete one to save a new one." : u;
+    window.toastManager && window.toastManager.error(p), j(p, "assertive");
+  }
+  async function F(r, l = 8) {
+    for (let u = 0; u < l; u++) {
+      if (a.signatureCanvases.has(r)) return !0;
+      await new Promise((p) => setTimeout(p, 40)), me(r);
+    }
+    return !1;
+  }
+  async function O(r, l) {
+    const u = String(l?.type || "").toLowerCase();
+    if (!["image/png", "image/jpeg"].includes(u))
+      throw new Error("Only PNG and JPEG images are supported");
+    if (l.size > 2 * 1024 * 1024)
+      throw new Error("Image file is too large");
+    requestAnimationFrame(() => me(r)), await F(r);
+    const p = a.signatureCanvases.get(r);
+    if (!p)
+      throw new Error("Signature canvas is not ready");
+    const h = await U(l), m = u === "image/png" ? h : await J(h, p.drawWidth, p.drawHeight);
+    if (ae(m) > bt)
+      throw new Error(`Image exceeds ${Math.round(bt / 1024)}KB limit after conversion`);
+    await Ce(r, m, { clearStrokes: !0 });
+    const S = document.getElementById("sig-upload-preview-wrap"), L = document.getElementById("sig-upload-preview");
+    S && S.classList.remove("hidden"), L && L.setAttribute("src", m), j("Signature image uploaded. You can now insert it.");
+  }
+  function U(r) {
+    return new Promise((l, u) => {
+      const p = new FileReader();
+      p.onload = () => l(String(p.result || "")), p.onerror = () => u(new Error("Unable to read image file")), p.readAsDataURL(r);
+    });
+  }
+  function ae(r) {
+    const l = String(r || "").split(",");
+    if (l.length < 2) return 0;
+    const u = l[1] || "", p = (u.match(/=+$/) || [""])[0].length;
+    return Math.floor(u.length * 3 / 4) - p;
+  }
+  async function J(r, l, u) {
+    return await new Promise((p, h) => {
+      const m = new Image();
+      m.onload = () => {
+        const v = document.createElement("canvas"), S = Math.max(1, Math.round(Number(l) || 600)), L = Math.max(1, Math.round(Number(u) || 160));
+        v.width = S, v.height = L;
+        const D = v.getContext("2d");
+        if (!D) {
+          h(new Error("Unable to process image"));
+          return;
+        }
+        D.clearRect(0, 0, S, L);
+        const k = Math.min(S / m.width, L / m.height), R = m.width * k, N = m.height * k, q = (S - R) / 2, A = (L - N) / 2;
+        D.drawImage(m, q, A, R, N), p(v.toDataURL("image/png"));
+      }, m.onerror = () => h(new Error("Unable to decode image file")), m.src = r;
+    });
+  }
+  async function Z(r) {
     if (window.crypto && window.crypto.subtle) {
-      const d = await o.arrayBuffer(), u = await window.crypto.subtle.digest("SHA-256", d);
+      const l = await r.arrayBuffer(), u = await window.crypto.subtle.digest("SHA-256", l);
       return Array.from(new Uint8Array(u)).map((p) => p.toString(16).padStart(2, "0")).join("");
     }
     return crypto.randomUUID ? crypto.randomUUID().replace(/-/g, "") : Date.now().toString(16);
   }
-  function w() {
-    document.addEventListener("click", (o) => {
-      const d = o.target;
-      if (!(d instanceof Element)) return;
-      const u = d.closest("[data-esign-action]");
+  function ee() {
+    document.addEventListener("click", (r) => {
+      const l = r.target;
+      if (!(l instanceof Element)) return;
+      const u = l.closest("[data-esign-action]");
       if (!u) return;
       switch (u.getAttribute("data-esign-action")) {
         case "prev-page":
-          Ct();
+          Gt();
           break;
         case "next-page":
-          It();
-          break;
-        case "zoom-out":
-          Pt();
-          break;
-        case "zoom-in":
-          Lt();
-          break;
-        case "fit-width":
-          At();
-          break;
-        case "download-document":
           Wt();
           break;
+        case "zoom-out":
+          Yt();
+          break;
+        case "zoom-in":
+          Jt();
+          break;
+        case "fit-width":
+          Kt();
+          break;
+        case "download-document":
+          wn();
+          break;
         case "show-consent-modal":
-          We();
+          ot();
           break;
         case "activate-field": {
-          const m = u.getAttribute("data-field-id");
-          m && pe(m);
+          const h = u.getAttribute("data-field-id");
+          h && he(h);
           break;
         }
         case "submit-signature":
-          Nt();
+          gn();
           break;
         case "show-decline-modal":
-          qt();
+          mn();
           break;
         case "close-field-editor":
-          ye();
+          Ee();
           break;
         case "save-field-editor":
-          Ft();
+          an();
           break;
         case "hide-consent-modal":
-          Se();
+          Ae();
           break;
         case "accept-consent":
-          Ut();
+          hn();
           break;
         case "hide-decline-modal":
-          Je();
+          ct();
           break;
         case "confirm-decline":
-          Vt();
+          fn();
           break;
         case "retry-load-pdf":
           de();
           break;
         case "signature-tab": {
-          const m = u.getAttribute("data-tab") || "type", b = u.getAttribute("data-field-id");
-          b && qe(m, b);
+          const h = u.getAttribute("data-tab") || "draw", m = u.getAttribute("data-field-id");
+          m && ge(h, m);
           break;
         }
         case "clear-signature-canvas": {
-          const m = u.getAttribute("data-field-id");
-          m && _t(m);
+          const h = u.getAttribute("data-field-id");
+          h && rn(h);
+          break;
+        }
+        case "undo-signature-canvas": {
+          const h = u.getAttribute("data-field-id");
+          h && nn(h);
+          break;
+        }
+        case "redo-signature-canvas": {
+          const h = u.getAttribute("data-field-id");
+          h && sn(h);
+          break;
+        }
+        case "save-current-signature-library": {
+          const h = u.getAttribute("data-field-id");
+          h && T(h).catch(B);
+          break;
+        }
+        case "select-saved-signature": {
+          const h = u.getAttribute("data-field-id"), m = u.getAttribute("data-signature-id");
+          h && m && P(h, m).catch(B);
+          break;
+        }
+        case "delete-saved-signature": {
+          const h = u.getAttribute("data-field-id"), m = u.getAttribute("data-signature-id");
+          h && m && $(h, m).catch(B);
           break;
         }
         case "clear-signer-profile":
-          V().catch(() => {
+          Je().catch(() => {
           });
           break;
         case "debug-toggle-panel":
-          K.togglePanel();
+          Y.togglePanel();
           break;
         case "debug-copy-session":
-          K.copySessionInfo();
+          Y.copySessionInfo();
           break;
         case "debug-clear-cache":
-          K.clearCache();
+          Y.clearCache();
           break;
         case "debug-show-telemetry":
-          K.showTelemetry();
+          Y.showTelemetry();
           break;
         case "debug-reload-viewer":
-          K.reloadViewer();
+          Y.reloadViewer();
           break;
       }
+    }), document.addEventListener("change", (r) => {
+      const l = r.target;
+      if (!(l instanceof HTMLInputElement) || !l.matches("#sig-upload-input")) return;
+      const u = l.getAttribute("data-field-id"), p = l.files?.[0];
+      !u || !p || O(u, p).catch((h) => {
+        window.toastManager && window.toastManager.error(h?.message || "Unable to process uploaded image");
+      });
     });
   }
-  k(async () => {
-    w(), r.isLowMemory = te(), P(), await M(), L(), ee(), Ge(), xe(), await de(), ue(), document.addEventListener("visibilitychange", E), "memory" in navigator && C(), K.init();
+  M(async () => {
+    ee(), a.isLowMemory = Ut(), le(), await Rt(), Ft(), zt(), rt(), Le(), await de(), ue(), document.addEventListener("visibilitychange", te), "memory" in navigator && ye(), Y.init();
   });
-  function E() {
-    document.hidden && S();
+  function te() {
+    document.hidden && z();
   }
-  function S() {
-    const o = r.isLowMemory ? 1 : 2;
-    for (; r.renderedPages.size > o; ) {
-      let d = null, u = 1 / 0;
-      if (r.renderedPages.forEach((p, m) => {
-        m !== r.currentPage && p.timestamp < u && (d = m, u = p.timestamp);
-      }), d !== null)
-        r.renderedPages.delete(d);
+  function z() {
+    const r = a.isLowMemory ? 1 : 2;
+    for (; a.renderedPages.size > r; ) {
+      let l = null, u = 1 / 0;
+      if (a.renderedPages.forEach((p, h) => {
+        h !== a.currentPage && p.timestamp < u && (l = h, u = p.timestamp);
+      }), l !== null)
+        a.renderedPages.delete(l);
       else
         break;
     }
   }
-  function C() {
+  function ye() {
     setInterval(() => {
       if (navigator.memory) {
-        const o = navigator.memory.usedJSHeapSize, d = navigator.memory.totalJSHeapSize;
-        o / d > 0.8 && (r.isLowMemory = !0, S());
+        const r = navigator.memory.usedJSHeapSize, l = navigator.memory.totalJSHeapSize;
+        r / l > 0.8 && (a.isLowMemory = !0, z());
       }
     }, 3e4);
   }
-  function P() {
-    const o = document.getElementById("stage-state-banner"), d = document.getElementById("stage-state-icon"), u = document.getElementById("stage-state-title"), p = document.getElementById("stage-state-message"), m = document.getElementById("stage-state-meta");
-    if (!o || !d || !u || !p || !m) return;
-    const b = n.signerState || "active", y = n.recipientStage || 1, I = n.activeStage || 1, A = n.activeRecipientIds || [], F = n.waitingForRecipientIds || [];
-    let D = {
+  function le() {
+    const r = document.getElementById("stage-state-banner"), l = document.getElementById("stage-state-icon"), u = document.getElementById("stage-state-title"), p = document.getElementById("stage-state-message"), h = document.getElementById("stage-state-meta");
+    if (!r || !l || !u || !p || !h) return;
+    const m = n.signerState || "active", v = n.recipientStage || 1, S = n.activeStage || 1, L = n.activeRecipientIds || [], D = n.waitingForRecipientIds || [];
+    let k = {
       hidden: !1,
       bgClass: "bg-green-50",
       borderClass: "border-green-200",
@@ -6539,9 +6746,9 @@ function Mn(s) {
       message: "Please complete and sign the document below.",
       badges: []
     };
-    switch (b) {
+    switch (m) {
       case "waiting":
-        D = {
+        k = {
           hidden: !1,
           bgClass: "bg-blue-50",
           borderClass: "border-blue-200",
@@ -6549,18 +6756,18 @@ function Mn(s) {
           titleClass: "text-blue-900",
           messageClass: "text-blue-800",
           title: "Waiting for Other Signers",
-          message: y > I ? `You are in signing stage ${y}. Stage ${I} is currently active.` : "You will be able to sign once the previous signer(s) have completed their signatures.",
+          message: v > S ? `You are in signing stage ${v}. Stage ${S} is currently active.` : "You will be able to sign once the previous signer(s) have completed their signatures.",
           badges: [
             { icon: "iconoir-clock", text: "Your turn is coming", variant: "blue" }
           ]
-        }, F.length > 0 && D.badges.push({
+        }, D.length > 0 && k.badges.push({
           icon: "iconoir-group",
-          text: `${F.length} signer(s) ahead`,
+          text: `${D.length} signer(s) ahead`,
           variant: "blue"
         });
         break;
       case "blocked":
-        D = {
+        k = {
           hidden: !1,
           bgClass: "bg-amber-50",
           borderClass: "border-amber-200",
@@ -6575,7 +6782,7 @@ function Mn(s) {
         };
         break;
       case "completed":
-        D = {
+        k = {
           hidden: !1,
           bgClass: "bg-green-50",
           borderClass: "border-green-200",
@@ -6591,283 +6798,280 @@ function Mn(s) {
         break;
       case "active":
       default:
-        A.length > 1 ? (D.message = `You and ${A.length - 1} other signer(s) can sign now.`, D.badges = [
-          { icon: "iconoir-users", text: `Stage ${I} active`, variant: "green" }
-        ]) : y > 1 ? D.badges = [
-          { icon: "iconoir-check-circle", text: `Stage ${y}`, variant: "green" }
-        ] : D.hidden = !0;
+        L.length > 1 ? (k.message = `You and ${L.length - 1} other signer(s) can sign now.`, k.badges = [
+          { icon: "iconoir-users", text: `Stage ${S} active`, variant: "green" }
+        ]) : v > 1 ? k.badges = [
+          { icon: "iconoir-check-circle", text: `Stage ${v}`, variant: "green" }
+        ] : k.hidden = !0;
         break;
     }
-    if (D.hidden) {
-      o.classList.add("hidden");
+    if (k.hidden) {
+      r.classList.add("hidden");
       return;
     }
-    o.classList.remove("hidden"), o.className = `mb-4 rounded-lg border p-4 ${D.bgClass} ${D.borderClass}`, d.className = `${D.iconClass} mt-0.5`, u.className = `text-sm font-semibold ${D.titleClass}`, u.textContent = D.title, p.className = `text-xs ${D.messageClass} mt-1`, p.textContent = D.message, m.innerHTML = "", D.badges.forEach((R) => {
-      const z = document.createElement("span"), U = {
+    r.classList.remove("hidden"), r.className = `mb-4 rounded-lg border p-4 ${k.bgClass} ${k.borderClass}`, l.className = `${k.iconClass} mt-0.5`, u.className = `text-sm font-semibold ${k.titleClass}`, u.textContent = k.title, p.className = `text-xs ${k.messageClass} mt-1`, p.textContent = k.message, h.innerHTML = "", k.badges.forEach((R) => {
+      const N = document.createElement("span"), q = {
         blue: "bg-blue-100 text-blue-800",
         amber: "bg-amber-100 text-amber-800",
         green: "bg-green-100 text-green-800"
       };
-      z.className = `inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${U[R.variant] || U.blue}`, z.innerHTML = `<i class="${R.icon} mr-1"></i>${R.text}`, m.appendChild(z);
+      N.className = `inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${q[R.variant] || q.blue}`, N.innerHTML = `<i class="${R.icon} mr-1"></i>${R.text}`, h.appendChild(N);
     });
   }
-  function L() {
-    n.fields.forEach((o) => {
-      let d = null, u = !1;
-      if (o.type === "checkbox")
-        d = o.value_bool || !1, u = d;
-      else if (o.type === "date_signed")
-        d = (/* @__PURE__ */ new Date()).toISOString().split("T")[0], u = !0;
+  function Ft() {
+    n.fields.forEach((r) => {
+      let l = null, u = !1;
+      if (r.type === "checkbox")
+        l = r.value_bool || !1, u = l;
+      else if (r.type === "date_signed")
+        l = (/* @__PURE__ */ new Date()).toISOString().split("T")[0], u = !0;
       else {
-        const p = String(o.value_text || "");
-        d = p || $(o), u = !!p;
+        const p = String(r.value_text || "");
+        l = p || Ht(r), u = !!p;
       }
-      r.fieldState.set(o.id, {
-        id: o.id,
-        type: o.type,
-        page: o.page || 1,
-        required: o.required,
-        value: d,
+      a.fieldState.set(r.id, {
+        id: r.id,
+        type: r.type,
+        page: r.page || 1,
+        required: r.required,
+        value: l,
         completed: u,
         hasError: !1,
         lastError: null,
         // Geometry metadata (will be populated from backend in Phase 18.BE.3)
-        posX: o.pos_x || 0,
-        posY: o.pos_y || 0,
-        width: o.width || 150,
-        height: o.height || 30
+        posX: r.pos_x || 0,
+        posY: r.pos_y || 0,
+        width: r.width || 150,
+        height: r.height || 30,
+        tabIndex: Number(r.tab_index || 0) || 0
       });
     });
   }
-  async function M() {
+  async function Rt() {
     try {
-      const o = await a.load(r.profileKey);
-      o && (r.profileData = o, r.profileRemember = o.remember !== !1);
+      const r = await o.load(a.profileKey);
+      r && (a.profileData = r, a.profileRemember = r.remember !== !1);
     } catch {
     }
   }
-  function $(o) {
-    const d = r.profileData;
-    if (!d) return "";
-    const u = String(o?.type || "").trim();
-    return u === "name" ? G(d.fullName || "") : u === "initials" ? G(d.initials || "") || Te(d.fullName || n.recipientName || "") : u === "signature" ? G(d.typedSignature || "") : "";
+  function Ht(r) {
+    const l = a.profileData;
+    if (!l) return "";
+    const u = String(r?.type || "").trim();
+    return u === "name" ? G(l.fullName || "") : u === "initials" ? G(l.initials || "") || _e(l.fullName || n.recipientName || "") : u === "signature" ? G(l.typedSignature || "") : "";
   }
-  function _(o) {
-    return !n.profile.persistDrawnSignature || !r.profileData ? "" : o?.type === "initials" && String(r.profileData.drawnInitialsDataUrl || "").trim() || String(r.profileData.drawnSignatureDataUrl || "").trim();
+  function jt(r) {
+    return !n.profile.persistDrawnSignature || !a.profileData ? "" : r?.type === "initials" && String(a.profileData.drawnInitialsDataUrl || "").trim() || String(a.profileData.drawnSignatureDataUrl || "").trim();
   }
-  function j(o) {
-    const d = G(o?.value || "");
-    return d || (r.profileData ? o?.type === "initials" ? G(r.profileData.initials || "") || Te(r.profileData.fullName || n.recipientName || "") : o?.type === "signature" ? G(r.profileData.typedSignature || "") : "" : "");
+  function Ot(r) {
+    const l = G(r?.value || "");
+    return l || (a.profileData ? r?.type === "initials" ? G(a.profileData.initials || "") || _e(a.profileData.fullName || n.recipientName || "") : r?.type === "signature" ? G(a.profileData.typedSignature || "") : "" : "");
   }
-  function N(o) {
-    const d = String(o?.value || "").trim();
-    return mt(d) ? !0 : j(o) ? !1 : !!_(o);
+  function We() {
+    const r = document.getElementById("remember-profile-input");
+    return r instanceof HTMLInputElement ? !!r.checked : a.profileRemember;
   }
-  function Z() {
-    const o = document.getElementById("remember-profile-input");
-    return o instanceof HTMLInputElement ? !!o.checked : r.profileRemember;
-  }
-  async function V(o = !1) {
-    let d = null;
+  async function Je(r = !1) {
+    let l = null;
     try {
-      await a.clear(r.profileKey);
+      await o.clear(a.profileKey);
     } catch (u) {
-      d = u;
+      l = u;
     } finally {
-      r.profileData = null, r.profileRemember = n.profile.rememberByDefault;
+      a.profileData = null, a.profileRemember = n.profile.rememberByDefault;
     }
-    if (d) {
-      if (!o && window.toastManager && window.toastManager.error("Unable to clear saved signer profile on all devices"), !o)
-        throw d;
+    if (l) {
+      if (!r && window.toastManager && window.toastManager.error("Unable to clear saved signer profile on all devices"), !r)
+        throw l;
       return;
     }
-    !o && window.toastManager && window.toastManager.success("Saved signer profile cleared");
+    !r && window.toastManager && window.toastManager.success("Saved signer profile cleared");
   }
-  async function J(o, d = {}) {
-    const u = Z();
-    if (r.profileRemember = u, !u) {
-      await V(!0);
+  async function Ye(r, l = {}) {
+    const u = We();
+    if (a.profileRemember = u, !u) {
+      await Je(!0);
       return;
     }
-    if (!o) return;
+    if (!r) return;
     const p = {
       remember: !0
-    }, m = String(o.type || "");
-    if (m === "name" && typeof o.value == "string") {
-      const b = G(o.value);
-      b && (p.fullName = b, (r.profileData?.initials || "").trim() || (p.initials = Te(b)));
+    }, h = String(r.type || "");
+    if (h === "name" && typeof r.value == "string") {
+      const m = G(r.value);
+      m && (p.fullName = m, (a.profileData?.initials || "").trim() || (p.initials = _e(m)));
     }
-    if (m === "initials") {
-      if (d.signatureType === "drawn" && n.profile.persistDrawnSignature && typeof d.signatureDataUrl == "string")
-        p.drawnInitialsDataUrl = d.signatureDataUrl;
-      else if (typeof o.value == "string") {
-        const b = G(o.value);
-        b && (p.initials = b);
+    if (h === "initials") {
+      if (l.signatureType === "drawn" && n.profile.persistDrawnSignature && typeof l.signatureDataUrl == "string")
+        p.drawnInitialsDataUrl = l.signatureDataUrl;
+      else if (typeof r.value == "string") {
+        const m = G(r.value);
+        m && (p.initials = m);
       }
     }
-    if (m === "signature") {
-      if (d.signatureType === "drawn" && n.profile.persistDrawnSignature && typeof d.signatureDataUrl == "string")
-        p.drawnSignatureDataUrl = d.signatureDataUrl;
-      else if (typeof o.value == "string") {
-        const b = G(o.value);
-        b && (p.typedSignature = b);
+    if (h === "signature") {
+      if (l.signatureType === "drawn" && n.profile.persistDrawnSignature && typeof l.signatureDataUrl == "string")
+        p.drawnSignatureDataUrl = l.signatureDataUrl;
+      else if (typeof r.value == "string") {
+        const m = G(r.value);
+        m && (p.typedSignature = m);
       }
     }
     if (!(Object.keys(p).length === 1 && p.remember === !0))
       try {
-        const b = await a.save(r.profileKey, p);
-        r.profileData = b;
+        const m = await o.save(a.profileKey, p);
+        a.profileData = m;
       } catch {
       }
   }
-  function ee() {
-    const o = document.getElementById("consent-checkbox"), d = document.getElementById("consent-accept-btn");
-    o && d && o.addEventListener("change", function() {
-      d.disabled = !this.checked;
+  function zt() {
+    const r = document.getElementById("consent-checkbox"), l = document.getElementById("consent-accept-btn");
+    r && l && r.addEventListener("change", function() {
+      l.disabled = !this.checked;
     });
   }
-  function te() {
+  function Ut() {
     return !!(navigator.deviceMemory && navigator.deviceMemory < 4 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
   }
-  function O() {
-    const o = r.isLowMemory ? 3 : r.maxCachedPages;
-    if (r.renderedPages.size <= o) return;
-    const d = [];
-    for (r.renderedPages.forEach((u, p) => {
-      const m = Math.abs(p - r.currentPage);
-      d.push({ pageNum: p, distance: m });
-    }), d.sort((u, p) => p.distance - u.distance); r.renderedPages.size > o && d.length > 0; ) {
-      const u = d.shift();
-      u && u.pageNum !== r.currentPage && r.renderedPages.delete(u.pageNum);
+  function be() {
+    const r = a.isLowMemory ? 3 : a.maxCachedPages;
+    if (a.renderedPages.size <= r) return;
+    const l = [];
+    for (a.renderedPages.forEach((u, p) => {
+      const h = Math.abs(p - a.currentPage);
+      l.push({ pageNum: p, distance: h });
+    }), l.sort((u, p) => p.distance - u.distance); a.renderedPages.size > r && l.length > 0; ) {
+      const u = l.shift();
+      u && u.pageNum !== a.currentPage && a.renderedPages.delete(u.pageNum);
     }
   }
-  function ce(o) {
-    if (r.isLowMemory) return;
-    const d = [];
-    o > 1 && d.push(o - 1), o < n.pageCount && d.push(o + 1), "requestIdleCallback" in window && requestIdleCallback(() => {
-      d.forEach(async (u) => {
-        !r.renderedPages.has(u) && !r.pageRendering && await le(u);
+  function Ke(r) {
+    if (a.isLowMemory) return;
+    const l = [];
+    r > 1 && l.push(r - 1), r < n.pageCount && l.push(r + 1), "requestIdleCallback" in window && requestIdleCallback(() => {
+      l.forEach(async (u) => {
+        !a.renderedPages.has(u) && !a.pageRendering && await Nt(u);
       });
     }, { timeout: 2e3 });
   }
-  async function le(o) {
-    if (!(!r.pdfDoc || r.renderedPages.has(o)))
+  async function Nt(r) {
+    if (!(!a.pdfDoc || a.renderedPages.has(r)))
       try {
-        const d = await r.pdfDoc.getPage(o), u = r.zoomLevel, p = d.getViewport({ scale: u * window.devicePixelRatio }), m = document.createElement("canvas"), b = m.getContext("2d");
-        m.width = p.width, m.height = p.height;
-        const y = {
-          canvasContext: b,
+        const l = await a.pdfDoc.getPage(r), u = a.zoomLevel, p = l.getViewport({ scale: u * window.devicePixelRatio }), h = document.createElement("canvas"), m = h.getContext("2d");
+        h.width = p.width, h.height = p.height;
+        const v = {
+          canvasContext: m,
           viewport: p
         };
-        await d.render(y).promise, r.renderedPages.set(o, {
-          canvas: m,
+        await l.render(v).promise, a.renderedPages.set(r, {
+          canvas: h,
           scale: u,
           timestamp: Date.now()
-        }), O();
-      } catch (d) {
-        console.warn("Preload failed for page", o, d);
+        }), be();
+      } catch (l) {
+        console.warn("Preload failed for page", r, l);
       }
   }
-  function xt() {
-    const o = window.devicePixelRatio || 1;
-    return r.isLowMemory ? Math.min(o, 1.5) : Math.min(o, 2);
+  function qt() {
+    const r = window.devicePixelRatio || 1;
+    return a.isLowMemory ? Math.min(r, 1.5) : Math.min(r, 2);
   }
   async function de() {
-    const o = document.getElementById("pdf-loading"), d = Date.now();
+    const r = document.getElementById("pdf-loading"), l = Date.now();
     try {
       const u = await fetch(`${n.apiBasePath}/assets/${n.token}`);
       if (!u.ok)
         throw new Error("Failed to load document");
-      const m = (await u.json()).assets || {}, b = m.source_url || m.executed_url || m.certificate_url || n.documentUrl;
-      if (!b)
+      const h = (await u.json()).assets || {}, m = h.source_url || h.executed_url || h.certificate_url || n.documentUrl;
+      if (!m)
         throw new Error("Document preview is not available yet. The document may still be processing.");
-      const y = pdfjsLib.getDocument(b);
-      r.pdfDoc = await y.promise, n.pageCount = r.pdfDoc.numPages, document.getElementById("page-count").textContent = r.pdfDoc.numPages, await ve(1), he(), l.trackViewerLoad(!0, Date.now() - d), l.trackPageView(1);
+      const v = pdfjsLib.getDocument(m);
+      a.pdfDoc = await v.promise, n.pageCount = a.pdfDoc.numPages, document.getElementById("page-count").textContent = a.pdfDoc.numPages, await xe(1), pe(), d.trackViewerLoad(!0, Date.now() - l), d.trackPageView(1);
     } catch (u) {
-      console.error("PDF load error:", u), l.trackViewerLoad(!1, Date.now() - d, u.message), o && (o.innerHTML = `
+      console.error("PDF load error:", u), d.trackViewerLoad(!1, Date.now() - l, u.message), r && (r.innerHTML = `
           <div class="text-center text-red-500">
             <i class="iconoir-warning-circle text-2xl mb-2"></i>
             <p class="text-sm">Failed to load document</p>
             <button type="button" data-esign-action="retry-load-pdf" class="mt-2 text-blue-600 hover:underline text-sm">Retry</button>
           </div>
-        `), Gt();
+        `), vn();
     }
   }
-  async function ve(o) {
-    if (!r.pdfDoc) return;
-    const d = r.renderedPages.get(o);
-    if (d && d.scale === r.zoomLevel) {
-      St(d), r.currentPage = o, document.getElementById("current-page").textContent = o, ue(), ce(o);
+  async function xe(r) {
+    if (!a.pdfDoc) return;
+    const l = a.renderedPages.get(r);
+    if (l && l.scale === a.zoomLevel) {
+      Vt(l), a.currentPage = r, document.getElementById("current-page").textContent = r, ue(), Ke(r);
       return;
     }
-    r.pageRendering = !0;
+    a.pageRendering = !0;
     try {
-      const u = await r.pdfDoc.getPage(o), p = r.zoomLevel, m = xt(), b = u.getViewport({ scale: p * m }), y = u.getViewport({ scale: 1 });
-      g.setPageViewport(o, {
-        width: y.width,
-        height: y.height,
-        rotation: y.rotation || 0
+      const u = await a.pdfDoc.getPage(r), p = a.zoomLevel, h = qt(), m = u.getViewport({ scale: p * h }), v = u.getViewport({ scale: 1 });
+      f.setPageViewport(r, {
+        width: v.width,
+        height: v.height,
+        rotation: v.rotation || 0
       });
-      const I = document.getElementById("pdf-page-1");
-      I.innerHTML = "";
-      const A = document.createElement("canvas"), F = A.getContext("2d");
-      A.height = b.height, A.width = b.width, A.style.width = `${b.width / m}px`, A.style.height = `${b.height / m}px`, I.appendChild(A);
-      const D = document.getElementById("pdf-container");
-      D.style.width = `${b.width / m}px`;
+      const S = document.getElementById("pdf-page-1");
+      S.innerHTML = "";
+      const L = document.createElement("canvas"), D = L.getContext("2d");
+      L.height = m.height, L.width = m.width, L.style.width = `${m.width / h}px`, L.style.height = `${m.height / h}px`, S.appendChild(L);
+      const k = document.getElementById("pdf-container");
+      k.style.width = `${m.width / h}px`;
       const R = {
-        canvasContext: F,
-        viewport: b
+        canvasContext: D,
+        viewport: m
       };
-      await u.render(R).promise, r.renderedPages.set(o, {
-        canvas: A.cloneNode(!0),
+      await u.render(R).promise, a.renderedPages.set(r, {
+        canvas: L.cloneNode(!0),
         scale: p,
         timestamp: Date.now(),
-        displayWidth: b.width / m,
-        displayHeight: b.height / m
-      }), r.renderedPages.get(o).canvas.getContext("2d").drawImage(A, 0, 0), O(), r.currentPage = o, document.getElementById("current-page").textContent = o, ue(), l.trackPageView(o), ce(o);
+        displayWidth: m.width / h,
+        displayHeight: m.height / h
+      }), a.renderedPages.get(r).canvas.getContext("2d").drawImage(L, 0, 0), be(), a.currentPage = r, document.getElementById("current-page").textContent = r, ue(), d.trackPageView(r), Ke(r);
     } catch (u) {
       console.error("Page render error:", u);
     } finally {
-      if (r.pageRendering = !1, r.pageNumPending !== null) {
-        const u = r.pageNumPending;
-        r.pageNumPending = null, await ve(u);
+      if (a.pageRendering = !1, a.pageNumPending !== null) {
+        const u = a.pageNumPending;
+        a.pageNumPending = null, await xe(u);
       }
     }
   }
-  function St(o, d) {
+  function Vt(r, l) {
     const u = document.getElementById("pdf-page-1");
     u.innerHTML = "";
     const p = document.createElement("canvas");
-    p.width = o.canvas.width, p.height = o.canvas.height, p.style.width = `${o.displayWidth}px`, p.style.height = `${o.displayHeight}px`, p.getContext("2d").drawImage(o.canvas, 0, 0), u.appendChild(p);
-    const b = document.getElementById("pdf-container");
-    b.style.width = `${o.displayWidth}px`;
+    p.width = r.canvas.width, p.height = r.canvas.height, p.style.width = `${r.displayWidth}px`, p.style.height = `${r.displayHeight}px`, p.getContext("2d").drawImage(r.canvas, 0, 0), u.appendChild(p);
+    const m = document.getElementById("pdf-container");
+    m.style.width = `${r.displayWidth}px`;
   }
-  function ne(o) {
-    r.pageRendering ? r.pageNumPending = o : ve(o);
+  function ne(r) {
+    a.pageRendering ? a.pageNumPending = r : xe(r);
   }
   function ue() {
-    const o = document.getElementById("field-overlays");
-    o.innerHTML = "", o.style.pointerEvents = "auto";
-    const d = document.getElementById("pdf-container");
-    r.fieldState.forEach((u, p) => {
-      if (u.page !== r.currentPage) return;
-      const m = document.createElement("div");
-      if (m.className = "field-overlay", m.dataset.fieldId = p, u.required && m.classList.add("required"), u.completed && m.classList.add("completed"), r.activeFieldId === p && m.classList.add("active"), u.posX != null && u.posY != null && u.width != null && u.height != null) {
-        const I = g.getOverlayStyles(u, d);
-        m.style.left = I.left, m.style.top = I.top, m.style.width = I.width, m.style.height = I.height, m.style.transform = I.transform, K.enabled && (m.dataset.debugCoords = JSON.stringify(
-          g.pageToScreen(u, d)._debug
+    const r = document.getElementById("field-overlays");
+    r.innerHTML = "", r.style.pointerEvents = "auto";
+    const l = document.getElementById("pdf-container");
+    a.fieldState.forEach((u, p) => {
+      if (u.page !== a.currentPage) return;
+      const h = document.createElement("div");
+      if (h.className = "field-overlay", h.dataset.fieldId = p, u.required && h.classList.add("required"), u.completed && h.classList.add("completed"), a.activeFieldId === p && h.classList.add("active"), u.posX != null && u.posY != null && u.width != null && u.height != null) {
+        const S = f.getOverlayStyles(u, l);
+        h.style.left = S.left, h.style.top = S.top, h.style.width = S.width, h.style.height = S.height, h.style.transform = S.transform, Y.enabled && (h.dataset.debugCoords = JSON.stringify(
+          f.pageToScreen(u, l)._debug
         ));
       } else {
-        const I = Array.from(r.fieldState.keys()).indexOf(p);
-        m.style.left = "10px", m.style.top = `${100 + I * 50}px`, m.style.width = "150px", m.style.height = "30px";
+        const S = Array.from(a.fieldState.keys()).indexOf(p);
+        h.style.left = "10px", h.style.top = `${100 + S * 50}px`, h.style.width = "150px", h.style.height = "30px";
       }
-      const y = document.createElement("span");
-      y.className = "field-overlay-label", y.textContent = Ue(u.type), m.appendChild(y), m.setAttribute("tabindex", "0"), m.setAttribute("role", "button"), m.setAttribute("aria-label", `${Ue(u.type)} field${u.required ? ", required" : ""}${u.completed ? ", completed" : ""}`), m.addEventListener("click", () => pe(p)), m.addEventListener("keydown", (I) => {
-        (I.key === "Enter" || I.key === " ") && (I.preventDefault(), pe(p));
-      }), o.appendChild(m);
+      const v = document.createElement("span");
+      v.className = "field-overlay-label", v.textContent = Qe(u.type), h.appendChild(v), h.setAttribute("tabindex", "0"), h.setAttribute("role", "button"), h.setAttribute("aria-label", `${Qe(u.type)} field${u.required ? ", required" : ""}${u.completed ? ", completed" : ""}`), h.addEventListener("click", () => he(p)), h.addEventListener("keydown", (S) => {
+        (S.key === "Enter" || S.key === " ") && (S.preventDefault(), he(p));
+      }), r.appendChild(h);
     });
   }
-  function Ue(o) {
+  function Qe(r) {
     return {
       signature: "Sign",
       initials: "Initial",
@@ -6875,122 +7079,182 @@ function Mn(s) {
       date_signed: "Date",
       text: "Text",
       checkbox: "Check"
-    }[o] || o;
+    }[r] || r;
   }
-  function Ct() {
-    r.currentPage <= 1 || (ne(r.currentPage - 1), he());
+  function Gt() {
+    a.currentPage <= 1 || (ne(a.currentPage - 1), pe());
   }
-  function It() {
-    r.currentPage >= n.pageCount || (ne(r.currentPage + 1), he());
+  function Wt() {
+    a.currentPage >= n.pageCount || (ne(a.currentPage + 1), pe());
   }
-  function Et(o) {
-    o < 1 || o > n.pageCount || (ne(o), he());
+  function Xe(r) {
+    r < 1 || r > n.pageCount || (ne(r), pe());
   }
-  function he() {
-    document.getElementById("prev-page-btn").disabled = r.currentPage <= 1, document.getElementById("next-page-btn").disabled = r.currentPage >= n.pageCount;
+  function pe() {
+    document.getElementById("prev-page-btn").disabled = a.currentPage <= 1, document.getElementById("next-page-btn").disabled = a.currentPage >= n.pageCount;
   }
-  function Lt() {
-    r.zoomLevel = Math.min(r.zoomLevel + 0.25, 3), we(), ne(r.currentPage);
+  function Jt() {
+    a.zoomLevel = Math.min(a.zoomLevel + 0.25, 3), Se(), ne(a.currentPage);
   }
-  function Pt() {
-    r.zoomLevel = Math.max(r.zoomLevel - 0.25, 0.5), we(), ne(r.currentPage);
+  function Yt() {
+    a.zoomLevel = Math.max(a.zoomLevel - 0.25, 0.5), Se(), ne(a.currentPage);
   }
-  function At() {
-    const d = document.getElementById("viewer-content").offsetWidth - 32, u = 612;
-    r.zoomLevel = d / u, we(), ne(r.currentPage);
+  function Kt() {
+    const l = document.getElementById("viewer-content").offsetWidth - 32, u = 612;
+    a.zoomLevel = l / u, Se(), ne(a.currentPage);
   }
-  function we() {
-    document.getElementById("zoom-level").textContent = `${Math.round(r.zoomLevel * 100)}%`;
+  function Se() {
+    document.getElementById("zoom-level").textContent = `${Math.round(a.zoomLevel * 100)}%`;
   }
-  function pe(o) {
-    if (!r.hasConsented && n.fields.some((u) => u.id === o && u.type !== "date_signed")) {
-      We();
+  function he(r) {
+    if (!a.hasConsented && n.fields.some((l) => l.id === r && l.type !== "date_signed")) {
+      ot();
       return;
     }
-    r.activeFieldId = o;
-    const d = r.fieldState.get(o);
-    document.querySelectorAll(".field-list-item").forEach((u) => u.classList.remove("active")), document.querySelector(`.field-list-item[data-field-id="${o}"]`)?.classList.add("active"), document.querySelectorAll(".field-overlay").forEach((u) => u.classList.remove("active")), document.querySelector(`.field-overlay[data-field-id="${o}"]`)?.classList.add("active"), d.page !== r.currentPage && Et(d.page), d.type !== "date_signed" && kt(o);
+    Ze(r, { openEditor: !0 });
   }
-  function kt(o) {
-    const d = r.fieldState.get(o);
-    if (!d) return;
-    const u = document.getElementById("field-editor-overlay"), p = document.getElementById("field-editor-content"), m = document.getElementById("field-editor-title");
-    m.textContent = Ne(d.type), p.innerHTML = Tt(d), (d.type === "signature" || d.type === "initials") && Dt(o), u.classList.add("active"), u.setAttribute("aria-hidden", "false"), document.body.style.overflow = "hidden", Ce(u.querySelector(".field-editor")), q(`Editing ${Ne(d.type)}. Press Escape to cancel.`), setTimeout(() => {
-      const b = p.querySelector("input, textarea");
-      b && b.focus();
+  function Ze(r, l = { openEditor: !0 }) {
+    const u = a.fieldState.get(r);
+    if (u) {
+      if (l.openEditor && (a.activeFieldId = r), document.querySelectorAll(".field-list-item").forEach((p) => p.classList.remove("active", "guided-next-target")), document.querySelector(`.field-list-item[data-field-id="${r}"]`)?.classList.add("active"), document.querySelectorAll(".field-overlay").forEach((p) => p.classList.remove("active", "guided-next-target")), document.querySelector(`.field-overlay[data-field-id="${r}"]`)?.classList.add("active"), u.page !== a.currentPage && Xe(u.page), !l.openEditor) {
+        et(r);
+        return;
+      }
+      u.type !== "date_signed" && Qt(r);
+    }
+  }
+  function et(r) {
+    document.querySelector(`.field-list-item[data-field-id="${r}"]`)?.scrollIntoView({ behavior: "smooth", block: "nearest" }), requestAnimationFrame(() => {
+      document.querySelector(`.field-overlay[data-field-id="${r}"]`)?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+    });
+  }
+  function Qt(r) {
+    const l = a.fieldState.get(r);
+    if (!l) return;
+    const u = document.getElementById("field-editor-overlay"), p = document.getElementById("field-editor-content"), h = document.getElementById("field-editor-title"), m = document.getElementById("field-editor-legal-disclaimer");
+    h.textContent = tt(l.type), p.innerHTML = Xt(l), m?.classList.toggle("hidden", !(l.type === "signature" || l.type === "initials")), (l.type === "signature" || l.type === "initials") && en(r), u.classList.add("active"), u.setAttribute("aria-hidden", "false"), document.body.style.overflow = "hidden", ke(u.querySelector(".field-editor")), j(`Editing ${tt(l.type)}. Press Escape to cancel.`), setTimeout(() => {
+      const v = p.querySelector("input, textarea");
+      v ? v.focus() : p.querySelector('.sig-editor-tab[aria-selected="true"]')?.focus();
     }, 100);
   }
-  function Ne(o) {
+  function tt(r) {
     return {
       signature: "Add Your Signature",
       initials: "Add Your Initials",
       name: "Enter Your Name",
       text: "Enter Text",
       checkbox: "Confirmation"
-    }[o] || "Edit Field";
+    }[r] || "Edit Field";
   }
-  function Tt(o) {
-    const d = Mt(o.type), u = ae(String(o?.id || "")), p = ae(String(o?.type || ""));
-    if (o.type === "signature" || o.type === "initials") {
-      const m = o.type === "initials" ? "initials" : "signature", b = o.type === "signature" || o.type === "initials", y = ae(j(o));
+  function Xt(r) {
+    const l = Zt(r.type), u = V(String(r?.id || "")), p = V(String(r?.type || ""));
+    if (r.type === "signature" || r.type === "initials") {
+      const h = r.type === "initials" ? "initials" : "signature", m = V(Ot(r)), v = [
+        { id: "draw", label: "Draw" },
+        { id: "type", label: "Type" },
+        { id: "upload", label: "Upload" },
+        { id: "saved", label: "Saved" }
+      ], S = nt(r.id);
       return `
         <div class="space-y-4">
-          ${b ? `
-          <!-- Type/Draw tabs -->
-          <div class="flex border-b border-gray-200" role="tablist">
-            <button type="button" class="sig-editor-tab flex-1 py-2 text-sm font-medium border-b-2 border-blue-600 text-blue-600" data-tab="type" data-esign-action="signature-tab" data-field-id="${u}">
-              Type
-            </button>
-            <button type="button" class="sig-editor-tab flex-1 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700" data-tab="draw" data-esign-action="signature-tab" data-field-id="${u}">
-              Draw
-            </button>
+          <div class="flex border-b border-gray-200" role="tablist" aria-label="Signature editor tabs">
+            ${v.map((L) => `
+            <button
+              type="button"
+              id="sig-tab-${L.id}"
+              class="sig-editor-tab flex-1 py-2 text-sm font-medium border-b-2 ${S === L.id ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"}"
+              data-tab="${L.id}"
+              data-esign-action="signature-tab"
+              data-field-id="${u}"
+              role="tab"
+              aria-selected="${S === L.id ? "true" : "false"}"
+              aria-controls="sig-editor-${L.id}"
+              tabindex="${S === L.id ? "0" : "-1"}"
+            >
+              ${L.label}
+            </button>`).join("")}
           </div>
-          ` : ""}
 
           <!-- Type panel -->
-          <div id="sig-editor-type" class="sig-editor-panel">
+          <div id="sig-editor-type" class="sig-editor-panel ${S === "type" ? "" : "hidden"}" role="tabpanel" aria-labelledby="sig-tab-type">
             <input
               type="text"
               id="sig-type-input"
               class="w-full text-2xl font-signature text-center py-4 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Type your ${m}"
-              value="${y}"
+              placeholder="Type your ${h}"
+              value="${m}"
               data-field-id="${u}"
             />
-            <p class="text-xs text-gray-500 mt-2 text-center">Your typed ${m} will appear as your ${p}</p>
+            <p class="text-xs text-gray-500 mt-2 text-center">Your typed ${h} will appear as your ${p}</p>
           </div>
 
-          ${b ? `
           <!-- Draw panel -->
-          <div id="sig-editor-draw" class="sig-editor-panel hidden">
+          <div id="sig-editor-draw" class="sig-editor-panel ${S === "draw" ? "" : "hidden"}" role="tabpanel" aria-labelledby="sig-tab-draw">
             <div class="signature-canvas-container">
               <canvas id="sig-draw-canvas" class="signature-canvas" data-field-id="${u}"></canvas>
-              <button type="button" data-esign-action="clear-signature-canvas" data-field-id="${u}" class="absolute bottom-2 right-2 text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1">
-                <i class="iconoir-refresh"></i> Clear
+            </div>
+            <div class="grid grid-cols-3 gap-2 mt-2">
+              <button type="button" data-esign-action="undo-signature-canvas" data-field-id="${u}" class="btn btn-secondary text-xs justify-center">
+                Undo
+              </button>
+              <button type="button" data-esign-action="redo-signature-canvas" data-field-id="${u}" class="btn btn-secondary text-xs justify-center">
+                Redo
+              </button>
+              <button type="button" data-esign-action="clear-signature-canvas" data-field-id="${u}" class="btn btn-secondary text-xs justify-center">
+                Clear
               </button>
             </div>
-            <p class="text-xs text-gray-500 mt-2 text-center">Draw your ${m} using mouse or touch</p>
+            <p class="text-xs text-gray-500 mt-2 text-center">Draw your ${h} using mouse or touch</p>
           </div>
-          ` : ""}
 
-          ${d}
+          <!-- Upload panel -->
+          <div id="sig-editor-upload" class="sig-editor-panel ${S === "upload" ? "" : "hidden"}" role="tabpanel" aria-labelledby="sig-tab-upload">
+            <label class="block text-sm font-medium text-gray-700 mb-2" for="sig-upload-input">Upload signature image (PNG or JPEG)</label>
+            <input
+              type="file"
+              id="sig-upload-input"
+              accept="image/png,image/jpeg"
+              data-field-id="${u}"
+              data-esign-action="upload-signature-file"
+              class="block w-full text-sm text-gray-700 border border-gray-200 rounded-lg p-2"
+            />
+            <div id="sig-upload-preview-wrap" class="mt-3 p-3 border border-gray-100 rounded-lg bg-gray-50 hidden">
+              <img id="sig-upload-preview" alt="Upload preview" class="max-h-24 mx-auto object-contain" />
+            </div>
+            <p class="text-xs text-gray-500 mt-2">Image will be converted to PNG and centered in the signature area.</p>
+          </div>
+
+          <!-- Saved panel -->
+          <div id="sig-editor-saved" class="sig-editor-panel ${S === "saved" ? "" : "hidden"}" role="tabpanel" aria-labelledby="sig-tab-saved">
+            <div class="flex items-center justify-between mb-2">
+              <p class="text-xs text-gray-500">Saved ${h}s</p>
+              <button type="button" data-esign-action="save-current-signature-library" data-field-id="${u}" class="text-xs text-blue-600 hover:text-blue-700 underline underline-offset-2">
+                Save current
+              </button>
+            </div>
+            <div id="sig-saved-list" class="space-y-2">
+              <p class="text-xs text-gray-500">Loading saved signatures...</p>
+            </div>
+          </div>
+
+          ${l}
         </div>
       `;
     }
-    if (o.type === "name")
+    if (r.type === "name")
       return `
         <input
           type="text"
           id="field-text-input"
           class="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           placeholder="Enter your full legal name"
-          value="${ae(String(o.value || ""))}"
+          value="${V(String(r.value || ""))}"
           data-field-id="${u}"
         />
-        ${d}
+        ${l}
       `;
-    if (o.type === "text") {
-      const m = ae(String(o.value || ""));
+    if (r.type === "text") {
+      const h = V(String(r.value || ""));
       return `
         <textarea
           id="field-text-input"
@@ -6998,31 +7262,31 @@ function Mn(s) {
           placeholder="Enter text"
           rows="3"
           data-field-id="${u}"
-        >${m}</textarea>
+        >${h}</textarea>
       `;
     }
-    return o.type === "checkbox" ? `
+    return r.type === "checkbox" ? `
         <label class="flex items-start gap-3 p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
           <input
             type="checkbox"
             id="field-checkbox-input"
             class="w-5 h-5 mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
-            ${o.value ? "checked" : ""}
-            data-field-id="${o.id}"
+            ${r.value ? "checked" : ""}
+            data-field-id="${r.id}"
           />
           <span class="text-gray-700">I agree to the terms and conditions</span>
         </label>
       ` : '<p class="text-gray-500">Unsupported field type</p>';
   }
-  function Mt(o) {
-    return o === "name" || o === "initials" || o === "signature" ? `
+  function Zt(r) {
+    return r === "name" || r === "initials" || r === "signature" ? `
       <div class="pt-3 border-t border-gray-100 space-y-2">
         <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
           <input
             type="checkbox"
             id="remember-profile-input"
             class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
-            ${r.profileRemember ? "checked" : ""}
+            ${a.profileRemember ? "checked" : ""}
           />
           Remember this on this device
         </label>
@@ -7036,333 +7300,424 @@ function Mn(s) {
       </div>
     ` : "";
   }
-  function qe(o, d) {
-    document.querySelectorAll(".sig-editor-tab").forEach((p) => {
-      p.classList.remove("border-blue-600", "text-blue-600"), p.classList.add("border-transparent", "text-gray-500");
+  function nt(r) {
+    const l = String(a.signatureTabByField.get(r) || "").trim();
+    return l === "draw" || l === "type" || l === "upload" || l === "saved" ? l : "draw";
+  }
+  function ge(r, l) {
+    const u = ["draw", "type", "upload", "saved"].includes(r) ? r : "draw";
+    a.signatureTabByField.set(l, u), document.querySelectorAll(".sig-editor-tab").forEach((h) => {
+      h.classList.remove("border-blue-600", "text-blue-600"), h.classList.add("border-transparent", "text-gray-500"), h.setAttribute("aria-selected", "false"), h.setAttribute("tabindex", "-1");
     });
-    const u = document.querySelector(`.sig-editor-tab[data-tab="${o}"]`);
-    u?.classList.add("border-blue-600", "text-blue-600"), u?.classList.remove("border-transparent", "text-gray-500"), document.getElementById("sig-editor-type")?.classList.toggle("hidden", o !== "type"), document.getElementById("sig-editor-draw")?.classList.toggle("hidden", o !== "draw"), o === "draw" && u && requestAnimationFrame(() => $t(d));
+    const p = document.querySelector(`.sig-editor-tab[data-tab="${u}"]`);
+    p?.classList.add("border-blue-600", "text-blue-600"), p?.classList.remove("border-transparent", "text-gray-500"), p?.setAttribute("aria-selected", "true"), p?.setAttribute("tabindex", "0"), document.getElementById("sig-editor-type")?.classList.toggle("hidden", u !== "type"), document.getElementById("sig-editor-draw")?.classList.toggle("hidden", u !== "draw"), document.getElementById("sig-editor-upload")?.classList.toggle("hidden", u !== "upload"), document.getElementById("sig-editor-saved")?.classList.toggle("hidden", u !== "saved"), (u === "draw" || u === "upload" || u === "saved") && p && requestAnimationFrame(() => me(l)), u === "saved" && C(l).catch(B);
   }
-  function Dt(o) {
-    const d = r.fieldState.get(o);
-    d && N(d) && qe("draw", o);
+  function en(r) {
+    a.signatureTabByField.set(r, "draw"), ge("draw", r);
   }
-  function $t(o) {
-    const d = document.getElementById("sig-draw-canvas");
-    if (!d || r.signatureCanvases.has(o)) return;
-    const u = d.closest(".signature-canvas-container"), p = d.getContext("2d"), m = d.getBoundingClientRect(), b = window.devicePixelRatio || 1;
-    d.width = m.width * b, d.height = m.height * b, p.scale(b, b), p.lineCap = "round", p.lineJoin = "round", p.lineWidth = 2.5, p.strokeStyle = "#1f2937";
-    let y = !1, I = 0, A = 0, F = [];
-    const D = (T) => {
-      const B = d.getBoundingClientRect();
-      let Y, Q;
-      return T.touches && T.touches.length > 0 ? (Y = T.touches[0].clientX, Q = T.touches[0].clientY) : T.changedTouches && T.changedTouches.length > 0 ? (Y = T.changedTouches[0].clientX, Q = T.changedTouches[0].clientY) : (Y = T.clientX, Q = T.clientY), {
-        x: Y - B.left,
-        y: Q - B.top,
+  function me(r) {
+    const l = document.getElementById("sig-draw-canvas");
+    if (!l || a.signatureCanvases.has(r)) return;
+    const u = l.closest(".signature-canvas-container"), p = l.getContext("2d");
+    if (!p) return;
+    const h = l.getBoundingClientRect();
+    if (!h.width || !h.height) return;
+    const m = window.devicePixelRatio || 1;
+    l.width = h.width * m, l.height = h.height * m, p.scale(m, m), p.lineCap = "round", p.lineJoin = "round", p.strokeStyle = "#1f2937", p.lineWidth = 2.5;
+    let v = !1, S = 0, L = 0, D = [];
+    const k = (A) => {
+      const _ = l.getBoundingClientRect();
+      let K, Q;
+      return A.touches && A.touches.length > 0 ? (K = A.touches[0].clientX, Q = A.touches[0].clientY) : A.changedTouches && A.changedTouches.length > 0 ? (K = A.changedTouches[0].clientX, Q = A.changedTouches[0].clientY) : (K = A.clientX, Q = A.clientY), {
+        x: K - _.left,
+        y: Q - _.top,
         timestamp: Date.now()
       };
-    }, R = (T) => {
-      y = !0;
-      const B = D(T);
-      I = B.x, A = B.y, F = [{ x: B.x, y: B.y, t: B.timestamp }], u && u.classList.add("drawing");
-    }, z = (T) => {
-      if (!y) return;
-      const B = D(T);
-      F.push({ x: B.x, y: B.y, t: B.timestamp });
-      const Y = B.x - I, Q = B.y - A, Kt = B.timestamp - (F[F.length - 2]?.t || B.timestamp), Yt = Math.sqrt(Y * Y + Q * Q) / Math.max(Kt, 1), Qt = 2.5, Xt = 1.5, Zt = 4, en = Math.min(Yt / 5, 1);
-      p.lineWidth = Math.max(Xt, Math.min(Zt, Qt - en * 1.5)), p.beginPath(), p.moveTo(I, A), p.lineTo(B.x, B.y), p.stroke(), I = B.x, A = B.y;
-    }, U = () => {
-      y = !1, F = [], u && u.classList.remove("drawing");
+    }, R = (A) => {
+      v = !0;
+      const _ = k(A);
+      S = _.x, L = _.y, D = [{ x: _.x, y: _.y, t: _.timestamp, width: 2.5 }], u && u.classList.add("drawing");
+    }, N = (A) => {
+      if (!v) return;
+      const _ = k(A);
+      D.push({ x: _.x, y: _.y, t: _.timestamp, width: 2.5 });
+      const K = _.x - S, Q = _.y - L, bn = _.timestamp - (D[D.length - 2]?.t || _.timestamp), xn = Math.sqrt(K * K + Q * Q) / Math.max(bn, 1), Sn = 2.5, Cn = 1.5, En = 4, In = Math.min(xn / 5, 1), ut = Math.max(Cn, Math.min(En, Sn - In * 1.5));
+      D[D.length - 1].width = ut, p.lineWidth = ut, p.beginPath(), p.moveTo(S, L), p.lineTo(_.x, _.y), p.stroke(), S = _.x, L = _.y;
+    }, q = () => {
+      if (v = !1, D.length > 1) {
+        const A = a.signatureCanvases.get(r);
+        A && (A.strokes.push(D.map((_) => ({ ..._ }))), A.redoStack = []);
+      }
+      D = [], u && u.classList.remove("drawing");
     };
-    d.addEventListener("mousedown", R), d.addEventListener("mousemove", z), d.addEventListener("mouseup", U), d.addEventListener("mouseout", U), d.addEventListener("touchstart", (T) => {
-      T.preventDefault(), T.stopPropagation(), R(T);
-    }, { passive: !1 }), d.addEventListener("touchmove", (T) => {
-      T.preventDefault(), T.stopPropagation(), z(T);
-    }, { passive: !1 }), d.addEventListener("touchend", (T) => {
-      T.preventDefault(), U();
-    }, { passive: !1 }), d.addEventListener("touchcancel", U), d.addEventListener("gesturestart", (T) => T.preventDefault()), d.addEventListener("gesturechange", (T) => T.preventDefault()), d.addEventListener("gestureend", (T) => T.preventDefault()), r.signatureCanvases.set(o, { canvas: d, ctx: p, dpr: b }), Bt(o);
+    l.addEventListener("mousedown", R), l.addEventListener("mousemove", N), l.addEventListener("mouseup", q), l.addEventListener("mouseout", q), l.addEventListener("touchstart", (A) => {
+      A.preventDefault(), A.stopPropagation(), R(A);
+    }, { passive: !1 }), l.addEventListener("touchmove", (A) => {
+      A.preventDefault(), A.stopPropagation(), N(A);
+    }, { passive: !1 }), l.addEventListener("touchend", (A) => {
+      A.preventDefault(), q();
+    }, { passive: !1 }), l.addEventListener("touchcancel", q), l.addEventListener("gesturestart", (A) => A.preventDefault()), l.addEventListener("gesturechange", (A) => A.preventDefault()), l.addEventListener("gestureend", (A) => A.preventDefault()), a.signatureCanvases.set(r, {
+      canvas: l,
+      ctx: p,
+      dpr: m,
+      drawWidth: h.width,
+      drawHeight: h.height,
+      strokes: [],
+      redoStack: [],
+      baseImageDataUrl: "",
+      baseImage: null
+    }), tn(r);
   }
-  function Bt(o) {
-    const d = r.signatureCanvases.get(o), u = r.fieldState.get(o);
-    if (!d || !u) return;
-    const p = _(u);
-    if (!p) return;
-    const { canvas: m, ctx: b } = d, y = new Image();
-    y.onload = () => {
-      const I = m.clientWidth || m.width / (window.devicePixelRatio || 1), A = m.clientHeight || m.height / (window.devicePixelRatio || 1);
-      if (I <= 0 || A <= 0) return;
-      b.clearRect(0, 0, I, A);
-      const F = Math.min(I / y.width, A / y.height), D = y.width * F, R = y.height * F, z = (I - D) / 2, U = (A - R) / 2;
-      b.drawImage(y, z, U, D, R);
-    }, y.onerror = () => {
-    }, y.src = p;
+  function tn(r) {
+    const l = a.signatureCanvases.get(r), u = a.fieldState.get(r);
+    if (!l || !u) return;
+    const p = jt(u);
+    p && Ce(r, p, { clearStrokes: !0 }).catch(() => {
+    });
   }
-  function _t(o) {
-    const d = r.signatureCanvases.get(o);
-    if (d) {
-      const { canvas: u, ctx: p } = d;
-      p.clearRect(0, 0, u.width, u.height);
+  async function Ce(r, l, u = { clearStrokes: !1 }) {
+    const p = a.signatureCanvases.get(r);
+    if (!p) return !1;
+    const h = String(l || "").trim();
+    if (!h)
+      return p.baseImageDataUrl = "", p.baseImage = null, u.clearStrokes && (p.strokes = [], p.redoStack = []), oe(r), !0;
+    const { drawWidth: m, drawHeight: v } = p, S = new Image();
+    return await new Promise((L) => {
+      S.onload = () => {
+        u.clearStrokes && (p.strokes = [], p.redoStack = []), p.baseImage = S, p.baseImageDataUrl = h, m > 0 && v > 0 && oe(r), L(!0);
+      }, S.onerror = () => L(!1), S.src = h;
+    });
+  }
+  function oe(r) {
+    const l = a.signatureCanvases.get(r);
+    if (!l) return;
+    const { ctx: u, drawWidth: p, drawHeight: h, baseImage: m, strokes: v } = l;
+    if (u.clearRect(0, 0, p, h), m) {
+      const S = Math.min(p / m.width, h / m.height), L = m.width * S, D = m.height * S, k = (p - L) / 2, R = (h - D) / 2;
+      u.drawImage(m, k, R, L, D);
     }
+    for (const S of v)
+      for (let L = 1; L < S.length; L++) {
+        const D = S[L - 1], k = S[L];
+        u.lineWidth = Number(k.width || 2.5) || 2.5, u.beginPath(), u.moveTo(D.x, D.y), u.lineTo(k.x, k.y), u.stroke();
+      }
   }
-  function ye() {
-    const o = document.getElementById("field-editor-overlay"), d = o.querySelector(".field-editor");
-    if (Ie(d), o.classList.remove("active"), o.setAttribute("aria-hidden", "true"), document.body.style.overflow = "", r.activeFieldId) {
-      const u = document.querySelector(`.field-list-item[data-field-id="${r.activeFieldId}"]`);
+  function nn(r) {
+    const l = a.signatureCanvases.get(r);
+    if (!l || l.strokes.length === 0) return;
+    const u = l.strokes.pop();
+    u && l.redoStack.push(u), oe(r);
+  }
+  function sn(r) {
+    const l = a.signatureCanvases.get(r);
+    if (!l || l.redoStack.length === 0) return;
+    const u = l.redoStack.pop();
+    u && l.strokes.push(u), oe(r);
+  }
+  function it(r) {
+    const l = a.signatureCanvases.get(r);
+    if (!l) return !1;
+    if ((l.baseImageDataUrl || "").trim() || l.strokes.length > 0) return !0;
+    const { canvas: u, ctx: p } = l;
+    return p.getImageData(0, 0, u.width, u.height).data.some((m, v) => v % 4 === 3 && m > 0);
+  }
+  function rn(r) {
+    const l = a.signatureCanvases.get(r);
+    l && (l.strokes = [], l.redoStack = [], l.baseImage = null, l.baseImageDataUrl = "", oe(r));
+    const u = document.getElementById("sig-upload-preview-wrap"), p = document.getElementById("sig-upload-preview");
+    u && u.classList.add("hidden"), p && p.removeAttribute("src");
+  }
+  function Ee() {
+    const r = document.getElementById("field-editor-overlay"), l = r.querySelector(".field-editor");
+    if (Pe(l), r.classList.remove("active"), r.setAttribute("aria-hidden", "true"), document.body.style.overflow = "", a.activeFieldId) {
+      const u = document.querySelector(`.field-list-item[data-field-id="${a.activeFieldId}"]`);
       requestAnimationFrame(() => {
         u?.focus();
       });
     }
-    r.activeFieldId = null, r.signatureCanvases.clear(), q("Field editor closed.");
+    a.activeFieldId = null, a.signatureCanvases.clear(), j("Field editor closed.");
   }
-  async function Ft() {
-    const o = r.activeFieldId;
-    if (!o) return;
-    const d = r.fieldState.get(o);
-    if (!d) return;
+  async function an() {
+    const r = a.activeFieldId;
+    if (!r) return;
+    const l = a.fieldState.get(r);
+    if (!l) return;
     const u = document.getElementById("field-editor-save");
     u.disabled = !0, u.innerHTML = '<i class="iconoir-refresh animate-spin mr-2"></i> Saving...';
     try {
-      r.profileRemember = Z();
+      a.profileRemember = We();
       let p = !1;
-      if (d.type === "signature" || d.type === "initials")
-        p = await Rt(o);
-      else if (d.type === "checkbox") {
-        const m = document.getElementById("field-checkbox-input");
-        p = await be(o, null, m?.checked || !1);
+      if (l.type === "signature" || l.type === "initials")
+        p = await on(r);
+      else if (l.type === "checkbox") {
+        const h = document.getElementById("field-checkbox-input");
+        p = await Ie(r, null, h?.checked || !1);
       } else {
-        const b = (document.getElementById("field-text-input") || document.getElementById("sig-type-input"))?.value?.trim() || "";
-        if (!b && d.required)
+        const m = (document.getElementById("field-text-input") || document.getElementById("sig-type-input"))?.value?.trim() || "";
+        if (!m && l.required)
           throw new Error("This field is required");
-        p = await be(o, b, null);
+        p = await Ie(r, m, null);
       }
       if (p) {
-        ye(), Ge(), xe(), Ke(), ue(), Ot(o), zt();
-        const m = Ye();
-        m.allRequiredComplete ? q("Field saved. All required fields complete. Ready to submit.") : q(`Field saved. ${m.remainingRequired} required field${m.remainingRequired > 1 ? "s" : ""} remaining.`);
+        Ee(), rt(), Le(), lt(), ue(), dn(r), pn(r);
+        const h = dt();
+        h.allRequiredComplete ? j("Field saved. All required fields complete. Ready to submit.") : j(`Field saved. ${h.remainingRequired} required field${h.remainingRequired > 1 ? "s" : ""} remaining.`);
       }
     } catch (p) {
-      window.toastManager && window.toastManager.error(p.message), q(`Error saving field: ${p.message}`, "assertive");
+      window.toastManager && window.toastManager.error(p.message), j(`Error saving field: ${p.message}`, "assertive");
     } finally {
-      u.disabled = !1, u.innerHTML = "Apply";
+      u.disabled = !1, u.innerHTML = "Insert";
     }
   }
-  async function Rt(o) {
-    const d = r.fieldState.get(o), u = document.getElementById("sig-type-input"), p = document.getElementById("sig-editor-draw");
-    if ((d?.type === "signature" || d?.type === "initials") && p && !p.classList.contains("hidden")) {
-      const y = r.signatureCanvases.get(o);
-      if (!y) return !1;
-      const { canvas: I, ctx: A } = y;
-      if (!A.getImageData(0, 0, I.width, I.height).data.some((z, U) => U % 4 === 3 && z > 0))
-        throw new Error(d?.type === "initials" ? "Please draw your initials" : "Please draw your signature");
-      const R = I.toDataURL("image/png");
-      return await Ve(o, { type: "drawn", dataUrl: R }, d?.type === "initials" ? "[Drawn Initials]" : "[Drawn]");
+  async function on(r) {
+    const l = a.fieldState.get(r), u = document.getElementById("sig-type-input"), p = nt(r);
+    if (p === "draw" || p === "upload" || p === "saved") {
+      const m = a.signatureCanvases.get(r);
+      if (!m) return !1;
+      if (!it(r))
+        throw new Error(l?.type === "initials" ? "Please draw your initials" : "Please draw your signature");
+      const v = m.canvas.toDataURL("image/png");
+      return await st(r, { type: "drawn", dataUrl: v }, l?.type === "initials" ? "[Drawn Initials]" : "[Drawn]");
     } else {
-      const y = u?.value?.trim();
-      if (!y)
-        throw new Error(d?.type === "initials" ? "Please type your initials" : "Please type your signature");
-      return d.type === "initials" ? await be(o, y, null) : await Ve(o, { type: "typed", text: y }, y);
+      const m = u?.value?.trim();
+      if (!m)
+        throw new Error(l?.type === "initials" ? "Please type your initials" : "Please type your signature");
+      return l.type === "initials" ? await Ie(r, m, null) : await st(r, { type: "typed", text: m }, m);
     }
   }
-  async function be(o, d, u) {
-    r.pendingSaves.add(o);
-    const p = Date.now(), m = r.fieldState.get(o);
+  async function Ie(r, l, u) {
+    a.pendingSaves.add(r);
+    const p = Date.now(), h = a.fieldState.get(r);
     try {
-      const b = await fetch(`${n.apiBasePath}/field-values/${n.token}`, {
+      const m = await fetch(`${n.apiBasePath}/field-values/${n.token}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          field_instance_id: o,
-          value_text: d,
+          field_instance_id: r,
+          value_text: l,
           value_bool: u
         })
       });
-      if (!b.ok) {
-        const I = await b.json();
-        throw new Error(I.error?.message || "Failed to save field");
+      if (!m.ok) {
+        const S = await m.json();
+        throw new Error(S.error?.message || "Failed to save field");
       }
-      const y = r.fieldState.get(o);
-      return y && (y.value = d ?? u, y.completed = !0, y.hasError = !1), await J(y), window.toastManager && window.toastManager.success("Field saved"), l.trackFieldSave(o, y?.type, !0, Date.now() - p), !0;
-    } catch (b) {
-      const y = r.fieldState.get(o);
-      throw y && (y.hasError = !0, y.lastError = b.message), l.trackFieldSave(o, m?.type, !1, Date.now() - p, b.message), b;
+      const v = a.fieldState.get(r);
+      return v && (v.value = l ?? u, v.completed = !0, v.hasError = !1), await Ye(v), window.toastManager && window.toastManager.success("Field saved"), d.trackFieldSave(r, v?.type, !0, Date.now() - p), !0;
+    } catch (m) {
+      const v = a.fieldState.get(r);
+      throw v && (v.hasError = !0, v.lastError = m.message), d.trackFieldSave(r, h?.type, !1, Date.now() - p, m.message), m;
     } finally {
-      r.pendingSaves.delete(o);
+      a.pendingSaves.delete(r);
     }
   }
-  async function Ve(o, d, u) {
-    r.pendingSaves.add(o);
-    const p = Date.now(), m = d?.type || "typed";
+  async function st(r, l, u) {
+    a.pendingSaves.add(r);
+    const p = Date.now(), h = l?.type || "typed";
     try {
-      let b;
-      if (m === "drawn") {
-        const A = await h.uploadDrawnSignature(
-          o,
-          d.dataUrl
+      let m;
+      if (h === "drawn") {
+        const L = await g.uploadDrawnSignature(
+          r,
+          l.dataUrl
         );
-        b = {
-          field_instance_id: o,
+        m = {
+          field_instance_id: r,
           type: "drawn",
           value_text: u,
-          object_key: A.objectKey,
-          sha256: A.sha256,
-          upload_token: A.uploadToken
+          object_key: L.objectKey,
+          sha256: L.sha256,
+          upload_token: L.uploadToken
         };
       } else
-        b = await Ht(o, u);
-      const y = await fetch(`${n.apiBasePath}/field-values/signature/${n.token}`, {
+        m = await cn(r, u);
+      const v = await fetch(`${n.apiBasePath}/field-values/signature/${n.token}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(b)
+        body: JSON.stringify(m)
       });
-      if (!y.ok) {
-        const A = await y.json();
-        throw new Error(A.error?.message || "Failed to save signature");
+      if (!v.ok) {
+        const L = await v.json();
+        throw new Error(L.error?.message || "Failed to save signature");
       }
-      const I = r.fieldState.get(o);
-      return I && (I.value = u, I.completed = !0, I.hasError = !1), await J(I, {
-        signatureType: m,
-        signatureDataUrl: d?.dataUrl
-      }), window.toastManager && window.toastManager.success("Signature applied"), l.trackSignatureAttach(o, m, !0, Date.now() - p), !0;
-    } catch (b) {
-      const y = r.fieldState.get(o);
-      throw y && (y.hasError = !0, y.lastError = b.message), l.trackSignatureAttach(o, m, !1, Date.now() - p, b.message), b;
+      const S = a.fieldState.get(r);
+      return S && (S.value = u, S.completed = !0, S.hasError = !1), await Ye(S, {
+        signatureType: h,
+        signatureDataUrl: l?.dataUrl
+      }), window.toastManager && window.toastManager.success("Signature applied"), d.trackSignatureAttach(r, h, !0, Date.now() - p), !0;
+    } catch (m) {
+      const v = a.fieldState.get(r);
+      throw v && (v.hasError = !0, v.lastError = m.message), d.trackSignatureAttach(r, h, !1, Date.now() - p, m.message), m;
     } finally {
-      r.pendingSaves.delete(o);
+      a.pendingSaves.delete(r);
     }
   }
-  async function Ht(o, d) {
-    const u = `${d}|${o}`, p = await jt(u), m = `tenant/bootstrap/org/bootstrap/agreements/${n.agreementId}/signatures/${n.recipientId}/${o}-${Date.now()}.txt`;
+  async function cn(r, l) {
+    const u = `${l}|${r}`, p = await ln(u), h = `tenant/bootstrap/org/bootstrap/agreements/${n.agreementId}/signatures/${n.recipientId}/${r}-${Date.now()}.txt`;
     return {
-      field_instance_id: o,
+      field_instance_id: r,
       type: "typed",
-      value_text: d,
-      object_key: m,
+      value_text: l,
+      object_key: h,
       sha256: p
       // Note: typed signatures do not require upload_token (v2)
     };
   }
-  async function jt(o) {
+  async function ln(r) {
     if (window.crypto && window.crypto.subtle && window.TextEncoder) {
-      const d = new TextEncoder().encode(o), u = await window.crypto.subtle.digest("SHA-256", d);
+      const l = new TextEncoder().encode(r), u = await window.crypto.subtle.digest("SHA-256", l);
       return Array.from(new Uint8Array(u)).map((p) => p.toString(16).padStart(2, "0")).join("");
     }
     return Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
   }
-  function Ge() {
-    let o = 0;
-    r.fieldState.forEach((I) => {
-      I.required, I.completed && o++;
+  function rt() {
+    let r = 0;
+    a.fieldState.forEach((S) => {
+      S.required, S.completed && r++;
     });
-    const d = r.fieldState.size, u = d > 0 ? o / d * 100 : 0;
-    document.getElementById("completed-count").textContent = o, document.getElementById("total-count").textContent = d;
-    const p = document.getElementById("progress-ring-circle"), m = 97.4, b = m - u / 100 * m;
-    p.style.strokeDashoffset = b, document.getElementById("mobile-progress").style.width = `${u}%`;
-    const y = d - o;
-    document.getElementById("fields-status").textContent = y > 0 ? `${y} remaining` : "All complete";
+    const l = a.fieldState.size, u = l > 0 ? r / l * 100 : 0;
+    document.getElementById("completed-count").textContent = r, document.getElementById("total-count").textContent = l;
+    const p = document.getElementById("progress-ring-circle"), h = 97.4, m = h - u / 100 * h;
+    p.style.strokeDashoffset = m, document.getElementById("mobile-progress").style.width = `${u}%`;
+    const v = l - r;
+    document.getElementById("fields-status").textContent = v > 0 ? `${v} remaining` : "All complete";
   }
-  function xe() {
-    const o = document.getElementById("submit-btn"), d = document.getElementById("incomplete-warning"), u = document.getElementById("incomplete-message");
-    let p = [], m = !1;
-    r.fieldState.forEach((y, I) => {
-      y.required && !y.completed && p.push(y), y.hasError && (m = !0);
+  function Le() {
+    const r = document.getElementById("submit-btn"), l = document.getElementById("incomplete-warning"), u = document.getElementById("incomplete-message");
+    let p = [], h = !1;
+    a.fieldState.forEach((v, S) => {
+      v.required && !v.completed && p.push(v), v.hasError && (h = !0);
     });
-    const b = r.hasConsented && p.length === 0 && !m && r.pendingSaves.size === 0;
-    o.disabled = !b, r.hasConsented ? m ? (d.classList.remove("hidden"), u.textContent = "Some fields failed to save. Please retry.") : p.length > 0 ? (d.classList.remove("hidden"), u.textContent = `Complete ${p.length} required field${p.length > 1 ? "s" : ""}`) : d.classList.add("hidden") : (d.classList.remove("hidden"), u.textContent = "Please accept the consent agreement");
+    const m = a.hasConsented && p.length === 0 && !h && a.pendingSaves.size === 0;
+    r.disabled = !m, a.hasConsented ? h ? (l.classList.remove("hidden"), u.textContent = "Some fields failed to save. Please retry.") : p.length > 0 ? (l.classList.remove("hidden"), u.textContent = `Complete ${p.length} required field${p.length > 1 ? "s" : ""}`) : l.classList.add("hidden") : (l.classList.remove("hidden"), u.textContent = "Please accept the consent agreement");
   }
-  function Ot(o) {
-    const d = r.fieldState.get(o), u = document.querySelector(`.field-list-item[data-field-id="${o}"]`);
-    if (!(!u || !d)) {
-      if (d.completed) {
+  function dn(r) {
+    const l = a.fieldState.get(r), u = document.querySelector(`.field-list-item[data-field-id="${r}"]`);
+    if (!(!u || !l)) {
+      if (l.completed) {
         u.classList.add("completed"), u.classList.remove("error");
         const p = u.querySelector(".w-8");
         p.classList.remove("bg-gray-100", "text-gray-500", "bg-red-100", "text-red-600"), p.classList.add("bg-green-100", "text-green-600"), p.innerHTML = '<i class="iconoir-check"></i>';
-      } else if (d.hasError) {
+      } else if (l.hasError) {
         u.classList.remove("completed"), u.classList.add("error");
         const p = u.querySelector(".w-8");
         p.classList.remove("bg-gray-100", "text-gray-500", "bg-green-100", "text-green-600"), p.classList.add("bg-red-100", "text-red-600"), p.innerHTML = '<i class="iconoir-warning-circle"></i>';
       }
     }
   }
-  function zt() {
-    for (const [o, d] of r.fieldState)
-      if (d.required && !d.completed) {
-        document.querySelector(`.field-list-item[data-field-id="${o}"]`)?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-        return;
-      }
-    document.getElementById("panel-content").scrollTo({ top: document.getElementById("panel-content").scrollHeight, behavior: "smooth" });
+  function un() {
+    const r = Array.from(a.fieldState.values()).filter((l) => l.required);
+    return r.sort((l, u) => {
+      const p = Number(l.page || 0), h = Number(u.page || 0);
+      if (p !== h) return p - h;
+      const m = Number(l.tabIndex || 0), v = Number(u.tabIndex || 0);
+      if (m > 0 && v > 0 && m !== v) return m - v;
+      if (m > 0 != v > 0) return m > 0 ? -1 : 1;
+      const S = Number(l.posY || 0), L = Number(u.posY || 0);
+      if (S !== L) return S - L;
+      const D = Number(l.posX || 0), k = Number(u.posX || 0);
+      return D !== k ? D - k : String(l.id || "").localeCompare(String(u.id || ""));
+    }), r;
   }
-  function We() {
-    const o = document.getElementById("consent-modal");
-    o.classList.add("active"), o.setAttribute("aria-hidden", "false"), document.body.style.overflow = "hidden", Ce(o.querySelector(".field-editor")), q("Electronic signature consent dialog opened. Please review and accept to continue.", "assertive");
+  function at(r) {
+    a.guidedTargetFieldId = r, document.querySelectorAll(".field-list-item").forEach((l) => l.classList.remove("guided-next-target")), document.querySelectorAll(".field-overlay").forEach((l) => l.classList.remove("guided-next-target")), document.querySelector(`.field-list-item[data-field-id="${r}"]`)?.classList.add("guided-next-target"), document.querySelector(`.field-overlay[data-field-id="${r}"]`)?.classList.add("guided-next-target");
   }
-  function Se() {
-    const o = document.getElementById("consent-modal"), d = o.querySelector(".field-editor");
-    Ie(d), o.classList.remove("active"), o.setAttribute("aria-hidden", "true"), document.body.style.overflow = "", q("Consent dialog closed.");
+  function pn(r) {
+    const l = un(), u = l.filter((v) => !v.completed);
+    if (u.length === 0) {
+      d.track("guided_next_none_remaining", { fromFieldId: r });
+      const v = document.getElementById("submit-btn");
+      v?.scrollIntoView({ behavior: "smooth", block: "nearest" }), v?.focus(), j("All required fields are complete. Review the document and submit when ready.");
+      return;
+    }
+    const p = l.findIndex((v) => String(v.id) === String(r));
+    let h = null;
+    if (p >= 0) {
+      for (let v = p + 1; v < l.length; v++)
+        if (!l[v].completed) {
+          h = l[v];
+          break;
+        }
+    }
+    if (h || (h = u[0]), !h) return;
+    d.track("guided_next_started", { fromFieldId: r, toFieldId: h.id });
+    const m = Number(h.page || 1);
+    m !== a.currentPage && Xe(m), Ze(h.id, { openEditor: !1 }), at(h.id), setTimeout(() => {
+      at(h.id), et(h.id), d.track("guided_next_completed", { toFieldId: h.id, page: h.page }), j(`Next required field highlighted on page ${h.page}.`);
+    }, 120);
   }
-  async function Ut() {
-    const o = document.getElementById("consent-accept-btn");
-    o.disabled = !0, o.innerHTML = '<i class="iconoir-refresh animate-spin mr-2"></i> Processing...';
+  function ot() {
+    const r = document.getElementById("consent-modal");
+    r.classList.add("active"), r.setAttribute("aria-hidden", "false"), document.body.style.overflow = "hidden", ke(r.querySelector(".field-editor")), j("Electronic signature consent dialog opened. Please review and accept to continue.", "assertive");
+  }
+  function Ae() {
+    const r = document.getElementById("consent-modal"), l = r.querySelector(".field-editor");
+    Pe(l), r.classList.remove("active"), r.setAttribute("aria-hidden", "true"), document.body.style.overflow = "", j("Consent dialog closed.");
+  }
+  async function hn() {
+    const r = document.getElementById("consent-accept-btn");
+    r.disabled = !0, r.innerHTML = '<i class="iconoir-refresh animate-spin mr-2"></i> Processing...';
     try {
-      const d = await fetch(`${n.apiBasePath}/consent/${n.token}`, {
+      const l = await fetch(`${n.apiBasePath}/consent/${n.token}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ accepted: !0 })
       });
-      if (!d.ok) {
-        const u = await d.json();
+      if (!l.ok) {
+        const u = await l.json();
         throw new Error(u.error?.message || "Failed to accept consent");
       }
-      r.hasConsented = !0, document.getElementById("consent-notice").classList.add("hidden"), Se(), xe(), Ke(), l.trackConsent(!0), window.toastManager && window.toastManager.success("Consent accepted"), q("Consent accepted. You can now complete the fields and submit.");
-    } catch (d) {
-      window.toastManager && window.toastManager.error(d.message), q(`Error: ${d.message}`, "assertive");
+      a.hasConsented = !0, document.getElementById("consent-notice").classList.add("hidden"), Ae(), Le(), lt(), d.trackConsent(!0), window.toastManager && window.toastManager.success("Consent accepted"), j("Consent accepted. You can now complete the fields and submit.");
+    } catch (l) {
+      window.toastManager && window.toastManager.error(l.message), j(`Error: ${l.message}`, "assertive");
     } finally {
-      o.disabled = !1, o.innerHTML = "Accept & Continue";
+      r.disabled = !1, r.innerHTML = "Accept & Continue";
     }
   }
-  async function Nt() {
-    const o = document.getElementById("submit-btn");
-    o.disabled = !0, o.innerHTML = '<i class="iconoir-refresh animate-spin mr-2"></i> Submitting...';
+  async function gn() {
+    const r = document.getElementById("submit-btn");
+    r.disabled = !0, r.innerHTML = '<i class="iconoir-refresh animate-spin mr-2"></i> Submitting...';
     try {
-      const d = `submit-${n.recipientId}-${Date.now()}`, u = await fetch(`${n.apiBasePath}/submit/${n.token}`, {
+      const l = `submit-${n.recipientId}-${Date.now()}`, u = await fetch(`${n.apiBasePath}/submit/${n.token}`, {
         method: "POST",
-        headers: { "Idempotency-Key": d }
+        headers: { "Idempotency-Key": l }
       });
       if (!u.ok) {
         const p = await u.json();
         throw new Error(p.error?.message || "Failed to submit");
       }
-      l.trackSubmit(!0), window.location.href = `${n.signerBasePath}/${n.token}/complete`;
-    } catch (d) {
-      l.trackSubmit(!1, d.message), window.toastManager && window.toastManager.error(d.message), o.disabled = !1, o.innerHTML = '<i class="iconoir-send mr-2"></i> Submit Signature';
+      d.trackSubmit(!0), window.location.href = `${n.signerBasePath}/${n.token}/complete`;
+    } catch (l) {
+      d.trackSubmit(!1, l.message), window.toastManager && window.toastManager.error(l.message), r.disabled = !1, r.innerHTML = '<i class="iconoir-send mr-2"></i> Submit Signature';
     }
   }
-  function qt() {
-    const o = document.getElementById("decline-modal");
-    o.classList.add("active"), o.setAttribute("aria-hidden", "false"), document.body.style.overflow = "hidden", Ce(o.querySelector(".field-editor")), q("Decline to sign dialog opened. Are you sure you want to decline?", "assertive");
+  function mn() {
+    const r = document.getElementById("decline-modal");
+    r.classList.add("active"), r.setAttribute("aria-hidden", "false"), document.body.style.overflow = "hidden", ke(r.querySelector(".field-editor")), j("Decline to sign dialog opened. Are you sure you want to decline?", "assertive");
   }
-  function Je() {
-    const o = document.getElementById("decline-modal"), d = o.querySelector(".field-editor");
-    Ie(d), o.classList.remove("active"), o.setAttribute("aria-hidden", "true"), document.body.style.overflow = "", q("Decline dialog closed.");
+  function ct() {
+    const r = document.getElementById("decline-modal"), l = r.querySelector(".field-editor");
+    Pe(l), r.classList.remove("active"), r.setAttribute("aria-hidden", "true"), document.body.style.overflow = "", j("Decline dialog closed.");
   }
-  async function Vt() {
-    const o = document.getElementById("decline-reason").value;
+  async function fn() {
+    const r = document.getElementById("decline-reason").value;
     try {
-      const d = await fetch(`${n.apiBasePath}/decline/${n.token}`, {
+      const l = await fetch(`${n.apiBasePath}/decline/${n.token}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason: o })
+        body: JSON.stringify({ reason: r })
       });
-      if (!d.ok) {
-        const u = await d.json();
+      if (!l.ok) {
+        const u = await l.json();
         throw new Error(u.error?.message || "Failed to decline");
       }
       window.location.href = `${n.signerBasePath}/${n.token}/declined`;
-    } catch (d) {
-      window.toastManager && window.toastManager.error(d.message);
+    } catch (l) {
+      window.toastManager && window.toastManager.error(l.message);
     }
   }
-  function Gt() {
-    l.trackDegradedMode("viewer_load_failure"), l.trackViewerCriticalError("viewer_load_failed"), window.toastManager && window.toastManager.error("Unable to load the document viewer. Please refresh the page or contact the sender for assistance.", {
+  function vn() {
+    d.trackDegradedMode("viewer_load_failure"), d.trackViewerCriticalError("viewer_load_failed"), window.toastManager && window.toastManager.error("Unable to load the document viewer. Please refresh the page or contact the sender for assistance.", {
       duration: 15e3,
       action: {
         label: "Refresh",
@@ -7370,20 +7725,20 @@ function Mn(s) {
       }
     });
   }
-  async function Wt() {
+  async function wn() {
     try {
-      const o = await fetch(`${n.apiBasePath}/assets/${n.token}`);
-      if (!o.ok) throw new Error("Document unavailable");
-      const u = (await o.json()).assets || {}, p = u.source_url || u.executed_url || u.certificate_url;
+      const r = await fetch(`${n.apiBasePath}/assets/${n.token}`);
+      if (!r.ok) throw new Error("Document unavailable");
+      const u = (await r.json()).assets || {}, p = u.source_url || u.executed_url || u.certificate_url;
       if (p)
         window.open(p, "_blank");
       else
         throw new Error("Document download is not available yet. The document may still be processing.");
-    } catch (o) {
-      window.toastManager && window.toastManager.error(o.message || "Unable to download document");
+    } catch (r) {
+      window.toastManager && window.toastManager.error(r.message || "Unable to download document");
     }
   }
-  const K = {
+  const Y = {
     enabled: localStorage.getItem("esign_debug") === "true" || new URLSearchParams(window.location.search).has("debug"),
     panel: null,
     /**
@@ -7481,23 +7836,23 @@ function Mn(s) {
           </div>
           <div class="debug-section">
             <div class="debug-label">Session</div>
-            <div class="debug-value" id="debug-session-id">${l.sessionId}</div>
+            <div class="debug-value" id="debug-session-id">${d.sessionId}</div>
           </div>
           <div class="debug-section">
             <div class="debug-label">Consent</div>
-            <div class="debug-value" id="debug-consent">${r.hasConsented ? "✓ Accepted" : "✗ Pending"}</div>
+            <div class="debug-value" id="debug-consent">${a.hasConsented ? "✓ Accepted" : "✗ Pending"}</div>
           </div>
           <div class="debug-section">
             <div class="debug-label">Fields</div>
-            <div class="debug-value" id="debug-fields">0/${r.fieldState?.size || 0}</div>
+            <div class="debug-value" id="debug-fields">0/${a.fieldState?.size || 0}</div>
           </div>
           <div class="debug-section">
             <div class="debug-label">Memory Mode</div>
-            <div class="debug-value" id="debug-memory">${r.isLowMemory ? "⚠ Low Memory" : "Normal"}</div>
+            <div class="debug-value" id="debug-memory">${a.isLowMemory ? "⚠ Low Memory" : "Normal"}</div>
           </div>
           <div class="debug-section">
             <div class="debug-label">Cached Pages</div>
-            <div class="debug-value" id="debug-cached">${r.renderedPages?.size || 0}</div>
+            <div class="debug-value" id="debug-cached">${a.renderedPages?.size || 0}</div>
           </div>
           <div class="debug-section">
             <div class="debug-label">Actions</div>
@@ -7521,20 +7876,20 @@ function Mn(s) {
     togglePanel() {
       if (!this.panel) return;
       this.panel.classList.toggle("collapsed");
-      const o = this.panel.querySelector(".debug-toggle"), d = this.panel.querySelector(".debug-title");
-      this.panel.classList.contains("collapsed") ? (o.textContent = "+", d.style.display = "none") : (o.textContent = "−", d.style.display = "inline");
+      const r = this.panel.querySelector(".debug-toggle"), l = this.panel.querySelector(".debug-title");
+      this.panel.classList.contains("collapsed") ? (r.textContent = "+", l.style.display = "none") : (r.textContent = "−", l.style.display = "inline");
     },
     /**
      * Update debug panel values
      */
     updatePanel() {
       if (!this.panel || this.panel.classList.contains("collapsed")) return;
-      const o = r.fieldState;
-      let d = 0;
-      o?.forEach((p) => {
-        p.completed && d++;
-      }), document.getElementById("debug-consent").textContent = r.hasConsented ? "✓ Accepted" : "✗ Pending", document.getElementById("debug-consent").className = `debug-value ${r.hasConsented ? "" : "warning"}`, document.getElementById("debug-fields").textContent = `${d}/${o?.size || 0}`, document.getElementById("debug-cached").textContent = r.renderedPages?.size || 0, document.getElementById("debug-memory").textContent = r.isLowMemory ? "⚠ Low Memory" : "Normal", document.getElementById("debug-memory").className = `debug-value ${r.isLowMemory ? "warning" : ""}`;
-      const u = l.metrics.errorsEncountered;
+      const r = a.fieldState;
+      let l = 0;
+      r?.forEach((p) => {
+        p.completed && l++;
+      }), document.getElementById("debug-consent").textContent = a.hasConsented ? "✓ Accepted" : "✗ Pending", document.getElementById("debug-consent").className = `debug-value ${a.hasConsented ? "" : "warning"}`, document.getElementById("debug-fields").textContent = `${l}/${r?.size || 0}`, document.getElementById("debug-cached").textContent = a.renderedPages?.size || 0, document.getElementById("debug-memory").textContent = a.isLowMemory ? "⚠ Low Memory" : "Normal", document.getElementById("debug-memory").className = `debug-value ${a.isLowMemory ? "warning" : ""}`;
+      const u = d.metrics.errorsEncountered;
       document.getElementById("debug-errors").textContent = u.length > 0 ? `${u.length} error(s)` : "None", document.getElementById("debug-errors").className = `debug-value ${u.length > 0 ? "error" : ""}`;
     },
     /**
@@ -7545,31 +7900,31 @@ function Mn(s) {
         getState: () => ({
           config: n,
           state: {
-            currentPage: r.currentPage,
-            zoomLevel: r.zoomLevel,
-            hasConsented: r.hasConsented,
-            activeFieldId: r.activeFieldId,
-            isLowMemory: r.isLowMemory,
-            cachedPages: r.renderedPages?.size || 0
+            currentPage: a.currentPage,
+            zoomLevel: a.zoomLevel,
+            hasConsented: a.hasConsented,
+            activeFieldId: a.activeFieldId,
+            isLowMemory: a.isLowMemory,
+            cachedPages: a.renderedPages?.size || 0
           },
-          fields: Array.from(r.fieldState?.entries() || []).map(([o, d]) => ({
-            id: o,
-            type: d.type,
-            completed: d.completed,
-            hasError: d.hasError
+          fields: Array.from(a.fieldState?.entries() || []).map(([r, l]) => ({
+            id: r,
+            type: l.type,
+            completed: l.completed,
+            hasError: l.hasError
           })),
-          telemetry: l.getSessionSummary(),
-          errors: l.metrics.errorsEncountered
+          telemetry: d.getSessionSummary(),
+          errors: d.metrics.errorsEncountered
         }),
-        getEvents: () => l.events,
-        forceError: (o) => {
-          l.track("debug_forced_error", { message: o }), console.error("[E-Sign Debug] Forced error:", o);
+        getEvents: () => d.events,
+        forceError: (r) => {
+          d.track("debug_forced_error", { message: r }), console.error("[E-Sign Debug] Forced error:", r);
         },
         reloadViewer: () => {
           console.log("[E-Sign Debug] Reloading viewer..."), de();
         },
-        setLowMemory: (o) => {
-          r.isLowMemory = o, O(), console.log(`[E-Sign Debug] Low memory mode: ${o}`);
+        setLowMemory: (r) => {
+          a.isLowMemory = r, be(), console.log(`[E-Sign Debug] Low memory mode: ${r}`);
         }
       };
     },
@@ -7577,17 +7932,17 @@ function Mn(s) {
      * Log session info to console
      */
     logSessionInfo() {
-      console.group("%c[E-Sign Debug] Session Info", "color: #3b82f6"), console.log("Flow Mode:", n.flowMode), console.log("Agreement ID:", n.agreementId), console.log("Token:", n.token), console.log("Session ID:", l.sessionId), console.log("Fields:", r.fieldState?.size || 0), console.log("Low Memory:", r.isLowMemory), console.groupEnd();
+      console.group("%c[E-Sign Debug] Session Info", "color: #3b82f6"), console.log("Flow Mode:", n.flowMode), console.log("Agreement ID:", n.agreementId), console.log("Token:", n.token), console.log("Session ID:", d.sessionId), console.log("Fields:", a.fieldState?.size || 0), console.log("Low Memory:", a.isLowMemory), console.groupEnd();
     },
     /**
      * Copy session info to clipboard
      */
     async copySessionInfo() {
-      const o = JSON.stringify(window.esignDebug.getState(), null, 2);
+      const r = JSON.stringify(window.esignDebug.getState(), null, 2);
       try {
-        await navigator.clipboard.writeText(o), alert("Session info copied to clipboard");
+        await navigator.clipboard.writeText(r), alert("Session info copied to clipboard");
       } catch {
-        console.log("Session Info:", o), alert("Check console for session info");
+        console.log("Session Info:", r), alert("Check console for session info");
       }
     },
     /**
@@ -7600,98 +7955,110 @@ function Mn(s) {
      * Clear page cache
      */
     clearCache() {
-      r.renderedPages?.clear(), console.log("[E-Sign Debug] Page cache cleared"), this.updatePanel();
+      a.renderedPages?.clear(), console.log("[E-Sign Debug] Page cache cleared"), this.updatePanel();
     },
     /**
      * Show telemetry events
      */
     showTelemetry() {
-      console.table(l.events), console.log("Session Summary:", l.getSessionSummary());
+      console.table(d.events), console.log("Session Summary:", d.getSessionSummary());
     }
   };
-  function q(o, d = "polite") {
-    const u = d === "assertive" ? document.getElementById("a11y-alerts") : document.getElementById("a11y-status");
+  function j(r, l = "polite") {
+    const u = l === "assertive" ? document.getElementById("a11y-alerts") : document.getElementById("a11y-status");
     u && (u.textContent = "", requestAnimationFrame(() => {
-      u.textContent = o;
+      u.textContent = r;
     }));
   }
-  function Ce(o) {
-    const u = o.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'), p = u[0], m = u[u.length - 1];
-    o.dataset.previousFocus || (o.dataset.previousFocus = document.activeElement?.id || "");
-    function b(y) {
-      y.key === "Tab" && (y.shiftKey ? document.activeElement === p && (y.preventDefault(), m?.focus()) : document.activeElement === m && (y.preventDefault(), p?.focus()));
+  function ke(r) {
+    const u = r.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'), p = u[0], h = u[u.length - 1];
+    r.dataset.previousFocus || (r.dataset.previousFocus = document.activeElement?.id || "");
+    function m(v) {
+      v.key === "Tab" && (v.shiftKey ? document.activeElement === p && (v.preventDefault(), h?.focus()) : document.activeElement === h && (v.preventDefault(), p?.focus()));
     }
-    o.addEventListener("keydown", b), o._focusTrapHandler = b, requestAnimationFrame(() => {
+    r.addEventListener("keydown", m), r._focusTrapHandler = m, requestAnimationFrame(() => {
       p?.focus();
     });
   }
-  function Ie(o) {
-    o._focusTrapHandler && (o.removeEventListener("keydown", o._focusTrapHandler), delete o._focusTrapHandler);
-    const d = o.dataset.previousFocus;
-    if (d) {
-      const u = document.getElementById(d);
+  function Pe(r) {
+    r._focusTrapHandler && (r.removeEventListener("keydown", r._focusTrapHandler), delete r._focusTrapHandler);
+    const l = r.dataset.previousFocus;
+    if (l) {
+      const u = document.getElementById(l);
       requestAnimationFrame(() => {
         u?.focus();
-      }), delete o.dataset.previousFocus;
+      }), delete r.dataset.previousFocus;
     }
   }
-  function Ke() {
-    const o = Ye(), d = document.getElementById("submit-status");
-    d && (o.allRequiredComplete && r.hasConsented ? d.textContent = "All required fields complete. You can now submit." : r.hasConsented ? d.textContent = `Complete ${o.remainingRequired} more required field${o.remainingRequired > 1 ? "s" : ""} to enable submission.` : d.textContent = "Please accept the electronic signature consent before submitting.");
+  function lt() {
+    const r = dt(), l = document.getElementById("submit-status");
+    l && (r.allRequiredComplete && a.hasConsented ? l.textContent = "All required fields complete. You can now submit." : a.hasConsented ? l.textContent = `Complete ${r.remainingRequired} more required field${r.remainingRequired > 1 ? "s" : ""} to enable submission.` : l.textContent = "Please accept the electronic signature consent before submitting.");
   }
-  function Ye() {
-    let o = 0, d = 0, u = 0;
-    return r.fieldState.forEach((p) => {
-      p.required && d++, p.completed && o++, p.required && !p.completed && u++;
+  function dt() {
+    let r = 0, l = 0, u = 0;
+    return a.fieldState.forEach((p) => {
+      p.required && l++, p.completed && r++, p.required && !p.completed && u++;
     }), {
-      completed: o,
-      required: d,
+      completed: r,
+      required: l,
       remainingRequired: u,
-      total: r.fieldState.size,
+      total: a.fieldState.size,
       allRequiredComplete: u === 0
     };
   }
-  function Jt(o, d = 1) {
-    const u = Array.from(r.fieldState.keys()), p = u.indexOf(o);
+  function yn(r, l = 1) {
+    const u = Array.from(a.fieldState.keys()), p = u.indexOf(r);
     if (p === -1) return null;
-    const m = p + d;
-    return m >= 0 && m < u.length ? u[m] : null;
+    const h = p + l;
+    return h >= 0 && h < u.length ? u[h] : null;
   }
-  document.addEventListener("keydown", function(o) {
-    if (o.key === "Escape" && (ye(), Se(), Je()), o.target.classList.contains("field-list-item")) {
-      if (o.key === "ArrowDown" || o.key === "ArrowUp") {
-        o.preventDefault();
-        const d = o.target.dataset.fieldId, u = o.key === "ArrowDown" ? 1 : -1, p = Jt(d, u);
-        p && document.querySelector(`.field-list-item[data-field-id="${p}"]`)?.focus();
-      }
-      if (o.key === "Enter" || o.key === " ") {
-        o.preventDefault();
-        const d = o.target.dataset.fieldId;
-        d && pe(d);
+  document.addEventListener("keydown", function(r) {
+    if (r.key === "Escape" && (Ee(), Ae(), ct()), r.target instanceof HTMLElement && r.target.classList.contains("sig-editor-tab")) {
+      const l = Array.from(document.querySelectorAll(".sig-editor-tab")), u = l.indexOf(r.target);
+      if (u !== -1) {
+        let p = u;
+        if (r.key === "ArrowRight" && (p = (u + 1) % l.length), r.key === "ArrowLeft" && (p = (u - 1 + l.length) % l.length), r.key === "Home" && (p = 0), r.key === "End" && (p = l.length - 1), p !== u) {
+          r.preventDefault();
+          const h = l[p], m = h.getAttribute("data-tab") || "draw", v = h.getAttribute("data-field-id");
+          v && ge(m, v), h.focus();
+          return;
+        }
       }
     }
-    o.key === "Tab" && !o.target.closest(".field-editor-overlay") && !o.target.closest("#consent-modal") && o.target.closest("#decline-modal");
+    if (r.target instanceof HTMLElement && r.target.classList.contains("field-list-item")) {
+      if (r.key === "ArrowDown" || r.key === "ArrowUp") {
+        r.preventDefault();
+        const l = r.target.dataset.fieldId, u = r.key === "ArrowDown" ? 1 : -1, p = yn(l, u);
+        p && document.querySelector(`.field-list-item[data-field-id="${p}"]`)?.focus();
+      }
+      if (r.key === "Enter" || r.key === " ") {
+        r.preventDefault();
+        const l = r.target.dataset.fieldId;
+        l && he(l);
+      }
+    }
+    r.key === "Tab" && !r.target.closest(".field-editor-overlay") && !r.target.closest("#consent-modal") && r.target.closest("#decline-modal");
   }), document.addEventListener("mousedown", function() {
     document.body.classList.add("using-mouse");
-  }), document.addEventListener("keydown", function(o) {
-    o.key === "Tab" && document.body.classList.remove("using-mouse");
+  }), document.addEventListener("keydown", function(r) {
+    r.key === "Tab" && document.body.classList.remove("using-mouse");
   });
 }
-class ft {
+class Mt {
   constructor(e) {
     this.config = e;
   }
   init() {
-    Mn(this.config);
+    ni(this.config);
   }
   destroy() {
   }
 }
-function Fi(s) {
-  const e = new ft(s);
-  return k(() => e.init()), e;
+function os(s) {
+  const e = new Mt(s);
+  return M(() => e.init()), e;
 }
-function Dn() {
+function ii() {
   const s = document.getElementById("esign-signer-review-config");
   if (!s) return null;
   try {
@@ -7701,17 +8068,17 @@ function Dn() {
     return null;
   }
 }
-typeof document < "u" && k(() => {
+typeof document < "u" && M(() => {
   if (!document.querySelector('[data-esign-page="signer-review"], [data-esign-page="signer.review"]')) return;
-  const e = Dn();
+  const e = ii();
   if (!e) {
     console.warn("Missing signer review config script payload");
     return;
   }
-  const t = new ft(e);
+  const t = new Mt(e);
   t.init(), window.esignSignerReviewController = t;
 });
-class vt {
+class Dt {
   constructor(e = {}) {
     this.config = e;
   }
@@ -7738,15 +8105,15 @@ class vt {
     window.location.reload();
   }
 }
-function Ri(s = {}) {
-  const e = new vt(s);
-  return k(() => e.init()), e;
+function cs(s = {}) {
+  const e = new Dt(s);
+  return M(() => e.init()), e;
 }
-function Hi(s = {}) {
-  const e = new vt(s);
-  k(() => e.init()), typeof window < "u" && (window.esignErrorController = e);
+function ls(s = {}) {
+  const e = new Dt(s);
+  M(() => e.init()), typeof window < "u" && (window.esignErrorController = e);
 }
-class He {
+class Ne {
   constructor(e) {
     this.pdfDoc = null, this.currentPage = 1, this.isLoading = !1, this.isLoaded = !1, this.scale = 1.5, this.config = e, this.elements = {
       loadBtn: c("#pdf-load-btn"),
@@ -7776,8 +8143,8 @@ class He {
    */
   setupEventListeners() {
     const { loadBtn: e, retryBtn: t, prevBtn: n, nextBtn: i } = this.elements;
-    e && e.addEventListener("click", () => this.loadPdf()), t && t.addEventListener("click", () => this.loadPdf()), n && n.addEventListener("click", () => this.goToPage(this.currentPage - 1)), i && i.addEventListener("click", () => this.goToPage(this.currentPage + 1)), document.addEventListener("keydown", (a) => {
-      this.isLoaded && (a.key === "ArrowLeft" || a.key === "PageUp" ? this.goToPage(this.currentPage - 1) : (a.key === "ArrowRight" || a.key === "PageDown") && this.goToPage(this.currentPage + 1));
+    e && e.addEventListener("click", () => this.loadPdf()), t && t.addEventListener("click", () => this.loadPdf()), n && n.addEventListener("click", () => this.goToPage(this.currentPage - 1)), i && i.addEventListener("click", () => this.goToPage(this.currentPage + 1)), document.addEventListener("keydown", (o) => {
+      this.isLoaded && (o.key === "ArrowLeft" || o.key === "PageUp" ? this.goToPage(this.currentPage - 1) : (o.key === "ArrowRight" || o.key === "PageDown") && this.goToPage(this.currentPage + 1));
     });
   }
   /**
@@ -7810,11 +8177,11 @@ class He {
     if (!(e < 1 || e > t)) {
       this.currentPage = e, this.updateStatus(`Rendering page ${e}...`);
       try {
-        const n = await this.pdfDoc.getPage(e), i = n.getViewport({ scale: this.scale }), a = this.elements.canvas, l = a.getContext("2d");
-        if (!l)
+        const n = await this.pdfDoc.getPage(e), i = n.getViewport({ scale: this.scale }), o = this.elements.canvas, d = o.getContext("2d");
+        if (!d)
           throw new Error("Failed to get canvas context");
-        a.height = i.height, a.width = i.width, await n.render({
-          canvasContext: l,
+        o.height = i.height, o.width = i.width, await n.render({
+          canvasContext: d,
           viewport: i
         }).promise, this.updatePaginationState(), this.updateStatus("");
       } catch (n) {
@@ -7834,8 +8201,8 @@ class He {
    * Update pagination button states
    */
   updatePaginationState() {
-    const { prevBtn: e, nextBtn: t, currentPageEl: n, pagination: i } = this.elements, a = this.pdfDoc?.numPages || 1;
-    i && i.classList.remove("hidden"), n && (n.textContent = String(this.currentPage)), e && (e.disabled = this.currentPage <= 1), t && (t.disabled = this.currentPage >= a);
+    const { prevBtn: e, nextBtn: t, currentPageEl: n, pagination: i } = this.elements, o = this.pdfDoc?.numPages || 1;
+    i && i.classList.remove("hidden"), n && (n.textContent = String(this.currentPage)), e && (e.disabled = this.currentPage <= 1), t && (t.disabled = this.currentPage >= o);
   }
   /**
    * Update status text
@@ -7848,47 +8215,47 @@ class He {
    */
   showSpinner() {
     const { loading: e, spinner: t, error: n, viewer: i } = this.elements;
-    e && f(e), t && x(t), n && f(n), i && f(i);
+    e && w(e), t && x(t), n && w(n), i && w(i);
   }
   /**
    * Show the PDF viewer
    */
   showViewer() {
     const { loading: e, spinner: t, error: n, viewer: i } = this.elements;
-    e && f(e), t && f(t), n && f(n), i && x(i);
+    e && w(e), t && w(t), n && w(n), i && x(i);
   }
   /**
    * Show error state
    */
   showError(e) {
-    const { loading: t, spinner: n, error: i, errorMessage: a, viewer: l } = this.elements;
-    t && f(t), n && f(n), i && x(i), l && f(l), a && (a.textContent = e);
+    const { loading: t, spinner: n, error: i, errorMessage: o, viewer: d } = this.elements;
+    t && w(t), n && w(n), i && x(i), d && w(d), o && (o.textContent = e);
   }
 }
-function ji(s) {
-  const e = new He(s);
+function ds(s) {
+  const e = new Ne(s);
   return e.init(), e;
 }
-function Oi(s) {
+function us(s) {
   const e = {
     documentId: s.documentId,
     pdfUrl: s.pdfUrl,
     pageCount: s.pageCount || 1
-  }, t = new He(e);
-  k(() => t.init()), typeof window < "u" && (window.esignDocumentDetailController = t);
+  }, t = new Ne(e);
+  M(() => t.init()), typeof window < "u" && (window.esignDocumentDetailController = t);
 }
-typeof document < "u" && k(() => {
+typeof document < "u" && M(() => {
   const s = document.querySelector('[data-esign-page="document-detail"]');
   if (s instanceof HTMLElement) {
     const e = s.dataset.documentId || "", t = s.dataset.pdfUrl || "", n = parseInt(s.dataset.pageCount || "1", 10);
-    e && t && new He({
+    e && t && new Ne({
       documentId: e,
       pdfUrl: t,
       pageCount: n
     }).init();
   }
 });
-class zi {
+class ps {
   constructor(e) {
     this.env = e;
   }
@@ -7900,7 +8267,7 @@ class zi {
     await t.refresh();
   }
 }
-class Ui {
+class hs {
   constructor(e) {
     this.env = e;
   }
@@ -7912,7 +8279,7 @@ class Ui {
     t.resetPagination(), await t.refresh();
   }
 }
-function $n(s) {
+function si(s) {
   switch ((s || "").toLowerCase()) {
     case "select":
     case "enum":
@@ -7928,7 +8295,7 @@ function $n(s) {
       return "text";
   }
 }
-function Bn(s) {
+function ri(s) {
   if (!Array.isArray(s)) return;
   const e = s.map((t) => {
     if (!t) return null;
@@ -7937,29 +8304,29 @@ function Bn(s) {
   }).filter((t) => t !== null);
   return e.length > 0 ? e : void 0;
 }
-function _n(s, e) {
+function ai(s, e) {
   if (!Array.isArray(s) || s.length === 0) return;
-  const t = s.map((a) => String(a || "").trim().toLowerCase()).filter(Boolean);
+  const t = s.map((o) => String(o || "").trim().toLowerCase()).filter(Boolean);
   if (t.length === 0) return;
   const n = Array.from(new Set(t)), i = e ? String(e).trim().toLowerCase() : "";
-  return i && n.includes(i) ? [i, ...n.filter((a) => a !== i)] : n;
+  return i && n.includes(i) ? [i, ...n.filter((o) => o !== i)] : n;
 }
-function Ni(s) {
+function gs(s) {
   return s.map((e) => ({
     ...e,
     hidden: e.default === !1
   }));
 }
-function qi(s) {
+function ms(s) {
   return s ? s.map((e) => ({
     name: e.name,
     label: e.label,
-    type: $n(e.type),
-    options: Bn(e.options),
-    operators: _n(e.operators, e.default_operator)
+    type: si(e.type),
+    options: ri(e.options),
+    operators: ai(e.operators, e.default_operator)
   })) : [];
 }
-function Vi(s) {
+function fs(s) {
   if (!s) return "-";
   try {
     const e = new Date(s);
@@ -7968,21 +8335,21 @@ function Vi(s) {
     return String(s);
   }
 }
-function Gi(s) {
+function vs(s) {
   if (!s || Number(s) <= 0) return "-";
   const e = parseInt(String(s), 10);
   return e < 1024 ? `${e} B` : e < 1024 * 1024 ? `${(e / 1024).toFixed(1)} KB` : `${(e / (1024 * 1024)).toFixed(2)} MB`;
 }
-function Wi(s, e, t) {
+function ws(s, e, t) {
   t && t.success(`${s} completed successfully`);
 }
-function Ji(s, e, t) {
+function ys(s, e, t) {
   if (t) {
-    const n = e?.fields ? Object.entries(e.fields).map(([l, r]) => `${l}: ${r}`).join("; ") : "", i = e?.textCode ? `${e.textCode}: ` : "", a = e?.message || `${s} failed`;
-    t.error(n ? `${i}${a}: ${n}` : `${i}${a}`);
+    const n = e?.fields ? Object.entries(e.fields).map(([d, a]) => `${d}: ${a}`).join("; ") : "", i = e?.textCode ? `${e.textCode}: ` : "", o = e?.message || `${s} failed`;
+    t.error(n ? `${i}${o}: ${n}` : `${i}${o}`);
   }
 }
-function Ki(s, e) {
+function bs(s, e) {
   const t = c(`#${s}`);
   t && t.addEventListener("click", async () => {
     t.disabled = !0, t.classList.add("opacity-50");
@@ -7993,7 +8360,7 @@ function Ki(s, e) {
     }
   });
 }
-function Yi(s, e) {
+function xs(s, e) {
   const t = s.refresh.bind(s);
   return async function() {
     await t();
@@ -8001,7 +8368,7 @@ function Yi(s, e) {
     n?.actions && e(n.actions);
   };
 }
-const Qi = {
+const Ss = {
   searchInput: "#table-search",
   perPageSelect: "#table-per-page",
   filterRow: "[data-filter-column]",
@@ -8017,23 +8384,23 @@ const Qi = {
   rowCheckboxes: ".table-checkbox",
   bulkActionsBar: "#bulk-actions-overlay",
   selectedCount: "#selected-count"
-}, fe = "application/vnd.google-apps.document", je = "application/vnd.google-apps.spreadsheet", Oe = "application/vnd.google-apps.presentation", wt = "application/vnd.google-apps.folder", ze = "application/pdf", Fn = [fe, ze], yt = "esign.google.account_id";
-function Rn(s) {
-  return s.mimeType === fe;
+}, we = "application/vnd.google-apps.document", qe = "application/vnd.google-apps.spreadsheet", Ve = "application/vnd.google-apps.presentation", $t = "application/vnd.google-apps.folder", Ge = "application/pdf", oi = [we, Ge], Bt = "esign.google.account_id";
+function ci(s) {
+  return s.mimeType === we;
 }
-function Hn(s) {
-  return s.mimeType === ze;
+function li(s) {
+  return s.mimeType === Ge;
 }
 function ie(s) {
-  return s.mimeType === wt;
+  return s.mimeType === $t;
 }
-function jn(s) {
-  return Fn.includes(s.mimeType);
+function di(s) {
+  return oi.includes(s.mimeType);
 }
-function Xi(s) {
-  return s.mimeType === fe || s.mimeType === je || s.mimeType === Oe;
+function Cs(s) {
+  return s.mimeType === we || s.mimeType === qe || s.mimeType === Ve;
 }
-function On(s) {
+function ui(s) {
   return {
     id: s.id || "",
     name: s.name || "Untitled",
@@ -8046,16 +8413,16 @@ function On(s) {
     parents: s.parents
   };
 }
-function Zi(s) {
-  return s.map(On);
+function Es(s) {
+  return s.map(ui);
 }
-function bt(s) {
+function _t(s) {
   return {
-    [fe]: "Google Doc",
-    [je]: "Google Sheet",
-    [Oe]: "Google Slides",
-    [wt]: "Folder",
-    [ze]: "PDF",
+    [we]: "Google Doc",
+    [qe]: "Google Sheet",
+    [Ve]: "Google Slides",
+    [$t]: "Folder",
+    [Ge]: "PDF",
     "application/msword": "Word Document",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "Word Document",
     "application/vnd.ms-excel": "Excel Spreadsheet",
@@ -8065,24 +8432,24 @@ function bt(s) {
     "text/plain": "Text File"
   }[s] || "File";
 }
-function zn(s) {
+function pi(s) {
   return ie(s) ? {
     icon: "iconoir-folder",
     bgClass: "bg-yellow-100",
     textClass: "text-yellow-600"
-  } : Rn(s) ? {
+  } : ci(s) ? {
     icon: "iconoir-google-docs",
     bgClass: "bg-blue-100",
     textClass: "text-blue-600"
-  } : Hn(s) ? {
+  } : li(s) ? {
     icon: "iconoir-page",
     bgClass: "bg-red-100",
     textClass: "text-red-600"
-  } : s.mimeType === je ? {
+  } : s.mimeType === qe ? {
     icon: "iconoir-table",
     bgClass: "bg-green-100",
     textClass: "text-green-600"
-  } : s.mimeType === Oe ? {
+  } : s.mimeType === Ve ? {
     icon: "iconoir-presentation",
     bgClass: "bg-orange-100",
     textClass: "text-orange-600"
@@ -8096,10 +8463,10 @@ function zn(s) {
     textClass: "text-gray-600"
   };
 }
-function Un(s) {
+function hi(s) {
   return !s || s <= 0 ? "-" : s < 1024 ? `${s} B` : s < 1024 * 1024 ? `${(s / 1024).toFixed(1)} KB` : `${(s / (1024 * 1024)).toFixed(2)} MB`;
 }
-function Nn(s) {
+function gi(s) {
   if (!s) return "-";
   try {
     return new Date(s).toLocaleDateString();
@@ -8107,25 +8474,25 @@ function Nn(s) {
     return s;
   }
 }
-function es(s, e) {
+function Is(s, e) {
   const t = s.get("account_id");
   if (t)
-    return me(t);
+    return ve(t);
   if (e)
-    return me(e);
-  const n = localStorage.getItem(yt);
-  return n ? me(n) : "";
+    return ve(e);
+  const n = localStorage.getItem(Bt);
+  return n ? ve(n) : "";
 }
-function me(s) {
+function ve(s) {
   if (!s) return "";
   const e = s.trim();
   return e === "null" || e === "undefined" || e === "0" ? "" : e;
 }
-function ts(s) {
-  const e = me(s);
-  e && localStorage.setItem(yt, e);
+function Ls(s) {
+  const e = ve(s);
+  e && localStorage.setItem(Bt, e);
 }
-function ns(s, e) {
+function As(s, e) {
   if (!e) return s;
   try {
     const t = new URL(s, window.location.origin);
@@ -8135,11 +8502,11 @@ function ns(s, e) {
     return `${s}${t}account_id=${encodeURIComponent(e)}`;
   }
 }
-function is(s, e, t) {
+function ks(s, e, t) {
   const n = new URL(e, window.location.origin);
   return n.pathname.startsWith(s) || (n.pathname = `${s}${e}`), t && n.searchParams.set("account_id", t), n;
 }
-function ss(s) {
+function Ps(s) {
   const e = new URL(window.location.href), t = e.searchParams.get("account_id");
   s && t !== s ? (e.searchParams.set("account_id", s), window.history.replaceState({}, "", e.toString())) : !s && t && (e.searchParams.delete("account_id"), window.history.replaceState({}, "", e.toString()));
 }
@@ -8147,15 +8514,15 @@ function se(s) {
   const e = document.createElement("div");
   return e.textContent = s, e.innerHTML;
 }
-function qn(s) {
-  const e = zn(s);
+function mi(s) {
+  const e = pi(s);
   return `
     <div class="w-10 h-10 ${e.bgClass} rounded-lg flex items-center justify-center flex-shrink-0">
       <i class="${e.icon} ${e.textClass}" aria-hidden="true"></i>
     </div>
   `;
 }
-function rs(s, e) {
+function Ts(s, e) {
   if (s.length === 0)
     return '<span class="text-gray-600 text-sm font-medium">My Drive</span>';
   const t = [
@@ -8163,37 +8530,37 @@ function rs(s, e) {
     ...s
   ];
   return t.map((n, i) => {
-    const a = i === t.length - 1, l = i > 0 ? '<span class="text-gray-400 mx-1">/</span>' : "";
-    return a ? `${l}<span class="text-gray-900 font-medium">${se(n.name)}</span>` : `${l}<button
+    const o = i === t.length - 1, d = i > 0 ? '<span class="text-gray-400 mx-1">/</span>' : "";
+    return o ? `${d}<span class="text-gray-900 font-medium">${se(n.name)}</span>` : `${d}<button
         type="button"
         class="text-blue-600 hover:text-blue-800 hover:underline breadcrumb-nav-btn"
         data-folder-id="${n.id}"
       >${se(n.name)}</button>`;
   }).join("");
 }
-function Vn(s, e = {}) {
-  const { selectable: t = !0, showSize: n = !0, showDate: i = !0 } = e, a = qn(s), l = ie(s), r = jn(s), g = l ? "cursor-pointer hover:bg-gray-50" : r ? "cursor-pointer hover:bg-blue-50" : "opacity-60", h = l ? `data-folder-id="${s.id}" data-folder-name="${se(s.name)}"` : r && t ? `data-file-id="${s.id}" data-file-name="${se(s.name)}" data-mime-type="${s.mimeType}"` : "";
+function fi(s, e = {}) {
+  const { selectable: t = !0, showSize: n = !0, showDate: i = !0 } = e, o = mi(s), d = ie(s), a = di(s), f = d ? "cursor-pointer hover:bg-gray-50" : a ? "cursor-pointer hover:bg-blue-50" : "opacity-60", g = d ? `data-folder-id="${s.id}" data-folder-name="${se(s.name)}"` : a && t ? `data-file-id="${s.id}" data-file-name="${se(s.name)}" data-mime-type="${s.mimeType}"` : "";
   return `
     <div
-      class="flex items-center gap-3 p-3 rounded-lg border border-gray-200 ${g} file-item"
-      ${h}
+      class="flex items-center gap-3 p-3 rounded-lg border border-gray-200 ${f} file-item"
+      ${g}
       role="listitem"
-      ${r ? 'tabindex="0"' : ""}
+      ${a ? 'tabindex="0"' : ""}
     >
-      ${a}
+      ${o}
       <div class="flex-1 min-w-0">
         <p class="font-medium text-gray-900 truncate">${se(s.name)}</p>
         <p class="text-xs text-gray-500">
-          ${bt(s.mimeType)}
-          ${n && s.size > 0 ? ` &middot; ${Un(s.size)}` : ""}
-          ${i && s.modifiedTime ? ` &middot; ${Nn(s.modifiedTime)}` : ""}
+          ${_t(s.mimeType)}
+          ${n && s.size > 0 ? ` &middot; ${hi(s.size)}` : ""}
+          ${i && s.modifiedTime ? ` &middot; ${gi(s.modifiedTime)}` : ""}
         </p>
       </div>
-      ${r && t ? '<i class="iconoir-nav-arrow-right text-gray-400" aria-hidden="true"></i>' : ""}
+      ${a && t ? '<i class="iconoir-nav-arrow-right text-gray-400" aria-hidden="true"></i>' : ""}
     </div>
   `;
 }
-function as(s, e = {}) {
+function Ms(s, e = {}) {
   const { emptyMessage: t = "No files found", selectable: n = !0 } = e;
   return s.length === 0 ? `
       <div class="text-center py-8 text-gray-500">
@@ -8202,150 +8569,150 @@ function as(s, e = {}) {
       </div>
     ` : `
     <div class="space-y-2" role="list">
-      ${[...s].sort((a, l) => ie(a) && !ie(l) ? -1 : !ie(a) && ie(l) ? 1 : a.name.localeCompare(l.name)).map((a) => Vn(a, { selectable: n })).join("")}
+      ${[...s].sort((o, d) => ie(o) && !ie(d) ? -1 : !ie(o) && ie(d) ? 1 : o.name.localeCompare(d.name)).map((o) => fi(o, { selectable: n })).join("")}
     </div>
   `;
 }
-function os(s) {
+function Ds(s) {
   return {
     id: s.id,
     name: s.name,
     mimeType: s.mimeType,
-    typeName: bt(s.mimeType)
+    typeName: _t(s.mimeType)
   };
 }
 export {
-  on as AGREEMENT_STATUS_BADGES,
-  Re as AgreementFormController,
-  He as DocumentDetailPreviewController,
-  Fe as DocumentFormController,
-  tn as ESignAPIClient,
-  nn as ESignAPIError,
-  yt as GOOGLE_ACCOUNT_STORAGE_KEY,
-  ct as GoogleCallbackController,
-  dt as GoogleDrivePickerController,
-  lt as GoogleIntegrationController,
-  Fn as IMPORTABLE_MIME_TYPES,
-  pt as IntegrationConflictsController,
-  ut as IntegrationHealthController,
-  ht as IntegrationMappingsController,
-  gt as IntegrationSyncRunsController,
-  _e as LandingPageController,
-  fe as MIME_GOOGLE_DOC,
-  wt as MIME_GOOGLE_FOLDER,
-  je as MIME_GOOGLE_SHEET,
-  Oe as MIME_GOOGLE_SLIDES,
-  ze as MIME_PDF,
-  zi as PanelPaginationBehavior,
-  Ui as PanelSearchBehavior,
-  Qi as STANDARD_GRID_SELECTORS,
-  ot as SignerCompletePageController,
-  vt as SignerErrorPageController,
-  ft as SignerReviewController,
+  Mn as AGREEMENT_STATUS_BADGES,
+  Ue as AgreementFormController,
+  Ne as DocumentDetailPreviewController,
+  ze as DocumentFormController,
+  Ln as ESignAPIClient,
+  An as ESignAPIError,
+  Bt as GOOGLE_ACCOUNT_STORAGE_KEY,
+  Et as GoogleCallbackController,
+  Lt as GoogleDrivePickerController,
+  It as GoogleIntegrationController,
+  oi as IMPORTABLE_MIME_TYPES,
+  Pt as IntegrationConflictsController,
+  At as IntegrationHealthController,
+  kt as IntegrationMappingsController,
+  Tt as IntegrationSyncRunsController,
+  Oe as LandingPageController,
+  we as MIME_GOOGLE_DOC,
+  $t as MIME_GOOGLE_FOLDER,
+  qe as MIME_GOOGLE_SHEET,
+  Ve as MIME_GOOGLE_SLIDES,
+  Ge as MIME_PDF,
+  ps as PanelPaginationBehavior,
+  hs as PanelSearchBehavior,
+  Ss as STANDARD_GRID_SELECTORS,
+  Ct as SignerCompletePageController,
+  Dt as SignerErrorPageController,
+  Mt as SignerReviewController,
   H as announce,
-  ns as applyAccountIdToPath,
-  pn as applyDetailFormatters,
-  _i as bootstrapAgreementForm,
-  Oi as bootstrapDocumentDetailPreview,
-  $i as bootstrapDocumentForm,
-  yi as bootstrapGoogleCallback,
-  Ci as bootstrapGoogleDrivePicker,
-  xi as bootstrapGoogleIntegration,
-  ki as bootstrapIntegrationConflicts,
-  Ei as bootstrapIntegrationHealth,
-  Pi as bootstrapIntegrationMappings,
-  Mi as bootstrapIntegrationSyncRuns,
-  mi as bootstrapLandingPage,
-  vi as bootstrapSignerCompletePage,
-  Hi as bootstrapSignerErrorPage,
-  Mn as bootstrapSignerReview,
-  is as buildScopedApiUrl,
-  ii as byId,
-  an as capitalize,
-  rn as createESignClient,
-  ln as createElement,
-  Yi as createSchemaActionCachingRefresh,
-  os as createSelectedFile,
-  ti as createStatusBadgeElement,
-  hi as createTimeoutController,
-  Vi as dateTimeCellRenderer,
+  As as applyAccountIdToPath,
+  Rn as applyDetailFormatters,
+  as as bootstrapAgreementForm,
+  us as bootstrapDocumentDetailPreview,
+  ss as bootstrapDocumentForm,
+  qi as bootstrapGoogleCallback,
+  Ji as bootstrapGoogleDrivePicker,
+  Gi as bootstrapGoogleIntegration,
+  es as bootstrapIntegrationConflicts,
+  Ki as bootstrapIntegrationHealth,
+  Xi as bootstrapIntegrationMappings,
+  ns as bootstrapIntegrationSyncRuns,
+  Oi as bootstrapLandingPage,
+  Ui as bootstrapSignerCompletePage,
+  ls as bootstrapSignerErrorPage,
+  ni as bootstrapSignerReview,
+  ks as buildScopedApiUrl,
+  ki as byId,
+  Tn as capitalize,
+  Pn as createESignClient,
+  $n as createElement,
+  xs as createSchemaActionCachingRefresh,
+  Ds as createSelectedFile,
+  Li as createStatusBadgeElement,
+  Ri as createTimeoutController,
+  fs as dateTimeCellRenderer,
   re as debounce,
-  Ji as defaultActionErrorHandler,
-  Wi as defaultActionSuccessHandler,
-  ri as delegate,
+  ys as defaultActionErrorHandler,
+  ws as defaultActionSuccessHandler,
+  Ti as delegate,
   se as escapeHtml,
-  Gi as fileSizeCellRenderer,
-  Kn as formatDate,
+  vs as fileSizeCellRenderer,
+  bi as formatDate,
   X as formatDateTime,
-  Nn as formatDriveDate,
-  Un as formatDriveFileSize,
-  ge as formatFileSize,
-  Jn as formatPageCount,
-  Xn as formatRecipientCount,
-  Qn as formatRelativeTime,
-  un as formatSizeElements,
-  Yn as formatTime,
-  hn as formatTimestampElements,
-  rt as getAgreementStatusBadge,
-  Wn as getESignClient,
-  zn as getFileIconConfig,
-  bt as getFileTypeName,
-  dn as getPageConfig,
-  f as hide,
-  Bi as initAgreementForm,
-  gn as initDetailFormatters,
-  ji as initDocumentDetailPreview,
-  Di as initDocumentForm,
-  wi as initGoogleCallback,
-  Si as initGoogleDrivePicker,
-  bi as initGoogleIntegration,
-  Ai as initIntegrationConflicts,
-  Ii as initIntegrationHealth,
-  Li as initIntegrationMappings,
-  Ti as initIntegrationSyncRuns,
-  gi as initLandingPage,
-  fi as initSignerCompletePage,
-  Ri as initSignerErrorPage,
-  Fi as initSignerReview,
+  gi as formatDriveDate,
+  hi as formatDriveFileSize,
+  fe as formatFileSize,
+  yi as formatPageCount,
+  Ci as formatRecipientCount,
+  Si as formatRelativeTime,
+  _n as formatSizeElements,
+  xi as formatTime,
+  Fn as formatTimestampElements,
+  xt as getAgreementStatusBadge,
+  wi as getESignClient,
+  pi as getFileIconConfig,
+  _t as getFileTypeName,
+  Bn as getPageConfig,
+  w as hide,
+  rs as initAgreementForm,
+  Hn as initDetailFormatters,
+  ds as initDocumentDetailPreview,
+  is as initDocumentForm,
+  Ni as initGoogleCallback,
+  Wi as initGoogleDrivePicker,
+  Vi as initGoogleIntegration,
+  Zi as initIntegrationConflicts,
+  Yi as initIntegrationHealth,
+  Qi as initIntegrationMappings,
+  ts as initIntegrationSyncRuns,
+  ji as initLandingPage,
+  zi as initSignerCompletePage,
+  cs as initSignerErrorPage,
+  os as initSignerReview,
   ie as isFolder,
-  Rn as isGoogleDoc,
-  Xi as isGoogleWorkspaceFile,
-  jn as isImportable,
-  Hn as isPDF,
-  me as normalizeAccountId,
-  On as normalizeDriveFile,
-  Zi as normalizeDriveFiles,
-  _n as normalizeFilterOperators,
-  Bn as normalizeFilterOptions,
-  $n as normalizeFilterType,
-  si as on,
-  k as onReady,
-  li as poll,
-  qi as prepareFilterFields,
-  Ni as prepareGridColumns,
+  ci as isGoogleDoc,
+  Cs as isGoogleWorkspaceFile,
+  di as isImportable,
+  li as isPDF,
+  ve as normalizeAccountId,
+  ui as normalizeDriveFile,
+  Es as normalizeDriveFiles,
+  ai as normalizeFilterOperators,
+  ri as normalizeFilterOptions,
+  si as normalizeFilterType,
+  Pi as on,
+  M as onReady,
+  Bi as poll,
+  ms as prepareFilterFields,
+  gs as prepareGridColumns,
   c as qs,
   W as qsa,
-  rs as renderBreadcrumb,
-  qn as renderFileIcon,
-  Vn as renderFileItem,
-  as as renderFileList,
-  cn as renderStatusBadge,
-  es as resolveAccountId,
-  di as retry,
-  ts as saveAccountId,
-  sn as setESignClient,
-  oi as setLoading,
-  Ki as setupRefreshButton,
+  Ts as renderBreadcrumb,
+  mi as renderFileIcon,
+  fi as renderFileItem,
+  Ms as renderFileList,
+  Dn as renderStatusBadge,
+  Is as resolveAccountId,
+  _i as retry,
+  Ls as saveAccountId,
+  kn as setESignClient,
+  Di as setLoading,
+  bs as setupRefreshButton,
   x as show,
-  at as sleep,
-  Zn as snakeToTitle,
-  ss as syncAccountIdToUrl,
-  ui as throttle,
-  ai as toggle,
-  ei as truncate,
-  oe as updateDataText,
-  ci as updateDataTexts,
-  ni as updateStatusBadge,
-  pi as withTimeout
+  St as sleep,
+  Ei as snakeToTitle,
+  Ps as syncAccountIdToUrl,
+  Fi as throttle,
+  Mi as toggle,
+  Ii as truncate,
+  ce as updateDataText,
+  $i as updateDataTexts,
+  Ai as updateStatusBadge,
+  Hi as withTimeout
 };
 //# sourceMappingURL=index.js.map

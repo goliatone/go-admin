@@ -5294,6 +5294,93 @@ test('typed signature attach does not require upload_token', () => {
 });
 
 // =============================================================================
+// Phase 31.FE.2 Tests - Saved Signature Tab Loading
+// =============================================================================
+
+function createMockSavedSignatureLibraryAPI() {
+  return {
+    listCalls: [],
+    listResultsByType: new Map([
+      ['signature', [{ id: 'sig_1', type: 'signature' }]],
+      ['initials', [{ id: 'ini_1', type: 'initials' }]],
+    ]),
+    async list(signatureType) {
+      this.listCalls.push(signatureType);
+      return this.listResultsByType.get(signatureType) || [];
+    },
+  };
+}
+
+function createSavedSignatureTabLoader({ fields = [], api } = {}) {
+  const state = {
+    fieldState: new Map(fields.map((field) => [field.id, field])),
+    savedSignaturesByType: new Map(),
+  };
+  const signatureLibraryAPI = api || createMockSavedSignatureLibraryAPI();
+
+  function resolveFieldSignatureType(fieldId) {
+    const fieldData = state.fieldState.get(fieldId);
+    if (!fieldData) return 'signature';
+    return fieldData.type === 'initials' ? 'initials' : 'signature';
+  }
+
+  async function ensureSavedSignaturesLoaded(fieldId, force = false) {
+    const signatureType = resolveFieldSignatureType(fieldId);
+    if (!force && state.savedSignaturesByType.has(signatureType)) {
+      return state.savedSignaturesByType.get(signatureType);
+    }
+    const rows = await signatureLibraryAPI.list(signatureType);
+    state.savedSignaturesByType.set(signatureType, rows);
+    return rows;
+  }
+
+  return { state, signatureLibraryAPI, resolveFieldSignatureType, ensureSavedSignaturesLoaded };
+}
+
+test('saved signature loader requests entries using active field type', async () => {
+  const loader = createSavedSignatureTabLoader({
+    fields: [{ id: 'field_initials_1', type: 'initials' }],
+  });
+
+  const rows = await loader.ensureSavedSignaturesLoaded('field_initials_1');
+
+  assert.equal(loader.signatureLibraryAPI.listCalls.length, 1);
+  assert.equal(loader.signatureLibraryAPI.listCalls[0], 'initials');
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].type, 'initials');
+});
+
+test('saved signature loader caches by type and only reloads when forced', async () => {
+  const loader = createSavedSignatureTabLoader({
+    fields: [{ id: 'field_sig_1', type: 'signature' }],
+  });
+
+  await loader.ensureSavedSignaturesLoaded('field_sig_1');
+  await loader.ensureSavedSignaturesLoaded('field_sig_1');
+  await loader.ensureSavedSignaturesLoaded('field_sig_1', true);
+
+  assert.deepEqual(loader.signatureLibraryAPI.listCalls, ['signature', 'signature']);
+});
+
+test('saved signature loader maintains independent cache per signature type', async () => {
+  const loader = createSavedSignatureTabLoader({
+    fields: [
+      { id: 'field_sig_2', type: 'signature' },
+      { id: 'field_ini_2', type: 'initials' },
+    ],
+  });
+
+  await loader.ensureSavedSignaturesLoaded('field_sig_2');
+  await loader.ensureSavedSignaturesLoaded('field_ini_2');
+  await loader.ensureSavedSignaturesLoaded('field_sig_2');
+  await loader.ensureSavedSignaturesLoaded('field_ini_2');
+
+  assert.deepEqual(loader.signatureLibraryAPI.listCalls, ['signature', 'initials']);
+  assert.equal(loader.state.savedSignaturesByType.has('signature'), true);
+  assert.equal(loader.state.savedSignaturesByType.has('initials'), true);
+});
+
+// =============================================================================
 // Phase 19.FE.2 Tests - Coordinate Transform System
 // =============================================================================
 
@@ -13791,4 +13878,126 @@ test('Phase 32 template contract: migrated e-sign templates avoid inline onclick
     const template = fs.readFileSync(filePath, 'utf8');
     assert.doesNotMatch(template, /onclick=/);
   });
+});
+
+function expandAutomationRulesForTest(rules, terminalPage) {
+  const expanded = [];
+  const resolvedTerminalPage = Number.isFinite(terminalPage) && terminalPage > 0 ? terminalPage : 1;
+
+  rules.forEach((rule, index) => {
+    if (rule.type === 'initials_each_page') {
+      let start = rule.fromPage > 0 ? rule.fromPage : 1;
+      let end = rule.toPage > 0 ? rule.toPage : resolvedTerminalPage;
+      if (end < start) [start, end] = [end, start];
+      const excludedPages = new Set(rule.excludePages || []);
+      if (rule.excludeLastPage) excludedPages.add(resolvedTerminalPage);
+
+      for (let page = start; page <= end; page++) {
+        if (excludedPages.has(page)) continue;
+        expanded.push({
+          id: `${rule.id || `rule-${index + 1}`}-initials-${page}`,
+          type: 'initials',
+          page,
+          participantId: rule.participantId,
+          required: rule.required !== false,
+        });
+      }
+    } else if (rule.type === 'signature_once') {
+      let page = rule.page > 0 ? rule.page : (rule.toPage > 0 ? rule.toPage : resolvedTerminalPage);
+      if (page <= 0) page = 1;
+      expanded.push({
+        id: `${rule.id || `rule-${index + 1}`}-signature-${page}`,
+        type: 'signature',
+        page,
+        participantId: rule.participantId,
+        required: rule.required !== false,
+      });
+    }
+  });
+
+  expanded.sort((left, right) => {
+    if (left.page !== right.page) return left.page - right.page;
+    return String(left.id).localeCompare(String(right.id));
+  });
+  return expanded;
+}
+
+test('Phase 31.FE.1: agreement form template includes automation rules UI and hidden payload fields', () => {
+  const template = fs.readFileSync(agreementFormTemplatePath, 'utf8');
+
+  assert.match(template, /id="field-rules-container"/);
+  assert.match(template, /id="field-rule-template"/);
+  assert.match(template, /id="field-rules-preview"/);
+  assert.match(template, /id="add-field-rule-btn"/);
+  assert.match(template, /id="field_rules_json" name="field_rules_json"/);
+  assert.match(template, /id="document_page_count" name="document_page_count"/);
+  assert.match(template, /class="field-rule-type-select/);
+  assert.match(template, /class="field-rule-participant-select/);
+});
+
+test('Phase 31.FE.1: agreement form script wires rule lifecycle and payload synchronization', () => {
+  const template = fs.readFileSync(agreementFormTemplatePath, 'utf8');
+
+  assert.match(template, /function collectFieldRulesForState\(\)/);
+  assert.match(template, /function collectFieldRulesForForm\(\)/);
+  assert.match(template, /function resolveRuleExpansionBaseID\(rule, index\)/);
+  assert.match(template, /function expandRulesForPreview\(rules, terminalPage\)/);
+  assert.match(template, /function addFieldRule\(data = \{\}\)/);
+  assert.match(template, /function restoreFieldRulesFromState\(\)/);
+  assert.match(template, /fieldRulesJSONInput\.value = JSON\.stringify\(collectFieldRulesForForm\(\)\)/);
+  assert.match(template, /Please assign all automation rules to a signer/);
+  assert.match(template, /const expandedRuleFields = expandRulesForPreview\(collectFieldRulesForState\(\), getCurrentDocumentPageCount\(\)\);/);
+});
+
+test('Phase 31.FE.2: placement panel includes generated automation fields alongside manual definitions', () => {
+  const template = fs.readFileSync(agreementFormTemplatePath, 'utf8');
+
+  assert.match(template, /function collectPlacementFieldDefinitions\(\)/);
+  assert.match(template, /const generatedRuleFields = expandRulesForPreview\(collectFieldRulesForState\(\), getCurrentDocumentPageCount\(\)\);/);
+  assert.match(template, /const placementDefinitions = collectPlacementFieldDefinitions\(\);/);
+  assert.match(template, /placementDefinitions\.forEach\(\(definition\) => \{/);
+  assert.match(template, /placementState\.fieldInstances = placementState\.fieldInstances\.filter\(\(instance\) =>/);
+});
+
+test('Phase 31.FE.1: automation rule expansion supports initials ranges with exclusions', () => {
+  const expanded = expandAutomationRulesForTest([
+    {
+      id: 'rule-initials',
+      type: 'initials_each_page',
+      participantId: 'participant-1',
+      fromPage: 1,
+      toPage: 5,
+      excludeLastPage: true,
+      excludePages: [2],
+      required: true,
+    },
+  ], 5);
+
+  assert.deepEqual(
+    expanded.map((field) => [field.type, field.page, field.participantId, field.required]),
+    [
+      ['initials', 1, 'participant-1', true],
+      ['initials', 3, 'participant-1', true],
+      ['initials', 4, 'participant-1', true],
+    ],
+  );
+});
+
+test('Phase 31.FE.1: automation rule expansion supports terminal signature defaults', () => {
+  const expanded = expandAutomationRulesForTest([
+    {
+      id: 'rule-signature',
+      type: 'signature_once',
+      participantId: 'participant-2',
+      page: 0,
+      toPage: 0,
+      required: false,
+    },
+  ], 7);
+
+  assert.equal(expanded.length, 1);
+  assert.equal(expanded[0].type, 'signature');
+  assert.equal(expanded[0].page, 7);
+  assert.equal(expanded[0].participantId, 'participant-2');
+  assert.equal(expanded[0].required, false);
 });
