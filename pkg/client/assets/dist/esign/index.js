@@ -1,5 +1,5 @@
-import { e as V } from "../chunks/html-DyksyvcZ.js";
-class Ln {
+import { e as Re } from "../chunks/html-DyksyvcZ.js";
+class wi {
   constructor(e) {
     this.basePath = e.basePath, this.apiBasePath = e.apiBasePath || `${e.basePath}/api`, this.defaultHeaders = {
       Accept: "application/json",
@@ -19,26 +19,26 @@ class Ln {
     let t = 1;
     const n = 200, i = 25;
     for (; t <= i; ) {
-      const f = await this.listAgreements({ page: t, per_page: n }), g = f.items || f.records || [];
-      if (e.push(...g), g.length === 0 || e.length >= f.total)
+      const x = await this.listAgreements({ page: t, per_page: n }), v = x.items || x.records || [];
+      if (e.push(...v), v.length === 0 || e.length >= x.total)
         break;
       t += 1;
     }
-    const o = {};
-    for (const f of e) {
-      const g = String(f?.status || "").trim().toLowerCase();
-      g && (o[g] = (o[g] || 0) + 1);
+    const d = {};
+    for (const x of e) {
+      const v = String(x?.status || "").trim().toLowerCase();
+      v && (d[v] = (d[v] || 0) + 1);
     }
-    const d = (o.sent || 0) + (o.in_progress || 0), a = d + (o.declined || 0);
+    const u = (d.sent || 0) + (d.in_progress || 0), a = u + (d.declined || 0);
     return {
-      draft: o.draft || 0,
-      sent: o.sent || 0,
-      in_progress: o.in_progress || 0,
-      completed: o.completed || 0,
-      voided: o.voided || 0,
-      declined: o.declined || 0,
-      expired: o.expired || 0,
-      pending: d,
+      draft: d.draft || 0,
+      sent: d.sent || 0,
+      in_progress: d.in_progress || 0,
+      completed: d.completed || 0,
+      voided: d.voided || 0,
+      declined: d.declined || 0,
+      expired: d.expired || 0,
+      pending: u,
       action_required: a
     };
   }
@@ -124,41 +124,41 @@ class Ln {
           message: e.statusText
         };
       }
-      throw new An(t.code, t.message, t.details);
+      throw new bi(t.code, t.message, t.details);
     }
     if (e.status !== 204)
       return e.json();
   }
 }
-class An extends Error {
+class bi extends Error {
   constructor(e, t, n) {
     super(t), this.code = e, this.details = n, this.name = "ESignAPIError";
   }
 }
-let Fe = null;
-function wi() {
-  if (!Fe)
+let En = null;
+function us() {
+  if (!En)
     throw new Error("ESign API client not initialized. Call setESignClient first.");
-  return Fe;
+  return En;
 }
-function kn(s) {
-  Fe = s;
+function xi(s) {
+  En = s;
 }
-function Pn(s) {
-  const e = new Ln(s);
-  return kn(e), e;
+function Si(s) {
+  const e = new wi(s);
+  return xi(e), e;
 }
-function fe(s) {
+function Jt(s) {
   if (s == null || s === "" || s === 0) return "-";
   const e = typeof s == "string" ? parseInt(s, 10) : s;
   return !Number.isFinite(e) || e <= 0 ? "-" : e < 1024 ? `${e} B` : e < 1024 * 1024 ? `${(e / 1024).toFixed(1)} KB` : `${(e / (1024 * 1024)).toFixed(2)} MB`;
 }
-function yi(s) {
+function ps(s) {
   if (!s) return "-";
   const e = typeof s == "string" ? parseInt(s, 10) : s;
   return !Number.isFinite(e) || e <= 0 ? "-" : e === 1 ? "1 page" : `${e} pages`;
 }
-function X(s, e) {
+function Kt(s, e) {
   if (!s) return "-";
   try {
     const t = s instanceof Date ? s : new Date(s);
@@ -172,7 +172,7 @@ function X(s, e) {
     return String(s);
   }
 }
-function bi(s, e) {
+function gs(s, e) {
   if (!s) return "-";
   try {
     const t = s instanceof Date ? s : new Date(s);
@@ -185,7 +185,7 @@ function bi(s, e) {
     return String(s);
   }
 }
-function xi(s, e) {
+function ms(s, e) {
   if (!s) return "-";
   try {
     const t = s instanceof Date ? s : new Date(s);
@@ -199,30 +199,30 @@ function xi(s, e) {
     return String(s);
   }
 }
-function Si(s) {
+function hs(s) {
   if (!s) return "-";
   try {
     const e = s instanceof Date ? s : new Date(s);
     if (isNaN(e.getTime())) return "-";
-    const t = /* @__PURE__ */ new Date(), n = e.getTime() - t.getTime(), i = Math.round(n / 1e3), o = Math.round(i / 60), d = Math.round(o / 60), a = Math.round(d / 24), f = new Intl.RelativeTimeFormat(void 0, { numeric: "auto" });
-    return Math.abs(a) >= 1 ? f.format(a, "day") : Math.abs(d) >= 1 ? f.format(d, "hour") : Math.abs(o) >= 1 ? f.format(o, "minute") : f.format(i, "second");
+    const t = /* @__PURE__ */ new Date(), n = e.getTime() - t.getTime(), i = Math.round(n / 1e3), d = Math.round(i / 60), u = Math.round(d / 60), a = Math.round(u / 24), x = new Intl.RelativeTimeFormat(void 0, { numeric: "auto" });
+    return Math.abs(a) >= 1 ? x.format(a, "day") : Math.abs(u) >= 1 ? x.format(u, "hour") : Math.abs(d) >= 1 ? x.format(d, "minute") : x.format(i, "second");
   } catch {
     return String(s);
   }
 }
-function Ci(s) {
+function fs(s) {
   return s == null ? "0 recipients" : s === 1 ? "1 recipient" : `${s} recipients`;
 }
-function Tn(s) {
+function Ii(s) {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : "";
 }
-function Ei(s) {
-  return s ? s.split("_").map((e) => Tn(e)).join(" ") : "";
+function ys(s) {
+  return s ? s.split("_").map((e) => Ii(e)).join(" ") : "";
 }
-function Ii(s, e) {
+function vs(s, e) {
   return !s || s.length <= e ? s : `${s.slice(0, e - 3)}...`;
 }
-const Mn = {
+const Ei = {
   draft: {
     label: "Draft",
     bgClass: "bg-gray-100",
@@ -266,108 +266,108 @@ const Mn = {
     dotClass: "bg-gray-400"
   }
 };
-function xt(s) {
+function On(s) {
   const e = String(s || "").trim().toLowerCase();
-  return Mn[e] || {
+  return Ei[e] || {
     label: s || "Unknown",
     bgClass: "bg-gray-100",
     textClass: "text-gray-600",
     dotClass: "bg-gray-400"
   };
 }
-function Dn(s, e) {
-  const t = xt(s), n = e?.showDot ?? !1, i = e?.size ?? "sm", o = {
+function Ci(s, e) {
+  const t = On(s), n = e?.showDot ?? !1, i = e?.size ?? "sm", d = {
     sm: "px-2.5 py-0.5 text-xs",
     md: "px-3 py-1 text-sm",
     lg: "px-4 py-1.5 text-base"
-  }, d = n ? `<span class="w-2 h-2 rounded-full ${t.dotClass} mr-1.5" aria-hidden="true"></span>` : "";
-  return `<span class="inline-flex items-center ${o[i]} rounded-full font-medium ${t.bgClass} ${t.textClass}">${d}${t.label}</span>`;
+  }, u = n ? `<span class="w-2 h-2 rounded-full ${t.dotClass} mr-1.5" aria-hidden="true"></span>` : "";
+  return `<span class="inline-flex items-center ${d[i]} rounded-full font-medium ${t.bgClass} ${t.textClass}">${u}${t.label}</span>`;
 }
-function Li(s, e) {
+function ws(s, e) {
   const t = document.createElement("span");
-  return t.innerHTML = Dn(s, e), t.firstElementChild;
+  return t.innerHTML = Ci(s, e), t.firstElementChild;
 }
-function Ai(s, e, t) {
-  const n = xt(e), i = t?.size ?? "sm", o = {
+function bs(s, e, t) {
+  const n = On(e), i = t?.size ?? "sm", d = {
     sm: "px-2.5 py-0.5 text-xs",
     md: "px-3 py-1 text-sm",
     lg: "px-4 py-1.5 text-base"
   };
-  if (s.className = "", s.className = `inline-flex items-center ${o[i]} rounded-full font-medium ${n.bgClass} ${n.textClass}`, t?.showDot ?? !1) {
-    const f = s.querySelector(".rounded-full");
-    if (f)
-      f.className = `w-2 h-2 rounded-full ${n.dotClass} mr-1.5`;
+  if (s.className = "", s.className = `inline-flex items-center ${d[i]} rounded-full font-medium ${n.bgClass} ${n.textClass}`, t?.showDot ?? !1) {
+    const x = s.querySelector(".rounded-full");
+    if (x)
+      x.className = `w-2 h-2 rounded-full ${n.dotClass} mr-1.5`;
     else {
-      const g = document.createElement("span");
-      g.className = `w-2 h-2 rounded-full ${n.dotClass} mr-1.5`, g.setAttribute("aria-hidden", "true"), s.prepend(g);
+      const v = document.createElement("span");
+      v.className = `w-2 h-2 rounded-full ${n.dotClass} mr-1.5`, v.setAttribute("aria-hidden", "true"), s.prepend(v);
     }
   }
   const a = s.childNodes[s.childNodes.length - 1];
   a && a.nodeType === Node.TEXT_NODE ? a.textContent = n.label : s.appendChild(document.createTextNode(n.label));
 }
-function c(s, e = document) {
+function g(s, e = document) {
   try {
     return e.querySelector(s);
   } catch {
     return null;
   }
 }
-function W(s, e = document) {
+function nt(s, e = document) {
   try {
     return Array.from(e.querySelectorAll(s));
   } catch {
     return [];
   }
 }
-function ki(s) {
+function xs(s) {
   return document.getElementById(s);
 }
-function $n(s, e, t) {
+function Li(s, e, t) {
   const n = document.createElement(s);
   if (e)
-    for (const [i, o] of Object.entries(e))
-      o !== void 0 && n.setAttribute(i, o);
+    for (const [i, d] of Object.entries(e))
+      d !== void 0 && n.setAttribute(i, d);
   if (t)
     for (const i of t)
       typeof i == "string" ? n.appendChild(document.createTextNode(i)) : n.appendChild(i);
   return n;
 }
-function Pi(s, e, t, n) {
+function Ss(s, e, t, n) {
   return s.addEventListener(e, t, n), () => s.removeEventListener(e, t, n);
 }
-function Ti(s, e, t, n, i) {
-  const o = (d) => {
-    const a = d.target.closest(e);
-    a && s.contains(a) && n.call(a, d, a);
+function Is(s, e, t, n, i) {
+  const d = (u) => {
+    const a = u.target.closest(e);
+    a && s.contains(a) && n.call(a, u, a);
   };
-  return s.addEventListener(t, o, i), () => s.removeEventListener(t, o, i);
+  return s.addEventListener(t, d, i), () => s.removeEventListener(t, d, i);
 }
-function M(s) {
+function W(s) {
   document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", s, { once: !0 }) : s();
 }
-function x(s) {
+function $(s) {
   s && (s.classList.remove("hidden", "invisible"), s.style.display = "");
 }
-function w(s) {
+function k(s) {
   s && s.classList.add("hidden");
 }
-function Mi(s, e) {
+function Es(s, e) {
   if (!s) return;
-  e ?? s.classList.contains("hidden") ? x(s) : w(s);
+  e ?? s.classList.contains("hidden") ? $(s) : k(s);
 }
-function Di(s, e, t) {
+function Cs(s, e, t) {
   s && (e ? (s.setAttribute("aria-busy", "true"), s.classList.add("opacity-50", "pointer-events-none"), (s instanceof HTMLButtonElement || s instanceof HTMLInputElement) && (s.disabled = !0)) : (s.removeAttribute("aria-busy"), s.classList.remove("opacity-50", "pointer-events-none"), (s instanceof HTMLButtonElement || s instanceof HTMLInputElement) && (s.disabled = !1)));
 }
-function ce(s, e, t = document) {
-  const n = c(`[data-esign-${s}]`, t);
+function Dt(s, e, t = document) {
+  const n = g(`[data-esign-${s}]`, t);
   n && (n.textContent = String(e));
 }
-function $i(s, e = document) {
+function Ls(s, e = document) {
   for (const [t, n] of Object.entries(s))
-    ce(t, n, e);
+    Dt(t, n, e);
 }
-function Bn(s = "[data-esign-page]", e = "data-esign-config") {
-  const t = c(s);
+function ki(s = "[data-esign-page]", e = "data-esign-config") {
+  const t = g(s);
   if (!t) return null;
   const n = t.getAttribute(e);
   if (n)
@@ -376,7 +376,7 @@ function Bn(s = "[data-esign-page]", e = "data-esign-config") {
     } catch {
       console.warn("Failed to parse page config from attribute:", n);
     }
-  const i = c(
+  const i = g(
     'script[type="application/json"]',
     t
   );
@@ -388,9 +388,9 @@ function Bn(s = "[data-esign-page]", e = "data-esign-config") {
     }
   return null;
 }
-function H(s, e = "polite") {
-  const t = c(`[aria-live="${e}"]`) || (() => {
-    const n = $n("div", {
+function me(s, e = "polite") {
+  const t = g(`[aria-live="${e}"]`) || (() => {
+    const n = Li("div", {
       "aria-live": e,
       "aria-atomic": "true",
       class: "sr-only"
@@ -401,70 +401,70 @@ function H(s, e = "polite") {
     t.textContent = s;
   });
 }
-async function Bi(s) {
+async function ks(s) {
   const {
     fn: e,
     until: t,
     interval: n = 2e3,
     timeout: i = 6e4,
-    maxAttempts: o = 30,
-    onProgress: d,
+    maxAttempts: d = 30,
+    onProgress: u,
     signal: a
-  } = s, f = Date.now();
-  let g = 0, y;
-  for (; g < o; ) {
+  } = s, x = Date.now();
+  let v = 0, C;
+  for (; v < d; ) {
     if (a?.aborted)
       throw new DOMException("Polling aborted", "AbortError");
-    if (Date.now() - f >= i)
+    if (Date.now() - x >= i)
       return {
-        result: y,
-        attempts: g,
+        result: C,
+        attempts: v,
         stopped: !1,
         timedOut: !0
       };
-    if (g++, y = await e(), d && d(y, g), t(y))
+    if (v++, C = await e(), u && u(C, v), t(C))
       return {
-        result: y,
-        attempts: g,
+        result: C,
+        attempts: v,
         stopped: !0,
         timedOut: !1
       };
-    await St(n, a);
+    await Un(n, a);
   }
   return {
-    result: y,
-    attempts: g,
+    result: C,
+    attempts: v,
     stopped: !1,
     timedOut: !1
   };
 }
-async function _i(s) {
+async function Ps(s) {
   const {
     fn: e,
     maxAttempts: t = 3,
     baseDelay: n = 1e3,
     maxDelay: i = 3e4,
-    exponentialBackoff: o = !0,
-    shouldRetry: d = () => !0,
+    exponentialBackoff: d = !0,
+    shouldRetry: u = () => !0,
     onRetry: a,
-    signal: f
+    signal: x
   } = s;
-  let g;
-  for (let y = 1; y <= t; y++) {
-    if (f?.aborted)
+  let v;
+  for (let C = 1; C <= t; C++) {
+    if (x?.aborted)
       throw new DOMException("Retry aborted", "AbortError");
     try {
       return await e();
-    } catch (b) {
-      if (g = b, y >= t || !d(b, y))
-        throw b;
-      const I = o ? Math.min(n * Math.pow(2, y - 1), i) : n;
-      a && a(b, y, I), await St(I, f);
+    } catch (P) {
+      if (v = P, C >= t || !u(P, C))
+        throw P;
+      const H = d ? Math.min(n * Math.pow(2, C - 1), i) : n;
+      a && a(P, C, H), await Un(H, x);
     }
   }
-  throw g;
+  throw v;
 }
-function St(s, e) {
+function Un(s, e) {
   return new Promise((t, n) => {
     if (e?.aborted) {
       n(new DOMException("Sleep aborted", "AbortError"));
@@ -472,14 +472,14 @@ function St(s, e) {
     }
     const i = setTimeout(t, s);
     if (e) {
-      const o = () => {
+      const d = () => {
         clearTimeout(i), n(new DOMException("Sleep aborted", "AbortError"));
       };
-      e.addEventListener("abort", o, { once: !0 });
+      e.addEventListener("abort", d, { once: !0 });
     }
   });
 }
-function re(s, e) {
+function Qt(s, e) {
   let t = null;
   return (...n) => {
     t && clearTimeout(t), t = setTimeout(() => {
@@ -487,30 +487,30 @@ function re(s, e) {
     }, e);
   };
 }
-function Fi(s, e) {
+function As(s, e) {
   let t = 0, n = null;
   return (...i) => {
-    const o = Date.now();
-    o - t >= e ? (t = o, s(...i)) : n || (n = setTimeout(
+    const d = Date.now();
+    d - t >= e ? (t = d, s(...i)) : n || (n = setTimeout(
       () => {
         t = Date.now(), n = null, s(...i);
       },
-      e - (o - t)
+      e - (d - t)
     ));
   };
 }
-function Ri(s) {
+function Ts(s) {
   const e = new AbortController(), t = setTimeout(() => e.abort(), s);
   return {
     controller: e,
     cleanup: () => clearTimeout(t)
   };
 }
-async function Hi(s, e, t = "Operation timed out") {
+async function _s(s, e, t = "Operation timed out") {
   let n;
-  const i = new Promise((o, d) => {
+  const i = new Promise((d, u) => {
     n = setTimeout(() => {
-      d(new Error(t));
+      u(new Error(t));
     }, e);
   });
   try {
@@ -519,9 +519,9 @@ async function Hi(s, e, t = "Operation timed out") {
     clearTimeout(n);
   }
 }
-class Oe {
+class Pn {
   constructor(e) {
-    this.config = e, this.client = Pn({
+    this.config = e, this.client = Si({
       basePath: e.basePath,
       apiBasePath: e.apiBasePath
     });
@@ -541,7 +541,7 @@ class Oe {
    */
   async loadStats() {
     const e = await this.client.getAgreementStats();
-    ce('count="draft"', e.draft), ce('count="pending"', e.pending), ce('count="completed"', e.completed), ce('count="action_required"', e.action_required), this.updateStatElement("draft", e.draft), this.updateStatElement("pending", e.pending), this.updateStatElement("completed", e.completed), this.updateStatElement("action_required", e.action_required);
+    Dt('count="draft"', e.draft), Dt('count="pending"', e.pending), Dt('count="completed"', e.completed), Dt('count="action_required"', e.action_required), this.updateStatElement("draft", e.draft), this.updateStatElement("pending", e.pending), this.updateStatElement("completed", e.completed), this.updateStatElement("action_required", e.action_required);
   }
   /**
    * Update a stat element by key
@@ -551,23 +551,23 @@ class Oe {
     n && (n.textContent = String(t));
   }
 }
-function ji(s) {
-  const e = s || Bn(
+function $s(s) {
+  const e = s || ki(
     '[data-esign-page="admin.landing"], [data-esign-page="landing"]'
   );
   if (!e)
     throw new Error('Landing page config not found. Add data-esign-page="landing" with config.');
-  const t = new Oe(e);
-  return M(() => t.init()), t;
+  const t = new Pn(e);
+  return W(() => t.init()), t;
 }
-function Oi(s, e) {
+function Ms(s, e) {
   const t = {
     basePath: s,
     apiBasePath: e || `${s}/api`
-  }, n = new Oe(t);
-  M(() => n.init());
+  }, n = new Pn(t);
+  W(() => n.init());
 }
-typeof document < "u" && M(() => {
+typeof document < "u" && W(() => {
   const s = document.querySelector(
     '[data-esign-page="admin.landing"], [data-esign-page="landing"]'
   );
@@ -588,14 +588,14 @@ typeof document < "u" && M(() => {
       return null;
     })();
     if (n) {
-      const i = String(n.basePath || n.base_path || "/admin"), o = String(
+      const i = String(n.basePath || n.base_path || "/admin"), d = String(
         n.apiBasePath || n.api_base_path || `${i}/api`
       );
-      new Oe({ basePath: i, apiBasePath: o }).init();
+      new Pn({ basePath: i, apiBasePath: d }).init();
     }
   }
 });
-class Ct {
+class Vn {
   constructor(e) {
     this.state = {
       loaded: !1,
@@ -615,7 +615,7 @@ class Ct {
    * Setup event listeners
    */
   setupEventListeners() {
-    const e = c("#retry-artifacts-btn");
+    const e = g("#retry-artifacts-btn");
     e && e.addEventListener("click", () => this.loadArtifacts());
   }
   /**
@@ -660,8 +660,8 @@ class Ct {
    */
   showArtifactState(e) {
     ["loading", "processing", "available", "unavailable", "fallback"].forEach((n) => {
-      const i = c(`#artifacts-${n}`);
-      i && (n === e ? x(i) : w(i));
+      const i = g(`#artifacts-${n}`);
+      i && (n === e ? $(i) : k(i));
     });
   }
   /**
@@ -669,16 +669,16 @@ class Ct {
    */
   displayArtifacts(e) {
     if (e.executed) {
-      const t = c("#artifact-executed"), n = c("#artifact-executed-link");
-      t && n && (n.href = new URL(e.executed, window.location.origin).toString(), x(t));
+      const t = g("#artifact-executed"), n = g("#artifact-executed-link");
+      t && n && (n.href = new URL(e.executed, window.location.origin).toString(), $(t));
     }
     if (e.source) {
-      const t = c("#artifact-source"), n = c("#artifact-source-link");
-      t && n && (n.href = new URL(e.source, window.location.origin).toString(), x(t));
+      const t = g("#artifact-source"), n = g("#artifact-source-link");
+      t && n && (n.href = new URL(e.source, window.location.origin).toString(), $(t));
     }
     if (e.certificate) {
-      const t = c("#artifact-certificate"), n = c("#artifact-certificate-link");
-      t && n && (n.href = new URL(e.certificate, window.location.origin).toString(), x(t));
+      const t = g("#artifact-certificate"), n = g("#artifact-certificate-link");
+      t && n && (n.href = new URL(e.certificate, window.location.origin).toString(), $(t));
     }
   }
   /**
@@ -688,36 +688,36 @@ class Ct {
     return { ...this.state };
   }
 }
-function zi(s) {
-  const e = new Ct(s);
-  return M(() => e.init()), e;
+function Bs(s) {
+  const e = new Vn(s);
+  return W(() => e.init()), e;
 }
-function Ui(s) {
-  const e = new Ct(s);
-  M(() => e.init()), typeof window < "u" && (window.esignCompletionController = e, window.loadArtifacts = () => e.loadArtifacts());
+function Ds(s) {
+  const e = new Vn(s);
+  W(() => e.init()), typeof window < "u" && (window.esignCompletionController = e, window.loadArtifacts = () => e.loadArtifacts());
 }
-function _n(s = document) {
-  W("[data-size-bytes]", s).forEach((e) => {
+function Pi(s = document) {
+  nt("[data-size-bytes]", s).forEach((e) => {
     const t = e.getAttribute("data-size-bytes");
-    t && (e.textContent = fe(t));
+    t && (e.textContent = Jt(t));
   });
 }
-function Fn(s = document) {
-  W("[data-timestamp]", s).forEach((e) => {
+function Ai(s = document) {
+  nt("[data-timestamp]", s).forEach((e) => {
     const t = e.getAttribute("data-timestamp");
-    t && (e.textContent = X(t));
+    t && (e.textContent = Kt(t));
   });
 }
-function Rn(s = document) {
-  _n(s), Fn(s);
+function Ti(s = document) {
+  Pi(s), Ai(s);
 }
-function Hn() {
-  M(() => {
-    Rn();
+function _i() {
+  W(() => {
+    Ti();
   });
 }
-typeof document < "u" && Hn();
-const pt = {
+typeof document < "u" && _i();
+const Fn = {
   access_denied: "You denied access to your Google account.",
   invalid_request: "The authorization request was invalid.",
   unauthorized_client: "This application is not authorized.",
@@ -727,15 +727,15 @@ const pt = {
   temporarily_unavailable: "Google is temporarily unavailable. Please try again.",
   unknown: "Authorization failed."
 };
-class Et {
+class Gn {
   constructor(e) {
     this.config = e, this.elements = {
-      loadingState: c("#loading-state"),
-      successState: c("#success-state"),
-      errorState: c("#error-state"),
-      errorMessage: c("#error-message"),
-      errorDetail: c("#error-detail"),
-      closeBtn: c("#close-btn")
+      loadingState: g("#loading-state"),
+      successState: g("#success-state"),
+      errorState: g("#error-state"),
+      errorMessage: g("#error-message"),
+      errorDetail: g("#error-detail"),
+      closeBtn: g("#close-btn")
     };
   }
   /**
@@ -755,8 +755,8 @@ class Et {
    * Process the OAuth callback parameters
    */
   processCallback() {
-    const e = new URLSearchParams(window.location.search), t = e.get("code"), n = e.get("error"), i = e.get("error_description"), o = e.get("state"), d = this.parseOAuthState(o);
-    d.account_id || (d.account_id = (e.get("account_id") || "").trim()), n ? this.handleError(n, i, d) : t ? this.handleSuccess(t, d) : this.handleError("unknown", "No authorization code was received from Google.", d);
+    const e = new URLSearchParams(window.location.search), t = e.get("code"), n = e.get("error"), i = e.get("error_description"), d = e.get("state"), u = this.parseOAuthState(d);
+    u.account_id || (u.account_id = (e.get("account_id") || "").trim()), n ? this.handleError(n, i, u) : t ? this.handleSuccess(t, u) : this.handleError("unknown", "No authorization code was received from Google.", u);
   }
   /**
    * Parse OAuth state parameter
@@ -781,15 +781,15 @@ class Et {
    */
   showState(e) {
     const { loadingState: t, successState: n, errorState: i } = this.elements;
-    switch (w(t), w(n), w(i), e) {
+    switch (k(t), k(n), k(i), e) {
       case "loading":
-        x(t);
+        $(t);
         break;
       case "success":
-        x(n);
+        $(n);
         break;
       case "error":
-        x(i);
+        $(i);
         break;
     }
   }
@@ -804,8 +804,8 @@ class Et {
    */
   handleError(e, t, n) {
     this.showState("error");
-    const { errorMessage: i, errorDetail: o, closeBtn: d } = this.elements;
-    i && (i.textContent = pt[e] || pt.unknown), t && o && (o.textContent = t, x(o)), this.sendToOpener({
+    const { errorMessage: i, errorDetail: d, closeBtn: u } = this.elements;
+    i && (i.textContent = Fn[e] || Fn.unknown), t && d && (d.textContent = t, $(d)), this.sendToOpener({
       type: "google_oauth_callback",
       error: e,
       error_description: t || void 0,
@@ -838,26 +838,26 @@ class Et {
     if (window.opener)
       window.close();
     else {
-      const e = this.config.basePath || "/admin", t = this.config.fallbackRedirectPath || `${e}/esign/integrations/google`, n = new URL(t, window.location.origin), i = new URLSearchParams(window.location.search), o = i.get("state"), a = this.parseOAuthState(o).account_id || i.get("account_id");
+      const e = this.config.basePath || "/admin", t = this.config.fallbackRedirectPath || `${e}/esign/integrations/google`, n = new URL(t, window.location.origin), i = new URLSearchParams(window.location.search), d = i.get("state"), a = this.parseOAuthState(d).account_id || i.get("account_id");
       a && n.searchParams.set("account_id", a), window.location.href = n.toString();
     }
   }
 }
-function Ni(s) {
+function Fs(s) {
   const e = s || {
     basePath: "/admin",
     apiBasePath: "/admin/api"
-  }, t = new Et(e);
-  return M(() => t.init()), t;
+  }, t = new Gn(e);
+  return W(() => t.init()), t;
 }
-function qi(s) {
+function Rs(s) {
   const e = {
     basePath: s,
     apiBasePath: `${s}/api`
-  }, t = new Et(e);
-  M(() => t.init());
+  }, t = new Gn(e);
+  W(() => t.init());
 }
-const Te = "esign.google.account_id", jn = {
+const wn = "esign.google.account_id", $i = {
   "https://www.googleapis.com/auth/drive.readonly": {
     label: "Drive (Read Only)",
     description: "View files in your Google Drive"
@@ -887,45 +887,45 @@ const Te = "esign.google.account_id", jn = {
     description: "Access files opened with this app"
   }
 };
-class It {
+class Wn {
   constructor(e) {
     this.accounts = [], this.oauthWindow = null, this.oauthTimeout = null, this.pendingOAuthAccountId = null, this.pendingDisconnectAccountId = null, this.messageHandler = null, this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api`, this.currentAccountId = this.resolveInitialAccountId(), this.elements = {
-      loadingState: c("#loading-state"),
-      disconnectedState: c("#disconnected-state"),
-      connectedState: c("#connected-state"),
-      errorState: c("#error-state"),
-      statusBadge: c("#status-badge"),
-      announcements: c("#integration-announcements"),
-      accountIdInput: c("#account-id-input"),
-      connectBtn: c("#connect-btn"),
-      disconnectBtn: c("#disconnect-btn"),
-      refreshBtn: c("#refresh-status-btn"),
-      retryBtn: c("#retry-btn"),
-      reauthBtn: c("#reauth-btn"),
-      oauthModal: c("#oauth-modal"),
-      oauthCancelBtn: c("#oauth-cancel-btn"),
-      disconnectModal: c("#disconnect-modal"),
-      disconnectCancelBtn: c("#disconnect-cancel-btn"),
-      disconnectConfirmBtn: c("#disconnect-confirm-btn"),
-      connectedEmail: c("#connected-email"),
-      connectedAccountId: c("#connected-account-id"),
-      scopesList: c("#scopes-list"),
-      expiryInfo: c("#expiry-info"),
-      reauthWarning: c("#reauth-warning"),
-      reauthReason: c("#reauth-reason"),
-      errorMessage: c("#error-message"),
-      degradedWarning: c("#degraded-warning"),
-      degradedReason: c("#degraded-reason"),
-      importDriveLink: c("#import-drive-link"),
-      integrationSettingsLink: c("#integration-settings-link"),
+      loadingState: g("#loading-state"),
+      disconnectedState: g("#disconnected-state"),
+      connectedState: g("#connected-state"),
+      errorState: g("#error-state"),
+      statusBadge: g("#status-badge"),
+      announcements: g("#integration-announcements"),
+      accountIdInput: g("#account-id-input"),
+      connectBtn: g("#connect-btn"),
+      disconnectBtn: g("#disconnect-btn"),
+      refreshBtn: g("#refresh-status-btn"),
+      retryBtn: g("#retry-btn"),
+      reauthBtn: g("#reauth-btn"),
+      oauthModal: g("#oauth-modal"),
+      oauthCancelBtn: g("#oauth-cancel-btn"),
+      disconnectModal: g("#disconnect-modal"),
+      disconnectCancelBtn: g("#disconnect-cancel-btn"),
+      disconnectConfirmBtn: g("#disconnect-confirm-btn"),
+      connectedEmail: g("#connected-email"),
+      connectedAccountId: g("#connected-account-id"),
+      scopesList: g("#scopes-list"),
+      expiryInfo: g("#expiry-info"),
+      reauthWarning: g("#reauth-warning"),
+      reauthReason: g("#reauth-reason"),
+      errorMessage: g("#error-message"),
+      degradedWarning: g("#degraded-warning"),
+      degradedReason: g("#degraded-reason"),
+      importDriveLink: g("#import-drive-link"),
+      integrationSettingsLink: g("#integration-settings-link"),
       // Option A - Dropdown
-      accountDropdown: c("#account-dropdown"),
+      accountDropdown: g("#account-dropdown"),
       // Option B - Cards Grid
-      accountsSection: c("#accounts-section"),
-      accountsLoading: c("#accounts-loading"),
-      accountsEmpty: c("#accounts-empty"),
-      accountsGrid: c("#accounts-grid"),
-      connectFirstBtn: c("#connect-first-btn")
+      accountsSection: g("#accounts-section"),
+      accountsLoading: g("#accounts-loading"),
+      accountsEmpty: g("#accounts-empty"),
+      accountsGrid: g("#accounts-grid"),
+      connectFirstBtn: g("#connect-first-btn")
     };
   }
   /**
@@ -943,32 +943,32 @@ class It {
       disconnectBtn: t,
       refreshBtn: n,
       retryBtn: i,
-      reauthBtn: o,
-      oauthCancelBtn: d,
+      reauthBtn: d,
+      oauthCancelBtn: u,
       disconnectCancelBtn: a,
-      disconnectConfirmBtn: f,
-      accountIdInput: g,
-      oauthModal: y,
-      disconnectModal: b
+      disconnectConfirmBtn: x,
+      accountIdInput: v,
+      oauthModal: C,
+      disconnectModal: P
     } = this.elements;
-    e && e.addEventListener("click", () => this.startOAuthFlow()), o && o.addEventListener("click", () => this.startOAuthFlow()), t && t.addEventListener("click", () => {
-      this.pendingDisconnectAccountId = this.currentAccountId, b && x(b);
+    e && e.addEventListener("click", () => this.startOAuthFlow()), d && d.addEventListener("click", () => this.startOAuthFlow()), t && t.addEventListener("click", () => {
+      this.pendingDisconnectAccountId = this.currentAccountId, P && $(P);
     }), a && a.addEventListener("click", () => {
-      this.pendingDisconnectAccountId = null, b && w(b);
-    }), f && f.addEventListener("click", () => this.disconnect()), d && d.addEventListener("click", () => this.cancelOAuthFlow()), n && n.addEventListener("click", () => this.checkStatus()), i && i.addEventListener("click", () => this.checkStatus()), g && (g.addEventListener("change", () => {
-      this.setCurrentAccountId(g.value, !0);
-    }), g.addEventListener("keydown", (E) => {
-      E.key === "Enter" && (E.preventDefault(), this.setCurrentAccountId(g.value, !0));
+      this.pendingDisconnectAccountId = null, P && k(P);
+    }), x && x.addEventListener("click", () => this.disconnect()), u && u.addEventListener("click", () => this.cancelOAuthFlow()), n && n.addEventListener("click", () => this.checkStatus()), i && i.addEventListener("click", () => this.checkStatus()), v && (v.addEventListener("change", () => {
+      this.setCurrentAccountId(v.value, !0);
+    }), v.addEventListener("keydown", (D) => {
+      D.key === "Enter" && (D.preventDefault(), this.setCurrentAccountId(v.value, !0));
     }));
-    const { accountDropdown: I, connectFirstBtn: C } = this.elements;
-    I && I.addEventListener("change", () => {
-      I.value === "__new__" ? (I.value = this.currentAccountId, this.startOAuthFlowForNewAccount()) : this.setCurrentAccountId(I.value, !0);
-    }), C && C.addEventListener("click", () => this.startOAuthFlowForNewAccount()), document.addEventListener("keydown", (E) => {
-      E.key === "Escape" && (y && !y.classList.contains("hidden") && this.cancelOAuthFlow(), b && !b.classList.contains("hidden") && (this.pendingDisconnectAccountId = null, w(b)));
-    }), [y, b].forEach((E) => {
-      E && E.addEventListener("click", (T) => {
-        const P = T.target;
-        (P === E || P.getAttribute("aria-hidden") === "true") && (w(E), E === y ? this.cancelOAuthFlow() : E === b && (this.pendingDisconnectAccountId = null));
+    const { accountDropdown: H, connectFirstBtn: F } = this.elements;
+    H && H.addEventListener("change", () => {
+      H.value === "__new__" ? (H.value = this.currentAccountId, this.startOAuthFlowForNewAccount()) : this.setCurrentAccountId(H.value, !0);
+    }), F && F.addEventListener("click", () => this.startOAuthFlowForNewAccount()), document.addEventListener("keydown", (D) => {
+      D.key === "Escape" && (C && !C.classList.contains("hidden") && this.cancelOAuthFlow(), P && !P.classList.contains("hidden") && (this.pendingDisconnectAccountId = null, k(P)));
+    }), [C, P].forEach((D) => {
+      D && D.addEventListener("click", (z) => {
+        const N = z.target;
+        (N === D || N.getAttribute("aria-hidden") === "true") && (k(D), D === C ? this.cancelOAuthFlow() : D === P && (this.pendingDisconnectAccountId = null));
       });
     });
   }
@@ -984,7 +984,7 @@ class It {
       return n;
     try {
       return this.normalizeAccountId(
-        window.localStorage.getItem(Te)
+        window.localStorage.getItem(wn)
       );
     } catch {
       return "";
@@ -1044,7 +1044,7 @@ class It {
    */
   persistAccountId() {
     try {
-      this.currentAccountId ? window.localStorage.setItem(Te, this.currentAccountId) : window.localStorage.removeItem(Te);
+      this.currentAccountId ? window.localStorage.setItem(wn, this.currentAccountId) : window.localStorage.removeItem(wn);
     } catch {
     }
   }
@@ -1084,25 +1084,25 @@ class It {
    */
   announce(e) {
     const { announcements: t } = this.elements;
-    t && (t.textContent = e), H(e);
+    t && (t.textContent = e), me(e);
   }
   /**
    * Show a specific state and hide others
    */
   showState(e) {
-    const { loadingState: t, disconnectedState: n, connectedState: i, errorState: o } = this.elements;
-    switch (w(t), w(n), w(i), w(o), e) {
+    const { loadingState: t, disconnectedState: n, connectedState: i, errorState: d } = this.elements;
+    switch (k(t), k(n), k(i), k(d), e) {
       case "loading":
-        x(t);
+        $(t);
         break;
       case "disconnected":
-        x(n);
+        $(n);
         break;
       case "connected":
-        x(i);
+        $(i);
         break;
       case "error":
-        x(o);
+        $(d);
         break;
     }
   }
@@ -1157,13 +1157,13 @@ class It {
           this.showState("disconnected"), this.updateStatusBadge(!1), this.announce("Google Drive is not connected");
           return;
         }
-        let o = `Failed to check status: ${e.status}`;
+        let d = `Failed to check status: ${e.status}`;
         try {
-          const d = await e.json();
-          d?.error?.message && (o = d.error.message);
+          const u = await e.json();
+          u?.error?.message && (d = u.error.message);
         } catch {
         }
-        throw new Error(o);
+        throw new Error(d);
       }
       const t = await e.json(), n = this.normalizeIntegrationPayload(t.integration || {});
       !this.currentAccountId && n.account_id && (this.currentAccountId = n.account_id, this.updateAccountScopeUI());
@@ -1183,54 +1183,54 @@ class It {
    * Normalize integration payload from API (handles both camelCase and snake_case)
    */
   normalizeIntegrationPayload(e) {
-    const t = (T, P) => {
-      for (const $ of T)
-        if (Object.prototype.hasOwnProperty.call(e, $) && e[$] !== void 0 && e[$] !== null)
-          return e[$];
-      return P;
-    }, n = t(["expires_at", "ExpiresAt"], ""), i = t(["scopes", "Scopes"], []), o = this.normalizeAccountId(
+    const t = (z, N) => {
+      for (const U of z)
+        if (Object.prototype.hasOwnProperty.call(e, U) && e[U] !== void 0 && e[U] !== null)
+          return e[U];
+      return N;
+    }, n = t(["expires_at", "ExpiresAt"], ""), i = t(["scopes", "Scopes"], []), d = this.normalizeAccountId(
       t(["account_id", "AccountID"], "")
-    ), d = t(["connected", "Connected"], !1), a = t(["degraded", "Degraded"], !1), f = t(["degraded_reason", "DegradedReason"], ""), g = t(
+    ), u = t(["connected", "Connected"], !1), a = t(["degraded", "Degraded"], !1), x = t(["degraded_reason", "DegradedReason"], ""), v = t(
       ["email", "user_email", "account_email", "AccountEmail"],
       ""
-    ), y = t(
+    ), C = t(
       ["can_auto_refresh", "CanAutoRefresh"],
       !1
-    ), b = t(
+    ), P = t(
       ["needs_reauthorization", "NeedsReauthorization", "NeedsReauth"],
       void 0
     );
-    let I = t(["is_expired", "IsExpired"], void 0), C = t(
+    let H = t(["is_expired", "IsExpired"], void 0), F = t(
       ["is_expiring_soon", "IsExpiringSoon"],
       void 0
     );
-    if ((typeof I != "boolean" || typeof C != "boolean") && n) {
-      const T = new Date(n);
-      if (!Number.isNaN(T.getTime())) {
-        const P = T.getTime() - Date.now(), $ = 5 * 60 * 1e3;
-        I = P <= 0, C = P > 0 && P <= $;
+    if ((typeof H != "boolean" || typeof F != "boolean") && n) {
+      const z = new Date(n);
+      if (!Number.isNaN(z.getTime())) {
+        const N = z.getTime() - Date.now(), U = 5 * 60 * 1e3;
+        H = N <= 0, F = N > 0 && N <= U;
       }
     }
-    const E = typeof b == "boolean" ? b : (I === !0 || C === !0) && !y;
+    const D = typeof P == "boolean" ? P : (H === !0 || F === !0) && !C;
     return {
-      connected: d,
-      account_id: o,
-      email: g,
+      connected: u,
+      account_id: d,
+      email: v,
       scopes: Array.isArray(i) ? i : [],
       expires_at: n,
-      is_expired: I === !0,
-      is_expiring_soon: C === !0,
-      can_auto_refresh: y,
-      needs_reauthorization: E,
+      is_expired: H === !0,
+      is_expiring_soon: F === !0,
+      can_auto_refresh: C,
+      needs_reauthorization: D,
       degraded: a,
-      degraded_reason: f
+      degraded_reason: x
     };
   }
   /**
    * Render connected state details
    */
   renderConnectedState(e) {
-    const { connectedEmail: t, connectedAccountId: n, scopesList: i, expiryInfo: o, reauthWarning: d, reauthReason: a } = this.elements;
+    const { connectedEmail: t, connectedAccountId: n, scopesList: i, expiryInfo: d, reauthWarning: u, reauthReason: a } = this.elements;
     t && (t.textContent = e.email || "Connected"), n && (n.textContent = e.account_id || this.currentAccountId ? `Account ID: ${e.account_id || this.currentAccountId}` : "Account ID: default"), this.renderScopes(e.scopes || []), this.renderExpiry(
       e.expires_at,
       e.is_expired,
@@ -1250,7 +1250,7 @@ class It {
         return;
       }
       t.innerHTML = e.map((n) => {
-        const i = jn[n] || { label: n, description: "" };
+        const i = $i[n] || { label: n, description: "" };
         return `
         <li class="flex items-start gap-2">
           <svg class="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1268,25 +1268,25 @@ class It {
   /**
    * Render token expiry information
    */
-  renderExpiry(e, t, n, i, o) {
-    const { expiryInfo: d, reauthWarning: a, reauthReason: f } = this.elements;
-    if (!d) return;
-    if (d.classList.remove("text-red-600", "text-amber-600"), d.classList.add("text-gray-500"), !e) {
-      d.textContent = "Access token status unknown", a && w(a);
+  renderExpiry(e, t, n, i, d) {
+    const { expiryInfo: u, reauthWarning: a, reauthReason: x } = this.elements;
+    if (!u) return;
+    if (u.classList.remove("text-red-600", "text-amber-600"), u.classList.add("text-gray-500"), !e) {
+      u.textContent = "Access token status unknown", a && k(a);
       return;
     }
-    const g = new Date(e), y = /* @__PURE__ */ new Date(), b = Math.max(
+    const v = new Date(e), C = /* @__PURE__ */ new Date(), P = Math.max(
       1,
-      Math.round((g.getTime() - y.getTime()) / (1e3 * 60))
+      Math.round((v.getTime() - C.getTime()) / (1e3 * 60))
     );
-    t ? i ? (d.textContent = "Access token expired, but refresh is available and will be applied automatically.", d.classList.remove("text-gray-500"), d.classList.add("text-amber-600"), a && w(a)) : (d.textContent = "Access token has expired. Please re-authorize.", d.classList.remove("text-gray-500"), d.classList.add("text-red-600"), a && x(a), f && (f.textContent = "Your access token has expired and cannot be refreshed automatically. Re-authorize to continue using Google Drive import.")) : n ? (d.classList.remove("text-gray-500"), d.classList.add("text-amber-600"), i ? (d.textContent = `Token expires in approximately ${b} minute${b !== 1 ? "s" : ""}. Refresh is available automatically.`, a && w(a)) : (d.textContent = `Token expires in approximately ${b} minute${b !== 1 ? "s" : ""}`, a && x(a), f && (f.textContent = `Your access token will expire in ${b} minute${b !== 1 ? "s" : ""} and cannot be refreshed automatically. Re-authorize now to avoid interruption.`))) : (d.textContent = `Token valid until ${g.toLocaleDateString()} ${g.toLocaleTimeString()}`, a && w(a)), !o && a && w(a);
+    t ? i ? (u.textContent = "Access token expired, but refresh is available and will be applied automatically.", u.classList.remove("text-gray-500"), u.classList.add("text-amber-600"), a && k(a)) : (u.textContent = "Access token has expired. Please re-authorize.", u.classList.remove("text-gray-500"), u.classList.add("text-red-600"), a && $(a), x && (x.textContent = "Your access token has expired and cannot be refreshed automatically. Re-authorize to continue using Google Drive import.")) : n ? (u.classList.remove("text-gray-500"), u.classList.add("text-amber-600"), i ? (u.textContent = `Token expires in approximately ${P} minute${P !== 1 ? "s" : ""}. Refresh is available automatically.`, a && k(a)) : (u.textContent = `Token expires in approximately ${P} minute${P !== 1 ? "s" : ""}`, a && $(a), x && (x.textContent = `Your access token will expire in ${P} minute${P !== 1 ? "s" : ""} and cannot be refreshed automatically. Re-authorize now to avoid interruption.`))) : (u.textContent = `Token valid until ${v.toLocaleDateString()} ${v.toLocaleTimeString()}`, a && k(a)), !d && a && k(a);
   }
   /**
    * Render degraded provider state
    */
   renderDegradedState(e, t) {
     const { degradedWarning: n, degradedReason: i } = this.elements;
-    n && (e ? (x(n), i && (i.textContent = t || "Google API health checks are failing. Import actions may be unavailable until provider recovery.")) : w(n));
+    n && (e ? ($(n), i && (i.textContent = t || "Google API health checks are failing. Import actions may be unavailable until provider recovery.")) : k(n));
   }
   // Account Management Methods
   /**
@@ -1318,19 +1318,19 @@ class It {
     const t = document.createElement("option");
     t.value = "", t.textContent = "Default Account", this.currentAccountId || (t.selected = !0), e.appendChild(t);
     const n = /* @__PURE__ */ new Set([""]);
-    for (const o of this.accounts) {
-      const d = this.normalizeAccountId(o.account_id);
-      if (n.has(d))
+    for (const d of this.accounts) {
+      const u = this.normalizeAccountId(d.account_id);
+      if (n.has(u))
         continue;
-      n.add(d);
+      n.add(u);
       const a = document.createElement("option");
-      a.value = d;
-      const f = o.email || d || "Default", g = o.status !== "connected" ? ` (${o.status})` : "";
-      a.textContent = `${f}${g}`, d === this.currentAccountId && (a.selected = !0), e.appendChild(a);
+      a.value = u;
+      const x = d.email || u || "Default", v = d.status !== "connected" ? ` (${d.status})` : "";
+      a.textContent = `${x}${v}`, u === this.currentAccountId && (a.selected = !0), e.appendChild(a);
     }
     if (this.currentAccountId && !n.has(this.currentAccountId)) {
-      const o = document.createElement("option");
-      o.value = this.currentAccountId, o.textContent = `${this.currentAccountId} (new)`, o.selected = !0, e.appendChild(o);
+      const d = document.createElement("option");
+      d.value = this.currentAccountId, d.textContent = `${this.currentAccountId} (new)`, d.selected = !0, e.appendChild(d);
     }
     const i = document.createElement("option");
     i.value = "__new__", i.textContent = "+ Connect New Account...", e.appendChild(i);
@@ -1340,11 +1340,11 @@ class It {
    */
   renderAccountsGrid() {
     const { accountsLoading: e, accountsEmpty: t, accountsGrid: n } = this.elements;
-    if (e && w(e), this.accounts.length === 0) {
-      t && x(t), n && w(n);
+    if (e && k(e), this.accounts.length === 0) {
+      t && $(t), n && k(n);
       return;
     }
-    t && w(t), n && (x(n), n.innerHTML = this.accounts.map((i) => this.renderAccountCard(i)).join("") + this.renderConnectNewCard(), this.attachCardEventListeners());
+    t && k(t), n && ($(n), n.innerHTML = this.accounts.map((i) => this.renderAccountCard(i)).join("") + this.renderConnectNewCard(), this.attachCardEventListeners());
   }
   /**
    * Render a single account card
@@ -1360,14 +1360,14 @@ class It {
       expired: "bg-red-100 text-red-700",
       needs_reauth: "bg-amber-100 text-amber-700",
       degraded: "bg-gray-100 text-gray-700"
-    }, o = {
+    }, d = {
       connected: "Connected",
       expired: "Expired",
       needs_reauth: "Re-auth needed",
       degraded: "Degraded"
-    }, d = t ? "ring-2 ring-blue-500" : "", a = n[e.status] || "bg-white border-gray-200", f = i[e.status] || "bg-gray-100 text-gray-700", g = o[e.status] || e.status, y = e.account_id || "default", b = e.email || (e.account_id ? e.account_id : "Default account");
+    }, u = t ? "ring-2 ring-blue-500" : "", a = n[e.status] || "bg-white border-gray-200", x = i[e.status] || "bg-gray-100 text-gray-700", v = d[e.status] || e.status, C = e.account_id || "default", P = e.email || (e.account_id ? e.account_id : "Default account");
     return `
-      <div class="account-card ${a} ${d} border rounded-xl p-4 relative" data-account-id="${this.escapeHtml(e.account_id)}">
+      <div class="account-card ${a} ${u} border rounded-xl p-4 relative" data-account-id="${this.escapeHtml(e.account_id)}">
         ${t ? '<span class="absolute top-2 right-2 text-xs font-medium text-blue-600">Active</span>' : ""}
         <div class="flex items-start gap-3">
           <div class="w-10 h-10 rounded-full ${e.status === "connected" ? "bg-green-100" : "bg-gray-100"} flex items-center justify-center">
@@ -1379,10 +1379,10 @@ class It {
     </svg>
           </div>
           <div class="flex-1 min-w-0">
-            <p class="text-sm font-medium text-gray-900 truncate">${this.escapeHtml(b)}</p>
-            <p class="text-xs text-gray-500">Account: ${this.escapeHtml(y)}</p>
-            <span class="inline-flex items-center mt-2 px-2 py-0.5 rounded text-xs font-medium ${f}">
-              ${g}
+            <p class="text-sm font-medium text-gray-900 truncate">${this.escapeHtml(P)}</p>
+            <p class="text-xs text-gray-500">Account: ${this.escapeHtml(C)}</p>
+            <span class="inline-flex items-center mt-2 px-2 py-0.5 rounded text-xs font-medium ${x}">
+              ${v}
             </span>
           </div>
         </div>
@@ -1417,19 +1417,19 @@ class It {
     const { accountsGrid: e, disconnectModal: t } = this.elements;
     if (!e) return;
     e.querySelectorAll(".select-account-btn").forEach((i) => {
-      i.addEventListener("click", (o) => {
-        const a = o.target.closest(".account-card")?.getAttribute("data-account-id") || "";
+      i.addEventListener("click", (d) => {
+        const a = d.target.closest(".account-card")?.getAttribute("data-account-id") || "";
         this.setCurrentAccountId(a, !0);
       });
     }), e.querySelectorAll(".reauth-account-btn").forEach((i) => {
-      i.addEventListener("click", (o) => {
-        const a = o.target.closest(".account-card")?.getAttribute("data-account-id") || "";
+      i.addEventListener("click", (d) => {
+        const a = d.target.closest(".account-card")?.getAttribute("data-account-id") || "";
         this.setCurrentAccountId(a, !1), this.startOAuthFlow(a);
       });
     }), e.querySelectorAll(".disconnect-account-btn").forEach((i) => {
-      i.addEventListener("click", (o) => {
-        const a = o.target.closest(".account-card")?.getAttribute("data-account-id") || "";
-        this.pendingDisconnectAccountId = a, t && x(t);
+      i.addEventListener("click", (d) => {
+        const a = d.target.closest(".account-card")?.getAttribute("data-account-id") || "";
+        this.pendingDisconnectAccountId = a, t && $(t);
       });
     });
     const n = e.querySelector("#connect-new-card");
@@ -1448,25 +1448,25 @@ class It {
    */
   async startOAuthFlow(e) {
     const { oauthModal: t, errorMessage: n } = this.elements;
-    t && x(t);
-    const i = this.resolveOAuthRedirectURI(), o = e !== void 0 ? this.normalizeAccountId(e) : this.currentAccountId;
-    this.pendingOAuthAccountId = o;
-    const d = this.buildGoogleOAuthUrl(i, o);
-    if (!d) {
-      t && w(t), n && (n.textContent = "Google OAuth is not configured: missing client ID."), this.pendingOAuthAccountId = null, this.showState("error"), this.announce("Google OAuth is not configured");
+    t && $(t);
+    const i = this.resolveOAuthRedirectURI(), d = e !== void 0 ? this.normalizeAccountId(e) : this.currentAccountId;
+    this.pendingOAuthAccountId = d;
+    const u = this.buildGoogleOAuthUrl(i, d);
+    if (!u) {
+      t && k(t), n && (n.textContent = "Google OAuth is not configured: missing client ID."), this.pendingOAuthAccountId = null, this.showState("error"), this.announce("Google OAuth is not configured");
       return;
     }
-    const a = 500, f = 600, g = (window.screen.width - a) / 2, y = (window.screen.height - f) / 2;
+    const a = 500, x = 600, v = (window.screen.width - a) / 2, C = (window.screen.height - x) / 2;
     if (this.oauthWindow = window.open(
-      d,
+      u,
       "google_oauth",
-      `width=${a},height=${f},left=${g},top=${y},popup=yes`
+      `width=${a},height=${x},left=${v},top=${C},popup=yes`
     ), !this.oauthWindow) {
-      t && w(t), this.pendingOAuthAccountId = null, this.showToast("Popup blocked. Allow popups for this site and try again.", "error"), this.announce("Popup blocked");
+      t && k(t), this.pendingOAuthAccountId = null, this.showToast("Popup blocked. Allow popups for this site and try again.", "error"), this.announce("Popup blocked");
       return;
     }
-    this.messageHandler = (b) => this.handleOAuthCallback(b), window.addEventListener("message", this.messageHandler), this.oauthTimeout = setTimeout(() => {
-      this.cleanupOAuthFlow(), t && w(t), this.pendingOAuthAccountId = null, this.showToast("Google authorization timed out. Please try again.", "error"), this.announce("Authorization timed out");
+    this.messageHandler = (P) => this.handleOAuthCallback(P), window.addEventListener("message", this.messageHandler), this.oauthTimeout = setTimeout(() => {
+      this.cleanupOAuthFlow(), t && k(t), this.pendingOAuthAccountId = null, this.showToast("Google authorization timed out. Please try again.", "error"), this.announce("Authorization timed out");
     }, 12e4);
   }
   /**
@@ -1484,10 +1484,10 @@ class It {
     if (!t) return !1;
     const n = /* @__PURE__ */ new Set(), i = this.normalizeOrigin(window.location.origin);
     i && n.add(i);
-    const o = this.resolveOriginFromURL(this.resolveOAuthRedirectURI());
-    o && n.add(o);
-    for (const d of n)
-      if (t === d || this.areEquivalentLoopbackOrigins(t, d))
+    const d = this.resolveOriginFromURL(this.resolveOAuthRedirectURI());
+    d && n.add(d);
+    for (const u of n)
+      if (t === u || this.areEquivalentLoopbackOrigins(t, u))
         return !0;
     return !1;
   }
@@ -1557,16 +1557,16 @@ class It {
     const t = e.data;
     if (t.type !== "google_oauth_callback") return;
     const { oauthModal: n } = this.elements;
-    if (this.cleanupOAuthFlow(), n && w(n), this.closeOAuthWindow(), t.error) {
+    if (this.cleanupOAuthFlow(), n && k(n), this.closeOAuthWindow(), t.error) {
       this.showToast(`OAuth failed: ${t.error}`, "error"), this.announce(`OAuth failed: ${t.error}`), this.pendingOAuthAccountId = null;
       return;
     }
     if (t.code) {
       try {
-        const i = this.resolveOAuthRedirectURI(), d = (typeof t.account_id == "string" ? this.normalizeAccountId(t.account_id) : null) ?? this.pendingOAuthAccountId ?? this.currentAccountId;
-        d !== this.currentAccountId && this.setCurrentAccountId(d, !1);
+        const i = this.resolveOAuthRedirectURI(), u = (typeof t.account_id == "string" ? this.normalizeAccountId(t.account_id) : null) ?? this.pendingOAuthAccountId ?? this.currentAccountId;
+        u !== this.currentAccountId && this.setCurrentAccountId(u, !1);
         const a = await fetch(
-          this.buildScopedAPIURL("/esign/integrations/google/connect", d),
+          this.buildScopedAPIURL("/esign/integrations/google/connect", u),
           {
             method: "POST",
             credentials: "same-origin",
@@ -1576,20 +1576,20 @@ class It {
             },
             body: JSON.stringify({
               auth_code: t.code,
-              account_id: d || void 0,
+              account_id: u || void 0,
               redirect_uri: i
             })
           }
         );
         if (!a.ok) {
-          const f = await a.json();
-          throw new Error(f.error?.message || "Failed to connect");
+          const x = await a.json();
+          throw new Error(x.error?.message || "Failed to connect");
         }
         this.showToast("Google Drive connected successfully", "success"), this.announce("Google Drive connected successfully"), await Promise.all([this.checkStatus(), this.loadAccounts()]);
       } catch (i) {
         console.error("Connect error:", i);
-        const o = i instanceof Error ? i.message : "Unknown error";
-        this.showToast(`Failed to connect: ${o}`, "error"), this.announce(`Failed to connect: ${o}`);
+        const d = i instanceof Error ? i.message : "Unknown error";
+        this.showToast(`Failed to connect: ${d}`, "error"), this.announce(`Failed to connect: ${d}`);
       } finally {
         this.pendingOAuthAccountId = null;
       }
@@ -1602,7 +1602,7 @@ class It {
    */
   cancelOAuthFlow() {
     const { oauthModal: e } = this.elements;
-    e && w(e), this.pendingOAuthAccountId = null, this.closeOAuthWindow(), this.cleanupOAuthFlow();
+    e && k(e), this.pendingOAuthAccountId = null, this.closeOAuthWindow(), this.cleanupOAuthFlow();
   }
   /**
    * Cleanup OAuth flow resources
@@ -1627,7 +1627,7 @@ class It {
    */
   async disconnect() {
     const { disconnectModal: e } = this.elements;
-    e && w(e);
+    e && k(e);
     const t = this.pendingDisconnectAccountId ?? this.currentAccountId;
     try {
       const n = await fetch(
@@ -1659,11 +1659,11 @@ class It {
     i && (t === "success" ? i.success(e) : i.error(e));
   }
 }
-function Vi(s) {
-  const e = new It(s);
-  return M(() => e.init()), e;
+function Hs(s) {
+  const e = new Wn(s);
+  return W(() => e.init()), e;
 }
-function Gi(s) {
+function js(s) {
   const e = {
     basePath: s.basePath,
     apiBasePath: s.apiBasePath || `${s.basePath}/api`,
@@ -1672,59 +1672,59 @@ function Gi(s) {
     googleRedirectUri: s.googleRedirectUri,
     googleClientId: s.googleClientId,
     googleEnabled: s.googleEnabled !== !1
-  }, t = new It(e);
-  M(() => t.init()), typeof window < "u" && (window.esignGoogleIntegrationController = t);
+  }, t = new Wn(e);
+  W(() => t.init()), typeof window < "u" && (window.esignGoogleIntegrationController = t);
 }
-const Me = "esign.google.account_id", ht = {
+const bn = "esign.google.account_id", Rn = {
   "application/vnd.google-apps.folder": "folder",
   "application/vnd.google-apps.document": "doc",
   "application/vnd.google-apps.spreadsheet": "sheet",
   "application/vnd.google-apps.presentation": "slide",
   "application/pdf": "pdf",
   default: "file"
-}, gt = [
+}, Hn = [
   "application/vnd.google-apps.document",
   "application/pdf"
 ];
-class Lt {
+class Jn {
   constructor(e) {
     this.currentFiles = [], this.nextPageToken = null, this.currentFolderPath = [{ id: "root", name: "My Drive" }], this.selectedFile = null, this.searchQuery = "", this.isListView = !0, this.isLoading = !1, this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api`, this.currentAccountId = this.resolveInitialAccountId(), this.elements = {
-      searchInput: c("#drive-search"),
-      clearSearchBtn: c("#clear-search-btn"),
-      fileList: c("#file-list"),
-      loadingState: c("#loading-state"),
-      breadcrumb: c("#breadcrumb"),
-      listTitle: c("#list-title"),
-      resultCount: c("#result-count"),
-      pagination: c("#pagination"),
-      loadMoreBtn: c("#load-more-btn"),
-      refreshBtn: c("#refresh-btn"),
-      announcements: c("#drive-announcements"),
-      accountScopeHelp: c("#account-scope-help"),
-      connectGoogleLink: c("#connect-google-link"),
-      noSelection: c("#no-selection"),
-      filePreview: c("#file-preview"),
-      previewIcon: c("#preview-icon"),
-      previewTitle: c("#preview-title"),
-      previewType: c("#preview-type"),
-      previewFileId: c("#preview-file-id"),
-      previewOwner: c("#preview-owner"),
-      previewLocation: c("#preview-location"),
-      previewModified: c("#preview-modified"),
-      importBtn: c("#import-btn"),
-      openInGoogleBtn: c("#open-in-google-btn"),
-      clearSelectionBtn: c("#clear-selection-btn"),
-      importModal: c("#import-modal"),
-      importForm: c("#import-form"),
-      importGoogleFileId: c("#import-google-file-id"),
-      importDocumentTitle: c("#import-document-title"),
-      importAgreementTitle: c("#import-agreement-title"),
-      importCancelBtn: c("#import-cancel-btn"),
-      importConfirmBtn: c("#import-confirm-btn"),
-      importSpinner: c("#import-spinner"),
-      importBtnText: c("#import-btn-text"),
-      viewListBtn: c("#view-list-btn"),
-      viewGridBtn: c("#view-grid-btn")
+      searchInput: g("#drive-search"),
+      clearSearchBtn: g("#clear-search-btn"),
+      fileList: g("#file-list"),
+      loadingState: g("#loading-state"),
+      breadcrumb: g("#breadcrumb"),
+      listTitle: g("#list-title"),
+      resultCount: g("#result-count"),
+      pagination: g("#pagination"),
+      loadMoreBtn: g("#load-more-btn"),
+      refreshBtn: g("#refresh-btn"),
+      announcements: g("#drive-announcements"),
+      accountScopeHelp: g("#account-scope-help"),
+      connectGoogleLink: g("#connect-google-link"),
+      noSelection: g("#no-selection"),
+      filePreview: g("#file-preview"),
+      previewIcon: g("#preview-icon"),
+      previewTitle: g("#preview-title"),
+      previewType: g("#preview-type"),
+      previewFileId: g("#preview-file-id"),
+      previewOwner: g("#preview-owner"),
+      previewLocation: g("#preview-location"),
+      previewModified: g("#preview-modified"),
+      importBtn: g("#import-btn"),
+      openInGoogleBtn: g("#open-in-google-btn"),
+      clearSelectionBtn: g("#clear-selection-btn"),
+      importModal: g("#import-modal"),
+      importForm: g("#import-form"),
+      importGoogleFileId: g("#import-google-file-id"),
+      importDocumentTitle: g("#import-document-title"),
+      importAgreementTitle: g("#import-agreement-title"),
+      importCancelBtn: g("#import-cancel-btn"),
+      importConfirmBtn: g("#import-confirm-btn"),
+      importSpinner: g("#import-spinner"),
+      importBtnText: g("#import-btn-text"),
+      viewListBtn: g("#view-list-btn"),
+      viewGridBtn: g("#view-grid-btn")
     };
   }
   /**
@@ -1742,31 +1742,31 @@ class Lt {
       clearSearchBtn: t,
       refreshBtn: n,
       loadMoreBtn: i,
-      importBtn: o,
-      clearSelectionBtn: d,
+      importBtn: d,
+      clearSelectionBtn: u,
       importCancelBtn: a,
-      importConfirmBtn: f,
-      importForm: g,
-      importModal: y,
-      viewListBtn: b,
-      viewGridBtn: I
+      importConfirmBtn: x,
+      importForm: v,
+      importModal: C,
+      viewListBtn: P,
+      viewGridBtn: H
     } = this.elements;
     if (e) {
-      const E = re(() => this.handleSearch(), 300);
-      e.addEventListener("input", E), e.addEventListener("keydown", (T) => {
-        T.key === "Enter" && (T.preventDefault(), this.handleSearch());
+      const D = Qt(() => this.handleSearch(), 300);
+      e.addEventListener("input", D), e.addEventListener("keydown", (z) => {
+        z.key === "Enter" && (z.preventDefault(), this.handleSearch());
       });
     }
-    t && t.addEventListener("click", () => this.clearSearch()), n && n.addEventListener("click", () => this.refresh()), i && i.addEventListener("click", () => this.loadMore()), o && o.addEventListener("click", () => this.showImportModal()), d && d.addEventListener("click", () => this.clearSelection()), a && a.addEventListener("click", () => this.hideImportModal()), f && g && g.addEventListener("submit", (E) => {
-      E.preventDefault(), this.handleImport();
-    }), y && y.addEventListener("click", (E) => {
-      const T = E.target;
-      (T === y || T.getAttribute("aria-hidden") === "true") && this.hideImportModal();
-    }), b && b.addEventListener("click", () => this.setViewMode("list")), I && I.addEventListener("click", () => this.setViewMode("grid")), document.addEventListener("keydown", (E) => {
-      E.key === "Escape" && y && !y.classList.contains("hidden") && this.hideImportModal();
+    t && t.addEventListener("click", () => this.clearSearch()), n && n.addEventListener("click", () => this.refresh()), i && i.addEventListener("click", () => this.loadMore()), d && d.addEventListener("click", () => this.showImportModal()), u && u.addEventListener("click", () => this.clearSelection()), a && a.addEventListener("click", () => this.hideImportModal()), x && v && v.addEventListener("submit", (D) => {
+      D.preventDefault(), this.handleImport();
+    }), C && C.addEventListener("click", (D) => {
+      const z = D.target;
+      (z === C || z.getAttribute("aria-hidden") === "true") && this.hideImportModal();
+    }), P && P.addEventListener("click", () => this.setViewMode("list")), H && H.addEventListener("click", () => this.setViewMode("grid")), document.addEventListener("keydown", (D) => {
+      D.key === "Escape" && C && !C.classList.contains("hidden") && this.hideImportModal();
     });
-    const { fileList: C } = this.elements;
-    C && C.addEventListener("click", (E) => this.handleFileListClick(E));
+    const { fileList: F } = this.elements;
+    F && F.addEventListener("click", (D) => this.handleFileListClick(D));
   }
   /**
    * Resolve initial account ID from various sources
@@ -1778,7 +1778,7 @@ class Lt {
     if (n) return n;
     try {
       return this.normalizeAccountId(
-        window.localStorage.getItem(Me)
+        window.localStorage.getItem(bn)
       );
     } catch {
       return "";
@@ -1796,7 +1796,7 @@ class Lt {
   updateScopedUI() {
     this.syncScopedURLState();
     const { accountScopeHelp: e, connectGoogleLink: t } = this.elements;
-    if (e && (this.currentAccountId ? (e.textContent = `Account scope: ${this.currentAccountId}`, x(e)) : w(e)), t) {
+    if (e && (this.currentAccountId ? (e.textContent = `Account scope: ${this.currentAccountId}`, $(e)) : k(e)), t) {
       const n = t.dataset.baseHref || t.getAttribute("href");
       n && t.setAttribute("href", this.applyAccountIdToPath(n));
     }
@@ -1808,7 +1808,7 @@ class Lt {
     const e = new URL(window.location.href);
     this.currentAccountId ? e.searchParams.set("account_id", this.currentAccountId) : e.searchParams.delete("account_id"), window.history.replaceState({}, "", e.toString());
     try {
-      this.currentAccountId ? window.localStorage.setItem(Me, this.currentAccountId) : window.localStorage.removeItem(Me);
+      this.currentAccountId ? window.localStorage.setItem(bn, this.currentAccountId) : window.localStorage.removeItem(bn);
     } catch {
     }
   }
@@ -1840,17 +1840,17 @@ class Lt {
         parents: [],
         owners: []
       };
-    const t = String(e.id || e.ID || "").trim(), n = String(e.name || e.Name || "").trim(), i = String(e.mimeType || e.MimeType || "").trim(), o = String(e.modifiedTime || e.ModifiedTime || "").trim(), d = String(
+    const t = String(e.id || e.ID || "").trim(), n = String(e.name || e.Name || "").trim(), i = String(e.mimeType || e.MimeType || "").trim(), d = String(e.modifiedTime || e.ModifiedTime || "").trim(), u = String(
       e.webViewLink || e.webViewURL || e.WebViewURL || ""
-    ).trim(), a = String(e.parentId || e.ParentID || "").trim(), f = String(e.ownerEmail || e.OwnerEmail || "").trim(), g = Array.isArray(e.parents) ? e.parents : a ? [a] : [], y = Array.isArray(e.owners) ? e.owners : f ? [{ emailAddress: f }] : [];
+    ).trim(), a = String(e.parentId || e.ParentID || "").trim(), x = String(e.ownerEmail || e.OwnerEmail || "").trim(), v = Array.isArray(e.parents) ? e.parents : a ? [a] : [], C = Array.isArray(e.owners) ? e.owners : x ? [{ emailAddress: x }] : [];
     return {
       id: t,
       name: n,
       mimeType: i,
-      modifiedTime: o,
-      webViewLink: d,
-      parents: g,
-      owners: y,
+      modifiedTime: d,
+      webViewLink: u,
+      parents: v,
+      owners: C,
       size: e.size,
       iconLink: e.iconLink,
       thumbnailLink: e.thumbnailLink
@@ -1863,29 +1863,29 @@ class Lt {
     if (this.isLoading) return;
     this.isLoading = !0;
     const { loadingState: t, fileList: n } = this.elements;
-    e || (this.currentFiles = [], this.nextPageToken = null, t && x(t));
+    e || (this.currentFiles = [], this.nextPageToken = null, t && $(t));
     try {
       const i = this.currentFolderPath[this.currentFolderPath.length - 1];
-      let o;
-      this.searchQuery ? o = this.buildScopedAPIURL(
+      let d;
+      this.searchQuery ? d = this.buildScopedAPIURL(
         `/esign/integrations/google/files?q=${encodeURIComponent(this.searchQuery)}`
-      ) : o = this.buildScopedAPIURL(
+      ) : d = this.buildScopedAPIURL(
         `/esign/integrations/google/files?folder_id=${encodeURIComponent(i.id)}`
-      ), this.nextPageToken && (o += `&page_token=${encodeURIComponent(this.nextPageToken)}`);
-      const d = await fetch(o, {
+      ), this.nextPageToken && (d += `&page_token=${encodeURIComponent(this.nextPageToken)}`);
+      const u = await fetch(d, {
         credentials: "same-origin",
         headers: { Accept: "application/json" }
       });
-      if (!d.ok)
-        throw new Error(`Failed to load files: ${d.status}`);
-      const a = await d.json(), f = Array.isArray(a.files) ? a.files.map((g) => this.normalizeDriveFile(g)) : [];
-      e ? this.currentFiles = [...this.currentFiles, ...f] : this.currentFiles = f, this.nextPageToken = a.next_page_token || null, this.renderFiles(), this.updateResultCount(), this.updatePagination(), H(
+      if (!u.ok)
+        throw new Error(`Failed to load files: ${u.status}`);
+      const a = await u.json(), x = Array.isArray(a.files) ? a.files.map((v) => this.normalizeDriveFile(v)) : [];
+      e ? this.currentFiles = [...this.currentFiles, ...x] : this.currentFiles = x, this.nextPageToken = a.next_page_token || null, this.renderFiles(), this.updateResultCount(), this.updatePagination(), me(
         this.searchQuery ? `Found ${this.currentFiles.length} files` : `Loaded ${this.currentFiles.length} files`
       );
     } catch (i) {
-      console.error("Error loading files:", i), this.renderError(i instanceof Error ? i.message : "Failed to load files"), H("Error loading files");
+      console.error("Error loading files:", i), this.renderError(i instanceof Error ? i.message : "Failed to load files"), me("Error loading files");
     } finally {
-      this.isLoading = !1, t && w(t);
+      this.isLoading = !1, t && k(t);
     }
   }
   /**
@@ -1894,7 +1894,7 @@ class Lt {
   renderFiles() {
     const { fileList: e, loadingState: t } = this.elements;
     if (!e) return;
-    if (t && w(t), this.currentFiles.length === 0) {
+    if (t && k(t), this.currentFiles.length === 0) {
       e.innerHTML = `
         <div class="p-8 text-center">
           <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -1919,7 +1919,7 @@ class Lt {
    * Render a single file item
    */
   renderFileItem(e) {
-    const t = e.mimeType === "application/vnd.google-apps.folder", n = gt.includes(e.mimeType), i = this.selectedFile?.id === e.id, o = ht[e.mimeType] || ht.default, d = this.getFileIcon(o);
+    const t = e.mimeType === "application/vnd.google-apps.folder", n = Hn.includes(e.mimeType), i = this.selectedFile?.id === e.id, d = Rn[e.mimeType] || Rn.default, u = this.getFileIcon(d);
     return `
       <div
         class="file-item flex items-center gap-4 px-4 py-3 hover:bg-gray-50 cursor-pointer ${i ? "bg-blue-50 border-l-2 border-blue-500" : ""}"
@@ -1930,14 +1930,14 @@ class Lt {
         tabindex="0"
       >
         <div class="w-8 h-8 flex items-center justify-center flex-shrink-0">
-          ${d}
+          ${u}
         </div>
         <div class="flex-1 min-w-0">
           <p class="text-sm font-medium text-gray-900 truncate">
             ${this.escapeHtml(e.name)}
           </p>
           <p class="text-xs text-gray-500">
-            ${X(e.modifiedTime)}
+            ${Kt(e.modifiedTime)}
           </p>
         </div>
         ${n ? '<span class="px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700 rounded">Importable</span>' : ""}
@@ -1964,8 +1964,8 @@ class Lt {
   handleFileListClick(e) {
     const n = e.target.closest(".file-item");
     if (!n) return;
-    const i = n.dataset.fileId, o = n.dataset.isFolder === "true";
-    i && (o ? this.navigateToFolder(i) : this.selectFile(i));
+    const i = n.dataset.fileId, d = n.dataset.isFolder === "true";
+    i && (d ? this.navigateToFolder(i) : this.selectFile(i));
   }
   /**
    * Navigate into a folder
@@ -1979,7 +1979,7 @@ class Lt {
    */
   selectFile(e) {
     const t = this.currentFiles.find((n) => n.id === e);
-    t && (this.selectedFile = t, this.renderSelection(), this.renderFiles(), H(`Selected: ${t.name}`));
+    t && (this.selectedFile = t, this.renderSelection(), this.renderFiles(), me(`Selected: ${t.name}`));
   }
   /**
    * Clear file selection
@@ -1996,20 +1996,20 @@ class Lt {
       filePreview: t,
       previewIcon: n,
       previewTitle: i,
-      previewType: o,
-      previewFileId: d,
+      previewType: d,
+      previewFileId: u,
       previewOwner: a,
-      previewModified: f,
-      importBtn: g,
-      openInGoogleBtn: y
+      previewModified: x,
+      importBtn: v,
+      openInGoogleBtn: C
     } = this.elements;
     if (!this.selectedFile) {
-      e && x(e), t && w(t);
+      e && $(e), t && k(t);
       return;
     }
-    e && w(e), t && x(t);
-    const b = this.selectedFile, I = gt.includes(b.mimeType);
-    i && (i.textContent = b.name), o && (o.textContent = this.getMimeTypeLabel(b.mimeType)), d && (d.textContent = b.id), a && b.owners.length > 0 && (a.textContent = b.owners[0].emailAddress || "-"), f && (f.textContent = X(b.modifiedTime)), g && (I ? (g.removeAttribute("disabled"), g.classList.remove("opacity-50", "cursor-not-allowed")) : (g.setAttribute("disabled", "true"), g.classList.add("opacity-50", "cursor-not-allowed"))), y && b.webViewLink && (y.href = b.webViewLink);
+    e && k(e), t && $(t);
+    const P = this.selectedFile, H = Hn.includes(P.mimeType);
+    i && (i.textContent = P.name), d && (d.textContent = this.getMimeTypeLabel(P.mimeType)), u && (u.textContent = P.id), a && P.owners.length > 0 && (a.textContent = P.owners[0].emailAddress || "-"), x && (x.textContent = Kt(P.modifiedTime)), v && (H ? (v.removeAttribute("disabled"), v.classList.remove("opacity-50", "cursor-not-allowed")) : (v.setAttribute("disabled", "true"), v.classList.add("opacity-50", "cursor-not-allowed"))), C && P.webViewLink && (C.href = P.webViewLink);
   }
   /**
    * Get human-readable mime type label
@@ -2030,31 +2030,31 @@ class Lt {
     const { breadcrumb: e, listTitle: t } = this.elements;
     if (!e) return;
     if (this.searchQuery) {
-      w(e), t && (t.textContent = "Search Results");
+      k(e), t && (t.textContent = "Search Results");
       return;
     }
-    x(e);
+    $(e);
     const n = this.currentFolderPath[this.currentFolderPath.length - 1];
     t && (t.textContent = n.name);
     const i = e.querySelector("ol");
     i && (i.innerHTML = this.currentFolderPath.map(
-      (o, d) => `
+      (d, u) => `
         <li class="flex items-center">
-          ${d > 0 ? '<span class="text-gray-400 mx-2">/</span>' : ""}
+          ${u > 0 ? '<span class="text-gray-400 mx-2">/</span>' : ""}
           <button
             type="button"
-            data-folder-id="${this.escapeHtml(o.id)}"
-            data-folder-index="${d}"
+            data-folder-id="${this.escapeHtml(d.id)}"
+            data-folder-index="${u}"
             class="breadcrumb-item text-blue-600 hover:text-blue-800 hover:underline"
           >
-            ${this.escapeHtml(o.name)}
+            ${this.escapeHtml(d.name)}
           </button>
         </li>
       `
-    ).join(""), W(".breadcrumb-item", i).forEach((o) => {
-      o.addEventListener("click", () => {
-        const d = parseInt(o.dataset.folderIndex || "0", 10);
-        this.navigateToBreadcrumb(d);
+    ).join(""), nt(".breadcrumb-item", i).forEach((d) => {
+      d.addEventListener("click", () => {
+        const u = parseInt(d.dataset.folderIndex || "0", 10);
+        this.navigateToBreadcrumb(u);
       });
     }));
   }
@@ -2076,7 +2076,7 @@ class Lt {
    */
   updatePagination() {
     const { pagination: e, loadMoreBtn: t } = this.elements;
-    e && (this.nextPageToken ? x(e) : w(e));
+    e && (this.nextPageToken ? $(e) : k(e));
   }
   /**
    * Handle search
@@ -2085,14 +2085,14 @@ class Lt {
     const { searchInput: e, clearSearchBtn: t } = this.elements;
     if (!e) return;
     const n = e.value.trim();
-    this.searchQuery = n, t && (n ? x(t) : w(t)), this.clearSelection(), this.loadFiles();
+    this.searchQuery = n, t && (n ? $(t) : k(t)), this.clearSelection(), this.loadFiles();
   }
   /**
    * Clear search
    */
   clearSearch() {
     const { searchInput: e, clearSearchBtn: t } = this.elements;
-    e && (e.value = ""), t && w(t), this.searchQuery = "", this.clearSelection(), this.updateBreadcrumb(), this.loadFiles();
+    e && (e.value = ""), t && k(t), this.searchQuery = "", this.clearSelection(), this.updateBreadcrumb(), this.loadFiles();
   }
   /**
    * Refresh file list
@@ -2120,17 +2120,17 @@ class Lt {
     if (!this.selectedFile) return;
     const { importModal: e, importGoogleFileId: t, importDocumentTitle: n, importAgreementTitle: i } = this.elements;
     if (t && (t.value = this.selectedFile.id), n) {
-      const o = this.selectedFile.name.replace(/\.[^/.]+$/, "");
-      n.value = o;
+      const d = this.selectedFile.name.replace(/\.[^/.]+$/, "");
+      n.value = d;
     }
-    i && (i.value = ""), e && x(e);
+    i && (i.value = ""), e && $(e);
   }
   /**
    * Hide import modal
    */
   hideImportModal() {
     const { importModal: e } = this.elements;
-    e && w(e);
+    e && k(e);
   }
   /**
    * Handle import form submission
@@ -2142,11 +2142,11 @@ class Lt {
       importSpinner: t,
       importBtnText: n,
       importDocumentTitle: i,
-      importAgreementTitle: o
-    } = this.elements, d = this.selectedFile.id, a = i?.value.trim() || this.selectedFile.name, f = o?.value.trim() || "";
-    e && e.setAttribute("disabled", "true"), t && x(t), n && (n.textContent = "Importing...");
+      importAgreementTitle: d
+    } = this.elements, u = this.selectedFile.id, a = i?.value.trim() || this.selectedFile.name, x = d?.value.trim() || "";
+    e && e.setAttribute("disabled", "true"), t && $(t), n && (n.textContent = "Importing...");
     try {
-      const g = await fetch(this.buildScopedAPIURL("/esign/google-drive/imports"), {
+      const v = await fetch(this.buildScopedAPIURL("/esign/google-drive/imports"), {
         method: "POST",
         credentials: "same-origin",
         headers: {
@@ -2154,23 +2154,23 @@ class Lt {
           Accept: "application/json"
         },
         body: JSON.stringify({
-          google_file_id: d,
+          google_file_id: u,
           document_title: a,
-          agreement_title: f || void 0
+          agreement_title: x || void 0
         })
       });
-      if (!g.ok) {
-        const b = await g.json();
-        throw new Error(b.error?.message || "Import failed");
+      if (!v.ok) {
+        const P = await v.json();
+        throw new Error(P.error?.message || "Import failed");
       }
-      const y = await g.json();
-      this.showToast("Import started successfully", "success"), H("Import started"), this.hideImportModal(), y.document?.id && this.config.pickerRoutes?.documents ? window.location.href = `${this.config.pickerRoutes.documents}/${y.document.id}` : y.agreement?.id && this.config.pickerRoutes?.agreements && (window.location.href = `${this.config.pickerRoutes.agreements}/${y.agreement.id}`);
-    } catch (g) {
-      console.error("Import error:", g);
-      const y = g instanceof Error ? g.message : "Import failed";
-      this.showToast(y, "error"), H(`Error: ${y}`);
+      const C = await v.json();
+      this.showToast("Import started successfully", "success"), me("Import started"), this.hideImportModal(), C.document?.id && this.config.pickerRoutes?.documents ? window.location.href = `${this.config.pickerRoutes.documents}/${C.document.id}` : C.agreement?.id && this.config.pickerRoutes?.agreements && (window.location.href = `${this.config.pickerRoutes.agreements}/${C.agreement.id}`);
+    } catch (v) {
+      console.error("Import error:", v);
+      const C = v instanceof Error ? v.message : "Import failed";
+      this.showToast(C, "error"), me(`Error: ${C}`);
     } finally {
-      e && e.removeAttribute("disabled"), t && w(t), n && (n.textContent = "Import");
+      e && e.removeAttribute("disabled"), t && k(t), n && (n.textContent = "Import");
     }
   }
   /**
@@ -2208,11 +2208,11 @@ class Lt {
     return t.textContent = e, t.innerHTML;
   }
 }
-function Wi(s) {
-  const e = new Lt(s);
-  return M(() => e.init()), e;
+function qs(s) {
+  const e = new Jn(s);
+  return W(() => e.init()), e;
 }
-function Ji(s) {
+function zs(s) {
   const e = {
     basePath: s.basePath,
     apiBasePath: s.apiBasePath || `${s.basePath}/api`,
@@ -2220,40 +2220,40 @@ function Ji(s) {
     googleAccountId: s.googleAccountId,
     googleConnected: s.googleConnected !== !1,
     pickerRoutes: s.pickerRoutes
-  }, t = new Lt(e);
-  M(() => t.init()), typeof window < "u" && (window.esignGoogleDrivePickerController = t);
+  }, t = new Jn(e);
+  W(() => t.init()), typeof window < "u" && (window.esignGoogleDrivePickerController = t);
 }
-class At {
+class Yn {
   constructor(e) {
     this.healthData = null, this.autoRefreshTimer = null, this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api`, this.elements = {
-      timeRange: c("#time-range"),
-      providerFilter: c("#provider-filter"),
-      refreshBtn: c("#refresh-btn"),
-      healthScore: c("#health-score"),
-      healthIndicator: c("#health-indicator"),
-      healthTrend: c("#health-trend"),
-      syncSuccessRate: c("#sync-success-rate"),
-      syncSuccessCount: c("#sync-success-count"),
-      syncFailedCount: c("#sync-failed-count"),
-      syncSuccessBar: c("#sync-success-bar"),
-      conflictCount: c("#conflict-count"),
-      conflictPending: c("#conflict-pending"),
-      conflictResolved: c("#conflict-resolved"),
-      conflictTrend: c("#conflict-trend"),
-      syncLag: c("#sync-lag"),
-      lagStatus: c("#lag-status"),
-      lastSync: c("#last-sync"),
-      retryTotal: c("#retry-total"),
-      retryRecovery: c("#retry-recovery"),
-      retryAvg: c("#retry-avg"),
-      retryList: c("#retry-list"),
-      providerHealthTable: c("#provider-health-table"),
-      alertsList: c("#alerts-list"),
-      noAlerts: c("#no-alerts"),
-      alertCount: c("#alert-count"),
-      activityFeed: c("#activity-feed"),
-      syncChartCanvas: c("#sync-chart-canvas"),
-      conflictChartCanvas: c("#conflict-chart-canvas")
+      timeRange: g("#time-range"),
+      providerFilter: g("#provider-filter"),
+      refreshBtn: g("#refresh-btn"),
+      healthScore: g("#health-score"),
+      healthIndicator: g("#health-indicator"),
+      healthTrend: g("#health-trend"),
+      syncSuccessRate: g("#sync-success-rate"),
+      syncSuccessCount: g("#sync-success-count"),
+      syncFailedCount: g("#sync-failed-count"),
+      syncSuccessBar: g("#sync-success-bar"),
+      conflictCount: g("#conflict-count"),
+      conflictPending: g("#conflict-pending"),
+      conflictResolved: g("#conflict-resolved"),
+      conflictTrend: g("#conflict-trend"),
+      syncLag: g("#sync-lag"),
+      lagStatus: g("#lag-status"),
+      lastSync: g("#last-sync"),
+      retryTotal: g("#retry-total"),
+      retryRecovery: g("#retry-recovery"),
+      retryAvg: g("#retry-avg"),
+      retryList: g("#retry-list"),
+      providerHealthTable: g("#provider-health-table"),
+      alertsList: g("#alerts-list"),
+      noAlerts: g("#no-alerts"),
+      alertCount: g("#alert-count"),
+      activityFeed: g("#activity-feed"),
+      syncChartCanvas: g("#sync-chart-canvas"),
+      conflictChartCanvas: g("#conflict-chart-canvas")
     };
   }
   /**
@@ -2290,21 +2290,21 @@ class At {
   async loadHealthData() {
     const { timeRange: e, providerFilter: t } = this.elements, n = e?.value || "24h", i = t?.value || "";
     try {
-      const o = new URL(`${this.apiBase}/esign/integrations/health`, window.location.origin);
-      o.searchParams.set("range", n), i && o.searchParams.set("provider", i);
-      const d = await fetch(o.toString(), {
+      const d = new URL(`${this.apiBase}/esign/integrations/health`, window.location.origin);
+      d.searchParams.set("range", n), i && d.searchParams.set("provider", i);
+      const u = await fetch(d.toString(), {
         credentials: "same-origin",
         headers: { Accept: "application/json" }
       });
-      if (!d.ok)
+      if (!u.ok)
         this.healthData = this.generateMockHealthData(n, i);
       else {
-        const a = await d.json();
+        const a = await u.json();
         this.healthData = a;
       }
-      this.renderHealthData(), H("Health data refreshed");
-    } catch (o) {
-      console.error("Failed to load health data:", o), this.healthData = this.generateMockHealthData(n, i), this.renderHealthData();
+      this.renderHealthData(), me("Health data refreshed");
+    } catch (d) {
+      console.error("Failed to load health data:", d), this.healthData = this.generateMockHealthData(n, i), this.renderHealthData();
     }
   }
   /**
@@ -2343,10 +2343,10 @@ class At {
           { provider: "bamboohr", entity: "Employee", time: "28m ago", status: "pending" }
         ]
       },
-      providerHealth: (t ? [t] : ["salesforce", "hubspot", "bamboohr", "workday"]).map((d) => ({
-        provider: d,
-        status: d === "workday" ? "degraded" : "healthy",
-        successRate: d === "workday" ? 89.2 : 97 + Math.random() * 3,
+      providerHealth: (t ? [t] : ["salesforce", "hubspot", "bamboohr", "workday"]).map((u) => ({
+        provider: u,
+        status: u === "workday" ? "degraded" : "healthy",
+        successRate: u === "workday" ? 89.2 : 97 + Math.random() * 3,
         lastSync: `${Math.floor(Math.random() * 30) + 1}m ago`,
         conflicts: Math.floor(Math.random() * 5),
         lagMinutes: Math.floor(Math.random() * 20) + 5
@@ -2367,14 +2367,14 @@ class At {
    */
   generateActivityFeed(e) {
     const t = [], n = ["sync_completed", "sync_failed", "conflict_created", "conflict_resolved", "mapping_published"], i = ["salesforce", "hubspot", "bamboohr", "workday"];
-    for (let o = 0; o < e; o++) {
-      const d = n[Math.floor(Math.random() * n.length)], a = i[Math.floor(Math.random() * i.length)];
+    for (let d = 0; d < e; d++) {
+      const u = n[Math.floor(Math.random() * n.length)], a = i[Math.floor(Math.random() * i.length)];
       t.push({
-        type: d,
+        type: u,
         provider: a,
-        message: this.getActivityMessage(d, a),
+        message: this.getActivityMessage(u, a),
         time: `${Math.floor(Math.random() * 60) + 1}m ago`,
-        status: d.includes("failed") || d.includes("created") ? "warning" : "success"
+        status: u.includes("failed") || u.includes("created") ? "warning" : "success"
       });
     }
     return t;
@@ -2395,9 +2395,9 @@ class At {
    * Generate time series data
    */
   generateTimeSeriesData(e, t) {
-    const n = [], i = t === "sync" ? { success: [], failed: [] } : { pending: [], resolved: [] }, o = /* @__PURE__ */ new Date();
-    for (let d = e - 1; d >= 0; d--) {
-      const a = new Date(o.getTime() - d * 36e5);
+    const n = [], i = t === "sync" ? { success: [], failed: [] } : { pending: [], resolved: [] }, d = /* @__PURE__ */ new Date();
+    for (let u = e - 1; u >= 0; u--) {
+      const a = new Date(d.getTime() - u * 36e5);
       n.push(
         a.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })
       ), t === "sync" ? (i.success.push(Math.floor(Math.random() * 15) + 10), i.failed.push(Math.floor(Math.random() * 3))) : (i.pending.push(Math.floor(Math.random() * 5)), i.resolved.push(Math.floor(Math.random() * 8) + 2));
@@ -2417,8 +2417,8 @@ class At {
     if (!this.healthData) return;
     const { healthScore: e, healthIndicator: t, healthTrend: n } = this.elements, i = this.healthData;
     if (e && (e.textContent = `${i.healthScore}%`, i.healthScore >= 95 ? e.className = "text-3xl font-bold text-green-600" : i.healthScore >= 80 ? e.className = "text-3xl font-bold text-yellow-600" : e.className = "text-3xl font-bold text-red-600"), t && (i.healthScore >= 95 ? (t.className = "w-12 h-12 rounded-full bg-green-100 flex items-center justify-center", t.innerHTML = '<svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>') : i.healthScore >= 80 ? (t.className = "w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center", t.innerHTML = '<svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>') : (t.className = "w-12 h-12 rounded-full bg-red-100 flex items-center justify-center", t.innerHTML = '<svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>')), n) {
-      const o = i.healthTrend >= 0 ? "+" : "";
-      n.textContent = `${o}${i.healthTrend}% from previous period`;
+      const d = i.healthTrend >= 0 ? "+" : "";
+      n.textContent = `${d}${i.healthTrend}% from previous period`;
     }
   }
   /**
@@ -2426,18 +2426,18 @@ class At {
    */
   renderSyncStats() {
     if (!this.healthData) return;
-    const { syncSuccessRate: e, syncSuccessCount: t, syncFailedCount: n, syncSuccessBar: i } = this.elements, o = this.healthData.syncStats;
-    e && (e.textContent = `${o.successRate.toFixed(1)}%`), t && (t.textContent = `${o.succeeded} succeeded`), n && (n.textContent = `${o.failed} failed`), i && (i.style.width = `${o.successRate}%`);
+    const { syncSuccessRate: e, syncSuccessCount: t, syncFailedCount: n, syncSuccessBar: i } = this.elements, d = this.healthData.syncStats;
+    e && (e.textContent = `${d.successRate.toFixed(1)}%`), t && (t.textContent = `${d.succeeded} succeeded`), n && (n.textContent = `${d.failed} failed`), i && (i.style.width = `${d.successRate}%`);
   }
   /**
    * Render conflict statistics
    */
   renderConflictStats() {
     if (!this.healthData) return;
-    const { conflictCount: e, conflictPending: t, conflictResolved: n, conflictTrend: i } = this.elements, o = this.healthData.conflictStats;
-    if (e && (e.textContent = String(o.pending)), t && (t.textContent = `${o.pending} pending`), n && (n.textContent = `${o.resolvedToday} resolved today`), i) {
-      const d = o.trend >= 0 ? "+" : "";
-      i.textContent = `${d}${o.trend} from previous period`;
+    const { conflictCount: e, conflictPending: t, conflictResolved: n, conflictTrend: i } = this.elements, d = this.healthData.conflictStats;
+    if (e && (e.textContent = String(d.pending)), t && (t.textContent = `${d.pending} pending`), n && (n.textContent = `${d.resolvedToday} resolved today`), i) {
+      const u = d.trend >= 0 ? "+" : "";
+      i.textContent = `${u}${d.trend} from previous period`;
     }
   }
   /**
@@ -2453,12 +2453,12 @@ class At {
    */
   renderRetryActivity() {
     if (!this.healthData) return;
-    const { retryTotal: e, retryRecovery: t, retryAvg: n, retryList: i } = this.elements, o = this.healthData.retryStats;
-    e && (e.textContent = String(o.total)), t && (t.textContent = `${o.recoveryRate}%`), n && (n.textContent = o.avgAttempts.toFixed(1)), i && (i.innerHTML = o.recent.map(
-      (d) => `
+    const { retryTotal: e, retryRecovery: t, retryAvg: n, retryList: i } = this.elements, d = this.healthData.retryStats;
+    e && (e.textContent = String(d.total)), t && (t.textContent = `${d.recoveryRate}%`), n && (n.textContent = d.avgAttempts.toFixed(1)), i && (i.innerHTML = d.recent.map(
+      (u) => `
           <div class="flex justify-between items-center py-1">
-            <span>${this.escapeHtml(d.provider)} / ${this.escapeHtml(d.entity)}</span>
-            <span class="${d.status === "recovered" ? "text-green-600" : "text-yellow-600"}">${this.escapeHtml(d.time)}</span>
+            <span>${this.escapeHtml(u.provider)} / ${this.escapeHtml(u.entity)}</span>
+            <span class="${u.status === "recovered" ? "text-green-600" : "text-yellow-600"}">${this.escapeHtml(u.time)}</span>
           </div>
         `
     ).join(""));
@@ -2517,7 +2517,7 @@ class At {
             </div>
           `
     ).join(""), e.querySelectorAll(".dismiss-alert-btn").forEach((i) => {
-      i.addEventListener("click", (o) => this.dismissAlert(o));
+      i.addEventListener("click", (d) => this.dismissAlert(d));
     })));
   }
   /**
@@ -2532,8 +2532,8 @@ class At {
   dismissAlert(e) {
     const n = e.currentTarget.closest(".flex.items-start");
     n && n.remove();
-    const { alertsList: i, noAlerts: o, alertCount: d } = this.elements, a = i?.querySelectorAll(":scope > div").length || 0;
-    d && (d.textContent = `${a} active`, a === 0 && (d.className = "px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full", i && i.classList.add("hidden"), o && o.classList.remove("hidden")));
+    const { alertsList: i, noAlerts: d, alertCount: u } = this.elements, a = i?.querySelectorAll(":scope > div").length || 0;
+    u && (u.textContent = `${a} active`, a === 0 && (u.className = "px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full", i && i.classList.add("hidden"), d && d.classList.remove("hidden")));
   }
   /**
    * Render activity feed
@@ -2573,23 +2573,23 @@ class At {
    * Render a bar chart on canvas
    */
   renderBarChart(e, t, n, i) {
-    const o = document.getElementById(e);
-    if (!o) return;
-    const d = o.getContext("2d");
+    const d = document.getElementById(e);
     if (!d) return;
-    const a = o.width, f = o.height, g = 40, y = a - g * 2, b = f - g * 2;
-    d.clearRect(0, 0, a, f);
-    const I = t.labels, C = Object.values(t.datasets), E = y / I.length / (C.length + 1), T = Math.max(...C.flat()) || 1;
-    I.forEach((P, $) => {
-      const B = g + $ * y / I.length + E / 2;
-      C.forEach((F, O) => {
-        const U = F[$] / T * b, ae = B + O * E, J = f - g - U;
-        d.fillStyle = n[O] || "#6b7280", d.fillRect(ae, J, E - 2, U);
-      }), $ % Math.ceil(I.length / 6) === 0 && (d.fillStyle = "#6b7280", d.font = "10px sans-serif", d.textAlign = "center", d.fillText(P, B + C.length * E / 2, f - g + 15));
-    }), d.fillStyle = "#6b7280", d.font = "10px sans-serif", d.textAlign = "right";
-    for (let P = 0; P <= 4; P++) {
-      const $ = f - g - P * b / 4, B = Math.round(T * P / 4);
-      d.fillText(B.toString(), g - 5, $ + 3);
+    const u = d.getContext("2d");
+    if (!u) return;
+    const a = d.width, x = d.height, v = 40, C = a - v * 2, P = x - v * 2;
+    u.clearRect(0, 0, a, x);
+    const H = t.labels, F = Object.values(t.datasets), D = C / H.length / (F.length + 1), z = Math.max(...F.flat()) || 1;
+    H.forEach((N, U) => {
+      const X = v + U * C / H.length + D / 2;
+      F.forEach((se, ce) => {
+        const fe = se[U] / z * P, Ye = X + ce * D, _e = x - v - fe;
+        u.fillStyle = n[ce] || "#6b7280", u.fillRect(Ye, _e, D - 2, fe);
+      }), U % Math.ceil(H.length / 6) === 0 && (u.fillStyle = "#6b7280", u.font = "10px sans-serif", u.textAlign = "center", u.fillText(N, X + F.length * D / 2, x - v + 15));
+    }), u.fillStyle = "#6b7280", u.font = "10px sans-serif", u.textAlign = "right";
+    for (let N = 0; N <= 4; N++) {
+      const U = x - v - N * P / 4, X = Math.round(z * N / 4);
+      u.fillText(X.toString(), v - 5, U + 3);
     }
   }
   /**
@@ -2600,85 +2600,85 @@ class At {
     return t.textContent = e, t.innerHTML;
   }
 }
-function Yi(s) {
-  const e = new At(s);
-  return M(() => e.init()), e;
+function Ns(s) {
+  const e = new Yn(s);
+  return W(() => e.init()), e;
 }
-function Ki(s) {
+function Os(s) {
   const e = {
     basePath: s.basePath,
     apiBasePath: s.apiBasePath || `${s.basePath}/api`,
     autoRefreshInterval: s.autoRefreshInterval || 3e4
-  }, t = new At(e);
-  M(() => t.init()), typeof window < "u" && (window.esignIntegrationHealthController = t);
+  }, t = new Yn(e);
+  W(() => t.init()), typeof window < "u" && (window.esignIntegrationHealthController = t);
 }
-class kt {
+class Kn {
   constructor(e) {
     this.mappings = [], this.editingMappingId = null, this.pendingPublishId = null, this.pendingDeleteId = null, this.currentPreviewMapping = null, this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api`, this.mappingsEndpoint = `${this.apiBase}/esign/integrations/mappings`, this.elements = {
-      announcements: c("#mappings-announcements"),
-      loadingState: c("#loading-state"),
-      emptyState: c("#empty-state"),
-      errorState: c("#error-state"),
-      mappingsList: c("#mappings-list"),
-      mappingsTbody: c("#mappings-tbody"),
-      searchInput: c("#search-mappings"),
-      filterStatus: c("#filter-status"),
-      filterProvider: c("#filter-provider"),
-      refreshBtn: c("#refresh-btn"),
-      retryBtn: c("#retry-btn"),
-      errorMessage: c("#error-message"),
-      createMappingBtn: c("#create-mapping-btn"),
-      createMappingEmptyBtn: c("#create-mapping-empty-btn"),
-      mappingModal: c("#mapping-modal"),
-      mappingModalTitle: c("#mapping-modal-title"),
-      closeModalBtn: c("#close-modal-btn"),
-      cancelModalBtn: c("#cancel-modal-btn"),
-      mappingForm: c("#mapping-form"),
-      mappingIdInput: c("#mapping-id"),
-      mappingVersionInput: c("#mapping-version"),
-      mappingNameInput: c("#mapping-name"),
-      mappingProviderInput: c("#mapping-provider"),
-      schemaObjectTypeInput: c("#schema-object-type"),
-      schemaVersionInput: c("#schema-version"),
-      schemaFieldsContainer: c("#schema-fields-container"),
-      addFieldBtn: c("#add-field-btn"),
-      mappingRulesContainer: c("#mapping-rules-container"),
-      addRuleBtn: c("#add-rule-btn"),
-      validateBtn: c("#validate-btn"),
-      saveBtn: c("#save-btn"),
-      formValidationStatus: c("#form-validation-status"),
-      mappingStatusBadge: c("#mapping-status-badge"),
-      publishModal: c("#publish-modal"),
-      publishMappingName: c("#publish-mapping-name"),
-      publishMappingVersion: c("#publish-mapping-version"),
-      publishCancelBtn: c("#publish-cancel-btn"),
-      publishConfirmBtn: c("#publish-confirm-btn"),
-      deleteModal: c("#delete-modal"),
-      deleteCancelBtn: c("#delete-cancel-btn"),
-      deleteConfirmBtn: c("#delete-confirm-btn"),
-      previewModal: c("#preview-modal"),
-      closePreviewBtn: c("#close-preview-btn"),
-      previewMappingName: c("#preview-mapping-name"),
-      previewMappingProvider: c("#preview-mapping-provider"),
-      previewObjectType: c("#preview-object-type"),
-      previewMappingStatus: c("#preview-mapping-status"),
-      previewSourceInput: c("#preview-source-input"),
-      sourceSyntaxError: c("#source-syntax-error"),
-      loadSampleBtn: c("#load-sample-btn"),
-      runPreviewBtn: c("#run-preview-btn"),
-      clearPreviewBtn: c("#clear-preview-btn"),
-      previewEmpty: c("#preview-empty"),
-      previewLoading: c("#preview-loading"),
-      previewError: c("#preview-error"),
-      previewErrorMessage: c("#preview-error-message"),
-      previewSuccess: c("#preview-success"),
-      previewParticipants: c("#preview-participants"),
-      participantsCount: c("#participants-count"),
-      previewFields: c("#preview-fields"),
-      fieldsCount: c("#fields-count"),
-      previewMetadata: c("#preview-metadata"),
-      previewRawJson: c("#preview-raw-json"),
-      previewRulesTbody: c("#preview-rules-tbody")
+      announcements: g("#mappings-announcements"),
+      loadingState: g("#loading-state"),
+      emptyState: g("#empty-state"),
+      errorState: g("#error-state"),
+      mappingsList: g("#mappings-list"),
+      mappingsTbody: g("#mappings-tbody"),
+      searchInput: g("#search-mappings"),
+      filterStatus: g("#filter-status"),
+      filterProvider: g("#filter-provider"),
+      refreshBtn: g("#refresh-btn"),
+      retryBtn: g("#retry-btn"),
+      errorMessage: g("#error-message"),
+      createMappingBtn: g("#create-mapping-btn"),
+      createMappingEmptyBtn: g("#create-mapping-empty-btn"),
+      mappingModal: g("#mapping-modal"),
+      mappingModalTitle: g("#mapping-modal-title"),
+      closeModalBtn: g("#close-modal-btn"),
+      cancelModalBtn: g("#cancel-modal-btn"),
+      mappingForm: g("#mapping-form"),
+      mappingIdInput: g("#mapping-id"),
+      mappingVersionInput: g("#mapping-version"),
+      mappingNameInput: g("#mapping-name"),
+      mappingProviderInput: g("#mapping-provider"),
+      schemaObjectTypeInput: g("#schema-object-type"),
+      schemaVersionInput: g("#schema-version"),
+      schemaFieldsContainer: g("#schema-fields-container"),
+      addFieldBtn: g("#add-field-btn"),
+      mappingRulesContainer: g("#mapping-rules-container"),
+      addRuleBtn: g("#add-rule-btn"),
+      validateBtn: g("#validate-btn"),
+      saveBtn: g("#save-btn"),
+      formValidationStatus: g("#form-validation-status"),
+      mappingStatusBadge: g("#mapping-status-badge"),
+      publishModal: g("#publish-modal"),
+      publishMappingName: g("#publish-mapping-name"),
+      publishMappingVersion: g("#publish-mapping-version"),
+      publishCancelBtn: g("#publish-cancel-btn"),
+      publishConfirmBtn: g("#publish-confirm-btn"),
+      deleteModal: g("#delete-modal"),
+      deleteCancelBtn: g("#delete-cancel-btn"),
+      deleteConfirmBtn: g("#delete-confirm-btn"),
+      previewModal: g("#preview-modal"),
+      closePreviewBtn: g("#close-preview-btn"),
+      previewMappingName: g("#preview-mapping-name"),
+      previewMappingProvider: g("#preview-mapping-provider"),
+      previewObjectType: g("#preview-object-type"),
+      previewMappingStatus: g("#preview-mapping-status"),
+      previewSourceInput: g("#preview-source-input"),
+      sourceSyntaxError: g("#source-syntax-error"),
+      loadSampleBtn: g("#load-sample-btn"),
+      runPreviewBtn: g("#run-preview-btn"),
+      clearPreviewBtn: g("#clear-preview-btn"),
+      previewEmpty: g("#preview-empty"),
+      previewLoading: g("#preview-loading"),
+      previewError: g("#preview-error"),
+      previewErrorMessage: g("#preview-error-message"),
+      previewSuccess: g("#preview-success"),
+      previewParticipants: g("#preview-participants"),
+      participantsCount: g("#participants-count"),
+      previewFields: g("#preview-fields"),
+      fieldsCount: g("#fields-count"),
+      previewMetadata: g("#preview-metadata"),
+      previewRawJson: g("#preview-raw-json"),
+      previewRulesTbody: g("#preview-rules-tbody")
     };
   }
   /**
@@ -2696,37 +2696,37 @@ class kt {
       createMappingEmptyBtn: t,
       closeModalBtn: n,
       cancelModalBtn: i,
-      refreshBtn: o,
-      retryBtn: d,
+      refreshBtn: d,
+      retryBtn: u,
       addFieldBtn: a,
-      addRuleBtn: f,
-      validateBtn: g,
-      mappingForm: y,
-      publishCancelBtn: b,
-      publishConfirmBtn: I,
-      deleteCancelBtn: C,
-      deleteConfirmBtn: E,
-      closePreviewBtn: T,
-      loadSampleBtn: P,
-      runPreviewBtn: $,
-      clearPreviewBtn: B,
-      previewSourceInput: F,
-      searchInput: O,
-      filterStatus: U,
-      filterProvider: ae,
-      mappingModal: J,
-      publishModal: Z,
-      deleteModal: ee,
-      previewModal: te
+      addRuleBtn: x,
+      validateBtn: v,
+      mappingForm: C,
+      publishCancelBtn: P,
+      publishConfirmBtn: H,
+      deleteCancelBtn: F,
+      deleteConfirmBtn: D,
+      closePreviewBtn: z,
+      loadSampleBtn: N,
+      runPreviewBtn: U,
+      clearPreviewBtn: X,
+      previewSourceInput: se,
+      searchInput: ce,
+      filterStatus: fe,
+      filterProvider: Ye,
+      mappingModal: _e,
+      publishModal: He,
+      deleteModal: Ue,
+      previewModal: K
     } = this.elements;
-    e?.addEventListener("click", () => this.openCreateModal()), t?.addEventListener("click", () => this.openCreateModal()), n?.addEventListener("click", () => this.closeModal()), i?.addEventListener("click", () => this.closeModal()), o?.addEventListener("click", () => this.loadMappings()), d?.addEventListener("click", () => this.loadMappings()), a?.addEventListener("click", () => this.addSchemaField()), f?.addEventListener("click", () => this.addMappingRule()), g?.addEventListener("click", () => this.validateMapping()), y?.addEventListener("submit", (z) => {
-      z.preventDefault(), this.saveMapping();
-    }), b?.addEventListener("click", () => this.closePublishModal()), I?.addEventListener("click", () => this.publishMapping()), C?.addEventListener("click", () => this.closeDeleteModal()), E?.addEventListener("click", () => this.deleteMapping()), T?.addEventListener("click", () => this.closePreviewModal()), P?.addEventListener("click", () => this.loadSamplePayload()), $?.addEventListener("click", () => this.runPreviewTransform()), B?.addEventListener("click", () => this.clearPreview()), F?.addEventListener("input", re(() => this.validateSourceJson(), 300)), O?.addEventListener("input", re(() => this.renderMappings(), 300)), U?.addEventListener("change", () => this.renderMappings()), ae?.addEventListener("change", () => this.renderMappings()), document.addEventListener("keydown", (z) => {
-      z.key === "Escape" && (J && !J.classList.contains("hidden") && this.closeModal(), Z && !Z.classList.contains("hidden") && this.closePublishModal(), ee && !ee.classList.contains("hidden") && this.closeDeleteModal(), te && !te.classList.contains("hidden") && this.closePreviewModal());
-    }), [J, Z, ee, te].forEach((z) => {
-      z?.addEventListener("click", (ye) => {
-        const le = ye.target;
-        (le === z || le.getAttribute("aria-hidden") === "true") && (z === J ? this.closeModal() : z === Z ? this.closePublishModal() : z === ee ? this.closeDeleteModal() : z === te && this.closePreviewModal());
+    e?.addEventListener("click", () => this.openCreateModal()), t?.addEventListener("click", () => this.openCreateModal()), n?.addEventListener("click", () => this.closeModal()), i?.addEventListener("click", () => this.closeModal()), d?.addEventListener("click", () => this.loadMappings()), u?.addEventListener("click", () => this.loadMappings()), a?.addEventListener("click", () => this.addSchemaField()), x?.addEventListener("click", () => this.addMappingRule()), v?.addEventListener("click", () => this.validateMapping()), C?.addEventListener("submit", (le) => {
+      le.preventDefault(), this.saveMapping();
+    }), P?.addEventListener("click", () => this.closePublishModal()), H?.addEventListener("click", () => this.publishMapping()), F?.addEventListener("click", () => this.closeDeleteModal()), D?.addEventListener("click", () => this.deleteMapping()), z?.addEventListener("click", () => this.closePreviewModal()), N?.addEventListener("click", () => this.loadSamplePayload()), U?.addEventListener("click", () => this.runPreviewTransform()), X?.addEventListener("click", () => this.clearPreview()), se?.addEventListener("input", Qt(() => this.validateSourceJson(), 300)), ce?.addEventListener("input", Qt(() => this.renderMappings(), 300)), fe?.addEventListener("change", () => this.renderMappings()), Ye?.addEventListener("change", () => this.renderMappings()), document.addEventListener("keydown", (le) => {
+      le.key === "Escape" && (_e && !_e.classList.contains("hidden") && this.closeModal(), He && !He.classList.contains("hidden") && this.closePublishModal(), Ue && !Ue.classList.contains("hidden") && this.closeDeleteModal(), K && !K.classList.contains("hidden") && this.closePreviewModal());
+    }), [_e, He, Ue, K].forEach((le) => {
+      le?.addEventListener("click", ($e) => {
+        const it = $e.target;
+        (it === le || it.getAttribute("aria-hidden") === "true") && (le === _e ? this.closeModal() : le === He ? this.closePublishModal() : le === Ue ? this.closeDeleteModal() : le === K && this.closePreviewModal());
       });
     });
   }
@@ -2735,25 +2735,25 @@ class kt {
    */
   announce(e) {
     const { announcements: t } = this.elements;
-    t && (t.textContent = e), H(e);
+    t && (t.textContent = e), me(e);
   }
   /**
    * Show a specific page state
    */
   showState(e) {
-    const { loadingState: t, emptyState: n, errorState: i, mappingsList: o } = this.elements;
-    switch (w(t), w(n), w(i), w(o), e) {
+    const { loadingState: t, emptyState: n, errorState: i, mappingsList: d } = this.elements;
+    switch (k(t), k(n), k(i), k(d), e) {
       case "loading":
-        x(t);
+        $(t);
         break;
       case "empty":
-        x(n);
+        $(n);
         break;
       case "error":
-        x(i);
+        $(i);
         break;
       case "list":
-        x(o);
+        $(d);
         break;
     }
   }
@@ -2823,36 +2823,36 @@ class kt {
   renderMappings() {
     const { mappingsTbody: e, searchInput: t, filterStatus: n, filterProvider: i } = this.elements;
     if (!e) return;
-    const o = (t?.value || "").toLowerCase(), d = n?.value || "", a = i?.value || "", f = this.mappings.filter((g) => !(o && !g.name.toLowerCase().includes(o) && !g.provider.toLowerCase().includes(o) || d && g.status !== d || a && g.provider !== a));
-    if (f.length === 0) {
+    const d = (t?.value || "").toLowerCase(), u = n?.value || "", a = i?.value || "", x = this.mappings.filter((v) => !(d && !v.name.toLowerCase().includes(d) && !v.provider.toLowerCase().includes(d) || u && v.status !== u || a && v.provider !== a));
+    if (x.length === 0) {
       this.showState("empty");
       return;
     }
-    e.innerHTML = f.map(
-      (g) => `
+    e.innerHTML = x.map(
+      (v) => `
       <tr class="hover:bg-gray-50">
         <td class="px-6 py-4">
-          <div class="font-medium text-gray-900">${this.escapeHtml(g.name)}</div>
-          <div class="text-xs text-gray-500">${this.escapeHtml(g.compiled_hash ? g.compiled_hash.slice(0, 12) + "..." : "")}</div>
+          <div class="font-medium text-gray-900">${this.escapeHtml(v.name)}</div>
+          <div class="text-xs text-gray-500">${this.escapeHtml(v.compiled_hash ? v.compiled_hash.slice(0, 12) + "..." : "")}</div>
         </td>
-        <td class="px-6 py-4 text-sm text-gray-700">${this.escapeHtml(g.provider)}</td>
-        <td class="px-6 py-4">${this.getStatusBadge(g.status)}</td>
-        <td class="px-6 py-4 text-sm text-gray-700">v${g.version || 1}</td>
-        <td class="px-6 py-4 text-sm text-gray-500">${this.formatDate(g.updated_at)}</td>
+        <td class="px-6 py-4 text-sm text-gray-700">${this.escapeHtml(v.provider)}</td>
+        <td class="px-6 py-4">${this.getStatusBadge(v.status)}</td>
+        <td class="px-6 py-4 text-sm text-gray-700">v${v.version || 1}</td>
+        <td class="px-6 py-4 text-sm text-gray-500">${this.formatDate(v.updated_at)}</td>
         <td class="px-6 py-4 text-right">
           <div class="flex items-center justify-end gap-2">
-            <button type="button" class="preview-mapping-btn text-purple-600 hover:text-purple-700 text-sm font-medium" data-id="${this.escapeHtml(g.id)}" aria-label="Preview ${this.escapeHtml(g.name)}">
+            <button type="button" class="preview-mapping-btn text-purple-600 hover:text-purple-700 text-sm font-medium" data-id="${this.escapeHtml(v.id)}" aria-label="Preview ${this.escapeHtml(v.name)}">
               Preview
             </button>
-            <button type="button" class="edit-mapping-btn text-blue-600 hover:text-blue-700 text-sm font-medium" data-id="${this.escapeHtml(g.id)}" aria-label="Edit ${this.escapeHtml(g.name)}">
+            <button type="button" class="edit-mapping-btn text-blue-600 hover:text-blue-700 text-sm font-medium" data-id="${this.escapeHtml(v.id)}" aria-label="Edit ${this.escapeHtml(v.name)}">
               Edit
             </button>
-            ${g.status === "draft" ? `
-              <button type="button" class="publish-mapping-btn text-green-600 hover:text-green-700 text-sm font-medium" data-id="${this.escapeHtml(g.id)}" aria-label="Publish ${this.escapeHtml(g.name)}">
+            ${v.status === "draft" ? `
+              <button type="button" class="publish-mapping-btn text-green-600 hover:text-green-700 text-sm font-medium" data-id="${this.escapeHtml(v.id)}" aria-label="Publish ${this.escapeHtml(v.name)}">
                 Publish
               </button>
             ` : ""}
-            <button type="button" class="delete-mapping-btn text-red-600 hover:text-red-700 text-sm font-medium" data-id="${this.escapeHtml(g.id)}" aria-label="Delete ${this.escapeHtml(g.name)}">
+            <button type="button" class="delete-mapping-btn text-red-600 hover:text-red-700 text-sm font-medium" data-id="${this.escapeHtml(v.id)}" aria-label="Delete ${this.escapeHtml(v.name)}">
               Delete
             </button>
           </div>
@@ -2947,26 +2947,26 @@ class kt {
       mappingVersionInput: t,
       mappingNameInput: n,
       mappingProviderInput: i,
-      schemaObjectTypeInput: o,
-      schemaVersionInput: d,
+      schemaObjectTypeInput: d,
+      schemaVersionInput: u,
       schemaFieldsContainer: a,
-      mappingRulesContainer: f
-    } = this.elements, g = [];
-    a?.querySelectorAll(".schema-field-row").forEach((b) => {
-      g.push({
-        object: (b.querySelector(".field-object")?.value || "").trim(),
-        field: (b.querySelector(".field-name")?.value || "").trim(),
-        type: b.querySelector(".field-type")?.value || "string",
-        required: b.querySelector(".field-required")?.checked || !1
+      mappingRulesContainer: x
+    } = this.elements, v = [];
+    a?.querySelectorAll(".schema-field-row").forEach((P) => {
+      v.push({
+        object: (P.querySelector(".field-object")?.value || "").trim(),
+        field: (P.querySelector(".field-name")?.value || "").trim(),
+        type: P.querySelector(".field-type")?.value || "string",
+        required: P.querySelector(".field-required")?.checked || !1
       });
     });
-    const y = [];
-    return f?.querySelectorAll(".mapping-rule-row").forEach((b) => {
-      y.push({
-        source_object: (b.querySelector(".rule-source-object")?.value || "").trim(),
-        source_field: (b.querySelector(".rule-source-field")?.value || "").trim(),
-        target_entity: b.querySelector(".rule-target-entity")?.value || "participant",
-        target_path: (b.querySelector(".rule-target-path")?.value || "").trim()
+    const C = [];
+    return x?.querySelectorAll(".mapping-rule-row").forEach((P) => {
+      C.push({
+        source_object: (P.querySelector(".rule-source-object")?.value || "").trim(),
+        source_field: (P.querySelector(".rule-source-field")?.value || "").trim(),
+        target_entity: P.querySelector(".rule-target-entity")?.value || "participant",
+        target_path: (P.querySelector(".rule-target-path")?.value || "").trim()
       });
     }), {
       id: e?.value.trim() || void 0,
@@ -2974,11 +2974,11 @@ class kt {
       name: n?.value.trim() || "",
       provider: i?.value.trim() || "",
       external_schema: {
-        object_type: o?.value.trim() || "",
-        version: d?.value.trim() || void 0,
-        fields: g
+        object_type: d?.value.trim() || "",
+        version: u?.value.trim() || void 0,
+        fields: v
       },
-      rules: y
+      rules: C
     };
   }
   /**
@@ -2989,17 +2989,17 @@ class kt {
       mappingIdInput: t,
       mappingVersionInput: n,
       mappingNameInput: i,
-      mappingProviderInput: o,
-      schemaObjectTypeInput: d,
+      mappingProviderInput: d,
+      schemaObjectTypeInput: u,
       schemaVersionInput: a,
-      schemaFieldsContainer: f,
-      mappingRulesContainer: g,
-      mappingStatusBadge: y,
-      formValidationStatus: b
+      schemaFieldsContainer: x,
+      mappingRulesContainer: v,
+      mappingStatusBadge: C,
+      formValidationStatus: P
     } = this.elements;
-    t && (t.value = e.id || ""), n && (n.value = String(e.version || 0)), i && (i.value = e.name || ""), o && (o.value = e.provider || "");
-    const I = e.external_schema || { object_type: "", fields: [] };
-    d && (d.value = I.object_type || ""), a && (a.value = I.version || ""), f && (f.innerHTML = "", (I.fields || []).forEach((C) => f.appendChild(this.createSchemaFieldRow(C)))), g && (g.innerHTML = "", (e.rules || []).forEach((C) => g.appendChild(this.createMappingRuleRow(C)))), e.status && y ? (y.innerHTML = this.getStatusBadge(e.status), y.classList.remove("hidden")) : y && y.classList.add("hidden"), w(b);
+    t && (t.value = e.id || ""), n && (n.value = String(e.version || 0)), i && (i.value = e.name || ""), d && (d.value = e.provider || "");
+    const H = e.external_schema || { object_type: "", fields: [] };
+    u && (u.value = H.object_type || ""), a && (a.value = H.version || ""), x && (x.innerHTML = "", (H.fields || []).forEach((F) => x.appendChild(this.createSchemaFieldRow(F)))), v && (v.innerHTML = "", (e.rules || []).forEach((F) => v.appendChild(this.createMappingRuleRow(F)))), e.status && C ? (C.innerHTML = this.getStatusBadge(e.status), C.classList.remove("hidden")) : C && C.classList.add("hidden"), k(P);
   }
   /**
    * Reset the form to initial state
@@ -3010,11 +3010,11 @@ class kt {
       mappingIdInput: t,
       mappingVersionInput: n,
       schemaFieldsContainer: i,
-      mappingRulesContainer: o,
-      mappingStatusBadge: d,
+      mappingRulesContainer: d,
+      mappingStatusBadge: u,
       formValidationStatus: a
     } = this.elements;
-    e?.reset(), t && (t.value = ""), n && (n.value = "0"), i && (i.innerHTML = ""), o && (o.innerHTML = ""), d && d.classList.add("hidden"), w(a), this.editingMappingId = null;
+    e?.reset(), t && (t.value = ""), n && (n.value = "0"), i && (i.innerHTML = ""), d && (d.innerHTML = ""), u && u.classList.add("hidden"), k(a), this.editingMappingId = null;
   }
   // Modal methods
   /**
@@ -3022,50 +3022,50 @@ class kt {
    */
   openCreateModal() {
     const { mappingModal: e, mappingModalTitle: t, mappingNameInput: n } = this.elements;
-    this.resetForm(), t && (t.textContent = "New Mapping Specification"), this.addSchemaField({ field: "email", type: "string", required: !0 }), this.addMappingRule({ target_entity: "participant", target_path: "email" }), x(e), n?.focus();
+    this.resetForm(), t && (t.textContent = "New Mapping Specification"), this.addSchemaField({ field: "email", type: "string", required: !0 }), this.addMappingRule({ target_entity: "participant", target_path: "email" }), $(e), n?.focus();
   }
   /**
    * Open edit mapping modal
    */
   openEditModal(e) {
-    const t = this.mappings.find((d) => d.id === e);
+    const t = this.mappings.find((u) => u.id === e);
     if (!t) return;
-    const { mappingModal: n, mappingModalTitle: i, mappingNameInput: o } = this.elements;
-    this.editingMappingId = e, i && (i.textContent = "Edit Mapping Specification"), this.populateForm(t), x(n), o?.focus();
+    const { mappingModal: n, mappingModalTitle: i, mappingNameInput: d } = this.elements;
+    this.editingMappingId = e, i && (i.textContent = "Edit Mapping Specification"), this.populateForm(t), $(n), d?.focus();
   }
   /**
    * Close mapping modal
    */
   closeModal() {
     const { mappingModal: e } = this.elements;
-    w(e), this.resetForm();
+    k(e), this.resetForm();
   }
   /**
    * Open publish confirmation modal
    */
   openPublishModal(e) {
-    const t = this.mappings.find((d) => d.id === e);
+    const t = this.mappings.find((u) => u.id === e);
     if (!t) return;
-    const { publishModal: n, publishMappingName: i, publishMappingVersion: o } = this.elements;
-    this.pendingPublishId = e, i && (i.textContent = t.name), o && (o.textContent = `v${t.version || 1}`), x(n);
+    const { publishModal: n, publishMappingName: i, publishMappingVersion: d } = this.elements;
+    this.pendingPublishId = e, i && (i.textContent = t.name), d && (d.textContent = `v${t.version || 1}`), $(n);
   }
   /**
    * Close publish modal
    */
   closePublishModal() {
-    w(this.elements.publishModal), this.pendingPublishId = null;
+    k(this.elements.publishModal), this.pendingPublishId = null;
   }
   /**
    * Open delete confirmation modal
    */
   openDeleteModal(e) {
-    this.pendingDeleteId = e, x(this.elements.deleteModal);
+    this.pendingDeleteId = e, $(this.elements.deleteModal);
   }
   /**
    * Close delete modal
    */
   closeDeleteModal() {
-    w(this.elements.deleteModal), this.pendingDeleteId = null;
+    k(this.elements.deleteModal), this.pendingDeleteId = null;
   }
   // CRUD operations
   /**
@@ -3082,8 +3082,8 @@ class kt {
         credentials: "same-origin",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({ ...n, validate_only: !0 })
-      }), o = await i.json();
-      if (i.ok && o.status === "ok")
+      }), d = await i.json();
+      if (i.ok && d.status === "ok")
         t && (t.innerHTML = `
             <div class="flex items-start gap-3 text-green-700 bg-green-50 border border-green-200">
               <svg class="w-5 h-5 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -3091,12 +3091,12 @@ class kt {
               </svg>
               <div>
                 <p class="font-medium">Validation Passed</p>
-                <p class="text-sm mt-1">Mapping specification is valid. Compiled hash: <code class="text-xs bg-green-100 px-1 py-0.5 rounded">${this.escapeHtml((o.mapping?.compiled_hash || "").slice(0, 16))}</code></p>
+                <p class="text-sm mt-1">Mapping specification is valid. Compiled hash: <code class="text-xs bg-green-100 px-1 py-0.5 rounded">${this.escapeHtml((d.mapping?.compiled_hash || "").slice(0, 16))}</code></p>
               </div>
             </div>
           `, t.className = "rounded-lg p-4"), this.announce("Validation passed");
       else {
-        const d = o.errors || [o.error?.message || "Validation failed"];
+        const u = d.errors || [d.error?.message || "Validation failed"];
         t && (t.innerHTML = `
             <div class="flex items-start gap-3 text-red-700 bg-red-50 border border-red-200">
               <svg class="w-5 h-5 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -3104,14 +3104,14 @@ class kt {
               </svg>
               <div>
                 <p class="font-medium">Validation Failed</p>
-                <ul class="text-sm mt-1 list-disc list-inside">${d.map((a) => `<li>${this.escapeHtml(a)}</li>`).join("")}</ul>
+                <ul class="text-sm mt-1 list-disc list-inside">${u.map((a) => `<li>${this.escapeHtml(a)}</li>`).join("")}</ul>
               </div>
             </div>
           `, t.className = "rounded-lg p-4"), this.announce("Validation failed");
       }
-      x(t);
+      $(t);
     } catch (i) {
-      console.error("Validation error:", i), t && (t.innerHTML = `<div class="text-red-600">Error: ${this.escapeHtml(i instanceof Error ? i.message : "Unknown error")}</div>`, x(t));
+      console.error("Validation error:", i), t && (t.innerHTML = `<div class="text-red-600">Error: ${this.escapeHtml(i instanceof Error ? i.message : "Unknown error")}</div>`, $(t));
     } finally {
       e.removeAttribute("disabled"), e.innerHTML = '<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Validate';
     }
@@ -3125,15 +3125,15 @@ class kt {
     const t = this.collectFormData();
     e.setAttribute("disabled", "true"), e.innerHTML = '<svg class="animate-spin w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> Saving...';
     try {
-      const n = !!t.id, i = n ? `${this.mappingsEndpoint}/${t.id}` : this.mappingsEndpoint, d = await fetch(i, {
+      const n = !!t.id, i = n ? `${this.mappingsEndpoint}/${t.id}` : this.mappingsEndpoint, u = await fetch(i, {
         method: n ? "PUT" : "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify(t)
       });
-      if (!d.ok) {
-        const a = await d.json();
-        throw new Error(a.error?.message || `HTTP ${d.status}`);
+      if (!u.ok) {
+        const a = await u.json();
+        throw new Error(a.error?.message || `HTTP ${u.status}`);
       }
       this.showToast(n ? "Mapping updated" : "Mapping created", "success"), this.announce(n ? "Mapping updated" : "Mapping created"), this.closeModal(), await this.loadMappings();
     } catch (n) {
@@ -3208,42 +3208,42 @@ class kt {
    * Open preview modal
    */
   openPreviewModal(e) {
-    const t = this.mappings.find((y) => y.id === e);
+    const t = this.mappings.find((C) => C.id === e);
     if (!t) return;
     const {
       previewModal: n,
       previewMappingName: i,
-      previewMappingProvider: o,
-      previewObjectType: d,
+      previewMappingProvider: d,
+      previewObjectType: u,
       previewMappingStatus: a,
-      previewSourceInput: f,
-      sourceSyntaxError: g
+      previewSourceInput: x,
+      sourceSyntaxError: v
     } = this.elements;
-    this.currentPreviewMapping = t, i && (i.textContent = t.name), o && (o.textContent = t.provider), d && (d.textContent = t.external_schema?.object_type || "-"), a && (a.innerHTML = this.getStatusBadge(t.status)), this.renderPreviewRules(t.rules || []), this.showPreviewState("empty"), f && (f.value = ""), w(g), x(n), f?.focus();
+    this.currentPreviewMapping = t, i && (i.textContent = t.name), d && (d.textContent = t.provider), u && (u.textContent = t.external_schema?.object_type || "-"), a && (a.innerHTML = this.getStatusBadge(t.status)), this.renderPreviewRules(t.rules || []), this.showPreviewState("empty"), x && (x.value = ""), k(v), $(n), x?.focus();
   }
   /**
    * Close preview modal
    */
   closePreviewModal() {
-    w(this.elements.previewModal), this.currentPreviewMapping = null, this.elements.previewSourceInput && (this.elements.previewSourceInput.value = "");
+    k(this.elements.previewModal), this.currentPreviewMapping = null, this.elements.previewSourceInput && (this.elements.previewSourceInput.value = "");
   }
   /**
    * Show preview state
    */
   showPreviewState(e) {
-    const { previewEmpty: t, previewLoading: n, previewError: i, previewSuccess: o } = this.elements;
-    switch (w(t), w(n), w(i), w(o), e) {
+    const { previewEmpty: t, previewLoading: n, previewError: i, previewSuccess: d } = this.elements;
+    switch (k(t), k(n), k(i), k(d), e) {
       case "empty":
-        x(t);
+        $(t);
         break;
       case "loading":
-        x(n);
+        $(n);
         break;
       case "error":
-        x(i);
+        $(i);
         break;
       case "success":
-        x(o);
+        $(d);
         break;
     }
   }
@@ -3279,26 +3279,26 @@ class kt {
    */
   loadSamplePayload() {
     if (!this.currentPreviewMapping) return;
-    const { previewSourceInput: e, sourceSyntaxError: t } = this.elements, n = this.currentPreviewMapping.external_schema || { object_type: "data", fields: [] }, i = n.object_type || "data", o = n.fields || [], d = {}, a = {};
-    o.forEach((f) => {
-      const g = f.field || "field";
-      switch (f.type) {
+    const { previewSourceInput: e, sourceSyntaxError: t } = this.elements, n = this.currentPreviewMapping.external_schema || { object_type: "data", fields: [] }, i = n.object_type || "data", d = n.fields || [], u = {}, a = {};
+    d.forEach((x) => {
+      const v = x.field || "field";
+      switch (x.type) {
         case "string":
-          a[g] = g === "email" ? "john.doe@example.com" : g === "name" ? "John Doe" : `sample_${g}`;
+          a[v] = v === "email" ? "john.doe@example.com" : v === "name" ? "John Doe" : `sample_${v}`;
           break;
         case "number":
-          a[g] = 123;
+          a[v] = 123;
           break;
         case "boolean":
-          a[g] = !0;
+          a[v] = !0;
           break;
         case "date":
-          a[g] = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
+          a[v] = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
           break;
         default:
-          a[g] = `sample_${g}`;
+          a[v] = `sample_${v}`;
       }
-    }), d[i] = a, e && (e.value = JSON.stringify(d, null, 2)), w(t);
+    }), u[i] = a, e && (e.value = JSON.stringify(u, null, 2)), k(t);
   }
   /**
    * Validate source JSON
@@ -3306,12 +3306,12 @@ class kt {
   validateSourceJson() {
     const { previewSourceInput: e, sourceSyntaxError: t } = this.elements, n = e?.value.trim() || "";
     if (!n)
-      return w(t), null;
+      return k(t), null;
     try {
       const i = JSON.parse(n);
-      return w(t), i;
+      return k(t), i;
     } catch (i) {
-      return t && (t.textContent = `JSON Syntax Error: ${i instanceof Error ? i.message : "Invalid JSON"}`, x(t)), null;
+      return t && (t.textContent = `JSON Syntax Error: ${i instanceof Error ? i.message : "Invalid JSON"}`, $(t)), null;
     }
   }
   /**
@@ -3345,30 +3345,30 @@ class kt {
       field_instances: [],
       agreement: {},
       matched_rules: []
-    }, o = {}, d = {}, a = [];
-    return n.forEach((f) => {
-      const g = this.resolveSourceValue(e, f.source_object, f.source_field), y = g !== void 0;
+    }, d = {}, u = {}, a = [];
+    return n.forEach((x) => {
+      const v = this.resolveSourceValue(e, x.source_object, x.source_field), C = v !== void 0;
       if (i.matched_rules.push({
-        source: f.source_field,
-        matched: y,
-        value: g
-      }), !!y)
-        switch (f.target_entity) {
+        source: x.source_field,
+        matched: C,
+        value: v
+      }), !!C)
+        switch (x.target_entity) {
           case "participant":
-            o[f.target_path] = g;
+            d[x.target_path] = v;
             break;
           case "agreement":
-            d[f.target_path] = g;
+            u[x.target_path] = v;
             break;
           case "field_definition":
-            a.push({ path: f.target_path, value: g });
+            a.push({ path: x.target_path, value: v });
             break;
         }
-    }), Object.keys(o).length > 0 && i.participants.push({
-      ...o,
-      role: o.role || "signer",
-      signing_stage: o.signing_stage || 1
-    }), i.agreement = d, i.field_definitions = a, i;
+    }), Object.keys(d).length > 0 && i.participants.push({
+      ...d,
+      role: d.role || "signer",
+      signing_stage: d.signing_stage || 1
+    }), i.agreement = u, i.field_definitions = a, i;
   }
   /**
    * Resolve source value from payload
@@ -3379,9 +3379,9 @@ class kt {
         return e[t][n];
       for (const i of Object.keys(e))
         if (typeof e[i] == "object" && e[i] !== null) {
-          const o = e[i];
-          if (n in o)
-            return o[n];
+          const d = e[i];
+          if (n in d)
+            return d[n];
         }
       return e[n];
     }
@@ -3394,49 +3394,49 @@ class kt {
       previewParticipants: t,
       participantsCount: n,
       previewFields: i,
-      fieldsCount: o,
-      previewMetadata: d,
+      fieldsCount: d,
+      previewMetadata: u,
       previewRawJson: a,
-      previewRulesTbody: f
-    } = this.elements, g = e.participants || [];
-    n && (n.textContent = `(${g.length})`), t && (g.length === 0 ? t.innerHTML = '<p class="text-sm text-gray-500">No participants resolved</p>' : t.innerHTML = g.map(
-      (C) => `
+      previewRulesTbody: x
+    } = this.elements, v = e.participants || [];
+    n && (n.textContent = `(${v.length})`), t && (v.length === 0 ? t.innerHTML = '<p class="text-sm text-gray-500">No participants resolved</p>' : t.innerHTML = v.map(
+      (F) => `
           <div class="flex items-center gap-3 p-2 bg-gray-50 rounded-lg">
             <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-sm font-medium text-blue-700">
-              ${this.escapeHtml(String(C.name || C.email || "?").charAt(0).toUpperCase())}
+              ${this.escapeHtml(String(F.name || F.email || "?").charAt(0).toUpperCase())}
             </div>
             <div class="flex-1 min-w-0">
-              <p class="text-sm font-medium text-gray-900 truncate">${this.escapeHtml(String(C.name || "-"))}</p>
-              <p class="text-xs text-gray-500 truncate">${this.escapeHtml(String(C.email || "-"))}</p>
+              <p class="text-sm font-medium text-gray-900 truncate">${this.escapeHtml(String(F.name || "-"))}</p>
+              <p class="text-xs text-gray-500 truncate">${this.escapeHtml(String(F.email || "-"))}</p>
             </div>
             <div class="flex items-center gap-2">
-              <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-medium">${this.escapeHtml(String(C.role))}</span>
-              <span class="text-xs text-gray-500">Stage ${C.signing_stage}</span>
+              <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-medium">${this.escapeHtml(String(F.role))}</span>
+              <span class="text-xs text-gray-500">Stage ${F.signing_stage}</span>
             </div>
           </div>
         `
     ).join(""));
-    const y = e.field_definitions || [];
-    o && (o.textContent = `(${y.length})`), i && (y.length === 0 ? i.innerHTML = '<p class="text-sm text-gray-500">No field definitions resolved</p>' : i.innerHTML = y.map(
-      (C) => `
+    const C = e.field_definitions || [];
+    d && (d.textContent = `(${C.length})`), i && (C.length === 0 ? i.innerHTML = '<p class="text-sm text-gray-500">No field definitions resolved</p>' : i.innerHTML = C.map(
+      (F) => `
           <div class="flex items-center gap-2 p-2 bg-gray-50 rounded-lg text-sm">
-            <span class="font-mono text-xs text-gray-600">${this.escapeHtml(C.path)}</span>
+            <span class="font-mono text-xs text-gray-600">${this.escapeHtml(F.path)}</span>
             <span class="text-gray-400">=</span>
-            <span class="text-gray-900">${this.escapeHtml(String(C.value))}</span>
+            <span class="text-gray-900">${this.escapeHtml(String(F.value))}</span>
           </div>
         `
     ).join(""));
-    const b = e.agreement || {}, I = Object.entries(b);
-    d && (I.length === 0 ? d.innerHTML = '<p class="text-sm text-gray-500">No agreement metadata resolved</p>' : d.innerHTML = I.map(
-      ([C, E]) => `
+    const P = e.agreement || {}, H = Object.entries(P);
+    u && (H.length === 0 ? u.innerHTML = '<p class="text-sm text-gray-500">No agreement metadata resolved</p>' : u.innerHTML = H.map(
+      ([F, D]) => `
           <div class="flex items-center gap-2 text-sm">
-            <span class="text-gray-600">${this.escapeHtml(C)}:</span>
-            <span class="text-gray-900">${this.escapeHtml(String(E))}</span>
+            <span class="text-gray-600">${this.escapeHtml(F)}:</span>
+            <span class="text-gray-900">${this.escapeHtml(String(D))}</span>
           </div>
         `
-    ).join("")), a && (a.textContent = JSON.stringify(e, null, 2)), (e.matched_rules || []).forEach((C) => {
-      const E = f?.querySelector(`[data-rule-source="${this.escapeHtml(C.source)}"] span`);
-      E && (C.matched ? (E.className = "px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700", E.textContent = "Matched") : (E.className = "px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700", E.textContent = "Not Found"));
+    ).join("")), a && (a.textContent = JSON.stringify(e, null, 2)), (e.matched_rules || []).forEach((F) => {
+      const D = x?.querySelector(`[data-rule-source="${this.escapeHtml(F.source)}"] span`);
+      D && (F.matched ? (D.className = "px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700", D.textContent = "Matched") : (D.className = "px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700", D.textContent = "Not Found"));
     });
   }
   /**
@@ -3444,7 +3444,7 @@ class kt {
    */
   clearPreview() {
     const { previewSourceInput: e, sourceSyntaxError: t } = this.elements;
-    e && (e.value = ""), w(t), this.showPreviewState("empty"), this.renderPreviewRules(this.currentPreviewMapping?.rules || []);
+    e && (e.value = ""), k(t), this.showPreviewState("empty"), this.renderPreviewRules(this.currentPreviewMapping?.rules || []);
   }
   /**
    * Show toast notification
@@ -3454,60 +3454,60 @@ class kt {
     i && (t === "success" ? i.success(e) : i.error(e));
   }
 }
-function Qi(s) {
-  const e = new kt(s);
-  return M(() => e.init()), e;
+function Us(s) {
+  const e = new Kn(s);
+  return W(() => e.init()), e;
 }
-function Xi(s) {
+function Vs(s) {
   const e = {
     basePath: s.basePath,
     apiBasePath: s.apiBasePath || `${s.basePath}/api`
-  }, t = new kt(e);
-  M(() => t.init()), typeof window < "u" && (window.esignIntegrationMappingsController = t);
+  }, t = new Kn(e);
+  W(() => t.init()), typeof window < "u" && (window.esignIntegrationMappingsController = t);
 }
-class Pt {
+class Qn {
   constructor(e) {
     this.conflicts = [], this.currentConflictId = null, this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api`, this.conflictsEndpoint = `${this.apiBase}/esign/integrations/conflicts`, this.elements = {
-      announcements: c("#conflicts-announcements"),
-      loadingState: c("#loading-state"),
-      emptyState: c("#empty-state"),
-      errorState: c("#error-state"),
-      conflictsList: c("#conflicts-list"),
-      errorMessage: c("#error-message"),
-      refreshBtn: c("#refresh-btn"),
-      retryBtn: c("#retry-btn"),
-      filterStatus: c("#filter-status"),
-      filterProvider: c("#filter-provider"),
-      filterEntity: c("#filter-entity"),
-      statPending: c("#stat-pending"),
-      statResolved: c("#stat-resolved"),
-      statIgnored: c("#stat-ignored"),
-      conflictDetailModal: c("#conflict-detail-modal"),
-      closeDetailBtn: c("#close-detail-btn"),
-      detailReason: c("#detail-reason"),
-      detailEntityType: c("#detail-entity-type"),
-      detailStatusBadge: c("#detail-status-badge"),
-      detailProvider: c("#detail-provider"),
-      detailExternalId: c("#detail-external-id"),
-      detailInternalId: c("#detail-internal-id"),
-      detailBindingId: c("#detail-binding-id"),
-      detailPayload: c("#detail-payload"),
-      resolutionSection: c("#resolution-section"),
-      detailResolvedAt: c("#detail-resolved-at"),
-      detailResolvedBy: c("#detail-resolved-by"),
-      detailResolution: c("#detail-resolution"),
-      detailConflictId: c("#detail-conflict-id"),
-      detailRunId: c("#detail-run-id"),
-      detailCreatedAt: c("#detail-created-at"),
-      detailVersion: c("#detail-version"),
-      actionButtons: c("#action-buttons"),
-      actionResolveBtn: c("#action-resolve-btn"),
-      actionIgnoreBtn: c("#action-ignore-btn"),
-      resolveModal: c("#resolve-modal"),
-      resolveForm: c("#resolve-form"),
-      cancelResolveBtn: c("#cancel-resolve-btn"),
-      submitResolveBtn: c("#submit-resolve-btn"),
-      resolutionAction: c("#resolution-action")
+      announcements: g("#conflicts-announcements"),
+      loadingState: g("#loading-state"),
+      emptyState: g("#empty-state"),
+      errorState: g("#error-state"),
+      conflictsList: g("#conflicts-list"),
+      errorMessage: g("#error-message"),
+      refreshBtn: g("#refresh-btn"),
+      retryBtn: g("#retry-btn"),
+      filterStatus: g("#filter-status"),
+      filterProvider: g("#filter-provider"),
+      filterEntity: g("#filter-entity"),
+      statPending: g("#stat-pending"),
+      statResolved: g("#stat-resolved"),
+      statIgnored: g("#stat-ignored"),
+      conflictDetailModal: g("#conflict-detail-modal"),
+      closeDetailBtn: g("#close-detail-btn"),
+      detailReason: g("#detail-reason"),
+      detailEntityType: g("#detail-entity-type"),
+      detailStatusBadge: g("#detail-status-badge"),
+      detailProvider: g("#detail-provider"),
+      detailExternalId: g("#detail-external-id"),
+      detailInternalId: g("#detail-internal-id"),
+      detailBindingId: g("#detail-binding-id"),
+      detailPayload: g("#detail-payload"),
+      resolutionSection: g("#resolution-section"),
+      detailResolvedAt: g("#detail-resolved-at"),
+      detailResolvedBy: g("#detail-resolved-by"),
+      detailResolution: g("#detail-resolution"),
+      detailConflictId: g("#detail-conflict-id"),
+      detailRunId: g("#detail-run-id"),
+      detailCreatedAt: g("#detail-created-at"),
+      detailVersion: g("#detail-version"),
+      actionButtons: g("#action-buttons"),
+      actionResolveBtn: g("#action-resolve-btn"),
+      actionIgnoreBtn: g("#action-ignore-btn"),
+      resolveModal: g("#resolve-modal"),
+      resolveForm: g("#resolve-form"),
+      cancelResolveBtn: g("#cancel-resolve-btn"),
+      submitResolveBtn: g("#submit-resolve-btn"),
+      resolutionAction: g("#resolution-action")
     };
   }
   /**
@@ -3525,21 +3525,21 @@ class Pt {
       retryBtn: t,
       closeDetailBtn: n,
       filterStatus: i,
-      filterProvider: o,
-      filterEntity: d,
+      filterProvider: d,
+      filterEntity: u,
       actionResolveBtn: a,
-      actionIgnoreBtn: f,
-      cancelResolveBtn: g,
-      resolveForm: y,
-      conflictDetailModal: b,
-      resolveModal: I
+      actionIgnoreBtn: x,
+      cancelResolveBtn: v,
+      resolveForm: C,
+      conflictDetailModal: P,
+      resolveModal: H
     } = this.elements;
-    e?.addEventListener("click", () => this.loadConflicts()), t?.addEventListener("click", () => this.loadConflicts()), n?.addEventListener("click", () => this.closeConflictDetail()), i?.addEventListener("change", () => this.loadConflicts()), o?.addEventListener("change", () => this.renderConflicts()), d?.addEventListener("change", () => this.renderConflicts()), a?.addEventListener("click", () => this.openResolveModal("resolved")), f?.addEventListener("click", () => this.openResolveModal("ignored")), g?.addEventListener("click", () => this.closeResolveModal()), y?.addEventListener("submit", (C) => this.submitResolution(C)), document.addEventListener("keydown", (C) => {
-      C.key === "Escape" && (I && !I.classList.contains("hidden") ? this.closeResolveModal() : b && !b.classList.contains("hidden") && this.closeConflictDetail());
-    }), [b, I].forEach((C) => {
-      C?.addEventListener("click", (E) => {
-        const T = E.target;
-        (T === C || T.getAttribute("aria-hidden") === "true") && (C === b ? this.closeConflictDetail() : C === I && this.closeResolveModal());
+    e?.addEventListener("click", () => this.loadConflicts()), t?.addEventListener("click", () => this.loadConflicts()), n?.addEventListener("click", () => this.closeConflictDetail()), i?.addEventListener("change", () => this.loadConflicts()), d?.addEventListener("change", () => this.renderConflicts()), u?.addEventListener("change", () => this.renderConflicts()), a?.addEventListener("click", () => this.openResolveModal("resolved")), x?.addEventListener("click", () => this.openResolveModal("ignored")), v?.addEventListener("click", () => this.closeResolveModal()), C?.addEventListener("submit", (F) => this.submitResolution(F)), document.addEventListener("keydown", (F) => {
+      F.key === "Escape" && (H && !H.classList.contains("hidden") ? this.closeResolveModal() : P && !P.classList.contains("hidden") && this.closeConflictDetail());
+    }), [P, H].forEach((F) => {
+      F?.addEventListener("click", (D) => {
+        const z = D.target;
+        (z === F || z.getAttribute("aria-hidden") === "true") && (F === P ? this.closeConflictDetail() : F === H && this.closeResolveModal());
       });
     });
   }
@@ -3548,25 +3548,25 @@ class Pt {
    */
   announce(e) {
     const { announcements: t } = this.elements;
-    t && (t.textContent = e), H(e);
+    t && (t.textContent = e), me(e);
   }
   /**
    * Show a specific page state
    */
   showState(e) {
-    const { loadingState: t, emptyState: n, errorState: i, conflictsList: o } = this.elements;
-    switch (w(t), w(n), w(i), w(o), e) {
+    const { loadingState: t, emptyState: n, errorState: i, conflictsList: d } = this.elements;
+    switch (k(t), k(n), k(i), k(d), e) {
       case "loading":
-        x(t);
+        $(t);
         break;
       case "empty":
-        x(n);
+        $(n);
         break;
       case "error":
-        x(i);
+        $(i);
         break;
       case "list":
-        x(o);
+        $(d);
         break;
     }
   }
@@ -3650,8 +3650,8 @@ class Pt {
    * Update stats display
    */
   updateStats() {
-    const { statPending: e, statResolved: t, statIgnored: n } = this.elements, i = this.conflicts.filter((a) => a.status === "pending").length, o = this.conflicts.filter((a) => a.status === "resolved").length, d = this.conflicts.filter((a) => a.status === "ignored").length;
-    e && (e.textContent = String(i)), t && (t.textContent = String(o)), n && (n.textContent = String(d));
+    const { statPending: e, statResolved: t, statIgnored: n } = this.elements, i = this.conflicts.filter((a) => a.status === "pending").length, d = this.conflicts.filter((a) => a.status === "resolved").length, u = this.conflicts.filter((a) => a.status === "ignored").length;
+    e && (e.textContent = String(i)), t && (t.textContent = String(d)), n && (n.textContent = String(u));
   }
   /**
    * Render conflicts list with filters applied
@@ -3659,44 +3659,44 @@ class Pt {
   renderConflicts() {
     const { conflictsList: e, filterStatus: t, filterProvider: n, filterEntity: i } = this.elements;
     if (!e) return;
-    const o = t?.value || "", d = n?.value || "", a = i?.value || "", f = this.conflicts.filter((g) => !(o && g.status !== o || d && g.provider !== d || a && g.entity_kind !== a));
-    if (f.length === 0) {
+    const d = t?.value || "", u = n?.value || "", a = i?.value || "", x = this.conflicts.filter((v) => !(d && v.status !== d || u && v.provider !== u || a && v.entity_kind !== a));
+    if (x.length === 0) {
       this.showState("empty");
       return;
     }
-    e.innerHTML = f.map(
-      (g) => `
-      <div class="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow cursor-pointer conflict-card" data-id="${this.escapeHtml(g.id)}">
+    e.innerHTML = x.map(
+      (v) => `
+      <div class="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow cursor-pointer conflict-card" data-id="${this.escapeHtml(v.id)}">
         <div class="p-4">
           <div class="flex items-start justify-between">
             <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-lg ${g.status === "pending" ? "bg-amber-100" : g.status === "resolved" ? "bg-green-100" : "bg-gray-100"} flex items-center justify-center">
-                <svg class="w-5 h-5 ${g.status === "pending" ? "text-amber-600" : g.status === "resolved" ? "text-green-600" : "text-gray-500"}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div class="w-10 h-10 rounded-lg ${v.status === "pending" ? "bg-amber-100" : v.status === "resolved" ? "bg-green-100" : "bg-gray-100"} flex items-center justify-center">
+                <svg class="w-5 h-5 ${v.status === "pending" ? "text-amber-600" : v.status === "resolved" ? "text-green-600" : "text-gray-500"}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
                 </svg>
               </div>
               <div>
                 <div class="flex items-center gap-2 mb-1">
-                  <span class="font-medium text-gray-900">${this.escapeHtml(g.reason || "Data conflict")}</span>
-                  ${this.getEntityBadge(g.entity_kind)}
+                  <span class="font-medium text-gray-900">${this.escapeHtml(v.reason || "Data conflict")}</span>
+                  ${this.getEntityBadge(v.entity_kind)}
                 </div>
                 <div class="flex items-center gap-2 text-xs text-gray-500">
-                  <span>${this.escapeHtml(g.provider)}</span>
+                  <span>${this.escapeHtml(v.provider)}</span>
                   <span>•</span>
-                  <span class="font-mono">${this.escapeHtml((g.external_id || "").slice(0, 12))}...</span>
+                  <span class="font-mono">${this.escapeHtml((v.external_id || "").slice(0, 12))}...</span>
                 </div>
               </div>
             </div>
             <div class="text-right">
-              ${this.getStatusBadge(g.status)}
-              <p class="text-xs text-gray-500 mt-1">${this.formatDate(g.created_at)}</p>
+              ${this.getStatusBadge(v.status)}
+              <p class="text-xs text-gray-500 mt-1">${this.formatDate(v.created_at)}</p>
             </div>
           </div>
         </div>
       </div>
     `
-    ).join(""), this.showState("list"), e.querySelectorAll(".conflict-card").forEach((g) => {
-      g.addEventListener("click", () => this.openConflictDetail(g.dataset.id || ""));
+    ).join(""), this.showState("list"), e.querySelectorAll(".conflict-card").forEach((v) => {
+      v.addEventListener("click", () => this.openConflictDetail(v.dataset.id || ""));
     });
   }
   /**
@@ -3704,65 +3704,65 @@ class Pt {
    */
   openConflictDetail(e) {
     this.currentConflictId = e;
-    const t = this.conflicts.find((U) => U.id === e);
+    const t = this.conflicts.find((fe) => fe.id === e);
     if (!t) return;
     const {
       conflictDetailModal: n,
       detailReason: i,
-      detailEntityType: o,
-      detailStatusBadge: d,
+      detailEntityType: d,
+      detailStatusBadge: u,
       detailProvider: a,
-      detailExternalId: f,
-      detailInternalId: g,
-      detailBindingId: y,
-      detailConflictId: b,
-      detailRunId: I,
-      detailCreatedAt: C,
-      detailVersion: E,
-      detailPayload: T,
-      resolutionSection: P,
-      actionButtons: $,
-      detailResolvedAt: B,
-      detailResolvedBy: F,
-      detailResolution: O
+      detailExternalId: x,
+      detailInternalId: v,
+      detailBindingId: C,
+      detailConflictId: P,
+      detailRunId: H,
+      detailCreatedAt: F,
+      detailVersion: D,
+      detailPayload: z,
+      resolutionSection: N,
+      actionButtons: U,
+      detailResolvedAt: X,
+      detailResolvedBy: se,
+      detailResolution: ce
     } = this.elements;
-    if (i && (i.textContent = t.reason || "Data conflict"), o && (o.textContent = t.entity_kind || "-"), d && (d.innerHTML = this.getStatusBadge(t.status)), a && (a.textContent = t.provider || "-"), f && (f.textContent = t.external_id || "-"), g && (g.textContent = t.internal_id || "-"), y && (y.textContent = t.binding_id || "-"), b && (b.textContent = t.id), I && (I.textContent = t.run_id || "-"), C && (C.textContent = this.formatDate(t.created_at)), E && (E.textContent = String(t.version || 1)), T)
+    if (i && (i.textContent = t.reason || "Data conflict"), d && (d.textContent = t.entity_kind || "-"), u && (u.innerHTML = this.getStatusBadge(t.status)), a && (a.textContent = t.provider || "-"), x && (x.textContent = t.external_id || "-"), v && (v.textContent = t.internal_id || "-"), C && (C.textContent = t.binding_id || "-"), P && (P.textContent = t.id), H && (H.textContent = t.run_id || "-"), F && (F.textContent = this.formatDate(t.created_at)), D && (D.textContent = String(t.version || 1)), z)
       try {
-        const U = t.payload_json ? JSON.parse(t.payload_json) : t.payload || {};
-        T.textContent = JSON.stringify(U, null, 2);
+        const fe = t.payload_json ? JSON.parse(t.payload_json) : t.payload || {};
+        z.textContent = JSON.stringify(fe, null, 2);
       } catch {
-        T.textContent = t.payload_json || "{}";
+        z.textContent = t.payload_json || "{}";
       }
     if (t.status === "resolved" || t.status === "ignored") {
-      if (x(P), w($), B && (B.textContent = t.resolved_at ? this.formatDate(t.resolved_at) : ""), F && (F.textContent = t.resolved_by_user_id ? `By user ${t.resolved_by_user_id}` : "-"), O)
+      if ($(N), k(U), X && (X.textContent = t.resolved_at ? this.formatDate(t.resolved_at) : ""), se && (se.textContent = t.resolved_by_user_id ? `By user ${t.resolved_by_user_id}` : "-"), ce)
         try {
-          const U = t.resolution_json ? JSON.parse(t.resolution_json) : t.resolution || {};
-          O.textContent = JSON.stringify(U, null, 2);
+          const fe = t.resolution_json ? JSON.parse(t.resolution_json) : t.resolution || {};
+          ce.textContent = JSON.stringify(fe, null, 2);
         } catch {
-          O.textContent = t.resolution_json || "{}";
+          ce.textContent = t.resolution_json || "{}";
         }
     } else
-      w(P), x($);
-    x(n);
+      k(N), $(U);
+    $(n);
   }
   /**
    * Close conflict detail modal
    */
   closeConflictDetail() {
-    w(this.elements.conflictDetailModal), this.currentConflictId = null;
+    k(this.elements.conflictDetailModal), this.currentConflictId = null;
   }
   /**
    * Open resolve modal
    */
   openResolveModal(e = "resolved") {
     const { resolveModal: t, resolveForm: n, resolutionAction: i } = this.elements;
-    n?.reset(), i && (i.value = e), x(t);
+    n?.reset(), i && (i.value = e), $(t);
   }
   /**
    * Close resolve modal
    */
   closeResolveModal() {
-    w(this.elements.resolveModal);
+    k(this.elements.resolveModal);
   }
   /**
    * Submit resolution
@@ -3772,23 +3772,23 @@ class Pt {
     const { resolveForm: t, submitResolveBtn: n } = this.elements;
     if (!t || !n) return;
     const i = new FormData(t);
-    let o = {};
-    const d = i.get("resolution");
-    if (d)
+    let d = {};
+    const u = i.get("resolution");
+    if (u)
       try {
-        o = JSON.parse(d);
+        d = JSON.parse(u);
       } catch {
-        o = { raw: d };
+        d = { raw: u };
       }
     const a = i.get("notes");
-    a && (o.notes = a);
-    const f = {
+    a && (d.notes = a);
+    const x = {
       status: i.get("status"),
-      resolution: o
+      resolution: d
     };
     n.setAttribute("disabled", "true"), n.innerHTML = '<svg class="animate-spin w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> Submitting...';
     try {
-      const g = await fetch(`${this.conflictsEndpoint}/${this.currentConflictId}/resolve`, {
+      const v = await fetch(`${this.conflictsEndpoint}/${this.currentConflictId}/resolve`, {
         method: "POST",
         credentials: "same-origin",
         headers: {
@@ -3796,17 +3796,17 @@ class Pt {
           Accept: "application/json",
           "Idempotency-Key": `resolve-${this.currentConflictId}-${Date.now()}`
         },
-        body: JSON.stringify(f)
+        body: JSON.stringify(x)
       });
-      if (!g.ok) {
-        const y = await g.json();
-        throw new Error(y.error?.message || `HTTP ${g.status}`);
+      if (!v.ok) {
+        const C = await v.json();
+        throw new Error(C.error?.message || `HTTP ${v.status}`);
       }
       this.showToast("Conflict resolved", "success"), this.announce("Conflict resolved"), this.closeResolveModal(), this.closeConflictDetail(), await this.loadConflicts();
-    } catch (g) {
-      console.error("Resolution error:", g);
-      const y = g instanceof Error ? g.message : "Unknown error";
-      this.showToast(`Failed: ${y}`, "error");
+    } catch (v) {
+      console.error("Resolution error:", v);
+      const C = v instanceof Error ? v.message : "Unknown error";
+      this.showToast(`Failed: ${C}`, "error");
     } finally {
       n.removeAttribute("disabled"), n.innerHTML = '<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Submit Resolution';
     }
@@ -3819,60 +3819,60 @@ class Pt {
     i && (t === "success" ? i.success(e) : i.error(e));
   }
 }
-function Zi(s) {
-  const e = new Pt(s);
-  return M(() => e.init()), e;
+function Gs(s) {
+  const e = new Qn(s);
+  return W(() => e.init()), e;
 }
-function es(s) {
+function Ws(s) {
   const e = {
     basePath: s.basePath,
     apiBasePath: s.apiBasePath || `${s.basePath}/api`
-  }, t = new Pt(e);
-  M(() => t.init()), typeof window < "u" && (window.esignIntegrationConflictsController = t);
+  }, t = new Qn(e);
+  W(() => t.init()), typeof window < "u" && (window.esignIntegrationConflictsController = t);
 }
-class Tt {
+class Xn {
   constructor(e) {
     this.syncRuns = [], this.mappings = [], this.currentRunId = null, this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api`, this.syncRunsEndpoint = `${this.apiBase}/esign/integrations/sync-runs`, this.mappingsEndpoint = `${this.apiBase}/esign/integrations/mappings`, this.elements = {
-      announcements: c("#sync-announcements"),
-      loadingState: c("#loading-state"),
-      emptyState: c("#empty-state"),
-      errorState: c("#error-state"),
-      runsTimeline: c("#runs-timeline"),
-      errorMessage: c("#error-message"),
-      refreshBtn: c("#refresh-btn"),
-      retryBtn: c("#retry-btn"),
-      filterProvider: c("#filter-provider"),
-      filterStatus: c("#filter-status"),
-      filterDirection: c("#filter-direction"),
-      statTotal: c("#stat-total"),
-      statRunning: c("#stat-running"),
-      statCompleted: c("#stat-completed"),
-      statFailed: c("#stat-failed"),
-      startSyncBtn: c("#start-sync-btn"),
-      startSyncEmptyBtn: c("#start-sync-empty-btn"),
-      startSyncModal: c("#start-sync-modal"),
-      startSyncForm: c("#start-sync-form"),
-      cancelSyncBtn: c("#cancel-sync-btn"),
-      submitSyncBtn: c("#submit-sync-btn"),
-      syncMappingSelect: c("#sync-mapping"),
-      runDetailModal: c("#run-detail-modal"),
-      closeDetailBtn: c("#close-detail-btn"),
-      detailRunId: c("#detail-run-id"),
-      detailProvider: c("#detail-provider"),
-      detailDirection: c("#detail-direction"),
-      detailStatus: c("#detail-status"),
-      detailStarted: c("#detail-started"),
-      detailCompleted: c("#detail-completed"),
-      detailCursor: c("#detail-cursor"),
-      detailAttempt: c("#detail-attempt"),
-      detailErrorSection: c("#detail-error-section"),
-      detailLastError: c("#detail-last-error"),
-      detailCheckpoints: c("#detail-checkpoints"),
-      actionResumeBtn: c("#action-resume-btn"),
-      actionRetryBtn: c("#action-retry-btn"),
-      actionCompleteBtn: c("#action-complete-btn"),
-      actionFailBtn: c("#action-fail-btn"),
-      actionDiagnosticsBtn: c("#action-diagnostics-btn")
+      announcements: g("#sync-announcements"),
+      loadingState: g("#loading-state"),
+      emptyState: g("#empty-state"),
+      errorState: g("#error-state"),
+      runsTimeline: g("#runs-timeline"),
+      errorMessage: g("#error-message"),
+      refreshBtn: g("#refresh-btn"),
+      retryBtn: g("#retry-btn"),
+      filterProvider: g("#filter-provider"),
+      filterStatus: g("#filter-status"),
+      filterDirection: g("#filter-direction"),
+      statTotal: g("#stat-total"),
+      statRunning: g("#stat-running"),
+      statCompleted: g("#stat-completed"),
+      statFailed: g("#stat-failed"),
+      startSyncBtn: g("#start-sync-btn"),
+      startSyncEmptyBtn: g("#start-sync-empty-btn"),
+      startSyncModal: g("#start-sync-modal"),
+      startSyncForm: g("#start-sync-form"),
+      cancelSyncBtn: g("#cancel-sync-btn"),
+      submitSyncBtn: g("#submit-sync-btn"),
+      syncMappingSelect: g("#sync-mapping"),
+      runDetailModal: g("#run-detail-modal"),
+      closeDetailBtn: g("#close-detail-btn"),
+      detailRunId: g("#detail-run-id"),
+      detailProvider: g("#detail-provider"),
+      detailDirection: g("#detail-direction"),
+      detailStatus: g("#detail-status"),
+      detailStarted: g("#detail-started"),
+      detailCompleted: g("#detail-completed"),
+      detailCursor: g("#detail-cursor"),
+      detailAttempt: g("#detail-attempt"),
+      detailErrorSection: g("#detail-error-section"),
+      detailLastError: g("#detail-last-error"),
+      detailCheckpoints: g("#detail-checkpoints"),
+      actionResumeBtn: g("#action-resume-btn"),
+      actionRetryBtn: g("#action-retry-btn"),
+      actionCompleteBtn: g("#action-complete-btn"),
+      actionFailBtn: g("#action-fail-btn"),
+      actionDiagnosticsBtn: g("#action-diagnostics-btn")
     };
   }
   /**
@@ -3890,26 +3890,26 @@ class Tt {
       startSyncEmptyBtn: t,
       cancelSyncBtn: n,
       startSyncForm: i,
-      refreshBtn: o,
-      retryBtn: d,
+      refreshBtn: d,
+      retryBtn: u,
       closeDetailBtn: a,
-      filterProvider: f,
-      filterStatus: g,
-      filterDirection: y,
-      actionResumeBtn: b,
-      actionRetryBtn: I,
-      actionCompleteBtn: C,
-      actionFailBtn: E,
-      actionDiagnosticsBtn: T,
-      startSyncModal: P,
-      runDetailModal: $
+      filterProvider: x,
+      filterStatus: v,
+      filterDirection: C,
+      actionResumeBtn: P,
+      actionRetryBtn: H,
+      actionCompleteBtn: F,
+      actionFailBtn: D,
+      actionDiagnosticsBtn: z,
+      startSyncModal: N,
+      runDetailModal: U
     } = this.elements;
-    e?.addEventListener("click", () => this.openStartSyncModal()), t?.addEventListener("click", () => this.openStartSyncModal()), n?.addEventListener("click", () => this.closeStartSyncModal()), i?.addEventListener("submit", (B) => this.startSync(B)), o?.addEventListener("click", () => this.loadSyncRuns()), d?.addEventListener("click", () => this.loadSyncRuns()), a?.addEventListener("click", () => this.closeRunDetail()), f?.addEventListener("change", () => this.renderTimeline()), g?.addEventListener("change", () => this.renderTimeline()), y?.addEventListener("change", () => this.renderTimeline()), b?.addEventListener("click", () => this.runAction("resume")), I?.addEventListener("click", () => this.runAction("resume")), C?.addEventListener("click", () => this.runAction("complete")), E?.addEventListener("click", () => this.runAction("fail")), T?.addEventListener("click", () => this.openDiagnostics()), document.addEventListener("keydown", (B) => {
-      B.key === "Escape" && (P && !P.classList.contains("hidden") && this.closeStartSyncModal(), $ && !$.classList.contains("hidden") && this.closeRunDetail());
-    }), [P, $].forEach((B) => {
-      B?.addEventListener("click", (F) => {
-        const O = F.target;
-        (O === B || O.getAttribute("aria-hidden") === "true") && (B === P ? this.closeStartSyncModal() : B === $ && this.closeRunDetail());
+    e?.addEventListener("click", () => this.openStartSyncModal()), t?.addEventListener("click", () => this.openStartSyncModal()), n?.addEventListener("click", () => this.closeStartSyncModal()), i?.addEventListener("submit", (X) => this.startSync(X)), d?.addEventListener("click", () => this.loadSyncRuns()), u?.addEventListener("click", () => this.loadSyncRuns()), a?.addEventListener("click", () => this.closeRunDetail()), x?.addEventListener("change", () => this.renderTimeline()), v?.addEventListener("change", () => this.renderTimeline()), C?.addEventListener("change", () => this.renderTimeline()), P?.addEventListener("click", () => this.runAction("resume")), H?.addEventListener("click", () => this.runAction("resume")), F?.addEventListener("click", () => this.runAction("complete")), D?.addEventListener("click", () => this.runAction("fail")), z?.addEventListener("click", () => this.openDiagnostics()), document.addEventListener("keydown", (X) => {
+      X.key === "Escape" && (N && !N.classList.contains("hidden") && this.closeStartSyncModal(), U && !U.classList.contains("hidden") && this.closeRunDetail());
+    }), [N, U].forEach((X) => {
+      X?.addEventListener("click", (se) => {
+        const ce = se.target;
+        (ce === X || ce.getAttribute("aria-hidden") === "true") && (X === N ? this.closeStartSyncModal() : X === U && this.closeRunDetail());
       });
     });
   }
@@ -3918,25 +3918,25 @@ class Tt {
    */
   announce(e) {
     const { announcements: t } = this.elements;
-    t && (t.textContent = e), H(e);
+    t && (t.textContent = e), me(e);
   }
   /**
    * Show a specific page state
    */
   showState(e) {
-    const { loadingState: t, emptyState: n, errorState: i, runsTimeline: o } = this.elements;
-    switch (w(t), w(n), w(i), w(o), e) {
+    const { loadingState: t, emptyState: n, errorState: i, runsTimeline: d } = this.elements;
+    switch (k(t), k(n), k(i), k(d), e) {
       case "loading":
-        x(t);
+        $(t);
         break;
       case "empty":
-        x(n);
+        $(n);
         break;
       case "error":
-        x(i);
+        $(i);
         break;
       case "list":
-        x(o);
+        $(d);
         break;
     }
   }
@@ -4051,10 +4051,10 @@ class Tt {
    * Update stats display
    */
   updateStats() {
-    const { statTotal: e, statRunning: t, statCompleted: n, statFailed: i } = this.elements, o = this.syncRuns.length, d = this.syncRuns.filter(
-      (g) => g.status === "running" || g.status === "pending"
-    ).length, a = this.syncRuns.filter((g) => g.status === "completed").length, f = this.syncRuns.filter((g) => g.status === "failed").length;
-    e && (e.textContent = String(o)), t && (t.textContent = String(d)), n && (n.textContent = String(a)), i && (i.textContent = String(f));
+    const { statTotal: e, statRunning: t, statCompleted: n, statFailed: i } = this.elements, d = this.syncRuns.length, u = this.syncRuns.filter(
+      (v) => v.status === "running" || v.status === "pending"
+    ).length, a = this.syncRuns.filter((v) => v.status === "completed").length, x = this.syncRuns.filter((v) => v.status === "failed").length;
+    e && (e.textContent = String(d)), t && (t.textContent = String(u)), n && (n.textContent = String(a)), i && (i.textContent = String(x));
   }
   /**
    * Render sync runs timeline with filters applied
@@ -4062,12 +4062,12 @@ class Tt {
   renderTimeline() {
     const { runsTimeline: e, filterStatus: t, filterDirection: n } = this.elements;
     if (!e) return;
-    const i = t?.value || "", o = n?.value || "", d = this.syncRuns.filter((a) => !(i && a.status !== i || o && a.direction !== o));
-    if (d.length === 0) {
+    const i = t?.value || "", d = n?.value || "", u = this.syncRuns.filter((a) => !(i && a.status !== i || d && a.direction !== d));
+    if (u.length === 0) {
       this.showState("empty");
       return;
     }
-    e.innerHTML = d.map(
+    e.innerHTML = u.map(
       (a) => `
       <div class="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow cursor-pointer sync-run-card" data-id="${this.escapeHtml(a.id)}">
         <div class="p-4">
@@ -4115,13 +4115,13 @@ class Tt {
    */
   openStartSyncModal() {
     const { startSyncModal: e, startSyncForm: t } = this.elements;
-    t?.reset(), x(e), document.getElementById("sync-provider")?.focus();
+    t?.reset(), $(e), document.getElementById("sync-provider")?.focus();
   }
   /**
    * Close start sync modal
    */
   closeStartSyncModal() {
-    w(this.elements.startSyncModal);
+    k(this.elements.startSyncModal);
   }
   /**
    * Start a new sync run
@@ -4130,7 +4130,7 @@ class Tt {
     e.preventDefault();
     const { startSyncForm: t, submitSyncBtn: n } = this.elements;
     if (!t || !n) return;
-    const i = new FormData(t), o = {
+    const i = new FormData(t), d = {
       provider: i.get("provider"),
       direction: i.get("direction"),
       mapping_spec_id: i.get("mapping_spec_id"),
@@ -4138,7 +4138,7 @@ class Tt {
     };
     n.setAttribute("disabled", "true"), n.innerHTML = '<svg class="animate-spin w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> Starting...';
     try {
-      const d = await fetch(this.syncRunsEndpoint, {
+      const u = await fetch(this.syncRunsEndpoint, {
         method: "POST",
         credentials: "same-origin",
         headers: {
@@ -4146,16 +4146,16 @@ class Tt {
           Accept: "application/json",
           "Idempotency-Key": `sync-${Date.now()}`
         },
-        body: JSON.stringify(o)
+        body: JSON.stringify(d)
       });
-      if (!d.ok) {
-        const a = await d.json();
-        throw new Error(a.error?.message || `HTTP ${d.status}`);
+      if (!u.ok) {
+        const a = await u.json();
+        throw new Error(a.error?.message || `HTTP ${u.status}`);
       }
       this.showToast("Sync run started", "success"), this.announce("Sync run started"), this.closeStartSyncModal(), await this.loadSyncRuns();
-    } catch (d) {
-      console.error("Start sync error:", d);
-      const a = d instanceof Error ? d.message : "Unknown error";
+    } catch (u) {
+      console.error("Start sync error:", u);
+      const a = u instanceof Error ? u.message : "Unknown error";
       this.showToast(`Failed to start: ${a}`, "error");
     } finally {
       n.removeAttribute("disabled"), n.innerHTML = '<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/></svg> Start Sync';
@@ -4166,39 +4166,39 @@ class Tt {
    */
   async openRunDetail(e) {
     this.currentRunId = e;
-    const t = this.syncRuns.find((F) => F.id === e);
+    const t = this.syncRuns.find((se) => se.id === e);
     if (!t) return;
     const {
       runDetailModal: n,
       detailRunId: i,
-      detailProvider: o,
-      detailDirection: d,
+      detailProvider: d,
+      detailDirection: u,
       detailStatus: a,
-      detailStarted: f,
-      detailCompleted: g,
-      detailCursor: y,
-      detailAttempt: b,
-      detailErrorSection: I,
-      detailLastError: C,
-      detailCheckpoints: E,
-      actionResumeBtn: T,
-      actionRetryBtn: P,
-      actionCompleteBtn: $,
-      actionFailBtn: B
+      detailStarted: x,
+      detailCompleted: v,
+      detailCursor: C,
+      detailAttempt: P,
+      detailErrorSection: H,
+      detailLastError: F,
+      detailCheckpoints: D,
+      actionResumeBtn: z,
+      actionRetryBtn: N,
+      actionCompleteBtn: U,
+      actionFailBtn: X
     } = this.elements;
-    i && (i.textContent = t.id), o && (o.textContent = t.provider), d && (d.textContent = t.direction === "inbound" ? "Inbound (Import)" : "Outbound (Export)"), a && (a.innerHTML = this.getStatusBadge(t.status)), f && (f.textContent = this.formatDate(t.started_at)), g && (g.textContent = t.completed_at ? this.formatDate(t.completed_at) : "-"), y && (y.textContent = t.cursor || "-"), b && (b.textContent = String(t.attempt_count || 1)), t.last_error ? (C && (C.textContent = t.last_error), x(I)) : w(I), T && T.classList.toggle("hidden", t.status !== "running"), P && P.classList.toggle("hidden", t.status !== "failed"), $ && $.classList.toggle("hidden", t.status !== "running"), B && B.classList.toggle("hidden", t.status !== "running"), E && (E.innerHTML = '<p class="text-sm text-gray-500">Loading checkpoints...</p>'), x(n);
+    i && (i.textContent = t.id), d && (d.textContent = t.provider), u && (u.textContent = t.direction === "inbound" ? "Inbound (Import)" : "Outbound (Export)"), a && (a.innerHTML = this.getStatusBadge(t.status)), x && (x.textContent = this.formatDate(t.started_at)), v && (v.textContent = t.completed_at ? this.formatDate(t.completed_at) : "-"), C && (C.textContent = t.cursor || "-"), P && (P.textContent = String(t.attempt_count || 1)), t.last_error ? (F && (F.textContent = t.last_error), $(H)) : k(H), z && z.classList.toggle("hidden", t.status !== "running"), N && N.classList.toggle("hidden", t.status !== "failed"), U && U.classList.toggle("hidden", t.status !== "running"), X && X.classList.toggle("hidden", t.status !== "running"), D && (D.innerHTML = '<p class="text-sm text-gray-500">Loading checkpoints...</p>'), $(n);
     try {
-      const F = await fetch(`${this.syncRunsEndpoint}/${e}/checkpoints`, {
+      const se = await fetch(`${this.syncRunsEndpoint}/${e}/checkpoints`, {
         credentials: "same-origin",
         headers: { Accept: "application/json" }
       });
-      if (F.ok) {
-        const O = await F.json();
-        this.renderCheckpoints(O.checkpoints || []);
+      if (se.ok) {
+        const ce = await se.json();
+        this.renderCheckpoints(ce.checkpoints || []);
       } else
-        E && (E.innerHTML = '<p class="text-sm text-gray-500">No checkpoints available</p>');
-    } catch (F) {
-      console.error("Error loading checkpoints:", F), E && (E.innerHTML = '<p class="text-sm text-red-600">Failed to load checkpoints</p>');
+        D && (D.innerHTML = '<p class="text-sm text-gray-500">No checkpoints available</p>');
+    } catch (se) {
+      console.error("Error loading checkpoints:", se), D && (D.innerHTML = '<p class="text-sm text-red-600">Failed to load checkpoints</p>');
     }
   }
   /**
@@ -4233,20 +4233,20 @@ class Tt {
    * Close run detail modal
    */
   closeRunDetail() {
-    w(this.elements.runDetailModal), this.currentRunId = null;
+    k(this.elements.runDetailModal), this.currentRunId = null;
   }
   /**
    * Run an action on the current sync run
    */
   async runAction(e) {
     if (!this.currentRunId) return;
-    const { actionResumeBtn: t, actionRetryBtn: n, actionCompleteBtn: i, actionFailBtn: o } = this.elements, d = e === "resume" ? t : e === "complete" ? i : o, a = e === "resume" ? n : null;
-    if (!d) return;
-    d.setAttribute("disabled", "true"), a?.setAttribute("disabled", "true");
-    const f = d.innerHTML;
-    d.innerHTML = '<svg class="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>';
+    const { actionResumeBtn: t, actionRetryBtn: n, actionCompleteBtn: i, actionFailBtn: d } = this.elements, u = e === "resume" ? t : e === "complete" ? i : d, a = e === "resume" ? n : null;
+    if (!u) return;
+    u.setAttribute("disabled", "true"), a?.setAttribute("disabled", "true");
+    const x = u.innerHTML;
+    u.innerHTML = '<svg class="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>';
     try {
-      const g = `${this.syncRunsEndpoint}/${this.currentRunId}/${e}`, y = await fetch(g, {
+      const v = `${this.syncRunsEndpoint}/${this.currentRunId}/${e}`, C = await fetch(v, {
         method: "POST",
         credentials: "same-origin",
         headers: {
@@ -4258,17 +4258,17 @@ class Tt {
           e === "fail" ? { last_error: "Manually marked as failed" } : {}
         )
       });
-      if (!y.ok) {
-        const b = await y.json();
-        throw new Error(b.error?.message || `HTTP ${y.status}`);
+      if (!C.ok) {
+        const P = await C.json();
+        throw new Error(P.error?.message || `HTTP ${C.status}`);
       }
       this.showToast(`Sync run ${e} successful`, "success"), this.closeRunDetail(), await this.loadSyncRuns();
-    } catch (g) {
-      console.error(`${e} error:`, g);
-      const y = g instanceof Error ? g.message : "Unknown error";
-      this.showToast(`Failed: ${y}`, "error");
+    } catch (v) {
+      console.error(`${e} error:`, v);
+      const C = v instanceof Error ? v.message : "Unknown error";
+      this.showToast(`Failed: ${C}`, "error");
     } finally {
-      d.removeAttribute("disabled"), a?.removeAttribute("disabled"), d.innerHTML = f;
+      u.removeAttribute("disabled"), a?.removeAttribute("disabled"), u.innerHTML = x;
     }
   }
   /**
@@ -4300,75 +4300,75 @@ class Tt {
     i && (t === "success" ? i.success(e) : t === "error" ? i.error(e) : t === "info" && i.info && i.info(e));
   }
 }
-function ts(s) {
-  const e = new Tt(s);
-  return M(() => e.init()), e;
+function Js(s) {
+  const e = new Xn(s);
+  return W(() => e.init()), e;
 }
-function ns(s) {
+function Ys(s) {
   const e = {
     basePath: s.basePath,
     apiBasePath: s.apiBasePath || `${s.basePath}/api`
-  }, t = new Tt(e);
-  M(() => t.init()), typeof window < "u" && (window.esignIntegrationSyncRunsController = t);
+  }, t = new Xn(e);
+  W(() => t.init()), typeof window < "u" && (window.esignIntegrationSyncRunsController = t);
 }
-const De = "esign.google.account_id", On = 25 * 1024 * 1024, zn = 2e3, mt = 60, Re = "application/vnd.google-apps.document", He = "application/pdf", ft = "application/vnd.google-apps.folder", Un = [Re, He];
-class ze {
+const xn = "esign.google.account_id", Mi = 25 * 1024 * 1024, Bi = 2e3, jn = 60, Cn = "application/vnd.google-apps.document", Ln = "application/pdf", qn = "application/vnd.google-apps.folder", Di = [Cn, Ln];
+class An {
   constructor(e) {
-    this.isSubmitting = !1, this.currentSource = "upload", this.currentFiles = [], this.nextPageToken = null, this.currentFolderPath = [{ id: "root", name: "My Drive" }], this.selectedFile = null, this.searchQuery = "", this.searchTimeout = null, this.pollTimeout = null, this.pollAttempts = 0, this.currentImportRunId = null, this.connectedAccounts = [], this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api/v1`, this.maxFileSize = e.maxFileSize || On, this.currentAccountId = this.resolveInitialAccountId(), this.elements = {
+    this.isSubmitting = !1, this.currentSource = "upload", this.currentFiles = [], this.nextPageToken = null, this.currentFolderPath = [{ id: "root", name: "My Drive" }], this.selectedFile = null, this.searchQuery = "", this.searchTimeout = null, this.pollTimeout = null, this.pollAttempts = 0, this.currentImportRunId = null, this.connectedAccounts = [], this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api/v1`, this.maxFileSize = e.maxFileSize || Mi, this.currentAccountId = this.resolveInitialAccountId(), this.elements = {
       // Upload panel
-      form: c("#document-upload-form"),
-      fileInput: c("#pdf_file"),
-      uploadZone: c("#pdf-upload-zone"),
-      placeholder: c("#upload-placeholder"),
-      preview: c("#upload-preview"),
-      fileName: c("#selected-file-name"),
-      fileSize: c("#selected-file-size"),
-      clearBtn: c("#clear-file-btn"),
-      errorEl: c("#upload-error"),
-      submitBtn: c("#submit-btn"),
-      titleInput: c("#title"),
-      sourceObjectKeyInput: c("#source_object_key"),
+      form: g("#document-upload-form"),
+      fileInput: g("#pdf_file"),
+      uploadZone: g("#pdf-upload-zone"),
+      placeholder: g("#upload-placeholder"),
+      preview: g("#upload-preview"),
+      fileName: g("#selected-file-name"),
+      fileSize: g("#selected-file-size"),
+      clearBtn: g("#clear-file-btn"),
+      errorEl: g("#upload-error"),
+      submitBtn: g("#submit-btn"),
+      titleInput: g("#title"),
+      sourceObjectKeyInput: g("#source_object_key"),
       // Source tabs
-      sourceTabs: W(".source-tab"),
-      sourcePanels: W(".source-panel"),
-      announcements: c("#doc-announcements"),
+      sourceTabs: nt(".source-tab"),
+      sourcePanels: nt(".source-panel"),
+      announcements: g("#doc-announcements"),
       // Google Drive panel
-      searchInput: c("#drive-search"),
-      clearSearchBtn: c("#clear-search-btn"),
-      fileList: c("#file-list"),
-      loadingState: c("#loading-state"),
-      breadcrumb: c("#breadcrumb"),
-      listTitle: c("#list-title"),
-      resultCount: c("#result-count"),
-      pagination: c("#pagination"),
-      loadMoreBtn: c("#load-more-btn"),
-      refreshBtn: c("#refresh-btn"),
-      driveAccountDropdown: c("#drive-account-dropdown"),
-      accountScopeHelp: c("#account-scope-help"),
-      connectGoogleLink: c("#connect-google-link"),
+      searchInput: g("#drive-search"),
+      clearSearchBtn: g("#clear-search-btn"),
+      fileList: g("#file-list"),
+      loadingState: g("#loading-state"),
+      breadcrumb: g("#breadcrumb"),
+      listTitle: g("#list-title"),
+      resultCount: g("#result-count"),
+      pagination: g("#pagination"),
+      loadMoreBtn: g("#load-more-btn"),
+      refreshBtn: g("#refresh-btn"),
+      driveAccountDropdown: g("#drive-account-dropdown"),
+      accountScopeHelp: g("#account-scope-help"),
+      connectGoogleLink: g("#connect-google-link"),
       // Selection panel
-      noSelection: c("#no-selection"),
-      filePreview: c("#file-preview"),
-      previewIcon: c("#preview-icon"),
-      previewTitle: c("#preview-title"),
-      previewType: c("#preview-type"),
-      importTypeInfo: c("#import-type-info"),
-      importTypeLabel: c("#import-type-label"),
-      importTypeDesc: c("#import-type-desc"),
-      snapshotWarning: c("#snapshot-warning"),
-      importDocumentTitle: c("#import-document-title"),
-      importBtn: c("#import-btn"),
-      importBtnText: c("#import-btn-text"),
-      clearSelectionBtn: c("#clear-selection-btn"),
+      noSelection: g("#no-selection"),
+      filePreview: g("#file-preview"),
+      previewIcon: g("#preview-icon"),
+      previewTitle: g("#preview-title"),
+      previewType: g("#preview-type"),
+      importTypeInfo: g("#import-type-info"),
+      importTypeLabel: g("#import-type-label"),
+      importTypeDesc: g("#import-type-desc"),
+      snapshotWarning: g("#snapshot-warning"),
+      importDocumentTitle: g("#import-document-title"),
+      importBtn: g("#import-btn"),
+      importBtnText: g("#import-btn-text"),
+      clearSelectionBtn: g("#clear-selection-btn"),
       // Import status
-      importStatus: c("#import-status"),
-      importStatusQueued: c("#import-status-queued"),
-      importStatusSuccess: c("#import-status-success"),
-      importStatusFailed: c("#import-status-failed"),
-      importStatusMessage: c("#import-status-message"),
-      importErrorMessage: c("#import-error-message"),
-      importRetryBtn: c("#import-retry-btn"),
-      importReconnectLink: c("#import-reconnect-link")
+      importStatus: g("#import-status"),
+      importStatusQueued: g("#import-status-queued"),
+      importStatusSuccess: g("#import-status-success"),
+      importStatusFailed: g("#import-status-failed"),
+      importStatusMessage: g("#import-status-message"),
+      importErrorMessage: g("#import-error-message"),
+      importRetryBtn: g("#import-retry-btn"),
+      importReconnectLink: g("#import-reconnect-link")
     };
   }
   /**
@@ -4405,24 +4405,24 @@ class ze {
       fileInput: t,
       uploadZone: n,
       clearBtn: i,
-      titleInput: o
+      titleInput: d
     } = this.elements;
-    t && t.addEventListener("change", () => this.handleFileSelect()), i && i.addEventListener("click", (d) => {
-      d.preventDefault(), d.stopPropagation(), this.clearFileSelection();
-    }), o && o.addEventListener("input", () => this.updateSubmitState()), n && (["dragenter", "dragover"].forEach((d) => {
-      n.addEventListener(d, (a) => {
+    t && t.addEventListener("change", () => this.handleFileSelect()), i && i.addEventListener("click", (u) => {
+      u.preventDefault(), u.stopPropagation(), this.clearFileSelection();
+    }), d && d.addEventListener("input", () => this.updateSubmitState()), n && (["dragenter", "dragover"].forEach((u) => {
+      n.addEventListener(u, (a) => {
         a.preventDefault(), a.stopPropagation(), n.classList.add("border-blue-400", "bg-blue-50");
       });
-    }), ["dragleave", "drop"].forEach((d) => {
-      n.addEventListener(d, (a) => {
+    }), ["dragleave", "drop"].forEach((u) => {
+      n.addEventListener(u, (a) => {
         a.preventDefault(), a.stopPropagation(), n.classList.remove("border-blue-400", "bg-blue-50");
       });
-    }), n.addEventListener("drop", (d) => {
-      const a = d.dataTransfer;
+    }), n.addEventListener("drop", (u) => {
+      const a = u.dataTransfer;
       a?.files?.length && this.elements.fileInput && (this.elements.fileInput.files = a.files, this.handleFileSelect());
-    }), n.addEventListener("keydown", (d) => {
-      (d.key === "Enter" || d.key === " ") && (d.preventDefault(), this.elements.fileInput?.click());
-    })), e && e.addEventListener("submit", (d) => this.handleFormSubmit(d));
+    }), n.addEventListener("keydown", (u) => {
+      (u.key === "Enter" || u.key === " ") && (u.preventDefault(), this.elements.fileInput?.click());
+    })), e && e.addEventListener("submit", (u) => this.handleFormSubmit(u));
   }
   /**
    * Setup Google Drive listeners
@@ -4433,18 +4433,18 @@ class ze {
       clearSearchBtn: t,
       loadMoreBtn: n,
       refreshBtn: i,
-      clearSelectionBtn: o,
-      importBtn: d,
+      clearSelectionBtn: d,
+      importBtn: u,
       importRetryBtn: a,
-      driveAccountDropdown: f
+      driveAccountDropdown: x
     } = this.elements;
     if (e) {
-      const g = re(() => this.handleSearch(), 300);
-      e.addEventListener("input", g);
+      const v = Qt(() => this.handleSearch(), 300);
+      e.addEventListener("input", v);
     }
-    t && t.addEventListener("click", () => this.clearSearch()), n && n.addEventListener("click", () => this.loadMoreFiles()), i && i.addEventListener("click", () => this.refreshFiles()), f && f.addEventListener("change", () => {
-      this.setCurrentAccountId(f.value, this.currentSource === "google");
-    }), o && o.addEventListener("click", () => this.clearFileSelection()), d && d.addEventListener("click", () => this.startImport()), a && a.addEventListener("click", () => {
+    t && t.addEventListener("click", () => this.clearSearch()), n && n.addEventListener("click", () => this.loadMoreFiles()), i && i.addEventListener("click", () => this.refreshFiles()), x && x.addEventListener("change", () => {
+      this.setCurrentAccountId(x.value, this.currentSource === "google");
+    }), d && d.addEventListener("click", () => this.clearFileSelection()), u && u.addEventListener("click", () => this.startImport()), a && a.addEventListener("click", () => {
       this.selectedFile ? this.startImport() : this.clearDriveSelection();
     });
   }
@@ -4461,7 +4461,7 @@ class ze {
     if (n) return n;
     try {
       return this.normalizeAccountId(
-        window.localStorage.getItem(De)
+        window.localStorage.getItem(xn)
       );
     } catch {
       return "";
@@ -4484,8 +4484,8 @@ class ze {
     }
     if (this.currentAccountId = n, this.updateAccountScopeUI(), t && this.config.googleEnabled && this.config.googleConnected) {
       this.currentFolderPath = [{ id: "root", name: "My Drive" }], this.searchQuery = "";
-      const { searchInput: i, clearSearchBtn: o } = this.elements;
-      i && (i.value = ""), o && w(o), this.updateBreadcrumb(), this.loadFiles({ folderId: "root" });
+      const { searchInput: i, clearSearchBtn: d } = this.elements;
+      i && (i.value = ""), d && k(d), this.updateBreadcrumb(), this.loadFiles({ folderId: "root" });
     }
   }
   /**
@@ -4523,14 +4523,14 @@ class ze {
     t.value = "", t.textContent = "Default account", this.currentAccountId || (t.selected = !0), e.appendChild(t);
     const n = /* @__PURE__ */ new Set([""]);
     for (const i of this.connectedAccounts) {
-      const o = this.normalizeAccountId(i?.account_id);
-      if (n.has(o))
+      const d = this.normalizeAccountId(i?.account_id);
+      if (n.has(d))
         continue;
-      n.add(o);
-      const d = document.createElement("option");
-      d.value = o;
-      const a = String(i?.email || "").trim(), f = String(i?.status || "").trim(), g = a || o || "Default account";
-      d.textContent = f && f !== "connected" ? `${g} (${f})` : g, o === this.currentAccountId && (d.selected = !0), e.appendChild(d);
+      n.add(d);
+      const u = document.createElement("option");
+      u.value = d;
+      const a = String(i?.email || "").trim(), x = String(i?.status || "").trim(), v = a || d || "Default account";
+      u.textContent = x && x !== "connected" ? `${v} (${x})` : v, d === this.currentAccountId && (u.selected = !0), e.appendChild(u);
     }
     if (this.currentAccountId && !n.has(this.currentAccountId)) {
       const i = document.createElement("option");
@@ -4544,7 +4544,7 @@ class ze {
     const e = new URL(window.location.href);
     this.currentAccountId ? e.searchParams.set("account_id", this.currentAccountId) : e.searchParams.delete("account_id"), window.history.replaceState({}, "", e.toString());
     try {
-      this.currentAccountId ? window.localStorage.setItem(De, this.currentAccountId) : window.localStorage.removeItem(De);
+      this.currentAccountId ? window.localStorage.setItem(xn, this.currentAccountId) : window.localStorage.removeItem(xn);
     } catch {
     }
   }
@@ -4561,12 +4561,12 @@ class ze {
   updateAccountScopeUI() {
     this.syncScopedAccountState();
     const { accountScopeHelp: e, connectGoogleLink: t, driveAccountDropdown: n } = this.elements;
-    if (e && (this.currentAccountId ? (e.textContent = `Account scope: ${this.currentAccountId}`, x(e)) : w(e)), t) {
+    if (e && (this.currentAccountId ? (e.textContent = `Account scope: ${this.currentAccountId}`, $(e)) : k(e)), t) {
       const i = t.dataset.baseHref || t.getAttribute("href");
       i && t.setAttribute("href", this.applyAccountIdToPath(i));
     }
     n && (Array.from(n.options).some(
-      (o) => this.normalizeAccountId(o.value) === this.currentAccountId
+      (d) => this.normalizeAccountId(d.value) === this.currentAccountId
     ) || this.renderConnectedAccountsDropdown(), n.value !== this.currentAccountId && (n.value = this.currentAccountId));
   }
   /**
@@ -4597,10 +4597,10 @@ class ze {
         "hover:border-gray-300"
       ));
     }), this.elements.sourcePanels.forEach((n) => {
-      n.id.replace("panel-", "") === e ? x(n) : w(n);
+      n.id.replace("panel-", "") === e ? $(n) : k(n);
     });
     const t = new URL(window.location.href);
-    e === "google" ? t.searchParams.set("source", "google") : t.searchParams.delete("source"), window.history.replaceState({}, "", t.toString()), e === "google" && this.config.googleEnabled && this.config.googleConnected && this.loadFiles({ folderId: "root" }), H(
+    e === "google" ? t.searchParams.set("source", "google") : t.searchParams.delete("source"), window.history.replaceState({}, "", t.toString()), e === "google" && this.config.googleEnabled && this.config.googleConnected && this.loadFiles({ folderId: "root" }), me(
       `Switched to ${e === "google" ? "Google Drive import" : "PDF upload"}`
     );
   }
@@ -4621,8 +4621,8 @@ class ze {
     const { fileInput: e, titleInput: t, sourceObjectKeyInput: n } = this.elements, i = e?.files?.[0];
     if (i && this.validateFile(i)) {
       if (this.showPreview(i), n && (n.value = ""), t && !t.value.trim()) {
-        const o = i.name.replace(/\.pdf$/i, "");
-        t.value = o;
+        const d = i.name.replace(/\.pdf$/i, "");
+        t.value = d;
       }
     } else
       e && (e.value = ""), this.clearPreview(), n && (n.value = "");
@@ -4633,22 +4633,22 @@ class ze {
    */
   validateFile(e) {
     return this.clearError(), e ? e.type !== "application/pdf" && !e.name.toLowerCase().endsWith(".pdf") ? (this.showError("Please select a PDF file."), !1) : e.size > this.maxFileSize ? (this.showError(
-      `File is too large (${fe(e.size)}). Maximum size is ${fe(this.maxFileSize)}.`
+      `File is too large (${Jt(e.size)}). Maximum size is ${Jt(this.maxFileSize)}.`
     ), !1) : e.size === 0 ? (this.showError("The selected file appears to be empty."), !1) : !0 : !1;
   }
   /**
    * Show file preview
    */
   showPreview(e) {
-    const { placeholder: t, preview: n, fileName: i, fileSize: o, uploadZone: d } = this.elements;
-    i && (i.textContent = e.name), o && (o.textContent = fe(e.size)), t && w(t), n && x(n), d && (d.classList.remove("border-gray-300"), d.classList.add("border-green-400", "bg-green-50"));
+    const { placeholder: t, preview: n, fileName: i, fileSize: d, uploadZone: u } = this.elements;
+    i && (i.textContent = e.name), d && (d.textContent = Jt(e.size)), t && k(t), n && $(n), u && (u.classList.remove("border-gray-300"), u.classList.add("border-green-400", "bg-green-50"));
   }
   /**
    * Clear file preview
    */
   clearPreview() {
     const { placeholder: e, preview: t, uploadZone: n } = this.elements;
-    e && x(e), t && w(t), n && (n.classList.add("border-gray-300"), n.classList.remove("border-green-400", "bg-green-50"));
+    e && $(e), t && k(t), n && (n.classList.add("border-gray-300"), n.classList.remove("border-green-400", "bg-green-50"));
   }
   /**
    * Clear file selection
@@ -4662,21 +4662,21 @@ class ze {
    */
   showError(e) {
     const { errorEl: t } = this.elements;
-    t && (t.textContent = e, x(t));
+    t && (t.textContent = e, $(t));
   }
   /**
    * Clear error message
    */
   clearError() {
     const { errorEl: e } = this.elements;
-    e && (e.textContent = "", w(e));
+    e && (e.textContent = "", k(e));
   }
   /**
    * Update submit button state
    */
   updateSubmitState() {
-    const { fileInput: e, titleInput: t, submitBtn: n } = this.elements, i = e?.files && e.files.length > 0, o = t?.value.trim().length ?? !1, d = i && o;
-    n && (n.disabled = !d, n.setAttribute("aria-disabled", String(!d)));
+    const { fileInput: e, titleInput: t, submitBtn: n } = this.elements, i = e?.files && e.files.length > 0, d = t?.value.trim().length ?? !1, u = i && d;
+    n && (n.disabled = !u, n.setAttribute("aria-disabled", String(!u)));
   }
   /**
    * Set submitting state
@@ -4700,40 +4700,40 @@ class ze {
    * Upload source PDF to API
    */
   async uploadSourcePDF(e) {
-    const t = new URLSearchParams(window.location.search), n = t.get("tenant_id"), i = t.get("org_id"), o = new URL(
+    const t = new URLSearchParams(window.location.search), n = t.get("tenant_id"), i = t.get("org_id"), d = new URL(
       `${this.apiBase}/esign/documents/upload`,
       window.location.origin
     );
-    n && o.searchParams.set("tenant_id", n), i && o.searchParams.set("org_id", i);
-    const d = new FormData();
-    d.append("file", e);
-    const a = await fetch(o.toString(), {
+    n && d.searchParams.set("tenant_id", n), i && d.searchParams.set("org_id", i);
+    const u = new FormData();
+    u.append("file", e);
+    const a = await fetch(d.toString(), {
       method: "POST",
-      body: d,
+      body: u,
       credentials: "same-origin"
-    }), f = await a.json().catch(() => ({}));
+    }), x = await a.json().catch(() => ({}));
     if (!a.ok) {
-      const y = f?.error?.message || f?.message || "Upload failed. Please try again.";
-      throw new Error(y);
+      const C = x?.error?.message || x?.message || "Upload failed. Please try again.";
+      throw new Error(C);
     }
-    const g = f?.object_key ? String(f.object_key).trim() : "";
-    if (!g)
+    const v = x?.object_key ? String(x.object_key).trim() : "";
+    if (!v)
       throw new Error("Upload failed: missing source object key.");
-    return g;
+    return v;
   }
   /**
    * Handle form submission
    */
   async handleFormSubmit(e) {
     if (e.preventDefault(), this.isSubmitting) return;
-    const { fileInput: t, form: n, sourceObjectKeyInput: i } = this.elements, o = t?.files?.[0];
-    if (!(!o || !this.validateFile(o))) {
+    const { fileInput: t, form: n, sourceObjectKeyInput: i } = this.elements, d = t?.files?.[0];
+    if (!(!d || !this.validateFile(d))) {
       this.clearError(), this.isSubmitting = !0, this.setSubmittingState(!0);
       try {
-        const d = await this.uploadSourcePDF(o);
-        i && (i.value = d), n?.submit();
-      } catch (d) {
-        const a = d instanceof Error ? d.message : "Upload failed. Please try again.";
+        const u = await this.uploadSourcePDF(d);
+        i && (i.value = u), n?.submit();
+      } catch (u) {
+        const a = u instanceof Error ? u.message : "Upload failed. Please try again.";
         this.showError(a), this.setSubmittingState(!1), this.isSubmitting = !1, this.updateSubmitState();
       }
     }
@@ -4755,49 +4755,49 @@ class ze {
         parents: [],
         owners: []
       };
-    const t = String(e.id || e.ID || "").trim(), n = String(e.name || e.Name || "").trim(), i = String(e.mimeType || e.MimeType || "").trim(), o = String(e.modifiedTime || e.ModifiedTime || "").trim(), d = String(
+    const t = String(e.id || e.ID || "").trim(), n = String(e.name || e.Name || "").trim(), i = String(e.mimeType || e.MimeType || "").trim(), d = String(e.modifiedTime || e.ModifiedTime || "").trim(), u = String(
       e.webViewLink || e.webViewURL || e.WebViewURL || ""
-    ).trim(), a = String(e.parentId || e.ParentID || "").trim(), f = String(e.ownerEmail || e.OwnerEmail || "").trim(), g = Array.isArray(e.parents) ? e.parents : a ? [a] : [], y = Array.isArray(e.owners) ? e.owners : f ? [{ emailAddress: f }] : [];
+    ).trim(), a = String(e.parentId || e.ParentID || "").trim(), x = String(e.ownerEmail || e.OwnerEmail || "").trim(), v = Array.isArray(e.parents) ? e.parents : a ? [a] : [], C = Array.isArray(e.owners) ? e.owners : x ? [{ emailAddress: x }] : [];
     return {
       id: t,
       name: n,
       mimeType: i,
-      modifiedTime: o,
-      webViewLink: d,
-      parents: g,
-      owners: y
+      modifiedTime: d,
+      webViewLink: u,
+      parents: v,
+      owners: C
     };
   }
   /**
    * Check if file is a Google Doc
    */
   isGoogleDoc(e) {
-    return e.mimeType === Re;
+    return e.mimeType === Cn;
   }
   /**
    * Check if file is a PDF
    */
   isPDF(e) {
-    return e.mimeType === He;
+    return e.mimeType === Ln;
   }
   /**
    * Check if file is a folder
    */
   isFolder(e) {
-    return e.mimeType === ft;
+    return e.mimeType === qn;
   }
   /**
    * Check if file is importable
    */
   isImportable(e) {
-    return Un.includes(e.mimeType);
+    return Di.includes(e.mimeType);
   }
   /**
    * Get file type name
    */
   getFileTypeName(e) {
     const t = String(e || "").trim().toLowerCase();
-    return t === Re ? "Google Document" : t === He ? "PDF Document" : t === "application/vnd.google-apps.spreadsheet" ? "Google Spreadsheet" : t === "application/vnd.google-apps.presentation" ? "Google Slides" : t === ft ? "Folder" : "File";
+    return t === Cn ? "Google Document" : t === Ln ? "PDF Document" : t === "application/vnd.google-apps.spreadsheet" ? "Google Spreadsheet" : t === "application/vnd.google-apps.presentation" ? "Google Slides" : t === qn ? "Folder" : "File";
   }
   /**
    * Get file icon HTML
@@ -4841,8 +4841,8 @@ class ze {
    * Load files from Google Drive
    */
   async loadFiles(e = {}) {
-    const { folderId: t, query: n, pageToken: i, append: o } = e, { fileList: d } = this.elements;
-    !o && d && (d.innerHTML = `
+    const { folderId: t, query: n, pageToken: i, append: d } = e, { fileList: u } = this.elements;
+    !d && u && (u.innerHTML = `
         <div class="p-8 text-center">
           <svg class="animate-spin h-8 w-8 mx-auto text-gray-400 mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -4854,20 +4854,20 @@ class ze {
     try {
       let a;
       n ? (a = this.buildScopedAPIURL("/esign/google-drive/search"), a.searchParams.set("q", n), a.searchParams.set("page_size", "20"), i && a.searchParams.set("page_token", i)) : (a = this.buildScopedAPIURL("/esign/google-drive/browse"), a.searchParams.set("page_size", "20"), t && t !== "root" && a.searchParams.set("folder_id", t), i && a.searchParams.set("page_token", i));
-      const f = await fetch(a.toString(), {
+      const x = await fetch(a.toString(), {
         credentials: "same-origin",
         headers: { Accept: "application/json" }
-      }), g = await f.json();
-      if (!f.ok)
-        throw new Error(g.error?.message || "Failed to load files");
-      const y = Array.isArray(g.files) ? g.files.map((E) => this.normalizeDriveFile(E)) : [];
-      this.nextPageToken = g.next_page_token || null, o ? this.currentFiles = [...this.currentFiles, ...y] : this.currentFiles = y, this.renderFiles(o);
-      const { resultCount: b, listTitle: I } = this.elements;
-      n && b ? (b.textContent = `(${this.currentFiles.length} result${this.currentFiles.length !== 1 ? "s" : ""})`, I && (I.textContent = "Search Results")) : (b && (b.textContent = ""), I && (I.textContent = this.currentFolderPath[this.currentFolderPath.length - 1].name));
-      const { pagination: C } = this.elements;
-      C && (this.nextPageToken ? x(C) : w(C)), H(`Loaded ${y.length} files`);
+      }), v = await x.json();
+      if (!x.ok)
+        throw new Error(v.error?.message || "Failed to load files");
+      const C = Array.isArray(v.files) ? v.files.map((D) => this.normalizeDriveFile(D)) : [];
+      this.nextPageToken = v.next_page_token || null, d ? this.currentFiles = [...this.currentFiles, ...C] : this.currentFiles = C, this.renderFiles(d);
+      const { resultCount: P, listTitle: H } = this.elements;
+      n && P ? (P.textContent = `(${this.currentFiles.length} result${this.currentFiles.length !== 1 ? "s" : ""})`, H && (H.textContent = "Search Results")) : (P && (P.textContent = ""), H && (H.textContent = this.currentFolderPath[this.currentFolderPath.length - 1].name));
+      const { pagination: F } = this.elements;
+      F && (this.nextPageToken ? $(F) : k(F)), me(`Loaded ${C.length} files`);
     } catch (a) {
-      console.error("Error loading files:", a), d && (d.innerHTML = `
+      console.error("Error loading files:", a), u && (u.innerHTML = `
           <div class="p-8 text-center">
             <div class="w-12 h-12 mx-auto mb-3 rounded-full bg-red-100 flex items-center justify-center">
               <svg class="w-6 h-6 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -4878,7 +4878,7 @@ class ze {
             <p class="text-xs text-gray-500 mt-1">${this.escapeHtml(a instanceof Error ? a.message : "Unknown error")}</p>
             <button type="button" onclick="location.reload()" class="mt-3 text-sm text-blue-600 hover:text-blue-800">Try Again</button>
           </div>
-        `), H(`Error: ${a instanceof Error ? a.message : "Unknown error"}`);
+        `), me(`Error: ${a instanceof Error ? a.message : "Unknown error"}`);
     }
   }
   /**
@@ -4900,29 +4900,29 @@ class ze {
       `;
       return;
     }
-    const n = this.currentFiles.map((i, o) => {
-      const d = this.getFileIcon(i), a = this.isImportable(i), f = this.isFolder(i), g = this.selectedFile && this.selectedFile.id === i.id, y = !a && !f;
+    const n = this.currentFiles.map((i, d) => {
+      const u = this.getFileIcon(i), a = this.isImportable(i), x = this.isFolder(i), v = this.selectedFile && this.selectedFile.id === i.id, C = !a && !x;
       return `
         <button
           type="button"
-          class="file-item w-full p-3 flex items-center gap-3 hover:bg-gray-50 text-left transition-colors ${g ? "bg-blue-50 border-l-2 border-l-blue-500" : ""} ${y ? "opacity-50 cursor-not-allowed" : ""}"
+          class="file-item w-full p-3 flex items-center gap-3 hover:bg-gray-50 text-left transition-colors ${v ? "bg-blue-50 border-l-2 border-l-blue-500" : ""} ${C ? "opacity-50 cursor-not-allowed" : ""}"
           role="option"
-          aria-selected="${g}"
-          data-file-index="${o}"
-          ${y ? 'disabled title="Only Google Docs and PDFs can be imported"' : ""}
+          aria-selected="${v}"
+          data-file-index="${d}"
+          ${C ? 'disabled title="Only Google Docs and PDFs can be imported"' : ""}
         >
-          <div class="w-10 h-10 rounded-lg ${d.bg} flex items-center justify-center flex-shrink-0 ${d.text}">
-            ${d.html}
+          <div class="w-10 h-10 rounded-lg ${u.bg} flex items-center justify-center flex-shrink-0 ${u.text}">
+            ${u.html}
           </div>
           <div class="flex-1 min-w-0">
             <p class="font-medium text-gray-900 truncate">${this.escapeHtml(i.name || "Untitled")}</p>
             <p class="text-xs text-gray-500">
               ${this.getFileTypeName(i.mimeType)}
-              ${i.modifiedTime ? " • " + X(i.modifiedTime) : ""}
-              ${y ? " • Not importable" : ""}
+              ${i.modifiedTime ? " • " + Kt(i.modifiedTime) : ""}
+              ${C ? " • Not importable" : ""}
             </p>
           </div>
-          ${f ? `
+          ${x ? `
             <svg class="w-5 h-5 text-gray-400 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
             </svg>
@@ -4932,8 +4932,8 @@ class ze {
     }).join("");
     e ? t.insertAdjacentHTML("beforeend", n) : t.innerHTML = n, t.querySelectorAll(".file-item").forEach((i) => {
       i.addEventListener("click", () => {
-        const o = parseInt(i.dataset.fileIndex || "0", 10), d = this.currentFiles[o];
-        this.isFolder(d) ? this.navigateToFolder(d) : this.isImportable(d) && this.selectFile(d);
+        const d = parseInt(i.dataset.fileIndex || "0", 10), u = this.currentFiles[d];
+        this.isFolder(u) ? this.navigateToFolder(u) : this.isImportable(u) && this.selectFile(u);
       });
     });
   }
@@ -4943,7 +4943,7 @@ class ze {
   navigateToFolder(e) {
     this.currentFolderPath.push({ id: e.id, name: e.name }), this.updateBreadcrumb(), this.searchQuery = "";
     const { searchInput: t, clearSearchBtn: n } = this.elements;
-    t && (t.value = ""), n && w(n), this.loadFiles({ folderId: e.id });
+    t && (t.value = ""), n && k(n), this.loadFiles({ folderId: e.id });
   }
   /**
    * Update breadcrumb navigation
@@ -4952,17 +4952,17 @@ class ze {
     const { breadcrumb: e } = this.elements;
     if (!e) return;
     if (this.currentFolderPath.length <= 1) {
-      w(e);
+      k(e);
       return;
     }
-    x(e);
+    $(e);
     const t = e.querySelector("ol");
     t && (t.innerHTML = this.currentFolderPath.map((n, i) => {
-      const o = i === this.currentFolderPath.length - 1;
+      const d = i === this.currentFolderPath.length - 1;
       return `
           <li class="flex items-center">
             ${i > 0 ? '<svg class="w-4 h-4 text-gray-400 mx-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>' : ""}
-            <button type="button" data-folder-index="${i}" class="breadcrumb-item ${o ? "text-gray-900 font-medium cursor-default" : "text-blue-600 hover:text-blue-800 hover:underline"}">
+            <button type="button" data-folder-index="${i}" class="breadcrumb-item ${d ? "text-gray-900 font-medium cursor-default" : "text-blue-600 hover:text-blue-800 hover:underline"}">
               ${this.escapeHtml(n.name)}
             </button>
           </li>
@@ -4971,8 +4971,8 @@ class ze {
       n.addEventListener("click", () => {
         const i = parseInt(n.dataset.folderIndex || "0", 10);
         this.currentFolderPath = this.currentFolderPath.slice(0, i + 1), this.updateBreadcrumb();
-        const o = this.currentFolderPath[this.currentFolderPath.length - 1];
-        this.loadFiles({ folderId: o.id });
+        const d = this.currentFolderPath[this.currentFolderPath.length - 1];
+        this.loadFiles({ folderId: d.id });
       });
     }));
   }
@@ -4982,24 +4982,24 @@ class ze {
   selectFile(e) {
     this.selectedFile = e;
     const t = this.getFileIcon(e), n = this.getImportTypeInfo(e), { fileList: i } = this.elements;
-    i && i.querySelectorAll(".file-item").forEach((P) => {
-      const $ = parseInt(P.dataset.fileIndex || "0", 10);
-      this.currentFiles[$].id === e.id ? (P.classList.add("bg-blue-50", "border-l-2", "border-l-blue-500"), P.setAttribute("aria-selected", "true")) : (P.classList.remove("bg-blue-50", "border-l-2", "border-l-blue-500"), P.setAttribute("aria-selected", "false"));
+    i && i.querySelectorAll(".file-item").forEach((N) => {
+      const U = parseInt(N.dataset.fileIndex || "0", 10);
+      this.currentFiles[U].id === e.id ? (N.classList.add("bg-blue-50", "border-l-2", "border-l-blue-500"), N.setAttribute("aria-selected", "true")) : (N.classList.remove("bg-blue-50", "border-l-2", "border-l-blue-500"), N.setAttribute("aria-selected", "false"));
     });
     const {
-      noSelection: o,
-      filePreview: d,
+      noSelection: d,
+      filePreview: u,
       importStatus: a,
-      previewIcon: f,
-      previewTitle: g,
-      previewType: y,
-      importTypeInfo: b,
-      importTypeLabel: I,
-      importTypeDesc: C,
-      snapshotWarning: E,
-      importDocumentTitle: T
+      previewIcon: x,
+      previewTitle: v,
+      previewType: C,
+      importTypeInfo: P,
+      importTypeLabel: H,
+      importTypeDesc: F,
+      snapshotWarning: D,
+      importDocumentTitle: z
     } = this.elements;
-    o && w(o), d && x(d), a && w(a), f && (f.className = `w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 ${t.bg} ${t.text}`, f.innerHTML = t.html.replace("w-5 h-5", "w-6 h-6")), g && (g.textContent = e.name || "Untitled"), y && (y.textContent = this.getFileTypeName(e.mimeType)), n && b && (b.className = `p-3 rounded-lg border ${n.bgClass}`, I && (I.textContent = n.label, I.className = `text-xs font-medium ${n.textClass}`), C && (C.textContent = n.desc, C.className = `text-xs mt-1 ${n.textClass}`), E && (n.showSnapshot ? x(E) : w(E))), T && (T.value = e.name || ""), H(`Selected: ${e.name}`);
+    d && k(d), u && $(u), a && k(a), x && (x.className = `w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 ${t.bg} ${t.text}`, x.innerHTML = t.html.replace("w-5 h-5", "w-6 h-6")), v && (v.textContent = e.name || "Untitled"), C && (C.textContent = this.getFileTypeName(e.mimeType)), n && P && (P.className = `p-3 rounded-lg border ${n.bgClass}`, H && (H.textContent = n.label, H.className = `text-xs font-medium ${n.textClass}`), F && (F.textContent = n.desc, F.className = `text-xs mt-1 ${n.textClass}`), D && (n.showSnapshot ? $(D) : k(D))), z && (z.value = e.name || ""), me(`Selected: ${e.name}`);
   }
   /**
    * Clear drive selection
@@ -5007,8 +5007,8 @@ class ze {
   clearDriveSelection() {
     this.selectedFile = null;
     const { noSelection: e, filePreview: t, importStatus: n, fileList: i } = this.elements;
-    e && x(e), t && w(t), n && w(n), i && i.querySelectorAll(".file-item").forEach((o) => {
-      o.classList.remove("bg-blue-50", "border-l-2", "border-l-blue-500"), o.setAttribute("aria-selected", "false");
+    e && $(e), t && k(t), n && k(n), i && i.querySelectorAll(".file-item").forEach((d) => {
+      d.classList.remove("bg-blue-50", "border-l-2", "border-l-blue-500"), d.setAttribute("aria-selected", "false");
     });
   }
   /**
@@ -5019,9 +5019,9 @@ class ze {
     if (!e) return;
     const n = e.value.trim();
     if (n)
-      t && x(t), this.searchQuery = n, this.loadFiles({ query: n });
+      t && $(t), this.searchQuery = n, this.loadFiles({ query: n });
     else {
-      t && w(t), this.searchQuery = "";
+      t && k(t), this.searchQuery = "";
       const i = this.currentFolderPath[this.currentFolderPath.length - 1];
       this.loadFiles({ folderId: i.id });
     }
@@ -5031,7 +5031,7 @@ class ze {
    */
   clearSearch() {
     const { searchInput: e, clearSearchBtn: t } = this.elements;
-    e && (e.value = ""), t && w(t), this.searchQuery = "";
+    e && (e.value = ""), t && k(t), this.searchQuery = "";
     const n = this.currentFolderPath[this.currentFolderPath.length - 1];
     this.loadFiles({ folderId: n.id });
   }
@@ -5071,20 +5071,20 @@ class ze {
       noSelection: t,
       filePreview: n,
       importStatus: i,
-      importStatusQueued: o,
-      importStatusSuccess: d,
+      importStatusQueued: d,
+      importStatusSuccess: u,
       importStatusFailed: a
     } = this.elements;
-    switch (t && w(t), n && w(n), i && x(i), o && w(o), d && w(d), a && w(a), e) {
+    switch (t && k(t), n && k(n), i && $(i), d && k(d), u && k(u), a && k(a), e) {
       case "queued":
       case "running":
-        o && x(o);
+        d && $(d);
         break;
       case "succeeded":
-        d && x(d);
+        u && $(u);
         break;
       case "failed":
-        a && x(a);
+        a && $(a);
         break;
     }
   }
@@ -5103,10 +5103,10 @@ class ze {
     const { importErrorMessage: n, importReconnectLink: i } = this.elements;
     if (n && (n.textContent = e), i)
       if (t === "GOOGLE_ACCESS_REVOKED" || t === "GOOGLE_SCOPE_VIOLATION") {
-        const o = this.config.routes.integrations || "/admin/esign/integrations/google";
-        i.href = this.applyAccountIdToPath(o), x(i);
+        const d = this.config.routes.integrations || "/admin/esign/integrations/google";
+        i.href = this.applyAccountIdToPath(d), $(i);
       } else
-        w(i);
+        k(i);
   }
   /**
    * Start import process
@@ -5114,15 +5114,15 @@ class ze {
   async startImport() {
     const { importDocumentTitle: e, importBtn: t, importBtnText: n, importReconnectLink: i } = this.elements;
     if (!this.selectedFile || !e) return;
-    const o = e.value.trim();
-    if (!o) {
+    const d = e.value.trim();
+    if (!d) {
       e.focus();
       return;
     }
-    this.pollTimeout && (clearTimeout(this.pollTimeout), this.pollTimeout = null), this.pollAttempts = 0, t && (t.disabled = !0), n && (n.textContent = "Starting..."), i && w(i), this.showImportStatus("queued"), this.updateImportStatusMessage("Submitting import request...");
+    this.pollTimeout && (clearTimeout(this.pollTimeout), this.pollTimeout = null), this.pollAttempts = 0, t && (t.disabled = !0), n && (n.textContent = "Starting..."), i && k(i), this.showImportStatus("queued"), this.updateImportStatusMessage("Submitting import request...");
     try {
-      const d = new URL(window.location.href);
-      d.searchParams.delete("import_run_id"), window.history.replaceState({}, "", d.toString());
+      const u = new URL(window.location.href);
+      u.searchParams.delete("import_run_id"), window.history.replaceState({}, "", u.toString());
       const a = await fetch(
         this.buildScopedAPIURL("/esign/google-drive/imports").toString(),
         {
@@ -5135,20 +5135,20 @@ class ze {
           body: JSON.stringify({
             google_file_id: this.selectedFile.id,
             account_id: this.currentAccountId || void 0,
-            document_title: o
+            document_title: d
           })
         }
-      ), f = await a.json();
+      ), x = await a.json();
       if (!a.ok) {
-        const y = f.error?.code || "";
-        throw { message: f.error?.message || "Failed to start import", code: y };
+        const C = x.error?.code || "";
+        throw { message: x.error?.message || "Failed to start import", code: C };
       }
-      this.currentImportRunId = f.import_run_id, this.pollAttempts = 0;
-      const g = new URL(window.location.href);
-      this.currentImportRunId && g.searchParams.set("import_run_id", this.currentImportRunId), window.history.replaceState({}, "", g.toString()), this.updateImportStatusMessage("Import queued..."), this.startPolling();
-    } catch (d) {
-      console.error("Import error:", d);
-      const a = d;
+      this.currentImportRunId = x.import_run_id, this.pollAttempts = 0;
+      const v = new URL(window.location.href);
+      this.currentImportRunId && v.searchParams.set("import_run_id", this.currentImportRunId), window.history.replaceState({}, "", v.toString()), this.updateImportStatusMessage("Import queued..."), this.startPolling();
+    } catch (u) {
+      console.error("Import error:", u);
+      const a = u;
       this.showImportError(a.message || "Failed to start import", a.code || ""), t && (t.disabled = !1), n && (n.textContent = "Import Document");
     }
   }
@@ -5156,14 +5156,14 @@ class ze {
    * Start polling for import status
    */
   startPolling() {
-    this.pollTimeout = setTimeout(() => this.pollImportStatus(), zn);
+    this.pollTimeout = setTimeout(() => this.pollImportStatus(), Bi);
   }
   /**
    * Poll import status
    */
   async pollImportStatus() {
     if (this.currentImportRunId) {
-      if (this.pollTimeout = null, this.pollAttempts++, this.pollAttempts > mt) {
+      if (this.pollTimeout = null, this.pollAttempts++, this.pollAttempts > jn) {
         this.showImportError(
           "Import is taking too long. Please check the documents list.",
           ""
@@ -5187,20 +5187,20 @@ class ze {
             this.updateImportStatusMessage("Importing document..."), this.startPolling();
             break;
           case "succeeded":
-            this.showImportStatus("succeeded"), H("Import complete"), setTimeout(() => {
+            this.showImportStatus("succeeded"), me("Import complete"), setTimeout(() => {
               n.agreement?.id && this.config.routes.agreements ? window.location.href = `${this.config.routes.agreements}/${encodeURIComponent(n.agreement.id)}` : n.document?.id ? window.location.href = `${this.config.routes.index}/${encodeURIComponent(n.document.id)}` : window.location.href = this.config.routes.index;
             }, 1500);
             break;
           case "failed": {
-            const o = n.error?.code || "", d = n.error?.message || "Import failed";
-            this.showImportError(d, o), H("Import failed");
+            const d = n.error?.code || "", u = n.error?.message || "Import failed";
+            this.showImportError(u, d), me("Import failed");
             break;
           }
           default:
             this.startPolling();
         }
       } catch (e) {
-        console.error("Poll error:", e), this.pollAttempts < mt ? this.startPolling() : this.showImportError("Unable to check import status", "");
+        console.error("Poll error:", e), this.pollAttempts < jn ? this.startPolling() : this.showImportError("Unable to check import status", "");
       }
     }
   }
@@ -5221,11 +5221,11 @@ class ze {
     return t.textContent = e, t.innerHTML;
   }
 }
-function is(s) {
-  const e = new ze(s);
-  return M(() => e.init()), e;
+function Ks(s) {
+  const e = new An(s);
+  return W(() => e.init()), e;
 }
-function ss(s) {
+function Qs(s) {
   const e = {
     basePath: s.basePath,
     apiBasePath: s.apiBasePath || `${s.basePath}/api/v1`,
@@ -5235,12 +5235,12 @@ function ss(s) {
     googleAccountId: s.googleAccountId,
     maxFileSize: s.maxFileSize,
     routes: s.routes
-  }, t = new ze(e);
-  M(() => t.init()), typeof window < "u" && (window.esignDocumentFormController = t);
+  }, t = new An(e);
+  W(() => t.init()), typeof window < "u" && (window.esignDocumentFormController = t);
 }
-function Nn(s) {
-  const e = String(s.basePath || s.base_path || "").trim(), t = s.routes && typeof s.routes == "object" ? s.routes : {}, n = s.features && typeof s.features == "object" ? s.features : {}, i = s.context && typeof s.context == "object" ? s.context : {}, o = String(t.index || "").trim();
-  return !e && !o ? null : {
+function Fi(s) {
+  const e = String(s.basePath || s.base_path || "").trim(), t = s.routes && typeof s.routes == "object" ? s.routes : {}, n = s.features && typeof s.features == "object" ? s.features : {}, i = s.context && typeof s.context == "object" ? s.context : {}, d = String(t.index || "").trim();
+  return !e && !d ? null : {
     basePath: e || "/admin",
     apiBasePath: String(s.apiBasePath || s.api_base_path || "").trim() || void 0,
     userId: String(s.userId || s.user_id || i.user_id || "").trim(),
@@ -5251,14 +5251,14 @@ function Nn(s) {
     ).trim(),
     maxFileSize: typeof s.maxFileSize == "number" ? s.maxFileSize : typeof s.max_file_size == "number" ? s.max_file_size : void 0,
     routes: {
-      index: o,
+      index: d,
       create: String(t.create || "").trim() || void 0,
       agreements: String(t.agreements || "").trim() || void 0,
       integrations: String(t.integrations || "").trim() || void 0
     }
   };
 }
-typeof document < "u" && M(() => {
+typeof document < "u" && W(() => {
   if (document.querySelector(
     '[data-esign-page="admin.documents.ingestion"], [data-esign-page="document-form"]'
   )) {
@@ -5267,416 +5267,1389 @@ typeof document < "u" && M(() => {
       try {
         const t = JSON.parse(
           e.textContent || "{}"
-        ), n = Nn(t);
-        n && new ze(n).init();
+        ), n = Fi(t);
+        n && new An(n).init();
       } catch (t) {
         console.warn("Failed to parse document form page config:", t);
       }
   }
 });
-const vt = 1, $e = "esign_wizard_state_v1", qn = "esign_wizard_sync", Vn = 2e3, wt = [1e3, 2e3, 5e3, 1e4, 3e4];
-class Gn {
-  constructor() {
-    this.listeners = [], this.broadcastChannel = null, this.state = this.loadFromSession() || this.createInitialState(), this.setupBroadcastChannel();
-  }
-  createInitialState() {
-    return {
-      wizardId: this.generateWizardId(),
-      version: vt,
-      createdAt: (/* @__PURE__ */ new Date()).toISOString(),
-      updatedAt: (/* @__PURE__ */ new Date()).toISOString(),
-      currentStep: 1,
-      document: { id: null, title: null, pageCount: null },
-      details: { title: "", message: "" },
-      participants: [],
-      fieldDefinitions: [],
-      fieldPlacements: [],
-      fieldRules: [],
-      serverDraftId: null,
-      serverRevision: 0,
-      lastSyncedAt: null,
-      syncPending: !1
-    };
-  }
-  generateWizardId() {
-    return `wizard_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  }
-  loadFromSession() {
-    try {
-      const e = sessionStorage.getItem($e);
-      if (!e) return null;
-      const t = JSON.parse(e);
-      return t.version !== vt ? (console.warn("Wizard state version mismatch, migrating..."), this.migrateState(t)) : (Array.isArray(t.fieldRules) || (t.fieldRules = []), t);
-    } catch (e) {
-      return console.warn("Failed to load wizard state from session:", e), null;
-    }
-  }
-  migrateState(e) {
-    return this.createInitialState();
-  }
-  saveToSession() {
-    try {
-      this.state.updatedAt = (/* @__PURE__ */ new Date()).toISOString(), sessionStorage.setItem($e, JSON.stringify(this.state));
-    } catch (e) {
-      console.warn("Failed to save wizard state to session:", e);
-    }
-  }
-  setupBroadcastChannel() {
-    if (!(typeof BroadcastChannel > "u"))
-      try {
-        this.broadcastChannel = new BroadcastChannel(qn), this.broadcastChannel.onmessage = (e) => {
-          e.data?.type === "state_update" && e.data.wizardId === this.state.wizardId && this.handleExternalUpdate(e.data.state);
-        };
-      } catch (e) {
-        console.debug("BroadcastChannel not available:", e);
-      }
-  }
-  handleExternalUpdate(e) {
-    e.updatedAt > this.state.updatedAt && (this.state = e, this.notifyListeners());
-  }
-  notifyListeners() {
-    for (const e of this.listeners)
-      e(this.state);
-  }
-  broadcastStateUpdate() {
-    if (this.broadcastChannel)
-      try {
-        this.broadcastChannel.postMessage({
-          type: "state_update",
-          wizardId: this.state.wizardId,
-          state: this.state
-        });
-      } catch (e) {
-        console.debug("Failed to broadcast state update:", e);
-      }
-  }
-  getState() {
-    return this.state;
-  }
-  updateState(e) {
-    this.state = { ...this.state, ...e, syncPending: !0 }, this.saveToSession(), this.broadcastStateUpdate(), this.notifyListeners();
-  }
-  updateDocument(e) {
-    this.state.document = e, this.saveToSession(), this.broadcastStateUpdate(), this.notifyListeners();
-  }
-  updateDetails(e) {
-    this.state.details = e, this.saveToSession(), this.broadcastStateUpdate(), this.notifyListeners();
-  }
-  updateParticipants(e) {
-    this.state.participants = e, this.saveToSession(), this.broadcastStateUpdate(), this.notifyListeners();
-  }
-  updateFieldDefinitions(e) {
-    this.state.fieldDefinitions = e, this.saveToSession(), this.broadcastStateUpdate(), this.notifyListeners();
-  }
-  updateFieldPlacements(e) {
-    this.state.fieldPlacements = e, this.saveToSession(), this.broadcastStateUpdate(), this.notifyListeners();
-  }
-  updateFieldRules(e) {
-    this.state.fieldRules = e, this.saveToSession(), this.broadcastStateUpdate(), this.notifyListeners();
-  }
-  setCurrentStep(e) {
-    this.state.currentStep = e, this.saveToSession(), this.broadcastStateUpdate(), this.notifyListeners();
-  }
-  markSynced(e, t) {
-    this.state.serverDraftId = e, this.state.serverRevision = t, this.state.lastSyncedAt = (/* @__PURE__ */ new Date()).toISOString(), this.state.syncPending = !1, this.saveToSession();
-  }
-  subscribe(e) {
-    return this.listeners.push(e), () => {
-      const t = this.listeners.indexOf(e);
-      t !== -1 && this.listeners.splice(t, 1);
-    };
-  }
-  reset() {
-    this.state = this.createInitialState(), this.saveToSession(), this.notifyListeners();
-  }
-  clearSession() {
-    try {
-      sessionStorage.removeItem($e);
-    } catch (e) {
-      console.warn("Failed to clear wizard session:", e);
-    }
-    this.state = this.createInitialState(), this.notifyListeners();
-  }
-  hasSavedProgress() {
-    const e = this.loadFromSession();
-    return e !== null && e.currentStep > 1;
-  }
-  getSavedSummary() {
-    const e = this.loadFromSession();
-    return e ? {
-      title: e.details.title || "Untitled Agreement",
-      step: e.currentStep,
-      updatedAt: e.updatedAt
-    } : null;
-  }
-  destroy() {
-    this.broadcastChannel && (this.broadcastChannel.close(), this.broadcastChannel = null), this.listeners = [];
-  }
-}
-class Wn {
-  constructor(e, t, n, i) {
-    this.syncTimeout = null, this.retryCount = 0, this.isSyncing = !1, this.stateManager = e, this.apiBase = t, this.onStatusChange = n, this.onConflict = i;
-  }
-  scheduleSave() {
-    this.syncTimeout && clearTimeout(this.syncTimeout), this.syncTimeout = setTimeout(() => this.syncToServer(), Vn);
-  }
-  async syncToServer() {
-    if (this.isSyncing) return;
-    const e = this.stateManager.getState();
-    if (e.syncPending) {
-      this.isSyncing = !0, this.onStatusChange("syncing");
-      try {
-        const t = this.buildDraftPayload(e), n = e.serverDraftId ? "PUT" : "POST", i = e.serverDraftId ? `${this.apiBase}/esign/drafts/${e.serverDraftId}` : `${this.apiBase}/esign/drafts`, o = await fetch(i, {
-          method: n,
-          credentials: "same-origin",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-            ...e.serverDraftId ? { "If-Match": String(e.serverRevision) } : {}
-          },
-          body: JSON.stringify(t)
-        });
-        if (o.status === 409) {
-          const a = await o.json();
-          this.onStatusChange("conflict"), this.onConflict(e.updatedAt, a.server_updated_at || "", a.revision || 0);
-          return;
-        }
-        if (!o.ok)
-          throw new Error(`Sync failed: ${o.status}`);
-        const d = await o.json();
-        this.stateManager.markSynced(d.id || d.draft_id, d.revision || 1), this.retryCount = 0, this.onStatusChange("synced");
-      } catch (t) {
-        console.error("Server sync error:", t), this.onStatusChange("error"), this.scheduleRetry();
-      } finally {
-        this.isSyncing = !1;
-      }
-    }
-  }
-  scheduleRetry() {
-    if (this.retryCount >= wt.length) {
-      console.warn("Max sync retries reached");
+function Ri(s = {}) {
+  if (typeof window < "u") {
+    if (window.__esignAgreementRuntimeInitialized)
       return;
+    window.__esignAgreementRuntimeInitialized = !0;
+  }
+  const e = s || {}, t = String(e.base_path || "").trim(), n = String(e.api_base_path || "").trim() || `${t}/api`, i = n.replace(/\/+$/, ""), d = /\/v\d+$/i.test(i) ? i : `${i}/v1`, u = `${d}/esign/drafts`, a = !!e.is_edit, x = !!e.create_success, v = String(e.user_id || "").trim(), C = String(e.submit_mode || "form").trim().toLowerCase(), P = String(e.routes?.documents_upload_url || "").trim() || `${t}/content/esign_documents/new`, H = Array.isArray(e.initial_participants) ? e.initial_participants : [], F = Array.isArray(e.initial_field_instances) ? e.initial_field_instances : [];
+  function D(l) {
+    if (!v) return l;
+    const o = l.includes("?") ? "&" : "?";
+    return `${l}${o}user_id=${encodeURIComponent(v)}`;
+  }
+  function z(l = !0) {
+    const o = { Accept: "application/json" };
+    return l && (o["Content-Type"] = "application/json"), v && (o["X-User-ID"] = v), o;
+  }
+  const N = 1, U = "esign_wizard_state_v1", X = "esign_wizard_sync", se = 2e3, ce = [1e3, 2e3, 5e3, 1e4, 3e4];
+  class fe {
+    constructor() {
+      this.state = null, this.listeners = [], this.init();
     }
-    const e = wt[this.retryCount];
-    this.retryCount++, setTimeout(() => this.syncToServer(), e);
-  }
-  buildDraftPayload(e) {
-    return {
-      wizard_id: e.wizardId,
-      current_step: e.currentStep,
-      document_id: e.document.id,
-      title: e.details.title,
-      message: e.details.message,
-      participants: e.participants,
-      field_definitions: e.fieldDefinitions,
-      field_placements: e.fieldPlacements,
-      field_rules: e.fieldRules
-    };
-  }
-  async forceOverwrite() {
-    this.stateManager.getState(), this.stateManager.updateState({ serverRevision: 0, syncPending: !0 }), await this.syncToServer();
-  }
-  async loadServerVersion() {
-    const e = this.stateManager.getState();
-    if (e.serverDraftId)
+    init() {
+      this.state = this.loadFromSession() || this.createInitialState();
+    }
+    createInitialState() {
+      return {
+        wizardId: this.generateWizardId(),
+        version: N,
+        createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+        updatedAt: (/* @__PURE__ */ new Date()).toISOString(),
+        currentStep: 1,
+        document: { id: null, title: null, pageCount: null },
+        details: { title: "", message: "" },
+        participants: [],
+        fieldDefinitions: [],
+        fieldPlacements: [],
+        fieldRules: [],
+        serverDraftId: null,
+        serverRevision: 0,
+        lastSyncedAt: null,
+        syncPending: !1
+      };
+    }
+    generateWizardId() {
+      return `wizard_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    }
+    loadFromSession() {
       try {
-        const t = await fetch(`${this.apiBase}/esign/drafts/${e.serverDraftId}`, {
-          credentials: "same-origin",
-          headers: { Accept: "application/json" }
-        });
-        if (!t.ok)
-          throw new Error(`Failed to load draft: ${t.status}`);
-        const n = await t.json();
-        this.stateManager.updateState({
-          document: {
-            id: n.document_id,
-            title: n.document_title,
-            pageCount: n.document_page_count
-          },
-          details: {
-            title: n.title || "",
-            message: n.message || ""
-          },
-          participants: n.participants || [],
-          fieldDefinitions: n.field_definitions || [],
-          fieldPlacements: n.field_placements || [],
-          fieldRules: n.field_rules || [],
-          serverRevision: n.revision || 0,
-          syncPending: !1
-        }), this.onStatusChange("synced");
-      } catch (t) {
-        console.error("Failed to load server version:", t), this.onStatusChange("error");
+        const o = sessionStorage.getItem(U);
+        if (!o) return null;
+        const m = JSON.parse(o);
+        return m.version !== N ? (console.warn("Wizard state version mismatch, migrating..."), this.migrateState(m)) : (Array.isArray(m.fieldRules) || (m.fieldRules = []), m);
+      } catch (o) {
+        return console.error("Failed to load wizard state from session:", o), null;
       }
-  }
-  destroy() {
-    this.syncTimeout && (clearTimeout(this.syncTimeout), this.syncTimeout = null);
-  }
-}
-class Ue {
-  constructor(e) {
-    this.currentStep = 1, this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api/v1`, this.stateManager = new Gn(), this.syncManager = new Wn(
-      this.stateManager,
-      this.apiBase,
-      (t) => this.updateSyncStatusUI(t),
-      (t, n, i) => this.showConflictDialog(t, n, i)
-    ), this.elements = {
-      // Navigation
-      wizardSteps: W(".wizard-step"),
-      prevBtn: c("#prev-btn"),
-      nextBtn: c("#next-btn"),
-      submitBtn: c("#submit-btn"),
-      // Sync status
-      syncStatusIndicator: c("#sync-status-indicator"),
-      syncStatusIcon: c("#sync-status-icon"),
-      syncStatusText: c("#sync-status-text"),
-      syncRetryBtn: c("#sync-retry-btn"),
-      // Step panels
-      stepPanels: W(".step-panel"),
-      // Resume dialog
-      resumeDialogModal: c("#resume-dialog-modal"),
-      resumeDraftTitle: c("#resume-draft-title"),
-      resumeDraftStep: c("#resume-draft-step"),
-      resumeDraftTime: c("#resume-draft-time"),
-      resumeContinueBtn: c("#resume-continue-btn"),
-      resumeNewBtn: c("#resume-new-btn"),
-      resumeDiscardBtn: c("#resume-discard-btn"),
-      // Conflict dialog
-      conflictDialogModal: c("#conflict-dialog-modal"),
-      conflictLocalTime: c("#conflict-local-time"),
-      conflictServerTime: c("#conflict-server-time"),
-      conflictServerRevision: c("#conflict-server-revision"),
-      conflictReloadBtn: c("#conflict-reload-btn"),
-      conflictForceBtn: c("#conflict-force-btn"),
-      conflictDismissBtn: c("#conflict-dismiss-btn"),
-      // Step 1
-      documentSearch: c("#document-search"),
-      documentList: c("#document-list"),
-      selectedDocumentDisplay: c("#selected-document-display"),
-      // Step 2
-      titleInput: c("#agreement-title"),
-      messageInput: c("#agreement-message"),
-      // Step 3
-      participantsList: c("#participants-list"),
-      addParticipantBtn: c("#add-participant-btn"),
-      // Step 4
-      fieldDefinitionsList: c("#field-definitions-list"),
-      addFieldBtn: c("#add-field-btn"),
-      // Step 5
-      pdfViewer: c("#pdf-viewer"),
-      fieldPalette: c("#field-palette"),
-      // Form
-      form: c("#agreement-form"),
-      announcements: c("#agreement-announcements")
-    };
-  }
-  async init() {
-    this.setupEventListeners(), this.checkForSavedProgress(), this.stateManager.subscribe(() => {
-      this.syncManager.scheduleSave();
-    });
-    const e = this.stateManager.getState();
-    e.currentStep > 1 && (this.currentStep = e.currentStep), this.updateWizardUI(), this.config.isEditMode && this.elements.syncStatusIndicator && w(this.elements.syncStatusIndicator);
-  }
-  setupEventListeners() {
-    this.elements.prevBtn && this.elements.prevBtn.addEventListener("click", () => this.goToPreviousStep()), this.elements.nextBtn && this.elements.nextBtn.addEventListener("click", () => this.goToNextStep()), this.elements.wizardSteps.forEach((e, t) => {
-      e.addEventListener("click", () => {
-        this.canNavigateToStep(t + 1) && this.goToStep(t + 1);
+    }
+    migrateState(o) {
+      return console.warn("Discarding incompatible wizard state"), null;
+    }
+    saveToSession() {
+      try {
+        this.state.updatedAt = (/* @__PURE__ */ new Date()).toISOString(), sessionStorage.setItem(U, JSON.stringify(this.state));
+      } catch (o) {
+        console.error("Failed to save wizard state to session:", o);
+      }
+    }
+    getState() {
+      return this.state;
+    }
+    updateState(o) {
+      this.state = { ...this.state, ...o, syncPending: !0, updatedAt: (/* @__PURE__ */ new Date()).toISOString() }, this.saveToSession(), this.notifyListeners();
+    }
+    updateStep(o) {
+      this.updateState({ currentStep: o });
+    }
+    updateDocument(o) {
+      this.updateState({ document: { ...this.state.document, ...o } });
+    }
+    updateDetails(o) {
+      this.updateState({ details: { ...this.state.details, ...o } });
+    }
+    updateParticipants(o) {
+      this.updateState({ participants: o });
+    }
+    updateFieldDefinitions(o) {
+      this.updateState({ fieldDefinitions: o });
+    }
+    updateFieldPlacements(o) {
+      this.updateState({ fieldPlacements: o });
+    }
+    markSynced(o, m) {
+      this.state.serverDraftId = o, this.state.serverRevision = m, this.state.lastSyncedAt = (/* @__PURE__ */ new Date()).toISOString(), this.state.syncPending = !1, this.saveToSession(), this.notifyListeners();
+    }
+    clear() {
+      this.state = this.createInitialState(), sessionStorage.removeItem(U), this.notifyListeners();
+    }
+    hasResumableState() {
+      return this.state ? this.state.currentStep > 1 || this.state.document.id !== null || this.state.participants.length > 0 || this.state.details.title.trim() !== "" : !1;
+    }
+    onStateChange(o) {
+      return this.listeners.push(o), () => {
+        this.listeners = this.listeners.filter((m) => m !== o);
+      };
+    }
+    notifyListeners() {
+      this.listeners.forEach((o) => o(this.state));
+    }
+    collectFormState() {
+      const o = document.getElementById("document_id")?.value || null, m = document.getElementById("selected-document-title")?.textContent?.trim() || null, f = document.getElementById("title"), w = document.getElementById("message"), S = [];
+      document.querySelectorAll(".participant-entry").forEach((M) => {
+        const B = M.getAttribute("data-participant-id"), q = M.querySelector('input[name*=".name"]')?.value || "", G = M.querySelector('input[name*=".email"]')?.value || "", Y = M.querySelector('select[name*=".role"]')?.value || "signer", Z = parseInt(M.querySelector(".signing-stage-input")?.value || "1", 10);
+        S.push({ tempId: B, name: q, email: G, role: Y, signingStage: Z });
       });
-    }), this.elements.syncRetryBtn && this.elements.syncRetryBtn.addEventListener("click", () => {
-      this.syncManager.syncToServer();
-    }), this.elements.resumeContinueBtn && this.elements.resumeContinueBtn.addEventListener("click", () => {
-      this.resumeSavedProgress();
-    }), this.elements.resumeNewBtn && this.elements.resumeNewBtn.addEventListener("click", () => {
-      this.stateManager.reset(), this.hideResumeDialog(), this.currentStep = 1, this.updateWizardUI();
-    }), this.elements.resumeDiscardBtn && this.elements.resumeDiscardBtn.addEventListener("click", () => {
-      this.stateManager.clearSession(), this.hideResumeDialog();
-    }), this.elements.conflictReloadBtn && this.elements.conflictReloadBtn.addEventListener("click", async () => {
-      await this.syncManager.loadServerVersion(), this.hideConflictDialog(), this.updateWizardUI();
-    }), this.elements.conflictForceBtn && this.elements.conflictForceBtn.addEventListener("click", async () => {
-      await this.syncManager.forceOverwrite(), this.hideConflictDialog();
-    }), this.elements.conflictDismissBtn && this.elements.conflictDismissBtn.addEventListener("click", () => {
-      this.hideConflictDialog();
-    }), this.elements.titleInput && this.elements.titleInput.addEventListener(
-      "input",
-      re(() => this.handleDetailsChange(), 300)
-    ), this.elements.messageInput && this.elements.messageInput.addEventListener(
-      "input",
-      re(() => this.handleDetailsChange(), 300)
-    ), this.elements.form && this.elements.form.addEventListener("submit", (e) => this.handleFormSubmit(e));
+      const E = [];
+      document.querySelectorAll(".field-definition-entry").forEach((M) => {
+        const B = M.getAttribute("data-field-definition-id"), q = M.querySelector(".field-type-select")?.value || "signature", G = M.querySelector(".field-participant-select")?.value || "", Y = parseInt(M.querySelector('input[name*=".page"]')?.value || "1", 10), Z = M.querySelector('input[name*=".required"]')?.checked ?? !0;
+        E.push({ tempId: B, type: q, participantTempId: G, page: Y, required: Z });
+      });
+      const T = Me(), L = parseInt(je?.value || "0", 10) || null;
+      return {
+        document: { id: o, title: m, pageCount: L },
+        details: {
+          title: f?.value || "",
+          message: w?.value || ""
+        },
+        participants: S,
+        fieldDefinitions: E,
+        fieldPlacements: A?.fieldInstances || [],
+        fieldRules: T
+      };
+    }
+    restoreFormState() {
+      const o = this.state;
+      if (!o) return;
+      if (o.document.id) {
+        const w = document.getElementById("document_id"), S = document.getElementById("selected-document"), E = document.getElementById("document-picker"), T = document.getElementById("selected-document-title"), L = document.getElementById("selected-document-info");
+        w && (w.value = o.document.id), T && (T.textContent = o.document.title || "Selected Document"), L && (L.textContent = o.document.pageCount ? `${o.document.pageCount} pages` : ""), je && o.document.pageCount && (je.value = String(o.document.pageCount)), S && S.classList.remove("hidden"), E && E.classList.add("hidden");
+      }
+      const m = document.getElementById("title"), f = document.getElementById("message");
+      m && o.details.title && (m.value = o.details.title), f && o.details.message && (f.value = o.details.message);
+    }
   }
-  checkForSavedProgress() {
-    if (this.config.isEditMode) return;
-    const e = this.stateManager.getSavedSummary();
-    e && e.step > 1 && this.showResumeDialog(e);
+  class Ye {
+    constructor(o) {
+      this.stateManager = o, this.pendingSync = null, this.retryCount = 0, this.retryTimeout = null;
+    }
+    async create(o) {
+      const m = {
+        wizard_id: o.wizardId,
+        wizard_state: o,
+        title: o.details.title || "Untitled Agreement",
+        current_step: o.currentStep,
+        document_id: o.document.id || null,
+        created_by_user_id: v
+      }, f = await fetch(D(u), {
+        method: "POST",
+        credentials: "same-origin",
+        headers: z(),
+        body: JSON.stringify(m)
+      });
+      if (!f.ok) {
+        const w = await f.json().catch(() => ({}));
+        throw new Error(w.error?.message || `HTTP ${f.status}`);
+      }
+      return f.json();
+    }
+    async update(o, m, f) {
+      const w = {
+        expected_revision: f,
+        wizard_state: m,
+        title: m.details.title || "Untitled Agreement",
+        current_step: m.currentStep,
+        document_id: m.document.id || null,
+        updated_by_user_id: v
+      }, S = await fetch(D(`${u}/${o}`), {
+        method: "PUT",
+        credentials: "same-origin",
+        headers: z(),
+        body: JSON.stringify(w)
+      });
+      if (S.status === 409) {
+        const E = await S.json().catch(() => ({})), T = new Error("stale_revision");
+        throw T.code = "stale_revision", T.currentRevision = E.error?.details?.current_revision, T;
+      }
+      if (!S.ok) {
+        const E = await S.json().catch(() => ({}));
+        throw new Error(E.error?.message || `HTTP ${S.status}`);
+      }
+      return S.json();
+    }
+    async load(o) {
+      const m = await fetch(D(`${u}/${o}`), {
+        credentials: "same-origin",
+        headers: z(!1)
+      });
+      if (!m.ok)
+        throw new Error(`HTTP ${m.status}`);
+      return m.json();
+    }
+    async delete(o) {
+      const m = await fetch(D(`${u}/${o}`), {
+        method: "DELETE",
+        credentials: "same-origin",
+        headers: z(!1)
+      });
+      if (!m.ok && m.status !== 404)
+        throw new Error(`HTTP ${m.status}`);
+    }
+    async list() {
+      const o = await fetch(D(`${u}?limit=10`), {
+        credentials: "same-origin",
+        headers: z(!1)
+      });
+      if (!o.ok)
+        throw new Error(`HTTP ${o.status}`);
+      return o.json();
+    }
+    async sync() {
+      const o = this.stateManager.getState();
+      if (o.syncPending)
+        try {
+          let m;
+          return o.serverDraftId ? m = await this.update(o.serverDraftId, o, o.serverRevision) : m = await this.create(o), this.stateManager.markSynced(m.id, m.revision), this.retryCount = 0, { success: !0, result: m };
+        } catch (m) {
+          return m.code === "stale_revision" ? { success: !1, conflict: !0, currentRevision: m.currentRevision } : { success: !1, error: m.message };
+        }
+    }
   }
-  showResumeDialog(e) {
-    const { resumeDialogModal: t, resumeDraftTitle: n, resumeDraftStep: i, resumeDraftTime: o } = this.elements;
-    n && (n.textContent = e.title), i && (i.textContent = String(e.step)), o && (o.textContent = X(e.updatedAt)), t && x(t);
-  }
-  hideResumeDialog() {
-    this.elements.resumeDialogModal && w(this.elements.resumeDialogModal);
-  }
-  resumeSavedProgress() {
-    const e = this.stateManager.getState();
-    this.currentStep = e.currentStep, this.restoreStateToUI(), this.hideResumeDialog(), this.updateWizardUI();
-  }
-  restoreStateToUI() {
-    const e = this.stateManager.getState();
-    this.elements.titleInput && (this.elements.titleInput.value = e.details.title), this.elements.messageInput && (this.elements.messageInput.value = e.details.message);
-  }
-  showConflictDialog(e, t, n) {
-    const { conflictDialogModal: i, conflictLocalTime: o, conflictServerTime: d, conflictServerRevision: a } = this.elements;
-    o && (o.textContent = X(e)), d && (d.textContent = X(t)), a && (a.textContent = String(n)), i && x(i);
-  }
-  hideConflictDialog() {
-    this.elements.conflictDialogModal && w(this.elements.conflictDialogModal);
-  }
-  updateSyncStatusUI(e) {
-    const { syncStatusIndicator: t, syncStatusIcon: n, syncStatusText: i, syncRetryBtn: o } = this.elements;
-    if (!(!t || !n || !i))
-      switch (x(t), e) {
-        case "syncing":
-          n.className = "w-2 h-2 rounded-full bg-blue-500 animate-pulse", i.textContent = "Saving...", o && w(o);
+  class _e {
+    constructor(o, m, f) {
+      this.stateManager = o, this.syncService = m, this.statusUpdater = f, this.debounceTimer = null, this.retryTimer = null, this.retryCount = 0, this.isSyncing = !1, this.channel = null, this.isOwner = !0, this.initBroadcastChannel(), this.initEventListeners();
+    }
+    initBroadcastChannel() {
+      if (!(typeof BroadcastChannel > "u"))
+        try {
+          this.channel = new BroadcastChannel(X), this.channel.onmessage = (o) => this.handleChannelMessage(o.data), this.channel.postMessage({ type: "presence", tabId: this.getTabId() });
+        } catch (o) {
+          console.warn("BroadcastChannel not available:", o);
+        }
+    }
+    getTabId() {
+      return window._wizardTabId || (window._wizardTabId = `tab_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`), window._wizardTabId;
+    }
+    handleChannelMessage(o) {
+      switch (o.type) {
+        case "presence":
+          o.tabId !== this.getTabId() && this.channel?.postMessage({ type: "ownership_claim", tabId: this.getTabId() });
           break;
-        case "synced":
-          n.className = "w-2 h-2 rounded-full bg-green-500", i.textContent = "Saved", o && w(o);
+        case "ownership_claim":
+          this.isOwner = !1;
+          break;
+        case "state_updated":
+          if (o.tabId !== this.getTabId()) {
+            const m = this.stateManager.loadFromSession();
+            m && (this.stateManager.state = m, this.stateManager.notifyListeners());
+          }
+          break;
+        case "sync_completed":
+          o.tabId !== this.getTabId() && o.draftId && o.revision && this.stateManager.markSynced(o.draftId, o.revision);
+          break;
+      }
+    }
+    broadcastStateUpdate() {
+      this.channel?.postMessage({
+        type: "state_updated",
+        tabId: this.getTabId()
+      });
+    }
+    broadcastSyncCompleted(o, m) {
+      this.channel?.postMessage({
+        type: "sync_completed",
+        tabId: this.getTabId(),
+        draftId: o,
+        revision: m
+      });
+    }
+    initEventListeners() {
+      document.addEventListener("visibilitychange", () => {
+        document.visibilityState === "hidden" && this.forceSync({ keepalive: !0 });
+      }), window.addEventListener("pagehide", () => {
+        this.forceSync({ keepalive: !0 });
+      }), window.addEventListener("beforeunload", () => {
+        this.forceSync({ keepalive: !0 });
+      });
+    }
+    scheduleSync() {
+      this.debounceTimer && clearTimeout(this.debounceTimer), this.statusUpdater("pending"), this.debounceTimer = setTimeout(() => {
+        this.performSync();
+      }, se);
+    }
+    async forceSync(o = {}) {
+      this.debounceTimer && (clearTimeout(this.debounceTimer), this.debounceTimer = null);
+      const m = o && o.keepalive === !0, f = this.stateManager.getState();
+      if (!m) {
+        await this.performSync();
+        return;
+      }
+      if (f.syncPending && f.serverDraftId) {
+        const w = JSON.stringify({
+          expected_revision: f.serverRevision,
+          wizard_state: f,
+          title: f.details.title || "Untitled Agreement",
+          current_step: f.currentStep,
+          document_id: f.document.id || null,
+          updated_by_user_id: v
+        });
+        try {
+          const S = await fetch(D(`${u}/${f.serverDraftId}`), {
+            method: "PUT",
+            credentials: "same-origin",
+            headers: z(),
+            body: w,
+            keepalive: !0
+          });
+          if (S.status === 409) {
+            const M = await S.json().catch(() => ({})), B = Number(M?.error?.details?.current_revision || 0);
+            this.statusUpdater("conflict"), this.showConflictDialog(B > 0 ? B : f.serverRevision);
+            return;
+          }
+          if (!S.ok)
+            throw new Error(`HTTP ${S.status}`);
+          const E = await S.json().catch(() => ({})), T = String(E?.id || E?.draft_id || f.serverDraftId || "").trim(), L = Number(E?.revision || 0);
+          if (T && Number.isFinite(L) && L > 0) {
+            this.stateManager.markSynced(T, L), this.statusUpdater("saved"), this.retryCount = 0, this.broadcastSyncCompleted(T, L);
+            return;
+          }
+        } catch {
+        }
+      }
+      await this.performSync();
+    }
+    async performSync() {
+      if (this.isSyncing || !this.isOwner) return;
+      if (!this.stateManager.getState().syncPending) {
+        this.statusUpdater("saved");
+        return;
+      }
+      this.isSyncing = !0, this.statusUpdater("saving");
+      const m = await this.syncService.sync();
+      this.isSyncing = !1, m.success ? (this.statusUpdater("saved"), this.retryCount = 0, this.broadcastSyncCompleted(m.result.id, m.result.revision)) : m.conflict ? (this.statusUpdater("conflict"), this.showConflictDialog(m.currentRevision)) : (this.statusUpdater("error"), this.scheduleRetry());
+    }
+    scheduleRetry() {
+      if (this.retryCount >= ce.length) {
+        console.error("Max sync retries reached");
+        return;
+      }
+      const o = ce[this.retryCount];
+      this.retryCount++, this.retryTimer = setTimeout(() => {
+        this.performSync();
+      }, o);
+    }
+    manualRetry() {
+      this.retryCount = 0, this.retryTimer && (clearTimeout(this.retryTimer), this.retryTimer = null), this.performSync();
+    }
+    showConflictDialog(o) {
+      const m = document.getElementById("conflict-dialog-modal"), f = this.stateManager.getState();
+      document.getElementById("conflict-local-time").textContent = He(f.updatedAt), document.getElementById("conflict-server-revision").textContent = o, document.getElementById("conflict-server-time").textContent = "newer version", m?.classList.remove("hidden");
+    }
+  }
+  function He(l) {
+    if (!l) return "unknown";
+    const o = new Date(l), f = /* @__PURE__ */ new Date() - o, w = Math.floor(f / 6e4), S = Math.floor(f / 36e5), E = Math.floor(f / 864e5);
+    return w < 1 ? "just now" : w < 60 ? `${w} minute${w !== 1 ? "s" : ""} ago` : S < 24 ? `${S} hour${S !== 1 ? "s" : ""} ago` : E < 7 ? `${E} day${E !== 1 ? "s" : ""} ago` : o.toLocaleDateString();
+  }
+  function Ue(l) {
+    const o = document.getElementById("sync-status-indicator"), m = document.getElementById("sync-status-icon"), f = document.getElementById("sync-status-text"), w = document.getElementById("sync-retry-btn");
+    if (!(!o || !m || !f))
+      switch (o.classList.remove("hidden"), l) {
+        case "saved":
+          m.className = "w-2 h-2 rounded-full bg-green-500", f.textContent = "Saved", f.className = "text-gray-600", w?.classList.add("hidden");
+          break;
+        case "saving":
+          m.className = "w-2 h-2 rounded-full bg-blue-500 animate-pulse", f.textContent = "Saving...", f.className = "text-gray-600", w?.classList.add("hidden");
+          break;
+        case "pending":
+          m.className = "w-2 h-2 rounded-full bg-gray-400", f.textContent = "Unsaved changes", f.className = "text-gray-500", w?.classList.add("hidden");
           break;
         case "error":
-          n.className = "w-2 h-2 rounded-full bg-red-500", i.textContent = "Save failed", o && x(o);
+          m.className = "w-2 h-2 rounded-full bg-amber-500", f.textContent = "Not synced", f.className = "text-amber-600", w?.classList.remove("hidden");
           break;
         case "conflict":
-          n.className = "w-2 h-2 rounded-full bg-amber-500", i.textContent = "Conflict", o && w(o);
+          m.className = "w-2 h-2 rounded-full bg-red-500", f.textContent = "Conflict", f.className = "text-red-600", w?.classList.add("hidden");
           break;
+        default:
+          o.classList.add("hidden");
       }
   }
-  handleDetailsChange() {
-    const e = this.elements.titleInput?.value || "", t = this.elements.messageInput?.value || "";
-    this.stateManager.updateDetails({ title: e, message: t });
+  const K = new fe(), le = new Ye(K), $e = new _e(K, le, Ue);
+  if (x) {
+    const o = K.getState()?.serverDraftId;
+    K.clear(), $e.broadcastStateUpdate(), o && le.delete(o).catch((m) => {
+      console.warn("Failed to delete server draft after successful create:", m);
+    });
   }
-  canNavigateToStep(e) {
-    return e < this.currentStep ? !0 : e <= this.currentStep + 1;
+  document.getElementById("sync-retry-btn")?.addEventListener("click", () => {
+    $e.manualRetry();
+  }), document.getElementById("conflict-reload-btn")?.addEventListener("click", async () => {
+    const l = K.getState();
+    if (l.serverDraftId)
+      try {
+        const o = await le.load(l.serverDraftId);
+        o.wizard_state && (K.state = { ...o.wizard_state, serverDraftId: o.id, serverRevision: o.revision }, K.saveToSession(), window.location.reload());
+      } catch (o) {
+        console.error("Failed to load server draft:", o);
+      }
+    document.getElementById("conflict-dialog-modal")?.classList.add("hidden");
+  }), document.getElementById("conflict-force-btn")?.addEventListener("click", async () => {
+    const l = parseInt(document.getElementById("conflict-server-revision")?.textContent || "0", 10);
+    K.state.serverRevision = l, K.state.syncPending = !0, K.saveToSession(), $e.performSync(), document.getElementById("conflict-dialog-modal")?.classList.add("hidden");
+  }), document.getElementById("conflict-dismiss-btn")?.addEventListener("click", () => {
+    document.getElementById("conflict-dialog-modal")?.classList.add("hidden");
+  });
+  function it() {
+    const l = document.getElementById("resume-dialog-modal"), o = K.getState();
+    document.getElementById("resume-draft-title").textContent = o.details.title || "Untitled Agreement", document.getElementById("resume-draft-step").textContent = o.currentStep, document.getElementById("resume-draft-time").textContent = He(o.updatedAt), l?.classList.remove("hidden");
   }
-  goToStep(e) {
-    e < 1 || e > 6 || this.canNavigateToStep(e) && (this.currentStep = e, this.stateManager.setCurrentStep(e), this.updateWizardUI(), H(`Step ${e} of 6`));
+  document.getElementById("resume-continue-btn")?.addEventListener("click", () => {
+    document.getElementById("resume-dialog-modal")?.classList.add("hidden"), K.restoreFormState(), window._resumeToStep = K.getState().currentStep;
+  }), document.getElementById("resume-new-btn")?.addEventListener("click", () => {
+    document.getElementById("resume-dialog-modal")?.classList.add("hidden"), K.clear();
+  }), document.getElementById("resume-discard-btn")?.addEventListener("click", async () => {
+    const l = K.getState();
+    if (l.serverDraftId)
+      try {
+        await le.delete(l.serverDraftId);
+      } catch (o) {
+        console.warn("Failed to delete server draft:", o);
+      }
+    K.clear(), document.getElementById("resume-dialog-modal")?.classList.add("hidden");
+  }), !a && K.hasResumableState() && it();
+  function st() {
+    const l = K.collectFormState();
+    K.updateState(l), $e.scheduleSync(), $e.broadcastStateUpdate();
   }
-  goToNextStep() {
-    this.currentStep < 6 && this.goToStep(this.currentStep + 1);
+  const xe = document.getElementById("document_id"), ht = document.getElementById("selected-document"), ft = document.getElementById("document-picker"), yt = document.getElementById("document-search"), Ke = document.getElementById("document-list"), vt = document.getElementById("change-document-btn"), Qe = document.getElementById("selected-document-title"), Xe = document.getElementById("selected-document-info"), je = document.getElementById("document_page_count");
+  let Ve = [];
+  function wt(l) {
+    const o = parseInt(l || "0", 10), m = Number.isFinite(o) && o > 0 ? o : 0;
+    je && (je.value = String(m));
   }
-  goToPreviousStep() {
-    this.currentStep > 1 && this.goToStep(this.currentStep - 1);
+  function Zt() {
+    const l = (xe?.value || "").trim();
+    if (!l) return;
+    const o = Ve.find((m) => String(m.id || "").trim() === l);
+    o && (Qe.textContent.trim() || (Qe.textContent = o.title || "Untitled"), (!Xe.textContent.trim() || Xe.textContent.trim() === "pages") && (Xe.textContent = `${o.page_count || 0} pages`), wt(o.page_count || 0), ht.classList.remove("hidden"), ft.classList.add("hidden"));
   }
-  updateWizardUI() {
-    this.elements.wizardSteps.forEach((e, t) => {
-      const n = t + 1, i = n === this.currentStep, o = n < this.currentStep;
-      e.classList.toggle("active", i), e.classList.toggle("completed", o), e.setAttribute("aria-current", i ? "step" : "false");
-    }), this.elements.stepPanels.forEach((e, t) => {
-      t + 1 === this.currentStep ? x(e) : w(e);
-    }), this.elements.prevBtn && (this.currentStep === 1 ? w(this.elements.prevBtn) : x(this.elements.prevBtn)), this.elements.nextBtn && (this.currentStep === 6 ? w(this.elements.nextBtn) : x(this.elements.nextBtn)), this.elements.submitBtn && (this.currentStep === 6 ? x(this.elements.submitBtn) : w(this.elements.submitBtn));
-  }
-  async handleFormSubmit(e) {
-    e.preventDefault();
-    const t = this.stateManager.getState();
+  async function en() {
     try {
-      const n = await fetch(`${this.apiBase}/esign/agreements`, {
+      const l = await fetch(`${n}/panels/esign_documents?per_page=100`, {
+        credentials: "same-origin",
+        headers: { Accept: "application/json" }
+      });
+      if (!l.ok)
+        throw await At(l, "Failed to load documents");
+      const o = await l.json();
+      Ve = o.records || o.items || [], Ze(Ve), Zt();
+    } catch (l) {
+      const o = ke(l?.message || "Failed to load documents", l?.code || "", l?.status || 0);
+      Ke.innerHTML = `<div class="p-4 text-center text-red-500 text-sm">${Ee(o)}</div>`;
+    }
+  }
+  function Ze(l) {
+    if (l.length === 0) {
+      Ke.innerHTML = `
+        <div class="p-4 text-center text-gray-500 text-sm">
+          No documents found.
+          <a href="${Ee(P)}" class="text-blue-600 hover:underline">Upload one</a>
+        </div>
+      `;
+      return;
+    }
+    Ke.innerHTML = l.map((m, f) => `
+      <button type="button" class="document-option w-full p-3 flex items-center gap-3 hover:bg-gray-50 border-b border-gray-100 last:border-0 text-left focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+              role="option"
+              aria-selected="false"
+              tabindex="${f === 0 ? "0" : "-1"}"
+              data-document-id="${m.id}"
+              data-document-title="${Ee(m.title || "Untitled")}"
+              data-document-pages="${m.page_count || 0}">
+        <div class="w-8 h-8 rounded bg-red-100 flex items-center justify-center flex-shrink-0" aria-hidden="true">
+          <svg class="w-4 h-4 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+          </svg>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="font-medium text-gray-900 truncate">${Ee(m.title || "Untitled")}</div>
+          <div class="text-xs text-gray-500">${m.page_count || 0} pages</div>
+        </div>
+      </button>
+    `).join("");
+    const o = Ke.querySelectorAll(".document-option");
+    o.forEach((m, f) => {
+      m.addEventListener("click", () => rt(m)), m.addEventListener("keydown", (w) => {
+        let S = f;
+        if (w.key === "ArrowDown")
+          w.preventDefault(), S = Math.min(f + 1, o.length - 1);
+        else if (w.key === "ArrowUp")
+          w.preventDefault(), S = Math.max(f - 1, 0);
+        else if (w.key === "Enter" || w.key === " ") {
+          w.preventDefault(), rt(m);
+          return;
+        } else w.key === "Home" ? (w.preventDefault(), S = 0) : w.key === "End" && (w.preventDefault(), S = o.length - 1);
+        S !== f && (o[S].focus(), o[S].setAttribute("tabindex", "0"), m.setAttribute("tabindex", "-1"));
+      });
+    });
+  }
+  function rt(l) {
+    const o = l.getAttribute("data-document-id"), m = l.getAttribute("data-document-title"), f = l.getAttribute("data-document-pages");
+    xe.value = o, Qe.textContent = m, Xe.textContent = `${f} pages`, wt(f), ht.classList.remove("hidden"), ft.classList.add("hidden"), pe();
+  }
+  function Ee(l) {
+    const o = document.createElement("div");
+    return o.textContent = l, o.innerHTML;
+  }
+  vt && vt.addEventListener("click", () => {
+    ht.classList.add("hidden"), ft.classList.remove("hidden");
+  }), yt && yt.addEventListener("input", (l) => {
+    const o = l.target.value.toLowerCase(), m = Ve.filter(
+      (f) => (f.title || "").toLowerCase().includes(o)
+    );
+    Ze(m);
+  }), en();
+  const ae = document.getElementById("participants-container"), at = document.getElementById("participant-template"), bt = document.getElementById("add-participant-btn");
+  let tn = 0, Ft = 0;
+  function Rt() {
+    return `temp_${Date.now()}_${tn++}`;
+  }
+  function qe(l = {}) {
+    const o = at.content.cloneNode(!0), m = o.querySelector(".participant-entry"), f = l.id || Rt();
+    m.setAttribute("data-participant-id", f);
+    const w = m.querySelector(".participant-id-input"), S = m.querySelector('input[name="participants[].name"]'), E = m.querySelector('input[name="participants[].email"]'), T = m.querySelector('select[name="participants[].role"]'), L = m.querySelector('input[name="participants[].signing_stage"]'), M = m.querySelector(".signing-stage-wrapper"), B = Ft++;
+    w.name = `participants[${B}].id`, w.value = f, S.name = `participants[${B}].name`, E.name = `participants[${B}].email`, T.name = `participants[${B}].role`, L && (L.name = `participants[${B}].signing_stage`), l.name && (S.value = l.name), l.email && (E.value = l.email), l.role && (T.value = l.role), L && l.signing_stage && (L.value = l.signing_stage);
+    const q = () => {
+      if (!M || !L) return;
+      const G = T.value === "signer";
+      M.classList.toggle("hidden", !G), G ? L.value || (L.value = "1") : L.value = "";
+    };
+    q(), m.querySelector(".remove-participant-btn").addEventListener("click", () => {
+      m.remove(), we();
+    }), T.addEventListener("change", () => {
+      q(), we();
+    }), ae.appendChild(o);
+  }
+  bt.addEventListener("click", () => qe()), H.length > 0 ? H.forEach((l) => {
+    qe({
+      id: String(l.id || "").trim(),
+      name: String(l.name || "").trim(),
+      email: String(l.email || "").trim(),
+      role: String(l.role || "signer").trim() || "signer",
+      signing_stage: Number(l.signing_stage || l.signingStage || 1) || 1
+    });
+  }) : qe();
+  const he = document.getElementById("field-definitions-container"), nn = document.getElementById("field-definition-template"), xt = document.getElementById("add-field-btn"), St = document.getElementById("add-field-definition-empty-btn"), et = document.getElementById("field-definitions-empty-state"), de = document.getElementById("field-rules-container"), It = document.getElementById("field-rule-template"), sn = document.getElementById("add-field-rule-btn"), Et = document.getElementById("field-rules-empty-state"), Ct = document.getElementById("field-rules-preview"), Lt = document.getElementById("field_rules_json");
+  let Ht = 0, tt = 0, kt = 0;
+  function ot() {
+    return `temp_field_${Date.now()}_${Ht++}`;
+  }
+  function rn() {
+    return `rule_${Date.now()}_${kt}`;
+  }
+  function Ce() {
+    const l = ae.querySelectorAll(".participant-entry"), o = [];
+    return l.forEach((m) => {
+      const f = m.getAttribute("data-participant-id"), w = m.querySelector('select[name*=".role"]'), S = m.querySelector('input[name*=".name"]'), E = m.querySelector('input[name*=".email"]');
+      w.value === "signer" && o.push({
+        id: f,
+        name: S.value || E.value || "Signer",
+        email: E.value
+      });
+    }), o;
+  }
+  function we() {
+    const l = Ce(), o = he.querySelectorAll(".field-participant-select"), m = de ? de.querySelectorAll(".field-rule-participant-select") : [];
+    o.forEach((f) => {
+      const w = f.value;
+      f.innerHTML = '<option value="">Select signer...</option>', l.forEach((S) => {
+        const E = document.createElement("option");
+        E.value = S.id, E.textContent = S.name, f.appendChild(E);
+      }), w && l.some((S) => S.id === w) && (f.value = w);
+    }), m.forEach((f) => {
+      const w = f.value;
+      f.innerHTML = '<option value="">Select signer...</option>', l.forEach((S) => {
+        const E = document.createElement("option");
+        E.value = S.id, E.textContent = S.name, f.appendChild(E);
+      }), w && l.some((S) => S.id === w) && (f.value = w);
+    }), pe();
+  }
+  function Ge() {
+    const l = parseInt(je?.value || "0", 10);
+    if (Number.isFinite(l) && l > 0) return l;
+    const o = String(Xe?.textContent || "").match(/(\d+)\s+pages?/i);
+    if (o) {
+      const m = parseInt(o[1], 10);
+      if (Number.isFinite(m) && m > 0) return m;
+    }
+    return 1;
+  }
+  function ct() {
+    if (!de || !Et) return;
+    const l = de.querySelectorAll(".field-rule-entry");
+    Et.classList.toggle("hidden", l.length > 0);
+  }
+  function jt(l) {
+    return l ? l.split(",").map((o) => parseInt(o.trim(), 10)).filter((o) => Number.isFinite(o) && o > 0) : [];
+  }
+  function Me() {
+    if (!de) return [];
+    const l = de.querySelectorAll(".field-rule-entry"), o = [];
+    return l.forEach((m) => {
+      const f = m.getAttribute("data-field-rule-id") || "", w = m.querySelector(".field-rule-type-select")?.value || "", S = m.querySelector(".field-rule-participant-select")?.value || "", E = parseInt(m.querySelector(".field-rule-from-page-input")?.value || "0", 10) || 0, T = parseInt(m.querySelector(".field-rule-to-page-input")?.value || "0", 10) || 0, L = parseInt(m.querySelector(".field-rule-page-input")?.value || "0", 10) || 0, M = !!m.querySelector(".field-rule-exclude-last-input")?.checked, B = jt(m.querySelector(".field-rule-exclude-pages-input")?.value || ""), q = (m.querySelector(".field-rule-required-select")?.value || "1") !== "0";
+      w && o.push({
+        id: f,
+        type: w,
+        participantId: S,
+        participantTempId: S,
+        fromPage: E,
+        toPage: T,
+        page: L,
+        excludeLastPage: M,
+        excludePages: B,
+        required: q
+      });
+    }), o;
+  }
+  function lt() {
+    return Me().map((l) => ({
+      id: l.id,
+      type: l.type,
+      participant_id: l.participantId,
+      from_page: l.fromPage,
+      to_page: l.toPage,
+      page: l.page,
+      exclude_last_page: l.excludeLastPage,
+      exclude_pages: l.excludePages,
+      required: l.required
+    }));
+  }
+  function Le(l, o) {
+    const m = String(l?.id || "").trim();
+    return m || `rule-${o + 1}`;
+  }
+  function dt(l, o) {
+    const m = [];
+    return l.forEach((f, w) => {
+      const S = Le(f, w);
+      if (f.type === "initials_each_page") {
+        let E = f.fromPage > 0 ? f.fromPage : 1, T = f.toPage > 0 ? f.toPage : o;
+        T < E && ([E, T] = [T, E]);
+        const L = new Set(f.excludePages || []);
+        f.excludeLastPage && L.add(o);
+        for (let M = E; M <= T; M++)
+          L.has(M) || m.push({
+            id: `${S}-initials-${M}`,
+            type: "initials",
+            page: M,
+            participantId: f.participantId,
+            required: f.required !== !1
+          });
+      } else if (f.type === "signature_once") {
+        let E = f.page > 0 ? f.page : f.toPage > 0 ? f.toPage : o;
+        E <= 0 && (E = 1), m.push({
+          id: `${S}-signature-${E}`,
+          type: "signature",
+          page: E,
+          participantId: f.participantId,
+          required: f.required !== !1
+        });
+      }
+    }), m.sort((f, w) => f.page !== w.page ? f.page - w.page : String(f.id).localeCompare(String(w.id))), m;
+  }
+  function pe() {
+    if (!Ct) return;
+    const l = Me(), o = Ge(), m = dt(l, o), f = Ce(), w = new Map(f.map((L) => [String(L.id), L.name]));
+    if (Lt && (Lt.value = JSON.stringify(lt())), !m.length) {
+      Ct.innerHTML = "<p>No rules configured.</p>";
+      return;
+    }
+    const S = m.reduce((L, M) => {
+      const B = M.type;
+      return L[B] = (L[B] || 0) + 1, L;
+    }, {}), E = m.slice(0, 8).map((L) => {
+      const M = w.get(String(L.participantId)) || "Unassigned signer";
+      return `<li class="flex items-center justify-between"><span>${L.type === "initials" ? "Initials" : "Signature"} on page ${L.page}</span><span class="text-gray-500">${Ee(String(M))}</span></li>`;
+    }).join(""), T = m.length - 8;
+    Ct.innerHTML = `
+      <p class="text-gray-700">${m.length} generated field${m.length !== 1 ? "s" : ""} (${S.initials || 0} initials, ${S.signature || 0} signatures)</p>
+      <ul class="space-y-1">${E}</ul>
+      ${T > 0 ? `<p class="text-gray-500">+${T} more</p>` : ""}
+    `;
+  }
+  function qt() {
+    const l = Ce(), o = new Map(l.map((E) => [String(E.id), E.name || E.email || "Signer"])), m = [];
+    he.querySelectorAll(".field-definition-entry").forEach((E) => {
+      const T = String(E.getAttribute("data-field-definition-id") || "").trim(), L = E.querySelector(".field-type-select"), M = E.querySelector(".field-participant-select"), B = String(L?.value || "text").trim() || "text", q = String(M?.value || "").trim();
+      m.push({
+        definitionId: T,
+        fieldType: B,
+        participantId: q,
+        participantName: o.get(q) || "Unassigned"
+      });
+    }), dt(Me(), Ge()).forEach((E) => {
+      const T = String(E.id || "").trim();
+      if (!T) return;
+      const L = String(E.participantId || "").trim();
+      m.push({
+        definitionId: T,
+        fieldType: String(E.type || "text").trim() || "text",
+        participantId: L,
+        participantName: o.get(L) || "Unassigned"
+      });
+    });
+    const S = /* @__PURE__ */ new Set();
+    return m.filter((E) => {
+      const T = String(E.definitionId || "").trim();
+      return !T || S.has(T) ? !1 : (S.add(T), !0);
+    });
+  }
+  function zt(l) {
+    const o = l.querySelector(".field-rule-type-select"), m = l.querySelector(".field-rule-range-start-wrap"), f = l.querySelector(".field-rule-range-end-wrap"), w = l.querySelector(".field-rule-page-wrap"), S = l.querySelector(".field-rule-exclude-last-wrap"), E = l.querySelector(".field-rule-exclude-pages-wrap"), T = l.querySelector(".field-rule-summary"), L = parseInt(l.querySelector(".field-rule-from-page-input")?.value || "1", 10) || 1, M = parseInt(l.querySelector(".field-rule-to-page-input")?.value || "1", 10) || 1, B = parseInt(l.querySelector(".field-rule-page-input")?.value || "1", 10) || 1, q = !!l.querySelector(".field-rule-exclude-last-input")?.checked, G = l.querySelector(".field-rule-exclude-pages-input")?.value || "", Y = o?.value === "initials_each_page";
+    m.classList.toggle("hidden", !Y), f.classList.toggle("hidden", !Y), S.classList.toggle("hidden", !Y), E.classList.toggle("hidden", !Y), w.classList.toggle("hidden", Y), Y ? T.textContent = `Generates initials fields from page ${L} to ${M}${q ? " (excluding last page)" : ""}${G ? `; excluding ${G}` : ""}.` : T.textContent = `Generates one signature field on page ${B}.`;
+  }
+  function Nt(l = {}) {
+    if (!It || !de) return;
+    const o = It.content.cloneNode(!0), m = o.querySelector(".field-rule-entry"), f = l.id || rn(), w = kt++, S = Ge();
+    m.setAttribute("data-field-rule-id", f);
+    const E = m.querySelector(".field-rule-id-input"), T = m.querySelector(".field-rule-type-select"), L = m.querySelector(".field-rule-participant-select"), M = m.querySelector(".field-rule-from-page-input"), B = m.querySelector(".field-rule-to-page-input"), q = m.querySelector(".field-rule-page-input"), G = m.querySelector(".field-rule-required-select"), Y = m.querySelector(".field-rule-exclude-last-input"), Z = m.querySelector(".field-rule-exclude-pages-input"), ee = m.querySelector(".remove-field-rule-btn");
+    E.name = `field_rules[${w}].id`, E.value = f, T.name = `field_rules[${w}].type`, L.name = `field_rules[${w}].participant_id`, M.name = `field_rules[${w}].from_page`, B.name = `field_rules[${w}].to_page`, q.name = `field_rules[${w}].page`, G.name = `field_rules[${w}].required`, Y.name = `field_rules[${w}].exclude_last_page`, Z.name = `field_rules[${w}].exclude_pages`;
+    const ie = Ce();
+    L.innerHTML = '<option value="">Select signer...</option>', ie.forEach((Fe) => {
+      const ve = document.createElement("option");
+      ve.value = Fe.id, ve.textContent = Fe.name, L.appendChild(ve);
+    }), T.value = l.type || "initials_each_page", L.value = l.participant_id || l.participantId || "", M.value = String(l.from_page || l.fromPage || 1), B.value = String(l.to_page || l.toPage || S), q.value = String(l.page || 1), G.value = l.required === !1 ? "0" : "1", Y.checked = !!(l.exclude_last_page || l.excludeLastPage);
+    const Ie = l.exclude_pages || l.excludePages || [];
+    Z.value = Array.isArray(Ie) ? Ie.join(",") : String(Ie || "");
+    const ye = () => {
+      zt(m), pe(), De();
+    };
+    T.addEventListener("change", ye), L.addEventListener("change", ye), M.addEventListener("input", ye), B.addEventListener("input", ye), q.addEventListener("input", ye), G.addEventListener("change", ye), Y.addEventListener("change", ye), Z.addEventListener("input", ye), ee.addEventListener("click", () => {
+      m.remove(), ct(), pe(), De();
+    }), de.appendChild(o), zt(de.lastElementChild), ct(), pe();
+  }
+  function ut(l = {}) {
+    const o = nn.content.cloneNode(!0), m = o.querySelector(".field-definition-entry"), f = l.id || ot();
+    m.setAttribute("data-field-definition-id", f);
+    const w = m.querySelector(".field-definition-id-input"), S = m.querySelector('select[name="field_definitions[].type"]'), E = m.querySelector('select[name="field_definitions[].participant_id"]'), T = m.querySelector('input[name="field_definitions[].page"]'), L = m.querySelector('input[name="field_definitions[].required"]'), M = m.querySelector(".field-date-signed-info"), B = tt++;
+    w.name = `field_instances[${B}].id`, w.value = f, S.name = `field_instances[${B}].type`, E.name = `field_instances[${B}].participant_id`, T.name = `field_instances[${B}].page`, L.name = `field_instances[${B}].required`, l.type && (S.value = l.type), l.page && (T.value = l.page), l.required !== void 0 && (L.checked = l.required);
+    const q = Ce();
+    E.innerHTML = '<option value="">Select signer...</option>', q.forEach((ee) => {
+      const ie = document.createElement("option");
+      ie.value = ee.id, ie.textContent = ee.name, E.appendChild(ie);
+    }), l.participant_id && (E.value = l.participant_id), S.addEventListener("change", () => {
+      S.value === "date_signed" ? M.classList.remove("hidden") : M.classList.add("hidden");
+    }), S.value === "date_signed" && M.classList.remove("hidden"), m.querySelector(".remove-field-definition-btn").addEventListener("click", () => {
+      m.remove(), We();
+    });
+    const G = m.querySelector('input[name*=".page"]'), Y = m.querySelector(".jump-to-place-btn");
+    Y.addEventListener("click", async () => {
+      const ee = parseInt(G?.value || "1", 10), ie = m.getAttribute("data-field-definition-id");
+      if (Be(5), await new Promise((Ie) => setTimeout(Ie, 100)), typeof A < "u" && A.pdfDoc) {
+        const Ie = Math.max(1, Math.min(ee, A.totalPages || 1));
+        A.currentPage !== Ie && (A.currentPage = Ie, await h(Ie)), document.querySelectorAll(".placement-field-item").forEach((ve) => ve.classList.remove("ring-2", "ring-blue-500", "bg-blue-50"));
+        const Fe = document.querySelector(`.placement-field-item[data-definition-id="${ie}"]`);
+        Fe && (Fe.classList.add("ring-2", "ring-blue-500", "bg-blue-50"), Fe.scrollIntoView({ behavior: "smooth", block: "center" }), setTimeout(() => {
+          Fe.classList.remove("ring-2", "ring-blue-500", "bg-blue-50");
+        }, 3e3));
+      }
+    });
+    const Z = () => {
+      const ee = G?.value || "1";
+      Y.title = `Place on page ${ee}`, Y.setAttribute("aria-label", `Jump to place this field on page ${ee}`);
+    };
+    Z(), G?.addEventListener("input", Z), G?.addEventListener("change", Z), he.appendChild(o), We();
+  }
+  function We() {
+    he.querySelectorAll(".field-definition-entry").length === 0 ? et.classList.remove("hidden") : et.classList.add("hidden");
+  }
+  new MutationObserver(() => {
+    we();
+  }).observe(ae, { childList: !0, subtree: !0 }), ae.addEventListener("change", (l) => {
+    (l.target.matches('select[name*=".role"]') || l.target.matches('input[name*=".name"]') || l.target.matches('input[name*=".email"]')) && we();
+  }), ae.addEventListener("input", (l) => {
+    (l.target.matches('input[name*=".name"]') || l.target.matches('input[name*=".email"]')) && we();
+  }), xt.addEventListener("click", () => ut()), St.addEventListener("click", () => ut()), sn?.addEventListener("click", () => Nt({ to_page: Ge() })), window._initialFieldPlacementsData = [], F.forEach((l) => {
+    const o = String(l.id || "").trim();
+    if (!o) return;
+    const m = String(l.type || "signature").trim() || "signature", f = String(l.participant_id || l.participantId || "").trim(), w = Number(l.page || 1) || 1, S = !!l.required;
+    ut({
+      id: o,
+      type: m,
+      participant_id: f,
+      page: w,
+      required: S
+    }), window._initialFieldPlacementsData.push({
+      id: o,
+      definitionId: o,
+      type: m,
+      participantId: f,
+      participantName: String(l.participant_name || l.participantName || "").trim(),
+      page: w,
+      x: Number(l.x || l.pos_x || 0) || 0,
+      y: Number(l.y || l.pos_y || 0) || 0,
+      width: Number(l.width || 150) || 150,
+      height: Number(l.height || 32) || 32,
+      placementSource: String(l.placement_source || l.placementSource || "manual").trim() || "manual"
+    });
+  }), We(), we(), ct(), pe();
+  const ze = document.getElementById("agreement-form"), Se = document.getElementById("submit-btn"), Pt = document.getElementById("form-announcements");
+  function ke(l, o = "", m = 0) {
+    const f = String(o || "").trim().toUpperCase(), w = String(l || "").trim().toLowerCase();
+    return f === "SCOPE_DENIED" || w.includes("scope denied") ? "You don't have access to this organization's resources." : f === "TRANSPORT_SECURITY" || f === "TRANSPORT_SECURITY_REQUIRED" || w.includes("tls transport required") || Number(m) === 426 ? "This action requires a secure connection. Please access the app using HTTPS." : String(l || "").trim() !== "" ? String(l).trim() : "Something went wrong. Please try again.";
+  }
+  async function At(l, o) {
+    const m = Number(l?.status || 0);
+    let f = "", w = "";
+    try {
+      const S = await l.json();
+      f = String(S?.error?.code || S?.code || "").trim(), w = String(S?.error?.message || S?.message || "").trim();
+    } catch {
+      w = "";
+    }
+    return w === "" && (w = o || `Request failed (${m || "unknown"})`), {
+      status: m,
+      code: f,
+      message: ke(w, f, m)
+    };
+  }
+  function ge(l, o = "", m = 0) {
+    const f = ke(l, o, m);
+    Pt && (Pt.textContent = f), window.toastManager ? window.toastManager.error(f) : alert(f);
+  }
+  function Ot() {
+    const l = [];
+    ae.querySelectorAll(".participant-entry").forEach((f) => {
+      const w = String(f.getAttribute("data-participant-id") || "").trim(), S = String(f.querySelector('input[name*=".name"]')?.value || "").trim(), E = String(f.querySelector('input[name*=".email"]')?.value || "").trim(), T = String(f.querySelector('select[name*=".role"]')?.value || "signer").trim(), L = String(f.querySelector(".signing-stage-input")?.value || "").trim(), M = Number(L || "1") || 1;
+      l.push({
+        id: w,
+        name: S,
+        email: E,
+        role: T,
+        signing_stage: T === "signer" ? M : 0
+      });
+    });
+    const o = [];
+    he.querySelectorAll(".field-definition-entry").forEach((f) => {
+      const w = String(f.getAttribute("data-field-definition-id") || "").trim(), S = String(f.querySelector(".field-type-select")?.value || "signature").trim(), E = String(f.querySelector(".field-participant-select")?.value || "").trim(), T = Number(f.querySelector('input[name*=".page"]')?.value || "1") || 1, L = !!f.querySelector('input[name*=".required"]')?.checked;
+      w && o.push({
+        id: w,
+        type: S,
+        participant_id: E,
+        page: T,
+        required: L
+      });
+    });
+    const m = [];
+    return A && Array.isArray(A.fieldInstances) && A.fieldInstances.forEach((f) => {
+      m.push({
+        id: String(f.id || "").trim(),
+        definition_id: String(f.definitionId || "").trim(),
+        page: Number(f.page || 1) || 1,
+        x: Number(f.x || 0) || 0,
+        y: Number(f.y || 0) || 0,
+        width: Number(f.width || 0) || 0,
+        height: Number(f.height || 0) || 0
+      });
+    }), {
+      document_id: String(xe?.value || "").trim(),
+      title: String(document.getElementById("title")?.value || "").trim(),
+      message: String(document.getElementById("message")?.value || "").trim(),
+      participants: l,
+      field_instances: o,
+      field_placements: m,
+      field_rules: lt(),
+      field_rules_json: String(Lt?.value || "[]"),
+      send_for_signature: te === Pe ? 1 : 0,
+      recipients_present: 1,
+      fields_present: 1,
+      field_instances_present: 1,
+      document_page_count: Number(je?.value || "0") || 0
+    };
+  }
+  function Tt() {
+    const l = Ce(), o = /* @__PURE__ */ new Map();
+    return l.forEach((w) => {
+      o.set(w.id, !1);
+    }), he.querySelectorAll(".field-definition-entry").forEach((w) => {
+      const S = w.querySelector(".field-type-select"), E = w.querySelector(".field-participant-select"), T = w.querySelector('input[name*=".required"]');
+      S?.value === "signature" && E?.value && T?.checked && o.set(E.value, !0);
+    }), dt(Me(), Ge()).forEach((w) => {
+      w.type === "signature" && w.participantId && w.required && o.set(w.participantId, !0);
+    }), l.filter((w) => !o.get(w.id));
+  }
+  function _t(l) {
+    if (!Array.isArray(l) || l.length === 0)
+      return "Each signer requires at least one required signature field.";
+    const o = l.map((m) => m?.name?.trim()).filter((m) => !!m);
+    return o.length === 0 ? "Each signer requires at least one required signature field." : `Each signer requires at least one required signature field. Missing: ${o.join(", ")}`;
+  }
+  ze.addEventListener("submit", function(l) {
+    if (pe(), !xe.value) {
+      l.preventDefault(), ge("Please select a document"), yt.focus();
+      return;
+    }
+    const o = ae.querySelectorAll(".participant-entry");
+    if (o.length === 0) {
+      l.preventDefault(), ge("Please add at least one participant"), bt.focus();
+      return;
+    }
+    let m = !1;
+    if (o.forEach((B) => {
+      B.querySelector('select[name*=".role"]').value === "signer" && (m = !0);
+    }), !m) {
+      l.preventDefault(), ge("At least one signer is required");
+      const B = o[0]?.querySelector('select[name*=".role"]');
+      B && B.focus();
+      return;
+    }
+    const f = he.querySelectorAll(".field-definition-entry"), w = Tt();
+    if (w.length > 0) {
+      l.preventDefault(), ge(_t(w)), Be(4), xt.focus();
+      return;
+    }
+    let S = !1;
+    if (f.forEach((B) => {
+      B.querySelector(".field-participant-select").value || (S = !0);
+    }), S) {
+      l.preventDefault(), ge("Please assign all fields to a signer");
+      const B = he.querySelector('.field-participant-select:invalid, .field-participant-select[value=""]');
+      B && B.focus();
+      return;
+    }
+    if (Me().some((B) => !B.participantId)) {
+      l.preventDefault(), ge("Please assign all automation rules to a signer"), Array.from(de?.querySelectorAll(".field-rule-participant-select") || []).find((q) => !q.value)?.focus();
+      return;
+    }
+    const L = !!ze.querySelector('input[name="save_as_draft"]'), M = te === Pe && !L;
+    if (M) {
+      let B = ze.querySelector('input[name="send_for_signature"]');
+      B || (B = document.createElement("input"), B.type = "hidden", B.name = "send_for_signature", ze.appendChild(B)), B.value = "1";
+    } else
+      ze.querySelector('input[name="send_for_signature"]')?.remove();
+    if (C === "json") {
+      l.preventDefault();
+      const B = Ot();
+      Se.disabled = !0, Se.innerHTML = `
+        <svg class="animate-spin w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        ${M ? "Sending..." : "Saving..."}
+      `, fetch(`${d}/panels/esign_agreements`, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          ...v ? { "X-User-ID": v } : {}
+        },
+        body: JSON.stringify(B)
+      }).then(async (q) => {
+        if (!q.ok)
+          throw await At(q, "Failed to create agreement");
+        return q.json();
+      }).then((q) => {
+        const G = String(q?.id || q?.data?.id || "").trim(), Y = String(e.routes?.index || "").trim();
+        if (G && Y) {
+          window.location.href = `${Y}/${encodeURIComponent(G)}`;
+          return;
+        }
+        if (Y) {
+          window.location.href = Y;
+          return;
+        }
+        window.location.reload();
+      }).catch((q) => {
+        const G = String(q?.message || "Failed to create agreement").trim(), Y = String(q?.code || "").trim(), Z = Number(q?.status || 0);
+        ge(G, Y, Z), Se.disabled = !1, Se.innerHTML = `
+          <svg class="w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+          </svg>
+          Send for Signature
+        `;
+      });
+      return;
+    }
+    Se.disabled = !0, Se.innerHTML = `
+      <svg class="animate-spin w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+      </svg>
+      ${M ? "Sending..." : "Saving..."}
+    `;
+  });
+  const Pe = 6;
+  let te = 1;
+  const Ut = document.querySelectorAll(".wizard-step-btn"), on = document.querySelectorAll(".wizard-step"), Vt = document.querySelectorAll(".wizard-connector"), Gt = document.getElementById("wizard-prev-btn"), $t = document.getElementById("wizard-next-btn"), Wt = document.getElementById("wizard-save-btn");
+  function Ae() {
+    if (Ut.forEach((l, o) => {
+      const m = o + 1, f = l.querySelector(".wizard-step-number");
+      m < te ? (l.classList.remove("text-gray-500", "text-blue-600"), l.classList.add("text-green-600"), f.classList.remove("bg-gray-300", "text-gray-600", "bg-blue-600", "text-white"), f.classList.add("bg-green-600", "text-white"), l.removeAttribute("aria-current")) : m === te ? (l.classList.remove("text-gray-500", "text-green-600"), l.classList.add("text-blue-600"), f.classList.remove("bg-gray-300", "text-gray-600", "bg-green-600"), f.classList.add("bg-blue-600", "text-white"), l.setAttribute("aria-current", "step")) : (l.classList.remove("text-blue-600", "text-green-600"), l.classList.add("text-gray-500"), f.classList.remove("bg-blue-600", "text-white", "bg-green-600"), f.classList.add("bg-gray-300", "text-gray-600"), l.removeAttribute("aria-current"));
+    }), Vt.forEach((l, o) => {
+      o < te - 1 ? (l.classList.remove("bg-gray-300"), l.classList.add("bg-green-600")) : (l.classList.remove("bg-green-600"), l.classList.add("bg-gray-300"));
+    }), on.forEach((l) => {
+      parseInt(l.dataset.step, 10) === te ? l.classList.remove("hidden") : l.classList.add("hidden");
+    }), Gt.classList.toggle("hidden", te === 1), $t.classList.toggle("hidden", te === Pe), Wt.classList.toggle("hidden", te !== Pe), Se.classList.toggle("hidden", te !== Pe), te < Pe) {
+      const l = ["Details", "Participants", "Fields", "Placement", "Review"][te - 1] || "Next";
+      $t.innerHTML = `
+        ${l}
+        <svg class="w-4 h-4 ml-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+        </svg>
+      `;
+    }
+    te === 5 ? c() : te === 6 && li();
+  }
+  function oe(l) {
+    switch (l) {
+      case 1:
+        return xe.value ? !0 : (ge("Please select a document"), !1);
+      case 2:
+        const o = document.getElementById("title");
+        return o.value.trim() ? !0 : (ge("Please enter an agreement title"), o.focus(), !1);
+      case 3:
+        const m = ae.querySelectorAll(".participant-entry");
+        if (m.length === 0)
+          return ge("Please add at least one participant"), !1;
+        let f = !1;
+        return m.forEach((L) => {
+          L.querySelector('select[name*=".role"]').value === "signer" && (f = !0);
+        }), f ? !0 : (ge("At least one signer is required"), !1);
+      case 4:
+        const w = he.querySelectorAll(".field-definition-entry");
+        for (const L of w) {
+          const M = L.querySelector(".field-participant-select");
+          if (!M.value)
+            return ge("Please assign all fields to a signer"), M.focus(), !1;
+        }
+        if (Me().find((L) => !L.participantId))
+          return ge("Please assign all automation rules to a signer"), de?.querySelector(".field-rule-participant-select")?.focus(), !1;
+        const T = Tt();
+        return T.length > 0 ? (ge(_t(T)), xt.focus(), !1) : !0;
+      case 5:
+        return !0;
+      default:
+        return !0;
+    }
+  }
+  function Be(l) {
+    if (!(l < 1 || l > Pe)) {
+      if (l > te) {
+        for (let o = te; o < l; o++)
+          if (!oe(o)) return;
+      }
+      te = l, Ae(), K.updateStep(l), st(), $e.forceSync(), document.querySelector(".wizard-step:not(.hidden)")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
+  Ut.forEach((l) => {
+    l.addEventListener("click", () => {
+      const o = parseInt(l.dataset.step, 10);
+      Be(o);
+    });
+  }), Gt.addEventListener("click", () => Be(te - 1)), $t.addEventListener("click", () => Be(te + 1)), Wt.addEventListener("click", () => {
+    const l = document.createElement("input");
+    l.type = "hidden", l.name = "save_as_draft", l.value = "1", ze.appendChild(l), ze.submit();
+  });
+  function pt(l, o) {
+    const m = l || {}, f = String(m.id || `fi_init_${o || 0}`), w = String(m.definitionId || m.definition_id || m.field_definition_id || f), S = parseInt(m.page || m.page_number || "1", 10), E = parseFloat(m.x || m.pos_x || "0"), T = parseFloat(m.y || m.pos_y || "0"), L = parseFloat(m.width || "150"), M = parseFloat(m.height || "32");
+    return {
+      id: f,
+      definitionId: w,
+      type: String(m.type || "text"),
+      participantId: String(m.participantId || m.participant_id || ""),
+      participantName: String(m.participantName || m.participant_name || "Unassigned"),
+      page: Number.isFinite(S) && S > 0 ? S : 1,
+      x: Number.isFinite(E) && E >= 0 ? E : 0,
+      y: Number.isFinite(T) && T >= 0 ? T : 0,
+      width: Number.isFinite(L) && L > 0 ? L : 150,
+      height: Number.isFinite(M) && M > 0 ? M : 32,
+      placementSource: String(m.placementSource || m.placement_source || "manual")
+    };
+  }
+  let A = {
+    pdfDoc: null,
+    currentPage: 1,
+    totalPages: 1,
+    scale: 1,
+    fieldInstances: Array.isArray(window._initialFieldPlacementsData) ? window._initialFieldPlacementsData.map((l, o) => pt(l, o)) : [],
+    // { id, definitionId, type, participantId, page, x, y, width, height }
+    selectedFieldId: null,
+    isDragging: !1,
+    isResizing: !1,
+    dragOffset: { x: 0, y: 0 },
+    uiHandlersBound: !1
+  };
+  const Je = {
+    signature: { bg: "bg-blue-500", border: "border-blue-500", fill: "rgba(59, 130, 246, 0.2)" },
+    name: { bg: "bg-green-500", border: "border-green-500", fill: "rgba(34, 197, 94, 0.2)" },
+    date_signed: { bg: "bg-purple-500", border: "border-purple-500", fill: "rgba(168, 85, 247, 0.2)" },
+    text: { bg: "bg-gray-500", border: "border-gray-500", fill: "rgba(107, 114, 128, 0.2)" },
+    checkbox: { bg: "bg-indigo-500", border: "border-indigo-500", fill: "rgba(99, 102, 241, 0.2)" },
+    initials: { bg: "bg-orange-500", border: "border-orange-500", fill: "rgba(249, 115, 22, 0.2)" }
+  }, r = {
+    signature: { width: 200, height: 50 },
+    name: { width: 180, height: 30 },
+    date_signed: { width: 120, height: 30 },
+    text: { width: 150, height: 30 },
+    checkbox: { width: 24, height: 24 },
+    initials: { width: 80, height: 40 }
+  };
+  async function c() {
+    const l = document.getElementById("placement-loading"), o = document.getElementById("placement-no-document"), m = document.getElementById("placement-fields-list");
+    document.getElementById("placement-total-fields"), document.getElementById("placement-placed-count"), document.getElementById("placement-unplaced-count");
+    const f = document.getElementById("placement-viewer");
+    document.getElementById("placement-pdf-canvas");
+    const w = document.getElementById("placement-overlays-container");
+    document.getElementById("placement-canvas-container"), document.getElementById("placement-current-page");
+    const S = document.getElementById("placement-total-pages");
+    if (document.getElementById("placement-zoom-level"), !xe.value) {
+      l.classList.add("hidden"), o.classList.remove("hidden");
+      return;
+    }
+    l.classList.remove("hidden"), o.classList.add("hidden");
+    const E = qt(), T = new Set(
+      E.map((L) => String(L.definitionId || "").trim()).filter((L) => L)
+    );
+    A.fieldInstances = A.fieldInstances.filter(
+      (L) => T.has(String(L.definitionId || "").trim())
+    ), m.innerHTML = "", E.forEach((L) => {
+      const M = String(L.definitionId || "").trim(), B = String(L.fieldType || "text").trim() || "text", q = String(L.participantId || "").trim(), G = String(L.participantName || "Unassigned").trim() || "Unassigned";
+      if (!M) return;
+      A.fieldInstances.forEach((ie) => {
+        ie.definitionId === M && (ie.type = B, ie.participantId = q, ie.participantName = G);
+      });
+      const Y = Je[B] || Je.text, Z = A.fieldInstances.some((ie) => ie.definitionId === M), ee = document.createElement("div");
+      ee.className = `placement-field-item p-2 border border-gray-200 rounded cursor-move hover:bg-gray-50 flex items-center gap-2 ${Z ? "opacity-50" : ""}`, ee.draggable = !Z, ee.dataset.definitionId = M, ee.dataset.fieldType = B, ee.dataset.participantId = q, ee.dataset.participantName = G, ee.innerHTML = `
+        <span class="w-3 h-3 rounded ${Y.bg}"></span>
+        <div class="flex-1 text-xs">
+          <div class="font-medium capitalize">${B.replace("_", " ")}</div>
+          <div class="text-gray-500">${G}</div>
+        </div>
+        <span class="placement-status text-xs ${Z ? "text-green-600" : "text-amber-600"}">
+          ${Z ? "Placed" : "Not placed"}
+        </span>
+      `, ee.addEventListener("dragstart", (ie) => {
+        if (Z) {
+          ie.preventDefault();
+          return;
+        }
+        ie.dataTransfer.setData("application/json", JSON.stringify({
+          definitionId: M,
+          fieldType: B,
+          participantId: q,
+          participantName: G
+        })), ie.dataTransfer.effectAllowed = "copy", ee.classList.add("opacity-50");
+      }), ee.addEventListener("dragend", () => {
+        ee.classList.remove("opacity-50");
+      }), m.appendChild(ee);
+    });
+    try {
+      window.pdfjsLib || await p();
+      const L = await fetch(`${n}/panels/esign_documents/${xe.value}`, {
+        credentials: "same-origin",
+        headers: { Accept: "application/json" }
+      });
+      if (!L.ok)
+        throw new Error(`Failed to load document metadata (${L.status})`);
+      const M = await L.json(), B = M && typeof M == "object" && M.data && typeof M.data == "object" ? M.data : M, q = String(B?.source_object_key || "").trim().replace(/^\/+/, ""), G = q ? `${t}/assets/${q.split("/").map(encodeURIComponent).join("/")}` : "", Y = String(
+        B?.file_url || B?.url || B?.source_url || B?.download_url || G
+      ).trim();
+      if (!Y)
+        throw new Error("No PDF URL found");
+      const Z = window.pdfjsLib.getDocument(Y);
+      A.pdfDoc = await Z.promise, A.totalPages = A.pdfDoc.numPages, A.currentPage = 1, S.textContent = A.totalPages, await h(A.currentPage), l.classList.add("hidden"), A.uiHandlersBound || (y(f, w), O(), re(), A.uiHandlersBound = !0), I();
+    } catch (L) {
+      console.error("Failed to load PDF:", L), l.innerHTML = `
+        <div class="text-center py-8">
+          <svg class="w-16 h-16 mx-auto text-red-300 mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+          </svg>
+          <p class="text-sm text-red-600 mb-2">Failed to load PDF</p>
+          <p class="text-xs text-gray-400">${L.message}</p>
+        </div>
+      `;
+    }
+    ue(), ne();
+  }
+  async function p() {
+    return new Promise((l, o) => {
+      const m = document.createElement("script");
+      m.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js", m.onload = () => {
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js", l();
+      }, m.onerror = o, document.head.appendChild(m);
+    });
+  }
+  async function h(l) {
+    if (!A.pdfDoc) return;
+    const o = document.getElementById("placement-pdf-canvas"), m = document.getElementById("placement-canvas-container"), f = o.getContext("2d"), w = await A.pdfDoc.getPage(l), S = w.getViewport({ scale: A.scale });
+    o.width = S.width, o.height = S.height, m.style.width = `${S.width}px`, m.style.height = `${S.height}px`, await w.render({
+      canvasContext: f,
+      viewport: S
+    }).promise, document.getElementById("placement-current-page").textContent = l, I();
+  }
+  function y(l, o) {
+    const m = document.getElementById("placement-pdf-canvas");
+    l.addEventListener("dragover", (f) => {
+      f.preventDefault(), f.dataTransfer.dropEffect = "copy", m.classList.add("ring-2", "ring-blue-500", "ring-inset");
+    }), l.addEventListener("dragleave", (f) => {
+      m.classList.remove("ring-2", "ring-blue-500", "ring-inset");
+    }), l.addEventListener("drop", (f) => {
+      f.preventDefault(), m.classList.remove("ring-2", "ring-blue-500", "ring-inset");
+      const w = f.dataTransfer.getData("application/json");
+      if (!w) return;
+      const S = JSON.parse(w), E = m.getBoundingClientRect(), T = (f.clientX - E.left) / A.scale, L = (f.clientY - E.top) / A.scale;
+      b(S, T, L);
+    });
+  }
+  function b(l, o, m, f = {}) {
+    const w = r[l.fieldType] || r.text, S = `fi_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, E = f.placementSource || "manual", T = {
+      id: S,
+      definitionId: l.definitionId,
+      type: l.fieldType,
+      participantId: l.participantId,
+      participantName: l.participantName,
+      page: A.currentPage,
+      x: Math.max(0, o - w.width / 2),
+      y: Math.max(0, m - w.height / 2),
+      width: w.width,
+      height: w.height,
+      placementSource: E
+    };
+    A.fieldInstances.push(T);
+    const L = document.querySelector(`.placement-field-item[data-definition-id="${l.definitionId}"]`);
+    if (L) {
+      L.classList.add("opacity-50"), L.draggable = !1;
+      const M = L.querySelector(".placement-status");
+      M && (M.textContent = "Placed", M.classList.remove("text-amber-600"), M.classList.add("text-green-600"));
+    }
+    I(), ue(), ne();
+  }
+  function I() {
+    const l = document.getElementById("placement-overlays-container");
+    l.innerHTML = "", l.style.pointerEvents = "auto", A.fieldInstances.filter((o) => o.page === A.currentPage).forEach((o) => {
+      const m = Je[o.type] || Je.text, f = A.selectedFieldId === o.id, w = document.createElement("div");
+      w.className = `field-overlay absolute cursor-move ${m.border} border-2 rounded`, w.style.cssText = `
+          left: ${o.x * A.scale}px;
+          top: ${o.y * A.scale}px;
+          width: ${o.width * A.scale}px;
+          height: ${o.height * A.scale}px;
+          background-color: ${m.fill};
+          ${f ? "box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);" : ""}
+        `, w.dataset.instanceId = o.id;
+      const S = document.createElement("div");
+      S.className = "absolute -top-5 left-0 text-xs whitespace-nowrap px-1 rounded text-white " + m.bg, S.textContent = `${o.type.replace("_", " ")} - ${o.participantName}`, w.appendChild(S);
+      const E = document.createElement("div");
+      E.className = "absolute bottom-0 right-0 w-3 h-3 bg-white border border-gray-400 cursor-se-resize", E.style.cssText = "transform: translate(50%, 50%);", w.appendChild(E);
+      const T = document.createElement("button");
+      T.type = "button", T.className = "absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center hover:bg-red-600", T.innerHTML = "×", T.addEventListener("click", (L) => {
+        L.stopPropagation(), V(o.id);
+      }), w.appendChild(T), w.addEventListener("mousedown", (L) => {
+        L.target === E ? R(L, o) : L.target !== T && _(L, o, w);
+      }), w.addEventListener("click", () => {
+        A.selectedFieldId = o.id, I();
+      }), l.appendChild(w);
+    });
+  }
+  function _(l, o, m) {
+    l.preventDefault(), A.isDragging = !0, A.selectedFieldId = o.id;
+    const f = l.clientX, w = l.clientY, S = o.x * A.scale, E = o.y * A.scale;
+    function T(M) {
+      const B = M.clientX - f, q = M.clientY - w;
+      o.x = Math.max(0, (S + B) / A.scale), o.y = Math.max(0, (E + q) / A.scale), o.placementSource = "manual", m.style.left = `${o.x * A.scale}px`, m.style.top = `${o.y * A.scale}px`;
+    }
+    function L() {
+      A.isDragging = !1, document.removeEventListener("mousemove", T), document.removeEventListener("mouseup", L), ne();
+    }
+    document.addEventListener("mousemove", T), document.addEventListener("mouseup", L);
+  }
+  function R(l, o) {
+    l.preventDefault(), l.stopPropagation(), A.isResizing = !0;
+    const m = l.clientX, f = l.clientY, w = o.width, S = o.height;
+    function E(L) {
+      const M = (L.clientX - m) / A.scale, B = (L.clientY - f) / A.scale;
+      o.width = Math.max(30, w + M), o.height = Math.max(20, S + B), o.placementSource = "manual", I();
+    }
+    function T() {
+      A.isResizing = !1, document.removeEventListener("mousemove", E), document.removeEventListener("mouseup", T), ne();
+    }
+    document.addEventListener("mousemove", E), document.addEventListener("mouseup", T);
+  }
+  function V(l) {
+    const o = A.fieldInstances.find((f) => f.id === l);
+    if (!o) return;
+    A.fieldInstances = A.fieldInstances.filter((f) => f.id !== l);
+    const m = document.querySelector(`.placement-field-item[data-definition-id="${o.definitionId}"]`);
+    if (m) {
+      m.classList.remove("opacity-50"), m.draggable = !0;
+      const f = m.querySelector(".placement-status");
+      f && (f.textContent = "Not placed", f.classList.remove("text-green-600"), f.classList.add("text-amber-600"));
+    }
+    I(), ue(), ne();
+  }
+  function O() {
+    const l = document.getElementById("placement-prev-page"), o = document.getElementById("placement-next-page");
+    l.addEventListener("click", async () => {
+      A.currentPage > 1 && (A.currentPage--, await h(A.currentPage));
+    }), o.addEventListener("click", async () => {
+      A.currentPage < A.totalPages && (A.currentPage++, await h(A.currentPage));
+    });
+  }
+  function re() {
+    const l = document.getElementById("placement-zoom-in"), o = document.getElementById("placement-zoom-out"), m = document.getElementById("placement-zoom-fit"), f = document.getElementById("placement-zoom-level");
+    l.addEventListener("click", async () => {
+      A.scale = Math.min(3, A.scale + 0.25), f.textContent = `${Math.round(A.scale * 100)}%`, await h(A.currentPage);
+    }), o.addEventListener("click", async () => {
+      A.scale = Math.max(0.5, A.scale - 0.25), f.textContent = `${Math.round(A.scale * 100)}%`, await h(A.currentPage);
+    }), m.addEventListener("click", async () => {
+      const w = document.getElementById("placement-viewer"), E = (await A.pdfDoc.getPage(A.currentPage)).getViewport({ scale: 1 });
+      A.scale = (w.clientWidth - 40) / E.width, f.textContent = `${Math.round(A.scale * 100)}%`, await h(A.currentPage);
+    });
+  }
+  function ue() {
+    const l = Array.from(document.querySelectorAll(".placement-field-item")), o = l.length, m = new Set(
+      l.map((E) => String(E.dataset.definitionId || "").trim()).filter((E) => E)
+    ), f = /* @__PURE__ */ new Set();
+    A.fieldInstances.forEach((E) => {
+      const T = String(E.definitionId || "").trim();
+      m.has(T) && f.add(T);
+    });
+    const w = f.size, S = Math.max(0, o - w);
+    document.getElementById("placement-total-fields").textContent = o, document.getElementById("placement-placed-count").textContent = w, document.getElementById("placement-unplaced-count").textContent = S;
+  }
+  function ne() {
+    const l = document.getElementById("field-instances-container");
+    l.innerHTML = "", A.fieldInstances.forEach((o, m) => {
+      [
+        { name: `field_placements[${m}].id`, value: o.id },
+        { name: `field_placements[${m}].definition_id`, value: o.definitionId },
+        { name: `field_placements[${m}].page`, value: o.page },
+        { name: `field_placements[${m}].x`, value: Math.round(o.x) },
+        { name: `field_placements[${m}].y`, value: Math.round(o.y) },
+        { name: `field_placements[${m}].width`, value: Math.round(o.width) },
+        { name: `field_placements[${m}].height`, value: Math.round(o.height) }
+      ].forEach(({ name: w, value: S }) => {
+        const E = document.createElement("input");
+        E.type = "hidden", E.name = w, E.value = S, l.appendChild(E);
+      });
+    });
+  }
+  ne();
+  let j = {
+    currentRunId: null,
+    suggestions: [],
+    resolverScores: [],
+    policy: null,
+    isRunning: !1
+  };
+  const J = document.getElementById("auto-place-btn");
+  J && J.addEventListener("click", async () => {
+    if (j.isRunning) return;
+    if (document.querySelectorAll(".placement-field-item:not(.opacity-50)").length === 0) {
+      Bt("All fields are already placed", "info");
+      return;
+    }
+    const o = document.querySelector('input[name="id"]')?.value;
+    if (!o) {
+      Te();
+      return;
+    }
+    j.isRunning = !0, J.disabled = !0, J.innerHTML = `
+        <svg class="animate-spin w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        Analyzing...
+      `;
+    try {
+      const m = await fetch(`${d}/esign/agreements/${o}/auto-place`, {
         method: "POST",
         credentials: "same-origin",
         headers: {
@@ -5684,70 +6657,520 @@ class Ue {
           Accept: "application/json"
         },
         body: JSON.stringify({
-          document_id: t.document.id,
-          title: t.details.title,
-          message: t.details.message,
-          participants: t.participants,
-          field_definitions: t.fieldDefinitions,
-          field_placements: t.fieldPlacements,
-          field_rules: t.fieldRules
+          policy_preset: Ne()
         })
       });
-      if (!n.ok) {
-        const o = await n.json();
-        throw new Error(o.error?.message || "Failed to create agreement");
-      }
-      const i = await n.json();
-      this.stateManager.clearSession(), i.id ? window.location.href = `${this.config.routes.index}/${i.id}` : window.location.href = this.config.routes.index;
-    } catch (n) {
-      console.error("Agreement submission error:", n), H(`Error: ${n instanceof Error ? n.message : "Submission failed"}`);
+      if (!m.ok)
+        throw await At(m, "Auto-placement failed");
+      const f = await m.json(), w = f && typeof f == "object" && f.run && typeof f.run == "object" ? f.run : f;
+      j.currentRunId = w?.run_id || w?.id || null, j.suggestions = w?.suggestions || [], j.resolverScores = w?.resolver_scores || [], j.suggestions.length === 0 ? (Bt("No placement suggestions found. Try placing fields manually.", "warning"), Te()) : ln(f);
+    } catch (m) {
+      console.error("Auto-place error:", m);
+      const f = ke(m?.message || "Auto-placement failed", m?.code || "", m?.status || 0);
+      Bt(`Auto-placement failed: ${f}`, "error"), Te();
+    } finally {
+      j.isRunning = !1, J.disabled = !1, J.innerHTML = `
+          <svg class="w-4 h-4 mr-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+          </svg>
+          Auto-place
+        `;
     }
+  });
+  function Ne() {
+    return document.getElementById("placement-policy-preset")?.value || "balanced";
+  }
+  function Te() {
+    const l = document.querySelectorAll(".placement-field-item:not(.opacity-50)");
+    let o = 100;
+    l.forEach((m) => {
+      const f = {
+        definitionId: m.dataset.definitionId,
+        fieldType: m.dataset.fieldType,
+        participantId: m.dataset.participantId,
+        participantName: m.dataset.participantName
+      }, w = r[f.fieldType] || r.text;
+      A.currentPage = A.totalPages, b(f, 300, o + w.height / 2, { placementSource: "auto_fallback" }), o += w.height + 20;
+    }), A.pdfDoc && h(A.totalPages), Bt("Fields placed using fallback layout", "info");
+  }
+  function ln(l) {
+    let o = document.getElementById("placement-suggestions-modal");
+    o || (o = dn(), document.body.appendChild(o));
+    const m = o.querySelector("#suggestions-list"), f = o.querySelector("#resolver-info"), w = o.querySelector("#run-stats");
+    f.innerHTML = j.resolverScores.map((S) => `
+      <div class="flex items-center justify-between text-xs py-1 border-b border-gray-100 last:border-0">
+        <span class="font-medium capitalize">${S.resolver_id.replace(/_/g, " ")}</span>
+        <div class="flex items-center gap-2">
+          ${S.supported ? `
+            <span class="px-1.5 py-0.5 rounded text-xs ${ai(S.score)}">
+              ${(S.score * 100).toFixed(0)}%
+            </span>
+          ` : `
+            <span class="px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 text-xs">N/A</span>
+          `}
+        </div>
+      </div>
+    `).join(""), w.innerHTML = `
+      <div class="flex items-center gap-4 text-xs text-gray-600">
+        <span>Run: <code class="bg-gray-100 px-1 rounded">${l.run_id?.slice(0, 8) || "N/A"}</code></span>
+        <span>Status: <span class="font-medium ${l.status === "completed" ? "text-green-600" : "text-amber-600"}">${l.status || "unknown"}</span></span>
+        <span>Time: ${l.elapsed_ms || 0}ms</span>
+      </div>
+    `, m.innerHTML = j.suggestions.map((S, E) => {
+      const T = Mt(S.field_definition_id), L = Je[T?.type] || Je.text;
+      return `
+        <div class="suggestion-item p-3 border border-gray-200 rounded-lg hover:border-blue-300 transition-colors" data-index="${E}" data-suggestion-id="${S.id}">
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex items-center gap-2">
+              <span class="w-3 h-3 rounded ${L.bg}"></span>
+              <div>
+                <div class="font-medium text-sm capitalize">${(T?.type || "field").replace("_", " ")}</div>
+                <div class="text-xs text-gray-500">Page ${S.page_number}, (${Math.round(S.x)}, ${Math.round(S.y)})</div>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="confidence-badge px-2 py-0.5 rounded-full text-xs font-medium ${ri(S.confidence)}">
+                ${(S.confidence * 100).toFixed(0)}%
+              </span>
+              <span class="resolver-badge px-2 py-0.5 rounded bg-gray-100 text-gray-600 text-xs">
+                ${oi(S.resolver_id)}
+              </span>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 mt-3">
+            <button type="button" class="accept-suggestion-btn flex-1 px-3 py-1.5 bg-green-50 text-green-700 text-xs font-medium rounded hover:bg-green-100 transition-colors" data-index="${E}">
+              <svg class="w-3 h-3 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+              </svg>
+              Accept
+            </button>
+            <button type="button" class="reject-suggestion-btn flex-1 px-3 py-1.5 bg-red-50 text-red-700 text-xs font-medium rounded hover:bg-red-100 transition-colors" data-index="${E}">
+              <svg class="w-3 h-3 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+              Reject
+            </button>
+            <button type="button" class="preview-suggestion-btn px-3 py-1.5 bg-blue-50 text-blue-700 text-xs font-medium rounded hover:bg-blue-100 transition-colors" data-index="${E}">
+              <svg class="w-3 h-3 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+              </svg>
+              Preview
+            </button>
+          </div>
+        </div>
+      `;
+    }).join(""), un(o), o.classList.remove("hidden");
+  }
+  function dn() {
+    const l = document.createElement("div");
+    return l.id = "placement-suggestions-modal", l.className = "fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 hidden", l.innerHTML = `
+      <div class="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[80vh] flex flex-col">
+        <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+          <div>
+            <h2 class="text-lg font-semibold text-gray-900">Smart Placement Suggestions</h2>
+            <p class="text-sm text-gray-500 mt-0.5">Review and apply AI-generated field placements</p>
+          </div>
+          <button type="button" id="close-suggestions-modal" class="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+            <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="px-6 py-3 bg-gray-50 border-b border-gray-200">
+          <div class="flex items-center justify-between">
+            <div id="run-stats"></div>
+            <div class="flex items-center gap-2">
+              <button type="button" id="accept-all-btn" class="px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded hover:bg-green-700 transition-colors">
+                Accept All
+              </button>
+              <button type="button" id="reject-all-btn" class="px-3 py-1.5 bg-gray-200 text-gray-700 text-xs font-medium rounded hover:bg-gray-300 transition-colors">
+                Reject All
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto">
+          <div class="grid grid-cols-2 gap-4 p-6">
+            <div>
+              <h3 class="text-sm font-medium text-gray-700 mb-3">Suggestions</h3>
+              <div id="suggestions-list" class="space-y-3"></div>
+            </div>
+            <div>
+              <h3 class="text-sm font-medium text-gray-700 mb-3">Resolver Ranking</h3>
+              <div id="resolver-info" class="bg-gray-50 rounded-lg p-3"></div>
+
+              <h3 class="text-sm font-medium text-gray-700 mt-4 mb-3">Policy Preset</h3>
+              <select id="placement-policy-preset-modal" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                <option value="balanced">Balanced (Recommended)</option>
+                <option value="accuracy-first">Accuracy First</option>
+                <option value="cost-first">Cost Optimized</option>
+                <option value="speed-first">Speed Optimized</option>
+              </select>
+              <p class="text-xs text-gray-500 mt-1">Change preset and re-run for different results</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+          <button type="button" id="rerun-placement-btn" class="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors">
+            Re-run with New Policy
+          </button>
+          <button type="button" id="apply-suggestions-btn" class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
+            Apply Selected
+          </button>
+        </div>
+      </div>
+    `, l.querySelector("#close-suggestions-modal").addEventListener("click", () => {
+      l.classList.add("hidden");
+    }), l.addEventListener("click", (o) => {
+      o.target === l && l.classList.add("hidden");
+    }), l.querySelector("#accept-all-btn").addEventListener("click", () => {
+      l.querySelectorAll(".suggestion-item").forEach((o) => {
+        o.classList.add("border-green-500", "bg-green-50"), o.classList.remove("border-red-500", "bg-red-50"), o.dataset.accepted = "true";
+      });
+    }), l.querySelector("#reject-all-btn").addEventListener("click", () => {
+      l.querySelectorAll(".suggestion-item").forEach((o) => {
+        o.classList.add("border-red-500", "bg-red-50"), o.classList.remove("border-green-500", "bg-green-50"), o.dataset.accepted = "false";
+      });
+    }), l.querySelector("#apply-suggestions-btn").addEventListener("click", () => {
+      gn(), l.classList.add("hidden");
+    }), l.querySelector("#rerun-placement-btn").addEventListener("click", () => {
+      l.classList.add("hidden");
+      const o = l.querySelector("#placement-policy-preset-modal"), m = document.getElementById("placement-policy-preset");
+      m && o && (m.value = o.value), J?.click();
+    }), l;
+  }
+  function un(l) {
+    l.querySelectorAll(".accept-suggestion-btn").forEach((o) => {
+      o.addEventListener("click", () => {
+        const m = o.closest(".suggestion-item");
+        m.classList.add("border-green-500", "bg-green-50"), m.classList.remove("border-red-500", "bg-red-50"), m.dataset.accepted = "true";
+      });
+    }), l.querySelectorAll(".reject-suggestion-btn").forEach((o) => {
+      o.addEventListener("click", () => {
+        const m = o.closest(".suggestion-item");
+        m.classList.add("border-red-500", "bg-red-50"), m.classList.remove("border-green-500", "bg-green-50"), m.dataset.accepted = "false";
+      });
+    }), l.querySelectorAll(".preview-suggestion-btn").forEach((o) => {
+      o.addEventListener("click", () => {
+        const m = parseInt(o.dataset.index, 10), f = j.suggestions[m];
+        f && pn(f);
+      });
+    });
+  }
+  function pn(l) {
+    l.page_number !== A.currentPage && (A.currentPage = l.page_number, h(l.page_number));
+    const o = document.getElementById("placement-overlays-container"), m = document.getElementById("suggestion-preview-overlay");
+    m && m.remove();
+    const f = document.createElement("div");
+    f.id = "suggestion-preview-overlay", f.className = "absolute pointer-events-none animate-pulse", f.style.cssText = `
+      left: ${l.x * A.scale}px;
+      top: ${l.y * A.scale}px;
+      width: ${l.width * A.scale}px;
+      height: ${l.height * A.scale}px;
+      border: 3px dashed #3b82f6;
+      background: rgba(59, 130, 246, 0.15);
+      border-radius: 4px;
+    `, o.appendChild(f), setTimeout(() => f.remove(), 3e3);
+  }
+  function gn() {
+    const o = document.getElementById("placement-suggestions-modal").querySelectorAll('.suggestion-item[data-accepted="true"]');
+    o.forEach((m) => {
+      const f = parseInt(m.dataset.index, 10), w = j.suggestions[f];
+      if (!w) return;
+      const S = Mt(w.field_definition_id);
+      if (!S) return;
+      const E = document.querySelector(`.placement-field-item[data-definition-id="${w.field_definition_id}"]`);
+      if (!E || E.classList.contains("opacity-50")) return;
+      const T = {
+        definitionId: w.field_definition_id,
+        fieldType: S.type,
+        participantId: S.participant_id,
+        participantName: E.dataset.participantName
+      };
+      A.currentPage = w.page_number, mn(T, w);
+    }), A.pdfDoc && h(A.currentPage), ci(o.length, j.suggestions.length - o.length), Bt(`Applied ${o.length} placement${o.length !== 1 ? "s" : ""}`, "success");
+  }
+  function mn(l, o) {
+    const m = {
+      id: `instance_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      definitionId: l.definitionId,
+      type: l.fieldType,
+      participantId: l.participantId,
+      participantName: l.participantName,
+      page: o.page_number,
+      x: o.x,
+      y: o.y,
+      width: o.width,
+      height: o.height,
+      // Track placement source for audit
+      placementSource: "auto",
+      resolverId: o.resolver_id,
+      confidence: o.confidence,
+      placementRunId: j.currentRunId
+    };
+    A.fieldInstances.push(m);
+    const f = document.querySelector(`.placement-field-item[data-definition-id="${l.definitionId}"]`);
+    if (f) {
+      f.classList.add("opacity-50"), f.draggable = !1;
+      const w = f.querySelector(".placement-status");
+      w && (w.textContent = "Placed", w.classList.remove("text-amber-600"), w.classList.add("text-green-600"));
+    }
+    I(), ue(), ne();
+  }
+  function Mt(l) {
+    const o = document.querySelector(`.field-definition-entry[data-field-definition-id="${l}"]`);
+    return o ? {
+      id: l,
+      type: o.querySelector(".field-type-select")?.value || "text",
+      participant_id: o.querySelector(".field-participant-select")?.value || ""
+    } : null;
+  }
+  function ri(l) {
+    return l >= 0.9 ? "bg-green-100 text-green-800" : l >= 0.7 ? "bg-blue-100 text-blue-800" : l >= 0.5 ? "bg-yellow-100 text-yellow-800" : "bg-red-100 text-red-800";
+  }
+  function ai(l) {
+    return l >= 0.8 ? "bg-green-100 text-green-800" : l >= 0.6 ? "bg-blue-100 text-blue-800" : l >= 0.4 ? "bg-yellow-100 text-yellow-800" : "bg-gray-100 text-gray-600";
+  }
+  function oi(l) {
+    return l ? l.split("_").map((o) => o.charAt(0).toUpperCase() + o.slice(1)).join(" ") : "Unknown";
+  }
+  async function ci(l, o) {
+  }
+  function Bt(l, o = "info") {
+    const m = document.createElement("div");
+    m.className = `fixed bottom-4 right-4 px-4 py-3 rounded-lg shadow-lg text-sm font-medium z-50 transition-all duration-300 ${o === "success" ? "bg-green-600 text-white" : o === "error" ? "bg-red-600 text-white" : o === "warning" ? "bg-amber-500 text-white" : "bg-gray-800 text-white"}`, m.textContent = l, document.body.appendChild(m), setTimeout(() => {
+      m.style.opacity = "0", setTimeout(() => m.remove(), 300);
+    }, 3e3);
+  }
+  function li() {
+    const l = document.getElementById("send-readiness-loading"), o = document.getElementById("send-readiness-results"), m = document.getElementById("send-validation-status"), f = document.getElementById("send-validation-issues"), w = document.getElementById("send-issues-list"), S = document.getElementById("send-confirmation"), E = document.getElementById("review-agreement-title"), T = document.getElementById("review-document-title"), L = document.getElementById("review-participant-count"), M = document.getElementById("review-stage-count"), B = document.getElementById("review-participants-list"), q = document.getElementById("review-fields-summary"), G = document.getElementById("title").value || "Untitled", Y = Qe.textContent || "No document", Z = ae.querySelectorAll(".participant-entry"), ee = he.querySelectorAll(".field-definition-entry"), ie = dt(Me(), Ge()), Ie = Ce(), ye = /* @__PURE__ */ new Set();
+    Z.forEach((Q) => {
+      const be = Q.querySelector(".signing-stage-input");
+      Q.querySelector('select[name*=".role"]').value === "signer" && be?.value && ye.add(parseInt(be.value, 10));
+    }), E.textContent = G, T.textContent = Y, L.textContent = `${Z.length} (${Ie.length} signers)`, M.textContent = ye.size > 0 ? ye.size : "1", B.innerHTML = "", Z.forEach((Q) => {
+      const be = Q.querySelector('input[name*=".name"]'), fn = Q.querySelector('input[name*=".email"]'), yn = Q.querySelector('select[name*=".role"]'), Dn = Q.querySelector(".signing-stage-input"), vn = document.createElement("div");
+      vn.className = "flex items-center justify-between text-sm", vn.innerHTML = `
+        <div>
+          <span class="font-medium">${Ee(be.value || fn.value)}</span>
+          <span class="text-gray-500 ml-2">${Ee(fn.value)}</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="px-2 py-0.5 rounded text-xs ${yn.value === "signer" ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-700"}">
+            ${yn.value === "signer" ? "Signer" : "CC"}
+          </span>
+          ${yn.value === "signer" && Dn?.value ? `<span class="text-xs text-gray-500">Stage ${Dn.value}</span>` : ""}
+        </div>
+      `, B.appendChild(vn);
+    });
+    const Fe = ee.length + ie.length;
+    q.textContent = `${Fe} field${Fe !== 1 ? "s" : ""} defined (${ee.length} manual, ${ie.length} generated)`;
+    const ve = [];
+    xe.value || ve.push({ severity: "error", message: "No document selected", action: "Go to Step 1", step: 1 }), Ie.length === 0 && ve.push({ severity: "error", message: "No signers added", action: "Go to Step 3", step: 3 }), Tt().forEach((Q) => {
+      ve.push({
+        severity: "error",
+        message: `${Q.name} has no required signature field`,
+        action: "Add signature field",
+        step: 4
+      });
+    });
+    const Bn = Array.from(ye).sort((Q, be) => Q - be);
+    for (let Q = 0; Q < Bn.length; Q++)
+      if (Bn[Q] !== Q + 1) {
+        ve.push({
+          severity: "warning",
+          message: "Signing stages should be sequential starting from 1",
+          action: "Review stages",
+          step: 3
+        });
+        break;
+      }
+    const yi = ve.some((Q) => Q.severity === "error"), vi = ve.some((Q) => Q.severity === "warning");
+    yi ? (m.className = "p-4 rounded-lg bg-red-50 border border-red-200", m.innerHTML = `
+        <div class="flex items-center gap-2 text-red-800">
+          <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <span class="font-medium">Cannot send - issues must be resolved</span>
+        </div>
+      `, S.classList.add("hidden"), Se.disabled = !0) : vi ? (m.className = "p-4 rounded-lg bg-amber-50 border border-amber-200", m.innerHTML = `
+        <div class="flex items-center gap-2 text-amber-800">
+          <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+          </svg>
+          <span class="font-medium">Ready with warnings - review before sending</span>
+        </div>
+      `, S.classList.remove("hidden"), Se.disabled = !1) : (m.className = "p-4 rounded-lg bg-green-50 border border-green-200", m.innerHTML = `
+        <div class="flex items-center gap-2 text-green-800">
+          <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <span class="font-medium">All checks passed - ready to send</span>
+        </div>
+      `, S.classList.remove("hidden"), Se.disabled = !1), ve.length > 0 ? (f.classList.remove("hidden"), w.innerHTML = "", ve.forEach((Q) => {
+      const be = document.createElement("li");
+      be.className = `p-3 rounded-lg flex items-center justify-between ${Q.severity === "error" ? "bg-red-50" : "bg-amber-50"}`, be.innerHTML = `
+          <div class="flex items-center gap-2">
+            <svg class="w-4 h-4 ${Q.severity === "error" ? "text-red-500" : "text-amber-500"}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${Q.severity === "error" ? "M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" : "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"}"/>
+            </svg>
+            <span class="text-sm">${Ee(Q.message)}</span>
+          </div>
+          <button type="button" class="text-xs text-blue-600 hover:text-blue-800" data-go-to-step="${Q.step}">
+            ${Ee(Q.action)}
+          </button>
+        `, w.appendChild(be);
+    }), w.querySelectorAll("[data-go-to-step]").forEach((Q) => {
+      Q.addEventListener("click", () => {
+        const be = Number(Q.getAttribute("data-go-to-step"));
+        Number.isFinite(be) && Be(be);
+      });
+    })) : f.classList.add("hidden"), l.classList.add("hidden"), o.classList.remove("hidden");
+  }
+  let hn = null;
+  function De() {
+    hn && clearTimeout(hn), hn = setTimeout(() => {
+      st();
+    }, 500);
+  }
+  xe && new MutationObserver(() => {
+    st();
+  }).observe(xe, { attributes: !0, attributeFilter: ["value"] });
+  const di = document.getElementById("title"), ui = document.getElementById("message");
+  di?.addEventListener("input", De), ui?.addEventListener("input", De), ae.addEventListener("input", De), ae.addEventListener("change", De), he.addEventListener("input", De), he.addEventListener("change", De), de?.addEventListener("input", De), de?.addEventListener("change", De);
+  const pi = ne;
+  ne = function() {
+    pi(), st();
+  };
+  function gi() {
+    const l = K.getState();
+    !l.participants || l.participants.length === 0 || (ae.innerHTML = "", Ft = 0, l.participants.forEach((o) => {
+      qe({
+        id: o.tempId,
+        name: o.name,
+        email: o.email,
+        role: o.role,
+        signing_stage: o.signingStage
+      });
+    }));
+  }
+  function mi() {
+    const l = K.getState();
+    !l.fieldDefinitions || l.fieldDefinitions.length === 0 || (he.innerHTML = "", tt = 0, l.fieldDefinitions.forEach((o) => {
+      ut({
+        id: o.tempId,
+        type: o.type,
+        participant_id: o.participantTempId,
+        page: o.page,
+        required: o.required
+      });
+    }), We());
+  }
+  function hi() {
+    const l = K.getState();
+    !Array.isArray(l.fieldRules) || l.fieldRules.length === 0 || de && (de.querySelectorAll(".field-rule-entry").forEach((o) => o.remove()), kt = 0, l.fieldRules.forEach((o) => {
+      Nt({
+        id: o.id,
+        type: o.type,
+        participantId: o.participantId || o.participantTempId,
+        fromPage: o.fromPage,
+        toPage: o.toPage,
+        page: o.page,
+        excludeLastPage: o.excludeLastPage,
+        excludePages: o.excludePages,
+        required: o.required
+      });
+    }), ct(), pe());
+  }
+  function fi() {
+    const l = K.getState();
+    !Array.isArray(l.fieldPlacements) || l.fieldPlacements.length === 0 || (A.fieldInstances = l.fieldPlacements.map((o, m) => pt(o, m)), ne());
+  }
+  window._resumeToStep ? (gi(), mi(), hi(), we(), fi(), te = window._resumeToStep, Ae(), delete window._resumeToStep) : Ae(), a && document.getElementById("sync-status-indicator")?.classList.add("hidden");
+}
+function Hi(s) {
+  return {
+    base_path: String(s.base_path || s.basePath || "").trim(),
+    api_base_path: String(s.api_base_path || s.apiBasePath || "").trim(),
+    user_id: String(s.user_id || "").trim(),
+    is_edit: !!(s.is_edit ?? s.isEditMode),
+    create_success: !!(s.create_success ?? s.createSuccess),
+    submit_mode: String(s.submit_mode || "form").trim().toLowerCase(),
+    routes: {
+      index: String(s.routes?.index || "").trim(),
+      documents: String(s.routes?.documents || "").trim(),
+      create: String(s.routes?.create || "").trim(),
+      documents_upload_url: String(s.routes?.documents_upload_url || "").trim()
+    },
+    initial_participants: Array.isArray(s.initial_participants) ? s.initial_participants : [],
+    initial_field_instances: Array.isArray(s.initial_field_instances) ? s.initial_field_instances : []
+  };
+}
+class Zn {
+  constructor(e) {
+    this.initialized = !1, this.config = Hi(e);
+  }
+  init() {
+    this.initialized || (this.initialized = !0, Ri(this.config));
   }
   destroy() {
-    this.stateManager.destroy(), this.syncManager.destroy();
+    this.initialized = !1;
   }
 }
-function rs(s) {
-  const e = new Ue(s);
-  return M(() => e.init()), e;
+function Xs(s) {
+  const e = new Zn(s);
+  return W(() => e.init()), e;
 }
-function as(s) {
-  const e = {
+function ji(s) {
+  const e = new Zn({
     basePath: s.basePath,
-    apiBasePath: s.apiBasePath || `${s.basePath}/api/v1`,
-    isEditMode: s.isEditMode || !1,
+    apiBasePath: s.apiBasePath,
+    base_path: s.base_path,
+    api_base_path: s.api_base_path,
+    user_id: s.user_id,
+    isEditMode: s.isEditMode,
+    is_edit: s.is_edit,
     createSuccess: s.createSuccess,
-    agreementId: s.agreementId,
+    create_success: s.create_success,
+    submit_mode: s.submit_mode || "form",
+    initial_participants: s.initial_participants || [],
+    initial_field_instances: s.initial_field_instances || [],
     routes: s.routes
-  }, t = new Ue(e);
-  M(() => t.init()), typeof window < "u" && (window.esignAgreementFormController = t);
+  });
+  W(() => e.init()), typeof window < "u" && (window.esignAgreementFormController = e);
 }
-typeof document < "u" && M(() => {
-  if (document.querySelector('[data-esign-page="agreement-form"]')) {
-    const e = document.getElementById("esign-page-config");
-    if (e)
-      try {
-        const t = JSON.parse(e.textContent || "{}");
-        (t.basePath || t.routes?.index) && new Ue({
-          basePath: t.base_path || t.basePath || "",
-          apiBasePath: t.api_base_path || t.apiBasePath,
-          isEditMode: t.is_edit || t.isEditMode || !1,
-          createSuccess: t.create_success || t.createSuccess,
-          routes: t.routes || { index: "" }
-        }).init();
-      } catch (t) {
-        console.warn("Failed to parse agreement form page config:", t);
-      }
-  }
+typeof document < "u" && W(() => {
+  if (!document.querySelector('[data-esign-page="agreement-form"]')) return;
+  const e = document.getElementById("esign-page-config");
+  if (e)
+    try {
+      const t = JSON.parse(e.textContent || "{}");
+      ji({
+        base_path: t.base_path || t.basePath,
+        api_base_path: t.api_base_path || t.apiBasePath,
+        user_id: t.user_id || t.userId,
+        is_edit: t.is_edit || t.isEditMode || !1,
+        create_success: t.create_success || t.createSuccess || !1,
+        submit_mode: t.submit_mode || "form",
+        initial_participants: Array.isArray(t.initial_participants) ? t.initial_participants : [],
+        initial_field_instances: Array.isArray(t.initial_field_instances) ? t.initial_field_instances : [],
+        routes: t.routes || { index: "" }
+      });
+    } catch (t) {
+      console.warn("Failed to parse agreement form page config:", t);
+    }
 });
-const Jn = "esign.signer.profile.v1", yt = "esign.signer.profile.outbox.v1", je = 90, bt = 500 * 1024;
-class Yn {
+const qi = "esign.signer.profile.v1", zn = "esign.signer.profile.outbox.v1", kn = 90, Nn = 500 * 1024;
+class zi {
   constructor(e) {
-    const t = Number.isFinite(e) && e > 0 ? e : je;
+    const t = Number.isFinite(e) && e > 0 ? e : kn;
     this.ttlMs = t * 24 * 60 * 60 * 1e3;
   }
   storageKey(e) {
-    return `${Jn}:${e}`;
+    return `${qi}:${e}`;
   }
   async load(e) {
     try {
@@ -5760,7 +7183,7 @@ class Yn {
     }
   }
   async save(e, t) {
-    const n = Date.now(), o = {
+    const n = Date.now(), d = {
       ...await this.load(e) || {
         schemaVersion: 1,
         key: e,
@@ -5780,10 +7203,10 @@ class Yn {
       expiresAt: n + this.ttlMs
     };
     try {
-      window.localStorage.setItem(this.storageKey(e), JSON.stringify(o));
+      window.localStorage.setItem(this.storageKey(e), JSON.stringify(d));
     } catch {
     }
-    return o;
+    return d;
   }
   async clear(e) {
     try {
@@ -5792,7 +7215,7 @@ class Yn {
     }
   }
 }
-class Kn {
+class Ni {
   constructor(e, t) {
     this.endpointBasePath = e.replace(/\/$/, ""), this.token = t;
   }
@@ -5831,34 +7254,34 @@ class Kn {
       throw new Error("remote profile clear failed");
   }
 }
-class Be {
+class Sn {
   constructor(e, t, n) {
     this.mode = e, this.localStore = t, this.remoteStore = n;
   }
   outboxLoad() {
     try {
-      const e = window.localStorage.getItem(yt);
+      const e = window.localStorage.getItem(zn);
       if (!e) return {};
       const t = JSON.parse(e);
       if (!t || typeof t != "object")
         return {};
       const n = {};
-      for (const [i, o] of Object.entries(t)) {
-        if (!o || typeof o != "object")
+      for (const [i, d] of Object.entries(t)) {
+        if (!d || typeof d != "object")
           continue;
-        const d = o;
-        if (d.op === "clear") {
+        const u = d;
+        if (u.op === "clear") {
           n[i] = {
             op: "clear",
-            updatedAt: Number(d.updatedAt) || Date.now()
+            updatedAt: Number(u.updatedAt) || Date.now()
           };
           continue;
         }
-        const a = d.op === "patch" ? d.patch : d;
+        const a = u.op === "patch" ? u.patch : u;
         n[i] = {
           op: "patch",
           patch: a && typeof a == "object" ? a : {},
-          updatedAt: Number(d.updatedAt) || Date.now()
+          updatedAt: Number(u.updatedAt) || Date.now()
         };
       }
       return n;
@@ -5868,15 +7291,15 @@ class Be {
   }
   outboxSave(e) {
     try {
-      window.localStorage.setItem(yt, JSON.stringify(e));
+      window.localStorage.setItem(zn, JSON.stringify(e));
     } catch {
     }
   }
   queuePatch(e, t) {
-    const n = this.outboxLoad(), i = n[e], o = i?.op === "patch" ? i.patch || {} : {};
+    const n = this.outboxLoad(), i = n[e], d = i?.op === "patch" ? i.patch || {} : {};
     n[e] = {
       op: "patch",
-      patch: { ...o, ...t, updatedAt: Date.now() },
+      patch: { ...d, ...t, updatedAt: Date.now() },
       updatedAt: Date.now()
     }, this.outboxSave(n);
   }
@@ -5912,8 +7335,8 @@ class Be {
       const [n, i] = await Promise.all([
         this.localStore.load(e),
         this.remoteStore.load(e).catch(() => null)
-      ]), o = this.pickLatest(n, i);
-      return o && await this.localStore.save(e, o), await this.flushOutboxForKey(e), o;
+      ]), d = this.pickLatest(n, i);
+      return d && await this.localStore.save(e, d), await this.flushOutboxForKey(e), d;
     }
     return this.localStore.load(e);
   }
@@ -5944,7 +7367,7 @@ class Be {
     this.removeOutboxEntry(e);
   }
 }
-function Qn(s) {
+function Oi(s) {
   const e = s.profile?.mode || "local_only";
   return {
     token: String(s.token || "").trim(),
@@ -5976,46 +7399,46 @@ function Qn(s) {
     profile: {
       mode: e,
       rememberByDefault: s.profile?.rememberByDefault !== !1,
-      ttlDays: Number(s.profile?.ttlDays || je) || je,
+      ttlDays: Number(s.profile?.ttlDays || kn) || kn,
       persistDrawnSignature: !!s.profile?.persistDrawnSignature,
       endpointBasePath: String(s.profile?.endpointBasePath || String(s.apiBasePath || "/api/v1/esign/signing")).trim()
     }
   };
 }
-function Xn(s) {
+function Ui(s) {
   const e = typeof window < "u" ? window.location.origin.toLowerCase() : "unknown", t = s.recipientEmail ? s.recipientEmail.trim().toLowerCase() : s.recipientId.trim().toLowerCase();
   return encodeURIComponent(`${e}:${t}`);
 }
-function _e(s) {
+function In(s) {
   const e = String(s || "").trim().split(/\s+/).filter(Boolean);
   return e.length === 0 ? "" : e.slice(0, 3).map((t) => t[0].toUpperCase()).join("");
 }
-function Zn(s) {
+function Vi(s) {
   const e = String(s || "").trim().toLowerCase();
   return e === "[drawn]" || e === "[drawn initials]";
 }
-function G(s) {
+function Oe(s) {
   const e = String(s || "").trim();
-  return Zn(e) ? "" : e;
+  return Vi(e) ? "" : e;
 }
-function ei(s) {
-  const e = new Yn(s.profile.ttlDays), t = new Kn(s.profile.endpointBasePath, s.token);
-  return s.profile.mode === "local_only" ? new Be("local_only", e, null) : s.profile.mode === "remote_only" ? new Be("remote_only", e, t) : new Be("hybrid", e, t);
+function Gi(s) {
+  const e = new zi(s.profile.ttlDays), t = new Ni(s.profile.endpointBasePath, s.token);
+  return s.profile.mode === "local_only" ? new Sn("local_only", e, null) : s.profile.mode === "remote_only" ? new Sn("remote_only", e, t) : new Sn("hybrid", e, t);
 }
-function ti() {
+function Wi() {
   const s = window;
   s.pdfjsLib && s.pdfjsLib.GlobalWorkerOptions && (s.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js");
 }
-function ni(s) {
+function Ji(s) {
   const e = document.querySelector('[data-esign-page="signer-review"], [data-esign-page="signer.review"]');
   if (!e) return;
   const t = e;
   if (t.dataset.esignBootstrapped === "true")
     return;
   t.dataset.esignBootstrapped = "true";
-  const n = Qn(s), i = Xn(n), o = ei(n);
-  ti();
-  const d = {
+  const n = Oi(s), i = Ui(n), d = Gi(n);
+  Wi();
+  const u = {
     events: [],
     sessionId: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36),
     startTime: Date.now(),
@@ -6034,17 +7457,17 @@ function ni(s) {
      * @param {string} eventName - Event name
      * @param {Object} data - Event data
      */
-    track(r, l = {}) {
+    track(r, c = {}) {
       if (!n.telemetryEnabled) return;
-      const u = {
+      const p = {
         event: r,
         timestamp: Date.now(),
         sessionId: this.sessionId,
         flowMode: n.flowMode,
         agreementId: n.agreementId,
-        ...l
+        ...c
       };
-      this.events.push(u), this.isCriticalEvent(r) && this.flush();
+      this.events.push(p), this.isCriticalEvent(r) && this.flush();
     },
     /**
      * Check if event is critical and should be sent immediately
@@ -6066,10 +7489,10 @@ function ni(s) {
      * @param {number} duration - Load duration in ms
      * @param {string} error - Error message if failed
      */
-    trackViewerLoad(r, l, u = null) {
-      this.metrics.viewerLoadTime = l, this.track(r ? "viewer_load_success" : "viewer_load_failed", {
-        duration: l,
-        error: u,
+    trackViewerLoad(r, c, p = null) {
+      this.metrics.viewerLoadTime = c, this.track(r ? "viewer_load_success" : "viewer_load_failed", {
+        duration: c,
+        error: p,
         pageCount: n.pageCount
       });
     },
@@ -6081,12 +7504,12 @@ function ni(s) {
      * @param {number} latency - Operation latency in ms
      * @param {string} error - Error message if failed
      */
-    trackFieldSave(r, l, u, p, h = null) {
-      this.metrics.fieldSaveLatencies.push(p), u ? this.metrics.fieldsCompleted++ : this.metrics.errorsEncountered.push({ type: "field_save", fieldId: r, error: h }), this.track(u ? "field_save_success" : "field_save_failed", {
+    trackFieldSave(r, c, p, h, y = null) {
+      this.metrics.fieldSaveLatencies.push(h), p ? this.metrics.fieldsCompleted++ : this.metrics.errorsEncountered.push({ type: "field_save", fieldId: r, error: y }), this.track(p ? "field_save_success" : "field_save_failed", {
         fieldId: r,
-        fieldType: l,
-        latency: p,
-        error: h
+        fieldType: c,
+        latency: h,
+        error: y
       });
     },
     /**
@@ -6097,12 +7520,12 @@ function ni(s) {
      * @param {number} latency - Operation latency in ms
      * @param {string} error - Error message if failed
      */
-    trackSignatureAttach(r, l, u, p, h = null) {
-      this.metrics.signatureAttachLatencies.push(p), this.track(u ? "signature_attach_success" : "signature_attach_failed", {
+    trackSignatureAttach(r, c, p, h, y = null) {
+      this.metrics.signatureAttachLatencies.push(h), this.track(p ? "signature_attach_success" : "signature_attach_failed", {
         fieldId: r,
-        signatureType: l,
-        latency: p,
-        error: h
+        signatureType: c,
+        latency: h,
+        error: y
       });
     },
     /**
@@ -6119,12 +7542,12 @@ function ni(s) {
      * @param {boolean} success - Whether submit succeeded
      * @param {string} error - Error message if failed
      */
-    trackSubmit(r, l = null) {
+    trackSubmit(r, c = null) {
       this.metrics.submitTime = Date.now() - this.startTime, this.track(r ? "submit_success" : "submit_failed", {
         timeToSubmit: this.metrics.submitTime,
         fieldsCompleted: this.metrics.fieldsCompleted,
         totalFields: a.fieldState.size,
-        error: l
+        error: c
       });
     },
     /**
@@ -6154,10 +7577,10 @@ function ni(s) {
      * @param {string} degradationType - Type of degradation
      * @param {Object} details - Additional details
      */
-    trackDegradedMode(r, l = {}) {
+    trackDegradedMode(r, c = {}) {
       this.track("degraded_mode", {
         degradationType: r,
-        ...l
+        ...c
       });
     },
     /**
@@ -6186,7 +7609,7 @@ function ni(s) {
      * @returns {number}
      */
     calculateAverage(r) {
-      return r.length ? Math.round(r.reduce((l, u) => l + u, 0) / r.length) : 0;
+      return r.length ? Math.round(r.reduce((c, p) => c + p, 0) / r.length) : 0;
     },
     /**
      * Flush events to backend
@@ -6197,11 +7620,11 @@ function ni(s) {
       this.events = [];
       try {
         if (navigator.sendBeacon) {
-          const l = JSON.stringify({
+          const c = JSON.stringify({
             events: r,
             summary: this.getSessionSummary()
           });
-          navigator.sendBeacon(`${n.apiBasePath}/telemetry/${n.token}`, l);
+          navigator.sendBeacon(`${n.apiBasePath}/telemetry/${n.token}`, c);
         } else
           await fetch(`${n.apiBasePath}/telemetry/${n.token}`, {
             method: "POST",
@@ -6212,14 +7635,14 @@ function ni(s) {
             }),
             keepalive: !0
           });
-      } catch (l) {
-        this.events = [...r, ...this.events], console.warn("Telemetry flush failed:", l);
+      } catch (c) {
+        this.events = [...r, ...this.events], console.warn("Telemetry flush failed:", c);
       }
     }
   };
   window.addEventListener("beforeunload", () => {
-    d.track("session_end", d.getSessionSummary()), d.flush();
-  }), setInterval(() => d.flush(), 3e4);
+    u.track("session_end", u.getSessionSummary()), u.flush();
+  }), setInterval(() => u.flush(), 3e4);
   const a = {
     currentPage: 1,
     zoomLevel: 1,
@@ -6245,8 +7668,13 @@ function ni(s) {
     profileKey: i,
     profileData: null,
     profileRemember: n.profile.rememberByDefault,
-    guidedTargetFieldId: null
-  }, f = {
+    guidedTargetFieldId: null,
+    writeCooldownUntil: 0,
+    writeCooldownTimer: null,
+    submitCooldownUntil: 0,
+    submitCooldownTimer: null,
+    isSubmitting: !1
+  }, x = {
     /**
      * Device pixel ratio for high-DPI displays
      */
@@ -6259,54 +7687,54 @@ function ni(s) {
      * Get page metadata from viewer config or field data
      */
     getPageMetadata(r) {
-      const l = n.viewer.pages?.find((p) => p.page === r);
-      if (l)
+      const c = n.viewer.pages?.find((h) => h.page === r);
+      if (c)
         return {
-          width: l.width,
-          height: l.height,
-          rotation: l.rotation || 0
+          width: c.width,
+          height: c.height,
+          rotation: c.rotation || 0
         };
-      const u = this.pageViewports.get(r);
-      return u ? {
-        width: u.width,
-        height: u.height,
-        rotation: u.rotation || 0
+      const p = this.pageViewports.get(r);
+      return p ? {
+        width: p.width,
+        height: p.height,
+        rotation: p.rotation || 0
       } : { width: 612, height: 792, rotation: 0 };
     },
     /**
      * Cache PDF.js viewport for page
      */
-    setPageViewport(r, l) {
+    setPageViewport(r, c) {
       this.pageViewports.set(r, {
-        width: l.width,
-        height: l.height,
-        rotation: l.rotation || 0
+        width: c.width,
+        height: c.height,
+        rotation: c.rotation || 0
       });
     },
     /**
      * Transform field coordinates from page-space to screen-space
      * Accounts for zoom level, DPR, container sizing, and origin
      */
-    pageToScreen(r, l) {
-      const u = r.page, p = this.getPageMetadata(u), h = l.offsetWidth, m = l.offsetHeight, v = r.pageWidth || p.width, S = r.pageHeight || p.height, L = h / v, D = m / S;
-      let k = r.posX || 0, R = r.posY || 0;
-      n.viewer.origin === "bottom-left" && (R = S - R - (r.height || 30));
-      const N = k * L, q = R * D, A = (r.width || 150) * L, _ = (r.height || 30) * D;
+    pageToScreen(r, c) {
+      const p = r.page, h = this.getPageMetadata(p), y = c.offsetWidth, b = c.offsetHeight, I = r.pageWidth || h.width, _ = r.pageHeight || h.height, R = y / I, V = b / _;
+      let O = r.posX || 0, re = r.posY || 0;
+      n.viewer.origin === "bottom-left" && (re = _ - re - (r.height || 30));
+      const ue = O * R, ne = re * V, j = (r.width || 150) * R, J = (r.height || 30) * V;
       return {
-        left: N,
-        top: q,
-        width: A,
-        height: _,
+        left: ue,
+        top: ne,
+        width: j,
+        height: J,
         // Store original values for debugging
         _debug: {
-          sourceX: k,
-          sourceY: R,
+          sourceX: O,
+          sourceY: re,
           sourceWidth: r.width,
           sourceHeight: r.height,
-          pageWidth: v,
-          pageHeight: S,
-          scaleX: L,
-          scaleY: D,
+          pageWidth: I,
+          pageHeight: _,
+          scaleX: R,
+          scaleY: V,
           zoom: a.zoomLevel,
           dpr: this.dpr
         }
@@ -6315,23 +7743,23 @@ function ni(s) {
     /**
      * Get CSS transform values for overlay positioning
      */
-    getOverlayStyles(r, l) {
-      const u = this.pageToScreen(r, l);
+    getOverlayStyles(r, c) {
+      const p = this.pageToScreen(r, c);
       return {
-        left: `${Math.round(u.left)}px`,
-        top: `${Math.round(u.top)}px`,
-        width: `${Math.round(u.width)}px`,
-        height: `${Math.round(u.height)}px`,
+        left: `${Math.round(p.left)}px`,
+        top: `${Math.round(p.top)}px`,
+        width: `${Math.round(p.width)}px`,
+        height: `${Math.round(p.height)}px`,
         // Use transform for sub-pixel precision on high-DPI
         transform: this.dpr > 1 ? "translateZ(0)" : "none"
       };
     }
-  }, g = {
+  }, v = {
     /**
      * Request signed upload bootstrap from backend
      */
-    async requestUploadBootstrap(r, l, u, p) {
-      const h = await fetch(
+    async requestUploadBootstrap(r, c, p, h) {
+      const y = await fetch(
         `${n.apiBasePath}/signature-upload/${n.token}`,
         {
           method: "POST",
@@ -6339,403 +7767,396 @@ function ni(s) {
           credentials: "omit",
           body: JSON.stringify({
             field_instance_id: r,
-            sha256: l,
-            content_type: u,
-            size_bytes: p
+            sha256: c,
+            content_type: p,
+            size_bytes: h
           })
         }
       );
-      if (!h.ok) {
-        let S = null;
-        try {
-          S = await h.json();
-        } catch {
-          S = null;
-        }
-        throw new Error(S?.error?.message || "Failed to get upload contract");
-      }
-      const m = await h.json(), v = m?.contract || m;
-      if (!v || typeof v != "object" || !v.upload_url)
+      if (!y.ok)
+        throw await pe(y, "Failed to get upload contract");
+      const b = await y.json(), I = b?.contract || b;
+      if (!I || typeof I != "object" || !I.upload_url)
         throw new Error("Invalid upload contract response");
-      return v;
+      return I;
     },
     /**
      * Upload binary data to signed URL
      */
-    async uploadToSignedUrl(r, l) {
-      const u = new URL(r.upload_url, window.location.origin);
-      r.upload_token && u.searchParams.set("upload_token", String(r.upload_token)), r.object_key && u.searchParams.set("object_key", String(r.object_key));
-      const p = {
+    async uploadToSignedUrl(r, c) {
+      const p = new URL(r.upload_url, window.location.origin);
+      r.upload_token && p.searchParams.set("upload_token", String(r.upload_token)), r.object_key && p.searchParams.set("object_key", String(r.object_key));
+      const h = {
         "Content-Type": r.content_type || "image/png"
       };
-      r.headers && Object.entries(r.headers).forEach(([m, v]) => {
-        const S = String(m).toLowerCase();
-        S === "x-esign-upload-token" || S === "x-esign-upload-key" || (p[m] = String(v));
+      r.headers && Object.entries(r.headers).forEach(([b, I]) => {
+        const _ = String(b).toLowerCase();
+        _ === "x-esign-upload-token" || _ === "x-esign-upload-key" || (h[b] = String(I));
       });
-      const h = await fetch(u.toString(), {
+      const y = await fetch(p.toString(), {
         method: r.method || "PUT",
-        headers: p,
-        body: l,
+        headers: h,
+        body: c,
         credentials: "omit"
       });
-      if (!h.ok)
-        throw new Error(`Upload failed: ${h.status} ${h.statusText}`);
+      if (!y.ok)
+        throw await pe(y, `Upload failed: ${y.status} ${y.statusText}`);
       return !0;
     },
     /**
      * Convert canvas data URL to binary blob
      */
     dataUrlToBlob(r) {
-      const [l, u] = r.split(","), p = l.match(/data:([^;]+)/), h = p ? p[1] : "image/png", m = atob(u), v = new Uint8Array(m.length);
-      for (let S = 0; S < m.length; S++)
-        v[S] = m.charCodeAt(S);
-      return new Blob([v], { type: h });
+      const [c, p] = r.split(","), h = c.match(/data:([^;]+)/), y = h ? h[1] : "image/png", b = atob(p), I = new Uint8Array(b.length);
+      for (let _ = 0; _ < b.length; _++)
+        I[_] = b.charCodeAt(_);
+      return new Blob([I], { type: y });
     },
     /**
      * Full drawn signature upload flow with signed URL
      */
-    async uploadDrawnSignature(r, l) {
-      const u = this.dataUrlToBlob(l), p = u.size, h = "image/png", m = await Z(u), v = await this.requestUploadBootstrap(
+    async uploadDrawnSignature(r, c) {
+      const p = this.dataUrlToBlob(c), h = p.size, y = "image/png", b = await He(p), I = await this.requestUploadBootstrap(
         r,
-        m,
-        h,
-        p
+        b,
+        y,
+        h
       );
-      return await this.uploadToSignedUrl(v, u), {
-        uploadToken: v.upload_token,
-        objectKey: v.object_key,
-        sha256: v.sha256,
-        contentType: v.content_type
+      return await this.uploadToSignedUrl(I, p), {
+        uploadToken: I.upload_token,
+        objectKey: I.object_key,
+        sha256: I.sha256,
+        contentType: I.content_type
       };
     }
-  }, y = {
-    endpoint(r, l = "") {
-      const u = encodeURIComponent(r), p = l ? `/${encodeURIComponent(l)}` : "";
-      return `${n.apiBasePath}/signatures/${u}${p}`;
+  }, C = {
+    endpoint(r, c = "") {
+      const p = encodeURIComponent(r), h = c ? `/${encodeURIComponent(c)}` : "";
+      return `${n.apiBasePath}/signatures/${p}${h}`;
     },
     async list(r) {
-      const l = new URL(this.endpoint(n.token), window.location.origin);
-      l.searchParams.set("type", r);
-      const u = await fetch(l.toString(), {
+      const c = new URL(this.endpoint(n.token), window.location.origin);
+      c.searchParams.set("type", r);
+      const p = await fetch(c.toString(), {
         method: "GET",
         headers: { Accept: "application/json" },
         credentials: "same-origin"
       });
-      if (!u.ok) {
-        const h = await u.json().catch(() => ({}));
-        throw new Error(h?.error?.message || "Failed to load saved signatures");
+      if (!p.ok) {
+        const y = await p.json().catch(() => ({}));
+        throw new Error(y?.error?.message || "Failed to load saved signatures");
       }
-      const p = await u.json();
-      return Array.isArray(p?.signatures) ? p.signatures : [];
+      const h = await p.json();
+      return Array.isArray(h?.signatures) ? h.signatures : [];
     },
-    async save(r, l, u = "") {
-      const p = await fetch(this.endpoint(n.token), {
+    async save(r, c, p = "") {
+      const h = await fetch(this.endpoint(n.token), {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         credentials: "same-origin",
         body: JSON.stringify({
           type: r,
-          label: u,
-          data_url: l
+          label: p,
+          data_url: c
         })
       });
-      if (!p.ok) {
-        const m = await p.json().catch(() => ({})), v = new Error(m?.error?.message || "Failed to save signature");
-        throw v.code = m?.error?.code || "", v;
+      if (!h.ok) {
+        const b = await h.json().catch(() => ({})), I = new Error(b?.error?.message || "Failed to save signature");
+        throw I.code = b?.error?.code || "", I;
       }
-      return (await p.json())?.signature || null;
+      return (await h.json())?.signature || null;
     },
     async delete(r) {
-      const l = await fetch(this.endpoint(n.token, r), {
+      const c = await fetch(this.endpoint(n.token, r), {
         method: "DELETE",
         headers: { Accept: "application/json" },
         credentials: "same-origin"
       });
-      if (!l.ok) {
-        const u = await l.json().catch(() => ({}));
-        throw new Error(u?.error?.message || "Failed to delete signature");
+      if (!c.ok) {
+        const p = await c.json().catch(() => ({}));
+        throw new Error(p?.error?.message || "Failed to delete signature");
       }
     }
   };
-  function b(r) {
-    const l = a.fieldState.get(r);
-    return l && l.type === "initials" ? "initials" : "signature";
+  function P(r) {
+    const c = a.fieldState.get(r);
+    return c && c.type === "initials" ? "initials" : "signature";
   }
-  function I(r) {
+  function H(r) {
     return a.savedSignaturesByType.get(r) || [];
   }
-  async function C(r, l = !1) {
-    const u = b(r);
-    if (!l && a.savedSignaturesByType.has(u)) {
-      E(r);
+  async function F(r, c = !1) {
+    const p = P(r);
+    if (!c && a.savedSignaturesByType.has(p)) {
+      D(r);
       return;
     }
-    const p = await y.list(u);
-    a.savedSignaturesByType.set(u, p), E(r);
+    const h = await C.list(p);
+    a.savedSignaturesByType.set(p, h), D(r);
   }
-  function E(r) {
-    const l = b(r), u = I(l), p = document.getElementById("sig-saved-list");
-    if (p) {
-      if (!u.length) {
-        p.innerHTML = '<p class="text-xs text-gray-500">No saved signatures yet.</p>';
+  function D(r) {
+    const c = P(r), p = H(c), h = document.getElementById("sig-saved-list");
+    if (h) {
+      if (!p.length) {
+        h.innerHTML = '<p class="text-xs text-gray-500">No saved signatures yet.</p>';
         return;
       }
-      p.innerHTML = u.map((h) => {
-        const m = V(String(h?.thumbnail_data_url || h?.data_url || "")), v = V(String(h?.label || "Saved signature")), S = V(String(h?.id || ""));
+      h.innerHTML = p.map((y) => {
+        const b = Re(String(y?.thumbnail_data_url || y?.data_url || "")), I = Re(String(y?.label || "Saved signature")), _ = Re(String(y?.id || ""));
         return `
       <div class="flex items-center gap-2 border border-gray-200 rounded-lg p-2">
-        <img src="${m}" alt="${v}" class="w-16 h-10 object-contain bg-white border border-gray-100 rounded" />
+        <img src="${b}" alt="${I}" class="w-16 h-10 object-contain bg-white border border-gray-100 rounded" />
         <div class="flex-1 min-w-0">
-          <p class="text-xs text-gray-700 truncate">${v}</p>
+          <p class="text-xs text-gray-700 truncate">${I}</p>
         </div>
-        <button type="button" data-esign-action="select-saved-signature" data-field-id="${V(r)}" data-signature-id="${S}" class="text-xs text-blue-600 hover:text-blue-700 underline underline-offset-2">Use</button>
-        <button type="button" data-esign-action="delete-saved-signature" data-field-id="${V(r)}" data-signature-id="${S}" class="text-xs text-red-600 hover:text-red-700 underline underline-offset-2">Delete</button>
+        <button type="button" data-esign-action="select-saved-signature" data-field-id="${Re(r)}" data-signature-id="${_}" class="text-xs text-blue-600 hover:text-blue-700 underline underline-offset-2">Use</button>
+        <button type="button" data-esign-action="delete-saved-signature" data-field-id="${Re(r)}" data-signature-id="${_}" class="text-xs text-red-600 hover:text-red-700 underline underline-offset-2">Delete</button>
       </div>`;
       }).join("");
     }
   }
-  async function T(r) {
-    const l = a.signatureCanvases.get(r), u = b(r);
-    if (!l || !it(r))
-      throw new Error(`Please add your ${u === "initials" ? "initials" : "signature"} first`);
-    const p = l.canvas.toDataURL("image/png"), h = await y.save(u, p, u === "initials" ? "Initials" : "Signature");
-    if (!h)
+  async function z(r) {
+    const c = a.signatureCanvases.get(r), p = P(r);
+    if (!c || !jt(r))
+      throw new Error(`Please add your ${p === "initials" ? "initials" : "signature"} first`);
+    const h = c.canvas.toDataURL("image/png"), y = await C.save(p, h, p === "initials" ? "Initials" : "Signature");
+    if (!y)
       throw new Error("Failed to save signature");
-    const m = I(u);
-    m.unshift(h), a.savedSignaturesByType.set(u, m), E(r), window.toastManager && window.toastManager.success("Saved to your signature library");
+    const b = H(p);
+    b.unshift(y), a.savedSignaturesByType.set(p, b), D(r), window.toastManager && window.toastManager.success("Saved to your signature library");
   }
-  async function P(r, l) {
-    const u = b(r), h = I(u).find((v) => String(v?.id || "") === String(l));
-    if (!h) return;
-    requestAnimationFrame(() => me(r)), await F(r);
-    const m = String(h.data_url || h.thumbnail_data_url || "").trim();
-    m && (await Ce(r, m, { clearStrokes: !0 }), ge("draw", r), j("Saved signature selected."));
+  async function N(r, c) {
+    const p = P(r), y = H(p).find((I) => String(I?.id || "") === String(c));
+    if (!y) return;
+    requestAnimationFrame(() => ot(r)), await se(r);
+    const b = String(y.data_url || y.thumbnail_data_url || "").trim();
+    b && (await Ce(r, b, { clearStrokes: !0 }), tt("draw", r), oe("Saved signature selected."));
   }
-  async function $(r, l) {
-    const u = b(r);
-    await y.delete(l);
-    const p = I(u).filter((h) => String(h?.id || "") !== String(l));
-    a.savedSignaturesByType.set(u, p), E(r);
+  async function U(r, c) {
+    const p = P(r);
+    await C.delete(c);
+    const h = H(p).filter((y) => String(y?.id || "") !== String(c));
+    a.savedSignaturesByType.set(p, h), D(r);
   }
-  function B(r) {
-    const l = String(r?.code || "").trim(), u = String(r?.message || "Unable to update saved signatures"), p = l === "SIGNATURE_LIBRARY_LIMIT_REACHED" ? "You reached your saved-signature limit for this type. Delete one to save a new one." : u;
-    window.toastManager && window.toastManager.error(p), j(p, "assertive");
+  function X(r) {
+    const c = String(r?.code || "").trim(), p = String(r?.message || "Unable to update saved signatures"), h = c === "SIGNATURE_LIBRARY_LIMIT_REACHED" ? "You reached your saved-signature limit for this type. Delete one to save a new one." : p;
+    window.toastManager && window.toastManager.error(h), oe(h, "assertive");
   }
-  async function F(r, l = 8) {
-    for (let u = 0; u < l; u++) {
+  async function se(r, c = 8) {
+    for (let p = 0; p < c; p++) {
       if (a.signatureCanvases.has(r)) return !0;
-      await new Promise((p) => setTimeout(p, 40)), me(r);
+      await new Promise((h) => setTimeout(h, 40)), ot(r);
     }
     return !1;
   }
-  async function O(r, l) {
-    const u = String(l?.type || "").toLowerCase();
-    if (!["image/png", "image/jpeg"].includes(u))
+  async function ce(r, c) {
+    const p = String(c?.type || "").toLowerCase();
+    if (!["image/png", "image/jpeg"].includes(p))
       throw new Error("Only PNG and JPEG images are supported");
-    if (l.size > 2 * 1024 * 1024)
+    if (c.size > 2 * 1024 * 1024)
       throw new Error("Image file is too large");
-    requestAnimationFrame(() => me(r)), await F(r);
-    const p = a.signatureCanvases.get(r);
-    if (!p)
+    requestAnimationFrame(() => ot(r)), await se(r);
+    const h = a.signatureCanvases.get(r);
+    if (!h)
       throw new Error("Signature canvas is not ready");
-    const h = await U(l), m = u === "image/png" ? h : await J(h, p.drawWidth, p.drawHeight);
-    if (ae(m) > bt)
-      throw new Error(`Image exceeds ${Math.round(bt / 1024)}KB limit after conversion`);
-    await Ce(r, m, { clearStrokes: !0 });
-    const S = document.getElementById("sig-upload-preview-wrap"), L = document.getElementById("sig-upload-preview");
-    S && S.classList.remove("hidden"), L && L.setAttribute("src", m), j("Signature image uploaded. You can now insert it.");
+    const y = await fe(c), b = p === "image/png" ? y : await _e(y, h.drawWidth, h.drawHeight);
+    if (Ye(b) > Nn)
+      throw new Error(`Image exceeds ${Math.round(Nn / 1024)}KB limit after conversion`);
+    await Ce(r, b, { clearStrokes: !0 });
+    const _ = document.getElementById("sig-upload-preview-wrap"), R = document.getElementById("sig-upload-preview");
+    _ && _.classList.remove("hidden"), R && R.setAttribute("src", b), oe("Signature image uploaded. You can now insert it.");
   }
-  function U(r) {
-    return new Promise((l, u) => {
-      const p = new FileReader();
-      p.onload = () => l(String(p.result || "")), p.onerror = () => u(new Error("Unable to read image file")), p.readAsDataURL(r);
+  function fe(r) {
+    return new Promise((c, p) => {
+      const h = new FileReader();
+      h.onload = () => c(String(h.result || "")), h.onerror = () => p(new Error("Unable to read image file")), h.readAsDataURL(r);
     });
   }
-  function ae(r) {
-    const l = String(r || "").split(",");
-    if (l.length < 2) return 0;
-    const u = l[1] || "", p = (u.match(/=+$/) || [""])[0].length;
-    return Math.floor(u.length * 3 / 4) - p;
+  function Ye(r) {
+    const c = String(r || "").split(",");
+    if (c.length < 2) return 0;
+    const p = c[1] || "", h = (p.match(/=+$/) || [""])[0].length;
+    return Math.floor(p.length * 3 / 4) - h;
   }
-  async function J(r, l, u) {
-    return await new Promise((p, h) => {
-      const m = new Image();
-      m.onload = () => {
-        const v = document.createElement("canvas"), S = Math.max(1, Math.round(Number(l) || 600)), L = Math.max(1, Math.round(Number(u) || 160));
-        v.width = S, v.height = L;
-        const D = v.getContext("2d");
-        if (!D) {
-          h(new Error("Unable to process image"));
+  async function _e(r, c, p) {
+    return await new Promise((h, y) => {
+      const b = new Image();
+      b.onload = () => {
+        const I = document.createElement("canvas"), _ = Math.max(1, Math.round(Number(c) || 600)), R = Math.max(1, Math.round(Number(p) || 160));
+        I.width = _, I.height = R;
+        const V = I.getContext("2d");
+        if (!V) {
+          y(new Error("Unable to process image"));
           return;
         }
-        D.clearRect(0, 0, S, L);
-        const k = Math.min(S / m.width, L / m.height), R = m.width * k, N = m.height * k, q = (S - R) / 2, A = (L - N) / 2;
-        D.drawImage(m, q, A, R, N), p(v.toDataURL("image/png"));
-      }, m.onerror = () => h(new Error("Unable to decode image file")), m.src = r;
+        V.clearRect(0, 0, _, R);
+        const O = Math.min(_ / b.width, R / b.height), re = b.width * O, ue = b.height * O, ne = (_ - re) / 2, j = (R - ue) / 2;
+        V.drawImage(b, ne, j, re, ue), h(I.toDataURL("image/png"));
+      }, b.onerror = () => y(new Error("Unable to decode image file")), b.src = r;
     });
   }
-  async function Z(r) {
+  async function He(r) {
     if (window.crypto && window.crypto.subtle) {
-      const l = await r.arrayBuffer(), u = await window.crypto.subtle.digest("SHA-256", l);
-      return Array.from(new Uint8Array(u)).map((p) => p.toString(16).padStart(2, "0")).join("");
+      const c = await r.arrayBuffer(), p = await window.crypto.subtle.digest("SHA-256", c);
+      return Array.from(new Uint8Array(p)).map((h) => h.toString(16).padStart(2, "0")).join("");
     }
     return crypto.randomUUID ? crypto.randomUUID().replace(/-/g, "") : Date.now().toString(16);
   }
-  function ee() {
+  function Ue() {
     document.addEventListener("click", (r) => {
-      const l = r.target;
-      if (!(l instanceof Element)) return;
-      const u = l.closest("[data-esign-action]");
-      if (!u) return;
-      switch (u.getAttribute("data-esign-action")) {
+      const c = r.target;
+      if (!(c instanceof Element)) return;
+      const p = c.closest("[data-esign-action]");
+      if (!p) return;
+      switch (p.getAttribute("data-esign-action")) {
         case "prev-page":
-          Gt();
+          tn();
           break;
         case "next-page":
-          Wt();
+          Ft();
           break;
         case "zoom-out":
-          Yt();
+          nn();
           break;
         case "zoom-in":
-          Jt();
+          he();
           break;
         case "fit-width":
-          Kt();
+          xt();
           break;
         case "download-document":
-          wn();
+          Wt();
           break;
         case "show-consent-modal":
-          ot();
+          _t();
           break;
         case "activate-field": {
-          const h = u.getAttribute("data-field-id");
-          h && he(h);
+          const y = p.getAttribute("data-field-id");
+          y && et(y);
           break;
         }
         case "submit-signature":
-          gn();
+          Ut();
           break;
         case "show-decline-modal":
-          mn();
+          on();
           break;
         case "close-field-editor":
-          Ee();
+          lt();
           break;
         case "save-field-editor":
-          an();
+          Nt();
           break;
         case "hide-consent-modal":
-          Ae();
+          Pe();
           break;
         case "accept-consent":
-          hn();
+          te();
           break;
         case "hide-decline-modal":
-          ct();
+          Vt();
           break;
         case "confirm-decline":
-          fn();
+          Gt();
           break;
         case "retry-load-pdf":
-          de();
+          Ze();
           break;
         case "signature-tab": {
-          const h = u.getAttribute("data-tab") || "draw", m = u.getAttribute("data-field-id");
-          m && ge(h, m);
+          const y = p.getAttribute("data-tab") || "draw", b = p.getAttribute("data-field-id");
+          b && tt(y, b);
           break;
         }
         case "clear-signature-canvas": {
-          const h = u.getAttribute("data-field-id");
-          h && rn(h);
+          const y = p.getAttribute("data-field-id");
+          y && Me(y);
           break;
         }
         case "undo-signature-canvas": {
-          const h = u.getAttribute("data-field-id");
-          h && nn(h);
+          const y = p.getAttribute("data-field-id");
+          y && Ge(y);
           break;
         }
         case "redo-signature-canvas": {
-          const h = u.getAttribute("data-field-id");
-          h && sn(h);
+          const y = p.getAttribute("data-field-id");
+          y && ct(y);
           break;
         }
         case "save-current-signature-library": {
-          const h = u.getAttribute("data-field-id");
-          h && T(h).catch(B);
+          const y = p.getAttribute("data-field-id");
+          y && z(y).catch(X);
           break;
         }
         case "select-saved-signature": {
-          const h = u.getAttribute("data-field-id"), m = u.getAttribute("data-signature-id");
-          h && m && P(h, m).catch(B);
+          const y = p.getAttribute("data-field-id"), b = p.getAttribute("data-signature-id");
+          y && b && N(y, b).catch(X);
           break;
         }
         case "delete-saved-signature": {
-          const h = u.getAttribute("data-field-id"), m = u.getAttribute("data-signature-id");
-          h && m && $(h, m).catch(B);
+          const y = p.getAttribute("data-field-id"), b = p.getAttribute("data-signature-id");
+          y && b && U(y, b).catch(X);
           break;
         }
         case "clear-signer-profile":
-          Je().catch(() => {
+          vt().catch(() => {
           });
           break;
         case "debug-toggle-panel":
-          Y.togglePanel();
+          Ae.togglePanel();
           break;
         case "debug-copy-session":
-          Y.copySessionInfo();
+          Ae.copySessionInfo();
           break;
         case "debug-clear-cache":
-          Y.clearCache();
+          Ae.clearCache();
           break;
         case "debug-show-telemetry":
-          Y.showTelemetry();
+          Ae.showTelemetry();
           break;
         case "debug-reload-viewer":
-          Y.reloadViewer();
+          Ae.reloadViewer();
           break;
       }
     }), document.addEventListener("change", (r) => {
-      const l = r.target;
-      if (!(l instanceof HTMLInputElement) || !l.matches("#sig-upload-input")) return;
-      const u = l.getAttribute("data-field-id"), p = l.files?.[0];
-      !u || !p || O(u, p).catch((h) => {
-        window.toastManager && window.toastManager.error(h?.message || "Unable to process uploaded image");
+      const c = r.target;
+      if (!(c instanceof HTMLInputElement) || !c.matches("#sig-upload-input")) return;
+      const p = c.getAttribute("data-field-id"), h = c.files?.[0];
+      !p || !h || ce(p, h).catch((y) => {
+        window.toastManager && window.toastManager.error(y?.message || "Unable to process uploaded image");
       });
     });
   }
-  M(async () => {
-    ee(), a.isLowMemory = Ut(), le(), await Rt(), Ft(), zt(), rt(), Le(), await de(), ue(), document.addEventListener("visibilitychange", te), "memory" in navigator && ye(), Y.init();
+  W(async () => {
+    Ue(), a.isLowMemory = je(), it(), await xe(), st(), Xe(), Pt(), ke(), await Ze(), at(), document.addEventListener("visibilitychange", K), "memory" in navigator && $e(), Ae.init();
   });
-  function te() {
-    document.hidden && z();
+  function K() {
+    document.hidden && le();
   }
-  function z() {
+  function le() {
     const r = a.isLowMemory ? 1 : 2;
     for (; a.renderedPages.size > r; ) {
-      let l = null, u = 1 / 0;
-      if (a.renderedPages.forEach((p, h) => {
-        h !== a.currentPage && p.timestamp < u && (l = h, u = p.timestamp);
-      }), l !== null)
-        a.renderedPages.delete(l);
+      let c = null, p = 1 / 0;
+      if (a.renderedPages.forEach((h, y) => {
+        y !== a.currentPage && h.timestamp < p && (c = y, p = h.timestamp);
+      }), c !== null)
+        a.renderedPages.delete(c);
       else
         break;
     }
   }
-  function ye() {
+  function $e() {
     setInterval(() => {
       if (navigator.memory) {
-        const r = navigator.memory.usedJSHeapSize, l = navigator.memory.totalJSHeapSize;
-        r / l > 0.8 && (a.isLowMemory = !0, z());
+        const r = navigator.memory.usedJSHeapSize, c = navigator.memory.totalJSHeapSize;
+        r / c > 0.8 && (a.isLowMemory = !0, le());
       }
     }, 3e4);
   }
-  function le() {
-    const r = document.getElementById("stage-state-banner"), l = document.getElementById("stage-state-icon"), u = document.getElementById("stage-state-title"), p = document.getElementById("stage-state-message"), h = document.getElementById("stage-state-meta");
-    if (!r || !l || !u || !p || !h) return;
-    const m = n.signerState || "active", v = n.recipientStage || 1, S = n.activeStage || 1, L = n.activeRecipientIds || [], D = n.waitingForRecipientIds || [];
-    let k = {
+  function it() {
+    const r = document.getElementById("stage-state-banner"), c = document.getElementById("stage-state-icon"), p = document.getElementById("stage-state-title"), h = document.getElementById("stage-state-message"), y = document.getElementById("stage-state-meta");
+    if (!r || !c || !p || !h || !y) return;
+    const b = n.signerState || "active", I = n.recipientStage || 1, _ = n.activeStage || 1, R = n.activeRecipientIds || [], V = n.waitingForRecipientIds || [];
+    let O = {
       hidden: !1,
       bgClass: "bg-green-50",
       borderClass: "border-green-200",
@@ -6746,9 +8167,9 @@ function ni(s) {
       message: "Please complete and sign the document below.",
       badges: []
     };
-    switch (m) {
+    switch (b) {
       case "waiting":
-        k = {
+        O = {
           hidden: !1,
           bgClass: "bg-blue-50",
           borderClass: "border-blue-200",
@@ -6756,18 +8177,18 @@ function ni(s) {
           titleClass: "text-blue-900",
           messageClass: "text-blue-800",
           title: "Waiting for Other Signers",
-          message: v > S ? `You are in signing stage ${v}. Stage ${S} is currently active.` : "You will be able to sign once the previous signer(s) have completed their signatures.",
+          message: I > _ ? `You are in signing stage ${I}. Stage ${_} is currently active.` : "You will be able to sign once the previous signer(s) have completed their signatures.",
           badges: [
             { icon: "iconoir-clock", text: "Your turn is coming", variant: "blue" }
           ]
-        }, D.length > 0 && k.badges.push({
+        }, V.length > 0 && O.badges.push({
           icon: "iconoir-group",
-          text: `${D.length} signer(s) ahead`,
+          text: `${V.length} signer(s) ahead`,
           variant: "blue"
         });
         break;
       case "blocked":
-        k = {
+        O = {
           hidden: !1,
           bgClass: "bg-amber-50",
           borderClass: "border-amber-200",
@@ -6782,7 +8203,7 @@ function ni(s) {
         };
         break;
       case "completed":
-        k = {
+        O = {
           hidden: !1,
           bgClass: "bg-green-50",
           borderClass: "border-green-200",
@@ -6798,44 +8219,44 @@ function ni(s) {
         break;
       case "active":
       default:
-        L.length > 1 ? (k.message = `You and ${L.length - 1} other signer(s) can sign now.`, k.badges = [
-          { icon: "iconoir-users", text: `Stage ${S} active`, variant: "green" }
-        ]) : v > 1 ? k.badges = [
-          { icon: "iconoir-check-circle", text: `Stage ${v}`, variant: "green" }
-        ] : k.hidden = !0;
+        R.length > 1 ? (O.message = `You and ${R.length - 1} other signer(s) can sign now.`, O.badges = [
+          { icon: "iconoir-users", text: `Stage ${_} active`, variant: "green" }
+        ]) : I > 1 ? O.badges = [
+          { icon: "iconoir-check-circle", text: `Stage ${I}`, variant: "green" }
+        ] : O.hidden = !0;
         break;
     }
-    if (k.hidden) {
+    if (O.hidden) {
       r.classList.add("hidden");
       return;
     }
-    r.classList.remove("hidden"), r.className = `mb-4 rounded-lg border p-4 ${k.bgClass} ${k.borderClass}`, l.className = `${k.iconClass} mt-0.5`, u.className = `text-sm font-semibold ${k.titleClass}`, u.textContent = k.title, p.className = `text-xs ${k.messageClass} mt-1`, p.textContent = k.message, h.innerHTML = "", k.badges.forEach((R) => {
-      const N = document.createElement("span"), q = {
+    r.classList.remove("hidden"), r.className = `mb-4 rounded-lg border p-4 ${O.bgClass} ${O.borderClass}`, c.className = `${O.iconClass} mt-0.5`, p.className = `text-sm font-semibold ${O.titleClass}`, p.textContent = O.title, h.className = `text-xs ${O.messageClass} mt-1`, h.textContent = O.message, y.innerHTML = "", O.badges.forEach((re) => {
+      const ue = document.createElement("span"), ne = {
         blue: "bg-blue-100 text-blue-800",
         amber: "bg-amber-100 text-amber-800",
         green: "bg-green-100 text-green-800"
       };
-      N.className = `inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${q[R.variant] || q.blue}`, N.innerHTML = `<i class="${R.icon} mr-1"></i>${R.text}`, h.appendChild(N);
+      ue.className = `inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${ne[re.variant] || ne.blue}`, ue.innerHTML = `<i class="${re.icon} mr-1"></i>${re.text}`, y.appendChild(ue);
     });
   }
-  function Ft() {
+  function st() {
     n.fields.forEach((r) => {
-      let l = null, u = !1;
+      let c = null, p = !1;
       if (r.type === "checkbox")
-        l = r.value_bool || !1, u = l;
+        c = r.value_bool || !1, p = c;
       else if (r.type === "date_signed")
-        l = (/* @__PURE__ */ new Date()).toISOString().split("T")[0], u = !0;
+        c = (/* @__PURE__ */ new Date()).toISOString().split("T")[0], p = !0;
       else {
-        const p = String(r.value_text || "");
-        l = p || Ht(r), u = !!p;
+        const h = String(r.value_text || "");
+        c = h || ht(r), p = !!h;
       }
       a.fieldState.set(r.id, {
         id: r.id,
         type: r.type,
         page: r.page || 1,
         required: r.required,
-        value: l,
-        completed: u,
+        value: c,
+        completed: p,
         hasError: !1,
         lastError: null,
         // Geometry metadata (will be populated from backend in Phase 18.BE.3)
@@ -6847,231 +8268,231 @@ function ni(s) {
       });
     });
   }
-  async function Rt() {
+  async function xe() {
     try {
-      const r = await o.load(a.profileKey);
+      const r = await d.load(a.profileKey);
       r && (a.profileData = r, a.profileRemember = r.remember !== !1);
     } catch {
     }
   }
-  function Ht(r) {
-    const l = a.profileData;
-    if (!l) return "";
-    const u = String(r?.type || "").trim();
-    return u === "name" ? G(l.fullName || "") : u === "initials" ? G(l.initials || "") || _e(l.fullName || n.recipientName || "") : u === "signature" ? G(l.typedSignature || "") : "";
+  function ht(r) {
+    const c = a.profileData;
+    if (!c) return "";
+    const p = String(r?.type || "").trim();
+    return p === "name" ? Oe(c.fullName || "") : p === "initials" ? Oe(c.initials || "") || In(c.fullName || n.recipientName || "") : p === "signature" ? Oe(c.typedSignature || "") : "";
   }
-  function jt(r) {
+  function ft(r) {
     return !n.profile.persistDrawnSignature || !a.profileData ? "" : r?.type === "initials" && String(a.profileData.drawnInitialsDataUrl || "").trim() || String(a.profileData.drawnSignatureDataUrl || "").trim();
   }
-  function Ot(r) {
-    const l = G(r?.value || "");
-    return l || (a.profileData ? r?.type === "initials" ? G(a.profileData.initials || "") || _e(a.profileData.fullName || n.recipientName || "") : r?.type === "signature" ? G(a.profileData.typedSignature || "") : "" : "");
+  function yt(r) {
+    const c = Oe(r?.value || "");
+    return c || (a.profileData ? r?.type === "initials" ? Oe(a.profileData.initials || "") || In(a.profileData.fullName || n.recipientName || "") : r?.type === "signature" ? Oe(a.profileData.typedSignature || "") : "" : "");
   }
-  function We() {
+  function Ke() {
     const r = document.getElementById("remember-profile-input");
     return r instanceof HTMLInputElement ? !!r.checked : a.profileRemember;
   }
-  async function Je(r = !1) {
-    let l = null;
+  async function vt(r = !1) {
+    let c = null;
     try {
-      await o.clear(a.profileKey);
-    } catch (u) {
-      l = u;
+      await d.clear(a.profileKey);
+    } catch (p) {
+      c = p;
     } finally {
       a.profileData = null, a.profileRemember = n.profile.rememberByDefault;
     }
-    if (l) {
+    if (c) {
       if (!r && window.toastManager && window.toastManager.error("Unable to clear saved signer profile on all devices"), !r)
-        throw l;
+        throw c;
       return;
     }
     !r && window.toastManager && window.toastManager.success("Saved signer profile cleared");
   }
-  async function Ye(r, l = {}) {
-    const u = We();
-    if (a.profileRemember = u, !u) {
-      await Je(!0);
+  async function Qe(r, c = {}) {
+    const p = Ke();
+    if (a.profileRemember = p, !p) {
+      await vt(!0);
       return;
     }
     if (!r) return;
-    const p = {
+    const h = {
       remember: !0
-    }, h = String(r.type || "");
-    if (h === "name" && typeof r.value == "string") {
-      const m = G(r.value);
-      m && (p.fullName = m, (a.profileData?.initials || "").trim() || (p.initials = _e(m)));
+    }, y = String(r.type || "");
+    if (y === "name" && typeof r.value == "string") {
+      const b = Oe(r.value);
+      b && (h.fullName = b, (a.profileData?.initials || "").trim() || (h.initials = In(b)));
     }
-    if (h === "initials") {
-      if (l.signatureType === "drawn" && n.profile.persistDrawnSignature && typeof l.signatureDataUrl == "string")
-        p.drawnInitialsDataUrl = l.signatureDataUrl;
+    if (y === "initials") {
+      if (c.signatureType === "drawn" && n.profile.persistDrawnSignature && typeof c.signatureDataUrl == "string")
+        h.drawnInitialsDataUrl = c.signatureDataUrl;
       else if (typeof r.value == "string") {
-        const m = G(r.value);
-        m && (p.initials = m);
+        const b = Oe(r.value);
+        b && (h.initials = b);
       }
     }
-    if (h === "signature") {
-      if (l.signatureType === "drawn" && n.profile.persistDrawnSignature && typeof l.signatureDataUrl == "string")
-        p.drawnSignatureDataUrl = l.signatureDataUrl;
+    if (y === "signature") {
+      if (c.signatureType === "drawn" && n.profile.persistDrawnSignature && typeof c.signatureDataUrl == "string")
+        h.drawnSignatureDataUrl = c.signatureDataUrl;
       else if (typeof r.value == "string") {
-        const m = G(r.value);
-        m && (p.typedSignature = m);
+        const b = Oe(r.value);
+        b && (h.typedSignature = b);
       }
     }
-    if (!(Object.keys(p).length === 1 && p.remember === !0))
+    if (!(Object.keys(h).length === 1 && h.remember === !0))
       try {
-        const m = await o.save(a.profileKey, p);
-        a.profileData = m;
+        const b = await d.save(a.profileKey, h);
+        a.profileData = b;
       } catch {
       }
   }
-  function zt() {
-    const r = document.getElementById("consent-checkbox"), l = document.getElementById("consent-accept-btn");
-    r && l && r.addEventListener("change", function() {
-      l.disabled = !this.checked;
+  function Xe() {
+    const r = document.getElementById("consent-checkbox"), c = document.getElementById("consent-accept-btn");
+    r && c && r.addEventListener("change", function() {
+      c.disabled = !this.checked;
     });
   }
-  function Ut() {
+  function je() {
     return !!(navigator.deviceMemory && navigator.deviceMemory < 4 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
   }
-  function be() {
+  function Ve() {
     const r = a.isLowMemory ? 3 : a.maxCachedPages;
     if (a.renderedPages.size <= r) return;
-    const l = [];
-    for (a.renderedPages.forEach((u, p) => {
-      const h = Math.abs(p - a.currentPage);
-      l.push({ pageNum: p, distance: h });
-    }), l.sort((u, p) => p.distance - u.distance); a.renderedPages.size > r && l.length > 0; ) {
-      const u = l.shift();
-      u && u.pageNum !== a.currentPage && a.renderedPages.delete(u.pageNum);
+    const c = [];
+    for (a.renderedPages.forEach((p, h) => {
+      const y = Math.abs(h - a.currentPage);
+      c.push({ pageNum: h, distance: y });
+    }), c.sort((p, h) => h.distance - p.distance); a.renderedPages.size > r && c.length > 0; ) {
+      const p = c.shift();
+      p && p.pageNum !== a.currentPage && a.renderedPages.delete(p.pageNum);
     }
   }
-  function Ke(r) {
+  function wt(r) {
     if (a.isLowMemory) return;
-    const l = [];
-    r > 1 && l.push(r - 1), r < n.pageCount && l.push(r + 1), "requestIdleCallback" in window && requestIdleCallback(() => {
-      l.forEach(async (u) => {
-        !a.renderedPages.has(u) && !a.pageRendering && await Nt(u);
+    const c = [];
+    r > 1 && c.push(r - 1), r < n.pageCount && c.push(r + 1), "requestIdleCallback" in window && requestIdleCallback(() => {
+      c.forEach(async (p) => {
+        !a.renderedPages.has(p) && !a.pageRendering && await Zt(p);
       });
     }, { timeout: 2e3 });
   }
-  async function Nt(r) {
+  async function Zt(r) {
     if (!(!a.pdfDoc || a.renderedPages.has(r)))
       try {
-        const l = await a.pdfDoc.getPage(r), u = a.zoomLevel, p = l.getViewport({ scale: u * window.devicePixelRatio }), h = document.createElement("canvas"), m = h.getContext("2d");
-        h.width = p.width, h.height = p.height;
-        const v = {
-          canvasContext: m,
-          viewport: p
+        const c = await a.pdfDoc.getPage(r), p = a.zoomLevel, h = c.getViewport({ scale: p * window.devicePixelRatio }), y = document.createElement("canvas"), b = y.getContext("2d");
+        y.width = h.width, y.height = h.height;
+        const I = {
+          canvasContext: b,
+          viewport: h
         };
-        await l.render(v).promise, a.renderedPages.set(r, {
-          canvas: h,
-          scale: u,
+        await c.render(I).promise, a.renderedPages.set(r, {
+          canvas: y,
+          scale: p,
           timestamp: Date.now()
-        }), be();
-      } catch (l) {
-        console.warn("Preload failed for page", r, l);
+        }), Ve();
+      } catch (c) {
+        console.warn("Preload failed for page", r, c);
       }
   }
-  function qt() {
+  function en() {
     const r = window.devicePixelRatio || 1;
     return a.isLowMemory ? Math.min(r, 1.5) : Math.min(r, 2);
   }
-  async function de() {
-    const r = document.getElementById("pdf-loading"), l = Date.now();
+  async function Ze() {
+    const r = document.getElementById("pdf-loading"), c = Date.now();
     try {
-      const u = await fetch(`${n.apiBasePath}/assets/${n.token}`);
-      if (!u.ok)
+      const p = await fetch(`${n.apiBasePath}/assets/${n.token}`);
+      if (!p.ok)
         throw new Error("Failed to load document");
-      const h = (await u.json()).assets || {}, m = h.source_url || h.executed_url || h.certificate_url || n.documentUrl;
-      if (!m)
+      const y = (await p.json()).assets || {}, b = y.source_url || y.executed_url || y.certificate_url || n.documentUrl;
+      if (!b)
         throw new Error("Document preview is not available yet. The document may still be processing.");
-      const v = pdfjsLib.getDocument(m);
-      a.pdfDoc = await v.promise, n.pageCount = a.pdfDoc.numPages, document.getElementById("page-count").textContent = a.pdfDoc.numPages, await xe(1), pe(), d.trackViewerLoad(!0, Date.now() - l), d.trackPageView(1);
-    } catch (u) {
-      console.error("PDF load error:", u), d.trackViewerLoad(!1, Date.now() - l, u.message), r && (r.innerHTML = `
+      const I = pdfjsLib.getDocument(b);
+      a.pdfDoc = await I.promise, n.pageCount = a.pdfDoc.numPages, document.getElementById("page-count").textContent = a.pdfDoc.numPages, await rt(1), qe(), u.trackViewerLoad(!0, Date.now() - c), u.trackPageView(1);
+    } catch (p) {
+      console.error("PDF load error:", p), u.trackViewerLoad(!1, Date.now() - c, p.message), r && (r.innerHTML = `
           <div class="text-center text-red-500">
             <i class="iconoir-warning-circle text-2xl mb-2"></i>
             <p class="text-sm">Failed to load document</p>
             <button type="button" data-esign-action="retry-load-pdf" class="mt-2 text-blue-600 hover:underline text-sm">Retry</button>
           </div>
-        `), vn();
+        `), $t();
     }
   }
-  async function xe(r) {
+  async function rt(r) {
     if (!a.pdfDoc) return;
-    const l = a.renderedPages.get(r);
-    if (l && l.scale === a.zoomLevel) {
-      Vt(l), a.currentPage = r, document.getElementById("current-page").textContent = r, ue(), Ke(r);
+    const c = a.renderedPages.get(r);
+    if (c && c.scale === a.zoomLevel) {
+      Ee(c), a.currentPage = r, document.getElementById("current-page").textContent = r, at(), wt(r);
       return;
     }
     a.pageRendering = !0;
     try {
-      const u = await a.pdfDoc.getPage(r), p = a.zoomLevel, h = qt(), m = u.getViewport({ scale: p * h }), v = u.getViewport({ scale: 1 });
-      f.setPageViewport(r, {
-        width: v.width,
-        height: v.height,
-        rotation: v.rotation || 0
+      const p = await a.pdfDoc.getPage(r), h = a.zoomLevel, y = en(), b = p.getViewport({ scale: h * y }), I = p.getViewport({ scale: 1 });
+      x.setPageViewport(r, {
+        width: I.width,
+        height: I.height,
+        rotation: I.rotation || 0
       });
-      const S = document.getElementById("pdf-page-1");
-      S.innerHTML = "";
-      const L = document.createElement("canvas"), D = L.getContext("2d");
-      L.height = m.height, L.width = m.width, L.style.width = `${m.width / h}px`, L.style.height = `${m.height / h}px`, S.appendChild(L);
-      const k = document.getElementById("pdf-container");
-      k.style.width = `${m.width / h}px`;
-      const R = {
-        canvasContext: D,
-        viewport: m
+      const _ = document.getElementById("pdf-page-1");
+      _.innerHTML = "";
+      const R = document.createElement("canvas"), V = R.getContext("2d");
+      R.height = b.height, R.width = b.width, R.style.width = `${b.width / y}px`, R.style.height = `${b.height / y}px`, _.appendChild(R);
+      const O = document.getElementById("pdf-container");
+      O.style.width = `${b.width / y}px`;
+      const re = {
+        canvasContext: V,
+        viewport: b
       };
-      await u.render(R).promise, a.renderedPages.set(r, {
-        canvas: L.cloneNode(!0),
-        scale: p,
+      await p.render(re).promise, a.renderedPages.set(r, {
+        canvas: R.cloneNode(!0),
+        scale: h,
         timestamp: Date.now(),
-        displayWidth: m.width / h,
-        displayHeight: m.height / h
-      }), a.renderedPages.get(r).canvas.getContext("2d").drawImage(L, 0, 0), be(), a.currentPage = r, document.getElementById("current-page").textContent = r, ue(), d.trackPageView(r), Ke(r);
-    } catch (u) {
-      console.error("Page render error:", u);
+        displayWidth: b.width / y,
+        displayHeight: b.height / y
+      }), a.renderedPages.get(r).canvas.getContext("2d").drawImage(R, 0, 0), Ve(), a.currentPage = r, document.getElementById("current-page").textContent = r, at(), u.trackPageView(r), wt(r);
+    } catch (p) {
+      console.error("Page render error:", p);
     } finally {
       if (a.pageRendering = !1, a.pageNumPending !== null) {
-        const u = a.pageNumPending;
-        a.pageNumPending = null, await xe(u);
+        const p = a.pageNumPending;
+        a.pageNumPending = null, await rt(p);
       }
     }
   }
-  function Vt(r, l) {
-    const u = document.getElementById("pdf-page-1");
-    u.innerHTML = "";
-    const p = document.createElement("canvas");
-    p.width = r.canvas.width, p.height = r.canvas.height, p.style.width = `${r.displayWidth}px`, p.style.height = `${r.displayHeight}px`, p.getContext("2d").drawImage(r.canvas, 0, 0), u.appendChild(p);
-    const m = document.getElementById("pdf-container");
-    m.style.width = `${r.displayWidth}px`;
+  function Ee(r, c) {
+    const p = document.getElementById("pdf-page-1");
+    p.innerHTML = "";
+    const h = document.createElement("canvas");
+    h.width = r.canvas.width, h.height = r.canvas.height, h.style.width = `${r.displayWidth}px`, h.style.height = `${r.displayHeight}px`, h.getContext("2d").drawImage(r.canvas, 0, 0), p.appendChild(h);
+    const b = document.getElementById("pdf-container");
+    b.style.width = `${r.displayWidth}px`;
   }
-  function ne(r) {
-    a.pageRendering ? a.pageNumPending = r : xe(r);
+  function ae(r) {
+    a.pageRendering ? a.pageNumPending = r : rt(r);
   }
-  function ue() {
+  function at() {
     const r = document.getElementById("field-overlays");
     r.innerHTML = "", r.style.pointerEvents = "auto";
-    const l = document.getElementById("pdf-container");
-    a.fieldState.forEach((u, p) => {
-      if (u.page !== a.currentPage) return;
-      const h = document.createElement("div");
-      if (h.className = "field-overlay", h.dataset.fieldId = p, u.required && h.classList.add("required"), u.completed && h.classList.add("completed"), a.activeFieldId === p && h.classList.add("active"), u.posX != null && u.posY != null && u.width != null && u.height != null) {
-        const S = f.getOverlayStyles(u, l);
-        h.style.left = S.left, h.style.top = S.top, h.style.width = S.width, h.style.height = S.height, h.style.transform = S.transform, Y.enabled && (h.dataset.debugCoords = JSON.stringify(
-          f.pageToScreen(u, l)._debug
+    const c = document.getElementById("pdf-container");
+    a.fieldState.forEach((p, h) => {
+      if (p.page !== a.currentPage) return;
+      const y = document.createElement("div");
+      if (y.className = "field-overlay", y.dataset.fieldId = h, p.required && y.classList.add("required"), p.completed && y.classList.add("completed"), a.activeFieldId === h && y.classList.add("active"), p.posX != null && p.posY != null && p.width != null && p.height != null) {
+        const _ = x.getOverlayStyles(p, c);
+        y.style.left = _.left, y.style.top = _.top, y.style.width = _.width, y.style.height = _.height, y.style.transform = _.transform, Ae.enabled && (y.dataset.debugCoords = JSON.stringify(
+          x.pageToScreen(p, c)._debug
         ));
       } else {
-        const S = Array.from(a.fieldState.keys()).indexOf(p);
-        h.style.left = "10px", h.style.top = `${100 + S * 50}px`, h.style.width = "150px", h.style.height = "30px";
+        const _ = Array.from(a.fieldState.keys()).indexOf(h);
+        y.style.left = "10px", y.style.top = `${100 + _ * 50}px`, y.style.width = "150px", y.style.height = "30px";
       }
-      const v = document.createElement("span");
-      v.className = "field-overlay-label", v.textContent = Qe(u.type), h.appendChild(v), h.setAttribute("tabindex", "0"), h.setAttribute("role", "button"), h.setAttribute("aria-label", `${Qe(u.type)} field${u.required ? ", required" : ""}${u.completed ? ", completed" : ""}`), h.addEventListener("click", () => he(p)), h.addEventListener("keydown", (S) => {
-        (S.key === "Enter" || S.key === " ") && (S.preventDefault(), he(p));
-      }), r.appendChild(h);
+      const I = document.createElement("span");
+      I.className = "field-overlay-label", I.textContent = bt(p.type), y.appendChild(I), y.setAttribute("tabindex", "0"), y.setAttribute("role", "button"), y.setAttribute("aria-label", `${bt(p.type)} field${p.required ? ", required" : ""}${p.completed ? ", completed" : ""}`), y.addEventListener("click", () => et(h)), y.addEventListener("keydown", (_) => {
+        (_.key === "Enter" || _.key === " ") && (_.preventDefault(), et(h));
+      }), r.appendChild(y);
     });
   }
-  function Qe(r) {
+  function bt(r) {
     return {
       signature: "Sign",
       initials: "Initial",
@@ -7081,63 +8502,63 @@ function ni(s) {
       checkbox: "Check"
     }[r] || r;
   }
-  function Gt() {
-    a.currentPage <= 1 || (ne(a.currentPage - 1), pe());
+  function tn() {
+    a.currentPage <= 1 || (ae(a.currentPage - 1), qe());
   }
-  function Wt() {
-    a.currentPage >= n.pageCount || (ne(a.currentPage + 1), pe());
+  function Ft() {
+    a.currentPage >= n.pageCount || (ae(a.currentPage + 1), qe());
   }
-  function Xe(r) {
-    r < 1 || r > n.pageCount || (ne(r), pe());
+  function Rt(r) {
+    r < 1 || r > n.pageCount || (ae(r), qe());
   }
-  function pe() {
+  function qe() {
     document.getElementById("prev-page-btn").disabled = a.currentPage <= 1, document.getElementById("next-page-btn").disabled = a.currentPage >= n.pageCount;
   }
-  function Jt() {
-    a.zoomLevel = Math.min(a.zoomLevel + 0.25, 3), Se(), ne(a.currentPage);
+  function he() {
+    a.zoomLevel = Math.min(a.zoomLevel + 0.25, 3), St(), ae(a.currentPage);
   }
-  function Yt() {
-    a.zoomLevel = Math.max(a.zoomLevel - 0.25, 0.5), Se(), ne(a.currentPage);
+  function nn() {
+    a.zoomLevel = Math.max(a.zoomLevel - 0.25, 0.5), St(), ae(a.currentPage);
   }
-  function Kt() {
-    const l = document.getElementById("viewer-content").offsetWidth - 32, u = 612;
-    a.zoomLevel = l / u, Se(), ne(a.currentPage);
+  function xt() {
+    const c = document.getElementById("viewer-content").offsetWidth - 32, p = 612;
+    a.zoomLevel = c / p, St(), ae(a.currentPage);
   }
-  function Se() {
+  function St() {
     document.getElementById("zoom-level").textContent = `${Math.round(a.zoomLevel * 100)}%`;
   }
-  function he(r) {
-    if (!a.hasConsented && n.fields.some((l) => l.id === r && l.type !== "date_signed")) {
-      ot();
+  function et(r) {
+    if (!a.hasConsented && n.fields.some((c) => c.id === r && c.type !== "date_signed")) {
+      _t();
       return;
     }
-    Ze(r, { openEditor: !0 });
+    de(r, { openEditor: !0 });
   }
-  function Ze(r, l = { openEditor: !0 }) {
-    const u = a.fieldState.get(r);
-    if (u) {
-      if (l.openEditor && (a.activeFieldId = r), document.querySelectorAll(".field-list-item").forEach((p) => p.classList.remove("active", "guided-next-target")), document.querySelector(`.field-list-item[data-field-id="${r}"]`)?.classList.add("active"), document.querySelectorAll(".field-overlay").forEach((p) => p.classList.remove("active", "guided-next-target")), document.querySelector(`.field-overlay[data-field-id="${r}"]`)?.classList.add("active"), u.page !== a.currentPage && Xe(u.page), !l.openEditor) {
-        et(r);
+  function de(r, c = { openEditor: !0 }) {
+    const p = a.fieldState.get(r);
+    if (p) {
+      if (c.openEditor && (a.activeFieldId = r), document.querySelectorAll(".field-list-item").forEach((h) => h.classList.remove("active", "guided-next-target")), document.querySelector(`.field-list-item[data-field-id="${r}"]`)?.classList.add("active"), document.querySelectorAll(".field-overlay").forEach((h) => h.classList.remove("active", "guided-next-target")), document.querySelector(`.field-overlay[data-field-id="${r}"]`)?.classList.add("active"), p.page !== a.currentPage && Rt(p.page), !c.openEditor) {
+        It(r);
         return;
       }
-      u.type !== "date_signed" && Qt(r);
+      p.type !== "date_signed" && sn(r);
     }
   }
-  function et(r) {
+  function It(r) {
     document.querySelector(`.field-list-item[data-field-id="${r}"]`)?.scrollIntoView({ behavior: "smooth", block: "nearest" }), requestAnimationFrame(() => {
       document.querySelector(`.field-overlay[data-field-id="${r}"]`)?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
     });
   }
-  function Qt(r) {
-    const l = a.fieldState.get(r);
-    if (!l) return;
-    const u = document.getElementById("field-editor-overlay"), p = document.getElementById("field-editor-content"), h = document.getElementById("field-editor-title"), m = document.getElementById("field-editor-legal-disclaimer");
-    h.textContent = tt(l.type), p.innerHTML = Xt(l), m?.classList.toggle("hidden", !(l.type === "signature" || l.type === "initials")), (l.type === "signature" || l.type === "initials") && en(r), u.classList.add("active"), u.setAttribute("aria-hidden", "false"), document.body.style.overflow = "hidden", ke(u.querySelector(".field-editor")), j(`Editing ${tt(l.type)}. Press Escape to cancel.`), setTimeout(() => {
-      const v = p.querySelector("input, textarea");
-      v ? v.focus() : p.querySelector('.sig-editor-tab[aria-selected="true"]')?.focus();
-    }, 100);
+  function sn(r) {
+    const c = a.fieldState.get(r);
+    if (!c) return;
+    const p = document.getElementById("field-editor-overlay"), h = document.getElementById("field-editor-content"), y = document.getElementById("field-editor-title"), b = document.getElementById("field-editor-legal-disclaimer");
+    y.textContent = Et(c.type), h.innerHTML = Ct(c), b?.classList.toggle("hidden", !(c.type === "signature" || c.type === "initials")), (c.type === "signature" || c.type === "initials") && kt(r), p.classList.add("active"), p.setAttribute("aria-hidden", "false"), document.body.style.overflow = "hidden", Be(p.querySelector(".field-editor")), oe(`Editing ${Et(c.type)}. Press Escape to cancel.`), setTimeout(() => {
+      const I = h.querySelector("input, textarea");
+      I ? I.focus() : h.querySelector('.sig-editor-tab[aria-selected="true"]')?.focus();
+    }, 100), Le(a.writeCooldownUntil) > 0 && qt(Le(a.writeCooldownUntil));
   }
-  function tt(r) {
+  function Et(r) {
     return {
       signature: "Add Your Signature",
       initials: "Add Your Initials",
@@ -7146,75 +8567,75 @@ function ni(s) {
       checkbox: "Confirmation"
     }[r] || "Edit Field";
   }
-  function Xt(r) {
-    const l = Zt(r.type), u = V(String(r?.id || "")), p = V(String(r?.type || ""));
+  function Ct(r) {
+    const c = Lt(r.type), p = Re(String(r?.id || "")), h = Re(String(r?.type || ""));
     if (r.type === "signature" || r.type === "initials") {
-      const h = r.type === "initials" ? "initials" : "signature", m = V(Ot(r)), v = [
+      const y = r.type === "initials" ? "initials" : "signature", b = Re(yt(r)), I = [
         { id: "draw", label: "Draw" },
         { id: "type", label: "Type" },
         { id: "upload", label: "Upload" },
         { id: "saved", label: "Saved" }
-      ], S = nt(r.id);
+      ], _ = Ht(r.id);
       return `
         <div class="space-y-4">
           <div class="flex border-b border-gray-200" role="tablist" aria-label="Signature editor tabs">
-            ${v.map((L) => `
+            ${I.map((R) => `
             <button
               type="button"
-              id="sig-tab-${L.id}"
-              class="sig-editor-tab flex-1 py-2 text-sm font-medium border-b-2 ${S === L.id ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"}"
-              data-tab="${L.id}"
+              id="sig-tab-${R.id}"
+              class="sig-editor-tab flex-1 py-2 text-sm font-medium border-b-2 ${_ === R.id ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"}"
+              data-tab="${R.id}"
               data-esign-action="signature-tab"
-              data-field-id="${u}"
+              data-field-id="${p}"
               role="tab"
-              aria-selected="${S === L.id ? "true" : "false"}"
-              aria-controls="sig-editor-${L.id}"
-              tabindex="${S === L.id ? "0" : "-1"}"
+              aria-selected="${_ === R.id ? "true" : "false"}"
+              aria-controls="sig-editor-${R.id}"
+              tabindex="${_ === R.id ? "0" : "-1"}"
             >
-              ${L.label}
+              ${R.label}
             </button>`).join("")}
           </div>
 
           <!-- Type panel -->
-          <div id="sig-editor-type" class="sig-editor-panel ${S === "type" ? "" : "hidden"}" role="tabpanel" aria-labelledby="sig-tab-type">
+          <div id="sig-editor-type" class="sig-editor-panel ${_ === "type" ? "" : "hidden"}" role="tabpanel" aria-labelledby="sig-tab-type">
             <input
               type="text"
               id="sig-type-input"
               class="w-full text-2xl font-signature text-center py-4 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Type your ${h}"
-              value="${m}"
-              data-field-id="${u}"
+              placeholder="Type your ${y}"
+              value="${b}"
+              data-field-id="${p}"
             />
-            <p class="text-xs text-gray-500 mt-2 text-center">Your typed ${h} will appear as your ${p}</p>
+            <p class="text-xs text-gray-500 mt-2 text-center">Your typed ${y} will appear as your ${h}</p>
           </div>
 
           <!-- Draw panel -->
-          <div id="sig-editor-draw" class="sig-editor-panel ${S === "draw" ? "" : "hidden"}" role="tabpanel" aria-labelledby="sig-tab-draw">
+          <div id="sig-editor-draw" class="sig-editor-panel ${_ === "draw" ? "" : "hidden"}" role="tabpanel" aria-labelledby="sig-tab-draw">
             <div class="signature-canvas-container">
-              <canvas id="sig-draw-canvas" class="signature-canvas" data-field-id="${u}"></canvas>
+              <canvas id="sig-draw-canvas" class="signature-canvas" data-field-id="${p}"></canvas>
             </div>
             <div class="grid grid-cols-3 gap-2 mt-2">
-              <button type="button" data-esign-action="undo-signature-canvas" data-field-id="${u}" class="btn btn-secondary text-xs justify-center">
+              <button type="button" data-esign-action="undo-signature-canvas" data-field-id="${p}" class="btn btn-secondary text-xs justify-center">
                 Undo
               </button>
-              <button type="button" data-esign-action="redo-signature-canvas" data-field-id="${u}" class="btn btn-secondary text-xs justify-center">
+              <button type="button" data-esign-action="redo-signature-canvas" data-field-id="${p}" class="btn btn-secondary text-xs justify-center">
                 Redo
               </button>
-              <button type="button" data-esign-action="clear-signature-canvas" data-field-id="${u}" class="btn btn-secondary text-xs justify-center">
+              <button type="button" data-esign-action="clear-signature-canvas" data-field-id="${p}" class="btn btn-secondary text-xs justify-center">
                 Clear
               </button>
             </div>
-            <p class="text-xs text-gray-500 mt-2 text-center">Draw your ${h} using mouse or touch</p>
+            <p class="text-xs text-gray-500 mt-2 text-center">Draw your ${y} using mouse or touch</p>
           </div>
 
           <!-- Upload panel -->
-          <div id="sig-editor-upload" class="sig-editor-panel ${S === "upload" ? "" : "hidden"}" role="tabpanel" aria-labelledby="sig-tab-upload">
+          <div id="sig-editor-upload" class="sig-editor-panel ${_ === "upload" ? "" : "hidden"}" role="tabpanel" aria-labelledby="sig-tab-upload">
             <label class="block text-sm font-medium text-gray-700 mb-2" for="sig-upload-input">Upload signature image (PNG or JPEG)</label>
             <input
               type="file"
               id="sig-upload-input"
               accept="image/png,image/jpeg"
-              data-field-id="${u}"
+              data-field-id="${p}"
               data-esign-action="upload-signature-file"
               class="block w-full text-sm text-gray-700 border border-gray-200 rounded-lg p-2"
             />
@@ -7225,10 +8646,10 @@ function ni(s) {
           </div>
 
           <!-- Saved panel -->
-          <div id="sig-editor-saved" class="sig-editor-panel ${S === "saved" ? "" : "hidden"}" role="tabpanel" aria-labelledby="sig-tab-saved">
+          <div id="sig-editor-saved" class="sig-editor-panel ${_ === "saved" ? "" : "hidden"}" role="tabpanel" aria-labelledby="sig-tab-saved">
             <div class="flex items-center justify-between mb-2">
-              <p class="text-xs text-gray-500">Saved ${h}s</p>
-              <button type="button" data-esign-action="save-current-signature-library" data-field-id="${u}" class="text-xs text-blue-600 hover:text-blue-700 underline underline-offset-2">
+              <p class="text-xs text-gray-500">Saved ${y}s</p>
+              <button type="button" data-esign-action="save-current-signature-library" data-field-id="${p}" class="text-xs text-blue-600 hover:text-blue-700 underline underline-offset-2">
                 Save current
               </button>
             </div>
@@ -7237,7 +8658,7 @@ function ni(s) {
             </div>
           </div>
 
-          ${l}
+          ${c}
         </div>
       `;
     }
@@ -7248,21 +8669,21 @@ function ni(s) {
           id="field-text-input"
           class="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           placeholder="Enter your full legal name"
-          value="${V(String(r.value || ""))}"
-          data-field-id="${u}"
+          value="${Re(String(r.value || ""))}"
+          data-field-id="${p}"
         />
-        ${l}
+        ${c}
       `;
     if (r.type === "text") {
-      const h = V(String(r.value || ""));
+      const y = Re(String(r.value || ""));
       return `
         <textarea
           id="field-text-input"
           class="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
           placeholder="Enter text"
           rows="3"
-          data-field-id="${u}"
-        >${h}</textarea>
+          data-field-id="${p}"
+        >${y}</textarea>
       `;
     }
     return r.type === "checkbox" ? `
@@ -7278,7 +8699,7 @@ function ni(s) {
         </label>
       ` : '<p class="text-gray-500">Unsupported field type</p>';
   }
-  function Zt(r) {
+  function Lt(r) {
     return r === "name" || r === "initials" || r === "signature" ? `
       <div class="pt-3 border-t border-gray-100 space-y-2">
         <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
@@ -7300,424 +8721,477 @@ function ni(s) {
       </div>
     ` : "";
   }
-  function nt(r) {
-    const l = String(a.signatureTabByField.get(r) || "").trim();
-    return l === "draw" || l === "type" || l === "upload" || l === "saved" ? l : "draw";
+  function Ht(r) {
+    const c = String(a.signatureTabByField.get(r) || "").trim();
+    return c === "draw" || c === "type" || c === "upload" || c === "saved" ? c : "draw";
   }
-  function ge(r, l) {
-    const u = ["draw", "type", "upload", "saved"].includes(r) ? r : "draw";
-    a.signatureTabByField.set(l, u), document.querySelectorAll(".sig-editor-tab").forEach((h) => {
-      h.classList.remove("border-blue-600", "text-blue-600"), h.classList.add("border-transparent", "text-gray-500"), h.setAttribute("aria-selected", "false"), h.setAttribute("tabindex", "-1");
+  function tt(r, c) {
+    const p = ["draw", "type", "upload", "saved"].includes(r) ? r : "draw";
+    a.signatureTabByField.set(c, p), document.querySelectorAll(".sig-editor-tab").forEach((y) => {
+      y.classList.remove("border-blue-600", "text-blue-600"), y.classList.add("border-transparent", "text-gray-500"), y.setAttribute("aria-selected", "false"), y.setAttribute("tabindex", "-1");
     });
-    const p = document.querySelector(`.sig-editor-tab[data-tab="${u}"]`);
-    p?.classList.add("border-blue-600", "text-blue-600"), p?.classList.remove("border-transparent", "text-gray-500"), p?.setAttribute("aria-selected", "true"), p?.setAttribute("tabindex", "0"), document.getElementById("sig-editor-type")?.classList.toggle("hidden", u !== "type"), document.getElementById("sig-editor-draw")?.classList.toggle("hidden", u !== "draw"), document.getElementById("sig-editor-upload")?.classList.toggle("hidden", u !== "upload"), document.getElementById("sig-editor-saved")?.classList.toggle("hidden", u !== "saved"), (u === "draw" || u === "upload" || u === "saved") && p && requestAnimationFrame(() => me(l)), u === "saved" && C(l).catch(B);
+    const h = document.querySelector(`.sig-editor-tab[data-tab="${p}"]`);
+    h?.classList.add("border-blue-600", "text-blue-600"), h?.classList.remove("border-transparent", "text-gray-500"), h?.setAttribute("aria-selected", "true"), h?.setAttribute("tabindex", "0"), document.getElementById("sig-editor-type")?.classList.toggle("hidden", p !== "type"), document.getElementById("sig-editor-draw")?.classList.toggle("hidden", p !== "draw"), document.getElementById("sig-editor-upload")?.classList.toggle("hidden", p !== "upload"), document.getElementById("sig-editor-saved")?.classList.toggle("hidden", p !== "saved"), (p === "draw" || p === "upload" || p === "saved") && h && requestAnimationFrame(() => ot(c)), p === "saved" && F(c).catch(X);
   }
-  function en(r) {
-    a.signatureTabByField.set(r, "draw"), ge("draw", r);
+  function kt(r) {
+    a.signatureTabByField.set(r, "draw"), tt("draw", r);
   }
-  function me(r) {
-    const l = document.getElementById("sig-draw-canvas");
-    if (!l || a.signatureCanvases.has(r)) return;
-    const u = l.closest(".signature-canvas-container"), p = l.getContext("2d");
-    if (!p) return;
-    const h = l.getBoundingClientRect();
-    if (!h.width || !h.height) return;
-    const m = window.devicePixelRatio || 1;
-    l.width = h.width * m, l.height = h.height * m, p.scale(m, m), p.lineCap = "round", p.lineJoin = "round", p.strokeStyle = "#1f2937", p.lineWidth = 2.5;
-    let v = !1, S = 0, L = 0, D = [];
-    const k = (A) => {
-      const _ = l.getBoundingClientRect();
-      let K, Q;
-      return A.touches && A.touches.length > 0 ? (K = A.touches[0].clientX, Q = A.touches[0].clientY) : A.changedTouches && A.changedTouches.length > 0 ? (K = A.changedTouches[0].clientX, Q = A.changedTouches[0].clientY) : (K = A.clientX, Q = A.clientY), {
-        x: K - _.left,
-        y: Q - _.top,
+  function ot(r) {
+    const c = document.getElementById("sig-draw-canvas");
+    if (!c || a.signatureCanvases.has(r)) return;
+    const p = c.closest(".signature-canvas-container"), h = c.getContext("2d");
+    if (!h) return;
+    const y = c.getBoundingClientRect();
+    if (!y.width || !y.height) return;
+    const b = window.devicePixelRatio || 1;
+    c.width = y.width * b, c.height = y.height * b, h.scale(b, b), h.lineCap = "round", h.lineJoin = "round", h.strokeStyle = "#1f2937", h.lineWidth = 2.5;
+    let I = !1, _ = 0, R = 0, V = [];
+    const O = (j) => {
+      const J = c.getBoundingClientRect();
+      let Ne, Te;
+      return j.touches && j.touches.length > 0 ? (Ne = j.touches[0].clientX, Te = j.touches[0].clientY) : j.changedTouches && j.changedTouches.length > 0 ? (Ne = j.changedTouches[0].clientX, Te = j.changedTouches[0].clientY) : (Ne = j.clientX, Te = j.clientY), {
+        x: Ne - J.left,
+        y: Te - J.top,
         timestamp: Date.now()
       };
-    }, R = (A) => {
-      v = !0;
-      const _ = k(A);
-      S = _.x, L = _.y, D = [{ x: _.x, y: _.y, t: _.timestamp, width: 2.5 }], u && u.classList.add("drawing");
-    }, N = (A) => {
-      if (!v) return;
-      const _ = k(A);
-      D.push({ x: _.x, y: _.y, t: _.timestamp, width: 2.5 });
-      const K = _.x - S, Q = _.y - L, bn = _.timestamp - (D[D.length - 2]?.t || _.timestamp), xn = Math.sqrt(K * K + Q * Q) / Math.max(bn, 1), Sn = 2.5, Cn = 1.5, En = 4, In = Math.min(xn / 5, 1), ut = Math.max(Cn, Math.min(En, Sn - In * 1.5));
-      D[D.length - 1].width = ut, p.lineWidth = ut, p.beginPath(), p.moveTo(S, L), p.lineTo(_.x, _.y), p.stroke(), S = _.x, L = _.y;
-    }, q = () => {
-      if (v = !1, D.length > 1) {
-        const A = a.signatureCanvases.get(r);
-        A && (A.strokes.push(D.map((_) => ({ ..._ }))), A.redoStack = []);
+    }, re = (j) => {
+      I = !0;
+      const J = O(j);
+      _ = J.x, R = J.y, V = [{ x: J.x, y: J.y, t: J.timestamp, width: 2.5 }], p && p.classList.add("drawing");
+    }, ue = (j) => {
+      if (!I) return;
+      const J = O(j);
+      V.push({ x: J.x, y: J.y, t: J.timestamp, width: 2.5 });
+      const Ne = J.x - _, Te = J.y - R, ln = J.timestamp - (V[V.length - 2]?.t || J.timestamp), dn = Math.sqrt(Ne * Ne + Te * Te) / Math.max(ln, 1), un = 2.5, pn = 1.5, gn = 4, mn = Math.min(dn / 5, 1), Mt = Math.max(pn, Math.min(gn, un - mn * 1.5));
+      V[V.length - 1].width = Mt, h.lineWidth = Mt, h.beginPath(), h.moveTo(_, R), h.lineTo(J.x, J.y), h.stroke(), _ = J.x, R = J.y;
+    }, ne = () => {
+      if (I = !1, V.length > 1) {
+        const j = a.signatureCanvases.get(r);
+        j && (j.strokes.push(V.map((J) => ({ ...J }))), j.redoStack = []);
       }
-      D = [], u && u.classList.remove("drawing");
+      V = [], p && p.classList.remove("drawing");
     };
-    l.addEventListener("mousedown", R), l.addEventListener("mousemove", N), l.addEventListener("mouseup", q), l.addEventListener("mouseout", q), l.addEventListener("touchstart", (A) => {
-      A.preventDefault(), A.stopPropagation(), R(A);
-    }, { passive: !1 }), l.addEventListener("touchmove", (A) => {
-      A.preventDefault(), A.stopPropagation(), N(A);
-    }, { passive: !1 }), l.addEventListener("touchend", (A) => {
-      A.preventDefault(), q();
-    }, { passive: !1 }), l.addEventListener("touchcancel", q), l.addEventListener("gesturestart", (A) => A.preventDefault()), l.addEventListener("gesturechange", (A) => A.preventDefault()), l.addEventListener("gestureend", (A) => A.preventDefault()), a.signatureCanvases.set(r, {
-      canvas: l,
-      ctx: p,
-      dpr: m,
-      drawWidth: h.width,
-      drawHeight: h.height,
+    c.addEventListener("mousedown", re), c.addEventListener("mousemove", ue), c.addEventListener("mouseup", ne), c.addEventListener("mouseout", ne), c.addEventListener("touchstart", (j) => {
+      j.preventDefault(), j.stopPropagation(), re(j);
+    }, { passive: !1 }), c.addEventListener("touchmove", (j) => {
+      j.preventDefault(), j.stopPropagation(), ue(j);
+    }, { passive: !1 }), c.addEventListener("touchend", (j) => {
+      j.preventDefault(), ne();
+    }, { passive: !1 }), c.addEventListener("touchcancel", ne), c.addEventListener("gesturestart", (j) => j.preventDefault()), c.addEventListener("gesturechange", (j) => j.preventDefault()), c.addEventListener("gestureend", (j) => j.preventDefault()), a.signatureCanvases.set(r, {
+      canvas: c,
+      ctx: h,
+      dpr: b,
+      drawWidth: y.width,
+      drawHeight: y.height,
       strokes: [],
       redoStack: [],
       baseImageDataUrl: "",
       baseImage: null
-    }), tn(r);
-  }
-  function tn(r) {
-    const l = a.signatureCanvases.get(r), u = a.fieldState.get(r);
-    if (!l || !u) return;
-    const p = jt(u);
-    p && Ce(r, p, { clearStrokes: !0 }).catch(() => {
-    });
-  }
-  async function Ce(r, l, u = { clearStrokes: !1 }) {
-    const p = a.signatureCanvases.get(r);
-    if (!p) return !1;
-    const h = String(l || "").trim();
-    if (!h)
-      return p.baseImageDataUrl = "", p.baseImage = null, u.clearStrokes && (p.strokes = [], p.redoStack = []), oe(r), !0;
-    const { drawWidth: m, drawHeight: v } = p, S = new Image();
-    return await new Promise((L) => {
-      S.onload = () => {
-        u.clearStrokes && (p.strokes = [], p.redoStack = []), p.baseImage = S, p.baseImageDataUrl = h, m > 0 && v > 0 && oe(r), L(!0);
-      }, S.onerror = () => L(!1), S.src = h;
-    });
-  }
-  function oe(r) {
-    const l = a.signatureCanvases.get(r);
-    if (!l) return;
-    const { ctx: u, drawWidth: p, drawHeight: h, baseImage: m, strokes: v } = l;
-    if (u.clearRect(0, 0, p, h), m) {
-      const S = Math.min(p / m.width, h / m.height), L = m.width * S, D = m.height * S, k = (p - L) / 2, R = (h - D) / 2;
-      u.drawImage(m, k, R, L, D);
-    }
-    for (const S of v)
-      for (let L = 1; L < S.length; L++) {
-        const D = S[L - 1], k = S[L];
-        u.lineWidth = Number(k.width || 2.5) || 2.5, u.beginPath(), u.moveTo(D.x, D.y), u.lineTo(k.x, k.y), u.stroke();
-      }
-  }
-  function nn(r) {
-    const l = a.signatureCanvases.get(r);
-    if (!l || l.strokes.length === 0) return;
-    const u = l.strokes.pop();
-    u && l.redoStack.push(u), oe(r);
-  }
-  function sn(r) {
-    const l = a.signatureCanvases.get(r);
-    if (!l || l.redoStack.length === 0) return;
-    const u = l.redoStack.pop();
-    u && l.strokes.push(u), oe(r);
-  }
-  function it(r) {
-    const l = a.signatureCanvases.get(r);
-    if (!l) return !1;
-    if ((l.baseImageDataUrl || "").trim() || l.strokes.length > 0) return !0;
-    const { canvas: u, ctx: p } = l;
-    return p.getImageData(0, 0, u.width, u.height).data.some((m, v) => v % 4 === 3 && m > 0);
+    }), rn(r);
   }
   function rn(r) {
-    const l = a.signatureCanvases.get(r);
-    l && (l.strokes = [], l.redoStack = [], l.baseImage = null, l.baseImageDataUrl = "", oe(r));
-    const u = document.getElementById("sig-upload-preview-wrap"), p = document.getElementById("sig-upload-preview");
-    u && u.classList.add("hidden"), p && p.removeAttribute("src");
+    const c = a.signatureCanvases.get(r), p = a.fieldState.get(r);
+    if (!c || !p) return;
+    const h = ft(p);
+    h && Ce(r, h, { clearStrokes: !0 }).catch(() => {
+    });
   }
-  function Ee() {
-    const r = document.getElementById("field-editor-overlay"), l = r.querySelector(".field-editor");
-    if (Pe(l), r.classList.remove("active"), r.setAttribute("aria-hidden", "true"), document.body.style.overflow = "", a.activeFieldId) {
-      const u = document.querySelector(`.field-list-item[data-field-id="${a.activeFieldId}"]`);
+  async function Ce(r, c, p = { clearStrokes: !1 }) {
+    const h = a.signatureCanvases.get(r);
+    if (!h) return !1;
+    const y = String(c || "").trim();
+    if (!y)
+      return h.baseImageDataUrl = "", h.baseImage = null, p.clearStrokes && (h.strokes = [], h.redoStack = []), we(r), !0;
+    const { drawWidth: b, drawHeight: I } = h, _ = new Image();
+    return await new Promise((R) => {
+      _.onload = () => {
+        p.clearStrokes && (h.strokes = [], h.redoStack = []), h.baseImage = _, h.baseImageDataUrl = y, b > 0 && I > 0 && we(r), R(!0);
+      }, _.onerror = () => R(!1), _.src = y;
+    });
+  }
+  function we(r) {
+    const c = a.signatureCanvases.get(r);
+    if (!c) return;
+    const { ctx: p, drawWidth: h, drawHeight: y, baseImage: b, strokes: I } = c;
+    if (p.clearRect(0, 0, h, y), b) {
+      const _ = Math.min(h / b.width, y / b.height), R = b.width * _, V = b.height * _, O = (h - R) / 2, re = (y - V) / 2;
+      p.drawImage(b, O, re, R, V);
+    }
+    for (const _ of I)
+      for (let R = 1; R < _.length; R++) {
+        const V = _[R - 1], O = _[R];
+        p.lineWidth = Number(O.width || 2.5) || 2.5, p.beginPath(), p.moveTo(V.x, V.y), p.lineTo(O.x, O.y), p.stroke();
+      }
+  }
+  function Ge(r) {
+    const c = a.signatureCanvases.get(r);
+    if (!c || c.strokes.length === 0) return;
+    const p = c.strokes.pop();
+    p && c.redoStack.push(p), we(r);
+  }
+  function ct(r) {
+    const c = a.signatureCanvases.get(r);
+    if (!c || c.redoStack.length === 0) return;
+    const p = c.redoStack.pop();
+    p && c.strokes.push(p), we(r);
+  }
+  function jt(r) {
+    const c = a.signatureCanvases.get(r);
+    if (!c) return !1;
+    if ((c.baseImageDataUrl || "").trim() || c.strokes.length > 0) return !0;
+    const { canvas: p, ctx: h } = c;
+    return h.getImageData(0, 0, p.width, p.height).data.some((b, I) => I % 4 === 3 && b > 0);
+  }
+  function Me(r) {
+    const c = a.signatureCanvases.get(r);
+    c && (c.strokes = [], c.redoStack = [], c.baseImage = null, c.baseImageDataUrl = "", we(r));
+    const p = document.getElementById("sig-upload-preview-wrap"), h = document.getElementById("sig-upload-preview");
+    p && p.classList.add("hidden"), h && h.removeAttribute("src");
+  }
+  function lt() {
+    const r = document.getElementById("field-editor-overlay"), c = r.querySelector(".field-editor");
+    if (pt(c), r.classList.remove("active"), r.setAttribute("aria-hidden", "true"), document.body.style.overflow = "", a.activeFieldId) {
+      const p = document.querySelector(`.field-list-item[data-field-id="${a.activeFieldId}"]`);
       requestAnimationFrame(() => {
-        u?.focus();
+        p?.focus();
       });
     }
-    a.activeFieldId = null, a.signatureCanvases.clear(), j("Field editor closed.");
+    a.activeFieldId = null, a.signatureCanvases.clear(), oe("Field editor closed.");
   }
-  async function an() {
+  function Le(r) {
+    const c = Number(r) || 0;
+    return c <= 0 ? 0 : Math.max(0, Math.ceil((c - Date.now()) / 1e3));
+  }
+  function dt(r, c = {}) {
+    const p = Number(c.retry_after_seconds);
+    if (Number.isFinite(p) && p > 0)
+      return Math.ceil(p);
+    const h = String(r?.headers?.get?.("Retry-After") || "").trim();
+    if (!h) return 0;
+    const y = Number(h);
+    return Number.isFinite(y) && y > 0 ? Math.ceil(y) : 0;
+  }
+  async function pe(r, c) {
+    let p = {};
+    try {
+      p = await r.json();
+    } catch {
+      p = {};
+    }
+    const h = p?.error || {}, y = h?.details && typeof h.details == "object" ? h.details : {}, b = dt(r, y), I = r?.status === 429, _ = I ? b > 0 ? `Too many actions too quickly. Please wait ${b}s and try again.` : "Too many actions too quickly. Please wait and try again." : String(h?.message || c || "Request failed"), R = new Error(_);
+    return R.status = r?.status || 0, R.code = String(h?.code || ""), R.details = y, R.rateLimited = I, R.retryAfterSeconds = b, R;
+  }
+  function qt(r) {
+    const c = Math.max(1, Number(r) || 1);
+    a.writeCooldownUntil = Date.now() + c * 1e3, a.writeCooldownTimer && (clearInterval(a.writeCooldownTimer), a.writeCooldownTimer = null);
+    const p = () => {
+      const h = document.getElementById("field-editor-save");
+      if (!h) return;
+      const y = Le(a.writeCooldownUntil);
+      if (y <= 0) {
+        a.pendingSaves.has(a.activeFieldId || "") || (h.disabled = !1, h.innerHTML = "Insert"), a.writeCooldownTimer && (clearInterval(a.writeCooldownTimer), a.writeCooldownTimer = null);
+        return;
+      }
+      h.disabled = !0, h.innerHTML = `<i class="iconoir-clock mr-2"></i> Retry in ${y}s`;
+    };
+    p(), a.writeCooldownTimer = setInterval(p, 250);
+  }
+  function zt(r) {
+    const c = Math.max(1, Number(r) || 1);
+    a.submitCooldownUntil = Date.now() + c * 1e3, a.submitCooldownTimer && (clearInterval(a.submitCooldownTimer), a.submitCooldownTimer = null);
+    const p = () => {
+      const h = Le(a.submitCooldownUntil);
+      ke(), h <= 0 && a.submitCooldownTimer && (clearInterval(a.submitCooldownTimer), a.submitCooldownTimer = null);
+    };
+    p(), a.submitCooldownTimer = setInterval(p, 250);
+  }
+  async function Nt() {
     const r = a.activeFieldId;
     if (!r) return;
-    const l = a.fieldState.get(r);
-    if (!l) return;
-    const u = document.getElementById("field-editor-save");
-    u.disabled = !0, u.innerHTML = '<i class="iconoir-refresh animate-spin mr-2"></i> Saving...';
+    const c = a.fieldState.get(r);
+    if (!c) return;
+    const p = Le(a.writeCooldownUntil);
+    if (p > 0) {
+      const y = `Please wait ${p}s before saving again.`;
+      window.toastManager && window.toastManager.error(y), oe(y, "assertive");
+      return;
+    }
+    const h = document.getElementById("field-editor-save");
+    h.disabled = !0, h.innerHTML = '<i class="iconoir-refresh animate-spin mr-2"></i> Saving...';
     try {
-      a.profileRemember = We();
-      let p = !1;
-      if (l.type === "signature" || l.type === "initials")
-        p = await on(r);
-      else if (l.type === "checkbox") {
-        const h = document.getElementById("field-checkbox-input");
-        p = await Ie(r, null, h?.checked || !1);
+      a.profileRemember = Ke();
+      let y = !1;
+      if (c.type === "signature" || c.type === "initials")
+        y = await ut(r);
+      else if (c.type === "checkbox") {
+        const b = document.getElementById("field-checkbox-input");
+        y = await We(r, null, b?.checked || !1);
       } else {
-        const m = (document.getElementById("field-text-input") || document.getElementById("sig-type-input"))?.value?.trim() || "";
-        if (!m && l.required)
+        const I = (document.getElementById("field-text-input") || document.getElementById("sig-type-input"))?.value?.trim() || "";
+        if (!I && c.required)
           throw new Error("This field is required");
-        p = await Ie(r, m, null);
+        y = await We(r, I, null);
       }
-      if (p) {
-        Ee(), rt(), Le(), lt(), ue(), dn(r), pn(r);
-        const h = dt();
-        h.allRequiredComplete ? j("Field saved. All required fields complete. Ready to submit.") : j(`Field saved. ${h.remainingRequired} required field${h.remainingRequired > 1 ? "s" : ""} remaining.`);
+      if (y) {
+        lt(), Pt(), ke(), cn(), at(), At(r), Tt(r);
+        const b = A();
+        b.allRequiredComplete ? oe("Field saved. All required fields complete. Ready to submit.") : oe(`Field saved. ${b.remainingRequired} required field${b.remainingRequired > 1 ? "s" : ""} remaining.`);
       }
-    } catch (p) {
-      window.toastManager && window.toastManager.error(p.message), j(`Error saving field: ${p.message}`, "assertive");
+    } catch (y) {
+      y?.rateLimited && qt(y.retryAfterSeconds), window.toastManager && window.toastManager.error(y.message), oe(`Error saving field: ${y.message}`, "assertive");
     } finally {
-      u.disabled = !1, u.innerHTML = "Insert";
+      if (Le(a.writeCooldownUntil) > 0) {
+        const y = Le(a.writeCooldownUntil);
+        h.disabled = !0, h.innerHTML = `<i class="iconoir-clock mr-2"></i> Retry in ${y}s`;
+      } else
+        h.disabled = !1, h.innerHTML = "Insert";
     }
   }
-  async function on(r) {
-    const l = a.fieldState.get(r), u = document.getElementById("sig-type-input"), p = nt(r);
-    if (p === "draw" || p === "upload" || p === "saved") {
-      const m = a.signatureCanvases.get(r);
-      if (!m) return !1;
-      if (!it(r))
-        throw new Error(l?.type === "initials" ? "Please draw your initials" : "Please draw your signature");
-      const v = m.canvas.toDataURL("image/png");
-      return await st(r, { type: "drawn", dataUrl: v }, l?.type === "initials" ? "[Drawn Initials]" : "[Drawn]");
+  async function ut(r) {
+    const c = a.fieldState.get(r), p = document.getElementById("sig-type-input"), h = Ht(r);
+    if (h === "draw" || h === "upload" || h === "saved") {
+      const b = a.signatureCanvases.get(r);
+      if (!b) return !1;
+      if (!jt(r))
+        throw new Error(c?.type === "initials" ? "Please draw your initials" : "Please draw your signature");
+      const I = b.canvas.toDataURL("image/png");
+      return await an(r, { type: "drawn", dataUrl: I }, c?.type === "initials" ? "[Drawn Initials]" : "[Drawn]");
     } else {
-      const m = u?.value?.trim();
-      if (!m)
-        throw new Error(l?.type === "initials" ? "Please type your initials" : "Please type your signature");
-      return l.type === "initials" ? await Ie(r, m, null) : await st(r, { type: "typed", text: m }, m);
+      const b = p?.value?.trim();
+      if (!b)
+        throw new Error(c?.type === "initials" ? "Please type your initials" : "Please type your signature");
+      return c.type === "initials" ? await We(r, b, null) : await an(r, { type: "typed", text: b }, b);
     }
   }
-  async function Ie(r, l, u) {
+  async function We(r, c, p) {
     a.pendingSaves.add(r);
-    const p = Date.now(), h = a.fieldState.get(r);
+    const h = Date.now(), y = a.fieldState.get(r);
     try {
-      const m = await fetch(`${n.apiBasePath}/field-values/${n.token}`, {
+      const b = await fetch(`${n.apiBasePath}/field-values/${n.token}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           field_instance_id: r,
-          value_text: l,
-          value_bool: u
+          value_text: c,
+          value_bool: p
         })
       });
-      if (!m.ok) {
-        const S = await m.json();
-        throw new Error(S.error?.message || "Failed to save field");
-      }
-      const v = a.fieldState.get(r);
-      return v && (v.value = l ?? u, v.completed = !0, v.hasError = !1), await Ye(v), window.toastManager && window.toastManager.success("Field saved"), d.trackFieldSave(r, v?.type, !0, Date.now() - p), !0;
-    } catch (m) {
-      const v = a.fieldState.get(r);
-      throw v && (v.hasError = !0, v.lastError = m.message), d.trackFieldSave(r, h?.type, !1, Date.now() - p, m.message), m;
+      if (!b.ok)
+        throw await pe(b, "Failed to save field");
+      const I = a.fieldState.get(r);
+      return I && (I.value = c ?? p, I.completed = !0, I.hasError = !1), await Qe(I), window.toastManager && window.toastManager.success("Field saved"), u.trackFieldSave(r, I?.type, !0, Date.now() - h), !0;
+    } catch (b) {
+      const I = a.fieldState.get(r);
+      throw I && (I.hasError = !0, I.lastError = b.message), u.trackFieldSave(r, y?.type, !1, Date.now() - h, b.message), b;
     } finally {
       a.pendingSaves.delete(r);
     }
   }
-  async function st(r, l, u) {
+  async function an(r, c, p) {
     a.pendingSaves.add(r);
-    const p = Date.now(), h = l?.type || "typed";
+    const h = Date.now(), y = c?.type || "typed";
     try {
-      let m;
-      if (h === "drawn") {
-        const L = await g.uploadDrawnSignature(
+      let b;
+      if (y === "drawn") {
+        const R = await v.uploadDrawnSignature(
           r,
-          l.dataUrl
+          c.dataUrl
         );
-        m = {
+        b = {
           field_instance_id: r,
           type: "drawn",
-          value_text: u,
-          object_key: L.objectKey,
-          sha256: L.sha256,
-          upload_token: L.uploadToken
+          value_text: p,
+          object_key: R.objectKey,
+          sha256: R.sha256,
+          upload_token: R.uploadToken
         };
       } else
-        m = await cn(r, u);
-      const v = await fetch(`${n.apiBasePath}/field-values/signature/${n.token}`, {
+        b = await ze(r, p);
+      const I = await fetch(`${n.apiBasePath}/field-values/signature/${n.token}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(m)
+        body: JSON.stringify(b)
       });
-      if (!v.ok) {
-        const L = await v.json();
-        throw new Error(L.error?.message || "Failed to save signature");
-      }
-      const S = a.fieldState.get(r);
-      return S && (S.value = u, S.completed = !0, S.hasError = !1), await Ye(S, {
-        signatureType: h,
-        signatureDataUrl: l?.dataUrl
-      }), window.toastManager && window.toastManager.success("Signature applied"), d.trackSignatureAttach(r, h, !0, Date.now() - p), !0;
-    } catch (m) {
-      const v = a.fieldState.get(r);
-      throw v && (v.hasError = !0, v.lastError = m.message), d.trackSignatureAttach(r, h, !1, Date.now() - p, m.message), m;
+      if (!I.ok)
+        throw await pe(I, "Failed to save signature");
+      const _ = a.fieldState.get(r);
+      return _ && (_.value = p, _.completed = !0, _.hasError = !1), await Qe(_, {
+        signatureType: y,
+        signatureDataUrl: c?.dataUrl
+      }), window.toastManager && window.toastManager.success("Signature applied"), u.trackSignatureAttach(r, y, !0, Date.now() - h), !0;
+    } catch (b) {
+      const I = a.fieldState.get(r);
+      throw I && (I.hasError = !0, I.lastError = b.message), u.trackSignatureAttach(r, y, !1, Date.now() - h, b.message), b;
     } finally {
       a.pendingSaves.delete(r);
     }
   }
-  async function cn(r, l) {
-    const u = `${l}|${r}`, p = await ln(u), h = `tenant/bootstrap/org/bootstrap/agreements/${n.agreementId}/signatures/${n.recipientId}/${r}-${Date.now()}.txt`;
+  async function ze(r, c) {
+    const p = `${c}|${r}`, h = await Se(p), y = `tenant/bootstrap/org/bootstrap/agreements/${n.agreementId}/signatures/${n.recipientId}/${r}-${Date.now()}.txt`;
     return {
       field_instance_id: r,
       type: "typed",
-      value_text: l,
-      object_key: h,
-      sha256: p
+      value_text: c,
+      object_key: y,
+      sha256: h
       // Note: typed signatures do not require upload_token (v2)
     };
   }
-  async function ln(r) {
+  async function Se(r) {
     if (window.crypto && window.crypto.subtle && window.TextEncoder) {
-      const l = new TextEncoder().encode(r), u = await window.crypto.subtle.digest("SHA-256", l);
-      return Array.from(new Uint8Array(u)).map((p) => p.toString(16).padStart(2, "0")).join("");
+      const c = new TextEncoder().encode(r), p = await window.crypto.subtle.digest("SHA-256", c);
+      return Array.from(new Uint8Array(p)).map((h) => h.toString(16).padStart(2, "0")).join("");
     }
     return Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
   }
-  function rt() {
+  function Pt() {
     let r = 0;
-    a.fieldState.forEach((S) => {
-      S.required, S.completed && r++;
+    a.fieldState.forEach((_) => {
+      _.required, _.completed && r++;
     });
-    const l = a.fieldState.size, u = l > 0 ? r / l * 100 : 0;
-    document.getElementById("completed-count").textContent = r, document.getElementById("total-count").textContent = l;
-    const p = document.getElementById("progress-ring-circle"), h = 97.4, m = h - u / 100 * h;
-    p.style.strokeDashoffset = m, document.getElementById("mobile-progress").style.width = `${u}%`;
-    const v = l - r;
-    document.getElementById("fields-status").textContent = v > 0 ? `${v} remaining` : "All complete";
+    const c = a.fieldState.size, p = c > 0 ? r / c * 100 : 0;
+    document.getElementById("completed-count").textContent = r, document.getElementById("total-count").textContent = c;
+    const h = document.getElementById("progress-ring-circle"), y = 97.4, b = y - p / 100 * y;
+    h.style.strokeDashoffset = b, document.getElementById("mobile-progress").style.width = `${p}%`;
+    const I = c - r;
+    document.getElementById("fields-status").textContent = I > 0 ? `${I} remaining` : "All complete";
   }
-  function Le() {
-    const r = document.getElementById("submit-btn"), l = document.getElementById("incomplete-warning"), u = document.getElementById("incomplete-message");
-    let p = [], h = !1;
-    a.fieldState.forEach((v, S) => {
-      v.required && !v.completed && p.push(v), v.hasError && (h = !0);
+  function ke() {
+    const r = document.getElementById("submit-btn"), c = document.getElementById("incomplete-warning"), p = document.getElementById("incomplete-message"), h = Le(a.submitCooldownUntil);
+    let y = [], b = !1;
+    a.fieldState.forEach((_, R) => {
+      _.required && !_.completed && y.push(_), _.hasError && (b = !0);
     });
-    const m = a.hasConsented && p.length === 0 && !h && a.pendingSaves.size === 0;
-    r.disabled = !m, a.hasConsented ? h ? (l.classList.remove("hidden"), u.textContent = "Some fields failed to save. Please retry.") : p.length > 0 ? (l.classList.remove("hidden"), u.textContent = `Complete ${p.length} required field${p.length > 1 ? "s" : ""}`) : l.classList.add("hidden") : (l.classList.remove("hidden"), u.textContent = "Please accept the consent agreement");
+    const I = a.hasConsented && y.length === 0 && !b && a.pendingSaves.size === 0 && h === 0 && !a.isSubmitting;
+    r.disabled = !I, !a.isSubmitting && h > 0 ? r.innerHTML = `<i class="iconoir-clock mr-2"></i> Retry in ${h}s` : !a.isSubmitting && h === 0 && (r.innerHTML = '<i class="iconoir-send mr-2"></i> Submit Signature'), a.hasConsented ? h > 0 ? (c.classList.remove("hidden"), p.textContent = `Please wait ${h}s before submitting again.`) : b ? (c.classList.remove("hidden"), p.textContent = "Some fields failed to save. Please retry.") : y.length > 0 ? (c.classList.remove("hidden"), p.textContent = `Complete ${y.length} required field${y.length > 1 ? "s" : ""}`) : c.classList.add("hidden") : (c.classList.remove("hidden"), p.textContent = "Please accept the consent agreement");
   }
-  function dn(r) {
-    const l = a.fieldState.get(r), u = document.querySelector(`.field-list-item[data-field-id="${r}"]`);
-    if (!(!u || !l)) {
-      if (l.completed) {
-        u.classList.add("completed"), u.classList.remove("error");
-        const p = u.querySelector(".w-8");
-        p.classList.remove("bg-gray-100", "text-gray-500", "bg-red-100", "text-red-600"), p.classList.add("bg-green-100", "text-green-600"), p.innerHTML = '<i class="iconoir-check"></i>';
-      } else if (l.hasError) {
-        u.classList.remove("completed"), u.classList.add("error");
-        const p = u.querySelector(".w-8");
-        p.classList.remove("bg-gray-100", "text-gray-500", "bg-green-100", "text-green-600"), p.classList.add("bg-red-100", "text-red-600"), p.innerHTML = '<i class="iconoir-warning-circle"></i>';
+  function At(r) {
+    const c = a.fieldState.get(r), p = document.querySelector(`.field-list-item[data-field-id="${r}"]`);
+    if (!(!p || !c)) {
+      if (c.completed) {
+        p.classList.add("completed"), p.classList.remove("error");
+        const h = p.querySelector(".w-8");
+        h.classList.remove("bg-gray-100", "text-gray-500", "bg-red-100", "text-red-600"), h.classList.add("bg-green-100", "text-green-600"), h.innerHTML = '<i class="iconoir-check"></i>';
+      } else if (c.hasError) {
+        p.classList.remove("completed"), p.classList.add("error");
+        const h = p.querySelector(".w-8");
+        h.classList.remove("bg-gray-100", "text-gray-500", "bg-green-100", "text-green-600"), h.classList.add("bg-red-100", "text-red-600"), h.innerHTML = '<i class="iconoir-warning-circle"></i>';
       }
     }
   }
-  function un() {
-    const r = Array.from(a.fieldState.values()).filter((l) => l.required);
-    return r.sort((l, u) => {
-      const p = Number(l.page || 0), h = Number(u.page || 0);
-      if (p !== h) return p - h;
-      const m = Number(l.tabIndex || 0), v = Number(u.tabIndex || 0);
-      if (m > 0 && v > 0 && m !== v) return m - v;
-      if (m > 0 != v > 0) return m > 0 ? -1 : 1;
-      const S = Number(l.posY || 0), L = Number(u.posY || 0);
-      if (S !== L) return S - L;
-      const D = Number(l.posX || 0), k = Number(u.posX || 0);
-      return D !== k ? D - k : String(l.id || "").localeCompare(String(u.id || ""));
+  function ge() {
+    const r = Array.from(a.fieldState.values()).filter((c) => c.required);
+    return r.sort((c, p) => {
+      const h = Number(c.page || 0), y = Number(p.page || 0);
+      if (h !== y) return h - y;
+      const b = Number(c.tabIndex || 0), I = Number(p.tabIndex || 0);
+      if (b > 0 && I > 0 && b !== I) return b - I;
+      if (b > 0 != I > 0) return b > 0 ? -1 : 1;
+      const _ = Number(c.posY || 0), R = Number(p.posY || 0);
+      if (_ !== R) return _ - R;
+      const V = Number(c.posX || 0), O = Number(p.posX || 0);
+      return V !== O ? V - O : String(c.id || "").localeCompare(String(p.id || ""));
     }), r;
   }
-  function at(r) {
-    a.guidedTargetFieldId = r, document.querySelectorAll(".field-list-item").forEach((l) => l.classList.remove("guided-next-target")), document.querySelectorAll(".field-overlay").forEach((l) => l.classList.remove("guided-next-target")), document.querySelector(`.field-list-item[data-field-id="${r}"]`)?.classList.add("guided-next-target"), document.querySelector(`.field-overlay[data-field-id="${r}"]`)?.classList.add("guided-next-target");
+  function Ot(r) {
+    a.guidedTargetFieldId = r, document.querySelectorAll(".field-list-item").forEach((c) => c.classList.remove("guided-next-target")), document.querySelectorAll(".field-overlay").forEach((c) => c.classList.remove("guided-next-target")), document.querySelector(`.field-list-item[data-field-id="${r}"]`)?.classList.add("guided-next-target"), document.querySelector(`.field-overlay[data-field-id="${r}"]`)?.classList.add("guided-next-target");
   }
-  function pn(r) {
-    const l = un(), u = l.filter((v) => !v.completed);
-    if (u.length === 0) {
-      d.track("guided_next_none_remaining", { fromFieldId: r });
-      const v = document.getElementById("submit-btn");
-      v?.scrollIntoView({ behavior: "smooth", block: "nearest" }), v?.focus(), j("All required fields are complete. Review the document and submit when ready.");
+  function Tt(r) {
+    const c = ge(), p = c.filter((I) => !I.completed);
+    if (p.length === 0) {
+      u.track("guided_next_none_remaining", { fromFieldId: r });
+      const I = document.getElementById("submit-btn");
+      I?.scrollIntoView({ behavior: "smooth", block: "nearest" }), I?.focus(), oe("All required fields are complete. Review the document and submit when ready.");
       return;
     }
-    const p = l.findIndex((v) => String(v.id) === String(r));
-    let h = null;
-    if (p >= 0) {
-      for (let v = p + 1; v < l.length; v++)
-        if (!l[v].completed) {
-          h = l[v];
+    const h = c.findIndex((I) => String(I.id) === String(r));
+    let y = null;
+    if (h >= 0) {
+      for (let I = h + 1; I < c.length; I++)
+        if (!c[I].completed) {
+          y = c[I];
           break;
         }
     }
-    if (h || (h = u[0]), !h) return;
-    d.track("guided_next_started", { fromFieldId: r, toFieldId: h.id });
-    const m = Number(h.page || 1);
-    m !== a.currentPage && Xe(m), Ze(h.id, { openEditor: !1 }), at(h.id), setTimeout(() => {
-      at(h.id), et(h.id), d.track("guided_next_completed", { toFieldId: h.id, page: h.page }), j(`Next required field highlighted on page ${h.page}.`);
+    if (y || (y = p[0]), !y) return;
+    u.track("guided_next_started", { fromFieldId: r, toFieldId: y.id });
+    const b = Number(y.page || 1);
+    b !== a.currentPage && Rt(b), de(y.id, { openEditor: !1 }), Ot(y.id), setTimeout(() => {
+      Ot(y.id), It(y.id), u.track("guided_next_completed", { toFieldId: y.id, page: y.page }), oe(`Next required field highlighted on page ${y.page}.`);
     }, 120);
   }
-  function ot() {
+  function _t() {
     const r = document.getElementById("consent-modal");
-    r.classList.add("active"), r.setAttribute("aria-hidden", "false"), document.body.style.overflow = "hidden", ke(r.querySelector(".field-editor")), j("Electronic signature consent dialog opened. Please review and accept to continue.", "assertive");
+    r.classList.add("active"), r.setAttribute("aria-hidden", "false"), document.body.style.overflow = "hidden", Be(r.querySelector(".field-editor")), oe("Electronic signature consent dialog opened. Please review and accept to continue.", "assertive");
   }
-  function Ae() {
-    const r = document.getElementById("consent-modal"), l = r.querySelector(".field-editor");
-    Pe(l), r.classList.remove("active"), r.setAttribute("aria-hidden", "true"), document.body.style.overflow = "", j("Consent dialog closed.");
+  function Pe() {
+    const r = document.getElementById("consent-modal"), c = r.querySelector(".field-editor");
+    pt(c), r.classList.remove("active"), r.setAttribute("aria-hidden", "true"), document.body.style.overflow = "", oe("Consent dialog closed.");
   }
-  async function hn() {
+  async function te() {
     const r = document.getElementById("consent-accept-btn");
     r.disabled = !0, r.innerHTML = '<i class="iconoir-refresh animate-spin mr-2"></i> Processing...';
     try {
-      const l = await fetch(`${n.apiBasePath}/consent/${n.token}`, {
+      const c = await fetch(`${n.apiBasePath}/consent/${n.token}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ accepted: !0 })
       });
-      if (!l.ok) {
-        const u = await l.json();
-        throw new Error(u.error?.message || "Failed to accept consent");
-      }
-      a.hasConsented = !0, document.getElementById("consent-notice").classList.add("hidden"), Ae(), Le(), lt(), d.trackConsent(!0), window.toastManager && window.toastManager.success("Consent accepted"), j("Consent accepted. You can now complete the fields and submit.");
-    } catch (l) {
-      window.toastManager && window.toastManager.error(l.message), j(`Error: ${l.message}`, "assertive");
+      if (!c.ok)
+        throw await pe(c, "Failed to accept consent");
+      a.hasConsented = !0, document.getElementById("consent-notice").classList.add("hidden"), Pe(), ke(), cn(), u.trackConsent(!0), window.toastManager && window.toastManager.success("Consent accepted"), oe("Consent accepted. You can now complete the fields and submit.");
+    } catch (c) {
+      window.toastManager && window.toastManager.error(c.message), oe(`Error: ${c.message}`, "assertive");
     } finally {
       r.disabled = !1, r.innerHTML = "Accept & Continue";
     }
   }
-  async function gn() {
-    const r = document.getElementById("submit-btn");
-    r.disabled = !0, r.innerHTML = '<i class="iconoir-refresh animate-spin mr-2"></i> Submitting...';
+  async function Ut() {
+    const r = document.getElementById("submit-btn"), c = Le(a.submitCooldownUntil);
+    if (c > 0) {
+      window.toastManager && window.toastManager.error(`Please wait ${c}s before submitting again.`), ke();
+      return;
+    }
+    a.isSubmitting = !0, r.disabled = !0, r.innerHTML = '<i class="iconoir-refresh animate-spin mr-2"></i> Submitting...';
     try {
-      const l = `submit-${n.recipientId}-${Date.now()}`, u = await fetch(`${n.apiBasePath}/submit/${n.token}`, {
+      const p = `submit-${n.recipientId}-${Date.now()}`, h = await fetch(`${n.apiBasePath}/submit/${n.token}`, {
         method: "POST",
-        headers: { "Idempotency-Key": l }
+        headers: { "Idempotency-Key": p }
       });
-      if (!u.ok) {
-        const p = await u.json();
-        throw new Error(p.error?.message || "Failed to submit");
-      }
-      d.trackSubmit(!0), window.location.href = `${n.signerBasePath}/${n.token}/complete`;
-    } catch (l) {
-      d.trackSubmit(!1, l.message), window.toastManager && window.toastManager.error(l.message), r.disabled = !1, r.innerHTML = '<i class="iconoir-send mr-2"></i> Submit Signature';
+      if (!h.ok)
+        throw await pe(h, "Failed to submit");
+      u.trackSubmit(!0), window.location.href = `${n.signerBasePath}/${n.token}/complete`;
+    } catch (p) {
+      u.trackSubmit(!1, p.message), p?.rateLimited && zt(p.retryAfterSeconds), window.toastManager && window.toastManager.error(p.message);
+    } finally {
+      a.isSubmitting = !1, ke();
     }
   }
-  function mn() {
+  function on() {
     const r = document.getElementById("decline-modal");
-    r.classList.add("active"), r.setAttribute("aria-hidden", "false"), document.body.style.overflow = "hidden", ke(r.querySelector(".field-editor")), j("Decline to sign dialog opened. Are you sure you want to decline?", "assertive");
+    r.classList.add("active"), r.setAttribute("aria-hidden", "false"), document.body.style.overflow = "hidden", Be(r.querySelector(".field-editor")), oe("Decline to sign dialog opened. Are you sure you want to decline?", "assertive");
   }
-  function ct() {
-    const r = document.getElementById("decline-modal"), l = r.querySelector(".field-editor");
-    Pe(l), r.classList.remove("active"), r.setAttribute("aria-hidden", "true"), document.body.style.overflow = "", j("Decline dialog closed.");
+  function Vt() {
+    const r = document.getElementById("decline-modal"), c = r.querySelector(".field-editor");
+    pt(c), r.classList.remove("active"), r.setAttribute("aria-hidden", "true"), document.body.style.overflow = "", oe("Decline dialog closed.");
   }
-  async function fn() {
+  async function Gt() {
     const r = document.getElementById("decline-reason").value;
     try {
-      const l = await fetch(`${n.apiBasePath}/decline/${n.token}`, {
+      const c = await fetch(`${n.apiBasePath}/decline/${n.token}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ reason: r })
       });
-      if (!l.ok) {
-        const u = await l.json();
-        throw new Error(u.error?.message || "Failed to decline");
-      }
+      if (!c.ok)
+        throw await pe(c, "Failed to decline");
       window.location.href = `${n.signerBasePath}/${n.token}/declined`;
-    } catch (l) {
-      window.toastManager && window.toastManager.error(l.message);
+    } catch (c) {
+      window.toastManager && window.toastManager.error(c.message);
     }
   }
-  function vn() {
-    d.trackDegradedMode("viewer_load_failure"), d.trackViewerCriticalError("viewer_load_failed"), window.toastManager && window.toastManager.error("Unable to load the document viewer. Please refresh the page or contact the sender for assistance.", {
+  function $t() {
+    u.trackDegradedMode("viewer_load_failure"), u.trackViewerCriticalError("viewer_load_failed"), window.toastManager && window.toastManager.error("Unable to load the document viewer. Please refresh the page or contact the sender for assistance.", {
       duration: 15e3,
       action: {
         label: "Refresh",
@@ -7725,20 +9199,20 @@ function ni(s) {
       }
     });
   }
-  async function wn() {
+  async function Wt() {
     try {
       const r = await fetch(`${n.apiBasePath}/assets/${n.token}`);
       if (!r.ok) throw new Error("Document unavailable");
-      const u = (await r.json()).assets || {}, p = u.source_url || u.executed_url || u.certificate_url;
-      if (p)
-        window.open(p, "_blank");
+      const p = (await r.json()).assets || {}, h = p.source_url || p.executed_url || p.certificate_url;
+      if (h)
+        window.open(h, "_blank");
       else
         throw new Error("Document download is not available yet. The document may still be processing.");
     } catch (r) {
       window.toastManager && window.toastManager.error(r.message || "Unable to download document");
     }
   }
-  const Y = {
+  const Ae = {
     enabled: localStorage.getItem("esign_debug") === "true" || new URLSearchParams(window.location.search).has("debug"),
     panel: null,
     /**
@@ -7836,7 +9310,7 @@ function ni(s) {
           </div>
           <div class="debug-section">
             <div class="debug-label">Session</div>
-            <div class="debug-value" id="debug-session-id">${d.sessionId}</div>
+            <div class="debug-value" id="debug-session-id">${u.sessionId}</div>
           </div>
           <div class="debug-section">
             <div class="debug-label">Consent</div>
@@ -7876,8 +9350,8 @@ function ni(s) {
     togglePanel() {
       if (!this.panel) return;
       this.panel.classList.toggle("collapsed");
-      const r = this.panel.querySelector(".debug-toggle"), l = this.panel.querySelector(".debug-title");
-      this.panel.classList.contains("collapsed") ? (r.textContent = "+", l.style.display = "none") : (r.textContent = "−", l.style.display = "inline");
+      const r = this.panel.querySelector(".debug-toggle"), c = this.panel.querySelector(".debug-title");
+      this.panel.classList.contains("collapsed") ? (r.textContent = "+", c.style.display = "none") : (r.textContent = "−", c.style.display = "inline");
     },
     /**
      * Update debug panel values
@@ -7885,12 +9359,12 @@ function ni(s) {
     updatePanel() {
       if (!this.panel || this.panel.classList.contains("collapsed")) return;
       const r = a.fieldState;
-      let l = 0;
-      r?.forEach((p) => {
-        p.completed && l++;
-      }), document.getElementById("debug-consent").textContent = a.hasConsented ? "✓ Accepted" : "✗ Pending", document.getElementById("debug-consent").className = `debug-value ${a.hasConsented ? "" : "warning"}`, document.getElementById("debug-fields").textContent = `${l}/${r?.size || 0}`, document.getElementById("debug-cached").textContent = a.renderedPages?.size || 0, document.getElementById("debug-memory").textContent = a.isLowMemory ? "⚠ Low Memory" : "Normal", document.getElementById("debug-memory").className = `debug-value ${a.isLowMemory ? "warning" : ""}`;
-      const u = d.metrics.errorsEncountered;
-      document.getElementById("debug-errors").textContent = u.length > 0 ? `${u.length} error(s)` : "None", document.getElementById("debug-errors").className = `debug-value ${u.length > 0 ? "error" : ""}`;
+      let c = 0;
+      r?.forEach((h) => {
+        h.completed && c++;
+      }), document.getElementById("debug-consent").textContent = a.hasConsented ? "✓ Accepted" : "✗ Pending", document.getElementById("debug-consent").className = `debug-value ${a.hasConsented ? "" : "warning"}`, document.getElementById("debug-fields").textContent = `${c}/${r?.size || 0}`, document.getElementById("debug-cached").textContent = a.renderedPages?.size || 0, document.getElementById("debug-memory").textContent = a.isLowMemory ? "⚠ Low Memory" : "Normal", document.getElementById("debug-memory").className = `debug-value ${a.isLowMemory ? "warning" : ""}`;
+      const p = u.metrics.errorsEncountered;
+      document.getElementById("debug-errors").textContent = p.length > 0 ? `${p.length} error(s)` : "None", document.getElementById("debug-errors").className = `debug-value ${p.length > 0 ? "error" : ""}`;
     },
     /**
      * Bind console helper functions
@@ -7907,24 +9381,24 @@ function ni(s) {
             isLowMemory: a.isLowMemory,
             cachedPages: a.renderedPages?.size || 0
           },
-          fields: Array.from(a.fieldState?.entries() || []).map(([r, l]) => ({
+          fields: Array.from(a.fieldState?.entries() || []).map(([r, c]) => ({
             id: r,
-            type: l.type,
-            completed: l.completed,
-            hasError: l.hasError
+            type: c.type,
+            completed: c.completed,
+            hasError: c.hasError
           })),
-          telemetry: d.getSessionSummary(),
-          errors: d.metrics.errorsEncountered
+          telemetry: u.getSessionSummary(),
+          errors: u.metrics.errorsEncountered
         }),
-        getEvents: () => d.events,
+        getEvents: () => u.events,
         forceError: (r) => {
-          d.track("debug_forced_error", { message: r }), console.error("[E-Sign Debug] Forced error:", r);
+          u.track("debug_forced_error", { message: r }), console.error("[E-Sign Debug] Forced error:", r);
         },
         reloadViewer: () => {
-          console.log("[E-Sign Debug] Reloading viewer..."), de();
+          console.log("[E-Sign Debug] Reloading viewer..."), Ze();
         },
         setLowMemory: (r) => {
-          a.isLowMemory = r, be(), console.log(`[E-Sign Debug] Low memory mode: ${r}`);
+          a.isLowMemory = r, Ve(), console.log(`[E-Sign Debug] Low memory mode: ${r}`);
         }
       };
     },
@@ -7932,7 +9406,7 @@ function ni(s) {
      * Log session info to console
      */
     logSessionInfo() {
-      console.group("%c[E-Sign Debug] Session Info", "color: #3b82f6"), console.log("Flow Mode:", n.flowMode), console.log("Agreement ID:", n.agreementId), console.log("Token:", n.token), console.log("Session ID:", d.sessionId), console.log("Fields:", a.fieldState?.size || 0), console.log("Low Memory:", a.isLowMemory), console.groupEnd();
+      console.group("%c[E-Sign Debug] Session Info", "color: #3b82f6"), console.log("Flow Mode:", n.flowMode), console.log("Agreement ID:", n.agreementId), console.log("Token:", n.token), console.log("Session ID:", u.sessionId), console.log("Fields:", a.fieldState?.size || 0), console.log("Low Memory:", a.isLowMemory), console.groupEnd();
     },
     /**
      * Copy session info to clipboard
@@ -7949,7 +9423,7 @@ function ni(s) {
      * Reload the PDF viewer
      */
     reloadViewer() {
-      console.log("[E-Sign Debug] Reloading PDF viewer..."), de(), this.updatePanel();
+      console.log("[E-Sign Debug] Reloading PDF viewer..."), Ze(), this.updatePanel();
     },
     /**
      * Clear page cache
@@ -7961,66 +9435,66 @@ function ni(s) {
      * Show telemetry events
      */
     showTelemetry() {
-      console.table(d.events), console.log("Session Summary:", d.getSessionSummary());
+      console.table(u.events), console.log("Session Summary:", u.getSessionSummary());
     }
   };
-  function j(r, l = "polite") {
-    const u = l === "assertive" ? document.getElementById("a11y-alerts") : document.getElementById("a11y-status");
-    u && (u.textContent = "", requestAnimationFrame(() => {
-      u.textContent = r;
+  function oe(r, c = "polite") {
+    const p = c === "assertive" ? document.getElementById("a11y-alerts") : document.getElementById("a11y-status");
+    p && (p.textContent = "", requestAnimationFrame(() => {
+      p.textContent = r;
     }));
   }
-  function ke(r) {
-    const u = r.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'), p = u[0], h = u[u.length - 1];
+  function Be(r) {
+    const p = r.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'), h = p[0], y = p[p.length - 1];
     r.dataset.previousFocus || (r.dataset.previousFocus = document.activeElement?.id || "");
-    function m(v) {
-      v.key === "Tab" && (v.shiftKey ? document.activeElement === p && (v.preventDefault(), h?.focus()) : document.activeElement === h && (v.preventDefault(), p?.focus()));
+    function b(I) {
+      I.key === "Tab" && (I.shiftKey ? document.activeElement === h && (I.preventDefault(), y?.focus()) : document.activeElement === y && (I.preventDefault(), h?.focus()));
     }
-    r.addEventListener("keydown", m), r._focusTrapHandler = m, requestAnimationFrame(() => {
-      p?.focus();
+    r.addEventListener("keydown", b), r._focusTrapHandler = b, requestAnimationFrame(() => {
+      h?.focus();
     });
   }
-  function Pe(r) {
+  function pt(r) {
     r._focusTrapHandler && (r.removeEventListener("keydown", r._focusTrapHandler), delete r._focusTrapHandler);
-    const l = r.dataset.previousFocus;
-    if (l) {
-      const u = document.getElementById(l);
+    const c = r.dataset.previousFocus;
+    if (c) {
+      const p = document.getElementById(c);
       requestAnimationFrame(() => {
-        u?.focus();
+        p?.focus();
       }), delete r.dataset.previousFocus;
     }
   }
-  function lt() {
-    const r = dt(), l = document.getElementById("submit-status");
-    l && (r.allRequiredComplete && a.hasConsented ? l.textContent = "All required fields complete. You can now submit." : a.hasConsented ? l.textContent = `Complete ${r.remainingRequired} more required field${r.remainingRequired > 1 ? "s" : ""} to enable submission.` : l.textContent = "Please accept the electronic signature consent before submitting.");
+  function cn() {
+    const r = A(), c = document.getElementById("submit-status");
+    c && (r.allRequiredComplete && a.hasConsented ? c.textContent = "All required fields complete. You can now submit." : a.hasConsented ? c.textContent = `Complete ${r.remainingRequired} more required field${r.remainingRequired > 1 ? "s" : ""} to enable submission.` : c.textContent = "Please accept the electronic signature consent before submitting.");
   }
-  function dt() {
-    let r = 0, l = 0, u = 0;
-    return a.fieldState.forEach((p) => {
-      p.required && l++, p.completed && r++, p.required && !p.completed && u++;
+  function A() {
+    let r = 0, c = 0, p = 0;
+    return a.fieldState.forEach((h) => {
+      h.required && c++, h.completed && r++, h.required && !h.completed && p++;
     }), {
       completed: r,
-      required: l,
-      remainingRequired: u,
+      required: c,
+      remainingRequired: p,
       total: a.fieldState.size,
-      allRequiredComplete: u === 0
+      allRequiredComplete: p === 0
     };
   }
-  function yn(r, l = 1) {
-    const u = Array.from(a.fieldState.keys()), p = u.indexOf(r);
-    if (p === -1) return null;
-    const h = p + l;
-    return h >= 0 && h < u.length ? u[h] : null;
+  function Je(r, c = 1) {
+    const p = Array.from(a.fieldState.keys()), h = p.indexOf(r);
+    if (h === -1) return null;
+    const y = h + c;
+    return y >= 0 && y < p.length ? p[y] : null;
   }
   document.addEventListener("keydown", function(r) {
-    if (r.key === "Escape" && (Ee(), Ae(), ct()), r.target instanceof HTMLElement && r.target.classList.contains("sig-editor-tab")) {
-      const l = Array.from(document.querySelectorAll(".sig-editor-tab")), u = l.indexOf(r.target);
-      if (u !== -1) {
-        let p = u;
-        if (r.key === "ArrowRight" && (p = (u + 1) % l.length), r.key === "ArrowLeft" && (p = (u - 1 + l.length) % l.length), r.key === "Home" && (p = 0), r.key === "End" && (p = l.length - 1), p !== u) {
+    if (r.key === "Escape" && (lt(), Pe(), Vt()), r.target instanceof HTMLElement && r.target.classList.contains("sig-editor-tab")) {
+      const c = Array.from(document.querySelectorAll(".sig-editor-tab")), p = c.indexOf(r.target);
+      if (p !== -1) {
+        let h = p;
+        if (r.key === "ArrowRight" && (h = (p + 1) % c.length), r.key === "ArrowLeft" && (h = (p - 1 + c.length) % c.length), r.key === "Home" && (h = 0), r.key === "End" && (h = c.length - 1), h !== p) {
           r.preventDefault();
-          const h = l[p], m = h.getAttribute("data-tab") || "draw", v = h.getAttribute("data-field-id");
-          v && ge(m, v), h.focus();
+          const y = c[h], b = y.getAttribute("data-tab") || "draw", I = y.getAttribute("data-field-id");
+          I && tt(b, I), y.focus();
           return;
         }
       }
@@ -8028,13 +9502,13 @@ function ni(s) {
     if (r.target instanceof HTMLElement && r.target.classList.contains("field-list-item")) {
       if (r.key === "ArrowDown" || r.key === "ArrowUp") {
         r.preventDefault();
-        const l = r.target.dataset.fieldId, u = r.key === "ArrowDown" ? 1 : -1, p = yn(l, u);
-        p && document.querySelector(`.field-list-item[data-field-id="${p}"]`)?.focus();
+        const c = r.target.dataset.fieldId, p = r.key === "ArrowDown" ? 1 : -1, h = Je(c, p);
+        h && document.querySelector(`.field-list-item[data-field-id="${h}"]`)?.focus();
       }
       if (r.key === "Enter" || r.key === " ") {
         r.preventDefault();
-        const l = r.target.dataset.fieldId;
-        l && he(l);
+        const c = r.target.dataset.fieldId;
+        c && et(c);
       }
     }
     r.key === "Tab" && !r.target.closest(".field-editor-overlay") && !r.target.closest("#consent-modal") && r.target.closest("#decline-modal");
@@ -8044,21 +9518,21 @@ function ni(s) {
     r.key === "Tab" && document.body.classList.remove("using-mouse");
   });
 }
-class Mt {
+class ei {
   constructor(e) {
     this.config = e;
   }
   init() {
-    ni(this.config);
+    Ji(this.config);
   }
   destroy() {
   }
 }
-function os(s) {
-  const e = new Mt(s);
-  return M(() => e.init()), e;
+function Zs(s) {
+  const e = new ei(s);
+  return W(() => e.init()), e;
 }
-function ii() {
+function Yi() {
   const s = document.getElementById("esign-signer-review-config");
   if (!s) return null;
   try {
@@ -8068,17 +9542,17 @@ function ii() {
     return null;
   }
 }
-typeof document < "u" && M(() => {
+typeof document < "u" && W(() => {
   if (!document.querySelector('[data-esign-page="signer-review"], [data-esign-page="signer.review"]')) return;
-  const e = ii();
+  const e = Yi();
   if (!e) {
     console.warn("Missing signer review config script payload");
     return;
   }
-  const t = new Mt(e);
+  const t = new ei(e);
   t.init(), window.esignSignerReviewController = t;
 });
-class Dt {
+class ti {
   constructor(e = {}) {
     this.config = e;
   }
@@ -8092,9 +9566,9 @@ class Dt {
    * Setup event listeners using delegation
    */
   setupEventListeners() {
-    W('[data-action="retry"]').forEach((n) => {
+    nt('[data-action="retry"]').forEach((n) => {
       n.addEventListener("click", () => this.handleRetry());
-    }), W('.retry-btn, [aria-label*="Try Again"]').forEach((n) => {
+    }), nt('.retry-btn, [aria-label*="Try Again"]').forEach((n) => {
       n.hasAttribute("data-action") || n.addEventListener("click", () => this.handleRetry());
     });
   }
@@ -8105,31 +9579,31 @@ class Dt {
     window.location.reload();
   }
 }
-function cs(s = {}) {
-  const e = new Dt(s);
-  return M(() => e.init()), e;
+function er(s = {}) {
+  const e = new ti(s);
+  return W(() => e.init()), e;
 }
-function ls(s = {}) {
-  const e = new Dt(s);
-  M(() => e.init()), typeof window < "u" && (window.esignErrorController = e);
+function tr(s = {}) {
+  const e = new ti(s);
+  W(() => e.init()), typeof window < "u" && (window.esignErrorController = e);
 }
-class Ne {
+class Tn {
   constructor(e) {
     this.pdfDoc = null, this.currentPage = 1, this.isLoading = !1, this.isLoaded = !1, this.scale = 1.5, this.config = e, this.elements = {
-      loadBtn: c("#pdf-load-btn"),
-      retryBtn: c("#pdf-retry-btn"),
-      loading: c("#pdf-loading"),
-      spinner: c("#pdf-spinner"),
-      error: c("#pdf-error"),
-      errorMessage: c("#pdf-error-message"),
-      viewer: c("#pdf-viewer"),
-      canvas: c("#pdf-canvas"),
-      pagination: c("#pdf-pagination"),
-      prevBtn: c("#pdf-prev-page"),
-      nextBtn: c("#pdf-next-page"),
-      currentPageEl: c("#pdf-current-page"),
-      totalPagesEl: c("#pdf-total-pages"),
-      status: c("#pdf-status")
+      loadBtn: g("#pdf-load-btn"),
+      retryBtn: g("#pdf-retry-btn"),
+      loading: g("#pdf-loading"),
+      spinner: g("#pdf-spinner"),
+      error: g("#pdf-error"),
+      errorMessage: g("#pdf-error-message"),
+      viewer: g("#pdf-viewer"),
+      canvas: g("#pdf-canvas"),
+      pagination: g("#pdf-pagination"),
+      prevBtn: g("#pdf-prev-page"),
+      nextBtn: g("#pdf-next-page"),
+      currentPageEl: g("#pdf-current-page"),
+      totalPagesEl: g("#pdf-total-pages"),
+      status: g("#pdf-status")
     };
   }
   /**
@@ -8143,8 +9617,8 @@ class Ne {
    */
   setupEventListeners() {
     const { loadBtn: e, retryBtn: t, prevBtn: n, nextBtn: i } = this.elements;
-    e && e.addEventListener("click", () => this.loadPdf()), t && t.addEventListener("click", () => this.loadPdf()), n && n.addEventListener("click", () => this.goToPage(this.currentPage - 1)), i && i.addEventListener("click", () => this.goToPage(this.currentPage + 1)), document.addEventListener("keydown", (o) => {
-      this.isLoaded && (o.key === "ArrowLeft" || o.key === "PageUp" ? this.goToPage(this.currentPage - 1) : (o.key === "ArrowRight" || o.key === "PageDown") && this.goToPage(this.currentPage + 1));
+    e && e.addEventListener("click", () => this.loadPdf()), t && t.addEventListener("click", () => this.loadPdf()), n && n.addEventListener("click", () => this.goToPage(this.currentPage - 1)), i && i.addEventListener("click", () => this.goToPage(this.currentPage + 1)), document.addEventListener("keydown", (d) => {
+      this.isLoaded && (d.key === "ArrowLeft" || d.key === "PageUp" ? this.goToPage(this.currentPage - 1) : (d.key === "ArrowRight" || d.key === "PageDown") && this.goToPage(this.currentPage + 1));
     });
   }
   /**
@@ -8177,11 +9651,11 @@ class Ne {
     if (!(e < 1 || e > t)) {
       this.currentPage = e, this.updateStatus(`Rendering page ${e}...`);
       try {
-        const n = await this.pdfDoc.getPage(e), i = n.getViewport({ scale: this.scale }), o = this.elements.canvas, d = o.getContext("2d");
-        if (!d)
+        const n = await this.pdfDoc.getPage(e), i = n.getViewport({ scale: this.scale }), d = this.elements.canvas, u = d.getContext("2d");
+        if (!u)
           throw new Error("Failed to get canvas context");
-        o.height = i.height, o.width = i.width, await n.render({
-          canvasContext: d,
+        d.height = i.height, d.width = i.width, await n.render({
+          canvasContext: u,
           viewport: i
         }).promise, this.updatePaginationState(), this.updateStatus("");
       } catch (n) {
@@ -8201,8 +9675,8 @@ class Ne {
    * Update pagination button states
    */
   updatePaginationState() {
-    const { prevBtn: e, nextBtn: t, currentPageEl: n, pagination: i } = this.elements, o = this.pdfDoc?.numPages || 1;
-    i && i.classList.remove("hidden"), n && (n.textContent = String(this.currentPage)), e && (e.disabled = this.currentPage <= 1), t && (t.disabled = this.currentPage >= o);
+    const { prevBtn: e, nextBtn: t, currentPageEl: n, pagination: i } = this.elements, d = this.pdfDoc?.numPages || 1;
+    i && i.classList.remove("hidden"), n && (n.textContent = String(this.currentPage)), e && (e.disabled = this.currentPage <= 1), t && (t.disabled = this.currentPage >= d);
   }
   /**
    * Update status text
@@ -8215,47 +9689,47 @@ class Ne {
    */
   showSpinner() {
     const { loading: e, spinner: t, error: n, viewer: i } = this.elements;
-    e && w(e), t && x(t), n && w(n), i && w(i);
+    e && k(e), t && $(t), n && k(n), i && k(i);
   }
   /**
    * Show the PDF viewer
    */
   showViewer() {
     const { loading: e, spinner: t, error: n, viewer: i } = this.elements;
-    e && w(e), t && w(t), n && w(n), i && x(i);
+    e && k(e), t && k(t), n && k(n), i && $(i);
   }
   /**
    * Show error state
    */
   showError(e) {
-    const { loading: t, spinner: n, error: i, errorMessage: o, viewer: d } = this.elements;
-    t && w(t), n && w(n), i && x(i), d && w(d), o && (o.textContent = e);
+    const { loading: t, spinner: n, error: i, errorMessage: d, viewer: u } = this.elements;
+    t && k(t), n && k(n), i && $(i), u && k(u), d && (d.textContent = e);
   }
 }
-function ds(s) {
-  const e = new Ne(s);
+function nr(s) {
+  const e = new Tn(s);
   return e.init(), e;
 }
-function us(s) {
+function ir(s) {
   const e = {
     documentId: s.documentId,
     pdfUrl: s.pdfUrl,
     pageCount: s.pageCount || 1
-  }, t = new Ne(e);
-  M(() => t.init()), typeof window < "u" && (window.esignDocumentDetailController = t);
+  }, t = new Tn(e);
+  W(() => t.init()), typeof window < "u" && (window.esignDocumentDetailController = t);
 }
-typeof document < "u" && M(() => {
+typeof document < "u" && W(() => {
   const s = document.querySelector('[data-esign-page="document-detail"]');
   if (s instanceof HTMLElement) {
     const e = s.dataset.documentId || "", t = s.dataset.pdfUrl || "", n = parseInt(s.dataset.pageCount || "1", 10);
-    e && t && new Ne({
+    e && t && new Tn({
       documentId: e,
       pdfUrl: t,
       pageCount: n
     }).init();
   }
 });
-class ps {
+class sr {
   constructor(e) {
     this.env = e;
   }
@@ -8267,7 +9741,7 @@ class ps {
     await t.refresh();
   }
 }
-class hs {
+class rr {
   constructor(e) {
     this.env = e;
   }
@@ -8279,7 +9753,7 @@ class hs {
     t.resetPagination(), await t.refresh();
   }
 }
-function si(s) {
+function Ki(s) {
   switch ((s || "").toLowerCase()) {
     case "select":
     case "enum":
@@ -8295,7 +9769,7 @@ function si(s) {
       return "text";
   }
 }
-function ri(s) {
+function Qi(s) {
   if (!Array.isArray(s)) return;
   const e = s.map((t) => {
     if (!t) return null;
@@ -8304,29 +9778,29 @@ function ri(s) {
   }).filter((t) => t !== null);
   return e.length > 0 ? e : void 0;
 }
-function ai(s, e) {
+function Xi(s, e) {
   if (!Array.isArray(s) || s.length === 0) return;
-  const t = s.map((o) => String(o || "").trim().toLowerCase()).filter(Boolean);
+  const t = s.map((d) => String(d || "").trim().toLowerCase()).filter(Boolean);
   if (t.length === 0) return;
   const n = Array.from(new Set(t)), i = e ? String(e).trim().toLowerCase() : "";
-  return i && n.includes(i) ? [i, ...n.filter((o) => o !== i)] : n;
+  return i && n.includes(i) ? [i, ...n.filter((d) => d !== i)] : n;
 }
-function gs(s) {
+function ar(s) {
   return s.map((e) => ({
     ...e,
     hidden: e.default === !1
   }));
 }
-function ms(s) {
+function or(s) {
   return s ? s.map((e) => ({
     name: e.name,
     label: e.label,
-    type: si(e.type),
-    options: ri(e.options),
-    operators: ai(e.operators, e.default_operator)
+    type: Ki(e.type),
+    options: Qi(e.options),
+    operators: Xi(e.operators, e.default_operator)
   })) : [];
 }
-function fs(s) {
+function cr(s) {
   if (!s) return "-";
   try {
     const e = new Date(s);
@@ -8335,22 +9809,22 @@ function fs(s) {
     return String(s);
   }
 }
-function vs(s) {
+function lr(s) {
   if (!s || Number(s) <= 0) return "-";
   const e = parseInt(String(s), 10);
   return e < 1024 ? `${e} B` : e < 1024 * 1024 ? `${(e / 1024).toFixed(1)} KB` : `${(e / (1024 * 1024)).toFixed(2)} MB`;
 }
-function ws(s, e, t) {
+function dr(s, e, t) {
   t && t.success(`${s} completed successfully`);
 }
-function ys(s, e, t) {
+function ur(s, e, t) {
   if (t) {
-    const n = e?.fields ? Object.entries(e.fields).map(([d, a]) => `${d}: ${a}`).join("; ") : "", i = e?.textCode ? `${e.textCode}: ` : "", o = e?.message || `${s} failed`;
-    t.error(n ? `${i}${o}: ${n}` : `${i}${o}`);
+    const n = e?.fields ? Object.entries(e.fields).map(([u, a]) => `${u}: ${a}`).join("; ") : "", i = e?.textCode ? `${e.textCode}: ` : "", d = e?.message || `${s} failed`;
+    t.error(n ? `${i}${d}: ${n}` : `${i}${d}`);
   }
 }
-function bs(s, e) {
-  const t = c(`#${s}`);
+function pr(s, e) {
+  const t = g(`#${s}`);
   t && t.addEventListener("click", async () => {
     t.disabled = !0, t.classList.add("opacity-50");
     try {
@@ -8360,7 +9834,7 @@ function bs(s, e) {
     }
   });
 }
-function xs(s, e) {
+function gr(s, e) {
   const t = s.refresh.bind(s);
   return async function() {
     await t();
@@ -8368,7 +9842,7 @@ function xs(s, e) {
     n?.actions && e(n.actions);
   };
 }
-const Ss = {
+const mr = {
   searchInput: "#table-search",
   perPageSelect: "#table-per-page",
   filterRow: "[data-filter-column]",
@@ -8384,23 +9858,23 @@ const Ss = {
   rowCheckboxes: ".table-checkbox",
   bulkActionsBar: "#bulk-actions-overlay",
   selectedCount: "#selected-count"
-}, we = "application/vnd.google-apps.document", qe = "application/vnd.google-apps.spreadsheet", Ve = "application/vnd.google-apps.presentation", $t = "application/vnd.google-apps.folder", Ge = "application/pdf", oi = [we, Ge], Bt = "esign.google.account_id";
-function ci(s) {
-  return s.mimeType === we;
+}, Xt = "application/vnd.google-apps.document", _n = "application/vnd.google-apps.spreadsheet", $n = "application/vnd.google-apps.presentation", ni = "application/vnd.google-apps.folder", Mn = "application/pdf", Zi = [Xt, Mn], ii = "esign.google.account_id";
+function es(s) {
+  return s.mimeType === Xt;
 }
-function li(s) {
-  return s.mimeType === Ge;
+function ts(s) {
+  return s.mimeType === Mn;
 }
-function ie(s) {
-  return s.mimeType === $t;
+function gt(s) {
+  return s.mimeType === ni;
 }
-function di(s) {
-  return oi.includes(s.mimeType);
+function ns(s) {
+  return Zi.includes(s.mimeType);
 }
-function Cs(s) {
-  return s.mimeType === we || s.mimeType === qe || s.mimeType === Ve;
+function hr(s) {
+  return s.mimeType === Xt || s.mimeType === _n || s.mimeType === $n;
 }
-function ui(s) {
+function is(s) {
   return {
     id: s.id || "",
     name: s.name || "Untitled",
@@ -8413,16 +9887,16 @@ function ui(s) {
     parents: s.parents
   };
 }
-function Es(s) {
-  return s.map(ui);
+function fr(s) {
+  return s.map(is);
 }
-function _t(s) {
+function si(s) {
   return {
-    [we]: "Google Doc",
-    [qe]: "Google Sheet",
-    [Ve]: "Google Slides",
-    [$t]: "Folder",
-    [Ge]: "PDF",
+    [Xt]: "Google Doc",
+    [_n]: "Google Sheet",
+    [$n]: "Google Slides",
+    [ni]: "Folder",
+    [Mn]: "PDF",
     "application/msword": "Word Document",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "Word Document",
     "application/vnd.ms-excel": "Excel Spreadsheet",
@@ -8432,24 +9906,24 @@ function _t(s) {
     "text/plain": "Text File"
   }[s] || "File";
 }
-function pi(s) {
-  return ie(s) ? {
+function ss(s) {
+  return gt(s) ? {
     icon: "iconoir-folder",
     bgClass: "bg-yellow-100",
     textClass: "text-yellow-600"
-  } : ci(s) ? {
+  } : es(s) ? {
     icon: "iconoir-google-docs",
     bgClass: "bg-blue-100",
     textClass: "text-blue-600"
-  } : li(s) ? {
+  } : ts(s) ? {
     icon: "iconoir-page",
     bgClass: "bg-red-100",
     textClass: "text-red-600"
-  } : s.mimeType === qe ? {
+  } : s.mimeType === _n ? {
     icon: "iconoir-table",
     bgClass: "bg-green-100",
     textClass: "text-green-600"
-  } : s.mimeType === Ve ? {
+  } : s.mimeType === $n ? {
     icon: "iconoir-presentation",
     bgClass: "bg-orange-100",
     textClass: "text-orange-600"
@@ -8463,10 +9937,10 @@ function pi(s) {
     textClass: "text-gray-600"
   };
 }
-function hi(s) {
+function rs(s) {
   return !s || s <= 0 ? "-" : s < 1024 ? `${s} B` : s < 1024 * 1024 ? `${(s / 1024).toFixed(1)} KB` : `${(s / (1024 * 1024)).toFixed(2)} MB`;
 }
-function gi(s) {
+function as(s) {
   if (!s) return "-";
   try {
     return new Date(s).toLocaleDateString();
@@ -8474,25 +9948,25 @@ function gi(s) {
     return s;
   }
 }
-function Is(s, e) {
+function yr(s, e) {
   const t = s.get("account_id");
   if (t)
-    return ve(t);
+    return Yt(t);
   if (e)
-    return ve(e);
-  const n = localStorage.getItem(Bt);
-  return n ? ve(n) : "";
+    return Yt(e);
+  const n = localStorage.getItem(ii);
+  return n ? Yt(n) : "";
 }
-function ve(s) {
+function Yt(s) {
   if (!s) return "";
   const e = s.trim();
   return e === "null" || e === "undefined" || e === "0" ? "" : e;
 }
-function Ls(s) {
-  const e = ve(s);
-  e && localStorage.setItem(Bt, e);
+function vr(s) {
+  const e = Yt(s);
+  e && localStorage.setItem(ii, e);
 }
-function As(s, e) {
+function wr(s, e) {
   if (!e) return s;
   try {
     const t = new URL(s, window.location.origin);
@@ -8502,27 +9976,27 @@ function As(s, e) {
     return `${s}${t}account_id=${encodeURIComponent(e)}`;
   }
 }
-function ks(s, e, t) {
+function br(s, e, t) {
   const n = new URL(e, window.location.origin);
   return n.pathname.startsWith(s) || (n.pathname = `${s}${e}`), t && n.searchParams.set("account_id", t), n;
 }
-function Ps(s) {
+function xr(s) {
   const e = new URL(window.location.href), t = e.searchParams.get("account_id");
   s && t !== s ? (e.searchParams.set("account_id", s), window.history.replaceState({}, "", e.toString())) : !s && t && (e.searchParams.delete("account_id"), window.history.replaceState({}, "", e.toString()));
 }
-function se(s) {
+function mt(s) {
   const e = document.createElement("div");
   return e.textContent = s, e.innerHTML;
 }
-function mi(s) {
-  const e = pi(s);
+function os(s) {
+  const e = ss(s);
   return `
     <div class="w-10 h-10 ${e.bgClass} rounded-lg flex items-center justify-center flex-shrink-0">
       <i class="${e.icon} ${e.textClass}" aria-hidden="true"></i>
     </div>
   `;
 }
-function Ts(s, e) {
+function Sr(s, e) {
   if (s.length === 0)
     return '<span class="text-gray-600 text-sm font-medium">My Drive</span>';
   const t = [
@@ -8530,189 +10004,189 @@ function Ts(s, e) {
     ...s
   ];
   return t.map((n, i) => {
-    const o = i === t.length - 1, d = i > 0 ? '<span class="text-gray-400 mx-1">/</span>' : "";
-    return o ? `${d}<span class="text-gray-900 font-medium">${se(n.name)}</span>` : `${d}<button
+    const d = i === t.length - 1, u = i > 0 ? '<span class="text-gray-400 mx-1">/</span>' : "";
+    return d ? `${u}<span class="text-gray-900 font-medium">${mt(n.name)}</span>` : `${u}<button
         type="button"
         class="text-blue-600 hover:text-blue-800 hover:underline breadcrumb-nav-btn"
         data-folder-id="${n.id}"
-      >${se(n.name)}</button>`;
+      >${mt(n.name)}</button>`;
   }).join("");
 }
-function fi(s, e = {}) {
-  const { selectable: t = !0, showSize: n = !0, showDate: i = !0 } = e, o = mi(s), d = ie(s), a = di(s), f = d ? "cursor-pointer hover:bg-gray-50" : a ? "cursor-pointer hover:bg-blue-50" : "opacity-60", g = d ? `data-folder-id="${s.id}" data-folder-name="${se(s.name)}"` : a && t ? `data-file-id="${s.id}" data-file-name="${se(s.name)}" data-mime-type="${s.mimeType}"` : "";
+function cs(s, e = {}) {
+  const { selectable: t = !0, showSize: n = !0, showDate: i = !0 } = e, d = os(s), u = gt(s), a = ns(s), x = u ? "cursor-pointer hover:bg-gray-50" : a ? "cursor-pointer hover:bg-blue-50" : "opacity-60", v = u ? `data-folder-id="${s.id}" data-folder-name="${mt(s.name)}"` : a && t ? `data-file-id="${s.id}" data-file-name="${mt(s.name)}" data-mime-type="${s.mimeType}"` : "";
   return `
     <div
-      class="flex items-center gap-3 p-3 rounded-lg border border-gray-200 ${f} file-item"
-      ${g}
+      class="flex items-center gap-3 p-3 rounded-lg border border-gray-200 ${x} file-item"
+      ${v}
       role="listitem"
       ${a ? 'tabindex="0"' : ""}
     >
-      ${o}
+      ${d}
       <div class="flex-1 min-w-0">
-        <p class="font-medium text-gray-900 truncate">${se(s.name)}</p>
+        <p class="font-medium text-gray-900 truncate">${mt(s.name)}</p>
         <p class="text-xs text-gray-500">
-          ${_t(s.mimeType)}
-          ${n && s.size > 0 ? ` &middot; ${hi(s.size)}` : ""}
-          ${i && s.modifiedTime ? ` &middot; ${gi(s.modifiedTime)}` : ""}
+          ${si(s.mimeType)}
+          ${n && s.size > 0 ? ` &middot; ${rs(s.size)}` : ""}
+          ${i && s.modifiedTime ? ` &middot; ${as(s.modifiedTime)}` : ""}
         </p>
       </div>
       ${a && t ? '<i class="iconoir-nav-arrow-right text-gray-400" aria-hidden="true"></i>' : ""}
     </div>
   `;
 }
-function Ms(s, e = {}) {
+function Ir(s, e = {}) {
   const { emptyMessage: t = "No files found", selectable: n = !0 } = e;
   return s.length === 0 ? `
       <div class="text-center py-8 text-gray-500">
         <i class="iconoir-folder text-4xl mb-2" aria-hidden="true"></i>
-        <p>${se(t)}</p>
+        <p>${mt(t)}</p>
       </div>
     ` : `
     <div class="space-y-2" role="list">
-      ${[...s].sort((o, d) => ie(o) && !ie(d) ? -1 : !ie(o) && ie(d) ? 1 : o.name.localeCompare(d.name)).map((o) => fi(o, { selectable: n })).join("")}
+      ${[...s].sort((d, u) => gt(d) && !gt(u) ? -1 : !gt(d) && gt(u) ? 1 : d.name.localeCompare(u.name)).map((d) => cs(d, { selectable: n })).join("")}
     </div>
   `;
 }
-function Ds(s) {
+function Er(s) {
   return {
     id: s.id,
     name: s.name,
     mimeType: s.mimeType,
-    typeName: _t(s.mimeType)
+    typeName: si(s.mimeType)
   };
 }
 export {
-  Mn as AGREEMENT_STATUS_BADGES,
-  Ue as AgreementFormController,
-  Ne as DocumentDetailPreviewController,
-  ze as DocumentFormController,
-  Ln as ESignAPIClient,
-  An as ESignAPIError,
-  Bt as GOOGLE_ACCOUNT_STORAGE_KEY,
-  Et as GoogleCallbackController,
-  Lt as GoogleDrivePickerController,
-  It as GoogleIntegrationController,
-  oi as IMPORTABLE_MIME_TYPES,
-  Pt as IntegrationConflictsController,
-  At as IntegrationHealthController,
-  kt as IntegrationMappingsController,
-  Tt as IntegrationSyncRunsController,
-  Oe as LandingPageController,
-  we as MIME_GOOGLE_DOC,
-  $t as MIME_GOOGLE_FOLDER,
-  qe as MIME_GOOGLE_SHEET,
-  Ve as MIME_GOOGLE_SLIDES,
-  Ge as MIME_PDF,
-  ps as PanelPaginationBehavior,
-  hs as PanelSearchBehavior,
-  Ss as STANDARD_GRID_SELECTORS,
-  Ct as SignerCompletePageController,
-  Dt as SignerErrorPageController,
-  Mt as SignerReviewController,
-  H as announce,
-  As as applyAccountIdToPath,
-  Rn as applyDetailFormatters,
-  as as bootstrapAgreementForm,
-  us as bootstrapDocumentDetailPreview,
-  ss as bootstrapDocumentForm,
-  qi as bootstrapGoogleCallback,
-  Ji as bootstrapGoogleDrivePicker,
-  Gi as bootstrapGoogleIntegration,
-  es as bootstrapIntegrationConflicts,
-  Ki as bootstrapIntegrationHealth,
-  Xi as bootstrapIntegrationMappings,
-  ns as bootstrapIntegrationSyncRuns,
-  Oi as bootstrapLandingPage,
-  Ui as bootstrapSignerCompletePage,
-  ls as bootstrapSignerErrorPage,
-  ni as bootstrapSignerReview,
-  ks as buildScopedApiUrl,
-  ki as byId,
-  Tn as capitalize,
-  Pn as createESignClient,
-  $n as createElement,
-  xs as createSchemaActionCachingRefresh,
-  Ds as createSelectedFile,
-  Li as createStatusBadgeElement,
-  Ri as createTimeoutController,
-  fs as dateTimeCellRenderer,
-  re as debounce,
-  ys as defaultActionErrorHandler,
-  ws as defaultActionSuccessHandler,
-  Ti as delegate,
-  se as escapeHtml,
-  vs as fileSizeCellRenderer,
-  bi as formatDate,
-  X as formatDateTime,
-  gi as formatDriveDate,
-  hi as formatDriveFileSize,
-  fe as formatFileSize,
-  yi as formatPageCount,
-  Ci as formatRecipientCount,
-  Si as formatRelativeTime,
-  _n as formatSizeElements,
-  xi as formatTime,
-  Fn as formatTimestampElements,
-  xt as getAgreementStatusBadge,
-  wi as getESignClient,
-  pi as getFileIconConfig,
-  _t as getFileTypeName,
-  Bn as getPageConfig,
-  w as hide,
-  rs as initAgreementForm,
-  Hn as initDetailFormatters,
-  ds as initDocumentDetailPreview,
-  is as initDocumentForm,
-  Ni as initGoogleCallback,
-  Wi as initGoogleDrivePicker,
-  Vi as initGoogleIntegration,
-  Zi as initIntegrationConflicts,
-  Yi as initIntegrationHealth,
-  Qi as initIntegrationMappings,
-  ts as initIntegrationSyncRuns,
-  ji as initLandingPage,
-  zi as initSignerCompletePage,
-  cs as initSignerErrorPage,
-  os as initSignerReview,
-  ie as isFolder,
-  ci as isGoogleDoc,
-  Cs as isGoogleWorkspaceFile,
-  di as isImportable,
-  li as isPDF,
-  ve as normalizeAccountId,
-  ui as normalizeDriveFile,
-  Es as normalizeDriveFiles,
-  ai as normalizeFilterOperators,
-  ri as normalizeFilterOptions,
-  si as normalizeFilterType,
-  Pi as on,
-  M as onReady,
-  Bi as poll,
-  ms as prepareFilterFields,
-  gs as prepareGridColumns,
-  c as qs,
-  W as qsa,
-  Ts as renderBreadcrumb,
-  mi as renderFileIcon,
-  fi as renderFileItem,
-  Ms as renderFileList,
-  Dn as renderStatusBadge,
-  Is as resolveAccountId,
-  _i as retry,
-  Ls as saveAccountId,
-  kn as setESignClient,
-  Di as setLoading,
-  bs as setupRefreshButton,
-  x as show,
-  St as sleep,
-  Ei as snakeToTitle,
-  Ps as syncAccountIdToUrl,
-  Fi as throttle,
-  Mi as toggle,
-  Ii as truncate,
-  ce as updateDataText,
-  $i as updateDataTexts,
-  Ai as updateStatusBadge,
-  Hi as withTimeout
+  Ei as AGREEMENT_STATUS_BADGES,
+  Zn as AgreementFormController,
+  Tn as DocumentDetailPreviewController,
+  An as DocumentFormController,
+  wi as ESignAPIClient,
+  bi as ESignAPIError,
+  ii as GOOGLE_ACCOUNT_STORAGE_KEY,
+  Gn as GoogleCallbackController,
+  Jn as GoogleDrivePickerController,
+  Wn as GoogleIntegrationController,
+  Zi as IMPORTABLE_MIME_TYPES,
+  Qn as IntegrationConflictsController,
+  Yn as IntegrationHealthController,
+  Kn as IntegrationMappingsController,
+  Xn as IntegrationSyncRunsController,
+  Pn as LandingPageController,
+  Xt as MIME_GOOGLE_DOC,
+  ni as MIME_GOOGLE_FOLDER,
+  _n as MIME_GOOGLE_SHEET,
+  $n as MIME_GOOGLE_SLIDES,
+  Mn as MIME_PDF,
+  sr as PanelPaginationBehavior,
+  rr as PanelSearchBehavior,
+  mr as STANDARD_GRID_SELECTORS,
+  Vn as SignerCompletePageController,
+  ti as SignerErrorPageController,
+  ei as SignerReviewController,
+  me as announce,
+  wr as applyAccountIdToPath,
+  Ti as applyDetailFormatters,
+  ji as bootstrapAgreementForm,
+  ir as bootstrapDocumentDetailPreview,
+  Qs as bootstrapDocumentForm,
+  Rs as bootstrapGoogleCallback,
+  zs as bootstrapGoogleDrivePicker,
+  js as bootstrapGoogleIntegration,
+  Ws as bootstrapIntegrationConflicts,
+  Os as bootstrapIntegrationHealth,
+  Vs as bootstrapIntegrationMappings,
+  Ys as bootstrapIntegrationSyncRuns,
+  Ms as bootstrapLandingPage,
+  Ds as bootstrapSignerCompletePage,
+  tr as bootstrapSignerErrorPage,
+  Ji as bootstrapSignerReview,
+  br as buildScopedApiUrl,
+  xs as byId,
+  Ii as capitalize,
+  Si as createESignClient,
+  Li as createElement,
+  gr as createSchemaActionCachingRefresh,
+  Er as createSelectedFile,
+  ws as createStatusBadgeElement,
+  Ts as createTimeoutController,
+  cr as dateTimeCellRenderer,
+  Qt as debounce,
+  ur as defaultActionErrorHandler,
+  dr as defaultActionSuccessHandler,
+  Is as delegate,
+  mt as escapeHtml,
+  lr as fileSizeCellRenderer,
+  gs as formatDate,
+  Kt as formatDateTime,
+  as as formatDriveDate,
+  rs as formatDriveFileSize,
+  Jt as formatFileSize,
+  ps as formatPageCount,
+  fs as formatRecipientCount,
+  hs as formatRelativeTime,
+  Pi as formatSizeElements,
+  ms as formatTime,
+  Ai as formatTimestampElements,
+  On as getAgreementStatusBadge,
+  us as getESignClient,
+  ss as getFileIconConfig,
+  si as getFileTypeName,
+  ki as getPageConfig,
+  k as hide,
+  Xs as initAgreementForm,
+  _i as initDetailFormatters,
+  nr as initDocumentDetailPreview,
+  Ks as initDocumentForm,
+  Fs as initGoogleCallback,
+  qs as initGoogleDrivePicker,
+  Hs as initGoogleIntegration,
+  Gs as initIntegrationConflicts,
+  Ns as initIntegrationHealth,
+  Us as initIntegrationMappings,
+  Js as initIntegrationSyncRuns,
+  $s as initLandingPage,
+  Bs as initSignerCompletePage,
+  er as initSignerErrorPage,
+  Zs as initSignerReview,
+  gt as isFolder,
+  es as isGoogleDoc,
+  hr as isGoogleWorkspaceFile,
+  ns as isImportable,
+  ts as isPDF,
+  Yt as normalizeAccountId,
+  is as normalizeDriveFile,
+  fr as normalizeDriveFiles,
+  Xi as normalizeFilterOperators,
+  Qi as normalizeFilterOptions,
+  Ki as normalizeFilterType,
+  Ss as on,
+  W as onReady,
+  ks as poll,
+  or as prepareFilterFields,
+  ar as prepareGridColumns,
+  g as qs,
+  nt as qsa,
+  Sr as renderBreadcrumb,
+  os as renderFileIcon,
+  cs as renderFileItem,
+  Ir as renderFileList,
+  Ci as renderStatusBadge,
+  yr as resolveAccountId,
+  Ps as retry,
+  vr as saveAccountId,
+  xi as setESignClient,
+  Cs as setLoading,
+  pr as setupRefreshButton,
+  $ as show,
+  Un as sleep,
+  ys as snakeToTitle,
+  xr as syncAccountIdToUrl,
+  As as throttle,
+  Es as toggle,
+  vs as truncate,
+  Dt as updateDataText,
+  Ls as updateDataTexts,
+  bs as updateStatusBadge,
+  _s as withTimeout
 };
 //# sourceMappingURL=index.js.map
