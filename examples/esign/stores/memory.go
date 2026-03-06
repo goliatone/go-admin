@@ -33,6 +33,7 @@ type InMemoryStore struct {
 	signatureArtifacts         map[string]SignatureArtifactRecord
 	signerProfiles             map[string]SignerProfileRecord
 	signerProfileIndex         map[string]string
+	savedSignerSignatures      map[string]SavedSignerSignatureRecord
 	fieldValues                map[string]FieldValueRecord
 	auditEvents                map[string]AuditEventRecord
 	agreementArtifacts         map[string]AgreementArtifactRecord
@@ -72,6 +73,7 @@ func NewInMemoryStore() *InMemoryStore {
 		signatureArtifacts:         map[string]SignatureArtifactRecord{},
 		signerProfiles:             map[string]SignerProfileRecord{},
 		signerProfileIndex:         map[string]string{},
+		savedSignerSignatures:      map[string]SavedSignerSignatureRecord{},
 		fieldValues:                map[string]FieldValueRecord{},
 		auditEvents:                map[string]AuditEventRecord{},
 		agreementArtifacts:         map[string]AgreementArtifactRecord{},
@@ -165,6 +167,7 @@ func (s *InMemoryStore) snapshot() (sqliteStoreSnapshot, error) {
 		SignatureArtifacts:         s.signatureArtifacts,
 		SignerProfiles:             s.signerProfiles,
 		SignerProfileIndex:         s.signerProfileIndex,
+		SavedSignerSignatures:      s.savedSignerSignatures,
 		FieldValues:                s.fieldValues,
 		AuditEvents:                s.auditEvents,
 		AgreementArtifacts:         s.agreementArtifacts,
@@ -213,6 +216,7 @@ func (s *InMemoryStore) applySnapshot(snapshot sqliteStoreSnapshot) {
 	s.signatureArtifacts = ensureSignatureArtifactMap(snapshot.SignatureArtifacts)
 	s.signerProfiles = ensureSignerProfileMap(snapshot.SignerProfiles)
 	s.signerProfileIndex = ensureStringMap(snapshot.SignerProfileIndex)
+	s.savedSignerSignatures = ensureSavedSignerSignatureMap(snapshot.SavedSignerSignatures)
 	s.fieldValues = ensureFieldValueMap(snapshot.FieldValues)
 	s.auditEvents = ensureAuditEventMap(snapshot.AuditEvents)
 	s.agreementArtifacts = ensureAgreementArtifactMap(snapshot.AgreementArtifacts)
@@ -2035,6 +2039,123 @@ func (s *InMemoryStore) DeleteSignerProfile(ctx context.Context, scope Scope, su
 	return nil
 }
 
+func (s *InMemoryStore) CreateSavedSignerSignature(ctx context.Context, scope Scope, record SavedSignerSignatureRecord) (SavedSignerSignatureRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return SavedSignerSignatureRecord{}, err
+	}
+
+	record.Subject = strings.ToLower(strings.TrimSpace(record.Subject))
+	record.Type = strings.ToLower(strings.TrimSpace(record.Type))
+	record.Label = strings.TrimSpace(record.Label)
+	record.ObjectKey = strings.TrimSpace(record.ObjectKey)
+	record.ThumbnailDataURL = strings.TrimSpace(record.ThumbnailDataURL)
+	if record.Subject == "" {
+		return SavedSignerSignatureRecord{}, invalidRecordError("saved_signatures", "subject", "required")
+	}
+	if record.Type == "" {
+		return SavedSignerSignatureRecord{}, invalidRecordError("saved_signatures", "type", "required")
+	}
+	if record.ThumbnailDataURL == "" {
+		return SavedSignerSignatureRecord{}, invalidRecordError("saved_signatures", "thumbnail_data_url", "required")
+	}
+	if normalizeID(record.ID) == "" {
+		record.ID = uuid.NewString()
+	}
+	record.ID = normalizeID(record.ID)
+	record.TenantID = scope.TenantID
+	record.OrgID = scope.OrgID
+	record.CreatedAt = normalizeRecordTime(record.CreatedAt)
+
+	key := scopedKey(scope, record.ID)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, exists := s.savedSignerSignatures[key]; exists {
+		return SavedSignerSignatureRecord{}, invalidRecordError("saved_signatures", "id", "already exists")
+	}
+	record = cloneSavedSignerSignatureRecord(record)
+	s.savedSignerSignatures[key] = record
+	return record, nil
+}
+
+func (s *InMemoryStore) ListSavedSignerSignatures(ctx context.Context, scope Scope, subject, signatureType string) ([]SavedSignerSignatureRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return nil, err
+	}
+	subject = strings.ToLower(strings.TrimSpace(subject))
+	signatureType = strings.ToLower(strings.TrimSpace(signatureType))
+	if subject == "" {
+		return nil, invalidRecordError("saved_signatures", "subject", "required")
+	}
+	if signatureType == "" {
+		return nil, invalidRecordError("saved_signatures", "type", "required")
+	}
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	out := make([]SavedSignerSignatureRecord, 0)
+	for _, record := range s.savedSignerSignatures {
+		if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
+			continue
+		}
+		if strings.ToLower(strings.TrimSpace(record.Subject)) != subject {
+			continue
+		}
+		if strings.ToLower(strings.TrimSpace(record.Type)) != signatureType {
+			continue
+		}
+		out = append(out, cloneSavedSignerSignatureRecord(record))
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].CreatedAt.Equal(out[j].CreatedAt) {
+			return out[i].ID > out[j].ID
+		}
+		return out[i].CreatedAt.After(out[j].CreatedAt)
+	})
+	return out, nil
+}
+
+func (s *InMemoryStore) CountSavedSignerSignatures(ctx context.Context, scope Scope, subject, signatureType string) (int, error) {
+	rows, err := s.ListSavedSignerSignatures(ctx, scope, subject, signatureType)
+	if err != nil {
+		return 0, err
+	}
+	return len(rows), nil
+}
+
+func (s *InMemoryStore) DeleteSavedSignerSignature(ctx context.Context, scope Scope, subject, id string) error {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return err
+	}
+	subject = strings.ToLower(strings.TrimSpace(subject))
+	id = normalizeID(id)
+	if subject == "" {
+		return invalidRecordError("saved_signatures", "subject", "required")
+	}
+	if id == "" {
+		return invalidRecordError("saved_signatures", "id", "required")
+	}
+
+	key := scopedKey(scope, id)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	record, exists := s.savedSignerSignatures[key]
+	if !exists {
+		return notFoundError("saved_signatures", id)
+	}
+	if strings.ToLower(strings.TrimSpace(record.Subject)) != subject {
+		return notFoundError("saved_signatures", id)
+	}
+	delete(s.savedSignerSignatures, key)
+	return nil
+}
+
 func (s *InMemoryStore) UpsertFieldValue(ctx context.Context, scope Scope, value FieldValueRecord, expectedVersion int64) (FieldValueRecord, error) {
 	_ = ctx
 	scope, err := validateScope(scope)
@@ -2348,6 +2469,16 @@ func cloneSignerProfileRecord(record SignerProfileRecord) SignerProfileRecord {
 	record.CreatedAt = normalizeRecordTime(record.CreatedAt)
 	record.UpdatedAt = normalizeRecordTime(record.UpdatedAt)
 	record.ExpiresAt = normalizeRecordTime(record.ExpiresAt)
+	return record
+}
+
+func cloneSavedSignerSignatureRecord(record SavedSignerSignatureRecord) SavedSignerSignatureRecord {
+	record.Subject = strings.ToLower(strings.TrimSpace(record.Subject))
+	record.Type = strings.ToLower(strings.TrimSpace(record.Type))
+	record.Label = strings.TrimSpace(record.Label)
+	record.ObjectKey = strings.TrimSpace(record.ObjectKey)
+	record.ThumbnailDataURL = strings.TrimSpace(record.ThumbnailDataURL)
+	record.CreatedAt = normalizeRecordTime(record.CreatedAt)
 	return record
 }
 
