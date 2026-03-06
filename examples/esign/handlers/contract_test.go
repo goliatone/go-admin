@@ -616,6 +616,51 @@ func TestSignerAssetContractReturnsPDFBinaryWhenAssetQueryPresent(t *testing.T) 
 	}
 }
 
+func TestSignerAssetContractReturnsExecutedAndCertificatePDFWhenRequested(t *testing.T) {
+	objectStore := &memorySignerObjectStore{
+		objects: map[string][]byte{
+			"tenant/tenant-1/org/org-1/agreements/agreement-asset-3/executed.pdf":    services.GenerateDeterministicPDF(1),
+			"tenant/tenant-1/org/org-1/agreements/agreement-asset-3/certificate.pdf": services.GenerateDeterministicPDF(2),
+		},
+	}
+	app := setupRegisterTestApp(t, WithSignerAssetContractService(staticSignerAssetContractResolver{
+		contract: services.SignerAssetContract{
+			AgreementID:               "agreement-asset-3",
+			RecipientID:               "recipient-asset-3",
+			RecipientRole:             stores.RecipientRoleSigner,
+			ExecutedArtifactAvailable: true,
+			CertificateAvailable:      true,
+			ExecutedObjectKey:         "tenant/tenant-1/org/org-1/agreements/agreement-asset-3/executed.pdf",
+			CertificateObjectKey:      "tenant/tenant-1/org/org-1/agreements/agreement-asset-3/certificate.pdf",
+		},
+	}), WithSignerObjectStore(objectStore))
+
+	for _, asset := range []string{"executed", "certificate"} {
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/assets/token-contract?asset="+asset, nil)
+		resp, err := app.Test(req, -1)
+		if err != nil {
+			t.Fatalf("request %s failed: %v", asset, err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			_ = resp.Body.Close()
+			t.Fatalf("expected status 200 for %s, got %d body=%s", asset, resp.StatusCode, string(body))
+		}
+		if contentType := strings.ToLower(strings.TrimSpace(resp.Header.Get("Content-Type"))); !strings.Contains(contentType, "application/pdf") {
+			_ = resp.Body.Close()
+			t.Fatalf("expected application/pdf content type for %s, got %q", asset, resp.Header.Get("Content-Type"))
+		}
+		body, err := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		if err != nil {
+			t.Fatalf("read response body for %s: %v", asset, err)
+		}
+		if !strings.HasPrefix(string(body), "%PDF-") {
+			t.Fatalf("expected pdf payload prefix for %s, got %q", asset, string(body))
+		}
+	}
+}
+
 func TestSignerAssetContractReturnsTyped404WhenAssetUnavailable(t *testing.T) {
 	app := setupRegisterTestApp(t, WithSignerAssetContractService(staticSignerAssetContractResolver{
 		contract: services.SignerAssetContract{

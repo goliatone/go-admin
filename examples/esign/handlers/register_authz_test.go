@@ -797,6 +797,115 @@ func TestRegisterSignerSessionIncludesUnifiedGeometryAndBootstrapMetadata(t *tes
 	}
 }
 
+func TestRegisterSignerSessionEmitsViewedAuditEventWithIPAndUserAgent(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+
+	docSvc := services.NewDocumentService(store, services.WithDocumentClock(func() time.Time {
+		return time.Date(2026, 2, 2, 9, 0, 0, 0, time.UTC)
+	}))
+	doc, err := docSvc.Upload(ctx, scope, services.DocumentUploadInput{
+		Title:     "Agreement Source",
+		ObjectKey: "tenant/tenant-1/org/org-1/docs/doc-1/original.pdf",
+		PDF:       services.GenerateDeterministicPDF(1),
+	})
+	if err != nil {
+		t.Fatalf("Upload: %v", err)
+	}
+
+	agreementSvc := services.NewAgreementService(store)
+	agreement, err := agreementSvc.CreateDraft(ctx, scope, services.CreateDraftInput{
+		DocumentID:      doc.ID,
+		Title:           "Viewed Audit",
+		CreatedByUserID: "user-1",
+	})
+	if err != nil {
+		t.Fatalf("CreateDraft: %v", err)
+	}
+	role := stores.RecipientRoleSigner
+	order := 1
+	recipient, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        strPtr("signer@example.com"),
+		Name:         strPtr("Signer"),
+		Role:         &role,
+		SigningOrder: &order,
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft: %v", err)
+	}
+	required := true
+	page := 1
+	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &recipient.ID,
+		Type:        strPtr(stores.FieldTypeText),
+		PageNumber:  &page,
+		Required:    &required,
+	}); err != nil {
+		t.Fatalf("UpsertFieldDraft: %v", err)
+	}
+	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, services.SendInput{IdempotencyKey: "session-viewed-audit"}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+
+	tokenService := stores.NewTokenService(store)
+	issued, err := tokenService.Issue(ctx, scope, agreement.ID, recipient.ID)
+	if err != nil {
+		t.Fatalf("Issue: %v", err)
+	}
+
+	signingSvc := services.NewSigningService(store)
+	app := setupRegisterTestApp(t,
+		WithDefaultScope(scope),
+		WithSignerTokenValidator(tokenService),
+		WithSignerSessionService(signingSvc),
+		WithAuditEventStore(store),
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session/"+issued.Token, nil)
+	req.Header.Set("User-Agent", "signer-viewed-test/1.0")
+	req.Header.Set("X-Forwarded-For", "203.0.113.10")
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected status 200, got %d body=%s", resp.StatusCode, string(body))
+	}
+
+	events, err := store.ListForAgreement(ctx, scope, agreement.ID, stores.AuditEventQuery{SortDesc: false})
+	if err != nil {
+		t.Fatalf("ListForAgreement: %v", err)
+	}
+	var viewed *stores.AuditEventRecord
+	for idx := range events {
+		if events[idx].EventType == "signer.viewed" {
+			viewed = &events[idx]
+			break
+		}
+	}
+	if viewed == nil {
+		t.Fatalf("expected signer.viewed event, got %+v", events)
+	}
+	if viewed.ActorType != "signer_token" {
+		t.Fatalf("expected actor type signer_token, got %q", viewed.ActorType)
+	}
+	if viewed.ActorID != recipient.ID {
+		t.Fatalf("expected actor id %q, got %q", recipient.ID, viewed.ActorID)
+	}
+	if strings.TrimSpace(viewed.IPAddress) == "" {
+		t.Fatalf("expected signer.viewed event with IP address, got %+v", viewed)
+	}
+	if strings.TrimSpace(viewed.UserAgent) != "signer-viewed-test/1.0" {
+		t.Fatalf("expected signer.viewed event with user-agent, got %q", viewed.UserAgent)
+	}
+	if !strings.Contains(viewed.MetadataJSON, "\"session_state\"") {
+		t.Fatalf("expected session_state in audit metadata, got %s", viewed.MetadataJSON)
+	}
+}
+
 func TestRegisterSignerConsentCapturesAcceptance(t *testing.T) {
 	app, _, token, _, _ := setupSignerFlowApp(t)
 

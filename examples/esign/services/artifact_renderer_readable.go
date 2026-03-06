@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"image"
 	_ "image/jpeg"
@@ -119,8 +118,7 @@ func (r ReadableArtifactRenderer) RenderExecuted(ctx context.Context, input Exec
 		input,
 	)
 	if err != nil {
-		// Phase 1 fallback: preserve readable source document even if overlay rendering fails.
-		renderedPDF = append([]byte{}, sourcePDF...)
+		return RenderedArtifact{}, err
 	}
 
 	sum := sha256.Sum256(renderedPDF)
@@ -325,79 +323,6 @@ func drawExecutedFooter(pdf *gofpdf.Fpdf, pageWidth, pageHeight float64, footer 
 	_ = pageWidth
 }
 
-func (r ReadableArtifactRenderer) writeCertificateSectionTitle(pdf *gofpdf.Fpdf, title string) {
-	pdf.SetFont("Helvetica", "B", 14)
-	pdf.CellFormat(0, 18, strings.TrimSpace(title), "", 1, "L", false, 0, "")
-}
-
-func (r ReadableArtifactRenderer) writeCertificateKV(pdf *gofpdf.Fpdf, key, value string) {
-	line := fmt.Sprintf("%s: %s", strings.TrimSpace(key), coalesce(strings.TrimSpace(value), "-"))
-	r.writeCertificateBody(pdf, line)
-}
-
-func (r ReadableArtifactRenderer) writeCertificateBody(pdf *gofpdf.Fpdf, text string) {
-	pdf.SetFont("Helvetica", "", 11)
-	pdf.MultiCell(0, 15, strings.TrimSpace(text), "", "L", false)
-}
-
-func buildCertificateStageTimeline(recipients []stores.RecipientRecord) []string {
-	byStage := map[int][]stores.RecipientRecord{}
-	stages := make([]int, 0)
-	for _, recipient := range recipients {
-		if recipient.Role != stores.RecipientRoleSigner {
-			continue
-		}
-		stage := normalizeSigningStage(recipient.SigningOrder)
-		if _, ok := byStage[stage]; !ok {
-			stages = append(stages, stage)
-		}
-		byStage[stage] = append(byStage[stage], recipient)
-	}
-	if len(stages) == 0 {
-		return nil
-	}
-	sort.Ints(stages)
-
-	lines := make([]string, 0, len(stages))
-	for _, stage := range stages {
-		signers := byStage[stage]
-		sort.Slice(signers, func(i, j int) bool {
-			if strings.TrimSpace(signers[i].Name) == strings.TrimSpace(signers[j].Name) {
-				return signers[i].ID < signers[j].ID
-			}
-			return strings.TrimSpace(signers[i].Name) < strings.TrimSpace(signers[j].Name)
-		})
-
-		completedCount := 0
-		declinedCount := 0
-		participantStatus := make([]string, 0, len(signers))
-		for _, signer := range signers {
-			status := "pending"
-			if signer.CompletedAt != nil {
-				status = "completed@" + signer.CompletedAt.UTC().Format(time.RFC3339)
-				completedCount++
-			}
-			if signer.DeclinedAt != nil {
-				status = "declined@" + signer.DeclinedAt.UTC().Format(time.RFC3339)
-				declinedCount++
-			}
-			participantStatus = append(participantStatus, fmt.Sprintf("%s<%s>:%s",
-				coalesce(strings.TrimSpace(signer.Name), strings.TrimSpace(signer.ID)),
-				strings.TrimSpace(signer.Email),
-				status,
-			))
-		}
-		lines = append(lines, fmt.Sprintf("stage=%d signers=%d completed=%d declined=%d participants=[%s]",
-			stage,
-			len(signers),
-			completedCount,
-			declinedCount,
-			strings.Join(participantStatus, ", "),
-		))
-	}
-	return lines
-}
-
 type executedOverlay struct {
 	PageNumber int
 	X          float64
@@ -541,24 +466,6 @@ func initialsFromName(name string) string {
 		return ""
 	}
 	return strings.ToUpper(string(first[0]) + string(last[0]))
-}
-
-func compactMetadata(raw string) string {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return ""
-	}
-	decoded := map[string]any{}
-	if err := json.Unmarshal([]byte(raw), &decoded); err == nil {
-		encoded, err := json.Marshal(decoded)
-		if err == nil {
-			raw = string(encoded)
-		}
-	}
-	if len(raw) > 240 {
-		return raw[:237] + "..."
-	}
-	return raw
 }
 
 func maxFieldPage(fields []stores.FieldRecord) int {
