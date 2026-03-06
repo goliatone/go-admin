@@ -428,24 +428,30 @@ SIGNER_ENTRY_STATUS="$(
     "$(absolute_url "${SIGN_URL}")" \
     --write-out '%{http_code}'
 )"
-if [[ "${SIGNER_ENTRY_STATUS}" != "302" ]]; then
-  fail "signer entrypoint failed: expected HTTP 302 unified redirect, got ${SIGNER_ENTRY_STATUS}. body=$(cat "${SIGNER_ENTRY_BODY}")"
-fi
-SIGNER_ENTRY_LOCATION="$(extract_location "${SIGNER_ENTRY_HEADERS}")"
-[[ -n "${SIGNER_ENTRY_LOCATION}" ]] || fail "signer entrypoint missing Location header"
-if [[ "${SIGNER_ENTRY_LOCATION}" != *"/sign/${SIGNER_TOKEN}/review"* ]] || [[ "${SIGNER_ENTRY_LOCATION}" != *"flow=unified"* ]]; then
-  fail "signer entrypoint did not resolve to unified review path: location=${SIGNER_ENTRY_LOCATION}"
-fi
+if [[ "${SIGNER_ENTRY_STATUS}" == "302" ]]; then
+  SIGNER_ENTRY_LOCATION="$(extract_location "${SIGNER_ENTRY_HEADERS}")"
+  [[ -n "${SIGNER_ENTRY_LOCATION}" ]] || fail "signer entrypoint missing Location header"
+  if [[ "${SIGNER_ENTRY_LOCATION}" != *"/sign/${SIGNER_TOKEN}/review"* ]] || [[ "${SIGNER_ENTRY_LOCATION}" != *"flow=unified"* ]]; then
+    fail "signer entrypoint did not resolve to unified review path: location=${SIGNER_ENTRY_LOCATION}"
+  fi
 
-log "Loading unified signer review page"
-SIGNER_REVIEW_STATUS="$(
-  curl -sS \
-    -o "${SIGNER_REVIEW_HTML}" \
-    "$(absolute_url "${SIGNER_ENTRY_LOCATION}")" \
-    --write-out '%{http_code}'
-)"
-if [[ "${SIGNER_REVIEW_STATUS}" != "200" ]]; then
-  fail "signer review page failed: expected HTTP 200, got ${SIGNER_REVIEW_STATUS}. body=$(cat "${SIGNER_REVIEW_HTML}")"
+  log "Loading unified signer review page"
+  SIGNER_REVIEW_STATUS="$(
+    curl -sS \
+      -o "${SIGNER_REVIEW_HTML}" \
+      "$(absolute_url "${SIGNER_ENTRY_LOCATION}")" \
+      --write-out '%{http_code}'
+  )"
+  if [[ "${SIGNER_REVIEW_STATUS}" != "200" ]]; then
+    fail "signer review page failed: expected HTTP 200, got ${SIGNER_REVIEW_STATUS}. body=$(cat "${SIGNER_REVIEW_HTML}")"
+  fi
+elif [[ "${SIGNER_ENTRY_STATUS}" == "200" ]]; then
+  cp "${SIGNER_ENTRY_BODY}" "${SIGNER_REVIEW_HTML}"
+  if ! grep -q 'data-esign-page="signer.review"' "${SIGNER_REVIEW_HTML}"; then
+    fail "signer entrypoint returned HTTP 200 but body was not signer review page"
+  fi
+else
+  fail "signer entrypoint failed: expected HTTP 302 redirect or 200 review page, got ${SIGNER_ENTRY_STATUS}. body=$(cat "${SIGNER_ENTRY_BODY}")"
 fi
 
 log "Capturing signer consent"
@@ -467,7 +473,7 @@ SIGNATURE_STATUS="$(
     -o "${SIGNATURE_JSON_PATH}" \
     -X POST "${BASE_URL}/api/v1/esign/signing/field-values/signature/${SIGNER_TOKEN}" \
     -H 'Content-Type: application/json' \
-    -d "{\"field_id\":\"${SIGNATURE_FIELD_ID}\",\"type\":\"typed\",\"object_key\":\"tenant/${EFFECTIVE_SCOPE_TENANT_ID}/org/${EFFECTIVE_SCOPE_ORG_ID}/agreements/${AGREEMENT_ID}/sig/smoke-signature.png\",\"sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"value_text\":\"Smoke Signer\"}" \
+    -d "{\"field_instance_id\":\"${SIGNATURE_FIELD_ID}\",\"type\":\"typed\",\"object_key\":\"tenant/${EFFECTIVE_SCOPE_TENANT_ID}/org/${EFFECTIVE_SCOPE_ORG_ID}/agreements/${AGREEMENT_ID}/sig/smoke-signature.png\",\"sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"value_text\":\"Smoke Signer\"}" \
     --write-out '%{http_code}'
 )"
 if [[ "${SIGNATURE_STATUS}" != "200" ]]; then

@@ -31,6 +31,7 @@ var (
 	participantBracketKeyPattern = regexp.MustCompile(`^(participants|recipients)\[(\d+)\]$`)
 	fieldBracketKeyPattern       = regexp.MustCompile(`^(fields|field_instances)\[(\d+)\]$`)
 	fieldPlacementKeyPattern     = regexp.MustCompile(`^field_placements\[(\d+)\]$`)
+	fieldRuleKeyPattern          = regexp.MustCompile(`^field_rules\[(\d+)\]$`)
 )
 
 type documentPanelRepository struct {
@@ -867,6 +868,20 @@ type agreementFieldPlacementFormInput struct {
 	Height       float64
 }
 
+type agreementFieldRuleFormInput struct {
+	ID               string
+	Type             string
+	ParticipantID    string
+	ParticipantIndex int
+	Page             int
+	FromPage         int
+	ToPage           int
+	ExcludeLastPage  bool
+	ExcludePages     []int
+	Label            string
+	Required         bool
+}
+
 func (r *agreementPanelRepository) syncDraftFormPayload(
 	ctx context.Context,
 	scope stores.Scope,
@@ -896,6 +911,29 @@ func (r *agreementPanelRepository) syncDraftFormPayload(
 	fieldInputs, hasFieldPayload, err := parseAgreementFieldFormInputs(record)
 	if err != nil {
 		return nil, nil, err
+	}
+	ruleInputs, hasRulePayload, err := parseAgreementFieldRuleFormInputs(record)
+	if err != nil {
+		return nil, nil, err
+	}
+	if hasRulePayload {
+		documentPageCount, err := coerceFormInt(record["document_page_count"], "document_page_count")
+		if err != nil {
+			return nil, nil, err
+		}
+		expanded, err := expandAgreementFieldRules(ruleInputs, recipients, fieldInputs, documentPageCount)
+		if err != nil {
+			return nil, nil, err
+		}
+		fieldInputs = append(fieldInputs, expanded...)
+		hasFieldPayload = true
+	}
+	placementInputs, hasPlacementPayload, err := parseAgreementFieldPlacementInputs(record)
+	if err != nil {
+		return nil, nil, err
+	}
+	if hasPlacementPayload && len(fieldInputs) > 0 {
+		fieldInputs = mergeFieldPlacementInputs(fieldInputs, placementInputs)
 	}
 	if !hasFieldPayload && toBool(record["fields_present"]) {
 		hasFieldPayload = true
@@ -1234,15 +1272,373 @@ func parseAgreementFieldFormInputs(record map[string]any) ([]agreementFieldFormI
 		})
 	}
 
-	placementInputs, hasPlacementPayload, err := parseAgreementFieldPlacementInputs(record)
-	if err != nil {
-		return nil, hasPayload || hasPlacementPayload, err
+	return out, hasPayload, nil
+}
+
+func parseAgreementFieldRuleFormInputs(record map[string]any) ([]agreementFieldRuleFormInput, bool, error) {
+	entries := map[int]map[string]any{}
+	hasPayload := false
+	if record == nil {
+		return nil, false, nil
 	}
-	if hasPlacementPayload && len(out) > 0 {
-		out = mergeFieldPlacementInputs(out, placementInputs)
+	if raw, ok := record["field_rules"]; ok {
+		hasPayload = true
+		collectIndexedFormEntries(entries, raw)
+	}
+	if raw, ok := record["fieldRules"]; ok {
+		hasPayload = true
+		collectIndexedFormEntries(entries, raw)
+	}
+	if decoded, hasJSONPayload, err := decodeFieldRuleJSONPayload(record["field_rules_json"]); err != nil {
+		if hasJSONPayload {
+			hasPayload = true
+		}
+		return nil, hasPayload, fmt.Errorf("field_rules_json has invalid json payload")
+	} else if hasJSONPayload {
+		hasPayload = true
+		for index, entry := range decoded {
+			entries[index] = entry
+		}
+	}
+	for key, value := range record {
+		matches := fieldRuleKeyPattern.FindStringSubmatch(strings.TrimSpace(key))
+		if len(matches) != 2 {
+			continue
+		}
+		hasPayload = true
+		index := int(toInt64(matches[1]))
+		entry, ok := value.(map[string]any)
+		if !ok {
+			entry = map[string]any{}
+		}
+		entries[index] = entry
+	}
+
+	indexes := sortedEntryIndexes(entries)
+	out := make([]agreementFieldRuleFormInput, 0, len(indexes))
+	for _, index := range indexes {
+		entry := entries[index]
+		id, err := coerceFormString(entry["id"], fmt.Sprintf("field_rules[%d].id", index))
+		if err != nil {
+			return nil, hasPayload, err
+		}
+		ruleType, err := coerceFormString(entry["type"], fmt.Sprintf("field_rules[%d].type", index))
+		if err != nil {
+			return nil, hasPayload, err
+		}
+		participantID, err := coerceFormString(entry["participant_id"], fmt.Sprintf("field_rules[%d].participant_id", index))
+		if err != nil {
+			return nil, hasPayload, err
+		}
+		if participantID == "" {
+			participantID, err = coerceFormString(entry["participantId"], fmt.Sprintf("field_rules[%d].participantId", index))
+			if err != nil {
+				return nil, hasPayload, err
+			}
+		}
+		participantIndex := -1
+		if raw, ok := entry["participant_index"]; ok {
+			participantIndex, err = coerceFormInt(raw, fmt.Sprintf("field_rules[%d].participant_index", index))
+			if err != nil {
+				return nil, hasPayload, err
+			}
+		} else if raw, ok := entry["participantIndex"]; ok {
+			participantIndex, err = coerceFormInt(raw, fmt.Sprintf("field_rules[%d].participantIndex", index))
+			if err != nil {
+				return nil, hasPayload, err
+			}
+		}
+		page, err := coerceFormInt(entry["page"], fmt.Sprintf("field_rules[%d].page", index))
+		if err != nil {
+			return nil, hasPayload, err
+		}
+		fromPage, err := coerceFormInt(entry["from_page"], fmt.Sprintf("field_rules[%d].from_page", index))
+		if err != nil {
+			return nil, hasPayload, err
+		}
+		if fromPage == 0 {
+			fromPage, err = coerceFormInt(entry["fromPage"], fmt.Sprintf("field_rules[%d].fromPage", index))
+			if err != nil {
+				return nil, hasPayload, err
+			}
+		}
+		toPage, err := coerceFormInt(entry["to_page"], fmt.Sprintf("field_rules[%d].to_page", index))
+		if err != nil {
+			return nil, hasPayload, err
+		}
+		if toPage == 0 {
+			toPage, err = coerceFormInt(entry["toPage"], fmt.Sprintf("field_rules[%d].toPage", index))
+			if err != nil {
+				return nil, hasPayload, err
+			}
+		}
+		excludeLastPage, err := coerceFormBool(entry["exclude_last_page"], fmt.Sprintf("field_rules[%d].exclude_last_page", index))
+		if err != nil {
+			return nil, hasPayload, err
+		}
+		if !excludeLastPage {
+			excludeLastPage, err = coerceFormBool(entry["excludeLastPage"], fmt.Sprintf("field_rules[%d].excludeLastPage", index))
+			if err != nil {
+				return nil, hasPayload, err
+			}
+		}
+		excludePages, err := coerceFormIntSlice(entry["exclude_pages"], fmt.Sprintf("field_rules[%d].exclude_pages", index))
+		if err != nil {
+			return nil, hasPayload, err
+		}
+		if len(excludePages) == 0 {
+			excludePages, err = coerceFormIntSlice(entry["excludePages"], fmt.Sprintf("field_rules[%d].excludePages", index))
+			if err != nil {
+				return nil, hasPayload, err
+			}
+		}
+		label, err := coerceFormString(entry["label"], fmt.Sprintf("field_rules[%d].label", index))
+		if err != nil {
+			return nil, hasPayload, err
+		}
+
+		required := true
+		if raw, ok := entry["required"]; ok {
+			required, err = coerceFormBool(raw, fmt.Sprintf("field_rules[%d].required", index))
+			if err != nil {
+				return nil, hasPayload, err
+			}
+		}
+
+		if id == "" && ruleType == "" && participantID == "" && participantIndex < 0 && page == 0 && fromPage == 0 && toPage == 0 {
+			continue
+		}
+
+		out = append(out, agreementFieldRuleFormInput{
+			ID:               strings.TrimSpace(id),
+			Type:             strings.ToLower(strings.TrimSpace(ruleType)),
+			ParticipantID:    strings.TrimSpace(participantID),
+			ParticipantIndex: participantIndex,
+			Page:             page,
+			FromPage:         fromPage,
+			ToPage:           toPage,
+			ExcludeLastPage:  excludeLastPage,
+			ExcludePages:     excludePages,
+			Label:            strings.TrimSpace(label),
+			Required:         required,
+		})
 	}
 
 	return out, hasPayload, nil
+}
+
+func decodeFieldRuleJSONPayload(value any) ([]map[string]any, bool, error) {
+	switch typed := value.(type) {
+	case nil:
+		return nil, false, nil
+	case string:
+		return decodeFieldRuleJSONRawPayload(typed)
+	case []byte:
+		return decodeFieldRuleJSONRawPayload(string(typed))
+	case []string:
+		raw, err := coerceFormString(typed, "field_rules_json")
+		if err != nil {
+			return nil, true, err
+		}
+		return decodeFieldRuleJSONRawPayload(raw)
+	case []any:
+		if len(typed) == 0 {
+			return nil, false, nil
+		}
+		rawValues := make([]string, 0, len(typed))
+		allStringValues := true
+		for _, item := range typed {
+			switch value := item.(type) {
+			case string:
+				rawValues = append(rawValues, value)
+			case []byte:
+				rawValues = append(rawValues, string(value))
+			default:
+				allStringValues = false
+			}
+		}
+		if allStringValues {
+			raw, err := coerceFormString(rawValues, "field_rules_json")
+			if err != nil {
+				return nil, true, err
+			}
+			return decodeFieldRuleJSONRawPayload(raw)
+		}
+		encoded, err := json.Marshal(value)
+		if err != nil {
+			return nil, true, err
+		}
+		return decodeFieldRuleJSONRawPayload(string(encoded))
+	default:
+		encoded, err := json.Marshal(value)
+		if err != nil {
+			return nil, true, err
+		}
+		return decodeFieldRuleJSONRawPayload(string(encoded))
+	}
+}
+
+func decodeFieldRuleJSONRawPayload(raw string) ([]map[string]any, bool, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || strings.EqualFold(raw, "null") {
+		return nil, false, nil
+	}
+	var decoded []map[string]any
+	if err := json.Unmarshal([]byte(raw), &decoded); err == nil {
+		return decoded, true, nil
+	}
+	var single map[string]any
+	if err := json.Unmarshal([]byte(raw), &single); err == nil {
+		if len(single) == 0 {
+			return []map[string]any{}, true, nil
+		}
+		return []map[string]any{single}, true, nil
+	}
+	var generic []any
+	if err := json.Unmarshal([]byte(raw), &generic); err != nil {
+		return nil, true, err
+	}
+	decoded = make([]map[string]any, 0, len(generic))
+	for index, item := range generic {
+		entry, ok := item.(map[string]any)
+		if !ok {
+			return nil, true, fmt.Errorf("field_rules_json[%d] must be an object", index)
+		}
+		decoded = append(decoded, entry)
+	}
+	return decoded, true, nil
+}
+
+func expandAgreementFieldRules(
+	rules []agreementFieldRuleFormInput,
+	recipients []stores.RecipientRecord,
+	baseFields []agreementFieldFormInput,
+	documentPageCount int,
+) ([]agreementFieldFormInput, error) {
+	if len(rules) == 0 {
+		return nil, nil
+	}
+	recipientIDsByIndex := make([]string, 0, len(recipients))
+	for _, recipient := range recipients {
+		id := strings.TrimSpace(recipient.ID)
+		if id == "" {
+			continue
+		}
+		recipientIDsByIndex = append(recipientIDsByIndex, id)
+	}
+
+	terminalPage := documentPageCount
+	if terminalPage <= 0 {
+		terminalPage = 1
+	}
+	for _, field := range baseFields {
+		if field.PageNumber > terminalPage {
+			terminalPage = field.PageNumber
+		}
+	}
+	for _, rule := range rules {
+		if rule.Page > terminalPage {
+			terminalPage = rule.Page
+		}
+		if rule.ToPage > terminalPage {
+			terminalPage = rule.ToPage
+		}
+		if rule.FromPage > terminalPage {
+			terminalPage = rule.FromPage
+		}
+	}
+
+	out := make([]agreementFieldFormInput, 0, len(rules))
+	for index, rule := range rules {
+		if strings.TrimSpace(rule.Type) == "" {
+			continue
+		}
+		ruleBaseID := resolveRuleExpansionBaseID(rule, index)
+		participantID := strings.TrimSpace(rule.ParticipantID)
+		if participantID == "" && rule.ParticipantIndex >= 0 && rule.ParticipantIndex < len(recipientIDsByIndex) {
+			participantID = recipientIDsByIndex[rule.ParticipantIndex]
+		}
+		if participantID == "" {
+			return nil, fmt.Errorf("field rule participant_id is required")
+		}
+
+		switch rule.Type {
+		case "initials_each_page":
+			startPage := rule.FromPage
+			if startPage <= 0 {
+				startPage = 1
+			}
+			endPage := rule.ToPage
+			if endPage <= 0 {
+				endPage = terminalPage
+			}
+			if endPage < startPage {
+				startPage, endPage = endPage, startPage
+			}
+			excluded := map[int]struct{}{}
+			for _, page := range rule.ExcludePages {
+				if page > 0 {
+					excluded[page] = struct{}{}
+				}
+			}
+			if rule.ExcludeLastPage {
+				excluded[terminalPage] = struct{}{}
+			}
+			for page := startPage; page <= endPage; page++ {
+				if _, skip := excluded[page]; skip {
+					continue
+				}
+				out = append(out, agreementFieldFormInput{
+					ID:            fmt.Sprintf("%s-initials-%d", ruleBaseID, page),
+					Type:          stores.FieldTypeInitials,
+					ParticipantID: participantID,
+					PageNumber:    page,
+					Width:         80,
+					Height:        40,
+					Required:      rule.Required,
+				})
+			}
+		case "signature_once":
+			page := rule.Page
+			if page <= 0 {
+				page = rule.ToPage
+			}
+			if page <= 0 {
+				page = terminalPage
+			}
+			if page <= 0 {
+				page = 1
+			}
+			out = append(out, agreementFieldFormInput{
+				ID:            fmt.Sprintf("%s-signature-%d", ruleBaseID, page),
+				Type:          stores.FieldTypeSignature,
+				ParticipantID: participantID,
+				PageNumber:    page,
+				Width:         200,
+				Height:        50,
+				Required:      rule.Required,
+			})
+		default:
+			return nil, fmt.Errorf("field rule type %q is not supported", strings.TrimSpace(rule.Type))
+		}
+	}
+
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].PageNumber != out[j].PageNumber {
+			return out[i].PageNumber < out[j].PageNumber
+		}
+		return strings.TrimSpace(out[i].ID) < strings.TrimSpace(out[j].ID)
+	})
+
+	return out, nil
+}
+
+func resolveRuleExpansionBaseID(rule agreementFieldRuleFormInput, index int) string {
+	baseID := strings.TrimSpace(rule.ID)
+	if baseID != "" {
+		return baseID
+	}
+	return fmt.Sprintf("rule-%d", index+1)
 }
 
 func parseAgreementFieldPlacementInputs(record map[string]any) ([]agreementFieldPlacementFormInput, bool, error) {
@@ -1417,6 +1813,64 @@ func coerceFormInt(value any, fieldPath string) (int, error) {
 		return 0, fmt.Errorf("field %s has invalid integer %q", fieldPath, raw)
 	}
 	return parsed, nil
+}
+
+func coerceFormIntSlice(value any, fieldPath string) ([]int, error) {
+	switch typed := value.(type) {
+	case nil:
+		return nil, nil
+	case []any:
+		out := make([]int, 0, len(typed))
+		for index, item := range typed {
+			raw, err := coerceFormInt(item, fmt.Sprintf("%s[%d]", fieldPath, index))
+			if err != nil {
+				return nil, err
+			}
+			if raw <= 0 {
+				continue
+			}
+			out = append(out, raw)
+		}
+		return out, nil
+	case []string:
+		out := make([]int, 0, len(typed))
+		for index, item := range typed {
+			raw, err := coerceFormInt(item, fmt.Sprintf("%s[%d]", fieldPath, index))
+			if err != nil {
+				return nil, err
+			}
+			if raw <= 0 {
+				continue
+			}
+			out = append(out, raw)
+		}
+		return out, nil
+	default:
+		raw := strings.TrimSpace(toString(value))
+		if raw == "" {
+			return nil, nil
+		}
+		if strings.HasPrefix(raw, "[") && strings.HasSuffix(raw, "]") {
+			var decoded []any
+			if err := json.Unmarshal([]byte(raw), &decoded); err != nil {
+				return nil, fmt.Errorf("field %s has invalid list payload", fieldPath)
+			}
+			return coerceFormIntSlice(decoded, fieldPath)
+		}
+		parts := strings.Split(raw, ",")
+		out := make([]int, 0, len(parts))
+		for index, part := range parts {
+			resolved, err := coerceFormInt(strings.TrimSpace(part), fmt.Sprintf("%s[%d]", fieldPath, index))
+			if err != nil {
+				return nil, err
+			}
+			if resolved <= 0 {
+				continue
+			}
+			out = append(out, resolved)
+		}
+		return out, nil
+	}
 }
 
 func coerceFormFloat(value any, fieldPath string) (float64, error) {

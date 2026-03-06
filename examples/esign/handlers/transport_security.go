@@ -13,16 +13,18 @@ import (
 // TLSTransportGuard enforces TLS for runtime e-sign routes.
 type TLSTransportGuard struct {
 	AllowLocalInsecure bool
+	// TrustForwardedHeaders should only be enabled behind trusted reverse proxies.
+	TrustForwardedHeaders bool
 }
 
 func (g TLSTransportGuard) Ensure(c router.Context) error {
 	if c == nil {
 		return nil
 	}
-	if isSecureRequest(c) {
+	if isSecureRequest(c, g.TrustForwardedHeaders) {
 		return nil
 	}
-	if g.AllowLocalInsecure && isLocalRequest(c) {
+	if g.AllowLocalInsecure && isLocalRequest(c, g.TrustForwardedHeaders) {
 		return nil
 	}
 	return goerrors.New("tls transport required", goerrors.CategoryAuthz).
@@ -31,20 +33,22 @@ func (g TLSTransportGuard) Ensure(c router.Context) error {
 		WithMetadata(map[string]any{"path": c.Path(), "method": c.Method()})
 }
 
-func isSecureRequest(c router.Context) bool {
+func isSecureRequest(c router.Context, trustForwardedHeaders bool) bool {
 	if c == nil {
 		return false
 	}
-	proto := strings.ToLower(strings.TrimSpace(c.Header("X-Forwarded-Proto")))
-	if proto == "https" {
-		return true
-	}
-	forwarded := strings.ToLower(strings.TrimSpace(c.Header("Forwarded")))
-	if strings.Contains(forwarded, "proto=https") {
-		return true
-	}
-	if strings.EqualFold(strings.TrimSpace(c.Header("X-Forwarded-Ssl")), "on") {
-		return true
+	if trustForwardedHeaders {
+		proto := strings.ToLower(strings.TrimSpace(c.Header("X-Forwarded-Proto")))
+		if proto == "https" {
+			return true
+		}
+		forwarded := strings.ToLower(strings.TrimSpace(c.Header("Forwarded")))
+		if strings.Contains(forwarded, "proto=https") {
+			return true
+		}
+		if strings.EqualFold(strings.TrimSpace(c.Header("X-Forwarded-Ssl")), "on") {
+			return true
+		}
 	}
 	if httpCtx, ok := c.(router.HTTPContext); ok {
 		req := httpCtx.Request()
@@ -55,13 +59,15 @@ func isSecureRequest(c router.Context) bool {
 	return false
 }
 
-func isLocalRequest(c router.Context) bool {
+func isLocalRequest(c router.Context, trustForwardedHeaders bool) bool {
 	if c == nil {
 		return false
 	}
-	host := strings.TrimSpace(c.Header("X-Forwarded-Host"))
-	if host == "" {
-		host = strings.TrimSpace(c.Header("Host"))
+	host := strings.TrimSpace(c.Header("Host"))
+	if trustForwardedHeaders {
+		if forwardedHost := strings.TrimSpace(c.Header("X-Forwarded-Host")); forwardedHost != "" {
+			host = forwardedHost
+		}
 	}
 	if host == "" {
 		return false

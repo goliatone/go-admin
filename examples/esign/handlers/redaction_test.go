@@ -2,6 +2,17 @@ package handlers
 
 import "testing"
 
+func assertRedacted(t *testing.T, value any, original string) {
+	t.Helper()
+	masked := toString(value)
+	if masked == "" {
+		t.Fatalf("expected redacted value, got empty output")
+	}
+	if masked == original {
+		t.Fatalf("expected value to be redacted, got %q", masked)
+	}
+}
+
 func TestRedactSecurityFieldsMasksSensitiveValues(t *testing.T) {
 	input := map[string]any{
 		"token":             "raw-token-value",
@@ -19,24 +30,12 @@ func TestRedactSecurityFieldsMasksSensitiveValues(t *testing.T) {
 
 	masked := RedactSecurityFields(input)
 
-	if masked["token"] != redactionPlaceholder {
-		t.Fatalf("expected token redacted, got %v", masked["token"])
-	}
-	if masked["upload_token"] != redactionPlaceholder {
-		t.Fatalf("expected upload_token redacted, got %v", masked["upload_token"])
-	}
-	if masked["object_key"] != redactionPlaceholder {
-		t.Fatalf("expected object_key redacted, got %v", masked["object_key"])
-	}
-	if masked["sha256"] != redactionPlaceholder {
-		t.Fatalf("expected sha256 redacted, got %v", masked["sha256"])
-	}
-	if masked["recipient_email"] != redactionPlaceholder {
-		t.Fatalf("expected recipient_email redacted, got %v", masked["recipient_email"])
-	}
-	if masked["signature_payload"] != redactionPlaceholder {
-		t.Fatalf("expected signature_payload redacted, got %v", masked["signature_payload"])
-	}
+	assertRedacted(t, masked["token"], "raw-token-value")
+	assertRedacted(t, masked["upload_token"], "signed-upload-token")
+	assertRedacted(t, masked["object_key"], "tenant/tenant-1/org/org-1/agreements/a/sig/object.png")
+	assertRedacted(t, masked["sha256"], "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+	assertRedacted(t, masked["recipient_email"], "signer@example.com")
+	assertRedacted(t, masked["signature_payload"], "data:image/png;base64,AAAA")
 	if masked["safe"] != "ok" {
 		t.Fatalf("expected safe field preserved, got %v", masked["safe"])
 	}
@@ -45,9 +44,7 @@ func TestRedactSecurityFieldsMasksSensitiveValues(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected nested map, got %T", masked["nested"])
 	}
-	if nested["authorization"] != redactionPlaceholder {
-		t.Fatalf("expected nested authorization redacted, got %v", nested["authorization"])
-	}
+	assertRedacted(t, nested["authorization"], "Bearer secret-token")
 	if nested["meta"] != "value" {
 		t.Fatalf("expected nested meta preserved, got %v", nested["meta"])
 	}
@@ -69,18 +66,10 @@ func TestSecurityLogEventAppliesRedaction(t *testing.T) {
 		"safe":         "value",
 	})
 
-	if captured["token"] != redactionPlaceholder {
-		t.Fatalf("expected token redacted, got %v", captured["token"])
-	}
-	if captured["email"] != redactionPlaceholder {
-		t.Fatalf("expected email redacted, got %v", captured["email"])
-	}
-	if captured["signed_url"] != redactionPlaceholder {
-		t.Fatalf("expected signed_url redacted, got %v", captured["signed_url"])
-	}
-	if captured["upload_token"] != redactionPlaceholder {
-		t.Fatalf("expected upload_token redacted, got %v", captured["upload_token"])
-	}
+	assertRedacted(t, captured["token"], "secret-token")
+	assertRedacted(t, captured["email"], "person@example.com")
+	assertRedacted(t, captured["signed_url"], "https://example.com/signed?token=abc")
+	assertRedacted(t, captured["upload_token"], "upload-token")
 	if captured["safe"] != "value" {
 		t.Fatalf("expected safe value preserved, got %v", captured["safe"])
 	}

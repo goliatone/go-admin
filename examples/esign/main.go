@@ -199,6 +199,33 @@ func validateRuntimeProviderConfiguration(cfg appcfg.Config) error {
 	if profile != "production" && profile != "prod" {
 		return nil
 	}
+	if strings.TrimSpace(cfg.Auth.SeedFile) != "" {
+		return fmt.Errorf("production profile must not use APP_AUTH__SEED_FILE; configure auth credentials via environment or secure config")
+	}
+	if strings.TrimSpace(cfg.Auth.AdminID) == "" {
+		return fmt.Errorf("production profile requires APP_AUTH__ADMIN_ID")
+	}
+	if strings.TrimSpace(cfg.Auth.AdminEmail) == "" {
+		return fmt.Errorf("production profile requires APP_AUTH__ADMIN_EMAIL")
+	}
+	if strings.TrimSpace(cfg.Auth.AdminPassword) == "" {
+		return fmt.Errorf("production profile requires APP_AUTH__ADMIN_PASSWORD")
+	}
+	if strings.TrimSpace(cfg.Auth.SigningKey) == "" {
+		return fmt.Errorf("production profile requires APP_AUTH__SIGNING_KEY")
+	}
+	if strings.TrimSpace(cfg.Auth.ContextKey) == "" {
+		return fmt.Errorf("production profile requires APP_AUTH__CONTEXT_KEY")
+	}
+	if strings.TrimSpace(cfg.Auth.SigningKey) == defaultESignAuthSigningKey {
+		return fmt.Errorf("production profile must override demo APP_AUTH__SIGNING_KEY")
+	}
+	if strings.EqualFold(strings.TrimSpace(cfg.Auth.AdminEmail), defaultESignDemoAdminEmail) {
+		return fmt.Errorf("production profile must override demo APP_AUTH__ADMIN_EMAIL")
+	}
+	if strings.TrimSpace(cfg.Auth.AdminPassword) == defaultESignDemoAdminPassword {
+		return fmt.Errorf("production profile must override demo APP_AUTH__ADMIN_PASSWORD")
+	}
 
 	transport := strings.ToLower(strings.TrimSpace(cfg.Email.Transport))
 	switch transport {

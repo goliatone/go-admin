@@ -66,6 +66,7 @@ type AuthConfig struct {
 	AdminPassword string `koanf:"admin_password" json:"admin_password" yaml:"admin_password"`
 	SigningKey    string `koanf:"signing_key" json:"signing_key" yaml:"signing_key"`
 	ContextKey    string `koanf:"context_key" json:"context_key" yaml:"context_key"`
+	SeedFile      string `koanf:"seed_file" json:"seed_file" yaml:"seed_file"`
 }
 
 type FeatureConfig struct {
@@ -107,6 +108,7 @@ type SignerConfig struct {
 	ProfileTTLDays               int    `koanf:"profile_ttl_days" json:"profile_ttl_days" yaml:"profile_ttl_days"`
 	ProfilePersistDrawnSignature bool   `koanf:"profile_persist_drawn_signature" json:"profile_persist_drawn_signature" yaml:"profile_persist_drawn_signature"`
 	ProfileMode                  string `koanf:"profile_mode" json:"profile_mode" yaml:"profile_mode"`
+	SavedSignaturesLimitPerType  int    `koanf:"saved_signatures_limit_per_type" json:"saved_signatures_limit_per_type" yaml:"saved_signatures_limit_per_type"`
 }
 
 type ServicesConfig struct {
@@ -170,12 +172,13 @@ func Defaults() *Config {
 			},
 		},
 		Auth: AuthConfig{
-			AdminID:       "63eb32ab-64f5-4ddf-b5a0-5f9a8db9f8ea",
-			AdminEmail:    "admin@example.com",
-			AdminRole:     "admin",
-			AdminPassword: "admin.pwd",
-			SigningKey:    "esign-demo-secret",
-			ContextKey:    "esign_admin_user",
+			AdminID:       "",
+			AdminEmail:    "",
+			AdminRole:     "",
+			AdminPassword: "",
+			SigningKey:    "",
+			ContextKey:    "",
+			SeedFile:      resolveDefaultAuthSeedPath(),
 		},
 		Features: FeatureConfig{
 			ESign:       true,
@@ -207,6 +210,7 @@ func Defaults() *Config {
 			ProfileTTLDays:               90,
 			ProfilePersistDrawnSignature: true,
 			ProfileMode:                  "hybrid",
+			SavedSignaturesLimitPerType:  10,
 		},
 		Services: ServicesConfig{
 			ModuleEnabled: true,
@@ -252,6 +256,9 @@ func (c Config) Validate() error {
 	}
 	if c.Signer.ProfileTTLDays <= 0 {
 		return fmt.Errorf("signer.profile_ttl_days must be greater than zero")
+	}
+	if c.Signer.SavedSignaturesLimitPerType <= 0 {
+		return fmt.Errorf("signer.saved_signatures_limit_per_type must be greater than zero")
 	}
 	if c.Email.SMTP.TimeoutSeconds <= 0 {
 		return fmt.Errorf("email.smtp.timeout_seconds must be greater than zero")
@@ -310,6 +317,14 @@ func resolveDefaultConfigPath() string {
 		return "examples/esign/config/app.json"
 	}
 	return filepath.Clean(filepath.Join(filepath.Dir(filename), "app.json"))
+}
+
+func resolveDefaultAuthSeedPath() string {
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		return "examples/esign/config/dev_seed.json"
+	}
+	return filepath.Clean(filepath.Join(filepath.Dir(filename), "dev_seed.json"))
 }
 
 // SetActive stores runtime config for cross-package access during app bootstrap.

@@ -22,7 +22,10 @@ func TestTLSTransportGuardRejectsInsecureRequests(t *testing.T) {
 }
 
 func TestTLSTransportGuardAllowsHTTPSForwardedRequests(t *testing.T) {
-	app := setupRegisterTestApp(t, WithTransportGuard(TLSTransportGuard{AllowLocalInsecure: false}))
+	app := setupRegisterTestApp(t, WithTransportGuard(TLSTransportGuard{
+		AllowLocalInsecure:    false,
+		TrustForwardedHeaders: true,
+	}))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session/token-1", nil)
 	req.Header.Set("X-Forwarded-Proto", "https")
@@ -50,5 +53,44 @@ func TestTLSTransportGuardAllowsLocalInsecureWhenEnabled(t *testing.T) {
 
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", resp.StatusCode)
+	}
+}
+
+func TestTLSTransportGuardIgnoresForwardedHTTPSWhenUntrusted(t *testing.T) {
+	app := setupRegisterTestApp(t, WithTransportGuard(TLSTransportGuard{
+		AllowLocalInsecure:    false,
+		TrustForwardedHeaders: false,
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session/token-1", nil)
+	req.Header.Set("X-Forwarded-Proto", "https")
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusUpgradeRequired {
+		t.Fatalf("expected status 426, got %d", resp.StatusCode)
+	}
+}
+
+func TestTLSTransportGuardIgnoresForwardedLocalhostWhenUntrusted(t *testing.T) {
+	app := setupRegisterTestApp(t, WithTransportGuard(TLSTransportGuard{
+		AllowLocalInsecure:    true,
+		TrustForwardedHeaders: false,
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session/token-1", nil)
+	req.Host = "example.com"
+	req.Header.Set("X-Forwarded-Host", "localhost:8082")
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusUpgradeRequired {
+		t.Fatalf("expected status 426, got %d", resp.StatusCode)
 	}
 }

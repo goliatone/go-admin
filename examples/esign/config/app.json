@@ -18,12 +18,13 @@
     }
   },
   "auth": {
-    "admin_id": "63eb32ab-64f5-4ddf-b5a0-5f9a8db9f8ea",
-    "admin_email": "admin@example.com",
-    "admin_role": "admin",
-    "admin_password": "admin.pwd",
-    "signing_key": "esign-demo-secret",
-    "context_key": "esign_admin_user"
+    "admin_id": "",
+    "admin_email": "",
+    "admin_role": "",
+    "admin_password": "",
+    "signing_key": "",
+    "context_key": "",
+    "seed_file": "dev_seed.json"
   },
   "features": {
     "esign": true,
@@ -57,7 +58,8 @@
     "upload_ttl_seconds": 300,
     "profile_ttl_days": 90,
     "profile_persist_drawn_signature": true,
-    "profile_mode": "hybrid"
+    "profile_mode": "hybrid",
+    "saved_signatures_limit_per_type": 10
   },
   "services": {
     "module_enabled": true,

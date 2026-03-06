@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -180,6 +182,60 @@ func (c eSignAuthConfig) GetRejectedRouteDefault() string {
 	return path.Join(basePath, "login")
 }
 
+type eSignAuthSeedFile struct {
+	Auth appcfg.AuthConfig `json:"auth"`
+}
+
+func resolveESignAuthSeedPath(seedPath, configPath string) string {
+	seedPath = strings.TrimSpace(seedPath)
+	if seedPath == "" {
+		return ""
+	}
+	if filepath.IsAbs(seedPath) {
+		return filepath.Clean(seedPath)
+	}
+	configPath = strings.TrimSpace(configPath)
+	if configPath != "" {
+		baseDir := filepath.Dir(configPath)
+		if strings.TrimSpace(baseDir) != "" {
+			return filepath.Clean(filepath.Join(baseDir, seedPath))
+		}
+	}
+	return filepath.Clean(seedPath)
+}
+
+func hasAuthSeed(config appcfg.AuthConfig) bool {
+	return strings.TrimSpace(config.AdminID) != "" ||
+		strings.TrimSpace(config.AdminEmail) != "" ||
+		strings.TrimSpace(config.AdminRole) != "" ||
+		strings.TrimSpace(config.AdminPassword) != "" ||
+		strings.TrimSpace(config.SigningKey) != "" ||
+		strings.TrimSpace(config.ContextKey) != ""
+}
+
+func loadESignAuthSeed(runtimeCfg appcfg.Config) (appcfg.AuthConfig, error) {
+	seedPath := resolveESignAuthSeedPath(runtimeCfg.Auth.SeedFile, runtimeCfg.ConfigPath)
+	if seedPath == "" {
+		return appcfg.AuthConfig{}, nil
+	}
+	payload, err := os.ReadFile(seedPath)
+	if err != nil {
+		return appcfg.AuthConfig{}, fmt.Errorf("read auth seed file %q: %w", seedPath, err)
+	}
+	seed := eSignAuthSeedFile{}
+	if err := json.Unmarshal(payload, &seed); err != nil {
+		return appcfg.AuthConfig{}, fmt.Errorf("decode auth seed file %q: %w", seedPath, err)
+	}
+	if hasAuthSeed(seed.Auth) {
+		return seed.Auth, nil
+	}
+	flatAuth := appcfg.AuthConfig{}
+	if err := json.Unmarshal(payload, &flatAuth); err != nil {
+		return appcfg.AuthConfig{}, fmt.Errorf("decode auth seed file auth payload %q: %w", seedPath, err)
+	}
+	return flatAuth, nil
+}
+
 func configureESignAuth(adm *coreadmin.Admin, cfg coreadmin.Config) (*coreadmin.GoAuthAuthenticator, *auth.Auther, string, error) {
 	if adm == nil {
 		return nil, nil, "", fmt.Errorf("admin is required")
@@ -190,16 +246,44 @@ func configureESignAuth(adm *coreadmin.Admin, cfg coreadmin.Config) (*coreadmin.
 		basePath = "/admin"
 	}
 	runtimeCfg := appcfg.Active()
+	seedAuth, err := loadESignAuthSeed(runtimeCfg)
+	if err != nil {
+		return nil, nil, "", err
+	}
 	identity := eSignDemoIdentity{
-		id:       firstNonEmptyValue(strings.TrimSpace(runtimeCfg.Auth.AdminID), defaultESignDemoAdminID),
-		email:    firstNonEmptyValue(strings.TrimSpace(runtimeCfg.Auth.AdminEmail), defaultESignDemoAdminEmail),
-		role:     firstNonEmptyValue(strings.TrimSpace(runtimeCfg.Auth.AdminRole), defaultESignDemoAdminRole),
-		password: firstNonEmptyValue(strings.TrimSpace(runtimeCfg.Auth.AdminPassword), defaultESignDemoAdminPassword),
+		id: firstNonEmptyValue(
+			strings.TrimSpace(runtimeCfg.Auth.AdminID),
+			strings.TrimSpace(seedAuth.AdminID),
+			defaultESignDemoAdminID,
+		),
+		email: firstNonEmptyValue(
+			strings.TrimSpace(runtimeCfg.Auth.AdminEmail),
+			strings.TrimSpace(seedAuth.AdminEmail),
+			defaultESignDemoAdminEmail,
+		),
+		role: firstNonEmptyValue(
+			strings.TrimSpace(runtimeCfg.Auth.AdminRole),
+			strings.TrimSpace(seedAuth.AdminRole),
+			defaultESignDemoAdminRole,
+		),
+		password: firstNonEmptyValue(
+			strings.TrimSpace(runtimeCfg.Auth.AdminPassword),
+			strings.TrimSpace(seedAuth.AdminPassword),
+			defaultESignDemoAdminPassword,
+		),
 	}
 	authCfg := eSignAuthConfig{
-		basePath:   basePath,
-		signingKey: firstNonEmptyValue(strings.TrimSpace(runtimeCfg.Auth.SigningKey), defaultESignAuthSigningKey),
-		contextKey: firstNonEmptyValue(strings.TrimSpace(runtimeCfg.Auth.ContextKey), defaultESignAuthContextKey),
+		basePath: basePath,
+		signingKey: firstNonEmptyValue(
+			strings.TrimSpace(runtimeCfg.Auth.SigningKey),
+			strings.TrimSpace(seedAuth.SigningKey),
+			defaultESignAuthSigningKey,
+		),
+		contextKey: firstNonEmptyValue(
+			strings.TrimSpace(runtimeCfg.Auth.ContextKey),
+			strings.TrimSpace(seedAuth.ContextKey),
+			defaultESignAuthContextKey,
+		),
 	}
 
 	provider := newESignDemoIdentityProvider(identity)
@@ -496,12 +580,16 @@ func registerESignWebRoutes(
 	// Register public signer web routes (no auth required)
 	tokenSvc := esignModule.TokenService()
 	if tokenSvc != nil {
+		signerAPIBasePath := path.Join(routes.PublicAPIBase, "esign", "signing")
+		if strings.TrimSpace(signerAPIBasePath) == "" {
+			signerAPIBasePath = "/api/v1/esign/signing"
+		}
 		signerCfg := SignerWebRouteConfig{
 			TokenValidator:       tokenSvc,
 			SigningService:       esignModule.SigningService(),
 			AssetContractService: esignModule.SignerAssetContractService(),
 			DefaultScope:         esignModule.DefaultScope(),
-			APIBasePath:          "/api/v1/esign/signing",
+			APIBasePath:          signerAPIBasePath,
 			AssetBasePath:        basePath,
 		}
 		if err := registerESignPublicSignerWebRoutes(r, signerCfg); err != nil {
@@ -713,7 +801,30 @@ func registerESignDocumentUploadRoute(
 			}
 		},
 	})
-	r.Post(routes.AdminDocumentsUpload, authn.WrapHandler(uploadHandler))
+	securedUploadHandler := func(c router.Context) error {
+		transportGuard := handlers.TLSTransportGuard{
+			AllowLocalInsecure:    true,
+			TrustForwardedHeaders: appcfg.Active().Network.RateLimitTrustProxyHeaders,
+		}
+		if err := transportGuard.Ensure(c); err != nil {
+			return c.Status(http.StatusUpgradeRequired).JSON(http.StatusUpgradeRequired, map[string]any{
+				"error": map[string]any{
+					"code":    string(services.ErrorCodeTransportSecurity),
+					"message": "tls transport required",
+				},
+			})
+		}
+		if err := enforceESignUploadScopeBoundary(c, esignModule.DefaultScope()); err != nil {
+			return c.Status(http.StatusForbidden).JSON(http.StatusForbidden, map[string]any{
+				"error": map[string]any{
+					"code":    string(services.ErrorCodeScopeDenied),
+					"message": "scope denied",
+				},
+			})
+		}
+		return uploadHandler(c)
+	}
+	r.Post(routes.AdminDocumentsUpload, authn.WrapHandler(securedUploadHandler))
 }
 
 func resolveESignUploadScope(c router.Context, fallback stores.Scope) stores.Scope {
@@ -736,6 +847,109 @@ func resolveESignUploadScope(c router.Context, fallback stores.Scope) stores.Sco
 		scope.OrgID = orgID
 	}
 	return scope
+}
+
+func resolveESignActorScope(c router.Context) stores.Scope {
+	if c == nil {
+		return stores.Scope{}
+	}
+	metadataScope := func(metadata map[string]any) stores.Scope {
+		return stores.Scope{
+			TenantID: metadataString(metadata, "tenant_id", "tenant", "default_tenant", "default_tenant_id"),
+			OrgID:    metadataString(metadata, "organization_id", "org_id", "org", "default_org_id"),
+		}
+	}
+	if actor, ok := auth.ActorFromContext(c.Context()); ok && actor != nil {
+		scope := stores.Scope{
+			TenantID: strings.TrimSpace(actor.TenantID),
+			OrgID:    strings.TrimSpace(actor.OrganizationID),
+		}
+		if scope.TenantID == "" {
+			scope.TenantID = metadataString(actor.Metadata, "tenant_id", "tenant", "default_tenant", "default_tenant_id")
+		}
+		if scope.OrgID == "" {
+			scope.OrgID = metadataString(actor.Metadata, "organization_id", "org_id", "org", "default_org_id")
+		}
+		if scope.TenantID != "" || scope.OrgID != "" {
+			return scope
+		}
+	}
+	if claims, ok := auth.GetClaims(c.Context()); ok && claims != nil {
+		scope := metadataScope(claimsMetadata(claims))
+		if scope.TenantID != "" || scope.OrgID != "" {
+			return scope
+		}
+	}
+	if claims, ok := auth.GetRouterClaims(c, ""); ok && claims != nil {
+		scope := metadataScope(claimsMetadata(claims))
+		if scope.TenantID != "" || scope.OrgID != "" {
+			return scope
+		}
+	}
+	return stores.Scope{}
+}
+
+func claimsMetadata(claims auth.AuthClaims) map[string]any {
+	if claims == nil {
+		return nil
+	}
+	if carrier, ok := claims.(interface{ ClaimsMetadata() map[string]any }); ok {
+		return carrier.ClaimsMetadata()
+	}
+	return nil
+}
+
+func enforceESignUploadScopeBoundary(c router.Context, fallback stores.Scope) error {
+	if c == nil {
+		return nil
+	}
+	requestScope := resolveESignUploadScope(c, fallback)
+	actorScope := resolveESignActorScope(c)
+	if strings.TrimSpace(actorScope.TenantID) == "" && strings.TrimSpace(actorScope.OrgID) == "" {
+		actorScope = fallback
+	}
+	if scopeConflicts(actorScope, requestScope) {
+		return fmt.Errorf("scope denied")
+	}
+	return nil
+}
+
+func scopeConflicts(actor, request stores.Scope) bool {
+	actorTenantID := strings.TrimSpace(actor.TenantID)
+	requestTenantID := strings.TrimSpace(request.TenantID)
+	if actorTenantID != "" && requestTenantID != "" && actorTenantID != requestTenantID {
+		return true
+	}
+	actorOrgID := strings.TrimSpace(actor.OrgID)
+	requestOrgID := strings.TrimSpace(request.OrgID)
+	return actorOrgID != "" && requestOrgID != "" && actorOrgID != requestOrgID
+}
+
+func metadataString(metadata map[string]any, keys ...string) string {
+	for _, key := range keys {
+		if metadata == nil {
+			return ""
+		}
+		raw, ok := metadata[key]
+		if !ok || raw == nil {
+			continue
+		}
+		switch value := raw.(type) {
+		case string:
+			if trimmed := strings.TrimSpace(value); trimmed != "" {
+				return trimmed
+			}
+		case []byte:
+			if trimmed := strings.TrimSpace(string(value)); trimmed != "" {
+				return trimmed
+			}
+		default:
+			if trimmed := strings.TrimSpace(fmt.Sprint(value)); trimmed != "" && trimmed != "<nil>" {
+				return trimmed
+			}
+		}
+	}
+	return ""
 }
 
 func registerESignLegacyUIAliasRoutes(
@@ -860,6 +1074,16 @@ func resolveESignAdminUserID(c router.Context) string {
 				return actorID
 			}
 		}
+		if claims, ok := auth.GetClaims(c.Context()); ok && claims != nil {
+			if userID := firstNonEmptyValue(strings.TrimSpace(claims.UserID()), strings.TrimSpace(claims.Subject())); userID != "" {
+				return userID
+			}
+		}
+		if claims, ok := auth.GetRouterClaims(c, ""); ok && claims != nil {
+			if userID := firstNonEmptyValue(strings.TrimSpace(claims.UserID()), strings.TrimSpace(claims.Subject())); userID != "" {
+				return userID
+			}
+		}
 		if userID := strings.TrimSpace(c.Query("user_id")); userID != "" {
 			return userID
 		}
@@ -951,11 +1175,16 @@ func resolveRequestOrigin(c router.Context) string {
 	if c == nil {
 		return ""
 	}
-	scheme := firstCSVValue(c.Header("X-Forwarded-Proto"))
-	if scheme == "" {
-		scheme = firstCSVValue(c.Header("X-Forwarded-Scheme"))
+	trustForwardedHeaders := appcfg.Active().Network.RateLimitTrustProxyHeaders
+	scheme := ""
+	host := ""
+	if trustForwardedHeaders {
+		scheme = firstCSVValue(c.Header("X-Forwarded-Proto"))
+		if scheme == "" {
+			scheme = firstCSVValue(c.Header("X-Forwarded-Scheme"))
+		}
+		host = firstCSVValue(c.Header("X-Forwarded-Host"))
 	}
-	host := firstCSVValue(c.Header("X-Forwarded-Host"))
 	if host == "" {
 		host = strings.TrimSpace(c.Header("Host"))
 	}
@@ -974,7 +1203,7 @@ func resolveRequestOrigin(c router.Context) string {
 		}
 	}
 	if scheme == "" {
-		if strings.EqualFold(strings.TrimSpace(c.Header("X-Forwarded-SSL")), "on") {
+		if trustForwardedHeaders && strings.EqualFold(strings.TrimSpace(c.Header("X-Forwarded-SSL")), "on") {
 			scheme = "https"
 		} else {
 			scheme = "http"
@@ -1542,10 +1771,11 @@ func maxInt(value, min int) int {
 	return value
 }
 
-func firstNonEmptyValue(value, fallback string) string {
-	trimmed := strings.TrimSpace(value)
-	if trimmed != "" {
-		return trimmed
+func firstNonEmptyValue(values ...string) string {
+	for _, value := range values {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			return trimmed
+		}
 	}
-	return strings.TrimSpace(fallback)
+	return ""
 }
