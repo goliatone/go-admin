@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/goliatone/go-admin/admin/txoutbox"
+	"github.com/uptrace/bun"
 )
 
 const (
@@ -87,8 +88,9 @@ const (
 )
 
 const (
-	PlacementSourceAuto   = "auto"
-	PlacementSourceManual = "manual"
+	PlacementSourceAuto       = "auto"
+	PlacementSourceManual     = "manual"
+	PlacementSourceAutoLinked = "auto_linked"
 )
 
 const (
@@ -101,11 +103,13 @@ const (
 
 // DocumentRecord captures immutable source PDF metadata.
 type DocumentRecord struct {
+	bun.BaseModel          `bun:"table:documents,alias:doc"`
 	ID                     string
 	TenantID               string
 	OrgID                  string
 	Title                  string
 	SourceObjectKey        string
+	NormalizedObjectKey    string
 	SourceSHA256           string
 	SourceType             string
 	SourceGoogleFileID     string
@@ -115,6 +119,11 @@ type DocumentRecord struct {
 	SourceExportedByUserID string
 	SourceMimeType         string
 	SourceIngestionMode    string
+	PDFCompatibilityTier   string
+	PDFCompatibilityReason string
+	PDFNormalizationStatus string
+	PDFAnalyzedAt          *time.Time
+	PDFPolicyVersion       string
 	SizeBytes              int64
 	PageCount              int
 	CreatedAt              time.Time
@@ -123,6 +132,7 @@ type DocumentRecord struct {
 
 // AgreementRecord captures draft/send lifecycle state with optimistic lock versioning.
 type AgreementRecord struct {
+	bun.BaseModel          `bun:"table:agreements,alias:agr"`
 	ID                     string
 	TenantID               string
 	OrgID                  string
@@ -152,11 +162,12 @@ type AgreementRecord struct {
 
 // DraftRecord stores six-step agreement wizard progress for cross-session recovery.
 type DraftRecord struct {
+	bun.BaseModel   `bun:"table:esign_drafts,alias:drf"`
 	ID              string
 	WizardID        string
 	TenantID        string
 	OrgID           string
-	CreatedByUserID string
+	CreatedByUserID string `bun:"created_by"`
 	DocumentID      string
 	Title           string
 	CurrentStep     int
@@ -169,13 +180,14 @@ type DraftRecord struct {
 
 // RecipientRecord captures recipient routing and lifecycle telemetry.
 type RecipientRecord struct {
-	ID          string
-	TenantID    string
-	OrgID       string
-	AgreementID string
-	Email       string
-	Name        string
-	Role        string
+	bun.BaseModel `bun:"table:recipients,alias:rec"`
+	ID            string
+	TenantID      string
+	OrgID         string
+	AgreementID   string
+	Email         string
+	Name          string
+	Role          string
 
 	SigningOrder  int
 	FirstViewAt   *time.Time
@@ -190,6 +202,7 @@ type RecipientRecord struct {
 
 // ParticipantRecord is the canonical v2 signer/cc routing entity.
 type ParticipantRecord struct {
+	bun.BaseModel `bun:"table:participants,alias:par"`
 	ID            string
 	TenantID      string
 	OrgID         string
@@ -210,27 +223,29 @@ type ParticipantRecord struct {
 
 // SigningTokenRecord stores only hashed signer tokens.
 type SigningTokenRecord struct {
-	ID          string
-	TenantID    string
-	OrgID       string
-	AgreementID string
-	RecipientID string
-	TokenHash   string
-	Status      string
-	ExpiresAt   time.Time
-	RevokedAt   *time.Time
-	CreatedAt   time.Time
+	bun.BaseModel `bun:"table:signing_tokens,alias:tok"`
+	ID            string
+	TenantID      string
+	OrgID         string
+	AgreementID   string
+	RecipientID   string
+	TokenHash     string
+	Status        string
+	ExpiresAt     time.Time
+	RevokedAt     *time.Time
+	CreatedAt     time.Time
 }
 
 // FieldRecord stores e-sign field placements and assignment.
 type FieldRecord struct {
+	bun.BaseModel     `bun:"table:fields,alias:fld"`
 	ID                string
 	FieldDefinitionID string
 	TenantID          string
 	OrgID             string
 	AgreementID       string
 	RecipientID       string
-	Type              string
+	Type              string `bun:"field_type"`
 	PageNumber        int
 	PosX              float64
 	PosY              float64
@@ -243,20 +258,25 @@ type FieldRecord struct {
 
 // FieldDefinitionRecord is the canonical v2 logical field model.
 type FieldDefinitionRecord struct {
+	bun.BaseModel  `bun:"table:field_definitions,alias:fdef"`
 	ID             string
 	TenantID       string
 	OrgID          string
 	AgreementID    string
 	ParticipantID  string
-	Type           string
+	Type           string `bun:"field_type"`
 	Required       bool
 	ValidationJSON string
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	// LinkGroupID groups field definitions for linked placement (Phase 3).
+	// Fields in the same link group auto-place when any member is manually placed.
+	LinkGroupID string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 // FieldInstanceRecord stores canonical v2 placement data for a field definition.
 type FieldInstanceRecord struct {
+	bun.BaseModel     `bun:"table:field_instances,alias:finst"`
 	ID                string
 	TenantID          string
 	OrgID             string
@@ -275,8 +295,14 @@ type FieldInstanceRecord struct {
 	Confidence        float64
 	PlacementRunID    string
 	ManualOverride    bool
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
+	// LinkGroupID denormalized from field definition for linked placement (Phase 3).
+	LinkGroupID string
+	// LinkedFromFieldID is the source field that triggered this auto-linked placement.
+	LinkedFromFieldID string
+	// IsUnlinked indicates the field was manually unlinked from its group.
+	IsUnlinked bool
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 }
 
 // PlacementSuggestionRecord stores one suggestion emitted during a placement run.
@@ -307,6 +333,7 @@ type PlacementResolverScore struct {
 
 // PlacementRunRecord stores placement-run execution and audit metadata.
 type PlacementRunRecord struct {
+	bun.BaseModel           `bun:"table:placement_runs,alias:prun"`
 	ID                      string
 	TenantID                string
 	OrgID                   string
@@ -335,6 +362,7 @@ type PlacementRunRecord struct {
 
 // FieldValueRecord stores signer-provided values for fields.
 type FieldValueRecord struct {
+	bun.BaseModel       `bun:"table:field_values,alias:fval"`
 	ID                  string
 	TenantID            string
 	OrgID               string
@@ -351,19 +379,21 @@ type FieldValueRecord struct {
 
 // SignatureArtifactRecord stores uploaded signature artifacts.
 type SignatureArtifactRecord struct {
-	ID          string
-	TenantID    string
-	OrgID       string
-	AgreementID string
-	RecipientID string
-	Type        string
-	ObjectKey   string
-	SHA256      string
-	CreatedAt   time.Time
+	bun.BaseModel `bun:"table:signature_artifacts,alias:sig"`
+	ID            string
+	TenantID      string
+	OrgID         string
+	AgreementID   string
+	RecipientID   string
+	Type          string `bun:"artifact_type"`
+	ObjectKey     string
+	SHA256        string
+	CreatedAt     time.Time
 }
 
 // SignerProfileRecord stores signer profile fields for cross-agreement reuse.
 type SignerProfileRecord struct {
+	bun.BaseModel         `bun:"table:signer_profiles,alias:spf"`
 	ID                    string
 	TenantID              string
 	OrgID                 string
@@ -382,6 +412,7 @@ type SignerProfileRecord struct {
 
 // SavedSignerSignatureRecord stores signer-scoped reusable signature/initials payloads.
 type SavedSignerSignatureRecord struct {
+	bun.BaseModel    `bun:"table:saved_signer_signatures,alias:sss"`
 	ID               string
 	TenantID         string
 	OrgID            string
@@ -395,21 +426,23 @@ type SavedSignerSignatureRecord struct {
 
 // AuditEventRecord represents append-only lifecycle and security events.
 type AuditEventRecord struct {
-	ID           string
-	TenantID     string
-	OrgID        string
-	AgreementID  string
-	EventType    string
-	ActorType    string
-	ActorID      string
-	IPAddress    string
-	UserAgent    string
-	MetadataJSON string
-	CreatedAt    time.Time
+	bun.BaseModel `bun:"table:audit_events,alias:aev"`
+	ID            string
+	TenantID      string
+	OrgID         string
+	AgreementID   string
+	EventType     string
+	ActorType     string
+	ActorID       string
+	IPAddress     string
+	UserAgent     string
+	MetadataJSON  string
+	CreatedAt     time.Time
 }
 
 // EmailLogRecord captures outbound email attempts and provider outcomes.
 type EmailLogRecord struct {
+	bun.BaseModel     `bun:"table:email_logs,alias:elog"`
 	ID                string
 	TenantID          string
 	OrgID             string
@@ -430,6 +463,7 @@ type EmailLogRecord struct {
 
 // AgreementArtifactRecord stores immutable agreement-level executed/certificate artifact pointers.
 type AgreementArtifactRecord struct {
+	bun.BaseModel        `bun:"table:agreement_artifacts,alias:aart"`
 	AgreementID          string
 	TenantID             string
 	OrgID                string
@@ -444,6 +478,7 @@ type AgreementArtifactRecord struct {
 
 // JobRunRecord stores async execution state with dedupe and retry metadata.
 type JobRunRecord struct {
+	bun.BaseModel `bun:"table:job_runs,alias:jrun"`
 	ID            string
 	TenantID      string
 	OrgID         string
@@ -474,6 +509,7 @@ type JobRunInput struct {
 
 // GoogleImportRunRecord stores async Google Drive import execution state and result payload.
 type GoogleImportRunRecord struct {
+	bun.BaseModel     `bun:"table:google_import_runs,alias:gir"`
 	ID                string
 	TenantID          string
 	OrgID             string
@@ -545,6 +581,7 @@ type OutboxClaimInput = txoutbox.ClaimInput
 
 // IntegrationCredentialRecord stores encrypted provider credentials by scope and user.
 type IntegrationCredentialRecord struct {
+	bun.BaseModel         `bun:"table:integration_credentials,alias:icred"`
 	ID                    string
 	TenantID              string
 	OrgID                 string
@@ -552,7 +589,7 @@ type IntegrationCredentialRecord struct {
 	Provider              string
 	EncryptedAccessToken  string
 	EncryptedRefreshToken string
-	Scopes                []string
+	Scopes                []string `bun:"scopes_json"`
 	ExpiresAt             *time.Time
 	ProfileJSON           string     // OAuth profile data, e.g. {"email": "user@example.com"}
 	LastUsedAt            *time.Time // Last API call using this credential
@@ -589,6 +626,7 @@ type MappingRule struct {
 
 // MappingSpecRecord stores a versioned provider-agnostic mapping contract.
 type MappingSpecRecord struct {
+	bun.BaseModel   `bun:"table:integration_mapping_specs,alias:ims"`
 	ID              string
 	TenantID        string
 	OrgID           string
@@ -596,8 +634,8 @@ type MappingSpecRecord struct {
 	Name            string
 	Version         int64
 	Status          string
-	ExternalSchema  ExternalSchema
-	Rules           []MappingRule
+	ExternalSchema  ExternalSchema `bun:"external_schema_json"`
+	Rules           []MappingRule  `bun:"rules_json"`
 	CompiledJSON    string
 	CompiledHash    string
 	PublishedAt     *time.Time
@@ -609,6 +647,7 @@ type MappingSpecRecord struct {
 
 // IntegrationBindingRecord stores external-to-internal identity bindings with provenance.
 type IntegrationBindingRecord struct {
+	bun.BaseModel  `bun:"table:integration_bindings,alias:ibnd"`
 	ID             string
 	TenantID       string
 	OrgID          string
@@ -624,6 +663,7 @@ type IntegrationBindingRecord struct {
 
 // IntegrationSyncRunRecord stores sync run lifecycle and resumable progress metadata.
 type IntegrationSyncRunRecord struct {
+	bun.BaseModel   `bun:"table:integration_sync_runs,alias:isr"`
 	ID              string
 	TenantID        string
 	OrgID           string
@@ -644,6 +684,7 @@ type IntegrationSyncRunRecord struct {
 
 // IntegrationCheckpointRecord stores resumable checkpoint markers for a sync run.
 type IntegrationCheckpointRecord struct {
+	bun.BaseModel `bun:"table:integration_checkpoints,alias:icp"`
 	ID            string
 	TenantID      string
 	OrgID         string
@@ -658,6 +699,7 @@ type IntegrationCheckpointRecord struct {
 
 // IntegrationConflictRecord stores explicit integration conflicts requiring operator action.
 type IntegrationConflictRecord struct {
+	bun.BaseModel    `bun:"table:integration_conflicts,alias:icf"`
 	ID               string
 	TenantID         string
 	OrgID            string
@@ -680,6 +722,7 @@ type IntegrationConflictRecord struct {
 
 // IntegrationChangeEventRecord stores normalized outbound change envelopes.
 type IntegrationChangeEventRecord struct {
+	bun.BaseModel  `bun:"table:integration_change_events,alias:ice"`
 	ID             string
 	TenantID       string
 	OrgID          string
@@ -694,9 +737,24 @@ type IntegrationChangeEventRecord struct {
 }
 
 type DocumentQuery struct {
-	TitleContains string
-	Limit         int
-	Offset        int
+	TitleContains   string
+	CreatedByUserID string
+	SortBy          string // "created_at" or "updated_at"
+	SortDesc        bool
+	Limit           int
+	Offset          int
+}
+
+// DocumentMetadataPatch updates derived PDF metadata fields while keeping source fields immutable.
+type DocumentMetadataPatch struct {
+	NormalizedObjectKey    string
+	PDFCompatibilityTier   string
+	PDFCompatibilityReason string
+	PDFNormalizationStatus string
+	PDFAnalyzedAt          *time.Time
+	PDFPolicyVersion       string
+	SizeBytes              int64
+	PageCount              int
 }
 
 type AgreementQuery struct {

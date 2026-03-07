@@ -27,7 +27,7 @@ type FixtureSet struct {
 }
 
 // SeedCoreFixtures inserts one scope-bound record for each phase-1 core table.
-func SeedCoreFixtures(ctx context.Context, db *bun.DB, scope Scope) (FixtureSet, error) {
+func SeedCoreFixtures(ctx context.Context, db bun.IDB, scope Scope) (FixtureSet, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}

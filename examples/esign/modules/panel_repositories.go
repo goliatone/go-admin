@@ -59,7 +59,12 @@ func (r *documentPanelRepository) List(ctx context.Context, opts coreadmin.ListO
 	if r.store == nil {
 		return nil, 0, fmt.Errorf("document store not configured")
 	}
-	query := stores.DocumentQuery{TitleContains: lookupFilter(opts.Filters, "title", "title_contains")}
+	query := stores.DocumentQuery{
+		TitleContains:   lookupFilter(opts.Filters, "title", "title_contains"),
+		CreatedByUserID: lookupFilter(opts.Filters, "created_by_user_id", "created_by"),
+		SortBy:          opts.SortBy,
+		SortDesc:        opts.SortDesc,
+	}
 	all, err := r.store.List(ctx, scope, query)
 	if err != nil {
 		return nil, 0, err
@@ -115,9 +120,6 @@ func (r *documentPanelRepository) Create(ctx context.Context, record map[string]
 		if err != nil {
 			return nil, err
 		}
-	}
-	if maxSize := r.settings.MaxSourcePDFBytes; maxSize > 0 && int64(len(pdfBytes)) > maxSize {
-		return nil, fmt.Errorf("pdf payload exceeds configured max size")
 	}
 	created, err := r.uploader.Upload(ctx, scope, services.DocumentUploadInput{
 		Title:      strings.TrimSpace(toString(record["title"])),
@@ -244,6 +246,7 @@ func documentRecordToMap(record stores.DocumentRecord) map[string]any {
 		"org_id":                     record.OrgID,
 		"title":                      record.Title,
 		"source_object_key":          record.SourceObjectKey,
+		"normalized_object_key":      record.NormalizedObjectKey,
 		"source_sha256":              record.SourceSHA256,
 		"source_type":                record.SourceType,
 		"source_google_file_id":      record.SourceGoogleFileID,
@@ -251,6 +254,11 @@ func documentRecordToMap(record stores.DocumentRecord) map[string]any {
 		"source_modified_time":       formatTimePtr(record.SourceModifiedTime),
 		"source_exported_at":         formatTimePtr(record.SourceExportedAt),
 		"source_exported_by_user_id": record.SourceExportedByUserID,
+		"pdf_compatibility_tier":     record.PDFCompatibilityTier,
+		"pdf_compatibility_reason":   record.PDFCompatibilityReason,
+		"pdf_normalization_status":   record.PDFNormalizationStatus,
+		"pdf_analyzed_at":            formatTimePtr(record.PDFAnalyzedAt),
+		"pdf_policy_version":         record.PDFPolicyVersion,
 		"size_bytes":                 record.SizeBytes,
 		"page_count":                 record.PageCount,
 		"created_at":                 record.CreatedAt.UTC().Format(time.RFC3339Nano),
@@ -859,13 +867,17 @@ type agreementFieldFormInput struct {
 }
 
 type agreementFieldPlacementFormInput struct {
-	ID           string
-	DefinitionID string
-	PageNumber   int
-	PosX         float64
-	PosY         float64
-	Width        float64
-	Height       float64
+	ID                string
+	DefinitionID      string
+	PageNumber        int
+	PosX              float64
+	PosY              float64
+	Width             float64
+	Height            float64
+	PlacementSource   string
+	LinkGroupID       string
+	LinkedFromFieldID string
+	IsUnlinked        bool
 }
 
 type agreementFieldRuleFormInput struct {
@@ -1531,20 +1543,28 @@ func expandAgreementFieldRules(
 	if terminalPage <= 0 {
 		terminalPage = 1
 	}
-	for _, field := range baseFields {
-		if field.PageNumber > terminalPage {
-			terminalPage = field.PageNumber
+
+	// Clamp helper to enforce page bounds [1, terminalPage]
+	clampPage := func(page int) int {
+		if page < 1 {
+			return 1
 		}
+		if page > terminalPage {
+			return terminalPage
+		}
+		return page
 	}
-	for _, rule := range rules {
-		if rule.Page > terminalPage {
-			terminalPage = rule.Page
+
+	// Clamp rule page values to document bounds before expansion
+	for i := range rules {
+		if rules[i].Page != 0 {
+			rules[i].Page = clampPage(rules[i].Page)
 		}
-		if rule.ToPage > terminalPage {
-			terminalPage = rule.ToPage
+		if rules[i].FromPage != 0 {
+			rules[i].FromPage = clampPage(rules[i].FromPage)
 		}
-		if rule.FromPage > terminalPage {
-			terminalPage = rule.FromPage
+		if rules[i].ToPage != 0 {
+			rules[i].ToPage = clampPage(rules[i].ToPage)
 		}
 	}
 
@@ -1578,6 +1598,9 @@ func expandAgreementFieldRules(
 			excluded := map[int]struct{}{}
 			for _, page := range rule.ExcludePages {
 				if page > 0 {
+					if page > terminalPage {
+						page = terminalPage
+					}
 					excluded[page] = struct{}{}
 				}
 			}
@@ -1651,6 +1674,17 @@ func parseAgreementFieldPlacementInputs(record map[string]any) ([]agreementField
 		hasPayload = true
 		collectIndexedFormEntries(entries, raw)
 	}
+	if decoded, hasJSONPayload, err := decodeFieldPlacementJSONPayload(record["field_placements_json"]); err != nil {
+		if hasJSONPayload {
+			hasPayload = true
+		}
+		return nil, hasPayload, fmt.Errorf("field_placements_json has invalid json payload")
+	} else if hasJSONPayload {
+		hasPayload = true
+		for index, entry := range decoded {
+			entries[index] = entry
+		}
+	}
 	for key, value := range record {
 		matches := fieldPlacementKeyPattern.FindStringSubmatch(strings.TrimSpace(key))
 		if len(matches) != 2 {
@@ -1706,17 +1740,109 @@ func parseAgreementFieldPlacementInputs(record map[string]any) ([]agreementField
 		if id == "" && definitionID == "" && pageNumber <= 0 && posX == 0 && posY == 0 && width == 0 && height == 0 {
 			continue
 		}
+		// Parse link metadata fields (Phase 3)
+		placementSource, _ := coerceFormString(entry["placement_source"], fmt.Sprintf("field_placements[%d].placement_source", index))
+		linkGroupID, _ := coerceFormString(entry["link_group_id"], fmt.Sprintf("field_placements[%d].link_group_id", index))
+		linkedFromFieldID, _ := coerceFormString(entry["linked_from_field_id"], fmt.Sprintf("field_placements[%d].linked_from_field_id", index))
+		isUnlinked := toBool(entry["is_unlinked"])
+
 		out = append(out, agreementFieldPlacementFormInput{
-			ID:           id,
-			DefinitionID: definitionID,
-			PageNumber:   pageNumber,
-			PosX:         posX,
-			PosY:         posY,
-			Width:        width,
-			Height:       height,
+			ID:                id,
+			DefinitionID:      definitionID,
+			PageNumber:        pageNumber,
+			PosX:              posX,
+			PosY:              posY,
+			Width:             width,
+			Height:            height,
+			PlacementSource:   placementSource,
+			LinkGroupID:       linkGroupID,
+			LinkedFromFieldID: linkedFromFieldID,
+			IsUnlinked:        isUnlinked,
 		})
 	}
 	return out, hasPayload, nil
+}
+
+func decodeFieldPlacementJSONPayload(value any) ([]map[string]any, bool, error) {
+	switch typed := value.(type) {
+	case nil:
+		return nil, false, nil
+	case string:
+		return decodeFieldPlacementJSONRawPayload(typed)
+	case []byte:
+		return decodeFieldPlacementJSONRawPayload(string(typed))
+	case []string:
+		raw, err := coerceFormString(typed, "field_placements_json")
+		if err != nil {
+			return nil, true, err
+		}
+		return decodeFieldPlacementJSONRawPayload(raw)
+	case []any:
+		if len(typed) == 0 {
+			return nil, false, nil
+		}
+		rawValues := make([]string, 0, len(typed))
+		allStringValues := true
+		for _, item := range typed {
+			switch value := item.(type) {
+			case string:
+				rawValues = append(rawValues, value)
+			case []byte:
+				rawValues = append(rawValues, string(value))
+			default:
+				allStringValues = false
+			}
+		}
+		if allStringValues {
+			raw, err := coerceFormString(rawValues, "field_placements_json")
+			if err != nil {
+				return nil, true, err
+			}
+			return decodeFieldPlacementJSONRawPayload(raw)
+		}
+		encoded, err := json.Marshal(value)
+		if err != nil {
+			return nil, true, err
+		}
+		return decodeFieldPlacementJSONRawPayload(string(encoded))
+	default:
+		encoded, err := json.Marshal(value)
+		if err != nil {
+			return nil, true, err
+		}
+		return decodeFieldPlacementJSONRawPayload(string(encoded))
+	}
+}
+
+func decodeFieldPlacementJSONRawPayload(raw string) ([]map[string]any, bool, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || strings.EqualFold(raw, "null") {
+		return nil, false, nil
+	}
+	var decoded []map[string]any
+	if err := json.Unmarshal([]byte(raw), &decoded); err == nil {
+		return decoded, true, nil
+	}
+	var single map[string]any
+	if err := json.Unmarshal([]byte(raw), &single); err == nil {
+		if len(single) == 0 {
+			return []map[string]any{}, true, nil
+		}
+		return []map[string]any{single}, true, nil
+	}
+	var generic []any
+	if err := json.Unmarshal([]byte(raw), &generic); err != nil {
+		return nil, true, err
+	}
+	decoded = make([]map[string]any, 0, len(generic))
+	for index, item := range generic {
+		entry, ok := item.(map[string]any)
+		if !ok {
+			return nil, true, fmt.Errorf("field_placements_json[%d] must be an object", index)
+		}
+		decoded = append(decoded, entry)
+	}
+	return decoded, true, nil
 }
 
 func mergeFieldPlacementInputs(fields []agreementFieldFormInput, placements []agreementFieldPlacementFormInput) []agreementFieldFormInput {

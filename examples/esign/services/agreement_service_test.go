@@ -3,12 +3,14 @@ package services
 import (
 	"context"
 	"errors"
-	"github.com/goliatone/go-admin/internal/primitives"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/goliatone/go-admin/examples/esign/stores"
+	"github.com/goliatone/go-admin/internal/primitives"
+	goerrors "github.com/goliatone/go-errors"
 )
 
 func stringPtr(v string) *string  { return &v }
@@ -620,6 +622,144 @@ func TestAgreementServiceSendPersistsSentStatusWhenEmailWorkflowFails(t *testing
 	}
 	if !found {
 		t.Fatalf("expected agreement.send_notification_failed audit event in %+v", events)
+	}
+}
+
+func TestAgreementServiceSendBlocksUnsupportedPDFCompatibility(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+	now := time.Date(2026, 3, 7, 8, 0, 0, 0, time.UTC)
+	document, err := store.Create(ctx, scope, stores.DocumentRecord{
+		ID:                     "doc-unsupported",
+		Title:                  "Unsupported Source",
+		SourceObjectKey:        "tenant/tenant-1/org/org-1/docs/doc-unsupported/original.pdf",
+		SourceSHA256:           strings.Repeat("a", 64),
+		SourceType:             stores.SourceTypeUpload,
+		PDFCompatibilityTier:   string(PDFCompatibilityTierUnsupported),
+		PDFCompatibilityReason: PDFCompatibilityReasonPreviewFallbackDisabled,
+		CreatedAt:              now,
+		UpdatedAt:              now,
+	})
+	if err != nil {
+		t.Fatalf("Create document: %v", err)
+	}
+
+	svc := NewAgreementService(store)
+	agreement, err := svc.CreateDraft(ctx, scope, CreateDraftInput{
+		DocumentID:      document.ID,
+		Title:           "Unsupported Agreement",
+		CreatedByUserID: "user-1",
+	})
+	if err != nil {
+		t.Fatalf("CreateDraft: %v", err)
+	}
+	signer, err := svc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("signer@example.com"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: primitives.Int(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer: %v", err)
+	}
+	if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        stringPtr(stores.FieldTypeSignature),
+		PageNumber:  primitives.Int(1),
+		Required:    boolPtr(true),
+	}); err != nil {
+		t.Fatalf("UpsertFieldDraft signature: %v", err)
+	}
+
+	_, err = svc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "send-pdf-unsupported"})
+	if err == nil {
+		t.Fatalf("expected send to fail for unsupported PDF compatibility")
+	}
+	var coded *goerrors.Error
+	if !errors.As(err, &coded) {
+		t.Fatalf("expected coded error, got %T (%v)", err, err)
+	}
+	if strings.TrimSpace(coded.TextCode) != string(ErrorCodePDFUnsupported) {
+		t.Fatalf("expected text code %q, got %q", ErrorCodePDFUnsupported, coded.TextCode)
+	}
+	if got := strings.TrimSpace(fmt.Sprint(coded.Metadata["tier"])); got != string(PDFCompatibilityTierUnsupported) {
+		t.Fatalf("expected tier metadata %q, got %q", PDFCompatibilityTierUnsupported, got)
+	}
+}
+
+func TestAgreementServiceSendAuditsLimitedPDFCompatibility(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+	now := time.Date(2026, 3, 7, 9, 0, 0, 0, time.UTC)
+	document, err := store.Create(ctx, scope, stores.DocumentRecord{
+		ID:                     "doc-limited",
+		Title:                  "Limited Source",
+		SourceObjectKey:        "tenant/tenant-1/org/org-1/docs/doc-limited/original.pdf",
+		SourceSHA256:           strings.Repeat("b", 64),
+		SourceType:             stores.SourceTypeUpload,
+		PDFCompatibilityTier:   string(PDFCompatibilityTierLimited),
+		PDFCompatibilityReason: PDFCompatibilityReasonNormalizationFailed,
+		CreatedAt:              now,
+		UpdatedAt:              now,
+	})
+	if err != nil {
+		t.Fatalf("Create document: %v", err)
+	}
+
+	policy := DefaultPDFPolicy()
+	policy.PreviewFallbackEnabled = true
+	svc := NewAgreementService(store, WithAgreementPDFService(NewPDFService(WithPDFPolicyResolver(NewStaticPDFPolicyResolver(policy)))))
+	agreement, err := svc.CreateDraft(ctx, scope, CreateDraftInput{
+		DocumentID:      document.ID,
+		Title:           "Limited Agreement",
+		CreatedByUserID: "user-1",
+	})
+	if err != nil {
+		t.Fatalf("CreateDraft: %v", err)
+	}
+	signer, err := svc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("signer@example.com"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: primitives.Int(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer: %v", err)
+	}
+	if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        stringPtr(stores.FieldTypeSignature),
+		PageNumber:  primitives.Int(1),
+		Required:    boolPtr(true),
+	}); err != nil {
+		t.Fatalf("UpsertFieldDraft signature: %v", err)
+	}
+
+	if _, err := svc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "send-pdf-limited"}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	events, err := store.ListForAgreement(ctx, scope, agreement.ID, stores.AuditEventQuery{})
+	if err != nil {
+		t.Fatalf("ListForAgreement: %v", err)
+	}
+	foundSent := false
+	foundLimited := false
+	for _, event := range events {
+		if event.EventType == "agreement.sent" {
+			foundSent = true
+			if !strings.Contains(event.MetadataJSON, "\"pdf_compatibility_tier\":\"limited\"") {
+				t.Fatalf("expected agreement.sent metadata to include limited tier, got %s", event.MetadataJSON)
+			}
+		}
+		if event.EventType == "agreement.send_degraded_preview" {
+			foundLimited = true
+		}
+	}
+	if !foundSent {
+		t.Fatalf("expected agreement.sent event")
+	}
+	if !foundLimited {
+		t.Fatalf("expected agreement.send_degraded_preview event")
 	}
 }
 

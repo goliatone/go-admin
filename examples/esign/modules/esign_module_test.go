@@ -48,7 +48,8 @@ func TestESignModuleRegistersPanelsSettingsRoleDefaultsAndCommandActions(t *test
 	}
 	adm.WithAuthorizer(allowAllAuthorizer{})
 
-	module := NewESignModule(cfg.BasePath, cfg.DefaultLocale, cfg.NavMenuCode)
+	module := NewESignModule(cfg.BasePath, cfg.DefaultLocale, cfg.NavMenuCode).
+		WithStore(stores.NewInMemoryStore())
 	t.Cleanup(module.Close)
 	if err := adm.RegisterModule(module); err != nil {
 		t.Fatalf("RegisterModule: %v", err)
@@ -68,7 +69,10 @@ func TestESignModuleRegistersPanelsSettingsRoleDefaultsAndCommandActions(t *test
 		t.Fatalf("expected %s panel registration", esignAgreementsPanelID)
 	}
 
-	if !hasSettingDefinition(adm, settingEmailDefaultFromName) || !hasSettingDefinition(adm, settingTokenTTLSeconds) || !hasSettingDefinition(adm, settingMaxSourceSizeBytes) {
+	if !hasSettingDefinition(adm, settingEmailDefaultFromName) ||
+		!hasSettingDefinition(adm, settingTokenTTLSeconds) ||
+		!hasSettingDefinition(adm, settingMaxSourceSizeBytes) ||
+		!hasSettingDefinition(adm, settingPreviewFallbackEnabled) {
 		t.Fatalf("expected e-sign runtime settings definitions to be registered")
 	}
 

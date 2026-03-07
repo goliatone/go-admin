@@ -31,6 +31,7 @@ const (
 	ErrorCodeIntegrationConflict    ErrorCode = "INTEGRATION_CONFLICT"
 	ErrorCodeIntegrationReplay      ErrorCode = "INTEGRATION_REPLAY"
 	ErrorCodeSignatureLibraryLimit  ErrorCode = "SIGNATURE_LIBRARY_LIMIT_REACHED"
+	ErrorCodePDFUnsupported         ErrorCode = "PDF_UNSUPPORTED"
 )
 
 // DomainErrorCodes is the phase-0 e-sign error namespace registration payload.
@@ -166,6 +167,12 @@ var DomainErrorCodes = []coreadmin.DomainErrorCode{
 		Description: "Signer saved signature library reached configured limit.",
 		Category:    goerrors.CategoryConflict,
 		HTTPStatus:  409,
+	},
+	{
+		Code:        string(ErrorCodePDFUnsupported),
+		Description: "PDF compatibility policy blocks this action until remediation.",
+		Category:    goerrors.CategoryValidation,
+		HTTPStatus:  422,
 	},
 }
 

@@ -2,6 +2,7 @@ package observability
 
 import (
 	"context"
+	"log/slog"
 	"sort"
 	"strings"
 	"sync"
@@ -26,6 +27,10 @@ type Metrics interface {
 	ObserveTokenValidationFailure(ctx context.Context, reason string)
 	ObserveGoogleImport(ctx context.Context, success bool, reason string)
 	ObserveGoogleAuthChurn(ctx context.Context, reason string)
+	ObservePDFIngestAnalyzeFailure(ctx context.Context, reason, tier string)
+	ObservePDFIngestPolicyReject(ctx context.Context, reason, tier string)
+	ObservePDFPreviewFallback(ctx context.Context, reason, tier string)
+	ObservePDFRenderImportFail(ctx context.Context, reason, tier string)
 	Snapshot() MetricsSnapshot
 }
 
@@ -85,6 +90,15 @@ type MetricsSnapshot struct {
 	ProviderFailureByName map[string]int64
 	JobSuccessByName      map[string]int64
 	JobFailureByName      map[string]int64
+
+	PDFIngestAnalyzeFailTotal         int64
+	PDFIngestAnalyzeFailByReasonTier  map[string]int64
+	PDFIngestPolicyRejectTotal        int64
+	PDFIngestPolicyRejectByReasonTier map[string]int64
+	PDFPreviewFallbackTotal           int64
+	PDFPreviewFallbackByReasonTier    map[string]int64
+	PDFRenderImportFailTotal          int64
+	PDFRenderImportFailByReasonTier   map[string]int64
 }
 
 func (s MetricsSnapshot) JobSuccessRatePercent() float64 {
@@ -172,19 +186,27 @@ type inMemoryMetrics struct {
 	googleImportSuccessTotal       int64
 	adminReadSuccessByPath         map[string]int64
 	adminReadFailureByPath         map[string]int64
+	pdfIngestAnalyzeFailByLabel    map[string]int64
+	pdfIngestPolicyRejectByLabel   map[string]int64
+	pdfPreviewFallbackByLabel      map[string]int64
+	pdfRenderImportFailByLabel     map[string]int64
 }
 
 func newInMemoryMetrics() *inMemoryMetrics {
 	return &inMemoryMetrics{
-		jobSuccessByName:         map[string]int64{},
-		jobFailureByName:         map[string]int64{},
-		providerSuccessByName:    map[string]int64{},
-		providerFailureByName:    map[string]int64{},
-		tokenValidationByReason:  map[string]int64{},
-		googleImportFailureByKey: map[string]int64{},
-		googleAuthChurnByReason:  map[string]int64{},
-		adminReadSuccessByPath:   map[string]int64{},
-		adminReadFailureByPath:   map[string]int64{},
+		jobSuccessByName:             map[string]int64{},
+		jobFailureByName:             map[string]int64{},
+		providerSuccessByName:        map[string]int64{},
+		providerFailureByName:        map[string]int64{},
+		tokenValidationByReason:      map[string]int64{},
+		googleImportFailureByKey:     map[string]int64{},
+		googleAuthChurnByReason:      map[string]int64{},
+		adminReadSuccessByPath:       map[string]int64{},
+		adminReadFailureByPath:       map[string]int64{},
+		pdfIngestAnalyzeFailByLabel:  map[string]int64{},
+		pdfIngestPolicyRejectByLabel: map[string]int64{},
+		pdfPreviewFallbackByLabel:    map[string]int64{},
+		pdfRenderImportFailByLabel:   map[string]int64{},
 	}
 }
 
@@ -350,6 +372,30 @@ func (m *inMemoryMetrics) ObserveGoogleAuthChurn(_ context.Context, reason strin
 	m.googleAuthChurnByReason[key]++
 }
 
+func (m *inMemoryMetrics) ObservePDFIngestAnalyzeFailure(_ context.Context, reason, tier string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	incrementLabeledCounter(m.pdfIngestAnalyzeFailByLabel, reason, tier)
+}
+
+func (m *inMemoryMetrics) ObservePDFIngestPolicyReject(_ context.Context, reason, tier string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	incrementLabeledCounter(m.pdfIngestPolicyRejectByLabel, reason, tier)
+}
+
+func (m *inMemoryMetrics) ObservePDFPreviewFallback(_ context.Context, reason, tier string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	incrementLabeledCounter(m.pdfPreviewFallbackByLabel, reason, tier)
+}
+
+func (m *inMemoryMetrics) ObservePDFRenderImportFail(_ context.Context, reason, tier string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	incrementLabeledCounter(m.pdfRenderImportFailByLabel, reason, tier)
+}
+
 func (m *inMemoryMetrics) Snapshot() MetricsSnapshot {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -361,6 +407,10 @@ func (m *inMemoryMetrics) Snapshot() MetricsSnapshot {
 	tokenFailureTotal := sumMap(m.tokenValidationByReason)
 	googleImportFailureTotal := sumMap(m.googleImportFailureByKey)
 	googleAuthChurnTotal := sumMap(m.googleAuthChurnByReason)
+	pdfIngestAnalyzeFailTotal := sumMap(m.pdfIngestAnalyzeFailByLabel)
+	pdfIngestPolicyRejectTotal := sumMap(m.pdfIngestPolicyRejectByLabel)
+	pdfPreviewFallbackTotal := sumMap(m.pdfPreviewFallbackByLabel)
+	pdfRenderImportFailTotal := sumMap(m.pdfRenderImportFailByLabel)
 
 	return MetricsSnapshot{
 		AdminReadP95MS:          percentile(m.adminReadDurationsMS, 95),
@@ -416,6 +466,15 @@ func (m *inMemoryMetrics) Snapshot() MetricsSnapshot {
 		ProviderFailureByName: cloneInt64Map(m.providerFailureByName),
 		JobSuccessByName:      cloneInt64Map(m.jobSuccessByName),
 		JobFailureByName:      cloneInt64Map(m.jobFailureByName),
+
+		PDFIngestAnalyzeFailTotal:         pdfIngestAnalyzeFailTotal,
+		PDFIngestAnalyzeFailByReasonTier:  cloneInt64Map(m.pdfIngestAnalyzeFailByLabel),
+		PDFIngestPolicyRejectTotal:        pdfIngestPolicyRejectTotal,
+		PDFIngestPolicyRejectByReasonTier: cloneInt64Map(m.pdfIngestPolicyRejectByLabel),
+		PDFPreviewFallbackTotal:           pdfPreviewFallbackTotal,
+		PDFPreviewFallbackByReasonTier:    cloneInt64Map(m.pdfPreviewFallbackByLabel),
+		PDFRenderImportFailTotal:          pdfRenderImportFailTotal,
+		PDFRenderImportFailByReasonTier:   cloneInt64Map(m.pdfRenderImportFailByLabel),
 	}
 }
 
@@ -582,6 +641,58 @@ func ObserveGoogleAuthChurn(ctx context.Context, reason string) {
 	metrics.ObserveGoogleAuthChurn(ctx, reason)
 }
 
+func ObservePDFIngestAnalyzeFailure(ctx context.Context, reason, tier string) {
+	metrics := currentMetrics()
+	if metrics == nil {
+		return
+	}
+	metrics.ObservePDFIngestAnalyzeFailure(ctx, reason, tier)
+	LogOperation(ctx, slog.LevelWarn, "pdf", "ingest_analyze_fail", "error", "", 0, nil, map[string]any{
+		"metric": "pdf_ingest_analyze_fail_total",
+		"reason": normalizeMetricKey(reason, "unknown"),
+		"tier":   normalizeMetricKey(tier, "unknown"),
+	})
+}
+
+func ObservePDFIngestPolicyReject(ctx context.Context, reason, tier string) {
+	metrics := currentMetrics()
+	if metrics == nil {
+		return
+	}
+	metrics.ObservePDFIngestPolicyReject(ctx, reason, tier)
+	LogOperation(ctx, slog.LevelWarn, "pdf", "ingest_policy_reject", "error", "", 0, nil, map[string]any{
+		"metric": "pdf_ingest_policy_reject_total",
+		"reason": normalizeMetricKey(reason, "unknown"),
+		"tier":   normalizeMetricKey(tier, "unknown"),
+	})
+}
+
+func ObservePDFPreviewFallback(ctx context.Context, reason, tier string) {
+	metrics := currentMetrics()
+	if metrics == nil {
+		return
+	}
+	metrics.ObservePDFPreviewFallback(ctx, reason, tier)
+	LogOperation(ctx, slog.LevelWarn, "pdf", "preview_fallback", "degraded", "", 0, nil, map[string]any{
+		"metric": "pdf_preview_fallback_total",
+		"reason": normalizeMetricKey(reason, "unknown"),
+		"tier":   normalizeMetricKey(tier, "unknown"),
+	})
+}
+
+func ObservePDFRenderImportFail(ctx context.Context, reason, tier string) {
+	metrics := currentMetrics()
+	if metrics == nil {
+		return
+	}
+	metrics.ObservePDFRenderImportFail(ctx, reason, tier)
+	LogOperation(ctx, slog.LevelWarn, "pdf", "render_import_fail", "error", "", 0, nil, map[string]any{
+		"metric": "pdf_render_import_fail_total",
+		"reason": normalizeMetricKey(reason, "unknown"),
+		"tier":   normalizeMetricKey(tier, "unknown"),
+	})
+}
+
 func appendDurationMS(dst []float64, duration time.Duration) []float64 {
 	ms := float64(duration.Milliseconds())
 	if ms < 0 {
@@ -630,6 +741,17 @@ func cloneInt64Map(values map[string]int64) map[string]int64 {
 		out[key] = value
 	}
 	return out
+}
+
+func incrementLabeledCounter(counter map[string]int64, reason, tier string) {
+	if counter == nil {
+		return
+	}
+	counter[metricLabelKey(reason, tier)]++
+}
+
+func metricLabelKey(reason, tier string) string {
+	return "reason=" + normalizeMetricKey(reason, "unknown") + ",tier=" + normalizeMetricKey(tier, "unknown")
 }
 
 func normalizeMetricKey(value, fallback string) string {

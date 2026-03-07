@@ -77,7 +77,7 @@ type registerConfig struct {
 	transportGuard        TransportGuard
 	rateLimiter           RequestRateLimiter
 	rateLimitRuleResolver RateLimitRuleResolver
-	trustForwardedIP      bool
+	requestTrustPolicy    quickstart.RequestTrustPolicy
 	securityLogEvent      SecurityLogEvent
 }
 
@@ -536,13 +536,30 @@ func WithRateLimitRuleResolver(resolver RateLimitRuleResolver) RegisterOption {
 }
 
 // WithTrustForwardedClientIP allows forwarded IP headers to influence request IP resolution.
-// Keep disabled unless upstream proxies sanitize these headers.
+// Deprecated: use WithRequestTrustPolicy to constrain trusted proxy CIDRs.
 func WithTrustForwardedClientIP(enabled bool) RegisterOption {
 	return func(cfg *registerConfig) {
 		if cfg == nil {
 			return
 		}
-		cfg.trustForwardedIP = enabled
+		if !enabled {
+			cfg.requestTrustPolicy = quickstart.RequestTrustPolicy{}
+			return
+		}
+		cfg.requestTrustPolicy = quickstart.RequestTrustPolicy{
+			TrustForwardedHeaders: true,
+			TrustedProxyCIDRs:     quickstart.InsecureAnyTrustedProxyCIDRs(),
+		}
+	}
+}
+
+// WithRequestTrustPolicy applies CIDR-gated forwarded-header trust policy.
+func WithRequestTrustPolicy(policy quickstart.RequestTrustPolicy) RegisterOption {
+	return func(cfg *registerConfig) {
+		if cfg == nil {
+			return
+		}
+		cfg.requestTrustPolicy = policy
 	}
 }
 
@@ -725,7 +742,8 @@ func enforceRateLimit(c router.Context, cfg registerConfig, operation string) er
 		return nil
 	}
 	key := strings.TrimSpace(quickstart.ResolveRequestIP(c, quickstart.RequestIPOptions{
-		TrustForwardedHeaders: cfg.trustForwardedIP,
+		TrustForwardedHeaders: cfg.requestTrustPolicy.TrustForwardedHeaders,
+		TrustedProxyCIDRs:     cfg.requestTrustPolicy.TrustedProxyCIDRs,
 	}))
 	if key == "" {
 		key = "unknown"

@@ -376,6 +376,73 @@ func TestAgreementPanelRepositoryCreateMergesFieldPlacements(t *testing.T) {
 	}
 }
 
+func TestAgreementPanelRepositoryCreateMergesFieldPlacementsFromJSONPayload(t *testing.T) {
+	store := stores.NewInMemoryStore()
+	scope := defaultModuleScope
+	seedESignDocument(t, store, scope, "doc-create-placement-json-1")
+
+	repo := newAgreementPanelRepository(
+		store,
+		services.NewAgreementService(store),
+		services.NewArtifactPipelineService(store, nil),
+		nil,
+		nil,
+		scope,
+		RuntimeSettings{},
+	)
+
+	created, err := repo.Create(context.Background(), map[string]any{
+		"document_id": "doc-create-placement-json-1",
+		"title":       "MSA with placement json merge",
+		"message":     "Please review",
+		"recipients[0]": map[string]any{
+			"id":    "participant-create-placement-json-1",
+			"name":  "Alice",
+			"email": "alice@example.com",
+			"role":  "signer",
+		},
+		"fields[0]": map[string]any{
+			"id":             "field-create-placement-json-1",
+			"type":           "signature",
+			"participant_id": "participant-create-placement-json-1",
+			"page":           "1",
+			"required":       "on",
+		},
+		"field_placements_json": `[{"definition_id":"field-create-placement-json-1","page":3,"x":44,"y":96,"width":208,"height":40}]`,
+	})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	agreementID := strings.TrimSpace(toString(created["id"]))
+	if agreementID == "" {
+		t.Fatal("expected created agreement id")
+	}
+
+	fields, err := store.ListFields(context.Background(), scope, agreementID)
+	if err != nil {
+		t.Fatalf("ListFields: %v", err)
+	}
+	if len(fields) != 1 {
+		t.Fatalf("expected 1 field, got %d", len(fields))
+	}
+	if got := fields[0].PageNumber; got != 3 {
+		t.Fatalf("expected merged page number 3, got %d", got)
+	}
+	if got := int(fields[0].PosX); got != 44 {
+		t.Fatalf("expected merged x=44, got %v", fields[0].PosX)
+	}
+	if got := int(fields[0].PosY); got != 96 {
+		t.Fatalf("expected merged y=96, got %v", fields[0].PosY)
+	}
+	if got := int(fields[0].Width); got != 208 {
+		t.Fatalf("expected merged width=208, got %v", fields[0].Width)
+	}
+	if got := int(fields[0].Height); got != 40 {
+		t.Fatalf("expected merged height=40, got %v", fields[0].Height)
+	}
+}
+
 func TestAgreementPanelRepositoryCreateExpandsFieldRules(t *testing.T) {
 	store := stores.NewInMemoryStore()
 	scope := defaultModuleScope
@@ -716,6 +783,40 @@ func TestAgreementPanelRepositoryCreateRejectsInvalidDecodedFieldRulesJSONPayloa
 	}
 	if !strings.Contains(err.Error(), "field_rules_json has invalid json payload") {
 		t.Fatalf("expected field_rules_json payload validation error, got %v", err)
+	}
+}
+
+func TestAgreementPanelRepositoryCreateRejectsInvalidDecodedFieldPlacementsJSONPayload(t *testing.T) {
+	store := stores.NewInMemoryStore()
+	scope := defaultModuleScope
+	seedESignDocument(t, store, scope, "doc-create-placement-invalid-decoded-1")
+
+	repo := newAgreementPanelRepository(
+		store,
+		services.NewAgreementService(store),
+		services.NewArtifactPipelineService(store, nil),
+		nil,
+		nil,
+		scope,
+		RuntimeSettings{},
+	)
+
+	_, err := repo.Create(context.Background(), map[string]any{
+		"document_id":           "doc-create-placement-invalid-decoded-1",
+		"title":                 "Invalid decoded placement agreement",
+		"field_placements_json": []any{"not-an-object"},
+		"recipients[0]": map[string]any{
+			"id":    "participant-placement-invalid-decoded-1",
+			"name":  "Placement Signer",
+			"email": "placement.invalid.decoded@example.com",
+			"role":  "signer",
+		},
+	})
+	if err == nil {
+		t.Fatal("expected invalid decoded field_placements_json error")
+	}
+	if !strings.Contains(err.Error(), "field_placements_json has invalid json payload") {
+		t.Fatalf("expected field_placements_json payload validation error, got %v", err)
 	}
 }
 
@@ -1293,6 +1394,142 @@ func TestAgreementPanelRepositoryServePanelSubresourceReturnsPDFAndAppendsAuditE
 	}
 	if !found {
 		t.Fatalf("expected admin.agreement.artifact_downloaded event, got %+v", events)
+	}
+}
+
+func TestExpandAgreementFieldRulesClampsPagesToBounds(t *testing.T) {
+	// Test that rule page values exceeding documentPageCount are clamped
+	recipients := []stores.RecipientRecord{
+		{ID: "signer-1", Email: "signer@example.com", Role: stores.RecipientRoleSigner},
+	}
+
+	// Rule with page values exceeding document bounds (doc has 3 pages, rule specifies pages 1-10)
+	rules := []agreementFieldRuleFormInput{
+		{
+			ID:            "rule-clamp-1",
+			Type:          "initials_each_page",
+			ParticipantID: "signer-1",
+			FromPage:      1,
+			ToPage:        10, // Exceeds document page count of 3
+		},
+		{
+			ID:            "rule-clamp-2",
+			Type:          "signature_once",
+			ParticipantID: "signer-1",
+			Page:          5, // Exceeds document page count of 3
+		},
+	}
+
+	documentPageCount := 3
+	expanded, err := expandAgreementFieldRules(rules, recipients, nil, documentPageCount)
+	if err != nil {
+		t.Fatalf("expandAgreementFieldRules: %v", err)
+	}
+
+	// Verify initials are only generated for pages 1-3 (clamped from 1-10)
+	initialsPages := []int{}
+	signaturePages := []int{}
+	for _, field := range expanded {
+		switch field.Type {
+		case stores.FieldTypeInitials:
+			initialsPages = append(initialsPages, field.PageNumber)
+		case stores.FieldTypeSignature:
+			signaturePages = append(signaturePages, field.PageNumber)
+		}
+	}
+
+	sort.Ints(initialsPages)
+	if len(initialsPages) != 3 {
+		t.Fatalf("expected 3 initials fields (clamped to doc bounds), got %d: %v", len(initialsPages), initialsPages)
+	}
+	if initialsPages[0] != 1 || initialsPages[1] != 2 || initialsPages[2] != 3 {
+		t.Fatalf("expected initials pages [1 2 3], got %v", initialsPages)
+	}
+
+	// Verify signature page is clamped to 3 (from 5)
+	if len(signaturePages) != 1 {
+		t.Fatalf("expected 1 signature field, got %d", len(signaturePages))
+	}
+	if signaturePages[0] != 3 {
+		t.Fatalf("expected signature page clamped to 3, got %d", signaturePages[0])
+	}
+}
+
+func TestExpandAgreementFieldRulesClampsFromPageToBounds(t *testing.T) {
+	// Test that from_page exceeding documentPageCount is also clamped
+	recipients := []stores.RecipientRecord{
+		{ID: "signer-1", Email: "signer@example.com", Role: stores.RecipientRoleSigner},
+	}
+
+	rules := []agreementFieldRuleFormInput{
+		{
+			ID:            "rule-from-clamp",
+			Type:          "initials_each_page",
+			ParticipantID: "signer-1",
+			FromPage:      10, // Exceeds document page count
+			ToPage:        15, // Exceeds document page count
+		},
+	}
+
+	documentPageCount := 5
+	expanded, err := expandAgreementFieldRules(rules, recipients, nil, documentPageCount)
+	if err != nil {
+		t.Fatalf("expandAgreementFieldRules: %v", err)
+	}
+
+	// Both from_page and to_page should be clamped to 5, resulting in 1 field on page 5
+	if len(expanded) != 1 {
+		t.Fatalf("expected 1 field (both pages clamped to 5), got %d", len(expanded))
+	}
+	if expanded[0].PageNumber != 5 {
+		t.Fatalf("expected page 5, got %d", expanded[0].PageNumber)
+	}
+}
+
+func TestExpandAgreementFieldRulesClampsNegativePagesToLowerBound(t *testing.T) {
+	recipients := []stores.RecipientRecord{
+		{ID: "signer-1", Email: "signer@example.com", Role: stores.RecipientRoleSigner},
+	}
+
+	rules := []agreementFieldRuleFormInput{
+		{
+			ID:            "rule-negative-range",
+			Type:          "initials_each_page",
+			ParticipantID: "signer-1",
+			FromPage:      -4,
+			ToPage:        2,
+		},
+		{
+			ID:            "rule-negative-signature",
+			Type:          "signature_once",
+			ParticipantID: "signer-1",
+			Page:          -7,
+		},
+	}
+
+	documentPageCount := 5
+	expanded, err := expandAgreementFieldRules(rules, recipients, nil, documentPageCount)
+	if err != nil {
+		t.Fatalf("expandAgreementFieldRules: %v", err)
+	}
+
+	initialsPages := []int{}
+	signaturePages := []int{}
+	for _, field := range expanded {
+		switch field.Type {
+		case stores.FieldTypeInitials:
+			initialsPages = append(initialsPages, field.PageNumber)
+		case stores.FieldTypeSignature:
+			signaturePages = append(signaturePages, field.PageNumber)
+		}
+	}
+	sort.Ints(initialsPages)
+
+	if len(initialsPages) != 2 || initialsPages[0] != 1 || initialsPages[1] != 2 {
+		t.Fatalf("expected initials pages [1 2], got %v", initialsPages)
+	}
+	if len(signaturePages) != 1 || signaturePages[0] != 1 {
+		t.Fatalf("expected signature page clamped to 1, got %v", signaturePages)
 	}
 }
 

@@ -1,11 +1,10 @@
 package handlers
 
 import (
-	"net"
 	"net/http"
-	"strings"
 
 	"github.com/goliatone/go-admin/examples/esign/services"
+	"github.com/goliatone/go-admin/quickstart"
 	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
 )
@@ -13,6 +12,8 @@ import (
 // TLSTransportGuard enforces TLS for runtime e-sign routes.
 type TLSTransportGuard struct {
 	AllowLocalInsecure bool
+	RequestTrustPolicy quickstart.RequestTrustPolicy
+	// Deprecated: use RequestTrustPolicy.
 	// TrustForwardedHeaders should only be enabled behind trusted reverse proxies.
 	TrustForwardedHeaders bool
 }
@@ -21,10 +22,11 @@ func (g TLSTransportGuard) Ensure(c router.Context) error {
 	if c == nil {
 		return nil
 	}
-	if isSecureRequest(c, g.TrustForwardedHeaders) {
+	policy := g.trustPolicy()
+	if quickstart.IsSecureRequest(c, policy) {
 		return nil
 	}
-	if g.AllowLocalInsecure && isLocalRequest(c, g.TrustForwardedHeaders) {
+	if g.AllowLocalInsecure && quickstart.IsLocalRequest(c, policy) {
 		return nil
 	}
 	return goerrors.New("tls transport required", goerrors.CategoryAuthz).
@@ -33,50 +35,14 @@ func (g TLSTransportGuard) Ensure(c router.Context) error {
 		WithMetadata(map[string]any{"path": c.Path(), "method": c.Method()})
 }
 
-func isSecureRequest(c router.Context, trustForwardedHeaders bool) bool {
-	if c == nil {
-		return false
-	}
-	if trustForwardedHeaders {
-		proto := strings.ToLower(strings.TrimSpace(c.Header("X-Forwarded-Proto")))
-		if proto == "https" {
-			return true
-		}
-		forwarded := strings.ToLower(strings.TrimSpace(c.Header("Forwarded")))
-		if strings.Contains(forwarded, "proto=https") {
-			return true
-		}
-		if strings.EqualFold(strings.TrimSpace(c.Header("X-Forwarded-Ssl")), "on") {
-			return true
+func (g TLSTransportGuard) trustPolicy() quickstart.RequestTrustPolicy {
+	policy := g.RequestTrustPolicy
+	if !policy.TrustForwardedHeaders && g.TrustForwardedHeaders {
+		// Preserve legacy behavior for older call sites while migrating to CIDR-gated trust policy.
+		policy.TrustForwardedHeaders = true
+		if len(policy.TrustedProxyCIDRs) == 0 {
+			policy.TrustedProxyCIDRs = quickstart.InsecureAnyTrustedProxyCIDRs()
 		}
 	}
-	if httpCtx, ok := c.(router.HTTPContext); ok {
-		req := httpCtx.Request()
-		if req != nil && req.TLS != nil {
-			return true
-		}
-	}
-	return false
-}
-
-func isLocalRequest(c router.Context, trustForwardedHeaders bool) bool {
-	if c == nil {
-		return false
-	}
-	host := strings.TrimSpace(c.Header("Host"))
-	if trustForwardedHeaders {
-		if forwardedHost := strings.TrimSpace(c.Header("X-Forwarded-Host")); forwardedHost != "" {
-			host = forwardedHost
-		}
-	}
-	if host == "" {
-		return false
-	}
-	if strings.Contains(host, ":") {
-		if parsedHost, _, err := net.SplitHostPort(host); err == nil {
-			host = parsedHost
-		}
-	}
-	host = strings.ToLower(host)
-	return host == "localhost" || host == "127.0.0.1" || host == "::1"
+	return policy
 }

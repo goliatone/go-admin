@@ -22,10 +22,7 @@ const defaultESignSQLiteFilename = "go-admin-esign.db"
 // ResolveSQLiteDSN returns the preferred DSN for the e-sign example store.
 func ResolveSQLiteDSN() string {
 	cfg := appcfg.Active()
-	if value := strings.TrimSpace(cfg.Databases.ESignDSN); value != "" {
-		return value
-	}
-	if value := strings.TrimSpace(cfg.Databases.ContentDSN); value != "" {
+	if value := strings.TrimSpace(cfg.SQLite.DSN); value != "" {
 		return value
 	}
 	filename := strings.TrimSuffix(defaultESignSQLiteFilename, ".db")
@@ -422,6 +419,19 @@ func (s *SQLiteStore) Create(ctx context.Context, scope Scope, record DocumentRe
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	out, err := s.InMemoryStore.Create(ctx, scope, record)
+	if err != nil {
+		return DocumentRecord{}, err
+	}
+	if err := s.persistMaybe(ctx); err != nil {
+		return DocumentRecord{}, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) SaveMetadata(ctx context.Context, scope Scope, id string, patch DocumentMetadataPatch) (DocumentRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.SaveMetadata(ctx, scope, id, patch)
 	if err != nil {
 		return DocumentRecord{}, err
 	}

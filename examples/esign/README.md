@@ -96,15 +96,20 @@ Legacy `ESIGN_*` alias overrides are removed.
 | `APP_FEATURES__ESIGN_GOOGLE` | `false` |
 | `APP_FEATURES__ACTIVITY` | `true` |
 | `APP_RUNTIME__PROFILE` | `development` |
+| `APP_RUNTIME__REPOSITORY_DIALECT` | `(auto: sqlite in development, postgres in production)` |
 | `APP_RUNTIME__STARTUP_POLICY` | `enforce` |
 | `APP_RUNTIME__STRICT_STARTUP` | `false` |
+| `APP_SQLITE__DSN` | `file:data/go-admin-esign.sqlite?_busy_timeout=5000&_foreign_keys=on` |
+| `APP_POSTGRES__DSN` | `(empty)` |
+| `APP_MIGRATIONS__LOCAL_DIR` | `data/sql/migrations` |
+| `APP_MIGRATIONS__LOCAL_ONLY` | `false` |
 | `APP_EMAIL__TRANSPORT` | `deterministic` |
 | `APP_SIGNER__UPLOAD_TTL_SECONDS` | `300` |
 | `APP_SIGNER__UPLOAD_SIGNING_KEY` | `(empty)` |
 | `APP_SIGNER__PROFILE_MODE` | `hybrid` |
 | `APP_PUBLIC__BASE_URL` | `http://localhost:8082` |
-| `APP_DATABASES__ESIGN_DSN` | `(empty)` |
-| `APP_DATABASES__CONTENT_DSN` | `(empty)` |
+
+Legacy persistence alias keys (`APP_DATABASES__ESIGN_DSN`, `APP_DATABASES__CONTENT_DSN`) are ignored by runtime bootstrap and are no longer part of DSN resolution.
 
 ### Demo Login Credentials
 

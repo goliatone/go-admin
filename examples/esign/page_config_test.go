@@ -64,6 +64,29 @@ func TestBuildESignDocumentIngestionPageConfigIncludesFeatureFlagsAndRoutes(t *t
 	}
 }
 
+func TestBuildESignAgreementFormPageConfigIncludesModuleAndUserContext(t *testing.T) {
+	cfg := buildESignAgreementFormPageConfig(
+		"/admin",
+		"/admin/api/v1",
+		"user-2",
+		map[string]string{
+			"index": "/admin/content/esign_agreements",
+		},
+	)
+	if cfg.Page != eSignPageAgreementForm {
+		t.Fatalf("expected page %q, got %q", eSignPageAgreementForm, cfg.Page)
+	}
+	if got := cfg.Routes["index"]; got != "/admin/content/esign_agreements" {
+		t.Fatalf("expected routes.index to be preserved, got %q", got)
+	}
+	if got := rawToString(cfg.Context["user_id"]); got != "user-2" {
+		t.Fatalf("expected context.user_id=user-2, got %q", got)
+	}
+	if got := cfg.ModulePath; got != "/admin/assets/dist/esign/index.js" {
+		t.Fatalf("expected module path /admin/assets/dist/esign/index.js, got %q", got)
+	}
+}
+
 func TestViewContextRoutesExtractsMapAny(t *testing.T) {
 	ctx := router.ViewContext{
 		"routes": map[string]any{
@@ -83,6 +106,7 @@ func TestValidateESignRuntimeAssetContractsWithFSPasses(t *testing.T) {
 	err := validateESignRuntimeAssetContractsWithFS(assetsFS, map[string]string{
 		eSignPageAdminLanding:      "dist/esign/index.js",
 		eSignPageDocumentIngestion: "dist/esign/index.js",
+		eSignPageAgreementForm:     "dist/esign/index.js",
 	})
 	if err != nil {
 		t.Fatalf("expected asset contract validation to pass, got %v", err)

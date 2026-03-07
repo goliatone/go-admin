@@ -51,6 +51,10 @@ func TestMetricsSnapshotComputesPercentilesAndRates(t *testing.T) {
 	metrics.ObserveGoogleImport(ctx, false, "GOOGLE_PERMISSION_DENIED")
 	metrics.ObserveGoogleAuthChurn(ctx, "oauth_connected")
 	metrics.ObserveGoogleAuthChurn(ctx, "access_revoked")
+	metrics.ObservePDFIngestAnalyzeFailure(ctx, "parse.failed", "unsupported")
+	metrics.ObservePDFIngestPolicyReject(ctx, "policy.max_source_bytes", "unsupported")
+	metrics.ObservePDFPreviewFallback(ctx, "preview_fallback_forced", "limited")
+	metrics.ObservePDFRenderImportFail(ctx, "import.failed", "limited")
 
 	snapshot := metrics.Snapshot()
 	if snapshot.AdminReadP95MS == 0 {
@@ -76,6 +80,30 @@ func TestMetricsSnapshotComputesPercentilesAndRates(t *testing.T) {
 	}
 	if snapshot.GoogleAuthChurnByReason["access_revoked"] != 1 {
 		t.Fatalf("expected access_revoked churn counter, got %+v", snapshot.GoogleAuthChurnByReason)
+	}
+	if snapshot.PDFIngestAnalyzeFailTotal != 1 {
+		t.Fatalf("expected pdf ingest analyze fail total 1, got %+v", snapshot)
+	}
+	if snapshot.PDFIngestAnalyzeFailByReasonTier["reason=parse.failed,tier=unsupported"] != 1 {
+		t.Fatalf("expected labeled pdf ingest analyze fail counter, got %+v", snapshot.PDFIngestAnalyzeFailByReasonTier)
+	}
+	if snapshot.PDFIngestPolicyRejectTotal != 1 {
+		t.Fatalf("expected pdf ingest policy reject total 1, got %+v", snapshot)
+	}
+	if snapshot.PDFIngestPolicyRejectByReasonTier["reason=policy.max_source_bytes,tier=unsupported"] != 1 {
+		t.Fatalf("expected labeled pdf ingest policy reject counter, got %+v", snapshot.PDFIngestPolicyRejectByReasonTier)
+	}
+	if snapshot.PDFPreviewFallbackTotal != 1 {
+		t.Fatalf("expected pdf preview fallback total 1, got %+v", snapshot)
+	}
+	if snapshot.PDFPreviewFallbackByReasonTier["reason=preview_fallback_forced,tier=limited"] != 1 {
+		t.Fatalf("expected labeled pdf preview fallback counter, got %+v", snapshot.PDFPreviewFallbackByReasonTier)
+	}
+	if snapshot.PDFRenderImportFailTotal != 1 {
+		t.Fatalf("expected pdf render import fail total 1, got %+v", snapshot)
+	}
+	if snapshot.PDFRenderImportFailByReasonTier["reason=import.failed,tier=limited"] != 1 {
+		t.Fatalf("expected labeled pdf render import fail counter, got %+v", snapshot.PDFRenderImportFailByReasonTier)
 	}
 	if snapshot.SignerLinkOpenSuccessTotal != 1 || snapshot.SignerLinkOpenFailureTotal != 1 {
 		t.Fatalf("expected signer link open counters, got %+v", snapshot)

@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"github.com/goliatone/go-admin/internal/primitives"
+	"math"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -179,16 +181,24 @@ func (s DraftService) Create(ctx context.Context, scope stores.Scope, input Draf
 	if input.CurrentStep <= 0 || input.CurrentStep > 6 {
 		return stores.DraftRecord{}, false, domainValidationError("drafts", "current_step", "must be between 1 and 6")
 	}
+	normalizedWizardState, resolvedDocumentID, err := s.normalizeWizardStateForPersistence(ctx, scope, input.WizardState, input.DocumentID)
+	if err != nil {
+		return stores.DraftRecord{}, false, err
+	}
+	documentID := strings.TrimSpace(input.DocumentID)
+	if documentID == "" {
+		documentID = resolvedDocumentID
+	}
 
 	now := s.now().UTC()
 	expiresAt := now.Add(s.ttl).UTC()
 	record, replay, err := s.drafts.CreateDraftSession(ctx, scope, stores.DraftRecord{
 		WizardID:        wizardID,
 		CreatedByUserID: createdByUserID,
-		DocumentID:      strings.TrimSpace(input.DocumentID),
+		DocumentID:      documentID,
 		Title:           strings.TrimSpace(input.Title),
 		CurrentStep:     input.CurrentStep,
-		WizardStateJSON: mustJSON(input.WizardState),
+		WizardStateJSON: mustJSON(normalizedWizardState),
 		CreatedAt:       now,
 		UpdatedAt:       now,
 		ExpiresAt:       expiresAt,
@@ -278,10 +288,18 @@ func (s DraftService) Update(ctx context.Context, scope stores.Scope, id string,
 	if _, err := s.Get(ctx, scope, id, input.UpdatedByUserID); err != nil {
 		return stores.DraftRecord{}, err
 	}
+	documentIDHint := ""
+	if input.DocumentID != nil {
+		documentIDHint = strings.TrimSpace(*input.DocumentID)
+	}
+	normalizedWizardState, resolvedDocumentID, err := s.normalizeWizardStateForPersistence(ctx, scope, input.WizardState, documentIDHint)
+	if err != nil {
+		return stores.DraftRecord{}, err
+	}
 
 	now := s.now().UTC()
 	expiresAt := now.Add(s.ttl).UTC()
-	wizardStateJSON := mustJSON(input.WizardState)
+	wizardStateJSON := mustJSON(normalizedWizardState)
 	title := strings.TrimSpace(input.Title)
 
 	patch := stores.DraftPatch{
@@ -292,7 +310,10 @@ func (s DraftService) Update(ctx context.Context, scope stores.Scope, id string,
 		UpdatedAt:       &now,
 	}
 	if input.DocumentID != nil {
-		documentID := strings.TrimSpace(*input.DocumentID)
+		documentID := resolvedDocumentID
+		if documentID == "" {
+			documentID = strings.TrimSpace(*input.DocumentID)
+		}
 		patch.DocumentID = &documentID
 	}
 
@@ -306,6 +327,308 @@ func (s DraftService) Update(ctx context.Context, scope stores.Scope, id string,
 		"revision":     record.Revision,
 	})
 	return record, nil
+}
+
+func (s DraftService) normalizeWizardStateForPersistence(
+	ctx context.Context,
+	scope stores.Scope,
+	wizardState map[string]any,
+	documentIDHint string,
+) (map[string]any, string, error) {
+	if wizardState == nil {
+		return nil, "", domainValidationError("drafts", "wizard_state", "required")
+	}
+	normalized, err := cloneJSONMap(wizardState)
+	if err != nil {
+		return nil, "", domainValidationError("drafts", "wizard_state", "invalid json payload")
+	}
+	documentIDHint = strings.TrimSpace(documentIDHint)
+
+	documentState := map[string]any{}
+	if entry, ok := normalized["document"].(map[string]any); ok {
+		documentState = entry
+	} else {
+		normalized["document"] = documentState
+	}
+	documentID := primitives.FirstNonEmpty(documentIDHint, strings.TrimSpace(wizardAnyToString(documentState["id"])))
+
+	pageCount := 0
+	if parsed, ok := anyToPositiveInt(documentState["pageCount"]); ok {
+		pageCount = parsed
+	}
+	if pageCount <= 0 {
+		if parsed, ok := anyToPositiveInt(documentState["page_count"]); ok {
+			pageCount = parsed
+		}
+	}
+	pageCount = s.resolveWizardDocumentPageCount(ctx, scope, documentID, pageCount)
+
+	if documentID != "" {
+		documentState["id"] = documentID
+	}
+	documentState["pageCount"] = pageCount
+	if _, hasSnake := documentState["page_count"]; hasSnake {
+		documentState["page_count"] = pageCount
+	}
+
+	normalizePageFieldsInObjectArray(normalized, "fieldDefinitions", pageCount, []string{"page"})
+	normalizePageFieldsInObjectArray(normalized, "field_definitions", pageCount, []string{"page"})
+	normalizePageFieldsInObjectArray(normalized, "fieldPlacements", pageCount, []string{"page"})
+	normalizePageFieldsInObjectArray(normalized, "field_placements", pageCount, []string{"page"})
+
+	ruleKeys := []string{"page", "fromPage", "toPage", "from_page", "to_page"}
+	normalizePageFieldsInObjectArray(normalized, "fieldRules", pageCount, ruleKeys)
+	normalizePageFieldsInObjectArray(normalized, "field_rules", pageCount, ruleKeys)
+	normalizeExcludePagesInObjectArray(normalized, "fieldRules", pageCount, []string{"excludePages", "exclude_pages"})
+	normalizeExcludePagesInObjectArray(normalized, "field_rules", pageCount, []string{"excludePages", "exclude_pages"})
+
+	return normalized, documentID, nil
+}
+
+func (s DraftService) resolveWizardDocumentPageCount(ctx context.Context, scope stores.Scope, documentID string, hint int) int {
+	pageCount := hint
+	documentID = strings.TrimSpace(documentID)
+	if documentID != "" && s.agreements.documents != nil {
+		if document, err := s.agreements.documents.Get(ctx, scope, documentID); err == nil {
+			if document.PageCount > 0 {
+				pageCount = document.PageCount
+			}
+		}
+	}
+	if pageCount <= 0 {
+		pageCount = 1
+	}
+	return pageCount
+}
+
+func normalizePageFieldsInObjectArray(state map[string]any, key string, maxPage int, fields []string) {
+	if state == nil {
+		return
+	}
+	raw, ok := state[key]
+	if !ok {
+		return
+	}
+	entries, ok := raw.([]any)
+	if !ok {
+		return
+	}
+	for _, item := range entries {
+		entry, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		for _, field := range fields {
+			normalizePageField(entry, field, maxPage)
+		}
+	}
+}
+
+func normalizeExcludePagesInObjectArray(state map[string]any, key string, maxPage int, fields []string) {
+	if state == nil {
+		return
+	}
+	raw, ok := state[key]
+	if !ok {
+		return
+	}
+	entries, ok := raw.([]any)
+	if !ok {
+		return
+	}
+	for _, item := range entries {
+		entry, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		for _, field := range fields {
+			if _, exists := entry[field]; !exists {
+				continue
+			}
+			entry[field] = normalizeBoundedIntSlice(entry[field], maxPage)
+		}
+	}
+}
+
+func normalizePageField(entry map[string]any, field string, maxPage int) {
+	if entry == nil {
+		return
+	}
+	value, exists := entry[field]
+	if !exists {
+		return
+	}
+	page, ok := anyToInt(value)
+	if !ok {
+		return
+	}
+	if page < 1 {
+		page = 1
+	}
+	if maxPage > 0 && page > maxPage {
+		page = maxPage
+	}
+	entry[field] = page
+}
+
+func normalizeBoundedIntSlice(value any, maxPage int) []int {
+	var out []int
+	switch typed := value.(type) {
+	case []any:
+		for _, item := range typed {
+			parsed, ok := anyToInt(item)
+			if !ok || parsed <= 0 {
+				continue
+			}
+			if maxPage > 0 && parsed > maxPage {
+				parsed = maxPage
+			}
+			out = append(out, parsed)
+		}
+	case []int:
+		for _, item := range typed {
+			parsed := item
+			if parsed <= 0 {
+				continue
+			}
+			if maxPage > 0 && parsed > maxPage {
+				parsed = maxPage
+			}
+			out = append(out, parsed)
+		}
+	case []string:
+		for _, item := range typed {
+			parsed, ok := anyToInt(item)
+			if !ok || parsed <= 0 {
+				continue
+			}
+			if maxPage > 0 && parsed > maxPage {
+				parsed = maxPage
+			}
+			out = append(out, parsed)
+		}
+	default:
+		raw := strings.TrimSpace(wizardAnyToString(value))
+		if raw == "" {
+			return []int{}
+		}
+		for _, part := range strings.Split(raw, ",") {
+			parsed, ok := anyToInt(strings.TrimSpace(part))
+			if !ok || parsed <= 0 {
+				continue
+			}
+			if maxPage > 0 && parsed > maxPage {
+				parsed = maxPage
+			}
+			out = append(out, parsed)
+		}
+	}
+	if len(out) == 0 {
+		return []int{}
+	}
+	seen := map[int]struct{}{}
+	unique := make([]int, 0, len(out))
+	for _, item := range out {
+		if _, ok := seen[item]; ok {
+			continue
+		}
+		seen[item] = struct{}{}
+		unique = append(unique, item)
+	}
+	sort.Ints(unique)
+	return unique
+}
+
+func anyToPositiveInt(value any) (int, bool) {
+	parsed, ok := anyToInt(value)
+	if !ok || parsed <= 0 {
+		return 0, false
+	}
+	return parsed, true
+}
+
+func anyToInt(value any) (int, bool) {
+	switch typed := value.(type) {
+	case nil:
+		return 0, false
+	case int:
+		return typed, true
+	case int8:
+		return int(typed), true
+	case int16:
+		return int(typed), true
+	case int32:
+		return int(typed), true
+	case int64:
+		return int(typed), true
+	case uint:
+		return int(typed), true
+	case uint8:
+		return int(typed), true
+	case uint16:
+		return int(typed), true
+	case uint32:
+		return int(typed), true
+	case uint64:
+		return int(typed), true
+	case float32:
+		if !isFinite(float64(typed)) {
+			return 0, false
+		}
+		return int(typed), true
+	case float64:
+		if !isFinite(typed) {
+			return 0, false
+		}
+		return int(typed), true
+	case json.Number:
+		parsed, err := typed.Int64()
+		if err != nil {
+			return 0, false
+		}
+		return int(parsed), true
+	case string:
+		raw := strings.TrimSpace(typed)
+		if raw == "" {
+			return 0, false
+		}
+		parsed, err := strconv.Atoi(raw)
+		if err != nil {
+			return 0, false
+		}
+		return parsed, true
+	default:
+		return 0, false
+	}
+}
+
+func isFinite(value float64) bool {
+	return !math.IsNaN(value) && !math.IsInf(value, 0)
+}
+
+func wizardAnyToString(value any) string {
+	switch typed := value.(type) {
+	case nil:
+		return ""
+	case string:
+		return typed
+	case []byte:
+		return string(typed)
+	default:
+		return fmt.Sprintf("%v", value)
+	}
+}
+
+func cloneJSONMap(value map[string]any) (map[string]any, error) {
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		return nil, err
+	}
+	decoded := map[string]any{}
+	if err := json.Unmarshal(encoded, &decoded); err != nil {
+		return nil, err
+	}
+	return decoded, nil
 }
 
 // Delete removes a scoped draft record.
@@ -527,12 +850,19 @@ func resolveFieldParticipantID(definition wizardFieldDefinitionState, participan
 
 func resolveFieldPlacementGeometry(state wizardStatePayload, definition wizardFieldDefinitionState, index int) (int, float64, float64, float64, float64) {
 	placement := findPlacementForField(state.FieldPlacements, definition)
+	terminalPage := resolveWizardTerminalPage(state)
+	if terminalPage <= 0 {
+		terminalPage = 1
+	}
 	page := placement.Page
 	if page <= 0 {
 		page = definition.Page
 	}
 	if page <= 0 {
 		page = 1
+	}
+	if page > terminalPage {
+		page = terminalPage
 	}
 
 	x := placement.X
@@ -787,17 +1117,39 @@ func expandFieldRules(state wizardStatePayload) []wizardFieldDefinitionState {
 		if ruleType == "" {
 			continue
 		}
+		rulePage := rule.Page
+		if rulePage < 0 {
+			rulePage = 1
+		}
+		if rulePage > terminalPage {
+			rulePage = terminalPage
+		}
+		fromPage := rule.FromPage
+		if fromPage < 0 {
+			fromPage = 1
+		}
+		if fromPage > terminalPage {
+			fromPage = terminalPage
+		}
+		toPage := rule.ToPage
+		if toPage < 0 {
+			toPage = 1
+		}
+		if toPage > terminalPage {
+			toPage = terminalPage
+		}
+
 		required := true
 		if rule.Required != nil {
 			required = *rule.Required
 		}
 		switch ruleType {
 		case "initials_each_page":
-			startPage := rule.FromPage
+			startPage := fromPage
 			if startPage <= 0 {
 				startPage = 1
 			}
-			endPage := rule.ToPage
+			endPage := toPage
 			if endPage <= 0 {
 				endPage = terminalPage
 			}
@@ -807,6 +1159,9 @@ func expandFieldRules(state wizardStatePayload) []wizardFieldDefinitionState {
 			excludedPages := map[int]struct{}{}
 			for _, page := range rule.ExcludePages {
 				if page > 0 {
+					if page > terminalPage {
+						page = terminalPage
+					}
 					excludedPages[page] = struct{}{}
 				}
 			}
@@ -830,9 +1185,9 @@ func expandFieldRules(state wizardStatePayload) []wizardFieldDefinitionState {
 				})
 			}
 		case "signature_once":
-			page := rule.Page
+			page := rulePage
 			if page <= 0 {
-				page = rule.ToPage
+				page = toPage
 			}
 			if page <= 0 {
 				page = terminalPage
@@ -857,7 +1212,10 @@ func expandFieldRules(state wizardStatePayload) []wizardFieldDefinitionState {
 }
 
 func resolveWizardTerminalPage(state wizardStatePayload) int {
-	maxPage := state.Document.PageCount
+	if state.Document.PageCount > 0 {
+		return state.Document.PageCount
+	}
+	maxPage := 1
 	for _, definition := range state.FieldDefinitions {
 		if definition.Page > maxPage {
 			maxPage = definition.Page
@@ -875,9 +1233,6 @@ func resolveWizardTerminalPage(state wizardStatePayload) int {
 		if rule.ToPage > maxPage {
 			maxPage = rule.ToPage
 		}
-	}
-	if maxPage <= 0 {
-		maxPage = 1
 	}
 	return maxPage
 }

@@ -27,6 +27,7 @@ type AgreementService struct {
 	customTokens          bool
 	customAudits          bool
 	customPlacementRuns   bool
+	pdfs                  PDFService
 	now                   func() time.Time
 }
 
@@ -106,6 +107,16 @@ func WithAgreementEmailWorkflow(workflow AgreementEmailWorkflow) AgreementServic
 	}
 }
 
+// WithAgreementPDFService sets the shared PDF policy service used for compatibility gating.
+func WithAgreementPDFService(service PDFService) AgreementServiceOption {
+	return func(s *AgreementService) {
+		if s == nil {
+			return
+		}
+		s.pdfs = service
+	}
+}
+
 // CreateDraftInput captures required agreement draft creation fields.
 type CreateDraftInput struct {
 	DocumentID             string
@@ -145,6 +156,7 @@ func NewAgreementService(store stores.Store, opts ...AgreementServiceOption) Agr
 		audits:        store,
 		tokens:        stores.NewTokenService(store),
 		tx:            store,
+		pdfs:          NewPDFService(),
 		now:           func() time.Time { return time.Now().UTC() },
 	}
 	for _, opt := range opts {
@@ -765,6 +777,22 @@ func (s AgreementService) ResolveFieldValueForSigner(field stores.FieldRecord, p
 	return signedAt.UTC().Format(time.RFC3339), nil
 }
 
+func (s AgreementService) resolveAgreementDocumentCompatibility(ctx context.Context, scope stores.Scope, agreement stores.AgreementRecord) (stores.DocumentRecord, PDFCompatibilityStatus, error) {
+	if s.documents == nil {
+		return stores.DocumentRecord{}, PDFCompatibilityStatus{}, domainValidationError("documents", "store", "not configured")
+	}
+	documentID := strings.TrimSpace(agreement.DocumentID)
+	if documentID == "" {
+		return stores.DocumentRecord{}, PDFCompatibilityStatus{}, domainValidationError("agreements", "document_id", "required")
+	}
+	document, err := s.documents.Get(ctx, scope, documentID)
+	if err != nil {
+		return stores.DocumentRecord{}, PDFCompatibilityStatus{}, err
+	}
+	policy := s.pdfs.Policy(ctx, scope)
+	return document, resolveDocumentCompatibility(policy, document), nil
+}
+
 // Send transitions a draft agreement to sent while honoring idempotency keys.
 func (s AgreementService) Send(ctx context.Context, scope stores.Scope, agreementID string, input SendInput) (stores.AgreementRecord, error) {
 	if s.agreements == nil {
@@ -777,6 +805,8 @@ func (s AgreementService) Send(ctx context.Context, scope stores.Scope, agreemen
 		return replay, nil
 	}
 	var result stores.AgreementRecord
+	sendCompatibilityTier := PDFCompatibilityTierFull
+	sendCompatibilityReason := ""
 	if err := s.withWriteTxHooks(ctx, func(txSvc AgreementService, hooks *stores.TxHooks) error {
 		agreement, err := txSvc.agreements.GetAgreement(ctx, scope, agreementID)
 		if err != nil {
@@ -792,6 +822,18 @@ func (s AgreementService) Send(ctx context.Context, scope stores.Scope, agreemen
 				}
 			}
 			return domainValidationError("agreements", "status", "send requires draft status")
+		}
+		document, compatibility, err := txSvc.resolveAgreementDocumentCompatibility(ctx, scope, agreement)
+		if err != nil {
+			return err
+		}
+		sendCompatibilityTier = compatibility.Tier
+		sendCompatibilityReason = compatibility.Reason
+		if compatibility.Tier == PDFCompatibilityTierUnsupported && !policyAllowsAnalyzeOnlyUpload(txSvc.pdfs.Policy(ctx, scope)) {
+			return pdfUnsupportedError("agreement.send", string(compatibility.Tier), compatibility.Reason, map[string]any{
+				"agreement_id": agreement.ID,
+				"document_id":  document.ID,
+			})
 		}
 
 		validation, err := txSvc.ValidateBeforeSend(ctx, scope, agreementID)
@@ -850,10 +892,12 @@ func (s AgreementService) Send(ctx context.Context, scope stores.Scope, agreemen
 
 		activeRecipientIDs := recipientIDs(activeSigners)
 		if err := txSvc.appendAuditEvent(ctx, scope, transitioned.ID, "agreement.sent", "system", "", map[string]any{
-			"idempotency_key":     strings.TrimSpace(input.IdempotencyKey),
-			"status":              transitioned.Status,
-			"active_stage":        activeStage,
-			"active_recipient_id": coalesceFirst(activeRecipientIDs),
+			"idempotency_key":          strings.TrimSpace(input.IdempotencyKey),
+			"status":                   transitioned.Status,
+			"pdf_compatibility_tier":   strings.TrimSpace(string(sendCompatibilityTier)),
+			"pdf_compatibility_reason": strings.TrimSpace(sendCompatibilityReason),
+			"active_stage":             activeStage,
+			"active_recipient_id":      coalesceFirst(activeRecipientIDs),
 			"active_recipient_ids": func() []string {
 				return append([]string{}, activeRecipientIDs...)
 			}(),
@@ -862,6 +906,15 @@ func (s AgreementService) Send(ctx context.Context, scope stores.Scope, agreemen
 			}(),
 		}); err != nil {
 			return err
+		}
+		if sendCompatibilityTier == PDFCompatibilityTierLimited {
+			if err := txSvc.appendAuditEvent(ctx, scope, transitioned.ID, "agreement.send_degraded_preview", "system", "", map[string]any{
+				"pdf_compatibility_tier":   strings.TrimSpace(string(sendCompatibilityTier)),
+				"pdf_compatibility_reason": strings.TrimSpace(sendCompatibilityReason),
+				"idempotency_key":          strings.TrimSpace(input.IdempotencyKey),
+			}); err != nil {
+				return err
+			}
 		}
 		if txSvc.emails != nil {
 			for _, activeSigner := range activeSigners {

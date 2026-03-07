@@ -1,0 +1,122 @@
+{
+  "agreements": [
+    {
+      "CompletedAt": null,
+      "CreatedAt": "2026-03-01T09:01:00Z",
+      "CreatedByUserID": "",
+      "DeclinedAt": null,
+      "DocumentID": "doc-fixture",
+      "ExpiredAt": null,
+      "ID": "agreement-fixture",
+      "Message": "baseline",
+      "OrgID": "org-phase0",
+      "SentAt": null,
+      "SourceExportedAt": null,
+      "SourceExportedByUserID": "",
+      "SourceGoogleDocURL": "",
+      "SourceGoogleFileID": "",
+      "SourceIngestionMode": "",
+      "SourceMimeType": "",
+      "SourceModifiedTime": null,
+      "SourceType": "upload",
+      "Status": "draft",
+      "TenantID": "tenant-phase0",
+      "Title": "Phase 0 Agreement agreement-fixture",
+      "UpdatedAt": "2026-03-01T09:01:00Z",
+      "UpdatedByUserID": "",
+      "Version": 1,
+      "VoidedAt": null
+    }
+  ],
+  "audit_events": [
+    {
+      "ActorID": "user-fixture",
+      "ActorType": "user",
+      "AgreementID": "agreement-fixture",
+      "CreatedAt": "2026-03-01T09:04:00Z",
+      "EventType": "agreement.created",
+      "ID": "event-fixture",
+      "IPAddress": "",
+      "MetadataJSON": "{\"fixture\":true}",
+      "OrgID": "org-phase0",
+      "TenantID": "tenant-phase0",
+      "UserAgent": ""
+    }
+  ],
+  "documents": [
+    {
+      "CreatedAt": "2026-03-01T09:00:00Z",
+      "ID": "doc-fixture",
+      "NormalizedObjectKey": "",
+      "OrgID": "org-phase0",
+      "PDFAnalyzedAt": null,
+      "PDFCompatibilityReason": "",
+      "PDFCompatibilityTier": "",
+      "PDFNormalizationStatus": "",
+      "PDFPolicyVersion": "",
+      "PageCount": 0,
+      "SizeBytes": 0,
+      "SourceExportedAt": null,
+      "SourceExportedByUserID": "",
+      "SourceGoogleDocURL": "",
+      "SourceGoogleFileID": "",
+      "SourceIngestionMode": "",
+      "SourceMimeType": "",
+      "SourceModifiedTime": null,
+      "SourceObjectKey": "tenant/tenant-phase0/org/org-phase0/documents/doc-fixture.pdf",
+      "SourceSHA256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "SourceType": "upload",
+      "TenantID": "tenant-phase0",
+      "Title": "Phase 0 Document doc-fixture",
+      "UpdatedAt": "2026-03-01T09:00:00Z"
+    }
+  ],
+  "outbox_messages": [
+    {
+      "AttemptCount": 0,
+      "AvailableAt": "2026-03-01T09:05:00Z",
+      "CorrelationID": "",
+      "CreatedAt": "2026-03-01T09:05:00Z",
+      "HeadersJSON": "",
+      "ID": "outbox-fixture",
+      "LastError": "",
+      "LockedAt": null,
+      "LockedBy": "",
+      "MaxAttempts": 5,
+      "MessageKey": "agreement.created.recipient-1",
+      "OrgID": "org-phase0",
+      "PayloadJSON": "{\"agreement_id\":\"agreement-fixture\"}",
+      "PublishedAt": null,
+      "Status": "pending",
+      "TenantID": "tenant-phase0",
+      "Topic": "email.send",
+      "UpdatedAt": "2026-03-01T09:05:00Z"
+    }
+  ],
+  "signing_tokens": [
+    {
+      "AgreementID": "agreement-fixture",
+      "CreatedAt": "2026-03-01T09:02:00Z",
+      "ExpiresAt": "2026-03-01T09:30:00Z",
+      "ID": "token-fixture-a",
+      "OrgID": "org-phase0",
+      "RecipientID": "recipient-1",
+      "RevokedAt": null,
+      "Status": "active",
+      "TenantID": "tenant-phase0",
+      "TokenHash": "hash-fixture-a"
+    },
+    {
+      "AgreementID": "agreement-fixture",
+      "CreatedAt": "2026-03-01T09:03:00Z",
+      "ExpiresAt": "2026-03-01T09:40:00Z",
+      "ID": "token-fixture-b",
+      "OrgID": "org-phase0",
+      "RecipientID": "recipient-2",
+      "RevokedAt": null,
+      "Status": "active",
+      "TenantID": "tenant-phase0",
+      "TokenHash": "hash-fixture-b"
+    }
+  ]
+}

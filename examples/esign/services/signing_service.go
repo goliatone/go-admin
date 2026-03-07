@@ -8,17 +8,16 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"io"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	"github.com/goliatone/go-uploader"
-	"github.com/phpdave11/gofpdf"
-	gofpdi "github.com/phpdave11/gofpdf/contrib/gofpdi"
 )
 
 const (
@@ -43,6 +42,18 @@ const (
 	defaultSignatureUploadTTLSeconds = 300
 	defaultSignatureUploadMaxBytes   = 5 * 1024 * 1024
 	defaultSignatureUploadURLPath    = "/api/v1/esign/signing/signature-upload/object"
+
+	signerViewerCompatibilityTierFull        = "full"
+	signerViewerCompatibilityTierLimited     = "limited"
+	signerViewerCompatibilityTierUnsupported = "unsupported"
+
+	signerViewerCompatibilityReasonSourceUnavailable       = "source_unavailable"
+	signerViewerCompatibilityReasonSourceNotPDF            = "source_not_pdf"
+	signerViewerCompatibilityReasonSourceImportFailed      = "source_import_failed"
+	signerViewerCompatibilityReasonNormalizedUnavailable   = "normalized_unavailable"
+	signerViewerCompatibilityReasonOriginalFallbackBlock   = "original_fallback_disallowed"
+	signerViewerCompatibilityReasonPreviewFallbackDisabled = "preview_fallback_disabled"
+	signerViewerCompatibilityReasonPreviewFallbackForce    = "preview_fallback_forced"
 )
 
 // SigningService exposes signer-session and signing flow behavior.
@@ -62,6 +73,8 @@ type SigningService struct {
 	signatureUploadTTL    time.Duration
 	signatureUploadSecret []byte
 	signatureUploadURL    string
+	previewFallback       bool
+	pdfs                  PDFService
 	state                 *signingServiceState
 }
 
@@ -128,6 +141,16 @@ func WithSigningObjectStore(store signingObjectStore) SigningServiceOption {
 	}
 }
 
+// WithSigningPDFService sets the shared PDF service used for viewer bootstrap policy + geometry.
+func WithSigningPDFService(service PDFService) SigningServiceOption {
+	return func(s *SigningService) {
+		if s == nil {
+			return
+		}
+		s.pdfs = service
+	}
+}
+
 // WithSigningAuditStore configures signer audit event persistence.
 func WithSigningAuditStore(store stores.AuditEventStore) SigningServiceOption {
 	return func(s *SigningService) {
@@ -178,6 +201,16 @@ func WithSignatureUploadURL(urlPath string) SigningServiceOption {
 	}
 }
 
+// WithSigningPreviewFallbackEnabled forces default viewer page geometry when enabled.
+func WithSigningPreviewFallbackEnabled(enabled bool) SigningServiceOption {
+	return func(s *SigningService) {
+		if s == nil {
+			return
+		}
+		s.previewFallback = enabled
+	}
+}
+
 func NewSigningService(store stores.Store, opts ...SigningServiceOption) SigningService {
 	svc := SigningService{
 		agreements:            store,
@@ -190,6 +223,7 @@ func NewSigningService(store stores.Store, opts ...SigningServiceOption) Signing
 		signatureUploadTTL:    time.Duration(defaultSignatureUploadTTLSeconds) * time.Second,
 		signatureUploadSecret: []byte("esign-signature-upload-secret"),
 		signatureUploadURL:    defaultSignatureUploadURLPath,
+		pdfs:                  NewPDFService(),
 		state: &signingServiceState{
 			consentAccepted:        map[string]time.Time{},
 			submitByKey:            map[string]SignerSubmitResult{},
@@ -278,12 +312,17 @@ type SignerSessionViewerPage struct {
 
 // SignerSessionViewerContext carries viewer bootstrap metadata used by unified signer UI.
 type SignerSessionViewerContext struct {
-	CoordinateSpace string                    `json:"coordinate_space"`
-	ContractVersion string                    `json:"contract_version,omitempty"`
-	Unit            string                    `json:"unit,omitempty"`
-	Origin          string                    `json:"origin,omitempty"`
-	YAxisDirection  string                    `json:"y_axis_direction,omitempty"`
-	Pages           []SignerSessionViewerPage `json:"pages,omitempty"`
+	CoordinateSpace     string                    `json:"coordinate_space"`
+	ContractVersion     string                    `json:"contract_version,omitempty"`
+	Unit                string                    `json:"unit,omitempty"`
+	Origin              string                    `json:"origin,omitempty"`
+	YAxisDirection      string                    `json:"y_axis_direction,omitempty"`
+	Pages               []SignerSessionViewerPage `json:"pages,omitempty"`
+	Compatibility       string                    `json:"compatibility,omitempty"`
+	CompatibilityTier   string                    `json:"compatibility_tier,omitempty"`
+	Reason              string                    `json:"reason,omitempty"`
+	CompatibilityReason string                    `json:"compatibility_reason,omitempty"`
+	Fallback            bool                      `json:"fallback,omitempty"`
 }
 
 // SignerSessionContext returns agreement and signer-scoped context for the signer API.
@@ -470,6 +509,16 @@ func (s SigningService) GetSession(ctx context.Context, scope stores.Scope, toke
 	if err != nil {
 		return SignerSessionContext{}, err
 	}
+	document, compatibility, err := s.resolveSigningDocumentCompatibility(ctx, scope, agreement)
+	if err != nil {
+		return SignerSessionContext{}, err
+	}
+	if compatibility.Tier == PDFCompatibilityTierUnsupported && !policyAllowsAnalyzeOnlyUpload(s.pdfs.Policy(ctx, scope)) {
+		return SignerSessionContext{}, pdfUnsupportedError("signer.bootstrap", string(compatibility.Tier), compatibility.Reason, map[string]any{
+			"agreement_id": agreement.ID,
+			"document_id":  document.ID,
+		})
+	}
 	updatedRecipient, err := s.agreements.TouchRecipientView(ctx, scope, agreement.ID, recipient.ID, s.now())
 	if err != nil {
 		return SignerSessionContext{}, err
@@ -498,7 +547,10 @@ func (s SigningService) GetSession(ctx context.Context, scope stores.Scope, toke
 		waitingForIDs = append(waitingForIDs, activeRecipientIDs...)
 		waitingFor = coalesceFirst(waitingForIDs)
 	}
-	documentName, pageCount, viewer := s.resolveSessionBootstrap(ctx, scope, agreement, fields)
+	documentName, pageCount, viewer, err := s.resolveSessionBootstrap(ctx, scope, document, compatibility, fields)
+	if err != nil {
+		return SignerSessionContext{}, err
+	}
 	pagesByNumber := map[int]SignerSessionViewerPage{}
 	for _, page := range viewer.Pages {
 		pagesByNumber[page.Page] = page
@@ -558,22 +610,27 @@ func (s SigningService) GetSession(ctx context.Context, scope stores.Scope, toke
 	}, nil
 }
 
-func (s SigningService) resolveSessionBootstrap(ctx context.Context, scope stores.Scope, agreement stores.AgreementRecord, fields []stores.FieldRecord) (string, int, SignerSessionViewerContext) {
+func (s SigningService) resolveSigningDocumentCompatibility(ctx context.Context, scope stores.Scope, agreement stores.AgreementRecord) (stores.DocumentRecord, PDFCompatibilityStatus, error) {
+	document := stores.DocumentRecord{}
+	documentID := strings.TrimSpace(agreement.DocumentID)
+	if documentID == "" || s.documents == nil {
+		return document, PDFCompatibilityStatus{Tier: PDFCompatibilityTierFull}, nil
+	}
+	loaded, err := s.documents.Get(ctx, scope, documentID)
+	if err != nil {
+		return stores.DocumentRecord{}, PDFCompatibilityStatus{}, err
+	}
+	return loaded, resolveDocumentCompatibility(s.pdfs.Policy(ctx, scope), loaded), nil
+}
+
+func (s SigningService) resolveSessionBootstrap(ctx context.Context, scope stores.Scope, document stores.DocumentRecord, compatibility PDFCompatibilityStatus, fields []stores.FieldRecord) (string, int, SignerSessionViewerContext, error) {
 	documentName := "Document.pdf"
 	pageCount := 1
-	sourceObjectKey := ""
-	if strings.TrimSpace(agreement.DocumentID) != "" && s.documents != nil {
-		if document, err := s.documents.Get(ctx, scope, agreement.DocumentID); err == nil {
-			if strings.TrimSpace(document.Title) != "" {
-				documentName = strings.TrimSpace(document.Title)
-			}
-			if strings.TrimSpace(document.SourceObjectKey) != "" {
-				sourceObjectKey = strings.TrimSpace(document.SourceObjectKey)
-			}
-			if document.PageCount > 0 {
-				pageCount = document.PageCount
-			}
-		}
+	if strings.TrimSpace(document.Title) != "" {
+		documentName = strings.TrimSpace(document.Title)
+	}
+	if document.PageCount > 0 {
+		pageCount = document.PageCount
 	}
 	maxFieldPage := 0
 	for _, field := range fields {
@@ -587,8 +644,25 @@ func (s SigningService) resolveSessionBootstrap(ctx context.Context, scope store
 	if pageCount <= 0 {
 		pageCount = 1
 	}
-	pages := s.resolveViewerPagesFromSourcePDF(ctx, sourceObjectKey, pageCount)
+	policy := s.pdfs.Policy(ctx, scope)
+	pages, fallbackReason := s.resolveViewerPagesFromDocumentPDF(ctx, scope, document, pageCount)
+	viewerTier := signerViewerCompatibilityTierFull
+	if compatibility.Tier == PDFCompatibilityTierLimited {
+		viewerTier = signerViewerCompatibilityTierLimited
+	}
+	fallback := false
 	if len(pages) != pageCount {
+		if viewerFallbackRequiresPermission(strings.TrimSpace(fallbackReason)) && !(s.previewFallback || policy.PreviewFallbackEnabled) {
+			return "", 0, SignerSessionViewerContext{}, pdfUnsupportedError("signer.bootstrap", signerViewerCompatibilityTierUnsupported, signerViewerCompatibilityReasonPreviewFallbackDisabled, map[string]any{
+				"reason": strings.TrimSpace(fallbackReason),
+			})
+		}
+		fallback = true
+		viewerTier = signerViewerCompatibilityTierLimited
+		if strings.TrimSpace(fallbackReason) == "" {
+			fallbackReason = signerViewerCompatibilityReasonSourceImportFailed
+		}
+		observability.ObservePDFPreviewFallback(ctx, fallbackReason, viewerTier)
 		pages = make([]SignerSessionViewerPage, 0, pageCount)
 		for page := 1; page <= pageCount; page++ {
 			pages = append(pages, SignerSessionViewerPage{
@@ -599,43 +673,136 @@ func (s SigningService) resolveSessionBootstrap(ctx context.Context, scope store
 			})
 		}
 	}
+	viewerReason := strings.TrimSpace(fallbackReason)
+	if !fallback {
+		viewerReason = strings.TrimSpace(compatibility.Reason)
+	}
 	return documentName, pageCount, SignerSessionViewerContext{
-		CoordinateSpace: signerCoordinateSpace,
-		ContractVersion: signerCoordinateContractVersion,
-		Unit:            signerCoordinateUnit,
-		Origin:          signerCoordinateOrigin,
-		YAxisDirection:  signerCoordinateYAxisDirection,
-		Pages:           pages,
+		CoordinateSpace:     signerCoordinateSpace,
+		ContractVersion:     signerCoordinateContractVersion,
+		Unit:                signerCoordinateUnit,
+		Origin:              signerCoordinateOrigin,
+		YAxisDirection:      signerCoordinateYAxisDirection,
+		Pages:               pages,
+		Compatibility:       viewerTier,
+		CompatibilityTier:   viewerTier,
+		Reason:              viewerReason,
+		CompatibilityReason: viewerReason,
+		Fallback:            fallback,
+	}, nil
+}
+
+func viewerFallbackRequiresPermission(reason string) bool {
+	switch strings.TrimSpace(reason) {
+	case signerViewerCompatibilityReasonSourceNotPDF,
+		signerViewerCompatibilityReasonSourceImportFailed,
+		signerViewerCompatibilityReasonNormalizedUnavailable,
+		signerViewerCompatibilityReasonOriginalFallbackBlock:
+		return true
+	default:
+		return false
 	}
 }
 
-func (s SigningService) resolveViewerPagesFromSourcePDF(ctx context.Context, sourceObjectKey string, pageCount int) []SignerSessionViewerPage {
-	sourceObjectKey = strings.TrimSpace(sourceObjectKey)
-	if s.objectStore == nil || sourceObjectKey == "" || pageCount <= 0 {
-		return nil
+func (s SigningService) resolveViewerPagesFromDocumentPDF(ctx context.Context, scope stores.Scope, document stores.DocumentRecord, pageCount int) ([]SignerSessionViewerPage, string) {
+	policy := s.pdfs.Policy(ctx, scope)
+	if s.previewFallback || policy.PreviewFallbackEnabled {
+		return nil, signerViewerCompatibilityReasonPreviewFallbackForce
 	}
-	sourcePDF, err := s.objectStore.GetFile(ctx, sourceObjectKey)
-	if err != nil || len(sourcePDF) == 0 {
-		return nil
-	}
-	if !bytes.HasPrefix(sourcePDF, []byte("%PDF-")) {
-		return nil
+	if s.objectStore == nil || pageCount <= 0 {
+		return nil, signerViewerCompatibilityReasonSourceUnavailable
 	}
 
-	pdf := gofpdf.New("P", "pt", "Letter", "")
-	importer := gofpdi.NewImporter()
-	pages := make([]SignerSessionViewerPage, 0, pageCount)
-	for page := 1; page <= pageCount; page++ {
-		rs := io.ReadSeeker(bytes.NewReader(sourcePDF))
-		tplID := importer.ImportPageFromStream(pdf, &rs, page, "/CropBox")
-		if tplID == 0 {
-			rsFallback := io.ReadSeeker(bytes.NewReader(sourcePDF))
-			tplID = importer.ImportPageFromStream(pdf, &rsFallback, page, "/MediaBox")
-			if tplID == 0 {
-				return nil
+	normalizedObjectKey := strings.TrimSpace(document.NormalizedObjectKey)
+	sourceObjectKey := strings.TrimSpace(document.SourceObjectKey)
+
+	if !policyPrefersNormalizedSource(policy) {
+		sourceReason := ""
+		if sourceObjectKey != "" {
+			pages, reason := s.resolveViewerPagesFromObjectKey(ctx, scope, sourceObjectKey, pageCount)
+			if len(pages) == pageCount {
+				return pages, ""
+			}
+			sourceReason = strings.TrimSpace(reason)
+			if sourceReason == "" {
+				sourceReason = signerViewerCompatibilityReasonSourceImportFailed
 			}
 		}
-		width, height := importedPageSize(importer.GetPageSizes(), page)
+		if normalizedObjectKey != "" {
+			pages, reason := s.resolveViewerPagesFromObjectKey(ctx, scope, normalizedObjectKey, pageCount)
+			if len(pages) == pageCount {
+				return pages, ""
+			}
+			if strings.TrimSpace(reason) != "" {
+				return nil, reason
+			}
+			return nil, signerViewerCompatibilityReasonSourceImportFailed
+		}
+		if sourceReason != "" {
+			return nil, sourceReason
+		}
+		return nil, signerViewerCompatibilityReasonSourceUnavailable
+	}
+	fallbackAllowed := policyAllowsOriginalFallback(policy)
+
+	normalizedReason := ""
+	if normalizedObjectKey != "" {
+		pages, reason := s.resolveViewerPagesFromObjectKey(ctx, scope, normalizedObjectKey, pageCount)
+		if len(pages) == pageCount {
+			return pages, ""
+		}
+		normalizedReason = strings.TrimSpace(reason)
+		if normalizedReason == "" {
+			normalizedReason = signerViewerCompatibilityReasonSourceImportFailed
+		}
+		if !fallbackAllowed {
+			return nil, signerViewerCompatibilityReasonOriginalFallbackBlock
+		}
+	} else if !fallbackAllowed && sourceObjectKey != "" {
+		return nil, signerViewerCompatibilityReasonOriginalFallbackBlock
+	}
+
+	if sourceObjectKey != "" {
+		pages, reason := s.resolveViewerPagesFromObjectKey(ctx, scope, sourceObjectKey, pageCount)
+		if len(pages) == pageCount {
+			return pages, ""
+		}
+		if strings.TrimSpace(reason) != "" {
+			return nil, reason
+		}
+		return nil, signerViewerCompatibilityReasonSourceImportFailed
+	}
+
+	if normalizedObjectKey == "" {
+		return nil, signerViewerCompatibilityReasonNormalizedUnavailable
+	}
+	if normalizedReason != "" {
+		return nil, normalizedReason
+	}
+	return nil, signerViewerCompatibilityReasonSourceUnavailable
+}
+
+func (s SigningService) resolveViewerPagesFromObjectKey(ctx context.Context, scope stores.Scope, objectKey string, pageCount int) ([]SignerSessionViewerPage, string) {
+	objectKey = strings.TrimSpace(objectKey)
+	if s.objectStore == nil || objectKey == "" || pageCount <= 0 {
+		return nil, signerViewerCompatibilityReasonSourceUnavailable
+	}
+	sourcePDF, err := s.objectStore.GetFile(ctx, objectKey)
+	if err != nil || len(sourcePDF) == 0 {
+		return nil, signerViewerCompatibilityReasonSourceUnavailable
+	}
+	if !bytes.HasPrefix(sourcePDF, []byte("%PDF-")) {
+		return nil, signerViewerCompatibilityReasonSourceNotPDF
+	}
+
+	geometry, err := s.pdfs.PageGeometry(ctx, scope, sourcePDF, pageCount)
+	if err != nil {
+		return nil, viewerCompatibilityReasonForPDFError(err)
+	}
+	pages := make([]SignerSessionViewerPage, 0, len(geometry))
+	for _, page := range geometry {
+		width := page.Width
+		height := page.Height
 		if width <= 0 {
 			width = defaultPDFPageWidth
 		}
@@ -643,13 +810,29 @@ func (s SigningService) resolveViewerPagesFromSourcePDF(ctx context.Context, sou
 			height = defaultPDFPageHeight
 		}
 		pages = append(pages, SignerSessionViewerPage{
-			Page:     page,
+			Page:     page.Page,
 			Width:    width,
 			Height:   height,
-			Rotation: 0,
+			Rotation: page.Rotation,
 		})
 	}
-	return pages
+	return pages, ""
+}
+
+func viewerCompatibilityReasonForPDFError(err error) string {
+	if err == nil {
+		return signerViewerCompatibilityReasonSourceImportFailed
+	}
+	var pdfErr *PDFError
+	if errors.As(err, &pdfErr) {
+		switch pdfErr.Reason {
+		case PDFReasonInvalidInputNotPDF:
+			return signerViewerCompatibilityReasonSourceNotPDF
+		default:
+			return signerViewerCompatibilityReasonSourceImportFailed
+		}
+	}
+	return signerViewerCompatibilityReasonSourceImportFailed
 }
 
 // CaptureConsent stores consent acceptance for the active signer in a sequential flow.

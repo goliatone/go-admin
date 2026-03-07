@@ -10,6 +10,7 @@ import (
 
 	coreadmin "github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/examples/esign/stores"
+	"github.com/goliatone/go-admin/quickstart"
 )
 
 func TestResolveOperationForPathIncludesResendAndSubmit(t *testing.T) {
@@ -184,7 +185,10 @@ func TestRateLimiterCanTrustForwardedHeadersWhenEnabled(t *testing.T) {
 	})
 	app := setupRegisterTestApp(t,
 		WithRequestRateLimiter(limiter),
-		WithTrustForwardedClientIP(true),
+		WithRequestTrustPolicy(quickstart.RequestTrustPolicy{
+			TrustForwardedHeaders: true,
+			TrustedProxyCIDRs:     quickstart.InsecureAnyTrustedProxyCIDRs(),
+		}),
 	)
 
 	req1 := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session/token-1", nil)

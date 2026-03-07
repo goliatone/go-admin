@@ -11,6 +11,7 @@ import (
 	"github.com/goliatone/go-admin/admin"
 	appcfg "github.com/goliatone/go-admin/examples/esign/config"
 	"github.com/goliatone/go-admin/examples/esign/handlers"
+	esignpersistence "github.com/goliatone/go-admin/examples/esign/internal/persistence"
 	"github.com/goliatone/go-admin/examples/esign/jobs"
 	"github.com/goliatone/go-admin/examples/esign/modules"
 	"github.com/goliatone/go-admin/examples/esign/observability"
@@ -62,6 +63,27 @@ func main() {
 	if err := validateRuntimeProviderConfiguration(*runtimeConfig); err != nil {
 		log.Fatalf("runtime provider configuration: %v", err)
 	}
+	bootstrapResult, err := esignpersistence.Bootstrap(context.Background(), *runtimeConfig)
+	if err != nil {
+		log.Fatalf("bootstrap persistence: %v", err)
+	}
+	defer func() {
+		if cerr := bootstrapResult.Close(); cerr != nil {
+			log.Printf("close persistence bootstrap: %v", cerr)
+		}
+	}()
+
+	store, storeCleanup, err := newESignRuntimeStore(bootstrapResult)
+	if err != nil {
+		log.Fatalf("initialize e-sign runtime store: %v", err)
+	}
+	if storeCleanup != nil {
+		defer func() {
+			if cerr := storeCleanup(); cerr != nil {
+				log.Printf("close e-sign runtime store: %v", cerr)
+			}
+		}()
+	}
 
 	adm, _, err := quickstart.NewAdmin(
 		cfg,
@@ -84,17 +106,15 @@ func main() {
 		}
 	}
 
-	servicesModule, servicesCleanup, err := setupESignServicesModule(adm)
+	servicesModule, err := setupESignServicesModule(adm, bootstrapResult)
 	if err != nil {
 		log.Fatalf("setup services module: %v", err)
-	}
-	if servicesCleanup != nil {
-		defer servicesCleanup()
 	}
 
 	esignModule := modules.NewESignModule(cfg.BasePath, cfg.DefaultLocale, cfg.NavMenuCode).
 		WithUploadDir(resolveESignDiskAssetsDir()).
-		WithServicesModule(servicesModule)
+		WithServicesModule(servicesModule).
+		WithStore(store)
 	if err := adm.RegisterModule(esignModule); err != nil {
 		log.Fatalf("register module: %v", err)
 	}
@@ -322,4 +342,12 @@ func resolveESignDiskAssetsDir() string {
 		"../pkg/client/assets",
 		"../../pkg/client/assets",
 	)
+}
+
+func newESignRuntimeStore(bootstrap *esignpersistence.BootstrapResult) (stores.Store, func() error, error) {
+	adapter, cleanup, err := esignpersistence.NewStoreAdapter(bootstrap)
+	if err != nil {
+		return nil, nil, err
+	}
+	return adapter, cleanup, nil
 }
