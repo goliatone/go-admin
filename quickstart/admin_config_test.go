@@ -93,3 +93,18 @@ func TestDefaultMinimalFeatures(t *testing.T) {
 		t.Fatalf("expected minimal features %+v, got %+v", expected, got)
 	}
 }
+
+func TestWithRequestTrustPolicySetsDebugSecureResolver(t *testing.T) {
+	cfg := NewAdminConfig(
+		"/admin",
+		"Admin",
+		"en",
+		WithRequestTrustPolicy(RequestTrustPolicy{
+			TrustForwardedHeaders: true,
+			TrustedProxyCIDRs:     DefaultLoopbackTrustedProxyCIDRs(),
+		}),
+	)
+	if cfg.Debug.SecureRequestResolver == nil {
+		t.Fatalf("expected debug secure request resolver to be configured")
+	}
+}

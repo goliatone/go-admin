@@ -101,14 +101,15 @@ func RegisterUserMigrations(client *persistence.Client, opts ...UserMigrationsOp
 		enableUsersAuthExtras = *options.enableUsersAuthExtras
 	}
 
+	orderedSources := make([]persistence.OrderedMigrationSource, 0, 4)
+	sourceNameCounts := map[string]int{}
+
 	if enableAuth {
 		migrationsFS, err := resolveMigrationFS(options.authFS, auth.GetMigrationsFS(), "data/sql/migrations")
 		if err != nil {
 			return err
 		}
-		if err := registerDialectMigrations(client, migrationsFS, options.authLabel, options.validationTargets, options.observer); err != nil {
-			return err
-		}
+		appendOrderedMigrationSource(&orderedSources, sourceNameCounts, migrationsFS, options.authLabel, options.validationTargets, options.observer)
 	}
 
 	if enableUsersAuthBootstrap {
@@ -116,9 +117,7 @@ func RegisterUserMigrations(client *persistence.Client, opts ...UserMigrationsOp
 		if err != nil {
 			return err
 		}
-		if err := registerDialectMigrations(client, migrationsFS, options.usersAuthBootstrapLabel, options.validationTargets, options.observer); err != nil {
-			return err
-		}
+		appendOrderedMigrationSource(&orderedSources, sourceNameCounts, migrationsFS, options.usersAuthBootstrapLabel, options.validationTargets, options.observer)
 	}
 
 	if enableUsersAuthExtras {
@@ -126,9 +125,7 @@ func RegisterUserMigrations(client *persistence.Client, opts ...UserMigrationsOp
 		if err != nil {
 			return err
 		}
-		if err := registerDialectMigrations(client, migrationsFS, options.usersAuthExtrasLabel, options.validationTargets, options.observer); err != nil {
-			return err
-		}
+		appendOrderedMigrationSource(&orderedSources, sourceNameCounts, migrationsFS, options.usersAuthExtrasLabel, options.validationTargets, options.observer)
 	}
 
 	if enableUsersCore {
@@ -136,12 +133,13 @@ func RegisterUserMigrations(client *persistence.Client, opts ...UserMigrationsOp
 		if err != nil {
 			return err
 		}
-		if err := registerDialectMigrations(client, migrationsFS, options.usersCoreLabel, options.validationTargets, options.observer); err != nil {
-			return err
-		}
+		appendOrderedMigrationSource(&orderedSources, sourceNameCounts, migrationsFS, options.usersCoreLabel, options.validationTargets, options.observer)
 	}
 
-	return nil
+	if len(orderedSources) == 0 {
+		return nil
+	}
+	return client.RegisterOrderedMigrationSources(orderedSources...)
 }
 
 // WithUserMigrationsProfile sets the canonical user migration registration profile.
@@ -270,29 +268,50 @@ func resolveUserMigrationsProfile(profile UserMigrationsProfile) (bool, bool, bo
 	}
 }
 
-func registerDialectMigrations(
-	client *persistence.Client,
+func appendOrderedMigrationSource(
+	orderedSources *[]persistence.OrderedMigrationSource,
+	sourceNameCounts map[string]int,
 	migrationsFS fs.FS,
 	label string,
 	targets []string,
 	observer UserMigrationObserver,
-) error {
-	if client == nil || migrationsFS == nil {
-		return nil
+) {
+	if migrationsFS == nil || orderedSources == nil {
+		return
 	}
 	normalizedLabel := strings.TrimSpace(label)
 	if normalizedLabel == "" {
-		return nil
+		return
 	}
 	if observer != nil {
 		observer(UserMigrationRegistration{Label: normalizedLabel})
 	}
-	options := []persistence.DialectMigrationOption{
+	migrationOptions := []persistence.DialectMigrationOption{
 		persistence.WithDialectSourceLabel(normalizedLabel),
 	}
 	if len(targets) > 0 {
-		options = append(options, persistence.WithValidationTargets(targets...))
+		migrationOptions = append(migrationOptions, persistence.WithValidationTargets(targets...))
 	}
-	client.RegisterDialectMigrations(migrationsFS, options...)
-	return nil
+	*orderedSources = append(*orderedSources, persistence.OrderedMigrationSource{
+		Name:    uniqueOrderedSourceName(normalizedLabel, sourceNameCounts),
+		Root:    migrationsFS,
+		Options: migrationOptions,
+	})
+}
+
+func uniqueOrderedSourceName(base string, sourceNameCounts map[string]int) string {
+	trimmed := strings.TrimSpace(base)
+	if trimmed == "" {
+		trimmed = "source"
+	}
+	if sourceNameCounts == nil {
+		return trimmed
+	}
+	key := strings.ToLower(trimmed)
+	sourceNameCounts[key]++
+	count := sourceNameCounts[key]
+	if count <= 1 {
+		return trimmed
+	}
+	return fmt.Sprintf("%s-%d", trimmed, count)
 }

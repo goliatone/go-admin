@@ -2,9 +2,41 @@ package quickstart
 
 import (
 	"net"
+	"net/http"
 	"strconv"
 	"strings"
 )
+
+var (
+	defaultLoopbackTrustedProxyCIDRs = []string{
+		"127.0.0.1/32",
+		"::1/128",
+	}
+	insecureAnyTrustedProxyCIDRs = []string{
+		"0.0.0.0/0",
+		"::/0",
+	}
+)
+
+// DefaultLoopbackTrustedProxyCIDRs returns loopback-only trusted proxy ranges.
+func DefaultLoopbackTrustedProxyCIDRs() []string {
+	return append([]string{}, defaultLoopbackTrustedProxyCIDRs...)
+}
+
+// InsecureAnyTrustedProxyCIDRs returns a trust-all proxy CIDR list.
+// Use only for backward compatibility and local testing.
+func InsecureAnyTrustedProxyCIDRs() []string {
+	return append([]string{}, insecureAnyTrustedProxyCIDRs...)
+}
+
+// RequestTrustPolicy controls whether forwarded headers are trusted and from where.
+type RequestTrustPolicy struct {
+	// TrustForwardedHeaders enables X-Forwarded-* and Forwarded header handling.
+	TrustForwardedHeaders bool
+	// TrustedProxyCIDRs lists reverse-proxy source CIDRs allowed to influence
+	// forwarded header resolution. Empty disables forwarded-header trust.
+	TrustedProxyCIDRs []string
+}
 
 // RequestIPContext captures the request methods needed to resolve client IP.
 type RequestIPContext interface {
@@ -12,40 +44,244 @@ type RequestIPContext interface {
 	IP() string
 }
 
+// RequestMetaContext captures request methods required for trust resolution.
+type RequestMetaContext interface {
+	RequestIPContext
+}
+
+// RequestMeta captures normalized request transport details.
+type RequestMeta struct {
+	PeerIP           string
+	ClientIP         string
+	Host             string
+	Scheme           string
+	Secure           bool
+	ForwardedTrusted bool
+}
+
 // RequestIPOptions controls request IP extraction behavior.
 type RequestIPOptions struct {
 	// TrustForwardedHeaders enables X-Forwarded-For, Forwarded, and X-Real-IP resolution.
 	// Keep disabled unless your runtime sits behind a trusted proxy that sanitizes these headers.
 	TrustForwardedHeaders bool
+	// TrustedProxyCIDRs constrains which peer IP ranges can influence forwarded headers.
+	// Empty disables forwarded-header trust even when TrustForwardedHeaders is true.
+	TrustedProxyCIDRs []string
 }
 
 // ResolveRequestIP resolves the best-effort client IP for a request context.
-// By default it returns the direct peer IP and ignores forwarded headers.
+// By default it returns the direct peer IP and ignores forwarded headers unless
+// both forwarded trust and trusted proxy CIDRs are configured.
 func ResolveRequestIP(c RequestIPContext, opts RequestIPOptions) string {
-	if c == nil {
-		return "unknown"
-	}
-	direct := normalizeIPToken(c.IP())
-	if !opts.TrustForwardedHeaders {
-		if direct != "" {
-			return direct
-		}
-		return "unknown"
-	}
+	return ResolveRequestIPWithPolicy(c, RequestTrustPolicy{
+		TrustForwardedHeaders: opts.TrustForwardedHeaders,
+		TrustedProxyCIDRs:     append([]string{}, opts.TrustedProxyCIDRs...),
+	})
+}
 
-	if forwarded := parseXForwardedFor(c.Header("X-Forwarded-For")); forwarded != "" {
-		return forwarded
-	}
-	if forwarded := parseForwardedHeader(c.Header("Forwarded")); forwarded != "" {
-		return forwarded
-	}
-	if forwarded := normalizeIPToken(c.Header("X-Real-IP")); forwarded != "" {
-		return forwarded
-	}
-	if direct != "" {
-		return direct
+// ResolveRequestIPWithPolicy resolves client IP using a request trust policy.
+func ResolveRequestIPWithPolicy(c RequestIPContext, policy RequestTrustPolicy) string {
+	meta := ResolveRequestMeta(c, policy)
+	if meta.ClientIP != "" {
+		return meta.ClientIP
 	}
 	return "unknown"
+}
+
+// ResolveRequestMeta resolves request transport metadata with trusted proxy checks.
+func ResolveRequestMeta(c RequestMetaContext, policy RequestTrustPolicy) RequestMeta {
+	if c == nil {
+		return RequestMeta{
+			Scheme: "http",
+		}
+	}
+	policy = normalizeRequestTrustPolicy(policy)
+	meta := RequestMeta{
+		PeerIP:   resolvePeerIP(c),
+		ClientIP: normalizeIPToken(c.IP()),
+		Scheme:   "http",
+	}
+	if meta.ClientIP == "" {
+		meta.ClientIP = meta.PeerIP
+	}
+
+	if httpCtx, ok := c.(interface{ Request() *http.Request }); ok && httpCtx != nil {
+		request := httpCtx.Request()
+		if request != nil {
+			if meta.Host == "" {
+				meta.Host = strings.TrimSpace(request.Host)
+			}
+			if request.URL != nil {
+				if scheme := strings.ToLower(strings.TrimSpace(request.URL.Scheme)); scheme != "" {
+					meta.Scheme = scheme
+					meta.Secure = scheme == "https"
+				}
+			}
+			if request.TLS != nil {
+				meta.Secure = true
+				meta.Scheme = "https"
+			}
+		}
+	}
+	if host := strings.TrimSpace(c.Header("Host")); host != "" {
+		meta.Host = host
+	}
+
+	meta.ForwardedTrusted = shouldTrustForwardedHeaders(meta.PeerIP, policy)
+	if meta.ForwardedTrusted {
+		if forwardedClient := parseXForwardedFor(c.Header("X-Forwarded-For")); forwardedClient != "" {
+			meta.ClientIP = forwardedClient
+		} else if forwardedClient := parseForwardedHeader(c.Header("Forwarded")); forwardedClient != "" {
+			meta.ClientIP = forwardedClient
+		} else if realIP := normalizeIPToken(c.Header("X-Real-IP")); realIP != "" {
+			meta.ClientIP = realIP
+		}
+
+		if forwardedHost := firstCSVValue(c.Header("X-Forwarded-Host")); forwardedHost != "" {
+			meta.Host = forwardedHost
+		} else if forwardedHost := parseForwardedHeaderParam(c.Header("Forwarded"), "host"); forwardedHost != "" {
+			meta.Host = forwardedHost
+		}
+
+		if forwardedProto := strings.ToLower(firstCSVValue(c.Header("X-Forwarded-Proto"))); forwardedProto != "" {
+			meta.Scheme = forwardedProto
+			meta.Secure = forwardedProto == "https"
+		} else if forwardedProto := strings.ToLower(firstCSVValue(c.Header("X-Forwarded-Scheme"))); forwardedProto != "" {
+			meta.Scheme = forwardedProto
+			meta.Secure = forwardedProto == "https"
+		} else if forwardedProto := strings.ToLower(parseForwardedHeaderParam(c.Header("Forwarded"), "proto")); forwardedProto != "" {
+			meta.Scheme = forwardedProto
+			meta.Secure = forwardedProto == "https"
+		}
+
+		if strings.EqualFold(strings.TrimSpace(c.Header("X-Forwarded-Ssl")), "on") {
+			meta.Secure = true
+			meta.Scheme = "https"
+		}
+	}
+
+	meta.Host = strings.TrimSpace(meta.Host)
+	meta.Scheme = strings.ToLower(strings.TrimSpace(meta.Scheme))
+	if meta.Secure {
+		meta.Scheme = "https"
+	}
+	if meta.Scheme == "" {
+		if meta.Secure {
+			meta.Scheme = "https"
+		} else {
+			meta.Scheme = "http"
+		}
+	}
+	return meta
+}
+
+// ResolveRequestOrigin builds a request origin string (<scheme>://<host>) when possible.
+func ResolveRequestOrigin(c RequestMetaContext, policy RequestTrustPolicy) string {
+	meta := ResolveRequestMeta(c, policy)
+	if strings.TrimSpace(meta.Host) == "" {
+		return ""
+	}
+	return strings.TrimSpace(meta.Scheme) + "://" + strings.TrimSpace(meta.Host)
+}
+
+// IsSecureRequest reports whether a request should be treated as TLS-protected.
+func IsSecureRequest(c RequestMetaContext, policy RequestTrustPolicy) bool {
+	return ResolveRequestMeta(c, policy).Secure
+}
+
+// IsLocalRequest reports whether request host resolves to localhost/loopback.
+func IsLocalRequest(c RequestMetaContext, policy RequestTrustPolicy) bool {
+	host := strings.TrimSpace(ResolveRequestMeta(c, policy).Host)
+	if host == "" {
+		return false
+	}
+	if strings.Contains(host, ":") {
+		if parsedHost, _, err := net.SplitHostPort(host); err == nil {
+			host = parsedHost
+		} else if strings.Count(host, ":") == 1 {
+			if h, p, ok := strings.Cut(host, ":"); ok {
+				if port, err := strconv.Atoi(strings.TrimSpace(p)); err == nil && port >= 1 && port <= 65535 {
+					host = strings.TrimSpace(h)
+				}
+			}
+		}
+	}
+	host = strings.ToLower(strings.TrimSpace(host))
+	return host == "localhost" || host == "127.0.0.1" || host == "::1"
+}
+
+func resolvePeerIP(c RequestMetaContext) string {
+	if c == nil {
+		return ""
+	}
+	if httpCtx, ok := c.(interface{ Request() *http.Request }); ok && httpCtx != nil {
+		request := httpCtx.Request()
+		if request != nil {
+			if peerIP := normalizeIPToken(request.RemoteAddr); peerIP != "" {
+				return peerIP
+			}
+		}
+	}
+	return normalizeIPToken(c.IP())
+}
+
+func shouldTrustForwardedHeaders(peerIP string, policy RequestTrustPolicy) bool {
+	if !policy.TrustForwardedHeaders {
+		return false
+	}
+	peerIP = strings.TrimSpace(peerIP)
+	if peerIP == "" {
+		return false
+	}
+	if len(policy.TrustedProxyCIDRs) == 0 {
+		return false
+	}
+	parsedPeer := net.ParseIP(peerIP)
+	if parsedPeer == nil {
+		return false
+	}
+	for _, raw := range policy.TrustedProxyCIDRs {
+		cidr := strings.TrimSpace(raw)
+		if cidr == "" {
+			continue
+		}
+		_, block, err := net.ParseCIDR(cidr)
+		if err != nil || block == nil {
+			continue
+		}
+		if block.Contains(parsedPeer) {
+			return true
+		}
+	}
+	return false
+}
+
+func normalizeRequestTrustPolicy(policy RequestTrustPolicy) RequestTrustPolicy {
+	policy.TrustedProxyCIDRs = normalizeStringList(policy.TrustedProxyCIDRs)
+	return policy
+}
+
+func normalizeStringList(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(values))
+	seen := map[string]struct{}{}
+	for _, raw := range values {
+		value := strings.TrimSpace(raw)
+		if value == "" {
+			continue
+		}
+		if _, exists := seen[value]; exists {
+			continue
+		}
+		seen[value] = struct{}{}
+		out = append(out, value)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func parseXForwardedFor(value string) string {
@@ -79,6 +315,39 @@ func parseForwardedHeader(value string) string {
 		}
 	}
 	return ""
+}
+
+func parseForwardedHeaderParam(value, key string) string {
+	value = strings.TrimSpace(value)
+	key = strings.TrimSpace(key)
+	if value == "" || key == "" {
+		return ""
+	}
+	entries := strings.Split(value, ",")
+	for _, entry := range entries {
+		params := strings.Split(entry, ";")
+		for _, param := range params {
+			pair := strings.SplitN(strings.TrimSpace(param), "=", 2)
+			if len(pair) != 2 {
+				continue
+			}
+			if !strings.EqualFold(strings.TrimSpace(pair[0]), key) {
+				continue
+			}
+			resolved := strings.TrimSpace(pair[1])
+			resolved = strings.Trim(resolved, `"'`)
+			return strings.TrimSpace(resolved)
+		}
+	}
+	return ""
+}
+
+func firstCSVValue(raw string) string {
+	parts := strings.Split(strings.TrimSpace(raw), ",")
+	if len(parts) == 0 {
+		return ""
+	}
+	return strings.TrimSpace(parts[0])
 }
 
 func normalizeIPToken(value string) string {

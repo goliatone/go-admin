@@ -38,7 +38,10 @@ func TestResolveRequestIPTrustsForwardedHeadersWhenEnabled(t *testing.T) {
 			"X-Forwarded-For": "203.0.113.9, 10.1.1.5",
 		},
 	}
-	got := ResolveRequestIP(ctx, RequestIPOptions{TrustForwardedHeaders: true})
+	got := ResolveRequestIP(ctx, RequestIPOptions{
+		TrustForwardedHeaders: true,
+		TrustedProxyCIDRs:     InsecureAnyTrustedProxyCIDRs(),
+	})
 	if got != "203.0.113.9" {
 		t.Fatalf("expected forwarded ip 203.0.113.9, got %q", got)
 	}
@@ -51,7 +54,10 @@ func TestResolveRequestIPParsesRFC7239ForwardedHeader(t *testing.T) {
 			"Forwarded": `for="[2001:db8::2]:8443";proto=https;by=203.0.113.10`,
 		},
 	}
-	got := ResolveRequestIP(ctx, RequestIPOptions{TrustForwardedHeaders: true})
+	got := ResolveRequestIP(ctx, RequestIPOptions{
+		TrustForwardedHeaders: true,
+		TrustedProxyCIDRs:     InsecureAnyTrustedProxyCIDRs(),
+	})
 	if got != "2001:db8::2" {
 		t.Fatalf("expected forwarded ipv6 2001:db8::2, got %q", got)
 	}
@@ -64,9 +70,25 @@ func TestResolveRequestIPFallsBackWhenForwardedHeaderInvalid(t *testing.T) {
 			"X-Forwarded-For": "bad-value",
 		},
 	}
-	got := ResolveRequestIP(ctx, RequestIPOptions{TrustForwardedHeaders: true})
+	got := ResolveRequestIP(ctx, RequestIPOptions{
+		TrustForwardedHeaders: true,
+		TrustedProxyCIDRs:     InsecureAnyTrustedProxyCIDRs(),
+	})
 	if got != "10.0.0.10" {
 		t.Fatalf("expected direct fallback ip 10.0.0.10, got %q", got)
+	}
+}
+
+func TestResolveRequestIPDoesNotTrustForwardedHeadersWithoutTrustedProxyCIDRs(t *testing.T) {
+	ctx := stubRequestIPContext{
+		ip: "10.0.0.10",
+		headers: map[string]string{
+			"X-Forwarded-For": "203.0.113.9",
+		},
+	}
+	got := ResolveRequestIP(ctx, RequestIPOptions{TrustForwardedHeaders: true})
+	if got != "10.0.0.10" {
+		t.Fatalf("expected direct ip fallback when trusted proxy CIDRs are missing, got %q", got)
 	}
 }
 
@@ -78,5 +100,57 @@ func TestResolveRequestIPReturnsUnknownWhenNoValidIPAvailable(t *testing.T) {
 	got := ResolveRequestIP(ctx, RequestIPOptions{})
 	if got != "unknown" {
 		t.Fatalf("expected unknown, got %q", got)
+	}
+}
+
+func TestResolveRequestOriginTrustsForwardedProtoAndHostFromTrustedProxy(t *testing.T) {
+	ctx := stubRequestIPContext{
+		ip: "127.0.0.1",
+		headers: map[string]string{
+			"X-Forwarded-Proto": "https",
+			"X-Forwarded-Host":  "esign.getctx.com",
+			"Host":              "localhost:8082",
+		},
+	}
+	got := ResolveRequestOrigin(ctx, RequestTrustPolicy{
+		TrustForwardedHeaders: true,
+		TrustedProxyCIDRs:     DefaultLoopbackTrustedProxyCIDRs(),
+	})
+	if got != "https://esign.getctx.com" {
+		t.Fatalf("expected trusted forwarded origin https://esign.getctx.com, got %q", got)
+	}
+}
+
+func TestResolveRequestOriginIgnoresForwardedProtoAndHostWhenProxyUntrusted(t *testing.T) {
+	ctx := stubRequestIPContext{
+		ip: "203.0.113.11",
+		headers: map[string]string{
+			"X-Forwarded-Proto": "https",
+			"X-Forwarded-Host":  "esign.getctx.com",
+			"Host":              "localhost:8082",
+		},
+	}
+	got := ResolveRequestOrigin(ctx, RequestTrustPolicy{
+		TrustForwardedHeaders: true,
+		TrustedProxyCIDRs:     DefaultLoopbackTrustedProxyCIDRs(),
+	})
+	if got != "http://localhost:8082" {
+		t.Fatalf("expected untrusted proxy to use direct origin http://localhost:8082, got %q", got)
+	}
+}
+
+func TestIsLocalRequestUsesTrustedForwardedHost(t *testing.T) {
+	ctx := stubRequestIPContext{
+		ip: "127.0.0.1",
+		headers: map[string]string{
+			"Host":             "example.com",
+			"X-Forwarded-Host": "localhost:8082",
+		},
+	}
+	if !IsLocalRequest(ctx, RequestTrustPolicy{
+		TrustForwardedHeaders: true,
+		TrustedProxyCIDRs:     DefaultLoopbackTrustedProxyCIDRs(),
+	}) {
+		t.Fatalf("expected localhost forwarded host to be treated as local when proxy is trusted")
 	}
 }

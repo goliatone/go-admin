@@ -8,6 +8,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	fiberlogger "github.com/gofiber/fiber/v2/middleware/logger"
+	fiberrecover "github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/goliatone/go-admin/admin"
 	router "github.com/goliatone/go-router"
 )
@@ -144,6 +145,7 @@ func NewFiberServer(viewEngine fiber.Views, cfg admin.Config, adm *admin.Admin, 
 
 	adapter := router.NewFiberAdapterWithConfig(options.routerConfig, func(_ *fiber.App) *fiber.App {
 		app := fiber.New(options.config)
+		app.Use(fiberrecover.New())
 		if options.enableLogger {
 			app.Use(fiberlogger.New())
 		}
