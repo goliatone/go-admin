@@ -165,6 +165,25 @@ func TestDebugFiberSlogMiddlewareEmitsLevelByResponse(t *testing.T) {
 	}
 }
 
+func TestNewFiberServerRecoversHandlerPanics(t *testing.T) {
+	server, r := NewFiberServer(nil, admin.Config{}, nil, false, WithFiberErrorHandler(func(c *fiber.Ctx, _ error) error {
+		return c.Status(fiber.StatusInternalServerError).SendString("recovered")
+	}))
+	r.Get("/panic", func(gorouter.Context) error {
+		panic("boom")
+	})
+
+	resp, err := server.WrappedRouter().Test(httptest.NewRequest(http.MethodGet, "/panic", nil), -1)
+	if err != nil {
+		t.Fatalf("panic request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusInternalServerError {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected panic recovery status 500, got %d body=%s", resp.StatusCode, string(body))
+	}
+}
+
 func TestNewFiberServerRouteConflictDefaultsPreferStaticInDev(t *testing.T) {
 	server, r := NewFiberServer(nil, admin.Config{}, nil, true)
 	r.Get("/route-conflict/:action", func(c gorouter.Context) error {
