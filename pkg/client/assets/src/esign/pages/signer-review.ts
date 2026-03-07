@@ -34,6 +34,9 @@ export interface SignerReviewConfig {
     origin?: 'top-left' | 'bottom-left' | string;
     yAxisDirection?: 'down' | 'up' | string;
     pages?: any[];
+    compatibilityTier?: string;
+    compatibilityReason?: string;
+    compatibilityMessage?: string;
   };
   signerState?: 'active' | 'waiting' | 'completed' | 'declined' | string;
   recipientStage?: number;
@@ -418,6 +421,9 @@ function normalizeSignerReviewConfig(config: SignerReviewConfig): Required<Signe
       origin: (config.viewer?.origin || 'top-left') as any,
       yAxisDirection: (config.viewer?.yAxisDirection || 'down') as any,
       pages: Array.isArray(config.viewer?.pages) ? config.viewer?.pages : [],
+      compatibilityTier: String(config.viewer?.compatibilityTier || '').trim().toLowerCase(),
+      compatibilityReason: String(config.viewer?.compatibilityReason || '').trim().toLowerCase(),
+      compatibilityMessage: String(config.viewer?.compatibilityMessage || '').trim(),
     },
     signerState: (config.signerState || 'active') as any,
     recipientStage: Number(config.recipientStage || 1) || 1,
@@ -1450,6 +1456,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     state.isLowMemory = detectLowMemoryDevice();
 
     // Initialize stage state banner for multi-signer flows (Task 24.FE.1)
+    initializeCompatibilityBanner();
     initializeStageBanner();
 
     await initializeSignerProfile();
@@ -1530,6 +1537,43 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
         }
       }
     }, 30000); // Check every 30 seconds
+  }
+
+  // ============================================
+  // PDF Compatibility Banner
+  // ============================================
+  function defaultCompatibilityMessage(reason) {
+    switch (String(reason || '').trim().toLowerCase()) {
+      case 'preview_fallback_forced':
+        return 'Preview is running in safe mode due to compatibility safeguards. You can continue signing.';
+      case 'source_import_failed':
+      case 'source_not_pdf':
+        return 'This PDF preview is degraded due to source compatibility. You can continue signing.';
+      case 'normalized_unavailable':
+      case 'source_unavailable':
+        return 'A fallback preview is being used because the source document is temporarily unavailable.';
+      default:
+        return 'This signing session is using a degraded preview mode for compatibility.';
+    }
+  }
+
+  function initializeCompatibilityBanner() {
+    const banner = document.getElementById('pdf-compatibility-banner');
+    const messageEl = document.getElementById('pdf-compatibility-message');
+    const titleEl = document.getElementById('pdf-compatibility-title');
+    if (!banner || !messageEl || !titleEl) return;
+
+    const tier = String(unifiedConfig.viewer.compatibilityTier || '').trim().toLowerCase();
+    const reason = String(unifiedConfig.viewer.compatibilityReason || '').trim().toLowerCase();
+    if (tier !== 'limited') {
+      banner.classList.add('hidden');
+      return;
+    }
+
+    titleEl.textContent = 'Preview Compatibility Notice';
+    messageEl.textContent = String(unifiedConfig.viewer.compatibilityMessage || '').trim() || defaultCompatibilityMessage(reason);
+    banner.classList.remove('hidden');
+    telemetry.trackDegradedMode('pdf_preview_compatibility', { tier, reason });
   }
 
   // ============================================
