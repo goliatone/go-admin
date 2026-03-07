@@ -715,6 +715,16 @@
 
     <!-- Panel Content: Field List -->
     <div class="panel-content" id="panel-content">
+      <div id="pdf-compatibility-banner" class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 hidden" role="status" aria-live="polite">
+        <div class="flex items-start gap-3">
+          <i class="iconoir-warning-triangle text-amber-600 mt-0.5" aria-hidden="true"></i>
+          <div class="min-w-0">
+            <p id="pdf-compatibility-title" class="text-sm font-semibold text-amber-900">Preview Compatibility Notice</p>
+            <p id="pdf-compatibility-message" class="text-xs text-amber-800 mt-1">This session is using degraded preview mode for PDF compatibility.</p>
+          </div>
+        </div>
+      </div>
+
       <div id="stage-state-banner" class="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-4" role="status" aria-live="polite">
         <div class="flex items-start gap-3">
           <i id="stage-state-icon" class="iconoir-info-circle text-blue-600 mt-0.5" aria-hidden="true"></i>
@@ -973,7 +983,10 @@
     "unit": "{{ viewer.unit|default:"pt"|escapejs }}",
     "origin": "{{ viewer.origin|default:"top-left"|escapejs }}",
     "yAxisDirection": "{{ viewer.y_axis_direction|default:"down"|escapejs }}",
-    "pages": {{ viewer.pages_json|default:"[]"|safe }}
+    "pages": {{ viewer.pages_json|default:"[]"|safe }},
+    "compatibilityTier": "{{ viewer.compatibility_tier|default:""|escapejs }}",
+    "compatibilityReason": "{{ viewer.compatibility_reason|default:""|escapejs }}",
+    "compatibilityMessage": "{{ viewer.compatibility_message|default:""|escapejs }}"
   },
   "signerState": "{{ session.state|default:"active"|escapejs }}",
   "recipientStage": {{ session.recipient_stage|default:"1" }},

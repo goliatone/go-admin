@@ -71,6 +71,14 @@ const agreementFormTemplatePath = path.resolve(
   testFileDir,
   '../../templates/resources/esign-agreements/form.html',
 );
+const agreementRuntimeSourcePath = path.resolve(
+  testFileDir,
+  '../src/esign/pages/agreement-form-runtime.ts',
+);
+const agreementRuntimeDistPath = path.resolve(
+  testFileDir,
+  '../dist/esign/index.js',
+);
 const signerReviewTemplatePath = path.resolve(
   testFileDir,
   '../../templates/esign-signer/review.html',
@@ -13880,6 +13888,16 @@ test('Phase 32 template contract: migrated e-sign templates avoid inline onclick
   });
 });
 
+test('Slice 5 frontend contract: signer review template includes compatibility banner state', () => {
+  const template = fs.readFileSync(signerReviewTemplatePath, 'utf8');
+
+  assert.match(template, /id="pdf-compatibility-banner"/);
+  assert.match(template, /id="pdf-compatibility-message"/);
+  assert.match(template, /"compatibilityTier": "\{\{ viewer\.compatibility_tier\|default:""\|escapejs \}\}"/);
+  assert.match(template, /"compatibilityReason": "\{\{ viewer\.compatibility_reason\|default:""\|escapejs \}\}"/);
+  assert.match(template, /"compatibilityMessage": "\{\{ viewer\.compatibility_message\|default:""\|escapejs \}\}"/);
+});
+
 function expandAutomationRulesForTest(rules, terminalPage) {
   const expanded = [];
   const resolvedTerminalPage = Number.isFinite(terminalPage) && terminalPage > 0 ? terminalPage : 1;
@@ -13936,27 +13954,51 @@ test('Phase 31.FE.1: agreement form template includes automation rules UI and hi
 });
 
 test('Phase 31.FE.1: agreement form script wires rule lifecycle and payload synchronization', () => {
-  const template = fs.readFileSync(agreementFormTemplatePath, 'utf8');
+  const source = fs.readFileSync(agreementRuntimeSourcePath, 'utf8');
 
-  assert.match(template, /function collectFieldRulesForState\(\)/);
-  assert.match(template, /function collectFieldRulesForForm\(\)/);
-  assert.match(template, /function resolveRuleExpansionBaseID\(rule, index\)/);
-  assert.match(template, /function expandRulesForPreview\(rules, terminalPage\)/);
-  assert.match(template, /function addFieldRule\(data = \{\}\)/);
-  assert.match(template, /function restoreFieldRulesFromState\(\)/);
-  assert.match(template, /fieldRulesJSONInput\.value = JSON\.stringify\(collectFieldRulesForForm\(\)\)/);
-  assert.match(template, /Please assign all automation rules to a signer/);
-  assert.match(template, /const expandedRuleFields = expandRulesForPreview\(collectFieldRulesForState\(\), getCurrentDocumentPageCount\(\)\);/);
+  assert.match(source, /function collectFieldRulesForState\(\)/);
+  assert.match(source, /function collectFieldRulesForForm\(\)/);
+  assert.match(source, /function expandRulesForPreview\(rules, terminalPage\)/);
+  assert.match(source, /function addFieldRule\(data = \{\}\)/);
+  assert.match(source, /function restoreFieldRulesFromState\(\)/);
+  assert.match(source, /fieldRulesJSONInput\.value = JSON\.stringify\(collectFieldRulesForForm\(\)\)/);
+  assert.match(source, /Please assign all automation rules to a signer/);
+  assert.match(source, /const expandedRuleFields = expandRulesForPreview\(collectFieldRulesForState\(\), getCurrentDocumentPageCount\(\)\);/);
 });
 
 test('Phase 31.FE.2: placement panel includes generated automation fields alongside manual definitions', () => {
-  const template = fs.readFileSync(agreementFormTemplatePath, 'utf8');
+  const source = fs.readFileSync(agreementRuntimeSourcePath, 'utf8');
 
-  assert.match(template, /function collectPlacementFieldDefinitions\(\)/);
-  assert.match(template, /const generatedRuleFields = expandRulesForPreview\(collectFieldRulesForState\(\), getCurrentDocumentPageCount\(\)\);/);
-  assert.match(template, /const placementDefinitions = collectPlacementFieldDefinitions\(\);/);
-  assert.match(template, /placementDefinitions\.forEach\(\(definition\) => \{/);
-  assert.match(template, /placementState\.fieldInstances = placementState\.fieldInstances\.filter\(\(instance\) =>/);
+  assert.match(source, /function collectPlacementFieldDefinitions\(\)/);
+  assert.match(source, /const generatedRuleFields = expandRulesForPreview\(collectFieldRulesForState\(\), getCurrentDocumentPageCount\(\)\);/);
+  assert.match(source, /const placementDefinitions = collectPlacementFieldDefinitions\(\);/);
+  assert.match(source, /placementDefinitions\.forEach\(\(definition\) => \{/);
+  assert.match(source, /placementState\.fieldInstances = placementState\.fieldInstances\.filter\(\(instance\) =>/);
+});
+
+test('Phase 31.FE.3: Step 4 add-field action is rendered below list and jump-to-place is removed', () => {
+  const template = fs.readFileSync(agreementFormTemplatePath, 'utf8');
+  const listIndex = template.indexOf('id="field-definitions-container"');
+  const addBtnContainerIndex = template.indexOf('id="add-field-btn-container"');
+  assert.ok(listIndex >= 0, 'field definitions container should exist');
+  assert.ok(addBtnContainerIndex > listIndex, 'add-field button container should be below field definitions list');
+  assert.doesNotMatch(template, /jump-to-place-btn/);
+});
+
+test('Phase 31.FE.3: runtime toggles bottom add-field action and sorts placement sidebar by page then definition', () => {
+  const source = fs.readFileSync(agreementRuntimeSourcePath, 'utf8');
+  assert.match(source, /const addFieldBtnContainer = document\.getElementById\('add-field-btn-container'\)/);
+  assert.match(source, /if \(fields\.length === 0\) \{[\s\S]*?addFieldBtnContainer\?\.classList\.add\('hidden'\)/);
+  assert.match(source, /else \{[\s\S]*?addFieldBtnContainer\?\.classList\.remove\('hidden'\)/);
+  assert.match(source, /uniqueDefinitions\.sort\(\(a, b\) => \{[\s\S]*?if \(a\.page !== b\.page\) \{[\s\S]*?return a\.page - b\.page;[\s\S]*?\}[\s\S]*?return a\.definitionId\.localeCompare\(b\.definitionId\);[\s\S]*?\}\)/);
+  assert.doesNotMatch(source, /jumpToPlace|updateJumpBtnTooltip/);
+});
+
+test('Phase 31.FE.3: dist runtime stays in sync with source for Step 4 and placement contracts', () => {
+  const dist = fs.readFileSync(agreementRuntimeDistPath, 'utf8');
+  assert.match(dist, /add-field-btn-container/);
+  assert.match(dist, /\.definitionId\.localeCompare\(/);
+  assert.doesNotMatch(dist, /jump-to-place-btn|updateJumpBtnTooltip/);
 });
 
 test('Phase 31.FE.1: automation rule expansion supports initials ranges with exclusions', () => {

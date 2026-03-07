@@ -1,5 +1,43 @@
 // @ts-nocheck
 
+import {
+  LINKED_PLACEMENT_DEFAULTS,
+  PLACEMENT_SOURCE,
+  PREVIEW_CARD_VISIBLE_STEPS,
+  TOTAL_WIZARD_STEPS,
+  WIZARD_NEXT_STEP_LABELS,
+  WIZARD_STEP,
+} from './agreement-form/constants';
+import { createPreviewCard, DocumentPreviewCard } from './agreement-form/preview-card';
+import {
+  createLinkGroupState,
+  addLinkGroup,
+  createLinkGroup,
+  computeLinkedPlacements,
+  convertToManualPlacement,
+  isLinkedPlacement,
+  isFieldLinked,
+  getFieldLinkGroup,
+  unlinkField,
+  createLinkGroupsFromRules,
+  serializeLinkGroupState,
+  deserializeLinkGroupState,
+  type LinkGroupState,
+} from './agreement-form/linked-placement';
+import {
+  clampPageNumber,
+  computeEffectiveRulePages,
+  expandRuleDefinitionsForPreview,
+  formatEffectivePageRange,
+  normalizeDocumentOption,
+  normalizeFieldRuleState,
+  normalizePlacementInstance,
+  parseExcludePagesCSV,
+  parsePositiveInt,
+  toFieldRuleFormPayload,
+  toPlacementFormPayload,
+} from './agreement-form/normalization';
+
 export interface AgreementFormRuntimeConfig {
   base_path?: string;
   api_base_path?: string;
@@ -125,15 +163,58 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
           return this.migrateState(state);
         }
 
-        if (!Array.isArray(state.fieldRules)) {
-          state.fieldRules = [];
-        }
-
-        return state;
+        return this.normalizeLoadedState(state);
       } catch (error) {
         console.error('Failed to load wizard state from session:', error);
         return null;
       }
+    }
+
+    normalizeLoadedState(state) {
+      if (!state || typeof state !== 'object') {
+        return this.createInitialState();
+      }
+
+      const initial = this.createInitialState();
+      const normalized = { ...initial, ...state };
+
+      const parsedStep = Number.parseInt(String(state.currentStep ?? initial.currentStep), 10);
+      normalized.currentStep = Number.isFinite(parsedStep)
+        ? Math.min(Math.max(parsedStep, 1), TOTAL_WIZARD_STEPS)
+        : initial.currentStep;
+
+      const documentState = (state.document && typeof state.document === 'object') ? state.document : {};
+      const rawDocumentID = documentState.id;
+      normalized.document = {
+        id: rawDocumentID == null ? null : (String(rawDocumentID).trim() || null),
+        title: String(documentState.title ?? '').trim() || null,
+        pageCount: parsePositiveInt(documentState.pageCount, 0) || null
+      };
+
+      const detailsState = (state.details && typeof state.details === 'object') ? state.details : {};
+      normalized.details = {
+        title: String(detailsState.title ?? '').trim(),
+        message: String(detailsState.message ?? '')
+      };
+
+      normalized.participants = Array.isArray(state.participants) ? state.participants : [];
+      normalized.fieldDefinitions = Array.isArray(state.fieldDefinitions) ? state.fieldDefinitions : [];
+      normalized.fieldPlacements = Array.isArray(state.fieldPlacements) ? state.fieldPlacements : [];
+      normalized.fieldRules = Array.isArray(state.fieldRules) ? state.fieldRules : [];
+
+      const wizardID = String(state.wizardId ?? '').trim();
+      normalized.wizardId = wizardID || initial.wizardId;
+      normalized.version = WIZARD_STATE_VERSION;
+      normalized.createdAt = String(state.createdAt ?? initial.createdAt);
+      normalized.updatedAt = String(state.updatedAt ?? initial.updatedAt);
+
+      const serverDraftID = String(state.serverDraftId ?? '').trim();
+      normalized.serverDraftId = serverDraftID || null;
+      normalized.serverRevision = parsePositiveInt(state.serverRevision, 0);
+      normalized.lastSyncedAt = String(state.lastSyncedAt ?? '').trim() || null;
+      normalized.syncPending = Boolean(state.syncPending);
+
+      return normalized;
     }
 
     migrateState(oldState) {
@@ -202,12 +283,18 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     }
 
     hasResumableState() {
-      if (!this.state) return false;
+      if (!this.state || typeof this.state !== 'object') return false;
+
+      const currentStep = Number.parseInt(String(this.state.currentStep ?? 1), 10);
+      const hasDocumentID = String(this.state.document?.id ?? '').trim() !== '';
+      const participantCount = Array.isArray(this.state.participants) ? this.state.participants.length : 0;
+      const title = String(this.state.details?.title ?? '').trim();
+
       return (
-        this.state.currentStep > 1 ||
-        this.state.document.id !== null ||
-        this.state.participants.length > 0 ||
-        this.state.details.title.trim() !== ''
+        (Number.isFinite(currentStep) && currentStep > 1) ||
+        hasDocumentID ||
+        participantCount > 0 ||
+        title !== ''
       );
     }
 
@@ -744,6 +831,12 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
   const syncService = new DraftSyncService(stateManager);
   const syncOrchestrator = new SyncOrchestrator(stateManager, syncService, updateSyncStatus);
 
+  // Initialize document preview card (Phase 2)
+  const previewCard = createPreviewCard({
+    apiBasePath: apiVersionBase,
+    basePath: basePath,
+  });
+
   if (createSuccess) {
     const state = stateManager.getState();
     const serverDraftId = state?.serverDraftId;
@@ -860,8 +953,7 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
   let documents = [];
 
   function setDocumentPageCountValue(value) {
-    const parsed = parseInt(value || '0', 10);
-    const resolved = Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+    const resolved = parsePositiveInt(value, 0);
     if (documentPageCountInput) {
       documentPageCountInput.value = String(resolved);
     }
@@ -870,16 +962,16 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
   function hydrateSelectedDocumentFromList() {
     const currentID = (documentIdInput?.value || '').trim();
     if (!currentID) return;
-    const selected = documents.find(doc => String(doc.id || '').trim() === currentID);
+    const selected = documents.find((doc) => String(doc.id || '').trim() === currentID);
     if (!selected) return;
 
     if (!selectedDocumentTitle.textContent.trim()) {
       selectedDocumentTitle.textContent = selected.title || 'Untitled';
     }
     if (!selectedDocumentInfo.textContent.trim() || selectedDocumentInfo.textContent.trim() === 'pages') {
-      selectedDocumentInfo.textContent = `${selected.page_count || 0} pages`;
+      selectedDocumentInfo.textContent = `${selected.pageCount || 0} pages`;
     }
-    setDocumentPageCountValue(selected.page_count || 0);
+    setDocumentPageCountValue(selected.pageCount || 0);
     selectedDocument.classList.remove('hidden');
     documentPicker.classList.add('hidden');
   }
@@ -895,7 +987,12 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
         throw apiError;
       }
       const data = await response.json();
-      documents = data.records || data.items || [];
+      const rawDocuments = Array.isArray(data?.records)
+        ? data.records
+        : (Array.isArray(data?.items) ? data.items : []);
+      documents = rawDocuments
+        .map((record) => normalizeDocumentOption(record))
+        .filter((record) => record.id !== '');
       renderDocumentList(documents);
       hydrateSelectedDocumentFromList();
     } catch (error) {
@@ -921,16 +1018,16 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
               aria-selected="false"
               tabindex="${index === 0 ? '0' : '-1'}"
               data-document-id="${doc.id}"
-              data-document-title="${escapeHtml(doc.title || 'Untitled')}"
-              data-document-pages="${doc.page_count || 0}">
+              data-document-title="${escapeHtml(doc.title)}"
+              data-document-pages="${doc.pageCount}">
         <div class="w-8 h-8 rounded bg-red-100 flex items-center justify-center flex-shrink-0" aria-hidden="true">
           <svg class="w-4 h-4 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
           </svg>
         </div>
         <div class="flex-1 min-w-0">
-          <div class="font-medium text-gray-900 truncate">${escapeHtml(doc.title || 'Untitled')}</div>
-          <div class="text-xs text-gray-500">${doc.page_count || 0} pages</div>
+          <div class="font-medium text-gray-900 truncate">${escapeHtml(doc.title)}</div>
+          <div class="text-xs text-gray-500">${doc.pageCount} pages</div>
         </div>
       </button>
     `).join('');
@@ -980,6 +1077,40 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     selectedDocument.classList.remove('hidden');
     documentPicker.classList.add('hidden');
     renderFieldRulePreview();
+
+    // Auto-populate agreement title if empty (Phase 1.1)
+    autoPopulateAgreementTitle(title);
+
+    // Update document preview card (Phase 2)
+    const pageCount = parsePositiveInt(pages, null);
+    previewCard.setDocument(id, title, pageCount);
+  }
+
+  /**
+   * Auto-populate the agreement title field if it is currently empty.
+   * Uses the document title as the suggested agreement title.
+   * Never overwrites non-empty user input.
+   */
+  function autoPopulateAgreementTitle(documentTitle: string | null): void {
+    const titleInput = document.getElementById('title') as HTMLInputElement | null;
+    if (!titleInput) return;
+
+    const currentTitle = titleInput.value.trim();
+    if (currentTitle) {
+      // User has already entered a title, do not overwrite
+      return;
+    }
+
+    const suggestedTitle = String(documentTitle || '').trim();
+    if (!suggestedTitle) return;
+
+    titleInput.value = suggestedTitle;
+
+    // Update wizard state to reflect the auto-populated title
+    stateManager.updateDetails({
+      title: suggestedTitle,
+      message: stateManager.getState().details.message || '',
+    });
   }
 
   function escapeHtml(text) {
@@ -992,21 +1123,444 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     changeDocumentBtn.addEventListener('click', () => {
       selectedDocument.classList.add('hidden');
       documentPicker.classList.remove('hidden');
+      // Focus the search input and show recent documents
+      documentSearch?.focus();
+      openTypeaheadDropdown();
     });
   }
 
+  // =============================================================================
+  // Document Typeahead (Phase 1.8)
+  // =============================================================================
+
+  const TYPEAHEAD_DEBOUNCE_MS = 300;
+  const RECENT_DOCUMENTS_LIMIT = 5;
+  const SEARCH_RESULTS_LIMIT = 10;
+
+  // Typeahead DOM elements
+  const documentTypeahead = document.getElementById('document-typeahead');
+  const documentTypeaheadDropdown = document.getElementById('document-typeahead-dropdown');
+  const documentRecentSection = document.getElementById('document-recent-section');
+  const documentRecentList = document.getElementById('document-recent-list');
+  const documentSearchSection = document.getElementById('document-search-section');
+  const documentSearchList = document.getElementById('document-search-list');
+  const documentEmptyState = document.getElementById('document-empty-state');
+  const documentDropdownLoading = document.getElementById('document-dropdown-loading');
+  const documentSearchLoading = document.getElementById('document-search-loading');
+
+  // Typeahead state
+  interface TypeaheadState {
+    isOpen: boolean;
+    query: string;
+    recentDocuments: Array<{ id: string; title: string; pageCount: number; createdAt?: string }>;
+    searchResults: Array<{ id: string; title: string; pageCount: number }>;
+    selectedIndex: number;
+    isLoading: boolean;
+    isSearchMode: boolean;
+  }
+
+  const typeaheadState: TypeaheadState = {
+    isOpen: false,
+    query: '',
+    recentDocuments: [],
+    searchResults: [],
+    selectedIndex: -1,
+    isLoading: false,
+    isSearchMode: false,
+  };
+
+  /**
+   * Simple debounce utility for typeahead search
+   */
+  function debounce<T extends (...args: any[]) => any>(fn: T, delay: number): (...args: Parameters<T>) => void {
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    return (...args: Parameters<T>) => {
+      if (timeoutId !== null) {
+        clearTimeout(timeoutId);
+      }
+      timeoutId = setTimeout(() => {
+        fn(...args);
+        timeoutId = null;
+      }, delay);
+    };
+  }
+
+  /**
+   * Load recent documents for the current user
+   * Fetches up to 5 documents sorted by updated_at descending
+   */
+  async function loadRecentDocuments(): Promise<void> {
+    try {
+      const params = new URLSearchParams({
+        sort: 'updated_at',
+        sort_desc: 'true',
+        per_page: String(RECENT_DOCUMENTS_LIMIT),
+      });
+      // Add user_id for filtering by creator if available
+      if (currentUserID) {
+        params.set('created_by_user_id', currentUserID);
+      }
+      const response = await fetch(`${apiBase}/panels/esign_documents?${params}`, {
+        credentials: 'same-origin',
+        headers: { 'Accept': 'application/json' },
+      });
+      if (!response.ok) {
+        console.warn('Failed to load recent documents:', response.status);
+        return;
+      }
+      const data = await response.json();
+      const rawDocuments = Array.isArray(data?.records)
+        ? data.records
+        : (Array.isArray(data?.items) ? data.items : []);
+      typeaheadState.recentDocuments = rawDocuments
+        .map((record) => normalizeDocumentOption(record))
+        .filter((record) => record.id !== '')
+        .slice(0, RECENT_DOCUMENTS_LIMIT);
+    } catch (error) {
+      console.warn('Error loading recent documents:', error);
+    }
+  }
+
+  /**
+   * Search documents by title with debounced API call
+   */
+  async function searchDocuments(query: string): Promise<void> {
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery) {
+      typeaheadState.isSearchMode = false;
+      typeaheadState.searchResults = [];
+      renderTypeaheadDropdown();
+      return;
+    }
+
+    typeaheadState.isLoading = true;
+    typeaheadState.isSearchMode = true;
+    renderTypeaheadDropdown();
+
+    try {
+      const params = new URLSearchParams({
+        'filters[title_contains]': trimmedQuery,
+        sort: 'updated_at',
+        sort_desc: 'true',
+        per_page: String(SEARCH_RESULTS_LIMIT),
+      });
+      const response = await fetch(`${apiBase}/panels/esign_documents?${params}`, {
+        credentials: 'same-origin',
+        headers: { 'Accept': 'application/json' },
+      });
+      if (!response.ok) {
+        console.warn('Failed to search documents:', response.status);
+        typeaheadState.searchResults = [];
+        typeaheadState.isLoading = false;
+        renderTypeaheadDropdown();
+        return;
+      }
+      const data = await response.json();
+      const rawDocuments = Array.isArray(data?.records)
+        ? data.records
+        : (Array.isArray(data?.items) ? data.items : []);
+      typeaheadState.searchResults = rawDocuments
+        .map((record) => normalizeDocumentOption(record))
+        .filter((record) => record.id !== '')
+        .slice(0, SEARCH_RESULTS_LIMIT);
+    } catch (error) {
+      console.warn('Error searching documents:', error);
+      typeaheadState.searchResults = [];
+    } finally {
+      typeaheadState.isLoading = false;
+      renderTypeaheadDropdown();
+    }
+  }
+
+  const debouncedSearchDocuments = debounce(searchDocuments, TYPEAHEAD_DEBOUNCE_MS);
+
+  /**
+   * Open the typeahead dropdown
+   */
+  function openTypeaheadDropdown(): void {
+    if (!documentTypeaheadDropdown) return;
+    typeaheadState.isOpen = true;
+    typeaheadState.selectedIndex = -1;
+    documentTypeaheadDropdown.classList.remove('hidden');
+    documentSearch?.setAttribute('aria-expanded', 'true');
+    // Hide the fallback document list when typeahead is open
+    documentList?.classList.add('hidden');
+    renderTypeaheadDropdown();
+  }
+
+  /**
+   * Close the typeahead dropdown
+   */
+  function closeTypeaheadDropdown(): void {
+    if (!documentTypeaheadDropdown) return;
+    typeaheadState.isOpen = false;
+    typeaheadState.selectedIndex = -1;
+    documentTypeaheadDropdown.classList.add('hidden');
+    documentSearch?.setAttribute('aria-expanded', 'false');
+    // Show the fallback document list when typeahead is closed
+    documentList?.classList.remove('hidden');
+  }
+
+  /**
+   * Render the typeahead dropdown content
+   */
+  function renderTypeaheadDropdown(): void {
+    if (!documentTypeaheadDropdown) return;
+
+    // Handle loading state
+    if (typeaheadState.isLoading) {
+      documentDropdownLoading?.classList.remove('hidden');
+      documentRecentSection?.classList.add('hidden');
+      documentSearchSection?.classList.add('hidden');
+      documentEmptyState?.classList.add('hidden');
+      documentSearchLoading?.classList.remove('hidden');
+      return;
+    }
+
+    documentDropdownLoading?.classList.add('hidden');
+    documentSearchLoading?.classList.add('hidden');
+
+    if (typeaheadState.isSearchMode) {
+      // Show search results
+      documentRecentSection?.classList.add('hidden');
+      if (typeaheadState.searchResults.length > 0) {
+        documentSearchSection?.classList.remove('hidden');
+        documentEmptyState?.classList.add('hidden');
+        renderTypeaheadList(documentSearchList, typeaheadState.searchResults, 'search');
+      } else {
+        documentSearchSection?.classList.add('hidden');
+        documentEmptyState?.classList.remove('hidden');
+      }
+    } else {
+      // Show recent documents
+      documentSearchSection?.classList.add('hidden');
+      if (typeaheadState.recentDocuments.length > 0) {
+        documentRecentSection?.classList.remove('hidden');
+        documentEmptyState?.classList.add('hidden');
+        renderTypeaheadList(documentRecentList, typeaheadState.recentDocuments, 'recent');
+      } else {
+        documentRecentSection?.classList.add('hidden');
+        documentEmptyState?.classList.remove('hidden');
+        if (documentEmptyState) {
+          documentEmptyState.textContent = 'No recent documents';
+        }
+      }
+    }
+  }
+
+  /**
+   * Render a list of documents in the typeahead dropdown
+   */
+  function renderTypeaheadList(
+    container: HTMLElement | null,
+    docs: Array<{ id: string; title: string; pageCount: number; createdAt?: string }>,
+    listType: 'recent' | 'search'
+  ): void {
+    if (!container) return;
+
+    container.innerHTML = docs.map((doc, index) => {
+      const globalIndex = listType === 'search' ? index : index;
+      const isSelected = typeaheadState.selectedIndex === globalIndex;
+      return `
+        <button type="button"
+          class="typeahead-option w-full px-3 py-2 flex items-center gap-3 hover:bg-blue-50 text-left focus:outline-none focus:bg-blue-50 ${isSelected ? 'bg-blue-50' : ''}"
+          role="option"
+          aria-selected="${isSelected}"
+          tabindex="-1"
+          data-document-id="${doc.id}"
+          data-document-title="${escapeHtml(doc.title)}"
+          data-document-pages="${doc.pageCount}"
+          data-typeahead-index="${globalIndex}">
+          <div class="w-8 h-8 rounded bg-red-100 flex items-center justify-center flex-shrink-0" aria-hidden="true">
+            <svg class="w-4 h-4 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+            </svg>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="font-medium text-gray-900 truncate text-sm">${escapeHtml(doc.title)}</div>
+            <div class="text-xs text-gray-500">${doc.pageCount} pages</div>
+          </div>
+        </button>
+      `;
+    }).join('');
+
+    // Attach click handlers to typeahead options
+    container.querySelectorAll('.typeahead-option').forEach((btn) => {
+      btn.addEventListener('click', () => selectDocumentFromTypeahead(btn as HTMLElement));
+    });
+  }
+
+  /**
+   * Select a document from the typeahead dropdown
+   */
+  function selectDocumentFromTypeahead(btn: HTMLElement): void {
+    const id = btn.getAttribute('data-document-id');
+    const title = btn.getAttribute('data-document-title');
+    const pages = btn.getAttribute('data-document-pages');
+
+    if (!id) return;
+
+    documentIdInput.value = id;
+    selectedDocumentTitle.textContent = title || '';
+    selectedDocumentInfo.textContent = `${pages} pages`;
+    setDocumentPageCountValue(pages);
+
+    selectedDocument.classList.remove('hidden');
+    documentPicker.classList.add('hidden');
+    closeTypeaheadDropdown();
+    renderFieldRulePreview();
+
+    // Clear the search input
+    if (documentSearch) {
+      (documentSearch as HTMLInputElement).value = '';
+    }
+    typeaheadState.query = '';
+    typeaheadState.isSearchMode = false;
+    typeaheadState.searchResults = [];
+
+    // Auto-populate agreement title if empty (Phase 1.1)
+    autoPopulateAgreementTitle(title);
+
+    // Update wizard state
+    const pageCount = parsePositiveInt(pages, 0);
+    stateManager.updateDocument({
+      id,
+      title,
+      pageCount,
+    });
+
+    // Update document preview card (Phase 2)
+    previewCard.setDocument(id, title, pageCount);
+  }
+
+  /**
+   * Handle keyboard navigation in typeahead
+   */
+  function handleTypeaheadKeydown(e: KeyboardEvent): void {
+    if (!typeaheadState.isOpen) {
+      if (e.key === 'ArrowDown' || e.key === 'Enter') {
+        e.preventDefault();
+        openTypeaheadDropdown();
+      }
+      return;
+    }
+
+    const currentList = typeaheadState.isSearchMode
+      ? typeaheadState.searchResults
+      : typeaheadState.recentDocuments;
+    const maxIndex = currentList.length - 1;
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        typeaheadState.selectedIndex = Math.min(typeaheadState.selectedIndex + 1, maxIndex);
+        renderTypeaheadDropdown();
+        scrollToSelectedOption();
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        typeaheadState.selectedIndex = Math.max(typeaheadState.selectedIndex - 1, 0);
+        renderTypeaheadDropdown();
+        scrollToSelectedOption();
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (typeaheadState.selectedIndex >= 0 && typeaheadState.selectedIndex <= maxIndex) {
+          const selectedDoc = currentList[typeaheadState.selectedIndex];
+          if (selectedDoc) {
+            // Create a mock button element with the document data
+            const mockBtn = document.createElement('button');
+            mockBtn.setAttribute('data-document-id', selectedDoc.id);
+            mockBtn.setAttribute('data-document-title', selectedDoc.title);
+            mockBtn.setAttribute('data-document-pages', String(selectedDoc.pageCount));
+            selectDocumentFromTypeahead(mockBtn);
+          }
+        }
+        break;
+      case 'Escape':
+        e.preventDefault();
+        closeTypeaheadDropdown();
+        break;
+      case 'Tab':
+        closeTypeaheadDropdown();
+        break;
+      case 'Home':
+        e.preventDefault();
+        typeaheadState.selectedIndex = 0;
+        renderTypeaheadDropdown();
+        scrollToSelectedOption();
+        break;
+      case 'End':
+        e.preventDefault();
+        typeaheadState.selectedIndex = maxIndex;
+        renderTypeaheadDropdown();
+        scrollToSelectedOption();
+        break;
+    }
+  }
+
+  /**
+   * Scroll the dropdown to show the selected option
+   */
+  function scrollToSelectedOption(): void {
+    if (!documentTypeaheadDropdown) return;
+    const selectedOption = documentTypeaheadDropdown.querySelector(`[data-typeahead-index="${typeaheadState.selectedIndex}"]`);
+    if (selectedOption) {
+      selectedOption.scrollIntoView({ block: 'nearest' });
+    }
+  }
+
+  // Typeahead event listeners
   if (documentSearch) {
+    // Handle input for search
     documentSearch.addEventListener('input', (e) => {
-      const term = e.target.value.toLowerCase();
-      const filtered = documents.filter(doc =>
-        (doc.title || '').toLowerCase().includes(term)
+      const target = e.target as HTMLInputElement;
+      const term = target.value;
+      typeaheadState.query = term;
+
+      if (!typeaheadState.isOpen) {
+        openTypeaheadDropdown();
+      }
+
+      if (term.trim()) {
+        typeaheadState.isLoading = true;
+        renderTypeaheadDropdown();
+        debouncedSearchDocuments(term);
+      } else {
+        typeaheadState.isSearchMode = false;
+        typeaheadState.searchResults = [];
+        renderTypeaheadDropdown();
+      }
+
+      // Also filter the fallback list for backward compatibility
+      const filtered = documents.filter((doc) =>
+        String(doc.title || '').toLowerCase().includes(term.toLowerCase())
       );
       renderDocumentList(filtered);
     });
+
+    // Handle focus to show dropdown
+    documentSearch.addEventListener('focus', () => {
+      openTypeaheadDropdown();
+    });
+
+    // Handle keyboard navigation
+    documentSearch.addEventListener('keydown', handleTypeaheadKeydown);
   }
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', (e) => {
+    const target = e.target as HTMLElement;
+    if (documentTypeahead && !documentTypeahead.contains(target)) {
+      closeTypeaheadDropdown();
+    }
+  });
 
   // Load documents on page load
   loadDocuments();
+
+  // Load recent documents for typeahead
+  loadRecentDocuments();
 
   // Participants Management (v2 ID-based)
   const participantsContainer = document.getElementById('participants-container');
@@ -1100,6 +1654,7 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
   const fieldDefinitionsContainer = document.getElementById('field-definitions-container');
   const fieldDefinitionTemplate = document.getElementById('field-definition-template');
   const addFieldBtn = document.getElementById('add-field-btn');
+  const addFieldBtnContainer = document.getElementById('add-field-btn-container');
   const addFieldDefinitionEmptyBtn = document.getElementById('add-field-definition-empty-btn');
   const fieldDefinitionsEmptyState = document.getElementById('field-definitions-empty-state');
   const fieldRulesContainer = document.getElementById('field-rules-container');
@@ -1108,6 +1663,7 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
   const fieldRulesEmptyState = document.getElementById('field-rules-empty-state');
   const fieldRulesPreview = document.getElementById('field-rules-preview');
   const fieldRulesJSONInput = document.getElementById('field_rules_json');
+  const fieldPlacementsJSONInput = document.getElementById('field_placements_json');
   let fieldDefinitionCounter = 0;
   let fieldInstanceFormIndex = 0;
   let fieldRuleFormIndex = 0;
@@ -1158,6 +1714,12 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
       // Restore selection if still valid
       if (currentValue && signers.some(s => s.id === currentValue)) {
         select.value = currentValue;
+      } else if (!currentValue && signers.length === 1) {
+        // Phase 1.4: Auto-assign unassigned fields when exactly one signer exists.
+        // Only auto-assign if the field was previously unassigned (currentValue is empty).
+        // This preserves user intent: if a user explicitly unassigned a field, and then
+        // adds a new signer, we auto-assign only if there's still exactly one signer.
+        select.value = signers[0].id;
       }
     });
 
@@ -1172,6 +1734,9 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
       });
       if (currentValue && signers.some((signer) => signer.id === currentValue)) {
         select.value = currentValue;
+      } else if (!currentValue && signers.length === 1) {
+        // Phase 1.4: Auto-assign unassigned rule fields when exactly one signer exists.
+        select.value = signers[0].id;
       }
     });
 
@@ -1179,12 +1744,12 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
   }
 
   function getCurrentDocumentPageCount() {
-    const explicit = parseInt(documentPageCountInput?.value || '0', 10);
-    if (Number.isFinite(explicit) && explicit > 0) return explicit;
+    const explicit = parsePositiveInt(documentPageCountInput?.value || '0', 0);
+    if (explicit > 0) return explicit;
     const match = String(selectedDocumentInfo?.textContent || '').match(/(\d+)\s+pages?/i);
     if (match) {
-      const parsed = parseInt(match[1], 10);
-      if (Number.isFinite(parsed) && parsed > 0) return parsed;
+      const parsed = parsePositiveInt(match[1], 0);
+      if (parsed > 0) return parsed;
     }
     return 1;
   }
@@ -1195,102 +1760,35 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     fieldRulesEmptyState.classList.toggle('hidden', rows.length > 0);
   }
 
-  function parseRuleExcludePages(raw) {
-    if (!raw) return [];
-    return raw
-      .split(',')
-      .map((value) => parseInt(value.trim(), 10))
-      .filter((value) => Number.isFinite(value) && value > 0);
-  }
-
   function collectFieldRulesForState() {
     if (!fieldRulesContainer) return [];
+    const terminalPage = getCurrentDocumentPageCount();
     const rows = fieldRulesContainer.querySelectorAll('.field-rule-entry');
     const out = [];
     rows.forEach((row) => {
-      const id = row.getAttribute('data-field-rule-id') || '';
-      const type = row.querySelector('.field-rule-type-select')?.value || '';
-      const participantId = row.querySelector('.field-rule-participant-select')?.value || '';
-      const fromPage = parseInt(row.querySelector('.field-rule-from-page-input')?.value || '0', 10) || 0;
-      const toPage = parseInt(row.querySelector('.field-rule-to-page-input')?.value || '0', 10) || 0;
-      const page = parseInt(row.querySelector('.field-rule-page-input')?.value || '0', 10) || 0;
-      const excludeLastPage = Boolean(row.querySelector('.field-rule-exclude-last-input')?.checked);
-      const excludePages = parseRuleExcludePages(row.querySelector('.field-rule-exclude-pages-input')?.value || '');
-      const required = (row.querySelector('.field-rule-required-select')?.value || '1') !== '0';
-      if (!type) return;
-      out.push({
-        id,
-        type,
-        participantId,
-        participantTempId: participantId,
-        fromPage,
-        toPage,
-        page,
-        excludeLastPage,
-        excludePages,
-        required,
-      });
+      const rule = normalizeFieldRuleState({
+        id: row.getAttribute('data-field-rule-id') || '',
+        type: row.querySelector('.field-rule-type-select')?.value || '',
+        participantId: row.querySelector('.field-rule-participant-select')?.value || '',
+        fromPage: row.querySelector('.field-rule-from-page-input')?.value || '',
+        toPage: row.querySelector('.field-rule-to-page-input')?.value || '',
+        page: row.querySelector('.field-rule-page-input')?.value || '',
+        excludeLastPage: Boolean(row.querySelector('.field-rule-exclude-last-input')?.checked),
+        excludePages: parseExcludePagesCSV(row.querySelector('.field-rule-exclude-pages-input')?.value || ''),
+        required: (row.querySelector('.field-rule-required-select')?.value || '1') !== '0',
+      }, terminalPage);
+      if (!rule.type) return;
+      out.push(rule);
     });
     return out;
   }
 
   function collectFieldRulesForForm() {
-    return collectFieldRulesForState().map((rule) => ({
-      id: rule.id,
-      type: rule.type,
-      participant_id: rule.participantId,
-      from_page: rule.fromPage,
-      to_page: rule.toPage,
-      page: rule.page,
-      exclude_last_page: rule.excludeLastPage,
-      exclude_pages: rule.excludePages,
-      required: rule.required,
-    }));
-  }
-
-  function resolveRuleExpansionBaseID(rule, index) {
-    const explicitID = String(rule?.id || '').trim();
-    if (explicitID) return explicitID;
-    return `rule-${index + 1}`;
+    return collectFieldRulesForState().map((rule) => toFieldRuleFormPayload(rule));
   }
 
   function expandRulesForPreview(rules, terminalPage) {
-    const expanded = [];
-    rules.forEach((rule, index) => {
-      const baseRuleID = resolveRuleExpansionBaseID(rule, index);
-      if (rule.type === 'initials_each_page') {
-        let start = rule.fromPage > 0 ? rule.fromPage : 1;
-        let end = rule.toPage > 0 ? rule.toPage : terminalPage;
-        if (end < start) [start, end] = [end, start];
-        const excluded = new Set(rule.excludePages || []);
-        if (rule.excludeLastPage) excluded.add(terminalPage);
-        for (let page = start; page <= end; page++) {
-          if (excluded.has(page)) continue;
-          expanded.push({
-            id: `${baseRuleID}-initials-${page}`,
-            type: 'initials',
-            page,
-            participantId: rule.participantId,
-            required: rule.required !== false,
-          });
-        }
-      } else if (rule.type === 'signature_once') {
-        let page = rule.page > 0 ? rule.page : (rule.toPage > 0 ? rule.toPage : terminalPage);
-        if (page <= 0) page = 1;
-        expanded.push({
-          id: `${baseRuleID}-signature-${page}`,
-          type: 'signature',
-          page,
-          participantId: rule.participantId,
-          required: rule.required !== false,
-        });
-      }
-    });
-    expanded.sort((left, right) => {
-      if (left.page !== right.page) return left.page - right.page;
-      return String(left.id).localeCompare(String(right.id));
-    });
-    return expanded;
+    return expandRuleDefinitionsForPreview(rules, terminalPage);
   }
 
   function renderFieldRulePreview() {
@@ -1338,36 +1836,80 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
       const definitionId = String(field.getAttribute('data-field-definition-id') || '').trim();
       const typeSelect = field.querySelector('.field-type-select');
       const participantSelect = field.querySelector('.field-participant-select');
+      const pageInput = field.querySelector('input[name*=".page"]');
       const fieldType = String(typeSelect?.value || 'text').trim() || 'text';
       const participantId = String(participantSelect?.value || '').trim();
+      const page = parseInt(String(pageInput?.value || '1'), 10) || 1;
       definitions.push({
         definitionId,
         fieldType,
         participantId,
         participantName: signerNames.get(participantId) || 'Unassigned',
+        page,
       });
     });
 
     const generatedRuleFields = expandRulesForPreview(collectFieldRulesForState(), getCurrentDocumentPageCount());
+
+    // Phase 3: Create link groups from rules that generate multiple fields
+    const fieldsByRuleId = new Map<string, string[]>();
+    generatedRuleFields.forEach((field) => {
+      const ruleId = String((field as any).ruleId || '').trim();
+      const definitionId = String(field.id || '').trim();
+      if (ruleId && definitionId) {
+        const existing = fieldsByRuleId.get(ruleId) || [];
+        existing.push(definitionId);
+        fieldsByRuleId.set(ruleId, existing);
+      }
+    });
+
+    // Create link groups for rules with multiple fields
+    let newLinkState = placementState.linkGroupState;
+    fieldsByRuleId.forEach((fieldIds, ruleId) => {
+      if (fieldIds.length > 1) {
+        const existingGroup = placementState.linkGroupState.groups.get(`rule_${ruleId}`);
+        if (!existingGroup) {
+          const linkGroup = createLinkGroup(fieldIds, `Rule ${ruleId}`);
+          linkGroup.id = `rule_${ruleId}`; // Use deterministic ID based on rule
+          newLinkState = addLinkGroup(newLinkState, linkGroup);
+        }
+      }
+    });
+    placementState.linkGroupState = newLinkState;
+
     generatedRuleFields.forEach((field) => {
       const definitionId = String(field.id || '').trim();
       if (!definitionId) return;
       const participantId = String(field.participantId || '').trim();
+      const page = parseInt(String(field.page || '1'), 10) || 1;
+      const ruleId = String((field as any).ruleId || '').trim();
       definitions.push({
         definitionId,
         fieldType: String(field.type || 'text').trim() || 'text',
         participantId,
         participantName: signerNames.get(participantId) || 'Unassigned',
+        page,
+        linkGroupId: ruleId ? `rule_${ruleId}` : undefined,
       });
     });
 
     const seen = new Set();
-    return definitions.filter((definition) => {
+    const uniqueDefinitions = definitions.filter((definition) => {
       const key = String(definition.definitionId || '').trim();
       if (!key || seen.has(key)) return false;
       seen.add(key);
       return true;
     });
+
+    // Sort by page ascending, then by definitionId for deterministic ordering
+    uniqueDefinitions.sort((a, b) => {
+      if (a.page !== b.page) {
+        return a.page - b.page;
+      }
+      return a.definitionId.localeCompare(b.definitionId);
+    });
+
+    return uniqueDefinitions;
   }
 
   function updateFieldRuleRowUI(entry) {
@@ -1378,11 +1920,28 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     const excludeLastWrap = entry.querySelector('.field-rule-exclude-last-wrap');
     const excludePagesWrap = entry.querySelector('.field-rule-exclude-pages-wrap');
     const summary = entry.querySelector('.field-rule-summary');
-    const fromPage = parseInt(entry.querySelector('.field-rule-from-page-input')?.value || '1', 10) || 1;
-    const toPage = parseInt(entry.querySelector('.field-rule-to-page-input')?.value || '1', 10) || 1;
-    const page = parseInt(entry.querySelector('.field-rule-page-input')?.value || '1', 10) || 1;
-    const excludeLast = Boolean(entry.querySelector('.field-rule-exclude-last-input')?.checked);
-    const excludePages = entry.querySelector('.field-rule-exclude-pages-input')?.value || '';
+    const fromPageInput = entry.querySelector('.field-rule-from-page-input');
+    const toPageInput = entry.querySelector('.field-rule-to-page-input');
+    const pageInput = entry.querySelector('.field-rule-page-input');
+    const excludeLastInput = entry.querySelector('.field-rule-exclude-last-input');
+    const excludePagesInput = entry.querySelector('.field-rule-exclude-pages-input');
+    const terminalPage = getCurrentDocumentPageCount();
+    const normalizedRule = normalizeFieldRuleState({
+      type: typeSelect?.value || '',
+      fromPage: fromPageInput?.value || '',
+      toPage: toPageInput?.value || '',
+      page: pageInput?.value || '',
+      excludeLastPage: Boolean(excludeLastInput?.checked),
+      excludePages: parseExcludePagesCSV(excludePagesInput?.value || ''),
+      required: true,
+    }, terminalPage);
+    const fromPage = normalizedRule.fromPage > 0 ? normalizedRule.fromPage : 1;
+    const toPage = normalizedRule.toPage > 0 ? normalizedRule.toPage : terminalPage;
+    const page = normalizedRule.page > 0
+      ? normalizedRule.page
+      : (normalizedRule.toPage > 0 ? normalizedRule.toPage : terminalPage);
+    const excludeLast = normalizedRule.excludeLastPage;
+    const excludePages = normalizedRule.excludePages.join(',');
 
     const isInitials = typeSelect?.value === 'initials_each_page';
     rangeStart.classList.toggle('hidden', !isInitials);
@@ -1391,8 +1950,27 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     excludePagesWrap.classList.toggle('hidden', !isInitials);
     pageWrap.classList.toggle('hidden', isInitials);
 
+    if (fromPageInput) fromPageInput.value = String(fromPage);
+    if (toPageInput) toPageInput.value = String(toPage);
+    if (pageInput) pageInput.value = String(page);
+    if (excludePagesInput) excludePagesInput.value = excludePages;
+    if (excludeLastInput) excludeLastInput.checked = excludeLast;
+
     if (isInitials) {
-      summary.textContent = `Generates initials fields from page ${fromPage} to ${toPage}${excludeLast ? ' (excluding last page)' : ''}${excludePages ? `; excluding ${excludePages}` : ''}.`;
+      // Compute effective pages to show explicit derived range preview
+      const effectiveResult = computeEffectiveRulePages(
+        fromPage,
+        toPage,
+        terminalPage,
+        excludeLast,
+        normalizedRule.excludePages,
+      );
+      const effectiveRangeText = formatEffectivePageRange(effectiveResult);
+      if (effectiveResult.isEmpty) {
+        summary.textContent = `Warning: No initials fields will be generated ${effectiveRangeText}.`;
+      } else {
+        summary.textContent = `Generates initials fields on ${effectiveRangeText}.`;
+      }
     } else {
       summary.textContent = `Generates one signature field on page ${page}.`;
     }
@@ -1438,15 +2016,15 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
       participantSelect.appendChild(option);
     });
 
-    typeSelect.value = data.type || 'initials_each_page';
-    participantSelect.value = data.participant_id || data.participantId || '';
-    fromPageInput.value = String(data.from_page || data.fromPage || 1);
-    toPageInput.value = String(data.to_page || data.toPage || terminalPage);
-    pageInput.value = String(data.page || 1);
-    requiredSelect.value = data.required === false ? '0' : '1';
-    excludeLastInput.checked = Boolean(data.exclude_last_page || data.excludeLastPage);
-    const excludePages = data.exclude_pages || data.excludePages || [];
-    excludePagesInput.value = Array.isArray(excludePages) ? excludePages.join(',') : String(excludePages || '');
+    const normalizedData = normalizeFieldRuleState(data, terminalPage);
+    typeSelect.value = normalizedData.type || 'initials_each_page';
+    participantSelect.value = normalizedData.participantId;
+    fromPageInput.value = String(normalizedData.fromPage > 0 ? normalizedData.fromPage : 1);
+    toPageInput.value = String(normalizedData.toPage > 0 ? normalizedData.toPage : terminalPage);
+    pageInput.value = String(normalizedData.page > 0 ? normalizedData.page : terminalPage);
+    requiredSelect.value = normalizedData.required ? '1' : '0';
+    excludeLastInput.checked = normalizedData.excludeLastPage;
+    excludePagesInput.value = normalizedData.excludePages.join(',');
 
     const onRuleInput = () => {
       updateFieldRuleRowUI(entry);
@@ -1454,13 +2032,57 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
       debouncedTrackChanges();
     };
 
+    // Clamp page inputs to [1, documentPageCount] range
+    const clampRulePageInputs = () => {
+      const maxPage = getCurrentDocumentPageCount();
+      if (fromPageInput) {
+        const val = parseInt(fromPageInput.value, 10);
+        if (Number.isFinite(val)) {
+          fromPageInput.value = String(clampPageNumber(val, maxPage, 1));
+        }
+      }
+      if (toPageInput) {
+        const val = parseInt(toPageInput.value, 10);
+        if (Number.isFinite(val)) {
+          toPageInput.value = String(clampPageNumber(val, maxPage, 1));
+        }
+      }
+      if (pageInput) {
+        const val = parseInt(pageInput.value, 10);
+        if (Number.isFinite(val)) {
+          pageInput.value = String(clampPageNumber(val, maxPage, 1));
+        }
+      }
+    };
+
+    // Wrap onRuleInput to clamp before updating UI
+    const onRulePageInput = () => {
+      clampRulePageInputs();
+      onRuleInput();
+    };
+
     typeSelect.addEventListener('change', onRuleInput);
     participantSelect.addEventListener('change', onRuleInput);
-    fromPageInput.addEventListener('input', onRuleInput);
-    toPageInput.addEventListener('input', onRuleInput);
-    pageInput.addEventListener('input', onRuleInput);
+    fromPageInput.addEventListener('input', onRulePageInput);
+    fromPageInput.addEventListener('change', onRulePageInput);
+    toPageInput.addEventListener('input', onRulePageInput);
+    toPageInput.addEventListener('change', onRulePageInput);
+    pageInput.addEventListener('input', onRulePageInput);
+    pageInput.addEventListener('change', onRulePageInput);
     requiredSelect.addEventListener('change', onRuleInput);
-    excludeLastInput.addEventListener('change', onRuleInput);
+    // When "Exclude last page" is checked, update toPage to N-1
+    excludeLastInput.addEventListener('change', () => {
+      const maxPage = getCurrentDocumentPageCount();
+      if (excludeLastInput.checked) {
+        // Set toPage to maxPage - 1 when excluding last page
+        const newToPage = Math.max(1, maxPage - 1);
+        toPageInput.value = String(newToPage);
+      } else {
+        // Restore toPage to maxPage when unchecking
+        toPageInput.value = String(maxPage);
+      }
+      onRuleInput();
+    });
     excludePagesInput.addEventListener('input', onRuleInput);
     removeBtn.addEventListener('click', () => {
       entry.remove();
@@ -1500,7 +2122,9 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     requiredCheckbox.name = `field_instances[${formIndex}].required`;
 
     if (data.type) typeSelect.value = data.type;
-    if (data.page) pageInput.value = data.page;
+    if (data.page) {
+      pageInput.value = String(clampPageNumber(data.page, getCurrentDocumentPageCount(), 1));
+    }
     if (data.required !== undefined) requiredCheckbox.checked = data.required;
 
     // Populate participant options
@@ -1512,9 +2136,12 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
       option.textContent = signer.name;
       participantSelect.appendChild(option);
     });
-    // Set participant_id when provided.
+    // Set participant_id when provided, or auto-assign when exactly one signer exists.
     if (data.participant_id) {
       participantSelect.value = data.participant_id;
+    } else if (signers.length === 1) {
+      // Auto-assign new field to the only signer (Phase 1.4: deterministic auto-assignment)
+      participantSelect.value = signers[0].id;
     }
 
     // Show date_signed info when that type is selected
@@ -1535,52 +2162,16 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
       updateFieldDefinitionsEmptyState();
     });
 
-    // Jump to Place button - navigates to Step 5 and sets the PDF viewer to the field's target page
+    // Field page input clamping
     const fieldPageInput = entry.querySelector('input[name*=".page"]');
-    const jumpToPlaceBtn = entry.querySelector('.jump-to-place-btn');
 
-    jumpToPlaceBtn.addEventListener('click', async () => {
-      const targetPage = parseInt(fieldPageInput?.value || '1', 10);
-      const fieldId = entry.getAttribute('data-field-definition-id');
-
-      // Navigate to Step 5 (placement)
-      goToStep(5);
-
-      // Wait for placement editor to initialize if needed
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      // Set the current page in the placement viewer
-      if (typeof placementState !== 'undefined' && placementState.pdfDoc) {
-        const validPage = Math.max(1, Math.min(targetPage, placementState.totalPages || 1));
-        if (placementState.currentPage !== validPage) {
-          placementState.currentPage = validPage;
-          await renderPage(validPage);
-        }
-
-        // Highlight the corresponding field in the placement panel
-        const fieldItems = document.querySelectorAll('.placement-field-item');
-        fieldItems.forEach(item => item.classList.remove('ring-2', 'ring-blue-500', 'bg-blue-50'));
-        const targetFieldItem = document.querySelector(`.placement-field-item[data-definition-id="${fieldId}"]`);
-        if (targetFieldItem) {
-          targetFieldItem.classList.add('ring-2', 'ring-blue-500', 'bg-blue-50');
-          targetFieldItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          // Remove highlight after 3 seconds
-          setTimeout(() => {
-            targetFieldItem.classList.remove('ring-2', 'ring-blue-500', 'bg-blue-50');
-          }, 3000);
-        }
-      }
-    });
-
-    // Update the jump-to-place button tooltip when page number changes
-    const updateJumpBtnTooltip = () => {
-      const page = fieldPageInput?.value || '1';
-      jumpToPlaceBtn.title = `Place on page ${page}`;
-      jumpToPlaceBtn.setAttribute('aria-label', `Jump to place this field on page ${page}`);
+    const clampFieldPageInput = () => {
+      if (!fieldPageInput) return;
+      fieldPageInput.value = String(clampPageNumber(fieldPageInput.value, getCurrentDocumentPageCount(), 1));
     };
-    updateJumpBtnTooltip();
-    fieldPageInput?.addEventListener('input', updateJumpBtnTooltip);
-    fieldPageInput?.addEventListener('change', updateJumpBtnTooltip);
+    clampFieldPageInput();
+    fieldPageInput?.addEventListener('input', clampFieldPageInput);
+    fieldPageInput?.addEventListener('change', clampFieldPageInput);
 
     fieldDefinitionsContainer.appendChild(clone);
     updateFieldDefinitionsEmptyState();
@@ -1590,8 +2181,10 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     const fields = fieldDefinitionsContainer.querySelectorAll('.field-definition-entry');
     if (fields.length === 0) {
       fieldDefinitionsEmptyState.classList.remove('hidden');
+      addFieldBtnContainer?.classList.add('hidden');
     } else {
       fieldDefinitionsEmptyState.classList.add('hidden');
+      addFieldBtnContainer?.classList.remove('hidden');
     }
   }
 
@@ -1634,7 +2227,7 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
       page,
       required,
     });
-    window._initialFieldPlacementsData.push({
+    window._initialFieldPlacementsData.push(normalizePlacementInstance({
       id,
       definitionId: id,
       type,
@@ -1645,8 +2238,8 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
       y: Number(fieldDef.y || fieldDef.pos_y || 0) || 0,
       width: Number(fieldDef.width || 150) || 150,
       height: Number(fieldDef.height || 32) || 32,
-      placementSource: String(fieldDef.placement_source || fieldDef.placementSource || 'manual').trim() || 'manual',
-    });
+      placementSource: String(fieldDef.placement_source || fieldDef.placementSource || PLACEMENT_SOURCE.MANUAL).trim() || PLACEMENT_SOURCE.MANUAL,
+    }, window._initialFieldPlacementsData.length));
   });
   updateFieldDefinitionsEmptyState();
   updateFieldParticipantOptions();
@@ -1748,17 +2341,13 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
 
     const fieldPlacements = [];
     if (placementState && Array.isArray(placementState.fieldInstances)) {
-      placementState.fieldInstances.forEach((instance) => {
-        fieldPlacements.push({
-          id: String(instance.id || '').trim(),
-          definition_id: String(instance.definitionId || '').trim(),
-          page: Number(instance.page || 1) || 1,
-          x: Number(instance.x || 0) || 0,
-          y: Number(instance.y || 0) || 0,
-          width: Number(instance.width || 0) || 0,
-          height: Number(instance.height || 0) || 0,
-        });
+      placementState.fieldInstances.forEach((instance, index) => {
+        fieldPlacements.push(toPlacementFormPayload(instance, index));
       });
+    }
+    const serializedPlacements = JSON.stringify(fieldPlacements);
+    if (fieldPlacementsJSONInput) {
+      fieldPlacementsJSONInput.value = serializedPlacements;
     }
 
     return {
@@ -1768,9 +2357,10 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
       participants,
       field_instances: fieldInstances,
       field_placements: fieldPlacements,
+      field_placements_json: serializedPlacements,
       field_rules: collectFieldRulesForForm(),
       field_rules_json: String(fieldRulesJSONInput?.value || '[]'),
-      send_for_signature: currentStep === TOTAL_STEPS ? 1 : 0,
+      send_for_signature: currentStep === TOTAL_WIZARD_STEPS ? 1 : 0,
       recipients_present: 1,
       fields_present: 1,
       field_instances_present: 1,
@@ -1861,7 +2451,7 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     if (missingSigners.length > 0) {
       e.preventDefault();
       announceError(missingSignatureFieldMessage(missingSigners));
-      goToStep(4);
+      goToStep(WIZARD_STEP.FIELDS);
       addFieldBtn.focus();
       return;
     }
@@ -1895,7 +2485,7 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     }
 
     const hasSaveAsDraftIntent = Boolean(form.querySelector('input[name="save_as_draft"]'));
-    const shouldSendForSignature = currentStep === TOTAL_STEPS && !hasSaveAsDraftIntent;
+    const shouldSendForSignature = currentStep === TOTAL_WIZARD_STEPS && !hasSaveAsDraftIntent;
 
     if (shouldSendForSignature) {
       let sendIntentInput = form.querySelector('input[name="send_for_signature"]');
@@ -1978,7 +2568,6 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
   // =============================================================================
   // Wizard Navigation
   // =============================================================================
-  const TOTAL_STEPS = 6;
   let currentStep = 1;
 
   const wizardStepBtns = document.querySelectorAll('.wizard-step-btn');
@@ -2041,13 +2630,13 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
 
     // Update navigation buttons
     wizardPrevBtn.classList.toggle('hidden', currentStep === 1);
-    wizardNextBtn.classList.toggle('hidden', currentStep === TOTAL_STEPS);
-    wizardSaveBtn.classList.toggle('hidden', currentStep !== TOTAL_STEPS);
-    submitBtn.classList.toggle('hidden', currentStep !== TOTAL_STEPS);
+    wizardNextBtn.classList.toggle('hidden', currentStep === TOTAL_WIZARD_STEPS);
+    wizardSaveBtn.classList.toggle('hidden', currentStep !== TOTAL_WIZARD_STEPS);
+    submitBtn.classList.toggle('hidden', currentStep !== TOTAL_WIZARD_STEPS);
 
     // Update next button text based on step
-    if (currentStep < TOTAL_STEPS) {
-      const nextStepName = ['Details', 'Participants', 'Fields', 'Placement', 'Review'][currentStep - 1] || 'Next';
+    if (currentStep < TOTAL_WIZARD_STEPS) {
+      const nextStepName = WIZARD_NEXT_STEP_LABELS[currentStep] || 'Next';
       wizardNextBtn.innerHTML = `
         ${nextStepName}
         <svg class="w-4 h-4 ml-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2057,11 +2646,14 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     }
 
     // Run step-specific initialization
-    if (currentStep === 5) {
+    if (currentStep === WIZARD_STEP.PLACEMENT) {
       initPlacementEditor();
-    } else if (currentStep === 6) {
+    } else if (currentStep === WIZARD_STEP.REVIEW) {
       initSendReadinessCheck();
     }
+
+    // Update document preview card visibility (Phase 2)
+    previewCard.updateVisibility(currentStep);
   }
 
   function validateStep(stepNum) {
@@ -2135,7 +2727,7 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
   }
 
   function goToStep(stepNum) {
-    if (stepNum < 1 || stepNum > TOTAL_STEPS) return;
+    if (stepNum < WIZARD_STEP.DOCUMENT || stepNum > TOTAL_WIZARD_STEPS) return;
 
     // Validate current step before moving forward
     if (stepNum > currentStep) {
@@ -2182,30 +2774,6 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
   // =============================================================================
   // Step 5: Placement Editor (PDF Viewer + Drag/Resize Field Overlays)
   // =============================================================================
-  function normalizePlacementInstance(instance, index) {
-    const raw = instance || {};
-    const id = String(raw.id || `fi_init_${index || 0}`);
-    const definitionId = String(raw.definitionId || raw.definition_id || raw.field_definition_id || id);
-    const page = parseInt(raw.page || raw.page_number || '1', 10);
-    const x = parseFloat(raw.x || raw.pos_x || '0');
-    const y = parseFloat(raw.y || raw.pos_y || '0');
-    const width = parseFloat(raw.width || '150');
-    const height = parseFloat(raw.height || '32');
-    return {
-      id,
-      definitionId,
-      type: String(raw.type || 'text'),
-      participantId: String(raw.participantId || raw.participant_id || ''),
-      participantName: String(raw.participantName || raw.participant_name || 'Unassigned'),
-      page: Number.isFinite(page) && page > 0 ? page : 1,
-      x: Number.isFinite(x) && x >= 0 ? x : 0,
-      y: Number.isFinite(y) && y >= 0 ? y : 0,
-      width: Number.isFinite(width) && width > 0 ? width : 150,
-      height: Number.isFinite(height) && height > 0 ? height : 32,
-      placementSource: String(raw.placementSource || raw.placement_source || 'manual')
-    };
-  }
-
   const initialPlacementInstances = Array.isArray(window._initialFieldPlacementsData)
     ? window._initialFieldPlacementsData.map((instance, index) => normalizePlacementInstance(instance, index))
     : [];
@@ -2220,7 +2788,9 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     isDragging: false,
     isResizing: false,
     dragOffset: { x: 0, y: 0 },
-    uiHandlersBound: false
+    uiHandlersBound: false,
+    // Phase 3: Linked field placement state
+    linkGroupState: createLinkGroupState(),
   };
 
   const TYPE_COLORS = {
@@ -2490,7 +3060,8 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
   function addFieldInstance(fieldData, x, y, options = {}) {
     const sizes = DEFAULT_FIELD_SIZES[fieldData.fieldType] || DEFAULT_FIELD_SIZES.text;
     const instanceId = `fi_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const placementSource = options.placementSource || 'manual';
+    const placementSource = options.placementSource || PLACEMENT_SOURCE.MANUAL;
+    const linkGroupId = options.linkGroupId || getFieldLinkGroup(placementState.linkGroupState, fieldData.definitionId)?.id;
 
     const instance = {
       id: instanceId,
@@ -2503,16 +3074,35 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
       y: Math.max(0, y - sizes.height / 2),
       width: sizes.width,
       height: sizes.height,
-      placementSource
+      placementSource,
+      linkGroupId,
+      linkedFromFieldId: options.linkedFromFieldId,
     };
 
     placementState.fieldInstances.push(instance);
 
     // Mark field as placed in the panel
-    const fieldItem = document.querySelector(`.placement-field-item[data-definition-id="${fieldData.definitionId}"]`);
+    markFieldAsPlaced(fieldData.definitionId);
+
+    // Phase 3: If this is a manual placement and field belongs to a link group,
+    // automatically place linked siblings
+    if (placementSource === PLACEMENT_SOURCE.MANUAL && linkGroupId) {
+      triggerLinkedPlacements(instance);
+    }
+
+    renderFieldOverlays();
+    updatePlacementStats();
+    updateFieldInstancesFormData();
+  }
+
+  /**
+   * Mark a field as placed in the sidebar panel
+   */
+  function markFieldAsPlaced(definitionId: string): void {
+    const fieldItem = document.querySelector(`.placement-field-item[data-definition-id="${definitionId}"]`);
     if (fieldItem) {
       fieldItem.classList.add('opacity-50');
-      fieldItem.draggable = false;
+      (fieldItem as HTMLElement).draggable = false;
       const status = fieldItem.querySelector('.placement-status');
       if (status) {
         status.textContent = 'Placed';
@@ -2520,10 +3110,45 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
         status.classList.add('text-green-600');
       }
     }
+  }
 
-    renderFieldOverlays();
-    updatePlacementStats();
-    updateFieldInstancesFormData();
+  /**
+   * Phase 3: Trigger linked placements for fields in the same link group
+   */
+  function triggerLinkedPlacements(sourcePlacement: any): void {
+    // Build field definitions map from placement panel
+    const fieldDefinitions = new Map<string, { type: string; participantId: string; participantName: string }>();
+    const placementFieldItems = document.querySelectorAll('.placement-field-item');
+    placementFieldItems.forEach((item) => {
+      const defId = (item as HTMLElement).dataset.definitionId;
+      if (defId) {
+        fieldDefinitions.set(defId, {
+          type: (item as HTMLElement).dataset.fieldType || 'text',
+          participantId: (item as HTMLElement).dataset.participantId || '',
+          participantName: (item as HTMLElement).dataset.participantName || 'Unknown',
+        });
+      }
+    });
+
+    const result = computeLinkedPlacements(
+      placementState.linkGroupState,
+      sourcePlacement,
+      placementState.fieldInstances,
+      fieldDefinitions
+    );
+
+    if (!result) return;
+
+    // Add new linked placements
+    for (const newPlacement of result.newPlacements) {
+      placementState.fieldInstances.push(newPlacement);
+      markFieldAsPlaced(newPlacement.definitionId);
+    }
+
+    // Update link group with source field
+    if (result.updatedGroup) {
+      placementState.linkGroupState = addLinkGroup(placementState.linkGroupState, result.updatedGroup);
+    }
   }
 
   function renderFieldOverlays() {
@@ -2606,7 +3231,7 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
 
       instance.x = Math.max(0, (startLeft + dx) / placementState.scale);
       instance.y = Math.max(0, (startTop + dy) / placementState.scale);
-      instance.placementSource = 'manual';
+      instance.placementSource = PLACEMENT_SOURCE.MANUAL;
 
       overlay.style.left = `${instance.x * placementState.scale}px`;
       overlay.style.top = `${instance.y * placementState.scale}px`;
@@ -2639,7 +3264,7 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
 
       instance.width = Math.max(30, startWidth + dx);
       instance.height = Math.max(20, startHeight + dy);
-      instance.placementSource = 'manual';
+      instance.placementSource = PLACEMENT_SOURCE.MANUAL;
 
       renderFieldOverlays();
     }
@@ -2750,26 +3375,31 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
   function updateFieldInstancesFormData() {
     const container = document.getElementById('field-instances-container');
     container.innerHTML = '';
+    const placementEntries = placementState.fieldInstances.map((instance, index) => toPlacementFormPayload(instance, index));
 
-    placementState.fieldInstances.forEach((instance, index) => {
+    placementEntries.forEach((placement, index) => {
       const inputs = [
-        { name: `field_placements[${index}].id`, value: instance.id },
-        { name: `field_placements[${index}].definition_id`, value: instance.definitionId },
-        { name: `field_placements[${index}].page`, value: instance.page },
-        { name: `field_placements[${index}].x`, value: Math.round(instance.x) },
-        { name: `field_placements[${index}].y`, value: Math.round(instance.y) },
-        { name: `field_placements[${index}].width`, value: Math.round(instance.width) },
-        { name: `field_placements[${index}].height`, value: Math.round(instance.height) }
+        { name: `field_placements[${index}].id`, value: placement.id },
+        { name: `field_placements[${index}].definition_id`, value: placement.definition_id },
+        { name: `field_placements[${index}].page`, value: placement.page },
+        { name: `field_placements[${index}].x`, value: placement.x },
+        { name: `field_placements[${index}].y`, value: placement.y },
+        { name: `field_placements[${index}].width`, value: placement.width },
+        { name: `field_placements[${index}].height`, value: placement.height }
       ];
 
       inputs.forEach(({ name, value }) => {
         const input = document.createElement('input');
         input.type = 'hidden';
         input.name = name;
-        input.value = value;
+        input.value = String(value);
         container.appendChild(input);
       });
     });
+
+    if (fieldPlacementsJSONInput) {
+      fieldPlacementsJSONInput.value = JSON.stringify(placementEntries);
+    }
   }
 
   // Ensure placement geometry is included in form posts before any interaction.
@@ -2891,7 +3521,7 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
 
       // Place on last page
       placementState.currentPage = placementState.totalPages;
-      addFieldInstance(fieldData, 300, yOffset + sizes.height / 2, { placementSource: 'auto_fallback' });
+      addFieldInstance(fieldData, 300, yOffset + sizes.height / 2, { placementSource: PLACEMENT_SOURCE.AUTO_FALLBACK });
       yOffset += sizes.height + 20;
     });
 
@@ -3229,7 +3859,7 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
       width: suggestion.width,
       height: suggestion.height,
       // Track placement source for audit
-      placementSource: 'auto',
+      placementSource: PLACEMENT_SOURCE.AUTO,
       resolverId: suggestion.resolver_id,
       confidence: suggestion.confidence,
       placementRunId: autoPlaceState.currentRunId
@@ -3627,6 +4257,12 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     updateFieldParticipantOptions();
     restoreFieldPlacementsFromState();
 
+    // Restore document preview card if document exists (Phase 2)
+    const state = stateManager.getState();
+    if (state.document?.id) {
+      previewCard.setDocument(state.document.id, state.document.title, state.document.pageCount);
+    }
+
     // Navigate to saved step
     currentStep = window._resumeToStep;
     updateWizardUI();
@@ -3634,6 +4270,13 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
   } else {
     // Initialize wizard normally
     updateWizardUI();
+
+    // Load document preview if document is already selected (Phase 2)
+    if (documentIdInput.value) {
+      const docTitle = selectedDocumentTitle?.textContent || null;
+      const docPages = parsePositiveInt(documentPageCountInput.value, null);
+      previewCard.setDocument(documentIdInput.value, docTitle, docPages);
+    }
   }
 
   // If editing an existing agreement, don't show sync indicator until changes are made

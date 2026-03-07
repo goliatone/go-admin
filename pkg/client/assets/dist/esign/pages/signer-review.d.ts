@@ -27,6 +27,9 @@ export interface SignerReviewConfig {
         origin?: 'top-left' | 'bottom-left' | string;
         yAxisDirection?: 'down' | 'up' | string;
         pages?: any[];
+        compatibilityTier?: string;
+        compatibilityReason?: string;
+        compatibilityMessage?: string;
     };
     signerState?: 'active' | 'waiting' | 'completed' | 'declined' | string;
     recipientStage?: number;
