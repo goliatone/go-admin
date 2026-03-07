@@ -3,89 +3,39 @@ package main
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	coreadmin "github.com/goliatone/go-admin/admin"
 	appcfg "github.com/goliatone/go-admin/examples/esign/config"
+	esignpersistence "github.com/goliatone/go-admin/examples/esign/internal/persistence"
 	"github.com/goliatone/go-admin/examples/esign/services"
-	"github.com/goliatone/go-admin/examples/esign/stores"
 	servicesmodule "github.com/goliatone/go-admin/modules/services"
-	persistence "github.com/goliatone/go-persistence-bun"
 	goservices "github.com/goliatone/go-services"
 	gdrive "github.com/goliatone/go-services/providers/google/drive"
-	"github.com/uptrace/bun/dialect/sqlitedialect"
-	"github.com/uptrace/bun/driver/sqliteshim"
 )
 
 const defaultESignServicesEncryptionKey = "go-admin-esign-services-app-key"
 
-type eSignServicesPersistenceConfig struct {
-	driver string
-	server string
-}
-
-func (c eSignServicesPersistenceConfig) GetDebug() bool {
-	return false
-}
-
-func (c eSignServicesPersistenceConfig) GetDriver() string {
-	return c.driver
-}
-
-func (c eSignServicesPersistenceConfig) GetServer() string {
-	return c.server
-}
-
-func (c eSignServicesPersistenceConfig) GetPingTimeout() time.Duration {
-	return time.Second
-}
-
-func (c eSignServicesPersistenceConfig) GetOtelIdentifier() string {
-	return ""
-}
-
-func setupESignServicesModule(adm *coreadmin.Admin) (*servicesmodule.Module, func(), error) {
+func setupESignServicesModule(adm *coreadmin.Admin, bootstrap *esignpersistence.BootstrapResult) (*servicesmodule.Module, error) {
 	if adm == nil {
-		return nil, nil, fmt.Errorf("esign services module: admin is required")
+		return nil, fmt.Errorf("esign services module: admin is required")
 	}
 	runtimeCfg := appcfg.Active()
 	if !runtimeCfg.Services.ModuleEnabled {
-		return nil, nil, nil
+		return nil, nil
 	}
-
-	dsn := stores.ResolveSQLiteDSN()
-	ensureSQLiteDSNDir(dsn)
-
-	sqlDB, err := sql.Open(sqliteshim.ShimName, dsn)
-	if err != nil {
-		return nil, nil, fmt.Errorf("esign services module: open sqlite: %w", err)
-	}
-	sqlDB.SetMaxOpenConns(1)
-	sqlDB.SetMaxIdleConns(1)
-	if err := sqlDB.Ping(); err != nil {
-		_ = sqlDB.Close()
-		return nil, nil, fmt.Errorf("esign services module: ping sqlite: %w", err)
-	}
-	if err := stores.ConfigureSQLiteConnection(context.Background(), sqlDB); err != nil {
-		_ = sqlDB.Close()
-		return nil, nil, fmt.Errorf("esign services module: configure sqlite: %w", err)
-	}
-
-	client, err := persistence.New(
-		eSignServicesPersistenceConfig{driver: sqliteshim.ShimName, server: dsn},
-		sqlDB,
-		sqlitedialect.New(),
-	)
-	if err != nil {
-		_ = sqlDB.Close()
-		return nil, nil, fmt.Errorf("esign services module: persistence client: %w", err)
+	if bootstrap == nil || bootstrap.Client == nil || bootstrap.SQLDB == nil {
+		return nil, fmt.Errorf("esign services module: shared bootstrap persistence handles are required")
 	}
 
 	cfg := servicesmodule.DefaultConfig()
 	cfg.Enabled = true
-	cfg.PersistenceClient = client
+	cfg.PersistenceClient = bootstrap.Client
+	// Phase 2+ bootstrap is the single migration owner; module setup must not register its own sources.
+	registerMigrations := false
+	cfg.RegisterMigrations = &registerMigrations
 	cfg.EncryptionKey = strings.TrimSpace(runtimeCfg.Services.EncryptionKey)
 	if cfg.EncryptionKey == "" {
 		cfg.EncryptionKey = defaultESignServicesEncryptionKey
@@ -96,8 +46,7 @@ func setupESignServicesModule(adm *coreadmin.Admin) (*servicesmodule.Module, fun
 	if runtimeCfg.Features.ESignGoogle {
 		provider, providerErr := buildGoogleDriveProviderFromConfig(runtimeCfg)
 		if providerErr != nil {
-			_ = sqlDB.Close()
-			return nil, nil, providerErr
+			return nil, providerErr
 		}
 		opts = append(opts, servicesmodule.WithCallbackURLConfig(resolveESignServicesCallbackConfig(runtimeCfg)))
 		opts = append(opts, servicesmodule.WithProvider(provider))
@@ -105,27 +54,17 @@ func setupESignServicesModule(adm *coreadmin.Admin) (*servicesmodule.Module, fun
 
 	module, err := servicesmodule.Setup(adm, cfg, opts...)
 	if err != nil {
-		_ = sqlDB.Close()
-		return nil, nil, err
+		return nil, err
 	}
-	if err := client.Migrate(context.Background()); err != nil {
-		_ = sqlDB.Close()
-		return nil, nil, fmt.Errorf("esign services module: migrate services schema: %w", err)
+	if err := ensureESignServicesSchema(context.Background(), bootstrap.SQLDB); err != nil {
+		return nil, err
 	}
-	if err := ensureESignServicesSchema(context.Background(), sqlDB); err != nil {
-		_ = sqlDB.Close()
-		return nil, nil, err
-	}
-
-	cleanup := func() {
-		_ = sqlDB.Close()
-	}
-	return module, cleanup, nil
+	return module, nil
 }
 
 func ensureESignServicesSchema(ctx context.Context, db *sql.DB) error {
 	if db == nil {
-		return fmt.Errorf("esign services module: sqlite db is required")
+		return fmt.Errorf("esign services module: db handle is required")
 	}
 	requiredTables := []string{
 		"service_connections",
@@ -134,19 +73,28 @@ func ensureESignServicesSchema(ctx context.Context, db *sql.DB) error {
 		"service_grant_snapshots",
 	}
 	for _, table := range requiredTables {
-		var count int
-		if err := db.QueryRowContext(
-			ctx,
-			`SELECT COUNT(1) FROM sqlite_master WHERE type='table' AND name = ?`,
-			table,
-		).Scan(&count); err != nil {
-			return fmt.Errorf("esign services module: check services schema table %q: %w", table, err)
+		query := fmt.Sprintf(`SELECT 1 FROM "%s" LIMIT 1`, table)
+		var marker int
+		err := db.QueryRowContext(ctx, query).Scan(&marker)
+		if err == nil || errors.Is(err, sql.ErrNoRows) {
+			continue
 		}
-		if count <= 0 {
-			return fmt.Errorf("esign services module: missing required table %q after migration", table)
+		if isMissingTableError(err) {
+			return fmt.Errorf("esign services module: missing required table %q after migration: %w", table, err)
 		}
+		return fmt.Errorf("esign services module: check services schema table %q: %w", table, err)
 	}
 	return nil
+}
+
+func isMissingTableError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "no such table") ||
+		strings.Contains(msg, "does not exist") ||
+		strings.Contains(msg, "undefined table")
 }
 
 func buildGoogleDriveProviderFromConfig(runtimeCfg appcfg.Config) (servicesmodule.Provider, error) {

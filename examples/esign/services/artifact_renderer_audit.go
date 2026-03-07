@@ -44,8 +44,8 @@ type auditTrailStyle struct {
 
 func defaultAuditTrailStyle() auditTrailStyle {
 	return auditTrailStyle{
-		PageWidth:      defaultPDFPageWidthPt,
-		PageHeight:     defaultPDFPageHeightPt,
+		PageWidth:      PDFDefaultPageWidthPt,
+		PageHeight:     PDFDefaultPageHeightPt,
 		MarginLeft:     54,
 		MarginRight:    54,
 		MarginTop:      56,

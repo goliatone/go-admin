@@ -10,12 +10,17 @@ import (
 //go:embed data/sql/migrations/*.sql data/sql/migrations/sqlite/*.sql data/sql/migrations/postgres/*.sql
 var migrationsFS embed.FS
 
+// AppLocalMigrationsFS returns the e-sign app-local migration root filesystem.
+func AppLocalMigrationsFS() (fs.FS, error) {
+	return fs.Sub(migrationsFS, "data/sql/migrations")
+}
+
 // RegisterMigrations registers e-sign phase-1 dialect-aware migrations.
 func RegisterMigrations(client *persistence.Client) error {
 	if client == nil {
 		return nil
 	}
-	root, err := fs.Sub(migrationsFS, "data/sql/migrations")
+	root, err := AppLocalMigrationsFS()
 	if err != nil {
 		return err
 	}

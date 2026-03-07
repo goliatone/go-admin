@@ -7,13 +7,16 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"io"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	"github.com/goliatone/go-uploader"
 	"github.com/phpdave11/gofpdf"
+	gofpdi "github.com/phpdave11/gofpdf/contrib/gofpdi"
 )
 
 func TestReadableArtifactRendererRenderExecutedUsesSourceAndOverlaysValues(t *testing.T) {
@@ -180,6 +183,126 @@ func TestReadableArtifactRendererRenderExecutedUsesSourceAndOverlaysValues(t *te
 	}
 }
 
+func TestReadableArtifactRendererRenderExecutedPrefersNormalizedWhenOriginalUnavailable(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+	objectStore := uploader.NewManager(uploader.WithProvider(uploader.NewFSProvider(t.TempDir())))
+	renderer := NewReadableArtifactRenderer(store, store, objectStore)
+
+	docSvc := NewDocumentService(store, WithDocumentObjectStore(objectStore))
+	document, err := docSvc.Upload(ctx, scope, DocumentUploadInput{
+		Title:     "MSA",
+		ObjectKey: "tenant/tenant-1/org/org-1/docs/doc-norm/source.pdf",
+		PDF:       GenerateDeterministicPDF(1),
+	})
+	if err != nil {
+		t.Fatalf("upload source document: %v", err)
+	}
+	if strings.TrimSpace(document.NormalizedObjectKey) == "" {
+		t.Fatalf("expected normalized object key")
+	}
+	if _, err := objectStore.UploadFile(ctx, document.SourceObjectKey, []byte("not-a-pdf"), uploader.WithContentType("application/pdf")); err != nil {
+		t.Fatalf("overwrite source object: %v", err)
+	}
+
+	rendered, err := renderer.RenderExecuted(ctx, ExecutedRenderInput{
+		Scope: scope,
+		Agreement: stores.AgreementRecord{
+			ID:         "agreement-normalized-preferred",
+			DocumentID: document.ID,
+		},
+	})
+	if err != nil {
+		t.Fatalf("render executed: %v", err)
+	}
+	if !bytes.HasPrefix(rendered.Payload, []byte("%PDF-")) {
+		t.Fatalf("expected rendered payload to be pdf")
+	}
+}
+
+func TestReadableArtifactRendererRenderExecutedStrictModeBlocksOriginalFallback(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+	objectStore := uploader.NewManager(uploader.WithProvider(uploader.NewFSProvider(t.TempDir())))
+
+	docSvc := NewDocumentService(store)
+	document, err := docSvc.Upload(ctx, scope, DocumentUploadInput{
+		Title:     "MSA",
+		ObjectKey: "tenant/tenant-1/org/org-1/docs/doc-strict/source.pdf",
+		PDF:       GenerateDeterministicPDF(1),
+	})
+	if err != nil {
+		t.Fatalf("upload source document: %v", err)
+	}
+	if _, err := objectStore.UploadFile(ctx, document.SourceObjectKey, GenerateDeterministicPDF(1), uploader.WithContentType("application/pdf")); err != nil {
+		t.Fatalf("upload source object: %v", err)
+	}
+
+	policy := DefaultPDFPolicy()
+	policy.CompatibilityMode = PDFCompatibilityModeStrict
+	renderer := NewReadableArtifactRenderer(
+		store,
+		store,
+		objectStore,
+		WithReadableArtifactRendererPDFService(NewPDFService(WithPDFPolicyResolver(NewStaticPDFPolicyResolver(policy)))),
+	)
+	_, err = renderer.RenderExecuted(ctx, ExecutedRenderInput{
+		Scope: scope,
+		Agreement: stores.AgreementRecord{
+			ID:         "agreement-strict-no-fallback",
+			DocumentID: document.ID,
+		},
+	})
+	if err == nil {
+		t.Fatalf("expected strict mode to block original-source fallback")
+	}
+	if !strings.Contains(strings.ToLower(err.Error()), "fallback disallowed") {
+		t.Fatalf("expected fallback disallowed error, got %v", err)
+	}
+}
+
+func TestReadableArtifactRendererRenderExecutedBlocksUnsupportedCompatibilityTier(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+	objectStore := uploader.NewManager(uploader.WithProvider(uploader.NewFSProvider(t.TempDir())))
+
+	document, err := store.Create(ctx, scope, stores.DocumentRecord{
+		ID:                     "doc-unsupported-render",
+		Title:                  "Unsupported Render Source",
+		SourceObjectKey:        "tenant/tenant-1/org/org-1/docs/doc-unsupported-render/source.pdf",
+		SourceSHA256:           strings.Repeat("a", 64),
+		SourceType:             stores.SourceTypeUpload,
+		PDFCompatibilityTier:   string(PDFCompatibilityTierUnsupported),
+		PDFCompatibilityReason: PDFCompatibilityReasonPreviewFallbackDisabled,
+		CreatedAt:              time.Now().UTC(),
+		UpdatedAt:              time.Now().UTC(),
+	})
+	if err != nil {
+		t.Fatalf("create document: %v", err)
+	}
+	if _, err := objectStore.UploadFile(ctx, document.SourceObjectKey, GenerateDeterministicPDF(1), uploader.WithContentType("application/pdf")); err != nil {
+		t.Fatalf("upload source payload: %v", err)
+	}
+
+	renderer := NewReadableArtifactRenderer(store, store, objectStore)
+	_, err = renderer.RenderExecuted(ctx, ExecutedRenderInput{
+		Scope: scope,
+		Agreement: stores.AgreementRecord{
+			ID:         "agreement-unsupported-render",
+			DocumentID: document.ID,
+		},
+	})
+	if err == nil {
+		t.Fatalf("expected unsupported compatibility tier to block render")
+	}
+	if !strings.Contains(strings.ToLower(err.Error()), "pdf compatibility unsupported") {
+		t.Fatalf("expected pdf compatibility unsupported error, got %v", err)
+	}
+}
+
 func TestReadableArtifactRendererRenderExecutedMultiPageAvoidsInfiniteTemplateScale(t *testing.T) {
 	ctx := context.Background()
 	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
@@ -283,6 +406,71 @@ func TestReadableArtifactRendererRenderExecutedMultiPageAvoidsInfiniteTemplateSc
 	}
 	if strings.Count(raw, "/Type /Page") < 3 {
 		t.Fatalf("expected rendered payload to preserve multiple pages")
+	}
+}
+
+func TestReadableArtifactRendererRenderExecutedRecoversImportPanics(t *testing.T) {
+	observability.ResetDefaultMetrics()
+	t.Cleanup(observability.ResetDefaultMetrics)
+
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+	objectStore := uploader.NewManager(uploader.WithProvider(uploader.NewFSProvider(t.TempDir())))
+	renderer := NewReadableArtifactRenderer(store, store, objectStore)
+
+	docSvc := NewDocumentService(store, WithDocumentObjectStore(objectStore))
+	document, err := docSvc.Upload(ctx, scope, DocumentUploadInput{
+		Title:     "Panic Recovery Source",
+		ObjectKey: "tenant/tenant-1/org/org-1/docs/doc-panic/source.pdf",
+		PDF:       samplePDF(1),
+	})
+	if err != nil {
+		t.Fatalf("upload source document: %v", err)
+	}
+	agreementSvc := NewAgreementService(store)
+	agreement, err := agreementSvc.CreateDraft(ctx, scope, CreateDraftInput{
+		DocumentID:      document.ID,
+		Title:           "Agreement Panic Recovery",
+		CreatedByUserID: "user-1",
+	})
+	if err != nil {
+		t.Fatalf("create draft: %v", err)
+	}
+
+	previous := gofpdiImportPageFromStream
+	t.Cleanup(func() {
+		gofpdiImportPageFromStream = previous
+	})
+	gofpdiImportPageFromStream = func(_ *gofpdi.Importer, _ *gofpdf.Fpdf, _ *io.ReadSeeker, _ int, _ string) int {
+		panic("forced importer panic")
+	}
+
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			t.Fatalf("expected renderer to recover parser panic, got panic=%v", recovered)
+		}
+	}()
+	_, err = renderer.RenderExecuted(ctx, ExecutedRenderInput{
+		Scope:       scope,
+		Agreement:   agreement,
+		Recipients:  nil,
+		Fields:      nil,
+		FieldValues: nil,
+		Events:      nil,
+	})
+	if err == nil {
+		t.Fatal("expected render error when importer panics")
+	}
+	if !strings.Contains(err.Error(), "failed importing source page 1") {
+		t.Fatalf("expected import failure error, got %v", err)
+	}
+	snapshot := observability.Snapshot()
+	if snapshot.PDFRenderImportFailTotal != 1 {
+		t.Fatalf("expected pdf_render_import_fail_total=1, got %+v", snapshot)
+	}
+	if snapshot.PDFRenderImportFailByReasonTier["reason=import.failed,tier=full"] != 1 {
+		t.Fatalf("expected labeled render import fail metric, got %+v", snapshot.PDFRenderImportFailByReasonTier)
 	}
 }
 

@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"sort"
 	"testing"
 	"time"
@@ -236,5 +237,199 @@ func TestDraftServiceSendExpandsFieldRules(t *testing.T) {
 	}
 	if instances[0].TabIndex != 1 || instances[1].TabIndex != 2 || instances[2].TabIndex != 3 {
 		t.Fatalf("expected deterministic tab indexes 1..3, got [%d,%d,%d]", instances[0].TabIndex, instances[1].TabIndex, instances[2].TabIndex)
+	}
+}
+
+func TestDraftServiceCreateNormalizesWizardPagesToDocumentBounds(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+
+	docSvc := NewDocumentService(store)
+	doc, err := docSvc.Upload(ctx, scope, DocumentUploadInput{
+		Title:     "Normalization Source",
+		ObjectKey: "tenant/tenant-1/org/org-1/docs/draft-normalization/source.pdf",
+		PDF:       GenerateDeterministicPDF(3),
+	})
+	if err != nil {
+		t.Fatalf("Upload: %v", err)
+	}
+
+	draftSvc := NewDraftService(store, WithDraftAgreementService(NewAgreementService(store)))
+	state := map[string]any{
+		"document": map[string]any{
+			"id":        doc.ID,
+			"pageCount": 999,
+		},
+		"details": map[string]any{"title": "Normalization Draft"},
+		"fieldDefinitions": []map[string]any{
+			{"page": 99},
+			{"page": -2},
+		},
+		"fieldPlacements": []map[string]any{
+			{"field_definition_id": "f1", "page": 0},
+			{"field_definition_id": "f2", "page": -4},
+			{"field_definition_id": "f3", "page": 12},
+		},
+		"fieldRules": []map[string]any{
+			{
+				"type":         "signature_once",
+				"page":         -7,
+				"toPage":       12,
+				"excludePages": []any{-1, 2, 90},
+			},
+			{
+				"type":         "initials_each_page",
+				"fromPage":     -9,
+				"toPage":       42,
+				"excludePages": "0,2,100",
+			},
+		},
+	}
+
+	record, replay, err := draftSvc.Create(ctx, scope, DraftCreateInput{
+		WizardID:        "wiz-normalization-create-1",
+		WizardState:     state,
+		Title:           "Normalization Draft",
+		CurrentStep:     4,
+		DocumentID:      doc.ID,
+		CreatedByUserID: "author-1",
+	})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if replay {
+		t.Fatalf("expected replay=false on first create")
+	}
+
+	decoded := map[string]any{}
+	if err := json.Unmarshal([]byte(record.WizardStateJSON), &decoded); err != nil {
+		t.Fatalf("unmarshal wizard_state: %v", err)
+	}
+	document, ok := decoded["document"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected document object, got %#v", decoded["document"])
+	}
+	if got := int(document["pageCount"].(float64)); got != 3 {
+		t.Fatalf("expected normalized document.pageCount=3, got %d", got)
+	}
+
+	fieldDefinitions := decoded["fieldDefinitions"].([]any)
+	if got := int(fieldDefinitions[0].(map[string]any)["page"].(float64)); got != 3 {
+		t.Fatalf("expected fieldDefinitions[0].page clamped to 3, got %d", got)
+	}
+	if got := int(fieldDefinitions[1].(map[string]any)["page"].(float64)); got != 1 {
+		t.Fatalf("expected fieldDefinitions[1].page clamped to 1, got %d", got)
+	}
+
+	fieldPlacements := decoded["fieldPlacements"].([]any)
+	if got := int(fieldPlacements[0].(map[string]any)["page"].(float64)); got != 1 {
+		t.Fatalf("expected fieldPlacements[0].page clamped to 1, got %d", got)
+	}
+	if got := int(fieldPlacements[1].(map[string]any)["page"].(float64)); got != 1 {
+		t.Fatalf("expected fieldPlacements[1].page clamped to 1, got %d", got)
+	}
+	if got := int(fieldPlacements[2].(map[string]any)["page"].(float64)); got != 3 {
+		t.Fatalf("expected fieldPlacements[2].page clamped to 3, got %d", got)
+	}
+
+	fieldRules := decoded["fieldRules"].([]any)
+	firstRule := fieldRules[0].(map[string]any)
+	if got := int(firstRule["page"].(float64)); got != 1 {
+		t.Fatalf("expected fieldRules[0].page clamped to 1, got %d", got)
+	}
+	if got := int(firstRule["toPage"].(float64)); got != 3 {
+		t.Fatalf("expected fieldRules[0].toPage clamped to 3, got %d", got)
+	}
+	excludePages := firstRule["excludePages"].([]any)
+	if len(excludePages) != 2 || int(excludePages[0].(float64)) != 2 || int(excludePages[1].(float64)) != 3 {
+		t.Fatalf("expected fieldRules[0].excludePages normalized to [2,3], got %#v", excludePages)
+	}
+}
+
+func TestDraftServiceUpdateNormalizesWizardPagesToDocumentBounds(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+
+	docSvc := NewDocumentService(store)
+	doc, err := docSvc.Upload(ctx, scope, DocumentUploadInput{
+		Title:     "Normalization Update Source",
+		ObjectKey: "tenant/tenant-1/org/org-1/docs/draft-normalization-update/source.pdf",
+		PDF:       GenerateDeterministicPDF(2),
+	})
+	if err != nil {
+		t.Fatalf("Upload: %v", err)
+	}
+
+	draftSvc := NewDraftService(store, WithDraftAgreementService(NewAgreementService(store)))
+	initialState := map[string]any{
+		"document": map[string]any{
+			"id": doc.ID,
+		},
+		"details": map[string]any{"title": "Normalization Update"},
+	}
+	record, replay, err := draftSvc.Create(ctx, scope, DraftCreateInput{
+		WizardID:        "wiz-normalization-update-1",
+		WizardState:     initialState,
+		Title:           "Normalization Update",
+		CurrentStep:     2,
+		DocumentID:      doc.ID,
+		CreatedByUserID: "author-1",
+	})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if replay {
+		t.Fatalf("expected replay=false on first create")
+	}
+
+	updateState := map[string]any{
+		"document": map[string]any{
+			"id":        doc.ID,
+			"pageCount": 99,
+		},
+		"details": map[string]any{"title": "Normalization Update"},
+		"fieldRules": []map[string]any{
+			{
+				"type":         "initials_each_page",
+				"fromPage":     -5,
+				"toPage":       9,
+				"excludePages": []any{-1, 2, 99},
+			},
+		},
+	}
+
+	updated, err := draftSvc.Update(ctx, scope, record.ID, DraftUpdateInput{
+		ExpectedRevision: record.Revision,
+		WizardState:      updateState,
+		Title:            "Normalization Update",
+		CurrentStep:      4,
+		DocumentID:       &doc.ID,
+		UpdatedByUserID:  "author-1",
+	})
+	if err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+
+	decoded := map[string]any{}
+	if err := json.Unmarshal([]byte(updated.WizardStateJSON), &decoded); err != nil {
+		t.Fatalf("unmarshal wizard_state: %v", err)
+	}
+	document := decoded["document"].(map[string]any)
+	if got := int(document["pageCount"].(float64)); got != 2 {
+		t.Fatalf("expected normalized document.pageCount=2, got %d", got)
+	}
+	rules := decoded["fieldRules"].([]any)
+	rule := rules[0].(map[string]any)
+	if got := int(rule["fromPage"].(float64)); got != 1 {
+		t.Fatalf("expected fromPage clamped to 1, got %d", got)
+	}
+	if got := int(rule["toPage"].(float64)); got != 2 {
+		t.Fatalf("expected toPage clamped to 2, got %d", got)
+	}
+	excludePages := rule["excludePages"].([]any)
+	if len(excludePages) != 1 || int(excludePages[0].(float64)) != 2 {
+		t.Fatalf("expected excludePages normalized to [2], got %#v", excludePages)
 	}
 }

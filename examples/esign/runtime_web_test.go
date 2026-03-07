@@ -16,6 +16,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -23,9 +24,11 @@ import (
 	coreadmin "github.com/goliatone/go-admin/admin"
 	appcfg "github.com/goliatone/go-admin/examples/esign/config"
 	"github.com/goliatone/go-admin/examples/esign/handlers"
+	esignpersistence "github.com/goliatone/go-admin/examples/esign/internal/persistence"
 	"github.com/goliatone/go-admin/examples/esign/modules"
 	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/services"
+	"github.com/goliatone/go-admin/examples/esign/stores"
 	"github.com/goliatone/go-admin/pkg/client"
 	"github.com/goliatone/go-admin/quickstart"
 	commandregistry "github.com/goliatone/go-command/registry"
@@ -36,6 +39,7 @@ var (
 	esignRuntimeAppOnce sync.Once
 	esignRuntimeApp     *fiber.App
 	esignRuntimeAppErr  error
+	esignRuntimeDSNSeq  uint64
 )
 
 func TestRuntimeRegistersWebEntrypointAndAuthRoutes(t *testing.T) {
@@ -462,6 +466,24 @@ func TestRuntimeMigratedPagesExposeValidatedESignModuleAssets(t *testing.T) {
 		t.Fatalf("expected document-ingestion module script src %q in markup", docModulePath)
 	}
 
+	agreementResp := doRequestWithCookie(t, app, http.MethodGet, "/admin/content/esign_agreements/new", authCookie)
+	defer agreementResp.Body.Close()
+	if agreementResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(agreementResp.Body)
+		t.Fatalf("expected /admin/content/esign_agreements/new status 200, got %d body=%s", agreementResp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	agreementBody, err := io.ReadAll(agreementResp.Body)
+	if err != nil {
+		t.Fatalf("read agreement form body: %v", err)
+	}
+	agreementMarkup := string(agreementBody)
+	if !strings.Contains(agreementMarkup, `data-esign-page="agreement-form"`) {
+		t.Fatalf("expected agreement form marker in response")
+	}
+	if !strings.Contains(agreementMarkup, `src="/admin/assets/dist/esign/index.js"`) {
+		t.Fatalf("expected agreement form module script src %q in markup", "/admin/assets/dist/esign/index.js")
+	}
+
 	landingAssetResp := doRequest(t, app, http.MethodGet, landingModulePath, "", nil)
 	defer landingAssetResp.Body.Close()
 	if landingAssetResp.StatusCode != http.StatusOK {
@@ -473,6 +495,12 @@ func TestRuntimeMigratedPagesExposeValidatedESignModuleAssets(t *testing.T) {
 	if docAssetResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(docAssetResp.Body)
 		t.Fatalf("expected document-ingestion module asset status 200, got %d body=%s", docAssetResp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	agreementAssetResp := doRequest(t, app, http.MethodGet, "/admin/assets/dist/esign/index.js", "", nil)
+	defer agreementAssetResp.Body.Close()
+	if agreementAssetResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(agreementAssetResp.Body)
+		t.Fatalf("expected agreement-form module asset status 200, got %d body=%s", agreementAssetResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 }
 
@@ -1247,6 +1275,15 @@ func TestRuntimeSignerWebE2EUnifiedFlowConsentFieldSignatureSubmit(t *testing.T)
 	if got := strings.TrimSpace(fmt.Sprint(reviewConfig["flowMode"])); got != "unified" {
 		t.Fatalf("expected unified flow mode in signer review config, got %q payload=%+v", got, reviewConfig)
 	}
+	viewerCfg, ok := reviewConfig["viewer"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected viewer config object, got %+v", reviewConfig["viewer"])
+	}
+	for _, key := range []string{"compatibilityTier", "compatibilityReason", "compatibilityMessage"} {
+		if _, exists := viewerCfg[key]; !exists {
+			t.Fatalf("expected signer review viewer config key %q, got %+v", key, viewerCfg)
+		}
+	}
 
 	sessionResp := doRequestWithBody(
 		t,
@@ -1401,6 +1438,12 @@ func setESignRuntimeTestConfig(googleEnabled bool) {
 	cfg.Google.CredentialActiveKey = "test-google-active-key"
 	cfg.Google.CredentialActiveKeyID = "v1"
 	cfg.Public.BaseURL = "http://localhost:8082"
+	cfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectSQLite
+	cfg.SQLite.DSN = fmt.Sprintf(
+		"file:runtime-web-test-%d-%d?mode=memory&cache=shared&_busy_timeout=5000&_foreign_keys=on",
+		os.Getpid(),
+		atomic.AddUint64(&esignRuntimeDSNSeq, 1),
+	)
 	appcfg.SetActive(cfg)
 }
 
@@ -1411,6 +1454,11 @@ type eSignRuntimeWebFixture struct {
 
 func newESignRuntimeWebFixtureForTestsWithGoogleEnabled(googleEnabled bool) (eSignRuntimeWebFixture, error) {
 	_ = commandregistry.Stop(context.Background())
+	bootstrapResult, err := esignpersistence.Bootstrap(context.Background(), appcfg.Active())
+	if err != nil {
+		return eSignRuntimeWebFixture{}, fmt.Errorf("bootstrap persistence: %w", err)
+	}
+	defer func() { _ = bootstrapResult.Close() }()
 
 	cfg := quickstart.NewAdminConfig("/admin", "E-Sign Test", "en")
 	applyESignRuntimeDefaults(&cfg)
@@ -1441,6 +1489,15 @@ func newESignRuntimeWebFixtureForTestsWithGoogleEnabled(googleEnabled bool) (eSi
 
 	esignModule := modules.NewESignModule(cfg.BasePath, cfg.DefaultLocale, cfg.NavMenuCode).
 		WithUploadDir(resolveESignDiskAssetsDir())
+	if bootstrapResult.Dialect == esignpersistence.DialectSQLite {
+		bootstrapStore, storeErr := stores.NewSQLiteStore(bootstrapResult.DSN)
+		if storeErr != nil {
+			return eSignRuntimeWebFixture{}, fmt.Errorf("new sqlite store from bootstrap dsn: %w", storeErr)
+		}
+		esignModule = esignModule.WithStore(bootstrapStore)
+	} else {
+		return eSignRuntimeWebFixture{}, fmt.Errorf("runtime web tests require sqlite bootstrap dialect, got %s", bootstrapResult.Dialect)
+	}
 	if err := adm.RegisterModule(esignModule); err != nil {
 		return eSignRuntimeWebFixture{}, fmt.Errorf("register module: %w", err)
 	}

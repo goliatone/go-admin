@@ -4,6 +4,7 @@ import (
 	"context"
 	"embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -397,6 +398,7 @@ func applyESignRuntimeDefaults(cfg *coreadmin.Config) {
 	if cfg == nil {
 		return
 	}
+	quickstart.WithRequestTrustPolicy(appcfg.ActiveRequestTrustPolicy())(cfg)
 	if cfg.Debug.LayoutMode == "" {
 		cfg.Debug.LayoutMode = coreadmin.DebugLayoutAdmin
 	}
@@ -526,7 +528,7 @@ func registerESignWebRoutes(
 			if contentEntryViewContext != nil {
 				ctx = contentEntryViewContext(ctx, panelName, c)
 			}
-			return withESignDocumentIngestionViewContext(ctx, panelName, c, esignModule, googleEnabled)
+			return withESignContentEntryViewContext(ctx, panelName, c, esignModule, googleEnabled)
 		}),
 		quickstart.WithContentEntryUITemplateFS(client.FS(), eSignTemplatesFS),
 	); err != nil {
@@ -828,8 +830,8 @@ func registerESignDocumentUploadRoute(
 	})
 	securedUploadHandler := func(c router.Context) error {
 		transportGuard := handlers.TLSTransportGuard{
-			AllowLocalInsecure:    true,
-			TrustForwardedHeaders: appcfg.Active().Network.RateLimitTrustProxyHeaders,
+			AllowLocalInsecure: true,
+			RequestTrustPolicy: appcfg.ActiveRequestTrustPolicy(),
 		}
 		if err := transportGuard.Ensure(c); err != nil {
 			return c.Status(http.StatusUpgradeRequired).JSON(http.StatusUpgradeRequired, map[string]any{
@@ -1126,7 +1128,7 @@ func resolveGoogleAccountID(c router.Context) string {
 	return strings.TrimSpace(c.Query("account_id"))
 }
 
-func withESignDocumentIngestionViewContext(
+func withESignContentEntryViewContext(
 	ctx router.ViewContext,
 	panelName string,
 	c router.Context,
@@ -1136,41 +1138,56 @@ func withESignDocumentIngestionViewContext(
 	if ctx == nil {
 		ctx = router.ViewContext{}
 	}
-	if strings.TrimSpace(panelName) != "esign_documents" {
+	panelName = strings.TrimSpace(panelName)
+	if panelName == "" {
 		return ctx
 	}
+
 	userID := resolveESignAdminUserID(c)
-	accountID := resolveGoogleAccountID(c)
 	ctx["user_id"] = userID
-	ctx["google_account_id"] = accountID
-	ctx["google_enabled"] = googleEnabled
-	googleConnected := false
-	if googleEnabled && esignModule != nil && c != nil && strings.TrimSpace(userID) != "" {
-		scope := resolveESignUploadScope(c, esignModule.DefaultScope())
-		scopedUserID := services.ComposeGoogleScopedUserID(userID, accountID)
-		googleConnected = esignModule.GoogleConnected(c.Context(), scope, scopedUserID)
-		if !googleConnected && accountID != "" {
-			googleConnected = esignModule.GoogleConnected(c.Context(), scope, services.ComposeGoogleScopedUserID(userID, ""))
+
+	switch panelName {
+	case "esign_documents":
+		accountID := resolveGoogleAccountID(c)
+		ctx["google_account_id"] = accountID
+		ctx["google_enabled"] = googleEnabled
+		googleConnected := false
+		if googleEnabled && esignModule != nil && c != nil && strings.TrimSpace(userID) != "" {
+			scope := resolveESignUploadScope(c, esignModule.DefaultScope())
+			scopedUserID := services.ComposeGoogleScopedUserID(userID, accountID)
+			googleConnected = esignModule.GoogleConnected(c.Context(), scope, scopedUserID)
+			if !googleConnected && accountID != "" {
+				googleConnected = esignModule.GoogleConnected(c.Context(), scope, services.ComposeGoogleScopedUserID(userID, ""))
+			}
 		}
+		ctx["google_connected"] = googleConnected
+		pageCfg := buildESignDocumentIngestionPageConfig(
+			viewContextString(ctx, "base_path", "/admin"),
+			viewContextString(ctx, "api_base_path", "/admin/api/v1"),
+			userID,
+			googleEnabled,
+			googleConnected,
+			viewContextRoutes(ctx),
+		)
+		if pageCfg.Context == nil {
+			pageCfg.Context = map[string]any{}
+		}
+		pageCfg.Context["google_account_id"] = accountID
+		return withESignPageConfig(
+			ctx,
+			pageCfg,
+		)
+	case "esign_agreements":
+		pageCfg := buildESignAgreementFormPageConfig(
+			viewContextString(ctx, "base_path", "/admin"),
+			viewContextString(ctx, "api_base_path", "/admin/api/v1"),
+			userID,
+			viewContextRoutes(ctx),
+		)
+		return withESignPageConfig(ctx, pageCfg)
+	default:
+		return ctx
 	}
-	ctx["google_connected"] = googleConnected
-	pageCfg := buildESignDocumentIngestionPageConfig(
-		viewContextString(ctx, "base_path", "/admin"),
-		viewContextString(ctx, "api_base_path", "/admin/api/v1"),
-		userID,
-		googleEnabled,
-		googleConnected,
-		viewContextRoutes(ctx),
-	)
-	if pageCfg.Context == nil {
-		pageCfg.Context = map[string]any{}
-	}
-	pageCfg.Context["google_account_id"] = accountID
-	ctx = withESignPageConfig(
-		ctx,
-		pageCfg,
-	)
-	return ctx
 }
 
 func resolveGoogleOAuthRedirectURI(c router.Context, callbackPath string) string {
@@ -1197,55 +1214,7 @@ func resolveGoogleOAuthRedirectURI(c router.Context, callbackPath string) string
 }
 
 func resolveRequestOrigin(c router.Context) string {
-	if c == nil {
-		return ""
-	}
-	trustForwardedHeaders := appcfg.Active().Network.RateLimitTrustProxyHeaders
-	scheme := ""
-	host := ""
-	if trustForwardedHeaders {
-		scheme = firstCSVValue(c.Header("X-Forwarded-Proto"))
-		if scheme == "" {
-			scheme = firstCSVValue(c.Header("X-Forwarded-Scheme"))
-		}
-		host = firstCSVValue(c.Header("X-Forwarded-Host"))
-	}
-	if host == "" {
-		host = strings.TrimSpace(c.Header("Host"))
-	}
-	if httpCtx, ok := c.(router.HTTPContext); ok && httpCtx != nil {
-		request := httpCtx.Request()
-		if request != nil {
-			if host == "" {
-				host = strings.TrimSpace(request.Host)
-			}
-			if scheme == "" && request.URL != nil {
-				scheme = strings.TrimSpace(request.URL.Scheme)
-			}
-			if scheme == "" && request.TLS != nil {
-				scheme = "https"
-			}
-		}
-	}
-	if scheme == "" {
-		if trustForwardedHeaders && strings.EqualFold(strings.TrimSpace(c.Header("X-Forwarded-SSL")), "on") {
-			scheme = "https"
-		} else {
-			scheme = "http"
-		}
-	}
-	if host == "" {
-		return ""
-	}
-	return strings.ToLower(strings.TrimSpace(scheme)) + "://" + strings.TrimSpace(host)
-}
-
-func firstCSVValue(raw string) string {
-	parts := strings.Split(strings.TrimSpace(raw), ",")
-	if len(parts) == 0 {
-		return ""
-	}
-	return strings.TrimSpace(parts[0])
+	return quickstart.ResolveRequestOrigin(c, appcfg.ActiveRequestTrustPolicy())
 }
 
 func featureEnabledInSystemScope(gate fggate.FeatureGate, feature string) bool {
@@ -1349,6 +1318,10 @@ func renderSignerReviewPage(c router.Context, cfg SignerWebRouteConfig, apiBaseP
 	if err != nil {
 		observability.ObserveUnifiedViewerLoad(c.Context(), time.Since(startedAt), false)
 		observability.ObserveSignerLinkOpen(c.Context(), false)
+		var coded *goerrors.Error
+		if errors.As(err, &coded) && strings.TrimSpace(coded.TextCode) == string(services.ErrorCodePDFUnsupported) {
+			return renderSignerErrorPage(c, cfg, apiBasePath, "PDF_UNSUPPORTED", "Document Requires Remediation", "This document cannot be signed online due to PDF compatibility restrictions. Please contact the sender.")
+		}
 		return renderSignerErrorPage(c, cfg, apiBasePath, "SESSION_ERROR", "Unable to Load Session", "We couldn't load your signing session. Please try again or contact the sender.")
 	}
 	if !canRenderUnifiedSession(session) {
@@ -1601,12 +1574,15 @@ func buildSignerReviewViewContext(token, apiBasePath string, session services.Si
 
 	// Build viewer context with pages_json for frontend
 	viewerCtx := map[string]any{
-		"coordinate_space": firstNonEmptyValue(session.Viewer.CoordinateSpace, "pdf"),
-		"contract_version": firstNonEmptyValue(session.Viewer.ContractVersion, "1.0"),
-		"unit":             firstNonEmptyValue(session.Viewer.Unit, "pt"),
-		"origin":           firstNonEmptyValue(session.Viewer.Origin, "top-left"),
-		"y_axis_direction": firstNonEmptyValue(session.Viewer.YAxisDirection, "down"),
-		"pages_json":       viewerPagesJSON,
+		"coordinate_space":      firstNonEmptyValue(session.Viewer.CoordinateSpace, "pdf"),
+		"contract_version":      firstNonEmptyValue(session.Viewer.ContractVersion, "1.0"),
+		"unit":                  firstNonEmptyValue(session.Viewer.Unit, "pt"),
+		"origin":                firstNonEmptyValue(session.Viewer.Origin, "top-left"),
+		"y_axis_direction":      firstNonEmptyValue(session.Viewer.YAxisDirection, "down"),
+		"pages_json":            viewerPagesJSON,
+		"compatibility_tier":    firstNonEmptyValue(session.Viewer.CompatibilityTier, session.Viewer.Compatibility),
+		"compatibility_reason":  firstNonEmptyValue(session.Viewer.CompatibilityReason, session.Viewer.Reason),
+		"compatibility_message": signerViewerCompatibilityMessage(session.Viewer.CompatibilityTier, session.Viewer.CompatibilityReason, session.Viewer.Reason),
 	}
 
 	runtimeCfg := appcfg.Active()
@@ -1630,6 +1606,26 @@ func buildSignerReviewViewContext(token, apiBasePath string, session services.Si
 			"page_count":    maxInt(session.PageCount, 1),
 			"document_name": firstNonEmptyValue(session.DocumentName, "Document.pdf"),
 		},
+	}
+}
+
+func signerViewerCompatibilityMessage(tier, reason, fallbackReason string) string {
+	tier = strings.ToLower(strings.TrimSpace(firstNonEmptyValue(tier, "")))
+	reason = strings.ToLower(strings.TrimSpace(firstNonEmptyValue(reason, fallbackReason)))
+	if tier != "limited" {
+		return ""
+	}
+	switch reason {
+	case "preview_fallback_forced":
+		return "Preview is running in safe mode due to compatibility safeguards. You can continue signing."
+	case "source_import_failed", "source_not_pdf":
+		return "This PDF preview is degraded due to source compatibility. You can continue signing."
+	case "normalized_unavailable", "source_unavailable":
+		return "A fallback preview is being used because the source document is temporarily unavailable."
+	case "original_fallback_disallowed", "preview_fallback_disabled":
+		return "Preview compatibility is degraded. Contact the sender if document rendering appears incorrect."
+	default:
+		return "This signing session is using a degraded preview mode for compatibility."
 	}
 }
 

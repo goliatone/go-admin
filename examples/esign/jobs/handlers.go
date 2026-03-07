@@ -15,6 +15,7 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	goerrors "github.com/goliatone/go-errors"
+	"github.com/goliatone/go-uploader"
 )
 
 const (
@@ -108,6 +109,8 @@ type HandlerDependencies struct {
 	GoogleImportRuns stores.GoogleImportRunStore
 	EmailLogs        stores.EmailLogStore
 	Audits           stores.AuditEventStore
+	Documents        stores.DocumentStore
+	ObjectStore      uploaderStore
 	Tokens           TokenService
 	Pipeline         services.ArtifactPipelineService
 	EmailProvider    EmailProvider
@@ -123,12 +126,19 @@ type Handlers struct {
 	googleImportRuns stores.GoogleImportRunStore
 	emailLogs        stores.EmailLogStore
 	audits           stores.AuditEventStore
+	documents        stores.DocumentStore
+	objectStore      uploaderStore
 	tokens           TokenService
 	pipeline         services.ArtifactPipelineService
 	emailProvider    EmailProvider
 	googleImporter   GoogleImporter
 	retryPolicy      RetryPolicy
 	now              func() time.Time
+}
+
+type uploaderStore interface {
+	GetFile(ctx context.Context, path string) ([]byte, error)
+	UploadFile(ctx context.Context, path string, content []byte, opts ...uploader.UploadOption) (string, error)
 }
 
 func NewHandlers(deps HandlerDependencies) Handlers {
@@ -154,6 +164,8 @@ func NewHandlers(deps HandlerDependencies) Handlers {
 		googleImportRuns: deps.GoogleImportRuns,
 		emailLogs:        deps.EmailLogs,
 		audits:           deps.Audits,
+		documents:        deps.Documents,
+		objectStore:      deps.ObjectStore,
 		tokens:           deps.Tokens,
 		pipeline:         deps.Pipeline,
 		emailProvider:    provider,
@@ -465,6 +477,72 @@ func (h Handlers) ExecutePDFGenerateCertificate(ctx context.Context, msg PDFGene
 		"dedupe_key":     dedupeKey,
 		"correlation_id": run.CorrelationID,
 	})
+}
+
+func (h Handlers) ExecutePDFBackfillDocuments(ctx context.Context, msg PDFBackfillDocumentsMsg) error {
+	startedAt := h.now()
+	correlationID := observability.ResolveCorrelationID(msg.CorrelationID, msg.DedupeKey, msg.Scope.TenantID, msg.Scope.OrgID, JobPDFBackfillDocuments)
+	if h.documents == nil || h.objectStore == nil || h.jobRuns == nil {
+		err := fmt.Errorf("pdf backfill job dependencies not configured")
+		observability.LogOperation(ctx, slog.LevelError, "job", "pdf_backfill_documents", "error", correlationID, h.now().Sub(startedAt), err, map[string]any{
+			"job_name": JobPDFBackfillDocuments,
+		})
+		return err
+	}
+
+	dedupeKey := strings.TrimSpace(msg.DedupeKey)
+	if dedupeKey == "" {
+		dedupeKey = strings.Join([]string{
+			msg.Scope.TenantID,
+			msg.Scope.OrgID,
+			fmt.Sprintf("dry_run=%t", msg.DryRun),
+			fmt.Sprintf("limit=%d", msg.Limit),
+			fmt.Sprintf("offset=%d", msg.Offset),
+		}, "|")
+	}
+	run, shouldRun, err := h.jobRuns.BeginJobRun(ctx, msg.Scope, stores.JobRunInput{
+		JobName:       JobPDFBackfillDocuments,
+		DedupeKey:     dedupeKey,
+		CorrelationID: correlationID,
+		MaxAttempts:   h.retryPolicy.resolveMaxAttempts(msg.MaxAttempts),
+		AttemptedAt:   h.now(),
+	})
+	if err != nil || !shouldRun {
+		if err != nil {
+			observability.LogOperation(ctx, slog.LevelWarn, "job", "pdf_backfill_documents", "error", correlationID, h.now().Sub(startedAt), err, map[string]any{
+				"job_name":   JobPDFBackfillDocuments,
+				"dedupe_key": dedupeKey,
+			})
+		}
+		return err
+	}
+
+	backfill := services.NewPDFBackfillService(h.documents, h.objectStore)
+	result, err := backfill.Run(ctx, msg.Scope, services.PDFBackfillInput{
+		DryRun: msg.DryRun,
+		Limit:  msg.Limit,
+		Offset: msg.Offset,
+	})
+	if err != nil {
+		return h.failJob(ctx, msg.Scope, run, err, "", map[string]any{
+			"job_name": JobPDFBackfillDocuments,
+		})
+	}
+	if _, err := h.jobRuns.MarkJobRunSucceeded(ctx, msg.Scope, run.ID, h.now()); err != nil {
+		return err
+	}
+	observability.ObserveJobResult(ctx, JobPDFBackfillDocuments, true)
+	observability.LogOperation(ctx, slog.LevelInfo, "job", "pdf_backfill_documents", "success", run.CorrelationID, h.now().Sub(startedAt), nil, map[string]any{
+		"job_name":      JobPDFBackfillDocuments,
+		"dedupe_key":    dedupeKey,
+		"attempt_count": run.AttemptCount,
+		"scanned":       result.Scanned,
+		"updated":       result.Updated,
+		"skipped":       result.Skipped,
+		"failed":        result.Failed,
+		"dry_run":       msg.DryRun,
+	})
+	return nil
 }
 
 func (h Handlers) ExecuteTokenRotate(ctx context.Context, msg TokenRotateMsg) error {

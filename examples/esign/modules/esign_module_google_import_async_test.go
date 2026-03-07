@@ -14,6 +14,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	appcfg "github.com/goliatone/go-admin/examples/esign/config"
 	"github.com/goliatone/go-admin/examples/esign/services"
+	"github.com/goliatone/go-admin/examples/esign/stores"
 	"github.com/goliatone/go-admin/quickstart"
 	"github.com/goliatone/go-command/registry"
 	router "github.com/goliatone/go-router"
@@ -50,7 +51,8 @@ func TestESignModuleGoogleDriveImportAsyncUsesGoogleImporter(t *testing.T) {
 	}
 	adm.WithAuthorizer(allowAllAuthorizer{})
 
-	module := NewESignModule(cfg.BasePath, cfg.DefaultLocale, cfg.NavMenuCode)
+	module := NewESignModule(cfg.BasePath, cfg.DefaultLocale, cfg.NavMenuCode).
+		WithStore(stores.NewInMemoryStore())
 	t.Cleanup(module.Close)
 	if err := adm.RegisterModule(module); err != nil {
 		t.Fatalf("RegisterModule: %v", err)

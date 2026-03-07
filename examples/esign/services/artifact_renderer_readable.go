@@ -5,23 +5,18 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"image"
 	_ "image/jpeg"
 	_ "image/png"
-	"io"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	"github.com/phpdave11/gofpdf"
-	gofpdi "github.com/phpdave11/gofpdf/contrib/gofpdi"
-)
-
-const (
-	defaultPDFPageWidthPt  = 612.0
-	defaultPDFPageHeightPt = 792.0
 )
 
 // ReadableArtifactRenderer renders user-facing executed/certificate PDFs from agreement data.
@@ -30,6 +25,7 @@ type ReadableArtifactRenderer struct {
 	documents  stores.DocumentStore
 	signatures stores.SignatureArtifactStore
 	objects    artifactObjectStore
+	pdfs       PDFService
 	now        func() time.Time
 }
 
@@ -46,6 +42,16 @@ func WithReadableArtifactRendererClock(now func() time.Time) ReadableArtifactRen
 	}
 }
 
+// WithReadableArtifactRendererPDFService sets the shared PDF service for source-page import/render.
+func WithReadableArtifactRendererPDFService(service PDFService) ReadableArtifactRendererOption {
+	return func(r *ReadableArtifactRenderer) {
+		if r == nil {
+			return
+		}
+		r.pdfs = service
+	}
+}
+
 // NewReadableArtifactRenderer builds the runtime renderer used for signer-visible artifacts.
 func NewReadableArtifactRenderer(
 	documents stores.DocumentStore,
@@ -57,6 +63,7 @@ func NewReadableArtifactRenderer(
 		documents:  documents,
 		signatures: signatures,
 		objects:    objects,
+		pdfs:       NewPDFService(),
 		now: func() time.Time {
 			return time.Now().UTC()
 		},
@@ -86,16 +93,11 @@ func (r ReadableArtifactRenderer) RenderExecuted(ctx context.Context, input Exec
 	if err != nil {
 		return RenderedArtifact{}, fmt.Errorf("render executed: source document not found: %w", err)
 	}
-	sourceKey := strings.TrimSpace(document.SourceObjectKey)
-	if sourceKey == "" {
-		return RenderedArtifact{}, fmt.Errorf("render executed: source document object key required")
-	}
-	sourcePDF, err := r.objects.GetFile(ctx, sourceKey)
-	if err != nil || len(sourcePDF) == 0 {
-		return RenderedArtifact{}, fmt.Errorf("render executed: source document payload unavailable")
-	}
-	if !bytes.HasPrefix(sourcePDF, []byte("%PDF-")) {
-		return RenderedArtifact{}, fmt.Errorf("render executed: source payload is not a pdf")
+	policy := r.pdfs.Policy(ctx, input.Scope)
+	compatibility := resolveDocumentCompatibility(policy, document)
+	sourcePDF, err := r.resolveRenderSourcePDF(ctx, policy, document, compatibility)
+	if err != nil {
+		return RenderedArtifact{}, err
 	}
 
 	trailDoc := BuildAuditTrailDocument(AuditTrailBuildInput{
@@ -114,6 +116,7 @@ func (r ReadableArtifactRenderer) RenderExecuted(ctx context.Context, input Exec
 		sourcePDF,
 		document.PageCount,
 		strings.TrimSpace(document.SourceSHA256),
+		string(compatibility.Tier),
 		trailDoc,
 		input,
 	)
@@ -129,11 +132,78 @@ func (r ReadableArtifactRenderer) RenderExecuted(ctx context.Context, input Exec
 	}, nil
 }
 
+func (r ReadableArtifactRenderer) resolveRenderSourcePDF(ctx context.Context, policy PDFPolicy, document stores.DocumentRecord, compatibility PDFCompatibilityStatus) ([]byte, error) {
+	if r.objects == nil {
+		return nil, fmt.Errorf("render executed: source document dependencies not configured")
+	}
+	if compatibility.Tier == PDFCompatibilityTierUnsupported && !policyAllowsAnalyzeOnlyUpload(policy) {
+		return nil, pdfUnsupportedError("artifact.render_executed", string(compatibility.Tier), compatibility.Reason, map[string]any{
+			"document_id": document.ID,
+		})
+	}
+	normalizedKey := strings.TrimSpace(document.NormalizedObjectKey)
+	sourceKey := strings.TrimSpace(document.SourceObjectKey)
+
+	if !policyPrefersNormalizedSource(policy) {
+		if sourceKey != "" {
+			sourcePDF, err := r.resolveRenderSourcePDFObject(ctx, sourceKey)
+			if err == nil {
+				return sourcePDF, nil
+			}
+		}
+		if normalizedKey != "" {
+			return r.resolveRenderSourcePDFObject(ctx, normalizedKey)
+		}
+		return nil, fmt.Errorf("render executed: source document object key required")
+	}
+
+	normalizedUnavailable := false
+	if normalizedKey != "" {
+		normalizedPDF, err := r.resolveRenderSourcePDFObject(ctx, normalizedKey)
+		if err == nil {
+			return normalizedPDF, nil
+		}
+		normalizedUnavailable = true
+		if !policyAllowsOriginalFallback(policy) {
+			return nil, fmt.Errorf("render executed: normalized source unavailable and original fallback disallowed")
+		}
+	} else {
+		normalizedUnavailable = true
+	}
+
+	if sourceKey == "" {
+		if normalizedUnavailable {
+			return nil, fmt.Errorf("render executed: normalized source unavailable")
+		}
+		return nil, fmt.Errorf("render executed: source document object key required")
+	}
+	if normalizedUnavailable && !policyAllowsOriginalFallback(policy) {
+		return nil, fmt.Errorf("render executed: normalized source unavailable and original fallback disallowed")
+	}
+	return r.resolveRenderSourcePDFObject(ctx, sourceKey)
+}
+
+func (r ReadableArtifactRenderer) resolveRenderSourcePDFObject(ctx context.Context, objectKey string) ([]byte, error) {
+	objectKey = strings.TrimSpace(objectKey)
+	if objectKey == "" {
+		return nil, fmt.Errorf("render executed: source document object key required")
+	}
+	sourcePDF, err := r.objects.GetFile(ctx, objectKey)
+	if err != nil || len(sourcePDF) == 0 {
+		return nil, fmt.Errorf("render executed: source document payload unavailable")
+	}
+	if !bytes.HasPrefix(sourcePDF, []byte("%PDF-")) {
+		return nil, fmt.Errorf("render executed: source payload is not a pdf")
+	}
+	return sourcePDF, nil
+}
+
 func (r ReadableArtifactRenderer) renderExecutedWithOverlays(
 	ctx context.Context,
 	sourcePDF []byte,
 	sourcePageCount int,
 	sourceSHA256 string,
+	compatibilityTier string,
 	auditDoc AuditTrailDocument,
 	input ExecutedRenderInput,
 ) ([]byte, error) {
@@ -147,32 +217,21 @@ func (r ReadableArtifactRenderer) renderExecutedWithOverlays(
 
 	pdf := gofpdf.New("P", "pt", "Letter", "")
 	pdf.SetCompression(false)
-	importer := gofpdi.NewImporter()
 	overlaysByPage := r.buildExecutedOverlays(ctx, input)
-	rs := io.ReadSeeker(bytes.NewReader(sourcePDF))
 	footerText := executedDocumentHashFooter(sourceSHA256)
-
-	for page := 1; page <= pageCount; page++ {
-		// Import from /MediaBox first. Some PDFs expose zero-sized /CropBox values
-		// on later pages, which can produce invalid (+Inf) template scale transforms.
-		tplID := importer.ImportPageFromStream(pdf, &rs, page, "/MediaBox")
-		if tplID < 0 {
-			tplID = importer.ImportPageFromStream(pdf, &rs, page, "/CropBox")
-		}
-		if tplID < 0 {
-			return nil, fmt.Errorf("render executed: failed importing source page %d", page)
-		}
-		width, height := importedPageSize(importer.GetPageSizes(), page)
-		orientation := "P"
-		if width > height {
-			orientation = "L"
-		}
-		pdf.AddPageFormat(orientation, gofpdf.SizeType{Wd: width, Ht: height})
-		importer.UseImportedTemplate(pdf, tplID, 0, 0, width, height)
+	if err := r.pdfs.RenderSourcePages(ctx, input.Scope, pdf, sourcePDF, pageCount, func(page int, width, height float64) error {
 		for _, overlay := range overlaysByPage[page] {
 			drawExecutedOverlay(pdf, overlay)
 		}
 		drawExecutedFooter(pdf, width, height, footerText)
+		return nil
+	}); err != nil {
+		observability.ObservePDFRenderImportFail(ctx, pdfRenderImportReason(err), strings.TrimSpace(compatibilityTier))
+		var pdfErr *PDFError
+		if errors.As(err, &pdfErr) && pdfErr.Page > 0 {
+			return nil, fmt.Errorf("render executed: failed importing source page %d: %w", pdfErr.Page, err)
+		}
+		return nil, fmt.Errorf("render executed: %w", err)
 	}
 
 	if err := r.renderAuditTrailPages(pdf, auditDoc, auditTrailRenderOptions{}); err != nil {
@@ -188,6 +247,20 @@ func (r ReadableArtifactRenderer) renderExecutedWithOverlays(
 		return nil, fmt.Errorf("render executed: output is not a pdf")
 	}
 	return rendered, nil
+}
+
+func pdfRenderImportReason(err error) string {
+	if err == nil {
+		return "import.failed"
+	}
+	var pdfErr *PDFError
+	if errors.As(err, &pdfErr) {
+		reason := strings.TrimSpace(string(pdfErr.Reason))
+		if reason != "" {
+			return reason
+		}
+	}
+	return "import.failed"
 }
 
 func (r ReadableArtifactRenderer) buildExecutedOverlays(ctx context.Context, input ExecutedRenderInput) map[int][]executedOverlay {
@@ -476,33 +549,6 @@ func maxFieldPage(fields []stores.FieldRecord) int {
 		}
 	}
 	return maxPage
-}
-
-func importedPageSize(pageSizes map[int]map[string]map[string]float64, page int) (float64, float64) {
-	if pageSizes == nil {
-		return defaultPDFPageWidthPt, defaultPDFPageHeightPt
-	}
-	boxes, ok := pageSizes[page]
-	if !ok {
-		return defaultPDFPageWidthPt, defaultPDFPageHeightPt
-	}
-	for _, box := range []string{"/CropBox", "/MediaBox", "/TrimBox", "/BleedBox", "/ArtBox"} {
-		if dimensions, found := boxes[box]; found {
-			if width := dimensions["w"]; width > 0 {
-				if height := dimensions["h"]; height > 0 {
-					return width, height
-				}
-			}
-		}
-	}
-	for _, dimensions := range boxes {
-		if width := dimensions["w"]; width > 0 {
-			if height := dimensions["h"]; height > 0 {
-				return width, height
-			}
-		}
-	}
-	return defaultPDFPageWidthPt, defaultPDFPageHeightPt
 }
 
 func rendererMaxFloat(a, b float64) float64 {

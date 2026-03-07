@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/goliatone/go-admin/quickstart"
 )
 
 func TestTLSTransportGuardRejectsInsecureRequests(t *testing.T) {
@@ -23,8 +25,11 @@ func TestTLSTransportGuardRejectsInsecureRequests(t *testing.T) {
 
 func TestTLSTransportGuardAllowsHTTPSForwardedRequests(t *testing.T) {
 	app := setupRegisterTestApp(t, WithTransportGuard(TLSTransportGuard{
-		AllowLocalInsecure:    false,
-		TrustForwardedHeaders: true,
+		AllowLocalInsecure: false,
+		RequestTrustPolicy: quickstart.RequestTrustPolicy{
+			TrustForwardedHeaders: true,
+			TrustedProxyCIDRs:     quickstart.InsecureAnyTrustedProxyCIDRs(),
+		},
 	}))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session/token-1", nil)
@@ -58,8 +63,10 @@ func TestTLSTransportGuardAllowsLocalInsecureWhenEnabled(t *testing.T) {
 
 func TestTLSTransportGuardIgnoresForwardedHTTPSWhenUntrusted(t *testing.T) {
 	app := setupRegisterTestApp(t, WithTransportGuard(TLSTransportGuard{
-		AllowLocalInsecure:    false,
-		TrustForwardedHeaders: false,
+		AllowLocalInsecure: false,
+		RequestTrustPolicy: quickstart.RequestTrustPolicy{
+			TrustForwardedHeaders: true,
+		},
 	}))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session/token-1", nil)
@@ -77,8 +84,10 @@ func TestTLSTransportGuardIgnoresForwardedHTTPSWhenUntrusted(t *testing.T) {
 
 func TestTLSTransportGuardIgnoresForwardedLocalhostWhenUntrusted(t *testing.T) {
 	app := setupRegisterTestApp(t, WithTransportGuard(TLSTransportGuard{
-		AllowLocalInsecure:    true,
-		TrustForwardedHeaders: false,
+		AllowLocalInsecure: true,
+		RequestTrustPolicy: quickstart.RequestTrustPolicy{
+			TrustForwardedHeaders: true,
+		},
 	}))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session/token-1", nil)

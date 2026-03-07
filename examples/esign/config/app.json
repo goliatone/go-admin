@@ -34,7 +34,8 @@
   "runtime": {
     "profile": "development",
     "startup_policy": "enforce",
-    "strict_startup": false
+    "strict_startup": false,
+    "repository_dialect": ""
   },
   "storage": {
     "encryption_algorithm": "aws:kms"
@@ -59,7 +60,20 @@
     "profile_ttl_days": 90,
     "profile_persist_drawn_signature": true,
     "profile_mode": "hybrid",
-    "saved_signatures_limit_per_type": 10
+    "saved_signatures_limit_per_type": 10,
+    "pdf": {
+      "max_source_bytes": 10485760,
+      "max_pages": 200,
+      "max_objects": 100000,
+      "max_decompressed_bytes": 67108864,
+      "parse_timeout_ms": 2500,
+      "normalization_timeout_ms": 5000,
+      "allow_encrypted": false,
+      "allow_javascript_actions": false,
+      "compatibility_mode": "balanced",
+      "preview_fallback_enabled": false,
+      "pipeline_mode": "prefer_normalized"
+    }
   },
   "services": {
     "module_enabled": true,
@@ -88,8 +102,22 @@
     "esign_dsn": "",
     "content_dsn": ""
   },
+  "sqlite": {
+    "dsn": "file:data/go-admin-esign.sqlite?_busy_timeout=5000&_foreign_keys=on"
+  },
+  "postgres": {
+    "dsn": ""
+  },
+  "migrations": {
+    "local_dir": "data/sql/migrations",
+    "local_only": false
+  },
   "network": {
     "rate_limit_trust_proxy_headers": false,
+    "trusted_proxy_cidrs": [
+      "127.0.0.1/32",
+      "::1/128"
+    ],
     "rate_limit": {
       "signer_session": {
         "max_requests": 60,

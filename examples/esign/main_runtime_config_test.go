@@ -1,9 +1,13 @@
 package main
 
 import (
+	"path/filepath"
+	"strings"
 	"testing"
 
+	coreadmin "github.com/goliatone/go-admin/admin"
 	appcfg "github.com/goliatone/go-admin/examples/esign/config"
+	esignpersistence "github.com/goliatone/go-admin/examples/esign/internal/persistence"
 )
 
 func TestValidateRuntimeProviderConfigurationRejectsDeterministicEmailInProduction(t *testing.T) {
@@ -197,4 +201,68 @@ func productionRuntimeConfig() appcfg.Config {
 	cfg.Signer.UploadSigningKey = "upload-signing-key"
 	cfg.Features.ESignGoogle = false
 	return cfg
+}
+
+func TestNewESignRuntimeStoreCreatesSQLiteStoreFromBootstrapDSN(t *testing.T) {
+	bootstrap := &esignpersistence.BootstrapResult{
+		Dialect: esignpersistence.DialectSQLite,
+		DSN:     "file:" + filepath.Join(t.TempDir(), "runtime-store.db") + "?_busy_timeout=5000&_foreign_keys=on",
+	}
+	store, cleanup, err := newESignRuntimeStore(bootstrap)
+	if err != nil {
+		t.Fatalf("newESignRuntimeStore sqlite: %v", err)
+	}
+	if store == nil {
+		t.Fatalf("expected sqlite store instance")
+	}
+	if cleanup == nil {
+		t.Fatalf("expected sqlite store cleanup function")
+	}
+	if err := cleanup(); err != nil {
+		t.Fatalf("cleanup sqlite store: %v", err)
+	}
+}
+
+func TestNewESignRuntimeStoreRejectsPostgresUntilStoreAdapterExists(t *testing.T) {
+	bootstrap := &esignpersistence.BootstrapResult{
+		Dialect: esignpersistence.DialectPostgres,
+		DSN:     "postgres://user:pass@localhost:5432/esign?sslmode=disable",
+	}
+	_, _, err := newESignRuntimeStore(bootstrap)
+	if err == nil {
+		t.Fatalf("expected postgres store initialization error until Bun-backed store adapter is wired")
+	}
+	if !strings.Contains(err.Error(), "Bun-backed stores.Store") {
+		t.Fatalf("expected Bun-backed store adapter guidance, got %v", err)
+	}
+}
+
+func TestSetupESignServicesModuleRequiresSharedBootstrapWhenEnabled(t *testing.T) {
+	cfg := appcfg.Defaults()
+	cfg.Services.ModuleEnabled = true
+	appcfg.SetActive(cfg)
+	t.Cleanup(appcfg.ResetActive)
+
+	_, err := setupESignServicesModule(&coreadmin.Admin{}, nil)
+	if err == nil {
+		t.Fatalf("expected shared bootstrap requirement error")
+	}
+	if !strings.Contains(err.Error(), "shared bootstrap persistence handles are required") {
+		t.Fatalf("expected shared bootstrap requirement message, got %v", err)
+	}
+}
+
+func TestSetupESignServicesModuleNoOpWhenDisabled(t *testing.T) {
+	cfg := appcfg.Defaults()
+	cfg.Services.ModuleEnabled = false
+	appcfg.SetActive(cfg)
+	t.Cleanup(appcfg.ResetActive)
+
+	module, err := setupESignServicesModule(&coreadmin.Admin{}, nil)
+	if err != nil {
+		t.Fatalf("setupESignServicesModule disabled: %v", err)
+	}
+	if module != nil {
+		t.Fatalf("expected nil services module when feature disabled")
+	}
 }

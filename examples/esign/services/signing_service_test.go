@@ -6,13 +6,16 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/stores"
+	"github.com/goliatone/go-admin/internal/primitives"
+	goerrors "github.com/goliatone/go-errors"
 	"github.com/goliatone/go-uploader"
 )
 
@@ -557,6 +560,284 @@ func TestSigningServiceGetSessionIncludesUnifiedGeometryAndBootstrapMetadata(t *
 	if got.TabIndex != 1 {
 		t.Fatalf("expected first field tab index 1, got %d", got.TabIndex)
 	}
+}
+
+func TestSigningServiceGetSessionSupportsPreviewFallbackKillSwitch(t *testing.T) {
+	observability.ResetDefaultMetrics()
+	t.Cleanup(observability.ResetDefaultMetrics)
+
+	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
+
+	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("signer@example.com"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: primitives.Int(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer: %v", err)
+	}
+	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        stringPtr(stores.FieldTypeSignature),
+		PageNumber:  primitives.Int(1),
+		Required:    boolPtr(true),
+	}); err != nil {
+		t.Fatalf("UpsertFieldDraft signature: %v", err)
+	}
+	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase-slice1-preview-fallback"}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+
+	manager := uploader.NewManager(uploader.WithProvider(uploader.NewFSProvider(t.TempDir())))
+	document, err := store.Get(ctx, scope, agreement.DocumentID)
+	if err != nil {
+		t.Fatalf("Get document: %v", err)
+	}
+	if _, err := manager.UploadFile(ctx, document.SourceObjectKey, samplePDF(2), uploader.WithContentType("application/pdf")); err != nil {
+		t.Fatalf("Upload source pdf: %v", err)
+	}
+
+	signingSvc := NewSigningService(
+		store,
+		WithSigningObjectStore(manager),
+		WithSigningPreviewFallbackEnabled(true),
+	)
+	session, err := signingSvc.GetSession(ctx, scope, stores.SigningTokenRecord{
+		AgreementID: agreement.ID,
+		RecipientID: signer.ID,
+	})
+	if err != nil {
+		t.Fatalf("GetSession: %v", err)
+	}
+	if !session.Viewer.Fallback {
+		t.Fatalf("expected viewer fallback enabled, got %+v", session.Viewer)
+	}
+	if session.Viewer.Compatibility != signerViewerCompatibilityTierLimited {
+		t.Fatalf("expected limited compatibility tier, got %q", session.Viewer.Compatibility)
+	}
+	if session.Viewer.CompatibilityTier != signerViewerCompatibilityTierLimited {
+		t.Fatalf("expected compatibility_tier alias limited, got %q", session.Viewer.CompatibilityTier)
+	}
+	if session.Viewer.Reason != signerViewerCompatibilityReasonPreviewFallbackForce {
+		t.Fatalf("expected preview fallback reason, got %q", session.Viewer.Reason)
+	}
+	if session.Viewer.CompatibilityReason != signerViewerCompatibilityReasonPreviewFallbackForce {
+		t.Fatalf("expected compatibility_reason alias %q, got %q", signerViewerCompatibilityReasonPreviewFallbackForce, session.Viewer.CompatibilityReason)
+	}
+	snapshot := observability.Snapshot()
+	if snapshot.PDFPreviewFallbackTotal != 1 {
+		t.Fatalf("expected pdf_preview_fallback_total=1, got %+v", snapshot)
+	}
+	if snapshot.PDFPreviewFallbackByReasonTier["reason=preview_fallback_forced,tier=limited"] != 1 {
+		t.Fatalf("expected labeled preview fallback metric, got %+v", snapshot.PDFPreviewFallbackByReasonTier)
+	}
+}
+
+func TestSigningServiceGetSessionReportsFullCompatibilityWhenSourceImportSucceeds(t *testing.T) {
+	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
+
+	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("signer@example.com"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: primitives.Int(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer: %v", err)
+	}
+	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        stringPtr(stores.FieldTypeSignature),
+		PageNumber:  primitives.Int(1),
+		Required:    boolPtr(true),
+	}); err != nil {
+		t.Fatalf("UpsertFieldDraft signature: %v", err)
+	}
+	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase-slice1-full-compat"}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+
+	manager := uploader.NewManager(uploader.WithProvider(uploader.NewFSProvider(t.TempDir())))
+	document, err := store.Get(ctx, scope, agreement.DocumentID)
+	if err != nil {
+		t.Fatalf("Get document: %v", err)
+	}
+	if _, err := manager.UploadFile(ctx, document.SourceObjectKey, samplePDF(2), uploader.WithContentType("application/pdf")); err != nil {
+		t.Fatalf("Upload source pdf: %v", err)
+	}
+
+	signingSvc := NewSigningService(
+		store,
+		WithSigningObjectStore(manager),
+	)
+	session, err := signingSvc.GetSession(ctx, scope, stores.SigningTokenRecord{
+		AgreementID: agreement.ID,
+		RecipientID: signer.ID,
+	})
+	if err != nil {
+		t.Fatalf("GetSession: %v", err)
+	}
+	if session.Viewer.Fallback {
+		t.Fatalf("expected source import to avoid fallback, got %+v", session.Viewer)
+	}
+	if session.Viewer.Compatibility != signerViewerCompatibilityTierFull {
+		t.Fatalf("expected full compatibility tier, got %q", session.Viewer.Compatibility)
+	}
+	if session.Viewer.CompatibilityTier != signerViewerCompatibilityTierFull {
+		t.Fatalf("expected compatibility_tier alias full, got %q", session.Viewer.CompatibilityTier)
+	}
+	if session.Viewer.Reason != "" {
+		t.Fatalf("expected empty compatibility reason, got %q", session.Viewer.Reason)
+	}
+	if session.Viewer.CompatibilityReason != "" {
+		t.Fatalf("expected empty compatibility_reason alias, got %q", session.Viewer.CompatibilityReason)
+	}
+}
+
+func TestSigningServiceGetSessionPrefersNormalizedSourceWhenOriginalUnavailable(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+	manager := uploader.NewManager(uploader.WithProvider(uploader.NewFSProvider(t.TempDir())))
+
+	docSvc := NewDocumentService(store, WithDocumentObjectStore(manager))
+	document, err := docSvc.Upload(ctx, scope, DocumentUploadInput{
+		Title:     "Master Services Agreement",
+		ObjectKey: "tenant/tenant-1/org/org-1/docs/doc-normalized/original.pdf",
+		PDF:       samplePDF(2),
+	})
+	if err != nil {
+		t.Fatalf("Upload: %v", err)
+	}
+	if strings.TrimSpace(document.NormalizedObjectKey) == "" {
+		t.Fatalf("expected normalized object key")
+	}
+	if _, err := manager.UploadFile(ctx, document.SourceObjectKey, []byte("not-a-pdf"), uploader.WithContentType("application/pdf")); err != nil {
+		t.Fatalf("overwrite source object: %v", err)
+	}
+
+	agreementSvc := NewAgreementService(store)
+	agreement, err := agreementSvc.CreateDraft(ctx, scope, CreateDraftInput{
+		DocumentID:      document.ID,
+		Title:           "MSA",
+		Message:         "Please review",
+		CreatedByUserID: "user-1",
+	})
+	if err != nil {
+		t.Fatalf("CreateDraft: %v", err)
+	}
+	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("signer@example.com"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: primitives.Int(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer: %v", err)
+	}
+	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        stringPtr(stores.FieldTypeSignature),
+		PageNumber:  primitives.Int(1),
+		Required:    boolPtr(true),
+	}); err != nil {
+		t.Fatalf("UpsertFieldDraft signature: %v", err)
+	}
+	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase-slice4-prefer-normalized"}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+
+	signingSvc := NewSigningService(store, WithSigningObjectStore(manager))
+	session, err := signingSvc.GetSession(ctx, scope, stores.SigningTokenRecord{
+		AgreementID: agreement.ID,
+		RecipientID: signer.ID,
+	})
+	if err != nil {
+		t.Fatalf("GetSession: %v", err)
+	}
+	if session.Viewer.Fallback {
+		t.Fatalf("expected normalized source import to avoid fallback, got %+v", session.Viewer)
+	}
+	if session.Viewer.Compatibility != signerViewerCompatibilityTierFull {
+		t.Fatalf("expected full compatibility tier, got %q", session.Viewer.Compatibility)
+	}
+	if session.Viewer.Reason != "" {
+		t.Fatalf("expected empty compatibility reason, got %q", session.Viewer.Reason)
+	}
+}
+
+func TestSigningServiceGetSessionStrictModeReturnsUnsupportedWhenNormalizedUnavailable(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+	manager := uploader.NewManager(uploader.WithProvider(uploader.NewFSProvider(t.TempDir())))
+
+	docSvc := NewDocumentService(store)
+	document, err := docSvc.Upload(ctx, scope, DocumentUploadInput{
+		Title:     "Master Services Agreement",
+		ObjectKey: "tenant/tenant-1/org/org-1/docs/doc-strict/original.pdf",
+		PDF:       samplePDF(2),
+	})
+	if err != nil {
+		t.Fatalf("Upload: %v", err)
+	}
+	if strings.TrimSpace(document.NormalizedObjectKey) != "" {
+		t.Fatalf("expected normalized object key to be empty without object store")
+	}
+	if _, err := manager.UploadFile(ctx, document.SourceObjectKey, samplePDF(2), uploader.WithContentType("application/pdf")); err != nil {
+		t.Fatalf("Upload source pdf: %v", err)
+	}
+
+	agreementSvc := NewAgreementService(store)
+	agreement, err := agreementSvc.CreateDraft(ctx, scope, CreateDraftInput{
+		DocumentID:      document.ID,
+		Title:           "MSA",
+		Message:         "Please review",
+		CreatedByUserID: "user-1",
+	})
+	if err != nil {
+		t.Fatalf("CreateDraft: %v", err)
+	}
+	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("signer@example.com"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: primitives.Int(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer: %v", err)
+	}
+	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        stringPtr(stores.FieldTypeSignature),
+		PageNumber:  primitives.Int(1),
+		Required:    boolPtr(true),
+	}); err != nil {
+		t.Fatalf("UpsertFieldDraft signature: %v", err)
+	}
+	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase-slice4-strict-no-fallback"}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+
+	policy := DefaultPDFPolicy()
+	policy.CompatibilityMode = PDFCompatibilityModeStrict
+	signingSvc := NewSigningService(
+		store,
+		WithSigningObjectStore(manager),
+		WithSigningPDFService(NewPDFService(WithPDFPolicyResolver(NewStaticPDFPolicyResolver(policy)))),
+	)
+	_, err = signingSvc.GetSession(ctx, scope, stores.SigningTokenRecord{
+		AgreementID: agreement.ID,
+		RecipientID: signer.ID,
+	})
+	if err != nil {
+		var coded *goerrors.Error
+		if !errors.As(err, &coded) {
+			t.Fatalf("expected coded unsupported error, got %T (%v)", err, err)
+		}
+		if strings.TrimSpace(coded.TextCode) != string(ErrorCodePDFUnsupported) {
+			t.Fatalf("expected text code %q, got %q", ErrorCodePDFUnsupported, coded.TextCode)
+		}
+		return
+	}
+	t.Fatalf("expected unsupported error when strict mode blocks degraded preview")
 }
 
 func TestSigningServiceGetSessionNormalizesFieldGeometryToCanonicalPageSpace(t *testing.T) {

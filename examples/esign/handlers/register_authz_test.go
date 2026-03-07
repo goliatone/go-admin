@@ -801,7 +801,7 @@ func TestRegisterSignerSessionIncludesUnifiedGeometryAndBootstrapMetadata(t *tes
 	if !strings.Contains(bodyText, "\"viewer\":{\"coordinate_space\":\"pdf_points\"") {
 		t.Fatalf("expected viewer context in session payload, got %s", bodyText)
 	}
-	for _, key := range []string{"\"contract_version\":\"pdf_page_space_v1\"", "\"unit\":\"pt\"", "\"origin\":\"top_left\"", "\"y_axis_direction\":\"down\""} {
+	for _, key := range []string{"\"contract_version\":\"pdf_page_space_v1\"", "\"unit\":\"pt\"", "\"origin\":\"top_left\"", "\"y_axis_direction\":\"down\"", "\"compatibility\":\"", "\"compatibility_tier\":\""} {
 		if !strings.Contains(bodyText, key) {
 			t.Fatalf("expected key %s in viewer payload, got %s", key, bodyText)
 		}
@@ -812,6 +812,195 @@ func TestRegisterSignerSessionIncludesUnifiedGeometryAndBootstrapMetadata(t *tes
 	for _, key := range []string{"\"recipient_id\":", "\"pos_x\":", "\"pos_y\":", "\"width\":", "\"height\":", "\"page_width\":", "\"page_height\":", "\"page_rotation\":", "\"tab_index\":"} {
 		if !strings.Contains(bodyText, key) {
 			t.Fatalf("expected key %s in session payload, got %s", key, bodyText)
+		}
+	}
+}
+
+func TestRegisterSignerSessionIncludesLimitedCompatibilityReasonWhenPreviewFallbackForced(t *testing.T) {
+	// Build route with preview fallback forced to validate compatibility contract fields.
+	adapter := router.NewFiberAdapter(func(_ *fiber.App) *fiber.App {
+		return fiber.New(fiber.Config{EnablePrintRoutes: false})
+	})
+	routes := BuildRouteSet(nil, "/admin", "admin.api.v1")
+
+	ctx2 := context.Background()
+	scope2 := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store2 := stores.NewInMemoryStore()
+	docSvc := services.NewDocumentService(store2)
+	doc, err := docSvc.Upload(ctx2, scope2, services.DocumentUploadInput{
+		Title:     "Agreement Source",
+		ObjectKey: "tenant/tenant-1/org/org-1/docs/doc-preview-fallback/original.pdf",
+		PDF:       services.GenerateDeterministicPDF(1),
+	})
+	if err != nil {
+		t.Fatalf("Upload: %v", err)
+	}
+	agreementSvc := services.NewAgreementService(store2)
+	agreement, err := agreementSvc.CreateDraft(ctx2, scope2, services.CreateDraftInput{
+		DocumentID:      doc.ID,
+		Title:           "Signer Flow",
+		CreatedByUserID: "user-1",
+	})
+	if err != nil {
+		t.Fatalf("CreateDraft: %v", err)
+	}
+	signerRole := stores.RecipientRoleSigner
+	order := 1
+	signer, err := agreementSvc.UpsertRecipientDraft(ctx2, scope2, agreement.ID, stores.RecipientDraftPatch{
+		Email:        strPtr("signer@example.com"),
+		Name:         strPtr("Signer"),
+		Role:         &signerRole,
+		SigningOrder: &order,
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft: %v", err)
+	}
+	fieldType := stores.FieldTypeSignature
+	required := true
+	page := 1
+	if _, err := agreementSvc.UpsertFieldDraft(ctx2, scope2, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        &fieldType,
+		PageNumber:  &page,
+		Required:    &required,
+	}); err != nil {
+		t.Fatalf("UpsertFieldDraft: %v", err)
+	}
+	if _, err := agreementSvc.Send(ctx2, scope2, agreement.ID, services.SendInput{IdempotencyKey: "phase-slice5-preview-fallback"}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	tokenService := stores.NewTokenService(store2)
+	issued, err := tokenService.Issue(ctx2, scope2, agreement.ID, signer.ID)
+	if err != nil {
+		t.Fatalf("Issue: %v", err)
+	}
+	signingSvc := services.NewSigningService(store2, services.WithSigningPreviewFallbackEnabled(true))
+	if err := Register(adapter.Router(), routes,
+		WithSignerTokenValidator(tokenService),
+		WithSignerSessionService(signingSvc),
+		WithDefaultScope(scope2),
+	); err != nil {
+		t.Fatalf("Register: %v", err)
+	}
+	adapter.Init()
+	forcedApp := adapter.WrappedRouter()
+
+	forcedReq := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session/"+issued.Token, nil)
+	forcedResp, err := forcedApp.Test(forcedReq, -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer forcedResp.Body.Close()
+	if forcedResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(forcedResp.Body)
+		t.Fatalf("expected status 200, got %d body=%s", forcedResp.StatusCode, body)
+	}
+	payload, err := io.ReadAll(forcedResp.Body)
+	if err != nil {
+		t.Fatalf("read response body: %v", err)
+	}
+	bodyText := string(payload)
+	for _, key := range []string{
+		"\"compatibility\":\"limited\"",
+		"\"compatibility_tier\":\"limited\"",
+		"\"reason\":\"preview_fallback_forced\"",
+		"\"compatibility_reason\":\"preview_fallback_forced\"",
+	} {
+		if !strings.Contains(bodyText, key) {
+			t.Fatalf("expected key %s in viewer payload, got %s", key, bodyText)
+		}
+	}
+}
+
+func TestRegisterSignerSessionReturnsTypedUnsupportedForUnsupportedDocument(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+	now := time.Date(2026, 3, 7, 11, 0, 0, 0, time.UTC)
+	document, err := store.Create(ctx, scope, stores.DocumentRecord{
+		ID:                     "doc-unsupported-session",
+		Title:                  "Unsupported Session Source",
+		SourceObjectKey:        "tenant/tenant-1/org/org-1/docs/doc-unsupported-session/original.pdf",
+		SourceSHA256:           strings.Repeat("a", 64),
+		SourceType:             stores.SourceTypeUpload,
+		PDFCompatibilityTier:   string(services.PDFCompatibilityTierUnsupported),
+		PDFCompatibilityReason: services.PDFCompatibilityReasonPreviewFallbackDisabled,
+		CreatedAt:              now,
+		UpdatedAt:              now,
+	})
+	if err != nil {
+		t.Fatalf("Create document: %v", err)
+	}
+	agreementSvc := services.NewAgreementService(store)
+	agreement, err := agreementSvc.CreateDraft(ctx, scope, services.CreateDraftInput{
+		DocumentID:      document.ID,
+		Title:           "Unsupported Session Agreement",
+		CreatedByUserID: "user-1",
+	})
+	if err != nil {
+		t.Fatalf("CreateDraft: %v", err)
+	}
+	role := stores.RecipientRoleSigner
+	order := 1
+	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        strPtr("signer@example.com"),
+		Name:         strPtr("Signer"),
+		Role:         &role,
+		SigningOrder: &order,
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft: %v", err)
+	}
+	required := true
+	page := 1
+	fieldType := stores.FieldTypeSignature
+	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        &fieldType,
+		PageNumber:  &page,
+		Required:    &required,
+	}); err != nil {
+		t.Fatalf("UpsertFieldDraft: %v", err)
+	}
+	if _, err := store.Transition(ctx, scope, agreement.ID, stores.AgreementTransitionInput{
+		ToStatus:        stores.AgreementStatusSent,
+		ExpectedVersion: agreement.Version,
+	}); err != nil {
+		t.Fatalf("Transition to sent: %v", err)
+	}
+	tokenSvc := stores.NewTokenService(store)
+	issued, err := tokenSvc.Issue(ctx, scope, agreement.ID, signer.ID)
+	if err != nil {
+		t.Fatalf("Issue: %v", err)
+	}
+	signingSvc := services.NewSigningService(store)
+	app := setupRegisterTestApp(t,
+		WithSignerTokenValidator(tokenSvc),
+		WithSignerSessionService(signingSvc),
+		WithDefaultScope(scope),
+	)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session/"+issued.Token, nil)
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusUnprocessableEntity {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected status 422, got %d body=%s", resp.StatusCode, body)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read response body: %v", err)
+	}
+	bodyText := string(body)
+	for _, key := range []string{
+		`"code":"PDF_UNSUPPORTED"`,
+		`"tier":"unsupported"`,
+		`"reason":"preview_fallback.disabled"`,
+	} {
+		if !strings.Contains(bodyText, key) {
+			t.Fatalf("expected key %s in response payload, got %s", key, bodyText)
 		}
 	}
 }

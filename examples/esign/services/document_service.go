@@ -5,12 +5,14 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"net/http"
+	"path"
 	"strings"
 	"time"
 
+	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-uploader"
-	"github.com/ledongthuc/pdf"
 
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	goerrors "github.com/goliatone/go-errors"
@@ -45,6 +47,7 @@ type DocumentMetadata struct {
 type DocumentService struct {
 	store       stores.DocumentStore
 	objectStore documentObjectStore
+	pdfs        PDFService
 	now         func() time.Time
 }
 
@@ -76,9 +79,20 @@ func WithDocumentObjectStore(store documentObjectStore) DocumentServiceOption {
 	}
 }
 
+// WithDocumentPDFService sets the shared PDF service used for analysis and policy checks.
+func WithDocumentPDFService(service PDFService) DocumentServiceOption {
+	return func(s *DocumentService) {
+		if s == nil {
+			return
+		}
+		s.pdfs = service
+	}
+}
+
 func NewDocumentService(store stores.Store, opts ...DocumentServiceOption) DocumentService {
 	svc := DocumentService{
 		store: store,
+		pdfs:  NewPDFService(),
 		now:   func() time.Time { return time.Now().UTC() },
 	}
 	for _, opt := range opts {
@@ -101,10 +115,34 @@ func (s DocumentService) Upload(ctx context.Context, scope stores.Scope, input D
 	}
 
 	payload := append([]byte{}, input.PDF...)
-	metadata, err := ExtractPDFMetadata(payload)
+	policy := s.pdfs.Policy(ctx, scope)
+	analysis, err := s.pdfs.Analyze(ctx, scope, payload)
+	policyRejectReason := PDFReasonCode("")
 	if err != nil {
-		return stores.DocumentRecord{}, err
+		reason := pdfErrorReasonCode(err)
+		observability.ObservePDFIngestAnalyzeFailure(ctx, string(reason), string(PDFCompatibilityTierUnsupported))
+		if isPDFPolicyReason(reason) {
+			observability.ObservePDFIngestPolicyReject(ctx, string(reason), string(PDFCompatibilityTierUnsupported))
+		}
+		if policyAllowsAnalyzeOnlyUpload(policy) && isPDFPolicyReason(reason) {
+			policyRejectReason = reason
+			analysis, err = s.analyzeWithoutPolicyEnforcement(ctx, scope, payload, policy)
+		}
+		if err != nil {
+			return stores.DocumentRecord{}, mapPDFAnalysisError(err)
+		}
 	}
+	if policyRejectReason != "" {
+		analysis.CompatibilityTier = PDFCompatibilityTierUnsupported
+		analysis.ReasonCode = policyRejectReason
+	}
+	metadata := DocumentMetadata{
+		SHA256:    analysis.SHA256,
+		SizeBytes: analysis.SizeBytes,
+		PageCount: analysis.PageCount,
+	}
+	normalizationStatus := analysis.NormalizationStatus
+	normalizedObjectKey := ""
 	if s.objectStore != nil {
 		if _, err := s.objectStore.UploadFile(ctx, objectKey, payload,
 			uploader.WithContentType("application/pdf"),
@@ -120,7 +158,46 @@ func (s DocumentService) Upload(ctx context.Context, scope stores.Scope, input D
 		if hex.EncodeToString(sum[:]) != metadata.SHA256 {
 			return stores.DocumentRecord{}, domainValidationError("documents", "object_store", "persisted source pdf digest mismatch")
 		}
+
+		if policyPrefersNormalizedSource(policy) {
+			candidateNormalizedObjectKey := normalizedObjectKeyForSource(objectKey)
+			normalized, normalizeErr := s.pdfs.Normalize(ctx, scope, payload)
+			if normalizeErr == nil && len(normalized.Payload) > 0 {
+				if _, err := s.objectStore.UploadFile(ctx, candidateNormalizedObjectKey, normalized.Payload,
+					uploader.WithContentType("application/pdf"),
+					uploader.WithCacheControl("no-store, no-cache, max-age=0, must-revalidate, private"),
+				); err == nil {
+					storedNormalized, err := s.objectStore.GetFile(ctx, candidateNormalizedObjectKey)
+					if err == nil && len(storedNormalized) > 0 {
+						sum := sha256.Sum256(storedNormalized)
+						if hex.EncodeToString(sum[:]) == normalized.SHA256 {
+							normalizationStatus = PDFNormalizationStatusCompleted
+							normalizedObjectKey = candidateNormalizedObjectKey
+						} else {
+							normalizationStatus = PDFNormalizationStatusFailed
+						}
+					} else {
+						normalizationStatus = PDFNormalizationStatusFailed
+					}
+				} else {
+					normalizationStatus = PDFNormalizationStatusFailed
+				}
+			} else {
+				normalizationStatus = PDFNormalizationStatusFailed
+			}
+		}
 	}
+	baseCompatibilityTier := strings.TrimSpace(string(analysis.CompatibilityTier))
+	baseCompatibilityReason := strings.TrimSpace(string(analysis.ReasonCode))
+	if normalizationStatus == PDFNormalizationStatusFailed {
+		baseCompatibilityTier = ""
+		baseCompatibilityReason = coalesceCompatibilityReason(baseCompatibilityReason, PDFCompatibilityReasonNormalizationFailed)
+	}
+	compatibility := resolveDocumentCompatibility(policy, stores.DocumentRecord{
+		PDFCompatibilityTier:   baseCompatibilityTier,
+		PDFCompatibilityReason: baseCompatibilityReason,
+		PDFNormalizationStatus: strings.TrimSpace(string(normalizationStatus)),
+	})
 
 	now := s.now()
 	if !input.UploadedAt.IsZero() {
@@ -135,6 +212,7 @@ func (s DocumentService) Upload(ctx context.Context, scope stores.Scope, input D
 		ID:                     strings.TrimSpace(input.ID),
 		Title:                  title,
 		SourceObjectKey:        objectKey,
+		NormalizedObjectKey:    normalizedObjectKey,
 		SourceSHA256:           metadata.SHA256,
 		SourceType:             strings.TrimSpace(input.SourceType),
 		SourceGoogleFileID:     strings.TrimSpace(input.SourceGoogleFileID),
@@ -144,6 +222,11 @@ func (s DocumentService) Upload(ctx context.Context, scope stores.Scope, input D
 		SourceExportedByUserID: strings.TrimSpace(input.SourceExportedByUserID),
 		SourceMimeType:         strings.TrimSpace(input.SourceMimeType),
 		SourceIngestionMode:    strings.TrimSpace(input.SourceIngestionMode),
+		PDFCompatibilityTier:   strings.TrimSpace(string(compatibility.Tier)),
+		PDFCompatibilityReason: strings.TrimSpace(compatibility.Reason),
+		PDFNormalizationStatus: strings.TrimSpace(string(normalizationStatus)),
+		PDFAnalyzedAt:          cloneDocumentTimePtr(now),
+		PDFPolicyVersion:       PDFPolicyVersion,
 		SizeBytes:              metadata.SizeBytes,
 		PageCount:              metadata.PageCount,
 		CreatedAt:              now,
@@ -151,27 +234,91 @@ func (s DocumentService) Upload(ctx context.Context, scope stores.Scope, input D
 	})
 }
 
+func normalizedObjectKeyForSource(sourceObjectKey string) string {
+	sourceObjectKey = strings.TrimSpace(sourceObjectKey)
+	if sourceObjectKey == "" {
+		return ""
+	}
+	ext := strings.ToLower(strings.TrimSpace(path.Ext(sourceObjectKey)))
+	if ext == ".pdf" {
+		return strings.TrimSuffix(sourceObjectKey, path.Ext(sourceObjectKey)) + ".normalized.pdf"
+	}
+	return sourceObjectKey + ".normalized.pdf"
+}
+
+func cloneDocumentTimePtr(value time.Time) *time.Time {
+	if value.IsZero() {
+		return nil
+	}
+	cloned := value.UTC()
+	return &cloned
+}
+
 // ExtractPDFMetadata validates bytes as PDF and extracts deterministic metadata.
 func ExtractPDFMetadata(raw []byte) (DocumentMetadata, error) {
 	if len(bytes.TrimSpace(raw)) == 0 {
 		return DocumentMetadata{}, domainValidationError("documents", "pdf", "required")
 	}
-	payload := append([]byte{}, raw...)
-	reader, err := pdf.NewReader(bytes.NewReader(payload), int64(len(payload)))
+	analysis, err := NewPDFService().Analyze(context.Background(), stores.Scope{}, raw)
 	if err != nil {
-		return DocumentMetadata{}, invalidPDFError("parse failed")
+		return DocumentMetadata{}, mapPDFAnalysisError(err)
 	}
-	pageCount := reader.NumPage()
-	if pageCount <= 0 {
-		return DocumentMetadata{}, invalidPDFError("missing pages")
-	}
-
-	sum := sha256.Sum256(payload)
 	return DocumentMetadata{
-		SHA256:    hex.EncodeToString(sum[:]),
-		SizeBytes: int64(len(payload)),
-		PageCount: pageCount,
+		SHA256:    analysis.SHA256,
+		SizeBytes: analysis.SizeBytes,
+		PageCount: analysis.PageCount,
 	}, nil
+}
+
+func mapPDFAnalysisError(err error) error {
+	if err == nil {
+		return invalidPDFError("parse failed")
+	}
+	var pdfErr *PDFError
+	if errors.As(err, &pdfErr) {
+		reason := strings.TrimSpace(string(pdfErr.Reason))
+		if reason == "" {
+			reason = "parse failed"
+		}
+		return invalidPDFError(reason)
+	}
+	return invalidPDFError("parse failed")
+}
+
+func pdfErrorReasonCode(err error) PDFReasonCode {
+	if err == nil {
+		return PDFReasonParseFailed
+	}
+	var pdfErr *PDFError
+	if errors.As(err, &pdfErr) && pdfErr != nil && strings.TrimSpace(string(pdfErr.Reason)) != "" {
+		return pdfErr.Reason
+	}
+	return PDFReasonParseFailed
+}
+
+func isPDFPolicyReason(reason PDFReasonCode) bool {
+	return strings.HasPrefix(strings.TrimSpace(string(reason)), "policy.")
+}
+
+func (s DocumentService) analyzeWithoutPolicyEnforcement(ctx context.Context, scope stores.Scope, payload []byte, policy PDFPolicy) (PDFAnalysis, error) {
+	relaxed := normalizePDFPolicy(policy)
+	relaxed.MaxSourceBytes = int64(len(payload) + 1)
+	if relaxed.MaxPages < 10000 {
+		relaxed.MaxPages = 10000
+	}
+	if relaxed.MaxObjects < 1000000 {
+		relaxed.MaxObjects = 1000000
+	}
+	if relaxed.MaxDecompressedBytes < 512*1024*1024 {
+		relaxed.MaxDecompressedBytes = 512 * 1024 * 1024
+	}
+	relaxed.AllowEncrypted = true
+	relaxed.AllowJavaScriptActions = true
+	relaxed.CompatibilityMode = PDFCompatibilityModePermissive
+	relaxed.PipelineMode = policy.PipelineMode
+
+	relaxedPDFs := NewPDFService(WithPDFPolicyResolver(NewStaticPDFPolicyResolver(relaxed)))
+	return relaxedPDFs.Analyze(ctx, scope, payload)
 }
 
 func invalidPDFError(reason string) error {

@@ -17,6 +17,7 @@ const (
 
 	eSignPageAdminLanding      = "admin.landing"
 	eSignPageDocumentIngestion = "admin.documents.ingestion"
+	eSignPageAgreementForm     = "agreement-form"
 	eSignPageGoogleIntegration = "admin.integrations.google"
 	eSignPageGoogleCallback    = "admin.integrations.google_callback"
 	eSignPageGoogleDrivePicker = "admin.integrations.google_drive_picker"
@@ -27,11 +28,13 @@ const (
 
 	eSignModuleAssetAdminLanding      = "dist/esign/index.js"
 	eSignModuleAssetDocumentIngestion = "dist/esign/index.js"
+	eSignModuleAssetAgreementForm     = "dist/esign/index.js"
 )
 
 var eSignMigratedPageModuleAssets = map[string]string{
 	eSignPageAdminLanding:      eSignModuleAssetAdminLanding,
 	eSignPageDocumentIngestion: eSignModuleAssetDocumentIngestion,
+	eSignPageAgreementForm:     eSignModuleAssetAgreementForm,
 }
 
 type eSignPageConfig struct {
@@ -80,6 +83,25 @@ func buildESignDocumentIngestionPageConfig(
 			"google_connected": googleConnected,
 		},
 		Routes: cloneStringMap(routes),
+		Context: map[string]any{
+			"user_id": strings.TrimSpace(userID),
+		},
+	}
+}
+
+func buildESignAgreementFormPageConfig(
+	basePath string,
+	apiBasePath string,
+	userID string,
+	routes map[string]string,
+) eSignPageConfig {
+	resolvedBasePath := normalizeESignBasePath(basePath)
+	return eSignPageConfig{
+		Page:        eSignPageAgreementForm,
+		ModulePath:  resolveESignModulePath(resolvedBasePath, eSignModuleAssetAgreementForm),
+		BasePath:    resolvedBasePath,
+		APIBasePath: normalizeAPIBasePath(apiBasePath),
+		Routes:      cloneStringMap(routes),
 		Context: map[string]any{
 			"user_id": strings.TrimSpace(userID),
 		},

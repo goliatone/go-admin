@@ -295,6 +295,7 @@ func (s *InMemoryStore) Create(ctx context.Context, scope Scope, record Document
 	if strings.TrimSpace(record.SourceObjectKey) == "" {
 		return DocumentRecord{}, invalidRecordError("documents", "source_object_key", "required")
 	}
+	record.NormalizedObjectKey = strings.TrimSpace(record.NormalizedObjectKey)
 	if strings.TrimSpace(record.SourceSHA256) == "" {
 		return DocumentRecord{}, invalidRecordError("documents", "source_sha256", "required")
 	}
@@ -316,6 +317,11 @@ func (s *InMemoryStore) Create(ctx context.Context, scope Scope, record Document
 	record.SourceExportedByUserID = normalizeID(record.SourceExportedByUserID)
 	record.SourceMimeType = strings.TrimSpace(record.SourceMimeType)
 	record.SourceIngestionMode = strings.TrimSpace(record.SourceIngestionMode)
+	record.PDFCompatibilityTier = strings.TrimSpace(record.PDFCompatibilityTier)
+	record.PDFCompatibilityReason = strings.TrimSpace(record.PDFCompatibilityReason)
+	record.PDFNormalizationStatus = strings.TrimSpace(record.PDFNormalizationStatus)
+	record.PDFAnalyzedAt = cloneTimePtr(record.PDFAnalyzedAt)
+	record.PDFPolicyVersion = strings.TrimSpace(record.PDFPolicyVersion)
 	record.TenantID = scope.TenantID
 	record.OrgID = scope.OrgID
 	record.CreatedAt = normalizeRecordTime(record.CreatedAt)
@@ -364,6 +370,11 @@ func (s *InMemoryStore) List(ctx context.Context, scope Scope, query DocumentQue
 
 	scopePrefix := scope.key() + "|"
 	titleFilter := strings.ToLower(strings.TrimSpace(query.TitleContains))
+	// Note: CreatedByUserID filtering is not yet supported as DocumentRecord
+	// does not have a CreatedByUserID field. This filter is ignored for now
+	// but the query parameter is accepted for forward compatibility.
+	// TODO: Add CreatedByUserID field to DocumentRecord when needed.
+	_ = query.CreatedByUserID
 	out := make([]DocumentRecord, 0)
 	for key, record := range s.documents {
 		if !strings.HasPrefix(key, scopePrefix) {
@@ -375,8 +386,20 @@ func (s *InMemoryStore) List(ctx context.Context, scope Scope, query DocumentQue
 		out = append(out, record)
 	}
 
+	// Sort by the specified field (default: created_at ascending)
+	sortBy := strings.ToLower(strings.TrimSpace(query.SortBy))
 	sort.Slice(out, func(i, j int) bool {
-		return out[i].CreatedAt.Before(out[j].CreatedAt)
+		var less bool
+		switch sortBy {
+		case "updated_at":
+			less = out[i].UpdatedAt.Before(out[j].UpdatedAt)
+		default:
+			less = out[i].CreatedAt.Before(out[j].CreatedAt)
+		}
+		if query.SortDesc {
+			return !less
+		}
+		return less
 	})
 
 	start := query.Offset
@@ -391,6 +414,66 @@ func (s *InMemoryStore) List(ctx context.Context, scope Scope, query DocumentQue
 		end = start + query.Limit
 	}
 	return out[start:end], nil
+}
+
+func (s *InMemoryStore) SaveMetadata(ctx context.Context, scope Scope, id string, patch DocumentMetadataPatch) (DocumentRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return DocumentRecord{}, err
+	}
+	id = normalizeID(id)
+	if id == "" {
+		return DocumentRecord{}, invalidRecordError("documents", "id", "required")
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	key := scopedKey(scope, id)
+	record, ok := s.documents[key]
+	if !ok {
+		return DocumentRecord{}, notFoundError("documents", id)
+	}
+
+	next := record
+	next.NormalizedObjectKey = strings.TrimSpace(patch.NormalizedObjectKey)
+	next.PDFCompatibilityTier = strings.TrimSpace(patch.PDFCompatibilityTier)
+	next.PDFCompatibilityReason = strings.TrimSpace(patch.PDFCompatibilityReason)
+	next.PDFNormalizationStatus = strings.TrimSpace(patch.PDFNormalizationStatus)
+	next.PDFAnalyzedAt = cloneTimePtr(patch.PDFAnalyzedAt)
+	next.PDFPolicyVersion = strings.TrimSpace(patch.PDFPolicyVersion)
+	next.SizeBytes = patch.SizeBytes
+	next.PageCount = patch.PageCount
+
+	if documentMetadataUnchanged(record, next) {
+		return record, nil
+	}
+	next.UpdatedAt = normalizeRecordTime(time.Now().UTC())
+	s.documents[key] = next
+	return next, nil
+}
+
+func documentMetadataUnchanged(current, next DocumentRecord) bool {
+	return strings.TrimSpace(current.NormalizedObjectKey) == strings.TrimSpace(next.NormalizedObjectKey) &&
+		strings.TrimSpace(current.PDFCompatibilityTier) == strings.TrimSpace(next.PDFCompatibilityTier) &&
+		strings.TrimSpace(current.PDFCompatibilityReason) == strings.TrimSpace(next.PDFCompatibilityReason) &&
+		strings.TrimSpace(current.PDFNormalizationStatus) == strings.TrimSpace(next.PDFNormalizationStatus) &&
+		timePtrEqual(current.PDFAnalyzedAt, next.PDFAnalyzedAt) &&
+		strings.TrimSpace(current.PDFPolicyVersion) == strings.TrimSpace(next.PDFPolicyVersion) &&
+		current.SizeBytes == next.SizeBytes &&
+		current.PageCount == next.PageCount
+}
+
+func timePtrEqual(a, b *time.Time) bool {
+	switch {
+	case a == nil && b == nil:
+		return true
+	case a == nil || b == nil:
+		return false
+	default:
+		return a.UTC().Equal(b.UTC())
+	}
 }
 
 func (s *InMemoryStore) CreateDraft(ctx context.Context, scope Scope, record AgreementRecord) (AgreementRecord, error) {

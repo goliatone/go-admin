@@ -20,6 +20,7 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	servicesmodule "github.com/goliatone/go-admin/modules/services"
+	"github.com/goliatone/go-admin/quickstart"
 	fggate "github.com/goliatone/go-featuregate/gate"
 	"github.com/goliatone/go-uploader"
 )
@@ -110,6 +111,15 @@ func (m *ESignModule) WithServicesModule(module *servicesmodule.Module) *ESignMo
 		return nil
 	}
 	m.services = module
+	return m
+}
+
+// WithStore injects a pre-bootstrapped store implementation.
+func (m *ESignModule) WithStore(store stores.Store) *ESignModule {
+	if m == nil {
+		return nil
+	}
+	m.store = store
 	return m
 }
 
@@ -221,25 +231,31 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		m.defaultScope = defaultModuleScope
 	}
 	if m.store == nil {
-		sqliteStore, err := stores.NewSQLiteStore(stores.ResolveSQLiteDSN())
-		if err != nil {
-			return fmt.Errorf("esign module: sqlite store: %w", err)
-		}
-		m.store = sqliteStore
+		runtimeCfg := appcfg.Active()
+		return fmt.Errorf(
+			"esign module: store injection is required (runtime.repository_dialect=%s)",
+			strings.TrimSpace(runtimeCfg.Runtime.RepositoryDialect),
+		)
 	}
 	m.googleEnabled = featureEnabled(ctx.Admin.FeatureGate(), "esign_google")
 	objectStore := m.documentUploadManager()
+	pdfPolicyResolver := services.NewRuntimePDFPolicyResolver(ctx.Admin.SettingsService())
+	pdfService := services.NewPDFService(
+		services.WithPDFPolicyResolver(pdfPolicyResolver),
+	)
 
 	tokenTTL := time.Duration(m.settings.TokenTTLSeconds) * time.Second
 	m.documents = services.NewDocumentService(
 		m.store,
 		services.WithDocumentObjectStore(objectStore),
+		services.WithDocumentPDFService(pdfService),
 	)
 	m.tokens = stores.NewTokenService(m.store, stores.WithTokenTTL(tokenTTL))
 	artifactRenderer := services.NewReadableArtifactRenderer(
 		m.store,
 		m.store,
 		objectStore,
+		services.WithReadableArtifactRendererPDFService(pdfService),
 	)
 	m.artifacts = services.NewArtifactPipelineService(m.store,
 		artifactRenderer,
@@ -275,6 +291,7 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		services.WithSigningCompletionWorkflow(emailWorkflow),
 		services.WithSignatureUploadConfig(signatureUploadTTL, signatureUploadSecret),
 		services.WithSigningObjectStore(objectStore),
+		services.WithSigningPDFService(pdfService),
 	)
 	profileTTL, persistDrawnSignature := resolveSignerProfilePersistencePolicy()
 	m.signerProfiles = services.NewSignerProfileService(
@@ -400,6 +417,7 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		}
 	}
 	rateLimitRules := resolveRateLimitRulesFromConfig()
+	requestTrustPolicy := resolveRequestTrustPolicyFromConfig()
 	var preferenceStore coreadmin.PreferencesStore
 	if prefs := ctx.Admin.PreferencesService(); prefs != nil {
 		preferenceStore = prefs.Store()
@@ -429,10 +447,10 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		handlers.WithAuditEventStore(m.store),
 		handlers.WithDefaultScope(m.defaultScope),
 		handlers.WithTransportGuard(handlers.TLSTransportGuard{
-			AllowLocalInsecure:    true,
-			TrustForwardedHeaders: resolveRateLimitClientIPTrustForwarded(),
+			AllowLocalInsecure: true,
+			RequestTrustPolicy: requestTrustPolicy,
 		}),
-		handlers.WithTrustForwardedClientIP(resolveRateLimitClientIPTrustForwarded()),
+		handlers.WithRequestTrustPolicy(requestTrustPolicy),
 		handlers.WithSecurityLogEvent(func(event string, fields map[string]any) {
 			correlationID := observability.ResolveCorrelationID(strings.TrimSpace(fmt.Sprint(fields["correlation_id"])), strings.TrimSpace(event), moduleID)
 			observability.LogOperation(context.Background(), slog.LevelWarn, "api", "security_event", "warning", correlationID, 0, nil, map[string]any{
@@ -454,7 +472,7 @@ func (m *ESignModule) registerPanels(adm *coreadmin.Admin) error {
 	}
 	docRepo := newDocumentPanelRepository(
 		m.store,
-		services.NewDocumentService(m.store, services.WithDocumentObjectStore(m.documentUploadManager())),
+		m.documents,
 		m.documentUploadManager(),
 		m.defaultScope,
 		m.settings,
@@ -476,7 +494,13 @@ func (m *ESignModule) registerPanels(adm *coreadmin.Admin) error {
 			coreadmin.Field{Name: "id", Label: "ID", Type: "text", ReadOnly: true},
 			coreadmin.Field{Name: "title", Label: "Title", Type: "text", ReadOnly: true},
 			coreadmin.Field{Name: "source_object_key", Label: "Source Object Key", Type: "text", ReadOnly: true},
+			coreadmin.Field{Name: "normalized_object_key", Label: "Normalized Object Key", Type: "text", ReadOnly: true},
 			coreadmin.Field{Name: "source_sha256", Label: "SHA256", Type: "text", ReadOnly: true},
+			coreadmin.Field{Name: "pdf_compatibility_tier", Label: "PDF Compatibility", Type: "text", ReadOnly: true},
+			coreadmin.Field{Name: "pdf_compatibility_reason", Label: "PDF Compatibility Reason", Type: "text", ReadOnly: true},
+			coreadmin.Field{Name: "pdf_normalization_status", Label: "PDF Normalization", Type: "text", ReadOnly: true},
+			coreadmin.Field{Name: "pdf_analyzed_at", Label: "PDF Analyzed At", Type: "datetime", ReadOnly: true},
+			coreadmin.Field{Name: "pdf_policy_version", Label: "PDF Policy Version", Type: "text", ReadOnly: true},
 			coreadmin.Field{Name: "size_bytes", Label: "Size", Type: "number", ReadOnly: true},
 			coreadmin.Field{Name: "page_count", Label: "Pages", Type: "number", ReadOnly: true},
 			coreadmin.Field{Name: "created_at", Label: "Uploaded", Type: "datetime", ReadOnly: true},
@@ -777,8 +801,8 @@ func resolveSignerProfilePersistencePolicy() (time.Duration, bool) {
 	return time.Duration(ttlDays) * 24 * time.Hour, persistDrawn
 }
 
-func resolveRateLimitClientIPTrustForwarded() bool {
-	return appcfg.Active().Network.RateLimitTrustProxyHeaders
+func resolveRequestTrustPolicyFromConfig() quickstart.RequestTrustPolicy {
+	return appcfg.ActiveRequestTrustPolicy()
 }
 
 func resolveRateLimitRulesFromConfig() map[string]handlers.RateLimitRule {
