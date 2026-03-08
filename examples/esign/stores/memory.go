@@ -3077,9 +3077,6 @@ func (s *InMemoryStore) BeginJobRun(ctx context.Context, scope Scope, input JobR
 	if input.DedupeKey == "" {
 		return JobRunRecord{}, false, invalidRecordError("job_runs", "dedupe_key", "required")
 	}
-	if input.AgreementID == "" {
-		return JobRunRecord{}, false, invalidRecordError("job_runs", "agreement_id", "required")
-	}
 	if input.MaxAttempts <= 0 {
 		input.MaxAttempts = 3
 	}
@@ -3091,8 +3088,10 @@ func (s *InMemoryStore) BeginJobRun(ctx context.Context, scope Scope, input JobR
 	dedupeKey := jobDedupeIndexKey(scope, input.JobName, input.DedupeKey)
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if _, ok := s.agreements[scopedKey(scope, input.AgreementID)]; !ok {
-		return JobRunRecord{}, false, notFoundError("agreements", input.AgreementID)
+	if input.AgreementID != "" {
+		if _, ok := s.agreements[scopedKey(scope, input.AgreementID)]; !ok {
+			return JobRunRecord{}, false, notFoundError("agreements", input.AgreementID)
+		}
 	}
 	if existingID, exists := s.jobRunDedupeIndex[dedupeKey]; exists {
 		record, ok := s.jobRuns[scopedKey(scope, existingID)]

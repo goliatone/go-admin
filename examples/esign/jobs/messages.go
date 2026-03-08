@@ -49,13 +49,14 @@ type PDFGenerateCertificateMsg struct {
 func (PDFGenerateCertificateMsg) Type() string { return JobPDFGenerateCertificate }
 
 type PDFBackfillDocumentsMsg struct {
-	Scope         stores.Scope
-	CorrelationID string
-	DedupeKey     string
-	MaxAttempts   int
-	Limit         int
-	Offset        int
-	DryRun        bool
+	Scope               stores.Scope
+	CorrelationID       string
+	DedupeKey           string
+	MaxAttempts         int
+	Limit               int
+	Offset              int
+	DryRun              bool
+	AllowPartialFailure bool
 }
 
 func (PDFBackfillDocumentsMsg) Type() string { return JobPDFBackfillDocuments }

@@ -385,3 +385,25 @@ func TestDocumentServiceUploadAnalyzeOnlyAcceptsPolicyViolations(t *testing.T) {
 		t.Fatalf("expected policy max_pages compatibility reason, got %q", record.PDFCompatibilityReason)
 	}
 }
+
+func TestDocumentServiceUploadAnalyzeOnlyDoesNotBypassSafetyLimits(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+
+	policy := DefaultPDFPolicy()
+	policy.MaxSourceBytes = 64
+	policy.PipelineMode = PDFPipelineModeAnalyzeOnly
+	svc := NewDocumentService(store, WithDocumentPDFService(NewPDFService(
+		WithPDFPolicyResolver(NewStaticPDFPolicyResolver(policy)),
+	)))
+
+	_, err := svc.Upload(ctx, scope, DocumentUploadInput{
+		Title:     "Analyze Only Still Safe",
+		ObjectKey: "tenant/tenant-1/org/org-1/docs/doc-analyze-only-safe/source.pdf",
+		PDF:       samplePDF(1),
+	})
+	if err == nil {
+		t.Fatalf("expected source-size rejection even in analyze_only mode")
+	}
+}

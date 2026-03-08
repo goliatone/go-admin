@@ -102,6 +102,41 @@ func TestPDFBackfillServiceSQLiteMigrationSmoke(t *testing.T) {
 	}
 }
 
+func TestPDFBackfillServiceFlagsSourceDigestMismatch(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+	objects := uploader.NewManager(uploader.WithProvider(uploader.NewFSProvider(t.TempDir())))
+	source := GenerateDeterministicPDF(1)
+	now := time.Date(2026, 3, 7, 12, 0, 0, 0, time.UTC)
+
+	document := createLegacyBackfillDocument(t, ctx, store, scope, "doc-backfill-mismatch", "tenant/tenant-1/org/org-1/docs/doc-backfill-mismatch/source.pdf", source, now)
+	tampered := append([]byte{}, source...)
+	tampered = append(tampered, []byte("\n%tampered\n")...)
+	if _, err := objects.UploadFile(ctx, document.SourceObjectKey, tampered, uploader.WithContentType("application/pdf")); err != nil {
+		t.Fatalf("upload tampered source pdf: %v", err)
+	}
+
+	service := NewPDFBackfillService(store, objects, WithPDFBackfillClock(func() time.Time { return now }))
+	result, err := service.Run(ctx, scope, PDFBackfillInput{})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if result.Updated != 1 || result.Failed != 0 {
+		t.Fatalf("expected metadata update with digest mismatch classification, got %+v", result)
+	}
+	updated, err := store.Get(ctx, scope, document.ID)
+	if err != nil {
+		t.Fatalf("Get updated: %v", err)
+	}
+	if updated.PDFCompatibilityReason != pdfBackfillReasonSourceDigestMismatch {
+		t.Fatalf("expected digest mismatch reason %q, got %q", pdfBackfillReasonSourceDigestMismatch, updated.PDFCompatibilityReason)
+	}
+	if updated.PDFCompatibilityTier != string(PDFCompatibilityTierUnsupported) {
+		t.Fatalf("expected unsupported tier for digest mismatch, got %q", updated.PDFCompatibilityTier)
+	}
+}
+
 func createLegacyBackfillDocument(t *testing.T, ctx context.Context, store stores.DocumentStore, scope stores.Scope, id, objectKey string, source []byte, now time.Time) stores.DocumentRecord {
 	t.Helper()
 	sum := sha256.Sum256(source)

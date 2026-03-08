@@ -124,9 +124,9 @@ func (s DocumentService) Upload(ctx context.Context, scope stores.Scope, input D
 		if isPDFPolicyReason(reason) {
 			observability.ObservePDFIngestPolicyReject(ctx, string(reason), string(PDFCompatibilityTierUnsupported))
 		}
-		if policyAllowsAnalyzeOnlyUpload(policy) && isPDFPolicyReason(reason) {
+		if policyAllowsAnalyzeOnlyUpload(policy) && isPDFCompatibilityBypassReason(reason) {
 			policyRejectReason = reason
-			analysis, err = s.analyzeWithoutPolicyEnforcement(ctx, scope, payload, policy)
+			analysis, err = s.analyzeWithoutCompatibilityBlocking(ctx, scope, payload, policy)
 		}
 		if err != nil {
 			return stores.DocumentRecord{}, mapPDFAnalysisError(err)
@@ -300,21 +300,20 @@ func isPDFPolicyReason(reason PDFReasonCode) bool {
 	return strings.HasPrefix(strings.TrimSpace(string(reason)), "policy.")
 }
 
-func (s DocumentService) analyzeWithoutPolicyEnforcement(ctx context.Context, scope stores.Scope, payload []byte, policy PDFPolicy) (PDFAnalysis, error) {
+func isPDFCompatibilityBypassReason(reason PDFReasonCode) bool {
+	switch reason {
+	case PDFReasonPolicyMaxPages:
+		return true
+	default:
+		return false
+	}
+}
+
+func (s DocumentService) analyzeWithoutCompatibilityBlocking(ctx context.Context, scope stores.Scope, payload []byte, policy PDFPolicy) (PDFAnalysis, error) {
 	relaxed := normalizePDFPolicy(policy)
-	relaxed.MaxSourceBytes = int64(len(payload) + 1)
 	if relaxed.MaxPages < 10000 {
 		relaxed.MaxPages = 10000
 	}
-	if relaxed.MaxObjects < 1000000 {
-		relaxed.MaxObjects = 1000000
-	}
-	if relaxed.MaxDecompressedBytes < 512*1024*1024 {
-		relaxed.MaxDecompressedBytes = 512 * 1024 * 1024
-	}
-	relaxed.AllowEncrypted = true
-	relaxed.AllowJavaScriptActions = true
-	relaxed.CompatibilityMode = PDFCompatibilityModePermissive
 	relaxed.PipelineMode = policy.PipelineMode
 
 	relaxedPDFs := NewPDFService(WithPDFPolicyResolver(NewStaticPDFPolicyResolver(relaxed)))

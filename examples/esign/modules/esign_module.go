@@ -269,6 +269,8 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		GoogleImportRuns: m.store,
 		EmailLogs:        m.store,
 		Audits:           m.store,
+		Documents:        m.store,
+		ObjectStore:      objectStore,
 		Tokens:           m.tokens,
 		Pipeline:         m.artifacts,
 		EmailProvider:    emailProvider,

@@ -21,9 +21,13 @@ import (
 )
 
 var (
-	pdfObjectPattern       = regexp.MustCompile(`(?m)\n\d+\s+\d+\s+obj\b`)
+	pdfObjectPattern       = regexp.MustCompile(`(?m)(?:^|[\r\n])\s*\d+\s+\d+\s+obj\b`)
 	pdfLengthMarkerPattern = regexp.MustCompile(`(?i)/Length\s+(\d+)`)
 )
+
+var pdfNewReader = func(reader *bytes.Reader, size int64) (*pdf.Reader, error) {
+	return pdf.NewReader(reader, size)
+}
 
 const (
 	PDFDefaultPageWidthPt  = 612.0
@@ -619,17 +623,13 @@ func (s PDFService) Analyze(ctx context.Context, scope stores.Scope, raw []byte)
 	opCtx, cancel := context.WithTimeout(ctx, policy.ParseTimeout)
 	defer cancel()
 
-	reader, err := pdf.NewReader(bytes.NewReader(payload), int64(len(payload)))
+	pageCount, err := analyzePDFPageCount(opCtx, payload)
 	if err != nil {
-		if mapped := mapContextPDFError("analyze", opCtx.Err(), PDFReasonTimeoutParse); mapped != nil {
+		if mapped := mapContextPDFError("analyze", err, PDFReasonTimeoutParse); mapped != nil {
 			return PDFAnalysis{}, mapped
 		}
 		return PDFAnalysis{}, pdfErrorf("analyze", PDFReasonParseFailed, err)
 	}
-	if mapped := mapContextPDFError("analyze", opCtx.Err(), PDFReasonTimeoutParse); mapped != nil {
-		return PDFAnalysis{}, mapped
-	}
-	pageCount := reader.NumPage()
 	if pageCount <= 0 {
 		return PDFAnalysis{}, pdfErrorf("analyze", PDFReasonParseMissingPages, nil)
 	}
@@ -712,11 +712,11 @@ func (s PDFService) Normalize(ctx context.Context, scope stores.Scope, raw []byt
 }
 
 func hasPDFEncryptedMarker(payload []byte) bool {
-	return bytes.Contains(payload, []byte("/Encrypt"))
+	return hasPDFNameToken(payload, "Encrypt")
 }
 
 func hasPDFJavaScriptMarker(payload []byte) bool {
-	return bytes.Contains(payload, []byte("/JavaScript")) || bytes.Contains(payload, []byte("/JS"))
+	return hasPDFNameToken(payload, "JavaScript") || hasPDFNameToken(payload, "JS")
 }
 
 func estimatePDFObjectCount(payload []byte) int {
@@ -788,8 +788,11 @@ func (s PDFService) PageGeometry(ctx context.Context, scope stores.Scope, raw []
 		if mapped := mapContextPDFError("page_geometry", opCtx.Err(), PDFReasonTimeoutParse); mapped != nil {
 			return nil, mapped
 		}
-		_, box, importErr := safeImportPageWithBoxes(importer, pdfDoc, payload, page, "/CropBox", "/MediaBox")
+		_, box, importErr := safeImportPageWithBoxesWithContext(opCtx, importer, pdfDoc, payload, page, "/CropBox", "/MediaBox")
 		if importErr != nil {
+			if mapped := mapContextPDFError("page_geometry", importErr, PDFReasonTimeoutParse); mapped != nil {
+				return nil, mapped
+			}
 			return nil, &PDFError{
 				Op:     "page_geometry",
 				Reason: PDFReasonImportFailed,
@@ -852,8 +855,11 @@ func (s PDFService) RenderSourcePages(
 			return mapped
 		}
 		// Import /MediaBox first to avoid zero-sized /CropBox transformations.
-		tplID, box, importErr := safeImportPageWithBoxes(importer, pdfDoc, sourcePDF, page, "/MediaBox", "/CropBox")
+		tplID, box, importErr := safeImportPageWithBoxesWithContext(opCtx, importer, pdfDoc, sourcePDF, page, "/MediaBox", "/CropBox")
 		if importErr != nil {
+			if mapped := mapContextPDFError("render_source_pages", importErr, PDFReasonTimeoutParse); mapped != nil {
+				return mapped
+			}
 			return &PDFError{
 				Op:     "render_source_pages",
 				Reason: PDFReasonImportFailed,
@@ -874,7 +880,10 @@ func (s PDFService) RenderSourcePages(
 			orientation = "L"
 		}
 		pdfDoc.AddPageFormat(orientation, gofpdf.SizeType{Wd: width, Ht: height})
-		if useErr := safeUseImportedTemplate(importer, pdfDoc, tplID, 0, 0, width, height); useErr != nil {
+		if useErr := safeUseImportedTemplateWithContext(opCtx, importer, pdfDoc, tplID, 0, 0, width, height); useErr != nil {
+			if mapped := mapContextPDFError("render_source_pages", useErr, PDFReasonTimeoutParse); mapped != nil {
+				return mapped
+			}
 			return &PDFError{
 				Op:     "render_source_pages",
 				Reason: PDFReasonImportFailed,
@@ -920,4 +929,132 @@ func importedPageSize(pageSizes map[int]map[string]map[string]float64, page int)
 		}
 	}
 	return PDFDefaultPageWidthPt, PDFDefaultPageHeightPt
+}
+
+type pdfAnalyzeResult struct {
+	pageCount int
+}
+
+func analyzePDFPageCount(ctx context.Context, payload []byte) (int, error) {
+	result, err := runPDFOperation(ctx, func() (pdfAnalyzeResult, error) {
+		reader, err := pdfNewReader(bytes.NewReader(payload), int64(len(payload)))
+		if err != nil {
+			return pdfAnalyzeResult{}, err
+		}
+		return pdfAnalyzeResult{pageCount: reader.NumPage()}, nil
+	})
+	if err != nil {
+		return 0, err
+	}
+	return result.pageCount, nil
+}
+
+func safeImportPageWithBoxesWithContext(ctx context.Context, importer *gofpdi.Importer, pdfDoc *gofpdf.Fpdf, sourcePDF []byte, page int, boxes ...string) (int, string, error) {
+	type importResult struct {
+		tplID int
+		box   string
+	}
+	result, err := runPDFOperation(ctx, func() (importResult, error) {
+		tplID, box, importErr := safeImportPageWithBoxes(importer, pdfDoc, sourcePDF, page, boxes...)
+		if importErr != nil {
+			return importResult{}, importErr
+		}
+		return importResult{tplID: tplID, box: box}, nil
+	})
+	if err != nil {
+		return 0, "", err
+	}
+	return result.tplID, result.box, nil
+}
+
+func safeUseImportedTemplateWithContext(ctx context.Context, importer *gofpdi.Importer, pdfDoc *gofpdf.Fpdf, tplID int, x, y, width, height float64) error {
+	_, err := runPDFOperation(ctx, func() (struct{}, error) {
+		return struct{}{}, safeUseImportedTemplate(importer, pdfDoc, tplID, x, y, width, height)
+	})
+	return err
+}
+
+func runPDFOperation[T any](ctx context.Context, fn func() (T, error)) (T, error) {
+	var zero T
+	if fn == nil {
+		return zero, fmt.Errorf("pdf operation missing function")
+	}
+	if err := ctx.Err(); err != nil {
+		return zero, err
+	}
+	type result struct {
+		value T
+		err   error
+	}
+	done := make(chan result, 1)
+	go func() {
+		value, err := fn()
+		done <- result{value: value, err: err}
+	}()
+	select {
+	case <-ctx.Done():
+		return zero, ctx.Err()
+	case out := <-done:
+		return out.value, out.err
+	}
+}
+
+func hasPDFNameToken(payload []byte, token string) bool {
+	if len(payload) == 0 {
+		return false
+	}
+	target := strings.ToLower(strings.TrimSpace(token))
+	if target == "" {
+		return false
+	}
+	for idx := 0; idx < len(payload); idx++ {
+		if payload[idx] != '/' {
+			continue
+		}
+		parsed, next := parsePDFName(payload, idx+1)
+		idx = next - 1
+		if strings.EqualFold(parsed, target) {
+			return true
+		}
+	}
+	return false
+}
+
+func parsePDFName(payload []byte, start int) (string, int) {
+	if start < 0 || start >= len(payload) {
+		return "", start
+	}
+	builder := strings.Builder{}
+	index := start
+	for index < len(payload) {
+		ch := payload[index]
+		if isPDFNameTerminator(ch) {
+			break
+		}
+		if ch == '#' && index+2 < len(payload) && isHexDigit(payload[index+1]) && isHexDigit(payload[index+2]) {
+			hexPair := string([]byte{payload[index+1], payload[index+2]})
+			decoded, err := strconv.ParseUint(hexPair, 16, 8)
+			if err == nil {
+				builder.WriteByte(byte(decoded))
+				index += 3
+				continue
+			}
+		}
+		builder.WriteByte(ch)
+		index++
+	}
+	return builder.String(), index
+}
+
+func isPDFNameTerminator(ch byte) bool {
+	switch ch {
+	case 0x00, 0x09, 0x0A, 0x0C, 0x0D, 0x20, '(', ')', '<', '>', '[', ']', '{', '}', '/', '%':
+		return true
+	default:
+		return false
+	}
+}
+
+func isHexDigit(ch byte) bool {
+	return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F')
 }

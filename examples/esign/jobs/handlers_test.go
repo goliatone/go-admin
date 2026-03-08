@@ -49,6 +49,36 @@ func (p *captureTemplateProvider) Send(_ context.Context, input EmailSendInput) 
 	return "provider-" + input.Recipient.ID, nil
 }
 
+type failingBackfillDocumentStore struct {
+	documents []stores.DocumentRecord
+	saveErr   error
+}
+
+func (s *failingBackfillDocumentStore) Create(_ context.Context, _ stores.Scope, record stores.DocumentRecord) (stores.DocumentRecord, error) {
+	return record, nil
+}
+
+func (s *failingBackfillDocumentStore) Get(_ context.Context, _ stores.Scope, _ string) (stores.DocumentRecord, error) {
+	if len(s.documents) == 0 {
+		return stores.DocumentRecord{}, errors.New("document not found")
+	}
+	return s.documents[0], nil
+}
+
+func (s *failingBackfillDocumentStore) List(_ context.Context, _ stores.Scope, _ stores.DocumentQuery) ([]stores.DocumentRecord, error) {
+	return append([]stores.DocumentRecord{}, s.documents...), nil
+}
+
+func (s *failingBackfillDocumentStore) SaveMetadata(_ context.Context, _ stores.Scope, _ string, _ stores.DocumentMetadataPatch) (stores.DocumentRecord, error) {
+	if s.saveErr != nil {
+		return stores.DocumentRecord{}, s.saveErr
+	}
+	if len(s.documents) == 0 {
+		return stores.DocumentRecord{}, nil
+	}
+	return s.documents[0], nil
+}
+
 func samplePDF() []byte {
 	return services.GenerateDeterministicPDF(1)
 }
@@ -614,6 +644,94 @@ func TestHandlersPermanentEmailFailureTransitionsToTerminalFailed(t *testing.T) 
 	}
 	if failed.NextRetryAt != nil {
 		t.Fatalf("expected no next retry at terminal failure, got %+v", failed)
+	}
+}
+
+func TestHandlersExecutePDFBackfillDocumentsFailsOnPartialFailuresByDefault(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	jobStore := stores.NewInMemoryStore()
+	objectStore := uploader.NewManager(uploader.WithProvider(uploader.NewFSProvider(t.TempDir())))
+	source := services.GenerateDeterministicPDF(1)
+	sourceKey := "tenant/tenant-1/org/org-1/docs/backfill/source.pdf"
+	if _, err := objectStore.UploadFile(ctx, sourceKey, source, uploader.WithContentType("application/pdf")); err != nil {
+		t.Fatalf("upload source: %v", err)
+	}
+	documents := &failingBackfillDocumentStore{
+		documents: []stores.DocumentRecord{
+			{
+				ID:              "doc-backfill-fail",
+				Title:           "Backfill Fail",
+				SourceObjectKey: sourceKey,
+				SourceSHA256:    strings.Repeat("a", 64),
+			},
+		},
+		saveErr: errors.New("save metadata failed"),
+	}
+	handlers := NewHandlers(HandlerDependencies{
+		Documents:   documents,
+		ObjectStore: objectStore,
+		JobRuns:     jobStore,
+	})
+
+	msg := PDFBackfillDocumentsMsg{
+		Scope:     scope,
+		DedupeKey: "backfill-partial-default",
+	}
+	err := handlers.ExecutePDFBackfillDocuments(ctx, msg)
+	if err == nil {
+		t.Fatalf("expected backfill job to fail when documents fail and allow_partial_failure is false")
+	}
+	run, getErr := jobStore.GetJobRunByDedupe(ctx, scope, JobPDFBackfillDocuments, msg.DedupeKey)
+	if getErr != nil {
+		t.Fatalf("GetJobRunByDedupe: %v", getErr)
+	}
+	if run.Status != stores.JobRunStatusRetrying && run.Status != stores.JobRunStatusFailed {
+		t.Fatalf("expected failed/retrying job run status, got %+v", run)
+	}
+}
+
+func TestHandlersExecutePDFBackfillDocumentsAllowsPartialFailuresWhenConfigured(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	jobStore := stores.NewInMemoryStore()
+	objectStore := uploader.NewManager(uploader.WithProvider(uploader.NewFSProvider(t.TempDir())))
+	source := services.GenerateDeterministicPDF(1)
+	sourceKey := "tenant/tenant-1/org/org-1/docs/backfill-optout/source.pdf"
+	if _, err := objectStore.UploadFile(ctx, sourceKey, source, uploader.WithContentType("application/pdf")); err != nil {
+		t.Fatalf("upload source: %v", err)
+	}
+	documents := &failingBackfillDocumentStore{
+		documents: []stores.DocumentRecord{
+			{
+				ID:              "doc-backfill-optout",
+				Title:           "Backfill Opt-out",
+				SourceObjectKey: sourceKey,
+				SourceSHA256:    strings.Repeat("a", 64),
+			},
+		},
+		saveErr: errors.New("save metadata failed"),
+	}
+	handlers := NewHandlers(HandlerDependencies{
+		Documents:   documents,
+		ObjectStore: objectStore,
+		JobRuns:     jobStore,
+	})
+
+	msg := PDFBackfillDocumentsMsg{
+		Scope:               scope,
+		DedupeKey:           "backfill-partial-optout",
+		AllowPartialFailure: true,
+	}
+	if err := handlers.ExecutePDFBackfillDocuments(ctx, msg); err != nil {
+		t.Fatalf("expected backfill job success when allow_partial_failure=true, got %v", err)
+	}
+	run, getErr := jobStore.GetJobRunByDedupe(ctx, scope, JobPDFBackfillDocuments, msg.DedupeKey)
+	if getErr != nil {
+		t.Fatalf("GetJobRunByDedupe: %v", getErr)
+	}
+	if run.Status != stores.JobRunStatusSucceeded {
+		t.Fatalf("expected succeeded job run status when partial failures are allowed, got %+v", run)
 	}
 }
 

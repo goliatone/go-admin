@@ -650,6 +650,9 @@ func (s SigningService) resolveSessionBootstrap(ctx context.Context, scope store
 	if compatibility.Tier == PDFCompatibilityTierLimited {
 		viewerTier = signerViewerCompatibilityTierLimited
 	}
+	if compatibility.Tier == PDFCompatibilityTierUnsupported {
+		viewerTier = signerViewerCompatibilityTierUnsupported
+	}
 	fallback := false
 	if len(pages) != pageCount {
 		if viewerFallbackRequiresPermission(strings.TrimSpace(fallbackReason)) && !(s.previewFallback || policy.PreviewFallbackEnabled) {
@@ -658,7 +661,9 @@ func (s SigningService) resolveSessionBootstrap(ctx context.Context, scope store
 			})
 		}
 		fallback = true
-		viewerTier = signerViewerCompatibilityTierLimited
+		if viewerTier != signerViewerCompatibilityTierUnsupported {
+			viewerTier = signerViewerCompatibilityTierLimited
+		}
 		if strings.TrimSpace(fallbackReason) == "" {
 			fallbackReason = signerViewerCompatibilityReasonSourceImportFailed
 		}
@@ -696,6 +701,7 @@ func viewerFallbackRequiresPermission(reason string) bool {
 	switch strings.TrimSpace(reason) {
 	case signerViewerCompatibilityReasonSourceNotPDF,
 		signerViewerCompatibilityReasonSourceImportFailed,
+		signerViewerCompatibilityReasonSourceUnavailable,
 		signerViewerCompatibilityReasonNormalizedUnavailable,
 		signerViewerCompatibilityReasonOriginalFallbackBlock:
 		return true
