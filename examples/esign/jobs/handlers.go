@@ -496,6 +496,7 @@ func (h Handlers) ExecutePDFBackfillDocuments(ctx context.Context, msg PDFBackfi
 			msg.Scope.TenantID,
 			msg.Scope.OrgID,
 			fmt.Sprintf("dry_run=%t", msg.DryRun),
+			fmt.Sprintf("allow_partial_failure=%t", msg.AllowPartialFailure),
 			fmt.Sprintf("limit=%d", msg.Limit),
 			fmt.Sprintf("offset=%d", msg.Offset),
 		}, "|")
@@ -526,6 +527,16 @@ func (h Handlers) ExecutePDFBackfillDocuments(ctx context.Context, msg PDFBackfi
 	if err != nil {
 		return h.failJob(ctx, msg.Scope, run, err, "", map[string]any{
 			"job_name": JobPDFBackfillDocuments,
+		})
+	}
+	if result.Failed > 0 && !msg.AllowPartialFailure {
+		return h.failJob(ctx, msg.Scope, run, fmt.Errorf("pdf backfill failed for %d documents", result.Failed), "", map[string]any{
+			"job_name":    JobPDFBackfillDocuments,
+			"scanned":     result.Scanned,
+			"updated":     result.Updated,
+			"skipped":     result.Skipped,
+			"failed":      result.Failed,
+			"failure_set": result.Failures,
 		})
 	}
 	if _, err := h.jobRuns.MarkJobRunSucceeded(ctx, msg.Scope, run.ID, h.now()); err != nil {

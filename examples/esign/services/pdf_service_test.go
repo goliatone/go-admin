@@ -1,11 +1,14 @@
 package services
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/goliatone/go-admin/examples/esign/stores"
+	"github.com/ledongthuc/pdf"
 )
 
 func TestPDFServiceAnalyzeReturnsCanonicalMetadata(t *testing.T) {
@@ -185,5 +188,27 @@ func TestPDFServiceAnalyzeHonorsContextCancellation(t *testing.T) {
 	}
 	if reason := pdfErrorReason(t, err); reason != PDFReasonContextCanceled {
 		t.Fatalf("expected context.canceled reason, got %q", reason)
+	}
+}
+
+func TestPDFServiceAnalyzeHonorsParseTimeoutBudget(t *testing.T) {
+	previous := pdfNewReader
+	t.Cleanup(func() {
+		pdfNewReader = previous
+	})
+	pdfNewReader = func(_ *bytes.Reader, _ int64) (*pdf.Reader, error) {
+		time.Sleep(50 * time.Millisecond)
+		return nil, errors.New("slow parser")
+	}
+
+	policy := DefaultPDFPolicy()
+	policy.ParseTimeout = 5 * time.Millisecond
+	svc := NewPDFService(WithPDFPolicyResolver(NewStaticPDFPolicyResolver(policy)))
+	_, err := svc.Analyze(context.Background(), stores.Scope{}, GenerateDeterministicPDF(1))
+	if err == nil {
+		t.Fatalf("expected parse timeout error")
+	}
+	if reason := pdfErrorReason(t, err); reason != PDFReasonTimeoutParse {
+		t.Fatalf("expected timeout.parse reason, got %q", reason)
 	}
 }

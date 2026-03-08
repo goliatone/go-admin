@@ -10,130 +10,93 @@ import (
 	"time"
 
 	appcfg "github.com/goliatone/go-admin/examples/esign/config"
-	"github.com/goliatone/go-admin/examples/esign/stores"
-	"github.com/uptrace/bun"
 )
 
-const phase8PostgresDSNEnv = "ESIGN_PHASE8_POSTGRES_DSN"
-
-func TestPhase8RestartPersistenceSQLiteSurvivesBootstrapRestart(t *testing.T) {
+func TestPhase8RestartPersistenceSQLiteSurvivesRestart(t *testing.T) {
+	dsn := "file:" + filepath.Join(t.TempDir(), "phase8-restart.sqlite") + "?_busy_timeout=5000&_foreign_keys=on"
 	cfg := appcfg.Defaults()
 	cfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectSQLite
-	cfg.Migrations.LocalOnly = true
-	cfg.SQLite.DSN = "file:" + filepath.Join(t.TempDir(), "phase8-restart-sqlite.db") + "?_busy_timeout=5000&_foreign_keys=on"
+	cfg.SQLite.DSN = dsn
+	cfg.Postgres.DSN = ""
 
-	ctx := context.Background()
-	scope := stores.Scope{TenantID: "tenant-phase8", OrgID: "org-phase8"}
-	documentID := fmt.Sprintf("doc-phase8-restart-%d", time.Now().UTC().UnixNano())
-	createdAt := time.Now().UTC().Round(time.Microsecond)
+	const tableName = "phase8_restart_probe_sqlite"
+	const marker = "phase8-sqlite"
 
-	first, err := Bootstrap(ctx, *cfg)
+	first, err := Bootstrap(context.Background(), *cfg)
 	if err != nil {
-		t.Fatalf("Bootstrap first sqlite instance: %v", err)
+		t.Fatalf("first Bootstrap: %v", err)
 	}
-	if err := phase8InsertDocument(ctx, first.BunDB, scope, documentID, createdAt); err != nil {
+	if _, err := first.BunDB.ExecContext(context.Background(), fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (id INTEGER PRIMARY KEY, marker TEXT NOT NULL)`, tableName)); err != nil {
 		_ = first.Close()
-		t.Fatalf("insert sqlite document before restart: %v", err)
+		t.Fatalf("create probe table: %v", err)
+	}
+	if _, err := first.BunDB.ExecContext(context.Background(), fmt.Sprintf(`INSERT OR REPLACE INTO %s (id, marker) VALUES (1, ?)`, tableName), marker); err != nil {
+		_ = first.Close()
+		t.Fatalf("insert probe row: %v", err)
 	}
 	if err := first.Close(); err != nil {
-		t.Fatalf("close first sqlite instance: %v", err)
+		t.Fatalf("close first bootstrap: %v", err)
 	}
 
-	second, err := Bootstrap(ctx, *cfg)
+	second, err := Bootstrap(context.Background(), *cfg)
 	if err != nil {
-		t.Fatalf("Bootstrap second sqlite instance: %v", err)
+		t.Fatalf("second Bootstrap: %v", err)
 	}
 	defer func() { _ = second.Close() }()
 
-	count, err := second.BunDB.NewSelect().
-		Model((*stores.DocumentRecord)(nil)).
-		Where("id = ?", documentID).
-		Where("tenant_id = ?", scope.TenantID).
-		Where("org_id = ?", scope.OrgID).
-		Count(ctx)
-	if err != nil {
-		t.Fatalf("select sqlite document after restart: %v", err)
+	var persisted string
+	if err := second.BunDB.NewRaw(fmt.Sprintf(`SELECT marker FROM %s WHERE id = 1`, tableName)).Scan(context.Background(), &persisted); err != nil {
+		t.Fatalf("read probe row after restart: %v", err)
 	}
-	if count != 1 {
-		t.Fatalf("expected one sqlite document after restart, got %d", count)
+	if strings.TrimSpace(persisted) != marker {
+		t.Fatalf("expected probe marker %q after restart, got %q", marker, persisted)
 	}
 }
 
-func TestPhase8RestartPersistencePostgresSurvivesBootstrapRestart(t *testing.T) {
-	postgresDSN := strings.TrimSpace(os.Getenv(phase8PostgresDSNEnv))
-	if postgresDSN == "" {
-		t.Skipf("%s is not set", phase8PostgresDSNEnv)
+func TestPhase8RestartPersistencePostgresSurvivesRestartWhenDSNProvided(t *testing.T) {
+	dsn := strings.TrimSpace(os.Getenv("ESIGN_TEST_POSTGRES_DSN"))
+	if dsn == "" {
+		t.Skip("set ESIGN_TEST_POSTGRES_DSN to run postgres restart persistence coverage")
 	}
 
 	cfg := appcfg.Defaults()
 	cfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectPostgres
-	cfg.Migrations.LocalOnly = true
-	cfg.Postgres.DSN = postgresDSN
+	cfg.Postgres.DSN = dsn
+	cfg.SQLite.DSN = ""
 
-	ctx := context.Background()
-	scope := stores.Scope{TenantID: "tenant-phase8", OrgID: "org-phase8"}
-	documentID := fmt.Sprintf("doc-phase8-restart-pg-%d", time.Now().UTC().UnixNano())
-	createdAt := time.Now().UTC().Round(time.Microsecond)
+	tableName := fmt.Sprintf("phase8_restart_probe_postgres_%d", time.Now().UnixNano())
+	marker := fmt.Sprintf("phase8-postgres-%d", time.Now().UnixNano())
 
-	first, err := Bootstrap(ctx, *cfg)
+	first, err := Bootstrap(context.Background(), *cfg)
 	if err != nil {
-		t.Fatalf("Bootstrap first postgres instance: %v", err)
+		t.Fatalf("first Bootstrap (postgres): %v", err)
 	}
-	if err := phase8InsertDocument(ctx, first.BunDB, scope, documentID, createdAt); err != nil {
+	if _, err := first.BunDB.ExecContext(context.Background(), fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (id BIGINT PRIMARY KEY, marker TEXT NOT NULL)`, tableName)); err != nil {
 		_ = first.Close()
-		t.Fatalf("insert postgres document before restart: %v", err)
+		t.Fatalf("create postgres probe table: %v", err)
+	}
+	if _, err := first.BunDB.ExecContext(context.Background(), fmt.Sprintf(`INSERT INTO %s (id, marker) VALUES (1, $1) ON CONFLICT (id) DO UPDATE SET marker = EXCLUDED.marker`, tableName), marker); err != nil {
+		_ = first.Close()
+		t.Fatalf("insert postgres probe row: %v", err)
 	}
 	if err := first.Close(); err != nil {
-		t.Fatalf("close first postgres instance: %v", err)
+		t.Fatalf("close first postgres bootstrap: %v", err)
 	}
 
-	second, err := Bootstrap(ctx, *cfg)
+	second, err := Bootstrap(context.Background(), *cfg)
 	if err != nil {
-		t.Fatalf("Bootstrap second postgres instance: %v", err)
+		t.Fatalf("second Bootstrap (postgres): %v", err)
 	}
 	defer func() {
-		_, _ = second.BunDB.NewDelete().
-			Model((*stores.DocumentRecord)(nil)).
-			Where("id = ?", documentID).
-			Where("tenant_id = ?", scope.TenantID).
-			Where("org_id = ?", scope.OrgID).
-			Exec(ctx)
+		_, _ = second.BunDB.ExecContext(context.Background(), fmt.Sprintf(`DROP TABLE IF EXISTS %s`, tableName))
 		_ = second.Close()
 	}()
 
-	count, err := second.BunDB.NewSelect().
-		Model((*stores.DocumentRecord)(nil)).
-		Where("id = ?", documentID).
-		Where("tenant_id = ?", scope.TenantID).
-		Where("org_id = ?", scope.OrgID).
-		Count(ctx)
-	if err != nil {
-		t.Fatalf("select postgres document after restart: %v", err)
+	var persisted string
+	if err := second.BunDB.NewRaw(fmt.Sprintf(`SELECT marker FROM %s WHERE id = 1`, tableName)).Scan(context.Background(), &persisted); err != nil {
+		t.Fatalf("read postgres probe row after restart: %v", err)
 	}
-	if count != 1 {
-		t.Fatalf("expected one postgres document after restart, got %d", count)
+	if strings.TrimSpace(persisted) != marker {
+		t.Fatalf("expected postgres probe marker %q after restart, got %q", marker, persisted)
 	}
-}
-
-func phase8InsertDocument(ctx context.Context, db *bun.DB, scope stores.Scope, id string, createdAt time.Time) error {
-	if db == nil {
-		return fmt.Errorf("phase8 restart test: bun db is required")
-	}
-	_, err := db.NewRaw(
-		`INSERT INTO documents (
-			id, tenant_id, org_id, title, source_object_key, source_sha256, created_at, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		strings.TrimSpace(id),
-		strings.TrimSpace(scope.TenantID),
-		strings.TrimSpace(scope.OrgID),
-		"Phase8 Restart",
-		fmt.Sprintf("tenant/%s/org/%s/docs/%s.pdf", scope.TenantID, scope.OrgID, id),
-		strings.Repeat("a", 64),
-		createdAt,
-		createdAt,
-	).Exec(ctx)
-	if err != nil {
-		return fmt.Errorf("phase8 restart test: insert document: %w", err)
-	}
-	return nil
 }

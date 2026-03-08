@@ -633,6 +633,46 @@ func TestSigningServiceGetSessionSupportsPreviewFallbackKillSwitch(t *testing.T)
 	}
 }
 
+func TestSigningServiceGetSessionBlocksWhenSourceUnavailableAndFallbackDisabled(t *testing.T) {
+	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
+
+	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("signer@example.com"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: primitives.Int(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer: %v", err)
+	}
+	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        stringPtr(stores.FieldTypeSignature),
+		PageNumber:  primitives.Int(1),
+		Required:    boolPtr(true),
+	}); err != nil {
+		t.Fatalf("UpsertFieldDraft signature: %v", err)
+	}
+	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase-slice7-source-unavailable-block"}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+
+	signingSvc := NewSigningService(store)
+	_, err = signingSvc.GetSession(ctx, scope, stores.SigningTokenRecord{
+		AgreementID: agreement.ID,
+		RecipientID: signer.ID,
+	})
+	if err == nil {
+		t.Fatalf("expected unsupported error when source is unavailable and fallback is disabled")
+	}
+	var coded *goerrors.Error
+	if !errors.As(err, &coded) {
+		t.Fatalf("expected coded unsupported error, got %T (%v)", err, err)
+	}
+	if strings.TrimSpace(coded.TextCode) != string(ErrorCodePDFUnsupported) {
+		t.Fatalf("expected text code %q, got %q", ErrorCodePDFUnsupported, coded.TextCode)
+	}
+}
+
 func TestSigningServiceGetSessionReportsFullCompatibilityWhenSourceImportSucceeds(t *testing.T) {
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 

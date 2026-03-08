@@ -13,7 +13,8 @@ import (
 )
 
 const (
-	pdfBackfillReasonSourceUnavailable = "source.unavailable"
+	pdfBackfillReasonSourceUnavailable    = "source.unavailable"
+	pdfBackfillReasonSourceDigestMismatch = "source.digest_mismatch"
 )
 
 // PDFBackfillInput controls a single backfill run.
@@ -159,6 +160,17 @@ func (s PDFBackfillService) backfillDocumentPatch(ctx context.Context, scope sto
 		patch.PDFPolicyVersion = PDFPolicyVersion
 		patch.PDFAnalyzedAt = resolvedBackfillAnalyzedAt(patch.PDFAnalyzedAt, s.now())
 		return patch, ""
+	}
+	if expected := strings.TrimSpace(document.SourceSHA256); expected != "" {
+		sum := sha256.Sum256(sourcePDF)
+		if !strings.EqualFold(hex.EncodeToString(sum[:]), expected) {
+			patch.PDFCompatibilityTier = string(PDFCompatibilityTierUnsupported)
+			patch.PDFCompatibilityReason = pdfBackfillReasonSourceDigestMismatch
+			patch.PDFNormalizationStatus = string(PDFNormalizationStatusFailed)
+			patch.PDFPolicyVersion = PDFPolicyVersion
+			patch.PDFAnalyzedAt = resolvedBackfillAnalyzedAt(patch.PDFAnalyzedAt, s.now())
+			return patch, ""
+		}
 	}
 
 	analysis, analyzeErr := s.pdfs.Analyze(ctx, scope, sourcePDF)
