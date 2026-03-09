@@ -536,6 +536,15 @@ func (s *SQLiteStore) SaveMetadata(ctx context.Context, scope Scope, id string, 
 	return out, nil
 }
 
+func (s *SQLiteStore) Delete(ctx context.Context, scope Scope, id string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.InMemoryStore.Delete(ctx, scope, id); err != nil {
+		return err
+	}
+	return s.persistMaybe(ctx)
+}
+
 func (s *SQLiteStore) CreateDraft(ctx context.Context, scope Scope, record AgreementRecord) (AgreementRecord, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

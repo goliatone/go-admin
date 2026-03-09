@@ -633,7 +633,7 @@ func requireAdminPermission(cfg registerConfig, permission string) router.Middle
 				"permission": required,
 				"path":       c.Path(),
 				"method":     c.Method(),
-				"ip":         c.IP(),
+				"ip":         resolveAuditRequestIP(c, cfg),
 			})
 			return writeAPIError(c, goerrors.New("permission denied", goerrors.CategoryAuthz).
 				WithCode(http.StatusForbidden).
@@ -737,7 +737,7 @@ func resolveSignerToken(c router.Context, cfg registerConfig, rawToken string) (
 		cfg.logSecurityEvent("signer.token.rejected", map[string]any{
 			"path":       c.Path(),
 			"method":     c.Method(),
-			"ip":         c.IP(),
+			"ip":         resolveAuditRequestIP(c, cfg),
 			"token_code": textCode(err),
 		})
 		_ = writeAPIError(c, err, http.StatusUnauthorized, string(services.ErrorCodeTokenInvalid), "invalid token", nil)
@@ -757,7 +757,7 @@ func enforceRateLimit(c router.Context, cfg registerConfig, operation string) er
 	if op == "" {
 		return nil
 	}
-	key := strings.TrimSpace(quickstart.ResolveRequestIP(c, quickstart.RequestIPOptions{
+	key := services.ResolveAuditIPAddress(quickstart.ResolveRequestIP(c, quickstart.RequestIPOptions{
 		TrustForwardedHeaders: cfg.requestTrustPolicy.TrustForwardedHeaders,
 		TrustedProxyCIDRs:     cfg.requestTrustPolicy.TrustedProxyCIDRs,
 	}))
@@ -825,7 +825,7 @@ func enforceTransportSecurity(c router.Context, cfg registerConfig) error {
 		cfg.logSecurityEvent("transport.security.denied", map[string]any{
 			"path":       c.Path(),
 			"method":     c.Method(),
-			"ip":         c.IP(),
+			"ip":         resolveAuditRequestIP(c, cfg),
 			"error_code": textCode(err),
 		})
 		_ = writeAPIError(c, err, http.StatusUpgradeRequired, string(services.ErrorCodeTransportSecurity), "tls transport required", nil)
@@ -912,6 +912,24 @@ func resolveAPIRequestID(c router.Context, coded *goerrors.Error) string {
 		return correlationID
 	}
 	return apiCorrelationID(c, "request")
+}
+
+func resolveAuditRequestIP(c router.Context, cfg registerConfig) string {
+	if c == nil {
+		return ""
+	}
+	resolved := services.ResolveAuditIPAddress(quickstart.ResolveRequestIP(c, quickstart.RequestIPOptions{
+		TrustForwardedHeaders: cfg.requestTrustPolicy.TrustForwardedHeaders,
+		TrustedProxyCIDRs:     append([]string{}, cfg.requestTrustPolicy.TrustedProxyCIDRs...),
+	}))
+	if resolved != "" && !strings.EqualFold(resolved, "unknown") {
+		return resolved
+	}
+	direct := services.ResolveAuditIPAddress(c.IP())
+	if direct != "" {
+		return direct
+	}
+	return resolved
 }
 
 func (cfg registerConfig) resolveScope(c router.Context) stores.Scope {

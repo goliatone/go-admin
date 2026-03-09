@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"sort"
 	"testing"
 	"time"
@@ -65,6 +66,91 @@ func TestDraftServiceSendRollbackKeepsDraftWhenValidationFails(t *testing.T) {
 	}
 	if len(agreements) != 0 {
 		t.Fatalf("expected no agreements persisted on failed send, got %d", len(agreements))
+	}
+}
+
+func TestDraftServiceSendDefersEmailHooksUntilOutermostCommit(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := newTxCommitErrorStore()
+
+	docSvc := NewDocumentService(store)
+	doc, err := docSvc.Upload(ctx, scope, DocumentUploadInput{
+		Title:     "Deferred Hooks Source",
+		ObjectKey: "tenant/tenant-1/org/org-1/docs/draft-deferred-hooks/source.pdf",
+		PDF:       GenerateDeterministicPDF(1),
+	})
+	if err != nil {
+		t.Fatalf("Upload: %v", err)
+	}
+
+	workflow := &stubAgreementEmailWorkflow{}
+	agreementSvc := NewAgreementService(store, WithAgreementEmailWorkflow(workflow))
+	draftSvc := NewDraftService(store, WithDraftAgreementService(agreementSvc))
+	state := map[string]any{
+		"document": map[string]any{
+			"id":        doc.ID,
+			"pageCount": 1,
+		},
+		"details": map[string]any{
+			"title": "Deferred Hooks Draft",
+		},
+		"participants": []map[string]any{
+			{
+				"tempId": "participant-1",
+				"name":   "Alice Doe",
+				"email":  "alice@example.com",
+				"role":   "signer",
+				"order":  1,
+			},
+		},
+		"fieldDefinitions": []map[string]any{
+			{
+				"tempId":            "field-1",
+				"type":              "signature",
+				"participantTempId": "participant-1",
+				"required":          true,
+				"page":              1,
+				"label":             "Signer Signature",
+			},
+		},
+		"fieldPlacements": []map[string]any{
+			{
+				"fieldTempId": "field-1",
+				"page":        1,
+				"x":           72,
+				"y":           128,
+				"width":       180,
+				"height":      32,
+			},
+		},
+	}
+
+	draft, replay, err := draftSvc.Create(ctx, scope, DraftCreateInput{
+		WizardID:        "wiz-deferred-hooks-1",
+		WizardState:     state,
+		Title:           "Deferred Hooks Draft",
+		CurrentStep:     6,
+		DocumentID:      doc.ID,
+		CreatedByUserID: "author-1",
+	})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if replay {
+		t.Fatalf("expected first create replay=false")
+	}
+
+	sentinel := errors.New("commit flush sentinel")
+	store.err = sentinel
+	if _, err := draftSvc.Send(ctx, scope, draft.ID, DraftSendInput{
+		ExpectedRevision: draft.Revision,
+		CreatedByUserID:  "author-1",
+	}); !errors.Is(err, sentinel) {
+		t.Fatalf("expected commit sentinel error, got %v", err)
+	}
+	if workflow.sentCalls != 0 {
+		t.Fatalf("expected email hooks to be deferred/skipped on commit failure, got %d calls", workflow.sentCalls)
 	}
 }
 
@@ -133,6 +219,92 @@ func TestDraftServiceCreateReplayRefreshesExpiryAndCleanup(t *testing.T) {
 	}
 	if _, err := draftSvc.Get(ctx, scope, created.ID, "author-1"); err == nil {
 		t.Fatalf("expected cleaned-up draft to be unavailable")
+	}
+}
+
+func TestDraftServiceSendPropagatesIPAddressToAgreementAudit(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+
+	docSvc := NewDocumentService(store)
+	doc, err := docSvc.Upload(ctx, scope, DocumentUploadInput{
+		Title:     "IP Propagation Source",
+		ObjectKey: "tenant/tenant-1/org/org-1/docs/draft-ip/source.pdf",
+		PDF:       GenerateDeterministicPDF(1),
+	})
+	if err != nil {
+		t.Fatalf("Upload: %v", err)
+	}
+
+	agreementSvc := NewAgreementService(store)
+	draftSvc := NewDraftService(store, WithDraftAgreementService(agreementSvc))
+	state := map[string]any{
+		"document": map[string]any{
+			"id":        doc.ID,
+			"pageCount": 1,
+		},
+		"details": map[string]any{"title": "IP Propagation Draft"},
+		"participants": []map[string]any{
+			{
+				"tempId": "participant-1",
+				"name":   "Jane Doe",
+				"email":  "jane@example.com",
+				"role":   "signer",
+				"order":  1,
+			},
+		},
+		"fieldRules": []map[string]any{
+			{
+				"type":              "signature_once",
+				"participantTempId": "participant-1",
+			},
+		},
+	}
+
+	draft, replay, err := draftSvc.Create(ctx, scope, DraftCreateInput{
+		WizardID:        "wiz-ip-propagation-1",
+		WizardState:     state,
+		Title:           "IP Propagation Draft",
+		CurrentStep:     6,
+		DocumentID:      doc.ID,
+		CreatedByUserID: "author-1",
+	})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if replay {
+		t.Fatalf("expected initial create replay=false")
+	}
+
+	sendResult, err := draftSvc.Send(ctx, scope, draft.ID, DraftSendInput{
+		ExpectedRevision: draft.Revision,
+		CreatedByUserID:  "author-1",
+		IPAddress:        "198.51.100.77:8443",
+	})
+	if err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+
+	events, err := store.ListForAgreement(ctx, scope, sendResult.AgreementID, stores.AuditEventQuery{})
+	if err != nil {
+		t.Fatalf("ListForAgreement: %v", err)
+	}
+	if len(events) == 0 {
+		t.Fatal("expected agreement audit events")
+	}
+
+	seen := map[string]string{}
+	for _, event := range events {
+		if event.EventType == "agreement.created" || event.EventType == "agreement.sent" {
+			seen[event.EventType] = event.IPAddress
+		}
+	}
+	if seen["agreement.created"] != "198.51.100.77" {
+		t.Fatalf("expected agreement.created ip to be propagated, got %q", seen["agreement.created"])
+	}
+	if seen["agreement.sent"] != "198.51.100.77" {
+		t.Fatalf("expected agreement.sent ip to be propagated, got %q", seen["agreement.sent"])
 	}
 }
 
@@ -237,6 +409,131 @@ func TestDraftServiceSendExpandsFieldRules(t *testing.T) {
 	}
 	if instances[0].TabIndex != 1 || instances[1].TabIndex != 2 || instances[2].TabIndex != 3 {
 		t.Fatalf("expected deterministic tab indexes 1..3, got [%d,%d,%d]", instances[0].TabIndex, instances[1].TabIndex, instances[2].TabIndex)
+	}
+}
+
+func TestDraftServiceSendUsesRuleIDAndDefinitionIDPlacements(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+
+	docSvc := NewDocumentService(store)
+	doc, err := docSvc.Upload(ctx, scope, DocumentUploadInput{
+		Title:     "Rules Placement Source",
+		ObjectKey: "tenant/tenant-1/org/org-1/docs/draft-rules-placement/source.pdf",
+		PDF:       GenerateDeterministicPDF(4),
+	})
+	if err != nil {
+		t.Fatalf("Upload: %v", err)
+	}
+
+	agreementSvc := NewAgreementService(store)
+	draftSvc := NewDraftService(store, WithDraftAgreementService(agreementSvc))
+	state := map[string]any{
+		"document": map[string]any{
+			"id":        doc.ID,
+			"pageCount": 4,
+		},
+		"details": map[string]any{"title": "Rules Placement Draft"},
+		"participants": []map[string]any{
+			{
+				"tempId": "participant-1",
+				"name":   "John Doe",
+				"email":  "john@example.com",
+				"role":   "signer",
+				"order":  1,
+			},
+		},
+		"fieldRules": []map[string]any{
+			{
+				"id":                "custom-initials",
+				"type":              "initials_each_page",
+				"participantTempId": "participant-1",
+				"fromPage":          1,
+				"toPage":            4,
+				"excludeLastPage":   true,
+			},
+			{
+				"id":                "custom-signature",
+				"type":              "signature_once",
+				"participantTempId": "participant-1",
+				"page":              4,
+			},
+		},
+		"fieldPlacements": []map[string]any{
+			{"definitionId": "custom-initials-initials-1", "page": 1, "x": 101, "y": 111, "width": 80, "height": 40},
+			{"definitionId": "custom-initials-initials-2", "page": 2, "x": 202, "y": 222, "width": 80, "height": 40},
+			{"definitionId": "custom-initials-initials-3", "page": 3, "x": 303, "y": 333, "width": 80, "height": 40},
+			{"definitionId": "custom-signature-signature-4", "page": 4, "x": 404, "y": 444, "width": 200, "height": 50},
+		},
+	}
+
+	draft, replay, err := draftSvc.Create(ctx, scope, DraftCreateInput{
+		WizardID:        "wiz-rules-placement-1",
+		WizardState:     state,
+		Title:           "Rules Placement Draft",
+		CurrentStep:     6,
+		DocumentID:      doc.ID,
+		CreatedByUserID: "author-1",
+	})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if replay {
+		t.Fatalf("expected initial create replay=false")
+	}
+
+	sendResult, err := draftSvc.Send(ctx, scope, draft.ID, DraftSendInput{
+		ExpectedRevision: draft.Revision,
+		CreatedByUserID:  "author-1",
+	})
+	if err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	if sendResult.AgreementID == "" {
+		t.Fatalf("expected agreement id")
+	}
+
+	definitions, err := store.ListFieldDefinitions(ctx, scope, sendResult.AgreementID)
+	if err != nil {
+		t.Fatalf("ListFieldDefinitions: %v", err)
+	}
+	definitionTypeByID := map[string]string{}
+	for _, definition := range definitions {
+		definitionTypeByID[definition.ID] = definition.Type
+	}
+
+	instances, err := store.ListFieldInstances(ctx, scope, sendResult.AgreementID)
+	if err != nil {
+		t.Fatalf("ListFieldInstances: %v", err)
+	}
+	if len(instances) != 4 {
+		t.Fatalf("expected 4 generated instances, got %d", len(instances))
+	}
+
+	type expectedPlacement struct {
+		fieldType string
+		x         float64
+		y         float64
+	}
+	expectedByPage := map[int]expectedPlacement{
+		1: {fieldType: stores.FieldTypeInitials, x: 101, y: 111},
+		2: {fieldType: stores.FieldTypeInitials, x: 202, y: 222},
+		3: {fieldType: stores.FieldTypeInitials, x: 303, y: 333},
+		4: {fieldType: stores.FieldTypeSignature, x: 404, y: 444},
+	}
+
+	for _, instance := range instances {
+		expected, ok := expectedByPage[instance.PageNumber]
+		if !ok {
+			t.Fatalf("unexpected field instance page %d", instance.PageNumber)
+		}
+		if got := definitionTypeByID[instance.FieldDefinitionID]; got != expected.fieldType {
+			t.Fatalf("expected page %d field type %q, got %q", instance.PageNumber, expected.fieldType, got)
+		}
+		if instance.X != expected.x || instance.Y != expected.y {
+			t.Fatalf("expected page %d placement x/y=(%.0f,%.0f), got (%.0f,%.0f)", instance.PageNumber, expected.x, expected.y, instance.X, instance.Y)
+		}
 	}
 }
 

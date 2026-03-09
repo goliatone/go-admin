@@ -2094,7 +2094,7 @@ func (s SigningService) appendSignerAudit(ctx context.Context, scope stores.Scop
 		EventType:    strings.TrimSpace(eventType),
 		ActorType:    "signer_token",
 		ActorID:      strings.TrimSpace(recipientID),
-		IPAddress:    strings.TrimSpace(ipAddress),
+		IPAddress:    ResolveAuditIPAddress(ipAddress),
 		UserAgent:    strings.TrimSpace(userAgent),
 		MetadataJSON: string(encoded),
 		CreatedAt:    s.now(),

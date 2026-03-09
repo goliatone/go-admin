@@ -17,6 +17,7 @@ import (
 	coreadmin "github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
+	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
 	"github.com/goliatone/go-uploader"
 )
@@ -195,12 +196,59 @@ func TestDocumentPanelRepositoryListSupportsLegacySearchFilters(t *testing.T) {
 	}
 }
 
+func TestDocumentPanelRepositoryDeleteRemovesUnreferencedDocument(t *testing.T) {
+	store := stores.NewInMemoryStore()
+	scope := defaultModuleScope
+	documentID := "doc-delete-1"
+	seedESignDocument(t, store, scope, documentID)
+
+	repo := newDocumentPanelRepository(store, services.NewDocumentService(store), nil, scope, RuntimeSettings{})
+	if err := repo.Delete(context.Background(), documentID); err != nil {
+		t.Fatalf("Delete: %v", err)
+	}
+	if _, err := store.Get(context.Background(), scope, documentID); err == nil {
+		t.Fatalf("expected deleted document to be missing")
+	}
+}
+
+func TestDocumentPanelRepositoryDeleteRejectsReferencedDocument(t *testing.T) {
+	store := stores.NewInMemoryStore()
+	scope := defaultModuleScope
+	documentID := "doc-delete-2"
+	seedESignDocument(t, store, scope, documentID)
+	now := time.Now().UTC()
+	if _, err := store.CreateDraft(context.Background(), scope, stores.AgreementRecord{
+		ID:         "agreement-delete-1",
+		DocumentID: documentID,
+		Title:      "Agreement referencing document",
+		Status:     stores.AgreementStatusDraft,
+		CreatedAt:  now,
+		UpdatedAt:  now,
+	}); err != nil {
+		t.Fatalf("seed agreement: %v", err)
+	}
+
+	repo := newDocumentPanelRepository(store, services.NewDocumentService(store), nil, scope, RuntimeSettings{})
+	err := repo.Delete(context.Background(), documentID)
+	if err == nil {
+		t.Fatalf("expected delete to fail when document is in use")
+	}
+	var typedErr *goerrors.Error
+	if !goerrors.As(err, &typedErr) || typedErr == nil {
+		t.Fatalf("expected typed validation error, got %T", err)
+	}
+	if got := strings.TrimSpace(toString(typedErr.Metadata["reason"])); got != "in use by agreements" {
+		t.Fatalf("expected in-use metadata reason, got %q (%v)", got, err)
+	}
+}
+
 func TestAgreementPanelRepositoryCreatePersistsFormRecipientsAndFields(t *testing.T) {
 	store := stores.NewInMemoryStore()
 	scope := defaultModuleScope
 	seedESignDocument(t, store, scope, "doc-create-1")
 
 	repo := newAgreementPanelRepository(
+		store,
 		store,
 		services.NewAgreementService(store),
 		services.NewArtifactPipelineService(store, nil),
@@ -268,6 +316,7 @@ func TestAgreementPanelRepositoryCreateSendsAgreementWhenRequested(t *testing.T)
 
 	repo := newAgreementPanelRepository(
 		store,
+		store,
 		services.NewAgreementService(store),
 		services.NewArtifactPipelineService(store, nil),
 		nil,
@@ -315,12 +364,76 @@ func TestAgreementPanelRepositoryCreateSendsAgreementWhenRequested(t *testing.T)
 	}
 }
 
+func TestAgreementPanelRepositoryCreatePropagatesRequestIPToLifecycleEvents(t *testing.T) {
+	store := stores.NewInMemoryStore()
+	scope := defaultModuleScope
+	seedESignDocument(t, store, scope, "doc-create-send-ip-1")
+
+	repo := newAgreementPanelRepository(
+		store,
+		store,
+		services.NewAgreementService(store),
+		services.NewArtifactPipelineService(store, nil),
+		nil,
+		nil,
+		scope,
+		RuntimeSettings{},
+	)
+
+	ctx := coreadmin.WithRequestIP(context.Background(), "198.51.100.44")
+	created, err := repo.Create(ctx, map[string]any{
+		"document_id":        "doc-create-send-ip-1",
+		"title":              "MSA Send IP",
+		"message":            "Please sign",
+		"send_for_signature": "1",
+		"recipients[0]": map[string]any{
+			"id":    "participant-create-send-ip-1",
+			"name":  "Alice",
+			"email": "alice.send.ip@example.com",
+			"role":  "signer",
+		},
+		"fields[0]": map[string]any{
+			"id":             "field-create-send-ip-1",
+			"type":           "signature",
+			"participant_id": "participant-create-send-ip-1",
+			"page":           "1",
+			"required":       "on",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	agreementID := strings.TrimSpace(toString(created["id"]))
+	if agreementID == "" {
+		t.Fatalf("expected created agreement id")
+	}
+	events, err := store.ListForAgreement(context.Background(), scope, agreementID, stores.AuditEventQuery{})
+	if err != nil {
+		t.Fatalf("ListForAgreement: %v", err)
+	}
+	seen := map[string]string{}
+	for _, event := range events {
+		eventType := strings.TrimSpace(event.EventType)
+		if eventType != "agreement.created" && eventType != "agreement.sent" {
+			continue
+		}
+		seen[eventType] = strings.TrimSpace(event.IPAddress)
+	}
+	if seen["agreement.created"] != "198.51.100.44" {
+		t.Fatalf("expected agreement.created ip 198.51.100.44, got %q", seen["agreement.created"])
+	}
+	if seen["agreement.sent"] != "198.51.100.44" {
+		t.Fatalf("expected agreement.sent ip 198.51.100.44, got %q", seen["agreement.sent"])
+	}
+}
+
 func TestAgreementPanelRepositoryCreateCollapsesDuplicateParticipantValues(t *testing.T) {
 	store := stores.NewInMemoryStore()
 	scope := defaultModuleScope
 	seedESignDocument(t, store, scope, "doc-create-dup-1")
 
 	repo := newAgreementPanelRepository(
+		store,
 		store,
 		services.NewAgreementService(store),
 		services.NewArtifactPipelineService(store, nil),
@@ -376,6 +489,7 @@ func TestAgreementPanelRepositoryCreateRejectsConflictingParticipantValues(t *te
 
 	repo := newAgreementPanelRepository(
 		store,
+		store,
 		services.NewAgreementService(store),
 		services.NewArtifactPipelineService(store, nil),
 		nil,
@@ -416,6 +530,7 @@ func TestAgreementPanelRepositoryCreateMergesFieldPlacements(t *testing.T) {
 	seedESignDocument(t, store, scope, "doc-create-placement-1")
 
 	repo := newAgreementPanelRepository(
+		store,
 		store,
 		services.NewAgreementService(store),
 		services.NewArtifactPipelineService(store, nil),
@@ -491,6 +606,7 @@ func TestAgreementPanelRepositoryCreateMergesFieldPlacementsFromJSONPayload(t *t
 
 	repo := newAgreementPanelRepository(
 		store,
+		store,
 		services.NewAgreementService(store),
 		services.NewArtifactPipelineService(store, nil),
 		nil,
@@ -557,6 +673,7 @@ func TestAgreementPanelRepositoryCreatePersistsLinkedPlacementMetadata(t *testin
 	seedESignDocument(t, store, scope, "doc-create-linked-placement-1")
 
 	repo := newAgreementPanelRepository(
+		store,
 		store,
 		services.NewAgreementService(store),
 		services.NewArtifactPipelineService(store, nil),
@@ -667,6 +784,7 @@ func TestAgreementPanelRepositoryCreateExpandsFieldRules(t *testing.T) {
 
 	repo := newAgreementPanelRepository(
 		store,
+		store,
 		services.NewAgreementService(store),
 		services.NewArtifactPipelineService(store, nil),
 		nil,
@@ -761,6 +879,7 @@ func TestAgreementPanelRepositoryCreateMergesFieldPlacementsForExpandedRuleField
 	}
 
 	repo := newAgreementPanelRepository(
+		store,
 		store,
 		services.NewAgreementService(store),
 		services.NewArtifactPipelineService(store, nil),
@@ -857,6 +976,7 @@ func TestAgreementPanelRepositoryCreateExpandsFieldRulesFromDecodedJSONPayload(t
 
 	repo := newAgreementPanelRepository(
 		store,
+		store,
 		services.NewAgreementService(store),
 		services.NewArtifactPipelineService(store, nil),
 		nil,
@@ -920,6 +1040,7 @@ func TestAgreementPanelRepositoryCreateExpandsFieldRulesFromStringSliceJSONPaylo
 
 	repo := newAgreementPanelRepository(
 		store,
+		store,
 		services.NewAgreementService(store),
 		services.NewArtifactPipelineService(store, nil),
 		nil,
@@ -964,6 +1085,7 @@ func TestAgreementPanelRepositoryCreateRejectsInvalidDecodedFieldRulesJSONPayloa
 
 	repo := newAgreementPanelRepository(
 		store,
+		store,
 		services.NewAgreementService(store),
 		services.NewArtifactPipelineService(store, nil),
 		nil,
@@ -997,6 +1119,7 @@ func TestAgreementPanelRepositoryCreateRejectsInvalidDecodedFieldPlacementsJSONP
 	seedESignDocument(t, store, scope, "doc-create-placement-invalid-decoded-1")
 
 	repo := newAgreementPanelRepository(
+		store,
 		store,
 		services.NewAgreementService(store),
 		services.NewArtifactPipelineService(store, nil),
@@ -1032,6 +1155,7 @@ func TestAgreementPanelRepositoryCreateRejectsUnsupportedFieldRule(t *testing.T)
 
 	repo := newAgreementPanelRepository(
 		store,
+		store,
 		services.NewAgreementService(store),
 		services.NewArtifactPipelineService(store, nil),
 		nil,
@@ -1065,6 +1189,7 @@ func TestAgreementPanelRepositoryUpdateSynchronizesFormRecipientsAndFields(t *te
 	seedESignDocument(t, store, scope, "doc-update-1")
 
 	repo := newAgreementPanelRepository(
+		store,
 		store,
 		services.NewAgreementService(store),
 		services.NewArtifactPipelineService(store, nil),
@@ -1169,6 +1294,7 @@ func TestAgreementPanelRepositoryUpdateSendsAgreementWhenRequested(t *testing.T)
 
 	repo := newAgreementPanelRepository(
 		store,
+		store,
 		services.NewAgreementService(store),
 		services.NewArtifactPipelineService(store, nil),
 		nil,
@@ -1230,6 +1356,7 @@ func TestAgreementPanelRepositoryGetIncludesFieldFormAliases(t *testing.T) {
 
 	repo := newAgreementPanelRepository(
 		store,
+		store,
 		services.NewAgreementService(store),
 		services.NewArtifactPipelineService(store, nil),
 		nil,
@@ -1290,6 +1417,7 @@ func TestAgreementPanelRepositoryUpdateAllowsClearingMessage(t *testing.T) {
 
 	repo := newAgreementPanelRepository(
 		store,
+		store,
 		services.NewAgreementService(store),
 		services.NewArtifactPipelineService(store, nil),
 		nil,
@@ -1334,6 +1462,7 @@ func TestAgreementPanelRepositoryUpdateRemovesAllFieldsWhenFieldsPresentFlagSet(
 	seedESignDocument(t, store, scope, "doc-clear-fields-1")
 
 	repo := newAgreementPanelRepository(
+		store,
 		store,
 		services.NewAgreementService(store),
 		services.NewArtifactPipelineService(store, nil),
@@ -1521,6 +1650,7 @@ func TestAgreementPanelRepositoryServePanelSubresourceReturnsPDFAndAppendsAuditE
 	}
 
 	repo := newAgreementPanelRepository(
+		store,
 		store,
 		agreementSvc,
 		services.NewArtifactPipelineService(store, nil),

@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	appcfg "github.com/goliatone/go-admin/examples/esign/config"
-	"github.com/goliatone/go-admin/examples/esign/stores"
+	esigndata "github.com/goliatone/go-admin/examples/esign/data"
 	auth "github.com/goliatone/go-auth"
 	persistence "github.com/goliatone/go-persistence-bun"
 	goservices "github.com/goliatone/go-services"
@@ -136,12 +136,11 @@ func resolveAppLocalMigrationFS(cfg appcfg.Config) (fs.FS, error) {
 	candidates := []string{}
 	if configPath := strings.TrimSpace(cfg.ConfigPath); configPath != "" {
 		configDir := filepath.Dir(configPath)
-		candidates = append(candidates, filepath.Join(configDir, "..", "stores", localDir))
+		candidates = append(candidates, filepath.Join(configDir, "..", localDir))
 	}
 	candidates = append(candidates,
 		localDir,
-		filepath.Join("stores", localDir),
-		filepath.Join("examples", "esign", "stores", localDir),
+		filepath.Join("examples", "esign", localDir),
 	)
 
 	for _, candidate := range candidates {
@@ -156,7 +155,7 @@ func resolveAppLocalMigrationFS(cfg appcfg.Config) (fs.FS, error) {
 		return os.DirFS(candidate), nil
 	}
 
-	embeddedRoot, err := stores.AppLocalMigrationsFS()
+	embeddedRoot, err := esigndata.AppLocalMigrationsFS()
 	if err != nil {
 		return nil, fmt.Errorf("resolve app-local migrations root %q: %w", localDir, err)
 	}
