@@ -254,6 +254,7 @@ func (f *DynamicPanelFactory) createPanel(ctx context.Context, contentType *CMSC
 	}
 	builder := f.admin.Panel(panelName).
 		WithRepository(repo).
+		WithActionDefaults(PanelActionDefaultsModeCRUD).
 		ListFields(fields.List...).
 		FormFields(fields.Form...).
 		DetailFields(fields.Detail...).
