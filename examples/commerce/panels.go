@@ -9,6 +9,7 @@ func newUserPanel(store *stores.CommerceStores) *admin.PanelBuilder {
 	builder := &admin.PanelBuilder{}
 	builder.
 		WithRepository(store.Users).
+		WithActionDefaults(admin.PanelActionDefaultsModeCRUD).
 		ListFields(
 			admin.Field{Name: "id", Label: "ID", Type: "text"},
 			admin.Field{Name: "name", Label: "Name", Type: "text"},
@@ -60,6 +61,7 @@ func newProductPanel(store *stores.CommerceStores) *admin.PanelBuilder {
 	builder := &admin.PanelBuilder{}
 	builder.
 		WithRepository(store.Products).
+		WithActionDefaults(admin.PanelActionDefaultsModeCRUD).
 		ListFields(
 			admin.Field{Name: "id", Label: "ID", Type: "text"},
 			admin.Field{Name: "name", Label: "Name", Type: "text"},
@@ -103,6 +105,7 @@ func newOrderPanel(store *stores.CommerceStores) *admin.PanelBuilder {
 	builder := &admin.PanelBuilder{}
 	builder.
 		WithRepository(store.Orders).
+		WithActionDefaults(admin.PanelActionDefaultsModeCRUD).
 		ListFields(
 			admin.Field{Name: "id", Label: "ID", Type: "text"},
 			admin.Field{Name: "number", Label: "Order #", Type: "text"},
