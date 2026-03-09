@@ -68,6 +68,14 @@ func TestESignModuleRegistersPanelsSettingsRoleDefaultsAndCommandActions(t *test
 	if _, ok := adm.Registry().Panel(esignAgreementsPanelID); !ok {
 		t.Fatalf("expected %s panel registration", esignAgreementsPanelID)
 	}
+	documentsPanel, _ := adm.Registry().Panel(esignDocumentsPanelID)
+	documentsSchema := documentsPanel.Schema()
+	if !containsPanelAction(documentsSchema.Actions, "delete") {
+		t.Fatalf("expected documents panel row delete action, got %+v", documentsSchema.Actions)
+	}
+	if !containsPanelAction(documentsSchema.BulkActions, "delete") {
+		t.Fatalf("expected documents panel bulk delete action, got %+v", documentsSchema.BulkActions)
+	}
 
 	if !hasSettingDefinition(adm, settingEmailDefaultFromName) ||
 		!hasSettingDefinition(adm, settingTokenTTLSeconds) ||
@@ -110,6 +118,20 @@ func TestESignModuleRegistersPanelsSettingsRoleDefaultsAndCommandActions(t *test
 		t.Fatalf("expected send action 200, got %d body=%s", actionRes.StatusCode, string(payload))
 	}
 
+	resendBody, _ := json.Marshal(map[string]any{"idempotency_key": "phase6-send-2"})
+	resendReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/panels/esign_agreements/actions/send?id="+agreementID+"&tenant_id=tenant-bootstrap&org_id=org-bootstrap", bytes.NewReader(resendBody))
+	resendReq.Header.Set("Content-Type", "application/json")
+	resendReq.Header.Set("X-User-ID", "ops-user")
+	resendRes, err := server.WrappedRouter().Test(resendReq, -1)
+	if err != nil {
+		t.Fatalf("resend request failed: %v", err)
+	}
+	defer resendRes.Body.Close()
+	if resendRes.StatusCode != http.StatusOK {
+		payload, _ := io.ReadAll(resendRes.Body)
+		t.Fatalf("expected resend-via-send action 200, got %d body=%s", resendRes.StatusCode, string(payload))
+	}
+
 	agreementDetail := getPanelDetail(t, server, "/admin/api/v1/panels/esign_agreements/"+agreementID+"?tenant_id=tenant-bootstrap&org_id=org-bootstrap")
 	status := toString(agreementDetail["status"])
 	if status != "sent" {
@@ -136,7 +158,6 @@ func TestESignModuleRegistersPanelsSettingsRoleDefaultsAndCommandActions(t *test
 			t.Fatalf("expected agreement.sent metadata.idempotency_key=phase6-send-1, got %+v", metadata)
 		}
 	}
-
 	delivery, ok := agreementDetail["delivery"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected delivery object in agreement detail, got %+v", agreementDetail["delivery"])
@@ -196,6 +217,19 @@ func TestESignModuleRegistersPanelsSettingsRoleDefaultsAndCommandActions(t *test
 	if deliveryData["period"] != "rolling window" {
 		t.Fatalf("expected rolling window period in delivery widget, got %+v", deliveryData["period"])
 	}
+}
+
+func containsPanelAction(actions []coreadmin.Action, name string) bool {
+	target := strings.ToLower(strings.TrimSpace(name))
+	if target == "" {
+		return false
+	}
+	for _, action := range actions {
+		if strings.ToLower(strings.TrimSpace(action.Name)) == target {
+			return true
+		}
+	}
+	return false
 }
 
 func seedAgreementAsSignable(t *testing.T, module *ESignModule, agreementID string) {

@@ -103,7 +103,7 @@
     "content_dsn": ""
   },
   "sqlite": {
-    "dsn": "file:data/go-admin-esign.sqlite?_busy_timeout=5000&_foreign_keys=on"
+    "dsn": "file:data/db/go-admin-esign.sqlite?_busy_timeout=5000&_foreign_keys=on"
   },
   "postgres": {
     "dsn": ""

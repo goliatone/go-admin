@@ -454,6 +454,39 @@ func (s *InMemoryStore) SaveMetadata(ctx context.Context, scope Scope, id string
 	return next, nil
 }
 
+func (s *InMemoryStore) Delete(ctx context.Context, scope Scope, id string) error {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return err
+	}
+	id = normalizeID(id)
+	if id == "" {
+		return invalidRecordError("documents", "id", "required")
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	key := scopedKey(scope, id)
+	if _, ok := s.documents[key]; !ok {
+		return notFoundError("documents", id)
+	}
+
+	scopePrefix := scope.key() + "|"
+	for agreementKey, agreement := range s.agreements {
+		if !strings.HasPrefix(agreementKey, scopePrefix) {
+			continue
+		}
+		if normalizeID(agreement.DocumentID) == id {
+			return invalidRecordError("documents", "id", "in use by agreements")
+		}
+	}
+
+	delete(s.documents, key)
+	return nil
+}
+
 func documentMetadataUnchanged(current, next DocumentRecord) bool {
 	return strings.TrimSpace(current.NormalizedObjectKey) == strings.TrimSpace(next.NormalizedObjectKey) &&
 		strings.TrimSpace(current.PDFCompatibilityTier) == strings.TrimSpace(next.PDFCompatibilityTier) &&

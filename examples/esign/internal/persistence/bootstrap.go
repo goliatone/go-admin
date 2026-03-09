@@ -91,6 +91,10 @@ func Bootstrap(ctx context.Context, cfg appcfg.Config) (*BootstrapResult, error)
 		_ = client.Close()
 		return nil, fmt.Errorf("persistence bootstrap: migrate: %w", err)
 	}
+	if err := ensureRuntimeParityColumns(ctx, sqlDB, dialect); err != nil {
+		_ = client.Close()
+		return nil, fmt.Errorf("persistence bootstrap: runtime parity column repair: %w", err)
+	}
 
 	if err := migrateLegacySnapshot(ctx, sqlDB, dialect); err != nil {
 		_ = client.Close()

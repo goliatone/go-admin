@@ -87,16 +87,17 @@ func BuildAuditTrailDocument(input AuditTrailBuildInput) AuditTrailDocument {
 		return signerRecipients[i].SigningOrder < signerRecipients[j].SigningOrder
 	})
 
+	actorIPIndex := buildAuditTrailActorIPIndex(input.Events)
 	entries := make([]AuditTrailEntry, 0, len(input.Events)+1)
 	for idx, event := range input.Events {
-		entry, ok := normalizeAuditTrailEntry(event, idx, now, input.Agreement, recipientsByID, signerRecipients)
+		entry, ok := normalizeAuditTrailEntry(event, idx, now, input.Agreement, recipientsByID, signerRecipients, actorIPIndex)
 		if !ok {
 			continue
 		}
 		entries = append(entries, entry)
 	}
 	sourceMarkers := collectAuditTrailSourceMarkers(input.Events)
-	entries = append(entries, deriveLifecycleAuditTrailEntries(input.Agreement, signerRecipients, sourceMarkers)...)
+	entries = append(entries, deriveLifecycleAuditTrailEntries(input.Agreement, signerRecipients, sourceMarkers, actorIPIndex)...)
 
 	terminal := buildTerminalAuditTrailEntry(input.Agreement, now)
 	if terminal != nil && !auditTrailContainsEventType(entries, terminal.EventType) {
@@ -159,6 +160,7 @@ func normalizeAuditTrailEntry(
 	agreement stores.AgreementRecord,
 	recipientsByID map[string]stores.RecipientRecord,
 	signerRecipients []stores.RecipientRecord,
+	actorIPIndex auditTrailActorIPIndex,
 ) (AuditTrailEntry, bool) {
 	eventType := strings.TrimSpace(event.EventType)
 	if eventType == "" {
@@ -191,10 +193,13 @@ func normalizeAuditTrailEntry(
 		Timestamp:     ts,
 		ActorName:     actorName,
 		ActorEmail:    actorEmail,
-		IPAddress:     strings.TrimSpace(event.IPAddress),
+		IPAddress:     ResolveAuditEventIPAddress(event, metadata),
 		Severity:      "normal",
 		SourceEvent:   eventType,
 		SourceEventID: sourceEventID,
+	}
+	if base.IPAddress == "" && actorID != "" {
+		base.IPAddress = actorIPIndex.Nearest(actorID, ts)
 	}
 
 	switch eventType {
@@ -262,6 +267,62 @@ type auditTrailSourceMarkers struct {
 	SignedRecipientIDs    map[string]struct{}
 }
 
+type auditTrailActorIPPoint struct {
+	Timestamp time.Time
+	IPAddress string
+}
+
+type auditTrailActorIPIndex map[string][]auditTrailActorIPPoint
+
+func buildAuditTrailActorIPIndex(events []stores.AuditEventRecord) auditTrailActorIPIndex {
+	index := auditTrailActorIPIndex{}
+	for _, event := range events {
+		actorID := strings.TrimSpace(event.ActorID)
+		if actorID == "" {
+			continue
+		}
+		metadata := parseAuditMetadata(event.MetadataJSON)
+		ip := ResolveAuditEventIPAddress(event, metadata)
+		if ip == "" {
+			continue
+		}
+		index[actorID] = append(index[actorID], auditTrailActorIPPoint{
+			Timestamp: event.CreatedAt.UTC(),
+			IPAddress: ip,
+		})
+	}
+	for actorID := range index {
+		sort.SliceStable(index[actorID], func(i, j int) bool {
+			return index[actorID][i].Timestamp.Before(index[actorID][j].Timestamp)
+		})
+	}
+	return index
+}
+
+func (idx auditTrailActorIPIndex) Nearest(actorID string, target time.Time) string {
+	actorID = strings.TrimSpace(actorID)
+	if actorID == "" || len(idx) == 0 {
+		return ""
+	}
+	events := idx[actorID]
+	if len(events) == 0 {
+		return ""
+	}
+	if target.IsZero() {
+		return strings.TrimSpace(events[len(events)-1].IPAddress)
+	}
+	closest := strings.TrimSpace(events[0].IPAddress)
+	bestDistance := absDuration(events[0].Timestamp.Sub(target))
+	for _, event := range events[1:] {
+		distance := absDuration(event.Timestamp.Sub(target))
+		if distance < bestDistance {
+			closest = strings.TrimSpace(event.IPAddress)
+			bestDistance = distance
+		}
+	}
+	return closest
+}
+
 func collectAuditTrailSourceMarkers(events []stores.AuditEventRecord) auditTrailSourceMarkers {
 	markers := auditTrailSourceMarkers{
 		ViewedRecipientIDs: map[string]struct{}{},
@@ -297,15 +358,18 @@ func deriveLifecycleAuditTrailEntries(
 	agreement stores.AgreementRecord,
 	signerRecipients []stores.RecipientRecord,
 	markers auditTrailSourceMarkers,
+	actorIPIndex auditTrailActorIPIndex,
 ) []AuditTrailEntry {
 	entries := make([]AuditTrailEntry, 0, 2+(len(signerRecipients)*2))
 	creator := coalesce(strings.TrimSpace(agreement.CreatedByUserID), "system")
 
 	if !markers.HasCreated && !agreement.CreatedAt.IsZero() {
+		createdAt := agreement.CreatedAt.UTC()
 		entries = append(entries, AuditTrailEntry{
 			EventType:     AuditTrailEventCreated,
-			Timestamp:     agreement.CreatedAt.UTC(),
+			Timestamp:     createdAt,
 			ActorName:     creator,
+			IPAddress:     actorIPIndex.Nearest(strings.TrimSpace(agreement.CreatedByUserID), createdAt),
 			Description:   fmt.Sprintf("Created by %s", creator),
 			Severity:      "normal",
 			SourceEvent:   "derived.lifecycle.created",
@@ -313,10 +377,12 @@ func deriveLifecycleAuditTrailEntries(
 		})
 	}
 	if !markers.HasSent && agreement.SentAt != nil && !agreement.SentAt.IsZero() {
+		sentAt := agreement.SentAt.UTC()
 		entries = append(entries, AuditTrailEntry{
 			EventType:     AuditTrailEventSent,
-			Timestamp:     agreement.SentAt.UTC(),
+			Timestamp:     sentAt,
 			ActorName:     creator,
+			IPAddress:     actorIPIndex.Nearest(strings.TrimSpace(agreement.CreatedByUserID), sentAt),
 			Description:   buildAuditTrailSentDescription("Sent", creator, signerRecipients),
 			Severity:      "normal",
 			SourceEvent:   "derived.lifecycle.sent",
@@ -340,11 +406,13 @@ func deriveLifecycleAuditTrailEntries(
 			if viewedAt == nil || viewedAt.IsZero() {
 				continue
 			}
+			viewedAtUTC := viewedAt.UTC()
 			entries = append(entries, AuditTrailEntry{
 				EventType:     AuditTrailEventViewed,
-				Timestamp:     viewedAt.UTC(),
+				Timestamp:     viewedAtUTC,
 				ActorName:     strings.TrimSpace(recipient.Name),
 				ActorEmail:    strings.TrimSpace(recipient.Email),
+				IPAddress:     actorIPIndex.Nearest(recipientID, viewedAtUTC),
 				Description:   fmt.Sprintf("Viewed by %s", formatActorIdentity(strings.TrimSpace(recipient.Name), strings.TrimSpace(recipient.Email), recipientID)),
 				Severity:      "normal",
 				SourceEvent:   "derived.lifecycle.viewed",
@@ -365,11 +433,13 @@ func deriveLifecycleAuditTrailEntries(
 			if recipient.CompletedAt == nil || recipient.CompletedAt.IsZero() {
 				continue
 			}
+			completedAt := recipient.CompletedAt.UTC()
 			entries = append(entries, AuditTrailEntry{
 				EventType:     AuditTrailEventSigned,
-				Timestamp:     recipient.CompletedAt.UTC(),
+				Timestamp:     completedAt,
 				ActorName:     strings.TrimSpace(recipient.Name),
 				ActorEmail:    strings.TrimSpace(recipient.Email),
+				IPAddress:     actorIPIndex.Nearest(recipientID, completedAt),
 				Description:   fmt.Sprintf("Signed by %s", formatActorIdentity(strings.TrimSpace(recipient.Name), strings.TrimSpace(recipient.Email), recipientID)),
 				Severity:      "normal",
 				SourceEvent:   "derived.lifecycle.signed",
@@ -379,6 +449,13 @@ func deriveLifecycleAuditTrailEntries(
 	}
 
 	return entries
+}
+
+func absDuration(value time.Duration) time.Duration {
+	if value < 0 {
+		return -value
+	}
+	return value
 }
 
 func buildAuditTrailSentDescription(action, sender string, signerRecipients []stores.RecipientRecord) string {

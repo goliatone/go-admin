@@ -13,6 +13,7 @@ type DocumentStore interface {
 	Get(ctx context.Context, scope Scope, id string) (DocumentRecord, error)
 	List(ctx context.Context, scope Scope, query DocumentQuery) ([]DocumentRecord, error)
 	SaveMetadata(ctx context.Context, scope Scope, id string, patch DocumentMetadataPatch) (DocumentRecord, error)
+	Delete(ctx context.Context, scope Scope, id string) error
 }
 
 // AgreementStore defines agreement persistence with immutable-after-send and optimistic lock guards.

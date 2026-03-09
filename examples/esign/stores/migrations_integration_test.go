@@ -504,8 +504,8 @@ func TestV2MigrationBackfillPreservesAuditTerminalOutcomesAndArtifactPointers(t 
 	db := bun.NewDB(sqlDB, sqlitedialect.New())
 	defer db.Close()
 
-	execSQLFile(t, db, "data/sql/migrations/0001_esign_core.up.sql")
-	execSQLFile(t, db, "data/sql/migrations/0003_esign_google_integration.up.sql")
+	execSQLFile(t, db, "../data/sql/migrations/0001_esign_core.up.sql")
+	execSQLFile(t, db, "../data/sql/migrations/0003_esign_google_integration.up.sql")
 
 	ctx := context.Background()
 	scope := Scope{TenantID: "tenant-v2", OrgID: "org-v2"}
@@ -558,7 +558,7 @@ VALUES (?, ?, ?, ?, 'agreement.completed', 'system', 'worker', '{"status":"compl
 		t.Fatalf("insert audit: %v", err)
 	}
 
-	execSQLFile(t, db, "data/sql/migrations/0004_esign_v2_contract_reset.up.sql")
+	execSQLFile(t, db, "../data/sql/migrations/0004_esign_v2_contract_reset.up.sql")
 
 	var status string
 	if err := db.NewRaw(`SELECT status FROM agreements WHERE id = ?`, agreementID).Scan(ctx, &status); err != nil {

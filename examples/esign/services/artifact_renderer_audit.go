@@ -11,6 +11,9 @@ import (
 
 type auditTrailRenderOptions struct {
 	StandaloneCertificate bool
+	ReverseChronological  bool
+	PageWidth             float64
+	PageHeight            float64
 }
 
 type auditTrailMetadataRow struct {
@@ -65,6 +68,12 @@ func (r ReadableArtifactRenderer) renderAuditTrailPages(pdf *gofpdf.Fpdf, doc Au
 		return fmt.Errorf("render audit trail: pdf writer required")
 	}
 	style := defaultAuditTrailStyle()
+	if opts.PageWidth > 0 {
+		style.PageWidth = opts.PageWidth
+	}
+	if opts.PageHeight > 0 {
+		style.PageHeight = opts.PageHeight
+	}
 	entries := append([]AuditTrailEntry(nil), doc.Entries...)
 	if len(entries) == 0 {
 		fallbackAt := doc.GeneratedAt.UTC()
@@ -78,9 +87,16 @@ func (r ReadableArtifactRenderer) renderAuditTrailPages(pdf *gofpdf.Fpdf, doc Au
 			Severity:    "warning",
 		}}
 	}
+	if opts.ReverseChronological {
+		reverseAuditTrailEntries(entries)
+	}
 
 	startPage := func(firstPage bool) float64 {
-		pdf.AddPageFormat("P", gofpdf.SizeType{Wd: style.PageWidth, Ht: style.PageHeight})
+		orientation := "P"
+		if style.PageWidth > style.PageHeight {
+			orientation = "L"
+		}
+		pdf.AddPageFormat(orientation, gofpdf.SizeType{Wd: style.PageWidth, Ht: style.PageHeight})
 		pdf.SetMargins(style.MarginLeft, style.MarginTop, style.MarginRight)
 		pdf.SetAutoPageBreak(false, 0)
 
@@ -104,6 +120,12 @@ func (r ReadableArtifactRenderer) renderAuditTrailPages(pdf *gofpdf.Fpdf, doc Au
 		rowY = drawAuditTrailTimelineRow(pdf, style, entry, rowY, idx == len(entries)-1)
 	}
 	return nil
+}
+
+func reverseAuditTrailEntries(entries []AuditTrailEntry) {
+	for left, right := 0, len(entries)-1; left < right; left, right = left+1, right-1 {
+		entries[left], entries[right] = entries[right], entries[left]
+	}
 }
 
 func drawAuditTrailHeader(pdf *gofpdf.Fpdf, style auditTrailStyle, doc AuditTrailDocument, opts auditTrailRenderOptions, startY float64) float64 {
@@ -251,9 +273,7 @@ func estimateAuditTrailTimelineRowHeight(pdf *gofpdf.Fpdf, style auditTrailStyle
 		lines = []string{"-"}
 	}
 	height := 26 + float64(len(lines))*11
-	if strings.TrimSpace(entry.IPAddress) != "" {
-		height += 11
-	}
+	height += 11
 	if height < 56 {
 		height = 56
 	}
@@ -302,12 +322,10 @@ func drawAuditTrailTimelineRow(pdf *gofpdf.Fpdf, style auditTrailStyle, entry Au
 	pdf.SetTextColor(descriptionColor.R, descriptionColor.G, descriptionColor.B)
 	pdf.MultiCell(contentWidth, 11, description, "", "L", false)
 
-	if ip := strings.TrimSpace(entry.IPAddress); ip != "" {
-		pdf.SetFont("Courier", "", 8)
-		pdf.SetTextColor(style.Muted.R, style.Muted.G, style.Muted.B)
-		pdf.SetX(contentX)
-		pdf.CellFormat(contentWidth, 10, "IP: "+ip, "", 1, "L", false, 0, "")
-	}
+	pdf.SetFont("Courier", "", 8)
+	pdf.SetTextColor(style.Muted.R, style.Muted.G, style.Muted.B)
+	pdf.SetX(contentX)
+	pdf.CellFormat(contentWidth, 10, "IP: "+DisplayAuditIPAddress(entry.IPAddress), "", 1, "L", false, 0, "")
 
 	nextY := startY + rowHeight
 	if pdf.GetY()+4 > nextY {

@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	auth "github.com/goliatone/go-auth"
 	gocommand "github.com/goliatone/go-command"
 	"github.com/goliatone/go-command/dispatcher"
+	goerrors "github.com/goliatone/go-errors"
 )
 
 // AgreementLifecycleService captures agreement domain transitions triggered by admin actions.
@@ -105,12 +107,31 @@ func (c *AgreementSendCommand) Execute(ctx context.Context, msg AgreementSendInp
 		})
 		return err
 	}
-	agreement, err := c.agreements.Send(ctx, scope, strings.TrimSpace(msg.AgreementID), msg.SendInput())
+	agreementID := strings.TrimSpace(msg.AgreementID)
+	sendInput := msg.SendInput()
+	sendInput.IPAddress = resolveCommandRequestIP(ctx)
+	agreement, err := c.agreements.Send(ctx, scope, agreementID, sendInput)
+	mode := "send"
+	if err != nil && shouldFallbackToResend(err) {
+		resendIP := resolveCommandRequestIP(ctx)
+		resendResult, resendErr := c.agreements.Resend(ctx, scope, agreementID, services.ResendInput{
+			InvalidateExisting: true,
+			IdempotencyKey:     strings.TrimSpace(msg.IdempotencyKey),
+			IPAddress:          resendIP,
+		})
+		if resendErr == nil {
+			agreement = resendResult.Agreement
+			mode = "resend"
+			err = nil
+		} else {
+			err = resendErr
+		}
+	}
 	if err != nil {
 		observability.ObserveSend(ctx, time.Since(startedAt), false)
 		observability.LogOperation(ctx, slog.LevelWarn, "command", "agreement_send", "error", correlationID, time.Since(startedAt), err, map[string]any{
 			"command_name": CommandAgreementSend,
-			"agreement_id": strings.TrimSpace(msg.AgreementID),
+			"agreement_id": agreementID,
 		})
 		return err
 	}
@@ -126,8 +147,27 @@ func (c *AgreementSendCommand) Execute(ctx context.Context, msg AgreementSendInp
 	observability.LogOperation(ctx, slog.LevelInfo, "command", "agreement_send", "success", correlationID, time.Since(startedAt), nil, map[string]any{
 		"command_name": CommandAgreementSend,
 		"agreement_id": strings.TrimSpace(agreement.ID),
+		"mode":         mode,
 	})
 	return nil
+}
+
+func shouldFallbackToResend(err error) bool {
+	if err == nil {
+		return false
+	}
+	var coded *goerrors.Error
+	if !errors.As(err, &coded) || coded == nil {
+		return false
+	}
+	metadata := coded.Metadata
+	if metadata == nil {
+		return false
+	}
+	entity := strings.ToLower(strings.TrimSpace(fmt.Sprint(metadata["entity"])))
+	field := strings.ToLower(strings.TrimSpace(fmt.Sprint(metadata["field"])))
+	reason := strings.ToLower(strings.TrimSpace(fmt.Sprint(metadata["reason"])))
+	return entity == "agreements" && field == "status" && reason == "send requires draft status"
 }
 
 // AgreementVoidCommand dispatches void transitions through the agreement service.
@@ -162,7 +202,9 @@ func (c *AgreementVoidCommand) Execute(ctx context.Context, msg AgreementVoidInp
 		})
 		return err
 	}
-	agreement, err := c.agreements.Void(ctx, scope, strings.TrimSpace(msg.AgreementID), msg.VoidInput())
+	voidInput := msg.VoidInput()
+	voidInput.IPAddress = resolveCommandRequestIP(ctx)
+	agreement, err := c.agreements.Void(ctx, scope, strings.TrimSpace(msg.AgreementID), voidInput)
 	if err != nil {
 		observability.LogOperation(ctx, slog.LevelWarn, "command", "agreement_void", "error", correlationID, time.Since(startedAt), err, map[string]any{
 			"command_name": CommandAgreementVoid,
@@ -216,7 +258,9 @@ func (c *AgreementResendCommand) Execute(ctx context.Context, msg AgreementResen
 		})
 		return err
 	}
-	result, err := c.agreements.Resend(ctx, scope, strings.TrimSpace(msg.AgreementID), msg.ResendInput())
+	resendInput := msg.ResendInput()
+	resendInput.IPAddress = resolveCommandRequestIP(ctx)
+	result, err := c.agreements.Resend(ctx, scope, strings.TrimSpace(msg.AgreementID), resendInput)
 	if err != nil {
 		observability.LogOperation(ctx, slog.LevelWarn, "command", "agreement_resend", "error", correlationID, time.Since(startedAt), err, map[string]any{
 			"command_name": CommandAgreementResend,
@@ -360,6 +404,47 @@ func projectAgreementActivity(ctx context.Context, projector AgreementActivityPr
 		return nil
 	}
 	return projector.ProjectAgreement(ctx, scope, agreementID)
+}
+
+func resolveCommandRequestIP(ctx context.Context) string {
+	if resolved := services.ResolveAuditIPAddress(coreadmin.RequestIPFromContext(ctx)); resolved != "" {
+		return resolved
+	}
+	if actor, ok := auth.ActorFromContext(ctx); ok && actor != nil {
+		if resolved := services.ResolveAuditIPAddress(
+			firstMetadataValue(actor.Metadata,
+				"request_ip",
+				"ip_address",
+				"ip",
+				"remote_ip",
+				"client_ip",
+				"x_forwarded_for",
+				"x_real_ip",
+			),
+		); resolved != "" {
+			return resolved
+		}
+	}
+	return ""
+}
+
+func firstMetadataValue(metadata map[string]any, keys ...string) string {
+	for _, key := range keys {
+		key = strings.TrimSpace(key)
+		if key == "" || metadata == nil {
+			continue
+		}
+		raw, ok := metadata[key]
+		if !ok || raw == nil {
+			continue
+		}
+		value := strings.TrimSpace(fmt.Sprint(raw))
+		if value == "" || strings.EqualFold(value, "<nil>") {
+			continue
+		}
+		return value
+	}
+	return ""
 }
 
 func resolveScope(ctx context.Context, preferred stores.Scope, fallback stores.Scope) (stores.Scope, error) {

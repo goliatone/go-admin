@@ -219,11 +219,15 @@ func (r ReadableArtifactRenderer) renderExecutedWithOverlays(
 	pdf.SetCompression(false)
 	overlaysByPage := r.buildExecutedOverlays(ctx, input)
 	footerText := executedDocumentHashFooter(sourceSHA256)
+	auditPageWidth := 0.0
+	auditPageHeight := 0.0
 	if err := r.pdfs.RenderSourcePages(ctx, input.Scope, pdf, sourcePDF, pageCount, func(page int, width, height float64) error {
 		for _, overlay := range overlaysByPage[page] {
 			drawExecutedOverlay(pdf, overlay)
 		}
 		drawExecutedFooter(pdf, width, height, footerText)
+		auditPageWidth = width
+		auditPageHeight = height
 		return nil
 	}); err != nil {
 		observability.ObservePDFRenderImportFail(ctx, pdfRenderImportReason(err), strings.TrimSpace(compatibilityTier))
@@ -234,7 +238,11 @@ func (r ReadableArtifactRenderer) renderExecutedWithOverlays(
 		return nil, fmt.Errorf("render executed: %w", err)
 	}
 
-	if err := r.renderAuditTrailPages(pdf, auditDoc, auditTrailRenderOptions{}); err != nil {
+	if err := r.renderAuditTrailPages(pdf, auditDoc, auditTrailRenderOptions{
+		ReverseChronological: true,
+		PageWidth:            auditPageWidth,
+		PageHeight:           auditPageHeight,
+	}); err != nil {
 		return nil, err
 	}
 

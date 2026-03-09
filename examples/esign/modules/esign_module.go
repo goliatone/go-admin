@@ -484,6 +484,7 @@ func (m *ESignModule) registerPanels(adm *coreadmin.Admin) error {
 	)
 	docBuilder := adm.Panel(esignDocumentsPanelID).
 		WithRepository(docRepo).
+		WithActionDefaults(coreadmin.PanelActionDefaultsModeCRUD).
 		ListFields(
 			coreadmin.Field{Name: "title", Label: "Title", Type: "text"},
 			coreadmin.Field{Name: "page_count", Label: "Pages", Type: "number"},
@@ -527,7 +528,7 @@ func (m *ESignModule) registerPanels(adm *coreadmin.Admin) error {
 		return err
 	}
 
-	agreementRepo := newAgreementPanelRepository(m.store, m.agreements, m.artifacts, m.activityMap, m.documentUploadManager(), m.defaultScope, m.settings)
+	agreementRepo := newAgreementPanelRepository(m.store, m.store, m.agreements, m.artifacts, m.activityMap, m.documentUploadManager(), m.defaultScope, m.settings)
 	agreementBuilder := adm.Panel(esignAgreementsPanelID).
 		WithRepository(agreementRepo).
 		ListFields(
@@ -559,7 +560,6 @@ func (m *ESignModule) registerPanels(adm *coreadmin.Admin) error {
 		Actions(
 			coreadmin.Action{Name: "send", Label: "Send", CommandName: commands.CommandAgreementSend, Permission: permissions.AdminESignSend, Idempotent: true, PayloadRequired: []string{"idempotency_key"}},
 			coreadmin.Action{Name: "void", Label: "Void", CommandName: commands.CommandAgreementVoid, Permission: permissions.AdminESignVoid, PayloadRequired: []string{"reason"}},
-			coreadmin.Action{Name: "resend", Label: "Resend", CommandName: commands.CommandAgreementResend, Permission: permissions.AdminESignSend, Idempotent: true},
 			coreadmin.Action{Name: "rotate_token", Label: "Rotate Token", CommandName: commands.CommandTokenRotate, Permission: permissions.AdminESignSend, ContextRequired: []string{"recipient_id"}, PayloadRequired: []string{"recipient_id"}},
 		).
 		BulkActions(

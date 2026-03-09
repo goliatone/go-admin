@@ -32,7 +32,10 @@ ALTER TABLE email_logs ADD COLUMN attempt_count INTEGER NOT NULL DEFAULT 1;
 ALTER TABLE email_logs ADD COLUMN max_attempts INTEGER NOT NULL DEFAULT 1;
 ALTER TABLE email_logs ADD COLUMN correlation_id TEXT NOT NULL DEFAULT '';
 ALTER TABLE email_logs ADD COLUMN next_retry_at TIMESTAMP NULL;
-ALTER TABLE email_logs ADD COLUMN updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE email_logs ADD COLUMN updated_at TIMESTAMP NOT NULL DEFAULT '1970-01-01T00:00:00Z';
+UPDATE email_logs
+SET updated_at = COALESCE(created_at, '1970-01-01T00:00:00Z')
+WHERE updated_at = '1970-01-01T00:00:00Z';
 
 ALTER TABLE integration_credentials ADD COLUMN profile_json TEXT NOT NULL DEFAULT '{}';
 ALTER TABLE integration_credentials ADD COLUMN last_used_at TIMESTAMP NULL;

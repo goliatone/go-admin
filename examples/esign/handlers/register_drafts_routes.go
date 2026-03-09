@@ -175,6 +175,7 @@ func registerDraftRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg regist
 			result, err := cfg.drafts.Send(c.Context(), cfg.resolveScope(c), draftID, services.DraftSendInput{
 				ExpectedRevision: payload.ExpectedRevision,
 				CreatedByUserID:  createdByUserID,
+				IPAddress:        resolveAuditRequestIP(c, cfg),
 			})
 			if err != nil {
 				return writeAPIError(c, normalizeDraftMutationError(err), http.StatusUnprocessableEntity, "validation_failed", "unable to send draft", nil)

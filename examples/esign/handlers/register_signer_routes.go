@@ -54,7 +54,7 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 					EventType:    "signer.viewed",
 					ActorType:    "signer_token",
 					ActorID:      strings.TrimSpace(tokenRecord.RecipientID),
-					IPAddress:    strings.TrimSpace(c.IP()),
+					IPAddress:    resolveAuditRequestIP(c, cfg),
 					UserAgent:    strings.TrimSpace(c.Header("User-Agent")),
 					MetadataJSON: metadataJSON,
 					CreatedAt:    time.Now().UTC(),
@@ -352,7 +352,7 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 					EventType:    "signer.assets.asset_opened",
 					ActorType:    "signer_token",
 					ActorID:      strings.TrimSpace(contract.RecipientID),
-					IPAddress:    strings.TrimSpace(c.IP()),
+					IPAddress:    resolveAuditRequestIP(c, cfg),
 					UserAgent:    strings.TrimSpace(c.Header("User-Agent")),
 					MetadataJSON: metadataJSON,
 					CreatedAt:    time.Now().UTC(),
@@ -388,7 +388,7 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 				EventType:    "signer.assets.contract_viewed",
 				ActorType:    "signer_token",
 				ActorID:      strings.TrimSpace(contract.RecipientID),
-				IPAddress:    strings.TrimSpace(c.IP()),
+				IPAddress:    resolveAuditRequestIP(c, cfg),
 				UserAgent:    strings.TrimSpace(c.Header("User-Agent")),
 				MetadataJSON: metadataJSON,
 				CreatedAt:    time.Now().UTC(),
@@ -456,7 +456,7 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 		if err := c.Bind(&payload); err != nil {
 			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid consent payload", nil)
 		}
-		payload.IPAddress = strings.TrimSpace(c.IP())
+		payload.IPAddress = resolveAuditRequestIP(c, cfg)
 		payload.UserAgent = strings.TrimSpace(c.Header("User-Agent"))
 		result, err := cfg.signerSession.CaptureConsent(c.Context(), cfg.resolveScope(c), tokenRecord, payload)
 		if err != nil {
@@ -528,7 +528,7 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 			ValueText:         payload.ValueText,
 			ValueBool:         payload.ValueBool,
 			ExpectedVersion:   payload.ExpectedVersion,
-			IPAddress:         strings.TrimSpace(c.IP()),
+			IPAddress:         resolveAuditRequestIP(c, cfg),
 			UserAgent:         strings.TrimSpace(c.Header("User-Agent")),
 		})
 		if err != nil {
@@ -612,7 +612,7 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 			UploadToken:       strings.TrimSpace(payload.UploadToken),
 			ValueText:         payload.ValueText,
 			ExpectedVersion:   payload.ExpectedVersion,
-			IPAddress:         strings.TrimSpace(c.IP()),
+			IPAddress:         resolveAuditRequestIP(c, cfg),
 			UserAgent:         strings.TrimSpace(c.Header("User-Agent")),
 		})
 		if err != nil {
@@ -667,7 +667,7 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 			SHA256:            strings.TrimSpace(payload.SHA256),
 			ContentType:       strings.TrimSpace(payload.ContentType),
 			SizeBytes:         payload.SizeBytes,
-			IPAddress:         strings.TrimSpace(c.IP()),
+			IPAddress:         resolveAuditRequestIP(c, cfg),
 			UserAgent:         strings.TrimSpace(c.Header("User-Agent")),
 		})
 		if err != nil {
@@ -712,7 +712,7 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 			ContentType: strings.TrimSpace(c.Header("Content-Type")),
 			SizeBytes:   int64(len(body)),
 			Payload:     append([]byte{}, body...),
-			IPAddress:   strings.TrimSpace(c.IP()),
+			IPAddress:   resolveAuditRequestIP(c, cfg),
 			UserAgent:   strings.TrimSpace(c.Header("User-Agent")),
 		})
 		if err != nil {
@@ -774,7 +774,7 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 		}
 		result, err := cfg.signerSession.Submit(c.Context(), cfg.resolveScope(c), tokenRecord, services.SignerSubmitInput{
 			IdempotencyKey: idempotencyKey,
-			IPAddress:      strings.TrimSpace(c.IP()),
+			IPAddress:      resolveAuditRequestIP(c, cfg),
 			UserAgent:      strings.TrimSpace(c.Header("User-Agent")),
 		})
 		if err != nil {
@@ -825,7 +825,7 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 		if err := c.Bind(&payload); err != nil {
 			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid decline payload", nil)
 		}
-		payload.IPAddress = strings.TrimSpace(c.IP())
+		payload.IPAddress = resolveAuditRequestIP(c, cfg)
 		payload.UserAgent = strings.TrimSpace(c.Header("User-Agent"))
 		result, err := cfg.signerSession.Decline(c.Context(), cfg.resolveScope(c), tokenRecord, payload)
 		if err != nil {

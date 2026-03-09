@@ -83,6 +83,14 @@ func (s *failingBackfillDocumentStore) SaveMetadata(_ context.Context, _ stores.
 	return s.documents[0], nil
 }
 
+func (s *failingBackfillDocumentStore) Delete(_ context.Context, _ stores.Scope, id string) error {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return errors.New("document id is required")
+	}
+	return nil
+}
+
 func samplePDF() []byte {
 	return services.GenerateDeterministicPDF(1)
 }

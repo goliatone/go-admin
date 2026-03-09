@@ -1106,6 +1106,97 @@ func TestAgreementServiceEmitsCanonicalAuditEvents(t *testing.T) {
 	}
 }
 
+func TestAgreementServicePersistsIPAddressForLifecycleAuditEvents(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+
+	docSvc := NewDocumentService(store)
+	document, err := docSvc.Upload(ctx, scope, DocumentUploadInput{
+		Title:     "IP Lifecycle Contract",
+		ObjectKey: "tenant/tenant-1/org/org-1/docs/doc-ip/source.pdf",
+		PDF:       samplePDF(1),
+	})
+	if err != nil {
+		t.Fatalf("upload source document: %v", err)
+	}
+
+	tokenService := stores.NewTokenService(store)
+	svc := NewAgreementService(store, WithAgreementTokenService(tokenService))
+	agreement, err := svc.CreateDraft(ctx, scope, CreateDraftInput{
+		DocumentID:      document.ID,
+		Title:           "IP Lifecycle Agreement",
+		CreatedByUserID: "user-1",
+		IPAddress:       "198.51.100.10:443",
+	})
+	if err != nil {
+		t.Fatalf("CreateDraft: %v", err)
+	}
+	signer, err := svc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("signer@example.com"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: primitives.Int(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft: %v", err)
+	}
+	if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        stringPtr(stores.FieldTypeSignature),
+		PageNumber:  primitives.Int(1),
+		Required:    boolPtr(true),
+	}); err != nil {
+		t.Fatalf("UpsertFieldDraft: %v", err)
+	}
+
+	if _, err := svc.Send(ctx, scope, agreement.ID, SendInput{
+		IdempotencyKey: "send-ip-lifecycle",
+		IPAddress:      "198.51.100.11",
+	}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	if _, err := svc.Resend(ctx, scope, agreement.ID, ResendInput{
+		RotateToken: true,
+		IPAddress:   "198.51.100.12",
+	}); err != nil {
+		t.Fatalf("Resend: %v", err)
+	}
+	if _, err := svc.Void(ctx, scope, agreement.ID, VoidInput{
+		Reason:       "cancelled by sender",
+		RevokeTokens: true,
+		IPAddress:    "198.51.100.13",
+	}); err != nil {
+		t.Fatalf("Void: %v", err)
+	}
+
+	events, err := store.ListForAgreement(ctx, scope, agreement.ID, stores.AuditEventQuery{})
+	if err != nil {
+		t.Fatalf("ListForAgreement: %v", err)
+	}
+	if len(events) == 0 {
+		t.Fatal("expected audit events")
+	}
+	ipByType := map[string]string{}
+	for _, event := range events {
+		if _, exists := ipByType[event.EventType]; exists {
+			continue
+		}
+		ipByType[event.EventType] = strings.TrimSpace(event.IPAddress)
+	}
+	expected := map[string]string{
+		"agreement.created": "198.51.100.10",
+		"agreement.sent":    "198.51.100.11",
+		"agreement.resent":  "198.51.100.12",
+		"agreement.voided":  "198.51.100.13",
+	}
+	for eventType, wantIP := range expected {
+		gotIP := ipByType[eventType]
+		if gotIP != wantIP {
+			t.Fatalf("expected %s ip %q, got %q", eventType, wantIP, gotIP)
+		}
+	}
+}
+
 func TestAgreementServiceExpireRevokesTokens(t *testing.T) {
 	ctx, scope, store, _, agreement := setupDraftAgreement(t)
 	tokenService := stores.NewTokenService(store)

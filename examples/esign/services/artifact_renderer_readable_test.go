@@ -8,6 +8,7 @@ import (
 	"image/color"
 	"image/png"
 	"io"
+	"math"
 	"strings"
 	"testing"
 	"time"
@@ -391,6 +392,9 @@ func TestReadableArtifactRendererRenderExecutedMultiPageAvoidsInfiniteTemplateSc
 	if !bytes.HasPrefix(rendered.Payload, []byte("%PDF-")) {
 		t.Fatalf("expected executed payload to be pdf")
 	}
+	if !strings.Contains(string(rendered.Payload), "IP: -") {
+		t.Fatalf("expected audit trail rows to render default ip marker")
+	}
 	raw := string(rendered.Payload)
 	if !strings.Contains(raw, "Page 3 Overlay Marker") {
 		t.Fatalf("expected multi-page overlay text in rendered payload")
@@ -606,7 +610,7 @@ func TestReadableArtifactRendererAuditPagesShareCoreMarkersBetweenExecutedAndCer
 	agreement.Status = stores.AgreementStatusCompleted
 	events := []stores.AuditEventRecord{
 		{ID: "evt-1", EventType: "agreement.sent", CreatedAt: time.Date(2026, 2, 12, 10, 0, 0, 0, time.UTC)},
-		{ID: "evt-2", EventType: "signer.viewed", ActorID: recipient.ID, CreatedAt: time.Date(2026, 2, 12, 10, 2, 0, 0, time.UTC)},
+		{ID: "evt-2", EventType: "signer.viewed", ActorID: recipient.ID, IPAddress: "203.0.113.22", CreatedAt: time.Date(2026, 2, 12, 10, 2, 0, 0, time.UTC)},
 		{ID: "evt-3", EventType: "signer.submitted", ActorID: recipient.ID, CreatedAt: time.Date(2026, 2, 12, 10, 3, 0, 0, time.UTC)},
 		{ID: "evt-4", EventType: "agreement.completed", CreatedAt: time.Date(2026, 2, 12, 10, 5, 0, 0, time.UTC)},
 	}
@@ -643,14 +647,107 @@ func TestReadableArtifactRendererAuditPagesShareCoreMarkersBetweenExecutedAndCer
 			t.Fatalf("expected certificate payload marker %q", marker)
 		}
 	}
+	if !strings.Contains(executedRaw, "IP: 203.0.113.22") {
+		t.Fatalf("expected rendered audit trail to include event ip address")
+	}
+	if !strings.Contains(executedRaw, "IP: -") {
+		t.Fatalf("expected rendered audit trail to include placeholder ip for missing values")
+	}
+	executedCompletedIdx := strings.Index(executedRaw, "02/12/2026 10:05:00 UTC")
+	executedSignedIdx := strings.Index(executedRaw, "02/12/2026 10:03:00 UTC")
+	executedSentIdx := strings.Index(executedRaw, "02/12/2026 10:00:00 UTC")
+	if executedCompletedIdx < 0 || executedSignedIdx < 0 || executedSentIdx < 0 {
+		t.Fatalf("expected executed timeline timestamps in payload")
+	}
+	if !(executedCompletedIdx < executedSignedIdx && executedSignedIdx < executedSentIdx) {
+		t.Fatalf("expected executed document history newest-first, got completed=%d signed=%d sent=%d", executedCompletedIdx, executedSignedIdx, executedSentIdx)
+	}
+	certificateCompletedIdx := strings.Index(certificateRaw, "02/12/2026 10:05:00 UTC")
+	certificateSignedIdx := strings.Index(certificateRaw, "02/12/2026 10:03:00 UTC")
+	certificateSentIdx := strings.Index(certificateRaw, "02/12/2026 10:00:00 UTC")
+	if certificateCompletedIdx < 0 || certificateSignedIdx < 0 || certificateSentIdx < 0 {
+		t.Fatalf("expected certificate timeline timestamps in payload")
+	}
+	if !(certificateSentIdx < certificateSignedIdx && certificateSignedIdx < certificateCompletedIdx) {
+		t.Fatalf("expected certificate document history oldest-first, got sent=%d signed=%d completed=%d", certificateSentIdx, certificateSignedIdx, certificateCompletedIdx)
+	}
 	if strings.Contains(certificateRaw, "Document Hash: ") {
 		t.Fatalf("expected standalone certificate to omit executed hash footer")
+	}
+}
+
+func TestReadableArtifactRendererRenderExecutedAuditTrailMatchesSourcePageSize(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+	objectStore := uploader.NewManager(uploader.WithProvider(uploader.NewFSProvider(t.TempDir())))
+	renderer := NewReadableArtifactRenderer(store, store, objectStore)
+
+	sourcePDF := buildReadableTestPDFA4(t, "International Agreement")
+	docSvc := NewDocumentService(store, WithDocumentObjectStore(objectStore))
+	document, err := docSvc.Upload(ctx, scope, DocumentUploadInput{
+		Title:     "A4 Source",
+		ObjectKey: "tenant/tenant-1/org/org-1/docs/doc-a4/source.pdf",
+		PDF:       sourcePDF,
+	})
+	if err != nil {
+		t.Fatalf("upload source document: %v", err)
+	}
+
+	rendered, err := renderer.RenderExecuted(ctx, ExecutedRenderInput{
+		Scope: scope,
+		Agreement: stores.AgreementRecord{
+			ID:         "agreement-a4-size-match",
+			DocumentID: document.ID,
+			Status:     stores.AgreementStatusCompleted,
+		},
+	})
+	if err != nil {
+		t.Fatalf("render executed: %v", err)
+	}
+	if !bytes.HasPrefix(rendered.Payload, []byte("%PDF-")) {
+		t.Fatalf("expected executed payload to be pdf")
+	}
+
+	geometry, err := NewPDFService().PageGeometry(ctx, scope, rendered.Payload, 0)
+	if err != nil {
+		t.Fatalf("read rendered page geometry: %v", err)
+	}
+	if len(geometry) < 2 {
+		t.Fatalf("expected rendered payload to include source+audit pages, got %d pages", len(geometry))
+	}
+	sourcePage := geometry[0]
+	auditPage := geometry[len(geometry)-1]
+	if !almostEqualReadable(sourcePage.Width, auditPage.Width) || !almostEqualReadable(sourcePage.Height, auditPage.Height) {
+		t.Fatalf(
+			"expected audit page dimensions to match source page dimensions; source=%.2fx%.2f audit=%.2fx%.2f",
+			sourcePage.Width,
+			sourcePage.Height,
+			auditPage.Width,
+			auditPage.Height,
+		)
 	}
 }
 
 func buildReadableTestPDF(t *testing.T, title string) []byte {
 	t.Helper()
 	pdf := gofpdf.New("P", "pt", "Letter", "")
+	pdf.SetCompression(false)
+	pdf.AddPage()
+	pdf.SetFont("Helvetica", "B", 18)
+	pdf.Text(72, 88, title)
+	pdf.SetFont("Helvetica", "", 11)
+	pdf.Text(72, 116, "This is the source agreement body.")
+	var out bytes.Buffer
+	if err := pdf.Output(&out); err != nil {
+		t.Fatalf("render source pdf: %v", err)
+	}
+	return out.Bytes()
+}
+
+func buildReadableTestPDFA4(t *testing.T, title string) []byte {
+	t.Helper()
+	pdf := gofpdf.New("P", "pt", "A4", "")
 	pdf.SetCompression(false)
 	pdf.AddPage()
 	pdf.SetFont("Helvetica", "B", 18)
@@ -712,3 +809,7 @@ func strPtrReadable(v string) *string     { return &v }
 func intPtrReadable(v int) *int           { return &v }
 func floatPtrReadable(v float64) *float64 { return &v }
 func boolPtrReadable(v bool) *bool        { return &v }
+
+func almostEqualReadable(left, right float64) bool {
+	return math.Abs(left-right) <= 0.5
+}

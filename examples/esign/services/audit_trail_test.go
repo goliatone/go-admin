@@ -132,7 +132,7 @@ func TestBuildAuditTrailDocumentUsesMetadataAndFallbacks(t *testing.T) {
 				ID:           "evt-2",
 				EventType:    "signer.viewed",
 				ActorID:      "recipient-missing",
-				MetadataJSON: `{"actor_name":"Fallback Name","actor_email":"fallback@example.com"}`,
+				MetadataJSON: `{"actor_name":"Fallback Name","actor_email":"fallback@example.com","ip_address":"198.51.100.24"}`,
 				CreatedAt:    now.Add(time.Minute),
 			},
 		},
@@ -156,6 +156,9 @@ func TestBuildAuditTrailDocumentUsesMetadataAndFallbacks(t *testing.T) {
 	}
 	if !strings.Contains(viewed.Description, "Fallback Name (fallback@example.com)") {
 		t.Fatalf("expected metadata fallback actor identity, got %q", viewed.Description)
+	}
+	if viewed.IPAddress != "198.51.100.24" {
+		t.Fatalf("expected metadata fallback ip address, got %q", viewed.IPAddress)
 	}
 }
 
@@ -287,5 +290,94 @@ func TestBuildAuditTrailDocumentOrdersSameTimestampByEventID(t *testing.T) {
 	}
 	if doc.Entries[0].SourceEventID != "evt-a" {
 		t.Fatalf("expected event id tie-break ordering, got first=%q", doc.Entries[0].SourceEventID)
+	}
+}
+
+func TestBuildAuditTrailDocumentFallsBackToNearestActorIPForDerivedLifecycleRows(t *testing.T) {
+	now := time.Date(2026, 3, 9, 2, 0, 0, 0, time.UTC)
+	viewedAt := now.Add(-50 * time.Minute)
+	signedAt := now.Add(-10 * time.Minute)
+	agreement := stores.AgreementRecord{
+		ID:        "agreement-ip-derived",
+		Status:    stores.AgreementStatusCompleted,
+		UpdatedAt: now,
+	}
+	recipients := []stores.RecipientRecord{
+		{
+			ID:           "recipient-1",
+			Name:         "Signer One",
+			Email:        "one@example.com",
+			Role:         stores.RecipientRoleSigner,
+			SigningOrder: 1,
+			FirstViewAt:  &viewedAt,
+			CompletedAt:  &signedAt,
+		},
+	}
+	events := []stores.AuditEventRecord{
+		{
+			ID:        "evt-ip-anchor",
+			EventType: "signer.signature_attached",
+			ActorID:   "recipient-1",
+			IPAddress: "198.51.100.90",
+			CreatedAt: viewedAt.Add(2 * time.Minute),
+		},
+	}
+
+	doc := BuildAuditTrailDocument(AuditTrailBuildInput{
+		Agreement:   agreement,
+		Recipients:  recipients,
+		Events:      events,
+		GeneratedAt: now,
+	})
+
+	seen := map[string]string{}
+	for _, entry := range doc.Entries {
+		seen[entry.EventType] = strings.TrimSpace(entry.IPAddress)
+	}
+	if got := seen[AuditTrailEventViewed]; got != "198.51.100.90" {
+		t.Fatalf("expected derived VIEWED ip fallback, got %q", got)
+	}
+	if got := seen[AuditTrailEventSigned]; got != "198.51.100.90" {
+		t.Fatalf("expected derived SIGNED ip fallback, got %q", got)
+	}
+}
+
+func TestBuildAuditTrailDocumentFallsBackToNearestActorIPForMappedRows(t *testing.T) {
+	now := time.Date(2026, 3, 9, 2, 0, 0, 0, time.UTC)
+	agreement := stores.AgreementRecord{
+		ID:        "agreement-ip-mapped",
+		Status:    stores.AgreementStatusSent,
+		UpdatedAt: now,
+	}
+	recipients := []stores.RecipientRecord{
+		{ID: "recipient-1", Name: "Signer One", Email: "one@example.com", Role: stores.RecipientRoleSigner, SigningOrder: 1},
+	}
+	events := []stores.AuditEventRecord{
+		{
+			ID:        "evt-anchor",
+			EventType: "signer.signature_attached",
+			ActorID:   "recipient-1",
+			IPAddress: "203.0.113.77",
+			CreatedAt: now.Add(-1 * time.Minute),
+		},
+		{
+			ID:        "evt-viewed",
+			EventType: "signer.viewed",
+			ActorID:   "recipient-1",
+			CreatedAt: now,
+		},
+	}
+
+	doc := BuildAuditTrailDocument(AuditTrailBuildInput{
+		Agreement:   agreement,
+		Recipients:  recipients,
+		Events:      events,
+		GeneratedAt: now,
+	})
+	if len(doc.Entries) != 1 {
+		t.Fatalf("expected single mapped viewed entry, got %d", len(doc.Entries))
+	}
+	if got := strings.TrimSpace(doc.Entries[0].IPAddress); got != "203.0.113.77" {
+		t.Fatalf("expected mapped VIEWED ip fallback, got %q", got)
 	}
 }

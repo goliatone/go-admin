@@ -123,6 +123,7 @@ type CreateDraftInput struct {
 	Title                  string
 	Message                string
 	CreatedByUserID        string
+	IPAddress              string
 	SourceType             string
 	SourceGoogleFileID     string
 	SourceGoogleDocURL     string
@@ -224,17 +225,20 @@ func (s AgreementService) withWriteTxHooks(ctx context.Context, fn func(Agreemen
 // SendInput controls send transition behavior.
 type SendInput struct {
 	IdempotencyKey string
+	IPAddress      string
 }
 
 // VoidInput controls void transition behavior.
 type VoidInput struct {
 	Reason       string
 	RevokeTokens bool
+	IPAddress    string
 }
 
 // ExpireInput controls expiry transition metadata.
 type ExpireInput struct {
-	Reason string
+	Reason    string
+	IPAddress string
 }
 
 // ResendInput controls resend behavior and token lifecycle options.
@@ -244,6 +248,7 @@ type ResendInput struct {
 	InvalidateExisting    bool
 	AllowOutOfOrderResend bool
 	IdempotencyKey        string
+	IPAddress             string
 }
 
 // ResendResult returns resend decision context and newly issued token.
@@ -295,7 +300,7 @@ func (s AgreementService) CreateDraft(ctx context.Context, scope stores.Scope, i
 	if actorID != "" {
 		actorType = "user"
 	}
-	if err := s.appendAuditEvent(ctx, scope, agreement.ID, "agreement.created", actorType, actorID, map[string]any{
+	if err := s.appendAuditEventWithIP(ctx, scope, agreement.ID, "agreement.created", actorType, actorID, input.IPAddress, map[string]any{
 		"status": agreement.Status,
 	}); err != nil {
 		return stores.AgreementRecord{}, err
@@ -903,7 +908,7 @@ func (s AgreementService) Send(ctx context.Context, scope stores.Scope, agreemen
 		result = transitioned
 
 		activeRecipientIDs := recipientIDs(activeSigners)
-		if err := txSvc.appendAuditEvent(ctx, scope, transitioned.ID, "agreement.sent", "system", "", map[string]any{
+		if err := txSvc.appendAuditEventWithIP(ctx, scope, transitioned.ID, "agreement.sent", "system", "", input.IPAddress, map[string]any{
 			"idempotency_key":          strings.TrimSpace(input.IdempotencyKey),
 			"status":                   transitioned.Status,
 			"pdf_compatibility_tier":   strings.TrimSpace(string(sendCompatibilityTier)),
@@ -984,7 +989,7 @@ func (s AgreementService) Void(ctx context.Context, scope stores.Scope, agreemen
 		}
 		result = transitioned
 		if !input.RevokeTokens {
-			return txSvc.appendAuditEvent(ctx, scope, transitioned.ID, "agreement.voided", "system", "", map[string]any{
+			return txSvc.appendAuditEventWithIP(ctx, scope, transitioned.ID, "agreement.voided", "system", "", input.IPAddress, map[string]any{
 				"reason":        strings.TrimSpace(input.Reason),
 				"revoke_tokens": false,
 			})
@@ -1005,7 +1010,7 @@ func (s AgreementService) Void(ctx context.Context, scope stores.Scope, agreemen
 				return err
 			}
 		}
-		return txSvc.appendAuditEvent(ctx, scope, transitioned.ID, "agreement.voided", "system", "", map[string]any{
+		return txSvc.appendAuditEventWithIP(ctx, scope, transitioned.ID, "agreement.voided", "system", "", input.IPAddress, map[string]any{
 			"reason":        strings.TrimSpace(input.Reason),
 			"revoke_tokens": true,
 		})
@@ -1055,7 +1060,7 @@ func (s AgreementService) Expire(ctx context.Context, scope stores.Scope, agreem
 			}
 		}
 
-		return txSvc.appendAuditEvent(ctx, scope, transitioned.ID, "agreement.expired", "system", "", map[string]any{
+		return txSvc.appendAuditEventWithIP(ctx, scope, transitioned.ID, "agreement.expired", "system", "", input.IPAddress, map[string]any{
 			"reason": strings.TrimSpace(input.Reason),
 			"from":   agreement.Status,
 			"to":     transitioned.Status,
@@ -1126,7 +1131,7 @@ func (s AgreementService) Resend(ctx context.Context, scope stores.Scope, agreem
 		if err != nil {
 			return err
 		}
-		if err := txSvc.appendAuditEvent(ctx, scope, agreement.ID, "agreement.resent", "system", "", map[string]any{
+		if err := txSvc.appendAuditEventWithIP(ctx, scope, agreement.ID, "agreement.resent", "system", "", input.IPAddress, map[string]any{
 			"recipient_id":              target.ID,
 			"active_stage":              activeStage,
 			"active_recipient_id":       coalesceFirst(activeRecipientIDs),
@@ -1584,6 +1589,19 @@ func isV1FieldType(fieldType string) bool {
 }
 
 func (s AgreementService) appendAuditEvent(ctx context.Context, scope stores.Scope, agreementID, eventType, actorType, actorID string, metadata map[string]any) error {
+	return s.appendAuditEventWithIP(ctx, scope, agreementID, eventType, actorType, actorID, "", metadata)
+}
+
+func (s AgreementService) appendAuditEventWithIP(
+	ctx context.Context,
+	scope stores.Scope,
+	agreementID,
+	eventType,
+	actorType,
+	actorID,
+	ipAddress string,
+	metadata map[string]any,
+) error {
 	if s.audits == nil {
 		return nil
 	}
@@ -1600,6 +1618,7 @@ func (s AgreementService) appendAuditEvent(ctx context.Context, scope stores.Sco
 		EventType:    strings.TrimSpace(eventType),
 		ActorType:    strings.TrimSpace(actorType),
 		ActorID:      strings.TrimSpace(actorID),
+		IPAddress:    ResolveAuditIPAddress(ipAddress),
 		MetadataJSON: string(encoded),
 		CreatedAt:    s.now(),
 	})

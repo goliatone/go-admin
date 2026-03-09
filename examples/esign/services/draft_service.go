@@ -105,6 +105,7 @@ type DraftListInput struct {
 type DraftSendInput struct {
 	ExpectedRevision int64
 	CreatedByUserID  string
+	IPAddress        string
 }
 
 // DraftSendResult captures send conversion output contract.
@@ -659,28 +660,33 @@ func (s DraftService) Send(ctx context.Context, scope stores.Scope, id string, i
 	}
 
 	result := DraftSendResult{}
-	err := s.withWriteTx(ctx, func(txSvc DraftService) error {
-		draft, err := txSvc.Get(ctx, scope, id, input.CreatedByUserID)
+	err := stores.WithTxHooksContext(ctx, s.tx, func(txCtx context.Context, tx stores.TxStore, _ *stores.TxHooks) error {
+		txSvc := s
+		if tx != nil {
+			txSvc = s.forTx(tx)
+		}
+		draft, err := txSvc.Get(txCtx, scope, id, input.CreatedByUserID)
 		if err != nil {
 			return err
 		}
 		if draft.Revision != input.ExpectedRevision {
 			return staleRevisionError(draft.Revision)
 		}
-		agreement, err := txSvc.materializeDraftAgreement(ctx, scope, draft)
+		agreement, err := txSvc.materializeDraftAgreement(txCtx, scope, draft, input.IPAddress)
 		if err != nil {
 			return err
 		}
-		sent, err := txSvc.agreements.Send(ctx, scope, agreement.ID, SendInput{
+		sent, err := txSvc.agreements.Send(txCtx, scope, agreement.ID, SendInput{
 			IdempotencyKey: fmt.Sprintf("draft_send_%s_rev_%d", strings.TrimSpace(draft.ID), draft.Revision),
+			IPAddress:      input.IPAddress,
 		})
 		if err != nil {
 			return err
 		}
-		if err := txSvc.drafts.DeleteDraftSession(ctx, scope, draft.ID); err != nil {
+		if err := txSvc.drafts.DeleteDraftSession(txCtx, scope, draft.ID); err != nil {
 			return err
 		}
-		txSvc.appendDraftAudit(ctx, scope, draft.ID, "draft.sent", strings.TrimSpace(input.CreatedByUserID), map[string]any{
+		txSvc.appendDraftAudit(txCtx, scope, draft.ID, "draft.sent", strings.TrimSpace(input.CreatedByUserID), map[string]any{
 			"agreement_id": strings.TrimSpace(sent.ID),
 			"wizard_id":    draft.WizardID,
 		})
@@ -744,7 +750,7 @@ func (s DraftService) countDrafts(ctx context.Context, scope stores.Scope, creat
 	return total, nil
 }
 
-func (s DraftService) materializeDraftAgreement(ctx context.Context, scope stores.Scope, draft stores.DraftRecord) (stores.AgreementRecord, error) {
+func (s DraftService) materializeDraftAgreement(ctx context.Context, scope stores.Scope, draft stores.DraftRecord, ipAddress string) (stores.AgreementRecord, error) {
 	if s.agreements.agreements == nil {
 		return stores.AgreementRecord{}, domainValidationError("agreements", "store", "not configured")
 	}
@@ -762,6 +768,7 @@ func (s DraftService) materializeDraftAgreement(ctx context.Context, scope store
 		Title:           primitives.FirstNonEmpty(strings.TrimSpace(state.Details.Title), strings.TrimSpace(draft.Title), "Untitled Agreement"),
 		Message:         strings.TrimSpace(state.Details.Message),
 		CreatedByUserID: strings.TrimSpace(draft.CreatedByUserID),
+		IPAddress:       ipAddress,
 	})
 	if err != nil {
 		var coded *goerrors.Error
@@ -908,12 +915,33 @@ func resolveFieldPlacementGeometry(state wizardStatePayload, definition wizardFi
 }
 
 func findPlacementForField(placements []wizardFieldPlacementState, definition wizardFieldDefinitionState) wizardFieldPlacementState {
+	definitionID := strings.TrimSpace(definition.ID)
+	definitionTempID := strings.TrimSpace(definition.TempID)
 	for _, placement := range placements {
-		if strings.TrimSpace(placement.FieldTempID) != "" && strings.TrimSpace(placement.FieldTempID) == strings.TrimSpace(definition.TempID) {
-			return placement
+		placementTempID := strings.TrimSpace(placement.FieldTempID)
+		if placementTempID != "" {
+			if definitionTempID != "" && placementTempID == definitionTempID {
+				return placement
+			}
+			if definitionID != "" && placementTempID == definitionID {
+				return placement
+			}
 		}
-		if strings.TrimSpace(placement.FieldDefinitionID) != "" && strings.TrimSpace(placement.FieldDefinitionID) == strings.TrimSpace(definition.ID) {
-			return placement
+		placementDefinitionIDs := []string{
+			strings.TrimSpace(placement.FieldDefinitionID),
+			strings.TrimSpace(placement.DefinitionID),
+			strings.TrimSpace(placement.FieldDefinitionIDV2),
+		}
+		for _, placementDefinitionID := range placementDefinitionIDs {
+			if placementDefinitionID == "" {
+				continue
+			}
+			if definitionID != "" && placementDefinitionID == definitionID {
+				return placement
+			}
+			if definitionTempID != "" && placementDefinitionID == definitionTempID {
+				return placement
+			}
 		}
 	}
 	return wizardFieldPlacementState{}
@@ -1025,6 +1053,8 @@ type wizardFieldDefinitionState struct {
 
 type wizardFieldPlacementState struct {
 	FieldDefinitionID   string  `json:"field_definition_id"`
+	DefinitionID        string  `json:"definition_id"`
+	FieldDefinitionIDV2 string  `json:"definitionId"`
 	FieldTempID         string  `json:"fieldTempId"`
 	Page                int     `json:"page"`
 	X                   float64 `json:"x"`
@@ -1147,6 +1177,7 @@ func expandFieldRules(state wizardStatePayload) []wizardFieldDefinitionState {
 		if ruleType == "" {
 			continue
 		}
+		ruleBaseID := resolveWizardRuleExpansionBaseID(rule, index)
 		rulePage := rule.Page
 		if rulePage < 0 {
 			rulePage = 1
@@ -1202,7 +1233,7 @@ func expandFieldRules(state wizardStatePayload) []wizardFieldDefinitionState {
 				if _, excluded := excludedPages[page]; excluded {
 					continue
 				}
-				defID := fmt.Sprintf("rule-%d-initials-%d", index+1, page)
+				defID := fmt.Sprintf("%s-initials-%d", ruleBaseID, page)
 				expanded = append(expanded, wizardFieldDefinitionState{
 					ID:                defID,
 					TempID:            defID,
@@ -1225,7 +1256,7 @@ func expandFieldRules(state wizardStatePayload) []wizardFieldDefinitionState {
 			if page <= 0 {
 				page = 1
 			}
-			defID := fmt.Sprintf("rule-%d-signature-%d", index+1, page)
+			defID := fmt.Sprintf("%s-signature-%d", ruleBaseID, page)
 			expanded = append(expanded, wizardFieldDefinitionState{
 				ID:                defID,
 				TempID:            defID,
@@ -1239,6 +1270,14 @@ func expandFieldRules(state wizardStatePayload) []wizardFieldDefinitionState {
 		}
 	}
 	return expanded
+}
+
+func resolveWizardRuleExpansionBaseID(rule wizardFieldRuleState, index int) string {
+	baseID := strings.TrimSpace(rule.ID)
+	if baseID != "" {
+		return baseID
+	}
+	return fmt.Sprintf("rule-%d", index+1)
 }
 
 func resolveWizardTerminalPage(state wizardStatePayload) int {

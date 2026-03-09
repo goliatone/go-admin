@@ -138,8 +138,15 @@ func (r *documentPanelRepository) Update(context.Context, string, map[string]any
 	return nil, fmt.Errorf("documents are immutable after upload")
 }
 
-func (r *documentPanelRepository) Delete(context.Context, string) error {
-	return fmt.Errorf("documents are immutable after upload")
+func (r *documentPanelRepository) Delete(ctx context.Context, id string) error {
+	scope, err := resolveScopeFromContext(ctx, r.defaultScope)
+	if err != nil {
+		return err
+	}
+	if r.store == nil {
+		return fmt.Errorf("document store not configured")
+	}
+	return r.store.Delete(ctx, scope, strings.TrimSpace(id))
 }
 
 // ServePanelSubresource serves the source PDF for a document.
@@ -269,6 +276,7 @@ func documentRecordToMap(record stores.DocumentRecord) map[string]any {
 
 type agreementPanelRepository struct {
 	agreements   stores.AgreementStore
+	documents    stores.DocumentStore
 	service      services.AgreementService
 	artifacts    services.ArtifactPipelineService
 	projector    *AuditActivityProjector
@@ -279,6 +287,7 @@ type agreementPanelRepository struct {
 
 func newAgreementPanelRepository(
 	agreements stores.AgreementStore,
+	documents stores.DocumentStore,
 	service services.AgreementService,
 	artifacts services.ArtifactPipelineService,
 	projector *AuditActivityProjector,
@@ -288,6 +297,7 @@ func newAgreementPanelRepository(
 ) *agreementPanelRepository {
 	return &agreementPanelRepository{
 		agreements:   agreements,
+		documents:    documents,
 		service:      service,
 		artifacts:    artifacts,
 		projector:    projector,
@@ -401,8 +411,16 @@ func (r *agreementPanelRepository) Get(ctx context.Context, id string) (map[stri
 			return nil, err
 		}
 	}
+	result := agreementRecordToMap(agreement, recipients, fields, events, delivery)
+	// Fetch document title if document_id exists
+	documentID := strings.TrimSpace(agreement.DocumentID)
+	if documentID != "" && r.documents != nil {
+		if doc, err := r.documents.Get(ctx, scope, documentID); err == nil {
+			result["document_title"] = strings.TrimSpace(doc.Title)
+		}
+	}
 	success = true
-	return agreementRecordToMap(agreement, recipients, fields, events, delivery), nil
+	return result, nil
 }
 
 func (r *agreementPanelRepository) Create(ctx context.Context, record map[string]any) (map[string]any, error) {
@@ -410,11 +428,13 @@ func (r *agreementPanelRepository) Create(ctx context.Context, record map[string
 	if err != nil {
 		return nil, err
 	}
+	requestIP := services.ResolveAuditIPAddress(coreadmin.RequestIPFromContext(ctx))
 	created, err := r.service.CreateDraft(ctx, scope, services.CreateDraftInput{
 		DocumentID:      strings.TrimSpace(toString(record["document_id"])),
 		Title:           strings.TrimSpace(toString(record["title"])),
 		Message:         strings.TrimSpace(toString(record["message"])),
 		CreatedByUserID: strings.TrimSpace(primitives.FirstNonEmpty(strings.TrimSpace(toString(record["created_by_user_id"])), userIDFromContext(ctx))),
+		IPAddress:       requestIP,
 	})
 	if err != nil {
 		return nil, err
@@ -426,6 +446,7 @@ func (r *agreementPanelRepository) Create(ctx context.Context, record map[string
 	if shouldSendForSignature(record) {
 		sent, err := r.service.Send(ctx, scope, created.ID, services.SendInput{
 			IdempotencyKey: resolveSendIdempotencyKey(record, created.ID),
+			IPAddress:      requestIP,
 		})
 		if err != nil {
 			return nil, err
@@ -448,6 +469,7 @@ func (r *agreementPanelRepository) Update(ctx context.Context, id string, record
 	if err != nil {
 		return nil, err
 	}
+	requestIP := services.ResolveAuditIPAddress(coreadmin.RequestIPFromContext(ctx))
 	expectedVersion := toInt64(record["expected_version"])
 	if expectedVersion <= 0 {
 		expectedVersion = toInt64(record["version"])
@@ -476,6 +498,7 @@ func (r *agreementPanelRepository) Update(ctx context.Context, id string, record
 	if shouldSendForSignature(record) {
 		sent, err := r.service.Send(ctx, scope, updated.ID, services.SendInput{
 			IdempotencyKey: resolveSendIdempotencyKey(record, updated.ID),
+			IPAddress:      requestIP,
 		})
 		if err != nil {
 			return nil, err
@@ -542,7 +565,7 @@ func (r *agreementPanelRepository) ServePanelSubresource(ctx coreadmin.AdminCont
 			EventType:    "admin.agreement.artifact_downloaded",
 			ActorType:    "admin",
 			ActorID:      actorID,
-			IPAddress:    strings.TrimSpace(c.IP()),
+			IPAddress:    services.ResolveAuditIPAddress(quickstart.ResolveRequestIP(c, quickstart.RequestIPOptions{})),
 			UserAgent:    strings.TrimSpace(c.Header("User-Agent")),
 			MetadataJSON: metadataJSON,
 			CreatedAt:    time.Now().UTC(),

@@ -1,18 +1,15 @@
 package stores
 
 import (
-	"embed"
 	"io/fs"
 
+	esigndata "github.com/goliatone/go-admin/examples/esign/data"
 	persistence "github.com/goliatone/go-persistence-bun"
 )
 
-//go:embed data/sql/migrations/*.sql data/sql/migrations/sqlite/*.sql data/sql/migrations/postgres/*.sql
-var migrationsFS embed.FS
-
 // AppLocalMigrationsFS returns the e-sign app-local migration root filesystem.
 func AppLocalMigrationsFS() (fs.FS, error) {
-	return fs.Sub(migrationsFS, "data/sql/migrations")
+	return esigndata.AppLocalMigrationsFS()
 }
 
 // RegisterMigrations registers e-sign phase-1 dialect-aware migrations.
@@ -26,7 +23,7 @@ func RegisterMigrations(client *persistence.Client) error {
 	}
 	client.RegisterDialectMigrations(
 		root,
-		persistence.WithDialectSourceLabel("examples/esign/stores"),
+		persistence.WithDialectSourceLabel("examples/esign"),
 		persistence.WithValidationTargets("postgres", "sqlite"),
 	)
 	return nil
