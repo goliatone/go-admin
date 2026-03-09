@@ -39,6 +39,7 @@ type PanelBuilder struct {
 	translationQueueAutoCreateHook TranslationQueueAutoCreateHook
 	uiRouteMode                    PanelUIRouteMode
 	entryMode                      PanelEntryMode
+	actionDefaultsMode             PanelActionDefaultsMode
 }
 
 // Panel represents a registered panel.
@@ -68,6 +69,7 @@ type Panel struct {
 	translationQueueAutoCreateHook TranslationQueueAutoCreateHook
 	uiRouteMode                    PanelUIRouteMode
 	entryMode                      PanelEntryMode
+	actionDefaultsMode             PanelActionDefaultsMode
 }
 
 // PanelUIRouteMode declares who owns the panel's HTML UI route surface.
@@ -90,6 +92,21 @@ const (
 	// PanelEntryModeDetailCurrentUser renders the detail view for the current
 	// authenticated user ID from request context.
 	PanelEntryModeDetailCurrentUser PanelEntryMode = "detail_current_user"
+)
+
+// PanelActionDefaultsMode controls which implicit row/bulk actions are added
+// when rendering panel schema contracts.
+type PanelActionDefaultsMode string
+
+const (
+	// PanelActionDefaultsModeConservative keeps implicit defaults minimal.
+	// Row defaults: view, edit.
+	PanelActionDefaultsModeConservative PanelActionDefaultsMode = "conservative"
+	// PanelActionDefaultsModeCRUD enables full CRUD defaults.
+	// Row defaults: view, edit, delete. Bulk defaults: delete.
+	PanelActionDefaultsModeCRUD PanelActionDefaultsMode = "crud"
+	// PanelActionDefaultsModeNone disables implicit action defaults.
+	PanelActionDefaultsModeNone PanelActionDefaultsMode = "none"
 )
 
 // Repository provides CRUD operations for panel data.
@@ -428,6 +445,12 @@ func (b *PanelBuilder) WithEntryMode(mode PanelEntryMode) *PanelBuilder {
 	return b
 }
 
+// WithActionDefaults configures implicit action defaults for schema/runtime action contracts.
+func (b *PanelBuilder) WithActionDefaults(mode PanelActionDefaultsMode) *PanelBuilder {
+	b.actionDefaultsMode = normalizePanelActionDefaultsMode(mode)
+	return b
+}
+
 // Build finalizes the panel.
 func (b *PanelBuilder) Build() (*Panel, error) {
 	if b.repo == nil {
@@ -468,6 +491,7 @@ func (b *PanelBuilder) Build() (*Panel, error) {
 		translationQueueAutoCreateHook: b.translationQueueAutoCreateHook,
 		uiRouteMode:                    normalizePanelUIRouteMode(b.uiRouteMode),
 		entryMode:                      normalizePanelEntryMode(b.entryMode),
+		actionDefaultsMode:             normalizePanelActionDefaultsMode(b.actionDefaultsMode),
 	}, nil
 }
 
@@ -560,14 +584,25 @@ func normalizePanelEntryMode(mode PanelEntryMode) PanelEntryMode {
 	}
 }
 
+func normalizePanelActionDefaultsMode(mode PanelActionDefaultsMode) PanelActionDefaultsMode {
+	switch mode {
+	case PanelActionDefaultsModeCRUD:
+		return PanelActionDefaultsModeCRUD
+	case PanelActionDefaultsModeNone:
+		return PanelActionDefaultsModeNone
+	default:
+		return PanelActionDefaultsModeConservative
+	}
+}
+
 // Schema returns a basic schema description.
 func (p *Panel) Schema() Schema {
 	formSchema := buildFormSchema(p.formFields)
 	if len(p.formSchema) > 0 {
 		formSchema = primitives.CloneAnyMap(p.formSchema)
 	}
-	actions := normalizePanelActionsForSchema(p.actions, p.permissions)
-	bulkActions := normalizeBulkActionsForSchema(p.bulkActions)
+	actions := normalizePanelActionsForSchema(p.actions, p.permissions, p.actionDefaultsMode)
+	bulkActions := normalizeBulkActionsForSchema(p.bulkActions, p.permissions, p.actionDefaultsMode)
 	return Schema{
 		ListFields:   p.listFields,
 		FormFields:   p.formFields,
@@ -594,9 +629,10 @@ func (p *Panel) SchemaWithTheme(theme map[string]map[string]string) Schema {
 	return schema
 }
 
-func normalizePanelActionsForSchema(actions []Action, perms PanelPermissions) []Action {
-	out := make([]Action, 0, len(actions)+2)
-	if !hasActionNamed(actions, "view") {
+func normalizePanelActionsForSchema(actions []Action, perms PanelPermissions, defaultsMode PanelActionDefaultsMode) []Action {
+	defaultsMode = normalizePanelActionDefaultsMode(defaultsMode)
+	out := make([]Action, 0, len(actions)+3)
+	if defaultsMode != PanelActionDefaultsModeNone && !hasActionNamed(actions, "view") {
 		out = append(out, normalizeActionContract(Action{
 			Name:       "view",
 			Label:      "View",
@@ -607,7 +643,7 @@ func normalizePanelActionsForSchema(actions []Action, perms PanelPermissions) []
 			Icon:       "eye",
 		}, ActionScopeRow))
 	}
-	if !hasActionNamed(actions, "edit") {
+	if defaultsMode != PanelActionDefaultsModeNone && !hasActionNamed(actions, "edit") {
 		out = append(out, normalizeActionContract(Action{
 			Name:       "edit",
 			Label:      "Edit",
@@ -618,14 +654,39 @@ func normalizePanelActionsForSchema(actions []Action, perms PanelPermissions) []
 			Icon:       "edit",
 		}, ActionScopeRow))
 	}
+	if defaultsMode == PanelActionDefaultsModeCRUD && !hasActionNamed(actions, "delete") {
+		out = append(out, normalizeActionContract(Action{
+			Name:       "delete",
+			Label:      "Delete",
+			Scope:      ActionScopeRow,
+			Permission: strings.TrimSpace(perms.Delete),
+			Variant:    "danger",
+			Icon:       "trash",
+			Confirm:    "Are you sure you want to delete this item?",
+		}, ActionScopeRow))
+	}
 	for _, action := range actions {
 		out = append(out, normalizeActionContract(action, ActionScopeRow))
 	}
 	return ensureActionOrderContract(out, 900)
 }
 
-func normalizeBulkActionsForSchema(actions []Action) []Action {
-	out := make([]Action, 0, len(actions))
+func normalizeBulkActionsForSchema(actions []Action, perms PanelPermissions, defaultsMode PanelActionDefaultsMode) []Action {
+	defaultsMode = normalizePanelActionDefaultsMode(defaultsMode)
+	out := make([]Action, 0, len(actions)+1)
+	if defaultsMode == PanelActionDefaultsModeCRUD &&
+		!hasActionNamed(actions, "delete") &&
+		!hasActionNamed(actions, "bulk_delete") {
+		out = append(out, normalizeActionContract(Action{
+			Name:       "delete",
+			Label:      "Delete",
+			Scope:      ActionScopeBulk,
+			Permission: strings.TrimSpace(perms.Delete),
+			Variant:    "danger",
+			Icon:       "trash",
+			Confirm:    "Delete {count} item(s)?",
+		}, ActionScopeBulk))
+	}
 	for _, action := range actions {
 		out = append(out, normalizeActionContract(action, ActionScopeBulk))
 	}
@@ -1340,20 +1401,36 @@ func (p *Panel) RunAction(ctx AdminContext, name string, payload map[string]any,
 
 // RunBulkAction dispatches a command-backed bulk action.
 func (p *Panel) RunBulkAction(ctx AdminContext, name string, payload map[string]any, ids []string) error {
-	for _, action := range p.bulkActions {
-		if action.Name == name && action.CommandName != "" && p.commandBus != nil {
-			if action.Permission != "" && p.authorizer != nil && !p.authorizer.Can(ctx.Context, action.Permission, p.name) {
-				return permissionDenied(action.Permission, p.name)
-			}
-			err := p.commandBus.DispatchByName(ctx.Context, action.CommandName, payload, ids)
-			if err == nil {
-				p.recordActivity(ctx, "panel.bulk_action", map[string]any{
-					"panel":  p.name,
-					"action": name,
-				})
-			}
+	action, ok := p.findBulkActionDefinition(name)
+	if !ok {
+		return notFoundDomainError("bulk action not found", map[string]any{
+			"panel":  p.name,
+			"action": name,
+		})
+	}
+	if action.Permission != "" && p.authorizer != nil && !p.authorizer.Can(ctx.Context, action.Permission, p.name) {
+		return permissionDenied(action.Permission, p.name)
+	}
+	if action.CommandName != "" && p.commandBus != nil {
+		err := p.commandBus.DispatchByName(ctx.Context, action.CommandName, payload, ids)
+		if err == nil {
+			p.recordActivity(ctx, "panel.bulk_action", map[string]any{
+				"panel":  p.name,
+				"action": name,
+			})
+		}
+		return err
+	}
+	if isBuiltInBulkDeleteAction(action.Name) {
+		if err := p.runBuiltInBulkDelete(ctx, ids); err != nil {
 			return err
 		}
+		p.recordActivity(ctx, "panel.bulk_action", map[string]any{
+			"panel":  p.name,
+			"action": strings.TrimSpace(name),
+			"count":  len(ids),
+		})
+		return nil
 	}
 	return notFoundDomainError("bulk action not found", map[string]any{
 		"panel":  p.name,
@@ -1371,12 +1448,47 @@ func (p *Panel) findAction(name string) (Action, bool) {
 }
 
 func (p *Panel) findBulkAction(name string) (Action, bool) {
-	for _, action := range p.bulkActions {
-		if action.Name == name {
+	return p.findBulkActionDefinition(name)
+}
+
+func (p *Panel) findBulkActionDefinition(name string) (Action, bool) {
+	target := strings.TrimSpace(name)
+	if target == "" {
+		return Action{}, false
+	}
+	for _, action := range normalizeBulkActionsForSchema(p.bulkActions, p.permissions, p.actionDefaultsMode) {
+		if strings.EqualFold(strings.TrimSpace(action.Name), target) {
 			return action, true
 		}
 	}
 	return Action{}, false
+}
+
+func (p *Panel) runBuiltInBulkDelete(ctx AdminContext, ids []string) error {
+	seen := map[string]struct{}{}
+	for _, rawID := range ids {
+		id := strings.TrimSpace(rawID)
+		if id == "" {
+			continue
+		}
+		if _, exists := seen[id]; exists {
+			continue
+		}
+		seen[id] = struct{}{}
+		if err := p.Delete(ctx, id); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func isBuiltInBulkDeleteAction(name string) bool {
+	switch strings.ToLower(strings.TrimSpace(name)) {
+	case "delete", "bulk_delete":
+		return true
+	default:
+		return false
+	}
 }
 
 func (p *Panel) findSubresource(name string) (PanelSubresource, bool) {
