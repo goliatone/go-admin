@@ -347,8 +347,8 @@ test('Phase 1.8 contract: runtime includes searchDocuments function with debounc
   const source = fs.readFileSync(agreementRuntimePath, 'utf8');
   // Function must exist
   assert.match(source, /async function searchDocuments\(query: string\)/);
-  // Must use title filter
-  assert.match(source, /'filters\[title_contains\]': trimmedQuery/);
+  // Must use query parameter (q)
+  assert.match(source, /q: trimmedQuery/);
   // Must update typeaheadState.searchResults
   assert.match(source, /typeaheadState\.searchResults =/);
   // Must set isSearchMode
@@ -618,20 +618,32 @@ test('Phase 3 contract: linked-placement.ts implements link group state manageme
   assert.match(source, /newDefinitionToGroup\.set\(defId, group\.id\)/);
 });
 
-test('Phase 3 contract: linked-placement.ts computes linked placements correctly', () => {
+test('Phase 3 contract: linked-placement.ts sets template position correctly', () => {
   const source = fs.readFileSync(agreementLinkedPlacementPath, 'utf8');
+  // Must export setLinkGroupTemplatePosition function
+  assert.match(source, /export function setLinkGroupTemplatePosition\(/);
   // Must get link group for source placement
   assert.match(source, /const group = getFieldLinkGroup\(state, sourcePlacement\.definitionId\)/);
-  // Must get linked siblings
-  assert.match(source, /const siblings = getLinkedSiblings\(state, sourcePlacement\.definitionId\)/);
+  // Must create template position from source placement
+  assert.match(source, /const templatePosition: LinkGroupTemplatePosition = \{/);
+  // Must include x, y, width, height in template
+  assert.match(source, /x: sourcePlacement\.x/);
+  assert.match(source, /y: sourcePlacement\.y/);
+});
+
+test('Phase 3 contract: linked-placement.ts computes placement for page', () => {
+  const source = fs.readFileSync(agreementLinkedPlacementPath, 'utf8');
+  // Must export computeLinkedPlacementForPage function
+  assert.match(source, /export function computeLinkedPlacementForPage\(/);
   // Must skip already placed fields
-  assert.match(source, /if \(existingPlacementsByDefId\.has\(siblingDefId\)\) continue/);
-  // Must create new placements with AUTO_LINKED source
+  assert.match(source, /if \(existingPlacementsByDefId\.has\(defId\)\) continue/);
+  // Must check for template position
+  assert.match(source, /if \(!group \|\| !group\.isActive \|\| !group\.templatePosition\) continue/);
+  // Must create new placement with AUTO_LINKED source
   assert.match(source, /placementSource: PLACEMENT_SOURCE\.AUTO_LINKED/);
-  // Must link back to source field
-  assert.match(source, /linkedFromFieldId: sourcePlacement\.id/);
-  // Must apply vertical offset for stacking
-  assert.match(source, /yOffset \+= LINKED_PLACEMENT_DEFAULTS\.VERTICAL_OFFSET/);
+  // Must use template position
+  assert.match(source, /x: group\.templatePosition\.x/);
+  assert.match(source, /y: group\.templatePosition\.y/);
 });
 
 test('Phase 3 contract: linked-placement.ts supports rule-based link group creation', () => {
@@ -673,14 +685,22 @@ test('Phase 3 contract: constants.ts exports LINKED_PLACEMENT_DEFAULTS', () => {
   assert.match(source, /MAX_PER_PAGE:/);
 });
 
-test('Phase 3 contract: contracts.ts exports LinkGroup and LinkGroupState interfaces', () => {
+test('Phase 3 contract: contracts.ts exports LinkGroup, LinkGroupState, and LinkGroupTemplatePosition interfaces', () => {
   const source = fs.readFileSync(agreementContractsPath, 'utf8');
+  // LinkGroupTemplatePosition interface must be exported
+  assert.match(source, /export interface LinkGroupTemplatePosition \{/);
+  assert.match(source, /x: number;/);
+  assert.match(source, /y: number;/);
+  assert.match(source, /width: number;/);
+  assert.match(source, /height: number;/);
   // LinkGroup interface must be exported
   assert.match(source, /export interface LinkGroup \{/);
   assert.match(source, /id: string;/);
   assert.match(source, /memberDefinitionIds: string\[\];/);
   assert.match(source, /sourceFieldId\?: string;/);
   assert.match(source, /isActive: boolean;/);
+  // Must include templatePosition
+  assert.match(source, /templatePosition\?: LinkGroupTemplatePosition;/);
   // LinkGroupState interface must be exported
   assert.match(source, /export interface LinkGroupState \{/);
   assert.match(source, /groups: Map<string, LinkGroup>;/);
@@ -719,17 +739,28 @@ test('Phase 3 contract: runtime imports and initializes link group state', () =>
   assert.match(source, /linkGroupState: createLinkGroupState\(\)/);
 });
 
-test('Phase 3 contract: runtime triggers linked placements on manual field placement', () => {
+test('Phase 3 contract: runtime sets template position on manual field placement', () => {
   const source = fs.readFileSync(agreementRuntimePath, 'utf8');
-  // Must define triggerLinkedPlacements function
-  assert.match(source, /function triggerLinkedPlacements\(/);
-  // Must call triggerLinkedPlacements when manual placement and linkGroupId exists
+  // Must define setLinkedPlacementTemplate function
+  assert.match(source, /function setLinkedPlacementTemplate\(/);
+  // Must call triggerLinkedPlacements (which calls setLinkedPlacementTemplate) when manual placement
   assert.match(source, /if \(placementSource === PLACEMENT_SOURCE\.MANUAL && linkGroupId\) \{[\s\S]*?triggerLinkedPlacements\(instance\)/);
-  // Must call computeLinkedPlacements
-  assert.match(source, /const result = computeLinkedPlacements\(/);
-  // Must add new linked placements to fieldInstances
-  assert.match(source, /for \(const newPlacement of result\.newPlacements\)/);
-  assert.match(source, /placementState\.fieldInstances\.push\(newPlacement\)/);
+  // Must call setLinkGroupTemplatePosition
+  assert.match(source, /const result = setLinkGroupTemplatePosition\(/);
+  // Must update link group state with template
+  assert.match(source, /placementState\.linkGroupState = addLinkGroup\(placementState\.linkGroupState, result\.updatedGroup\)/);
+});
+
+test('Phase 3 contract: runtime auto-places linked fields on page navigation', () => {
+  const source = fs.readFileSync(agreementRuntimePath, 'utf8');
+  // Must define autoPlaceLinkedFieldsForPage function
+  assert.match(source, /function autoPlaceLinkedFieldsForPage\(/);
+  // Must call computeLinkedPlacementForPage
+  assert.match(source, /const result = computeLinkedPlacementForPage\(/);
+  // Must call autoPlaceLinkedFieldsForPage in page navigation
+  assert.match(source, /autoPlaceLinkedFieldsForPage\(placementState\.currentPage\)/);
+  // Must add new placement to fieldInstances
+  assert.match(source, /placementState\.fieldInstances\.push\(result\.newPlacement\)/);
 });
 
 test('Phase 3 contract: runtime creates link groups from rules', () => {

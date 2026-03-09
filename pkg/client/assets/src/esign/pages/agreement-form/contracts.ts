@@ -97,6 +97,18 @@ export interface PlacementFormPayload {
 }
 
 /**
+ * Template position for linked field placement.
+ * When first field in a group is placed, this position is saved as the template.
+ * Subsequent fields on other pages will be auto-placed at this same position.
+ */
+export interface LinkGroupTemplatePosition {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/**
  * Link group definition for field placement (Phase 3)
  * Groups fields that should be placed together when any member is manually placed.
  */
@@ -111,6 +123,8 @@ export interface LinkGroup {
   sourceFieldId?: string;
   /** Whether the group is active (linked placements enabled) */
   isActive: boolean;
+  /** Template position from first placed field - used for auto-placing on page navigation */
+  templatePosition?: LinkGroupTemplatePosition;
 }
 
 /**

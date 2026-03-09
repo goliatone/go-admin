@@ -1447,6 +1447,15 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
         }
       });
     });
+
+    document.addEventListener('input', (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLInputElement)) return;
+      if (!target.matches('#sig-type-input')) return;
+      const fieldId = target.getAttribute('data-field-id') || state.activeFieldId;
+      if (!fieldId) return;
+      updateTypedSignaturePreview(fieldId, target.value || '');
+    });
   }
 
   onReady(async () => {
@@ -2567,6 +2576,10 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
               value="${typedEditorValue}"
               data-field-id="${escapedFieldID}"
             />
+            <div class="mt-3 p-3 border border-gray-200 rounded-lg bg-gray-50">
+              <p class="text-[11px] uppercase tracking-wide text-gray-500 mb-2">Live preview</p>
+              <p id="sig-type-preview" class="text-2xl font-signature text-center text-gray-900" data-field-id="${escapedFieldID}">${typedEditorValue}</p>
+            </div>
             <p class="text-xs text-gray-500 mt-2 text-center">Your typed ${labelText} will appear as your ${escapedFieldType}</p>
           </div>
 
@@ -2576,14 +2589,22 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
               <canvas id="sig-draw-canvas" class="signature-canvas" data-field-id="${escapedFieldID}"></canvas>
             </div>
             <div class="grid grid-cols-3 gap-2 mt-2">
-              <button type="button" data-esign-action="undo-signature-canvas" data-field-id="${escapedFieldID}" class="btn btn-secondary text-xs justify-center">
-                Undo
+              <button type="button" data-esign-action="undo-signature-canvas" data-field-id="${escapedFieldID}" class="btn btn-secondary text-xs justify-center gap-1" aria-label="Undo signature stroke">
+                <i class="iconoir-undo" aria-hidden="true"></i>
+                <span>Undo</span>
               </button>
-              <button type="button" data-esign-action="redo-signature-canvas" data-field-id="${escapedFieldID}" class="btn btn-secondary text-xs justify-center">
-                Redo
+              <button type="button" data-esign-action="redo-signature-canvas" data-field-id="${escapedFieldID}" class="btn btn-secondary text-xs justify-center gap-1" aria-label="Redo signature stroke">
+                <i class="iconoir-redo" aria-hidden="true"></i>
+                <span>Redo</span>
               </button>
-              <button type="button" data-esign-action="clear-signature-canvas" data-field-id="${escapedFieldID}" class="btn btn-secondary text-xs justify-center">
-                Clear
+              <button type="button" data-esign-action="clear-signature-canvas" data-field-id="${escapedFieldID}" class="btn btn-secondary text-xs justify-center gap-1" aria-label="Clear signature canvas">
+                <i class="iconoir-eraser" aria-hidden="true"></i>
+                <span>Clear</span>
+              </button>
+            </div>
+            <div class="mt-2 text-right">
+              <button type="button" data-esign-action="save-current-signature-library" data-field-id="${escapedFieldID}" class="text-xs text-blue-600 hover:text-blue-700 underline underline-offset-2">
+                Save current
               </button>
             </div>
             <p class="text-xs text-gray-500 mt-2 text-center">Draw your ${labelText} using mouse or touch</p>
@@ -2695,6 +2716,18 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     `;
   }
 
+  function updateTypedSignaturePreview(fieldId, value) {
+    const preview = document.getElementById('sig-type-preview');
+    const fieldData = state.fieldState.get(fieldId);
+    if (!preview || !fieldData) return;
+    const normalized = sanitizeProfileText(String(value || '').trim());
+    if (normalized) {
+      preview.textContent = normalized;
+      return;
+    }
+    preview.textContent = fieldData.type === 'initials' ? 'Type your initials' : 'Type your signature';
+  }
+
   function resolveSignatureTab(fieldId) {
     const saved = String(state.signatureTabByField.get(fieldId) || '').trim();
     if (saved === 'draw' || saved === 'type' || saved === 'upload' || saved === 'saved') {
@@ -2729,6 +2762,10 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     if ((resolvedTab === 'draw' || resolvedTab === 'upload' || resolvedTab === 'saved') && selectedTab) {
       requestAnimationFrame(() => initializeSignatureCanvas(fieldId));
     }
+    if (resolvedTab === 'type') {
+      const input = document.getElementById('sig-type-input');
+      updateTypedSignaturePreview(fieldId, input?.value || '');
+    }
     if (resolvedTab === 'saved') {
       ensureSavedSignaturesLoaded(fieldId).catch(handleSavedSignatureError);
     }
@@ -2737,6 +2774,10 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
   function initializeSignatureEditor(fieldId) {
     state.signatureTabByField.set(fieldId, 'draw');
     switchSignatureTab('draw', fieldId);
+    const input = document.getElementById('sig-type-input');
+    if (input) {
+      updateTypedSignaturePreview(fieldId, input.value || '');
+    }
   }
 
   function initializeSignatureCanvas(fieldId) {

@@ -38,29 +38,19 @@ const CACHE_TTL_MS = 30 * 60 * 1000;
  * Check if PDF.js is loaded
  */
 function isPdfJsLoaded(): boolean {
-  return typeof window !== 'undefined' && 'pdfjsLib' in window;
+  return (
+    typeof window !== 'undefined' &&
+    'pdfjsLib' in window &&
+    typeof (window as any).pdfjsLib?.getDocument === 'function'
+  );
 }
 
 /**
- * Load PDF.js library from CDN if not already loaded
+ * Ensure PDF.js is preloaded by the page.
  */
 async function ensurePdfJsLoaded(): Promise<void> {
   if (isPdfJsLoaded()) return;
-
-  return new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-    script.onload = () => {
-      const pdfjsLib = (window as any).pdfjsLib;
-      if (pdfjsLib) {
-        pdfjsLib.GlobalWorkerOptions.workerSrc =
-          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-      }
-      resolve();
-    };
-    script.onerror = () => reject(new Error('Failed to load PDF.js'));
-    document.head.appendChild(script);
-  });
+  throw new Error('PDF preview library unavailable');
 }
 
 /**
@@ -112,7 +102,11 @@ async function renderPdfThumbnail(
     throw new Error('PDF.js not available');
   }
 
-  const loadingTask = pdfjsLib.getDocument(pdfUrl);
+  const loadingTask = pdfjsLib.getDocument({
+    url: pdfUrl,
+    withCredentials: true,
+    disableWorker: true,
+  });
   const pdfDoc = await loadingTask.promise;
   const pageCount = pdfDoc.numPages;
 
@@ -156,6 +150,7 @@ async function renderPdfThumbnail(
 export class DocumentPreviewCard {
   private state: DocumentPreviewState;
   private config: DocumentPreviewConfig;
+  private requestVersion = 0;
   private elements: {
     container: HTMLElement | null;
     thumbnail: HTMLImageElement | null;
@@ -244,6 +239,8 @@ export class DocumentPreviewCard {
     documentTitle: string | null = null,
     pageCount: number | null = null
   ): Promise<void> {
+    const requestVersion = ++this.requestVersion;
+
     // Clear state if no document
     if (!documentId) {
       this.state = {
@@ -287,11 +284,17 @@ export class DocumentPreviewCard {
     // Fetch document data and render thumbnail
     try {
       const pdfUrl = await this.fetchDocumentPdfUrl(documentId);
+      if (requestVersion !== this.requestVersion) {
+        return;
+      }
       const { dataUrl, pageCount: fetchedPageCount } = await renderPdfThumbnail(
         pdfUrl,
         this.config.thumbnailMaxWidth,
         this.config.thumbnailMaxHeight
       );
+      if (requestVersion !== this.requestVersion) {
+        return;
+      }
 
       // Cache the result
       cacheThumbnail(documentId, dataUrl, fetchedPageCount);
@@ -305,6 +308,9 @@ export class DocumentPreviewCard {
         error: null,
       };
     } catch (err) {
+      if (requestVersion !== this.requestVersion) {
+        return;
+      }
       console.error('Failed to load document preview:', err);
       this.state = {
         documentId,
@@ -328,45 +334,7 @@ export class DocumentPreviewCard {
     const versionedApiPath = /\/v\d+$/i.test(normalizedApiPath)
       ? normalizedApiPath
       : `${normalizedApiPath}/v1`;
-
-    const response = await fetch(`${versionedApiPath}/panels/esign_documents/${documentId}`, {
-      credentials: 'same-origin',
-      headers: { Accept: 'application/json' },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to load document (${response.status})`);
-    }
-
-    const payload = await response.json();
-    const docData =
-      payload && typeof payload === 'object' && payload.data && typeof payload.data === 'object'
-        ? payload.data
-        : payload;
-
-    const sourceObjectKey = String(docData?.source_object_key || '')
-      .trim()
-      .replace(/^\/+/, '');
-    const sourceAssetUrl = sourceObjectKey
-      ? `${this.config.basePath}/assets/${sourceObjectKey
-          .split('/')
-          .map(encodeURIComponent)
-          .join('/')}`
-      : '';
-
-    const pdfUrl = String(
-      docData?.file_url ||
-        docData?.url ||
-        docData?.source_url ||
-        docData?.download_url ||
-        sourceAssetUrl
-    ).trim();
-
-    if (!pdfUrl) {
-      throw new Error('No PDF URL found');
-    }
-
-    return pdfUrl;
+    return `${versionedApiPath}/panels/esign_documents/${encodeURIComponent(documentId)}/source/pdf`;
   }
 
   /**

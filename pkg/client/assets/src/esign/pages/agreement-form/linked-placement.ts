@@ -2,22 +2,24 @@
  * Linked Field Placement Module (Phase 3)
  *
  * Enables automatic field placement propagation within link groups.
- * When a field in a link group is manually placed, other members of the
- * group automatically receive placements at the same position.
+ * When a field in a link group is manually placed, its position is saved as a template.
+ * When navigating to other pages, unplaced fields for that page are auto-placed at the template position.
  *
  * Behavior rules:
- * 1. Fields in the same link group auto-place from any first manually placed member
- * 2. Manual placements are never overwritten
- * 3. Unlinking a field stops future propagation to that field
- * 4. Auto-linked placements become manual once user drags/resizes that field
+ * 1. First manually placed field in a group sets the template position
+ * 2. When navigating to a new page, unplaced linked fields for that page are auto-placed
+ * 3. Manual placements are never overwritten
+ * 4. Unlinking a field stops future propagation to that field
+ * 5. Auto-linked placements become manual once user drags/resizes that field
  */
 
 import type {
   LinkGroup,
   LinkGroupState,
+  LinkGroupTemplatePosition,
   NormalizedPlacementInstance,
 } from './contracts';
-import { LINKED_PLACEMENT_DEFAULTS, PLACEMENT_SOURCE } from './constants';
+import { PLACEMENT_SOURCE } from './constants';
 
 /**
  * Generate a unique link group ID
@@ -173,7 +175,124 @@ export function getLinkedSiblings(
 }
 
 /**
- * Result of computing linked placements
+ * Result of setting template position
+ */
+export interface SetTemplateResult {
+  /** Updated link group with template position set */
+  updatedGroup: LinkGroup;
+}
+
+/**
+ * Set template position for a link group when first field is manually placed.
+ * This does NOT place any siblings - it just saves the position for later use.
+ *
+ * @param state Current link group state
+ * @param sourcePlacement The placement that triggered this (manual placement)
+ * @returns Updated group with template position, or null if not applicable
+ */
+export function setLinkGroupTemplatePosition(
+  state: LinkGroupState,
+  sourcePlacement: NormalizedPlacementInstance
+): SetTemplateResult | null {
+  const group = getFieldLinkGroup(state, sourcePlacement.definitionId);
+  if (!group || !group.isActive) return null;
+
+  // Only set template if not already set
+  if (group.templatePosition) return null;
+
+  const templatePosition: LinkGroupTemplatePosition = {
+    x: sourcePlacement.x,
+    y: sourcePlacement.y,
+    width: sourcePlacement.width,
+    height: sourcePlacement.height,
+  };
+
+  const updatedGroup: LinkGroup = {
+    ...group,
+    sourceFieldId: sourcePlacement.id,
+    templatePosition,
+  };
+
+  return { updatedGroup };
+}
+
+/**
+ * Result of computing linked placement for a page
+ */
+export interface LinkedPlacementForPageResult {
+  /** New placement to create (or null if none needed) */
+  newPlacement: NormalizedPlacementInstance | null;
+}
+
+/**
+ * Compute linked placement for a specific page when navigating.
+ * Finds the unplaced linked field for the given page and creates a placement at the template position.
+ *
+ * @param state Current link group state
+ * @param targetPage The page being navigated to
+ * @param existingPlacements All existing placements (to avoid duplicates)
+ * @param fieldDefinitions Map of definition ID to field metadata including page
+ * @returns New placement to create, or null if no unplaced field for this page
+ */
+export function computeLinkedPlacementForPage(
+  state: LinkGroupState,
+  targetPage: number,
+  existingPlacements: NormalizedPlacementInstance[],
+  fieldDefinitions: Map<
+    string,
+    { type: string; participantId: string; participantName: string; page: number; linkGroupId?: string }
+  >
+): LinkedPlacementForPageResult | null {
+  // Find existing placement definition IDs to avoid duplicates
+  const existingPlacementsByDefId = new Set<string>();
+  for (const p of existingPlacements) {
+    existingPlacementsByDefId.add(p.definitionId);
+  }
+
+  // Look for unplaced fields on this page that belong to a link group with a template
+  for (const [defId, fieldDef] of fieldDefinitions) {
+    // Skip if not for target page
+    if (fieldDef.page !== targetPage) continue;
+
+    // Skip if already placed
+    if (existingPlacementsByDefId.has(defId)) continue;
+
+    // Skip if unlinked
+    if (state.unlinkedDefinitions.has(defId)) continue;
+
+    // Get link group
+    const groupId = state.definitionToGroup.get(defId);
+    if (!groupId) continue;
+
+    const group = state.groups.get(groupId);
+    if (!group || !group.isActive || !group.templatePosition) continue;
+
+    // Found an unplaced linked field for this page - create placement at template position
+    const newPlacement: NormalizedPlacementInstance = {
+      id: `linked_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      definitionId: defId,
+      type: fieldDef.type,
+      participantId: fieldDef.participantId,
+      participantName: fieldDef.participantName,
+      page: targetPage,
+      x: group.templatePosition.x,
+      y: group.templatePosition.y,
+      width: group.templatePosition.width,
+      height: group.templatePosition.height,
+      placementSource: PLACEMENT_SOURCE.AUTO_LINKED,
+      linkGroupId: group.id,
+      linkedFromFieldId: group.sourceFieldId,
+    };
+
+    return { newPlacement };
+  }
+
+  return null;
+}
+
+/**
+ * @deprecated Use setLinkGroupTemplatePosition and computeLinkedPlacementForPage instead.
+ * This function is kept for backwards compatibility with tests.
  */
 export interface LinkedPlacementResult {
   /** New placements to create for linked fields */
@@ -183,13 +302,8 @@ export interface LinkedPlacementResult {
 }
 
 /**
- * Compute linked placements when a field is manually placed
- *
- * @param state Current link group state
- * @param sourcePlacement The placement that triggered this (manual placement)
- * @param existingPlacements All existing placements (to avoid duplicates)
- * @param fieldDefinitions Map of definition ID to field metadata
- * @returns New placements to create and updated group
+ * @deprecated Use setLinkGroupTemplatePosition and computeLinkedPlacementForPage instead.
+ * Compute linked placements - now only sets template position without placing siblings.
  */
 export function computeLinkedPlacements(
   state: LinkGroupState,
@@ -200,59 +314,14 @@ export function computeLinkedPlacements(
     { type: string; participantId: string; participantName: string }
   >
 ): LinkedPlacementResult | null {
-  const group = getFieldLinkGroup(state, sourcePlacement.definitionId);
-  if (!group || !group.isActive) return null;
+  const result = setLinkGroupTemplatePosition(state, sourcePlacement);
+  if (!result) return null;
 
-  // Get siblings that need placements
-  const siblings = getLinkedSiblings(state, sourcePlacement.definitionId);
-  if (siblings.length === 0) return null;
-
-  // Find existing placement IDs to avoid duplicates
-  const existingPlacementsByDefId = new Set<string>();
-  for (const p of existingPlacements) {
-    existingPlacementsByDefId.add(p.definitionId);
-  }
-
-  const newPlacements: NormalizedPlacementInstance[] = [];
-  let yOffset = 0;
-
-  for (const siblingDefId of siblings) {
-    // Skip if already placed
-    if (existingPlacementsByDefId.has(siblingDefId)) continue;
-
-    // Get field metadata
-    const fieldDef = fieldDefinitions.get(siblingDefId);
-    if (!fieldDef) continue;
-
-    // Calculate position (same x, offset y)
-    yOffset += LINKED_PLACEMENT_DEFAULTS.VERTICAL_OFFSET;
-
-    const newPlacement: NormalizedPlacementInstance = {
-      id: `linked_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      definitionId: siblingDefId,
-      type: fieldDef.type,
-      participantId: fieldDef.participantId,
-      participantName: fieldDef.participantName,
-      page: sourcePlacement.page,
-      x: sourcePlacement.x,
-      y: sourcePlacement.y + yOffset,
-      width: sourcePlacement.width,
-      height: sourcePlacement.height,
-      placementSource: PLACEMENT_SOURCE.AUTO_LINKED,
-      linkGroupId: group.id,
-      linkedFromFieldId: sourcePlacement.id,
-    };
-
-    newPlacements.push(newPlacement);
-  }
-
-  // Update group with source field if not already set
-  const updatedGroup: LinkGroup = {
-    ...group,
-    sourceFieldId: group.sourceFieldId || sourcePlacement.id,
+  // Return empty placements array - we don't place siblings immediately anymore
+  return {
+    newPlacements: [],
+    updatedGroup: result.updatedGroup,
   };
-
-  return { newPlacements, updatedGroup };
 }
 
 /**
@@ -326,6 +395,7 @@ export function serializeLinkGroupState(state: LinkGroupState): {
     memberDefinitionIds: string[];
     sourceFieldId?: string;
     isActive: boolean;
+    templatePosition?: LinkGroupTemplatePosition;
   }>;
   unlinkedDefinitions: string[];
 } {
@@ -335,6 +405,7 @@ export function serializeLinkGroupState(state: LinkGroupState): {
     memberDefinitionIds: string[];
     sourceFieldId?: string;
     isActive: boolean;
+    templatePosition?: LinkGroupTemplatePosition;
   }> = [];
 
   for (const group of state.groups.values()) {
@@ -344,6 +415,7 @@ export function serializeLinkGroupState(state: LinkGroupState): {
       memberDefinitionIds: group.memberDefinitionIds,
       sourceFieldId: group.sourceFieldId,
       isActive: group.isActive,
+      templatePosition: group.templatePosition,
     });
   }
 
@@ -363,6 +435,7 @@ export function deserializeLinkGroupState(data: {
     memberDefinitionIds: string[];
     sourceFieldId?: string;
     isActive: boolean;
+    templatePosition?: LinkGroupTemplatePosition;
   }>;
   unlinkedDefinitions?: string[];
 }): LinkGroupState {
@@ -376,6 +449,7 @@ export function deserializeLinkGroupState(data: {
         memberDefinitionIds: groupData.memberDefinitionIds || [],
         sourceFieldId: groupData.sourceFieldId,
         isActive: groupData.isActive !== false,
+        templatePosition: groupData.templatePosition,
       };
       state = addLinkGroup(state, group);
     }

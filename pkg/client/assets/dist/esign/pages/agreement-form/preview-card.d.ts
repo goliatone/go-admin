@@ -36,6 +36,7 @@ export declare function clearThumbnailCache(): void;
 export declare class DocumentPreviewCard {
     private state;
     private config;
+    private requestVersion;
     private elements;
     constructor(config?: Partial<DocumentPreviewConfig>);
     /**
