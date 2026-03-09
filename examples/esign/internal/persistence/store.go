@@ -21,21 +21,29 @@ func NewStoreAdapter(bootstrap *BootstrapResult) (*StoreAdapter, func() error, e
 	if bootstrap == nil {
 		return nil, nil, fmt.Errorf("store adapter: bootstrap result is required")
 	}
-
+	if bootstrap.SQLDB == nil {
+		return nil, nil, fmt.Errorf("store adapter: bootstrap sql db is required")
+	}
+	if bootstrap.BunDB == nil {
+		return nil, nil, fmt.Errorf("store adapter: bootstrap bun db is required")
+	}
 	switch bootstrap.Dialect {
-	case DialectSQLite:
-		sqliteStore, err := stores.NewSQLiteStore(bootstrap.DSN)
-		if err != nil {
-			return nil, nil, fmt.Errorf("store adapter: open sqlite store from bootstrap dsn: %w", err)
-		}
-		return &StoreAdapter{
-			Store: sqliteStore,
-		}, sqliteStore.Close, nil
-	case DialectPostgres:
-		return nil, nil, fmt.Errorf("postgres runtime requires injected Bun-backed stores.Store; sqlite fallback is disabled")
+	case DialectSQLite, DialectPostgres:
 	default:
 		return nil, nil, fmt.Errorf("store adapter: unsupported runtime persistence dialect %q", bootstrap.Dialect)
 	}
+
+	backend, err := newRuntimeRelationalStoreBackend(bootstrap)
+	if err != nil {
+		return nil, nil, err
+	}
+	runtimeStore, err := stores.NewPersistentStoreFromDB(bootstrap.SQLDB, backend)
+	if err != nil {
+		return nil, nil, fmt.Errorf("store adapter: initialize runtime persistent store: %w", err)
+	}
+	return &StoreAdapter{
+		Store: runtimeStore,
+	}, runtimeStore.Close, nil
 }
 
 // WithTx delegates to the underlying store transaction semantics.

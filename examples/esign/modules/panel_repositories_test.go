@@ -87,6 +87,114 @@ func TestDocumentPanelRepositoryCreateLoadsPDFBytesFromSourceObjectKey(t *testin
 	}
 }
 
+func TestDocumentPanelRepositoryListAppliesSearchCreatedByAndScopeFilters(t *testing.T) {
+	store := stores.NewInMemoryStore()
+	now := time.Now().UTC()
+	primaryScope := stores.Scope{TenantID: "tenant-primary", OrgID: "org-primary"}
+	otherScope := stores.Scope{TenantID: "tenant-other", OrgID: "org-other"}
+
+	seedDocs := []struct {
+		scope   stores.Scope
+		id      string
+		title   string
+		creator string
+	}{
+		{scope: primaryScope, id: "doc-primary-a", title: "Alpha Master Service Agreement", creator: "user-a"},
+		{scope: primaryScope, id: "doc-primary-b", title: "Alpha Employment Agreement", creator: "user-b"},
+		{scope: primaryScope, id: "doc-primary-c", title: "Beta NDA", creator: "user-a"},
+		{scope: otherScope, id: "doc-other-a", title: "Alpha Cross Scope", creator: "user-a"},
+	}
+	for _, doc := range seedDocs {
+		if _, err := store.Create(context.Background(), doc.scope, stores.DocumentRecord{
+			ID:              doc.id,
+			Title:           doc.title,
+			CreatedByUserID: doc.creator,
+			SourceObjectKey: "tenant/" + doc.scope.TenantID + "/org/" + doc.scope.OrgID + "/docs/" + doc.id + ".pdf",
+			SourceSHA256:    strings.Repeat("b", 64),
+			SizeBytes:       4096,
+			PageCount:       2,
+			CreatedAt:       now,
+			UpdatedAt:       now,
+		}); err != nil {
+			t.Fatalf("seed document %s: %v", doc.id, err)
+		}
+	}
+
+	repo := newDocumentPanelRepository(store, services.NewDocumentService(store), nil, primaryScope, RuntimeSettings{})
+	records, total, err := repo.List(context.Background(), coreadmin.ListOptions{
+		Search: "alpha",
+		Filters: map[string]any{
+			"created_by_user_id": "user-a",
+		},
+	})
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if total != 1 {
+		t.Fatalf("expected filtered total 1, got %d", total)
+	}
+	if len(records) != 1 {
+		t.Fatalf("expected exactly one record, got %d", len(records))
+	}
+	if got := strings.TrimSpace(toString(records[0]["id"])); got != "doc-primary-a" {
+		t.Fatalf("expected doc-primary-a, got %q", got)
+	}
+	if got := strings.TrimSpace(toString(records[0]["created_by_user_id"])); got != "user-a" {
+		t.Fatalf("expected created_by_user_id user-a, got %q", got)
+	}
+}
+
+func TestDocumentPanelRepositoryListSupportsLegacySearchFilters(t *testing.T) {
+	store := stores.NewInMemoryStore()
+	now := time.Now().UTC()
+	scope := defaultModuleScope
+
+	for _, doc := range []stores.DocumentRecord{
+		{
+			ID:              "doc-legacy-search-a",
+			Title:           "Umbrella Agreement",
+			CreatedByUserID: "user-a",
+			SourceObjectKey: "tenant/" + scope.TenantID + "/org/" + scope.OrgID + "/docs/doc-legacy-search-a.pdf",
+			SourceSHA256:    strings.Repeat("c", 64),
+			SizeBytes:       1024,
+			PageCount:       1,
+			CreatedAt:       now,
+			UpdatedAt:       now,
+		},
+		{
+			ID:              "doc-legacy-search-b",
+			Title:           "Mutual NDA",
+			CreatedByUserID: "user-a",
+			SourceObjectKey: "tenant/" + scope.TenantID + "/org/" + scope.OrgID + "/docs/doc-legacy-search-b.pdf",
+			SourceSHA256:    strings.Repeat("d", 64),
+			SizeBytes:       1024,
+			PageCount:       1,
+			CreatedAt:       now,
+			UpdatedAt:       now,
+		},
+	} {
+		if _, err := store.Create(context.Background(), scope, doc); err != nil {
+			t.Fatalf("seed document %s: %v", doc.ID, err)
+		}
+	}
+
+	repo := newDocumentPanelRepository(store, services.NewDocumentService(store), nil, scope, RuntimeSettings{})
+	records, total, err := repo.List(context.Background(), coreadmin.ListOptions{
+		Filters: map[string]any{
+			"_search": "nda",
+		},
+	})
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if total != 1 || len(records) != 1 {
+		t.Fatalf("expected one NDA record, got total=%d len=%d", total, len(records))
+	}
+	if got := strings.TrimSpace(toString(records[0]["id"])); got != "doc-legacy-search-b" {
+		t.Fatalf("expected doc-legacy-search-b, got %q", got)
+	}
+}
+
 func TestAgreementPanelRepositoryCreatePersistsFormRecipientsAndFields(t *testing.T) {
 	store := stores.NewInMemoryStore()
 	scope := defaultModuleScope
@@ -440,6 +548,103 @@ func TestAgreementPanelRepositoryCreateMergesFieldPlacementsFromJSONPayload(t *t
 	}
 	if got := int(fields[0].Height); got != 40 {
 		t.Fatalf("expected merged height=40, got %v", fields[0].Height)
+	}
+}
+
+func TestAgreementPanelRepositoryCreatePersistsLinkedPlacementMetadata(t *testing.T) {
+	store := stores.NewInMemoryStore()
+	scope := defaultModuleScope
+	seedESignDocument(t, store, scope, "doc-create-linked-placement-1")
+
+	repo := newAgreementPanelRepository(
+		store,
+		services.NewAgreementService(store),
+		services.NewArtifactPipelineService(store, nil),
+		nil,
+		nil,
+		scope,
+		RuntimeSettings{},
+	)
+
+	created, err := repo.Create(context.Background(), map[string]any{
+		"document_id": "doc-create-linked-placement-1",
+		"title":       "Linked Placement Agreement",
+		"message":     "Please review",
+		"recipients[0]": map[string]any{
+			"id":    "participant-linked-placement-1",
+			"name":  "Alice",
+			"email": "alice.linked@example.com",
+			"role":  "signer",
+		},
+		"fields[0]": map[string]any{
+			"id":             "field-linked-placement-1",
+			"type":           "signature",
+			"participant_id": "participant-linked-placement-1",
+			"page":           "1",
+			"required":       "on",
+		},
+		"field_placements_json": `[{
+			"definition_id":"field-linked-placement-1",
+			"page":2,
+			"x":88,
+			"y":144,
+			"width":210,
+			"height":42,
+			"placement_source":"auto_linked",
+			"link_group_id":"rule_group_1",
+			"linked_from_field_id":"source-field-1",
+			"is_unlinked":true
+		}]`,
+	})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	agreementID := strings.TrimSpace(toString(created["id"]))
+	if agreementID == "" {
+		t.Fatal("expected created agreement id")
+	}
+
+	instances, err := store.ListFieldInstances(context.Background(), scope, agreementID)
+	if err != nil {
+		t.Fatalf("ListFieldInstances: %v", err)
+	}
+	if len(instances) != 1 {
+		t.Fatalf("expected 1 field instance, got %d", len(instances))
+	}
+	instance := instances[0]
+	if got := strings.TrimSpace(instance.PlacementSource); got != stores.PlacementSourceAutoLinked {
+		t.Fatalf("expected placement_source auto_linked, got %q", got)
+	}
+	if got := strings.TrimSpace(instance.LinkGroupID); got != "rule_group_1" {
+		t.Fatalf("expected link_group_id rule_group_1, got %q", got)
+	}
+	if got := strings.TrimSpace(instance.LinkedFromFieldID); got != "source-field-1" {
+		t.Fatalf("expected linked_from_field_id source-field-1, got %q", got)
+	}
+	if !instance.IsUnlinked {
+		t.Fatal("expected is_unlinked=true on field instance")
+	}
+
+	payload, err := repo.Get(context.Background(), agreementID)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	fields, ok := payload["fields"].([]map[string]any)
+	if !ok || len(fields) != 1 {
+		t.Fatalf("expected one field payload, got %#v", payload["fields"])
+	}
+	if got := strings.TrimSpace(toString(fields[0]["placement_source"])); got != stores.PlacementSourceAutoLinked {
+		t.Fatalf("expected payload placement_source auto_linked, got %q", got)
+	}
+	if got := strings.TrimSpace(toString(fields[0]["link_group_id"])); got != "rule_group_1" {
+		t.Fatalf("expected payload link_group_id rule_group_1, got %q", got)
+	}
+	if got := strings.TrimSpace(toString(fields[0]["linked_from_field_id"])); got != "source-field-1" {
+		t.Fatalf("expected payload linked_from_field_id source-field-1, got %q", got)
+	}
+	if !toBool(fields[0]["is_unlinked"]) {
+		t.Fatalf("expected payload is_unlinked=true, got %#v", fields[0]["is_unlinked"])
 	}
 }
 

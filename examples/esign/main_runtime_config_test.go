@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -204,10 +206,15 @@ func productionRuntimeConfig() appcfg.Config {
 }
 
 func TestNewESignRuntimeStoreCreatesSQLiteStoreFromBootstrapDSN(t *testing.T) {
-	bootstrap := &esignpersistence.BootstrapResult{
-		Dialect: esignpersistence.DialectSQLite,
-		DSN:     "file:" + filepath.Join(t.TempDir(), "runtime-store.db") + "?_busy_timeout=5000&_foreign_keys=on",
+	cfg := appcfg.Defaults()
+	cfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectSQLite
+	cfg.SQLite.DSN = "file:" + filepath.Join(t.TempDir(), "runtime-store.db") + "?_busy_timeout=5000&_foreign_keys=on"
+	bootstrap, err := esignpersistence.Bootstrap(context.Background(), *cfg)
+	if err != nil {
+		t.Fatalf("Bootstrap sqlite runtime store test: %v", err)
 	}
+	defer func() { _ = bootstrap.Close() }()
+
 	store, cleanup, err := newESignRuntimeStore(bootstrap)
 	if err != nil {
 		t.Fatalf("newESignRuntimeStore sqlite: %v", err)
@@ -223,17 +230,32 @@ func TestNewESignRuntimeStoreCreatesSQLiteStoreFromBootstrapDSN(t *testing.T) {
 	}
 }
 
-func TestNewESignRuntimeStoreRejectsPostgresUntilStoreAdapterExists(t *testing.T) {
-	bootstrap := &esignpersistence.BootstrapResult{
-		Dialect: esignpersistence.DialectPostgres,
-		DSN:     "postgres://user:pass@localhost:5432/esign?sslmode=disable",
+func TestNewESignRuntimeStoreSupportsPostgresWhenBootstrapHandlesPresent(t *testing.T) {
+	dsn := strings.TrimSpace(os.Getenv("ESIGN_TEST_POSTGRES_DSN"))
+	if dsn == "" {
+		t.Skip("set ESIGN_TEST_POSTGRES_DSN to run postgres runtime store bootstrap coverage")
 	}
-	_, _, err := newESignRuntimeStore(bootstrap)
-	if err == nil {
-		t.Fatalf("expected postgres store initialization error until Bun-backed store adapter is wired")
+	cfg := appcfg.Defaults()
+	cfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectPostgres
+	cfg.Postgres.DSN = dsn
+	cfg.SQLite.DSN = ""
+	bootstrap, err := esignpersistence.Bootstrap(context.Background(), *cfg)
+	if err != nil {
+		t.Fatalf("Bootstrap postgres runtime store test: %v", err)
 	}
-	if !strings.Contains(err.Error(), "Bun-backed stores.Store") {
-		t.Fatalf("expected Bun-backed store adapter guidance, got %v", err)
+	defer func() { _ = bootstrap.Close() }()
+
+	store, cleanup, err := newESignRuntimeStore(bootstrap)
+	if err != nil {
+		t.Fatalf("newESignRuntimeStore postgres: %v", err)
+	}
+	if store == nil {
+		t.Fatalf("expected postgres runtime store instance")
+	}
+	if cleanup != nil {
+		if cerr := cleanup(); cerr != nil {
+			t.Fatalf("postgres runtime store cleanup: %v", cerr)
+		}
 	}
 }
 

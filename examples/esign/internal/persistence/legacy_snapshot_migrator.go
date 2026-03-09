@@ -546,7 +546,7 @@ func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
 	return []legacyTableMigrationSpec{
 		{
 			table:    "documents",
-			columns:  []string{"id", "tenant_id", "org_id", "title", "source_object_key", "source_sha256", "size_bytes", "page_count", "created_at", "updated_at", "source_type", "source_google_file_id", "source_google_doc_url", "source_modified_time", "source_exported_at", "source_exported_by_user_id", "source_mime_type", "source_ingestion_mode", "pdf_compatibility_tier", "pdf_compatibility_reason", "pdf_normalization_status", "pdf_analyzed_at", "pdf_policy_version"},
+			columns:  []string{"id", "tenant_id", "org_id", "created_by_user_id", "title", "source_object_key", "normalized_object_key", "source_sha256", "size_bytes", "page_count", "created_at", "updated_at", "source_type", "source_google_file_id", "source_google_doc_url", "source_modified_time", "source_exported_at", "source_exported_by_user_id", "source_mime_type", "source_ingestion_mode", "pdf_compatibility_tier", "pdf_compatibility_reason", "pdf_normalization_status", "pdf_analyzed_at", "pdf_policy_version"},
 			conflict: []string{"id"},
 			rows: func(snapshot legacySQLiteSnapshot) []map[string]any {
 				rows := make([]map[string]any, 0, len(snapshot.Documents))
@@ -561,8 +561,10 @@ func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
 						"id":                         strings.TrimSpace(record.ID),
 						"tenant_id":                  strings.TrimSpace(record.TenantID),
 						"org_id":                     strings.TrimSpace(record.OrgID),
+						"created_by_user_id":         strings.TrimSpace(record.CreatedByUserID),
 						"title":                      strings.TrimSpace(record.Title),
 						"source_object_key":          strings.TrimSpace(record.SourceObjectKey),
+						"normalized_object_key":      strings.TrimSpace(record.NormalizedObjectKey),
 						"source_sha256":              strings.TrimSpace(record.SourceSHA256),
 						"size_bytes":                 record.SizeBytes,
 						"page_count":                 record.PageCount,
@@ -588,7 +590,7 @@ func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
 		},
 		{
 			table:    "agreements",
-			columns:  []string{"id", "tenant_id", "org_id", "document_id", "status", "title", "message", "version", "sent_at", "completed_at", "voided_at", "declined_at", "expired_at", "created_by_user_id", "updated_by_user_id", "created_at", "updated_at", "source_type", "source_google_file_id", "source_google_doc_url", "source_modified_time", "source_exported_at", "source_exported_by_user_id"},
+			columns:  []string{"id", "tenant_id", "org_id", "document_id", "status", "title", "message", "version", "sent_at", "completed_at", "voided_at", "declined_at", "expired_at", "created_by_user_id", "updated_by_user_id", "created_at", "updated_at", "source_type", "source_google_file_id", "source_google_doc_url", "source_modified_time", "source_exported_at", "source_exported_by_user_id", "source_mime_type", "source_ingestion_mode"},
 			conflict: []string{"id"},
 			rows: func(snapshot legacySQLiteSnapshot) []map[string]any {
 				rows := make([]map[string]any, 0, len(snapshot.Agreements))
@@ -631,6 +633,8 @@ func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
 						"source_modified_time":       optionalTime(record.SourceModifiedTime),
 						"source_exported_at":         optionalTime(record.SourceExportedAt),
 						"source_exported_by_user_id": strings.TrimSpace(record.SourceExportedByUserID),
+						"source_mime_type":           strings.TrimSpace(record.SourceMimeType),
+						"source_ingestion_mode":      strings.TrimSpace(record.SourceIngestionMode),
 					})
 				}
 				return rows
@@ -738,7 +742,7 @@ func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
 		},
 		{
 			table:    "fields",
-			columns:  []string{"id", "tenant_id", "org_id", "agreement_id", "recipient_id", "field_type", "page_number", "pos_x", "pos_y", "width", "height", "required", "created_at", "updated_at", "field_definition_id"},
+			columns:  []string{"id", "tenant_id", "org_id", "agreement_id", "recipient_id", "field_type", "page_number", "pos_x", "pos_y", "width", "height", "required", "created_at", "updated_at", "field_definition_id", "placement_source", "link_group_id", "linked_from_field_id", "is_unlinked"},
 			conflict: []string{"id"},
 			rows: func(snapshot legacySQLiteSnapshot) []map[string]any {
 				rows := make([]map[string]any, 0, len(snapshot.Fields)+len(snapshot.FieldInstances))
@@ -754,21 +758,25 @@ func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
 					createdAt := requiredTime(record.CreatedAt, now())
 					updatedAt := requiredTime(record.UpdatedAt, createdAt)
 					rows = append(rows, map[string]any{
-						"id":                  strings.TrimSpace(record.ID),
-						"tenant_id":           strings.TrimSpace(record.TenantID),
-						"org_id":              strings.TrimSpace(record.OrgID),
-						"agreement_id":        strings.TrimSpace(record.AgreementID),
-						"recipient_id":        nullableString(record.RecipientID),
-						"field_type":          strings.TrimSpace(record.Type),
-						"page_number":         record.PageNumber,
-						"pos_x":               record.PosX,
-						"pos_y":               record.PosY,
-						"width":               record.Width,
-						"height":              record.Height,
-						"required":            record.Required,
-						"created_at":          createdAt,
-						"updated_at":          updatedAt,
-						"field_definition_id": nullableString(record.FieldDefinitionID),
+						"id":                   strings.TrimSpace(record.ID),
+						"tenant_id":            strings.TrimSpace(record.TenantID),
+						"org_id":               strings.TrimSpace(record.OrgID),
+						"agreement_id":         strings.TrimSpace(record.AgreementID),
+						"recipient_id":         nullableString(record.RecipientID),
+						"field_type":           strings.TrimSpace(record.Type),
+						"page_number":          record.PageNumber,
+						"pos_x":                record.PosX,
+						"pos_y":                record.PosY,
+						"width":                record.Width,
+						"height":               record.Height,
+						"required":             record.Required,
+						"created_at":           createdAt,
+						"updated_at":           updatedAt,
+						"field_definition_id":  nullableString(record.FieldDefinitionID),
+						"placement_source":     strings.TrimSpace(record.PlacementSource),
+						"link_group_id":        strings.TrimSpace(record.LinkGroupID),
+						"linked_from_field_id": strings.TrimSpace(record.LinkedFromFieldID),
+						"is_unlinked":          record.IsUnlinked,
 					})
 				}
 				seen := map[string]bool{}
@@ -809,7 +817,7 @@ func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
 		},
 		{
 			table:    "field_definitions",
-			columns:  []string{"id", "tenant_id", "org_id", "agreement_id", "participant_id", "field_type", "required", "validation_json", "created_at", "updated_at"},
+			columns:  []string{"id", "tenant_id", "org_id", "agreement_id", "participant_id", "field_type", "required", "validation_json", "link_group_id", "created_at", "updated_at"},
 			conflict: []string{"id"},
 			rows: func(snapshot legacySQLiteSnapshot) []map[string]any {
 				rows := make([]map[string]any, 0, len(snapshot.FieldDefinitions))
@@ -825,6 +833,7 @@ func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
 						"field_type":      strings.TrimSpace(record.Type),
 						"required":        record.Required,
 						"validation_json": strings.TrimSpace(record.ValidationJSON),
+						"link_group_id":   strings.TrimSpace(record.LinkGroupID),
 						"created_at":      createdAt,
 						"updated_at":      updatedAt,
 					})
@@ -834,7 +843,7 @@ func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
 		},
 		{
 			table:    "field_instances",
-			columns:  []string{"id", "tenant_id", "org_id", "agreement_id", "field_definition_id", "page_number", "x", "y", "width", "height", "tab_index", "label", "appearance_json", "created_at", "updated_at", "placement_source", "resolver_id", "confidence", "placement_run_id", "manual_override"},
+			columns:  []string{"id", "tenant_id", "org_id", "agreement_id", "field_definition_id", "page_number", "x", "y", "width", "height", "tab_index", "label", "appearance_json", "created_at", "updated_at", "placement_source", "resolver_id", "confidence", "placement_run_id", "manual_override", "link_group_id", "linked_from_field_id", "is_unlinked"},
 			conflict: []string{"id"},
 			rows: func(snapshot legacySQLiteSnapshot) []map[string]any {
 				rows := make([]map[string]any, 0, len(snapshot.FieldInstances))
@@ -842,26 +851,29 @@ func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
 					createdAt := requiredTime(record.CreatedAt, now())
 					updatedAt := requiredTime(record.UpdatedAt, createdAt)
 					rows = append(rows, map[string]any{
-						"id":                  strings.TrimSpace(record.ID),
-						"tenant_id":           strings.TrimSpace(record.TenantID),
-						"org_id":              strings.TrimSpace(record.OrgID),
-						"agreement_id":        strings.TrimSpace(record.AgreementID),
-						"field_definition_id": strings.TrimSpace(record.FieldDefinitionID),
-						"page_number":         record.PageNumber,
-						"x":                   record.X,
-						"y":                   record.Y,
-						"width":               record.Width,
-						"height":              record.Height,
-						"tab_index":           record.TabIndex,
-						"label":               strings.TrimSpace(record.Label),
-						"appearance_json":     strings.TrimSpace(record.AppearanceJSON),
-						"created_at":          createdAt,
-						"updated_at":          updatedAt,
-						"placement_source":    strings.TrimSpace(record.PlacementSource),
-						"resolver_id":         strings.TrimSpace(record.ResolverID),
-						"confidence":          record.Confidence,
-						"placement_run_id":    nullableString(record.PlacementRunID),
-						"manual_override":     record.ManualOverride,
+						"id":                   strings.TrimSpace(record.ID),
+						"tenant_id":            strings.TrimSpace(record.TenantID),
+						"org_id":               strings.TrimSpace(record.OrgID),
+						"agreement_id":         strings.TrimSpace(record.AgreementID),
+						"field_definition_id":  strings.TrimSpace(record.FieldDefinitionID),
+						"page_number":          record.PageNumber,
+						"x":                    record.X,
+						"y":                    record.Y,
+						"width":                record.Width,
+						"height":               record.Height,
+						"tab_index":            record.TabIndex,
+						"label":                strings.TrimSpace(record.Label),
+						"appearance_json":      strings.TrimSpace(record.AppearanceJSON),
+						"created_at":           createdAt,
+						"updated_at":           updatedAt,
+						"placement_source":     strings.TrimSpace(record.PlacementSource),
+						"resolver_id":          strings.TrimSpace(record.ResolverID),
+						"confidence":           record.Confidence,
+						"placement_run_id":     nullableString(record.PlacementRunID),
+						"manual_override":      record.ManualOverride,
+						"link_group_id":        strings.TrimSpace(record.LinkGroupID),
+						"linked_from_field_id": strings.TrimSpace(record.LinkedFromFieldID),
+						"is_unlinked":          record.IsUnlinked,
 					})
 				}
 				return rows

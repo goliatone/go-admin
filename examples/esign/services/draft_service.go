@@ -814,15 +814,19 @@ func (s DraftService) materializeDraftAgreement(ctx context.Context, scope store
 			return stores.AgreementRecord{}, err
 		}
 
-		page, x, y, width, height := resolveFieldPlacementGeometry(state, definition, idx)
+		placement := resolveFieldPlacementGeometry(state, definition, idx)
 		label := strings.TrimSpace(definition.Label)
 		if _, err := s.agreements.UpsertFieldInstanceDraft(ctx, scope, agreement.ID, stores.FieldInstanceDraftPatch{
 			FieldDefinitionID: &created.ID,
-			PageNumber:        &page,
-			X:                 &x,
-			Y:                 &y,
-			Width:             &width,
-			Height:            &height,
+			PageNumber:        &placement.Page,
+			X:                 &placement.X,
+			Y:                 &placement.Y,
+			Width:             &placement.Width,
+			Height:            &placement.Height,
+			PlacementSource:   draftStringPtr(strings.TrimSpace(placement.PlacementSource)),
+			LinkGroupID:       draftStringPtr(strings.TrimSpace(placement.LinkGroupID)),
+			LinkedFromFieldID: draftStringPtr(strings.TrimSpace(placement.LinkedFromFieldID)),
+			IsUnlinked:        draftBoolPtr(placement.IsUnlinked),
 			TabIndex:          draftIntPtr(idx + 1),
 			Label:             &label,
 		}); err != nil {
@@ -848,8 +852,20 @@ func resolveFieldParticipantID(definition wizardFieldDefinitionState, participan
 	return strings.TrimSpace(participant.ID)
 }
 
-func resolveFieldPlacementGeometry(state wizardStatePayload, definition wizardFieldDefinitionState, index int) (int, float64, float64, float64, float64) {
+func resolveFieldPlacementGeometry(state wizardStatePayload, definition wizardFieldDefinitionState, index int) wizardFieldPlacementState {
 	placement := findPlacementForField(state.FieldPlacements, definition)
+	if strings.TrimSpace(placement.PlacementSource) == "" {
+		placement.PlacementSource = strings.TrimSpace(placement.PlacementSourceV2)
+	}
+	if strings.TrimSpace(placement.LinkGroupID) == "" {
+		placement.LinkGroupID = strings.TrimSpace(placement.LinkGroupIDV2)
+	}
+	if strings.TrimSpace(placement.LinkedFromFieldID) == "" {
+		placement.LinkedFromFieldID = strings.TrimSpace(placement.LinkedFromFieldIDV2)
+	}
+	if !placement.IsUnlinked && placement.IsUnlinkedV2 {
+		placement.IsUnlinked = true
+	}
 	terminalPage := resolveWizardTerminalPage(state)
 	if terminalPage <= 0 {
 		terminalPage = 1
@@ -882,7 +898,13 @@ func resolveFieldPlacementGeometry(state wizardStatePayload, definition wizardFi
 	if y <= 0 {
 		y = float64(96 + (index * 48))
 	}
-	return page, x, y, width, height
+	placement.Page = page
+	placement.X = x
+	placement.Y = y
+	placement.Width = width
+	placement.Height = height
+	placement.PlacementSource = strings.TrimSpace(strings.ToLower(placement.PlacementSource))
+	return placement
 }
 
 func findPlacementForField(placements []wizardFieldPlacementState, definition wizardFieldDefinitionState) wizardFieldPlacementState {
@@ -1002,13 +1024,21 @@ type wizardFieldDefinitionState struct {
 }
 
 type wizardFieldPlacementState struct {
-	FieldDefinitionID string  `json:"field_definition_id"`
-	FieldTempID       string  `json:"fieldTempId"`
-	Page              int     `json:"page"`
-	X                 float64 `json:"x"`
-	Y                 float64 `json:"y"`
-	Width             float64 `json:"width"`
-	Height            float64 `json:"height"`
+	FieldDefinitionID   string  `json:"field_definition_id"`
+	FieldTempID         string  `json:"fieldTempId"`
+	Page                int     `json:"page"`
+	X                   float64 `json:"x"`
+	Y                   float64 `json:"y"`
+	Width               float64 `json:"width"`
+	Height              float64 `json:"height"`
+	PlacementSource     string  `json:"placement_source"`
+	PlacementSourceV2   string  `json:"placementSource"`
+	LinkGroupID         string  `json:"link_group_id"`
+	LinkGroupIDV2       string  `json:"linkGroupId"`
+	LinkedFromFieldID   string  `json:"linked_from_field_id"`
+	LinkedFromFieldIDV2 string  `json:"linkedFromFieldId"`
+	IsUnlinked          bool    `json:"is_unlinked"`
+	IsUnlinkedV2        bool    `json:"isUnlinked"`
 }
 
 type wizardFieldRuleState struct {
@@ -1239,4 +1269,16 @@ func resolveWizardTerminalPage(state wizardStatePayload) int {
 
 func draftIntPtr(value int) *int {
 	return &value
+}
+
+func draftBoolPtr(value bool) *bool {
+	return &value
+}
+
+func draftStringPtr(value string) *string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return nil
+	}
+	return &trimmed
 }

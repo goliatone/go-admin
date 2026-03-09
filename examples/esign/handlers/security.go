@@ -68,6 +68,7 @@ type registerConfig struct {
 	googleImportRuns      stores.GoogleImportRunStore
 	googleImportEnqueue   GoogleImportEnqueueFunc
 	integration           IntegrationFoundationService
+	pdfPolicy             PDFPolicyService
 	googleEnabled         bool
 	documentUpload        router.HandlerFunc
 	permissions           Permissions
@@ -208,6 +209,11 @@ type IntegrationFoundationService interface {
 
 	ApplyInbound(ctx context.Context, scope stores.Scope, input services.InboundApplyInput) (services.InboundApplyResult, error)
 	EmitOutboundChange(ctx context.Context, scope stores.Scope, input services.OutboundChangeInput) (stores.IntegrationChangeEventRecord, bool, error)
+}
+
+// PDFPolicyService resolves the effective PDF policy used by runtime operations.
+type PDFPolicyService interface {
+	Policy(ctx context.Context, scope stores.Scope) services.PDFPolicy
 }
 
 // GoogleImportEnqueueFunc enqueues async Google Drive import jobs.
@@ -472,6 +478,16 @@ func WithDocumentUploadHandler(handler router.HandlerFunc) RegisterOption {
 			return
 		}
 		cfg.documentUpload = handler
+	}
+}
+
+// WithPDFPolicyService configures diagnostics access to resolved PDF policy values.
+func WithPDFPolicyService(service PDFPolicyService) RegisterOption {
+	return func(cfg *registerConfig) {
+		if cfg == nil {
+			return
+		}
+		cfg.pdfPolicy = service
 	}
 }
 

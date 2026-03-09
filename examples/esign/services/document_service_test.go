@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"io"
 	"strings"
 	"testing"
@@ -14,6 +15,7 @@ import (
 	appcfg "github.com/goliatone/go-admin/examples/esign/config"
 	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/stores"
+	goerrors "github.com/goliatone/go-errors"
 	"github.com/goliatone/go-uploader"
 	"github.com/phpdave11/gofpdf"
 	gofpdi "github.com/phpdave11/gofpdf/contrib/gofpdi"
@@ -264,6 +266,12 @@ func TestDocumentServiceUploadRejectsPayloadExceedingPolicySize(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected max_source_bytes policy rejection")
 	}
+	if code := textCodeFromGoError(err); code != string(ErrorCodePDFUnsupported) {
+		t.Fatalf("expected text code %q, got %q (%v)", ErrorCodePDFUnsupported, code, err)
+	}
+	if status := statusCodeFromGoError(err); status != 422 {
+		t.Fatalf("expected status 422 for policy rejection, got %d (%v)", status, err)
+	}
 	snapshot := observability.Snapshot()
 	if snapshot.PDFIngestAnalyzeFailTotal != 1 {
 		t.Fatalf("expected pdf_ingest_analyze_fail_total=1, got %+v", snapshot)
@@ -290,6 +298,31 @@ func TestDocumentServiceUploadRejectsEncryptedPDFByPolicy(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatalf("expected encrypted policy rejection")
+	}
+	if code := textCodeFromGoError(err); code != string(ErrorCodePDFUnsupported) {
+		t.Fatalf("expected text code %q, got %q (%v)", ErrorCodePDFUnsupported, code, err)
+	}
+}
+
+func TestDocumentServiceUploadRejectsInvalidInputWithValidationCode(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+	svc := NewDocumentService(store)
+
+	_, err := svc.Upload(ctx, scope, DocumentUploadInput{
+		Title:     "Invalid Input",
+		ObjectKey: "tenant/tenant-1/org/org-1/docs/doc-invalid/source.pdf",
+		PDF:       []byte("not-a-pdf"),
+	})
+	if err == nil {
+		t.Fatalf("expected invalid-input rejection")
+	}
+	if code := textCodeFromGoError(err); code != string(ErrorCodeMissingRequiredFields) {
+		t.Fatalf("expected text code %q for invalid input, got %q (%v)", ErrorCodeMissingRequiredFields, code, err)
+	}
+	if status := statusCodeFromGoError(err); status != 400 {
+		t.Fatalf("expected status 400 for invalid input, got %d (%v)", status, err)
 	}
 }
 
@@ -406,4 +439,26 @@ func TestDocumentServiceUploadAnalyzeOnlyDoesNotBypassSafetyLimits(t *testing.T)
 	if err == nil {
 		t.Fatalf("expected source-size rejection even in analyze_only mode")
 	}
+}
+
+func textCodeFromGoError(err error) string {
+	if err == nil {
+		return ""
+	}
+	var coded *goerrors.Error
+	if errors.As(err, &coded) {
+		return strings.TrimSpace(coded.TextCode)
+	}
+	return ""
+}
+
+func statusCodeFromGoError(err error) int {
+	if err == nil {
+		return 0
+	}
+	var coded *goerrors.Error
+	if errors.As(err, &coded) {
+		return coded.Code
+	}
+	return 0
 }

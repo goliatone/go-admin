@@ -234,6 +234,37 @@ func TestEvaluateAlertsForSignerAndCompletionDeliveryRates(t *testing.T) {
 	}
 }
 
+func TestEvaluateAlertsForPDFHardeningSignals(t *testing.T) {
+	snapshot := MetricsSnapshot{
+		PDFIngestAnalyzeFailTotal:         2,
+		PDFIngestAnalyzeFailByReasonTier:  map[string]int64{"reason=parse.failed,tier=unsupported": 2},
+		PDFIngestPolicyRejectTotal:        3,
+		PDFIngestPolicyRejectByReasonTier: map[string]int64{"reason=policy.max_pages,tier=unsupported": 3},
+		PDFPreviewFallbackTotal:           4,
+		PDFPreviewFallbackByReasonTier:    map[string]int64{"reason=preview_fallback_forced,tier=limited": 4},
+		PDFRenderImportFailTotal:          1,
+		PDFRenderImportFailByReasonTier:   map[string]int64{"reason=import.failed,tier=limited": 1},
+	}
+	alerts := EvaluateAlerts(snapshot, AlertPolicy{
+		PDFIngestAnalyzeFailTotalThreshold:  1,
+		PDFIngestPolicyRejectTotalThreshold: 1,
+		PDFPreviewFallbackTotalThreshold:    1,
+		PDFRenderImportFailTotalThreshold:   1,
+	})
+	if !hasAlertCode(alerts, "pdf.ingest_analyze_failures_high") {
+		t.Fatalf("expected pdf analyze failure alert, got %+v", alerts)
+	}
+	if !hasAlertCode(alerts, "pdf.ingest_policy_rejects_high") {
+		t.Fatalf("expected pdf policy reject alert, got %+v", alerts)
+	}
+	if !hasAlertCode(alerts, "pdf.preview_fallback_high") {
+		t.Fatalf("expected pdf preview fallback alert, got %+v", alerts)
+	}
+	if !hasAlertCode(alerts, "pdf.render_import_failures_high") {
+		t.Fatalf("expected pdf render import failure alert, got %+v", alerts)
+	}
+}
+
 func TestSLOThresholdConstantsMatchTDD(t *testing.T) {
 	if ThresholdAdminReadP95MS != 400 {
 		t.Fatalf("expected admin read p95 threshold 400ms, got %f", ThresholdAdminReadP95MS)

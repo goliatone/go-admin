@@ -212,3 +212,35 @@ func TestPDFServiceAnalyzeHonorsParseTimeoutBudget(t *testing.T) {
 		t.Fatalf("expected timeout.parse reason, got %q", reason)
 	}
 }
+
+func TestPDFServiceAnalyzeRecoversParserPanic(t *testing.T) {
+	previous := pdfNewReader
+	t.Cleanup(func() {
+		pdfNewReader = previous
+	})
+	pdfNewReader = func(_ *bytes.Reader, _ int64) (*pdf.Reader, error) {
+		panic("boom")
+	}
+
+	svc := NewPDFService()
+	_, err := svc.Analyze(context.Background(), stores.Scope{}, GenerateDeterministicPDF(1))
+	if err == nil {
+		t.Fatalf("expected parse failure after parser panic")
+	}
+	if reason := pdfErrorReason(t, err); reason != PDFReasonParseFailed {
+		t.Fatalf("expected parse.failed reason after panic recovery, got %q", reason)
+	}
+}
+
+func TestPDFPolicyDiagnosticsIncludesResolvedDefaults(t *testing.T) {
+	diag := PDFPolicyDiagnostics(PDFPolicy{})
+	if diag["policy_version"] != PDFPolicyVersion {
+		t.Fatalf("expected policy version %q, got %+v", PDFPolicyVersion, diag["policy_version"])
+	}
+	if diag["diagnostics_payload_version"] != "v1" {
+		t.Fatalf("expected diagnostics payload version v1, got %+v", diag["diagnostics_payload_version"])
+	}
+	if diag["pipeline_mode"] == "" {
+		t.Fatalf("expected pipeline_mode in diagnostics payload, got %+v", diag)
+	}
+}

@@ -34,10 +34,23 @@ func ResolveSQLiteDSN() string {
 type SQLiteStore struct {
 	*InMemoryStore
 	db         *sql.DB
+	backend    SQLitePersistenceBackend
+	ownsDB     bool
 	mu         sync.Mutex
 	batchDepth int
 	dirty      bool
 }
+
+// SQLitePersistenceBackend controls durable state loading/persistence for SQLiteStore.
+// The default backend uses the legacy sqlite snapshot table, while runtime can inject
+// a relational backend that writes canonical tables.
+type SQLitePersistenceBackend interface {
+	EnsureSchema(ctx context.Context, db *sql.DB) error
+	LoadPayload(ctx context.Context, db *sql.DB) ([]byte, error)
+	PersistPayload(ctx context.Context, db *sql.DB, payload []byte) error
+}
+
+type sqliteSnapshotPersistenceBackend struct{}
 
 type sqliteStoreSnapshot struct {
 	Documents                  map[string]DocumentRecord               `json:"documents"`
@@ -80,12 +93,40 @@ type sqliteStoreSnapshot struct {
 
 // NewSQLiteStore creates a SQLite-backed e-sign store.
 func NewSQLiteStore(dsn string) (*SQLiteStore, error) {
+	return newSQLiteStoreWithBackend(dsn, sqliteSnapshotPersistenceBackend{})
+}
+
+// NewPersistentStoreFromDB creates a store bound to an existing SQL handle.
+// The caller controls SQL lifecycle; Close flushes but does not close db.
+func NewPersistentStoreFromDB(db *sql.DB, backend SQLitePersistenceBackend) (*SQLiteStore, error) {
+	if db == nil {
+		return nil, fmt.Errorf("esign sqlite db is required")
+	}
+	if backend == nil {
+		backend = sqliteSnapshotPersistenceBackend{}
+	}
+	mem, err := loadStoreStateFromBackend(context.Background(), db, backend)
+	if err != nil {
+		return nil, err
+	}
+	return &SQLiteStore{
+		InMemoryStore: mem,
+		db:            db,
+		backend:       backend,
+		ownsDB:        false,
+	}, nil
+}
+
+func newSQLiteStoreWithBackend(dsn string, backend SQLitePersistenceBackend) (*SQLiteStore, error) {
 	dsn = strings.TrimSpace(dsn)
 	if dsn == "" {
 		dsn = ResolveSQLiteDSN()
 	}
 	if dsn == "" {
 		return nil, fmt.Errorf("esign sqlite dsn is required")
+	}
+	if backend == nil {
+		backend = sqliteSnapshotPersistenceBackend{}
 	}
 
 	ensureSQLiteDSNDir(dsn)
@@ -103,12 +144,7 @@ func NewSQLiteStore(dsn string) (*SQLiteStore, error) {
 		_ = db.Close()
 		return nil, err
 	}
-	if err := ensureSQLiteStoreSchema(context.Background(), db); err != nil {
-		_ = db.Close()
-		return nil, err
-	}
-
-	mem, err := loadSQLiteSnapshot(context.Background(), db)
+	mem, err := loadStoreStateFromBackend(context.Background(), db, backend)
 	if err != nil {
 		_ = db.Close()
 		return nil, err
@@ -116,6 +152,8 @@ func NewSQLiteStore(dsn string) (*SQLiteStore, error) {
 	return &SQLiteStore{
 		InMemoryStore: mem,
 		db:            db,
+		backend:       backend,
+		ownsDB:        true,
 	}, nil
 }
 
@@ -152,26 +190,86 @@ func ensureSQLiteStoreSchema(ctx context.Context, db *sql.DB) error {
 	return nil
 }
 
-func loadSQLiteSnapshot(ctx context.Context, db *sql.DB) (*InMemoryStore, error) {
-	mem := NewInMemoryStore()
+func (sqliteSnapshotPersistenceBackend) EnsureSchema(ctx context.Context, db *sql.DB) error {
+	return ensureSQLiteStoreSchema(ctx, db)
+}
+
+func (sqliteSnapshotPersistenceBackend) LoadPayload(ctx context.Context, db *sql.DB) ([]byte, error) {
 	if db == nil {
-		return mem, nil
+		return nil, nil
 	}
 	var payload string
 	err := db.QueryRowContext(ctx, `SELECT snapshot_json FROM esign_store_state WHERE id = 1`).Scan(&payload)
 	if err == sql.ErrNoRows {
-		return mem, nil
+		return nil, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("load esign sqlite snapshot: %w", err)
 	}
 	payload = strings.TrimSpace(payload)
 	if payload == "" {
+		return nil, nil
+	}
+	return []byte(payload), nil
+}
+
+func (sqliteSnapshotPersistenceBackend) PersistPayload(ctx context.Context, db *sql.DB, payload []byte) error {
+	if db == nil {
+		return nil
+	}
+	_, err := db.ExecContext(
+		ctx,
+		`INSERT INTO esign_store_state (id, snapshot_json, updated_at)
+		 VALUES (1, ?, ?)
+		 ON CONFLICT(id) DO UPDATE SET
+		   snapshot_json = excluded.snapshot_json,
+		   updated_at = excluded.updated_at`,
+		string(payload),
+		time.Now().UTC().Format(time.RFC3339Nano),
+	)
+	if err != nil {
+		return fmt.Errorf("persist esign sqlite snapshot: %w", err)
+	}
+	return nil
+}
+
+func loadSQLiteSnapshot(ctx context.Context, db *sql.DB) (*InMemoryStore, error) {
+	mem := NewInMemoryStore()
+	backend := sqliteSnapshotPersistenceBackend{}
+	return loadStoreStateFromBackendWithPayload(ctx, db, backend, mem)
+}
+
+func loadStoreStateFromBackend(ctx context.Context, db *sql.DB, backend SQLitePersistenceBackend) (*InMemoryStore, error) {
+	mem := NewInMemoryStore()
+	return loadStoreStateFromBackendWithPayload(ctx, db, backend, mem)
+}
+
+func loadStoreStateFromBackendWithPayload(
+	ctx context.Context,
+	db *sql.DB,
+	backend SQLitePersistenceBackend,
+	mem *InMemoryStore,
+) (*InMemoryStore, error) {
+	if mem == nil {
+		mem = NewInMemoryStore()
+	}
+	if db == nil || backend == nil {
+		return mem, nil
+	}
+	if err := backend.EnsureSchema(ctx, db); err != nil {
+		return nil, err
+	}
+	payload, err := backend.LoadPayload(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+	payload = []byte(strings.TrimSpace(string(payload)))
+	if len(payload) == 0 {
 		return mem, nil
 	}
 
 	var snapshot sqliteStoreSnapshot
-	if err := json.Unmarshal([]byte(payload), &snapshot); err != nil {
+	if err := json.Unmarshal(payload, &snapshot); err != nil {
 		return nil, fmt.Errorf("decode esign sqlite snapshot: %w", err)
 	}
 	mem.documents = ensureDocumentMap(snapshot.Documents)
@@ -281,18 +379,12 @@ func (s *SQLiteStore) persist(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("encode esign sqlite snapshot: %w", err)
 	}
-	_, err = s.db.ExecContext(
-		ctx,
-		`INSERT INTO esign_store_state (id, snapshot_json, updated_at)
-		 VALUES (1, ?, ?)
-		 ON CONFLICT(id) DO UPDATE SET
-		   snapshot_json = excluded.snapshot_json,
-		   updated_at = excluded.updated_at`,
-		string(payload),
-		time.Now().UTC().Format(time.RFC3339Nano),
-	)
-	if err != nil {
-		return fmt.Errorf("persist esign sqlite snapshot: %w", err)
+	backend := s.backend
+	if backend == nil {
+		backend = sqliteSnapshotPersistenceBackend{}
+	}
+	if err := backend.PersistPayload(ctx, s.db, payload); err != nil {
+		return err
 	}
 	return nil
 }
@@ -405,7 +497,10 @@ func (s *SQLiteStore) Close() error {
 	s.db = nil
 	s.mu.Unlock()
 
-	closeErr := db.Close()
+	closeErr := error(nil)
+	if s.ownsDB {
+		closeErr = db.Close()
+	}
 	if flushErr != nil && closeErr != nil {
 		return errors.Join(flushErr, closeErr)
 	}

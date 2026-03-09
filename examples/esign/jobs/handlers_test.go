@@ -2,6 +2,8 @@ package jobs
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"net/url"
 	"strings"
@@ -52,6 +54,7 @@ func (p *captureTemplateProvider) Send(_ context.Context, input EmailSendInput) 
 type failingBackfillDocumentStore struct {
 	documents []stores.DocumentRecord
 	saveErr   error
+	patches   []stores.DocumentMetadataPatch
 }
 
 func (s *failingBackfillDocumentStore) Create(_ context.Context, _ stores.Scope, record stores.DocumentRecord) (stores.DocumentRecord, error) {
@@ -69,7 +72,8 @@ func (s *failingBackfillDocumentStore) List(_ context.Context, _ stores.Scope, _
 	return append([]stores.DocumentRecord{}, s.documents...), nil
 }
 
-func (s *failingBackfillDocumentStore) SaveMetadata(_ context.Context, _ stores.Scope, _ string, _ stores.DocumentMetadataPatch) (stores.DocumentRecord, error) {
+func (s *failingBackfillDocumentStore) SaveMetadata(_ context.Context, _ stores.Scope, _ string, patch stores.DocumentMetadataPatch) (stores.DocumentRecord, error) {
+	s.patches = append(s.patches, patch)
 	if s.saveErr != nil {
 		return stores.DocumentRecord{}, s.saveErr
 	}
@@ -732,6 +736,57 @@ func TestHandlersExecutePDFBackfillDocumentsAllowsPartialFailuresWhenConfigured(
 	}
 	if run.Status != stores.JobRunStatusSucceeded {
 		t.Fatalf("expected succeeded job run status when partial failures are allowed, got %+v", run)
+	}
+}
+
+func TestHandlersExecutePDFBackfillDocumentsUsesInjectedPDFServicePolicy(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	jobStore := stores.NewInMemoryStore()
+	objectStore := uploader.NewManager(uploader.WithProvider(uploader.NewFSProvider(t.TempDir())))
+	source := services.GenerateDeterministicPDF(2)
+	sourceKey := "tenant/tenant-1/org/org-1/docs/backfill-policy/source.pdf"
+	if _, err := objectStore.UploadFile(ctx, sourceKey, source, uploader.WithContentType("application/pdf")); err != nil {
+		t.Fatalf("upload source: %v", err)
+	}
+	sum := sha256.Sum256(source)
+	documents := &failingBackfillDocumentStore{
+		documents: []stores.DocumentRecord{
+			{
+				ID:              "doc-backfill-policy",
+				Title:           "Backfill Policy",
+				SourceObjectKey: sourceKey,
+				SourceSHA256:    hex.EncodeToString(sum[:]),
+			},
+		},
+	}
+	policy := services.DefaultPDFPolicy()
+	policy.MaxPages = 1
+	handlers := NewHandlers(HandlerDependencies{
+		Documents:   documents,
+		ObjectStore: objectStore,
+		JobRuns:     jobStore,
+		PDFService: services.NewPDFService(
+			services.WithPDFPolicyResolver(services.NewStaticPDFPolicyResolver(policy)),
+		),
+	})
+
+	msg := PDFBackfillDocumentsMsg{
+		Scope:     scope,
+		DedupeKey: "backfill-policy-injected",
+	}
+	if err := handlers.ExecutePDFBackfillDocuments(ctx, msg); err != nil {
+		t.Fatalf("ExecutePDFBackfillDocuments: %v", err)
+	}
+	if len(documents.patches) != 1 {
+		t.Fatalf("expected one metadata patch from backfill, got %+v", documents.patches)
+	}
+	patch := documents.patches[0]
+	if strings.TrimSpace(patch.PDFCompatibilityReason) != string(services.PDFReasonPolicyMaxPages) {
+		t.Fatalf("expected injected pdf policy max_pages rejection in backfill patch, got %+v", patch)
+	}
+	if strings.TrimSpace(patch.PDFCompatibilityTier) != string(services.PDFCompatibilityTierUnsupported) {
+		t.Fatalf("expected unsupported compatibility tier in backfill patch, got %+v", patch)
 	}
 }
 

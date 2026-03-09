@@ -210,6 +210,7 @@ func (s DocumentService) Upload(ctx context.Context, scope stores.Scope, input D
 
 	return s.store.Create(ctx, scope, stores.DocumentRecord{
 		ID:                     strings.TrimSpace(input.ID),
+		CreatedByUserID:        strings.TrimSpace(input.CreatedBy),
 		Title:                  title,
 		SourceObjectKey:        objectKey,
 		NormalizedObjectKey:    normalizedObjectKey,
@@ -274,15 +275,18 @@ func mapPDFAnalysisError(err error) error {
 	if err == nil {
 		return invalidPDFError("parse failed")
 	}
-	var pdfErr *PDFError
-	if errors.As(err, &pdfErr) {
-		reason := strings.TrimSpace(string(pdfErr.Reason))
-		if reason == "" {
-			reason = "parse failed"
-		}
+	reason := strings.TrimSpace(string(pdfErrorReasonCode(err)))
+	if reason == "" {
+		reason = "parse.failed"
+	}
+	if isPDFInvalidInputReason(PDFReasonCode(reason)) {
 		return invalidPDFError(reason)
 	}
-	return invalidPDFError("parse failed")
+	return pdfUnsupportedError("document.upload", string(PDFCompatibilityTierUnsupported), reason, map[string]any{
+		"entity":         "documents",
+		"field":          "pdf",
+		"policy_version": PDFPolicyVersion,
+	})
 }
 
 func pdfErrorReasonCode(err error) PDFReasonCode {
@@ -298,6 +302,10 @@ func pdfErrorReasonCode(err error) PDFReasonCode {
 
 func isPDFPolicyReason(reason PDFReasonCode) bool {
 	return strings.HasPrefix(strings.TrimSpace(string(reason)), "policy.")
+}
+
+func isPDFInvalidInputReason(reason PDFReasonCode) bool {
+	return strings.HasPrefix(strings.TrimSpace(string(reason)), "invalid_input.")
 }
 
 func isPDFCompatibilityBypassReason(reason PDFReasonCode) bool {

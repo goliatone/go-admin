@@ -54,6 +54,20 @@ func TestPhase8GuardrailNoDirectSQLOpenOutsidePersistenceBoundary(t *testing.T) 
 	phase8AssertNoPatternMatches(t, repoRoot, files, pattern, "direct sql.Open must stay inside persistence adapter/bootstrap boundaries")
 }
 
+func TestPhase8GuardrailRuntimeWiringDoesNotDependOnNewSQLiteStore(t *testing.T) {
+	repoRoot := phase8RepoRoot(t)
+	files := phase8GoFiles(t, repoRoot,
+		"examples/esign/modules",
+		"examples/esign/services",
+		"examples/esign/handlers",
+		"examples/esign/main.go",
+		"examples/esign/runtime_web.go",
+		"examples/esign/services_module_setup.go",
+	)
+	pattern := regexp.MustCompile(`(?m)\bNewSQLiteStore\(`)
+	phase8AssertNoPatternMatches(t, repoRoot, files, pattern, "runtime/module layers must not wire e-sign store through stores.NewSQLiteStore")
+}
+
 func TestPhase8GuardrailNoAdHocMigrationPlannerUsageOutsidePersistence(t *testing.T) {
 	repoRoot := phase8RepoRoot(t)
 	files := phase8GoFiles(t, repoRoot, "examples/esign")
