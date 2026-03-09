@@ -33,6 +33,7 @@ const environmentContextKey adminContextKey = "admin.environment"
 const contentChannelContextKey adminContextKey = "admin.content_channel"
 const requestIDContextKey adminContextKey = "admin.request_id"
 const correlationIDContextKey adminContextKey = "admin.correlation_id"
+const requestIPContextKey adminContextKey = "admin.request_ip"
 const queryParamsContextKey adminContextKey = "admin.query_params"
 const localeFallbackContextKey adminContextKey = "admin.locale_fallback_allowed"
 
@@ -152,6 +153,7 @@ func newAdminContextFromRouter(c router.Context, locale string) AdminContext {
 	if correlationID == "" {
 		correlationID = strings.TrimSpace(primitives.FirstNonEmptyRaw(c.Query("correlation_id"), c.Query("correlationId")))
 	}
+	requestIP := strings.TrimSpace(c.IP())
 	actor := actorFromRouterOrClaims(c, ctx)
 	if actor != nil {
 		if actor.ActorID != "" {
@@ -218,6 +220,9 @@ func newAdminContextFromRouter(c router.Context, locale string) AdminContext {
 	}
 	if correlationID != "" {
 		ctx = context.WithValue(ctx, correlationIDContextKey, correlationID)
+	}
+	if requestIP != "" {
+		ctx = WithRequestIP(ctx, requestIP)
 	}
 	if locale != "" {
 		ctx = context.WithValue(ctx, localeContextKey, locale)
@@ -313,6 +318,18 @@ func WithLocale(ctx context.Context, locale string) context.Context {
 		return ctx
 	}
 	return context.WithValue(ctx, localeContextKey, locale)
+}
+
+// WithRequestIP stores the request IP on the context for downstream modules/services.
+func WithRequestIP(ctx context.Context, requestIP string) context.Context {
+	if ctx == nil {
+		return ctx
+	}
+	requestIP = strings.TrimSpace(requestIP)
+	if requestIP == "" {
+		return ctx
+	}
+	return context.WithValue(ctx, requestIPContextKey, requestIP)
 }
 
 // WithEnvironment stores the active environment on the context.
@@ -418,6 +435,21 @@ func correlationIDFromContext(ctx context.Context) string {
 	}
 	if correlationID, ok := ctx.Value(correlationIDContextKey).(string); ok && correlationID != "" {
 		return correlationID
+	}
+	return ""
+}
+
+// RequestIPFromContext returns the request IP address captured for the active admin context.
+func RequestIPFromContext(ctx context.Context) string {
+	return requestIPFromContext(ctx)
+}
+
+func requestIPFromContext(ctx context.Context) string {
+	if ctx == nil {
+		return ""
+	}
+	if requestIP, ok := ctx.Value(requestIPContextKey).(string); ok && requestIP != "" {
+		return requestIP
 	}
 	return ""
 }
