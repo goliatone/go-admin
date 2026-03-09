@@ -116,6 +116,7 @@ func TestPhase8RepositoryStoreParitySQLiteAndPostgresContract(t *testing.T) {
 		"email_logs",
 		"job_runs",
 		"google_import_runs",
+		"agreement_reminder_states",
 		"outbox_messages",
 		"integration_credentials",
 		"integration_mapping_specs",

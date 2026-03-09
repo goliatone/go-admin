@@ -18,6 +18,7 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	"github.com/goliatone/go-admin/quickstart"
+	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
 	"github.com/goliatone/go-uploader"
 )
@@ -276,6 +277,7 @@ func documentRecordToMap(record stores.DocumentRecord) map[string]any {
 
 type agreementPanelRepository struct {
 	agreements   stores.AgreementStore
+	reminders    stores.AgreementReminderStore
 	documents    stores.DocumentStore
 	service      services.AgreementService
 	artifacts    services.ArtifactPipelineService
@@ -295,8 +297,13 @@ func newAgreementPanelRepository(
 	defaultScope stores.Scope,
 	settings RuntimeSettings,
 ) *agreementPanelRepository {
+	var reminders stores.AgreementReminderStore
+	if cast, ok := agreements.(stores.AgreementReminderStore); ok {
+		reminders = cast
+	}
 	return &agreementPanelRepository{
 		agreements:   agreements,
+		reminders:    reminders,
 		documents:    documents,
 		service:      service,
 		artifacts:    artifacts,
@@ -363,7 +370,8 @@ func (r *agreementPanelRepository) List(ctx context.Context, opts coreadmin.List
 		if err != nil {
 			return nil, 0, err
 		}
-		out = append(out, agreementRecordToMap(agreement, recipients, nil, nil, services.AgreementDeliveryDetail{}))
+		reminderStates := r.reminderStateMap(ctx, scope, agreement.ID, recipients)
+		out = append(out, agreementRecordToMap(agreement, recipients, reminderStates, nil, nil, services.AgreementDeliveryDetail{}))
 	}
 	success = true
 	return out, len(filtered), nil
@@ -411,7 +419,8 @@ func (r *agreementPanelRepository) Get(ctx context.Context, id string) (map[stri
 			return nil, err
 		}
 	}
-	result := agreementRecordToMap(agreement, recipients, fields, events, delivery)
+	reminderStates := r.reminderStateMap(ctx, scope, agreementID, recipients)
+	result := agreementRecordToMap(agreement, recipients, reminderStates, fields, events, delivery)
 	// Fetch document title if document_id exists
 	documentID := strings.TrimSpace(agreement.DocumentID)
 	if documentID != "" && r.documents != nil {
@@ -459,9 +468,11 @@ func (r *agreementPanelRepository) Create(ctx context.Context, record map[string
 		if err != nil {
 			return nil, err
 		}
-		return agreementRecordToMap(sent, recipients, fields, nil, services.AgreementDeliveryDetail{}), nil
+		reminderStates := r.reminderStateMap(ctx, scope, sent.ID, recipients)
+		return agreementRecordToMap(sent, recipients, reminderStates, fields, nil, services.AgreementDeliveryDetail{}), nil
 	}
-	return agreementRecordToMap(created, recipients, fields, nil, services.AgreementDeliveryDetail{}), nil
+	reminderStates := r.reminderStateMap(ctx, scope, created.ID, recipients)
+	return agreementRecordToMap(created, recipients, reminderStates, fields, nil, services.AgreementDeliveryDetail{}), nil
 }
 
 func (r *agreementPanelRepository) Update(ctx context.Context, id string, record map[string]any) (map[string]any, error) {
@@ -511,9 +522,11 @@ func (r *agreementPanelRepository) Update(ctx context.Context, id string, record
 		if err != nil {
 			return nil, err
 		}
-		return agreementRecordToMap(sent, recipients, fields, nil, services.AgreementDeliveryDetail{}), nil
+		reminderStates := r.reminderStateMap(ctx, scope, sent.ID, recipients)
+		return agreementRecordToMap(sent, recipients, reminderStates, fields, nil, services.AgreementDeliveryDetail{}), nil
 	}
-	return agreementRecordToMap(updated, recipients, fields, nil, services.AgreementDeliveryDetail{}), nil
+	reminderStates := r.reminderStateMap(ctx, scope, updated.ID, recipients)
+	return agreementRecordToMap(updated, recipients, reminderStates, fields, nil, services.AgreementDeliveryDetail{}), nil
 }
 
 func (r *agreementPanelRepository) Delete(context.Context, string) error {
@@ -623,9 +636,114 @@ func agreementArtifactFilename(agreementID, assetType string) string {
 	}
 }
 
+func (r *agreementPanelRepository) reminderStateMap(
+	ctx context.Context,
+	scope stores.Scope,
+	agreementID string,
+	recipients []stores.RecipientRecord,
+) map[string]stores.AgreementReminderStateRecord {
+	out := map[string]stores.AgreementReminderStateRecord{}
+	if r == nil || r.reminders == nil {
+		return out
+	}
+	for _, recipient := range recipients {
+		if recipient.Role != stores.RecipientRoleSigner {
+			continue
+		}
+		state, err := r.reminders.GetAgreementReminderState(ctx, scope, agreementID, recipient.ID)
+		if err != nil {
+			if isNotFoundDomainError(err) {
+				continue
+			}
+			continue
+		}
+		out[strings.TrimSpace(recipient.ID)] = state
+	}
+	return out
+}
+
+func isNotFoundDomainError(err error) bool {
+	if err == nil {
+		return false
+	}
+	var coded *goerrors.Error
+	if !errors.As(err, &coded) || coded == nil {
+		return false
+	}
+	return coded.Category == goerrors.CategoryNotFound
+}
+
+type reminderSummary struct {
+	Status     string
+	NextDueAt  *time.Time
+	LastSentAt *time.Time
+	SentCount  int
+	LastError  string
+	Paused     bool
+}
+
+func summarizeReminderState(recipients []stores.RecipientRecord, states map[string]stores.AgreementReminderStateRecord) reminderSummary {
+	summary := reminderSummary{
+		Status:     "",
+		NextDueAt:  nil,
+		LastSentAt: nil,
+		SentCount:  0,
+		LastError:  "",
+		Paused:     false,
+	}
+	if len(recipients) == 0 {
+		return summary
+	}
+	signerCount := 0
+	pausedCount := 0
+	activeCount := 0
+	for _, recipient := range recipients {
+		if recipient.Role != stores.RecipientRoleSigner {
+			continue
+		}
+		signerCount++
+		state, ok := states[strings.TrimSpace(recipient.ID)]
+		if !ok {
+			activeCount++
+			continue
+		}
+		summary.SentCount += state.SentCount
+		if state.NextDueAt != nil && (summary.NextDueAt == nil || state.NextDueAt.Before(*summary.NextDueAt)) {
+			next := state.NextDueAt.UTC()
+			summary.NextDueAt = &next
+		}
+		if state.LastSentAt != nil && (summary.LastSentAt == nil || state.LastSentAt.After(*summary.LastSentAt)) {
+			last := state.LastSentAt.UTC()
+			summary.LastSentAt = &last
+		}
+		if summary.LastError == "" && strings.TrimSpace(state.LastError) != "" {
+			summary.LastError = strings.TrimSpace(state.LastError)
+		}
+		if strings.EqualFold(strings.TrimSpace(state.Status), stores.AgreementReminderStatusPaused) {
+			pausedCount++
+		} else {
+			activeCount++
+		}
+	}
+	if signerCount == 0 {
+		return summary
+	}
+	switch {
+	case pausedCount == signerCount:
+		summary.Status = stores.AgreementReminderStatusPaused
+		summary.Paused = true
+	case pausedCount > 0 && activeCount > 0:
+		summary.Status = "mixed"
+	default:
+		summary.Status = stores.AgreementReminderStatusActive
+	}
+	return summary
+}
+
 func agreementRecordToMap(
 	agreement stores.AgreementRecord,
 	recipients []stores.RecipientRecord,
+	reminderStates map[string]stores.AgreementReminderStateRecord,
 	fields []stores.FieldRecord,
 	events []stores.AuditEventRecord,
 	delivery services.AgreementDeliveryDetail,
@@ -657,6 +775,13 @@ func agreementRecordToMap(
 		"recipient_count":            len(recipients),
 		"signer_count":               signerCount(recipients),
 	}
+	reminderSummary := summarizeReminderState(recipients, reminderStates)
+	payload["reminder_status"] = reminderSummary.Status
+	payload["next_due_at"] = formatTimePtr(reminderSummary.NextDueAt)
+	payload["last_sent_at"] = formatTimePtr(reminderSummary.LastSentAt)
+	payload["reminder_count"] = reminderSummary.SentCount
+	payload["last_error"] = reminderSummary.LastError
+	payload["paused"] = reminderSummary.Paused
 	// Add stage information for multi-signer flows (Task 24.FE.2)
 	stageCount, activeStage := computeStageMetrics(recipients)
 	if stageCount > 0 {
@@ -664,8 +789,8 @@ func agreementRecordToMap(
 		payload["active_stage"] = activeStage
 	}
 	if len(recipients) > 0 {
-		payload["recipients"] = recipientsToMaps(agreement, recipients)
-		payload["participants"] = recipientsToMaps(agreement, recipients)
+		payload["recipients"] = recipientsToMaps(agreement, recipients, reminderStates)
+		payload["participants"] = recipientsToMaps(agreement, recipients, reminderStates)
 	}
 	if len(fields) > 0 {
 		payload["fields"] = fieldsToMaps(fields)
@@ -746,29 +871,50 @@ func computeStageMetrics(recipients []stores.RecipientRecord) (stageCount int, a
 	return maxStage, activeStage
 }
 
-func recipientsToMaps(agreement stores.AgreementRecord, records []stores.RecipientRecord) []map[string]any {
+func recipientsToMaps(agreement stores.AgreementRecord, records []stores.RecipientRecord, reminderStates map[string]stores.AgreementReminderStateRecord) []map[string]any {
 	out := make([]map[string]any, 0, len(records))
 	for _, record := range records {
 		status, signedAt, deliveredAt := recipientPresentationStatus(agreement, record)
+		reminderState, hasReminder := reminderStates[strings.TrimSpace(record.ID)]
+		reminderStatus := ""
+		nextDueAt := ""
+		lastSentAt := ""
+		reminderCount := 0
+		lastError := ""
+		paused := false
+		if hasReminder {
+			reminderStatus = strings.TrimSpace(reminderState.Status)
+			nextDueAt = formatTimePtr(reminderState.NextDueAt)
+			lastSentAt = formatTimePtr(reminderState.LastSentAt)
+			reminderCount = reminderState.SentCount
+			lastError = strings.TrimSpace(reminderState.LastError)
+			paused = strings.EqualFold(strings.TrimSpace(reminderState.Status), stores.AgreementReminderStatusPaused)
+		}
 		out = append(out, map[string]any{
-			"id":             record.ID,
-			"participant_id": record.ID,
-			"agreement_id":   record.AgreementID,
-			"email":          record.Email,
-			"name":           record.Name,
-			"role":           record.Role,
-			"status":         status,
-			"signing_order":  record.SigningOrder,
-			"signing_stage":  record.SigningOrder,
-			"sent_at":        formatTimePtr(agreement.SentAt),
-			"first_view_at":  formatTimePtr(record.FirstViewAt),
-			"last_view_at":   formatTimePtr(record.LastViewAt),
-			"declined_at":    formatTimePtr(record.DeclinedAt),
-			"decline_reason": record.DeclineReason,
-			"completed_at":   formatTimePtr(record.CompletedAt),
-			"signed_at":      signedAt,
-			"delivered_at":   deliveredAt,
-			"version":        record.Version,
+			"id":              record.ID,
+			"participant_id":  record.ID,
+			"agreement_id":    record.AgreementID,
+			"email":           record.Email,
+			"name":            record.Name,
+			"role":            record.Role,
+			"status":          status,
+			"signing_order":   record.SigningOrder,
+			"signing_stage":   record.SigningOrder,
+			"sent_at":         formatTimePtr(agreement.SentAt),
+			"first_view_at":   formatTimePtr(record.FirstViewAt),
+			"last_view_at":    formatTimePtr(record.LastViewAt),
+			"declined_at":     formatTimePtr(record.DeclinedAt),
+			"decline_reason":  record.DeclineReason,
+			"completed_at":    formatTimePtr(record.CompletedAt),
+			"signed_at":       signedAt,
+			"delivered_at":    deliveredAt,
+			"reminder_status": reminderStatus,
+			"next_due_at":     nextDueAt,
+			"last_sent_at":    lastSentAt,
+			"reminder_count":  reminderCount,
+			"last_error":      lastError,
+			"paused":          paused,
+			"version":         record.Version,
 		})
 	}
 	return out

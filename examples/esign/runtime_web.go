@@ -69,6 +69,7 @@ var (
 		permissions.AdminESignVoid,
 		permissions.AdminESignDownload,
 		permissions.AdminESignSettings,
+		permissions.AdminESignReminders,
 		"admin.services.view",
 		"admin.services.connect",
 		"admin.services.edit",

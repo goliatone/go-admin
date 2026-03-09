@@ -2,13 +2,14 @@ package permissions
 
 // Canonical e-sign admin permissions.
 const (
-	AdminESignView     = "admin.esign.view"
-	AdminESignCreate   = "admin.esign.create"
-	AdminESignEdit     = "admin.esign.edit"
-	AdminESignSend     = "admin.esign.send"
-	AdminESignVoid     = "admin.esign.void"
-	AdminESignDownload = "admin.esign.download"
-	AdminESignSettings = "admin.esign.settings"
+	AdminESignView      = "admin.esign.view"
+	AdminESignCreate    = "admin.esign.create"
+	AdminESignEdit      = "admin.esign.edit"
+	AdminESignSend      = "admin.esign.send"
+	AdminESignVoid      = "admin.esign.void"
+	AdminESignDownload  = "admin.esign.download"
+	AdminESignSettings  = "admin.esign.settings"
+	AdminESignReminders = "admin.esign.reminders"
 )
 
 // All returns the complete e-sign permission set used by module panels/routes.
@@ -21,6 +22,7 @@ func All() []string {
 		AdminESignVoid,
 		AdminESignDownload,
 		AdminESignSettings,
+		AdminESignReminders,
 	}
 }
 
@@ -52,6 +54,7 @@ func DefaultRoleMappings() []RolePermissionDefault {
 				AdminESignSend,
 				AdminESignVoid,
 				AdminESignDownload,
+				AdminESignReminders,
 			},
 		},
 		{

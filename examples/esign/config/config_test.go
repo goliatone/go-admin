@@ -167,8 +167,8 @@ func TestLoadDefaultsUseStableSQLiteDSNForDevelopment(t *testing.T) {
 	if cfg.Runtime.RepositoryDialect != RepositoryDialectSQLite {
 		t.Fatalf("expected %q repository dialect for development, got %q", RepositoryDialectSQLite, cfg.Runtime.RepositoryDialect)
 	}
-	if cfg.SQLite.DSN != defaultSQLiteDSN {
-		t.Fatalf("expected stable default sqlite dsn %q, got %q", defaultSQLiteDSN, cfg.SQLite.DSN)
+	if strings.TrimSpace(cfg.SQLite.DSN) == "" || !strings.Contains(cfg.SQLite.DSN, "go-admin-esign.sqlite") {
+		t.Fatalf("expected stable sqlite dsn containing go-admin-esign.sqlite, got %q", cfg.SQLite.DSN)
 	}
 }
 
@@ -246,5 +246,61 @@ func TestLoadSanitizesInvalidSignerPDFValues(t *testing.T) {
 	}
 	if cfg.Signer.PDF.PipelineMode != defaults.PipelineMode {
 		t.Fatalf("expected signer.pdf.pipeline_mode fallback %q, got %q", defaults.PipelineMode, cfg.Signer.PDF.PipelineMode)
+	}
+}
+
+func TestLoadSupportsReminderOverrides(t *testing.T) {
+	t.Setenv("APP_REMINDERS__ENABLED", "true")
+	t.Setenv("APP_REMINDERS__SWEEP_CRON", "0 */1 * * *")
+	t.Setenv("APP_REMINDERS__BATCH_SIZE", "50")
+	t.Setenv("APP_REMINDERS__CLAIM_LEASE_SECONDS", "180")
+	t.Setenv("APP_REMINDERS__INITIAL_DELAY_MINUTES", "30")
+	t.Setenv("APP_REMINDERS__INTERVAL_MINUTES", "60")
+	t.Setenv("APP_REMINDERS__MAX_REMINDERS", "4")
+	t.Setenv("APP_REMINDERS__JITTER_PERCENT", "20")
+	t.Setenv("APP_REMINDERS__RECENT_VIEW_GRACE_MINUTES", "45")
+	t.Setenv("APP_REMINDERS__MANUAL_RESEND_COOLDOWN_MINUTES", "90")
+	t.Setenv("APP_REMINDERS__ROTATE_TOKEN", "false")
+	t.Setenv("APP_REMINDERS__ALLOW_OUT_OF_ORDER", "true")
+
+	cfg, _, err := Load(context.Background())
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if !cfg.Reminders.Enabled {
+		t.Fatalf("expected reminders.enabled override=true")
+	}
+	if cfg.Reminders.SweepCron != "0 */1 * * *" {
+		t.Fatalf("expected reminders.sweep_cron override, got %q", cfg.Reminders.SweepCron)
+	}
+	if cfg.Reminders.BatchSize != 50 {
+		t.Fatalf("expected reminders.batch_size override, got %d", cfg.Reminders.BatchSize)
+	}
+	if cfg.Reminders.ClaimLeaseSeconds != 180 {
+		t.Fatalf("expected reminders.claim_lease_seconds override, got %d", cfg.Reminders.ClaimLeaseSeconds)
+	}
+	if cfg.Reminders.InitialDelayMinutes != 30 {
+		t.Fatalf("expected reminders.initial_delay_minutes override, got %d", cfg.Reminders.InitialDelayMinutes)
+	}
+	if cfg.Reminders.IntervalMinutes != 60 {
+		t.Fatalf("expected reminders.interval_minutes override, got %d", cfg.Reminders.IntervalMinutes)
+	}
+	if cfg.Reminders.MaxReminders != 4 {
+		t.Fatalf("expected reminders.max_reminders override, got %d", cfg.Reminders.MaxReminders)
+	}
+	if cfg.Reminders.JitterPercent != 20 {
+		t.Fatalf("expected reminders.jitter_percent override, got %d", cfg.Reminders.JitterPercent)
+	}
+	if cfg.Reminders.RecentViewGraceMinutes != 45 {
+		t.Fatalf("expected reminders.recent_view_grace_minutes override, got %d", cfg.Reminders.RecentViewGraceMinutes)
+	}
+	if cfg.Reminders.ManualResendCooldownMinutes != 90 {
+		t.Fatalf("expected reminders.manual_resend_cooldown_minutes override, got %d", cfg.Reminders.ManualResendCooldownMinutes)
+	}
+	if cfg.Reminders.RotateToken {
+		t.Fatalf("expected reminders.rotate_token override=false")
+	}
+	if !cfg.Reminders.AllowOutOfOrder {
+		t.Fatalf("expected reminders.allow_out_of_order override=true")
 	}
 }

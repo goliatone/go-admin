@@ -76,6 +76,7 @@ type sqliteStoreSnapshot struct {
 	JobRunDedupeIndex          map[string]string                       `json:"job_run_dedupe_index"`
 	GoogleImportRuns           map[string]GoogleImportRunRecord        `json:"google_import_runs"`
 	GoogleImportRunDedupeIndex map[string]string                       `json:"google_import_run_dedupe_index"`
+	AgreementReminderStates    map[string]AgreementReminderStateRecord `json:"agreement_reminder_states"`
 	OutboxMessages             map[string]OutboxMessageRecord          `json:"outbox_messages"`
 	IntegrationCredentials     map[string]IntegrationCredentialRecord  `json:"integration_credentials"`
 	IntegrationCredentialIndex map[string]string                       `json:"integration_credential_index"`
@@ -295,6 +296,7 @@ func loadStoreStateFromBackendWithPayload(
 	mem.jobRunDedupeIndex = ensureStringMap(snapshot.JobRunDedupeIndex)
 	mem.googleImportRuns = ensureGoogleImportRunMap(snapshot.GoogleImportRuns)
 	mem.googleImportRunDedupeIndex = ensureStringMap(snapshot.GoogleImportRunDedupeIndex)
+	mem.agreementReminderStates = ensureAgreementReminderStateMap(snapshot.AgreementReminderStates)
 	mem.outboxMessages = ensureOutboxMessageMap(snapshot.OutboxMessages)
 	mem.integrationCredentials = ensureIntegrationCredentialMap(snapshot.IntegrationCredentials)
 	mem.integrationCredentialIndex = ensureStringMap(snapshot.IntegrationCredentialIndex)
@@ -359,6 +361,7 @@ func (s *SQLiteStore) persist(ctx context.Context) error {
 		JobRunDedupeIndex:          maps.Clone(s.jobRunDedupeIndex),
 		GoogleImportRuns:           maps.Clone(s.googleImportRuns),
 		GoogleImportRunDedupeIndex: maps.Clone(s.googleImportRunDedupeIndex),
+		AgreementReminderStates:    maps.Clone(s.agreementReminderStates),
 		OutboxMessages:             maps.Clone(s.outboxMessages),
 		IntegrationCredentials:     maps.Clone(s.integrationCredentials),
 		IntegrationCredentialIndex: maps.Clone(s.integrationCredentialIndex),
@@ -1022,6 +1025,106 @@ func (s *SQLiteStore) MarkGoogleImportRunFailed(ctx context.Context, scope Scope
 	return out, nil
 }
 
+func (s *SQLiteStore) UpsertAgreementReminderState(ctx context.Context, scope Scope, record AgreementReminderStateRecord) (AgreementReminderStateRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.UpsertAgreementReminderState(ctx, scope, record)
+	if err != nil {
+		return AgreementReminderStateRecord{}, err
+	}
+	if err := s.persistMaybe(ctx); err != nil {
+		return AgreementReminderStateRecord{}, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) GetAgreementReminderState(ctx context.Context, scope Scope, agreementID, recipientID string) (AgreementReminderStateRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.InMemoryStore.GetAgreementReminderState(ctx, scope, agreementID, recipientID)
+}
+
+func (s *SQLiteStore) ClaimDueAgreementReminders(ctx context.Context, scope Scope, input AgreementReminderClaimInput) ([]AgreementReminderStateRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.ClaimDueAgreementReminders(ctx, scope, input)
+	if err != nil {
+		return nil, err
+	}
+	if len(out) == 0 {
+		return out, nil
+	}
+	if err := s.persistMaybe(ctx); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) MarkAgreementReminderSent(ctx context.Context, scope Scope, agreementID, recipientID, reasonCode string, sentAt time.Time, nextDueAt *time.Time) (AgreementReminderStateRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.MarkAgreementReminderSent(ctx, scope, agreementID, recipientID, reasonCode, sentAt, nextDueAt)
+	if err != nil {
+		return AgreementReminderStateRecord{}, err
+	}
+	if err := s.persistMaybe(ctx); err != nil {
+		return AgreementReminderStateRecord{}, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) MarkAgreementReminderSkipped(ctx context.Context, scope Scope, agreementID, recipientID, reasonCode string, evaluatedAt time.Time, nextDueAt *time.Time) (AgreementReminderStateRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.MarkAgreementReminderSkipped(ctx, scope, agreementID, recipientID, reasonCode, evaluatedAt, nextDueAt)
+	if err != nil {
+		return AgreementReminderStateRecord{}, err
+	}
+	if err := s.persistMaybe(ctx); err != nil {
+		return AgreementReminderStateRecord{}, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) MarkAgreementReminderFailed(ctx context.Context, scope Scope, agreementID, recipientID, reasonCode, failure string, failedAt time.Time, nextDueAt *time.Time) (AgreementReminderStateRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.MarkAgreementReminderFailed(ctx, scope, agreementID, recipientID, reasonCode, failure, failedAt, nextDueAt)
+	if err != nil {
+		return AgreementReminderStateRecord{}, err
+	}
+	if err := s.persistMaybe(ctx); err != nil {
+		return AgreementReminderStateRecord{}, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) PauseAgreementReminder(ctx context.Context, scope Scope, agreementID, recipientID string, pausedAt time.Time) (AgreementReminderStateRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.PauseAgreementReminder(ctx, scope, agreementID, recipientID, pausedAt)
+	if err != nil {
+		return AgreementReminderStateRecord{}, err
+	}
+	if err := s.persistMaybe(ctx); err != nil {
+		return AgreementReminderStateRecord{}, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) ResumeAgreementReminder(ctx context.Context, scope Scope, agreementID, recipientID string, resumedAt time.Time, nextDueAt *time.Time) (AgreementReminderStateRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.ResumeAgreementReminder(ctx, scope, agreementID, recipientID, resumedAt, nextDueAt)
+	if err != nil {
+		return AgreementReminderStateRecord{}, err
+	}
+	if err := s.persistMaybe(ctx); err != nil {
+		return AgreementReminderStateRecord{}, err
+	}
+	return out, nil
+}
+
 func (s *SQLiteStore) EnqueueOutboxMessage(ctx context.Context, scope Scope, record OutboxMessageRecord) (OutboxMessageRecord, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -1373,6 +1476,13 @@ func ensureJobRunMap(in map[string]JobRunRecord) map[string]JobRunRecord {
 func ensureGoogleImportRunMap(in map[string]GoogleImportRunRecord) map[string]GoogleImportRunRecord {
 	if in == nil {
 		return map[string]GoogleImportRunRecord{}
+	}
+	return in
+}
+
+func ensureAgreementReminderStateMap(in map[string]AgreementReminderStateRecord) map[string]AgreementReminderStateRecord {
+	if in == nil {
+		return map[string]AgreementReminderStateRecord{}
 	}
 	return in
 }

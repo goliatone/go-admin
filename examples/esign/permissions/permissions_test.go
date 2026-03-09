@@ -4,13 +4,14 @@ import "testing"
 
 func TestAllPermissionsIncludesRequiredESignMatrix(t *testing.T) {
 	required := map[string]bool{
-		AdminESignView:     true,
-		AdminESignCreate:   true,
-		AdminESignEdit:     true,
-		AdminESignSend:     true,
-		AdminESignVoid:     true,
-		AdminESignDownload: true,
-		AdminESignSettings: true,
+		AdminESignView:      true,
+		AdminESignCreate:    true,
+		AdminESignEdit:      true,
+		AdminESignSend:      true,
+		AdminESignVoid:      true,
+		AdminESignDownload:  true,
+		AdminESignSettings:  true,
+		AdminESignReminders: true,
 	}
 	for _, permission := range All() {
 		delete(required, permission)
@@ -42,6 +43,9 @@ func TestDefaultRoleMappingsIncludeAdminOperatorViewerProfiles(t *testing.T) {
 	}
 	if hasPermission(operator.Permissions, AdminESignSettings) {
 		t.Fatalf("expected operator mapping to exclude %s", AdminESignSettings)
+	}
+	if !hasPermission(operator.Permissions, AdminESignReminders) {
+		t.Fatalf("expected operator mapping to include %s", AdminESignReminders)
 	}
 	viewer, ok := lookup["esign_viewer"]
 	if !ok {

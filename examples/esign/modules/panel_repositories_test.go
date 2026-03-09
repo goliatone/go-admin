@@ -1545,7 +1545,7 @@ func TestAgreementRecordToMapDerivesRecipientStatusForCompletedAgreement(t *test
 		},
 	}
 
-	payload := agreementRecordToMap(agreement, recipients, nil, nil, services.AgreementDeliveryDetail{})
+	payload := agreementRecordToMap(agreement, recipients, nil, nil, nil, services.AgreementDeliveryDetail{})
 	items, ok := payload["recipients"].([]map[string]any)
 	if !ok || len(items) != 2 {
 		t.Fatalf("expected two recipients in payload, got %#v", payload["recipients"])
@@ -1596,7 +1596,7 @@ func TestAgreementRecordToMapDerivesRecipientStatusForInFlightAgreement(t *testi
 		},
 	}
 
-	payload := agreementRecordToMap(agreement, recipients, nil, nil, services.AgreementDeliveryDetail{})
+	payload := agreementRecordToMap(agreement, recipients, nil, nil, nil, services.AgreementDeliveryDetail{})
 	items, ok := payload["recipients"].([]map[string]any)
 	if !ok || len(items) != 2 {
 		t.Fatalf("expected two recipients in payload, got %#v", payload["recipients"])

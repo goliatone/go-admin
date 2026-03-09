@@ -89,6 +89,7 @@ func (m AgreementResendInput) ResendInput() services.ResendInput {
 		InvalidateExisting:    m.InvalidateExisting,
 		AllowOutOfOrderResend: m.AllowOutOfOrder,
 		IdempotencyKey:        strings.TrimSpace(m.IdempotencyKey),
+		Source:                services.ResendSourceManual,
 	}
 }
 
@@ -112,6 +113,78 @@ func (m TokenRotateInput) Validate() error {
 		return fmt.Errorf("recipient_id required")
 	}
 	return nil
+}
+
+// AgreementReminderSweepInput captures payload for periodic reminder sweeps.
+type AgreementReminderSweepInput struct {
+	Scope         stores.Scope
+	CorrelationID string
+}
+
+func (AgreementReminderSweepInput) Type() string {
+	return CommandAgreementReminderSweep
+}
+
+func (m AgreementReminderSweepInput) Validate() error {
+	_ = m
+	return nil
+}
+
+// AgreementReminderControlInput captures pause/resume/send-now reminder actions.
+type AgreementReminderControlInput struct {
+	Scope         stores.Scope
+	AgreementID   string
+	RecipientID   string
+	CorrelationID string
+}
+
+func (m AgreementReminderControlInput) validateRequired() error {
+	if strings.TrimSpace(m.AgreementID) == "" {
+		return fmt.Errorf("agreement_id required")
+	}
+	if strings.TrimSpace(m.RecipientID) == "" {
+		return fmt.Errorf("recipient_id required")
+	}
+	return nil
+}
+
+// AgreementReminderPauseInput pauses reminder processing for one recipient.
+type AgreementReminderPauseInput struct {
+	AgreementReminderControlInput
+}
+
+func (AgreementReminderPauseInput) Type() string {
+	return CommandAgreementReminderPause
+}
+
+func (m AgreementReminderPauseInput) Validate() error {
+	return m.validateRequired()
+}
+
+// AgreementReminderResumeInput resumes reminder processing for one recipient.
+type AgreementReminderResumeInput struct {
+	AgreementReminderControlInput
+}
+
+func (AgreementReminderResumeInput) Type() string {
+	return CommandAgreementReminderResume
+}
+
+func (m AgreementReminderResumeInput) Validate() error {
+	return m.validateRequired()
+}
+
+// AgreementReminderSendNowInput attempts immediate policy-safe reminder send.
+type AgreementReminderSendNowInput struct {
+	AgreementReminderControlInput
+}
+
+func (AgreementReminderSendNowInput) Type() string {
+	return CommandAgreementReminderSendNow
+}
+
+func (m AgreementReminderSendNowInput) Validate() error {
+	return m.validateRequired()
 }
 
 // DraftCleanupInput captures payload for scheduled/manual draft expiry cleanup.

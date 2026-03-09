@@ -37,6 +37,20 @@
     "strict_startup": false,
     "repository_dialect": ""
   },
+  "reminders": {
+    "enabled": false,
+    "sweep_cron": "*/15 * * * *",
+    "batch_size": 100,
+    "claim_lease_seconds": 120,
+    "initial_delay_minutes": 1440,
+    "interval_minutes": 1440,
+    "max_reminders": 5,
+    "jitter_percent": 15,
+    "recent_view_grace_minutes": 120,
+    "manual_resend_cooldown_minutes": 240,
+    "rotate_token": true,
+    "allow_out_of_order": false
+  },
   "storage": {
     "encryption_algorithm": "aws:kms"
   },

@@ -1,17 +1,25 @@
 package commands
 
 const (
-	CommandAgreementSend   = "esign.agreements.send"
-	CommandAgreementVoid   = "esign.agreements.void"
-	CommandAgreementResend = "esign.agreements.resend"
-	CommandTokenRotate     = "esign.tokens.rotate"
-	CommandDraftCleanup    = "esign.drafts.cleanup"
+	CommandAgreementSend            = "esign.agreements.send"
+	CommandAgreementVoid            = "esign.agreements.void"
+	CommandAgreementResend          = "esign.agreements.resend"
+	CommandAgreementReminderSweep   = "esign.agreements.reminders.sweep"
+	CommandAgreementReminderPause   = "esign.agreements.reminders.pause"
+	CommandAgreementReminderResume  = "esign.agreements.reminders.resume"
+	CommandAgreementReminderSendNow = "esign.agreements.reminders.send_now"
+	CommandTokenRotate              = "esign.tokens.rotate"
+	CommandDraftCleanup             = "esign.drafts.cleanup"
 )
 
 var All = []string{
 	CommandAgreementSend,
 	CommandAgreementVoid,
 	CommandAgreementResend,
+	CommandAgreementReminderSweep,
+	CommandAgreementReminderPause,
+	CommandAgreementReminderResume,
+	CommandAgreementReminderSendNow,
 	CommandTokenRotate,
 	CommandDraftCleanup,
 }

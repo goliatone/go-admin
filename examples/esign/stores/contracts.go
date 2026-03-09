@@ -125,6 +125,18 @@ type GoogleImportRunStore interface {
 	ListGoogleImportRuns(ctx context.Context, scope Scope, query GoogleImportRunQuery) ([]GoogleImportRunRecord, string, error)
 }
 
+// AgreementReminderStore defines persistence for recipient reminder cadence state.
+type AgreementReminderStore interface {
+	UpsertAgreementReminderState(ctx context.Context, scope Scope, record AgreementReminderStateRecord) (AgreementReminderStateRecord, error)
+	GetAgreementReminderState(ctx context.Context, scope Scope, agreementID, recipientID string) (AgreementReminderStateRecord, error)
+	ClaimDueAgreementReminders(ctx context.Context, scope Scope, input AgreementReminderClaimInput) ([]AgreementReminderStateRecord, error)
+	MarkAgreementReminderSent(ctx context.Context, scope Scope, agreementID, recipientID, reasonCode string, sentAt time.Time, nextDueAt *time.Time) (AgreementReminderStateRecord, error)
+	MarkAgreementReminderSkipped(ctx context.Context, scope Scope, agreementID, recipientID, reasonCode string, evaluatedAt time.Time, nextDueAt *time.Time) (AgreementReminderStateRecord, error)
+	MarkAgreementReminderFailed(ctx context.Context, scope Scope, agreementID, recipientID, reasonCode, failure string, failedAt time.Time, nextDueAt *time.Time) (AgreementReminderStateRecord, error)
+	PauseAgreementReminder(ctx context.Context, scope Scope, agreementID, recipientID string, pausedAt time.Time) (AgreementReminderStateRecord, error)
+	ResumeAgreementReminder(ctx context.Context, scope Scope, agreementID, recipientID string, resumedAt time.Time, nextDueAt *time.Time) (AgreementReminderStateRecord, error)
+}
+
 // OutboxStore defines durable post-commit side-effect message persistence.
 type OutboxStore interface {
 	txoutbox.Store[Scope]
@@ -192,6 +204,7 @@ type TxStore interface {
 	EmailLogStore
 	JobRunStore
 	GoogleImportRunStore
+	AgreementReminderStore
 	OutboxStore
 	IntegrationCredentialStore
 	IntegrationFoundationStore

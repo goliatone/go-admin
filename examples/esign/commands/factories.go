@@ -20,6 +20,18 @@ func RegisterCommandFactories(bus *coreadmin.CommandBus) error {
 	if err := coreadmin.RegisterMessageFactory(bus, CommandAgreementResend, buildAgreementResendInput); err != nil {
 		return err
 	}
+	if err := coreadmin.RegisterMessageFactory(bus, CommandAgreementReminderSweep, buildAgreementReminderSweepInput); err != nil {
+		return err
+	}
+	if err := coreadmin.RegisterMessageFactory(bus, CommandAgreementReminderPause, buildAgreementReminderPauseInput); err != nil {
+		return err
+	}
+	if err := coreadmin.RegisterMessageFactory(bus, CommandAgreementReminderResume, buildAgreementReminderResumeInput); err != nil {
+		return err
+	}
+	if err := coreadmin.RegisterMessageFactory(bus, CommandAgreementReminderSendNow, buildAgreementReminderSendNowInput); err != nil {
+		return err
+	}
 	if err := coreadmin.RegisterMessageFactory(bus, CommandTokenRotate, buildTokenRotateInput); err != nil {
 		return err
 	}
@@ -95,6 +107,67 @@ func buildTokenRotateInput(payload map[string]any, ids []string) (TokenRotateInp
 	}
 	if err := msg.Validate(); err != nil {
 		return msg, err
+	}
+	return msg, nil
+}
+
+func buildAgreementReminderSweepInput(payload map[string]any, _ []string) (AgreementReminderSweepInput, error) {
+	msg := AgreementReminderSweepInput{
+		Scope:         scopeFromPayload(payload),
+		CorrelationID: strings.TrimSpace(toString(payloadValue(payload, "correlation_id"))),
+	}
+	if err := msg.Validate(); err != nil {
+		return msg, err
+	}
+	return msg, nil
+}
+
+func buildAgreementReminderPauseInput(payload map[string]any, ids []string) (AgreementReminderPauseInput, error) {
+	base, err := buildAgreementReminderControlInput(payload, ids)
+	if err != nil {
+		return AgreementReminderPauseInput{}, err
+	}
+	msg := AgreementReminderPauseInput{AgreementReminderControlInput: base}
+	if err := msg.Validate(); err != nil {
+		return msg, err
+	}
+	return msg, nil
+}
+
+func buildAgreementReminderResumeInput(payload map[string]any, ids []string) (AgreementReminderResumeInput, error) {
+	base, err := buildAgreementReminderControlInput(payload, ids)
+	if err != nil {
+		return AgreementReminderResumeInput{}, err
+	}
+	msg := AgreementReminderResumeInput{AgreementReminderControlInput: base}
+	if err := msg.Validate(); err != nil {
+		return msg, err
+	}
+	return msg, nil
+}
+
+func buildAgreementReminderSendNowInput(payload map[string]any, ids []string) (AgreementReminderSendNowInput, error) {
+	base, err := buildAgreementReminderControlInput(payload, ids)
+	if err != nil {
+		return AgreementReminderSendNowInput{}, err
+	}
+	msg := AgreementReminderSendNowInput{AgreementReminderControlInput: base}
+	if err := msg.Validate(); err != nil {
+		return msg, err
+	}
+	return msg, nil
+}
+
+func buildAgreementReminderControlInput(payload map[string]any, ids []string) (AgreementReminderControlInput, error) {
+	agreementID, err := agreementIDFromPayload(payload, ids)
+	if err != nil {
+		return AgreementReminderControlInput{}, err
+	}
+	msg := AgreementReminderControlInput{
+		Scope:         scopeFromPayload(payload),
+		AgreementID:   agreementID,
+		RecipientID:   strings.TrimSpace(toString(payloadValue(payload, "recipient_id"))),
+		CorrelationID: strings.TrimSpace(toString(payloadValue(payload, "correlation_id"))),
 	}
 	return msg, nil
 }

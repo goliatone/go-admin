@@ -9,6 +9,7 @@ import (
 	"time"
 
 	coreadmin "github.com/goliatone/go-admin/admin"
+	appcfg "github.com/goliatone/go-admin/examples/esign/config"
 	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
@@ -35,6 +36,14 @@ type DraftCleanupService interface {
 	CleanupExpiredDrafts(ctx context.Context, before time.Time) (int, error)
 }
 
+// AgreementReminderService captures reminder sweep and operator controls.
+type AgreementReminderService interface {
+	Sweep(ctx context.Context, scope stores.Scope) (services.AgreementReminderSweepResult, error)
+	Pause(ctx context.Context, scope stores.Scope, agreementID, recipientID string) (stores.AgreementReminderStateRecord, error)
+	Resume(ctx context.Context, scope stores.Scope, agreementID, recipientID string) (stores.AgreementReminderStateRecord, error)
+	SendNow(ctx context.Context, scope stores.Scope, agreementID, recipientID string) (services.ResendResult, error)
+}
+
 // AgreementActivityProjector projects canonical audit events into the shared activity feed.
 type AgreementActivityProjector interface {
 	ProjectAgreement(ctx context.Context, scope stores.Scope, agreementID string) error
@@ -46,6 +55,8 @@ func Register(
 	agreements AgreementLifecycleService,
 	tokens TokenRotator,
 	drafts DraftCleanupService,
+	agreementReminders AgreementReminderService,
+	reminderSweepCron string,
 	defaultScope stores.Scope,
 	projector AgreementActivityProjector,
 ) error {
@@ -66,6 +77,24 @@ func Register(
 	}
 	if drafts != nil {
 		if _, err := coreadmin.RegisterCommand(bus, &DraftCleanupCommand{drafts: drafts, defaultScope: defaultScope}); err != nil {
+			return err
+		}
+	}
+	if agreementReminders != nil {
+		if _, err := coreadmin.RegisterCommand(bus, &AgreementReminderSweepCommand{
+			reminders:      agreementReminders,
+			defaultScope:   defaultScope,
+			cronExpression: strings.TrimSpace(reminderSweepCron),
+		}); err != nil {
+			return err
+		}
+		if _, err := coreadmin.RegisterCommand(bus, &AgreementReminderPauseCommand{reminders: agreementReminders, defaultScope: defaultScope}); err != nil {
+			return err
+		}
+		if _, err := coreadmin.RegisterCommand(bus, &AgreementReminderResumeCommand{reminders: agreementReminders, defaultScope: defaultScope}); err != nil {
+			return err
+		}
+		if _, err := coreadmin.RegisterCommand(bus, &AgreementReminderSendNowCommand{reminders: agreementReminders, defaultScope: defaultScope, projector: projector}); err != nil {
 			return err
 		}
 	}
@@ -118,6 +147,7 @@ func (c *AgreementSendCommand) Execute(ctx context.Context, msg AgreementSendInp
 			InvalidateExisting: true,
 			IdempotencyKey:     strings.TrimSpace(msg.IdempotencyKey),
 			IPAddress:          resendIP,
+			Source:             services.ResendSourceManual,
 		})
 		if resendErr == nil {
 			agreement = resendResult.Agreement
@@ -393,6 +423,199 @@ func (c *DraftCleanupCommand) CronHandler() func() error {
 
 func (c *DraftCleanupCommand) CronOptions() gocommand.HandlerConfig {
 	return gocommand.HandlerConfig{Expression: "@daily"}
+}
+
+// AgreementReminderSweepCommand dispatches reminder sweep execution and exposes a cron schedule.
+type AgreementReminderSweepCommand struct {
+	reminders      AgreementReminderService
+	defaultScope   stores.Scope
+	cronExpression string
+}
+
+var _ gocommand.Commander[AgreementReminderSweepInput] = (*AgreementReminderSweepCommand)(nil)
+
+func (c *AgreementReminderSweepCommand) Name() string {
+	return CommandAgreementReminderSweep
+}
+
+func (c *AgreementReminderSweepCommand) Execute(ctx context.Context, msg AgreementReminderSweepInput) error {
+	startedAt := time.Now()
+	correlationID := observability.ResolveCorrelationID(msg.CorrelationID, CommandAgreementReminderSweep)
+	if c == nil || c.reminders == nil {
+		err := fmt.Errorf("agreement reminder sweep command not configured")
+		observability.LogOperation(ctx, slog.LevelError, "command", "agreement_reminder_sweep", "error", correlationID, time.Since(startedAt), err, map[string]any{
+			"command_name": CommandAgreementReminderSweep,
+		})
+		return err
+	}
+	if err := msg.Validate(); err != nil {
+		observability.LogOperation(ctx, slog.LevelWarn, "command", "agreement_reminder_sweep", "error", correlationID, time.Since(startedAt), err, map[string]any{
+			"command_name": CommandAgreementReminderSweep,
+		})
+		return err
+	}
+	scope, err := resolveScope(ctx, msg.Scope, c.defaultScope)
+	if err != nil {
+		observability.LogOperation(ctx, slog.LevelWarn, "command", "agreement_reminder_sweep", "error", correlationID, time.Since(startedAt), err, map[string]any{
+			"command_name": CommandAgreementReminderSweep,
+		})
+		return err
+	}
+	result, err := c.reminders.Sweep(ctx, scope)
+	if err != nil {
+		observability.ObserveReminderSweep(ctx, time.Since(startedAt), result.Claimed, result.Sent, result.Skipped, result.Failed, result.SkipReasons)
+		observability.LogOperation(ctx, slog.LevelWarn, "command", "agreement_reminder_sweep", "error", correlationID, time.Since(startedAt), err, map[string]any{
+			"command_name": CommandAgreementReminderSweep,
+			"tenant_id":    scope.TenantID,
+			"org_id":       scope.OrgID,
+			"claimed":      result.Claimed,
+			"sent":         result.Sent,
+			"skipped":      result.Skipped,
+			"failed":       result.Failed,
+		})
+		return err
+	}
+	observability.ObserveReminderSweep(ctx, time.Since(startedAt), result.Claimed, result.Sent, result.Skipped, result.Failed, result.SkipReasons)
+	observability.LogOperation(ctx, slog.LevelInfo, "command", "agreement_reminder_sweep", "success", correlationID, time.Since(startedAt), nil, map[string]any{
+		"command_name": CommandAgreementReminderSweep,
+		"tenant_id":    scope.TenantID,
+		"org_id":       scope.OrgID,
+		"claimed":      result.Claimed,
+		"sent":         result.Sent,
+		"skipped":      result.Skipped,
+		"failed":       result.Failed,
+		"skip_reasons": result.SkipReasons,
+	})
+	return nil
+}
+
+func (c *AgreementReminderSweepCommand) CronHandler() func() error {
+	return func() error {
+		return dispatcher.Dispatch(context.Background(), AgreementReminderSweepInput{
+			Scope: c.defaultScope,
+		})
+	}
+}
+
+func (c *AgreementReminderSweepCommand) CronOptions() gocommand.HandlerConfig {
+	expression := strings.TrimSpace(c.cronExpression)
+	if expression == "" {
+		expression = strings.TrimSpace(appcfg.Active().Reminders.SweepCron)
+	}
+	if expression == "" {
+		expression = "*/15 * * * *"
+	}
+	return gocommand.HandlerConfig{Expression: expression}
+}
+
+// AgreementReminderPauseCommand pauses automatic reminders for one agreement recipient.
+type AgreementReminderPauseCommand struct {
+	reminders    AgreementReminderService
+	defaultScope stores.Scope
+}
+
+var _ gocommand.Commander[AgreementReminderPauseInput] = (*AgreementReminderPauseCommand)(nil)
+
+func (c *AgreementReminderPauseCommand) Execute(ctx context.Context, msg AgreementReminderPauseInput) error {
+	startedAt := time.Now()
+	correlationID := observability.ResolveCorrelationID(msg.CorrelationID, msg.AgreementID, msg.RecipientID, CommandAgreementReminderPause)
+	if c == nil || c.reminders == nil {
+		return fmt.Errorf("agreement reminder pause command not configured")
+	}
+	if err := msg.Validate(); err != nil {
+		return err
+	}
+	scope, err := resolveScope(ctx, msg.Scope, c.defaultScope)
+	if err != nil {
+		return err
+	}
+	if _, err := c.reminders.Pause(ctx, scope, strings.TrimSpace(msg.AgreementID), strings.TrimSpace(msg.RecipientID)); err != nil {
+		observability.LogOperation(ctx, slog.LevelWarn, "command", "agreement_reminder_pause", "error", correlationID, time.Since(startedAt), err, map[string]any{
+			"command_name": CommandAgreementReminderPause,
+		})
+		return err
+	}
+	observability.LogOperation(ctx, slog.LevelInfo, "command", "agreement_reminder_pause", "success", correlationID, time.Since(startedAt), nil, map[string]any{
+		"command_name": CommandAgreementReminderPause,
+		"agreement_id": strings.TrimSpace(msg.AgreementID),
+		"recipient_id": strings.TrimSpace(msg.RecipientID),
+	})
+	return nil
+}
+
+// AgreementReminderResumeCommand resumes automatic reminders for one agreement recipient.
+type AgreementReminderResumeCommand struct {
+	reminders    AgreementReminderService
+	defaultScope stores.Scope
+}
+
+var _ gocommand.Commander[AgreementReminderResumeInput] = (*AgreementReminderResumeCommand)(nil)
+
+func (c *AgreementReminderResumeCommand) Execute(ctx context.Context, msg AgreementReminderResumeInput) error {
+	startedAt := time.Now()
+	correlationID := observability.ResolveCorrelationID(msg.CorrelationID, msg.AgreementID, msg.RecipientID, CommandAgreementReminderResume)
+	if c == nil || c.reminders == nil {
+		return fmt.Errorf("agreement reminder resume command not configured")
+	}
+	if err := msg.Validate(); err != nil {
+		return err
+	}
+	scope, err := resolveScope(ctx, msg.Scope, c.defaultScope)
+	if err != nil {
+		return err
+	}
+	if _, err := c.reminders.Resume(ctx, scope, strings.TrimSpace(msg.AgreementID), strings.TrimSpace(msg.RecipientID)); err != nil {
+		observability.LogOperation(ctx, slog.LevelWarn, "command", "agreement_reminder_resume", "error", correlationID, time.Since(startedAt), err, map[string]any{
+			"command_name": CommandAgreementReminderResume,
+		})
+		return err
+	}
+	observability.LogOperation(ctx, slog.LevelInfo, "command", "agreement_reminder_resume", "success", correlationID, time.Since(startedAt), nil, map[string]any{
+		"command_name": CommandAgreementReminderResume,
+		"agreement_id": strings.TrimSpace(msg.AgreementID),
+		"recipient_id": strings.TrimSpace(msg.RecipientID),
+	})
+	return nil
+}
+
+// AgreementReminderSendNowCommand performs immediate policy-safe reminder resend.
+type AgreementReminderSendNowCommand struct {
+	reminders    AgreementReminderService
+	defaultScope stores.Scope
+	projector    AgreementActivityProjector
+}
+
+var _ gocommand.Commander[AgreementReminderSendNowInput] = (*AgreementReminderSendNowCommand)(nil)
+
+func (c *AgreementReminderSendNowCommand) Execute(ctx context.Context, msg AgreementReminderSendNowInput) error {
+	startedAt := time.Now()
+	correlationID := observability.ResolveCorrelationID(msg.CorrelationID, msg.AgreementID, msg.RecipientID, CommandAgreementReminderSendNow)
+	if c == nil || c.reminders == nil {
+		return fmt.Errorf("agreement reminder send_now command not configured")
+	}
+	if err := msg.Validate(); err != nil {
+		return err
+	}
+	scope, err := resolveScope(ctx, msg.Scope, c.defaultScope)
+	if err != nil {
+		return err
+	}
+	result, err := c.reminders.SendNow(ctx, scope, strings.TrimSpace(msg.AgreementID), strings.TrimSpace(msg.RecipientID))
+	if err != nil {
+		observability.LogOperation(ctx, slog.LevelWarn, "command", "agreement_reminder_send_now", "error", correlationID, time.Since(startedAt), err, map[string]any{
+			"command_name": CommandAgreementReminderSendNow,
+		})
+		return err
+	}
+	if err := projectAgreementActivity(ctx, c.projector, scope, result.Agreement.ID); err != nil {
+		return err
+	}
+	observability.LogOperation(ctx, slog.LevelInfo, "command", "agreement_reminder_send_now", "success", correlationID, time.Since(startedAt), nil, map[string]any{
+		"command_name": CommandAgreementReminderSendNow,
+		"agreement_id": strings.TrimSpace(result.Agreement.ID),
+		"recipient_id": strings.TrimSpace(msg.RecipientID),
+	})
+	return nil
 }
 
 func projectAgreementActivity(ctx context.Context, projector AgreementActivityProjector, scope stores.Scope, agreementID string) error {
