@@ -782,6 +782,54 @@ func TestListForPanelInjectsExportConfigForPanelTemplates(t *testing.T) {
 	}
 }
 
+func TestListForPanelIncludesBulkActionToolbarContext(t *testing.T) {
+	fixture := newContentEntryAdminFixture(t)
+	cfg := fixture.Config
+	adm := fixture.Admin
+	if _, err := adm.RegisterPanel("pages", newInMemoryPanelBuilder().
+		WithActionDefaults(admin.PanelActionDefaultsModeCRUD).
+		ListFields(admin.Field{Name: "title", Label: "Title", Type: "text"}).
+		Permissions(admin.PanelPermissions{
+			Delete: "admin.pages.delete",
+		})); err != nil {
+		t.Fatalf("register panel: %v", err)
+	}
+
+	handler := &contentEntryHandlers{
+		admin:        adm,
+		cfg:          cfg,
+		listTemplate: "resources/content/list",
+		templateExists: func(name string) bool {
+			return name == "resources/content/list"
+		},
+	}
+
+	ctx := router.NewMockContext()
+	ctx.On("Context").Return(context.Background())
+	ctx.On("Render", "resources/content/list", mock.MatchedBy(func(arg any) bool {
+		viewCtx, ok := arg.(router.ViewContext)
+		if !ok {
+			return false
+		}
+		primary, ok := viewCtx["bulk_actions_primary"].([]admin.Action)
+		if !ok || len(primary) != 1 {
+			return false
+		}
+		if strings.TrimSpace(primary[0].Name) != "delete" {
+			return false
+		}
+		if strings.TrimSpace(primary[0].Permission) != "admin.pages.delete" {
+			return false
+		}
+		return strings.TrimSpace(anyToString(viewCtx["bulk_base"])) == "/admin/api/panels/pages/bulk"
+	})).Return(nil).Once()
+
+	if err := handler.listForPanel(ctx, "pages"); err != nil {
+		t.Fatalf("listForPanel(pages): %v", err)
+	}
+	ctx.AssertExpectations(t)
+}
+
 func TestListForPanelEnablesTranslationDataGridUXWhenConfigured(t *testing.T) {
 	fixture := newContentEntryAdminFixture(t)
 	cfg := fixture.Config

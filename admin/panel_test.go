@@ -376,6 +376,39 @@ func TestPanelSchemaIncludesActionPayloadContracts(t *testing.T) {
 	}
 }
 
+func TestPanelSchemaCRUDDefaultsIncludeDeleteAndBulkDelete(t *testing.T) {
+	panel := &Panel{
+		name:               "schema",
+		actionDefaultsMode: PanelActionDefaultsModeCRUD,
+		permissions: PanelPermissions{
+			Delete: "items.delete",
+		},
+	}
+
+	schema := panel.Schema()
+	if !containsActionName(schema.Actions, "view") || !containsActionName(schema.Actions, "edit") || !containsActionName(schema.Actions, "delete") {
+		t.Fatalf("expected CRUD row defaults view/edit/delete, got %+v", schema.Actions)
+	}
+	if !containsActionName(schema.BulkActions, "delete") {
+		t.Fatalf("expected CRUD bulk default delete, got %+v", schema.BulkActions)
+	}
+}
+
+func TestPanelSchemaNoneDefaultsDoesNotInjectImplicitActions(t *testing.T) {
+	panel := &Panel{
+		name:               "schema",
+		actionDefaultsMode: PanelActionDefaultsModeNone,
+	}
+
+	schema := panel.Schema()
+	if len(schema.Actions) != 0 {
+		t.Fatalf("expected no implicit row actions, got %+v", schema.Actions)
+	}
+	if len(schema.BulkActions) != 0 {
+		t.Fatalf("expected no implicit bulk actions, got %+v", schema.BulkActions)
+	}
+}
+
 func TestPanelSchemaAlwaysEmitsActionOrderForUnknownActions(t *testing.T) {
 	panel := &Panel{
 		name: "schema",
@@ -493,6 +526,30 @@ func TestPanelBuilderWithEntryModeUsesNormalizedMode(t *testing.T) {
 	}
 }
 
+func TestPanelBuilderWithActionDefaultsUsesNormalizedMode(t *testing.T) {
+	panel, err := (&PanelBuilder{}).
+		WithRepository(NewMemoryRepository()).
+		WithActionDefaults(PanelActionDefaultsModeCRUD).
+		Build()
+	if err != nil {
+		t.Fatalf("build panel: %v", err)
+	}
+	if panel.actionDefaultsMode != PanelActionDefaultsModeCRUD {
+		t.Fatalf("expected action defaults mode %q, got %q", PanelActionDefaultsModeCRUD, panel.actionDefaultsMode)
+	}
+
+	panel, err = (&PanelBuilder{}).
+		WithRepository(NewMemoryRepository()).
+		WithActionDefaults(PanelActionDefaultsMode("unknown")).
+		Build()
+	if err != nil {
+		t.Fatalf("build panel with unknown action defaults mode: %v", err)
+	}
+	if panel.actionDefaultsMode != PanelActionDefaultsModeConservative {
+		t.Fatalf("expected unknown action defaults mode to normalize to %q, got %q", PanelActionDefaultsModeConservative, panel.actionDefaultsMode)
+	}
+}
+
 func TestPanelBuilderBuildAllowsCreatePermissionWhenFormSchemaHasProperties(t *testing.T) {
 	panel, err := (&PanelBuilder{}).
 		WithRepository(NewMemoryRepository()).
@@ -578,6 +635,41 @@ func TestPanelSchemaSetsActionScopes(t *testing.T) {
 	}
 	if schema.BulkActions[0].Scope != ActionScopeBulk {
 		t.Fatalf("expected bulk action scope bulk, got %q", schema.BulkActions[0].Scope)
+	}
+}
+
+func TestPanelRunBulkActionBuiltInDelete(t *testing.T) {
+	repo := NewMemoryRepository()
+	recordA, err := repo.Create(context.Background(), map[string]any{"title": "a"})
+	if err != nil {
+		t.Fatalf("seed record a: %v", err)
+	}
+	recordB, err := repo.Create(context.Background(), map[string]any{"title": "b"})
+	if err != nil {
+		t.Fatalf("seed record b: %v", err)
+	}
+	idA := strings.TrimSpace(toString(recordA["id"]))
+	idB := strings.TrimSpace(toString(recordB["id"]))
+	panel := &Panel{
+		name:               "items",
+		repo:               repo,
+		authorizer:         allowAll{},
+		actionDefaultsMode: PanelActionDefaultsModeCRUD,
+		permissions: PanelPermissions{
+			Delete: "items.delete",
+		},
+	}
+	ctx := AdminContext{Context: context.Background()}
+	if err := panel.RunBulkAction(ctx, "delete", nil, []string{idA, idB}); err != nil {
+		t.Fatalf("bulk delete failed: %v", err)
+	}
+
+	list, total, err := repo.List(context.Background(), ListOptions{Page: 1, PerPage: 20})
+	if err != nil {
+		t.Fatalf("list after delete: %v", err)
+	}
+	if total != 0 || len(list) != 0 {
+		t.Fatalf("expected all records deleted, total=%d len=%d", total, len(list))
 	}
 }
 
