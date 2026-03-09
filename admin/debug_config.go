@@ -47,6 +47,9 @@ const (
 // DebugViewContextBuilder can augment the view context for debug templates.
 type DebugViewContextBuilder func(adm *Admin, cfg DebugConfig, c router.Context, view router.ViewContext) router.ViewContext
 
+// DebugSecureRequestResolver determines whether a request should be treated as secure.
+type DebugSecureRequestResolver func(c router.Context) bool
+
 var defaultDebugPanels = []string{
 	DebugPanelTemplate,
 	DebugPanelSession,
@@ -122,10 +125,13 @@ type DebugConfig struct {
 	DashboardTemplate string
 	// ViewContextBuilder can inject navigation/session data for admin-layout templates.
 	ViewContextBuilder DebugViewContextBuilder
-	SlowQueryThreshold time.Duration
-	AllowedIPs         []string
-	PersistLayout      bool
-	Repl               DebugREPLConfig
+	// SecureRequestResolver determines secure transport checks for debug cookies/nonces.
+	// When nil, debug secure detection only trusts direct TLS.
+	SecureRequestResolver DebugSecureRequestResolver
+	SlowQueryThreshold    time.Duration
+	AllowedIPs            []string
+	PersistLayout         bool
+	Repl                  DebugREPLConfig
 	// ToolbarMode injects a debug toolbar at the bottom of all admin pages.
 	// When true, the toolbar is shown in addition to the /admin/debug page.
 	ToolbarMode bool
