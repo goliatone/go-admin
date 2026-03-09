@@ -58,7 +58,7 @@ const apiEndpoint = '{{ list_api }}';
 const actionBasePath = '{{ action_base }}';
 const columns = {{ toJSON(columns)|safe }};
 const filters = {{ toJSON(filters)|safe }};
-const env = {{ toJSON(env)|safe }};
+const channel = {{ toJSON(channel)|safe }};
 const locale = {{ toJSON(locale)|safe }};
 const panelName = '{{ panel_name }}';
 const columnFields = columns.map(c => c.field);
@@ -146,7 +146,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     actionBasePath: actionBasePath,
     actionContext: 'row',
     locale: locale || undefined,
-    environment: env || undefined,
+    channel: channel || undefined,
     panelName: panelName,
     useDefaultFallback: true,
     onActionSuccess: async (actionName, result) => {
