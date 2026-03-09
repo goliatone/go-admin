@@ -212,6 +212,12 @@
       </div>
     </div>
   </div>
+  <script
+    src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"
+    integrity="sha384-/1qUCSGwTur9vjf/z9lmu/eCUYbpOTgSjmpbMQZ1/CtX2v/WcAIKqRv+U1DUCG6e"
+    crossorigin="anonymous"
+    referrerpolicy="no-referrer"
+  ></script>
   <script id="esign-page-config" type="application/json">
   {
     "base_path": "{{ base_path }}",
@@ -219,7 +225,7 @@
     "user_id": "{{ user_id|default:session_user.id|default:session_user.subject|default:""|escapejs }}",
     "is_edit": {{ is_edit|default:false|yesno:"true,false" }},
     "create_success": {{ create_success|default:false|yesno:"true,false" }},
-    "submit_mode": "form",
+    "submit_mode": "json",
     "routes": {
       "index": "{{ routes.index|default:"" }}",
       "documents": "{{ routes.documents|default:"" }}",

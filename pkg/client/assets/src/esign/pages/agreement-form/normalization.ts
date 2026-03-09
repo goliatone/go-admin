@@ -326,6 +326,7 @@ export function normalizePlacementSource(value: unknown): string {
   switch (source) {
     case PLACEMENT_SOURCE.AUTO:
     case PLACEMENT_SOURCE.MANUAL:
+    case PLACEMENT_SOURCE.AUTO_LINKED:
     case PLACEMENT_SOURCE.AUTO_FALLBACK:
       return source;
     default:
@@ -355,6 +356,9 @@ export function normalizePlacementInstance(instance: RawPlacementInstance, index
     width: width > 0 ? width : DEFAULT_PLACEMENT_WIDTH,
     height: height > 0 ? height : DEFAULT_PLACEMENT_HEIGHT,
     placementSource: normalizePlacementSource(raw.placementSource || raw.placement_source),
+    linkGroupId: asString(raw.linkGroupId || raw.link_group_id),
+    linkedFromFieldId: asString(raw.linkedFromFieldId || raw.linked_from_field_id),
+    isUnlinked: parseBool(raw.isUnlinked ?? raw.is_unlinked),
   };
 }
 
@@ -368,5 +372,9 @@ export function toPlacementFormPayload(instance: RawPlacementInstance, index = 0
     y: Math.round(normalized.y),
     width: Math.round(normalized.width),
     height: Math.round(normalized.height),
+    placement_source: normalizePlacementSource(normalized.placementSource),
+    link_group_id: asString(normalized.linkGroupId),
+    linked_from_field_id: asString(normalized.linkedFromFieldId),
+    is_unlinked: Boolean(normalized.isUnlinked),
   };
 }

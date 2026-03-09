@@ -1,7 +1,6 @@
 // @ts-nocheck
 
 import {
-  LINKED_PLACEMENT_DEFAULTS,
   PLACEMENT_SOURCE,
   PREVIEW_CARD_VISIBLE_STEPS,
   TOTAL_WIZARD_STEPS,
@@ -13,7 +12,8 @@ import {
   createLinkGroupState,
   addLinkGroup,
   createLinkGroup,
-  computeLinkedPlacements,
+  setLinkGroupTemplatePosition,
+  computeLinkedPlacementForPage,
   convertToManualPlacement,
   isLinkedPlacement,
   isFieldLinked,
@@ -66,7 +66,7 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
   const isEditMode = Boolean(config.is_edit);
   const createSuccess = Boolean(config.create_success);
   const currentUserID = String(config.user_id || '').trim();
-  const submitMode = String(config.submit_mode || 'form').trim().toLowerCase();
+  const submitMode = String(config.submit_mode || 'json').trim().toLowerCase();
   const documentsUploadURL = String(config.routes?.documents_upload_url || '').trim() || `${basePath}/content/esign_documents/new`;
   const initialParticipants = Array.isArray(config.initial_participants) ? config.initial_participants : [];
   const initialFieldInstances = Array.isArray(config.initial_field_instances) ? config.initial_field_instances : [];
@@ -1012,25 +1012,30 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
       return;
     }
 
-    documentList.innerHTML = docs.map((doc, index) => `
+    documentList.innerHTML = docs.map((doc, index) => {
+      const safeID = escapeHtml(String(doc.id || '').trim());
+      const safeTitle = escapeHtml(String(doc.title || '').trim());
+      const safePageCount = String(parsePositiveInt(doc.pageCount, 0));
+      return `
       <button type="button" class="document-option w-full p-3 flex items-center gap-3 hover:bg-gray-50 border-b border-gray-100 last:border-0 text-left focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
               role="option"
               aria-selected="false"
               tabindex="${index === 0 ? '0' : '-1'}"
-              data-document-id="${doc.id}"
-              data-document-title="${escapeHtml(doc.title)}"
-              data-document-pages="${doc.pageCount}">
+              data-document-id="${safeID}"
+              data-document-title="${safeTitle}"
+              data-document-pages="${safePageCount}">
         <div class="w-8 h-8 rounded bg-red-100 flex items-center justify-center flex-shrink-0" aria-hidden="true">
           <svg class="w-4 h-4 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
           </svg>
         </div>
         <div class="flex-1 min-w-0">
-          <div class="font-medium text-gray-900 truncate">${escapeHtml(doc.title)}</div>
-          <div class="text-xs text-gray-500">${doc.pageCount} pages</div>
+          <div class="font-medium text-gray-900 truncate">${safeTitle}</div>
+          <div class="text-xs text-gray-500">${safePageCount} pages</div>
         </div>
       </button>
-    `).join('');
+    `;
+    }).join('');
 
     // Attach click and keyboard handlers
     const options = documentList.querySelectorAll('.document-option');
@@ -1168,6 +1173,8 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     isLoading: false,
     isSearchMode: false,
   };
+  let typeaheadSearchRequestID = 0;
+  let typeaheadSearchAbortController: AbortController | null = null;
 
   /**
    * Simple debounce utility for typeahead search
@@ -1227,11 +1234,21 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
   async function searchDocuments(query: string): Promise<void> {
     const trimmedQuery = query.trim();
     if (!trimmedQuery) {
+      if (typeaheadSearchAbortController) {
+        typeaheadSearchAbortController.abort();
+        typeaheadSearchAbortController = null;
+      }
       typeaheadState.isSearchMode = false;
       typeaheadState.searchResults = [];
       renderTypeaheadDropdown();
       return;
     }
+
+    const requestID = ++typeaheadSearchRequestID;
+    if (typeaheadSearchAbortController) {
+      typeaheadSearchAbortController.abort();
+    }
+    typeaheadSearchAbortController = new AbortController();
 
     typeaheadState.isLoading = true;
     typeaheadState.isSearchMode = true;
@@ -1239,7 +1256,7 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
 
     try {
       const params = new URLSearchParams({
-        'filters[title_contains]': trimmedQuery,
+        q: trimmedQuery,
         sort: 'updated_at',
         sort_desc: 'true',
         per_page: String(SEARCH_RESULTS_LIMIT),
@@ -1247,7 +1264,11 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
       const response = await fetch(`${apiBase}/panels/esign_documents?${params}`, {
         credentials: 'same-origin',
         headers: { 'Accept': 'application/json' },
+        signal: typeaheadSearchAbortController.signal,
       });
+      if (requestID !== typeaheadSearchRequestID) {
+        return;
+      }
       if (!response.ok) {
         console.warn('Failed to search documents:', response.status);
         typeaheadState.searchResults = [];
@@ -1264,11 +1285,16 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
         .filter((record) => record.id !== '')
         .slice(0, SEARCH_RESULTS_LIMIT);
     } catch (error) {
+      if (error?.name === 'AbortError') {
+        return;
+      }
       console.warn('Error searching documents:', error);
       typeaheadState.searchResults = [];
     } finally {
-      typeaheadState.isLoading = false;
-      renderTypeaheadDropdown();
+      if (requestID === typeaheadSearchRequestID) {
+        typeaheadState.isLoading = false;
+        renderTypeaheadDropdown();
+      }
     }
   }
 
@@ -1361,15 +1387,18 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     container.innerHTML = docs.map((doc, index) => {
       const globalIndex = listType === 'search' ? index : index;
       const isSelected = typeaheadState.selectedIndex === globalIndex;
+      const safeID = escapeHtml(String(doc.id || '').trim());
+      const safeTitle = escapeHtml(String(doc.title || '').trim());
+      const safePageCount = String(parsePositiveInt(doc.pageCount, 0));
       return `
         <button type="button"
           class="typeahead-option w-full px-3 py-2 flex items-center gap-3 hover:bg-blue-50 text-left focus:outline-none focus:bg-blue-50 ${isSelected ? 'bg-blue-50' : ''}"
           role="option"
           aria-selected="${isSelected}"
           tabindex="-1"
-          data-document-id="${doc.id}"
-          data-document-title="${escapeHtml(doc.title)}"
-          data-document-pages="${doc.pageCount}"
+          data-document-id="${safeID}"
+          data-document-title="${safeTitle}"
+          data-document-pages="${safePageCount}"
           data-typeahead-index="${globalIndex}">
           <div class="w-8 h-8 rounded bg-red-100 flex items-center justify-center flex-shrink-0" aria-hidden="true">
             <svg class="w-4 h-4 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1377,8 +1406,8 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
             </svg>
           </div>
           <div class="flex-1 min-w-0">
-            <div class="font-medium text-gray-900 truncate text-sm">${escapeHtml(doc.title)}</div>
-            <div class="text-xs text-gray-500">${doc.pageCount} pages</div>
+            <div class="font-medium text-gray-900 truncate text-sm">${safeTitle}</div>
+            <div class="text-xs text-gray-500">${safePageCount} pages</div>
           </div>
         </button>
       `;
@@ -2502,7 +2531,6 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
 
     if (submitMode === 'json') {
       e.preventDefault();
-      const payload = buildCanonicalAgreementPayload();
       submitBtn.disabled = true;
       submitBtn.innerHTML = `
         <svg class="animate-spin w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -2511,47 +2539,79 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
         </svg>
         ${shouldSendForSignature ? 'Sending...' : 'Saving...'}
       `;
+      void (async () => {
+        try {
+          // Ensure canonical payload is refreshed from current placement state.
+          buildCanonicalAgreementPayload();
 
-      fetch(`${apiVersionBase}/panels/esign_agreements`, {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          ...(currentUserID ? { 'X-User-ID': currentUserID } : {}),
-        },
-        body: JSON.stringify(payload),
-      }).then(async (response) => {
-        if (!response.ok) {
-          const apiError = await parseAPIError(response, 'Failed to create agreement');
-          throw apiError;
+          // Persist the latest wizard state before send/save transition.
+          stateManager.updateState(stateManager.collectFormState());
+          await syncOrchestrator.forceSync();
+
+          const syncedState = stateManager.getState();
+          if (syncedState?.syncPending) {
+            throw new Error('Unable to sync latest draft changes');
+          }
+          const draftID = String(syncedState?.serverDraftId || '').trim();
+          if (!draftID) {
+            throw new Error('Draft session not available. Please try again.');
+          }
+
+          const indexRoute = String(config.routes?.index || '').trim();
+          if (!shouldSendForSignature) {
+            if (indexRoute) {
+              window.location.href = indexRoute;
+              return;
+            }
+            window.location.reload();
+            return;
+          }
+
+          const response = await fetch(
+            draftEndpointWithUserID(`${draftsEndpoint}/${encodeURIComponent(draftID)}/send`),
+            {
+              method: 'POST',
+              credentials: 'same-origin',
+              headers: draftRequestHeaders(),
+              body: JSON.stringify({
+                expected_revision: Number(syncedState?.serverRevision || 0),
+                created_by_user_id: currentUserID,
+              }),
+            }
+          );
+          if (!response.ok) {
+            const apiError = await parseAPIError(response, 'Failed to send agreement');
+            throw apiError;
+          }
+          const payload = await response.json();
+          const agreementID = String(payload?.agreement_id || payload?.id || payload?.data?.id || '').trim();
+
+          stateManager.clear();
+          syncOrchestrator.broadcastStateUpdate();
+
+          if (agreementID && indexRoute) {
+            window.location.href = `${indexRoute}/${encodeURIComponent(agreementID)}`;
+            return;
+          }
+          if (indexRoute) {
+            window.location.href = indexRoute;
+            return;
+          }
+          window.location.reload();
+        } catch (error) {
+          const message = String(error?.message || 'Failed to process agreement').trim();
+          const code = String(error?.code || '').trim();
+          const status = Number(error?.status || 0);
+          announceError(message, code, status);
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = `
+            <svg class="w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+            </svg>
+            Send for Signature
+          `;
         }
-        return response.json();
-      }).then((created) => {
-        const createdID = String(created?.id || created?.data?.id || '').trim();
-        const indexRoute = String(config.routes?.index || '').trim();
-        if (createdID && indexRoute) {
-          window.location.href = `${indexRoute}/${encodeURIComponent(createdID)}`;
-          return;
-        }
-        if (indexRoute) {
-          window.location.href = indexRoute;
-          return;
-        }
-        window.location.reload();
-      }).catch((error) => {
-        const message = String(error?.message || 'Failed to create agreement').trim();
-        const code = String(error?.code || '').trim();
-        const status = Number(error?.status || 0);
-        announceError(message, code, status);
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = `
-          <svg class="w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
-          </svg>
-          Send for Signature
-        `;
-      });
+      })();
       return;
     }
 
@@ -2789,6 +2849,7 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     isResizing: false,
     dragOffset: { x: 0, y: 0 },
     uiHandlersBound: false,
+    loadRequestVersion: 0,
     // Phase 3: Linked field placement state
     linkGroupState: createLinkGroupState(),
   };
@@ -2852,6 +2913,8 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
       const fieldType = String(definition.fieldType || 'text').trim() || 'text';
       const participantId = String(definition.participantId || '').trim();
       const participantName = String(definition.participantName || 'Unassigned').trim() || 'Unassigned';
+      const page = parseInt(String(definition.page || '1'), 10) || 1;
+      const linkGroupId = String(definition.linkGroupId || '').trim();
       if (!definitionId) return;
 
       placementState.fieldInstances.forEach(instance => {
@@ -2872,17 +2935,33 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
       fieldItem.dataset.fieldType = fieldType;
       fieldItem.dataset.participantId = participantId;
       fieldItem.dataset.participantName = participantName;
+      fieldItem.dataset.page = String(page);
+      if (linkGroupId) {
+        fieldItem.dataset.linkGroupId = linkGroupId;
+      }
+      const colorDot = document.createElement('span');
+      colorDot.className = `w-3 h-3 rounded ${colors.bg}`;
 
-      fieldItem.innerHTML = `
-        <span class="w-3 h-3 rounded ${colors.bg}"></span>
-        <div class="flex-1 text-xs">
-          <div class="font-medium capitalize">${fieldType.replace('_', ' ')}</div>
-          <div class="text-gray-500">${participantName}</div>
-        </div>
-        <span class="placement-status text-xs ${isPlaced ? 'text-green-600' : 'text-amber-600'}">
-          ${isPlaced ? 'Placed' : 'Not placed'}
-        </span>
-      `;
+      const details = document.createElement('div');
+      details.className = 'flex-1 text-xs';
+
+      const typeLabel = document.createElement('div');
+      typeLabel.className = 'font-medium capitalize';
+      typeLabel.textContent = fieldType.replace(/_/g, ' ');
+
+      const participantLabel = document.createElement('div');
+      participantLabel.className = 'text-gray-500';
+      participantLabel.textContent = participantName;
+
+      const status = document.createElement('span');
+      status.className = `placement-status text-xs ${isPlaced ? 'text-green-600' : 'text-amber-600'}`;
+      status.textContent = isPlaced ? 'Placed' : 'Not placed';
+
+      details.appendChild(typeLabel);
+      details.appendChild(participantLabel);
+      fieldItem.appendChild(colorDot);
+      fieldItem.appendChild(details);
+      fieldItem.appendChild(status);
 
       // Drag start handler
       fieldItem.addEventListener('dragstart', (e) => {
@@ -2907,44 +2986,28 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
       placementFieldsList.appendChild(fieldItem);
     });
 
+    const loadRequestVersion = ++placementState.loadRequestVersion;
+    const selectedDocumentID = String(documentIdInput.value || '').trim();
+    const encodedDocumentID = encodeURIComponent(selectedDocumentID);
+    const pdfUrl = `${apiBase}/panels/esign_documents/${encodedDocumentID}/source/pdf`;
+
     // Try to load PDF
     try {
-      // Load PDF.js from CDN if not already loaded
-      if (!window.pdfjsLib) {
-        await loadPdfJs();
+      if (!window.pdfjsLib || typeof window.pdfjsLib.getDocument !== 'function') {
+        throw new Error('PDF preview library is unavailable');
       }
 
-      // Fetch document PDF URL
-      const docResponse = await fetch(`${apiBase}/panels/esign_documents/${documentIdInput.value}`, {
-        credentials: 'same-origin',
-        headers: { 'Accept': 'application/json' }
+      // Load PDF document from canonical panel subresource route.
+      const loadingTask = window.pdfjsLib.getDocument({
+        url: pdfUrl,
+        withCredentials: true,
+        disableWorker: true,
       });
-      if (!docResponse.ok) {
-        throw new Error(`Failed to load document metadata (${docResponse.status})`);
+      const pdfDoc = await loadingTask.promise;
+      if (loadRequestVersion !== placementState.loadRequestVersion) {
+        return;
       }
-      const docPayload = await docResponse.json();
-      const docData = (docPayload && typeof docPayload === 'object' && docPayload.data && typeof docPayload.data === 'object')
-        ? docPayload.data
-        : docPayload;
-      const sourceObjectKey = String(docData?.source_object_key || '').trim().replace(/^\/+/, '');
-      const sourceAssetUrl = sourceObjectKey
-        ? `${basePath}/assets/${sourceObjectKey.split('/').map(encodeURIComponent).join('/')}`
-        : '';
-      const pdfUrl = String(
-        docData?.file_url ||
-        docData?.url ||
-        docData?.source_url ||
-        docData?.download_url ||
-        sourceAssetUrl
-      ).trim();
-
-      if (!pdfUrl) {
-        throw new Error('No PDF URL found');
-      }
-
-      // Load PDF document
-      const loadingTask = window.pdfjsLib.getDocument(pdfUrl);
-      placementState.pdfDoc = await loadingTask.promise;
+      placementState.pdfDoc = pdfDoc;
       placementState.totalPages = placementState.pdfDoc.numPages;
       placementState.currentPage = 1;
 
@@ -2969,33 +3032,17 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
       renderFieldOverlays();
 
     } catch (error) {
+      if (loadRequestVersion !== placementState.loadRequestVersion) {
+        return;
+      }
       console.error('Failed to load PDF:', error);
-      placementLoading.innerHTML = `
-        <div class="text-center py-8">
-          <svg class="w-16 h-16 mx-auto text-red-300 mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-          </svg>
-          <p class="text-sm text-red-600 mb-2">Failed to load PDF</p>
-          <p class="text-xs text-gray-400">${error.message}</p>
-        </div>
-      `;
+      placementLoading.classList.add('hidden');
+      placementNoDocument.classList.remove('hidden');
+      placementNoDocument.textContent = `Failed to load PDF: ${mapUserFacingError(error?.message || 'Failed to load PDF')}`;
     }
 
     updatePlacementStats();
     updateFieldInstancesFormData();
-  }
-
-  async function loadPdfJs() {
-    return new Promise((resolve, reject) => {
-      const script = document.createElement('script');
-      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-      script.onload = () => {
-        window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-        resolve();
-      };
-      script.onerror = reject;
-      document.head.appendChild(script);
-    });
   }
 
   async function renderPage(pageNum) {
@@ -3113,42 +3160,76 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
   }
 
   /**
-   * Phase 3: Trigger linked placements for fields in the same link group
+   * Phase 3: Set template position when first field in a link group is manually placed.
+   * Does NOT place siblings immediately - they are placed on page navigation.
    */
-  function triggerLinkedPlacements(sourcePlacement: any): void {
-    // Build field definitions map from placement panel
-    const fieldDefinitions = new Map<string, { type: string; participantId: string; participantName: string }>();
-    const placementFieldItems = document.querySelectorAll('.placement-field-item');
-    placementFieldItems.forEach((item) => {
-      const defId = (item as HTMLElement).dataset.definitionId;
-      if (defId) {
-        fieldDefinitions.set(defId, {
-          type: (item as HTMLElement).dataset.fieldType || 'text',
-          participantId: (item as HTMLElement).dataset.participantId || '',
-          participantName: (item as HTMLElement).dataset.participantName || 'Unknown',
-        });
-      }
-    });
-
-    const result = computeLinkedPlacements(
+  function setLinkedPlacementTemplate(sourcePlacement: any): void {
+    const result = setLinkGroupTemplatePosition(
       placementState.linkGroupState,
-      sourcePlacement,
-      placementState.fieldInstances,
-      fieldDefinitions
+      sourcePlacement
     );
 
     if (!result) return;
 
-    // Add new linked placements
-    for (const newPlacement of result.newPlacements) {
-      placementState.fieldInstances.push(newPlacement);
-      markFieldAsPlaced(newPlacement.definitionId);
+    // Update link group with template position
+    placementState.linkGroupState = addLinkGroup(placementState.linkGroupState, result.updatedGroup);
+  }
+
+  /**
+   * Phase 3: Auto-place linked fields for the current page.
+   * Called when navigating to a new page to place unplaced linked fields at the template position.
+   */
+  function autoPlaceLinkedFieldsForPage(targetPage: number): void {
+    // Build field definitions map including page information
+    const fieldDefinitions = new Map<string, { type: string; participantId: string; participantName: string; page: number; linkGroupId?: string }>();
+    const placementFieldItems = document.querySelectorAll('.placement-field-item');
+    placementFieldItems.forEach((item) => {
+      const defId = (item as HTMLElement).dataset.definitionId;
+      const pageStr = (item as HTMLElement).dataset.page;
+      if (defId) {
+        const groupId = placementState.linkGroupState.definitionToGroup.get(defId);
+        fieldDefinitions.set(defId, {
+          type: (item as HTMLElement).dataset.fieldType || 'text',
+          participantId: (item as HTMLElement).dataset.participantId || '',
+          participantName: (item as HTMLElement).dataset.participantName || 'Unknown',
+          page: pageStr ? parseInt(pageStr, 10) : 1,
+          linkGroupId: groupId,
+        });
+      }
+    });
+
+    // Keep placing fields until no more can be placed for this page
+    let placedCount = 0;
+    const maxPlacements = 10; // Prevent infinite loops
+    while (placedCount < maxPlacements) {
+      const result = computeLinkedPlacementForPage(
+        placementState.linkGroupState,
+        targetPage,
+        placementState.fieldInstances,
+        fieldDefinitions
+      );
+
+      if (!result || !result.newPlacement) break;
+
+      // Add the new placement
+      placementState.fieldInstances.push(result.newPlacement);
+      markFieldAsPlaced(result.newPlacement.definitionId);
+      placedCount++;
     }
 
-    // Update link group with source field
-    if (result.updatedGroup) {
-      placementState.linkGroupState = addLinkGroup(placementState.linkGroupState, result.updatedGroup);
+    if (placedCount > 0) {
+      renderFieldOverlays();
+      updatePlacementStats();
+      updateFieldInstancesFormData();
     }
+  }
+
+  /**
+   * @deprecated Use setLinkedPlacementTemplate instead.
+   * Kept for backwards compatibility with existing code paths.
+   */
+  function triggerLinkedPlacements(sourcePlacement: any): void {
+    setLinkedPlacementTemplate(sourcePlacement);
   }
 
   function renderFieldOverlays() {
@@ -3311,6 +3392,8 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     prevBtn.addEventListener('click', async () => {
       if (placementState.currentPage > 1) {
         placementState.currentPage--;
+        // Phase 3: Auto-place linked fields for this page
+        autoPlaceLinkedFieldsForPage(placementState.currentPage);
         await renderPage(placementState.currentPage);
       }
     });
@@ -3318,6 +3401,8 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     nextBtn.addEventListener('click', async () => {
       if (placementState.currentPage < placementState.totalPages) {
         placementState.currentPage++;
+        // Phase 3: Auto-place linked fields for this page
+        autoPlaceLinkedFieldsForPage(placementState.currentPage);
         await renderPage(placementState.currentPage);
       }
     });
@@ -3376,26 +3461,6 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     const container = document.getElementById('field-instances-container');
     container.innerHTML = '';
     const placementEntries = placementState.fieldInstances.map((instance, index) => toPlacementFormPayload(instance, index));
-
-    placementEntries.forEach((placement, index) => {
-      const inputs = [
-        { name: `field_placements[${index}].id`, value: placement.id },
-        { name: `field_placements[${index}].definition_id`, value: placement.definition_id },
-        { name: `field_placements[${index}].page`, value: placement.page },
-        { name: `field_placements[${index}].x`, value: placement.x },
-        { name: `field_placements[${index}].y`, value: placement.y },
-        { name: `field_placements[${index}].width`, value: placement.width },
-        { name: `field_placements[${index}].height`, value: placement.height }
-      ];
-
-      inputs.forEach(({ name, value }) => {
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = name;
-        input.value = String(value);
-        container.appendChild(input);
-      });
-    });
 
     if (fieldPlacementsJSONInput) {
       fieldPlacementsJSONInput.value = JSON.stringify(placementEntries);
@@ -3549,11 +3614,11 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     // Show resolver scores
     resolverInfo.innerHTML = autoPlaceState.resolverScores.map(rs => `
       <div class="flex items-center justify-between text-xs py-1 border-b border-gray-100 last:border-0">
-        <span class="font-medium capitalize">${rs.resolver_id.replace(/_/g, ' ')}</span>
+        <span class="font-medium capitalize">${escapeHtml(String(rs?.resolver_id || '').replace(/_/g, ' '))}</span>
         <div class="flex items-center gap-2">
           ${rs.supported ? `
             <span class="px-1.5 py-0.5 rounded text-xs ${getScoreBadgeClass(rs.score)}">
-              ${(rs.score * 100).toFixed(0)}%
+              ${(Number(rs?.score || 0) * 100).toFixed(0)}%
             </span>
           ` : `
             <span class="px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 text-xs">N/A</span>
@@ -3565,9 +3630,9 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     // Show run stats
     runStats.innerHTML = `
       <div class="flex items-center gap-4 text-xs text-gray-600">
-        <span>Run: <code class="bg-gray-100 px-1 rounded">${result.run_id?.slice(0, 8) || 'N/A'}</code></span>
-        <span>Status: <span class="font-medium ${result.status === 'completed' ? 'text-green-600' : 'text-amber-600'}">${result.status || 'unknown'}</span></span>
-        <span>Time: ${result.elapsed_ms || 0}ms</span>
+        <span>Run: <code class="bg-gray-100 px-1 rounded">${escapeHtml(String(result?.run_id || '').slice(0, 8) || 'N/A')}</code></span>
+        <span>Status: <span class="font-medium ${result.status === 'completed' ? 'text-green-600' : 'text-amber-600'}">${escapeHtml(String(result?.status || 'unknown'))}</span></span>
+        <span>Time: ${Math.max(0, Number(result?.elapsed_ms || 0))}ms</span>
       </div>
     `;
 
@@ -3575,23 +3640,30 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     suggestionsContainer.innerHTML = autoPlaceState.suggestions.map((suggestion, index) => {
       const fieldDef = getFieldDefinitionById(suggestion.field_definition_id);
       const colors = TYPE_COLORS[fieldDef?.type] || TYPE_COLORS.text;
+      const safeType = escapeHtml(String(fieldDef?.type || 'field').replace(/_/g, ' '));
+      const safeSuggestionID = escapeHtml(String(suggestion?.id || ''));
+      const safePageNumber = Math.max(1, Number(suggestion?.page_number || 1));
+      const safeX = Math.round(Number(suggestion?.x || 0));
+      const safeY = Math.round(Number(suggestion?.y || 0));
+      const safeConfidence = Math.max(0, Number(suggestion?.confidence || 0));
+      const safeResolverLabel = escapeHtml(formatResolverLabel(String(suggestion?.resolver_id || '')));
 
       return `
-        <div class="suggestion-item p-3 border border-gray-200 rounded-lg hover:border-blue-300 transition-colors" data-index="${index}" data-suggestion-id="${suggestion.id}">
+        <div class="suggestion-item p-3 border border-gray-200 rounded-lg hover:border-blue-300 transition-colors" data-index="${index}" data-suggestion-id="${safeSuggestionID}">
           <div class="flex items-start justify-between gap-3">
             <div class="flex items-center gap-2">
               <span class="w-3 h-3 rounded ${colors.bg}"></span>
               <div>
-                <div class="font-medium text-sm capitalize">${(fieldDef?.type || 'field').replace('_', ' ')}</div>
-                <div class="text-xs text-gray-500">Page ${suggestion.page_number}, (${Math.round(suggestion.x)}, ${Math.round(suggestion.y)})</div>
+                <div class="font-medium text-sm capitalize">${safeType}</div>
+                <div class="text-xs text-gray-500">Page ${safePageNumber}, (${safeX}, ${safeY})</div>
               </div>
             </div>
             <div class="flex items-center gap-2">
               <span class="confidence-badge px-2 py-0.5 rounded-full text-xs font-medium ${getConfidenceBadgeClass(suggestion.confidence)}">
-                ${(suggestion.confidence * 100).toFixed(0)}%
+                ${(safeConfidence * 100).toFixed(0)}%
               </span>
               <span class="resolver-badge px-2 py-0.5 rounded bg-gray-100 text-gray-600 text-xs">
-                ${formatResolverLabel(suggestion.resolver_id)}
+                ${safeResolverLabel}
               </span>
             </div>
           </div>

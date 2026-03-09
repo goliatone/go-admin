@@ -2,16 +2,17 @@
  * Linked Field Placement Module (Phase 3)
  *
  * Enables automatic field placement propagation within link groups.
- * When a field in a link group is manually placed, other members of the
- * group automatically receive placements at the same position.
+ * When a field in a link group is manually placed, its position is saved as a template.
+ * When navigating to other pages, unplaced fields for that page are auto-placed at the template position.
  *
  * Behavior rules:
- * 1. Fields in the same link group auto-place from any first manually placed member
- * 2. Manual placements are never overwritten
- * 3. Unlinking a field stops future propagation to that field
- * 4. Auto-linked placements become manual once user drags/resizes that field
+ * 1. First manually placed field in a group sets the template position
+ * 2. When navigating to a new page, unplaced linked fields for that page are auto-placed
+ * 3. Manual placements are never overwritten
+ * 4. Unlinking a field stops future propagation to that field
+ * 5. Auto-linked placements become manual once user drags/resizes that field
  */
-import type { LinkGroup, LinkGroupState, NormalizedPlacementInstance } from './contracts';
+import type { LinkGroup, LinkGroupState, LinkGroupTemplatePosition, NormalizedPlacementInstance } from './contracts';
 /**
  * Generate a unique link group ID
  */
@@ -54,7 +55,48 @@ export declare function getFieldLinkGroup(state: LinkGroupState, definitionId: s
  */
 export declare function getLinkedSiblings(state: LinkGroupState, definitionId: string): string[];
 /**
- * Result of computing linked placements
+ * Result of setting template position
+ */
+export interface SetTemplateResult {
+    /** Updated link group with template position set */
+    updatedGroup: LinkGroup;
+}
+/**
+ * Set template position for a link group when first field is manually placed.
+ * This does NOT place any siblings - it just saves the position for later use.
+ *
+ * @param state Current link group state
+ * @param sourcePlacement The placement that triggered this (manual placement)
+ * @returns Updated group with template position, or null if not applicable
+ */
+export declare function setLinkGroupTemplatePosition(state: LinkGroupState, sourcePlacement: NormalizedPlacementInstance): SetTemplateResult | null;
+/**
+ * Result of computing linked placement for a page
+ */
+export interface LinkedPlacementForPageResult {
+    /** New placement to create (or null if none needed) */
+    newPlacement: NormalizedPlacementInstance | null;
+}
+/**
+ * Compute linked placement for a specific page when navigating.
+ * Finds the unplaced linked field for the given page and creates a placement at the template position.
+ *
+ * @param state Current link group state
+ * @param targetPage The page being navigated to
+ * @param existingPlacements All existing placements (to avoid duplicates)
+ * @param fieldDefinitions Map of definition ID to field metadata including page
+ * @returns New placement to create, or null if no unplaced field for this page
+ */
+export declare function computeLinkedPlacementForPage(state: LinkGroupState, targetPage: number, existingPlacements: NormalizedPlacementInstance[], fieldDefinitions: Map<string, {
+    type: string;
+    participantId: string;
+    participantName: string;
+    page: number;
+    linkGroupId?: string;
+}>): LinkedPlacementForPageResult | null;
+/**
+ * @deprecated Use setLinkGroupTemplatePosition and computeLinkedPlacementForPage instead.
+ * This function is kept for backwards compatibility with tests.
  */
 export interface LinkedPlacementResult {
     /** New placements to create for linked fields */
@@ -63,13 +105,8 @@ export interface LinkedPlacementResult {
     updatedGroup: LinkGroup;
 }
 /**
- * Compute linked placements when a field is manually placed
- *
- * @param state Current link group state
- * @param sourcePlacement The placement that triggered this (manual placement)
- * @param existingPlacements All existing placements (to avoid duplicates)
- * @param fieldDefinitions Map of definition ID to field metadata
- * @returns New placements to create and updated group
+ * @deprecated Use setLinkGroupTemplatePosition and computeLinkedPlacementForPage instead.
+ * Compute linked placements - now only sets template position without placing siblings.
  */
 export declare function computeLinkedPlacements(state: LinkGroupState, sourcePlacement: NormalizedPlacementInstance, existingPlacements: NormalizedPlacementInstance[], fieldDefinitions: Map<string, {
     type: string;
@@ -106,6 +143,7 @@ export declare function serializeLinkGroupState(state: LinkGroupState): {
         memberDefinitionIds: string[];
         sourceFieldId?: string;
         isActive: boolean;
+        templatePosition?: LinkGroupTemplatePosition;
     }>;
     unlinkedDefinitions: string[];
 };
@@ -119,6 +157,7 @@ export declare function deserializeLinkGroupState(data: {
         memberDefinitionIds: string[];
         sourceFieldId?: string;
         isActive: boolean;
+        templatePosition?: LinkGroupTemplatePosition;
     }>;
     unlinkedDefinitions?: string[];
 }): LinkGroupState;
