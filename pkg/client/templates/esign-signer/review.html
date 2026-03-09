@@ -372,6 +372,25 @@
     color: #10b981;
   }
 
+  /* Signature/initials preview image in completed fields */
+  .field-overlay-preview {
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    pointer-events: none;
+  }
+
+  .field-overlay.has-preview {
+    padding: 2px;
+    background: rgba(16, 185, 129, 0.05);
+  }
+
+  .field-overlay.has-preview:hover {
+    background: rgba(16, 185, 129, 0.1);
+  }
+
   /* Side panel */
   .side-panel {
     width: 360px;

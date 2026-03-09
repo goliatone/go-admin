@@ -216,27 +216,25 @@ test('Phase 1.3 contract: runtime uses computeEffectiveRulePages for rule summar
   assert.match(source, /Generates initials fields on \$\{effectiveRangeText\}/);
 });
 
-test('Phase 1.4 contract: addFieldDefinition auto-assigns signer when exactly one signer exists', () => {
+test('Phase 1.4 contract: Step 4 uses shared signer selection resolver', () => {
   const source = fs.readFileSync(agreementRuntimePath, 'utf8');
-  // Must auto-assign to the only signer when no participant_id is provided
-  assert.match(source, /else if \(signers\.length === 1\) \{[\s\S]*?participantSelect\.value = signers\[0\]\.id;[\s\S]*?\}/);
-  // Must include Phase 1.4 comment for deterministic auto-assignment
-  assert.match(source, /Phase 1\.4: deterministic auto-assignment/);
+  assert.match(source, /function resolveSignerSelection\(preferredValue, signers\)/);
+  assert.match(source, /if \(preferred && signers\.some\(\(signer\) => signer\.id === preferred\)\)/);
+  assert.match(source, /if \(signers\.length === 1\) \{[\s\S]*?return signers\[0\]\.id;/);
 });
 
-test('Phase 1.4 contract: updateFieldParticipantOptions auto-assigns unassigned fields when exactly one signer', () => {
+test('Phase 1.4 contract: Step 4 reconciles both field and rule signer selects through one path', () => {
   const source = fs.readFileSync(agreementRuntimePath, 'utf8');
-  // Must auto-assign unassigned field definitions
-  assert.match(source, /else if \(!currentValue && signers\.length === 1\) \{[\s\S]*?\/\/ Phase 1\.4: Auto-assign unassigned fields/);
-  // Must auto-assign unassigned rule fields
-  assert.match(source, /else if \(!currentValue && signers\.length === 1\) \{[\s\S]*?\/\/ Phase 1\.4: Auto-assign unassigned rule fields/);
+  assert.match(source, /function syncSignerSelectOptions\(select, signers, preferredValue = ''\)/);
+  assert.match(source, /function reconcileStep4SignerSelects\(signers = getSignerParticipants\(\)\)/);
+  assert.match(source, /participantSelects\.forEach\(\(select\) => \{[\s\S]*?syncSignerSelectOptions\(select, signers, select\.value\)/);
+  assert.match(source, /ruleParticipantSelects\.forEach\(\(select\) => \{[\s\S]*?syncSignerSelectOptions\(select, signers, select\.value\)/);
 });
 
-test('Phase 1.4 contract: auto-assignment never overwrites user-assigned participant', () => {
+test('Phase 1.4 contract: addFieldDefinition and addFieldRule both use shared signer sync', () => {
   const source = fs.readFileSync(agreementRuntimePath, 'utf8');
-  // Must check for currentValue before restoring or auto-assigning
-  // The pattern ensures user assignments are preserved by checking if currentValue exists
-  assert.match(source, /if \(currentValue && signers\.some\(s => s\.id === currentValue\)\) \{[\s\S]*?select\.value = currentValue;[\s\S]*?\} else if \(!currentValue && signers\.length === 1\)/);
+  assert.match(source, /syncSignerSelectOptions\(participantSelect, getSignerParticipants\(\), normalizedData\.participantId\)/);
+  assert.match(source, /syncSignerSelectOptions\(participantSelect, getSignerParticipants\(\), preferredParticipantID\)/);
 });
 
 test('Phase 1.5 contract: template places Add Field action below definitions list', () => {

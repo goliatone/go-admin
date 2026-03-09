@@ -18,7 +18,9 @@ import {
   isLinkedPlacement,
   isFieldLinked,
   getFieldLinkGroup,
+  getLinkedSiblings,
   unlinkField,
+  relinkField,
   createLinkGroupsFromRules,
   serializeLinkGroupState,
   deserializeLinkGroupState,
@@ -463,7 +465,9 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+        const err = new Error(`HTTP ${response.status}`);
+        err.status = response.status;
+        throw err;
       }
 
       return response.json();
@@ -891,8 +895,12 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
   function showResumeDialog() {
     const modal = document.getElementById('resume-dialog-modal');
     const state = stateManager.getState();
+    const resumeDocumentName = String(state?.document?.title || '').trim()
+      || String(state?.document?.id || '').trim()
+      || 'Unknown document';
 
     document.getElementById('resume-draft-title').textContent = state.details.title || 'Untitled Agreement';
+    document.getElementById('resume-draft-document').textContent = resumeDocumentName;
     document.getElementById('resume-draft-step').textContent = state.currentStep;
     document.getElementById('resume-draft-time').textContent = formatRelativeTime(state.updatedAt);
 
@@ -925,10 +933,36 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     document.getElementById('resume-dialog-modal')?.classList.add('hidden');
   });
 
-  // Check for resumable state on load (only for create mode, not edit)
-  if (!isEditMode && stateManager.hasResumableState()) {
-    showResumeDialog();
+  async function maybeShowResumeDialog() {
+    if (isEditMode || !stateManager.hasResumableState()) return;
+
+    const state = stateManager.getState();
+    const serverDraftID = String(state?.serverDraftId || '').trim();
+    if (!serverDraftID) {
+      showResumeDialog();
+      return;
+    }
+
+    try {
+      const serverDraft = await syncService.load(serverDraftID);
+      if (serverDraft?.wizard_state && typeof serverDraft.wizard_state === 'object') {
+        stateManager.state = { ...serverDraft.wizard_state, serverDraftId: serverDraft.id, serverRevision: serverDraft.revision };
+        stateManager.saveToSession();
+      }
+      showResumeDialog();
+    } catch (error) {
+      // The backing draft no longer exists (for example, converted to agreement and deleted).
+      if (Number(error?.status || 0) === 404) {
+        stateManager.clear();
+        syncOrchestrator.broadcastStateUpdate();
+        return;
+      }
+      showResumeDialog();
+    }
   }
+
+  // Check for resumable state on load (only for create mode, not edit).
+  void maybeShowResumeDialog();
 
   // Track state changes for persistence
   function trackWizardStateChanges() {
@@ -951,6 +985,77 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
   const documentPageCountInput = document.getElementById('document_page_count');
 
   let documents = [];
+
+  function normalizeDocumentCompatibilityTier(value) {
+    return String(value || '').trim().toLowerCase();
+  }
+
+  function normalizeDocumentCompatibilityReason(value) {
+    return String(value || '').trim().toLowerCase();
+  }
+
+  function isDocumentCompatibilityUnsupported(value) {
+    return normalizeDocumentCompatibilityTier(value) === 'unsupported';
+  }
+
+  function clearSelectedDocumentSelection() {
+    if (documentIdInput) {
+      documentIdInput.value = '';
+    }
+    if (selectedDocumentTitle) {
+      selectedDocumentTitle.textContent = '';
+    }
+    if (selectedDocumentInfo) {
+      selectedDocumentInfo.textContent = '';
+    }
+    setDocumentPageCountValue(0);
+    stateManager.updateDocument({
+      id: null,
+      title: null,
+      pageCount: null,
+    });
+    void previewCard.setDocument(null, null, null);
+  }
+
+  function buildPDFUnsupportedDocumentMessage(reason = '') {
+    const base = 'This document cannot be used because its PDF is incompatible with online signing.';
+    const normalizedReason = normalizeDocumentCompatibilityReason(reason);
+    if (!normalizedReason) {
+      return `${base} Select another document or upload a remediated PDF.`;
+    }
+    return `${base} Reason: ${normalizedReason}. Select another document or upload a remediated PDF.`;
+  }
+
+  function findDocumentByID(documentID) {
+    const targetID = String(documentID || '').trim();
+    if (targetID === '') return null;
+    const fromMainList = documents.find((doc) => String(doc.id || '').trim() === targetID);
+    if (fromMainList) return fromMainList;
+    const fromRecent = typeaheadState.recentDocuments.find((doc) => String(doc.id || '').trim() === targetID);
+    if (fromRecent) return fromRecent;
+    const fromSearch = typeaheadState.searchResults.find((doc) => String(doc.id || '').trim() === targetID);
+    if (fromSearch) return fromSearch;
+    return null;
+  }
+
+  function ensureSelectedDocumentCompatibility() {
+    const selectedDoc = findDocumentByID(documentIdInput?.value || '');
+    if (!selectedDoc) return true;
+    const compatibilityTier = normalizeDocumentCompatibilityTier(selectedDoc.compatibilityTier);
+    if (!isDocumentCompatibilityUnsupported(compatibilityTier)) {
+      return true;
+    }
+    clearSelectedDocumentSelection();
+    announceError(buildPDFUnsupportedDocumentMessage(selectedDoc.compatibilityReason || ''));
+    if (selectedDocument) {
+      selectedDocument.classList.add('hidden');
+    }
+    if (documentPicker) {
+      documentPicker.classList.remove('hidden');
+    }
+    documentSearch?.focus();
+    return false;
+  }
 
   function setDocumentPageCountValue(value) {
     const resolved = parsePositiveInt(value, 0);
@@ -978,7 +1083,12 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
 
   async function loadDocuments() {
     try {
-      const response = await fetch(`${apiBase}/panels/esign_documents?per_page=100`, {
+      const params = new URLSearchParams({
+        per_page: '100',
+        sort: 'created_at',
+        sort_desc: 'true',
+      });
+      const response = await fetch(`${apiBase}/panels/esign_documents?${params.toString()}`, {
         credentials: 'same-origin',
         headers: { 'Accept': 'application/json' }
       });
@@ -990,7 +1100,18 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
       const rawDocuments = Array.isArray(data?.records)
         ? data.records
         : (Array.isArray(data?.items) ? data.items : []);
-      documents = rawDocuments
+      const sortedRawDocuments = rawDocuments.slice().sort((left, right) => {
+        const leftDate = Date.parse(String(
+          left?.created_at ?? left?.createdAt ?? left?.updated_at ?? left?.updatedAt ?? ''
+        ));
+        const rightDate = Date.parse(String(
+          right?.created_at ?? right?.createdAt ?? right?.updated_at ?? right?.updatedAt ?? ''
+        ));
+        const leftTs = Number.isFinite(leftDate) ? leftDate : 0;
+        const rightTs = Number.isFinite(rightDate) ? rightDate : 0;
+        return rightTs - leftTs;
+      });
+      documents = sortedRawDocuments
         .map((record) => normalizeDocumentOption(record))
         .filter((record) => record.id !== '');
       renderDocumentList(documents);
@@ -1016,6 +1137,14 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
       const safeID = escapeHtml(String(doc.id || '').trim());
       const safeTitle = escapeHtml(String(doc.title || '').trim());
       const safePageCount = String(parsePositiveInt(doc.pageCount, 0));
+      const compatibilityTier = normalizeDocumentCompatibilityTier(doc.compatibilityTier);
+      const compatibilityReason = normalizeDocumentCompatibilityReason(doc.compatibilityReason);
+      const safeCompatibilityTier = escapeHtml(compatibilityTier);
+      const safeCompatibilityReason = escapeHtml(compatibilityReason);
+      const isUnsupported = isDocumentCompatibilityUnsupported(compatibilityTier);
+      const unsupportedBadge = isUnsupported
+        ? '<span class="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">Unsupported</span>'
+        : '';
       return `
       <button type="button" class="document-option w-full p-3 flex items-center gap-3 hover:bg-gray-50 border-b border-gray-100 last:border-0 text-left focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
               role="option"
@@ -1023,7 +1152,9 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
               tabindex="${index === 0 ? '0' : '-1'}"
               data-document-id="${safeID}"
               data-document-title="${safeTitle}"
-              data-document-pages="${safePageCount}">
+              data-document-pages="${safePageCount}"
+              data-document-compatibility-tier="${safeCompatibilityTier}"
+              data-document-compatibility-reason="${safeCompatibilityReason}">
         <div class="w-8 h-8 rounded bg-red-100 flex items-center justify-center flex-shrink-0" aria-hidden="true">
           <svg class="w-4 h-4 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
@@ -1031,7 +1162,7 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
         </div>
         <div class="flex-1 min-w-0">
           <div class="font-medium text-gray-900 truncate">${safeTitle}</div>
-          <div class="text-xs text-gray-500">${safePageCount} pages</div>
+          <div class="text-xs text-gray-500">${safePageCount} pages ${unsupportedBadge}</div>
         </div>
       </button>
     `;
@@ -1073,6 +1204,19 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     const id = btn.getAttribute('data-document-id');
     const title = btn.getAttribute('data-document-title');
     const pages = btn.getAttribute('data-document-pages');
+    const compatibilityTier = normalizeDocumentCompatibilityTier(
+      btn.getAttribute('data-document-compatibility-tier')
+    );
+    const compatibilityReason = normalizeDocumentCompatibilityReason(
+      btn.getAttribute('data-document-compatibility-reason')
+    );
+
+    if (isDocumentCompatibilityUnsupported(compatibilityTier)) {
+      clearSelectedDocumentSelection();
+      announceError(buildPDFUnsupportedDocumentMessage(compatibilityReason));
+      documentSearch?.focus();
+      return;
+    }
 
     documentIdInput.value = id;
     selectedDocumentTitle.textContent = title;
@@ -1157,8 +1301,8 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
   interface TypeaheadState {
     isOpen: boolean;
     query: string;
-    recentDocuments: Array<{ id: string; title: string; pageCount: number; createdAt?: string }>;
-    searchResults: Array<{ id: string; title: string; pageCount: number }>;
+    recentDocuments: Array<{ id: string; title: string; pageCount: number; compatibilityTier?: string; compatibilityReason?: string; createdAt?: string }>;
+    searchResults: Array<{ id: string; title: string; pageCount: number; compatibilityTier?: string; compatibilityReason?: string }>;
     selectedIndex: number;
     isLoading: boolean;
     isSearchMode: boolean;
@@ -1379,7 +1523,7 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
    */
   function renderTypeaheadList(
     container: HTMLElement | null,
-    docs: Array<{ id: string; title: string; pageCount: number; createdAt?: string }>,
+    docs: Array<{ id: string; title: string; pageCount: number; compatibilityTier?: string; compatibilityReason?: string; createdAt?: string }>,
     listType: 'recent' | 'search'
   ): void {
     if (!container) return;
@@ -1390,6 +1534,14 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
       const safeID = escapeHtml(String(doc.id || '').trim());
       const safeTitle = escapeHtml(String(doc.title || '').trim());
       const safePageCount = String(parsePositiveInt(doc.pageCount, 0));
+      const compatibilityTier = normalizeDocumentCompatibilityTier(doc.compatibilityTier);
+      const compatibilityReason = normalizeDocumentCompatibilityReason(doc.compatibilityReason);
+      const safeCompatibilityTier = escapeHtml(compatibilityTier);
+      const safeCompatibilityReason = escapeHtml(compatibilityReason);
+      const isUnsupported = isDocumentCompatibilityUnsupported(compatibilityTier);
+      const unsupportedBadge = isUnsupported
+        ? '<span class="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">Unsupported</span>'
+        : '';
       return `
         <button type="button"
           class="typeahead-option w-full px-3 py-2 flex items-center gap-3 hover:bg-blue-50 text-left focus:outline-none focus:bg-blue-50 ${isSelected ? 'bg-blue-50' : ''}"
@@ -1399,6 +1551,8 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
           data-document-id="${safeID}"
           data-document-title="${safeTitle}"
           data-document-pages="${safePageCount}"
+          data-document-compatibility-tier="${safeCompatibilityTier}"
+          data-document-compatibility-reason="${safeCompatibilityReason}"
           data-typeahead-index="${globalIndex}">
           <div class="w-8 h-8 rounded bg-red-100 flex items-center justify-center flex-shrink-0" aria-hidden="true">
             <svg class="w-4 h-4 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1407,7 +1561,7 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
           </div>
           <div class="flex-1 min-w-0">
             <div class="font-medium text-gray-900 truncate text-sm">${safeTitle}</div>
-            <div class="text-xs text-gray-500">${safePageCount} pages</div>
+            <div class="text-xs text-gray-500">${safePageCount} pages ${unsupportedBadge}</div>
           </div>
         </button>
       `;
@@ -1426,8 +1580,20 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     const id = btn.getAttribute('data-document-id');
     const title = btn.getAttribute('data-document-title');
     const pages = btn.getAttribute('data-document-pages');
+    const compatibilityTier = normalizeDocumentCompatibilityTier(
+      btn.getAttribute('data-document-compatibility-tier')
+    );
+    const compatibilityReason = normalizeDocumentCompatibilityReason(
+      btn.getAttribute('data-document-compatibility-reason')
+    );
 
     if (!id) return;
+    if (isDocumentCompatibilityUnsupported(compatibilityTier)) {
+      clearSelectedDocumentSelection();
+      announceError(buildPDFUnsupportedDocumentMessage(compatibilityReason));
+      documentSearch?.focus();
+      return;
+    }
 
     documentIdInput.value = id;
     selectedDocumentTitle.textContent = title || '';
@@ -1502,6 +1668,8 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
             mockBtn.setAttribute('data-document-id', selectedDoc.id);
             mockBtn.setAttribute('data-document-title', selectedDoc.title);
             mockBtn.setAttribute('data-document-pages', String(selectedDoc.pageCount));
+            mockBtn.setAttribute('data-document-compatibility-tier', String(selectedDoc.compatibilityTier || ''));
+            mockBtn.setAttribute('data-document-compatibility-reason', String(selectedDoc.compatibilityReason || ''));
             selectDocumentFromTypeahead(mockBtn);
           }
         }
@@ -1726,48 +1894,48 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     return signers;
   }
 
+  function resolveSignerSelection(preferredValue, signers) {
+    const preferred = String(preferredValue || '').trim();
+    if (preferred && signers.some((signer) => signer.id === preferred)) {
+      return preferred;
+    }
+    if (signers.length === 1) {
+      // Phase 1.4: Deterministic auto-assignment when only one signer exists.
+      return signers[0].id;
+    }
+    return '';
+  }
+
+  function syncSignerSelectOptions(select, signers, preferredValue = '') {
+    if (!select) return;
+    const resolvedSelection = resolveSignerSelection(preferredValue, signers);
+    select.innerHTML = '<option value="">Select signer...</option>';
+    signers.forEach((signer) => {
+      const option = document.createElement('option');
+      option.value = signer.id;
+      option.textContent = signer.name;
+      select.appendChild(option);
+    });
+    select.value = resolvedSelection;
+  }
+
+  function reconcileStep4SignerSelects(signers = getSignerParticipants()) {
+    const participantSelects = fieldDefinitionsContainer.querySelectorAll('.field-participant-select');
+    const ruleParticipantSelects = fieldRulesContainer
+      ? fieldRulesContainer.querySelectorAll('.field-rule-participant-select')
+      : [];
+
+    participantSelects.forEach((select) => {
+      syncSignerSelectOptions(select, signers, select.value);
+    });
+    ruleParticipantSelects.forEach((select) => {
+      syncSignerSelectOptions(select, signers, select.value);
+    });
+  }
+
   function updateFieldParticipantOptions() {
     const signers = getSignerParticipants();
-    const participantSelects = fieldDefinitionsContainer.querySelectorAll('.field-participant-select');
-    const ruleParticipantSelects = fieldRulesContainer ? fieldRulesContainer.querySelectorAll('.field-rule-participant-select') : [];
-
-    participantSelects.forEach(select => {
-      const currentValue = select.value;
-      select.innerHTML = '<option value="">Select signer...</option>';
-      signers.forEach(signer => {
-        const option = document.createElement('option');
-        option.value = signer.id;
-        option.textContent = signer.name;
-        select.appendChild(option);
-      });
-      // Restore selection if still valid
-      if (currentValue && signers.some(s => s.id === currentValue)) {
-        select.value = currentValue;
-      } else if (!currentValue && signers.length === 1) {
-        // Phase 1.4: Auto-assign unassigned fields when exactly one signer exists.
-        // Only auto-assign if the field was previously unassigned (currentValue is empty).
-        // This preserves user intent: if a user explicitly unassigned a field, and then
-        // adds a new signer, we auto-assign only if there's still exactly one signer.
-        select.value = signers[0].id;
-      }
-    });
-
-    ruleParticipantSelects.forEach((select) => {
-      const currentValue = select.value;
-      select.innerHTML = '<option value="">Select signer...</option>';
-      signers.forEach((signer) => {
-        const option = document.createElement('option');
-        option.value = signer.id;
-        option.textContent = signer.name;
-        select.appendChild(option);
-      });
-      if (currentValue && signers.some((signer) => signer.id === currentValue)) {
-        select.value = currentValue;
-      } else if (!currentValue && signers.length === 1) {
-        // Phase 1.4: Auto-assign unassigned rule fields when exactly one signer exists.
-        select.value = signers[0].id;
-      }
-    });
+    reconcileStep4SignerSelects(signers);
 
     renderFieldRulePreview();
   }
@@ -2036,18 +2204,9 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     excludeLastInput.name = `field_rules[${formIndex}].exclude_last_page`;
     excludePagesInput.name = `field_rules[${formIndex}].exclude_pages`;
 
-    const signers = getSignerParticipants();
-    participantSelect.innerHTML = '<option value="">Select signer...</option>';
-    signers.forEach((signer) => {
-      const option = document.createElement('option');
-      option.value = signer.id;
-      option.textContent = signer.name;
-      participantSelect.appendChild(option);
-    });
-
     const normalizedData = normalizeFieldRuleState(data, terminalPage);
     typeSelect.value = normalizedData.type || 'initials_each_page';
-    participantSelect.value = normalizedData.participantId;
+    syncSignerSelectOptions(participantSelect, getSignerParticipants(), normalizedData.participantId);
     fromPageInput.value = String(normalizedData.fromPage > 0 ? normalizedData.fromPage : 1);
     toPageInput.value = String(normalizedData.toPage > 0 ? normalizedData.toPage : terminalPage);
     pageInput.value = String(normalizedData.page > 0 ? normalizedData.page : terminalPage);
@@ -2156,22 +2315,8 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     }
     if (data.required !== undefined) requiredCheckbox.checked = data.required;
 
-    // Populate participant options
-    const signers = getSignerParticipants();
-    participantSelect.innerHTML = '<option value="">Select signer...</option>';
-    signers.forEach(signer => {
-      const option = document.createElement('option');
-      option.value = signer.id;
-      option.textContent = signer.name;
-      participantSelect.appendChild(option);
-    });
-    // Set participant_id when provided, or auto-assign when exactly one signer exists.
-    if (data.participant_id) {
-      participantSelect.value = data.participant_id;
-    } else if (signers.length === 1) {
-      // Auto-assign new field to the only signer (Phase 1.4: deterministic auto-assignment)
-      participantSelect.value = signers[0].id;
-    }
+    const preferredParticipantID = String(data.participant_id || data.participantId || '').trim();
+    syncSignerSelectOptions(participantSelect, getSignerParticipants(), preferredParticipantID);
 
     // Show date_signed info when that type is selected
     typeSelect.addEventListener('change', () => {
@@ -2293,6 +2438,12 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
       Number(status) === 426
     ) {
       return 'This action requires a secure connection. Please access the app using HTTPS.';
+    }
+    if (
+      normalizedCode === 'PDF_UNSUPPORTED' ||
+      normalizedMessage === 'pdf compatibility unsupported'
+    ) {
+      return 'This document cannot be sent for signature because its PDF is incompatible. Select another document or upload a remediated PDF.';
     }
     if (String(message || '').trim() !== '') {
       return String(message).trim();
@@ -2446,6 +2597,10 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
       e.preventDefault();
       announceError('Please select a document');
       documentSearch.focus();
+      return;
+    }
+    if (!ensureSelectedDocumentCompatibility()) {
+      e.preventDefault();
       return;
     }
 
@@ -2723,6 +2878,9 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
           announceError('Please select a document');
           return false;
         }
+        if (!ensureSelectedDocumentCompatibility()) {
+          return false;
+        }
         return true;
 
       case 2:
@@ -2908,13 +3066,29 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
 
     placementFieldsList.innerHTML = '';
 
-    placementDefinitions.forEach((definition) => {
+    // Phase 3.2: Track link groups to add toggle icons
+    const hasLinkGroups = placementState.linkGroupState.groups.size > 0;
+    const linkBatchActions = document.getElementById('link-batch-actions');
+    if (linkBatchActions) {
+      linkBatchActions.classList.toggle('hidden', !hasLinkGroups);
+    }
+
+    // Build array of definitions with their link info for rendering
+    const defsWithLinks = placementDefinitions.map((definition) => {
       const definitionId = String(definition.definitionId || '').trim();
+      const linkGroupId = placementState.linkGroupState.definitionToGroup.get(definitionId) || '';
+      const isUnlinked = placementState.linkGroupState.unlinkedDefinitions.has(definitionId);
+      return { ...definition, definitionId, linkGroupId, isUnlinked };
+    });
+
+    defsWithLinks.forEach((definition, index) => {
+      const definitionId = definition.definitionId;
       const fieldType = String(definition.fieldType || 'text').trim() || 'text';
       const participantId = String(definition.participantId || '').trim();
       const participantName = String(definition.participantName || 'Unassigned').trim() || 'Unassigned';
       const page = parseInt(String(definition.page || '1'), 10) || 1;
-      const linkGroupId = String(definition.linkGroupId || '').trim();
+      const linkGroupId = definition.linkGroupId;
+      const isUnlinked = definition.isUnlinked;
       if (!definitionId) return;
 
       placementState.fieldInstances.forEach(instance => {
@@ -2984,7 +3158,17 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
       });
 
       placementFieldsList.appendChild(fieldItem);
+
+      // Phase 3.2: Add link toggle between adjacent linked fields
+      const nextDef = defsWithLinks[index + 1];
+      if (linkGroupId && nextDef && nextDef.linkGroupId === linkGroupId) {
+        const linkToggle = createLinkToggle(definitionId, !isUnlinked);
+        placementFieldsList.appendChild(linkToggle);
+      }
     });
+
+    // Phase 3.2: Setup batch link/unlink button handlers
+    setupLinkBatchActions();
 
     const loadRequestVersion = ++placementState.loadRequestVersion;
     const selectedDocumentID = String(documentIdInput.value || '').trim();
@@ -3043,6 +3227,237 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
 
     updatePlacementStats();
     updateFieldInstancesFormData();
+  }
+
+  /**
+   * Phase 3.2: Create a link toggle icon element between linked fields
+   */
+  function createLinkToggle(definitionId: string, isLinked: boolean): HTMLElement {
+    const toggle = document.createElement('div');
+    toggle.className = 'link-toggle flex justify-center py-0.5 cursor-pointer hover:bg-gray-100 rounded transition-colors';
+    toggle.dataset.definitionId = definitionId;
+    toggle.dataset.isLinked = String(isLinked);
+    toggle.title = isLinked ? 'Click to unlink this field' : 'Click to re-link this field';
+    toggle.setAttribute('role', 'button');
+    toggle.setAttribute('aria-label', isLinked ? 'Unlink field from group' : 'Re-link field to group');
+    toggle.setAttribute('tabindex', '0');
+
+    // Chain icon (linked) or broken chain icon (unlinked)
+    if (isLinked) {
+      toggle.innerHTML = `<svg class="w-4 h-4 text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+      </svg>`;
+    } else {
+      toggle.innerHTML = `<svg class="w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+        <line x1="2" y1="2" x2="22" y2="22"/>
+      </svg>`;
+    }
+
+    // Click handler
+    toggle.addEventListener('click', () => toggleFieldLink(definitionId, isLinked));
+    toggle.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toggleFieldLink(definitionId, isLinked);
+      }
+    });
+
+    return toggle;
+  }
+
+  /**
+   * Phase 3.2: Toggle link state for a field
+   */
+  function toggleFieldLink(definitionId: string, currentlyLinked: boolean): void {
+    if (currentlyLinked) {
+      placementState.linkGroupState = unlinkField(placementState.linkGroupState, definitionId);
+      if (window.toastManager) {
+        window.toastManager.info('Field unlinked');
+      }
+    } else {
+      placementState.linkGroupState = relinkField(placementState.linkGroupState, definitionId);
+      if (window.toastManager) {
+        window.toastManager.info('Field re-linked');
+      }
+    }
+
+    // Re-render sidebar to update toggle states
+    refreshPlacementSidebar();
+  }
+
+  /**
+   * Phase 3.2: Setup batch link/unlink button handlers
+   */
+  function setupLinkBatchActions(): void {
+    const linkAllBtn = document.getElementById('link-all-btn');
+    const unlinkAllBtn = document.getElementById('unlink-all-btn');
+
+    if (linkAllBtn && !linkAllBtn.dataset.bound) {
+      linkAllBtn.dataset.bound = 'true';
+      linkAllBtn.addEventListener('click', () => {
+        // Re-link all unlinked definitions
+        const unlinkedCount = placementState.linkGroupState.unlinkedDefinitions.size;
+        if (unlinkedCount === 0) return;
+
+        for (const defId of placementState.linkGroupState.unlinkedDefinitions) {
+          placementState.linkGroupState = relinkField(placementState.linkGroupState, defId);
+        }
+
+        if (window.toastManager) {
+          window.toastManager.success(`Re-linked ${unlinkedCount} field${unlinkedCount > 1 ? 's' : ''}`);
+        }
+        refreshPlacementSidebar();
+      });
+    }
+
+    if (unlinkAllBtn && !unlinkAllBtn.dataset.bound) {
+      unlinkAllBtn.dataset.bound = 'true';
+      unlinkAllBtn.addEventListener('click', () => {
+        // Unlink all linked definitions
+        let unlinkedCount = 0;
+        for (const defId of placementState.linkGroupState.definitionToGroup.keys()) {
+          if (!placementState.linkGroupState.unlinkedDefinitions.has(defId)) {
+            placementState.linkGroupState = unlinkField(placementState.linkGroupState, defId);
+            unlinkedCount++;
+          }
+        }
+
+        if (unlinkedCount > 0 && window.toastManager) {
+          window.toastManager.success(`Unlinked ${unlinkedCount} field${unlinkedCount > 1 ? 's' : ''}`);
+        }
+        refreshPlacementSidebar();
+      });
+    }
+
+    // Update button states
+    updateLinkBatchButtonStates();
+  }
+
+  /**
+   * Phase 3.2: Update enabled/disabled states of batch link buttons
+   */
+  function updateLinkBatchButtonStates(): void {
+    const linkAllBtn = document.getElementById('link-all-btn') as HTMLButtonElement;
+    const unlinkAllBtn = document.getElementById('unlink-all-btn') as HTMLButtonElement;
+
+    if (linkAllBtn) {
+      const hasUnlinked = placementState.linkGroupState.unlinkedDefinitions.size > 0;
+      linkAllBtn.disabled = !hasUnlinked;
+    }
+
+    if (unlinkAllBtn) {
+      let hasLinked = false;
+      for (const defId of placementState.linkGroupState.definitionToGroup.keys()) {
+        if (!placementState.linkGroupState.unlinkedDefinitions.has(defId)) {
+          hasLinked = true;
+          break;
+        }
+      }
+      unlinkAllBtn.disabled = !hasLinked;
+    }
+  }
+
+  /**
+   * Phase 3.2: Refresh the placement sidebar to reflect link state changes
+   */
+  function refreshPlacementSidebar(): void {
+    const placementFieldsList = document.getElementById('placement-fields-list');
+    if (!placementFieldsList) return;
+
+    // Re-collect and re-render field definitions
+    const placementDefinitions = collectPlacementFieldDefinitions();
+    placementFieldsList.innerHTML = '';
+
+    const defsWithLinks = placementDefinitions.map((definition) => {
+      const definitionId = String(definition.definitionId || '').trim();
+      const linkGroupId = placementState.linkGroupState.definitionToGroup.get(definitionId) || '';
+      const isUnlinked = placementState.linkGroupState.unlinkedDefinitions.has(definitionId);
+      return { ...definition, definitionId, linkGroupId, isUnlinked };
+    });
+
+    defsWithLinks.forEach((definition, index) => {
+      const definitionId = definition.definitionId;
+      const fieldType = String(definition.fieldType || 'text').trim() || 'text';
+      const participantId = String(definition.participantId || '').trim();
+      const participantName = String(definition.participantName || 'Unassigned').trim() || 'Unassigned';
+      const page = parseInt(String(definition.page || '1'), 10) || 1;
+      const linkGroupId = definition.linkGroupId;
+      const isUnlinked = definition.isUnlinked;
+      if (!definitionId) return;
+
+      const colors = TYPE_COLORS[fieldType] || TYPE_COLORS.text;
+      const isPlaced = placementState.fieldInstances.some(f => f.definitionId === definitionId);
+
+      const fieldItem = document.createElement('div');
+      fieldItem.className = `placement-field-item p-2 border border-gray-200 rounded cursor-move hover:bg-gray-50 flex items-center gap-2 ${isPlaced ? 'opacity-50' : ''}`;
+      fieldItem.draggable = !isPlaced;
+      fieldItem.dataset.definitionId = definitionId;
+      fieldItem.dataset.fieldType = fieldType;
+      fieldItem.dataset.participantId = participantId;
+      fieldItem.dataset.participantName = participantName;
+      fieldItem.dataset.page = String(page);
+      if (linkGroupId) {
+        fieldItem.dataset.linkGroupId = linkGroupId;
+      }
+
+      const colorDot = document.createElement('span');
+      colorDot.className = `w-3 h-3 rounded ${colors.bg}`;
+
+      const details = document.createElement('div');
+      details.className = 'flex-1 text-xs';
+
+      const typeLabel = document.createElement('div');
+      typeLabel.className = 'font-medium capitalize';
+      typeLabel.textContent = fieldType.replace(/_/g, ' ');
+
+      const participantLabel = document.createElement('div');
+      participantLabel.className = 'text-gray-500';
+      participantLabel.textContent = participantName;
+
+      const status = document.createElement('span');
+      status.className = `placement-status text-xs ${isPlaced ? 'text-green-600' : 'text-amber-600'}`;
+      status.textContent = isPlaced ? 'Placed' : 'Not placed';
+
+      details.appendChild(typeLabel);
+      details.appendChild(participantLabel);
+      fieldItem.appendChild(colorDot);
+      fieldItem.appendChild(details);
+      fieldItem.appendChild(status);
+
+      // Drag start handler
+      fieldItem.addEventListener('dragstart', (e) => {
+        if (isPlaced) {
+          e.preventDefault();
+          return;
+        }
+        e.dataTransfer.setData('application/json', JSON.stringify({
+          definitionId,
+          fieldType,
+          participantId,
+          participantName
+        }));
+        e.dataTransfer.effectAllowed = 'copy';
+        fieldItem.classList.add('opacity-50');
+      });
+
+      fieldItem.addEventListener('dragend', () => {
+        fieldItem.classList.remove('opacity-50');
+      });
+
+      placementFieldsList.appendChild(fieldItem);
+
+      // Phase 3.2: Add link toggle between adjacent linked fields
+      const nextDef = defsWithLinks[index + 1];
+      if (linkGroupId && nextDef && nextDef.linkGroupId === linkGroupId) {
+        const linkToggle = createLinkToggle(definitionId, !isUnlinked);
+        placementFieldsList.appendChild(linkToggle);
+      }
+    });
+
+    updateLinkBatchButtonStates();
   }
 
   async function renderPage(pageNum) {
@@ -3144,8 +3559,10 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
 
   /**
    * Mark a field as placed in the sidebar panel
+   * @param definitionId The field definition ID
+   * @param isAutoLinked If true, adds flash animation class for auto-linked fields
    */
-  function markFieldAsPlaced(definitionId: string): void {
+  function markFieldAsPlaced(definitionId: string, isAutoLinked: boolean = false): void {
     const fieldItem = document.querySelector(`.placement-field-item[data-definition-id="${definitionId}"]`);
     if (fieldItem) {
       fieldItem.classList.add('opacity-50');
@@ -3155,6 +3572,10 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
         status.textContent = 'Placed';
         status.classList.remove('text-amber-600');
         status.classList.add('text-green-600');
+      }
+      // Phase 3.2: Mark for flash animation if auto-linked
+      if (isAutoLinked) {
+        fieldItem.classList.add('just-linked');
       }
     }
   }
@@ -3213,7 +3634,7 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
 
       // Add the new placement
       placementState.fieldInstances.push(result.newPlacement);
-      markFieldAsPlaced(result.newPlacement.definitionId);
+      markFieldAsPlaced(result.newPlacement.definitionId, true); // true = auto-linked
       placedCount++;
     }
 
@@ -3221,7 +3642,49 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
       renderFieldOverlays();
       updatePlacementStats();
       updateFieldInstancesFormData();
+
+      // Phase 3.2: Flash animation + count announcement
+      announceLinkedPlacements(placedCount);
     }
+  }
+
+  /**
+   * Phase 3.2: Announce auto-placed linked fields with toast and flash animation
+   */
+  function announceLinkedPlacements(count: number): void {
+    // Toast notification
+    const message = count === 1
+      ? 'Auto-placed 1 linked field'
+      : `Auto-placed ${count} linked fields`;
+
+    if (window.toastManager) {
+      window.toastManager.info(message);
+    }
+
+    // Screen reader announcement
+    const srAnnouncement = document.createElement('div');
+    srAnnouncement.setAttribute('role', 'status');
+    srAnnouncement.setAttribute('aria-live', 'polite');
+    srAnnouncement.className = 'sr-only';
+    srAnnouncement.textContent = message;
+    document.body.appendChild(srAnnouncement);
+    setTimeout(() => srAnnouncement.remove(), 1000);
+
+    // Flash animation on sidebar items for newly placed fields
+    flashLinkedSidebarItems();
+  }
+
+  /**
+   * Phase 3.2: Flash animation on sidebar items that were just auto-placed
+   */
+  function flashLinkedSidebarItems(): void {
+    const items = document.querySelectorAll('.placement-field-item.just-linked');
+    items.forEach(item => {
+      item.classList.add('linked-flash');
+      setTimeout(() => {
+        item.classList.remove('linked-flash', 'just-linked');
+      }, 600);
+    });
   }
 
   /**
@@ -3242,9 +3705,12 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
       .forEach(instance => {
         const colors = TYPE_COLORS[instance.type] || TYPE_COLORS.text;
         const isSelected = placementState.selectedFieldId === instance.id;
+        const isAutoLinked = instance.placementSource === PLACEMENT_SOURCE.AUTO_LINKED;
 
         const overlay = document.createElement('div');
-        overlay.className = `field-overlay absolute cursor-move ${colors.border} border-2 rounded`;
+        // Auto-linked fields get dashed border to distinguish from manual placements
+        const borderStyle = isAutoLinked ? 'border-dashed' : 'border-solid';
+        overlay.className = `field-overlay absolute cursor-move ${colors.border} border-2 ${borderStyle} rounded`;
         overlay.style.cssText = `
           left: ${instance.x * placementState.scale}px;
           top: ${instance.y * placementState.scale}px;
@@ -3260,6 +3726,18 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
         label.className = 'absolute -top-5 left-0 text-xs whitespace-nowrap px-1 rounded text-white ' + colors.bg;
         label.textContent = `${instance.type.replace('_', ' ')} - ${instance.participantName}`;
         overlay.appendChild(label);
+
+        // Link badge for auto-linked placements (Phase 3.2)
+        if (isAutoLinked) {
+          const linkBadge = document.createElement('div');
+          linkBadge.className = 'absolute -top-1 -right-1 w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center';
+          linkBadge.title = 'Auto-linked from template';
+          linkBadge.innerHTML = `<svg class="w-2.5 h-2.5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+          </svg>`;
+          overlay.appendChild(linkBadge);
+        }
 
         // Resize handle
         const resizeHandle = document.createElement('div');

@@ -42,6 +42,9 @@
       <div class="p-3 bg-gray-50 rounded-lg mb-4">
         <p class="text-sm font-medium text-gray-900" id="resume-draft-title">Untitled Agreement</p>
         <p class="text-xs text-gray-500 mt-1">
+          Document <span id="resume-draft-document">Unknown document</span>
+        </p>
+        <p class="text-xs text-gray-500 mt-1">
           Step <span id="resume-draft-step">1</span> of 6 &middot; Last edited <span id="resume-draft-time">just now</span>
         </p>
       </div>
@@ -174,13 +177,17 @@
 
     {# Error State #}
     <div id="document-preview-error" class="hidden p-6 text-center">
-      <div class="w-12 h-12 mx-auto mb-3 rounded-lg bg-red-50 flex items-center justify-center">
-        <svg class="w-6 h-6 text-red-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+      <div class="w-12 h-12 mx-auto mb-3 rounded-lg bg-amber-50 flex items-center justify-center">
+        <svg class="w-6 h-6 text-amber-500" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
         </svg>
       </div>
-      <p class="text-sm text-red-600">Preview unavailable</p>
-      <p id="document-preview-error-message" class="text-xs text-gray-400 mt-1">Failed to load</p>
+      <p id="document-preview-error-message" class="text-sm font-medium text-gray-700">Preview unavailable</p>
+      <p id="document-preview-error-suggestion" class="text-xs text-gray-500 mt-1">Unable to load the document preview.</p>
+      <button type="button" id="document-preview-retry-btn" class="hidden mt-3 text-xs text-blue-600 hover:text-blue-700 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded">
+        Try again
+      </button>
+      <p id="document-preview-error-debug" class="hidden text-xs text-gray-400 mt-2 font-mono break-all"></p>
     </div>
 
     {# Content State - Thumbnail + Info #}
@@ -907,10 +914,28 @@
           {# Fields Panel #}
           <div id="placement-fields-panel" class="w-72 border-l border-gray-200 bg-white overflow-y-auto" style="max-height: 600px;">
             <div class="p-4 border-b border-gray-200">
-              <h3 class="font-medium text-gray-900 text-sm">Field Definitions</h3>
-              <p class="text-xs text-gray-500 mt-1">Drag fields onto the document to place them</p>
+              <div class="flex items-center justify-between mb-1">
+                <h3 class="font-medium text-gray-900 text-sm">Field Definitions</h3>
+                {# Batch link/unlink buttons #}
+                <div id="link-batch-actions" class="flex items-center gap-1 hidden">
+                  <button type="button" id="link-all-btn" class="p-1 rounded text-gray-500 hover:bg-gray-100 hover:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed" title="Link all fields" aria-label="Link all fields">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                    </svg>
+                  </button>
+                  <button type="button" id="unlink-all-btn" class="p-1 rounded text-gray-500 hover:bg-gray-100 hover:text-amber-600 disabled:opacity-50 disabled:cursor-not-allowed" title="Unlink all fields" aria-label="Unlink all fields">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                      <line x1="2" y1="2" x2="22" y2="22"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <p class="text-xs text-gray-500">Drag fields onto the document to place them</p>
             </div>
-            <div id="placement-fields-list" class="p-2 space-y-1"></div>
+            <div id="placement-fields-list" class="p-2 space-y-0"></div>
 
             {# Placement Stats #}
             <div class="p-4 border-t border-gray-200 bg-gray-50">
@@ -1067,6 +1092,68 @@
     </div>
   </form>
 </div>
+
+{# Phase 3.2: Link toggle and animation styles #}
+<style>
+  /* Link toggle icon between linked fields */
+  .link-toggle {
+    margin: -2px 0;
+    position: relative;
+  }
+
+  .link-toggle::before,
+  .link-toggle::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    width: 1px;
+    height: 4px;
+    background-color: #e5e7eb;
+  }
+
+  .link-toggle::before {
+    top: 0;
+  }
+
+  .link-toggle::after {
+    bottom: 0;
+  }
+
+  /* Flash animation for auto-placed linked fields */
+  @keyframes linked-flash {
+    0% {
+      background-color: rgba(59, 130, 246, 0.3);
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+    }
+    100% {
+      background-color: transparent;
+      box-shadow: none;
+    }
+  }
+
+  .placement-field-item.linked-flash {
+    animation: linked-flash 0.6s ease-out forwards;
+  }
+
+  /* Visual distinction for unlinked fields in sidebar */
+  .placement-field-item[data-link-group-id].unlinked {
+    border-style: dashed;
+    border-color: #d1d5db;
+  }
+
+  /* Screen reader only utility */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+</style>
 {% endblock %}
 
 {% block scripts %}

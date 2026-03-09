@@ -2330,11 +2330,22 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
         overlay.style.height = '30px';
       }
 
-      // Label inside overlay
-      const label = document.createElement('span');
-      label.className = 'field-overlay-label';
-      label.textContent = getFieldTypeLabel(fieldData.type);
-      overlay.appendChild(label);
+      // Show signature preview image or label inside overlay
+      if (fieldData.completed && fieldData.signaturePreviewUrl) {
+        // Live preview: show the actual signature/initials image
+        const img = document.createElement('img');
+        img.className = 'field-overlay-preview';
+        img.src = fieldData.signaturePreviewUrl;
+        img.alt = getFieldTypeLabel(fieldData.type);
+        overlay.appendChild(img);
+        overlay.classList.add('has-preview');
+      } else {
+        // Default: show text label
+        const label = document.createElement('span');
+        label.className = 'field-overlay-label';
+        label.textContent = getFieldTypeLabel(fieldData.type);
+        overlay.appendChild(label);
+      }
 
       // Accessibility: keyboard focusable
       overlay.setAttribute('tabindex', '0');
@@ -3388,6 +3399,10 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
         fieldData.value = valueText;
         fieldData.completed = true;
         fieldData.hasError = false;
+        // Store signature preview URL for live preview in field overlays
+        if (signatureData?.dataUrl) {
+          fieldData.signaturePreviewUrl = signatureData.dataUrl;
+        }
       }
 
       await persistProfileFromField(fieldData, {
