@@ -1,6 +1,7 @@
 package quickstart
 
 import (
+	"net/url"
 	"path"
 	"strings"
 
@@ -91,6 +92,38 @@ func resolveAdminPanelAPIDetailPath(urls urlkit.Resolver, cfg admin.Config, fall
 		return ""
 	}
 	return prefixBasePath(collection, id)
+}
+
+func resolveAdminPanelAPIBulkBasePath(urls urlkit.Resolver, cfg admin.Config, fallbackBase, panel string) string {
+	panel = canonicalPanelName(panel)
+	if panel == "" {
+		return ""
+	}
+	group := adminAPIGroupName(cfg)
+	const actionPlaceholder = "__go_admin_bulk_action__"
+	if resolved := strings.TrimSpace(resolveRouteURL(
+		urls,
+		group,
+		"panel.bulk",
+		map[string]string{"panel": panel, "action": actionPlaceholder},
+		nil,
+	)); resolved != "" {
+		if parsed, err := url.Parse(resolved); err == nil {
+			trimmed := strings.TrimSuffix(parsed.Path, "/"+actionPlaceholder)
+			if strings.TrimSpace(trimmed) != "" && trimmed != parsed.Path {
+				parsed.Path = trimmed
+				return parsed.String()
+			}
+		}
+		if strings.HasSuffix(resolved, "/"+actionPlaceholder) {
+			return strings.TrimSuffix(resolved, "/"+actionPlaceholder)
+		}
+	}
+	collection := resolveAdminPanelAPICollectionPath(urls, cfg, fallbackBase, panel)
+	if collection == "" {
+		return ""
+	}
+	return prefixBasePath(collection, "bulk")
 }
 
 func resolveAdminPreferencesAPICollectionPath(urls urlkit.Resolver, cfg admin.Config, fallbackBase string) string {
