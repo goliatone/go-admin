@@ -1,1 +1,0 @@
-{"version":3,"file":"drag-drop.d.ts","sourceRoot":"","sources":["../../../src/dashboard/behaviors/drag-drop.ts"],"names":[],"mappings":"AAAA;;GAEG;AAGH,OAAO,KAAK,EAAE,gBAAgB,EAAE,MAAM,aAAa,CAAC;AAEpD,qBAAa,uBAAwB,YAAW,gBAAgB;IAC9D,OAAO,CAAC,iBAAiB,CAAkB;IAE3C,MAAM,CAAC,SAAS,EAAE,WAAW,EAAE,MAAM,EAAE,MAAM,IAAI,GAAG,IAAI;IAqBxD,OAAO,IAAI,IAAI;CAMhB"}

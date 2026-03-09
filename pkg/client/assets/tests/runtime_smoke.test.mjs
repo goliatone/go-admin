@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ASSETS_DIR = resolve(__dirname, '..');
 const DIST_DIR = resolve(ASSETS_DIR, 'dist');
+const DIST_TYPES_DIR = resolve(ASSETS_DIR, 'dist-types');
 
 // =============================================================================
 // Phase P-F1 Runtime Smoke Tests: TX-087
@@ -195,8 +196,8 @@ for (const styleFile of EXPECTED_STYLE_FILES) {
 // Section 6: TypeScript declaration files (for IDE support)
 // -----------------------------------------------------------------------------
 
-test('datatable/index.d.ts exists for IDE support', () => {
-  const path = resolve(DIST_DIR, 'datatable/index.d.ts');
+test('dist-types/datatable/index.d.ts exists for IDE support', () => {
+  const path = resolve(DIST_TYPES_DIR, 'datatable/index.d.ts');
   assert.ok(existsSync(path), `Expected TypeScript declaration to exist: ${path}`);
 });
 
