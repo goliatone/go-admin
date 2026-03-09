@@ -1044,7 +1044,7 @@ func (s *SQLiteStore) GetAgreementReminderState(ctx context.Context, scope Scope
 	return s.InMemoryStore.GetAgreementReminderState(ctx, scope, agreementID, recipientID)
 }
 
-func (s *SQLiteStore) ClaimDueAgreementReminders(ctx context.Context, scope Scope, input AgreementReminderClaimInput) ([]AgreementReminderStateRecord, error) {
+func (s *SQLiteStore) ClaimDueAgreementReminders(ctx context.Context, scope Scope, input AgreementReminderClaimInput) ([]AgreementReminderClaim, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	out, err := s.InMemoryStore.ClaimDueAgreementReminders(ctx, scope, input)
@@ -1060,10 +1060,23 @@ func (s *SQLiteStore) ClaimDueAgreementReminders(ctx context.Context, scope Scop
 	return out, nil
 }
 
-func (s *SQLiteStore) MarkAgreementReminderSent(ctx context.Context, scope Scope, agreementID, recipientID, reasonCode string, sentAt time.Time, nextDueAt *time.Time) (AgreementReminderStateRecord, error) {
+func (s *SQLiteStore) RenewAgreementReminderLease(ctx context.Context, scope Scope, agreementID, recipientID string, input AgreementReminderLeaseRenewInput) (AgreementReminderClaim, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	out, err := s.InMemoryStore.MarkAgreementReminderSent(ctx, scope, agreementID, recipientID, reasonCode, sentAt, nextDueAt)
+	out, err := s.InMemoryStore.RenewAgreementReminderLease(ctx, scope, agreementID, recipientID, input)
+	if err != nil {
+		return AgreementReminderClaim{}, err
+	}
+	if err := s.persistMaybe(ctx); err != nil {
+		return AgreementReminderClaim{}, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) MarkAgreementReminderSent(ctx context.Context, scope Scope, agreementID, recipientID string, input AgreementReminderMarkInput) (AgreementReminderStateRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.MarkAgreementReminderSent(ctx, scope, agreementID, recipientID, input)
 	if err != nil {
 		return AgreementReminderStateRecord{}, err
 	}
@@ -1073,10 +1086,10 @@ func (s *SQLiteStore) MarkAgreementReminderSent(ctx context.Context, scope Scope
 	return out, nil
 }
 
-func (s *SQLiteStore) MarkAgreementReminderSkipped(ctx context.Context, scope Scope, agreementID, recipientID, reasonCode string, evaluatedAt time.Time, nextDueAt *time.Time) (AgreementReminderStateRecord, error) {
+func (s *SQLiteStore) MarkAgreementReminderSkipped(ctx context.Context, scope Scope, agreementID, recipientID string, input AgreementReminderMarkInput) (AgreementReminderStateRecord, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	out, err := s.InMemoryStore.MarkAgreementReminderSkipped(ctx, scope, agreementID, recipientID, reasonCode, evaluatedAt, nextDueAt)
+	out, err := s.InMemoryStore.MarkAgreementReminderSkipped(ctx, scope, agreementID, recipientID, input)
 	if err != nil {
 		return AgreementReminderStateRecord{}, err
 	}
@@ -1086,10 +1099,10 @@ func (s *SQLiteStore) MarkAgreementReminderSkipped(ctx context.Context, scope Sc
 	return out, nil
 }
 
-func (s *SQLiteStore) MarkAgreementReminderFailed(ctx context.Context, scope Scope, agreementID, recipientID, reasonCode, failure string, failedAt time.Time, nextDueAt *time.Time) (AgreementReminderStateRecord, error) {
+func (s *SQLiteStore) MarkAgreementReminderFailed(ctx context.Context, scope Scope, agreementID, recipientID string, input AgreementReminderMarkInput) (AgreementReminderStateRecord, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	out, err := s.InMemoryStore.MarkAgreementReminderFailed(ctx, scope, agreementID, recipientID, reasonCode, failure, failedAt, nextDueAt)
+	out, err := s.InMemoryStore.MarkAgreementReminderFailed(ctx, scope, agreementID, recipientID, input)
 	if err != nil {
 		return AgreementReminderStateRecord{}, err
 	}
@@ -1123,6 +1136,22 @@ func (s *SQLiteStore) ResumeAgreementReminder(ctx context.Context, scope Scope, 
 		return AgreementReminderStateRecord{}, err
 	}
 	return out, nil
+}
+
+func (s *SQLiteStore) CleanupAgreementReminderInternalErrors(ctx context.Context, scope Scope, now time.Time, limit int) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	count, err := s.InMemoryStore.CleanupAgreementReminderInternalErrors(ctx, scope, now, limit)
+	if err != nil {
+		return 0, err
+	}
+	if count == 0 {
+		return 0, nil
+	}
+	if err := s.persistMaybe(ctx); err != nil {
+		return 0, err
+	}
+	return count, nil
 }
 
 func (s *SQLiteStore) EnqueueOutboxMessage(ctx context.Context, scope Scope, record OutboxMessageRecord) (OutboxMessageRecord, error) {

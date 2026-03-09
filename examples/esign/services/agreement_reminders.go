@@ -28,14 +28,18 @@ func normalizeResendSource(source string) string {
 
 // ReminderPolicyFromConfig maps e-sign runtime reminder config to shared reminder primitives.
 func ReminderPolicyFromConfig(cfg appcfg.Config) reminders.Policy {
+	resolved := cfg.Reminders
+	if resolution, err := appcfg.ResolveReminderPolicy(cfg.Reminders); err == nil {
+		resolved = resolution.Config
+	}
 	return reminders.Policy{
-		Enabled:              cfg.Reminders.Enabled,
-		InitialDelay:         time.Duration(cfg.Reminders.InitialDelayMinutes) * time.Minute,
-		Interval:             time.Duration(cfg.Reminders.IntervalMinutes) * time.Minute,
-		MaxCount:             cfg.Reminders.MaxReminders,
-		JitterPercent:        cfg.Reminders.JitterPercent,
-		RecentViewGrace:      time.Duration(cfg.Reminders.RecentViewGraceMinutes) * time.Minute,
-		ManualResendCooldown: time.Duration(cfg.Reminders.ManualResendCooldownMinutes) * time.Minute,
+		Enabled:              resolved.Enabled,
+		InitialDelay:         time.Duration(resolved.InitialDelayMinutes) * time.Minute,
+		Interval:             time.Duration(resolved.IntervalMinutes) * time.Minute,
+		MaxCount:             resolved.MaxReminders,
+		JitterPercent:        resolved.JitterPercent,
+		RecentViewGrace:      time.Duration(resolved.RecentViewGraceMinutes) * time.Minute,
+		ManualResendCooldown: time.Duration(resolved.ManualResendCooldownMinutes) * time.Minute,
 	}
 }
 
@@ -89,6 +93,9 @@ func (s AgreementService) ensureReminderState(
 	if s.reminders == nil {
 		return stores.AgreementReminderStateRecord{}, nil
 	}
+	if recipient.Role != stores.RecipientRoleSigner {
+		return stores.AgreementReminderStateRecord{}, domainValidationError("recipients", "role", "reminders require signer recipient")
+	}
 	agreementID := strings.TrimSpace(agreement.ID)
 	recipientID := strings.TrimSpace(recipient.ID)
 	if agreementID == "" || recipientID == "" {
@@ -106,13 +113,28 @@ func (s AgreementService) ensureReminderState(
 	if firstSentAt == nil {
 		firstSentAt = &now
 	}
+	policy := ReminderPolicyFromConfig(appcfg.Active())
+	seedDueAt := firstSentAt.UTC().Add(reminders.NormalizePolicy(policy).InitialDelay).UTC()
+	evaluated := reminders.Evaluate(now, policy, reminders.State{
+		SentCount:   0,
+		FirstSentAt: firstSentAt,
+		LastViewedAt: cloneServiceTimePtr(
+			recipient.LastViewAt,
+		),
+	})
+	nextDueAt := cloneServiceTimePtr(evaluated.NextDueAt)
+	if nextDueAt == nil {
+		nextDueAt = cloneServiceTimePtr(&seedDueAt)
+	}
 	created, upsertErr := s.reminders.UpsertAgreementReminderState(ctx, scope, stores.AgreementReminderStateRecord{
 		AgreementID:         agreementID,
 		RecipientID:         recipientID,
 		Status:              stores.AgreementReminderStatusActive,
+		PolicyVersion:       appcfg.ReminderPolicyVersion,
 		SentCount:           0,
 		FirstSentAt:         firstSentAt,
 		LastViewedAt:        cloneServiceTimePtr(recipient.LastViewAt),
+		NextDueAt:           nextDueAt,
 		CreatedAt:           now,
 		UpdatedAt:           now,
 		LastEvaluatedAt:     cloneServiceTimePtr(&now),
@@ -145,10 +167,29 @@ func (s AgreementService) initializeReminderStatesForSend(
 		if strings.TrimSpace(state.Status) == "" {
 			state.Status = stores.AgreementReminderStatusActive
 		}
+		if strings.TrimSpace(state.PolicyVersion) == "" {
+			state.PolicyVersion = appcfg.ReminderPolicyVersion
+		}
 		if state.FirstSentAt == nil {
 			state.FirstSentAt = cloneServiceTimePtr(agreement.SentAt)
 			if state.FirstSentAt == nil {
 				state.FirstSentAt = cloneServiceTimePtr(&now)
+			}
+		}
+		if state.NextDueAt == nil {
+			policy := ReminderPolicyFromConfig(appcfg.Active())
+			decision := reminders.Evaluate(now, policy, reminders.State{
+				SentCount:          state.SentCount,
+				FirstSentAt:        state.FirstSentAt,
+				LastSentAt:         state.LastSentAt,
+				LastViewedAt:       state.LastViewedAt,
+				LastManualResendAt: state.LastManualResendAt,
+				NextDueAt:          state.NextDueAt,
+			})
+			state.NextDueAt = cloneServiceTimePtr(decision.NextDueAt)
+			if state.NextDueAt == nil {
+				fallbackDue := state.FirstSentAt.UTC().Add(reminders.NormalizePolicy(policy).InitialDelay).UTC()
+				state.NextDueAt = cloneServiceTimePtr(&fallbackDue)
 			}
 		}
 		state.LastViewedAt = newerTimePtr(state.LastViewedAt, recipient.LastViewAt)
@@ -166,10 +207,14 @@ func (s AgreementService) recordReminderResendState(
 	agreement stores.AgreementRecord,
 	recipient stores.RecipientRecord,
 	source string,
+	lease stores.AgreementReminderLeaseToken,
+	leaseSeconds int,
 ) error {
 	if s.reminders == nil {
 		return nil
 	}
+	_ = lease
+	_ = leaseSeconds
 	source = normalizeResendSource(source)
 	now := s.now().UTC()
 	state, err := s.ensureReminderState(ctx, scope, agreement, recipient)
@@ -178,31 +223,27 @@ func (s AgreementService) recordReminderResendState(
 	}
 	state.LastViewedAt = newerTimePtr(state.LastViewedAt, recipient.LastViewAt)
 	state.LastEvaluatedAt = cloneServiceTimePtr(&now)
+	if strings.TrimSpace(state.PolicyVersion) == "" {
+		state.PolicyVersion = appcfg.ReminderPolicyVersion
+	}
 
 	policy := ReminderPolicyFromConfig(appcfg.Active())
 	if source == ResendSourceAutoReminder {
-		nextDue := reminders.ComputeNextDue(now, policy, reminderStableKey(scope, agreement.ID, recipient.ID))
-		if _, err := s.reminders.UpsertAgreementReminderState(ctx, scope, state); err != nil {
-			return err
-		}
-		_, err := s.reminders.MarkAgreementReminderSent(
-			ctx,
-			scope,
-			agreement.ID,
-			recipient.ID,
-			reminders.ReasonDue,
-			now,
-			&nextDue,
-		)
+		state.UpdatedAt = now
+		_, err := s.reminders.UpsertAgreementReminderState(ctx, scope, state)
 		return err
 	}
 
 	state.LastManualResendAt = cloneServiceTimePtr(&now)
 	state.LastReasonCode = "manual_resend"
-	state.LastError = ""
+	state.LastErrorCode = ""
+	state.LastErrorInternalEncrypted = ""
+	state.LastErrorInternalExpiresAt = nil
 	state.LastAttemptedSendAt = cloneServiceTimePtr(&now)
-	state.LockedBy = ""
-	state.LockUntil = nil
+	state.WorkerID = ""
+	state.SweepID = ""
+	state.ClaimedAt = nil
+	state.LastHeartbeatAt = nil
 	if policy.ManualResendCooldown > 0 {
 		nextDueAt := now.Add(policy.ManualResendCooldown).UTC()
 		state.NextDueAt = cloneServiceTimePtr(&nextDueAt)

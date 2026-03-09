@@ -23,6 +23,9 @@ func RegisterCommandFactories(bus *coreadmin.CommandBus) error {
 	if err := coreadmin.RegisterMessageFactory(bus, CommandAgreementReminderSweep, buildAgreementReminderSweepInput); err != nil {
 		return err
 	}
+	if err := coreadmin.RegisterMessageFactory(bus, CommandAgreementReminderCleanup, buildAgreementReminderCleanupInput); err != nil {
+		return err
+	}
 	if err := coreadmin.RegisterMessageFactory(bus, CommandAgreementReminderPause, buildAgreementReminderPauseInput); err != nil {
 		return err
 	}
@@ -114,6 +117,19 @@ func buildTokenRotateInput(payload map[string]any, ids []string) (TokenRotateInp
 func buildAgreementReminderSweepInput(payload map[string]any, _ []string) (AgreementReminderSweepInput, error) {
 	msg := AgreementReminderSweepInput{
 		Scope:         scopeFromPayload(payload),
+		CorrelationID: strings.TrimSpace(toString(payloadValue(payload, "correlation_id"))),
+	}
+	if err := msg.Validate(); err != nil {
+		return msg, err
+	}
+	return msg, nil
+}
+
+func buildAgreementReminderCleanupInput(payload map[string]any, _ []string) (AgreementReminderCleanupInput, error) {
+	msg := AgreementReminderCleanupInput{
+		Scope:         scopeFromPayload(payload),
+		Before:        strings.TrimSpace(toString(payloadValue(payload, "before"))),
+		Limit:         intWithDefault(payloadValue(payload, "limit"), 1000),
 		CorrelationID: strings.TrimSpace(toString(payloadValue(payload, "correlation_id"))),
 	}
 	if err := msg.Validate(); err != nil {
@@ -236,6 +252,32 @@ func boolWithDefault(value any, fallback bool) bool {
 		return raw
 	case string:
 		parsed, err := strconv.ParseBool(strings.TrimSpace(raw))
+		if err != nil {
+			return fallback
+		}
+		return parsed
+	default:
+		return fallback
+	}
+}
+
+func intWithDefault(value any, fallback int) int {
+	if value == nil {
+		return fallback
+	}
+	switch raw := value.(type) {
+	case int:
+		return raw
+	case int32:
+		return int(raw)
+	case int64:
+		return int(raw)
+	case float32:
+		return int(raw)
+	case float64:
+		return int(raw)
+	case string:
+		parsed, err := strconv.Atoi(strings.TrimSpace(raw))
 		if err != nil {
 			return fallback
 		}

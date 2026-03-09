@@ -289,6 +289,8 @@ type ResendInput struct {
 	IdempotencyKey        string
 	IPAddress             string
 	Source                string
+	ReminderLease         stores.AgreementReminderLeaseToken
+	ReminderLeaseSeconds  int
 }
 
 // ResendResult returns resend decision context and newly issued token.
@@ -1188,7 +1190,7 @@ func (s AgreementService) Resend(ctx context.Context, scope stores.Scope, agreem
 		}); err != nil {
 			return err
 		}
-		if err := txSvc.recordReminderResendState(ctx, scope, agreement, target, resendSource); err != nil {
+		if err := txSvc.recordReminderResendState(ctx, scope, agreement, target, resendSource, input.ReminderLease, input.ReminderLeaseSeconds); err != nil {
 			return err
 		}
 		if txSvc.emails != nil {

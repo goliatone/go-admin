@@ -13,7 +13,12 @@ import (
 	"github.com/google/uuid"
 )
 
-const defaultDraftTTL = 7 * 24 * time.Hour
+const (
+	defaultDraftTTL                     = 7 * 24 * time.Hour
+	defaultReminderLeaseSeconds         = 120
+	defaultReminderPolicyVersion        = "r1"
+	defaultReminderInternalErrorTTLDays = 30
+)
 
 // InMemoryStore is a phase-1 repository implementation with scope-safe query helpers.
 type InMemoryStore struct {
@@ -2549,15 +2554,24 @@ func cloneGoogleImportRunRecord(record GoogleImportRunRecord) GoogleImportRunRec
 
 func cloneAgreementReminderStateRecord(record AgreementReminderStateRecord) AgreementReminderStateRecord {
 	record.Status = strings.ToLower(strings.TrimSpace(record.Status))
+	record.TerminalReason = strings.TrimSpace(record.TerminalReason)
+	record.PolicyVersion = strings.TrimSpace(record.PolicyVersion)
 	record.LastReasonCode = strings.TrimSpace(record.LastReasonCode)
 	record.LastError = strings.TrimSpace(record.LastError)
 	record.LockedBy = strings.TrimSpace(record.LockedBy)
+	record.LastErrorCode = strings.TrimSpace(record.LastErrorCode)
+	record.LastErrorInternalEncrypted = strings.TrimSpace(record.LastErrorInternalEncrypted)
+	record.SweepID = strings.TrimSpace(record.SweepID)
+	record.WorkerID = strings.TrimSpace(record.WorkerID)
 	record.FirstSentAt = cloneTimePtr(record.FirstSentAt)
 	record.LastSentAt = cloneTimePtr(record.LastSentAt)
 	record.LastViewedAt = cloneTimePtr(record.LastViewedAt)
 	record.LastManualResendAt = cloneTimePtr(record.LastManualResendAt)
 	record.NextDueAt = cloneTimePtr(record.NextDueAt)
 	record.LockUntil = cloneTimePtr(record.LockUntil)
+	record.LastErrorInternalExpiresAt = cloneTimePtr(record.LastErrorInternalExpiresAt)
+	record.ClaimedAt = cloneTimePtr(record.ClaimedAt)
+	record.LastHeartbeatAt = cloneTimePtr(record.LastHeartbeatAt)
 	record.LastEvaluatedAt = cloneTimePtr(record.LastEvaluatedAt)
 	record.LastAttemptedSendAt = cloneTimePtr(record.LastAttemptedSendAt)
 	record.CreatedAt = normalizeRecordTime(record.CreatedAt)
@@ -3620,8 +3634,112 @@ func normalizeAgreementReminderStatus(status string) string {
 		return AgreementReminderStatusActive
 	case AgreementReminderStatusPaused:
 		return AgreementReminderStatusPaused
+	case AgreementReminderStatusTerminal:
+		return AgreementReminderStatusTerminal
 	default:
 		return ""
+	}
+}
+
+func normalizeReminderPolicyVersion(version string) string {
+	version = strings.TrimSpace(version)
+	if version == "" {
+		return defaultReminderPolicyVersion
+	}
+	return version
+}
+
+func normalizeReminderReasonCode(reasonCode string) string {
+	reason := strings.TrimSpace(strings.ToLower(reasonCode))
+	if reason == "" {
+		return ""
+	}
+	for _, ch := range reason {
+		if (ch < 'a' || ch > 'z') && (ch < '0' || ch > '9') && ch != '_' {
+			return "failed"
+		}
+	}
+	return reason
+}
+
+func reminderLeaseHeartbeat(record AgreementReminderStateRecord) *time.Time {
+	if record.LastHeartbeatAt != nil && !record.LastHeartbeatAt.IsZero() {
+		return record.LastHeartbeatAt
+	}
+	if record.ClaimedAt != nil && !record.ClaimedAt.IsZero() {
+		return record.ClaimedAt
+	}
+	return nil
+}
+
+func reminderLeaseIsActive(record AgreementReminderStateRecord, now time.Time, leaseSeconds int) bool {
+	if normalizeID(record.WorkerID) == "" || record.LeaseSeq <= 0 {
+		return false
+	}
+	hb := reminderLeaseHeartbeat(record)
+	if hb == nil || hb.IsZero() {
+		return false
+	}
+	if leaseSeconds <= 0 {
+		leaseSeconds = defaultReminderLeaseSeconds
+	}
+	return hb.Add(time.Duration(leaseSeconds) * time.Second).After(now)
+}
+
+func normalizeReminderLeaseToken(token AgreementReminderLeaseToken) AgreementReminderLeaseToken {
+	token.WorkerID = normalizeID(token.WorkerID)
+	token.SweepID = strings.TrimSpace(token.SweepID)
+	if token.LeaseSeq < 0 {
+		token.LeaseSeq = 0
+	}
+	return token
+}
+
+func validateReminderLease(record AgreementReminderStateRecord, token AgreementReminderLeaseToken, asOf time.Time, leaseSeconds int) error {
+	token = normalizeReminderLeaseToken(token)
+	if token.WorkerID == "" {
+		return invalidRecordError("agreement_reminder_states", "worker_id", "required")
+	}
+	if token.SweepID == "" {
+		return invalidRecordError("agreement_reminder_states", "sweep_id", "required")
+	}
+	if token.LeaseSeq <= 0 {
+		return invalidRecordError("agreement_reminder_states", "lease_seq", "required")
+	}
+	if normalizeID(record.WorkerID) == "" || record.LeaseSeq <= 0 {
+		return reminderLeaseLostError(record.AgreementID, record.RecipientID, token.WorkerID)
+	}
+	if normalizeID(record.WorkerID) != token.WorkerID || strings.TrimSpace(record.SweepID) != token.SweepID {
+		return reminderLeaseLostError(record.AgreementID, record.RecipientID, token.WorkerID)
+	}
+	if record.LeaseSeq != token.LeaseSeq {
+		return reminderLeaseConflictError(record.AgreementID, record.RecipientID, token.WorkerID, token.LeaseSeq, record.LeaseSeq)
+	}
+	if !reminderLeaseIsActive(record, asOf, leaseSeconds) {
+		return reminderLeaseLostError(record.AgreementID, record.RecipientID, token.WorkerID)
+	}
+	return nil
+}
+
+func clearReminderLease(record *AgreementReminderStateRecord) {
+	if record == nil {
+		return
+	}
+	record.WorkerID = ""
+	record.SweepID = ""
+	record.ClaimedAt = nil
+	record.LastHeartbeatAt = nil
+}
+
+func reminderClaimFromRecord(record AgreementReminderStateRecord) AgreementReminderClaim {
+	record = cloneAgreementReminderStateRecord(record)
+	return AgreementReminderClaim{
+		State: record,
+		Lease: AgreementReminderLeaseToken{
+			WorkerID: record.WorkerID,
+			SweepID:  record.SweepID,
+			LeaseSeq: record.LeaseSeq,
+		},
 	}
 }
 
@@ -3644,6 +3762,28 @@ func (s *InMemoryStore) UpsertAgreementReminderState(ctx context.Context, scope 
 		return AgreementReminderStateRecord{}, invalidRecordError("agreement_reminder_states", "status", "invalid status")
 	}
 	record.Status = status
+	record.PolicyVersion = normalizeReminderPolicyVersion(record.PolicyVersion)
+	record.LastReasonCode = normalizeReminderReasonCode(record.LastReasonCode)
+	record.LastErrorCode = normalizeReminderReasonCode(record.LastErrorCode)
+	record.TerminalReason = normalizeReminderReasonCode(record.TerminalReason)
+	record.SweepID = strings.TrimSpace(record.SweepID)
+	record.WorkerID = normalizeID(record.WorkerID)
+	record.LeaseSeq = max(record.LeaseSeq, 0)
+	record.LastErrorInternalEncrypted = strings.TrimSpace(record.LastErrorInternalEncrypted)
+	record.LastErrorInternalExpiresAt = cloneTimePtr(record.LastErrorInternalExpiresAt)
+	record.ClaimedAt = cloneTimePtr(record.ClaimedAt)
+	record.LastHeartbeatAt = cloneTimePtr(record.LastHeartbeatAt)
+	record.NextDueAt = cloneTimePtr(record.NextDueAt)
+	if record.Status == AgreementReminderStatusActive && record.NextDueAt == nil {
+		return AgreementReminderStateRecord{}, reminderStateInvariantError("next_due_at", "active_requires_next_due_at")
+	}
+	if record.Status != AgreementReminderStatusTerminal {
+		record.TerminalReason = ""
+	}
+	if record.Status != AgreementReminderStatusActive {
+		record.NextDueAt = nil
+		clearReminderLease(&record)
+	}
 	if record.SentCount < 0 {
 		record.SentCount = 0
 	}
@@ -3664,6 +3804,9 @@ func (s *InMemoryStore) UpsertAgreementReminderState(ctx context.Context, scope 
 	record.ID = normalizeID(record.ID)
 	record.TenantID = scope.TenantID
 	record.OrgID = scope.OrgID
+	if exists && record.LeaseSeq == 0 {
+		record.LeaseSeq = max(existing.LeaseSeq, 0)
+	}
 	if record.CreatedAt.IsZero() {
 		if exists && !existing.CreatedAt.IsZero() {
 			record.CreatedAt = existing.CreatedAt
@@ -3703,15 +3846,19 @@ func (s *InMemoryStore) GetAgreementReminderState(ctx context.Context, scope Sco
 	return cloneAgreementReminderStateRecord(record), nil
 }
 
-func (s *InMemoryStore) ClaimDueAgreementReminders(ctx context.Context, scope Scope, input AgreementReminderClaimInput) ([]AgreementReminderStateRecord, error) {
+func (s *InMemoryStore) ClaimDueAgreementReminders(ctx context.Context, scope Scope, input AgreementReminderClaimInput) ([]AgreementReminderClaim, error) {
 	_ = ctx
 	scope, err := validateScope(scope)
 	if err != nil {
 		return nil, err
 	}
-	input.Claimer = normalizeID(input.Claimer)
-	if input.Claimer == "" {
-		return nil, invalidRecordError("agreement_reminder_states", "claimer", "required")
+	input.WorkerID = normalizeID(input.WorkerID)
+	input.SweepID = strings.TrimSpace(input.SweepID)
+	if input.WorkerID == "" {
+		return nil, invalidRecordError("agreement_reminder_states", "worker_id", "required")
+	}
+	if input.SweepID == "" {
+		return nil, invalidRecordError("agreement_reminder_states", "sweep_id", "required")
 	}
 	if input.Now.IsZero() {
 		input.Now = time.Now().UTC()
@@ -3724,9 +3871,8 @@ func (s *InMemoryStore) ClaimDueAgreementReminders(ctx context.Context, scope Sc
 		input.Limit = 500
 	}
 	if input.LeaseSeconds <= 0 {
-		input.LeaseSeconds = 120
+		input.LeaseSeconds = defaultReminderLeaseSeconds
 	}
-	lockUntil := input.Now.Add(time.Duration(input.LeaseSeconds) * time.Second).UTC()
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -3739,10 +3885,13 @@ func (s *InMemoryStore) ClaimDueAgreementReminders(ctx context.Context, scope Sc
 		if record.Status != AgreementReminderStatusActive {
 			continue
 		}
-		if record.NextDueAt == nil || record.NextDueAt.After(input.Now) {
+		if record.NextDueAt == nil {
 			continue
 		}
-		if record.LockUntil != nil && record.LockUntil.After(input.Now) {
+		if record.NextDueAt.After(input.Now) {
+			continue
+		}
+		if reminderLeaseIsActive(record, input.Now, input.LeaseSeconds) {
 			continue
 		}
 		candidates = append(candidates, cloneAgreementReminderStateRecord(record))
@@ -3767,19 +3916,72 @@ func (s *InMemoryStore) ClaimDueAgreementReminders(ctx context.Context, scope Sc
 	if len(candidates) > input.Limit {
 		candidates = candidates[:input.Limit]
 	}
-	out := make([]AgreementReminderStateRecord, 0, len(candidates))
+	out := make([]AgreementReminderClaim, 0, len(candidates))
 	for _, record := range candidates {
-		record.LockedBy = input.Claimer
-		record.LockUntil = cloneTimePtr(&lockUntil)
+		record.WorkerID = input.WorkerID
+		record.SweepID = input.SweepID
+		record.LeaseSeq = max(record.LeaseSeq, 0) + 1
+		record.ClaimedAt = cloneTimePtr(&input.Now)
+		record.LastHeartbeatAt = cloneTimePtr(&input.Now)
 		record.UpdatedAt = input.Now
 		record = cloneAgreementReminderStateRecord(record)
 		s.agreementReminderStates[agreementReminderStateScopedKey(scope, record.AgreementID, record.RecipientID)] = record
-		out = append(out, record)
+		out = append(out, reminderClaimFromRecord(record))
 	}
 	return out, nil
 }
 
-func (s *InMemoryStore) MarkAgreementReminderSent(ctx context.Context, scope Scope, agreementID, recipientID, reasonCode string, sentAt time.Time, nextDueAt *time.Time) (AgreementReminderStateRecord, error) {
+func (s *InMemoryStore) RenewAgreementReminderLease(
+	ctx context.Context,
+	scope Scope,
+	agreementID,
+	recipientID string,
+	input AgreementReminderLeaseRenewInput,
+) (AgreementReminderClaim, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return AgreementReminderClaim{}, err
+	}
+	agreementID = normalizeID(agreementID)
+	recipientID = normalizeID(recipientID)
+	if agreementID == "" {
+		return AgreementReminderClaim{}, invalidRecordError("agreement_reminder_states", "agreement_id", "required")
+	}
+	if recipientID == "" {
+		return AgreementReminderClaim{}, invalidRecordError("agreement_reminder_states", "recipient_id", "required")
+	}
+	if input.Now.IsZero() {
+		input.Now = time.Now().UTC()
+	}
+	input.Now = input.Now.UTC()
+	if input.LeaseSeconds <= 0 {
+		input.LeaseSeconds = defaultReminderLeaseSeconds
+	}
+	input.Lease = normalizeReminderLeaseToken(input.Lease)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	key := agreementReminderStateScopedKey(scope, agreementID, recipientID)
+	record, ok := s.agreementReminderStates[key]
+	if !ok {
+		return AgreementReminderClaim{}, notFoundError("agreement_reminder_states", agreementID+"|"+recipientID)
+	}
+	if err := validateReminderLease(record, input.Lease, input.Now, input.LeaseSeconds); err != nil {
+		return AgreementReminderClaim{}, err
+	}
+	record.LeaseSeq++
+	record.LastHeartbeatAt = cloneTimePtr(&input.Now)
+	if record.ClaimedAt == nil {
+		record.ClaimedAt = cloneTimePtr(&input.Now)
+	}
+	record.UpdatedAt = input.Now
+	record = cloneAgreementReminderStateRecord(record)
+	s.agreementReminderStates[key] = record
+	return reminderClaimFromRecord(record), nil
+}
+
+func (s *InMemoryStore) MarkAgreementReminderSent(ctx context.Context, scope Scope, agreementID, recipientID string, input AgreementReminderMarkInput) (AgreementReminderStateRecord, error) {
 	_ = ctx
 	scope, err := validateScope(scope)
 	if err != nil {
@@ -3793,10 +3995,19 @@ func (s *InMemoryStore) MarkAgreementReminderSent(ctx context.Context, scope Sco
 	if recipientID == "" {
 		return AgreementReminderStateRecord{}, invalidRecordError("agreement_reminder_states", "recipient_id", "required")
 	}
-	if sentAt.IsZero() {
-		sentAt = time.Now().UTC()
+	if input.OccurredAt.IsZero() {
+		input.OccurredAt = time.Now().UTC()
 	}
-	sentAt = sentAt.UTC()
+	input.OccurredAt = input.OccurredAt.UTC()
+	input.Lease = normalizeReminderLeaseToken(input.Lease)
+	if input.LeaseSeconds <= 0 {
+		input.LeaseSeconds = defaultReminderLeaseSeconds
+	}
+	input.ReasonCode = normalizeReminderReasonCode(input.ReasonCode)
+	input.NextDueAt = cloneTimePtr(input.NextDueAt)
+	if input.NextDueAt == nil {
+		return AgreementReminderStateRecord{}, reminderStateInvariantError("next_due_at", "active_requires_next_due_at")
+	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -3804,27 +4015,32 @@ func (s *InMemoryStore) MarkAgreementReminderSent(ctx context.Context, scope Sco
 	record, ok := s.agreementReminderStates[key]
 	if !ok {
 		return AgreementReminderStateRecord{}, notFoundError("agreement_reminder_states", agreementID+"|"+recipientID)
+	}
+	if err := validateReminderLease(record, input.Lease, input.OccurredAt, input.LeaseSeconds); err != nil {
+		return AgreementReminderStateRecord{}, err
 	}
 	record.Status = AgreementReminderStatusActive
+	record.TerminalReason = ""
 	record.SentCount++
 	if record.FirstSentAt == nil {
-		record.FirstSentAt = cloneTimePtr(&sentAt)
+		record.FirstSentAt = cloneTimePtr(&input.OccurredAt)
 	}
-	record.LastSentAt = cloneTimePtr(&sentAt)
-	record.LastAttemptedSendAt = cloneTimePtr(&sentAt)
-	record.LastEvaluatedAt = cloneTimePtr(&sentAt)
-	record.LastReasonCode = strings.TrimSpace(reasonCode)
-	record.LastError = ""
-	record.LockedBy = ""
-	record.LockUntil = nil
-	record.NextDueAt = cloneTimePtr(nextDueAt)
-	record.UpdatedAt = sentAt
+	record.LastSentAt = cloneTimePtr(&input.OccurredAt)
+	record.LastAttemptedSendAt = cloneTimePtr(&input.OccurredAt)
+	record.LastEvaluatedAt = cloneTimePtr(&input.OccurredAt)
+	record.LastReasonCode = input.ReasonCode
+	record.LastErrorCode = ""
+	record.LastErrorInternalEncrypted = ""
+	record.LastErrorInternalExpiresAt = nil
+	record.NextDueAt = cloneTimePtr(input.NextDueAt)
+	clearReminderLease(&record)
+	record.UpdatedAt = input.OccurredAt
 	record = cloneAgreementReminderStateRecord(record)
 	s.agreementReminderStates[key] = record
 	return cloneAgreementReminderStateRecord(record), nil
 }
 
-func (s *InMemoryStore) MarkAgreementReminderSkipped(ctx context.Context, scope Scope, agreementID, recipientID, reasonCode string, evaluatedAt time.Time, nextDueAt *time.Time) (AgreementReminderStateRecord, error) {
+func (s *InMemoryStore) MarkAgreementReminderSkipped(ctx context.Context, scope Scope, agreementID, recipientID string, input AgreementReminderMarkInput) (AgreementReminderStateRecord, error) {
 	_ = ctx
 	scope, err := validateScope(scope)
 	if err != nil {
@@ -3838,10 +4054,21 @@ func (s *InMemoryStore) MarkAgreementReminderSkipped(ctx context.Context, scope 
 	if recipientID == "" {
 		return AgreementReminderStateRecord{}, invalidRecordError("agreement_reminder_states", "recipient_id", "required")
 	}
-	if evaluatedAt.IsZero() {
-		evaluatedAt = time.Now().UTC()
+	if input.OccurredAt.IsZero() {
+		input.OccurredAt = time.Now().UTC()
 	}
-	evaluatedAt = evaluatedAt.UTC()
+	input.OccurredAt = input.OccurredAt.UTC()
+	input.Lease = normalizeReminderLeaseToken(input.Lease)
+	if input.LeaseSeconds <= 0 {
+		input.LeaseSeconds = defaultReminderLeaseSeconds
+	}
+	input.ReasonCode = normalizeReminderReasonCode(input.ReasonCode)
+	input.TerminalReason = normalizeReminderReasonCode(input.TerminalReason)
+	input.NextDueAt = cloneTimePtr(input.NextDueAt)
+	terminalReason := input.TerminalReason
+	if terminalReason == "" && input.ReasonCode == AgreementReminderTerminalReasonMaxCountReached {
+		terminalReason = AgreementReminderTerminalReasonMaxCountReached
+	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -3850,22 +4077,36 @@ func (s *InMemoryStore) MarkAgreementReminderSkipped(ctx context.Context, scope 
 	if !ok {
 		return AgreementReminderStateRecord{}, notFoundError("agreement_reminder_states", agreementID+"|"+recipientID)
 	}
-	if record.Status != AgreementReminderStatusPaused {
-		record.Status = AgreementReminderStatusActive
+	if err := validateReminderLease(record, input.Lease, input.OccurredAt, input.LeaseSeconds); err != nil {
+		return AgreementReminderStateRecord{}, err
 	}
-	record.LastReasonCode = strings.TrimSpace(reasonCode)
-	record.LastEvaluatedAt = cloneTimePtr(&evaluatedAt)
-	record.LastError = ""
-	record.LockedBy = ""
-	record.LockUntil = nil
-	record.NextDueAt = cloneTimePtr(nextDueAt)
-	record.UpdatedAt = evaluatedAt
+	record.LastReasonCode = input.ReasonCode
+	record.LastEvaluatedAt = cloneTimePtr(&input.OccurredAt)
+	record.LastErrorCode = ""
+	record.LastErrorInternalEncrypted = ""
+	record.LastErrorInternalExpiresAt = nil
+	if terminalReason != "" {
+		record.Status = AgreementReminderStatusTerminal
+		record.TerminalReason = terminalReason
+		record.NextDueAt = nil
+	} else {
+		if record.Status != AgreementReminderStatusPaused {
+			record.Status = AgreementReminderStatusActive
+		}
+		record.TerminalReason = ""
+		record.NextDueAt = cloneTimePtr(input.NextDueAt)
+	}
+	if record.Status == AgreementReminderStatusActive && record.NextDueAt == nil {
+		return AgreementReminderStateRecord{}, reminderStateInvariantError("next_due_at", "active_requires_next_due_at")
+	}
+	clearReminderLease(&record)
+	record.UpdatedAt = input.OccurredAt
 	record = cloneAgreementReminderStateRecord(record)
 	s.agreementReminderStates[key] = record
 	return cloneAgreementReminderStateRecord(record), nil
 }
 
-func (s *InMemoryStore) MarkAgreementReminderFailed(ctx context.Context, scope Scope, agreementID, recipientID, reasonCode, failure string, failedAt time.Time, nextDueAt *time.Time) (AgreementReminderStateRecord, error) {
+func (s *InMemoryStore) MarkAgreementReminderFailed(ctx context.Context, scope Scope, agreementID, recipientID string, input AgreementReminderMarkInput) (AgreementReminderStateRecord, error) {
 	_ = ctx
 	scope, err := validateScope(scope)
 	if err != nil {
@@ -3879,10 +4120,21 @@ func (s *InMemoryStore) MarkAgreementReminderFailed(ctx context.Context, scope S
 	if recipientID == "" {
 		return AgreementReminderStateRecord{}, invalidRecordError("agreement_reminder_states", "recipient_id", "required")
 	}
-	if failedAt.IsZero() {
-		failedAt = time.Now().UTC()
+	if input.OccurredAt.IsZero() {
+		input.OccurredAt = time.Now().UTC()
 	}
-	failedAt = failedAt.UTC()
+	input.OccurredAt = input.OccurredAt.UTC()
+	input.Lease = normalizeReminderLeaseToken(input.Lease)
+	if input.LeaseSeconds <= 0 {
+		input.LeaseSeconds = defaultReminderLeaseSeconds
+	}
+	input.ReasonCode = normalizeReminderReasonCode(input.ReasonCode)
+	if input.ReasonCode == "" {
+		input.ReasonCode = "failed"
+	}
+	input.NextDueAt = cloneTimePtr(input.NextDueAt)
+	input.ErrorInternalEncrypted = strings.TrimSpace(input.ErrorInternalEncrypted)
+	input.ErrorInternalExpiresAt = cloneTimePtr(input.ErrorInternalExpiresAt)
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -3891,17 +4143,25 @@ func (s *InMemoryStore) MarkAgreementReminderFailed(ctx context.Context, scope S
 	if !ok {
 		return AgreementReminderStateRecord{}, notFoundError("agreement_reminder_states", agreementID+"|"+recipientID)
 	}
+	if err := validateReminderLease(record, input.Lease, input.OccurredAt, input.LeaseSeconds); err != nil {
+		return AgreementReminderStateRecord{}, err
+	}
 	if record.Status != AgreementReminderStatusPaused {
 		record.Status = AgreementReminderStatusActive
 	}
-	record.LastReasonCode = strings.TrimSpace(reasonCode)
-	record.LastError = strings.TrimSpace(failure)
-	record.LastAttemptedSendAt = cloneTimePtr(&failedAt)
-	record.LastEvaluatedAt = cloneTimePtr(&failedAt)
-	record.LockedBy = ""
-	record.LockUntil = nil
-	record.NextDueAt = cloneTimePtr(nextDueAt)
-	record.UpdatedAt = failedAt
+	record.TerminalReason = ""
+	record.LastReasonCode = input.ReasonCode
+	record.LastErrorCode = input.ReasonCode
+	record.LastErrorInternalEncrypted = input.ErrorInternalEncrypted
+	record.LastErrorInternalExpiresAt = cloneTimePtr(input.ErrorInternalExpiresAt)
+	record.LastAttemptedSendAt = cloneTimePtr(&input.OccurredAt)
+	record.LastEvaluatedAt = cloneTimePtr(&input.OccurredAt)
+	record.NextDueAt = cloneTimePtr(input.NextDueAt)
+	if record.Status == AgreementReminderStatusActive && record.NextDueAt == nil {
+		return AgreementReminderStateRecord{}, reminderStateInvariantError("next_due_at", "active_requires_next_due_at")
+	}
+	clearReminderLease(&record)
+	record.UpdatedAt = input.OccurredAt
 	record = cloneAgreementReminderStateRecord(record)
 	s.agreementReminderStates[key] = record
 	return cloneAgreementReminderStateRecord(record), nil
@@ -3933,11 +4193,17 @@ func (s *InMemoryStore) PauseAgreementReminder(ctx context.Context, scope Scope,
 	if !ok {
 		return AgreementReminderStateRecord{}, notFoundError("agreement_reminder_states", agreementID+"|"+recipientID)
 	}
+	if record.Status == AgreementReminderStatusTerminal {
+		return AgreementReminderStateRecord{}, reminderStateInvariantError("status", "cannot_pause_terminal")
+	}
 	record.Status = AgreementReminderStatusPaused
+	record.TerminalReason = ""
 	record.LastReasonCode = "paused"
-	record.LockedBy = ""
-	record.LockUntil = nil
+	record.LastErrorCode = ""
+	record.LastErrorInternalEncrypted = ""
+	record.LastErrorInternalExpiresAt = nil
 	record.NextDueAt = nil
+	clearReminderLease(&record)
 	record.UpdatedAt = pausedAt
 	record = cloneAgreementReminderStateRecord(record)
 	s.agreementReminderStates[key] = record
@@ -3970,15 +4236,67 @@ func (s *InMemoryStore) ResumeAgreementReminder(ctx context.Context, scope Scope
 	if !ok {
 		return AgreementReminderStateRecord{}, notFoundError("agreement_reminder_states", agreementID+"|"+recipientID)
 	}
+	if record.Status == AgreementReminderStatusTerminal {
+		return AgreementReminderStateRecord{}, reminderStateInvariantError("status", "cannot_resume_terminal")
+	}
+	nextDueAt = cloneTimePtr(nextDueAt)
+	if nextDueAt == nil {
+		return AgreementReminderStateRecord{}, reminderStateInvariantError("next_due_at", "active_requires_next_due_at")
+	}
 	record.Status = AgreementReminderStatusActive
+	record.TerminalReason = ""
+	record.PolicyVersion = normalizeReminderPolicyVersion(record.PolicyVersion)
 	record.LastReasonCode = "resumed"
-	record.LockedBy = ""
-	record.LockUntil = nil
+	record.LastErrorCode = ""
+	record.LastErrorInternalEncrypted = ""
+	record.LastErrorInternalExpiresAt = nil
 	record.NextDueAt = cloneTimePtr(nextDueAt)
+	clearReminderLease(&record)
 	record.UpdatedAt = resumedAt
 	record = cloneAgreementReminderStateRecord(record)
 	s.agreementReminderStates[key] = record
 	return cloneAgreementReminderStateRecord(record), nil
+}
+
+func (s *InMemoryStore) CleanupAgreementReminderInternalErrors(ctx context.Context, scope Scope, now time.Time, limit int) (int, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return 0, err
+	}
+	if now.IsZero() {
+		now = time.Now().UTC()
+	}
+	now = now.UTC()
+	if limit <= 0 {
+		limit = 1000
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	cleared := 0
+	for key, record := range s.agreementReminderStates {
+		if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
+			continue
+		}
+		if strings.TrimSpace(record.LastErrorInternalEncrypted) == "" {
+			continue
+		}
+		if record.LastErrorInternalExpiresAt == nil || record.LastErrorInternalExpiresAt.After(now) {
+			continue
+		}
+		record.LastErrorInternalEncrypted = ""
+		record.LastErrorInternalExpiresAt = nil
+		record.UpdatedAt = now
+		record = cloneAgreementReminderStateRecord(record)
+		s.agreementReminderStates[key] = record
+		cleared++
+		if cleared >= limit {
+			break
+		}
+	}
+	return cleared, nil
 }
 
 func (s *InMemoryStore) EnqueueOutboxMessage(ctx context.Context, scope Scope, record OutboxMessageRecord) (OutboxMessageRecord, error) {

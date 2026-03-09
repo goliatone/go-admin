@@ -129,12 +129,14 @@ type GoogleImportRunStore interface {
 type AgreementReminderStore interface {
 	UpsertAgreementReminderState(ctx context.Context, scope Scope, record AgreementReminderStateRecord) (AgreementReminderStateRecord, error)
 	GetAgreementReminderState(ctx context.Context, scope Scope, agreementID, recipientID string) (AgreementReminderStateRecord, error)
-	ClaimDueAgreementReminders(ctx context.Context, scope Scope, input AgreementReminderClaimInput) ([]AgreementReminderStateRecord, error)
-	MarkAgreementReminderSent(ctx context.Context, scope Scope, agreementID, recipientID, reasonCode string, sentAt time.Time, nextDueAt *time.Time) (AgreementReminderStateRecord, error)
-	MarkAgreementReminderSkipped(ctx context.Context, scope Scope, agreementID, recipientID, reasonCode string, evaluatedAt time.Time, nextDueAt *time.Time) (AgreementReminderStateRecord, error)
-	MarkAgreementReminderFailed(ctx context.Context, scope Scope, agreementID, recipientID, reasonCode, failure string, failedAt time.Time, nextDueAt *time.Time) (AgreementReminderStateRecord, error)
+	ClaimDueAgreementReminders(ctx context.Context, scope Scope, input AgreementReminderClaimInput) ([]AgreementReminderClaim, error)
+	RenewAgreementReminderLease(ctx context.Context, scope Scope, agreementID, recipientID string, input AgreementReminderLeaseRenewInput) (AgreementReminderClaim, error)
+	MarkAgreementReminderSent(ctx context.Context, scope Scope, agreementID, recipientID string, input AgreementReminderMarkInput) (AgreementReminderStateRecord, error)
+	MarkAgreementReminderSkipped(ctx context.Context, scope Scope, agreementID, recipientID string, input AgreementReminderMarkInput) (AgreementReminderStateRecord, error)
+	MarkAgreementReminderFailed(ctx context.Context, scope Scope, agreementID, recipientID string, input AgreementReminderMarkInput) (AgreementReminderStateRecord, error)
 	PauseAgreementReminder(ctx context.Context, scope Scope, agreementID, recipientID string, pausedAt time.Time) (AgreementReminderStateRecord, error)
 	ResumeAgreementReminder(ctx context.Context, scope Scope, agreementID, recipientID string, resumedAt time.Time, nextDueAt *time.Time) (AgreementReminderStateRecord, error)
+	CleanupAgreementReminderInternalErrors(ctx context.Context, scope Scope, now time.Time, limit int) (int, error)
 }
 
 // OutboxStore defines durable post-commit side-effect message persistence.

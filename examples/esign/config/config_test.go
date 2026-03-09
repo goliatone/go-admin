@@ -304,3 +304,101 @@ func TestLoadSupportsReminderOverrides(t *testing.T) {
 		t.Fatalf("expected reminders.allow_out_of_order override=true")
 	}
 }
+
+func TestLoadReminderZeroValuesFallbackToDefaults(t *testing.T) {
+	t.Setenv("APP_REMINDERS__INITIAL_DELAY_MINUTES", "0")
+	t.Setenv("APP_REMINDERS__INTERVAL_MINUTES", "0")
+	t.Setenv("APP_REMINDERS__MAX_REMINDERS", "0")
+	t.Setenv("APP_REMINDERS__JITTER_PERCENT", "0")
+	t.Setenv("APP_REMINDERS__RECENT_VIEW_GRACE_MINUTES", "0")
+	t.Setenv("APP_REMINDERS__MANUAL_RESEND_COOLDOWN_MINUTES", "0")
+
+	cfg, _, err := Load(context.Background())
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	defaults := Defaults().Reminders
+	if cfg.Reminders.InitialDelayMinutes != defaults.InitialDelayMinutes {
+		t.Fatalf("expected reminders.initial_delay_minutes fallback %d, got %d", defaults.InitialDelayMinutes, cfg.Reminders.InitialDelayMinutes)
+	}
+	if cfg.Reminders.IntervalMinutes != defaults.IntervalMinutes {
+		t.Fatalf("expected reminders.interval_minutes fallback %d, got %d", defaults.IntervalMinutes, cfg.Reminders.IntervalMinutes)
+	}
+	if cfg.Reminders.MaxReminders != defaults.MaxReminders {
+		t.Fatalf("expected reminders.max_reminders fallback %d, got %d", defaults.MaxReminders, cfg.Reminders.MaxReminders)
+	}
+	if cfg.Reminders.JitterPercent != defaults.JitterPercent {
+		t.Fatalf("expected reminders.jitter_percent fallback %d, got %d", defaults.JitterPercent, cfg.Reminders.JitterPercent)
+	}
+	if cfg.Reminders.RecentViewGraceMinutes != defaults.RecentViewGraceMinutes {
+		t.Fatalf("expected reminders.recent_view_grace_minutes fallback %d, got %d", defaults.RecentViewGraceMinutes, cfg.Reminders.RecentViewGraceMinutes)
+	}
+	if cfg.Reminders.ManualResendCooldownMinutes != defaults.ManualResendCooldownMinutes {
+		t.Fatalf("expected reminders.manual_resend_cooldown_minutes fallback %d, got %d", defaults.ManualResendCooldownMinutes, cfg.Reminders.ManualResendCooldownMinutes)
+	}
+}
+
+func TestResolveReminderPolicyCompatibilityMatrix(t *testing.T) {
+	resolution, err := ResolveReminderPolicy(ReminderConfig{
+		Enabled:                     true,
+		SweepCron:                   "",
+		BatchSize:                   25,
+		ClaimLeaseSeconds:           180,
+		InitialDelayMinutes:         0,
+		IntervalMinutes:             60,
+		MaxReminders:                0,
+		JitterPercent:               0,
+		RecentViewGraceMinutes:      30,
+		ManualResendCooldownMinutes: 0,
+		RotateToken:                 true,
+		AllowOutOfOrder:             false,
+	})
+	if err != nil {
+		t.Fatalf("ResolveReminderPolicy: %v", err)
+	}
+	if resolution.PolicyVersion != ReminderPolicyVersion {
+		t.Fatalf("expected policy version %q, got %q", ReminderPolicyVersion, resolution.PolicyVersion)
+	}
+	matrix := resolution.CompatibilityMatrix()
+	if len(matrix[ReminderCompatibilityRejected]) != 0 {
+		t.Fatalf("expected no rejected fields, got %+v", matrix[ReminderCompatibilityRejected])
+	}
+	if !containsString(matrix[ReminderCompatibilityAllowed], "batch_size") {
+		t.Fatalf("expected batch_size to be allowed, got %+v", matrix[ReminderCompatibilityAllowed])
+	}
+	if !containsString(matrix[ReminderCompatibilityDefaulted], "initial_delay_minutes") {
+		t.Fatalf("expected initial_delay_minutes to be defaulted, got %+v", matrix[ReminderCompatibilityDefaulted])
+	}
+	if !containsString(matrix[ReminderCompatibilityDefaulted], "max_reminders") {
+		t.Fatalf("expected max_reminders to be defaulted, got %+v", matrix[ReminderCompatibilityDefaulted])
+	}
+}
+
+func TestResolveReminderPolicyRejectsInvalidValues(t *testing.T) {
+	_, err := ResolveReminderPolicy(ReminderConfig{
+		SweepCron:                   "*/15 * * * *",
+		BatchSize:                   100,
+		ClaimLeaseSeconds:           120,
+		InitialDelayMinutes:         30,
+		IntervalMinutes:             60,
+		MaxReminders:                5,
+		JitterPercent:               95,
+		RecentViewGraceMinutes:      120,
+		ManualResendCooldownMinutes: 240,
+	})
+	if err == nil {
+		t.Fatalf("expected invalid jitter percent to be rejected")
+	}
+	if !strings.Contains(err.Error(), "jitter_percent") {
+		t.Fatalf("expected jitter_percent in error message, got %v", err)
+	}
+}
+
+func containsString(items []string, expected string) bool {
+	for _, item := range items {
+		if strings.TrimSpace(item) == strings.TrimSpace(expected) {
+			return true
+		}
+	}
+	return false
+}

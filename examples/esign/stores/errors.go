@@ -69,6 +69,40 @@ func auditEventsAppendOnlyError() error {
 		WithTextCode("AUDIT_EVENTS_APPEND_ONLY")
 }
 
+func reminderLeaseConflictError(agreementID, recipientID, workerID string, expectedSeq, actualSeq int64) error {
+	return goerrors.New("reminder lease conflict", goerrors.CategoryConflict).
+		WithCode(http.StatusConflict).
+		WithTextCode("REMINDER_LEASE_CONFLICT").
+		WithMetadata(map[string]any{
+			"agreement_id": agreementID,
+			"recipient_id": recipientID,
+			"worker_id":    workerID,
+			"expected_seq": expectedSeq,
+			"actual_seq":   actualSeq,
+		})
+}
+
+func reminderLeaseLostError(agreementID, recipientID, workerID string) error {
+	return goerrors.New("reminder lease lost", goerrors.CategoryConflict).
+		WithCode(http.StatusConflict).
+		WithTextCode("REMINDER_LEASE_LOST").
+		WithMetadata(map[string]any{
+			"agreement_id": agreementID,
+			"recipient_id": recipientID,
+			"worker_id":    workerID,
+		})
+}
+
+func reminderStateInvariantError(field, reason string) error {
+	return goerrors.New("reminder state invariant violation", goerrors.CategoryConflict).
+		WithCode(http.StatusConflict).
+		WithTextCode("REMINDER_STATE_INVARIANT_VIOLATION").
+		WithMetadata(map[string]any{
+			"field":  field,
+			"reason": reason,
+		})
+}
+
 func invalidTokenError() error {
 	return goerrors.New("invalid signing token", goerrors.CategoryAuthz).
 		WithCode(http.StatusUnauthorized).

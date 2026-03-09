@@ -340,6 +340,16 @@ func TestAgreementReminderServiceSweepSkipsMaxCountReached(t *testing.T) {
 	if result.SkipReasons["max_count_reached"] != 1 {
 		t.Fatalf("expected max_count_reached reason count 1, got %+v", result.SkipReasons)
 	}
+	state, err := store.GetAgreementReminderState(context.Background(), scope, agreement.ID, recipient.ID)
+	if err != nil {
+		t.Fatalf("GetAgreementReminderState: %v", err)
+	}
+	if state.Status != stores.AgreementReminderStatusTerminal {
+		t.Fatalf("expected terminal state after max_count_reached, got %q", state.Status)
+	}
+	if state.TerminalReason != stores.AgreementReminderTerminalReasonMaxCountReached {
+		t.Fatalf("expected terminal reason max_count_reached, got %q", state.TerminalReason)
+	}
 }
 
 func TestAgreementReminderServiceSendNowBlockedByPolicy(t *testing.T) {
@@ -412,6 +422,59 @@ func TestAgreementReminderServiceSendNowBlockedByPolicy(t *testing.T) {
 	}
 	if state.LastReasonCode != "manual_resend_cooldown" {
 		t.Fatalf("expected last_reason_code manual_resend_cooldown, got %q", state.LastReasonCode)
+	}
+}
+
+func TestAgreementServiceEnsureReminderStateInitializesNextDue(t *testing.T) {
+	now := time.Date(2026, 3, 9, 4, 30, 0, 0, time.UTC)
+	cfg := appcfg.Defaults()
+	cfg.Reminders.Enabled = true
+	cfg.Reminders.InitialDelayMinutes = 30
+	cfg.Reminders.IntervalMinutes = 60
+	appcfg.SetActive(cfg)
+	t.Cleanup(appcfg.ResetActive)
+
+	store := stores.NewInMemoryStore()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	agreement, recipient := seedSentAgreementWithSigner(t, store, scope, now)
+	agreementSvc := NewAgreementService(
+		store,
+		WithAgreementClock(func() time.Time { return now }),
+		WithAgreementReminderStore(store),
+	)
+
+	state, err := agreementSvc.ensureReminderState(context.Background(), scope, agreement, recipient)
+	if err != nil {
+		t.Fatalf("ensureReminderState: %v", err)
+	}
+	if state.NextDueAt == nil {
+		t.Fatalf("expected next_due_at to be initialized")
+	}
+}
+
+func TestAgreementReminderServicePauseRejectsNonSigner(t *testing.T) {
+	now := time.Date(2026, 3, 9, 5, 0, 0, 0, time.UTC)
+	cfg := appcfg.Defaults()
+	cfg.Reminders.Enabled = true
+	appcfg.SetActive(cfg)
+	t.Cleanup(appcfg.ResetActive)
+
+	store := stores.NewInMemoryStore()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	agreement, cc := seedSentAgreementWithCC(t, store, scope, now)
+
+	agreements := NewAgreementService(
+		store,
+		WithAgreementClock(func() time.Time { return now }),
+		WithAgreementReminderStore(store),
+	)
+	reminders := NewAgreementReminderService(
+		store,
+		agreements,
+		WithAgreementReminderClock(func() time.Time { return now }),
+	)
+	if _, err := reminders.Pause(context.Background(), scope, agreement.ID, cc.ID); err == nil {
+		t.Fatalf("expected pause to reject non-signer recipient")
 	}
 }
 
@@ -514,6 +577,60 @@ func seedSentAgreementWithTwoSigners(
 		t.Fatalf("Transition(sent): %v", err)
 	}
 	return agreement, signer1, signer2
+}
+
+func seedSentAgreementWithCC(t *testing.T, store *stores.InMemoryStore, scope stores.Scope, now time.Time) (stores.AgreementRecord, stores.RecipientRecord) {
+	t.Helper()
+	ctx := context.Background()
+	agreement, err := store.CreateDraft(ctx, scope, stores.AgreementRecord{
+		DocumentID:      "doc-1",
+		Title:           "Reminder Agreement",
+		Status:          stores.AgreementStatusDraft,
+		CreatedByUserID: "user-1",
+		UpdatedByUserID: "user-1",
+		CreatedAt:       now,
+		UpdatedAt:       now,
+	})
+	if err != nil {
+		t.Fatalf("CreateDraft: %v", err)
+	}
+	signerEmail := "signer@example.test"
+	signerName := "Signer"
+	signerRole := stores.RecipientRoleSigner
+	stage := 1
+	if _, err := store.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        &signerEmail,
+		Name:         &signerName,
+		Role:         &signerRole,
+		SigningOrder: &stage,
+	}, 0); err != nil {
+		t.Fatalf("UpsertRecipientDraft signer: %v", err)
+	}
+	email := "cc@example.test"
+	name := "CC Recipient"
+	role := stores.RecipientRoleCC
+	ccStage := 1
+	cc, err := store.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        &email,
+		Name:         &name,
+		Role:         &role,
+		SigningOrder: &ccStage,
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft: %v", err)
+	}
+	agreement, err = store.GetAgreement(ctx, scope, agreement.ID)
+	if err != nil {
+		t.Fatalf("GetAgreement: %v", err)
+	}
+	agreement, err = store.Transition(ctx, scope, agreement.ID, stores.AgreementTransitionInput{
+		ToStatus:        stores.AgreementStatusSent,
+		ExpectedVersion: agreement.Version,
+	})
+	if err != nil {
+		t.Fatalf("Transition(sent): %v", err)
+	}
+	return agreement, cc
 }
 
 func cloneServiceTestTimePtr(value time.Time) *time.Time {

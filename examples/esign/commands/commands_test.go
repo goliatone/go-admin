@@ -89,12 +89,15 @@ func (s *stubDraftCleanupService) CleanupExpiredDrafts(_ context.Context, before
 
 type stubAgreementReminderService struct {
 	sweepCalls    int
+	cleanupCalls  int
 	pauseCalls    int
 	resumeCalls   int
 	sendNowCalls  int
 	lastScope     stores.Scope
 	lastID        string
 	lastRecipient string
+	lastCleanupAt time.Time
+	lastLimit     int
 	sweepResult   services.AgreementReminderSweepResult
 	sendNowResult services.ResendResult
 }
@@ -103,6 +106,14 @@ func (s *stubAgreementReminderService) Sweep(_ context.Context, scope stores.Sco
 	s.sweepCalls++
 	s.lastScope = scope
 	return s.sweepResult, nil
+}
+
+func (s *stubAgreementReminderService) CleanupInternalErrors(_ context.Context, scope stores.Scope, now time.Time, limit int) (int, error) {
+	s.cleanupCalls++
+	s.lastScope = scope
+	s.lastCleanupAt = now
+	s.lastLimit = limit
+	return 1, nil
 }
 
 func (s *stubAgreementReminderService) Pause(_ context.Context, scope stores.Scope, agreementID, recipientID string) (stores.AgreementReminderStateRecord, error) {
@@ -316,6 +327,18 @@ func TestRegisterDispatchesReminderCommands(t *testing.T) {
 	}
 	if reminders.lastScope != defaultScope {
 		t.Fatalf("expected reminder sweep scope %+v, got %+v", defaultScope, reminders.lastScope)
+	}
+	if err := bus.DispatchByName(context.Background(), CommandAgreementReminderCleanup, map[string]any{"limit": 500}, nil); err != nil {
+		t.Fatalf("DispatchByName reminder cleanup: %v", err)
+	}
+	if reminders.cleanupCalls != 1 {
+		t.Fatalf("expected cleanup call count 1, got %d", reminders.cleanupCalls)
+	}
+	if reminders.lastLimit != 500 {
+		t.Fatalf("expected cleanup limit 500, got %d", reminders.lastLimit)
+	}
+	if reminders.lastCleanupAt.IsZero() {
+		t.Fatalf("expected cleanup before timestamp to be set")
 	}
 
 	payload := map[string]any{"agreement_id": "agreement-1", "recipient_id": "recipient-1"}
