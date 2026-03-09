@@ -1,9 +1,12 @@
 package admin
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	router "github.com/goliatone/go-router"
+	"github.com/julienschmidt/httprouter"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -54,7 +57,7 @@ func TestDebugEnsureJSErrorNonceNew(t *testing.T) {
 	ctx := router.NewMockContext()
 	ctx.On("Cookie", mock.Anything).Return()
 	// No existing cookie — CookiesM is empty by default.
-	nonce := debugEnsureJSErrorNonce(ctx, "/")
+	nonce := debugEnsureJSErrorNonce(ctx, "/", DebugConfig{})
 	if nonce == "" {
 		t.Fatal("expected non-empty nonce from new generation")
 	}
@@ -71,15 +74,28 @@ func TestDebugEnsureJSErrorNonceNew(t *testing.T) {
 func TestDebugEnsureJSErrorNonceExisting(t *testing.T) {
 	ctx := router.NewMockContext()
 	ctx.CookiesM[debugNonceCookieName] = "existing-nonce-value"
-	nonce := debugEnsureJSErrorNonce(ctx, "/")
+	nonce := debugEnsureJSErrorNonce(ctx, "/", DebugConfig{})
 	if nonce != "existing-nonce-value" {
 		t.Fatalf("expected existing nonce %q, got %q", "existing-nonce-value", nonce)
 	}
 }
 
 func TestDebugEnsureJSErrorNonceNilContext(t *testing.T) {
-	nonce := debugEnsureJSErrorNonce(nil, "/")
+	nonce := debugEnsureJSErrorNonce(nil, "/", DebugConfig{})
 	if nonce != "" {
 		t.Fatalf("expected empty nonce for nil context, got %q", nonce)
+	}
+}
+
+func TestDebugIsSecureRequestUsesResolverOverride(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/debug", nil)
+	rec := httptest.NewRecorder()
+	ctx := router.NewHTTPRouterContext(rec, req, httprouter.Params{}, nil)
+
+	secure := debugIsSecureRequest(ctx, DebugConfig{
+		SecureRequestResolver: func(router.Context) bool { return true },
+	})
+	if !secure {
+		t.Fatalf("expected resolver override to mark request secure")
 	}
 }

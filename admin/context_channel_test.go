@@ -23,6 +23,7 @@ func TestNewAdminContextFromRouterPrefersChannelQuery(t *testing.T) {
 	mockCtx.QueriesM["channel"] = "public"
 	mockCtx.QueriesM["env"] = "staging"
 	mockCtx.On("Context").Return(context.Background())
+	mockCtx.On("IP").Return("127.0.0.1")
 
 	adminCtx := newAdminContextFromRouter(mockCtx, "en")
 	if adminCtx.Channel != "public" {
@@ -44,6 +45,7 @@ func TestNewAdminContextFromRouterPrefersDollarChannelQuery(t *testing.T) {
 	mockCtx.QueriesM[ContentChannelScopeQueryParam] = "preview"
 	mockCtx.QueriesM["channel"] = "public"
 	mockCtx.On("Context").Return(context.Background())
+	mockCtx.On("IP").Return("127.0.0.1")
 
 	adminCtx := newAdminContextFromRouter(mockCtx, "en")
 	if adminCtx.Channel != "preview" {

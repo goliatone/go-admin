@@ -101,6 +101,23 @@ func TestValidatePanelActionWiringFailsForMissingCommandFactory(t *testing.T) {
 	}
 }
 
+func TestValidatePanelActionWiringAllowsPassiveBulkDelete(t *testing.T) {
+	cfg := Config{BasePath: "/admin", DefaultLocale: "en"}
+	adm := mustNewAdmin(t, cfg, Dependencies{})
+	builder := (&PanelBuilder{}).
+		WithRepository(NewMemoryRepository()).
+		ListFields(Field{Name: "id", Label: "ID", Type: "text"}).
+		FormFields(Field{Name: "title", Label: "Title", Type: "text"}).
+		BulkActions(Action{Name: "delete"})
+	if _, err := adm.RegisterPanel("items", builder); err != nil {
+		t.Fatalf("register panel: %v", err)
+	}
+
+	if err := adm.validatePanelActionWiring(); err != nil {
+		t.Fatalf("expected passive bulk delete wiring to pass, got %v", err)
+	}
+}
+
 func panelActionWiringContainsReason(t *testing.T, err error, reason string) bool {
 	t.Helper()
 	var typed *goerrors.Error

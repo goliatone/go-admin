@@ -66,6 +66,7 @@ func TestNewAdminContextPrefersActor(t *testing.T) {
 	mockCtx := router.NewMockContext()
 	mockCtx.HeadersM["X-User-ID"] = "header-user"
 	mockCtx.On("Context").Return(ctxWithActor)
+	mockCtx.On("IP").Return("127.0.0.1")
 
 	result := newAdminContextFromRouter(mockCtx, "en")
 	if result.UserID != "actor-123" {
@@ -87,6 +88,7 @@ func TestNewAdminContextDerivesActorFromClaims(t *testing.T) {
 
 	mockCtx := router.NewMockContext()
 	mockCtx.On("Context").Return(ctxWithClaims)
+	mockCtx.On("IP").Return("127.0.0.1")
 
 	result := newAdminContextFromRouter(mockCtx, "en")
 	if result.UserID != "claims-user-1" {
@@ -107,6 +109,7 @@ func TestNewAdminContextCapturesRequestAndCorrelationIDs(t *testing.T) {
 	mockCtx.HeadersM["X-Request-ID"] = "req-123"
 	mockCtx.HeadersM["X-Correlation-ID"] = "corr-789"
 	mockCtx.On("Context").Return(context.Background())
+	mockCtx.On("IP").Return("203.0.113.10")
 
 	result := newAdminContextFromRouter(mockCtx, "en")
 	if got := requestIDFromContext(result.Context); got != "req-123" {
@@ -114,6 +117,9 @@ func TestNewAdminContextCapturesRequestAndCorrelationIDs(t *testing.T) {
 	}
 	if got := correlationIDFromContext(result.Context); got != "corr-789" {
 		t.Fatalf("expected correlation id corr-789, got %q", got)
+	}
+	if got := RequestIPFromContext(result.Context); got != "203.0.113.10" {
+		t.Fatalf("expected request ip 203.0.113.10, got %q", got)
 	}
 	mockCtx.AssertExpectations(t)
 }

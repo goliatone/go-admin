@@ -74,3 +74,41 @@ func TestResolveAdminPanelAPICollectionPathFallsBackToCanonicalPanelsPath(t *tes
 		t.Fatalf("expected /admin/api/panels/news fallback, got %q", got)
 	}
 }
+
+func TestResolveAdminPanelAPIBulkBasePathUsesURLKitPanelBulkRoute(t *testing.T) {
+	manager, err := urlkit.NewRouteManagerFromConfig(&urlkit.Config{
+		Groups: []urlkit.GroupConfig{
+			{
+				Name:    "admin",
+				BaseURL: "/admin",
+				Groups: []urlkit.GroupConfig{
+					{
+						Name: "api",
+						Path: "/api",
+						Routes: map[string]string{
+							"errors":     "/errors",
+							"panel.bulk": "/panels/:panel/bulk/:action",
+						},
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("new route manager: %v", err)
+	}
+
+	cfg := admin.Config{BasePath: "/admin"}
+	got := resolveAdminPanelAPIBulkBasePath(manager, cfg, "/admin", "pages@staging")
+	if got != "/admin/api/panels/pages/bulk" {
+		t.Fatalf("expected /admin/api/panels/pages/bulk, got %q", got)
+	}
+}
+
+func TestResolveAdminPanelAPIBulkBasePathFallsBackToCollectionBulkPath(t *testing.T) {
+	cfg := admin.Config{BasePath: "/admin"}
+	got := resolveAdminPanelAPIBulkBasePath(nil, cfg, "/admin", "news")
+	if got != "/admin/api/panels/news/bulk" {
+		t.Fatalf("expected /admin/api/panels/news/bulk fallback, got %q", got)
+	}
+}
