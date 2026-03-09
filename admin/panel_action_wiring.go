@@ -11,6 +11,11 @@ var passivePanelActionNames = map[string]struct{}{
 	"delete": {},
 }
 
+var passiveBulkPanelActionNames = map[string]struct{}{
+	"delete":      {},
+	"bulk_delete": {},
+}
+
 var workflowActionNames = map[string]struct{}{
 	"submit_for_approval": {},
 	"request_approval":    {},
@@ -84,6 +89,10 @@ func validatePanelAction(panel *Panel, panelName, scope string, action Action, b
 	}
 	if scope != "bulk" {
 		if _, ok := passivePanelActionNames[actionName]; ok {
+			return nil
+		}
+	} else {
+		if _, ok := passiveBulkPanelActionNames[actionName]; ok {
 			return nil
 		}
 	}
