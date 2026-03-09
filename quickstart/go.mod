@@ -24,7 +24,7 @@ require (
 	github.com/goliatone/go-featuregate v0.6.0
 	github.com/goliatone/go-formgen v0.18.0
 	github.com/goliatone/go-logger v0.8.0
-	github.com/goliatone/go-notifications v0.12.0
+	github.com/goliatone/go-notifications v0.13.0
 	github.com/goliatone/go-persistence-bun v0.13.0
 	github.com/goliatone/go-router v0.50.0
 	github.com/goliatone/go-template v0.3.1
