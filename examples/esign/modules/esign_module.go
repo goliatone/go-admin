@@ -73,6 +73,7 @@ type ESignModule struct {
 	documents         services.DocumentService
 	tokens            stores.TokenService
 	agreements        services.AgreementService
+	reminders         services.AgreementReminderService
 	drafts            services.DraftService
 	signing           services.SigningService
 	signerProfiles    services.SignerProfileService
@@ -281,9 +282,15 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 	m.agreements = services.NewAgreementService(m.store,
 		services.WithAgreementTokenService(m.tokens),
 		services.WithAgreementAuditStore(m.store),
+		services.WithAgreementReminderStore(m.store),
 		services.WithAgreementEmailWorkflow(emailWorkflow),
 		services.WithAgreementPlacementObjectStore(objectStore),
 		services.WithAgreementPDFService(pdfService),
+	)
+	m.reminders = services.NewAgreementReminderService(
+		m.store,
+		m.agreements,
+		services.WithAgreementReminderClaimer("esign-agreement-reminder-sweep"),
 	)
 	m.drafts = services.NewDraftService(m.store,
 		services.WithDraftAgreementService(m.agreements),
@@ -391,7 +398,16 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 	}
 	m.activityMap = NewAuditActivityProjector(ctx.Admin.ActivityFeed(), m.store)
 
-	if err := commands.Register(ctx.Admin.Commands(), m.agreements, m.tokens, m.drafts, m.defaultScope, m.activityMap); err != nil {
+	if err := commands.Register(
+		ctx.Admin.Commands(),
+		m.agreements,
+		m.tokens,
+		m.drafts,
+		m.reminders,
+		strings.TrimSpace(appcfg.Active().Reminders.SweepCron),
+		m.defaultScope,
+		m.activityMap,
+	); err != nil {
 		return err
 	}
 	if err := m.registerPanels(ctx.Admin); err != nil {
@@ -534,6 +550,8 @@ func (m *ESignModule) registerPanels(adm *coreadmin.Admin) error {
 		ListFields(
 			coreadmin.Field{Name: "title", Label: "Title", Type: "text"},
 			coreadmin.Field{Name: "status", Label: "Status", Type: "select"},
+			coreadmin.Field{Name: "reminder_status", Label: "Reminder", Type: "text"},
+			coreadmin.Field{Name: "next_due_at", Label: "Next Reminder", Type: "datetime"},
 			coreadmin.Field{Name: "recipient_count", Label: "Recipients", Type: "number"},
 			coreadmin.Field{Name: "updated_at", Label: "Updated", Type: "datetime"},
 		).
@@ -547,6 +565,12 @@ func (m *ESignModule) registerPanels(adm *coreadmin.Admin) error {
 			coreadmin.Field{Name: "document_id", Label: "Document", Type: "text", ReadOnly: true},
 			coreadmin.Field{Name: "title", Label: "Title", Type: "text", ReadOnly: true},
 			coreadmin.Field{Name: "status", Label: "Status", Type: "text", ReadOnly: true},
+			coreadmin.Field{Name: "reminder_status", Label: "Reminder", Type: "text", ReadOnly: true},
+			coreadmin.Field{Name: "next_due_at", Label: "Next Reminder", Type: "datetime", ReadOnly: true},
+			coreadmin.Field{Name: "last_sent_at", Label: "Last Reminder Sent", Type: "datetime", ReadOnly: true},
+			coreadmin.Field{Name: "reminder_count", Label: "Reminder Count", Type: "number", ReadOnly: true},
+			coreadmin.Field{Name: "last_error", Label: "Reminder Error", Type: "textarea", ReadOnly: true},
+			coreadmin.Field{Name: "paused", Label: "Reminders Paused", Type: "boolean", ReadOnly: true},
 			coreadmin.Field{Name: "recipient_count", Label: "Recipients", Type: "number", ReadOnly: true},
 			coreadmin.Field{Name: "sent_at", Label: "Sent", Type: "datetime", ReadOnly: true},
 			coreadmin.Field{Name: "completed_at", Label: "Completed", Type: "datetime", ReadOnly: true},
@@ -561,6 +585,9 @@ func (m *ESignModule) registerPanels(adm *coreadmin.Admin) error {
 			coreadmin.Action{Name: "send", Label: "Send", CommandName: commands.CommandAgreementSend, Permission: permissions.AdminESignSend, Idempotent: true, PayloadRequired: []string{"idempotency_key"}},
 			coreadmin.Action{Name: "void", Label: "Void", CommandName: commands.CommandAgreementVoid, Permission: permissions.AdminESignVoid, PayloadRequired: []string{"reason"}},
 			coreadmin.Action{Name: "rotate_token", Label: "Rotate Token", CommandName: commands.CommandTokenRotate, Permission: permissions.AdminESignSend, ContextRequired: []string{"recipient_id"}, PayloadRequired: []string{"recipient_id"}},
+			coreadmin.Action{Name: "pause_reminder", Label: "Pause Reminder", CommandName: commands.CommandAgreementReminderPause, Permission: permissions.AdminESignReminders, ContextRequired: []string{"recipient_id"}, PayloadRequired: []string{"recipient_id"}},
+			coreadmin.Action{Name: "resume_reminder", Label: "Resume Reminder", CommandName: commands.CommandAgreementReminderResume, Permission: permissions.AdminESignReminders, ContextRequired: []string{"recipient_id"}, PayloadRequired: []string{"recipient_id"}},
+			coreadmin.Action{Name: "send_reminder_now", Label: "Send Reminder Now", CommandName: commands.CommandAgreementReminderSendNow, Permission: permissions.AdminESignReminders, ContextRequired: []string{"recipient_id"}, PayloadRequired: []string{"recipient_id"}},
 		).
 		BulkActions(
 			coreadmin.Action{Name: "send", Label: "Send", CommandName: commands.CommandAgreementSend, Permission: permissions.AdminESignSend, Idempotent: true, PayloadRequired: []string{"idempotency_key"}},

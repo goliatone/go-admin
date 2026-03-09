@@ -13,6 +13,7 @@ import (
 type Metrics interface {
 	ObserveAdminRead(ctx context.Context, duration time.Duration, success bool, endpoint string)
 	ObserveSend(ctx context.Context, duration time.Duration, success bool)
+	ObserveReminderSweep(ctx context.Context, duration time.Duration, claimed, sent, skipped, failed int, skipReasons map[string]int)
 	ObserveSignerLinkOpen(ctx context.Context, success bool)
 	ObserveUnifiedViewerLoad(ctx context.Context, duration time.Duration, success bool)
 	ObserveUnifiedFieldSave(ctx context.Context, duration time.Duration, success bool)
@@ -38,6 +39,7 @@ type Metrics interface {
 type MetricsSnapshot struct {
 	AdminReadP95MS          float64
 	SendP95MS               float64
+	ReminderSweepP95MS      float64
 	SignerSubmitP95MS       float64
 	UnifiedViewerLoadP95MS  float64
 	UnifiedFieldSaveP95MS   float64
@@ -47,6 +49,7 @@ type MetricsSnapshot struct {
 
 	AdminReadSampleTotal     int64
 	SendSampleTotal          int64
+	ReminderSweepSampleTotal int64
 	SignerSubmitSampleTotal  int64
 	UnifiedViewerSampleTotal int64
 	UnifiedFieldSaveTotal    int64
@@ -56,6 +59,11 @@ type MetricsSnapshot struct {
 
 	SendSuccessTotal               int64
 	SendFailureTotal               int64
+	ReminderSweepClaimedTotal      int64
+	ReminderSweepSentTotal         int64
+	ReminderSweepSkippedTotal      int64
+	ReminderSweepFailedTotal       int64
+	ReminderSweepSkipByReason      map[string]int64
 	SignerLinkOpenSuccessTotal     int64
 	SignerLinkOpenFailureTotal     int64
 	SignerSubmitSuccessTotal       int64
@@ -152,6 +160,7 @@ type inMemoryMetrics struct {
 
 	adminReadDurationsMS           []float64
 	sendDurationsMS                []float64
+	reminderSweepDurationsMS       []float64
 	signerSubmitDurationsMS        []float64
 	unifiedViewerDurationsMS       []float64
 	unifiedFieldSaveDurationsMS    []float64
@@ -160,6 +169,11 @@ type inMemoryMetrics struct {
 	emailDispatchDurationsMS       []float64
 	sendSuccessTotal               int64
 	sendFailureTotal               int64
+	reminderSweepClaimedTotal      int64
+	reminderSweepSentTotal         int64
+	reminderSweepSkippedTotal      int64
+	reminderSweepFailedTotal       int64
+	reminderSweepSkipByReason      map[string]int64
 	signerLinkOpenSuccessTotal     int64
 	signerLinkOpenFailureTotal     int64
 	signerSubmitSuccessTotal       int64
@@ -199,6 +213,7 @@ func newInMemoryMetrics() *inMemoryMetrics {
 		providerSuccessByName:        map[string]int64{},
 		providerFailureByName:        map[string]int64{},
 		tokenValidationByReason:      map[string]int64{},
+		reminderSweepSkipByReason:    map[string]int64{},
 		googleImportFailureByKey:     map[string]int64{},
 		googleAuthChurnByReason:      map[string]int64{},
 		adminReadSuccessByPath:       map[string]int64{},
@@ -231,6 +246,23 @@ func (m *inMemoryMetrics) ObserveSend(_ context.Context, duration time.Duration,
 		return
 	}
 	m.sendFailureTotal++
+}
+
+func (m *inMemoryMetrics) ObserveReminderSweep(_ context.Context, duration time.Duration, claimed, sent, skipped, failed int, skipReasons map[string]int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.reminderSweepDurationsMS = appendDurationMS(m.reminderSweepDurationsMS, duration)
+	m.reminderSweepClaimedTotal += int64(claimed)
+	m.reminderSweepSentTotal += int64(sent)
+	m.reminderSweepSkippedTotal += int64(skipped)
+	m.reminderSweepFailedTotal += int64(failed)
+	for reason, count := range skipReasons {
+		key := normalizeMetricKey(reason, "unknown")
+		if count <= 0 {
+			continue
+		}
+		m.reminderSweepSkipByReason[key] += int64(count)
+	}
 }
 
 func (m *inMemoryMetrics) ObserveSignerLinkOpen(_ context.Context, success bool) {
@@ -415,6 +447,7 @@ func (m *inMemoryMetrics) Snapshot() MetricsSnapshot {
 	return MetricsSnapshot{
 		AdminReadP95MS:          percentile(m.adminReadDurationsMS, 95),
 		SendP95MS:               percentile(m.sendDurationsMS, 95),
+		ReminderSweepP95MS:      percentile(m.reminderSweepDurationsMS, 95),
 		SignerSubmitP95MS:       percentile(m.signerSubmitDurationsMS, 95),
 		UnifiedViewerLoadP95MS:  percentile(m.unifiedViewerDurationsMS, 95),
 		UnifiedFieldSaveP95MS:   percentile(m.unifiedFieldSaveDurationsMS, 95),
@@ -424,6 +457,7 @@ func (m *inMemoryMetrics) Snapshot() MetricsSnapshot {
 
 		AdminReadSampleTotal:     int64(len(m.adminReadDurationsMS)),
 		SendSampleTotal:          int64(len(m.sendDurationsMS)),
+		ReminderSweepSampleTotal: int64(len(m.reminderSweepDurationsMS)),
 		SignerSubmitSampleTotal:  int64(len(m.signerSubmitDurationsMS)),
 		UnifiedViewerSampleTotal: int64(len(m.unifiedViewerDurationsMS)),
 		UnifiedFieldSaveTotal:    int64(len(m.unifiedFieldSaveDurationsMS)),
@@ -433,6 +467,11 @@ func (m *inMemoryMetrics) Snapshot() MetricsSnapshot {
 
 		SendSuccessTotal:               m.sendSuccessTotal,
 		SendFailureTotal:               m.sendFailureTotal,
+		ReminderSweepClaimedTotal:      m.reminderSweepClaimedTotal,
+		ReminderSweepSentTotal:         m.reminderSweepSentTotal,
+		ReminderSweepSkippedTotal:      m.reminderSweepSkippedTotal,
+		ReminderSweepFailedTotal:       m.reminderSweepFailedTotal,
+		ReminderSweepSkipByReason:      cloneInt64Map(m.reminderSweepSkipByReason),
 		SignerLinkOpenSuccessTotal:     m.signerLinkOpenSuccessTotal,
 		SignerLinkOpenFailureTotal:     m.signerLinkOpenFailureTotal,
 		SignerSubmitSuccessTotal:       m.signerSubmitSuccessTotal,
@@ -527,6 +566,14 @@ func ObserveSend(ctx context.Context, duration time.Duration, success bool) {
 		return
 	}
 	metrics.ObserveSend(ctx, duration, success)
+}
+
+func ObserveReminderSweep(ctx context.Context, duration time.Duration, claimed, sent, skipped, failed int, skipReasons map[string]int) {
+	metrics := currentMetrics()
+	if metrics == nil {
+		return
+	}
+	metrics.ObserveReminderSweep(ctx, duration, claimed, sent, skipped, failed, skipReasons)
 }
 
 func ObserveSignerLinkOpen(ctx context.Context, success bool) {

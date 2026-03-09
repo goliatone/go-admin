@@ -7,6 +7,7 @@ import (
 	"time"
 
 	coreadmin "github.com/goliatone/go-admin/admin"
+	appcfg "github.com/goliatone/go-admin/examples/esign/config"
 	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
@@ -86,6 +87,59 @@ func (s *stubDraftCleanupService) CleanupExpiredDrafts(_ context.Context, before
 	return 2, nil
 }
 
+type stubAgreementReminderService struct {
+	sweepCalls    int
+	pauseCalls    int
+	resumeCalls   int
+	sendNowCalls  int
+	lastScope     stores.Scope
+	lastID        string
+	lastRecipient string
+	sweepResult   services.AgreementReminderSweepResult
+	sendNowResult services.ResendResult
+}
+
+func (s *stubAgreementReminderService) Sweep(_ context.Context, scope stores.Scope) (services.AgreementReminderSweepResult, error) {
+	s.sweepCalls++
+	s.lastScope = scope
+	return s.sweepResult, nil
+}
+
+func (s *stubAgreementReminderService) Pause(_ context.Context, scope stores.Scope, agreementID, recipientID string) (stores.AgreementReminderStateRecord, error) {
+	s.pauseCalls++
+	s.lastScope = scope
+	s.lastID = agreementID
+	s.lastRecipient = recipientID
+	return stores.AgreementReminderStateRecord{
+		AgreementID: agreementID,
+		RecipientID: recipientID,
+		Status:      stores.AgreementReminderStatusPaused,
+	}, nil
+}
+
+func (s *stubAgreementReminderService) Resume(_ context.Context, scope stores.Scope, agreementID, recipientID string) (stores.AgreementReminderStateRecord, error) {
+	s.resumeCalls++
+	s.lastScope = scope
+	s.lastID = agreementID
+	s.lastRecipient = recipientID
+	return stores.AgreementReminderStateRecord{
+		AgreementID: agreementID,
+		RecipientID: recipientID,
+		Status:      stores.AgreementReminderStatusActive,
+	}, nil
+}
+
+func (s *stubAgreementReminderService) SendNow(_ context.Context, scope stores.Scope, agreementID, recipientID string) (services.ResendResult, error) {
+	s.sendNowCalls++
+	s.lastScope = scope
+	s.lastID = agreementID
+	s.lastRecipient = recipientID
+	if s.sendNowResult.Agreement.ID == "" {
+		s.sendNowResult.Agreement.ID = agreementID
+	}
+	return s.sendNowResult, nil
+}
+
 func TestBuildAgreementSendInputUsesIDsFallback(t *testing.T) {
 	msg, err := buildAgreementSendInput(map[string]any{"idempotency_key": "k1"}, []string{"agreement-1"})
 	if err != nil {
@@ -112,7 +166,7 @@ func TestRegisterDispatchesTypedAgreementAndTokenCommands(t *testing.T) {
 	t.Cleanup(bus.Reset)
 
 	defaultScope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
-	if err := Register(bus, agreementSvc, tokenSvc, draftSvc, defaultScope, projector); err != nil {
+	if err := Register(bus, agreementSvc, tokenSvc, draftSvc, nil, "", defaultScope, projector); err != nil {
 		t.Fatalf("Register: %v", err)
 	}
 
@@ -176,7 +230,7 @@ func TestAgreementSendCommandFallsBackToResendWhenAlreadySent(t *testing.T) {
 	t.Cleanup(bus.Reset)
 
 	defaultScope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
-	if err := Register(bus, agreementSvc, tokenSvc, nil, defaultScope, projector); err != nil {
+	if err := Register(bus, agreementSvc, tokenSvc, nil, nil, "", defaultScope, projector); err != nil {
 		t.Fatalf("Register: %v", err)
 	}
 
@@ -202,7 +256,7 @@ func TestCommandsPropagateRequestIPFromContext(t *testing.T) {
 	t.Cleanup(bus.Reset)
 
 	defaultScope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
-	if err := Register(bus, agreementSvc, tokenSvc, nil, defaultScope, nil); err != nil {
+	if err := Register(bus, agreementSvc, tokenSvc, nil, nil, "", defaultScope, nil); err != nil {
 		t.Fatalf("Register: %v", err)
 	}
 
@@ -224,5 +278,86 @@ func TestCommandsPropagateRequestIPFromContext(t *testing.T) {
 	}
 	if got := agreementSvc.lastResend.IPAddress; got != "198.51.100.25" {
 		t.Fatalf("expected resend ip propagation, got %q", got)
+	}
+}
+
+func TestRegisterDispatchesReminderCommands(t *testing.T) {
+	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
+	observability.ResetDefaultMetrics()
+	t.Cleanup(observability.ResetDefaultMetrics)
+
+	agreementSvc := &stubAgreementLifecycleService{}
+	tokenSvc := &stubTokenRotator{}
+	reminders := &stubAgreementReminderService{
+		sweepResult: services.AgreementReminderSweepResult{
+			Claimed:     2,
+			Sent:        1,
+			Skipped:     1,
+			SkipReasons: map[string]int{"manual_resend_cooldown": 1},
+		},
+		sendNowResult: services.ResendResult{
+			Agreement: stores.AgreementRecord{ID: "agreement-1", Status: stores.AgreementStatusSent},
+		},
+	}
+	projector := &stubProjector{}
+	bus := coreadmin.NewCommandBus(true)
+	t.Cleanup(bus.Reset)
+
+	defaultScope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	if err := Register(bus, agreementSvc, tokenSvc, nil, reminders, "*/5 * * * *", defaultScope, projector); err != nil {
+		t.Fatalf("Register: %v", err)
+	}
+
+	if err := bus.DispatchByName(context.Background(), CommandAgreementReminderSweep, map[string]any{}, nil); err != nil {
+		t.Fatalf("DispatchByName reminder sweep: %v", err)
+	}
+	if reminders.sweepCalls != 1 {
+		t.Fatalf("expected sweep call count 1, got %d", reminders.sweepCalls)
+	}
+	if reminders.lastScope != defaultScope {
+		t.Fatalf("expected reminder sweep scope %+v, got %+v", defaultScope, reminders.lastScope)
+	}
+
+	payload := map[string]any{"agreement_id": "agreement-1", "recipient_id": "recipient-1"}
+	if err := bus.DispatchByName(context.Background(), CommandAgreementReminderPause, payload, nil); err != nil {
+		t.Fatalf("DispatchByName reminder pause: %v", err)
+	}
+	if err := bus.DispatchByName(context.Background(), CommandAgreementReminderResume, payload, nil); err != nil {
+		t.Fatalf("DispatchByName reminder resume: %v", err)
+	}
+	if err := bus.DispatchByName(context.Background(), CommandAgreementReminderSendNow, payload, nil); err != nil {
+		t.Fatalf("DispatchByName reminder send_now: %v", err)
+	}
+	if reminders.pauseCalls != 1 || reminders.resumeCalls != 1 || reminders.sendNowCalls != 1 {
+		t.Fatalf("expected pause/resume/send_now calls 1/1/1 got %d/%d/%d", reminders.pauseCalls, reminders.resumeCalls, reminders.sendNowCalls)
+	}
+	if reminders.lastID != "agreement-1" || reminders.lastRecipient != "recipient-1" {
+		t.Fatalf("expected reminder target agreement-1/recipient-1 got %q/%q", reminders.lastID, reminders.lastRecipient)
+	}
+	if projector.calls != 1 {
+		t.Fatalf("expected projector called once for send_now, got %d", projector.calls)
+	}
+}
+
+func TestAgreementReminderSweepCommandCronOptionsFromConfig(t *testing.T) {
+	cmd := &AgreementReminderSweepCommand{cronExpression: "0 */2 * * *"}
+	if got := cmd.CronOptions().Expression; got != "0 */2 * * *" {
+		t.Fatalf("expected explicit cron expression, got %q", got)
+	}
+
+	cfg := appcfg.Defaults()
+	cfg.Reminders.SweepCron = "0 */1 * * *"
+	appcfg.SetActive(cfg)
+	t.Cleanup(appcfg.ResetActive)
+
+	cmd = &AgreementReminderSweepCommand{}
+	if got := cmd.CronOptions().Expression; got != "0 */1 * * *" {
+		t.Fatalf("expected config sweep cron, got %q", got)
+	}
+
+	cfg.Reminders.SweepCron = ""
+	appcfg.SetActive(cfg)
+	if got := cmd.CronOptions().Expression; got != "*/15 * * * *" {
+		t.Fatalf("expected fallback sweep cron, got %q", got)
 	}
 }

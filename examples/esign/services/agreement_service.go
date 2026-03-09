@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"sort"
 	"strings"
 	"time"
@@ -17,6 +18,7 @@ type AgreementService struct {
 	agreements            stores.AgreementStore
 	documents             stores.DocumentStore
 	placementRuns         stores.PlacementRunStore
+	reminders             stores.AgreementReminderStore
 	tokens                AgreementTokenService
 	audits                stores.AuditEventStore
 	emails                AgreementEmailWorkflow
@@ -27,6 +29,7 @@ type AgreementService struct {
 	customTokens          bool
 	customAudits          bool
 	customPlacementRuns   bool
+	customReminders       bool
 	pdfs                  PDFService
 	now                   func() time.Time
 }
@@ -97,6 +100,38 @@ func WithAgreementAuditStore(audits stores.AuditEventStore) AgreementServiceOpti
 	}
 }
 
+// WithAgreementReminderStore configures reminder cadence state persistence.
+func WithAgreementReminderStore(reminders stores.AgreementReminderStore) AgreementServiceOption {
+	return func(s *AgreementService) {
+		if s == nil || reminders == nil {
+			return
+		}
+		s.reminders = reminders
+		// Treat identical store injection as default wiring so reminder writes stay tx-bound.
+		s.customReminders = !sameInstance(reminders, s.agreements)
+	}
+}
+
+func sameInstance(left, right any) bool {
+	if left == nil || right == nil {
+		return false
+	}
+	lv := reflect.ValueOf(left)
+	rv := reflect.ValueOf(right)
+	if !lv.IsValid() || !rv.IsValid() || lv.Type() != rv.Type() {
+		return false
+	}
+	switch lv.Kind() {
+	case reflect.Pointer, reflect.Map, reflect.Slice, reflect.Func, reflect.Chan, reflect.UnsafePointer:
+		return lv.Pointer() == rv.Pointer()
+	default:
+		if !lv.Type().Comparable() {
+			return false
+		}
+		return lv.Interface() == rv.Interface()
+	}
+}
+
 // WithAgreementEmailWorkflow configures email dispatch for send/resend flows.
 func WithAgreementEmailWorkflow(workflow AgreementEmailWorkflow) AgreementServiceOption {
 	return func(s *AgreementService) {
@@ -154,6 +189,7 @@ func NewAgreementService(store stores.Store, opts ...AgreementServiceOption) Agr
 		agreements:    store,
 		documents:     store,
 		placementRuns: store,
+		reminders:     store,
 		audits:        store,
 		tokens:        stores.NewTokenService(store),
 		tx:            store,
@@ -176,6 +212,9 @@ func (s AgreementService) forTx(tx stores.TxStore) AgreementService {
 	txSvc.documents = tx
 	if !txSvc.customPlacementRuns {
 		txSvc.placementRuns = tx
+	}
+	if !txSvc.customReminders {
+		txSvc.reminders = tx
 	}
 	if !txSvc.customAudits {
 		txSvc.audits = tx
@@ -249,6 +288,7 @@ type ResendInput struct {
 	AllowOutOfOrderResend bool
 	IdempotencyKey        string
 	IPAddress             string
+	Source                string
 }
 
 // ResendResult returns resend decision context and newly issued token.
@@ -906,6 +946,9 @@ func (s AgreementService) Send(ctx context.Context, scope stores.Scope, agreemen
 			return err
 		}
 		result = transitioned
+		if err := txSvc.initializeReminderStatesForSend(ctx, scope, transitioned, recipients); err != nil {
+			return err
+		}
 
 		activeRecipientIDs := recipientIDs(activeSigners)
 		if err := txSvc.appendAuditEventWithIP(ctx, scope, transitioned.ID, "agreement.sent", "system", "", input.IPAddress, map[string]any{
@@ -1081,6 +1124,7 @@ func (s AgreementService) Resend(ctx context.Context, scope stores.Scope, agreem
 	}
 	var result ResendResult
 	if err := s.withWriteTxHooks(ctx, func(txSvc AgreementService, hooks *stores.TxHooks) error {
+		resendSource := normalizeResendSource(input.Source)
 		agreement, err := txSvc.agreements.GetAgreement(ctx, scope, agreementID)
 		if err != nil {
 			return err
@@ -1139,8 +1183,12 @@ func (s AgreementService) Resend(ctx context.Context, scope stores.Scope, agreem
 			"rotate_token":              input.RotateToken,
 			"invalidate_existing":       input.InvalidateExisting,
 			"allow_out_of_order_resend": input.AllowOutOfOrderResend,
+			"source":                    resendSource,
 			"token_id":                  issued.Record.ID,
 		}); err != nil {
+			return err
+		}
+		if err := txSvc.recordReminderResendState(ctx, scope, agreement, target, resendSource); err != nil {
 			return err
 		}
 		if txSvc.emails != nil {

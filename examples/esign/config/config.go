@@ -31,6 +31,7 @@ type Config struct {
 	Auth       AuthConfig       `koanf:"auth" json:"auth" yaml:"auth"`
 	Features   FeatureConfig    `koanf:"features" json:"features" yaml:"features"`
 	Runtime    RuntimeConfig    `koanf:"runtime" json:"runtime" yaml:"runtime"`
+	Reminders  ReminderConfig   `koanf:"reminders" json:"reminders" yaml:"reminders"`
 	Storage    StorageConfig    `koanf:"storage" json:"storage" yaml:"storage"`
 	Email      EmailConfig      `koanf:"email" json:"email" yaml:"email"`
 	Signer     SignerConfig     `koanf:"signer" json:"signer" yaml:"signer"`
@@ -90,6 +91,21 @@ type RuntimeConfig struct {
 	StartupPolicy     string `koanf:"startup_policy" json:"startup_policy" yaml:"startup_policy"`
 	StrictStartup     bool   `koanf:"strict_startup" json:"strict_startup" yaml:"strict_startup"`
 	RepositoryDialect string `koanf:"repository_dialect" json:"repository_dialect" yaml:"repository_dialect"`
+}
+
+type ReminderConfig struct {
+	Enabled                     bool   `koanf:"enabled" json:"enabled" yaml:"enabled"`
+	SweepCron                   string `koanf:"sweep_cron" json:"sweep_cron" yaml:"sweep_cron"`
+	BatchSize                   int    `koanf:"batch_size" json:"batch_size" yaml:"batch_size"`
+	ClaimLeaseSeconds           int    `koanf:"claim_lease_seconds" json:"claim_lease_seconds" yaml:"claim_lease_seconds"`
+	InitialDelayMinutes         int    `koanf:"initial_delay_minutes" json:"initial_delay_minutes" yaml:"initial_delay_minutes"`
+	IntervalMinutes             int    `koanf:"interval_minutes" json:"interval_minutes" yaml:"interval_minutes"`
+	MaxReminders                int    `koanf:"max_reminders" json:"max_reminders" yaml:"max_reminders"`
+	JitterPercent               int    `koanf:"jitter_percent" json:"jitter_percent" yaml:"jitter_percent"`
+	RecentViewGraceMinutes      int    `koanf:"recent_view_grace_minutes" json:"recent_view_grace_minutes" yaml:"recent_view_grace_minutes"`
+	ManualResendCooldownMinutes int    `koanf:"manual_resend_cooldown_minutes" json:"manual_resend_cooldown_minutes" yaml:"manual_resend_cooldown_minutes"`
+	RotateToken                 bool   `koanf:"rotate_token" json:"rotate_token" yaml:"rotate_token"`
+	AllowOutOfOrder             bool   `koanf:"allow_out_of_order" json:"allow_out_of_order" yaml:"allow_out_of_order"`
 }
 
 type StorageConfig struct {
@@ -244,6 +260,20 @@ func Defaults() *Config {
 			StartupPolicy: "enforce",
 			StrictStartup: false,
 		},
+		Reminders: ReminderConfig{
+			Enabled:                     false,
+			SweepCron:                   "*/15 * * * *",
+			BatchSize:                   100,
+			ClaimLeaseSeconds:           120,
+			InitialDelayMinutes:         1440,
+			IntervalMinutes:             1440,
+			MaxReminders:                5,
+			JitterPercent:               15,
+			RecentViewGraceMinutes:      120,
+			ManualResendCooldownMinutes: 240,
+			RotateToken:                 true,
+			AllowOutOfOrder:             false,
+		},
 		Storage: StorageConfig{
 			EncryptionAlgorithm: "aws:kms",
 		},
@@ -330,6 +360,7 @@ func (c Config) Validate() error {
 	normalized := c
 	normalized.applyPersistenceDefaults()
 	normalized.applySignerPDFDefaults()
+	normalized.applyReminderDefaults()
 
 	if strings.TrimSpace(c.Admin.BasePath) == "" {
 		return fmt.Errorf("admin.base_path is required")
@@ -369,6 +400,33 @@ func (c Config) Validate() error {
 	}
 	if c.Network.RateLimit.AdminResend.MaxRequests <= 0 || c.Network.RateLimit.AdminResend.WindowSeconds <= 0 {
 		return fmt.Errorf("network.rate_limit.admin_resend max_requests and window_seconds must be greater than zero")
+	}
+	if strings.TrimSpace(normalized.Reminders.SweepCron) == "" {
+		return fmt.Errorf("reminders.sweep_cron is required")
+	}
+	if normalized.Reminders.BatchSize <= 0 {
+		return fmt.Errorf("reminders.batch_size must be greater than zero")
+	}
+	if normalized.Reminders.ClaimLeaseSeconds <= 0 {
+		return fmt.Errorf("reminders.claim_lease_seconds must be greater than zero")
+	}
+	if normalized.Reminders.InitialDelayMinutes < 0 {
+		return fmt.Errorf("reminders.initial_delay_minutes must be zero or greater")
+	}
+	if normalized.Reminders.IntervalMinutes <= 0 {
+		return fmt.Errorf("reminders.interval_minutes must be greater than zero")
+	}
+	if normalized.Reminders.MaxReminders < 0 {
+		return fmt.Errorf("reminders.max_reminders must be zero or greater")
+	}
+	if normalized.Reminders.JitterPercent < 0 || normalized.Reminders.JitterPercent > 90 {
+		return fmt.Errorf("reminders.jitter_percent must be between 0 and 90")
+	}
+	if normalized.Reminders.RecentViewGraceMinutes < 0 {
+		return fmt.Errorf("reminders.recent_view_grace_minutes must be zero or greater")
+	}
+	if normalized.Reminders.ManualResendCooldownMinutes < 0 {
+		return fmt.Errorf("reminders.manual_resend_cooldown_minutes must be zero or greater")
 	}
 	for _, raw := range c.Network.TrustedProxyCIDRs {
 		cidr := strings.TrimSpace(raw)
@@ -434,6 +492,7 @@ func Load(ctx context.Context, paths ...string) (*Config, *goconfig.Container[*C
 	}
 	loaded.applyPersistenceDefaults()
 	loaded.applySignerPDFDefaults()
+	loaded.applyReminderDefaults()
 	if len(resolvedPaths) > 0 {
 		loaded.ConfigPath = strings.TrimSpace(resolvedPaths[0])
 	}
@@ -556,6 +615,44 @@ func (c *Config) applySignerPDFDefaults() {
 		c.Signer.PDF.PipelineMode = strings.ToLower(strings.TrimSpace(c.Signer.PDF.PipelineMode))
 	default:
 		c.Signer.PDF.PipelineMode = defaults.PipelineMode
+	}
+}
+
+func (c *Config) applyReminderDefaults() {
+	if c == nil {
+		return
+	}
+	defaults := Defaults().Reminders
+	c.Reminders.SweepCron = strings.TrimSpace(c.Reminders.SweepCron)
+	if c.Reminders.SweepCron == "" {
+		c.Reminders.SweepCron = defaults.SweepCron
+	}
+	if c.Reminders.BatchSize <= 0 {
+		c.Reminders.BatchSize = defaults.BatchSize
+	}
+	if c.Reminders.ClaimLeaseSeconds <= 0 {
+		c.Reminders.ClaimLeaseSeconds = defaults.ClaimLeaseSeconds
+	}
+	if c.Reminders.InitialDelayMinutes < 0 {
+		c.Reminders.InitialDelayMinutes = defaults.InitialDelayMinutes
+	}
+	if c.Reminders.IntervalMinutes <= 0 {
+		c.Reminders.IntervalMinutes = defaults.IntervalMinutes
+	}
+	if c.Reminders.MaxReminders < 0 {
+		c.Reminders.MaxReminders = defaults.MaxReminders
+	}
+	if c.Reminders.JitterPercent < 0 {
+		c.Reminders.JitterPercent = defaults.JitterPercent
+	}
+	if c.Reminders.JitterPercent > 90 {
+		c.Reminders.JitterPercent = 90
+	}
+	if c.Reminders.RecentViewGraceMinutes < 0 {
+		c.Reminders.RecentViewGraceMinutes = defaults.RecentViewGraceMinutes
+	}
+	if c.Reminders.ManualResendCooldownMinutes < 0 {
+		c.Reminders.ManualResendCooldownMinutes = defaults.ManualResendCooldownMinutes
 	}
 }
 

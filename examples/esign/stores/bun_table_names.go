@@ -74,6 +74,10 @@ func (*GoogleImportRunRecord) TableName() string {
 	return "google_import_runs"
 }
 
+func (*AgreementReminderStateRecord) TableName() string {
+	return "agreement_reminder_states"
+}
+
 func (*IntegrationCredentialRecord) TableName() string {
 	return "integration_credentials"
 }

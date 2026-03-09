@@ -53,6 +53,7 @@ type RepositoryFactory struct {
 	emailLogs                 repository.Repository[*stores.EmailLogRecord]
 	jobRuns                   repository.Repository[*stores.JobRunRecord]
 	googleImportRuns          repository.Repository[*stores.GoogleImportRunRecord]
+	agreementReminderStates   repository.Repository[*stores.AgreementReminderStateRecord]
 	outboxMessages            repository.Repository[*OutboxMessageRecord]
 	integrationCredentials    repository.Repository[*stores.IntegrationCredentialRecord]
 	mappingSpecs              repository.Repository[*stores.MappingSpecRecord]
@@ -153,6 +154,7 @@ func (f *RepositoryFactory) initRepositories() {
 	f.emailLogs = newRepositoryWithFactoryConfig(f.db, emailLogHandlers(), f.repositoryDBOptions)
 	f.jobRuns = newRepositoryWithFactoryConfig(f.db, jobRunHandlers(), f.repositoryDBOptions)
 	f.googleImportRuns = newRepositoryWithFactoryConfig(f.db, googleImportRunHandlers(), f.repositoryDBOptions)
+	f.agreementReminderStates = newRepositoryWithFactoryConfig(f.db, agreementReminderStateHandlers(), f.repositoryDBOptions)
 	f.outboxMessages = newRepositoryWithFactoryConfig(f.db, outboxMessageHandlers(), f.repositoryDBOptions)
 	f.integrationCredentials = newRepositoryWithFactoryConfig(f.db, integrationCredentialHandlers(), f.repositoryDBOptions)
 	f.mappingSpecs = newRepositoryWithFactoryConfig(f.db, mappingSpecHandlers(), f.repositoryDBOptions)
@@ -297,6 +299,13 @@ func (f *RepositoryFactory) GoogleImportRuns() repository.Repository[*stores.Goo
 		return nil
 	}
 	return f.googleImportRuns
+}
+
+func (f *RepositoryFactory) AgreementReminderStates() repository.Repository[*stores.AgreementReminderStateRecord] {
+	if f == nil {
+		return nil
+	}
+	return f.agreementReminderStates
 }
 
 func (f *RepositoryFactory) OutboxMessages() repository.Repository[*OutboxMessageRecord] {
@@ -555,6 +564,15 @@ func googleImportRunHandlers() repository.ModelHandlers[*stores.GoogleImportRunR
 		func() *stores.GoogleImportRunRecord { return &stores.GoogleImportRunRecord{} },
 		func(record *stores.GoogleImportRunRecord) string { return record.ID },
 		func(record *stores.GoogleImportRunRecord, id string) { record.ID = id },
+		"id",
+	)
+}
+
+func agreementReminderStateHandlers() repository.ModelHandlers[*stores.AgreementReminderStateRecord] {
+	return newStringIDModelHandlers(
+		func() *stores.AgreementReminderStateRecord { return &stores.AgreementReminderStateRecord{} },
+		func(record *stores.AgreementReminderStateRecord) string { return record.ID },
+		func(record *stores.AgreementReminderStateRecord, id string) { record.ID = id },
 		"id",
 	)
 }

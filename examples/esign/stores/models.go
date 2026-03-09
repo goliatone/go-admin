@@ -65,6 +65,11 @@ const (
 )
 
 const (
+	AgreementReminderStatusActive = "active"
+	AgreementReminderStatusPaused = "paused"
+)
+
+const (
 	SourceTypeUpload      = "upload"
 	SourceTypeGoogleDrive = "google_drive"
 )
@@ -540,6 +545,31 @@ type GoogleImportRunRecord struct {
 	CompletedAt       *time.Time
 }
 
+// AgreementReminderStateRecord stores recipient-level reminder cadence state.
+type AgreementReminderStateRecord struct {
+	bun.BaseModel       `bun:"table:agreement_reminder_states,alias:ars"`
+	ID                  string
+	TenantID            string
+	OrgID               string
+	AgreementID         string
+	RecipientID         string
+	Status              string
+	SentCount           int
+	FirstSentAt         *time.Time
+	LastSentAt          *time.Time
+	LastViewedAt        *time.Time
+	LastManualResendAt  *time.Time
+	NextDueAt           *time.Time
+	LastReasonCode      string
+	LastError           string
+	LockedBy            string
+	LockUntil           *time.Time
+	LastEvaluatedAt     *time.Time
+	LastAttemptedSendAt *time.Time
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
+}
+
 // GoogleImportRunInput captures dedupe-aware async Google import run submission.
 type GoogleImportRunInput struct {
 	UserID            string
@@ -583,6 +613,14 @@ type OutboxMessageRecord = txoutbox.Message
 
 // OutboxClaimInput controls batched outbox claiming.
 type OutboxClaimInput = txoutbox.ClaimInput
+
+// AgreementReminderClaimInput controls batched due reminder state claims.
+type AgreementReminderClaimInput struct {
+	Now          time.Time
+	Limit        int
+	LeaseSeconds int
+	Claimer      string
+}
 
 // IntegrationCredentialRecord stores encrypted provider credentials by scope and user.
 type IntegrationCredentialRecord struct {

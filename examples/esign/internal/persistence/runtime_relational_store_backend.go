@@ -98,6 +98,7 @@ func (b *runtimeRelationalStoreBackend) loadSnapshot(ctx context.Context) (legac
 		JobRunDedupeIndex:          map[string]string{},
 		GoogleImportRuns:           map[string]stores.GoogleImportRunRecord{},
 		GoogleImportRunDedupeIndex: map[string]string{},
+		AgreementReminderStates:    map[string]stores.AgreementReminderStateRecord{},
 		OutboxMessages:             map[string]stores.OutboxMessageRecord{},
 		IntegrationCredentials:     map[string]stores.IntegrationCredentialRecord{},
 		IntegrationCredentialIndex: map[string]string{},
@@ -326,6 +327,17 @@ func (b *runtimeRelationalStoreBackend) loadSnapshot(ctx context.Context) (legac
 		scopedID := scopeRecordKey(record.TenantID, record.OrgID, record.ID)
 		snapshot.GoogleImportRuns[scopedID] = *record
 		snapshot.GoogleImportRunDedupeIndex[googleImportRunDedupeIndexForKey(record.TenantID, record.OrgID, record.UserID, record.DedupeKey)] = strings.TrimSpace(record.ID)
+	}
+
+	agreementReminderStates, err := listRepositoryRecords(ctx, b.factory.AgreementReminderStates())
+	if err != nil {
+		return snapshot, fmt.Errorf("runtime relational store backend: list agreement reminder states: %w", err)
+	}
+	for _, record := range agreementReminderStates {
+		if record == nil {
+			continue
+		}
+		snapshot.AgreementReminderStates[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
 	}
 
 	outboxMessages, err := listRepositoryRecords(ctx, b.factory.OutboxMessages())

@@ -44,6 +44,7 @@ type legacySQLiteSnapshot struct {
 	JobRunDedupeIndex          map[string]string                              `json:"job_run_dedupe_index"`
 	GoogleImportRuns           map[string]stores.GoogleImportRunRecord        `json:"google_import_runs"`
 	GoogleImportRunDedupeIndex map[string]string                              `json:"google_import_run_dedupe_index"`
+	AgreementReminderStates    map[string]stores.AgreementReminderStateRecord `json:"agreement_reminder_states"`
 	OutboxMessages             map[string]stores.OutboxMessageRecord          `json:"outbox_messages"`
 	IntegrationCredentials     map[string]stores.IntegrationCredentialRecord  `json:"integration_credentials"`
 	IntegrationCredentialIndex map[string]string                              `json:"integration_credential_index"`
@@ -426,6 +427,7 @@ func legacySnapshotSectionCounts(snapshot legacySQLiteSnapshot) map[string]int {
 		"job_run_dedupe_index":           len(snapshot.JobRunDedupeIndex),
 		"google_import_runs":             len(snapshot.GoogleImportRuns),
 		"google_import_run_dedupe_index": len(snapshot.GoogleImportRunDedupeIndex),
+		"agreement_reminder_states":      len(snapshot.AgreementReminderStates),
 		"outbox_messages":                len(snapshot.OutboxMessages),
 		"integration_credentials":        len(snapshot.IntegrationCredentials),
 		"integration_credential_index":   len(snapshot.IntegrationCredentialIndex),
@@ -467,6 +469,7 @@ func legacySnapshotSections() []legacySnapshotSectionSpec {
 		{section: "job_run_dedupe_index", derived: true, base: "job_runs"},
 		{section: "google_import_runs", table: "google_import_runs"},
 		{section: "google_import_run_dedupe_index", derived: true, base: "google_import_runs"},
+		{section: "agreement_reminder_states", table: "agreement_reminder_states"},
 		{section: "outbox_messages", table: "outbox_messages"},
 		{section: "integration_credentials", table: "integration_credentials"},
 		{section: "integration_credential_index", derived: true, base: "integration_credentials"},
@@ -1166,6 +1169,45 @@ func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
 						"updated_at":          updatedAt,
 						"started_at":          optionalTime(record.StartedAt),
 						"completed_at":        optionalTime(record.CompletedAt),
+					})
+				}
+				return rows
+			},
+		},
+		{
+			table:    "agreement_reminder_states",
+			columns:  []string{"id", "tenant_id", "org_id", "agreement_id", "recipient_id", "status", "sent_count", "first_sent_at", "last_sent_at", "last_viewed_at", "last_manual_resend_at", "next_due_at", "last_reason_code", "last_error", "locked_by", "lock_until", "last_evaluated_at", "last_attempted_send_at", "created_at", "updated_at"},
+			conflict: []string{"id"},
+			rows: func(snapshot legacySQLiteSnapshot) []map[string]any {
+				rows := make([]map[string]any, 0, len(snapshot.AgreementReminderStates))
+				for _, record := range sortedMapValues(snapshot.AgreementReminderStates) {
+					createdAt := requiredTime(record.CreatedAt, now())
+					updatedAt := requiredTime(record.UpdatedAt, createdAt)
+					status := strings.ToLower(strings.TrimSpace(record.Status))
+					if status == "" {
+						status = stores.AgreementReminderStatusActive
+					}
+					rows = append(rows, map[string]any{
+						"id":                     strings.TrimSpace(record.ID),
+						"tenant_id":              strings.TrimSpace(record.TenantID),
+						"org_id":                 strings.TrimSpace(record.OrgID),
+						"agreement_id":           strings.TrimSpace(record.AgreementID),
+						"recipient_id":           strings.TrimSpace(record.RecipientID),
+						"status":                 status,
+						"sent_count":             record.SentCount,
+						"first_sent_at":          optionalTime(record.FirstSentAt),
+						"last_sent_at":           optionalTime(record.LastSentAt),
+						"last_viewed_at":         optionalTime(record.LastViewedAt),
+						"last_manual_resend_at":  optionalTime(record.LastManualResendAt),
+						"next_due_at":            optionalTime(record.NextDueAt),
+						"last_reason_code":       strings.TrimSpace(record.LastReasonCode),
+						"last_error":             strings.TrimSpace(record.LastError),
+						"locked_by":              strings.TrimSpace(record.LockedBy),
+						"lock_until":             optionalTime(record.LockUntil),
+						"last_evaluated_at":      optionalTime(record.LastEvaluatedAt),
+						"last_attempted_send_at": optionalTime(record.LastAttemptedSendAt),
+						"created_at":             createdAt,
+						"updated_at":             updatedAt,
 					})
 				}
 				return rows
