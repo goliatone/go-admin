@@ -143,6 +143,9 @@ const (
 	NotificationMarkCommandName                  = core.NotificationMarkCommandName
 	PanelEntryModeDetailCurrentUser              = core.PanelEntryModeDetailCurrentUser
 	PanelEntryModeList                           = core.PanelEntryModeList
+	PanelActionDefaultsModeConservative          = core.PanelActionDefaultsModeConservative
+	PanelActionDefaultsModeCRUD                  = core.PanelActionDefaultsModeCRUD
+	PanelActionDefaultsModeNone                  = core.PanelActionDefaultsModeNone
 	PanelTabScopeDetail                          = core.PanelTabScopeDetail
 	PanelTabScopeForm                            = core.PanelTabScopeForm
 	PanelTabScopeList                            = core.PanelTabScopeList
@@ -565,6 +568,7 @@ type (
 	PageTranslation                           = core.PageTranslation
 	Panel                                     = core.Panel
 	PanelBuilder                              = core.PanelBuilder
+	PanelActionDefaultsMode                   = core.PanelActionDefaultsMode
 	PanelEntryMode                            = core.PanelEntryMode
 	PanelFormAdapter                          = core.PanelFormAdapter
 	PanelFormRequest                          = core.PanelFormRequest
