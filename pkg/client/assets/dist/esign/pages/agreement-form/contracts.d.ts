@@ -4,6 +4,8 @@ export interface AgreementDocumentOption {
     id: string;
     title: string;
     pageCount: number;
+    compatibilityTier?: string;
+    compatibilityReason?: string;
 }
 export interface FieldRuleState {
     id: string;
@@ -133,6 +135,8 @@ export interface DocumentSummary {
     title: string;
     pageCount: number;
     createdAt?: string;
+    compatibilityTier?: string;
+    compatibilityReason?: string;
     updatedAt?: string;
 }
 /**
@@ -157,6 +161,12 @@ export interface DocumentPreviewState {
     thumbnailUrl: string | null;
     isLoading: boolean;
     error: string | null;
+    /** User-friendly error message */
+    errorMessage?: string;
+    /** User-friendly suggestion for resolving the error */
+    errorSuggestion?: string;
+    /** Whether the error is retryable */
+    errorRetryable?: boolean;
 }
 /**
  * Document preview card configuration

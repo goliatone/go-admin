@@ -44,6 +44,10 @@ export declare class DocumentPreviewCard {
      */
     init(): void;
     /**
+     * Retry loading the document preview
+     */
+    retry(): void;
+    /**
      * Get current state (for testing)
      */
     getState(): DocumentPreviewState;

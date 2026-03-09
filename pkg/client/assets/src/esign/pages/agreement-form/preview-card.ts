@@ -35,6 +35,108 @@ const thumbnailCache = new Map<string, ThumbnailCacheEntry>();
 const CACHE_TTL_MS = 30 * 60 * 1000;
 
 /**
+ * User-friendly error messages for common HTTP status codes
+ */
+const USER_FRIENDLY_ERRORS: Record<number, { message: string; suggestion: string }> = {
+  401: {
+    message: 'Unable to access this document',
+    suggestion: 'Please sign in again or check your permissions.',
+  },
+  403: {
+    message: 'Access denied',
+    suggestion: 'You don\'t have permission to view this document.',
+  },
+  404: {
+    message: 'Document not found',
+    suggestion: 'This document may have been moved or deleted.',
+  },
+  500: {
+    message: 'Server error',
+    suggestion: 'Please try again in a moment.',
+  },
+  502: {
+    message: 'Service temporarily unavailable',
+    suggestion: 'Please try again in a moment.',
+  },
+  503: {
+    message: 'Service temporarily unavailable',
+    suggestion: 'Please try again in a moment.',
+  },
+};
+
+/**
+ * Parse error to extract HTTP status code if present
+ */
+function parseErrorStatusCode(error: string | Error): number | null {
+  const errorStr = error instanceof Error ? error.message : error;
+
+  // Match patterns like "response (401)" or "status 401" or just "401"
+  const match = errorStr.match(/\((\d{3})\)|status[:\s]+(\d{3})|^(\d{3})$/i);
+  if (match) {
+    const code = parseInt(match[1] || match[2] || match[3], 10);
+    if (code >= 400 && code < 600) {
+      return code;
+    }
+  }
+  return null;
+}
+
+/**
+ * Convert raw error to user-friendly display format
+ */
+function toUserFriendlyError(error: string | Error): { message: string; suggestion: string; isRetryable: boolean } {
+  const errorStr = error instanceof Error ? error.message : error;
+  const statusCode = parseErrorStatusCode(errorStr);
+
+  // Check for network/connection errors
+  if (errorStr.toLowerCase().includes('network') ||
+      errorStr.toLowerCase().includes('failed to fetch') ||
+      errorStr.toLowerCase().includes('connection')) {
+    return {
+      message: 'Connection problem',
+      suggestion: 'Please check your internet connection and try again.',
+      isRetryable: true,
+    };
+  }
+
+  // Check for PDF.js specific errors
+  if (errorStr.toLowerCase().includes('pdf') && errorStr.toLowerCase().includes('unavailable')) {
+    return {
+      message: 'Preview not available',
+      suggestion: 'The preview feature is temporarily unavailable.',
+      isRetryable: false,
+    };
+  }
+
+  // Map HTTP status codes
+  if (statusCode && USER_FRIENDLY_ERRORS[statusCode]) {
+    const friendly = USER_FRIENDLY_ERRORS[statusCode];
+    return {
+      message: friendly.message,
+      suggestion: friendly.suggestion,
+      isRetryable: statusCode >= 500, // Server errors are retryable
+    };
+  }
+
+  // Default fallback
+  return {
+    message: 'Preview unavailable',
+    suggestion: 'Unable to load the document preview.',
+    isRetryable: true,
+  };
+}
+
+/**
+ * Check if debug mode is enabled
+ */
+function isDebugMode(): boolean {
+  if (typeof window === 'undefined') return false;
+  return (window as any).__ADMIN_DEBUG__ === true ||
+         (window as any).ADMIN_DEBUG === true ||
+         document.body?.dataset?.debug === 'true';
+}
+
+/**
  * Check if PDF.js is loaded
  */
 function isPdfJsLoaded(): boolean {
@@ -160,6 +262,10 @@ export class DocumentPreviewCard {
     errorState: HTMLElement | null;
     emptyState: HTMLElement | null;
     contentState: HTMLElement | null;
+    errorMessage: HTMLElement | null;
+    errorSuggestion: HTMLElement | null;
+    errorRetryBtn: HTMLButtonElement | null;
+    errorDebugInfo: HTMLElement | null;
   };
 
   constructor(config: Partial<DocumentPreviewConfig> = {}) {
@@ -188,6 +294,10 @@ export class DocumentPreviewCard {
       errorState: null,
       emptyState: null,
       contentState: null,
+      errorMessage: null,
+      errorSuggestion: null,
+      errorRetryBtn: null,
+      errorDebugInfo: null,
     };
   }
 
@@ -203,8 +313,26 @@ export class DocumentPreviewCard {
     this.elements.errorState = document.getElementById('document-preview-error');
     this.elements.emptyState = document.getElementById('document-preview-empty');
     this.elements.contentState = document.getElementById('document-preview-content');
+    this.elements.errorMessage = document.getElementById('document-preview-error-message');
+    this.elements.errorSuggestion = document.getElementById('document-preview-error-suggestion');
+    this.elements.errorRetryBtn = document.getElementById('document-preview-retry-btn') as HTMLButtonElement;
+    this.elements.errorDebugInfo = document.getElementById('document-preview-error-debug');
+
+    // Setup retry button handler
+    if (this.elements.errorRetryBtn) {
+      this.elements.errorRetryBtn.addEventListener('click', () => this.retry());
+    }
 
     this.render();
+  }
+
+  /**
+   * Retry loading the document preview
+   */
+  retry(): void {
+    if (this.state.documentId) {
+      this.setDocument(this.state.documentId, this.state.documentTitle, this.state.pageCount);
+    }
   }
 
   /**
@@ -311,14 +439,24 @@ export class DocumentPreviewCard {
       if (requestVersion !== this.requestVersion) {
         return;
       }
-      console.error('Failed to load document preview:', err);
+      const rawError = err instanceof Error ? err.message : 'Failed to load preview';
+      const friendlyError = toUserFriendlyError(rawError);
+
+      // Only log in debug mode to avoid console noise in production
+      if (isDebugMode()) {
+        console.error('Failed to load document preview:', err);
+      }
+
       this.state = {
         documentId,
         documentTitle,
         pageCount,
         thumbnailUrl: null,
         isLoading: false,
-        error: err instanceof Error ? err.message : 'Failed to load preview',
+        error: rawError,
+        errorMessage: friendlyError.message,
+        errorSuggestion: friendlyError.suggestion,
+        errorRetryable: friendlyError.isRetryable,
       };
     }
 
@@ -364,12 +502,34 @@ export class DocumentPreviewCard {
       return;
     }
 
-    // Error - show error state
+    // Error - show error state with user-friendly message
     if (this.state.error) {
       errorState?.classList.remove('hidden');
-      const errorMessage = errorState?.querySelector('#document-preview-error-message');
-      if (errorMessage) {
-        errorMessage.textContent = this.state.error;
+
+      // Display user-friendly error message
+      if (this.elements.errorMessage) {
+        this.elements.errorMessage.textContent = this.state.errorMessage || 'Preview unavailable';
+      }
+
+      // Display suggestion
+      if (this.elements.errorSuggestion) {
+        this.elements.errorSuggestion.textContent = this.state.errorSuggestion || '';
+        this.elements.errorSuggestion.classList.toggle('hidden', !this.state.errorSuggestion);
+      }
+
+      // Show/hide retry button based on whether error is retryable
+      if (this.elements.errorRetryBtn) {
+        this.elements.errorRetryBtn.classList.toggle('hidden', !this.state.errorRetryable);
+      }
+
+      // Show technical details only in debug mode
+      if (this.elements.errorDebugInfo) {
+        if (isDebugMode()) {
+          this.elements.errorDebugInfo.textContent = this.state.error;
+          this.elements.errorDebugInfo.classList.remove('hidden');
+        } else {
+          this.elements.errorDebugInfo.classList.add('hidden');
+        }
       }
       return;
     }

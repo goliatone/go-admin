@@ -317,6 +317,8 @@ export function normalizeDocumentOption(raw: Record<string, unknown> | null | un
     id: asString(value.id),
     title: asString(value.title || value.name) || 'Untitled',
     pageCount: parsePositiveInt(value.page_count ?? value.pageCount, 0),
+    compatibilityTier: asString(value.pdf_compatibility_tier ?? value.pdfCompatibilityTier).toLowerCase(),
+    compatibilityReason: asString(value.pdf_compatibility_reason ?? value.pdfCompatibilityReason).toLowerCase(),
   };
 }
 
