@@ -674,28 +674,45 @@ func isNotFoundDomainError(err error) bool {
 }
 
 type reminderSummary struct {
-	Status     string
-	NextDueAt  *time.Time
-	LastSentAt *time.Time
-	SentCount  int
-	LastError  string
-	Paused     bool
+	Status        string
+	NextDueAt     *time.Time
+	LastSentAt    *time.Time
+	SentCount     int
+	LastErrorCode string
+	Paused        bool
+}
+
+func reminderErrorForClient(state stores.AgreementReminderStateRecord) string {
+	if strings.TrimSpace(state.LastErrorCode) == "" {
+		return ""
+	}
+	reason := strings.TrimSpace(strings.ToLower(state.LastErrorCode))
+	if reason == "" {
+		return "failed"
+	}
+	for _, ch := range reason {
+		if (ch < 'a' || ch > 'z') && (ch < '0' || ch > '9') && ch != '_' {
+			return "failed"
+		}
+	}
+	return reason
 }
 
 func summarizeReminderState(recipients []stores.RecipientRecord, states map[string]stores.AgreementReminderStateRecord) reminderSummary {
 	summary := reminderSummary{
-		Status:     "",
-		NextDueAt:  nil,
-		LastSentAt: nil,
-		SentCount:  0,
-		LastError:  "",
-		Paused:     false,
+		Status:        "",
+		NextDueAt:     nil,
+		LastSentAt:    nil,
+		SentCount:     0,
+		LastErrorCode: "",
+		Paused:        false,
 	}
 	if len(recipients) == 0 {
 		return summary
 	}
 	signerCount := 0
 	pausedCount := 0
+	terminalCount := 0
 	activeCount := 0
 	for _, recipient := range recipients {
 		if recipient.Role != stores.RecipientRoleSigner {
@@ -716,12 +733,15 @@ func summarizeReminderState(recipients []stores.RecipientRecord, states map[stri
 			last := state.LastSentAt.UTC()
 			summary.LastSentAt = &last
 		}
-		if summary.LastError == "" && strings.TrimSpace(state.LastError) != "" {
-			summary.LastError = strings.TrimSpace(state.LastError)
+		if summary.LastErrorCode == "" {
+			summary.LastErrorCode = reminderErrorForClient(state)
 		}
-		if strings.EqualFold(strings.TrimSpace(state.Status), stores.AgreementReminderStatusPaused) {
+		switch strings.TrimSpace(state.Status) {
+		case stores.AgreementReminderStatusPaused:
 			pausedCount++
-		} else {
+		case stores.AgreementReminderStatusTerminal:
+			terminalCount++
+		default:
 			activeCount++
 		}
 	}
@@ -729,10 +749,12 @@ func summarizeReminderState(recipients []stores.RecipientRecord, states map[stri
 		return summary
 	}
 	switch {
+	case terminalCount == signerCount:
+		summary.Status = stores.AgreementReminderStatusTerminal
 	case pausedCount == signerCount:
 		summary.Status = stores.AgreementReminderStatusPaused
 		summary.Paused = true
-	case pausedCount > 0 && activeCount > 0:
+	case (pausedCount > 0 || terminalCount > 0) && activeCount > 0:
 		summary.Status = "mixed"
 	default:
 		summary.Status = stores.AgreementReminderStatusActive
@@ -780,7 +802,7 @@ func agreementRecordToMap(
 	payload["next_due_at"] = formatTimePtr(reminderSummary.NextDueAt)
 	payload["last_sent_at"] = formatTimePtr(reminderSummary.LastSentAt)
 	payload["reminder_count"] = reminderSummary.SentCount
-	payload["last_error"] = reminderSummary.LastError
+	payload["last_error_code"] = reminderSummary.LastErrorCode
 	payload["paused"] = reminderSummary.Paused
 	// Add stage information for multi-signer flows (Task 24.FE.2)
 	stageCount, activeStage := computeStageMetrics(recipients)
@@ -880,14 +902,14 @@ func recipientsToMaps(agreement stores.AgreementRecord, records []stores.Recipie
 		nextDueAt := ""
 		lastSentAt := ""
 		reminderCount := 0
-		lastError := ""
+		lastErrorCode := ""
 		paused := false
 		if hasReminder {
 			reminderStatus = strings.TrimSpace(reminderState.Status)
 			nextDueAt = formatTimePtr(reminderState.NextDueAt)
 			lastSentAt = formatTimePtr(reminderState.LastSentAt)
 			reminderCount = reminderState.SentCount
-			lastError = strings.TrimSpace(reminderState.LastError)
+			lastErrorCode = reminderErrorForClient(reminderState)
 			paused = strings.EqualFold(strings.TrimSpace(reminderState.Status), stores.AgreementReminderStatusPaused)
 		}
 		out = append(out, map[string]any{
@@ -912,7 +934,7 @@ func recipientsToMaps(agreement stores.AgreementRecord, records []stores.Recipie
 			"next_due_at":     nextDueAt,
 			"last_sent_at":    lastSentAt,
 			"reminder_count":  reminderCount,
-			"last_error":      lastError,
+			"last_error_code": lastErrorCode,
 			"paused":          paused,
 			"version":         record.Version,
 		})

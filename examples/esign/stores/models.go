@@ -65,8 +65,13 @@ const (
 )
 
 const (
-	AgreementReminderStatusActive = "active"
-	AgreementReminderStatusPaused = "paused"
+	AgreementReminderStatusActive   = "active"
+	AgreementReminderStatusPaused   = "paused"
+	AgreementReminderStatusTerminal = "terminal"
+)
+
+const (
+	AgreementReminderTerminalReasonMaxCountReached = "max_count_reached"
 )
 
 const (
@@ -547,27 +552,37 @@ type GoogleImportRunRecord struct {
 
 // AgreementReminderStateRecord stores recipient-level reminder cadence state.
 type AgreementReminderStateRecord struct {
-	bun.BaseModel       `bun:"table:agreement_reminder_states,alias:ars"`
-	ID                  string
-	TenantID            string
-	OrgID               string
-	AgreementID         string
-	RecipientID         string
-	Status              string
-	SentCount           int
-	FirstSentAt         *time.Time
-	LastSentAt          *time.Time
-	LastViewedAt        *time.Time
-	LastManualResendAt  *time.Time
-	NextDueAt           *time.Time
-	LastReasonCode      string
-	LastError           string
-	LockedBy            string
-	LockUntil           *time.Time
-	LastEvaluatedAt     *time.Time
-	LastAttemptedSendAt *time.Time
-	CreatedAt           time.Time
-	UpdatedAt           time.Time
+	bun.BaseModel              `bun:"table:agreement_reminder_states,alias:ars"`
+	ID                         string
+	TenantID                   string
+	OrgID                      string
+	AgreementID                string
+	RecipientID                string
+	Status                     string
+	TerminalReason             string
+	PolicyVersion              string
+	SentCount                  int
+	FirstSentAt                *time.Time
+	LastSentAt                 *time.Time
+	LastViewedAt               *time.Time
+	LastManualResendAt         *time.Time
+	NextDueAt                  *time.Time
+	LastReasonCode             string
+	LastError                  string     `bun:"-"`
+	LockedBy                   string     `bun:"-"`
+	LockUntil                  *time.Time `bun:"-"`
+	LastErrorCode              string
+	LastErrorInternalEncrypted string
+	LastErrorInternalExpiresAt *time.Time
+	LeaseSeq                   int64
+	ClaimedAt                  *time.Time
+	LastHeartbeatAt            *time.Time
+	SweepID                    string
+	WorkerID                   string
+	LastEvaluatedAt            *time.Time
+	LastAttemptedSendAt        *time.Time
+	CreatedAt                  time.Time
+	UpdatedAt                  time.Time
 }
 
 // GoogleImportRunInput captures dedupe-aware async Google import run submission.
@@ -619,7 +634,37 @@ type AgreementReminderClaimInput struct {
 	Now          time.Time
 	Limit        int
 	LeaseSeconds int
-	Claimer      string
+	WorkerID     string
+	SweepID      string
+}
+
+type AgreementReminderLeaseToken struct {
+	WorkerID string
+	SweepID  string
+	LeaseSeq int64
+}
+
+type AgreementReminderClaim struct {
+	State AgreementReminderStateRecord
+	Lease AgreementReminderLeaseToken
+}
+
+type AgreementReminderLeaseRenewInput struct {
+	Now          time.Time
+	LeaseSeconds int
+	Lease        AgreementReminderLeaseToken
+}
+
+type AgreementReminderMarkInput struct {
+	ReasonCode             string
+	Failure                string
+	OccurredAt             time.Time
+	NextDueAt              *time.Time
+	LeaseSeconds           int
+	Lease                  AgreementReminderLeaseToken
+	ErrorInternalEncrypted string
+	ErrorInternalExpiresAt *time.Time
+	TerminalReason         string
 }
 
 // IntegrationCredentialRecord stores encrypted provider credentials by scope and user.

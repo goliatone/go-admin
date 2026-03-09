@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	appcfg "github.com/goliatone/go-admin/examples/esign/config"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 )
 
@@ -1176,7 +1177,7 @@ func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
 		},
 		{
 			table:    "agreement_reminder_states",
-			columns:  []string{"id", "tenant_id", "org_id", "agreement_id", "recipient_id", "status", "sent_count", "first_sent_at", "last_sent_at", "last_viewed_at", "last_manual_resend_at", "next_due_at", "last_reason_code", "last_error", "locked_by", "lock_until", "last_evaluated_at", "last_attempted_send_at", "created_at", "updated_at"},
+			columns:  []string{"id", "tenant_id", "org_id", "agreement_id", "recipient_id", "status", "terminal_reason", "policy_version", "sent_count", "first_sent_at", "last_sent_at", "last_viewed_at", "last_manual_resend_at", "next_due_at", "last_reason_code", "last_error_code", "last_error_internal_encrypted", "last_error_internal_expires_at", "lease_seq", "claimed_at", "last_heartbeat_at", "sweep_id", "worker_id", "last_evaluated_at", "last_attempted_send_at", "created_at", "updated_at"},
 			conflict: []string{"id"},
 			rows: func(snapshot legacySQLiteSnapshot) []map[string]any {
 				rows := make([]map[string]any, 0, len(snapshot.AgreementReminderStates))
@@ -1187,27 +1188,52 @@ func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
 					if status == "" {
 						status = stores.AgreementReminderStatusActive
 					}
+					nextDueAt := optionalTime(record.NextDueAt)
+					if status == stores.AgreementReminderStatusActive && nextDueAt == nil {
+						nextDueAt = optionalTime(record.FirstSentAt)
+						if nextDueAt == nil {
+							nextDueAt = optionalTime(&updatedAt)
+						}
+					}
+					if status != stores.AgreementReminderStatusActive {
+						nextDueAt = nil
+					}
+					lastErrorCode := strings.TrimSpace(record.LastErrorCode)
+					if lastErrorCode == "" {
+						lastErrorCode = strings.TrimSpace(record.LastError)
+					}
+					policyVersion := strings.TrimSpace(record.PolicyVersion)
+					if policyVersion == "" {
+						policyVersion = appcfg.ReminderPolicyVersion
+					}
 					rows = append(rows, map[string]any{
-						"id":                     strings.TrimSpace(record.ID),
-						"tenant_id":              strings.TrimSpace(record.TenantID),
-						"org_id":                 strings.TrimSpace(record.OrgID),
-						"agreement_id":           strings.TrimSpace(record.AgreementID),
-						"recipient_id":           strings.TrimSpace(record.RecipientID),
-						"status":                 status,
-						"sent_count":             record.SentCount,
-						"first_sent_at":          optionalTime(record.FirstSentAt),
-						"last_sent_at":           optionalTime(record.LastSentAt),
-						"last_viewed_at":         optionalTime(record.LastViewedAt),
-						"last_manual_resend_at":  optionalTime(record.LastManualResendAt),
-						"next_due_at":            optionalTime(record.NextDueAt),
-						"last_reason_code":       strings.TrimSpace(record.LastReasonCode),
-						"last_error":             strings.TrimSpace(record.LastError),
-						"locked_by":              strings.TrimSpace(record.LockedBy),
-						"lock_until":             optionalTime(record.LockUntil),
-						"last_evaluated_at":      optionalTime(record.LastEvaluatedAt),
-						"last_attempted_send_at": optionalTime(record.LastAttemptedSendAt),
-						"created_at":             createdAt,
-						"updated_at":             updatedAt,
+						"id":                             strings.TrimSpace(record.ID),
+						"tenant_id":                      strings.TrimSpace(record.TenantID),
+						"org_id":                         strings.TrimSpace(record.OrgID),
+						"agreement_id":                   strings.TrimSpace(record.AgreementID),
+						"recipient_id":                   strings.TrimSpace(record.RecipientID),
+						"status":                         status,
+						"terminal_reason":                strings.TrimSpace(record.TerminalReason),
+						"policy_version":                 policyVersion,
+						"sent_count":                     record.SentCount,
+						"first_sent_at":                  optionalTime(record.FirstSentAt),
+						"last_sent_at":                   optionalTime(record.LastSentAt),
+						"last_viewed_at":                 optionalTime(record.LastViewedAt),
+						"last_manual_resend_at":          optionalTime(record.LastManualResendAt),
+						"next_due_at":                    nextDueAt,
+						"last_reason_code":               strings.TrimSpace(record.LastReasonCode),
+						"last_error_code":                strings.TrimSpace(lastErrorCode),
+						"last_error_internal_encrypted":  strings.TrimSpace(record.LastErrorInternalEncrypted),
+						"last_error_internal_expires_at": optionalTime(record.LastErrorInternalExpiresAt),
+						"lease_seq":                      record.LeaseSeq,
+						"claimed_at":                     optionalTime(record.ClaimedAt),
+						"last_heartbeat_at":              optionalTime(record.LastHeartbeatAt),
+						"sweep_id":                       strings.TrimSpace(record.SweepID),
+						"worker_id":                      strings.TrimSpace(record.WorkerID),
+						"last_evaluated_at":              optionalTime(record.LastEvaluatedAt),
+						"last_attempted_send_at":         optionalTime(record.LastAttemptedSendAt),
+						"created_at":                     createdAt,
+						"updated_at":                     updatedAt,
 					})
 				}
 				return rows

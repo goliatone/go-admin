@@ -39,6 +39,7 @@ type DraftCleanupService interface {
 // AgreementReminderService captures reminder sweep and operator controls.
 type AgreementReminderService interface {
 	Sweep(ctx context.Context, scope stores.Scope) (services.AgreementReminderSweepResult, error)
+	CleanupInternalErrors(ctx context.Context, scope stores.Scope, now time.Time, limit int) (int, error)
 	Pause(ctx context.Context, scope stores.Scope, agreementID, recipientID string) (stores.AgreementReminderStateRecord, error)
 	Resume(ctx context.Context, scope stores.Scope, agreementID, recipientID string) (stores.AgreementReminderStateRecord, error)
 	SendNow(ctx context.Context, scope stores.Scope, agreementID, recipientID string) (services.ResendResult, error)
@@ -85,6 +86,12 @@ func Register(
 			reminders:      agreementReminders,
 			defaultScope:   defaultScope,
 			cronExpression: strings.TrimSpace(reminderSweepCron),
+		}); err != nil {
+			return err
+		}
+		if _, err := coreadmin.RegisterCommand(bus, &AgreementReminderCleanupCommand{
+			reminders:    agreementReminders,
+			defaultScope: defaultScope,
 		}); err != nil {
 			return err
 		}
@@ -506,6 +513,74 @@ func (c *AgreementReminderSweepCommand) CronOptions() gocommand.HandlerConfig {
 		expression = "*/15 * * * *"
 	}
 	return gocommand.HandlerConfig{Expression: expression}
+}
+
+// AgreementReminderCleanupCommand purges expired encrypted internal reminder error payloads.
+type AgreementReminderCleanupCommand struct {
+	reminders    AgreementReminderService
+	defaultScope stores.Scope
+}
+
+var _ gocommand.Commander[AgreementReminderCleanupInput] = (*AgreementReminderCleanupCommand)(nil)
+
+func (c *AgreementReminderCleanupCommand) Name() string {
+	return CommandAgreementReminderCleanup
+}
+
+func (c *AgreementReminderCleanupCommand) Execute(ctx context.Context, msg AgreementReminderCleanupInput) error {
+	startedAt := time.Now()
+	correlationID := observability.ResolveCorrelationID(msg.CorrelationID, CommandAgreementReminderCleanup)
+	if c == nil || c.reminders == nil {
+		err := fmt.Errorf("agreement reminder cleanup command not configured")
+		observability.LogOperation(ctx, slog.LevelError, "command", "agreement_reminder_cleanup", "error", correlationID, time.Since(startedAt), err, map[string]any{
+			"command_name": CommandAgreementReminderCleanup,
+		})
+		return err
+	}
+	if err := msg.Validate(); err != nil {
+		return err
+	}
+	scope, err := resolveScope(ctx, msg.Scope, c.defaultScope)
+	if err != nil {
+		return err
+	}
+	before := msg.BeforeTime(time.Now().UTC())
+	limit := msg.Limit
+	if limit <= 0 {
+		limit = 1000
+	}
+	cleared, err := c.reminders.CleanupInternalErrors(ctx, scope, before, limit)
+	if err != nil {
+		observability.LogOperation(ctx, slog.LevelWarn, "command", "agreement_reminder_cleanup", "error", correlationID, time.Since(startedAt), err, map[string]any{
+			"command_name": CommandAgreementReminderCleanup,
+			"tenant_id":    scope.TenantID,
+			"org_id":       scope.OrgID,
+			"before":       before.Format(time.RFC3339Nano),
+		})
+		return err
+	}
+	observability.LogOperation(ctx, slog.LevelInfo, "command", "agreement_reminder_cleanup", "success", correlationID, time.Since(startedAt), nil, map[string]any{
+		"command_name": CommandAgreementReminderCleanup,
+		"tenant_id":    scope.TenantID,
+		"org_id":       scope.OrgID,
+		"before":       before.Format(time.RFC3339Nano),
+		"cleared":      cleared,
+	})
+	return nil
+}
+
+func (c *AgreementReminderCleanupCommand) CronHandler() func() error {
+	return func() error {
+		return dispatcher.Dispatch(context.Background(), AgreementReminderCleanupInput{
+			Scope:  c.defaultScope,
+			Before: time.Now().UTC().Format(time.RFC3339Nano),
+			Limit:  1000,
+		})
+	}
+}
+
+func (c *AgreementReminderCleanupCommand) CronOptions() gocommand.HandlerConfig {
+	return gocommand.HandlerConfig{Expression: "@daily"}
 }
 
 // AgreementReminderPauseCommand pauses automatic reminders for one agreement recipient.

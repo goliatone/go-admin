@@ -64,6 +64,13 @@ type MetricsSnapshot struct {
 	ReminderSweepSkippedTotal      int64
 	ReminderSweepFailedTotal       int64
 	ReminderSweepSkipByReason      map[string]int64
+	ReminderLeaseLostTotal         int64
+	ReminderLeaseConflictTotal     int64
+	ReminderStateInvariantTotal    int64
+	ReminderPolicyBlockTotal       int64
+	ReminderClaimToSendP95MS       float64
+	ReminderDueToSendP95MS         float64
+	ReminderDueBacklogAgeP95MS     float64
 	SignerLinkOpenSuccessTotal     int64
 	SignerLinkOpenFailureTotal     int64
 	SignerSubmitSuccessTotal       int64
@@ -472,6 +479,13 @@ func (m *inMemoryMetrics) Snapshot() MetricsSnapshot {
 		ReminderSweepSkippedTotal:      m.reminderSweepSkippedTotal,
 		ReminderSweepFailedTotal:       m.reminderSweepFailedTotal,
 		ReminderSweepSkipByReason:      cloneInt64Map(m.reminderSweepSkipByReason),
+		ReminderLeaseLostTotal:         m.reminderSweepSkipByReason["lease_lost"],
+		ReminderLeaseConflictTotal:     m.reminderSweepSkipByReason["lease_conflict"],
+		ReminderStateInvariantTotal:    m.reminderSweepSkipByReason["state_invariant_violation"],
+		ReminderPolicyBlockTotal:       m.reminderSweepSkipByReason["policy_block"],
+		ReminderClaimToSendP95MS:       0,
+		ReminderDueToSendP95MS:         0,
+		ReminderDueBacklogAgeP95MS:     0,
 		SignerLinkOpenSuccessTotal:     m.signerLinkOpenSuccessTotal,
 		SignerLinkOpenFailureTotal:     m.signerLinkOpenFailureTotal,
 		SignerSubmitSuccessTotal:       m.signerSubmitSuccessTotal,

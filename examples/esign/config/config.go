@@ -6,6 +6,7 @@ import (
 	"net"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"sync"
 
@@ -106,6 +107,104 @@ type ReminderConfig struct {
 	ManualResendCooldownMinutes int    `koanf:"manual_resend_cooldown_minutes" json:"manual_resend_cooldown_minutes" yaml:"manual_resend_cooldown_minutes"`
 	RotateToken                 bool   `koanf:"rotate_token" json:"rotate_token" yaml:"rotate_token"`
 	AllowOutOfOrder             bool   `koanf:"allow_out_of_order" json:"allow_out_of_order" yaml:"allow_out_of_order"`
+}
+
+const (
+	ReminderPolicyVersion = "r1"
+
+	ReminderCompatibilityAllowed   = "allowed"
+	ReminderCompatibilityDefaulted = "defaulted"
+	ReminderCompatibilityRejected  = "rejected"
+)
+
+type ReminderPolicyResolution struct {
+	Config        ReminderConfig
+	PolicyVersion string
+	Statuses      map[string]string
+}
+
+func (r ReminderPolicyResolution) CompatibilityMatrix() map[string][]string {
+	matrix := map[string][]string{
+		ReminderCompatibilityAllowed:   {},
+		ReminderCompatibilityDefaulted: {},
+		ReminderCompatibilityRejected:  {},
+	}
+	for field, status := range r.Statuses {
+		status = strings.TrimSpace(status)
+		if status == "" {
+			continue
+		}
+		matrix[status] = append(matrix[status], field)
+	}
+	for key := range matrix {
+		sort.Strings(matrix[key])
+	}
+	return matrix
+}
+
+func ResolveReminderPolicy(input ReminderConfig) (ReminderPolicyResolution, error) {
+	defaults := Defaults().Reminders
+	out := input
+	statuses := map[string]string{}
+	rejected := map[string]string{}
+
+	setInt := func(field string, value *int, defaultValue int, min int, max int) {
+		switch {
+		case *value == 0:
+			*value = defaultValue
+			statuses[field] = ReminderCompatibilityDefaulted
+		case *value < min:
+			rejected[field] = fmt.Sprintf("must be >= %d", min)
+			statuses[field] = ReminderCompatibilityRejected
+		case max > 0 && *value > max:
+			rejected[field] = fmt.Sprintf("must be <= %d", max)
+			statuses[field] = ReminderCompatibilityRejected
+		default:
+			statuses[field] = ReminderCompatibilityAllowed
+		}
+	}
+
+	out.SweepCron = strings.TrimSpace(out.SweepCron)
+	if out.SweepCron == "" {
+		out.SweepCron = defaults.SweepCron
+		statuses["sweep_cron"] = ReminderCompatibilityDefaulted
+	} else {
+		statuses["sweep_cron"] = ReminderCompatibilityAllowed
+	}
+	setInt("batch_size", &out.BatchSize, defaults.BatchSize, 1, 0)
+	setInt("claim_lease_seconds", &out.ClaimLeaseSeconds, defaults.ClaimLeaseSeconds, 1, 0)
+	setInt("initial_delay_minutes", &out.InitialDelayMinutes, defaults.InitialDelayMinutes, 1, 0)
+	setInt("interval_minutes", &out.IntervalMinutes, defaults.IntervalMinutes, 1, 0)
+	setInt("max_reminders", &out.MaxReminders, defaults.MaxReminders, 1, 0)
+	setInt("jitter_percent", &out.JitterPercent, defaults.JitterPercent, 1, 90)
+	setInt("recent_view_grace_minutes", &out.RecentViewGraceMinutes, defaults.RecentViewGraceMinutes, 1, 0)
+	setInt("manual_resend_cooldown_minutes", &out.ManualResendCooldownMinutes, defaults.ManualResendCooldownMinutes, 1, 0)
+	statuses["enabled"] = ReminderCompatibilityAllowed
+	statuses["rotate_token"] = ReminderCompatibilityAllowed
+	statuses["allow_out_of_order"] = ReminderCompatibilityAllowed
+
+	if len(rejected) > 0 {
+		keys := make([]string, 0, len(rejected))
+		for key := range rejected {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		parts := make([]string, 0, len(keys))
+		for _, key := range keys {
+			parts = append(parts, fmt.Sprintf("%s %s", key, rejected[key]))
+		}
+		return ReminderPolicyResolution{
+			Config:        out,
+			PolicyVersion: ReminderPolicyVersion,
+			Statuses:      statuses,
+		}, fmt.Errorf("invalid reminders policy: %s", strings.Join(parts, "; "))
+	}
+
+	return ReminderPolicyResolution{
+		Config:        out,
+		PolicyVersion: ReminderPolicyVersion,
+		Statuses:      statuses,
+	}, nil
 }
 
 type StorageConfig struct {
@@ -360,7 +459,11 @@ func (c Config) Validate() error {
 	normalized := c
 	normalized.applyPersistenceDefaults()
 	normalized.applySignerPDFDefaults()
-	normalized.applyReminderDefaults()
+	resolution, err := ResolveReminderPolicy(normalized.Reminders)
+	if err != nil {
+		return err
+	}
+	normalized.Reminders = resolution.Config
 
 	if strings.TrimSpace(c.Admin.BasePath) == "" {
 		return fmt.Errorf("admin.base_path is required")
@@ -410,23 +513,23 @@ func (c Config) Validate() error {
 	if normalized.Reminders.ClaimLeaseSeconds <= 0 {
 		return fmt.Errorf("reminders.claim_lease_seconds must be greater than zero")
 	}
-	if normalized.Reminders.InitialDelayMinutes < 0 {
-		return fmt.Errorf("reminders.initial_delay_minutes must be zero or greater")
+	if normalized.Reminders.InitialDelayMinutes <= 0 {
+		return fmt.Errorf("reminders.initial_delay_minutes must be greater than zero")
 	}
 	if normalized.Reminders.IntervalMinutes <= 0 {
 		return fmt.Errorf("reminders.interval_minutes must be greater than zero")
 	}
-	if normalized.Reminders.MaxReminders < 0 {
-		return fmt.Errorf("reminders.max_reminders must be zero or greater")
+	if normalized.Reminders.MaxReminders <= 0 {
+		return fmt.Errorf("reminders.max_reminders must be greater than zero")
 	}
-	if normalized.Reminders.JitterPercent < 0 || normalized.Reminders.JitterPercent > 90 {
-		return fmt.Errorf("reminders.jitter_percent must be between 0 and 90")
+	if normalized.Reminders.JitterPercent <= 0 || normalized.Reminders.JitterPercent > 90 {
+		return fmt.Errorf("reminders.jitter_percent must be between 1 and 90")
 	}
-	if normalized.Reminders.RecentViewGraceMinutes < 0 {
-		return fmt.Errorf("reminders.recent_view_grace_minutes must be zero or greater")
+	if normalized.Reminders.RecentViewGraceMinutes <= 0 {
+		return fmt.Errorf("reminders.recent_view_grace_minutes must be greater than zero")
 	}
-	if normalized.Reminders.ManualResendCooldownMinutes < 0 {
-		return fmt.Errorf("reminders.manual_resend_cooldown_minutes must be zero or greater")
+	if normalized.Reminders.ManualResendCooldownMinutes <= 0 {
+		return fmt.Errorf("reminders.manual_resend_cooldown_minutes must be greater than zero")
 	}
 	for _, raw := range c.Network.TrustedProxyCIDRs {
 		cidr := strings.TrimSpace(raw)
@@ -492,7 +595,11 @@ func Load(ctx context.Context, paths ...string) (*Config, *goconfig.Container[*C
 	}
 	loaded.applyPersistenceDefaults()
 	loaded.applySignerPDFDefaults()
-	loaded.applyReminderDefaults()
+	reminderResolution, reminderErr := ResolveReminderPolicy(loaded.Reminders)
+	if reminderErr != nil {
+		return loaded, container, reminderErr
+	}
+	loaded.Reminders = reminderResolution.Config
 	if len(resolvedPaths) > 0 {
 		loaded.ConfigPath = strings.TrimSpace(resolvedPaths[0])
 	}
@@ -622,38 +729,11 @@ func (c *Config) applyReminderDefaults() {
 	if c == nil {
 		return
 	}
-	defaults := Defaults().Reminders
-	c.Reminders.SweepCron = strings.TrimSpace(c.Reminders.SweepCron)
-	if c.Reminders.SweepCron == "" {
-		c.Reminders.SweepCron = defaults.SweepCron
+	resolution, err := ResolveReminderPolicy(c.Reminders)
+	if err != nil {
+		return
 	}
-	if c.Reminders.BatchSize <= 0 {
-		c.Reminders.BatchSize = defaults.BatchSize
-	}
-	if c.Reminders.ClaimLeaseSeconds <= 0 {
-		c.Reminders.ClaimLeaseSeconds = defaults.ClaimLeaseSeconds
-	}
-	if c.Reminders.InitialDelayMinutes < 0 {
-		c.Reminders.InitialDelayMinutes = defaults.InitialDelayMinutes
-	}
-	if c.Reminders.IntervalMinutes <= 0 {
-		c.Reminders.IntervalMinutes = defaults.IntervalMinutes
-	}
-	if c.Reminders.MaxReminders < 0 {
-		c.Reminders.MaxReminders = defaults.MaxReminders
-	}
-	if c.Reminders.JitterPercent < 0 {
-		c.Reminders.JitterPercent = defaults.JitterPercent
-	}
-	if c.Reminders.JitterPercent > 90 {
-		c.Reminders.JitterPercent = 90
-	}
-	if c.Reminders.RecentViewGraceMinutes < 0 {
-		c.Reminders.RecentViewGraceMinutes = defaults.RecentViewGraceMinutes
-	}
-	if c.Reminders.ManualResendCooldownMinutes < 0 {
-		c.Reminders.ManualResendCooldownMinutes = defaults.ManualResendCooldownMinutes
-	}
+	c.Reminders = resolution.Config
 }
 
 func isProductionLikeProfile(profile string) bool {

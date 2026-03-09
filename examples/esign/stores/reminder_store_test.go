@@ -14,21 +14,25 @@ func TestInMemoryStoreClaimDueAgreementRemindersHonorsLeaseAndOrder(t *testing.T
 	mustUpsertReminderState(t, store, scope, AgreementReminderStateRecord{
 		AgreementID: "agreement-1", RecipientID: "recipient-1", Status: AgreementReminderStatusActive,
 		NextDueAt: cloneReminderTimePtr(now.Add(-2 * time.Minute)), CreatedAt: now.Add(-1 * time.Hour), UpdatedAt: now.Add(-1 * time.Hour),
+		PolicyVersion: "r1",
 	})
 	mustUpsertReminderState(t, store, scope, AgreementReminderStateRecord{
 		AgreementID: "agreement-1", RecipientID: "recipient-2", Status: AgreementReminderStatusActive,
 		NextDueAt: cloneReminderTimePtr(now.Add(-1 * time.Minute)), CreatedAt: now.Add(-1 * time.Hour), UpdatedAt: now.Add(-30 * time.Minute),
+		PolicyVersion: "r1",
 	})
 	mustUpsertReminderState(t, store, scope, AgreementReminderStateRecord{
 		AgreementID: "agreement-1", RecipientID: "recipient-3", Status: AgreementReminderStatusActive,
 		NextDueAt: cloneReminderTimePtr(now.Add(10 * time.Minute)), CreatedAt: now.Add(-1 * time.Hour), UpdatedAt: now.Add(-30 * time.Minute),
+		PolicyVersion: "r1",
 	})
 
 	claimed, err := store.ClaimDueAgreementReminders(context.Background(), scope, AgreementReminderClaimInput{
 		Now:          now,
 		Limit:        2,
 		LeaseSeconds: 120,
-		Claimer:      "claimer-a",
+		WorkerID:     "worker-a",
+		SweepID:      "sweep-a",
 	})
 	if err != nil {
 		t.Fatalf("ClaimDueAgreementReminders: %v", err)
@@ -36,15 +40,18 @@ func TestInMemoryStoreClaimDueAgreementRemindersHonorsLeaseAndOrder(t *testing.T
 	if len(claimed) != 2 {
 		t.Fatalf("expected 2 claimed reminders, got %d", len(claimed))
 	}
-	if claimed[0].RecipientID != "recipient-1" || claimed[1].RecipientID != "recipient-2" {
-		t.Fatalf("expected claim order recipient-1,recipient-2 got %q,%q", claimed[0].RecipientID, claimed[1].RecipientID)
+	if claimed[0].State.RecipientID != "recipient-1" || claimed[1].State.RecipientID != "recipient-2" {
+		t.Fatalf("expected claim order recipient-1,recipient-2 got %q,%q", claimed[0].State.RecipientID, claimed[1].State.RecipientID)
 	}
-	for _, record := range claimed {
-		if record.LockUntil == nil || !record.LockUntil.After(now) {
-			t.Fatalf("expected active lease for claimed record %+v", record)
+	for _, claim := range claimed {
+		if claim.Lease.LeaseSeq <= 0 {
+			t.Fatalf("expected lease sequence > 0, got %+v", claim.Lease)
 		}
-		if record.LockedBy != "claimer-a" {
-			t.Fatalf("expected locked_by claimer-a, got %q", record.LockedBy)
+		if claim.Lease.WorkerID != "worker-a" || claim.Lease.SweepID != "sweep-a" {
+			t.Fatalf("unexpected lease metadata %+v", claim.Lease)
+		}
+		if claim.State.LastHeartbeatAt == nil || !claim.State.LastHeartbeatAt.Equal(now) {
+			t.Fatalf("expected last heartbeat at claim time, got %+v", claim.State.LastHeartbeatAt)
 		}
 	}
 
@@ -52,7 +59,8 @@ func TestInMemoryStoreClaimDueAgreementRemindersHonorsLeaseAndOrder(t *testing.T
 		Now:          now.Add(30 * time.Second),
 		Limit:        10,
 		LeaseSeconds: 120,
-		Claimer:      "claimer-b",
+		WorkerID:     "worker-b",
+		SweepID:      "sweep-b",
 	})
 	if err != nil {
 		t.Fatalf("second ClaimDueAgreementReminders: %v", err)
@@ -62,14 +70,33 @@ func TestInMemoryStoreClaimDueAgreementRemindersHonorsLeaseAndOrder(t *testing.T
 	}
 }
 
-func TestInMemoryStorePauseAndResumeAgreementReminder(t *testing.T) {
+func TestInMemoryStoreRejectsActiveReminderWithoutNextDue(t *testing.T) {
+	store := NewInMemoryStore()
+	scope := Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	now := time.Date(2026, 3, 9, 1, 0, 0, 0, time.UTC)
+
+	_, err := store.UpsertAgreementReminderState(context.Background(), scope, AgreementReminderStateRecord{
+		AgreementID: "agreement-1",
+		RecipientID: "recipient-1",
+		Status:      AgreementReminderStatusActive,
+		NextDueAt:   nil,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	})
+	if err == nil {
+		t.Fatalf("expected active state with nil next_due_at to be rejected")
+	}
+}
+
+func TestInMemoryStorePauseResumeAndTerminalDeterministic(t *testing.T) {
 	store := NewInMemoryStore()
 	scope := Scope{TenantID: "tenant-1", OrgID: "org-1"}
 	now := time.Date(2026, 3, 9, 1, 0, 0, 0, time.UTC)
 	mustUpsertReminderState(t, store, scope, AgreementReminderStateRecord{
 		AgreementID: "agreement-1", RecipientID: "recipient-1", Status: AgreementReminderStatusActive,
-		NextDueAt: cloneReminderTimePtr(now.Add(30 * time.Minute)),
+		NextDueAt: cloneReminderTimePtr(now.Add(-1 * time.Minute)),
 		CreatedAt: now.Add(-1 * time.Hour), UpdatedAt: now.Add(-1 * time.Hour),
+		PolicyVersion: "r1",
 	})
 
 	paused, err := store.PauseAgreementReminder(context.Background(), scope, "agreement-1", "recipient-1", now)
@@ -94,9 +121,34 @@ func TestInMemoryStorePauseAndResumeAgreementReminder(t *testing.T) {
 	if resumed.NextDueAt == nil || !resumed.NextDueAt.Equal(nextDue) {
 		t.Fatalf("expected next_due_at=%s after resume, got %+v", nextDue.Format(time.RFC3339Nano), resumed.NextDueAt)
 	}
+
+	claimed := mustClaimReminder(t, store, scope, now.Add(50*time.Minute), "worker-a", "sweep-a")
+	terminal, err := store.MarkAgreementReminderSkipped(context.Background(), scope, "agreement-1", "recipient-1", AgreementReminderMarkInput{
+		ReasonCode:     AgreementReminderTerminalReasonMaxCountReached,
+		OccurredAt:     now.Add(50 * time.Minute),
+		LeaseSeconds:   120,
+		Lease:          claimed.Lease,
+		TerminalReason: AgreementReminderTerminalReasonMaxCountReached,
+	})
+	if err != nil {
+		t.Fatalf("MarkAgreementReminderSkipped: %v", err)
+	}
+	if terminal.Status != AgreementReminderStatusTerminal {
+		t.Fatalf("expected terminal status, got %q", terminal.Status)
+	}
+	if terminal.TerminalReason != AgreementReminderTerminalReasonMaxCountReached {
+		t.Fatalf("expected terminal reason %q, got %q", AgreementReminderTerminalReasonMaxCountReached, terminal.TerminalReason)
+	}
+	if terminal.NextDueAt != nil {
+		t.Fatalf("expected terminal next_due_at nil")
+	}
+
+	if _, err := store.ResumeAgreementReminder(context.Background(), scope, "agreement-1", "recipient-1", now.Add(3*time.Minute), &nextDue); err == nil {
+		t.Fatalf("expected resume on terminal reminder to fail")
+	}
 }
 
-func TestInMemoryStoreMarkAgreementReminderSentAndFailed(t *testing.T) {
+func TestInMemoryStoreLeaseFencingRejectsStaleAndNonOwnerWrites(t *testing.T) {
 	store := NewInMemoryStore()
 	scope := Scope{TenantID: "tenant-1", OrgID: "org-1"}
 	now := time.Date(2026, 3, 9, 1, 0, 0, 0, time.UTC)
@@ -105,34 +157,140 @@ func TestInMemoryStoreMarkAgreementReminderSentAndFailed(t *testing.T) {
 		SentCount: 1, FirstSentAt: cloneReminderTimePtr(now.Add(-24 * time.Hour)), LastSentAt: cloneReminderTimePtr(now.Add(-2 * time.Hour)),
 		NextDueAt: cloneReminderTimePtr(now.Add(-1 * time.Minute)),
 		CreatedAt: now.Add(-24 * time.Hour), UpdatedAt: now.Add(-2 * time.Hour),
+		PolicyVersion: "r1",
 	})
 
-	nextDue := now.Add(3 * time.Hour)
-	sent, err := store.MarkAgreementReminderSent(context.Background(), scope, "agreement-1", "recipient-1", "due", now, &nextDue)
+	claim := mustClaimReminder(t, store, scope, now, "worker-a", "sweep-a")
+	renewed, err := store.RenewAgreementReminderLease(context.Background(), scope, "agreement-1", "recipient-1", AgreementReminderLeaseRenewInput{
+		Now:          now.Add(30 * time.Second),
+		LeaseSeconds: 120,
+		Lease:        claim.Lease,
+	})
 	if err != nil {
-		t.Fatalf("MarkAgreementReminderSent: %v", err)
+		t.Fatalf("RenewAgreementReminderLease: %v", err)
 	}
-	if sent.SentCount != 2 {
-		t.Fatalf("expected sent_count=2, got %d", sent.SentCount)
-	}
-	if sent.LastSentAt == nil || !sent.LastSentAt.Equal(now) {
-		t.Fatalf("expected last_sent_at=%s, got %+v", now.Format(time.RFC3339Nano), sent.LastSentAt)
-	}
-	if sent.NextDueAt == nil || !sent.NextDueAt.Equal(nextDue) {
-		t.Fatalf("expected next_due_at=%s, got %+v", nextDue.Format(time.RFC3339Nano), sent.NextDueAt)
+	nextDue := now.Add(1 * time.Hour)
+
+	if _, err := store.MarkAgreementReminderSent(context.Background(), scope, "agreement-1", "recipient-1", AgreementReminderMarkInput{
+		ReasonCode:   "due",
+		OccurredAt:   now.Add(1 * time.Minute),
+		NextDueAt:    &nextDue,
+		LeaseSeconds: 120,
+		Lease:        claim.Lease, // stale sequence
+	}); err == nil {
+		t.Fatalf("expected stale lease sequence to fail")
 	}
 
-	retryAt := now.Add(1 * time.Hour)
-	failed, err := store.MarkAgreementReminderFailed(context.Background(), scope, "agreement-1", "recipient-1", "resend_failed", "smtp timeout", now.Add(2*time.Minute), &retryAt)
+	nonOwner := renewed.Lease
+	nonOwner.WorkerID = "worker-b"
+	if _, err := store.MarkAgreementReminderSent(context.Background(), scope, "agreement-1", "recipient-1", AgreementReminderMarkInput{
+		ReasonCode:   "due",
+		OccurredAt:   now.Add(1 * time.Minute),
+		NextDueAt:    &nextDue,
+		LeaseSeconds: 120,
+		Lease:        nonOwner,
+	}); err == nil {
+		t.Fatalf("expected non-owner worker write to fail")
+	}
+
+	if _, err := store.MarkAgreementReminderSent(context.Background(), scope, "agreement-1", "recipient-1", AgreementReminderMarkInput{
+		ReasonCode:   "due",
+		OccurredAt:   now.Add(1 * time.Minute),
+		NextDueAt:    &nextDue,
+		LeaseSeconds: 120,
+		Lease:        renewed.Lease,
+	}); err != nil {
+		t.Fatalf("expected owner with current lease sequence to succeed: %v", err)
+	}
+}
+
+func TestInMemoryStoreTerminalReminderNoLongerClaimed(t *testing.T) {
+	store := NewInMemoryStore()
+	scope := Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	now := time.Date(2026, 3, 9, 1, 0, 0, 0, time.UTC)
+	mustUpsertReminderState(t, store, scope, AgreementReminderStateRecord{
+		AgreementID: "agreement-1", RecipientID: "recipient-1", Status: AgreementReminderStatusActive,
+		NextDueAt: cloneReminderTimePtr(now.Add(-1 * time.Minute)),
+		CreatedAt: now.Add(-1 * time.Hour), UpdatedAt: now.Add(-1 * time.Hour),
+		PolicyVersion: "r1",
+	})
+
+	claim := mustClaimReminder(t, store, scope, now, "worker-a", "sweep-a")
+	if _, err := store.MarkAgreementReminderSkipped(context.Background(), scope, "agreement-1", "recipient-1", AgreementReminderMarkInput{
+		ReasonCode:     AgreementReminderTerminalReasonMaxCountReached,
+		OccurredAt:     now.Add(1 * time.Minute),
+		LeaseSeconds:   120,
+		Lease:          claim.Lease,
+		TerminalReason: AgreementReminderTerminalReasonMaxCountReached,
+	}); err != nil {
+		t.Fatalf("MarkAgreementReminderSkipped terminal: %v", err)
+	}
+
+	claimedAgain, err := store.ClaimDueAgreementReminders(context.Background(), scope, AgreementReminderClaimInput{
+		Now:          now.Add(2 * time.Minute),
+		Limit:        10,
+		LeaseSeconds: 120,
+		WorkerID:     "worker-b",
+		SweepID:      "sweep-b",
+	})
 	if err != nil {
-		t.Fatalf("MarkAgreementReminderFailed: %v", err)
+		t.Fatalf("ClaimDueAgreementReminders after terminal: %v", err)
 	}
-	if failed.LastError != "smtp timeout" {
-		t.Fatalf("expected last_error smtp timeout, got %q", failed.LastError)
+	if len(claimedAgain) != 0 {
+		t.Fatalf("expected terminal reminder to not be claimed again, got %d", len(claimedAgain))
 	}
-	if failed.NextDueAt == nil || !failed.NextDueAt.Equal(retryAt) {
-		t.Fatalf("expected retry next_due_at=%s, got %+v", retryAt.Format(time.RFC3339Nano), failed.NextDueAt)
+}
+
+func TestInMemoryStoreCleanupAgreementReminderInternalErrors(t *testing.T) {
+	store := NewInMemoryStore()
+	scope := Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	now := time.Date(2026, 3, 9, 1, 0, 0, 0, time.UTC)
+	expiredAt := now.Add(-1 * time.Minute)
+	record := mustUpsertReminderState(t, store, scope, AgreementReminderStateRecord{
+		AgreementID:                "agreement-1",
+		RecipientID:                "recipient-1",
+		Status:                     AgreementReminderStatusActive,
+		NextDueAt:                  cloneReminderTimePtr(now.Add(1 * time.Hour)),
+		LastErrorCode:              "resend_failed",
+		LastErrorInternalEncrypted: "ciphertext",
+		LastErrorInternalExpiresAt: &expiredAt,
+		CreatedAt:                  now.Add(-1 * time.Hour),
+		UpdatedAt:                  now.Add(-1 * time.Hour),
+		PolicyVersion:              "r1",
+	})
+
+	cleared, err := store.CleanupAgreementReminderInternalErrors(context.Background(), scope, now, 10)
+	if err != nil {
+		t.Fatalf("CleanupAgreementReminderInternalErrors: %v", err)
 	}
+	if cleared != 1 {
+		t.Fatalf("expected one cleared record, got %d", cleared)
+	}
+	updated, err := store.GetAgreementReminderState(context.Background(), scope, record.AgreementID, record.RecipientID)
+	if err != nil {
+		t.Fatalf("GetAgreementReminderState: %v", err)
+	}
+	if updated.LastErrorInternalEncrypted != "" || updated.LastErrorInternalExpiresAt != nil {
+		t.Fatalf("expected internal error payload to be cleared, got %+v", updated)
+	}
+}
+
+func mustClaimReminder(t *testing.T, store *InMemoryStore, scope Scope, now time.Time, workerID, sweepID string) AgreementReminderClaim {
+	t.Helper()
+	claimed, err := store.ClaimDueAgreementReminders(context.Background(), scope, AgreementReminderClaimInput{
+		Now:          now,
+		Limit:        1,
+		LeaseSeconds: 120,
+		WorkerID:     workerID,
+		SweepID:      sweepID,
+	})
+	if err != nil {
+		t.Fatalf("ClaimDueAgreementReminders: %v", err)
+	}
+	if len(claimed) != 1 {
+		t.Fatalf("expected one claimed reminder, got %d", len(claimed))
+	}
+	return claimed[0]
 }
 
 func mustUpsertReminderState(t *testing.T, store *InMemoryStore, scope Scope, record AgreementReminderStateRecord) AgreementReminderStateRecord {

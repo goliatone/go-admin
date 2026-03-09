@@ -7,7 +7,7 @@
     "examples/esign/services/signing_service.go",
     "examples/esign/services/signer_asset_contract.go"
   ],
-  "contract_hash": "e37180cffadddb83616e3b070e065d55c7ab4f2d8fe079d6bdc064593b19363a",
+  "contract_hash": "8fbd5ab6924fe1b97a644ce4cf14ce1a1dd1d05de3d629eefcd2ce15bda36e96",
   "freeze_date": "2026-02-16",
   "release_owner": "backend-release-owner",
   "exception_approval_ref": "",

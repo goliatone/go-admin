@@ -130,6 +130,37 @@ func (m AgreementReminderSweepInput) Validate() error {
 	return nil
 }
 
+// AgreementReminderCleanupInput captures payload for periodic internal reminder error cleanup.
+type AgreementReminderCleanupInput struct {
+	Scope         stores.Scope
+	Before        string
+	Limit         int
+	CorrelationID string
+}
+
+func (AgreementReminderCleanupInput) Type() string {
+	return CommandAgreementReminderCleanup
+}
+
+func (m AgreementReminderCleanupInput) Validate() error {
+	if m.Limit < 0 {
+		return fmt.Errorf("limit must be non-negative")
+	}
+	return nil
+}
+
+func (m AgreementReminderCleanupInput) BeforeTime(now time.Time) time.Time {
+	before := strings.TrimSpace(m.Before)
+	if before == "" {
+		return now.UTC()
+	}
+	parsed, err := time.Parse(time.RFC3339Nano, before)
+	if err != nil {
+		return now.UTC()
+	}
+	return parsed.UTC()
+}
+
 // AgreementReminderControlInput captures pause/resume/send-now reminder actions.
 type AgreementReminderControlInput struct {
 	Scope         stores.Scope

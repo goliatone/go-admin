@@ -569,7 +569,7 @@ func (m *ESignModule) registerPanels(adm *coreadmin.Admin) error {
 			coreadmin.Field{Name: "next_due_at", Label: "Next Reminder", Type: "datetime", ReadOnly: true},
 			coreadmin.Field{Name: "last_sent_at", Label: "Last Reminder Sent", Type: "datetime", ReadOnly: true},
 			coreadmin.Field{Name: "reminder_count", Label: "Reminder Count", Type: "number", ReadOnly: true},
-			coreadmin.Field{Name: "last_error", Label: "Reminder Error", Type: "textarea", ReadOnly: true},
+			coreadmin.Field{Name: "last_error_code", Label: "Reminder Error Code", Type: "text", ReadOnly: true},
 			coreadmin.Field{Name: "paused", Label: "Reminders Paused", Type: "boolean", ReadOnly: true},
 			coreadmin.Field{Name: "recipient_count", Label: "Recipients", Type: "number", ReadOnly: true},
 			coreadmin.Field{Name: "sent_at", Label: "Sent", Type: "datetime", ReadOnly: true},
