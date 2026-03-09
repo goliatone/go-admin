@@ -53,6 +53,7 @@ func (h *contentEntryHandlers) listForPanel(c router.Context, panelSlug string) 
 	}
 	dataTableID := "content-" + slug
 	listAPI := resolveAdminPanelAPICollectionURL(urls, h.cfg, basePath, panelName)
+	bulkCtx := buildContentEntryBulkActionContext(h.admin, panel, panelName, c, urls, h.cfg, basePath)
 	translationUXEnabled := h.translationUX && contentEntryPanelSupportsTranslationUX(panel)
 	stateStoreCfg := h.dataGridStateStore
 	stateStoreConfigured := strings.TrimSpace(stateStoreCfg.Mode) != "" ||
@@ -87,6 +88,15 @@ func (h *contentEntryHandlers) listForPanel(c router.Context, panelSlug string) 
 			"icon":   contentTypeIcon(contentType),
 			"status": contentTypeStatus(contentType),
 		},
+	}
+	if len(bulkCtx.Primary) > 0 {
+		viewCtx["bulk_actions_primary"] = bulkCtx.Primary
+	}
+	if len(bulkCtx.Overflow) > 0 {
+		viewCtx["bulk_actions_overflow"] = bulkCtx.Overflow
+	}
+	if bulkCtx.BaseURL != "" && (len(bulkCtx.Primary) > 0 || len(bulkCtx.Overflow) > 0) {
+		viewCtx["bulk_base"] = bulkCtx.BaseURL
 	}
 	viewCtx = mergeViewContext(viewCtx, BuildPanelViewCapabilities(h.cfg, PanelViewCapabilityOptions{
 		BasePath:    basePath,
