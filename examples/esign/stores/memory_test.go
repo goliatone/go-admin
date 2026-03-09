@@ -15,6 +15,10 @@ func boolPtr(value bool) *bool {
 	return &value
 }
 
+func floatPtr(value float64) *float64 {
+	return &value
+}
+
 func TestInMemoryStoreRequiresScope(t *testing.T) {
 	store := NewInMemoryStore()
 	ctx := context.Background()
@@ -279,6 +283,70 @@ func TestInMemorySignatureArtifactAndFieldValueAttachment(t *testing.T) {
 		SignatureArtifactID: "missing-artifact-id",
 	}, value.Version); err == nil {
 		t.Fatal("expected missing signature artifact validation error")
+	}
+}
+
+func TestInMemoryStoreUpsertFieldInstanceDraftAcceptsAutoLinkedPlacementSource(t *testing.T) {
+	store := NewInMemoryStore()
+	ctx := context.Background()
+	scope := Scope{TenantID: "tenant-1", OrgID: "org-1"}
+
+	agreement, err := store.CreateDraft(ctx, scope, AgreementRecord{
+		DocumentID: "doc-1",
+		Title:      "Linked Placement",
+	})
+	if err != nil {
+		t.Fatalf("CreateDraft: %v", err)
+	}
+	participant, err := store.UpsertParticipantDraft(ctx, scope, agreement.ID, ParticipantDraftPatch{
+		Email:        strPtr("signer@example.com"),
+		Name:         strPtr("Signer"),
+		Role:         strPtr(RecipientRoleSigner),
+		SigningStage: intPtr(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertParticipantDraft: %v", err)
+	}
+	fieldType := FieldTypeSignature
+	required := true
+	definition, err := store.UpsertFieldDefinitionDraft(ctx, scope, agreement.ID, FieldDefinitionDraftPatch{
+		ParticipantID: &participant.ID,
+		Type:          &fieldType,
+		Required:      &required,
+	})
+	if err != nil {
+		t.Fatalf("UpsertFieldDefinitionDraft: %v", err)
+	}
+	source := PlacementSourceAutoLinked
+	linkGroupID := "rule-group-1"
+	linkedFrom := "source-field-1"
+	isUnlinked := true
+	instance, err := store.UpsertFieldInstanceDraft(ctx, scope, agreement.ID, FieldInstanceDraftPatch{
+		FieldDefinitionID: &definition.ID,
+		PageNumber:        intPtr(1),
+		X:                 floatPtr(72),
+		Y:                 floatPtr(120),
+		Width:             floatPtr(180),
+		Height:            floatPtr(40),
+		PlacementSource:   &source,
+		LinkGroupID:       &linkGroupID,
+		LinkedFromFieldID: &linkedFrom,
+		IsUnlinked:        &isUnlinked,
+	})
+	if err != nil {
+		t.Fatalf("UpsertFieldInstanceDraft: %v", err)
+	}
+	if instance.PlacementSource != PlacementSourceAutoLinked {
+		t.Fatalf("expected placement_source auto_linked, got %q", instance.PlacementSource)
+	}
+	if instance.LinkGroupID != linkGroupID {
+		t.Fatalf("expected link_group_id %q, got %q", linkGroupID, instance.LinkGroupID)
+	}
+	if instance.LinkedFromFieldID != linkedFrom {
+		t.Fatalf("expected linked_from_field_id %q, got %q", linkedFrom, instance.LinkedFromFieldID)
+	}
+	if !instance.IsUnlinked {
+		t.Fatal("expected is_unlinked=true")
 	}
 }
 

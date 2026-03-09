@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log/slog"
 	"regexp"
 	"strconv"
 	"strings"
@@ -14,6 +15,7 @@ import (
 
 	coreadmin "github.com/goliatone/go-admin/admin"
 	appcfg "github.com/goliatone/go-admin/examples/esign/config"
+	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	"github.com/ledongthuc/pdf"
 	"github.com/phpdave11/gofpdf"
@@ -227,6 +229,26 @@ func normalizePDFPolicy(policy PDFPolicy) PDFPolicy {
 		policy.PipelineMode = PDFPipelineModePreferNormalized
 	}
 	return policy
+}
+
+// PDFPolicyDiagnostics returns a stable diagnostics payload for effective PDF policy values.
+func PDFPolicyDiagnostics(policy PDFPolicy) map[string]any {
+	policy = normalizePDFPolicy(policy)
+	return map[string]any{
+		"max_source_bytes":            policy.MaxSourceBytes,
+		"max_pages":                   policy.MaxPages,
+		"max_objects":                 policy.MaxObjects,
+		"max_decompressed_bytes":      policy.MaxDecompressedBytes,
+		"parse_timeout_ms":            policy.ParseTimeout.Milliseconds(),
+		"normalization_timeout_ms":    policy.NormalizationTimeout.Milliseconds(),
+		"allow_encrypted":             policy.AllowEncrypted,
+		"allow_javascript_actions":    policy.AllowJavaScriptActions,
+		"compatibility_mode":          strings.TrimSpace(string(policy.CompatibilityMode)),
+		"preview_fallback_enabled":    policy.PreviewFallbackEnabled,
+		"pipeline_mode":               strings.TrimSpace(string(policy.PipelineMode)),
+		"policy_version":              PDFPolicyVersion,
+		"diagnostics_payload_version": "v1",
+	}
 }
 
 // PDFPolicyResolver returns effective policy per operation.
@@ -583,10 +605,14 @@ func NewPDFService(opts ...PDFServiceOption) PDFService {
 }
 
 func (s PDFService) Policy(ctx context.Context, scope stores.Scope) PDFPolicy {
+	policy := DefaultPDFPolicy()
 	if s.resolver == nil {
-		return DefaultPDFPolicy()
+		logResolvedPDFPolicy(ctx, scope, policy)
+		return policy
 	}
-	return normalizePDFPolicy(s.resolver.Resolve(ctx, scope))
+	policy = normalizePDFPolicy(s.resolver.Resolve(ctx, scope))
+	logResolvedPDFPolicy(ctx, scope, policy)
+	return policy
 }
 
 func (s PDFService) Analyze(ctx context.Context, scope stores.Scope, raw []byte) (PDFAnalysis, error) {
@@ -988,6 +1014,11 @@ func runPDFOperation[T any](ctx context.Context, fn func() (T, error)) (T, error
 	}
 	done := make(chan result, 1)
 	go func() {
+		defer func() {
+			if recovered := recover(); recovered != nil {
+				done <- result{err: fmt.Errorf("pdf operation panic recovered: %v", recovered)}
+			}
+		}()
 		value, err := fn()
 		done <- result{value: value, err: err}
 	}()
@@ -997,6 +1028,17 @@ func runPDFOperation[T any](ctx context.Context, fn func() (T, error)) (T, error
 	case out := <-done:
 		return out.value, out.err
 	}
+}
+
+func logResolvedPDFPolicy(ctx context.Context, scope stores.Scope, policy PDFPolicy) {
+	fields := PDFPolicyDiagnostics(policy)
+	if tenantID := strings.TrimSpace(scope.TenantID); tenantID != "" {
+		fields["tenant_id"] = tenantID
+	}
+	if orgID := strings.TrimSpace(scope.OrgID); orgID != "" {
+		fields["org_id"] = orgID
+	}
+	observability.LogOperation(ctx, slog.LevelDebug, "pdf", "policy_resolved", "success", "", 0, nil, fields)
 }
 
 func hasPDFNameToken(payload []byte, token string) bool {

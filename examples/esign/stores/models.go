@@ -107,6 +107,7 @@ type DocumentRecord struct {
 	ID                     string
 	TenantID               string
 	OrgID                  string
+	CreatedByUserID        string
 	Title                  string
 	SourceObjectKey        string
 	NormalizedObjectKey    string
@@ -247,10 +248,14 @@ type FieldRecord struct {
 	RecipientID       string
 	Type              string `bun:"field_type"`
 	PageNumber        int
-	PosX              float64
-	PosY              float64
+	PosX              float64 `bun:"pos_x"`
+	PosY              float64 `bun:"pos_y"`
 	Width             float64
 	Height            float64
+	PlacementSource   string
+	LinkGroupID       string
+	LinkedFromFieldID string
+	IsUnlinked        bool
 	Required          bool
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
@@ -340,12 +345,12 @@ type PlacementRunRecord struct {
 	AgreementID             string
 	Status                  string
 	ReasonCode              string
-	ResolverOrder           []string
-	ExecutedResolvers       []string
-	ResolverScores          []PlacementResolverScore
-	Suggestions             []PlacementSuggestionRecord
-	SelectedSuggestionIDs   []string
-	UnresolvedDefinitionIDs []string
+	ResolverOrder           []string                    `bun:"resolver_order_json"`
+	ExecutedResolvers       []string                    `bun:"executed_resolvers_json"`
+	ResolverScores          []PlacementResolverScore    `bun:"resolver_scores_json"`
+	Suggestions             []PlacementSuggestionRecord `bun:"suggestions_json"`
+	SelectedSuggestionIDs   []string                    `bun:"selected_suggestion_ids_json"`
+	UnresolvedDefinitionIDs []string                    `bun:"unresolved_definition_ids_json"`
 	SelectedSource          string
 	PolicyJSON              string
 	MaxBudget               float64
@@ -398,7 +403,7 @@ type SignerProfileRecord struct {
 	TenantID              string
 	OrgID                 string
 	Subject               string
-	Key                   string
+	Key                   string `bun:"profile_key"`
 	FullName              string
 	Initials              string
 	TypedSignature        string
@@ -417,7 +422,7 @@ type SavedSignerSignatureRecord struct {
 	TenantID         string
 	OrgID            string
 	Subject          string
-	Type             string
+	Type             string `bun:"signature_type"`
 	Label            string
 	ObjectKey        string
 	ThumbnailDataURL string
@@ -812,15 +817,19 @@ type ParticipantDraftPatch struct {
 }
 
 type FieldDraftPatch struct {
-	ID          string
-	RecipientID *string
-	Type        *string
-	PageNumber  *int
-	PosX        *float64
-	PosY        *float64
-	Width       *float64
-	Height      *float64
-	Required    *bool
+	ID                string
+	RecipientID       *string
+	Type              *string
+	PageNumber        *int
+	PosX              *float64
+	PosY              *float64
+	Width             *float64
+	Height            *float64
+	PlacementSource   *string
+	LinkGroupID       *string
+	LinkedFromFieldID *string
+	IsUnlinked        *bool
+	Required          *bool
 }
 
 type FieldDefinitionDraftPatch struct {
@@ -847,6 +856,9 @@ type FieldInstanceDraftPatch struct {
 	Confidence        *float64
 	PlacementRunID    *string
 	ManualOverride    *bool
+	LinkGroupID       *string
+	LinkedFromFieldID *string
+	IsUnlinked        *bool
 }
 
 type AgreementTransitionInput struct {

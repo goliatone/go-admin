@@ -30,7 +30,7 @@ func registerAdminCoreRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg re
 			logAPIOperation(c.Context(), "admin_api_status", correlationID, startedAt, err, nil)
 			return asHandlerError(err)
 		}
-		err := c.JSON(http.StatusOK, map[string]any{
+		response := map[string]any{
 			"status": "ok",
 			"codes": []string{
 				string(services.ErrorCodeTokenExpired),
@@ -97,7 +97,12 @@ func registerAdminCoreRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg re
 				"integration_inbound":               routes.AdminIntegrationInbound,
 				"integration_outbound":              routes.AdminIntegrationOutbound,
 			},
-		})
+		}
+		if cfg.pdfPolicy != nil {
+			scope := cfg.resolveScope(c)
+			response["pdf_policy"] = services.PDFPolicyDiagnostics(cfg.pdfPolicy.Policy(c.Context(), scope))
+		}
+		err := c.JSON(http.StatusOK, response)
 		logAPIOperation(c.Context(), "admin_api_status", correlationID, startedAt, err, nil)
 		return err
 	}, requireAdminPermission(cfg, cfg.permissions.AdminView))

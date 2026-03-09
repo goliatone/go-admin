@@ -117,6 +117,42 @@ func TestAdminAPIStatusEnvelopeContract(t *testing.T) {
 	}
 }
 
+func TestAdminAPIStatusIncludesPDFPolicyDiagnostics(t *testing.T) {
+	policy := services.DefaultPDFPolicy()
+	policy.MaxPages = 42
+	policy.PipelineMode = services.PDFPipelineModeEnforcePolicy
+
+	app := setupRegisterTestApp(t,
+		WithAuthorizer(mapAuthorizer{allowed: map[string]bool{DefaultPermissions.AdminView: true}}),
+		WithPDFPolicyService(services.NewPDFService(
+			services.WithPDFPolicyResolver(services.NewStaticPDFPolicyResolver(policy)),
+		)),
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign/status", nil)
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", resp.StatusCode)
+	}
+
+	payload := mustDecodeJSONMap(t, resp.Body)
+	pdfPolicy, ok := payload["pdf_policy"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected pdf_policy diagnostics map in admin api status, got %+v", payload)
+	}
+	maxPages, ok := pdfPolicy["max_pages"].(float64)
+	if !ok || int(maxPages) != 42 {
+		t.Fatalf("expected max_pages=42 from effective policy diagnostics, got %+v", pdfPolicy["max_pages"])
+	}
+	if strings.TrimSpace(toString(pdfPolicy["pipeline_mode"])) != string(services.PDFPipelineModeEnforcePolicy) {
+		t.Fatalf("expected pipeline_mode=%q, got %+v", services.PDFPipelineModeEnforcePolicy, pdfPolicy["pipeline_mode"])
+	}
+}
+
 func TestAdminSmokeRecipientLinksReturnsCapturedInvitationLink(t *testing.T) {
 	jobs.ResetCapturedRecipientLinks()
 	t.Cleanup(jobs.ResetCapturedRecipientLinks)

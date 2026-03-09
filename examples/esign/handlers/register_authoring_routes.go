@@ -328,6 +328,9 @@ func registerAgreementAuthoringRoutes(adminRoutes routeRegistrar, routes RouteSe
 				Confidence        *float64 `json:"confidence"`
 				PlacementRunID    *string  `json:"placement_run_id"`
 				ManualOverride    *bool    `json:"manual_override"`
+				LinkGroupID       *string  `json:"link_group_id"`
+				LinkedFromFieldID *string  `json:"linked_from_field_id"`
+				IsUnlinked        *bool    `json:"is_unlinked"`
 			}
 			if err := c.Bind(&payload); err != nil {
 				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid field instance payload", nil)
@@ -370,6 +373,17 @@ func registerAgreementAuthoringRoutes(adminRoutes routeRegistrar, routes RouteSe
 			if payload.ManualOverride != nil {
 				patch.ManualOverride = payload.ManualOverride
 			}
+			if payload.LinkGroupID != nil {
+				linkGroupID := strings.TrimSpace(*payload.LinkGroupID)
+				patch.LinkGroupID = &linkGroupID
+			}
+			if payload.LinkedFromFieldID != nil {
+				linkedFromFieldID := strings.TrimSpace(*payload.LinkedFromFieldID)
+				patch.LinkedFromFieldID = &linkedFromFieldID
+			}
+			if payload.IsUnlinked != nil {
+				patch.IsUnlinked = payload.IsUnlinked
+			}
 			instance, err := cfg.agreementAuthoring.UpsertFieldInstanceDraft(c.Context(), cfg.resolveScope(c), agreementID, patch)
 			if err != nil {
 				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "unable to upsert field instance", nil)
@@ -407,6 +421,9 @@ func registerAgreementAuthoringRoutes(adminRoutes routeRegistrar, routes RouteSe
 				Confidence        *float64 `json:"confidence"`
 				PlacementRunID    *string  `json:"placement_run_id"`
 				ManualOverride    *bool    `json:"manual_override"`
+				LinkGroupID       *string  `json:"link_group_id"`
+				LinkedFromFieldID *string  `json:"linked_from_field_id"`
+				IsUnlinked        *bool    `json:"is_unlinked"`
 			}
 			if err := c.Bind(&payload); err != nil {
 				return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid field instance payload", nil)
@@ -446,6 +463,17 @@ func registerAgreementAuthoringRoutes(adminRoutes routeRegistrar, routes RouteSe
 			}
 			if payload.ManualOverride != nil {
 				patch.ManualOverride = payload.ManualOverride
+			}
+			if payload.LinkGroupID != nil {
+				linkGroupID := strings.TrimSpace(*payload.LinkGroupID)
+				patch.LinkGroupID = &linkGroupID
+			}
+			if payload.LinkedFromFieldID != nil {
+				linkedFromFieldID := strings.TrimSpace(*payload.LinkedFromFieldID)
+				patch.LinkedFromFieldID = &linkedFromFieldID
+			}
+			if payload.IsUnlinked != nil {
+				patch.IsUnlinked = payload.IsUnlinked
 			}
 			instance, err := cfg.agreementAuthoring.UpsertFieldInstanceDraft(c.Context(), cfg.resolveScope(c), agreementID, patch)
 			if err != nil {

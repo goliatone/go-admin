@@ -28,7 +28,6 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/modules"
 	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/services"
-	"github.com/goliatone/go-admin/examples/esign/stores"
 	"github.com/goliatone/go-admin/pkg/client"
 	"github.com/goliatone/go-admin/quickstart"
 	commandregistry "github.com/goliatone/go-command/registry"
@@ -614,7 +613,7 @@ func TestRuntimeLoginUnlocksAdminShellAndLandingRoute(t *testing.T) {
 }
 
 func TestRuntimeLandingRendersRecentAgreementsFromStoreData(t *testing.T) {
-	fixture, err := newESignRuntimeWebFixtureForTestsWithGoogleEnabled(false)
+	fixture, err := newESignRuntimeWebFixtureForTestsWithGoogleEnabled(t, false)
 	if err != nil {
 		t.Fatalf("setup e-sign runtime app fixture: %v", err)
 	}
@@ -796,7 +795,7 @@ func TestLoadESignAuthSeedResolvesRelativeConfigPath(t *testing.T) {
 }
 
 func TestRuntimeSignerWebE2ERecipientJourneyFromSignLinkToSubmit(t *testing.T) {
-	fixture, err := newESignRuntimeWebFixtureForTestsWithGoogleEnabled(false)
+	fixture, err := newESignRuntimeWebFixtureForTestsWithGoogleEnabled(t, false)
 	if err != nil {
 		t.Fatalf("setup e-sign runtime app fixture: %v", err)
 	}
@@ -1084,7 +1083,7 @@ func TestRuntimeSignerWebE2ERecipientJourneyFromSignLinkToSubmit(t *testing.T) {
 }
 
 func TestRuntimeSignerWebE2EUnifiedFlowConsentFieldSignatureSubmit(t *testing.T) {
-	fixture, err := newESignRuntimeWebFixtureForTestsWithGoogleEnabled(false)
+	fixture, err := newESignRuntimeWebFixtureForTestsWithGoogleEnabled(t, false)
 	if err != nil {
 		t.Fatalf("setup e-sign runtime app fixture: %v", err)
 	}
@@ -1424,7 +1423,7 @@ func newESignRuntimeWebAppForTests() (*fiber.App, error) {
 
 func newESignRuntimeWebAppForTestsWithGoogleEnabled(googleEnabled bool) (*fiber.App, error) {
 	setESignRuntimeTestConfig(googleEnabled)
-	fixture, err := newESignRuntimeWebFixtureForTestsWithGoogleEnabled(googleEnabled)
+	fixture, err := newESignRuntimeWebFixtureForTestsWithGoogleEnabled(nil, googleEnabled)
 	if err != nil {
 		return nil, err
 	}
@@ -1452,13 +1451,18 @@ type eSignRuntimeWebFixture struct {
 	Module *modules.ESignModule
 }
 
-func newESignRuntimeWebFixtureForTestsWithGoogleEnabled(googleEnabled bool) (eSignRuntimeWebFixture, error) {
+func newESignRuntimeWebFixtureForTestsWithGoogleEnabled(t *testing.T, googleEnabled bool) (eSignRuntimeWebFixture, error) {
+	if t != nil {
+		t.Helper()
+	}
 	_ = commandregistry.Stop(context.Background())
 	bootstrapResult, err := esignpersistence.Bootstrap(context.Background(), appcfg.Active())
 	if err != nil {
 		return eSignRuntimeWebFixture{}, fmt.Errorf("bootstrap persistence: %w", err)
 	}
-	defer func() { _ = bootstrapResult.Close() }()
+	if t != nil {
+		t.Cleanup(func() { _ = bootstrapResult.Close() })
+	}
 
 	cfg := quickstart.NewAdminConfig("/admin", "E-Sign Test", "en")
 	applyESignRuntimeDefaults(&cfg)
@@ -1487,17 +1491,16 @@ func newESignRuntimeWebFixtureForTestsWithGoogleEnabled(googleEnabled bool) (eSi
 		return eSignRuntimeWebFixture{}, fmt.Errorf("new admin: %w", err)
 	}
 
-	esignModule := modules.NewESignModule(cfg.BasePath, cfg.DefaultLocale, cfg.NavMenuCode).
-		WithUploadDir(resolveESignDiskAssetsDir())
-	if bootstrapResult.Dialect == esignpersistence.DialectSQLite {
-		bootstrapStore, storeErr := stores.NewSQLiteStore(bootstrapResult.DSN)
-		if storeErr != nil {
-			return eSignRuntimeWebFixture{}, fmt.Errorf("new sqlite store from bootstrap dsn: %w", storeErr)
-		}
-		esignModule = esignModule.WithStore(bootstrapStore)
-	} else {
-		return eSignRuntimeWebFixture{}, fmt.Errorf("runtime web tests require sqlite bootstrap dialect, got %s", bootstrapResult.Dialect)
+	bootstrapStore, storeCleanup, err := newESignRuntimeStore(bootstrapResult)
+	if err != nil {
+		return eSignRuntimeWebFixture{}, fmt.Errorf("new runtime store from bootstrap: %w", err)
 	}
+	if t != nil && storeCleanup != nil {
+		t.Cleanup(func() { _ = storeCleanup() })
+	}
+	esignModule := modules.NewESignModule(cfg.BasePath, cfg.DefaultLocale, cfg.NavMenuCode).
+		WithUploadDir(resolveESignDiskAssetsDir()).
+		WithStore(bootstrapStore)
 	if err := adm.RegisterModule(esignModule); err != nil {
 		return eSignRuntimeWebFixture{}, fmt.Errorf("register module: %w", err)
 	}

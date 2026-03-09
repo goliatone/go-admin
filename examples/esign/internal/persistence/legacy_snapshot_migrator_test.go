@@ -39,6 +39,50 @@ func TestBootstrapMigratesLegacySnapshotWhenTargetTablesEmpty(t *testing.T) {
 	assertSQLiteTableCount(t, result.SQLDB, legacySnapshotMigrationMarkerTable, 1)
 }
 
+func TestLegacySnapshotMigrationPreservesNormalizedObjectKeyWhenColumnExists(t *testing.T) {
+	dsn := "file:" + filepath.Join(t.TempDir(), "legacy-snapshot-normalized-key.db") + "?_fk=1&_busy_timeout=5000"
+	seedLegacySQLiteSnapshot(t, dsn)
+
+	sqlDB, bunDialect, driverName, err := openDialectDB(context.Background(), DialectSQLite, dsn)
+	if err != nil {
+		t.Fatalf("openDialectDB: %v", err)
+	}
+	client, err := persistence.New(bootstrapPersistenceConfig{driver: driverName, server: dsn}, sqlDB, bunDialect)
+	if err != nil {
+		_ = sqlDB.Close()
+		t.Fatalf("persistence.New: %v", err)
+	}
+	defer func() { _ = client.Close() }()
+
+	cfg := appcfg.Defaults()
+	cfg.Migrations.LocalOnly = true
+	if err := registerOrderedSources(client, *cfg); err != nil {
+		t.Fatalf("registerOrderedSources: %v", err)
+	}
+	if err := client.Migrate(context.Background()); err != nil {
+		t.Fatalf("client.Migrate: %v", err)
+	}
+	if _, err := sqlDB.ExecContext(context.Background(), `ALTER TABLE documents ADD COLUMN normalized_object_key TEXT NOT NULL DEFAULT ''`); err != nil {
+		if !strings.Contains(strings.ToLower(err.Error()), "duplicate column name") {
+			t.Fatalf("ALTER TABLE documents add normalized_object_key: %v", err)
+		}
+	}
+	if err := migrateLegacySnapshotWithOptions(context.Background(), sqlDB, DialectSQLite, legacySnapshotMigrationOptions{}); err != nil {
+		t.Fatalf("migrateLegacySnapshotWithOptions: %v", err)
+	}
+
+	var normalizedObjectKey string
+	if err := sqlDB.QueryRowContext(context.Background(),
+		`SELECT normalized_object_key FROM documents WHERE id = ?`,
+		"doc-legacy-1",
+	).Scan(&normalizedObjectKey); err != nil {
+		t.Fatalf("query normalized object key: %v", err)
+	}
+	if normalizedObjectKey != "tenant/tenant-legacy/org/org-legacy/docs/doc-legacy-1.normalized.pdf" {
+		t.Fatalf("expected normalized object key to round-trip from legacy snapshot, got %q", normalizedObjectKey)
+	}
+}
+
 func TestLegacySnapshotMigrationSecondRunIsNoOp(t *testing.T) {
 	dsn := "file:" + filepath.Join(t.TempDir(), "legacy-snapshot-idempotent.db") + "?_fk=1&_busy_timeout=5000"
 	seedLegacySQLiteSnapshot(t, dsn)
@@ -189,12 +233,13 @@ func seedLegacySQLiteSnapshot(t *testing.T, dsn string) {
 	scope := stores.Scope{TenantID: "tenant-legacy", OrgID: "org-legacy"}
 
 	document, err := store.Create(ctx, scope, stores.DocumentRecord{
-		ID:              "doc-legacy-1",
-		Title:           "Legacy Source",
-		SourceObjectKey: "tenant/tenant-legacy/org/org-legacy/docs/doc-legacy-1.pdf",
-		SourceSHA256:    strings.Repeat("a", 64),
-		SizeBytes:       1234,
-		PageCount:       1,
+		ID:                  "doc-legacy-1",
+		Title:               "Legacy Source",
+		SourceObjectKey:     "tenant/tenant-legacy/org/org-legacy/docs/doc-legacy-1.pdf",
+		NormalizedObjectKey: "tenant/tenant-legacy/org/org-legacy/docs/doc-legacy-1.normalized.pdf",
+		SourceSHA256:        strings.Repeat("a", 64),
+		SizeBytes:           1234,
+		PageCount:           1,
 	})
 	if err != nil {
 		t.Fatalf("Create document: %v", err)

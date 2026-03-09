@@ -36,6 +36,7 @@ type RepositoryFactory struct {
 	repositoryDBOptions []repository.Option
 
 	documents                 repository.Repository[*stores.DocumentRecord]
+	drafts                    repository.Repository[*stores.DraftRecord]
 	agreements                repository.Repository[*stores.AgreementRecord]
 	recipients                repository.Repository[*stores.RecipientRecord]
 	participants              repository.Repository[*stores.ParticipantRecord]
@@ -46,6 +47,8 @@ type RepositoryFactory struct {
 	fieldValues               repository.Repository[*stores.FieldValueRecord]
 	auditEvents               repository.Repository[*stores.AuditEventRecord]
 	signatureArtifacts        repository.Repository[*stores.SignatureArtifactRecord]
+	signerProfiles            repository.Repository[*stores.SignerProfileRecord]
+	savedSignerSignatures     repository.Repository[*stores.SavedSignerSignatureRecord]
 	agreementArtifacts        repository.Repository[*stores.AgreementArtifactRecord]
 	emailLogs                 repository.Repository[*stores.EmailLogRecord]
 	jobRuns                   repository.Repository[*stores.JobRunRecord]
@@ -133,6 +136,7 @@ func (f *RepositoryFactory) Build(candidate any) (*RepositoryFactory, error) {
 
 func (f *RepositoryFactory) initRepositories() {
 	f.documents = newRepositoryWithFactoryConfig(f.db, documentHandlers(), f.repositoryDBOptions)
+	f.drafts = newRepositoryWithFactoryConfig(f.db, draftHandlers(), f.repositoryDBOptions)
 	f.agreements = newRepositoryWithFactoryConfig(f.db, agreementHandlers(), f.repositoryDBOptions)
 	f.recipients = newRepositoryWithFactoryConfig(f.db, recipientHandlers(), f.repositoryDBOptions)
 	f.participants = newRepositoryWithFactoryConfig(f.db, participantHandlers(), f.repositoryDBOptions)
@@ -143,6 +147,8 @@ func (f *RepositoryFactory) initRepositories() {
 	f.fieldValues = newRepositoryWithFactoryConfig(f.db, fieldValueHandlers(), f.repositoryDBOptions)
 	f.auditEvents = newRepositoryWithFactoryConfig(f.db, auditEventHandlers(), f.repositoryDBOptions)
 	f.signatureArtifacts = newRepositoryWithFactoryConfig(f.db, signatureArtifactHandlers(), f.repositoryDBOptions)
+	f.signerProfiles = newRepositoryWithFactoryConfig(f.db, signerProfileHandlers(), f.repositoryDBOptions)
+	f.savedSignerSignatures = newRepositoryWithFactoryConfig(f.db, savedSignerSignatureHandlers(), f.repositoryDBOptions)
 	f.agreementArtifacts = newRepositoryWithFactoryConfig(f.db, agreementArtifactHandlers(), f.repositoryDBOptions)
 	f.emailLogs = newRepositoryWithFactoryConfig(f.db, emailLogHandlers(), f.repositoryDBOptions)
 	f.jobRuns = newRepositoryWithFactoryConfig(f.db, jobRunHandlers(), f.repositoryDBOptions)
@@ -172,6 +178,13 @@ func (f *RepositoryFactory) Documents() repository.Repository[*stores.DocumentRe
 		return nil
 	}
 	return f.documents
+}
+
+func (f *RepositoryFactory) Drafts() repository.Repository[*stores.DraftRecord] {
+	if f == nil {
+		return nil
+	}
+	return f.drafts
 }
 
 func (f *RepositoryFactory) Agreements() repository.Repository[*stores.AgreementRecord] {
@@ -242,6 +255,20 @@ func (f *RepositoryFactory) SignatureArtifacts() repository.Repository[*stores.S
 		return nil
 	}
 	return f.signatureArtifacts
+}
+
+func (f *RepositoryFactory) SignerProfiles() repository.Repository[*stores.SignerProfileRecord] {
+	if f == nil {
+		return nil
+	}
+	return f.signerProfiles
+}
+
+func (f *RepositoryFactory) SavedSignerSignatures() repository.Repository[*stores.SavedSignerSignatureRecord] {
+	if f == nil {
+		return nil
+	}
+	return f.savedSignerSignatures
 }
 
 func (f *RepositoryFactory) AgreementArtifacts() repository.Repository[*stores.AgreementArtifactRecord] {
@@ -379,6 +406,15 @@ func documentHandlers() repository.ModelHandlers[*stores.DocumentRecord] {
 	)
 }
 
+func draftHandlers() repository.ModelHandlers[*stores.DraftRecord] {
+	return newStringIDModelHandlers(
+		func() *stores.DraftRecord { return &stores.DraftRecord{} },
+		func(record *stores.DraftRecord) string { return record.ID },
+		func(record *stores.DraftRecord, id string) { record.ID = id },
+		"id",
+	)
+}
+
 func agreementHandlers() repository.ModelHandlers[*stores.AgreementRecord] {
 	return newStringIDModelHandlers(
 		func() *stores.AgreementRecord { return &stores.AgreementRecord{} },
@@ -465,6 +501,24 @@ func signatureArtifactHandlers() repository.ModelHandlers[*stores.SignatureArtif
 		func() *stores.SignatureArtifactRecord { return &stores.SignatureArtifactRecord{} },
 		func(record *stores.SignatureArtifactRecord) string { return record.ID },
 		func(record *stores.SignatureArtifactRecord, id string) { record.ID = id },
+		"id",
+	)
+}
+
+func signerProfileHandlers() repository.ModelHandlers[*stores.SignerProfileRecord] {
+	return newStringIDModelHandlers(
+		func() *stores.SignerProfileRecord { return &stores.SignerProfileRecord{} },
+		func(record *stores.SignerProfileRecord) string { return record.ID },
+		func(record *stores.SignerProfileRecord, id string) { record.ID = id },
+		"id",
+	)
+}
+
+func savedSignerSignatureHandlers() repository.ModelHandlers[*stores.SavedSignerSignatureRecord] {
+	return newStringIDModelHandlers(
+		func() *stores.SavedSignerSignatureRecord { return &stores.SavedSignerSignatureRecord{} },
+		func(record *stores.SavedSignerSignatureRecord) string { return record.ID },
+		func(record *stores.SavedSignerSignatureRecord, id string) { record.ID = id },
 		"id",
 	)
 }

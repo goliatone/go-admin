@@ -113,6 +113,7 @@ type HandlerDependencies struct {
 	ObjectStore      uploaderStore
 	Tokens           TokenService
 	Pipeline         services.ArtifactPipelineService
+	PDFService       services.PDFService
 	EmailProvider    EmailProvider
 	GoogleImporter   GoogleImporter
 	RetryPolicy      RetryPolicy
@@ -130,6 +131,7 @@ type Handlers struct {
 	objectStore      uploaderStore
 	tokens           TokenService
 	pipeline         services.ArtifactPipelineService
+	pdfs             services.PDFService
 	emailProvider    EmailProvider
 	googleImporter   GoogleImporter
 	retryPolicy      RetryPolicy
@@ -168,6 +170,7 @@ func NewHandlers(deps HandlerDependencies) Handlers {
 		objectStore:      deps.ObjectStore,
 		tokens:           deps.Tokens,
 		pipeline:         deps.Pipeline,
+		pdfs:             deps.PDFService,
 		emailProvider:    provider,
 		googleImporter:   deps.GoogleImporter,
 		retryPolicy:      retryPolicy,
@@ -518,7 +521,11 @@ func (h Handlers) ExecutePDFBackfillDocuments(ctx context.Context, msg PDFBackfi
 		return err
 	}
 
-	backfill := services.NewPDFBackfillService(h.documents, h.objectStore)
+	backfill := services.NewPDFBackfillService(
+		h.documents,
+		h.objectStore,
+		services.WithPDFBackfillPDFService(h.pdfs),
+	)
 	result, err := backfill.Run(ctx, msg.Scope, services.PDFBackfillInput{
 		DryRun: msg.DryRun,
 		Limit:  msg.Limit,

@@ -476,14 +476,18 @@ func (s AgreementService) UpsertFieldInstanceDraft(ctx context.Context, scope st
 		return stores.FieldInstanceRecord{}, err
 	}
 	if err := s.appendAuditEvent(ctx, scope, agreementID, "agreement.field_instance_upserted", "system", "", map[string]any{
-		"field_instance_id":   instance.ID,
-		"field_definition_id": instance.FieldDefinitionID,
-		"page_number":         instance.PageNumber,
-		"x":                   instance.X,
-		"y":                   instance.Y,
-		"width":               instance.Width,
-		"height":              instance.Height,
-		"tab_index":           instance.TabIndex,
+		"field_instance_id":    instance.ID,
+		"field_definition_id":  instance.FieldDefinitionID,
+		"page_number":          instance.PageNumber,
+		"x":                    instance.X,
+		"y":                    instance.Y,
+		"width":                instance.Width,
+		"height":               instance.Height,
+		"tab_index":            instance.TabIndex,
+		"placement_source":     strings.TrimSpace(instance.PlacementSource),
+		"link_group_id":        strings.TrimSpace(instance.LinkGroupID),
+		"linked_from_field_id": strings.TrimSpace(instance.LinkedFromFieldID),
+		"is_unlinked":          instance.IsUnlinked,
 	}); err != nil {
 		return stores.FieldInstanceRecord{}, err
 	}
@@ -539,6 +543,10 @@ func (s AgreementService) UpsertFieldDraft(ctx context.Context, scope stores.Sco
 		Y:                 patch.PosY,
 		Width:             patch.Width,
 		Height:            patch.Height,
+		PlacementSource:   patch.PlacementSource,
+		LinkGroupID:       patch.LinkGroupID,
+		LinkedFromFieldID: patch.LinkedFromFieldID,
+		IsUnlinked:        patch.IsUnlinked,
 	}
 	instance, err := s.agreements.UpsertFieldInstanceDraft(ctx, scope, agreementID, instancePatch)
 	if err != nil {
@@ -557,6 +565,10 @@ func (s AgreementService) UpsertFieldDraft(ctx context.Context, scope stores.Sco
 		PosY:              instance.Y,
 		Width:             instance.Width,
 		Height:            instance.Height,
+		PlacementSource:   instance.PlacementSource,
+		LinkGroupID:       instance.LinkGroupID,
+		LinkedFromFieldID: instance.LinkedFromFieldID,
+		IsUnlinked:        instance.IsUnlinked,
 		Required:          definition.Required,
 		CreatedAt:         instance.CreatedAt,
 		UpdatedAt:         instance.UpdatedAt,

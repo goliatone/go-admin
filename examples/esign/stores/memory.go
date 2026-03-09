@@ -312,6 +312,7 @@ func (s *InMemoryStore) Create(ctx context.Context, scope Scope, record Document
 	}
 	record.SourceGoogleFileID = strings.TrimSpace(record.SourceGoogleFileID)
 	record.SourceGoogleDocURL = strings.TrimSpace(record.SourceGoogleDocURL)
+	record.CreatedByUserID = normalizeID(record.CreatedByUserID)
 	record.SourceModifiedTime = cloneTimePtr(record.SourceModifiedTime)
 	record.SourceExportedAt = cloneTimePtr(record.SourceExportedAt)
 	record.SourceExportedByUserID = normalizeID(record.SourceExportedByUserID)
@@ -370,17 +371,16 @@ func (s *InMemoryStore) List(ctx context.Context, scope Scope, query DocumentQue
 
 	scopePrefix := scope.key() + "|"
 	titleFilter := strings.ToLower(strings.TrimSpace(query.TitleContains))
-	// Note: CreatedByUserID filtering is not yet supported as DocumentRecord
-	// does not have a CreatedByUserID field. This filter is ignored for now
-	// but the query parameter is accepted for forward compatibility.
-	// TODO: Add CreatedByUserID field to DocumentRecord when needed.
-	_ = query.CreatedByUserID
+	createdByFilter := normalizeID(query.CreatedByUserID)
 	out := make([]DocumentRecord, 0)
 	for key, record := range s.documents {
 		if !strings.HasPrefix(key, scopePrefix) {
 			continue
 		}
 		if titleFilter != "" && !strings.Contains(strings.ToLower(record.Title), titleFilter) {
+			continue
+		}
+		if createdByFilter != "" && record.CreatedByUserID != createdByFilter {
 			continue
 		}
 		out = append(out, record)
@@ -1569,12 +1569,24 @@ func (s *InMemoryStore) UpsertFieldInstanceDraft(ctx context.Context, scope Scop
 	if patch.ManualOverride != nil {
 		record.ManualOverride = *patch.ManualOverride
 	}
+	if patch.LinkGroupID != nil {
+		record.LinkGroupID = strings.TrimSpace(*patch.LinkGroupID)
+	}
+	if patch.LinkedFromFieldID != nil {
+		record.LinkedFromFieldID = normalizeID(*patch.LinkedFromFieldID)
+	}
+	if patch.IsUnlinked != nil {
+		record.IsUnlinked = *patch.IsUnlinked
+	}
 	if record.FieldDefinitionID == "" {
 		return FieldInstanceRecord{}, invalidRecordError("field_instances", "field_definition_id", "required")
 	}
 	definition, ok := s.fieldDefinitions[scopedKey(scope, record.FieldDefinitionID)]
 	if !ok || definition.AgreementID != agreementID {
 		return FieldInstanceRecord{}, notFoundError("field_definitions", record.FieldDefinitionID)
+	}
+	if strings.TrimSpace(record.LinkGroupID) == "" {
+		record.LinkGroupID = strings.TrimSpace(definition.LinkGroupID)
 	}
 	if record.PageNumber <= 0 {
 		return FieldInstanceRecord{}, invalidRecordError("field_instances", "page_number", "must be positive")
@@ -1585,8 +1597,10 @@ func (s *InMemoryStore) UpsertFieldInstanceDraft(ctx context.Context, scope Scop
 	if record.PlacementSource == "" {
 		record.PlacementSource = PlacementSourceManual
 	}
-	if record.PlacementSource != PlacementSourceAuto && record.PlacementSource != PlacementSourceManual {
-		return FieldInstanceRecord{}, invalidRecordError("field_instances", "placement_source", "must be auto or manual")
+	if record.PlacementSource != PlacementSourceAuto &&
+		record.PlacementSource != PlacementSourceManual &&
+		record.PlacementSource != PlacementSourceAutoLinked {
+		return FieldInstanceRecord{}, invalidRecordError("field_instances", "placement_source", "must be auto, manual, or auto_linked")
 	}
 	if record.Confidence < 0 {
 		record.Confidence = 0
@@ -1718,6 +1732,10 @@ func (s *InMemoryStore) UpsertFieldDraft(ctx context.Context, scope Scope, agree
 		Y:                 patch.PosY,
 		Width:             patch.Width,
 		Height:            patch.Height,
+		PlacementSource:   patch.PlacementSource,
+		LinkGroupID:       patch.LinkGroupID,
+		LinkedFromFieldID: patch.LinkedFromFieldID,
+		IsUnlinked:        patch.IsUnlinked,
 	}
 	instance, err := s.UpsertFieldInstanceDraft(ctx, scope, agreementID, instancePatch)
 	if err != nil {
@@ -1736,6 +1754,10 @@ func (s *InMemoryStore) UpsertFieldDraft(ctx context.Context, scope Scope, agree
 		PosY:              instance.Y,
 		Width:             instance.Width,
 		Height:            instance.Height,
+		PlacementSource:   instance.PlacementSource,
+		LinkGroupID:       instance.LinkGroupID,
+		LinkedFromFieldID: instance.LinkedFromFieldID,
+		IsUnlinked:        instance.IsUnlinked,
 		Required:          definition.Required,
 		CreatedAt:         instance.CreatedAt,
 		UpdatedAt:         instance.UpdatedAt,
@@ -1778,6 +1800,10 @@ func (s *InMemoryStore) ListFields(ctx context.Context, scope Scope, agreementID
 			PosY:              instance.Y,
 			Width:             instance.Width,
 			Height:            instance.Height,
+			PlacementSource:   instance.PlacementSource,
+			LinkGroupID:       instance.LinkGroupID,
+			LinkedFromFieldID: instance.LinkedFromFieldID,
+			IsUnlinked:        instance.IsUnlinked,
 			Required:          definition.Required,
 			CreatedAt:         instance.CreatedAt,
 			UpdatedAt:         instance.UpdatedAt,

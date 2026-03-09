@@ -60,7 +60,7 @@ func (r *documentPanelRepository) List(ctx context.Context, opts coreadmin.ListO
 		return nil, 0, fmt.Errorf("document store not configured")
 	}
 	query := stores.DocumentQuery{
-		TitleContains:   lookupFilter(opts.Filters, "title", "title_contains"),
+		TitleContains:   strings.TrimSpace(primitives.FirstNonEmpty(opts.Search, lookupFilter(opts.Filters, "q", "_search", "title", "title_contains", "filters[title_contains]"))),
 		CreatedByUserID: lookupFilter(opts.Filters, "created_by_user_id", "created_by"),
 		SortBy:          opts.SortBy,
 		SortDesc:        opts.SortDesc,
@@ -244,6 +244,7 @@ func documentRecordToMap(record stores.DocumentRecord) map[string]any {
 		"id":                         record.ID,
 		"tenant_id":                  record.TenantID,
 		"org_id":                     record.OrgID,
+		"created_by_user_id":         record.CreatedByUserID,
 		"title":                      record.Title,
 		"source_object_key":          record.SourceObjectKey,
 		"normalized_object_key":      record.NormalizedObjectKey,
@@ -783,21 +784,25 @@ func fieldsToMaps(records []stores.FieldRecord) []map[string]any {
 	out := make([]map[string]any, 0, len(records))
 	for _, record := range records {
 		entry := map[string]any{
-			"id":             record.ID,
-			"field_id":       record.ID,
-			"agreement_id":   record.AgreementID,
-			"recipient_id":   record.RecipientID,
-			"participant_id": record.RecipientID,
-			"type":           record.Type,
-			"page":           record.PageNumber,
-			"page_number":    record.PageNumber,
-			"pos_x":          record.PosX,
-			"pos_y":          record.PosY,
-			"x":              record.PosX,
-			"y":              record.PosY,
-			"width":          record.Width,
-			"height":         record.Height,
-			"required":       record.Required,
+			"id":                   record.ID,
+			"field_id":             record.ID,
+			"agreement_id":         record.AgreementID,
+			"recipient_id":         record.RecipientID,
+			"participant_id":       record.RecipientID,
+			"type":                 record.Type,
+			"page":                 record.PageNumber,
+			"page_number":          record.PageNumber,
+			"pos_x":                record.PosX,
+			"pos_y":                record.PosY,
+			"x":                    record.PosX,
+			"y":                    record.PosY,
+			"width":                record.Width,
+			"height":               record.Height,
+			"placement_source":     strings.TrimSpace(record.PlacementSource),
+			"link_group_id":        strings.TrimSpace(record.LinkGroupID),
+			"linked_from_field_id": strings.TrimSpace(record.LinkedFromFieldID),
+			"is_unlinked":          record.IsUnlinked,
+			"required":             record.Required,
 		}
 		out = append(out, entry)
 	}
@@ -854,16 +859,20 @@ type agreementRecipientFormInput struct {
 }
 
 type agreementFieldFormInput struct {
-	ID             string
-	Type           string
-	ParticipantID  string
-	RecipientIndex int
-	PageNumber     int
-	PosX           float64
-	PosY           float64
-	Width          float64
-	Height         float64
-	Required       bool
+	ID                string
+	Type              string
+	ParticipantID     string
+	RecipientIndex    int
+	PageNumber        int
+	PosX              float64
+	PosY              float64
+	Width             float64
+	Height            float64
+	PlacementSource   string
+	LinkGroupID       string
+	LinkedFromFieldID string
+	IsUnlinked        *bool
+	Required          bool
 }
 
 type agreementFieldPlacementFormInput struct {
@@ -877,7 +886,7 @@ type agreementFieldPlacementFormInput struct {
 	PlacementSource   string
 	LinkGroupID       string
 	LinkedFromFieldID string
-	IsUnlinked        bool
+	IsUnlinked        *bool
 }
 
 type agreementFieldRuleFormInput struct {
@@ -1083,15 +1092,19 @@ func (r *agreementPanelRepository) syncDraftFields(
 		}
 		required := input.Required
 		patch := stores.FieldDraftPatch{
-			ID:          strings.TrimSpace(input.ID),
-			RecipientID: &participantID,
-			Type:        &fieldType,
-			PageNumber:  &pageNumber,
-			PosX:        &input.PosX,
-			PosY:        &input.PosY,
-			Width:       &width,
-			Height:      &height,
-			Required:    &required,
+			ID:                strings.TrimSpace(input.ID),
+			RecipientID:       &participantID,
+			Type:              &fieldType,
+			PageNumber:        &pageNumber,
+			PosX:              &input.PosX,
+			PosY:              &input.PosY,
+			Width:             &width,
+			Height:            &height,
+			PlacementSource:   stringPtr(strings.TrimSpace(strings.ToLower(input.PlacementSource))),
+			LinkGroupID:       stringPtr(strings.TrimSpace(input.LinkGroupID)),
+			LinkedFromFieldID: stringPtr(strings.TrimSpace(input.LinkedFromFieldID)),
+			IsUnlinked:        input.IsUnlinked,
+			Required:          &required,
 		}
 		if patch.ID != "" {
 			if _, ok := existingByID[patch.ID]; ok {
@@ -1263,6 +1276,32 @@ func parseAgreementFieldFormInputs(record map[string]any) ([]agreementFieldFormI
 		if err != nil {
 			return nil, hasPayload, err
 		}
+		placementSource, err := coerceFormString(entry["placement_source"], fmt.Sprintf("field_instances[%d].placement_source", index))
+		if err != nil {
+			return nil, hasPayload, err
+		}
+		linkGroupID, err := coerceFormString(entry["link_group_id"], fmt.Sprintf("field_instances[%d].link_group_id", index))
+		if err != nil {
+			return nil, hasPayload, err
+		}
+		linkedFromFieldID, err := coerceFormString(entry["linked_from_field_id"], fmt.Sprintf("field_instances[%d].linked_from_field_id", index))
+		if err != nil {
+			return nil, hasPayload, err
+		}
+		var isUnlinked *bool
+		if _, ok := entry["is_unlinked"]; ok {
+			parsed, parseErr := coerceFormBool(entry["is_unlinked"], fmt.Sprintf("field_instances[%d].is_unlinked", index))
+			if parseErr != nil {
+				return nil, hasPayload, parseErr
+			}
+			isUnlinked = &parsed
+		} else if _, ok := entry["isUnlinked"]; ok {
+			parsed, parseErr := coerceFormBool(entry["isUnlinked"], fmt.Sprintf("field_instances[%d].isUnlinked", index))
+			if parseErr != nil {
+				return nil, hasPayload, parseErr
+			}
+			isUnlinked = &parsed
+		}
 		required, err := coerceFormBool(entry["required"], fmt.Sprintf("field_instances[%d].required", index))
 		if err != nil {
 			return nil, hasPayload, err
@@ -1271,16 +1310,20 @@ func parseAgreementFieldFormInputs(record map[string]any) ([]agreementFieldFormI
 			continue
 		}
 		out = append(out, agreementFieldFormInput{
-			ID:             id,
-			Type:           fieldType,
-			ParticipantID:  participantID,
-			RecipientIndex: recipientIndex,
-			PageNumber:     pageNumber,
-			PosX:           posX,
-			PosY:           posY,
-			Width:          width,
-			Height:         height,
-			Required:       required,
+			ID:                id,
+			Type:              fieldType,
+			ParticipantID:     participantID,
+			RecipientIndex:    recipientIndex,
+			PageNumber:        pageNumber,
+			PosX:              posX,
+			PosY:              posY,
+			Width:             width,
+			Height:            height,
+			PlacementSource:   strings.TrimSpace(strings.ToLower(placementSource)),
+			LinkGroupID:       strings.TrimSpace(linkGroupID),
+			LinkedFromFieldID: strings.TrimSpace(linkedFromFieldID),
+			IsUnlinked:        isUnlinked,
+			Required:          required,
 		})
 	}
 
@@ -1744,7 +1787,14 @@ func parseAgreementFieldPlacementInputs(record map[string]any) ([]agreementField
 		placementSource, _ := coerceFormString(entry["placement_source"], fmt.Sprintf("field_placements[%d].placement_source", index))
 		linkGroupID, _ := coerceFormString(entry["link_group_id"], fmt.Sprintf("field_placements[%d].link_group_id", index))
 		linkedFromFieldID, _ := coerceFormString(entry["linked_from_field_id"], fmt.Sprintf("field_placements[%d].linked_from_field_id", index))
-		isUnlinked := toBool(entry["is_unlinked"])
+		var isUnlinked *bool
+		if _, ok := entry["is_unlinked"]; ok {
+			parsed := toBool(entry["is_unlinked"])
+			isUnlinked = &parsed
+		} else if _, ok := entry["isUnlinked"]; ok {
+			parsed := toBool(entry["isUnlinked"])
+			isUnlinked = &parsed
+		}
 
 		out = append(out, agreementFieldPlacementFormInput{
 			ID:                id,
@@ -1875,6 +1925,18 @@ func mergeFieldPlacementInputs(fields []agreementFieldFormInput, placements []ag
 		fields[index].PosY = placement.PosY
 		fields[index].Width = placement.Width
 		fields[index].Height = placement.Height
+		if source := strings.TrimSpace(strings.ToLower(placement.PlacementSource)); source != "" {
+			fields[index].PlacementSource = source
+		}
+		if linkGroupID := strings.TrimSpace(placement.LinkGroupID); linkGroupID != "" {
+			fields[index].LinkGroupID = linkGroupID
+		}
+		if linkedFrom := strings.TrimSpace(placement.LinkedFromFieldID); linkedFrom != "" {
+			fields[index].LinkedFromFieldID = linkedFrom
+		}
+		if placement.IsUnlinked != nil {
+			fields[index].IsUnlinked = placement.IsUnlinked
+		}
 	}
 	return fields
 }
@@ -2091,6 +2153,14 @@ func resolveSendIdempotencyKey(record map[string]any, agreementID string) string
 		agreementID = "agreement"
 	}
 	return fmt.Sprintf("wizard_send_%s_%d", agreementID, time.Now().UTC().UnixNano())
+}
+
+func stringPtr(value string) *string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return nil
+	}
+	return &trimmed
 }
 
 func lookupFilter(filters map[string]any, keys ...string) string {

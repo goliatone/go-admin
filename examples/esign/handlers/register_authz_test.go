@@ -301,10 +301,15 @@ func setupSignerFlowApp(t *testing.T) (*fiber.App, stores.Scope, string, string,
 	ctx := context.Background()
 	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
 	store := stores.NewInMemoryStore()
+	objectStore := &memorySignerObjectStore{objects: map[string][]byte{}}
 
-	docSvc := services.NewDocumentService(store, services.WithDocumentClock(func() time.Time {
-		return time.Date(2026, 2, 2, 9, 0, 0, 0, time.UTC)
-	}))
+	docSvc := services.NewDocumentService(
+		store,
+		services.WithDocumentClock(func() time.Time {
+			return time.Date(2026, 2, 2, 9, 0, 0, 0, time.UTC)
+		}),
+		services.WithDocumentObjectStore(objectStore),
+	)
 	doc, err := docSvc.Upload(ctx, scope, services.DocumentUploadInput{
 		Title:     "Agreement Source",
 		ObjectKey: "tenant/tenant-1/org/org-1/docs/doc-1/original.pdf",
@@ -367,7 +372,7 @@ func setupSignerFlowApp(t *testing.T) (*fiber.App, stores.Scope, string, string,
 		t.Fatalf("Issue: %v", err)
 	}
 
-	signingSvc := services.NewSigningService(store)
+	signingSvc := services.NewSigningService(store, services.WithSigningObjectStore(objectStore))
 	app := setupRegisterTestApp(t,
 		WithSignerTokenValidator(tokenSvc),
 		WithSignerSessionService(signingSvc),
@@ -663,10 +668,15 @@ func TestRegisterSignerSessionReturnsScopedContextWithWaitingState(t *testing.T)
 	ctx := context.Background()
 	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
 	store := stores.NewInMemoryStore()
+	objectStore := &memorySignerObjectStore{objects: map[string][]byte{}}
 
-	docSvc := services.NewDocumentService(store, services.WithDocumentClock(func() time.Time {
-		return time.Date(2026, 2, 1, 10, 0, 0, 0, time.UTC)
-	}))
+	docSvc := services.NewDocumentService(
+		store,
+		services.WithDocumentClock(func() time.Time {
+			return time.Date(2026, 2, 1, 10, 0, 0, 0, time.UTC)
+		}),
+		services.WithDocumentObjectStore(objectStore),
+	)
 	doc, err := docSvc.Upload(ctx, scope, services.DocumentUploadInput{
 		Title:     "Agreement Source",
 		ObjectKey: "tenant/tenant-1/org/org-1/docs/doc-1/original.pdf",
@@ -741,7 +751,7 @@ func TestRegisterSignerSessionReturnsScopedContextWithWaitingState(t *testing.T)
 		t.Fatalf("Issue signer two token: %v", err)
 	}
 
-	signingSvc := services.NewSigningService(store)
+	signingSvc := services.NewSigningService(store, services.WithSigningObjectStore(objectStore))
 	app := setupRegisterTestApp(t,
 		WithSignerTokenValidator(tokenService),
 		WithSignerSessionService(signingSvc),
@@ -1009,10 +1019,15 @@ func TestRegisterSignerSessionEmitsViewedAuditEventWithIPAndUserAgent(t *testing
 	ctx := context.Background()
 	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
 	store := stores.NewInMemoryStore()
+	objectStore := &memorySignerObjectStore{objects: map[string][]byte{}}
 
-	docSvc := services.NewDocumentService(store, services.WithDocumentClock(func() time.Time {
-		return time.Date(2026, 2, 2, 9, 0, 0, 0, time.UTC)
-	}))
+	docSvc := services.NewDocumentService(
+		store,
+		services.WithDocumentClock(func() time.Time {
+			return time.Date(2026, 2, 2, 9, 0, 0, 0, time.UTC)
+		}),
+		services.WithDocumentObjectStore(objectStore),
+	)
 	doc, err := docSvc.Upload(ctx, scope, services.DocumentUploadInput{
 		Title:     "Agreement Source",
 		ObjectKey: "tenant/tenant-1/org/org-1/docs/doc-1/original.pdf",
@@ -1070,7 +1085,7 @@ func TestRegisterSignerSessionEmitsViewedAuditEventWithIPAndUserAgent(t *testing
 		t.Fatalf("Issue: %v", err)
 	}
 
-	signingSvc := services.NewSigningService(store)
+	signingSvc := services.NewSigningService(store, services.WithSigningObjectStore(objectStore))
 	app := setupRegisterTestApp(t,
 		WithDefaultScope(scope),
 		WithSignerTokenValidator(tokenService),

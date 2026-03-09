@@ -11,6 +11,10 @@ type AlertPolicy struct {
 	SignerLinkOpenRatePercentFloor      float64
 	SignerSubmitConversionPercentFloor  float64
 	CompletionDeliverySuccessRateFloor  float64
+	PDFIngestAnalyzeFailTotalThreshold  int64
+	PDFIngestPolicyRejectTotalThreshold int64
+	PDFPreviewFallbackTotalThreshold    int64
+	PDFRenderImportFailTotalThreshold   int64
 }
 
 // DefaultAlertPolicy returns baseline thresholds for e-sign runtime alerting.
@@ -23,6 +27,10 @@ func DefaultAlertPolicy() AlertPolicy {
 		SignerLinkOpenRatePercentFloor:      95.0,
 		SignerSubmitConversionPercentFloor:  70.0,
 		CompletionDeliverySuccessRateFloor:  99.0,
+		PDFIngestAnalyzeFailTotalThreshold:  1,
+		PDFIngestPolicyRejectTotalThreshold: 1,
+		PDFPreviewFallbackTotalThreshold:    1,
+		PDFRenderImportFailTotalThreshold:   1,
 	}
 }
 
@@ -56,6 +64,18 @@ func EvaluateAlerts(snapshot MetricsSnapshot, policy AlertPolicy) []Alert {
 	}
 	if policy.CompletionDeliverySuccessRateFloor <= 0 {
 		policy.CompletionDeliverySuccessRateFloor = DefaultAlertPolicy().CompletionDeliverySuccessRateFloor
+	}
+	if policy.PDFIngestAnalyzeFailTotalThreshold <= 0 {
+		policy.PDFIngestAnalyzeFailTotalThreshold = DefaultAlertPolicy().PDFIngestAnalyzeFailTotalThreshold
+	}
+	if policy.PDFIngestPolicyRejectTotalThreshold <= 0 {
+		policy.PDFIngestPolicyRejectTotalThreshold = DefaultAlertPolicy().PDFIngestPolicyRejectTotalThreshold
+	}
+	if policy.PDFPreviewFallbackTotalThreshold <= 0 {
+		policy.PDFPreviewFallbackTotalThreshold = DefaultAlertPolicy().PDFPreviewFallbackTotalThreshold
+	}
+	if policy.PDFRenderImportFailTotalThreshold <= 0 {
+		policy.PDFRenderImportFailTotalThreshold = DefaultAlertPolicy().PDFRenderImportFailTotalThreshold
 	}
 
 	alerts := []Alert{}
@@ -167,6 +187,59 @@ func EvaluateAlerts(snapshot MetricsSnapshot, policy AlertPolicy) []Alert {
 				"threshold_percent":    policy.CompletionDeliverySuccessRateFloor,
 				"success_total":        snapshot.CompletionDeliverySuccessTotal,
 				"failure_total":        snapshot.CompletionDeliveryFailureTotal,
+			},
+		})
+	}
+
+	if snapshot.PDFIngestAnalyzeFailTotal >= policy.PDFIngestAnalyzeFailTotalThreshold {
+		alerts = append(alerts, Alert{
+			Code:     "pdf.ingest_analyze_failures_high",
+			Severity: "warning",
+			Message:  "pdf ingest analyze failures above threshold",
+			Metadata: map[string]any{
+				"failure_total":    snapshot.PDFIngestAnalyzeFailTotal,
+				"threshold_total":  policy.PDFIngestAnalyzeFailTotalThreshold,
+				"failure_by_label": snapshot.PDFIngestAnalyzeFailByReasonTier,
+			},
+		})
+	}
+
+	if snapshot.PDFIngestPolicyRejectTotal >= policy.PDFIngestPolicyRejectTotalThreshold {
+		alerts = append(alerts, Alert{
+			Code:     "pdf.ingest_policy_rejects_high",
+			Severity: "warning",
+			Message:  "pdf ingest policy rejects above threshold",
+			Metadata: map[string]any{
+				"reject_total":     snapshot.PDFIngestPolicyRejectTotal,
+				"threshold_total":  policy.PDFIngestPolicyRejectTotalThreshold,
+				"reject_by_label":  snapshot.PDFIngestPolicyRejectByReasonTier,
+				"analyze_failures": snapshot.PDFIngestAnalyzeFailTotal,
+			},
+		})
+	}
+
+	if snapshot.PDFPreviewFallbackTotal >= policy.PDFPreviewFallbackTotalThreshold {
+		alerts = append(alerts, Alert{
+			Code:     "pdf.preview_fallback_high",
+			Severity: "warning",
+			Message:  "pdf preview fallbacks above threshold",
+			Metadata: map[string]any{
+				"fallback_total":    snapshot.PDFPreviewFallbackTotal,
+				"threshold_total":   policy.PDFPreviewFallbackTotalThreshold,
+				"fallback_by_label": snapshot.PDFPreviewFallbackByReasonTier,
+			},
+		})
+	}
+
+	if snapshot.PDFRenderImportFailTotal >= policy.PDFRenderImportFailTotalThreshold {
+		alerts = append(alerts, Alert{
+			Code:     "pdf.render_import_failures_high",
+			Severity: "critical",
+			Message:  "pdf render import failures above threshold",
+			Metadata: map[string]any{
+				"failure_total":    snapshot.PDFRenderImportFailTotal,
+				"threshold_total":  policy.PDFRenderImportFailTotalThreshold,
+				"failure_by_label": snapshot.PDFRenderImportFailByReasonTier,
 			},
 		})
 	}

@@ -273,6 +273,7 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		ObjectStore:      objectStore,
 		Tokens:           m.tokens,
 		Pipeline:         m.artifacts,
+		PDFService:       pdfService,
 		EmailProvider:    emailProvider,
 	}
 	jobHandlers := jobs.NewHandlers(jobHandlerDeps)
@@ -282,6 +283,7 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		services.WithAgreementAuditStore(m.store),
 		services.WithAgreementEmailWorkflow(emailWorkflow),
 		services.WithAgreementPlacementObjectStore(objectStore),
+		services.WithAgreementPDFService(pdfService),
 	)
 	m.drafts = services.NewDraftService(m.store,
 		services.WithDraftAgreementService(m.agreements),
@@ -447,6 +449,7 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		handlers.WithSignerObjectStore(objectStore),
 		handlers.WithAgreementStatsService(m.store),
 		handlers.WithAuditEventStore(m.store),
+		handlers.WithPDFPolicyService(pdfService),
 		handlers.WithDefaultScope(m.defaultScope),
 		handlers.WithTransportGuard(handlers.TLSTransportGuard{
 			AllowLocalInsecure: true,
