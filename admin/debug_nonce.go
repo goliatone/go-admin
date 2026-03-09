@@ -1,11 +1,12 @@
 package admin
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"net/http"
 	"strings"
 	"time"
+
+	"crypto/rand"
+	"encoding/hex"
 
 	router "github.com/goliatone/go-router"
 )
@@ -28,7 +29,7 @@ func debugGenerateNonce() string {
 // debugEnsureJSErrorNonce reads the existing nonce cookie or generates a new
 // one. It returns the nonce value and sets the cookie on the response when
 // a new nonce is created.
-func debugEnsureJSErrorNonce(c router.Context, cookiePath string) string {
+func debugEnsureJSErrorNonce(c router.Context, cookiePath string, cfg DebugConfig) string {
 	if c == nil {
 		return ""
 	}
@@ -40,7 +41,7 @@ func debugEnsureJSErrorNonce(c router.Context, cookiePath string) string {
 	if nonce == "" {
 		return ""
 	}
-	secure := debugIsSecureRequest(c)
+	secure := debugIsSecureRequest(c, cfg)
 	sameSite := "Strict"
 	if !secure {
 		sameSite = "Lax"
@@ -59,14 +60,13 @@ func debugEnsureJSErrorNonce(c router.Context, cookiePath string) string {
 }
 
 // debugIsSecureRequest returns true when the request was made over HTTPS.
-// It checks the underlying TLS connection and the X-Forwarded-Proto header
-// for reverse-proxy setups.
-func debugIsSecureRequest(c router.Context) bool {
+// Forwarded-header trust is delegated to SecureRequestResolver when configured.
+func debugIsSecureRequest(c router.Context, cfg DebugConfig) bool {
 	if c == nil {
 		return false
 	}
-	if proto := strings.ToLower(strings.TrimSpace(c.Header("X-Forwarded-Proto"))); proto == "https" {
-		return true
+	if cfg.SecureRequestResolver != nil {
+		return cfg.SecureRequestResolver(c)
 	}
 	if httpCtx, ok := c.(interface{ Request() *http.Request }); ok {
 		if req := httpCtx.Request(); req != nil && req.TLS != nil {

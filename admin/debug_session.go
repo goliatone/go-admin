@@ -109,7 +109,7 @@ func debugSessionContextFromRequest(c router.Context, cfg DebugConfig) debugSess
 			cookieSession = uuid.NewString()
 		}
 		if cookieSession != "" {
-			debugSetSessionCookie(c, cookieName, cookieSession, cfg.SessionInactivityExpiry)
+			debugSetSessionCookie(c, cookieName, cookieSession, cfg.SessionInactivityExpiry, cfg)
 		}
 	}
 	if sessionID == "" {
@@ -125,7 +125,7 @@ func debugSessionCookieName(cfg DebugConfig) string {
 	return strings.TrimSpace(cfg.SessionCookieName)
 }
 
-func debugSetSessionCookie(c router.Context, name, value string, ttl time.Duration) {
+func debugSetSessionCookie(c router.Context, name, value string, ttl time.Duration, cfg DebugConfig) {
 	if c == nil || strings.TrimSpace(name) == "" || strings.TrimSpace(value) == "" {
 		return
 	}
@@ -134,7 +134,7 @@ func debugSetSessionCookie(c router.Context, name, value string, ttl time.Durati
 		Value:    value,
 		Path:     "/",
 		HTTPOnly: true,
-		Secure:   debugIsSecureRequest(c),
+		Secure:   debugIsSecureRequest(c, cfg),
 		SameSite: "Lax",
 	}
 	if ttl > 0 {

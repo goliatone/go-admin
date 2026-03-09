@@ -100,7 +100,7 @@ func injectJSErrorContext(collector *DebugCollector, c router.Context, viewCtx r
 	viewCtx["debug_jserror_enabled"] = true
 	viewCtx["debug_jserror_endpoint"] = debugJSErrorEndpoint(collector)
 	if c != nil {
-		nonce := debugEnsureJSErrorNonce(c, "/")
+		nonce := debugEnsureJSErrorNonce(c, "/", collector.config)
 		viewCtx["debug_jserror_nonce"] = nonce
 	}
 }
