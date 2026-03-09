@@ -10,7 +10,7 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "outDir": "./dist",
+    "outDir": "./dist-types",
     "rootDir": "./src",
     "removeComments": false,
     "noEmitOnError": true,
@@ -24,6 +24,7 @@
   ],
   "exclude": [
     "node_modules",
-    "dist"
+    "dist",
+    "dist-types"
   ]
 }
