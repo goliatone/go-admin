@@ -1,5 +1,7 @@
 package admin
 
+import "github.com/goliatone/go-command"
+
 // applyConfigDefaults fills deterministic defaults.
 func applyConfigDefaults(cfg Config) Config {
 	if cfg.CMS.GoCMSConfig == nil && cfg.CMSConfig != nil {
@@ -172,6 +174,14 @@ func applyConfigDefaults(cfg Config) Config {
 
 	cfg.Debug = normalizeDebugConfig(cfg.Debug, cfg.BasePath)
 	cfg.Errors = normalizeErrorConfig(cfg.Errors, cfg.Debug)
+
+	cfg.Commands.Execution.DefaultMode = command.NormalizeExecutionMode(cfg.Commands.Execution.DefaultMode)
+	if cfg.Commands.Execution.DefaultMode == "" {
+		cfg.Commands.Execution.DefaultMode = command.ExecutionModeInline
+	}
+	if cfg.Commands.Execution.PerCommand == nil {
+		cfg.Commands.Execution.PerCommand = map[string]command.ExecutionMode{}
+	}
 
 	return cfg
 }
