@@ -211,6 +211,57 @@ func TestBuildAuditTrailDocumentMapsAllEventTypes(t *testing.T) {
 	}
 }
 
+func TestBuildAuditTrailDocumentAppliesIPAddressDisplayPolicyBySourceEvent(t *testing.T) {
+	now := time.Date(2026, 3, 5, 12, 0, 0, 0, time.UTC)
+	agreement := stores.AgreementRecord{
+		ID:        "agreement-ip-policy",
+		Status:    stores.AgreementStatusSent,
+		UpdatedAt: now,
+	}
+	recipients := []stores.RecipientRecord{
+		{ID: "recipient-1", Name: "Signer One", Email: "one@example.com", Role: stores.RecipientRoleSigner, SigningOrder: 1},
+	}
+	events := []stores.AuditEventRecord{
+		{ID: "evt-created", EventType: "agreement.created", IPAddress: "203.0.113.10", CreatedAt: now.Add(-60 * time.Minute)},
+		{ID: "evt-sent", EventType: "agreement.sent", IPAddress: "203.0.113.11", CreatedAt: now.Add(-50 * time.Minute)},
+		{ID: "evt-viewed", EventType: "signer.viewed", ActorID: "recipient-1", IPAddress: "203.0.113.12", CreatedAt: now.Add(-40 * time.Minute)},
+		{ID: "evt-submitted", EventType: "signer.submitted", ActorID: "recipient-1", IPAddress: "203.0.113.13", CreatedAt: now.Add(-30 * time.Minute)},
+		{ID: "evt-signer-declined", EventType: "signer.declined", ActorID: "recipient-1", IPAddress: "203.0.113.14", CreatedAt: now.Add(-20 * time.Minute)},
+		{ID: "evt-agreement-declined", EventType: "agreement.declined", IPAddress: "203.0.113.15", CreatedAt: now.Add(-10 * time.Minute)},
+		{ID: "evt-completed", EventType: "agreement.completed", IPAddress: "203.0.113.16", CreatedAt: now.Add(-5 * time.Minute)},
+	}
+
+	doc := BuildAuditTrailDocument(AuditTrailBuildInput{
+		Agreement:   agreement,
+		Recipients:  recipients,
+		Events:      events,
+		GeneratedAt: now,
+	})
+
+	bySource := map[string]AuditTrailEntry{}
+	for _, entry := range doc.Entries {
+		bySource[entry.SourceEvent] = entry
+	}
+
+	for sourceEvent, want := range map[string]bool{
+		"agreement.created":   false,
+		"agreement.sent":      false,
+		"signer.viewed":       true,
+		"signer.submitted":    true,
+		"signer.declined":     true,
+		"agreement.declined":  false,
+		"agreement.completed": false,
+	} {
+		entry, ok := bySource[sourceEvent]
+		if !ok {
+			t.Fatalf("expected source event %q to be present", sourceEvent)
+		}
+		if entry.ShowIPAddress != want {
+			t.Fatalf("unexpected ip display policy for %q: got=%t want=%t", sourceEvent, entry.ShowIPAddress, want)
+		}
+	}
+}
+
 func TestBuildAuditTrailDocumentDerivesLifecycleFromAgreementAndRecipientTimestamps(t *testing.T) {
 	now := time.Date(2026, 3, 5, 12, 0, 0, 0, time.UTC)
 	createdAt := now.Add(-3 * time.Hour)

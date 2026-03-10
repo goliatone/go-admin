@@ -397,8 +397,8 @@ func TestReadableArtifactRendererRenderExecutedMultiPageAvoidsInfiniteTemplateSc
 	if !bytes.HasPrefix(rendered.Payload, []byte("%PDF-")) {
 		t.Fatalf("expected executed payload to be pdf")
 	}
-	if !strings.Contains(string(rendered.Payload), "IP: -") {
-		t.Fatalf("expected audit trail rows to render default ip marker")
+	if strings.Contains(string(rendered.Payload), "IP: -") {
+		t.Fatalf("expected audit trail rows to omit placeholder ip marker")
 	}
 	raw := string(rendered.Payload)
 	if !strings.Contains(raw, "Page 3 Overlay Marker") {
@@ -660,8 +660,8 @@ func TestReadableArtifactRendererAuditPagesShareCoreMarkersBetweenExecutedAndCer
 	if !strings.Contains(executedRaw, "IP: 203.0.113.22") {
 		t.Fatalf("expected rendered audit trail to include event ip address")
 	}
-	if !strings.Contains(executedRaw, "IP: -") {
-		t.Fatalf("expected rendered audit trail to include placeholder ip for missing values")
+	if strings.Contains(executedRaw, "IP: -") {
+		t.Fatalf("expected rendered audit trail to omit placeholder ip for missing values")
 	}
 	executedCompletedIdx := strings.Index(executedRaw, "02/12/2026 10:05:00 UTC")
 	executedSignedIdx := strings.Index(executedRaw, "02/12/2026 10:03:00 UTC")
