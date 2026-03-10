@@ -76,6 +76,7 @@ type sqliteStoreSnapshot struct {
 	JobRunDedupeIndex          map[string]string                       `json:"job_run_dedupe_index"`
 	GoogleImportRuns           map[string]GoogleImportRunRecord        `json:"google_import_runs"`
 	GoogleImportRunDedupeIndex map[string]string                       `json:"google_import_run_dedupe_index"`
+	DocumentRemediationLeases  map[string]DocumentRemediationLeaseRecord `json:"document_remediation_leases"`
 	AgreementReminderStates    map[string]AgreementReminderStateRecord `json:"agreement_reminder_states"`
 	OutboxMessages             map[string]OutboxMessageRecord          `json:"outbox_messages"`
 	IntegrationCredentials     map[string]IntegrationCredentialRecord  `json:"integration_credentials"`
@@ -296,6 +297,7 @@ func loadStoreStateFromBackendWithPayload(
 	mem.jobRunDedupeIndex = ensureStringMap(snapshot.JobRunDedupeIndex)
 	mem.googleImportRuns = ensureGoogleImportRunMap(snapshot.GoogleImportRuns)
 	mem.googleImportRunDedupeIndex = ensureStringMap(snapshot.GoogleImportRunDedupeIndex)
+	mem.documentRemediationLeases = ensureDocumentRemediationLeaseMap(snapshot.DocumentRemediationLeases)
 	mem.agreementReminderStates = ensureAgreementReminderStateMap(snapshot.AgreementReminderStates)
 	mem.outboxMessages = ensureOutboxMessageMap(snapshot.OutboxMessages)
 	mem.integrationCredentials = ensureIntegrationCredentialMap(snapshot.IntegrationCredentials)
@@ -361,6 +363,7 @@ func (s *SQLiteStore) persist(ctx context.Context) error {
 		JobRunDedupeIndex:          maps.Clone(s.jobRunDedupeIndex),
 		GoogleImportRuns:           maps.Clone(s.googleImportRuns),
 		GoogleImportRunDedupeIndex: maps.Clone(s.googleImportRunDedupeIndex),
+		DocumentRemediationLeases:  maps.Clone(s.documentRemediationLeases),
 		AgreementReminderStates:    maps.Clone(s.agreementReminderStates),
 		OutboxMessages:             maps.Clone(s.outboxMessages),
 		IntegrationCredentials:     maps.Clone(s.integrationCredentials),
