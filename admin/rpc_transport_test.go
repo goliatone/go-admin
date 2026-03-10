@@ -220,11 +220,11 @@ func TestAdminRPCDispatchEndpointSanitizesUntrustedMetadata(t *testing.T) {
 			Options: command.DispatchOptions{
 				CorrelationID: "corr-client",
 				Metadata: map[string]any{
-					"actor_id":     "spoofed",
-					"roles":        []string{"admin"},
-					"custom_meta":  "keep-me",
-					"permissions":  []string{"admin.commands.dispatch"},
-					"request_id":   "req-client",
+					"actor_id":       "spoofed",
+					"roles":          []string{"admin"},
+					"custom_meta":    "keep-me",
+					"permissions":    []string{"admin.commands.dispatch"},
+					"request_id":     "req-client",
 					"correlation_id": "corr-client-meta",
 				},
 			},
