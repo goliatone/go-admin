@@ -21,6 +21,176 @@ const (
 	AuditTrailEventCompleted  = "COMPLETED"
 )
 
+const (
+	auditTrailSourceAgreementCreated    = "agreement.created"
+	auditTrailSourceAgreementSent       = "agreement.sent"
+	auditTrailSourceAgreementResent     = "agreement.resent"
+	auditTrailSourceSignerViewed        = "signer.viewed"
+	auditTrailSourceSignerSubmitted     = "signer.submitted"
+	auditTrailSourceSignerDeclined      = "signer.declined"
+	auditTrailSourceAgreementDeclined   = "agreement.declined"
+	auditTrailSourceAgreementVoided     = "agreement.voided"
+	auditTrailSourceAgreementExpired    = "agreement.expired"
+	auditTrailSourceAgreementIncomplete = "agreement.incomplete"
+	auditTrailSourceAgreementCompleted  = "agreement.completed"
+)
+
+const (
+	auditTrailSourceDerivedLifecycleCreated = "derived.lifecycle.created"
+	auditTrailSourceDerivedLifecycleSent    = "derived.lifecycle.sent"
+	auditTrailSourceDerivedLifecycleViewed  = "derived.lifecycle.viewed"
+	auditTrailSourceDerivedLifecycleSigned  = "derived.lifecycle.signed"
+	auditTrailSourceDerivedStatusCompleted  = "derived.status.completed"
+	auditTrailSourceDerivedStatusIncomplete = "derived.status.incomplete"
+)
+
+type auditTrailLifecycleMarker string
+
+const (
+	auditTrailLifecycleMarkerNone    auditTrailLifecycleMarker = ""
+	auditTrailLifecycleMarkerCreated auditTrailLifecycleMarker = "created"
+	auditTrailLifecycleMarkerSent    auditTrailLifecycleMarker = "sent"
+	auditTrailLifecycleMarkerViewed  auditTrailLifecycleMarker = "viewed"
+	auditTrailLifecycleMarkerSigned  auditTrailLifecycleMarker = "signed"
+)
+
+type auditTrailDescriptionKind string
+
+const (
+	auditTrailDescriptionKindCreated    auditTrailDescriptionKind = "created"
+	auditTrailDescriptionKindSent       auditTrailDescriptionKind = "sent"
+	auditTrailDescriptionKindViewed     auditTrailDescriptionKind = "viewed"
+	auditTrailDescriptionKindSigned     auditTrailDescriptionKind = "signed"
+	auditTrailDescriptionKindDeclined   auditTrailDescriptionKind = "declined"
+	auditTrailDescriptionKindIncomplete auditTrailDescriptionKind = "incomplete"
+	auditTrailDescriptionKindCompleted  auditTrailDescriptionKind = "completed"
+)
+
+type auditTrailSourceEventPolicy struct {
+	EventType         string
+	Severity          string
+	ShowIPAddress     bool
+	UseNearestActorIP bool
+	LifecycleMarker   auditTrailLifecycleMarker
+	DescriptionKind   auditTrailDescriptionKind
+}
+
+var auditTrailSourceEventPolicies = map[string]auditTrailSourceEventPolicy{
+	auditTrailSourceAgreementCreated: {
+		EventType:       AuditTrailEventCreated,
+		Severity:        "normal",
+		ShowIPAddress:   false,
+		LifecycleMarker: auditTrailLifecycleMarkerCreated,
+		DescriptionKind: auditTrailDescriptionKindCreated,
+	},
+	auditTrailSourceAgreementSent: {
+		EventType:       AuditTrailEventSent,
+		Severity:        "normal",
+		ShowIPAddress:   false,
+		LifecycleMarker: auditTrailLifecycleMarkerSent,
+		DescriptionKind: auditTrailDescriptionKindSent,
+	},
+	auditTrailSourceAgreementResent: {
+		EventType:       AuditTrailEventSent,
+		Severity:        "normal",
+		ShowIPAddress:   false,
+		LifecycleMarker: auditTrailLifecycleMarkerSent,
+		DescriptionKind: auditTrailDescriptionKindSent,
+	},
+	auditTrailSourceSignerViewed: {
+		EventType:         AuditTrailEventViewed,
+		Severity:          "normal",
+		ShowIPAddress:     true,
+		UseNearestActorIP: true,
+		LifecycleMarker:   auditTrailLifecycleMarkerViewed,
+		DescriptionKind:   auditTrailDescriptionKindViewed,
+	},
+	auditTrailSourceSignerSubmitted: {
+		EventType:         AuditTrailEventSigned,
+		Severity:          "normal",
+		ShowIPAddress:     true,
+		UseNearestActorIP: true,
+		LifecycleMarker:   auditTrailLifecycleMarkerSigned,
+		DescriptionKind:   auditTrailDescriptionKindSigned,
+	},
+	auditTrailSourceSignerDeclined: {
+		EventType:         AuditTrailEventDeclined,
+		Severity:          "warning",
+		ShowIPAddress:     true,
+		UseNearestActorIP: true,
+		DescriptionKind:   auditTrailDescriptionKindDeclined,
+	},
+	auditTrailSourceAgreementDeclined: {
+		EventType:       AuditTrailEventDeclined,
+		Severity:        "warning",
+		ShowIPAddress:   false,
+		DescriptionKind: auditTrailDescriptionKindDeclined,
+	},
+	auditTrailSourceAgreementVoided: {
+		EventType:       AuditTrailEventIncomplete,
+		Severity:        "warning",
+		ShowIPAddress:   false,
+		DescriptionKind: auditTrailDescriptionKindIncomplete,
+	},
+	auditTrailSourceAgreementExpired: {
+		EventType:       AuditTrailEventIncomplete,
+		Severity:        "warning",
+		ShowIPAddress:   false,
+		DescriptionKind: auditTrailDescriptionKindIncomplete,
+	},
+	auditTrailSourceAgreementIncomplete: {
+		EventType:       AuditTrailEventIncomplete,
+		Severity:        "warning",
+		ShowIPAddress:   false,
+		DescriptionKind: auditTrailDescriptionKindIncomplete,
+	},
+	auditTrailSourceAgreementCompleted: {
+		EventType:       AuditTrailEventCompleted,
+		Severity:        "normal",
+		ShowIPAddress:   false,
+		DescriptionKind: auditTrailDescriptionKindCompleted,
+	},
+}
+
+type auditTrailDerivedEventPolicy struct {
+	EventType     string
+	Severity      string
+	ShowIPAddress bool
+}
+
+var auditTrailDerivedEventPolicies = map[string]auditTrailDerivedEventPolicy{
+	auditTrailSourceDerivedLifecycleCreated: {
+		EventType:     AuditTrailEventCreated,
+		Severity:      "normal",
+		ShowIPAddress: false,
+	},
+	auditTrailSourceDerivedLifecycleSent: {
+		EventType:     AuditTrailEventSent,
+		Severity:      "normal",
+		ShowIPAddress: false,
+	},
+	auditTrailSourceDerivedLifecycleViewed: {
+		EventType:     AuditTrailEventViewed,
+		Severity:      "normal",
+		ShowIPAddress: true,
+	},
+	auditTrailSourceDerivedLifecycleSigned: {
+		EventType:     AuditTrailEventSigned,
+		Severity:      "normal",
+		ShowIPAddress: true,
+	},
+	auditTrailSourceDerivedStatusCompleted: {
+		EventType:     AuditTrailEventCompleted,
+		Severity:      "normal",
+		ShowIPAddress: false,
+	},
+	auditTrailSourceDerivedStatusIncomplete: {
+		EventType:     AuditTrailEventIncomplete,
+		Severity:      "warning",
+		ShowIPAddress: false,
+	},
+}
+
 // AuditTrailEntry is a normalized timeline event used by executed/certificate renderers.
 type AuditTrailEntry struct {
 	EventType     string
@@ -167,6 +337,10 @@ func normalizeAuditTrailEntry(
 	if eventType == "" {
 		return AuditTrailEntry{}, false
 	}
+	policy, ok := auditTrailPolicyForSourceEvent(eventType)
+	if !ok {
+		return AuditTrailEntry{}, false
+	}
 	ts := event.CreatedAt.UTC()
 	if ts.IsZero() {
 		ts = fallbackAt.UTC()
@@ -195,79 +369,98 @@ func normalizeAuditTrailEntry(
 		ActorName:     actorName,
 		ActorEmail:    actorEmail,
 		IPAddress:     ResolveAuditEventIPAddress(event, metadata),
-		ShowIPAddress: false,
-		Severity:      "normal",
+		ShowIPAddress: policy.ShowIPAddress,
+		Severity:      policy.Severity,
 		SourceEvent:   eventType,
 		SourceEventID: sourceEventID,
+		EventType:     policy.EventType,
+	}
+	if policy.UseNearestActorIP && base.IPAddress == "" && actorID != "" {
+		base.IPAddress = actorIPIndex.Nearest(actorID, ts)
+	}
+	base.Description = buildAuditTrailEventDescription(policy.DescriptionKind, eventType, agreement, signerRecipients, metadata, actorID, base.ActorName, base.ActorEmail)
+	if strings.TrimSpace(base.Description) == "" {
+		return AuditTrailEntry{}, false
 	}
 
-	switch eventType {
-	case "agreement.created":
+	if eventType == auditTrailSourceAgreementCreated {
 		creator := coalesce(
 			toMetadataString(metadata, "created_by_user_id", "actor_id", "sender_email", "actor_email"),
 			strings.TrimSpace(agreement.CreatedByUserID),
 			strings.TrimSpace(actorID),
 			"system",
 		)
-		base.EventType = AuditTrailEventCreated
-		base.Description = fmt.Sprintf("Created by %s", creator)
 		base.ActorName = creator
 		base.ActorEmail = ""
-		return base, true
-	case "agreement.sent", "agreement.resent":
+	}
+	if eventType == auditTrailSourceAgreementSent || eventType == auditTrailSourceAgreementResent {
 		sender := coalesce(toMetadataString(metadata, "sender_email"), strings.TrimSpace(agreement.CreatedByUserID), "system")
-		action := "Sent"
-		if eventType == "agreement.resent" {
-			action = "Re-sent"
-		}
-		base.EventType = AuditTrailEventSent
-		base.Description = buildAuditTrailSentDescription(action, sender, signerRecipients)
 		base.ActorName = sender
 		base.ActorEmail = ""
-		return base, true
-	case "signer.viewed":
-		if base.IPAddress == "" && actorID != "" {
-			base.IPAddress = actorIPIndex.Nearest(actorID, ts)
+	}
+	return base, true
+}
+
+func auditTrailPolicyForSourceEvent(sourceEvent string) (auditTrailSourceEventPolicy, bool) {
+	sourceEvent = strings.TrimSpace(sourceEvent)
+	policy, ok := auditTrailSourceEventPolicies[sourceEvent]
+	return policy, ok
+}
+
+func auditTrailPolicyForDerivedSourceEvent(sourceEvent string) (auditTrailDerivedEventPolicy, bool) {
+	sourceEvent = strings.TrimSpace(sourceEvent)
+	policy, ok := auditTrailDerivedEventPolicies[sourceEvent]
+	return policy, ok
+}
+
+func mustAuditTrailPolicyForDerivedSourceEvent(sourceEvent string) auditTrailDerivedEventPolicy {
+	policy, ok := auditTrailPolicyForDerivedSourceEvent(sourceEvent)
+	if ok {
+		return policy
+	}
+	panic(fmt.Sprintf("missing derived audit trail policy for source event %q", sourceEvent))
+}
+
+func buildAuditTrailEventDescription(
+	kind auditTrailDescriptionKind,
+	sourceEvent string,
+	agreement stores.AgreementRecord,
+	signerRecipients []stores.RecipientRecord,
+	metadata map[string]any,
+	actorID, actorName, actorEmail string,
+) string {
+	switch kind {
+	case auditTrailDescriptionKindCreated:
+		creator := coalesce(
+			toMetadataString(metadata, "created_by_user_id", "actor_id", "sender_email", "actor_email"),
+			strings.TrimSpace(agreement.CreatedByUserID),
+			strings.TrimSpace(actorID),
+			"system",
+		)
+		return fmt.Sprintf("Created by %s", creator)
+	case auditTrailDescriptionKindSent:
+		action := "Sent"
+		if strings.EqualFold(strings.TrimSpace(sourceEvent), auditTrailSourceAgreementResent) {
+			action = "Re-sent"
 		}
-		base.ShowIPAddress = true
-		base.EventType = AuditTrailEventViewed
-		base.Description = fmt.Sprintf("Viewed by %s", formatActorIdentity(base.ActorName, base.ActorEmail, actorID))
-		return base, true
-	case "signer.submitted":
-		if base.IPAddress == "" && actorID != "" {
-			base.IPAddress = actorIPIndex.Nearest(actorID, ts)
-		}
-		base.ShowIPAddress = true
-		base.EventType = AuditTrailEventSigned
-		base.Description = fmt.Sprintf("Signed by %s", formatActorIdentity(base.ActorName, base.ActorEmail, actorID))
-		return base, true
-	case "signer.declined", "agreement.declined":
-		if strings.EqualFold(eventType, "signer.declined") {
-			if base.IPAddress == "" && actorID != "" {
-				base.IPAddress = actorIPIndex.Nearest(actorID, ts)
-			}
-			base.ShowIPAddress = true
-		}
-		base.EventType = AuditTrailEventDeclined
+		sender := coalesce(toMetadataString(metadata, "sender_email"), strings.TrimSpace(agreement.CreatedByUserID), "system")
+		return buildAuditTrailSentDescription(action, sender, signerRecipients)
+	case auditTrailDescriptionKindViewed:
+		return fmt.Sprintf("Viewed by %s", formatActorIdentity(actorName, actorEmail, actorID))
+	case auditTrailDescriptionKindSigned:
+		return fmt.Sprintf("Signed by %s", formatActorIdentity(actorName, actorEmail, actorID))
+	case auditTrailDescriptionKindDeclined:
 		reason := strings.TrimSpace(toMetadataString(metadata, "decline_reason"))
 		if reason != "" {
-			base.Description = fmt.Sprintf("Declined by %s. Reason: %s", formatActorIdentity(base.ActorName, base.ActorEmail, actorID), reason)
-		} else {
-			base.Description = fmt.Sprintf("Declined by %s", formatActorIdentity(base.ActorName, base.ActorEmail, actorID))
+			return fmt.Sprintf("Declined by %s. Reason: %s", formatActorIdentity(actorName, actorEmail, actorID), reason)
 		}
-		base.Severity = "warning"
-		return base, true
-	case "agreement.voided", "agreement.expired", "agreement.incomplete":
-		base.EventType = AuditTrailEventIncomplete
-		base.Description = "This document has not been fully executed by all signers."
-		base.Severity = "warning"
-		return base, true
-	case "agreement.completed":
-		base.EventType = AuditTrailEventCompleted
-		base.Description = "This document has been fully executed by all signers."
-		return base, true
+		return fmt.Sprintf("Declined by %s", formatActorIdentity(actorName, actorEmail, actorID))
+	case auditTrailDescriptionKindIncomplete:
+		return "This document has not been fully executed by all signers."
+	case auditTrailDescriptionKindCompleted:
+		return "This document has been fully executed by all signers."
 	default:
-		return AuditTrailEntry{}, false
+		return ""
 	}
 }
 
@@ -342,20 +535,23 @@ func collectAuditTrailSourceMarkers(events []stores.AuditEventRecord) auditTrail
 		SignedRecipientIDs: map[string]struct{}{},
 	}
 	for _, event := range events {
-		eventType := strings.TrimSpace(event.EventType)
-		switch eventType {
-		case "agreement.created":
+		policy, ok := auditTrailPolicyForSourceEvent(strings.TrimSpace(event.EventType))
+		if !ok {
+			continue
+		}
+		switch policy.LifecycleMarker {
+		case auditTrailLifecycleMarkerCreated:
 			markers.HasCreated = true
-		case "agreement.sent", "agreement.resent":
+		case auditTrailLifecycleMarkerSent:
 			markers.HasSent = true
-		case "signer.viewed":
+		case auditTrailLifecycleMarkerViewed:
 			actorID := strings.TrimSpace(event.ActorID)
 			if actorID == "" {
 				markers.HasViewedWithoutActor = true
 				continue
 			}
 			markers.ViewedRecipientIDs[actorID] = struct{}{}
-		case "signer.submitted":
+		case auditTrailLifecycleMarkerSigned:
 			actorID := strings.TrimSpace(event.ActorID)
 			if actorID == "" {
 				markers.HasSignedWithoutActor = true
@@ -375,32 +571,36 @@ func deriveLifecycleAuditTrailEntries(
 ) []AuditTrailEntry {
 	entries := make([]AuditTrailEntry, 0, 2+(len(signerRecipients)*2))
 	creator := coalesce(strings.TrimSpace(agreement.CreatedByUserID), "system")
+	createdPolicy := mustAuditTrailPolicyForDerivedSourceEvent(auditTrailSourceDerivedLifecycleCreated)
+	sentPolicy := mustAuditTrailPolicyForDerivedSourceEvent(auditTrailSourceDerivedLifecycleSent)
+	viewedPolicy := mustAuditTrailPolicyForDerivedSourceEvent(auditTrailSourceDerivedLifecycleViewed)
+	signedPolicy := mustAuditTrailPolicyForDerivedSourceEvent(auditTrailSourceDerivedLifecycleSigned)
 
 	if !markers.HasCreated && !agreement.CreatedAt.IsZero() {
 		createdAt := agreement.CreatedAt.UTC()
 		entries = append(entries, AuditTrailEntry{
-			EventType:     AuditTrailEventCreated,
+			EventType:     createdPolicy.EventType,
 			Timestamp:     createdAt,
 			ActorName:     creator,
 			IPAddress:     actorIPIndex.Nearest(strings.TrimSpace(agreement.CreatedByUserID), createdAt),
-			ShowIPAddress: false,
+			ShowIPAddress: createdPolicy.ShowIPAddress,
 			Description:   fmt.Sprintf("Created by %s", creator),
-			Severity:      "normal",
-			SourceEvent:   "derived.lifecycle.created",
+			Severity:      createdPolicy.Severity,
+			SourceEvent:   auditTrailSourceDerivedLifecycleCreated,
 			SourceEventID: "derived.created",
 		})
 	}
 	if !markers.HasSent && agreement.SentAt != nil && !agreement.SentAt.IsZero() {
 		sentAt := agreement.SentAt.UTC()
 		entries = append(entries, AuditTrailEntry{
-			EventType:     AuditTrailEventSent,
+			EventType:     sentPolicy.EventType,
 			Timestamp:     sentAt,
 			ActorName:     creator,
 			IPAddress:     actorIPIndex.Nearest(strings.TrimSpace(agreement.CreatedByUserID), sentAt),
-			ShowIPAddress: false,
+			ShowIPAddress: sentPolicy.ShowIPAddress,
 			Description:   buildAuditTrailSentDescription("Sent", creator, signerRecipients),
-			Severity:      "normal",
-			SourceEvent:   "derived.lifecycle.sent",
+			Severity:      sentPolicy.Severity,
+			SourceEvent:   auditTrailSourceDerivedLifecycleSent,
 			SourceEventID: "derived.sent",
 		})
 	}
@@ -423,15 +623,15 @@ func deriveLifecycleAuditTrailEntries(
 			}
 			viewedAtUTC := viewedAt.UTC()
 			entries = append(entries, AuditTrailEntry{
-				EventType:     AuditTrailEventViewed,
+				EventType:     viewedPolicy.EventType,
 				Timestamp:     viewedAtUTC,
 				ActorName:     strings.TrimSpace(recipient.Name),
 				ActorEmail:    strings.TrimSpace(recipient.Email),
 				IPAddress:     actorIPIndex.Nearest(recipientID, viewedAtUTC),
-				ShowIPAddress: true,
+				ShowIPAddress: viewedPolicy.ShowIPAddress,
 				Description:   fmt.Sprintf("Viewed by %s", formatActorIdentity(strings.TrimSpace(recipient.Name), strings.TrimSpace(recipient.Email), recipientID)),
-				Severity:      "normal",
-				SourceEvent:   "derived.lifecycle.viewed",
+				Severity:      viewedPolicy.Severity,
+				SourceEvent:   auditTrailSourceDerivedLifecycleViewed,
 				SourceEventID: "derived.viewed." + recipientID,
 			})
 		}
@@ -451,15 +651,15 @@ func deriveLifecycleAuditTrailEntries(
 			}
 			completedAt := recipient.CompletedAt.UTC()
 			entries = append(entries, AuditTrailEntry{
-				EventType:     AuditTrailEventSigned,
+				EventType:     signedPolicy.EventType,
 				Timestamp:     completedAt,
 				ActorName:     strings.TrimSpace(recipient.Name),
 				ActorEmail:    strings.TrimSpace(recipient.Email),
 				IPAddress:     actorIPIndex.Nearest(recipientID, completedAt),
-				ShowIPAddress: true,
+				ShowIPAddress: signedPolicy.ShowIPAddress,
 				Description:   fmt.Sprintf("Signed by %s", formatActorIdentity(strings.TrimSpace(recipient.Name), strings.TrimSpace(recipient.Email), recipientID)),
-				Severity:      "normal",
-				SourceEvent:   "derived.lifecycle.signed",
+				Severity:      signedPolicy.Severity,
+				SourceEvent:   auditTrailSourceDerivedLifecycleSigned,
 				SourceEventID: "derived.signed." + recipientID,
 			})
 		}
@@ -506,21 +706,25 @@ func buildTerminalAuditTrailEntry(agreement stores.AgreementRecord, now time.Tim
 	}
 	switch status {
 	case stores.AgreementStatusCompleted:
+		policy := mustAuditTrailPolicyForDerivedSourceEvent(auditTrailSourceDerivedStatusCompleted)
 		return &AuditTrailEntry{
-			EventType:     AuditTrailEventCompleted,
+			EventType:     policy.EventType,
 			Timestamp:     timestamp,
 			Description:   "This document has been fully executed by all signers.",
-			Severity:      "normal",
-			SourceEvent:   "derived.status.completed",
+			Severity:      policy.Severity,
+			ShowIPAddress: policy.ShowIPAddress,
+			SourceEvent:   auditTrailSourceDerivedStatusCompleted,
 			SourceEventID: "derived.completed",
 		}
 	case stores.AgreementStatusDeclined, stores.AgreementStatusVoided, stores.AgreementStatusExpired:
+		policy := mustAuditTrailPolicyForDerivedSourceEvent(auditTrailSourceDerivedStatusIncomplete)
 		return &AuditTrailEntry{
-			EventType:     AuditTrailEventIncomplete,
+			EventType:     policy.EventType,
 			Timestamp:     timestamp,
 			Description:   "This document has not been fully executed by all signers.",
-			Severity:      "warning",
-			SourceEvent:   "derived.status.incomplete",
+			Severity:      policy.Severity,
+			ShowIPAddress: policy.ShowIPAddress,
+			SourceEvent:   auditTrailSourceDerivedStatusIncomplete,
 			SourceEventID: "derived.incomplete",
 		}
 	default:
