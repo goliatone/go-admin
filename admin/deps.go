@@ -24,11 +24,12 @@ type Dependencies struct {
 	CMSContainer        CMSContainer
 	CMSContainerBuilder CMSContainerBuilder
 
-	Registry    *Registry
-	CommandBus  *CommandBus
-	RPCServer   *cmdrpc.Server
-	JobRegistry *JobRegistry
-	URLManager  *urlkit.RouteManager
+	Registry             *Registry
+	CommandBus           *CommandBus
+	RPCServer            *cmdrpc.Server
+	RPCCommandPolicyHook RPCCommandPolicyHook
+	JobRegistry          *JobRegistry
+	URLManager           *urlkit.RouteManager
 
 	Authorizer                     Authorizer
 	Authenticator                  Authenticator
