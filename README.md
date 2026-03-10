@@ -143,6 +143,16 @@ admin.RegisterMessageFactory(adm.Commands(), "pages.publish", func(payload map[s
 
 CLI/cron metadata is optional via `command.CLICommand` (`CLIOptions`) and `command.CronCommand` (`CronOptions`).
 
+### Command Routing Observability
+
+For queued command flows (for example `esign.pdf.remediate`), dispatch logs include routing fields:
+- `command_id`
+- `execution_mode`
+- `dispatch_id`
+- `correlation_id`
+
+See `GUIDE_BKG_CMD_OBSERVABILITY.md` for dispatch/remediation metrics, alert signals, and activity/audit lifecycle contracts.
+
 ## FSM Lifecycle Activity Projection
 
 When you use `go-command/flow` state machines and want lifecycle audit events in the admin-local feed, wire the FSM lifecycle hook to an admin activity sink adapter:
@@ -191,5 +201,6 @@ Mapping behavior:
 - Quickstart API and helpers: `quickstart/README.md`
 - Example runtime config conventions: `examples/web/config/app.json` and `examples/web/README.md`
 - CMS and translation workflow guide: `docs/GUIDE_CMS.md`
+- Background command routing observability: `GUIDE_BKG_CMD_OBSERVABILITY.md`
 - Persisted workflow runtime: `docs/WORKFLOW_PERSISTENCE.md`
 - End-to-end examples: `examples/web/main.go`, `examples/esign/main.go`
