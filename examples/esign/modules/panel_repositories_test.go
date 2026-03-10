@@ -1616,6 +1616,50 @@ func TestAgreementRecordToMapDerivesRecipientStatusForInFlightAgreement(t *testi
 	}
 }
 
+func TestAgreementRecordToMapLeavesFutureSignerStagesPendingUntilActive(t *testing.T) {
+	sentAt := time.Date(2026, 2, 12, 20, 48, 26, 0, time.UTC)
+	agreement := stores.AgreementRecord{
+		ID:        "agreement-stage-pending-1",
+		TenantID:  defaultModuleScope.TenantID,
+		OrgID:     defaultModuleScope.OrgID,
+		Status:    stores.AgreementStatusSent,
+		SentAt:    &sentAt,
+		CreatedAt: sentAt,
+		UpdatedAt: sentAt,
+	}
+	recipients := []stores.RecipientRecord{
+		{
+			ID:           "recipient-stage-1",
+			AgreementID:  agreement.ID,
+			Email:        "stage1@example.com",
+			Role:         stores.RecipientRoleSigner,
+			SigningOrder: 1,
+		},
+		{
+			ID:           "recipient-stage-2",
+			AgreementID:  agreement.ID,
+			Email:        "stage2@example.com",
+			Role:         stores.RecipientRoleSigner,
+			SigningOrder: 2,
+		},
+	}
+
+	payload := agreementRecordToMap(agreement, recipients, nil, nil, nil, services.AgreementDeliveryDetail{})
+	items, ok := payload["recipients"].([]map[string]any)
+	if !ok || len(items) != 2 {
+		t.Fatalf("expected two recipients in payload, got %#v", payload["recipients"])
+	}
+	if got := strings.TrimSpace(toString(items[0]["status"])); got != "sent" {
+		t.Fatalf("expected stage-one signer status sent, got %q", got)
+	}
+	if got := strings.TrimSpace(toString(items[1]["status"])); got != "pending" {
+		t.Fatalf("expected stage-two signer status pending, got %q", got)
+	}
+	if got := strings.TrimSpace(toString(items[1]["sent_at"])); got != "" {
+		t.Fatalf("expected stage-two signer sent_at to be empty, got %q", got)
+	}
+}
+
 type testBinaryObjectStore struct {
 	objects map[string][]byte
 }

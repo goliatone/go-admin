@@ -817,8 +817,9 @@ func agreementRecordToMap(
 		payload["active_stage"] = activeStage
 	}
 	if len(recipients) > 0 {
-		payload["recipients"] = recipientsToMaps(agreement, recipients, reminderStates)
-		payload["participants"] = recipientsToMaps(agreement, recipients, reminderStates)
+		participants := recipientsToMaps(agreement, recipients, reminderStates, activeStage)
+		payload["recipients"] = participants
+		payload["participants"] = participants
 	}
 	if len(fields) > 0 {
 		payload["fields"] = fieldsToMaps(fields)
@@ -899,10 +900,14 @@ func computeStageMetrics(recipients []stores.RecipientRecord) (stageCount int, a
 	return maxStage, activeStage
 }
 
-func recipientsToMaps(agreement stores.AgreementRecord, records []stores.RecipientRecord, reminderStates map[string]stores.AgreementReminderStateRecord) []map[string]any {
+func recipientsToMaps(agreement stores.AgreementRecord, records []stores.RecipientRecord, reminderStates map[string]stores.AgreementReminderStateRecord, activeStage int) []map[string]any {
 	out := make([]map[string]any, 0, len(records))
 	for _, record := range records {
-		status, signedAt, deliveredAt := recipientPresentationStatus(agreement, record)
+		status, signedAt, deliveredAt := recipientPresentationStatus(agreement, record, activeStage)
+		recipientSentAt := ""
+		if recipientShouldShowSent(agreement, record, activeStage) {
+			recipientSentAt = formatTimePtr(agreement.SentAt)
+		}
 		reminderState, hasReminder := reminderStates[strings.TrimSpace(record.ID)]
 		reminderStatus := ""
 		nextDueAt := ""
@@ -928,7 +933,7 @@ func recipientsToMaps(agreement stores.AgreementRecord, records []stores.Recipie
 			"status":          status,
 			"signing_order":   record.SigningOrder,
 			"signing_stage":   record.SigningOrder,
-			"sent_at":         formatTimePtr(agreement.SentAt),
+			"sent_at":         recipientSentAt,
 			"first_view_at":   formatTimePtr(record.FirstViewAt),
 			"last_view_at":    formatTimePtr(record.LastViewAt),
 			"declined_at":     formatTimePtr(record.DeclinedAt),
@@ -948,7 +953,7 @@ func recipientsToMaps(agreement stores.AgreementRecord, records []stores.Recipie
 	return out
 }
 
-func recipientPresentationStatus(agreement stores.AgreementRecord, record stores.RecipientRecord) (status string, signedAt string, deliveredAt string) {
+func recipientPresentationStatus(agreement stores.AgreementRecord, record stores.RecipientRecord, activeStage int) (status string, signedAt string, deliveredAt string) {
 	if record.DeclinedAt != nil {
 		return "declined", "", ""
 	}
@@ -970,11 +975,28 @@ func recipientPresentationStatus(agreement stores.AgreementRecord, record stores
 		if record.FirstViewAt != nil {
 			return "viewed", "", ""
 		}
-		if agreement.SentAt != nil {
+		if recipientShouldShowSent(agreement, record, activeStage) {
 			return "sent", "", ""
 		}
 		return "pending", "", ""
 	}
+}
+
+func recipientShouldShowSent(agreement stores.AgreementRecord, record stores.RecipientRecord, activeStage int) bool {
+	if agreement.SentAt == nil || agreement.SentAt.IsZero() {
+		return false
+	}
+	if strings.EqualFold(strings.TrimSpace(record.Role), stores.RecipientRoleCC) {
+		return true
+	}
+	if activeStage <= 0 {
+		return false
+	}
+	stage := record.SigningOrder
+	if stage <= 0 {
+		stage = 1
+	}
+	return stage <= activeStage
 }
 
 func fieldsToMaps(records []stores.FieldRecord) []map[string]any {
