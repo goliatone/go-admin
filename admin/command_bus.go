@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"sort"
 	"strings"
 	"sync"
 
@@ -304,4 +305,39 @@ func (b *CommandBus) HasFactory(name string) bool {
 	}
 	_, ok := b.factories[name]
 	return ok
+}
+
+// Names returns a sorted snapshot of command names known to the bus.
+func (b *CommandBus) Names() []string {
+	if b == nil || !b.enabled {
+		return nil
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(b.factories)+len(b.dispatchers))
+	for name := range b.factories {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			continue
+		}
+		if _, ok := seen[name]; ok {
+			continue
+		}
+		seen[name] = struct{}{}
+		out = append(out, name)
+	}
+	for name := range b.dispatchers {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			continue
+		}
+		if _, ok := seen[name]; ok {
+			continue
+		}
+		seen[name] = struct{}{}
+		out = append(out, name)
+	}
+	sort.Strings(out)
+	return out
 }
