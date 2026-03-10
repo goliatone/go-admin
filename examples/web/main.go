@@ -155,7 +155,8 @@ func main() {
 	cfg.PreviewSecret = strings.TrimSpace(runtimeConfig.Admin.PreviewSecret)
 	cfg.URLs.Admin.APIVersion = strings.TrimSpace(runtimeConfig.Admin.APIVersion)
 	cfg.URLs.Admin.APIPrefix = strings.TrimSpace(runtimeConfig.Admin.APIPrefix)
-	cfg.FeatureCatalogPath = resolveFeatureCatalogPath(runtimeConfig.Admin.FeatureCatalogPath)
+	configDir := filepath.Dir(strings.TrimSpace(runtimeConfig.ConfigPath))
+	cfg.FeatureCatalogPath = resolveFeatureCatalogPath(runtimeConfig.Admin.FeatureCatalogPath, configDir)
 	featureDefaults := map[string]bool{
 		"dashboard":                   true,
 		"cms":                         true,
@@ -345,7 +346,7 @@ func main() {
 		queueRepository,
 		runtimeConfig.Translation,
 	)
-	workflowConfigPath := resolveWorkflowConfigPath(runtimeConfig.Admin.WorkflowConfigPath)
+	workflowConfigPath := resolveWorkflowConfigPath(runtimeConfig.Admin.WorkflowConfigPath, configDir)
 	var workflowRuntime coreadmin.WorkflowRuntime = coreadmin.NewWorkflowRuntimeService(
 		coreadmin.NewInMemoryWorkflowDefinitionRepository(),
 		coreadmin.NewInMemoryWorkflowBindingRepository(),
@@ -1750,35 +1751,52 @@ func featureEnabled(gate fggate.FeatureGate, feature string) bool {
 	return err == nil && enabled
 }
 
-func resolveFeatureCatalogPath(configPath string) string {
+func resolveFeatureCatalogPath(configPath string, configDir string) string {
 	if value := strings.TrimSpace(configPath); value != "" {
+		if resolved := resolveExampleConfigPath(value, configDir); resolved != "" {
+			return resolved
+		}
 		return value
 	}
-	candidates := []string{
-		"feature_catalog.yaml",
-		filepath.Join("examples", "web", "feature_catalog.yaml"),
-		"feature_catalog.yml",
-		filepath.Join("examples", "web", "feature_catalog.yml"),
+	if resolved := resolveExampleConfigPath("feature_catalog.yaml", configDir); resolved != "" {
+		return resolved
 	}
-	for _, candidate := range candidates {
-		if _, err := os.Stat(candidate); err == nil {
-			return candidate
-		}
+	if resolved := resolveExampleConfigPath("feature_catalog.yml", configDir); resolved != "" {
+		return resolved
 	}
 	return ""
 }
 
-func resolveWorkflowConfigPath(configPath string) string {
+func resolveWorkflowConfigPath(configPath string, configDir string) string {
 	if value := strings.TrimSpace(configPath); value != "" {
+		if resolved := resolveExampleConfigPath(value, configDir); resolved != "" {
+			return resolved
+		}
 		return value
 	}
+	if resolved := resolveExampleConfigPath("workflow_config.yaml", configDir); resolved != "" {
+		return resolved
+	}
+	if resolved := resolveExampleConfigPath("workflow_config.yml", configDir); resolved != "" {
+		return resolved
+	}
+	return ""
+}
+
+func resolveExampleConfigPath(path string, configDir string) string {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return ""
+	}
 	candidates := []string{
-		"workflow_config.yaml",
-		filepath.Join("examples", "web", "workflow_config.yaml"),
-		"workflow_config.yml",
-		filepath.Join("examples", "web", "workflow_config.yml"),
+		path,
+		filepath.Join(configDir, path),
+		filepath.Join("examples", "web", path),
 	}
 	for _, candidate := range candidates {
+		if strings.TrimSpace(candidate) == "" {
+			continue
+		}
 		if _, err := os.Stat(candidate); err == nil {
 			return candidate
 		}
