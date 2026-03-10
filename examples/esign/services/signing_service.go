@@ -1544,7 +1544,7 @@ func (s SigningService) Submit(ctx context.Context, scope stores.Scope, token st
 				"declined_at":    timePtrRFC3339(completedRecipient.DeclinedAt),
 				"decline_reason": completedRecipient.DeclineReason,
 			},
-			}); err != nil {
+		}); err != nil {
 			return err
 		}
 		if !result.Completed && nextStage > activeStage && txSvc.stageFlow != nil && len(nextSignerIDs) > 0 {

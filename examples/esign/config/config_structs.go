@@ -97,27 +97,27 @@ type Network struct {
 }
 
 type Pdf struct {
-	AllowEncrypted         bool   `json:"allow_encrypted" koanf:"allow_encrypted"`
-	AllowJavaScriptActions bool   `json:"allow_javascript_actions" koanf:"allow_javascript_actions"`
-	CompatibilityMode      string `json:"compatibility_mode" koanf:"compatibility_mode"`
-	MaxDecompressedBytes   int64  `json:"max_decompressed_bytes" koanf:"max_decompressed_bytes"`
-	MaxObjects             int    `json:"max_objects" koanf:"max_objects"`
-	MaxPages               int    `json:"max_pages" koanf:"max_pages"`
-	MaxSourceBytes         int64  `json:"max_source_bytes" koanf:"max_source_bytes"`
-	NormalizationTimeoutMS int    `json:"normalization_timeout_ms" koanf:"normalization_timeout_ms"`
-	ParseTimeoutMS         int    `json:"parse_timeout_ms" koanf:"parse_timeout_ms"`
-	PipelineMode           string `json:"pipeline_mode" koanf:"pipeline_mode"`
-	PreviewFallbackEnabled bool   `json:"preview_fallback_enabled" koanf:"preview_fallback_enabled"`
+	AllowEncrypted         bool           `json:"allow_encrypted" koanf:"allow_encrypted"`
+	AllowJavaScriptActions bool           `json:"allow_javascript_actions" koanf:"allow_javascript_actions"`
+	CompatibilityMode      string         `json:"compatibility_mode" koanf:"compatibility_mode"`
+	MaxDecompressedBytes   int64          `json:"max_decompressed_bytes" koanf:"max_decompressed_bytes"`
+	MaxObjects             int            `json:"max_objects" koanf:"max_objects"`
+	MaxPages               int            `json:"max_pages" koanf:"max_pages"`
+	MaxSourceBytes         int64          `json:"max_source_bytes" koanf:"max_source_bytes"`
+	NormalizationTimeoutMS int            `json:"normalization_timeout_ms" koanf:"normalization_timeout_ms"`
+	ParseTimeoutMS         int            `json:"parse_timeout_ms" koanf:"parse_timeout_ms"`
+	PipelineMode           string         `json:"pipeline_mode" koanf:"pipeline_mode"`
+	PreviewFallbackEnabled bool           `json:"preview_fallback_enabled" koanf:"preview_fallback_enabled"`
 	Remediation            PdfRemediation `json:"remediation" koanf:"remediation"`
 }
 
 type PdfRemediation struct {
-	AutoOnUpload      bool   `json:"auto_on_upload" koanf:"auto_on_upload"`
-	CandidateReasons  []string `json:"candidate_reasons" koanf:"candidate_reasons"`
-	Command           PdfRemediationCommand `json:"command" koanf:"command"`
-	Enabled           bool   `json:"enabled" koanf:"enabled"`
-	ExecutionMode     string `json:"execution_mode" koanf:"execution_mode"`
-	LeaseTTLMS        int    `json:"lease_ttl_ms" koanf:"lease_ttl_ms"`
+	AutoOnUpload     bool                  `json:"auto_on_upload" koanf:"auto_on_upload"`
+	CandidateReasons []string              `json:"candidate_reasons" koanf:"candidate_reasons"`
+	Command          PdfRemediationCommand `json:"command" koanf:"command"`
+	Enabled          bool                  `json:"enabled" koanf:"enabled"`
+	ExecutionMode    string                `json:"execution_mode" koanf:"execution_mode"`
+	LeaseTTLMS       int                   `json:"lease_ttl_ms" koanf:"lease_ttl_ms"`
 }
 
 type PdfRemediationCommand struct {

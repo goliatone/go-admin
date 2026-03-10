@@ -789,22 +789,22 @@ func (c *PDFRemediationCommand) Execute(ctx context.Context, msg PDFRemediationI
 	result, err := c.remediation.Remediate(ctx, scope, request)
 	if err != nil {
 		observability.LogOperation(ctx, slog.LevelWarn, "command", "pdf_remediate", "error", correlationID, time.Since(startedAt), err, map[string]any{
-			"command_name":  CommandPDFRemediate,
-			"document_id":   strings.TrimSpace(request.DocumentID),
-			"dispatch_id":   strings.TrimSpace(request.DispatchID),
+			"command_name":   CommandPDFRemediate,
+			"document_id":    strings.TrimSpace(request.DocumentID),
+			"dispatch_id":    strings.TrimSpace(request.DispatchID),
 			"execution_mode": strings.TrimSpace(request.ExecutionMode),
 		})
 		return err
 	}
 	observability.LogOperation(ctx, slog.LevelInfo, "command", "pdf_remediate", "success", correlationID, time.Since(startedAt), nil, map[string]any{
-		"command_name":        CommandPDFRemediate,
-		"document_id":         strings.TrimSpace(result.Document.ID),
-		"pdf_compatibility":   strings.TrimSpace(result.Document.PDFCompatibilityTier),
-		"pdf_reason":          strings.TrimSpace(result.Document.PDFCompatibilityReason),
-		"dispatch_id":         strings.TrimSpace(request.DispatchID),
-		"execution_mode":      strings.TrimSpace(request.ExecutionMode),
-		"remediation_status":  strings.TrimSpace(result.Document.RemediationStatus),
-		"remediation_output":  strings.TrimSpace(result.OutputObjectKey),
+		"command_name":       CommandPDFRemediate,
+		"document_id":        strings.TrimSpace(result.Document.ID),
+		"pdf_compatibility":  strings.TrimSpace(result.Document.PDFCompatibilityTier),
+		"pdf_reason":         strings.TrimSpace(result.Document.PDFCompatibilityReason),
+		"dispatch_id":        strings.TrimSpace(request.DispatchID),
+		"execution_mode":     strings.TrimSpace(request.ExecutionMode),
+		"remediation_status": strings.TrimSpace(result.Document.RemediationStatus),
+		"remediation_output": strings.TrimSpace(result.OutputObjectKey),
 	})
 	return nil
 }

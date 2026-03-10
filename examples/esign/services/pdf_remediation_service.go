@@ -421,12 +421,12 @@ func (s PDFRemediationService) emitLifecycle(
 		OrgID:    strings.TrimSpace(fmt.Sprint(metadata["org_id"])),
 	}
 	if _, err := s.audits.Append(ctx, scope, stores.AuditEventRecord{
-		AgreementID: agreementID,
-		EventType:   "document.remediation." + strings.TrimSpace(status),
-		ActorType:   actorType,
-		ActorID:     strings.TrimSpace(actorID),
+		AgreementID:  agreementID,
+		EventType:    "document.remediation." + strings.TrimSpace(status),
+		ActorType:    actorType,
+		ActorID:      strings.TrimSpace(actorID),
 		MetadataJSON: string(payload),
-		CreatedAt:   occurredAt.UTC(),
+		CreatedAt:    occurredAt.UTC(),
 	}); err != nil {
 		return err
 	}
