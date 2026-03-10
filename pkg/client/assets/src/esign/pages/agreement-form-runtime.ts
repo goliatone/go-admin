@@ -326,7 +326,8 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
         const email = entry.querySelector('input[name*=".email"]')?.value || '';
         const role = entry.querySelector('select[name*=".role"]')?.value || 'signer';
         const signingStage = parseInt(entry.querySelector('.signing-stage-input')?.value || '1', 10);
-        participants.push({ tempId: id, name, email, role, signingStage });
+        const notify = entry.querySelector('.notify-input')?.checked !== false;
+        participants.push({ tempId: id, name, email, role, notify, signingStage });
       });
 
       const fieldDefinitions = [];
@@ -1785,6 +1786,7 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     const emailInput = entry.querySelector('input[name="participants[].email"]');
     const roleSelect = entry.querySelector('select[name="participants[].role"]');
     const signingStageInput = entry.querySelector('input[name="participants[].signing_stage"]');
+    const notifyInput = entry.querySelector('input[name="participants[].notify"]');
     const signingStageWrapper = entry.querySelector('.signing-stage-wrapper');
 
     // Use stable entity IDs in values while preserving index-addressed form arrays.
@@ -1797,12 +1799,18 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     if (signingStageInput) {
       signingStageInput.name = `participants[${formIndex}].signing_stage`;
     }
+    if (notifyInput) {
+      notifyInput.name = `participants[${formIndex}].notify`;
+    }
 
     if (data.name) nameInput.value = data.name;
     if (data.email) emailInput.value = data.email;
     if (data.role) roleSelect.value = data.role;
     if (signingStageInput && data.signing_stage) {
       signingStageInput.value = data.signing_stage;
+    }
+    if (notifyInput) {
+      notifyInput.checked = data.notify !== false;
     }
 
     const syncSigningStageVisibility = () => {
@@ -1840,6 +1848,7 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
         name: String(participant.name || '').trim(),
         email: String(participant.email || '').trim(),
         role: String(participant.role || 'signer').trim() || 'signer',
+        notify: participant.notify !== false,
         signing_stage: Number(participant.signing_stage || participant.signingStage || 1) || 1,
       });
     });
@@ -2491,6 +2500,7 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
       const name = String(entry.querySelector('input[name*=".name"]')?.value || '').trim();
       const email = String(entry.querySelector('input[name*=".email"]')?.value || '').trim();
       const role = String(entry.querySelector('select[name*=".role"]')?.value || 'signer').trim();
+      const notify = entry.querySelector('.notify-input')?.checked !== false;
       const signingStageRaw = String(entry.querySelector('.signing-stage-input')?.value || '').trim();
       const signingStage = Number(signingStageRaw || '1') || 1;
       participants.push({
@@ -2498,6 +2508,7 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
         name,
         email,
         role,
+        notify,
         signing_stage: role === 'signer' ? signingStage : 0,
       });
     });
@@ -4540,6 +4551,7 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
       const emailInput = entry.querySelector('input[name*=".email"]');
       const roleSelect = entry.querySelector('select[name*=".role"]');
       const stageInput = entry.querySelector('.signing-stage-input');
+      const notifyInput = entry.querySelector('.notify-input');
 
       const div = document.createElement('div');
       div.className = 'flex items-center justify-between text-sm';
@@ -4551,6 +4563,9 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
         <div class="flex items-center gap-2">
           <span class="px-2 py-0.5 rounded text-xs ${roleSelect.value === 'signer' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'}">
             ${roleSelect.value === 'signer' ? 'Signer' : 'CC'}
+          </span>
+          <span class="px-2 py-0.5 rounded text-xs ${notifyInput?.checked !== false ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}">
+            ${notifyInput?.checked !== false ? 'Notify' : 'No Notify'}
           </span>
           ${roleSelect.value === 'signer' && stageInput?.value ? `<span class="text-xs text-gray-500">Stage ${stageInput.value}</span>` : ''}
         </div>
@@ -4740,6 +4755,7 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
         name: p.name,
         email: p.email,
         role: p.role,
+        notify: p.notify !== false,
         signing_stage: p.signingStage
       });
     });

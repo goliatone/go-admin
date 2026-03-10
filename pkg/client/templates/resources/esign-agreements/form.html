@@ -247,6 +247,7 @@
           "name": "{{ participant.name|default:""|escapejs }}",
           "email": "{{ participant.email|default:""|escapejs }}",
           "role": "{{ participant.role|default:"signer"|escapejs }}",
+          "notify": {% if participant.notify|default:true %}true{% else %}false{% endif %},
           "signing_stage": {{ participant.signing_stage|default:1 }}
         }{% if not forloop.last %},{% endif %}
         {% endfor %}
@@ -515,6 +516,18 @@
                     class="signing-stage-input w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
                   <p class="mt-1 text-xs text-gray-400">Signers in the same stage sign in parallel</p>
+                </div>
+                <div class="notify-wrapper flex items-start md:items-center pt-1 md:pt-6">
+                  <label class="inline-flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      name="participants[].notify"
+                      checked
+                      aria-label="Notify participant by email"
+                      class="notify-input h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    >
+                    Notify
+                  </label>
                 </div>
               </div>
               <button type="button" class="remove-participant-btn p-2 text-gray-400 hover:text-red-600" aria-label="Remove this participant">
@@ -1052,7 +1065,7 @@
           </svg>
           <div class="flex-1">
             <p class="text-sm text-blue-800 font-medium">Ready to send!</p>
-            <p class="text-xs text-blue-700 mt-1">All participants will receive an email invitation to sign this agreement. You can track progress from the agreement detail page.</p>
+            <p class="text-xs text-blue-700 mt-1">Only participants with Notify enabled will receive email updates. You can track progress from the agreement detail page.</p>
           </div>
         </div>
       </div>
