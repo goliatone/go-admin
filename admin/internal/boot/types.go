@@ -25,10 +25,13 @@ type HandlerWrapper func(router.HandlerFunc) router.HandlerFunc
 
 // Router is the minimal router surface needed for boot steps.
 type Router interface {
+	Handle(method router.HTTPMethod, path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo
 	Get(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo
 	Post(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo
 	Put(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo
 	Delete(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo
+	Patch(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo
+	Head(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo
 }
 
 // RouteSpec describes a route to register.
