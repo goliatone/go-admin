@@ -16,7 +16,7 @@ require (
 	github.com/goliatone/go-auth v0.36.0
 	github.com/goliatone/go-auth/adapters/featuregate v0.36.0
 	github.com/goliatone/go-cms v0.40.0
-	github.com/goliatone/go-command v0.16.1
+	github.com/goliatone/go-command v0.17.0
 	github.com/goliatone/go-dashboard v0.7.0
 	github.com/goliatone/go-errors v0.10.0
 	github.com/goliatone/go-export v0.7.0
@@ -107,7 +107,7 @@ require (
 	github.com/goliatone/go-crud v0.23.0 // indirect
 	github.com/goliatone/go-crud/gql v0.23.0 // indirect
 	github.com/goliatone/go-i18n v0.2.0 // indirect
-	github.com/goliatone/go-job v0.15.0 // indirect
+	github.com/goliatone/go-job v0.16.0 // indirect
 	github.com/goliatone/go-masker v0.1.0 // indirect
 	github.com/goliatone/go-options v0.7.1 // indirect
 	github.com/goliatone/go-print v0.4.1 // indirect
