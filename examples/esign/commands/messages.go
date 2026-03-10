@@ -218,6 +218,97 @@ func (m AgreementReminderSendNowInput) Validate() error {
 	return m.validateRequired()
 }
 
+// PDFRemediationInput captures payload for document remediation command dispatch.
+type PDFRemediationInput struct {
+	Scope            stores.Scope   `json:"scope"`
+	DocumentID       string         `json:"document_id"`
+	AgreementID      string         `json:"agreement_id,omitempty"`
+	ActorID          string         `json:"actor_id,omitempty"`
+	Force            bool           `json:"force,omitempty"`
+	CorrelationID    string         `json:"correlation_id,omitempty"`
+	CommandID        string         `json:"command_id,omitempty"`
+	DispatchID       string         `json:"dispatch_id,omitempty"`
+	ExecutionMode    string         `json:"execution_mode,omitempty"`
+	RequestedAt      string         `json:"requested_at,omitempty"`
+	DispatchMetadata map[string]any `json:"_dispatch_metadata,omitempty"`
+}
+
+func (PDFRemediationInput) Type() string {
+	return CommandPDFRemediate
+}
+
+func (m PDFRemediationInput) Validate() error {
+	if strings.TrimSpace(m.DocumentID) == "" {
+		return fmt.Errorf("document_id required")
+	}
+	return nil
+}
+
+func (m PDFRemediationInput) resolvedCommandID() string {
+	commandID := strings.TrimSpace(m.CommandID)
+	if commandID == "" {
+		commandID = strings.TrimSpace(toString(m.DispatchMetadata["command_id"]))
+	}
+	if commandID == "" {
+		commandID = CommandPDFRemediate
+	}
+	return commandID
+}
+
+func (m PDFRemediationInput) resolvedDispatchID() string {
+	dispatchID := strings.TrimSpace(m.DispatchID)
+	if dispatchID == "" {
+		dispatchID = strings.TrimSpace(toString(m.DispatchMetadata["dispatch_id"]))
+	}
+	return dispatchID
+}
+
+func (m PDFRemediationInput) resolvedExecutionMode() string {
+	mode := strings.TrimSpace(strings.ToLower(m.ExecutionMode))
+	if mode == "" {
+		mode = strings.TrimSpace(strings.ToLower(toString(m.DispatchMetadata["execution_mode"])))
+	}
+	if mode == "" {
+		mode = "inline"
+	}
+	return mode
+}
+
+func (m PDFRemediationInput) resolvedCorrelationID() string {
+	correlationID := strings.TrimSpace(m.CorrelationID)
+	if correlationID == "" {
+		correlationID = strings.TrimSpace(toString(m.DispatchMetadata["correlation_id"]))
+	}
+	return correlationID
+}
+
+func (m PDFRemediationInput) requestedAtTime(now time.Time) *time.Time {
+	raw := strings.TrimSpace(m.RequestedAt)
+	if raw == "" {
+		return &now
+	}
+	parsed, err := time.Parse(time.RFC3339Nano, raw)
+	if err != nil {
+		return &now
+	}
+	parsed = parsed.UTC()
+	return &parsed
+}
+
+func (m PDFRemediationInput) Request(now time.Time) services.PDFRemediationRequest {
+	return services.PDFRemediationRequest{
+		DocumentID:    strings.TrimSpace(m.DocumentID),
+		AgreementID:   strings.TrimSpace(m.AgreementID),
+		ActorID:       strings.TrimSpace(m.ActorID),
+		CommandID:     m.resolvedCommandID(),
+		DispatchID:    m.resolvedDispatchID(),
+		CorrelationID: m.resolvedCorrelationID(),
+		ExecutionMode: m.resolvedExecutionMode(),
+		RequestedAt:   m.requestedAtTime(now.UTC()),
+		Force:         m.Force,
+	}
+}
+
 // DraftCleanupInput captures payload for scheduled/manual draft expiry cleanup.
 type DraftCleanupInput struct {
 	Scope         stores.Scope

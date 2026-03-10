@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	goconfig "github.com/goliatone/go-config/config"
 )
@@ -24,6 +25,11 @@ const (
 
 	defaultMigrationsLocalDir = "data/sql/migrations"
 	defaultSQLiteDSN          = "file:data/go-admin-esign.sqlite?_busy_timeout=5000&_foreign_keys=on"
+
+	defaultPDFRemediationLeaseTTL          = 60 * time.Second
+	defaultPDFRemediationCommandTimeout    = 15 * time.Second
+	defaultPDFRemediationCommandMaxPDFBytes = int64(100 * 1024 * 1024)
+	defaultPDFRemediationCommandMaxLogBytes = 256 * 1024
 )
 
 // Backward-compatible config aliases. Keep these in the tracked source so
@@ -41,6 +47,8 @@ type EmailConfig = Email
 type EmailSMTPConfig = SMTP
 type SignerConfig = Signer
 type SignerPDFConfig = Pdf
+type SignerPDFRemediationConfig = PdfRemediation
+type SignerPDFRemediationCommandConfig = PdfRemediationCommand
 type ServicesConfig = Services
 type GoogleConfig = Google
 type PublicConfig = Public
@@ -259,6 +267,20 @@ func Defaults() Config {
 				CompatibilityMode:      "balanced",
 				PreviewFallbackEnabled: false,
 				PipelineMode:           "prefer_normalized",
+				Remediation: SignerPDFRemediationConfig{
+					Enabled:          false,
+					ExecutionMode:    "inline",
+					AutoOnUpload:     false,
+					CandidateReasons: []string{"import.failed", "parse.failed"},
+					LeaseTTLMS:       int(defaultPDFRemediationLeaseTTL.Milliseconds()),
+					Command: SignerPDFRemediationCommandConfig{
+						Bin:         "gs",
+						Args:        defaultPDFRemediationCommandArgs(),
+						TimeoutMS:   int(defaultPDFRemediationCommandTimeout.Milliseconds()),
+						MaxPdfBytes: defaultPDFRemediationCommandMaxPDFBytes,
+						MaxLogBytes: defaultPDFRemediationCommandMaxLogBytes,
+					},
+				},
 			},
 		},
 		Services: ServicesConfig{
@@ -356,6 +378,7 @@ func configValidators() []goconfig.Validator[*Config] {
 		validateRateLimits,
 		validateReminderConfig,
 		validateReminderEncryption,
+		validatePDFRemediationConfig,
 		validateTrustedProxyCIDRs,
 		validateRepositoryDialect,
 	}
@@ -444,6 +467,30 @@ func validateReminderEncryption(c *Config) error {
 		if err := ValidateReminderInternalErrorEncryptionKey(c.Services.EncryptionKey); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func validatePDFRemediationConfig(c *Config) error {
+	remediation := c.Signer.PDF.Remediation
+	command := remediation.Command
+	if remediation.LeaseTTLMS <= 0 {
+		return fmt.Errorf("signer.pdf.remediation.lease_ttl_ms must be greater than zero")
+	}
+	if strings.TrimSpace(command.Bin) == "" {
+		return fmt.Errorf("signer.pdf.remediation.command.bin is required")
+	}
+	if len(command.Args) == 0 {
+		return fmt.Errorf("signer.pdf.remediation.command.args is required")
+	}
+	if command.TimeoutMS <= 0 {
+		return fmt.Errorf("signer.pdf.remediation.command.timeout_ms must be greater than zero")
+	}
+	if command.MaxPdfBytes <= 0 {
+		return fmt.Errorf("signer.pdf.remediation.command.max_pdf_bytes must be greater than zero")
+	}
+	if command.MaxLogBytes <= 0 {
+		return fmt.Errorf("signer.pdf.remediation.command.max_log_bytes must be greater than zero")
 	}
 	return nil
 }
@@ -728,6 +775,87 @@ func (c *Config) applySignerPDFDefaults() {
 		c.Signer.PDF.PipelineMode = strings.ToLower(strings.TrimSpace(c.Signer.PDF.PipelineMode))
 	default:
 		c.Signer.PDF.PipelineMode = defaults.PipelineMode
+	}
+
+	remediationDefaults := defaults.Remediation
+	mode = strings.ToLower(strings.TrimSpace(c.Signer.PDF.Remediation.ExecutionMode))
+	switch mode {
+	case "inline", "queued":
+		c.Signer.PDF.Remediation.ExecutionMode = mode
+	default:
+		c.Signer.PDF.Remediation.ExecutionMode = remediationDefaults.ExecutionMode
+	}
+	if c.Signer.PDF.Remediation.LeaseTTLMS <= 0 {
+		c.Signer.PDF.Remediation.LeaseTTLMS = remediationDefaults.LeaseTTLMS
+	}
+	if len(c.Signer.PDF.Remediation.CandidateReasons) == 0 {
+		c.Signer.PDF.Remediation.CandidateReasons = append([]string{}, remediationDefaults.CandidateReasons...)
+	} else {
+		c.Signer.PDF.Remediation.CandidateReasons = normalizeRemediationReasons(c.Signer.PDF.Remediation.CandidateReasons)
+		if len(c.Signer.PDF.Remediation.CandidateReasons) == 0 {
+			c.Signer.PDF.Remediation.CandidateReasons = append([]string{}, remediationDefaults.CandidateReasons...)
+		}
+	}
+	c.Signer.PDF.Remediation.Command.Bin = strings.TrimSpace(c.Signer.PDF.Remediation.Command.Bin)
+	if c.Signer.PDF.Remediation.Command.Bin == "" {
+		c.Signer.PDF.Remediation.Command.Bin = remediationDefaults.Command.Bin
+	}
+	if len(c.Signer.PDF.Remediation.Command.Args) == 0 {
+		c.Signer.PDF.Remediation.Command.Args = append([]string{}, remediationDefaults.Command.Args...)
+	} else {
+		c.Signer.PDF.Remediation.Command.Args = normalizeRemediationArgs(c.Signer.PDF.Remediation.Command.Args)
+		if len(c.Signer.PDF.Remediation.Command.Args) == 0 {
+			c.Signer.PDF.Remediation.Command.Args = append([]string{}, remediationDefaults.Command.Args...)
+		}
+	}
+	if c.Signer.PDF.Remediation.Command.TimeoutMS <= 0 {
+		c.Signer.PDF.Remediation.Command.TimeoutMS = remediationDefaults.Command.TimeoutMS
+	}
+	if c.Signer.PDF.Remediation.Command.MaxPdfBytes <= 0 {
+		c.Signer.PDF.Remediation.Command.MaxPdfBytes = remediationDefaults.Command.MaxPdfBytes
+	}
+	if c.Signer.PDF.Remediation.Command.MaxLogBytes <= 0 {
+		c.Signer.PDF.Remediation.Command.MaxLogBytes = remediationDefaults.Command.MaxLogBytes
+	}
+}
+
+func normalizeRemediationReasons(raw []string) []string {
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(raw))
+	for _, reason := range raw {
+		normalized := strings.ToLower(strings.TrimSpace(reason))
+		if normalized == "" {
+			continue
+		}
+		if _, ok := seen[normalized]; ok {
+			continue
+		}
+		seen[normalized] = struct{}{}
+		out = append(out, normalized)
+	}
+	return out
+}
+
+func normalizeRemediationArgs(raw []string) []string {
+	out := make([]string, 0, len(raw))
+	for _, arg := range raw {
+		trimmed := strings.TrimSpace(arg)
+		if trimmed == "" {
+			continue
+		}
+		out = append(out, trimmed)
+	}
+	return out
+}
+
+func defaultPDFRemediationCommandArgs() []string {
+	return []string{
+		"-dBATCH",
+		"-dNOPAUSE",
+		"-sDEVICE=pdfwrite",
+		"-dCompatibilityLevel=1.6",
+		"-sOutputFile={out}",
+		"{in}",
 	}
 }
 

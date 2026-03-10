@@ -86,7 +86,31 @@
       "allow_javascript_actions": false,
       "compatibility_mode": "balanced",
       "preview_fallback_enabled": false,
-      "pipeline_mode": "prefer_normalized"
+      "pipeline_mode": "prefer_normalized",
+      "remediation": {
+        "enabled": false,
+        "execution_mode": "inline",
+        "auto_on_upload": false,
+        "candidate_reasons": [
+          "import.failed",
+          "parse.failed"
+        ],
+        "lease_ttl_ms": 60000,
+        "command": {
+          "bin": "gs",
+          "args": [
+            "-dBATCH",
+            "-dNOPAUSE",
+            "-sDEVICE=pdfwrite",
+            "-dCompatibilityLevel=1.6",
+            "-sOutputFile={out}",
+            "{in}"
+          ],
+          "timeout_ms": 15000,
+          "max_pdf_bytes": 104857600,
+          "max_log_bytes": 262144
+        }
+      }
     }
   },
   "services": {

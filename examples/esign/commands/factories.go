@@ -35,6 +35,9 @@ func RegisterCommandFactories(bus *coreadmin.CommandBus) error {
 	if err := coreadmin.RegisterMessageFactory(bus, CommandAgreementReminderSendNow, buildAgreementReminderSendNowInput); err != nil {
 		return err
 	}
+	if err := coreadmin.RegisterMessageFactory(bus, CommandPDFRemediate, buildPDFRemediationInput); err != nil {
+		return err
+	}
 	if err := coreadmin.RegisterMessageFactory(bus, CommandTokenRotate, buildTokenRotateInput); err != nil {
 		return err
 	}
@@ -200,6 +203,37 @@ func buildDraftCleanupInput(payload map[string]any, _ []string) (DraftCleanupInp
 	return msg, nil
 }
 
+func buildPDFRemediationInput(payload map[string]any, ids []string) (PDFRemediationInput, error) {
+	documentID := ""
+	if len(ids) > 0 {
+		documentID = strings.TrimSpace(ids[0])
+	}
+	if documentID == "" {
+		documentID = strings.TrimSpace(toString(payloadValue(payload, "document_id")))
+	}
+	if documentID == "" {
+		documentID = strings.TrimSpace(toString(payloadValue(payload, "id")))
+	}
+
+	msg := PDFRemediationInput{
+		Scope:            scopeFromPayload(payload),
+		DocumentID:       documentID,
+		AgreementID:      strings.TrimSpace(toString(payloadValue(payload, "agreement_id"))),
+		ActorID:          strings.TrimSpace(toString(payloadValue(payload, "actor_id"))),
+		Force:            boolWithDefault(payloadValue(payload, "force"), false),
+		CorrelationID:    strings.TrimSpace(toString(payloadValue(payload, "correlation_id"))),
+		CommandID:        strings.TrimSpace(toString(payloadValue(payload, "command_id"))),
+		DispatchID:       strings.TrimSpace(toString(payloadValue(payload, "dispatch_id"))),
+		ExecutionMode:    strings.TrimSpace(strings.ToLower(toString(payloadValue(payload, "execution_mode")))),
+		RequestedAt:      strings.TrimSpace(toString(payloadValue(payload, "requested_at"))),
+		DispatchMetadata: toAnyMap(payloadValue(payload, "_dispatch_metadata")),
+	}
+	if err := msg.Validate(); err != nil {
+		return msg, err
+	}
+	return msg, nil
+}
+
 func agreementIDFromPayload(payload map[string]any, ids []string) (string, error) {
 	if len(ids) > 0 {
 		if id := strings.TrimSpace(ids[0]); id != "" {
@@ -227,6 +261,28 @@ func payloadValue(payload map[string]any, key string) any {
 		return nil
 	}
 	return payload[key]
+}
+
+func toAnyMap(value any) map[string]any {
+	if value == nil {
+		return nil
+	}
+	switch typed := value.(type) {
+	case map[string]any:
+		out := make(map[string]any, len(typed))
+		for key, item := range typed {
+			out[key] = item
+		}
+		return out
+	case map[string]string:
+		out := make(map[string]any, len(typed))
+		for key, item := range typed {
+			out[key] = item
+		}
+		return out
+	default:
+		return nil
+	}
 }
 
 func toString(value any) string {

@@ -108,6 +108,24 @@ type Pdf struct {
 	ParseTimeoutMS         int    `json:"parse_timeout_ms" koanf:"parse_timeout_ms"`
 	PipelineMode           string `json:"pipeline_mode" koanf:"pipeline_mode"`
 	PreviewFallbackEnabled bool   `json:"preview_fallback_enabled" koanf:"preview_fallback_enabled"`
+	Remediation            PdfRemediation `json:"remediation" koanf:"remediation"`
+}
+
+type PdfRemediation struct {
+	AutoOnUpload      bool   `json:"auto_on_upload" koanf:"auto_on_upload"`
+	CandidateReasons  []string `json:"candidate_reasons" koanf:"candidate_reasons"`
+	Command           PdfRemediationCommand `json:"command" koanf:"command"`
+	Enabled           bool   `json:"enabled" koanf:"enabled"`
+	ExecutionMode     string `json:"execution_mode" koanf:"execution_mode"`
+	LeaseTTLMS        int    `json:"lease_ttl_ms" koanf:"lease_ttl_ms"`
+}
+
+type PdfRemediationCommand struct {
+	Args        []string `json:"args" koanf:"args"`
+	Bin         string   `json:"bin" koanf:"bin"`
+	MaxLogBytes int      `json:"max_log_bytes" koanf:"max_log_bytes"`
+	MaxPdfBytes int64    `json:"max_pdf_bytes" koanf:"max_pdf_bytes"`
+	TimeoutMS   int      `json:"timeout_ms" koanf:"timeout_ms"`
 }
 
 type Postgres struct {
