@@ -24,28 +24,6 @@ func (a adminRouterAdapter) Handle(method router.HTTPMethod, path string, handle
 	return a.router.Handle(method, path, handler, mw...)
 }
 
-func (a adminRouterAdapter) Group(prefix string) AdminRouter {
-	return adminRouterAdapter{router: a.router.Group(prefix)}
-}
-
-func (a adminRouterAdapter) Mount(prefix string) AdminRouter {
-	return adminRouterAdapter{router: a.router.Mount(prefix)}
-}
-
-func (a adminRouterAdapter) WithGroup(path string, cb func(AdminRouter)) AdminRouter {
-	routerWithGroup := a.router.WithGroup(path, func(r boot.Router) {
-		if cb == nil {
-			return
-		}
-		cb(adminRouterAdapter{router: r})
-	})
-	return adminRouterAdapter{router: routerWithGroup}
-}
-
-func (a adminRouterAdapter) Use(m ...router.MiddlewareFunc) AdminRouter {
-	return adminRouterAdapter{router: a.router.Use(m...)}
-}
-
 func (a adminRouterAdapter) Get(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
 	return a.router.Get(path, handler, mw...)
 }
