@@ -33,6 +33,8 @@ type adminOptions struct {
 	commandExecutionPolicySet    bool
 	commandQueueRouting          CommandQueueRoutingConfig
 	commandQueueRoutingSet       bool
+	rpcTransportConfig           RPCTransportConfig
+	rpcTransportConfigSet        bool
 	featureDefaults              map[string]bool
 	workflowConfig               WorkflowConfig
 	workflowConfigSet            bool
@@ -364,6 +366,9 @@ func NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin
 	logTranslationCapabilitiesStartup(translationLogger, TranslationCapabilities(adm))
 	registerQuickstartDoctorChecks(adm, cfg, result, options)
 	if err := configureCommandQueueRouting(options); err != nil {
+		return nil, result, err
+	}
+	if err := configureRPCTransport(adm, options); err != nil {
 		return nil, result, err
 	}
 	return adm, result, nil
