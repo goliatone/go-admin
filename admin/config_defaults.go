@@ -182,6 +182,7 @@ func applyConfigDefaults(cfg Config) Config {
 	if cfg.Commands.Execution.PerCommand == nil {
 		cfg.Commands.Execution.PerCommand = map[string]command.ExecutionMode{}
 	}
+	cfg.Commands.RPC = applyRPCCommandConfigDefaults(cfg.Commands.RPC)
 
 	return cfg
 }
