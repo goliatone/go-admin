@@ -1,6 +1,10 @@
 package admin
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/goliatone/go-command"
+)
 
 func TestNewAppliesPermissionAndFeatureDefaults(t *testing.T) {
 	adm, err := New(Config{}, Dependencies{})
@@ -110,6 +114,12 @@ func TestNewAppliesPermissionAndFeatureDefaults(t *testing.T) {
 	if adm.config.ThemeTokens == nil || adm.config.SettingsThemeTokens == nil {
 		t.Fatalf("expected theme token maps to be initialized")
 	}
+	if adm.config.Commands.Execution.DefaultMode != command.ExecutionModeInline {
+		t.Fatalf("expected commands.execution.default_mode inline, got %q", adm.config.Commands.Execution.DefaultMode)
+	}
+	if adm.config.Commands.Execution.PerCommand == nil {
+		t.Fatalf("expected commands.execution.per_command map initialized")
+	}
 
 	adm2, err := New(Config{}, Dependencies{FeatureGate: featureGateFromKeys(FeatureCommands)})
 	if err != nil {
@@ -117,5 +127,18 @@ func TestNewAppliesPermissionAndFeatureDefaults(t *testing.T) {
 	}
 	if !featureEnabled(adm2.featureGate, FeatureCommands) {
 		t.Fatalf("expected feature gate to enable commands")
+	}
+}
+
+func TestNewRejectsInvalidCommandExecutionPolicy(t *testing.T) {
+	_, err := New(Config{
+		Commands: CommandConfig{
+			Execution: CommandExecutionPolicy{
+				DefaultMode: command.ExecutionMode("invalid"),
+			},
+		},
+	}, Dependencies{})
+	if err == nil {
+		t.Fatalf("expected invalid command execution policy error")
 	}
 }

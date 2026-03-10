@@ -31,6 +31,7 @@ func TestPreferencesFormSaveMergesRawUIAndClearKeys(t *testing.T) {
 	mockCtx := router.NewMockContext()
 	mockCtx.HeadersM["X-User-ID"] = "user-1"
 	mockCtx.On("Context").Return(context.Background())
+	mockCtx.On("IP").Return("").Maybe()
 	mockCtx.On("FormValue", preferencesKeyTheme).Return("")
 	mockCtx.On("FormValue", preferencesKeyThemeVariant).Return("")
 	mockCtx.On("FormValue", "raw_ui").Return(`{"ui.new":{"value":1}}`)
@@ -88,6 +89,7 @@ func TestPreferencesFormSaveRejectsInvalidRawUI(t *testing.T) {
 			mockCtx := router.NewMockContext()
 			mockCtx.HeadersM["X-User-ID"] = "user-1"
 			mockCtx.On("Context").Return(context.Background())
+			mockCtx.On("IP").Return("").Maybe()
 			mockCtx.On("FormValue", preferencesKeyTheme).Return("")
 			mockCtx.On("FormValue", preferencesKeyThemeVariant).Return("")
 			mockCtx.On("FormValue", "raw_ui").Return(tc.rawUI)
@@ -133,6 +135,7 @@ func TestPreferencesFormSaveRejectsInvalidClearUIKeys(t *testing.T) {
 	mockCtx := router.NewMockContext()
 	mockCtx.HeadersM["X-User-ID"] = "user-1"
 	mockCtx.On("Context").Return(context.Background())
+	mockCtx.On("IP").Return("").Maybe()
 	mockCtx.On("FormValue", preferencesKeyTheme).Return("")
 	mockCtx.On("FormValue", preferencesKeyThemeVariant).Return("")
 	mockCtx.On("FormValue", "raw_ui").Return(`{"ui.new":true}`)
@@ -172,6 +175,7 @@ func TestPreferencesViewContextIncludesSchemaMetadata(t *testing.T) {
 	mockCtx := router.NewMockContext()
 	mockCtx.HeadersM["X-User-ID"] = "user-1"
 	mockCtx.On("Context").Return(context.Background())
+	mockCtx.On("IP").Return("").Maybe()
 	mockCtx.On("Path").Return(prefPath)
 	mockCtx.On("Render", preferencesFormTemplate, mock.MatchedBy(func(arg any) bool {
 		viewCtx, ok := arg.(router.ViewContext)
@@ -248,6 +252,7 @@ func TestPreferencesViewContextIncludesAdminLayoutContext(t *testing.T) {
 	mockCtx := router.NewMockContext()
 	mockCtx.HeadersM["X-User-ID"] = "user-1"
 	mockCtx.On("Context").Return(reqCtx)
+	mockCtx.On("IP").Return("").Maybe()
 	mockCtx.On("Path").Return(prefPath)
 	mockCtx.On("Render", preferencesFormTemplate, mock.MatchedBy(func(arg any) bool {
 		viewCtx, ok := arg.(router.ViewContext)
@@ -316,6 +321,7 @@ func TestPreferencesViewContextRehydratesAdminLayoutAfterCustomBuilder(t *testin
 	mockCtx := router.NewMockContext()
 	mockCtx.HeadersM["X-User-ID"] = "user-1"
 	mockCtx.On("Context").Return(reqCtx)
+	mockCtx.On("IP").Return("").Maybe()
 	mockCtx.On("Path").Return(prefPath)
 	mockCtx.On("Render", preferencesFormTemplate, mock.MatchedBy(func(arg any) bool {
 		viewCtx, ok := arg.(router.ViewContext)

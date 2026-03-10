@@ -42,6 +42,7 @@ func TestTranslationPhase3ContractFallbackContextConsistency(t *testing.T) {
 	}
 	c := router.NewMockContext()
 	c.On("Context").Return(context.Background())
+	c.On("IP").Return("").Maybe()
 
 	detail, err := binding.Detail(c, "es", "post_en")
 	if err != nil {

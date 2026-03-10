@@ -38,6 +38,7 @@ func TestUserDetailTabSelection(t *testing.T) {
 	ctx.HeadersM["X-Forwarded-Host"] = serverHost(t, server)
 	ctx.HeadersM["X-Forwarded-Proto"] = serverScheme(t, server)
 	ctx.On("Context").Return(withUsersClaims())
+	ctx.On("IP").Return("").Maybe()
 	ctx.On("Render", "resources/users/detail", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		viewCtx, ok := args.Get(1).(router.ViewContext)
 		if !ok {
@@ -77,6 +78,7 @@ func TestUserDetailTabDefaultsToDetails(t *testing.T) {
 	ctx.HeadersM["X-Forwarded-Host"] = serverHost(t, server)
 	ctx.HeadersM["X-Forwarded-Proto"] = serverScheme(t, server)
 	ctx.On("Context").Return(withUsersClaims())
+	ctx.On("IP").Return("").Maybe()
 	ctx.On("Render", "resources/users/detail", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		viewCtx, ok := args.Get(1).(router.ViewContext)
 		if !ok {
@@ -101,6 +103,7 @@ func TestUserDetailActivityTabPermissionModeStrictReturnsForbidden(t *testing.T)
 	ctx.ParamsM["id"] = fmt.Sprint(user["id"])
 	ctx.QueriesM["tab"] = "activity"
 	ctx.On("Context").Return(withUsersClaims())
+	ctx.On("IP").Return("").Maybe()
 
 	err := h.Detail(ctx)
 	require.Error(t, err)
@@ -119,6 +122,7 @@ func TestUserDetailActivityTabPermissionModeInlineDegrades(t *testing.T) {
 	ctx.ParamsM["id"] = fmt.Sprint(user["id"])
 	ctx.QueriesM["tab"] = "activity"
 	ctx.On("Context").Return(withUsersClaims())
+	ctx.On("IP").Return("").Maybe()
 	ctx.On("Render", "resources/users/detail", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		viewCtx, ok := args.Get(1).(router.ViewContext)
 		require.True(t, ok)
@@ -141,6 +145,7 @@ func TestUserDetailActivityTabPermissionModeAutoUsesDevMode(t *testing.T) {
 		ctx.ParamsM["id"] = fmt.Sprint(user["id"])
 		ctx.QueriesM["tab"] = "activity"
 		ctx.On("Context").Return(withUsersClaims())
+		ctx.On("IP").Return("").Maybe()
 
 		err := h.Detail(ctx)
 		require.Error(t, err)
@@ -158,6 +163,7 @@ func TestUserDetailActivityTabPermissionModeAutoUsesDevMode(t *testing.T) {
 		ctx.ParamsM["id"] = fmt.Sprint(user["id"])
 		ctx.QueriesM["tab"] = "activity"
 		ctx.On("Context").Return(withUsersClaims())
+		ctx.On("IP").Return("").Maybe()
 		ctx.On("Render", "resources/users/detail", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 			viewCtx, ok := args.Get(1).(router.ViewContext)
 			require.True(t, ok)
@@ -182,6 +188,7 @@ func TestUserTabHTMLEndpoint(t *testing.T) {
 	ctx.HeadersM["X-Forwarded-Host"] = serverHost(t, server)
 	ctx.HeadersM["X-Forwarded-Proto"] = serverScheme(t, server)
 	ctx.On("Context").Return(withUsersAndActivityClaims())
+	ctx.On("IP").Return("").Maybe()
 	ctx.On("Render", "partials/tab-panel", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		viewCtx, ok := args.Get(1).(router.ViewContext)
 		if !ok {
@@ -212,6 +219,7 @@ func TestUserTabJSONEndpoint(t *testing.T) {
 	ctx.HeadersM["X-Forwarded-Host"] = serverHost(t, server)
 	ctx.HeadersM["X-Forwarded-Proto"] = serverScheme(t, server)
 	ctx.On("Context").Return(withUsersAndActivityClaims())
+	ctx.On("IP").Return("").Maybe()
 	ctx.On("JSON", http.StatusOK, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		payload, ok := args.Get(1).(map[string]any)
 		if !ok {
@@ -238,6 +246,7 @@ func TestUserDetailTabSelectionFallsBackToRegistryTabs(t *testing.T) {
 	ctx.ParamsM["id"] = fmt.Sprint(user["id"])
 	ctx.QueriesM["tab"] = "activity"
 	ctx.On("Context").Return(withUsersClaims())
+	ctx.On("IP").Return("").Maybe()
 	ctx.On("Render", "resources/users/detail", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		viewCtx, ok := args.Get(1).(router.ViewContext)
 		if !ok {
@@ -260,6 +269,7 @@ func TestUserTabHTMLEndpointFallsBackToRegistryTabs(t *testing.T) {
 	ctx.ParamsM["id"] = fmt.Sprint(user["id"])
 	ctx.ParamsM["tab"] = "activity"
 	ctx.On("Context").Return(withUsersAndActivityClaims())
+	ctx.On("IP").Return("").Maybe()
 	ctx.On("Render", "partials/tab-panel", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		viewCtx, ok := args.Get(1).(router.ViewContext)
 		if !ok {
@@ -323,6 +333,7 @@ func TestUserActivityTabPermissionMatrixAcrossEndpoints(t *testing.T) {
 				ctx.ParamsM["id"] = fmt.Sprint(user["id"])
 				ctx.ParamsM["tab"] = "activity"
 				ctx.On("Context").Return(tc.claims)
+				ctx.On("IP").Return("").Maybe()
 
 				if !tc.expectError {
 					if endpoint.name == "tab html" {
@@ -365,6 +376,7 @@ func TestUserActivityTabEndpointsRejectInvalidLimit(t *testing.T) {
 			ctx.ParamsM["tab"] = "activity"
 			ctx.QueriesM["limit"] = "abc"
 			ctx.On("Context").Return(withUsersAndActivityClaims())
+			ctx.On("IP").Return("").Maybe()
 
 			err := tt.call(h, ctx)
 			require.Error(t, err)
@@ -383,6 +395,7 @@ func TestUserActivityTabGracefulDegradationOnBackendFailure(t *testing.T) {
 		ctx.ParamsM["id"] = fmt.Sprint(user["id"])
 		ctx.ParamsM["tab"] = "activity"
 		ctx.On("Context").Return(withUsersAndActivityClaims())
+		ctx.On("IP").Return("").Maybe()
 		ctx.On("Render", "partials/tab-panel", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 			viewCtx, ok := args.Get(1).(router.ViewContext)
 			require.True(t, ok)
@@ -401,6 +414,7 @@ func TestUserActivityTabGracefulDegradationOnBackendFailure(t *testing.T) {
 		ctx.ParamsM["id"] = fmt.Sprint(user["id"])
 		ctx.ParamsM["tab"] = "activity"
 		ctx.On("Context").Return(withUsersAndActivityClaims())
+		ctx.On("IP").Return("").Maybe()
 		ctx.On("JSON", http.StatusOK, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 			payload, ok := args.Get(1).(map[string]any)
 			require.True(t, ok)
@@ -422,6 +436,7 @@ func TestUserActivityTabGracefulDegradationOnTimeout(t *testing.T) {
 	ctx.ParamsM["id"] = fmt.Sprint(user["id"])
 	ctx.ParamsM["tab"] = "activity"
 	ctx.On("Context").Return(withUsersAndActivityClaims())
+	ctx.On("IP").Return("").Maybe()
 	ctx.On("Render", "partials/tab-panel", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		viewCtx, ok := args.Get(1).(router.ViewContext)
 		require.True(t, ok)
@@ -450,6 +465,7 @@ func TestUserActivityTabObservabilityMetrics(t *testing.T) {
 		ctx.ParamsM["id"] = fmt.Sprint(user["id"])
 		ctx.ParamsM["tab"] = "activity"
 		ctx.On("Context").Return(withUsersAndActivityClaims())
+		ctx.On("IP").Return("").Maybe()
 		ctx.On("Render", "partials/tab-panel", mock.Anything).Return(nil)
 
 		require.NoError(t, h.TabHTML(ctx))
@@ -469,6 +485,7 @@ func TestUserActivityTabObservabilityMetrics(t *testing.T) {
 		ctx.ParamsM["id"] = fmt.Sprint(user["id"])
 		ctx.ParamsM["tab"] = "activity"
 		ctx.On("Context").Return(withUsersAndActivityClaims())
+		ctx.On("IP").Return("").Maybe()
 		ctx.On("Render", "partials/tab-panel", mock.Anything).Return(nil)
 
 		require.NoError(t, h.TabHTML(ctx))
@@ -489,6 +506,7 @@ func TestUserActivityTabObservabilityMetrics(t *testing.T) {
 		ctx.ParamsM["tab"] = "activity"
 		ctx.QueriesM["limit"] = "not-a-number"
 		ctx.On("Context").Return(withUsersAndActivityClaims())
+		ctx.On("IP").Return("").Maybe()
 
 		err := h.TabJSON(ctx)
 		require.Error(t, err)
@@ -509,6 +527,7 @@ func TestUserActivityTabDegradedResponsesAreStructuredLogged(t *testing.T) {
 	ctx.ParamsM["id"] = fmt.Sprint(user["id"])
 	ctx.ParamsM["tab"] = "activity"
 	ctx.On("Context").Return(withUsersAndActivityClaims())
+	ctx.On("IP").Return("").Maybe()
 	ctx.On("Render", "partials/tab-panel", mock.Anything).Return(nil)
 
 	require.NoError(t, h.TabHTML(ctx))
@@ -540,6 +559,7 @@ func TestUserActivityTabQueryCostBounded(t *testing.T) {
 		ctx.ParamsM["tab"] = "activity"
 		ctx.QueriesM["limit"] = "999"
 		ctx.On("Context").Return(withUsersAndActivityClaims())
+		ctx.On("IP").Return("").Maybe()
 		ctx.On("JSON", http.StatusOK, mock.Anything).Return(nil)
 
 		require.NoError(t, h.TabJSON(ctx))
@@ -591,6 +611,7 @@ func TestUserActivityTabQueryCostBounded(t *testing.T) {
 		ctx.ParamsM["id"] = fmt.Sprint(user["id"])
 		ctx.ParamsM["tab"] = "activity"
 		ctx.On("Context").Return(withUsersAndActivityClaims())
+		ctx.On("IP").Return("").Maybe()
 		ctx.On("JSON", http.StatusOK, mock.Anything).Return(nil)
 
 		require.NoError(t, h.TabJSON(ctx))
@@ -660,6 +681,7 @@ func TestUserActivityTabEndpointsHandleTargetActorAndMixedScenarios(t *testing.T
 				ctx.ParamsM["id"] = fmt.Sprint(user["id"])
 				ctx.ParamsM["tab"] = "activity"
 				ctx.On("Context").Return(withUsersAndActivityClaims())
+				ctx.On("IP").Return("").Maybe()
 
 				if endpoint.name == "tab html" {
 					ctx.On("Render", "partials/tab-panel", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
@@ -697,8 +719,7 @@ func TestBuildActivityTabPanelAcceptsNonStringUserID(t *testing.T) {
 		},
 	}
 	h, _ := setupUserHandlersActivityTest(t, sink)
-	ctx := router.NewMockContext()
-	ctx.On("Context").Return(withUsersAndActivityClaims())
+	ctx := newUsersTabsMockContext(withUsersAndActivityClaims())
 
 	panel := map[string]any{}
 	h.buildActivityTabPanel(ctx, map[string]any{
@@ -727,6 +748,7 @@ func TestUsersTabsFlowProfileClientAndActivityHybrid(t *testing.T) {
 		ctx.ParamsM["id"] = userID
 		ctx.QueriesM["tab"] = "profile"
 		ctx.On("Context").Return(withUsersClaims())
+		ctx.On("IP").Return("").Maybe()
 		ctx.On("Render", "resources/users/detail", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 			viewCtx, ok := args.Get(1).(router.ViewContext)
 			require.True(t, ok)
@@ -745,6 +767,7 @@ func TestUsersTabsFlowProfileClientAndActivityHybrid(t *testing.T) {
 		ctx.ParamsM["id"] = userID
 		ctx.ParamsM["tab"] = "profile"
 		ctx.On("Context").Return(withUsersClaims())
+		ctx.On("IP").Return("").Maybe()
 		ctx.On("JSON", http.StatusOK, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 			payload, ok := args.Get(1).(map[string]any)
 			require.True(t, ok)
@@ -771,6 +794,7 @@ func TestUsersTabsFlowProfileClientAndActivityHybrid(t *testing.T) {
 		ctx.ParamsM["id"] = userID
 		ctx.ParamsM["tab"] = "activity"
 		ctx.On("Context").Return(withUsersAndActivityClaims())
+		ctx.On("IP").Return("").Maybe()
 		ctx.On("Render", "partials/tab-panel", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 			viewCtx, ok := args.Get(1).(router.ViewContext)
 			require.True(t, ok)
@@ -795,6 +819,7 @@ func TestUsersDetailsTabRegressionAndToolbarActionsContract(t *testing.T) {
 	ctx := router.NewMockContext()
 	ctx.ParamsM["id"] = userID
 	ctx.On("Context").Return(withUsersClaims())
+	ctx.On("IP").Return("").Maybe()
 	ctx.On("Render", "resources/users/detail", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		viewCtx, ok := args.Get(1).(router.ViewContext)
 		require.True(t, ok)
@@ -1192,6 +1217,13 @@ func serverScheme(t *testing.T, server *httptest.Server) string {
 		t.Fatalf("parse server url: %v", err)
 	}
 	return parsed.Scheme
+}
+
+func newUsersTabsMockContext(ctx context.Context) *router.MockContext {
+	c := router.NewMockContext()
+	c.On("Context").Return(ctx)
+	c.On("IP").Return("").Maybe()
+	return c
 }
 
 func withUsersClaims() context.Context {

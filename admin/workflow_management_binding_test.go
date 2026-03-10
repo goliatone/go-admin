@@ -19,6 +19,7 @@ func TestWorkflowManagementBindingWorkflowCRUDAndRollback(t *testing.T) {
 
 	createCtx := router.NewMockContext()
 	createCtx.On("Context").Return(context.Background())
+	createCtx.On("IP").Return("").Maybe()
 	createdPayload, err := binding.CreateWorkflow(createCtx, map[string]any{
 		"id":     "editorial.default",
 		"name":   "Editorial Default",
@@ -41,6 +42,7 @@ func TestWorkflowManagementBindingWorkflowCRUDAndRollback(t *testing.T) {
 
 	listCtx := router.NewMockContext()
 	listCtx.On("Context").Return(context.Background())
+	listCtx.On("IP").Return("").Maybe()
 	listCtx.On("Query", "status").Return("")
 	listCtx.On("Query", "environment").Return("")
 	listPayload, err := binding.ListWorkflows(listCtx)
@@ -49,6 +51,7 @@ func TestWorkflowManagementBindingWorkflowCRUDAndRollback(t *testing.T) {
 
 	updateCtx := router.NewMockContext()
 	updateCtx.On("Context").Return(context.Background())
+	updateCtx.On("IP").Return("").Maybe()
 	updatedPayload, err := binding.UpdateWorkflow(updateCtx, created.ID, map[string]any{
 		"name":             "Editorial Default v2",
 		"expected_version": created.Version,
@@ -60,6 +63,7 @@ func TestWorkflowManagementBindingWorkflowCRUDAndRollback(t *testing.T) {
 
 	rollbackCtx := router.NewMockContext()
 	rollbackCtx.On("Context").Return(context.Background())
+	rollbackCtx.On("IP").Return("").Maybe()
 	rolledBackPayload, err := binding.UpdateWorkflow(rollbackCtx, created.ID, map[string]any{
 		"rollback_to_version": 1,
 		"expected_version":    updated.Version,
@@ -81,6 +85,7 @@ func TestWorkflowManagementBindingBindingCRUDAndValidation(t *testing.T) {
 
 	createWorkflowCtx := router.NewMockContext()
 	createWorkflowCtx.On("Context").Return(context.Background())
+	createWorkflowCtx.On("IP").Return("").Maybe()
 	_, err := binding.CreateWorkflow(createWorkflowCtx, map[string]any{
 		"id":     "editorial.default",
 		"name":   "Editorial Default",
@@ -100,6 +105,7 @@ func TestWorkflowManagementBindingBindingCRUDAndValidation(t *testing.T) {
 
 	createBindingCtx := router.NewMockContext()
 	createBindingCtx.On("Context").Return(context.Background())
+	createBindingCtx.On("IP").Return("").Maybe()
 	createdPayload, err := binding.CreateBinding(createBindingCtx, map[string]any{
 		"scope_type":  "trait",
 		"scope_ref":   "editorial",
@@ -114,6 +120,7 @@ func TestWorkflowManagementBindingBindingCRUDAndValidation(t *testing.T) {
 
 	updateBindingCtx := router.NewMockContext()
 	updateBindingCtx.On("Context").Return(context.Background())
+	updateBindingCtx.On("IP").Return("").Maybe()
 	updatedPayload, err := binding.UpdateBinding(updateBindingCtx, created.ID, map[string]any{
 		"priority":         5,
 		"expected_version": created.Version,
@@ -125,6 +132,7 @@ func TestWorkflowManagementBindingBindingCRUDAndValidation(t *testing.T) {
 
 	listBindingsCtx := router.NewMockContext()
 	listBindingsCtx.On("Context").Return(context.Background())
+	listBindingsCtx.On("IP").Return("").Maybe()
 	listBindingsCtx.On("Query", "scope_type").Return("")
 	listBindingsCtx.On("Query", "scope_ref").Return("")
 	listBindingsCtx.On("Query", "environment").Return("")
@@ -135,10 +143,12 @@ func TestWorkflowManagementBindingBindingCRUDAndValidation(t *testing.T) {
 
 	deleteBindingCtx := router.NewMockContext()
 	deleteBindingCtx.On("Context").Return(context.Background())
+	deleteBindingCtx.On("IP").Return("").Maybe()
 	require.NoError(t, binding.DeleteBinding(deleteBindingCtx, created.ID))
 
 	invalidCtx := router.NewMockContext()
 	invalidCtx.On("Context").Return(context.Background())
+	invalidCtx.On("IP").Return("").Maybe()
 	_, err = binding.CreateBinding(invalidCtx, map[string]any{
 		"scope_type":  "trait",
 		"scope_ref":   "editorial",

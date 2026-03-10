@@ -263,6 +263,7 @@ func TestPreferencesInfluenceThemeResolution(t *testing.T) {
 	mockCtx := router.NewMockContext()
 	mockCtx.HeadersM["X-User-ID"] = "user-1"
 	mockCtx.On("Context").Return(context.Background())
+	mockCtx.On("IP").Return("").Maybe()
 
 	adminCtx := adm.adminContextFromRequest(mockCtx, "en")
 	selection := adm.Theme(adminCtx.Context)
