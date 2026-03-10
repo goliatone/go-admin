@@ -15,11 +15,13 @@ import (
 type RPCTransportConfig struct {
 	Enabled bool `json:"enabled,omitempty"`
 
-	InvokePath    string `json:"invoke_path,omitempty"`
-	EndpointsPath string `json:"endpoints_path,omitempty"`
+	InvokePath string `json:"invoke_path,omitempty"`
 
-	// RequireFiber fails startup when mounted router is not Fiber-backed.
-	RequireFiber bool `json:"require_fiber,omitempty"`
+	RequireAuth      bool `json:"require_auth,omitempty"`
+	DiscoveryEnabled bool `json:"discovery_enabled,omitempty"`
+
+	CommandRules map[string]admin.RPCCommandRule `json:"command_rules,omitempty"`
+	Authorize    admin.RPCCommandPolicyHook      `json:"-"`
 
 	MetaExtractor rpcfiber.MetaExtractor    `json:"-"`
 	BeforeInvoke  rpcfiber.BeforeInvokeHook `json:"-"`
@@ -37,6 +39,20 @@ func WithRPCTransport(cfg RPCTransportConfig) AdminOption {
 	}
 }
 
+func applyRPCTransportPolicyConfig(cfg *admin.Config, opts *adminOptions) {
+	if cfg == nil || opts == nil || !opts.rpcTransportConfigSet || !opts.rpcTransportConfig.Enabled {
+		return
+	}
+	transport := normalizeRPCTransportConfig(nil, opts.rpcTransportConfig)
+	cfg.Commands.RPC.DiscoveryEnabled = transport.DiscoveryEnabled
+	if transport.CommandRules != nil {
+		cfg.Commands.RPC.Commands = cloneQuickstartRPCCommandRules(transport.CommandRules)
+	}
+	if transport.Authorize != nil {
+		opts.deps.RPCCommandPolicyHook = transport.Authorize
+	}
+}
+
 func configureRPCTransport(adm *admin.Admin, opts adminOptions) error {
 	if adm == nil || !opts.rpcTransportConfigSet || !opts.rpcTransportConfig.Enabled {
 		return nil
@@ -46,20 +62,39 @@ func configureRPCTransport(adm *admin.Admin, opts adminOptions) error {
 		return fmt.Errorf("rpc transport enabled but rpc server is not configured")
 	}
 	cfg := normalizeRPCTransportConfig(adm, opts.rpcTransportConfig)
+	if cfg.RequireAuth && !adm.HasAuthenticator() {
+		return fmt.Errorf("rpc transport requires authenticator")
+	}
+
 	mount := func(r admin.AdminRouter) error {
 		if r == nil {
 			return nil
 		}
 		rt, ok := r.(router.Router[*fiber.App])
 		if !ok {
-			if cfg.RequireFiber {
-				return fmt.Errorf("rpc transport requires Fiber router")
-			}
-			return nil
+			return fmt.Errorf("rpc transport requires Fiber router")
 		}
+
 		rpcOpts := []rpcfiber.Option{
 			rpcfiber.WithInvokePath(cfg.InvokePath),
-			rpcfiber.WithEndpointsPath(cfg.EndpointsPath),
+			rpcfiber.WithDiscoveryEnabled(cfg.DiscoveryEnabled),
+			rpcfiber.WithMetaMergePolicy(rpcfiber.MetaMergePolicyTransportOverrides),
+		}
+		if cfg.DiscoveryEnabled {
+			rpcOpts = append(rpcOpts, rpcfiber.WithEndpointsPath(path.Join(cfg.InvokePath, "endpoints")))
+		}
+		if cfg.RequireAuth {
+			wrapper := adm.AuthWrapper()
+			authMiddleware := router.MiddlewareFunc(func(next router.HandlerFunc) router.HandlerFunc {
+				if wrapper == nil {
+					return next
+				}
+				return wrapper(next)
+			})
+			rpcOpts = append(rpcOpts,
+				rpcfiber.WithInvokeMiddlewares(authMiddleware),
+				rpcfiber.WithDiscoveryMiddlewares(authMiddleware),
+			)
 		}
 		if cfg.MetaExtractor != nil {
 			rpcOpts = append(rpcOpts, rpcfiber.WithMetaExtractor(cfg.MetaExtractor))
@@ -88,8 +123,32 @@ func normalizeRPCTransportConfig(adm *admin.Admin, cfg RPCTransportConfig) RPCTr
 		apiBase = "/api"
 	}
 	cfg.InvokePath = normalizeRPCPath(cfg.InvokePath, path.Join(apiBase, "rpc"))
-	cfg.EndpointsPath = normalizeRPCPath(cfg.EndpointsPath, path.Join(cfg.InvokePath, "endpoints"))
+	if !cfg.RequireAuth {
+		cfg.RequireAuth = true
+	}
+	cfg.CommandRules = cloneQuickstartRPCCommandRules(cfg.CommandRules)
 	return cfg
+}
+
+func cloneQuickstartRPCCommandRules(in map[string]admin.RPCCommandRule) map[string]admin.RPCCommandRule {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make(map[string]admin.RPCCommandRule, len(in))
+	for rawName, rawRule := range in {
+		name := strings.TrimSpace(rawName)
+		if name == "" {
+			continue
+		}
+		out[name] = admin.RPCCommandRule{
+			Permission: strings.TrimSpace(rawRule.Permission),
+			Resource:   strings.TrimSpace(rawRule.Resource),
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func normalizeRPCPath(value, fallback string) string {
