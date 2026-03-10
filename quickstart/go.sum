@@ -155,8 +155,8 @@ github.com/goliatone/go-auth v0.36.0 h1:qkC0eC0S/7SyKjphxsUI5e8iUcYqOMKnSRBk4bjr
 github.com/goliatone/go-auth v0.36.0/go.mod h1:/Z6MMdq7MmQQdhTcLSSML7uZqczZb42sawfz7vptmgE=
 github.com/goliatone/go-auth/adapters/featuregate v0.36.0 h1:yxXSJkXQrQYF6nNxOi9O64vay/jbdKXIRYJMVHPBTQY=
 github.com/goliatone/go-auth/adapters/featuregate v0.36.0/go.mod h1:SiYC9KDokn6sWXFPmtJuCqCWHM1OFq6iJMR6299ITTs=
-github.com/goliatone/go-command v0.16.1 h1:uqHV2aWDWPFc3qOoFw93WzlRGz7MzTBwoBVjJjznbaA=
-github.com/goliatone/go-command v0.16.1/go.mod h1:B0rRS+5eMMOHxjOn2gx9dpxJX605xx9VO5RXSWWAWhI=
+github.com/goliatone/go-command v0.17.0 h1:qXMoVsqyDM8H3tpwEEt5pch8xSzrNVCmidtVG3YYdqU=
+github.com/goliatone/go-command v0.17.0/go.mod h1:IOx/hvINA5FMMTHBHO7yVIgrXtFO3tSPfM5xhldhRGs=
 github.com/goliatone/go-composite-fs v0.3.0 h1:dM/iD097b7FWyMVduGpS9HK3Swig7FVNUWfIUs/hp7o=
 github.com/goliatone/go-composite-fs v0.3.0/go.mod h1:soZ1AneoCf50zh28NYag/HozxlvqgvmePsZo2tv1TRk=
 github.com/goliatone/go-config v0.12.0 h1:82FJ9Vsp3iR5KIs0P6EjGWFtwtc3MX+RH2l7JrC70BQ=
@@ -179,8 +179,8 @@ github.com/goliatone/go-formgen v0.18.0 h1:Vz89qLJzqNAEseId654jHnmvCgrddlNE9NZ+i
 github.com/goliatone/go-formgen v0.18.0/go.mod h1:vbTGgaQGla309ZJynxnxcsIs7BUP9SI5IAqEhdXJTHM=
 github.com/goliatone/go-i18n v0.2.0 h1:TDKJYZgJQq5koQ5aybM8+9NbhhlKNTPeGug4MrH/HNc=
 github.com/goliatone/go-i18n v0.2.0/go.mod h1:lg0zlUwItVZAXUJPWywuFKtgL75eGSJFBfyIfhDekoU=
-github.com/goliatone/go-job v0.15.0 h1:7VU3CJDGPU4T/OTAWaT/kg2a5TBR5Us9EJFdqO+Wn7o=
-github.com/goliatone/go-job v0.15.0/go.mod h1:WALxntthhjvR8PwkJDc/qUtiZsP5mlTTy5RBNOM8mgo=
+github.com/goliatone/go-job v0.16.0 h1:KMYzXB7dckbaVsw5zgg+yNHbCu8vznG+IZqa5mNYsxQ=
+github.com/goliatone/go-job v0.16.0/go.mod h1:WbBgtMg6VBycejrgyPaKatMOMMUobuRbhlrzQtnjLYk=
 github.com/goliatone/go-logger v0.8.0 h1:Yq9xy+ZGS65BDUxV5NpSd+aw72vUDxxv/ISMJDlRiHs=
 github.com/goliatone/go-logger v0.8.0/go.mod h1:hWv7Tj+af3E0vjJIHR52JmmK3jKk6rCKFtvhCC/3jXE=
 github.com/goliatone/go-masker v0.1.0 h1:YiNxBRC7AXpGKtUlXIoU4oj3DUfE+M2fvcDRyYC4Tt4=
