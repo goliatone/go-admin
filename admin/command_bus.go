@@ -15,23 +15,25 @@ import (
 type MessageFactory func(payload map[string]any, ids []string) (command.Message, error)
 
 // DispatchFactory executes a typed dispatch using the provided payload.
-type DispatchFactory func(ctx context.Context, payload map[string]any, ids []string) error
+type DispatchFactory func(ctx context.Context, payload map[string]any, ids []string, opts command.DispatchOptions) (command.DispatchReceipt, error)
 
 // CommandBus registers command/query handlers and dispatches by name.
 type CommandBus struct {
-	enabled     bool
-	mu          sync.Mutex
-	subs        []dispatcher.Subscription
-	factories   map[string]MessageFactory
-	dispatchers map[string]DispatchFactory
+	enabled         bool
+	mu              sync.Mutex
+	subs            []dispatcher.Subscription
+	factories       map[string]MessageFactory
+	dispatchers     map[string]DispatchFactory
+	executionPolicy CommandExecutionPolicy
 }
 
 // NewCommandBus constructs a command bus that can be toggled off.
 func NewCommandBus(enabled bool) *CommandBus {
 	return &CommandBus{
-		enabled:     enabled,
-		factories:   map[string]MessageFactory{},
-		dispatchers: map[string]DispatchFactory{},
+		enabled:         enabled,
+		factories:       map[string]MessageFactory{},
+		dispatchers:     map[string]DispatchFactory{},
+		executionPolicy: CommandExecutionPolicy{DefaultMode: command.ExecutionModeInline, PerCommand: map[string]command.ExecutionMode{}},
 	}
 }
 
@@ -148,42 +150,109 @@ func RegisterMessageFactory[T any](bus *CommandBus, name string, build func(payl
 		}
 		return typed, nil
 	}
-	bus.dispatchers[name] = func(ctx context.Context, payload map[string]any, ids []string) error {
+	bus.dispatchers[name] = func(ctx context.Context, payload map[string]any, ids []string, opts command.DispatchOptions) (command.DispatchReceipt, error) {
 		msg, err := build(payload, ids)
 		if err != nil {
-			return err
+			return command.DispatchReceipt{}, err
 		}
-		return dispatcher.Dispatch(ctx, msg)
+		return dispatcher.DispatchWith(ctx, msg, opts)
 	}
 	return nil
 }
 
 // DispatchByName routes a named command through the dispatcher.
 func (b *CommandBus) DispatchByName(ctx context.Context, name string, payload map[string]any, ids []string) error {
+	_, err := b.DispatchByNameWithOptions(ctx, name, payload, ids, command.DispatchOptions{
+		Mode: command.ExecutionModeInline,
+	})
+	return err
+}
+
+// DispatchByNameWithOptions routes a named command through the dispatcher using explicit dispatch options.
+func (b *CommandBus) DispatchByNameWithOptions(ctx context.Context, name string, payload map[string]any, ids []string, opts command.DispatchOptions) (command.DispatchReceipt, error) {
 	if b == nil || !b.enabled {
-		return FeatureDisabledError{Feature: string(FeatureCommands)}
+		return command.DispatchReceipt{}, FeatureDisabledError{Feature: string(FeatureCommands)}
 	}
 	if name == "" {
-		return ErrNotFound
+		return command.DispatchReceipt{}, ErrNotFound
 	}
 
 	b.mu.Lock()
 	dispatch := b.dispatchers[name]
 	factory := b.factories[name]
+	policy := b.executionPolicy
 	b.mu.Unlock()
 
+	resolvedMode, err := resolveDispatchModeForCommand(name, opts.Mode, policy)
+	if err != nil {
+		return command.DispatchReceipt{}, err
+	}
+	opts.Mode = resolvedMode
+
 	if dispatch != nil {
-		return dispatch(ctx, payload, ids)
+		return dispatch(ctx, payload, ids, opts)
 	}
 	if factory == nil {
-		return ErrNotFound
+		return command.DispatchReceipt{}, ErrNotFound
 	}
 	if _, err := factory(payload, ids); err != nil {
-		return err
+		return command.DispatchReceipt{}, err
 	}
-	return serviceUnavailableDomainError("command dispatcher not registered", map[string]any{
+	return command.DispatchReceipt{}, serviceUnavailableDomainError("command dispatcher not registered", map[string]any{
 		"command_name": name,
 	})
+}
+
+// SetExecutionPolicy replaces command dispatch policy for name-based dispatch.
+func (b *CommandBus) SetExecutionPolicy(policy CommandExecutionPolicy) error {
+	if b == nil {
+		return nil
+	}
+	normalized, err := normalizeCommandExecutionPolicy(policy)
+	if err != nil {
+		return err
+	}
+	b.mu.Lock()
+	b.executionPolicy = normalized
+	b.mu.Unlock()
+	return nil
+}
+
+// ExecutionPolicy returns the current command execution policy snapshot.
+func (b *CommandBus) ExecutionPolicy() CommandExecutionPolicy {
+	if b == nil {
+		return CommandExecutionPolicy{
+			DefaultMode: command.ExecutionModeInline,
+			PerCommand:  map[string]command.ExecutionMode{},
+		}
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.executionPolicy.Clone()
+}
+
+func resolveDispatchModeForCommand(commandName string, explicit command.ExecutionMode, policy CommandExecutionPolicy) (command.ExecutionMode, error) {
+	explicit = command.NormalizeExecutionMode(explicit)
+	if explicit != "" {
+		if err := command.ValidateExecutionMode(explicit); err != nil {
+			return "", err
+		}
+		return explicit, nil
+	}
+	if mode, ok := policy.Resolve(commandName); ok {
+		if err := command.ValidateExecutionMode(mode); err != nil {
+			return "", err
+		}
+		return mode, nil
+	}
+	mode := command.NormalizeExecutionMode(policy.DefaultMode)
+	if mode == "" {
+		mode = command.ExecutionModeInline
+	}
+	if err := command.ValidateExecutionMode(mode); err != nil {
+		return "", err
+	}
+	return mode, nil
 }
 
 // Reset unsubscribes registered handlers and clears factories.
