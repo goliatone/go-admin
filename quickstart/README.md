@@ -21,6 +21,10 @@ Each helper is optional and composable.
 - `WithAdapterFlags(flags AdapterFlags) AdminOption` - Inputs: adapter flags; outputs: option that applies explicit adapter toggles.
 - `WithFeatureDefaults(defaults map[string]bool) AdminOption` - Inputs: feature default map; outputs: option that extends gate defaults used by `NewAdmin`.
 - `WithStartupPolicy(policy StartupPolicy) AdminOption` - Inputs: startup policy (`enforce` or `warn`); outputs: option controlling module startup validation handling.
+- `WithCommandExecutionPolicy(policy admin.CommandExecutionPolicy) AdminOption` - Inputs: command execution policy (global default + per-command overrides); outputs: option that injects command routing policy into bootstrap.
+- `WithCommandQueueRouting(cfg CommandQueueRoutingConfig) AdminOption` - Inputs: queue routing config (`enabled`, `enqueuer`, optional command registry + dedupe store); outputs: option that attaches the queued dispatcher executor.
+- `TranslationExchangeCommandIDs() []string` - Outputs: canonical translation-exchange command ids for policy configuration.
+- `TranslationQueueCommandIDs() []string` - Outputs: canonical translation-queue command ids for policy configuration.
 - `WithTranslationProfile(profile TranslationProfile) AdminOption` - Inputs: profile (`none`, `core`, `core+exchange`, `core+queue`, `full`); outputs: option that applies productized translation defaults.
 - `WithTranslationProductConfig(cfg TranslationProductConfig) AdminOption` - Inputs: product config (`SchemaVersion`, `Profile`, optional module overrides); outputs: option that resolves effective translation module wiring with deterministic precedence.
 - `TranslationCapabilities(adm *admin.Admin) map[string]any` - Inputs: admin instance; outputs: resolved translation capability metadata (`profile`, `schema_version`, module enablement, feature flags, routes, resolver keys, panels, warnings).
@@ -100,6 +104,91 @@ Each helper is optional and composable.
 - `NewSecureLinkNotificationBuilder(manager links.SecureLinkManager, opts ...linksecure.Option) links.LinkBuilder` - Inputs: notification manager + options; outputs: notification link builder.
 - `RegisterOnboardingRoutes(r router.Router[T], cfg admin.Config, handlers OnboardingHandlers, opts ...OnboardingRouteOption) error` - Inputs: router/config/handlers; outputs: error (registers onboarding API routes).
 - `RegisterUserMigrations(client *persistence.Client, opts ...UserMigrationsOption) error` - Inputs: persistence client + options; outputs: error (registers go-auth/go-users migrations using canonical profiles + source labels).
+
+## Command routing
+Quickstart defaults to inline command execution. To opt into queued execution, configure policy and queue wiring explicitly.
+
+### Dev inline (default)
+```go
+adm, _, err := quickstart.NewAdmin(
+	cfg,
+	quickstart.AdapterHooks{},
+	quickstart.WithCommandExecutionPolicy(admin.CommandExecutionPolicy{
+		DefaultMode: command.ExecutionModeInline,
+	}),
+)
+```
+
+### Dev local queue (same process API + worker)
+```go
+queueRegistry := queuecommand.NewRegistry()
+_ = commandregistry.AddResolver("queue", queuecommand.QueueResolver(queueRegistry))
+
+queueStorage := queuepostgres.NewStorage(db)
+queueAdapter := queuepostgres.NewAdapter(queueStorage)
+
+adm, _, err := quickstart.NewAdmin(
+	cfg,
+	quickstart.AdapterHooks{},
+	quickstart.WithCommandExecutionPolicy(admin.CommandExecutionPolicy{
+		PerCommand: map[string]command.ExecutionMode{
+			"esign.pdf.remediate": command.ExecutionModeQueued,
+		},
+	}),
+	quickstart.WithCommandQueueRouting(quickstart.CommandQueueRoutingConfig{
+		Enabled:  true,
+		Enqueuer: queueAdapter,
+		Registry: queueRegistry,
+	}),
+)
+if err != nil {
+	return err
+}
+if err := commandregistry.Start(context.Background()); err != nil {
+	return err
+}
+worker, err := queuecommand.StartLocalWorker(context.Background(), queueAdapter, queueRegistry, queuecommand.LocalWorkerConfig{})
+if err != nil {
+	return err
+}
+defer worker.Stop(context.Background())
+```
+
+### Prod remote worker (API process only)
+```go
+queueRegistry := queuecommand.NewRegistry()
+_ = commandregistry.AddResolver("queue", queuecommand.QueueResolver(queueRegistry))
+
+queueStorage := queuepostgres.NewStorage(db)
+queueAdapter := queuepostgres.NewAdapter(queueStorage)
+
+adm, _, err := quickstart.NewAdmin(
+	cfg,
+	quickstart.AdapterHooks{},
+	quickstart.WithCommandExecutionPolicy(admin.CommandExecutionPolicy{
+		PerCommand: map[string]command.ExecutionMode{
+			"esign.pdf.remediate": command.ExecutionModeQueued,
+		},
+	}),
+	quickstart.WithCommandQueueRouting(quickstart.CommandQueueRoutingConfig{
+		Enabled:  true,
+		Enqueuer: queueAdapter,
+		Registry: queueRegistry,
+	}),
+)
+if err != nil {
+	return err
+}
+if err := commandregistry.Start(context.Background()); err != nil {
+	return err
+}
+```
+
+Run workers in a separate process with the same queue adapter + command registry wiring (`queuecommand.RegisterAll`/`StartLocalWorker`).
+
+Translation quickstart modules keep their existing async options and can now reuse command policy primitives:
+- `TranslationExchangeConfig.CommandExecutionMode`
+- `TranslationQueueConfig.CommandExecutionMode`
 
 ## User management
 Quickstart can wire go-users repositories and expose the built-in users module. The `users` feature flag is enabled by default in `DefaultAdminFeatures()`; if you disable it, the users module is skipped and user/role endpoints return `FeatureDisabledError`.
