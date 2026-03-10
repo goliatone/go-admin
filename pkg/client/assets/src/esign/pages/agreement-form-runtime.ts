@@ -984,8 +984,16 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
   const selectedDocumentTitle = document.getElementById('selected-document-title');
   const selectedDocumentInfo = document.getElementById('selected-document-info');
   const documentPageCountInput = document.getElementById('document_page_count');
+  const documentRemediationPanel = document.getElementById('document-remediation-panel');
+  const documentRemediationMessage = document.getElementById('document-remediation-message');
+  const documentRemediationStatus = document.getElementById('document-remediation-status');
+  const documentRemediationTriggerBtn = document.getElementById('document-remediation-trigger-btn');
+  const documentRemediationDismissBtn = document.getElementById('document-remediation-dismiss-btn');
 
   let documents = [];
+  let pendingRemediationDocument = null;
+  const remediationInFlightByDocument = new Set<string>();
+  const remediationIdempotencyByDocument = new Map<string, string>();
 
   function normalizeDocumentCompatibilityTier(value) {
     return String(value || '').trim().toLowerCase();
@@ -1027,6 +1035,171 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     return `${base} Reason: ${normalizedReason}. Select another document or upload a remediated PDF.`;
   }
 
+  function resetDocumentRemediationState() {
+    pendingRemediationDocument = null;
+    if (documentRemediationStatus) {
+      documentRemediationStatus.textContent = '';
+      documentRemediationStatus.className = 'mt-2 text-xs text-amber-800';
+    }
+    if (documentRemediationPanel) {
+      documentRemediationPanel.classList.add('hidden');
+    }
+    if (documentRemediationTriggerBtn) {
+      (documentRemediationTriggerBtn as HTMLButtonElement).disabled = false;
+      documentRemediationTriggerBtn.textContent = 'Remediate PDF';
+    }
+  }
+
+  function setDocumentRemediationStatus(message, type = 'info') {
+    if (!documentRemediationStatus) return;
+    const text = String(message || '').trim();
+    documentRemediationStatus.textContent = text;
+    const tone = type === 'error' ? 'text-red-700' : (type === 'success' ? 'text-green-700' : 'text-amber-800');
+    documentRemediationStatus.className = `mt-2 text-xs ${tone}`;
+  }
+
+  function showDocumentRemediationPanel(doc, reason = '') {
+    if (!doc || !documentRemediationPanel || !documentRemediationMessage) return;
+    pendingRemediationDocument = {
+      id: String(doc.id || '').trim(),
+      title: String(doc.title || '').trim(),
+      pageCount: parsePositiveInt(doc.pageCount, 0),
+      compatibilityReason: normalizeDocumentCompatibilityReason(reason || doc.compatibilityReason || ''),
+    };
+    if (!pendingRemediationDocument.id) {
+      return;
+    }
+    documentRemediationMessage.textContent = buildPDFUnsupportedDocumentMessage(pendingRemediationDocument.compatibilityReason);
+    setDocumentRemediationStatus('Run remediation to make this document signable.');
+    documentRemediationPanel.classList.remove('hidden');
+  }
+
+  function applySelectedDocument(id, title, pages) {
+    documentIdInput.value = id;
+    selectedDocumentTitle.textContent = title || '';
+    selectedDocumentInfo.textContent = `${pages} pages`;
+    setDocumentPageCountValue(pages);
+    selectedDocument.classList.remove('hidden');
+    documentPicker.classList.add('hidden');
+    renderFieldRulePreview();
+    autoPopulateAgreementTitle(title);
+    const pageCount = parsePositiveInt(pages, 0);
+    stateManager.updateDocument({
+      id,
+      title,
+      pageCount,
+    });
+    previewCard.setDocument(id, title, pageCount);
+    resetDocumentRemediationState();
+  }
+
+  async function pollRemediationStatus(statusURL, dispatchID, documentID) {
+    const normalizedStatusURL = String(statusURL || '').trim();
+    if (!normalizedStatusURL) return;
+    const startedAt = Date.now();
+    const timeoutMS = 120000;
+    const pollIntervalMS = 1250;
+    while (Date.now() - startedAt < timeoutMS) {
+      const response = await fetch(normalizedStatusURL, {
+        method: 'GET',
+        credentials: 'same-origin',
+        headers: { 'Accept': 'application/json' },
+      });
+      if (!response.ok) {
+        const apiError = await parseAPIError(response, 'Failed to read remediation status');
+        throw apiError;
+      }
+      const payload = await response.json();
+      const dispatch = payload?.dispatch || {};
+      const rawStatus = String(dispatch?.status || '').trim().toLowerCase();
+      if (rawStatus === 'succeeded') {
+        setDocumentRemediationStatus('Remediation completed. Refreshing document compatibility...', 'success');
+        return;
+      }
+      if (rawStatus === 'failed' || rawStatus === 'canceled' || rawStatus === 'dead_letter') {
+        const terminalReason = String(dispatch?.terminal_reason || '').trim();
+        const errorMessage = terminalReason
+          ? `Remediation failed: ${terminalReason}`
+          : 'Remediation did not complete. Please upload a new document or try again.';
+        throw { message: errorMessage, code: 'REMEDIATION_FAILED', status: 422 };
+      }
+      const stageMessage = rawStatus === 'retrying'
+        ? 'Remediation is retrying in the queue...'
+        : (rawStatus === 'running'
+          ? 'Remediation is running...'
+          : 'Remediation accepted and waiting for worker...');
+      setDocumentRemediationStatus(stageMessage);
+      await new Promise((resolve) => setTimeout(resolve, pollIntervalMS));
+    }
+    throw { message: `Timed out waiting for remediation dispatch ${dispatchID} (${documentID})`, code: 'REMEDIATION_TIMEOUT', status: 504 };
+  }
+
+  async function triggerPendingDocumentRemediation() {
+    const pending = pendingRemediationDocument;
+    if (!pending || !pending.id) return;
+    const documentID = String(pending.id || '').trim();
+    if (!documentID || remediationInFlightByDocument.has(documentID)) return;
+    remediationInFlightByDocument.add(documentID);
+    if (documentRemediationTriggerBtn) {
+      (documentRemediationTriggerBtn as HTMLButtonElement).disabled = true;
+      documentRemediationTriggerBtn.textContent = 'Remediating...';
+    }
+    try {
+      let idempotencyKey = remediationIdempotencyByDocument.get(documentID) || '';
+      if (!idempotencyKey) {
+        idempotencyKey = `esign-remediate-${documentID}-${Date.now()}`;
+        remediationIdempotencyByDocument.set(documentID, idempotencyKey);
+      }
+      const triggerURL = `${apiVersionBase}/esign/documents/${encodeURIComponent(documentID)}/remediate`;
+      const triggerResponse = await fetch(triggerURL, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Accept': 'application/json',
+          'Idempotency-Key': idempotencyKey,
+        },
+      });
+      if (!triggerResponse.ok) {
+        const apiError = await parseAPIError(triggerResponse, 'Failed to trigger remediation');
+        throw apiError;
+      }
+      const triggerPayload = await triggerResponse.json();
+      const receipt = triggerPayload?.receipt || {};
+      const dispatchID = String(receipt?.dispatch_id || triggerPayload?.dispatch_id || '').trim();
+      const mode = String(receipt?.mode || triggerPayload?.mode || '').trim().toLowerCase();
+      let statusURL = String(triggerPayload?.dispatch_status_url || '').trim();
+      if (!statusURL && dispatchID) {
+        statusURL = `${apiVersionBase}/esign/dispatches/${encodeURIComponent(dispatchID)}`;
+      }
+      if (mode === 'queued' && dispatchID && statusURL) {
+        setDocumentRemediationStatus('Remediation queued. Monitoring progress...');
+        await pollRemediationStatus(statusURL, dispatchID, documentID);
+      }
+      await loadDocuments();
+      const refreshedDoc = findDocumentByID(documentID);
+      if (!refreshedDoc || isDocumentCompatibilityUnsupported(refreshedDoc.compatibilityTier)) {
+        setDocumentRemediationStatus('Remediation finished, but this PDF is still incompatible.', 'error');
+        announceError('Document remains incompatible after remediation. Upload another PDF.');
+        return;
+      }
+      applySelectedDocument(refreshedDoc.id, refreshedDoc.title, refreshedDoc.pageCount);
+      if (window.toastManager) {
+        window.toastManager.success('Document remediated successfully. You can continue.');
+      } else {
+        showToast('Document remediated successfully. You can continue.', 'success');
+      }
+    } catch (error) {
+      setDocumentRemediationStatus(String(error?.message || 'Remediation failed').trim(), 'error');
+      announceError(error?.message || 'Failed to remediate document', error?.code || '', error?.status || 0);
+    } finally {
+      remediationInFlightByDocument.delete(documentID);
+      if (documentRemediationTriggerBtn) {
+        (documentRemediationTriggerBtn as HTMLButtonElement).disabled = false;
+        documentRemediationTriggerBtn.textContent = 'Remediate PDF';
+      }
+    }
+  }
+
   function findDocumentByID(documentID) {
     const targetID = String(documentID || '').trim();
     if (targetID === '') return null;
@@ -1044,8 +1217,10 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     if (!selectedDoc) return true;
     const compatibilityTier = normalizeDocumentCompatibilityTier(selectedDoc.compatibilityTier);
     if (!isDocumentCompatibilityUnsupported(compatibilityTier)) {
+      resetDocumentRemediationState();
       return true;
     }
+    showDocumentRemediationPanel(selectedDoc, selectedDoc.compatibilityReason || '');
     clearSelectedDocumentSelection();
     announceError(buildPDFUnsupportedDocumentMessage(selectedDoc.compatibilityReason || ''));
     if (selectedDocument) {
@@ -1213,27 +1388,13 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     );
 
     if (isDocumentCompatibilityUnsupported(compatibilityTier)) {
+      showDocumentRemediationPanel({ id, title, pageCount: pages, compatibilityReason });
       clearSelectedDocumentSelection();
       announceError(buildPDFUnsupportedDocumentMessage(compatibilityReason));
       documentSearch?.focus();
       return;
     }
-
-    documentIdInput.value = id;
-    selectedDocumentTitle.textContent = title;
-    selectedDocumentInfo.textContent = `${pages} pages`;
-    setDocumentPageCountValue(pages);
-
-    selectedDocument.classList.remove('hidden');
-    documentPicker.classList.add('hidden');
-    renderFieldRulePreview();
-
-    // Auto-populate agreement title if empty (Phase 1.1)
-    autoPopulateAgreementTitle(title);
-
-    // Update document preview card (Phase 2)
-    const pageCount = parsePositiveInt(pages, null);
-    previewCard.setDocument(id, title, pageCount);
+    applySelectedDocument(id, title, pages);
   }
 
   /**
@@ -1273,9 +1434,22 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     changeDocumentBtn.addEventListener('click', () => {
       selectedDocument.classList.add('hidden');
       documentPicker.classList.remove('hidden');
+      resetDocumentRemediationState();
       // Focus the search input and show recent documents
       documentSearch?.focus();
       openTypeaheadDropdown();
+    });
+  }
+
+  if (documentRemediationTriggerBtn) {
+    documentRemediationTriggerBtn.addEventListener('click', () => {
+      void triggerPendingDocumentRemediation();
+    });
+  }
+  if (documentRemediationDismissBtn) {
+    documentRemediationDismissBtn.addEventListener('click', () => {
+      resetDocumentRemediationState();
+      documentSearch?.focus();
     });
   }
 
@@ -1590,43 +1764,20 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
 
     if (!id) return;
     if (isDocumentCompatibilityUnsupported(compatibilityTier)) {
+      showDocumentRemediationPanel({ id, title, pageCount: pages, compatibilityReason });
       clearSelectedDocumentSelection();
       announceError(buildPDFUnsupportedDocumentMessage(compatibilityReason));
       documentSearch?.focus();
       return;
     }
-
-    documentIdInput.value = id;
-    selectedDocumentTitle.textContent = title || '';
-    selectedDocumentInfo.textContent = `${pages} pages`;
-    setDocumentPageCountValue(pages);
-
-    selectedDocument.classList.remove('hidden');
-    documentPicker.classList.add('hidden');
+    applySelectedDocument(id, title, pages);
     closeTypeaheadDropdown();
-    renderFieldRulePreview();
-
-    // Clear the search input
     if (documentSearch) {
       (documentSearch as HTMLInputElement).value = '';
     }
     typeaheadState.query = '';
     typeaheadState.isSearchMode = false;
     typeaheadState.searchResults = [];
-
-    // Auto-populate agreement title if empty (Phase 1.1)
-    autoPopulateAgreementTitle(title);
-
-    // Update wizard state
-    const pageCount = parsePositiveInt(pages, 0);
-    stateManager.updateDocument({
-      id,
-      title,
-      pageCount,
-    });
-
-    // Update document preview card (Phase 2)
-    previewCard.setDocument(id, title, pageCount);
   }
 
   /**
