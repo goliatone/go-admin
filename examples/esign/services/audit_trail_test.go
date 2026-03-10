@@ -1,6 +1,7 @@
 package services
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -211,6 +212,48 @@ func TestBuildAuditTrailDocumentMapsAllEventTypes(t *testing.T) {
 	}
 }
 
+func TestAuditTrailSourceEventPoliciesAreExplicitAndValid(t *testing.T) {
+	agreement := stores.AgreementRecord{CreatedByUserID: "owner@example.com"}
+	recipients := []stores.RecipientRecord{{ID: "recipient-1", Name: "Signer One", Email: "one@example.com", Role: stores.RecipientRoleSigner, SigningOrder: 1}}
+	metadata := map[string]any{
+		"decline_reason": "reason",
+		"sender_email":   "sender@example.com",
+	}
+
+	for sourceEvent, policy := range auditTrailSourceEventPolicies {
+		if strings.TrimSpace(policy.EventType) == "" {
+			t.Fatalf("missing normalized event type policy for %q", sourceEvent)
+		}
+		if strings.TrimSpace(policy.Severity) == "" {
+			t.Fatalf("missing severity policy for %q", sourceEvent)
+		}
+		description := buildAuditTrailEventDescription(
+			policy.DescriptionKind,
+			sourceEvent,
+			agreement,
+			recipients,
+			metadata,
+			"recipient-1",
+			"Signer One",
+			"one@example.com",
+		)
+		if strings.TrimSpace(description) == "" {
+			t.Fatalf("missing description strategy for %q", sourceEvent)
+		}
+	}
+}
+
+func TestAuditTrailDerivedEventPoliciesAreExplicitAndValid(t *testing.T) {
+	for sourceEvent, policy := range auditTrailDerivedEventPolicies {
+		if strings.TrimSpace(policy.EventType) == "" {
+			t.Fatalf("missing derived normalized event type policy for %q", sourceEvent)
+		}
+		if strings.TrimSpace(policy.Severity) == "" {
+			t.Fatalf("missing derived severity policy for %q", sourceEvent)
+		}
+	}
+}
+
 func TestBuildAuditTrailDocumentAppliesIPAddressDisplayPolicyBySourceEvent(t *testing.T) {
 	now := time.Date(2026, 3, 5, 12, 0, 0, 0, time.UTC)
 	agreement := stores.AgreementRecord{
@@ -221,14 +264,20 @@ func TestBuildAuditTrailDocumentAppliesIPAddressDisplayPolicyBySourceEvent(t *te
 	recipients := []stores.RecipientRecord{
 		{ID: "recipient-1", Name: "Signer One", Email: "one@example.com", Role: stores.RecipientRoleSigner, SigningOrder: 1},
 	}
-	events := []stores.AuditEventRecord{
-		{ID: "evt-created", EventType: "agreement.created", IPAddress: "203.0.113.10", CreatedAt: now.Add(-60 * time.Minute)},
-		{ID: "evt-sent", EventType: "agreement.sent", IPAddress: "203.0.113.11", CreatedAt: now.Add(-50 * time.Minute)},
-		{ID: "evt-viewed", EventType: "signer.viewed", ActorID: "recipient-1", IPAddress: "203.0.113.12", CreatedAt: now.Add(-40 * time.Minute)},
-		{ID: "evt-submitted", EventType: "signer.submitted", ActorID: "recipient-1", IPAddress: "203.0.113.13", CreatedAt: now.Add(-30 * time.Minute)},
-		{ID: "evt-signer-declined", EventType: "signer.declined", ActorID: "recipient-1", IPAddress: "203.0.113.14", CreatedAt: now.Add(-20 * time.Minute)},
-		{ID: "evt-agreement-declined", EventType: "agreement.declined", IPAddress: "203.0.113.15", CreatedAt: now.Add(-10 * time.Minute)},
-		{ID: "evt-completed", EventType: "agreement.completed", IPAddress: "203.0.113.16", CreatedAt: now.Add(-5 * time.Minute)},
+	events := make([]stores.AuditEventRecord, 0, len(auditTrailSourceEventPolicies))
+	offset := 0
+	for sourceEvent := range auditTrailSourceEventPolicies {
+		offset++
+		record := stores.AuditEventRecord{
+			ID:        fmt.Sprintf("evt-%d", offset),
+			EventType: sourceEvent,
+			IPAddress: fmt.Sprintf("203.0.113.%d", offset),
+			CreatedAt: now.Add(-time.Duration(offset) * time.Minute),
+		}
+		if strings.HasPrefix(sourceEvent, "signer.") {
+			record.ActorID = "recipient-1"
+		}
+		events = append(events, record)
 	}
 
 	doc := BuildAuditTrailDocument(AuditTrailBuildInput{
@@ -243,21 +292,13 @@ func TestBuildAuditTrailDocumentAppliesIPAddressDisplayPolicyBySourceEvent(t *te
 		bySource[entry.SourceEvent] = entry
 	}
 
-	for sourceEvent, want := range map[string]bool{
-		"agreement.created":   false,
-		"agreement.sent":      false,
-		"signer.viewed":       true,
-		"signer.submitted":    true,
-		"signer.declined":     true,
-		"agreement.declined":  false,
-		"agreement.completed": false,
-	} {
+	for sourceEvent, policy := range auditTrailSourceEventPolicies {
 		entry, ok := bySource[sourceEvent]
 		if !ok {
 			t.Fatalf("expected source event %q to be present", sourceEvent)
 		}
-		if entry.ShowIPAddress != want {
-			t.Fatalf("unexpected ip display policy for %q: got=%t want=%t", sourceEvent, entry.ShowIPAddress, want)
+		if entry.ShowIPAddress != policy.ShowIPAddress {
+			t.Fatalf("unexpected ip display policy for %q: got=%t want=%t", sourceEvent, entry.ShowIPAddress, policy.ShowIPAddress)
 		}
 	}
 }
