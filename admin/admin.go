@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	cmdrpc "github.com/goliatone/go-command/rpc"
 	"github.com/goliatone/go-featuregate/catalog"
 	fggate "github.com/goliatone/go-featuregate/gate"
 	router "github.com/goliatone/go-router"
@@ -35,6 +36,7 @@ type Admin struct {
 	authenticator                Authenticator
 	router                       AdminRouter
 	commandBus                   *CommandBus
+	rpcServer                    *cmdrpc.Server
 	dashboard                    *Dashboard
 	debugCollector               *DebugCollector
 	replSessionStore             DebugREPLSessionStore
@@ -196,6 +198,10 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 	if err := RegisterCoreCommandFactories(commandBus); err != nil {
 		return nil, err
 	}
+	rpcServer := newRPCServer(deps.RPCServer)
+	if err := registerCoreRPCEndpoints(rpcServer, commandBus); err != nil {
+		return nil, err
+	}
 
 	settingsSvc := deps.SettingsService
 	if settingsSvc == nil {
@@ -347,6 +353,7 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 		authenticator:          deps.Authenticator,
 		router:                 deps.Router,
 		commandBus:             commandBus,
+		rpcServer:              rpcServer,
 		dashboard:              dashboard,
 		replSessionStore:       replSessionStore,
 		replSessionManager:     replSessionManager,
@@ -883,6 +890,11 @@ func (a *Admin) Navigation() *Navigation {
 // Commands exposes the go-command registry hook.
 func (a *Admin) Commands() *CommandBus {
 	return a.commandBus
+}
+
+// RPCServer exposes the command RPC server bound to this admin instance.
+func (a *Admin) RPCServer() *cmdrpc.Server {
+	return a.rpcServer
 }
 
 // Registry exposes the central registry for panels/modules/widgets/settings.
