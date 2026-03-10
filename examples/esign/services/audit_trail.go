@@ -28,6 +28,7 @@ type AuditTrailEntry struct {
 	ActorName     string
 	ActorEmail    string
 	IPAddress     string
+	ShowIPAddress bool
 	Description   string
 	Severity      string
 	SourceEvent   string
@@ -194,12 +195,10 @@ func normalizeAuditTrailEntry(
 		ActorName:     actorName,
 		ActorEmail:    actorEmail,
 		IPAddress:     ResolveAuditEventIPAddress(event, metadata),
+		ShowIPAddress: false,
 		Severity:      "normal",
 		SourceEvent:   eventType,
 		SourceEventID: sourceEventID,
-	}
-	if base.IPAddress == "" && actorID != "" {
-		base.IPAddress = actorIPIndex.Nearest(actorID, ts)
 	}
 
 	switch eventType {
@@ -227,14 +226,28 @@ func normalizeAuditTrailEntry(
 		base.ActorEmail = ""
 		return base, true
 	case "signer.viewed":
+		if base.IPAddress == "" && actorID != "" {
+			base.IPAddress = actorIPIndex.Nearest(actorID, ts)
+		}
+		base.ShowIPAddress = true
 		base.EventType = AuditTrailEventViewed
 		base.Description = fmt.Sprintf("Viewed by %s", formatActorIdentity(base.ActorName, base.ActorEmail, actorID))
 		return base, true
 	case "signer.submitted":
+		if base.IPAddress == "" && actorID != "" {
+			base.IPAddress = actorIPIndex.Nearest(actorID, ts)
+		}
+		base.ShowIPAddress = true
 		base.EventType = AuditTrailEventSigned
 		base.Description = fmt.Sprintf("Signed by %s", formatActorIdentity(base.ActorName, base.ActorEmail, actorID))
 		return base, true
 	case "signer.declined", "agreement.declined":
+		if strings.EqualFold(eventType, "signer.declined") {
+			if base.IPAddress == "" && actorID != "" {
+				base.IPAddress = actorIPIndex.Nearest(actorID, ts)
+			}
+			base.ShowIPAddress = true
+		}
 		base.EventType = AuditTrailEventDeclined
 		reason := strings.TrimSpace(toMetadataString(metadata, "decline_reason"))
 		if reason != "" {
@@ -370,6 +383,7 @@ func deriveLifecycleAuditTrailEntries(
 			Timestamp:     createdAt,
 			ActorName:     creator,
 			IPAddress:     actorIPIndex.Nearest(strings.TrimSpace(agreement.CreatedByUserID), createdAt),
+			ShowIPAddress: false,
 			Description:   fmt.Sprintf("Created by %s", creator),
 			Severity:      "normal",
 			SourceEvent:   "derived.lifecycle.created",
@@ -383,6 +397,7 @@ func deriveLifecycleAuditTrailEntries(
 			Timestamp:     sentAt,
 			ActorName:     creator,
 			IPAddress:     actorIPIndex.Nearest(strings.TrimSpace(agreement.CreatedByUserID), sentAt),
+			ShowIPAddress: false,
 			Description:   buildAuditTrailSentDescription("Sent", creator, signerRecipients),
 			Severity:      "normal",
 			SourceEvent:   "derived.lifecycle.sent",
@@ -413,6 +428,7 @@ func deriveLifecycleAuditTrailEntries(
 				ActorName:     strings.TrimSpace(recipient.Name),
 				ActorEmail:    strings.TrimSpace(recipient.Email),
 				IPAddress:     actorIPIndex.Nearest(recipientID, viewedAtUTC),
+				ShowIPAddress: true,
 				Description:   fmt.Sprintf("Viewed by %s", formatActorIdentity(strings.TrimSpace(recipient.Name), strings.TrimSpace(recipient.Email), recipientID)),
 				Severity:      "normal",
 				SourceEvent:   "derived.lifecycle.viewed",
@@ -440,6 +456,7 @@ func deriveLifecycleAuditTrailEntries(
 				ActorName:     strings.TrimSpace(recipient.Name),
 				ActorEmail:    strings.TrimSpace(recipient.Email),
 				IPAddress:     actorIPIndex.Nearest(recipientID, completedAt),
+				ShowIPAddress: true,
 				Description:   fmt.Sprintf("Signed by %s", formatActorIdentity(strings.TrimSpace(recipient.Name), strings.TrimSpace(recipient.Email), recipientID)),
 				Severity:      "normal",
 				SourceEvent:   "derived.lifecycle.signed",

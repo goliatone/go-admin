@@ -339,12 +339,7 @@ func drawAuditTrailTimelineRow(pdf *gofpdf.Fpdf, style auditTrailStyle, entry Au
 }
 
 func shouldRenderAuditTrailIP(entry AuditTrailEntry) bool {
-	switch strings.ToUpper(strings.TrimSpace(entry.EventType)) {
-	case AuditTrailEventCreated, AuditTrailEventSent:
-		return false
-	default:
-		return true
-	}
+	return entry.ShowIPAddress && strings.TrimSpace(entry.IPAddress) != ""
 }
 
 func auditTrailMetadataRows(doc AuditTrailDocument, opts auditTrailRenderOptions) []auditTrailMetadataRow {
