@@ -23,6 +23,7 @@ Each helper is optional and composable.
 - `WithStartupPolicy(policy StartupPolicy) AdminOption` - Inputs: startup policy (`enforce` or `warn`); outputs: option controlling module startup validation handling.
 - `WithCommandExecutionPolicy(policy admin.CommandExecutionPolicy) AdminOption` - Inputs: command execution policy (global default + per-command overrides); outputs: option that injects command routing policy into bootstrap.
 - `WithCommandQueueRouting(cfg CommandQueueRoutingConfig) AdminOption` - Inputs: queue routing config (`enabled`, `enqueuer`, optional command registry + dedupe store); outputs: option that attaches the queued dispatcher executor.
+- `WithRPCTransport(cfg RPCTransportConfig) AdminOption` - Inputs: RPC transport config (`enabled`, optional `invoke_path`, `require_auth`, `discovery_enabled`, optional command rules/policy hook); outputs: option that mounts Fiber RPC invoke routes and wires admin RPC command policy defaults.
 - `TranslationExchangeCommandIDs() []string` - Outputs: canonical translation-exchange command ids for policy configuration.
 - `TranslationQueueCommandIDs() []string` - Outputs: canonical translation-queue command ids for policy configuration.
 - `WithTranslationProfile(profile TranslationProfile) AdminOption` - Inputs: profile (`none`, `core`, `core+exchange`, `core+queue`, `full`); outputs: option that applies productized translation defaults.
@@ -107,6 +108,12 @@ Each helper is optional and composable.
 
 ## Command routing
 Quickstart defaults to inline command execution. To opt into queued execution, configure policy and queue wiring explicitly.
+
+## RPC transport hardening defaults
+- RPC transport is opt-in (`WithRPCTransport`).
+- When enabled, quickstart requires an authenticator by default and fails startup if missing.
+- Discovery route mounting is disabled by default (`discovery_enabled=false`).
+- Admin command RPC dispatch is deny-by-default until command rules are configured (`command_rules` / `commands.rpc.commands`).
 
 ### Dev inline (default)
 ```go
