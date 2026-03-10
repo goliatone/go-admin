@@ -26,8 +26,8 @@ const (
 	defaultMigrationsLocalDir = "data/sql/migrations"
 	defaultSQLiteDSN          = "file:data/go-admin-esign.sqlite?_busy_timeout=5000&_foreign_keys=on"
 
-	defaultPDFRemediationLeaseTTL          = 60 * time.Second
-	defaultPDFRemediationCommandTimeout    = 15 * time.Second
+	defaultPDFRemediationLeaseTTL           = 60 * time.Second
+	defaultPDFRemediationCommandTimeout     = 15 * time.Second
 	defaultPDFRemediationCommandMaxPDFBytes = int64(100 * 1024 * 1024)
 	defaultPDFRemediationCommandMaxLogBytes = 256 * 1024
 )
