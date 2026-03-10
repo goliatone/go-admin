@@ -67,6 +67,27 @@ func (c *failingCompletionWorkflow) RunCompletionWorkflow(_ context.Context, _ s
 	return fmt.Errorf("completion workflow unavailable")
 }
 
+type capturingStageWorkflow struct {
+	calls         int
+	agreementIDs  []string
+	recipientSets [][]string
+	correlations  []string
+}
+
+func (c *capturingStageWorkflow) RunStageActivationWorkflow(_ context.Context, _ stores.Scope, agreementID string, recipientIDs []string, correlationID string) error {
+	c.calls++
+	c.agreementIDs = append(c.agreementIDs, strings.TrimSpace(agreementID))
+	normalized := make([]string, 0, len(recipientIDs))
+	for _, recipientID := range recipientIDs {
+		if trimmed := strings.TrimSpace(recipientID); trimmed != "" {
+			normalized = append(normalized, trimmed)
+		}
+	}
+	c.recipientSets = append(c.recipientSets, normalized)
+	c.correlations = append(c.correlations, strings.TrimSpace(correlationID))
+	return nil
+}
+
 func anyToString(value any) string {
 	if value == nil {
 		return ""
@@ -409,6 +430,84 @@ func TestSigningServiceSubmitProgressesBySigningStage(t *testing.T) {
 	}
 	if finalSubmit.Agreement.Status != stores.AgreementStatusCompleted {
 		t.Fatalf("expected completed agreement status, got %q", finalSubmit.Agreement.Status)
+	}
+}
+
+func TestSigningServiceSubmitTriggersStageWorkflowOnStageAdvance(t *testing.T) {
+	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
+
+	signerOne, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("stage1-signer@example.com"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: primitives.Int(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer one: %v", err)
+	}
+	signerTwo, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("stage2-signer@example.com"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: primitives.Int(2),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer two: %v", err)
+	}
+	fields := map[string]string{}
+	for _, signer := range []stores.RecipientRecord{signerOne, signerTwo} {
+		field, upsertErr := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+			RecipientID: &signer.ID,
+			Type:        stringPtr(stores.FieldTypeSignature),
+			PageNumber:  primitives.Int(1),
+			Required:    boolPtr(true),
+		})
+		if upsertErr != nil {
+			t.Fatalf("UpsertFieldDraft signer %s: %v", signer.ID, upsertErr)
+		}
+		fields[signer.ID] = field.ID
+	}
+
+	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase24-stage-workflow-send"}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+
+	stageFlow := &capturingStageWorkflow{}
+	signingSvc := NewSigningService(store, WithSigningStageWorkflow(stageFlow))
+
+	token := stores.SigningTokenRecord{AgreementID: agreement.ID, RecipientID: signerOne.ID}
+	if _, err := signingSvc.CaptureConsent(ctx, scope, token, SignerConsentInput{Accepted: true}); err != nil {
+		t.Fatalf("CaptureConsent stage1: %v", err)
+	}
+	if _, err := signingSvc.AttachSignatureArtifact(ctx, scope, token, SignerSignatureInput{
+		FieldID:   fields[signerOne.ID],
+		Type:      "typed",
+		ObjectKey: "tenant/tenant-1/org/org-1/agreements/" + agreement.ID + "/sig/stage1.png",
+		SHA256:    strings.Repeat("4", 64),
+		ValueText: "Signed",
+	}); err != nil {
+		t.Fatalf("AttachSignatureArtifact stage1: %v", err)
+	}
+	submit, err := signingSvc.Submit(ctx, scope, token, SignerSubmitInput{IdempotencyKey: "submit-stage-workflow-1"})
+	if err != nil {
+		t.Fatalf("Submit stage1: %v", err)
+	}
+	if submit.Completed {
+		t.Fatal("expected non-terminal submit")
+	}
+	if submit.NextStage != 2 {
+		t.Fatalf("expected next stage 2, got %d", submit.NextStage)
+	}
+
+	if stageFlow.calls != 1 {
+		t.Fatalf("expected stage workflow to run once, got %d", stageFlow.calls)
+	}
+	if len(stageFlow.agreementIDs) != 1 || stageFlow.agreementIDs[0] != agreement.ID {
+		t.Fatalf("expected stage workflow agreement id %q, got %+v", agreement.ID, stageFlow.agreementIDs)
+	}
+	if len(stageFlow.recipientSets) != 1 || !hasRecipientID(stageFlow.recipientSets[0], signerTwo.ID) {
+		t.Fatalf("expected stage workflow to target stage-two signer %q, got %+v", signerTwo.ID, stageFlow.recipientSets)
+	}
+	if len(stageFlow.correlations) != 1 || stageFlow.correlations[0] != "submit-stage-workflow-1" {
+		t.Fatalf("expected stage workflow correlation id submit-stage-workflow-1, got %+v", stageFlow.correlations)
 	}
 }
 

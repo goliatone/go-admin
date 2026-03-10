@@ -300,6 +300,7 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 	m.signing = services.NewSigningService(m.store,
 		services.WithSigningAuditStore(m.store),
 		services.WithSigningCompletionWorkflow(emailWorkflow),
+		services.WithSigningStageWorkflow(emailWorkflow),
 		services.WithSignatureUploadConfig(signatureUploadTTL, signatureUploadSecret),
 		services.WithSigningObjectStore(objectStore),
 		services.WithSigningPDFService(pdfService),
@@ -585,6 +586,7 @@ func (m *ESignModule) registerPanels(adm *coreadmin.Admin) error {
 		).
 		Actions(
 			coreadmin.Action{Name: "send", Label: "Send", CommandName: commands.CommandAgreementSend, Permission: permissions.AdminESignSend, Idempotent: true, PayloadRequired: []string{"idempotency_key"}},
+			coreadmin.Action{Name: "resend", Label: "Resend", CommandName: commands.CommandAgreementResend, Permission: permissions.AdminESignSend, Idempotent: true},
 			coreadmin.Action{Name: "void", Label: "Void", CommandName: commands.CommandAgreementVoid, Permission: permissions.AdminESignVoid, PayloadRequired: []string{"reason"}},
 			coreadmin.Action{Name: "rotate_token", Label: "Rotate Token", CommandName: commands.CommandTokenRotate, Permission: permissions.AdminESignSend, ContextRequired: []string{"recipient_id"}, PayloadRequired: []string{"recipient_id"}},
 			coreadmin.Action{Name: "pause_reminder", Label: "Pause Reminder", CommandName: commands.CommandAgreementReminderPause, Permission: permissions.AdminESignReminders, ContextRequired: []string{"recipient_id"}, PayloadRequired: []string{"recipient_id"}},

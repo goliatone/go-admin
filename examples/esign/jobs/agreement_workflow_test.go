@@ -148,3 +148,31 @@ func TestAgreementWorkflowOnAgreementResentDispatchesTargetRecipient(t *testing.
 		t.Fatalf("expected reminder notification type, got %q", provider.inputs[0].Notification)
 	}
 }
+
+func TestAgreementWorkflowRunStageActivationWorkflowDispatchesNewlyActiveSigners(t *testing.T) {
+	ctx, scope, store, agreement, _, signerTwo := setupSentAgreementForWorkflow(t)
+	provider := &captureEmailProvider{}
+	workflow := NewAgreementWorkflow(NewHandlers(HandlerDependencies{
+		Agreements:    store,
+		JobRuns:       store,
+		EmailLogs:     store,
+		EmailProvider: provider,
+		Tokens:        stores.NewTokenService(store),
+	}))
+
+	if err := workflow.RunStageActivationWorkflow(ctx, scope, agreement.ID, []string{signerTwo.ID}, "corr-stage-activation"); err != nil {
+		t.Fatalf("RunStageActivationWorkflow: %v", err)
+	}
+	if len(provider.inputs) != 1 {
+		t.Fatalf("expected 1 outbound stage activation email, got %d", len(provider.inputs))
+	}
+	if provider.inputs[0].Recipient.ID != signerTwo.ID {
+		t.Fatalf("expected stage-two recipient %q, got %q", signerTwo.ID, provider.inputs[0].Recipient.ID)
+	}
+	if provider.inputs[0].SignURL == "" {
+		t.Fatal("expected sign URL in stage activation payload")
+	}
+	if provider.inputs[0].Notification != string(services.NotificationSigningInvitation) {
+		t.Fatalf("expected invitation notification type, got %q", provider.inputs[0].Notification)
+	}
+}

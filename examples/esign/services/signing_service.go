@@ -65,6 +65,7 @@ type SigningService struct {
 	artifacts             stores.SignatureArtifactStore
 	audits                stores.AuditEventStore
 	completionFlow        SigningCompletionWorkflow
+	stageFlow             SigningStageWorkflow
 	tx                    stores.TransactionManager
 	customDocuments       bool
 	customArtifacts       bool
@@ -94,6 +95,11 @@ type signingObjectStore interface {
 // SigningCompletionWorkflow handles post-submit completion workflows (artifacts/certificate/distribution).
 type SigningCompletionWorkflow interface {
 	RunCompletionWorkflow(ctx context.Context, scope stores.Scope, agreementID, correlationID string) error
+}
+
+// SigningStageWorkflow handles stage-advance invitation fan-out when a new signer stage becomes active.
+type SigningStageWorkflow interface {
+	RunStageActivationWorkflow(ctx context.Context, scope stores.Scope, agreementID string, recipientIDs []string, correlationID string) error
 }
 
 // SigningServiceOption customizes SigningService.
@@ -169,6 +175,16 @@ func WithSigningCompletionWorkflow(workflow SigningCompletionWorkflow) SigningSe
 			return
 		}
 		s.completionFlow = workflow
+	}
+}
+
+// WithSigningStageWorkflow configures post-submit stage activation email fan-out behavior.
+func WithSigningStageWorkflow(workflow SigningStageWorkflow) SigningServiceOption {
+	return func(s *SigningService) {
+		if s == nil {
+			return
+		}
+		s.stageFlow = workflow
 	}
 }
 
@@ -1528,8 +1544,24 @@ func (s SigningService) Submit(ctx context.Context, scope stores.Scope, token st
 				"declined_at":    timePtrRFC3339(completedRecipient.DeclinedAt),
 				"decline_reason": completedRecipient.DeclineReason,
 			},
-		}); err != nil {
+			}); err != nil {
 			return err
+		}
+		if !result.Completed && nextStage > activeStage && txSvc.stageFlow != nil && len(nextSignerIDs) > 0 {
+			stageAgreementID := strings.TrimSpace(result.Agreement.ID)
+			stageRecipientIDs := append([]string{}, nextSignerIDs...)
+			completedRecipientID := strings.TrimSpace(result.Recipient.ID)
+			hooks.AfterCommit(func() error {
+				if err := s.stageFlow.RunStageActivationWorkflow(ctx, scope, stageAgreementID, stageRecipientIDs, idempotencyKey); err != nil {
+					_ = s.appendSignerAudit(ctx, scope, stageAgreementID, completedRecipientID, "signer.stage_activation_workflow_failed", input.IPAddress, input.UserAgent, map[string]any{
+						"idempotency_key":    idempotencyKey,
+						"next_stage":         nextStage,
+						"next_recipient_ids": stageRecipientIDs,
+						"error":              strings.TrimSpace(err.Error()),
+					})
+				}
+				return nil
+			})
 		}
 		if result.Completed && txSvc.completionFlow != nil {
 			completionAgreementID := strings.TrimSpace(result.Agreement.ID)

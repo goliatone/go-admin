@@ -76,6 +76,11 @@ func TestESignModuleRegistersPanelsSettingsRoleDefaultsAndCommandActions(t *test
 	if !containsPanelAction(documentsSchema.BulkActions, "delete") {
 		t.Fatalf("expected documents panel bulk delete action, got %+v", documentsSchema.BulkActions)
 	}
+	agreementsPanel, _ := adm.Registry().Panel(esignAgreementsPanelID)
+	agreementsSchema := agreementsPanel.Schema()
+	if !containsPanelAction(agreementsSchema.Actions, "resend") {
+		t.Fatalf("expected agreements panel resend action, got %+v", agreementsSchema.Actions)
+	}
 
 	if !hasSettingDefinition(adm, settingEmailDefaultFromName) ||
 		!hasSettingDefinition(adm, settingTokenTTLSeconds) ||
@@ -120,7 +125,7 @@ func TestESignModuleRegistersPanelsSettingsRoleDefaultsAndCommandActions(t *test
 	}
 
 	resendBody, _ := json.Marshal(map[string]any{"idempotency_key": "phase6-send-2"})
-	resendReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/panels/esign_agreements/actions/send?id="+agreementID+"&tenant_id=tenant-bootstrap&org_id=org-bootstrap", bytes.NewReader(resendBody))
+	resendReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/panels/esign_agreements/actions/resend?id="+agreementID+"&tenant_id=tenant-bootstrap&org_id=org-bootstrap", bytes.NewReader(resendBody))
 	resendReq.Header.Set("Content-Type", "application/json")
 	resendReq.Header.Set("X-User-ID", "ops-user")
 	resendRes, err := server.WrappedRouter().Test(resendReq, -1)
@@ -130,7 +135,7 @@ func TestESignModuleRegistersPanelsSettingsRoleDefaultsAndCommandActions(t *test
 	defer resendRes.Body.Close()
 	if resendRes.StatusCode != http.StatusOK {
 		payload, _ := io.ReadAll(resendRes.Body)
-		t.Fatalf("expected resend-via-send action 200, got %d body=%s", resendRes.StatusCode, string(payload))
+		t.Fatalf("expected resend action 200, got %d body=%s", resendRes.StatusCode, string(payload))
 	}
 
 	agreementDetail := getPanelDetail(t, server, "/admin/api/v1/panels/esign_agreements/"+agreementID+"?tenant_id=tenant-bootstrap&org_id=org-bootstrap")

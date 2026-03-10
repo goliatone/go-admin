@@ -261,8 +261,19 @@ func (h Handlers) ExecuteEmailSendSigningRequest(ctx context.Context, msg EmailS
 	}
 	if isSigningNotification(notification) {
 		signURL := strings.TrimSpace(msg.SignURL)
+		signerToken := strings.TrimSpace(msg.SignerToken)
+		if signURL == "" && signerToken == "" && h.tokens != nil {
+			issued, issueErr := h.tokens.Issue(ctx, msg.Scope, msg.AgreementID, msg.RecipientID)
+			if issueErr != nil {
+				return h.failJob(ctx, msg.Scope, run, issueErr, msg.AgreementID, map[string]any{
+					"template_code": templateCode,
+					"notification":  notification,
+				})
+			}
+			signerToken = strings.TrimSpace(issued.Token)
+		}
 		if signURL == "" {
-			signURL = buildSignLink(msg.SignerToken)
+			signURL = buildSignLink(signerToken)
 		}
 		if signURL == "" {
 			return h.failJob(ctx, msg.Scope, run, fmt.Errorf("missing sign link for signing notification"), msg.AgreementID, map[string]any{
@@ -841,6 +852,89 @@ func (h Handlers) RunCompletionWorkflow(ctx context.Context, scope stores.Scope,
 	}
 	observability.ObserveFinalize(ctx, h.now().Sub(startedAt), true)
 	observability.LogOperation(ctx, slog.LevelInfo, "job", "completion_workflow", "success", correlationID, h.now().Sub(startedAt), nil, map[string]any{
+		"agreement_id": strings.TrimSpace(agreementID),
+	})
+	return nil
+}
+
+// RunStageActivationWorkflow dispatches invitations for signers that became active after stage progression.
+func (h Handlers) RunStageActivationWorkflow(ctx context.Context, scope stores.Scope, agreementID string, recipientIDs []string, correlationID string) error {
+	startedAt := h.now()
+	correlationID = observability.ResolveCorrelationID(correlationID, agreementID, "stage_activation_workflow")
+	if h.agreements == nil {
+		err := fmt.Errorf("stage activation workflow agreement store not configured")
+		observability.LogOperation(ctx, slog.LevelError, "job", "stage_activation_workflow", "error", correlationID, h.now().Sub(startedAt), err, map[string]any{
+			"agreement_id": strings.TrimSpace(agreementID),
+		})
+		return err
+	}
+	agreement, err := h.agreements.GetAgreement(ctx, scope, agreementID)
+	if err != nil {
+		observability.LogOperation(ctx, slog.LevelWarn, "job", "stage_activation_workflow", "error", correlationID, h.now().Sub(startedAt), err, map[string]any{
+			"agreement_id": strings.TrimSpace(agreementID),
+		})
+		return err
+	}
+	switch strings.TrimSpace(agreement.Status) {
+	case stores.AgreementStatusSent, stores.AgreementStatusInProgress:
+	default:
+		return nil
+	}
+
+	targets := map[string]struct{}{}
+	for _, recipientID := range recipientIDs {
+		if trimmed := strings.TrimSpace(recipientID); trimmed != "" {
+			targets[trimmed] = struct{}{}
+		}
+	}
+	if len(targets) == 0 {
+		return nil
+	}
+
+	recipients, err := h.agreements.ListRecipients(ctx, scope, agreementID)
+	if err != nil {
+		observability.LogOperation(ctx, slog.LevelWarn, "job", "stage_activation_workflow", "error", correlationID, h.now().Sub(startedAt), err, map[string]any{
+			"agreement_id": strings.TrimSpace(agreementID),
+		})
+		return err
+	}
+	var firstErr error
+	for _, recipient := range recipients {
+		recipientID := strings.TrimSpace(recipient.ID)
+		if _, ok := targets[recipientID]; !ok {
+			continue
+		}
+		if strings.TrimSpace(recipient.Role) != stores.RecipientRoleSigner {
+			continue
+		}
+		if recipient.CompletedAt != nil || recipient.DeclinedAt != nil {
+			continue
+		}
+		err := h.ExecuteEmailSendSigningRequest(ctx, EmailSendSigningRequestMsg{
+			Scope:         scope,
+			AgreementID:   agreementID,
+			RecipientID:   recipientID,
+			Notification:  string(services.NotificationSigningInvitation),
+			CorrelationID: correlationID,
+			DedupeKey: strings.Join([]string{
+				agreementID,
+				recipientID,
+				string(services.NotificationSigningInvitation),
+				"stage_activation",
+				correlationID,
+			}, "|"),
+		})
+		if err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	if firstErr != nil {
+		observability.LogOperation(ctx, slog.LevelWarn, "job", "stage_activation_workflow", "error", correlationID, h.now().Sub(startedAt), firstErr, map[string]any{
+			"agreement_id": strings.TrimSpace(agreementID),
+		})
+		return firstErr
+	}
+	observability.LogOperation(ctx, slog.LevelInfo, "job", "stage_activation_workflow", "success", correlationID, h.now().Sub(startedAt), nil, map[string]any{
 		"agreement_id": strings.TrimSpace(agreementID),
 	})
 	return nil

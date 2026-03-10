@@ -81,6 +81,11 @@ func (w AgreementWorkflow) RunCompletionWorkflow(ctx context.Context, scope stor
 	return w.handlers.RunCompletionWorkflow(ctx, scope, agreementID, correlationID)
 }
 
+// RunStageActivationWorkflow dispatches invitations for newly active signers after stage advancement.
+func (w AgreementWorkflow) RunStageActivationWorkflow(ctx context.Context, scope stores.Scope, agreementID string, recipientIDs []string, correlationID string) error {
+	return w.handlers.RunStageActivationWorkflow(ctx, scope, agreementID, recipientIDs, correlationID)
+}
+
 func firstActiveSigner(recipients []stores.RecipientRecord) (stores.RecipientRecord, bool) {
 	var (
 		selected stores.RecipientRecord
