@@ -100,6 +100,7 @@ export class DocumentFormController {
     submitBtn: HTMLButtonElement | null;
     titleInput: HTMLInputElement | null;
     sourceObjectKeyInput: HTMLInputElement | null;
+    sourceOriginalNameInput: HTMLInputElement | null;
     // Source tabs
     sourceTabs: HTMLElement[];
     sourcePanels: HTMLElement[];
@@ -163,6 +164,7 @@ export class DocumentFormController {
       submitBtn: qs<HTMLButtonElement>('#submit-btn'),
       titleInput: qs<HTMLInputElement>('#title'),
       sourceObjectKeyInput: qs<HTMLInputElement>('#source_object_key'),
+      sourceOriginalNameInput: qs<HTMLInputElement>('#source_original_name'),
       // Source tabs
       sourceTabs: qsa<HTMLElement>('.source-tab'),
       sourcePanels: qsa<HTMLElement>('.source-panel'),
@@ -699,13 +701,16 @@ export class DocumentFormController {
    * Handle file selection
    */
   private handleFileSelect(): void {
-    const { fileInput, titleInput, sourceObjectKeyInput } = this.elements;
+    const { fileInput, titleInput, sourceObjectKeyInput, sourceOriginalNameInput } = this.elements;
     const file = fileInput?.files?.[0];
 
     if (file && this.validateFile(file)) {
       this.showPreview(file);
       if (sourceObjectKeyInput) {
         sourceObjectKeyInput.value = '';
+      }
+      if (sourceOriginalNameInput) {
+        sourceOriginalNameInput.value = file.name;
       }
 
       // Auto-fill title from filename if empty
@@ -720,6 +725,9 @@ export class DocumentFormController {
       this.clearPreview();
       if (sourceObjectKeyInput) {
         sourceObjectKeyInput.value = '';
+      }
+      if (sourceOriginalNameInput) {
+        sourceOriginalNameInput.value = '';
       }
     }
     this.updateSubmitState();
@@ -793,9 +801,10 @@ export class DocumentFormController {
    * Clear file selection
    */
   private clearFileSelection(): void {
-    const { fileInput, sourceObjectKeyInput } = this.elements;
+    const { fileInput, sourceObjectKeyInput, sourceOriginalNameInput } = this.elements;
     if (fileInput) fileInput.value = '';
     if (sourceObjectKeyInput) sourceObjectKeyInput.value = '';
+    if (sourceOriginalNameInput) sourceOriginalNameInput.value = '';
     this.clearPreview();
     this.clearError();
     this.updateSubmitState();
@@ -869,7 +878,10 @@ export class DocumentFormController {
   /**
    * Upload source PDF to API
    */
-  private async uploadSourcePDF(file: File): Promise<string> {
+  private async uploadSourcePDF(file: File): Promise<{
+    objectKey: string;
+    sourceOriginalName: string;
+  }> {
     const params = new URLSearchParams(window.location.search);
     const tenantId = params.get('tenant_id');
     const orgId = params.get('org_id');
@@ -902,7 +914,16 @@ export class DocumentFormController {
       throw new Error('Upload failed: missing source object key.');
     }
 
-    return objectKey;
+    const sourceOriginalName = body?.source_original_name
+      ? String(body.source_original_name).trim()
+      : body?.original_name
+        ? String(body.original_name).trim()
+        : file.name;
+
+    return {
+      objectKey,
+      sourceOriginalName,
+    };
   }
 
   /**
@@ -913,7 +934,7 @@ export class DocumentFormController {
 
     if (this.isSubmitting) return;
 
-    const { fileInput, form, sourceObjectKeyInput } = this.elements;
+    const { fileInput, form, sourceObjectKeyInput, sourceOriginalNameInput } = this.elements;
     const file = fileInput?.files?.[0];
 
     if (!file || !this.validateFile(file)) {
@@ -925,9 +946,12 @@ export class DocumentFormController {
     this.setSubmittingState(true);
 
     try {
-      const objectKey = await this.uploadSourcePDF(file);
+      const uploaded = await this.uploadSourcePDF(file);
       if (sourceObjectKeyInput) {
-        sourceObjectKeyInput.value = objectKey;
+        sourceObjectKeyInput.value = uploaded.objectKey;
+      }
+      if (sourceOriginalNameInput) {
+        sourceOriginalNameInput.value = uploaded.sourceOriginalName || file.name;
       }
       form?.submit();
     } catch (err) {
