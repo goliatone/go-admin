@@ -21,6 +21,10 @@ func (r protectedAdminRouter) Get(path string, handler router.HandlerFunc, mw ..
 	return r.router.Get(path, handler, r.withMiddleware(mw)...)
 }
 
+func (r protectedAdminRouter) Handle(method router.HTTPMethod, path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
+	return r.router.Handle(method, path, handler, r.withMiddleware(mw)...)
+}
+
 func (r protectedAdminRouter) Post(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
 	return r.router.Post(path, handler, r.withMiddleware(mw)...)
 }
@@ -31,6 +35,14 @@ func (r protectedAdminRouter) Put(path string, handler router.HandlerFunc, mw ..
 
 func (r protectedAdminRouter) Delete(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
 	return r.router.Delete(path, handler, r.withMiddleware(mw)...)
+}
+
+func (r protectedAdminRouter) Patch(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
+	return r.router.Patch(path, handler, r.withMiddleware(mw)...)
+}
+
+func (r protectedAdminRouter) Head(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
+	return r.router.Head(path, handler, r.withMiddleware(mw)...)
 }
 
 func (r protectedAdminRouter) withMiddleware(mw []router.MiddlewareFunc) []router.MiddlewareFunc {
