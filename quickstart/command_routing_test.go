@@ -243,12 +243,7 @@ type quickstartQueueReceiptEnqueuer struct {
 	counter int
 }
 
-func (e *quickstartQueueReceiptEnqueuer) Enqueue(ctx context.Context, msg *job.ExecutionMessage) error {
-	_, err := e.EnqueueWithReceipt(ctx, msg)
-	return err
-}
-
-func (e *quickstartQueueReceiptEnqueuer) EnqueueWithReceipt(_ context.Context, msg *job.ExecutionMessage) (jobqueue.EnqueueReceipt, error) {
+func (e *quickstartQueueReceiptEnqueuer) Enqueue(_ context.Context, msg *job.ExecutionMessage) (jobqueue.EnqueueReceipt, error) {
 	e.counter++
 	e.last = cloneExecutionMessageForRouting(msg)
 	return jobqueue.EnqueueReceipt{
@@ -261,9 +256,9 @@ type quickstartQueueLegacyEnqueuer struct {
 	last *job.ExecutionMessage
 }
 
-func (e *quickstartQueueLegacyEnqueuer) Enqueue(_ context.Context, msg *job.ExecutionMessage) error {
+func (e *quickstartQueueLegacyEnqueuer) Enqueue(_ context.Context, msg *job.ExecutionMessage) (jobqueue.EnqueueReceipt, error) {
 	e.last = cloneExecutionMessageForRouting(msg)
-	return nil
+	return jobqueue.EnqueueReceipt{}, nil
 }
 
 func cloneExecutionMessageForRouting(msg *job.ExecutionMessage) *job.ExecutionMessage {

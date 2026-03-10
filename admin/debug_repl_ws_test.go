@@ -19,6 +19,25 @@ type stubWebSocketRouter struct {
 	routes []stubWebSocketRoute
 }
 
+func (s *stubWebSocketRouter) Handle(method router.HTTPMethod, path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
+	switch method {
+	case router.GET:
+		return s.Get(path, handler, mw...)
+	case router.POST:
+		return s.Post(path, handler, mw...)
+	case router.PUT:
+		return s.Put(path, handler, mw...)
+	case router.DELETE:
+		return s.Delete(path, handler, mw...)
+	case router.PATCH:
+		return s.Patch(path, handler, mw...)
+	case router.HEAD:
+		return s.Head(path, handler, mw...)
+	default:
+		return nil
+	}
+}
+
 func (s *stubWebSocketRouter) WebSocket(path string, config router.WebSocketConfig, handler func(router.WebSocketContext) error) router.RouteInfo {
 	s.routes = append(s.routes, stubWebSocketRoute{path: path, config: config, handler: handler})
 	return nil
@@ -37,6 +56,14 @@ func (s *stubWebSocketRouter) Put(_ string, _ router.HandlerFunc, _ ...router.Mi
 }
 
 func (s *stubWebSocketRouter) Delete(_ string, _ router.HandlerFunc, _ ...router.MiddlewareFunc) router.RouteInfo {
+	return nil
+}
+
+func (s *stubWebSocketRouter) Patch(_ string, _ router.HandlerFunc, _ ...router.MiddlewareFunc) router.RouteInfo {
+	return nil
+}
+
+func (s *stubWebSocketRouter) Head(_ string, _ router.HandlerFunc, _ ...router.MiddlewareFunc) router.RouteInfo {
 	return nil
 }
 

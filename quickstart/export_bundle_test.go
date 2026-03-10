@@ -34,6 +34,11 @@ func (r *recordingRouter) Get(path string, handler router.HandlerFunc, mw ...rou
 	return nil
 }
 
+func (r *recordingRouter) Handle(method router.HTTPMethod, path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
+	r.record(string(method), path)
+	return nil
+}
+
 func (r *recordingRouter) Post(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
 	r.record("POST", path)
 	return nil
@@ -46,6 +51,16 @@ func (r *recordingRouter) Put(path string, handler router.HandlerFunc, mw ...rou
 
 func (r *recordingRouter) Delete(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
 	r.record("DELETE", path)
+	return nil
+}
+
+func (r *recordingRouter) Patch(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
+	r.record("PATCH", path)
+	return nil
+}
+
+func (r *recordingRouter) Head(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
+	r.record("HEAD", path)
 	return nil
 }
 

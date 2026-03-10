@@ -11,6 +11,25 @@ type captureRouter struct {
 	routes map[string]router.HandlerFunc
 }
 
+func (r *captureRouter) Handle(method router.HTTPMethod, path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
+	switch method {
+	case router.GET:
+		return r.Get(path, handler, mw...)
+	case router.POST:
+		return r.Post(path, handler, mw...)
+	case router.PUT:
+		return r.Put(path, handler, mw...)
+	case router.DELETE:
+		return r.Delete(path, handler, mw...)
+	case router.PATCH:
+		return r.Patch(path, handler, mw...)
+	case router.HEAD:
+		return r.Head(path, handler, mw...)
+	default:
+		return nil
+	}
+}
+
 func (r *captureRouter) Get(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
 	if r.routes == nil {
 		r.routes = map[string]router.HandlerFunc{}
@@ -25,6 +44,14 @@ func (r *captureRouter) Put(path string, handler router.HandlerFunc, mw ...route
 	return r.Get(path, handler, mw...)
 }
 func (r *captureRouter) Delete(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
+	return r.Get(path, handler, mw...)
+}
+
+func (r *captureRouter) Patch(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
+	return r.Get(path, handler, mw...)
+}
+
+func (r *captureRouter) Head(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
 	return r.Get(path, handler, mw...)
 }
 
