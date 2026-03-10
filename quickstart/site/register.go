@@ -254,6 +254,47 @@ type siteAdminRouter[T any] struct {
 	router router.Router[T]
 }
 
+func (r siteAdminRouter[T]) Handle(method router.HTTPMethod, path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
+	return r.router.Handle(method, path, handler, mw...)
+}
+
+func (r siteAdminRouter[T]) Group(prefix string) admin.AdminRouter {
+	group := r.router.Group(prefix)
+	if group == nil {
+		return nil
+	}
+	return siteAdminRouter[T]{router: group}
+}
+
+func (r siteAdminRouter[T]) Mount(prefix string) admin.AdminRouter {
+	group := r.router.Mount(prefix)
+	if group == nil {
+		return nil
+	}
+	return siteAdminRouter[T]{router: group}
+}
+
+func (r siteAdminRouter[T]) WithGroup(path string, cb func(admin.AdminRouter)) admin.AdminRouter {
+	group := r.router.WithGroup(path, func(rg router.Router[T]) {
+		if cb == nil {
+			return
+		}
+		cb(siteAdminRouter[T]{router: rg})
+	})
+	if group == nil {
+		return nil
+	}
+	return siteAdminRouter[T]{router: group}
+}
+
+func (r siteAdminRouter[T]) Use(m ...router.MiddlewareFunc) admin.AdminRouter {
+	group := r.router.Use(m...)
+	if group == nil {
+		return nil
+	}
+	return siteAdminRouter[T]{router: group}
+}
+
 func (r siteAdminRouter[T]) Get(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
 	return r.router.Get(path, handler, mw...)
 }
@@ -268,4 +309,12 @@ func (r siteAdminRouter[T]) Put(path string, handler router.HandlerFunc, mw ...r
 
 func (r siteAdminRouter[T]) Delete(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
 	return r.router.Delete(path, handler, mw...)
+}
+
+func (r siteAdminRouter[T]) Patch(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
+	return r.router.Patch(path, handler, mw...)
+}
+
+func (r siteAdminRouter[T]) Head(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
+	return r.router.Head(path, handler, mw...)
 }
