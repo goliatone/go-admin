@@ -141,6 +141,7 @@ func TestBuildDebugViewContextAdminLayoutGuestFallback(t *testing.T) {
 func newDebugViewMockContext(ctx context.Context, requestPath string) *router.MockContext {
 	c := router.NewMockContext()
 	c.On("Context").Return(ctx)
+	c.On("IP").Return("").Maybe()
 	c.On("Path").Return(requestPath)
 	c.On("Query", "locale").Return("")
 	c.On("Locals", "user").Return(nil)

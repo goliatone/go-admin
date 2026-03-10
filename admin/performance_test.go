@@ -149,6 +149,7 @@ func BenchmarkPanelActionCreateTranslation(b *testing.B) {
 	}
 	c := router.NewMockContext()
 	c.On("Context").Return(context.Background())
+	c.On("IP").Return("").Maybe()
 
 	previousLogger := translationObservabilityLogger
 	translationObservabilityLogger = slog.New(slog.NewTextHandler(io.Discard, nil))
@@ -202,6 +203,7 @@ func BenchmarkPanelActionBlockedTransition(b *testing.B) {
 	}
 	c := router.NewMockContext()
 	c.On("Context").Return(context.Background())
+	c.On("IP").Return("").Maybe()
 
 	previousLogger := translationObservabilityLogger
 	translationObservabilityLogger = slog.New(slog.NewTextHandler(io.Discard, nil))

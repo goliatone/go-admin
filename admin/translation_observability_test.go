@@ -116,6 +116,7 @@ func TestPanelBindingCreateTranslationRecordsMetricOutcomes(t *testing.T) {
 		}
 		c := router.NewMockContext()
 		c.On("Context").Return(context.Background())
+		c.On("IP").Return("").Maybe()
 
 		_, err := binding.Action(c, "en", "create_translation", map[string]any{
 			"id":          "page_123",
@@ -172,6 +173,7 @@ func TestPanelBindingCreateTranslationRecordsMetricOutcomes(t *testing.T) {
 		}
 		c := router.NewMockContext()
 		c.On("Context").Return(context.Background())
+		c.On("IP").Return("").Maybe()
 
 		_, err := binding.Action(c, "en", "create_translation", map[string]any{
 			"id":          "page_123",

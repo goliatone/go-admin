@@ -18,6 +18,7 @@ type stubWebSocketContext struct {
 func newStubWebSocketContext() *stubWebSocketContext {
 	mockCtx := router.NewMockContext()
 	mockCtx.On("Context").Return(context.Background())
+	mockCtx.On("IP").Return("").Maybe()
 	return &stubWebSocketContext{MockContext: mockCtx}
 }
 

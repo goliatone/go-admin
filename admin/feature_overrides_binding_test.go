@@ -64,6 +64,7 @@ func TestFeatureOverridesBindingSetCapturesScope(t *testing.T) {
 	ctx := auth.WithActorContext(context.Background(), actor)
 	mockCtx := router.NewMockContext()
 	mockCtx.On("Context").Return(ctx)
+	mockCtx.On("IP").Return("").Maybe()
 
 	cases := []struct {
 		name        string
@@ -150,6 +151,7 @@ func TestFeatureOverridesBindingUnsetCallsGate(t *testing.T) {
 
 	mockCtx := router.NewMockContext()
 	mockCtx.On("Context").Return(context.Background())
+	mockCtx.On("IP").Return("").Maybe()
 
 	payload, err := binding.Unset(mockCtx, map[string]any{
 		"key":       "users.signup",
@@ -176,6 +178,7 @@ func TestFeatureOverridesBindingRejectsAliases(t *testing.T) {
 
 	mockCtx := router.NewMockContext()
 	mockCtx.On("Context").Return(context.Background())
+	mockCtx.On("IP").Return("").Maybe()
 
 	_, err = binding.Set(mockCtx, map[string]any{
 		"key":     "users.self_registration",

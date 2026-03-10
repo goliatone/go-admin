@@ -48,6 +48,7 @@ func TestGoAuthAuthenticatorWrapsMiddleware(t *testing.T) {
 
 	mockCtx := router.NewMockContext()
 	mockCtx.On("Context").Return(context.Background())
+	mockCtx.On("IP").Return("").Maybe()
 	mockCtx.On("SetContext", mock.Anything).Return()
 
 	if err := authenticator.Wrap(mockCtx); err != nil {

@@ -752,6 +752,7 @@ func TestTranslationExchangeBindingJobStatusRequiresJobOwner(t *testing.T) {
 
 	mockCtx := router.NewMockContext()
 	mockCtx.On("Context").Return(context.Background())
+	mockCtx.On("IP").Return("").Maybe()
 	mockCtx.On("Header", "X-User-ID").Return("other-user")
 	mockCtx.On("Param", "id", "").Return(jobID)
 	_, err = binding.JobStatus(mockCtx, jobID)
