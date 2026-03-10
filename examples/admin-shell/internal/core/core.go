@@ -16,7 +16,6 @@ import (
 	"github.com/goliatone/go-admin/pkg/client"
 	"github.com/goliatone/go-admin/quickstart"
 	auth "github.com/goliatone/go-auth"
-	goconfig "github.com/goliatone/go-config/config"
 	"github.com/goliatone/go-featuregate/adapters/configadapter"
 	fggate "github.com/goliatone/go-featuregate/gate"
 	"github.com/goliatone/go-featuregate/resolver"
@@ -31,10 +30,9 @@ type FeatureStatus struct {
 
 // Core is a lightweight dependency container for the admin shell.
 type Core struct {
-	Config          *config.AppConfig
-	ConfigContainer *goconfig.Container[*config.AppConfig]
-	Logger          *slog.Logger
-	StartedAt       time.Time
+	Config    *config.AppConfig
+	Logger    *slog.Logger
+	StartedAt time.Time
 
 	Server router.Server[*fiber.App]
 	Router router.Router[*fiber.App]
@@ -52,7 +50,7 @@ type Core struct {
 }
 
 // New builds application dependencies and wires go-admin.
-func New(ctx context.Context, cfg *config.AppConfig, container *goconfig.Container[*config.AppConfig]) (*Core, error) {
+func New(ctx context.Context, cfg *config.AppConfig) (*Core, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -61,7 +59,7 @@ func New(ctx context.Context, cfg *config.AppConfig, container *goconfig.Contain
 	}
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
-	featureGate := featureGateFromDefaults(cfg.Features)
+	featureGate := featureGateFromDefaults(cfg.FeatureDefaults())
 
 	adminCfg := quickstart.NewAdminConfig(
 		cfg.Admin.BasePath,
@@ -140,7 +138,6 @@ func New(ctx context.Context, cfg *config.AppConfig, container *goconfig.Contain
 
 	return &Core{
 		Config:             cfg,
-		ConfigContainer:    container,
 		Logger:             logger,
 		StartedAt:          time.Now().UTC(),
 		Server:             server,
@@ -179,11 +176,12 @@ func (c *Core) Shutdown(ctx context.Context) error {
 
 // Features returns sorted feature flags for display.
 func (c *Core) Features() []FeatureStatus {
-	if c == nil || len(c.Config.Features) == 0 {
+	if c == nil || c.Config == nil {
 		return nil
 	}
-	out := make([]FeatureStatus, 0, len(c.Config.Features))
-	for key, value := range c.Config.Features {
+	defaults := c.Config.FeatureDefaults()
+	out := make([]FeatureStatus, 0, len(defaults))
+	for key, value := range defaults {
 		out = append(out, FeatureStatus{Name: key, Enabled: value})
 	}
 	sort.Slice(out, func(i, j int) bool {
