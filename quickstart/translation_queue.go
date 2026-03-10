@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
+	gocommand "github.com/goliatone/go-command"
 )
 
 // ErrTranslationQueueConfig indicates invalid quickstart queue wiring.
@@ -14,13 +15,16 @@ var ErrTranslationQueueConfig = errors.New("translation queue config invalid")
 
 // TranslationQueueConfig configures optional translation queue wiring in quickstart.
 type TranslationQueueConfig struct {
-	Enabled             bool     `json:"enabled,omitempty"`
-	EnableOpenPool      bool     `json:"enable_open_pool"`
-	EnableDashboard     bool     `json:"enable_dashboard_widget"`
-	EnableNotifications bool     `json:"enable_notifications"`
-	EnableAutoCreate    bool     `json:"enable_auto_create"`
-	DefaultPriority     string   `json:"default_priority,omitempty"`
-	SupportedLocales    []string `json:"supported_locales,omitempty"`
+	Enabled bool `json:"enabled,omitempty"`
+	// CommandExecutionMode applies per-command routing policy overrides for translation queue commands.
+	// Hosts can still override specific command ids through WithCommandExecutionPolicy.
+	CommandExecutionMode gocommand.ExecutionMode `json:"command_execution_mode,omitempty"`
+	EnableOpenPool       bool                    `json:"enable_open_pool"`
+	EnableDashboard      bool                    `json:"enable_dashboard_widget"`
+	EnableNotifications  bool                    `json:"enable_notifications"`
+	EnableAutoCreate     bool                    `json:"enable_auto_create"`
+	DefaultPriority      string                  `json:"default_priority,omitempty"`
+	SupportedLocales     []string                `json:"supported_locales,omitempty"`
 
 	Repository admin.TranslationAssignmentRepository `json:"-"`
 	Service    admin.TranslationQueueService         `json:"-"`
