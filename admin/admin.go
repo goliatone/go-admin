@@ -37,6 +37,7 @@ type Admin struct {
 	router                       AdminRouter
 	commandBus                   *CommandBus
 	rpcServer                    *cmdrpc.Server
+	rpcCommandPolicyHook         RPCCommandPolicyHook
 	dashboard                    *Dashboard
 	debugCollector               *DebugCollector
 	replSessionStore             DebugREPLSessionStore
@@ -192,6 +193,11 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 	if err != nil {
 		return nil, err
 	}
+	rpcPolicy, err := normalizeRPCCommandConfig(cfg.Commands.RPC)
+	if err != nil {
+		return nil, err
+	}
+	cfg.Commands.RPC = rpcPolicy
 	if err := commandBus.SetExecutionPolicy(commandPolicy); err != nil {
 		return nil, err
 	}
@@ -199,9 +205,6 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 		return nil, err
 	}
 	rpcServer := newRPCServer(deps.RPCServer)
-	if err := registerCoreRPCEndpoints(rpcServer, commandBus); err != nil {
-		return nil, err
-	}
 
 	settingsSvc := deps.SettingsService
 	if settingsSvc == nil {
@@ -354,6 +357,7 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 		router:                 deps.Router,
 		commandBus:             commandBus,
 		rpcServer:              rpcServer,
+		rpcCommandPolicyHook:   deps.RPCCommandPolicyHook,
 		dashboard:              dashboard,
 		replSessionStore:       replSessionStore,
 		replSessionManager:     replSessionManager,
@@ -396,6 +400,10 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 	}
 
 	adm.RegisterDoctorChecks(defaultDoctorChecks()...)
+
+	if err := registerCoreRPCEndpoints(rpcServer, adm); err != nil {
+		return nil, err
+	}
 
 	if _, err := RegisterQuery(commandBus, &dashboardDiagnosticsQuery{admin: adm}); err != nil {
 		return nil, err
@@ -642,6 +650,19 @@ func (a *Admin) Authorizer() Authorizer {
 		return nil
 	}
 	return a.authorizer
+}
+
+// Authenticator exposes the configured authenticator (if any).
+func (a *Admin) Authenticator() Authenticator {
+	if a == nil {
+		return nil
+	}
+	return a.authenticator
+}
+
+// HasAuthenticator reports whether an authenticator is configured.
+func (a *Admin) HasAuthenticator() bool {
+	return a != nil && a.authenticator != nil
 }
 
 // WithActivitySink injects a shared activity sink (go-users compatible via adapter).
