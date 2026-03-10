@@ -129,15 +129,13 @@ func RegisterContentTypeBuilderUIRoutes[T any](
 
 	contentTypesPath := path.Join(options.basePath, "content", "types")
 	blockDefinitionsPath := path.Join(options.basePath, "content", "block-library")
-	legacyContentTypesPath := path.Join(options.basePath, "content_types")
-	legacyBlockDefinitionsPath := path.Join(options.basePath, "block_definitions")
-
-	r.Get(contentTypesPath, wrap(handlers.ContentTypes))
-	r.Get(blockDefinitionsPath, wrap(handlers.BlockDefinitions))
-	r.Get(legacyContentTypesPath, wrap(func(c router.Context) error {
+	uiRoutes := r.Group(options.basePath)
+	uiRoutes.Get("/content/types", wrap(handlers.ContentTypes))
+	uiRoutes.Get("/content/block-library", wrap(handlers.BlockDefinitions))
+	uiRoutes.Get("/content_types", wrap(func(c router.Context) error {
 		return c.Redirect(contentTypesPath)
 	}))
-	r.Get(legacyBlockDefinitionsPath, wrap(func(c router.Context) error {
+	uiRoutes.Get("/block_definitions", wrap(func(c router.Context) error {
 		return c.Redirect(blockDefinitionsPath)
 	}))
 	return nil
@@ -213,19 +211,20 @@ func RegisterContentTypeBuilderAPIRoutes[T any](
 
 	handlers := newContentTypeBuilderHandlers(adm, cfg, nil, options.permission, options.authResource)
 	apiBase := adminAPIBasePathFromConfig(options.basePath, cfg)
-	r.Post(path.Join(apiBase, "content_types", ":id", "publish"), wrap(handlers.PublishContentType))
-	r.Post(path.Join(apiBase, "content_types", ":id", "deprecate"), wrap(handlers.DeprecateContentType))
-	r.Post(path.Join(apiBase, "content_types", ":id", "clone"), wrap(handlers.CloneContentType))
-	r.Post(path.Join(apiBase, "content_types", ":id", "compatibility"), wrap(handlers.ContentTypeCompatibility))
-	r.Get(path.Join(apiBase, "content_types", ":id", "versions"), wrap(handlers.ContentTypeVersions))
-	r.Post(path.Join(apiBase, "session", "channel"), wrap(handlers.UpdateChannel))
-	r.Post(path.Join(apiBase, "block_definitions", ":id", "publish"), wrap(handlers.PublishBlockDefinition))
-	r.Post(path.Join(apiBase, "block_definitions", ":id", "deprecate"), wrap(handlers.DeprecateBlockDefinition))
-	r.Post(path.Join(apiBase, "block_definitions", ":id", "clone"), wrap(handlers.CloneBlockDefinition))
-	r.Get(path.Join(apiBase, "block_definitions", ":id", "versions"), wrap(handlers.BlockDefinitionVersions))
-	r.Get(path.Join(apiBase, "block_definitions", "categories"), wrap(handlers.BlockDefinitionCategories))
-	r.Get(path.Join(apiBase, "block_definitions", "diagnostics"), wrap(handlers.BlockDefinitionDiagnostics))
-	r.Get(path.Join(apiBase, "block_definitions", "field_types"), wrap(handlers.BlockDefinitionFieldTypes))
+	apiRoutes := r.Group(apiBase)
+	apiRoutes.Post("/content_types/:id/publish", wrap(handlers.PublishContentType))
+	apiRoutes.Post("/content_types/:id/deprecate", wrap(handlers.DeprecateContentType))
+	apiRoutes.Post("/content_types/:id/clone", wrap(handlers.CloneContentType))
+	apiRoutes.Post("/content_types/:id/compatibility", wrap(handlers.ContentTypeCompatibility))
+	apiRoutes.Get("/content_types/:id/versions", wrap(handlers.ContentTypeVersions))
+	apiRoutes.Post("/session/channel", wrap(handlers.UpdateChannel))
+	apiRoutes.Post("/block_definitions/:id/publish", wrap(handlers.PublishBlockDefinition))
+	apiRoutes.Post("/block_definitions/:id/deprecate", wrap(handlers.DeprecateBlockDefinition))
+	apiRoutes.Post("/block_definitions/:id/clone", wrap(handlers.CloneBlockDefinition))
+	apiRoutes.Get("/block_definitions/:id/versions", wrap(handlers.BlockDefinitionVersions))
+	apiRoutes.Get("/block_definitions/categories", wrap(handlers.BlockDefinitionCategories))
+	apiRoutes.Get("/block_definitions/diagnostics", wrap(handlers.BlockDefinitionDiagnostics))
+	apiRoutes.Get("/block_definitions/field_types", wrap(handlers.BlockDefinitionFieldTypes))
 	return nil
 }
 
