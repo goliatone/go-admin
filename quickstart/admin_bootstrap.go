@@ -29,6 +29,10 @@ type adminOptions struct {
 	ctx                          context.Context
 	deps                         admin.Dependencies
 	flags                        *AdapterFlags
+	commandExecutionPolicy       admin.CommandExecutionPolicy
+	commandExecutionPolicySet    bool
+	commandQueueRouting          CommandQueueRoutingConfig
+	commandQueueRoutingSet       bool
 	featureDefaults              map[string]bool
 	workflowConfig               WorkflowConfig
 	workflowConfigSet            bool
@@ -305,6 +309,7 @@ func NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin
 		}
 		options.deps.FeatureGate = buildFeatureGate(cfg, defaults, options.deps.PreferencesStore)
 	}
+	applyCommandExecutionRoutingConfig(&cfg, options)
 	adm, err := admin.New(cfg, options.deps)
 	if err != nil {
 		return nil, result, err
@@ -358,6 +363,9 @@ func NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin
 	registerTranslationCapabilities(adm, options.translationProductConfig, options.translationProductWarnings, translationModules)
 	logTranslationCapabilitiesStartup(translationLogger, TranslationCapabilities(adm))
 	registerQuickstartDoctorChecks(adm, cfg, result, options)
+	if err := configureCommandQueueRouting(options); err != nil {
+		return nil, result, err
+	}
 	return adm, result, nil
 }
 
