@@ -295,8 +295,13 @@ func RunV2ValidationProfile(ctx context.Context, cfg V2ValidationConfig) (V2Vali
 	}()
 
 	documentSvc := services.NewDocumentService(store)
-	agreementSvc := services.NewAgreementService(store)
-	signingSvc := services.NewSigningService(store)
+	pdfPolicy := services.DefaultPDFPolicy()
+	pdfPolicy.PipelineMode = services.PDFPipelineModeAnalyzeOnly
+	pdfPolicy.PreviewFallbackEnabled = true
+	pdfSvc := services.NewPDFService(services.WithPDFPolicyResolver(services.NewStaticPDFPolicyResolver(pdfPolicy)))
+	documentSvc = services.NewDocumentService(store, services.WithDocumentPDFService(pdfSvc))
+	agreementSvc := services.NewAgreementService(store, services.WithAgreementPDFService(pdfSvc))
+	signingSvc := services.NewSigningService(store, services.WithSigningPDFService(pdfSvc))
 	integrationSvc := services.NewIntegrationFoundationService(store)
 
 	started := time.Now()

@@ -106,6 +106,8 @@ func TestAdminAPIStatusEnvelopeContract(t *testing.T) {
 		"admin_agreement_auto_place", "admin_agreement_placement_runs", "admin_agreement_placement_run", "admin_agreement_placement_apply",
 		"admin_smoke_recipient_links",
 		"admin_documents_upload",
+		"admin_document_remediate",
+		"admin_remediation_dispatch_status",
 		"signer_session", "signer_consent", "signer_field_values", "signer_signature", "signer_signature_upload", "signer_signature_object", "signer_telemetry", "signer_submit", "signer_decline", "signer_assets",
 		"signer_profile", "signer_saved_signatures", "signer_saved_signature",
 		"google_oauth_connect", "google_oauth_disconnect", "google_oauth_rotate", "google_oauth_status",

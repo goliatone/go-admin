@@ -46,6 +46,11 @@ type statusFailingGoogleService struct {
 	err error
 }
 
+type remediationDispatchStatusStub struct {
+	status RemediationDispatchStatus
+	err    error
+}
+
 func (s agreementStatsStub) ListAgreements(context.Context, stores.Scope, stores.AgreementQuery) ([]stores.AgreementRecord, error) {
 	if s.err != nil {
 		return nil, s.err
@@ -89,6 +94,13 @@ func (s statusFailingGoogleService) BrowseFiles(context.Context, stores.Scope, s
 
 func (s statusFailingGoogleService) ImportDocument(context.Context, stores.Scope, services.GoogleImportInput) (services.GoogleImportResult, error) {
 	return services.GoogleImportResult{}, nil
+}
+
+func (s remediationDispatchStatusStub) LookupRemediationDispatchStatus(context.Context, string) (RemediationDispatchStatus, error) {
+	if s.err != nil {
+		return RemediationDispatchStatus{}, s.err
+	}
+	return s.status, nil
 }
 
 type sharedDriveEdgeProvider struct {
@@ -627,6 +639,161 @@ func TestRegisterAdminRouteDeniesCrossTenantScope(t *testing.T) {
 	}
 	if !strings.Contains(string(body), "SCOPE_DENIED") {
 		t.Fatalf("expected SCOPE_DENIED response, got %s", string(body))
+	}
+}
+
+func TestRegisterRemediationTriggerRequiresAdminEdit(t *testing.T) {
+	app := setupRegisterTestApp(t,
+		WithAuthorizer(mapAuthorizer{allowed: map[string]bool{}}),
+		WithDefaultScope(stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}),
+	)
+	req := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/documents/doc-1/remediate", nil)
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("expected status 403, got %d", resp.StatusCode)
+	}
+}
+
+func TestRegisterRemediationTriggerModeOverrideRequiresAdminSettings(t *testing.T) {
+	app := setupRegisterTestApp(t,
+		WithAuthorizer(mapAuthorizer{allowed: map[string]bool{
+			DefaultPermissions.AdminEdit: true,
+		}}),
+		WithDefaultScope(stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}),
+	)
+	req := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/documents/doc-1/remediate?mode=queued", nil)
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("expected status 403, got %d", resp.StatusCode)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read response body: %v", err)
+	}
+	if !strings.Contains(string(body), "SCOPE_DENIED") {
+		t.Fatalf("expected SCOPE_DENIED response, got %s", string(body))
+	}
+}
+
+func TestRegisterRemediationTriggerModeOverrideAllowedWithAdminSettings(t *testing.T) {
+	app := setupRegisterTestApp(t,
+		WithAuthorizer(mapAuthorizer{allowed: map[string]bool{
+			DefaultPermissions.AdminEdit:     true,
+			DefaultPermissions.AdminSettings: true,
+		}}),
+		WithDefaultScope(stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}),
+	)
+	req := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/documents/doc-1/remediate?mode=queued", nil)
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusNotImplemented {
+		t.Fatalf("expected status 501, got %d", resp.StatusCode)
+	}
+}
+
+func TestRegisterRemediationDispatchStatusRequiresAdminView(t *testing.T) {
+	app := setupRegisterTestApp(t,
+		WithAuthorizer(mapAuthorizer{allowed: map[string]bool{}}),
+		WithRemediationDispatchStatusLookup(remediationDispatchStatusStub{
+			status: RemediationDispatchStatus{
+				DispatchID: "dispatch-1",
+				Status:     "accepted",
+				TenantID:   "tenant-1",
+				OrgID:      "org-1",
+			},
+		}),
+		WithDefaultScope(stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}),
+	)
+	req := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign/dispatches/dispatch-1", nil)
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("expected status 403, got %d", resp.StatusCode)
+	}
+}
+
+func TestRegisterRemediationDispatchStatusDeniesScopeMismatch(t *testing.T) {
+	app := setupRegisterTestApp(t,
+		WithAuthorizer(mapAuthorizer{allowed: map[string]bool{
+			DefaultPermissions.AdminView: true,
+		}}),
+		WithRemediationDispatchStatusLookup(remediationDispatchStatusStub{
+			status: RemediationDispatchStatus{
+				DispatchID: "dispatch-1",
+				Status:     "accepted",
+				TenantID:   "tenant-2",
+				OrgID:      "org-1",
+			},
+		}),
+		WithDefaultScope(stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}),
+	)
+	req := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign/dispatches/dispatch-1", nil)
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("expected status 403, got %d", resp.StatusCode)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read response body: %v", err)
+	}
+	if !strings.Contains(string(body), "SCOPE_DENIED") {
+		t.Fatalf("expected SCOPE_DENIED response, got %s", string(body))
+	}
+}
+
+func TestRegisterRemediationDispatchStatusAllowsMatchingScope(t *testing.T) {
+	updatedAt := time.Date(2026, 3, 1, 10, 0, 0, 0, time.UTC)
+	app := setupRegisterTestApp(t,
+		WithAuthorizer(mapAuthorizer{allowed: map[string]bool{
+			DefaultPermissions.AdminView: true,
+		}}),
+		WithRemediationDispatchStatusLookup(remediationDispatchStatusStub{
+			status: RemediationDispatchStatus{
+				DispatchID:     "dispatch-1",
+				Status:         "running",
+				TenantID:       "tenant-1",
+				OrgID:          "org-1",
+				Attempt:        2,
+				MaxAttempts:    5,
+				TerminalReason: "",
+				UpdatedAt:      &updatedAt,
+			},
+		}),
+		WithDefaultScope(stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}),
+	)
+	req := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign/dispatches/dispatch-1", nil)
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", resp.StatusCode)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read response body: %v", err)
+	}
+	if !strings.Contains(string(body), "\"dispatch_id\":\"dispatch-1\"") {
+		t.Fatalf("expected dispatch payload in response, got %s", string(body))
 	}
 }
 

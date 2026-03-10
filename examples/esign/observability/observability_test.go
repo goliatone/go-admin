@@ -46,6 +46,19 @@ func TestMetricsSnapshotComputesPercentilesAndRates(t *testing.T) {
 	metrics.ObserveJobResult(ctx, "jobs.esign.pdf_generate_executed", false)
 	metrics.ObserveProviderResult(ctx, "email", true)
 	metrics.ObserveProviderResult(ctx, "email", false)
+	metrics.ObserveReminderSweep(
+		ctx,
+		300*time.Millisecond,
+		5,
+		2,
+		1,
+		2,
+		map[string]int{"lease_lost": 1},
+		map[string]int{"state_invariant_violation": 2},
+		[]float64{50, 100},
+		[]float64{150},
+		[]float64{900, 1000},
+	)
 	metrics.ObserveTokenValidationFailure(ctx, "TOKEN_EXPIRED")
 	metrics.ObserveGoogleImport(ctx, true, "")
 	metrics.ObserveGoogleImport(ctx, false, "GOOGLE_PERMISSION_DENIED")
@@ -65,6 +78,18 @@ func TestMetricsSnapshotComputesPercentilesAndRates(t *testing.T) {
 	}
 	if snapshot.EmailFailureTotal != 1 || snapshot.EmailSuccessTotal != 1 {
 		t.Fatalf("expected email success/failure totals, got %+v", snapshot)
+	}
+	if snapshot.ReminderSweepClaimedTotal != 5 || snapshot.ReminderSweepSentTotal != 2 {
+		t.Fatalf("expected reminder sweep claimed/sent totals, got %+v", snapshot)
+	}
+	if snapshot.ReminderLeaseLostTotal != 1 {
+		t.Fatalf("expected reminder lease_lost total 1, got %+v", snapshot)
+	}
+	if snapshot.ReminderStateInvariantTotal != 2 {
+		t.Fatalf("expected reminder state invariant total from failure reasons, got %+v", snapshot)
+	}
+	if snapshot.ReminderClaimToSendP95MS != 100 || snapshot.ReminderDueToSendP95MS != 150 || snapshot.ReminderDueBacklogAgeP95MS != 1000 {
+		t.Fatalf("expected reminder latency/backlog p95 metrics to be computed, got %+v", snapshot)
 	}
 	if snapshot.TokenFailureByReason["token_expired"] != 1 {
 		t.Fatalf("expected token_expired counter, got %+v", snapshot.TokenFailureByReason)

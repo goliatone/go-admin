@@ -290,7 +290,7 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 	m.reminders = services.NewAgreementReminderService(
 		m.store,
 		m.agreements,
-		services.WithAgreementReminderClaimer("esign-agreement-reminder-sweep"),
+		services.WithAgreementReminderWorkerID("esign-agreement-reminder-sweep"),
 	)
 	m.drafts = services.NewDraftService(m.store,
 		services.WithDraftAgreementService(m.agreements),

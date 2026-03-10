@@ -39,7 +39,7 @@ func TestResolveAppLocalMigrationFSUsesConfigSiblingDataDirNotStoresDir(t *testi
 	cfg.Migrations.LocalDir = "data/sql/migrations"
 	cfg.ConfigPath = filepath.Join(configDir, "app.json")
 
-	resolved, err := resolveAppLocalMigrationFS(*cfg)
+	resolved, err := resolveAppLocalMigrationFS(cfg)
 	if err != nil {
 		t.Fatalf("resolveAppLocalMigrationFS: %v", err)
 	}

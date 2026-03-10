@@ -69,10 +69,39 @@ ADMIN_PASSWORD=admin.pwd \
 
 ## Configuration
 
-The e-sign example uses typed runtime config from `examples/esign/config`:
+The e-sign example uses generated typed config in [`examples/esign/config`](./config):
 
-- Base config file: `examples/esign/config/app.json`
-- Environment overrides: `APP_*` with `__` nesting delimiter
+- Schema source: [`examples/esign/config/app.json`](./config/app.json)
+- Optional overlay: [`examples/esign/config/overrides.yml`](./config/overrides.yml)
+- Generated artifacts (committed): [`examples/esign/config/config_structs.go`](./config/config_structs.go), [`examples/esign/config/config_getters.go`](./config/config_getters.go)
+- Runtime loader: [`examples/esign/config/config.go`](./config/config.go)
+
+### Generation Workflow
+
+Do not edit generated files manually. Regenerate from `app.json` and overrides:
+
+```bash
+go generate ./examples/esign/config
+```
+
+Equivalent generated commands are defined in [`examples/esign/config/config_gen.go`](./config/config_gen.go):
+
+- `app-config ... -extension ./codegen.overrides.yml`
+- `config-getters ...`
+
+### Precedence Model
+
+Load order is:
+
+1. Struct defaults (`Defaults()` in `config.go`)
+2. Base config file (`app.json`)
+3. Optional overlay file (`overrides.yml`)
+4. Environment (`APP_*`, with `__` nesting delimiter)
+
+Environment selectors for file paths:
+
+- `APP_CONFIG`: base config path (defaults to package-local `app.json`)
+- `APP_CONFIG_OVERRIDES`: optional overlay path (defaults to package-local `overrides.yml`)
 
 Examples:
 

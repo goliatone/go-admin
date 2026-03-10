@@ -66,7 +66,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	handles, err := esignpersistence.OpenClient(ctx, *cfg)
+	handles, err := esignpersistence.OpenClient(ctx, cfg)
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "error: open persistence client: %v\n", err)
 		os.Exit(1)
@@ -137,14 +137,12 @@ func parseArgs(args []string) (options, error) {
 	return opts, nil
 }
 
-func loadConfig(ctx context.Context, configPath string) (*appcfg.Config, error) {
+func loadConfig(_ context.Context, configPath string) (appcfg.Config, error) {
 	configPath = strings.TrimSpace(configPath)
 	if configPath == "" {
-		cfg, _, err := appcfg.Load(ctx)
-		return cfg, err
+		return appcfg.Load()
 	}
-	cfg, _, err := appcfg.Load(ctx, configPath)
-	return cfg, err
+	return appcfg.Load(configPath)
 }
 
 func runCommand(ctx context.Context, opts options, handles *esignpersistence.ClientHandles) error {

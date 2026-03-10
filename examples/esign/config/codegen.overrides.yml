@@ -1,0 +1,167 @@
+config:
+  - name: sqlite
+    override: SQLite
+  - name: config_path
+    override: ConfigPath
+    type: string
+    tags:
+      json: "-"
+      koanf: "-"
+
+admin:
+  - name: public_api
+    override: PublicAPI
+  - name: api_prefix
+    override: APIPrefix
+  - name: api_version
+    override: APIVersion
+
+auth:
+  - name: admin_id
+    override: AdminID
+
+features:
+  - name: esign
+    override: ESign
+  - name: esign_google
+    override: ESignGoogle
+
+email:
+  - name: smtp
+    override: SMTP
+
+smtp:
+  - name: disable_starttls
+    override: DisableSTARTTLS
+  - name: insecure_tls
+    override: InsecureTLS
+  - name: port
+    override: Port
+    type: int
+  - name: timeout_seconds
+    override: TimeoutSeconds
+    type: int
+
+signer:
+  - name: profile_ttl_days
+    override: ProfileTTLDays
+    type: int
+  - name: pdf
+    override: PDF
+  - name: saved_signatures_limit_per_type
+    override: SavedSignaturesLimitPerType
+    type: int
+  - name: upload_ttl_seconds
+    override: UploadTTLSeconds
+    type: int
+
+pdf:
+  - name: allow_javascript_actions
+    override: AllowJavaScriptActions
+  - name: max_source_bytes
+    override: MaxSourceBytes
+    type: int64
+  - name: max_pages
+    override: MaxPages
+    type: int
+  - name: max_objects
+    override: MaxObjects
+    type: int
+  - name: max_decompressed_bytes
+    override: MaxDecompressedBytes
+    type: int64
+  - name: parse_timeout_ms
+    override: ParseTimeoutMS
+    type: int
+  - name: normalization_timeout_ms
+    override: NormalizationTimeoutMS
+    type: int
+
+services:
+  - name: callback_public_base_url
+    override: CallbackPublicBaseURL
+
+google:
+  - name: oauth_redirect_uri
+    override: OAuthRedirectURI
+  - name: drive_base_url
+    override: DriveBaseURL
+  - name: userinfo_endpoint
+    override: UserInfoEndpoint
+  - name: http_timeout_seconds
+    override: HTTPTimeoutSeconds
+    type: int
+  - name: credential_active_key_id
+    override: CredentialActiveKeyID
+  - name: credential_keys_json
+    override: CredentialKeysJSON
+
+public:
+  - name: base_url
+    override: BaseURL
+
+databases:
+  - name: esign_dsn
+    override: ESignDSN
+  - name: content_dsn
+    override: ContentDSN
+
+sqlite:
+  - name: dsn
+    override: DSN
+
+postgres:
+  - name: dsn
+    override: DSN
+
+network:
+  - name: trusted_proxy_cidrs
+    override: TrustedProxyCIDRs
+
+network.rate_limit:
+  - name: signer_consent
+    override: SignerConsent
+    type: SignerSession
+  - name: signer_write
+    override: SignerWrite
+    type: SignerSession
+  - name: signer_submit
+    override: SignerSubmit
+    type: SignerSession
+  - name: admin_resend
+    override: AdminResend
+    type: SignerSession
+
+signer_session:
+  - name: max_requests
+    override: MaxRequests
+    type: int
+  - name: window_seconds
+    override: WindowSeconds
+    type: int
+
+reminders:
+  - name: batch_size
+    override: BatchSize
+    type: int
+  - name: claim_lease_seconds
+    override: ClaimLeaseSeconds
+    type: int
+  - name: initial_delay_minutes
+    override: InitialDelayMinutes
+    type: int
+  - name: interval_minutes
+    override: IntervalMinutes
+    type: int
+  - name: jitter_percent
+    override: JitterPercent
+    type: int
+  - name: manual_resend_cooldown_minutes
+    override: ManualResendCooldownMinutes
+    type: int
+  - name: max_reminders
+    override: MaxReminders
+    type: int
+  - name: recent_view_grace_minutes
+    override: RecentViewGraceMinutes
+    type: int

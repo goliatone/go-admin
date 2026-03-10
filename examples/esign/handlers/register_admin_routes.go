@@ -58,6 +58,8 @@ func registerAdminCoreRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg re
 				"admin_agreement_placement_apply":   routes.AdminAgreementPlacementApply,
 				"admin_smoke_recipient_links":       routes.AdminSmokeRecipientLinks,
 				"admin_documents_upload":            routes.AdminDocumentsUpload,
+				"admin_document_remediate":          routes.AdminDocumentRemediate,
+				"admin_remediation_dispatch_status": routes.AdminRemediationDispatchStatus,
 				"signer_session":                    routes.SignerSession,
 				"signer_consent":                    routes.SignerConsent,
 				"signer_field_values":               routes.SignerFieldValues,
@@ -191,4 +193,78 @@ func registerAdminCoreRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg re
 			return cfg.documentUpload(c)
 		}, requireAdminPermission(cfg, cfg.permissions.AdminCreate))
 	}
+
+	adminRoutes.Post(routes.AdminDocumentRemediate, func(c router.Context) error {
+		if err := enforceTransportSecurity(c, cfg); err != nil {
+			return asHandlerError(err)
+		}
+		documentID := strings.TrimSpace(c.Param("document_id"))
+		if documentID == "" {
+			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "document_id is required", nil)
+		}
+		modeOverride := strings.TrimSpace(c.Query("mode"))
+		if modeOverride != "" && cfg.authorizer != nil && !authorizerAllows(c, cfg.authorizer, cfg.permissions.AdminSettings) {
+			return writePermissionDenied(c, cfg.permissions.AdminSettings)
+		}
+		scope := cfg.resolveScope(c)
+		return writeAPIError(c, nil, http.StatusNotImplemented, "NOT_IMPLEMENTED", "pdf remediation trigger not implemented", map[string]any{
+			"document_id": documentID,
+			"mode":        modeOverride,
+			"tenant_id":   scope.TenantID,
+			"org_id":      scope.OrgID,
+		})
+	}, requireAdminPermission(cfg, cfg.permissions.AdminEdit))
+
+	adminRoutes.Get(routes.AdminRemediationDispatchStatus, func(c router.Context) error {
+		if err := enforceTransportSecurity(c, cfg); err != nil {
+			return asHandlerError(err)
+		}
+		dispatchID := strings.TrimSpace(c.Param("dispatch_id"))
+		if dispatchID == "" {
+			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "dispatch_id is required", nil)
+		}
+		if cfg.remediationStatus == nil {
+			return writeAPIError(c, nil, http.StatusNotImplemented, "NOT_IMPLEMENTED", "remediation dispatch status is not configured", map[string]any{
+				"dispatch_id": dispatchID,
+			})
+		}
+		dispatch, err := cfg.remediationStatus.LookupRemediationDispatchStatus(c.Context(), dispatchID)
+		if err != nil {
+			return writeAPIError(c, err, http.StatusNotFound, "DISPATCH_NOT_FOUND", "remediation dispatch status not found", map[string]any{
+				"dispatch_id": dispatchID,
+			})
+		}
+		requestScope := cfg.resolveScope(c)
+		dispatchScope := stores.Scope{
+			TenantID: strings.TrimSpace(dispatch.TenantID),
+			OrgID:    strings.TrimSpace(dispatch.OrgID),
+		}
+		if scopeConflict(dispatchScope, requestScope) {
+			return writeAPIError(c,
+				nil,
+				http.StatusForbidden,
+				string(services.ErrorCodeScopeDenied),
+				"scope denied",
+				map[string]any{
+					"dispatch_id":        dispatchID,
+					"dispatch_tenant_id": dispatchScope.TenantID,
+					"dispatch_org_id":    dispatchScope.OrgID,
+					"request_tenant_id":  requestScope.TenantID,
+					"request_org_id":     requestScope.OrgID,
+				},
+			)
+		}
+		return c.JSON(http.StatusOK, map[string]any{
+			"status": "ok",
+			"dispatch": map[string]any{
+				"dispatch_id":     strings.TrimSpace(dispatch.DispatchID),
+				"status":          strings.TrimSpace(dispatch.Status),
+				"attempt":         dispatch.Attempt,
+				"max_attempts":    dispatch.MaxAttempts,
+				"next_run_at":     formatTime(dispatch.NextRunAt),
+				"terminal_reason": stableString(dispatch.TerminalReason),
+				"updated_at":      formatTime(dispatch.UpdatedAt),
+			},
+		})
+	}, requireAdminPermission(cfg, cfg.permissions.AdminView))
 }

@@ -356,7 +356,7 @@ func TestDocumentServiceUploadReflectsDynamicSettingsPolicyOverrides(t *testing.
 	store := stores.NewInMemoryStore()
 	settings := newPDFPolicySettingsServiceForTest()
 
-	cfg := *appcfg.Defaults()
+	cfg := appcfg.Defaults()
 	cfg.Signer.PDF.MaxPages = 5
 	resolver := NewRuntimePDFPolicyResolver(settings, WithRuntimePDFPolicyConfigProvider(func() appcfg.Config { return cfg }))
 	pdfSvc := NewPDFService(WithPDFPolicyResolver(resolver))

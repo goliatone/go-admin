@@ -22,7 +22,7 @@ func TestPhase8RestartPersistenceSQLiteSurvivesRestart(t *testing.T) {
 	const tableName = "phase8_restart_probe_sqlite"
 	const marker = "phase8-sqlite"
 
-	first, err := Bootstrap(context.Background(), *cfg)
+	first, err := Bootstrap(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("first Bootstrap: %v", err)
 	}
@@ -38,7 +38,7 @@ func TestPhase8RestartPersistenceSQLiteSurvivesRestart(t *testing.T) {
 		t.Fatalf("close first bootstrap: %v", err)
 	}
 
-	second, err := Bootstrap(context.Background(), *cfg)
+	second, err := Bootstrap(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("second Bootstrap: %v", err)
 	}
@@ -67,7 +67,7 @@ func TestPhase8RestartPersistencePostgresSurvivesRestartWhenDSNProvided(t *testi
 	tableName := fmt.Sprintf("phase8_restart_probe_postgres_%d", time.Now().UnixNano())
 	marker := fmt.Sprintf("phase8-postgres-%d", time.Now().UnixNano())
 
-	first, err := Bootstrap(context.Background(), *cfg)
+	first, err := Bootstrap(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("first Bootstrap (postgres): %v", err)
 	}
@@ -83,7 +83,7 @@ func TestPhase8RestartPersistencePostgresSurvivesRestartWhenDSNProvided(t *testi
 		t.Fatalf("close first postgres bootstrap: %v", err)
 	}
 
-	second, err := Bootstrap(context.Background(), *cfg)
+	second, err := Bootstrap(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("second Bootstrap (postgres): %v", err)
 	}

@@ -470,7 +470,19 @@ func (c *AgreementReminderSweepCommand) Execute(ctx context.Context, msg Agreeme
 	}
 	result, err := c.reminders.Sweep(ctx, scope)
 	if err != nil {
-		observability.ObserveReminderSweep(ctx, time.Since(startedAt), result.Claimed, result.Sent, result.Skipped, result.Failed, result.SkipReasons)
+		observability.ObserveReminderSweep(
+			ctx,
+			time.Since(startedAt),
+			result.Claimed,
+			result.Sent,
+			result.Skipped,
+			result.Failed,
+			result.SkipReasons,
+			result.FailureReasons,
+			result.ClaimToSendMS,
+			result.DueToSendMS,
+			result.DueBacklogAgeMS,
+		)
 		observability.LogOperation(ctx, slog.LevelWarn, "command", "agreement_reminder_sweep", "error", correlationID, time.Since(startedAt), err, map[string]any{
 			"command_name": CommandAgreementReminderSweep,
 			"tenant_id":    scope.TenantID,
@@ -482,7 +494,19 @@ func (c *AgreementReminderSweepCommand) Execute(ctx context.Context, msg Agreeme
 		})
 		return err
 	}
-	observability.ObserveReminderSweep(ctx, time.Since(startedAt), result.Claimed, result.Sent, result.Skipped, result.Failed, result.SkipReasons)
+	observability.ObserveReminderSweep(
+		ctx,
+		time.Since(startedAt),
+		result.Claimed,
+		result.Sent,
+		result.Skipped,
+		result.Failed,
+		result.SkipReasons,
+		result.FailureReasons,
+		result.ClaimToSendMS,
+		result.DueToSendMS,
+		result.DueBacklogAgeMS,
+	)
 	observability.LogOperation(ctx, slog.LevelInfo, "command", "agreement_reminder_sweep", "success", correlationID, time.Since(startedAt), nil, map[string]any{
 		"command_name": CommandAgreementReminderSweep,
 		"tenant_id":    scope.TenantID,

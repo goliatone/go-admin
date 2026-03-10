@@ -67,7 +67,9 @@ func FuzzSafeImportPageWithBoxes(f *testing.F) {
 				t.Fatalf("safeImportPageWithBoxes must not panic, recovered=%v", recovered)
 			}
 		}()
-		_, _, _ = safeImportPageWithBoxes(importer, pdfDoc, payload, page, "/MediaBox", "/CropBox")
+		ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
+		defer cancel()
+		_, _, _ = safeImportPageWithBoxesWithContext(ctx, importer, pdfDoc, payload, page, "/MediaBox", "/CropBox")
 	})
 }
 

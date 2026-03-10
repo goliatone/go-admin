@@ -773,7 +773,7 @@ func TestLoadESignAuthSeedResolvesRelativeConfigPath(t *testing.T) {
 		t.Fatalf("write seed file: %v", err)
 	}
 
-	runtimeCfg := *appcfg.Defaults()
+	runtimeCfg := appcfg.Defaults()
 	runtimeCfg.ConfigPath = path.Join(tempDir, "app.json")
 	runtimeCfg.Auth.SeedFile = "dev_seed.json"
 	runtimeCfg.Auth.AdminID = ""

@@ -633,7 +633,7 @@ func TestSigningServiceGetSessionSupportsPreviewFallbackKillSwitch(t *testing.T)
 	}
 }
 
-func TestSigningServiceGetSessionBlocksWhenSourceUnavailableAndFallbackDisabled(t *testing.T) {
+func TestSigningServiceGetSessionDegradesWhenSourceUnavailableWithoutObjectStore(t *testing.T) {
 	ctx, scope, store, agreementSvc, agreement := setupDraftAgreement(t)
 
 	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
@@ -657,19 +657,18 @@ func TestSigningServiceGetSessionBlocksWhenSourceUnavailableAndFallbackDisabled(
 	}
 
 	signingSvc := NewSigningService(store)
-	_, err = signingSvc.GetSession(ctx, scope, stores.SigningTokenRecord{
+	session, err := signingSvc.GetSession(ctx, scope, stores.SigningTokenRecord{
 		AgreementID: agreement.ID,
 		RecipientID: signer.ID,
 	})
-	if err == nil {
-		t.Fatalf("expected unsupported error when source is unavailable and fallback is disabled")
+	if err != nil {
+		t.Fatalf("expected metadata-only fallback session, got %v", err)
 	}
-	var coded *goerrors.Error
-	if !errors.As(err, &coded) {
-		t.Fatalf("expected coded unsupported error, got %T (%v)", err, err)
+	if session.Viewer.Compatibility != signerViewerCompatibilityTierLimited {
+		t.Fatalf("expected limited compatibility without source object store, got %q", session.Viewer.Compatibility)
 	}
-	if strings.TrimSpace(coded.TextCode) != string(ErrorCodePDFUnsupported) {
-		t.Fatalf("expected text code %q, got %q", ErrorCodePDFUnsupported, coded.TextCode)
+	if session.Viewer.Reason != signerViewerCompatibilityReasonSourceUnavailable {
+		t.Fatalf("expected source_unavailable fallback reason, got %q", session.Viewer.Reason)
 	}
 }
 

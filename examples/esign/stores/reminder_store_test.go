@@ -204,6 +204,43 @@ func TestInMemoryStoreLeaseFencingRejectsStaleAndNonOwnerWrites(t *testing.T) {
 	}
 }
 
+func TestInMemoryStoreUpsertPreservesActiveLeaseOwnership(t *testing.T) {
+	store := NewInMemoryStore()
+	scope := Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	now := time.Now().UTC()
+	mustUpsertReminderState(t, store, scope, AgreementReminderStateRecord{
+		AgreementID: "agreement-1", RecipientID: "recipient-1", Status: AgreementReminderStatusActive,
+		NextDueAt: cloneReminderTimePtr(now.Add(-1 * time.Minute)),
+		CreatedAt: now.Add(-1 * time.Hour), UpdatedAt: now.Add(-1 * time.Hour),
+		PolicyVersion: "r1",
+	})
+
+	claim := mustClaimReminder(t, store, scope, now, "worker-a", "sweep-a")
+	mutated := claim.State
+	mutated.LastViewedAt = cloneReminderTimePtr(now.Add(-30 * time.Second))
+	mutated.LastReasonCode = "viewed_recently"
+	mutated.WorkerID = ""
+	mutated.SweepID = ""
+	mutated.LeaseSeq = 0
+	mutated.ClaimedAt = nil
+	mutated.LastHeartbeatAt = nil
+	mutated.UpdatedAt = now.Add(1 * time.Second)
+
+	out, err := store.UpsertAgreementReminderState(context.Background(), scope, mutated)
+	if err != nil {
+		t.Fatalf("UpsertAgreementReminderState: %v", err)
+	}
+	if out.WorkerID != claim.Lease.WorkerID || out.SweepID != claim.Lease.SweepID || out.LeaseSeq != claim.Lease.LeaseSeq {
+		t.Fatalf("expected active lease ownership to be preserved, got worker=%q sweep=%q seq=%d", out.WorkerID, out.SweepID, out.LeaseSeq)
+	}
+	if out.ClaimedAt == nil || out.LastHeartbeatAt == nil {
+		t.Fatalf("expected lease timestamps to be preserved, got claimed_at=%v last_heartbeat_at=%v", out.ClaimedAt, out.LastHeartbeatAt)
+	}
+	if out.LastReasonCode != "viewed_recently" {
+		t.Fatalf("expected non-lease state updates to persist, got %q", out.LastReasonCode)
+	}
+}
+
 func TestInMemoryStoreTerminalReminderNoLongerClaimed(t *testing.T) {
 	store := NewInMemoryStore()
 	scope := Scope{TenantID: "tenant-1", OrgID: "org-1"}

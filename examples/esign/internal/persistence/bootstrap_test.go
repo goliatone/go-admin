@@ -51,7 +51,7 @@ func TestRegisterOrderedSourcesDefaultOrder(t *testing.T) {
 	cfg.Migrations.LocalOnly = false
 
 	labels := make([]string, 0)
-	err := registerOrderedSources(client, *cfg, withMigrationObserver(func(reg migrationRegistration) {
+	err := registerOrderedSources(client, cfg, withMigrationObserver(func(reg migrationRegistration) {
 		labels = append(labels, reg.Label)
 	}))
 	if err != nil {
@@ -82,7 +82,7 @@ func TestRegisterOrderedSourcesLocalOnly(t *testing.T) {
 	cfg.Migrations.LocalOnly = true
 
 	labels := make([]string, 0)
-	err := registerOrderedSources(client, *cfg, withMigrationObserver(func(reg migrationRegistration) {
+	err := registerOrderedSources(client, cfg, withMigrationObserver(func(reg migrationRegistration) {
 		labels = append(labels, reg.Label)
 	}))
 	if err != nil {
@@ -99,7 +99,7 @@ func TestBootstrapSQLiteRunsMigrationsAndReadiness(t *testing.T) {
 	cfg.Migrations.LocalOnly = true
 	cfg.SQLite.DSN = "file:" + filepath.Join(t.TempDir(), "bootstrap-phase2.db") + "?_fk=1&_busy_timeout=5000"
 
-	result, err := Bootstrap(context.Background(), *cfg)
+	result, err := Bootstrap(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("Bootstrap: %v", err)
 	}
@@ -120,14 +120,14 @@ func TestResolveDialectInputDefaultsByProfile(t *testing.T) {
 	devCfg := appcfg.Defaults()
 	devCfg.Runtime.Profile = "development"
 	devCfg.Runtime.RepositoryDialect = ""
-	if got := resolveDialectInput(*devCfg); got != appcfg.RepositoryDialectSQLite {
+	if got := resolveDialectInput(devCfg); got != appcfg.RepositoryDialectSQLite {
 		t.Fatalf("expected sqlite default dialect for development profile, got %q", got)
 	}
 
 	prodCfg := appcfg.Defaults()
 	prodCfg.Runtime.Profile = "production"
 	prodCfg.Runtime.RepositoryDialect = ""
-	if got := resolveDialectInput(*prodCfg); got != appcfg.RepositoryDialectPostgres {
+	if got := resolveDialectInput(prodCfg); got != appcfg.RepositoryDialectPostgres {
 		t.Fatalf("expected postgres default dialect for production profile, got %q", got)
 	}
 }
@@ -137,11 +137,11 @@ func TestResolveDSNRequiresDialectSpecificDSNFields(t *testing.T) {
 	cfg.SQLite.DSN = ""
 	cfg.Postgres.DSN = ""
 
-	if _, err := resolveDSN(*cfg, DialectSQLite); err == nil {
+	if _, err := resolveDSN(cfg, DialectSQLite); err == nil {
 		t.Fatalf("expected sqlite resolveDSN to fail when sqlite.dsn is empty")
 	}
 
-	if _, err := resolveDSN(*cfg, DialectPostgres); err == nil {
+	if _, err := resolveDSN(cfg, DialectPostgres); err == nil {
 		t.Fatalf("expected postgres resolveDSN to fail when postgres.dsn is empty")
 	}
 }
