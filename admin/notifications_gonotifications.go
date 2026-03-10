@@ -88,8 +88,8 @@ func newGoNotificationsService(defaultLocale string, translator Translator, sink
 		Adapters:    registry,
 		Logger:      &notiflogger.Nop{},
 		Config: notifconfig.DispatcherConfig{
-			MaxWorkers: 4,
-			MaxRetries: 3,
+			MaxWorkers:  4,
+			MaxAttempts: 3,
 		},
 		Preferences: prefSvc,
 		Inbox:       inboxSvc,
