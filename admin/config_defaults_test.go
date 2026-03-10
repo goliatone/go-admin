@@ -120,6 +120,15 @@ func TestNewAppliesPermissionAndFeatureDefaults(t *testing.T) {
 	if adm.config.Commands.Execution.PerCommand == nil {
 		t.Fatalf("expected commands.execution.per_command map initialized")
 	}
+	if adm.config.Commands.RPC.Commands == nil {
+		t.Fatalf("expected commands.rpc.commands map initialized")
+	}
+	if adm.config.Commands.RPC.DiscoveryEnabled {
+		t.Fatalf("expected commands.rpc.discovery_enabled default false")
+	}
+	if len(adm.config.Commands.RPC.MetadataAllowlist) == 0 {
+		t.Fatalf("expected commands.rpc.metadata_allowlist defaults")
+	}
 
 	adm2, err := New(Config{}, Dependencies{FeatureGate: featureGateFromKeys(FeatureCommands)})
 	if err != nil {
