@@ -96,15 +96,13 @@ func applyRoutes(ctx BootCtx, routes []RouteSpec) error {
 			continue
 		}
 		handler := wrap(route.Handler)
-		switch strings.ToUpper(route.Method) {
-		case "GET", "":
-			r.Get(route.Path, handler)
-		case "POST":
-			r.Post(route.Path, handler)
-		case "PUT":
-			r.Put(route.Path, handler)
-		case "DELETE":
-			r.Delete(route.Path, handler)
+		method := router.HTTPMethod(strings.ToUpper(strings.TrimSpace(route.Method)))
+		if method == "" {
+			method = router.GET
+		}
+		switch method {
+		case router.GET, router.POST, router.PUT, router.DELETE, router.PATCH, router.HEAD:
+			r.Handle(method, route.Path, handler)
 		default:
 			return nil
 		}
