@@ -97,10 +97,11 @@ func runAgreementLifecycle(
 	signingSvc services.SigningService,
 ) error {
 	doc, err := documentSvc.Upload(ctx, scope, services.DocumentUploadInput{
-		Title:     fmt.Sprintf("Rollout Validation Document %03d", index+1),
-		ObjectKey: fmt.Sprintf("tenant/%s/org/%s/docs/rollout-%03d/source.pdf", scope.TenantID, scope.OrgID, index+1),
-		PDF:       samplePDF(1),
-		CreatedBy: "release-validation",
+		Title:              fmt.Sprintf("Rollout Validation Document %03d", index+1),
+		SourceOriginalName: fmt.Sprintf("rollout-%03d-source.pdf", index+1),
+		ObjectKey:          fmt.Sprintf("tenant/%s/org/%s/docs/rollout-%03d/source.pdf", scope.TenantID, scope.OrgID, index+1),
+		PDF:                samplePDF(1),
+		CreatedBy:          "release-validation",
 	})
 	if err != nil {
 		return fmt.Errorf("upload document: %w", err)

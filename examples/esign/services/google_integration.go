@@ -1208,6 +1208,7 @@ func (s GoogleIntegrationService) ImportDocument(ctx context.Context, scope stor
 
 	document, err := s.documents.Upload(ctx, scope, DocumentUploadInput{
 		Title:                  documentTitle,
+		SourceOriginalName:     strings.TrimSpace(snapshot.File.Name),
 		ObjectKey:              googleImportObjectKey(scope, fileID, exportedAt),
 		PDF:                    append([]byte{}, snapshot.PDF...),
 		CreatedBy:              createdByUserID,

@@ -509,12 +509,14 @@ func (m *ESignModule) registerPanels(adm *coreadmin.Admin) error {
 		).
 		FormFields(
 			coreadmin.Field{Name: "title", Label: "Title", Type: "text", Required: true},
+			coreadmin.Field{Name: "source_original_name", Label: "Original File Name", Type: "text", Required: true},
 			coreadmin.Field{Name: "source_object_key", Label: "Source Object Key", Type: "text"},
 			coreadmin.Field{Name: "pdf_base64", Label: "PDF (Base64)", Type: "textarea"},
 		).
 		DetailFields(
 			coreadmin.Field{Name: "id", Label: "ID", Type: "text", ReadOnly: true},
 			coreadmin.Field{Name: "title", Label: "Title", Type: "text", ReadOnly: true},
+			coreadmin.Field{Name: "source_original_name", Label: "Original File Name", Type: "text", ReadOnly: true},
 			coreadmin.Field{Name: "source_object_key", Label: "Source Object Key", Type: "text", ReadOnly: true},
 			coreadmin.Field{Name: "normalized_object_key", Label: "Normalized Object Key", Type: "text", ReadOnly: true},
 			coreadmin.Field{Name: "source_sha256", Label: "SHA256", Type: "text", ReadOnly: true},

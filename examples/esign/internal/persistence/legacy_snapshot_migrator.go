@@ -550,7 +550,7 @@ func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
 	return []legacyTableMigrationSpec{
 		{
 			table:    "documents",
-			columns:  []string{"id", "tenant_id", "org_id", "created_by_user_id", "title", "source_object_key", "normalized_object_key", "source_sha256", "size_bytes", "page_count", "created_at", "updated_at", "source_type", "source_google_file_id", "source_google_doc_url", "source_modified_time", "source_exported_at", "source_exported_by_user_id", "source_mime_type", "source_ingestion_mode", "pdf_compatibility_tier", "pdf_compatibility_reason", "pdf_normalization_status", "pdf_analyzed_at", "pdf_policy_version"},
+			columns:  []string{"id", "tenant_id", "org_id", "created_by_user_id", "title", "source_original_name", "source_object_key", "normalized_object_key", "source_sha256", "size_bytes", "page_count", "created_at", "updated_at", "source_type", "source_google_file_id", "source_google_doc_url", "source_modified_time", "source_exported_at", "source_exported_by_user_id", "source_mime_type", "source_ingestion_mode", "pdf_compatibility_tier", "pdf_compatibility_reason", "pdf_normalization_status", "pdf_analyzed_at", "pdf_policy_version"},
 			conflict: []string{"id"},
 			rows: func(snapshot legacySQLiteSnapshot) []map[string]any {
 				rows := make([]map[string]any, 0, len(snapshot.Documents))
@@ -567,6 +567,7 @@ func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
 						"org_id":                     strings.TrimSpace(record.OrgID),
 						"created_by_user_id":         strings.TrimSpace(record.CreatedByUserID),
 						"title":                      strings.TrimSpace(record.Title),
+						"source_original_name":       strings.TrimSpace(record.SourceOriginalName),
 						"source_object_key":          strings.TrimSpace(record.SourceObjectKey),
 						"normalized_object_key":      strings.TrimSpace(record.NormalizedObjectKey),
 						"source_sha256":              strings.TrimSpace(record.SourceSHA256),

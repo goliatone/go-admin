@@ -12,14 +12,15 @@ func TestUpgradeDraftAgreementToV2NormalizesSignerStagesAndRequiredPlacements(t 
 	store := NewInMemoryStore()
 
 	doc, err := store.Create(ctx, scope, DocumentRecord{
-		ID:              "doc-v2-upgrade",
-		Title:           "Upgrade",
-		SourceObjectKey: "tenant/tenant-1/org/org-1/docs/source.pdf",
-		SourceSHA256:    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-		SizeBytes:       1024,
-		PageCount:       1,
-		CreatedAt:       time.Now().UTC(),
-		UpdatedAt:       time.Now().UTC(),
+		ID:                 "doc-v2-upgrade",
+		Title:              "Upgrade",
+		SourceObjectKey:    "tenant/tenant-1/org/org-1/docs/source.pdf",
+		SourceOriginalName: "source.pdf",
+		SourceSHA256:       "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		SizeBytes:          1024,
+		PageCount:          1,
+		CreatedAt:          time.Now().UTC(),
+		UpdatedAt:          time.Now().UTC(),
 	})
 	if err != nil {
 		t.Fatalf("Create document: %v", err)
@@ -100,14 +101,15 @@ func TestUpgradeDraftAgreementToV2RejectsNonDraftAgreement(t *testing.T) {
 	store := NewInMemoryStore()
 
 	doc, err := store.Create(ctx, scope, DocumentRecord{
-		ID:              "doc-v2-upgrade-2",
-		Title:           "Upgrade",
-		SourceObjectKey: "tenant/tenant-1/org/org-1/docs/source.pdf",
-		SourceSHA256:    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-		SizeBytes:       1024,
-		PageCount:       1,
-		CreatedAt:       time.Now().UTC(),
-		UpdatedAt:       time.Now().UTC(),
+		ID:                 "doc-v2-upgrade-2",
+		Title:              "Upgrade",
+		SourceObjectKey:    "tenant/tenant-1/org/org-1/docs/source.pdf",
+		SourceOriginalName: "source.pdf",
+		SourceSHA256:       "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+		SizeBytes:          1024,
+		PageCount:          1,
+		CreatedAt:          time.Now().UTC(),
+		UpdatedAt:          time.Now().UTC(),
 	})
 	if err != nil {
 		t.Fatalf("Create document: %v", err)

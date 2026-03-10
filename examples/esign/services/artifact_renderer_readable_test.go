@@ -30,9 +30,10 @@ func TestReadableArtifactRendererRenderExecutedUsesSourceAndOverlaysValues(t *te
 	sourcePDF := buildReadableTestPDF(t, "Master Services Agreement")
 	docSvc := NewDocumentService(store, WithDocumentObjectStore(objectStore))
 	document, err := docSvc.Upload(ctx, scope, DocumentUploadInput{
-		Title:     "MSA",
-		ObjectKey: "tenant/tenant-1/org/org-1/docs/doc-1/source.pdf",
-		PDF:       sourcePDF,
+		Title:              "MSA",
+		ObjectKey:          "tenant/tenant-1/org/org-1/docs/doc-1/source.pdf",
+		SourceOriginalName: "source.pdf",
+		PDF:                sourcePDF,
 	})
 	if err != nil {
 		t.Fatalf("upload source document: %v", err)
@@ -193,9 +194,10 @@ func TestReadableArtifactRendererRenderExecutedPrefersNormalizedWhenOriginalUnav
 
 	docSvc := NewDocumentService(store, WithDocumentObjectStore(objectStore))
 	document, err := docSvc.Upload(ctx, scope, DocumentUploadInput{
-		Title:     "MSA",
-		ObjectKey: "tenant/tenant-1/org/org-1/docs/doc-norm/source.pdf",
-		PDF:       GenerateDeterministicPDF(1),
+		Title:              "MSA",
+		ObjectKey:          "tenant/tenant-1/org/org-1/docs/doc-norm/source.pdf",
+		SourceOriginalName: "source.pdf",
+		PDF:                GenerateDeterministicPDF(1),
 	})
 	if err != nil {
 		t.Fatalf("upload source document: %v", err)
@@ -230,9 +232,10 @@ func TestReadableArtifactRendererRenderExecutedStrictModeBlocksOriginalFallback(
 
 	docSvc := NewDocumentService(store)
 	document, err := docSvc.Upload(ctx, scope, DocumentUploadInput{
-		Title:     "MSA",
-		ObjectKey: "tenant/tenant-1/org/org-1/docs/doc-strict/source.pdf",
-		PDF:       GenerateDeterministicPDF(1),
+		Title:              "MSA",
+		ObjectKey:          "tenant/tenant-1/org/org-1/docs/doc-strict/source.pdf",
+		SourceOriginalName: "source.pdf",
+		PDF:                GenerateDeterministicPDF(1),
 	})
 	if err != nil {
 		t.Fatalf("upload source document: %v", err)
@@ -274,6 +277,7 @@ func TestReadableArtifactRendererRenderExecutedBlocksUnsupportedCompatibilityTie
 		ID:                     "doc-unsupported-render",
 		Title:                  "Unsupported Render Source",
 		SourceObjectKey:        "tenant/tenant-1/org/org-1/docs/doc-unsupported-render/source.pdf",
+		SourceOriginalName:     "source.pdf",
 		SourceSHA256:           strings.Repeat("a", 64),
 		SourceType:             stores.SourceTypeUpload,
 		PDFCompatibilityTier:   string(PDFCompatibilityTierUnsupported),
@@ -314,9 +318,10 @@ func TestReadableArtifactRendererRenderExecutedMultiPageAvoidsInfiniteTemplateSc
 	sourcePDF := buildReadableTestPDFPages(t, "Multipage MSA", 3)
 	docSvc := NewDocumentService(store, WithDocumentObjectStore(objectStore))
 	document, err := docSvc.Upload(ctx, scope, DocumentUploadInput{
-		Title:     "MSA Multipage",
-		ObjectKey: "tenant/tenant-1/org/org-1/docs/doc-mp/source.pdf",
-		PDF:       sourcePDF,
+		Title:              "MSA Multipage",
+		ObjectKey:          "tenant/tenant-1/org/org-1/docs/doc-mp/source.pdf",
+		SourceOriginalName: "source.pdf",
+		PDF:                sourcePDF,
 	})
 	if err != nil {
 		t.Fatalf("upload source document: %v", err)
@@ -425,9 +430,10 @@ func TestReadableArtifactRendererRenderExecutedRecoversImportPanics(t *testing.T
 
 	docSvc := NewDocumentService(store, WithDocumentObjectStore(objectStore))
 	document, err := docSvc.Upload(ctx, scope, DocumentUploadInput{
-		Title:     "Panic Recovery Source",
-		ObjectKey: "tenant/tenant-1/org/org-1/docs/doc-panic/source.pdf",
-		PDF:       samplePDF(1),
+		Title:              "Panic Recovery Source",
+		ObjectKey:          "tenant/tenant-1/org/org-1/docs/doc-panic/source.pdf",
+		SourceOriginalName: "source.pdf",
+		PDF:                samplePDF(1),
 	})
 	if err != nil {
 		t.Fatalf("upload source document: %v", err)
@@ -548,9 +554,10 @@ func TestReadableArtifactRendererAuditPagesShareCoreMarkersBetweenExecutedAndCer
 	sourcePDF := buildReadableTestPDF(t, "Master Services Agreement")
 	docSvc := NewDocumentService(store, WithDocumentObjectStore(objectStore))
 	document, err := docSvc.Upload(ctx, scope, DocumentUploadInput{
-		Title:     "MSA",
-		ObjectKey: "tenant/tenant-1/org/org-1/docs/doc-1/source.pdf",
-		PDF:       sourcePDF,
+		Title:              "MSA",
+		ObjectKey:          "tenant/tenant-1/org/org-1/docs/doc-1/source.pdf",
+		SourceOriginalName: "source.pdf",
+		PDF:                sourcePDF,
 	})
 	if err != nil {
 		t.Fatalf("upload source document: %v", err)
@@ -647,6 +654,9 @@ func TestReadableArtifactRendererAuditPagesShareCoreMarkersBetweenExecutedAndCer
 			t.Fatalf("expected certificate payload marker %q", marker)
 		}
 	}
+	if !strings.Contains(executedRaw, "source.pdf") {
+		t.Fatalf("expected executed payload to include source original filename")
+	}
 	if !strings.Contains(executedRaw, "IP: 203.0.113.22") {
 		t.Fatalf("expected rendered audit trail to include event ip address")
 	}
@@ -686,9 +696,10 @@ func TestReadableArtifactRendererRenderExecutedAuditTrailMatchesSourcePageSize(t
 	sourcePDF := buildReadableTestPDFA4(t, "International Agreement")
 	docSvc := NewDocumentService(store, WithDocumentObjectStore(objectStore))
 	document, err := docSvc.Upload(ctx, scope, DocumentUploadInput{
-		Title:     "A4 Source",
-		ObjectKey: "tenant/tenant-1/org/org-1/docs/doc-a4/source.pdf",
-		PDF:       sourcePDF,
+		Title:              "A4 Source",
+		ObjectKey:          "tenant/tenant-1/org/org-1/docs/doc-a4/source.pdf",
+		SourceOriginalName: "source.pdf",
+		PDF:                sourcePDF,
 	})
 	if err != nil {
 		t.Fatalf("upload source document: %v", err)

@@ -22,6 +22,7 @@ import (
 type DocumentUploadInput struct {
 	ID                     string
 	Title                  string
+	SourceOriginalName     string
 	ObjectKey              string
 	PDF                    []byte
 	CreatedBy              string
@@ -112,6 +113,10 @@ func (s DocumentService) Upload(ctx context.Context, scope stores.Scope, input D
 	objectKey := strings.TrimSpace(input.ObjectKey)
 	if objectKey == "" {
 		return stores.DocumentRecord{}, domainValidationError("documents", "source_object_key", "required")
+	}
+	sourceOriginalName := strings.TrimSpace(input.SourceOriginalName)
+	if sourceOriginalName == "" {
+		return stores.DocumentRecord{}, domainValidationError("documents", "source_original_name", "required")
 	}
 
 	payload := append([]byte{}, input.PDF...)
@@ -212,6 +217,7 @@ func (s DocumentService) Upload(ctx context.Context, scope stores.Scope, input D
 		ID:                     strings.TrimSpace(input.ID),
 		CreatedByUserID:        strings.TrimSpace(input.CreatedBy),
 		Title:                  title,
+		SourceOriginalName:     sourceOriginalName,
 		SourceObjectKey:        objectKey,
 		NormalizedObjectKey:    normalizedObjectKey,
 		SourceSHA256:           metadata.SHA256,

@@ -101,15 +101,15 @@ func (r ReadableArtifactRenderer) RenderExecuted(ctx context.Context, input Exec
 	}
 
 	trailDoc := BuildAuditTrailDocument(AuditTrailBuildInput{
-		Agreement:     input.Agreement,
-		Recipients:    input.Recipients,
-		Events:        input.Events,
-		GeneratedAt:   r.now().UTC(),
-		DocumentID:    strings.TrimSpace(document.ID),
-		DocumentTitle: strings.TrimSpace(document.Title),
-		DocumentKey:   strings.TrimSpace(document.SourceObjectKey),
-		DocumentHash:  strings.TrimSpace(document.SourceSHA256),
-		CorrelationID: strings.TrimSpace(input.CorrelationID),
+		Agreement:            input.Agreement,
+		Recipients:           input.Recipients,
+		Events:               input.Events,
+		GeneratedAt:          r.now().UTC(),
+		DocumentID:           strings.TrimSpace(document.ID),
+		DocumentTitle:        strings.TrimSpace(document.Title),
+		DocumentOriginalName: strings.TrimSpace(document.SourceOriginalName),
+		DocumentHash:         strings.TrimSpace(document.SourceSHA256),
+		CorrelationID:        strings.TrimSpace(input.CorrelationID),
 	})
 	renderedPDF, err := r.renderExecutedWithOverlays(
 		ctx,
@@ -343,7 +343,7 @@ func (r ReadableArtifactRenderer) resolveSignatureImage(ctx context.Context, sco
 	return append([]byte{}, payload...)
 }
 
-func (r ReadableArtifactRenderer) RenderCertificate(_ context.Context, input CertificateRenderInput) (RenderedArtifact, error) {
+func (r ReadableArtifactRenderer) RenderCertificate(ctx context.Context, input CertificateRenderInput) (RenderedArtifact, error) {
 	agreementID := strings.TrimSpace(input.Agreement.ID)
 	if agreementID == "" {
 		return RenderedArtifact{}, fmt.Errorf("render certificate: agreement id required")
@@ -352,16 +352,27 @@ func (r ReadableArtifactRenderer) RenderCertificate(_ context.Context, input Cer
 	pdf.SetCompression(false)
 	pdf.SetMargins(54, 48, 54)
 	pdf.SetAutoPageBreak(false, 0)
+	documentID := strings.TrimSpace(input.Agreement.DocumentID)
+	documentTitle := strings.TrimSpace(input.Agreement.Title)
+	documentOriginalName := ""
+	if r.documents != nil && documentID != "" {
+		if document, err := r.documents.Get(ctx, input.Scope, documentID); err == nil {
+			documentID = strings.TrimSpace(document.ID)
+			documentTitle = strings.TrimSpace(document.Title)
+			documentOriginalName = strings.TrimSpace(document.SourceOriginalName)
+		}
+	}
 	trailDoc := BuildAuditTrailDocument(AuditTrailBuildInput{
-		Agreement:      input.Agreement,
-		Recipients:     input.Recipients,
-		Events:         input.Events,
-		GeneratedAt:    r.now().UTC(),
-		DocumentID:     strings.TrimSpace(input.Agreement.DocumentID),
-		DocumentTitle:  strings.TrimSpace(input.Agreement.Title),
-		DocumentHash:   strings.TrimSpace(input.ExecutedSHA256),
-		ExecutedSHA256: strings.TrimSpace(input.ExecutedSHA256),
-		CorrelationID:  strings.TrimSpace(input.CorrelationID),
+		Agreement:            input.Agreement,
+		Recipients:           input.Recipients,
+		Events:               input.Events,
+		GeneratedAt:          r.now().UTC(),
+		DocumentID:           documentID,
+		DocumentTitle:        documentTitle,
+		DocumentOriginalName: documentOriginalName,
+		DocumentHash:         strings.TrimSpace(input.ExecutedSHA256),
+		ExecutedSHA256:       strings.TrimSpace(input.ExecutedSHA256),
+		CorrelationID:        strings.TrimSpace(input.CorrelationID),
 	})
 	if err := r.renderAuditTrailPages(pdf, trailDoc, auditTrailRenderOptions{StandaloneCertificate: true}); err != nil {
 		return RenderedArtifact{}, err

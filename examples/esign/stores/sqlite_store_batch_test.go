@@ -37,10 +37,11 @@ func sqliteStoreStateRowCount(t *testing.T, ctx context.Context, store *SQLiteSt
 func createBatchTestDocument(t *testing.T, ctx context.Context, store *SQLiteStore, scope Scope, id string) {
 	t.Helper()
 	if _, err := store.Create(ctx, scope, DocumentRecord{
-		ID:              id,
-		Title:           "Batch Test Document " + id,
-		SourceObjectKey: "tenant/" + scope.TenantID + "/org/" + scope.OrgID + "/docs/" + id + ".pdf",
-		SourceSHA256:    strings.Repeat("a", 64),
+		ID:                 id,
+		Title:              "Batch Test Document " + id,
+		SourceObjectKey:    "tenant/" + scope.TenantID + "/org/" + scope.OrgID + "/docs/" + id + ".pdf",
+		SourceOriginalName: "source.pdf",
+		SourceSHA256:       strings.Repeat("a", 64),
 	}); err != nil {
 		t.Fatalf("Create(%s): %v", id, err)
 	}
@@ -142,10 +143,11 @@ func TestSQLiteStoreWithTxPersistsState(t *testing.T) {
 
 	if err := store.WithTx(ctx, func(tx TxStore) error {
 		_, err := tx.Create(ctx, scope, DocumentRecord{
-			ID:              "doc-tx-1",
-			Title:           "Doc tx",
-			SourceObjectKey: "tenant/tenant-batch/org/org-batch/docs/doc-tx-1.pdf",
-			SourceSHA256:    strings.Repeat("a", 64),
+			ID:                 "doc-tx-1",
+			Title:              "Doc tx",
+			SourceObjectKey:    "tenant/tenant-batch/org/org-batch/docs/doc-tx-1.pdf",
+			SourceOriginalName: "source.pdf",
+			SourceSHA256:       strings.Repeat("a", 64),
 		})
 		return err
 	}); err != nil {

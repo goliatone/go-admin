@@ -24,9 +24,10 @@ func setupSentAgreementForWorkflow(t *testing.T) (context.Context, stores.Scope,
 	store := stores.NewInMemoryStore()
 	docSvc := services.NewDocumentService(store)
 	doc, err := docSvc.Upload(ctx, scope, services.DocumentUploadInput{
-		Title:     "Agreement Source",
-		ObjectKey: "tenant/tenant-1/org/org-1/docs/doc-1/original.pdf",
-		PDF:       samplePDF(),
+		Title:              "Agreement Source",
+		ObjectKey:          "tenant/tenant-1/org/org-1/docs/doc-1/original.pdf",
+		SourceOriginalName: "source.pdf",
+		PDF:                samplePDF(),
 	})
 	if err != nil {
 		t.Fatalf("Upload: %v", err)

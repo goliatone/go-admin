@@ -399,6 +399,7 @@ func registerGoogleRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg regis
 				"document": map[string]any{
 					"id":                         imported.Document.ID,
 					"title":                      imported.Document.Title,
+					"source_original_name":       imported.Document.SourceOriginalName,
 					"source_type":                imported.Document.SourceType,
 					"source_google_file_id":      imported.Document.SourceGoogleFileID,
 					"source_google_doc_url":      imported.Document.SourceGoogleDocURL,

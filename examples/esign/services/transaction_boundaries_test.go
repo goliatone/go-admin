@@ -99,9 +99,10 @@ func TestAgreementServiceSendDoesNotRunPostCommitHooksWhenCommitFails(t *testing
 	now := time.Date(2026, 1, 12, 12, 0, 0, 0, time.UTC)
 	docSvc := NewDocumentService(store, WithDocumentClock(func() time.Time { return now }))
 	doc, err := docSvc.Upload(ctx, scope, DocumentUploadInput{
-		Title:     "tx-boundary-send",
-		ObjectKey: "tenant/tenant-1/org/org-1/docs/tx-boundary-send.pdf",
-		PDF:       samplePDF(1),
+		Title:              "tx-boundary-send",
+		ObjectKey:          "tenant/tenant-1/org/org-1/docs/tx-boundary-send.pdf",
+		SourceOriginalName: "source.pdf",
+		PDF:                samplePDF(1),
 	})
 	if err != nil {
 		t.Fatalf("Upload: %v", err)
@@ -148,9 +149,10 @@ func TestSigningServiceSubmitDoesNotRunPostCommitHooksWhenCommitFails(t *testing
 	now := time.Date(2026, 1, 13, 9, 0, 0, 0, time.UTC)
 	docSvc := NewDocumentService(store, WithDocumentClock(func() time.Time { return now }))
 	doc, err := docSvc.Upload(ctx, scope, DocumentUploadInput{
-		Title:     "tx-boundary-submit",
-		ObjectKey: "tenant/tenant-1/org/org-1/docs/tx-boundary-submit.pdf",
-		PDF:       samplePDF(1),
+		Title:              "tx-boundary-submit",
+		ObjectKey:          "tenant/tenant-1/org/org-1/docs/tx-boundary-submit.pdf",
+		SourceOriginalName: "source.pdf",
+		PDF:                samplePDF(1),
 	})
 	if err != nil {
 		t.Fatalf("Upload: %v", err)

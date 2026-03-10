@@ -50,16 +50,16 @@ type AuditTrailDocument struct {
 
 // AuditTrailBuildInput carries source entities required to construct a normalized audit trail.
 type AuditTrailBuildInput struct {
-	Agreement      stores.AgreementRecord
-	Recipients     []stores.RecipientRecord
-	Events         []stores.AuditEventRecord
-	GeneratedAt    time.Time
-	DocumentID     string
-	DocumentTitle  string
-	DocumentKey    string
-	DocumentHash   string
-	ExecutedSHA256 string
-	CorrelationID  string
+	Agreement            stores.AgreementRecord
+	Recipients           []stores.RecipientRecord
+	Events               []stores.AuditEventRecord
+	GeneratedAt          time.Time
+	DocumentID           string
+	DocumentTitle        string
+	DocumentOriginalName string
+	DocumentHash         string
+	ExecutedSHA256       string
+	CorrelationID        string
 }
 
 // BuildAuditTrailDocument maps e-sign agreement/audit data into a deterministic render contract.
@@ -122,7 +122,7 @@ func BuildAuditTrailDocument(input AuditTrailBuildInput) AuditTrailDocument {
 		return entries[i].Timestamp.Before(entries[j].Timestamp)
 	})
 
-	fileName := strings.TrimSpace(path.Base(strings.TrimSpace(input.DocumentKey)))
+	fileName := strings.TrimSpace(path.Base(strings.TrimSpace(input.DocumentOriginalName)))
 	if fileName == "" || fileName == "." || fileName == "/" {
 		title := strings.TrimSpace(input.DocumentTitle)
 		if title == "" {

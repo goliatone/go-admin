@@ -453,11 +453,12 @@ func createIntegrationDraftAgreement(t *testing.T, store *stores.InMemoryStore, 
 	t.Helper()
 	ctx := context.Background()
 	doc, err := store.Create(ctx, scope, stores.DocumentRecord{
-		Title:           "Integration Source Document",
-		SourceObjectKey: "tenant/tenant-1/org/org-1/docs/integration.pdf",
-		SourceSHA256:    strings.Repeat("a", 64),
-		SizeBytes:       1024,
-		PageCount:       1,
+		Title:              "Integration Source Document",
+		SourceObjectKey:    "tenant/tenant-1/org/org-1/docs/integration.pdf",
+		SourceOriginalName: "source.pdf",
+		SourceSHA256:       strings.Repeat("a", 64),
+		SizeBytes:          1024,
+		PageCount:          1,
 	})
 	if err != nil {
 		t.Fatalf("Create document: %v", err)

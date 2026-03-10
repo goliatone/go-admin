@@ -820,12 +820,16 @@ func registerESignDocumentUploadRoute(
 		},
 		Response: func(publicURL string, meta *uploader.FileMeta) any {
 			objectKey := ""
+			originalName := ""
 			if meta != nil {
 				objectKey = strings.TrimSpace(meta.Name)
+				originalName = strings.TrimSpace(meta.OriginalName)
 			}
 			return map[string]any{
-				"url":        publicURL,
-				"object_key": objectKey,
+				"url":                  publicURL,
+				"object_key":           objectKey,
+				"original_name":        originalName,
+				"source_original_name": originalName,
 			}
 		},
 	})

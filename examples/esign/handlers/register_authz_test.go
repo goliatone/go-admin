@@ -323,9 +323,10 @@ func setupSignerFlowApp(t *testing.T) (*fiber.App, stores.Scope, string, string,
 		services.WithDocumentObjectStore(objectStore),
 	)
 	doc, err := docSvc.Upload(ctx, scope, services.DocumentUploadInput{
-		Title:     "Agreement Source",
-		ObjectKey: "tenant/tenant-1/org/org-1/docs/doc-1/original.pdf",
-		PDF:       services.GenerateDeterministicPDF(1),
+		Title:              "Agreement Source",
+		ObjectKey:          "tenant/tenant-1/org/org-1/docs/doc-1/original.pdf",
+		SourceOriginalName: "source.pdf",
+		PDF:                services.GenerateDeterministicPDF(1),
 	})
 	if err != nil {
 		t.Fatalf("Upload: %v", err)
@@ -845,9 +846,10 @@ func TestRegisterSignerSessionReturnsScopedContextWithWaitingState(t *testing.T)
 		services.WithDocumentObjectStore(objectStore),
 	)
 	doc, err := docSvc.Upload(ctx, scope, services.DocumentUploadInput{
-		Title:     "Agreement Source",
-		ObjectKey: "tenant/tenant-1/org/org-1/docs/doc-1/original.pdf",
-		PDF:       services.GenerateDeterministicPDF(1),
+		Title:              "Agreement Source",
+		ObjectKey:          "tenant/tenant-1/org/org-1/docs/doc-1/original.pdf",
+		SourceOriginalName: "source.pdf",
+		PDF:                services.GenerateDeterministicPDF(1),
 	})
 	if err != nil {
 		t.Fatalf("Upload: %v", err)
@@ -1005,9 +1007,10 @@ func TestRegisterSignerSessionIncludesLimitedCompatibilityReasonWhenPreviewFallb
 	store2 := stores.NewInMemoryStore()
 	docSvc := services.NewDocumentService(store2)
 	doc, err := docSvc.Upload(ctx2, scope2, services.DocumentUploadInput{
-		Title:     "Agreement Source",
-		ObjectKey: "tenant/tenant-1/org/org-1/docs/doc-preview-fallback/original.pdf",
-		PDF:       services.GenerateDeterministicPDF(1),
+		Title:              "Agreement Source",
+		ObjectKey:          "tenant/tenant-1/org/org-1/docs/doc-preview-fallback/original.pdf",
+		SourceOriginalName: "source.pdf",
+		PDF:                services.GenerateDeterministicPDF(1),
 	})
 	if err != nil {
 		t.Fatalf("Upload: %v", err)
@@ -1098,6 +1101,7 @@ func TestRegisterSignerSessionReturnsTypedUnsupportedForUnsupportedDocument(t *t
 		ID:                     "doc-unsupported-session",
 		Title:                  "Unsupported Session Source",
 		SourceObjectKey:        "tenant/tenant-1/org/org-1/docs/doc-unsupported-session/original.pdf",
+		SourceOriginalName:     "source.pdf",
 		SourceSHA256:           strings.Repeat("a", 64),
 		SourceType:             stores.SourceTypeUpload,
 		PDFCompatibilityTier:   string(services.PDFCompatibilityTierUnsupported),
@@ -1196,9 +1200,10 @@ func TestRegisterSignerSessionEmitsViewedAuditEventWithIPAndUserAgent(t *testing
 		services.WithDocumentObjectStore(objectStore),
 	)
 	doc, err := docSvc.Upload(ctx, scope, services.DocumentUploadInput{
-		Title:     "Agreement Source",
-		ObjectKey: "tenant/tenant-1/org/org-1/docs/doc-1/original.pdf",
-		PDF:       services.GenerateDeterministicPDF(1),
+		Title:              "Agreement Source",
+		ObjectKey:          "tenant/tenant-1/org/org-1/docs/doc-1/original.pdf",
+		SourceOriginalName: "source.pdf",
+		PDF:                services.GenerateDeterministicPDF(1),
 	})
 	if err != nil {
 		t.Fatalf("Upload: %v", err)

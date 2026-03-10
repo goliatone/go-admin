@@ -304,6 +304,10 @@ func (s *InMemoryStore) Create(ctx context.Context, scope Scope, record Document
 	if strings.TrimSpace(record.SourceObjectKey) == "" {
 		return DocumentRecord{}, invalidRecordError("documents", "source_object_key", "required")
 	}
+	record.SourceOriginalName = strings.TrimSpace(record.SourceOriginalName)
+	if record.SourceOriginalName == "" {
+		return DocumentRecord{}, invalidRecordError("documents", "source_original_name", "required")
+	}
 	record.NormalizedObjectKey = strings.TrimSpace(record.NormalizedObjectKey)
 	if strings.TrimSpace(record.SourceSHA256) == "" {
 		return DocumentRecord{}, invalidRecordError("documents", "source_sha256", "required")

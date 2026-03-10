@@ -236,6 +236,7 @@ func seedLegacySQLiteSnapshot(t *testing.T, dsn string) {
 		ID:                  "doc-legacy-1",
 		Title:               "Legacy Source",
 		SourceObjectKey:     "tenant/tenant-legacy/org/org-legacy/docs/doc-legacy-1.pdf",
+		SourceOriginalName:  "source.pdf",
 		NormalizedObjectKey: "tenant/tenant-legacy/org/org-legacy/docs/doc-legacy-1.normalized.pdf",
 		SourceSHA256:        strings.Repeat("a", 64),
 		SizeBytes:           1234,

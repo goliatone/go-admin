@@ -123,11 +123,12 @@ func (r *documentPanelRepository) Create(ctx context.Context, record map[string]
 		}
 	}
 	created, err := r.uploader.Upload(ctx, scope, services.DocumentUploadInput{
-		Title:      strings.TrimSpace(toString(record["title"])),
-		ObjectKey:  objectKey,
-		PDF:        pdfBytes,
-		CreatedBy:  userIDFromContext(ctx),
-		UploadedAt: time.Now().UTC(),
+		Title:              strings.TrimSpace(toString(record["title"])),
+		SourceOriginalName: strings.TrimSpace(toString(record["source_original_name"])),
+		ObjectKey:          objectKey,
+		PDF:                pdfBytes,
+		CreatedBy:          userIDFromContext(ctx),
+		UploadedAt:         time.Now().UTC(),
 	})
 	if err != nil {
 		return nil, err
@@ -179,7 +180,10 @@ func (r *documentPanelRepository) ServePanelSubresource(ctx coreadmin.AdminConte
 	if strings.EqualFold(strings.TrimSpace(c.Query("disposition")), "attachment") {
 		disposition = "attachment"
 	}
-	filename := strings.TrimSpace(record.Title)
+	filename := strings.TrimSpace(record.SourceOriginalName)
+	if filename == "" {
+		filename = strings.TrimSpace(record.Title)
+	}
 	if filename == "" {
 		filename = "document"
 	}
@@ -254,6 +258,8 @@ func documentRecordToMap(record stores.DocumentRecord) map[string]any {
 		"org_id":                     record.OrgID,
 		"created_by_user_id":         record.CreatedByUserID,
 		"title":                      record.Title,
+		"source_original_name":       record.SourceOriginalName,
+		"file_name":                  strings.TrimSpace(primitives.FirstNonEmpty(record.SourceOriginalName, record.Title)),
 		"source_object_key":          record.SourceObjectKey,
 		"normalized_object_key":      record.NormalizedObjectKey,
 		"source_sha256":              record.SourceSHA256,

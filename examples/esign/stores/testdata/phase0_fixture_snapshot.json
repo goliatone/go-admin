@@ -65,6 +65,7 @@
       "SourceMimeType": "",
       "SourceModifiedTime": null,
       "SourceObjectKey": "tenant/tenant-phase0/org/org-phase0/documents/doc-fixture.pdf",
+      "SourceOriginalName": "source.pdf",
       "SourceSHA256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "SourceType": "upload",
       "TenantID": "tenant-phase0",

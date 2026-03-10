@@ -18,9 +18,10 @@ func TestDraftServiceSendRollbackKeepsDraftWhenValidationFails(t *testing.T) {
 
 	docSvc := NewDocumentService(store)
 	doc, err := docSvc.Upload(ctx, scope, DocumentUploadInput{
-		Title:     "Rollback Source",
-		ObjectKey: "tenant/tenant-1/org/org-1/docs/draft-rollback/source.pdf",
-		PDF:       GenerateDeterministicPDF(1),
+		Title:              "Rollback Source",
+		ObjectKey:          "tenant/tenant-1/org/org-1/docs/draft-rollback/source.pdf",
+		SourceOriginalName: "source.pdf",
+		PDF:                GenerateDeterministicPDF(1),
 	})
 	if err != nil {
 		t.Fatalf("Upload: %v", err)
@@ -76,9 +77,10 @@ func TestDraftServiceSendDefersEmailHooksUntilOutermostCommit(t *testing.T) {
 
 	docSvc := NewDocumentService(store)
 	doc, err := docSvc.Upload(ctx, scope, DocumentUploadInput{
-		Title:     "Deferred Hooks Source",
-		ObjectKey: "tenant/tenant-1/org/org-1/docs/draft-deferred-hooks/source.pdf",
-		PDF:       GenerateDeterministicPDF(1),
+		Title:              "Deferred Hooks Source",
+		ObjectKey:          "tenant/tenant-1/org/org-1/docs/draft-deferred-hooks/source.pdf",
+		SourceOriginalName: "source.pdf",
+		PDF:                GenerateDeterministicPDF(1),
 	})
 	if err != nil {
 		t.Fatalf("Upload: %v", err)
@@ -229,9 +231,10 @@ func TestDraftServiceSendPropagatesIPAddressToAgreementAudit(t *testing.T) {
 
 	docSvc := NewDocumentService(store)
 	doc, err := docSvc.Upload(ctx, scope, DocumentUploadInput{
-		Title:     "IP Propagation Source",
-		ObjectKey: "tenant/tenant-1/org/org-1/docs/draft-ip/source.pdf",
-		PDF:       GenerateDeterministicPDF(1),
+		Title:              "IP Propagation Source",
+		ObjectKey:          "tenant/tenant-1/org/org-1/docs/draft-ip/source.pdf",
+		SourceOriginalName: "source.pdf",
+		PDF:                GenerateDeterministicPDF(1),
 	})
 	if err != nil {
 		t.Fatalf("Upload: %v", err)
@@ -315,9 +318,10 @@ func TestDraftServiceSendExpandsFieldRules(t *testing.T) {
 
 	docSvc := NewDocumentService(store)
 	doc, err := docSvc.Upload(ctx, scope, DocumentUploadInput{
-		Title:     "Rules Source",
-		ObjectKey: "tenant/tenant-1/org/org-1/docs/draft-rules/source.pdf",
-		PDF:       GenerateDeterministicPDF(3),
+		Title:              "Rules Source",
+		ObjectKey:          "tenant/tenant-1/org/org-1/docs/draft-rules/source.pdf",
+		SourceOriginalName: "source.pdf",
+		PDF:                GenerateDeterministicPDF(3),
 	})
 	if err != nil {
 		t.Fatalf("Upload: %v", err)
@@ -419,9 +423,10 @@ func TestDraftServiceSendUsesRuleIDAndDefinitionIDPlacements(t *testing.T) {
 
 	docSvc := NewDocumentService(store)
 	doc, err := docSvc.Upload(ctx, scope, DocumentUploadInput{
-		Title:     "Rules Placement Source",
-		ObjectKey: "tenant/tenant-1/org/org-1/docs/draft-rules-placement/source.pdf",
-		PDF:       GenerateDeterministicPDF(4),
+		Title:              "Rules Placement Source",
+		ObjectKey:          "tenant/tenant-1/org/org-1/docs/draft-rules-placement/source.pdf",
+		SourceOriginalName: "source.pdf",
+		PDF:                GenerateDeterministicPDF(4),
 	})
 	if err != nil {
 		t.Fatalf("Upload: %v", err)
@@ -544,9 +549,10 @@ func TestDraftServiceCreateNormalizesWizardPagesToDocumentBounds(t *testing.T) {
 
 	docSvc := NewDocumentService(store)
 	doc, err := docSvc.Upload(ctx, scope, DocumentUploadInput{
-		Title:     "Normalization Source",
-		ObjectKey: "tenant/tenant-1/org/org-1/docs/draft-normalization/source.pdf",
-		PDF:       GenerateDeterministicPDF(3),
+		Title:              "Normalization Source",
+		ObjectKey:          "tenant/tenant-1/org/org-1/docs/draft-normalization/source.pdf",
+		SourceOriginalName: "source.pdf",
+		PDF:                GenerateDeterministicPDF(3),
 	})
 	if err != nil {
 		t.Fatalf("Upload: %v", err)
@@ -651,9 +657,10 @@ func TestDraftServiceUpdateNormalizesWizardPagesToDocumentBounds(t *testing.T) {
 
 	docSvc := NewDocumentService(store)
 	doc, err := docSvc.Upload(ctx, scope, DocumentUploadInput{
-		Title:     "Normalization Update Source",
-		ObjectKey: "tenant/tenant-1/org/org-1/docs/draft-normalization-update/source.pdf",
-		PDF:       GenerateDeterministicPDF(2),
+		Title:              "Normalization Update Source",
+		ObjectKey:          "tenant/tenant-1/org/org-1/docs/draft-normalization-update/source.pdf",
+		SourceOriginalName: "source.pdf",
+		PDF:                GenerateDeterministicPDF(2),
 	})
 	if err != nil {
 		t.Fatalf("Upload: %v", err)

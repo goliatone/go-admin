@@ -46,14 +46,14 @@ func TestBuildAuditTrailDocumentNormalizesSortsAndAddsCompletedTerminal(t *testi
 	}
 
 	doc := BuildAuditTrailDocument(AuditTrailBuildInput{
-		Agreement:     agreement,
-		Recipients:    recipients,
-		Events:        events,
-		GeneratedAt:   now,
-		DocumentID:    "doc-1",
-		DocumentTitle: "Agreement Source",
-		DocumentKey:   "tenant/tenant-1/org/org-1/docs/doc-1/original.pdf",
-		DocumentHash:  strings.Repeat("a", 64),
+		Agreement:            agreement,
+		Recipients:           recipients,
+		Events:               events,
+		GeneratedAt:          now,
+		DocumentID:           "doc-1",
+		DocumentTitle:        "Agreement Source",
+		DocumentOriginalName: "original.pdf",
+		DocumentHash:         strings.Repeat("a", 64),
 	})
 
 	if got := doc.FileName; got != "original.pdf" {

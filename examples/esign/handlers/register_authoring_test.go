@@ -22,9 +22,10 @@ func setupAgreementAuthoringApp(t *testing.T, allowed map[string]bool) (*fiber.A
 		return time.Date(2026, 2, 12, 8, 0, 0, 0, time.UTC)
 	}))
 	doc, err := docSvc.Upload(ctx, scope, services.DocumentUploadInput{
-		Title:     "Authoring Source",
-		ObjectKey: "tenant/tenant-1/org/org-1/docs/doc-authoring/source.pdf",
-		PDF:       services.GenerateDeterministicPDF(1),
+		Title:              "Authoring Source",
+		ObjectKey:          "tenant/tenant-1/org/org-1/docs/doc-authoring/source.pdf",
+		SourceOriginalName: "source.pdf",
+		PDF:                services.GenerateDeterministicPDF(1),
 	})
 	if err != nil {
 		t.Fatalf("Upload: %v", err)

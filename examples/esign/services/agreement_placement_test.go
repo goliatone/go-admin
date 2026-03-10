@@ -46,9 +46,10 @@ func TestAgreementServiceRunAutoPlacementPersistsRunAndAudit(t *testing.T) {
 		WithDocumentObjectStore(objectStore),
 	)
 	doc, err := docSvc.Upload(ctx, scope, DocumentUploadInput{
-		Title:     "Placement Source",
-		ObjectKey: "tenant/tenant-1/org/org-1/docs/placement/source.pdf",
-		PDF:       GenerateDeterministicPDF(1),
+		Title:              "Placement Source",
+		ObjectKey:          "tenant/tenant-1/org/org-1/docs/placement/source.pdf",
+		SourceOriginalName: "source.pdf",
+		PDF:                GenerateDeterministicPDF(1),
 	})
 	if err != nil {
 		t.Fatalf("Upload: %v", err)
@@ -132,9 +133,10 @@ func TestAgreementServiceApplyPlacementRunCreatesInstancesAndManualOverrides(t *
 		WithDocumentObjectStore(objectStore),
 	)
 	doc, err := docSvc.Upload(ctx, scope, DocumentUploadInput{
-		Title:     "Placement Source",
-		ObjectKey: "tenant/tenant-1/org/org-1/docs/placement/source.pdf",
-		PDF:       GenerateDeterministicPDF(1),
+		Title:              "Placement Source",
+		ObjectKey:          "tenant/tenant-1/org/org-1/docs/placement/source.pdf",
+		SourceOriginalName: "source.pdf",
+		PDF:                GenerateDeterministicPDF(1),
 	})
 	if err != nil {
 		t.Fatalf("Upload: %v", err)

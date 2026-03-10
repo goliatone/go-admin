@@ -348,9 +348,10 @@ func seedDocumentForSourceSubresource(t *testing.T, server router.Server[*fiber.
 		scope.TenantID,
 		scope.OrgID,
 	), map[string]any{
-		"title":             "Source Subresource Test Document",
-		"source_object_key": fmt.Sprintf("tenant/%s/org/%s/docs/source-subresource-test.pdf", scope.TenantID, scope.OrgID),
-		"pdf_base64":        encodeTestPDF(1),
+		"title":                "Source Subresource Test Document",
+		"source_original_name": "source-subresource-test.pdf",
+		"source_object_key":    fmt.Sprintf("tenant/%s/org/%s/docs/source-subresource-test.pdf", scope.TenantID, scope.OrgID),
+		"pdf_base64":           encodeTestPDF(1),
 	})
 }
 
@@ -362,9 +363,10 @@ func seedAgreementWithArtifacts(t *testing.T, module *ESignModule, server router
 		scope.TenantID,
 		scope.OrgID,
 	), map[string]any{
-		"title":             "Artifact Test Document",
-		"source_object_key": fmt.Sprintf("tenant/%s/org/%s/docs/artifact-test.pdf", scope.TenantID, scope.OrgID),
-		"pdf_base64":        encodeTestPDF(1),
+		"title":                "Artifact Test Document",
+		"source_original_name": "artifact-test.pdf",
+		"source_object_key":    fmt.Sprintf("tenant/%s/org/%s/docs/artifact-test.pdf", scope.TenantID, scope.OrgID),
+		"pdf_base64":           encodeTestPDF(1),
 	})
 	agreementID := createPanelRecord(t, server, fmt.Sprintf(
 		"/admin/api/v1/panels/esign_agreements?tenant_id=%s&org_id=%s",

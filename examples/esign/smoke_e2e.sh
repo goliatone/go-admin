@@ -296,6 +296,10 @@ if [[ "${UPLOAD_STATUS}" != "200" ]]; then
 fi
 OBJECT_KEY="$(jq -r '.object_key // empty' "${UPLOAD_JSON_PATH}")"
 [[ -n "${OBJECT_KEY}" ]] || fail "upload response missing object_key: $(cat "${UPLOAD_JSON_PATH}")"
+SOURCE_ORIGINAL_NAME="$(jq -r '.source_original_name // .original_name // empty' "${UPLOAD_JSON_PATH}")"
+if [[ -z "${SOURCE_ORIGINAL_NAME}" ]]; then
+  SOURCE_ORIGINAL_NAME="$(basename "${PDF_PATH}")"
+fi
 
 log "Creating document entry"
 DOC_STATUS="$(
@@ -306,6 +310,7 @@ DOC_STATUS="$(
     -X POST "${BASE_URL}/admin/content/esign_documents?tenant_id=${TENANT_ID}&org_id=${ORG_ID}" \
     -H 'Content-Type: application/x-www-form-urlencoded' \
     --data-urlencode "title=Smoke Document $(date +%s)" \
+    --data-urlencode "source_original_name=${SOURCE_ORIGINAL_NAME}" \
     --data-urlencode "source_object_key=${OBJECT_KEY}" \
     --write-out '%{http_code}'
 )"
