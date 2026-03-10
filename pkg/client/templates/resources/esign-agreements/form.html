@@ -395,6 +395,26 @@
             Select the PDF document to use for this agreement.
             <a href="{{ adminURL("content/esign_documents/new") }}" class="text-blue-600 hover:underline">Upload a new document</a>
           </p>
+          <div id="document-remediation-panel" class="hidden mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-3" role="status" aria-live="polite">
+            <p id="document-remediation-message" class="text-sm text-amber-900">This PDF is incompatible with online signing.</p>
+            <div class="mt-2 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                id="document-remediation-trigger-btn"
+                class="inline-flex items-center rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500"
+              >
+                Remediate PDF
+              </button>
+              <button
+                type="button"
+                id="document-remediation-dismiss-btn"
+                class="inline-flex items-center rounded-md border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500"
+              >
+                Dismiss
+              </button>
+            </div>
+            <p id="document-remediation-status" class="mt-2 text-xs text-amber-800"></p>
+          </div>
         </div>
       </div>
     </div>
