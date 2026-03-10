@@ -85,3 +85,11 @@ test('Phase 5 contract: signer review draw controls are iconized with labels and
   assert.match(source, /aria-label="Redo signature stroke"/);
   assert.match(source, /aria-label="Clear signature canvas"/);
 });
+
+test('Phase 5 contract: signer review pager controls sync after current page updates', () => {
+  const source = read(signerReviewPath);
+  assert.match(source, /state\.currentPage = pageNum;\s*document\.getElementById\('current-page'\)\.textContent = pageNum;\s*updatePageNavigation\(\);/);
+  assert.doesNotMatch(source, /function prevPage\(\)\s*{[^}]*updatePageNavigation\(\)/);
+  assert.doesNotMatch(source, /function nextPage\(\)\s*{[^}]*updatePageNavigation\(\)/);
+  assert.doesNotMatch(source, /function goToPage\(pageNum\)\s*{[^}]*updatePageNavigation\(\)/);
+});
