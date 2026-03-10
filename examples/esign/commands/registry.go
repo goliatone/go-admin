@@ -9,6 +9,7 @@ const (
 	CommandAgreementReminderPause   = "esign.agreements.reminders.pause"
 	CommandAgreementReminderResume  = "esign.agreements.reminders.resume"
 	CommandAgreementReminderSendNow = "esign.agreements.reminders.send_now"
+	CommandPDFRemediate             = "esign.pdf.remediate"
 	CommandTokenRotate              = "esign.tokens.rotate"
 	CommandDraftCleanup             = "esign.drafts.cleanup"
 )
@@ -22,6 +23,7 @@ var All = []string{
 	CommandAgreementReminderPause,
 	CommandAgreementReminderResume,
 	CommandAgreementReminderSendNow,
+	CommandPDFRemediate,
 	CommandTokenRotate,
 	CommandDraftCleanup,
 }

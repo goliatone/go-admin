@@ -551,6 +551,56 @@ func (s *SQLiteStore) Delete(ctx context.Context, scope Scope, id string) error 
 	return s.persistMaybe(ctx)
 }
 
+func (s *SQLiteStore) AcquireDocumentRemediationLease(
+	ctx context.Context,
+	scope Scope,
+	documentID string,
+	input DocumentRemediationLeaseAcquireInput,
+) (DocumentRemediationLeaseClaim, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.AcquireDocumentRemediationLease(ctx, scope, documentID, input)
+	if err != nil {
+		return DocumentRemediationLeaseClaim{}, err
+	}
+	if err := s.persistMaybe(ctx); err != nil {
+		return DocumentRemediationLeaseClaim{}, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) RenewDocumentRemediationLease(
+	ctx context.Context,
+	scope Scope,
+	documentID string,
+	input DocumentRemediationLeaseRenewInput,
+) (DocumentRemediationLeaseClaim, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.RenewDocumentRemediationLease(ctx, scope, documentID, input)
+	if err != nil {
+		return DocumentRemediationLeaseClaim{}, err
+	}
+	if err := s.persistMaybe(ctx); err != nil {
+		return DocumentRemediationLeaseClaim{}, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) ReleaseDocumentRemediationLease(
+	ctx context.Context,
+	scope Scope,
+	documentID string,
+	input DocumentRemediationLeaseReleaseInput,
+) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.InMemoryStore.ReleaseDocumentRemediationLease(ctx, scope, documentID, input); err != nil {
+		return err
+	}
+	return s.persistMaybe(ctx)
+}
+
 func (s *SQLiteStore) CreateDraft(ctx context.Context, scope Scope, record AgreementRecord) (AgreementRecord, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -1508,6 +1558,13 @@ func ensureJobRunMap(in map[string]JobRunRecord) map[string]JobRunRecord {
 func ensureGoogleImportRunMap(in map[string]GoogleImportRunRecord) map[string]GoogleImportRunRecord {
 	if in == nil {
 		return map[string]GoogleImportRunRecord{}
+	}
+	return in
+}
+
+func ensureDocumentRemediationLeaseMap(in map[string]DocumentRemediationLeaseRecord) map[string]DocumentRemediationLeaseRecord {
+	if in == nil {
+		return map[string]DocumentRemediationLeaseRecord{}
 	}
 	return in
 }

@@ -93,6 +93,28 @@ func reminderLeaseLostError(agreementID, recipientID, workerID string) error {
 		})
 }
 
+func documentRemediationLeaseConflictError(documentID, workerID string, expectedSeq, actualSeq int64) error {
+	return goerrors.New("document remediation lease conflict", goerrors.CategoryConflict).
+		WithCode(http.StatusConflict).
+		WithTextCode("DOCUMENT_REMEDIATION_LEASE_CONFLICT").
+		WithMetadata(map[string]any{
+			"document_id":  documentID,
+			"worker_id":    workerID,
+			"expected_seq": expectedSeq,
+			"actual_seq":   actualSeq,
+		})
+}
+
+func documentRemediationLeaseLostError(documentID, workerID string) error {
+	return goerrors.New("document remediation lease lost", goerrors.CategoryConflict).
+		WithCode(http.StatusConflict).
+		WithTextCode("DOCUMENT_REMEDIATION_LEASE_LOST").
+		WithMetadata(map[string]any{
+			"document_id": documentID,
+			"worker_id":   workerID,
+		})
+}
+
 func reminderStateInvariantError(field, reason string) error {
 	return goerrors.New("reminder state invariant violation", goerrors.CategoryConflict).
 		WithCode(http.StatusConflict).

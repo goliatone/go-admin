@@ -247,6 +247,72 @@ func TestLoadSanitizesInvalidSignerPDFValues(t *testing.T) {
 	}
 }
 
+func TestLoadSupportsSignerPDFRemediationOverrides(t *testing.T) {
+	t.Setenv("APP_SIGNER__PDF__REMEDIATION__ENABLED", "true")
+	t.Setenv("APP_SIGNER__PDF__REMEDIATION__EXECUTION_MODE", "queued")
+	t.Setenv("APP_SIGNER__PDF__REMEDIATION__LEASE_TTL_MS", "45000")
+	t.Setenv("APP_SIGNER__PDF__REMEDIATION__COMMAND__BIN", "gs")
+	t.Setenv("APP_SIGNER__PDF__REMEDIATION__COMMAND__TIMEOUT_MS", "18000")
+	t.Setenv("APP_SIGNER__PDF__REMEDIATION__COMMAND__MAX_PDF_BYTES", "20971520")
+	t.Setenv("APP_SIGNER__PDF__REMEDIATION__COMMAND__MAX_LOG_BYTES", "1024")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if !cfg.Signer.PDF.Remediation.Enabled {
+		t.Fatalf("expected remediation.enabled true")
+	}
+	if cfg.Signer.PDF.Remediation.ExecutionMode != "queued" {
+		t.Fatalf("expected remediation.execution_mode queued, got %q", cfg.Signer.PDF.Remediation.ExecutionMode)
+	}
+	if cfg.Signer.PDF.Remediation.LeaseTTLMS != 45000 {
+		t.Fatalf("expected remediation.lease_ttl_ms 45000, got %d", cfg.Signer.PDF.Remediation.LeaseTTLMS)
+	}
+	if cfg.Signer.PDF.Remediation.Command.TimeoutMS != 18000 {
+		t.Fatalf("expected remediation.command.timeout_ms 18000, got %d", cfg.Signer.PDF.Remediation.Command.TimeoutMS)
+	}
+	if cfg.Signer.PDF.Remediation.Command.MaxPdfBytes != 20971520 {
+		t.Fatalf("expected remediation.command.max_pdf_bytes 20971520, got %d", cfg.Signer.PDF.Remediation.Command.MaxPdfBytes)
+	}
+	if cfg.Signer.PDF.Remediation.Command.MaxLogBytes != 1024 {
+		t.Fatalf("expected remediation.command.max_log_bytes 1024, got %d", cfg.Signer.PDF.Remediation.Command.MaxLogBytes)
+	}
+}
+
+func TestLoadSanitizesInvalidSignerPDFRemediationValues(t *testing.T) {
+	t.Setenv("APP_SIGNER__PDF__REMEDIATION__EXECUTION_MODE", "invalid")
+	t.Setenv("APP_SIGNER__PDF__REMEDIATION__LEASE_TTL_MS", "0")
+	t.Setenv("APP_SIGNER__PDF__REMEDIATION__COMMAND__BIN", "")
+	t.Setenv("APP_SIGNER__PDF__REMEDIATION__COMMAND__TIMEOUT_MS", "0")
+	t.Setenv("APP_SIGNER__PDF__REMEDIATION__COMMAND__MAX_PDF_BYTES", "-1")
+	t.Setenv("APP_SIGNER__PDF__REMEDIATION__COMMAND__MAX_LOG_BYTES", "0")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	defaults := Defaults().Signer.PDF.Remediation
+	if cfg.Signer.PDF.Remediation.ExecutionMode != defaults.ExecutionMode {
+		t.Fatalf("expected remediation.execution_mode fallback %q, got %q", defaults.ExecutionMode, cfg.Signer.PDF.Remediation.ExecutionMode)
+	}
+	if cfg.Signer.PDF.Remediation.LeaseTTLMS != defaults.LeaseTTLMS {
+		t.Fatalf("expected remediation.lease_ttl_ms fallback %d, got %d", defaults.LeaseTTLMS, cfg.Signer.PDF.Remediation.LeaseTTLMS)
+	}
+	if cfg.Signer.PDF.Remediation.Command.Bin != defaults.Command.Bin {
+		t.Fatalf("expected remediation.command.bin fallback %q, got %q", defaults.Command.Bin, cfg.Signer.PDF.Remediation.Command.Bin)
+	}
+	if cfg.Signer.PDF.Remediation.Command.TimeoutMS != defaults.Command.TimeoutMS {
+		t.Fatalf("expected remediation.command.timeout_ms fallback %d, got %d", defaults.Command.TimeoutMS, cfg.Signer.PDF.Remediation.Command.TimeoutMS)
+	}
+	if cfg.Signer.PDF.Remediation.Command.MaxPdfBytes != defaults.Command.MaxPdfBytes {
+		t.Fatalf("expected remediation.command.max_pdf_bytes fallback %d, got %d", defaults.Command.MaxPdfBytes, cfg.Signer.PDF.Remediation.Command.MaxPdfBytes)
+	}
+	if cfg.Signer.PDF.Remediation.Command.MaxLogBytes != defaults.Command.MaxLogBytes {
+		t.Fatalf("expected remediation.command.max_log_bytes fallback %d, got %d", defaults.Command.MaxLogBytes, cfg.Signer.PDF.Remediation.Command.MaxLogBytes)
+	}
+}
+
 func TestLoadSupportsReminderOverrides(t *testing.T) {
 	t.Setenv("APP_REMINDERS__ENABLED", "true")
 	t.Setenv("APP_SERVICES__ENCRYPTION_KEY", "0123456789abcdef0123456789abcdef")

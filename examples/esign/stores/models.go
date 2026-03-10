@@ -879,10 +879,10 @@ type DocumentRemediationLeaseAcquireInput struct {
 
 // DocumentRemediationLeaseRenewInput controls lease heartbeat renewal.
 type DocumentRemediationLeaseRenewInput struct {
-	Now      time.Time
-	TTL      time.Duration
-	Document string
-	Lease    DocumentRemediationLeaseToken
+	Now        time.Time
+	TTL        time.Duration
+	DocumentID string
+	Lease      DocumentRemediationLeaseToken
 }
 
 // DocumentRemediationLeaseReleaseInput controls lease release semantics.

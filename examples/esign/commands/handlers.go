@@ -50,6 +50,28 @@ type AgreementActivityProjector interface {
 	ProjectAgreement(ctx context.Context, scope stores.Scope, agreementID string) error
 }
 
+// PDFRemediationCommandService captures document remediation workflow execution.
+type PDFRemediationCommandService interface {
+	Remediate(ctx context.Context, scope stores.Scope, input services.PDFRemediationRequest) (services.PDFRemediationResult, error)
+}
+
+type registerOptions struct {
+	remediation PDFRemediationCommandService
+}
+
+// RegisterOption customizes command registration behavior.
+type RegisterOption func(*registerOptions)
+
+// WithPDFRemediationService enables the `esign.pdf.remediate` command.
+func WithPDFRemediationService(service PDFRemediationCommandService) RegisterOption {
+	return func(opts *registerOptions) {
+		if opts == nil {
+			return
+		}
+		opts.remediation = service
+	}
+}
+
 // Register wires typed command handlers and panel payload factories for e-sign actions.
 func Register(
 	bus *coreadmin.CommandBus,
@@ -60,7 +82,14 @@ func Register(
 	reminderSweepCron string,
 	defaultScope stores.Scope,
 	projector AgreementActivityProjector,
+	registerOpts ...RegisterOption,
 ) error {
+	opts := registerOptions{}
+	for _, opt := range registerOpts {
+		if opt != nil {
+			opt(&opts)
+		}
+	}
 	if err := RegisterCommandFactories(bus); err != nil {
 		return err
 	}
@@ -102,6 +131,14 @@ func Register(
 			return err
 		}
 		if _, err := coreadmin.RegisterCommand(bus, &AgreementReminderSendNowCommand{reminders: agreementReminders, defaultScope: defaultScope, projector: projector}); err != nil {
+			return err
+		}
+	}
+	if opts.remediation != nil {
+		if _, err := coreadmin.RegisterCommand(bus, &PDFRemediationCommand{
+			remediation:  opts.remediation,
+			defaultScope: defaultScope,
+		}); err != nil {
 			return err
 		}
 	}
@@ -713,6 +750,61 @@ func (c *AgreementReminderSendNowCommand) Execute(ctx context.Context, msg Agree
 		"command_name": CommandAgreementReminderSendNow,
 		"agreement_id": strings.TrimSpace(result.Agreement.ID),
 		"recipient_id": strings.TrimSpace(msg.RecipientID),
+	})
+	return nil
+}
+
+// PDFRemediationCommand dispatches bounded PDF remediation workflow execution.
+type PDFRemediationCommand struct {
+	remediation  PDFRemediationCommandService
+	defaultScope stores.Scope
+}
+
+var _ gocommand.Commander[PDFRemediationInput] = (*PDFRemediationCommand)(nil)
+
+func (c *PDFRemediationCommand) Execute(ctx context.Context, msg PDFRemediationInput) error {
+	startedAt := time.Now()
+	request := msg.Request(startedAt.UTC())
+	correlationID := observability.ResolveCorrelationID(request.CorrelationID, request.DispatchID, request.DocumentID, CommandPDFRemediate)
+	if c == nil || c.remediation == nil {
+		err := fmt.Errorf("pdf remediation command not configured")
+		observability.LogOperation(ctx, slog.LevelError, "command", "pdf_remediate", "error", correlationID, time.Since(startedAt), err, map[string]any{
+			"command_name": CommandPDFRemediate,
+		})
+		return err
+	}
+	if err := msg.Validate(); err != nil {
+		observability.LogOperation(ctx, slog.LevelWarn, "command", "pdf_remediate", "error", correlationID, time.Since(startedAt), err, map[string]any{
+			"command_name": CommandPDFRemediate,
+		})
+		return err
+	}
+	scope, err := resolveScope(ctx, msg.Scope, c.defaultScope)
+	if err != nil {
+		observability.LogOperation(ctx, slog.LevelWarn, "command", "pdf_remediate", "error", correlationID, time.Since(startedAt), err, map[string]any{
+			"command_name": CommandPDFRemediate,
+		})
+		return err
+	}
+	result, err := c.remediation.Remediate(ctx, scope, request)
+	if err != nil {
+		observability.LogOperation(ctx, slog.LevelWarn, "command", "pdf_remediate", "error", correlationID, time.Since(startedAt), err, map[string]any{
+			"command_name":  CommandPDFRemediate,
+			"document_id":   strings.TrimSpace(request.DocumentID),
+			"dispatch_id":   strings.TrimSpace(request.DispatchID),
+			"execution_mode": strings.TrimSpace(request.ExecutionMode),
+		})
+		return err
+	}
+	observability.LogOperation(ctx, slog.LevelInfo, "command", "pdf_remediate", "success", correlationID, time.Since(startedAt), nil, map[string]any{
+		"command_name":        CommandPDFRemediate,
+		"document_id":         strings.TrimSpace(result.Document.ID),
+		"pdf_compatibility":   strings.TrimSpace(result.Document.PDFCompatibilityTier),
+		"pdf_reason":          strings.TrimSpace(result.Document.PDFCompatibilityReason),
+		"dispatch_id":         strings.TrimSpace(request.DispatchID),
+		"execution_mode":      strings.TrimSpace(request.ExecutionMode),
+		"remediation_status":  strings.TrimSpace(result.Document.RemediationStatus),
+		"remediation_output":  strings.TrimSpace(result.OutputObjectKey),
 	})
 	return nil
 }
