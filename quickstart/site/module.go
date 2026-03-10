@@ -7,6 +7,15 @@ import (
 	router "github.com/goliatone/go-router"
 )
 
+// SiteRouter exposes grouped routing helpers for site modules.
+type SiteRouter interface {
+	admin.AdminRouter
+	Group(prefix string) SiteRouter
+	Mount(prefix string) SiteRouter
+	WithGroup(path string, cb func(SiteRouter)) SiteRouter
+	Use(m ...router.MiddlewareFunc) SiteRouter
+}
+
 // SiteModule allows host modules to contribute routes and view context.
 type SiteModule interface {
 	ID() string
@@ -32,7 +41,7 @@ type SiteSearchFilterInjector interface {
 // SiteModuleContext contains stable dependencies for module route registration.
 type SiteModuleContext struct {
 	Admin          *admin.Admin
-	Router         admin.AdminRouter
+	Router         SiteRouter
 	BasePath       string
 	DefaultLocale  string
 	ThemeEnabled   bool
