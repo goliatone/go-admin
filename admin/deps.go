@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	cmdrpc "github.com/goliatone/go-command/rpc"
 	"github.com/goliatone/go-featuregate/catalog"
 	fggate "github.com/goliatone/go-featuregate/gate"
 	urlkit "github.com/goliatone/go-urlkit"
@@ -25,6 +26,7 @@ type Dependencies struct {
 
 	Registry    *Registry
 	CommandBus  *CommandBus
+	RPCServer   *cmdrpc.Server
 	JobRegistry *JobRegistry
 	URLManager  *urlkit.RouteManager
 
