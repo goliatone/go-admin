@@ -9,6 +9,7 @@ import (
 // CommandConfig controls command subsystem behavior.
 type CommandConfig struct {
 	Execution CommandExecutionPolicy
+	RPC       RPCCommandConfig
 }
 
 // CommandExecutionPolicy controls dispatch mode resolution for name-based command dispatch.
