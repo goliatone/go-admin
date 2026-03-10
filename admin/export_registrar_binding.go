@@ -20,6 +20,32 @@ type adminRouterAdapter struct {
 	router boot.Router
 }
 
+func (a adminRouterAdapter) Handle(method router.HTTPMethod, path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
+	return a.router.Handle(method, path, handler, mw...)
+}
+
+func (a adminRouterAdapter) Group(prefix string) AdminRouter {
+	return adminRouterAdapter{router: a.router.Group(prefix)}
+}
+
+func (a adminRouterAdapter) Mount(prefix string) AdminRouter {
+	return adminRouterAdapter{router: a.router.Mount(prefix)}
+}
+
+func (a adminRouterAdapter) WithGroup(path string, cb func(AdminRouter)) AdminRouter {
+	routerWithGroup := a.router.WithGroup(path, func(r boot.Router) {
+		if cb == nil {
+			return
+		}
+		cb(adminRouterAdapter{router: r})
+	})
+	return adminRouterAdapter{router: routerWithGroup}
+}
+
+func (a adminRouterAdapter) Use(m ...router.MiddlewareFunc) AdminRouter {
+	return adminRouterAdapter{router: a.router.Use(m...)}
+}
+
 func (a adminRouterAdapter) Get(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
 	return a.router.Get(path, handler, mw...)
 }
@@ -34,6 +60,14 @@ func (a adminRouterAdapter) Put(path string, handler router.HandlerFunc, mw ...r
 
 func (a adminRouterAdapter) Delete(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
 	return a.router.Delete(path, handler, mw...)
+}
+
+func (a adminRouterAdapter) Patch(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
+	return a.router.Patch(path, handler, mw...)
+}
+
+func (a adminRouterAdapter) Head(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
+	return a.router.Head(path, handler, mw...)
 }
 
 func (e *exportRegistrarBinding) Register(r boot.Router, opts boot.ExportRouteOptions) error {
