@@ -88,6 +88,8 @@ type Config struct {
 	ScopeMode       string
 	DefaultTenantID string
 	DefaultOrgID    string
+
+	Commands CommandConfig
 }
 
 // SiteConfig controls public site API behavior exposed by go-admin.
