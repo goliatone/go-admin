@@ -99,10 +99,6 @@ func SetupUsersWithMigrations(ctx context.Context, dsn string, registrar UserMig
 		return stores.UserDependencies{}, nil, nil, err
 	}
 
-	client, err = newClient()
-	if err != nil {
-		return stores.UserDependencies{}, nil, nil, err
-	}
 	if err := registrar(client, UserMigrationsCore); err != nil {
 		return stores.UserDependencies{}, nil, nil, err
 	}
