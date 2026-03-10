@@ -69,6 +69,7 @@ type registerConfig struct {
 	googleImportEnqueue   GoogleImportEnqueueFunc
 	integration           IntegrationFoundationService
 	pdfPolicy             PDFPolicyService
+	remediationTrigger    RemediationTrigger
 	remediationStatus     RemediationDispatchStatusLookup
 	googleEnabled         bool
 	documentUpload        router.HandlerFunc
@@ -81,6 +82,31 @@ type registerConfig struct {
 	rateLimitRuleResolver RateLimitRuleResolver
 	requestTrustPolicy    quickstart.RequestTrustPolicy
 	securityLogEvent      SecurityLogEvent
+}
+
+// RemediationTriggerInput captures document remediation dispatch request context.
+type RemediationTriggerInput struct {
+	Scope          stores.Scope
+	DocumentID     string
+	ActorID        string
+	CorrelationID  string
+	ModeOverride   string
+	IdempotencyKey string
+}
+
+// RemediationDispatchReceipt captures accepted remediation dispatch metadata.
+type RemediationDispatchReceipt struct {
+	Accepted      bool
+	Mode          string
+	CommandID     string
+	DispatchID    string
+	CorrelationID string
+	EnqueuedAt    *time.Time
+}
+
+// RemediationTrigger dispatches remediation command execution.
+type RemediationTrigger interface {
+	TriggerRemediation(ctx context.Context, input RemediationTriggerInput) (RemediationDispatchReceipt, error)
 }
 
 func defaultRegisterConfig() registerConfig {
@@ -225,7 +251,11 @@ type RemediationDispatchStatus struct {
 	OrgID          string
 	Attempt        int
 	MaxAttempts    int
+	EnqueuedAt     *time.Time
 	NextRunAt      *time.Time
+	StartedAt      *time.Time
+	CompletedAt    *time.Time
+	CanceledAt     *time.Time
 	TerminalReason string
 	UpdatedAt      *time.Time
 }
@@ -507,6 +537,16 @@ func WithPDFPolicyService(service PDFPolicyService) RegisterOption {
 			return
 		}
 		cfg.pdfPolicy = service
+	}
+}
+
+// WithRemediationTrigger configures remediation command dispatch for trigger routes.
+func WithRemediationTrigger(trigger RemediationTrigger) RegisterOption {
+	return func(cfg *registerConfig) {
+		if cfg == nil {
+			return
+		}
+		cfg.remediationTrigger = trigger
 	}
 }
 

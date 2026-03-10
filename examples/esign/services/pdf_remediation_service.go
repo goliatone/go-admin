@@ -14,6 +14,7 @@ import (
 	coreadmin "github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/stores"
+	goerrors "github.com/goliatone/go-errors"
 	"github.com/goliatone/go-uploader"
 	"github.com/google/uuid"
 )
@@ -207,6 +208,7 @@ func (s PDFRemediationService) Remediate(ctx context.Context, scope stores.Scope
 
 	document, err := s.documents.Get(ctx, scope, documentID)
 	if err != nil {
+		observeRemediationLockSignal(ctx, err)
 		_ = s.emitLifecycle(ctx, agreementID, actorID, PDFRemediationStatusFailed, s.now().UTC(), baseMeta, err.Error())
 		return PDFRemediationResult{}, err
 	}
@@ -231,6 +233,7 @@ func (s PDFRemediationService) Remediate(ctx context.Context, scope stores.Scope
 		if releaseErr == nil {
 			return
 		}
+		observeRemediationLockSignal(ctx, releaseErr)
 		if err == nil {
 			err = releaseErr
 			return
@@ -297,6 +300,7 @@ func (s PDFRemediationService) Remediate(ctx context.Context, scope stores.Scope
 	currentLease = finalLease
 	if runErr != nil {
 		err = runErr
+		observeRemediationLockSignal(ctx, err)
 		_ = s.persistFailureState(ctx, scope, documentID, document, actorID, commandID, dispatchID, executionMode, correlationID, requestedAt, startedAt, err.Error())
 		_ = s.emitLifecycle(ctx, agreementID, actorID, PDFRemediationStatusFailed, s.now().UTC(), baseMeta, err.Error())
 		return PDFRemediationResult{}, err
@@ -387,6 +391,7 @@ func (s PDFRemediationService) emitLifecycle(
 	if strings.TrimSpace(failure) != "" {
 		metadata["failure"] = trimRemediationFailure(failure)
 	}
+	observability.ObserveRemediationLifecycle(ctx, strings.TrimSpace(status), strings.TrimSpace(failure))
 
 	if s.activity != nil {
 		actor := strings.TrimSpace(actorID)
@@ -634,4 +639,37 @@ func cloneRemediationMetadata(in map[string]any) map[string]any {
 		out[key] = value
 	}
 	return out
+}
+
+func observeRemediationLockSignal(ctx context.Context, err error) {
+	signal := remediationLockSignalFromError(err)
+	if signal == "" {
+		return
+	}
+	observability.ObserveRemediationLockSignal(ctx, signal)
+}
+
+func remediationLockSignalFromError(err error) string {
+	if err == nil {
+		return ""
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return "timeout"
+	}
+	var coded *goerrors.Error
+	if errors.As(err, &coded) && coded != nil {
+		switch strings.ToLower(strings.TrimSpace(coded.TextCode)) {
+		case "document_remediation_lease_conflict", "document_remediation_lease_lost":
+			return "contention"
+		}
+	}
+	msg := strings.ToLower(strings.TrimSpace(err.Error()))
+	switch {
+	case strings.Contains(msg, "lease conflict"), strings.Contains(msg, "lease lost"):
+		return "contention"
+	case strings.Contains(msg, "deadline exceeded"), strings.Contains(msg, "timed out"), strings.Contains(msg, "timeout"):
+		return "timeout"
+	default:
+		return ""
+	}
 }

@@ -49,6 +49,8 @@ type InMemoryStore struct {
 	googleImportRuns           map[string]GoogleImportRunRecord
 	googleImportRunDedupeIndex map[string]string
 	documentRemediationLeases  map[string]DocumentRemediationLeaseRecord
+	remediationDispatches      map[string]RemediationDispatchRecord
+	remediationDispatchIndex   map[string]string
 	agreementReminderStates    map[string]AgreementReminderStateRecord
 	outboxMessages             map[string]OutboxMessageRecord
 	integrationCredentials     map[string]IntegrationCredentialRecord
@@ -91,6 +93,8 @@ func NewInMemoryStore() *InMemoryStore {
 		googleImportRuns:           map[string]GoogleImportRunRecord{},
 		googleImportRunDedupeIndex: map[string]string{},
 		documentRemediationLeases:  map[string]DocumentRemediationLeaseRecord{},
+		remediationDispatches:      map[string]RemediationDispatchRecord{},
+		remediationDispatchIndex:   map[string]string{},
 		agreementReminderStates:    map[string]AgreementReminderStateRecord{},
 		outboxMessages:             map[string]OutboxMessageRecord{},
 		integrationCredentials:     map[string]IntegrationCredentialRecord{},
@@ -187,6 +191,8 @@ func (s *InMemoryStore) snapshot() (sqliteStoreSnapshot, error) {
 		GoogleImportRuns:           s.googleImportRuns,
 		GoogleImportRunDedupeIndex: s.googleImportRunDedupeIndex,
 		DocumentRemediationLeases:  s.documentRemediationLeases,
+		RemediationDispatches:      s.remediationDispatches,
+		RemediationDispatchIndex:   s.remediationDispatchIndex,
 		AgreementReminderStates:    s.agreementReminderStates,
 		OutboxMessages:             s.outboxMessages,
 		IntegrationCredentials:     s.integrationCredentials,
@@ -238,6 +244,8 @@ func (s *InMemoryStore) applySnapshot(snapshot sqliteStoreSnapshot) {
 	s.googleImportRuns = ensureGoogleImportRunMap(snapshot.GoogleImportRuns)
 	s.googleImportRunDedupeIndex = ensureStringMap(snapshot.GoogleImportRunDedupeIndex)
 	s.documentRemediationLeases = ensureDocumentRemediationLeaseMap(snapshot.DocumentRemediationLeases)
+	s.remediationDispatches = ensureRemediationDispatchMap(snapshot.RemediationDispatches)
+	s.remediationDispatchIndex = ensureStringMap(snapshot.RemediationDispatchIndex)
 	s.agreementReminderStates = ensureAgreementReminderStateMap(snapshot.AgreementReminderStates)
 	s.outboxMessages = ensureOutboxMessageMap(snapshot.OutboxMessages)
 	s.integrationCredentials = ensureIntegrationCredentialMap(snapshot.IntegrationCredentials)
@@ -258,6 +266,10 @@ func scopedKey(scope Scope, id string) string {
 	return scope.key() + "|" + normalizeID(id)
 }
 
+func remediationDispatchIndexKey(scope Scope, key string) string {
+	return scope.key() + "|" + strings.TrimSpace(key)
+}
+
 func cloneTimePtr(src *time.Time) *time.Time {
 	if src == nil {
 		return nil
@@ -269,6 +281,20 @@ func cloneTimePtr(src *time.Time) *time.Time {
 func cloneSigningTokenRecord(record SigningTokenRecord) SigningTokenRecord {
 	record.RevokedAt = cloneTimePtr(record.RevokedAt)
 	record.CreatedAt = normalizeRecordTime(record.CreatedAt)
+	return record
+}
+
+func cloneRemediationDispatchRecord(record RemediationDispatchRecord) RemediationDispatchRecord {
+	record.DispatchID = strings.TrimSpace(record.DispatchID)
+	record.TenantID = strings.TrimSpace(record.TenantID)
+	record.OrgID = strings.TrimSpace(record.OrgID)
+	record.DocumentID = normalizeID(record.DocumentID)
+	record.IdempotencyKey = strings.TrimSpace(record.IdempotencyKey)
+	record.Mode = strings.TrimSpace(record.Mode)
+	record.CommandID = strings.TrimSpace(record.CommandID)
+	record.CorrelationID = strings.TrimSpace(record.CorrelationID)
+	record.EnqueuedAt = cloneTimePtr(record.EnqueuedAt)
+	record.UpdatedAt = normalizeRecordTime(record.UpdatedAt)
 	return record
 }
 
@@ -778,6 +804,107 @@ func (s *InMemoryStore) ReleaseDocumentRemediationLease(
 	clearDocumentRemediationLease(&record, now)
 	s.documentRemediationLeases[key] = record
 	return nil
+}
+
+func (s *InMemoryStore) SaveRemediationDispatch(ctx context.Context, scope Scope, record RemediationDispatchRecord) (RemediationDispatchRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return RemediationDispatchRecord{}, err
+	}
+	record.DispatchID = strings.TrimSpace(record.DispatchID)
+	if record.DispatchID == "" {
+		return RemediationDispatchRecord{}, invalidRecordError("remediation_dispatches", "dispatch_id", "required")
+	}
+	record.DocumentID = normalizeID(record.DocumentID)
+	if record.DocumentID == "" {
+		return RemediationDispatchRecord{}, invalidRecordError("remediation_dispatches", "document_id", "required")
+	}
+	record.IdempotencyKey = strings.TrimSpace(record.IdempotencyKey)
+	record.Mode = strings.TrimSpace(record.Mode)
+	record.CommandID = strings.TrimSpace(record.CommandID)
+	record.CorrelationID = strings.TrimSpace(record.CorrelationID)
+	record.TenantID = scope.TenantID
+	record.OrgID = scope.OrgID
+	record.EnqueuedAt = cloneTimePtr(record.EnqueuedAt)
+	record.UpdatedAt = normalizeRecordTime(record.UpdatedAt)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if existing, ok := s.remediationDispatches[record.DispatchID]; ok {
+		if existing.DocumentID != "" && record.DocumentID == "" {
+			record.DocumentID = existing.DocumentID
+		}
+		if existing.IdempotencyKey != "" && record.IdempotencyKey == "" {
+			record.IdempotencyKey = existing.IdempotencyKey
+		}
+		if existing.Mode != "" && record.Mode == "" {
+			record.Mode = existing.Mode
+		}
+		if existing.CommandID != "" && record.CommandID == "" {
+			record.CommandID = existing.CommandID
+		}
+		if existing.CorrelationID != "" && record.CorrelationID == "" {
+			record.CorrelationID = existing.CorrelationID
+		}
+		if existing.EnqueuedAt != nil && record.EnqueuedAt == nil {
+			record.EnqueuedAt = cloneTimePtr(existing.EnqueuedAt)
+		}
+		if existing.MaxAttempts > record.MaxAttempts {
+			record.MaxAttempts = existing.MaxAttempts
+		}
+		record.Accepted = record.Accepted || existing.Accepted
+	}
+
+	record = cloneRemediationDispatchRecord(record)
+	s.remediationDispatches[record.DispatchID] = record
+	if record.IdempotencyKey != "" {
+		s.remediationDispatchIndex[remediationDispatchIndexKey(scope, record.IdempotencyKey)] = record.DispatchID
+	}
+	return cloneRemediationDispatchRecord(record), nil
+}
+
+func (s *InMemoryStore) GetRemediationDispatch(ctx context.Context, dispatchID string) (RemediationDispatchRecord, error) {
+	_ = ctx
+	dispatchID = strings.TrimSpace(dispatchID)
+	if dispatchID == "" {
+		return RemediationDispatchRecord{}, invalidRecordError("remediation_dispatches", "dispatch_id", "required")
+	}
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	record, ok := s.remediationDispatches[dispatchID]
+	if !ok {
+		return RemediationDispatchRecord{}, notFoundError("remediation_dispatches", dispatchID)
+	}
+	return cloneRemediationDispatchRecord(record), nil
+}
+
+func (s *InMemoryStore) GetRemediationDispatchByIdempotencyKey(ctx context.Context, scope Scope, key string) (RemediationDispatchRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return RemediationDispatchRecord{}, err
+	}
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return RemediationDispatchRecord{}, invalidRecordError("remediation_dispatches", "idempotency_key", "required")
+	}
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	dispatchID, ok := s.remediationDispatchIndex[remediationDispatchIndexKey(scope, key)]
+	if !ok {
+		return RemediationDispatchRecord{}, notFoundError("remediation_dispatches", key)
+	}
+	record, ok := s.remediationDispatches[dispatchID]
+	if !ok {
+		return RemediationDispatchRecord{}, notFoundError("remediation_dispatches", dispatchID)
+	}
+	return cloneRemediationDispatchRecord(record), nil
 }
 
 func (s *InMemoryStore) CreateDraft(ctx context.Context, scope Scope, record AgreementRecord) (AgreementRecord, error) {

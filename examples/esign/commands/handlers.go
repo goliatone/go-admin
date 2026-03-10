@@ -770,12 +770,14 @@ func (c *PDFRemediationCommand) Execute(ctx context.Context, msg PDFRemediationI
 		err := fmt.Errorf("pdf remediation command not configured")
 		observability.LogOperation(ctx, slog.LevelError, "command", "pdf_remediate", "error", correlationID, time.Since(startedAt), err, map[string]any{
 			"command_name": CommandPDFRemediate,
+			"command_id":   CommandPDFRemediate,
 		})
 		return err
 	}
 	if err := msg.Validate(); err != nil {
 		observability.LogOperation(ctx, slog.LevelWarn, "command", "pdf_remediate", "error", correlationID, time.Since(startedAt), err, map[string]any{
 			"command_name": CommandPDFRemediate,
+			"command_id":   CommandPDFRemediate,
 		})
 		return err
 	}
@@ -783,6 +785,7 @@ func (c *PDFRemediationCommand) Execute(ctx context.Context, msg PDFRemediationI
 	if err != nil {
 		observability.LogOperation(ctx, slog.LevelWarn, "command", "pdf_remediate", "error", correlationID, time.Since(startedAt), err, map[string]any{
 			"command_name": CommandPDFRemediate,
+			"command_id":   CommandPDFRemediate,
 		})
 		return err
 	}
@@ -790,6 +793,7 @@ func (c *PDFRemediationCommand) Execute(ctx context.Context, msg PDFRemediationI
 	if err != nil {
 		observability.LogOperation(ctx, slog.LevelWarn, "command", "pdf_remediate", "error", correlationID, time.Since(startedAt), err, map[string]any{
 			"command_name":   CommandPDFRemediate,
+			"command_id":     CommandPDFRemediate,
 			"document_id":    strings.TrimSpace(request.DocumentID),
 			"dispatch_id":    strings.TrimSpace(request.DispatchID),
 			"execution_mode": strings.TrimSpace(request.ExecutionMode),
@@ -798,6 +802,7 @@ func (c *PDFRemediationCommand) Execute(ctx context.Context, msg PDFRemediationI
 	}
 	observability.LogOperation(ctx, slog.LevelInfo, "command", "pdf_remediate", "success", correlationID, time.Since(startedAt), nil, map[string]any{
 		"command_name":       CommandPDFRemediate,
+		"command_id":         CommandPDFRemediate,
 		"document_id":        strings.TrimSpace(result.Document.ID),
 		"pdf_compatibility":  strings.TrimSpace(result.Document.PDFCompatibilityTier),
 		"pdf_reason":         strings.TrimSpace(result.Document.PDFCompatibilityReason),

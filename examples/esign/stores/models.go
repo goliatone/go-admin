@@ -917,6 +917,22 @@ type DocumentRemediationLeaseClaim struct {
 	Lease  DocumentRemediationLeaseToken
 }
 
+// RemediationDispatchRecord captures durable command dispatch metadata for status/idempotency lookups.
+type RemediationDispatchRecord struct {
+	DispatchID     string
+	TenantID       string
+	OrgID          string
+	DocumentID     string
+	IdempotencyKey string
+	Mode           string
+	CommandID      string
+	CorrelationID  string
+	Accepted       bool
+	MaxAttempts    int
+	EnqueuedAt     *time.Time
+	UpdatedAt      time.Time
+}
+
 type AgreementQuery struct {
 	Status   string
 	Limit    int

@@ -1,13 +1,16 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
 	"github.com/goliatone/go-admin/examples/esign/jobs"
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
+	gocommand "github.com/goliatone/go-command"
 	router "github.com/goliatone/go-router"
 )
 
@@ -202,17 +205,64 @@ func registerAdminCoreRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg re
 		if documentID == "" {
 			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "document_id is required", nil)
 		}
-		modeOverride := strings.TrimSpace(c.Query("mode"))
+		modeOverride, err := parseRemediationExecutionMode(c.Query("mode"))
+		if err != nil {
+			return writeAPIError(c, err, http.StatusBadRequest, "INVALID_EXECUTION_MODE", "invalid remediation mode override", map[string]any{
+				"mode": strings.TrimSpace(c.Query("mode")),
+			})
+		}
 		if modeOverride != "" && cfg.authorizer != nil && !authorizerAllows(c, cfg.authorizer, cfg.permissions.AdminSettings) {
 			return writePermissionDenied(c, cfg.permissions.AdminSettings)
 		}
+		if cfg.remediationTrigger == nil {
+			return writeAPIError(c, nil, http.StatusNotImplemented, "NOT_IMPLEMENTED", "pdf remediation trigger not implemented", map[string]any{
+				"document_id": documentID,
+				"mode":        modeOverride,
+			})
+		}
 		scope := cfg.resolveScope(c)
-		return writeAPIError(c, nil, http.StatusNotImplemented, "NOT_IMPLEMENTED", "pdf remediation trigger not implemented", map[string]any{
-			"document_id": documentID,
-			"mode":        modeOverride,
-			"tenant_id":   scope.TenantID,
-			"org_id":      scope.OrgID,
+		idempotencyKey := strings.TrimSpace(c.Header("Idempotency-Key"))
+		receipt, err := cfg.remediationTrigger.TriggerRemediation(c.Context(), RemediationTriggerInput{
+			Scope:          scope,
+			DocumentID:     documentID,
+			ActorID:        resolveAdminUserID(c),
+			CorrelationID:  apiCorrelationID(c, idempotencyKey, documentID, "admin_document_remediate"),
+			ModeOverride:   modeOverride,
+			IdempotencyKey: idempotencyKey,
 		})
+		if err != nil {
+			return writeAPIError(c, err, http.StatusUnprocessableEntity, "REMEDIATION_TRIGGER_FAILED", "unable to trigger remediation", map[string]any{
+				"document_id": documentID,
+				"mode":        modeOverride,
+				"tenant_id":   scope.TenantID,
+				"org_id":      scope.OrgID,
+			})
+		}
+		resolvedMode := normalizeRemediationExecutionMode(receipt.Mode)
+		dispatchID := strings.TrimSpace(receipt.DispatchID)
+		statusURL := remediationDispatchStatusURL(routes.AdminRemediationDispatchStatus, dispatchID)
+		statusCode := http.StatusOK
+		if strings.EqualFold(resolvedMode, string(gocommand.ExecutionModeQueued)) {
+			statusCode = http.StatusAccepted
+		}
+		response := map[string]any{
+			"status": "ok",
+			"receipt": map[string]any{
+				"command_id":     firstNonEmpty(strings.TrimSpace(receipt.CommandID), "esign.pdf.remediate"),
+				"mode":           resolvedMode,
+				"accepted":       receipt.Accepted,
+				"dispatch_id":    dispatchID,
+				"correlation_id": stableString(receipt.CorrelationID),
+				"enqueued_at":    formatTime(receipt.EnqueuedAt),
+			},
+			"mode":        resolvedMode,
+			"accepted":    receipt.Accepted,
+			"dispatch_id": dispatchID,
+		}
+		if statusURL != "" {
+			response["dispatch_status_url"] = statusURL
+		}
+		return c.JSON(statusCode, response)
 	}, requireAdminPermission(cfg, cfg.permissions.AdminEdit))
 
 	adminRoutes.Get(routes.AdminRemediationDispatchStatus, func(c router.Context) error {
@@ -258,13 +308,73 @@ func registerAdminCoreRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg re
 			"status": "ok",
 			"dispatch": map[string]any{
 				"dispatch_id":     strings.TrimSpace(dispatch.DispatchID),
-				"status":          strings.TrimSpace(dispatch.Status),
+				"status":          normalizeRemediationDispatchState(dispatch.Status),
 				"attempt":         dispatch.Attempt,
 				"max_attempts":    dispatch.MaxAttempts,
+				"enqueued_at":     formatTime(dispatch.EnqueuedAt),
 				"next_run_at":     formatTime(dispatch.NextRunAt),
+				"started_at":      formatTime(dispatch.StartedAt),
+				"completed_at":    formatTime(dispatch.CompletedAt),
+				"canceled_at":     formatTime(dispatch.CanceledAt),
 				"terminal_reason": stableString(dispatch.TerminalReason),
 				"updated_at":      formatTime(dispatch.UpdatedAt),
 			},
 		})
 	}, requireAdminPermission(cfg, cfg.permissions.AdminView))
+}
+
+func parseRemediationExecutionMode(raw string) (string, error) {
+	mode, err := gocommand.ParseExecutionMode(strings.TrimSpace(raw))
+	if err != nil {
+		return "", err
+	}
+	normalized := strings.TrimSpace(string(mode))
+	switch normalized {
+	case "", string(gocommand.ExecutionModeInline), string(gocommand.ExecutionModeQueued):
+		return normalized, nil
+	default:
+		return "", fmt.Errorf("invalid remediation execution mode %q", raw)
+	}
+}
+
+func normalizeRemediationExecutionMode(raw string) string {
+	mode, err := parseRemediationExecutionMode(raw)
+	if err != nil || strings.TrimSpace(mode) == "" {
+		return string(gocommand.ExecutionModeInline)
+	}
+	return mode
+}
+
+func normalizeRemediationDispatchState(raw string) string {
+	status := strings.ToLower(strings.TrimSpace(raw))
+	switch status {
+	case "accepted", "requested":
+		return "accepted"
+	case "running", "started", "processing":
+		return "running"
+	case "retrying":
+		return "retrying"
+	case "succeeded", "success", "completed":
+		return "succeeded"
+	case "failed", "error":
+		return "failed"
+	case "canceled", "cancelled":
+		return "canceled"
+	case "dead_letter", "deadletter":
+		return "dead_letter"
+	default:
+		return "accepted"
+	}
+}
+
+func remediationDispatchStatusURL(routeTemplate, dispatchID string) string {
+	dispatchID = strings.TrimSpace(dispatchID)
+	if dispatchID == "" {
+		return ""
+	}
+	template := strings.TrimSpace(routeTemplate)
+	if template == "" {
+		return ""
+	}
+	return strings.Replace(template, ":dispatch_id", url.PathEscape(dispatchID), 1)
 }

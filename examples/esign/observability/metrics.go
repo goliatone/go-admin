@@ -13,6 +13,9 @@ import (
 type Metrics interface {
 	ObserveAdminRead(ctx context.Context, duration time.Duration, success bool, endpoint string)
 	ObserveSend(ctx context.Context, duration time.Duration, success bool)
+	ObserveCommandDispatch(ctx context.Context, commandID, mode string, accepted bool, duration time.Duration)
+	ObserveCommandDispatchRejected(ctx context.Context, commandID, mode, reason string)
+	ObserveDedupStoreMiss(ctx context.Context, commandID string)
 	ObserveReminderSweep(
 		ctx context.Context,
 		duration time.Duration,
@@ -39,6 +42,10 @@ type Metrics interface {
 	ObservePDFIngestPolicyReject(ctx context.Context, reason, tier string)
 	ObservePDFPreviewFallback(ctx context.Context, reason, tier string)
 	ObservePDFRenderImportFail(ctx context.Context, reason, tier string)
+	ObserveRemediationLifecycle(ctx context.Context, status, reason string)
+	ObserveRemediationDispatchStateTransition(ctx context.Context, status string)
+	ObserveRemediationDuplicateSuppressed(ctx context.Context)
+	ObserveRemediationLockSignal(ctx context.Context, signal string)
 	Snapshot() MetricsSnapshot
 }
 
@@ -64,37 +71,45 @@ type MetricsSnapshot struct {
 	FinalizeSampleTotal      int64
 	EmailDispatchSampleTotal int64
 
-	SendSuccessTotal               int64
-	SendFailureTotal               int64
-	ReminderSweepClaimedTotal      int64
-	ReminderSweepSentTotal         int64
-	ReminderSweepSkippedTotal      int64
-	ReminderSweepFailedTotal       int64
-	ReminderSweepSkipByReason      map[string]int64
-	ReminderSweepFailureByReason   map[string]int64
-	ReminderLeaseLostTotal         int64
-	ReminderLeaseConflictTotal     int64
-	ReminderStateInvariantTotal    int64
-	ReminderPolicyBlockTotal       int64
-	ReminderClaimToSendP95MS       float64
-	ReminderDueToSendP95MS         float64
-	ReminderDueBacklogAgeP95MS     float64
-	SignerLinkOpenSuccessTotal     int64
-	SignerLinkOpenFailureTotal     int64
-	SignerSubmitSuccessTotal       int64
-	SignerSubmitFailureTotal       int64
-	UnifiedViewerSuccessTotal      int64
-	UnifiedViewerFailureTotal      int64
-	UnifiedFieldSaveSuccessTotal   int64
-	UnifiedFieldSaveFailureTotal   int64
-	UnifiedSignatureSuccessTotal   int64
-	UnifiedSignatureFailureTotal   int64
-	UnifiedSubmitSuccessTotal      int64
-	UnifiedSubmitFailureTotal      int64
-	FinalizeSuccessTotal           int64
-	FinalizeFailureTotal           int64
-	CompletionDeliverySuccessTotal int64
-	CompletionDeliveryFailureTotal int64
+	SendSuccessTotal                int64
+	SendFailureTotal                int64
+	CommandDispatchP95MS            float64
+	CommandDispatchAcceptedTotal    int64
+	CommandDispatchRejectedTotal    int64
+	CommandDispatchAcceptedByMode   map[string]int64
+	CommandDispatchAcceptedByID     map[string]int64
+	CommandDispatchRejectedByReason map[string]int64
+	DedupStoreMissTotal             int64
+	DedupStoreMissByCommandID       map[string]int64
+	ReminderSweepClaimedTotal       int64
+	ReminderSweepSentTotal          int64
+	ReminderSweepSkippedTotal       int64
+	ReminderSweepFailedTotal        int64
+	ReminderSweepSkipByReason       map[string]int64
+	ReminderSweepFailureByReason    map[string]int64
+	ReminderLeaseLostTotal          int64
+	ReminderLeaseConflictTotal      int64
+	ReminderStateInvariantTotal     int64
+	ReminderPolicyBlockTotal        int64
+	ReminderClaimToSendP95MS        float64
+	ReminderDueToSendP95MS          float64
+	ReminderDueBacklogAgeP95MS      float64
+	SignerLinkOpenSuccessTotal      int64
+	SignerLinkOpenFailureTotal      int64
+	SignerSubmitSuccessTotal        int64
+	SignerSubmitFailureTotal        int64
+	UnifiedViewerSuccessTotal       int64
+	UnifiedViewerFailureTotal       int64
+	UnifiedFieldSaveSuccessTotal    int64
+	UnifiedFieldSaveFailureTotal    int64
+	UnifiedSignatureSuccessTotal    int64
+	UnifiedSignatureFailureTotal    int64
+	UnifiedSubmitSuccessTotal       int64
+	UnifiedSubmitFailureTotal       int64
+	FinalizeSuccessTotal            int64
+	FinalizeFailureTotal            int64
+	CompletionDeliverySuccessTotal  int64
+	CompletionDeliveryFailureTotal  int64
 
 	JobSuccessTotal      int64
 	JobFailureTotal      int64
@@ -122,6 +137,21 @@ type MetricsSnapshot struct {
 	PDFPreviewFallbackByReasonTier    map[string]int64
 	PDFRenderImportFailTotal          int64
 	PDFRenderImportFailByReasonTier   map[string]int64
+
+	RemediationCandidateTotal           int64
+	RemediationStartedTotal             int64
+	RemediationSucceededTotal           int64
+	RemediationFailedTotal              int64
+	RemediationRetryingTotal            int64
+	RemediationCanceledTotal            int64
+	RemediationDeadLetterTotal          int64
+	RemediationLifecycleByStatus        map[string]int64
+	RemediationDispatchStateByStatus    map[string]int64
+	RemediationFailureByReason          map[string]int64
+	RemediationDuplicateSuppressedTotal int64
+	RemediationLockContentionTotal      int64
+	RemediationLockTimeoutTotal         int64
+	RemediationLockSignals              map[string]int64
 }
 
 func (s MetricsSnapshot) JobSuccessRatePercent() float64 {
@@ -173,75 +203,93 @@ func (s MetricsSnapshot) CompletionDeliverySuccessRatePercent() float64 {
 type inMemoryMetrics struct {
 	mu sync.Mutex
 
-	adminReadDurationsMS           []float64
-	sendDurationsMS                []float64
-	reminderSweepDurationsMS       []float64
-	signerSubmitDurationsMS        []float64
-	unifiedViewerDurationsMS       []float64
-	unifiedFieldSaveDurationsMS    []float64
-	unifiedSignatureDurationsMS    []float64
-	finalizeDurationsMS            []float64
-	emailDispatchDurationsMS       []float64
-	sendSuccessTotal               int64
-	sendFailureTotal               int64
-	reminderSweepClaimedTotal      int64
-	reminderSweepSentTotal         int64
-	reminderSweepSkippedTotal      int64
-	reminderSweepFailedTotal       int64
-	reminderSweepSkipByReason      map[string]int64
-	reminderSweepFailureByReason   map[string]int64
-	reminderClaimToSendDurationsMS []float64
-	reminderDueToSendDurationsMS   []float64
-	reminderDueBacklogAgeMS        []float64
-	signerLinkOpenSuccessTotal     int64
-	signerLinkOpenFailureTotal     int64
-	signerSubmitSuccessTotal       int64
-	signerSubmitFailureTotal       int64
-	unifiedViewerSuccessTotal      int64
-	unifiedViewerFailureTotal      int64
-	unifiedFieldSaveSuccessTotal   int64
-	unifiedFieldSaveFailureTotal   int64
-	unifiedSignatureSuccessTotal   int64
-	unifiedSignatureFailureTotal   int64
-	unifiedSubmitSuccessTotal      int64
-	unifiedSubmitFailureTotal      int64
-	finalizeSuccessTotal           int64
-	finalizeFailureTotal           int64
-	completionDeliverySuccessTotal int64
-	completionDeliveryFailureTotal int64
-	jobSuccessByName               map[string]int64
-	jobFailureByName               map[string]int64
-	providerSuccessByName          map[string]int64
-	providerFailureByName          map[string]int64
-	tokenValidationByReason        map[string]int64
-	googleImportFailureByKey       map[string]int64
-	googleAuthChurnByReason        map[string]int64
-	googleImportSuccessTotal       int64
-	adminReadSuccessByPath         map[string]int64
-	adminReadFailureByPath         map[string]int64
-	pdfIngestAnalyzeFailByLabel    map[string]int64
-	pdfIngestPolicyRejectByLabel   map[string]int64
-	pdfPreviewFallbackByLabel      map[string]int64
-	pdfRenderImportFailByLabel     map[string]int64
+	adminReadDurationsMS            []float64
+	sendDurationsMS                 []float64
+	commandDispatchDurationsMS      []float64
+	reminderSweepDurationsMS        []float64
+	signerSubmitDurationsMS         []float64
+	unifiedViewerDurationsMS        []float64
+	unifiedFieldSaveDurationsMS     []float64
+	unifiedSignatureDurationsMS     []float64
+	finalizeDurationsMS             []float64
+	emailDispatchDurationsMS        []float64
+	sendSuccessTotal                int64
+	sendFailureTotal                int64
+	reminderSweepClaimedTotal       int64
+	reminderSweepSentTotal          int64
+	reminderSweepSkippedTotal       int64
+	reminderSweepFailedTotal        int64
+	reminderSweepSkipByReason       map[string]int64
+	reminderSweepFailureByReason    map[string]int64
+	reminderClaimToSendDurationsMS  []float64
+	reminderDueToSendDurationsMS    []float64
+	reminderDueBacklogAgeMS         []float64
+	signerLinkOpenSuccessTotal      int64
+	signerLinkOpenFailureTotal      int64
+	signerSubmitSuccessTotal        int64
+	signerSubmitFailureTotal        int64
+	unifiedViewerSuccessTotal       int64
+	unifiedViewerFailureTotal       int64
+	unifiedFieldSaveSuccessTotal    int64
+	unifiedFieldSaveFailureTotal    int64
+	unifiedSignatureSuccessTotal    int64
+	unifiedSignatureFailureTotal    int64
+	unifiedSubmitSuccessTotal       int64
+	unifiedSubmitFailureTotal       int64
+	finalizeSuccessTotal            int64
+	finalizeFailureTotal            int64
+	completionDeliverySuccessTotal  int64
+	completionDeliveryFailureTotal  int64
+	jobSuccessByName                map[string]int64
+	jobFailureByName                map[string]int64
+	providerSuccessByName           map[string]int64
+	providerFailureByName           map[string]int64
+	tokenValidationByReason         map[string]int64
+	googleImportFailureByKey        map[string]int64
+	googleAuthChurnByReason         map[string]int64
+	googleImportSuccessTotal        int64
+	adminReadSuccessByPath          map[string]int64
+	adminReadFailureByPath          map[string]int64
+	commandDispatchAcceptedByMode   map[string]int64
+	commandDispatchAcceptedByID     map[string]int64
+	commandDispatchRejectedByReason map[string]int64
+	dedupStoreMissByCommandID       map[string]int64
+	pdfIngestAnalyzeFailByLabel     map[string]int64
+	pdfIngestPolicyRejectByLabel    map[string]int64
+	pdfPreviewFallbackByLabel       map[string]int64
+	pdfRenderImportFailByLabel      map[string]int64
+	remediationLifecycleByStatus    map[string]int64
+	remediationDispatchByStatus     map[string]int64
+	remediationFailureByReason      map[string]int64
+	remediationDuplicateSuppressed  int64
+	remediationLockSignals          map[string]int64
 }
 
 func newInMemoryMetrics() *inMemoryMetrics {
 	return &inMemoryMetrics{
-		jobSuccessByName:             map[string]int64{},
-		jobFailureByName:             map[string]int64{},
-		providerSuccessByName:        map[string]int64{},
-		providerFailureByName:        map[string]int64{},
-		tokenValidationByReason:      map[string]int64{},
-		reminderSweepSkipByReason:    map[string]int64{},
-		reminderSweepFailureByReason: map[string]int64{},
-		googleImportFailureByKey:     map[string]int64{},
-		googleAuthChurnByReason:      map[string]int64{},
-		adminReadSuccessByPath:       map[string]int64{},
-		adminReadFailureByPath:       map[string]int64{},
-		pdfIngestAnalyzeFailByLabel:  map[string]int64{},
-		pdfIngestPolicyRejectByLabel: map[string]int64{},
-		pdfPreviewFallbackByLabel:    map[string]int64{},
-		pdfRenderImportFailByLabel:   map[string]int64{},
+		jobSuccessByName:                map[string]int64{},
+		jobFailureByName:                map[string]int64{},
+		providerSuccessByName:           map[string]int64{},
+		providerFailureByName:           map[string]int64{},
+		tokenValidationByReason:         map[string]int64{},
+		reminderSweepSkipByReason:       map[string]int64{},
+		reminderSweepFailureByReason:    map[string]int64{},
+		googleImportFailureByKey:        map[string]int64{},
+		googleAuthChurnByReason:         map[string]int64{},
+		adminReadSuccessByPath:          map[string]int64{},
+		adminReadFailureByPath:          map[string]int64{},
+		commandDispatchAcceptedByMode:   map[string]int64{},
+		commandDispatchAcceptedByID:     map[string]int64{},
+		commandDispatchRejectedByReason: map[string]int64{},
+		dedupStoreMissByCommandID:       map[string]int64{},
+		pdfIngestAnalyzeFailByLabel:     map[string]int64{},
+		pdfIngestPolicyRejectByLabel:    map[string]int64{},
+		pdfPreviewFallbackByLabel:       map[string]int64{},
+		pdfRenderImportFailByLabel:      map[string]int64{},
+		remediationLifecycleByStatus:    map[string]int64{},
+		remediationDispatchByStatus:     map[string]int64{},
+		remediationFailureByReason:      map[string]int64{},
+		remediationLockSignals:          map[string]int64{},
 	}
 }
 
@@ -266,6 +314,36 @@ func (m *inMemoryMetrics) ObserveSend(_ context.Context, duration time.Duration,
 		return
 	}
 	m.sendFailureTotal++
+}
+
+func (m *inMemoryMetrics) ObserveCommandDispatch(_ context.Context, commandID, mode string, accepted bool, duration time.Duration) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	mode = normalizeExecutionModeMetricKey(mode)
+	commandID = normalizeMetricKey(commandID, "unknown")
+	if accepted {
+		m.commandDispatchDurationsMS = appendDurationMS(m.commandDispatchDurationsMS, duration)
+		m.commandDispatchAcceptedByMode[mode]++
+		m.commandDispatchAcceptedByID[commandID]++
+		return
+	}
+	m.commandDispatchRejectedByReason["unknown"]++
+}
+
+func (m *inMemoryMetrics) ObserveCommandDispatchRejected(_ context.Context, commandID, mode, reason string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	_ = normalizeExecutionModeMetricKey(mode)
+	_ = normalizeMetricKey(commandID, "unknown")
+	key := normalizeMetricKey(reason, "unknown")
+	m.commandDispatchRejectedByReason[key]++
+}
+
+func (m *inMemoryMetrics) ObserveDedupStoreMiss(_ context.Context, commandID string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	commandID = normalizeMetricKey(commandID, "unknown")
+	m.dedupStoreMissByCommandID[commandID]++
 }
 
 func (m *inMemoryMetrics) ObserveReminderSweep(
@@ -465,6 +543,36 @@ func (m *inMemoryMetrics) ObservePDFRenderImportFail(_ context.Context, reason, 
 	incrementLabeledCounter(m.pdfRenderImportFailByLabel, reason, tier)
 }
 
+func (m *inMemoryMetrics) ObserveRemediationLifecycle(_ context.Context, status, reason string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	status = normalizeRemediationStatusMetricKey(status)
+	m.remediationLifecycleByStatus[status]++
+	if status == "failed" {
+		m.remediationFailureByReason[normalizeMetricKey(reason, "unknown")]++
+	}
+}
+
+func (m *inMemoryMetrics) ObserveRemediationDispatchStateTransition(_ context.Context, status string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	status = normalizeRemediationStatusMetricKey(status)
+	m.remediationDispatchByStatus[status]++
+}
+
+func (m *inMemoryMetrics) ObserveRemediationDuplicateSuppressed(_ context.Context) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.remediationDuplicateSuppressed++
+}
+
+func (m *inMemoryMetrics) ObserveRemediationLockSignal(_ context.Context, signal string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	signal = normalizeMetricKey(signal, "unknown")
+	m.remediationLockSignals[signal]++
+}
+
 func (m *inMemoryMetrics) Snapshot() MetricsSnapshot {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -473,6 +581,9 @@ func (m *inMemoryMetrics) Snapshot() MetricsSnapshot {
 	jobFailureTotal := sumMap(m.jobFailureByName)
 	emailSuccessTotal := m.providerSuccessByName["email"]
 	emailFailureTotal := m.providerFailureByName["email"]
+	commandDispatchAcceptedTotal := sumMap(m.commandDispatchAcceptedByMode)
+	commandDispatchRejectedTotal := sumMap(m.commandDispatchRejectedByReason)
+	dedupStoreMissTotal := sumMap(m.dedupStoreMissByCommandID)
 	tokenFailureTotal := sumMap(m.tokenValidationByReason)
 	googleImportFailureTotal := sumMap(m.googleImportFailureByKey)
 	googleAuthChurnTotal := sumMap(m.googleAuthChurnByReason)
@@ -480,10 +591,13 @@ func (m *inMemoryMetrics) Snapshot() MetricsSnapshot {
 	pdfIngestPolicyRejectTotal := sumMap(m.pdfIngestPolicyRejectByLabel)
 	pdfPreviewFallbackTotal := sumMap(m.pdfPreviewFallbackByLabel)
 	pdfRenderImportFailTotal := sumMap(m.pdfRenderImportFailByLabel)
+	remediationLockContentionTotal := m.remediationLockSignals["contention"]
+	remediationLockTimeoutTotal := m.remediationLockSignals["timeout"]
 
 	return MetricsSnapshot{
 		AdminReadP95MS:          percentile(m.adminReadDurationsMS, 95),
 		SendP95MS:               percentile(m.sendDurationsMS, 95),
+		CommandDispatchP95MS:    percentile(m.commandDispatchDurationsMS, 95),
 		ReminderSweepP95MS:      percentile(m.reminderSweepDurationsMS, 95),
 		SignerSubmitP95MS:       percentile(m.signerSubmitDurationsMS, 95),
 		UnifiedViewerLoadP95MS:  percentile(m.unifiedViewerDurationsMS, 95),
@@ -502,37 +616,44 @@ func (m *inMemoryMetrics) Snapshot() MetricsSnapshot {
 		FinalizeSampleTotal:      int64(len(m.finalizeDurationsMS)),
 		EmailDispatchSampleTotal: int64(len(m.emailDispatchDurationsMS)),
 
-		SendSuccessTotal:               m.sendSuccessTotal,
-		SendFailureTotal:               m.sendFailureTotal,
-		ReminderSweepClaimedTotal:      m.reminderSweepClaimedTotal,
-		ReminderSweepSentTotal:         m.reminderSweepSentTotal,
-		ReminderSweepSkippedTotal:      m.reminderSweepSkippedTotal,
-		ReminderSweepFailedTotal:       m.reminderSweepFailedTotal,
-		ReminderSweepSkipByReason:      cloneInt64Map(m.reminderSweepSkipByReason),
-		ReminderSweepFailureByReason:   cloneInt64Map(m.reminderSweepFailureByReason),
-		ReminderLeaseLostTotal:         m.reminderSweepSkipByReason["lease_lost"],
-		ReminderLeaseConflictTotal:     m.reminderSweepSkipByReason["lease_conflict"],
-		ReminderStateInvariantTotal:    m.reminderSweepFailureByReason["state_invariant_violation"],
-		ReminderPolicyBlockTotal:       m.reminderSweepSkipByReason["policy_block"],
-		ReminderClaimToSendP95MS:       percentile(m.reminderClaimToSendDurationsMS, 95),
-		ReminderDueToSendP95MS:         percentile(m.reminderDueToSendDurationsMS, 95),
-		ReminderDueBacklogAgeP95MS:     percentile(m.reminderDueBacklogAgeMS, 95),
-		SignerLinkOpenSuccessTotal:     m.signerLinkOpenSuccessTotal,
-		SignerLinkOpenFailureTotal:     m.signerLinkOpenFailureTotal,
-		SignerSubmitSuccessTotal:       m.signerSubmitSuccessTotal,
-		SignerSubmitFailureTotal:       m.signerSubmitFailureTotal,
-		UnifiedViewerSuccessTotal:      m.unifiedViewerSuccessTotal,
-		UnifiedViewerFailureTotal:      m.unifiedViewerFailureTotal,
-		UnifiedFieldSaveSuccessTotal:   m.unifiedFieldSaveSuccessTotal,
-		UnifiedFieldSaveFailureTotal:   m.unifiedFieldSaveFailureTotal,
-		UnifiedSignatureSuccessTotal:   m.unifiedSignatureSuccessTotal,
-		UnifiedSignatureFailureTotal:   m.unifiedSignatureFailureTotal,
-		UnifiedSubmitSuccessTotal:      m.unifiedSubmitSuccessTotal,
-		UnifiedSubmitFailureTotal:      m.unifiedSubmitFailureTotal,
-		FinalizeSuccessTotal:           m.finalizeSuccessTotal,
-		FinalizeFailureTotal:           m.finalizeFailureTotal,
-		CompletionDeliverySuccessTotal: m.completionDeliverySuccessTotal,
-		CompletionDeliveryFailureTotal: m.completionDeliveryFailureTotal,
+		SendSuccessTotal:                m.sendSuccessTotal,
+		SendFailureTotal:                m.sendFailureTotal,
+		CommandDispatchAcceptedTotal:    commandDispatchAcceptedTotal,
+		CommandDispatchRejectedTotal:    commandDispatchRejectedTotal,
+		CommandDispatchAcceptedByMode:   cloneInt64Map(m.commandDispatchAcceptedByMode),
+		CommandDispatchAcceptedByID:     cloneInt64Map(m.commandDispatchAcceptedByID),
+		CommandDispatchRejectedByReason: cloneInt64Map(m.commandDispatchRejectedByReason),
+		DedupStoreMissTotal:             dedupStoreMissTotal,
+		DedupStoreMissByCommandID:       cloneInt64Map(m.dedupStoreMissByCommandID),
+		ReminderSweepClaimedTotal:       m.reminderSweepClaimedTotal,
+		ReminderSweepSentTotal:          m.reminderSweepSentTotal,
+		ReminderSweepSkippedTotal:       m.reminderSweepSkippedTotal,
+		ReminderSweepFailedTotal:        m.reminderSweepFailedTotal,
+		ReminderSweepSkipByReason:       cloneInt64Map(m.reminderSweepSkipByReason),
+		ReminderSweepFailureByReason:    cloneInt64Map(m.reminderSweepFailureByReason),
+		ReminderLeaseLostTotal:          m.reminderSweepSkipByReason["lease_lost"],
+		ReminderLeaseConflictTotal:      m.reminderSweepSkipByReason["lease_conflict"],
+		ReminderStateInvariantTotal:     m.reminderSweepFailureByReason["state_invariant_violation"],
+		ReminderPolicyBlockTotal:        m.reminderSweepSkipByReason["policy_block"],
+		ReminderClaimToSendP95MS:        percentile(m.reminderClaimToSendDurationsMS, 95),
+		ReminderDueToSendP95MS:          percentile(m.reminderDueToSendDurationsMS, 95),
+		ReminderDueBacklogAgeP95MS:      percentile(m.reminderDueBacklogAgeMS, 95),
+		SignerLinkOpenSuccessTotal:      m.signerLinkOpenSuccessTotal,
+		SignerLinkOpenFailureTotal:      m.signerLinkOpenFailureTotal,
+		SignerSubmitSuccessTotal:        m.signerSubmitSuccessTotal,
+		SignerSubmitFailureTotal:        m.signerSubmitFailureTotal,
+		UnifiedViewerSuccessTotal:       m.unifiedViewerSuccessTotal,
+		UnifiedViewerFailureTotal:       m.unifiedViewerFailureTotal,
+		UnifiedFieldSaveSuccessTotal:    m.unifiedFieldSaveSuccessTotal,
+		UnifiedFieldSaveFailureTotal:    m.unifiedFieldSaveFailureTotal,
+		UnifiedSignatureSuccessTotal:    m.unifiedSignatureSuccessTotal,
+		UnifiedSignatureFailureTotal:    m.unifiedSignatureFailureTotal,
+		UnifiedSubmitSuccessTotal:       m.unifiedSubmitSuccessTotal,
+		UnifiedSubmitFailureTotal:       m.unifiedSubmitFailureTotal,
+		FinalizeSuccessTotal:            m.finalizeSuccessTotal,
+		FinalizeFailureTotal:            m.finalizeFailureTotal,
+		CompletionDeliverySuccessTotal:  m.completionDeliverySuccessTotal,
+		CompletionDeliveryFailureTotal:  m.completionDeliveryFailureTotal,
 
 		JobSuccessTotal:             jobSuccessTotal,
 		JobFailureTotal:             jobFailureTotal,
@@ -559,6 +680,21 @@ func (m *inMemoryMetrics) Snapshot() MetricsSnapshot {
 		PDFPreviewFallbackByReasonTier:    cloneInt64Map(m.pdfPreviewFallbackByLabel),
 		PDFRenderImportFailTotal:          pdfRenderImportFailTotal,
 		PDFRenderImportFailByReasonTier:   cloneInt64Map(m.pdfRenderImportFailByLabel),
+
+		RemediationCandidateTotal:           m.remediationLifecycleByStatus["requested"],
+		RemediationStartedTotal:             m.remediationLifecycleByStatus["started"],
+		RemediationSucceededTotal:           m.remediationLifecycleByStatus["succeeded"],
+		RemediationFailedTotal:              m.remediationLifecycleByStatus["failed"],
+		RemediationRetryingTotal:            m.remediationDispatchByStatus["retrying"],
+		RemediationCanceledTotal:            m.remediationDispatchByStatus["canceled"],
+		RemediationDeadLetterTotal:          m.remediationDispatchByStatus["dead_letter"],
+		RemediationLifecycleByStatus:        cloneInt64Map(m.remediationLifecycleByStatus),
+		RemediationDispatchStateByStatus:    cloneInt64Map(m.remediationDispatchByStatus),
+		RemediationFailureByReason:          cloneInt64Map(m.remediationFailureByReason),
+		RemediationDuplicateSuppressedTotal: m.remediationDuplicateSuppressed,
+		RemediationLockContentionTotal:      remediationLockContentionTotal,
+		RemediationLockTimeoutTotal:         remediationLockTimeoutTotal,
+		RemediationLockSignals:              cloneInt64Map(m.remediationLockSignals),
 	}
 }
 
@@ -611,6 +747,30 @@ func ObserveSend(ctx context.Context, duration time.Duration, success bool) {
 		return
 	}
 	metrics.ObserveSend(ctx, duration, success)
+}
+
+func ObserveCommandDispatch(ctx context.Context, commandID, mode string, accepted bool, duration time.Duration) {
+	metrics := currentMetrics()
+	if metrics == nil {
+		return
+	}
+	metrics.ObserveCommandDispatch(ctx, commandID, mode, accepted, duration)
+}
+
+func ObserveCommandDispatchRejected(ctx context.Context, commandID, mode, reason string) {
+	metrics := currentMetrics()
+	if metrics == nil {
+		return
+	}
+	metrics.ObserveCommandDispatchRejected(ctx, commandID, mode, reason)
+}
+
+func ObserveDedupStoreMiss(ctx context.Context, commandID string) {
+	metrics := currentMetrics()
+	if metrics == nil {
+		return
+	}
+	metrics.ObserveDedupStoreMiss(ctx, commandID)
 }
 
 func ObserveReminderSweep(
@@ -804,6 +964,70 @@ func ObservePDFRenderImportFail(ctx context.Context, reason, tier string) {
 	})
 }
 
+func ObserveRemediationLifecycle(ctx context.Context, status, reason string) {
+	metrics := currentMetrics()
+	if metrics == nil {
+		return
+	}
+	normalizedStatus := normalizeRemediationStatusMetricKey(status)
+	metrics.ObserveRemediationLifecycle(ctx, normalizedStatus, reason)
+	outcome := "success"
+	level := slog.LevelInfo
+	fields := map[string]any{
+		"metric": "pdf_remediation_lifecycle_total",
+		"status": normalizedStatus,
+	}
+	if normalizedStatus == "failed" {
+		outcome = "error"
+		level = slog.LevelWarn
+		fields["reason"] = normalizeMetricKey(reason, "unknown")
+	}
+	LogOperation(ctx, level, "pdf", "remediation_lifecycle", outcome, "", 0, nil, fields)
+}
+
+func ObserveRemediationDispatchStateTransition(ctx context.Context, status string) {
+	metrics := currentMetrics()
+	if metrics == nil {
+		return
+	}
+	normalizedStatus := normalizeRemediationStatusMetricKey(status)
+	metrics.ObserveRemediationDispatchStateTransition(ctx, normalizedStatus)
+	LogOperation(ctx, slog.LevelWarn, "pdf", "remediation_dispatch_state", "degraded", "", 0, nil, map[string]any{
+		"metric": "pdf_remediation_dispatch_state_total",
+		"status": normalizedStatus,
+	})
+}
+
+func ObserveRemediationDuplicateSuppressed(ctx context.Context) {
+	metrics := currentMetrics()
+	if metrics == nil {
+		return
+	}
+	metrics.ObserveRemediationDuplicateSuppressed(ctx)
+	LogOperation(ctx, slog.LevelInfo, "pdf", "remediation_duplicate_suppressed", "success", "", 0, nil, map[string]any{
+		"metric": "pdf_remediation_duplicate_suppressed_total",
+	})
+}
+
+func ObserveRemediationLockSignal(ctx context.Context, signal string) {
+	metrics := currentMetrics()
+	if metrics == nil {
+		return
+	}
+	signal = normalizeMetricKey(signal, "unknown")
+	metrics.ObserveRemediationLockSignal(ctx, signal)
+	outcome := "degraded"
+	level := slog.LevelWarn
+	if signal == "timeout" {
+		outcome = "error"
+		level = slog.LevelError
+	}
+	LogOperation(ctx, level, "pdf", "remediation_lock", outcome, "", 0, nil, map[string]any{
+		"metric": "pdf_remediation_lock_signal_total",
+		"signal": signal,
+	})
+}
+
 func appendDurationMS(dst []float64, duration time.Duration) []float64 {
 	ms := float64(duration.Milliseconds())
 	if ms < 0 {
@@ -887,4 +1111,36 @@ func normalizeMetricKey(value, fallback string) string {
 	value = strings.ReplaceAll(value, ",", "_")
 	value = strings.ReplaceAll(value, "=", "_")
 	return value
+}
+
+func normalizeExecutionModeMetricKey(mode string) string {
+	switch normalizeMetricKey(mode, "unknown") {
+	case "inline":
+		return "inline"
+	case "queued":
+		return "queued"
+	default:
+		return "unknown"
+	}
+}
+
+func normalizeRemediationStatusMetricKey(status string) string {
+	switch normalizeMetricKey(status, "unknown") {
+	case "requested", "accepted":
+		return "requested"
+	case "started", "running":
+		return "started"
+	case "succeeded", "success", "completed":
+		return "succeeded"
+	case "failed", "error":
+		return "failed"
+	case "retrying":
+		return "retrying"
+	case "canceled", "cancelled":
+		return "canceled"
+	case "dead_letter", "deadletter":
+		return "dead_letter"
+	default:
+		return "unknown"
+	}
 }
