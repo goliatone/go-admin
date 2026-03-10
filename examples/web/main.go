@@ -243,10 +243,9 @@ func main() {
 		UseGoUsersActivity: runtimeConfig.Features.GoUsersActivity,
 	}
 
-	usersDeps, usersService, onboardingNotifier, err := setup.SetupUsersWithMigrations(
+	usersDeps, usersService, onboardingNotifier, err := setup.SetupUsers(
 		context.Background(),
 		strings.TrimSpace(runtimeConfig.Databases.CMSDSN),
-		setup.QuickstartUserMigrations(),
 		debugHookOpts...,
 	)
 	if err != nil {

@@ -4,6 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"io/fs"
+	"log"
+	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -39,6 +43,15 @@ const (
 
 // UserMigrationsRegistrar registers migrations for the given phase.
 type UserMigrationsRegistrar func(*persistence.Client, UserMigrationsPhase) error
+
+type userMigrationStrategy int
+
+const (
+	userMigrationStrategyOrdered userMigrationStrategy = iota
+	userMigrationStrategyLegacy
+)
+
+var migrationVersionPattern = regexp.MustCompile(`^(\d{1,14})_.*\.(up|down)\.sql$`)
 
 // ResolveUsersDSN returns the SQLite DSN shared with the rest of the example (CMS).
 func ResolveUsersDSN() string {
@@ -87,7 +100,18 @@ func SetupUsersWithMigrations(ctx context.Context, dsn string, registrar UserMig
 	}
 
 	if registrar == nil {
-		registrar = QuickstartUserMigrations()
+		strategy, err := detectUserMigrationStrategy(ctx, sqlDB)
+		if err != nil {
+			log.Printf("warning: failed to detect user migration strategy: %v", err)
+			strategy = userMigrationStrategyOrdered
+		}
+		switch strategy {
+		case userMigrationStrategyLegacy:
+			log.Printf("users migrations: detected legacy go-auth history; using legacy migration registrar")
+			registrar = LegacyUserMigrations()
+		default:
+			registrar = QuickstartUserMigrations()
+		}
 	}
 	if err := registrar(client, UserMigrationsAuth); err != nil {
 		return stores.UserDependencies{}, nil, nil, err
@@ -209,6 +233,11 @@ func QuickstartUserMigrations() UserMigrationsRegistrar {
 	return quickstartUserMigrations
 }
 
+// LegacyUserMigrations returns a registrar that preserves historical migration names.
+func LegacyUserMigrations() UserMigrationsRegistrar {
+	return legacyUserMigrations
+}
+
 func quickstartUserMigrations(client *persistence.Client, phase UserMigrationsPhase) error {
 	switch phase {
 	case UserMigrationsAuth:
@@ -226,6 +255,128 @@ func quickstartUserMigrations(client *persistence.Client, phase UserMigrationsPh
 	default:
 		return nil
 	}
+}
+
+func legacyUserMigrations(client *persistence.Client, phase UserMigrationsPhase) error {
+	switch phase {
+	case UserMigrationsAuth:
+		return registerGoAuthMigrations(client)
+	case UserMigrationsCore:
+		return registerGoUsersMigrations(client)
+	default:
+		return nil
+	}
+}
+
+func detectUserMigrationStrategy(ctx context.Context, db *sql.DB) (userMigrationStrategy, error) {
+	if db == nil {
+		return userMigrationStrategyOrdered, nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	// The compatibility fallback is only needed for existing schemas.
+	hasUsersTable, err := sqliteTableExistsSQL(ctx, db, "users")
+	if err != nil {
+		return userMigrationStrategyOrdered, err
+	}
+	if !hasUsersTable {
+		return userMigrationStrategyOrdered, nil
+	}
+
+	hasMigrationTable, err := sqliteTableExistsSQL(ctx, db, "bun_migrations")
+	if err != nil {
+		return userMigrationStrategyOrdered, err
+	}
+	if !hasMigrationTable {
+		return userMigrationStrategyOrdered, nil
+	}
+
+	legacyVersions, err := listMigrationVersions(auth.GetMigrationsFS(), "data/sql/migrations")
+	if err != nil {
+		return userMigrationStrategyOrdered, err
+	}
+	if len(legacyVersions) == 0 {
+		return userMigrationStrategyOrdered, nil
+	}
+
+	var placeholders strings.Builder
+	args := make([]any, 0, len(legacyVersions))
+	for i, version := range legacyVersions {
+		if i > 0 {
+			placeholders.WriteString(",")
+		}
+		placeholders.WriteString("?")
+		args = append(args, version)
+	}
+
+	query := "SELECT COUNT(1) FROM bun_migrations WHERE name IN (" + placeholders.String() + ")"
+	var legacyHits int
+	if err := db.QueryRowContext(ctx, query, args...).Scan(&legacyHits); err != nil {
+		return userMigrationStrategyOrdered, err
+	}
+	if legacyHits > 0 {
+		return userMigrationStrategyLegacy, nil
+	}
+	return userMigrationStrategyOrdered, nil
+}
+
+func sqliteTableExistsSQL(ctx context.Context, db *sql.DB, tableName string) (bool, error) {
+	if db == nil {
+		return false, nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	var count int
+	if err := db.QueryRowContext(
+		ctx,
+		`SELECT COUNT(1) FROM sqlite_master WHERE type='table' AND name=?`,
+		tableName,
+	).Scan(&count); err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+func listMigrationVersions(root fs.FS, subdir string) ([]string, error) {
+	if root == nil {
+		return nil, nil
+	}
+
+	sub, err := fs.Sub(root, subdir)
+	if err != nil {
+		return nil, err
+	}
+
+	versions := map[string]struct{}{}
+	if err := fs.WalkDir(sub, ".", func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if d.IsDir() {
+			return nil
+		}
+
+		matches := migrationVersionPattern.FindStringSubmatch(strings.ToLower(d.Name()))
+		if matches == nil {
+			return nil
+		}
+
+		versions[matches[1]] = struct{}{}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	out := make([]string, 0, len(versions))
+	for version := range versions {
+		out = append(out, version)
+	}
+	sort.Strings(out)
+	return out, nil
 }
 
 // SeedUsers inserts the demo users into SQLite and seeds preferences.
