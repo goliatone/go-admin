@@ -258,7 +258,7 @@ func (r siteAdminRouter[T]) Handle(method router.HTTPMethod, path string, handle
 	return r.router.Handle(method, path, handler, mw...)
 }
 
-func (r siteAdminRouter[T]) Group(prefix string) admin.AdminRouter {
+func (r siteAdminRouter[T]) Group(prefix string) SiteRouter {
 	group := r.router.Group(prefix)
 	if group == nil {
 		return nil
@@ -266,7 +266,7 @@ func (r siteAdminRouter[T]) Group(prefix string) admin.AdminRouter {
 	return siteAdminRouter[T]{router: group}
 }
 
-func (r siteAdminRouter[T]) Mount(prefix string) admin.AdminRouter {
+func (r siteAdminRouter[T]) Mount(prefix string) SiteRouter {
 	group := r.router.Mount(prefix)
 	if group == nil {
 		return nil
@@ -274,7 +274,7 @@ func (r siteAdminRouter[T]) Mount(prefix string) admin.AdminRouter {
 	return siteAdminRouter[T]{router: group}
 }
 
-func (r siteAdminRouter[T]) WithGroup(path string, cb func(admin.AdminRouter)) admin.AdminRouter {
+func (r siteAdminRouter[T]) WithGroup(path string, cb func(SiteRouter)) SiteRouter {
 	group := r.router.WithGroup(path, func(rg router.Router[T]) {
 		if cb == nil {
 			return
@@ -287,7 +287,7 @@ func (r siteAdminRouter[T]) WithGroup(path string, cb func(admin.AdminRouter)) a
 	return siteAdminRouter[T]{router: group}
 }
 
-func (r siteAdminRouter[T]) Use(m ...router.MiddlewareFunc) admin.AdminRouter {
+func (r siteAdminRouter[T]) Use(m ...router.MiddlewareFunc) SiteRouter {
 	group := r.router.Use(m...)
 	if group == nil {
 		return nil
