@@ -1,5 +1,19 @@
 # Changelog
 
+# [Unreleased]
+
+## ⚠️ Breaking Changes
+
+- Hardened admin RPC command dispatch defaults:
+  - RPC command dispatch is now deny-by-default unless explicitly allowlisted via `commands.rpc.commands`.
+  - RPC command discovery (`admin.commands.list`) is disabled by default (`commands.rpc.discovery_enabled=false`).
+  - RPC dispatch now requires configured permission rules plus optional host business-rule hook (`Dependencies.RPCCommandPolicyHook`).
+- Quickstart RPC transport now enforces secure startup behavior:
+  - RPC transport requires an authenticator by default.
+  - Enabling RPC on non-Fiber routers now fails startup.
+  - Discovery route mounting is disabled by default.
+- RPC metadata projection now ignores untrusted identity fields from client payload/meta and injects trusted context-derived identity metadata.
+
 # [0.26.0](https://github.com/goliatone/go-admin/compare/v0.25.0...v0.26.0) - (2026-03-04)
 
 ## <!-- 1 -->🐛 Bug Fixes
@@ -1708,5 +1722,4 @@
 - Example templates ([74d23ed](https://github.com/goliatone/go-admin/commit/74d23ed807d5e312e8a61e009d19ad46d1632b5c))  - (goliatone)
 - Example update ([ff16170](https://github.com/goliatone/go-admin/commit/ff16170e3c7fdf46121bd546f3f6cd43f1dcdadc))  - (goliatone)
 - Initial commit ([2197564](https://github.com/goliatone/go-admin/commit/2197564725b64c8ef15d034763ee283ee95ac4ba))  - (goliatone)
-
 
