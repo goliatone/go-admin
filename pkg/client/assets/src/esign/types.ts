@@ -78,6 +78,7 @@ export interface DocumentSummary {
   id: string;
   name: string;
   file_name: string;
+  source_original_name?: string;
   size_bytes: number;
   page_count: number;
   content_type: string;

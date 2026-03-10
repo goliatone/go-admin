@@ -70,6 +70,9 @@ test('Phase 5 contract: signer review includes typed live preview and draw save-
   assert.match(source, /id="sig-type-preview"/);
   assert.match(source, /updateTypedSignaturePreview\(/);
   assert.match(source, /matches\('#sig-type-input'\)/);
+  assert.match(source, /syncOverlay: true/);
+  assert.match(source, /previewValueText/);
+  assert.match(source, /previewSignatureUrl/);
   assert.match(source, /data-esign-action="save-current-signature-library"/);
 });
 
@@ -77,7 +80,7 @@ test('Phase 5 contract: signer review draw controls are iconized with labels and
   const source = read(signerReviewPath);
   assert.match(source, /data-esign-action="undo-signature-canvas"[\s\S]*iconoir-undo[\s\S]*<span>Undo<\/span>/);
   assert.match(source, /data-esign-action="redo-signature-canvas"[\s\S]*iconoir-redo[\s\S]*<span>Redo<\/span>/);
-  assert.match(source, /data-esign-action="clear-signature-canvas"[\s\S]*iconoir-eraser[\s\S]*<span>Clear<\/span>/);
+  assert.match(source, /data-esign-action="clear-signature-canvas"[\s\S]*iconoir-erase[\s\S]*<span>Clear<\/span>/);
   assert.match(source, /aria-label="Undo signature stroke"/);
   assert.match(source, /aria-label="Redo signature stroke"/);
   assert.match(source, /aria-label="Clear signature canvas"/);

@@ -790,7 +790,66 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     submitCooldownUntil: 0,
     submitCooldownTimer: null,
     isSubmitting: false,
+    overlayRenderFrameID: 0,
   };
+
+  function requestOverlayRender() {
+    if (state.overlayRenderFrameID) return;
+    state.overlayRenderFrameID = window.requestAnimationFrame(() => {
+      state.overlayRenderFrameID = 0;
+      renderFieldOverlays();
+    });
+  }
+
+  function clearTransientFieldPreview(fieldId) {
+    const fieldData = state.fieldState.get(fieldId);
+    if (!fieldData) return;
+    delete fieldData.previewValueText;
+    delete fieldData.previewValueBool;
+    delete fieldData.previewSignatureUrl;
+  }
+
+  function clearAllTransientFieldPreviews() {
+    state.fieldState.forEach((fieldData) => {
+      delete fieldData.previewValueText;
+      delete fieldData.previewValueBool;
+      delete fieldData.previewSignatureUrl;
+    });
+  }
+
+  function setTransientFieldTextPreview(fieldId, value) {
+    const fieldData = state.fieldState.get(fieldId);
+    if (!fieldData) return;
+    const normalized = sanitizeProfileText(String(value || ''));
+    if (!normalized) {
+      delete fieldData.previewValueText;
+      return;
+    }
+    fieldData.previewValueText = normalized;
+    delete fieldData.previewValueBool;
+    delete fieldData.previewSignatureUrl;
+  }
+
+  function setTransientFieldBoolPreview(fieldId, checked) {
+    const fieldData = state.fieldState.get(fieldId);
+    if (!fieldData) return;
+    fieldData.previewValueBool = Boolean(checked);
+    delete fieldData.previewValueText;
+    delete fieldData.previewSignatureUrl;
+  }
+
+  function setTransientFieldSignaturePreview(fieldId, dataUrl) {
+    const fieldData = state.fieldState.get(fieldId);
+    if (!fieldData) return;
+    const normalized = String(dataUrl || '').trim();
+    if (!normalized) {
+      delete fieldData.previewSignatureUrl;
+      return;
+    }
+    fieldData.previewSignatureUrl = normalized;
+    delete fieldData.previewValueText;
+    delete fieldData.previewValueBool;
+  }
 
   // ============================================
   // Coordinate Transform System (Task 19.FE.2)
@@ -1179,6 +1238,8 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     const dataUrl = String(found.data_url || found.thumbnail_data_url || '').trim();
     if (!dataUrl) return;
     await setSignatureBaseImage(fieldId, dataUrl, { clearStrokes: true });
+    setTransientFieldSignaturePreview(fieldId, dataUrl);
+    requestOverlayRender();
     switchSignatureTab('draw', fieldId);
     announceToScreenReader('Saved signature selected.');
   }
@@ -1237,6 +1298,8 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       throw new Error(`Image exceeds ${Math.round(SIGNATURE_UPLOAD_MAX_BYTES / 1024)}KB limit after conversion`);
     }
     await setSignatureBaseImage(fieldId, normalizedDataUrl, { clearStrokes: true });
+    setTransientFieldSignaturePreview(fieldId, normalizedDataUrl);
+    requestOverlayRender();
     const previewWrap = document.getElementById('sig-upload-preview-wrap');
     const preview = document.getElementById('sig-upload-preview');
     if (previewWrap) previewWrap.classList.remove('hidden');
@@ -1437,24 +1500,46 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     document.addEventListener('change', (event) => {
       const changed = event.target;
       if (!(changed instanceof HTMLInputElement)) return;
-      if (!changed.matches('#sig-upload-input')) return;
-      const fieldId = changed.getAttribute('data-field-id');
-      const file = changed.files?.[0];
-      if (!fieldId || !file) return;
-      processSignatureUploadFile(fieldId, file).catch((error) => {
-        if (window.toastManager) {
-          window.toastManager.error(error?.message || 'Unable to process uploaded image');
-        }
-      });
+      if (changed.matches('#sig-upload-input')) {
+        const fieldId = changed.getAttribute('data-field-id');
+        const file = changed.files?.[0];
+        if (!fieldId || !file) return;
+        processSignatureUploadFile(fieldId, file).catch((error) => {
+          if (window.toastManager) {
+            window.toastManager.error(error?.message || 'Unable to process uploaded image');
+          }
+        });
+        return;
+      }
+      if (changed.matches('#field-checkbox-input')) {
+        const fieldId = changed.getAttribute('data-field-id') || state.activeFieldId;
+        if (!fieldId) return;
+        setTransientFieldBoolPreview(fieldId, changed.checked);
+        requestOverlayRender();
+      }
     });
 
     document.addEventListener('input', (event) => {
       const target = event.target;
-      if (!(target instanceof HTMLInputElement)) return;
-      if (!target.matches('#sig-type-input')) return;
+      if (!(target instanceof HTMLInputElement) && !(target instanceof HTMLTextAreaElement)) return;
       const fieldId = target.getAttribute('data-field-id') || state.activeFieldId;
       if (!fieldId) return;
-      updateTypedSignaturePreview(fieldId, target.value || '');
+
+      if (target.matches('#sig-type-input')) {
+        updateTypedSignaturePreview(fieldId, target.value || '', { syncOverlay: true });
+        return;
+      }
+
+      if (target.matches('#field-text-input')) {
+        setTransientFieldTextPreview(fieldId, target.value || '');
+        requestOverlayRender();
+        return;
+      }
+
+      if (target.matches('#field-checkbox-input') && target instanceof HTMLInputElement) {
+        setTransientFieldBoolPreview(fieldId, target.checked);
+        requestOverlayRender();
+      }
     });
   }
 
@@ -2275,6 +2360,49 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
   // ============================================
   // Field Overlays
   // ============================================
+  function resolveOverlayTextValue(fieldData) {
+    if (typeof fieldData.previewValueText === 'string' && fieldData.previewValueText.trim() !== '') {
+      return sanitizeProfileText(fieldData.previewValueText);
+    }
+    if (typeof fieldData.value === 'string' && fieldData.value.trim() !== '') {
+      return sanitizeProfileText(fieldData.value);
+    }
+    return '';
+  }
+
+  function renderOverlayImage(overlay, src, alt, isDraft = false) {
+    const img = document.createElement('img');
+    img.className = 'field-overlay-preview';
+    img.src = src;
+    img.alt = alt;
+    overlay.appendChild(img);
+    overlay.classList.add('has-preview');
+    if (isDraft) {
+      overlay.classList.add('draft-preview');
+    }
+  }
+
+  function renderOverlayValue(overlay, text, signatureLike = false, isDraft = false) {
+    const value = document.createElement('span');
+    value.className = 'field-overlay-value';
+    if (signatureLike) {
+      value.classList.add('font-signature');
+    }
+    value.textContent = text;
+    overlay.appendChild(value);
+    overlay.classList.add('has-value');
+    if (isDraft) {
+      overlay.classList.add('draft-preview');
+    }
+  }
+
+  function renderOverlayLabel(overlay, label) {
+    const labelEl = document.createElement('span');
+    labelEl.className = 'field-overlay-label';
+    labelEl.textContent = label;
+    overlay.appendChild(labelEl);
+  }
+
   function renderFieldOverlays() {
     const overlaysContainer = document.getElementById('field-overlays');
     overlaysContainer.innerHTML = '';
@@ -2330,21 +2458,28 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
         overlay.style.height = '30px';
       }
 
-      // Show signature preview image or label inside overlay
-      if (fieldData.completed && fieldData.signaturePreviewUrl) {
-        // Live preview: show the actual signature/initials image
-        const img = document.createElement('img');
-        img.className = 'field-overlay-preview';
-        img.src = fieldData.signaturePreviewUrl;
-        img.alt = getFieldTypeLabel(fieldData.type);
-        overlay.appendChild(img);
-        overlay.classList.add('has-preview');
+      const draftSignaturePreview = String(fieldData.previewSignatureUrl || '').trim();
+      const savedSignaturePreview = String(fieldData.signaturePreviewUrl || '').trim();
+      const overlayTextValue = resolveOverlayTextValue(fieldData);
+      const isSignatureField = fieldData.type === 'signature' || fieldData.type === 'initials';
+      const hasDraftBool = typeof fieldData.previewValueBool === 'boolean';
+
+      if (draftSignaturePreview) {
+        renderOverlayImage(overlay, draftSignaturePreview, getFieldTypeLabel(fieldData.type), true);
+      } else if (fieldData.completed && savedSignaturePreview) {
+        renderOverlayImage(overlay, savedSignaturePreview, getFieldTypeLabel(fieldData.type));
+      } else if (overlayTextValue) {
+        const isDraftText = typeof fieldData.previewValueText === 'string' && fieldData.previewValueText.trim() !== '';
+        renderOverlayValue(overlay, overlayTextValue, isSignatureField, isDraftText);
+      } else if (fieldData.type === 'checkbox') {
+        const checked = hasDraftBool ? fieldData.previewValueBool : Boolean(fieldData.value);
+        if (checked) {
+          renderOverlayValue(overlay, 'Checked', false, hasDraftBool);
+        } else {
+          renderOverlayLabel(overlay, getFieldTypeLabel(fieldData.type));
+        }
       } else {
-        // Default: show text label
-        const label = document.createElement('span');
-        label.className = 'field-overlay-label';
-        label.textContent = getFieldTypeLabel(fieldData.type);
-        overlay.appendChild(label);
+        renderOverlayLabel(overlay, getFieldTypeLabel(fieldData.type));
       }
 
       // Accessibility: keyboard focusable
@@ -2609,7 +2744,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
                 <span>Redo</span>
               </button>
               <button type="button" data-esign-action="clear-signature-canvas" data-field-id="${escapedFieldID}" class="btn btn-secondary text-xs justify-center gap-1" aria-label="Clear signature canvas">
-                <i class="iconoir-eraser" aria-hidden="true"></i>
+                <i class="iconoir-erase" aria-hidden="true"></i>
                 <span>Clear</span>
               </button>
             </div>
@@ -2727,11 +2862,20 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     `;
   }
 
-  function updateTypedSignaturePreview(fieldId, value) {
+  function updateTypedSignaturePreview(fieldId, value, options = { syncOverlay: false }) {
     const preview = document.getElementById('sig-type-preview');
     const fieldData = state.fieldState.get(fieldId);
-    if (!preview || !fieldData) return;
+    if (!fieldData) return;
     const normalized = sanitizeProfileText(String(value || '').trim());
+    if (options?.syncOverlay) {
+      if (normalized) {
+        setTransientFieldTextPreview(fieldId, normalized);
+      } else {
+        clearTransientFieldPreview(fieldId);
+      }
+      requestOverlayRender();
+    }
+    if (!preview) return;
     if (normalized) {
       preview.textContent = normalized;
       return;
@@ -2889,6 +3033,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
           canvasData.strokes.push(currentStroke.map(point => ({ ...point })));
           canvasData.redoStack = [];
         }
+        syncDrawnSignatureTransientPreview(fieldId);
       }
       currentStroke = [];
 
@@ -3024,6 +3169,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       canvasData.redoStack.push(stroke);
     }
     redrawSignatureCanvas(fieldId);
+    syncDrawnSignatureTransientPreview(fieldId);
   }
 
   function redoSignatureCanvas(fieldId) {
@@ -3034,6 +3180,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       canvasData.strokes.push(stroke);
     }
     redrawSignatureCanvas(fieldId);
+    syncDrawnSignatureTransientPreview(fieldId);
   }
 
   function hasSignatureCanvasContent(fieldId) {
@@ -3046,6 +3193,17 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     return imageData.data.some((val, i) => i % 4 === 3 && val > 0);
   }
 
+  function syncDrawnSignatureTransientPreview(fieldId) {
+    const canvasData = state.signatureCanvases.get(fieldId);
+    if (!canvasData) return;
+    if (hasSignatureCanvasContent(fieldId)) {
+      setTransientFieldSignaturePreview(fieldId, canvasData.canvas.toDataURL('image/png'));
+    } else {
+      clearTransientFieldPreview(fieldId);
+    }
+    requestOverlayRender();
+  }
+
   function clearSignatureCanvas(fieldId) {
     const canvasData = state.signatureCanvases.get(fieldId);
     if (canvasData) {
@@ -3055,6 +3213,8 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       canvasData.baseImageDataUrl = '';
       redrawSignatureCanvas(fieldId);
     }
+    clearTransientFieldPreview(fieldId);
+    requestOverlayRender();
     const uploadPreviewWrap = document.getElementById('sig-upload-preview-wrap');
     const uploadPreview = document.getElementById('sig-upload-preview');
     if (uploadPreviewWrap) {
@@ -3083,6 +3243,9 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
         fieldButton?.focus();
       });
     }
+
+    clearAllTransientFieldPreviews();
+    requestOverlayRender();
 
     state.activeFieldId = null;
 
