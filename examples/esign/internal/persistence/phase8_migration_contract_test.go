@@ -87,7 +87,7 @@ func TestPhase8RepositoryStoreParitySQLiteAndPostgresContract(t *testing.T) {
 	cfg.SQLite.DSN = "file:" + filepath.Join(t.TempDir(), "phase8-parity.sqlite") + "?_busy_timeout=5000&_foreign_keys=on"
 	cfg.Postgres.DSN = ""
 
-	handles, err := OpenClient(context.Background(), *cfg)
+	handles, err := OpenClient(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("OpenClient: %v", err)
 	}
@@ -201,7 +201,7 @@ func orderedSourceRootsForPhase8(t *testing.T) map[string]fs.FS {
 	if err != nil {
 		t.Fatalf("resolve services migrations: %v", err)
 	}
-	appLocalRoot, err := resolveAppLocalMigrationFS(*cfg)
+	appLocalRoot, err := resolveAppLocalMigrationFS(cfg)
 	if err != nil {
 		t.Fatalf("resolve app-local migrations: %v", err)
 	}

@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	coreadmin "github.com/goliatone/go-admin/admin"
@@ -27,8 +28,36 @@ var (
 	pdfLengthMarkerPattern = regexp.MustCompile(`(?i)/Length\s+(\d+)`)
 )
 
-var pdfNewReader = func(reader *bytes.Reader, size int64) (*pdf.Reader, error) {
-	return pdf.NewReader(reader, size)
+type pdfReaderFactory func(reader *bytes.Reader, size int64) (*pdf.Reader, error)
+
+var (
+	pdfNewReaderMu sync.RWMutex
+	pdfNewReader   pdfReaderFactory = func(reader *bytes.Reader, size int64) (*pdf.Reader, error) {
+		return pdf.NewReader(reader, size)
+	}
+)
+
+func currentPDFReaderFactory() pdfReaderFactory {
+	pdfNewReaderMu.RLock()
+	defer pdfNewReaderMu.RUnlock()
+	return pdfNewReader
+}
+
+func setPDFReaderFactoryForTest(factory pdfReaderFactory) func() {
+	pdfNewReaderMu.Lock()
+	previous := pdfNewReader
+	if factory == nil {
+		factory = func(reader *bytes.Reader, size int64) (*pdf.Reader, error) {
+			return pdf.NewReader(reader, size)
+		}
+	}
+	pdfNewReader = factory
+	pdfNewReaderMu.Unlock()
+	return func() {
+		pdfNewReaderMu.Lock()
+		pdfNewReader = previous
+		pdfNewReaderMu.Unlock()
+	}
 }
 
 const (
@@ -962,8 +991,9 @@ type pdfAnalyzeResult struct {
 }
 
 func analyzePDFPageCount(ctx context.Context, payload []byte) (int, error) {
+	readerFactory := currentPDFReaderFactory()
 	result, err := runPDFOperation(ctx, func() (pdfAnalyzeResult, error) {
-		reader, err := pdfNewReader(bytes.NewReader(payload), int64(len(payload)))
+		reader, err := readerFactory(bytes.NewReader(payload), int64(len(payload)))
 		if err != nil {
 			return pdfAnalyzeResult{}, err
 		}

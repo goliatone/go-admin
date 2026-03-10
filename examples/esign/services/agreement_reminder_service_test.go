@@ -54,7 +54,7 @@ func TestAgreementReminderServiceSweepSendsDueReminder(t *testing.T) {
 		store,
 		agreements,
 		WithAgreementReminderClock(func() time.Time { return now }),
-		WithAgreementReminderClaimer("test-sweep"),
+		WithAgreementReminderWorkerID("test-sweep"),
 	)
 
 	result, err := reminders.Sweep(context.Background(), scope)
@@ -126,7 +126,7 @@ func TestAgreementReminderServiceSweepSkipsManualCooldown(t *testing.T) {
 		store,
 		agreements,
 		WithAgreementReminderClock(func() time.Time { return now }),
-		WithAgreementReminderClaimer("test-sweep"),
+		WithAgreementReminderWorkerID("test-sweep"),
 	)
 
 	result, err := reminders.Sweep(context.Background(), scope)
@@ -198,7 +198,7 @@ func TestAgreementReminderServiceSweepSkipsRecipientNotInActiveStage(t *testing.
 		store,
 		agreements,
 		WithAgreementReminderClock(func() time.Time { return now }),
-		WithAgreementReminderClaimer("test-sweep"),
+		WithAgreementReminderWorkerID("test-sweep"),
 	)
 
 	result, err := reminders.Sweep(context.Background(), scope)
@@ -267,7 +267,7 @@ func TestAgreementReminderServiceSweepPausesTerminalAgreement(t *testing.T) {
 		store,
 		agreementSvc,
 		WithAgreementReminderClock(func() time.Time { return now }),
-		WithAgreementReminderClaimer("test-sweep"),
+		WithAgreementReminderWorkerID("test-sweep"),
 	)
 	result, err := reminders.Sweep(context.Background(), scope)
 	if err != nil {
@@ -328,7 +328,7 @@ func TestAgreementReminderServiceSweepSkipsMaxCountReached(t *testing.T) {
 		store,
 		agreements,
 		WithAgreementReminderClock(func() time.Time { return now }),
-		WithAgreementReminderClaimer("test-sweep"),
+		WithAgreementReminderWorkerID("test-sweep"),
 	)
 	result, err := reminders.Sweep(context.Background(), scope)
 	if err != nil {

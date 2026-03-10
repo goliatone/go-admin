@@ -69,6 +69,7 @@ type registerConfig struct {
 	googleImportEnqueue   GoogleImportEnqueueFunc
 	integration           IntegrationFoundationService
 	pdfPolicy             PDFPolicyService
+	remediationStatus     RemediationDispatchStatusLookup
 	googleEnabled         bool
 	documentUpload        router.HandlerFunc
 	permissions           Permissions
@@ -214,6 +215,24 @@ type IntegrationFoundationService interface {
 // PDFPolicyService resolves the effective PDF policy used by runtime operations.
 type PDFPolicyService interface {
 	Policy(ctx context.Context, scope stores.Scope) services.PDFPolicy
+}
+
+// RemediationDispatchStatus describes a remediation command dispatch status record for scope checks.
+type RemediationDispatchStatus struct {
+	DispatchID     string
+	Status         string
+	TenantID       string
+	OrgID          string
+	Attempt        int
+	MaxAttempts    int
+	NextRunAt      *time.Time
+	TerminalReason string
+	UpdatedAt      *time.Time
+}
+
+// RemediationDispatchStatusLookup resolves remediation dispatch status by dispatch id.
+type RemediationDispatchStatusLookup interface {
+	LookupRemediationDispatchStatus(ctx context.Context, dispatchID string) (RemediationDispatchStatus, error)
 }
 
 // GoogleImportEnqueueFunc enqueues async Google Drive import jobs.
@@ -491,6 +510,16 @@ func WithPDFPolicyService(service PDFPolicyService) RegisterOption {
 	}
 }
 
+// WithRemediationDispatchStatusLookup configures dispatch status lookup for remediation status routes.
+func WithRemediationDispatchStatusLookup(lookup RemediationDispatchStatusLookup) RegisterOption {
+	return func(cfg *registerConfig) {
+		if cfg == nil {
+			return
+		}
+		cfg.remediationStatus = lookup
+	}
+}
+
 // WithDefaultScope sets a fallback scope when request scope fields are not provided.
 func WithDefaultScope(scope stores.Scope) RegisterOption {
 	return func(cfg *registerConfig) {
@@ -635,12 +664,16 @@ func requireAdminPermission(cfg registerConfig, permission string) router.Middle
 				"method":     c.Method(),
 				"ip":         resolveAuditRequestIP(c, cfg),
 			})
-			return writeAPIError(c, goerrors.New("permission denied", goerrors.CategoryAuthz).
-				WithCode(http.StatusForbidden).
-				WithTextCode(string(services.ErrorCodeScopeDenied)).
-				WithMetadata(map[string]any{"permission": required, "resource": esignAuthzResource}), http.StatusForbidden, string(services.ErrorCodeScopeDenied), "permission denied", nil)
+			return writePermissionDenied(c, required)
 		}
 	}
+}
+
+func writePermissionDenied(c router.Context, permission string) error {
+	return writeAPIError(c, goerrors.New("permission denied", goerrors.CategoryAuthz).
+		WithCode(http.StatusForbidden).
+		WithTextCode(string(services.ErrorCodeScopeDenied)).
+		WithMetadata(map[string]any{"permission": strings.TrimSpace(permission), "resource": esignAuthzResource}), http.StatusForbidden, string(services.ErrorCodeScopeDenied), "permission denied", nil)
 }
 
 func authorizerAllows(c router.Context, authorizer coreadmin.Authorizer, permission string) bool {

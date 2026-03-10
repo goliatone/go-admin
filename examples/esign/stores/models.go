@@ -568,9 +568,6 @@ type AgreementReminderStateRecord struct {
 	LastManualResendAt         *time.Time
 	NextDueAt                  *time.Time
 	LastReasonCode             string
-	LastError                  string     `bun:"-"`
-	LockedBy                   string     `bun:"-"`
-	LockUntil                  *time.Time `bun:"-"`
 	LastErrorCode              string
 	LastErrorInternalEncrypted string
 	LastErrorInternalExpiresAt *time.Time

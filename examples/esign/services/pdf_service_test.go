@@ -192,14 +192,11 @@ func TestPDFServiceAnalyzeHonorsContextCancellation(t *testing.T) {
 }
 
 func TestPDFServiceAnalyzeHonorsParseTimeoutBudget(t *testing.T) {
-	previous := pdfNewReader
-	t.Cleanup(func() {
-		pdfNewReader = previous
-	})
-	pdfNewReader = func(_ *bytes.Reader, _ int64) (*pdf.Reader, error) {
+	restore := setPDFReaderFactoryForTest(func(_ *bytes.Reader, _ int64) (*pdf.Reader, error) {
 		time.Sleep(50 * time.Millisecond)
 		return nil, errors.New("slow parser")
-	}
+	})
+	t.Cleanup(restore)
 
 	policy := DefaultPDFPolicy()
 	policy.ParseTimeout = 5 * time.Millisecond
@@ -214,13 +211,10 @@ func TestPDFServiceAnalyzeHonorsParseTimeoutBudget(t *testing.T) {
 }
 
 func TestPDFServiceAnalyzeRecoversParserPanic(t *testing.T) {
-	previous := pdfNewReader
-	t.Cleanup(func() {
-		pdfNewReader = previous
-	})
-	pdfNewReader = func(_ *bytes.Reader, _ int64) (*pdf.Reader, error) {
+	restore := setPDFReaderFactoryForTest(func(_ *bytes.Reader, _ int64) (*pdf.Reader, error) {
 		panic("boom")
-	}
+	})
+	t.Cleanup(restore)
 
 	svc := NewPDFService()
 	_, err := svc.Analyze(context.Background(), stores.Scope{}, GenerateDeterministicPDF(1))

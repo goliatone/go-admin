@@ -21,7 +21,7 @@ import (
 )
 
 func main() {
-	runtimeConfig, _, err := appcfg.Load(context.Background())
+	runtimeConfig, err := appcfg.Load()
 	if err != nil {
 		log.Fatalf("load runtime config: %v", err)
 	}
@@ -57,13 +57,13 @@ func main() {
 	if err != nil {
 		log.Fatalf("init activity sqlite dependencies: %v", err)
 	}
-	if err := validateRuntimeSecurityBaseline(*runtimeConfig); err != nil {
+	if err := validateRuntimeSecurityBaseline(runtimeConfig); err != nil {
 		log.Fatalf("runtime security baseline: %v", err)
 	}
-	if err := validateRuntimeProviderConfiguration(*runtimeConfig); err != nil {
+	if err := validateRuntimeProviderConfiguration(runtimeConfig); err != nil {
 		log.Fatalf("runtime provider configuration: %v", err)
 	}
-	bootstrapResult, err := esignpersistence.Bootstrap(context.Background(), *runtimeConfig)
+	bootstrapResult, err := esignpersistence.Bootstrap(context.Background(), runtimeConfig)
 	if err != nil {
 		log.Fatalf("bootstrap persistence: %v", err)
 	}

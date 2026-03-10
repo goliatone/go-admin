@@ -21,7 +21,7 @@ func TestRuntimePDFPolicyResolverPrefersCanonicalMaxSourceBytesOverLegacy(t *tes
 		t.Fatalf("apply settings: %v", err)
 	}
 
-	cfg := *appcfg.Defaults()
+	cfg := appcfg.Defaults()
 	cfg.Signer.PDF.MaxSourceBytes = 12 * 1024 * 1024
 
 	resolver := NewRuntimePDFPolicyResolver(settings,
@@ -45,7 +45,7 @@ func TestRuntimePDFPolicyResolverUsesLegacyAliasWhenCanonicalMissing(t *testing.
 		t.Fatalf("apply settings: %v", err)
 	}
 
-	cfg := *appcfg.Defaults()
+	cfg := appcfg.Defaults()
 	cfg.Signer.PDF.MaxSourceBytes = 14 * 1024 * 1024
 
 	resolver := NewRuntimePDFPolicyResolver(settings,
@@ -59,7 +59,7 @@ func TestRuntimePDFPolicyResolverUsesLegacyAliasWhenCanonicalMissing(t *testing.
 }
 
 func TestRuntimePDFPolicyResolverFallsBackToRuntimeConfigWithoutSettingsOverride(t *testing.T) {
-	cfg := *appcfg.Defaults()
+	cfg := appcfg.Defaults()
 	cfg.Signer.PDF.MaxSourceBytes = 3 * 1024 * 1024
 	cfg.Signer.PDF.MaxPages = 40
 	cfg.Signer.PDF.ParseTimeoutMS = 1500
@@ -98,7 +98,7 @@ func TestRuntimePDFPolicyResolverSettingsOverridePipelineMode(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("apply settings: %v", err)
 	}
-	cfg := *appcfg.Defaults()
+	cfg := appcfg.Defaults()
 	cfg.Signer.PDF.PipelineMode = string(PDFPipelineModeAnalyzeOnly)
 
 	resolver := NewRuntimePDFPolicyResolver(settings,

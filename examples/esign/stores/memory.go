@@ -2557,8 +2557,6 @@ func cloneAgreementReminderStateRecord(record AgreementReminderStateRecord) Agre
 	record.TerminalReason = strings.TrimSpace(record.TerminalReason)
 	record.PolicyVersion = strings.TrimSpace(record.PolicyVersion)
 	record.LastReasonCode = strings.TrimSpace(record.LastReasonCode)
-	record.LastError = strings.TrimSpace(record.LastError)
-	record.LockedBy = strings.TrimSpace(record.LockedBy)
 	record.LastErrorCode = strings.TrimSpace(record.LastErrorCode)
 	record.LastErrorInternalEncrypted = strings.TrimSpace(record.LastErrorInternalEncrypted)
 	record.SweepID = strings.TrimSpace(record.SweepID)
@@ -2568,7 +2566,6 @@ func cloneAgreementReminderStateRecord(record AgreementReminderStateRecord) Agre
 	record.LastViewedAt = cloneTimePtr(record.LastViewedAt)
 	record.LastManualResendAt = cloneTimePtr(record.LastManualResendAt)
 	record.NextDueAt = cloneTimePtr(record.NextDueAt)
-	record.LockUntil = cloneTimePtr(record.LockUntil)
 	record.LastErrorInternalExpiresAt = cloneTimePtr(record.LastErrorInternalExpiresAt)
 	record.ClaimedAt = cloneTimePtr(record.ClaimedAt)
 	record.LastHeartbeatAt = cloneTimePtr(record.LastHeartbeatAt)
@@ -3743,6 +3740,23 @@ func reminderClaimFromRecord(record AgreementReminderStateRecord) AgreementRemin
 	}
 }
 
+func reminderLeaseTokenFromRecord(record AgreementReminderStateRecord) AgreementReminderLeaseToken {
+	return normalizeReminderLeaseToken(AgreementReminderLeaseToken{
+		WorkerID: record.WorkerID,
+		SweepID:  record.SweepID,
+		LeaseSeq: record.LeaseSeq,
+	})
+}
+
+func reminderLeaseTokenMatchesRecord(record AgreementReminderStateRecord, token AgreementReminderLeaseToken) bool {
+	token = normalizeReminderLeaseToken(token)
+	current := reminderLeaseTokenFromRecord(record)
+	if token.WorkerID == "" || token.SweepID == "" || token.LeaseSeq <= 0 {
+		return false
+	}
+	return current.WorkerID == token.WorkerID && current.SweepID == token.SweepID && current.LeaseSeq == token.LeaseSeq
+}
+
 func (s *InMemoryStore) UpsertAgreementReminderState(ctx context.Context, scope Scope, record AgreementReminderStateRecord) (AgreementReminderStateRecord, error) {
 	_ = ctx
 	scope, err := validateScope(scope)
@@ -3794,6 +3808,18 @@ func (s *InMemoryStore) UpsertAgreementReminderState(ctx context.Context, scope 
 	defer s.mu.Unlock()
 
 	existing, exists := s.agreementReminderStates[key]
+	if exists && record.Status == AgreementReminderStatusActive {
+		// Upsert is intentionally general-purpose. Preserve an active lease unless the caller
+		// presents the exact current lease token, preventing unfenced writes from clobbering ownership.
+		if reminderLeaseIsActive(existing, now, defaultReminderLeaseSeconds) &&
+			!reminderLeaseTokenMatchesRecord(existing, reminderLeaseTokenFromRecord(record)) {
+			record.WorkerID = existing.WorkerID
+			record.SweepID = existing.SweepID
+			record.LeaseSeq = existing.LeaseSeq
+			record.ClaimedAt = cloneTimePtr(existing.ClaimedAt)
+			record.LastHeartbeatAt = cloneTimePtr(existing.LastHeartbeatAt)
+		}
+	}
 	if normalizeID(record.ID) == "" {
 		if exists && strings.TrimSpace(existing.ID) != "" {
 			record.ID = existing.ID

@@ -91,7 +91,7 @@
   },
   "services": {
     "module_enabled": true,
-    "encryption_key": "go-admin-esign-services-app-key",
+    "encryption_key": "",
     "callback_public_base_url": ""
   },
   "google": {

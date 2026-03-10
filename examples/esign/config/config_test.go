@@ -1,7 +1,8 @@
 package config
 
 import (
-	"context"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -13,7 +14,7 @@ func TestLoadAppliesAPPPrefixOverrides(t *testing.T) {
 	t.Setenv("APP_NETWORK__RATE_LIMIT__SIGNER_WRITE__MAX_REQUESTS", "240")
 	t.Setenv("APP_NETWORK__RATE_LIMIT__SIGNER_WRITE__WINDOW_SECONDS", "30")
 
-	cfg, _, err := Load(context.Background())
+	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
@@ -40,7 +41,7 @@ func TestLoadIgnoresLegacyEnvAliases(t *testing.T) {
 	t.Setenv("ESIGN_RUNTIME_PROFILE", "production")
 	t.Setenv("PORT", "9090")
 
-	cfg, _, err := Load(context.Background())
+	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
@@ -54,9 +55,6 @@ func TestLoadIgnoresLegacyEnvAliases(t *testing.T) {
 
 func TestDefaultsIncludeLoopbackTrustedProxyCIDRs(t *testing.T) {
 	cfg := Defaults()
-	if cfg == nil {
-		t.Fatal("expected defaults config")
-	}
 	if len(cfg.Network.TrustedProxyCIDRs) != 2 {
 		t.Fatalf("expected 2 default trusted proxy cidrs, got %d", len(cfg.Network.TrustedProxyCIDRs))
 	}
@@ -74,7 +72,7 @@ func TestLoadDefaultsRepositoryDialectToSQLiteForDevelopment(t *testing.T) {
 	t.Setenv("APP_RUNTIME__PROFILE", "development")
 	t.Setenv("APP_RUNTIME__REPOSITORY_DIALECT", "")
 
-	cfg, _, err := Load(context.Background())
+	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
@@ -91,7 +89,7 @@ func TestLoadDefaultsRepositoryDialectToPostgresForProduction(t *testing.T) {
 	t.Setenv("APP_RUNTIME__REPOSITORY_DIALECT", "")
 	t.Setenv("APP_POSTGRES__DSN", "postgres://user:pass@localhost:5432/esign?sslmode=disable")
 
-	cfg, _, err := Load(context.Background())
+	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
@@ -106,7 +104,7 @@ func TestLoadIgnoresLegacyDatabaseDSNForPostgresDialect(t *testing.T) {
 	t.Setenv("APP_POSTGRES__DSN", "")
 	t.Setenv("APP_DATABASES__ESIGN_DSN", "postgres://legacy:legacy@localhost:5432/esign?sslmode=disable")
 
-	_, _, err := Load(context.Background())
+	_, err := Load()
 	if err == nil {
 		t.Fatalf("expected load error when postgres.dsn is unset even when legacy alias is provided")
 	}
@@ -121,7 +119,7 @@ func TestLoadIgnoresLegacyDatabaseDSNForSQLiteDialect(t *testing.T) {
 	t.Setenv("APP_SQLITE__DSN", "file:/tmp/esign-primary.sqlite?_busy_timeout=5000&_foreign_keys=on")
 	t.Setenv("APP_DATABASES__ESIGN_DSN", "file:/tmp/esign-legacy.sqlite?_busy_timeout=5000&_foreign_keys=on")
 
-	cfg, _, err := Load(context.Background())
+	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
@@ -132,7 +130,7 @@ func TestLoadIgnoresLegacyDatabaseDSNForSQLiteDialect(t *testing.T) {
 
 func TestLoadRejectsUnsupportedRepositoryDialect(t *testing.T) {
 	t.Setenv("APP_RUNTIME__REPOSITORY_DIALECT", "mongo")
-	_, _, err := Load(context.Background())
+	_, err := Load()
 	if err == nil {
 		t.Fatalf("expected load error for unsupported repository dialect")
 	}
@@ -146,7 +144,7 @@ func TestLoadRequiresPostgresDSNWhenPostgresDialectSelected(t *testing.T) {
 	t.Setenv("APP_RUNTIME__REPOSITORY_DIALECT", "postgres")
 	t.Setenv("APP_POSTGRES__DSN", "")
 
-	_, _, err := Load(context.Background())
+	_, err := Load()
 	if err == nil {
 		t.Fatalf("expected load error when postgres dialect selected without dsn")
 	}
@@ -160,7 +158,7 @@ func TestLoadDefaultsUseStableSQLiteDSNForDevelopment(t *testing.T) {
 	t.Setenv("APP_RUNTIME__REPOSITORY_DIALECT", "")
 	t.Setenv("APP_SQLITE__DSN", "")
 
-	cfg, _, err := Load(context.Background())
+	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
@@ -176,7 +174,7 @@ func TestLoadSupportsMigrationsConfigOverrides(t *testing.T) {
 	t.Setenv("APP_MIGRATIONS__LOCAL_DIR", "tmp/migrations")
 	t.Setenv("APP_MIGRATIONS__LOCAL_ONLY", "true")
 
-	cfg, _, err := Load(context.Background())
+	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
@@ -195,7 +193,7 @@ func TestLoadSupportsSignerPDFOverrides(t *testing.T) {
 	t.Setenv("APP_SIGNER__PDF__COMPATIBILITY_MODE", "strict")
 	t.Setenv("APP_SIGNER__PDF__PIPELINE_MODE", "analyze_only")
 
-	cfg, _, err := Load(context.Background())
+	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
@@ -224,7 +222,7 @@ func TestLoadSanitizesInvalidSignerPDFValues(t *testing.T) {
 	t.Setenv("APP_SIGNER__PDF__COMPATIBILITY_MODE", "unknown")
 	t.Setenv("APP_SIGNER__PDF__PIPELINE_MODE", "invalid")
 
-	cfg, _, err := Load(context.Background())
+	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
@@ -251,6 +249,7 @@ func TestLoadSanitizesInvalidSignerPDFValues(t *testing.T) {
 
 func TestLoadSupportsReminderOverrides(t *testing.T) {
 	t.Setenv("APP_REMINDERS__ENABLED", "true")
+	t.Setenv("APP_SERVICES__ENCRYPTION_KEY", "0123456789abcdef0123456789abcdef")
 	t.Setenv("APP_REMINDERS__SWEEP_CRON", "0 */1 * * *")
 	t.Setenv("APP_REMINDERS__BATCH_SIZE", "50")
 	t.Setenv("APP_REMINDERS__CLAIM_LEASE_SECONDS", "180")
@@ -263,7 +262,7 @@ func TestLoadSupportsReminderOverrides(t *testing.T) {
 	t.Setenv("APP_REMINDERS__ROTATE_TOKEN", "false")
 	t.Setenv("APP_REMINDERS__ALLOW_OUT_OF_ORDER", "true")
 
-	cfg, _, err := Load(context.Background())
+	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
@@ -305,6 +304,58 @@ func TestLoadSupportsReminderOverrides(t *testing.T) {
 	}
 }
 
+func TestValidateReminderEnabledRequiresEncryptionKey(t *testing.T) {
+	cfg := Defaults()
+	cfg.Reminders.Enabled = true
+	cfg.Services.EncryptionKey = ""
+
+	err := cfg.Validate()
+	if err == nil {
+		t.Fatalf("expected validate error when reminders.enabled=true and services.encryption_key is empty")
+	}
+	if !strings.Contains(err.Error(), "services.encryption_key is required") {
+		t.Fatalf("expected missing encryption_key validation error, got %v", err)
+	}
+}
+
+func TestValidateReminderEnabledRejectsInsecureLegacyEncryptionKey(t *testing.T) {
+	cfg := Defaults()
+	cfg.Reminders.Enabled = true
+	cfg.Services.EncryptionKey = InsecureReminderInternalErrorEncryptionKey
+
+	err := cfg.Validate()
+	if err == nil {
+		t.Fatalf("expected validate error when reminders.enabled=true and legacy encryption key is used")
+	}
+	if !strings.Contains(err.Error(), "legacy insecure default") {
+		t.Fatalf("expected insecure default validation error, got %v", err)
+	}
+}
+
+func TestValidateReminderEnabledRejectsShortEncryptionKey(t *testing.T) {
+	cfg := Defaults()
+	cfg.Reminders.Enabled = true
+	cfg.Services.EncryptionKey = "too-short-key"
+
+	err := cfg.Validate()
+	if err == nil {
+		t.Fatalf("expected validate error when reminders.enabled=true and encryption key is too short")
+	}
+	if !strings.Contains(err.Error(), "at least") {
+		t.Fatalf("expected minimum length validation error, got %v", err)
+	}
+}
+
+func TestValidateReminderEnabledAllowsStrongEncryptionKey(t *testing.T) {
+	cfg := Defaults()
+	cfg.Reminders.Enabled = true
+	cfg.Services.EncryptionKey = "0123456789abcdef0123456789abcdef"
+
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("expected strong encryption key to pass validation, got %v", err)
+	}
+}
+
 func TestLoadReminderZeroValuesFallbackToDefaults(t *testing.T) {
 	t.Setenv("APP_REMINDERS__INITIAL_DELAY_MINUTES", "0")
 	t.Setenv("APP_REMINDERS__INTERVAL_MINUTES", "0")
@@ -313,7 +364,7 @@ func TestLoadReminderZeroValuesFallbackToDefaults(t *testing.T) {
 	t.Setenv("APP_REMINDERS__RECENT_VIEW_GRACE_MINUTES", "0")
 	t.Setenv("APP_REMINDERS__MANUAL_RESEND_COOLDOWN_MINUTES", "0")
 
-	cfg, _, err := Load(context.Background())
+	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
@@ -392,6 +443,119 @@ func TestResolveReminderPolicyRejectsInvalidValues(t *testing.T) {
 	if !strings.Contains(err.Error(), "jitter_percent") {
 		t.Fatalf("expected jitter_percent in error message, got %v", err)
 	}
+}
+
+func TestLoadPrecedenceDefaultsThenConfigThenOverridesThenEnv(t *testing.T) {
+	basePath := writeTempFile(t, "app.json", `{
+  "admin": {
+    "title": "From App Config",
+    "api_prefix": "base-api"
+  },
+  "reminders": {
+    "batch_size": 41
+  }
+}`)
+	overlayPath := writeTempFile(t, "overrides.yml", `
+admin:
+  title: "From Overrides"
+reminders:
+  batch_size: 83
+`)
+	t.Setenv("APP_ADMIN__TITLE", "From Env")
+	t.Setenv("APP_REMINDERS__BATCH_SIZE", "127")
+
+	cfg, err := Load(basePath, overlayPath)
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if cfg.Admin.Title != "From Env" {
+		t.Fatalf("expected env precedence for admin.title, got %q", cfg.Admin.Title)
+	}
+	if cfg.Reminders.BatchSize != 127 {
+		t.Fatalf("expected env precedence for reminders.batch_size, got %d", cfg.Reminders.BatchSize)
+	}
+	if cfg.Admin.APIPrefix != "base-api" {
+		t.Fatalf("expected app.json value to remain for admin.api_prefix, got %q", cfg.Admin.APIPrefix)
+	}
+}
+
+func TestLoadWithMissingOptionalOverlayIsNonFatal(t *testing.T) {
+	basePath := writeTempFile(t, "app.json", `{
+  "admin": {
+    "title": "Overlay Optional"
+  }
+}`)
+	missingOverlay := filepath.Join(t.TempDir(), "missing-overrides.yml")
+
+	cfg, err := Load(basePath, missingOverlay)
+	if err != nil {
+		t.Fatalf("load config with missing optional overlay should succeed: %v", err)
+	}
+	if cfg.Admin.Title != "Overlay Optional" {
+		t.Fatalf("expected admin.title from base config, got %q", cfg.Admin.Title)
+	}
+}
+
+func TestLoadUsesAPPConfigSelectorsWhenNoPathsProvided(t *testing.T) {
+	basePath := writeTempFile(t, "app.json", `{
+  "admin": {
+    "title": "From APP_CONFIG"
+  }
+}`)
+	overlayPath := writeTempFile(t, "overrides.yml", `
+admin:
+  title: "From APP_CONFIG_OVERRIDES"
+`)
+	t.Setenv("APP_CONFIG", basePath)
+	t.Setenv("APP_CONFIG_OVERRIDES", overlayPath)
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if cfg.Admin.Title != "From APP_CONFIG_OVERRIDES" {
+		t.Fatalf("expected APP_CONFIG_OVERRIDES to override APP_CONFIG, got %q", cfg.Admin.Title)
+	}
+}
+
+func TestLoadExplicitPathsTakePrecedenceOverAPPConfigSelectors(t *testing.T) {
+	envBase := writeTempFile(t, "env-app.json", `{
+  "admin": {
+    "title": "From Env Base"
+  }
+}`)
+	envOverlay := writeTempFile(t, "env-overrides.yml", `
+admin:
+  title: "From Env Overlay"
+`)
+	explicitBase := writeTempFile(t, "explicit-app.json", `{
+  "admin": {
+    "title": "From Explicit Base"
+  }
+}`)
+	explicitOverlay := writeTempFile(t, "explicit-overrides.yml", `
+admin:
+  title: "From Explicit Overlay"
+`)
+	t.Setenv("APP_CONFIG", envBase)
+	t.Setenv("APP_CONFIG_OVERRIDES", envOverlay)
+
+	cfg, err := Load(explicitBase, explicitOverlay)
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	if cfg.Admin.Title != "From Explicit Overlay" {
+		t.Fatalf("expected explicit paths to be used over APP_CONFIG selectors, got %q", cfg.Admin.Title)
+	}
+}
+
+func writeTempFile(t *testing.T, name string, contents string) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), name)
+	if err := os.WriteFile(path, []byte(contents), 0o644); err != nil {
+		t.Fatalf("write temp file %s: %v", name, err)
+	}
+	return path
 }
 
 func containsString(items []string, expected string) bool {

@@ -73,6 +73,16 @@ function dev:cover {
     "${GO_BIN}" test -coverprofile=coverage.out ./... && "${GO_BIN}" tool cover -func coverage.out
 }
 
+##
+## -----
+##
+## dev:config:generate
+##
+## Regenerate e-sign runtime config structs/getters from config/app.json.
+function dev:config:generate {
+    "${GO_BIN}" generate ./config
+}
+
 function dev:serve {
     local root_dir
     root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"

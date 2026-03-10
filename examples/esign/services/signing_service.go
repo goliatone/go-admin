@@ -655,7 +655,13 @@ func (s SigningService) resolveSessionBootstrap(ctx context.Context, scope store
 	}
 	fallback := false
 	if len(pages) != pageCount {
-		if viewerFallbackRequiresPermission(strings.TrimSpace(fallbackReason)) && !(s.previewFallback || policy.PreviewFallbackEnabled) {
+		requiresPreviewFallback := viewerFallbackRequiresPermission(strings.TrimSpace(fallbackReason))
+		// Metadata-only deployments (e.g. tests/local) should degrade gracefully even when
+		// object storage is not configured; otherwise signer bootstrap hard-fails globally.
+		if s.objectStore == nil && strings.TrimSpace(fallbackReason) == signerViewerCompatibilityReasonSourceUnavailable {
+			requiresPreviewFallback = false
+		}
+		if requiresPreviewFallback && !(s.previewFallback || policy.PreviewFallbackEnabled) {
 			return "", 0, SignerSessionViewerContext{}, pdfUnsupportedError("signer.bootstrap", signerViewerCompatibilityTierUnsupported, signerViewerCompatibilityReasonPreviewFallbackDisabled, map[string]any{
 				"reason": strings.TrimSpace(fallbackReason),
 			})

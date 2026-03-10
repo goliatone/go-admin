@@ -24,7 +24,7 @@ func TestEnsureRuntimeParityColumnsSQLiteRepairsEmailLogUpdatedAtColumn(t *testi
 
 	cfg := appcfg.Defaults()
 	cfg.Migrations.LocalOnly = true
-	if err := registerOrderedSources(client, *cfg); err != nil {
+	if err := registerOrderedSources(client, cfg); err != nil {
 		t.Fatalf("registerOrderedSources: %v", err)
 	}
 	if err := client.Migrate(context.Background()); err != nil {
@@ -68,7 +68,7 @@ func TestEnsureRuntimeParityColumnsSQLiteBackfillsEmailLogUpdatedAt(t *testing.T
 
 	cfg := appcfg.Defaults()
 	cfg.Migrations.LocalOnly = true
-	if err := registerOrderedSources(client, *cfg); err != nil {
+	if err := registerOrderedSources(client, cfg); err != nil {
 		t.Fatalf("registerOrderedSources: %v", err)
 	}
 	if err := client.Migrate(context.Background()); err != nil {

@@ -13,7 +13,14 @@ import (
 type Metrics interface {
 	ObserveAdminRead(ctx context.Context, duration time.Duration, success bool, endpoint string)
 	ObserveSend(ctx context.Context, duration time.Duration, success bool)
-	ObserveReminderSweep(ctx context.Context, duration time.Duration, claimed, sent, skipped, failed int, skipReasons map[string]int)
+	ObserveReminderSweep(
+		ctx context.Context,
+		duration time.Duration,
+		claimed, sent, skipped, failed int,
+		skipReasons map[string]int,
+		failureReasons map[string]int,
+		claimToSendMS, dueToSendMS, dueBacklogAgeMS []float64,
+	)
 	ObserveSignerLinkOpen(ctx context.Context, success bool)
 	ObserveUnifiedViewerLoad(ctx context.Context, duration time.Duration, success bool)
 	ObserveUnifiedFieldSave(ctx context.Context, duration time.Duration, success bool)
@@ -64,6 +71,7 @@ type MetricsSnapshot struct {
 	ReminderSweepSkippedTotal      int64
 	ReminderSweepFailedTotal       int64
 	ReminderSweepSkipByReason      map[string]int64
+	ReminderSweepFailureByReason   map[string]int64
 	ReminderLeaseLostTotal         int64
 	ReminderLeaseConflictTotal     int64
 	ReminderStateInvariantTotal    int64
@@ -181,6 +189,10 @@ type inMemoryMetrics struct {
 	reminderSweepSkippedTotal      int64
 	reminderSweepFailedTotal       int64
 	reminderSweepSkipByReason      map[string]int64
+	reminderSweepFailureByReason   map[string]int64
+	reminderClaimToSendDurationsMS []float64
+	reminderDueToSendDurationsMS   []float64
+	reminderDueBacklogAgeMS        []float64
 	signerLinkOpenSuccessTotal     int64
 	signerLinkOpenFailureTotal     int64
 	signerSubmitSuccessTotal       int64
@@ -221,6 +233,7 @@ func newInMemoryMetrics() *inMemoryMetrics {
 		providerFailureByName:        map[string]int64{},
 		tokenValidationByReason:      map[string]int64{},
 		reminderSweepSkipByReason:    map[string]int64{},
+		reminderSweepFailureByReason: map[string]int64{},
 		googleImportFailureByKey:     map[string]int64{},
 		googleAuthChurnByReason:      map[string]int64{},
 		adminReadSuccessByPath:       map[string]int64{},
@@ -255,7 +268,14 @@ func (m *inMemoryMetrics) ObserveSend(_ context.Context, duration time.Duration,
 	m.sendFailureTotal++
 }
 
-func (m *inMemoryMetrics) ObserveReminderSweep(_ context.Context, duration time.Duration, claimed, sent, skipped, failed int, skipReasons map[string]int) {
+func (m *inMemoryMetrics) ObserveReminderSweep(
+	_ context.Context,
+	duration time.Duration,
+	claimed, sent, skipped, failed int,
+	skipReasons map[string]int,
+	failureReasons map[string]int,
+	claimToSendMS, dueToSendMS, dueBacklogAgeMS []float64,
+) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.reminderSweepDurationsMS = appendDurationMS(m.reminderSweepDurationsMS, duration)
@@ -270,6 +290,16 @@ func (m *inMemoryMetrics) ObserveReminderSweep(_ context.Context, duration time.
 		}
 		m.reminderSweepSkipByReason[key] += int64(count)
 	}
+	for reason, count := range failureReasons {
+		key := normalizeMetricKey(reason, "unknown")
+		if count <= 0 {
+			continue
+		}
+		m.reminderSweepFailureByReason[key] += int64(count)
+	}
+	m.reminderClaimToSendDurationsMS = appendMetricSamples(m.reminderClaimToSendDurationsMS, claimToSendMS)
+	m.reminderDueToSendDurationsMS = appendMetricSamples(m.reminderDueToSendDurationsMS, dueToSendMS)
+	m.reminderDueBacklogAgeMS = appendMetricSamples(m.reminderDueBacklogAgeMS, dueBacklogAgeMS)
 }
 
 func (m *inMemoryMetrics) ObserveSignerLinkOpen(_ context.Context, success bool) {
@@ -479,13 +509,14 @@ func (m *inMemoryMetrics) Snapshot() MetricsSnapshot {
 		ReminderSweepSkippedTotal:      m.reminderSweepSkippedTotal,
 		ReminderSweepFailedTotal:       m.reminderSweepFailedTotal,
 		ReminderSweepSkipByReason:      cloneInt64Map(m.reminderSweepSkipByReason),
+		ReminderSweepFailureByReason:   cloneInt64Map(m.reminderSweepFailureByReason),
 		ReminderLeaseLostTotal:         m.reminderSweepSkipByReason["lease_lost"],
 		ReminderLeaseConflictTotal:     m.reminderSweepSkipByReason["lease_conflict"],
-		ReminderStateInvariantTotal:    m.reminderSweepSkipByReason["state_invariant_violation"],
+		ReminderStateInvariantTotal:    m.reminderSweepFailureByReason["state_invariant_violation"],
 		ReminderPolicyBlockTotal:       m.reminderSweepSkipByReason["policy_block"],
-		ReminderClaimToSendP95MS:       0,
-		ReminderDueToSendP95MS:         0,
-		ReminderDueBacklogAgeP95MS:     0,
+		ReminderClaimToSendP95MS:       percentile(m.reminderClaimToSendDurationsMS, 95),
+		ReminderDueToSendP95MS:         percentile(m.reminderDueToSendDurationsMS, 95),
+		ReminderDueBacklogAgeP95MS:     percentile(m.reminderDueBacklogAgeMS, 95),
 		SignerLinkOpenSuccessTotal:     m.signerLinkOpenSuccessTotal,
 		SignerLinkOpenFailureTotal:     m.signerLinkOpenFailureTotal,
 		SignerSubmitSuccessTotal:       m.signerSubmitSuccessTotal,
@@ -582,12 +613,31 @@ func ObserveSend(ctx context.Context, duration time.Duration, success bool) {
 	metrics.ObserveSend(ctx, duration, success)
 }
 
-func ObserveReminderSweep(ctx context.Context, duration time.Duration, claimed, sent, skipped, failed int, skipReasons map[string]int) {
+func ObserveReminderSweep(
+	ctx context.Context,
+	duration time.Duration,
+	claimed, sent, skipped, failed int,
+	skipReasons map[string]int,
+	failureReasons map[string]int,
+	claimToSendMS, dueToSendMS, dueBacklogAgeMS []float64,
+) {
 	metrics := currentMetrics()
 	if metrics == nil {
 		return
 	}
-	metrics.ObserveReminderSweep(ctx, duration, claimed, sent, skipped, failed, skipReasons)
+	metrics.ObserveReminderSweep(
+		ctx,
+		duration,
+		claimed,
+		sent,
+		skipped,
+		failed,
+		skipReasons,
+		failureReasons,
+		claimToSendMS,
+		dueToSendMS,
+		dueBacklogAgeMS,
+	)
 }
 
 func ObserveSignerLinkOpen(ctx context.Context, success bool) {
@@ -760,6 +810,19 @@ func appendDurationMS(dst []float64, duration time.Duration) []float64 {
 		ms = 0
 	}
 	dst = append(dst, ms)
+	if len(dst) > 5000 {
+		return dst[len(dst)-5000:]
+	}
+	return dst
+}
+
+func appendMetricSamples(dst []float64, samples []float64) []float64 {
+	for _, sample := range samples {
+		if sample < 0 {
+			sample = 0
+		}
+		dst = append(dst, sample)
+	}
 	if len(dst) > 5000 {
 		return dst[len(dst)-5000:]
 	}

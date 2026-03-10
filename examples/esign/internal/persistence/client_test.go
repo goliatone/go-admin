@@ -15,7 +15,7 @@ func TestOpenClientSQLiteRegistersSourcesAndMigrates(t *testing.T) {
 	cfg.Postgres.DSN = ""
 	cfg.Migrations.LocalOnly = false
 
-	handles, err := OpenClient(context.Background(), *cfg)
+	handles, err := OpenClient(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("OpenClient: %v", err)
 	}
@@ -40,14 +40,14 @@ func TestResolveRuntimeDialectAndDSN(t *testing.T) {
 	cfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectSQLite
 	cfg.SQLite.DSN = "file:test.sqlite?_busy_timeout=5000&_foreign_keys=on"
 
-	dialect, err := ResolveRuntimeDialect(*cfg)
+	dialect, err := ResolveRuntimeDialect(cfg)
 	if err != nil {
 		t.Fatalf("ResolveRuntimeDialect: %v", err)
 	}
 	if dialect != DialectSQLite {
 		t.Fatalf("expected sqlite dialect, got %s", dialect)
 	}
-	dsn, err := ResolveRuntimeDSN(*cfg, dialect)
+	dsn, err := ResolveRuntimeDSN(cfg, dialect)
 	if err != nil {
 		t.Fatalf("ResolveRuntimeDSN: %v", err)
 	}

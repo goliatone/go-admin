@@ -114,6 +114,12 @@ func TestBuildRouteSetUsesResolverNamespaces(t *testing.T) {
 	if routes.AdminDocumentsUpload != "/suite/api/v9/esign/documents/upload" {
 		t.Fatalf("expected admin document upload route /suite/api/v9/esign/documents/upload, got %q", routes.AdminDocumentsUpload)
 	}
+	if routes.AdminDocumentRemediate != "/suite/api/v9/esign/documents/:document_id/remediate" {
+		t.Fatalf("expected admin document remediation route /suite/api/v9/esign/documents/:document_id/remediate, got %q", routes.AdminDocumentRemediate)
+	}
+	if routes.AdminRemediationDispatchStatus != "/suite/api/v9/esign/dispatches/:dispatch_id" {
+		t.Fatalf("expected admin remediation dispatch status route /suite/api/v9/esign/dispatches/:dispatch_id, got %q", routes.AdminRemediationDispatchStatus)
+	}
 	if routes.SignerSession != "/api/v1/esign/signing/session/:token" {
 		t.Fatalf("expected signer route fallback /api/v1/esign/signing/session/:token, got %q", routes.SignerSession)
 	}
@@ -229,6 +235,12 @@ func TestBuildRouteSetFallbacksWhenResolverMissing(t *testing.T) {
 	}
 	if routes.AdminDocumentsUpload != "/admin/api/v1/esign/documents/upload" {
 		t.Fatalf("expected /admin/api/v1/esign/documents/upload, got %q", routes.AdminDocumentsUpload)
+	}
+	if routes.AdminDocumentRemediate != "/admin/api/v1/esign/documents/:document_id/remediate" {
+		t.Fatalf("expected /admin/api/v1/esign/documents/:document_id/remediate, got %q", routes.AdminDocumentRemediate)
+	}
+	if routes.AdminRemediationDispatchStatus != "/admin/api/v1/esign/dispatches/:dispatch_id" {
+		t.Fatalf("expected /admin/api/v1/esign/dispatches/:dispatch_id, got %q", routes.AdminRemediationDispatchStatus)
 	}
 	if routes.SignerSession != "/api/v1/esign/signing/session/:token" {
 		t.Fatalf("expected /api/v1/esign/signing/session/:token, got %q", routes.SignerSession)

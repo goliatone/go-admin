@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -24,90 +26,31 @@ const (
 	defaultSQLiteDSN          = "file:data/go-admin-esign.sqlite?_busy_timeout=5000&_foreign_keys=on"
 )
 
-// Config defines runtime configuration for the e-sign example application.
-type Config struct {
-	App        AppConfig        `koanf:"app" json:"app" yaml:"app"`
-	Server     ServerConfig     `koanf:"server" json:"server" yaml:"server"`
-	Admin      AdminConfig      `koanf:"admin" json:"admin" yaml:"admin"`
-	Auth       AuthConfig       `koanf:"auth" json:"auth" yaml:"auth"`
-	Features   FeatureConfig    `koanf:"features" json:"features" yaml:"features"`
-	Runtime    RuntimeConfig    `koanf:"runtime" json:"runtime" yaml:"runtime"`
-	Reminders  ReminderConfig   `koanf:"reminders" json:"reminders" yaml:"reminders"`
-	Storage    StorageConfig    `koanf:"storage" json:"storage" yaml:"storage"`
-	Email      EmailConfig      `koanf:"email" json:"email" yaml:"email"`
-	Signer     SignerConfig     `koanf:"signer" json:"signer" yaml:"signer"`
-	Services   ServicesConfig   `koanf:"services" json:"services" yaml:"services"`
-	Google     GoogleConfig     `koanf:"google" json:"google" yaml:"google"`
-	Public     PublicConfig     `koanf:"public" json:"public" yaml:"public"`
-	Databases  DatabasesConfig  `koanf:"databases" json:"databases" yaml:"databases"`
-	SQLite     SQLiteConfig     `koanf:"sqlite" json:"sqlite" yaml:"sqlite"`
-	Postgres   PostgresConfig   `koanf:"postgres" json:"postgres" yaml:"postgres"`
-	Migrations MigrationsConfig `koanf:"migrations" json:"migrations" yaml:"migrations"`
-	Network    NetworkConfig    `koanf:"network" json:"network" yaml:"network"`
-
-	ConfigPath string `koanf:"-" json:"-" yaml:"-"`
-}
-
-type AppConfig struct {
-	Name string `koanf:"name" json:"name" yaml:"name"`
-	Env  string `koanf:"env" json:"env" yaml:"env"`
-}
-
-type ServerConfig struct {
-	Address string `koanf:"address" json:"address" yaml:"address"`
-}
-
-type AdminConfig struct {
-	BasePath      string           `koanf:"base_path" json:"base_path" yaml:"base_path"`
-	Title         string           `koanf:"title" json:"title" yaml:"title"`
-	DefaultLocale string           `koanf:"default_locale" json:"default_locale" yaml:"default_locale"`
-	PublicAPI     bool             `koanf:"public_api" json:"public_api" yaml:"public_api"`
-	APIPrefix     string           `koanf:"api_prefix" json:"api_prefix" yaml:"api_prefix"`
-	APIVersion    string           `koanf:"api_version" json:"api_version" yaml:"api_version"`
-	Debug         AdminDebugConfig `koanf:"debug" json:"debug" yaml:"debug"`
-}
-
-type AdminDebugConfig struct {
-	EnableSlog bool `koanf:"enable_slog" json:"enable_slog" yaml:"enable_slog"`
-}
-
-type AuthConfig struct {
-	AdminID       string `koanf:"admin_id" json:"admin_id" yaml:"admin_id"`
-	AdminEmail    string `koanf:"admin_email" json:"admin_email" yaml:"admin_email"`
-	AdminRole     string `koanf:"admin_role" json:"admin_role" yaml:"admin_role"`
-	AdminPassword string `koanf:"admin_password" json:"admin_password" yaml:"admin_password"`
-	SigningKey    string `koanf:"signing_key" json:"signing_key" yaml:"signing_key"`
-	ContextKey    string `koanf:"context_key" json:"context_key" yaml:"context_key"`
-	SeedFile      string `koanf:"seed_file" json:"seed_file" yaml:"seed_file"`
-}
-
-type FeatureConfig struct {
-	ESign       bool `koanf:"esign" json:"esign" yaml:"esign"`
-	ESignGoogle bool `koanf:"esign_google" json:"esign_google" yaml:"esign_google"`
-	Activity    bool `koanf:"activity" json:"activity" yaml:"activity"`
-}
-
-type RuntimeConfig struct {
-	Profile           string `koanf:"profile" json:"profile" yaml:"profile"`
-	StartupPolicy     string `koanf:"startup_policy" json:"startup_policy" yaml:"startup_policy"`
-	StrictStartup     bool   `koanf:"strict_startup" json:"strict_startup" yaml:"strict_startup"`
-	RepositoryDialect string `koanf:"repository_dialect" json:"repository_dialect" yaml:"repository_dialect"`
-}
-
-type ReminderConfig struct {
-	Enabled                     bool   `koanf:"enabled" json:"enabled" yaml:"enabled"`
-	SweepCron                   string `koanf:"sweep_cron" json:"sweep_cron" yaml:"sweep_cron"`
-	BatchSize                   int    `koanf:"batch_size" json:"batch_size" yaml:"batch_size"`
-	ClaimLeaseSeconds           int    `koanf:"claim_lease_seconds" json:"claim_lease_seconds" yaml:"claim_lease_seconds"`
-	InitialDelayMinutes         int    `koanf:"initial_delay_minutes" json:"initial_delay_minutes" yaml:"initial_delay_minutes"`
-	IntervalMinutes             int    `koanf:"interval_minutes" json:"interval_minutes" yaml:"interval_minutes"`
-	MaxReminders                int    `koanf:"max_reminders" json:"max_reminders" yaml:"max_reminders"`
-	JitterPercent               int    `koanf:"jitter_percent" json:"jitter_percent" yaml:"jitter_percent"`
-	RecentViewGraceMinutes      int    `koanf:"recent_view_grace_minutes" json:"recent_view_grace_minutes" yaml:"recent_view_grace_minutes"`
-	ManualResendCooldownMinutes int    `koanf:"manual_resend_cooldown_minutes" json:"manual_resend_cooldown_minutes" yaml:"manual_resend_cooldown_minutes"`
-	RotateToken                 bool   `koanf:"rotate_token" json:"rotate_token" yaml:"rotate_token"`
-	AllowOutOfOrder             bool   `koanf:"allow_out_of_order" json:"allow_out_of_order" yaml:"allow_out_of_order"`
-}
+// Backward-compatible config aliases. Keep these in the tracked source so
+// package builds do not depend on generated or auxiliary alias files.
+type AppConfig = App
+type ServerConfig = Server
+type AdminConfig = Admin
+type AdminDebugConfig = Debug
+type AuthConfig = Auth
+type FeatureConfig = Features
+type RuntimeConfig = Runtime
+type ReminderConfig = Reminders
+type StorageConfig = Storage
+type EmailConfig = Email
+type EmailSMTPConfig = SMTP
+type SignerConfig = Signer
+type SignerPDFConfig = Pdf
+type ServicesConfig = Services
+type GoogleConfig = Google
+type PublicConfig = Public
+type DatabasesConfig = Databases
+type SQLiteConfig = Sqlite
+type PostgresConfig = Postgres
+type MigrationsConfig = Migrations
+type NetworkConfig = Network
+type NetworkRateLimitConfig = RateLimit
+type RateLimitBucketConfig = SignerSession
 
 const (
 	ReminderPolicyVersion = "r1"
@@ -115,8 +58,12 @@ const (
 	ReminderCompatibilityAllowed   = "allowed"
 	ReminderCompatibilityDefaulted = "defaulted"
 	ReminderCompatibilityRejected  = "rejected"
+
+	InsecureReminderInternalErrorEncryptionKey = "go-admin-esign-services-app-key"
+	minReminderInternalErrorEncryptionKeyChars = 32
 )
 
+// ReminderPolicyResolution captures normalized reminder policy values and compatibility status.
 type ReminderPolicyResolution struct {
 	Config        ReminderConfig
 	PolicyVersion string
@@ -207,112 +154,18 @@ func ResolveReminderPolicy(input ReminderConfig) (ReminderPolicyResolution, erro
 	}, nil
 }
 
-type StorageConfig struct {
-	EncryptionAlgorithm string `koanf:"encryption_algorithm" json:"encryption_algorithm" yaml:"encryption_algorithm"`
-}
-
-type EmailConfig struct {
-	Transport string          `koanf:"transport" json:"transport" yaml:"transport"`
-	SMTP      EmailSMTPConfig `koanf:"smtp" json:"smtp" yaml:"smtp"`
-}
-
-type EmailSMTPConfig struct {
-	Host            string `koanf:"host" json:"host" yaml:"host"`
-	Port            int    `koanf:"port" json:"port" yaml:"port"`
-	Username        string `koanf:"username" json:"username" yaml:"username"`
-	Password        string `koanf:"password" json:"password" yaml:"password"`
-	FromName        string `koanf:"from_name" json:"from_name" yaml:"from_name"`
-	FromAddress     string `koanf:"from_address" json:"from_address" yaml:"from_address"`
-	TimeoutSeconds  int    `koanf:"timeout_seconds" json:"timeout_seconds" yaml:"timeout_seconds"`
-	DisableSTARTTLS bool   `koanf:"disable_starttls" json:"disable_starttls" yaml:"disable_starttls"`
-	InsecureTLS     bool   `koanf:"insecure_tls" json:"insecure_tls" yaml:"insecure_tls"`
-}
-
-type SignerConfig struct {
-	UploadSigningKey             string          `koanf:"upload_signing_key" json:"upload_signing_key" yaml:"upload_signing_key"`
-	UploadTTLSeconds             int             `koanf:"upload_ttl_seconds" json:"upload_ttl_seconds" yaml:"upload_ttl_seconds"`
-	ProfileTTLDays               int             `koanf:"profile_ttl_days" json:"profile_ttl_days" yaml:"profile_ttl_days"`
-	ProfilePersistDrawnSignature bool            `koanf:"profile_persist_drawn_signature" json:"profile_persist_drawn_signature" yaml:"profile_persist_drawn_signature"`
-	ProfileMode                  string          `koanf:"profile_mode" json:"profile_mode" yaml:"profile_mode"`
-	SavedSignaturesLimitPerType  int             `koanf:"saved_signatures_limit_per_type" json:"saved_signatures_limit_per_type" yaml:"saved_signatures_limit_per_type"`
-	PDF                          SignerPDFConfig `koanf:"pdf" json:"pdf" yaml:"pdf"`
-}
-
-type SignerPDFConfig struct {
-	MaxSourceBytes         int64  `koanf:"max_source_bytes" json:"max_source_bytes" yaml:"max_source_bytes"`
-	MaxPages               int    `koanf:"max_pages" json:"max_pages" yaml:"max_pages"`
-	MaxObjects             int    `koanf:"max_objects" json:"max_objects" yaml:"max_objects"`
-	MaxDecompressedBytes   int64  `koanf:"max_decompressed_bytes" json:"max_decompressed_bytes" yaml:"max_decompressed_bytes"`
-	ParseTimeoutMS         int    `koanf:"parse_timeout_ms" json:"parse_timeout_ms" yaml:"parse_timeout_ms"`
-	NormalizationTimeoutMS int    `koanf:"normalization_timeout_ms" json:"normalization_timeout_ms" yaml:"normalization_timeout_ms"`
-	AllowEncrypted         bool   `koanf:"allow_encrypted" json:"allow_encrypted" yaml:"allow_encrypted"`
-	AllowJavaScriptActions bool   `koanf:"allow_javascript_actions" json:"allow_javascript_actions" yaml:"allow_javascript_actions"`
-	CompatibilityMode      string `koanf:"compatibility_mode" json:"compatibility_mode" yaml:"compatibility_mode"`
-	PreviewFallbackEnabled bool   `koanf:"preview_fallback_enabled" json:"preview_fallback_enabled" yaml:"preview_fallback_enabled"`
-	PipelineMode           string `koanf:"pipeline_mode" json:"pipeline_mode" yaml:"pipeline_mode"`
-}
-
-type ServicesConfig struct {
-	ModuleEnabled         bool   `koanf:"module_enabled" json:"module_enabled" yaml:"module_enabled"`
-	EncryptionKey         string `koanf:"encryption_key" json:"encryption_key" yaml:"encryption_key"`
-	CallbackPublicBaseURL string `koanf:"callback_public_base_url" json:"callback_public_base_url" yaml:"callback_public_base_url"`
-}
-
-type GoogleConfig struct {
-	ProviderMode          string `koanf:"provider_mode" json:"provider_mode" yaml:"provider_mode"`
-	ClientID              string `koanf:"client_id" json:"client_id" yaml:"client_id"`
-	ClientSecret          string `koanf:"client_secret" json:"client_secret" yaml:"client_secret"`
-	OAuthRedirectURI      string `koanf:"oauth_redirect_uri" json:"oauth_redirect_uri" yaml:"oauth_redirect_uri"`
-	TokenEndpoint         string `koanf:"token_endpoint" json:"token_endpoint" yaml:"token_endpoint"`
-	RevokeEndpoint        string `koanf:"revoke_endpoint" json:"revoke_endpoint" yaml:"revoke_endpoint"`
-	DriveBaseURL          string `koanf:"drive_base_url" json:"drive_base_url" yaml:"drive_base_url"`
-	UserInfoEndpoint      string `koanf:"userinfo_endpoint" json:"userinfo_endpoint" yaml:"userinfo_endpoint"`
-	HealthEndpoint        string `koanf:"health_endpoint" json:"health_endpoint" yaml:"health_endpoint"`
-	HTTPTimeoutSeconds    int    `koanf:"http_timeout_seconds" json:"http_timeout_seconds" yaml:"http_timeout_seconds"`
-	CredentialActiveKeyID string `koanf:"credential_active_key_id" json:"credential_active_key_id" yaml:"credential_active_key_id"`
-	CredentialActiveKey   string `koanf:"credential_active_key" json:"credential_active_key" yaml:"credential_active_key"`
-	CredentialKeysJSON    string `koanf:"credential_keys_json" json:"credential_keys_json" yaml:"credential_keys_json"`
-}
-
-type PublicConfig struct {
-	BaseURL string `koanf:"base_url" json:"base_url" yaml:"base_url"`
-}
-
-type DatabasesConfig struct {
-	ESignDSN   string `koanf:"esign_dsn" json:"esign_dsn" yaml:"esign_dsn"`
-	ContentDSN string `koanf:"content_dsn" json:"content_dsn" yaml:"content_dsn"`
-}
-
-type SQLiteConfig struct {
-	DSN string `koanf:"dsn" json:"dsn" yaml:"dsn"`
-}
-
-type PostgresConfig struct {
-	DSN string `koanf:"dsn" json:"dsn" yaml:"dsn"`
-}
-
-type MigrationsConfig struct {
-	LocalDir  string `koanf:"local_dir" json:"local_dir" yaml:"local_dir"`
-	LocalOnly bool   `koanf:"local_only" json:"local_only" yaml:"local_only"`
-}
-
-type RateLimitBucketConfig struct {
-	MaxRequests   int `koanf:"max_requests" json:"max_requests" yaml:"max_requests"`
-	WindowSeconds int `koanf:"window_seconds" json:"window_seconds" yaml:"window_seconds"`
-}
-
-type NetworkRateLimitConfig struct {
-	SignerSession RateLimitBucketConfig `koanf:"signer_session" json:"signer_session" yaml:"signer_session"`
-	SignerConsent RateLimitBucketConfig `koanf:"signer_consent" json:"signer_consent" yaml:"signer_consent"`
-	SignerWrite   RateLimitBucketConfig `koanf:"signer_write" json:"signer_write" yaml:"signer_write"`
-	SignerSubmit  RateLimitBucketConfig `koanf:"signer_submit" json:"signer_submit" yaml:"signer_submit"`
-	AdminResend   RateLimitBucketConfig `koanf:"admin_resend" json:"admin_resend" yaml:"admin_resend"`
-}
-
-type NetworkConfig struct {
-	RateLimitTrustProxyHeaders bool                   `koanf:"rate_limit_trust_proxy_headers" json:"rate_limit_trust_proxy_headers" yaml:"rate_limit_trust_proxy_headers"`
-	TrustedProxyCIDRs          []string               `koanf:"trusted_proxy_cidrs" json:"trusted_proxy_cidrs" yaml:"trusted_proxy_cidrs"`
-	RateLimit                  NetworkRateLimitConfig `koanf:"rate_limit" json:"rate_limit" yaml:"rate_limit"`
+func ValidateReminderInternalErrorEncryptionKey(key string) error {
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return fmt.Errorf("services.encryption_key is required when reminders.enabled=true")
+	}
+	if strings.EqualFold(key, InsecureReminderInternalErrorEncryptionKey) {
+		return fmt.Errorf("services.encryption_key must not use the legacy insecure default when reminders.enabled=true")
+	}
+	if len(key) < minReminderInternalErrorEncryptionKeyChars {
+		return fmt.Errorf("services.encryption_key must be at least %d characters when reminders.enabled=true", minReminderInternalErrorEncryptionKeyChars)
+	}
+	return nil
 }
 
 var activeConfig struct {
@@ -320,8 +173,8 @@ var activeConfig struct {
 	cfg *Config
 }
 
-func Defaults() *Config {
-	return &Config{
+func Defaults() Config {
+	return Config{
 		App: AppConfig{
 			Name: "go-admin e-sign",
 			Env:  "development",
@@ -410,7 +263,7 @@ func Defaults() *Config {
 		},
 		Services: ServicesConfig{
 			ModuleEnabled: true,
-			EncryptionKey: "go-admin-esign-services-app-key",
+			EncryptionKey: "",
 		},
 		Google: GoogleConfig{
 			ProviderMode:          "real",
@@ -457,14 +310,58 @@ func Defaults() *Config {
 
 func (c Config) Validate() error {
 	normalized := c
-	normalized.applyPersistenceDefaults()
-	normalized.applySignerPDFDefaults()
-	resolution, err := ResolveReminderPolicy(normalized.Reminders)
-	if err != nil {
-		return err
+	for _, normalize := range configNormalizers() {
+		if normalize == nil {
+			continue
+		}
+		if err := normalize(&normalized); err != nil {
+			return err
+		}
 	}
-	normalized.Reminders = resolution.Config
+	for _, validate := range configValidators() {
+		if validate == nil {
+			continue
+		}
+		if err := validate(&normalized); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
+func configNormalizers() []goconfig.Normalizer[*Config] {
+	return []goconfig.Normalizer[*Config]{
+		func(c *Config) error {
+			c.applyPersistenceDefaults()
+			return nil
+		},
+		func(c *Config) error {
+			c.applySignerPDFDefaults()
+			return nil
+		},
+		func(c *Config) error {
+			resolution, err := ResolveReminderPolicy(c.Reminders)
+			if err != nil {
+				return err
+			}
+			c.Reminders = resolution.Config
+			return nil
+		},
+	}
+}
+
+func configValidators() []goconfig.Validator[*Config] {
+	return []goconfig.Validator[*Config]{
+		validateCoreRequiredFields,
+		validateRateLimits,
+		validateReminderConfig,
+		validateReminderEncryption,
+		validateTrustedProxyCIDRs,
+		validateRepositoryDialect,
+	}
+}
+
+func validateCoreRequiredFields(c *Config) error {
 	if strings.TrimSpace(c.Admin.BasePath) == "" {
 		return fmt.Errorf("admin.base_path is required")
 	}
@@ -489,6 +386,10 @@ func (c Config) Validate() error {
 	if c.Email.SMTP.TimeoutSeconds <= 0 {
 		return fmt.Errorf("email.smtp.timeout_seconds must be greater than zero")
 	}
+	return nil
+}
+
+func validateRateLimits(c *Config) error {
 	if c.Network.RateLimit.SignerSession.MaxRequests <= 0 || c.Network.RateLimit.SignerSession.WindowSeconds <= 0 {
 		return fmt.Errorf("network.rate_limit.signer_session max_requests and window_seconds must be greater than zero")
 	}
@@ -504,33 +405,50 @@ func (c Config) Validate() error {
 	if c.Network.RateLimit.AdminResend.MaxRequests <= 0 || c.Network.RateLimit.AdminResend.WindowSeconds <= 0 {
 		return fmt.Errorf("network.rate_limit.admin_resend max_requests and window_seconds must be greater than zero")
 	}
-	if strings.TrimSpace(normalized.Reminders.SweepCron) == "" {
+	return nil
+}
+
+func validateReminderConfig(c *Config) error {
+	if strings.TrimSpace(c.Reminders.SweepCron) == "" {
 		return fmt.Errorf("reminders.sweep_cron is required")
 	}
-	if normalized.Reminders.BatchSize <= 0 {
+	if c.Reminders.BatchSize <= 0 {
 		return fmt.Errorf("reminders.batch_size must be greater than zero")
 	}
-	if normalized.Reminders.ClaimLeaseSeconds <= 0 {
+	if c.Reminders.ClaimLeaseSeconds <= 0 {
 		return fmt.Errorf("reminders.claim_lease_seconds must be greater than zero")
 	}
-	if normalized.Reminders.InitialDelayMinutes <= 0 {
+	if c.Reminders.InitialDelayMinutes <= 0 {
 		return fmt.Errorf("reminders.initial_delay_minutes must be greater than zero")
 	}
-	if normalized.Reminders.IntervalMinutes <= 0 {
+	if c.Reminders.IntervalMinutes <= 0 {
 		return fmt.Errorf("reminders.interval_minutes must be greater than zero")
 	}
-	if normalized.Reminders.MaxReminders <= 0 {
+	if c.Reminders.MaxReminders <= 0 {
 		return fmt.Errorf("reminders.max_reminders must be greater than zero")
 	}
-	if normalized.Reminders.JitterPercent <= 0 || normalized.Reminders.JitterPercent > 90 {
+	if c.Reminders.JitterPercent <= 0 || c.Reminders.JitterPercent > 90 {
 		return fmt.Errorf("reminders.jitter_percent must be between 1 and 90")
 	}
-	if normalized.Reminders.RecentViewGraceMinutes <= 0 {
+	if c.Reminders.RecentViewGraceMinutes <= 0 {
 		return fmt.Errorf("reminders.recent_view_grace_minutes must be greater than zero")
 	}
-	if normalized.Reminders.ManualResendCooldownMinutes <= 0 {
+	if c.Reminders.ManualResendCooldownMinutes <= 0 {
 		return fmt.Errorf("reminders.manual_resend_cooldown_minutes must be greater than zero")
 	}
+	return nil
+}
+
+func validateReminderEncryption(c *Config) error {
+	if c.Reminders.Enabled {
+		if err := ValidateReminderInternalErrorEncryptionKey(c.Services.EncryptionKey); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateTrustedProxyCIDRs(c *Config) error {
 	for _, raw := range c.Network.TrustedProxyCIDRs {
 		cidr := strings.TrimSpace(raw)
 		if cidr == "" {
@@ -540,18 +458,22 @@ func (c Config) Validate() error {
 			return fmt.Errorf("network.trusted_proxy_cidrs contains invalid cidr %q: %w", cidr, err)
 		}
 	}
-	switch normalized.Runtime.RepositoryDialect {
+	return nil
+}
+
+func validateRepositoryDialect(c *Config) error {
+	switch c.Runtime.RepositoryDialect {
 	case RepositoryDialectSQLite, RepositoryDialectPostgres:
 	default:
 		return fmt.Errorf("runtime.repository_dialect must be one of %s|%s", RepositoryDialectSQLite, RepositoryDialectPostgres)
 	}
-	switch normalized.Runtime.RepositoryDialect {
+	switch c.Runtime.RepositoryDialect {
 	case RepositoryDialectSQLite:
-		if strings.TrimSpace(normalized.SQLite.DSN) == "" {
+		if strings.TrimSpace(c.SQLite.DSN) == "" {
 			return fmt.Errorf("sqlite.dsn is required when runtime.repository_dialect=%s", RepositoryDialectSQLite)
 		}
 	case RepositoryDialectPostgres:
-		if strings.TrimSpace(normalized.Postgres.DSN) == "" {
+		if strings.TrimSpace(c.Postgres.DSN) == "" {
 			return fmt.Errorf("postgres.dsn is required when runtime.repository_dialect=%s", RepositoryDialectPostgres)
 		}
 	}
@@ -559,55 +481,133 @@ func (c Config) Validate() error {
 }
 
 // Load resolves config from defaults, optional files, and environment overrides.
-func Load(ctx context.Context, paths ...string) (*Config, *goconfig.Container[*Config], error) {
+func Load(paths ...string) (Config, error) {
+	resolvedPaths, err := resolveConfigPaths(paths...)
+	if err != nil {
+		return Config{}, err
+	}
+
+	preview := Defaults()
+	previewContainer := newContainer(&preview, resolvedPaths, goconfig.ValidationNone, false)
+	if err := previewContainer.Load(context.Background()); err != nil {
+		return Config{}, err
+	}
+	previewLoaded := previewContainer.Raw()
+	if previewLoaded == nil {
+		return Config{}, fmt.Errorf("preview config is nil")
+	}
+
+	failFast := shouldFailFast(previewLoaded.Runtime.Profile)
+
 	cfg := Defaults()
-
-	resolvedPaths := paths
-	if len(resolvedPaths) == 0 {
-		resolvedPaths = []string{resolveDefaultConfigPath()}
-	}
-
-	container := goconfig.New(cfg)
-	providers := []goconfig.ProviderBuilder[*Config]{
-		goconfig.StructProvider[*Config](cfg),
-	}
-	for i, p := range resolvedPaths {
-		trimmed := strings.TrimSpace(p)
-		if trimmed == "" {
-			continue
-		}
-		providers = append(providers,
-			goconfig.OptionalProvider(
-				goconfig.FileProvider[*Config](trimmed, int(goconfig.PriorityConfig.WithOffset(i))),
-			),
-		)
-	}
-	providers = append(providers, goconfig.EnvProvider[*Config](DefaultEnvPrefix, DefaultEnvDelimiter))
-	container.WithProvider(providers...)
-
-	if err := container.Load(ctx); err != nil {
-		return nil, container, err
+	container := newContainer(&cfg, resolvedPaths, goconfig.ValidationSemantic, failFast)
+	if err := container.Load(context.Background()); err != nil {
+		return Config{}, err
 	}
 
 	loaded := container.Raw()
 	if loaded == nil {
-		return nil, container, fmt.Errorf("loaded config is nil")
+		return Config{}, fmt.Errorf("loaded config is nil")
 	}
-	loaded.applyPersistenceDefaults()
-	loaded.applySignerPDFDefaults()
-	reminderResolution, reminderErr := ResolveReminderPolicy(loaded.Reminders)
-	if reminderErr != nil {
-		return loaded, container, reminderErr
-	}
-	loaded.Reminders = reminderResolution.Config
 	if len(resolvedPaths) > 0 {
 		loaded.ConfigPath = strings.TrimSpace(resolvedPaths[0])
 	}
-	if err := loaded.Validate(); err != nil {
-		return loaded, container, err
+	SetActive(*loaded)
+	return *loaded, nil
+}
+
+func newContainer(
+	cfg *Config,
+	files []string,
+	mode goconfig.ValidationMode,
+	failFast bool,
+) *goconfig.Container[*Config] {
+	container := goconfig.New(cfg).
+		WithValidationMode(mode).
+		WithBaseValidate(false).
+		WithFailFast(failFast).
+		WithConfigPath("").
+		WithSolverPasses(2).
+		WithStringTransformerForKey("runtime.profile", goconfig.ToLower).
+		WithStringTransformerForKey("runtime.repository_dialect", goconfig.ToLower).
+		WithNormalizer(configNormalizers()...).
+		WithValidator(configValidators()...)
+
+	providers := make([]goconfig.ProviderBuilder[*Config], 0, len(files)+2)
+	providers = append(providers, goconfig.StructProvider[*Config](cfg))
+	for i, path := range files {
+		providers = append(providers, goconfig.OptionalProvider(
+			goconfig.FileProvider[*Config](path, int(goconfig.PriorityConfig.WithOffset(i))),
+		))
 	}
-	SetActive(loaded)
-	return loaded, container, nil
+	providers = append(providers, goconfig.EnvProvider[*Config](DefaultEnvPrefix, DefaultEnvDelimiter))
+	container.WithProvider(providers...)
+
+	return container
+}
+
+func shouldFailFast(_ string) bool {
+	return true
+}
+
+func GetEnvString(key, fallback string) string {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return fallback
+	}
+	return value
+}
+
+func resolveConfigPaths(paths ...string) ([]string, error) {
+	if len(paths) == 0 {
+		paths = []string{
+			GetEnvString("APP_CONFIG", resolveDefaultConfigPath()),
+			GetEnvString("APP_CONFIG_OVERRIDES", resolveDefaultOverridesPath()),
+		}
+	}
+
+	files := make([]string, 0, len(paths))
+	for _, path := range paths {
+		path = filepath.FromSlash(strings.TrimSpace(path))
+		if path == "" {
+			continue
+		}
+
+		matches, err := filepath.Glob(path)
+		if err != nil {
+			return nil, err
+		}
+
+		if len(matches) == 0 {
+			if hasGlob(path) {
+				continue
+			}
+			files = append(files, path)
+			continue
+		}
+
+		slices.Sort(matches)
+		files = append(files, matches...)
+	}
+
+	return uniquePaths(files), nil
+}
+
+func hasGlob(path string) bool {
+	return strings.ContainsAny(path, "*?[")
+}
+
+func uniquePaths(paths []string) []string {
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(paths))
+	for _, path := range paths {
+		if _, ok := seen[path]; ok {
+			continue
+		}
+		seen[path] = struct{}{}
+		out = append(out, path)
+	}
+	return out
 }
 
 func resolveDefaultConfigPath() string {
@@ -616,6 +616,14 @@ func resolveDefaultConfigPath() string {
 		return "examples/esign/config/app.json"
 	}
 	return filepath.Clean(filepath.Join(filepath.Dir(filename), "app.json"))
+}
+
+func resolveDefaultOverridesPath() string {
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		return "examples/esign/config/overrides.yml"
+	}
+	return filepath.Clean(filepath.Join(filepath.Dir(filename), "overrides.yml"))
 }
 
 func resolveDefaultAuthSeedPath() string {
@@ -627,20 +635,18 @@ func resolveDefaultAuthSeedPath() string {
 }
 
 // SetActive stores runtime config for cross-package access during app bootstrap.
-func SetActive(cfg *Config) {
+func SetActive(cfg Config) {
 	activeConfig.mu.Lock()
 	defer activeConfig.mu.Unlock()
-	if cfg == nil {
-		activeConfig.cfg = nil
-		return
-	}
-	clone := *cfg
+	clone := cfg
 	activeConfig.cfg = &clone
 }
 
 // ResetActive clears the globally active runtime config.
 func ResetActive() {
-	SetActive(nil)
+	activeConfig.mu.Lock()
+	activeConfig.cfg = nil
+	activeConfig.mu.Unlock()
 }
 
 // Active returns the currently active runtime config, or defaults when unset.
@@ -648,7 +654,7 @@ func Active() Config {
 	activeConfig.mu.RLock()
 	defer activeConfig.mu.RUnlock()
 	if activeConfig.cfg == nil {
-		return *Defaults()
+		return Defaults()
 	}
 	clone := *activeConfig.cfg
 	return clone

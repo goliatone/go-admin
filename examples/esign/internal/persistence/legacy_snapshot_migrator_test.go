@@ -24,7 +24,7 @@ func TestBootstrapMigratesLegacySnapshotWhenTargetTablesEmpty(t *testing.T) {
 	cfg.Migrations.LocalOnly = true
 	cfg.SQLite.DSN = dsn
 
-	result, err := Bootstrap(context.Background(), *cfg)
+	result, err := Bootstrap(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("Bootstrap: %v", err)
 	}
@@ -56,7 +56,7 @@ func TestLegacySnapshotMigrationPreservesNormalizedObjectKeyWhenColumnExists(t *
 
 	cfg := appcfg.Defaults()
 	cfg.Migrations.LocalOnly = true
-	if err := registerOrderedSources(client, *cfg); err != nil {
+	if err := registerOrderedSources(client, cfg); err != nil {
 		t.Fatalf("registerOrderedSources: %v", err)
 	}
 	if err := client.Migrate(context.Background()); err != nil {
@@ -92,7 +92,7 @@ func TestLegacySnapshotMigrationSecondRunIsNoOp(t *testing.T) {
 	cfg.Migrations.LocalOnly = true
 	cfg.SQLite.DSN = dsn
 
-	first, err := Bootstrap(context.Background(), *cfg)
+	first, err := Bootstrap(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("first Bootstrap: %v", err)
 	}
@@ -100,7 +100,7 @@ func TestLegacySnapshotMigrationSecondRunIsNoOp(t *testing.T) {
 	firstMarkerCount := mustSQLiteTableCount(t, first.SQLDB, legacySnapshotMigrationMarkerTable)
 	_ = first.Close()
 
-	second, err := Bootstrap(context.Background(), *cfg)
+	second, err := Bootstrap(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("second Bootstrap: %v", err)
 	}
@@ -134,7 +134,7 @@ func TestLegacySnapshotMigrationRetryAfterFailure(t *testing.T) {
 
 	cfg := appcfg.Defaults()
 	cfg.Migrations.LocalOnly = true
-	if err := registerOrderedSources(client, *cfg); err != nil {
+	if err := registerOrderedSources(client, cfg); err != nil {
 		t.Fatalf("registerOrderedSources: %v", err)
 	}
 	if err := client.Migrate(context.Background()); err != nil {
@@ -212,7 +212,7 @@ func TestLegacySnapshotMigrationMigratesSignerProfilesWhenTableExists(t *testing
 	cfg.Migrations.LocalOnly = true
 	cfg.SQLite.DSN = dsn
 
-	_, err = Bootstrap(context.Background(), *cfg)
+	_, err = Bootstrap(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("expected bootstrap legacy migration success, got %v", err)
 	}

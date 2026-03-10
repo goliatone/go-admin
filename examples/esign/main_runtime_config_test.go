@@ -185,7 +185,7 @@ func TestResolveESignStartupPolicySupportsWarnAliases(t *testing.T) {
 }
 
 func defaultRuntimeConfig() appcfg.Config {
-	return *appcfg.Defaults()
+	return appcfg.Defaults()
 }
 
 func productionRuntimeConfig() appcfg.Config {
@@ -209,7 +209,7 @@ func TestNewESignRuntimeStoreCreatesSQLiteStoreFromBootstrapDSN(t *testing.T) {
 	cfg := appcfg.Defaults()
 	cfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectSQLite
 	cfg.SQLite.DSN = "file:" + filepath.Join(t.TempDir(), "runtime-store.db") + "?_busy_timeout=5000&_foreign_keys=on"
-	bootstrap, err := esignpersistence.Bootstrap(context.Background(), *cfg)
+	bootstrap, err := esignpersistence.Bootstrap(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("Bootstrap sqlite runtime store test: %v", err)
 	}
@@ -239,7 +239,7 @@ func TestNewESignRuntimeStoreSupportsPostgresWhenBootstrapHandlesPresent(t *test
 	cfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectPostgres
 	cfg.Postgres.DSN = dsn
 	cfg.SQLite.DSN = ""
-	bootstrap, err := esignpersistence.Bootstrap(context.Background(), *cfg)
+	bootstrap, err := esignpersistence.Bootstrap(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("Bootstrap postgres runtime store test: %v", err)
 	}

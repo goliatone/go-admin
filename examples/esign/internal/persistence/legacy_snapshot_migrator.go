@@ -1199,9 +1199,6 @@ func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
 						nextDueAt = nil
 					}
 					lastErrorCode := strings.TrimSpace(record.LastErrorCode)
-					if lastErrorCode == "" {
-						lastErrorCode = strings.TrimSpace(record.LastError)
-					}
 					policyVersion := strings.TrimSpace(record.PolicyVersion)
 					if policyVersion == "" {
 						policyVersion = appcfg.ReminderPolicyVersion

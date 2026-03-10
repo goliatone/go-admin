@@ -18,7 +18,7 @@ func newPhase10SQLiteBootstrap(t *testing.T, dsn string) *BootstrapResult {
 	cfg.SQLite.DSN = dsn
 	cfg.Postgres.DSN = ""
 
-	bootstrap, err := Bootstrap(context.Background(), *cfg)
+	bootstrap, err := Bootstrap(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("Bootstrap: %v", err)
 	}

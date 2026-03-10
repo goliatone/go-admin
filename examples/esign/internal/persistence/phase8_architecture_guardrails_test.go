@@ -102,7 +102,7 @@ func TestPhase8GuardrailLegacyDSNAliasesAreIgnoredByRuntimeDialectResolution(t *
 	sqliteCfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectSQLite
 	sqliteCfg.SQLite.DSN = ""
 	sqliteCfg.Databases.ESignDSN = "file:/tmp/legacy.sqlite?_busy_timeout=5000&_foreign_keys=on"
-	if _, err := resolveDSN(*sqliteCfg, DialectSQLite); err == nil {
+	if _, err := resolveDSN(sqliteCfg, DialectSQLite); err == nil {
 		t.Fatalf("expected sqlite resolveDSN failure when sqlite.dsn is missing and only legacy alias is set")
 	}
 
@@ -110,7 +110,7 @@ func TestPhase8GuardrailLegacyDSNAliasesAreIgnoredByRuntimeDialectResolution(t *
 	postgresCfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectPostgres
 	postgresCfg.Postgres.DSN = ""
 	postgresCfg.Databases.ESignDSN = "postgres://legacy:legacy@localhost:5432/esign?sslmode=disable"
-	if _, err := resolveDSN(*postgresCfg, DialectPostgres); err == nil {
+	if _, err := resolveDSN(postgresCfg, DialectPostgres); err == nil {
 		t.Fatalf("expected postgres resolveDSN failure when postgres.dsn is missing and only legacy alias is set")
 	}
 
@@ -118,7 +118,7 @@ func TestPhase8GuardrailLegacyDSNAliasesAreIgnoredByRuntimeDialectResolution(t *
 	ignoredAliasCfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectSQLite
 	ignoredAliasCfg.SQLite.DSN = "file:/tmp/sqlite-safe.sqlite?_busy_timeout=5000&_foreign_keys=on"
 	ignoredAliasCfg.Databases.ESignDSN = "postgres://legacy:legacy@localhost:5432/esign?sslmode=disable"
-	dsn, err := resolveDSN(*ignoredAliasCfg, DialectSQLite)
+	dsn, err := resolveDSN(ignoredAliasCfg, DialectSQLite)
 	if err != nil {
 		t.Fatalf("expected explicit sqlite.dsn to resolve even with conflicting legacy alias present: %v", err)
 	}
