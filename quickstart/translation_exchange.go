@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
+	gocommand "github.com/goliatone/go-command"
 )
 
 // ErrTranslationExchangeConfig indicates invalid quickstart exchange wiring.
@@ -19,6 +20,9 @@ type TranslationExchangeAsyncApplyFunc func(context.Context, admin.TranslationIm
 // TranslationExchangeConfig configures optional translation exchange wiring in quickstart.
 type TranslationExchangeConfig struct {
 	Enabled bool `json:"enabled,omitempty"`
+	// CommandExecutionMode applies per-command routing policy overrides for translation exchange commands.
+	// Hosts can still override specific command ids through WithCommandExecutionPolicy.
+	CommandExecutionMode gocommand.ExecutionMode `json:"command_execution_mode,omitempty"`
 
 	Store     admin.TranslationExchangeStore     `json:"-"`
 	Exporter  admin.TranslationExchangeExporter  `json:"-"`
