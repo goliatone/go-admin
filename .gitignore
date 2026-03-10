@@ -68,3 +68,6 @@ docs/
 !docs/GUIDES_*.md
 pkg/client/assets/tenant/tenant-bootstrap/
 pkg/client/assets/tenant/tenant-runtime/*
+pkg/client/assets/dist-types/
+pkg/client/assets/.dist-staging/
+pkg/client/assets/.dist-prev/
