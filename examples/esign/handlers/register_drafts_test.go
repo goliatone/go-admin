@@ -151,9 +151,10 @@ func TestRegisterDraftLifecycleEndpoints(t *testing.T) {
 
 	docSvc := services.NewDocumentService(store)
 	doc, err := docSvc.Upload(ctx, scope, services.DocumentUploadInput{
-		Title:     "Draft Lifecycle Source",
-		ObjectKey: "tenant/tenant-1/org/org-1/docs/draft-lifecycle/source.pdf",
-		PDF:       services.GenerateDeterministicPDF(1),
+		Title:              "Draft Lifecycle Source",
+		ObjectKey:          "tenant/tenant-1/org/org-1/docs/draft-lifecycle/source.pdf",
+		SourceOriginalName: "source.pdf",
+		PDF:                services.GenerateDeterministicPDF(1),
 	})
 	if err != nil {
 		t.Fatalf("Upload: %v", err)
@@ -296,9 +297,10 @@ func TestRegisterDraftSendAndExpiryFlows(t *testing.T) {
 
 	docSvc := services.NewDocumentService(store)
 	doc, err := docSvc.Upload(ctx, scope, services.DocumentUploadInput{
-		Title:     "Draft Send Source",
-		ObjectKey: "tenant/tenant-1/org/org-1/docs/draft-send/source.pdf",
-		PDF:       services.GenerateDeterministicPDF(1),
+		Title:              "Draft Send Source",
+		ObjectKey:          "tenant/tenant-1/org/org-1/docs/draft-send/source.pdf",
+		SourceOriginalName: "source.pdf",
+		PDF:                services.GenerateDeterministicPDF(1),
 	})
 	if err != nil {
 		t.Fatalf("Upload: %v", err)

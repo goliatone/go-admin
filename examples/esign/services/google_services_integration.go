@@ -527,6 +527,7 @@ func (s GoogleServicesIntegrationService) ImportDocument(ctx context.Context, sc
 
 	document, err := s.documents.Upload(ctx, scope, DocumentUploadInput{
 		Title:                  documentTitle,
+		SourceOriginalName:     strings.TrimSpace(snapshot.File.Name),
 		ObjectKey:              googleImportObjectKey(scope, fileID, exportedAt),
 		PDF:                    append([]byte{}, snapshot.PDF...),
 		CreatedBy:              createdByUserID,

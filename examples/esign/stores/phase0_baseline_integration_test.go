@@ -17,12 +17,13 @@ func phase0BaseTime() time.Time {
 func createPhase0Document(t *testing.T, ctx context.Context, store *SQLiteStore, scope Scope, id string, createdAt time.Time) DocumentRecord {
 	t.Helper()
 	record, err := store.Create(ctx, scope, DocumentRecord{
-		ID:              id,
-		Title:           "Phase 0 Document " + id,
-		SourceObjectKey: "tenant/" + scope.TenantID + "/org/" + scope.OrgID + "/documents/" + id + ".pdf",
-		SourceSHA256:    strings.Repeat("a", 64),
-		CreatedAt:       createdAt,
-		UpdatedAt:       createdAt,
+		ID:                 id,
+		Title:              "Phase 0 Document " + id,
+		SourceObjectKey:    "tenant/" + scope.TenantID + "/org/" + scope.OrgID + "/documents/" + id + ".pdf",
+		SourceOriginalName: "source.pdf",
+		SourceSHA256:       strings.Repeat("a", 64),
+		CreatedAt:          createdAt,
+		UpdatedAt:          createdAt,
 	})
 	if err != nil {
 		t.Fatalf("Create document %s: %v", id, err)

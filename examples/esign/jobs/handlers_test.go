@@ -112,9 +112,10 @@ func setupCompletedAgreement(t *testing.T) (context.Context, stores.Scope, *stor
 
 	docSvc := services.NewDocumentService(store)
 	doc, err := docSvc.Upload(ctx, scope, services.DocumentUploadInput{
-		Title:     "Agreement Source",
-		ObjectKey: "tenant/tenant-1/org/org-1/docs/doc-1/original.pdf",
-		PDF:       samplePDF(),
+		Title:              "Agreement Source",
+		ObjectKey:          "tenant/tenant-1/org/org-1/docs/doc-1/original.pdf",
+		SourceOriginalName: "source.pdf",
+		PDF:                samplePDF(),
 	})
 	if err != nil {
 		t.Fatalf("Upload: %v", err)
@@ -672,10 +673,11 @@ func TestHandlersExecutePDFBackfillDocumentsFailsOnPartialFailuresByDefault(t *t
 	documents := &failingBackfillDocumentStore{
 		documents: []stores.DocumentRecord{
 			{
-				ID:              "doc-backfill-fail",
-				Title:           "Backfill Fail",
-				SourceObjectKey: sourceKey,
-				SourceSHA256:    strings.Repeat("a", 64),
+				ID:                 "doc-backfill-fail",
+				Title:              "Backfill Fail",
+				SourceObjectKey:    sourceKey,
+				SourceOriginalName: "source.pdf",
+				SourceSHA256:       strings.Repeat("a", 64),
 			},
 		},
 		saveErr: errors.New("save metadata failed"),
@@ -716,10 +718,11 @@ func TestHandlersExecutePDFBackfillDocumentsAllowsPartialFailuresWhenConfigured(
 	documents := &failingBackfillDocumentStore{
 		documents: []stores.DocumentRecord{
 			{
-				ID:              "doc-backfill-optout",
-				Title:           "Backfill Opt-out",
-				SourceObjectKey: sourceKey,
-				SourceSHA256:    strings.Repeat("a", 64),
+				ID:                 "doc-backfill-optout",
+				Title:              "Backfill Opt-out",
+				SourceObjectKey:    sourceKey,
+				SourceOriginalName: "source.pdf",
+				SourceSHA256:       strings.Repeat("a", 64),
 			},
 		},
 		saveErr: errors.New("save metadata failed"),
@@ -761,10 +764,11 @@ func TestHandlersExecutePDFBackfillDocumentsUsesInjectedPDFServicePolicy(t *test
 	documents := &failingBackfillDocumentStore{
 		documents: []stores.DocumentRecord{
 			{
-				ID:              "doc-backfill-policy",
-				Title:           "Backfill Policy",
-				SourceObjectKey: sourceKey,
-				SourceSHA256:    hex.EncodeToString(sum[:]),
+				ID:                 "doc-backfill-policy",
+				Title:              "Backfill Policy",
+				SourceObjectKey:    sourceKey,
+				SourceOriginalName: "source.pdf",
+				SourceSHA256:       hex.EncodeToString(sum[:]),
 			},
 		},
 	}

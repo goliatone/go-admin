@@ -66,9 +66,10 @@ func TestDocumentServiceUploadPersistsMetadata(t *testing.T) {
 
 	raw := samplePDF(1)
 	record, err := svc.Upload(ctx, scope, DocumentUploadInput{
-		Title:     "NDA",
-		ObjectKey: "tenant/tenant-1/org/org-1/docs/doc-1/original.pdf",
-		PDF:       raw,
+		Title:              "NDA",
+		ObjectKey:          "tenant/tenant-1/org/org-1/docs/doc-1/original.pdf",
+		SourceOriginalName: "source.pdf",
+		PDF:                raw,
 	})
 	if err != nil {
 		t.Fatalf("Upload: %v", err)
@@ -111,7 +112,21 @@ func TestDocumentServiceUploadPersistsMetadata(t *testing.T) {
 
 func TestDocumentServiceUploadRequiresObjectKey(t *testing.T) {
 	svc := NewDocumentService(stores.NewInMemoryStore())
-	_, err := svc.Upload(context.Background(), stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}, DocumentUploadInput{PDF: samplePDF(1)})
+	_, err := svc.Upload(context.Background(), stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}, DocumentUploadInput{
+		SourceOriginalName: "source.pdf",
+		PDF:                samplePDF(1),
+	})
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+}
+
+func TestDocumentServiceUploadRequiresSourceOriginalName(t *testing.T) {
+	svc := NewDocumentService(stores.NewInMemoryStore())
+	_, err := svc.Upload(context.Background(), stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}, DocumentUploadInput{
+		ObjectKey: "tenant/tenant-1/org/org-1/docs/doc-1/source.pdf",
+		PDF:       samplePDF(1),
+	})
 	if err == nil {
 		t.Fatal("expected validation error")
 	}
@@ -127,9 +142,10 @@ func TestDocumentServiceUploadPersistsSourcePDFWhenObjectStoreConfigured(t *test
 	raw := samplePDF(1)
 	objectKey := "tenant/tenant-1/org/org-1/docs/doc-1/original.pdf"
 	record, err := svc.Upload(ctx, scope, DocumentUploadInput{
-		Title:     "NDA",
-		ObjectKey: objectKey,
-		PDF:       raw,
+		Title:              "NDA",
+		ObjectKey:          objectKey,
+		SourceOriginalName: "source.pdf",
+		PDF:                raw,
 	})
 	if err != nil {
 		t.Fatalf("Upload: %v", err)
@@ -177,9 +193,10 @@ func TestDocumentServiceUploadMarksNormalizationFailedWhenNormalizeImportFails(t
 	raw := samplePDF(1)
 	objectKey := "tenant/tenant-1/org/org-1/docs/doc-1/original.pdf"
 	record, err := svc.Upload(ctx, scope, DocumentUploadInput{
-		Title:     "NDA",
-		ObjectKey: objectKey,
-		PDF:       raw,
+		Title:              "NDA",
+		ObjectKey:          objectKey,
+		SourceOriginalName: "source.pdf",
+		PDF:                raw,
 	})
 	if err != nil {
 		t.Fatalf("Upload: %v", err)
@@ -227,9 +244,10 @@ func TestDocumentServiceUploadMarksNormalizationFailureLimitedWhenPreviewFallbac
 	}
 
 	record, err := svc.Upload(ctx, scope, DocumentUploadInput{
-		Title:     "NDA",
-		ObjectKey: "tenant/tenant-1/org/org-1/docs/doc-1/original.pdf",
-		PDF:       samplePDF(1),
+		Title:              "NDA",
+		ObjectKey:          "tenant/tenant-1/org/org-1/docs/doc-1/original.pdf",
+		SourceOriginalName: "source.pdf",
+		PDF:                samplePDF(1),
 	})
 	if err != nil {
 		t.Fatalf("Upload: %v", err)
@@ -259,9 +277,10 @@ func TestDocumentServiceUploadRejectsPayloadExceedingPolicySize(t *testing.T) {
 	)))
 
 	_, err := svc.Upload(ctx, scope, DocumentUploadInput{
-		Title:     "Too Large",
-		ObjectKey: "tenant/tenant-1/org/org-1/docs/doc-large/source.pdf",
-		PDF:       samplePDF(1),
+		Title:              "Too Large",
+		ObjectKey:          "tenant/tenant-1/org/org-1/docs/doc-large/source.pdf",
+		SourceOriginalName: "source.pdf",
+		PDF:                samplePDF(1),
 	})
 	if err == nil {
 		t.Fatalf("expected max_source_bytes policy rejection")
@@ -292,9 +311,10 @@ func TestDocumentServiceUploadRejectsEncryptedPDFByPolicy(t *testing.T) {
 
 	raw := append(samplePDF(1), []byte("\n/Encrypt << /Filter /Standard >>\n")...)
 	_, err := svc.Upload(ctx, scope, DocumentUploadInput{
-		Title:     "Encrypted",
-		ObjectKey: "tenant/tenant-1/org/org-1/docs/doc-encrypted/source.pdf",
-		PDF:       raw,
+		Title:              "Encrypted",
+		ObjectKey:          "tenant/tenant-1/org/org-1/docs/doc-encrypted/source.pdf",
+		SourceOriginalName: "source.pdf",
+		PDF:                raw,
 	})
 	if err == nil {
 		t.Fatalf("expected encrypted policy rejection")
@@ -311,9 +331,10 @@ func TestDocumentServiceUploadRejectsInvalidInputWithValidationCode(t *testing.T
 	svc := NewDocumentService(store)
 
 	_, err := svc.Upload(ctx, scope, DocumentUploadInput{
-		Title:     "Invalid Input",
-		ObjectKey: "tenant/tenant-1/org/org-1/docs/doc-invalid/source.pdf",
-		PDF:       []byte("not-a-pdf"),
+		Title:              "Invalid Input",
+		ObjectKey:          "tenant/tenant-1/org/org-1/docs/doc-invalid/source.pdf",
+		SourceOriginalName: "source.pdf",
+		PDF:                []byte("not-a-pdf"),
 	})
 	if err == nil {
 		t.Fatalf("expected invalid-input rejection")
@@ -337,9 +358,10 @@ func TestDocumentServiceUploadRejectsCorruptObjectStream(t *testing.T) {
 
 	raw := []byte("%PDF-1.7\n1 0 obj\n<< /Length 5 >>\nstream\nabcde\nndstream\nendobj\n%%EOF\n")
 	_, err := svc.Upload(ctx, scope, DocumentUploadInput{
-		Title:     "Corrupt",
-		ObjectKey: "tenant/tenant-1/org/org-1/docs/doc-corrupt/source.pdf",
-		PDF:       raw,
+		Title:              "Corrupt",
+		ObjectKey:          "tenant/tenant-1/org/org-1/docs/doc-corrupt/source.pdf",
+		SourceOriginalName: "source.pdf",
+		PDF:                raw,
 	})
 	if err == nil {
 		t.Fatalf("expected corrupt object stream rejection")
@@ -363,9 +385,10 @@ func TestDocumentServiceUploadReflectsDynamicSettingsPolicyOverrides(t *testing.
 	svc := NewDocumentService(store, WithDocumentPDFService(pdfSvc))
 
 	if _, err := svc.Upload(ctx, scope, DocumentUploadInput{
-		Title:     "Two pages",
-		ObjectKey: "tenant/tenant-1/org/org-1/docs/doc-policy-1/source.pdf",
-		PDF:       samplePDF(2),
+		Title:              "Two pages",
+		ObjectKey:          "tenant/tenant-1/org/org-1/docs/doc-policy-1/source.pdf",
+		SourceOriginalName: "source.pdf",
+		PDF:                samplePDF(2),
 	}); err != nil {
 		t.Fatalf("expected upload to pass before settings override: %v", err)
 	}
@@ -380,9 +403,10 @@ func TestDocumentServiceUploadReflectsDynamicSettingsPolicyOverrides(t *testing.
 	}
 
 	if _, err := svc.Upload(ctx, scope, DocumentUploadInput{
-		Title:     "Two pages blocked",
-		ObjectKey: "tenant/tenant-1/org/org-1/docs/doc-policy-2/source.pdf",
-		PDF:       samplePDF(2),
+		Title:              "Two pages blocked",
+		ObjectKey:          "tenant/tenant-1/org/org-1/docs/doc-policy-2/source.pdf",
+		SourceOriginalName: "source.pdf",
+		PDF:                samplePDF(2),
 	}); err == nil {
 		t.Fatalf("expected upload rejection after settings max_pages override")
 	}
@@ -401,9 +425,10 @@ func TestDocumentServiceUploadAnalyzeOnlyAcceptsPolicyViolations(t *testing.T) {
 	)))
 
 	record, err := svc.Upload(ctx, scope, DocumentUploadInput{
-		Title:     "Analyze Only Upload",
-		ObjectKey: "tenant/tenant-1/org/org-1/docs/doc-analyze-only/source.pdf",
-		PDF:       samplePDF(2),
+		Title:              "Analyze Only Upload",
+		ObjectKey:          "tenant/tenant-1/org/org-1/docs/doc-analyze-only/source.pdf",
+		SourceOriginalName: "source.pdf",
+		PDF:                samplePDF(2),
 	})
 	if err != nil {
 		t.Fatalf("expected analyze_only upload to bypass policy rejection, got %v", err)
@@ -432,9 +457,10 @@ func TestDocumentServiceUploadAnalyzeOnlyDoesNotBypassSafetyLimits(t *testing.T)
 	)))
 
 	_, err := svc.Upload(ctx, scope, DocumentUploadInput{
-		Title:     "Analyze Only Still Safe",
-		ObjectKey: "tenant/tenant-1/org/org-1/docs/doc-analyze-only-safe/source.pdf",
-		PDF:       samplePDF(1),
+		Title:              "Analyze Only Still Safe",
+		ObjectKey:          "tenant/tenant-1/org/org-1/docs/doc-analyze-only-safe/source.pdf",
+		SourceOriginalName: "source.pdf",
+		PDF:                samplePDF(1),
 	})
 	if err == nil {
 		t.Fatalf("expected source-size rejection even in analyze_only mode")

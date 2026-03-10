@@ -301,7 +301,7 @@ func TestMigrationsExposeGoogleSourceMetadataAndCredentialTable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("tableColumnNames(documents): %v", err)
 	}
-	for _, col := range []string{"source_type", "source_google_file_id", "source_google_doc_url", "source_modified_time", "source_exported_at", "source_exported_by_user_id"} {
+	for _, col := range []string{"source_original_name", "source_type", "source_google_file_id", "source_google_doc_url", "source_modified_time", "source_exported_at", "source_exported_by_user_id"} {
 		if !contains(documentCols, col) {
 			t.Fatalf("expected documents.%s column", col)
 		}

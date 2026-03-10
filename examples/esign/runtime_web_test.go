@@ -632,8 +632,9 @@ func TestRuntimeLandingRendersRecentAgreementsFromStoreData(t *testing.T) {
 	}
 
 	documentID := createPanelRecordWithCookie(t, app, authCookie, "/admin/api/v1/panels/esign_documents?"+query, map[string]any{
-		"title":      fmt.Sprintf("Landing Recent Doc %d", time.Now().UnixNano()),
-		"pdf_base64": base64.StdEncoding.EncodeToString(services.GenerateDeterministicPDF(1)),
+		"title":                fmt.Sprintf("Landing Recent Doc %d", time.Now().UnixNano()),
+		"source_original_name": "landing-recent-doc.pdf",
+		"pdf_base64":           base64.StdEncoding.EncodeToString(services.GenerateDeterministicPDF(1)),
 	})
 	agreementTitle := fmt.Sprintf("Landing Recent Agreement %d", time.Now().UnixNano())
 	createPanelRecordWithCookie(t, app, authCookie, "/admin/api/v1/panels/esign_agreements?"+query, map[string]any{
@@ -853,6 +854,7 @@ func TestRuntimeSignerWebE2ERecipientJourneyFromSignLinkToSubmit(t *testing.T) {
 	documentReqBody := url.Values{}
 	documentReqBody.Set("title", documentTitle)
 	documentReqBody.Set("source_object_key", objectKey)
+	documentReqBody.Set("source_original_name", "signer-journey-document.pdf")
 	createDocumentResp := doRequestWithCookieAndBody(
 		t,
 		app,
@@ -1140,6 +1142,7 @@ func TestRuntimeSignerWebE2EUnifiedFlowConsentFieldSignatureSubmit(t *testing.T)
 	documentReqBody := url.Values{}
 	documentReqBody.Set("title", fmt.Sprintf("Unified Journey Doc %d", time.Now().UnixNano()))
 	documentReqBody.Set("source_object_key", objectKey)
+	documentReqBody.Set("source_original_name", "unified-journey-document.pdf")
 	createDocumentResp := doRequestWithCookieAndBody(
 		t,
 		app,

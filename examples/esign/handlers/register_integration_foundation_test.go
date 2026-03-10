@@ -279,11 +279,12 @@ func createIntegrationAgreementForHandlerTests(t *testing.T, store *stores.InMem
 	t.Helper()
 	ctx := context.Background()
 	doc, err := store.Create(ctx, scope, stores.DocumentRecord{
-		Title:           "Handler Integration Document",
-		SourceObjectKey: "tenant/tenant-1/org/org-1/docs/handler-integration.pdf",
-		SourceSHA256:    strings.Repeat("b", 64),
-		SizeBytes:       1024,
-		PageCount:       1,
+		Title:              "Handler Integration Document",
+		SourceObjectKey:    "tenant/tenant-1/org/org-1/docs/handler-integration.pdf",
+		SourceOriginalName: "source.pdf",
+		SourceSHA256:       strings.Repeat("b", 64),
+		SizeBytes:          1024,
+		PageCount:          1,
 	})
 	if err != nil {
 		t.Fatalf("Create document: %v", err)

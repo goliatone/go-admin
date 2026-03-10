@@ -273,7 +273,9 @@ func estimateAuditTrailTimelineRowHeight(pdf *gofpdf.Fpdf, style auditTrailStyle
 		lines = []string{"-"}
 	}
 	height := 26 + float64(len(lines))*11
-	height += 11
+	if shouldRenderAuditTrailIP(entry) {
+		height += 11
+	}
 	if height < 56 {
 		height = 56
 	}
@@ -322,16 +324,27 @@ func drawAuditTrailTimelineRow(pdf *gofpdf.Fpdf, style auditTrailStyle, entry Au
 	pdf.SetTextColor(descriptionColor.R, descriptionColor.G, descriptionColor.B)
 	pdf.MultiCell(contentWidth, 11, description, "", "L", false)
 
-	pdf.SetFont("Courier", "", 8)
-	pdf.SetTextColor(style.Muted.R, style.Muted.G, style.Muted.B)
-	pdf.SetX(contentX)
-	pdf.CellFormat(contentWidth, 10, "IP: "+DisplayAuditIPAddress(entry.IPAddress), "", 1, "L", false, 0, "")
+	if shouldRenderAuditTrailIP(entry) {
+		pdf.SetFont("Courier", "", 8)
+		pdf.SetTextColor(style.Muted.R, style.Muted.G, style.Muted.B)
+		pdf.SetX(contentX)
+		pdf.CellFormat(contentWidth, 10, "IP: "+DisplayAuditIPAddress(entry.IPAddress), "", 1, "L", false, 0, "")
+	}
 
 	nextY := startY + rowHeight
 	if pdf.GetY()+4 > nextY {
 		nextY = pdf.GetY() + 4
 	}
 	return nextY
+}
+
+func shouldRenderAuditTrailIP(entry AuditTrailEntry) bool {
+	switch strings.ToUpper(strings.TrimSpace(entry.EventType)) {
+	case AuditTrailEventCreated, AuditTrailEventSent:
+		return false
+	default:
+		return true
+	}
 }
 
 func auditTrailMetadataRows(doc AuditTrailDocument, opts auditTrailRenderOptions) []auditTrailMetadataRow {

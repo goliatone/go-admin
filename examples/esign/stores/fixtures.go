@@ -57,9 +57,9 @@ func SeedCoreFixtures(ctx context.Context, db bun.IDB, scope Scope) (FixtureSet,
 	}
 
 	if _, err := db.ExecContext(ctx, `
-INSERT INTO documents (id, tenant_id, org_id, title, source_object_key, source_sha256, size_bytes, page_count, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-`, fx.DocumentID, scope.TenantID, scope.OrgID, "Fixture Document", "fixtures/documents/source.pdf", strings.Repeat("a", 64), 1024, 1, now, now); err != nil {
+INSERT INTO documents (id, tenant_id, org_id, title, source_original_name, source_object_key, source_sha256, size_bytes, page_count, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`, fx.DocumentID, scope.TenantID, scope.OrgID, "Fixture Document", "fixture-source.pdf", "fixtures/documents/source.pdf", strings.Repeat("a", 64), 1024, 1, now, now); err != nil {
 		return FixtureSet{}, err
 	}
 

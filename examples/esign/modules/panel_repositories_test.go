@@ -71,8 +71,9 @@ func TestDocumentPanelRepositoryCreateLoadsPDFBytesFromSourceObjectKey(t *testin
 	repo := newDocumentPanelRepository(store, services.NewDocumentService(store), manager, defaultModuleScope, RuntimeSettings{})
 
 	created, err := repo.Create(context.Background(), map[string]any{
-		"title":             "Master Service Agreement",
-		"source_object_key": objectKey,
+		"title":                "Master Service Agreement",
+		"source_object_key":    objectKey,
+		"source_original_name": "msa.pdf",
 	})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
@@ -107,15 +108,16 @@ func TestDocumentPanelRepositoryListAppliesSearchCreatedByAndScopeFilters(t *tes
 	}
 	for _, doc := range seedDocs {
 		if _, err := store.Create(context.Background(), doc.scope, stores.DocumentRecord{
-			ID:              doc.id,
-			Title:           doc.title,
-			CreatedByUserID: doc.creator,
-			SourceObjectKey: "tenant/" + doc.scope.TenantID + "/org/" + doc.scope.OrgID + "/docs/" + doc.id + ".pdf",
-			SourceSHA256:    strings.Repeat("b", 64),
-			SizeBytes:       4096,
-			PageCount:       2,
-			CreatedAt:       now,
-			UpdatedAt:       now,
+			ID:                 doc.id,
+			Title:              doc.title,
+			CreatedByUserID:    doc.creator,
+			SourceObjectKey:    "tenant/" + doc.scope.TenantID + "/org/" + doc.scope.OrgID + "/docs/" + doc.id + ".pdf",
+			SourceOriginalName: "source.pdf",
+			SourceSHA256:       strings.Repeat("b", 64),
+			SizeBytes:          4096,
+			PageCount:          2,
+			CreatedAt:          now,
+			UpdatedAt:          now,
 		}); err != nil {
 			t.Fatalf("seed document %s: %v", doc.id, err)
 		}
@@ -152,26 +154,28 @@ func TestDocumentPanelRepositoryListSupportsLegacySearchFilters(t *testing.T) {
 
 	for _, doc := range []stores.DocumentRecord{
 		{
-			ID:              "doc-legacy-search-a",
-			Title:           "Umbrella Agreement",
-			CreatedByUserID: "user-a",
-			SourceObjectKey: "tenant/" + scope.TenantID + "/org/" + scope.OrgID + "/docs/doc-legacy-search-a.pdf",
-			SourceSHA256:    strings.Repeat("c", 64),
-			SizeBytes:       1024,
-			PageCount:       1,
-			CreatedAt:       now,
-			UpdatedAt:       now,
+			ID:                 "doc-legacy-search-a",
+			Title:              "Umbrella Agreement",
+			CreatedByUserID:    "user-a",
+			SourceObjectKey:    "tenant/" + scope.TenantID + "/org/" + scope.OrgID + "/docs/doc-legacy-search-a.pdf",
+			SourceOriginalName: "source.pdf",
+			SourceSHA256:       strings.Repeat("c", 64),
+			SizeBytes:          1024,
+			PageCount:          1,
+			CreatedAt:          now,
+			UpdatedAt:          now,
 		},
 		{
-			ID:              "doc-legacy-search-b",
-			Title:           "Mutual NDA",
-			CreatedByUserID: "user-a",
-			SourceObjectKey: "tenant/" + scope.TenantID + "/org/" + scope.OrgID + "/docs/doc-legacy-search-b.pdf",
-			SourceSHA256:    strings.Repeat("d", 64),
-			SizeBytes:       1024,
-			PageCount:       1,
-			CreatedAt:       now,
-			UpdatedAt:       now,
+			ID:                 "doc-legacy-search-b",
+			Title:              "Mutual NDA",
+			CreatedByUserID:    "user-a",
+			SourceObjectKey:    "tenant/" + scope.TenantID + "/org/" + scope.OrgID + "/docs/doc-legacy-search-b.pdf",
+			SourceOriginalName: "source.pdf",
+			SourceSHA256:       strings.Repeat("d", 64),
+			SizeBytes:          1024,
+			PageCount:          1,
+			CreatedAt:          now,
+			UpdatedAt:          now,
 		},
 	} {
 		if _, err := store.Create(context.Background(), scope, doc); err != nil {
@@ -770,14 +774,15 @@ func TestAgreementPanelRepositoryCreateExpandsFieldRules(t *testing.T) {
 	scope := defaultModuleScope
 	now := time.Now().UTC()
 	if _, err := store.Create(context.Background(), scope, stores.DocumentRecord{
-		ID:              "doc-create-rules-1",
-		Title:           "Rules Document",
-		SourceObjectKey: "tenant/" + scope.TenantID + "/org/" + scope.OrgID + "/docs/doc-create-rules-1.pdf",
-		SourceSHA256:    strings.Repeat("a", 64),
-		SizeBytes:       2048,
-		PageCount:       4,
-		CreatedAt:       now,
-		UpdatedAt:       now,
+		ID:                 "doc-create-rules-1",
+		Title:              "Rules Document",
+		SourceObjectKey:    "tenant/" + scope.TenantID + "/org/" + scope.OrgID + "/docs/doc-create-rules-1.pdf",
+		SourceOriginalName: "source.pdf",
+		SourceSHA256:       strings.Repeat("a", 64),
+		SizeBytes:          2048,
+		PageCount:          4,
+		CreatedAt:          now,
+		UpdatedAt:          now,
 	}); err != nil {
 		t.Fatalf("seed document: %v", err)
 	}
@@ -866,14 +871,15 @@ func TestAgreementPanelRepositoryCreateMergesFieldPlacementsForExpandedRuleField
 	scope := defaultModuleScope
 	now := time.Now().UTC()
 	if _, err := store.Create(context.Background(), scope, stores.DocumentRecord{
-		ID:              "doc-create-rules-placement-1",
-		Title:           "Rules Placement Document",
-		SourceObjectKey: "tenant/" + scope.TenantID + "/org/" + scope.OrgID + "/docs/doc-create-rules-placement-1.pdf",
-		SourceSHA256:    strings.Repeat("a", 64),
-		SizeBytes:       2048,
-		PageCount:       4,
-		CreatedAt:       now,
-		UpdatedAt:       now,
+		ID:                 "doc-create-rules-placement-1",
+		Title:              "Rules Placement Document",
+		SourceObjectKey:    "tenant/" + scope.TenantID + "/org/" + scope.OrgID + "/docs/doc-create-rules-placement-1.pdf",
+		SourceOriginalName: "source.pdf",
+		SourceSHA256:       strings.Repeat("a", 64),
+		SizeBytes:          2048,
+		PageCount:          4,
+		CreatedAt:          now,
+		UpdatedAt:          now,
 	}); err != nil {
 		t.Fatalf("seed document: %v", err)
 	}
@@ -962,14 +968,15 @@ func TestAgreementPanelRepositoryCreateExpandsFieldRulesFromDecodedJSONPayload(t
 	scope := defaultModuleScope
 	now := time.Now().UTC()
 	if _, err := store.Create(context.Background(), scope, stores.DocumentRecord{
-		ID:              "doc-create-rules-decoded-1",
-		Title:           "Rules Decoded Document",
-		SourceObjectKey: "tenant/" + scope.TenantID + "/org/" + scope.OrgID + "/docs/doc-create-rules-decoded-1.pdf",
-		SourceSHA256:    strings.Repeat("a", 64),
-		SizeBytes:       2048,
-		PageCount:       4,
-		CreatedAt:       now,
-		UpdatedAt:       now,
+		ID:                 "doc-create-rules-decoded-1",
+		Title:              "Rules Decoded Document",
+		SourceObjectKey:    "tenant/" + scope.TenantID + "/org/" + scope.OrgID + "/docs/doc-create-rules-decoded-1.pdf",
+		SourceOriginalName: "source.pdf",
+		SourceSHA256:       strings.Repeat("a", 64),
+		SizeBytes:          2048,
+		PageCount:          4,
+		CreatedAt:          now,
+		UpdatedAt:          now,
 	}); err != nil {
 		t.Fatalf("seed document: %v", err)
 	}
@@ -1872,14 +1879,15 @@ func seedESignDocument(t *testing.T, store *stores.InMemoryStore, scope stores.S
 	t.Helper()
 	now := time.Now().UTC()
 	_, err := store.Create(context.Background(), scope, stores.DocumentRecord{
-		ID:              id,
-		Title:           "Seed Document",
-		SourceObjectKey: "tenant/" + scope.TenantID + "/org/" + scope.OrgID + "/docs/" + id + ".pdf",
-		SourceSHA256:    strings.Repeat("a", 64),
-		SizeBytes:       2048,
-		PageCount:       1,
-		CreatedAt:       now,
-		UpdatedAt:       now,
+		ID:                 id,
+		Title:              "Seed Document",
+		SourceObjectKey:    "tenant/" + scope.TenantID + "/org/" + scope.OrgID + "/docs/" + id + ".pdf",
+		SourceOriginalName: "source.pdf",
+		SourceSHA256:       strings.Repeat("a", 64),
+		SizeBytes:          2048,
+		PageCount:          1,
+		CreatedAt:          now,
+		UpdatedAt:          now,
 	})
 	if err != nil {
 		t.Fatalf("seed document: %v", err)

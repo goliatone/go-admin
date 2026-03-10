@@ -119,6 +119,7 @@ type DocumentRecord struct {
 	OrgID                  string
 	CreatedByUserID        string
 	Title                  string
+	SourceOriginalName     string
 	SourceObjectKey        string
 	NormalizedObjectKey    string
 	SourceSHA256           string

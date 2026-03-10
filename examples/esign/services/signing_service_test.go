@@ -740,9 +740,10 @@ func TestSigningServiceGetSessionPrefersNormalizedSourceWhenOriginalUnavailable(
 
 	docSvc := NewDocumentService(store, WithDocumentObjectStore(manager))
 	document, err := docSvc.Upload(ctx, scope, DocumentUploadInput{
-		Title:     "Master Services Agreement",
-		ObjectKey: "tenant/tenant-1/org/org-1/docs/doc-normalized/original.pdf",
-		PDF:       samplePDF(2),
+		Title:              "Master Services Agreement",
+		ObjectKey:          "tenant/tenant-1/org/org-1/docs/doc-normalized/original.pdf",
+		SourceOriginalName: "source.pdf",
+		PDF:                samplePDF(2),
 	})
 	if err != nil {
 		t.Fatalf("Upload: %v", err)
@@ -811,9 +812,10 @@ func TestSigningServiceGetSessionStrictModeReturnsUnsupportedWhenNormalizedUnava
 
 	docSvc := NewDocumentService(store)
 	document, err := docSvc.Upload(ctx, scope, DocumentUploadInput{
-		Title:     "Master Services Agreement",
-		ObjectKey: "tenant/tenant-1/org/org-1/docs/doc-strict/original.pdf",
-		PDF:       samplePDF(2),
+		Title:              "Master Services Agreement",
+		ObjectKey:          "tenant/tenant-1/org/org-1/docs/doc-strict/original.pdf",
+		SourceOriginalName: "source.pdf",
+		PDF:                samplePDF(2),
 	})
 	if err != nil {
 		t.Fatalf("Upload: %v", err)

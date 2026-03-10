@@ -19,12 +19,13 @@ func TestLandingOverviewBuildsStatsAndRecentRows(t *testing.T) {
 	}
 
 	document, err := store.Create(ctx, scope, stores.DocumentRecord{
-		ID:              "doc-landing-overview",
-		Title:           "Landing Overview Source",
-		SourceObjectKey: "tenant/tenant-bootstrap/org/org-bootstrap/docs/landing-overview.pdf",
-		SourceSHA256:    strings.Repeat("a", 64),
-		SizeBytes:       1024,
-		PageCount:       1,
+		ID:                 "doc-landing-overview",
+		Title:              "Landing Overview Source",
+		SourceObjectKey:    "tenant/tenant-bootstrap/org/org-bootstrap/docs/landing-overview.pdf",
+		SourceOriginalName: "source.pdf",
+		SourceSHA256:       strings.Repeat("a", 64),
+		SizeBytes:          1024,
+		PageCount:          1,
 	})
 	if err != nil {
 		t.Fatalf("create document: %v", err)

@@ -354,10 +354,11 @@ func runV2AgreementLifecycle(
 	signingSvc services.SigningService,
 ) (v2AgreementMetrics, error) {
 	doc, err := documentSvc.Upload(ctx, scope, services.DocumentUploadInput{
-		Title:     fmt.Sprintf("V2 Validation Document %03d", index+1),
-		ObjectKey: fmt.Sprintf("tenant/%s/org/%s/docs/v2-validation-%03d/source.pdf", scope.TenantID, scope.OrgID, index+1),
-		PDF:       samplePDF(1),
-		CreatedBy: "release-v2-validation",
+		Title:              fmt.Sprintf("V2 Validation Document %03d", index+1),
+		SourceOriginalName: fmt.Sprintf("v2-validation-%03d-source.pdf", index+1),
+		ObjectKey:          fmt.Sprintf("tenant/%s/org/%s/docs/v2-validation-%03d/source.pdf", scope.TenantID, scope.OrgID, index+1),
+		PDF:                samplePDF(1),
+		CreatedBy:          "release-v2-validation",
 	})
 	if err != nil {
 		return v2AgreementMetrics{}, fmt.Errorf("upload document: %w", err)

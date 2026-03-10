@@ -38,10 +38,11 @@ func TestPhase10RuntimeStoreSQLiteDoesNotWriteLegacySnapshotState(t *testing.T) 
 
 	scope := stores.Scope{TenantID: "tenant-phase10", OrgID: "org-phase10"}
 	if _, err := adapter.Create(context.Background(), scope, stores.DocumentRecord{
-		ID:              "doc-phase10-cutover",
-		CreatedByUserID: "user-phase10",
-		SourceObjectKey: "tenant/tenant-phase10/org/org-phase10/docs/doc-phase10-cutover.pdf",
-		SourceSHA256:    strings.Repeat("a", 64),
+		ID:                 "doc-phase10-cutover",
+		CreatedByUserID:    "user-phase10",
+		SourceObjectKey:    "tenant/tenant-phase10/org/org-phase10/docs/doc-phase10-cutover.pdf",
+		SourceOriginalName: "source.pdf",
+		SourceSHA256:       strings.Repeat("a", 64),
 	}); err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -73,10 +74,11 @@ func TestPhase10RuntimeStoreSQLitePersistsAcrossBootstrapRestart(t *testing.T) {
 		t.Fatalf("NewStoreAdapter first: %v", err)
 	}
 	if _, err := firstStore.Create(context.Background(), scope, stores.DocumentRecord{
-		ID:              "doc-phase10-restart",
-		CreatedByUserID: "user-phase10-restart",
-		SourceObjectKey: "tenant/tenant-phase10-restart/org/org-phase10-restart/docs/doc-phase10-restart.pdf",
-		SourceSHA256:    strings.Repeat("b", 64),
+		ID:                 "doc-phase10-restart",
+		CreatedByUserID:    "user-phase10-restart",
+		SourceObjectKey:    "tenant/tenant-phase10-restart/org/org-phase10-restart/docs/doc-phase10-restart.pdf",
+		SourceOriginalName: "source.pdf",
+		SourceSHA256:       strings.Repeat("b", 64),
 	}); err != nil {
 		_ = firstCleanup()
 		_ = first.Close()

@@ -57,9 +57,10 @@ func TestStoreAdapterWithTxRollsBackOnCallbackError(t *testing.T) {
 
 	err = adapter.WithTx(ctx, func(tx stores.TxStore) error {
 		_, createErr := tx.Create(ctx, scope, stores.DocumentRecord{
-			ID:              "doc-rollback",
-			SourceObjectKey: "tenant/tenant-phase4/org/org-phase4/docs/doc-rollback.pdf",
-			SourceSHA256:    strings.Repeat("a", 64),
+			ID:                 "doc-rollback",
+			SourceObjectKey:    "tenant/tenant-phase4/org/org-phase4/docs/doc-rollback.pdf",
+			SourceOriginalName: "source.pdf",
+			SourceSHA256:       strings.Repeat("a", 64),
 		})
 		if createErr != nil {
 			return createErr

@@ -23,7 +23,7 @@ func TestInMemoryStoreRequiresScope(t *testing.T) {
 	store := NewInMemoryStore()
 	ctx := context.Background()
 
-	if _, err := store.Create(ctx, Scope{}, DocumentRecord{SourceObjectKey: "source.pdf", SourceSHA256: strings.Repeat("a", 64)}); err == nil {
+	if _, err := store.Create(ctx, Scope{}, DocumentRecord{SourceObjectKey: "source.pdf", SourceOriginalName: "source.pdf", SourceSHA256: strings.Repeat("a", 64)}); err == nil {
 		t.Fatalf("expected scope validation error on document create")
 	}
 	if _, err := store.ListAgreements(ctx, Scope{}, AgreementQuery{}); err == nil {
@@ -43,9 +43,10 @@ func TestInMemoryStoreWithTxExecutesCallback(t *testing.T) {
 	if err := store.WithTx(ctx, func(tx TxStore) error {
 		calls++
 		_, err := tx.Create(ctx, scope, DocumentRecord{
-			ID:              "doc-tx-1",
-			SourceObjectKey: "tenant/tenant-1/org/org-1/docs/doc-tx-1.pdf",
-			SourceSHA256:    strings.Repeat("a", 64),
+			ID:                 "doc-tx-1",
+			SourceObjectKey:    "tenant/tenant-1/org/org-1/docs/doc-tx-1.pdf",
+			SourceOriginalName: "source.pdf",
+			SourceSHA256:       strings.Repeat("a", 64),
 		})
 		return err
 	}); err != nil {
@@ -447,6 +448,7 @@ func TestInMemoryStorePersistsGoogleSourceMetadata(t *testing.T) {
 	doc, err := store.Create(ctx, scope, DocumentRecord{
 		Title:                  "Imported Google Doc",
 		SourceObjectKey:        "tenant/tenant-1/org/org-1/docs/google-import.pdf",
+		SourceOriginalName:     "source.pdf",
 		SourceSHA256:           strings.Repeat("a", 64),
 		SizeBytes:              1024,
 		PageCount:              2,

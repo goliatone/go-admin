@@ -141,16 +141,17 @@ func createLegacyBackfillDocument(t *testing.T, ctx context.Context, store store
 	t.Helper()
 	sum := sha256.Sum256(source)
 	record, err := store.Create(ctx, scope, stores.DocumentRecord{
-		ID:               id,
-		Title:            "Legacy Backfill Source",
-		SourceObjectKey:  objectKey,
-		SourceSHA256:     hex.EncodeToString(sum[:]),
-		SourceType:       stores.SourceTypeUpload,
-		SizeBytes:        int64(len(source)),
-		PageCount:        1,
-		CreatedAt:        now,
-		UpdatedAt:        now,
-		PDFPolicyVersion: "",
+		ID:                 id,
+		Title:              "Legacy Backfill Source",
+		SourceObjectKey:    objectKey,
+		SourceOriginalName: "source.pdf",
+		SourceSHA256:       hex.EncodeToString(sum[:]),
+		SourceType:         stores.SourceTypeUpload,
+		SizeBytes:          int64(len(source)),
+		PageCount:          1,
+		CreatedAt:          now,
+		UpdatedAt:          now,
+		PDFPolicyVersion:   "",
 	})
 	if err != nil {
 		t.Fatalf("Create legacy document: %v", err)

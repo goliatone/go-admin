@@ -103,9 +103,10 @@ func setupDraftAgreement(t *testing.T) (context.Context, stores.Scope, *stores.I
 	clock := time.Date(2026, 1, 10, 11, 0, 0, 0, time.UTC)
 	docSvc := NewDocumentService(store, WithDocumentClock(func() time.Time { return clock }))
 	doc, err := docSvc.Upload(ctx, scope, DocumentUploadInput{
-		Title:     "Master Services Agreement",
-		ObjectKey: "tenant/tenant-1/org/org-1/docs/doc-1/original.pdf",
-		PDF:       samplePDF(2),
+		Title:              "Master Services Agreement",
+		ObjectKey:          "tenant/tenant-1/org/org-1/docs/doc-1/original.pdf",
+		SourceOriginalName: "source.pdf",
+		PDF:                samplePDF(2),
 	})
 	if err != nil {
 		t.Fatalf("Upload: %v", err)
@@ -634,6 +635,7 @@ func TestAgreementServiceSendBlocksUnsupportedPDFCompatibility(t *testing.T) {
 		ID:                     "doc-unsupported",
 		Title:                  "Unsupported Source",
 		SourceObjectKey:        "tenant/tenant-1/org/org-1/docs/doc-unsupported/original.pdf",
+		SourceOriginalName:     "source.pdf",
 		SourceSHA256:           strings.Repeat("a", 64),
 		SourceType:             stores.SourceTypeUpload,
 		PDFCompatibilityTier:   string(PDFCompatibilityTierUnsupported),
@@ -696,6 +698,7 @@ func TestAgreementServiceSendAuditsLimitedPDFCompatibility(t *testing.T) {
 		ID:                     "doc-limited",
 		Title:                  "Limited Source",
 		SourceObjectKey:        "tenant/tenant-1/org/org-1/docs/doc-limited/original.pdf",
+		SourceOriginalName:     "source.pdf",
 		SourceSHA256:           strings.Repeat("b", 64),
 		SourceType:             stores.SourceTypeUpload,
 		PDFCompatibilityTier:   string(PDFCompatibilityTierLimited),
@@ -1113,9 +1116,10 @@ func TestAgreementServicePersistsIPAddressForLifecycleAuditEvents(t *testing.T) 
 
 	docSvc := NewDocumentService(store)
 	document, err := docSvc.Upload(ctx, scope, DocumentUploadInput{
-		Title:     "IP Lifecycle Contract",
-		ObjectKey: "tenant/tenant-1/org/org-1/docs/doc-ip/source.pdf",
-		PDF:       samplePDF(1),
+		Title:              "IP Lifecycle Contract",
+		ObjectKey:          "tenant/tenant-1/org/org-1/docs/doc-ip/source.pdf",
+		SourceOriginalName: "source.pdf",
+		PDF:                samplePDF(1),
 	})
 	if err != nil {
 		t.Fatalf("upload source document: %v", err)

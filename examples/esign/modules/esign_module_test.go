@@ -93,9 +93,10 @@ func TestESignModuleRegistersPanelsSettingsRoleDefaultsAndCommandActions(t *test
 	}
 
 	documentID := createPanelRecord(t, server, "/admin/api/v1/panels/esign_documents?tenant_id=tenant-bootstrap&org_id=org-bootstrap", map[string]any{
-		"title":             "Master Service Agreement",
-		"source_object_key": "tenant/tenant-bootstrap/org/org-bootstrap/docs/master-service-agreement.pdf",
-		"pdf_base64":        encodeTestPDF(1),
+		"title":                "Master Service Agreement",
+		"source_original_name": "master-service-agreement.pdf",
+		"source_object_key":    "tenant/tenant-bootstrap/org/org-bootstrap/docs/master-service-agreement.pdf",
+		"pdf_base64":           encodeTestPDF(1),
 	})
 	agreementID := createPanelRecord(t, server, "/admin/api/v1/panels/esign_agreements?tenant_id=tenant-bootstrap&org_id=org-bootstrap", map[string]any{
 		"document_id": documentID,
