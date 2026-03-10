@@ -136,6 +136,18 @@ type DocumentRecord struct {
 	PDFNormalizationStatus string
 	PDFAnalyzedAt          *time.Time
 	PDFPolicyVersion       string
+	RemediationStatus      string
+	RemediationActorID     string
+	RemediationCommandID   string
+	RemediationDispatchID  string
+	RemediationExecMode    string
+	RemediationCorrelation string
+	RemediationFailure     string
+	RemediationOriginalKey string
+	RemediationOutputKey   string
+	RemediationRequestedAt *time.Time
+	RemediationStartedAt   *time.Time
+	RemediationCompletedAt *time.Time
 	SizeBytes              int64
 	PageCount              int
 	CreatedAt              time.Time
@@ -200,6 +212,7 @@ type RecipientRecord struct {
 	Email         string
 	Name          string
 	Role          string
+	Notify        bool
 
 	SigningOrder  int
 	FirstViewAt   *time.Time
@@ -222,6 +235,7 @@ type ParticipantRecord struct {
 	Email         string
 	Name          string
 	Role          string
+	Notify        bool
 	SigningStage  int
 	FirstViewAt   *time.Time
 	LastViewAt    *time.Time
@@ -839,8 +853,68 @@ type DocumentMetadataPatch struct {
 	PDFNormalizationStatus string
 	PDFAnalyzedAt          *time.Time
 	PDFPolicyVersion       string
+	RemediationStatus      string
+	RemediationActorID     string
+	RemediationCommandID   string
+	RemediationDispatchID  string
+	RemediationExecMode    string
+	RemediationCorrelation string
+	RemediationFailure     string
+	RemediationOriginalKey string
+	RemediationOutputKey   string
+	RemediationRequestedAt *time.Time
+	RemediationStartedAt   *time.Time
+	RemediationCompletedAt *time.Time
 	SizeBytes              int64
 	PageCount              int
+}
+
+// DocumentRemediationLeaseAcquireInput controls document-scoped lease acquisition.
+type DocumentRemediationLeaseAcquireInput struct {
+	Now           time.Time
+	TTL           time.Duration
+	WorkerID      string
+	CorrelationID string
+}
+
+// DocumentRemediationLeaseRenewInput controls lease heartbeat renewal.
+type DocumentRemediationLeaseRenewInput struct {
+	Now      time.Time
+	TTL      time.Duration
+	Document string
+	Lease    DocumentRemediationLeaseToken
+}
+
+// DocumentRemediationLeaseReleaseInput controls lease release semantics.
+type DocumentRemediationLeaseReleaseInput struct {
+	Now   time.Time
+	Lease DocumentRemediationLeaseToken
+}
+
+// DocumentRemediationLeaseToken fences concurrent remediation workers.
+type DocumentRemediationLeaseToken struct {
+	WorkerID string
+	LeaseSeq int64
+}
+
+// DocumentRemediationLeaseRecord captures persisted lease metadata.
+type DocumentRemediationLeaseRecord struct {
+	DocumentID      string
+	TenantID        string
+	OrgID           string
+	WorkerID        string
+	LeaseSeq        int64
+	CorrelationID   string
+	AcquiredAt      *time.Time
+	LastHeartbeatAt *time.Time
+	ExpiresAt       *time.Time
+	UpdatedAt       time.Time
+}
+
+// DocumentRemediationLeaseClaim returns an acquired or renewed lease snapshot.
+type DocumentRemediationLeaseClaim struct {
+	Record DocumentRemediationLeaseRecord
+	Lease  DocumentRemediationLeaseToken
 }
 
 type AgreementQuery struct {
@@ -886,6 +960,7 @@ type RecipientDraftPatch struct {
 	Email        *string
 	Name         *string
 	Role         *string
+	Notify       *bool
 	SigningOrder *int
 }
 
@@ -894,6 +969,7 @@ type ParticipantDraftPatch struct {
 	Email        *string
 	Name         *string
 	Role         *string
+	Notify       *bool
 	SigningStage *int
 }
 

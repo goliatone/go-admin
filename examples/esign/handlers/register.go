@@ -302,6 +302,7 @@ func participantRecordToMap(record stores.ParticipantRecord) map[string]any {
 		"email":          strings.TrimSpace(record.Email),
 		"name":           strings.TrimSpace(record.Name),
 		"role":           strings.TrimSpace(record.Role),
+		"notify":         record.Notify,
 		"signing_stage":  record.SigningStage,
 		"first_view_at":  formatTime(record.FirstViewAt),
 		"last_view_at":   formatTime(record.LastViewAt),

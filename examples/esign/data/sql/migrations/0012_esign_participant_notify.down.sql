@@ -1,0 +1,2 @@
+-- SQLite/Postgres column rollback intentionally omitted.
+-- Notify preference is additive and safe to keep after rollback.

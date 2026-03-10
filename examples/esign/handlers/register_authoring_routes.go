@@ -46,6 +46,7 @@ func registerAgreementAuthoringRoutes(adminRoutes routeRegistrar, routes RouteSe
 				Email           string `json:"email"`
 				Name            string `json:"name"`
 				Role            string `json:"role"`
+				Notify          *bool  `json:"notify"`
 				SigningStage    *int   `json:"signing_stage"`
 				SigningOrder    *int   `json:"signing_order"`
 				ExpectedVersion int64  `json:"expected_version"`
@@ -65,6 +66,9 @@ func registerAgreementAuthoringRoutes(adminRoutes routeRegistrar, routes RouteSe
 			}
 			if role := strings.ToLower(strings.TrimSpace(payload.Role)); role != "" {
 				patch.Role = &role
+			}
+			if payload.Notify != nil {
+				patch.Notify = payload.Notify
 			}
 			if stage := firstIntPointer(payload.SigningStage, payload.SigningOrder); stage != nil {
 				patch.SigningStage = stage
@@ -93,6 +97,7 @@ func registerAgreementAuthoringRoutes(adminRoutes routeRegistrar, routes RouteSe
 				Email           string `json:"email"`
 				Name            string `json:"name"`
 				Role            string `json:"role"`
+				Notify          *bool  `json:"notify"`
 				SigningStage    *int   `json:"signing_stage"`
 				SigningOrder    *int   `json:"signing_order"`
 				ExpectedVersion int64  `json:"expected_version"`
@@ -109,6 +114,9 @@ func registerAgreementAuthoringRoutes(adminRoutes routeRegistrar, routes RouteSe
 			}
 			if role := strings.ToLower(strings.TrimSpace(payload.Role)); role != "" {
 				patch.Role = &role
+			}
+			if payload.Notify != nil {
+				patch.Notify = payload.Notify
 			}
 			if stage := firstIntPointer(payload.SigningStage, payload.SigningOrder); stage != nil {
 				patch.SigningStage = stage

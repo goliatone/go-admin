@@ -930,6 +930,7 @@ func recipientsToMaps(agreement stores.AgreementRecord, records []stores.Recipie
 			"email":           record.Email,
 			"name":            record.Name,
 			"role":            record.Role,
+			"notify":          record.Notify,
 			"status":          status,
 			"signing_order":   record.SigningOrder,
 			"signing_stage":   record.SigningOrder,
@@ -1074,6 +1075,7 @@ type agreementRecipientFormInput struct {
 	Name         string
 	Email        string
 	Role         string
+	Notify       bool
 	SigningStage int
 }
 
@@ -1227,6 +1229,7 @@ func (r *agreementPanelRepository) syncDraftRecipients(
 			Email:        &email,
 			Name:         &name,
 			Role:         &role,
+			Notify:       boolPtr(input.Notify),
 			SigningOrder: &signingStage,
 		}
 		expectedVersion := int64(0)
@@ -1387,6 +1390,10 @@ func parseAgreementRecipientFormInputs(record map[string]any) ([]agreementRecipi
 		if stageRaw == "" {
 			stageRaw = strings.TrimSpace(toString(entry["signing_order"]))
 		}
+		notify := true
+		if rawNotify, ok := entry["notify"]; ok {
+			notify = toBool(rawNotify)
+		}
 		signingStage := int(toInt64(stageRaw))
 		if id == "" && name == "" && email == "" && role == "" && signingStage <= 0 {
 			continue
@@ -1396,6 +1403,7 @@ func parseAgreementRecipientFormInputs(record map[string]any) ([]agreementRecipi
 			Name:         name,
 			Email:        email,
 			Role:         role,
+			Notify:       notify,
 			SigningStage: signingStage,
 		})
 	}
@@ -2380,6 +2388,10 @@ func stringPtr(value string) *string {
 		return nil
 	}
 	return &trimmed
+}
+
+func boolPtr(value bool) *bool {
+	return &value
 }
 
 func lookupFilter(filters map[string]any, keys ...string) string {

@@ -647,16 +647,21 @@ func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
 		},
 		{
 			table:    "recipients",
-			columns:  []string{"id", "tenant_id", "org_id", "agreement_id", "email", "name", "role", "signing_order", "first_view_at", "last_view_at", "declined_at", "decline_reason", "completed_at", "version", "created_at", "updated_at"},
+			columns:  []string{"id", "tenant_id", "org_id", "agreement_id", "email", "name", "role", "notify", "signing_order", "first_view_at", "last_view_at", "declined_at", "decline_reason", "completed_at", "version", "created_at", "updated_at"},
 			conflict: []string{"id"},
 			rows: func(snapshot legacySQLiteSnapshot) []map[string]any {
 				rows := make([]map[string]any, 0, len(snapshot.Recipients)+len(snapshot.Participants))
+				defaultNotifyEnabled := legacySnapshotNotifyDefaultsEnabled(snapshot)
 				addRecipient := func(record stores.RecipientRecord) {
 					createdAt := requiredTime(record.CreatedAt, now())
 					updatedAt := requiredTime(record.UpdatedAt, createdAt)
 					version := record.Version
 					if version <= 0 {
 						version = 1
+					}
+					notify := record.Notify
+					if defaultNotifyEnabled {
+						notify = true
 					}
 					rows = append(rows, map[string]any{
 						"id":             strings.TrimSpace(record.ID),
@@ -666,6 +671,7 @@ func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
 						"email":          strings.TrimSpace(record.Email),
 						"name":           strings.TrimSpace(record.Name),
 						"role":           strings.TrimSpace(record.Role),
+						"notify":         notify,
 						"signing_order":  record.SigningOrder,
 						"first_view_at":  optionalTime(record.FirstViewAt),
 						"last_view_at":   optionalTime(record.LastViewAt),
@@ -695,6 +701,7 @@ func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
 						Email:         participant.Email,
 						Name:          participant.Name,
 						Role:          participant.Role,
+						Notify:        participant.Notify,
 						SigningOrder:  participant.SigningStage,
 						FirstViewAt:   participant.FirstViewAt,
 						LastViewAt:    participant.LastViewAt,
@@ -712,16 +719,21 @@ func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
 		},
 		{
 			table:    "participants",
-			columns:  []string{"id", "tenant_id", "org_id", "agreement_id", "email", "name", "role", "signing_stage", "first_view_at", "last_view_at", "declined_at", "decline_reason", "completed_at", "version", "created_at", "updated_at"},
+			columns:  []string{"id", "tenant_id", "org_id", "agreement_id", "email", "name", "role", "notify", "signing_stage", "first_view_at", "last_view_at", "declined_at", "decline_reason", "completed_at", "version", "created_at", "updated_at"},
 			conflict: []string{"id"},
 			rows: func(snapshot legacySQLiteSnapshot) []map[string]any {
 				rows := make([]map[string]any, 0, len(snapshot.Participants))
+				defaultNotifyEnabled := legacySnapshotNotifyDefaultsEnabled(snapshot)
 				for _, record := range sortedMapValues(snapshot.Participants) {
 					createdAt := requiredTime(record.CreatedAt, now())
 					updatedAt := requiredTime(record.UpdatedAt, createdAt)
 					version := record.Version
 					if version <= 0 {
 						version = 1
+					}
+					notify := record.Notify
+					if defaultNotifyEnabled {
+						notify = true
 					}
 					rows = append(rows, map[string]any{
 						"id":             strings.TrimSpace(record.ID),
@@ -731,6 +743,7 @@ func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
 						"email":          strings.TrimSpace(record.Email),
 						"name":           strings.TrimSpace(record.Name),
 						"role":           strings.TrimSpace(record.Role),
+						"notify":         notify,
 						"signing_stage":  record.SigningStage,
 						"first_view_at":  optionalTime(record.FirstViewAt),
 						"last_view_at":   optionalTime(record.LastViewAt),
@@ -1680,6 +1693,22 @@ func marshalJSONWithDefault(value any, fallback string) string {
 		return fallback
 	}
 	return encoded
+}
+
+// legacySnapshotNotifyDefaultsEnabled returns true when a legacy snapshot likely
+// predates the notify flag (all values decode as zero-value false).
+func legacySnapshotNotifyDefaultsEnabled(snapshot legacySQLiteSnapshot) bool {
+	for _, record := range snapshot.Recipients {
+		if record.Notify {
+			return false
+		}
+	}
+	for _, record := range snapshot.Participants {
+		if record.Notify {
+			return false
+		}
+	}
+	return true
 }
 
 func sortedMapValues[T any](records map[string]T) []T {

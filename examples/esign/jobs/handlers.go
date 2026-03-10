@@ -827,7 +827,7 @@ func (h Handlers) RunCompletionWorkflow(ctx context.Context, scope stores.Scope,
 	}
 	var firstErr error
 	for _, recipient := range recipients {
-		if recipient.Role != stores.RecipientRoleCC {
+		if !recipient.Notify {
 			continue
 		}
 		err := h.ExecuteEmailSendSigningRequest(ctx, EmailSendSigningRequestMsg{
