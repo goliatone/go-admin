@@ -15,6 +15,11 @@ type AlertPolicy struct {
 	PDFIngestPolicyRejectTotalThreshold int64
 	PDFPreviewFallbackTotalThreshold    int64
 	PDFRenderImportFailTotalThreshold   int64
+	DedupStoreMissTotalThreshold        int64
+	RemediationRetryingTotalThreshold   int64
+	RemediationDeadLetterTotalThreshold int64
+	RemediationLockContentionThreshold  int64
+	RemediationLockTimeoutThreshold     int64
 }
 
 // DefaultAlertPolicy returns baseline thresholds for e-sign runtime alerting.
@@ -31,6 +36,11 @@ func DefaultAlertPolicy() AlertPolicy {
 		PDFIngestPolicyRejectTotalThreshold: 1,
 		PDFPreviewFallbackTotalThreshold:    1,
 		PDFRenderImportFailTotalThreshold:   1,
+		DedupStoreMissTotalThreshold:        1,
+		RemediationRetryingTotalThreshold:   1,
+		RemediationDeadLetterTotalThreshold: 1,
+		RemediationLockContentionThreshold:  1,
+		RemediationLockTimeoutThreshold:     1,
 	}
 }
 
@@ -76,6 +86,21 @@ func EvaluateAlerts(snapshot MetricsSnapshot, policy AlertPolicy) []Alert {
 	}
 	if policy.PDFRenderImportFailTotalThreshold <= 0 {
 		policy.PDFRenderImportFailTotalThreshold = DefaultAlertPolicy().PDFRenderImportFailTotalThreshold
+	}
+	if policy.DedupStoreMissTotalThreshold <= 0 {
+		policy.DedupStoreMissTotalThreshold = DefaultAlertPolicy().DedupStoreMissTotalThreshold
+	}
+	if policy.RemediationRetryingTotalThreshold <= 0 {
+		policy.RemediationRetryingTotalThreshold = DefaultAlertPolicy().RemediationRetryingTotalThreshold
+	}
+	if policy.RemediationDeadLetterTotalThreshold <= 0 {
+		policy.RemediationDeadLetterTotalThreshold = DefaultAlertPolicy().RemediationDeadLetterTotalThreshold
+	}
+	if policy.RemediationLockContentionThreshold <= 0 {
+		policy.RemediationLockContentionThreshold = DefaultAlertPolicy().RemediationLockContentionThreshold
+	}
+	if policy.RemediationLockTimeoutThreshold <= 0 {
+		policy.RemediationLockTimeoutThreshold = DefaultAlertPolicy().RemediationLockTimeoutThreshold
 	}
 
 	alerts := []Alert{}
@@ -240,6 +265,73 @@ func EvaluateAlerts(snapshot MetricsSnapshot, policy AlertPolicy) []Alert {
 				"failure_total":    snapshot.PDFRenderImportFailTotal,
 				"threshold_total":  policy.PDFRenderImportFailTotalThreshold,
 				"failure_by_label": snapshot.PDFRenderImportFailByReasonTier,
+			},
+		})
+	}
+
+	if snapshot.DedupStoreMissTotal >= policy.DedupStoreMissTotalThreshold {
+		alerts = append(alerts, Alert{
+			Code:     "command.dedup_store_miss_detected",
+			Severity: "critical",
+			Message:  "command dedup-store misses detected",
+			Metadata: map[string]any{
+				"dedup_store_miss_total":       snapshot.DedupStoreMissTotal,
+				"threshold_total":              policy.DedupStoreMissTotalThreshold,
+				"dedup_store_miss_by_command":  snapshot.DedupStoreMissByCommandID,
+				"dispatch_rejected_by_reason":  snapshot.CommandDispatchRejectedByReason,
+				"dispatch_accepted_by_command": snapshot.CommandDispatchAcceptedByID,
+			},
+		})
+	}
+
+	if snapshot.RemediationRetryingTotal >= policy.RemediationRetryingTotalThreshold {
+		alerts = append(alerts, Alert{
+			Code:     "pdf.remediation_retrying_high",
+			Severity: "warning",
+			Message:  "pdf remediation retrying transitions above threshold",
+			Metadata: map[string]any{
+				"retrying_total":  snapshot.RemediationRetryingTotal,
+				"threshold_total": policy.RemediationRetryingTotalThreshold,
+				"dispatch_states": snapshot.RemediationDispatchStateByStatus,
+			},
+		})
+	}
+
+	if snapshot.RemediationDeadLetterTotal >= policy.RemediationDeadLetterTotalThreshold {
+		alerts = append(alerts, Alert{
+			Code:     "pdf.remediation_dead_letter_high",
+			Severity: "critical",
+			Message:  "pdf remediation dead-letter transitions above threshold",
+			Metadata: map[string]any{
+				"dead_letter_total": snapshot.RemediationDeadLetterTotal,
+				"threshold_total":   policy.RemediationDeadLetterTotalThreshold,
+				"dispatch_states":   snapshot.RemediationDispatchStateByStatus,
+			},
+		})
+	}
+
+	if snapshot.RemediationLockContentionTotal >= policy.RemediationLockContentionThreshold {
+		alerts = append(alerts, Alert{
+			Code:     "pdf.remediation_lock_contention_high",
+			Severity: "warning",
+			Message:  "pdf remediation lock contention above threshold",
+			Metadata: map[string]any{
+				"contention_total": snapshot.RemediationLockContentionTotal,
+				"threshold_total":  policy.RemediationLockContentionThreshold,
+				"lock_signals":     snapshot.RemediationLockSignals,
+			},
+		})
+	}
+
+	if snapshot.RemediationLockTimeoutTotal >= policy.RemediationLockTimeoutThreshold {
+		alerts = append(alerts, Alert{
+			Code:     "pdf.remediation_lock_timeout_high",
+			Severity: "critical",
+			Message:  "pdf remediation lock timeouts above threshold",
+			Metadata: map[string]any{
+				"timeout_total":   snapshot.RemediationLockTimeoutTotal,
+				"threshold_total": policy.RemediationLockTimeoutThreshold,
+				"lock_signals":    snapshot.RemediationLockSignals,
 			},
 		})
 	}

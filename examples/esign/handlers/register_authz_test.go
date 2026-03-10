@@ -51,6 +51,9 @@ type remediationDispatchStatusStub struct {
 	err    error
 }
 
+type remediationTriggerFunc func(context.Context, RemediationTriggerInput) (RemediationDispatchReceipt, error)
+type remediationDispatchStatusFunc func(context.Context, string) (RemediationDispatchStatus, error)
+
 func (s agreementStatsStub) ListAgreements(context.Context, stores.Scope, stores.AgreementQuery) ([]stores.AgreementRecord, error) {
 	if s.err != nil {
 		return nil, s.err
@@ -101,6 +104,20 @@ func (s remediationDispatchStatusStub) LookupRemediationDispatchStatus(context.C
 		return RemediationDispatchStatus{}, s.err
 	}
 	return s.status, nil
+}
+
+func (fn remediationTriggerFunc) TriggerRemediation(ctx context.Context, input RemediationTriggerInput) (RemediationDispatchReceipt, error) {
+	if fn == nil {
+		return RemediationDispatchReceipt{}, nil
+	}
+	return fn(ctx, input)
+}
+
+func (fn remediationDispatchStatusFunc) LookupRemediationDispatchStatus(ctx context.Context, dispatchID string) (RemediationDispatchStatus, error) {
+	if fn == nil {
+		return RemediationDispatchStatus{}, nil
+	}
+	return fn(ctx, dispatchID)
 }
 
 type sharedDriveEdgeProvider struct {
@@ -703,6 +720,162 @@ func TestRegisterRemediationTriggerModeOverrideAllowedWithAdminSettings(t *testi
 	}
 }
 
+func TestRegisterRemediationTriggerDeniesScopeMismatch(t *testing.T) {
+	app := setupRegisterTestApp(t,
+		WithAuthorizer(mapAuthorizer{allowed: map[string]bool{
+			DefaultPermissions.AdminEdit: true,
+		}}),
+		WithRemediationTrigger(remediationTriggerFunc(func(context.Context, RemediationTriggerInput) (RemediationDispatchReceipt, error) {
+			return RemediationDispatchReceipt{
+				Accepted:   true,
+				Mode:       "queued",
+				CommandID:  "esign.pdf.remediate",
+				DispatchID: "dispatch-1",
+			}, nil
+		})),
+		WithDefaultScope(stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}),
+	)
+	req := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/documents/doc-1/remediate?tenant_id=tenant-2&org_id=org-1", nil)
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("expected status 403, got %d", resp.StatusCode)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read response body: %v", err)
+	}
+	if !strings.Contains(string(body), "SCOPE_DENIED") {
+		t.Fatalf("expected SCOPE_DENIED response, got %s", string(body))
+	}
+}
+
+func TestRegisterRemediationTriggerReturnsQueuedReceiptAndStatusURL(t *testing.T) {
+	app := setupRegisterTestApp(t,
+		WithAuthorizer(mapAuthorizer{allowed: map[string]bool{
+			DefaultPermissions.AdminEdit: true,
+		}}),
+		WithRemediationTrigger(remediationTriggerFunc(func(context.Context, RemediationTriggerInput) (RemediationDispatchReceipt, error) {
+			enqueuedAt := time.Date(2026, 3, 8, 10, 0, 0, 0, time.UTC)
+			return RemediationDispatchReceipt{
+				Accepted:      true,
+				Mode:          "queued",
+				CommandID:     "esign.pdf.remediate",
+				DispatchID:    "dispatch-q-1",
+				CorrelationID: "corr-q-1",
+				EnqueuedAt:    &enqueuedAt,
+			}, nil
+		})),
+		WithDefaultScope(stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}),
+	)
+	req := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/documents/doc-1/remediate", nil)
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusAccepted {
+		t.Fatalf("expected status 202, got %d", resp.StatusCode)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read response body: %v", err)
+	}
+	bodyText := string(body)
+	for _, fragment := range []string{
+		"\"mode\":\"queued\"",
+		"\"accepted\":true",
+		"\"dispatch_id\":\"dispatch-q-1\"",
+		"\"dispatch_status_url\":\"/admin/api/v1/esign/dispatches/dispatch-q-1\"",
+	} {
+		if !strings.Contains(bodyText, fragment) {
+			t.Fatalf("expected response to contain %s, got %s", fragment, bodyText)
+		}
+	}
+}
+
+func TestRegisterRemediationTriggerMapsIdempotencyKeyAndRetries(t *testing.T) {
+	var calls int
+	var capturedKeys []string
+	var nextDispatchSeq int
+	seen := map[string]string{}
+	trigger := remediationTriggerFunc(func(_ context.Context, input RemediationTriggerInput) (RemediationDispatchReceipt, error) {
+		calls++
+		key := strings.TrimSpace(input.IdempotencyKey)
+		capturedKeys = append(capturedKeys, key)
+		dispatchID, ok := seen[key]
+		if !ok {
+			nextDispatchSeq++
+			dispatchID = fmt.Sprintf("dispatch-retry-%d", nextDispatchSeq)
+			seen[key] = dispatchID
+		}
+		return RemediationDispatchReceipt{
+			Accepted:      true,
+			Mode:          "queued",
+			CommandID:     "esign.pdf.remediate",
+			DispatchID:    dispatchID,
+			CorrelationID: strings.TrimSpace(input.CorrelationID),
+		}, nil
+	})
+	app := setupRegisterTestApp(t,
+		WithAuthorizer(mapAuthorizer{allowed: map[string]bool{
+			DefaultPermissions.AdminEdit: true,
+		}}),
+		WithRemediationTrigger(trigger),
+		WithDefaultScope(stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}),
+	)
+
+	reqOne := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/documents/doc-1/remediate", nil)
+	reqOne.Header.Set("Idempotency-Key", "remediate-key-1")
+	respOne, err := app.Test(reqOne, -1)
+	if err != nil {
+		t.Fatalf("request one failed: %v", err)
+	}
+	defer respOne.Body.Close()
+	if respOne.StatusCode != http.StatusAccepted {
+		body, _ := io.ReadAll(respOne.Body)
+		t.Fatalf("expected request one status 202, got %d body=%s", respOne.StatusCode, body)
+	}
+	bodyOne, err := io.ReadAll(respOne.Body)
+	if err != nil {
+		t.Fatalf("read request one body: %v", err)
+	}
+	dispatchOne := extractJSONFieldString(bodyOne, []string{"receipt", "dispatch_id"})
+
+	reqTwo := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/documents/doc-1/remediate", nil)
+	reqTwo.Header.Set("Idempotency-Key", "remediate-key-1")
+	respTwo, err := app.Test(reqTwo, -1)
+	if err != nil {
+		t.Fatalf("request two failed: %v", err)
+	}
+	defer respTwo.Body.Close()
+	if respTwo.StatusCode != http.StatusAccepted {
+		body, _ := io.ReadAll(respTwo.Body)
+		t.Fatalf("expected request two status 202, got %d body=%s", respTwo.StatusCode, body)
+	}
+	bodyTwo, err := io.ReadAll(respTwo.Body)
+	if err != nil {
+		t.Fatalf("read request two body: %v", err)
+	}
+	dispatchTwo := extractJSONFieldString(bodyTwo, []string{"receipt", "dispatch_id"})
+
+	if dispatchOne == "" || dispatchTwo == "" {
+		t.Fatalf("expected dispatch ids for both retries, got one=%q two=%q", dispatchOne, dispatchTwo)
+	}
+	if dispatchOne != dispatchTwo {
+		t.Fatalf("expected duplicate retries to return same dispatch id, got one=%q two=%q", dispatchOne, dispatchTwo)
+	}
+	if calls != 2 {
+		t.Fatalf("expected trigger to be invoked for each API retry, got %d", calls)
+	}
+	if len(capturedKeys) != 2 || capturedKeys[0] != "remediate-key-1" || capturedKeys[1] != "remediate-key-1" {
+		t.Fatalf("expected idempotency key to be passed through each retry, got %+v", capturedKeys)
+	}
+}
+
 func TestRegisterRemediationDispatchStatusRequiresAdminView(t *testing.T) {
 	app := setupRegisterTestApp(t,
 		WithAuthorizer(mapAuthorizer{allowed: map[string]bool{}}),
@@ -795,6 +968,278 @@ func TestRegisterRemediationDispatchStatusAllowsMatchingScope(t *testing.T) {
 	}
 	if !strings.Contains(string(body), "\"dispatch_id\":\"dispatch-1\"") {
 		t.Fatalf("expected dispatch payload in response, got %s", string(body))
+	}
+}
+
+func TestRegisterRemediationDispatchStatusNormalizesLifecycleStates(t *testing.T) {
+	testCases := []struct {
+		name         string
+		rawStatus    string
+		wantStatus   string
+		wantHTTPCode int
+	}{
+		{name: "requested maps accepted", rawStatus: "requested", wantStatus: "\"status\":\"accepted\"", wantHTTPCode: http.StatusOK},
+		{name: "started maps running", rawStatus: "started", wantStatus: "\"status\":\"running\"", wantHTTPCode: http.StatusOK},
+		{name: "failed stays failed", rawStatus: "failed", wantStatus: "\"status\":\"failed\"", wantHTTPCode: http.StatusOK},
+		{name: "cancelled maps canceled", rawStatus: "cancelled", wantStatus: "\"status\":\"canceled\"", wantHTTPCode: http.StatusOK},
+		{name: "deadletter maps dead_letter", rawStatus: "deadletter", wantStatus: "\"status\":\"dead_letter\"", wantHTTPCode: http.StatusOK},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			app := setupRegisterTestApp(t,
+				WithAuthorizer(mapAuthorizer{allowed: map[string]bool{
+					DefaultPermissions.AdminView: true,
+				}}),
+				WithRemediationDispatchStatusLookup(remediationDispatchStatusStub{
+					status: RemediationDispatchStatus{
+						DispatchID:     "dispatch-state-1",
+						Status:         tc.rawStatus,
+						TenantID:       "tenant-1",
+						OrgID:          "org-1",
+						Attempt:        2,
+						MaxAttempts:    4,
+						TerminalReason: "",
+					},
+				}),
+				WithDefaultScope(stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}),
+			)
+			req := httptest.NewRequest(http.MethodGet, "/admin/api/v1/esign/dispatches/dispatch-state-1", nil)
+			resp, err := app.Test(req, -1)
+			if err != nil {
+				t.Fatalf("request failed: %v", err)
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != tc.wantHTTPCode {
+				t.Fatalf("expected status %d, got %d", tc.wantHTTPCode, resp.StatusCode)
+			}
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				t.Fatalf("read response body: %v", err)
+			}
+			if !strings.Contains(string(body), tc.wantStatus) {
+				t.Fatalf("expected body to contain %s, got %s", tc.wantStatus, string(body))
+			}
+		})
+	}
+}
+
+func TestRegisterDraftWorkflowUnsupportedThenRemediateThenSend(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+	now := time.Date(2026, 3, 8, 9, 0, 0, 0, time.UTC)
+	document, err := store.Create(ctx, scope, stores.DocumentRecord{
+		ID:                     "doc-remediation-workflow",
+		Title:                  "Unsupported Source",
+		SourceObjectKey:        "tenant/tenant-1/org/org-1/docs/doc-remediation-workflow/original.pdf",
+		SourceOriginalName:     "source.pdf",
+		SourceSHA256:           strings.Repeat("b", 64),
+		SourceType:             stores.SourceTypeUpload,
+		PDFCompatibilityTier:   string(services.PDFCompatibilityTierUnsupported),
+		PDFCompatibilityReason: services.PDFCompatibilityReasonPreviewFallbackDisabled,
+		PDFNormalizationStatus: string(services.PDFNormalizationStatusFailed),
+		CreatedAt:              now,
+		UpdatedAt:              now,
+	})
+	if err != nil {
+		t.Fatalf("Create document: %v", err)
+	}
+
+	draftSvc := services.NewDraftService(store,
+		services.WithDraftAgreementService(services.NewAgreementService(store)),
+	)
+
+	dispatchID := "dispatch-workflow-1"
+	statusReads := 0
+	remediationTrigger := remediationTriggerFunc(func(ctx context.Context, input RemediationTriggerInput) (RemediationDispatchReceipt, error) {
+		startedAt := time.Date(2026, 3, 8, 9, 5, 0, 0, time.UTC)
+		completedAt := startedAt.Add(2 * time.Second)
+		_, patchErr := store.SaveMetadata(ctx, input.Scope, strings.TrimSpace(input.DocumentID), stores.DocumentMetadataPatch{
+			PDFCompatibilityTier:   string(services.PDFCompatibilityTierFull),
+			PDFCompatibilityReason: "",
+			PDFNormalizationStatus: string(services.PDFNormalizationStatusCompleted),
+			RemediationStatus:      services.PDFRemediationStatusSucceeded,
+			RemediationDispatchID:  dispatchID,
+			RemediationRequestedAt: &startedAt,
+			RemediationStartedAt:   &startedAt,
+			RemediationCompletedAt: &completedAt,
+		})
+		if patchErr != nil {
+			return RemediationDispatchReceipt{}, patchErr
+		}
+		enqueuedAt := startedAt.Add(-1 * time.Second)
+		return RemediationDispatchReceipt{
+			Accepted:      true,
+			Mode:          "queued",
+			CommandID:     "esign.pdf.remediate",
+			DispatchID:    dispatchID,
+			CorrelationID: strings.TrimSpace(input.CorrelationID),
+			EnqueuedAt:    &enqueuedAt,
+		}, nil
+	})
+	remediationStatus := remediationDispatchStatusFunc(func(_ context.Context, requestedDispatchID string) (RemediationDispatchStatus, error) {
+		if strings.TrimSpace(requestedDispatchID) != dispatchID {
+			return RemediationDispatchStatus{}, fmt.Errorf("dispatch not found")
+		}
+		statusReads++
+		status := "accepted"
+		if statusReads > 1 {
+			status = "succeeded"
+		}
+		updatedAt := now.Add(time.Duration(statusReads) * time.Second)
+		return RemediationDispatchStatus{
+			DispatchID:  dispatchID,
+			Status:      status,
+			TenantID:    scope.TenantID,
+			OrgID:       scope.OrgID,
+			Attempt:     1,
+			MaxAttempts: 3,
+			UpdatedAt:   &updatedAt,
+		}, nil
+	})
+
+	app := setupRegisterTestApp(t,
+		WithAuthorizer(mapAuthorizer{allowed: map[string]bool{
+			DefaultPermissions.AdminCreate: true,
+			DefaultPermissions.AdminView:   true,
+			DefaultPermissions.AdminEdit:   true,
+			DefaultPermissions.AdminSend:   true,
+		}}),
+		WithDraftWorkflowService(draftSvc),
+		WithRemediationTrigger(remediationTrigger),
+		WithRemediationDispatchStatusLookup(remediationStatus),
+		WithDefaultScope(scope),
+	)
+
+	requestJSON := func(method, path, userID string, payload any, headers map[string]string) (int, []byte) {
+		t.Helper()
+		var body io.Reader
+		if payload != nil {
+			raw, marshalErr := json.Marshal(payload)
+			if marshalErr != nil {
+				t.Fatalf("marshal payload: %v", marshalErr)
+			}
+			body = bytes.NewReader(raw)
+		}
+		req := httptest.NewRequest(method, path, body)
+		req.Header.Set("Accept", "application/json")
+		if payload != nil {
+			req.Header.Set("Content-Type", "application/json")
+		}
+		if strings.TrimSpace(userID) != "" {
+			req.Header.Set("X-User-ID", strings.TrimSpace(userID))
+		}
+		for key, value := range headers {
+			req.Header.Set(key, value)
+		}
+		resp, testErr := app.Test(req, -1)
+		if testErr != nil {
+			t.Fatalf("request %s %s failed: %v", method, path, testErr)
+		}
+		defer resp.Body.Close()
+		raw, readErr := io.ReadAll(resp.Body)
+		if readErr != nil {
+			t.Fatalf("read response body: %v", readErr)
+		}
+		return resp.StatusCode, raw
+	}
+
+	validWizardState := map[string]any{
+		"document": map[string]any{"id": document.ID},
+		"details": map[string]any{
+			"title":   "Needs Remediation",
+			"message": "Please sign",
+		},
+		"participants": []map[string]any{
+			{
+				"tempId": "participant-1",
+				"name":   "Signer One",
+				"email":  "signer@example.com",
+				"role":   "signer",
+				"order":  1,
+			},
+		},
+		"fieldDefinitions": []map[string]any{
+			{
+				"tempId":            "field-1",
+				"type":              "signature",
+				"participantTempId": "participant-1",
+				"required":          true,
+			},
+		},
+		"fieldPlacements": []map[string]any{
+			{
+				"fieldTempId": "field-1",
+				"page":        1,
+				"x":           120,
+				"y":           140,
+				"width":       180,
+				"height":      32,
+			},
+		},
+	}
+
+	userID := "workflow-user-1"
+	createStatus, createBody := requestJSON(http.MethodPost, "/admin/api/v1/esign/drafts", userID, map[string]any{
+		"wizard_id":    "wiz-remediation-workflow",
+		"wizard_state": validWizardState,
+		"title":        "Needs Remediation",
+		"current_step": 6,
+		"document_id":  document.ID,
+	}, nil)
+	if createStatus != http.StatusCreated {
+		t.Fatalf("expected create status 201, got %d body=%s", createStatus, string(createBody))
+	}
+	draftID := extractJSONFieldString(createBody, []string{"id"})
+	if draftID == "" {
+		t.Fatalf("expected draft id in create payload, got %s", string(createBody))
+	}
+
+	sendStatusBefore, sendBodyBefore := requestJSON(http.MethodPost, "/admin/api/v1/esign/drafts/"+draftID+"/send", userID, map[string]any{
+		"expected_revision": 1,
+	}, nil)
+	if sendStatusBefore != http.StatusUnprocessableEntity {
+		t.Fatalf("expected unsupported send status 422, got %d body=%s", sendStatusBefore, string(sendBodyBefore))
+	}
+	if !strings.Contains(string(sendBodyBefore), "PDF_UNSUPPORTED") {
+		t.Fatalf("expected PDF_UNSUPPORTED in send failure payload, got %s", string(sendBodyBefore))
+	}
+
+	triggerStatus, triggerBody := requestJSON(http.MethodPost, "/admin/api/v1/esign/documents/"+document.ID+"/remediate", userID, nil, map[string]string{
+		"Idempotency-Key": "remediation-workflow-key-1",
+	})
+	if triggerStatus != http.StatusAccepted {
+		t.Fatalf("expected remediation trigger status 202, got %d body=%s", triggerStatus, string(triggerBody))
+	}
+	dispatchStatusURL := extractJSONFieldString(triggerBody, []string{"dispatch_status_url"})
+	if strings.TrimSpace(dispatchStatusURL) == "" {
+		t.Fatalf("expected dispatch_status_url for queued remediation, got %s", string(triggerBody))
+	}
+
+	statusCodeOne, statusBodyOne := requestJSON(http.MethodGet, dispatchStatusURL, userID, nil, nil)
+	if statusCodeOne != http.StatusOK {
+		t.Fatalf("expected first status poll 200, got %d body=%s", statusCodeOne, string(statusBodyOne))
+	}
+	if !strings.Contains(string(statusBodyOne), "\"status\":\"accepted\"") {
+		t.Fatalf("expected first poll accepted status, got %s", string(statusBodyOne))
+	}
+
+	statusCodeTwo, statusBodyTwo := requestJSON(http.MethodGet, dispatchStatusURL, userID, nil, nil)
+	if statusCodeTwo != http.StatusOK {
+		t.Fatalf("expected second status poll 200, got %d body=%s", statusCodeTwo, string(statusBodyTwo))
+	}
+	if !strings.Contains(string(statusBodyTwo), "\"status\":\"succeeded\"") {
+		t.Fatalf("expected second poll succeeded status, got %s", string(statusBodyTwo))
+	}
+
+	sendStatusAfter, sendBodyAfter := requestJSON(http.MethodPost, "/admin/api/v1/esign/drafts/"+draftID+"/send", userID, map[string]any{
+		"expected_revision": 1,
+	}, nil)
+	if sendStatusAfter != http.StatusOK {
+		t.Fatalf("expected send-after-remediation status 200, got %d body=%s", sendStatusAfter, string(sendBodyAfter))
+	}
+	if extractJSONFieldString(sendBodyAfter, []string{"agreement_id"}) == "" {
+		t.Fatalf("expected agreement_id after remediation, got %s", string(sendBodyAfter))
 	}
 }
 

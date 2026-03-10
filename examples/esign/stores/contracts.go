@@ -23,6 +23,13 @@ type DocumentRemediationLeaseStore interface {
 	ReleaseDocumentRemediationLease(ctx context.Context, scope Scope, documentID string, input DocumentRemediationLeaseReleaseInput) error
 }
 
+// RemediationDispatchStore defines durable remediation dispatch/index persistence.
+type RemediationDispatchStore interface {
+	SaveRemediationDispatch(ctx context.Context, scope Scope, record RemediationDispatchRecord) (RemediationDispatchRecord, error)
+	GetRemediationDispatch(ctx context.Context, dispatchID string) (RemediationDispatchRecord, error)
+	GetRemediationDispatchByIdempotencyKey(ctx context.Context, scope Scope, key string) (RemediationDispatchRecord, error)
+}
+
 // AgreementStore defines agreement persistence with immutable-after-send and optimistic lock guards.
 type AgreementStore interface {
 	CreateDraft(ctx context.Context, scope Scope, record AgreementRecord) (AgreementRecord, error)
@@ -202,6 +209,7 @@ type PlacementRunStore interface {
 type TxStore interface {
 	DocumentStore
 	DocumentRemediationLeaseStore
+	RemediationDispatchStore
 	AgreementStore
 	DraftStore
 	SigningStore

@@ -4,11 +4,14 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
+	coreadmin "github.com/goliatone/go-admin/admin"
 	appcfg "github.com/goliatone/go-admin/examples/esign/config"
 	"github.com/goliatone/go-admin/examples/esign/jobs"
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
+	"github.com/goliatone/go-uploader"
 )
 
 func TestValidateGoogleRuntimeWiringRequiresGoogleServiceWhenEnabled(t *testing.T) {
@@ -102,6 +105,49 @@ func TestResolveESignStrictStartupParsesBooleanValues(t *testing.T) {
 	appcfg.SetActive(cfg)
 	if resolveESignStrictStartup() {
 		t.Fatal("expected strict startup false for config false value")
+	}
+}
+
+func TestBuildPDFRemediationCommandServiceDisabledReturnsNil(t *testing.T) {
+	cfg := appcfg.Defaults()
+	cfg.Signer.PDF.Remediation.Enabled = false
+
+	service, err := buildPDFRemediationCommandService(
+		cfg,
+		stores.NewInMemoryStore(),
+		uploader.NewManager(uploader.WithProvider(uploader.NewFSProvider(t.TempDir()))),
+		services.NewPDFService(),
+		coreadmin.NewActivityFeed(),
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("buildPDFRemediationCommandService: %v", err)
+	}
+	if service != nil {
+		t.Fatalf("expected nil remediation service when feature disabled")
+	}
+}
+
+func TestBuildPDFRemediationCommandServiceRejectsNonAllowlistedExecutable(t *testing.T) {
+	cfg := appcfg.Defaults()
+	cfg.Signer.PDF.Remediation.Enabled = true
+	cfg.Signer.PDF.Remediation.LeaseTTLMS = int((30 * time.Second).Milliseconds())
+	cfg.Signer.PDF.Remediation.Command.Bin = "cat"
+	cfg.Signer.PDF.Remediation.Command.Args = []string{"{in}", "{out}"}
+
+	_, err := buildPDFRemediationCommandService(
+		cfg,
+		stores.NewInMemoryStore(),
+		uploader.NewManager(uploader.WithProvider(uploader.NewFSProvider(t.TempDir()))),
+		services.NewPDFService(),
+		coreadmin.NewActivityFeed(),
+		nil,
+	)
+	if err == nil {
+		t.Fatal("expected validation error for non-allowlisted remediation executable")
+	}
+	if !strings.Contains(err.Error(), "not allowlisted") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 

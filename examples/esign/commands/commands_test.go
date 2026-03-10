@@ -76,6 +76,33 @@ func (s *stubProjector) ProjectAgreement(_ context.Context, _ stores.Scope, _ st
 	return nil
 }
 
+type stubPDFRemediationCommandService struct {
+	calls     int
+	lastScope stores.Scope
+	lastInput services.PDFRemediationRequest
+	result    services.PDFRemediationResult
+	err       error
+}
+
+func (s *stubPDFRemediationCommandService) Remediate(_ context.Context, scope stores.Scope, input services.PDFRemediationRequest) (services.PDFRemediationResult, error) {
+	s.calls++
+	s.lastScope = scope
+	s.lastInput = input
+	if s.err != nil {
+		return services.PDFRemediationResult{}, s.err
+	}
+	if s.result.Document.ID == "" {
+		s.result.Document.ID = input.DocumentID
+	}
+	if s.result.Document.RemediationStatus == "" {
+		s.result.Document.RemediationStatus = services.PDFRemediationStatusSucceeded
+	}
+	if s.result.OutputObjectKey == "" {
+		s.result.OutputObjectKey = "tenant/default/remediated.pdf"
+	}
+	return s.result, nil
+}
+
 type stubDraftCleanupService struct {
 	calls      int
 	lastBefore time.Time
@@ -382,5 +409,107 @@ func TestAgreementReminderSweepCommandCronOptionsFromConfig(t *testing.T) {
 	appcfg.SetActive(cfg)
 	if got := cmd.CronOptions().Expression; got != "*/15 * * * *" {
 		t.Fatalf("expected fallback sweep cron, got %q", got)
+	}
+}
+
+func TestRegisterDispatchesPDFRemediationCommandWhenServiceConfigured(t *testing.T) {
+	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
+	observability.ResetDefaultMetrics()
+	t.Cleanup(observability.ResetDefaultMetrics)
+
+	agreementSvc := &stubAgreementLifecycleService{}
+	tokenSvc := &stubTokenRotator{}
+	remediationSvc := &stubPDFRemediationCommandService{
+		result: services.PDFRemediationResult{
+			Document: stores.DocumentRecord{
+				ID:                   "doc-1",
+				RemediationStatus:    services.PDFRemediationStatusSucceeded,
+				PDFCompatibilityTier: string(services.PDFCompatibilityTierFull),
+			},
+			OutputObjectKey: "tenant/tenant-1/org/org-1/docs/doc-1/remediated.pdf",
+		},
+	}
+	bus := coreadmin.NewCommandBus(true)
+	t.Cleanup(bus.Reset)
+
+	defaultScope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	if err := Register(
+		bus,
+		agreementSvc,
+		tokenSvc,
+		nil,
+		nil,
+		"",
+		defaultScope,
+		nil,
+		WithPDFRemediationService(remediationSvc),
+	); err != nil {
+		t.Fatalf("Register: %v", err)
+	}
+
+	payload := map[string]any{
+		"document_id":  "doc-1",
+		"agreement_id": "agreement-1",
+		"actor_id":     "admin-user-1",
+		"force":        true,
+		"_dispatch_metadata": map[string]any{
+			"command_id":     CommandPDFRemediate,
+			"dispatch_id":    "dispatch-1",
+			"correlation_id": "corr-1",
+			"execution_mode": "queued",
+		},
+	}
+	if err := bus.DispatchByName(context.Background(), CommandPDFRemediate, payload, nil); err != nil {
+		t.Fatalf("DispatchByName pdf remediation: %v", err)
+	}
+	if remediationSvc.calls != 1 {
+		t.Fatalf("expected remediation call count 1, got %d", remediationSvc.calls)
+	}
+	if remediationSvc.lastScope != defaultScope {
+		t.Fatalf("expected remediation scope %+v, got %+v", defaultScope, remediationSvc.lastScope)
+	}
+	if remediationSvc.lastInput.DocumentID != "doc-1" {
+		t.Fatalf("expected document id doc-1, got %q", remediationSvc.lastInput.DocumentID)
+	}
+	if remediationSvc.lastInput.AgreementID != "agreement-1" {
+		t.Fatalf("expected agreement id agreement-1, got %q", remediationSvc.lastInput.AgreementID)
+	}
+	if remediationSvc.lastInput.ActorID != "admin-user-1" {
+		t.Fatalf("expected actor id admin-user-1, got %q", remediationSvc.lastInput.ActorID)
+	}
+	if remediationSvc.lastInput.DispatchID != "dispatch-1" {
+		t.Fatalf("expected dispatch id dispatch-1, got %q", remediationSvc.lastInput.DispatchID)
+	}
+	if remediationSvc.lastInput.CorrelationID != "corr-1" {
+		t.Fatalf("expected correlation id corr-1, got %q", remediationSvc.lastInput.CorrelationID)
+	}
+	if remediationSvc.lastInput.ExecutionMode != "queued" {
+		t.Fatalf("expected execution mode queued, got %q", remediationSvc.lastInput.ExecutionMode)
+	}
+	if remediationSvc.lastInput.CommandID != CommandPDFRemediate {
+		t.Fatalf("expected command id %q, got %q", CommandPDFRemediate, remediationSvc.lastInput.CommandID)
+	}
+	if !remediationSvc.lastInput.Force {
+		t.Fatalf("expected force=true")
+	}
+}
+
+func TestRegisterDoesNotExposePDFRemediationCommandWithoutService(t *testing.T) {
+	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
+	agreementSvc := &stubAgreementLifecycleService{}
+	tokenSvc := &stubTokenRotator{}
+	bus := coreadmin.NewCommandBus(true)
+	t.Cleanup(bus.Reset)
+
+	defaultScope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	if err := Register(bus, agreementSvc, tokenSvc, nil, nil, "", defaultScope, nil); err != nil {
+		t.Fatalf("Register: %v", err)
+	}
+
+	err := bus.DispatchByName(context.Background(), CommandPDFRemediate, map[string]any{
+		"document_id": "doc-1",
+	}, nil)
+	if err == nil {
+		t.Fatal("expected dispatch error when remediation service is not registered")
 	}
 }

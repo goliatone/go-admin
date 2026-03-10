@@ -22,6 +22,7 @@ import (
 	servicesmodule "github.com/goliatone/go-admin/modules/services"
 	"github.com/goliatone/go-admin/quickstart"
 	fggate "github.com/goliatone/go-featuregate/gate"
+	jobqueue "github.com/goliatone/go-job/queue"
 	"github.com/goliatone/go-uploader"
 )
 
@@ -32,6 +33,8 @@ const (
 )
 
 var (
+	defaultPDFRemediationExecutableAllowlist = []string{"gs"}
+
 	allowedESignDocumentMimeTypes = map[string]bool{
 		"application/pdf": true,
 	}
@@ -84,6 +87,7 @@ type ESignModule struct {
 	integrations      services.IntegrationFoundationService
 	activityMap       *AuditActivityProjector
 	uploadManager     *uploader.Manager
+	remediationStatus jobqueue.DispatchStatusReader
 }
 
 func NewESignModule(basePath, defaultLocale, menuCode string) *ESignModule {
@@ -121,6 +125,15 @@ func (m *ESignModule) WithStore(store stores.Store) *ESignModule {
 		return nil
 	}
 	m.store = store
+	return m
+}
+
+// WithRemediationDispatchStatusReader injects queue-backed remediation dispatch status lookup.
+func (m *ESignModule) WithRemediationDispatchStatusReader(reader jobqueue.DispatchStatusReader) *ESignModule {
+	if m == nil {
+		return nil
+	}
+	m.remediationStatus = reader
 	return m
 }
 
@@ -399,6 +412,21 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 	}
 	m.activityMap = NewAuditActivityProjector(ctx.Admin.ActivityFeed(), m.store)
 
+	registerOptions := make([]commands.RegisterOption, 0, 1)
+	remediationService, remediationErr := buildPDFRemediationCommandService(
+		appcfg.Active(),
+		m.store,
+		objectStore,
+		pdfService,
+		ctx.Admin.ActivityFeed(),
+		m.activityMap,
+	)
+	if remediationErr != nil {
+		return fmt.Errorf("esign module: pdf remediation runtime: %w", remediationErr)
+	}
+	if remediationService != nil {
+		registerOptions = append(registerOptions, commands.WithPDFRemediationService(remediationService))
+	}
 	if err := commands.Register(
 		ctx.Admin.Commands(),
 		m.agreements,
@@ -408,6 +436,7 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		strings.TrimSpace(appcfg.Active().Reminders.SweepCron),
 		m.defaultScope,
 		m.activityMap,
+		registerOptions...,
 	); err != nil {
 		return err
 	}
@@ -439,6 +468,12 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 	}
 	rateLimitRules := resolveRateLimitRulesFromConfig()
 	requestTrustPolicy := resolveRequestTrustPolicyFromConfig()
+	var remediationTrigger handlers.RemediationTrigger
+	var remediationDispatchLookup handlers.RemediationDispatchStatusLookup
+	if remediationService != nil {
+		remediationTrigger = newRemediationCommandTrigger(ctx.Admin.Commands(), m.defaultScope, m.store)
+		remediationDispatchLookup = newRemediationDispatchStatusLookup(m.store, m.store, m.remediationStatus)
+	}
 	var preferenceStore coreadmin.PreferencesStore
 	if prefs := ctx.Admin.PreferencesService(); prefs != nil {
 		preferenceStore = prefs.Store()
@@ -467,6 +502,8 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		handlers.WithAgreementStatsService(m.store),
 		handlers.WithAuditEventStore(m.store),
 		handlers.WithPDFPolicyService(pdfService),
+		handlers.WithRemediationTrigger(remediationTrigger),
+		handlers.WithRemediationDispatchStatusLookup(remediationDispatchLookup),
 		handlers.WithDefaultScope(m.defaultScope),
 		handlers.WithTransportGuard(handlers.TLSTransportGuard{
 			AllowLocalInsecure: true,
@@ -880,6 +917,49 @@ func resolveSignatureUploadSecurityPolicy() (time.Duration, string) {
 		ttlSeconds = 900
 	}
 	return time.Duration(ttlSeconds) * time.Second, strings.TrimSpace(cfg.Signer.UploadSigningKey)
+}
+
+func buildPDFRemediationCommandService(
+	cfg appcfg.Config,
+	store stores.Store,
+	objectStore *uploader.Manager,
+	pdfService services.PDFService,
+	activity coreadmin.ActivitySink,
+	projector *AuditActivityProjector,
+) (commands.PDFRemediationCommandService, error) {
+	if !cfg.Signer.PDF.Remediation.Enabled {
+		return nil, nil
+	}
+
+	remediation := cfg.Signer.PDF.Remediation
+	command := remediation.Command
+	template := services.PDFRemediationCommandTemplate{
+		Bin:         strings.TrimSpace(command.Bin),
+		Args:        append([]string{}, command.Args...),
+		Timeout:     time.Duration(command.TimeoutMS) * time.Millisecond,
+		MaxPDFBytes: command.MaxPdfBytes,
+		MaxLogBytes: command.MaxLogBytes,
+	}
+	runner, err := services.NewExternalPDFRemediationRunner(template, defaultPDFRemediationExecutableAllowlist)
+	if err != nil {
+		return nil, err
+	}
+
+	opts := []services.PDFRemediationOption{
+		services.WithPDFRemediationPDFService(pdfService),
+		services.WithPDFRemediationLeaseTTL(time.Duration(remediation.LeaseTTLMS) * time.Millisecond),
+	}
+	if activity != nil {
+		opts = append(opts, services.WithPDFRemediationActivitySink(activity))
+	}
+	if store != nil {
+		opts = append(opts, services.WithPDFRemediationAuditStore(store))
+	}
+	if projector != nil {
+		opts = append(opts, services.WithPDFRemediationActivityProjector(projector))
+	}
+	service := services.NewPDFRemediationService(store, objectStore, runner, opts...)
+	return service, nil
 }
 
 func (m *ESignModule) validateGoogleRuntimeWiring(ctx context.Context, strict bool) error {

@@ -77,6 +77,8 @@ type sqliteStoreSnapshot struct {
 	GoogleImportRuns           map[string]GoogleImportRunRecord          `json:"google_import_runs"`
 	GoogleImportRunDedupeIndex map[string]string                         `json:"google_import_run_dedupe_index"`
 	DocumentRemediationLeases  map[string]DocumentRemediationLeaseRecord `json:"document_remediation_leases"`
+	RemediationDispatches      map[string]RemediationDispatchRecord      `json:"remediation_dispatches"`
+	RemediationDispatchIndex   map[string]string                         `json:"remediation_dispatch_index"`
 	AgreementReminderStates    map[string]AgreementReminderStateRecord   `json:"agreement_reminder_states"`
 	OutboxMessages             map[string]OutboxMessageRecord            `json:"outbox_messages"`
 	IntegrationCredentials     map[string]IntegrationCredentialRecord    `json:"integration_credentials"`
@@ -298,6 +300,8 @@ func loadStoreStateFromBackendWithPayload(
 	mem.googleImportRuns = ensureGoogleImportRunMap(snapshot.GoogleImportRuns)
 	mem.googleImportRunDedupeIndex = ensureStringMap(snapshot.GoogleImportRunDedupeIndex)
 	mem.documentRemediationLeases = ensureDocumentRemediationLeaseMap(snapshot.DocumentRemediationLeases)
+	mem.remediationDispatches = ensureRemediationDispatchMap(snapshot.RemediationDispatches)
+	mem.remediationDispatchIndex = ensureStringMap(snapshot.RemediationDispatchIndex)
 	mem.agreementReminderStates = ensureAgreementReminderStateMap(snapshot.AgreementReminderStates)
 	mem.outboxMessages = ensureOutboxMessageMap(snapshot.OutboxMessages)
 	mem.integrationCredentials = ensureIntegrationCredentialMap(snapshot.IntegrationCredentials)
@@ -364,6 +368,8 @@ func (s *SQLiteStore) persist(ctx context.Context) error {
 		GoogleImportRuns:           maps.Clone(s.googleImportRuns),
 		GoogleImportRunDedupeIndex: maps.Clone(s.googleImportRunDedupeIndex),
 		DocumentRemediationLeases:  maps.Clone(s.documentRemediationLeases),
+		RemediationDispatches:      maps.Clone(s.remediationDispatches),
+		RemediationDispatchIndex:   maps.Clone(s.remediationDispatchIndex),
 		AgreementReminderStates:    maps.Clone(s.agreementReminderStates),
 		OutboxMessages:             maps.Clone(s.outboxMessages),
 		IntegrationCredentials:     maps.Clone(s.integrationCredentials),
@@ -599,6 +605,31 @@ func (s *SQLiteStore) ReleaseDocumentRemediationLease(
 		return err
 	}
 	return s.persistMaybe(ctx)
+}
+
+func (s *SQLiteStore) SaveRemediationDispatch(ctx context.Context, scope Scope, record RemediationDispatchRecord) (RemediationDispatchRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out, err := s.InMemoryStore.SaveRemediationDispatch(ctx, scope, record)
+	if err != nil {
+		return RemediationDispatchRecord{}, err
+	}
+	if err := s.persistMaybe(ctx); err != nil {
+		return RemediationDispatchRecord{}, err
+	}
+	return out, nil
+}
+
+func (s *SQLiteStore) GetRemediationDispatch(ctx context.Context, dispatchID string) (RemediationDispatchRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.InMemoryStore.GetRemediationDispatch(ctx, dispatchID)
+}
+
+func (s *SQLiteStore) GetRemediationDispatchByIdempotencyKey(ctx context.Context, scope Scope, key string) (RemediationDispatchRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.InMemoryStore.GetRemediationDispatchByIdempotencyKey(ctx, scope, key)
 }
 
 func (s *SQLiteStore) CreateDraft(ctx context.Context, scope Scope, record AgreementRecord) (AgreementRecord, error) {
@@ -1565,6 +1596,13 @@ func ensureGoogleImportRunMap(in map[string]GoogleImportRunRecord) map[string]Go
 func ensureDocumentRemediationLeaseMap(in map[string]DocumentRemediationLeaseRecord) map[string]DocumentRemediationLeaseRecord {
 	if in == nil {
 		return map[string]DocumentRemediationLeaseRecord{}
+	}
+	return in
+}
+
+func ensureRemediationDispatchMap(in map[string]RemediationDispatchRecord) map[string]RemediationDispatchRecord {
+	if in == nil {
+		return map[string]RemediationDispatchRecord{}
 	}
 	return in
 }

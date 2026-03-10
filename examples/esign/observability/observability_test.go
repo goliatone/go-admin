@@ -25,6 +25,10 @@ func TestMetricsSnapshotComputesPercentilesAndRates(t *testing.T) {
 	}
 	metrics.ObserveSend(ctx, 250*time.Millisecond, true)
 	metrics.ObserveSend(ctx, 900*time.Millisecond, false)
+	metrics.ObserveCommandDispatch(ctx, "esign.pdf.remediate", "queued", true, 80*time.Millisecond)
+	metrics.ObserveCommandDispatch(ctx, "esign.pdf.remediate", "queued", true, 120*time.Millisecond)
+	metrics.ObserveCommandDispatchRejected(ctx, "esign.pdf.remediate", "queued", "dedup_store_missing")
+	metrics.ObserveDedupStoreMiss(ctx, "esign.pdf.remediate")
 	metrics.ObserveSignerLinkOpen(ctx, true)
 	metrics.ObserveSignerLinkOpen(ctx, false)
 	metrics.ObserveUnifiedViewerLoad(ctx, 120*time.Millisecond, true)
@@ -68,6 +72,16 @@ func TestMetricsSnapshotComputesPercentilesAndRates(t *testing.T) {
 	metrics.ObservePDFIngestPolicyReject(ctx, "policy.max_source_bytes", "unsupported")
 	metrics.ObservePDFPreviewFallback(ctx, "preview_fallback_forced", "limited")
 	metrics.ObservePDFRenderImportFail(ctx, "import.failed", "limited")
+	metrics.ObserveRemediationLifecycle(ctx, "requested", "")
+	metrics.ObserveRemediationLifecycle(ctx, "started", "")
+	metrics.ObserveRemediationLifecycle(ctx, "succeeded", "")
+	metrics.ObserveRemediationLifecycle(ctx, "failed", "runner_failed")
+	metrics.ObserveRemediationDispatchStateTransition(ctx, "retrying")
+	metrics.ObserveRemediationDispatchStateTransition(ctx, "dead_letter")
+	metrics.ObserveRemediationDispatchStateTransition(ctx, "canceled")
+	metrics.ObserveRemediationDuplicateSuppressed(ctx)
+	metrics.ObserveRemediationLockSignal(ctx, "contention")
+	metrics.ObserveRemediationLockSignal(ctx, "timeout")
 
 	snapshot := metrics.Snapshot()
 	if snapshot.AdminReadP95MS == 0 {
@@ -75,6 +89,15 @@ func TestMetricsSnapshotComputesPercentilesAndRates(t *testing.T) {
 	}
 	if snapshot.SendFailureTotal != 1 || snapshot.SendSuccessTotal != 1 {
 		t.Fatalf("expected send success/failure totals, got %+v", snapshot)
+	}
+	if snapshot.CommandDispatchAcceptedTotal != 2 {
+		t.Fatalf("expected command dispatch accepted total 2, got %+v", snapshot)
+	}
+	if snapshot.CommandDispatchRejectedByReason["dedup_store_missing"] != 1 {
+		t.Fatalf("expected command dispatch rejection reason counter, got %+v", snapshot.CommandDispatchRejectedByReason)
+	}
+	if snapshot.DedupStoreMissTotal != 1 || snapshot.DedupStoreMissByCommandID["esign.pdf.remediate"] != 1 {
+		t.Fatalf("expected dedup-store miss counters, got %+v", snapshot)
 	}
 	if snapshot.EmailFailureTotal != 1 || snapshot.EmailSuccessTotal != 1 {
 		t.Fatalf("expected email success/failure totals, got %+v", snapshot)
@@ -129,6 +152,21 @@ func TestMetricsSnapshotComputesPercentilesAndRates(t *testing.T) {
 	}
 	if snapshot.PDFRenderImportFailByReasonTier["reason=import.failed,tier=limited"] != 1 {
 		t.Fatalf("expected labeled pdf render import fail counter, got %+v", snapshot.PDFRenderImportFailByReasonTier)
+	}
+	if snapshot.RemediationCandidateTotal != 1 || snapshot.RemediationStartedTotal != 1 || snapshot.RemediationSucceededTotal != 1 || snapshot.RemediationFailedTotal != 1 {
+		t.Fatalf("expected remediation lifecycle counters, got %+v", snapshot)
+	}
+	if snapshot.RemediationFailureByReason["runner_failed"] != 1 {
+		t.Fatalf("expected remediation failure reason counter, got %+v", snapshot.RemediationFailureByReason)
+	}
+	if snapshot.RemediationRetryingTotal != 1 || snapshot.RemediationDeadLetterTotal != 1 || snapshot.RemediationCanceledTotal != 1 {
+		t.Fatalf("expected remediation dispatch transition counters, got %+v", snapshot.RemediationDispatchStateByStatus)
+	}
+	if snapshot.RemediationDuplicateSuppressedTotal != 1 {
+		t.Fatalf("expected remediation duplicate suppression counter, got %+v", snapshot)
+	}
+	if snapshot.RemediationLockContentionTotal != 1 || snapshot.RemediationLockTimeoutTotal != 1 {
+		t.Fatalf("expected remediation lock counters, got %+v", snapshot.RemediationLockSignals)
 	}
 	if snapshot.SignerLinkOpenSuccessTotal != 1 || snapshot.SignerLinkOpenFailureTotal != 1 {
 		t.Fatalf("expected signer link open counters, got %+v", snapshot)
@@ -287,6 +325,48 @@ func TestEvaluateAlertsForPDFHardeningSignals(t *testing.T) {
 	}
 	if !hasAlertCode(alerts, "pdf.render_import_failures_high") {
 		t.Fatalf("expected pdf render import failure alert, got %+v", alerts)
+	}
+}
+
+func TestEvaluateAlertsForRemediationAndDedupSignals(t *testing.T) {
+	snapshot := MetricsSnapshot{
+		DedupStoreMissTotal:             2,
+		DedupStoreMissByCommandID:       map[string]int64{"esign.pdf.remediate": 2},
+		CommandDispatchRejectedByReason: map[string]int64{"dedup_store_missing": 2},
+		RemediationRetryingTotal:        3,
+		RemediationDeadLetterTotal:      2,
+		RemediationLockContentionTotal:  4,
+		RemediationLockTimeoutTotal:     1,
+		RemediationDispatchStateByStatus: map[string]int64{
+			"retrying":    3,
+			"dead_letter": 2,
+		},
+		RemediationLockSignals: map[string]int64{
+			"contention": 4,
+			"timeout":    1,
+		},
+	}
+	alerts := EvaluateAlerts(snapshot, AlertPolicy{
+		DedupStoreMissTotalThreshold:        1,
+		RemediationRetryingTotalThreshold:   1,
+		RemediationDeadLetterTotalThreshold: 1,
+		RemediationLockContentionThreshold:  1,
+		RemediationLockTimeoutThreshold:     1,
+	})
+	if !hasAlertCode(alerts, "command.dedup_store_miss_detected") {
+		t.Fatalf("expected dedup-store miss alert, got %+v", alerts)
+	}
+	if !hasAlertCode(alerts, "pdf.remediation_retrying_high") {
+		t.Fatalf("expected remediation retrying alert, got %+v", alerts)
+	}
+	if !hasAlertCode(alerts, "pdf.remediation_dead_letter_high") {
+		t.Fatalf("expected remediation dead-letter alert, got %+v", alerts)
+	}
+	if !hasAlertCode(alerts, "pdf.remediation_lock_contention_high") {
+		t.Fatalf("expected remediation lock contention alert, got %+v", alerts)
+	}
+	if !hasAlertCode(alerts, "pdf.remediation_lock_timeout_high") {
+		t.Fatalf("expected remediation lock timeout alert, got %+v", alerts)
 	}
 }
 
