@@ -8,19 +8,11 @@ import (
 	router "github.com/goliatone/go-router"
 )
 
-type patchCapableAdminRouter interface {
-	Patch(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo
-}
-
-func registerPatchOrPutAdminRoute(target AdminRouter, path string, handler router.HandlerFunc) {
+func registerPatchAdminRoute(target AdminRouter, path string, handler router.HandlerFunc) {
 	if target == nil || strings.TrimSpace(path) == "" || handler == nil {
 		return
 	}
-	if patchRouter, ok := target.(patchCapableAdminRouter); ok {
-		patchRouter.Patch(path, handler)
-		return
-	}
-	target.Put(path, handler)
+	target.Patch(path, handler)
 }
 
 func (a *Admin) registerContentNavigationOverrideRoute() {
@@ -96,7 +88,7 @@ func (a *Admin) registerContentNavigationOverrideRoute() {
 	if wrap := a.authWrapper(); wrap != nil {
 		handler = wrap(handler)
 	}
-	registerPatchOrPutAdminRoute(a.router, path, handler)
+	registerPatchAdminRoute(a.router, path, handler)
 }
 
 func (a *Admin) resolveContentNavigationPanel(ctx context.Context, typeKey string) (string, *Panel, error) {
