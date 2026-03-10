@@ -276,6 +276,7 @@ func participantToRecipient(record ParticipantRecord) RecipientRecord {
 		Email:         record.Email,
 		Name:          record.Name,
 		Role:          record.Role,
+		Notify:        record.Notify,
 		SigningOrder:  record.SigningStage,
 		FirstViewAt:   cloneTimePtr(record.FirstViewAt),
 		LastViewAt:    cloneTimePtr(record.LastViewAt),
@@ -1060,6 +1061,7 @@ func (s *InMemoryStore) UpsertParticipantDraft(ctx context.Context, scope Scope,
 			OrgID:        scope.OrgID,
 			AgreementID:  agreementID,
 			Role:         RecipientRoleSigner,
+			Notify:       true,
 			SigningStage: 1,
 			Version:      1,
 			CreatedAt:    time.Now().UTC(),
@@ -1076,6 +1078,9 @@ func (s *InMemoryStore) UpsertParticipantDraft(ctx context.Context, scope Scope,
 	}
 	if patch.Role != nil {
 		record.Role = strings.ToLower(strings.TrimSpace(*patch.Role))
+	}
+	if patch.Notify != nil {
+		record.Notify = *patch.Notify
 	}
 	if patch.SigningStage != nil {
 		record.SigningStage = *patch.SigningStage
@@ -1204,10 +1209,11 @@ func (s *InMemoryStore) ListParticipants(ctx context.Context, scope Scope, agree
 
 func (s *InMemoryStore) UpsertRecipientDraft(ctx context.Context, scope Scope, agreementID string, patch RecipientDraftPatch, expectedVersion int64) (RecipientRecord, error) {
 	participantPatch := ParticipantDraftPatch{
-		ID:    patch.ID,
-		Email: patch.Email,
-		Name:  patch.Name,
-		Role:  patch.Role,
+		ID:     patch.ID,
+		Email:  patch.Email,
+		Name:   patch.Name,
+		Role:   patch.Role,
+		Notify: patch.Notify,
 	}
 	if patch.SigningOrder != nil {
 		participantPatch.SigningStage = patch.SigningOrder

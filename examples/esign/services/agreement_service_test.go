@@ -1370,7 +1370,7 @@ func TestAgreementServiceResolveFieldValueForSigner(t *testing.T) {
 	}
 }
 
-func TestAgreementServiceCCRoleSemantics(t *testing.T) {
+func TestAgreementServiceCompletionDeliveryUsesNotifyFlag(t *testing.T) {
 	ctx, scope, store, _, agreement := setupDraftAgreement(t)
 	tokenService := stores.NewTokenService(store)
 	svc := NewAgreementService(store, WithAgreementTokenService(tokenService))
@@ -1378,6 +1378,7 @@ func TestAgreementServiceCCRoleSemantics(t *testing.T) {
 	signer, err := svc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        stringPtr("signer@example.com"),
 		Role:         stringPtr(stores.RecipientRoleSigner),
+		Notify:       boolPtr(false),
 		SigningOrder: primitives.Int(1),
 	}, 0)
 	if err != nil {
@@ -1412,7 +1413,7 @@ func TestAgreementServiceCCRoleSemantics(t *testing.T) {
 		t.Fatalf("CompletionDeliveryRecipients before completion: %v", err)
 	}
 	if len(delivery) != 0 {
-		t.Fatalf("expected no cc delivery recipients before completion, got %+v", delivery)
+		t.Fatalf("expected no completion delivery recipients before completion, got %+v", delivery)
 	}
 
 	if _, err := store.Transition(ctx, scope, agreement.ID, stores.AgreementTransitionInput{
@@ -1427,6 +1428,6 @@ func TestAgreementServiceCCRoleSemantics(t *testing.T) {
 		t.Fatalf("CompletionDeliveryRecipients completed: %v", err)
 	}
 	if len(delivery) != 1 || delivery[0].ID != cc.ID {
-		t.Fatalf("expected only cc recipient for completion delivery, got %+v", delivery)
+		t.Fatalf("expected only notify=true recipient for completion delivery, got %+v", delivery)
 	}
 }

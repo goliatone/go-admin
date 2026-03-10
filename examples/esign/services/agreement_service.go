@@ -1225,7 +1225,7 @@ func (s AgreementService) Resend(ctx context.Context, scope stores.Scope, agreem
 	return result, nil
 }
 
-// CompletionDeliveryRecipients returns cc recipients eligible for final artifact delivery after completion.
+// CompletionDeliveryRecipients returns recipients opted-in for final artifact delivery after completion.
 func (s AgreementService) CompletionDeliveryRecipients(ctx context.Context, scope stores.Scope, agreementID string) ([]stores.RecipientRecord, error) {
 	if s.agreements == nil {
 		return nil, domainValidationError("agreements", "store", "not configured")
@@ -1243,11 +1243,14 @@ func (s AgreementService) CompletionDeliveryRecipients(ctx context.Context, scop
 	}
 	out := make([]stores.RecipientRecord, 0)
 	for _, recipient := range recipients {
-		if recipient.Role == stores.RecipientRoleCC {
+		if recipient.Notify {
 			out = append(out, recipient)
 		}
 	}
 	sort.Slice(out, func(i, j int) bool {
+		if out[i].SigningOrder == out[j].SigningOrder {
+			return strings.TrimSpace(out[i].ID) < strings.TrimSpace(out[j].ID)
+		}
 		return out[i].SigningOrder < out[j].SigningOrder
 	})
 	return out, nil
@@ -1255,10 +1258,11 @@ func (s AgreementService) CompletionDeliveryRecipients(ctx context.Context, scop
 
 func participantPatchFromRecipientPatch(patch stores.RecipientDraftPatch) stores.ParticipantDraftPatch {
 	out := stores.ParticipantDraftPatch{
-		ID:    patch.ID,
-		Email: patch.Email,
-		Name:  patch.Name,
-		Role:  patch.Role,
+		ID:     patch.ID,
+		Email:  patch.Email,
+		Name:   patch.Name,
+		Role:   patch.Role,
+		Notify: patch.Notify,
 	}
 	if patch.SigningOrder != nil {
 		out.SigningStage = patch.SigningOrder
@@ -1275,6 +1279,7 @@ func recipientFromParticipant(record stores.ParticipantRecord) stores.RecipientR
 		Email:         record.Email,
 		Name:          record.Name,
 		Role:          record.Role,
+		Notify:        record.Notify,
 		SigningOrder:  record.SigningStage,
 		FirstViewAt:   record.FirstViewAt,
 		LastViewAt:    record.LastViewAt,
@@ -1313,6 +1318,9 @@ func simulateParticipantUpsert(current []stores.ParticipantRecord, patch stores.
 	}
 	if patch.Role != nil {
 		rec.Role = strings.TrimSpace(*patch.Role)
+	}
+	if patch.Notify != nil {
+		rec.Notify = *patch.Notify
 	}
 	if patch.SigningStage != nil {
 		rec.SigningStage = *patch.SigningStage

@@ -790,10 +790,15 @@ func (s DraftService) materializeDraftAgreement(ctx context.Context, scope store
 		}
 		email := strings.TrimSpace(participant.Email)
 		name := strings.TrimSpace(participant.Name)
+		notify := true
+		if participant.Notify != nil {
+			notify = *participant.Notify
+		}
 		created, err := s.agreements.UpsertParticipantDraft(ctx, scope, agreement.ID, stores.ParticipantDraftPatch{
 			Email:        &email,
 			Name:         &name,
 			Role:         &role,
+			Notify:       draftBoolPtr(notify),
 			SigningStage: draftIntPtr(signingStage),
 		}, 0)
 		if err != nil {
@@ -1035,6 +1040,7 @@ type wizardParticipantState struct {
 	Name         string `json:"name"`
 	Email        string `json:"email"`
 	Role         string `json:"role"`
+	Notify       *bool  `json:"notify"`
 	Order        int    `json:"order"`
 	SigningStage int    `json:"signingStage"`
 }
