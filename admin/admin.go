@@ -186,6 +186,13 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 		enableCommands := featureEnabled(featureGate, FeatureCommands) || featureEnabled(featureGate, FeatureSettings) || featureEnabled(featureGate, FeatureJobs) || featureEnabled(featureGate, FeatureBulk) || featureEnabled(featureGate, FeatureDashboard) || featureEnabled(featureGate, FeatureNotifications)
 		commandBus = NewCommandBus(enableCommands)
 	}
+	commandPolicy, err := normalizeCommandExecutionPolicy(cfg.Commands.Execution)
+	if err != nil {
+		return nil, err
+	}
+	if err := commandBus.SetExecutionPolicy(commandPolicy); err != nil {
+		return nil, err
+	}
 	if err := RegisterCoreCommandFactories(commandBus); err != nil {
 		return nil, err
 	}
