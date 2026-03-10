@@ -311,6 +311,7 @@ func NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin
 		}
 		options.deps.FeatureGate = buildFeatureGate(cfg, defaults, options.deps.PreferencesStore)
 	}
+	applyRPCTransportPolicyConfig(&cfg, &options)
 	applyCommandExecutionRoutingConfig(&cfg, options)
 	adm, err := admin.New(cfg, options.deps)
 	if err != nil {
