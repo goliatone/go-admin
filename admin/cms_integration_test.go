@@ -139,6 +139,10 @@ func TestUseCMSOverridesNavigationSource(t *testing.T) {
 
 type nilRouter struct{}
 
+func (nilRouter) Handle(_ router.HTTPMethod, _ string, _ router.HandlerFunc, _ ...router.MiddlewareFunc) router.RouteInfo {
+	return nil
+}
+
 func (nilRouter) Get(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
 	return nil
 }
@@ -149,5 +153,13 @@ func (nilRouter) Put(path string, handler router.HandlerFunc, mw ...router.Middl
 	return nil
 }
 func (nilRouter) Delete(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
+	return nil
+}
+
+func (nilRouter) Patch(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
+	return nil
+}
+
+func (nilRouter) Head(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
 	return nil
 }

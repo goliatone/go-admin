@@ -121,6 +121,11 @@ type recordRouter struct {
 	calls []routeCall
 }
 
+func (r *recordRouter) Handle(method router.HTTPMethod, path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
+	r.calls = append(r.calls, routeCall{method: string(method), path: path, handler: handler})
+	return nil
+}
+
 func (r *recordRouter) Get(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
 	r.calls = append(r.calls, routeCall{method: "GET", path: path, handler: handler})
 	return nil
@@ -135,6 +140,16 @@ func (r *recordRouter) Put(path string, handler router.HandlerFunc, mw ...router
 }
 func (r *recordRouter) Delete(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
 	r.calls = append(r.calls, routeCall{method: "DELETE", path: path, handler: handler})
+	return nil
+}
+
+func (r *recordRouter) Patch(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
+	r.calls = append(r.calls, routeCall{method: "PATCH", path: path, handler: handler})
+	return nil
+}
+
+func (r *recordRouter) Head(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
+	r.calls = append(r.calls, routeCall{method: "HEAD", path: path, handler: handler})
 	return nil
 }
 
