@@ -1,0 +1,11 @@
+app_config:
+  - name: config_path
+    override: ConfigPath
+    type: string
+    tags:
+      json: "-"
+      koanf: "-"
+
+features:
+  - name: cms
+    override: CMS

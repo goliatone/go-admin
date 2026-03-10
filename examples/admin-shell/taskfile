@@ -11,7 +11,8 @@ export LGR_NO_TIMESTAMP=true
 
 EXAMPLE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${EXAMPLE_DIR}/../.." && pwd)"
-DEFAULT_CONFIG_PATH="${EXAMPLE_DIR}/config/app.yaml"
+DEFAULT_CONFIG_PATH="${EXAMPLE_DIR}/internal/config/app.json"
+DEFAULT_OVERRIDES_PATH="${EXAMPLE_DIR}/internal/config/overrides.yml"
 
 GO_BIN_DEFAULT="/Users/goliatone/.g/go/bin/go"
 GO_BIN="${GO_BIN:-${GO_BIN_DEFAULT}}"
@@ -39,7 +40,7 @@ function _ensure:go {
 }
 
 function _address:url {
-    local address="${APP_SERVER__ADDRESS:-:8082}"
+    local address="${APP_SERVER__ADDRESS:-:8383}"
     if [[ "${address}" == http://* ]] || [[ "${address}" == https://* ]]; then
         echo "${address}"
         return
@@ -58,12 +59,15 @@ function _address:url {
 function dev:serve {
     _ensure:go || return 1
 
-    export APP_CONFIG_PATH="${APP_CONFIG_PATH:-${DEFAULT_CONFIG_PATH}}"
+    export APP_CONFIG="${APP_CONFIG:-${APP_CONFIG_PATH:-${DEFAULT_CONFIG_PATH}}}"
+    export APP_CONFIG_OVERRIDES="${APP_CONFIG_OVERRIDES:-${DEFAULT_OVERRIDES_PATH}}"
+    export APP_CONFIG_PATH="${APP_CONFIG_PATH:-${APP_CONFIG}}"
     export APP_ENV="${APP_ENV:-development}"
     export APP_SERVER__PRINT_ROUTES="${APP_SERVER__PRINT_ROUTES:-true}"
 
     echo "Starting admin-shell..."
-    echo "  config: ${APP_CONFIG_PATH}"
+    echo "  config: ${APP_CONFIG}"
+    echo "  overrides: ${APP_CONFIG_OVERRIDES}"
     echo "  url:    $(_address:url)"
 
     (
@@ -88,6 +92,14 @@ function dev:test {
     (
         cd "${PROJECT_ROOT}" || exit 1
         "${GO_BIN}" test ./examples/admin-shell/...
+    )
+}
+
+function dev:config:generate {
+    _ensure:go || return 1
+    (
+        cd "${PROJECT_ROOT}" || exit 1
+        "${GO_BIN}" generate ./examples/admin-shell/internal/config
     )
 }
 
@@ -130,7 +142,7 @@ function dev:clean {
 }
 
 function dev:config {
-    local config_path="${APP_CONFIG_PATH:-${DEFAULT_CONFIG_PATH}}"
+    local config_path="${APP_CONFIG:-${APP_CONFIG_PATH:-${DEFAULT_CONFIG_PATH}}}"
     echo "Config: ${config_path}"
     if [ -f "${config_path}" ]; then
         sed -n '1,220p' "${config_path}"
@@ -142,9 +154,11 @@ function dev:config {
 
 function dev:env {
     cat <<EOF
-APP_CONFIG_PATH=${APP_CONFIG_PATH:-${DEFAULT_CONFIG_PATH}}
+APP_CONFIG=${APP_CONFIG:-${APP_CONFIG_PATH:-${DEFAULT_CONFIG_PATH}}}
+APP_CONFIG_OVERRIDES=${APP_CONFIG_OVERRIDES:-${DEFAULT_OVERRIDES_PATH}}
+APP_CONFIG_PATH=${APP_CONFIG_PATH:-${APP_CONFIG:-${DEFAULT_CONFIG_PATH}}}
 APP_ENV=${APP_ENV:-development}
-APP_SERVER__ADDRESS=${APP_SERVER__ADDRESS:-:8082}
+APP_SERVER__ADDRESS=${APP_SERVER__ADDRESS:-:8383}
 APP_SERVER__PRINT_ROUTES=${APP_SERVER__PRINT_ROUTES:-true}
 APP_ADMIN__BASE_PATH=${APP_ADMIN__BASE_PATH:-/admin}
 APP_AUTH__DEMO_USERNAME=${APP_AUTH__DEMO_USERNAME:-admin}

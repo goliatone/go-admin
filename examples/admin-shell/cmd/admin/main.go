@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"os"
 	"strings"
 
@@ -11,14 +10,12 @@ import (
 )
 
 func main() {
-	ctx := context.Background()
-
-	cfg, container, err := config.Load(ctx)
+	cfg, err := config.Load()
 	if err != nil {
 		panic(err)
 	}
 
-	appCore, err := core.New(ctx, cfg, container)
+	appCore, err := core.New(nil, &cfg)
 	if err != nil {
 		panic(err)
 	}
@@ -60,7 +57,7 @@ func normalizeAddress(address string) string {
 		return "http://localhost" + address
 	}
 	if address == "" {
-		return "http://localhost:8082"
+		return "http://localhost:8383"
 	}
 	return "http://" + address
 }
