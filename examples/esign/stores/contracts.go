@@ -16,6 +16,13 @@ type DocumentStore interface {
 	Delete(ctx context.Context, scope Scope, id string) error
 }
 
+// DocumentRemediationLeaseStore defines distributed lease primitives for document-scoped remediation fencing.
+type DocumentRemediationLeaseStore interface {
+	AcquireDocumentRemediationLease(ctx context.Context, scope Scope, documentID string, input DocumentRemediationLeaseAcquireInput) (DocumentRemediationLeaseClaim, error)
+	RenewDocumentRemediationLease(ctx context.Context, scope Scope, documentID string, input DocumentRemediationLeaseRenewInput) (DocumentRemediationLeaseClaim, error)
+	ReleaseDocumentRemediationLease(ctx context.Context, scope Scope, documentID string, input DocumentRemediationLeaseReleaseInput) error
+}
+
 // AgreementStore defines agreement persistence with immutable-after-send and optimistic lock guards.
 type AgreementStore interface {
 	CreateDraft(ctx context.Context, scope Scope, record AgreementRecord) (AgreementRecord, error)
@@ -194,6 +201,7 @@ type PlacementRunStore interface {
 // TxStore is the transactional store surface available inside a transaction scope.
 type TxStore interface {
 	DocumentStore
+	DocumentRemediationLeaseStore
 	AgreementStore
 	DraftStore
 	SigningStore

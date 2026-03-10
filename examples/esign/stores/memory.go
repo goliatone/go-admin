@@ -15,6 +15,7 @@ import (
 
 const (
 	defaultDraftTTL                     = 7 * 24 * time.Hour
+	defaultDocumentRemediationLeaseTTL  = 60 * time.Second
 	defaultReminderLeaseSeconds         = 120
 	defaultReminderPolicyVersion        = "r1"
 	defaultReminderInternalErrorTTLDays = 30
@@ -47,6 +48,7 @@ type InMemoryStore struct {
 	jobRunDedupeIndex          map[string]string
 	googleImportRuns           map[string]GoogleImportRunRecord
 	googleImportRunDedupeIndex map[string]string
+	documentRemediationLeases  map[string]DocumentRemediationLeaseRecord
 	agreementReminderStates    map[string]AgreementReminderStateRecord
 	outboxMessages             map[string]OutboxMessageRecord
 	integrationCredentials     map[string]IntegrationCredentialRecord
@@ -88,6 +90,7 @@ func NewInMemoryStore() *InMemoryStore {
 		jobRunDedupeIndex:          map[string]string{},
 		googleImportRuns:           map[string]GoogleImportRunRecord{},
 		googleImportRunDedupeIndex: map[string]string{},
+		documentRemediationLeases:  map[string]DocumentRemediationLeaseRecord{},
 		agreementReminderStates:    map[string]AgreementReminderStateRecord{},
 		outboxMessages:             map[string]OutboxMessageRecord{},
 		integrationCredentials:     map[string]IntegrationCredentialRecord{},
@@ -183,6 +186,7 @@ func (s *InMemoryStore) snapshot() (sqliteStoreSnapshot, error) {
 		JobRunDedupeIndex:          s.jobRunDedupeIndex,
 		GoogleImportRuns:           s.googleImportRuns,
 		GoogleImportRunDedupeIndex: s.googleImportRunDedupeIndex,
+		DocumentRemediationLeases:  s.documentRemediationLeases,
 		AgreementReminderStates:    s.agreementReminderStates,
 		OutboxMessages:             s.outboxMessages,
 		IntegrationCredentials:     s.integrationCredentials,
@@ -233,6 +237,7 @@ func (s *InMemoryStore) applySnapshot(snapshot sqliteStoreSnapshot) {
 	s.jobRunDedupeIndex = ensureStringMap(snapshot.JobRunDedupeIndex)
 	s.googleImportRuns = ensureGoogleImportRunMap(snapshot.GoogleImportRuns)
 	s.googleImportRunDedupeIndex = ensureStringMap(snapshot.GoogleImportRunDedupeIndex)
+	s.documentRemediationLeases = ensureDocumentRemediationLeaseMap(snapshot.DocumentRemediationLeases)
 	s.agreementReminderStates = ensureAgreementReminderStateMap(snapshot.AgreementReminderStates)
 	s.outboxMessages = ensureOutboxMessageMap(snapshot.OutboxMessages)
 	s.integrationCredentials = ensureIntegrationCredentialMap(snapshot.IntegrationCredentials)
@@ -337,6 +342,18 @@ func (s *InMemoryStore) Create(ctx context.Context, scope Scope, record Document
 	record.PDFNormalizationStatus = strings.TrimSpace(record.PDFNormalizationStatus)
 	record.PDFAnalyzedAt = cloneTimePtr(record.PDFAnalyzedAt)
 	record.PDFPolicyVersion = strings.TrimSpace(record.PDFPolicyVersion)
+	record.RemediationStatus = strings.TrimSpace(record.RemediationStatus)
+	record.RemediationActorID = normalizeID(record.RemediationActorID)
+	record.RemediationCommandID = strings.TrimSpace(record.RemediationCommandID)
+	record.RemediationDispatchID = strings.TrimSpace(record.RemediationDispatchID)
+	record.RemediationExecMode = strings.TrimSpace(record.RemediationExecMode)
+	record.RemediationCorrelation = strings.TrimSpace(record.RemediationCorrelation)
+	record.RemediationFailure = strings.TrimSpace(record.RemediationFailure)
+	record.RemediationOriginalKey = strings.TrimSpace(record.RemediationOriginalKey)
+	record.RemediationOutputKey = strings.TrimSpace(record.RemediationOutputKey)
+	record.RemediationRequestedAt = cloneTimePtr(record.RemediationRequestedAt)
+	record.RemediationStartedAt = cloneTimePtr(record.RemediationStartedAt)
+	record.RemediationCompletedAt = cloneTimePtr(record.RemediationCompletedAt)
 	record.TenantID = scope.TenantID
 	record.OrgID = scope.OrgID
 	record.CreatedAt = normalizeRecordTime(record.CreatedAt)
@@ -457,6 +474,18 @@ func (s *InMemoryStore) SaveMetadata(ctx context.Context, scope Scope, id string
 	next.PDFNormalizationStatus = strings.TrimSpace(patch.PDFNormalizationStatus)
 	next.PDFAnalyzedAt = cloneTimePtr(patch.PDFAnalyzedAt)
 	next.PDFPolicyVersion = strings.TrimSpace(patch.PDFPolicyVersion)
+	next.RemediationStatus = strings.TrimSpace(patch.RemediationStatus)
+	next.RemediationActorID = normalizeID(patch.RemediationActorID)
+	next.RemediationCommandID = strings.TrimSpace(patch.RemediationCommandID)
+	next.RemediationDispatchID = strings.TrimSpace(patch.RemediationDispatchID)
+	next.RemediationExecMode = strings.TrimSpace(patch.RemediationExecMode)
+	next.RemediationCorrelation = strings.TrimSpace(patch.RemediationCorrelation)
+	next.RemediationFailure = strings.TrimSpace(patch.RemediationFailure)
+	next.RemediationOriginalKey = strings.TrimSpace(patch.RemediationOriginalKey)
+	next.RemediationOutputKey = strings.TrimSpace(patch.RemediationOutputKey)
+	next.RemediationRequestedAt = cloneTimePtr(patch.RemediationRequestedAt)
+	next.RemediationStartedAt = cloneTimePtr(patch.RemediationStartedAt)
+	next.RemediationCompletedAt = cloneTimePtr(patch.RemediationCompletedAt)
 	next.SizeBytes = patch.SizeBytes
 	next.PageCount = patch.PageCount
 
@@ -508,6 +537,18 @@ func documentMetadataUnchanged(current, next DocumentRecord) bool {
 		strings.TrimSpace(current.PDFNormalizationStatus) == strings.TrimSpace(next.PDFNormalizationStatus) &&
 		timePtrEqual(current.PDFAnalyzedAt, next.PDFAnalyzedAt) &&
 		strings.TrimSpace(current.PDFPolicyVersion) == strings.TrimSpace(next.PDFPolicyVersion) &&
+		strings.TrimSpace(current.RemediationStatus) == strings.TrimSpace(next.RemediationStatus) &&
+		normalizeID(current.RemediationActorID) == normalizeID(next.RemediationActorID) &&
+		strings.TrimSpace(current.RemediationCommandID) == strings.TrimSpace(next.RemediationCommandID) &&
+		strings.TrimSpace(current.RemediationDispatchID) == strings.TrimSpace(next.RemediationDispatchID) &&
+		strings.TrimSpace(current.RemediationExecMode) == strings.TrimSpace(next.RemediationExecMode) &&
+		strings.TrimSpace(current.RemediationCorrelation) == strings.TrimSpace(next.RemediationCorrelation) &&
+		strings.TrimSpace(current.RemediationFailure) == strings.TrimSpace(next.RemediationFailure) &&
+		strings.TrimSpace(current.RemediationOriginalKey) == strings.TrimSpace(next.RemediationOriginalKey) &&
+		strings.TrimSpace(current.RemediationOutputKey) == strings.TrimSpace(next.RemediationOutputKey) &&
+		timePtrEqual(current.RemediationRequestedAt, next.RemediationRequestedAt) &&
+		timePtrEqual(current.RemediationStartedAt, next.RemediationStartedAt) &&
+		timePtrEqual(current.RemediationCompletedAt, next.RemediationCompletedAt) &&
 		current.SizeBytes == next.SizeBytes &&
 		current.PageCount == next.PageCount
 }
@@ -521,6 +562,222 @@ func timePtrEqual(a, b *time.Time) bool {
 	default:
 		return a.UTC().Equal(b.UTC())
 	}
+}
+
+func normalizeDocumentRemediationLeaseToken(token DocumentRemediationLeaseToken) DocumentRemediationLeaseToken {
+	token.WorkerID = strings.TrimSpace(token.WorkerID)
+	if token.LeaseSeq < 0 {
+		token.LeaseSeq = 0
+	}
+	return token
+}
+
+func normalizeDocumentRemediationLeaseTTL(ttl time.Duration) time.Duration {
+	if ttl <= 0 {
+		return defaultDocumentRemediationLeaseTTL
+	}
+	return ttl
+}
+
+func documentRemediationLeaseIsActive(record DocumentRemediationLeaseRecord, now time.Time) bool {
+	if strings.TrimSpace(record.WorkerID) == "" || record.LeaseSeq <= 0 || record.ExpiresAt == nil {
+		return false
+	}
+	return record.ExpiresAt.After(now)
+}
+
+func validateDocumentRemediationLease(record DocumentRemediationLeaseRecord, token DocumentRemediationLeaseToken, now time.Time) error {
+	token = normalizeDocumentRemediationLeaseToken(token)
+	if token.WorkerID == "" {
+		return invalidRecordError("document_remediation_leases", "worker_id", "required")
+	}
+	if token.LeaseSeq <= 0 {
+		return invalidRecordError("document_remediation_leases", "lease_seq", "required")
+	}
+	if strings.TrimSpace(record.WorkerID) == "" || record.LeaseSeq <= 0 || record.ExpiresAt == nil {
+		return documentRemediationLeaseLostError(record.DocumentID, token.WorkerID)
+	}
+	if strings.TrimSpace(record.WorkerID) != token.WorkerID {
+		return documentRemediationLeaseLostError(record.DocumentID, token.WorkerID)
+	}
+	if record.LeaseSeq != token.LeaseSeq {
+		return documentRemediationLeaseConflictError(record.DocumentID, token.WorkerID, token.LeaseSeq, record.LeaseSeq)
+	}
+	if !record.ExpiresAt.After(now) {
+		return documentRemediationLeaseLostError(record.DocumentID, token.WorkerID)
+	}
+	return nil
+}
+
+func documentRemediationLeaseClaimFromRecord(record DocumentRemediationLeaseRecord) DocumentRemediationLeaseClaim {
+	return DocumentRemediationLeaseClaim{
+		Record: record,
+		Lease: DocumentRemediationLeaseToken{
+			WorkerID: strings.TrimSpace(record.WorkerID),
+			LeaseSeq: record.LeaseSeq,
+		},
+	}
+}
+
+func clearDocumentRemediationLease(record *DocumentRemediationLeaseRecord, now time.Time) {
+	if record == nil {
+		return
+	}
+	record.WorkerID = ""
+	record.CorrelationID = ""
+	record.AcquiredAt = nil
+	record.LastHeartbeatAt = nil
+	record.ExpiresAt = nil
+	record.UpdatedAt = normalizeRecordTime(now.UTC())
+}
+
+func (s *InMemoryStore) AcquireDocumentRemediationLease(
+	ctx context.Context,
+	scope Scope,
+	documentID string,
+	input DocumentRemediationLeaseAcquireInput,
+) (DocumentRemediationLeaseClaim, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return DocumentRemediationLeaseClaim{}, err
+	}
+	documentID = normalizeID(documentID)
+	if documentID == "" {
+		return DocumentRemediationLeaseClaim{}, invalidRecordError("document_remediation_leases", "document_id", "required")
+	}
+	workerID := strings.TrimSpace(input.WorkerID)
+	if workerID == "" {
+		return DocumentRemediationLeaseClaim{}, invalidRecordError("document_remediation_leases", "worker_id", "required")
+	}
+	now := input.Now.UTC()
+	if now.IsZero() {
+		now = time.Now().UTC()
+	}
+	ttl := normalizeDocumentRemediationLeaseTTL(input.TTL)
+	correlationID := strings.TrimSpace(input.CorrelationID)
+
+	key := scopedKey(scope, documentID)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if _, ok := s.documents[key]; !ok {
+		return DocumentRemediationLeaseClaim{}, notFoundError("documents", documentID)
+	}
+
+	record := s.documentRemediationLeases[key]
+	record.DocumentID = documentID
+	record.TenantID = scope.TenantID
+	record.OrgID = scope.OrgID
+	record.LeaseSeq = max(record.LeaseSeq, 0)
+	if record.UpdatedAt.IsZero() {
+		record.UpdatedAt = now
+	}
+
+	if documentRemediationLeaseIsActive(record, now) {
+		return DocumentRemediationLeaseClaim{}, documentRemediationLeaseConflictError(documentID, workerID, record.LeaseSeq+1, record.LeaseSeq)
+	}
+
+	record.LeaseSeq++
+	record.WorkerID = workerID
+	record.CorrelationID = correlationID
+	record.UpdatedAt = now
+	acquiredAt := now
+	expiresAt := now.Add(ttl)
+	record.AcquiredAt = cloneTimePtr(&acquiredAt)
+	record.LastHeartbeatAt = cloneTimePtr(&acquiredAt)
+	record.ExpiresAt = cloneTimePtr(&expiresAt)
+
+	s.documentRemediationLeases[key] = record
+	return documentRemediationLeaseClaimFromRecord(record), nil
+}
+
+func (s *InMemoryStore) RenewDocumentRemediationLease(
+	ctx context.Context,
+	scope Scope,
+	documentID string,
+	input DocumentRemediationLeaseRenewInput,
+) (DocumentRemediationLeaseClaim, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return DocumentRemediationLeaseClaim{}, err
+	}
+	documentID = normalizeID(documentID)
+	if documentID == "" {
+		return DocumentRemediationLeaseClaim{}, invalidRecordError("document_remediation_leases", "document_id", "required")
+	}
+	now := input.Now.UTC()
+	if now.IsZero() {
+		now = time.Now().UTC()
+	}
+	_ = normalizeDocumentRemediationLeaseTTL(input.TTL)
+	input.Lease = normalizeDocumentRemediationLeaseToken(input.Lease)
+
+	key := scopedKey(scope, documentID)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	record, ok := s.documentRemediationLeases[key]
+	if !ok {
+		return DocumentRemediationLeaseClaim{}, notFoundError("document_remediation_leases", documentID)
+	}
+	record.DocumentID = documentID
+	if err := validateDocumentRemediationLease(record, input.Lease, now); err != nil {
+		return DocumentRemediationLeaseClaim{}, err
+	}
+
+	record.LeaseSeq++
+	record.UpdatedAt = now
+	heartbeat := now
+	expiresAt := now.Add(normalizeDocumentRemediationLeaseTTL(input.TTL))
+	record.LastHeartbeatAt = cloneTimePtr(&heartbeat)
+	record.ExpiresAt = cloneTimePtr(&expiresAt)
+
+	s.documentRemediationLeases[key] = record
+	return documentRemediationLeaseClaimFromRecord(record), nil
+}
+
+func (s *InMemoryStore) ReleaseDocumentRemediationLease(
+	ctx context.Context,
+	scope Scope,
+	documentID string,
+	input DocumentRemediationLeaseReleaseInput,
+) error {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return err
+	}
+	documentID = normalizeID(documentID)
+	if documentID == "" {
+		return invalidRecordError("document_remediation_leases", "document_id", "required")
+	}
+	now := input.Now.UTC()
+	if now.IsZero() {
+		now = time.Now().UTC()
+	}
+	input.Lease = normalizeDocumentRemediationLeaseToken(input.Lease)
+
+	key := scopedKey(scope, documentID)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	record, ok := s.documentRemediationLeases[key]
+	if !ok {
+		return nil
+	}
+	record.DocumentID = documentID
+	if err := validateDocumentRemediationLease(record, input.Lease, now); err != nil {
+		return err
+	}
+
+	clearDocumentRemediationLease(&record, now)
+	s.documentRemediationLeases[key] = record
+	return nil
 }
 
 func (s *InMemoryStore) CreateDraft(ctx context.Context, scope Scope, record AgreementRecord) (AgreementRecord, error) {

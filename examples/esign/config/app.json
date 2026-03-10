@@ -38,7 +38,7 @@
     "repository_dialect": ""
   },
   "reminders": {
-    "enabled": true,
+    "enabled": false,
     "sweep_cron": "* * * * *",
     "batch_size": 100,
     "claim_lease_seconds": 120,
