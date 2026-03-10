@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	auth "github.com/goliatone/go-auth"
 	"github.com/goliatone/go-command"
 	cmdrpc "github.com/goliatone/go-command/rpc"
 )
@@ -33,6 +34,15 @@ type RPCCommandListResponse struct {
 	Commands []string `json:"commands,omitempty"`
 }
 
+type rpcTrustedIdentity struct {
+	ActorID        string
+	Subject        string
+	TenantID       string
+	OrganizationID string
+	RequestID      string
+	CorrelationID  string
+}
+
 func newRPCServer(server *cmdrpc.Server) *cmdrpc.Server {
 	if server != nil {
 		return server
@@ -40,13 +50,13 @@ func newRPCServer(server *cmdrpc.Server) *cmdrpc.Server {
 	return cmdrpc.NewServer(cmdrpc.WithFailureMode(cmdrpc.FailureModeRecover))
 }
 
-func registerCoreRPCEndpoints(server *cmdrpc.Server, bus *CommandBus) error {
+func registerCoreRPCEndpoints(server *cmdrpc.Server, adm *Admin) error {
 	if server == nil {
 		return nil
 	}
 	endpoints := []cmdrpc.EndpointDefinition{
-		commandDispatchRPCEndpoint(bus),
-		commandListRPCEndpoint(bus),
+		commandDispatchRPCEndpoint(adm),
+		commandListRPCEndpoint(adm),
 	}
 	for _, endpoint := range endpoints {
 		if endpoint == nil {
@@ -80,7 +90,7 @@ func hasRPCEndpoint(server *cmdrpc.Server, method string) bool {
 	return false
 }
 
-func commandDispatchRPCEndpoint(bus *CommandBus) cmdrpc.EndpointDefinition {
+func commandDispatchRPCEndpoint(adm *Admin) cmdrpc.EndpointDefinition {
 	return cmdrpc.NewEndpoint[RPCCommandDispatchRequest, RPCCommandDispatchResponse](
 		cmdrpc.EndpointSpec{
 			Method:      RPCMethodCommandDispatch,
@@ -91,7 +101,7 @@ func commandDispatchRPCEndpoint(bus *CommandBus) cmdrpc.EndpointDefinition {
 			Idempotent:  false,
 		},
 		func(ctx context.Context, req cmdrpc.RequestEnvelope[RPCCommandDispatchRequest]) (cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse], error) {
-			if bus == nil {
+			if adm == nil || adm.Commands() == nil {
 				return cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse]{}, serviceNotConfiguredDomainError("command bus", map[string]any{
 					"component": "rpc_transport",
 					"method":    RPCMethodCommandDispatch,
@@ -104,12 +114,44 @@ func commandDispatchRPCEndpoint(bus *CommandBus) cmdrpc.EndpointDefinition {
 					"method":    RPCMethodCommandDispatch,
 				})
 			}
+
+			rule, ok := adm.config.Commands.RPC.ResolveRule(name)
+			if !ok {
+				return cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse]{}, ErrNotFound
+			}
+			if err := authorizeRPCPermission(ctx, adm.Authorizer(), rule.Permission, rule.Resource); err != nil {
+				return cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse]{}, err
+			}
+
 			payload := req.Data.Payload
 			if payload == nil {
 				payload = map[string]any{}
 			}
-			opts := applyRPCMetaToDispatchOptions(req.Meta, req.Data.Options)
-			receipt, err := bus.DispatchByNameWithOptions(ctx, name, payload, req.Data.IDs, opts)
+
+			identity := trustedRPCIdentityFromContext(ctx, req.Meta, req.Data.Options)
+			opts := sanitizeRPCDispatchOptions(identity, req.Data.Options, adm.config.Commands.RPC.MetadataAllowlist)
+			policyInput := RPCCommandPolicyInput{
+				Method:         RPCMethodCommandDispatch,
+				CommandName:    name,
+				Payload:        copyRPCMap(payload),
+				IDs:            append([]string(nil), req.Data.IDs...),
+				Rule:           rule,
+				Dispatch:       cloneRPCDispatchOptions(opts),
+				ActorID:        identity.ActorID,
+				Subject:        identity.Subject,
+				TenantID:       identity.TenantID,
+				OrganizationID: identity.OrganizationID,
+				RequestID:      identity.RequestID,
+				CorrelationID:  identity.CorrelationID,
+				Metadata:       copyRPCMap(opts.Metadata),
+			}
+			if hook := adm.rpcCommandPolicyHook; hook != nil {
+				if err := hook(ctx, policyInput); err != nil {
+					return cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse]{}, err
+				}
+			}
+
+			receipt, err := adm.Commands().DispatchByNameWithOptions(ctx, name, payload, req.Data.IDs, opts)
 			if err != nil {
 				return cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse]{}, err
 			}
@@ -122,7 +164,7 @@ func commandDispatchRPCEndpoint(bus *CommandBus) cmdrpc.EndpointDefinition {
 	)
 }
 
-func commandListRPCEndpoint(bus *CommandBus) cmdrpc.EndpointDefinition {
+func commandListRPCEndpoint(adm *Admin) cmdrpc.EndpointDefinition {
 	return cmdrpc.NewEndpoint[map[string]any, RPCCommandListResponse](
 		cmdrpc.EndpointSpec{
 			Method:      RPCMethodCommandList,
@@ -132,9 +174,22 @@ func commandListRPCEndpoint(bus *CommandBus) cmdrpc.EndpointDefinition {
 			Tags:        []string{"admin", "commands"},
 			Idempotent:  true,
 		},
-		func(_ context.Context, _ cmdrpc.RequestEnvelope[map[string]any]) (cmdrpc.ResponseEnvelope[RPCCommandListResponse], error) {
+		func(ctx context.Context, _ cmdrpc.RequestEnvelope[map[string]any]) (cmdrpc.ResponseEnvelope[RPCCommandListResponse], error) {
+			if adm == nil {
+				return cmdrpc.ResponseEnvelope[RPCCommandListResponse]{}, serviceNotConfiguredDomainError("admin", map[string]any{
+					"component": "rpc_transport",
+					"method":    RPCMethodCommandList,
+				})
+			}
+			if !adm.config.Commands.RPC.DiscoveryEnabled {
+				return cmdrpc.ResponseEnvelope[RPCCommandListResponse]{}, ErrNotFound
+			}
+			if err := authorizeRPCPermission(ctx, adm.Authorizer(), "admin.commands.read", defaultRPCCommandResource); err != nil {
+				return cmdrpc.ResponseEnvelope[RPCCommandListResponse]{}, err
+			}
+
 			names := []string{}
-			if bus != nil {
+			if bus := adm.Commands(); bus != nil {
 				names = bus.Names()
 			}
 			return cmdrpc.ResponseEnvelope[RPCCommandListResponse]{
@@ -146,76 +201,148 @@ func commandListRPCEndpoint(bus *CommandBus) cmdrpc.EndpointDefinition {
 	)
 }
 
-func applyRPCMetaToDispatchOptions(meta cmdrpc.RequestMeta, opts command.DispatchOptions) command.DispatchOptions {
-	correlation := strings.TrimSpace(opts.CorrelationID)
-	if correlation == "" {
-		correlation = strings.TrimSpace(meta.CorrelationID)
+func authorizeRPCPermission(ctx context.Context, authorizer Authorizer, permission, resource string) error {
+	permission = strings.TrimSpace(permission)
+	resource = strings.TrimSpace(resource)
+	if permission == "" {
+		return nil
 	}
-	if correlation == "" {
-		correlation = strings.TrimSpace(meta.RequestID)
+	if resource == "" {
+		resource = defaultRPCCommandResource
 	}
-	opts.CorrelationID = correlation
+	if authorizer == nil || !authorizer.Can(ctx, permission, resource) {
+		return permissionDenied(permission, resource)
+	}
+	return nil
+}
 
-	metadata := copyRPCMap(opts.Metadata)
-	if actorID := strings.TrimSpace(meta.ActorID); actorID != "" {
-		metadata["actor_id"] = actorID
+func trustedRPCIdentityFromContext(ctx context.Context, meta cmdrpc.RequestMeta, opts command.DispatchOptions) rpcTrustedIdentity {
+	identity := rpcTrustedIdentity{
+		ActorID:        strings.TrimSpace(actorFromContext(ctx)),
+		TenantID:       strings.TrimSpace(tenantIDFromContext(ctx)),
+		OrganizationID: strings.TrimSpace(orgIDFromContext(ctx)),
+		RequestID:      strings.TrimSpace(requestIDFromContext(ctx)),
+		CorrelationID:  strings.TrimSpace(correlationIDFromContext(ctx)),
 	}
-	if tenant := strings.TrimSpace(meta.Tenant); tenant != "" {
-		metadata["tenant"] = tenant
-	}
-	if requestID := strings.TrimSpace(meta.RequestID); requestID != "" {
-		metadata["request_id"] = requestID
-	}
-	if len(meta.Roles) > 0 {
-		metadata["roles"] = append([]string(nil), meta.Roles...)
-	}
-	if len(meta.Permissions) > 0 {
-		metadata["permissions"] = append([]string(nil), meta.Permissions...)
-	}
-	if len(meta.Scope) > 0 {
-		metadata["scope"] = copyRPCMap(meta.Scope)
-	}
-	if len(meta.Headers) > 0 {
-		headers := map[string]any{}
-		for key, value := range meta.Headers {
-			key = strings.TrimSpace(key)
-			if key == "" {
-				continue
-			}
-			headers[key] = value
+	if actor, ok := auth.ActorFromContext(ctx); ok && actor != nil {
+		identity.Subject = strings.TrimSpace(actor.Subject)
+		if identity.ActorID == "" {
+			identity.ActorID = strings.TrimSpace(actor.ActorID)
 		}
-		if len(headers) > 0 {
-			metadata["headers"] = headers
+		if identity.ActorID == "" {
+			identity.ActorID = strings.TrimSpace(actor.Subject)
+		}
+		if identity.TenantID == "" {
+			identity.TenantID = strings.TrimSpace(actor.TenantID)
+		}
+		if identity.OrganizationID == "" {
+			identity.OrganizationID = strings.TrimSpace(actor.OrganizationID)
 		}
 	}
-	if len(meta.Params) > 0 {
-		params := map[string]any{}
-		for key, value := range meta.Params {
-			key = strings.TrimSpace(key)
-			if key == "" {
-				continue
-			}
-			params[key] = value
-		}
-		if len(params) > 0 {
-			metadata["params"] = params
-		}
+	if identity.RequestID == "" {
+		identity.RequestID = strings.TrimSpace(meta.RequestID)
 	}
-	if len(meta.Query) > 0 {
-		query := map[string]any{}
-		for key, value := range meta.Query {
-			key = strings.TrimSpace(key)
-			if key == "" {
-				continue
-			}
-			query[key] = append([]string(nil), value...)
-		}
-		if len(query) > 0 {
-			metadata["query"] = query
-		}
+	if identity.CorrelationID == "" {
+		identity.CorrelationID = strings.TrimSpace(meta.CorrelationID)
 	}
+	if identity.CorrelationID == "" {
+		identity.CorrelationID = strings.TrimSpace(opts.CorrelationID)
+	}
+	if identity.CorrelationID == "" {
+		identity.CorrelationID = identity.RequestID
+	}
+	if identity.Subject == "" {
+		identity.Subject = identity.ActorID
+	}
+	return identity
+}
+
+func sanitizeRPCDispatchOptions(identity rpcTrustedIdentity, opts command.DispatchOptions, allowlist []string) command.DispatchOptions {
+	opts.CorrelationID = strings.TrimSpace(identity.CorrelationID)
+
+	metadata := copyAllowedRPCMetadata(opts.Metadata, allowlist)
+	if identity.RequestID != "" {
+		metadata["request_id"] = identity.RequestID
+	}
+	if identity.CorrelationID != "" {
+		metadata["correlation_id"] = identity.CorrelationID
+	}
+	if identity.ActorID != "" {
+		metadata["actor_id"] = identity.ActorID
+	}
+	if identity.Subject != "" {
+		metadata["subject"] = identity.Subject
+	}
+	if identity.TenantID != "" {
+		metadata["tenant"] = identity.TenantID
+		metadata["tenant_id"] = identity.TenantID
+	}
+	if identity.OrganizationID != "" {
+		metadata["organization_id"] = identity.OrganizationID
+		metadata["org_id"] = identity.OrganizationID
+	}
+	if identity.TenantID != "" || identity.OrganizationID != "" {
+		scope := map[string]any{}
+		if identity.TenantID != "" {
+			scope["tenant_id"] = identity.TenantID
+		}
+		if identity.OrganizationID != "" {
+			scope["organization_id"] = identity.OrganizationID
+		}
+		metadata["scope"] = scope
+	}
+
 	opts.Metadata = metadata
 	return opts
+}
+
+func copyAllowedRPCMetadata(in map[string]any, allowlist []string) map[string]any {
+	allowed := map[string]struct{}{}
+	for _, value := range normalizeRPCMetadataAllowlist(allowlist) {
+		allowed[value] = struct{}{}
+	}
+	if len(allowed) == 0 || len(in) == 0 {
+		return map[string]any{}
+	}
+	out := map[string]any{}
+	for rawKey, value := range in {
+		key := strings.TrimSpace(rawKey)
+		if key == "" {
+			continue
+		}
+		normalized := strings.ToLower(key)
+		if _, ok := allowed[normalized]; !ok {
+			continue
+		}
+		if isReservedRPCMetadataKey(normalized) {
+			continue
+		}
+		out[key] = value
+	}
+	if len(out) == 0 {
+		return map[string]any{}
+	}
+	return out
+}
+
+func isReservedRPCMetadataKey(key string) bool {
+	key = strings.TrimSpace(strings.ToLower(key))
+	switch key {
+	case "actor", "actor_id", "actorid", "subject", "user_id", "userid", "tenant", "tenant_id", "tenantid", "organization", "organization_id", "organizationid", "org", "org_id", "orgid", "roles", "permissions", "scope", "headers", "params", "query":
+		return true
+	default:
+		return false
+	}
+}
+
+func cloneRPCDispatchOptions(opts command.DispatchOptions) command.DispatchOptions {
+	cloned := opts
+	cloned.Metadata = copyRPCMap(opts.Metadata)
+	if opts.RunAt != nil {
+		runAt := opts.RunAt.UTC()
+		cloned.RunAt = &runAt
+	}
+	return cloned
 }
 
 func copyRPCMap(in map[string]any) map[string]any {
@@ -229,6 +356,9 @@ func copyRPCMap(in map[string]any) map[string]any {
 			continue
 		}
 		out[key] = value
+	}
+	if len(out) == 0 {
+		return map[string]any{}
 	}
 	return out
 }
