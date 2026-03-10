@@ -2239,6 +2239,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       displayCachedPage(cached, pageNum);
       state.currentPage = pageNum;
       document.getElementById('current-page').textContent = pageNum;
+      updatePageNavigation();
       renderFieldOverlays();
       preloadAdjacentPages(pageNum);
       return;
@@ -2301,6 +2302,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
 
       state.currentPage = pageNum;
       document.getElementById('current-page').textContent = pageNum;
+      updatePageNavigation();
 
       // Re-render overlays for current page
       renderFieldOverlays();
@@ -2518,19 +2520,16 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
   function prevPage() {
     if (state.currentPage <= 1) return;
     queueRenderPage(state.currentPage - 1);
-    updatePageNavigation();
   }
 
   function nextPage() {
     if (state.currentPage >= unifiedConfig.pageCount) return;
     queueRenderPage(state.currentPage + 1);
-    updatePageNavigation();
   }
 
   function goToPage(pageNum) {
     if (pageNum < 1 || pageNum > unifiedConfig.pageCount) return;
     queueRenderPage(pageNum);
-    updatePageNavigation();
   }
 
   function updatePageNavigation() {
