@@ -190,6 +190,29 @@ Translation quickstart modules keep their existing async options and can now reu
 - `TranslationExchangeConfig.CommandExecutionMode`
 - `TranslationQueueConfig.CommandExecutionMode`
 
+### Command routing observability
+
+When using queued routing (for example `esign.pdf.remediate`), quickstart + e-sign emit structured dispatch logs with canonical routing fields:
+- `command_id`
+- `execution_mode`
+- `dispatch_id`
+- `correlation_id`
+- `accepted`
+
+Runtime counters are exposed through `examples/esign/observability.Snapshot()` including:
+- `CommandDispatchAcceptedTotal`, `CommandDispatchRejectedTotal`, `CommandDispatchAcceptedByMode`
+- `DedupStoreMissTotal`, `DedupStoreMissByCommandID`
+- `RemediationCandidateTotal`, `RemediationSucceededTotal`, `RemediationFailedTotal`
+- `RemediationRetryingTotal`, `RemediationDeadLetterTotal`
+- `RemediationLockContentionTotal`, `RemediationLockTimeoutTotal`
+
+Alert evaluation (`observability.EvaluateAlerts`) now includes:
+- `command.dedup_store_miss_detected`
+- `pdf.remediation_retrying_high`
+- `pdf.remediation_dead_letter_high`
+- `pdf.remediation_lock_contention_high`
+- `pdf.remediation_lock_timeout_high`
+
 ## User management
 Quickstart can wire go-users repositories and expose the built-in users module. The `users` feature flag is enabled by default in `DefaultAdminFeatures()`; if you disable it, the users module is skipped and user/role endpoints return `FeatureDisabledError`.
 
