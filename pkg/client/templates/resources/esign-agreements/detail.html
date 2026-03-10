@@ -331,13 +331,13 @@
         {% set status = resource_item.status|lower %}
         {% if (status == "sent" or status == "in_progress") and participant.role != "cc" %}
           <button type="button" class="text-sm text-blue-600 hover:text-blue-800"
-                  data-action="resend-participant" data-participant-id="{{ participant.id }}"
+                  data-action="resend-recipient" data-recipient-id="{{ participant.id }}" data-participant-id="{{ participant.id }}"
                   aria-label="Resend signing invitation to {{ participant.name|default:participant.email }}"
                   title="Resend signing request to this participant">
             Resend
           </button>
           <button type="button" class="text-sm text-gray-600 hover:text-gray-800"
-                  data-action="rotate-token" data-participant-id="{{ participant.id }}"
+                  data-action="rotate-token" data-recipient-id="{{ participant.id }}" data-participant-id="{{ participant.id }}"
                   aria-label="Rotate signing token for {{ participant.name|default:participant.email }}"
                   title="Generate a new signing link for this participant">
             Rotate Token
@@ -1284,9 +1284,17 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
   // Per-recipient resend
-  document.querySelectorAll('[data-action="resend-recipient"]').forEach(btn => {
+  document.querySelectorAll('[data-action="resend-recipient"], [data-action="resend-participant"]').forEach(btn => {
     btn.addEventListener('click', async () => {
-      const recipientId = btn.getAttribute('data-recipient-id');
+      const recipientId = btn.getAttribute('data-recipient-id') || btn.getAttribute('data-participant-id');
+      if (!recipientId) {
+        if (window.toastManager) {
+          window.toastManager.error('Recipient ID is missing');
+        } else {
+          alert('Recipient ID is missing');
+        }
+        return;
+      }
       await executeAction('resend', { recipient_id: recipientId });
     });
   });
@@ -1294,7 +1302,15 @@ document.addEventListener('DOMContentLoaded', function() {
   // Rotate token
   document.querySelectorAll('[data-action="rotate-token"]').forEach(btn => {
     btn.addEventListener('click', async () => {
-      const recipientId = btn.getAttribute('data-recipient-id');
+      const recipientId = btn.getAttribute('data-recipient-id') || btn.getAttribute('data-participant-id');
+      if (!recipientId) {
+        if (window.toastManager) {
+          window.toastManager.error('Recipient ID is missing');
+        } else {
+          alert('Recipient ID is missing');
+        }
+        return;
+      }
       await executeAction('rotate_token', { recipient_id: recipientId });
     });
   });
