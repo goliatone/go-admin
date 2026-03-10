@@ -391,6 +391,10 @@ func wrapExportRouter(router admin.AdminRouter, wrap admin.ExportRouteWrapper) a
 	return exportRouterWrapper{router: router, wrap: wrap}
 }
 
+func (w exportRouterWrapper) Handle(method router.HTTPMethod, path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
+	return w.router.Handle(method, path, w.wrapHandler(handler), mw...)
+}
+
 func (w exportRouterWrapper) Get(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
 	return w.router.Get(path, w.wrapHandler(handler), mw...)
 }
@@ -405,6 +409,14 @@ func (w exportRouterWrapper) Put(path string, handler router.HandlerFunc, mw ...
 
 func (w exportRouterWrapper) Delete(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
 	return w.router.Delete(path, w.wrapHandler(handler), mw...)
+}
+
+func (w exportRouterWrapper) Patch(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
+	return w.router.Patch(path, w.wrapHandler(handler), mw...)
+}
+
+func (w exportRouterWrapper) Head(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
+	return w.router.Head(path, w.wrapHandler(handler), mw...)
 }
 
 func (w exportRouterWrapper) wrapHandler(handler router.HandlerFunc) router.HandlerFunc {
