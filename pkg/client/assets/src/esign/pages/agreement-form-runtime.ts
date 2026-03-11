@@ -104,8 +104,30 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
   ].join('|');
   const WIZARD_STORAGE_KEY = `esign_wizard_state_v1:${encodeURIComponent(wizardScopeToken)}`;
   const WIZARD_CHANNEL_NAME = `esign_wizard_sync:${encodeURIComponent(wizardScopeToken)}`;
+  const LEGACY_WIZARD_STORAGE_KEY = 'esign_wizard_state_v1';
   const SYNC_DEBOUNCE_MS = 2000;
   const SYNC_RETRY_DELAYS = [1000, 2000, 5000, 10000, 30000];
+  const WIZARD_STORAGE_MIGRATION_VERSION = 1;
+  const TITLE_SOURCE = {
+    USER: 'user',
+    AUTOFILL: 'autofill',
+    SERVER_SEED: 'server_seed',
+  } as const;
+
+  function emitWizardTelemetry(eventName, fields = {}) {
+    const normalizedEvent = String(eventName || '').trim();
+    if (!normalizedEvent || typeof window === 'undefined') return;
+    const counters = (window.__esignWizardTelemetryCounters = window.__esignWizardTelemetryCounters || {});
+    counters[normalizedEvent] = Number(counters[normalizedEvent] || 0) + 1;
+    window.dispatchEvent(new CustomEvent('esign:wizard-telemetry', {
+      detail: {
+        event: normalizedEvent,
+        count: counters[normalizedEvent],
+        fields,
+        at: new Date().toISOString(),
+      },
+    }));
+  }
 
   function hasMeaningfulParticipantProgress(participant, index = 0) {
     if (!participant || typeof participant !== 'object') return false;
@@ -146,6 +168,14 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     return false;
   }
 
+  function normalizeTitleSource(value, fallback = TITLE_SOURCE.AUTOFILL) {
+    const normalized = String(value || '').trim().toLowerCase();
+    if (normalized === TITLE_SOURCE.USER) return TITLE_SOURCE.USER;
+    if (normalized === TITLE_SOURCE.SERVER_SEED) return TITLE_SOURCE.SERVER_SEED;
+    if (normalized === TITLE_SOURCE.AUTOFILL) return TITLE_SOURCE.AUTOFILL;
+    return fallback;
+  }
+
   /**
    * WizardSessionState schema (v1)
    * @typedef {Object} WizardSessionState
@@ -176,6 +206,7 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     }
 
     init() {
+      this.migrateLegacyStateIfNeeded();
       this.state = this.loadFromSession() || this.createInitialState();
     }
 
@@ -192,6 +223,8 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
         fieldDefinitions: [],
         fieldPlacements: [],
         fieldRules: [],
+        titleSource: TITLE_SOURCE.AUTOFILL,
+        storageMigrationVersion: WIZARD_STORAGE_MIGRATION_VERSION,
         serverDraftId: null,
         serverRevision: 0,
         lastSyncedAt: null,
@@ -201,6 +234,33 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
 
     generateWizardId() {
       return `wizard_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    }
+
+    migrateLegacyStateIfNeeded() {
+      try {
+        const scopedRaw = sessionStorage.getItem(WIZARD_STORAGE_KEY);
+        const legacyRaw = sessionStorage.getItem(LEGACY_WIZARD_STORAGE_KEY);
+        if (!legacyRaw) return;
+        if (scopedRaw) {
+          // Scoped key is authoritative once present.
+          sessionStorage.removeItem(LEGACY_WIZARD_STORAGE_KEY);
+          return;
+        }
+        const parsedLegacy = JSON.parse(legacyRaw);
+        const migrated = this.normalizeLoadedState({
+          ...parsedLegacy,
+          storageMigrationVersion: WIZARD_STORAGE_MIGRATION_VERSION,
+        });
+        sessionStorage.setItem(WIZARD_STORAGE_KEY, JSON.stringify(migrated));
+        sessionStorage.removeItem(LEGACY_WIZARD_STORAGE_KEY);
+        emitWizardTelemetry('wizard_resume_migration_used', {
+          from: LEGACY_WIZARD_STORAGE_KEY,
+          to: WIZARD_STORAGE_KEY,
+        });
+      } catch (error) {
+        // Corrupt legacy cache should not block clean bootstrap.
+        sessionStorage.removeItem(LEGACY_WIZARD_STORAGE_KEY);
+      }
     }
 
     loadFromSession() {
@@ -245,8 +305,10 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
       };
 
       const detailsState = (state.details && typeof state.details === 'object') ? state.details : {};
+      const parsedTitle = String(detailsState.title ?? '').trim();
+      const inferredTitleSource = parsedTitle === '' ? TITLE_SOURCE.AUTOFILL : TITLE_SOURCE.USER;
       normalized.details = {
-        title: String(detailsState.title ?? '').trim(),
+        title: parsedTitle,
         message: String(detailsState.message ?? '')
       };
 
@@ -260,6 +322,11 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
       normalized.version = WIZARD_STATE_VERSION;
       normalized.createdAt = String(state.createdAt ?? initial.createdAt);
       normalized.updatedAt = String(state.updatedAt ?? initial.updatedAt);
+      normalized.titleSource = normalizeTitleSource(state.titleSource, inferredTitleSource);
+      normalized.storageMigrationVersion = parsePositiveInt(
+        state.storageMigrationVersion,
+        WIZARD_STORAGE_MIGRATION_VERSION,
+      ) || WIZARD_STORAGE_MIGRATION_VERSION;
 
       const serverDraftID = String(state.serverDraftId ?? '').trim();
       normalized.serverDraftId = serverDraftID || null;
@@ -280,6 +347,7 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     saveToSession() {
       try {
         this.state.updatedAt = new Date().toISOString();
+        this.state.storageMigrationVersion = WIZARD_STORAGE_MIGRATION_VERSION;
         sessionStorage.setItem(WIZARD_STORAGE_KEY, JSON.stringify(this.state));
       } catch (error) {
         console.error('Failed to save wizard state to session:', error);
@@ -290,10 +358,26 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
       return this.state;
     }
 
+    setState(nextState, options = {}) {
+      this.state = this.normalizeLoadedState(nextState);
+      if (options.syncPending === true) {
+        this.state.syncPending = true;
+      } else if (options.syncPending === false) {
+        this.state.syncPending = false;
+      }
+      if (options.save !== false) {
+        this.saveToSession();
+      }
+      if (options.notify !== false) {
+        this.notifyListeners();
+      }
+    }
+
     updateState(partial) {
-      this.state = { ...this.state, ...partial, syncPending: true, updatedAt: new Date().toISOString() };
-      this.saveToSession();
-      this.notifyListeners();
+      this.setState(
+        { ...this.state, ...partial, syncPending: true, updatedAt: new Date().toISOString() },
+        { syncPending: true }
+      );
     }
 
     updateStep(step) {
@@ -304,8 +388,26 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
       this.updateState({ document: { ...this.state.document, ...doc } });
     }
 
-    updateDetails(details) {
-      this.updateState({ details: { ...this.state.details, ...details } });
+    updateDetails(details, options = {}) {
+      const patch = {
+        details: { ...this.state.details, ...details },
+      };
+      if (Object.prototype.hasOwnProperty.call(options, 'titleSource')) {
+        patch.titleSource = normalizeTitleSource(options.titleSource, this.state.titleSource);
+      } else if (Object.prototype.hasOwnProperty.call(details || {}, 'title')) {
+        patch.titleSource = TITLE_SOURCE.USER;
+      }
+      this.updateState(patch);
+    }
+
+    setTitleSource(source, options = {}) {
+      const nextSource = normalizeTitleSource(source, this.state.titleSource);
+      if (nextSource === this.state.titleSource) return;
+      if (options.syncPending === false) {
+        this.setState({ ...this.state, titleSource: nextSource }, { syncPending: false });
+        return;
+      }
+      this.updateState({ titleSource: nextSource });
     }
 
     updateParticipants(participants) {
@@ -321,17 +423,19 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     }
 
     markSynced(serverDraftId, serverRevision) {
-      this.state.serverDraftId = serverDraftId;
-      this.state.serverRevision = serverRevision;
-      this.state.lastSyncedAt = new Date().toISOString();
-      this.state.syncPending = false;
-      this.saveToSession();
-      this.notifyListeners();
+      this.setState({
+        ...this.state,
+        serverDraftId,
+        serverRevision,
+        lastSyncedAt: new Date().toISOString(),
+        syncPending: false,
+      }, { syncPending: false });
     }
 
     clear() {
       this.state = this.createInitialState();
       sessionStorage.removeItem(WIZARD_STORAGE_KEY);
+      sessionStorage.removeItem(LEGACY_WIZARD_STORAGE_KEY);
       this.notifyListeners();
     }
 
@@ -350,13 +454,17 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
       this.listeners.forEach(cb => cb(this.state));
     }
 
-    collectFormState() {
+	    collectFormState() {
       // Collect current form state into wizard state
       const docId = document.getElementById('document_id')?.value || null;
       const docTitle = document.getElementById('selected-document-title')?.textContent?.trim() || null;
 
-      const titleInput = document.getElementById('title');
-      const messageInput = document.getElementById('message');
+	      const titleInput = document.getElementById('title');
+	      const messageInput = document.getElementById('message');
+	      const activeTitleSource = normalizeTitleSource(
+	        this.state?.titleSource,
+	        String(titleInput?.value || '').trim() === '' ? TITLE_SOURCE.AUTOFILL : TITLE_SOURCE.USER,
+	      );
 
       const participants = [];
       document.querySelectorAll('.participant-entry').forEach(entry => {
@@ -383,15 +491,16 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
 
       const documentPageCount = parseInt(documentPageCountInput?.value || '0', 10) || null;
 
-      return {
-        document: { id: docId, title: docTitle, pageCount: documentPageCount },
-        details: {
-          title: titleInput?.value || '',
-          message: messageInput?.value || ''
-        },
-        participants,
-        fieldDefinitions,
-        fieldPlacements: placementState?.fieldInstances || [],
+	      return {
+	        document: { id: docId, title: docTitle, pageCount: documentPageCount },
+	        details: {
+	          title: titleInput?.value || '',
+	          message: messageInput?.value || ''
+	        },
+	        titleSource: activeTitleSource,
+	        participants,
+	        fieldDefinitions,
+	        fieldPlacements: placementState?.fieldInstances || [],
         fieldRules
       };
     }
@@ -418,11 +527,11 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
         if (docPicker) docPicker.classList.add('hidden');
       }
 
-      // Restore details
-      const titleInput = document.getElementById('title');
-      const messageInput = document.getElementById('message');
-      if (titleInput && state.details.title) titleInput.value = state.details.title;
-      if (messageInput && state.details.message) messageInput.value = state.details.message;
+	      // Restore details
+	      const titleInput = document.getElementById('title');
+	      const messageInput = document.getElementById('message');
+	      if (titleInput) titleInput.value = state.details.title || '';
+	      if (messageInput) messageInput.value = state.details.message || '';
 
       // Participants and field definitions will be restored after their respective
       // initialization code runs, via restoreParticipants() and restoreFieldDefinitions()
@@ -618,8 +727,10 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
           if (data.tabId !== this.getTabId()) {
             const state = this.stateManager.loadFromSession();
             if (state) {
-              this.stateManager.state = state;
-              this.stateManager.notifyListeners();
+              this.stateManager.setState(state, { syncPending: Boolean(state.syncPending), notify: false });
+              void reconcileBootstrapState({ reason: 'state_updated' }).then(() => {
+                this.stateManager.notifyListeners();
+              });
             }
           }
           break;
@@ -906,8 +1017,12 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
       try {
         const serverDraft = await syncService.load(state.serverDraftId);
         if (serverDraft.wizard_state) {
-          stateManager.state = { ...serverDraft.wizard_state, serverDraftId: serverDraft.id, serverRevision: serverDraft.revision };
-          stateManager.saveToSession();
+          stateManager.setState({
+            ...serverDraft.wizard_state,
+            serverDraftId: serverDraft.id,
+            serverRevision: serverDraft.revision,
+            syncPending: false,
+          }, { syncPending: false });
           window.location.reload();
         }
       } catch (error) {
@@ -920,9 +1035,11 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
   document.getElementById('conflict-force-btn')?.addEventListener('click', async () => {
     // Force overwrite by incrementing to current server revision
     const serverRevision = parseInt(document.getElementById('conflict-server-revision')?.textContent || '0', 10);
-    stateManager.state.serverRevision = serverRevision;
-    stateManager.state.syncPending = true;
-    stateManager.saveToSession();
+    stateManager.setState({
+      ...stateManager.getState(),
+      serverRevision,
+      syncPending: true,
+    }, { syncPending: true });
     syncOrchestrator.performSync();
     document.getElementById('conflict-dialog-modal')?.classList.add('hidden');
   });
@@ -930,6 +1047,63 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
   document.getElementById('conflict-dismiss-btn')?.addEventListener('click', () => {
     document.getElementById('conflict-dialog-modal')?.classList.add('hidden');
   });
+
+  function mergeUnsyncedLocalOntoServer(localState, serverState) {
+    return stateManager.normalizeLoadedState({
+      ...serverState,
+      currentStep: localState.currentStep,
+      document: localState.document,
+      details: localState.details,
+      participants: localState.participants,
+      fieldDefinitions: localState.fieldDefinitions,
+      fieldPlacements: localState.fieldPlacements,
+      fieldRules: localState.fieldRules,
+      titleSource: localState.titleSource,
+      syncPending: true,
+      serverDraftId: serverState.serverDraftId,
+      serverRevision: serverState.serverRevision,
+      lastSyncedAt: serverState.lastSyncedAt,
+    });
+  }
+
+  async function reconcileBootstrapState(options = {}) {
+    if (isEditMode) return stateManager.getState();
+    const localState = stateManager.normalizeLoadedState(stateManager.getState());
+    const localDraftID = String(localState?.serverDraftId || '').trim();
+    if (!localDraftID) {
+      stateManager.setState(localState, { syncPending: Boolean(localState.syncPending), notify: false });
+      return stateManager.getState();
+    }
+    try {
+      const serverDraft = await syncService.load(localDraftID);
+      const serverState = stateManager.normalizeLoadedState({
+        ...(serverDraft?.wizard_state && typeof serverDraft.wizard_state === 'object' ? serverDraft.wizard_state : {}),
+        serverDraftId: String(serverDraft?.id || localDraftID).trim() || localDraftID,
+        serverRevision: Number(serverDraft?.revision || 0),
+        lastSyncedAt: String(serverDraft?.updated_at || serverDraft?.updatedAt || '').trim() || localState.lastSyncedAt,
+        syncPending: false,
+      });
+      const sameDraft = String(localState.serverDraftId || '').trim() === String(serverState.serverDraftId || '').trim();
+      const reconciled = (sameDraft && localState.syncPending === true)
+        ? mergeUnsyncedLocalOntoServer(localState, serverState)
+        : serverState;
+      stateManager.setState(reconciled, { syncPending: Boolean(reconciled.syncPending), notify: false });
+      return stateManager.getState();
+    } catch (error) {
+      if (Number(error?.status || 0) === 404) {
+        // Stale server pointer should be dropped, but local progress can still be resumed explicitly.
+        const localOnlyState = stateManager.normalizeLoadedState({
+          ...localState,
+          serverDraftId: null,
+          serverRevision: 0,
+          lastSyncedAt: null,
+        });
+        stateManager.setState(localOnlyState, { syncPending: Boolean(localOnlyState.syncPending), notify: false });
+        return stateManager.getState();
+      }
+      return stateManager.getState();
+    }
+  }
 
   // Resume dialog handlers
   function showResumeDialog() {
@@ -945,6 +1119,10 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     document.getElementById('resume-draft-time').textContent = formatRelativeTime(state.updatedAt);
 
     modal?.classList.remove('hidden');
+    emitWizardTelemetry('wizard_resume_prompt_shown', {
+      step: Number(state.currentStep || 1),
+      has_server_draft: Boolean(state.serverDraftId),
+    });
   }
 
   async function clearSavedResumeState(options = {}) {
@@ -964,67 +1142,73 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     }
   }
 
-  function persistCurrentFormStateIfMeaningful() {
-    const currentState = stateManager.getState();
-    const formState = stateManager.collectFormState();
-    if (!hasMeaningfulWizardProgress({ ...currentState, ...formState })) {
+  function collectCurrentFormSnapshot() {
+    return stateManager.normalizeLoadedState({
+      ...stateManager.getState(),
+      ...stateManager.collectFormState(),
+      syncPending: true,
+      serverDraftId: null,
+      serverRevision: 0,
+      lastSyncedAt: null,
+    });
+  }
+
+  function persistSnapshotIfMeaningful(snapshot) {
+    if (!hasMeaningfulWizardProgress(snapshot)) {
       return;
     }
-    stateManager.updateState(formState);
+    stateManager.setState(snapshot, { syncPending: true });
     syncOrchestrator.scheduleSync();
     syncOrchestrator.broadcastStateUpdate();
   }
 
-  document.getElementById('resume-continue-btn')?.addEventListener('click', () => {
+  async function handleResumeAction(action) {
     document.getElementById('resume-dialog-modal')?.classList.add('hidden');
-    stateManager.restoreFormState();
-    // Navigate to saved step after form is initialized
-    window._resumeToStep = stateManager.getState().currentStep;
+    const currentSnapshot = collectCurrentFormSnapshot();
+    switch (action) {
+      case 'continue':
+        stateManager.restoreFormState();
+        // Navigate to saved step after form is initialized
+        window._resumeToStep = stateManager.getState().currentStep;
+        return;
+      case 'start_new':
+        await clearSavedResumeState({ deleteServerDraft: false });
+        // Keep current unsaved form as the new baseline; no server delete.
+        persistSnapshotIfMeaningful(currentSnapshot);
+        return;
+      case 'proceed':
+        await clearSavedResumeState({ deleteServerDraft: true });
+        persistSnapshotIfMeaningful(currentSnapshot);
+        return;
+      case 'discard':
+        await clearSavedResumeState({ deleteServerDraft: true });
+        return;
+      default:
+        return;
+    }
+  }
+
+  document.getElementById('resume-continue-btn')?.addEventListener('click', () => {
+    void handleResumeAction('continue');
   });
 
-  document.getElementById('resume-proceed-btn')?.addEventListener('click', async () => {
-    document.getElementById('resume-dialog-modal')?.classList.add('hidden');
-    await clearSavedResumeState({ deleteServerDraft: true });
-    persistCurrentFormStateIfMeaningful();
+  document.getElementById('resume-proceed-btn')?.addEventListener('click', () => {
+    void handleResumeAction('proceed');
   });
 
   document.getElementById('resume-new-btn')?.addEventListener('click', () => {
-    // Keep the current form untouched and drop stale resume state.
-    document.getElementById('resume-dialog-modal')?.classList.add('hidden');
-    void clearSavedResumeState({ deleteServerDraft: false });
+    void handleResumeAction('start_new');
   });
 
-  document.getElementById('resume-discard-btn')?.addEventListener('click', async () => {
-    document.getElementById('resume-dialog-modal')?.classList.add('hidden');
-    await clearSavedResumeState({ deleteServerDraft: true });
+  document.getElementById('resume-discard-btn')?.addEventListener('click', () => {
+    void handleResumeAction('discard');
   });
 
   async function maybeShowResumeDialog() {
-    if (isEditMode || !stateManager.hasResumableState()) return;
-
-    const state = stateManager.getState();
-    const serverDraftID = String(state?.serverDraftId || '').trim();
-    if (!serverDraftID) {
-      showResumeDialog();
-      return;
-    }
-
-    try {
-      const serverDraft = await syncService.load(serverDraftID);
-      if (serverDraft?.wizard_state && typeof serverDraft.wizard_state === 'object') {
-        stateManager.state = { ...serverDraft.wizard_state, serverDraftId: serverDraft.id, serverRevision: serverDraft.revision };
-        stateManager.saveToSession();
-      }
-      showResumeDialog();
-    } catch (error) {
-      // The backing draft no longer exists (for example, converted to agreement and deleted).
-      if (Number(error?.status || 0) === 404) {
-        stateManager.clear();
-        syncOrchestrator.broadcastStateUpdate();
-        return;
-      }
-      showResumeDialog();
-    }
+    if (isEditMode) return;
+    await reconcileBootstrapState({ reason: 'initial' });
+    if (!stateManager.hasResumableState()) return;
+    showResumeDialog();
   }
 
   // Check for resumable state on load (only for create mode, not edit).
@@ -1054,6 +1238,12 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
   const documentRemediationStatus = document.getElementById('document-remediation-status');
   const documentRemediationTriggerBtn = document.getElementById('document-remediation-trigger-btn');
   const documentRemediationDismissBtn = document.getElementById('document-remediation-dismiss-btn');
+  const agreementTitleInput = document.getElementById('title') as HTMLInputElement | null;
+
+  if (!isEditMode && agreementTitleInput && agreementTitleInput.value.trim() !== '' && !stateManager.hasResumableState()) {
+    // In create mode, non-empty template seed should be treated as non-user title so document selection can override it.
+    stateManager.setTitleSource(TITLE_SOURCE.SERVER_SEED, { syncPending: false });
+  }
 
   let documents = [];
   let pendingRemediationDocument = null;
@@ -1463,17 +1653,19 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
   }
 
   /**
-   * Auto-populate the agreement title field if it is currently empty.
-   * Uses the document title as the suggested agreement title.
-   * Never overwrites non-empty user input.
+   * Auto-populate agreement title from selected document unless user explicitly owns the title.
    */
   function autoPopulateAgreementTitle(documentTitle: string | null): void {
     const titleInput = document.getElementById('title') as HTMLInputElement | null;
     if (!titleInput) return;
 
+    const state = stateManager.getState();
     const currentTitle = titleInput.value.trim();
-    if (currentTitle) {
-      // User has already entered a title, do not overwrite
+    const titleSource = normalizeTitleSource(
+      state?.titleSource,
+      currentTitle === '' ? TITLE_SOURCE.AUTOFILL : TITLE_SOURCE.USER,
+    );
+    if (currentTitle && titleSource === TITLE_SOURCE.USER) {
       return;
     }
 
@@ -1486,7 +1678,7 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     stateManager.updateDetails({
       title: suggestedTitle,
       message: stateManager.getState().details.message || '',
-    });
+    }, { titleSource: TITLE_SOURCE.AUTOFILL });
   }
 
   function escapeHtml(text) {
@@ -4935,7 +5127,13 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
   // Track agreement details changes
   const titleInput = document.getElementById('title');
   const messageInput = document.getElementById('message');
-  titleInput?.addEventListener('input', debouncedTrackChanges);
+  titleInput?.addEventListener('input', () => {
+    const nextSource = String(titleInput?.value || '').trim() === ''
+      ? TITLE_SOURCE.AUTOFILL
+      : TITLE_SOURCE.USER;
+    stateManager.setTitleSource(nextSource);
+    debouncedTrackChanges();
+  });
   messageInput?.addEventListener('input', debouncedTrackChanges);
 
   // Track participant changes (handled via MutationObserver and change events)
