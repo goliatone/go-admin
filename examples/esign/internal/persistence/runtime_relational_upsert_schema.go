@@ -14,17 +14,20 @@ import (
 )
 
 const (
-	legacySnapshotStateTable             = "esign_store_state"
-	legacySnapshotMigrationMarkerTable   = "esign_snapshot_migration_markers"
-	legacySnapshotMigrationMarkerKeyV1   = "legacy_esign_store_state_v1"
-	legacySnapshotMigrationMarkerJSONDef = `{}`
+	removedSnapshotStateTable             = "esign_store_state"
+	removedSnapshotMigrationMarkerTable   = "esign_snapshot_migration_markers"
+	removedSnapshotMigrationMarkerKeyV1   = "legacy_esign_store_state_v1"
+	removedSnapshotMigrationMarkerJSONDef = `{}`
 )
 
-type legacySQLiteSnapshot struct {
+type runtimeStoreSnapshot struct {
 	Documents                  map[string]stores.DocumentRecord               `json:"documents"`
 	Agreements                 map[string]stores.AgreementRecord              `json:"agreements"`
 	Drafts                     map[string]stores.DraftRecord                  `json:"drafts"`
 	DraftWizardIndex           map[string]string                              `json:"draft_wizard_index"`
+	DocumentRemediationLeases  map[string]stores.DocumentRemediationLeaseRecord `json:"document_remediation_leases"`
+	RemediationDispatches      map[string]stores.RemediationDispatchRecord      `json:"remediation_dispatches"`
+	RemediationDispatchIndex   map[string]string                                `json:"remediation_dispatch_index"`
 	Participants               map[string]stores.ParticipantRecord            `json:"participants"`
 	FieldDefinitions           map[string]stores.FieldDefinitionRecord        `json:"field_definitions"`
 	FieldInstances             map[string]stores.FieldInstanceRecord          `json:"field_instances"`
@@ -60,11 +63,11 @@ type legacySQLiteSnapshot struct {
 	PlacementRuns              map[string]stores.PlacementRunRecord           `json:"placement_runs"`
 }
 
-type legacyTableMigrationSpec struct {
+type runtimeTableUpsertSpec struct {
 	table    string
 	columns  []string
 	conflict []string
-	rows     func(legacySQLiteSnapshot) []map[string]any
+	rows     func(runtimeStoreSnapshot) []map[string]any
 }
 
 func sqliteTableExists(ctx context.Context, db *sql.DB, tableName string) (bool, error) {
@@ -79,7 +82,7 @@ func sqliteTableExists(ctx context.Context, db *sql.DB, tableName string) (bool,
 		 WHERE type = 'table' AND name = ?`,
 		tableName,
 	).Scan(&count); err != nil {
-		return false, fmt.Errorf("runtime snapshot bridge: check sqlite table %s: %w", tableName, err)
+		return false, fmt.Errorf("runtime relational schema: check sqlite table %s: %w", tableName, err)
 	}
 	return count > 0, nil
 }
@@ -103,7 +106,7 @@ func loadSQLiteColumnMap(ctx context.Context, db *sql.DB, tables []string) (map[
 		}
 		rows, err := db.QueryContext(ctx, `PRAGMA table_info(`+table+`)`)
 		if err != nil {
-			return nil, fmt.Errorf("runtime snapshot bridge: table_info for %s: %w", table, err)
+			return nil, fmt.Errorf("runtime relational schema: table_info for %s: %w", table, err)
 		}
 		columns := map[string]bool{}
 		for rows.Next() {
@@ -117,7 +120,7 @@ func loadSQLiteColumnMap(ctx context.Context, db *sql.DB, tables []string) (map[
 			)
 			if scanErr := rows.Scan(&cid, &name, &declType, &notNull, &defaultVal, &pk); scanErr != nil {
 				_ = rows.Close()
-				return nil, fmt.Errorf("runtime snapshot bridge: scan table_info %s: %w", table, scanErr)
+				return nil, fmt.Errorf("runtime relational schema: scan table_info %s: %w", table, scanErr)
 			}
 			name = strings.TrimSpace(strings.ToLower(name))
 			if name != "" {
@@ -125,14 +128,14 @@ func loadSQLiteColumnMap(ctx context.Context, db *sql.DB, tables []string) (map[
 			}
 		}
 		if err := rows.Close(); err != nil {
-			return nil, fmt.Errorf("runtime snapshot bridge: close table_info rows for %s: %w", table, err)
+			return nil, fmt.Errorf("runtime relational schema: close table_info rows for %s: %w", table, err)
 		}
 		out[table] = columns
 	}
 	return out, nil
 }
 
-func legacySnapshotTargetTables(specs []legacyTableMigrationSpec) []string {
+func runtimeUpsertTargetTables(specs []runtimeTableUpsertSpec) []string {
 	tables := make([]string, 0, len(specs))
 	seen := map[string]bool{}
 	for _, spec := range specs {
@@ -145,14 +148,14 @@ func legacySnapshotTargetTables(specs []legacyTableMigrationSpec) []string {
 	return tables
 }
 
-func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
+func runtimeStoreTableUpsertSpecs() []runtimeTableUpsertSpec {
 	now := func() time.Time { return time.Now().UTC() }
-	return []legacyTableMigrationSpec{
+	return []runtimeTableUpsertSpec{
 		{
 			table:    "documents",
 			columns:  []string{"id", "tenant_id", "org_id", "created_by_user_id", "title", "source_original_name", "source_object_key", "normalized_object_key", "source_sha256", "size_bytes", "page_count", "created_at", "updated_at", "source_type", "source_google_file_id", "source_google_doc_url", "source_modified_time", "source_exported_at", "source_exported_by_user_id", "source_mime_type", "source_ingestion_mode", "pdf_compatibility_tier", "pdf_compatibility_reason", "pdf_normalization_status", "pdf_analyzed_at", "pdf_policy_version"},
 			conflict: []string{"id"},
-			rows: func(snapshot legacySQLiteSnapshot) []map[string]any {
+			rows: func(snapshot runtimeStoreSnapshot) []map[string]any {
 				rows := make([]map[string]any, 0, len(snapshot.Documents))
 				for _, record := range sortedMapValues(snapshot.Documents) {
 					createdAt := requiredTime(record.CreatedAt, now())
@@ -197,7 +200,7 @@ func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
 			table:    "agreements",
 			columns:  []string{"id", "tenant_id", "org_id", "document_id", "status", "title", "message", "version", "sent_at", "completed_at", "voided_at", "declined_at", "expired_at", "created_by_user_id", "updated_by_user_id", "created_at", "updated_at", "source_type", "source_google_file_id", "source_google_doc_url", "source_modified_time", "source_exported_at", "source_exported_by_user_id", "source_mime_type", "source_ingestion_mode"},
 			conflict: []string{"id"},
-			rows: func(snapshot legacySQLiteSnapshot) []map[string]any {
+			rows: func(snapshot runtimeStoreSnapshot) []map[string]any {
 				rows := make([]map[string]any, 0, len(snapshot.Agreements))
 				for _, record := range sortedMapValues(snapshot.Agreements) {
 					createdAt := requiredTime(record.CreatedAt, now())
@@ -246,12 +249,60 @@ func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
 			},
 		},
 		{
+			table:    "document_remediation_leases",
+			columns:  []string{"document_id", "tenant_id", "org_id", "worker_id", "lease_seq", "correlation_id", "acquired_at", "last_heartbeat_at", "expires_at", "updated_at"},
+			conflict: []string{"document_id"},
+			rows: func(snapshot runtimeStoreSnapshot) []map[string]any {
+				rows := make([]map[string]any, 0, len(snapshot.DocumentRemediationLeases))
+				for _, record := range sortedMapValues(snapshot.DocumentRemediationLeases) {
+					rows = append(rows, map[string]any{
+						"document_id":        strings.TrimSpace(record.DocumentID),
+						"tenant_id":          strings.TrimSpace(record.TenantID),
+						"org_id":             strings.TrimSpace(record.OrgID),
+						"worker_id":          strings.TrimSpace(record.WorkerID),
+						"lease_seq":          record.LeaseSeq,
+						"correlation_id":     strings.TrimSpace(record.CorrelationID),
+						"acquired_at":        optionalTime(record.AcquiredAt),
+						"last_heartbeat_at":  optionalTime(record.LastHeartbeatAt),
+						"expires_at":         optionalTime(record.ExpiresAt),
+						"updated_at":         requiredTime(record.UpdatedAt, now()),
+					})
+				}
+				return rows
+			},
+		},
+		{
+			table:    "remediation_dispatches",
+			columns:  []string{"dispatch_id", "tenant_id", "org_id", "document_id", "idempotency_key", "mode", "command_id", "correlation_id", "accepted", "max_attempts", "enqueued_at", "updated_at"},
+			conflict: []string{"dispatch_id"},
+			rows: func(snapshot runtimeStoreSnapshot) []map[string]any {
+				rows := make([]map[string]any, 0, len(snapshot.RemediationDispatches))
+				for _, record := range sortedMapValues(snapshot.RemediationDispatches) {
+					rows = append(rows, map[string]any{
+						"dispatch_id":     strings.TrimSpace(record.DispatchID),
+						"tenant_id":       strings.TrimSpace(record.TenantID),
+						"org_id":          strings.TrimSpace(record.OrgID),
+						"document_id":     strings.TrimSpace(record.DocumentID),
+						"idempotency_key": strings.TrimSpace(record.IdempotencyKey),
+						"mode":            strings.TrimSpace(record.Mode),
+						"command_id":      strings.TrimSpace(record.CommandID),
+						"correlation_id":  strings.TrimSpace(record.CorrelationID),
+						"accepted":        record.Accepted,
+						"max_attempts":    record.MaxAttempts,
+						"enqueued_at":     optionalTime(record.EnqueuedAt),
+						"updated_at":      requiredTime(record.UpdatedAt, now()),
+					})
+				}
+				return rows
+			},
+		},
+		{
 			table:    "recipients",
 			columns:  []string{"id", "tenant_id", "org_id", "agreement_id", "email", "name", "role", "notify", "signing_order", "first_view_at", "last_view_at", "declined_at", "decline_reason", "completed_at", "version", "created_at", "updated_at"},
 			conflict: []string{"id"},
-			rows: func(snapshot legacySQLiteSnapshot) []map[string]any {
+			rows: func(snapshot runtimeStoreSnapshot) []map[string]any {
 				rows := make([]map[string]any, 0, len(snapshot.Recipients)+len(snapshot.Participants))
-				defaultNotifyEnabled := legacySnapshotNotifyDefaultsEnabled(snapshot)
+				defaultNotifyEnabled := runtimeSnapshotNotifyDefaultsEnabled(snapshot)
 				addRecipient := func(record stores.RecipientRecord) {
 					createdAt := requiredTime(record.CreatedAt, now())
 					updatedAt := requiredTime(record.UpdatedAt, createdAt)
@@ -321,9 +372,9 @@ func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
 			table:    "participants",
 			columns:  []string{"id", "tenant_id", "org_id", "agreement_id", "email", "name", "role", "notify", "signing_stage", "first_view_at", "last_view_at", "declined_at", "decline_reason", "completed_at", "version", "created_at", "updated_at"},
 			conflict: []string{"id"},
-			rows: func(snapshot legacySQLiteSnapshot) []map[string]any {
+			rows: func(snapshot runtimeStoreSnapshot) []map[string]any {
 				rows := make([]map[string]any, 0, len(snapshot.Participants))
-				defaultNotifyEnabled := legacySnapshotNotifyDefaultsEnabled(snapshot)
+				defaultNotifyEnabled := runtimeSnapshotNotifyDefaultsEnabled(snapshot)
 				for _, record := range sortedMapValues(snapshot.Participants) {
 					createdAt := requiredTime(record.CreatedAt, now())
 					updatedAt := requiredTime(record.UpdatedAt, createdAt)
@@ -362,7 +413,7 @@ func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
 			table:    "fields",
 			columns:  []string{"id", "tenant_id", "org_id", "agreement_id", "recipient_id", "field_type", "page_number", "pos_x", "pos_y", "width", "height", "required", "created_at", "updated_at", "field_definition_id", "placement_source", "link_group_id", "linked_from_field_id", "is_unlinked"},
 			conflict: []string{"id"},
-			rows: func(snapshot legacySQLiteSnapshot) []map[string]any {
+			rows: func(snapshot runtimeStoreSnapshot) []map[string]any {
 				rows := make([]map[string]any, 0, len(snapshot.Fields)+len(snapshot.FieldInstances))
 				definitionsByID := map[string]stores.FieldDefinitionRecord{}
 				for _, definition := range snapshot.FieldDefinitions {
@@ -437,7 +488,7 @@ func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
 			table:    "field_definitions",
 			columns:  []string{"id", "tenant_id", "org_id", "agreement_id", "participant_id", "field_type", "required", "validation_json", "link_group_id", "created_at", "updated_at"},
 			conflict: []string{"id"},
-			rows: func(snapshot legacySQLiteSnapshot) []map[string]any {
+			rows: func(snapshot runtimeStoreSnapshot) []map[string]any {
 				rows := make([]map[string]any, 0, len(snapshot.FieldDefinitions))
 				for _, record := range sortedMapValues(snapshot.FieldDefinitions) {
 					createdAt := requiredTime(record.CreatedAt, now())
@@ -463,7 +514,7 @@ func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
 			table:    "field_instances",
 			columns:  []string{"id", "tenant_id", "org_id", "agreement_id", "field_definition_id", "page_number", "x", "y", "width", "height", "tab_index", "label", "appearance_json", "created_at", "updated_at", "placement_source", "resolver_id", "confidence", "placement_run_id", "manual_override", "link_group_id", "linked_from_field_id", "is_unlinked"},
 			conflict: []string{"id"},
-			rows: func(snapshot legacySQLiteSnapshot) []map[string]any {
+			rows: func(snapshot runtimeStoreSnapshot) []map[string]any {
 				rows := make([]map[string]any, 0, len(snapshot.FieldInstances))
 				for _, record := range sortedMapValues(snapshot.FieldInstances) {
 					createdAt := requiredTime(record.CreatedAt, now())
@@ -501,7 +552,7 @@ func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
 			table:    "signing_tokens",
 			columns:  []string{"id", "tenant_id", "org_id", "agreement_id", "recipient_id", "token_hash", "status", "expires_at", "revoked_at", "created_at"},
 			conflict: []string{"id"},
-			rows: func(snapshot legacySQLiteSnapshot) []map[string]any {
+			rows: func(snapshot runtimeStoreSnapshot) []map[string]any {
 				rows := make([]map[string]any, 0, len(snapshot.SigningTokens))
 				for _, record := range sortedMapValues(snapshot.SigningTokens) {
 					createdAt := requiredTime(record.CreatedAt, now())
@@ -529,7 +580,7 @@ func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
 			table:    "signature_artifacts",
 			columns:  []string{"id", "tenant_id", "org_id", "agreement_id", "recipient_id", "artifact_type", "object_key", "sha256", "created_at"},
 			conflict: []string{"id"},
-			rows: func(snapshot legacySQLiteSnapshot) []map[string]any {
+			rows: func(snapshot runtimeStoreSnapshot) []map[string]any {
 				rows := make([]map[string]any, 0, len(snapshot.SignatureArtifacts))
 				for _, record := range sortedMapValues(snapshot.SignatureArtifacts) {
 					createdAt := requiredTime(record.CreatedAt, now())
@@ -552,7 +603,7 @@ func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
 			table:    "signer_profiles",
 			columns:  []string{"id", "tenant_id", "org_id", "subject", "profile_key", "full_name", "initials", "typed_signature", "drawn_signature_data_url", "drawn_initials_data_url", "remember", "created_at", "updated_at", "expires_at"},
 			conflict: []string{"id"},
-			rows: func(snapshot legacySQLiteSnapshot) []map[string]any {
+			rows: func(snapshot runtimeStoreSnapshot) []map[string]any {
 				rows := make([]map[string]any, 0, len(snapshot.SignerProfiles))
 				for _, record := range sortedMapValues(snapshot.SignerProfiles) {
 					createdAt := requiredTime(record.CreatedAt, now())
@@ -582,7 +633,7 @@ func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
 			table:    "saved_signer_signatures",
 			columns:  []string{"id", "tenant_id", "org_id", "subject", "signature_type", "label", "object_key", "thumbnail_data_url", "created_at"},
 			conflict: []string{"id"},
-			rows: func(snapshot legacySQLiteSnapshot) []map[string]any {
+			rows: func(snapshot runtimeStoreSnapshot) []map[string]any {
 				rows := make([]map[string]any, 0, len(snapshot.SavedSignerSignatures))
 				for _, record := range sortedMapValues(snapshot.SavedSignerSignatures) {
 					createdAt := requiredTime(record.CreatedAt, now())
@@ -605,7 +656,7 @@ func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
 			table:    "field_values",
 			columns:  []string{"id", "tenant_id", "org_id", "agreement_id", "recipient_id", "field_id", "value_text", "value_bool", "signature_artifact_id", "version", "created_at", "updated_at"},
 			conflict: []string{"id"},
-			rows: func(snapshot legacySQLiteSnapshot) []map[string]any {
+			rows: func(snapshot runtimeStoreSnapshot) []map[string]any {
 				rows := make([]map[string]any, 0, len(snapshot.FieldValues))
 				for _, record := range sortedMapValues(snapshot.FieldValues) {
 					createdAt := requiredTime(record.CreatedAt, now())
@@ -636,7 +687,7 @@ func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
 			table:    "audit_events",
 			columns:  []string{"id", "tenant_id", "org_id", "agreement_id", "event_type", "actor_type", "actor_id", "ip_address", "user_agent", "metadata_json", "created_at"},
 			conflict: []string{"id"},
-			rows: func(snapshot legacySQLiteSnapshot) []map[string]any {
+			rows: func(snapshot runtimeStoreSnapshot) []map[string]any {
 				rows := make([]map[string]any, 0, len(snapshot.AuditEvents))
 				for _, record := range sortedMapValues(snapshot.AuditEvents) {
 					createdAt := requiredTime(record.CreatedAt, now())
@@ -665,7 +716,7 @@ func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
 			table:    "email_logs",
 			columns:  []string{"id", "tenant_id", "org_id", "agreement_id", "recipient_id", "template_code", "provider_message_id", "status", "failure_reason", "attempt_count", "max_attempts", "correlation_id", "next_retry_at", "sent_at", "created_at", "updated_at"},
 			conflict: []string{"id"},
-			rows: func(snapshot legacySQLiteSnapshot) []map[string]any {
+			rows: func(snapshot runtimeStoreSnapshot) []map[string]any {
 				rows := make([]map[string]any, 0, len(snapshot.EmailLogs))
 				for _, record := range sortedMapValues(snapshot.EmailLogs) {
 					createdAt := requiredTime(record.CreatedAt, now())
@@ -700,7 +751,7 @@ func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
 			table:    "agreement_artifacts",
 			columns:  []string{"agreement_id", "tenant_id", "org_id", "executed_object_key", "executed_sha256", "certificate_object_key", "certificate_sha256", "correlation_id", "created_at", "updated_at"},
 			conflict: []string{"agreement_id"},
-			rows: func(snapshot legacySQLiteSnapshot) []map[string]any {
+			rows: func(snapshot runtimeStoreSnapshot) []map[string]any {
 				rows := make([]map[string]any, 0, len(snapshot.AgreementArtifacts))
 				for _, record := range sortedMapValues(snapshot.AgreementArtifacts) {
 					createdAt := requiredTime(record.CreatedAt, now())
@@ -725,7 +776,7 @@ func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
 			table:    "job_runs",
 			columns:  []string{"id", "tenant_id", "org_id", "job_name", "dedupe_key", "agreement_id", "recipient_id", "correlation_id", "status", "attempt_count", "max_attempts", "last_error", "next_retry_at", "created_at", "updated_at"},
 			conflict: []string{"id"},
-			rows: func(snapshot legacySQLiteSnapshot) []map[string]any {
+			rows: func(snapshot runtimeStoreSnapshot) []map[string]any {
 				rows := make([]map[string]any, 0, len(snapshot.JobRuns))
 				for _, record := range sortedMapValues(snapshot.JobRuns) {
 					createdAt := requiredTime(record.CreatedAt, now())
@@ -755,7 +806,7 @@ func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
 			table:    "google_import_runs",
 			columns:  []string{"id", "tenant_id", "org_id", "user_id", "google_file_id", "source_version_hint", "dedupe_key", "document_title", "agreement_title", "created_by_user_id", "correlation_id", "status", "document_id", "agreement_id", "source_mime_type", "ingestion_mode", "error_code", "error_message", "error_details_json", "created_at", "updated_at", "started_at", "completed_at"},
 			conflict: []string{"id"},
-			rows: func(snapshot legacySQLiteSnapshot) []map[string]any {
+			rows: func(snapshot runtimeStoreSnapshot) []map[string]any {
 				rows := make([]map[string]any, 0, len(snapshot.GoogleImportRuns))
 				for _, record := range sortedMapValues(snapshot.GoogleImportRuns) {
 					createdAt := requiredTime(record.CreatedAt, now())
@@ -793,7 +844,7 @@ func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
 			table:    "agreement_reminder_states",
 			columns:  []string{"id", "tenant_id", "org_id", "agreement_id", "recipient_id", "status", "terminal_reason", "policy_version", "sent_count", "first_sent_at", "last_sent_at", "last_viewed_at", "last_manual_resend_at", "next_due_at", "last_reason_code", "last_error_code", "last_error_internal_encrypted", "last_error_internal_expires_at", "lease_seq", "claimed_at", "last_heartbeat_at", "sweep_id", "worker_id", "last_evaluated_at", "last_attempted_send_at", "created_at", "updated_at"},
 			conflict: []string{"id"},
-			rows: func(snapshot legacySQLiteSnapshot) []map[string]any {
+			rows: func(snapshot runtimeStoreSnapshot) []map[string]any {
 				rows := make([]map[string]any, 0, len(snapshot.AgreementReminderStates))
 				for _, record := range sortedMapValues(snapshot.AgreementReminderStates) {
 					createdAt := requiredTime(record.CreatedAt, now())
@@ -854,7 +905,7 @@ func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
 			table:    "outbox_messages",
 			columns:  []string{"id", "tenant_id", "org_id", "topic", "message_key", "payload_json", "headers_json", "correlation_id", "status", "attempt_count", "max_attempts", "last_error", "available_at", "locked_at", "locked_by", "published_at", "created_at", "updated_at"},
 			conflict: []string{"id"},
-			rows: func(snapshot legacySQLiteSnapshot) []map[string]any {
+			rows: func(snapshot runtimeStoreSnapshot) []map[string]any {
 				rows := make([]map[string]any, 0, len(snapshot.OutboxMessages))
 				for _, record := range sortedMapValues(snapshot.OutboxMessages) {
 					createdAt := requiredTime(record.CreatedAt, now())
@@ -888,7 +939,7 @@ func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
 			table:    "integration_credentials",
 			columns:  []string{"id", "tenant_id", "org_id", "user_id", "provider", "encrypted_access_token", "encrypted_refresh_token", "scopes_json", "expires_at", "profile_json", "last_used_at", "created_at", "updated_at"},
 			conflict: []string{"id"},
-			rows: func(snapshot legacySQLiteSnapshot) []map[string]any {
+			rows: func(snapshot runtimeStoreSnapshot) []map[string]any {
 				rows := make([]map[string]any, 0, len(snapshot.IntegrationCredentials))
 				for _, record := range sortedMapValues(snapshot.IntegrationCredentials) {
 					createdAt := requiredTime(record.CreatedAt, now())
@@ -916,7 +967,7 @@ func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
 			table:    "integration_mapping_specs",
 			columns:  []string{"id", "tenant_id", "org_id", "provider", "name", "version", "status", "external_schema_json", "rules_json", "compiled_json", "compiled_hash", "published_at", "created_by_user_id", "updated_by_user_id", "created_at", "updated_at"},
 			conflict: []string{"id"},
-			rows: func(snapshot legacySQLiteSnapshot) []map[string]any {
+			rows: func(snapshot runtimeStoreSnapshot) []map[string]any {
 				rows := make([]map[string]any, 0, len(snapshot.MappingSpecs))
 				for _, record := range sortedMapValues(snapshot.MappingSpecs) {
 					createdAt := requiredTime(record.CreatedAt, now())
@@ -955,7 +1006,7 @@ func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
 			table:    "integration_bindings",
 			columns:  []string{"id", "tenant_id", "org_id", "provider", "entity_kind", "external_id", "internal_id", "provenance_json", "version", "created_at", "updated_at"},
 			conflict: []string{"id"},
-			rows: func(snapshot legacySQLiteSnapshot) []map[string]any {
+			rows: func(snapshot runtimeStoreSnapshot) []map[string]any {
 				rows := make([]map[string]any, 0, len(snapshot.IntegrationBindings))
 				for _, record := range sortedMapValues(snapshot.IntegrationBindings) {
 					createdAt := requiredTime(record.CreatedAt, now())
@@ -985,7 +1036,7 @@ func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
 			table:    "integration_sync_runs",
 			columns:  []string{"id", "tenant_id", "org_id", "provider", "direction", "mapping_spec_id", "status", "cursor", "last_error", "attempt_count", "version", "started_at", "completed_at", "created_by_user_id", "created_at", "updated_at"},
 			conflict: []string{"id"},
-			rows: func(snapshot legacySQLiteSnapshot) []map[string]any {
+			rows: func(snapshot runtimeStoreSnapshot) []map[string]any {
 				rows := make([]map[string]any, 0, len(snapshot.IntegrationSyncRuns))
 				for _, record := range sortedMapValues(snapshot.IntegrationSyncRuns) {
 					createdAt := requiredTime(record.CreatedAt, now())
@@ -1029,7 +1080,7 @@ func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
 			table:    "integration_checkpoints",
 			columns:  []string{"id", "tenant_id", "org_id", "run_id", "checkpoint_key", "cursor", "payload_json", "version", "created_at", "updated_at"},
 			conflict: []string{"id"},
-			rows: func(snapshot legacySQLiteSnapshot) []map[string]any {
+			rows: func(snapshot runtimeStoreSnapshot) []map[string]any {
 				rows := make([]map[string]any, 0, len(snapshot.IntegrationCheckpoints))
 				for _, record := range sortedMapValues(snapshot.IntegrationCheckpoints) {
 					createdAt := requiredTime(record.CreatedAt, now())
@@ -1058,7 +1109,7 @@ func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
 			table:    "integration_conflicts",
 			columns:  []string{"id", "tenant_id", "org_id", "run_id", "binding_id", "provider", "entity_kind", "external_id", "internal_id", "status", "reason", "payload_json", "resolution_json", "resolved_by_user_id", "resolved_at", "version", "created_at", "updated_at"},
 			conflict: []string{"id"},
-			rows: func(snapshot legacySQLiteSnapshot) []map[string]any {
+			rows: func(snapshot runtimeStoreSnapshot) []map[string]any {
 				rows := make([]map[string]any, 0, len(snapshot.IntegrationConflicts))
 				for _, record := range sortedMapValues(snapshot.IntegrationConflicts) {
 					createdAt := requiredTime(record.CreatedAt, now())
@@ -1099,7 +1150,7 @@ func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
 			table:    "integration_change_events",
 			columns:  []string{"id", "tenant_id", "org_id", "agreement_id", "provider", "event_type", "source_event_id", "idempotency_key", "payload_json", "emitted_at", "created_at"},
 			conflict: []string{"id"},
-			rows: func(snapshot legacySQLiteSnapshot) []map[string]any {
+			rows: func(snapshot runtimeStoreSnapshot) []map[string]any {
 				rows := make([]map[string]any, 0, len(snapshot.IntegrationChangeEvents))
 				for _, record := range sortedMapValues(snapshot.IntegrationChangeEvents) {
 					emittedAt := requiredTime(record.EmittedAt, now())
@@ -1125,7 +1176,7 @@ func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
 			table:    "integration_mutation_claims",
 			columns:  []string{"id", "tenant_id", "org_id", "idempotency_key", "first_seen_at", "created_at"},
 			conflict: []string{"id"},
-			rows: func(snapshot legacySQLiteSnapshot) []map[string]any {
+			rows: func(snapshot runtimeStoreSnapshot) []map[string]any {
 				rows := make([]map[string]any, 0, len(snapshot.IntegrationMutationClaims))
 				keys := make([]string, 0, len(snapshot.IntegrationMutationClaims))
 				for key := range snapshot.IntegrationMutationClaims {
@@ -1154,7 +1205,7 @@ func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
 			table:    "placement_runs",
 			columns:  []string{"id", "tenant_id", "org_id", "agreement_id", "status", "reason_code", "resolver_order_json", "executed_resolvers_json", "resolver_scores_json", "suggestions_json", "selected_suggestion_ids_json", "unresolved_definition_ids_json", "selected_source", "policy_json", "max_budget", "budget_used", "max_time_ms", "elapsed_ms", "manual_override_count", "created_by_user_id", "version", "created_at", "updated_at", "completed_at"},
 			conflict: []string{"id"},
-			rows: func(snapshot legacySQLiteSnapshot) []map[string]any {
+			rows: func(snapshot runtimeStoreSnapshot) []map[string]any {
 				rows := make([]map[string]any, 0, len(snapshot.PlacementRuns))
 				for _, record := range sortedMapValues(snapshot.PlacementRuns) {
 					createdAt := requiredTime(record.CreatedAt, now())
@@ -1197,7 +1248,7 @@ func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {
 			table:    "esign_drafts",
 			columns:  []string{"id", "tenant_id", "org_id", "created_by", "wizard_id", "document_id", "title", "current_step", "wizard_state_json", "revision", "created_at", "updated_at", "expires_at"},
 			conflict: []string{"id"},
-			rows: func(snapshot legacySQLiteSnapshot) []map[string]any {
+			rows: func(snapshot runtimeStoreSnapshot) []map[string]any {
 				rows := make([]map[string]any, 0, len(snapshot.Drafts))
 				for _, record := range sortedMapValues(snapshot.Drafts) {
 					createdAt := requiredTime(record.CreatedAt, now())
@@ -1295,9 +1346,9 @@ func marshalJSONWithDefault(value any, fallback string) string {
 	return encoded
 }
 
-// legacySnapshotNotifyDefaultsEnabled returns true when a legacy snapshot likely
+// runtimeSnapshotNotifyDefaultsEnabled returns true when a legacy snapshot likely
 // predates the notify flag (all values decode as zero-value false).
-func legacySnapshotNotifyDefaultsEnabled(snapshot legacySQLiteSnapshot) bool {
+func runtimeSnapshotNotifyDefaultsEnabled(snapshot runtimeStoreSnapshot) bool {
 	for _, record := range snapshot.Recipients {
 		if record.Notify {
 			return false

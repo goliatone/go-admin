@@ -47,12 +47,12 @@ func TestPhase10RuntimeStoreSQLiteDoesNotWriteLegacySnapshotState(t *testing.T) 
 		t.Fatalf("Create: %v", err)
 	}
 
-	exists, err := sqliteTableExists(context.Background(), bootstrap.SQLDB, legacySnapshotStateTable)
+	exists, err := sqliteTableExists(context.Background(), bootstrap.SQLDB, removedSnapshotStateTable)
 	if err != nil {
-		t.Fatalf("sqliteTableExists(%s): %v", legacySnapshotStateTable, err)
+		t.Fatalf("sqliteTableExists(%s): %v", removedSnapshotStateTable, err)
 	}
 	if exists {
-		t.Fatalf("expected %s to be absent after legacy cleanup migration", legacySnapshotStateTable)
+		t.Fatalf("expected %s to be absent after legacy cleanup migration", removedSnapshotStateTable)
 	}
 }
 

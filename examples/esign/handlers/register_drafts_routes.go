@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/goliatone/go-admin/examples/esign/services"
 	router "github.com/goliatone/go-router"
@@ -154,6 +155,7 @@ func registerDraftRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg regist
 		}, requireAdminPermission(cfg, cfg.permissions.AdminEdit))
 
 		adminRoutes.Post(routes.AdminDraftSend, func(c router.Context) error {
+			startedAt := time.Now()
 			if err := enforceTransportSecurity(c, cfg); err != nil {
 				return asHandlerError(err)
 			}
@@ -161,6 +163,8 @@ func registerDraftRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg regist
 			if draftID == "" {
 				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "draft_id is required", nil)
 			}
+			correlationID := apiCorrelationID(c, c.Header("Idempotency-Key"), draftID, "draft_send")
+			scope := cfg.resolveScope(c)
 			var payload struct {
 				ExpectedRevision int64  `json:"expected_revision"`
 				CreatedByUserID  string `json:"created_by_user_id"`
@@ -172,20 +176,36 @@ func registerDraftRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg regist
 			if createdByUserID == "" {
 				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "created_by_user_id is required", nil)
 			}
-			result, err := cfg.drafts.Send(c.Context(), cfg.resolveScope(c), draftID, services.DraftSendInput{
+			result, err := cfg.drafts.Send(c.Context(), scope, draftID, services.DraftSendInput{
 				ExpectedRevision: payload.ExpectedRevision,
 				CreatedByUserID:  createdByUserID,
 				IPAddress:        resolveAuditRequestIP(c, cfg),
 			})
 			if err != nil {
-				return writeAPIError(c, normalizeDraftMutationError(err), http.StatusUnprocessableEntity, "validation_failed", "unable to send draft", nil)
+				normalizedErr := normalizeDraftSendError(err)
+				logAPIOperation(c.Context(), "draft_send_precondition", correlationID, startedAt, normalizedErr, map[string]any{
+					"draft_id":           draftID,
+					"expected_revision":  payload.ExpectedRevision,
+					"created_by_user_id": createdByUserID,
+					"tenant_id":          strings.TrimSpace(scope.TenantID),
+					"org_id":             strings.TrimSpace(scope.OrgID),
+				})
+				return writeAPIError(c, normalizedErr, http.StatusUnprocessableEntity, "validation_failed", "unable to send draft", nil)
 			}
-			return c.JSON(http.StatusOK, map[string]any{
+			respErr := c.JSON(http.StatusOK, map[string]any{
 				"agreement_id":  strings.TrimSpace(result.AgreementID),
 				"status":        strings.TrimSpace(result.Status),
 				"draft_id":      strings.TrimSpace(result.DraftID),
 				"draft_deleted": result.DraftDeleted,
 			})
+			logAPIOperation(c.Context(), "draft_send_precondition", correlationID, startedAt, respErr, map[string]any{
+				"draft_id":           draftID,
+				"expected_revision":  payload.ExpectedRevision,
+				"created_by_user_id": createdByUserID,
+				"tenant_id":          strings.TrimSpace(scope.TenantID),
+				"org_id":             strings.TrimSpace(scope.OrgID),
+			})
+			return respErr
 		}, requireAdminPermission(cfg, cfg.permissions.AdminSend))
 	}
 }

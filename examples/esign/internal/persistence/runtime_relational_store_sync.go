@@ -11,43 +11,34 @@ import (
 
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	repository "github.com/goliatone/go-repository-bun"
+	"github.com/uptrace/bun"
 )
 
-var _ stores.SQLitePersistenceBackend = (*runtimeRelationalStoreBackend)(nil)
-
-// runtimeStoreSnapshot is the runtime payload shape used by the relational bridge.
-// It intentionally avoids referencing legacy state tables.
-type runtimeStoreSnapshot = legacySQLiteSnapshot
-
-type runtimeTableUpsertSpec = legacyTableMigrationSpec
-
-type runtimeRelationalStoreBackend struct {
+type runtimeRelationalStoreSync struct {
 	dialect Dialect
 	factory *RepositoryFactory
+	sqlDB   *sql.DB
 }
 
-func newRuntimeRelationalStoreBackend(bootstrap *BootstrapResult) (*runtimeRelationalStoreBackend, error) {
+func newRuntimeRelationalStoreSync(bootstrap *BootstrapResult) (*runtimeRelationalStoreSync, error) {
 	if bootstrap == nil {
-		return nil, fmt.Errorf("runtime relational store backend: bootstrap result is required")
+		return nil, fmt.Errorf("runtime relational store sync: bootstrap result is required")
 	}
 	if bootstrap.BunDB == nil {
-		return nil, fmt.Errorf("runtime relational store backend: bun db is required")
+		return nil, fmt.Errorf("runtime relational store sync: bun db is required")
 	}
 	factory, err := NewRepositoryFactoryFromDB(bootstrap.BunDB)
 	if err != nil {
-		return nil, fmt.Errorf("runtime relational store backend: repository factory: %w", err)
+		return nil, fmt.Errorf("runtime relational store sync: repository factory: %w", err)
 	}
-	return &runtimeRelationalStoreBackend{
+	return &runtimeRelationalStoreSync{
 		dialect: bootstrap.Dialect,
 		factory: factory,
+		sqlDB:   bootstrap.SQLDB,
 	}, nil
 }
 
-func (b *runtimeRelationalStoreBackend) EnsureSchema(_ context.Context, _ *sql.DB) error {
-	return nil
-}
-
-func (b *runtimeRelationalStoreBackend) LoadPayload(ctx context.Context, _ *sql.DB) ([]byte, error) {
+func (b *runtimeRelationalStoreSync) LoadPayload(ctx context.Context) ([]byte, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -60,14 +51,14 @@ func (b *runtimeRelationalStoreBackend) LoadPayload(ctx context.Context, _ *sql.
 	}
 	payload, err := json.Marshal(snapshot)
 	if err != nil {
-		return nil, fmt.Errorf("runtime relational store backend: encode runtime snapshot: %w", err)
+		return nil, fmt.Errorf("runtime relational store sync: encode runtime snapshot: %w", err)
 	}
 	return payload, nil
 }
 
-func (b *runtimeRelationalStoreBackend) PersistPayload(ctx context.Context, db *sql.DB, payload []byte) error {
-	if db == nil {
-		return fmt.Errorf("runtime relational store backend: sql db is required")
+func (b *runtimeRelationalStoreSync) PersistPayload(ctx context.Context, payload []byte) error {
+	if b == nil || b.sqlDB == nil {
+		return fmt.Errorf("runtime relational store sync: sql db is required")
 	}
 	if ctx == nil {
 		ctx = context.Background()
@@ -76,21 +67,28 @@ func (b *runtimeRelationalStoreBackend) PersistPayload(ctx context.Context, db *
 	snapshot := runtimeStoreSnapshot{}
 	if len(payload) > 0 {
 		if err := json.Unmarshal(payload, &snapshot); err != nil {
-			return fmt.Errorf("runtime relational store backend: decode runtime snapshot: %w", err)
+			return fmt.Errorf("runtime relational store sync: decode runtime snapshot: %w", err)
 		}
 	}
 	if err := validateRuntimeSnapshot(snapshot); err != nil {
 		return err
 	}
-	return b.persistSnapshot(ctx, db, snapshot)
+	return b.persistSnapshot(ctx, snapshot)
 }
 
-func (b *runtimeRelationalStoreBackend) loadSnapshot(ctx context.Context) (runtimeStoreSnapshot, error) {
+func (b *runtimeRelationalStoreSync) loadSnapshot(ctx context.Context) (runtimeStoreSnapshot, error) {
+	return b.loadSnapshotWithIDB(ctx, nil)
+}
+
+func (b *runtimeRelationalStoreSync) loadSnapshotWithIDB(ctx context.Context, idb bun.IDB) (runtimeStoreSnapshot, error) {
 	snapshot := runtimeStoreSnapshot{
 		Documents:                  map[string]stores.DocumentRecord{},
 		Agreements:                 map[string]stores.AgreementRecord{},
 		Drafts:                     map[string]stores.DraftRecord{},
 		DraftWizardIndex:           map[string]string{},
+		DocumentRemediationLeases:  map[string]stores.DocumentRemediationLeaseRecord{},
+		RemediationDispatches:      map[string]stores.RemediationDispatchRecord{},
+		RemediationDispatchIndex:   map[string]string{},
 		Participants:               map[string]stores.ParticipantRecord{},
 		FieldDefinitions:           map[string]stores.FieldDefinitionRecord{},
 		FieldInstances:             map[string]stores.FieldInstanceRecord{},
@@ -130,9 +128,9 @@ func (b *runtimeRelationalStoreBackend) loadSnapshot(ctx context.Context) (runti
 		return snapshot, nil
 	}
 
-	docs, err := listRepositoryRecords(ctx, b.factory.Documents())
+	docs, err := listRepositoryRecords(ctx, idb, b.factory.Documents())
 	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store backend: list documents: %w", err)
+		return snapshot, fmt.Errorf("runtime relational store sync: list documents: %w", err)
 	}
 	for _, record := range docs {
 		if record == nil {
@@ -141,9 +139,9 @@ func (b *runtimeRelationalStoreBackend) loadSnapshot(ctx context.Context) (runti
 		snapshot.Documents[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
 	}
 
-	agreements, err := listRepositoryRecords(ctx, b.factory.Agreements())
+	agreements, err := listRepositoryRecords(ctx, idb, b.factory.Agreements())
 	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store backend: list agreements: %w", err)
+		return snapshot, fmt.Errorf("runtime relational store sync: list agreements: %w", err)
 	}
 	for _, record := range agreements {
 		if record == nil {
@@ -152,9 +150,9 @@ func (b *runtimeRelationalStoreBackend) loadSnapshot(ctx context.Context) (runti
 		snapshot.Agreements[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
 	}
 
-	drafts, err := listRepositoryRecords(ctx, b.factory.Drafts())
+	drafts, err := listRepositoryRecords(ctx, idb, b.factory.Drafts())
 	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store backend: list drafts: %w", err)
+		return snapshot, fmt.Errorf("runtime relational store sync: list drafts: %w", err)
 	}
 	for _, record := range drafts {
 		if record == nil {
@@ -165,9 +163,29 @@ func (b *runtimeRelationalStoreBackend) loadSnapshot(ctx context.Context) (runti
 		snapshot.DraftWizardIndex[draftWizardIndexForKey(record.TenantID, record.OrgID, record.CreatedByUserID, record.WizardID)] = strings.TrimSpace(record.ID)
 	}
 
-	recipients, err := listRepositoryRecords(ctx, b.factory.Recipients())
+	leases, err := listDocumentRemediationLeases(ctx, idbOrDB(idb, b.factory.DB()))
 	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store backend: list recipients: %w", err)
+		return snapshot, fmt.Errorf("runtime relational store sync: list document remediation leases: %w", err)
+	}
+	for _, record := range leases {
+		snapshot.DocumentRemediationLeases[scopeRecordKey(record.TenantID, record.OrgID, record.DocumentID)] = record
+	}
+
+	dispatches, err := listRemediationDispatches(ctx, idbOrDB(idb, b.factory.DB()))
+	if err != nil {
+		return snapshot, fmt.Errorf("runtime relational store sync: list remediation dispatches: %w", err)
+	}
+	for _, record := range dispatches {
+		scopedID := scopeRecordKey(record.TenantID, record.OrgID, record.DispatchID)
+		snapshot.RemediationDispatches[scopedID] = record
+		if key := strings.TrimSpace(record.IdempotencyKey); key != "" {
+			snapshot.RemediationDispatchIndex[scopeRecordKey(record.TenantID, record.OrgID, key)] = strings.TrimSpace(record.DispatchID)
+		}
+	}
+
+	recipients, err := listRepositoryRecords(ctx, idb, b.factory.Recipients())
+	if err != nil {
+		return snapshot, fmt.Errorf("runtime relational store sync: list recipients: %w", err)
 	}
 	for _, record := range recipients {
 		if record == nil {
@@ -176,9 +194,9 @@ func (b *runtimeRelationalStoreBackend) loadSnapshot(ctx context.Context) (runti
 		snapshot.Recipients[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
 	}
 
-	participants, err := listRepositoryRecords(ctx, b.factory.Participants())
+	participants, err := listRepositoryRecords(ctx, idb, b.factory.Participants())
 	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store backend: list participants: %w", err)
+		return snapshot, fmt.Errorf("runtime relational store sync: list participants: %w", err)
 	}
 	for _, record := range participants {
 		if record == nil {
@@ -187,9 +205,9 @@ func (b *runtimeRelationalStoreBackend) loadSnapshot(ctx context.Context) (runti
 		snapshot.Participants[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
 	}
 
-	fields, err := listRepositoryRecords(ctx, b.factory.Fields())
+	fields, err := listRepositoryRecords(ctx, idb, b.factory.Fields())
 	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store backend: list fields: %w", err)
+		return snapshot, fmt.Errorf("runtime relational store sync: list fields: %w", err)
 	}
 	for _, record := range fields {
 		if record == nil {
@@ -198,9 +216,9 @@ func (b *runtimeRelationalStoreBackend) loadSnapshot(ctx context.Context) (runti
 		snapshot.Fields[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
 	}
 
-	fieldDefs, err := listRepositoryRecords(ctx, b.factory.FieldDefinitions())
+	fieldDefs, err := listRepositoryRecords(ctx, idb, b.factory.FieldDefinitions())
 	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store backend: list field definitions: %w", err)
+		return snapshot, fmt.Errorf("runtime relational store sync: list field definitions: %w", err)
 	}
 	for _, record := range fieldDefs {
 		if record == nil {
@@ -209,9 +227,9 @@ func (b *runtimeRelationalStoreBackend) loadSnapshot(ctx context.Context) (runti
 		snapshot.FieldDefinitions[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
 	}
 
-	fieldInstances, err := listRepositoryRecords(ctx, b.factory.FieldInstances())
+	fieldInstances, err := listRepositoryRecords(ctx, idb, b.factory.FieldInstances())
 	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store backend: list field instances: %w", err)
+		return snapshot, fmt.Errorf("runtime relational store sync: list field instances: %w", err)
 	}
 	for _, record := range fieldInstances {
 		if record == nil {
@@ -220,9 +238,9 @@ func (b *runtimeRelationalStoreBackend) loadSnapshot(ctx context.Context) (runti
 		snapshot.FieldInstances[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
 	}
 
-	signingTokens, err := listRepositoryRecords(ctx, b.factory.SigningTokens())
+	signingTokens, err := listRepositoryRecords(ctx, idb, b.factory.SigningTokens())
 	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store backend: list signing tokens: %w", err)
+		return snapshot, fmt.Errorf("runtime relational store sync: list signing tokens: %w", err)
 	}
 	for _, record := range signingTokens {
 		if record == nil {
@@ -236,9 +254,9 @@ func (b *runtimeRelationalStoreBackend) loadSnapshot(ctx context.Context) (runti
 		}
 	}
 
-	signatures, err := listRepositoryRecords(ctx, b.factory.SignatureArtifacts())
+	signatures, err := listRepositoryRecords(ctx, idb, b.factory.SignatureArtifacts())
 	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store backend: list signature artifacts: %w", err)
+		return snapshot, fmt.Errorf("runtime relational store sync: list signature artifacts: %w", err)
 	}
 	for _, record := range signatures {
 		if record == nil {
@@ -247,9 +265,9 @@ func (b *runtimeRelationalStoreBackend) loadSnapshot(ctx context.Context) (runti
 		snapshot.SignatureArtifacts[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
 	}
 
-	signerProfiles, err := listRepositoryRecords(ctx, b.factory.SignerProfiles())
+	signerProfiles, err := listRepositoryRecords(ctx, idb, b.factory.SignerProfiles())
 	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store backend: list signer profiles: %w", err)
+		return snapshot, fmt.Errorf("runtime relational store sync: list signer profiles: %w", err)
 	}
 	for _, record := range signerProfiles {
 		if record == nil {
@@ -260,9 +278,9 @@ func (b *runtimeRelationalStoreBackend) loadSnapshot(ctx context.Context) (runti
 		snapshot.SignerProfileIndex[signerProfileIndexForKey(record.TenantID, record.OrgID, record.Subject, record.Key)] = strings.TrimSpace(record.ID)
 	}
 
-	savedSignatures, err := listRepositoryRecords(ctx, b.factory.SavedSignerSignatures())
+	savedSignatures, err := listRepositoryRecords(ctx, idb, b.factory.SavedSignerSignatures())
 	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store backend: list saved signatures: %w", err)
+		return snapshot, fmt.Errorf("runtime relational store sync: list saved signatures: %w", err)
 	}
 	for _, record := range savedSignatures {
 		if record == nil {
@@ -271,9 +289,9 @@ func (b *runtimeRelationalStoreBackend) loadSnapshot(ctx context.Context) (runti
 		snapshot.SavedSignerSignatures[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
 	}
 
-	fieldValues, err := listRepositoryRecords(ctx, b.factory.FieldValues())
+	fieldValues, err := listRepositoryRecords(ctx, idb, b.factory.FieldValues())
 	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store backend: list field values: %w", err)
+		return snapshot, fmt.Errorf("runtime relational store sync: list field values: %w", err)
 	}
 	for _, record := range fieldValues {
 		if record == nil {
@@ -282,9 +300,9 @@ func (b *runtimeRelationalStoreBackend) loadSnapshot(ctx context.Context) (runti
 		snapshot.FieldValues[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
 	}
 
-	auditEvents, err := listRepositoryRecords(ctx, b.factory.AuditEvents())
+	auditEvents, err := listRepositoryRecords(ctx, idb, b.factory.AuditEvents())
 	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store backend: list audit events: %w", err)
+		return snapshot, fmt.Errorf("runtime relational store sync: list audit events: %w", err)
 	}
 	for _, record := range auditEvents {
 		if record == nil {
@@ -293,9 +311,9 @@ func (b *runtimeRelationalStoreBackend) loadSnapshot(ctx context.Context) (runti
 		snapshot.AuditEvents[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
 	}
 
-	agreementArtifacts, err := listRepositoryRecords(ctx, b.factory.AgreementArtifacts())
+	agreementArtifacts, err := listRepositoryRecords(ctx, idb, b.factory.AgreementArtifacts())
 	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store backend: list agreement artifacts: %w", err)
+		return snapshot, fmt.Errorf("runtime relational store sync: list agreement artifacts: %w", err)
 	}
 	for _, record := range agreementArtifacts {
 		if record == nil {
@@ -304,9 +322,9 @@ func (b *runtimeRelationalStoreBackend) loadSnapshot(ctx context.Context) (runti
 		snapshot.AgreementArtifacts[scopeRecordKey(record.TenantID, record.OrgID, record.AgreementID)] = *record
 	}
 
-	emailLogs, err := listRepositoryRecords(ctx, b.factory.EmailLogs())
+	emailLogs, err := listRepositoryRecords(ctx, idb, b.factory.EmailLogs())
 	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store backend: list email logs: %w", err)
+		return snapshot, fmt.Errorf("runtime relational store sync: list email logs: %w", err)
 	}
 	for _, record := range emailLogs {
 		if record == nil {
@@ -315,9 +333,9 @@ func (b *runtimeRelationalStoreBackend) loadSnapshot(ctx context.Context) (runti
 		snapshot.EmailLogs[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
 	}
 
-	jobRuns, err := listRepositoryRecords(ctx, b.factory.JobRuns())
+	jobRuns, err := listRepositoryRecords(ctx, idb, b.factory.JobRuns())
 	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store backend: list job runs: %w", err)
+		return snapshot, fmt.Errorf("runtime relational store sync: list job runs: %w", err)
 	}
 	for _, record := range jobRuns {
 		if record == nil {
@@ -328,9 +346,9 @@ func (b *runtimeRelationalStoreBackend) loadSnapshot(ctx context.Context) (runti
 		snapshot.JobRunDedupeIndex[jobRunDedupeIndexForKey(record.TenantID, record.OrgID, record.JobName, record.DedupeKey)] = strings.TrimSpace(record.ID)
 	}
 
-	googleImportRuns, err := listRepositoryRecords(ctx, b.factory.GoogleImportRuns())
+	googleImportRuns, err := listRepositoryRecords(ctx, idb, b.factory.GoogleImportRuns())
 	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store backend: list google import runs: %w", err)
+		return snapshot, fmt.Errorf("runtime relational store sync: list google import runs: %w", err)
 	}
 	for _, record := range googleImportRuns {
 		if record == nil {
@@ -341,9 +359,9 @@ func (b *runtimeRelationalStoreBackend) loadSnapshot(ctx context.Context) (runti
 		snapshot.GoogleImportRunDedupeIndex[googleImportRunDedupeIndexForKey(record.TenantID, record.OrgID, record.UserID, record.DedupeKey)] = strings.TrimSpace(record.ID)
 	}
 
-	agreementReminderStates, err := listRepositoryRecords(ctx, b.factory.AgreementReminderStates())
+	agreementReminderStates, err := listRepositoryRecords(ctx, idb, b.factory.AgreementReminderStates())
 	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store backend: list agreement reminder states: %w", err)
+		return snapshot, fmt.Errorf("runtime relational store sync: list agreement reminder states: %w", err)
 	}
 	for _, record := range agreementReminderStates {
 		if record == nil {
@@ -352,9 +370,9 @@ func (b *runtimeRelationalStoreBackend) loadSnapshot(ctx context.Context) (runti
 		snapshot.AgreementReminderStates[scopeAgreementRecipientKey(record.TenantID, record.OrgID, record.AgreementID, record.RecipientID)] = *record
 	}
 
-	outboxMessages, err := listRepositoryRecords(ctx, b.factory.OutboxMessages())
+	outboxMessages, err := listRepositoryRecords(ctx, idb, b.factory.OutboxMessages())
 	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store backend: list outbox messages: %w", err)
+		return snapshot, fmt.Errorf("runtime relational store sync: list outbox messages: %w", err)
 	}
 	for _, record := range outboxMessages {
 		if record == nil {
@@ -363,9 +381,9 @@ func (b *runtimeRelationalStoreBackend) loadSnapshot(ctx context.Context) (runti
 		snapshot.OutboxMessages[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = stores.OutboxMessageRecord(record.Message)
 	}
 
-	integrationCredentials, err := listRepositoryRecords(ctx, b.factory.IntegrationCredentials())
+	integrationCredentials, err := listRepositoryRecords(ctx, idb, b.factory.IntegrationCredentials())
 	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store backend: list integration credentials: %w", err)
+		return snapshot, fmt.Errorf("runtime relational store sync: list integration credentials: %w", err)
 	}
 	for _, record := range integrationCredentials {
 		if record == nil {
@@ -376,9 +394,9 @@ func (b *runtimeRelationalStoreBackend) loadSnapshot(ctx context.Context) (runti
 		snapshot.IntegrationCredentialIndex[integrationCredentialIndexForKey(record.TenantID, record.OrgID, record.Provider, record.UserID)] = strings.TrimSpace(record.ID)
 	}
 
-	mappingSpecs, err := listRepositoryRecords(ctx, b.factory.MappingSpecs())
+	mappingSpecs, err := listRepositoryRecords(ctx, idb, b.factory.MappingSpecs())
 	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store backend: list mapping specs: %w", err)
+		return snapshot, fmt.Errorf("runtime relational store sync: list mapping specs: %w", err)
 	}
 	for _, record := range mappingSpecs {
 		if record == nil {
@@ -387,9 +405,9 @@ func (b *runtimeRelationalStoreBackend) loadSnapshot(ctx context.Context) (runti
 		snapshot.MappingSpecs[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
 	}
 
-	integrationBindings, err := listRepositoryRecords(ctx, b.factory.IntegrationBindings())
+	integrationBindings, err := listRepositoryRecords(ctx, idb, b.factory.IntegrationBindings())
 	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store backend: list integration bindings: %w", err)
+		return snapshot, fmt.Errorf("runtime relational store sync: list integration bindings: %w", err)
 	}
 	for _, record := range integrationBindings {
 		if record == nil {
@@ -400,9 +418,9 @@ func (b *runtimeRelationalStoreBackend) loadSnapshot(ctx context.Context) (runti
 		snapshot.IntegrationBindingIndex[integrationBindingIndexForKey(record.TenantID, record.OrgID, record.Provider, record.EntityKind, record.ExternalID)] = strings.TrimSpace(record.ID)
 	}
 
-	integrationSyncRuns, err := listRepositoryRecords(ctx, b.factory.IntegrationSyncRuns())
+	integrationSyncRuns, err := listRepositoryRecords(ctx, idb, b.factory.IntegrationSyncRuns())
 	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store backend: list integration sync runs: %w", err)
+		return snapshot, fmt.Errorf("runtime relational store sync: list integration sync runs: %w", err)
 	}
 	for _, record := range integrationSyncRuns {
 		if record == nil {
@@ -411,9 +429,9 @@ func (b *runtimeRelationalStoreBackend) loadSnapshot(ctx context.Context) (runti
 		snapshot.IntegrationSyncRuns[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
 	}
 
-	integrationCheckpoints, err := listRepositoryRecords(ctx, b.factory.IntegrationCheckpoints())
+	integrationCheckpoints, err := listRepositoryRecords(ctx, idb, b.factory.IntegrationCheckpoints())
 	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store backend: list integration checkpoints: %w", err)
+		return snapshot, fmt.Errorf("runtime relational store sync: list integration checkpoints: %w", err)
 	}
 	for _, record := range integrationCheckpoints {
 		if record == nil {
@@ -424,9 +442,9 @@ func (b *runtimeRelationalStoreBackend) loadSnapshot(ctx context.Context) (runti
 		snapshot.IntegrationCheckpointIndex[integrationCheckpointIndexForKey(record.TenantID, record.OrgID, record.RunID, record.CheckpointKey)] = strings.TrimSpace(record.ID)
 	}
 
-	integrationConflicts, err := listRepositoryRecords(ctx, b.factory.IntegrationConflicts())
+	integrationConflicts, err := listRepositoryRecords(ctx, idb, b.factory.IntegrationConflicts())
 	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store backend: list integration conflicts: %w", err)
+		return snapshot, fmt.Errorf("runtime relational store sync: list integration conflicts: %w", err)
 	}
 	for _, record := range integrationConflicts {
 		if record == nil {
@@ -435,9 +453,9 @@ func (b *runtimeRelationalStoreBackend) loadSnapshot(ctx context.Context) (runti
 		snapshot.IntegrationConflicts[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
 	}
 
-	integrationChangeEvents, err := listRepositoryRecords(ctx, b.factory.IntegrationChangeEvents())
+	integrationChangeEvents, err := listRepositoryRecords(ctx, idb, b.factory.IntegrationChangeEvents())
 	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store backend: list integration change events: %w", err)
+		return snapshot, fmt.Errorf("runtime relational store sync: list integration change events: %w", err)
 	}
 	for _, record := range integrationChangeEvents {
 		if record == nil {
@@ -446,9 +464,9 @@ func (b *runtimeRelationalStoreBackend) loadSnapshot(ctx context.Context) (runti
 		snapshot.IntegrationChangeEvents[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
 	}
 
-	integrationMutationClaims, err := listRepositoryRecords(ctx, b.factory.IntegrationMutationClaims())
+	integrationMutationClaims, err := listRepositoryRecords(ctx, idb, b.factory.IntegrationMutationClaims())
 	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store backend: list integration mutation claims: %w", err)
+		return snapshot, fmt.Errorf("runtime relational store sync: list integration mutation claims: %w", err)
 	}
 	for _, record := range integrationMutationClaims {
 		if record == nil {
@@ -461,9 +479,9 @@ func (b *runtimeRelationalStoreBackend) loadSnapshot(ctx context.Context) (runti
 		snapshot.IntegrationMutationClaims[integrationMutationClaimKeyForScope(record.TenantID, record.OrgID, record.IdempotencyKey)] = firstSeen.UTC()
 	}
 
-	placementRuns, err := listRepositoryRecords(ctx, b.factory.PlacementRuns())
+	placementRuns, err := listRepositoryRecords(ctx, idb, b.factory.PlacementRuns())
 	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store backend: list placement runs: %w", err)
+		return snapshot, fmt.Errorf("runtime relational store sync: list placement runs: %w", err)
 	}
 	for _, record := range placementRuns {
 		if record == nil {
@@ -475,16 +493,19 @@ func (b *runtimeRelationalStoreBackend) loadSnapshot(ctx context.Context) (runti
 	return snapshot, nil
 }
 
-func (b *runtimeRelationalStoreBackend) persistSnapshot(ctx context.Context, db *sql.DB, snapshot runtimeStoreSnapshot) error {
+func (b *runtimeRelationalStoreSync) persistSnapshot(ctx context.Context, snapshot runtimeStoreSnapshot) error {
+	if b == nil || b.sqlDB == nil {
+		return fmt.Errorf("runtime relational store sync: sql db is required")
+	}
 	specs := runtimeStoreUpsertSpecs()
-	columnMap, err := loadDialectColumnMap(ctx, db, b.dialect, runtimeStoreTargetTables(specs))
+	columnMap, err := loadDialectColumnMap(ctx, b.sqlDB, b.dialect, runtimeStoreTargetTables(specs))
 	if err != nil {
 		return err
 	}
 
-	tx, err := db.BeginTx(ctx, nil)
+	tx, err := b.sqlDB.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("runtime relational store backend: begin transaction: %w", err)
+		return fmt.Errorf("runtime relational store sync: begin transaction: %w", err)
 	}
 	defer func() { _ = tx.Rollback() }()
 
@@ -495,8 +516,8 @@ func (b *runtimeRelationalStoreBackend) persistSnapshot(ctx context.Context, db 
 		}
 		rows := spec.rows(snapshot)
 		for _, row := range rows {
-			if err := upsertLegacyRowForDialect(ctx, tx, b.dialect, spec, tableColumns, row); err != nil {
-				return fmt.Errorf("runtime relational store backend: upsert into %s: %w", spec.table, err)
+			if err := upsertRuntimeRowForDialect(ctx, tx, b.dialect, spec, tableColumns, row); err != nil {
+				return fmt.Errorf("runtime relational store sync: upsert into %s: %w", spec.table, err)
 			}
 		}
 	}
@@ -517,30 +538,129 @@ func (b *runtimeRelationalStoreBackend) persistSnapshot(ctx context.Context, db 
 		rows := spec.rows(snapshot)
 		keys := collectRowKeys(rows, keyColumn)
 		if err := deleteMissingRowsByKey(ctx, tx, b.dialect, spec.table, keyColumn, keys); err != nil {
-			return fmt.Errorf("runtime relational store backend: cleanup stale rows from %s: %w", spec.table, err)
+			return fmt.Errorf("runtime relational store sync: cleanup stale rows from %s: %w", spec.table, err)
 		}
 	}
 
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("runtime relational store backend: commit transaction: %w", err)
+		return fmt.Errorf("runtime relational store sync: commit transaction: %w", err)
 	}
 	return nil
 }
 
-func listRepositoryRecords[T any](ctx context.Context, repo repository.Repository[T]) ([]T, error) {
+func (b *runtimeRelationalStoreSync) persistSnapshotDeltaTx(
+	ctx context.Context,
+	tx bun.Tx,
+	before runtimeStoreSnapshot,
+	after runtimeStoreSnapshot,
+) error {
+	if b == nil || b.sqlDB == nil {
+		return fmt.Errorf("runtime relational store sync: sql db is required")
+	}
+	specs := runtimeStoreUpsertSpecs()
+	columnMap, err := loadDialectColumnMap(ctx, b.sqlDB, b.dialect, runtimeStoreTargetTables(specs))
+	if err != nil {
+		return err
+	}
+
+	for _, spec := range specs {
+		tableColumns := columnMap[spec.table]
+		if len(tableColumns) == 0 {
+			continue
+		}
+		beforeRows := rowsByConflictKey(spec, before)
+		afterRows := rowsByConflictKey(spec, after)
+		for key, row := range afterRows {
+			if existing, ok := beforeRows[key]; ok && runtimeRowsEqual(existing, row) {
+				continue
+			}
+			if err := upsertRuntimeRowForDialect(ctx, tx, b.dialect, spec, tableColumns, row); err != nil {
+				return fmt.Errorf("runtime relational store sync: upsert delta into %s: %w", spec.table, err)
+			}
+		}
+		for key, row := range beforeRows {
+			if _, ok := afterRows[key]; ok {
+				continue
+			}
+			if err := deleteRuntimeRowByConflict(ctx, tx, spec, tableColumns, row); err != nil {
+				return fmt.Errorf("runtime relational store sync: delete delta from %s: %w", spec.table, err)
+			}
+		}
+	}
+	return nil
+}
+
+func listRepositoryRecords[T any](ctx context.Context, idb bun.IDB, repo repository.Repository[T]) ([]T, error) {
 	if repo == nil {
 		return nil, nil
 	}
-	records, _, err := repo.List(ctx)
+	var (
+		records []T
+		err     error
+	)
+	if idb != nil {
+		records, _, err = repo.ListTx(ctx, idb)
+	} else {
+		records, _, err = repo.List(ctx)
+	}
 	return records, err
 }
 
+func idbOrDB(idb bun.IDB, db *bun.DB) bun.IDB {
+	if idb != nil {
+		return idb
+	}
+	return db
+}
+
+func listDocumentRemediationLeases(ctx context.Context, idb bun.IDB) ([]stores.DocumentRemediationLeaseRecord, error) {
+	if idb == nil {
+		return nil, nil
+	}
+	records := make([]stores.DocumentRemediationLeaseRecord, 0)
+	if err := idb.NewSelect().
+		Model(&records).
+		TableExpr("document_remediation_leases").
+		Scan(ctx); err != nil {
+		if isMissingRuntimeTableError(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return records, nil
+}
+
+func listRemediationDispatches(ctx context.Context, idb bun.IDB) ([]stores.RemediationDispatchRecord, error) {
+	if idb == nil {
+		return nil, nil
+	}
+	records := make([]stores.RemediationDispatchRecord, 0)
+	if err := idb.NewSelect().
+		Model(&records).
+		TableExpr("remediation_dispatches").
+		Scan(ctx); err != nil {
+		if isMissingRuntimeTableError(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return records, nil
+}
+
+func isMissingRuntimeTableError(err error) bool {
+	if err == nil {
+		return false
+	}
+	message := strings.ToLower(strings.TrimSpace(err.Error()))
+	return strings.Contains(message, "does not exist") || strings.Contains(message, "no such table")
+}
+
 func runtimeStoreUpsertSpecs() []runtimeTableUpsertSpec {
-	return legacySnapshotMigrationSpecs()
+	return runtimeStoreTableUpsertSpecs()
 }
 
 func runtimeStoreTargetTables(specs []runtimeTableUpsertSpec) []string {
-	return legacySnapshotTargetTables(specs)
+	return runtimeUpsertTargetTables(specs)
 }
 
 func collectRowKeys(rows []map[string]any, keyColumn string) []string {
@@ -569,6 +689,53 @@ func collectRowKeys(rows []map[string]any, keyColumn string) []string {
 	return keys
 }
 
+func rowsByConflictKey(spec runtimeTableUpsertSpec, snapshot runtimeStoreSnapshot) map[string]map[string]any {
+	rows := spec.rows(snapshot)
+	out := make(map[string]map[string]any, len(rows))
+	for _, row := range rows {
+		if row == nil {
+			continue
+		}
+		key := runtimeConflictKey(spec.conflict, row)
+		if key == "" {
+			continue
+		}
+		out[key] = row
+	}
+	return out
+}
+
+func runtimeConflictKey(columns []string, row map[string]any) string {
+	if len(columns) == 0 || len(row) == 0 {
+		return ""
+	}
+	parts := make([]string, 0, len(columns))
+	for _, column := range columns {
+		column = strings.ToLower(strings.TrimSpace(column))
+		if column == "" {
+			return ""
+		}
+		value, ok := row[column]
+		if !ok {
+			return ""
+		}
+		parts = append(parts, column+"="+strings.TrimSpace(fmt.Sprint(value)))
+	}
+	return strings.Join(parts, "|")
+}
+
+func runtimeRowsEqual(left map[string]any, right map[string]any) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	leftJSON, leftErr := json.Marshal(left)
+	rightJSON, rightErr := json.Marshal(right)
+	if leftErr != nil || rightErr != nil {
+		return false
+	}
+	return string(leftJSON) == string(rightJSON)
+}
+
 func loadDialectColumnMap(ctx context.Context, db *sql.DB, dialect Dialect, tables []string) (map[string]map[string]bool, error) {
 	switch dialect {
 	case DialectPostgres:
@@ -595,14 +762,14 @@ func loadPostgresColumnMap(ctx context.Context, db *sql.DB, tables []string) (ma
 			table,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("runtime relational store backend: query columns for %s: %w", table, err)
+			return nil, fmt.Errorf("runtime relational store sync: query columns for %s: %w", table, err)
 		}
 		columns := map[string]bool{}
 		for rows.Next() {
 			var column string
 			if scanErr := rows.Scan(&column); scanErr != nil {
 				_ = rows.Close()
-				return nil, fmt.Errorf("runtime relational store backend: scan columns for %s: %w", table, scanErr)
+				return nil, fmt.Errorf("runtime relational store sync: scan columns for %s: %w", table, scanErr)
 			}
 			column = strings.ToLower(strings.TrimSpace(column))
 			if column != "" {
@@ -610,18 +777,18 @@ func loadPostgresColumnMap(ctx context.Context, db *sql.DB, tables []string) (ma
 			}
 		}
 		if closeErr := rows.Close(); closeErr != nil {
-			return nil, fmt.Errorf("runtime relational store backend: close column rows for %s: %w", table, closeErr)
+			return nil, fmt.Errorf("runtime relational store sync: close column rows for %s: %w", table, closeErr)
 		}
 		out[table] = columns
 	}
 	return out, nil
 }
 
-func upsertLegacyRowForDialect(
+func upsertRuntimeRowForDialect(
 	ctx context.Context,
 	tx *sql.Tx,
 	dialect Dialect,
-	spec legacyTableMigrationSpec,
+	spec runtimeTableUpsertSpec,
 	tableColumns map[string]bool,
 	row map[string]any,
 ) error {
@@ -707,6 +874,35 @@ func deleteMissingRowsByKey(
 	return err
 }
 
+func deleteRuntimeRowByConflict(
+	ctx context.Context,
+	tx bun.IDB,
+	spec runtimeTableUpsertSpec,
+	tableColumns map[string]bool,
+	row map[string]any,
+) error {
+	if tx == nil || len(spec.conflict) == 0 || len(row) == 0 {
+		return nil
+	}
+	clauses := make([]string, 0, len(spec.conflict))
+	args := make([]any, 0, len(spec.conflict))
+	for _, column := range spec.conflict {
+		column = strings.ToLower(strings.TrimSpace(column))
+		if column == "" || !tableColumns[column] {
+			return nil
+		}
+		value, ok := row[column]
+		if !ok {
+			return nil
+		}
+		clauses = append(clauses, column+" = ?")
+		args = append(args, value)
+	}
+	query := `DELETE FROM ` + spec.table + ` WHERE ` + strings.Join(clauses, ` AND `)
+	_, err := tx.ExecContext(ctx, query, args...)
+	return err
+}
+
 func sqlPlaceholder(dialect Dialect, position int) string {
 	if dialect == DialectPostgres {
 		return fmt.Sprintf("$%d", position)
@@ -731,27 +927,27 @@ func validateRuntimeSnapshot(snapshot runtimeStoreSnapshot) error {
 	for key, record := range snapshot.AgreementReminderStates {
 		expected := scopeAgreementRecipientKey(record.TenantID, record.OrgID, record.AgreementID, record.RecipientID)
 		if strings.TrimSpace(key) != expected {
-			return fmt.Errorf("runtime relational store backend: invalid reminder state key %q (expected %q)", key, expected)
+			return fmt.Errorf("runtime relational store sync: invalid reminder state key %q (expected %q)", key, expected)
 		}
 	}
 
 	if err := validateRuntimeIndexIDs(snapshot.JobRunDedupeIndex, scopedRecordIDSetFromJobRuns(snapshot.JobRuns)); err != nil {
-		return fmt.Errorf("runtime relational store backend: job run dedupe index: %w", err)
+		return fmt.Errorf("runtime relational store sync: job run dedupe index: %w", err)
 	}
 	if err := validateRuntimeIndexIDs(snapshot.GoogleImportRunDedupeIndex, scopedRecordIDSetFromGoogleImportRuns(snapshot.GoogleImportRuns)); err != nil {
-		return fmt.Errorf("runtime relational store backend: google import dedupe index: %w", err)
+		return fmt.Errorf("runtime relational store sync: google import dedupe index: %w", err)
 	}
 	if err := validateRuntimeIndexIDs(snapshot.SignerProfileIndex, scopedRecordIDSetFromSignerProfiles(snapshot.SignerProfiles)); err != nil {
-		return fmt.Errorf("runtime relational store backend: signer profile index: %w", err)
+		return fmt.Errorf("runtime relational store sync: signer profile index: %w", err)
 	}
 	if err := validateRuntimeIndexIDs(snapshot.IntegrationCredentialIndex, scopedRecordIDSetFromIntegrationCredentials(snapshot.IntegrationCredentials)); err != nil {
-		return fmt.Errorf("runtime relational store backend: integration credential index: %w", err)
+		return fmt.Errorf("runtime relational store sync: integration credential index: %w", err)
 	}
 	if err := validateRuntimeIndexIDs(snapshot.IntegrationBindingIndex, scopedRecordIDSetFromIntegrationBindings(snapshot.IntegrationBindings)); err != nil {
-		return fmt.Errorf("runtime relational store backend: integration binding index: %w", err)
+		return fmt.Errorf("runtime relational store sync: integration binding index: %w", err)
 	}
 	if err := validateRuntimeIndexIDs(snapshot.IntegrationCheckpointIndex, scopedRecordIDSetFromIntegrationCheckpoints(snapshot.IntegrationCheckpoints)); err != nil {
-		return fmt.Errorf("runtime relational store backend: integration checkpoint index: %w", err)
+		return fmt.Errorf("runtime relational store sync: integration checkpoint index: %w", err)
 	}
 
 	for hash, scopedID := range snapshot.TokenHashIndex {

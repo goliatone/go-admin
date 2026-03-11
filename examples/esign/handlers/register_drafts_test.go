@@ -292,6 +292,30 @@ func TestRegisterDraftLifecycleEndpoints(t *testing.T) {
 	}
 }
 
+func TestRegisterDraftSendMissingDraftReturnsExplicitNotFoundClassification(t *testing.T) {
+	_, scope, store := newScopeStoreFixture()
+	draftSvc := services.NewDraftService(store,
+		services.WithDraftAgreementService(services.NewAgreementService(store)),
+	)
+	app := setupDraftWorkflowApp(t, draftSvc, scope)
+
+	status, body := doDraftRequest(t, app, http.MethodPost, "/admin/api/v1/esign/drafts/draft-missing/send", testAdminUserID, map[string]any{
+		"expected_revision": 1,
+	})
+	if status != http.StatusNotFound {
+		t.Fatalf("expected send missing draft status 404, got %d body=%s", status, string(body))
+	}
+	payload := mustDecodeJSONMap(t, bytes.NewReader(body))
+	errPayload := mustMapField(t, payload, "error")
+	if got := strings.TrimSpace(toString(errPayload["code"])); got != "draft_send_not_found" {
+		t.Fatalf("expected draft_send_not_found code, got %q payload=%s", got, string(body))
+	}
+	details := mustMapField(t, errPayload, "details")
+	if got := strings.TrimSpace(toString(details["entity"])); got != "drafts" {
+		t.Fatalf("expected details.entity=drafts, got %q payload=%s", got, string(body))
+	}
+}
+
 func TestRegisterDraftSendAndExpiryFlows(t *testing.T) {
 	ctx, scope, store := newScopeStoreFixture()
 

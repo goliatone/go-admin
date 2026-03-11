@@ -24,19 +24,19 @@ func TestPhase11LegacyCleanupMigrationDropsLegacySnapshotTables(t *testing.T) {
 	if err != nil {
 		t.Fatalf("first Bootstrap: %v", err)
 	}
-	if exists, err := sqliteTableExists(context.Background(), first.SQLDB, legacySnapshotStateTable); err != nil {
+	if exists, err := sqliteTableExists(context.Background(), first.SQLDB, removedSnapshotStateTable); err != nil {
 		_ = first.Close()
-		t.Fatalf("sqliteTableExists(%s): %v", legacySnapshotStateTable, err)
+		t.Fatalf("sqliteTableExists(%s): %v", removedSnapshotStateTable, err)
 	} else if exists {
 		_ = first.Close()
-		t.Fatalf("expected %s dropped by migration", legacySnapshotStateTable)
+		t.Fatalf("expected %s dropped by migration", removedSnapshotStateTable)
 	}
-	if exists, err := sqliteTableExists(context.Background(), first.SQLDB, legacySnapshotMigrationMarkerTable); err != nil {
+	if exists, err := sqliteTableExists(context.Background(), first.SQLDB, removedSnapshotMigrationMarkerTable); err != nil {
 		_ = first.Close()
-		t.Fatalf("sqliteTableExists(%s): %v", legacySnapshotMigrationMarkerTable, err)
+		t.Fatalf("sqliteTableExists(%s): %v", removedSnapshotMigrationMarkerTable, err)
 	} else if exists {
 		_ = first.Close()
-		t.Fatalf("expected %s dropped by migration", legacySnapshotMigrationMarkerTable)
+		t.Fatalf("expected %s dropped by migration", removedSnapshotMigrationMarkerTable)
 	}
 	if err := first.Close(); err != nil {
 		t.Fatalf("close first bootstrap: %v", err)
@@ -47,15 +47,15 @@ func TestPhase11LegacyCleanupMigrationDropsLegacySnapshotTables(t *testing.T) {
 		t.Fatalf("second Bootstrap: %v", err)
 	}
 	defer func() { _ = second.Close() }()
-	if exists, err := sqliteTableExists(context.Background(), second.SQLDB, legacySnapshotStateTable); err != nil {
-		t.Fatalf("sqliteTableExists(%s): %v", legacySnapshotStateTable, err)
+	if exists, err := sqliteTableExists(context.Background(), second.SQLDB, removedSnapshotStateTable); err != nil {
+		t.Fatalf("sqliteTableExists(%s): %v", removedSnapshotStateTable, err)
 	} else if exists {
-		t.Fatalf("expected %s absent after repeat bootstrap", legacySnapshotStateTable)
+		t.Fatalf("expected %s absent after repeat bootstrap", removedSnapshotStateTable)
 	}
-	if exists, err := sqliteTableExists(context.Background(), second.SQLDB, legacySnapshotMigrationMarkerTable); err != nil {
-		t.Fatalf("sqliteTableExists(%s): %v", legacySnapshotMigrationMarkerTable, err)
+	if exists, err := sqliteTableExists(context.Background(), second.SQLDB, removedSnapshotMigrationMarkerTable); err != nil {
+		t.Fatalf("sqliteTableExists(%s): %v", removedSnapshotMigrationMarkerTable, err)
 	} else if exists {
-		t.Fatalf("expected %s absent after repeat bootstrap", legacySnapshotMigrationMarkerTable)
+		t.Fatalf("expected %s absent after repeat bootstrap", removedSnapshotMigrationMarkerTable)
 	}
 }
 
