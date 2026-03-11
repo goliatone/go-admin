@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"reflect"
 	"testing"
 )
 
@@ -56,7 +55,7 @@ func TestResolveWorkflowIDForContentTypeSupportsWorkflowIDAliases(t *testing.T) 
 	}
 }
 
-func TestResolveWorkflowIDForContentTypeFallsBackToTraitDefaultDeterministically(t *testing.T) {
+func TestResolveWorkflowIDForContentTypeNoLongerFallsBackToTraitDefaults(t *testing.T) {
 	capabilities := map[string]any{
 		"panel_traits": map[string]any{
 			"zeta":     true,
@@ -69,15 +68,8 @@ func TestResolveWorkflowIDForContentTypeFallsBackToTraitDefaultDeterministically
 		"zeta":      "editorial.zeta",
 		"editorial": "editorial.default",
 	})
-	if resolution.id != "editorial.zeta" {
-		t.Fatalf("expected zeta trait default, got %q", resolution.id)
-	}
-	if resolution.source != workflowResolutionSourceTraitDefault {
-		t.Fatalf("expected source %q, got %q", workflowResolutionSourceTraitDefault, resolution.source)
-	}
-	expectedTraits := []string{"alpha", "zeta", "editorial"}
-	if !reflect.DeepEqual(resolution.traits, expectedTraits) {
-		t.Fatalf("expected traits %v, got %v", expectedTraits, resolution.traits)
+	if resolution.id != "" {
+		t.Fatalf("expected no trait-default fallback workflow id, got %q", resolution.id)
 	}
 }
 
@@ -136,36 +128,7 @@ func TestWorkflowEngineForContentTypePrefersWorkflowIDCapability(t *testing.T) {
 	}
 }
 
-func TestAdminWithTraitWorkflowDefaultsNormalizesAndClones(t *testing.T) {
-	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
-
-	input := map[string]string{
-		" Editorial ": " editorial.default ",
-		"":            "ignored",
-		"news":        "",
-	}
-	adm.WithTraitWorkflowDefaults(input)
-	input["editorial"] = "mutated"
-
-	defaults := adm.traitWorkflowDefaultsForLookup()
-	if got := defaults["editorial"]; got != "editorial.default" {
-		t.Fatalf("expected normalized trait defaults clone, got %+v", defaults)
-	}
-	if _, ok := defaults[""]; ok {
-		t.Fatalf("expected empty trait key removed, got %+v", defaults)
-	}
-	if _, ok := defaults["news"]; ok {
-		t.Fatalf("expected empty workflow ID removed, got %+v", defaults)
-	}
-
-	defaults["editorial"] = "changed"
-	next := adm.traitWorkflowDefaultsForLookup()
-	if got := next["editorial"]; got != "editorial.default" {
-		t.Fatalf("expected snapshot clone from admin defaults, got %+v", next)
-	}
-}
-
-func TestWorkflowEngineForContentTypeUsesAdminTraitWorkflowDefaults(t *testing.T) {
+func TestWorkflowEngineForContentTypeDoesNotUseAdminTraitWorkflowDefaults(t *testing.T) {
 	engine := NewFSMWorkflowEngine()
 	_ = engine.RegisterWorkflow("editorial.default", WorkflowDefinition{
 		EntityType:   "editorial.default",
@@ -174,12 +137,9 @@ func TestWorkflowEngineForContentTypeUsesAdminTraitWorkflowDefaults(t *testing.T
 			{Name: "publish", From: "draft", To: "published"},
 		},
 	})
-
 	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
 	adm.WithWorkflow(engine)
-	adm.WithTraitWorkflowDefaults(map[string]string{
-		"editorial": "editorial.default",
-	})
+	adm.WithTraitWorkflowDefaults(map[string]string{"editorial": "editorial.default"})
 
 	workflow := workflowEngineForContentType(context.Background(), adm, &CMSContentType{
 		Slug: "news",
@@ -187,16 +147,8 @@ func TestWorkflowEngineForContentTypeUsesAdminTraitWorkflowDefaults(t *testing.T
 			"panel_traits": []any{"editorial"},
 		},
 	})
-	if workflow == nil {
-		t.Fatalf("expected workflow resolved from trait defaults")
-	}
-
-	transitions, err := workflowSnapshotTransitions(context.Background(), workflow, "editorial.default", "wf-trait-default", "draft", map[string]any{}, true)
-	if err != nil {
-		t.Fatalf("available transitions failed: %v", err)
-	}
-	if !hasTransition(transitions, "publish") {
-		t.Fatalf("expected workflow transitions from trait default, got %+v", transitions)
+	if workflow != nil {
+		t.Fatalf("expected no workflow resolution from trait defaults without bindings")
 	}
 }
 

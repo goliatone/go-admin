@@ -461,7 +461,7 @@ func TestDynamicPanelFactoryWorkflowResolutionPrecedenceRegression(t *testing.T)
 		}
 	})
 
-	t.Run("trait default works", func(t *testing.T) {
+	t.Run("trait default fallback removed", func(t *testing.T) {
 		engine := NewFSMWorkflowEngine()
 		_ = engine.RegisterWorkflow("editorial.default", WorkflowDefinition{
 			EntityType:   "editorial.default",
@@ -492,8 +492,8 @@ func TestDynamicPanelFactoryWorkflowResolutionPrecedenceRegression(t *testing.T)
 		if err != nil {
 			t.Fatalf("create panel failed: %v", err)
 		}
-		if !hasAction(panel.Schema().Actions, "submit_for_approval") || !hasAction(panel.Schema().Actions, "publish") {
-			t.Fatalf("expected workflow actions from trait default, got %+v", panel.Schema().Actions)
+		if hasAction(panel.Schema().Actions, "submit_for_approval") || hasAction(panel.Schema().Actions, "publish") {
+			t.Fatalf("expected no trait-default workflow actions without bindings, got %+v", panel.Schema().Actions)
 		}
 	})
 

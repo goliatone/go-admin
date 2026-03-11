@@ -10,7 +10,6 @@ import (
 	"time"
 
 	goadmin "github.com/goliatone/go-admin/admin"
-	goadaptergojob "github.com/goliatone/go-services/adapters/gojob"
 	gocore "github.com/goliatone/go-services/core"
 	sqlstore "github.com/goliatone/go-services/store/sql"
 	"github.com/uptrace/bun"
@@ -120,7 +119,7 @@ func TestServicesLifecycle_OutboxLagReplayAndStatus(t *testing.T) {
 	}
 
 	err := module.Worker().HandleExecutionMessage(context.Background(), &gocore.JobExecutionMessage{
-		JobID:      goadaptergojob.JobIDOutboxDispatch,
+		JobID:      jobIDOutboxDispatch,
 		Parameters: map[string]any{"batch_size": 5},
 	})
 	if err == nil {
@@ -129,7 +128,7 @@ func TestServicesLifecycle_OutboxLagReplayAndStatus(t *testing.T) {
 
 	time.Sleep(40 * time.Millisecond)
 	err = module.Worker().HandleExecutionMessage(context.Background(), &gocore.JobExecutionMessage{
-		JobID:      goadaptergojob.JobIDOutboxDispatch,
+		JobID:      jobIDOutboxDispatch,
 		Parameters: map[string]any{"batch_size": 5},
 	})
 	if err != nil {
@@ -182,13 +181,13 @@ func TestServicesLifecycle_NotificationRetryAndDuplicateIdempotency(t *testing.T
 		t.Fatalf("enqueue lifecycle event: %v", err)
 	}
 
-	err := module.Worker().HandleExecutionMessage(context.Background(), &gocore.JobExecutionMessage{JobID: goadaptergojob.JobIDOutboxDispatch})
+	err := module.Worker().HandleExecutionMessage(context.Background(), &gocore.JobExecutionMessage{JobID: jobIDOutboxDispatch})
 	if err == nil {
 		t.Fatalf("expected first notification dispatch to fail")
 	}
 
 	time.Sleep(40 * time.Millisecond)
-	err = module.Worker().HandleExecutionMessage(context.Background(), &gocore.JobExecutionMessage{JobID: goadaptergojob.JobIDOutboxDispatch})
+	err = module.Worker().HandleExecutionMessage(context.Background(), &gocore.JobExecutionMessage{JobID: jobIDOutboxDispatch})
 	if err != nil {
 		t.Fatalf("expected notification replay dispatch to succeed, got %v", err)
 	}
@@ -199,7 +198,7 @@ func TestServicesLifecycle_NotificationRetryAndDuplicateIdempotency(t *testing.T
 	if err := outbox.Enqueue(context.Background(), event); err != nil {
 		t.Fatalf("enqueue duplicate lifecycle event: %v", err)
 	}
-	if err := module.Worker().HandleExecutionMessage(context.Background(), &gocore.JobExecutionMessage{JobID: goadaptergojob.JobIDOutboxDispatch}); err != nil {
+	if err := module.Worker().HandleExecutionMessage(context.Background(), &gocore.JobExecutionMessage{JobID: jobIDOutboxDispatch}); err != nil {
 		t.Fatalf("dispatch duplicate event: %v", err)
 	}
 	if sender.Calls() != 2 {
@@ -247,7 +246,7 @@ func TestServicesLifecycle_RetentionAndFallbackExecutionPaths(t *testing.T) {
 	if err := outbox.Enqueue(context.Background(), event); err != nil {
 		t.Fatalf("enqueue lifecycle event: %v", err)
 	}
-	if err := module.Worker().HandleExecutionMessage(context.Background(), &gocore.JobExecutionMessage{JobID: goadaptergojob.JobIDOutboxDispatch}); err != nil {
+	if err := module.Worker().HandleExecutionMessage(context.Background(), &gocore.JobExecutionMessage{JobID: jobIDOutboxDispatch}); err != nil {
 		t.Fatalf("dispatch event: %v", err)
 	}
 	time.Sleep(30 * time.Millisecond)

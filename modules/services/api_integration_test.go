@@ -107,8 +107,8 @@ func (p testServicesProvider) Refresh(_ context.Context, _ gocore.ActiveCredenti
 
 type failJobEnqueuer struct{}
 
-func (failJobEnqueuer) Enqueue(context.Context, *gocore.JobExecutionMessage) error {
-	return errors.New("queue unavailable")
+func (failJobEnqueuer) Enqueue(context.Context, *gocore.JobExecutionMessage) (gocore.JobEnqueueReceipt, error) {
+	return gocore.JobEnqueueReceipt{}, errors.New("queue unavailable")
 }
 
 type signatureVerifier struct{}
@@ -154,16 +154,19 @@ type captureJobEnqueuer struct {
 	messages []gocore.JobExecutionMessage
 }
 
-func (e *captureJobEnqueuer) Enqueue(_ context.Context, message *gocore.JobExecutionMessage) error {
+func (e *captureJobEnqueuer) Enqueue(_ context.Context, message *gocore.JobExecutionMessage) (gocore.JobEnqueueReceipt, error) {
 	if message == nil {
-		return errors.New("message is required")
+		return gocore.JobEnqueueReceipt{}, errors.New("message is required")
 	}
 	copyMessage := *message
 	copyMessage.Parameters = copyAnyMap(message.Parameters)
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.messages = append(e.messages, copyMessage)
-	return nil
+	return gocore.JobEnqueueReceipt{
+		DispatchID: "dispatch-test",
+		EnqueuedAt: time.Now().UTC(),
+	}, nil
 }
 
 func (e *captureJobEnqueuer) JobIDs() []string {

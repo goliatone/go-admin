@@ -26,7 +26,7 @@ func TestWithTraitWorkflowDefaultsNormalizesKeysAndValues(t *testing.T) {
 	}
 }
 
-func TestNewAdminAppliesTraitWorkflowDefaultsToDynamicPanelResolution(t *testing.T) {
+func TestNewAdminTraitWorkflowDefaultsNoLongerDriveRuntimeResolution(t *testing.T) {
 	resetCommandRegistryForTest(t)
 
 	cfg := NewAdminConfig("/admin", "Test", "en")
@@ -71,8 +71,8 @@ func TestNewAdminAppliesTraitWorkflowDefaultsToDynamicPanelResolution(t *testing
 		t.Fatalf("create panel: %v", err)
 	}
 
-	if !hasActionNamed(panel.Schema().Actions, "submit_for_approval") || !hasActionNamed(panel.Schema().Actions, "publish") {
-		t.Fatalf("expected workflow actions from trait defaults, got %+v", panel.Schema().Actions)
+	if hasActionNamed(panel.Schema().Actions, "submit_for_approval") || hasActionNamed(panel.Schema().Actions, "publish") {
+		t.Fatalf("expected no workflow actions from trait defaults without runtime bindings, got %+v", panel.Schema().Actions)
 	}
 }
 

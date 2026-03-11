@@ -50,7 +50,7 @@ workflows:
 	}
 }
 
-func TestParseWorkflowConfigContentsJSONSupportsLegacyTraitDefaultsAlias(t *testing.T) {
+func TestParseWorkflowConfigContentsJSONIgnoresLegacyTraitDefaultsAlias(t *testing.T) {
 	raw := []byte(`{
   "schema_version": 1,
   "trait_workflow_defaults": {
@@ -74,7 +74,7 @@ func TestParseWorkflowConfigContentsJSONSupportsLegacyTraitDefaultsAlias(t *test
 		t.Fatalf("parse workflow config json: %v", err)
 	}
 	if got := cfg.TraitDefaults["editorial"]; got != "editorial.news" {
-		t.Fatalf("expected canonical trait_defaults to override legacy alias, got %+v", cfg.TraitDefaults)
+		t.Fatalf("expected canonical trait_defaults value, got %+v", cfg.TraitDefaults)
 	}
 }
 
