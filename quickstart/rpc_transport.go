@@ -54,15 +54,26 @@ func applyRPCTransportPolicyConfig(cfg *admin.Config, opts *adminOptions) {
 }
 
 func configureRPCTransport(adm *admin.Admin, opts adminOptions) error {
-	if adm == nil || !opts.rpcTransportConfigSet || !opts.rpcTransportConfig.Enabled {
+	if adm == nil {
+		return nil
+	}
+	config := opts.rpcTransportConfig
+	if !opts.rpcTransportConfigSet {
+		config = RPCTransportConfig{
+			Enabled:          true,
+			RequireAuth:      true,
+			DiscoveryEnabled: true,
+		}
+	}
+	if !config.Enabled {
 		return nil
 	}
 	rpcServer := adm.RPCServer()
 	if rpcServer == nil {
 		return fmt.Errorf("rpc transport enabled but rpc server is not configured")
 	}
-	cfg := normalizeRPCTransportConfig(adm, opts.rpcTransportConfig)
-	if cfg.RequireAuth && !adm.HasAuthenticator() {
+	cfg := normalizeRPCTransportConfig(adm, config)
+	if cfg.RequireAuth && opts.rpcTransportConfigSet && !adm.HasAuthenticator() {
 		return fmt.Errorf("rpc transport requires authenticator")
 	}
 
@@ -72,7 +83,10 @@ func configureRPCTransport(adm *admin.Admin, opts adminOptions) error {
 		}
 		rt, ok := r.(router.Router[*fiber.App])
 		if !ok {
-			return fmt.Errorf("rpc transport requires Fiber router")
+			if opts.rpcTransportConfigSet {
+				return fmt.Errorf("rpc transport requires Fiber router")
+			}
+			return nil
 		}
 
 		rpcOpts := []rpcfiber.Option{
@@ -110,7 +124,9 @@ func configureRPCTransport(adm *admin.Admin, opts adminOptions) error {
 	if r := adm.PublicRouter(); r != nil {
 		return mount(r)
 	}
-	adm.AddInitHook(mount)
+	adm.AddInitHook(func(_ admin.AdminRouter) error {
+		return mount(adm.PublicRouter())
+	})
 	return nil
 }
 
