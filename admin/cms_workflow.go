@@ -5,6 +5,11 @@ type WorkflowRegistrar interface {
 	RegisterWorkflow(entityType string, definition WorkflowDefinition) error
 }
 
+// WorkflowUnregistrar removes workflow definitions for entity types.
+type WorkflowUnregistrar interface {
+	UnregisterWorkflow(entityType string) error
+}
+
 // WorkflowDefinitionChecker reports whether a workflow exists for an entity type.
 type WorkflowDefinitionChecker interface {
 	HasWorkflow(entityType string) bool
