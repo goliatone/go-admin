@@ -8,6 +8,8 @@ import (
 	"os"
 	"strings"
 
+	appcfg "github.com/goliatone/go-admin/examples/esign/config"
+	esignpersistence "github.com/goliatone/go-admin/examples/esign/internal/persistence"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 )
 
@@ -29,12 +31,25 @@ func main() {
 		log.Fatal("tenant-id, org-id, agreement-id, and recipient-id are required")
 	}
 
-	store, err := stores.NewSQLiteStore(stores.ResolveSQLiteDSN())
+	cfg, err := appcfg.Load()
 	if err != nil {
-		log.Fatalf("open sqlite store: %v", err)
+		log.Fatalf("load runtime config: %v", err)
+	}
+	bootstrap, err := esignpersistence.Bootstrap(context.Background(), cfg)
+	if err != nil {
+		log.Fatalf("bootstrap persistence: %v", err)
 	}
 	defer func() {
-		_ = store.Close()
+		_ = bootstrap.Close()
+	}()
+	store, cleanup, err := esignpersistence.NewStoreAdapter(bootstrap)
+	if err != nil {
+		log.Fatalf("initialize runtime store: %v", err)
+	}
+	defer func() {
+		if cleanup != nil {
+			_ = cleanup()
+		}
 	}()
 
 	tokens := stores.NewTokenService(store)

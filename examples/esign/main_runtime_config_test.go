@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -205,7 +204,7 @@ func productionRuntimeConfig() appcfg.Config {
 	return cfg
 }
 
-func TestNewESignRuntimeStoreCreatesSQLiteStoreFromBootstrapDSN(t *testing.T) {
+func TestNewESignRuntimeStoreCreatesCanonicalRuntimeAdapterFromSQLiteBootstrapDSN(t *testing.T) {
 	cfg := appcfg.Defaults()
 	cfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectSQLite
 	cfg.SQLite.DSN = "file:" + filepath.Join(t.TempDir(), "runtime-store.db") + "?_busy_timeout=5000&_foreign_keys=on"
@@ -220,21 +219,18 @@ func TestNewESignRuntimeStoreCreatesSQLiteStoreFromBootstrapDSN(t *testing.T) {
 		t.Fatalf("newESignRuntimeStore sqlite: %v", err)
 	}
 	if store == nil {
-		t.Fatalf("expected sqlite store instance")
+		t.Fatalf("expected sqlite-backed runtime store adapter")
 	}
 	if cleanup == nil {
-		t.Fatalf("expected sqlite store cleanup function")
+		t.Fatalf("expected sqlite-backed runtime store cleanup function")
 	}
 	if err := cleanup(); err != nil {
-		t.Fatalf("cleanup sqlite store: %v", err)
+		t.Fatalf("cleanup sqlite-backed runtime store: %v", err)
 	}
 }
 
 func TestNewESignRuntimeStoreSupportsPostgresWhenBootstrapHandlesPresent(t *testing.T) {
-	dsn := strings.TrimSpace(os.Getenv("ESIGN_TEST_POSTGRES_DSN"))
-	if dsn == "" {
-		t.Skip("set ESIGN_TEST_POSTGRES_DSN to run postgres runtime store bootstrap coverage")
-	}
+	dsn := requirePostgresRuntimeTestDSN(t)
 	cfg := appcfg.Defaults()
 	cfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectPostgres
 	cfg.Postgres.DSN = dsn

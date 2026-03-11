@@ -21,46 +21,46 @@ const (
 )
 
 type runtimeStoreSnapshot struct {
-	Documents                  map[string]stores.DocumentRecord               `json:"documents"`
-	Agreements                 map[string]stores.AgreementRecord              `json:"agreements"`
-	Drafts                     map[string]stores.DraftRecord                  `json:"drafts"`
-	DraftWizardIndex           map[string]string                              `json:"draft_wizard_index"`
+	Documents                  map[string]stores.DocumentRecord                 `json:"documents"`
+	Agreements                 map[string]stores.AgreementRecord                `json:"agreements"`
+	Drafts                     map[string]stores.DraftRecord                    `json:"drafts"`
+	DraftWizardIndex           map[string]string                                `json:"draft_wizard_index"`
 	DocumentRemediationLeases  map[string]stores.DocumentRemediationLeaseRecord `json:"document_remediation_leases"`
 	RemediationDispatches      map[string]stores.RemediationDispatchRecord      `json:"remediation_dispatches"`
 	RemediationDispatchIndex   map[string]string                                `json:"remediation_dispatch_index"`
-	Participants               map[string]stores.ParticipantRecord            `json:"participants"`
-	FieldDefinitions           map[string]stores.FieldDefinitionRecord        `json:"field_definitions"`
-	FieldInstances             map[string]stores.FieldInstanceRecord          `json:"field_instances"`
-	Recipients                 map[string]stores.RecipientRecord              `json:"recipients"`
-	Fields                     map[string]stores.FieldRecord                  `json:"fields"`
-	SigningTokens              map[string]stores.SigningTokenRecord           `json:"signing_tokens"`
-	TokenHashIndex             map[string]string                              `json:"token_hash_index"`
-	SignatureArtifacts         map[string]stores.SignatureArtifactRecord      `json:"signature_artifacts"`
-	SignerProfiles             map[string]stores.SignerProfileRecord          `json:"signer_profiles"`
-	SignerProfileIndex         map[string]string                              `json:"signer_profile_index"`
-	SavedSignerSignatures      map[string]stores.SavedSignerSignatureRecord   `json:"saved_signatures"`
-	FieldValues                map[string]stores.FieldValueRecord             `json:"field_values"`
-	AuditEvents                map[string]stores.AuditEventRecord             `json:"audit_events"`
-	AgreementArtifacts         map[string]stores.AgreementArtifactRecord      `json:"agreement_artifacts"`
-	EmailLogs                  map[string]stores.EmailLogRecord               `json:"email_logs"`
-	JobRuns                    map[string]stores.JobRunRecord                 `json:"job_runs"`
-	JobRunDedupeIndex          map[string]string                              `json:"job_run_dedupe_index"`
-	GoogleImportRuns           map[string]stores.GoogleImportRunRecord        `json:"google_import_runs"`
-	GoogleImportRunDedupeIndex map[string]string                              `json:"google_import_run_dedupe_index"`
-	AgreementReminderStates    map[string]stores.AgreementReminderStateRecord `json:"agreement_reminder_states"`
-	OutboxMessages             map[string]stores.OutboxMessageRecord          `json:"outbox_messages"`
-	IntegrationCredentials     map[string]stores.IntegrationCredentialRecord  `json:"integration_credentials"`
-	IntegrationCredentialIndex map[string]string                              `json:"integration_credential_index"`
-	MappingSpecs               map[string]stores.MappingSpecRecord            `json:"mapping_specs"`
-	IntegrationBindings        map[string]stores.IntegrationBindingRecord     `json:"integration_bindings"`
-	IntegrationBindingIndex    map[string]string                              `json:"integration_binding_index"`
-	IntegrationSyncRuns        map[string]stores.IntegrationSyncRunRecord     `json:"integration_sync_runs"`
-	IntegrationCheckpoints     map[string]stores.IntegrationCheckpointRecord  `json:"integration_checkpoints"`
-	IntegrationCheckpointIndex map[string]string                              `json:"integration_checkpoint_index"`
-	IntegrationConflicts       map[string]stores.IntegrationConflictRecord    `json:"integration_conflicts"`
-	IntegrationChangeEvents    map[string]stores.IntegrationChangeEventRecord `json:"integration_change_events"`
-	IntegrationMutationClaims  map[string]time.Time                           `json:"integration_mutation_claims"`
-	PlacementRuns              map[string]stores.PlacementRunRecord           `json:"placement_runs"`
+	Participants               map[string]stores.ParticipantRecord              `json:"participants"`
+	FieldDefinitions           map[string]stores.FieldDefinitionRecord          `json:"field_definitions"`
+	FieldInstances             map[string]stores.FieldInstanceRecord            `json:"field_instances"`
+	Recipients                 map[string]stores.RecipientRecord                `json:"recipients"`
+	Fields                     map[string]stores.FieldRecord                    `json:"fields"`
+	SigningTokens              map[string]stores.SigningTokenRecord             `json:"signing_tokens"`
+	TokenHashIndex             map[string]string                                `json:"token_hash_index"`
+	SignatureArtifacts         map[string]stores.SignatureArtifactRecord        `json:"signature_artifacts"`
+	SignerProfiles             map[string]stores.SignerProfileRecord            `json:"signer_profiles"`
+	SignerProfileIndex         map[string]string                                `json:"signer_profile_index"`
+	SavedSignerSignatures      map[string]stores.SavedSignerSignatureRecord     `json:"saved_signatures"`
+	FieldValues                map[string]stores.FieldValueRecord               `json:"field_values"`
+	AuditEvents                map[string]stores.AuditEventRecord               `json:"audit_events"`
+	AgreementArtifacts         map[string]stores.AgreementArtifactRecord        `json:"agreement_artifacts"`
+	EmailLogs                  map[string]stores.EmailLogRecord                 `json:"email_logs"`
+	JobRuns                    map[string]stores.JobRunRecord                   `json:"job_runs"`
+	JobRunDedupeIndex          map[string]string                                `json:"job_run_dedupe_index"`
+	GoogleImportRuns           map[string]stores.GoogleImportRunRecord          `json:"google_import_runs"`
+	GoogleImportRunDedupeIndex map[string]string                                `json:"google_import_run_dedupe_index"`
+	AgreementReminderStates    map[string]stores.AgreementReminderStateRecord   `json:"agreement_reminder_states"`
+	OutboxMessages             map[string]stores.OutboxMessageRecord            `json:"outbox_messages"`
+	IntegrationCredentials     map[string]stores.IntegrationCredentialRecord    `json:"integration_credentials"`
+	IntegrationCredentialIndex map[string]string                                `json:"integration_credential_index"`
+	MappingSpecs               map[string]stores.MappingSpecRecord              `json:"mapping_specs"`
+	IntegrationBindings        map[string]stores.IntegrationBindingRecord       `json:"integration_bindings"`
+	IntegrationBindingIndex    map[string]string                                `json:"integration_binding_index"`
+	IntegrationSyncRuns        map[string]stores.IntegrationSyncRunRecord       `json:"integration_sync_runs"`
+	IntegrationCheckpoints     map[string]stores.IntegrationCheckpointRecord    `json:"integration_checkpoints"`
+	IntegrationCheckpointIndex map[string]string                                `json:"integration_checkpoint_index"`
+	IntegrationConflicts       map[string]stores.IntegrationConflictRecord      `json:"integration_conflicts"`
+	IntegrationChangeEvents    map[string]stores.IntegrationChangeEventRecord   `json:"integration_change_events"`
+	IntegrationMutationClaims  map[string]time.Time                             `json:"integration_mutation_claims"`
+	PlacementRuns              map[string]stores.PlacementRunRecord             `json:"placement_runs"`
 }
 
 type runtimeTableUpsertSpec struct {
@@ -70,13 +70,18 @@ type runtimeTableUpsertSpec struct {
 	rows     func(runtimeStoreSnapshot) []map[string]any
 }
 
-func sqliteTableExists(ctx context.Context, db *sql.DB, tableName string) (bool, error) {
+type sqlQueryer interface {
+	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
+	QueryRowContext(context.Context, string, ...any) *sql.Row
+}
+
+func sqliteTableExists(ctx context.Context, queryer sqlQueryer, tableName string) (bool, error) {
 	tableName = strings.TrimSpace(tableName)
-	if tableName == "" || db == nil {
+	if tableName == "" || queryer == nil {
 		return false, nil
 	}
 	var count int
-	if err := db.QueryRowContext(ctx,
+	if err := queryer.QueryRowContext(ctx,
 		`SELECT COUNT(1)
 		 FROM sqlite_master
 		 WHERE type = 'table' AND name = ?`,
@@ -87,9 +92,9 @@ func sqliteTableExists(ctx context.Context, db *sql.DB, tableName string) (bool,
 	return count > 0, nil
 }
 
-func loadSQLiteColumnMap(ctx context.Context, db *sql.DB, tables []string) (map[string]map[string]bool, error) {
+func loadSQLiteColumnMap(ctx context.Context, queryer sqlQueryer, tables []string) (map[string]map[string]bool, error) {
 	out := make(map[string]map[string]bool, len(tables))
-	if db == nil {
+	if queryer == nil {
 		return out, nil
 	}
 	for _, table := range tables {
@@ -97,14 +102,14 @@ func loadSQLiteColumnMap(ctx context.Context, db *sql.DB, tables []string) (map[
 		if table == "" {
 			continue
 		}
-		exists, err := sqliteTableExists(ctx, db, table)
+		exists, err := sqliteTableExists(ctx, queryer, table)
 		if err != nil {
 			return nil, err
 		}
 		if !exists {
 			continue
 		}
-		rows, err := db.QueryContext(ctx, `PRAGMA table_info(`+table+`)`)
+		rows, err := queryer.QueryContext(ctx, `PRAGMA table_info(`+table+`)`)
 		if err != nil {
 			return nil, fmt.Errorf("runtime relational schema: table_info for %s: %w", table, err)
 		}
@@ -256,16 +261,16 @@ func runtimeStoreTableUpsertSpecs() []runtimeTableUpsertSpec {
 				rows := make([]map[string]any, 0, len(snapshot.DocumentRemediationLeases))
 				for _, record := range sortedMapValues(snapshot.DocumentRemediationLeases) {
 					rows = append(rows, map[string]any{
-						"document_id":        strings.TrimSpace(record.DocumentID),
-						"tenant_id":          strings.TrimSpace(record.TenantID),
-						"org_id":             strings.TrimSpace(record.OrgID),
-						"worker_id":          strings.TrimSpace(record.WorkerID),
-						"lease_seq":          record.LeaseSeq,
-						"correlation_id":     strings.TrimSpace(record.CorrelationID),
-						"acquired_at":        optionalTime(record.AcquiredAt),
-						"last_heartbeat_at":  optionalTime(record.LastHeartbeatAt),
-						"expires_at":         optionalTime(record.ExpiresAt),
-						"updated_at":         requiredTime(record.UpdatedAt, now()),
+						"document_id":       strings.TrimSpace(record.DocumentID),
+						"tenant_id":         strings.TrimSpace(record.TenantID),
+						"org_id":            strings.TrimSpace(record.OrgID),
+						"worker_id":         strings.TrimSpace(record.WorkerID),
+						"lease_seq":         record.LeaseSeq,
+						"correlation_id":    strings.TrimSpace(record.CorrelationID),
+						"acquired_at":       optionalTime(record.AcquiredAt),
+						"last_heartbeat_at": optionalTime(record.LastHeartbeatAt),
+						"expires_at":        optionalTime(record.ExpiresAt),
+						"updated_at":        requiredTime(record.UpdatedAt, now()),
 					})
 				}
 				return rows

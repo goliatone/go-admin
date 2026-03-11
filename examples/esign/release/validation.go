@@ -67,25 +67,25 @@ func runValidationChunk(ctx context.Context, scope stores.Scope, chunkStart, chu
 	if cleanup != nil {
 		defer cleanup()
 	}
-	store, err := stores.NewSQLiteStore(storeDSN)
+	store, storeCleanup, err := newValidationRuntimeStore(ctx, storeDSN)
 	if err != nil {
-		return fmt.Errorf("initialize sqlite store: %w", err)
+		return fmt.Errorf("initialize validation runtime store: %w", err)
 	}
 	defer func() {
-		_ = store.Close()
+		if storeCleanup != nil {
+			_ = storeCleanup()
+		}
 	}()
 
 	documentSvc := services.NewDocumentService(store)
 	agreementSvc := services.NewAgreementService(store)
 	signingSvc := services.NewSigningService(store)
-	return store.WithBatch(ctx, func() error {
-		for i := 0; i < chunkSize; i++ {
-			if err := runAgreementLifecycle(ctx, scope, chunkStart+i, documentSvc, agreementSvc, signingSvc); err != nil {
-				return err
-			}
+	for i := 0; i < chunkSize; i++ {
+		if err := runAgreementLifecycle(ctx, scope, chunkStart+i, documentSvc, agreementSvc, signingSvc); err != nil {
+			return err
 		}
-		return nil
-	})
+	}
+	return nil
 }
 
 func runAgreementLifecycle(

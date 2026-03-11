@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"sort"
 	"strings"
 	"sync"
@@ -1553,12 +1554,17 @@ func (s SigningService) Submit(ctx context.Context, scope stores.Scope, token st
 			completedRecipientID := strings.TrimSpace(result.Recipient.ID)
 			hooks.AfterCommit(func() error {
 				if err := s.stageFlow.RunStageActivationWorkflow(ctx, scope, stageAgreementID, stageRecipientIDs, idempotencyKey); err != nil {
-					_ = s.appendSignerAudit(ctx, scope, stageAgreementID, completedRecipientID, "signer.stage_activation_workflow_failed", input.IPAddress, input.UserAgent, map[string]any{
+					auditErr := s.appendSignerAudit(ctx, scope, stageAgreementID, completedRecipientID, "signer.stage_activation_workflow_failed", input.IPAddress, input.UserAgent, map[string]any{
 						"idempotency_key":    idempotencyKey,
 						"next_stage":         nextStage,
 						"next_recipient_ids": stageRecipientIDs,
 						"error":              strings.TrimSpace(err.Error()),
 					})
+					if auditErr != nil {
+						log.Printf("signer stage activation workflow failure audit append failed: agreement_id=%s recipient_id=%s err=%v audit_err=%v", stageAgreementID, completedRecipientID, err, auditErr)
+						return nil
+					}
+					log.Printf("signer stage activation workflow failed: agreement_id=%s recipient_id=%s err=%v", stageAgreementID, completedRecipientID, err)
 				}
 				return nil
 			})
@@ -1568,10 +1574,15 @@ func (s SigningService) Submit(ctx context.Context, scope stores.Scope, token st
 			completionRecipientID := strings.TrimSpace(result.Recipient.ID)
 			hooks.AfterCommit(func() error {
 				if err := s.completionFlow.RunCompletionWorkflow(ctx, scope, completionAgreementID, idempotencyKey); err != nil {
-					_ = s.appendSignerAudit(ctx, scope, completionAgreementID, completionRecipientID, "signer.completion_workflow_failed", input.IPAddress, input.UserAgent, map[string]any{
+					auditErr := s.appendSignerAudit(ctx, scope, completionAgreementID, completionRecipientID, "signer.completion_workflow_failed", input.IPAddress, input.UserAgent, map[string]any{
 						"idempotency_key": idempotencyKey,
 						"error":           strings.TrimSpace(err.Error()),
 					})
+					if auditErr != nil {
+						log.Printf("signer completion workflow failure audit append failed: agreement_id=%s recipient_id=%s err=%v audit_err=%v", completionAgreementID, completionRecipientID, err, auditErr)
+						return nil
+					}
+					log.Printf("signer completion workflow failed: agreement_id=%s recipient_id=%s err=%v", completionAgreementID, completionRecipientID, err)
 				}
 				return nil
 			})
