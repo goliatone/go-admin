@@ -12,11 +12,12 @@ import (
 )
 
 // StoreAdapter bridges runtime persistence bootstrap handles to the stores.Store contract.
-// It uses SQL as the source of truth and hydrates a transaction-local in-memory projection
-// only for executing the existing store business rules.
+// It uses SQL as the source of truth and executes runtime transactions directly against
+// relational tables.
 type StoreAdapter struct {
 	sync    *runtimeRelationalStoreSync
 	bunDB   *bun.DB
+	repos   *RepositoryFactory
 	dialect Dialect
 }
 
@@ -43,14 +44,19 @@ func NewStoreAdapter(bootstrap *BootstrapResult) (*StoreAdapter, func() error, e
 	if err != nil {
 		return nil, nil, err
 	}
+	repos, err := NewRepositoryFactoryFromDB(bootstrap.BunDB)
+	if err != nil {
+		return nil, nil, err
+	}
 	return &StoreAdapter{
 		sync:    sync,
 		bunDB:   bootstrap.BunDB,
+		repos:   repos,
 		dialect: bootstrap.Dialect,
 	}, func() error { return nil }, nil
 }
 
-// WithTx executes fn inside a real SQL transaction and persists the row-level delta on commit.
+// WithTx executes fn inside a real SQL transaction.
 func (s *StoreAdapter) WithTx(ctx context.Context, fn func(tx stores.TxStore) error) error {
 	if fn == nil {
 		return nil
@@ -65,28 +71,7 @@ func (s *StoreAdapter) WithTx(ctx context.Context, fn func(tx stores.TxStore) er
 		if err := s.lockRuntimeTransaction(ctx, tx); err != nil {
 			return err
 		}
-		before, err := s.sync.loadSnapshotWithIDB(ctx, tx)
-		if err != nil {
-			return fmt.Errorf("store adapter: load runtime snapshot: %w", err)
-		}
-		mem, err := inMemoryStoreFromRuntimeSnapshot(before)
-		if err != nil {
-			return fmt.Errorf("store adapter: hydrate runtime store: %w", err)
-		}
-		if err := fn(mem); err != nil {
-			return err
-		}
-		after, err := runtimeSnapshotFromInMemoryStore(mem)
-		if err != nil {
-			return fmt.Errorf("store adapter: encode runtime snapshot: %w", err)
-		}
-		if err := validateRuntimeSnapshot(after); err != nil {
-			return err
-		}
-		if err := s.sync.persistSnapshotDeltaTx(ctx, tx, before, after); err != nil {
-			return err
-		}
-		return nil
+		return fn(newRelationalTxStore(s, tx))
 	})
 }
 
@@ -104,7 +89,7 @@ func (s *StoreAdapter) readStore(ctx context.Context) (*stores.InMemoryStore, er
 	return inMemoryStoreFromRuntimeSnapshot(snapshot)
 }
 
-func (s *StoreAdapter) readWithStore[T any](ctx context.Context, fn func(*stores.InMemoryStore) (T, error)) (T, error) {
+func readWithStore[T any](ctx context.Context, s *StoreAdapter, fn func(*stores.InMemoryStore) (T, error)) (T, error) {
 	var zero T
 	if fn == nil {
 		return zero, nil
@@ -116,7 +101,7 @@ func (s *StoreAdapter) readWithStore[T any](ctx context.Context, fn func(*stores
 	return fn(mem)
 }
 
-func (s *StoreAdapter) writeWithTx[T any](ctx context.Context, fn func(stores.TxStore) (T, error)) (T, error) {
+func writeWithTx[T any](ctx context.Context, s *StoreAdapter, fn func(stores.TxStore) (T, error)) (T, error) {
 	var zero T
 	if fn == nil {
 		return zero, nil

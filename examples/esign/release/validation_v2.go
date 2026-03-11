@@ -286,12 +286,14 @@ func RunV2ValidationProfile(ctx context.Context, cfg V2ValidationConfig) (V2Vali
 	if cleanup != nil {
 		defer cleanup()
 	}
-	store, err := stores.NewSQLiteStore(storeDSN)
+	store, storeCleanup, err := newValidationRuntimeStore(ctx, storeDSN)
 	if err != nil {
-		return V2ValidationResult{}, fmt.Errorf("initialize sqlite store: %w", err)
+		return V2ValidationResult{}, fmt.Errorf("initialize validation runtime store: %w", err)
 	}
 	defer func() {
-		_ = store.Close()
+		if storeCleanup != nil {
+			_ = storeCleanup()
+		}
 	}()
 
 	documentSvc := services.NewDocumentService(store)

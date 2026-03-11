@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"reflect"
 	"sort"
 	"strings"
@@ -990,11 +991,16 @@ func (s AgreementService) Send(ctx context.Context, scope stores.Scope, agreemen
 				}
 				hooks.AfterCommit(func() error {
 					if err := s.emails.OnAgreementSent(ctx, scope, notification); err != nil {
-						_ = s.appendAuditEvent(ctx, scope, transitioned.ID, "agreement.send_notification_failed", "system", "", map[string]any{
+						auditErr := s.appendAuditEvent(ctx, scope, transitioned.ID, "agreement.send_notification_failed", "system", "", map[string]any{
 							"idempotency_key": strings.TrimSpace(input.IdempotencyKey),
 							"recipient_id":    notification.RecipientID,
 							"error":           strings.TrimSpace(err.Error()),
 						})
+						if auditErr != nil {
+							log.Printf("agreement send notification failure audit append failed: agreement_id=%s recipient_id=%s err=%v audit_err=%v", transitioned.ID, notification.RecipientID, err, auditErr)
+							return nil
+						}
+						log.Printf("agreement send notification failed: agreement_id=%s recipient_id=%s err=%v", transitioned.ID, notification.RecipientID, err)
 					}
 					return nil
 				})

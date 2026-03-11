@@ -558,7 +558,7 @@ func (b *runtimeRelationalStoreSync) persistSnapshotDeltaTx(
 		return fmt.Errorf("runtime relational store sync: sql db is required")
 	}
 	specs := runtimeStoreUpsertSpecs()
-	columnMap, err := loadDialectColumnMap(ctx, b.sqlDB, b.dialect, runtimeStoreTargetTables(specs))
+	columnMap, err := loadDialectColumnMap(ctx, tx, b.dialect, runtimeStoreTargetTables(specs))
 	if err != nil {
 		return err
 	}
@@ -736,18 +736,18 @@ func runtimeRowsEqual(left map[string]any, right map[string]any) bool {
 	return string(leftJSON) == string(rightJSON)
 }
 
-func loadDialectColumnMap(ctx context.Context, db *sql.DB, dialect Dialect, tables []string) (map[string]map[string]bool, error) {
+func loadDialectColumnMap(ctx context.Context, queryer sqlQueryer, dialect Dialect, tables []string) (map[string]map[string]bool, error) {
 	switch dialect {
 	case DialectPostgres:
-		return loadPostgresColumnMap(ctx, db, tables)
+		return loadPostgresColumnMap(ctx, queryer, tables)
 	default:
-		return loadSQLiteColumnMap(ctx, db, tables)
+		return loadSQLiteColumnMap(ctx, queryer, tables)
 	}
 }
 
-func loadPostgresColumnMap(ctx context.Context, db *sql.DB, tables []string) (map[string]map[string]bool, error) {
+func loadPostgresColumnMap(ctx context.Context, queryer sqlQueryer, tables []string) (map[string]map[string]bool, error) {
 	out := make(map[string]map[string]bool, len(tables))
-	if db == nil {
+	if queryer == nil {
 		return out, nil
 	}
 	for _, table := range tables {
@@ -755,7 +755,7 @@ func loadPostgresColumnMap(ctx context.Context, db *sql.DB, tables []string) (ma
 		if table == "" {
 			continue
 		}
-		rows, err := db.QueryContext(ctx,
+		rows, err := queryer.QueryContext(ctx,
 			`SELECT column_name
 			 FROM information_schema.columns
 			 WHERE table_schema = current_schema() AND table_name = $1`,
@@ -786,7 +786,9 @@ func loadPostgresColumnMap(ctx context.Context, db *sql.DB, tables []string) (ma
 
 func upsertRuntimeRowForDialect(
 	ctx context.Context,
-	tx *sql.Tx,
+	tx interface {
+		ExecContext(context.Context, string, ...any) (sql.Result, error)
+	},
 	dialect Dialect,
 	spec runtimeTableUpsertSpec,
 	tableColumns map[string]bool,
@@ -876,7 +878,9 @@ func deleteMissingRowsByKey(
 
 func deleteRuntimeRowByConflict(
 	ctx context.Context,
-	tx bun.IDB,
+	tx interface {
+		ExecContext(context.Context, string, ...any) (sql.Result, error)
+	},
 	spec runtimeTableUpsertSpec,
 	tableColumns map[string]bool,
 	row map[string]any,

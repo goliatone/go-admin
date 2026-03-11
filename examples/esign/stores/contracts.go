@@ -230,7 +230,7 @@ type TxStore interface {
 }
 
 // TransactionManager defines transaction lifecycle coordination.
-// Backend semantics (rollback/isolation guarantees) are implementation specific.
+// Supported runtime stores must commit on success and roll back on error or panic.
 type TransactionManager interface {
 	WithTx(ctx context.Context, fn func(tx TxStore) error) error
 }

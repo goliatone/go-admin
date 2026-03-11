@@ -54,7 +54,7 @@ func TestPhase8GuardrailNoDirectSQLOpenOutsidePersistenceBoundary(t *testing.T) 
 	phase8AssertNoPatternMatches(t, repoRoot, files, pattern, "direct sql.Open must stay inside persistence adapter/bootstrap boundaries")
 }
 
-func TestPhase8GuardrailRuntimeWiringDoesNotDependOnNewSQLiteStore(t *testing.T) {
+func TestPhase8GuardrailRuntimeWiringDoesNotDependOnLegacyStoreConstructors(t *testing.T) {
 	repoRoot := phase8RepoRoot(t)
 	files := phase8GoFiles(t, repoRoot,
 		"examples/esign/modules",
@@ -63,9 +63,27 @@ func TestPhase8GuardrailRuntimeWiringDoesNotDependOnNewSQLiteStore(t *testing.T)
 		"examples/esign/main.go",
 		"examples/esign/runtime_web.go",
 		"examples/esign/services_module_setup.go",
+		"examples/esign/release",
+		"examples/esign/tools",
 	)
-	pattern := regexp.MustCompile(`(?m)\bNewSQLiteStore\(`)
-	phase8AssertNoPatternMatches(t, repoRoot, files, pattern, "runtime/module layers must not wire e-sign store through stores.NewSQLiteStore")
+	pattern := regexp.MustCompile(`(?m)\bNewSQLiteStore\(|\bNewPersistentStoreFromMemory\(`)
+	phase8AssertNoPatternMatches(t, repoRoot, files, pattern, "runtime/module/release/tooling layers must not wire e-sign store through legacy snapshot constructors")
+}
+
+func TestPhase8GuardrailRuntimeWiringDoesNotReachSnapshotSyncDirectly(t *testing.T) {
+	repoRoot := phase8RepoRoot(t)
+	files := phase8GoFiles(t, repoRoot,
+		"examples/esign/modules",
+		"examples/esign/services",
+		"examples/esign/handlers",
+		"examples/esign/main.go",
+		"examples/esign/runtime_web.go",
+		"examples/esign/services_module_setup.go",
+		"examples/esign/release",
+		"examples/esign/tools",
+	)
+	pattern := regexp.MustCompile(`(?m)\bruntimeRelationalStoreSync\b|\bloadSnapshotWithIDB\b|\bpersistSnapshotDeltaTx\b|\bLoadPayload\(|\bPersistPayload\(`)
+	phase8AssertNoPatternMatches(t, repoRoot, files, pattern, "runtime/module/release/tooling layers must not depend on snapshot sync internals directly")
 }
 
 func TestPhase8GuardrailNoAdHocMigrationPlannerUsageOutsidePersistence(t *testing.T) {

@@ -212,12 +212,14 @@ func (s DraftService) Create(ctx context.Context, scope stores.Scope, input Draf
 	if replay {
 		eventType = "draft.replayed"
 	}
-	s.appendDraftAudit(ctx, scope, record.ID, eventType, createdByUserID, map[string]any{
+	if err := s.appendDraftAudit(ctx, scope, record.ID, eventType, createdByUserID, map[string]any{
 		"wizard_id":    record.WizardID,
 		"current_step": record.CurrentStep,
 		"revision":     record.Revision,
 		"replay":       replay,
-	})
+	}); err != nil {
+		return stores.DraftRecord{}, false, err
+	}
 	return record, replay, nil
 }
 
@@ -322,11 +324,13 @@ func (s DraftService) Update(ctx context.Context, scope stores.Scope, id string,
 	if err != nil {
 		return stores.DraftRecord{}, err
 	}
-	s.appendDraftAudit(ctx, scope, record.ID, "draft.updated", strings.TrimSpace(input.UpdatedByUserID), map[string]any{
+	if err := s.appendDraftAudit(ctx, scope, record.ID, "draft.updated", strings.TrimSpace(input.UpdatedByUserID), map[string]any{
 		"wizard_id":    record.WizardID,
 		"current_step": record.CurrentStep,
 		"revision":     record.Revision,
-	})
+	}); err != nil {
+		return stores.DraftRecord{}, err
+	}
 	return record, nil
 }
 
@@ -644,9 +648,11 @@ func (s DraftService) Delete(ctx context.Context, scope stores.Scope, id, create
 	if err := s.drafts.DeleteDraftSession(ctx, scope, strings.TrimSpace(id)); err != nil {
 		return err
 	}
-	s.appendDraftAudit(ctx, scope, draft.ID, "draft.deleted", strings.TrimSpace(createdByUserID), map[string]any{
+	if err := s.appendDraftAudit(ctx, scope, draft.ID, "draft.deleted", strings.TrimSpace(createdByUserID), map[string]any{
 		"wizard_id": draft.WizardID,
-	})
+	}); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -660,7 +666,7 @@ func (s DraftService) Send(ctx context.Context, scope stores.Scope, id string, i
 	}
 
 	result := DraftSendResult{}
-	err := stores.WithTxHooksContext(ctx, s.tx, func(txCtx context.Context, tx stores.TxStore, _ *stores.TxHooks) error {
+	err := stores.WithTxHooksContext(ctx, s.tx, func(txCtx context.Context, tx stores.TxStore, hooks *stores.TxHooks) error {
 		txSvc := s
 		if tx != nil {
 			txSvc = s.forTx(tx)
@@ -686,10 +692,20 @@ func (s DraftService) Send(ctx context.Context, scope stores.Scope, id string, i
 		if err := txSvc.drafts.DeleteDraftSession(txCtx, scope, draft.ID); err != nil {
 			return err
 		}
-		txSvc.appendDraftAudit(txCtx, scope, draft.ID, "draft.sent", strings.TrimSpace(input.CreatedByUserID), map[string]any{
+		if err := txSvc.appendDraftAudit(txCtx, scope, draft.ID, "draft.sent", strings.TrimSpace(input.CreatedByUserID), map[string]any{
 			"agreement_id": strings.TrimSpace(sent.ID),
 			"wizard_id":    draft.WizardID,
-		})
+		}); err != nil {
+			return err
+		}
+		if hooks != nil {
+			agreementID := strings.TrimSpace(sent.ID)
+			draftID := strings.TrimSpace(draft.ID)
+			createdByUserID := strings.TrimSpace(input.CreatedByUserID)
+			hooks.AfterCommit(func() error {
+				return s.verifySendPersistenceInvariants(ctx, scope, draftID, createdByUserID, agreementID)
+			})
+		}
 		result = DraftSendResult{
 			AgreementID:  strings.TrimSpace(sent.ID),
 			Status:       primitives.FirstNonEmpty(strings.TrimSpace(sent.Status), stores.AgreementStatusSent),
@@ -716,10 +732,12 @@ func (s DraftService) CleanupExpiredDrafts(ctx context.Context, before time.Time
 	if err != nil {
 		return 0, err
 	}
-	s.appendDraftAudit(ctx, stores.Scope{TenantID: "system", OrgID: "system"}, "draft_cleanup", "draft.cleanup_expired", "system", map[string]any{
+	if err := s.appendDraftAudit(ctx, stores.Scope{TenantID: "system", OrgID: "system"}, "draft_cleanup", "draft.cleanup_expired", "system", map[string]any{
 		"deleted": count,
 		"before":  before.UTC().Format(time.RFC3339Nano),
-	})
+	}); err != nil {
+		return count, err
+	}
 	return count, nil
 }
 
@@ -748,6 +766,29 @@ func (s DraftService) countDrafts(ctx context.Context, scope stores.Scope, creat
 		cursor = strings.TrimSpace(nextCursor)
 	}
 	return total, nil
+}
+
+func (s DraftService) verifySendPersistenceInvariants(
+	ctx context.Context,
+	scope stores.Scope,
+	draftID string,
+	createdByUserID string,
+	agreementID string,
+) error {
+	if s.agreements.agreements == nil {
+		return fmt.Errorf("draft send invariant violation: agreement store not configured")
+	}
+	if _, err := s.agreements.agreements.GetAgreement(ctx, scope, agreementID); err != nil {
+		return fmt.Errorf("draft send invariant violation: agreement %s missing after commit: %w", strings.TrimSpace(agreementID), err)
+	}
+	_, err := s.Get(ctx, scope, draftID, createdByUserID)
+	if err == nil {
+		return fmt.Errorf("draft send invariant violation: draft %s still present after commit", strings.TrimSpace(draftID))
+	}
+	if isDraftStoreNotFoundError(err) {
+		return nil
+	}
+	return fmt.Errorf("draft send invariant violation: verify draft %s deletion: %w", strings.TrimSpace(draftID), err)
 }
 
 func (s DraftService) materializeDraftAgreement(ctx context.Context, scope stores.Scope, draft stores.DraftRecord, ipAddress string) (stores.AgreementRecord, error) {
@@ -989,12 +1030,23 @@ func draftNotFoundError(id string) error {
 		WithMetadata(map[string]any{"id": strings.TrimSpace(id)})
 }
 
-func (s DraftService) appendDraftAudit(ctx context.Context, scope stores.Scope, draftID, eventType, actorID string, metadata map[string]any) {
+func isDraftStoreNotFoundError(err error) bool {
+	if err == nil {
+		return false
+	}
+	var coded *goerrors.Error
+	if errors.As(err, &coded) {
+		return strings.EqualFold(strings.TrimSpace(coded.TextCode), "NOT_FOUND") || coded.Category == goerrors.CategoryNotFound
+	}
+	return false
+}
+
+func (s DraftService) appendDraftAudit(ctx context.Context, scope stores.Scope, draftID, eventType, actorID string, metadata map[string]any) error {
 	if s.audits == nil {
-		return
+		return nil
 	}
 	if strings.TrimSpace(eventType) == "" {
-		return
+		return nil
 	}
 	actorType := "system"
 	if strings.TrimSpace(actorID) != "" {
@@ -1004,15 +1056,21 @@ func (s DraftService) appendDraftAudit(ctx context.Context, scope stores.Scope, 
 	for key, value := range metadata {
 		payload[key] = value
 	}
-	encoded, _ := json.Marshal(payload)
-	_, _ = s.audits.Append(ctx, scope, stores.AuditEventRecord{
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("draft audit encode %s for %s: %w", strings.TrimSpace(eventType), strings.TrimSpace(draftID), err)
+	}
+	if _, err := s.audits.Append(ctx, scope, stores.AuditEventRecord{
 		AgreementID:  strings.TrimSpace(draftID),
 		EventType:    strings.TrimSpace(eventType),
 		ActorType:    actorType,
 		ActorID:      strings.TrimSpace(actorID),
 		MetadataJSON: string(encoded),
 		CreatedAt:    s.now().UTC(),
-	})
+	}); err != nil {
+		return fmt.Errorf("draft audit append %s for %s: %w", strings.TrimSpace(eventType), strings.TrimSpace(draftID), err)
+	}
+	return nil
 }
 
 type wizardStatePayload struct {

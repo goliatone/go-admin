@@ -3,7 +3,6 @@ package persistence
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -54,10 +53,7 @@ func TestPhase8RestartPersistenceSQLiteSurvivesRestart(t *testing.T) {
 }
 
 func TestPhase8RestartPersistencePostgresSurvivesRestartWhenDSNProvided(t *testing.T) {
-	dsn := strings.TrimSpace(os.Getenv("ESIGN_TEST_POSTGRES_DSN"))
-	if dsn == "" {
-		t.Skip("set ESIGN_TEST_POSTGRES_DSN to run postgres restart persistence coverage")
-	}
+	dsn := requirePostgresTestDSN(t)
 
 	cfg := appcfg.Defaults()
 	cfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectPostgres
