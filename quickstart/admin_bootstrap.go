@@ -313,18 +313,15 @@ func NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin
 	}
 	applyRPCTransportPolicyConfig(&cfg, &options)
 	applyCommandExecutionRoutingConfig(&cfg, options)
+	if options.workflowRuntime != nil {
+		options.deps.WorkflowRuntime = options.workflowRuntime
+	}
 	adm, err := admin.New(cfg, options.deps)
 	if err != nil {
 		return nil, result, err
 	}
 	if options.startupPolicy != nil {
 		adm.WithModuleStartupPolicy(*options.startupPolicy)
-	}
-	if options.workflowRuntime != nil {
-		adm.WithWorkflowRuntime(options.workflowRuntime)
-	}
-	if len(options.traitWorkflowDefaults) > 0 {
-		adm.WithTraitWorkflowDefaults(options.traitWorkflowDefaults)
 	}
 	configureCMSWorkflowTranslationActions(adm, options)
 	if options.translationExchangeConfigSet {
@@ -571,6 +568,10 @@ func resolveWorkflowConfigOptions(opts *adminOptions) error {
 	}
 	if !hasConfig {
 		return nil
+	}
+	if len(opts.traitWorkflowDefaults) > 0 {
+		merged.TraitDefaults = mergeTraitWorkflowDefaults(merged.TraitDefaults, opts.traitWorkflowDefaults)
+		merged = NormalizeWorkflowConfig(merged)
 	}
 	if err := ValidateWorkflowConfig(merged); err != nil {
 		return err

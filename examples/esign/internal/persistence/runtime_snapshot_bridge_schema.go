@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -61,182 +60,11 @@ type legacySQLiteSnapshot struct {
 	PlacementRuns              map[string]stores.PlacementRunRecord           `json:"placement_runs"`
 }
 
-type legacySnapshotMigrationOptions struct {
-	failAfterTable string
-}
-
 type legacyTableMigrationSpec struct {
 	table    string
 	columns  []string
 	conflict []string
 	rows     func(legacySQLiteSnapshot) []map[string]any
-}
-
-func migrateLegacySnapshot(ctx context.Context, db *sql.DB, dialect Dialect) error {
-	return migrateLegacySnapshotWithOptions(ctx, db, dialect, legacySnapshotMigrationOptions{})
-}
-
-func migrateLegacySnapshotWithOptions(
-	ctx context.Context,
-	db *sql.DB,
-	dialect Dialect,
-	opts legacySnapshotMigrationOptions,
-) error {
-	if db == nil || dialect != DialectSQLite {
-		return nil
-	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
-
-	if err := ensureLegacyMigrationMarkerTable(ctx, db); err != nil {
-		return err
-	}
-	completed, err := legacyMigrationMarkerExists(ctx, db)
-	if err != nil {
-		return err
-	}
-	if completed {
-		return nil
-	}
-
-	payload, exists, err := loadLegacySnapshotPayload(ctx, db)
-	if err != nil {
-		return err
-	}
-	if !exists {
-		return nil
-	}
-	payload = strings.TrimSpace(payload)
-	if payload == "" || payload == "{}" {
-		return nil
-	}
-
-	var snapshot legacySQLiteSnapshot
-	if err := json.Unmarshal([]byte(payload), &snapshot); err != nil {
-		return fmt.Errorf("legacy snapshot migration: decode %s payload: %w", legacySnapshotStateTable, err)
-	}
-
-	specs := legacySnapshotMigrationSpecs()
-	columnMap, err := loadSQLiteColumnMap(ctx, db, legacySnapshotTargetTables(specs))
-	if err != nil {
-		return err
-	}
-	if err := validateLegacySnapshotCoverage(snapshot, specs, columnMap); err != nil {
-		return err
-	}
-	eligibleTables := eligibleTargetTables(columnMap, specs)
-	if len(eligibleTables) == 0 {
-		return nil
-	}
-	empty, err := areSQLiteTablesEmpty(ctx, db, eligibleTables)
-	if err != nil {
-		return err
-	}
-	if !empty {
-		return nil
-	}
-
-	tx, err := db.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("legacy snapshot migration: begin transaction: %w", err)
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	counts := map[string]int{}
-	for _, spec := range specs {
-		tableColumns := columnMap[spec.table]
-		if len(tableColumns) == 0 {
-			continue
-		}
-		rows := spec.rows(snapshot)
-		for _, row := range rows {
-			if err := upsertLegacyRow(ctx, tx, spec, tableColumns, row); err != nil {
-				return fmt.Errorf("legacy snapshot migration: upsert into %s: %w", spec.table, err)
-			}
-			counts[spec.table]++
-		}
-		if strings.EqualFold(strings.TrimSpace(opts.failAfterTable), spec.table) {
-			return fmt.Errorf("legacy snapshot migration: test failpoint after table %s", spec.table)
-		}
-	}
-
-	detailsJSON := marshalJSONWithDefault(map[string]any{
-		"source_table": legacySnapshotStateTable,
-		"counts":       counts,
-	}, legacySnapshotMigrationMarkerJSONDef)
-	now := time.Now().UTC()
-	if _, err := tx.ExecContext(ctx,
-		`INSERT INTO `+legacySnapshotMigrationMarkerTable+` (marker_key, completed_at, details_json)
-		 VALUES (?, ?, ?)
-		 ON CONFLICT(marker_key) DO UPDATE SET
-		   completed_at = excluded.completed_at,
-		   details_json = excluded.details_json`,
-		legacySnapshotMigrationMarkerKeyV1,
-		now,
-		detailsJSON,
-	); err != nil {
-		return fmt.Errorf("legacy snapshot migration: write completion marker: %w", err)
-	}
-
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("legacy snapshot migration: commit transaction: %w", err)
-	}
-	return nil
-}
-
-func ensureLegacyMigrationMarkerTable(ctx context.Context, db *sql.DB) error {
-	if db == nil {
-		return nil
-	}
-	stmt := `CREATE TABLE IF NOT EXISTS ` + legacySnapshotMigrationMarkerTable + ` (
-		marker_key TEXT PRIMARY KEY,
-		completed_at TIMESTAMP NOT NULL,
-		details_json TEXT NOT NULL DEFAULT '{}'
-	)`
-	if _, err := db.ExecContext(ctx, stmt); err != nil {
-		return fmt.Errorf("legacy snapshot migration: ensure marker table: %w", err)
-	}
-	return nil
-}
-
-func legacyMigrationMarkerExists(ctx context.Context, db *sql.DB) (bool, error) {
-	if db == nil {
-		return false, nil
-	}
-	var count int
-	if err := db.QueryRowContext(ctx,
-		`SELECT COUNT(1)
-		 FROM `+legacySnapshotMigrationMarkerTable+`
-		 WHERE marker_key = ?`,
-		legacySnapshotMigrationMarkerKeyV1,
-	).Scan(&count); err != nil {
-		return false, fmt.Errorf("legacy snapshot migration: lookup marker: %w", err)
-	}
-	return count > 0, nil
-}
-
-func loadLegacySnapshotPayload(ctx context.Context, db *sql.DB) (string, bool, error) {
-	if db == nil {
-		return "", false, nil
-	}
-	exists, err := sqliteTableExists(ctx, db, legacySnapshotStateTable)
-	if err != nil {
-		return "", false, err
-	}
-	if !exists {
-		return "", false, nil
-	}
-
-	var payload string
-	err = db.QueryRowContext(ctx, `SELECT snapshot_json FROM `+legacySnapshotStateTable+` WHERE id = 1`).Scan(&payload)
-	if err == sql.ErrNoRows {
-		return "", false, nil
-	}
-	if err != nil {
-		return "", false, fmt.Errorf("legacy snapshot migration: load %s payload: %w", legacySnapshotStateTable, err)
-	}
-	return payload, true, nil
 }
 
 func sqliteTableExists(ctx context.Context, db *sql.DB, tableName string) (bool, error) {
@@ -251,7 +79,7 @@ func sqliteTableExists(ctx context.Context, db *sql.DB, tableName string) (bool,
 		 WHERE type = 'table' AND name = ?`,
 		tableName,
 	).Scan(&count); err != nil {
-		return false, fmt.Errorf("legacy snapshot migration: check sqlite table %s: %w", tableName, err)
+		return false, fmt.Errorf("runtime snapshot bridge: check sqlite table %s: %w", tableName, err)
 	}
 	return count > 0, nil
 }
@@ -275,7 +103,7 @@ func loadSQLiteColumnMap(ctx context.Context, db *sql.DB, tables []string) (map[
 		}
 		rows, err := db.QueryContext(ctx, `PRAGMA table_info(`+table+`)`)
 		if err != nil {
-			return nil, fmt.Errorf("legacy snapshot migration: table_info for %s: %w", table, err)
+			return nil, fmt.Errorf("runtime snapshot bridge: table_info for %s: %w", table, err)
 		}
 		columns := map[string]bool{}
 		for rows.Next() {
@@ -289,7 +117,7 @@ func loadSQLiteColumnMap(ctx context.Context, db *sql.DB, tables []string) (map[
 			)
 			if scanErr := rows.Scan(&cid, &name, &declType, &notNull, &defaultVal, &pk); scanErr != nil {
 				_ = rows.Close()
-				return nil, fmt.Errorf("legacy snapshot migration: scan table_info %s: %w", table, scanErr)
+				return nil, fmt.Errorf("runtime snapshot bridge: scan table_info %s: %w", table, scanErr)
 			}
 			name = strings.TrimSpace(strings.ToLower(name))
 			if name != "" {
@@ -297,47 +125,11 @@ func loadSQLiteColumnMap(ctx context.Context, db *sql.DB, tables []string) (map[
 			}
 		}
 		if err := rows.Close(); err != nil {
-			return nil, fmt.Errorf("legacy snapshot migration: close table_info rows for %s: %w", table, err)
+			return nil, fmt.Errorf("runtime snapshot bridge: close table_info rows for %s: %w", table, err)
 		}
 		out[table] = columns
 	}
 	return out, nil
-}
-
-func eligibleTargetTables(columnMap map[string]map[string]bool, specs []legacyTableMigrationSpec) []string {
-	out := make([]string, 0, len(specs))
-	seen := map[string]bool{}
-	for _, spec := range specs {
-		if seen[spec.table] {
-			continue
-		}
-		if len(columnMap[spec.table]) == 0 {
-			continue
-		}
-		seen[spec.table] = true
-		out = append(out, spec.table)
-	}
-	return out
-}
-
-func areSQLiteTablesEmpty(ctx context.Context, db *sql.DB, tables []string) (bool, error) {
-	if db == nil {
-		return true, nil
-	}
-	for _, table := range tables {
-		table = strings.TrimSpace(table)
-		if table == "" {
-			continue
-		}
-		var count int
-		if err := db.QueryRowContext(ctx, `SELECT COUNT(1) FROM `+table).Scan(&count); err != nil {
-			return false, fmt.Errorf("legacy snapshot migration: count rows in %s: %w", table, err)
-		}
-		if count > 0 {
-			return false, nil
-		}
-	}
-	return true, nil
 }
 
 func legacySnapshotTargetTables(specs []legacyTableMigrationSpec) []string {
@@ -351,198 +143,6 @@ func legacySnapshotTargetTables(specs []legacyTableMigrationSpec) []string {
 		tables = append(tables, spec.table)
 	}
 	return tables
-}
-
-type legacySnapshotSectionSpec struct {
-	section string
-	table   string
-	derived bool
-	base    string
-}
-
-func validateLegacySnapshotCoverage(
-	snapshot legacySQLiteSnapshot,
-	specs []legacyTableMigrationSpec,
-	columnMap map[string]map[string]bool,
-) error {
-	sectionCounts := legacySnapshotSectionCounts(snapshot)
-	specByTable := map[string]bool{}
-	for _, spec := range specs {
-		specByTable[strings.TrimSpace(spec.table)] = true
-	}
-	issues := make([]string, 0)
-	for _, sectionSpec := range legacySnapshotSections() {
-		count := sectionCounts[sectionSpec.section]
-		if count == 0 {
-			continue
-		}
-		if sectionSpec.derived {
-			if sectionSpec.base == "" || sectionCounts[sectionSpec.base] > 0 {
-				continue
-			}
-			issues = append(issues, fmt.Sprintf("%s has %d rows but base section %s is empty", sectionSpec.section, count, sectionSpec.base))
-			continue
-		}
-		if strings.TrimSpace(sectionSpec.table) == "" {
-			issues = append(issues, fmt.Sprintf("%s has %d rows and no target table mapping", sectionSpec.section, count))
-			continue
-		}
-		if !specByTable[sectionSpec.table] {
-			issues = append(issues, fmt.Sprintf("%s has %d rows but no migration spec for table %s", sectionSpec.section, count, sectionSpec.table))
-			continue
-		}
-		if len(columnMap[sectionSpec.table]) == 0 {
-			issues = append(issues, fmt.Sprintf("%s has %d rows but target table %s does not exist", sectionSpec.section, count, sectionSpec.table))
-			continue
-		}
-	}
-	if len(issues) > 0 {
-		sort.Strings(issues)
-		return fmt.Errorf("legacy snapshot migration: incomplete coverage: %s", strings.Join(issues, "; "))
-	}
-	return nil
-}
-
-func legacySnapshotSectionCounts(snapshot legacySQLiteSnapshot) map[string]int {
-	return map[string]int{
-		"documents":                      len(snapshot.Documents),
-		"agreements":                     len(snapshot.Agreements),
-		"drafts":                         len(snapshot.Drafts),
-		"draft_wizard_index":             len(snapshot.DraftWizardIndex),
-		"participants":                   len(snapshot.Participants),
-		"field_definitions":              len(snapshot.FieldDefinitions),
-		"field_instances":                len(snapshot.FieldInstances),
-		"recipients":                     len(snapshot.Recipients),
-		"fields":                         len(snapshot.Fields),
-		"signing_tokens":                 len(snapshot.SigningTokens),
-		"token_hash_index":               len(snapshot.TokenHashIndex),
-		"signature_artifacts":            len(snapshot.SignatureArtifacts),
-		"signer_profiles":                len(snapshot.SignerProfiles),
-		"signer_profile_index":           len(snapshot.SignerProfileIndex),
-		"saved_signatures":               len(snapshot.SavedSignerSignatures),
-		"field_values":                   len(snapshot.FieldValues),
-		"audit_events":                   len(snapshot.AuditEvents),
-		"agreement_artifacts":            len(snapshot.AgreementArtifacts),
-		"email_logs":                     len(snapshot.EmailLogs),
-		"job_runs":                       len(snapshot.JobRuns),
-		"job_run_dedupe_index":           len(snapshot.JobRunDedupeIndex),
-		"google_import_runs":             len(snapshot.GoogleImportRuns),
-		"google_import_run_dedupe_index": len(snapshot.GoogleImportRunDedupeIndex),
-		"agreement_reminder_states":      len(snapshot.AgreementReminderStates),
-		"outbox_messages":                len(snapshot.OutboxMessages),
-		"integration_credentials":        len(snapshot.IntegrationCredentials),
-		"integration_credential_index":   len(snapshot.IntegrationCredentialIndex),
-		"mapping_specs":                  len(snapshot.MappingSpecs),
-		"integration_bindings":           len(snapshot.IntegrationBindings),
-		"integration_binding_index":      len(snapshot.IntegrationBindingIndex),
-		"integration_sync_runs":          len(snapshot.IntegrationSyncRuns),
-		"integration_checkpoints":        len(snapshot.IntegrationCheckpoints),
-		"integration_checkpoint_index":   len(snapshot.IntegrationCheckpointIndex),
-		"integration_conflicts":          len(snapshot.IntegrationConflicts),
-		"integration_change_events":      len(snapshot.IntegrationChangeEvents),
-		"integration_mutation_claims":    len(snapshot.IntegrationMutationClaims),
-		"placement_runs":                 len(snapshot.PlacementRuns),
-	}
-}
-
-func legacySnapshotSections() []legacySnapshotSectionSpec {
-	return []legacySnapshotSectionSpec{
-		{section: "documents", table: "documents"},
-		{section: "agreements", table: "agreements"},
-		{section: "drafts", table: "esign_drafts"},
-		{section: "draft_wizard_index", derived: true, base: "drafts"},
-		{section: "participants", table: "participants"},
-		{section: "field_definitions", table: "field_definitions"},
-		{section: "field_instances", table: "field_instances"},
-		{section: "recipients", table: "recipients"},
-		{section: "fields", table: "fields"},
-		{section: "signing_tokens", table: "signing_tokens"},
-		{section: "token_hash_index", derived: true, base: "signing_tokens"},
-		{section: "signature_artifacts", table: "signature_artifacts"},
-		{section: "signer_profiles", table: "signer_profiles"},
-		{section: "signer_profile_index", derived: true, base: "signer_profiles"},
-		{section: "saved_signatures", table: "saved_signer_signatures"},
-		{section: "field_values", table: "field_values"},
-		{section: "audit_events", table: "audit_events"},
-		{section: "agreement_artifacts", table: "agreement_artifacts"},
-		{section: "email_logs", table: "email_logs"},
-		{section: "job_runs", table: "job_runs"},
-		{section: "job_run_dedupe_index", derived: true, base: "job_runs"},
-		{section: "google_import_runs", table: "google_import_runs"},
-		{section: "google_import_run_dedupe_index", derived: true, base: "google_import_runs"},
-		{section: "agreement_reminder_states", table: "agreement_reminder_states"},
-		{section: "outbox_messages", table: "outbox_messages"},
-		{section: "integration_credentials", table: "integration_credentials"},
-		{section: "integration_credential_index", derived: true, base: "integration_credentials"},
-		{section: "mapping_specs", table: "integration_mapping_specs"},
-		{section: "integration_bindings", table: "integration_bindings"},
-		{section: "integration_binding_index", derived: true, base: "integration_bindings"},
-		{section: "integration_sync_runs", table: "integration_sync_runs"},
-		{section: "integration_checkpoints", table: "integration_checkpoints"},
-		{section: "integration_checkpoint_index", derived: true, base: "integration_checkpoints"},
-		{section: "integration_conflicts", table: "integration_conflicts"},
-		{section: "integration_change_events", table: "integration_change_events"},
-		{section: "integration_mutation_claims", table: "integration_mutation_claims"},
-		{section: "placement_runs", table: "placement_runs"},
-	}
-}
-
-func upsertLegacyRow(
-	ctx context.Context,
-	tx *sql.Tx,
-	spec legacyTableMigrationSpec,
-	tableColumns map[string]bool,
-	row map[string]any,
-) error {
-	if tx == nil || len(tableColumns) == 0 || len(row) == 0 {
-		return nil
-	}
-	columns := make([]string, 0, len(spec.columns))
-	args := make([]any, 0, len(spec.columns))
-	for _, column := range spec.columns {
-		column = strings.TrimSpace(strings.ToLower(column))
-		if column == "" || !tableColumns[column] {
-			continue
-		}
-		value, ok := row[column]
-		if !ok {
-			continue
-		}
-		columns = append(columns, column)
-		args = append(args, value)
-	}
-	if len(columns) == 0 {
-		return nil
-	}
-	for _, conflictColumn := range spec.conflict {
-		if !slices.Contains(columns, conflictColumn) {
-			return fmt.Errorf("missing conflict column %q", conflictColumn)
-		}
-	}
-
-	placeholders := make([]string, 0, len(columns))
-	for range columns {
-		placeholders = append(placeholders, "?")
-	}
-	assignments := make([]string, 0, len(columns))
-	for _, column := range columns {
-		if slices.Contains(spec.conflict, column) {
-			continue
-		}
-		assignments = append(assignments, column+" = excluded."+column)
-	}
-
-	query := `INSERT INTO ` + spec.table + ` (` + strings.Join(columns, ", ") + `) VALUES (` + strings.Join(placeholders, ", ") + `) ` +
-		`ON CONFLICT(` + strings.Join(spec.conflict, ", ") + `) `
-	if len(assignments) == 0 {
-		query += `DO NOTHING`
-	} else {
-		query += `DO UPDATE SET ` + strings.Join(assignments, ", ")
-	}
-	if _, err := tx.ExecContext(ctx, query, args...); err != nil {
-		return err
-	}
-	return nil
 }
 
 func legacySnapshotMigrationSpecs() []legacyTableMigrationSpec {

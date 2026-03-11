@@ -51,15 +51,8 @@ func TestPhase10RuntimeStoreSQLiteDoesNotWriteLegacySnapshotState(t *testing.T) 
 	if err != nil {
 		t.Fatalf("sqliteTableExists(%s): %v", legacySnapshotStateTable, err)
 	}
-	if !exists {
-		return
-	}
-	var count int
-	if err := bootstrap.SQLDB.QueryRowContext(context.Background(), `SELECT COUNT(1) FROM `+legacySnapshotStateTable).Scan(&count); err != nil {
-		t.Fatalf("count legacy snapshot rows: %v", err)
-	}
-	if count != 0 {
-		t.Fatalf("expected runtime cutover store to avoid writes to %s, got %d rows", legacySnapshotStateTable, count)
+	if exists {
+		t.Fatalf("expected %s to be absent after legacy cleanup migration", legacySnapshotStateTable)
 	}
 }
 
