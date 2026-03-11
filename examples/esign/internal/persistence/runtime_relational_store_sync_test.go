@@ -12,7 +12,7 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/stores"
 )
 
-func TestRuntimeRelationalStoreBackendLoadPayloadKeysReminderStatesByScopeAgreementRecipient(t *testing.T) {
+func TestRuntimeRelationalStoreSyncLoadPayloadKeysReminderStatesByScopeAgreementRecipient(t *testing.T) {
 	dsn := "file:" + filepath.Join(t.TempDir(), "runtime-reminder-keying.db") + "?_fk=1&_busy_timeout=5000"
 	cfg := appcfg.Defaults()
 	cfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectSQLite
@@ -45,16 +45,16 @@ func TestRuntimeRelationalStoreBackendLoadPayloadKeysReminderStatesByScopeAgreem
 		t.Fatalf("insert reminder state: %v", err)
 	}
 
-	backend, err := newRuntimeRelationalStoreBackend(bootstrap)
+	backend, err := newRuntimeRelationalStoreSync(bootstrap)
 	if err != nil {
-		t.Fatalf("newRuntimeRelationalStoreBackend: %v", err)
+		t.Fatalf("newRuntimeRelationalStoreSync: %v", err)
 	}
-	payload, err := backend.LoadPayload(ctx, nil)
+	payload, err := backend.LoadPayload(ctx)
 	if err != nil {
 		t.Fatalf("LoadPayload: %v", err)
 	}
 
-	var snapshot legacySQLiteSnapshot
+	var snapshot runtimeStoreSnapshot
 	if err := json.Unmarshal(payload, &snapshot); err != nil {
 		t.Fatalf("json.Unmarshal(payload): %v", err)
 	}

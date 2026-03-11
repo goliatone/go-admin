@@ -232,6 +232,26 @@ func normalizeDraftMutationError(err error) error {
 	return err
 }
 
+func normalizeDraftSendError(err error) error {
+	normalized := normalizeDraftMutationError(err)
+	if normalized == nil {
+		return nil
+	}
+	var coded *goerrors.Error
+	if !errors.As(normalized, &coded) || coded == nil {
+		return normalized
+	}
+	text := strings.TrimSpace(strings.ToLower(coded.TextCode))
+	switch text {
+	case "not_found":
+		return goerrors.New("draft not found", goerrors.CategoryNotFound).
+			WithCode(http.StatusNotFound).
+			WithTextCode("draft_send_not_found").
+			WithMetadata(copyAnyMap(coded.Metadata))
+	}
+	return normalized
+}
+
 func extractCurrentRevision(metadata map[string]any) int64 {
 	if len(metadata) == 0 {
 		return 0

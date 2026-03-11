@@ -3,10 +3,8 @@ package stores
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -33,12 +31,13 @@ func ResolveSQLiteDSN() string {
 // SQLiteStore persists e-sign domain data in SQLite while reusing InMemoryStore logic.
 type SQLiteStore struct {
 	*InMemoryStore
-	db         *sql.DB
-	backend    SQLitePersistenceBackend
-	ownsDB     bool
-	mu         sync.Mutex
-	batchDepth int
-	dirty      bool
+	db             *sql.DB
+	backend        SQLitePersistenceBackend
+	persistPayload func(context.Context, []byte) error
+	ownsDB         bool
+	mu             sync.Mutex
+	batchDepth     int
+	dirty          bool
 }
 
 // SQLitePersistenceBackend controls durable state loading/persistence for SQLiteStore.
@@ -118,6 +117,20 @@ func NewPersistentStoreFromDB(db *sql.DB, backend SQLitePersistenceBackend) (*SQ
 		db:            db,
 		backend:       backend,
 		ownsDB:        false,
+	}, nil
+}
+
+// NewPersistentStoreFromMemory builds a durable store from a preloaded in-memory state
+// and a payload persistence callback. This keeps SQLiteStore transactional semantics
+// without requiring direct sql.DB ownership in the caller.
+func NewPersistentStoreFromMemory(mem *InMemoryStore, persistPayload func(context.Context, []byte) error) (*SQLiteStore, error) {
+	if mem == nil {
+		mem = NewInMemoryStore()
+	}
+	return &SQLiteStore{
+		InMemoryStore:  mem,
+		persistPayload: persistPayload,
+		ownsDB:         false,
 	}, nil
 }
 
@@ -271,51 +284,9 @@ func loadStoreStateFromBackendWithPayload(
 	if len(payload) == 0 {
 		return mem, nil
 	}
-
-	var snapshot sqliteStoreSnapshot
-	if err := json.Unmarshal(payload, &snapshot); err != nil {
+	if err := mem.ApplySnapshotPayload(payload); err != nil {
 		return nil, fmt.Errorf("decode esign sqlite snapshot: %w", err)
 	}
-	mem.documents = ensureDocumentMap(snapshot.Documents)
-	mem.agreements = ensureAgreementMap(snapshot.Agreements)
-	mem.drafts = ensureDraftMap(snapshot.Drafts)
-	mem.draftWizardIndex = ensureStringMap(snapshot.DraftWizardIndex)
-	mem.participants = ensureParticipantMap(snapshot.Participants)
-	mem.fieldDefinitions = ensureFieldDefinitionMap(snapshot.FieldDefinitions)
-	mem.fieldInstances = ensureFieldInstanceMap(snapshot.FieldInstances)
-	mem.recipients = ensureRecipientMap(snapshot.Recipients)
-	mem.fields = ensureFieldMap(snapshot.Fields)
-	mem.signingTokens = ensureSigningTokenMap(snapshot.SigningTokens)
-	mem.tokenHashIndex = ensureStringMap(snapshot.TokenHashIndex)
-	mem.signatureArtifacts = ensureSignatureArtifactMap(snapshot.SignatureArtifacts)
-	mem.signerProfiles = ensureSignerProfileMap(snapshot.SignerProfiles)
-	mem.signerProfileIndex = ensureStringMap(snapshot.SignerProfileIndex)
-	mem.savedSignerSignatures = ensureSavedSignerSignatureMap(snapshot.SavedSignerSignatures)
-	mem.fieldValues = ensureFieldValueMap(snapshot.FieldValues)
-	mem.auditEvents = ensureAuditEventMap(snapshot.AuditEvents)
-	mem.agreementArtifacts = ensureAgreementArtifactMap(snapshot.AgreementArtifacts)
-	mem.emailLogs = ensureEmailLogMap(snapshot.EmailLogs)
-	mem.jobRuns = ensureJobRunMap(snapshot.JobRuns)
-	mem.jobRunDedupeIndex = ensureStringMap(snapshot.JobRunDedupeIndex)
-	mem.googleImportRuns = ensureGoogleImportRunMap(snapshot.GoogleImportRuns)
-	mem.googleImportRunDedupeIndex = ensureStringMap(snapshot.GoogleImportRunDedupeIndex)
-	mem.documentRemediationLeases = ensureDocumentRemediationLeaseMap(snapshot.DocumentRemediationLeases)
-	mem.remediationDispatches = ensureRemediationDispatchMap(snapshot.RemediationDispatches)
-	mem.remediationDispatchIndex = ensureStringMap(snapshot.RemediationDispatchIndex)
-	mem.agreementReminderStates = ensureAgreementReminderStateMap(snapshot.AgreementReminderStates)
-	mem.outboxMessages = ensureOutboxMessageMap(snapshot.OutboxMessages)
-	mem.integrationCredentials = ensureIntegrationCredentialMap(snapshot.IntegrationCredentials)
-	mem.integrationCredentialIndex = ensureStringMap(snapshot.IntegrationCredentialIndex)
-	mem.mappingSpecs = ensureMappingSpecMap(snapshot.MappingSpecs)
-	mem.integrationBindings = ensureIntegrationBindingMap(snapshot.IntegrationBindings)
-	mem.integrationBindingIndex = ensureStringMap(snapshot.IntegrationBindingIndex)
-	mem.integrationSyncRuns = ensureIntegrationSyncRunMap(snapshot.IntegrationSyncRuns)
-	mem.integrationCheckpoints = ensureIntegrationCheckpointMap(snapshot.IntegrationCheckpoints)
-	mem.integrationCheckpointIndex = ensureStringMap(snapshot.IntegrationCheckpointIndex)
-	mem.integrationConflicts = ensureIntegrationConflictMap(snapshot.IntegrationConflicts)
-	mem.integrationChangeEvents = ensureIntegrationChangeEventMap(snapshot.IntegrationChangeEvents)
-	mem.integrationMutationClaims = ensureTimeMap(snapshot.IntegrationMutationClaims)
-	mem.placementRuns = ensurePlacementRunMap(snapshot.PlacementRuns)
 	return mem, nil
 }
 
@@ -339,57 +310,18 @@ func ensureSQLiteDSNDir(dsn string) {
 }
 
 func (s *SQLiteStore) persist(ctx context.Context) error {
-	if s == nil || s.db == nil || s.InMemoryStore == nil {
+	if s == nil || s.InMemoryStore == nil {
 		return nil
 	}
-	s.InMemoryStore.mu.RLock()
-	snapshot := sqliteStoreSnapshot{
-		Documents:                  maps.Clone(s.documents),
-		Agreements:                 maps.Clone(s.agreements),
-		Drafts:                     maps.Clone(s.drafts),
-		DraftWizardIndex:           maps.Clone(s.draftWizardIndex),
-		Participants:               maps.Clone(s.participants),
-		FieldDefinitions:           maps.Clone(s.fieldDefinitions),
-		FieldInstances:             maps.Clone(s.fieldInstances),
-		Recipients:                 maps.Clone(s.recipients),
-		Fields:                     maps.Clone(s.fields),
-		SigningTokens:              maps.Clone(s.signingTokens),
-		TokenHashIndex:             maps.Clone(s.tokenHashIndex),
-		SignatureArtifacts:         maps.Clone(s.signatureArtifacts),
-		SignerProfiles:             maps.Clone(s.signerProfiles),
-		SignerProfileIndex:         maps.Clone(s.signerProfileIndex),
-		SavedSignerSignatures:      maps.Clone(s.savedSignerSignatures),
-		FieldValues:                maps.Clone(s.fieldValues),
-		AuditEvents:                maps.Clone(s.auditEvents),
-		AgreementArtifacts:         maps.Clone(s.agreementArtifacts),
-		EmailLogs:                  maps.Clone(s.emailLogs),
-		JobRuns:                    maps.Clone(s.jobRuns),
-		JobRunDedupeIndex:          maps.Clone(s.jobRunDedupeIndex),
-		GoogleImportRuns:           maps.Clone(s.googleImportRuns),
-		GoogleImportRunDedupeIndex: maps.Clone(s.googleImportRunDedupeIndex),
-		DocumentRemediationLeases:  maps.Clone(s.documentRemediationLeases),
-		RemediationDispatches:      maps.Clone(s.remediationDispatches),
-		RemediationDispatchIndex:   maps.Clone(s.remediationDispatchIndex),
-		AgreementReminderStates:    maps.Clone(s.agreementReminderStates),
-		OutboxMessages:             maps.Clone(s.outboxMessages),
-		IntegrationCredentials:     maps.Clone(s.integrationCredentials),
-		IntegrationCredentialIndex: maps.Clone(s.integrationCredentialIndex),
-		MappingSpecs:               maps.Clone(s.mappingSpecs),
-		IntegrationBindings:        maps.Clone(s.integrationBindings),
-		IntegrationBindingIndex:    maps.Clone(s.integrationBindingIndex),
-		IntegrationSyncRuns:        maps.Clone(s.integrationSyncRuns),
-		IntegrationCheckpoints:     maps.Clone(s.integrationCheckpoints),
-		IntegrationCheckpointIndex: maps.Clone(s.integrationCheckpointIndex),
-		IntegrationConflicts:       maps.Clone(s.integrationConflicts),
-		IntegrationChangeEvents:    maps.Clone(s.integrationChangeEvents),
-		IntegrationMutationClaims:  maps.Clone(s.integrationMutationClaims),
-		PlacementRuns:              maps.Clone(s.placementRuns),
-	}
-	s.InMemoryStore.mu.RUnlock()
-
-	payload, err := json.Marshal(snapshot)
+	payload, err := s.InMemoryStore.SnapshotPayload()
 	if err != nil {
-		return fmt.Errorf("encode esign sqlite snapshot: %w", err)
+		return err
+	}
+	if s.persistPayload != nil {
+		return s.persistPayload(ctx, payload)
+	}
+	if s.db == nil {
+		return nil
 	}
 	backend := s.backend
 	if backend == nil {

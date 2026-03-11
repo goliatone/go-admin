@@ -111,6 +111,16 @@ func TestPhase8GuardrailRuntimeWiringDoesNotReferenceLegacySnapshotPaths(t *test
 	phase8AssertNoPatternMatches(t, repoRoot, files, pattern, "runtime wiring must not reference legacy snapshot compatibility paths")
 }
 
+func TestPhase8GuardrailRuntimePersistenceWiringDoesNotUseSnapshotBackendContract(t *testing.T) {
+	repoRoot := phase8RepoRoot(t)
+	files := phase8GoFiles(t, repoRoot,
+		"examples/esign/internal/persistence/store.go",
+		"examples/esign/internal/persistence/runtime_relational_store_sync.go",
+	)
+	pattern := regexp.MustCompile(`(?m)\bNewPersistentStoreFromDB\(|\bSQLitePersistenceBackend\b|\bruntimeRelationalStoreBackend\b`)
+	phase8AssertNoPatternMatches(t, repoRoot, files, pattern, "runtime persistence wiring must not depend on snapshot backend contracts")
+}
+
 func TestPhase8GuardrailLegacyDSNAliasesAreIgnoredByRuntimeDialectResolution(t *testing.T) {
 	sqliteCfg := appcfg.Defaults()
 	sqliteCfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectSQLite

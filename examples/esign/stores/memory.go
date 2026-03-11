@@ -262,6 +262,49 @@ func (s *InMemoryStore) applySnapshot(snapshot sqliteStoreSnapshot) {
 	s.placementRuns = ensurePlacementRunMap(snapshot.PlacementRuns)
 }
 
+// SnapshotPayload encodes the full in-memory store state as snapshot JSON.
+func (s *InMemoryStore) SnapshotPayload() ([]byte, error) {
+	if s == nil {
+		return nil, invalidRecordError("snapshot", "store", "not configured")
+	}
+	snapshot, err := s.snapshot()
+	if err != nil {
+		return nil, err
+	}
+	payload, err := json.Marshal(snapshot)
+	if err != nil {
+		return nil, fmt.Errorf("encode store snapshot payload: %w", err)
+	}
+	return payload, nil
+}
+
+// ApplySnapshotPayload replaces in-memory state with a decoded snapshot payload.
+func (s *InMemoryStore) ApplySnapshotPayload(payload []byte) error {
+	if s == nil {
+		return invalidRecordError("snapshot", "store", "not configured")
+	}
+	payload = []byte(strings.TrimSpace(string(payload)))
+	snapshot := sqliteStoreSnapshot{}
+	if len(payload) > 0 {
+		if err := json.Unmarshal(payload, &snapshot); err != nil {
+			return fmt.Errorf("decode store snapshot payload: %w", err)
+		}
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.applySnapshot(snapshot)
+	return nil
+}
+
+// NewInMemoryStoreFromSnapshotPayload returns a store hydrated from snapshot JSON.
+func NewInMemoryStoreFromSnapshotPayload(payload []byte) (*InMemoryStore, error) {
+	store := NewInMemoryStore()
+	if err := store.ApplySnapshotPayload(payload); err != nil {
+		return nil, err
+	}
+	return store, nil
+}
+
 func scopedKey(scope Scope, id string) string {
 	return scope.key() + "|" + normalizeID(id)
 }
