@@ -36,11 +36,13 @@ func TestAdminBootstrapLoadsWorkflowConfigAndRegistersDefinitions(t *testing.T) 
 			"editorial": "editorial.default",
 		},
 	}
+	runtime := admin.NewWorkflowRuntimeService(admin.NewInMemoryWorkflowDefinitionRepository(), admin.NewInMemoryWorkflowBindingRepository())
 
 	adm, _, err := NewAdmin(
 		cfg,
 		AdapterHooks{},
 		WithWorkflowConfig(workflowCfg),
+		WithWorkflowRuntime(runtime),
 	)
 	if err != nil {
 		t.Fatalf("new admin with workflow config: %v", err)
@@ -109,6 +111,7 @@ func TestAdminBootstrapWorkflowConfigFileOverridesInlineDefaults(t *testing.T) {
 			"editorial": "editorial.default",
 		},
 	}
+	runtime := admin.NewWorkflowRuntimeService(admin.NewInMemoryWorkflowDefinitionRepository(), admin.NewInMemoryWorkflowBindingRepository())
 
 	dir := t.TempDir()
 	path := filepath.Join(dir, "workflow.yaml")
@@ -136,6 +139,7 @@ workflows:
 		AdapterHooks{},
 		WithWorkflowConfig(inline),
 		WithWorkflowConfigFile(path),
+		WithWorkflowRuntime(runtime),
 	)
 	if err != nil {
 		t.Fatalf("new admin with workflow config file: %v", err)
