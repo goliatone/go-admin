@@ -404,6 +404,9 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 	if err := registerCoreRPCEndpoints(rpcServer, adm); err != nil {
 		return nil, err
 	}
+	if err := registerWorkflowRPCEndpoints(rpcServer, adm); err != nil {
+		return nil, err
+	}
 
 	if _, err := RegisterQuery(commandBus, &dashboardDiagnosticsQuery{admin: adm}); err != nil {
 		return nil, err
@@ -640,6 +643,16 @@ func (a *Admin) bindWorkflowRuntime(runtime WorkflowRuntime) error {
 	a.workflowRuntime = runtime
 	if runtime == nil {
 		return nil
+	}
+	if typed, ok := runtime.(*WorkflowRuntimeService); ok && typed != nil {
+		if bunRepo, ok := typed.workflows.(*BunWorkflowDefinitionRepository); ok && bunRepo != nil && bunRepo.db != nil {
+			if err := EnsureWorkflowAuthoringCutover(context.Background(), bunRepo.db); err != nil {
+				return err
+			}
+			if typed.AuthoringStore() == nil {
+				typed.SetAuthoringStore(NewBunWorkflowAuthoringStore(bunRepo.db))
+			}
+		}
 	}
 	return runtime.BindWorkflowEngine(resolveCMSWorkflowEngine(a))
 }
