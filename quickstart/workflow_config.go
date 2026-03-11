@@ -60,11 +60,10 @@ type WorkflowBindingSpec struct {
 }
 
 type workflowConfigWire struct {
-	SchemaVersion         int                               `json:"schema_version,omitempty" yaml:"schema_version,omitempty"`
-	Workflows             map[string]WorkflowDefinitionSpec `json:"workflows,omitempty" yaml:"workflows,omitempty"`
-	Bindings              []WorkflowBindingSpec             `json:"bindings,omitempty" yaml:"bindings,omitempty"`
-	TraitDefaults         map[string]string                 `json:"trait_defaults,omitempty" yaml:"trait_defaults,omitempty"`
-	TraitWorkflowDefaults map[string]string                 `json:"trait_workflow_defaults,omitempty" yaml:"trait_workflow_defaults,omitempty"`
+	SchemaVersion int                               `json:"schema_version,omitempty" yaml:"schema_version,omitempty"`
+	Workflows     map[string]WorkflowDefinitionSpec `json:"workflows,omitempty" yaml:"workflows,omitempty"`
+	Bindings      []WorkflowBindingSpec             `json:"bindings,omitempty" yaml:"bindings,omitempty"`
+	TraitDefaults map[string]string                 `json:"trait_defaults,omitempty" yaml:"trait_defaults,omitempty"`
 }
 
 // WorkflowConfigValidationIssue reports one actionable field-level validation issue.
@@ -207,7 +206,7 @@ func ParseWorkflowConfigContents(raw []byte, ext string) (WorkflowConfig, error)
 		SchemaVersion: normalizeWorkflowConfigSchemaVersion(wire.SchemaVersion),
 		Workflows:     wire.Workflows,
 		Bindings:      wire.Bindings,
-		TraitDefaults: normalizeWorkflowTraitDefaults(wire.TraitDefaults, wire.TraitWorkflowDefaults),
+		TraitDefaults: normalizeWorkflowTraitDefaults(wire.TraitDefaults, nil),
 	}), nil
 }
 
