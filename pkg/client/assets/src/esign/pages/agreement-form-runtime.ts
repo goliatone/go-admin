@@ -90,10 +90,61 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
   // =============================================================================
 
   const WIZARD_STATE_VERSION = 1;
-  const WIZARD_STORAGE_KEY = 'esign_wizard_state_v1';
-  const WIZARD_CHANNEL_NAME = 'esign_wizard_sync';
+  const wizardModeToken = isEditMode ? 'edit' : 'create';
+  const wizardRouteToken = String(
+    config.routes?.create
+      || config.routes?.index
+      || (typeof window !== 'undefined' ? window.location.pathname : '')
+      || 'agreement-form'
+  ).trim().toLowerCase();
+  const wizardScopeToken = [
+    wizardModeToken,
+    currentUserID || 'anonymous',
+    wizardRouteToken || 'agreement-form',
+  ].join('|');
+  const WIZARD_STORAGE_KEY = `esign_wizard_state_v1:${encodeURIComponent(wizardScopeToken)}`;
+  const WIZARD_CHANNEL_NAME = `esign_wizard_sync:${encodeURIComponent(wizardScopeToken)}`;
   const SYNC_DEBOUNCE_MS = 2000;
   const SYNC_RETRY_DELAYS = [1000, 2000, 5000, 10000, 30000];
+
+  function hasMeaningfulParticipantProgress(participant, index = 0) {
+    if (!participant || typeof participant !== 'object') return false;
+
+    const name = String(participant.name ?? '').trim();
+    const email = String(participant.email ?? '').trim();
+    const role = String(participant.role ?? 'signer').trim().toLowerCase();
+    const signingStage = Number.parseInt(String(participant.signingStage ?? participant.signing_stage ?? 1), 10);
+    const notify = participant.notify !== false;
+
+    if (name !== '' || email !== '') return true;
+    if (role !== '' && role !== 'signer') return true;
+    if (Number.isFinite(signingStage) && signingStage > 1) return true;
+    if (!notify) return true;
+    return index > 0;
+  }
+
+  function hasMeaningfulWizardProgress(state) {
+    if (!state || typeof state !== 'object') return false;
+
+    const currentStep = Number.parseInt(String(state.currentStep ?? 1), 10);
+    if (Number.isFinite(currentStep) && currentStep > 1) return true;
+
+    const documentID = String(state.document?.id ?? '').trim();
+    if (documentID !== '') return true;
+
+    const title = String(state.details?.title ?? '').trim();
+    const message = String(state.details?.message ?? '').trim();
+    if (title !== '' || message !== '') return true;
+
+    const participants = Array.isArray(state.participants) ? state.participants : [];
+    if (participants.some((participant, index) => hasMeaningfulParticipantProgress(participant, index))) return true;
+
+    if (Array.isArray(state.fieldDefinitions) && state.fieldDefinitions.length > 0) return true;
+    if (Array.isArray(state.fieldPlacements) && state.fieldPlacements.length > 0) return true;
+    if (Array.isArray(state.fieldRules) && state.fieldRules.length > 0) return true;
+
+    return false;
+  }
 
   /**
    * WizardSessionState schema (v1)
@@ -285,19 +336,7 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     }
 
     hasResumableState() {
-      if (!this.state || typeof this.state !== 'object') return false;
-
-      const currentStep = Number.parseInt(String(this.state.currentStep ?? 1), 10);
-      const hasDocumentID = String(this.state.document?.id ?? '').trim() !== '';
-      const participantCount = Array.isArray(this.state.participants) ? this.state.participants.length : 0;
-      const title = String(this.state.details?.title ?? '').trim();
-
-      return (
-        (Number.isFinite(currentStep) && currentStep > 1) ||
-        hasDocumentID ||
-        participantCount > 0 ||
-        title !== ''
-      );
+      return hasMeaningfulWizardProgress(this.state);
     }
 
     onStateChange(callback) {
@@ -908,6 +947,34 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     modal?.classList.remove('hidden');
   }
 
+  async function clearSavedResumeState(options = {}) {
+    const deleteServerDraft = options.deleteServerDraft === true;
+    const staleServerDraftID = String(stateManager.getState()?.serverDraftId || '').trim();
+
+    stateManager.clear();
+    syncOrchestrator.broadcastStateUpdate();
+
+    if (!deleteServerDraft || !staleServerDraftID) {
+      return;
+    }
+    try {
+      await syncService.delete(staleServerDraftID);
+    } catch (error) {
+      console.warn('Failed to delete server draft:', error);
+    }
+  }
+
+  function persistCurrentFormStateIfMeaningful() {
+    const currentState = stateManager.getState();
+    const formState = stateManager.collectFormState();
+    if (!hasMeaningfulWizardProgress({ ...currentState, ...formState })) {
+      return;
+    }
+    stateManager.updateState(formState);
+    syncOrchestrator.scheduleSync();
+    syncOrchestrator.broadcastStateUpdate();
+  }
+
   document.getElementById('resume-continue-btn')?.addEventListener('click', () => {
     document.getElementById('resume-dialog-modal')?.classList.add('hidden');
     stateManager.restoreFormState();
@@ -915,23 +982,21 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     window._resumeToStep = stateManager.getState().currentStep;
   });
 
-  document.getElementById('resume-new-btn')?.addEventListener('click', () => {
-    // Keep local state but don't restore - user will start fresh
+  document.getElementById('resume-proceed-btn')?.addEventListener('click', async () => {
     document.getElementById('resume-dialog-modal')?.classList.add('hidden');
-    stateManager.clear();
+    await clearSavedResumeState({ deleteServerDraft: true });
+    persistCurrentFormStateIfMeaningful();
+  });
+
+  document.getElementById('resume-new-btn')?.addEventListener('click', () => {
+    // Keep the current form untouched and drop stale resume state.
+    document.getElementById('resume-dialog-modal')?.classList.add('hidden');
+    void clearSavedResumeState({ deleteServerDraft: false });
   });
 
   document.getElementById('resume-discard-btn')?.addEventListener('click', async () => {
-    const state = stateManager.getState();
-    if (state.serverDraftId) {
-      try {
-        await syncService.delete(state.serverDraftId);
-      } catch (error) {
-        console.warn('Failed to delete server draft:', error);
-      }
-    }
-    stateManager.clear();
     document.getElementById('resume-dialog-modal')?.classList.add('hidden');
+    await clearSavedResumeState({ deleteServerDraft: true });
   });
 
   async function maybeShowResumeDialog() {
