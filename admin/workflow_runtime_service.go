@@ -4,6 +4,8 @@ import (
 	"context"
 	"strconv"
 	"strings"
+
+	"github.com/goliatone/go-command/flow"
 )
 
 // WorkflowRuntime exposes persisted workflow definition/binding operations.
@@ -27,6 +29,7 @@ type WorkflowRuntimeService struct {
 	workflows WorkflowDefinitionRepository
 	bindings  WorkflowBindingRepository
 	registrar WorkflowRegistrar
+	authoring flow.AuthoringStore
 }
 
 // NewWorkflowRuntimeService constructs a runtime service (in-memory when nil repos are passed).
@@ -37,10 +40,31 @@ func NewWorkflowRuntimeService(workflows WorkflowDefinitionRepository, bindings 
 	if bindings == nil {
 		bindings = NewInMemoryWorkflowBindingRepository()
 	}
+	authoring := flow.AuthoringStore(flow.NewInMemoryAuthoringStore())
+	if bunRepo, ok := workflows.(*BunWorkflowDefinitionRepository); ok && bunRepo != nil && bunRepo.db != nil {
+		authoring = NewBunWorkflowAuthoringStore(bunRepo.db)
+	}
 	return &WorkflowRuntimeService{
 		workflows: workflows,
 		bindings:  bindings,
+		authoring: authoring,
 	}
+}
+
+// AuthoringStore exposes the canonical authoring persistence backend used by RPC authoring APIs.
+func (s *WorkflowRuntimeService) AuthoringStore() flow.AuthoringStore {
+	if s == nil {
+		return nil
+	}
+	return s.authoring
+}
+
+// SetAuthoringStore overrides the authoring store implementation.
+func (s *WorkflowRuntimeService) SetAuthoringStore(store flow.AuthoringStore) {
+	if s == nil {
+		return
+	}
+	s.authoring = store
 }
 
 func (s *WorkflowRuntimeService) ListWorkflows(ctx context.Context, opts PersistedWorkflowListOptions) ([]PersistedWorkflow, int, error) {
