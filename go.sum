@@ -204,6 +204,8 @@ github.com/goliatone/go-router v0.52.0 h1:ifL639FZY9mSAuAwYZcwzzkJGMg1uenripcc4B
 github.com/goliatone/go-router v0.52.0/go.mod h1:FJzU9n2f/Gm4ZI6TO7FgKTrFyOjU2r6G9FiV1sN1U1U=
 github.com/goliatone/go-services v0.5.0 h1:+vwNkGlNYFy5dtCJmU9DvkLrNBc/i3hhVZXcEWbRvPk=
 github.com/goliatone/go-services v0.5.0/go.mod h1:mhjykdbKA8a7I96Upq6ohP7pMA1X64sQw85HFKQCz3c=
+github.com/goliatone/go-services v0.6.0 h1:26LMJxO1Nlw3x7d2XIcG1wsdgx2v1Tre/wAzKC77TMw=
+github.com/goliatone/go-services v0.6.0/go.mod h1:VKx6IOxdfsedj13BUrdNJ+ZM/V2JS5NTCh/YnfuUIyg=
 github.com/goliatone/go-slug v0.1.0 h1:0APBcu2X9MWF2t6X3LN55XfQ47zf4FUzDmXYJ1YraAk=
 github.com/goliatone/go-slug v0.1.0/go.mod h1:8lXx322OHfQQzdrwikY2uqhQVmH3IVNGiVxn9kPmX1w=
 github.com/goliatone/go-template v0.3.1 h1:x714biuWqtCyrtTmIrt2YjXWPYBOIS/Y2DPdWXtrAr8=

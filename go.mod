@@ -121,7 +121,7 @@ require (
 	github.com/goliatone/go-export/adapters/template/go-template v0.7.0 // indirect
 	github.com/goliatone/go-print v0.4.1 // indirect
 	github.com/goliatone/go-repository-cache v0.7.1 // indirect
-	github.com/goliatone/go-services v0.5.0
+	github.com/goliatone/go-services v0.6.0
 	github.com/goliatone/go-slug v0.1.0 // indirect
 	github.com/goodsign/monday v1.0.2 // indirect
 	github.com/google/cel-go v0.26.1 // indirect
