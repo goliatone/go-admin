@@ -156,7 +156,9 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
 
     const title = String(state.details?.title ?? '').trim();
     const message = String(state.details?.message ?? '').trim();
-    if (title !== '' || message !== '') return true;
+    const titleSource = normalizeTitleSource(state.titleSource, title === '' ? TITLE_SOURCE.AUTOFILL : TITLE_SOURCE.USER);
+    const meaningfulTitle = title !== '' && titleSource !== TITLE_SOURCE.SERVER_SEED;
+    if (meaningfulTitle || message !== '') return true;
 
     const participants = Array.isArray(state.participants) ? state.participants : [];
     if (participants.some((participant, index) => hasMeaningfulParticipantProgress(participant, index))) return true;
@@ -2845,6 +2847,9 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
   function mapUserFacingError(message, code = '', status = 0) {
     const normalizedCode = String(code || '').trim().toUpperCase();
     const normalizedMessage = String(message || '').trim().toLowerCase();
+    if (normalizedCode === 'DRAFT_SEND_NOT_FOUND' || normalizedCode === 'DRAFT_SESSION_STALE') {
+      return 'Your saved draft session was replaced or expired. Please review and click Send again.';
+    }
     if (normalizedCode === 'SCOPE_DENIED' || normalizedMessage.includes('scope denied')) {
       return "You don't have access to this organization's resources.";
     }
@@ -2872,10 +2877,19 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     const status = Number(response?.status || 0);
     let code = '';
     let message = '';
+    let details = {};
     try {
       const payload = await response.json();
       code = String(payload?.error?.code || payload?.code || '').trim();
       message = String(payload?.error?.message || payload?.message || '').trim();
+      details = (payload?.error?.details && typeof payload.error.details === 'object') ? payload.error.details : {};
+      const entity = String(details?.entity || '').trim().toLowerCase();
+      if (entity === 'drafts' && String(code).trim().toUpperCase() === 'NOT_FOUND') {
+        code = 'DRAFT_SEND_NOT_FOUND';
+        if (message === '') {
+          message = 'Draft not found';
+        }
+      }
     } catch (_) {
       message = '';
     }
@@ -2885,6 +2899,7 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     return {
       status,
       code,
+      details,
       message: mapUserFacingError(message, code, status),
     };
   }
@@ -3008,6 +3023,70 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     return `Each signer requires at least one required signature field. Missing: ${names.join(', ')}`;
   }
 
+  async function persistLatestWizardState() {
+    stateManager.updateState(stateManager.collectFormState());
+    await syncOrchestrator.forceSync();
+    const syncedState = stateManager.getState();
+    if (syncedState?.syncPending) {
+      throw new Error('Unable to sync latest draft changes');
+    }
+    return syncedState;
+  }
+
+  async function ensureDraftReadyForSend() {
+    const syncedState = await persistLatestWizardState();
+    const currentDraftID = String(syncedState?.serverDraftId || '').trim();
+    if (!currentDraftID) {
+      const created = await syncService.create(syncedState);
+      stateManager.markSynced(created.id, created.revision);
+      return {
+        draftID: String(created.id || '').trim(),
+        revision: Number(created.revision || 0),
+      };
+    }
+    try {
+      const loaded = await syncService.load(currentDraftID);
+      const draftID = String(loaded?.id || currentDraftID).trim();
+      const revision = Number(loaded?.revision || syncedState?.serverRevision || 0);
+      if (draftID && revision > 0) {
+        stateManager.markSynced(draftID, revision);
+      }
+      return {
+        draftID,
+        revision: revision > 0 ? revision : Number(syncedState?.serverRevision || 0),
+      };
+    } catch (error) {
+      if (Number(error?.status || 0) !== 404) {
+        throw error;
+      }
+      // Stale pointer: recreate from latest in-form state and continue send against fresh draft.
+      const recreated = await syncService.create({
+        ...stateManager.getState(),
+        ...stateManager.collectFormState(),
+      });
+      const draftID = String(recreated?.id || '').trim();
+      const revision = Number(recreated?.revision || 0);
+      stateManager.markSynced(draftID, revision);
+      emitWizardTelemetry('wizard_send_stale_draft_recovered', {
+        stale_draft_id: currentDraftID,
+        recovered_draft_id: draftID,
+      });
+      return { draftID, revision };
+    }
+  }
+
+  async function resyncAfterSendNotFound() {
+    const currentState = stateManager.getState();
+    stateManager.setState({
+      ...currentState,
+      serverDraftId: null,
+      serverRevision: 0,
+      lastSyncedAt: null,
+      syncPending: true,
+    }, { syncPending: true });
+    await syncOrchestrator.forceSync();
+  }
+
   form.addEventListener('submit', function(e) {
     renderFieldRulePreview();
 
@@ -3118,27 +3197,22 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
           // Ensure canonical payload is refreshed from current placement state.
           buildCanonicalAgreementPayload();
 
-          // Persist the latest wizard state before send/save transition.
-          stateManager.updateState(stateManager.collectFormState());
-          await syncOrchestrator.forceSync();
-
-          const syncedState = stateManager.getState();
-          if (syncedState?.syncPending) {
-            throw new Error('Unable to sync latest draft changes');
-          }
-          const draftID = String(syncedState?.serverDraftId || '').trim();
-          if (!draftID) {
-            throw new Error('Draft session not available. Please try again.');
-          }
-
           const indexRoute = String(config.routes?.index || '').trim();
           if (!shouldSendForSignature) {
+            await persistLatestWizardState();
             if (indexRoute) {
               window.location.href = indexRoute;
               return;
             }
             window.location.reload();
             return;
+          }
+
+          const sendDraft = await ensureDraftReadyForSend();
+          const draftID = String(sendDraft?.draftID || '').trim();
+          const expectedRevision = Number(sendDraft?.revision || 0);
+          if (!draftID || expectedRevision <= 0) {
+            throw new Error('Draft session not available. Please try again.');
           }
 
           const response = await fetch(
@@ -3148,13 +3222,24 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
               credentials: 'same-origin',
               headers: draftRequestHeaders(),
               body: JSON.stringify({
-                expected_revision: Number(syncedState?.serverRevision || 0),
+                expected_revision: expectedRevision,
                 created_by_user_id: currentUserID,
               }),
             }
           );
           if (!response.ok) {
             const apiError = await parseAPIError(response, 'Failed to send agreement');
+            if (String(apiError?.code || '').trim().toUpperCase() === 'DRAFT_SEND_NOT_FOUND') {
+              emitWizardTelemetry('wizard_send_not_found', {
+                draft_id: draftID,
+                status: Number(apiError?.status || 0),
+              });
+              await resyncAfterSendNotFound().catch(() => {});
+              throw {
+                ...apiError,
+                code: 'DRAFT_SESSION_STALE',
+              };
+            }
             throw apiError;
           }
           const payload = await response.json();
