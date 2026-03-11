@@ -1611,7 +1611,55 @@ func ensureAgreementReminderStateMap(in map[string]AgreementReminderStateRecord)
 	if in == nil {
 		return map[string]AgreementReminderStateRecord{}
 	}
-	return in
+	out := make(map[string]AgreementReminderStateRecord, len(in))
+	for key, record := range in {
+		record.TenantID = normalizeID(record.TenantID)
+		record.OrgID = normalizeID(record.OrgID)
+		record.AgreementID = normalizeID(record.AgreementID)
+		record.RecipientID = normalizeID(record.RecipientID)
+
+		normalizedKey := strings.TrimSpace(key)
+		if record.TenantID != "" && record.OrgID != "" && record.AgreementID != "" && record.RecipientID != "" {
+			normalizedKey = strings.Join([]string{
+				record.TenantID,
+				record.OrgID,
+				record.AgreementID,
+				record.RecipientID,
+			}, "|")
+		}
+		if normalizedKey == "" {
+			continue
+		}
+		if existing, exists := out[normalizedKey]; exists && !preferReminderStateRecord(record, existing) {
+			continue
+		}
+		out[normalizedKey] = record
+	}
+	return out
+}
+
+func preferReminderStateRecord(candidate, existing AgreementReminderStateRecord) bool {
+	if candidate.UpdatedAt.After(existing.UpdatedAt) {
+		return true
+	}
+	if existing.UpdatedAt.After(candidate.UpdatedAt) {
+		return false
+	}
+	if candidate.CreatedAt.After(existing.CreatedAt) {
+		return true
+	}
+	if existing.CreatedAt.After(candidate.CreatedAt) {
+		return false
+	}
+	candidateID := strings.TrimSpace(candidate.ID)
+	existingID := strings.TrimSpace(existing.ID)
+	if existingID == "" {
+		return candidateID != ""
+	}
+	if candidateID == "" {
+		return false
+	}
+	return candidateID < existingID
 }
 
 func ensureOutboxMessageMap(in map[string]OutboxMessageRecord) map[string]OutboxMessageRecord {

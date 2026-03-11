@@ -97,6 +97,20 @@ func TestPhase8GuardrailNoAdHocMigrationPlannerUsageOutsidePersistence(t *testin
 	}
 }
 
+func TestPhase8GuardrailRuntimeWiringDoesNotReferenceLegacySnapshotPaths(t *testing.T) {
+	repoRoot := phase8RepoRoot(t)
+	files := phase8GoFiles(t, repoRoot,
+		"examples/esign/main.go",
+		"examples/esign/services_module_setup.go",
+		"examples/esign/runtime_web.go",
+		"examples/esign/modules",
+		"examples/esign/handlers",
+		"examples/esign/services",
+	)
+	pattern := regexp.MustCompile(`(?m)\blegacySnapshot|migrateLegacySnapshot|esign_store_state\b`)
+	phase8AssertNoPatternMatches(t, repoRoot, files, pattern, "runtime wiring must not reference legacy snapshot compatibility paths")
+}
+
 func TestPhase8GuardrailLegacyDSNAliasesAreIgnoredByRuntimeDialectResolution(t *testing.T) {
 	sqliteCfg := appcfg.Defaults()
 	sqliteCfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectSQLite

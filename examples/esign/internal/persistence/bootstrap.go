@@ -96,11 +96,6 @@ func Bootstrap(ctx context.Context, cfg appcfg.Config) (*BootstrapResult, error)
 		return nil, fmt.Errorf("persistence bootstrap: runtime parity column repair: %w", err)
 	}
 
-	if err := migrateLegacySnapshot(ctx, sqlDB, dialect); err != nil {
-		_ = client.Close()
-		return nil, fmt.Errorf("persistence bootstrap: legacy snapshot migration: %w", err)
-	}
-
 	if err := CheckReadiness(ctx, client); err != nil {
 		_ = client.Close()
 		return nil, fmt.Errorf("persistence bootstrap: readiness check: %w", err)

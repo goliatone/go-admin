@@ -15,6 +15,12 @@ import (
 
 var _ stores.SQLitePersistenceBackend = (*runtimeRelationalStoreBackend)(nil)
 
+// runtimeStoreSnapshot is the runtime payload shape used by the relational bridge.
+// It intentionally avoids referencing legacy state tables.
+type runtimeStoreSnapshot = legacySQLiteSnapshot
+
+type runtimeTableUpsertSpec = legacyTableMigrationSpec
+
 type runtimeRelationalStoreBackend struct {
 	dialect Dialect
 	factory *RepositoryFactory
@@ -49,6 +55,9 @@ func (b *runtimeRelationalStoreBackend) LoadPayload(ctx context.Context, _ *sql.
 	if err != nil {
 		return nil, err
 	}
+	if err := validateRuntimeSnapshot(snapshot); err != nil {
+		return nil, err
+	}
 	payload, err := json.Marshal(snapshot)
 	if err != nil {
 		return nil, fmt.Errorf("runtime relational store backend: encode runtime snapshot: %w", err)
@@ -64,17 +73,20 @@ func (b *runtimeRelationalStoreBackend) PersistPayload(ctx context.Context, db *
 		ctx = context.Background()
 	}
 	payload = []byte(strings.TrimSpace(string(payload)))
-	snapshot := legacySQLiteSnapshot{}
+	snapshot := runtimeStoreSnapshot{}
 	if len(payload) > 0 {
 		if err := json.Unmarshal(payload, &snapshot); err != nil {
 			return fmt.Errorf("runtime relational store backend: decode runtime snapshot: %w", err)
 		}
 	}
+	if err := validateRuntimeSnapshot(snapshot); err != nil {
+		return err
+	}
 	return b.persistSnapshot(ctx, db, snapshot)
 }
 
-func (b *runtimeRelationalStoreBackend) loadSnapshot(ctx context.Context) (legacySQLiteSnapshot, error) {
-	snapshot := legacySQLiteSnapshot{
+func (b *runtimeRelationalStoreBackend) loadSnapshot(ctx context.Context) (runtimeStoreSnapshot, error) {
+	snapshot := runtimeStoreSnapshot{
 		Documents:                  map[string]stores.DocumentRecord{},
 		Agreements:                 map[string]stores.AgreementRecord{},
 		Drafts:                     map[string]stores.DraftRecord{},
@@ -337,7 +349,7 @@ func (b *runtimeRelationalStoreBackend) loadSnapshot(ctx context.Context) (legac
 		if record == nil {
 			continue
 		}
-		snapshot.AgreementReminderStates[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
+		snapshot.AgreementReminderStates[scopeAgreementRecipientKey(record.TenantID, record.OrgID, record.AgreementID, record.RecipientID)] = *record
 	}
 
 	outboxMessages, err := listRepositoryRecords(ctx, b.factory.OutboxMessages())
@@ -463,9 +475,9 @@ func (b *runtimeRelationalStoreBackend) loadSnapshot(ctx context.Context) (legac
 	return snapshot, nil
 }
 
-func (b *runtimeRelationalStoreBackend) persistSnapshot(ctx context.Context, db *sql.DB, snapshot legacySQLiteSnapshot) error {
-	specs := legacySnapshotMigrationSpecs()
-	columnMap, err := loadDialectColumnMap(ctx, db, b.dialect, legacySnapshotTargetTables(specs))
+func (b *runtimeRelationalStoreBackend) persistSnapshot(ctx context.Context, db *sql.DB, snapshot runtimeStoreSnapshot) error {
+	specs := runtimeStoreUpsertSpecs()
+	columnMap, err := loadDialectColumnMap(ctx, db, b.dialect, runtimeStoreTargetTables(specs))
 	if err != nil {
 		return err
 	}
@@ -521,6 +533,14 @@ func listRepositoryRecords[T any](ctx context.Context, repo repository.Repositor
 	}
 	records, _, err := repo.List(ctx)
 	return records, err
+}
+
+func runtimeStoreUpsertSpecs() []runtimeTableUpsertSpec {
+	return legacySnapshotMigrationSpecs()
+}
+
+func runtimeStoreTargetTables(specs []runtimeTableUpsertSpec) []string {
+	return legacySnapshotTargetTables(specs)
 }
 
 func collectRowKeys(rows []map[string]any, keyColumn string) []string {
@@ -707,12 +727,135 @@ func containsString(values []string, target string) bool {
 	return false
 }
 
+func validateRuntimeSnapshot(snapshot runtimeStoreSnapshot) error {
+	for key, record := range snapshot.AgreementReminderStates {
+		expected := scopeAgreementRecipientKey(record.TenantID, record.OrgID, record.AgreementID, record.RecipientID)
+		if strings.TrimSpace(key) != expected {
+			return fmt.Errorf("runtime relational store backend: invalid reminder state key %q (expected %q)", key, expected)
+		}
+	}
+
+	if err := validateRuntimeIndexIDs(snapshot.JobRunDedupeIndex, scopedRecordIDSetFromJobRuns(snapshot.JobRuns)); err != nil {
+		return fmt.Errorf("runtime relational store backend: job run dedupe index: %w", err)
+	}
+	if err := validateRuntimeIndexIDs(snapshot.GoogleImportRunDedupeIndex, scopedRecordIDSetFromGoogleImportRuns(snapshot.GoogleImportRuns)); err != nil {
+		return fmt.Errorf("runtime relational store backend: google import dedupe index: %w", err)
+	}
+	if err := validateRuntimeIndexIDs(snapshot.SignerProfileIndex, scopedRecordIDSetFromSignerProfiles(snapshot.SignerProfiles)); err != nil {
+		return fmt.Errorf("runtime relational store backend: signer profile index: %w", err)
+	}
+	if err := validateRuntimeIndexIDs(snapshot.IntegrationCredentialIndex, scopedRecordIDSetFromIntegrationCredentials(snapshot.IntegrationCredentials)); err != nil {
+		return fmt.Errorf("runtime relational store backend: integration credential index: %w", err)
+	}
+	if err := validateRuntimeIndexIDs(snapshot.IntegrationBindingIndex, scopedRecordIDSetFromIntegrationBindings(snapshot.IntegrationBindings)); err != nil {
+		return fmt.Errorf("runtime relational store backend: integration binding index: %w", err)
+	}
+	if err := validateRuntimeIndexIDs(snapshot.IntegrationCheckpointIndex, scopedRecordIDSetFromIntegrationCheckpoints(snapshot.IntegrationCheckpoints)); err != nil {
+		return fmt.Errorf("runtime relational store backend: integration checkpoint index: %w", err)
+	}
+
+	for hash, scopedID := range snapshot.TokenHashIndex {
+		hash = strings.TrimSpace(hash)
+		scopedID = strings.TrimSpace(scopedID)
+		if hash == "" || scopedID == "" {
+			return fmt.Errorf("invalid signing token hash index entry hash=%q scoped_id=%q", hash, scopedID)
+		}
+		if _, ok := snapshot.SigningTokens[scopedID]; !ok {
+			return fmt.Errorf("token hash index points to missing token scoped_id=%q", scopedID)
+		}
+	}
+	return nil
+}
+
+func validateRuntimeIndexIDs(index map[string]string, idSet map[string]bool) error {
+	for indexKey, id := range index {
+		indexKey = strings.TrimSpace(indexKey)
+		id = strings.TrimSpace(id)
+		if indexKey == "" || id == "" {
+			return fmt.Errorf("invalid index entry key=%q id=%q", indexKey, id)
+		}
+		scope, ok := indexScopePrefix(indexKey)
+		if !ok {
+			return fmt.Errorf("invalid scoped index key %q", indexKey)
+		}
+		if !idSet[scope+"|"+id] {
+			return fmt.Errorf("index key %q points to missing scoped id %q", indexKey, scope+"|"+id)
+		}
+	}
+	return nil
+}
+
+func indexScopePrefix(indexKey string) (string, bool) {
+	parts := strings.Split(indexKey, "|")
+	if len(parts) < 3 {
+		return "", false
+	}
+	tenantID := strings.TrimSpace(parts[0])
+	orgID := strings.TrimSpace(parts[1])
+	if tenantID == "" || orgID == "" {
+		return "", false
+	}
+	return scopePrefix(tenantID, orgID), true
+}
+
+func scopedRecordIDSetFromJobRuns(records map[string]stores.JobRunRecord) map[string]bool {
+	out := make(map[string]bool, len(records))
+	for _, record := range records {
+		out[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = true
+	}
+	return out
+}
+
+func scopedRecordIDSetFromGoogleImportRuns(records map[string]stores.GoogleImportRunRecord) map[string]bool {
+	out := make(map[string]bool, len(records))
+	for _, record := range records {
+		out[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = true
+	}
+	return out
+}
+
+func scopedRecordIDSetFromSignerProfiles(records map[string]stores.SignerProfileRecord) map[string]bool {
+	out := make(map[string]bool, len(records))
+	for _, record := range records {
+		out[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = true
+	}
+	return out
+}
+
+func scopedRecordIDSetFromIntegrationCredentials(records map[string]stores.IntegrationCredentialRecord) map[string]bool {
+	out := make(map[string]bool, len(records))
+	for _, record := range records {
+		out[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = true
+	}
+	return out
+}
+
+func scopedRecordIDSetFromIntegrationBindings(records map[string]stores.IntegrationBindingRecord) map[string]bool {
+	out := make(map[string]bool, len(records))
+	for _, record := range records {
+		out[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = true
+	}
+	return out
+}
+
+func scopedRecordIDSetFromIntegrationCheckpoints(records map[string]stores.IntegrationCheckpointRecord) map[string]bool {
+	out := make(map[string]bool, len(records))
+	for _, record := range records {
+		out[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = true
+	}
+	return out
+}
+
 func scopePrefix(tenantID, orgID string) string {
 	return strings.TrimSpace(tenantID) + "|" + strings.TrimSpace(orgID)
 }
 
 func scopeRecordKey(tenantID, orgID, id string) string {
 	return scopePrefix(tenantID, orgID) + "|" + strings.TrimSpace(id)
+}
+
+func scopeAgreementRecipientKey(tenantID, orgID, agreementID, recipientID string) string {
+	return scopePrefix(tenantID, orgID) + "|" + strings.TrimSpace(agreementID) + "|" + strings.TrimSpace(recipientID)
 }
 
 func draftWizardIndexForKey(tenantID, orgID, userID, wizardID string) string {
