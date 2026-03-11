@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	goadmin "github.com/goliatone/go-admin/admin"
-	goadaptergojob "github.com/goliatone/go-services/adapters/gojob"
 	gocore "github.com/goliatone/go-services/core"
 	goservicesinbound "github.com/goliatone/go-services/inbound"
 	sqlstore "github.com/goliatone/go-services/store/sql"
@@ -19,6 +18,10 @@ import (
 )
 
 const (
+	jobIDRefresh              = "services.refresh"
+	jobIDSyncIncremental      = "services.sync.incremental"
+	jobIDSubscriptionRenew    = "services.subscription.renew"
+	jobIDOutboxDispatch       = "services.outbox.dispatch"
 	jobIDWebhookProcess       = "services.webhook.process"
 	jobIDActivityRetentionRun = "services.activity.retention.run"
 )
@@ -40,38 +43,41 @@ func (w *WorkerRuntime) EnqueueRefresh(ctx context.Context, req gocore.RefreshRe
 	if w == nil || w.enqueuer == nil {
 		return fmt.Errorf("modules/services: worker enqueuer is not configured")
 	}
-	return w.enqueuer.Enqueue(ctx, &gocore.JobExecutionMessage{
-		JobID:          goadaptergojob.JobIDRefresh,
+	_, err := w.enqueuer.Enqueue(ctx, &gocore.JobExecutionMessage{
+		JobID:          jobIDRefresh,
 		IdempotencyKey: strings.TrimSpace(idempotencyKey),
 		Parameters: map[string]any{
 			"provider_id":   strings.TrimSpace(req.ProviderID),
 			"connection_id": strings.TrimSpace(req.ConnectionID),
 		},
 	})
+	return err
 }
 
 func (w *WorkerRuntime) EnqueueWebhook(ctx context.Context, req gocore.InboundRequest) error {
 	if w == nil || w.enqueuer == nil {
 		return fmt.Errorf("modules/services: worker enqueuer is not configured")
 	}
-	return w.enqueuer.Enqueue(ctx, &gocore.JobExecutionMessage{
+	_, err := w.enqueuer.Enqueue(ctx, &gocore.JobExecutionMessage{
 		JobID:      jobIDWebhookProcess,
 		Parameters: inboundRequestToParams(req),
 	})
+	return err
 }
 
 func (w *WorkerRuntime) EnqueueSubscriptionRenew(ctx context.Context, subscriptionID string, metadata map[string]any, idempotencyKey string) error {
 	if w == nil || w.enqueuer == nil {
 		return fmt.Errorf("modules/services: worker enqueuer is not configured")
 	}
-	return w.enqueuer.Enqueue(ctx, &gocore.JobExecutionMessage{
-		JobID:          goadaptergojob.JobIDSubscriptionRenew,
+	_, err := w.enqueuer.Enqueue(ctx, &gocore.JobExecutionMessage{
+		JobID:          jobIDSubscriptionRenew,
 		IdempotencyKey: strings.TrimSpace(idempotencyKey),
 		Parameters: map[string]any{
 			"subscription_id": strings.TrimSpace(subscriptionID),
 			"metadata":        copyAnyMap(metadata),
 		},
 	})
+	return err
 }
 
 func (w *WorkerRuntime) EnqueueSyncRun(
@@ -86,8 +92,8 @@ func (w *WorkerRuntime) EnqueueSyncRun(
 	if w == nil || w.enqueuer == nil {
 		return fmt.Errorf("modules/services: worker enqueuer is not configured")
 	}
-	return w.enqueuer.Enqueue(ctx, &gocore.JobExecutionMessage{
-		JobID:          goadaptergojob.JobIDSyncIncremental,
+	_, err := w.enqueuer.Enqueue(ctx, &gocore.JobExecutionMessage{
+		JobID:          jobIDSyncIncremental,
 		IdempotencyKey: strings.TrimSpace(idempotencyKey),
 		Parameters: map[string]any{
 			"connection_id": strings.TrimSpace(connectionID),
@@ -97,6 +103,7 @@ func (w *WorkerRuntime) EnqueueSyncRun(
 			"metadata":      copyAnyMap(metadata),
 		},
 	})
+	return err
 }
 
 func (w *WorkerRuntime) EnqueueOutboxDispatch(ctx context.Context, batchSize int, idempotencyKey string) error {
@@ -106,24 +113,26 @@ func (w *WorkerRuntime) EnqueueOutboxDispatch(ctx context.Context, batchSize int
 	if batchSize <= 0 {
 		batchSize = 0
 	}
-	return w.enqueuer.Enqueue(ctx, &gocore.JobExecutionMessage{
-		JobID:          goadaptergojob.JobIDOutboxDispatch,
+	_, err := w.enqueuer.Enqueue(ctx, &gocore.JobExecutionMessage{
+		JobID:          jobIDOutboxDispatch,
 		IdempotencyKey: strings.TrimSpace(idempotencyKey),
 		Parameters: map[string]any{
 			"batch_size": batchSize,
 		},
 	})
+	return err
 }
 
 func (w *WorkerRuntime) EnqueueActivityRetentionRun(ctx context.Context, idempotencyKey string) error {
 	if w == nil || w.enqueuer == nil {
 		return fmt.Errorf("modules/services: worker enqueuer is not configured")
 	}
-	return w.enqueuer.Enqueue(ctx, &gocore.JobExecutionMessage{
+	_, err := w.enqueuer.Enqueue(ctx, &gocore.JobExecutionMessage{
 		JobID:          jobIDActivityRetentionRun,
 		IdempotencyKey: strings.TrimSpace(idempotencyKey),
 		Parameters:     map[string]any{},
 	})
+	return err
 }
 
 func (w *WorkerRuntime) HandleExecutionMessage(ctx context.Context, msg *gocore.JobExecutionMessage) error {
@@ -136,7 +145,7 @@ func (w *WorkerRuntime) HandleExecutionMessage(ctx context.Context, msg *gocore.
 
 	params := msg.Parameters
 	switch strings.TrimSpace(msg.JobID) {
-	case goadaptergojob.JobIDRefresh:
+	case jobIDRefresh:
 		if w.service == nil {
 			return fmt.Errorf("modules/services: services runtime is not configured")
 		}
@@ -145,7 +154,7 @@ func (w *WorkerRuntime) HandleExecutionMessage(ctx context.Context, msg *gocore.
 			ConnectionID: toString(params["connection_id"]),
 		})
 		return err
-	case goadaptergojob.JobIDSubscriptionRenew:
+	case jobIDSubscriptionRenew:
 		if w.service == nil {
 			return fmt.Errorf("modules/services: services runtime is not configured")
 		}
@@ -154,7 +163,7 @@ func (w *WorkerRuntime) HandleExecutionMessage(ctx context.Context, msg *gocore.
 			Metadata:       toStringAnyMap(params["metadata"]),
 		})
 		return err
-	case goadaptergojob.JobIDSyncIncremental:
+	case jobIDSyncIncremental:
 		if w.syncOrchestrator == nil {
 			return fmt.Errorf("modules/services: sync orchestrator is not configured")
 		}
@@ -167,7 +176,7 @@ func (w *WorkerRuntime) HandleExecutionMessage(ctx context.Context, msg *gocore.
 			toStringAnyMap(params["metadata"]),
 		)
 		return err
-	case goadaptergojob.JobIDOutboxDispatch:
+	case jobIDOutboxDispatch:
 		if w.outboxDispatcher == nil {
 			return fmt.Errorf("modules/services: outbox dispatcher is not configured")
 		}
