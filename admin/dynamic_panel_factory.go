@@ -1159,9 +1159,8 @@ func panelPermissionsFromBase(base string) PanelPermissions {
 }
 
 const (
-	workflowResolutionSourceWorkflowID   = "workflow_id"
-	workflowResolutionSourceWorkflow     = "workflow"
-	workflowResolutionSourceTraitDefault = "trait_default"
+	workflowResolutionSourceWorkflowID = "workflow_id"
+	workflowResolutionSourceWorkflow   = "workflow"
 )
 
 type workflowResolution struct {
@@ -1171,6 +1170,7 @@ type workflowResolution struct {
 }
 
 func resolveWorkflowIDForContentType(capabilities map[string]any, traitDefaults map[string]string) workflowResolution {
+	_ = traitDefaults
 	if workflowID := capabilityString(capabilities, "workflow_id", "workflowId", "workflow-id"); workflowID != "" {
 		return workflowResolution{id: workflowID, source: workflowResolutionSourceWorkflowID}
 	}
@@ -1178,35 +1178,7 @@ func resolveWorkflowIDForContentType(capabilities map[string]any, traitDefaults 
 		return workflowResolution{id: workflowID, source: workflowResolutionSourceWorkflow}
 	}
 	traits := orderedPanelTraitsForWorkflowLookup(capabilities)
-	for _, trait := range traits {
-		if workflowID := workflowIDForTraitDefault(traitDefaults, trait); workflowID != "" {
-			return workflowResolution{
-				id:     workflowID,
-				source: workflowResolutionSourceTraitDefault,
-				traits: traits,
-			}
-		}
-	}
 	return workflowResolution{traits: traits}
-}
-
-func workflowIDForTraitDefault(defaults map[string]string, trait string) string {
-	if len(defaults) == 0 {
-		return ""
-	}
-	trait = strings.ToLower(strings.TrimSpace(trait))
-	if trait == "" {
-		return ""
-	}
-	if workflowID, ok := defaults[trait]; ok {
-		return strings.TrimSpace(workflowID)
-	}
-	for key, workflowID := range defaults {
-		if strings.EqualFold(strings.TrimSpace(key), trait) {
-			return strings.TrimSpace(workflowID)
-		}
-	}
-	return ""
 }
 
 func orderedPanelTraitsForWorkflowLookup(capabilities map[string]any) []string {
@@ -1289,9 +1261,6 @@ func workflowEngineForContentType(ctx context.Context, admin *Admin, contentType
 	if resolution.id == "" {
 		resolution = persistedWorkflowResolutionForContentType(ctx, admin, contentType)
 	}
-	if resolution.id == "" {
-		resolution = resolveWorkflowIDForContentType(contentType.Capabilities, adminTraitWorkflowDefaults(admin))
-	}
 	workflowID := resolution.id
 	if workflowID == "" {
 		return nil
@@ -1364,10 +1333,7 @@ func persistedWorkflowResolutionForContentType(ctx context.Context, admin *Admin
 }
 
 func adminTraitWorkflowDefaults(admin *Admin) map[string]string {
-	if admin == nil {
-		return nil
-	}
-	return admin.traitWorkflowDefaultsForLookup()
+	return nil
 }
 
 type workflowAlias struct {
