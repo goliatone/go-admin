@@ -27,7 +27,7 @@ require (
 	github.com/goliatone/go-options v0.7.1
 	github.com/goliatone/go-persistence-bun v0.13.0
 	github.com/goliatone/go-repository-bun v0.15.1
-	github.com/goliatone/go-router v0.51.0
+	github.com/goliatone/go-router v0.52.0
 	github.com/goliatone/go-template v0.3.1
 	github.com/goliatone/go-theme v0.3.0
 	github.com/goliatone/go-uploader v0.3.0
