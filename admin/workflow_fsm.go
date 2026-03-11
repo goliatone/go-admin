@@ -299,6 +299,25 @@ func (e *FSMWorkflowEngine) RegisterWorkflow(entityType string, definition Workf
 	return nil
 }
 
+// UnregisterWorkflow removes a registered machine definition and state machine.
+func (e *FSMWorkflowEngine) UnregisterWorkflow(entityType string) error {
+	if e == nil {
+		return workflowRuntimeError(flow.ErrPreconditionFailed, "workflow engine is nil", nil, nil)
+	}
+	entityType = strings.TrimSpace(entityType)
+	if entityType == "" {
+		return workflowRuntimeError(flow.ErrPreconditionFailed, "workflow entity type is required", nil, map[string]any{
+			"field": "entity_type",
+		})
+	}
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	delete(e.definitions, entityType)
+	delete(e.machines, entityType)
+	delete(e.machineVersions, entityType)
+	return nil
+}
+
 // HasWorkflow reports whether a workflow definition exists for an entity type.
 func (e *FSMWorkflowEngine) HasWorkflow(entityType string) bool {
 	if e == nil {
