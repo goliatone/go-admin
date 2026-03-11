@@ -57,6 +57,12 @@ func mapToGoError(err error, mappers []goerrors.ErrorMapper) (*goerrors.Error, i
 	case hasFlowTextCode(err, flow.ErrCodeInvalidTransition), hasFlowTextCode(err, flow.ErrCodeGuardRejected):
 		mapped = NewDomainError(TextCodeWorkflowInvalidTransition, err.Error(), flowErrorMetadata(err))
 		status = mapped.Code
+	case hasFlowTextCode(err, flow.ErrCodeAuthoringNotFound):
+		mapped = NewDomainError(TextCodeWorkflowNotFound, err.Error(), flowErrorMetadata(err))
+		status = mapped.Code
+	case hasFlowTextCode(err, flow.ErrCodeAuthoringValidationFailed):
+		mapped = NewDomainError(TextCodeValidationError, err.Error(), flowErrorMetadata(err))
+		status = mapped.Code
 	case hasFlowTextCode(err, flow.ErrCodeVersionConflict), hasFlowTextCode(err, flow.ErrCodeIdempotencyConflict):
 		mapped = NewDomainError(TextCodeConflict, err.Error(), flowErrorMetadata(err))
 		status = mapped.Code
