@@ -15,6 +15,8 @@ func GetWorkflowRuntimeMigrationsFS() fs.FS {
 		"0003_workflows.down.sql",
 		"0005_workflow_revisions.up.sql",
 		"0005_workflow_revisions.down.sql",
+		"0006_workflow_authoring.up.sql",
+		"0006_workflow_authoring.down.sql",
 		"sqlite/0004_workflow_bindings_active_unique.up.sql",
 		"sqlite/0004_workflow_bindings_active_unique.down.sql",
 	}
