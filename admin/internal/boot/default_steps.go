@@ -27,7 +27,6 @@ func DefaultBootSteps() []Step {
 		ActivityRouteStep,
 		JobsStep,
 		SettingsRouteStep,
-		WorkflowRouteStep,
 		FeatureOverridesRouteStep,
 	}
 }
