@@ -1,3 +1,6 @@
+import type { DisabledReasonCode, TranslationErrorEnvelope } from '../translation-contracts/index.js';
+export type { DisabledReasonCode } from '../translation-contracts/index.js';
+
 /**
  * Translation Status Vocabulary (Phase 5 - TX-052)
  *
@@ -66,16 +69,6 @@ export type TranslationStatus =
   | QueueDueState
   | ExchangeRowStatus
   | ExchangeJobStatus;
-
-/**
- * Canonical disabled reason codes from backend
- */
-export type DisabledReasonCode =
-  | 'TRANSLATION_MISSING'
-  | 'INVALID_STATUS'
-  | 'PERMISSION_DENIED'
-  | 'MISSING_CONTEXT'
-  | 'FEATURE_DISABLED';
 
 /**
  * Status display configuration
@@ -149,6 +142,8 @@ export interface StatusVocabularyPayload {
   };
   disabled_reason_codes: string[];
 }
+
+export type TranslationVocabularyError = TranslationErrorEnvelope['error'];
 
 // ============================================================================
 // Status Display Configurations

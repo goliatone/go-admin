@@ -12268,6 +12268,53 @@ class WizardStateManagerSimulator {
     });
   }
 
+  applyRemoteSync(draftId, revision) {
+    if (!this.state) {
+      this.initialize();
+    }
+    this.state = {
+      ...this.state,
+      draftId: draftId || this.state.draftId,
+      revision: Number(revision || 0) || this.state.revision,
+      lastSyncedAt: new Date().toISOString(),
+      isDirty: this.state.isDirty,
+    };
+    this.saveToSession();
+    return {
+      preservedLocalChanges: this.state.isDirty,
+      state: this.state,
+    };
+  }
+
+  applyRemoteState(remoteState) {
+    if (!this.state) {
+      this.initialize();
+    }
+    if (this.state.isDirty) {
+      this.state = {
+        ...this.state,
+        draftId: remoteState?.draftId || this.state.draftId,
+        revision: Math.max(Number(this.state.revision || 0), Number(remoteState?.revision || 0)),
+        lastSyncedAt: remoteState?.lastSyncedAt || this.state.lastSyncedAt,
+        isDirty: true,
+      };
+      this.saveToSession();
+      return {
+        preservedLocalChanges: true,
+        replacedLocalState: false,
+        state: this.state,
+      };
+    }
+
+    this.state = { ...remoteState };
+    this.saveToSession();
+    return {
+      preservedLocalChanges: false,
+      replacedLocalState: true,
+      state: this.state,
+    };
+  }
+
   initialize() {
     this.state = this.createInitialState();
     this.saveToSession();
@@ -12410,7 +12457,7 @@ class DraftSyncServiceSimulator {
  * SyncOrchestratorSimulator - simulates sync orchestration with debouncing and multi-tab coordination
  */
 class SyncOrchestratorSimulator {
-  constructor(stateManager, syncService) {
+  constructor(stateManager, syncService, options = {}) {
     this.stateManager = stateManager;
     this.syncService = syncService;
     this.SYNC_DEBOUNCE_MS = 2000;
@@ -12425,6 +12472,7 @@ class SyncOrchestratorSimulator {
     this.tabId = `tab-${Math.random().toString(36).slice(2, 8)}`;
     this.isOwner = true;
     this.activeClaim = { tabId: this.tabId, lastSeenAt: Date.now() };
+    this.coordinationAvailable = options.coordinationAvailable !== false;
   }
 
   on(event, callback) {
@@ -12462,7 +12510,7 @@ class SyncOrchestratorSimulator {
 
   async performSync() {
     const state = this.stateManager.getState();
-    if (!this.isOwner) {
+    if (this.coordinationAvailable && !this.isOwner) {
       this.setStatus('paused');
       return { blocked: true, reason: 'passive_tab' };
     }
@@ -12526,14 +12574,22 @@ class SyncOrchestratorSimulator {
     this.otherTabMessages.push(message);
 
     if (message.type === 'sync_completed') {
-      // Another tab synced, update our local state
       const state = this.stateManager.getState();
-      if (state && state.draftId === message.draftId) {
-        if (message.revision > state.revision) {
-          this.emit('externalUpdate', message);
-        }
+      if (state && state.draftId === message.draftId && message.revision > state.revision) {
+        this.stateManager.applyRemoteSync(message.draftId, message.revision);
+        this.emit('externalUpdate', {
+          ...message,
+          preservedLocalChanges: this.stateManager.getState().isDirty,
+        });
       }
+    } else if (message.type === 'state_updated') {
+      const mergeResult = this.stateManager.applyRemoteState(message.state);
+      this.emit('externalStateApplied', mergeResult);
     } else if (message.type === 'active_tab_claimed') {
+      if (!this.coordinationAvailable) {
+        this.isOwner = true;
+        return;
+      }
       this.isOwner = message.tabId === this.tabId;
       this.activeClaim = { tabId: message.tabId, lastSeenAt: message.lastSeenAt || Date.now() };
       if (!this.isOwner) {
@@ -12547,6 +12603,10 @@ class SyncOrchestratorSimulator {
   }
 
   claimActiveTab(reason = 'claim') {
+    if (!this.coordinationAvailable) {
+      this.isOwner = true;
+      return { tabId: this.tabId, degraded: true };
+    }
     this.isOwner = true;
     this.activeClaim = { tabId: this.tabId, lastSeenAt: Date.now() };
     this.broadcastMessages.push({
@@ -12559,6 +12619,10 @@ class SyncOrchestratorSimulator {
   }
 
   takeControl() {
+    if (!this.coordinationAvailable) {
+      this.isOwner = true;
+      return { tabId: this.tabId, degraded: true };
+    }
     return this.claimActiveTab('take_control');
   }
 
@@ -13235,6 +13299,75 @@ test('Phase 30.FE.5: SyncOrchestrator receives external sync message', () => {
   assert.equal(externalUpdate.revision, 5);
 });
 
+test('Phase 30.FE.5: external sync completion preserves dirty local state', () => {
+  const stateManager = new WizardStateManagerSimulator();
+  const syncService = new DraftSyncServiceSimulator();
+  const orchestrator = new SyncOrchestratorSimulator(stateManager, syncService);
+
+  stateManager.initialize();
+  stateManager.markSynced('DRF-001', 1);
+  stateManager.updateDetails({ title: 'Local Draft' });
+
+  orchestrator.receiveFromOtherTab({
+    type: 'sync_completed',
+    draftId: 'DRF-001',
+    revision: 4,
+  });
+
+  const state = stateManager.getState();
+  assert.equal(state.isDirty, true);
+  assert.equal(state.details.title, 'Local Draft');
+  assert.equal(state.revision, 4);
+});
+
+test('Phase 30.FE.5: external state updates use broadcast payload instead of local session cache', () => {
+  const stateManager = new WizardStateManagerSimulator();
+  const syncService = new DraftSyncServiceSimulator();
+  const orchestrator = new SyncOrchestratorSimulator(stateManager, syncService);
+
+  stateManager.initialize();
+  orchestrator.receiveFromOtherTab({
+    type: 'state_updated',
+    state: {
+      ...stateManager.getState(),
+      draftId: 'DRF-009',
+      revision: 3,
+      details: { title: 'Remote Title', description: 'Remote Description' },
+    },
+  });
+
+  const state = stateManager.getState();
+  assert.equal(state.draftId, 'DRF-009');
+  assert.equal(state.details.title, 'Remote Title');
+  assert.equal(state.revision, 3);
+});
+
+test('Phase 30.FE.5: external state updates preserve dirty local edits while refreshing server metadata', () => {
+  const stateManager = new WizardStateManagerSimulator();
+  const syncService = new DraftSyncServiceSimulator();
+  const orchestrator = new SyncOrchestratorSimulator(stateManager, syncService);
+
+  stateManager.initialize();
+  stateManager.updateDetails({ title: 'Keep Local' });
+
+  orchestrator.receiveFromOtherTab({
+    type: 'state_updated',
+    state: {
+      ...stateManager.getState(),
+      draftId: 'DRF-010',
+      revision: 7,
+      details: { title: 'Remote Title', description: 'Remote Description' },
+      lastSyncedAt: '2026-03-11T00:00:00.000Z',
+    },
+  });
+
+  const state = stateManager.getState();
+  assert.equal(state.isDirty, true);
+  assert.equal(state.details.title, 'Keep Local');
+  assert.equal(state.revision, 7);
+  assert.equal(state.draftId, 'DRF-010');
+});
+
 test('Phase 30.FE.5: SyncOrchestrator claims active ownership explicitly', () => {
   const stateManager = new WizardStateManagerSimulator();
   const syncService = new DraftSyncServiceSimulator();
@@ -13321,6 +13454,30 @@ test('Phase 30.FE.6: SyncOrchestrator blocks sync while passive until take contr
   const synced = await orchestrator.performSync();
   assert.ok(synced.draftId);
   assert.equal(orchestrator.isOwner, true);
+});
+
+test('Phase 30.FE.6: SyncOrchestrator falls back to local ownership when coordination storage is unavailable', async () => {
+  const stateManager = new WizardStateManagerSimulator();
+  const syncService = new DraftSyncServiceSimulator();
+  const orchestrator = new SyncOrchestratorSimulator(stateManager, syncService, {
+    coordinationAvailable: false,
+  });
+
+  stateManager.initialize();
+  stateManager.updateDetails({ title: 'Offline Coordination' });
+  orchestrator.receiveFromOtherTab({
+    type: 'active_tab_claimed',
+    tabId: 'tab-other',
+    lastSeenAt: Date.now(),
+  });
+
+  const synced = await orchestrator.performSync();
+  assert.ok(synced.draftId);
+  assert.equal(orchestrator.isOwner, true);
+  assert.equal(
+    orchestrator.broadcastMessages.filter((message) => message.type === 'active_tab_claimed').length,
+    0,
+  );
 });
 
 test('Phase 30.FE.6: SyncOrchestrator handles pagehide with beacon', () => {
@@ -14036,6 +14193,11 @@ test('Phase 30.FE.9: agreement form runtime uses explicit active-tab claims and 
   assert.match(source, /type: 'active_tab_released'/);
   assert.match(source, /takeControl\(\)/);
   assert.match(source, /case 'paused':/);
+  assert.match(source, /storage_unavailable/);
+  assert.match(source, /state: this\.stateManager\.getState\(\)/);
+  assert.match(source, /applyRemoteSync\(/);
+  assert.match(source, /surfaceSyncOutcome\(syncOrchestrator\.manualRetry\(\)/);
+  assert.match(source, /surfaceSyncOutcome\(syncOrchestrator\.performSync\(\)/);
   assert.doesNotMatch(source, /type: 'presence'|type: 'ownership_claim'/);
 });
 

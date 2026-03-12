@@ -52,12 +52,28 @@
                   </div>
                 </div>
               {% else %}
-                <a href="{{ child.href|default:'#' }}" class="nav-item{% if child.active %} active{% endif %}" style="height: var(--sidebar-item-height, 36px);">
-                  {% if child.icon %}
-                    {{ renderMenuIcon(child.icon)|safe }}
-                  {% endif %}
-                  <span class="nav-text flex-1">{{ child.label }}</span>
-                </a>
+                {% if child.enabled == false %}
+                  <button type="button"
+                          class="nav-item w-full text-left opacity-70 cursor-not-allowed"
+                          style="height: var(--sidebar-item-height, 36px);"
+                          aria-disabled="true"
+                          title="{{ child.disabled_reason|default:'Unavailable' }}">
+                    {% if child.icon %}
+                      {{ renderMenuIcon(child.icon)|safe }}
+                    {% endif %}
+                    <span class="nav-text flex-1">{{ child.label }}</span>
+                    {% if child.disabled_reason_code %}
+                      <span class="text-[10px] uppercase tracking-wide text-sidebar-text-muted">{{ child.disabled_reason_code }}</span>
+                    {% endif %}
+                  </button>
+                {% else %}
+                  <a href="{{ child.href|default:'#' }}" class="nav-item{% if child.active %} active{% endif %}" style="height: var(--sidebar-item-height, 36px);">
+                    {% if child.icon %}
+                      {{ renderMenuIcon(child.icon)|safe }}
+                    {% endif %}
+                    <span class="nav-text flex-1">{{ child.label }}</span>
+                  </a>
+                {% endif %}
               {% endif %}
             {% endfor %}
           </div>
@@ -73,22 +89,54 @@
           </button>
           <div class="submenu space-y-0.5 mt-1 pl-8 {% if item.collapsed %}collapsed{% else %}expanded{% endif %}" data-submenu="{{ item.id }}">
             {% for child in item.children %}
-              <a href="{{ child.href|default:'#' }}" class="nav-item{% if child.active %} active{% endif %}" style="height: var(--sidebar-item-height, 36px);">
-                {% if child.icon %}
-                  {{ renderMenuIcon(child.icon)|safe }}
-                {% endif %}
-                <span class="nav-text flex-1">{{ child.label }}</span>
-              </a>
+              {% if child.enabled == false %}
+                <button type="button"
+                        class="nav-item w-full text-left opacity-70 cursor-not-allowed"
+                        style="height: var(--sidebar-item-height, 36px);"
+                        aria-disabled="true"
+                        title="{{ child.disabled_reason|default:'Unavailable' }}">
+                  {% if child.icon %}
+                    {{ renderMenuIcon(child.icon)|safe }}
+                  {% endif %}
+                  <span class="nav-text flex-1">{{ child.label }}</span>
+                  {% if child.disabled_reason_code %}
+                    <span class="text-[10px] uppercase tracking-wide text-sidebar-text-muted">{{ child.disabled_reason_code }}</span>
+                  {% endif %}
+                </button>
+              {% else %}
+                <a href="{{ child.href|default:'#' }}" class="nav-item{% if child.active %} active{% endif %}" style="height: var(--sidebar-item-height, 36px);">
+                  {% if child.icon %}
+                    {{ renderMenuIcon(child.icon)|safe }}
+                  {% endif %}
+                  <span class="nav-text flex-1">{{ child.label }}</span>
+                </a>
+              {% endif %}
             {% endfor %}
           </div>
         </div>
       {% else %}
-        <a href="{{ item.href|default:'#' }}" class="nav-item{% if item.active %} active{% endif %}" style="height: var(--sidebar-item-height, 36px);">
-          {% if item.icon %}
-            {{ renderMenuIcon(item.icon)|safe }}
-          {% endif %}
-          <span class="nav-text flex-1">{{ item.label }}</span>
-        </a>
+        {% if item.enabled == false %}
+          <button type="button"
+                  class="nav-item w-full text-left opacity-70 cursor-not-allowed"
+                  style="height: var(--sidebar-item-height, 36px);"
+                  aria-disabled="true"
+                  title="{{ item.disabled_reason|default:'Unavailable' }}">
+            {% if item.icon %}
+              {{ renderMenuIcon(item.icon)|safe }}
+            {% endif %}
+            <span class="nav-text flex-1">{{ item.label }}</span>
+            {% if item.disabled_reason_code %}
+              <span class="text-[10px] uppercase tracking-wide text-sidebar-text-muted">{{ item.disabled_reason_code }}</span>
+            {% endif %}
+          </button>
+        {% else %}
+          <a href="{{ item.href|default:'#' }}" class="nav-item{% if item.active %} active{% endif %}" style="height: var(--sidebar-item-height, 36px);">
+            {% if item.icon %}
+              {{ renderMenuIcon(item.icon)|safe }}
+            {% endif %}
+            <span class="nav-text flex-1">{{ item.label }}</span>
+          </a>
+        {% endif %}
       {% endif %}
     {% endfor %}
     {% if nav_debug and nav_items_json %}
@@ -104,20 +152,52 @@
             <div class="px-3 py-1 text-[11px] font-medium uppercase tracking-wider text-sidebar-text-muted">{{ item.group_title }}</div>
           {% endif %}
           {% for child in item.children %}
-            <a href="{{ child.href|default:'#' }}" class="nav-item{% if child.active %} active{% endif %}" style="height: var(--sidebar-item-height, 36px);">
-              {% if child.icon %}
-                {{ renderMenuIcon(child.icon)|safe }}
-              {% endif %}
-              <span class="nav-text flex-1">{{ child.label }}</span>
-            </a>
+            {% if child.enabled == false %}
+              <button type="button"
+                      class="nav-item w-full text-left opacity-70 cursor-not-allowed"
+                      style="height: var(--sidebar-item-height, 36px);"
+                      aria-disabled="true"
+                      title="{{ child.disabled_reason|default:'Unavailable' }}">
+                {% if child.icon %}
+                  {{ renderMenuIcon(child.icon)|safe }}
+                {% endif %}
+                <span class="nav-text flex-1">{{ child.label }}</span>
+                {% if child.disabled_reason_code %}
+                  <span class="text-[10px] uppercase tracking-wide text-sidebar-text-muted">{{ child.disabled_reason_code }}</span>
+                {% endif %}
+              </button>
+            {% else %}
+              <a href="{{ child.href|default:'#' }}" class="nav-item{% if child.active %} active{% endif %}" style="height: var(--sidebar-item-height, 36px);">
+                {% if child.icon %}
+                  {{ renderMenuIcon(child.icon)|safe }}
+                {% endif %}
+                <span class="nav-text flex-1">{{ child.label }}</span>
+              </a>
+            {% endif %}
           {% endfor %}
         {% else %}
-          <a href="{{ item.href|default:'#' }}" class="nav-item{% if item.active %} active{% endif %}" style="height: var(--sidebar-item-height, 36px);">
-            {% if item.icon %}
-              {{ renderMenuIcon(item.icon)|safe }}
-            {% endif %}
-            <span class="nav-text flex-1">{{ item.label }}</span>
-          </a>
+          {% if item.enabled == false %}
+            <button type="button"
+                    class="nav-item w-full text-left opacity-70 cursor-not-allowed"
+                    style="height: var(--sidebar-item-height, 36px);"
+                    aria-disabled="true"
+                    title="{{ item.disabled_reason|default:'Unavailable' }}">
+              {% if item.icon %}
+                {{ renderMenuIcon(item.icon)|safe }}
+              {% endif %}
+              <span class="nav-text flex-1">{{ item.label }}</span>
+              {% if item.disabled_reason_code %}
+                <span class="text-[10px] uppercase tracking-wide text-sidebar-text-muted">{{ item.disabled_reason_code }}</span>
+              {% endif %}
+            </button>
+          {% else %}
+            <a href="{{ item.href|default:'#' }}" class="nav-item{% if item.active %} active{% endif %}" style="height: var(--sidebar-item-height, 36px);">
+              {% if item.icon %}
+                {{ renderMenuIcon(item.icon)|safe }}
+              {% endif %}
+              <span class="nav-text flex-1">{{ item.label }}</span>
+            </a>
+          {% endif %}
         {% endif %}
       {% endfor %}
     </nav>

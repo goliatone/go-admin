@@ -91,6 +91,8 @@ test('datatable/index.js exports schema action utilities', async () => {
 test('translation-operations/index.js is importable', async () => {
   const module = await import('../dist/translation-operations/index.js');
   assert.ok(module.initTranslationOperations, 'initTranslationOperations should be exported');
+  assert.ok(module.initTranslationSurfaceShell, 'initTranslationSurfaceShell should be exported');
+  assert.ok(module.fetchTranslationShellData, 'fetchTranslationShellData should be exported');
 });
 
 test('toast/init.js is importable', async () => {

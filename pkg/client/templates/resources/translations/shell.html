@@ -1,0 +1,39 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ translation_shell_title|default:"Translation" }} - {{ title }}{% endblock %}
+
+{% block content %}
+<header class="px-8 py-6 bg-white border-b border-gray-200 flex flex-wrap gap-4 items-center justify-between">
+  <div>
+    <p class="text-xs font-semibold uppercase tracking-[0.24em] text-gray-400">Translation Phase 2 Shell</p>
+    <h1 class="text-3xl font-bold text-admin-dark mt-2">{{ translation_shell_title|default:"Translation" }}</h1>
+    <p class="text-sm text-gray-500 mt-2 max-w-3xl">
+      {{ translation_shell_description|default:"Flag-aware shell route for incremental translation rollout." }}
+    </p>
+  </div>
+</header>
+
+<div class="flex-1 overflow-y-auto p-8">
+  <div class="max-w-5xl mx-auto">
+    <section class="rounded-2xl border border-dashed border-gray-300 bg-white/90 p-6 shadow-sm">
+      <div id="translation-shell-root"
+           data-surface="{{ translation_shell_surface|default:"surface" }}"
+           data-title="{{ translation_shell_title|default:"Translation" }}"
+           data-description="{{ translation_shell_description|default:"" }}"
+           data-endpoint="{{ translation_shell_api_path|default:"" }}">
+      </div>
+    </section>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="module">
+import { initTranslationSurfaceShell } from '{{ base_path }}/assets/dist/translation-operations/index.js';
+
+const root = document.getElementById('translation-shell-root');
+if (root) {
+  initTranslationSurfaceShell(root);
+}
+</script>
+{% endblock %}

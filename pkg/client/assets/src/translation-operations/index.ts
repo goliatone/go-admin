@@ -8,93 +8,15 @@
  * not ad-hoc template-only flags.
  */
 
-/**
- * Translation capability profile from backend
- */
-export type TranslationProfile =
-  | 'none'
-  | 'core'
-  | 'core+exchange'
-  | 'core+queue'
-  | 'full';
-
-/**
- * Module enablement state
- */
-export interface TranslationModuleState {
-  enabled: boolean;
-  visible?: boolean;
-  entry?: {
-    enabled: boolean;
-    reason?: string;
-    reason_code?: string;
-    permission?: string;
-  };
-  actions?: Record<string, {
-    enabled: boolean;
-    reason?: string;
-    reason_code?: string;
-    permission?: string;
-  }>;
-}
-
-/**
- * Translation capabilities from backend
- */
-export interface TranslationCapabilities {
-  /** Active capability profile */
-  profile: TranslationProfile;
-  /** Schema version for compatibility */
-  schema_version: number;
-  /** Module enablement states */
-  modules: {
-    exchange: TranslationModuleState;
-    queue: TranslationModuleState;
-  };
-  /** Feature enablement states */
-  features: {
-    cms: boolean;
-    dashboard: boolean;
-  };
-  /** Resolver-based routes */
-  routes: Record<string, string>;
-  /** Registered panels */
-  panels: string[];
-  /** Available resolver keys */
-  resolver_keys: string[];
-  /** Configuration warnings */
-  warnings: string[];
-}
-
-/**
- * Entrypoint link definition
- */
-export interface TranslationEntrypoint {
-  /** Unique identifier */
-  id: string;
-  /** Display label */
-  label: string;
-  /** Icon class (iconoir) */
-  icon: string;
-  /** Target URL (resolver-based) */
-  href: string;
-  /** Module that enables this entrypoint */
-  module: 'exchange' | 'queue' | 'core';
-  /** Whether this entrypoint is enabled */
-  enabled: boolean;
-  /** Optional description */
-  description?: string;
-  /** Disabled reason when visible but not actionable */
-  disabledReason?: string;
-  /** Machine-readable disabled code */
-  disabledReasonCode?: string;
-  /** Permission evaluated for this entrypoint */
-  permission?: string;
-  /** Badge text (e.g., "New") */
-  badge?: string;
-  /** Badge variant */
-  badgeVariant?: 'info' | 'warning' | 'success' | 'danger';
-}
+import {
+  EMPTY_TRANSLATION_CAPABILITIES,
+  normalizeTranslationCapabilities,
+  type TranslationCapabilities,
+  type TranslationEntrypoint,
+  type TranslationModuleState,
+} from '../translation-contracts/index.js';
+import { httpRequest } from '../shared/transport/http-client.js';
+import { extractStructuredError } from '../toast/error-helpers.js';
 
 /**
  * Configuration for TranslationOperationsManager
@@ -111,26 +33,6 @@ export interface TranslationOperationsConfig {
 }
 
 /**
- * Default empty capabilities
- */
-const EMPTY_CAPABILITIES: TranslationCapabilities = {
-  profile: 'none',
-  schema_version: 1,
-  modules: {
-    exchange: { enabled: false },
-    queue: { enabled: false },
-  },
-  features: {
-    cms: false,
-    dashboard: false,
-  },
-  routes: {},
-  panels: [],
-  resolver_keys: [],
-  warnings: [],
-};
-
-/**
  * Resolver route keys for translation operations
  */
 const ROUTE_KEYS = {
@@ -141,6 +43,18 @@ const ROUTE_KEYS = {
   EXCHANGE_IMPORT_APPLY: 'admin.api.translations.import.apply',
 } as const;
 
+export type TranslationShellStatus = 'loading' | 'empty' | 'ready' | 'error' | 'conflict';
+
+export interface TranslationShellLoadResult {
+  status: TranslationShellStatus;
+  payload?: unknown;
+  message?: string;
+  requestId?: string;
+  traceId?: string;
+  statusCode?: number;
+  errorCode?: string | null;
+}
+
 /**
  * Extracts translation capabilities from page context
  * Looks for data embedded in a script tag or window object
@@ -148,7 +62,7 @@ const ROUTE_KEYS = {
 export function extractTranslationCapabilities(): TranslationCapabilities {
   // Try window object first (set by layout template)
   if (typeof window !== 'undefined' && (window as any).__TRANSLATION_CAPABILITIES__) {
-    return normalizeCapabilities((window as any).__TRANSLATION_CAPABILITIES__);
+    return normalizeTranslationCapabilities((window as any).__TRANSLATION_CAPABILITIES__);
   }
 
   // Try script tag with JSON data
@@ -157,7 +71,7 @@ export function extractTranslationCapabilities(): TranslationCapabilities {
     try {
       const rawData = scriptEl.textContent || '';
       const parsed = JSON.parse(rawData);
-      return normalizeCapabilities(parsed);
+      return normalizeTranslationCapabilities(parsed);
     } catch {
       // Fall through to default
     }
@@ -167,123 +81,13 @@ export function extractTranslationCapabilities(): TranslationCapabilities {
   const body = document.body;
   if (body?.dataset?.translationCapabilities) {
     try {
-      return normalizeCapabilities(JSON.parse(body.dataset.translationCapabilities));
+      return normalizeTranslationCapabilities(JSON.parse(body.dataset.translationCapabilities));
     } catch {
       // Fall through to default
     }
   }
 
-  return { ...EMPTY_CAPABILITIES };
-}
-
-/**
- * Normalizes raw capability data to ensure type safety
- */
-function normalizeCapabilities(raw: unknown): TranslationCapabilities {
-  if (!raw || typeof raw !== 'object') {
-    return { ...EMPTY_CAPABILITIES };
-  }
-
-  const data = raw as Record<string, unknown>;
-
-  const modules = typeof data.modules === 'object' && data.modules
-    ? data.modules as Record<string, unknown>
-    : {};
-
-  const features = typeof data.features === 'object' && data.features
-    ? data.features as Record<string, unknown>
-    : {};
-
-  return {
-    profile: normalizeProfile(data.profile),
-    schema_version: typeof data.schema_version === 'number' ? data.schema_version : 1,
-    modules: {
-      exchange: extractModuleState(modules.exchange),
-      queue: extractModuleState(modules.queue),
-    },
-    features: {
-      cms: typeof features.cms === 'boolean' ? features.cms : false,
-      dashboard: typeof features.dashboard === 'boolean' ? features.dashboard : false,
-    },
-    routes: normalizeRoutes(data.routes),
-    panels: Array.isArray(data.panels) ? data.panels.filter(p => typeof p === 'string') : [],
-    resolver_keys: Array.isArray(data.resolver_keys)
-      ? data.resolver_keys.filter(k => typeof k === 'string')
-      : [],
-    warnings: Array.isArray(data.warnings) ? data.warnings.filter(w => typeof w === 'string') : [],
-  };
-}
-
-function normalizeRoutes(value: unknown): Record<string, string> {
-  if (!value || typeof value !== 'object') {
-    return {};
-  }
-  const raw = value as Record<string, unknown>;
-  const routes: Record<string, string> = {};
-  for (const [key, candidate] of Object.entries(raw)) {
-    const route = typeof candidate === 'string' ? candidate.trim() : '';
-    if (!route) continue;
-    routes[key] = route;
-  }
-  return routes;
-}
-
-function normalizeProfile(value: unknown): TranslationProfile {
-  if (typeof value !== 'string') return 'none';
-  const normalized = value.toLowerCase().trim();
-  const valid: TranslationProfile[] = ['none', 'core', 'core+exchange', 'core+queue', 'full'];
-  return valid.includes(normalized as TranslationProfile)
-    ? (normalized as TranslationProfile)
-    : 'none';
-}
-
-function extractModuleState(value: unknown): TranslationModuleState {
-  if (typeof value === 'boolean') {
-    return {
-      enabled: value,
-      visible: value,
-      entry: { enabled: value },
-      actions: {},
-    };
-  }
-  if (!value || typeof value !== 'object') {
-    return { enabled: false, visible: false };
-  }
-  const obj = value as Record<string, unknown>;
-  const enabled = obj.enabled === true;
-  const entry = extractActionState(obj.entry);
-  const visible = typeof obj.visible === 'boolean'
-    ? obj.visible
-    : enabled && (entry ? entry.enabled : true);
-  const actionsRaw = obj.actions && typeof obj.actions === 'object'
-    ? obj.actions as Record<string, unknown>
-    : {};
-  const actions: Record<string, NonNullable<TranslationModuleState['entry']>> = {};
-  for (const [key, actionValue] of Object.entries(actionsRaw)) {
-    const actionState = extractActionState(actionValue);
-    if (actionState) {
-      actions[key] = actionState;
-    }
-  }
-  return {
-    enabled,
-    visible,
-    entry: entry ?? { enabled },
-    actions,
-  };
-}
-
-function extractActionState(value: unknown): TranslationModuleState['entry'] | null {
-  if (!value || typeof value !== 'object') {
-    return null;
-  }
-  const raw = value as Record<string, unknown>;
-  return {
-    enabled: raw.enabled === true,
-    reason: typeof raw.reason === 'string' ? raw.reason : undefined,
-    reason_code: typeof raw.reason_code === 'string' ? raw.reason_code : undefined,
-    permission: typeof raw.permission === 'string' ? raw.permission : undefined,
-  };
+  return { ...EMPTY_TRANSLATION_CAPABILITIES };
 }
 
 function moduleGate(
@@ -550,6 +354,226 @@ export function renderTranslationEntrypoints(
 
   nav.appendChild(wrapper);
   containerEl.appendChild(nav);
+}
+
+function readResponseToken(response: Response, name: string): string {
+  const value = response.headers.get(name);
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function extractTraceMetadata(response: Response, requestId?: string): { requestId?: string; traceId?: string } {
+  const headerRequestId = readResponseToken(response, 'x-request-id');
+  const correlationId = readResponseToken(response, 'x-correlation-id');
+  const traceId = readResponseToken(response, 'x-trace-id') || correlationId || requestId;
+  return {
+    requestId: headerRequestId || requestId,
+    traceId: traceId || undefined,
+  };
+}
+
+function payloadCollectionSize(payload: unknown): number {
+  if (Array.isArray(payload)) {
+    return payload.length;
+  }
+  if (!payload || typeof payload !== 'object') {
+    return 0;
+  }
+  const record = payload as Record<string, unknown>;
+  for (const key of ['items', 'assignments', 'results', 'rows', 'families']) {
+    if (Array.isArray(record[key])) {
+      return record[key].length;
+    }
+  }
+  if (record.data && typeof record.data === 'object') {
+    return payloadCollectionSize(record.data);
+  }
+  return Object.keys(record).length;
+}
+
+export async function fetchTranslationShellData(endpoint: string): Promise<TranslationShellLoadResult> {
+  const url = endpoint.trim();
+  if (!url) {
+    return {
+      status: 'empty',
+      message: 'This shell route is ready, but the backing API contract has not been connected yet.',
+    };
+  }
+
+  const response = await httpRequest(url, { method: 'GET' });
+  const requestMeta = extractTraceMetadata(response);
+  if (!response.ok) {
+    const structured = await extractStructuredError(response);
+    const status: TranslationShellStatus =
+      response.status === 409 || structured.textCode === 'VERSION_CONFLICT'
+        ? 'conflict'
+        : 'error';
+    return {
+      status,
+      message: structured.message,
+      requestId: requestMeta.requestId,
+      traceId: requestMeta.traceId,
+      statusCode: response.status,
+      errorCode: structured.textCode,
+    };
+  }
+
+  let payload: unknown = null;
+  try {
+    payload = await response.json();
+  } catch {
+    payload = null;
+  }
+
+  if (payloadCollectionSize(payload) === 0) {
+    return {
+      status: 'empty',
+      payload,
+      requestId: requestMeta.requestId,
+      traceId: requestMeta.traceId,
+      statusCode: response.status,
+      message: 'No records match the current shell route yet.',
+    };
+  }
+
+  return {
+    status: 'ready',
+    payload,
+    requestId: requestMeta.requestId,
+    traceId: requestMeta.traceId,
+    statusCode: response.status,
+  };
+}
+
+function renderTraceSummary(result: TranslationShellLoadResult): string {
+  const chips: string[] = [];
+  if (result.requestId) {
+    chips.push(`<span class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">Request ${escapeHTML(result.requestId)}</span>`);
+  }
+  if (result.traceId) {
+    chips.push(`<span class="inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">Trace ${escapeHTML(result.traceId)}</span>`);
+  }
+  if (!chips.length) {
+    return '';
+  }
+  return `<div class="flex flex-wrap gap-2 mt-4">${chips.join('')}</div>`;
+}
+
+function renderReadyState(result: TranslationShellLoadResult, title: string, description: string): string {
+  const count = payloadCollectionSize(result.payload);
+  return `
+    <div class="space-y-4">
+      <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+        <p class="text-sm font-medium text-emerald-800">${escapeHTML(title)}</p>
+        <p class="mt-1 text-sm text-emerald-700">${count} contract item${count === 1 ? '' : 's'} available for this shell.</p>
+      </div>
+      <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
+        <p class="text-sm text-slate-700">${escapeHTML(description)}</p>
+        <details class="mt-4">
+          <summary class="cursor-pointer text-sm font-medium text-slate-800">Inspect payload</summary>
+          <pre class="mt-3 overflow-x-auto rounded-lg bg-slate-950 p-4 text-xs text-slate-100">${escapeHTML(JSON.stringify(result.payload, null, 2))}</pre>
+        </details>
+        ${renderTraceSummary(result)}
+      </div>
+    </div>
+  `;
+}
+
+function renderConflictState(result: TranslationShellLoadResult): string {
+  return `
+    <div class="space-y-4">
+      ${renderShellErrorState(
+        'Version conflict',
+        result.message || 'The shell route detected a canonical version conflict.'
+      )}
+      ${renderTraceSummary(result)}
+    </div>
+  `;
+}
+
+function renderShellEmptyState(title: string, message: string): string {
+  return `
+    <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
+      <p class="text-sm font-semibold text-slate-900">${escapeHTML(title)}</p>
+      <p class="mt-1 text-sm text-slate-600">${escapeHTML(message)}</p>
+    </div>
+  `;
+}
+
+function renderShellErrorState(title: string, message: string): string {
+  return `
+    <div class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-4">
+      <p class="text-sm font-semibold text-rose-800">${escapeHTML(title)}</p>
+      <p class="mt-1 text-sm text-rose-700">${escapeHTML(message)}</p>
+    </div>
+  `;
+}
+
+function renderShellLoadingState(): string {
+  return `
+    <div class="rounded-xl border border-slate-200 bg-white px-4 py-4">
+      <p class="text-sm font-medium text-slate-900">Loading translation shell...</p>
+      <p class="mt-1 text-sm text-slate-500">Waiting for the backing API response.</p>
+    </div>
+  `;
+}
+
+function escapeHTML(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+export function renderTranslationSurfaceShell(
+  root: HTMLElement,
+  result: TranslationShellLoadResult,
+  options: { title?: string; description?: string } = {}
+): void {
+  const title = options.title || root.dataset.title || 'Translation Shell';
+  const description = options.description || root.dataset.description || 'Translation shell route';
+  switch (result.status) {
+    case 'ready':
+      root.innerHTML = renderReadyState(result, title, description);
+      return;
+    case 'conflict':
+      root.innerHTML = renderConflictState(result);
+      return;
+    case 'error':
+      root.innerHTML = `
+        ${renderShellErrorState(
+          'Translation shell request failed',
+          result.message || 'The shell route could not load its backing payload.'
+        )}
+        ${renderTraceSummary(result)}
+      `;
+      return;
+    case 'empty':
+      root.innerHTML = `
+        ${renderShellEmptyState(title, result.message || description)}
+        ${renderTraceSummary(result)}
+      `;
+      return;
+    default:
+      root.innerHTML = renderShellLoadingState();
+  }
+}
+
+export async function initTranslationSurfaceShell(
+  rootOrSelector: HTMLElement | string
+): Promise<TranslationShellLoadResult | null> {
+  const root = typeof rootOrSelector === 'string'
+    ? document.querySelector<HTMLElement>(rootOrSelector)
+    : rootOrSelector;
+  if (!root) {
+    return null;
+  }
+
+  renderTranslationSurfaceShell(root, { status: 'loading' });
+  const result = await fetchTranslationShellData(root.dataset.endpoint || '');
+  renderTranslationSurfaceShell(root, result);
+  return result;
 }
 
 /**
