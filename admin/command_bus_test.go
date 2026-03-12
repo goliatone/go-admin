@@ -10,26 +10,26 @@ import (
 	commandregistry "github.com/goliatone/go-command/registry"
 )
 
-const phase5CommandName = "phase5.command"
+const queuedDispatchTestCommandName = "command_bus.test.queued_dispatch"
 
-type phase5CommandMessage struct {
+type queuedDispatchTestMessage struct {
 	Value string
 }
 
-func (phase5CommandMessage) Type() string { return phase5CommandName }
+func (queuedDispatchTestMessage) Type() string { return queuedDispatchTestCommandName }
 
-type phase5InlineCommand struct {
+type queuedDispatchInlineCommand struct {
 	calls int
-	last  phase5CommandMessage
+	last  queuedDispatchTestMessage
 }
 
-func (c *phase5InlineCommand) Execute(_ context.Context, msg phase5CommandMessage) error {
+func (c *queuedDispatchInlineCommand) Execute(_ context.Context, msg queuedDispatchTestMessage) error {
 	c.calls++
 	c.last = msg
 	return nil
 }
 
-type phase5QueuedExecutor struct {
+type queuedDispatchExecutor struct {
 	calls     int
 	lastMsg   any
 	lastID    string
@@ -39,7 +39,7 @@ type phase5QueuedExecutor struct {
 	execError error
 }
 
-func (e *phase5QueuedExecutor) Execute(ctx context.Context, msg any, commandID string, opts command.DispatchOptions) (command.DispatchReceipt, error) {
+func (e *queuedDispatchExecutor) Execute(ctx context.Context, msg any, commandID string, opts command.DispatchOptions) (command.DispatchReceipt, error) {
 	e.calls++
 	e.lastCtx = ctx
 	e.lastMsg = msg
@@ -54,7 +54,7 @@ func (e *phase5QueuedExecutor) Execute(ctx context.Context, msg any, commandID s
 			Accepted:      true,
 			Mode:          command.ExecutionModeQueued,
 			CommandID:     commandID,
-			DispatchID:    "dispatch-phase5",
+			DispatchID:    "dispatch-queued-command",
 			EnqueuedAt:    &enqueuedAt,
 			CorrelationID: opts.CorrelationID,
 		}
@@ -70,17 +70,17 @@ func TestCommandBusDispatchByNameStaysInlineWhenPolicyQueued(t *testing.T) {
 		}); err != nil {
 			t.Fatalf("SetExecutionPolicy: %v", err)
 		}
-		inline := &phase5InlineCommand{}
+		inline := &queuedDispatchInlineCommand{}
 		if _, err := RegisterCommand(bus, inline); err != nil {
 			t.Fatalf("RegisterCommand: %v", err)
 		}
-		if err := RegisterMessageFactory(bus, phase5CommandName, func(payload map[string]any, _ []string) (phase5CommandMessage, error) {
-			return phase5CommandMessage{Value: toString(payload["value"])}, nil
+		if err := RegisterMessageFactory(bus, queuedDispatchTestCommandName, func(payload map[string]any, _ []string) (queuedDispatchTestMessage, error) {
+			return queuedDispatchTestMessage{Value: toString(payload["value"])}, nil
 		}); err != nil {
 			t.Fatalf("RegisterMessageFactory: %v", err)
 		}
 
-		if err := bus.DispatchByName(context.Background(), phase5CommandName, map[string]any{"value": "legacy-inline"}, nil); err != nil {
+		if err := bus.DispatchByName(context.Background(), queuedDispatchTestCommandName, map[string]any{"value": "legacy-inline"}, nil); err != nil {
 			t.Fatalf("DispatchByName: %v", err)
 		}
 		if inline.calls != 1 {
@@ -94,7 +94,7 @@ func TestCommandBusDispatchByNameStaysInlineWhenPolicyQueued(t *testing.T) {
 
 func TestCommandBusDispatchByNameWithOptionsUsesPolicyQueuedMode(t *testing.T) {
 	commandregistry.WithTestRegistry(func() {
-		queuedExec := &phase5QueuedExecutor{}
+		queuedExec := &queuedDispatchExecutor{}
 		if err := dispatcher.RegisterExecutor(command.ExecutionModeQueued, queuedExec); err != nil {
 			t.Fatalf("RegisterExecutor: %v", err)
 		}
@@ -106,20 +106,20 @@ func TestCommandBusDispatchByNameWithOptionsUsesPolicyQueuedMode(t *testing.T) {
 		}); err != nil {
 			t.Fatalf("SetExecutionPolicy: %v", err)
 		}
-		inline := &phase5InlineCommand{}
+		inline := &queuedDispatchInlineCommand{}
 		if _, err := RegisterCommand(bus, inline); err != nil {
 			t.Fatalf("RegisterCommand: %v", err)
 		}
-		if err := RegisterMessageFactory(bus, phase5CommandName, func(payload map[string]any, _ []string) (phase5CommandMessage, error) {
-			return phase5CommandMessage{Value: toString(payload["value"])}, nil
+		if err := RegisterMessageFactory(bus, queuedDispatchTestCommandName, func(payload map[string]any, _ []string) (queuedDispatchTestMessage, error) {
+			return queuedDispatchTestMessage{Value: toString(payload["value"])}, nil
 		}); err != nil {
 			t.Fatalf("RegisterMessageFactory: %v", err)
 		}
 
-		receipt, err := bus.DispatchByNameWithOptions(context.Background(), phase5CommandName, map[string]any{
+		receipt, err := bus.DispatchByNameWithOptions(context.Background(), queuedDispatchTestCommandName, map[string]any{
 			"value": "queued-policy",
 		}, nil, command.DispatchOptions{
-			CorrelationID: "corr-phase5",
+			CorrelationID: "corr-queued-dispatch",
 		})
 		if err != nil {
 			t.Fatalf("DispatchByNameWithOptions: %v", err)
@@ -136,21 +136,21 @@ func TestCommandBusDispatchByNameWithOptionsUsesPolicyQueuedMode(t *testing.T) {
 		if queuedExec.calls != 1 {
 			t.Fatalf("expected queued executor to run once, got %d", queuedExec.calls)
 		}
-		if queuedExec.lastID != phase5CommandName {
-			t.Fatalf("expected command id %q, got %q", phase5CommandName, queuedExec.lastID)
+		if queuedExec.lastID != queuedDispatchTestCommandName {
+			t.Fatalf("expected command id %q, got %q", queuedDispatchTestCommandName, queuedExec.lastID)
 		}
 		if queuedExec.lastOpts.Mode != command.ExecutionModeQueued {
 			t.Fatalf("expected queued opts mode, got %q", queuedExec.lastOpts.Mode)
 		}
-		if queuedExec.lastOpts.CorrelationID != "corr-phase5" {
-			t.Fatalf("expected correlation id corr-phase5, got %q", queuedExec.lastOpts.CorrelationID)
+		if queuedExec.lastOpts.CorrelationID != "corr-queued-dispatch" {
+			t.Fatalf("expected correlation id corr-queued-dispatch, got %q", queuedExec.lastOpts.CorrelationID)
 		}
 	})
 }
 
 func TestCommandBusDispatchByNameWithOptionsUsesPerCommandOverride(t *testing.T) {
 	commandregistry.WithTestRegistry(func() {
-		queuedExec := &phase5QueuedExecutor{}
+		queuedExec := &queuedDispatchExecutor{}
 		if err := dispatcher.RegisterExecutor(command.ExecutionModeQueued, queuedExec); err != nil {
 			t.Fatalf("RegisterExecutor: %v", err)
 		}
@@ -160,22 +160,22 @@ func TestCommandBusDispatchByNameWithOptionsUsesPerCommandOverride(t *testing.T)
 		if err := bus.SetExecutionPolicy(CommandExecutionPolicy{
 			DefaultMode: command.ExecutionModeInline,
 			PerCommand: map[string]command.ExecutionMode{
-				phase5CommandName: command.ExecutionModeQueued,
+				queuedDispatchTestCommandName: command.ExecutionModeQueued,
 			},
 		}); err != nil {
 			t.Fatalf("SetExecutionPolicy: %v", err)
 		}
-		inline := &phase5InlineCommand{}
+		inline := &queuedDispatchInlineCommand{}
 		if _, err := RegisterCommand(bus, inline); err != nil {
 			t.Fatalf("RegisterCommand: %v", err)
 		}
-		if err := RegisterMessageFactory(bus, phase5CommandName, func(payload map[string]any, _ []string) (phase5CommandMessage, error) {
-			return phase5CommandMessage{Value: toString(payload["value"])}, nil
+		if err := RegisterMessageFactory(bus, queuedDispatchTestCommandName, func(payload map[string]any, _ []string) (queuedDispatchTestMessage, error) {
+			return queuedDispatchTestMessage{Value: toString(payload["value"])}, nil
 		}); err != nil {
 			t.Fatalf("RegisterMessageFactory: %v", err)
 		}
 
-		receipt, err := bus.DispatchByNameWithOptions(context.Background(), phase5CommandName, map[string]any{
+		receipt, err := bus.DispatchByNameWithOptions(context.Background(), queuedDispatchTestCommandName, map[string]any{
 			"value": "queued-per-command",
 		}, nil, command.DispatchOptions{})
 		if err != nil {
@@ -201,17 +201,17 @@ func TestCommandBusDispatchByNameWithOptionsInlineOverrideWinsPolicy(t *testing.
 		}); err != nil {
 			t.Fatalf("SetExecutionPolicy: %v", err)
 		}
-		inline := &phase5InlineCommand{}
+		inline := &queuedDispatchInlineCommand{}
 		if _, err := RegisterCommand(bus, inline); err != nil {
 			t.Fatalf("RegisterCommand: %v", err)
 		}
-		if err := RegisterMessageFactory(bus, phase5CommandName, func(payload map[string]any, _ []string) (phase5CommandMessage, error) {
-			return phase5CommandMessage{Value: toString(payload["value"])}, nil
+		if err := RegisterMessageFactory(bus, queuedDispatchTestCommandName, func(payload map[string]any, _ []string) (queuedDispatchTestMessage, error) {
+			return queuedDispatchTestMessage{Value: toString(payload["value"])}, nil
 		}); err != nil {
 			t.Fatalf("RegisterMessageFactory: %v", err)
 		}
 
-		receipt, err := bus.DispatchByNameWithOptions(context.Background(), phase5CommandName, map[string]any{
+		receipt, err := bus.DispatchByNameWithOptions(context.Background(), queuedDispatchTestCommandName, map[string]any{
 			"value": "explicit-inline",
 		}, nil, command.DispatchOptions{
 			Mode: command.ExecutionModeInline,
@@ -231,13 +231,13 @@ func TestCommandBusDispatchByNameWithOptionsInlineOverrideWinsPolicy(t *testing.
 func TestCommandBusDispatchByNameWithOptionsRejectsInvalidMode(t *testing.T) {
 	commandregistry.WithTestRegistry(func() {
 		bus := NewCommandBus(true)
-		if err := RegisterMessageFactory(bus, phase5CommandName, func(payload map[string]any, _ []string) (phase5CommandMessage, error) {
-			return phase5CommandMessage{Value: toString(payload["value"])}, nil
+		if err := RegisterMessageFactory(bus, queuedDispatchTestCommandName, func(payload map[string]any, _ []string) (queuedDispatchTestMessage, error) {
+			return queuedDispatchTestMessage{Value: toString(payload["value"])}, nil
 		}); err != nil {
 			t.Fatalf("RegisterMessageFactory: %v", err)
 		}
 
-		_, err := bus.DispatchByNameWithOptions(context.Background(), phase5CommandName, map[string]any{"value": "x"}, nil, command.DispatchOptions{
+		_, err := bus.DispatchByNameWithOptions(context.Background(), queuedDispatchTestCommandName, map[string]any{"value": "x"}, nil, command.DispatchOptions{
 			Mode: command.ExecutionMode("bad-mode"),
 		})
 		if err == nil {

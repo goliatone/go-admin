@@ -15,23 +15,23 @@ import (
 )
 
 type translationEditorTestFixtureOptions struct {
-	ReviewRequired        bool
-	AssignmentStatus      AssignmentStatus
-	AssignmentVersion     int64
-	TargetFields          map[string]string
+	ReviewRequired         bool
+	AssignmentStatus       AssignmentStatus
+	AssignmentVersion      int64
+	TargetFields           map[string]string
 	LastSyncedSourceFields map[string]string
-	VariantRowVersion     int64
-	LastRejectionReason   string
-	Permissions           map[string]bool
+	VariantRowVersion      int64
+	LastRejectionReason    string
+	Permissions            map[string]bool
 }
 
 type translationEditorTestFixture struct {
 	translationFamilyMutationFixture
-	app            *fiber.App
-	binding        *translationQueueBinding
-	assignmentID   string
+	app             *fiber.App
+	binding         *translationQueueBinding
+	assignmentID    string
 	targetVariantID string
-	targetRecordID string
+	targetRecordID  string
 }
 
 func newTranslationEditorTestFixture(t *testing.T, options translationEditorTestFixtureOptions) translationEditorTestFixture {
@@ -66,22 +66,22 @@ func newTranslationEditorTestFixture(t *testing.T, options translationEditorTest
 		ReviewRequired:  options.ReviewRequired,
 		Assignments: []TranslationAssignment{
 			{
-				ID:                 "asg-editor-1",
-				TranslationGroupID: "tg-page-1",
-				EntityType:         "pages",
-				TenantID:           "tenant-1",
-				OrgID:              "org-1",
-				SourceRecordID:     "page-1",
-				SourceLocale:       "en",
-				TargetLocale:       "fr",
-				TargetRecordID:     "page-1-fr",
-				SourceTitle:        "Translation guide",
-				SourcePath:         "/page-1",
-				AssignmentType:     AssignmentTypeDirect,
-				Status:             options.AssignmentStatus,
-				Priority:           PriorityHigh,
-				AssigneeID:         "translator-1",
-				Version:            options.AssignmentVersion,
+				ID:                  "asg-editor-1",
+				TranslationGroupID:  "tg-page-1",
+				EntityType:          "pages",
+				TenantID:            "tenant-1",
+				OrgID:               "org-1",
+				SourceRecordID:      "page-1",
+				SourceLocale:        "en",
+				TargetLocale:        "fr",
+				TargetRecordID:      "page-1-fr",
+				SourceTitle:         "Translation guide",
+				SourcePath:          "/page-1",
+				AssignmentType:      AssignmentTypeDirect,
+				Status:              options.AssignmentStatus,
+				Priority:            PriorityHigh,
+				AssigneeID:          "translator-1",
+				Version:             options.AssignmentVersion,
 				LastRejectionReason: options.LastRejectionReason,
 			},
 		},
@@ -121,9 +121,22 @@ func newTranslationEditorTestFixture(t *testing.T, options translationEditorTest
 		"org_id":    "org-1",
 		"attachments": []any{
 			map[string]any{
-				"id":       "asset-1",
-				"kind":     "reference",
-				"filename": "homepage-brief.pdf",
+				"id":          "asset-1",
+				"kind":        "reference",
+				"filename":    "homepage-brief.pdf",
+				"byte_size":   2048,
+				"uploaded_at": "2026-03-12T15:30:00Z",
+				"description": "Homepage localization brief",
+				"url":         "/media/homepage-brief.pdf",
+			},
+			map[string]any{
+				"id":          "asset-2",
+				"kind":        "terminology",
+				"filename":    "glossary.csv",
+				"byte_size":   1024,
+				"uploaded_at": "2026-03-11T10:00:00Z",
+				"description": "Approved glossary extract",
+				"url":         "/media/glossary.csv",
 			},
 		},
 		translationEditorMetadataKey: map[string]any{
@@ -161,9 +174,21 @@ func newTranslationEditorTestFixture(t *testing.T, options translationEditorTest
 			"variant_id":  "page-1-fr",
 			"field_paths": []string{"body"},
 			"source_hash": translationEditorHashFields(currentSourceFields),
+			"body":        "Homepage CTA should stay imperative in French.",
 		},
 	}); err != nil {
 		t.Fatalf("seed activity: %v", err)
+	}
+	if err := base.activity.Record(context.Background(), ActivityEntry{
+		ID:     "evt-editor-2",
+		Actor:  "translator-1",
+		Action: "translation.variant.saved",
+		Object: "translation_assignment:asg-editor-1",
+		Metadata: map[string]any{
+			"variant_id": "page-1-fr",
+		},
+	}); err != nil {
+		t.Fatalf("seed second activity: %v", err)
 	}
 
 	binding := newTranslationQueueBinding(base.admin)
@@ -182,11 +207,11 @@ func newTranslationEditorTestFixture(t *testing.T, options translationEditorTest
 
 	return translationEditorTestFixture{
 		translationFamilyMutationFixture: base,
-		app:            newTranslationQueueTestApp(t, binding),
-		binding:        binding,
-		assignmentID:   "asg-editor-1",
-		targetVariantID: strings.TrimSpace(editorCtx.TargetVariant.ID),
-		targetRecordID: "page-1-fr",
+		app:                              newTranslationQueueTestApp(t, binding),
+		binding:                          binding,
+		assignmentID:                     "asg-editor-1",
+		targetVariantID:                  strings.TrimSpace(editorCtx.TargetVariant.ID),
+		targetRecordID:                   "page-1-fr",
 	}
 }
 
@@ -207,6 +232,9 @@ func TestTranslationEditorAssignmentDetailReturnsDriftAssistTimelineAndActions(t
 	}
 	if got := toString(data["variant_id"]); got != fixture.targetVariantID {
 		t.Fatalf("expected variant_id %q, got %q", fixture.targetVariantID, got)
+	}
+	if got := toInt(data["assignment_row_version"]); got != 2 {
+		t.Fatalf("expected assignment_row_version 2, got %d", got)
 	}
 
 	fieldDrift := extractMap(data["field_drift"])
@@ -231,8 +259,16 @@ func TestTranslationEditorAssignmentDetailReturnsDriftAssistTimelineAndActions(t
 	}
 
 	attachments, _ := data["attachments"].([]any)
-	if len(attachments) != 1 {
-		t.Fatalf("expected one attachment, got %d", len(attachments))
+	if len(attachments) != 2 {
+		t.Fatalf("expected two attachments, got %d", len(attachments))
+	}
+	firstAttachment := extractMap(attachments[0])
+	if got := toInt(firstAttachment["byte_size"]); got != 2048 {
+		t.Fatalf("expected normalized attachment byte_size, got %+v", firstAttachment)
+	}
+	attachmentSummary := extractMap(data["attachment_summary"])
+	if got := toInt(attachmentSummary["total"]); got != 2 {
+		t.Fatalf("expected attachment_summary total=2, got %+v", attachmentSummary)
 	}
 
 	assist := extractMap(data["assist"])
@@ -247,11 +283,15 @@ func TestTranslationEditorAssignmentDetailReturnsDriftAssistTimelineAndActions(t
 
 	comments, _ := data["comments"].([]any)
 	events, _ := data["events"].([]any)
-	if len(comments) != 1 {
-		t.Fatalf("expected one comment from rejection reason, got %d", len(comments))
+	if len(comments) != 2 {
+		t.Fatalf("expected rejection and activity comments, got %d", len(comments))
 	}
 	if len(events) != 1 {
-		t.Fatalf("expected one timeline event, got %d", len(events))
+		t.Fatalf("expected one non-comment timeline event, got %d", len(events))
+	}
+	history := extractMap(data["history"])
+	if got := toInt(history["total"]); got != 3 {
+		t.Fatalf("expected history total=3, got %+v", history)
 	}
 
 	actions := extractMap(data["assignment_action_states"])
@@ -264,10 +304,48 @@ func TestTranslationEditorAssignmentDetailReturnsDriftAssistTimelineAndActions(t
 	}
 }
 
+func TestTranslationEditorAssignmentDetailPaginatesHistory(t *testing.T) {
+	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{
+		ReviewRequired:      true,
+		LastRejectionReason: "Please tighten the CTA tone.",
+	})
+
+	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodGet, "/admin/api/translations/assignments/"+fixture.assignmentID+"?environment=production&tenant_id=tenant-1&org_id=org-1&history_page=2&history_per_page=1", nil)
+	if status != http.StatusOK {
+		t.Fatalf("status=%d want=200 payload=%+v", status, payload)
+	}
+
+	data := extractMap(payload["data"])
+	history := extractMap(data["history"])
+	if got := toInt(history["page"]); got != 2 {
+		t.Fatalf("expected history page 2, got %+v", history)
+	}
+	if got := toInt(history["per_page"]); got != 1 {
+		t.Fatalf("expected history per_page 1, got %+v", history)
+	}
+	if got := toInt(history["total"]); got != 3 {
+		t.Fatalf("expected history total 3, got %+v", history)
+	}
+	items, _ := history["items"].([]any)
+	if len(items) != 1 {
+		t.Fatalf("expected one paged history item, got %+v", history)
+	}
+	item := extractMap(items[0])
+	if got := toString(item["entry_type"]); got == "" {
+		t.Fatalf("expected history entry_type, got %+v", item)
+	}
+}
+
 func TestTranslationEditorUpdateVariantMaintainsSourceHashAndRowVersion(t *testing.T) {
 	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{
 		ReviewRequired: true,
 	})
+
+	originalTarget, err := fixture.content.Page(context.Background(), fixture.targetRecordID, "")
+	if err != nil || originalTarget == nil {
+		t.Fatalf("load original target page: %v", err)
+	}
+	originalSourceHash := toString(originalTarget.Metadata["source_hash_at_last_sync"])
 
 	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodPatch, "/admin/api/translations/variants/"+fixture.targetVariantID+"?environment=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
 		"environment":      "production",
@@ -292,6 +370,10 @@ func TestTranslationEditorUpdateVariantMaintainsSourceHashAndRowVersion(t *testi
 	if got := toString(extractMap(payload["meta"])["autosave"]); got != "true" {
 		t.Fatalf("expected autosave meta true, got %+v", payload["meta"])
 	}
+	fieldDrift := extractMap(data["field_drift"])
+	if changed, _ := extractMap(fieldDrift["title"])["changed"].(bool); !changed {
+		t.Fatalf("expected title drift to remain until source acknowledgement, got %+v", fieldDrift)
+	}
 
 	target, err := fixture.content.Page(context.Background(), fixture.targetRecordID, "")
 	if err != nil || target == nil {
@@ -307,8 +389,72 @@ func TestTranslationEditorUpdateVariantMaintainsSourceHashAndRowVersion(t *testi
 		t.Fatalf("load source page: %v", err)
 	}
 	expectedHash := translationEditorHashFields(translationFamilyFields(source.Title, source.Slug, source.Data))
-	if got := toString(target.Metadata["source_hash_at_last_sync"]); got != expectedHash {
-		t.Fatalf("expected source hash %q, got %q", expectedHash, got)
+	if got := toString(target.Metadata["source_hash_at_last_sync"]); got != originalSourceHash {
+		t.Fatalf("expected source hash to stay at prior sync %q, got %q", originalSourceHash, got)
+	}
+	if expectedHash == originalSourceHash {
+		t.Fatalf("expected fixture to contain source drift")
+	}
+}
+
+func TestTranslationEditorUpdateVariantAcknowledgesCurrentSourceHashWhenRequested(t *testing.T) {
+	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{
+		ReviewRequired: true,
+	})
+
+	source, err := fixture.content.Page(context.Background(), "page-1", "")
+	if err != nil || source == nil {
+		t.Fatalf("load source page: %v", err)
+	}
+	currentSourceHash := translationEditorHashFields(translationFamilyFields(source.Title, source.Slug, source.Data))
+
+	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodPatch, "/admin/api/translations/variants/"+fixture.targetVariantID+"?environment=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
+		"environment":              "production",
+		"expected_version":         3,
+		"acknowledged_source_hash": currentSourceHash,
+		"fields": map[string]any{
+			"title": "Guide de publication",
+		},
+	})
+	if status != http.StatusOK {
+		t.Fatalf("status=%d want=200 payload=%+v", status, payload)
+	}
+
+	data := extractMap(payload["data"])
+	if got := toString(data["source_hash_at_last_sync"]); got != currentSourceHash {
+		t.Fatalf("expected acknowledged source hash %q, got %q", currentSourceHash, got)
+	}
+	drift := extractMap(data["source_target_drift"])
+	summary := extractMap(drift[translationSourceTargetDriftChangedSummaryKey])
+	if got := toInt(summary[translationSourceTargetDriftSummaryCountKey]); got != 0 {
+		t.Fatalf("expected cleared drift after acknowledgement, got %+v", summary)
+	}
+}
+
+func TestTranslationEditorUpdateVariantRejectsStaleSourceAcknowledgement(t *testing.T) {
+	fixture := newTranslationEditorTestFixture(t, translationEditorTestFixtureOptions{
+		ReviewRequired: true,
+	})
+
+	status, payload := doTranslationEditorJSONRequest(t, fixture.app, http.MethodPatch, "/admin/api/translations/variants/"+fixture.targetVariantID+"?environment=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
+		"environment":              "production",
+		"expected_version":         3,
+		"acknowledged_source_hash": "stale-source-hash",
+		"fields": map[string]any{
+			"title": "Guide de publication",
+		},
+	})
+	if status != http.StatusConflict {
+		t.Fatalf("status=%d want=409 payload=%+v", status, payload)
+	}
+
+	errPayload := extractMap(payload["error"])
+	if got := toString(errPayload["text_code"]); got != string(translationcore.ErrorVersionConflict) {
+		t.Fatalf("expected text_code %q, got %q", string(translationcore.ErrorVersionConflict), got)
+	}
+	meta := extractMap(errPayload["metadata"])
+	if got := toString(meta["field"]); got != translationEditorAcknowledgedSourceHashKey {
+		t.Fatalf("expected field %q, got %+v", translationEditorAcknowledgedSourceHashKey, meta)
 	}
 }
 

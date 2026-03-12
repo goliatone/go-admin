@@ -89,7 +89,7 @@ func (c *capturingTranslationImportRunCommand) Execute(_ context.Context, msg Tr
 	return nil
 }
 
-// Task 16.3: CLI/job trigger tests proving command reuse and no behavior drift
+// Ensure CLI and job triggers reuse the same command path without behavior drift.
 
 func TestTranslationImportRunTriggerCommandCronHandlerDispatchesTriggerInput(t *testing.T) {
 	registry.WithTestRegistry(func() {

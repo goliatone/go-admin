@@ -79,7 +79,7 @@ func TestPlannerValidationTypicalModuleCountMeetsStartupBudget(t *testing.T) {
 	})
 
 	start := time.Now()
-	for _, contract := range typicalPhase9Contracts(12) {
+	for _, contract := range typicalPlannerContracts(12) {
 		if err := planner.RegisterModule(contract); err != nil {
 			t.Fatalf("register module %q: %v", contract.Slug, err)
 		}
@@ -94,7 +94,7 @@ func TestPlannerValidationTypicalModuleCountMeetsStartupBudget(t *testing.T) {
 }
 
 func BenchmarkPlannerValidationTypicalModuleCount(b *testing.B) {
-	contracts := typicalPhase9Contracts(12)
+	contracts := typicalPlannerContracts(12)
 	cfg := Config{
 		Roots: RootsConfig{
 			AdminRoot:     "/admin",
@@ -118,13 +118,13 @@ func BenchmarkPlannerValidationTypicalModuleCount(b *testing.B) {
 }
 
 func TestReleaseAuditAdapterHooksRemainAvailableForUpstreamStrictFeatures(t *testing.T) {
-	urls := phase9URLKitCapabilityAdapter{
+	urls := releaseAuditURLKitCapabilityAdapter{
 		URLKitCapabilities: URLKitCapabilities{
 			NativeStrictMutations: true,
 			NativeManifest:        true,
 		},
 	}
-	routerAdapter := phase9RouterCapabilityAdapter{
+	routerAdapter := releaseAuditRouterCapabilityAdapter{
 		RouterCapabilities: RouterCapabilities{
 			NativeRouteNamePolicy: true,
 			NativeOwnershipChecks: true,
@@ -161,7 +161,7 @@ func TestReleaseAuditWarnsWhenNativeCapabilityHooksAreNotAdvertised(t *testing.T
 	}
 }
 
-func typicalPhase9Contracts(count int) []ModuleContract {
+func typicalPlannerContracts(count int) []ModuleContract {
 	contracts := make([]ModuleContract, 0, count)
 	for i := 0; i < count; i++ {
 		slug := fmt.Sprintf("module_%02d", i)
@@ -195,20 +195,20 @@ func mustPlannerForBenchmark(b *testing.B, cfg Config) Planner {
 	return planner
 }
 
-type phase9URLKitCapabilityAdapter struct {
+type releaseAuditURLKitCapabilityAdapter struct {
 	stubURLKitAdapter
 	URLKitCapabilities
 }
 
-func (a phase9URLKitCapabilityAdapter) RoutingURLKitCapabilities() URLKitCapabilities {
+func (a releaseAuditURLKitCapabilityAdapter) RoutingURLKitCapabilities() URLKitCapabilities {
 	return a.URLKitCapabilities
 }
 
-type phase9RouterCapabilityAdapter struct {
+type releaseAuditRouterCapabilityAdapter struct {
 	stubRouterAdapter
 	RouterCapabilities
 }
 
-func (a phase9RouterCapabilityAdapter) RoutingRouterCapabilities() RouterCapabilities {
+func (a releaseAuditRouterCapabilityAdapter) RoutingRouterCapabilities() RouterCapabilities {
 	return a.RouterCapabilities
 }

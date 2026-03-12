@@ -757,7 +757,7 @@ func TestDeriveBlockRequiredFields(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Phase 2: Template API Integration Tests
+// Template API Integration Tests
 // ---------------------------------------------------------------------------
 
 func TestBlockDefinitionsToResponse_ActiveItemsNotDisabled(t *testing.T) {

@@ -9,8 +9,8 @@ import (
 	"time"
 )
 
-func TestTranslationQueuePhaseEightFixtureContracts(t *testing.T) {
-	data, err := os.ReadFile("testdata/translation_queue_phase8_fixtures.json")
+func TestTranslationQueueContractFixtures(t *testing.T) {
+	data, err := os.ReadFile("testdata/translation_queue_contract_fixtures.json")
 	if err != nil {
 		t.Fatalf("read fixture: %v", err)
 	}
