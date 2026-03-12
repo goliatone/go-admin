@@ -77,7 +77,7 @@ func TestTranslationExchangeBindingImportValidateParsesCSVAndRecordsConflictActi
 
 	csvPayload := "resource,entity_id,translation_group_id,target_locale,field_path,source_text,source_hash\npages,page_123,tg_123,es,title,Hello world,abc123"
 	body, contentType := buildMultipartFile(t, "translations.csv", "text/csv", []byte(csvPayload))
-	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/import/validate", body)
+	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/import/validate", body)
 	req.Header.Set("Content-Type", contentType)
 
 	resp, err := app.Test(req)
@@ -151,7 +151,7 @@ func TestTranslationExchangeBindingImportApplyUsesExplicitCreateIntentOptions(t 
 		"dry_run":                    true,
 	}
 	raw, _ := json.Marshal(payload)
-	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/import/apply", bytes.NewReader(raw))
+	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/import/apply", bytes.NewReader(raw))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "ops-user")
 
@@ -179,6 +179,42 @@ func TestTranslationExchangeBindingImportApplyUsesExplicitCreateIntentOptions(t 
 	}
 }
 
+func TestTranslationExchangeBindingImportValidateEchoesTraceHeaders(t *testing.T) {
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
+	executor := &stubTranslationExchangeExecutor{
+		validateResult: TranslationExchangeResult{
+			Summary: TranslationExchangeSummary{Processed: 0},
+		},
+	}
+	binding := newTranslationExchangeBinding(adm)
+	binding.executor = executor
+	app := newTranslationExchangeTestApp(t, binding)
+
+	csvPayload := "resource,entity_id,translation_group_id,target_locale,field_path,source_text,source_hash\npages,page_123,tg_123,es,title,Hello world,abc123"
+	body, contentType := buildMultipartFile(t, "translations.csv", "text/csv", []byte(csvPayload))
+	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/import/validate", body)
+	req.Header.Set("Content-Type", contentType)
+	req.Header.Set("X-Request-ID", "req-exchange-1")
+	req.Header.Set("X-Correlation-ID", "corr-exchange-1")
+	req.Header.Set("X-Trace-ID", "trace-exchange-1")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if got := resp.Header.Get("X-Request-ID"); got != "req-exchange-1" {
+		t.Fatalf("expected X-Request-ID req-exchange-1, got %q", got)
+	}
+	if got := resp.Header.Get("X-Correlation-ID"); got != "corr-exchange-1" {
+		t.Fatalf("expected X-Correlation-ID corr-exchange-1, got %q", got)
+	}
+	if got := resp.Header.Get("X-Trace-ID"); got != "trace-exchange-1" {
+		t.Fatalf("expected X-Trace-ID trace-exchange-1, got %q", got)
+	}
+}
+
 func TestTranslationExchangeBindingImportValidateRejectsUnsupportedFormatWithTypedCode(t *testing.T) {
 	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
 	executor := &stubTranslationExchangeExecutor{}
@@ -187,7 +223,7 @@ func TestTranslationExchangeBindingImportValidateRejectsUnsupportedFormatWithTyp
 	app := newTranslationExchangeTestApp(t, binding)
 
 	body, contentType := buildMultipartFile(t, "translations.xml", "text/xml", []byte("<x/>"))
-	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/import/validate", body)
+	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/import/validate", body)
 	req.Header.Set("Content-Type", contentType)
 
 	resp, err := app.Test(req)
@@ -238,7 +274,7 @@ func TestTranslationExchangeBindingExportParsesFilterFromJSON(t *testing.T) {
 		},
 	}
 	raw, _ := json.Marshal(payload)
-	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/export", bytes.NewReader(raw))
+	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/export", bytes.NewReader(raw))
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := app.Test(req)
@@ -295,7 +331,7 @@ func TestTranslationExchangeBindingImportValidateParsesJSONPayload(t *testing.T)
 		},
 	}
 	raw, _ := json.Marshal(payload)
-	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/import/validate", bytes.NewReader(raw))
+	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/import/validate", bytes.NewReader(raw))
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := app.Test(req)
@@ -326,7 +362,7 @@ func TestTranslationExchangeBindingImportValidateMalformedCSVReturnsTypedError(t
 	// CSV with mismatched column count in data row
 	malformedCSV := "resource,entity_id,translation_group_id,target_locale,field_path\npages,page_1,tg_1"
 	body, contentType := buildMultipartFile(t, "translations.csv", "text/csv", []byte(malformedCSV))
-	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/import/validate", body)
+	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/import/validate", body)
 	req.Header.Set("Content-Type", contentType)
 
 	resp, err := app.Test(req)
@@ -373,7 +409,7 @@ func TestTranslationExchangeBindingImportValidateMissingRequiredFieldsReturnsTyp
 		},
 	}
 	raw, _ := json.Marshal(payload)
-	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/import/validate", bytes.NewReader(raw))
+	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/import/validate", bytes.NewReader(raw))
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := app.Test(req)
@@ -412,7 +448,7 @@ func TestTranslationExchangeBindingImportApplyParsesCSVWithTranslatedText(t *tes
 
 	csvPayload := "resource,entity_id,translation_group_id,target_locale,field_path,translated_text,source_hash\npages,page_123,tg_123,es,title,\"Hola mundo\",abc123"
 	body, contentType := buildMultipartFile(t, "translations.csv", "text/csv", []byte(csvPayload))
-	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/import/apply", body)
+	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/import/apply", body)
 	req.Header.Set("Content-Type", contentType)
 
 	resp, err := app.Test(req)
@@ -459,7 +495,7 @@ func TestTranslationExchangeBindingExportDispatchesCommandAndReturnsResult(t *te
 		},
 	}
 	raw, _ := json.Marshal(payload)
-	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/export", bytes.NewReader(raw))
+	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/export", bytes.NewReader(raw))
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := app.Test(req)
@@ -494,7 +530,7 @@ func TestTranslationExchangeBindingImportApplyEmptyRowsReturnsTypedError(t *test
 		"rows": []map[string]any{},
 	}
 	raw, _ := json.Marshal(payload)
-	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/import/apply", bytes.NewReader(raw))
+	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/import/apply", bytes.NewReader(raw))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "ops-user")
 
@@ -579,7 +615,7 @@ func TestTranslationExchangeBindingImportApplyAsyncReturnsJobEnvelopeWithConflic
 		"async": true,
 	}
 	raw, _ := json.Marshal(payload)
-	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/import/apply", bytes.NewReader(raw))
+	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/import/apply", bytes.NewReader(raw))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "ops-user")
 
@@ -661,7 +697,7 @@ func TestTranslationExchangeBindingExportAsyncReturnsJobEnvelope(t *testing.T) {
 		"async": true,
 	}
 	raw, _ := json.Marshal(payload)
-	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/export", bytes.NewReader(raw))
+	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/export", bytes.NewReader(raw))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "ops-user")
 
@@ -713,7 +749,7 @@ func TestTranslationExchangeBindingJobStatusRequiresJobOwner(t *testing.T) {
 		},
 		"async": true,
 	})
-	createReq := httptest.NewRequest(http.MethodPost, "/admin/api/translations/export", bytes.NewReader(raw))
+	createReq := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/export", bytes.NewReader(raw))
 	createReq.Header.Set("Content-Type", "application/json")
 	createReq.Header.Set("X-User-ID", "owner-user")
 
@@ -754,7 +790,8 @@ func TestTranslationExchangeBindingJobStatusRequiresJobOwner(t *testing.T) {
 	mockCtx.On("Context").Return(context.Background())
 	mockCtx.On("IP").Return("").Maybe()
 	mockCtx.On("Header", "X-User-ID").Return("other-user")
-	mockCtx.On("Param", "id", "").Return(jobID)
+	mockCtx.On("Param", "job_id", "").Return(jobID)
+	mockCtx.On("Param", "id", "").Return("")
 	_, err = binding.JobStatus(mockCtx, jobID)
 	if err == nil {
 		t.Fatalf("expected job status ownership check to fail")
@@ -776,32 +813,32 @@ func newTranslationExchangeTestApp(t *testing.T, binding *translationExchangeBin
 		})
 	})
 	r := adapter.Router()
-	r.Post("/admin/api/translations/export", func(c router.Context) error {
+	r.Post("/admin/api/translations/exchange/export", func(c router.Context) error {
 		payload, err := binding.Export(c)
 		if err != nil {
 			return writeError(c, err)
 		}
 		return writeJSON(c, payload)
 	})
-	r.Get("/admin/api/translations/template", func(c router.Context) error {
+	r.Get("/admin/api/translations/exchange/template", func(c router.Context) error {
 		return binding.Template(c)
 	})
-	r.Post("/admin/api/translations/import/validate", func(c router.Context) error {
+	r.Post("/admin/api/translations/exchange/import/validate", func(c router.Context) error {
 		payload, err := binding.ImportValidate(c)
 		if err != nil {
 			return writeError(c, err)
 		}
 		return writeJSON(c, payload)
 	})
-	r.Post("/admin/api/translations/import/apply", func(c router.Context) error {
+	r.Post("/admin/api/translations/exchange/import/apply", func(c router.Context) error {
 		payload, err := binding.ImportApply(c)
 		if err != nil {
 			return writeError(c, err)
 		}
 		return writeJSON(c, payload)
 	})
-	r.Get("/admin/api/translations/jobs/:id", func(c router.Context) error {
-		payload, err := binding.JobStatus(c, c.Param("id", ""))
+	r.Get("/admin/api/translations/exchange/jobs/:job_id", func(c router.Context) error {
+		payload, err := binding.JobStatus(c, c.Param("job_id", ""))
 		if err != nil {
 			return writeError(c, err)
 		}

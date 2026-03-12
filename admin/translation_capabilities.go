@@ -188,7 +188,17 @@ func translationCapabilityRoutes(adm *Admin) (map[string]string, []string) {
 		if strings.TrimSpace(group) == "" || strings.TrimSpace(route) == "" || strings.TrimSpace(key) == "" {
 			return
 		}
-		path := strings.TrimSpace(resolveURLWith(adm.URLs(), group, route, nil, nil))
+		path := ""
+		if routes, ok := adm.URLs().(interface {
+			RoutePath(string, string) (string, error)
+		}); ok {
+			if routePath, err := routes.RoutePath(group, route); err == nil {
+				path = strings.TrimSpace(routePath)
+			}
+		}
+		if path == "" {
+			path = strings.TrimSpace(resolveURLWith(adm.URLs(), group, route, nil, nil))
+		}
 		if path == "" {
 			return
 		}
@@ -199,8 +209,17 @@ func translationCapabilityRoutes(adm *Admin) (map[string]string, []string) {
 	register(adminGroup, "translations.queue", "admin.translations.queue")
 	register(adminGroup, "translations.dashboard", "admin.translations.dashboard")
 	register(adminGroup, "translations.exchange", "admin.translations.exchange")
+	register(adminGroup, "translations.families.id", "admin.translations.families.id")
+	register(adminGroup, "translations.assignments.id", "admin.translations.assignments.id")
 	register(adminAPIGroup, "translations.export", fmt.Sprintf("%s.%s", adminAPIGroup, "translations.export"))
 	register(adminAPIGroup, "translations.template", fmt.Sprintf("%s.%s", adminAPIGroup, "translations.template"))
+	register(adminAPIGroup, "translations.families", fmt.Sprintf("%s.%s", adminAPIGroup, "translations.families"))
+	register(adminAPIGroup, "translations.families.id", fmt.Sprintf("%s.%s", adminAPIGroup, "translations.families.id"))
+	register(adminAPIGroup, "translations.families.variants", fmt.Sprintf("%s.%s", adminAPIGroup, "translations.families.variants"))
+	register(adminAPIGroup, "translations.variants.id", fmt.Sprintf("%s.%s", adminAPIGroup, "translations.variants.id"))
+	register(adminAPIGroup, "translations.assignments", fmt.Sprintf("%s.%s", adminAPIGroup, "translations.assignments"))
+	register(adminAPIGroup, "translations.assignments.id", fmt.Sprintf("%s.%s", adminAPIGroup, "translations.assignments.id"))
+	register(adminAPIGroup, "translations.assignments.actions", fmt.Sprintf("%s.%s", adminAPIGroup, "translations.assignments.actions"))
 	register(adminAPIGroup, "translations.my_work", fmt.Sprintf("%s.%s", adminAPIGroup, "translations.my_work"))
 	register(adminAPIGroup, "translations.queue", fmt.Sprintf("%s.%s", adminAPIGroup, "translations.queue"))
 	register(adminAPIGroup, "translations.jobs.id", fmt.Sprintf("%s.%s", adminAPIGroup, "translations.jobs.id"))

@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
+	"expvar"
 	"log/slog"
 	"sync"
 	"testing"
@@ -210,6 +211,45 @@ func cloneTagsMap(values map[string]string) map[string]string {
 		out[key] = value
 	}
 	return out
+}
+
+func TestRecordTranslationAPIOperationLogsTraceCorrelation(t *testing.T) {
+	originalLogger := translationObservabilityLogger
+	logCapture := &capturingSlogHandler{}
+	translationObservabilityLogger = slog.New(logCapture)
+	originalMetrics := translationAPIObservabilityMetrics
+	translationAPIObservabilityMetrics = expvar.NewMap("test_translation_api_operation_count")
+	t.Cleanup(func() {
+		translationObservabilityLogger = originalLogger
+		translationAPIObservabilityMetrics = originalMetrics
+	})
+
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, requestIDContextKey, "req-telemetry-1")
+	ctx = context.WithValue(ctx, traceIDContextKey, "trace-telemetry-1")
+	ctx = context.WithValue(ctx, tenantIDContextKey, "tenant-1")
+	ctx = context.WithValue(ctx, orgIDContextKey, "org-1")
+
+	recordTranslationAPIOperation(ctx, translationAPIObservation{
+		Operation: "translations.queue.list",
+		Kind:      "read",
+		RequestID: requestIDFromContext(ctx),
+		TraceID:   traceIDFromContext(ctx),
+		TenantID:  tenantIDFromContext(ctx),
+		OrgID:     orgIDFromContext(ctx),
+	})
+
+	records := logCapture.Records()
+	if len(records) != 1 {
+		t.Fatalf("expected one api operation log entry, got %d", len(records))
+	}
+	attrs := slogRecordAttrs(records[0])
+	if attrs["event"] != "translation.api.operation" {
+		t.Fatalf("expected api operation event, got %+v", attrs)
+	}
+	if attrs["request_id"] != "req-telemetry-1" || attrs["trace_id"] != "trace-telemetry-1" {
+		t.Fatalf("expected request/trace correlation attrs, got %+v", attrs)
+	}
 }
 
 type capturingSlogHandler struct {

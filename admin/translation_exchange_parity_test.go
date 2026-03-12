@@ -3,7 +3,10 @@ package admin
 import (
 	"encoding/json"
 	"reflect"
+	"strings"
 	"testing"
+
+	router "github.com/goliatone/go-router"
 )
 
 func TestTranslationImportValidateInputFactoryMatchesHTTPJSONParsing(t *testing.T) {
@@ -87,5 +90,44 @@ func TestTranslationImportApplyInputFactoryMatchesHTTPJSONParsing(t *testing.T) 
 	}
 	if msg.DryRun != httpInput.DryRun {
 		t.Fatalf("dry_run drift: factory=%v http=%v", msg.DryRun, httpInput.DryRun)
+	}
+}
+
+func TestParseTranslationExportInputRejectsClientIdentityFields(t *testing.T) {
+	mockCtx := router.NewMockContext()
+	mockCtx.On("Body").Return([]byte(`{"actor_id":"spoofed","resources":["pages"]}`))
+	mockCtx.On("Query", "resources").Return("")
+	mockCtx.On("Query", "resource").Return("")
+	mockCtx.On("Query", "entity_ids").Return("")
+	mockCtx.On("Query", "entity_id").Return("")
+	mockCtx.On("Query", "id").Return("")
+	mockCtx.On("Query", "ids").Return("")
+	mockCtx.On("Query", "source_locale").Return("")
+	mockCtx.On("Query", "locale").Return("")
+	mockCtx.On("Query", "target_locales").Return("")
+	mockCtx.On("Query", "target_locale").Return("")
+	mockCtx.On("Query", "field_paths").Return("")
+	mockCtx.On("Query", "field_path").Return("")
+	mockCtx.On("Query", "include_source_hash").Return("")
+
+	_, _, err := parseTranslationExportInput(mockCtx)
+	if err == nil {
+		t.Fatalf("expected actor_id to be rejected")
+	}
+	if !strings.Contains(err.Error(), "auth-derived identity fields") {
+		t.Fatalf("expected identity-field error, got %v", err)
+	}
+}
+
+func TestParseTranslationImportJSONRejectsClientIdentityFields(t *testing.T) {
+	_, _, err := parseTranslationImportJSON([]byte(`{
+		"tenant_id":"tenant-1",
+		"rows":[{"resource":"pages","entity_id":"page_1","translation_group_id":"tg_1","target_locale":"es","field_path":"title","translated_text":"Hola"}]
+	}`), true)
+	if err == nil {
+		t.Fatalf("expected tenant_id to be rejected")
+	}
+	if !strings.Contains(err.Error(), "auth-derived identity fields") {
+		t.Fatalf("expected identity-field error, got %v", err)
 	}
 }
