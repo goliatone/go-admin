@@ -26,13 +26,13 @@ type BackfillSourceVariant struct {
 }
 
 type BackfillPolicy struct {
-	SourceLocale          string              `json:"source_locale,omitempty"`
-	RequiredLocales       []string            `json:"required_locales,omitempty"`
-	RequiredFields        map[string][]string `json:"required_fields,omitempty"`
-	ReviewRequired        bool                `json:"review_required,omitempty"`
-	AllowPublishOverride  bool                `json:"allow_publish_override,omitempty"`
-	AssignmentLifecycleMode string            `json:"assignment_lifecycle_mode,omitempty"`
-	DefaultWorkScope      string              `json:"default_work_scope,omitempty"`
+	SourceLocale            string              `json:"source_locale,omitempty"`
+	RequiredLocales         []string            `json:"required_locales,omitempty"`
+	RequiredFields          map[string][]string `json:"required_fields,omitempty"`
+	ReviewRequired          bool                `json:"review_required,omitempty"`
+	AllowPublishOverride    bool                `json:"allow_publish_override,omitempty"`
+	AssignmentLifecycleMode string              `json:"assignment_lifecycle_mode,omitempty"`
+	DefaultWorkScope        string              `json:"default_work_scope,omitempty"`
 }
 
 type BackfillInput struct {
@@ -64,9 +64,12 @@ type BackfillVariant struct {
 	Locale             string            `json:"locale"`
 	Status             string            `json:"status"`
 	IsSource           bool              `json:"is_source"`
+	SourceHashAtLastSync string          `json:"source_hash_at_last_sync,omitempty"`
 	Fields             map[string]string `json:"fields,omitempty"`
 	SourceRecordID     string            `json:"source_record_id"`
 	TranslationGroupID string            `json:"translation_group_id,omitempty"`
+	CreatedAt          time.Time         `json:"created_at,omitempty"`
+	UpdatedAt          time.Time         `json:"updated_at,omitempty"`
 }
 
 type BackfillAssignment struct {
@@ -286,6 +289,8 @@ func buildFamilyPlan(familyID string, records []BackfillSourceVariant, policy Ba
 			Fields:             record.Fields,
 			SourceRecordID:     record.SourceRecordID,
 			TranslationGroupID: record.TranslationGroupID,
+			CreatedAt:          record.CreatedAt,
+			UpdatedAt:          record.UpdatedAt,
 		}
 		if variant.IsSource {
 			family.SourceVariantID = variantID

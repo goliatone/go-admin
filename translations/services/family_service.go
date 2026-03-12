@@ -27,38 +27,38 @@ type FamilyPolicy struct {
 }
 
 type FamilyVariant struct {
-	ID                   string                 `json:"id"`
-	FamilyID             string                 `json:"family_id"`
-	TenantID             string                 `json:"tenant_id,omitempty"`
-	OrgID                string                 `json:"org_id,omitempty"`
-	Locale               string                 `json:"locale"`
-	Status               string                 `json:"status"`
-	IsSource             bool                   `json:"is_source"`
-	SourceHashAtLastSync string                 `json:"source_hash_at_last_sync,omitempty"`
-	Fields               map[string]string      `json:"fields,omitempty"`
-	Metadata             map[string]any         `json:"metadata,omitempty"`
-	SourceRecordID       string                 `json:"source_record_id,omitempty"`
-	UpdatedAt            time.Time              `json:"updated_at,omitempty"`
-	CreatedAt            time.Time              `json:"created_at,omitempty"`
-	PublishedAt          *time.Time             `json:"published_at,omitempty"`
+	ID                   string            `json:"id"`
+	FamilyID             string            `json:"family_id"`
+	TenantID             string            `json:"tenant_id,omitempty"`
+	OrgID                string            `json:"org_id,omitempty"`
+	Locale               string            `json:"locale"`
+	Status               string            `json:"status"`
+	IsSource             bool              `json:"is_source"`
+	SourceHashAtLastSync string            `json:"source_hash_at_last_sync,omitempty"`
+	Fields               map[string]string `json:"fields,omitempty"`
+	Metadata             map[string]any    `json:"metadata,omitempty"`
+	SourceRecordID       string            `json:"source_record_id,omitempty"`
+	UpdatedAt            time.Time         `json:"updated_at,omitempty"`
+	CreatedAt            time.Time         `json:"created_at,omitempty"`
+	PublishedAt          *time.Time        `json:"published_at,omitempty"`
 }
 
 type FamilyAssignment struct {
 	ID           string     `json:"id"`
-	FamilyID      string     `json:"family_id"`
-	VariantID     string     `json:"variant_id,omitempty"`
-	TenantID      string     `json:"tenant_id,omitempty"`
-	OrgID         string     `json:"org_id,omitempty"`
-	SourceLocale  string     `json:"source_locale,omitempty"`
-	TargetLocale  string     `json:"target_locale"`
-	WorkScope     string     `json:"work_scope,omitempty"`
-	Status        string     `json:"status"`
-	AssigneeID    string     `json:"assignee_id,omitempty"`
-	ReviewerID    string     `json:"reviewer_id,omitempty"`
-	Priority      string     `json:"priority,omitempty"`
-	DueDate       *time.Time `json:"due_date,omitempty"`
-	UpdatedAt     time.Time  `json:"updated_at,omitempty"`
-	CreatedAt     time.Time  `json:"created_at,omitempty"`
+	FamilyID     string     `json:"family_id"`
+	VariantID    string     `json:"variant_id,omitempty"`
+	TenantID     string     `json:"tenant_id,omitempty"`
+	OrgID        string     `json:"org_id,omitempty"`
+	SourceLocale string     `json:"source_locale,omitempty"`
+	TargetLocale string     `json:"target_locale"`
+	WorkScope    string     `json:"work_scope,omitempty"`
+	Status       string     `json:"status"`
+	AssigneeID   string     `json:"assignee_id,omitempty"`
+	ReviewerID   string     `json:"reviewer_id,omitempty"`
+	Priority     string     `json:"priority,omitempty"`
+	DueDate      *time.Time `json:"due_date,omitempty"`
+	UpdatedAt    time.Time  `json:"updated_at,omitempty"`
+	CreatedAt    time.Time  `json:"created_at,omitempty"`
 }
 
 type FamilyBlocker struct {
@@ -73,23 +73,23 @@ type FamilyBlocker struct {
 }
 
 type FamilyRecord struct {
-	ID                         string            `json:"id"`
-	TenantID                   string            `json:"tenant_id,omitempty"`
-	OrgID                      string            `json:"org_id,omitempty"`
-	ContentType                string            `json:"content_type"`
-	SourceLocale               string            `json:"source_locale"`
-	SourceVariantID            string            `json:"source_variant_id,omitempty"`
-	ReadinessState             string            `json:"readiness_state"`
-	MissingRequiredLocaleCount int               `json:"missing_required_locale_count"`
-	PendingReviewCount         int               `json:"pending_review_count"`
-	OutdatedLocaleCount        int               `json:"outdated_locale_count"`
-	BlockerCodes               []string          `json:"blocker_codes,omitempty"`
-	Variants                   []FamilyVariant   `json:"variants,omitempty"`
+	ID                         string             `json:"id"`
+	TenantID                   string             `json:"tenant_id,omitempty"`
+	OrgID                      string             `json:"org_id,omitempty"`
+	ContentType                string             `json:"content_type"`
+	SourceLocale               string             `json:"source_locale"`
+	SourceVariantID            string             `json:"source_variant_id,omitempty"`
+	ReadinessState             string             `json:"readiness_state"`
+	MissingRequiredLocaleCount int                `json:"missing_required_locale_count"`
+	PendingReviewCount         int                `json:"pending_review_count"`
+	OutdatedLocaleCount        int                `json:"outdated_locale_count"`
+	BlockerCodes               []string           `json:"blocker_codes,omitempty"`
+	Variants                   []FamilyVariant    `json:"variants,omitempty"`
 	Assignments                []FamilyAssignment `json:"assignments,omitempty"`
-	Blockers                   []FamilyBlocker   `json:"blockers,omitempty"`
-	Policy                     FamilyPolicy      `json:"policy,omitempty"`
-	CreatedAt                  time.Time         `json:"created_at,omitempty"`
-	UpdatedAt                  time.Time         `json:"updated_at,omitempty"`
+	Blockers                   []FamilyBlocker    `json:"blockers,omitempty"`
+	Policy                     FamilyPolicy       `json:"policy,omitempty"`
+	CreatedAt                  time.Time          `json:"created_at,omitempty"`
+	UpdatedAt                  time.Time          `json:"updated_at,omitempty"`
 }
 
 type ListFamiliesInput struct {
@@ -255,8 +255,11 @@ func (s *InMemoryFamilyStore) LoadBackfillPlan(plan BackfillPlan) error {
 				Locale:         strings.TrimSpace(strings.ToLower(variant.Locale)),
 				Status:         normalizeVariantStatus(variant.Status),
 				IsSource:       variant.IsSource,
+				SourceHashAtLastSync: strings.TrimSpace(variant.SourceHashAtLastSync),
 				Fields:         cloneStringMap(variant.Fields),
 				SourceRecordID: strings.TrimSpace(variant.SourceRecordID),
+				CreatedAt:      variant.CreatedAt,
+				UpdatedAt:      variant.UpdatedAt,
 			})
 		}
 		for _, assignment := range family.Assignments {
