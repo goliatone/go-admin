@@ -1,0 +1,321 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Translation Flow",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/translations/families": {
+      "get": {
+        "operationId": "listTranslationFamilies",
+        "summary": "List translation families"
+      }
+    },
+    "/api/translations/families/{family_id}": {
+      "get": {
+        "operationId": "getTranslationFamily",
+        "summary": "Get translation family detail"
+      }
+    },
+    "/api/translations/families/{family_id}/variants": {
+      "post": {
+        "operationId": "createTranslationVariant",
+        "summary": "Create a locale variant for a family",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateVariantRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/translations/variants/{variant_id}": {
+      "patch": {
+        "operationId": "updateTranslationVariant",
+        "summary": "Patch a locale variant",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateVariantRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/translations/assignments": {
+      "get": {
+        "operationId": "listTranslationAssignments",
+        "summary": "List translation assignments"
+      }
+    },
+    "/api/translations/assignments/{assignment_id}": {
+      "get": {
+        "operationId": "getTranslationAssignment",
+        "summary": "Get translation assignment detail"
+      }
+    },
+    "/api/translations/assignments/{assignment_id}/actions/{action}": {
+      "post": {
+        "operationId": "runTranslationAssignmentAction",
+        "summary": "Run a typed assignment workflow action",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignmentActionRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/translations/exchange/export": {
+      "post": {
+        "operationId": "exportTranslations",
+        "summary": "Create a translation export job"
+      }
+    },
+    "/api/translations/exchange/import/validate": {
+      "post": {
+        "operationId": "validateTranslationImport",
+        "summary": "Validate a translation import payload"
+      }
+    },
+    "/api/translations/exchange/import/apply": {
+      "post": {
+        "operationId": "applyTranslationImport",
+        "summary": "Apply a validated translation import payload"
+      }
+    },
+    "/api/translations/exchange/jobs/{job_id}": {
+      "get": {
+        "operationId": "getTranslationExchangeJob",
+        "summary": "Get translation exchange job status"
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "EnvelopeMeta": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "integer"
+          },
+          "per_page": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": true
+      },
+      "ErrorEnvelope": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": [
+              "code",
+              "message"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "VALIDATION_ERROR",
+                  "NOT_FOUND",
+                  "PERMISSION_DENIED",
+                  "VERSION_CONFLICT",
+                  "INVALID_STATUS_TRANSITION",
+                  "MISSING_LINKAGE",
+                  "DUPLICATE_ROW",
+                  "STALE_SOURCE_HASH",
+                  "POLICY_BLOCKED",
+                  "INTERNAL_ERROR"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "details": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "request_id": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "CreateVariantRequest": {
+        "type": "object",
+        "required": [
+          "locale"
+        ],
+        "properties": {
+          "locale": {
+            "type": "string"
+          },
+          "auto_create_assignment": {
+            "type": "boolean"
+          },
+          "assignee_id": {
+            "type": "string",
+            "description": "Reserved for host-side assignment wiring. Actor is derived server-side."
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "low",
+              "normal",
+              "high",
+              "urgent"
+            ]
+          },
+          "due_date": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdateVariantRequest": {
+        "type": "object",
+        "properties": {
+          "fields": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "expected_version": {
+            "type": "integer"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AssignmentActionRequest": {
+        "type": "object",
+        "properties": {
+          "expected_version": {
+            "type": "integer"
+          },
+          "assignee_id": {
+            "type": "string"
+          },
+          "reviewer_id": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TranslationVocabulary": {
+        "type": "object",
+        "properties": {
+          "family_readiness": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "ready",
+                "blocked"
+              ]
+            }
+          },
+          "family_blockers": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "missing_locale",
+                "missing_field",
+                "pending_review",
+                "outdated_source",
+                "policy_denied"
+              ]
+            }
+          },
+          "variant_status": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "draft",
+                "in_progress",
+                "in_review",
+                "approved",
+                "published",
+                "archived"
+              ]
+            }
+          },
+          "assignment_status": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "open",
+                "assigned",
+                "in_progress",
+                "in_review",
+                "changes_requested",
+                "approved",
+                "archived"
+              ]
+            }
+          },
+          "due_state": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "none",
+                "on_track",
+                "due_soon",
+                "overdue"
+              ]
+            }
+          },
+          "disabled_reason_codes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "TRANSLATION_MISSING",
+                "INVALID_STATUS",
+                "PERMISSION_DENIED",
+                "MISSING_CONTEXT",
+                "FEATURE_DISABLED"
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}
