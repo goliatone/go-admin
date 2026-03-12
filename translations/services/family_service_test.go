@@ -228,8 +228,8 @@ func TestFamilyServiceListAndDetailRespectScopeFilters(t *testing.T) {
 	}
 }
 
-func TestBuildBackfillReportMatchesPhase3Fixture(t *testing.T) {
-	fixture := mustLoadPhase2Fixture(t)
+func TestBuildBackfillReportMatchesFixture(t *testing.T) {
+	fixture := mustLoadBackfillSeedFixture(t)
 	runner := NewBackfillRunner()
 	plan, err := runner.BuildPlan(context.Background(), fixture)
 	requireNoErr(t, err)
@@ -238,11 +238,11 @@ func TestBuildBackfillReportMatchesPhase3Fixture(t *testing.T) {
 	raw, err := json.MarshalIndent(report, "", "  ")
 	requireNoErr(t, err)
 
-	path := filepath.Join("testdata", "phase3_backfill_report.json")
+	path := filepath.Join("testdata", "translation_backfill_report.json")
 	expected, err := os.ReadFile(path)
 	requireNoErr(t, err)
 	if strings.TrimSpace(string(raw)) != strings.TrimSpace(string(expected)) {
-		t.Fatalf("phase3 backfill report mismatch\nexpected:\n%s\n\ngot:\n%s", strings.TrimSpace(string(expected)), strings.TrimSpace(string(raw)))
+		t.Fatalf("translation backfill report mismatch\nexpected:\n%s\n\ngot:\n%s", strings.TrimSpace(string(expected)), strings.TrimSpace(string(raw)))
 	}
 }
 

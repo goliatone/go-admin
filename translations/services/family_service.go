@@ -257,6 +257,7 @@ func (s *InMemoryFamilyStore) LoadBackfillPlan(plan BackfillPlan) error {
 				IsSource:             variant.IsSource,
 				SourceHashAtLastSync: strings.TrimSpace(variant.SourceHashAtLastSync),
 				Fields:               cloneStringMap(variant.Fields),
+				Metadata:             cloneAnyMap(variant.Metadata),
 				SourceRecordID:       strings.TrimSpace(variant.SourceRecordID),
 				CreatedAt:            variant.CreatedAt,
 				UpdatedAt:            variant.UpdatedAt,
@@ -308,6 +309,7 @@ func (s *InMemoryFamilyStore) ReplaceAssignments(assignments []FamilyAssignment)
 		normalized.FamilyID = familyID
 		normalized.TargetLocale = strings.TrimSpace(strings.ToLower(normalized.TargetLocale))
 		normalized.SourceLocale = strings.TrimSpace(strings.ToLower(normalized.SourceLocale))
+		normalized.WorkScope = normalizeWorkScope(normalized.WorkScope)
 		normalized.Status = strings.TrimSpace(strings.ToLower(normalized.Status))
 		normalized.Priority = strings.TrimSpace(strings.ToLower(normalized.Priority))
 		byFamily[familyID] = append(byFamily[familyID], normalized)
@@ -512,6 +514,7 @@ func normalizeFamilyPolicy(policy FamilyPolicy) FamilyPolicy {
 		policy.RequiredLocales = normalizedStringSlice(requiredLocalesFromRequiredFields(policy.RequiredFields))
 	}
 	policy.RequiredFields = normalizedRequiredFields(policy.RequiredFields)
+	policy.DefaultWorkScope = normalizeWorkScope(policy.DefaultWorkScope)
 	return policy
 }
 
@@ -916,6 +919,14 @@ func cloneAnyMap(input map[string]any) map[string]any {
 		out[key] = value
 	}
 	return out
+}
+
+func normalizeWorkScope(scope string) string {
+	scope = strings.TrimSpace(scope)
+	if scope == "" {
+		return translationcore.DefaultWorkScope
+	}
+	return scope
 }
 
 func containsString(values []string, candidate string) bool {

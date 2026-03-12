@@ -199,6 +199,9 @@
       "UpdateVariantRequest": {
         "type": "object",
         "properties": {
+          "environment": {
+            "type": "string"
+          },
           "fields": {
             "type": "object",
             "additionalProperties": true
@@ -209,6 +212,12 @@
           },
           "expected_version": {
             "type": "integer"
+          },
+          "autosave": {
+            "type": "boolean"
+          },
+          "is_autosave": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false
@@ -216,6 +225,9 @@
       "AssignmentActionRequest": {
         "type": "object",
         "properties": {
+          "environment": {
+            "type": "string"
+          },
           "expected_version": {
             "type": "integer"
           },

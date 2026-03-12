@@ -18,7 +18,7 @@ func TestDeterministicFamilyIDIncludesScopeKeys(t *testing.T) {
 }
 
 func TestBackfillRunnerBuildPlanIsReplaySafe(t *testing.T) {
-	fixture := mustLoadPhase2Fixture(t)
+	fixture := mustLoadBackfillSeedFixture(t)
 	runner := NewBackfillRunner()
 
 	first, err := runner.BuildPlan(context.Background(), fixture)
@@ -38,8 +38,8 @@ func TestBackfillRunnerBuildPlanIsReplaySafe(t *testing.T) {
 	}
 }
 
-func TestPhase2BackfillFixtureCoversTenantAndNonTenantPagesPostsNews(t *testing.T) {
-	fixture := mustLoadPhase2Fixture(t)
+func TestBackfillSeedFixtureCoversTenantAndNonTenantPagesPostsNews(t *testing.T) {
+	fixture := mustLoadBackfillSeedFixture(t)
 	hasGlobalPages := false
 	hasTenantPosts := false
 	hasTenantNews := false
@@ -126,9 +126,9 @@ func TestEvaluateBackfillQualityGatesFailsOnAmbiguousWarningRate(t *testing.T) {
 	}
 }
 
-func mustLoadPhase2Fixture(t *testing.T) BackfillInput {
+func mustLoadBackfillSeedFixture(t *testing.T) BackfillInput {
 	t.Helper()
-	path := filepath.Join("testdata", "phase2_backfill_seed_fixture.json")
+	path := filepath.Join("testdata", "translation_backfill_seed_fixture.json")
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read fixture %s: %v", path, err)
