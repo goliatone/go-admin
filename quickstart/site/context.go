@@ -352,14 +352,6 @@ func resolveRequestContentChannel(c router.Context, fallback string) string {
 		c.Header("X-Site-Content-Channel"),
 		c.Header("X-Content-Channel"),
 		c.Cookies(defaultContentChannelCookie),
-		// Legacy compatibility keys (Phase 6 cleanup target).
-		c.Query("env"),
-		c.Query("environment"),
-		c.Query("content_env"),
-		c.Query("site_env"),
-		c.Header("X-Site-Environment"),
-		c.Header("X-Environment"),
-		c.Cookies("site_env"),
 	}
 	for _, candidate := range candidates {
 		candidate = strings.TrimSpace(candidate)
