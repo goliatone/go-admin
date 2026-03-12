@@ -183,6 +183,10 @@ func applyCreateTranslationRequestFields(req reflect.Value, input TranslationCre
 	if status := strings.TrimSpace(input.Status); status != "" {
 		setStringField(req, "Status", status)
 	}
+	if len(input.Metadata) > 0 {
+		setMapField(req, "Metadata", cloneAnyMap(input.Metadata))
+		setMapField(req, "Meta", cloneAnyMap(input.Metadata))
+	}
 	setUUIDFieldByName(req, "CreatedBy", uuid.Nil)
 	setUUIDFieldByName(req, "UpdatedBy", uuid.Nil)
 }
