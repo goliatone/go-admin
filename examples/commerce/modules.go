@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"path"
 
+	"github.com/goliatone/go-admin/admin/routing"
 	"github.com/goliatone/go-admin/examples/commerce/stores"
 	"github.com/goliatone/go-admin/pkg/admin"
+	router "github.com/goliatone/go-router"
 )
 
 type commerceModule struct {
@@ -47,7 +49,22 @@ func (m *commerceModule) Register(ctx admin.ModuleContext) error {
 	}
 	registerDashboard(ctx.Admin, m.stores)
 	registerSearch(ctx.Admin, m.stores, path.Join(m.basePath, "api"))
+
+	if routePath := ctx.Routing.RoutePath(routing.SurfaceUI, "commerce.index"); routePath != "" {
+		ctx.Router.Get(routePath, func(c router.Context) error {
+			return c.Redirect(path.Join(m.basePath, "products"))
+		})
+	}
 	return nil
+}
+
+func (m *commerceModule) RouteContract() routing.ModuleContract {
+	return routing.ModuleContract{
+		Slug: "commerce",
+		UIRoutes: map[string]string{
+			"commerce.index": "/",
+		},
+	}
 }
 
 func (m *commerceModule) MenuItems(locale string) []admin.MenuItem {
