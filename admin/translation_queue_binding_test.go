@@ -270,6 +270,39 @@ func TestTranslationQueueBindingQueueIncludesUnifiedInboxFields(t *testing.T) {
 	}
 }
 
+func TestTranslationQueueBindingMyWorkEchoesTraceHeaders(t *testing.T) {
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureTranslationQueue),
+	})
+	repo := NewInMemoryTranslationAssignmentRepository()
+	if _, err := RegisterTranslationQueuePanel(adm, repo); err != nil {
+		t.Fatalf("register queue panel: %v", err)
+	}
+	binding := newTranslationQueueBinding(adm)
+	app := newTranslationQueueTestApp(t, binding)
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/my-work", nil)
+	req.Header.Set("X-User-ID", "translator-1")
+	req.Header.Set("X-Request-ID", "req-queue-1")
+	req.Header.Set("X-Correlation-ID", "corr-queue-1")
+	req.Header.Set("X-Trace-ID", "trace-queue-1")
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if got := strings.TrimSpace(resp.Header.Get("X-Request-ID")); got != "req-queue-1" {
+		t.Fatalf("expected X-Request-ID req-queue-1, got %q", got)
+	}
+	if got := strings.TrimSpace(resp.Header.Get("X-Correlation-ID")); got != "corr-queue-1" {
+		t.Fatalf("expected X-Correlation-ID corr-queue-1, got %q", got)
+	}
+	if got := strings.TrimSpace(resp.Header.Get("X-Trace-ID")); got != "trace-queue-1" {
+		t.Fatalf("expected X-Trace-ID trace-queue-1, got %q", got)
+	}
+}
+
 func TestTranslationQueueBindingMyWorkSummaryIncludesAllFilteredAssignmentsAcrossPages(t *testing.T) {
 	now := time.Date(2026, 2, 17, 12, 0, 0, 0, time.UTC)
 	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{

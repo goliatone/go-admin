@@ -11,6 +11,7 @@ import (
 	"mime/multipart"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/goliatone/go-command/dispatcher"
 	router "github.com/goliatone/go-router"
@@ -77,21 +78,37 @@ func newTranslationExchangeBinding(a *Admin) *translationExchangeBinding {
 	}
 }
 
-func (b *translationExchangeBinding) Export(c router.Context) (any, error) {
+func (b *translationExchangeBinding) Export(c router.Context) (payload any, err error) {
+	startedAt := time.Now()
+	obsCtx := c.Context()
+	defer func() {
+		recordTranslationAPIOperation(obsCtx, translationAPIObservation{
+			Operation: "translations.exchange.export",
+			Kind:      "write",
+			RequestID: requestIDFromContext(obsCtx),
+			TraceID:   traceIDFromContext(obsCtx),
+			TenantID:  tenantIDFromContext(obsCtx),
+			OrgID:     orgIDFromContext(obsCtx),
+			Duration:  time.Since(startedAt),
+			Err:       err,
+		})
+	}()
 	if b == nil || b.admin == nil {
 		return nil, serviceNotConfiguredDomainError("translation exchange binding", map[string]any{
 			"component": "translation_exchange_binding",
 		})
 	}
 	adminCtx := b.admin.adminContextFromRequest(c, b.admin.config.DefaultLocale)
+	obsCtx = adminCtx.Context
+	setTranslationTraceHeaders(c, obsCtx)
 	if err := b.admin.requirePermission(adminCtx, translationExchangePermissionExport, "translations"); err != nil {
 		return nil, err
 	}
-	input, payload, err := parseTranslationExportInput(c)
+	input, parsedPayload, err := parseTranslationExportInput(c)
 	if err != nil {
 		return nil, err
 	}
-	asyncRequested := translationExchangeAsyncRequested(c, payload)
+	asyncRequested := translationExchangeAsyncRequested(c, parsedPayload)
 	if asyncRequested {
 		return b.exportAsync(adminCtx, input)
 	}
@@ -153,13 +170,29 @@ func (b *translationExchangeBinding) Template(c router.Context) error {
 	}
 }
 
-func (b *translationExchangeBinding) ImportValidate(c router.Context) (any, error) {
+func (b *translationExchangeBinding) ImportValidate(c router.Context) (payload any, err error) {
+	startedAt := time.Now()
+	obsCtx := c.Context()
+	defer func() {
+		recordTranslationAPIOperation(obsCtx, translationAPIObservation{
+			Operation: "translations.exchange.import_validate",
+			Kind:      "write",
+			RequestID: requestIDFromContext(obsCtx),
+			TraceID:   traceIDFromContext(obsCtx),
+			TenantID:  tenantIDFromContext(obsCtx),
+			OrgID:     orgIDFromContext(obsCtx),
+			Duration:  time.Since(startedAt),
+			Err:       err,
+		})
+	}()
 	if b == nil || b.admin == nil {
 		return nil, serviceNotConfiguredDomainError("translation exchange binding", map[string]any{
 			"component": "translation_exchange_binding",
 		})
 	}
 	adminCtx := b.admin.adminContextFromRequest(c, b.admin.config.DefaultLocale)
+	obsCtx = adminCtx.Context
+	setTranslationTraceHeaders(c, obsCtx)
 	if err := b.admin.requirePermission(adminCtx, translationExchangePermissionImportValidate, "translations"); err != nil {
 		return nil, err
 	}
@@ -182,28 +215,44 @@ func (b *translationExchangeBinding) ImportValidate(c router.Context) (any, erro
 	return result, nil
 }
 
-func (b *translationExchangeBinding) ImportApply(c router.Context) (any, error) {
+func (b *translationExchangeBinding) ImportApply(c router.Context) (payload any, err error) {
+	startedAt := time.Now()
+	obsCtx := c.Context()
+	defer func() {
+		recordTranslationAPIOperation(obsCtx, translationAPIObservation{
+			Operation: "translations.exchange.import_apply",
+			Kind:      "write",
+			RequestID: requestIDFromContext(obsCtx),
+			TraceID:   traceIDFromContext(obsCtx),
+			TenantID:  tenantIDFromContext(obsCtx),
+			OrgID:     orgIDFromContext(obsCtx),
+			Duration:  time.Since(startedAt),
+			Err:       err,
+		})
+	}()
 	if b == nil || b.admin == nil {
 		return nil, serviceNotConfiguredDomainError("translation exchange binding", map[string]any{
 			"component": "translation_exchange_binding",
 		})
 	}
 	adminCtx := b.admin.adminContextFromRequest(c, b.admin.config.DefaultLocale)
+	obsCtx = adminCtx.Context
+	setTranslationTraceHeaders(c, obsCtx)
 	if err := b.admin.requirePermission(adminCtx, translationExchangePermissionImportApply, "translations"); err != nil {
 		return nil, err
 	}
-	rows, payload, _, err := parseTranslationImportRows(c, true)
+	rows, parsedPayload, _, err := parseTranslationImportRows(c, true)
 	if err != nil {
 		return nil, err
 	}
 	input := TranslationImportApplyInput{
 		Rows:                    rows,
-		AllowCreateMissing:      exchangeCreateTranslationRequested(payload),
-		AllowSourceHashOverride: toBool(payload["allow_source_hash_override"]),
-		ContinueOnError:         toBool(payload["continue_on_error"]),
-		DryRun:                  toBool(payload["dry_run"]),
+		AllowCreateMissing:      exchangeCreateTranslationRequested(parsedPayload),
+		AllowSourceHashOverride: toBool(parsedPayload["allow_source_hash_override"]),
+		ContinueOnError:         toBool(parsedPayload["continue_on_error"]),
+		DryRun:                  toBool(parsedPayload["dry_run"]),
 	}
-	if translationExchangeAsyncRequested(c, payload) {
+	if translationExchangeAsyncRequested(c, parsedPayload) {
 		return b.importApplyAsync(adminCtx, input)
 	}
 	result, err := b.executor.Apply(adminCtx.Context, input)
@@ -222,14 +271,28 @@ func (b *translationExchangeBinding) ImportApply(c router.Context) (any, error) 
 	return result, nil
 }
 
-func (b *translationExchangeBinding) JobStatus(c router.Context, id string) (any, error) {
+func (b *translationExchangeBinding) JobStatus(c router.Context, id string) (payload any, err error) {
+	startedAt := time.Now()
+	obsCtx := c.Context()
+	defer func() {
+		recordTranslationAPIOperation(obsCtx, translationAPIObservation{
+			Operation: "translations.exchange.job_status",
+			Kind:      "read",
+			RequestID: requestIDFromContext(obsCtx),
+			TraceID:   traceIDFromContext(obsCtx),
+			TenantID:  tenantIDFromContext(obsCtx),
+			OrgID:     orgIDFromContext(obsCtx),
+			Duration:  time.Since(startedAt),
+			Err:       err,
+		})
+	}()
 	if b == nil || b.admin == nil {
 		return nil, serviceNotConfiguredDomainError("translation exchange binding", map[string]any{
 			"component": "translation_exchange_binding",
 		})
 	}
 	if strings.TrimSpace(id) == "" {
-		id = strings.TrimSpace(c.Param("id", ""))
+		id = strings.TrimSpace(firstNonEmpty(c.Param("job_id", ""), c.Param("id", "")))
 	}
 	if strings.TrimSpace(id) == "" {
 		return nil, requiredFieldDomainError("id", map[string]any{
@@ -246,6 +309,8 @@ func (b *translationExchangeBinding) JobStatus(c router.Context, id string) (any
 		return nil, ErrNotFound
 	}
 	adminCtx := b.admin.adminContextFromRequest(c, b.admin.config.DefaultLocale)
+	obsCtx = adminCtx.Context
+	setTranslationTraceHeaders(c, obsCtx)
 	if err := b.admin.requirePermission(adminCtx, strings.TrimSpace(job.Permission), "translations"); err != nil {
 		return nil, err
 	}
@@ -382,7 +447,7 @@ func (b *translationExchangeBinding) importApplyAsync(adminCtx AdminContext, inp
 }
 
 func translationExchangeActorID(ctx AdminContext) string {
-	return strings.TrimSpace(primitives.FirstNonEmptyRaw(ctx.UserID, actorFromContext(ctx.Context)))
+	return translationIdentityFromAdminContext(ctx).ActorID
 }
 
 func translationExchangeJobOwnedByActor(job translationExchangeAsyncJob, actorID string) bool {
@@ -405,15 +470,15 @@ func (b *translationExchangeBinding) jobStatusEndpoint(id string) string {
 	if adminAPIGroup == "" {
 		adminAPIGroup = "admin.api"
 	}
-	path := resolveURLWith(b.admin.URLs(), adminAPIGroup, "translations.jobs.id", map[string]any{"id": id}, nil)
+	path := resolveURLWith(b.admin.URLs(), adminAPIGroup, "translations.jobs.id", map[string]any{"job_id": id}, nil)
 	if strings.TrimSpace(path) != "" {
 		return path
 	}
 	base := strings.TrimSuffix(adminAPIBasePath(b.admin), "/")
 	if base == "" {
-		return "/admin/api/translations/jobs/" + id
+		return "/admin/api/translations/exchange/jobs/" + id
 	}
-	return base + "/translations/jobs/" + id
+	return base + "/translations/exchange/jobs/" + id
 }
 
 func parseTranslationExportInput(c router.Context) (TranslationExportInput, map[string]any, error) {
@@ -421,7 +486,13 @@ func parseTranslationExportInput(c router.Context) (TranslationExportInput, map[
 	if err != nil {
 		return TranslationExportInput{}, nil, err
 	}
+	if err := rejectTranslationClientIdentityFields(body); err != nil {
+		return TranslationExportInput{}, nil, err
+	}
 	filterPayload := extractMap(body["filter"])
+	if err := rejectTranslationClientIdentityFields(filterPayload); err != nil {
+		return TranslationExportInput{}, nil, err
+	}
 	if len(filterPayload) == 0 {
 		filterPayload = body
 	}
@@ -572,6 +643,9 @@ func parseTranslationImportJSON(raw []byte, requireTranslatedText bool) ([]Trans
 				Field:   "rows",
 				Format:  "json",
 			}
+		}
+		if err := rejectTranslationClientIdentityFields(body); err != nil {
+			return nil, nil, err
 		}
 		rowsValue, ok := body["rows"]
 		if !ok {

@@ -160,6 +160,54 @@ func TestTranslationCapabilitiesExposeSharedContracts(t *testing.T) {
 	if key := strings.TrimSpace(toString(drift["key"])); key != translationSourceTargetDriftKey {
 		t.Fatalf("expected source_target_drift key %q, got %q", translationSourceTargetDriftKey, key)
 	}
+
+	flowVocabulary := extractMap(contracts["flow_vocabulary"])
+	if schemaVersion, _ := flowVocabulary["schema_version"].(int); schemaVersion <= 0 {
+		t.Fatalf("expected flow_vocabulary schema_version, got %v", flowVocabulary["schema_version"])
+	}
+	statuses := extractMap(flowVocabulary["statuses"])
+	if readiness := toStringSlice(statuses["family_readiness"]); len(readiness) == 0 {
+		t.Fatalf("expected family readiness vocabulary in flow_vocabulary, got %+v", statuses)
+	}
+
+	openapi := extractMap(contracts["openapi"])
+	if path := strings.TrimSpace(toString(openapi["artifact_path"])); path != "translations/ui/openapi/translations.json" {
+		t.Fatalf("expected openapi artifact path, got %q", path)
+	}
+	if bytes, _ := openapi["artifact_bytes"].(int); bytes <= 0 {
+		t.Fatalf("expected openapi artifact bytes > 0, got %v", openapi["artifact_bytes"])
+	}
+}
+
+func TestTranslationCapabilitiesExposeCleanBreakRoutes(t *testing.T) {
+	t.Parallel()
+
+	adm := mustNewAdmin(t, Config{BasePath: "/admin"}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureTranslationExchange, FeatureTranslationQueue),
+	})
+	caps := TranslationCapabilitiesForContext(adm, context.Background())
+	routes := map[string]string{}
+	switch typed := caps["routes"].(type) {
+	case map[string]string:
+		routes = typed
+	case map[string]any:
+		for key, value := range typed {
+			routes[key] = toString(value)
+		}
+	}
+
+	if got := strings.TrimSpace(routes["admin.translations.families.id"]); got != "/admin/translations/families/:family_id" {
+		t.Fatalf("expected family detail route, got %q", got)
+	}
+	if got := strings.TrimSpace(routes["admin.api.translations.families"]); got != "/admin/api/translations/families" {
+		t.Fatalf("expected families api route, got %q", got)
+	}
+	if got := strings.TrimSpace(routes["admin.api.translations.import.validate"]); got != "/admin/api/translations/exchange/import/validate" {
+		t.Fatalf("expected clean-break import validate route, got %q", got)
+	}
+	if got := strings.TrimSpace(routes["admin.api.translations.jobs.id"]); got != "/admin/api/translations/exchange/jobs/:job_id" {
+		t.Fatalf("expected clean-break job route, got %q", got)
+	}
 }
 
 func TestTranslationCapabilitiesDegradationHidesDisabledModules(t *testing.T) {

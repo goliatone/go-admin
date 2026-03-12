@@ -27,13 +27,29 @@ func newTranslationQueueBinding(a *Admin) *translationQueueBinding {
 	}
 }
 
-func (b *translationQueueBinding) MyWork(c router.Context) (any, error) {
+func (b *translationQueueBinding) MyWork(c router.Context) (payload any, err error) {
+	startedAt := time.Now()
+	obsCtx := c.Context()
+	defer func() {
+		recordTranslationAPIOperation(obsCtx, translationAPIObservation{
+			Operation: "translations.queue.my_work",
+			Kind:      "read",
+			RequestID: requestIDFromContext(obsCtx),
+			TraceID:   traceIDFromContext(obsCtx),
+			TenantID:  tenantIDFromContext(obsCtx),
+			OrgID:     orgIDFromContext(obsCtx),
+			Duration:  time.Since(startedAt),
+			Err:       err,
+		})
+	}()
 	if b == nil || b.admin == nil {
 		return nil, serviceNotConfiguredDomainError("translation queue binding", map[string]any{
 			"component": "translation_queue_binding",
 		})
 	}
 	adminCtx := b.admin.adminContextFromRequest(c, b.admin.config.DefaultLocale)
+	obsCtx = adminCtx.Context
+	setTranslationTraceHeaders(c, obsCtx)
 	if err := b.admin.requirePermission(adminCtx, PermAdminTranslationsView, "translations"); err != nil {
 		return nil, err
 	}
@@ -116,13 +132,29 @@ func (b *translationQueueBinding) MyWork(c router.Context) (any, error) {
 	}, nil
 }
 
-func (b *translationQueueBinding) Queue(c router.Context) (any, error) {
+func (b *translationQueueBinding) Queue(c router.Context) (payload any, err error) {
+	startedAt := time.Now()
+	obsCtx := c.Context()
+	defer func() {
+		recordTranslationAPIOperation(obsCtx, translationAPIObservation{
+			Operation: "translations.queue.list",
+			Kind:      "read",
+			RequestID: requestIDFromContext(obsCtx),
+			TraceID:   traceIDFromContext(obsCtx),
+			TenantID:  tenantIDFromContext(obsCtx),
+			OrgID:     orgIDFromContext(obsCtx),
+			Duration:  time.Since(startedAt),
+			Err:       err,
+		})
+	}()
 	if b == nil || b.admin == nil {
 		return nil, serviceNotConfiguredDomainError("translation queue binding", map[string]any{
 			"component": "translation_queue_binding",
 		})
 	}
 	adminCtx := b.admin.adminContextFromRequest(c, b.admin.config.DefaultLocale)
+	obsCtx = adminCtx.Context
+	setTranslationTraceHeaders(c, obsCtx)
 	if err := b.admin.requirePermission(adminCtx, PermAdminTranslationsView, "translations"); err != nil {
 		return nil, err
 	}

@@ -2,6 +2,8 @@ package admin
 
 import (
 	"github.com/goliatone/go-admin/internal/primitives"
+	translationcore "github.com/goliatone/go-admin/translations/core"
+	translationui "github.com/goliatone/go-admin/translations/ui"
 	"sort"
 	"strings"
 )
@@ -41,6 +43,12 @@ func TranslationSharedContractsPayload() map[string]any {
 		"status_enums":          TranslationStatusEnumContract(),
 		"disabled_reason_codes": ActionDisabledReasonCodes(),
 		"source_target_drift":   TranslationSourceTargetDriftContract(),
+		"flow_vocabulary":       translationcore.VocabularyPayload(),
+		"openapi": map[string]any{
+			"schema_version": translationcore.SchemaVersion,
+			"artifact_path":  "translations/ui/openapi/translations.json",
+			"artifact_bytes": len(translationui.OpenAPISpec()),
+		},
 	}
 }
 
