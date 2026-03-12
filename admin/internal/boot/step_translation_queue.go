@@ -19,6 +19,54 @@ func TranslationQueueRouteStep(ctx BootCtx) error {
 	routes := []RouteSpec{
 		{
 			Method: "GET",
+			Path:   routePath(ctx, ctx.AdminAPIGroup(), "translations.assignments"),
+			Handler: withFeatureGate(responder, gates, FeatureTranslationQueue, func(c router.Context) error {
+				payload, err := binding.Assignments(c)
+				return writeJSONOrError(responder, c, payload, err)
+			}),
+		},
+		{
+			Method: "GET",
+			Path:   routePath(ctx, ctx.AdminAPIGroup(), "translations.assignments.id"),
+			Handler: withFeatureGate(responder, gates, FeatureTranslationQueue, func(c router.Context) error {
+				id := c.Param("assignment_id")
+				if id == "" {
+					return errMissingID
+				}
+				payload, err := binding.AssignmentDetail(c, id)
+				return writeJSONOrError(responder, c, payload, err)
+			}),
+		},
+		{
+			Method: "POST",
+			Path:   routePath(ctx, ctx.AdminAPIGroup(), "translations.assignments.actions"),
+			Handler: withFeatureGate(responder, gates, FeatureTranslationQueue, withParsedBody(ctx, responder, func(c router.Context, body map[string]any) error {
+				id := c.Param("assignment_id")
+				if id == "" {
+					return errMissingID
+				}
+				action := c.Param("action")
+				if action == "" {
+					return errMissingAction
+				}
+				payload, err := binding.RunAssignmentAction(c, id, action, body)
+				return writeJSONOrError(responder, c, payload, err)
+			})),
+		},
+		{
+			Method: "PATCH",
+			Path:   routePath(ctx, ctx.AdminAPIGroup(), "translations.variants.id"),
+			Handler: withFeatureGate(responder, gates, FeatureTranslationQueue, withParsedBody(ctx, responder, func(c router.Context, body map[string]any) error {
+				id := c.Param("variant_id")
+				if id == "" {
+					return errMissingID
+				}
+				payload, err := binding.UpdateVariant(c, id, body)
+				return writeJSONOrError(responder, c, payload, err)
+			})),
+		},
+		{
+			Method: "GET",
 			Path:   routePath(ctx, ctx.AdminAPIGroup(), "translations.my_work"),
 			Handler: withFeatureGate(responder, gates, FeatureTranslationQueue, func(c router.Context) error {
 				payload, err := binding.MyWork(c)
