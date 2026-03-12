@@ -22,7 +22,7 @@ func TestSeedExampleTranslationQueueFixtureCreatesInProgressAssignment(t *testin
 	require.NotNil(t, cmsOpts.Container)
 
 	repo := coreadmin.NewInMemoryTranslationAssignmentRepository()
-	err = seedExampleTranslationQueueFixture(ctx, repo, cmsOpts.Container.ContentService())
+	err = seedExampleTranslationQueueFixture(ctx, repo, cmsOpts.Container.ContentService(), "", "")
 	require.NoError(t, err)
 
 	source, err := findPageBySlug(ctx, cmsOpts.Container.ContentService(), exampleTranslationQueueSourceSlug)
@@ -60,6 +60,8 @@ func TestSeedExampleTranslationQueueFixtureSeedsMyWorkAndQueueCoverageForProvide
 		ctx,
 		repo,
 		cmsOpts.Container.ContentService(),
+		"",
+		"",
 		"translator-1",
 		"translator-2",
 	)
@@ -100,12 +102,12 @@ func TestSeedExampleTranslationQueueFixtureSeedsMyWorkAndQueueCoverageForProvide
 
 func TestSeedExampleTranslationQueueFixtureRequiresDependencies(t *testing.T) {
 	ctx := context.Background()
-	err := seedExampleTranslationQueueFixture(ctx, nil, nil)
+	err := seedExampleTranslationQueueFixture(ctx, nil, nil, "", "")
 	require.Error(t, err)
 	require.Contains(t, strings.ToLower(err.Error()), "repository is required")
 
 	repo := coreadmin.NewInMemoryTranslationAssignmentRepository()
-	err = seedExampleTranslationQueueFixture(ctx, repo, nil)
+	err = seedExampleTranslationQueueFixture(ctx, repo, nil, "", "")
 	require.Error(t, err)
 	require.Contains(t, strings.ToLower(err.Error()), "content service is required")
 }
@@ -115,10 +117,71 @@ func TestSeedExampleTranslationQueueFixtureFailsWhenRequiredSourceFixtureMissing
 	repo := coreadmin.NewInMemoryTranslationAssignmentRepository()
 	contentSvc := coreadmin.NewInMemoryContentService()
 
-	err := seedExampleTranslationQueueFixture(ctx, repo, contentSvc)
+	err := seedExampleTranslationQueueFixture(ctx, repo, contentSvc, "", "")
 	require.Error(t, err)
 	require.Contains(t, strings.ToLower(err.Error()), "source page")
 	require.Contains(t, strings.ToLower(err.Error()), "not found")
+}
+
+func TestSeedExampleTranslationQueueFixtureAppliesRequestedScope(t *testing.T) {
+	ctx := context.Background()
+	dsn := fmt.Sprintf("file:%s?cache=shared&_fk=1", filepath.Join(t.TempDir(), strings.ToLower(t.Name())+".db"))
+
+	cmsOpts, err := setup.SetupPersistentCMS(ctx, "en", dsn)
+	require.NoError(t, err)
+	require.NotNil(t, cmsOpts.Container)
+
+	const tenantID = "tenant-demo"
+	const orgID = "org-demo"
+
+	repo := coreadmin.NewInMemoryTranslationAssignmentRepository()
+	err = seedExampleTranslationQueueFixture(ctx, repo, cmsOpts.Container.ContentService(), tenantID, orgID, "translator-1")
+	require.NoError(t, err)
+
+	source, err := findPageBySlug(ctx, cmsOpts.Container.ContentService(), exampleTranslationQueueSourceSlug)
+	require.NoError(t, err)
+	require.NotNil(t, source)
+	actualTenantID := strings.TrimSpace(fmt.Sprint(source.Metadata["tenant_id"]))
+	if actualTenantID == "" || actualTenantID == "<nil>" {
+		actualTenantID = strings.TrimSpace(fmt.Sprint(source.Data["tenant_id"]))
+	}
+	actualOrgID := strings.TrimSpace(fmt.Sprint(source.Metadata["org_id"]))
+	if actualOrgID == "" || actualOrgID == "<nil>" {
+		actualOrgID = strings.TrimSpace(fmt.Sprint(source.Data["org_id"]))
+	}
+	require.Equal(t, tenantID, actualTenantID)
+	require.Equal(t, orgID, actualOrgID)
+
+	assignments, total, err := repo.List(ctx, coreadmin.ListOptions{Filters: map[string]any{
+		"assignee_id": "translator-1",
+	}})
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, total, 1)
+	require.NotEmpty(t, assignments)
+	for _, assignment := range assignments {
+		require.Equal(t, tenantID, strings.TrimSpace(assignment.TenantID))
+		require.Equal(t, orgID, strings.TrimSpace(assignment.OrgID))
+	}
+}
+
+func TestTranslationQAFamilyTargetResolvesCurrentFixtureFamily(t *testing.T) {
+	ctx := context.Background()
+	dsn := fmt.Sprintf("file:%s?cache=shared&_fk=1", filepath.Join(t.TempDir(), strings.ToLower(t.Name())+".db"))
+
+	cmsOpts, err := setup.SetupPersistentCMS(ctx, "en", dsn)
+	require.NoError(t, err)
+	require.NotNil(t, cmsOpts.Container)
+
+	contentSvc := cmsOpts.Container.ContentService()
+	require.NotNil(t, contentSvc)
+
+	page, err := findPageBySlug(ctx, contentSvc, exampleTranslationQueueSourceSlug)
+	require.NoError(t, err)
+	require.NotNil(t, page)
+
+	target, err := translationQAFamilyTarget(ctx, "/admin", contentSvc)
+	require.NoError(t, err)
+	require.Equal(t, "/admin/translations/families/"+normalizeTranslationGroupID(page.TranslationGroupID, page.ID), target)
 }
 
 func TestExampleTranslationExchangeStoreResolvesAndAppliesDeterministicLinkage(t *testing.T) {
