@@ -49,7 +49,7 @@ func TestTranslationExchangeExportValidateApplyThenPublishSucceedsUnderPolicy(t 
 	require.Equal(t, coreadmin.TextCodeTranslationMissing, extractErrorTextCode(blockedPayload))
 	require.ElementsMatch(t, []string{"es", "fr"}, extractMissingLocales(blockedPayload))
 
-	exportStatus, exportPayload := doAdminJSONRequest(t, fx.handler, http.MethodPost, "/admin/api/translations/export", map[string]any{
+	exportStatus, exportPayload := doAdminJSONRequest(t, fx.handler, http.MethodPost, "/admin/api/translations/exchange/export", map[string]any{
 		"filter": map[string]any{
 			"resources":           []string{"pages"},
 			"entity_ids":          []string{entityID},
@@ -74,7 +74,7 @@ func TestTranslationExchangeExportValidateApplyThenPublishSucceedsUnderPolicy(t 
 		translatedRows = append(translatedRows, row)
 	}
 
-	validateStatus, validatePayload := doAdminJSONRequest(t, fx.handler, http.MethodPost, "/admin/api/translations/import/validate", map[string]any{
+	validateStatus, validatePayload := doAdminJSONRequest(t, fx.handler, http.MethodPost, "/admin/api/translations/exchange/import/validate", map[string]any{
 		"rows": translatedRows,
 	})
 	require.Equal(t, http.StatusOK, validateStatus, "validate payload=%+v", validatePayload)
@@ -83,7 +83,7 @@ func TestTranslationExchangeExportValidateApplyThenPublishSucceedsUnderPolicy(t 
 	require.Equal(t, float64(2), validateSummary["succeeded"])
 	require.Equal(t, float64(0), validateSummary["failed"])
 
-	applyStatus, applyPayload := doAdminJSONRequest(t, fx.handler, http.MethodPost, "/admin/api/translations/import/apply", map[string]any{
+	applyStatus, applyPayload := doAdminJSONRequest(t, fx.handler, http.MethodPost, "/admin/api/translations/exchange/import/apply", map[string]any{
 		"rows":               translatedRows,
 		"create_translation": true,
 	})

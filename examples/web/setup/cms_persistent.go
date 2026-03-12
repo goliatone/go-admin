@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	coreadmin "github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/examples/web/stores"
 	"github.com/goliatone/go-admin/pkg/admin"
 	cms "github.com/goliatone/go-cms"
@@ -82,6 +83,7 @@ func SetupPersistentCMS(ctx context.Context, defaultLocale, dsn string) (admin.C
 	}
 
 	client.RegisterSQLMigrations(stores.SanitizeSQLiteMigrations(resolveCMSMigrationsFS()))
+	client.RegisterSQLMigrations(stores.SanitizeSQLiteMigrations(coreadmin.GetTranslationFlowSQLiteMigrationsFS()))
 	if err := client.Migrate(ctx); err != nil {
 		return admin.CMSOptions{}, err
 	}
