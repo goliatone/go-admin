@@ -57,19 +57,19 @@ type BackfillBlocker struct {
 }
 
 type BackfillVariant struct {
-	ID                 string            `json:"id"`
-	FamilyID           string            `json:"family_id"`
-	TenantID           string            `json:"tenant_id,omitempty"`
-	OrgID              string            `json:"org_id,omitempty"`
-	Locale             string            `json:"locale"`
-	Status             string            `json:"status"`
-	IsSource           bool              `json:"is_source"`
-	SourceHashAtLastSync string          `json:"source_hash_at_last_sync,omitempty"`
-	Fields             map[string]string `json:"fields,omitempty"`
-	SourceRecordID     string            `json:"source_record_id"`
-	TranslationGroupID string            `json:"translation_group_id,omitempty"`
-	CreatedAt          time.Time         `json:"created_at,omitempty"`
-	UpdatedAt          time.Time         `json:"updated_at,omitempty"`
+	ID                   string            `json:"id"`
+	FamilyID             string            `json:"family_id"`
+	TenantID             string            `json:"tenant_id,omitempty"`
+	OrgID                string            `json:"org_id,omitempty"`
+	Locale               string            `json:"locale"`
+	Status               string            `json:"status"`
+	IsSource             bool              `json:"is_source"`
+	SourceHashAtLastSync string            `json:"source_hash_at_last_sync,omitempty"`
+	Fields               map[string]string `json:"fields,omitempty"`
+	SourceRecordID       string            `json:"source_record_id"`
+	TranslationGroupID   string            `json:"translation_group_id,omitempty"`
+	CreatedAt            time.Time         `json:"created_at,omitempty"`
+	UpdatedAt            time.Time         `json:"updated_at,omitempty"`
 }
 
 type BackfillAssignment struct {
