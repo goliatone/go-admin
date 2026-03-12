@@ -34,6 +34,7 @@ type uiRouteOptions struct {
 	activityTemplate                string
 	featureFlagsTemplate            string
 	translationShellTemplate        string
+	translationFamilyDetailTemplate string
 	translationDashboardTemplate    string
 	translationExchangeTemplate     string
 	dashboardTitle                  string
@@ -381,6 +382,7 @@ func RegisterAdminUIRoutes[T any](r router.Router[T], cfg admin.Config, adm *adm
 		activityTemplate:                "resources/activity/list",
 		featureFlagsTemplate:            "resources/feature-flags/index",
 		translationShellTemplate:        "resources/translations/shell",
+		translationFamilyDetailTemplate: "resources/translations/family-detail",
 		translationDashboardTemplate:    "resources/translations/dashboard",
 		translationExchangeTemplate:     "resources/translations/exchange",
 		dashboardTitle:                  strings.TrimSpace(cfg.Title),
@@ -547,27 +549,26 @@ func RegisterAdminUIRoutes[T any](r router.Router[T], cfg admin.Config, adm *adm
 	if options.registerTranslationQueue {
 		r.Get(options.translationQueuePath, wrap(func(c router.Context) error {
 			apiBase := resolveAPIBase()
-			return renderTranslationShell(
-				c,
-				options.translationQueueTitle,
-				options.translationQueueActive,
-				"queue",
-				"Baseline queue shell for loading, empty, conflict, and kill-switch verification.",
-				prefixBasePath(apiBase, path.Join("translations", "queue")),
-			)
+			return renderView(c, options.translationShellTemplate, options.translationQueueTitle, options.translationQueueActive, router.ViewContext{
+				"translation_shell_surface":          "queue",
+				"translation_shell_title":            options.translationQueueTitle,
+				"translation_shell_description":      "Assignment-centric queue with saved filters, keyboard row navigation, and inline claim/release actions.",
+				"translation_shell_api_path":         prefixBasePath(apiBase, path.Join("translations", "assignments")),
+				"translation_queue_editor_base_path": path.Join(options.basePath, "translations", "assignments"),
+				"translation_queue_initial_preset":   "open",
+			})
 		}))
 	}
 
 	if options.registerTranslationFamilyDetail {
 		r.Get(options.translationFamilyDetailPath, wrap(func(c router.Context) error {
-			return renderTranslationShell(
-				c,
-				options.translationFamilyDetailTitle,
-				options.translationFamilyDetailActive,
-				"family_detail",
-				"Flag-aware family detail shell used to exercise navigation and empty-state rendering before the full readiness UI lands.",
-				"",
-			)
+			apiBase := resolveAPIBase()
+			familyID := strings.TrimSpace(c.Param("family_id"))
+			return renderView(c, options.translationFamilyDetailTemplate, options.translationFamilyDetailTitle, options.translationFamilyDetailActive, router.ViewContext{
+				"translation_family_id":       familyID,
+				"translation_family_api_path": prefixBasePath(apiBase, path.Join("translations", "families", familyID)),
+				"translation_content_base":    path.Join(options.basePath, "content"),
+			})
 		}))
 	}
 
