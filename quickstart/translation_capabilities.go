@@ -94,6 +94,7 @@ func buildTranslationCapabilities(adm *admin.Admin, productCfg TranslationProduc
 	out := map[string]any{
 		"profile":            profile,
 		"capability_mode":    profile,
+		"productized":        modules.HasState,
 		"supported_profiles": []string{"none", "core", "core+exchange", "core+queue", "full"},
 		"schema_version":     schemaVersion,
 		"modules":            cloneAnyMap(baseModules),
@@ -124,6 +125,7 @@ func mergeTranslationCapabilities(base, overlay map[string]any) map[string]any {
 
 	copyCapabilityField(out, overlay, "profile")
 	copyCapabilityField(out, overlay, "capability_mode")
+	copyCapabilityField(out, overlay, "productized")
 	copyCapabilityField(out, overlay, "supported_profiles")
 	copyCapabilityField(out, overlay, "schema_version")
 	copyCapabilityField(out, overlay, "warnings")
