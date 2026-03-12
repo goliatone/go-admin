@@ -210,6 +210,13 @@
             "type": "object",
             "additionalProperties": true
           },
+          "acknowledged_source_hash": {
+            "type": "string"
+          },
+          "source_hash_at_last_sync": {
+            "type": "string",
+            "description": "Deprecated alias for acknowledged_source_hash."
+          },
           "expected_version": {
             "type": "integer"
           },

@@ -3,6 +3,8 @@ package data
 import (
 	"embed"
 	"io/fs"
+	"strings"
+	"testing/fstest"
 )
 
 //go:embed uischemas sql/migrations/*.sql sql/migrations/sqlite/*.sql sql/migrations/postgres/*.sql
@@ -24,4 +26,46 @@ func TranslationAssignmentMigrations() fs.FS {
 		return embeddedFS
 	}
 	return sub
+}
+
+func migrationSubset(paths ...string) fs.FS {
+	if len(paths) == 0 {
+		return fstest.MapFS{}
+	}
+	out := fstest.MapFS{}
+	for _, path := range paths {
+		path = strings.TrimSpace(path)
+		if path == "" || path == "." || !fs.ValidPath(path) {
+			continue
+		}
+		data, err := fs.ReadFile(embeddedFS, "sql/migrations/"+path)
+		if err != nil {
+			continue
+		}
+		out[path] = &fstest.MapFile{Data: data}
+	}
+	return out
+}
+
+// TranslationFlowMigrations returns the translation-flow migration set.
+func TranslationFlowMigrations() fs.FS {
+	return migrationSubset(
+		"0007_translation_flow_foundation.up.sql",
+		"0007_translation_flow_foundation.down.sql",
+		"sqlite/0008_translation_flow_active_unique.up.sql",
+		"sqlite/0008_translation_flow_active_unique.down.sql",
+		"postgres/0008_translation_flow_pg_features.up.sql",
+		"postgres/0008_translation_flow_pg_features.down.sql",
+	)
+}
+
+// TranslationFlowSQLiteMigrations returns the sqlite-specific translation-flow
+// migrations for local runtimes.
+func TranslationFlowSQLiteMigrations() fs.FS {
+	return migrationSubset(
+		"0007_translation_flow_foundation.up.sql",
+		"0007_translation_flow_foundation.down.sql",
+		"sqlite/0008_translation_flow_active_unique.up.sql",
+		"sqlite/0008_translation_flow_active_unique.down.sql",
+	)
 }
