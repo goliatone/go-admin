@@ -256,6 +256,7 @@ func toNavString(value any) string {
 }
 
 func buildNavEntry(item admin.NavigationItem, basePath string, urls urlkit.Resolver, active string, scope navRequestScope) (map[string]any, bool) {
+	target := item.Target
 	children := make([]map[string]any, 0, len(item.Children))
 	childActive := false
 	for _, child := range item.Children {
@@ -304,6 +305,15 @@ func buildNavEntry(item admin.NavigationItem, basePath string, urls urlkit.Resol
 		"active":          isActive,
 		"expanded":        collapsible && !collapsed,
 		"child_active":    childActive,
+	}
+	if targetEnabled, ok := target["enabled"].(bool); ok {
+		entry["enabled"] = targetEnabled
+	}
+	if disabledReason := strings.TrimSpace(toNavString(target["disabled_reason"])); disabledReason != "" {
+		entry["disabled_reason"] = disabledReason
+	}
+	if disabledReasonCode := strings.TrimSpace(toNavString(target["disabled_reason_code"])); disabledReasonCode != "" {
+		entry["disabled_reason_code"] = disabledReasonCode
 	}
 	if strings.EqualFold(strings.TrimSpace(item.Type), admin.MenuItemTypeGroup) && len(children) == 0 {
 		return nil, false

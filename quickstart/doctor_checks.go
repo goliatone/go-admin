@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/admin/routing"
 )
 
 func registerQuickstartDoctorChecks(adm *admin.Admin, cfg admin.Config, result AdapterResult, options adminOptions) {
@@ -24,6 +25,7 @@ func registerQuickstartDoctorChecks(adm *admin.Admin, cfg admin.Config, result A
 func defaultQuickstartDoctorChecks(cfg admin.Config, result AdapterResult) []admin.DoctorCheck {
 	return []admin.DoctorCheck{
 		quickstartDoctorAdaptersCheck(result),
+		quickstartDoctorRoutingCheck(),
 		quickstartDoctorRoutesCheck(cfg),
 		quickstartDoctorBlockDefinitionsCheck(),
 		quickstartDoctorTranslationCheck(),
@@ -152,6 +154,96 @@ func quickstartDoctorRoutesCheck(cfg admin.Config) admin.DoctorCheck {
 				Findings: findings,
 				Metadata: map[string]any{
 					"resolved": resolved,
+				},
+			}
+		},
+	}
+}
+
+func quickstartDoctorRoutingCheck() admin.DoctorCheck {
+	return admin.DoctorCheck{
+		ID:          "quickstart.routing",
+		Label:       "Quickstart Routing Policy",
+		Description: "Validates routing roots, module mounts, and startup conflict state.",
+		Help:        "Summarizes effective routing roots and resolved module mount bases. Conflicts here indicate startup should fail before router mutation even when runtime router options are relaxed.",
+		Action: admin.NewManualDoctorAction(
+			"Review routing roots, explicit module route contracts, and per-module mount overrides. Resolve any conflicts before retrying startup.",
+			"Inspect routing policy",
+		),
+		Run: func(_ context.Context, adm *admin.Admin) admin.DoctorCheckOutput {
+			if adm == nil {
+				return admin.DoctorCheckOutput{}
+			}
+
+			report := adm.RoutingReport()
+			findings := []admin.DoctorFinding{}
+			roots := map[string]string{
+				"admin":      strings.TrimSpace(report.EffectiveRoots.AdminRoot),
+				"api":        strings.TrimSpace(report.EffectiveRoots.APIRoot),
+				"public_api": strings.TrimSpace(report.EffectiveRoots.PublicAPIRoot),
+			}
+			for rootName, rootValue := range roots {
+				if rootValue != "" {
+					continue
+				}
+				findings = append(findings, admin.DoctorFinding{
+					Severity:  admin.DoctorSeverityError,
+					Code:      "quickstart.routing.root_missing",
+					Component: "routing",
+					Message:   fmt.Sprintf("Effective %s root is empty", rootName),
+					Hint:      "Normalize routing roots before bootstrap and keep host-owned surfaces explicit",
+					Metadata:  map[string]any{"root": rootName},
+				})
+			}
+			for _, conflict := range report.Conflicts {
+				findings = append(findings, admin.DoctorFinding{
+					Severity:  admin.DoctorSeverityError,
+					Code:      "quickstart.routing.conflict",
+					Component: "routing",
+					Message:   strings.TrimSpace(conflict.Message),
+					Hint:      "Adjust module slugs or mount overrides so surfaces do not collide",
+					Metadata: map[string]any{
+						"kind":       strings.TrimSpace(conflict.Kind),
+						"module":     strings.TrimSpace(conflict.Module),
+						"method":     strings.TrimSpace(conflict.Method),
+						"path":       strings.TrimSpace(conflict.Path),
+						"route_name": strings.TrimSpace(conflict.RouteName),
+					},
+				})
+			}
+			for _, warning := range report.Warnings {
+				warning = strings.TrimSpace(warning)
+				if warning == "" {
+					continue
+				}
+				findings = append(findings, admin.DoctorFinding{
+					Severity:  admin.DoctorSeverityWarn,
+					Code:      "quickstart.routing.warning",
+					Component: "routing",
+					Message:   warning,
+					Hint:      "Review adapter/runtime capability warnings and keep routing diagnostics enabled during rollout",
+				})
+			}
+
+			summary := fmt.Sprintf(
+				"admin=%s api=%s public_api=%s modules=%d conflicts=%d",
+				roots["admin"],
+				roots["api"],
+				roots["public_api"],
+				len(report.Modules),
+				len(report.Conflicts),
+			)
+
+			return admin.DoctorCheckOutput{
+				Summary:  summary,
+				Findings: findings,
+				Metadata: map[string]any{
+					"roots":       roots,
+					"summary":     routingDoctorSummaryMetadata(report.RouteSummary),
+					"modules":     routingDoctorModuleMetadata(report.Modules),
+					"conflicts":   routingDoctorConflictMetadata(report.Conflicts),
+					"warnings":    append([]string{}, report.Warnings...),
+					"report_text": routing.FormatStartupReport(report),
 				},
 			}
 		},
@@ -450,6 +542,52 @@ func quickstartDoctorBlockDefinitionsCheck() admin.DoctorCheck {
 			}
 		},
 	}
+}
+
+func routingDoctorSummaryMetadata(summary routing.RouteSummary) map[string]any {
+	return map[string]any{
+		"total_routes":  summary.TotalRoutes,
+		"host_routes":   summary.HostRoutes,
+		"module_routes": summary.ModuleRoutes,
+		"modules":       append([]string{}, summary.Modules...),
+	}
+}
+
+func routingDoctorModuleMetadata(modules []routing.ResolvedModule) []map[string]string {
+	if len(modules) == 0 {
+		return nil
+	}
+	entries := make([]map[string]string, 0, len(modules))
+	for _, module := range modules {
+		entries = append(entries, map[string]string{
+			"slug":             strings.TrimSpace(module.Slug),
+			"ui":               strings.TrimSpace(module.UIMountBase),
+			"api":              strings.TrimSpace(module.APIMountBase),
+			"public_api":       strings.TrimSpace(module.PublicAPIMountBase),
+			"ui_group":         strings.TrimSpace(module.UIGroupPath),
+			"api_group":        strings.TrimSpace(module.APIGroupPath),
+			"public_api_group": strings.TrimSpace(module.PublicAPIGroupPath),
+		})
+	}
+	return entries
+}
+
+func routingDoctorConflictMetadata(conflicts []routing.Conflict) []map[string]any {
+	if len(conflicts) == 0 {
+		return nil
+	}
+	entries := make([]map[string]any, 0, len(conflicts))
+	for _, conflict := range conflicts {
+		entries = append(entries, map[string]any{
+			"kind":       strings.TrimSpace(conflict.Kind),
+			"module":     strings.TrimSpace(conflict.Module),
+			"method":     strings.TrimSpace(conflict.Method),
+			"path":       strings.TrimSpace(conflict.Path),
+			"route_name": strings.TrimSpace(conflict.RouteName),
+			"message":    strings.TrimSpace(conflict.Message),
+		})
+	}
+	return entries
 }
 
 func blockDefinitionAliasKeys(values ...string) []string {
