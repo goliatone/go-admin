@@ -1315,10 +1315,10 @@ func TestTranslationProductRuntimeValidationQueueRouteCoherenceDiagnostics(t *te
 			if got, err := manager.ResolveWith("admin", "translations.dashboard", nil, nil); err != nil || got != "/admin/translations/dashboard" {
 				t.Fatalf("expected dashboard route to be backfilled, got %q", got)
 			}
-			if got, err := manager.ResolveWith(adm.AdminAPIGroup(), "translations.my_work", nil, nil); err != nil || got != "/admin/api/translations/my-work" {
+			if got := resolveTranslationRoutePath(adm, adm.AdminAPIGroup(), "translations.my_work"); got != "/admin/api/translations/my-work" {
 				t.Fatalf("expected my-work api route to be backfilled, got %q", got)
 			}
-			if got, err := manager.ResolveWith(adm.AdminAPIGroup(), "translations.queue", nil, nil); err != nil || got != "/admin/api/translations/queue" {
+			if got := resolveTranslationRoutePath(adm, adm.AdminAPIGroup(), "translations.queue"); got != "/admin/api/translations/queue" {
 				t.Fatalf("expected queue api route to remain resolvable, got %q", got)
 			}
 		})
@@ -1517,7 +1517,7 @@ func translationRuntimeValidationURLKitConfig(includeDashboardUI, includeMyWorkA
 func translationRuntimeValidationURLKitConfigWithQueueRoutes(dashboardPath, myWorkPath, queuePath string) *urlkit.Config {
 	adminRoutes := map[string]string{
 		"dashboard":          "/",
-		"translations.queue": "/content/translations",
+		"translations.queue": "/translations/queue",
 	}
 	if strings.TrimSpace(dashboardPath) != "" {
 		adminRoutes["translations.dashboard"] = strings.TrimSpace(dashboardPath)

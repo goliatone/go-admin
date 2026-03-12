@@ -44,12 +44,23 @@ func TestAssignmentPriorityIsValid(t *testing.T) {
 func TestTranslationAssignmentActiveUniquenessKeyNormalizesInput(t *testing.T) {
 	assignment := TranslationAssignment{
 		TranslationGroupID: " TG_123 ",
-		EntityType:         " Pages ",
-		SourceLocale:       " EN ",
 		TargetLocale:       " ES ",
+		WorkScope:          " editorial.review ",
 	}
-	if got := assignment.ActiveUniquenessKey(); got != "tg_123:pages:en:es" {
+	if got := assignment.ActiveUniquenessKey(); got != "tg_123:es:editorial.review" {
 		t.Fatalf("expected normalized active key, got %q", got)
+	}
+}
+
+func TestAssignmentStatusActiveState(t *testing.T) {
+	if !AssignmentStatusPending.IsActive() {
+		t.Fatalf("expected pending status to be active")
+	}
+	if !AssignmentStatusRejected.IsActive() {
+		t.Fatalf("expected rejected status to be active")
+	}
+	if AssignmentStatusApproved.IsActive() {
+		t.Fatalf("expected approved status to be non-active")
 	}
 }
 
@@ -60,6 +71,7 @@ func TestTranslationAssignmentValidate(t *testing.T) {
 		SourceRecordID:     "page_123",
 		SourceLocale:       "en",
 		TargetLocale:       "es",
+		WorkScope:          "__all__",
 		AssignmentType:     AssignmentTypeOpenPool,
 		Status:             AssignmentStatusPending,
 		Priority:           PriorityNormal,

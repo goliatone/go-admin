@@ -112,3 +112,31 @@ func TestResolveAdminPanelAPIBulkBasePathFallsBackToCollectionBulkPath(t *testin
 		t.Fatalf("expected /admin/api/panels/news/bulk fallback, got %q", got)
 	}
 }
+
+func TestResolveRoutePathDoesNotDoublePrefixBackfilledAdminAPIPaths(t *testing.T) {
+	manager, err := urlkit.NewRouteManagerFromConfig(&urlkit.Config{
+		Groups: []urlkit.GroupConfig{
+			{
+				Name:    "admin",
+				BaseURL: "/admin",
+				Groups: []urlkit.GroupConfig{
+					{
+						Name: "api",
+						Path: "/api",
+						Routes: map[string]string{
+							"errors":               "/errors",
+							"translations.my_work": "/admin/api/translations/my-work",
+						},
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("new route manager: %v", err)
+	}
+
+	if got := resolveRoutePath(manager, "admin.api", "translations.my_work"); got != "/admin/api/translations/my-work" {
+		t.Fatalf("expected rooted backfill path without double prefix, got %q", got)
+	}
+}
