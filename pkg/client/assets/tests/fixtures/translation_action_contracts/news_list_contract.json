@@ -1,5 +1,5 @@
 {
-  "panel": "pages",
+  "panel": "news",
   "schema": {
     "actions": [
       {
@@ -33,20 +33,6 @@
                 "en",
                 "es",
                 "fr"
-              ],
-              "x-options": [
-                {
-                  "value": "en",
-                  "label": "English"
-                },
-                {
-                  "value": "es",
-                  "label": "Spanish"
-                },
-                {
-                  "value": "fr",
-                  "label": "French"
-                }
               ]
             },
             "missing_locales": {
@@ -92,22 +78,50 @@
   },
   "data": [
     {
-      "id": "page_123",
-      "status": "published",
+      "id": "news_123",
+      "status": "draft",
       "translation_readiness": {
-        "readiness_state": "missing_locales",
+        "readiness_state": "ready",
         "required_locales": [
           "en",
-          "es",
-          "fr"
+          "es"
+        ],
+        "required_for_publish": [
+          "en",
+          "es"
         ],
         "available_locales": [
-          "en"
+          "en",
+          "es"
         ],
-        "missing_required_locales": [
-          "es",
-          "fr"
-        ]
+        "missing_required_locales": [],
+        "missing_locales": [],
+        "recommended_locale": "",
+        "default_assignment": {
+          "auto_create_assignment": false,
+          "work_scope": "localization",
+          "priority": "normal",
+          "assignee_id": "",
+          "due_date": ""
+        },
+        "quick_create": {
+          "enabled": false,
+          "missing_locales": [],
+          "recommended_locale": "",
+          "required_for_publish": [
+            "en",
+            "es"
+          ],
+          "default_assignment": {
+            "auto_create_assignment": false,
+            "work_scope": "localization",
+            "priority": "normal",
+            "assignee_id": "",
+            "due_date": ""
+          },
+          "disabled_reason_code": "no_missing_locales",
+          "disabled_reason": "All requested and required locales already exist for this entry."
+        }
       },
       "_action_state": {
         "view": {
@@ -120,13 +134,11 @@
           "enabled": true
         },
         "submit_for_approval": {
-          "enabled": false,
-          "reason": "transition \"submit_for_approval\" is not available from state \"published\"",
-          "reason_code": "INVALID_STATUS"
+          "enabled": true
         },
         "publish": {
           "enabled": false,
-          "reason": "transition \"publish\" is not available from state \"published\"",
+          "reason": "transition \"publish\" is not available from state \"draft\"",
           "reason_code": "INVALID_STATUS"
         },
         "delete": {

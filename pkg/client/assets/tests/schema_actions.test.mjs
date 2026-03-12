@@ -32,8 +32,8 @@ function createBuilder(overrides = {}) {
   });
 }
 
-async function loadTranslationPhase1Fixture(panel) {
-  const fixtureURL = new URL(`./fixtures/translation_phase1/${panel}_list_contract.json`, import.meta.url);
+async function loadTranslationActionFixture(panel) {
+  const fixtureURL = new URL(`./fixtures/translation_action_contracts/${panel}_list_contract.json`, import.meta.url);
   const raw = await readFile(fixtureURL, 'utf8');
   return JSON.parse(raw);
 }
@@ -1250,7 +1250,7 @@ test('actions with same order use insertion order as tie-breaker', () => {
 
 test('fixture contract: schema action order is server-authoritative for pages/posts/news', async () => {
   for (const panel of ['pages', 'posts', 'news']) {
-    const fixture = await loadTranslationPhase1Fixture(panel);
+    const fixture = await loadTranslationActionFixture(panel);
     const schemaActions = extractSchemaActions(fixture);
     const record = fixture?.data?.[0];
     assert.ok(record, `fixture record missing for ${panel}`);
@@ -1278,7 +1278,7 @@ test('fixture contract: schema action order is server-authoritative for pages/po
 
 test('fixture contract: create_translation payload schema exposes canonical locale keys', async () => {
   for (const panel of ['pages', 'posts', 'news']) {
-    const fixture = await loadTranslationPhase1Fixture(panel);
+    const fixture = await loadTranslationActionFixture(panel);
     const schemaActions = extractSchemaActions(fixture);
     const createAction = schemaActions.find((action) => action.name === 'create_translation');
 
@@ -1299,7 +1299,7 @@ test('fixture contract: create_translation payload schema exposes canonical loca
 
 test('fixture contract: disabled actions provide reason and reason_code', async () => {
   for (const panel of ['pages', 'posts', 'news']) {
-    const fixture = await loadTranslationPhase1Fixture(panel);
+    const fixture = await loadTranslationActionFixture(panel);
     const schemaActions = extractSchemaActions(fixture);
     const record = fixture?.data?.[0];
     assert.ok(record, `fixture record missing for ${panel}`);

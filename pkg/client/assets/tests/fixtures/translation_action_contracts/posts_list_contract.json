@@ -1,5 +1,5 @@
 {
-  "panel": "news",
+  "panel": "posts",
   "schema": {
     "actions": [
       {
@@ -70,6 +70,11 @@
         "order": 40
       },
       {
+        "name": "unpublish",
+        "label": "Unpublish",
+        "order": 50
+      },
+      {
         "name": "delete",
         "label": "Delete",
         "order": 1000
@@ -78,19 +83,53 @@
   },
   "data": [
     {
-      "id": "news_123",
-      "status": "draft",
+      "id": "post_123",
+      "status": "approval",
       "translation_readiness": {
-        "readiness_state": "ready",
+        "readiness_state": "missing_locales",
         "required_locales": [
           "en",
           "es"
         ],
-        "available_locales": [
+        "required_for_publish": [
           "en",
           "es"
         ],
-        "missing_required_locales": []
+        "available_locales": [
+          "en"
+        ],
+        "missing_required_locales": [
+          "es"
+        ],
+        "missing_locales": [
+          "es"
+        ],
+        "recommended_locale": "es",
+        "default_assignment": {
+          "auto_create_assignment": false,
+          "work_scope": "localization",
+          "priority": "normal",
+          "assignee_id": "",
+          "due_date": ""
+        },
+        "quick_create": {
+          "enabled": true,
+          "missing_locales": [
+            "es"
+          ],
+          "recommended_locale": "es",
+          "required_for_publish": [
+            "en",
+            "es"
+          ],
+          "default_assignment": {
+            "auto_create_assignment": false,
+            "work_scope": "localization",
+            "priority": "normal",
+            "assignee_id": "",
+            "due_date": ""
+          }
+        }
       },
       "_action_state": {
         "view": {
@@ -103,11 +142,18 @@
           "enabled": true
         },
         "submit_for_approval": {
-          "enabled": true
+          "enabled": false,
+          "reason": "transition \"submit_for_approval\" is not available from state \"approval\"",
+          "reason_code": "INVALID_STATUS"
         },
         "publish": {
           "enabled": false,
-          "reason": "transition \"publish\" is not available from state \"draft\"",
+          "reason": "missing required locales: ES",
+          "reason_code": "TRANSLATION_MISSING"
+        },
+        "unpublish": {
+          "enabled": false,
+          "reason": "transition \"unpublish\" is not available from state \"approval\"",
           "reason_code": "INVALID_STATUS"
         },
         "delete": {

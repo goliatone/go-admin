@@ -166,7 +166,7 @@ export function getTranslationRoute(
   const base = (basePath ?? '').replace(/\/+$/, '');
   switch (key) {
     case 'QUEUE':
-      return c.modules.queue.enabled ? `${base}/content/translations` : null;
+      return c.modules.queue.enabled ? `${base}/translations/queue` : null;
     case 'EXCHANGE_UI':
       return c.modules.exchange.enabled ? `${base}/translations/exchange` : null;
     default:

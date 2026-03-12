@@ -1,5 +1,6 @@
 import { onReady } from '../utils/dom-helpers.js';
 import {
+  destroyAgreementFormRuntime,
   initAgreementFormRuntime,
   type AgreementFormRuntimeConfig,
 } from './agreement-form-runtime.js';
@@ -51,6 +52,7 @@ export class AgreementFormController {
   }
 
   destroy(): void {
+    destroyAgreementFormRuntime();
     this.initialized = false;
   }
 }

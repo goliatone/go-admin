@@ -1,5 +1,5 @@
 {
-  "panel": "posts",
+  "panel": "pages",
   "schema": {
     "actions": [
       {
@@ -33,6 +33,20 @@
                 "en",
                 "es",
                 "fr"
+              ],
+              "x-options": [
+                {
+                  "value": "en",
+                  "label": "English"
+                },
+                {
+                  "value": "es",
+                  "label": "Spanish"
+                },
+                {
+                  "value": "fr",
+                  "label": "French"
+                }
               ]
             },
             "missing_locales": {
@@ -70,11 +84,6 @@
         "order": 40
       },
       {
-        "name": "unpublish",
-        "label": "Unpublish",
-        "order": 50
-      },
-      {
         "name": "delete",
         "label": "Delete",
         "order": 1000
@@ -83,20 +92,59 @@
   },
   "data": [
     {
-      "id": "post_123",
-      "status": "approval",
+      "id": "page_123",
+      "status": "published",
       "translation_readiness": {
         "readiness_state": "missing_locales",
         "required_locales": [
           "en",
-          "es"
+          "es",
+          "fr"
+        ],
+        "required_for_publish": [
+          "en",
+          "es",
+          "fr"
         ],
         "available_locales": [
           "en"
         ],
         "missing_required_locales": [
-          "es"
-        ]
+          "es",
+          "fr"
+        ],
+        "missing_locales": [
+          "es",
+          "fr"
+        ],
+        "recommended_locale": "es",
+        "default_assignment": {
+          "auto_create_assignment": false,
+          "work_scope": "localization",
+          "priority": "normal",
+          "assignee_id": "",
+          "due_date": ""
+        },
+        "quick_create": {
+          "enabled": true,
+          "missing_locales": [
+            "es",
+            "fr"
+          ],
+          "recommended_locale": "es",
+          "required_for_publish": [
+            "en",
+            "es",
+            "fr"
+          ],
+          "default_assignment": {
+            "auto_create_assignment": false,
+            "work_scope": "localization",
+            "priority": "normal",
+            "assignee_id": "",
+            "due_date": ""
+          }
+        }
       },
       "_action_state": {
         "view": {
@@ -110,17 +158,12 @@
         },
         "submit_for_approval": {
           "enabled": false,
-          "reason": "transition \"submit_for_approval\" is not available from state \"approval\"",
+          "reason": "transition \"submit_for_approval\" is not available from state \"published\"",
           "reason_code": "INVALID_STATUS"
         },
         "publish": {
           "enabled": false,
-          "reason": "missing required locales: ES",
-          "reason_code": "TRANSLATION_MISSING"
-        },
-        "unpublish": {
-          "enabled": false,
-          "reason": "transition \"unpublish\" is not available from state \"approval\"",
+          "reason": "transition \"publish\" is not available from state \"published\"",
           "reason_code": "INVALID_STATUS"
         },
         "delete": {
