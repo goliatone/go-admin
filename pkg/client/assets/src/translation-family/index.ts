@@ -131,6 +131,7 @@ export interface ReadinessChip {
 export interface TranslationFamilyClient {
   list(filters?: Partial<TranslationFamilyFilters>): Promise<TranslationFamilyListResponse>;
   detail(familyId: string, environment?: string): Promise<TranslationFamilyDetail>;
+  createLocale(familyId: string, input?: Partial<TranslationCreateLocaleRequest>): Promise<TranslationCreateLocaleResult>;
 }
 
 interface TranslationFamilyClientOptions {
@@ -155,6 +156,50 @@ export interface TranslationFamilyDetailLoadState {
 export interface TranslationFamilyDetailRenderOptions {
   basePath?: string;
   contentBasePath?: string;
+}
+
+export interface TranslationCreateLocaleRequest {
+  locale: string;
+  autoCreateAssignment: boolean;
+  assigneeId: string;
+  priority: string;
+  dueDate: string;
+  environment: string;
+  idempotencyKey: string;
+}
+
+export interface TranslationCreateLocaleAssignment {
+  assignmentId: string;
+  status: string;
+  targetLocale: string;
+  assigneeId: string;
+  priority: string;
+  dueDate: string;
+}
+
+export interface TranslationCreateLocaleResult {
+  variantId: string;
+  familyId: string;
+  locale: string;
+  status: string;
+  assignment: TranslationCreateLocaleAssignment | null;
+  idempotencyHit: boolean;
+  assignmentReused: boolean;
+  family: {
+    familyId: string;
+    readinessState: FamilyReadinessState;
+    missingRequiredLocaleCount: number;
+    pendingReviewCount: number;
+    outdatedLocaleCount: number;
+    blockerCodes: string[];
+    missingLocales: string[];
+    availableLocales: string[];
+  };
+  refresh: {
+    familyDetail: boolean;
+    familyList: boolean;
+    contentSummary: boolean;
+  };
 }
 
 function asString(value: unknown): string {

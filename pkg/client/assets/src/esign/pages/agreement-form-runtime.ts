@@ -3225,32 +3225,36 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
 
   function setOwnershipControlledActionsDisabled(disabled) {
     const wizardSaveButton = document.getElementById('wizard-save-btn');
+    const submitButton = document.getElementById('submit-btn');
     if (wizardSaveButton instanceof HTMLButtonElement) {
       wizardSaveButton.disabled = disabled;
     }
-    if (submitBtn instanceof HTMLButtonElement) {
-      submitBtn.disabled = disabled;
+    if (submitButton instanceof HTMLButtonElement) {
+      submitButton.disabled = disabled;
     }
   }
 
   function updateActiveTabOwnershipUI(context = {}) {
     const isOwner = context?.isOwner !== false;
     const coordinationAvailable = context?.coordinationAvailable !== false;
-    if (!activeTabBanner || !activeTabMessage) {
+    const banner = document.getElementById('active-tab-banner');
+    const message = document.getElementById('active-tab-message');
+    const takeControlButton = document.getElementById('active-tab-take-control-btn');
+    if (!banner || !message) {
       setOwnershipControlledActionsDisabled(!isOwner);
       return;
     }
     if (!coordinationAvailable || isOwner) {
-      activeTabBanner.classList.add('hidden');
-      activeTabTakeControlBtn?.removeAttribute('disabled');
+      banner.classList.add('hidden');
+      takeControlButton?.removeAttribute('disabled');
       setOwnershipControlledActionsDisabled(false);
       return;
     }
 
     const claim = context?.claim;
     const seenLabel = claim?.lastSeenAt ? formatRelativeTime(claim.lastSeenAt) : 'recently';
-    activeTabMessage.textContent = `This agreement is active in another tab. Take control here to resume syncing and sending. Last seen ${seenLabel}.`;
-    activeTabBanner.classList.remove('hidden');
+    message.textContent = `This agreement is active in another tab. Take control here to resume syncing and sending. Last seen ${seenLabel}.`;
+    banner.classList.remove('hidden');
     setOwnershipControlledActionsDisabled(true);
   }
 

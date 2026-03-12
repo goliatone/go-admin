@@ -14201,6 +14201,15 @@ test('Phase 30.FE.9: agreement form runtime uses explicit active-tab claims and 
   assert.doesNotMatch(source, /type: 'presence'|type: 'ownership_claim'/);
 });
 
+test('Phase 30.FE.9: active-tab ownership UI resolves DOM lazily during boot', () => {
+  const source = fs.readFileSync(agreementRuntimeSourcePath, 'utf8');
+
+  assert.match(source, /function setOwnershipControlledActionsDisabled\(disabled\) \{[\s\S]*const submitButton = document\.getElementById\('submit-btn'\)/);
+  assert.match(source, /function updateActiveTabOwnershipUI\(context = \{\}\) \{[\s\S]*const banner = document\.getElementById\('active-tab-banner'\);[\s\S]*const message = document\.getElementById\('active-tab-message'\);[\s\S]*const takeControlButton = document\.getElementById\('active-tab-take-control-btn'\);/);
+  assert.match(source, /if \(!banner \|\| !message\) \{/);
+  assert.match(source, /takeControlButton\?\.removeAttribute\('disabled'\)/);
+});
+
 test('Phase 31.FE.2: placement panel includes generated automation fields alongside manual definitions', () => {
   const source = fs.readFileSync(agreementRuntimeSourcePath, 'utf8');
 
