@@ -10,8 +10,29 @@ import (
 	"github.com/goliatone/go-admin/admin"
 	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
+	urlkit "github.com/goliatone/go-urlkit"
 	"github.com/stretchr/testify/mock"
 )
+
+func newTranslationFamilyURLManager(t *testing.T) *urlkit.RouteManager {
+	t.Helper()
+	manager, err := urlkit.NewRouteManagerFromConfig(&urlkit.Config{
+		Groups: []urlkit.GroupConfig{
+			{
+				Name:    "admin",
+				BaseURL: "/admin",
+				Routes: map[string]string{
+					"dashboard":                "/",
+					"translations.families.id": "/translations/families/:family_id",
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("new route manager: %v", err)
+	}
+	return manager
+}
 
 func TestContentEntryColumnsMarksFilterableFields(t *testing.T) {
 	panel := mustBuildContentEntryTestPanel(t)
@@ -1298,6 +1319,104 @@ func TestRenderFormIncludesRequestedLocaleInEditFormAction(t *testing.T) {
 	)
 	if err != nil {
 		t.Fatalf("render form: %v", err)
+	}
+	ctx.AssertExpectations(t)
+}
+
+func TestContentEntryAttachTranslationFamilyLinkResolvesFamilyDetailURL(t *testing.T) {
+	record := map[string]any{"translation_group_id": "tg-page-123"}
+	urls := newTranslationFamilyURLManager(t)
+
+	mapped := contentEntryAttachTranslationFamilyLink(record, urls, true)
+	if got := strings.TrimSpace(anyToString(mapped["translation_family_id"])); got != "tg-page-123" {
+		t.Fatalf("expected translation_family_id tg-page-123, got %q", got)
+	}
+	if got := strings.TrimSpace(anyToString(mapped["translation_family_url"])); got != "/admin/translations/families/tg-page-123" {
+		t.Fatalf("expected translation_family_url to resolve, got %q", got)
+	}
+	links, _ := mapped["links"].(map[string]any)
+	family, _ := links["translation_family"].(map[string]any)
+	if got := strings.TrimSpace(anyToString(family["href"])); got != "/admin/translations/families/tg-page-123" {
+		t.Fatalf("expected links.translation_family.href to resolve, got %q", got)
+	}
+}
+
+func TestContentEntryAttachTranslationLocaleLinksBuildsLocaleTargets(t *testing.T) {
+	record := map[string]any{
+		"id":                "page-123",
+		"available_locales": []any{"en", "es", "fr"},
+	}
+	routes := newContentEntryRoutes("/admin", "pages", "")
+
+	detailLinked := contentEntryAttachTranslationLocaleLinks(record, routes, false, true)
+	detailURLs, _ := detailLinked["translation_locale_urls"].(map[string]any)
+	if got := strings.TrimSpace(anyToString(detailURLs["es"])); got != "/admin/content/pages/page-123?locale=es" {
+		t.Fatalf("expected detail locale link, got %q", got)
+	}
+
+	editLinked := contentEntryAttachTranslationLocaleLinks(record, routes, true, true)
+	editURLs, _ := editLinked["translation_locale_urls"].(map[string]any)
+	if got := strings.TrimSpace(anyToString(editURLs["fr"])); got != "/admin/content/pages/page-123/edit?locale=fr" {
+		t.Fatalf("expected edit locale link, got %q", got)
+	}
+}
+
+func TestDetailForPanelIncludesTranslationFamilyLinkWhenTranslationUXEnabled(t *testing.T) {
+	cfg := admin.Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+	}
+	adm, err := admin.New(cfg, admin.Dependencies{URLManager: newTranslationFamilyURLManager(t)})
+	if err != nil {
+		t.Fatalf("new admin: %v", err)
+	}
+	repo := admin.NewMemoryRepository()
+	created, err := repo.Create(context.Background(), map[string]any{
+		"id":                   "page-123",
+		"title":                "Page EN",
+		"locale":               "en",
+		"available_locales":    []any{"en"},
+		"translation_group_id": "tg-page-123",
+	})
+	if err != nil {
+		t.Fatalf("seed record: %v", err)
+	}
+	if _, err := adm.RegisterPanel("pages", (&admin.PanelBuilder{}).
+		WithRepository(repo).
+		Actions(admin.Action{Name: admin.CreateTranslationKey}).
+		DetailFields(admin.Field{Name: "title", Label: "Title", Type: "text"})); err != nil {
+		t.Fatalf("register panel: %v", err)
+	}
+
+	h := &contentEntryHandlers{
+		admin:          adm,
+		cfg:            cfg,
+		translationUX:  true,
+		detailTemplate: "resources/content/detail",
+		templateExists: func(name string) bool {
+			return name == "resources/content/detail"
+		},
+	}
+	ctx := router.NewMockContext()
+	ctx.ParamsM["name"] = "pages"
+	ctx.ParamsM["id"] = strings.TrimSpace(anyToString(created["id"]))
+	ctx.On("Context").Return(context.Background())
+	ctx.On("Render", "resources/content/detail", mock.MatchedBy(func(arg any) bool {
+		viewCtx, ok := arg.(router.ViewContext)
+		if !ok {
+			return false
+		}
+		item, ok := viewCtx["resource_item"].(map[string]any)
+		if !ok {
+			return false
+		}
+		localeURLs, _ := item["translation_locale_urls"].(map[string]any)
+		return strings.TrimSpace(anyToString(item["translation_family_url"])) == "/admin/translations/families/tg-page-123" &&
+			strings.TrimSpace(anyToString(localeURLs["en"])) == "/admin/content/pages/1?locale=en"
+	})).Return(nil).Once()
+
+	if err := h.detailForPanel(ctx, ""); err != nil {
+		t.Fatalf("detailForPanel: %v", err)
 	}
 	ctx.AssertExpectations(t)
 }

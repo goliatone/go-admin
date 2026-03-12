@@ -73,15 +73,19 @@ func TestPlannerRejectsReservedRootClaims(t *testing.T) {
 			AdminRoot: "/admin",
 			APIRoot:   "/admin/api",
 		},
+		Modules: map[string]ModuleConfig{
+			"translations": {
+				Mount: ModuleMountOverride{
+					UIBase: "/admin",
+				},
+			},
+		},
 	})
 
 	err := planner.RegisterModule(ModuleContract{
 		Slug: "translations",
 		UIRoutes: map[string]string{
 			"translations.dashboard": "/",
-		},
-		Mount: ModuleMountOverride{
-			UIBase: "/admin",
 		},
 	})
 	if err == nil {
@@ -131,6 +135,13 @@ func TestPlannerFailFastLeavesInvalidModuleUnregistered(t *testing.T) {
 			AdminRoot: "/admin",
 			APIRoot:   "/admin/api",
 		},
+		Modules: map[string]ModuleConfig{
+			"beta": {
+				Mount: ModuleMountOverride{
+					UIBase: "/outside",
+				},
+			},
+		},
 	})
 
 	if err := planner.RegisterModule(ModuleContract{
@@ -146,9 +157,6 @@ func TestPlannerFailFastLeavesInvalidModuleUnregistered(t *testing.T) {
 		Slug: "beta",
 		UIRoutes: map[string]string{
 			"beta.index": "/",
-		},
-		Mount: ModuleMountOverride{
-			UIBase: "/outside",
 		},
 	})
 	if err == nil {

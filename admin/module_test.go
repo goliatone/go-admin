@@ -316,16 +316,30 @@ func TestLoadModulesRejectsMissingRouteContract(t *testing.T) {
 }
 
 func TestLoadModulesFailsFastOnRoutingConflicts(t *testing.T) {
-	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
+	adm := mustNewAdmin(t, Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		Routing: routing.Config{
+			Modules: map[string]routing.ModuleConfig{
+				"alpha": {
+					Mount: routing.ModuleMountOverride{
+						UIBase: "/admin",
+					},
+				},
+				"beta": {
+					Mount: routing.ModuleMountOverride{
+						UIBase: "/admin",
+					},
+				},
+			},
+		},
+	}, Dependencies{})
 	alpha := &stubModule{
 		id: "alpha",
 		contract: routing.ModuleContract{
 			Slug: "alpha",
 			UIRoutes: map[string]string{
 				"alpha.index": "/shared",
-			},
-			Mount: routing.ModuleMountOverride{
-				UIBase: "/admin",
 			},
 		},
 	}
@@ -335,9 +349,6 @@ func TestLoadModulesFailsFastOnRoutingConflicts(t *testing.T) {
 			Slug: "beta",
 			UIRoutes: map[string]string{
 				"beta.index": "/shared",
-			},
-			Mount: routing.ModuleMountOverride{
-				UIBase: "/admin",
 			},
 		},
 	}

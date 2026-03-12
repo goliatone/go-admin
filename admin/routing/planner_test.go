@@ -82,7 +82,7 @@ func TestPlannerResolvesDefaultMountsAndGroupPaths(t *testing.T) {
 	}
 }
 
-func TestPlannerAppliesHostMountOverridesOverContractMounts(t *testing.T) {
+func TestPlannerAppliesHostMountOverrides(t *testing.T) {
 	planner := mustPlanner(t, Config{
 		Roots: RootsConfig{
 			AdminRoot:     "/admin",
@@ -110,11 +110,6 @@ func TestPlannerAppliesHostMountOverridesOverContractMounts(t *testing.T) {
 		},
 		PublicAPIRoutes: map[string]string{
 			"translations.feed": "/feed",
-		},
-		Mount: ModuleMountOverride{
-			UIBase:        "/admin/translations-module",
-			APIBase:       "/api/translations-module",
-			PublicAPIBase: "/public/api/translations-module",
 		},
 	})
 	if err != nil {
@@ -184,27 +179,20 @@ func TestPlannerOmitsUnusedSurfacesFromResolutionAndManifest(t *testing.T) {
 	}
 }
 
-func TestMutationRoutePathStripsGroupRoots(t *testing.T) {
-	roots := RootsConfig{
-		AdminRoot:     "/admin",
-		APIRoot:       "/admin/api",
-		PublicAPIRoot: "/api/v1",
-	}
-
+func TestMutationRoutePathPreservesCanonicalAbsolutePaths(t *testing.T) {
 	tests := []struct {
-		group    string
 		incoming string
 		want     string
 	}{
-		{group: "admin", incoming: "/admin/translations/dashboard", want: "/translations/dashboard"},
-		{group: "admin.api", incoming: "/admin/api/translations/my-work", want: "/translations/my-work"},
-		{group: "public.api.v1", incoming: "/api/v1/esign/signing/session/:token", want: "/esign/signing/session/:token"},
-		{group: "admin.api", incoming: "/queue", want: "/queue"},
+		{incoming: "/admin/translations/dashboard", want: "/admin/translations/dashboard"},
+		{incoming: "/admin/api/translations/my-work", want: "/admin/api/translations/my-work"},
+		{incoming: "/api/v1/esign/signing/session/:token", want: "/api/v1/esign/signing/session/:token"},
+		{incoming: "/queue", want: "/queue"},
 	}
 
 	for _, tc := range tests {
-		if got := mutationRoutePath(tc.group, tc.incoming, roots); got != tc.want {
-			t.Fatalf("group %q incoming %q: expected %q, got %q", tc.group, tc.incoming, tc.want, got)
+		if got := mutationRoutePath(tc.incoming); got != tc.want {
+			t.Fatalf("incoming %q: expected %q, got %q", tc.incoming, tc.want, got)
 		}
 	}
 }
@@ -238,15 +226,19 @@ func TestPlannerRejectsInvalidOverridesOutsideHostRoots(t *testing.T) {
 			AdminRoot: "/admin",
 			APIRoot:   "/admin/api",
 		},
+		Modules: map[string]ModuleConfig{
+			"translations": {
+				Mount: ModuleMountOverride{
+					UIBase: "/translations",
+				},
+			},
+		},
 	})
 
 	err := planner.RegisterModule(ModuleContract{
 		Slug: "translations",
 		UIRoutes: map[string]string{
 			"translations.dashboard": "/dashboard",
-		},
-		Mount: ModuleMountOverride{
-			UIBase: "/translations",
 		},
 	})
 	if err == nil {
@@ -260,6 +252,13 @@ func TestPlannerAllowsRootLevelOverridesWhenRoutesStayBelowHostRoot(t *testing.T
 			AdminRoot: "/admin",
 			APIRoot:   "/admin/api",
 		},
+		Modules: map[string]ModuleConfig{
+			"users": {
+				Mount: ModuleMountOverride{
+					UIBase: "/admin",
+				},
+			},
+		},
 	})
 
 	err := planner.RegisterModule(ModuleContract{
@@ -267,9 +266,6 @@ func TestPlannerAllowsRootLevelOverridesWhenRoutesStayBelowHostRoot(t *testing.T
 		UIRoutes: map[string]string{
 			"users.index": "/users",
 			"users.roles": "/roles",
-		},
-		Mount: ModuleMountOverride{
-			UIBase: "/admin",
 		},
 	})
 	if err != nil {
