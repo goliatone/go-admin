@@ -1,6 +1,92 @@
-// @ts-nocheck
+interface ResumeDocumentState {
+  id?: string | null;
+  title?: string | null;
+}
 
-export function createAgreementResumeController(options = {}) {
+interface ResumeDetailsState {
+  title?: string;
+}
+
+interface ResumeWizardState {
+  currentStep?: number;
+  updatedAt?: string | null;
+  syncPending?: boolean;
+  serverDraftId?: string | null;
+  serverRevision?: number;
+  lastSyncedAt?: string | null;
+  titleSource?: string;
+  document?: ResumeDocumentState | null;
+  details?: ResumeDetailsState | null;
+  participants?: unknown[];
+  fieldDefinitions?: unknown[];
+  fieldPlacements?: Array<Record<string, unknown> | null | undefined>;
+  fieldRules?: unknown[];
+  [key: string]: unknown;
+}
+
+interface ResumeStateManager {
+  getState(): ResumeWizardState;
+  normalizeLoadedState(state: ResumeWizardState): ResumeWizardState;
+  setState(
+    nextState: ResumeWizardState,
+    options?: { syncPending?: boolean; notify?: boolean; save?: boolean },
+  ): void;
+  clear(): void;
+  collectFormState(): ResumeWizardState;
+  restoreFormState(): void;
+  hasResumableState(): boolean;
+}
+
+interface ResumeDraftRecord {
+  id?: string;
+  revision?: number;
+  updated_at?: string;
+  updatedAt?: string;
+  wizard_state?: ResumeWizardState | null;
+}
+
+interface ResumeSyncService {
+  load(draftId: string): Promise<ResumeDraftRecord>;
+  delete(draftId: string): Promise<void>;
+}
+
+interface ResumeSyncOrchestrator {
+  broadcastStateUpdate(): void;
+  scheduleSync(): void;
+}
+
+interface ResumeTelemetryFields {
+  step: number;
+  has_server_draft: boolean;
+}
+
+interface ResumeControllerOptions {
+  isEditMode: boolean;
+  stateManager: ResumeStateManager;
+  syncOrchestrator: ResumeSyncOrchestrator;
+  syncService: ResumeSyncService;
+  hasMeaningfulWizardProgress(state: ResumeWizardState): boolean;
+  formatRelativeTime(value?: string | null): string;
+  emitWizardTelemetry(eventName: string, fields?: ResumeTelemetryFields): void;
+}
+
+type ResumeAction = 'continue' | 'start_new' | 'proceed' | 'discard';
+
+export interface AgreementResumeController {
+  bindEvents(): void;
+  reconcileBootstrapState(): Promise<ResumeWizardState>;
+  maybeShowResumeDialog(): Promise<void>;
+}
+
+declare global {
+  interface Window {
+    _resumeToStep?: number;
+  }
+}
+
+export function createAgreementResumeController(
+  options: ResumeControllerOptions,
+): AgreementResumeController {
   const {
     isEditMode,
     stateManager,
@@ -11,7 +97,10 @@ export function createAgreementResumeController(options = {}) {
     emitWizardTelemetry,
   } = options;
 
-  function mergeUnsyncedLocalOntoServer(localState, serverState) {
+  function mergeUnsyncedLocalOntoServer(
+    localState: ResumeWizardState,
+    serverState: ResumeWizardState,
+  ): ResumeWizardState {
     return stateManager.normalizeLoadedState({
       ...serverState,
       currentStep: localState.currentStep,
@@ -29,7 +118,7 @@ export function createAgreementResumeController(options = {}) {
     });
   }
 
-  async function reconcileBootstrapState() {
+  async function reconcileBootstrapState(): Promise<ResumeWizardState> {
     if (isEditMode) return stateManager.getState();
     const localState = stateManager.normalizeLoadedState(stateManager.getState());
     const localDraftID = String(localState?.serverDraftId || '').trim();
@@ -53,8 +142,11 @@ export function createAgreementResumeController(options = {}) {
         : serverState;
       stateManager.setState(reconciled, { syncPending: Boolean(reconciled.syncPending), notify: false });
       return stateManager.getState();
-    } catch (error) {
-      if (Number(error?.status || 0) === 404) {
+    } catch (error: unknown) {
+      const status = typeof error === 'object' && error !== null && 'status' in error
+        ? Number((error as { status?: unknown }).status || 0)
+        : 0;
+      if (status === 404) {
         const localOnlyState = stateManager.normalizeLoadedState({
           ...localState,
           serverDraftId: null,
@@ -68,17 +160,26 @@ export function createAgreementResumeController(options = {}) {
     }
   }
 
-  function showResumeDialog() {
+  function textElement(id: string): HTMLElement | null {
+    return document.getElementById(id);
+  }
+
+  function showResumeDialog(): void {
     const modal = document.getElementById('resume-dialog-modal');
     const state = stateManager.getState();
     const resumeDocumentName = String(state?.document?.title || '').trim()
       || String(state?.document?.id || '').trim()
       || 'Unknown document';
 
-    document.getElementById('resume-draft-title').textContent = state.details.title || 'Untitled Agreement';
-    document.getElementById('resume-draft-document').textContent = resumeDocumentName;
-    document.getElementById('resume-draft-step').textContent = state.currentStep;
-    document.getElementById('resume-draft-time').textContent = formatRelativeTime(state.updatedAt);
+    const title = textElement('resume-draft-title');
+    const documentName = textElement('resume-draft-document');
+    const step = textElement('resume-draft-step');
+    const time = textElement('resume-draft-time');
+
+    if (title) title.textContent = state.details?.title || 'Untitled Agreement';
+    if (documentName) documentName.textContent = resumeDocumentName;
+    if (step) step.textContent = String(state.currentStep || 1);
+    if (time) time.textContent = formatRelativeTime(state.updatedAt);
 
     modal?.classList.remove('hidden');
     emitWizardTelemetry('wizard_resume_prompt_shown', {
@@ -87,7 +188,7 @@ export function createAgreementResumeController(options = {}) {
     });
   }
 
-  async function clearSavedResumeState(options = {}) {
+  async function clearSavedResumeState(options: { deleteServerDraft?: boolean } = {}): Promise<void> {
     const deleteServerDraft = options.deleteServerDraft === true;
     const staleServerDraftID = String(stateManager.getState()?.serverDraftId || '').trim();
 
@@ -99,12 +200,12 @@ export function createAgreementResumeController(options = {}) {
     }
     try {
       await syncService.delete(staleServerDraftID);
-    } catch (error) {
+    } catch (error: unknown) {
       console.warn('Failed to delete server draft:', error);
     }
   }
 
-  function collectCurrentFormSnapshot() {
+  function collectCurrentFormSnapshot(): ResumeWizardState {
     return stateManager.normalizeLoadedState({
       ...stateManager.getState(),
       ...stateManager.collectFormState(),
@@ -115,7 +216,7 @@ export function createAgreementResumeController(options = {}) {
     });
   }
 
-  function persistSnapshotIfMeaningful(snapshot) {
+  function persistSnapshotIfMeaningful(snapshot: ResumeWizardState): void {
     if (!hasMeaningfulWizardProgress(snapshot)) {
       return;
     }
@@ -124,7 +225,7 @@ export function createAgreementResumeController(options = {}) {
     syncOrchestrator.broadcastStateUpdate();
   }
 
-  async function handleResumeAction(action) {
+  async function handleResumeAction(action: ResumeAction): Promise<void> {
     document.getElementById('resume-dialog-modal')?.classList.add('hidden');
     const currentSnapshot = collectCurrentFormSnapshot();
 
@@ -149,7 +250,7 @@ export function createAgreementResumeController(options = {}) {
     }
   }
 
-  function bindEvents() {
+  function bindEvents(): void {
     document.getElementById('resume-continue-btn')?.addEventListener('click', () => {
       void handleResumeAction('continue');
     });
@@ -164,7 +265,7 @@ export function createAgreementResumeController(options = {}) {
     });
   }
 
-  async function maybeShowResumeDialog() {
+  async function maybeShowResumeDialog(): Promise<void> {
     if (isEditMode) return;
     await reconcileBootstrapState();
     if (!stateManager.hasResumableState()) return;

@@ -76,6 +76,7 @@ test('runtime extraction contract: typed helper modules do not use ts-nocheck', 
     '../src/esign/pages/agreement-form/form-payload.ts',
     '../src/esign/pages/agreement-form/feedback.ts',
     '../src/esign/pages/agreement-form/state-binding.ts',
+    '../src/esign/pages/agreement-form/resume-flow.ts',
   ];
 
   for (const relativePath of helperModules) {
