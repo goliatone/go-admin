@@ -433,11 +433,12 @@ func (s *CMSPageStore) pagePayload(record map[string]any, existing map[string]an
 	}
 
 	payload := map[string]any{
-		"title":     title,
-		"slug":      slug,
-		"status":    storageStatus,
-		"locale":    locale,
-		"parent_id": asString(record["parent_id"], asString(existing["parent_id"], "")),
+		"title":                title,
+		"slug":                 slug,
+		"status":               storageStatus,
+		"locale":               locale,
+		"translation_group_id": asString(record["translation_group_id"], asString(existing["translation_group_id"], "")),
+		"parent_id":            asString(record["parent_id"], asString(existing["parent_id"], "")),
 		"seo": map[string]any{
 			"title":       metaTitle,
 			"description": metaDescription,

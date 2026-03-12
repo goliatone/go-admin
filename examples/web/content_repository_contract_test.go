@@ -265,32 +265,32 @@ func TestCMSSeedsIncludeMonolingualAndMultilingualTranslationScenarios(t *testin
 	postDatabaseOptimizationLocales := contentTranslationLocalesBySlug(t, ctx, db, "database-optimization")
 	require.ElementsMatch(t, []string{"en"}, postDatabaseOptimizationLocales, "database-optimization should remain en-only")
 
-	missingFRPageEN := seededPageFixtureBySlug(t, ctx, db, "translation-missing-fr")
+	missingFRPageEN := seededPageFixtureBySlugAndLocale(t, ctx, db, "translation-missing-fr", "en")
 	require.Equal(t, "en", strings.ToLower(missingFRPageEN.Locale))
 	missingFRGroupID := strings.ToLower(strings.TrimSpace(missingFRPageEN.TranslationGroupID))
 	require.NotEmpty(t, missingFRGroupID)
 
-	missingFRPageES := seededPageFixtureBySlug(t, ctx, db, "translation-missing-fr-es")
+	missingFRPageES := seededPageFixtureBySlugAndLocale(t, ctx, db, "translation-missing-fr", "es")
 	require.Equal(t, "es", strings.ToLower(missingFRPageES.Locale))
-	require.NotEmpty(t, strings.ToLower(strings.TrimSpace(missingFRPageES.TranslationGroupID)))
+	require.Equal(t, missingFRGroupID, strings.ToLower(strings.TrimSpace(missingFRPageES.TranslationGroupID)))
 
 	missingFRCount, err := db.NewSelect().
 		Table("admin_page_records").
-		Where("slug = ?", "translation-missing-fr-fr").
+		Where("slug = ?", "translation-missing-fr").
 		Where("LOWER(locale) = LOWER(?)", "fr").
 		Count(ctx)
 	require.NoError(t, err, "count missing-fr fixture fr variants")
 	require.Equal(t, 0, missingFRCount, "missing-fr fixture should not include fr variant")
 
-	reviewPostEN := seededPostFixtureBySlug(t, ctx, db, "translation-review-post")
+	reviewPostEN := seededPostFixtureBySlugAndLocale(t, ctx, db, "translation-review-post", "en")
 	require.Equal(t, "en", strings.ToLower(reviewPostEN.Locale))
 	reviewPostGroupID := strings.ToLower(strings.TrimSpace(reviewPostEN.TranslationGroupID))
 	require.NotEmpty(t, reviewPostGroupID)
 
-	reviewPostES := seededPostFixtureBySlug(t, ctx, db, "translation-review-post-es")
+	reviewPostES := seededPostFixtureBySlugAndLocale(t, ctx, db, "translation-review-post", "es")
 	require.Equal(t, "es", strings.ToLower(reviewPostES.Locale))
 	require.Contains(t, []string{"pending_approval", "draft"}, strings.ToLower(reviewPostES.Status))
-	require.NotEmpty(t, strings.ToLower(strings.TrimSpace(reviewPostES.TranslationGroupID)))
+	require.Equal(t, reviewPostGroupID, strings.ToLower(strings.TrimSpace(reviewPostES.TranslationGroupID)))
 	require.Empty(t, strings.TrimSpace(reviewPostES.Excerpt), "review fixture should keep excerpt empty for required-field readiness coverage")
 
 	exchangeReadyPage := seededPageFixtureBySlug(t, ctx, db, "translation-exchange-ready")
@@ -418,6 +418,21 @@ func seededPageFixtureBySlug(t *testing.T, ctx context.Context, db *bun.DB, slug
 	return row
 }
 
+func seededPageFixtureBySlugAndLocale(t *testing.T, ctx context.Context, db *bun.DB, slug, locale string) seededPageFixture {
+	t.Helper()
+	row := seededPageFixture{}
+	err := db.NewSelect().
+		Table("admin_page_records").
+		Column("slug", "locale", "status", "translation_group_id").
+		Where("slug = ?", slug).
+		Where("LOWER(locale) = LOWER(?)", locale).
+		Limit(1).
+		Scan(ctx, &row)
+	require.NoError(t, err, "load seeded page fixture %s (%s)", slug, locale)
+	require.NotEmpty(t, strings.TrimSpace(row.Slug), "seeded page fixture missing for slug %s (%s)", slug, locale)
+	return row
+}
+
 type seededPostFixture struct {
 	Slug               string `bun:"slug"`
 	Locale             string `bun:"locale"`
@@ -437,5 +452,20 @@ func seededPostFixtureBySlug(t *testing.T, ctx context.Context, db *bun.DB, slug
 		Scan(ctx, &row)
 	require.NoError(t, err, "load seeded post fixture %s", slug)
 	require.NotEmpty(t, strings.TrimSpace(row.Slug), "seeded post fixture missing for slug %s", slug)
+	return row
+}
+
+func seededPostFixtureBySlugAndLocale(t *testing.T, ctx context.Context, db *bun.DB, slug, locale string) seededPostFixture {
+	t.Helper()
+	row := seededPostFixture{}
+	err := db.NewSelect().
+		Table("admin_post_records").
+		Column("slug", "locale", "status", "excerpt", "translation_group_id").
+		Where("slug = ?", slug).
+		Where("LOWER(locale) = LOWER(?)", locale).
+		Limit(1).
+		Scan(ctx, &row)
+	require.NoError(t, err, "load seeded post fixture %s (%s)", slug, locale)
+	require.NotEmpty(t, strings.TrimSpace(row.Slug), "seeded post fixture missing for slug %s (%s)", slug, locale)
 	return row
 }

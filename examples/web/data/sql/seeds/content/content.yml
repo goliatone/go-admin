@@ -347,27 +347,25 @@ pages:
     status: "draft"
     path: "/translations/missing-fr"
     tags: ["translation", "fixtures", "readiness"]
+    translations:
+      es:
+        title: "Translation Readiness Missing FR (ES)"
+        summary: "Variante ES para fixture con locale faltante FR."
+        body: "Esta variante en español comparte el mismo translation_group_id que la versión en inglés."
+        status: "draft"
+        path: "/translations/missing-fr-es"
+        tags: ["translation", "fixtures", "readiness"]
+        custom:
+          featured_image: "/static/media/banner.jpg"
+          seo:
+            title: "Fixture Traduccion Falta FR"
+            description: "Grupo de ejemplo con locale FR faltante."
     custom:
       translation_group_id: "11111111-1111-1111-1111-111111111201"
       featured_image: "/static/media/banner.jpg"
       seo:
         title: "Translation Missing FR Fixture"
         description: "Example seed group with required locales en/es/fr and fr missing."
-
-  - slug: "translation-missing-fr-es"
-    title: "Translation Readiness Missing FR (ES)"
-    summary: "Variante ES para fixture con locale faltante FR."
-    body: "Esta variante en español comparte el mismo translation_group_id que la versión en inglés."
-    status: "draft"
-    path: "/translations/missing-fr-es"
-    tags: ["translation", "fixtures", "readiness"]
-    custom:
-      locale: "es"
-      translation_group_id: "11111111-1111-1111-1111-111111111201"
-      featured_image: "/static/media/banner.jpg"
-      seo:
-        title: "Fixture Traduccion Falta FR"
-        description: "Grupo de ejemplo con locale FR faltante."
 
   - slug: "translation-exchange-ready"
     title: "Translation Exchange Ready Source"
@@ -604,6 +602,21 @@ posts:
     status: "draft"
     path: "/posts/translation-review-post"
     tags: ["translation", "fixtures", "review"]
+    translations:
+      es:
+        title: "Translation Review Fixture (ES)"
+        summary: ""
+        body: "Variante en español marcada en revisión para validar readiness por campos requeridos faltantes."
+        status: "draft"
+        path: "/posts/translation-review-post-es"
+        tags: ["translation", "fixtures", "review"]
+        custom:
+          author: "editorial.team"
+          category: "guides"
+          featured_image: "/static/media/banner.jpg"
+          seo:
+            title: "Translation Review Fixture ES"
+            description: "Spanish review variant with intentionally missing excerpt."
     custom:
       author: "editorial.team"
       category: "guides"
@@ -612,23 +625,6 @@ posts:
       seo:
         title: "Translation Review Fixture EN"
         description: "English source for translation review fixture group."
-
-  - slug: "translation-review-post-es"
-    title: "Translation Review Fixture (ES)"
-    summary: ""
-    body: "Variante en español marcada en revisión para validar readiness por campos requeridos faltantes."
-    status: "draft"
-    path: "/posts/translation-review-post-es"
-    tags: ["translation", "fixtures", "review"]
-    custom:
-      locale: "es"
-      author: "editorial.team"
-      category: "guides"
-      featured_image: "/static/media/banner.jpg"
-      translation_group_id: "11111111-1111-1111-1111-111111111203"
-      seo:
-        title: "Translation Review Fixture ES"
-        description: "Spanish review variant with intentionally missing excerpt."
 
   # Translation Scenario: Post with es locale in REVIEW state with missing required field
   # Use case: Test publish readiness failure due to missing_fields_by_locale

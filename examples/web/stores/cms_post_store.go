@@ -442,12 +442,13 @@ func (s *CMSPostStore) postPayload(record map[string]any, existing map[string]an
 	}
 
 	payload := map[string]any{
-		"id":           asString(record["id"], asString(existing["id"], "")),
-		"title":        asString(record["title"], asString(existing["title"], "")),
-		"slug":         asString(record["slug"], asString(existing["slug"], "")),
-		"status":       status,
-		"locale":       locale,
-		"content_type": "post",
+		"id":                   asString(record["id"], asString(existing["id"], "")),
+		"title":                asString(record["title"], asString(existing["title"], "")),
+		"slug":                 asString(record["slug"], asString(existing["slug"], "")),
+		"status":               status,
+		"locale":               locale,
+		"translation_group_id": asString(record["translation_group_id"], asString(existing["translation_group_id"], "")),
+		"content_type":         "post",
 	}
 	payloadData := map[string]any{
 		"content":        content,

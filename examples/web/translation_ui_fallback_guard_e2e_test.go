@@ -70,7 +70,7 @@ func TestContentEntryEditBlocksFallbackSaveButAllowsExistingLocaleSave(t *testin
 	blockedStatus, blockedBody := doUIFormRequest(t, fx.handler, fiber.MethodPost, fmt.Sprintf("/admin/content/pages/%s?locale=fr", fx.fallbackID), url.Values{
 		"title":  {"Fallback page blocked update"},
 		"slug":   {"translation-missing-fr"},
-		"path":   {"/translation-missing-fr"},
+		"path":   {"/translations/missing-fr"},
 		"status": {"draft"},
 		"locale": {"fr"},
 	})
@@ -79,8 +79,8 @@ func TestContentEntryEditBlocksFallbackSaveButAllowsExistingLocaleSave(t *testin
 
 	allowedStatus, _ := doUIFormRequest(t, fx.handler, fiber.MethodPost, fmt.Sprintf("/admin/content/pages/%s?locale=es", fx.esVariantID), url.Values{
 		"title":  {"Spanish translation update"},
-		"slug":   {"translation-missing-fr-es"},
-		"path":   {"/translation-missing-fr-es"},
+		"slug":   {"translation-missing-fr"},
+		"path":   {"/translations/missing-fr-es"},
 		"status": {"draft"},
 		"locale": {"es"},
 	})
@@ -167,7 +167,7 @@ func newTranslationUIFixture(t *testing.T) translationUIFixture {
 
 	fallbackID := findPageIDBySlug(t, contentSvc, "translation-missing-fr")
 	require.NotEmpty(t, fallbackID, "expected seeded fallback page id")
-	esVariantID := findPageIDBySlug(t, contentSvc, "translation-missing-fr-es")
+	esVariantID := findPageIDBySlugAndLocale(t, contentSvc, "translation-missing-fr", "es")
 	require.NotEmpty(t, esVariantID, "expected seeded es variant page id")
 
 	return translationUIFixture{
@@ -231,6 +231,26 @@ func findPageIDBySlug(t *testing.T, contentSvc coreadmin.CMSContentService, slug
 		}
 		id := strings.TrimSpace(page.ID)
 		if id != "" {
+			return id
+		}
+	}
+	return ""
+}
+
+func findPageIDBySlugAndLocale(t *testing.T, contentSvc coreadmin.CMSContentService, slug, locale string) string {
+	t.Helper()
+	pages, err := contentSvc.Pages(context.Background(), locale)
+	require.NoError(t, err, "list pages for locale %s", locale)
+	targetSlug := strings.ToLower(strings.TrimSpace(slug))
+	targetLocale := strings.ToLower(strings.TrimSpace(locale))
+	for _, page := range pages {
+		if strings.ToLower(strings.TrimSpace(page.Slug)) != targetSlug {
+			continue
+		}
+		if strings.ToLower(strings.TrimSpace(page.Locale)) != targetLocale {
+			continue
+		}
+		if id := strings.TrimSpace(page.ID); id != "" {
 			return id
 		}
 	}
