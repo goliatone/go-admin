@@ -155,8 +155,19 @@ type TranslationExchangeBinding interface {
 	JobStatus(router.Context, string) (any, error)
 }
 
+// TranslationFamiliesBinding exposes translation family read-model operations.
+type TranslationFamiliesBinding interface {
+	List(router.Context) (any, error)
+	Detail(router.Context, string) (any, error)
+	Create(router.Context, string) (any, error)
+}
+
 // TranslationQueueBinding exposes translation queue aggregate transport operations.
 type TranslationQueueBinding interface {
+	Assignments(router.Context) (any, error)
+	AssignmentDetail(router.Context, string) (any, error)
+	RunAssignmentAction(router.Context, string, string, map[string]any) (any, error)
+	UpdateVariant(router.Context, string, map[string]any) (any, error)
 	MyWork(router.Context) (any, error)
 	Queue(router.Context) (any, error)
 	EntityTypesOptions(router.Context) (any, error)
@@ -254,6 +265,7 @@ type BootCtx interface {
 	BootBulk() BulkBinding
 	BootMedia() MediaBinding
 	BootUserImport() UserImportBinding
+	BootTranslationFamilies() TranslationFamiliesBinding
 	BootTranslationExchange() TranslationExchangeBinding
 	BootTranslationQueue() TranslationQueueBinding
 	BootNotifications() NotificationsBinding
