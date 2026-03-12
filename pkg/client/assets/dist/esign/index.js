@@ -1,4 +1,4 @@
-import { e as at } from "../chunks/html-DyksyvcZ.js";
+import { a as at } from "../chunks/html-Br-oQr7i.js";
 class Or {
   constructor(e) {
     this.basePath = e.basePath, this.apiBasePath = e.apiBasePath || `${e.basePath}/api`, this.defaultHeaders = {

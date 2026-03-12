@@ -125,7 +125,7 @@
       {% endif %}
       {# Phase 19.3: Pass translation_readiness for productized mode #}
       {% set translation_readiness = resource_item.translation_readiness %}
-      {% include "partials/translation-summary.html" with translation_group_id=translation_group_id requested_locale=requested_locale resolved_locale=resolved_locale available_locales=available_locales missing_requested_locale=missing_requested_locale fallback_used=fallback_used panel_name=panel_name record_id=resource_item.id show_create_actions=true compact=false translation_readiness=translation_readiness %}
+      {% include "partials/translation-summary.html" with translation_group_id=translation_group_id requested_locale=requested_locale resolved_locale=resolved_locale available_locales=available_locales missing_requested_locale=missing_requested_locale fallback_used=fallback_used panel_name=panel_name record_id=resource_item.id show_create_actions=true compact=false translation_readiness=translation_readiness translation_family_url=resource_item.translation_family_url translation_locale_urls=resource_item.translation_locale_urls %}
     {% endif %}
   {% endif %}
 

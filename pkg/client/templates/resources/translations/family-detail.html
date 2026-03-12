@@ -1,0 +1,44 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ translation_family_id|default:"Translation Family" }} - {{ title }}{% endblock %}
+
+{% block content %}
+<header class="px-8 py-6 border-b border-slate-200 bg-white">
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Translations</p>
+      <h1 class="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Family detail</h1>
+      <p class="mt-2 max-w-3xl text-sm text-slate-600">
+        Canonical diagnosis surface for locale coverage, active assignments, publish gating, and recent family activity.
+      </p>
+    </div>
+  </div>
+</header>
+
+<div class="flex-1 overflow-y-auto bg-slate-50 p-8">
+  <div class="mx-auto max-w-7xl">
+    <div
+      id="translation-family-detail-root"
+      data-endpoint="{{ translation_family_api_path|default:"" }}"
+      data-family-id="{{ translation_family_id|default:"" }}"
+      data-base-path="{{ base_path|default:"/admin" }}"
+      data-content-base-path="{{ translation_content_base|default:"" }}"
+    ></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="module">
+import { initTranslationFamilyDetailPage } from '{{ base_path }}/assets/dist/translation-family/index.js';
+
+const root = document.getElementById('translation-family-detail-root');
+if (root) {
+  void initTranslationFamilyDetailPage(root, {
+    endpoint: root.dataset.endpoint || '',
+    basePath: root.dataset.basePath || '{{ base_path|default:"/admin" }}',
+    contentBasePath: root.dataset.contentBasePath || '',
+  });
+}
+</script>
+{% endblock %}

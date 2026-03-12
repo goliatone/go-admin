@@ -28,6 +28,7 @@ export default defineConfig({
         'content-type-builder/index': resolve(__dirname, 'src/content-type-builder/index.ts'),
         'menu-builder/index': resolve(__dirname, 'src/menu-builder/index.ts'),
         'translation-exchange/index': resolve(__dirname, 'src/translation-exchange/index.ts'),
+        'translation-family/index': resolve(__dirname, 'src/translation-family/index.ts'),
         'translation-operations/index': resolve(__dirname, 'src/translation-operations/index.ts'),
         'services/index': resolve(__dirname, 'src/services/index.ts'),
         // E-Sign module entries
