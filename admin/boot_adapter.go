@@ -184,6 +184,14 @@ func (a *Admin) BootTranslationExchange() boot.TranslationExchangeBinding {
 	return newTranslationExchangeBinding(a)
 }
 
+// BootTranslationFamilies exposes translation family list/detail bindings.
+func (a *Admin) BootTranslationFamilies() boot.TranslationFamiliesBinding {
+	if !featureEnabled(a.featureGate, FeatureCMS) {
+		return nil
+	}
+	return newTranslationFamilyBinding(a)
+}
+
 // BootTranslationQueue exposes translation queue aggregate bindings.
 func (a *Admin) BootTranslationQueue() boot.TranslationQueueBinding {
 	if !featureEnabled(a.featureGate, FeatureTranslationQueue) {
