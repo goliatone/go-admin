@@ -1,0 +1,26 @@
+{
+  "effective_roots": {
+    "admin": "/admin",
+    "api": "/admin/api",
+    "public_api": "/api/v1"
+  },
+  "module_mounts": {
+    "translations": {
+      "api": "/admin/api/translations",
+      "api_group": "admin.api",
+      "public_api": "",
+      "ui": "/admin/translations",
+      "ui_group": "admin"
+    }
+  },
+  "routes": {
+    "admin.api|errors": "/admin/api/errors",
+    "admin.api|translations.queue": "/admin/api/translations/queue",
+    "admin|dashboard": "/admin/",
+    "admin|translations.dashboard": "/admin/translations/dashboard",
+    "admin|translations.queue": "/admin/content/translations",
+    "public.api.v1|preview": "/api/v1/preview/token",
+    "public.api.v1|site.menus.code": "/api/v1/site/menus/code/primary",
+    "public.api.v1|site.menus.location": "/api/v1/site/menus/site.main"
+  }
+}
