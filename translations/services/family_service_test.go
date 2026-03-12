@@ -5,9 +5,13 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"sort"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
+
+	translationcore "github.com/goliatone/go-admin/translations/core"
 )
 
 func TestFamilyServiceRecomputeOrdersBlockersAndMaterializesCounters(t *testing.T) {
@@ -15,8 +19,8 @@ func TestFamilyServiceRecomputeOrdersBlockersAndMaterializesCounters(t *testing.
 	requireNoErr(t, store.LoadBackfillPlan(BackfillPlan{
 		Families: []BackfillFamily{
 			{
-				ID:          "family-1",
-				ContentType: "pages",
+				ID:           "family-1",
+				ContentType:  "pages",
 				SourceLocale: "en",
 				Variants: []BackfillVariant{
 					{
@@ -165,17 +169,17 @@ func TestFamilyServiceListAndDetailRespectScopeFilters(t *testing.T) {
 	requireNoErr(t, store.LoadBackfillPlan(BackfillPlan{
 		Families: []BackfillFamily{
 			{
-				ID:          "global-family",
-				ContentType: "pages",
+				ID:           "global-family",
+				ContentType:  "pages",
 				SourceLocale: "en",
 				Variants: []BackfillVariant{
 					{ID: "global-en", FamilyID: "global-family", Locale: "en", Status: string(translationcore.VariantStatusPublished), IsSource: true, Fields: map[string]string{"title": "Home", "path": "/"}}},
 			},
 			{
-				ID:          "tenant-family",
-				TenantID:    "tenant-1",
-				OrgID:       "org-1",
-				ContentType: "news",
+				ID:           "tenant-family",
+				TenantID:     "tenant-1",
+				OrgID:        "org-1",
+				ContentType:  "news",
 				SourceLocale: "en",
 				Variants: []BackfillVariant{
 					{ID: "tenant-en", FamilyID: "tenant-family", TenantID: "tenant-1", OrgID: "org-1", Locale: "en", Status: string(translationcore.VariantStatusPublished), IsSource: true, Fields: map[string]string{"title": "News", "path": "/news"}}},
@@ -200,10 +204,10 @@ func TestFamilyServiceListAndDetailRespectScopeFilters(t *testing.T) {
 	}
 
 	scoped, err := svc.List(context.Background(), ListFamiliesInput{
-		Scope:       Scope{TenantID: "tenant-1", OrgID: "org-1"},
+		Scope:         Scope{TenantID: "tenant-1", OrgID: "org-1"},
 		MissingLocale: "es",
-		Page:        1,
-		PerPage:     20,
+		Page:          1,
+		PerPage:       20,
 	})
 	requireNoErr(t, err)
 	if scoped.Total != 1 || scoped.Items[0].ID != "tenant-family" {
@@ -310,10 +314,10 @@ func TestFamilyServicePerformanceBudgets(t *testing.T) {
 		Policies: PolicyService{
 			Resolver: StaticPolicyResolver{Policies: map[string]FamilyPolicy{
 				"pages": {
-					ContentType:    "pages",
-					SourceLocale:   "en",
+					ContentType:     "pages",
+					SourceLocale:    "en",
 					RequiredLocales: []string{"en", "es"},
-					RequiredFields: map[string][]string{"en": {"title", "path"}, "es": {"title", "path"}},
+					RequiredFields:  map[string][]string{"en": {"title", "path"}, "es": {"title", "path"}},
 				},
 			}},
 		},
