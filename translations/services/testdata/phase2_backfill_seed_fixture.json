@@ -1,0 +1,110 @@
+{
+  "variants": [
+    {
+      "scope": {},
+      "content_type": "pages",
+      "source_record_id": "translation-demo-exchange",
+      "translation_group_id": "11111111-1111-1111-1111-111111111202",
+      "locale": "en",
+      "fields": {
+        "title": "Translation Demo - Exchange Ready",
+        "path": "/translation-demo-exchange",
+        "summary": "Page designed for translation exchange import/export testing."
+      },
+      "created_at": "2026-01-16T10:00:00Z",
+      "updated_at": "2026-01-16T10:00:00Z"
+    },
+    {
+      "scope": {},
+      "content_type": "pages",
+      "source_record_id": "translation-demo-exchange",
+      "translation_group_id": "11111111-1111-1111-1111-111111111202",
+      "locale": "es",
+      "fields": {
+        "title": "Demostracion de Traduccion - Intercambio",
+        "path": "/es/translation-demo-exchange",
+        "summary": "Pagina lista para intercambio de traducciones."
+      },
+      "created_at": "2026-01-16T10:05:00Z",
+      "updated_at": "2026-01-16T10:05:00Z"
+    },
+    {
+      "scope": {
+        "tenant_id": "tenant-west",
+        "org_id": "org-news"
+      },
+      "content_type": "posts",
+      "source_record_id": "translation-demo-review-pending",
+      "translation_group_id": "11111111-1111-1111-1111-111111111203",
+      "locale": "en",
+      "fields": {
+        "title": "Translation Demo - Review Pending",
+        "path": "/posts/translation-demo-review-pending",
+        "excerpt": "Post demonstrating review-pending fixture."
+      },
+      "created_at": "2026-01-17T09:00:00Z",
+      "updated_at": "2026-01-17T09:00:00Z"
+    },
+    {
+      "scope": {
+        "tenant_id": "tenant-west",
+        "org_id": "org-news"
+      },
+      "content_type": "posts",
+      "source_record_id": "translation-demo-review-pending",
+      "translation_group_id": "11111111-1111-1111-1111-111111111203",
+      "locale": "es",
+      "fields": {
+        "title": "Demostracion de Traduccion - Revision Pendiente",
+        "path": "/es/posts/translation-demo-review-pending",
+        "excerpt": ""
+      },
+      "created_at": "2026-01-17T09:05:00Z",
+      "updated_at": "2026-01-17T09:05:00Z"
+    },
+    {
+      "scope": {
+        "tenant_id": "tenant-west",
+        "org_id": "org-news"
+      },
+      "content_type": "news",
+      "source_record_id": "site-runtime-rollout",
+      "locale": "en",
+      "fields": {
+        "title": "Site Runtime Rollout",
+        "path": "/news/site-runtime-rollout",
+        "summary": "Migration to quickstart/site with capability-driven delivery."
+      },
+      "created_at": "2026-02-20T10:00:00Z",
+      "updated_at": "2026-02-20T10:00:00Z"
+    }
+  ],
+  "policies": {
+    "pages": {
+      "source_locale": "en",
+      "required_locales": ["en", "es", "fr"],
+      "required_fields": {
+        "en": ["title", "path"],
+        "es": ["title", "path"],
+        "fr": ["title", "path"]
+      }
+    },
+    "posts": {
+      "source_locale": "en",
+      "required_locales": ["en", "es", "fr"],
+      "required_fields": {
+        "en": ["title", "path", "excerpt"],
+        "es": ["title", "path", "excerpt"],
+        "fr": ["title", "path", "excerpt"]
+      }
+    },
+    "news": {
+      "source_locale": "en",
+      "required_locales": ["en", "es"],
+      "required_fields": {
+        "en": ["title", "path"],
+        "es": ["title", "path"]
+      }
+    }
+  }
+}
