@@ -213,7 +213,7 @@ func (a *Admin) planModuleRouting(registered []modules.Module) (map[string]routi
 		}
 		contract := provider.RouteContract()
 		if err := a.routingPlanner.RegisterModule(contract); err != nil {
-			a.routingReport = a.routingPlanner.Report()
+			a.refreshRoutingReport()
 			return nil, validationDomainError("module routing registration failed", map[string]any{
 				"component": "modules",
 				"module":    moduleID,
@@ -231,7 +231,7 @@ func (a *Admin) planModuleRouting(registered []modules.Module) (map[string]routi
 		}
 		contexts[moduleID] = routing.BuildModuleContext(contract, resolved)
 	}
-	a.routingReport = a.routingPlanner.Report()
+	a.refreshRoutingReport()
 	return contexts, nil
 }
 
