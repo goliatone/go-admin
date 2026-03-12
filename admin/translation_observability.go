@@ -12,17 +12,20 @@ import (
 const (
 	translationBlockedTransitionCountMetric = "admin_translation_blocked_transition_count"
 	translationCreateActionCountMetric      = "admin_translation_create_action_count"
+	translationCreateLocaleCountMetric      = "admin_translation_create_locale_count"
 )
 
 // TranslationMetrics captures counters for translation workflow observability.
 type TranslationMetrics interface {
 	IncrementBlockedTransition(ctx context.Context, tags map[string]string)
 	IncrementCreateAction(ctx context.Context, tags map[string]string)
+	IncrementCreateLocaleAction(ctx context.Context, tags map[string]string)
 }
 
 var defaultTranslationMetrics TranslationMetrics = &expvarTranslationMetrics{
 	blockedTransitions: expvar.NewMap(translationBlockedTransitionCountMetric),
 	createActions:      expvar.NewMap(translationCreateActionCountMetric),
+	createLocales:      expvar.NewMap(translationCreateLocaleCountMetric),
 }
 
 var translationObservabilityLogger = slog.Default()
@@ -30,6 +33,7 @@ var translationObservabilityLogger = slog.Default()
 type expvarTranslationMetrics struct {
 	blockedTransitions *expvar.Map
 	createActions      *expvar.Map
+	createLocales      *expvar.Map
 }
 
 func (m *expvarTranslationMetrics) IncrementBlockedTransition(_ context.Context, tags map[string]string) {
@@ -46,6 +50,13 @@ func (m *expvarTranslationMetrics) IncrementCreateAction(_ context.Context, tags
 	m.createActions.Add(translationMetricTagsKey(tags), 1)
 }
 
+func (m *expvarTranslationMetrics) IncrementCreateLocaleAction(_ context.Context, tags map[string]string) {
+	if m == nil || m.createLocales == nil {
+		return
+	}
+	m.createLocales.Add(translationMetricTagsKey(tags), 1)
+}
+
 type translationCreateActionEvent struct {
 	Entity             string
 	EntityID           string
@@ -56,6 +67,15 @@ type translationCreateActionEvent struct {
 	Outcome            string
 	TranslationGroupID string
 	Err                error
+}
+
+type translationCreateLocaleEvent struct {
+	ContentType string
+	FamilyID    string
+	Locale      string
+	Environment string
+	Outcome     string
+	Err         error
 }
 
 func recordTranslationBlockedTransitionMetric(ctx context.Context, input TranslationPolicyInput, missing MissingTranslationsError) {
@@ -85,6 +105,20 @@ func recordTranslationCreateActionMetric(ctx context.Context, event translationC
 	}
 	defaultTranslationMetrics.IncrementCreateAction(ctx, tags)
 	logTranslationCreateAction(ctx, event, tags)
+}
+
+func recordTranslationCreateLocaleMetric(ctx context.Context, event translationCreateLocaleEvent) {
+	if defaultTranslationMetrics == nil {
+		return
+	}
+	tags := map[string]string{
+		"content_type": strings.TrimSpace(event.ContentType),
+		"locale":       primitives.FirstNonEmptyRaw(strings.TrimSpace(event.Locale), "unknown"),
+		"environment":  primitives.FirstNonEmptyRaw(strings.TrimSpace(event.Environment), "unknown"),
+		"outcome":      primitives.FirstNonEmptyRaw(strings.TrimSpace(event.Outcome), "unknown"),
+	}
+	defaultTranslationMetrics.IncrementCreateLocaleAction(ctx, tags)
+	logTranslationCreateLocale(ctx, event, tags)
 }
 
 func translationMetricTagsKey(tags map[string]string) string {
@@ -165,4 +199,27 @@ func logTranslationCreateAction(ctx context.Context, event translationCreateActi
 		return
 	}
 	logger.InfoContext(ctx, "translation remediation action handled", attrs...)
+}
+
+func logTranslationCreateLocale(ctx context.Context, event translationCreateLocaleEvent, tags map[string]string) {
+	logger := translationObservabilityLogger
+	if logger == nil {
+		return
+	}
+	attrs := []any{
+		"event", "translation.family.create_locale",
+		"outcome", tags["outcome"],
+		"content_type", primitives.FirstNonEmptyRaw(tags["content_type"], "unknown"),
+		"family_id", primitives.FirstNonEmptyRaw(strings.TrimSpace(event.FamilyID), "unknown"),
+		"target_locale", tags["locale"],
+		"environment", tags["environment"],
+		"request_id", strings.TrimSpace(requestIDFromContext(ctx)),
+		"trace_id", strings.TrimSpace(traceIDFromContext(ctx)),
+	}
+	if event.Err != nil {
+		attrs = append(attrs, "error", event.Err.Error())
+		logger.WarnContext(ctx, "translation family create-locale failed", attrs...)
+		return
+	}
+	logger.InfoContext(ctx, "translation family create-locale handled", attrs...)
 }

@@ -182,13 +182,13 @@ func (r *InMemoryTranslationAssignmentRepository) Update(_ context.Context, assi
 		return TranslationAssignment{}, err
 	}
 
-	oldKey := current.ActiveUniquenessKey()
-	if current.Status.IsTerminal() {
-		oldKey = ""
+	oldKey := ""
+	if current.Status.IsActive() {
+		oldKey = current.ActiveUniquenessKey()
 	}
-	newKey := next.ActiveUniquenessKey()
-	if next.Status.IsTerminal() {
-		newKey = ""
+	newKey := ""
+	if next.Status.IsActive() {
+		newKey = next.ActiveUniquenessKey()
 	}
 	if newKey != "" {
 		if existingID, ok := r.activeByKey[newKey]; ok && existingID != next.ID {
@@ -216,9 +216,9 @@ func (r *InMemoryTranslationAssignmentRepository) createLocked(assignment Transl
 		return TranslationAssignment{}, false, err
 	}
 
-	key := normalized.ActiveUniquenessKey()
-	if normalized.Status.IsTerminal() {
-		key = ""
+	key := ""
+	if normalized.Status.IsActive() {
+		key = normalized.ActiveUniquenessKey()
 	}
 
 	now := time.Now().UTC()
@@ -259,13 +259,17 @@ func normalizeAssignmentForCreate(assignment TranslationAssignment) TranslationA
 	assignment.ID = strings.TrimSpace(assignment.ID)
 	assignment.TranslationGroupID = strings.TrimSpace(assignment.TranslationGroupID)
 	assignment.EntityType = strings.TrimSpace(assignment.EntityType)
+	assignment.TenantID = strings.TrimSpace(assignment.TenantID)
+	assignment.OrgID = strings.TrimSpace(assignment.OrgID)
 	assignment.SourceRecordID = strings.TrimSpace(assignment.SourceRecordID)
 	assignment.SourceLocale = strings.TrimSpace(strings.ToLower(assignment.SourceLocale))
 	assignment.TargetLocale = strings.TrimSpace(strings.ToLower(assignment.TargetLocale))
 	assignment.TargetRecordID = strings.TrimSpace(assignment.TargetRecordID)
 	assignment.SourceTitle = strings.TrimSpace(assignment.SourceTitle)
 	assignment.SourcePath = strings.TrimSpace(assignment.SourcePath)
+	assignment.WorkScope = normalizeTranslationAssignmentWorkScope(assignment.WorkScope)
 	assignment.AssigneeID = strings.TrimSpace(assignment.AssigneeID)
+	assignment.ReviewerID = strings.TrimSpace(assignment.ReviewerID)
 	assignment.AssignerID = strings.TrimSpace(assignment.AssignerID)
 	assignment.LastReviewerID = strings.TrimSpace(assignment.LastReviewerID)
 	assignment.LastRejectionReason = strings.TrimSpace(assignment.LastRejectionReason)
@@ -302,6 +306,10 @@ func refreshExistingAssignment(existing TranslationAssignment, incoming Translat
 		updated.SourcePath = incoming.SourcePath
 		changed = true
 	}
+	if incoming.WorkScope != "" && incoming.WorkScope != existing.WorkScope {
+		updated.WorkScope = incoming.WorkScope
+		changed = true
+	}
 	if incoming.DueDate != nil {
 		updated.DueDate = cloneTimePtr(incoming.DueDate)
 		changed = true
@@ -325,11 +333,13 @@ func newTranslationAssignmentConflict(assignment TranslationAssignment, existing
 		EntityType:           strings.TrimSpace(assignment.EntityType),
 		SourceLocale:         strings.TrimSpace(strings.ToLower(assignment.SourceLocale)),
 		TargetLocale:         strings.TrimSpace(strings.ToLower(assignment.TargetLocale)),
+		WorkScope:            normalizeTranslationAssignmentWorkScope(assignment.WorkScope),
 	}
 }
 
 func cloneTranslationAssignment(assignment TranslationAssignment) TranslationAssignment {
 	copy := assignment
+	copy.WorkScope = normalizeTranslationAssignmentWorkScope(assignment.WorkScope)
 	copy.DueDate = cloneTimePtr(assignment.DueDate)
 	copy.ClaimedAt = cloneTimePtr(assignment.ClaimedAt)
 	copy.SubmittedAt = cloneTimePtr(assignment.SubmittedAt)
@@ -374,8 +384,17 @@ func translationAssignmentMatchesFilters(assignment TranslationAssignment, filte
 			if value != "" && strings.ToLower(assignment.AssigneeID) != value {
 				return false
 			}
+		case "reviewer_id":
+			reviewerID := strings.ToLower(strings.TrimSpace(firstNonEmpty(assignment.ReviewerID, assignment.LastReviewerID)))
+			if value != "" && reviewerID != value {
+				return false
+			}
 		case "assignment_type":
 			if value != "" && strings.ToLower(string(assignment.AssignmentType)) != value {
+				return false
+			}
+		case "work_scope":
+			if value != "" && strings.ToLower(normalizeTranslationAssignmentWorkScope(assignment.WorkScope)) != value {
 				return false
 			}
 		case "entity_type":
@@ -386,8 +405,24 @@ func translationAssignmentMatchesFilters(assignment TranslationAssignment, filte
 			if value != "" && strings.ToLower(string(assignment.Priority)) != value {
 				return false
 			}
+		case "locale":
+			if value != "" && strings.ToLower(assignment.TargetLocale) != value {
+				return false
+			}
+		case "due_state":
+			if value != "" && normalizeTranslationQueueDueState(value) != translationQueueDueState(assignment.DueDate, time.Now().UTC()) {
+				return false
+			}
 		case "translation_group_id":
 			if value != "" && strings.ToLower(assignment.TranslationGroupID) != value {
+				return false
+			}
+		case "tenant_id":
+			if value != "" && strings.ToLower(assignment.TenantID) != value {
+				return false
+			}
+		case "org_id":
+			if value != "" && strings.ToLower(assignment.OrgID) != value {
 				return false
 			}
 		case "overdue":
