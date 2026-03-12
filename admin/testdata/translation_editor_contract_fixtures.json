@@ -1,0 +1,481 @@
+{
+  "detail": {
+    "data": {
+      "assignment_id": "asg-editor-1",
+      "family_id": "tg-page-1",
+      "variant_id": "variant-page-1-fr",
+      "entity_type": "pages",
+      "source_locale": "en",
+      "target_locale": "fr",
+      "status": "in_progress",
+      "priority": "high",
+      "due_date": "2026-03-15T18:00:00Z",
+      "row_version": 3,
+      "source_fields": {
+        "title": "Translation publish guide",
+        "path": "/page-1",
+        "body": "Translation guide for publish workflows from the home page."
+      },
+      "target_fields": {
+        "title": "Guide de traduction",
+        "path": "/fr/page-1",
+        "body": "Publier la traduction depuis l'accueil."
+      },
+      "field_completeness": {
+        "title": { "required": true, "complete": true, "missing": false },
+        "body": { "required": true, "complete": true, "missing": false }
+      },
+      "field_drift": {
+        "title": {
+          "changed": true,
+          "comparison_mode": "snapshot",
+          "previous_source_value": "Page 1",
+          "current_source_value": "Translation publish guide"
+        },
+        "body": {
+          "changed": true,
+          "comparison_mode": "snapshot",
+          "previous_source_value": "Translation guide for publish workflows.",
+          "current_source_value": "Translation guide for publish workflows from the home page."
+        }
+      },
+      "field_validations": {
+        "title": { "valid": true, "message": "" },
+        "body": { "valid": true, "message": "" }
+      },
+      "fields": [
+        {
+          "path": "title",
+          "label": "Title",
+          "input_type": "text",
+          "required": true,
+          "source_value": "Translation publish guide",
+          "target_value": "Guide de traduction",
+          "completeness": { "required": true, "complete": true, "missing": false },
+          "drift": {
+            "changed": true,
+            "comparison_mode": "snapshot",
+            "previous_source_value": "Page 1",
+            "current_source_value": "Translation publish guide"
+          },
+          "validation": { "valid": true, "message": "" }
+        },
+        {
+          "path": "body",
+          "label": "Body",
+          "input_type": "textarea",
+          "required": true,
+          "source_value": "Translation guide for publish workflows from the home page.",
+          "target_value": "Publier la traduction depuis l'accueil.",
+          "completeness": { "required": true, "complete": true, "missing": false },
+          "drift": {
+            "changed": true,
+            "comparison_mode": "snapshot",
+            "previous_source_value": "Translation guide for publish workflows.",
+            "current_source_value": "Translation guide for publish workflows from the home page."
+          },
+          "validation": { "valid": true, "message": "" }
+        }
+      ],
+      "source_target_drift": {
+        "source_hash": "old-source-hash",
+        "current_source_hash": "current-source-hash",
+        "source_version": "2026-03-12T16:00:00Z",
+        "changed_fields_summary": {
+          "count": 2,
+          "fields": ["body", "title"]
+        }
+      },
+      "assignment_action_states": {
+        "claim": { "enabled": false, "reason": "assignment must be open pool before it can be claimed", "reason_code": "INVALID_STATUS" },
+        "release": { "enabled": true, "permission": "admin.translations.assign" },
+        "submit_review": { "enabled": true, "permission": "admin.translations.edit", "auto_approve": false, "missing_required_fields": [] }
+      },
+      "review_action_states": {
+        "approve": { "enabled": false, "reason": "assignment must be in review", "reason_code": "INVALID_STATUS" },
+        "reject": { "enabled": false, "reason": "assignment must be in review", "reason_code": "INVALID_STATUS" }
+      },
+      "comments": [
+        {
+          "id": "comment:last_rejection_reason",
+          "author_id": "reviewer-1",
+          "body": "Please tighten the CTA tone.",
+          "created_at": "2026-03-12T16:05:00Z",
+          "kind": "review_feedback"
+        }
+      ],
+      "events": [
+        {
+          "id": "evt-editor-2",
+          "actor_id": "translator-1",
+          "action": "translation.variant.saved",
+          "object": "translation_assignment:asg-editor-1",
+          "metadata": {
+            "variant_id": "variant-page-1-fr"
+          },
+          "created_at": "2026-03-12T16:20:00Z"
+        },
+        {
+          "id": "evt-editor-1",
+          "actor_id": "translator-1",
+          "action": "translation.comment.added",
+          "object": "translation_assignment:asg-editor-1",
+          "metadata": {
+            "variant_id": "variant-page-1-fr",
+            "field_paths": ["body"],
+            "source_hash": "current-source-hash"
+          },
+          "created_at": "2026-03-12T16:10:00Z"
+        }
+      ],
+      "history": {
+        "items": [
+          {
+            "id": "evt-editor-2",
+            "entry_type": "event",
+            "title": "translation.variant.saved",
+            "actor_id": "translator-1",
+            "action": "translation.variant.saved",
+            "created_at": "2026-03-12T16:20:00Z",
+            "metadata": {
+              "variant_id": "variant-page-1-fr"
+            }
+          },
+          {
+            "id": "evt-editor-1",
+            "entry_type": "event",
+            "title": "translation.comment.added",
+            "actor_id": "translator-1",
+            "action": "translation.comment.added",
+            "created_at": "2026-03-12T16:10:00Z",
+            "metadata": {
+              "variant_id": "variant-page-1-fr",
+              "field_paths": ["body"]
+            }
+          },
+          {
+            "id": "comment:last_rejection_reason",
+            "entry_type": "comment",
+            "title": "Review feedback",
+            "author_id": "reviewer-1",
+            "body": "Please tighten the CTA tone.",
+            "created_at": "2026-03-12T16:05:00Z",
+            "kind": "review_feedback"
+          }
+        ],
+        "page": 1,
+        "per_page": 10,
+        "total": 3,
+        "has_more": false,
+        "next_page": 0
+      },
+      "attachments": [
+        {
+          "id": "asset-1",
+          "kind": "reference",
+          "filename": "homepage-brief.pdf",
+          "byte_size": 2048,
+          "uploaded_at": "2026-03-12T15:30:00Z",
+          "description": "Homepage localization brief",
+          "url": "/media/homepage-brief.pdf"
+        },
+        {
+          "id": "asset-2",
+          "kind": "terminology",
+          "filename": "glossary.csv",
+          "byte_size": 1024,
+          "uploaded_at": "2026-03-11T10:00:00Z",
+          "description": "Approved glossary extract",
+          "url": "/media/glossary.csv"
+        }
+      ],
+      "attachment_summary": {
+        "total": 2,
+        "kinds": {
+          "reference": 1,
+          "terminology": 1
+        }
+      },
+      "assist": {
+        "glossary_matches": [
+          {
+            "term": "translation",
+            "preferred_translation": "traduction",
+            "notes": "Use the product noun consistently.",
+            "field_paths": ["body"]
+          }
+        ],
+        "style_guide_summary": {
+          "available": true,
+          "title": "FR Pages Style Guide",
+          "summary": "Keep terminology consistent, preserve links/placeholders, and mirror source structure before stylistic changes.",
+          "rules": [
+            "Preserve placeholders, links, and HTML structure from the source.",
+            "Keep CTA labels short and consistent with glossary preferences."
+          ]
+        },
+        "translation_memory_suggestions": []
+      },
+      "translation_assignment": {
+        "id": "asg-editor-1",
+        "translation_group_id": "tg-page-1",
+        "entity_type": "pages",
+        "source_record_id": "page-1",
+        "target_record_id": "page-1-fr",
+        "source_locale": "en",
+        "target_locale": "fr",
+        "source_title": "Translation publish guide",
+        "source_path": "/page-1",
+        "assignee_id": "translator-1",
+        "reviewer_id": "reviewer-1",
+        "assignment_type": "direct",
+        "content_state": "draft",
+        "queue_state": "in_progress",
+        "status": "in_progress",
+        "priority": "high",
+        "due_state": "due_soon",
+        "due_date": "2026-03-15T18:00:00Z",
+        "row_version": 2,
+        "version": 2,
+        "updated_at": "2026-03-12T16:20:00Z",
+        "created_at": "2026-03-12T14:00:00Z"
+      }
+    },
+    "meta": {
+      "environment": "production",
+      "history_page": 1,
+      "history_per_page": 10
+    }
+  },
+  "source_drift": {
+    "data": {
+      "assignment_id": "asg-editor-1",
+      "family_id": "tg-page-1",
+      "variant_id": "variant-page-1-fr",
+      "row_version": 3,
+      "source_target_drift": {
+        "source_hash": "old-source-hash",
+        "current_source_hash": "current-source-hash",
+        "source_version": "2026-03-12T16:00:00Z",
+        "changed_fields_summary": {
+          "count": 2,
+          "fields": ["body", "title"]
+        }
+      },
+      "field_drift": {
+        "title": {
+          "changed": true,
+          "comparison_mode": "snapshot",
+          "previous_source_value": "Page 1",
+          "current_source_value": "Translation publish guide"
+        },
+        "body": {
+          "changed": true,
+          "comparison_mode": "snapshot",
+          "previous_source_value": "Translation guide for publish workflows.",
+          "current_source_value": "Translation guide for publish workflows from the home page."
+        }
+      }
+    }
+  },
+  "variant_update": {
+    "data": {
+      "variant_id": "variant-page-1-fr",
+      "row_version": 4,
+      "fields": {
+        "title": "Guide de publication",
+        "path": "/fr/page-1",
+        "body": "Publier la traduction depuis l'accueil."
+      },
+      "field_completeness": {
+        "title": { "required": true, "complete": true, "missing": false },
+        "body": { "required": true, "complete": true, "missing": false }
+      },
+      "field_drift": {
+        "title": {
+          "changed": true,
+          "comparison_mode": "snapshot",
+          "previous_source_value": "Page 1",
+          "current_source_value": "Translation publish guide"
+        }
+      },
+      "field_validations": {
+        "title": { "valid": true, "message": "" },
+        "body": { "valid": true, "message": "" }
+      },
+      "assignment_action_states": {
+        "submit_review": { "enabled": true, "permission": "admin.translations.edit", "auto_approve": false, "missing_required_fields": [] }
+      },
+      "review_action_states": {
+        "approve": { "enabled": false, "reason": "assignment must be in review", "reason_code": "INVALID_STATUS" }
+      },
+      "assist": {
+        "glossary_matches": [
+          {
+            "term": "translation",
+            "preferred_translation": "traduction",
+            "field_paths": ["body"]
+          }
+        ],
+        "style_guide_summary": {
+          "available": true,
+          "title": "FR Pages Style Guide",
+          "summary": "Keep terminology consistent.",
+          "rules": ["Preserve placeholders."]
+        },
+        "translation_memory_suggestions": []
+      }
+    },
+    "meta": {
+      "environment": "production",
+      "autosave": true
+    }
+  },
+  "validation_errors": {
+    "data": {
+      "variant_id": "variant-page-1-fr",
+      "row_version": 4,
+      "fields": {
+        "title": "Guide de publication",
+        "path": "/fr/page-1",
+        "body": ""
+      },
+      "field_completeness": {
+        "title": { "required": true, "complete": true, "missing": false },
+        "body": { "required": true, "complete": false, "missing": true }
+      },
+      "field_drift": {
+        "body": {
+          "changed": true,
+          "comparison_mode": "snapshot",
+          "previous_source_value": "Translation guide for publish workflows.",
+          "current_source_value": "Translation guide for publish workflows from the home page."
+        }
+      },
+      "field_validations": {
+        "title": { "valid": true, "message": "" },
+        "body": { "valid": false, "message": "Body is required before submit" }
+      },
+      "assignment_action_states": {
+        "submit_review": { "enabled": true, "permission": "admin.translations.edit", "auto_approve": false, "missing_required_fields": ["body"] }
+      },
+      "review_action_states": {
+        "approve": { "enabled": false, "reason": "assignment must be in review", "reason_code": "INVALID_STATUS" }
+      },
+      "assist": {
+        "glossary_matches": [
+          {
+            "term": "translation",
+            "preferred_translation": "traduction",
+            "field_paths": ["body"]
+          }
+        ],
+        "style_guide_summary": {
+          "available": true,
+          "title": "FR Pages Style Guide",
+          "summary": "Keep terminology consistent.",
+          "rules": ["Preserve placeholders."]
+        },
+        "translation_memory_suggestions": []
+      }
+    }
+  },
+  "autosave_conflict": {
+    "error": {
+      "text_code": "AUTOSAVE_CONFLICT",
+      "message": "autosave conflict for entity \"page-1-fr\"",
+      "metadata": {
+        "version": "3",
+        "expected_version": "2",
+        "latest_server_state_record": {
+          "variant_id": "variant-page-1-fr",
+          "row_version": 3,
+          "fields": {
+            "title": "Guide de traduction",
+            "body": "Publier la traduction depuis l'accueil."
+          }
+        }
+      }
+    }
+  },
+  "assist_unavailable": {
+    "data": {
+      "assignment_id": "asg-editor-1",
+      "family_id": "tg-page-1",
+      "variant_id": "variant-page-1-fr",
+      "row_version": 3,
+      "source_fields": {
+        "title": "Translation publish guide",
+        "body": "Translation guide for publish workflows from the home page."
+      },
+      "target_fields": {
+        "title": "Guide de traduction",
+        "body": "Publier la traduction depuis l'accueil."
+      },
+      "field_completeness": {
+        "title": { "required": true, "complete": true, "missing": false },
+        "body": { "required": true, "complete": true, "missing": false }
+      },
+      "field_drift": {},
+      "field_validations": {
+        "title": { "valid": true, "message": "" },
+        "body": { "valid": true, "message": "" }
+      },
+      "assignment_action_states": {
+        "submit_review": { "enabled": true, "permission": "admin.translations.edit", "auto_approve": false, "missing_required_fields": [] }
+      },
+      "review_action_states": {
+        "approve": { "enabled": false, "reason": "assignment must be in review", "reason_code": "INVALID_STATUS" }
+      },
+      "assist": {
+        "glossary_matches": [],
+        "style_guide_summary": {
+          "available": false,
+          "title": "",
+          "summary": "",
+          "rules": []
+        },
+        "translation_memory_suggestions": []
+      }
+    }
+  },
+  "no_review_auto_approve": {
+    "data": {
+      "assignment_id": "asg-editor-1",
+      "status": "approved",
+      "row_version": 3,
+      "updated_at": "2026-03-12T16:30:00Z",
+      "assignment": {
+        "id": "asg-editor-1",
+        "status": "approved",
+        "queue_state": "approved",
+        "target_locale": "fr",
+        "version": 3,
+        "row_version": 3
+      }
+    },
+    "meta": {
+      "idempotency_hit": false
+    }
+  },
+  "assist_backcompat": {
+    "legacy_top_level": {
+      "glossary_matches": [
+        {
+          "term": "translation",
+          "preferred_translation": "traduction",
+          "field_paths": ["body"]
+        }
+      ],
+      "style_guide_summary": {
+        "available": true,
+        "title": "Legacy Style Guide",
+        "summary": "Legacy assist payload.",
+        "rules": ["Keep links intact."]
+      }
+    },
+    "missing_assets": {
+      "assist": {}
+    }
+  }
+}
