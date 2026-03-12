@@ -281,11 +281,11 @@ type contentSeed struct {
 }
 
 type contentSeedTranslation struct {
-	Title   string         `yaml:"title"`
-	Summary string         `yaml:"summary"`
-	Body    string         `yaml:"body"`
-	Status  string         `yaml:"status"`
-	Path    string         `yaml:"path"`
+	Title   *string        `yaml:"title"`
+	Summary *string        `yaml:"summary"`
+	Body    *string        `yaml:"body"`
+	Status  *string        `yaml:"status"`
+	Path    *string        `yaml:"path"`
 	Tags    []string       `yaml:"tags"`
 	Custom  map[string]any `yaml:"custom"`
 }
@@ -343,6 +343,10 @@ func loadCMSContentSeeds() ([]contentSeed, []contentSeed, []contentSeed, error) 
 		normalizeContentSeedTranslations(seed)
 	}
 
+	if err := validateCMSContentSeeds(payload.Pages, payload.Posts, payload.News); err != nil {
+		return nil, nil, nil, err
+	}
+
 	return payload.Pages, payload.Posts, payload.News, nil
 }
 
@@ -366,6 +370,64 @@ func normalizeContentSeedTranslations(seed *contentSeed) {
 		return
 	}
 	seed.Translations = normalized
+}
+
+func validateCMSContentSeeds(pageSeeds, postSeeds, newsSeeds []contentSeed) error {
+	for _, section := range []struct {
+		name  string
+		seeds []contentSeed
+	}{
+		{name: "pages", seeds: pageSeeds},
+		{name: "posts", seeds: postSeeds},
+		{name: "news", seeds: newsSeeds},
+	} {
+		for _, seed := range section.seeds {
+			if err := validateCMSContentSeed(section.name, seed); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func validateCMSContentSeed(section string, seed contentSeed) error {
+	slug := strings.TrimSpace(seed.Slug)
+	if slug == "" {
+		slug = "<unknown>"
+	}
+	if locale := seedCustomLocale(seed.Custom); locale != "" {
+		return fmt.Errorf(
+			"invalid %s seed %q: top-level custom.locale=%q is not allowed; use translations.%s instead",
+			section,
+			slug,
+			locale,
+			locale,
+		)
+	}
+	for locale, translation := range seed.Translations {
+		if translationLocale := seedCustomLocale(translation.Custom); translationLocale != "" {
+			return fmt.Errorf(
+				"invalid %s seed %q: translations.%s.custom.locale=%q is not allowed; use the translations.%s key instead",
+				section,
+				slug,
+				locale,
+				translationLocale,
+				locale,
+			)
+		}
+	}
+	return nil
+}
+
+func seedCustomLocale(custom map[string]any) string {
+	if len(custom) == 0 {
+		return ""
+	}
+	value := strings.ToLower(strings.TrimSpace(fmt.Sprint(custom["locale"])))
+	if value == "<nil>" {
+		return ""
+	}
+	return value
 }
 
 func seedCMSPrereqs(ctx context.Context, db *bun.DB, defaultLocale string) (cmsSeedRefs, error) {
@@ -1314,47 +1376,18 @@ func ensureSeedContent(ctx context.Context, contentSvc admin.CMSContentService, 
 		return fmt.Errorf("content service unavailable")
 	}
 
-	pageRows, _, err := pageStore.List(ctx, admin.ListOptions{Filters: map[string]any{"locale": locale}})
+	seedLocales := translationSeedLocales(locale)
+	pageSlugs, err := collectSeedPageSlugs(ctx, pageStore, seedLocales)
 	if err != nil {
 		return err
 	}
-	pageSlugs := map[string]struct{}{}
-	for _, row := range pageRows {
-		slug := strings.TrimSpace(fmt.Sprint(row["slug"]))
-		if slug == "" || slug == "<nil>" {
-			continue
-		}
-		pageSlugs[strings.ToLower(slug)] = struct{}{}
-	}
-
-	postRows, _, err := postStore.List(ctx, admin.ListOptions{Filters: map[string]any{"locale": locale}})
+	postSlugs, err := collectSeedPostSlugs(ctx, postStore, seedLocales)
 	if err != nil {
 		return err
 	}
-	postSlugs := map[string]struct{}{}
-	for _, row := range postRows {
-		slug := strings.TrimSpace(fmt.Sprint(row["slug"]))
-		if slug == "" || slug == "<nil>" {
-			continue
-		}
-		postSlugs[strings.ToLower(slug)] = struct{}{}
-	}
-
-	existingContent, err := contentSvc.Contents(ctx, "")
+	newsSlugs, err := collectSeedNewsSlugs(ctx, contentSvc, seedLocales)
 	if err != nil {
 		return err
-	}
-	newsSlugs := map[string]struct{}{}
-	for _, item := range existingContent {
-		typeSlug := strings.ToLower(strings.TrimSpace(primitives.FirstNonEmpty(item.ContentTypeSlug, item.ContentType)))
-		if typeSlug != "news" {
-			continue
-		}
-		slug := strings.ToLower(strings.TrimSpace(item.Slug))
-		if slug == "" {
-			continue
-		}
-		newsSlugs[slug] = struct{}{}
 	}
 
 	for _, seed := range pageSeeds {
@@ -1367,17 +1400,18 @@ func ensureSeedContent(ctx context.Context, contentSvc admin.CMSContentService, 
 		}
 		seoTitle, seoDescription := seedSEO(seed)
 		record := map[string]any{
-			"title":            seed.Title,
-			"slug":             seed.Slug,
-			"content":          seed.Body,
-			"summary":          seed.Summary,
-			"status":           seed.Status,
-			"locale":           locale,
-			"path":             normalizePath(seed.Path, seed.Slug),
-			"meta_title":       seoTitle,
-			"meta_description": seoDescription,
-			"template_id":      refs.TemplateID.String(),
-			"tags":             append([]string{}, seed.Tags...),
+			"title":                seed.Title,
+			"slug":                 seed.Slug,
+			"content":              seed.Body,
+			"summary":              seed.Summary,
+			"status":               seed.Status,
+			"locale":               locale,
+			"translation_group_id": seedTranslationGroupIDValue(seed),
+			"path":                 normalizePath(seed.Path, seed.Slug),
+			"meta_title":           seoTitle,
+			"meta_description":     seoDescription,
+			"template_id":          refs.TemplateID.String(),
+			"tags":                 append([]string{}, seed.Tags...),
 		}
 		mergeSeedCustomFields(record, seed.Custom, "blocks")
 		if seed.Custom != nil {
@@ -1400,17 +1434,18 @@ func ensureSeedContent(ctx context.Context, contentSvc admin.CMSContentService, 
 		}
 		seoTitle, seoDescription := seedSEO(seed)
 		record := map[string]any{
-			"title":            seed.Title,
-			"slug":             seed.Slug,
-			"content":          seed.Body,
-			"excerpt":          seed.Summary,
-			"summary":          seed.Summary,
-			"status":           seed.Status,
-			"locale":           locale,
-			"path":             normalizePath(seed.Path, seed.Slug),
-			"meta_title":       seoTitle,
-			"meta_description": seoDescription,
-			"tags":             append([]string{}, seed.Tags...),
+			"title":                seed.Title,
+			"slug":                 seed.Slug,
+			"content":              seed.Body,
+			"excerpt":              seed.Summary,
+			"summary":              seed.Summary,
+			"status":               seed.Status,
+			"locale":               locale,
+			"translation_group_id": seedTranslationGroupIDValue(seed),
+			"path":                 normalizePath(seed.Path, seed.Slug),
+			"meta_title":           seoTitle,
+			"meta_description":     seoDescription,
+			"tags":                 append([]string{}, seed.Tags...),
 		}
 		mergeSeedCustomFields(record, seed.Custom, "blocks")
 		if seed.Custom != nil {
@@ -1481,6 +1516,69 @@ func ensureSeedContent(ctx context.Context, contentSvc admin.CMSContentService, 
 	}
 
 	return nil
+}
+
+func collectSeedPageSlugs(ctx context.Context, pageStore *stores.CMSPageStore, locales []string) (map[string]struct{}, error) {
+	if pageStore == nil {
+		return nil, fmt.Errorf("page store unavailable")
+	}
+	return collectSeedStoreSlugs(ctx, locales, func(locale string) ([]map[string]any, error) {
+		rows, _, err := pageStore.List(ctx, admin.ListOptions{Filters: map[string]any{"locale": locale}})
+		return rows, err
+	})
+}
+
+func collectSeedPostSlugs(ctx context.Context, postStore *stores.CMSPostStore, locales []string) (map[string]struct{}, error) {
+	if postStore == nil {
+		return nil, fmt.Errorf("post store unavailable")
+	}
+	return collectSeedStoreSlugs(ctx, locales, func(locale string) ([]map[string]any, error) {
+		rows, _, err := postStore.List(ctx, admin.ListOptions{Filters: map[string]any{"locale": locale}})
+		return rows, err
+	})
+}
+
+func collectSeedStoreSlugs(ctx context.Context, locales []string, fetch func(locale string) ([]map[string]any, error)) (map[string]struct{}, error) {
+	slugs := map[string]struct{}{}
+	for _, locale := range normalizedSeedLocales(locales) {
+		rows, err := fetch(locale)
+		if err != nil {
+			return nil, err
+		}
+		for _, row := range rows {
+			slug := strings.ToLower(strings.TrimSpace(fmt.Sprint(row["slug"])))
+			if slug == "" || slug == "<nil>" {
+				continue
+			}
+			slugs[slug] = struct{}{}
+		}
+	}
+	return slugs, nil
+}
+
+func collectSeedNewsSlugs(ctx context.Context, contentSvc admin.CMSContentService, locales []string) (map[string]struct{}, error) {
+	if contentSvc == nil {
+		return nil, fmt.Errorf("content service unavailable")
+	}
+	slugs := map[string]struct{}{}
+	for _, locale := range normalizedSeedLocales(locales) {
+		items, err := contentSvc.Contents(ctx, locale)
+		if err != nil {
+			return nil, err
+		}
+		for _, item := range items {
+			typeSlug := strings.ToLower(strings.TrimSpace(primitives.FirstNonEmpty(item.ContentTypeSlug, item.ContentType)))
+			if typeSlug != "news" {
+				continue
+			}
+			slug := strings.ToLower(strings.TrimSpace(item.Slug))
+			if slug == "" {
+				continue
+			}
+			slugs[slug] = struct{}{}
+		}
+	}
+	return slugs, nil
 }
 
 func mergeSeedCustomFields(record map[string]any, custom map[string]any, excluded ...string) {
@@ -2004,11 +2102,15 @@ func backfillTranslations(ctx context.Context, db *bun.DB, locale string, pageSe
 			localizedSeed := localizedContentSeed(seed, targetLocale, defaultCode)
 			payload := buildSeedContentPayload(localizedSeed)
 			summary := strings.TrimSpace(localizedSeed.Summary)
+			groupID, err := seedTranslationGroupUUID(seed, contentID)
+			if err != nil {
+				return err
+			}
 			contentTranslation := &contentTranslationRow{
 				ID:                 uuid.NewSHA1(cmsSeedNamespace, []byte(seed.Slug+":"+targetLocale)),
 				ContentID:          contentID,
 				LocaleID:           loc.ID,
-				TranslationGroupID: &contentID,
+				TranslationGroupID: groupID,
 				Title:              strings.TrimSpace(localizedSeed.Title),
 				Content:            payload,
 				CreatedAt:          now,
@@ -2049,11 +2151,15 @@ func backfillTranslations(ctx context.Context, db *bun.DB, locale string, pageSe
 
 			seoTitle, seoDescription := seedSEO(localizedSeed)
 			path := normalizePath(localizedSeed.Path, seed.Slug)
+			pageGroupID, err := seedTranslationGroupUUID(seed, pageID)
+			if err != nil {
+				return err
+			}
 			pageTranslation := &pageTranslationRow{
 				ID:                 uuid.NewSHA1(cmsSeedNamespace, []byte(seed.Slug+":page:"+targetLocale)),
 				PageID:             pageID,
 				LocaleID:           loc.ID,
-				TranslationGroupID: &pageID,
+				TranslationGroupID: pageGroupID,
 				Title:              strings.TrimSpace(localizedSeed.Title),
 				Path:               path,
 				MediaBindings:      map[string]any{},
@@ -2098,6 +2204,32 @@ func backfillTranslations(ctx context.Context, db *bun.DB, locale string, pageSe
 	return nil
 }
 
+func seedTranslationGroupIDValue(seed contentSeed) string {
+	if seed.Custom == nil {
+		return ""
+	}
+	value := strings.TrimSpace(fmt.Sprint(seed.Custom["translation_group_id"]))
+	if value == "<nil>" {
+		return ""
+	}
+	return value
+}
+
+func seedTranslationGroupUUID(seed contentSeed, fallback uuid.UUID) (*uuid.UUID, error) {
+	if groupID := seedTranslationGroupIDValue(seed); groupID != "" {
+		parsed, err := uuid.Parse(groupID)
+		if err != nil {
+			return nil, fmt.Errorf("seed %s translation_group_id %q: %w", seed.Slug, groupID, err)
+		}
+		return &parsed, nil
+	}
+	if fallback == uuid.Nil {
+		return nil, nil
+	}
+	fallbackCopy := fallback
+	return &fallbackCopy, nil
+}
+
 func localizedContentSeed(seed contentSeed, locale, defaultLocale string) contentSeed {
 	locale = strings.ToLower(strings.TrimSpace(locale))
 	defaultLocale = strings.ToLower(strings.TrimSpace(defaultLocale))
@@ -2115,20 +2247,20 @@ func localizedContentSeed(seed contentSeed, locale, defaultLocale string) conten
 
 	merged := seed
 	merged.Translations = nil
-	if value := strings.TrimSpace(override.Title); value != "" {
-		merged.Title = value
+	if override.Title != nil {
+		merged.Title = strings.TrimSpace(*override.Title)
 	}
-	if value := strings.TrimSpace(override.Summary); value != "" {
-		merged.Summary = value
+	if override.Summary != nil {
+		merged.Summary = strings.TrimSpace(*override.Summary)
 	}
-	if value := strings.TrimSpace(override.Body); value != "" {
-		merged.Body = value
+	if override.Body != nil {
+		merged.Body = strings.TrimSpace(*override.Body)
 	}
-	if value := strings.TrimSpace(override.Status); value != "" {
-		merged.Status = value
+	if override.Status != nil {
+		merged.Status = strings.TrimSpace(*override.Status)
 	}
-	if value := strings.TrimSpace(override.Path); value != "" {
-		merged.Path = value
+	if override.Path != nil {
+		merged.Path = strings.TrimSpace(*override.Path)
 	}
 	if len(override.Tags) > 0 {
 		merged.Tags = append([]string{}, override.Tags...)
@@ -2246,7 +2378,7 @@ func validateTranslationSeedFixtureCoverage(ctx context.Context, db *bun.DB) err
 	if err := requireTranslationFixtureLocales(ctx, db, "admin_post_records", "translation-demo-review-pending", []string{"en", "es"}); err != nil {
 		return err
 	}
-	if err := requireTranslationFixtureFieldEmpty(ctx, db, "admin_post_records", "translation-review-post-es", "es", "excerpt"); err != nil {
+	if err := requireTranslationFixtureFieldEmpty(ctx, db, "admin_post_records", "translation-review-post", "es", "excerpt"); err != nil {
 		return err
 	}
 
