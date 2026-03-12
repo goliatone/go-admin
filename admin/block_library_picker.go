@@ -17,9 +17,8 @@ import (
 )
 
 // blockLibraryRenderInput contains the prepared data needed to render
-// a block definition's schema as form HTML. The caller (typically a
-// Phase 2 endpoint or component renderer) is responsible for feeding
-// Schema and Overlay into the formgen orchestrator.
+// a block definition's schema as form HTML. The caller is responsible
+// for feeding Schema and Overlay into the formgen orchestrator.
 type blockLibraryRenderInput struct {
 	Schema  map[string]any // Schema after stripping unsupported keywords.
 	Overlay []byte         // Marshaled UI overlay (ready for NormalizeOptions.Overlay), nil when no ui_schema.
@@ -104,7 +103,7 @@ func blockDefinitionsFromLibrary(
 		schema, _ := item["schema"].(map[string]any)
 		uiSchema, _ := item["ui_schema"].(map[string]any)
 
-		// 1.3: Strip unsupported JSON Schema keywords.
+		// Strip unsupported JSON Schema keywords.
 		stripped := stripUnsupportedSchemaKeywords(schema)
 		if stripped != nil {
 			if _, ok := stripped["$schema"]; !ok {
@@ -112,7 +111,7 @@ func blockDefinitionsFromLibrary(
 			}
 		}
 
-		// 1.4: Prepare UI overlay bytes using the overlay mechanism
+		// Prepare UI overlay bytes using the overlay mechanism
 		// (same pattern as content_type_builder_module.go:1050-1059).
 		var overlay []byte
 		if len(uiSchema) > 0 {
@@ -127,7 +126,7 @@ func blockDefinitionsFromLibrary(
 			}
 		}
 
-		// 1.5: Render HTML via renderChild.
+		// Render HTML via renderChild.
 		html := ""
 		if renderChild != nil {
 			rendered, renderErr := renderChild(blockLibraryRenderInput{
@@ -141,11 +140,11 @@ func blockDefinitionsFromLibrary(
 			html = rendered
 		}
 
-		// 1.6: Derive required_fields from top-level required array,
+		// Derive required_fields from the top-level required array,
 		// excluding _type and _schema metadata keys.
 		requiredFields := deriveBlockRequiredFields(schema)
 
-		// 1.7: Map fields from the repository result.
+		// Map fields from the repository result.
 		name := strings.TrimSpace(toString(item["name"]))
 		icon := strings.TrimSpace(toString(item["icon"]))
 
@@ -206,7 +205,7 @@ func deriveBlockRequiredFields(schema map[string]any) []string {
 }
 
 // ---------------------------------------------------------------------------
-// Phase 2: Template API Endpoints
+// Template API Endpoints
 // ---------------------------------------------------------------------------
 
 // renderBlockTemplate generates HTML for a single block definition schema
@@ -280,7 +279,7 @@ func blockLibraryRenderFunc(ctx context.Context, validator *FormgenSchemaValidat
 }
 
 // blockDefinitionTemplateItem is the JSON response shape for a single
-// block definition template (task 2.3).
+// block definition template.
 type blockDefinitionTemplateItem struct {
 	Slug           string   `json:"slug"`
 	Label          string   `json:"label"`
@@ -326,7 +325,7 @@ func (m *ContentTypeBuilderModule) registerBlockDefinitionTemplateRoutes(admin *
 		return
 	}
 
-	// Create a FormgenSchemaValidator for rendering block templates (task 2.5).
+	// Create a FormgenSchemaValidator for rendering block templates.
 	apiBase := ""
 	if admin != nil {
 		apiBase = admin.AdminAPIBasePath()
@@ -338,7 +337,7 @@ func (m *ContentTypeBuilderModule) registerBlockDefinitionTemplateRoutes(admin *
 
 	repo := NewCMSBlockDefinitionRepository(m.contentSvc, m.contentTypeSvc)
 
-	// Task 2.1: Single-template endpoint.
+	// Single-template endpoint.
 	singlePath := adminAPIRoutePath(admin, "block_definitions_meta.template")
 
 	singleHandler := func(c router.Context) error {
@@ -373,7 +372,7 @@ func (m *ContentTypeBuilderModule) registerBlockDefinitionTemplateRoutes(admin *
 		return writeJSON(c, map[string]any{"items": blockDefinitionsToResponse(defs)})
 	}
 
-	// Task 2.2: Batch-templates endpoint.
+	// Batch-templates endpoint.
 	batchPath := adminAPIRoutePath(admin, "block_definitions_meta.templates")
 
 	batchHandler := func(c router.Context) error {
@@ -403,7 +402,7 @@ func (m *ContentTypeBuilderModule) registerBlockDefinitionTemplateRoutes(admin *
 		return writeJSON(c, map[string]any{"items": blockDefinitionsToResponse(defs)})
 	}
 
-	// Task 2.4: Register routes with auth wrapper.
+	// Register routes with auth wrapper.
 	authWrap := admin.authWrapper()
 	if authWrap != nil {
 		singleHandler = authWrap(singleHandler)
@@ -416,7 +415,7 @@ func (m *ContentTypeBuilderModule) registerBlockDefinitionTemplateRoutes(admin *
 }
 
 // ---------------------------------------------------------------------------
-// Phase 3: Component Descriptor + Go Template
+// Component Descriptor And Template
 // ---------------------------------------------------------------------------
 
 const (
@@ -426,7 +425,7 @@ const (
 
 // blockLibraryPickerRenderer renders the shell DOM for the block library picker
 // component. It does NOT make repository calls; block templates are loaded by
-// the frontend via Phase 2 API endpoints.
+// the frontend via the template API endpoints.
 func blockLibraryPickerRenderer(buf *bytes.Buffer, field model.Field, data components.ComponentData) error {
 	if data.Template == nil {
 		return serviceNotConfiguredDomainError("block library template renderer", map[string]any{
