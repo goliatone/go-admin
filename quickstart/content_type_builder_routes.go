@@ -820,8 +820,6 @@ func (h *contentTypeBuilderHandlers) UpdateChannel(c router.Context) error {
 	req := struct {
 		Channel        string `json:"channel"`
 		ContentChannel string `json:"content_channel"`
-		Environment    string `json:"environment"`
-		Env            string `json:"env"`
 	}{}
 	if err := parseJSONBody(c, &req); err != nil {
 		return err
@@ -829,12 +827,6 @@ func (h *contentTypeBuilderHandlers) UpdateChannel(c router.Context) error {
 	channelCandidate := strings.TrimSpace(req.Channel)
 	if channelCandidate == "" {
 		channelCandidate = strings.TrimSpace(req.ContentChannel)
-	}
-	if channelCandidate == "" {
-		channelCandidate = strings.TrimSpace(req.Environment)
-	}
-	if channelCandidate == "" {
-		channelCandidate = strings.TrimSpace(req.Env)
 	}
 	channel, ok := normalizeCookieChannel(channelCandidate)
 	if !ok {
@@ -2324,15 +2316,6 @@ func resolveContentChannel(c router.Context) string {
 		c.Header("X-Admin-Channel"),
 		c.Header("X-Content-Channel"),
 		c.Cookies(channelCookieName),
-		// Legacy compatibility keys (Phase 6 cleanup target).
-		c.Query("env"),
-		c.Query("environment"),
-		c.Query("content_env"),
-		c.Query("site_env"),
-		c.Header("X-Admin-Environment"),
-		c.Header("X-Environment"),
-		c.Cookies("admin_env"),
-		c.Cookies("site_env"),
 	}
 	for _, candidate := range candidates {
 		if channel, ok := normalizeCookieChannel(candidate); ok && channel != "" {
