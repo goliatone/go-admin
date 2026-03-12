@@ -138,7 +138,7 @@ func (p *planner) Report() StartupReport {
 }
 
 func (p *planner) resolveModule(contract ModuleContract) (ResolvedModule, []ManifestEntry, error) {
-	mount := mergeMountOverrides(contract.Mount, p.cfg.Modules[contract.Slug].Mount)
+	mount := p.cfg.Modules[contract.Slug].Mount
 
 	resolved := ResolvedModule{Slug: contract.Slug}
 	entries := make([]ManifestEntry, 0, routeTableLen(contract))
@@ -273,7 +273,7 @@ func (p *planner) applyModuleRoutes(candidate modulePlan) error {
 					),
 				}})
 			}
-			pending[routeKey] = mutationRoutePath(group, routePath, p.cfg.Roots)
+			pending[routeKey] = mutationRoutePath(routePath)
 		}
 		if len(pending) == 0 {
 			continue
@@ -312,19 +312,8 @@ func routeRootForGroup(groupPath string, roots RootsConfig) string {
 	}
 }
 
-func mutationRoutePath(groupPath, routePath string, roots RootsConfig) string {
-	routePath = normalizeAbsolutePath(routePath)
-	root := normalizeAbsolutePath(routeRootForGroup(groupPath, roots))
-	if root == "" {
-		return NormalizeRelativePath(routePath)
-	}
-	if routePath == root {
-		return "/"
-	}
-	if strings.HasPrefix(routePath, root+"/") {
-		return NormalizeRelativePath(strings.TrimPrefix(routePath, root))
-	}
-	return NormalizeRelativePath(routePath)
+func mutationRoutePath(routePath string) string {
+	return normalizeAbsolutePath(routePath)
 }
 
 func (p *planner) refreshReport(conflicts []Conflict) {
@@ -433,20 +422,6 @@ func resolveSurfaceMount(root, slug, override, surface string) (string, error) {
 	}
 
 	return JoinAbsolutePath(root, slug), nil
-}
-
-func mergeMountOverrides(contract, host ModuleMountOverride) ModuleMountOverride {
-	merged := contract
-	if host.UIBase != "" {
-		merged.UIBase = host.UIBase
-	}
-	if host.APIBase != "" {
-		merged.APIBase = host.APIBase
-	}
-	if host.PublicAPIBase != "" {
-		merged.PublicAPIBase = host.PublicAPIBase
-	}
-	return merged
 }
 
 func buildManifestEntries(slug, routeNamePrefix, surface, groupPath, mountBase string, routes map[string]string) []ManifestEntry {
