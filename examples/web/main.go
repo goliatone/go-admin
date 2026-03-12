@@ -1069,7 +1069,7 @@ func main() {
 		uiRouteOpts = append(uiRouteOpts, quickstart.WithUITranslationDashboardRoute(true))
 		log.Printf("Translation dashboard UI route enabled (/admin/translations/dashboard)")
 		log.Printf("Translation queue UI route enabled with inline claim/release actions (/admin/translations/queue)")
-		log.Printf("Translation editor UI route enabled with detail/update/autosave contracts (/admin/translations/assignments/:assignment_id/edit)")
+		log.Printf("Translation editor UI route enabled with full source-target editing, autosave recovery, and sidebar history (/admin/translations/assignments/:assignment_id/edit)")
 	}
 	if featureEnabled(adm.FeatureGate(), string(coreadmin.FeatureTranslationExchange)) {
 		uiRouteOpts = append(uiRouteOpts, quickstart.WithUITranslationExchangeRoute(true))

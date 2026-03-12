@@ -3,9 +3,11 @@ package main
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"encoding/hex"
 	"fmt"
 	"github.com/goliatone/go-admin/internal/primitives"
+	"sort"
 	"strings"
 	"time"
 
@@ -379,21 +381,97 @@ func seedExampleTranslationQueueFixture(
 		if targetErr != nil {
 			return fmt.Errorf("translation editor qa target page lookup failed: %w", targetErr)
 		}
+		if editorTarget == nil && strings.TrimSpace(editorGroupID) != "" {
+			createdTarget, createErr := contentSvc.CreatePage(ctx, coreadmin.CMSPage{
+				ID:                 ensureLocaleSlug(strings.TrimSpace(editorSource.ID), "fr"),
+				Title:              "Guide d'accueil",
+				Slug:               ensureLocaleSlug(strings.TrimSpace(editorSource.Slug), "fr"),
+				Locale:             "fr",
+				TranslationGroupID: editorGroupID,
+				Status:             "draft",
+				Data: map[string]any{
+					"path": ensureLocaleSlug(strings.TrimSpace(exchangePagePath(*editorSource)), "fr"),
+					"body": "Publier la traduction depuis l'accueil.",
+				},
+				Metadata: map[string]any{
+					"tenant_id": "tenant-1",
+					"org_id":    "org-1",
+				},
+			})
+			if createErr != nil {
+				return fmt.Errorf("translation editor qa target page create failed: %w", createErr)
+			}
+			editorTarget = createdTarget
+		}
 		if editorTarget != nil && strings.TrimSpace(editorGroupID) != "" {
+			staleSourceFields := map[string]string{
+				"title": strings.TrimSpace(editorSource.Title),
+				"path":  strings.TrimSpace(exchangePagePath(*editorSource)),
+				"body":  "Older home page source snapshot.",
+			}
+			sourceFields := fixtureTranslationFields(editorSource.Title, editorSource.Slug, editorSource.Data)
+			editorTargetMetadata := cloneAnyMap(editorTarget.Metadata)
+			if editorTargetMetadata == nil {
+				editorTargetMetadata = map[string]any{}
+			}
+			editorTargetMetadata["attachments"] = []any{
+				map[string]any{
+					"id":          "asset-qa-1",
+					"kind":        "reference",
+					"filename":    "homepage-brief.pdf",
+					"byte_size":   2048,
+					"uploaded_at": now.Add(-2 * time.Hour).Format(time.RFC3339),
+					"description": "Homepage localization brief",
+					"url":         "/media/homepage-brief.pdf",
+				},
+				map[string]any{
+					"id":          "asset-qa-2",
+					"kind":        "terminology",
+					"filename":    "glossary.csv",
+					"byte_size":   1024,
+					"uploaded_at": now.Add(-26 * time.Hour).Format(time.RFC3339),
+					"description": "Approved glossary extract",
+					"url":         "/media/glossary.csv",
+				},
+			}
+			editorTargetMetadata["translation_editor"] = map[string]any{
+				"row_version":               3,
+				"source_hash_at_last_sync":  translationEditorHashFields(staleSourceFields),
+				"last_synced_source_fields": cloneStringMapToAny(staleSourceFields),
+				"last_saved_at":             now.Add(-15 * time.Minute).Format(time.RFC3339),
+				"last_saved_by":             assignees[0],
+			}
+			editorTargetMetadata["source_hash_at_last_sync"] = translationEditorHashFields(staleSourceFields)
+			editorTargetUpdated := cloneCMSPage(*editorTarget)
+			editorTargetUpdated.Metadata = editorTargetMetadata
+			editorTargetUpdated.Title = strings.TrimSpace(firstNonEmpty(editorTargetUpdated.Title, "Guide d'accueil"))
+			if editorTargetUpdated.Data == nil {
+				editorTargetUpdated.Data = map[string]any{}
+			}
+			if strings.TrimSpace(fmt.Sprint(editorTargetUpdated.Data["body"])) == "" {
+				editorTargetUpdated.Data["body"] = "Publier la traduction depuis l'accueil."
+			}
+			if _, updateErr := contentSvc.UpdatePage(ctx, editorTargetUpdated); updateErr != nil {
+				return fmt.Errorf("translation editor qa target page metadata update failed: %w", updateErr)
+			}
 			editorAssignment := coreadmin.TranslationAssignment{
 				ID:                 exampleTranslationQAAssignmentID,
 				TranslationGroupID: editorGroupID,
 				EntityType:         "pages",
+				TenantID:           "tenant-1",
+				OrgID:              "org-1",
 				SourceRecordID:     strings.TrimSpace(editorSource.ID),
 				SourceLocale:       strings.ToLower(strings.TrimSpace(fixtureFirstNonEmptyString(editorSource.Locale, "en"))),
 				TargetLocale:       "fr",
 				TargetRecordID:     strings.TrimSpace(editorTarget.ID),
-				SourceTitle:        strings.TrimSpace(editorSource.Title),
-				SourcePath:         strings.TrimSpace(exchangePagePath(*editorSource)),
 				AssignmentType:     coreadmin.AssignmentTypeDirect,
 				Status:             coreadmin.AssignmentStatusInProgress,
 				Priority:           coreadmin.PriorityHigh,
 				AssigneeID:         assignees[0],
+				ReviewerID:         assignees[0],
+				SourceTitle:        strings.TrimSpace(firstNonEmpty(editorSource.Title, sourceFields["title"])),
+				SourcePath:         strings.TrimSpace(firstNonEmpty(exchangePagePath(*editorSource), sourceFields["path"])),
+				LastRejectionReason: "Please tighten the CTA tone.",
 				ClaimedAt:          fixtureTimePtr(now.Add(-90 * time.Minute)),
 			}
 			if err := seedOrRefreshQueueAssignment(ctx, repo, editorAssignment); err != nil {
@@ -1161,5 +1239,60 @@ func exchangePagePath(page coreadmin.CMSPage) string {
 
 func exchangeRowSourceHash(value string) string {
 	sum := sha256.Sum256([]byte(strings.TrimSpace(value)))
+	return hex.EncodeToString(sum[:])
+}
+
+func fixtureTranslationFields(title, slug string, data map[string]any) map[string]string {
+	out := map[string]string{
+		"title": strings.TrimSpace(title),
+		"path":  strings.TrimSpace(firstNonEmpty(fmt.Sprint(data["path"]), "/"+strings.Trim(strings.TrimSpace(slug), "/"))),
+	}
+	if strings.TrimSpace(slug) != "" {
+		out["slug"] = strings.Trim(strings.TrimSpace(slug), "/")
+	}
+	if data != nil {
+		for _, key := range []string{"body", "summary", "excerpt", "description", "meta_title", "meta_description"} {
+			value := strings.TrimSpace(fmt.Sprint(data[key]))
+			if value != "" && value != "<nil>" {
+				out[key] = value
+			}
+		}
+	}
+	return out
+}
+
+func cloneAnyMap(input map[string]any) map[string]any {
+	return primitives.CloneAnyMap(input)
+}
+
+func cloneStringMapToAny(input map[string]string) map[string]any {
+	if len(input) == 0 {
+		return map[string]any{}
+	}
+	out := make(map[string]any, len(input))
+	for key, value := range input {
+		out[key] = strings.TrimSpace(value)
+	}
+	return out
+}
+
+func translationEditorHashFields(fields map[string]string) string {
+	if len(fields) == 0 {
+		return ""
+	}
+	keys := make([]string, 0, len(fields))
+	for key := range fields {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	payload := make(map[string]string, len(keys))
+	for _, key := range keys {
+		payload[key] = strings.TrimSpace(fields[key])
+	}
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return ""
+	}
+	sum := sha256.Sum256(raw)
 	return hex.EncodeToString(sum[:])
 }
