@@ -2,6 +2,8 @@
   "detail": {
     "data": {
       "assignment_id": "asg-editor-1",
+      "assignment_row_version": 2,
+      "assignment_version": 2,
       "family_id": "tg-page-1",
       "variant_id": "variant-page-1-fr",
       "entity_type": "pages",
@@ -102,6 +104,22 @@
           "body": "Please tighten the CTA tone.",
           "created_at": "2026-03-12T16:05:00Z",
           "kind": "review_feedback"
+        },
+        {
+          "id": "evt-editor-1",
+          "title": "Comment",
+          "author_id": "translator-1",
+          "actor_id": "translator-1",
+          "action": "translation.comment.added",
+          "body": "Homepage CTA should stay imperative in French.",
+          "created_at": "2026-03-12T16:10:00Z",
+          "kind": "comment",
+          "metadata": {
+            "variant_id": "variant-page-1-fr",
+            "field_paths": ["body"],
+            "source_hash": "current-source-hash",
+            "body": "Homepage CTA should stay imperative in French."
+          }
         }
       ],
       "events": [
@@ -114,18 +132,6 @@
             "variant_id": "variant-page-1-fr"
           },
           "created_at": "2026-03-12T16:20:00Z"
-        },
-        {
-          "id": "evt-editor-1",
-          "actor_id": "translator-1",
-          "action": "translation.comment.added",
-          "object": "translation_assignment:asg-editor-1",
-          "metadata": {
-            "variant_id": "variant-page-1-fr",
-            "field_paths": ["body"],
-            "source_hash": "current-source-hash"
-          },
-          "created_at": "2026-03-12T16:10:00Z"
         }
       ],
       "history": {
@@ -143,14 +149,19 @@
           },
           {
             "id": "evt-editor-1",
-            "entry_type": "event",
-            "title": "translation.comment.added",
+            "entry_type": "comment",
+            "title": "Comment",
+            "author_id": "translator-1",
             "actor_id": "translator-1",
             "action": "translation.comment.added",
+            "body": "Homepage CTA should stay imperative in French.",
             "created_at": "2026-03-12T16:10:00Z",
+            "kind": "comment",
             "metadata": {
               "variant_id": "variant-page-1-fr",
-              "field_paths": ["body"]
+              "field_paths": ["body"],
+              "source_hash": "current-source-hash",
+              "body": "Homepage CTA should stay imperative in French."
             }
           },
           {
@@ -282,6 +293,7 @@
     "data": {
       "variant_id": "variant-page-1-fr",
       "row_version": 4,
+      "source_hash_at_last_sync": "old-source-hash",
       "fields": {
         "title": "Guide de publication",
         "path": "/fr/page-1",
@@ -297,6 +309,12 @@
           "comparison_mode": "snapshot",
           "previous_source_value": "Page 1",
           "current_source_value": "Translation publish guide"
+        },
+        "body": {
+          "changed": true,
+          "comparison_mode": "snapshot",
+          "previous_source_value": "Translation guide for publish workflows.",
+          "current_source_value": "Translation guide for publish workflows from the home page."
         }
       },
       "field_validations": {

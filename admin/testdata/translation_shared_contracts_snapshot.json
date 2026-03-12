@@ -46,6 +46,23 @@
       ],
       "translation_memory_key": "translation_memory_suggestions"
     },
+    "attachments": {
+      "payload_key": "attachments",
+      "required_fields": [
+        "id",
+        "kind",
+        "filename",
+        "byte_size",
+        "uploaded_at",
+        "description",
+        "url"
+      ],
+      "summary_key": "attachment_summary",
+      "summary_required": [
+        "total",
+        "kinds"
+      ]
+    },
     "field_completeness": {
       "required_fields": [
         "required",
@@ -69,6 +86,48 @@
       "required_fields": [
         "valid",
         "message"
+      ]
+    },
+    "history": {
+      "entry_types": [
+        "comment",
+        "event"
+      ],
+      "fallback_keys": [
+        "comments",
+        "events"
+      ],
+      "payload_key": "history",
+      "required_fields": [
+        "items",
+        "page",
+        "per_page",
+        "total",
+        "has_more"
+      ]
+    },
+    "source_sync": {
+      "ack_request_fields": [
+        "acknowledged_source_hash",
+        "source_hash_at_last_sync"
+      ],
+      "ack_required_behavior": "advance_baseline_only_when_request_matches_current_source_hash",
+      "ack_response_fields": [
+        "source_hash_at_last_sync",
+        "source_target_drift"
+      ],
+      "default_save_behavior": "preserve_existing_sync_baseline"
+    },
+    "version_fields": {
+      "assignment_version_fields": [
+        "assignment_row_version",
+        "assignment_version",
+        "translation_assignment.row_version",
+        "translation_assignment.version"
+      ],
+      "variant_version_fields": [
+        "row_version",
+        "version"
       ]
     }
   },
@@ -136,7 +195,7 @@
     }
   },
   "openapi": {
-    "artifact_bytes": 8551,
+    "artifact_bytes": 8792,
     "artifact_path": "translations/ui/openapi/translations.json",
     "schema_version": 1
   },
