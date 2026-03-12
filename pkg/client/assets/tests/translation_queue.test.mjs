@@ -2,7 +2,7 @@ import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const fixtureURL = new URL('../../../../admin/testdata/translation_queue_phase8_fixtures.json', import.meta.url);
+const fixtureURL = new URL('../../../../admin/testdata/translation_queue_contract_fixtures.json', import.meta.url);
 const fixtures = JSON.parse(await readFile(fixtureURL, 'utf8'));
 
 const {

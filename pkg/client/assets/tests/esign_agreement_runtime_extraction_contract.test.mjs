@@ -14,7 +14,7 @@ function read(filePath) {
   return fs.readFileSync(filePath, 'utf8');
 }
 
-test('Phase 6 contract: agreement runtime boots through extracted refs, state, sync, and lifecycle modules', () => {
+test('runtime extraction contract: agreement runtime boots through extracted refs, state, sync, and lifecycle modules', () => {
   const source = read(runtimePath);
 
   assert.match(source, /from '\.\/agreement-form\/composition'/);
@@ -22,19 +22,19 @@ test('Phase 6 contract: agreement runtime boots through extracted refs, state, s
   assert.match(source, /runtime\.start\(\)/);
 });
 
-test('Phase 6 contract: page controller destroy delegates to runtime teardown', () => {
+test('runtime extraction contract: page controller destroy delegates to runtime teardown', () => {
   const source = read(pageControllerPath);
   assert.match(source, /destroyAgreementFormRuntime/);
   assert.match(source, /destroy\(\): void {\s*destroyAgreementFormRuntime\(\);/);
 });
 
-test('Phase 6 contract: extracted boot runtime starts sync side effects explicitly', () => {
+test('runtime extraction contract: extracted boot runtime starts sync side effects explicitly', () => {
   const source = read(bootPath);
   assert.match(source, /context\.syncController\.start\(\)/);
   assert.match(source, /context\.syncController\.destroy\(\)/);
 });
 
-test('Phase 6 contract: extracted composition module owns controller assembly', () => {
+test('runtime extraction contract: extracted composition module owns controller assembly', () => {
   const source = read(path.resolve(testFileDir, '../src/esign/pages/agreement-form/composition.ts'));
   assert.match(source, /from '\.\/boot'/);
   assert.match(source, /from '\.\/refs'/);
@@ -61,7 +61,7 @@ test('Phase 6 contract: extracted composition module owns controller assembly', 
   assert.match(source, /return agreementRuntime;/);
 });
 
-test('Phase 6 contract: agreement-form extraction boundaries are documented', () => {
+test('runtime extraction contract: agreement-form extraction boundaries are documented', () => {
   const source = read(boundariesPath);
   assert.match(source, /Agreement Form Runtime Internal Boundaries/);
   assert.match(source, /Boot Phase Order/);
