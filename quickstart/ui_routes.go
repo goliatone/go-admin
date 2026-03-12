@@ -35,6 +35,7 @@ type uiRouteOptions struct {
 	featureFlagsTemplate            string
 	translationShellTemplate        string
 	translationFamilyDetailTemplate string
+	translationEditorTemplate       string
 	translationDashboardTemplate    string
 	translationExchangeTemplate     string
 	dashboardTitle                  string
@@ -383,6 +384,7 @@ func RegisterAdminUIRoutes[T any](r router.Router[T], cfg admin.Config, adm *adm
 		featureFlagsTemplate:            "resources/feature-flags/index",
 		translationShellTemplate:        "resources/translations/shell",
 		translationFamilyDetailTemplate: "resources/translations/family-detail",
+		translationEditorTemplate:       "resources/translations/editor",
 		translationDashboardTemplate:    "resources/translations/dashboard",
 		translationExchangeTemplate:     "resources/translations/exchange",
 		dashboardTitle:                  strings.TrimSpace(cfg.Title),
@@ -574,14 +576,14 @@ func RegisterAdminUIRoutes[T any](r router.Router[T], cfg admin.Config, adm *adm
 
 	if options.registerTranslationEditor {
 		r.Get(options.translationEditorPath, wrap(func(c router.Context) error {
-			return renderTranslationShell(
-				c,
-				options.translationEditorTitle,
-				options.translationEditorActive,
-				"editor",
-				"Assignment editor shell for route rollout, kill-switch checks, and canonical conflict-state handling.",
-				"",
-			)
+			apiBase := resolveAPIBase()
+			assignmentID := strings.TrimSpace(c.Param("assignment_id"))
+			return renderView(c, options.translationEditorTemplate, options.translationEditorTitle, options.translationEditorActive, router.ViewContext{
+				"translation_assignment_id":           assignmentID,
+				"translation_editor_api_path":         prefixBasePath(apiBase, path.Join("translations", "assignments", assignmentID)),
+				"translation_editor_variant_api_base": prefixBasePath(apiBase, path.Join("translations", "variants")),
+				"translation_editor_action_api_base":  prefixBasePath(apiBase, path.Join("translations", "assignments")),
+			})
 		}))
 	}
 
