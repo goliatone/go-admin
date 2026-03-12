@@ -9,65 +9,30 @@
  * - Visible + Enabled: Module is on and user has all required permissions
  */
 
+import {
+  EMPTY_TRANSLATION_CAPABILITIES,
+  normalizeTranslationCapabilities,
+  type TranslationActionState,
+  type TranslationCapabilities,
+  type TranslationCapabilityMode,
+  type TranslationModuleState,
+} from '../translation-contracts/index.js';
 import { renderReasonCodeBadge } from './translation-status-vocabulary.js';
+
+export type CapabilityMode = TranslationCapabilityMode;
+export type ActionState = TranslationActionState;
+export type ModuleState = TranslationModuleState;
+export type { TranslationCapabilities };
 
 // ============================================================================
 // Types
 // ============================================================================
 
 /**
- * Supported capability modes matching backend `translation_capabilities.profile`
- */
-export type CapabilityMode = 'none' | 'core' | 'core+exchange' | 'core+queue' | 'full';
-
-/**
- * Action state from backend permission evaluation
- */
-export interface ActionState {
-  enabled: boolean;
-  reason?: string;
-  reason_code?: string;
-  permission?: string;
-}
-
-/**
- * Module state with entry permission and per-action permissions
- */
-export interface ModuleState {
-  enabled: boolean;
-  visible: boolean;
-  entry: ActionState;
-  actions: Record<string, ActionState>;
-}
-
-/**
  * Route configuration from capabilities
  */
 export interface RouteConfig {
   [key: string]: string;
-}
-
-/**
- * Translation capabilities payload from backend
- */
-export interface TranslationCapabilities {
-  profile: CapabilityMode;
-  capability_mode: CapabilityMode;
-  supported_profiles: CapabilityMode[];
-  schema_version: number;
-  modules: {
-    exchange?: ModuleState;
-    queue?: ModuleState;
-  };
-  features: {
-    cms?: boolean;
-    dashboard?: boolean;
-  };
-  routes: RouteConfig;
-  panels: string[];
-  resolver_keys: string[];
-  warnings: string[];
-  contracts?: Record<string, unknown>;
 }
 
 /**
@@ -143,152 +108,7 @@ export function extractCapabilities(payload: unknown): TranslationCapabilities |
   if (!payload || typeof payload !== 'object') {
     return null;
   }
-
-  const raw = payload as Record<string, unknown>;
-
-  // Validate required fields
-  const profile = parseCapabilityMode(raw.profile || raw.capability_mode);
-  const schemaVersion = typeof raw.schema_version === 'number' ? raw.schema_version : 0;
-
-  return {
-    profile,
-    capability_mode: profile,
-    supported_profiles: Array.isArray(raw.supported_profiles)
-      ? raw.supported_profiles.filter((p): p is CapabilityMode =>
-          typeof p === 'string' && ['none', 'core', 'core+exchange', 'core+queue', 'full'].includes(p)
-        )
-      : ['none', 'core', 'core+exchange', 'core+queue', 'full'],
-    schema_version: schemaVersion,
-    modules: extractModules(raw.modules),
-    features: extractFeatures(raw.features),
-    routes: extractRoutes(raw.routes),
-    panels: extractPanels(raw.panels),
-    resolver_keys: extractResolverKeys(raw.resolver_keys),
-    warnings: extractWarnings(raw.warnings),
-    contracts: raw.contracts && typeof raw.contracts === 'object'
-      ? raw.contracts as Record<string, unknown>
-      : undefined,
-  };
-}
-
-function extractModules(modules: unknown): TranslationCapabilities['modules'] {
-  if (!modules || typeof modules !== 'object') {
-    return {};
-  }
-
-  const raw = modules as Record<string, unknown>;
-  const result: TranslationCapabilities['modules'] = {};
-
-  if (raw.exchange && typeof raw.exchange === 'object') {
-    result.exchange = extractModuleState(raw.exchange);
-  }
-  if (raw.queue && typeof raw.queue === 'object') {
-    result.queue = extractModuleState(raw.queue);
-  }
-
-  return result;
-}
-
-function extractModuleState(state: unknown): ModuleState {
-  if (!state || typeof state !== 'object') {
-    return {
-      enabled: false,
-      visible: false,
-      entry: { enabled: false, reason: 'Invalid module state', reason_code: 'INVALID_STATE' },
-      actions: {},
-    };
-  }
-
-  const raw = state as Record<string, unknown>;
-
-  return {
-    enabled: raw.enabled === true,
-    visible: raw.visible === true,
-    entry: extractActionState(raw.entry),
-    actions: extractActionsMap(raw.actions),
-  };
-}
-
-function extractActionState(action: unknown): ActionState {
-  if (!action || typeof action !== 'object') {
-    return { enabled: false };
-  }
-
-  const raw = action as Record<string, unknown>;
-
-  return {
-    enabled: raw.enabled === true,
-    reason: typeof raw.reason === 'string' ? raw.reason : undefined,
-    reason_code: typeof raw.reason_code === 'string' ? raw.reason_code : undefined,
-    permission: typeof raw.permission === 'string' ? raw.permission : undefined,
-  };
-}
-
-function extractActionsMap(actions: unknown): Record<string, ActionState> {
-  if (!actions || typeof actions !== 'object') {
-    return {};
-  }
-
-  const raw = actions as Record<string, unknown>;
-  const result: Record<string, ActionState> = {};
-
-  for (const [key, value] of Object.entries(raw)) {
-    if (value && typeof value === 'object') {
-      result[key] = extractActionState(value);
-    }
-  }
-
-  return result;
-}
-
-function extractFeatures(features: unknown): TranslationCapabilities['features'] {
-  if (!features || typeof features !== 'object') {
-    return {};
-  }
-
-  const raw = features as Record<string, unknown>;
-  return {
-    cms: raw.cms === true,
-    dashboard: raw.dashboard === true,
-  };
-}
-
-function extractRoutes(routes: unknown): RouteConfig {
-  if (!routes || typeof routes !== 'object') {
-    return {};
-  }
-
-  const result: RouteConfig = {};
-  const raw = routes as Record<string, unknown>;
-
-  for (const [key, value] of Object.entries(raw)) {
-    if (typeof value === 'string') {
-      result[key] = value;
-    }
-  }
-
-  return result;
-}
-
-function extractPanels(panels: unknown): string[] {
-  if (!Array.isArray(panels)) {
-    return [];
-  }
-  return panels.filter((p): p is string => typeof p === 'string');
-}
-
-function extractResolverKeys(keys: unknown): string[] {
-  if (!Array.isArray(keys)) {
-    return [];
-  }
-  return keys.filter((k): k is string => typeof k === 'string');
-}
-
-function extractWarnings(warnings: unknown): string[] {
-  if (!Array.isArray(warnings)) {
-    return [];
-  }
-  return warnings.filter((w): w is string => typeof w === 'string');
+  return normalizeTranslationCapabilities(payload);
 }
 
 // ============================================================================
@@ -491,18 +311,7 @@ export function createCapabilityGate(payload: unknown): CapabilityGate | null {
  * Create a default (empty) CapabilityGate for fallback
  */
 export function createEmptyCapabilityGate(): CapabilityGate {
-  return new CapabilityGate({
-    profile: 'none',
-    capability_mode: 'none',
-    supported_profiles: ['none', 'core', 'core+exchange', 'core+queue', 'full'],
-    schema_version: 0,
-    modules: {},
-    features: {},
-    routes: {},
-    panels: [],
-    resolver_keys: [],
-    warnings: [],
-  });
+  return new CapabilityGate({ ...EMPTY_TRANSLATION_CAPABILITIES });
 }
 
 // ============================================================================

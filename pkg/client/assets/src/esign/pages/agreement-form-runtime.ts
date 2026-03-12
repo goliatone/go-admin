@@ -186,8 +186,29 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     return Number.isFinite(parsed) ? parsed : 0;
   }
 
+  let activeTabStorageProbeValue: boolean | null = null;
+
+  function hasActiveTabStorage() {
+    if (activeTabStorageProbeValue !== null) {
+      return activeTabStorageProbeValue;
+    }
+    if (typeof window === 'undefined' || !window.localStorage) {
+      activeTabStorageProbeValue = false;
+      return activeTabStorageProbeValue;
+    }
+    try {
+      const probeKey = `${ACTIVE_TAB_STORAGE_KEY}:probe`;
+      window.localStorage.setItem(probeKey, '1');
+      window.localStorage.removeItem(probeKey);
+      activeTabStorageProbeValue = true;
+    } catch (_) {
+      activeTabStorageProbeValue = false;
+    }
+    return activeTabStorageProbeValue;
+  }
+
   function readActiveTabClaim() {
-    if (typeof window === 'undefined' || !window.localStorage) return null;
+    if (!hasActiveTabStorage()) return null;
     try {
       const raw = window.localStorage.getItem(ACTIVE_TAB_STORAGE_KEY);
       if (!raw) return null;
@@ -215,17 +236,18 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
   }
 
   function writeActiveTabClaim(claim) {
-    if (typeof window === 'undefined' || !window.localStorage) return false;
+    if (!hasActiveTabStorage()) return false;
     try {
       window.localStorage.setItem(ACTIVE_TAB_STORAGE_KEY, JSON.stringify(claim));
       return true;
     } catch (_) {
+      activeTabStorageProbeValue = false;
       return false;
     }
   }
 
   function clearActiveTabClaim(expectedTabID = '') {
-    if (typeof window === 'undefined' || !window.localStorage) return false;
+    if (!hasActiveTabStorage()) return false;
     try {
       const current = readActiveTabClaim();
       if (expectedTabID && current?.tabId && current.tabId !== expectedTabID) {
@@ -234,6 +256,7 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
       window.localStorage.removeItem(ACTIVE_TAB_STORAGE_KEY);
       return true;
     } catch (_) {
+      activeTabStorageProbeValue = false;
       return false;
     }
   }
@@ -494,6 +517,66 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
       }, { syncPending: false });
     }
 
+    applyRemoteSync(serverDraftId, serverRevision, options = {}) {
+      const localState = this.state || this.createInitialState();
+      const preserveDirty = localState.syncPending === true;
+      const nextDraftID = String(serverDraftId ?? '').trim() || null;
+      const nextRevision = parsePositiveInt(serverRevision, 0);
+      this.setState({
+        ...localState,
+        serverDraftId: nextDraftID || localState.serverDraftId,
+        serverRevision: nextRevision > 0 ? nextRevision : localState.serverRevision,
+        lastSyncedAt: String(options.lastSyncedAt || new Date().toISOString()).trim() || localState.lastSyncedAt,
+        syncPending: preserveDirty,
+      }, {
+        syncPending: preserveDirty,
+        save: options.save,
+        notify: options.notify,
+      });
+      return {
+        preservedLocalChanges: preserveDirty,
+        state: this.state,
+      };
+    }
+
+    applyRemoteState(remoteState, options = {}) {
+      const normalizedRemote = this.normalizeLoadedState(remoteState);
+      const localState = this.state || this.createInitialState();
+      const preserveDirty = localState.syncPending === true;
+      if (preserveDirty) {
+        this.setState({
+          ...localState,
+          serverDraftId: normalizedRemote.serverDraftId || localState.serverDraftId,
+          serverRevision: Math.max(
+            parsePositiveInt(localState.serverRevision, 0),
+            parsePositiveInt(normalizedRemote.serverRevision, 0),
+          ),
+          lastSyncedAt: normalizedRemote.lastSyncedAt || localState.lastSyncedAt,
+          syncPending: true,
+        }, {
+          syncPending: true,
+          save: options.save,
+          notify: options.notify,
+        });
+        return {
+          preservedLocalChanges: true,
+          replacedLocalState: false,
+          state: this.state,
+        };
+      }
+
+      this.setState(normalizedRemote, {
+        syncPending: Boolean(normalizedRemote.syncPending),
+        save: options.save,
+        notify: options.notify,
+      });
+      return {
+        preservedLocalChanges: false,
+        replacedLocalState: true,
+        state: this.state,
+      };
+    }
+
     clear() {
       this.state = this.createInitialState();
       sessionStorage.removeItem(WIZARD_STORAGE_KEY);
@@ -750,10 +833,15 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
       this.currentClaim = null;
       this.heartbeatTimer = null;
       this.lastBlockedReason = '';
+      this.activeTabCoordinationAvailable = hasActiveTabStorage();
 
       this.initBroadcastChannel();
       this.initEventListeners();
-      this.evaluateActiveTabOwnership('startup', { allowClaimIfAvailable: true });
+      if (!this.activeTabCoordinationAvailable) {
+        this.updateOwnershipState(true, 'storage_unavailable', null);
+      } else {
+        this.evaluateActiveTabOwnership('startup', { allowClaimIfAvailable: true });
+      }
     }
 
     initBroadcastChannel() {
@@ -795,7 +883,7 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
 
     startHeartbeat() {
       this.stopHeartbeat();
-      if (!this.isOwner) return;
+      if (!this.isOwner || !this.activeTabCoordinationAvailable) return;
       this.heartbeatTimer = window.setInterval(() => {
         this.refreshActiveTabClaim('heartbeat');
       }, ACTIVE_TAB_HEARTBEAT_MS);
@@ -809,22 +897,37 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
 
     updateOwnershipState(isOwner, reason = '', claim = null) {
       this.isOwner = Boolean(isOwner);
-      this.currentClaim = claim || null;
+      this.currentClaim = this.activeTabCoordinationAvailable ? (claim || null) : null;
       this.lastBlockedReason = this.isOwner ? '' : String(reason || 'passive_tab').trim() || 'passive_tab';
-      if (this.isOwner) {
+      if (this.isOwner && this.activeTabCoordinationAvailable) {
         this.startHeartbeat();
       } else {
         this.stopHeartbeat();
-        this.statusUpdater('paused');
+        if (!this.isOwner) {
+          this.statusUpdater('paused');
+        }
       }
       updateActiveTabOwnershipUI({
         isOwner: this.isOwner,
         reason: this.lastBlockedReason,
         claim: this.currentClaim,
+        coordinationAvailable: this.activeTabCoordinationAvailable,
       });
     }
 
+    enterDegradedOwnershipMode(reason = 'storage_unavailable') {
+      if (!this.activeTabCoordinationAvailable) {
+        this.updateOwnershipState(true, reason, null);
+        return true;
+      }
+      this.activeTabCoordinationAvailable = false;
+      emitWizardTelemetry('wizard_active_tab_coordination_degraded', { reason });
+      this.updateOwnershipState(true, reason, null);
+      return true;
+    }
+
     refreshActiveTabClaim(reason = 'heartbeat') {
+      if (!this.activeTabCoordinationAvailable) return true;
       if (!this.isOwner) return false;
       const existingClaim = readActiveTabClaim();
       if (existingClaim && !this.isClaimOwnedByThisTab(existingClaim) && isActiveTabClaimFresh(existingClaim)) {
@@ -833,7 +936,7 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
       }
       const claim = this.buildActiveTabClaim(existingClaim);
       if (!writeActiveTabClaim(claim)) {
-        return false;
+        return this.enterDegradedOwnershipMode('storage_unavailable');
       }
       this.currentClaim = claim;
       if (reason !== 'heartbeat') {
@@ -854,6 +957,10 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     }
 
     claimActiveTab(reason = 'claim') {
+      if (!this.activeTabCoordinationAvailable) {
+        this.updateOwnershipState(true, reason, null);
+        return true;
+      }
       const existingClaim = readActiveTabClaim();
       const hasFreshOtherOwner = existingClaim && !this.isClaimOwnedByThisTab(existingClaim) && isActiveTabClaimFresh(existingClaim);
       if (hasFreshOtherOwner && reason !== 'take_control') {
@@ -862,7 +969,7 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
       }
       const claim = this.buildActiveTabClaim(reason === 'take_control' ? null : existingClaim);
       if (!writeActiveTabClaim(claim)) {
-        return false;
+        return this.enterDegradedOwnershipMode('storage_unavailable');
       }
       this.updateOwnershipState(true, reason, claim);
       this.broadcastMessage({
@@ -876,6 +983,7 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     }
 
     releaseActiveTab(reason = 'release') {
+      if (!this.activeTabCoordinationAvailable) return;
       const currentClaim = readActiveTabClaim();
       if (this.isClaimOwnedByThisTab(currentClaim)) {
         clearActiveTabClaim(this.getTabId());
@@ -889,6 +997,10 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     }
 
     evaluateActiveTabOwnership(reason = 'check', options = {}) {
+      if (!this.activeTabCoordinationAvailable) {
+        this.updateOwnershipState(true, reason, null);
+        return true;
+      }
       const allowClaimIfAvailable = options?.allowClaimIfAvailable === true;
       const visible = typeof document === 'undefined' || document.visibilityState !== 'hidden';
       const currentClaim = readActiveTabClaim();
@@ -909,12 +1021,17 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     }
 
     ensureActiveTabOwnership(reason = 'sync', options = {}) {
+      if (!this.activeTabCoordinationAvailable) return true;
       return this.evaluateActiveTabOwnership(reason, {
         allowClaimIfAvailable: options?.allowClaimIfAvailable !== false,
       });
     }
 
     takeControl() {
+      if (!this.activeTabCoordinationAvailable) {
+        this.updateOwnershipState(true, 'take_control', null);
+        return true;
+      }
       return this.claimActiveTab('take_control');
     }
 
@@ -933,21 +1050,26 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
           }
           break;
         case 'state_updated':
-          // Another tab updated state, reload from session
-          if (data.tabId !== this.getTabId()) {
-            const state = this.stateManager.loadFromSession();
-            if (state) {
-              this.stateManager.setState(state, { syncPending: Boolean(state.syncPending), notify: false });
+          if (data.tabId !== this.getTabId() && data.state && typeof data.state === 'object') {
+            const mergeResult = this.stateManager.applyRemoteState(data.state, {
+              save: true,
+              notify: false,
+            });
+            if (mergeResult.replacedLocalState) {
               void reconcileBootstrapState({ reason: 'state_updated' }).then(() => {
                 this.stateManager.notifyListeners();
               });
+            } else {
+              this.stateManager.notifyListeners();
             }
           }
           break;
         case 'sync_completed':
-          // Another tab completed sync, update our state
           if (data.tabId !== this.getTabId() && data.draftId && data.revision) {
-            this.stateManager.markSynced(data.draftId, data.revision);
+            this.stateManager.applyRemoteSync(data.draftId, data.revision, {
+              save: true,
+              notify: true,
+            });
           }
           break;
       }
@@ -956,7 +1078,8 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     broadcastStateUpdate() {
       this.broadcastMessage({
         type: 'state_updated',
-        tabId: this.getTabId()
+        tabId: this.getTabId(),
+        state: this.stateManager.getState(),
       });
     }
 
@@ -998,7 +1121,7 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
       });
 
       window.addEventListener('storage', (event) => {
-        if (event.key !== ACTIVE_TAB_STORAGE_KEY) return;
+        if (!this.activeTabCoordinationAvailable || event.key !== ACTIVE_TAB_STORAGE_KEY) return;
         this.evaluateActiveTabOwnership('storage', {
           allowClaimIfAvailable: typeof document !== 'undefined' && document.visibilityState !== 'hidden',
         });
@@ -1254,8 +1377,10 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
   }
 
   // Wire up retry button
-  document.getElementById('sync-retry-btn')?.addEventListener('click', () => {
-    syncOrchestrator.manualRetry();
+  document.getElementById('sync-retry-btn')?.addEventListener('click', async () => {
+    await surfaceSyncOutcome(syncOrchestrator.manualRetry(), {
+      errorMessage: 'Unable to sync latest draft changes. Please try again.',
+    });
   });
 
   // Wire up conflict dialog buttons
@@ -1288,8 +1413,12 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
       serverRevision,
       syncPending: true,
     }, { syncPending: true });
-    syncOrchestrator.performSync();
-    document.getElementById('conflict-dialog-modal')?.classList.add('hidden');
+    const syncResult = await surfaceSyncOutcome(syncOrchestrator.performSync(), {
+      errorMessage: 'Unable to sync latest draft changes. Please try again.',
+    });
+    if (syncResult?.success || syncResult?.skipped) {
+      document.getElementById('conflict-dialog-modal')?.classList.add('hidden');
+    }
   });
 
   document.getElementById('conflict-dismiss-btn')?.addEventListener('click', () => {
@@ -3106,11 +3235,12 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
 
   function updateActiveTabOwnershipUI(context = {}) {
     const isOwner = context?.isOwner !== false;
+    const coordinationAvailable = context?.coordinationAvailable !== false;
     if (!activeTabBanner || !activeTabMessage) {
       setOwnershipControlledActionsDisabled(!isOwner);
       return;
     }
-    if (isOwner) {
+    if (!coordinationAvailable || isOwner) {
       activeTabBanner.classList.add('hidden');
       activeTabTakeControlBtn?.removeAttribute('disabled');
       setOwnershipControlledActionsDisabled(false);
@@ -3199,14 +3329,31 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     }
   }
 
-  activeTabTakeControlBtn?.addEventListener('click', () => {
+  async function surfaceSyncOutcome(resultPromise, options = {}) {
+    const result = await resultPromise;
+    if (result?.blocked && result.reason === 'passive_tab') {
+      announceError(
+        'This agreement is active in another tab. Take control in this tab before saving or sending.',
+        'ACTIVE_TAB_OWNERSHIP_REQUIRED',
+      );
+      return result;
+    }
+    if (result?.error && String(options.errorMessage || '').trim() !== '') {
+      announceError(options.errorMessage);
+    }
+    return result;
+  }
+
+  activeTabTakeControlBtn?.addEventListener('click', async () => {
     if (!syncOrchestrator.takeControl()) {
       announceError('This agreement is active in another tab. Take control here before saving or sending.', 'ACTIVE_TAB_OWNERSHIP_REQUIRED');
       return;
     }
     updateActiveTabOwnershipUI({ isOwner: true });
     if (stateManager.getState()?.syncPending) {
-      syncOrchestrator.manualRetry();
+      await surfaceSyncOutcome(syncOrchestrator.manualRetry(), {
+        errorMessage: 'Unable to sync latest draft changes. Please try again.',
+      });
     }
     if (currentStep === WIZARD_STEP.REVIEW) {
       initSendReadinessCheck();
