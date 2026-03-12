@@ -4,12 +4,18 @@ import (
 	"fmt"
 	"path"
 
+	"github.com/goliatone/go-admin/admin/routing"
 	"github.com/goliatone/go-admin/examples/web/commands"
 	"github.com/goliatone/go-admin/examples/web/pkg/activity"
 	"github.com/goliatone/go-admin/examples/web/setup"
 	"github.com/goliatone/go-admin/examples/web/stores"
 	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/quickstart"
+)
+
+const (
+	mediaModuleRouteKey     = "media.index"
+	dashboardModuleRouteKey = "dashboard.index"
 )
 
 // pagesModule registers the pages panel and menu entry.
@@ -188,6 +194,15 @@ func (m *mediaModule) Register(ctx admin.ModuleContext) error {
 	return err
 }
 
+func (m *mediaModule) RouteContract() routing.ModuleContract {
+	return routing.ModuleContract{
+		Slug: "media",
+		UIRoutes: map[string]string{
+			mediaModuleRouteKey: "/media",
+		},
+	}
+}
+
 func (m *mediaModule) MenuItems(locale string) []admin.MenuItem {
 	code := m.menuCode
 	if code == "" {
@@ -246,6 +261,15 @@ func (m *dashboardModule) Register(ctx admin.ModuleContext) error {
 		m.translator = ctx.Translator
 	}
 	return nil
+}
+
+func (m *dashboardModule) RouteContract() routing.ModuleContract {
+	return routing.ModuleContract{
+		Slug: "dashboard",
+		UIRoutes: map[string]string{
+			dashboardModuleRouteKey: "/dashboard",
+		},
+	}
 }
 
 func (m *dashboardModule) MenuItems(locale string) []admin.MenuItem {
