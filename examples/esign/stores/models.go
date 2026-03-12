@@ -192,7 +192,7 @@ type DraftRecord struct {
 	TenantID        string
 	OrgID           string
 	CreatedByUserID string `bun:"created_by"`
-	DocumentID      string
+	DocumentID      string `bun:"document_id,nullzero"`
 	Title           string
 	CurrentStep     int
 	WizardStateJSON string
@@ -401,7 +401,7 @@ type FieldValueRecord struct {
 	FieldID             string
 	ValueText           string
 	ValueBool           *bool
-	SignatureArtifactID string
+	SignatureArtifactID string `bun:"signature_artifact_id,nullzero"`
 	Version             int64
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
@@ -477,7 +477,7 @@ type EmailLogRecord struct {
 	TenantID          string
 	OrgID             string
 	AgreementID       string
-	RecipientID       string
+	RecipientID       string `bun:"recipient_id,nullzero"`
 	TemplateCode      string
 	ProviderMessageID string
 	Status            string
@@ -804,7 +804,7 @@ type IntegrationConflictRecord struct {
 	TenantID         string
 	OrgID            string
 	RunID            string
-	BindingID        string
+	BindingID        string `bun:"binding_id,nullzero"`
 	Provider         string
 	EntityKind       string
 	ExternalID       string

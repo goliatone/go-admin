@@ -15,6 +15,7 @@ CREATE TABLE integration_mapping_specs (
     updated_by_user_id TEXT NOT NULL DEFAULT '',
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP NOT NULL,
+    CONSTRAINT uq_integration_mapping_specs_scope_id UNIQUE (tenant_id, org_id, id),
     CONSTRAINT uq_integration_mapping_specs_scope UNIQUE (tenant_id, org_id, provider, name, version)
 );
 
@@ -33,6 +34,7 @@ CREATE TABLE integration_bindings (
     version INTEGER NOT NULL DEFAULT 1 CHECK (version > 0),
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP NOT NULL,
+    CONSTRAINT uq_integration_bindings_scope_id UNIQUE (tenant_id, org_id, id),
     CONSTRAINT uq_integration_bindings_scope_external UNIQUE (tenant_id, org_id, provider, entity_kind, external_id)
 );
 
@@ -56,6 +58,7 @@ CREATE TABLE integration_sync_runs (
     created_by_user_id TEXT NOT NULL DEFAULT '',
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP NOT NULL,
+    CONSTRAINT uq_integration_sync_runs_scope_id UNIQUE (tenant_id, org_id, id),
     CONSTRAINT fk_integration_sync_runs_mapping_scope FOREIGN KEY (tenant_id, org_id, mapping_spec_id)
       REFERENCES integration_mapping_specs (tenant_id, org_id, id)
       ON DELETE RESTRICT

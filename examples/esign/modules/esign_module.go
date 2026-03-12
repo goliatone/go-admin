@@ -11,6 +11,7 @@ import (
 	"time"
 
 	coreadmin "github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/admin/routing"
 	"github.com/goliatone/go-admin/examples/esign/commands"
 	appcfg "github.com/goliatone/go-admin/examples/esign/config"
 	"github.com/goliatone/go-admin/examples/esign/handlers"
@@ -220,6 +221,91 @@ func (m *ESignModule) Manifest() coreadmin.ModuleManifest {
 		NameKey:        "modules.esign.name",
 		DescriptionKey: "modules.esign.description",
 		FeatureFlags:   []string{"esign"},
+	}
+}
+
+func (m *ESignModule) RouteContract() routing.ModuleContract {
+	return routing.ModuleContract{
+		Slug:            moduleID,
+		RouteNamePrefix: moduleID,
+		UIRoutes:        esignUIRoutes(),
+		APIRoutes:       esignAPIRoutes(),
+		PublicAPIRoutes: esignPublicAPIRoutes(),
+	}
+}
+
+func esignUIRoutes() map[string]string {
+	return map[string]string{
+		"esign.index":  "/",
+		"esign.status": "/status",
+	}
+}
+
+func esignAPIRoutes() map[string]string {
+	return map[string]string{
+		"esign.status":                             "/status",
+		"esign.drafts":                             "/drafts",
+		"esign.drafts.id":                          "/drafts/:draft_id",
+		"esign.drafts.send":                        "/drafts/:draft_id/send",
+		"esign.agreements.stats":                   "/agreements/stats",
+		"esign.agreements.participants":            "/agreements/:agreement_id/participants",
+		"esign.agreements.participants.id":         "/agreements/:agreement_id/participants/:participant_id",
+		"esign.agreements.field_definitions":       "/agreements/:agreement_id/field-definitions",
+		"esign.agreements.field_definitions.id":    "/agreements/:agreement_id/field-definitions/:field_definition_id",
+		"esign.agreements.field_instances":         "/agreements/:agreement_id/field-instances",
+		"esign.agreements.field_instances.id":      "/agreements/:agreement_id/field-instances/:field_instance_id",
+		"esign.agreements.send_readiness":          "/agreements/:agreement_id/send-readiness",
+		"esign.agreements.auto_place":              "/agreements/:agreement_id/auto-place",
+		"esign.agreements.placement_runs":          "/agreements/:agreement_id/placement-runs",
+		"esign.agreements.placement_runs.id":       "/agreements/:agreement_id/placement-runs/:placement_run_id",
+		"esign.agreements.placement_runs.apply":    "/agreements/:agreement_id/placement-runs/:placement_run_id/apply",
+		"esign.smoke.recipient_links":              "/smoke/recipient-links",
+		"esign.documents.upload":                   "/documents/upload",
+		"esign.documents.remediate":                "/documents/:document_id/remediate",
+		"esign.dispatches.id":                      "/dispatches/:dispatch_id",
+		"esign.integrations.google.connect":        "/integrations/google/connect",
+		"esign.integrations.google.disconnect":     "/integrations/google/disconnect",
+		"esign.integrations.google.rotate":         "/integrations/google/rotate-credentials",
+		"esign.integrations.google.status":         "/integrations/google/status",
+		"esign.integrations.google.accounts":       "/integrations/google/accounts",
+		"esign.google_drive.search":                "/google-drive/search",
+		"esign.google_drive.browse":                "/google-drive/browse",
+		"esign.google_drive.import":                "/google-drive/import",
+		"esign.google_drive.imports":               "/google-drive/imports",
+		"esign.google_drive.imports.id":            "/google-drive/imports/:import_run_id",
+		"esign.integrations.mappings":              "/integrations/mappings",
+		"esign.integrations.mappings.id":           "/integrations/mappings/:mapping_id",
+		"esign.integrations.mappings.publish":      "/integrations/mappings/:mapping_id/publish",
+		"esign.integrations.sync_runs":             "/integrations/sync-runs",
+		"esign.integrations.sync_runs.id":          "/integrations/sync-runs/:run_id",
+		"esign.integrations.sync_runs.checkpoints": "/integrations/sync-runs/:run_id/checkpoints",
+		"esign.integrations.sync_runs.resume":      "/integrations/sync-runs/:run_id/resume",
+		"esign.integrations.sync_runs.complete":    "/integrations/sync-runs/:run_id/complete",
+		"esign.integrations.sync_runs.fail":        "/integrations/sync-runs/:run_id/fail",
+		"esign.integrations.conflicts":             "/integrations/conflicts",
+		"esign.integrations.conflicts.id":          "/integrations/conflicts/:conflict_id",
+		"esign.integrations.conflicts.resolve":     "/integrations/conflicts/:conflict_id/resolve",
+		"esign.integrations.diagnostics":           "/integrations/diagnostics",
+		"esign.integrations.inbound":               "/integrations/inbound",
+		"esign.integrations.outbound":              "/integrations/outbound",
+	}
+}
+
+func esignPublicAPIRoutes() map[string]string {
+	return map[string]string{
+		"esign.signing.session":                 "/signing/session/:token",
+		"esign.signing.consent":                 "/signing/consent/:token",
+		"esign.signing.field_values":            "/signing/field-values/:token",
+		"esign.signing.field_values.signature":  "/signing/field-values/signature/:token",
+		"esign.signing.signature_upload":        "/signing/signature-upload/:token",
+		"esign.signing.signature_upload.object": "/signing/signature-upload/object",
+		"esign.signing.telemetry":               "/signing/telemetry/:token",
+		"esign.signing.submit":                  "/signing/submit/:token",
+		"esign.signing.decline":                 "/signing/decline/:token",
+		"esign.signing.assets":                  "/signing/assets/:token",
+		"esign.signing.profile":                 "/signing/profile/:token",
+		"esign.signing.signatures":              "/signing/signatures/:token",
+		"esign.signing.signatures.id":           "/signing/signatures/:token/:id",
 	}
 }
 

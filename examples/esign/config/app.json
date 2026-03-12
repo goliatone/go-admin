@@ -137,7 +137,7 @@
     "base_url": "http://localhost:8082"
   },
   "databases": {
-    "esign_dsn": "",
+    "esign_dsn": "postgres://esign:esign@127.0.0.1:5439/esign?sslmode=disable",
     "content_dsn": ""
   },
   "sqlite": {

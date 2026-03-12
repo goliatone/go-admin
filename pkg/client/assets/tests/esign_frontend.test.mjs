@@ -12415,13 +12415,16 @@ class SyncOrchestratorSimulator {
     this.syncService = syncService;
     this.SYNC_DEBOUNCE_MS = 2000;
     this.RETRY_DELAYS = [1000, 2000, 5000, 10000, 30000];
-    this.status = 'idle'; // idle, syncing, synced, error, conflict
+    this.status = 'idle'; // idle, syncing, synced, error, conflict, paused
     this.pendingSync = null;
     this.retryCount = 0;
     this.lastError = null;
     this.broadcastMessages = [];
     this.otherTabMessages = [];
     this.listeners = new Map();
+    this.tabId = `tab-${Math.random().toString(36).slice(2, 8)}`;
+    this.isOwner = true;
+    this.activeClaim = { tabId: this.tabId, lastSeenAt: Date.now() };
   }
 
   on(event, callback) {
@@ -12459,6 +12462,10 @@ class SyncOrchestratorSimulator {
 
   async performSync() {
     const state = this.stateManager.getState();
+    if (!this.isOwner) {
+      this.setStatus('paused');
+      return { blocked: true, reason: 'passive_tab' };
+    }
     if (!state || !state.isDirty) {
       return { skipped: true, reason: 'not_dirty' };
     }
@@ -12526,26 +12533,45 @@ class SyncOrchestratorSimulator {
           this.emit('externalUpdate', message);
         }
       }
-    } else if (message.type === 'tab_active') {
-      // Another tab became active, we should back off
-      this.emit('tabActivated', message);
+    } else if (message.type === 'active_tab_claimed') {
+      this.isOwner = message.tabId === this.tabId;
+      this.activeClaim = { tabId: message.tabId, lastSeenAt: message.lastSeenAt || Date.now() };
+      if (!this.isOwner) {
+        this.setStatus('paused');
+        this.emit('ownershipChanged', { isOwner: false, activeTabId: message.tabId });
+      }
+    } else if (message.type === 'active_tab_released') {
+      this.activeClaim = null;
+      this.emit('ownershipAvailable', message);
     }
   }
 
-  broadcastTabActive() {
+  claimActiveTab(reason = 'claim') {
+    this.isOwner = true;
+    this.activeClaim = { tabId: this.tabId, lastSeenAt: Date.now() };
     this.broadcastMessages.push({
-      type: 'tab_active',
-      timestamp: Date.now()
+      type: 'active_tab_claimed',
+      tabId: this.tabId,
+      reason,
+      lastSeenAt: this.activeClaim.lastSeenAt,
     });
+    return this.activeClaim;
   }
 
-  handleVisibilityChange(hidden) {
+  takeControl() {
+    return this.claimActiveTab('take_control');
+  }
+
+  async handleVisibilityChange(hidden) {
     if (hidden) {
       // Page going hidden, force sync
-      this.forceSync();
+      return this.forceSync();
     } else {
-      // Page becoming visible, broadcast we're active
-      this.broadcastTabActive();
+      // Page becoming visible, reclaim if no other active owner
+      if (!this.activeClaim || this.activeClaim.tabId === this.tabId) {
+        this.claimActiveTab('visible');
+      }
+      return { claimed: true };
     }
   }
 
@@ -12557,8 +12583,8 @@ class SyncOrchestratorSimulator {
     }
   }
 
-  handleBeforeUnload() {
-    this.forceSync();
+  async handleBeforeUnload() {
+    return this.forceSync();
   }
 
   resolveConflict(resolution) {
@@ -13209,31 +13235,35 @@ test('Phase 30.FE.5: SyncOrchestrator receives external sync message', () => {
   assert.equal(externalUpdate.revision, 5);
 });
 
-test('Phase 30.FE.5: SyncOrchestrator broadcasts tab active', () => {
+test('Phase 30.FE.5: SyncOrchestrator claims active ownership explicitly', () => {
   const stateManager = new WizardStateManagerSimulator();
   const syncService = new DraftSyncServiceSimulator();
   const orchestrator = new SyncOrchestratorSimulator(stateManager, syncService);
 
-  orchestrator.broadcastTabActive();
+  orchestrator.claimActiveTab('startup');
 
   assert.equal(orchestrator.broadcastMessages.length, 1);
-  assert.equal(orchestrator.broadcastMessages[0].type, 'tab_active');
+  assert.equal(orchestrator.broadcastMessages[0].type, 'active_tab_claimed');
+  assert.equal(orchestrator.broadcastMessages[0].reason, 'startup');
 });
 
-test('Phase 30.FE.5: SyncOrchestrator handles tab activated from other tab', () => {
+test('Phase 30.FE.5: SyncOrchestrator yields when another tab claims ownership', () => {
   const stateManager = new WizardStateManagerSimulator();
   const syncService = new DraftSyncServiceSimulator();
   const orchestrator = new SyncOrchestratorSimulator(stateManager, syncService);
 
-  let activated = false;
-  orchestrator.on('tabActivated', () => { activated = true; });
+  let ownershipChange = null;
+  orchestrator.on('ownershipChanged', (payload) => { ownershipChange = payload; });
 
   orchestrator.receiveFromOtherTab({
-    type: 'tab_active',
-    timestamp: Date.now()
+    type: 'active_tab_claimed',
+    tabId: 'tab-other',
+    lastSeenAt: Date.now()
   });
 
-  assert.equal(activated, true);
+  assert.equal(orchestrator.isOwner, false);
+  assert.equal(orchestrator.status, 'paused');
+  assert.equal(ownershipChange?.isOwner, false);
 });
 
 // -----------------------------------------------------------------------------
@@ -13265,9 +13295,32 @@ test('Phase 30.FE.6: SyncOrchestrator handles visibilitychange to visible', () =
   // Simulate page becoming visible
   orchestrator.handleVisibilityChange(false);
 
-  // Should broadcast tab active
+  // Should claim active ownership when available
   assert.equal(orchestrator.broadcastMessages.length, 1);
-  assert.equal(orchestrator.broadcastMessages[0].type, 'tab_active');
+  assert.equal(orchestrator.broadcastMessages[0].type, 'active_tab_claimed');
+});
+
+test('Phase 30.FE.6: SyncOrchestrator blocks sync while passive until take control', async () => {
+  const stateManager = new WizardStateManagerSimulator();
+  const syncService = new DraftSyncServiceSimulator();
+  const orchestrator = new SyncOrchestratorSimulator(stateManager, syncService);
+
+  stateManager.initialize();
+  stateManager.updateDetails({ title: 'Passive Draft' });
+  orchestrator.receiveFromOtherTab({
+    type: 'active_tab_claimed',
+    tabId: 'tab-other',
+    lastSeenAt: Date.now(),
+  });
+
+  const blocked = await orchestrator.performSync();
+  assert.equal(blocked.blocked, true);
+  assert.equal(blocked.reason, 'passive_tab');
+
+  orchestrator.takeControl();
+  const synced = await orchestrator.performSync();
+  assert.ok(synced.draftId);
+  assert.equal(orchestrator.isOwner, true);
 });
 
 test('Phase 30.FE.6: SyncOrchestrator handles pagehide with beacon', () => {
@@ -13964,6 +14017,26 @@ test('Phase 31.FE.1: agreement form script wires rule lifecycle and payload sync
   assert.match(source, /fieldRulesJSONInput\.value = JSON\.stringify\(collectFieldRulesForForm\(\)\)/);
   assert.match(source, /Please assign all automation rules to a signer/);
   assert.match(source, /const expandedRuleFields = expandRulesForPreview\(collectFieldRulesForState\(\), getCurrentDocumentPageCount\(\)\);/);
+});
+
+test('Phase 30.FE.9: agreement form template includes explicit active-tab ownership controls', () => {
+  const template = fs.readFileSync(agreementFormTemplatePath, 'utf8');
+
+  assert.match(template, /id="active-tab-banner"/);
+  assert.match(template, /id="active-tab-message"/);
+  assert.match(template, /id="active-tab-take-control-btn"/);
+  assert.match(template, /id="active-tab-reload-btn"/);
+});
+
+test('Phase 30.FE.9: agreement form runtime uses explicit active-tab claims and paused sync state', () => {
+  const source = fs.readFileSync(agreementRuntimeSourcePath, 'utf8');
+
+  assert.match(source, /ACTIVE_TAB_STORAGE_KEY = `esign_wizard_active_tab_v1:/);
+  assert.match(source, /type: 'active_tab_claimed'/);
+  assert.match(source, /type: 'active_tab_released'/);
+  assert.match(source, /takeControl\(\)/);
+  assert.match(source, /case 'paused':/);
+  assert.doesNotMatch(source, /type: 'presence'|type: 'ownership_claim'/);
 });
 
 test('Phase 31.FE.2: placement panel includes generated automation fields alongside manual definitions', () => {

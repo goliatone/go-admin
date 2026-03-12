@@ -280,6 +280,21 @@
 
   {# Live region for form validation announcements #}
   <div id="form-announcements" class="sr-only" role="alert" aria-live="polite"></div>
+  <div id="active-tab-banner" class="hidden max-w-4xl mb-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3" role="status" aria-live="polite">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <p id="active-tab-message" class="text-sm text-slate-700">
+        This agreement is active in another tab.
+      </p>
+      <div class="flex items-center gap-2">
+        <button type="button" id="active-tab-take-control-btn" class="btn btn-primary btn-sm">
+          Take Control
+        </button>
+        <button type="button" id="active-tab-reload-btn" class="btn btn-secondary btn-sm">
+          Reload
+        </button>
+      </div>
+    </div>
+  </div>
   {% if create_success %}
     <div class="max-w-4xl mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800" role="status" aria-live="polite">
       Agreement created successfully. You can continue editing before sending for signature.

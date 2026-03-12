@@ -170,3 +170,45 @@ WHERE NOT EXISTS (
       AND i.org_id = f.org_id
       AND i.id = f.id
 );
+
+ALTER TABLE signing_tokens DROP CONSTRAINT fk_signing_tokens_recipient_scope;
+ALTER TABLE signing_tokens
+    ADD CONSTRAINT fk_signing_tokens_recipient_scope FOREIGN KEY (tenant_id, org_id, recipient_id)
+    REFERENCES participants (tenant_id, org_id, id)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE;
+
+ALTER TABLE fields DROP CONSTRAINT fk_fields_recipient_scope;
+ALTER TABLE fields
+    ADD CONSTRAINT fk_fields_recipient_scope FOREIGN KEY (tenant_id, org_id, recipient_id)
+    REFERENCES participants (tenant_id, org_id, id)
+    ON UPDATE CASCADE
+    ON DELETE SET NULL;
+
+ALTER TABLE signature_artifacts DROP CONSTRAINT fk_signature_artifacts_recipient_scope;
+ALTER TABLE signature_artifacts
+    ADD CONSTRAINT fk_signature_artifacts_recipient_scope FOREIGN KEY (tenant_id, org_id, recipient_id)
+    REFERENCES participants (tenant_id, org_id, id)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE;
+
+ALTER TABLE field_values DROP CONSTRAINT fk_field_values_recipient_scope;
+ALTER TABLE field_values
+    ADD CONSTRAINT fk_field_values_recipient_scope FOREIGN KEY (tenant_id, org_id, recipient_id)
+    REFERENCES participants (tenant_id, org_id, id)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE;
+
+ALTER TABLE field_values DROP CONSTRAINT fk_field_values_field_scope;
+ALTER TABLE field_values
+    ADD CONSTRAINT fk_field_values_field_scope FOREIGN KEY (tenant_id, org_id, field_id)
+    REFERENCES field_instances (tenant_id, org_id, id)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE;
+
+ALTER TABLE email_logs DROP CONSTRAINT fk_email_logs_recipient_scope;
+ALTER TABLE email_logs
+    ADD CONSTRAINT fk_email_logs_recipient_scope FOREIGN KEY (tenant_id, org_id, recipient_id)
+    REFERENCES participants (tenant_id, org_id, id)
+    ON UPDATE CASCADE
+    ON DELETE SET NULL;

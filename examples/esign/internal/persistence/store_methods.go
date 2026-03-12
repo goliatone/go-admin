@@ -15,15 +15,19 @@ func (s *StoreAdapter) Create(ctx context.Context, scope stores.Scope, record st
 }
 
 func (s *StoreAdapter) Get(ctx context.Context, scope stores.Scope, id string) (stores.DocumentRecord, error) {
-	return readWithStore(ctx, s, func(mem *stores.InMemoryStore) (stores.DocumentRecord, error) {
-		return mem.Get(ctx, scope, id)
-	})
+	idb, err := requireAdapterIDB(s)
+	if err != nil {
+		return stores.DocumentRecord{}, err
+	}
+	return loadDocumentRecord(ctx, idb, scope, id)
 }
 
 func (s *StoreAdapter) List(ctx context.Context, scope stores.Scope, query stores.DocumentQuery) ([]stores.DocumentRecord, error) {
-	return readWithStore(ctx, s, func(mem *stores.InMemoryStore) ([]stores.DocumentRecord, error) {
-		return mem.List(ctx, scope, query)
-	})
+	idb, err := requireAdapterIDB(s)
+	if err != nil {
+		return nil, err
+	}
+	return listDocumentRecords(ctx, idb, scope, query)
 }
 
 func (s *StoreAdapter) SaveMetadata(ctx context.Context, scope stores.Scope, id string, patch stores.DocumentMetadataPatch) (stores.DocumentRecord, error) {
@@ -65,15 +69,19 @@ func (s *StoreAdapter) SaveRemediationDispatch(ctx context.Context, scope stores
 }
 
 func (s *StoreAdapter) GetRemediationDispatch(ctx context.Context, dispatchID string) (stores.RemediationDispatchRecord, error) {
-	return readWithStore(ctx, s, func(mem *stores.InMemoryStore) (stores.RemediationDispatchRecord, error) {
-		return mem.GetRemediationDispatch(ctx, dispatchID)
-	})
+	idb, err := requireAdapterIDB(s)
+	if err != nil {
+		return stores.RemediationDispatchRecord{}, err
+	}
+	return loadRemediationDispatchRecord(ctx, idb, dispatchID)
 }
 
 func (s *StoreAdapter) GetRemediationDispatchByIdempotencyKey(ctx context.Context, scope stores.Scope, key string) (stores.RemediationDispatchRecord, error) {
-	return readWithStore(ctx, s, func(mem *stores.InMemoryStore) (stores.RemediationDispatchRecord, error) {
-		return mem.GetRemediationDispatchByIdempotencyKey(ctx, scope, key)
-	})
+	idb, err := requireAdapterIDB(s)
+	if err != nil {
+		return stores.RemediationDispatchRecord{}, err
+	}
+	return loadRemediationDispatchByIdempotencyKeyRecord(ctx, idb, scope, key)
 }
 
 func (s *StoreAdapter) CreateDraft(ctx context.Context, scope stores.Scope, record stores.AgreementRecord) (stores.AgreementRecord, error) {
@@ -288,9 +296,11 @@ func (s *StoreAdapter) UpsertFieldValue(ctx context.Context, scope stores.Scope,
 }
 
 func (s *StoreAdapter) ListFieldValuesByRecipient(ctx context.Context, scope stores.Scope, agreementID, recipientID string) ([]stores.FieldValueRecord, error) {
-	return readWithStore(ctx, s, func(mem *stores.InMemoryStore) ([]stores.FieldValueRecord, error) {
-		return mem.ListFieldValuesByRecipient(ctx, scope, agreementID, recipientID)
-	})
+	idb, err := requireAdapterIDB(s)
+	if err != nil {
+		return nil, err
+	}
+	return listFieldValueRecordsByRecipient(ctx, idb, scope, agreementID, recipientID)
 }
 
 func (s *StoreAdapter) CreateSignatureArtifact(ctx context.Context, scope stores.Scope, record stores.SignatureArtifactRecord) (stores.SignatureArtifactRecord, error) {
@@ -300,9 +310,11 @@ func (s *StoreAdapter) CreateSignatureArtifact(ctx context.Context, scope stores
 }
 
 func (s *StoreAdapter) GetSignatureArtifact(ctx context.Context, scope stores.Scope, id string) (stores.SignatureArtifactRecord, error) {
-	return readWithStore(ctx, s, func(mem *stores.InMemoryStore) (stores.SignatureArtifactRecord, error) {
-		return mem.GetSignatureArtifact(ctx, scope, id)
-	})
+	idb, err := requireAdapterIDB(s)
+	if err != nil {
+		return stores.SignatureArtifactRecord{}, err
+	}
+	return loadSignatureArtifactRecord(ctx, idb, scope, id)
 }
 
 func (s *StoreAdapter) UpsertSignerProfile(ctx context.Context, scope stores.Scope, record stores.SignerProfileRecord) (stores.SignerProfileRecord, error) {
@@ -312,9 +324,11 @@ func (s *StoreAdapter) UpsertSignerProfile(ctx context.Context, scope stores.Sco
 }
 
 func (s *StoreAdapter) GetSignerProfile(ctx context.Context, scope stores.Scope, subject, key string, now time.Time) (stores.SignerProfileRecord, error) {
-	return readWithStore(ctx, s, func(mem *stores.InMemoryStore) (stores.SignerProfileRecord, error) {
-		return mem.GetSignerProfile(ctx, scope, subject, key, now)
-	})
+	idb, err := requireAdapterIDB(s)
+	if err != nil {
+		return stores.SignerProfileRecord{}, err
+	}
+	return loadSignerProfileRecord(ctx, idb, scope, subject, key, now)
 }
 
 func (s *StoreAdapter) DeleteSignerProfile(ctx context.Context, scope stores.Scope, subject, key string) error {
@@ -331,15 +345,19 @@ func (s *StoreAdapter) CreateSavedSignerSignature(ctx context.Context, scope sto
 }
 
 func (s *StoreAdapter) ListSavedSignerSignatures(ctx context.Context, scope stores.Scope, subject, signatureType string) ([]stores.SavedSignerSignatureRecord, error) {
-	return readWithStore(ctx, s, func(mem *stores.InMemoryStore) ([]stores.SavedSignerSignatureRecord, error) {
-		return mem.ListSavedSignerSignatures(ctx, scope, subject, signatureType)
-	})
+	idb, err := requireAdapterIDB(s)
+	if err != nil {
+		return nil, err
+	}
+	return listSavedSignerSignatureRecords(ctx, idb, scope, subject, signatureType)
 }
 
 func (s *StoreAdapter) CountSavedSignerSignatures(ctx context.Context, scope stores.Scope, subject, signatureType string) (int, error) {
-	return readWithStore(ctx, s, func(mem *stores.InMemoryStore) (int, error) {
-		return mem.CountSavedSignerSignatures(ctx, scope, subject, signatureType)
-	})
+	idb, err := requireAdapterIDB(s)
+	if err != nil {
+		return 0, err
+	}
+	return countSavedSignerSignatureRecords(ctx, idb, scope, subject, signatureType)
 }
 
 func (s *StoreAdapter) DeleteSavedSignerSignature(ctx context.Context, scope stores.Scope, subject, id string) error {
@@ -390,9 +408,11 @@ func (s *StoreAdapter) SaveAgreementArtifacts(ctx context.Context, scope stores.
 }
 
 func (s *StoreAdapter) GetAgreementArtifacts(ctx context.Context, scope stores.Scope, agreementID string) (stores.AgreementArtifactRecord, error) {
-	return readWithStore(ctx, s, func(mem *stores.InMemoryStore) (stores.AgreementArtifactRecord, error) {
-		return mem.GetAgreementArtifacts(ctx, scope, agreementID)
-	})
+	idb, err := requireAdapterIDB(s)
+	if err != nil {
+		return stores.AgreementArtifactRecord{}, err
+	}
+	return loadAgreementArtifactRecord(ctx, idb, scope, agreementID)
 }
 
 func (s *StoreAdapter) CreateEmailLog(ctx context.Context, scope stores.Scope, record stores.EmailLogRecord) (stores.EmailLogRecord, error) {
@@ -487,17 +507,19 @@ func (s *StoreAdapter) MarkGoogleImportRunFailed(ctx context.Context, scope stor
 }
 
 func (s *StoreAdapter) GetGoogleImportRun(ctx context.Context, scope stores.Scope, id string) (stores.GoogleImportRunRecord, error) {
-	return readWithStore(ctx, s, func(mem *stores.InMemoryStore) (stores.GoogleImportRunRecord, error) {
-		return mem.GetGoogleImportRun(ctx, scope, id)
-	})
+	idb, err := requireAdapterIDB(s)
+	if err != nil {
+		return stores.GoogleImportRunRecord{}, err
+	}
+	return loadGoogleImportRunRecord(ctx, idb, scope, id)
 }
 
 func (s *StoreAdapter) ListGoogleImportRuns(ctx context.Context, scope stores.Scope, query stores.GoogleImportRunQuery) ([]stores.GoogleImportRunRecord, string, error) {
-	mem, err := s.readStore(ctx)
+	idb, err := requireAdapterIDB(s)
 	if err != nil {
 		return nil, "", err
 	}
-	return mem.ListGoogleImportRuns(ctx, scope, query)
+	return listGoogleImportRunRecords(ctx, idb, scope, query)
 }
 
 func (s *StoreAdapter) UpsertAgreementReminderState(ctx context.Context, scope stores.Scope, record stores.AgreementReminderStateRecord) (stores.AgreementReminderStateRecord, error) {
@@ -587,9 +609,11 @@ func (s *StoreAdapter) MarkOutboxMessageFailed(ctx context.Context, scope stores
 }
 
 func (s *StoreAdapter) ListOutboxMessages(ctx context.Context, scope stores.Scope, query stores.OutboxQuery) ([]stores.OutboxMessageRecord, error) {
-	return readWithStore(ctx, s, func(mem *stores.InMemoryStore) ([]stores.OutboxMessageRecord, error) {
-		return mem.ListOutboxMessages(ctx, scope, query)
-	})
+	idb, err := requireAdapterIDB(s)
+	if err != nil {
+		return nil, err
+	}
+	return listOutboxMessageRecords(ctx, idb, scope, query)
 }
 
 func (s *StoreAdapter) UpsertIntegrationCredential(ctx context.Context, scope stores.Scope, record stores.IntegrationCredentialRecord) (stores.IntegrationCredentialRecord, error) {
@@ -599,9 +623,11 @@ func (s *StoreAdapter) UpsertIntegrationCredential(ctx context.Context, scope st
 }
 
 func (s *StoreAdapter) GetIntegrationCredential(ctx context.Context, scope stores.Scope, provider, userID string) (stores.IntegrationCredentialRecord, error) {
-	return readWithStore(ctx, s, func(mem *stores.InMemoryStore) (stores.IntegrationCredentialRecord, error) {
-		return mem.GetIntegrationCredential(ctx, scope, provider, userID)
-	})
+	idb, err := requireAdapterIDB(s)
+	if err != nil {
+		return stores.IntegrationCredentialRecord{}, err
+	}
+	return loadIntegrationCredentialRecord(ctx, idb, scope, provider, userID)
 }
 
 func (s *StoreAdapter) DeleteIntegrationCredential(ctx context.Context, scope stores.Scope, provider, userID string) error {
@@ -612,9 +638,11 @@ func (s *StoreAdapter) DeleteIntegrationCredential(ctx context.Context, scope st
 }
 
 func (s *StoreAdapter) ListIntegrationCredentials(ctx context.Context, scope stores.Scope, provider string, baseUserIDPrefix string) ([]stores.IntegrationCredentialRecord, error) {
-	return readWithStore(ctx, s, func(mem *stores.InMemoryStore) ([]stores.IntegrationCredentialRecord, error) {
-		return mem.ListIntegrationCredentials(ctx, scope, provider, baseUserIDPrefix)
-	})
+	idb, err := requireAdapterIDB(s)
+	if err != nil {
+		return nil, err
+	}
+	return listIntegrationCredentialRecords(ctx, idb, scope, provider, baseUserIDPrefix)
 }
 
 func (s *StoreAdapter) UpsertMappingSpec(ctx context.Context, scope stores.Scope, record stores.MappingSpecRecord) (stores.MappingSpecRecord, error) {
@@ -624,15 +652,19 @@ func (s *StoreAdapter) UpsertMappingSpec(ctx context.Context, scope stores.Scope
 }
 
 func (s *StoreAdapter) GetMappingSpec(ctx context.Context, scope stores.Scope, id string) (stores.MappingSpecRecord, error) {
-	return readWithStore(ctx, s, func(mem *stores.InMemoryStore) (stores.MappingSpecRecord, error) {
-		return mem.GetMappingSpec(ctx, scope, id)
-	})
+	idb, err := requireAdapterIDB(s)
+	if err != nil {
+		return stores.MappingSpecRecord{}, err
+	}
+	return loadMappingSpecRecord(ctx, idb, scope, id)
 }
 
 func (s *StoreAdapter) ListMappingSpecs(ctx context.Context, scope stores.Scope, provider string) ([]stores.MappingSpecRecord, error) {
-	return readWithStore(ctx, s, func(mem *stores.InMemoryStore) ([]stores.MappingSpecRecord, error) {
-		return mem.ListMappingSpecs(ctx, scope, provider)
-	})
+	idb, err := requireAdapterIDB(s)
+	if err != nil {
+		return nil, err
+	}
+	return listMappingSpecRecords(ctx, idb, scope, provider)
 }
 
 func (s *StoreAdapter) PublishMappingSpec(ctx context.Context, scope stores.Scope, id string, expectedVersion int64, publishedAt time.Time) (stores.MappingSpecRecord, error) {
@@ -648,15 +680,19 @@ func (s *StoreAdapter) UpsertIntegrationBinding(ctx context.Context, scope store
 }
 
 func (s *StoreAdapter) GetIntegrationBindingByExternal(ctx context.Context, scope stores.Scope, provider, entityKind, externalID string) (stores.IntegrationBindingRecord, error) {
-	return readWithStore(ctx, s, func(mem *stores.InMemoryStore) (stores.IntegrationBindingRecord, error) {
-		return mem.GetIntegrationBindingByExternal(ctx, scope, provider, entityKind, externalID)
-	})
+	idb, err := requireAdapterIDB(s)
+	if err != nil {
+		return stores.IntegrationBindingRecord{}, err
+	}
+	return loadIntegrationBindingByExternalRecord(ctx, idb, scope, provider, entityKind, externalID)
 }
 
 func (s *StoreAdapter) ListIntegrationBindings(ctx context.Context, scope stores.Scope, provider, entityKind, internalID string) ([]stores.IntegrationBindingRecord, error) {
-	return readWithStore(ctx, s, func(mem *stores.InMemoryStore) ([]stores.IntegrationBindingRecord, error) {
-		return mem.ListIntegrationBindings(ctx, scope, provider, entityKind, internalID)
-	})
+	idb, err := requireAdapterIDB(s)
+	if err != nil {
+		return nil, err
+	}
+	return listIntegrationBindingRecords(ctx, idb, scope, provider, entityKind, internalID)
 }
 
 func (s *StoreAdapter) CreateIntegrationSyncRun(ctx context.Context, scope stores.Scope, record stores.IntegrationSyncRunRecord) (stores.IntegrationSyncRunRecord, error) {
@@ -672,15 +708,19 @@ func (s *StoreAdapter) UpdateIntegrationSyncRunStatus(ctx context.Context, scope
 }
 
 func (s *StoreAdapter) GetIntegrationSyncRun(ctx context.Context, scope stores.Scope, id string) (stores.IntegrationSyncRunRecord, error) {
-	return readWithStore(ctx, s, func(mem *stores.InMemoryStore) (stores.IntegrationSyncRunRecord, error) {
-		return mem.GetIntegrationSyncRun(ctx, scope, id)
-	})
+	idb, err := requireAdapterIDB(s)
+	if err != nil {
+		return stores.IntegrationSyncRunRecord{}, err
+	}
+	return loadIntegrationSyncRunRecord(ctx, idb, scope, id)
 }
 
 func (s *StoreAdapter) ListIntegrationSyncRuns(ctx context.Context, scope stores.Scope, provider string) ([]stores.IntegrationSyncRunRecord, error) {
-	return readWithStore(ctx, s, func(mem *stores.InMemoryStore) ([]stores.IntegrationSyncRunRecord, error) {
-		return mem.ListIntegrationSyncRuns(ctx, scope, provider)
-	})
+	idb, err := requireAdapterIDB(s)
+	if err != nil {
+		return nil, err
+	}
+	return listIntegrationSyncRunRecords(ctx, idb, scope, provider)
 }
 
 func (s *StoreAdapter) UpsertIntegrationCheckpoint(ctx context.Context, scope stores.Scope, record stores.IntegrationCheckpointRecord) (stores.IntegrationCheckpointRecord, error) {
@@ -690,9 +730,11 @@ func (s *StoreAdapter) UpsertIntegrationCheckpoint(ctx context.Context, scope st
 }
 
 func (s *StoreAdapter) ListIntegrationCheckpoints(ctx context.Context, scope stores.Scope, runID string) ([]stores.IntegrationCheckpointRecord, error) {
-	return readWithStore(ctx, s, func(mem *stores.InMemoryStore) ([]stores.IntegrationCheckpointRecord, error) {
-		return mem.ListIntegrationCheckpoints(ctx, scope, runID)
-	})
+	idb, err := requireAdapterIDB(s)
+	if err != nil {
+		return nil, err
+	}
+	return listIntegrationCheckpointRecords(ctx, idb, scope, runID)
 }
 
 func (s *StoreAdapter) CreateIntegrationConflict(ctx context.Context, scope stores.Scope, record stores.IntegrationConflictRecord) (stores.IntegrationConflictRecord, error) {
@@ -702,15 +744,19 @@ func (s *StoreAdapter) CreateIntegrationConflict(ctx context.Context, scope stor
 }
 
 func (s *StoreAdapter) GetIntegrationConflict(ctx context.Context, scope stores.Scope, id string) (stores.IntegrationConflictRecord, error) {
-	return readWithStore(ctx, s, func(mem *stores.InMemoryStore) (stores.IntegrationConflictRecord, error) {
-		return mem.GetIntegrationConflict(ctx, scope, id)
-	})
+	idb, err := requireAdapterIDB(s)
+	if err != nil {
+		return stores.IntegrationConflictRecord{}, err
+	}
+	return loadIntegrationConflictRecord(ctx, idb, scope, id)
 }
 
 func (s *StoreAdapter) ListIntegrationConflicts(ctx context.Context, scope stores.Scope, runID, status string) ([]stores.IntegrationConflictRecord, error) {
-	return readWithStore(ctx, s, func(mem *stores.InMemoryStore) ([]stores.IntegrationConflictRecord, error) {
-		return mem.ListIntegrationConflicts(ctx, scope, runID, status)
-	})
+	idb, err := requireAdapterIDB(s)
+	if err != nil {
+		return nil, err
+	}
+	return listIntegrationConflictRecords(ctx, idb, scope, runID, status)
 }
 
 func (s *StoreAdapter) ResolveIntegrationConflict(ctx context.Context, scope stores.Scope, id, status, resolutionJSON, resolvedByUserID string, resolvedAt time.Time, expectedVersion int64) (stores.IntegrationConflictRecord, error) {
@@ -726,9 +772,11 @@ func (s *StoreAdapter) AppendIntegrationChangeEvent(ctx context.Context, scope s
 }
 
 func (s *StoreAdapter) ListIntegrationChangeEvents(ctx context.Context, scope stores.Scope, agreementID string) ([]stores.IntegrationChangeEventRecord, error) {
-	return readWithStore(ctx, s, func(mem *stores.InMemoryStore) ([]stores.IntegrationChangeEventRecord, error) {
-		return mem.ListIntegrationChangeEvents(ctx, scope, agreementID)
-	})
+	idb, err := requireAdapterIDB(s)
+	if err != nil {
+		return nil, err
+	}
+	return listIntegrationChangeEventRecords(ctx, idb, scope, agreementID)
 }
 
 func (s *StoreAdapter) ClaimIntegrationMutation(ctx context.Context, scope stores.Scope, idempotencyKey string, firstSeenAt time.Time) (bool, error) {
@@ -744,13 +792,17 @@ func (s *StoreAdapter) UpsertPlacementRun(ctx context.Context, scope stores.Scop
 }
 
 func (s *StoreAdapter) GetPlacementRun(ctx context.Context, scope stores.Scope, agreementID, runID string) (stores.PlacementRunRecord, error) {
-	return readWithStore(ctx, s, func(mem *stores.InMemoryStore) (stores.PlacementRunRecord, error) {
-		return mem.GetPlacementRun(ctx, scope, agreementID, runID)
-	})
+	idb, err := requireAdapterIDB(s)
+	if err != nil {
+		return stores.PlacementRunRecord{}, err
+	}
+	return loadPlacementRunRecord(ctx, idb, scope, agreementID, runID)
 }
 
 func (s *StoreAdapter) ListPlacementRuns(ctx context.Context, scope stores.Scope, agreementID string) ([]stores.PlacementRunRecord, error) {
-	return readWithStore(ctx, s, func(mem *stores.InMemoryStore) ([]stores.PlacementRunRecord, error) {
-		return mem.ListPlacementRuns(ctx, scope, agreementID)
-	})
+	idb, err := requireAdapterIDB(s)
+	if err != nil {
+		return nil, err
+	}
+	return listPlacementRunRecords(ctx, idb, scope, agreementID)
 }
