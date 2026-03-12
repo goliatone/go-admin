@@ -1,10 +1,19 @@
 import type { AgreementTitleSourceShape } from './bootstrap-config';
 import type { AgreementFormRefs } from './refs';
-import type { ParticipantsController } from './participants';
+import type { ParticipantStateRecord, ParticipantsController } from './participants';
 import type { FieldDefinitionsController } from './field-definitions';
 import type { PlacementEditorController } from './placement-editor';
 import type { DocumentPreviewCard } from './preview-card';
 import type { WizardNavigationController } from './wizard-navigation';
+import type { FieldRuleState } from './contracts';
+
+interface FieldDefinitionStateRecord {
+  tempId: string;
+  type: string;
+  participantTempId: string;
+  page: number;
+  required: boolean;
+}
 
 interface AgreementStateShape {
   document?: {
@@ -12,6 +21,10 @@ interface AgreementStateShape {
     title?: string | null;
     pageCount?: number | null;
   } | null;
+  participants?: ParticipantStateRecord[];
+  fieldDefinitions?: FieldDefinitionStateRecord[];
+  fieldRules?: FieldRuleState[];
+  fieldPlacements?: Array<Record<string, unknown> | null | undefined>;
 }
 
 interface StateBindingStateManager {
