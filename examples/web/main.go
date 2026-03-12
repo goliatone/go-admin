@@ -460,7 +460,14 @@ func main() {
 	exchangeContentService = cmsContentSvc
 	if featureEnabled(adm.FeatureGate(), string(coreadmin.FeatureTranslationQueue)) {
 		queueFixtureAssignees := resolveTranslationQueueFixtureAssignees(context.Background(), usersDeps.AuthRepo)
-		if err := seedExampleTranslationQueueFixture(context.Background(), queueRepository, cmsContentSvc, queueFixtureAssignees...); err != nil {
+		if err := seedExampleTranslationQueueFixture(
+			context.Background(),
+			queueRepository,
+			cmsContentSvc,
+			scopeCfg.DefaultTenantID,
+			scopeCfg.DefaultOrgID,
+			queueFixtureAssignees...,
+		); err != nil {
 			log.Panicf("failed to seed translation queue fixture: %v", err)
 		}
 	}
@@ -854,7 +861,7 @@ func main() {
 		modules,
 		isDev,
 		quickstart.WithModuleMenuItems(translationQAMenuItems(adm, cfg)...),
-		quickstart.WithTranslationCapabilityMenuMode(quickstart.TranslationCapabilityMenuModeTools),
+		quickstart.WithTranslationCapabilityMenuMode(quickstart.TranslationCapabilityMenuModeNone),
 		quickstart.WithDefaultSidebarUtilityItems(true),
 	); err != nil {
 		log.Panicf("failed to register modules: %v", err)
@@ -1060,14 +1067,13 @@ func main() {
 		// Keep dashboard HTML on the SSR transport route (/admin/dashboard).
 		quickstart.WithUIDashboardRoute(false),
 		quickstart.WithUIDashboardActive(setup.NavigationSectionDashboard),
+		// Keep unfinished translation dashboard out of the default QA surface.
+		quickstart.WithUITranslationDashboardRoute(false),
 	}
 	if translationCoreUIEnabled(adm) {
 		log.Printf("Translation family detail/create-locale UI route enabled (/admin/translations/families/:family_id)")
-		log.Printf("Translation matrix UI route enabled (/admin/translations/matrix)")
 	}
 	if featureEnabled(adm.FeatureGate(), string(coreadmin.FeatureTranslationQueue)) {
-		uiRouteOpts = append(uiRouteOpts, quickstart.WithUITranslationDashboardRoute(true))
-		log.Printf("Translation dashboard UI route enabled (/admin/translations/dashboard)")
 		log.Printf("Translation queue UI route enabled with inline claim/release actions (/admin/translations/queue)")
 		log.Printf("Translation editor UI route enabled with full source-target editing, autosave recovery, and sidebar history (/admin/translations/assignments/:assignment_id/edit)")
 	}
@@ -1137,7 +1143,7 @@ func main() {
 	}
 	if translationCoreUIEnabled(adm) {
 		registerTranslationQARoutes(r, cfg, cmsContentSvc, wrapAuthed)
-		log.Printf("Translation family create-locale QA route enabled (%s)", path.Join(cfg.BasePath, "translations", "families", exampleTranslationQAFamilyID))
+		log.Printf("Translation family create-locale QA route enabled (%s)", translationQAFamilyPath(cfg.BasePath))
 		log.Printf("Translation content summary QA route enabled (%s)", translationQAContentSummaryPath(cfg.BasePath))
 		log.Printf("Translation fallback edit QA route enabled (%s)", translationQAFallbackEditPath(cfg.BasePath))
 	}
@@ -1627,7 +1633,7 @@ func translationQAMenuItems(adm *admin.Admin, cfg admin.Config) []admin.MenuItem
 			Permissions: append([]string{}, permissions...),
 			Target: map[string]any{
 				"type": "url",
-				"path": path.Join(basePath, "translations", "families", exampleTranslationQAFamilyID),
+				"path": translationQAFamilyPath(basePath),
 				"key":  "translation_family_qa",
 			},
 		},
@@ -1663,22 +1669,6 @@ func translationQAMenuItems(adm *admin.Admin, cfg admin.Config) []admin.MenuItem
 				"key":  "translation_fallback_edit_qa",
 			},
 		},
-		{
-			ID:          "example.translation.qa.matrix",
-			Type:        admin.MenuItemTypeItem,
-			Label:       "Matrix Shell (QA)",
-			Icon:        "layout-grid",
-			ParentID:    quickstart.NavigationGroupTranslationsID,
-			Menu:        menuCode,
-			Locale:      locale,
-			Position:    menuPosition(55),
-			Permissions: append([]string{}, permissions...),
-			Target: map[string]any{
-				"type": "url",
-				"path": path.Join(basePath, "translations", "matrix"),
-				"key":  "translation_matrix_qa",
-			},
-		},
 	}
 
 	if featureEnabled(adm.FeatureGate(), string(coreadmin.FeatureTranslationQueue)) {
@@ -1702,7 +1692,7 @@ func translationQAMenuItems(adm *admin.Admin, cfg admin.Config) []admin.MenuItem
 			admin.MenuItem{
 				ID:          "example.translation.qa.editor",
 				Type:        admin.MenuItemTypeItem,
-				Label:       "Editor Shell (QA)",
+				Label:       "Assignment Editor (QA)",
 				Icon:        "pencil",
 				ParentID:    quickstart.NavigationGroupTranslationsID,
 				Menu:        menuCode,
@@ -1737,8 +1727,13 @@ func registerTranslationQARoutes[T any](
 		return wrap(next)
 	}
 
+	r.Get(translationQAFamilyPath(cfg.BasePath), handler(translationQAFamilyRedirectHandler(cfg, contentSvc)))
 	r.Get(translationQAContentSummaryPath(cfg.BasePath), handler(translationQAContentRedirectHandler(cfg, contentSvc, false)))
 	r.Get(translationQAFallbackEditPath(cfg.BasePath), handler(translationQAContentRedirectHandler(cfg, contentSvc, true)))
+}
+
+func translationQAFamilyPath(basePath string) string {
+	return path.Join(basePath, "translations", "qa", "family")
 }
 
 func translationQAContentSummaryPath(basePath string) string {
@@ -1766,6 +1761,43 @@ func translationQAContentRedirectHandler(
 		}
 		return c.Redirect(target, fiber.StatusFound)
 	}
+}
+
+func translationQAFamilyRedirectHandler(
+	cfg admin.Config,
+	contentSvc admin.CMSContentService,
+) router.HandlerFunc {
+	return func(c router.Context) error {
+		target, err := translationQAFamilyTarget(c.Context(), cfg.BasePath, contentSvc)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
+		}
+		if strings.TrimSpace(target) == "" {
+			return c.Status(fiber.StatusNotFound).SendString(
+				fmt.Sprintf("translation QA fixture family for %q not found", exampleTranslationQueueSourceSlug),
+			)
+		}
+		return c.Redirect(target, fiber.StatusFound)
+	}
+}
+
+func translationQAFamilyTarget(
+	ctx context.Context,
+	basePath string,
+	contentSvc admin.CMSContentService,
+) (string, error) {
+	page, err := findPageBySlug(ctx, contentSvc, exampleTranslationQueueSourceSlug)
+	if err != nil {
+		return "", err
+	}
+	if page == nil {
+		return "", nil
+	}
+	familyID := normalizeTranslationGroupID(page.TranslationGroupID, page.ID)
+	if strings.TrimSpace(familyID) == "" {
+		return "", nil
+	}
+	return path.Join(basePath, "translations", "families", familyID), nil
 }
 
 func translationQAContentTarget(
