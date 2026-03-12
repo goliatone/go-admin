@@ -111,22 +111,44 @@ func TranslationEditorContractPayload() map[string]any {
 		"field_completeness": map[string]any{
 			"required_fields": []string{"required", "complete", "missing"},
 		},
+		"version_fields": map[string]any{
+			"variant_version_fields":    []string{"row_version", "version"},
+			"assignment_version_fields": []string{"assignment_row_version", "assignment_version", "translation_assignment.row_version", "translation_assignment.version"},
+		},
+		"source_sync": map[string]any{
+			"ack_request_fields":    []string{translationEditorAcknowledgedSourceHashKey, translationEditorSourceHashAtLastSyncKey},
+			"ack_response_fields":   []string{translationEditorSourceHashAtLastSyncKey, translationSourceTargetDriftKey},
+			"default_save_behavior": "preserve_existing_sync_baseline",
+			"ack_required_behavior": "advance_baseline_only_when_request_matches_current_source_hash",
+		},
 		"field_drift": map[string]any{
-			"required_fields": []string{"changed", "comparison_mode", "previous_source_value", "current_source_value"},
+			"required_fields":  []string{"changed", "comparison_mode", "previous_source_value", "current_source_value"},
 			"comparison_modes": []string{translationEditorComparisonModeSnapshot, translationEditorComparisonModeHashOnly},
 		},
 		"field_validations": map[string]any{
 			"required_fields": []string{"valid", "message"},
 		},
 		"assist": map[string]any{
-			"glossary_matches_fallback_keys":    []string{"assist.glossary_matches", "glossary_matches"},
-			"style_guide_fallback_keys":         []string{"assist.style_guide_summary", "style_guide_summary"},
-			"translation_memory_key":            "translation_memory_suggestions",
-			"glossary_match_required_fields":    []string{"term", "preferred_translation", "field_paths"},
-			"style_guide_required_fields":       []string{"available", "title", "summary", "rules"},
-			"action_envelope_required_actions":  []string{"claim", "release", "submit_review", "approve", "reject", "archive"},
-			"assignment_action_state_payloads":  []string{"actions", "editor_actions", "assignment_action_states"},
-			"review_action_state_payloads":      []string{"review_actions", "review_action_states"},
+			"glossary_matches_fallback_keys":   []string{"assist.glossary_matches", "glossary_matches"},
+			"style_guide_fallback_keys":        []string{"assist.style_guide_summary", "style_guide_summary"},
+			"translation_memory_key":           "translation_memory_suggestions",
+			"glossary_match_required_fields":   []string{"term", "preferred_translation", "field_paths"},
+			"style_guide_required_fields":      []string{"available", "title", "summary", "rules"},
+			"action_envelope_required_actions": []string{"claim", "release", "submit_review", "approve", "reject", "archive"},
+			"assignment_action_state_payloads": []string{"actions", "editor_actions", "assignment_action_states"},
+			"review_action_state_payloads":     []string{"review_actions", "review_action_states"},
+		},
+		"history": map[string]any{
+			"payload_key":     "history",
+			"required_fields": []string{"items", "page", "per_page", "total", "has_more"},
+			"entry_types":     []string{"comment", "event"},
+			"fallback_keys":   []string{"comments", "events"},
+		},
+		"attachments": map[string]any{
+			"payload_key":      "attachments",
+			"summary_key":      "attachment_summary",
+			"required_fields":  []string{"id", "kind", "filename", "byte_size", "uploaded_at", "description", "url"},
+			"summary_required": []string{"total", "kinds"},
 		},
 	}
 }
