@@ -1,12 +1,11 @@
 package routing
 
 type ModuleContract struct {
-	Slug            string              `json:"slug"`
-	UIRoutes        map[string]string   `json:"ui_routes,omitempty"`
-	APIRoutes       map[string]string   `json:"api_routes,omitempty"`
-	PublicAPIRoutes map[string]string   `json:"public_api_routes,omitempty"`
-	Mount           ModuleMountOverride `json:"mount,omitempty"`
-	RouteNamePrefix string              `json:"route_name_prefix,omitempty"`
+	Slug            string            `json:"slug"`
+	UIRoutes        map[string]string `json:"ui_routes,omitempty"`
+	APIRoutes       map[string]string `json:"api_routes,omitempty"`
+	PublicAPIRoutes map[string]string `json:"public_api_routes,omitempty"`
+	RouteNamePrefix string            `json:"route_name_prefix,omitempty"`
 }
 
 type ResolvedModule struct {
@@ -29,7 +28,6 @@ type ModuleContext struct {
 
 func NormalizeModuleContract(contract ModuleContract) ModuleContract {
 	contract.Slug = normalizePathSegment(contract.Slug)
-	contract.Mount = NormalizeMountOverride(contract.Mount)
 	contract.RouteNamePrefix = NormalizeRouteNamePrefix(contract.RouteNamePrefix, contract.Slug)
 	contract.UIRoutes = normalizeRouteTable(contract.UIRoutes)
 	contract.APIRoutes = normalizeRouteTable(contract.APIRoutes)
