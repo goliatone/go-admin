@@ -8,6 +8,7 @@ import (
 
 	"github.com/goliatone/go-admin/admin/internal/modules"
 	navinternal "github.com/goliatone/go-admin/admin/internal/navigation"
+	"github.com/goliatone/go-admin/admin/routing"
 	router "github.com/goliatone/go-router"
 )
 
@@ -86,6 +87,10 @@ func (a *Admin) loadModules(ctx context.Context) error {
 		}
 		modulesToLoad = append(modulesToLoad, mod)
 	}
+	routingContexts, err := a.planModuleRouting(modulesToLoad)
+	if err != nil {
+		return err
+	}
 	authMiddleware := router.MiddlewareFunc(nil)
 	if a.authenticator != nil {
 		authMiddleware = router.MiddlewareFunc(a.authWrapper())
@@ -93,7 +98,7 @@ func (a *Admin) loadModules(ctx context.Context) error {
 	publicRouter := a.router
 	protectedRouter := wrapAdminRouter(publicRouter, authMiddleware)
 
-	err := modules.Load(ctx, modules.LoadOptions{
+	err = modules.Load(ctx, modules.LoadOptions{
 		Modules:       modulesToLoad,
 		Gates:         a.featureGate,
 		DefaultLocale: a.config.DefaultLocale,
@@ -117,6 +122,7 @@ func (a *Admin) loadModules(ctx context.Context) error {
 				AuthMiddleware:  authMiddleware,
 				Locale:          a.config.DefaultLocale,
 				Translator:      a.translator,
+				Routing:         routingContexts[strings.TrimSpace(mod.Manifest().ID)],
 			}
 			if err := registrar.Register(moduleCtx); err != nil {
 				return err
@@ -180,6 +186,53 @@ func (a *Admin) loadModules(ctx context.Context) error {
 	}
 	a.modulesLoaded = true
 	return nil
+}
+
+func (a *Admin) planModuleRouting(registered []modules.Module) (map[string]routing.ModuleContext, error) {
+	contexts := map[string]routing.ModuleContext{}
+	if len(registered) == 0 || a == nil || a.routingPlanner == nil {
+		return contexts, nil
+	}
+
+	ordered, err := modules.Order(registered)
+	if err != nil {
+		return nil, err
+	}
+	for _, mod := range ordered {
+		if mod == nil {
+			continue
+		}
+		moduleID := strings.TrimSpace(mod.Manifest().ID)
+		registrar, ok := mod.(Module)
+		if !ok {
+			return nil, validationDomainError("module missing Register implementation", map[string]any{"component": "modules", "module": moduleID})
+		}
+		provider, ok := registrar.(RouteContractProvider)
+		if !ok {
+			return nil, validationDomainError("module missing explicit route contract", map[string]any{"component": "modules", "module": moduleID})
+		}
+		contract := provider.RouteContract()
+		if err := a.routingPlanner.RegisterModule(contract); err != nil {
+			a.routingReport = a.routingPlanner.Report()
+			return nil, validationDomainError("module routing registration failed", map[string]any{
+				"component": "modules",
+				"module":    moduleID,
+				"slug":      strings.TrimSpace(contract.Slug),
+				"error":     strings.TrimSpace(err.Error()),
+			})
+		}
+		resolved, ok := a.routingPlanner.ResolvedModule(contract.Slug)
+		if !ok {
+			return nil, validationDomainError("module routing resolution missing", map[string]any{
+				"component": "modules",
+				"module":    moduleID,
+				"slug":      strings.TrimSpace(contract.Slug),
+			})
+		}
+		contexts[moduleID] = routing.BuildModuleContext(contract, resolved)
+	}
+	a.routingReport = a.routingPlanner.Report()
+	return contexts, nil
 }
 
 func (a *Admin) addMenuItems(ctx context.Context, items []MenuItem) error {

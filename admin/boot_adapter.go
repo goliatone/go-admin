@@ -2,6 +2,7 @@ package admin
 
 import (
 	"github.com/goliatone/go-admin/admin/internal/boot"
+	"github.com/goliatone/go-admin/admin/routing"
 	router "github.com/goliatone/go-router"
 	urlkit "github.com/goliatone/go-urlkit"
 )
@@ -58,9 +59,22 @@ func (a *Admin) BasePath() string {
 	return adminBasePath(a.config)
 }
 
+// AdminUIGroup exposes the URLKit admin UI group path.
+func (a *Admin) AdminUIGroup() string {
+	return routing.DefaultUIGroupPath()
+}
+
 // AdminAPIGroup exposes the URLKit admin API group path.
 func (a *Admin) AdminAPIGroup() string {
 	return adminAPIGroupName(a.config)
+}
+
+// RoutingPlanner exposes the current routing planner.
+func (a *Admin) RoutingPlanner() routing.Planner {
+	if a == nil {
+		return nil
+	}
+	return a.routingPlanner
 }
 
 // AdminAPIBasePath returns the base path for admin API routes (including version when configured).

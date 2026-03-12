@@ -2,10 +2,12 @@ package admin
 
 import (
 	"context"
+	"strings"
+
+	"github.com/goliatone/go-admin/admin/routing"
 	"github.com/goliatone/go-admin/internal/primitives"
 	"net/http"
 	"sort"
-	"strings"
 
 	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
@@ -15,6 +17,7 @@ import (
 
 const preferencesModuleID = "preferences"
 const preferencesRawNamespacePrefix = "ui."
+const preferencesRouteKey = "preferences.index"
 
 // PreferencesModule registers a user preferences panel and navigation entry.
 // It is feature-gated via FeaturePreferences and backed by PreferencesService.
@@ -28,6 +31,7 @@ type PreferencesModule struct {
 	schemaPath       string
 	jsonEditorStrict bool
 	skipMenu         bool
+	uiGroupPath      string
 	urls             urlkit.Resolver
 }
 
@@ -67,6 +71,12 @@ func (m *PreferencesModule) Register(ctx ModuleContext) error {
 	if m.urls == nil {
 		m.urls = ctx.Admin.URLs()
 	}
+	if strings.TrimSpace(ctx.Routing.Resolved.UIGroupPath) != "" {
+		m.uiGroupPath = strings.TrimSpace(ctx.Routing.Resolved.UIGroupPath)
+	}
+	if path := ctx.Routing.RoutePath(routing.SurfaceUI, preferencesRouteKey); path != "" {
+		m.basePath = path
+	}
 
 	builder := ctx.Admin.Panel("preferences").
 		WithRepository(NewPreferencesRepository(ctx.Admin)).
@@ -98,6 +108,15 @@ func (m *PreferencesModule) Register(ctx ModuleContext) error {
 	return nil
 }
 
+func (m *PreferencesModule) RouteContract() routing.ModuleContract {
+	return routing.ModuleContract{
+		Slug: preferencesModuleID,
+		UIRoutes: map[string]string{
+			preferencesRouteKey: "/",
+		},
+	}
+}
+
 func (m *PreferencesModule) MenuItems(locale string) []MenuItem {
 	if m.skipMenu {
 		return nil
@@ -112,7 +131,11 @@ func (m *PreferencesModule) MenuItems(locale string) []MenuItem {
 		"name": "admin." + preferencesModuleID,
 	}
 	if basePath != "" || m.urls != nil {
-		if path := resolveURLWith(m.urls, "admin", preferencesModuleID, nil, nil); path != "" {
+		group := strings.TrimSpace(m.uiGroupPath)
+		if group == "" {
+			group = routing.DefaultUIGroupPath()
+		}
+		if path := resolveURLWith(m.urls, group, preferencesRouteKey, nil, nil); path != "" {
 			target["path"] = path
 		} else if basePath != "" {
 			target["path"] = joinBasePath(basePath, "preferences")

@@ -1,11 +1,15 @@
 package admin
 
 import (
+	"strings"
+
+	"github.com/goliatone/go-admin/admin/routing"
 	"github.com/goliatone/go-admin/internal/primitives"
 	urlkit "github.com/goliatone/go-urlkit"
 )
 
 const activityModuleID = "activity"
+const activityRouteKey = "activity.index"
 
 // ActivityModule registers the activity log navigation and user detail tab.
 type ActivityModule struct {
@@ -14,6 +18,7 @@ type ActivityModule struct {
 	defaultLocale string
 	permission    string
 	menuParent    string
+	uiGroupPath   string
 	urls          urlkit.Resolver
 }
 
@@ -51,7 +56,22 @@ func (m *ActivityModule) Register(ctx ModuleContext) error {
 	if m.urls == nil {
 		m.urls = ctx.Admin.URLs()
 	}
+	if strings.TrimSpace(ctx.Routing.Resolved.UIGroupPath) != "" {
+		m.uiGroupPath = strings.TrimSpace(ctx.Routing.Resolved.UIGroupPath)
+	}
+	if path := ctx.Routing.RoutePath(routing.SurfaceUI, activityRouteKey); path != "" {
+		m.basePath = path
+	}
 	return nil
+}
+
+func (m *ActivityModule) RouteContract() routing.ModuleContract {
+	return routing.ModuleContract{
+		Slug: activityModuleID,
+		UIRoutes: map[string]string{
+			activityRouteKey: "/",
+		},
+	}
 }
 
 // MenuItems contributes navigation for the activity module.
@@ -59,7 +79,11 @@ func (m *ActivityModule) MenuItems(locale string) []MenuItem {
 	if locale == "" {
 		locale = m.defaultLocale
 	}
-	path := resolveURLWith(m.urls, "admin", activityModuleID, nil, nil)
+	group := strings.TrimSpace(m.uiGroupPath)
+	if group == "" {
+		group = routing.DefaultUIGroupPath()
+	}
+	path := resolveURLWith(m.urls, group, activityRouteKey, nil, nil)
 	permissions := []string{}
 	if m.permission != "" {
 		permissions = []string{m.permission}

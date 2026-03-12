@@ -100,6 +100,10 @@ func (a *Admin) Prepare(ctx context.Context) error {
 	if a.settings != nil {
 		a.settings.Enable(featureEnabled(a.featureGate, FeatureSettings))
 	}
+	if err := a.validateRouting(); err != nil {
+		a.logRoutingStartupReport("validate", err)
+		return err
+	}
 	if err := a.validateConfig(); err != nil {
 		return err
 	}
@@ -107,8 +111,10 @@ func (a *Admin) Prepare(ctx context.Context) error {
 		return err
 	}
 	if err := a.loadModules(ctx); err != nil {
+		a.logRoutingStartupReport("load_modules", err)
 		return err
 	}
+	a.logRoutingStartupReport("load_modules", nil)
 	if err := a.validatePanelActionWiring(); err != nil {
 		return err
 	}

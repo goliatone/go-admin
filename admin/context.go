@@ -33,6 +33,7 @@ const environmentContextKey adminContextKey = "admin.environment"
 const contentChannelContextKey adminContextKey = "admin.content_channel"
 const requestIDContextKey adminContextKey = "admin.request_id"
 const correlationIDContextKey adminContextKey = "admin.correlation_id"
+const traceIDContextKey adminContextKey = "admin.trace_id"
 const requestIPContextKey adminContextKey = "admin.request_ip"
 const queryParamsContextKey adminContextKey = "admin.query_params"
 const localeFallbackContextKey adminContextKey = "admin.locale_fallback_allowed"
@@ -147,11 +148,15 @@ func newAdminContextFromRouter(c router.Context, locale string) AdminContext {
 	environment := channel
 	requestID := strings.TrimSpace(primitives.FirstNonEmptyRaw(c.Header("X-Request-ID"), c.Header("X-Request-Id"), c.Header("x-request-id")))
 	correlationID := strings.TrimSpace(primitives.FirstNonEmptyRaw(c.Header("X-Correlation-ID"), c.Header("X-Correlation-Id"), c.Header("x-correlation-id")))
+	traceID := strings.TrimSpace(primitives.FirstNonEmptyRaw(c.Header("X-Trace-ID"), c.Header("X-Trace-Id"), c.Header("x-trace-id"), c.Header("traceparent")))
 	if requestID == "" {
 		requestID = strings.TrimSpace(primitives.FirstNonEmptyRaw(c.Query("request_id"), c.Query("requestId")))
 	}
 	if correlationID == "" {
 		correlationID = strings.TrimSpace(primitives.FirstNonEmptyRaw(c.Query("correlation_id"), c.Query("correlationId")))
+	}
+	if traceID == "" {
+		traceID = strings.TrimSpace(primitives.FirstNonEmptyRaw(c.Query("trace_id"), c.Query("traceId"), correlationID))
 	}
 	requestIP := strings.TrimSpace(c.IP())
 	actor := actorFromRouterOrClaims(c, ctx)
@@ -220,6 +225,9 @@ func newAdminContextFromRouter(c router.Context, locale string) AdminContext {
 	}
 	if correlationID != "" {
 		ctx = context.WithValue(ctx, correlationIDContextKey, correlationID)
+	}
+	if traceID != "" {
+		ctx = context.WithValue(ctx, traceIDContextKey, traceID)
 	}
 	if requestIP != "" {
 		ctx = WithRequestIP(ctx, requestIP)
@@ -437,6 +445,16 @@ func correlationIDFromContext(ctx context.Context) string {
 		return correlationID
 	}
 	return ""
+}
+
+func traceIDFromContext(ctx context.Context) string {
+	if ctx == nil {
+		return ""
+	}
+	if traceID, ok := ctx.Value(traceIDContextKey).(string); ok && traceID != "" {
+		return traceID
+	}
+	return strings.TrimSpace(correlationIDFromContext(ctx))
 }
 
 // RequestIPFromContext returns the request IP address captured for the active admin context.

@@ -2,9 +2,11 @@ package admin
 
 import (
 	"context"
+	"strings"
+
+	"github.com/goliatone/go-admin/admin/routing"
 	"github.com/goliatone/go-admin/internal/primitives"
 	"path"
-	"strings"
 	"time"
 
 	urlkit "github.com/goliatone/go-urlkit"
@@ -13,6 +15,8 @@ import (
 const (
 	tenantsModuleID       = "tenants"
 	organizationsModuleID = "organizations"
+	tenantsRouteKey       = "tenants.index"
+	organizationsRouteKey = "organizations.index"
 )
 
 // TenantsModule registers the tenants panel and navigation.
@@ -25,6 +29,7 @@ type TenantsModule struct {
 	updatePerm    string
 	deletePerm    string
 	menuParent    string
+	uiGroupPath   string
 	urls          urlkit.Resolver
 }
 
@@ -75,6 +80,12 @@ func (m *TenantsModule) Register(ctx ModuleContext) error {
 	if m.urls == nil {
 		m.urls = ctx.Admin.URLs()
 	}
+	if strings.TrimSpace(ctx.Routing.Resolved.UIGroupPath) != "" {
+		m.uiGroupPath = strings.TrimSpace(ctx.Routing.Resolved.UIGroupPath)
+	}
+	if path := ctx.Routing.RoutePath(routing.SurfaceUI, tenantsRouteKey); path != "" {
+		m.basePath = path
+	}
 
 	repo := NewTenantPanelRepository(ctx.Admin.tenants)
 	builder := ctx.Admin.Panel(tenantsModuleID).
@@ -124,12 +135,25 @@ func (m *TenantsModule) Register(ctx ModuleContext) error {
 	return nil
 }
 
+func (m *TenantsModule) RouteContract() routing.ModuleContract {
+	return routing.ModuleContract{
+		Slug: tenantsModuleID,
+		UIRoutes: map[string]string{
+			tenantsRouteKey: "/",
+		},
+	}
+}
+
 // MenuItems contributes navigation for tenants.
 func (m *TenantsModule) MenuItems(locale string) []MenuItem {
 	if locale == "" {
 		locale = m.defaultLocale
 	}
-	path := resolveURLWith(m.urls, "admin", tenantsModuleID, nil, nil)
+	group := strings.TrimSpace(m.uiGroupPath)
+	if group == "" {
+		group = routing.DefaultUIGroupPath()
+	}
+	path := resolveURLWith(m.urls, group, tenantsRouteKey, nil, nil)
 	return []MenuItem{
 		{
 			Label:       "Tenants",
@@ -155,6 +179,7 @@ type OrganizationsModule struct {
 	updatePerm    string
 	deletePerm    string
 	menuParent    string
+	uiGroupPath   string
 	urls          urlkit.Resolver
 }
 
@@ -204,6 +229,12 @@ func (m *OrganizationsModule) Register(ctx ModuleContext) error {
 	}
 	if m.urls == nil {
 		m.urls = ctx.Admin.URLs()
+	}
+	if strings.TrimSpace(ctx.Routing.Resolved.UIGroupPath) != "" {
+		m.uiGroupPath = strings.TrimSpace(ctx.Routing.Resolved.UIGroupPath)
+	}
+	if path := ctx.Routing.RoutePath(routing.SurfaceUI, organizationsRouteKey); path != "" {
+		m.basePath = path
 	}
 
 	repo := NewOrganizationPanelRepository(ctx.Admin.organizations)
@@ -255,12 +286,25 @@ func (m *OrganizationsModule) Register(ctx ModuleContext) error {
 	return nil
 }
 
+func (m *OrganizationsModule) RouteContract() routing.ModuleContract {
+	return routing.ModuleContract{
+		Slug: organizationsModuleID,
+		UIRoutes: map[string]string{
+			organizationsRouteKey: "/",
+		},
+	}
+}
+
 // MenuItems contributes navigation for organizations.
 func (m *OrganizationsModule) MenuItems(locale string) []MenuItem {
 	if locale == "" {
 		locale = m.defaultLocale
 	}
-	path := resolveURLWith(m.urls, "admin", organizationsModuleID, nil, nil)
+	group := strings.TrimSpace(m.uiGroupPath)
+	if group == "" {
+		group = routing.DefaultUIGroupPath()
+	}
+	path := resolveURLWith(m.urls, group, organizationsRouteKey, nil, nil)
 	return []MenuItem{
 		{
 			Label:       "Organizations",

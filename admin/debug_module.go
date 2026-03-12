@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"github.com/goliatone/go-admin/admin/routing"
 	"github.com/goliatone/go-admin/internal/primitives"
 	templateview "github.com/goliatone/go-admin/internal/templateview"
 	"strings"
@@ -14,11 +15,31 @@ import (
 )
 
 const (
-	debugModuleID           = "debug"
-	debugWidgetAreaCode     = "admin.debug"
-	debugWidgetAreaName     = "Debug Console"
-	debugProviderCodePrefix = "debug."
-	debugPanelDefaultSpan   = 12
+	debugModuleID                 = "debug"
+	debugRoutingSlug              = "debug_tools"
+	debugRouteKey                 = "debug_tools.index"
+	debugWSRouteKey               = "debug_tools.ws"
+	debugSessionWSRouteKey        = "debug_tools.session_ws"
+	debugREPLAppRouteKey          = "debug_tools.repl_app"
+	debugREPLShellRouteKey        = "debug_tools.repl_shell"
+	debugPanelsRouteKey           = "debug_tools.api.panels"
+	debugSnapshotRouteKey         = "debug_tools.api.snapshot"
+	debugSessionsRouteKey         = "debug_tools.api.sessions"
+	debugClearRouteKey            = "debug_tools.api.clear"
+	debugClearPanelRouteKey       = "debug_tools.api.clear_panel"
+	debugDoctorActionRouteKey     = "debug_tools.api.doctor_action"
+	debugErrorsRouteKey           = "debug_tools.api.errors"
+	debugDashboardRouteKey        = "debug_tools.api.dashboard"
+	debugDashboardWidgetsRouteKey = "debug_tools.api.dashboard_widgets"
+	debugDashboardWidgetRouteKey  = "debug_tools.api.dashboard_widget"
+	debugDashboardReorderRouteKey = "debug_tools.api.dashboard_reorder"
+	debugDashboardRefreshRouteKey = "debug_tools.api.dashboard_refresh"
+	debugDashboardPrefsRouteKey   = "debug_tools.api.dashboard_preferences"
+	debugDashboardWSRouteKey      = "debug_tools.api.dashboard_ws"
+	debugWidgetAreaCode           = "admin.debug"
+	debugWidgetAreaName           = "Debug Console"
+	debugProviderCodePrefix       = "debug."
+	debugPanelDefaultSpan         = 12
 )
 
 type debugPanelMeta struct {
@@ -53,6 +74,7 @@ type DebugModule struct {
 	locale        string
 	permission    string
 	menuParent    string
+	uiGroupPath   string
 	sessionStore  DebugUserSessionStore
 }
 
@@ -114,6 +136,12 @@ func (m *DebugModule) Register(ctx ModuleContext) error {
 	if m.urls == nil {
 		m.urls = ctx.Admin.URLs()
 	}
+	if strings.TrimSpace(ctx.Routing.Resolved.UIGroupPath) != "" {
+		m.uiGroupPath = strings.TrimSpace(ctx.Routing.Resolved.UIGroupPath)
+	}
+	if path := ctx.Routing.RoutePath(routing.SurfaceUI, debugRouteKey); path != "" {
+		m.basePath = path
+	}
 	ctx.Admin.debugCollector = m.collector
 	m.captureConfigSnapshot(ctx.Admin)
 	m.captureRoutesSnapshot(ctx.Admin)
@@ -129,6 +157,13 @@ func (m *DebugModule) Register(ctx ModuleContext) error {
 	return nil
 }
 
+func (m *DebugModule) RouteContract() routing.ModuleContract {
+	return routing.ModuleContract{
+		Slug:     debugRoutingSlug,
+		UIRoutes: debugModuleRoutes(),
+	}
+}
+
 func (m *DebugModule) MenuItems(locale string) []MenuItem {
 	if !debugConfigEnabled(m.config) {
 		return nil
@@ -138,7 +173,11 @@ func (m *DebugModule) MenuItems(locale string) []MenuItem {
 		basePath = normalizeDebugConfig(m.config, m.adminBasePath).BasePath
 	}
 	if m.urls != nil {
-		if resolved := debugRoutePathWithBase(m.urls, basePath, "admin.debug", "index"); resolved != "" {
+		group := strings.TrimSpace(m.uiGroupPath)
+		if group == "" {
+			group = routing.DefaultUIGroupPath()
+		}
+		if resolved := resolveURLWith(m.urls, group, debugRouteKey, nil, nil); resolved != "" {
 			basePath = resolved
 		}
 	}
@@ -161,6 +200,30 @@ func (m *DebugModule) MenuItems(locale string) []MenuItem {
 			Position:    primitives.Int(999),
 			ParentID:    m.menuParent,
 		},
+	}
+}
+
+func debugModuleRoutes() map[string]string {
+	return map[string]string{
+		debugRouteKey:                 "/",
+		debugWSRouteKey:               "/ws",
+		debugSessionWSRouteKey:        "/session/:sessionId/ws",
+		debugREPLAppRouteKey:          "/repl/app/ws",
+		debugREPLShellRouteKey:        "/repl/shell/ws",
+		debugPanelsRouteKey:           "/api/panels",
+		debugSnapshotRouteKey:         "/api/snapshot",
+		debugSessionsRouteKey:         "/api/sessions",
+		debugClearRouteKey:            "/api/clear",
+		debugClearPanelRouteKey:       "/api/clear/:panel",
+		debugDoctorActionRouteKey:     "/api/doctor/:check/action",
+		debugErrorsRouteKey:           "/api/errors",
+		debugDashboardRouteKey:        "/api/dashboard",
+		debugDashboardWidgetsRouteKey: "/api/dashboard/widgets",
+		debugDashboardWidgetRouteKey:  "/api/dashboard/widgets/:id",
+		debugDashboardReorderRouteKey: "/api/dashboard/widgets/reorder",
+		debugDashboardRefreshRouteKey: "/api/dashboard/widgets/refresh",
+		debugDashboardPrefsRouteKey:   "/api/dashboard/preferences",
+		debugDashboardWSRouteKey:      "/api/dashboard/ws",
 	}
 }
 

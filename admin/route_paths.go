@@ -3,11 +3,15 @@ package admin
 import (
 	"strings"
 
+	"github.com/goliatone/go-admin/admin/routing"
 	urlkit "github.com/goliatone/go-urlkit"
 )
 
 func adminBasePath(cfg Config) string {
-	basePath := strings.TrimSpace(cfg.URLs.Admin.BasePath)
+	basePath := strings.TrimSpace(cfg.Routing.Roots.AdminRoot)
+	if basePath == "" {
+		basePath = strings.TrimSpace(cfg.URLs.Admin.BasePath)
+	}
 	if basePath == "" {
 		basePath = normalizeBasePath(cfg.BasePath)
 	}
@@ -15,7 +19,10 @@ func adminBasePath(cfg Config) string {
 }
 
 func publicBasePath(cfg Config) string {
-	basePath := strings.TrimSpace(cfg.URLs.Public.BasePath)
+	basePath := strings.TrimSpace(cfg.Routing.Roots.PublicAPIRoot)
+	if basePath == "" {
+		basePath = strings.TrimSpace(cfg.URLs.Public.BasePath)
+	}
 	return normalizeBasePath(basePath)
 }
 
@@ -30,7 +37,7 @@ func adminAPIRoutePath(a *Admin, route string) string {
 	if a == nil {
 		return ""
 	}
-	return routePathWithBase(a.urlManager, adminBasePath(a.config), adminAPIGroupName(a.config), route)
+	return routePathWithBase(a.urlManager, normalizeBasePath(a.config.Routing.Roots.APIRoot), adminAPIGroupName(a.config), route)
 }
 
 func adminAPIBasePath(a *Admin) string {
@@ -59,6 +66,9 @@ func debugRoutePath(a *Admin, cfg DebugConfig, group, route string) string {
 	if a == nil {
 		return ""
 	}
+	if path := debugPlannerRoutePath(a, group, route); path != "" {
+		return path
+	}
 	return debugRoutePathWithBase(a.urlManager, debugBasePath(a, cfg), group, route)
 }
 
@@ -69,6 +79,9 @@ func debugAPIRoutePath(a *Admin, cfg DebugConfig, route string) string {
 func debugBasePath(a *Admin, cfg DebugConfig) string {
 	if a == nil {
 		return ""
+	}
+	if path := debugPlannerRoutePath(a, "admin.debug", "index"); path != "" {
+		return path
 	}
 	return normalizeDebugConfig(cfg, adminBasePath(a.config)).BasePath
 }
@@ -130,6 +143,14 @@ func resolveURLWith(urls urlkit.Resolver, group, route string, params any, query
 }
 
 func debugRoutePathWithBase(urls urlkit.Resolver, debugBase, group, route string) string {
+	if routeKey := debugRouteResolverKey(group, route); routeKey != "" {
+		if resolved := resolveURLWith(urls, routing.DefaultUIGroupPath(), routeKey, nil, nil); resolved != "" {
+			return resolved
+		}
+		if fallback := debugFallbackRoutePath(debugBase, routeKey); fallback != "" {
+			return fallback
+		}
+	}
 	if urls == nil {
 		return ""
 	}
@@ -147,6 +168,85 @@ func debugRoutePathWithBase(urls urlkit.Resolver, debugBase, group, route string
 		return joinBasePath(debugBase, suffix)
 	}
 	return joinBasePath(debugBase, raw)
+}
+
+func debugPlannerRoutePath(a *Admin, group, route string) string {
+	if a == nil || a.urlManager == nil {
+		return ""
+	}
+	routeKey := debugRouteResolverKey(group, route)
+	if routeKey == "" {
+		return ""
+	}
+	return resolveURLWith(a.urlManager, routing.DefaultUIGroupPath(), routeKey, nil, nil)
+}
+
+func debugFallbackRoutePath(debugBase, routeKey string) string {
+	relative := debugRouteRelativePath(routeKey)
+	if relative == "" {
+		return ""
+	}
+	debugBase = normalizeBasePath(debugBase)
+	if relative == "/" {
+		return debugBase
+	}
+	return joinBasePath(debugBase, strings.TrimPrefix(relative, "/"))
+}
+
+func debugRouteResolverKey(group, route string) string {
+	group = strings.TrimSpace(group)
+	route = strings.TrimSpace(route)
+	switch group {
+	case "admin.debug":
+		switch route {
+		case "index":
+			return debugRouteKey
+		case "ws":
+			return debugWSRouteKey
+		case "session.ws":
+			return debugSessionWSRouteKey
+		case "repl.app":
+			return debugREPLAppRouteKey
+		case "repl.shell":
+			return debugREPLShellRouteKey
+		}
+	case "admin.debug.api":
+		switch route {
+		case "panels":
+			return debugPanelsRouteKey
+		case "snapshot":
+			return debugSnapshotRouteKey
+		case "sessions":
+			return debugSessionsRouteKey
+		case "clear":
+			return debugClearRouteKey
+		case "clear.panel":
+			return debugClearPanelRouteKey
+		case "doctor.action":
+			return debugDoctorActionRouteKey
+		case "errors":
+			return debugErrorsRouteKey
+		case "dashboard":
+			return debugDashboardRouteKey
+		case "dashboard.widgets":
+			return debugDashboardWidgetsRouteKey
+		case "dashboard.widget":
+			return debugDashboardWidgetRouteKey
+		case "dashboard.widgets.reorder":
+			return debugDashboardReorderRouteKey
+		case "dashboard.widgets.refresh":
+			return debugDashboardRefreshRouteKey
+		case "dashboard.preferences":
+			return debugDashboardPrefsRouteKey
+		case "dashboard.ws":
+			return debugDashboardWSRouteKey
+		}
+	}
+	return ""
+}
+
+func debugRouteRelativePath(routeKey string) string {
+	return debugModuleRoutes()[strings.TrimSpace(routeKey)]
 }
 
 func prefixBasePath(basePath, routePath string) string {
