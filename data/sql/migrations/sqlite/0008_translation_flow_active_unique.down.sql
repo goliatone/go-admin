@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS ux_assignments_scope_active_family_locale_scope;
