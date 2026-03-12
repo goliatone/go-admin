@@ -20,7 +20,38 @@ func resolveURL(urls urlkit.Resolver, group, route string) string {
 }
 
 func resolveRoutePath(urls urlkit.Resolver, group, route string) string {
-	return resolveURL(urls, group, route)
+	group = strings.TrimSpace(group)
+	route = strings.TrimSpace(route)
+	if urls == nil || group == "" || route == "" {
+		return ""
+	}
+	manager, ok := urls.(*urlkit.RouteManager)
+	if !ok || manager == nil {
+		return resolveURL(urls, group, route)
+	}
+
+	template, err := manager.RouteTemplate(group, route)
+	if err == nil && strings.TrimSpace(template) != "" {
+		template = strings.TrimSpace(template)
+		resolved, resolveErr := manager.ResolveWith(group, route, nil, nil)
+		if resolveErr != nil || strings.TrimSpace(resolved) == "" {
+			return template
+		}
+		resolved = strings.TrimSpace(resolved)
+		if strings.HasSuffix(resolved, template) {
+			base := strings.TrimSpace(strings.TrimSuffix(resolved, template))
+			if base != "" && strings.HasPrefix(template, base) {
+				return template
+			}
+		}
+		return resolved
+	}
+
+	raw, err := manager.RoutePath(group, route)
+	if err != nil || strings.TrimSpace(raw) == "" {
+		return resolveURL(urls, group, route)
+	}
+	return strings.TrimSpace(raw)
 }
 
 func resolveAdminBasePath(urls urlkit.Resolver, fallback string) string {
