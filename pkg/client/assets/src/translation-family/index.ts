@@ -102,6 +102,25 @@ export interface TranslationFamilyDetail {
     outdatedLocaleCount: number;
     publishReady: boolean;
   };
+  quickCreate: TranslationFamilyQuickCreateHints;
+}
+
+export interface TranslationFamilyQuickCreateDefaultAssignment {
+  autoCreateAssignment: boolean;
+  workScope: string;
+  priority: string;
+  assigneeId: string;
+  dueDate: string;
+}
+
+export interface TranslationFamilyQuickCreateHints {
+  enabled: boolean;
+  missingLocales: string[];
+  recommendedLocale: string;
+  requiredForPublish: string[];
+  defaultAssignment: TranslationFamilyQuickCreateDefaultAssignment;
+  disabledReasonCode: string;
+  disabledReason: string;
 }
 
 export interface TranslationFamilyListResponse {
@@ -158,6 +177,14 @@ export interface TranslationFamilyDetailRenderOptions {
   contentBasePath?: string;
 }
 
+export interface TranslationCreateLocaleError extends Error {
+  statusCode?: number;
+  textCode?: string | null;
+  requestId?: string;
+  traceId?: string;
+  metadata?: Record<string, unknown>;
+}
+
 export interface TranslationCreateLocaleRequest {
   locale: string;
   autoCreateAssignment: boolean;
@@ -172,6 +199,7 @@ export interface TranslationCreateLocaleAssignment {
   assignmentId: string;
   status: string;
   targetLocale: string;
+  workScope: string;
   assigneeId: string;
   priority: string;
   dueDate: string;
@@ -182,6 +210,8 @@ export interface TranslationCreateLocaleResult {
   familyId: string;
   locale: string;
   status: string;
+  recordId: string;
+  contentType: string;
   assignment: TranslationCreateLocaleAssignment | null;
   idempotencyHit: boolean;
   assignmentReused: boolean;
@@ -194,12 +224,29 @@ export interface TranslationCreateLocaleResult {
     blockerCodes: string[];
     missingLocales: string[];
     availableLocales: string[];
+    quickCreate: TranslationFamilyQuickCreateHints;
   };
   refresh: {
     familyDetail: boolean;
     familyList: boolean;
     contentSummary: boolean;
   };
+  navigation: {
+    contentDetailURL: string;
+    contentEditURL: string;
+  };
+}
+
+export interface TranslationCreateLocaleActionInput extends Partial<TranslationCreateLocaleRequest> {
+  familyId: string;
+  basePath?: string;
+}
+
+export interface TranslationCreateLocaleActionModel {
+  familyId: string;
+  endpoint: string;
+  headers: Record<string, string>;
+  request: TranslationCreateLocaleRequest;
 }
 
 function asString(value: unknown): string {
@@ -308,6 +355,161 @@ export function buildFamilyDetailURL(basePath: string, familyId: string, environ
   return encoded ? `${path}?${encoded}` : path;
 }
 
+export function createTranslationCreateLocaleRequest(
+  input: Partial<TranslationCreateLocaleRequest> = {}
+): TranslationCreateLocaleRequest {
+  return {
+    locale: asString(input.locale).toLowerCase(),
+    autoCreateAssignment: asBoolean(input.autoCreateAssignment),
+    assigneeId: asString(input.assigneeId),
+    priority: asString(input.priority).toLowerCase(),
+    dueDate: asString(input.dueDate),
+    environment: asString(input.environment),
+    idempotencyKey: asString(input.idempotencyKey),
+  };
+}
+
+export function buildCreateLocaleURL(basePath: string, familyId: string, environment = ''): string {
+  const id = encodeURIComponent(asString(familyId));
+  const path = `${trimTrailingSlash(basePath)}/translations/families/${id}/variants`;
+  const query = new URLSearchParams();
+  if (asString(environment)) query.set('environment', asString(environment));
+  const encoded = query.toString();
+  return encoded ? `${path}?${encoded}` : path;
+}
+
+export function serializeCreateLocaleRequest(
+  input: Partial<TranslationCreateLocaleRequest> = {}
+): Record<string, unknown> {
+  const request = createTranslationCreateLocaleRequest(input);
+  const payload: Record<string, unknown> = {
+    locale: request.locale,
+  };
+
+  if (request.autoCreateAssignment) payload.auto_create_assignment = true;
+  if (request.assigneeId) payload.assignee_id = request.assigneeId;
+  if (request.priority) payload.priority = request.priority;
+  if (request.dueDate) payload.due_date = request.dueDate;
+  if (request.environment) payload.environment = request.environment;
+
+  return payload;
+}
+
+function normalizeCreateLocaleAssignment(input: Record<string, unknown>): TranslationCreateLocaleAssignment {
+  return {
+    assignmentId: asString(input.assignment_id),
+    status: asString(input.status),
+    targetLocale: asString(input.target_locale),
+    workScope: asString(input.work_scope),
+    assigneeId: asString(input.assignee_id),
+    priority: asString(input.priority),
+    dueDate: asString(input.due_date),
+  };
+}
+
+function normalizeQuickCreateDefaultAssignment(
+  input: Record<string, unknown>
+): TranslationFamilyQuickCreateDefaultAssignment {
+  return {
+    autoCreateAssignment: asBoolean(input.auto_create_assignment),
+    workScope: asString(input.work_scope),
+    priority: asString(input.priority) || 'normal',
+    assigneeId: asString(input.assignee_id),
+    dueDate: asString(input.due_date),
+  };
+}
+
+export function normalizeQuickCreateHints(
+  input: Record<string, unknown>,
+  fallback: Partial<TranslationFamilyQuickCreateHints> = {}
+): TranslationFamilyQuickCreateHints {
+  const defaultAssignment = asRecord(input.default_assignment);
+  const missingLocales = asStringArray(input.missing_locales ?? fallback.missingLocales);
+  const requiredForPublish = asStringArray(input.required_for_publish ?? fallback.requiredForPublish);
+  const recommendedLocale = asString(input.recommended_locale || fallback.recommendedLocale);
+  const enabled = typeof input.enabled === 'boolean'
+    ? asBoolean(input.enabled)
+    : missingLocales.length > 0;
+  return {
+    enabled,
+    missingLocales,
+    recommendedLocale,
+    requiredForPublish,
+    defaultAssignment: normalizeQuickCreateDefaultAssignment({
+      auto_create_assignment: defaultAssignment.auto_create_assignment ?? fallback.defaultAssignment?.autoCreateAssignment,
+      work_scope: defaultAssignment.work_scope ?? fallback.defaultAssignment?.workScope,
+      priority: defaultAssignment.priority ?? fallback.defaultAssignment?.priority,
+      assignee_id: defaultAssignment.assignee_id ?? fallback.defaultAssignment?.assigneeId,
+      due_date: defaultAssignment.due_date ?? fallback.defaultAssignment?.dueDate,
+    }),
+    disabledReasonCode: asString(input.disabled_reason_code || fallback.disabledReasonCode),
+    disabledReason: asString(input.disabled_reason || fallback.disabledReason),
+  };
+}
+
+export function normalizeCreateLocaleResult(input: Record<string, unknown>): TranslationCreateLocaleResult {
+  const data = asRecord(input.data);
+  const meta = asRecord(input.meta);
+  const family = asRecord(meta.family);
+  const refresh = asRecord(meta.refresh);
+  const navigation = asRecord(data.navigation);
+  const familyQuickCreate = normalizeQuickCreateHints(asRecord(family.quick_create), {
+    missingLocales: asStringArray(family.missing_locales),
+  });
+
+  return {
+    variantId: asString(data.variant_id),
+    familyId: asString(data.family_id) || asString(family.family_id),
+    locale: asString(data.locale).toLowerCase(),
+    status: asString(data.status),
+    recordId: asString(data.record_id),
+    contentType: asString(data.content_type),
+    assignment: data.assignment ? normalizeCreateLocaleAssignment(asRecord(data.assignment)) : null,
+    idempotencyHit: asBoolean(meta.idempotency_hit),
+    assignmentReused: asBoolean(meta.assignment_reused),
+    family: {
+      familyId: asString(family.family_id),
+      readinessState: normalizeReadinessState(family.readiness_state),
+      missingRequiredLocaleCount: asNumber(family.missing_required_locale_count),
+      pendingReviewCount: asNumber(family.pending_review_count),
+      outdatedLocaleCount: asNumber(family.outdated_locale_count),
+      blockerCodes: asStringArray(family.blocker_codes),
+      missingLocales: asStringArray(family.missing_locales),
+      availableLocales: asStringArray(family.available_locales),
+      quickCreate: familyQuickCreate,
+    },
+    refresh: {
+      familyDetail: asBoolean(refresh.family_detail),
+      familyList: asBoolean(refresh.family_list),
+      contentSummary: asBoolean(refresh.content_summary),
+    },
+    navigation: {
+      contentDetailURL: asString(navigation.content_detail_url),
+      contentEditURL: asString(navigation.content_edit_url),
+    },
+  };
+}
+
+export function createTranslationCreateLocaleActionModel(
+  input: TranslationCreateLocaleActionInput
+): TranslationCreateLocaleActionModel {
+  const familyId = asString(input.familyId);
+  const request = createTranslationCreateLocaleRequest(input);
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+  };
+  if (request.idempotencyKey) {
+    headers['X-Idempotency-Key'] = request.idempotencyKey;
+  }
+  return {
+    familyId,
+    endpoint: buildCreateLocaleURL(asString(input.basePath) || '/admin/api', familyId, request.environment),
+    headers,
+    request,
+  };
+}
+
 export function normalizeFamilyListRow(input: Record<string, unknown>): TranslationFamilyListItem {
   return {
     familyId: asString(input.family_id),
@@ -329,13 +531,18 @@ export function normalizeFamilyListRow(input: Record<string, unknown>): Translat
 }
 
 export function normalizeFamilyListResponse(input: Record<string, unknown>): TranslationFamilyListResponse {
-  const rows = Array.isArray(input.items) ? input.items : [];
+  const data = asRecord(input.data);
+  const meta = asRecord(input.meta);
+  const body = Object.keys(data).length ? data : input;
+  const summary = Object.keys(meta).length ? meta : input;
+  const rawRows = body.items ?? body.families;
+  const rows: unknown[] = Array.isArray(rawRows) ? rawRows : [];
   return {
     items: rows.map((row) => normalizeFamilyListRow(asRecord(row))),
-    total: asNumber(input.total),
-    page: asNumber(input.page, 1),
-    perPage: asNumber(input.per_page, 50),
-    environment: asString(input.environment),
+    total: asNumber(summary.total),
+    page: asNumber(summary.page, 1),
+    perPage: asNumber(summary.per_page, 50),
+    environment: asString(summary.environment),
   };
 }
 
@@ -385,22 +592,29 @@ function normalizeAssignment(input: Record<string, unknown>): TranslationFamilyA
 }
 
 export function normalizeFamilyDetail(input: Record<string, unknown>): TranslationFamilyDetail {
-  const sourceVariant = input.source_variant ? normalizeVariant(asRecord(input.source_variant)) : null;
-  const blockers = Array.isArray(input.blockers) ? input.blockers.map((row) => normalizeBlocker(asRecord(row))) : [];
-  const localeVariants = Array.isArray(input.locale_variants)
-    ? input.locale_variants.map((row) => normalizeVariant(asRecord(row)))
+  const data = asRecord(input.data);
+  const body = Object.keys(data).length ? data : input;
+  const sourceVariant = body.source_variant ? normalizeVariant(asRecord(body.source_variant)) : null;
+  const blockers = Array.isArray(body.blockers) ? body.blockers.map((row) => normalizeBlocker(asRecord(row))) : [];
+  const localeVariants = Array.isArray(body.locale_variants)
+    ? body.locale_variants.map((row) => normalizeVariant(asRecord(row)))
     : [];
-  const activeAssignments = Array.isArray(input.active_assignments)
-    ? input.active_assignments.map((row) => normalizeAssignment(asRecord(row)))
+  const activeAssignments = Array.isArray(body.active_assignments)
+    ? body.active_assignments.map((row) => normalizeAssignment(asRecord(row)))
     : [];
-  const publishGate = asRecord(input.publish_gate);
-  const readinessSummary = asRecord(input.readiness_summary);
+  const publishGate = asRecord(body.publish_gate);
+  const readinessSummary = asRecord(body.readiness_summary);
+  const quickCreate = normalizeQuickCreateHints(asRecord(body.quick_create), {
+    missingLocales: asStringArray(readinessSummary.missing_locales),
+    recommendedLocale: asString(readinessSummary.recommended_locale),
+    requiredForPublish: asStringArray(readinessSummary.required_for_publish ?? readinessSummary.required_locales),
+  });
 
   return {
-    familyId: asString(input.family_id),
-    contentType: asString(input.content_type),
-    sourceLocale: asString(input.source_locale),
-    readinessState: normalizeReadinessState(input.readiness_state),
+    familyId: asString(body.family_id),
+    contentType: asString(body.content_type),
+    sourceLocale: asString(body.source_locale),
+    readinessState: normalizeReadinessState(body.readiness_state),
     sourceVariant,
     localeVariants,
     blockers,
@@ -422,7 +636,206 @@ export function normalizeFamilyDetail(input: Record<string, unknown>): Translati
       outdatedLocaleCount: asNumber(readinessSummary.outdated_locale_count),
       publishReady: asBoolean(readinessSummary.publish_ready),
     },
+    quickCreate,
   };
+}
+
+function uniqueLocaleList(...parts: string[][]): string[] {
+  const values = new Set<string>();
+  for (const part of parts) {
+    for (const entry of part) {
+      const normalized = asString(entry).toLowerCase();
+      if (normalized) values.add(normalized);
+    }
+  }
+  return Array.from(values).sort();
+}
+
+function withoutLocale(values: string[], locale: string): string[] {
+  const target = asString(locale).toLowerCase();
+  return values
+    .map((entry) => asString(entry).toLowerCase())
+    .filter((entry) => entry && entry !== target);
+}
+
+export function applyCreateLocaleToFamilyDetail(
+  detail: TranslationFamilyDetail,
+  result: TranslationCreateLocaleResult
+): TranslationFamilyDetail {
+  if (!detail || !result || !result.familyId || detail.familyId !== result.familyId) {
+    return detail;
+  }
+
+  const locale = asString(result.locale).toLowerCase();
+  const localeVariants = detail.localeVariants.some((variant) => variant.locale === locale)
+    ? detail.localeVariants.map((variant) => (
+      variant.locale === locale
+        ? { ...variant, id: variant.id || result.variantId, status: result.status || variant.status }
+        : { ...variant }
+    ))
+    : [
+      ...detail.localeVariants.map((variant) => ({ ...variant })),
+      {
+        id: result.variantId,
+        familyId: detail.familyId,
+        locale,
+        status: result.status,
+        isSource: false,
+        sourceRecordId: detail.sourceVariant?.sourceRecordId || '',
+        sourceHashAtLastSync: '',
+        fields: {},
+        createdAt: '',
+        updatedAt: '',
+        publishedAt: '',
+      },
+    ].sort((left, right) => left.locale.localeCompare(right.locale));
+
+  let activeAssignments = detail.activeAssignments.map((assignment) => ({ ...assignment }));
+  if (result.assignment) {
+    const nextAssignment: TranslationFamilyAssignment = {
+      id: result.assignment.assignmentId,
+      familyId: detail.familyId,
+      variantId: result.variantId,
+      sourceLocale: detail.sourceLocale,
+      targetLocale: result.assignment.targetLocale || locale,
+      workScope: result.assignment.workScope || detail.quickCreate.defaultAssignment.workScope,
+      status: result.assignment.status,
+      assigneeId: result.assignment.assigneeId,
+      reviewerId: '',
+      priority: result.assignment.priority,
+      dueDate: result.assignment.dueDate,
+      createdAt: '',
+      updatedAt: '',
+    };
+    const matchIndex = activeAssignments.findIndex((assignment) =>
+      assignment.id === nextAssignment.id || assignment.targetLocale === nextAssignment.targetLocale
+    );
+    if (matchIndex >= 0) {
+      activeAssignments[matchIndex] = nextAssignment;
+    } else {
+      activeAssignments = [...activeAssignments, nextAssignment].sort((left, right) =>
+        left.targetLocale.localeCompare(right.targetLocale)
+      );
+    }
+  }
+
+  const blockers = detail.blockers
+    .map((blocker) => ({ ...blocker }))
+    .filter((blocker) => !(blocker.blockerCode === 'missing_locale' && blocker.locale === locale));
+
+  const availableLocales = uniqueLocaleList(detail.readinessSummary.availableLocales, result.family.availableLocales, [locale]);
+  const missingLocales = withoutLocale(
+    uniqueLocaleList(detail.readinessSummary.missingLocales, result.family.missingLocales),
+    locale
+  );
+
+  return {
+    ...detail,
+    readinessState: result.family.readinessState,
+    localeVariants,
+    blockers,
+    activeAssignments,
+    publishGate: {
+      allowed: result.family.readinessState === 'ready',
+      overrideAllowed: detail.publishGate.overrideAllowed,
+      blockedBy: [...result.family.blockerCodes],
+      reviewRequired: detail.publishGate.reviewRequired,
+    },
+    readinessSummary: {
+      ...detail.readinessSummary,
+      state: result.family.readinessState,
+      availableLocales,
+      missingLocales,
+      blockerCodes: [...result.family.blockerCodes],
+      missingRequiredLocaleCount: result.family.missingRequiredLocaleCount,
+      pendingReviewCount: result.family.pendingReviewCount,
+      outdatedLocaleCount: result.family.outdatedLocaleCount,
+      publishReady: result.family.readinessState === 'ready',
+    },
+    quickCreate: { ...result.family.quickCreate },
+  };
+}
+
+export function applyCreateLocaleToSummaryState(
+  summary: Record<string, unknown>,
+  result: TranslationCreateLocaleResult
+): Record<string, unknown> {
+  const next = { ...summary };
+  const readiness = { ...asRecord(next.translation_readiness) };
+  const locale = asString(result.locale).toLowerCase();
+  const requestedLocale = asString(next.requested_locale).toLowerCase();
+
+  const summaryFamilyID = asString(
+    next.translation_family_id ||
+    next.translation_group_id ||
+    readiness.family_id ||
+    readiness.translation_group_id
+  );
+  if (summaryFamilyID && summaryFamilyID !== result.familyId) {
+    return next;
+  }
+
+  const availableLocales = uniqueLocaleList(
+    asStringArray(next.available_locales),
+    asStringArray(readiness.available_locales),
+    result.family.availableLocales,
+    [locale]
+  );
+  const missingLocales = withoutLocale(
+    uniqueLocaleList(
+      asStringArray(next.missing_required_locales),
+      asStringArray(readiness.missing_required_locales),
+      result.family.missingLocales
+    ),
+    locale
+  );
+
+  next.available_locales = availableLocales;
+  next.missing_required_locales = missingLocales;
+  next.translation_family_id = summaryFamilyID || result.familyId;
+
+  readiness.family_id = summaryFamilyID || result.familyId;
+  readiness.state = result.family.readinessState;
+  readiness.available_locales = availableLocales;
+  readiness.missing_required_locales = missingLocales;
+  readiness.blocker_codes = [...result.family.blockerCodes];
+  readiness.missing_required_locale_count = result.family.missingRequiredLocaleCount;
+  readiness.pending_review_count = result.family.pendingReviewCount;
+  readiness.outdated_locale_count = result.family.outdatedLocaleCount;
+  readiness.missing_locales = [...result.family.quickCreate.missingLocales];
+  readiness.recommended_locale = result.family.quickCreate.recommendedLocale;
+  readiness.required_for_publish = [...result.family.quickCreate.requiredForPublish];
+  readiness.default_assignment = {
+    auto_create_assignment: result.family.quickCreate.defaultAssignment.autoCreateAssignment,
+    work_scope: result.family.quickCreate.defaultAssignment.workScope,
+    priority: result.family.quickCreate.defaultAssignment.priority,
+    assignee_id: result.family.quickCreate.defaultAssignment.assigneeId,
+    due_date: result.family.quickCreate.defaultAssignment.dueDate,
+  };
+  readiness.quick_create = {
+    enabled: result.family.quickCreate.enabled,
+    missing_locales: [...result.family.quickCreate.missingLocales],
+    recommended_locale: result.family.quickCreate.recommendedLocale,
+    required_for_publish: [...result.family.quickCreate.requiredForPublish],
+    default_assignment: {
+      auto_create_assignment: result.family.quickCreate.defaultAssignment.autoCreateAssignment,
+      work_scope: result.family.quickCreate.defaultAssignment.workScope,
+      priority: result.family.quickCreate.defaultAssignment.priority,
+      assignee_id: result.family.quickCreate.defaultAssignment.assigneeId,
+      due_date: result.family.quickCreate.defaultAssignment.dueDate,
+    },
+    disabled_reason_code: result.family.quickCreate.disabledReasonCode,
+    disabled_reason: result.family.quickCreate.disabledReason,
+  };
+  next.translation_readiness = readiness;
+
+  if (requestedLocale && requestedLocale === locale) {
+    next.missing_requested_locale = false;
+    next.fallback_used = false;
+    next.resolved_locale = locale;
+  }
+
+  return next;
 }
 
 export function getReadinessChip(state: string): ReadinessChip {
@@ -436,6 +849,17 @@ export function getReadinessChip(state: string): ReadinessChip {
 export function renderReadinessChip(state: string): string {
   const chip = getReadinessChip(state);
   return `<span class="translation-family-chip translation-family-chip--${chip.tone}" data-readiness-state="${chip.state}">${chip.label}</span>`;
+}
+
+async function createLocaleErrorFromResponse(response: Response): Promise<TranslationCreateLocaleError> {
+  const structured = await extractStructuredError(response);
+  const error = new Error(structured.message || 'Failed to create locale.') as TranslationCreateLocaleError;
+  error.statusCode = response.status;
+  error.textCode = structured.textCode;
+  error.requestId = asString(response.headers.get('x-request-id'));
+  error.traceId = requestTraceID(response.headers);
+  error.metadata = asRecord(structured.metadata);
+  return error;
 }
 
 function formatTimestamp(value: string): string {
@@ -601,6 +1025,26 @@ function renderFamilySummaryMetrics(detail: TranslationFamilyDetail): string {
 function renderLocalePanel(detail: TranslationFamilyDetail, options: TranslationFamilyDetailRenderOptions): string {
   const contentBasePath = trimTrailingSlash(options.contentBasePath || `${trimTrailingSlash(options.basePath || '/admin')}/content`);
   const missingLocales = detail.readinessSummary.missingLocales;
+  const quickCreateReason = detail.quickCreate.disabledReason || 'Locale creation is unavailable for this family.';
+  const createLocaleButton = (locale: string): string => {
+    const disabled = !detail.quickCreate.enabled;
+    return `
+      <button
+        type="button"
+        class="inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium ${
+          disabled
+            ? 'cursor-not-allowed bg-slate-200 text-slate-500'
+            : 'bg-sky-600 text-white hover:bg-sky-700'
+        }"
+        data-family-create-locale="true"
+        data-locale="${escapeAttribute(locale)}"
+        ${disabled ? 'aria-disabled="true"' : ''}
+        title="${escapeAttribute(disabled ? quickCreateReason : `Create ${locale.toUpperCase()} locale`)}"
+      >
+        Create locale
+      </button>
+    `;
+  };
   const rows = detail.localeVariants.map((variant) => {
     const href = buildContentLink(contentBasePath, detail, variant);
     const openLink = href
@@ -633,7 +1077,7 @@ function renderLocalePanel(detail: TranslationFamilyDetail, options: Translation
           </div>
           <p class="mt-2 text-sm text-rose-800">This locale is required by policy before the family is publish-ready.</p>
         </div>
-        <div class="flex-shrink-0 text-xs font-medium uppercase tracking-wide text-rose-700">Phase 6 create flow</div>
+        <div class="flex-shrink-0">${createLocaleButton(locale)}</div>
       </li>
     `);
   }
@@ -879,6 +1323,25 @@ export function renderTranslationFamilyDetailState(
   const blockerSummary = detail.readinessSummary.blockerCodes.length
     ? detail.readinessSummary.blockerCodes.map(sentenceCase).join(', ')
     : 'No blockers';
+  const quickCreateDisabled = !detail.quickCreate.enabled;
+  const createLocaleCTA = detail.quickCreate.recommendedLocale
+    ? `
+      <button
+        type="button"
+        class="inline-flex items-center rounded-full px-4 py-2 text-sm font-medium ${
+          quickCreateDisabled
+            ? 'cursor-not-allowed bg-slate-200 text-slate-500'
+            : 'bg-sky-600 text-white hover:bg-sky-700'
+        }"
+        data-family-create-locale="true"
+        data-locale="${escapeAttribute(detail.quickCreate.recommendedLocale)}"
+        ${quickCreateDisabled ? 'aria-disabled="true"' : ''}
+        title="${escapeAttribute(quickCreateDisabled ? detail.quickCreate.disabledReason || 'Locale creation is unavailable.' : `Create ${detail.quickCreate.recommendedLocale.toUpperCase()} locale`)}"
+      >
+        Create ${escapeHTML(detail.quickCreate.recommendedLocale.toUpperCase())}
+      </button>
+    `
+    : '';
 
   return `
     <div class="translation-family-detail space-y-6" data-family-id="${escapeAttribute(detail.familyId)}" data-readiness-state="${escapeAttribute(detail.readinessState)}">
@@ -892,6 +1355,7 @@ export function renderTranslationFamilyDetailState(
           <div class="flex flex-wrap items-center gap-2">
             ${renderReadinessChip(detail.readinessState)}
             <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">${escapeHTML(blockerSummary)}</span>
+            ${createLocaleCTA}
           </div>
         </div>
         <div class="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -979,6 +1443,283 @@ export function renderTranslationFamilyDetailPage(
   root.innerHTML = renderTranslationFamilyDetailState(state, options);
 }
 
+function globalToast(kind: 'success' | 'error' | 'warning' | 'info', message: string): void {
+  const manager = (globalThis as { toastManager?: Record<string, (input: string) => void> }).toastManager;
+  const handler = manager?.[kind];
+  if (typeof handler === 'function') {
+    handler(message);
+  }
+}
+
+function parseJSONAttribute<T>(value: string, fallback: T): T {
+  const normalized = asString(value);
+  if (!normalized) return fallback;
+  try {
+    return JSON.parse(normalized) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+function createLocaleErrorMessage(error: TranslationCreateLocaleError, locale: string): string {
+  switch (error.textCode) {
+    case 'TRANSLATION_EXISTS':
+      return `${locale.toUpperCase()} already exists. Reload to open the existing locale.`;
+    case 'POLICY_BLOCKED':
+      return 'Policy blocked locale creation for this family.';
+    case 'VERSION_CONFLICT':
+      return 'The family changed while you were creating the locale. Reload and try again.';
+    default:
+      return error.message || 'Failed to create locale.';
+  }
+}
+
+export function toDateTimeLocalInputValue(value: string): string {
+  const normalized = asString(value);
+  if (!normalized) return '';
+  const parsed = new Date(normalized);
+  if (Number.isNaN(parsed.getTime())) return '';
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, '0');
+  const day = String(parsed.getDate()).padStart(2, '0');
+  const hours = String(parsed.getHours()).padStart(2, '0');
+  const minutes = String(parsed.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+function toRFC3339(value: string): string {
+  const normalized = asString(value);
+  if (!normalized) return '';
+  const parsed = new Date(normalized);
+  return Number.isNaN(parsed.getTime()) ? '' : parsed.toISOString();
+}
+
+function resolveCreateLocaleNavigationTarget(
+  result: TranslationCreateLocaleResult,
+  localeURLs: Record<string, string>,
+  requestedLocale: string,
+  preferEdit: boolean
+): string {
+  const locale = asString(result.locale).toLowerCase();
+  const requested = asString(requestedLocale).toLowerCase();
+  const preferredNavigation = preferEdit
+    ? result.navigation.contentEditURL || result.navigation.contentDetailURL
+    : result.navigation.contentDetailURL || result.navigation.contentEditURL;
+  if (requested && requested === locale && preferredNavigation) {
+    return preferredNavigation;
+  }
+  if (locale && localeURLs[locale]) {
+    return localeURLs[locale];
+  }
+  return preferredNavigation;
+}
+
+interface CreateLocaleDialogConfig {
+  familyId: string;
+  quickCreate: TranslationFamilyQuickCreateHints;
+  initialLocale?: string;
+  heading: string;
+  submitLabel?: string;
+  onSubmit: (input: Partial<TranslationCreateLocaleRequest>) => Promise<TranslationCreateLocaleResult>;
+  onSuccess?: (result: TranslationCreateLocaleResult) => Promise<void> | void;
+}
+
+function openCreateLocaleDialog(config: CreateLocaleDialogConfig): void {
+  const doc = typeof document !== 'undefined' ? document : null;
+  if (!doc) return;
+  const quickCreate = config.quickCreate;
+  if (!quickCreate.enabled || quickCreate.missingLocales.length === 0) {
+    globalToast('warning', quickCreate.disabledReason || 'Locale creation is unavailable.');
+    return;
+  }
+
+  const recommendedLocale = asString(config.initialLocale || quickCreate.recommendedLocale || quickCreate.missingLocales[0]).toLowerCase();
+  const selectedLocale = quickCreate.missingLocales.includes(recommendedLocale)
+    ? recommendedLocale
+    : quickCreate.missingLocales[0];
+
+  const overlay = doc.createElement('div');
+  overlay.className = 'fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/50 p-4';
+  overlay.setAttribute('data-translation-create-locale-modal', 'true');
+  overlay.innerHTML = `
+    <div class="w-full max-w-xl rounded-3xl bg-white shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="translation-create-locale-title">
+      <form class="p-6">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Create locale</p>
+            <h2 id="translation-create-locale-title" class="mt-2 text-2xl font-semibold text-slate-950">${escapeHTML(config.heading)}</h2>
+            <p class="mt-2 text-sm text-slate-600">Server-authored recommendations and publish requirements for family ${escapeHTML(config.familyId)}.</p>
+          </div>
+          <button type="button" data-close-modal="true" class="rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-600 hover:bg-slate-200">Close</button>
+        </div>
+        <div class="mt-6 grid gap-4">
+          <label class="grid gap-2">
+            <span class="text-sm font-medium text-slate-900">Locale</span>
+            <select name="locale" class="rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900">
+              ${quickCreate.missingLocales.map((locale) => `
+                <option value="${escapeAttribute(locale)}" ${locale === selectedLocale ? 'selected' : ''}>
+                  ${escapeHTML(locale.toUpperCase())}${locale === quickCreate.recommendedLocale ? ' (recommended)' : ''}
+                </option>
+              `).join('')}
+            </select>
+          </label>
+          <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+            <p><strong>Required for publish:</strong> ${escapeHTML(quickCreate.requiredForPublish.join(', ') || 'None')}</p>
+            <p class="mt-2"><strong>Recommended locale:</strong> ${escapeHTML(quickCreate.recommendedLocale.toUpperCase() || 'N/A')}</p>
+            <p class="mt-2"><strong>Default work scope:</strong> ${escapeHTML(quickCreate.defaultAssignment.workScope || '__all__')}</p>
+          </div>
+          <label class="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3">
+            <input type="checkbox" name="auto_create_assignment" class="h-4 w-4 rounded border-slate-300 text-sky-600" ${quickCreate.defaultAssignment.autoCreateAssignment ? 'checked' : ''}>
+            <span class="text-sm text-slate-800">Seed an assignment now</span>
+          </label>
+          <div data-assignment-fields="true" class="grid gap-4 rounded-2xl border border-slate-200 p-4">
+            <label class="grid gap-2">
+              <span class="text-sm font-medium text-slate-900">Assignee</span>
+              <input type="text" name="assignee_id" value="${escapeAttribute(quickCreate.defaultAssignment.assigneeId)}" class="rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900">
+            </label>
+            <label class="grid gap-2">
+              <span class="text-sm font-medium text-slate-900">Priority</span>
+              <select name="priority" class="rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900">
+                ${['low', 'normal', 'high', 'urgent'].map((priority) => `
+                  <option value="${priority}" ${priority === (quickCreate.defaultAssignment.priority || 'normal') ? 'selected' : ''}>${sentenceCase(priority)}</option>
+                `).join('')}
+              </select>
+            </label>
+            <label class="grid gap-2">
+              <span class="text-sm font-medium text-slate-900">Due date</span>
+              <input type="datetime-local" name="due_date" value="${escapeAttribute(toDateTimeLocalInputValue(quickCreate.defaultAssignment.dueDate))}" class="rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900">
+            </label>
+          </div>
+        </div>
+        <div data-create-locale-feedback="true" class="mt-4 hidden rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"></div>
+        <div class="mt-6 flex items-center justify-end gap-3">
+          <button type="button" data-close-modal="true" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+          <button type="submit" class="rounded-xl bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700">${escapeHTML(config.submitLabel || 'Create locale')}</button>
+        </div>
+      </form>
+    </div>
+  `;
+  doc.body.appendChild(overlay);
+
+  const form = overlay.querySelector('form');
+  const localeField = overlay.querySelector<HTMLSelectElement>('select[name="locale"]');
+  const autoCreateAssignmentField = overlay.querySelector<HTMLInputElement>('input[name="auto_create_assignment"]');
+  const assigneeField = overlay.querySelector<HTMLInputElement>('input[name="assignee_id"]');
+  const priorityField = overlay.querySelector<HTMLSelectElement>('select[name="priority"]');
+  const dueDateField = overlay.querySelector<HTMLInputElement>('input[name="due_date"]');
+  const assignmentFields = overlay.querySelector<HTMLElement>('[data-assignment-fields="true"]');
+  const feedback = overlay.querySelector<HTMLElement>('[data-create-locale-feedback="true"]');
+  const submitButton = overlay.querySelector<HTMLButtonElement>('button[type="submit"]');
+
+  const close = (): void => {
+    overlay.remove();
+  };
+  const syncAssignmentFields = (): void => {
+    if (!assignmentFields || !autoCreateAssignmentField) return;
+    assignmentFields.hidden = !autoCreateAssignmentField.checked;
+  };
+
+  syncAssignmentFields();
+  autoCreateAssignmentField?.addEventListener('change', syncAssignmentFields);
+  overlay.querySelectorAll<HTMLElement>('[data-close-modal="true"]').forEach((element) => {
+    element.addEventListener('click', close);
+  });
+  overlay.addEventListener('click', (event) => {
+    if (event.target === overlay) close();
+  });
+  form?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!localeField || !submitButton) return;
+    if (feedback) {
+      feedback.hidden = true;
+      feedback.textContent = '';
+    }
+    submitButton.disabled = true;
+    submitButton.classList.add('opacity-60', 'cursor-not-allowed');
+    const locale = asString(localeField.value).toLowerCase();
+    try {
+      const result = await config.onSubmit({
+        locale,
+        autoCreateAssignment: autoCreateAssignmentField?.checked,
+        assigneeId: assigneeField?.value,
+        priority: priorityField?.value,
+        dueDate: toRFC3339(dueDateField?.value || ''),
+      });
+      close();
+      await config.onSuccess?.(result);
+    } catch (error) {
+      const typed = error as TranslationCreateLocaleError;
+      const message = createLocaleErrorMessage(typed, locale);
+      if (feedback) {
+        feedback.hidden = false;
+        feedback.textContent = message;
+      }
+      globalToast('error', message);
+    } finally {
+      submitButton.disabled = false;
+      submitButton.classList.remove('opacity-60', 'cursor-not-allowed');
+    }
+  });
+}
+
+interface TranslationSummaryCardConfig {
+  familyId: string;
+  requestedLocale: string;
+  resolvedLocale: string;
+  apiBasePath: string;
+  quickCreate: TranslationFamilyQuickCreateHints;
+  localeURLs: Record<string, string>;
+}
+
+function translationSummaryCardConfig(element: HTMLElement): TranslationSummaryCardConfig {
+  return {
+    familyId: asString(element.dataset.translationGroupId),
+    requestedLocale: asString(element.dataset.requestedLocale).toLowerCase(),
+    resolvedLocale: asString(element.dataset.resolvedLocale).toLowerCase(),
+    apiBasePath: asString(element.dataset.apiBasePath || '/admin/api'),
+    quickCreate: normalizeQuickCreateHints(
+      parseJSONAttribute<Record<string, unknown>>(element.dataset.quickCreate || '', {}),
+      {}
+    ),
+    localeURLs: parseJSONAttribute<Record<string, string>>(element.dataset.localeUrls || '', {}),
+  };
+}
+
+export function initTranslationSummaryCards(root: ParentNode = document): void {
+  if (typeof document === 'undefined') return;
+  root.querySelectorAll<HTMLElement>('[data-translation-summary-card="true"]').forEach((card) => {
+    if (card.dataset.translationCreateBound === 'true') return;
+    card.dataset.translationCreateBound = 'true';
+    const config = translationSummaryCardConfig(card);
+    const client = createTranslationFamilyClient({ basePath: config.apiBasePath });
+    card.querySelectorAll<HTMLElement>('[data-action="create-locale"]').forEach((button) => {
+      button.addEventListener('click', (event) => {
+        event.preventDefault();
+        const preferredLocale = asString(button.dataset.locale).toLowerCase() || config.quickCreate.recommendedLocale;
+        openCreateLocaleDialog({
+          familyId: config.familyId,
+          quickCreate: config.quickCreate,
+          initialLocale: preferredLocale,
+          heading: `Create ${preferredLocale.toUpperCase() || config.quickCreate.recommendedLocale.toUpperCase()} locale`,
+          onSubmit: (input) => client.createLocale(config.familyId, input),
+          onSuccess: async (result) => {
+            globalToast('success', `${result.locale.toUpperCase()} locale created.`);
+            const preferEdit = typeof window !== 'undefined' && window.location.pathname.endsWith('/edit');
+            const target = resolveCreateLocaleNavigationTarget(result, config.localeURLs, config.requestedLocale, preferEdit);
+            if (target && typeof window !== 'undefined') {
+              window.location.href = target;
+              return;
+            }
+            if (typeof window !== 'undefined') {
+              window.location.reload();
+            }
+          },
+        });
+      });
+    });
+  });
+}
+
 export async function initTranslationFamilyDetailPage(
   root: HTMLElement | null,
   options: TranslationFamilyDetailRenderOptions & {
@@ -999,6 +1740,38 @@ export async function initTranslationFamilyDetailPage(
   renderTranslationFamilyDetailPage(root, state, renderOptions);
 
   if (typeof (root as HTMLElement).querySelector === 'function') {
+    if (state.status === 'ready' && state.detail) {
+      const apiBasePath = `${trimTrailingSlash(renderOptions.basePath || '/admin')}/api`;
+      const client = createTranslationFamilyClient({ basePath: apiBasePath, fetch: options.fetch });
+      (root as HTMLElement).querySelectorAll<HTMLElement>('[data-family-create-locale="true"]').forEach((button) => {
+        if (button.dataset.translationCreateBound === 'true') return;
+        button.dataset.translationCreateBound = 'true';
+        button.addEventListener('click', (event) => {
+          event.preventDefault();
+          const detail = state.detail;
+          if (!detail) {
+            globalToast('error', 'Translation family detail is unavailable.');
+            return;
+          }
+          if (button.getAttribute('aria-disabled') === 'true') {
+            globalToast('warning', detail.quickCreate.disabledReason || 'Locale creation is unavailable.');
+            return;
+          }
+          const locale = asString(button.dataset.locale).toLowerCase() || detail.quickCreate.recommendedLocale || '';
+          openCreateLocaleDialog({
+            familyId: detail.familyId,
+            quickCreate: detail.quickCreate,
+            initialLocale: locale,
+            heading: `Create ${locale.toUpperCase()} locale`,
+            onSubmit: (input) => client.createLocale(detail.familyId, input),
+            onSuccess: async (result) => {
+              globalToast('success', `${result.locale.toUpperCase()} locale created.`);
+              await initTranslationFamilyDetailPage(root as HTMLElement, { ...options, ...renderOptions, endpoint });
+            },
+          });
+        });
+      });
+    }
     const retryButton = (root as HTMLElement).querySelector<HTMLButtonElement>('.ui-state-retry-btn');
     if (retryButton) {
       retryButton.addEventListener('click', () => {
@@ -1032,6 +1805,24 @@ export function createTranslationFamilyClient(options: TranslationFamilyClientOp
       });
       const payload = await response.json() as Record<string, unknown>;
       return normalizeFamilyDetail(payload);
+    },
+
+    async createLocale(familyId, input = {}) {
+      const action = createTranslationCreateLocaleActionModel({
+        ...input,
+        familyId,
+        basePath,
+      });
+      const response = await fetchImpl(action.endpoint, {
+        method: 'POST',
+        headers: action.headers,
+        body: JSON.stringify(serializeCreateLocaleRequest(action.request)),
+      });
+      if (!response.ok) {
+        throw await createLocaleErrorFromResponse(response);
+      }
+      const payload = await response.json() as Record<string, unknown>;
+      return normalizeCreateLocaleResult(payload);
     },
   };
 }

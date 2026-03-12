@@ -1,0 +1,69 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const testFileDir = path.dirname(fileURLToPath(import.meta.url));
+const runtimePath = path.resolve(testFileDir, '../src/esign/pages/agreement-form-runtime.ts');
+const pageControllerPath = path.resolve(testFileDir, '../src/esign/pages/agreement-form.ts');
+const bootPath = path.resolve(testFileDir, '../src/esign/pages/agreement-form/boot.ts');
+const boundariesPath = path.resolve(testFileDir, '../src/esign/pages/agreement-form/EXTRACTION_BOUNDARIES.md');
+
+function read(filePath) {
+  return fs.readFileSync(filePath, 'utf8');
+}
+
+test('Phase 6 contract: agreement runtime boots through extracted refs, state, sync, and lifecycle modules', () => {
+  const source = read(runtimePath);
+
+  assert.match(source, /from '\.\/agreement-form\/composition'/);
+  assert.match(source, /createAgreementFormRuntimeCoordinator\(inputConfig\)/);
+  assert.match(source, /runtime\.start\(\)/);
+});
+
+test('Phase 6 contract: page controller destroy delegates to runtime teardown', () => {
+  const source = read(pageControllerPath);
+  assert.match(source, /destroyAgreementFormRuntime/);
+  assert.match(source, /destroy\(\): void {\s*destroyAgreementFormRuntime\(\);/);
+});
+
+test('Phase 6 contract: extracted boot runtime starts sync side effects explicitly', () => {
+  const source = read(bootPath);
+  assert.match(source, /context\.syncController\.start\(\)/);
+  assert.match(source, /context\.syncController\.destroy\(\)/);
+});
+
+test('Phase 6 contract: extracted composition module owns controller assembly', () => {
+  const source = read(path.resolve(testFileDir, '../src/esign/pages/agreement-form/composition.ts'));
+  assert.match(source, /from '\.\/boot'/);
+  assert.match(source, /from '\.\/refs'/);
+  assert.match(source, /from '\.\/state-manager'/);
+  assert.match(source, /from '\.\/draft-sync-service'/);
+  assert.match(source, /from '\.\/active-tab-controller'/);
+  assert.match(source, /from '\.\/sync-controller'/);
+  assert.match(source, /from '\.\/document-selection'/);
+  assert.match(source, /from '\.\/telemetry'/);
+  assert.match(source, /from '\.\/participants'/);
+  assert.match(source, /from '\.\/field-definitions'/);
+  assert.match(source, /from '\.\/placement-editor'/);
+  assert.match(source, /from '\.\/form-payload'/);
+  assert.match(source, /from '\.\/state-binding'/);
+  assert.match(source, /from '\.\/wizard-validation'/);
+  assert.match(source, /from '\.\/resume-flow'/);
+  assert.match(source, /from '\.\/feedback'/);
+  assert.match(source, /from '\.\/runtime-actions'/);
+  assert.match(source, /from '\.\/wizard-navigation'/);
+  assert.match(source, /from '\.\/send-readiness'/);
+  assert.match(source, /from '\.\/form-submit'/);
+  assert.match(source, /const agreementRefs = collectAgreementFormRefs\(document\)/);
+  assert.match(source, /const agreementRuntime = bootAgreementFormRuntime\(/);
+  assert.match(source, /return agreementRuntime;/);
+});
+
+test('Phase 6 contract: agreement-form extraction boundaries are documented', () => {
+  const source = read(boundariesPath);
+  assert.match(source, /Agreement Form Runtime Internal Boundaries/);
+  assert.match(source, /Boot Phase Order/);
+  assert.match(source, /Current Extraction Scope/);
+});

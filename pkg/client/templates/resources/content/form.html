@@ -157,8 +157,6 @@
 <script src="{{ adminURL("runtime/formgen-relationships.min.js") }}" defer></script>
 <script type="module" src="{{ base_path }}/assets/dist/menu-builder/index.js"></script>
 <script type="module">
-  import { executeActionRequest } from '{{ base_path }}/assets/dist/toast/error-helpers.js';
-
   window.addEventListener("DOMContentLoaded", () => {
     // Initialize formgen relationships
     const api = window.FormgenRelationships;
@@ -243,53 +241,6 @@
       });
       syncSourceLocale();
     }
-
-    // Handle create-translation actions from translation summary
-    document.querySelectorAll('[data-action="create-translation"]').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        e.preventDefault();
-        const locale = btn.dataset.locale;
-        const panelName = btn.dataset.panel;
-        const recordId = btn.dataset.recordId;
-
-        if (!locale || !panelName || !recordId) {
-          console.error('[ContentForm] Missing data for create-translation action');
-          return;
-        }
-
-        const endpoint = `{{ base_path }}/api/${panelName}/actions/create_translation`;
-        const payload = {
-          id: recordId,
-          locale: locale,
-          {% if channel %}channel: '{{ channel }}',{% endif %}
-        };
-
-        btn.disabled = true;
-        btn.classList.add('opacity-50');
-
-        try {
-          const result = await executeActionRequest(endpoint, payload);
-          if (result.success && result.data?.id) {
-            // Navigate to the newly created translation
-            const newUrl = `{{ base_path }}/${panelName}/${result.data.id}/edit?locale=${locale}{% if channel %}&channel={{ channel }}{% endif %}`;
-            window.location.href = newUrl;
-          } else if (result.success) {
-            // Reload to show updated state
-            window.location.reload();
-          }
-        } catch (error) {
-          console.error('[ContentForm] Create translation failed:', error);
-          if (window.toastManager) {
-            window.toastManager.error(error.message || 'Failed to create translation');
-          } else {
-            alert(error.message || 'Failed to create translation');
-          }
-        } finally {
-          btn.disabled = false;
-          btn.classList.remove('opacity-50');
-        }
-      });
-    });
 
     // Disable form submission in fallback mode
     const container = document.querySelector('[data-fallback-mode="true"]');

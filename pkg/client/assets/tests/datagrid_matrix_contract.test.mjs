@@ -109,7 +109,7 @@ function installTestGlobals({ search = '', width = 1280, storage = {} } = {}) {
   };
 }
 
-test('phase4 contract: matrix view remains selectable without breaking grouped-mode routing', () => {
+test('matrix contract: view remains selectable without breaking grouped-mode routing', () => {
   const { cleanup } = installTestGlobals({ width: 420 });
 
   try {
@@ -131,7 +131,7 @@ test('phase4 contract: matrix view remains selectable without breaking grouped-m
   }
 });
 
-test('phase4 contract: datagrid query contract preserves filters/search/sort/grouping', () => {
+test('matrix contract: datagrid query preserves filters/search/sort/grouping', () => {
   const { cleanup } = installTestGlobals();
 
   try {
@@ -172,7 +172,7 @@ test('phase4 contract: datagrid query contract preserves filters/search/sort/gro
   }
 });
 
-test('phase4 contract: URL state falls back to short token when payload exceeds budget', () => {
+test('matrix contract: URL state falls back to short token when payload exceeds budget', () => {
   const { calls, cleanup } = installTestGlobals({ search: '?channel=prod' });
 
   try {
@@ -187,7 +187,7 @@ test('phase4 contract: URL state falls back to short token when payload exceeds 
       },
       createShareState(payload) {
         this.tokenSaved = payload;
-        return 'tok_phase4';
+        return 'tok_matrix';
       },
     };
 
@@ -203,13 +203,13 @@ test('phase4 contract: URL state falls back to short token when payload exceeds 
       },
     });
 
-    grid.state.search = 'hello-world-phase4';
+    grid.state.search = 'hello-world-matrix';
     grid.state.filters = [{ column: 'title', operator: 'ilike', value: 'very-long-filter-value-to-trigger-token' }];
     grid.syncURL();
 
     assert.equal(calls.length, 1);
     const parsed = new URL(calls[0].url, 'http://localhost');
-    assert.equal(parsed.searchParams.get('state'), 'tok_phase4');
+    assert.equal(parsed.searchParams.get('state'), 'tok_matrix');
     assert.equal(parsed.searchParams.get('filters'), null);
     assert.equal(parsed.searchParams.get('search'), null);
     assert.equal(parsed.searchParams.get('channel'), 'prod');
@@ -219,7 +219,7 @@ test('phase4 contract: URL state falls back to short token when payload exceeds 
   }
 });
 
-test('phase4 contract: go-crud bulk behavior preserves endpoint and payload shape', async () => {
+test('matrix contract: go-crud bulk behavior preserves endpoint and payload shape', async () => {
   let requestCapture = null;
   const originalFetch = globalThis.fetch;
 

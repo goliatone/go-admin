@@ -13,6 +13,7 @@
 {% set summary_readiness_state = nil %}
 {% set summary_family_url = translation_family_url %}
 {% set summary_locale_urls = translation_locale_urls %}
+{% set summary_quick_create = nil %}
 
 {# Extract from legacy translation_context if provided #}
 {% if translation_context %}
@@ -31,6 +32,7 @@
   {% set summary_available_locales = translation_readiness.available_locales|default:summary_available_locales %}
   {% set summary_missing_required_locales = translation_readiness.missing_required_locales|default:summary_missing_required_locales %}
   {% set summary_readiness_state = translation_readiness.readiness_state %}
+  {% set summary_quick_create = translation_readiness.quick_create|default:summary_quick_create %}
 {% endif %}
 {% if not summary_readiness_state and (summary_fallback_used or summary_missing_requested_locale) %}
   {% set summary_readiness_state = "missing_locales" %}
@@ -44,9 +46,13 @@
 
 {% if summary_translation_group_id %}
 <div class="translation-summary bg-white border border-gray-200 rounded-lg overflow-hidden mb-4"
+     data-translation-summary-card="true"
      data-translation-group-id="{{ summary_translation_group_id }}"
      data-requested-locale="{{ summary_requested_locale }}"
-     data-resolved-locale="{{ summary_resolved_locale }}">
+     data-resolved-locale="{{ summary_resolved_locale }}"
+     data-api-base-path="{{ base_path|default:"/admin" }}/api"
+     data-quick-create='{% if summary_quick_create %}{{ toJSON(summary_quick_create)|safe }}{% else %}{}{% endif %}'
+     data-locale-urls='{% if summary_locale_urls %}{{ toJSON(summary_locale_urls)|safe }}{% else %}{}{% endif %}'>
 
   {# Fallback Warning Banner (when viewing non-requested locale) #}
   {% if summary_fallback_used or summary_missing_requested_locale %}
@@ -78,12 +84,15 @@
       </div>
       {% if show_create_actions != false and panel_name and record_id %}
       <div class="flex-shrink-0">
+        {% set summary_quick_create_enabled = summary_quick_create.enabled|default:true %}
+        {% set summary_quick_create_reason = summary_quick_create.disabled_reason|default:"Locale creation is unavailable." %}
         <button type="button"
-                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-amber-800 bg-amber-100 hover:bg-amber-200 rounded transition-colors"
-                data-action="create-translation"
+                class="{% if summary_quick_create_enabled %}inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-amber-800 bg-amber-100 hover:bg-amber-200 rounded transition-colors{% else %}inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-slate-500 bg-slate-100 rounded cursor-not-allowed{% endif %}"
+                data-action="create-locale"
                 data-locale="{{ summary_requested_locale }}"
                 data-panel="{{ panel_name }}"
-                data-record-id="{{ record_id }}">
+                data-record-id="{{ record_id }}"
+                {% if not summary_quick_create_enabled %}aria-disabled="true" title="{{ summary_quick_create_reason }}"{% endif %}>
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
           </svg>
@@ -153,16 +162,19 @@
         <div class="flex items-center gap-1">
           {% if display_missing_locales and display_missing_locales|length > 0 %}
             {% for loc in display_missing_locales %}
+            {% set locale_quick_create_enabled = summary_quick_create.enabled|default:true %}
+            {% set locale_quick_create_reason = summary_quick_create.disabled_reason|default:"Locale creation is unavailable." %}
             <span class="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] rounded bg-red-100 text-red-700 font-medium">
               {{ loc|upper }}
               {% if show_create_actions != false and panel_name and record_id %}
               <button type="button"
                       class="ml-0.5 hover:text-red-900"
-                      data-action="create-translation"
+                      data-action="create-locale"
                       data-locale="{{ loc }}"
                       data-panel="{{ panel_name }}"
                       data-record-id="{{ record_id }}"
-                      title="Create {{ loc|upper }} translation">
+                      title="{% if locale_quick_create_enabled %}Create {{ loc|upper }} translation{% else %}{{ locale_quick_create_reason }}{% endif %}"
+                      {% if not locale_quick_create_enabled %}aria-disabled="true"{% endif %}>
                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                 </svg>
@@ -171,16 +183,19 @@
             </span>
             {% endfor %}
           {% elif summary_missing_requested_locale and summary_requested_locale %}
+            {% set requested_quick_create_enabled = summary_quick_create.enabled|default:true %}
+            {% set requested_quick_create_reason = summary_quick_create.disabled_reason|default:"Locale creation is unavailable." %}
             <span class="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] rounded bg-red-100 text-red-700 font-medium">
               {{ summary_requested_locale|upper }}
               {% if show_create_actions != false and panel_name and record_id %}
               <button type="button"
                       class="ml-0.5 hover:text-red-900"
-                      data-action="create-translation"
+                      data-action="create-locale"
                       data-locale="{{ summary_requested_locale }}"
                       data-panel="{{ panel_name }}"
                       data-record-id="{{ record_id }}"
-                      title="Create {{ summary_requested_locale|upper }} translation">
+                      title="{% if requested_quick_create_enabled %}Create {{ summary_requested_locale|upper }} translation{% else %}{{ requested_quick_create_reason }}{% endif %}"
+                      {% if not requested_quick_create_enabled %}aria-disabled="true"{% endif %}>
                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                 </svg>
@@ -244,4 +259,16 @@
     {% endif %}
   </div>
 </div>
+{% endif %}
+{% if summary_translation_group_id %}
+<script type="module">
+  import { initTranslationSummaryCards } from '{{ base_path|default:"/admin" }}/assets/dist/translation-family/index.js';
+
+  const bindTranslationSummaryCards = () => initTranslationSummaryCards(document);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bindTranslationSummaryCards, { once: true });
+  } else {
+    bindTranslationSummaryCards();
+  }
+</script>
 {% endif %}

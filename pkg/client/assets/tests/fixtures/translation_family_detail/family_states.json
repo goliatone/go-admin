@@ -95,6 +95,21 @@
       "pending_review_count": 0,
       "outdated_locale_count": 0,
       "publish_ready": true
+    },
+    "quick_create": {
+      "enabled": false,
+      "missing_locales": [],
+      "recommended_locale": "",
+      "required_for_publish": ["en", "es", "fr"],
+      "default_assignment": {
+        "auto_create_assignment": false,
+        "work_scope": "localization",
+        "priority": "normal",
+        "assignee_id": "",
+        "due_date": ""
+      },
+      "disabled_reason_code": "no_missing_locales",
+      "disabled_reason": "All required locales already exist for this family."
     }
   },
   "blocked": {
@@ -157,6 +172,21 @@
       "pending_review_count": 0,
       "outdated_locale_count": 0,
       "publish_ready": false
+    },
+    "quick_create": {
+      "enabled": false,
+      "missing_locales": [],
+      "recommended_locale": "",
+      "required_for_publish": ["en"],
+      "default_assignment": {
+        "auto_create_assignment": false,
+        "work_scope": "localization",
+        "priority": "normal",
+        "assignee_id": "",
+        "due_date": ""
+      },
+      "disabled_reason_code": "policy_denied",
+      "disabled_reason": "Policy currently blocks creating additional locale variants for this family."
     }
   },
   "missing_locale": {
@@ -231,6 +261,21 @@
       "pending_review_count": 0,
       "outdated_locale_count": 0,
       "publish_ready": false
+    },
+    "quick_create": {
+      "enabled": true,
+      "missing_locales": ["fr"],
+      "recommended_locale": "fr",
+      "required_for_publish": ["en", "es", "fr"],
+      "default_assignment": {
+        "auto_create_assignment": false,
+        "work_scope": "localization",
+        "priority": "normal",
+        "assignee_id": "",
+        "due_date": ""
+      },
+      "disabled_reason_code": "",
+      "disabled_reason": ""
     }
   },
   "missing_field": {

@@ -9,10 +9,10 @@ const {
   renderTranslationFamilyDetailState,
 } = await import('../dist/translation-family/index.js');
 
-const fixtureURL = new URL('./fixtures/translation_phase4/family_states.json', import.meta.url);
+const fixtureURL = new URL('./fixtures/translation_family_detail/family_states.json', import.meta.url);
 const fixtures = JSON.parse(await readFile(fixtureURL, 'utf8'));
 
-test('translation-family phase 4: renders complete family detail surface from ready fixture', () => {
+test('translation-family detail: renders complete surface from ready fixture', () => {
   const detail = normalizeFamilyDetail(fixtures.ready);
   const html = renderTranslationFamilyDetailState(
     { status: 'ready', detail, requestId: 'req-ready', traceId: 'trace-ready' },
@@ -29,7 +29,7 @@ test('translation-family phase 4: renders complete family detail surface from re
   assert.match(html, /Trace trace-ready/);
 });
 
-test('translation-family phase 4: missing-locale fixture renders blocked locale row', () => {
+test('translation-family detail: missing-locale fixture renders blocked locale row', () => {
   const detail = normalizeFamilyDetail(fixtures.missing_locale);
   const html = renderTranslationFamilyDetailState(
     { status: 'ready', detail },
@@ -38,10 +38,11 @@ test('translation-family phase 4: missing-locale fixture renders blocked locale 
 
   assert.match(html, /Missing required locale/i);
   assert.match(html, /FR/);
-  assert.match(html, /Phase 6 create flow/i);
+  assert.match(html, /Create locale/i);
+  assert.match(html, /data-family-create-locale="true"/i);
 });
 
-test('translation-family phase 4: blocker fixtures render canonical blocker labels', () => {
+test('translation-family detail: blocker fixtures render canonical blocker labels', () => {
   const cases = [
     ['blocked', /Policy denied/i],
     ['missing_field', /Missing field/i],
@@ -56,7 +57,7 @@ test('translation-family phase 4: blocker fixtures render canonical blocker labe
   }
 });
 
-test('translation-family phase 4: derives activity preview from variant and assignment timestamps', () => {
+test('translation-family detail: derives activity preview from variant and assignment timestamps', () => {
   const detail = normalizeFamilyDetail(fixtures.outdated_source);
   const preview = buildFamilyActivityPreview(detail, 3);
 
@@ -65,7 +66,7 @@ test('translation-family phase 4: derives activity preview from variant and assi
   assert.equal(preview[0].timestamp >= preview[1].timestamp, true);
 });
 
-test('translation-family phase 4: loading and conflict states render accessible feedback', async () => {
+test('translation-family detail: loading and conflict states render accessible feedback', async () => {
   const loadingHTML = renderTranslationFamilyDetailState({ status: 'loading' });
   assert.match(loadingHTML, /aria-busy="true"/);
 

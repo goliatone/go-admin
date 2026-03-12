@@ -56,6 +56,11 @@ export async function navigateToTranslationDashboard(page: Page): Promise<void> 
   await page.waitForLoadState('networkidle');
 }
 
+export async function navigateToTranslationQueue(page: Page): Promise<void> {
+  await page.goto('/admin/translations/queue');
+  await page.waitForLoadState('networkidle');
+}
+
 /**
  * Get current view mode from DataGrid
  */

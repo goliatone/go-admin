@@ -1,19 +1,21 @@
-import { F as W } from "../chunks/toast-manager-DQTs-tOQ.js";
-import { extractErrorMessage as rt, executeActionRequest as Re, isTranslationBlocker as jt, extractTranslationBlocker as zt, formatStructuredErrorForDisplay as Nt } from "../toast/error-helpers.js";
-import { extractExchangeError as Ui, generateExchangeReport as Vi, groupRowResultsByStatus as Ki, isExchangeError as Ji, parseImportResult as Yi } from "../toast/error-helpers.js";
-import { M as st, e as g, T as Ge } from "../chunks/modal-CI6l6KPp.js";
-import { b as re, a as Gt } from "../chunks/badge-CqKzZ9y5.js";
-import { r as Ht } from "../chunks/icon-renderer-CRbgoQtj.js";
-import { h as I, r as Ut } from "../chunks/http-client-Dm229xuF.js";
-import { S as Vt } from "../chunks/sortable.esm-DOKudrbz.js";
-import { n as Kt, E as Jt } from "../chunks/index-BmhyAsmn.js";
-let Yt = class nt extends st {
+import { F as J } from "../chunks/toast-manager-DQTs-tOQ.js";
+import { extractErrorMessage as He, executeActionRequest as ve, isTranslationBlocker as Lt, extractTranslationBlocker as _t, formatStructuredErrorForDisplay as Rt } from "../toast/error-helpers.js";
+import { extractExchangeError as Aa, generateExchangeReport as La, groupRowResultsByStatus as _a, isExchangeError as Ra, parseImportResult as Ia } from "../toast/error-helpers.js";
+import { M as Ve, e as m, T as Te } from "../chunks/modal-CI6l6KPp.js";
+import { b as X, a as It } from "../chunks/badge-CqKzZ9y5.js";
+import { r as Tt } from "../chunks/icon-renderer-CRbgoQtj.js";
+import { g as Ke, r as ee, a as Mt, b as Pt, c as Bt, d as Je } from "../chunks/translation-status-vocabulary-TlPBUpe_.js";
+import { C as Ma, D as Pa, h as Ba, E as Da, e as Fa, f as qa, Q as Oa, p as ja, o as za, l as Na, m as Ga, s as Ua, k as Ha, q as Va, j as Ka, i as Ja, n as Ya } from "../chunks/translation-status-vocabulary-TlPBUpe_.js";
+import { h as R, r as Dt } from "../chunks/http-client-Dm229xuF.js";
+import { S as Ft } from "../chunks/sortable.esm-DOKudrbz.js";
+import { a as qt, E as Ot } from "../chunks/index-Dvt9oAtQ.js";
+let jt = class Ye extends Ve {
   constructor(e, t, s) {
     super({ size: "md", initialFocus: "[data-payload-field]", lockBodyScroll: !1 }), this.resolved = !1, this.config = e, this.onConfirm = t, this.onCancel = s;
   }
   static prompt(e) {
     return new Promise((t) => {
-      new nt(
+      new Ye(
         e,
         (n) => t(n),
         () => t(null)
@@ -25,7 +27,7 @@ let Yt = class nt extends st {
     return `
       <form class="flex flex-col" data-payload-form>
         <div class="px-6 py-4 border-b border-gray-200">
-          <h3 class="text-lg font-semibold text-gray-900">${g(this.config.title)}</h3>
+          <h3 class="text-lg font-semibold text-gray-900">${m(this.config.title)}</h3>
           <p class="text-sm text-gray-500 mt-1">Complete required fields to continue.</p>
         </div>
         <div class="px-6 py-4 space-y-4 max-h-[60vh] overflow-y-auto">
@@ -35,12 +37,12 @@ let Yt = class nt extends st {
           <button type="button"
                   data-payload-cancel
                   class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer">
-            ${g(this.config.cancelLabel ?? "Cancel")}
+            ${m(this.config.cancelLabel ?? "Cancel")}
           </button>
           <button type="submit"
                   data-payload-confirm
                   class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 cursor-pointer">
-            ${g(this.config.confirmLabel ?? "Continue")}
+            ${m(this.config.confirmLabel ?? "Continue")}
           </button>
         </div>
       </form>
@@ -51,14 +53,14 @@ let Yt = class nt extends st {
       this.clearErrors();
       const n = {};
       let o = null;
-      for (const a of this.config.fields) {
-        const i = this.container?.querySelector(
-          `[data-payload-field="${a.name}"]`
+      for (const i of this.config.fields) {
+        const a = this.container?.querySelector(
+          `[data-payload-field="${i.name}"]`
         );
-        if (!i)
+        if (!a)
           continue;
-        const l = i.value.trim();
-        n[a.name] = l, l || (o || (o = i), this.showFieldError(a.name, "This field is required."));
+        const l = a.value.trim();
+        n[i.name] = l, l || (o || (o = a), this.showFieldError(i.name, "This field is required."));
       }
       if (o) {
         o.focus();
@@ -76,11 +78,11 @@ let Yt = class nt extends st {
     return this.resolved || (this.resolved = !0, this.onCancel()), !0;
   }
   renderField(e) {
-    const t = e.description ? `<p class="text-xs text-gray-500 mt-1">${g(e.description)}</p>` : "", s = e.options && e.options.length > 0 ? this.renderSelect(e) : this.renderInput(e);
+    const t = e.description ? `<p class="text-xs text-gray-500 mt-1">${m(e.description)}</p>` : "", s = e.options && e.options.length > 0 ? this.renderSelect(e) : this.renderInput(e);
     return `
       <div>
         <label class="block text-sm font-medium text-gray-800 mb-1.5" for="payload-field-${e.name}">
-          ${g(e.label)}
+          ${m(e.label)}
         </label>
         ${s}
         ${t}
@@ -90,8 +92,8 @@ let Yt = class nt extends st {
   }
   renderSelect(e) {
     const t = e.value, n = (e.options || []).map((o) => {
-      const a = o.value === t ? " selected" : "";
-      return `<option value="${g(o.value)}"${a}>${g(o.label)}</option>`;
+      const i = o.value === t ? " selected" : "";
+      return `<option value="${m(o.value)}"${i}>${m(o.label)}</option>`;
     }).join("");
     return `
       <select id="payload-field-${e.name}"
@@ -110,14 +112,14 @@ let Yt = class nt extends st {
                   data-payload-field="${e.name}"
                   rows="4"
                   class="${t}"
-                  placeholder="${e.type === "array" ? "[...]" : "{...}"}">${g(e.value)}</textarea>
+                  placeholder="${e.type === "array" ? "[...]" : "{...}"}">${m(e.value)}</textarea>
       `;
     const s = e.type === "integer" || e.type === "number" ? "number" : "text";
     return `
       <input id="payload-field-${e.name}"
              type="${s}"
              data-payload-field="${e.name}"
-             value="${g(e.value)}"
+             value="${m(e.value)}"
              class="${t}" />
     `;
   }
@@ -131,9 +133,9 @@ let Yt = class nt extends st {
     s && (s.textContent = t, s.classList.remove("hidden"));
   }
 };
-class Qt {
+class zt {
   constructor(e = {}) {
-    this.actionBasePath = e.actionBasePath || "", this.mode = e.mode || "dropdown", this.notifier = e.notifier || new W(), this.actionKeys = /* @__PURE__ */ new WeakMap(), this.actionKeySeq = 0;
+    this.actionBasePath = e.actionBasePath || "", this.mode = e.mode || "dropdown", this.notifier = e.notifier || new J(), this.actionKeys = /* @__PURE__ */ new WeakMap(), this.actionKeySeq = 0;
   }
   /**
    * Render row actions as HTML
@@ -145,11 +147,11 @@ class Qt {
       (o) => !o.condition || o.condition(e)
     );
     return s.length === 0 ? '<div class="flex justify-end gap-2"></div>' : `<div class="flex justify-end gap-2">${s.map((o) => {
-      const a = this.getVariantClass(o.variant || "secondary"), i = o.icon ? this.renderIcon(o.icon) : "", l = o.className || "", c = o.disabled === !0, d = this.getActionKey(o), u = c ? "opacity-50 cursor-not-allowed" : "", p = c ? 'aria-disabled="true"' : "", h = o.disabledReason ? `title="${this.escapeHtml(o.disabledReason)}"` : "";
+      const i = this.getVariantClass(o.variant || "secondary"), a = o.icon ? this.renderIcon(o.icon) : "", l = o.className || "", c = o.disabled === !0, d = this.getActionKey(o), u = c ? "opacity-50 cursor-not-allowed" : "", p = c ? 'aria-disabled="true"' : "", h = o.disabledReason ? `title="${this.escapeHtml(o.disabledReason)}"` : "";
       return `
         <button
           type="button"
-          class="btn btn-sm ${a} ${l} ${u}"
+          class="btn btn-sm ${i} ${l} ${u}"
           data-action-id="${this.sanitize(o.label)}"
           data-action-key="${d}"
           data-record-id="${e.id}"
@@ -157,7 +159,7 @@ class Qt {
           ${p}
           ${h}
         >
-          ${i}
+          ${a}
           ${this.sanitize(o.label)}
         </button>
       `;
@@ -168,7 +170,7 @@ class Qt {
    */
   renderRowActionsDropdown(e, t) {
     const s = t.filter(
-      (a) => !a.condition || a.condition(e)
+      (i) => !i.condition || i.condition(e)
     );
     if (s.length === 0)
       return '<div class="text-sm text-gray-400">No actions</div>';
@@ -198,15 +200,15 @@ class Qt {
    */
   buildDropdownItems(e, t) {
     return t.map((s, n) => {
-      const o = s.variant === "danger", a = s.disabled === !0, i = this.getActionKey(s), l = s.icon ? this.renderIcon(s.icon) : "", d = this.shouldShowDivider(s, n, t) ? '<div class="action-divider border-t border-gray-200 my-1"></div>' : "", u = a ? "action-item text-gray-400 cursor-not-allowed" : o ? "action-item text-red-600 hover:bg-red-50" : "action-item text-gray-700 hover:bg-gray-50", p = a ? 'aria-disabled="true"' : "", h = s.disabledReason ? `title="${this.escapeHtml(s.disabledReason)}"` : "";
+      const o = s.variant === "danger", i = s.disabled === !0, a = this.getActionKey(s), l = s.icon ? this.renderIcon(s.icon) : "", d = this.shouldShowDivider(s, n, t) ? '<div class="action-divider border-t border-gray-200 my-1"></div>' : "", u = i ? "action-item text-gray-400 cursor-not-allowed" : o ? "action-item text-red-600 hover:bg-red-50" : "action-item text-gray-700 hover:bg-gray-50", p = i ? 'aria-disabled="true"' : "", h = s.disabledReason ? `title="${this.escapeHtml(s.disabledReason)}"` : "";
       return `
         ${d}
         <button type="button"
                 class="${u} flex items-center gap-3 w-full px-4 py-2.5 transition-colors"
                 data-action-id="${this.sanitize(s.label)}"
-                data-action-key="${i}"
+                data-action-key="${a}"
                 data-record-id="${e.id}"
-                data-disabled="${a}"
+                data-disabled="${i}"
                 role="menuitem"
                 ${p}
                 ${h}>
@@ -250,8 +252,8 @@ class Qt {
       const o = this.getActionKey(n);
       e.querySelectorAll(
         `[data-action-key="${o}"]`
-      ).forEach((i) => {
-        const l = i, c = l.dataset.recordId, d = s[c];
+      ).forEach((a) => {
+        const l = a, c = l.dataset.recordId, d = s[c];
         d && l.addEventListener("click", async (u) => {
           if (u.preventDefault(), !(l.getAttribute("aria-disabled") === "true" || l.dataset.disabled === "true"))
             try {
@@ -274,9 +276,9 @@ class Qt {
     const s = document.createElement("span");
     s.className = "text-sm font-medium text-blue-900", s.id = "selected-count", s.textContent = "0 items selected", t.appendChild(s);
     const n = document.createElement("div");
-    n.className = "flex gap-2 flex-1", e.forEach((a) => {
-      const i = document.createElement("button");
-      i.type = "button", i.className = "btn btn-sm btn-primary", i.dataset.bulkAction = a.id, a.icon ? i.innerHTML = `${this.renderIcon(a.icon)} ${a.label}` : i.textContent = a.label, n.appendChild(i);
+    n.className = "flex gap-2 flex-1", e.forEach((i) => {
+      const a = document.createElement("button");
+      a.type = "button", a.className = "btn btn-sm btn-primary", a.dataset.bulkAction = i.id, i.icon ? a.innerHTML = `${this.renderIcon(i.icon)} ${i.label}` : a.textContent = i.label, n.appendChild(a);
     }), t.appendChild(n);
     const o = document.createElement("button");
     return o.type = "button", o.className = "btn btn-sm btn-secondary", o.id = "clear-selection-btn", o.textContent = "Clear Selection", t.appendChild(o), t;
@@ -306,8 +308,8 @@ class Qt {
           body: JSON.stringify(s)
         });
         if (!n.ok) {
-          const a = await rt(n);
-          throw this.notifier.error(a), new Error(a);
+          const i = await He(n);
+          throw this.notifier.error(i), new Error(i);
         }
         const o = await n.json();
         this.notifier.success(this.buildBulkSuccessMessage(e, o, t.length)), e.onSuccess && e.onSuccess(o);
@@ -327,14 +329,14 @@ class Qt {
     n?.properties && Object.entries(n.properties).forEach(([l, c]) => {
       s[l] === void 0 && c && c.default !== void 0 && (s[l] = c.default);
     });
-    const a = this.collectRequiredFields(e.payloadRequired, n).filter((l) => l !== "ids" && this.isEmptyPayloadValue(s[l]));
-    if (a.length === 0)
+    const i = this.collectRequiredFields(e.payloadRequired, n).filter((l) => l !== "ids" && this.isEmptyPayloadValue(s[l]));
+    if (i.length === 0)
       return s;
-    const i = await this.requestRequiredFields(e, a, n, s);
-    if (i === null)
+    const a = await this.requestRequiredFields(e, i, n, s);
+    if (a === null)
       return null;
-    for (const l of a) {
-      const c = n?.properties?.[l], d = i[l] ?? "", u = this.coercePromptValue(d, l, c);
+    for (const l of i) {
+      const c = n?.properties?.[l], d = a[l] ?? "", u = this.coercePromptValue(d, l, c);
       if (u.error)
         return this.notifier.error(u.error), null;
       s[l] = u.value;
@@ -342,11 +344,11 @@ class Qt {
     return s;
   }
   collectRequiredFields(e, t) {
-    const s = [], n = /* @__PURE__ */ new Set(), o = (a) => {
-      const i = a.trim();
-      !i || n.has(i) || (n.add(i), s.push(i));
+    const s = [], n = /* @__PURE__ */ new Set(), o = (i) => {
+      const a = i.trim();
+      !a || n.has(a) || (n.add(a), s.push(a));
     };
-    return Array.isArray(e) && e.forEach((a) => o(String(a))), Array.isArray(t?.required) && t.required.forEach((a) => o(String(a))), s;
+    return Array.isArray(e) && e.forEach((i) => o(String(i))), Array.isArray(t?.required) && t.required.forEach((i) => o(String(i))), s;
   }
   normalizePayloadSchema(e) {
     if (!e || typeof e != "object")
@@ -362,18 +364,18 @@ class Qt {
     };
   }
   async requestRequiredFields(e, t, s, n) {
-    const o = t.map((a) => {
-      const i = s?.properties?.[a], l = typeof i?.type == "string" ? i.type.toLowerCase() : "string";
+    const o = t.map((i) => {
+      const a = s?.properties?.[i], l = typeof a?.type == "string" ? a.type.toLowerCase() : "string";
       return {
-        name: a,
-        label: (i?.title || a).trim(),
-        description: (i?.description || "").trim() || void 0,
-        value: this.stringifyPromptDefault(n[a] !== void 0 ? n[a] : i?.default),
+        name: i,
+        label: (a?.title || i).trim(),
+        description: (a?.description || "").trim() || void 0,
+        value: this.stringifyPromptDefault(n[i] !== void 0 ? n[i] : a?.default),
         type: l,
-        options: this.buildSchemaOptions(i)
+        options: this.buildSchemaOptions(a)
       };
     });
-    return Yt.prompt({
+    return jt.prompt({
       title: `Complete ${e.label || e.id}`,
       fields: o
     });
@@ -416,14 +418,14 @@ class Qt {
   }
   coercePromptValue(e, t, s) {
     if (Array.isArray(s?.oneOf) && s.oneOf.length > 0) {
-      const a = s.oneOf.find(
-        (i) => i && Object.prototype.hasOwnProperty.call(i, "const") && this.stringifyPromptDefault(i.const) === e
+      const i = s.oneOf.find(
+        (a) => a && Object.prototype.hasOwnProperty.call(a, "const") && this.stringifyPromptDefault(a.const) === e
       );
-      if (!a || !Object.prototype.hasOwnProperty.call(a, "const")) {
-        const i = s.oneOf.map((l) => typeof l?.title == "string" && l.title.trim() ? l.title.trim() : this.stringifyPromptDefault(l.const)).filter((l) => l !== "").join(", ");
-        return { value: e, error: `${t} must be one of: ${i}` };
+      if (!i || !Object.prototype.hasOwnProperty.call(i, "const")) {
+        const a = s.oneOf.map((l) => typeof l?.title == "string" && l.title.trim() ? l.title.trim() : this.stringifyPromptDefault(l.const)).filter((l) => l !== "").join(", ");
+        return { value: e, error: `${t} must be one of: ${a}` };
       }
-      return { value: a.const };
+      return { value: i.const };
     }
     const n = (s?.type || "string").toLowerCase();
     if (e === "")
@@ -431,26 +433,26 @@ class Qt {
     let o = e;
     switch (n) {
       case "integer": {
-        const a = Number.parseInt(e, 10);
-        if (Number.isNaN(a))
+        const i = Number.parseInt(e, 10);
+        if (Number.isNaN(i))
           return { value: e, error: `${t} must be an integer.` };
-        o = a;
+        o = i;
         break;
       }
       case "number": {
-        const a = Number.parseFloat(e);
-        if (Number.isNaN(a))
+        const i = Number.parseFloat(e);
+        if (Number.isNaN(i))
           return { value: e, error: `${t} must be a number.` };
-        o = a;
+        o = i;
         break;
       }
       case "boolean": {
-        const a = e.toLowerCase();
-        if (["true", "1", "yes", "y", "on"].includes(a)) {
+        const i = e.toLowerCase();
+        if (["true", "1", "yes", "y", "on"].includes(i)) {
           o = !0;
           break;
         }
-        if (["false", "0", "no", "n", "off"].includes(a)) {
+        if (["false", "0", "no", "n", "off"].includes(i)) {
           o = !1;
           break;
         }
@@ -459,12 +461,12 @@ class Qt {
       case "array":
       case "object": {
         try {
-          const a = JSON.parse(e);
-          if (n === "array" && !Array.isArray(a))
+          const i = JSON.parse(e);
+          if (n === "array" && !Array.isArray(i))
             return { value: e, error: `${t} must be a JSON array.` };
-          if (n === "object" && (a === null || Array.isArray(a) || typeof a != "object"))
+          if (n === "object" && (i === null || Array.isArray(i) || typeof i != "object"))
             return { value: e, error: `${t} must be a JSON object.` };
-          o = a;
+          o = i;
         } catch {
           return { value: e, error: `${t} must be valid JSON.` };
         }
@@ -473,14 +475,14 @@ class Qt {
       default:
         o = e;
     }
-    return Array.isArray(s?.enum) && s.enum.length > 0 && !s.enum.some((i) => i === o || String(i) === String(o)) ? { value: o, error: `${t} must be one of: ${s.enum.map((i) => String(i)).join(", ")}` } : { value: o };
+    return Array.isArray(s?.enum) && s.enum.length > 0 && !s.enum.some((a) => a === o || String(a) === String(o)) ? { value: o, error: `${t} must be one of: ${s.enum.map((a) => String(a)).join(", ")}` } : { value: o };
   }
   isEmptyPayloadValue(e) {
     return e == null ? !0 : typeof e == "string" ? e.trim() === "" : Array.isArray(e) ? e.length === 0 : typeof e == "object" ? Object.keys(e).length === 0 : !1;
   }
   buildBulkSuccessMessage(e, t, s) {
-    const n = e.label || e.id || "Bulk action", o = t && typeof t == "object" ? t.summary : null, a = o && typeof o.succeeded == "number" ? o.succeeded : typeof t?.processed == "number" ? t.processed : s, i = o && typeof o.failed == "number" ? o.failed : 0;
-    return i > 0 ? `${n} completed: ${a} succeeded, ${i} failed.` : `${n} completed for ${a} item${a === 1 ? "" : "s"}.`;
+    const n = e.label || e.id || "Bulk action", o = t && typeof t == "object" ? t.summary : null, i = o && typeof o.succeeded == "number" ? o.succeeded : typeof t?.processed == "number" ? t.processed : s, a = o && typeof o.failed == "number" ? o.failed : 0;
+    return a > 0 ? `${n} completed: ${i} succeeded, ${a} failed.` : `${n} completed for ${i} item${i === 1 ? "" : "s"}.`;
   }
   getVariantClass(e) {
     return {
@@ -522,512 +524,7 @@ class Qt {
     return t.textContent = e, t.innerHTML;
   }
 }
-const y = {
-  check: "M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z",
-  warning: "M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z",
-  error: "M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z",
-  info: "M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z",
-  clock: "M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z",
-  document: "M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z",
-  archive: "M4 3a2 2 0 100 4h12a2 2 0 100-4H4zm0 6a1 1 0 00-1 1v7a1 1 0 001 1h12a1 1 0 001-1v-7a1 1 0 00-1-1H4zm4 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z",
-  user: "M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z",
-  play: "M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z",
-  lock: "M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z",
-  ban: "M13.477 14.89A6 6 0 015.11 6.524l8.367 8.368zm1.414-1.414L6.524 5.11a6 6 0 018.367 8.367zM18 10a8 8 0 11-16 0 8 8 0 0116 0z"
-}, be = {
-  ready: {
-    label: "Ready",
-    shortLabel: "Ready",
-    colorClass: "bg-green-100 text-green-700",
-    bgClass: "bg-green-100",
-    textClass: "text-green-700",
-    borderClass: "border-green-300",
-    icon: "●",
-    iconType: "char",
-    severity: "success",
-    description: "All required translations are complete"
-  },
-  missing_locales: {
-    label: "Missing Locales",
-    shortLabel: "Missing",
-    colorClass: "bg-amber-100 text-amber-700",
-    bgClass: "bg-amber-100",
-    textClass: "text-amber-700",
-    borderClass: "border-amber-300",
-    icon: "○",
-    iconType: "char",
-    severity: "warning",
-    description: "Required locale translations are missing"
-  },
-  missing_fields: {
-    label: "Incomplete Fields",
-    shortLabel: "Incomplete",
-    colorClass: "bg-yellow-100 text-yellow-700",
-    bgClass: "bg-yellow-100",
-    textClass: "text-yellow-700",
-    borderClass: "border-yellow-300",
-    icon: "◐",
-    iconType: "char",
-    severity: "warning",
-    description: "Some translations have missing required fields"
-  },
-  missing_locales_and_fields: {
-    label: "Not Ready",
-    shortLabel: "Not Ready",
-    colorClass: "bg-red-100 text-red-700",
-    bgClass: "bg-red-100",
-    textClass: "text-red-700",
-    borderClass: "border-red-300",
-    icon: "○",
-    iconType: "char",
-    severity: "error",
-    description: "Missing translations and incomplete fields"
-  }
-}, ye = {
-  pending: {
-    label: "Pending",
-    colorClass: "bg-gray-100 text-gray-700",
-    bgClass: "bg-gray-100",
-    textClass: "text-gray-700",
-    icon: y.clock,
-    iconType: "svg",
-    severity: "neutral",
-    description: "Waiting to be assigned"
-  },
-  assigned: {
-    label: "Assigned",
-    colorClass: "bg-blue-100 text-blue-700",
-    bgClass: "bg-blue-100",
-    textClass: "text-blue-700",
-    icon: y.user,
-    iconType: "svg",
-    severity: "info",
-    description: "Assigned to a translator"
-  },
-  in_progress: {
-    label: "In Progress",
-    colorClass: "bg-blue-100 text-blue-700",
-    bgClass: "bg-blue-100",
-    textClass: "text-blue-700",
-    icon: y.play,
-    iconType: "svg",
-    severity: "info",
-    description: "Translation in progress"
-  },
-  review: {
-    label: "In Review",
-    colorClass: "bg-purple-100 text-purple-700",
-    bgClass: "bg-purple-100",
-    textClass: "text-purple-700",
-    icon: y.document,
-    iconType: "svg",
-    severity: "info",
-    description: "Pending review"
-  },
-  rejected: {
-    label: "Rejected",
-    colorClass: "bg-red-100 text-red-700",
-    bgClass: "bg-red-100",
-    textClass: "text-red-700",
-    icon: y.error,
-    iconType: "svg",
-    severity: "error",
-    description: "Translation rejected"
-  },
-  approved: {
-    label: "Approved",
-    colorClass: "bg-green-100 text-green-700",
-    bgClass: "bg-green-100",
-    textClass: "text-green-700",
-    icon: y.check,
-    iconType: "svg",
-    severity: "success",
-    description: "Translation approved"
-  },
-  published: {
-    label: "Published",
-    colorClass: "bg-green-100 text-green-700",
-    bgClass: "bg-green-100",
-    textClass: "text-green-700",
-    icon: y.check,
-    iconType: "svg",
-    severity: "success",
-    description: "Translation published"
-  },
-  archived: {
-    label: "Archived",
-    colorClass: "bg-gray-100 text-gray-500",
-    bgClass: "bg-gray-100",
-    textClass: "text-gray-500",
-    icon: y.archive,
-    iconType: "svg",
-    severity: "neutral",
-    description: "Translation archived"
-  }
-}, ve = {
-  draft: {
-    label: "Draft",
-    colorClass: "bg-gray-100 text-gray-700",
-    bgClass: "bg-gray-100",
-    textClass: "text-gray-700",
-    icon: y.document,
-    iconType: "svg",
-    severity: "neutral",
-    description: "Draft content"
-  },
-  review: {
-    label: "Review",
-    colorClass: "bg-purple-100 text-purple-700",
-    bgClass: "bg-purple-100",
-    textClass: "text-purple-700",
-    icon: y.document,
-    iconType: "svg",
-    severity: "info",
-    description: "Content under review"
-  },
-  ready: {
-    label: "Ready",
-    colorClass: "bg-green-100 text-green-700",
-    bgClass: "bg-green-100",
-    textClass: "text-green-700",
-    icon: y.check,
-    iconType: "svg",
-    severity: "success",
-    description: "Content ready"
-  },
-  archived: {
-    label: "Archived",
-    colorClass: "bg-gray-100 text-gray-500",
-    bgClass: "bg-gray-100",
-    textClass: "text-gray-500",
-    icon: y.archive,
-    iconType: "svg",
-    severity: "neutral",
-    description: "Content archived"
-  }
-}, we = {
-  overdue: {
-    label: "Overdue",
-    colorClass: "bg-red-100 text-red-700",
-    bgClass: "bg-red-100",
-    textClass: "text-red-700",
-    icon: y.warning,
-    iconType: "svg",
-    severity: "error",
-    description: "Past due date"
-  },
-  due_soon: {
-    label: "Due Soon",
-    colorClass: "bg-amber-100 text-amber-700",
-    bgClass: "bg-amber-100",
-    textClass: "text-amber-700",
-    icon: y.clock,
-    iconType: "svg",
-    severity: "warning",
-    description: "Due within 24 hours"
-  },
-  on_track: {
-    label: "On Track",
-    colorClass: "bg-green-100 text-green-700",
-    bgClass: "bg-green-100",
-    textClass: "text-green-700",
-    icon: y.check,
-    iconType: "svg",
-    severity: "success",
-    description: "On schedule"
-  },
-  none: {
-    label: "No Due Date",
-    colorClass: "bg-gray-100 text-gray-500",
-    bgClass: "bg-gray-100",
-    textClass: "text-gray-500",
-    icon: y.clock,
-    iconType: "svg",
-    severity: "neutral",
-    description: "No due date set"
-  }
-}, xe = {
-  success: {
-    label: "Success",
-    colorClass: "bg-green-100 text-green-700",
-    bgClass: "bg-green-100",
-    textClass: "text-green-700",
-    icon: y.check,
-    iconType: "svg",
-    severity: "success",
-    description: "Import/export succeeded"
-  },
-  error: {
-    label: "Error",
-    colorClass: "bg-red-100 text-red-700",
-    bgClass: "bg-red-100",
-    textClass: "text-red-700",
-    icon: y.error,
-    iconType: "svg",
-    severity: "error",
-    description: "Import/export failed"
-  },
-  conflict: {
-    label: "Conflict",
-    colorClass: "bg-amber-100 text-amber-700",
-    bgClass: "bg-amber-100",
-    textClass: "text-amber-700",
-    icon: y.warning,
-    iconType: "svg",
-    severity: "warning",
-    description: "Conflicting changes detected"
-  },
-  skipped: {
-    label: "Skipped",
-    colorClass: "bg-gray-100 text-gray-500",
-    bgClass: "bg-gray-100",
-    textClass: "text-gray-500",
-    icon: y.ban,
-    iconType: "svg",
-    severity: "neutral",
-    description: "Row skipped"
-  }
-}, Se = {
-  running: {
-    label: "Running",
-    colorClass: "bg-blue-100 text-blue-700",
-    bgClass: "bg-blue-100",
-    textClass: "text-blue-700",
-    icon: y.play,
-    iconType: "svg",
-    severity: "info",
-    description: "Job in progress"
-  },
-  completed: {
-    label: "Completed",
-    colorClass: "bg-green-100 text-green-700",
-    bgClass: "bg-green-100",
-    textClass: "text-green-700",
-    icon: y.check,
-    iconType: "svg",
-    severity: "success",
-    description: "Job completed successfully"
-  },
-  failed: {
-    label: "Failed",
-    colorClass: "bg-red-100 text-red-700",
-    bgClass: "bg-red-100",
-    textClass: "text-red-700",
-    icon: y.error,
-    iconType: "svg",
-    severity: "error",
-    description: "Job failed"
-  }
-}, Ce = {
-  TRANSLATION_MISSING: {
-    message: "Required translation is missing",
-    shortMessage: "Translation missing",
-    colorClass: "bg-amber-100 text-amber-700",
-    bgClass: "bg-amber-50",
-    textClass: "text-amber-700",
-    icon: y.warning,
-    severity: "warning",
-    actionable: !0,
-    actionLabel: "Create translation"
-  },
-  INVALID_STATUS: {
-    message: "Action not available in current status",
-    shortMessage: "Invalid status",
-    colorClass: "bg-gray-100 text-gray-600",
-    bgClass: "bg-gray-50",
-    textClass: "text-gray-600",
-    icon: y.ban,
-    severity: "info",
-    actionable: !1
-  },
-  PERMISSION_DENIED: {
-    message: "You do not have permission for this action",
-    shortMessage: "No permission",
-    colorClass: "bg-red-100 text-red-700",
-    bgClass: "bg-red-50",
-    textClass: "text-red-700",
-    icon: y.lock,
-    severity: "error",
-    actionable: !1
-  },
-  MISSING_CONTEXT: {
-    message: "Required context is missing",
-    shortMessage: "Missing context",
-    colorClass: "bg-gray-100 text-gray-600",
-    bgClass: "bg-gray-50",
-    textClass: "text-gray-600",
-    icon: y.info,
-    severity: "info",
-    actionable: !1
-  },
-  FEATURE_DISABLED: {
-    message: "This feature is currently disabled",
-    shortMessage: "Feature disabled",
-    colorClass: "bg-gray-100 text-gray-500",
-    bgClass: "bg-gray-50",
-    textClass: "text-gray-500",
-    icon: y.ban,
-    severity: "info",
-    actionable: !1
-  }
-};
-function j(r, e) {
-  const t = r.toLowerCase();
-  if ((!e || e === "core") && t in be)
-    return be[t];
-  if (!e || e === "queue") {
-    if (t in ye)
-      return ye[t];
-    if (t in ve)
-      return ve[t];
-    if (t in we)
-      return we[t];
-  }
-  if (!e || e === "exchange") {
-    if (t in xe)
-      return xe[t];
-    if (t in Se)
-      return Se[t];
-  }
-  return null;
-}
-function ne(r) {
-  const e = r.toUpperCase();
-  return e in Ce ? Ce[e] : null;
-}
-function ra(r, e) {
-  return j(r, e) !== null;
-}
-function sa(r) {
-  return ne(r) !== null;
-}
-function na(r) {
-  switch (r) {
-    case "core":
-      return Object.keys(be);
-    case "queue":
-      return [
-        ...Object.keys(ye),
-        ...Object.keys(ve),
-        ...Object.keys(we)
-      ];
-    case "exchange":
-      return [
-        ...Object.keys(xe),
-        ...Object.keys(Se)
-      ];
-    default:
-      return [];
-  }
-}
-function oa() {
-  return Object.keys(Ce);
-}
-function ot(r, e) {
-  return j(r, e) ? `status-${r.toLowerCase()}` : "";
-}
-function aa(r, e) {
-  const t = j(r, e);
-  return t ? `severity-${t.severity}` : "";
-}
-function X(r, e = {}) {
-  const t = j(r, e.domain);
-  if (!t)
-    return `<span class="inline-flex items-center px-2 py-1 text-xs rounded bg-gray-100 text-gray-500">${L(r)}</span>`;
-  const { size: s = "default", showIcon: n = !0, showLabel: o = !0, extraClass: a = "" } = e, i = {
-    xs: "px-1.5 py-0.5 text-[10px]",
-    sm: "px-2 py-0.5 text-xs",
-    default: "px-2.5 py-1 text-xs"
-  }, l = n ? at(t, s) : "", c = o ? `<span>${L(t.label)}</span>` : "";
-  return `<span class="inline-flex items-center ${n && o ? "gap-1" : ""} rounded font-medium ${i[s]} ${t.colorClass} ${a}"
-                title="${L(t.description || t.label)}"
-                aria-label="${L(t.label)}"
-                data-status="${L(r)}">
-    ${l}${c}
-  </span>`;
-}
-function at(r, e = "default") {
-  const t = {
-    xs: "w-3 h-3",
-    sm: "w-3.5 h-3.5",
-    default: "w-4 h-4"
-  };
-  return r.iconType === "char" ? `<span class="${t[e]} inline-flex items-center justify-center" aria-hidden="true">${r.icon}</span>` : `<svg class="${t[e]}" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-    <path fill-rule="evenodd" d="${r.icon}" clip-rule="evenodd"/>
-  </svg>`;
-}
-function it(r, e = {}) {
-  const t = ne(r);
-  if (!t)
-    return `<span class="text-gray-500 text-xs">${L(r)}</span>`;
-  const { size: s = "default", showIcon: n = !0, showFullMessage: o = !1, extraClass: a = "" } = e, i = {
-    sm: "px-2 py-0.5 text-xs",
-    default: "px-2.5 py-1 text-sm"
-  }, c = n ? `<svg class="${s === "sm" ? "w-3.5 h-3.5" : "w-4 h-4"}" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-        <path fill-rule="evenodd" d="${t.icon}" clip-rule="evenodd"/>
-      </svg>` : "", d = o ? t.message : t.shortMessage;
-  return `<span class="inline-flex items-center gap-1.5 rounded ${i[s]} ${t.colorClass} ${a}"
-                role="status"
-                aria-label="${L(t.message)}"
-                data-reason-code="${L(r)}">
-    ${c}
-    <span>${L(d)}</span>
-  </span>`;
-}
-function ia(r, e) {
-  const t = ne(r);
-  if (!t)
-    return "";
-  const s = e || t.message;
-  return `<span class="inline-flex items-center justify-center w-5 h-5 rounded-full ${t.bgClass} ${t.textClass}"
-                title="${L(s)}"
-                aria-label="${L(t.shortMessage)}"
-                data-reason-code="${L(r)}">
-    <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-      <path fill-rule="evenodd" d="${t.icon}" clip-rule="evenodd"/>
-    </svg>
-  </span>`;
-}
-function la(r = {}) {
-  return (e) => typeof e != "string" || !e ? '<span class="text-gray-400">-</span>' : X(e, r);
-}
-function ca(r = {}) {
-  return (e) => typeof e != "string" || !e ? "" : it(e, r);
-}
-function da(r) {
-  r.schema_version !== 1 && console.warn("[TranslationStatusVocabulary] Unknown schema version:", r.schema_version);
-}
-function ua() {
-  return `
-    /* Status Vocabulary Styles */
-    [data-status],
-    [data-reason-code] {
-      transition: opacity 0.15s ease;
-    }
-
-    [data-status]:hover,
-    [data-reason-code]:hover {
-      opacity: 0.9;
-    }
-
-    /* Severity-based animations */
-    [data-status="overdue"],
-    [data-status="rejected"],
-    [data-status="error"],
-    [data-status="failed"] {
-      animation: pulse-subtle 2s ease-in-out infinite;
-    }
-
-    @keyframes pulse-subtle {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.85; }
-    }
-  `;
-}
-function L(r) {
-  return r.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-}
-function P(r) {
+function T(r) {
   const e = {
     requestedLocale: null,
     resolvedLocale: null,
@@ -1039,42 +536,42 @@ function P(r) {
     entityType: null,
     recordId: null
   };
-  return !r || typeof r != "object" || (e.requestedLocale = F(r, [
+  return !r || typeof r != "object" || (e.requestedLocale = B(r, [
     "requested_locale",
     "translation.meta.requested_locale",
     "content_translation.meta.requested_locale"
-  ]), e.resolvedLocale = F(r, [
+  ]), e.resolvedLocale = B(r, [
     "resolved_locale",
     "locale",
     "translation.meta.resolved_locale",
     "content_translation.meta.resolved_locale"
-  ]), e.availableLocales = nr(r, [
+  ]), e.availableLocales = Yt(r, [
     "available_locales",
     "translation.meta.available_locales",
     "content_translation.meta.available_locales"
-  ]), e.missingRequestedLocale = Ue(r, [
+  ]), e.missingRequestedLocale = Pe(r, [
     "missing_requested_locale",
     "translation.meta.missing_requested_locale",
     "content_translation.meta.missing_requested_locale"
-  ]), e.fallbackUsed = Ue(r, [
+  ]), e.fallbackUsed = Pe(r, [
     "fallback_used",
     "translation.meta.fallback_used",
     "content_translation.meta.fallback_used"
-  ]), e.translationGroupId = F(r, [
+  ]), e.translationGroupId = B(r, [
     "translation_group_id",
     "translation.meta.translation_group_id",
     "content_translation.meta.translation_group_id"
-  ]), e.status = F(r, ["status"]), e.entityType = F(r, ["entity_type", "type", "_type"]), e.recordId = F(r, ["id"]), !e.fallbackUsed && e.requestedLocale && e.resolvedLocale && (e.fallbackUsed = e.requestedLocale !== e.resolvedLocale), !e.missingRequestedLocale && e.fallbackUsed && (e.missingRequestedLocale = !0)), e;
+  ]), e.status = B(r, ["status"]), e.entityType = B(r, ["entity_type", "type", "_type"]), e.recordId = B(r, ["id"]), !e.fallbackUsed && e.requestedLocale && e.resolvedLocale && (e.fallbackUsed = e.requestedLocale !== e.resolvedLocale), !e.missingRequestedLocale && e.fallbackUsed && (e.missingRequestedLocale = !0)), e;
 }
-function pa(r) {
-  const e = P(r);
+function Jo(r) {
+  const e = T(r);
   return e.fallbackUsed || e.missingRequestedLocale;
 }
-function ha(r) {
-  const e = P(r);
+function Yo(r) {
+  const e = T(r);
   return e.translationGroupId !== null || e.resolvedLocale !== null || e.availableLocales.length > 0;
 }
-function _(r) {
+function A(r) {
   const e = {
     translationGroupId: null,
     requiredLocales: [],
@@ -1090,86 +587,86 @@ function _(r) {
     return e;
   const t = r.translation_readiness;
   if (t && typeof t == "object") {
-    e.hasReadinessMetadata = !0, e.translationGroupId = F(r, [
+    e.hasReadinessMetadata = !0, e.translationGroupId = B(r, [
       "translation_readiness.translation_group_id",
       "translation_group_id",
       "translation.meta.translation_group_id",
       "content_translation.meta.translation_group_id",
       "translation_context.translation_group_id"
-    ]), e.requiredLocales = Array.isArray(t.required_locales) ? t.required_locales.filter((a) => typeof a == "string") : [], e.availableLocales = Array.isArray(t.available_locales) ? t.available_locales.filter((a) => typeof a == "string") : [], e.missingRequiredLocales = Array.isArray(t.missing_required_locales) ? t.missing_required_locales.filter((a) => typeof a == "string") : [];
+    ]), e.requiredLocales = Array.isArray(t.required_locales) ? t.required_locales.filter((i) => typeof i == "string") : [], e.availableLocales = Array.isArray(t.available_locales) ? t.available_locales.filter((i) => typeof i == "string") : [], e.missingRequiredLocales = Array.isArray(t.missing_required_locales) ? t.missing_required_locales.filter((i) => typeof i == "string") : [];
     const s = t.missing_required_fields_by_locale;
     if (s && typeof s == "object" && !Array.isArray(s))
-      for (const [a, i] of Object.entries(s))
-        Array.isArray(i) && (e.missingRequiredFieldsByLocale[a] = i.filter(
+      for (const [i, a] of Object.entries(s))
+        Array.isArray(a) && (e.missingRequiredFieldsByLocale[i] = a.filter(
           (l) => typeof l == "string"
         ));
     const n = t.readiness_state;
-    typeof n == "string" && Wt(n) && (e.readinessState = n);
+    typeof n == "string" && Nt(n) && (e.readinessState = n);
     const o = t.ready_for_transition;
     if (o && typeof o == "object" && !Array.isArray(o))
-      for (const [a, i] of Object.entries(o))
-        typeof i == "boolean" && (e.readyForTransition[a] = i);
+      for (const [i, a] of Object.entries(o))
+        typeof a == "boolean" && (e.readyForTransition[i] = a);
     e.evaluatedEnvironment = typeof t.evaluated_environment == "string" ? t.evaluated_environment : null;
   }
   return e;
 }
-function fa(r) {
-  return _(r).hasReadinessMetadata;
+function Qo(r) {
+  return A(r).hasReadinessMetadata;
 }
-function ga(r, e) {
-  return _(r).readyForTransition[e] === !0;
+function Wo(r, e) {
+  return A(r).readyForTransition[e] === !0;
 }
-function Wt(r) {
+function Nt(r) {
   return ["ready", "missing_locales", "missing_fields", "missing_locales_and_fields"].includes(r);
 }
-function lt(r, e = {}) {
-  const t = "resolvedLocale" in r ? r : P(r), { showFallbackIndicator: s = !0, size: n = "default", extraClass: o = "" } = e;
+function Qe(r, e = {}) {
+  const t = "resolvedLocale" in r ? r : T(r), { showFallbackIndicator: s = !0, size: n = "default", extraClass: o = "" } = e;
   if (!t.resolvedLocale)
     return "";
-  const a = t.resolvedLocale.toUpperCase(), i = t.fallbackUsed || t.missingRequestedLocale, c = `inline-flex items-center gap-1 rounded font-medium ${n === "sm" ? "text-xs px-1.5 py-0.5" : "text-xs px-2 py-1"}`;
-  return i && s ? `<span class="${c} bg-amber-100 text-amber-800 ${o}"
+  const i = t.resolvedLocale.toUpperCase(), a = t.fallbackUsed || t.missingRequestedLocale, c = `inline-flex items-center gap-1 rounded font-medium ${n === "sm" ? "text-xs px-1.5 py-0.5" : "text-xs px-2 py-1"}`;
+  return a && s ? `<span class="${c} bg-amber-100 text-amber-800 ${o}"
                   title="Showing ${t.resolvedLocale} content (${t.requestedLocale || "requested locale"} not available)"
-                  aria-label="Fallback locale: ${a}">
+                  aria-label="Fallback locale: ${i}">
       <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
         <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
       </svg>
-      ${a}
+      ${i}
     </span>` : `<span class="${c} bg-blue-100 text-blue-800 ${o}"
-                title="Locale: ${a}"
-                aria-label="Locale: ${a}">
-    ${a}
+                title="Locale: ${i}"
+                aria-label="Locale: ${i}">
+    ${i}
   </span>`;
 }
-function Xt(r, e = {}) {
-  const t = "resolvedLocale" in r ? r : P(r), { maxLocales: s = 3, size: n = "default" } = e;
+function Gt(r, e = {}) {
+  const t = "resolvedLocale" in r ? r : T(r), { maxLocales: s = 3, size: n = "default" } = e;
   if (t.availableLocales.length === 0)
     return "";
-  const o = n === "sm" ? "text-xs gap-0.5" : "text-xs gap-1", a = n === "sm" ? "px-1 py-0.5 text-[10px]" : "px-1.5 py-0.5", i = t.availableLocales.slice(0, s), l = t.availableLocales.length - s, c = i.map((u) => `<span class="${u === t.resolvedLocale ? `${a} rounded bg-blue-100 text-blue-700 font-medium` : `${a} rounded bg-gray-100 text-gray-600`}">${u.toUpperCase()}</span>`).join(""), d = l > 0 ? `<span class="${a} rounded bg-gray-100 text-gray-500">+${l}</span>` : "";
+  const o = n === "sm" ? "text-xs gap-0.5" : "text-xs gap-1", i = n === "sm" ? "px-1 py-0.5 text-[10px]" : "px-1.5 py-0.5", a = t.availableLocales.slice(0, s), l = t.availableLocales.length - s, c = a.map((u) => `<span class="${u === t.resolvedLocale ? `${i} rounded bg-blue-100 text-blue-700 font-medium` : `${i} rounded bg-gray-100 text-gray-600`}">${u.toUpperCase()}</span>`).join(""), d = l > 0 ? `<span class="${i} rounded bg-gray-100 text-gray-500">+${l}</span>` : "";
   return `<span class="inline-flex items-center ${o}"
                 title="Available locales: ${t.availableLocales.join(", ")}"
                 aria-label="Available locales: ${t.availableLocales.join(", ")}">
     ${c}${d}
   </span>`;
 }
-function Zt(r, e = {}) {
-  const t = "resolvedLocale" in r ? r : P(r), { showResolvedLocale: s = !0, size: n = "default" } = e, o = [];
-  return s && t.resolvedLocale && o.push(lt(t, { size: n, showFallbackIndicator: !0 })), t.availableLocales.length > 1 && o.push(Xt(t, { ...e, size: n })), o.length === 0 ? '<span class="text-gray-400">-</span>' : `<div class="flex items-center flex-wrap ${n === "sm" ? "gap-1" : "gap-2"}">${o.join("")}</div>`;
+function Ut(r, e = {}) {
+  const t = "resolvedLocale" in r ? r : T(r), { showResolvedLocale: s = !0, size: n = "default" } = e, o = [];
+  return s && t.resolvedLocale && o.push(Qe(t, { size: n, showFallbackIndicator: !0 })), t.availableLocales.length > 1 && o.push(Gt(t, { ...e, size: n })), o.length === 0 ? '<span class="text-gray-400">-</span>' : `<div class="flex items-center flex-wrap ${n === "sm" ? "gap-1" : "gap-2"}">${o.join("")}</div>`;
 }
-function ma(r, e = "default") {
+function Xo(r, e = "default") {
   if (!r)
     return "";
   const t = r.trim();
-  if (j(t) !== null)
-    return X(t, { size: e === "sm" ? "sm" : "default" });
+  if (Ke(t) !== null)
+    return ee(t, { size: e === "sm" ? "sm" : "default" });
   const s = t.toLowerCase();
-  return re(r, "status", s, { size: e === "sm" ? "sm" : void 0 });
+  return X(r, "status", s, { size: e === "sm" ? "sm" : void 0 });
 }
-function ba(r, e = {}) {
-  const t = _(r);
+function Zo(r, e = {}) {
+  const t = A(r);
   if (!t.hasReadinessMetadata)
     return "";
-  const { size: s = "default", showDetailedTooltip: n = !0, extraClass: o = "" } = e, i = `inline-flex items-center gap-1 rounded font-medium ${s === "sm" ? "text-xs px-1.5 py-0.5" : "text-xs px-2 py-1"}`, l = t.readinessState || "ready", { icon: c, label: d, bgClass: u, textClass: p, tooltip: h } = er(l, t, n);
-  return `<span class="${i} ${u} ${p} ${o}"
+  const { size: s = "default", showDetailedTooltip: n = !0, extraClass: o = "" } = e, a = `inline-flex items-center gap-1 rounded font-medium ${s === "sm" ? "text-xs px-1.5 py-0.5" : "text-xs px-2 py-1"}`, l = t.readinessState || "ready", { icon: c, label: d, bgClass: u, textClass: p, tooltip: h } = Ht(l, t, n);
+  return `<span class="${a} ${u} ${p} ${o}"
                 title="${h}"
                 aria-label="${d}"
                 data-readiness-state="${l}">
@@ -1177,13 +674,13 @@ function ba(r, e = {}) {
     <span>${d}</span>
   </span>`;
 }
-function ya(r, e = {}) {
-  const t = _(r);
+function ei(r, e = {}) {
+  const t = A(r);
   if (!t.hasReadinessMetadata)
     return "";
-  const s = t.readyForTransition.publish === !0, { size: n = "default", extraClass: o = "" } = e, a = n === "sm" ? "text-[10px] px-1.5 py-0.5" : "text-xs px-2 py-1";
+  const s = t.readyForTransition.publish === !0, { size: n = "default", extraClass: o = "" } = e, i = n === "sm" ? "text-[10px] px-1.5 py-0.5" : "text-xs px-2 py-1";
   if (s)
-    return `<span class="inline-flex items-center gap-1 rounded font-medium ${a} bg-green-100 text-green-700 ${o}"
+    return `<span class="inline-flex items-center gap-1 rounded font-medium ${i} bg-green-100 text-green-700 ${o}"
                   title="Ready to publish"
                   aria-label="Ready to publish">
       <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
@@ -1191,60 +688,60 @@ function ya(r, e = {}) {
       </svg>
       Ready
     </span>`;
-  const i = t.missingRequiredLocales.length, l = i > 0 ? `Missing translations: ${t.missingRequiredLocales.join(", ")}` : "Not ready to publish";
-  return `<span class="inline-flex items-center gap-1 rounded font-medium ${a} bg-amber-100 text-amber-700 ${o}"
+  const a = t.missingRequiredLocales.length, l = a > 0 ? `Missing translations: ${t.missingRequiredLocales.join(", ")}` : "Not ready to publish";
+  return `<span class="inline-flex items-center gap-1 rounded font-medium ${i} bg-amber-100 text-amber-700 ${o}"
                 title="${l}"
                 aria-label="Not ready to publish">
     <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
       <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
     </svg>
-    ${i > 0 ? `${i} missing` : "Not ready"}
+    ${a > 0 ? `${a} missing` : "Not ready"}
   </span>`;
 }
-function va(r, e = {}) {
-  const t = _(r);
+function ti(r, e = {}) {
+  const t = A(r);
   if (!t.hasReadinessMetadata || t.requiredLocales.length === 0)
     return "";
-  const { size: s = "default", extraClass: n = "" } = e, o = s === "sm" ? "text-xs" : "text-sm", a = t.requiredLocales.length, i = t.availableLocales.filter(
+  const { size: s = "default", extraClass: n = "" } = e, o = s === "sm" ? "text-xs" : "text-sm", i = t.requiredLocales.length, a = t.availableLocales.filter(
     (d) => t.requiredLocales.includes(d)
-  ).length, c = a > 0 && i === a ? "text-green-600" : i > 0 ? "text-amber-600" : "text-gray-500";
+  ).length, c = i > 0 && a === i ? "text-green-600" : a > 0 ? "text-amber-600" : "text-gray-500";
   return `<span class="${o} ${c} font-medium ${n}"
-                title="Locale completeness: ${i} of ${a} required locales available"
-                aria-label="${i} of ${a} locales">
-    ${i}/${a}
+                title="Locale completeness: ${a} of ${i} required locales available"
+                aria-label="${a} of ${i} locales">
+    ${a}/${i}
   </span>`;
 }
-function wa(r, e = {}) {
-  const t = _(r);
+function ri(r, e = {}) {
+  const t = A(r);
   if (!t.hasReadinessMetadata || t.readinessState === "ready")
     return "";
-  const { size: s = "default", extraClass: n = "" } = e, o = s === "sm" ? "text-xs px-2 py-1" : "text-sm px-2.5 py-1", a = t.missingRequiredLocales.length, i = a > 0, l = Object.keys(t.missingRequiredFieldsByLocale).length > 0;
+  const { size: s = "default", extraClass: n = "" } = e, o = s === "sm" ? "text-xs px-2 py-1" : "text-sm px-2.5 py-1", i = t.missingRequiredLocales.length, a = i > 0, l = Object.keys(t.missingRequiredFieldsByLocale).length > 0;
   let c = "bg-amber-100", d = "text-amber-800", u = "", p = "";
-  return i && l ? (c = "bg-red-100", d = "text-red-800", u = `${a} missing`, p = `Missing translations: ${t.missingRequiredLocales.join(", ")}. Also has incomplete fields.`) : i ? (c = "bg-amber-100", d = "text-amber-800", u = `${a} missing`, p = `Missing translations: ${t.missingRequiredLocales.join(", ")}`) : l && (c = "bg-yellow-100", d = "text-yellow-800", u = "Incomplete", p = `Incomplete fields in: ${Object.keys(t.missingRequiredFieldsByLocale).join(", ")}`), u ? `<span class="inline-flex items-center gap-1.5 rounded-full font-medium ${o} ${c} ${d} ${n}"
+  return a && l ? (c = "bg-red-100", d = "text-red-800", u = `${i} missing`, p = `Missing translations: ${t.missingRequiredLocales.join(", ")}. Also has incomplete fields.`) : a ? (c = "bg-amber-100", d = "text-amber-800", u = `${i} missing`, p = `Missing translations: ${t.missingRequiredLocales.join(", ")}`) : l && (c = "bg-yellow-100", d = "text-yellow-800", u = "Incomplete", p = `Incomplete fields in: ${Object.keys(t.missingRequiredFieldsByLocale).join(", ")}`), u ? `<span class="inline-flex items-center gap-1.5 rounded-full font-medium ${o} ${c} ${d} ${n}"
                 title="${p}"
                 aria-label="${p}"
                 data-missing-translations="true"
-                data-missing-count="${a}">
+                data-missing-count="${i}">
     <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
     <span>${u}</span>
   </span>` : "";
 }
-function xa(r) {
-  const e = _(r);
+function si(r) {
+  const e = A(r);
   return e.hasReadinessMetadata ? e.readinessState !== "ready" : !1;
 }
-function Sa(r) {
-  return _(r).missingRequiredLocales.length;
+function ni(r) {
+  return A(r).missingRequiredLocales.length;
 }
-function er(r, e, t) {
-  const s = j(r, "core"), n = s ? at(s, "sm") : "", o = s?.bgClass || "bg-gray-100", a = s?.textClass || "text-gray-600", i = s?.label || "Unknown", l = s?.description || "Unknown readiness state";
+function Ht(r, e, t) {
+  const s = Ke(r, "core"), n = s ? Mt(s, "sm") : "", o = s?.bgClass || "bg-gray-100", i = s?.textClass || "text-gray-600", a = s?.label || "Unknown", l = s?.description || "Unknown readiness state";
   switch (r) {
     case "ready":
       return {
         icon: n,
-        label: i,
+        label: a,
         bgClass: o,
-        textClass: a,
+        textClass: i,
         tooltip: l
       };
     case "missing_locales": {
@@ -1253,7 +750,7 @@ function er(r, e, t) {
         icon: n,
         label: `${c.length} missing`,
         bgClass: o,
-        textClass: a,
+        textClass: i,
         tooltip: d
       };
     }
@@ -1263,7 +760,7 @@ function er(r, e, t) {
         icon: n,
         label: "Incomplete",
         bgClass: o,
-        textClass: a,
+        textClass: i,
         tooltip: d
       };
     }
@@ -1275,59 +772,59 @@ function er(r, e, t) {
         icon: n,
         label: "Not ready",
         bgClass: o,
-        textClass: a,
+        textClass: i,
         tooltip: p
       };
     }
     default:
       return {
         icon: n,
-        label: i,
+        label: a,
         bgClass: o,
-        textClass: a,
+        textClass: i,
         tooltip: l
       };
   }
 }
-function tr(r, e = {}) {
-  const { size: t = "sm", maxLocales: s = 5, showLabels: n = !1 } = e, o = _(r);
+function Vt(r, e = {}) {
+  const { size: t = "sm", maxLocales: s = 5, showLabels: n = !1 } = e, o = A(r);
   if (!o.hasReadinessMetadata)
     return '<span class="text-gray-400">-</span>';
-  const { requiredLocales: a, availableLocales: i, missingRequiredFieldsByLocale: l } = o, c = a.length > 0 ? a : i;
+  const { requiredLocales: i, availableLocales: a, missingRequiredFieldsByLocale: l } = o, c = i.length > 0 ? i : a;
   if (c.length === 0)
     return '<span class="text-gray-400">-</span>';
-  const d = new Set(i), u = rr(l), p = c.slice(0, s).map((f) => {
-    const w = d.has(f), v = w && u.has(f), b = w && !v;
-    let E, B, A;
-    b ? (E = "bg-green-100 text-green-700 border-green-300", B = "●", A = "Complete") : v ? (E = "bg-amber-100 text-amber-700 border-amber-300", B = "◐", A = "Incomplete") : (E = "bg-white text-gray-400 border-gray-300 border-dashed", B = "○", A = "Missing");
-    const x = t === "sm" ? "text-[10px] px-1.5 py-0.5" : "text-xs px-2 py-1", z = n ? `<span class="font-medium">${f.toUpperCase()}</span>` : "";
+  const d = new Set(a), u = Kt(l), p = c.slice(0, s).map((f) => {
+    const v = d.has(f), y = v && u.has(f), b = v && !y;
+    let E, M, k;
+    b ? (E = "bg-green-100 text-green-700 border-green-300", M = "●", k = "Complete") : y ? (E = "bg-amber-100 text-amber-700 border-amber-300", M = "◐", k = "Incomplete") : (E = "bg-white text-gray-400 border-gray-300 border-dashed", M = "○", k = "Missing");
+    const w = t === "sm" ? "text-[10px] px-1.5 py-0.5" : "text-xs px-2 py-1", q = n ? `<span class="font-medium">${f.toUpperCase()}</span>` : "";
     return `
-        <span class="inline-flex items-center gap-0.5 ${x} rounded border ${E}"
-              title="${f.toUpperCase()}: ${A}"
-              aria-label="${f.toUpperCase()}: ${A}"
+        <span class="inline-flex items-center gap-0.5 ${w} rounded border ${E}"
+              title="${f.toUpperCase()}: ${k}"
+              aria-label="${f.toUpperCase()}: ${k}"
               data-locale="${f}"
-              data-state="${A.toLowerCase()}">
-          ${z}
-          <span aria-hidden="true">${B}</span>
+              data-state="${k.toLowerCase()}">
+          ${q}
+          <span aria-hidden="true">${M}</span>
         </span>
       `;
   }).join(""), h = c.length > s ? `<span class="text-[10px] text-gray-500" title="${c.length - s} more locales">+${c.length - s}</span>` : "";
   return `<div class="flex items-center gap-1 flex-wrap" data-matrix-cell="true">${p}${h}</div>`;
 }
-function rr(r) {
+function Kt(r) {
   const e = /* @__PURE__ */ new Set();
   if (r && typeof r == "object")
     for (const [t, s] of Object.entries(r))
       Array.isArray(s) && s.length > 0 && e.add(t);
   return e;
 }
-function Ca(r = {}) {
-  return (e, t, s) => tr(t, r);
+function oi(r = {}) {
+  return (e, t, s) => Vt(t, r);
 }
-function $a(r, e = {}) {
+function ii(r, e = {}) {
   if (!r.fallbackUsed && !r.missingRequestedLocale)
     return "";
-  const { showCreateButton: t = !0, createTranslationUrl: s, panelName: n } = e, o = r.requestedLocale || "requested locale", a = r.resolvedLocale || "default", i = t ? `
+  const { showCreateButton: t = !0, createTranslationUrl: s, panelName: n } = e, o = r.requestedLocale || "requested locale", i = r.resolvedLocale || "default", a = t ? `
     <button type="button"
             class="inline-flex items-center gap-1 text-sm font-medium text-amber-800 hover:text-amber-900 underline"
             data-action="create-translation"
@@ -1360,40 +857,40 @@ function $a(r, e = {}) {
           </h3>
           <p class="mt-1 text-sm text-amber-700">
             The <strong>${o.toUpperCase()}</strong> translation doesn't exist yet.
-            You're viewing content from <strong>${a.toUpperCase()}</strong>.
+            You're viewing content from <strong>${i.toUpperCase()}</strong>.
             <span class="block mt-1 text-amber-600">Editing is disabled until you create the missing translation.</span>
           </p>
-          ${i ? `<div class="mt-3">${i}</div>` : ""}
+          ${a ? `<div class="mt-3">${a}</div>` : ""}
         </div>
       </div>
     </div>
   `;
 }
-function He(r = {}) {
-  return (e, t, s) => Zt(t, r);
+function Me(r = {}) {
+  return (e, t, s) => Ut(t, r);
 }
-function sr(r = {}) {
-  return (e, t, s) => lt(t, r);
+function Jt(r = {}) {
+  return (e, t, s) => Qe(t, r);
 }
-function F(r, e) {
+function B(r, e) {
   for (const t of e) {
-    const s = Te(r, t);
+    const s = we(r, t);
     if (typeof s == "string" && s.trim())
       return s;
   }
   return null;
 }
-function nr(r, e) {
+function Yt(r, e) {
   for (const t of e) {
-    const s = Te(r, t);
+    const s = we(r, t);
     if (Array.isArray(s))
       return s.filter((n) => typeof n == "string");
   }
   return [];
 }
-function Ue(r, e) {
+function Pe(r, e) {
   for (const t of e) {
-    const s = Te(r, t);
+    const s = we(r, t);
     if (typeof s == "boolean")
       return s;
     if (s === "true") return !0;
@@ -1401,7 +898,7 @@ function Ue(r, e) {
   }
   return !1;
 }
-function Te(r, e) {
+function we(r, e) {
   const t = e.split(".");
   let s = r;
   for (const n of t) {
@@ -1411,7 +908,7 @@ function Te(r, e) {
   }
   return s;
 }
-const M = '<span class="text-gray-400">-</span>', or = [
+const I = '<span class="text-gray-400">-</span>', Qt = [
   "name",
   "label",
   "title",
@@ -1424,17 +921,17 @@ const M = '<span class="text-gray-400">-</span>', or = [
   "blockType",
   "block_type"
 ];
-function N(r) {
+function O(r) {
   return r.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
-function ar(r) {
+function Wt(r) {
   try {
     return JSON.stringify(r);
   } catch {
     return String(r);
   }
 }
-function ir(r) {
+function Xt(r) {
   const e = [], t = (n) => {
     if (typeof n != "string") return;
     const o = n.trim();
@@ -1444,7 +941,7 @@ function ir(r) {
   const s = r.display_keys ?? r.displayKeys;
   return Array.isArray(s) && s.forEach(t), e;
 }
-function lr(r, e) {
+function Zt(r, e) {
   if (!e) return;
   if (Object.prototype.hasOwnProperty.call(r, e))
     return r[e];
@@ -1459,7 +956,7 @@ function lr(r, e) {
   }
   return s;
 }
-function cr(r) {
+function er(r) {
   if (r == null)
     return "";
   switch (typeof r) {
@@ -1474,45 +971,45 @@ function cr(r) {
       return "";
   }
 }
-function $e(r, e) {
+function he(r, e) {
   if (r == null)
     return "";
   if (Array.isArray(r))
-    return Ee(r, e);
+    return fe(r, e);
   if (typeof r != "object")
     return String(r);
-  const s = [...ir(e), ...or], n = /* @__PURE__ */ new Set();
+  const s = [...Xt(e), ...Qt], n = /* @__PURE__ */ new Set();
   for (const o of s) {
     if (n.has(o)) continue;
     n.add(o);
-    const a = lr(r, o), i = cr(a);
-    if (i)
-      return i;
+    const i = Zt(r, o), a = er(i);
+    if (a)
+      return a;
   }
-  return ar(r);
+  return Wt(r);
 }
-function Ee(r, e) {
+function fe(r, e) {
   if (!Array.isArray(r) || r.length === 0)
     return "";
-  const t = r.map((a) => $e(a, e).trim()).filter(Boolean);
+  const t = r.map((i) => he(i, e).trim()).filter(Boolean);
   if (t.length === 0)
     return "";
   const s = Number(e.preview_limit ?? e.previewLimit ?? 3), n = Number.isFinite(s) && s > 0 ? Math.floor(s) : 3, o = t.slice(0, n);
   return t.length <= n ? o.join(", ") : `${o.join(", ")} +${t.length - n} more`;
 }
-function dr(r, e, t, s) {
+function tr(r, e, t, s) {
   const n = r[e] ?? r[t] ?? s, o = Number(n);
   return Number.isFinite(o) && o > 0 ? Math.floor(o) : s;
 }
-function ur(r, e, t, s) {
+function rr(r, e, t, s) {
   const n = r[e] ?? r[t];
   return n == null ? s : typeof n == "boolean" ? n : typeof n == "string" ? n.toLowerCase() === "true" || n === "1" : !!n;
 }
-function pr(r, e, t, s) {
+function sr(r, e, t, s) {
   const n = r[e] ?? r[t];
   return n == null ? s : String(n).trim() || s;
 }
-function hr(r) {
+function nr(r) {
   if (r == null)
     return "";
   if (typeof r == "string")
@@ -1527,7 +1024,7 @@ function hr(r) {
   }
   return "";
 }
-function fr(r) {
+function or(r) {
   switch (r) {
     case "muted":
       return "bg-gray-100 text-gray-600";
@@ -1538,20 +1035,20 @@ function fr(r) {
       return "bg-blue-50 text-blue-700";
   }
 }
-class gr {
+class ir {
   constructor() {
     this.renderers = /* @__PURE__ */ new Map(), this.defaultRenderer = (e) => {
       if (e == null)
-        return M;
+        return I;
       if (typeof e == "boolean")
         return e ? "Yes" : "No";
       if (Array.isArray(e)) {
-        const t = Ee(e, {});
-        return t ? N(t) : M;
+        const t = fe(e, {});
+        return t ? O(t) : I;
       }
       if (typeof e == "object") {
-        const t = $e(e, {});
-        return t ? N(t) : M;
+        const t = he(e, {});
+        return t ? O(t) : I;
       }
       return String(e);
     }, this.registerDefaultRenderers();
@@ -1580,7 +1077,7 @@ class gr {
   registerDefaultRenderers() {
     this.renderers.set("_badge", (e) => {
       const t = String(e).toLowerCase();
-      return re(String(e), "status", t);
+      return X(String(e), "status", t);
     }), this.renderers.set("_date", (e) => {
       if (!e) return '<span class="text-gray-400">-</span>';
       try {
@@ -1615,53 +1112,53 @@ class gr {
       return t.length <= s ? t : `<span title="${t}">${t.substring(0, s)}...</span>`;
     }), this.renderers.set("_array", (e, t, s, n) => {
       if (!Array.isArray(e) || e.length === 0)
-        return M;
-      const o = n?.options || {}, a = Ee(e, o);
-      return a ? N(a) : M;
+        return I;
+      const o = n?.options || {}, i = fe(e, o);
+      return i ? O(i) : I;
     }), this.renderers.set("_object", (e, t, s, n) => {
       if (e == null)
-        return M;
-      const o = n?.options || {}, a = $e(e, o);
-      return a ? N(a) : M;
+        return I;
+      const o = n?.options || {}, i = he(e, o);
+      return i ? O(i) : I;
     }), this.renderers.set("_tags", (e) => !Array.isArray(e) || e.length === 0 ? '<span class="text-gray-400">-</span>' : e.map(
       (t) => `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 mr-1">${t}</span>`
     ).join("")), this.renderers.set("blocks_chips", (e, t, s, n) => {
       if (!Array.isArray(e) || e.length === 0)
-        return M;
-      const o = n?.options || {}, a = dr(o, "max_visible", "maxVisible", 3), i = ur(o, "show_count", "showCount", !0), l = pr(o, "chip_variant", "chipVariant", "default"), c = o.block_icons_map || o.blockIconsMap || {}, d = [], u = e.slice(0, a);
+        return I;
+      const o = n?.options || {}, i = tr(o, "max_visible", "maxVisible", 3), a = rr(o, "show_count", "showCount", !0), l = sr(o, "chip_variant", "chipVariant", "default"), c = o.block_icons_map || o.blockIconsMap || {}, d = [], u = e.slice(0, i);
       for (const f of u) {
-        const w = hr(f);
-        if (!w) continue;
-        const v = c[w] || "view-grid", b = Ht(v, { size: "14px", extraClass: "flex-shrink-0" }), E = fr(l);
+        const v = nr(f);
+        if (!v) continue;
+        const y = c[v] || "view-grid", b = Tt(y, { size: "14px", extraClass: "flex-shrink-0" }), E = or(l);
         d.push(
-          `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${E}">${b}<span>${N(w)}</span></span>`
+          `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${E}">${b}<span>${O(v)}</span></span>`
         );
       }
       if (d.length === 0)
-        return M;
-      const p = e.length - a;
+        return I;
+      const p = e.length - i;
       let h = "";
-      return i && p > 0 && (h = `<span class="px-2 py-0.5 rounded text-xs bg-gray-200 text-gray-600">+${p} more</span>`), `<div class="flex flex-wrap gap-1">${d.join("")}${h}</div>`;
+      return a && p > 0 && (h = `<span class="px-2 py-0.5 rounded text-xs bg-gray-200 text-gray-600">+${p} more</span>`), `<div class="flex flex-wrap gap-1">${d.join("")}${h}</div>`;
     }), this.renderers.set("_image", (e) => e ? `<img src="${e}" alt="Thumbnail" class="h-10 w-10 rounded object-cover" />` : '<span class="text-gray-400">-</span>'), this.renderers.set("_avatar", (e, t) => {
       const s = t.name || t.username || t.email || "U", n = s.charAt(0).toUpperCase();
       return e ? `<img src="${e}" alt="${s}" class="h-8 w-8 rounded-full object-cover" />` : `<div class="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-medium text-sm">${n}</div>`;
     });
   }
 }
-const Ea = {
+const ai = {
   /**
    * Status badge renderer with custom colors
    */
   statusBadge: (r) => (e) => {
     const t = String(e).toLowerCase();
-    return re(String(e), "status", t);
+    return X(String(e), "status", t);
   },
   /**
    * Role badge renderer with color mapping
    */
   roleBadge: (r) => (e) => {
     const t = String(e).toLowerCase();
-    return re(String(e), "role", t);
+    return X(String(e), "role", t);
   },
   /**
    * Combined name+email renderer
@@ -1673,15 +1170,15 @@ const Ea = {
   /**
    * Boolean chip renderer with icon + label (e.g., [✓ Yes] or [✕ No])
    */
-  booleanChip: (r) => (e) => Gt(!!e, r),
+  booleanChip: (r) => (e) => It(!!e, r),
   /**
    * Relative time renderer (e.g., "2 hours ago")
    */
   relativeTime: (r) => {
     if (!r) return '<span class="text-gray-400">-</span>';
     try {
-      const e = new Date(r), s = (/* @__PURE__ */ new Date()).getTime() - e.getTime(), n = Math.floor(s / 6e4), o = Math.floor(s / 36e5), a = Math.floor(s / 864e5);
-      return n < 1 ? "Just now" : n < 60 ? `${n} minute${n > 1 ? "s" : ""} ago` : o < 24 ? `${o} hour${o > 1 ? "s" : ""} ago` : a < 30 ? `${a} day${a > 1 ? "s" : ""} ago` : e.toLocaleDateString();
+      const e = new Date(r), s = (/* @__PURE__ */ new Date()).getTime() - e.getTime(), n = Math.floor(s / 6e4), o = Math.floor(s / 36e5), i = Math.floor(s / 864e5);
+      return n < 1 ? "Just now" : n < 60 ? `${n} minute${n > 1 ? "s" : ""} ago` : o < 24 ? `${o} hour${o > 1 ? "s" : ""} ago` : i < 30 ? `${i} day${i > 1 ? "s" : ""} ago` : e.toLocaleDateString();
     } catch {
       return String(r);
     }
@@ -1689,37 +1186,37 @@ const Ea = {
   /**
    * Locale badge renderer - shows current locale with fallback indicator
    */
-  localeBadge: sr(),
+  localeBadge: Jt(),
   /**
    * Translation status renderer - shows locale + available locales
    */
-  translationStatus: He(),
+  translationStatus: Me(),
   /**
    * Compact translation status for smaller cells
    */
-  translationStatusCompact: He({ size: "sm", maxLocales: 2 })
-}, mr = "datagrid.state.", ue = "datagrid.share.", ct = "datagrid.share.index", br = 20;
-function yr(r) {
+  translationStatusCompact: Me({ size: "sm", maxLocales: 2 })
+}, ar = "datagrid.state.", ae = "datagrid.share.", We = "datagrid.share.index", lr = 20;
+function cr(r) {
   return String(r || "").trim() || "default";
 }
-function pe(r, e = {}) {
+function le(r, e = {}) {
   if (!Array.isArray(r)) return;
   const t = r.map((s) => typeof s == "string" ? s.trim() : "").filter((s) => s.length > 0);
   return t.length === 0 ? e.allowEmpty === !0 ? [] : void 0 : Array.from(new Set(t));
 }
-function U(r) {
+function N(r) {
   if (!r || typeof r != "object" || Array.isArray(r))
     return null;
   const e = r, t = { version: 1 };
   (e.viewMode === "flat" || e.viewMode === "grouped" || e.viewMode === "matrix") && (t.viewMode = e.viewMode), (e.expandMode === "all" || e.expandMode === "none" || e.expandMode === "explicit") && (t.expandMode = e.expandMode);
-  const s = pe(e.expandedGroups, { allowEmpty: !0 });
+  const s = le(e.expandedGroups, { allowEmpty: !0 });
   s !== void 0 && (t.expandedGroups = s);
-  const n = pe(e.hiddenColumns, { allowEmpty: !0 });
+  const n = le(e.hiddenColumns, { allowEmpty: !0 });
   n !== void 0 && (t.hiddenColumns = n);
-  const o = pe(e.columnOrder);
+  const o = le(e.columnOrder);
   return o && (t.columnOrder = o), typeof e.updatedAt == "number" && Number.isFinite(e.updatedAt) && (t.updatedAt = e.updatedAt), t;
 }
-function Ve(r) {
+function Be(r) {
   if (!r || typeof r != "object" || Array.isArray(r))
     return null;
   const e = r, t = { version: 1 };
@@ -1728,57 +1225,57 @@ function Ve(r) {
     n && (t.search = n);
   }
   typeof e.page == "number" && Number.isFinite(e.page) && (t.page = Math.max(1, Math.trunc(e.page))), typeof e.perPage == "number" && Number.isFinite(e.perPage) && (t.perPage = Math.max(1, Math.trunc(e.perPage))), Array.isArray(e.filters) && (t.filters = e.filters), Array.isArray(e.sort) && (t.sort = e.sort);
-  const s = U(e.persisted);
+  const s = N(e.persisted);
   return s && (t.persisted = s), typeof e.updatedAt == "number" && Number.isFinite(e.updatedAt) && (t.updatedAt = e.updatedAt), t;
 }
-function vr(r) {
+function dr(r) {
   const e = String(r || "").trim();
   return e ? e.replace(/\/+$/, "") : "/api/panels/preferences";
 }
-function wr(r) {
+function ur(r) {
   return String(r || "").trim().replace(/[^a-zA-Z0-9._-]/g, "");
 }
-function xr() {
+function pr() {
   const r = Date.now().toString(36), e = Math.random().toString(36).slice(2, 10);
   return `${r}${e}`.slice(0, 16);
 }
-function Sr(r) {
+function hr(r) {
   try {
-    const e = localStorage.getItem(ct);
+    const e = localStorage.getItem(We);
     if (!e) return [];
     const t = JSON.parse(e);
     if (!Array.isArray(t)) return [];
     const s = t.map((n) => {
       if (!n || typeof n != "object" || Array.isArray(n)) return null;
-      const o = n, a = typeof o.token == "string" ? o.token.trim() : "", i = typeof o.updatedAt == "number" ? o.updatedAt : 0;
-      return !a || !Number.isFinite(i) ? null : { token: a, updatedAt: i };
+      const o = n, i = typeof o.token == "string" ? o.token.trim() : "", a = typeof o.updatedAt == "number" ? o.updatedAt : 0;
+      return !i || !Number.isFinite(a) ? null : { token: i, updatedAt: a };
     }).filter((n) => n !== null).sort((n, o) => o.updatedAt - n.updatedAt);
     return s.length <= r ? s : s.slice(0, r);
   } catch {
     return [];
   }
 }
-function Cr(r) {
+function fr(r) {
   try {
-    localStorage.setItem(ct, JSON.stringify(r));
+    localStorage.setItem(We, JSON.stringify(r));
   } catch {
   }
 }
-class dt {
+class Xe {
   constructor(e) {
-    const t = yr(e.key);
-    this.key = t, this.persistedStorageKey = `${mr}${t}`, this.maxShareEntries = Math.max(1, e.maxShareEntries || br);
+    const t = cr(e.key);
+    this.key = t, this.persistedStorageKey = `${ar}${t}`, this.maxShareEntries = Math.max(1, e.maxShareEntries || lr);
   }
   loadPersistedState() {
     try {
       const e = localStorage.getItem(this.persistedStorageKey);
-      return e ? U(JSON.parse(e)) : null;
+      return e ? N(JSON.parse(e)) : null;
     } catch {
       return null;
     }
   }
   savePersistedState(e) {
-    const t = U(e);
+    const t = N(e);
     if (t) {
       t.updatedAt || (t.updatedAt = Date.now());
       try {
@@ -1794,18 +1291,18 @@ class dt {
     }
   }
   createShareState(e) {
-    const t = Ve(e);
+    const t = Be(e);
     if (!t) return null;
     t.updatedAt || (t.updatedAt = Date.now());
-    const s = xr(), n = `${ue}${s}`;
+    const s = pr(), n = `${ae}${s}`;
     try {
       localStorage.setItem(n, JSON.stringify(t));
-      const o = Sr(this.maxShareEntries).filter((a) => a.token !== s);
+      const o = hr(this.maxShareEntries).filter((i) => i.token !== s);
       for (o.unshift({ token: s, updatedAt: t.updatedAt }); o.length > this.maxShareEntries; ) {
-        const a = o.pop();
-        a && localStorage.removeItem(`${ue}${a.token}`);
+        const i = o.pop();
+        i && localStorage.removeItem(`${ae}${i.token}`);
       }
-      return Cr(o), s;
+      return fr(o), s;
     } catch {
       return null;
     }
@@ -1814,16 +1311,16 @@ class dt {
     const t = String(e || "").trim();
     if (!t) return null;
     try {
-      const s = localStorage.getItem(`${ue}${t}`);
-      return s ? Ve(JSON.parse(s)) : null;
+      const s = localStorage.getItem(`${ae}${t}`);
+      return s ? Be(JSON.parse(s)) : null;
     } catch {
       return null;
     }
   }
 }
-class $r extends dt {
+class mr extends Xe {
   constructor(e) {
-    super(e), this.syncTimeout = null, this.preferencesEndpoint = vr(e.preferencesEndpoint), this.resource = wr(e.resource) || this.key, this.syncDebounceMs = Math.max(100, e.syncDebounceMs || 1e3);
+    super(e), this.syncTimeout = null, this.preferencesEndpoint = dr(e.preferencesEndpoint), this.resource = ur(e.resource) || this.key, this.syncDebounceMs = Math.max(100, e.syncDebounceMs || 1e3);
   }
   get serverStateKey() {
     return `ui.datagrid.${this.resource}.state`;
@@ -1841,14 +1338,14 @@ class $r extends dt {
         return;
       const s = await t.json(), n = this.extractFirstRecord(s);
       if (!n) return;
-      const o = this.extractMap(n.effective), a = this.extractMap(n.raw), i = o[this.serverStateKey] ?? a[this.serverStateKey], l = U(i);
+      const o = this.extractMap(n.effective), i = this.extractMap(n.raw), a = o[this.serverStateKey] ?? i[this.serverStateKey], l = N(a);
       l && super.savePersistedState(l);
     } catch {
     }
   }
   savePersistedState(e) {
     super.savePersistedState(e);
-    const t = U(e);
+    const t = N(e);
     t && this.scheduleServerSync(t);
   }
   clearPersistedState() {
@@ -1914,27 +1411,27 @@ class $r extends dt {
     return !e || typeof e != "object" || Array.isArray(e) ? {} : e;
   }
 }
-function Er(r) {
-  return (r.mode || "local") === "preferences" ? new $r(r) : new dt(r);
+function gr(r) {
+  return (r.mode || "local") === "preferences" ? new mr(r) : new Xe(r);
 }
-function kr(r, e = {}) {
+function br(r, e = {}) {
   const {
     groupByField: t = "translation_group_id",
     defaultExpanded: s = !0,
     expandMode: n = "explicit",
     expandedGroups: o = /* @__PURE__ */ new Set()
-  } = e, a = /* @__PURE__ */ new Map(), i = [];
+  } = e, i = /* @__PURE__ */ new Map(), a = [];
   for (const c of r) {
-    const d = Mr(c, t);
+    const d = Er(c, t);
     if (d) {
-      const u = a.get(d);
-      u ? u.push(c) : a.set(d, [c]);
+      const u = i.get(d);
+      u ? u.push(c) : i.set(d, [c]);
     } else
-      i.push(c);
+      a.push(c);
   }
   const l = [];
-  for (const [c, d] of a) {
-    const u = mt(d), p = pt(c, n, o, s);
+  for (const [c, d] of i) {
+    const u = nt(d), p = et(c, n, o, s);
     l.push({
       groupId: c,
       records: d,
@@ -1949,21 +1446,21 @@ function kr(r, e = {}) {
     return u - p;
   }), {
     groups: l,
-    ungrouped: i,
+    ungrouped: a,
     totalGroups: l.length,
     totalRecords: r.length
   };
 }
-function ut(r) {
+function Ze(r) {
   if (r.length === 0)
     return !1;
   let e = !1;
   for (const t of r) {
-    if (Lr(t)) {
+    if (vr(t)) {
       e = !0;
       continue;
     }
-    if (ht(t)) {
+    if (tt(t)) {
       e = !0;
       continue;
     }
@@ -1971,62 +1468,62 @@ function ut(r) {
   }
   return e;
 }
-function Ar(r, e = {}) {
+function yr(r, e = {}) {
   const {
     defaultExpanded: t = !0,
     expandMode: s = "explicit",
     expandedGroups: n = /* @__PURE__ */ new Set()
   } = e;
-  if (!ut(r))
+  if (!Ze(r))
     return null;
-  const o = [], a = [];
-  let i = 0;
+  const o = [], i = [];
+  let a = 0;
   for (const l of r) {
-    if (ht(l)) {
-      a.push({ ...l }), i += 1;
+    if (tt(l)) {
+      i.push({ ...l }), a += 1;
       continue;
     }
-    const c = _r(l);
+    const c = wr(l);
     if (!c)
       return null;
-    const d = gt(l), u = Tr(l, d), p = pt(c, s, n, t);
+    const d = st(l), u = Sr(l, d), p = et(c, s, n, t);
     o.push({
       groupId: c,
-      displayLabel: Ir(l, d),
+      displayLabel: Cr(l, d),
       records: d,
       summary: u,
       expanded: p,
-      summaryFromBackend: Rr(l)
-    }), i += d.length;
+      summaryFromBackend: xr(l)
+    }), a += d.length;
   }
   return {
     groups: o,
-    ungrouped: a,
+    ungrouped: i,
     totalGroups: o.length,
-    totalRecords: i
+    totalRecords: a
   };
 }
-function pt(r, e, t, s) {
+function et(r, e, t, s) {
   return e === "all" ? !t.has(r) : e === "none" ? t.has(r) : t.size === 0 ? s : t.has(r);
 }
-function Lr(r) {
-  const e = r, t = typeof e.group_by == "string" ? e.group_by.trim().toLowerCase() : "", s = ft(r);
+function vr(r) {
+  const e = r, t = typeof e.group_by == "string" ? e.group_by.trim().toLowerCase() : "", s = rt(r);
   if (!(t === "translation_group_id" || s === "group"))
     return !1;
-  const o = gt(r);
+  const o = st(r);
   return Array.isArray(o);
 }
-function ht(r) {
-  return ft(r) === "ungrouped";
+function tt(r) {
+  return rt(r) === "ungrouped";
 }
-function ft(r) {
+function rt(r) {
   const e = r._group;
   if (!e || typeof e != "object" || Array.isArray(e))
     return "";
   const t = e.row_type;
   return typeof t == "string" ? t.trim().toLowerCase() : "";
 }
-function _r(r) {
+function wr(r) {
   const e = r.translation_group_id;
   if (typeof e == "string" && e.trim())
     return e.trim();
@@ -2036,7 +1533,7 @@ function _r(r) {
   const s = t.id;
   return typeof s == "string" && s.trim() ? s.trim() : null;
 }
-function gt(r) {
+function st(r) {
   const e = r, t = Array.isArray(e.records) ? e.records : e.children;
   if (Array.isArray(t)) {
     const n = t.filter((o) => !!o && typeof o == "object" && !Array.isArray(o)).map((o) => ({ ...o }));
@@ -2046,50 +1543,50 @@ function gt(r) {
   const s = e.parent;
   return s && typeof s == "object" && !Array.isArray(s) ? [{ ...s }] : [];
 }
-function Rr(r) {
+function xr(r) {
   const e = r.translation_group_summary;
   return !!e && typeof e == "object" && !Array.isArray(e);
 }
-function Tr(r, e) {
+function Sr(r, e) {
   const t = r.translation_group_summary;
   if (!t || typeof t != "object" || Array.isArray(t))
-    return mt(e);
-  const s = t, n = Array.isArray(s.available_locales) ? s.available_locales.filter(O) : [], o = Array.isArray(s.missing_locales) ? s.missing_locales.filter(O) : [], a = bt(s.readiness_state) ? s.readiness_state : null, i = Math.max(e.length, typeof s.child_count == "number" ? Math.max(s.child_count, 0) : 0);
+    return nt(e);
+  const s = t, n = Array.isArray(s.available_locales) ? s.available_locales.filter(F) : [], o = Array.isArray(s.missing_locales) ? s.missing_locales.filter(F) : [], i = ot(s.readiness_state) ? s.readiness_state : null, a = Math.max(e.length, typeof s.child_count == "number" ? Math.max(s.child_count, 0) : 0);
   return {
-    totalItems: typeof s.total_items == "number" ? Math.max(s.total_items, 0) : i,
+    totalItems: typeof s.total_items == "number" ? Math.max(s.total_items, 0) : a,
     availableLocales: n,
     missingLocales: o,
-    readinessState: a,
+    readinessState: i,
     readyForPublish: typeof s.ready_for_publish == "boolean" ? s.ready_for_publish : null
   };
 }
-function Ir(r, e) {
+function Cr(r, e) {
   const t = r.translation_group_label;
   if (typeof t == "string" && t.trim())
     return t.trim();
   const s = r.translation_group_summary;
   if (s && typeof s == "object" && !Array.isArray(s)) {
-    const i = s.group_label;
-    if (typeof i == "string" && i.trim())
-      return i.trim();
+    const a = s.group_label;
+    if (typeof a == "string" && a.trim())
+      return a.trim();
   }
   const n = r._group;
   if (n && typeof n == "object" && !Array.isArray(n)) {
-    const i = n.label;
-    if (typeof i == "string" && i.trim())
-      return i.trim();
+    const a = n.label;
+    if (typeof a == "string" && a.trim())
+      return a.trim();
   }
-  const o = [], a = r.parent;
-  if (a && typeof a == "object" && !Array.isArray(a)) {
-    const i = a;
-    o.push(i.title, i.name, i.slug, i.path);
+  const o = [], i = r.parent;
+  if (i && typeof i == "object" && !Array.isArray(i)) {
+    const a = i;
+    o.push(a.title, a.name, a.slug, a.path);
   }
   e.length > 0 && o.push(e[0].title, e[0].name, e[0].slug, e[0].path);
-  for (const i of o)
-    if (typeof i == "string" && i.trim())
-      return i.trim();
+  for (const a of o)
+    if (typeof a == "string" && a.trim())
+      return a.trim();
 }
-function Mr(r, e) {
+function Er(r, e) {
   const t = r[e];
   if (typeof t == "string" && t.trim())
     return t;
@@ -2098,13 +1595,13 @@ function Mr(r, e) {
     `content_translation.meta.${e}`
   ];
   for (const n of s) {
-    const o = Pr(r, n);
+    const o = $r(r, n);
     if (typeof o == "string" && o.trim())
       return o;
   }
   return null;
 }
-function Pr(r, e) {
+function $r(r, e) {
   const t = e.split(".");
   let s = r;
   for (const n of t) {
@@ -2114,22 +1611,22 @@ function Pr(r, e) {
   }
   return s;
 }
-function mt(r) {
+function nt(r) {
   const e = /* @__PURE__ */ new Set(), t = /* @__PURE__ */ new Set();
   let s = !1, n = 0;
-  for (const a of r) {
-    const i = a.translation_readiness;
-    if (i) {
-      const c = i.available_locales, d = i.missing_required_locales, u = i.readiness_state;
-      Array.isArray(c) && c.filter(O).forEach((p) => e.add(p)), Array.isArray(d) && d.filter(O).forEach((p) => t.add(p)), (u === "missing_fields" || u === "missing_locales_and_fields") && (s = !0), u === "ready" && n++;
+  for (const i of r) {
+    const a = i.translation_readiness;
+    if (a) {
+      const c = a.available_locales, d = a.missing_required_locales, u = a.readiness_state;
+      Array.isArray(c) && c.filter(F).forEach((p) => e.add(p)), Array.isArray(d) && d.filter(F).forEach((p) => t.add(p)), (u === "missing_fields" || u === "missing_locales_and_fields") && (s = !0), u === "ready" && n++;
     }
-    const l = a.available_locales;
-    Array.isArray(l) && l.filter(O).forEach((c) => e.add(c));
+    const l = i.available_locales;
+    Array.isArray(l) && l.filter(F).forEach((c) => e.add(c));
   }
   let o = null;
   if (r.length > 0) {
-    const a = n === r.length, i = t.size > 0;
-    a ? o = "ready" : i && s ? o = "missing_locales_and_fields" : i ? o = "missing_locales" : s && (o = "missing_fields");
+    const i = n === r.length, a = t.size > 0;
+    i ? o = "ready" : a && s ? o = "missing_locales_and_fields" : a ? o = "missing_locales" : s && (o = "missing_fields");
   }
   return {
     totalItems: r.length,
@@ -2139,10 +1636,10 @@ function mt(r) {
     readyForPublish: o === "ready"
   };
 }
-function O(r) {
+function F(r) {
   return typeof r == "string";
 }
-function Br(r, e) {
+function kr(r, e) {
   const t = r.groups.map((s) => {
     const n = e.get(s.groupId);
     return n ? {
@@ -2159,7 +1656,7 @@ function Br(r, e) {
     groups: t
   };
 }
-function Dr(r) {
+function Ar(r) {
   const e = /* @__PURE__ */ new Map(), t = r.group_summaries;
   if (!t || typeof t != "object" || Array.isArray(t))
     return e;
@@ -2168,32 +1665,32 @@ function Dr(r) {
       const o = n;
       e.set(s, {
         totalItems: typeof o.total_items == "number" ? o.total_items : void 0,
-        availableLocales: Array.isArray(o.available_locales) ? o.available_locales.filter(O) : void 0,
-        missingLocales: Array.isArray(o.missing_locales) ? o.missing_locales.filter(O) : void 0,
-        readinessState: bt(o.readiness_state) ? o.readiness_state : void 0,
+        availableLocales: Array.isArray(o.available_locales) ? o.available_locales.filter(F) : void 0,
+        missingLocales: Array.isArray(o.missing_locales) ? o.missing_locales.filter(F) : void 0,
+        readinessState: ot(o.readiness_state) ? o.readiness_state : void 0,
         readyForPublish: typeof o.ready_for_publish == "boolean" ? o.ready_for_publish : void 0
       });
     }
   return e;
 }
-function bt(r) {
+function ot(r) {
   return r === "ready" || r === "missing_locales" || r === "missing_fields" || r === "missing_locales_and_fields";
 }
-const oe = "datagrid-expand-state-";
-function ke(r) {
+const te = "datagrid-expand-state-";
+function me(r) {
   if (!Array.isArray(r))
     return [];
   const e = [];
   for (const t of r) {
-    const s = Me(t);
+    const s = Se(t);
     if (s && !e.includes(s)) {
-      if (e.length >= Ie) break;
+      if (e.length >= xe) break;
       e.push(s);
     }
   }
   return e;
 }
-function yt(r) {
+function it(r) {
   if (!r)
     return null;
   try {
@@ -2202,118 +1699,118 @@ function yt(r) {
       return {
         version: 2,
         mode: "explicit",
-        ids: ke(e)
+        ids: me(e)
       };
     if (!e || typeof e != "object" || Array.isArray(e))
       return null;
-    const t = Z(e.mode, "explicit"), s = ke(e.ids);
+    const t = Y(e.mode, "explicit"), s = me(e.ids);
     return { version: 2, mode: t, ids: s };
   } catch {
     return null;
   }
 }
-function Fr(r) {
+function Lr(r) {
   try {
-    const e = oe + r, t = yt(localStorage.getItem(e));
+    const e = te + r, t = it(localStorage.getItem(e));
     if (t)
       return new Set(t.ids);
   } catch {
   }
   return /* @__PURE__ */ new Set();
 }
-function qr(r) {
+function _r(r) {
   try {
-    const e = oe + r, t = yt(localStorage.getItem(e));
+    const e = te + r, t = it(localStorage.getItem(e));
     if (t)
       return t.mode;
   } catch {
   }
   return "explicit";
 }
-function Or(r) {
+function Rr(r) {
   try {
-    const e = oe + r;
+    const e = te + r;
     return localStorage.getItem(e) !== null;
   } catch {
     return !1;
   }
 }
-function ka(r, e, t = "explicit") {
+function li(r, e, t = "explicit") {
   try {
-    const s = oe + r, n = ke(Array.from(e)), o = {
+    const s = te + r, n = me(Array.from(e)), o = {
       version: 2,
-      mode: Z(t, "explicit"),
+      mode: Y(t, "explicit"),
       ids: n
     };
     localStorage.setItem(s, JSON.stringify(o));
   } catch {
   }
 }
-function Aa(r, e) {
+function ci(r, e) {
   const t = r.groups.map((s) => s.groupId === e ? { ...s, expanded: !s.expanded } : s);
   return { ...r, groups: t };
 }
-function La(r) {
+function di(r) {
   const e = r.groups.map((t) => ({
     ...t,
     expanded: !0
   }));
   return { ...r, groups: e };
 }
-function _a(r) {
+function ui(r) {
   const e = r.groups.map((t) => ({
     ...t,
     expanded: !1
   }));
   return { ...r, groups: e };
 }
-function Ra(r) {
+function pi(r) {
   const e = /* @__PURE__ */ new Set();
   for (const t of r.groups)
     t.expanded && e.add(t.groupId);
   return e;
 }
-const vt = "datagrid-view-mode-", Ie = 200, jr = 256;
-function Z(r, e = "explicit") {
+const at = "datagrid-view-mode-", xe = 200, Ir = 256;
+function Y(r, e = "explicit") {
   return r === "all" || r === "none" || r === "explicit" ? r : e;
 }
-function zr(r) {
+function Tr(r) {
   try {
-    const e = vt + r, t = localStorage.getItem(e);
-    if (t && wt(t))
+    const e = at + r, t = localStorage.getItem(e);
+    if (t && lt(t))
       return t;
   } catch {
   }
   return null;
 }
-function Ta(r, e) {
+function hi(r, e) {
   try {
-    const t = vt + r;
+    const t = at + r;
     localStorage.setItem(t, e);
   } catch {
   }
 }
-function wt(r) {
+function lt(r) {
   return r === "flat" || r === "grouped" || r === "matrix";
 }
-function xt(r) {
-  return r && wt(r) ? r : null;
+function ct(r) {
+  return r && lt(r) ? r : null;
 }
-function Ia(r) {
+function fi(r) {
   if (!(r instanceof Set) || r.size === 0)
     return "";
   const e = Array.from(new Set(
-    Array.from(r).map((t) => Me(t)).filter((t) => t !== null)
-  )).slice(0, Ie).sort();
+    Array.from(r).map((t) => Se(t)).filter((t) => t !== null)
+  )).slice(0, xe).sort();
   return e.length === 0 ? "" : e.map((t) => encodeURIComponent(t)).join(",");
 }
-function Nr(r) {
+function Mr(r) {
   const e = /* @__PURE__ */ new Set();
   if (!r)
     return e;
   const t = r.split(",");
   for (const s of t) {
-    if (e.size >= Ie)
+    if (e.size >= xe)
       break;
     if (!s)
       continue;
@@ -2323,12 +1820,12 @@ function Nr(r) {
     } catch {
       continue;
     }
-    const o = Me(n);
+    const o = Se(n);
     o && e.add(o);
   }
   return e;
 }
-function Me(r) {
+function Se(r) {
   if (typeof r != "string")
     return null;
   let e = r.trim();
@@ -2340,13 +1837,13 @@ function Me(r) {
       typeof t == "string" && t.trim() && (e = t.trim());
     } catch {
     }
-  return e.length > jr ? null : e;
+  return e.length > Ir ? null : e;
 }
-function Gr(r, e = {}) {
-  const { summary: t } = r, { size: s = "sm" } = e, n = s === "sm" ? "text-xs" : "text-sm", o = t.availableLocales.length, a = t.missingLocales.length, i = o + a;
+function Pr(r, e = {}) {
+  const { summary: t } = r, { size: s = "sm" } = e, n = s === "sm" ? "text-xs" : "text-sm", o = t.availableLocales.length, i = t.missingLocales.length, a = o + i;
   let l = "";
   if (t.readinessState) {
-    const u = Hr(t.readinessState);
+    const u = Br(t.readinessState);
     l = `
       <span class="${n} px-1.5 py-0.5 rounded ${u.bgClass} ${u.textClass}"
             title="${u.description}">
@@ -2354,7 +1851,7 @@ function Gr(r, e = {}) {
       </span>
     `;
   }
-  const c = i > 0 ? `<span class="${n} text-gray-500">${o}/${i} locales</span>` : "", d = `<span class="${n} text-gray-500">${t.totalItems} item${t.totalItems !== 1 ? "s" : ""}</span>`;
+  const c = a > 0 ? `<span class="${n} text-gray-500">${o}/${a} locales</span>` : "", d = `<span class="${n} text-gray-500">${t.totalItems} item${t.totalItems !== 1 ? "s" : ""}</span>`;
   return `
     <div class="inline-flex items-center gap-2">
       ${l}
@@ -2363,7 +1860,7 @@ function Gr(r, e = {}) {
     </div>
   `;
 }
-function Hr(r) {
+function Br(r) {
   switch (r) {
     case "ready":
       return {
@@ -2407,7 +1904,7 @@ function Hr(r) {
       };
   }
 }
-function Ur(r) {
+function Dr(r) {
   if (typeof r.displayLabel == "string" && r.displayLabel.trim())
     return r.displayLabel.trim();
   if (r.groupId.startsWith("ungrouped:"))
@@ -2424,11 +1921,11 @@ function Ur(r) {
   }
   return `Translation Group (${r.groupId.length > 8 ? r.groupId.slice(0, 8) + "..." : r.groupId})`;
 }
-function Vr(r, e, t = {}) {
-  const { showExpandIcon: s = !0 } = t, n = s ? `<span class="expand-icon mr-2" aria-hidden="true">${r.expanded ? "▼" : "▶"}</span>` : "", o = Gr(r), a = Pe(Ur(r)), i = r.records.length, l = i > 1 ? `<span class="ml-2 text-xs text-gray-500">(${i} locales)</span>` : "";
+function Fr(r, e, t = {}) {
+  const { showExpandIcon: s = !0 } = t, n = s ? `<span class="expand-icon mr-2" aria-hidden="true">${r.expanded ? "▼" : "▶"}</span>` : "", o = Pr(r), i = Ce(Dr(r)), a = r.records.length, l = a > 1 ? `<span class="ml-2 text-xs text-gray-500">(${a} locales)</span>` : "";
   return `
     <tr class="group-header bg-gray-50 hover:bg-gray-100 cursor-pointer border-b border-gray-200"
-        data-group-id="${Kr(r.groupId)}"
+        data-group-id="${qr(r.groupId)}"
         data-expanded="${r.expanded}"
         role="row"
         aria-expanded="${r.expanded}"
@@ -2437,7 +1934,7 @@ function Vr(r, e, t = {}) {
         <div class="flex items-center justify-between">
           <div class="flex items-center">
             ${n}
-            <span class="font-medium text-gray-700">${a}</span>
+            <span class="font-medium text-gray-700">${i}</span>
             ${l}
           </div>
           ${o}
@@ -2446,13 +1943,13 @@ function Vr(r, e, t = {}) {
     </tr>
   `;
 }
-function Pe(r) {
+function Ce(r) {
   return r.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 }
-function Kr(r) {
-  return Pe(r);
+function qr(r) {
+  return Ce(r);
 }
-function Jr(r) {
+function Or(r) {
   return `
     <tr>
       <td colspan="${r + 2}" class="px-6 py-12 text-center">
@@ -2468,7 +1965,7 @@ function Jr(r) {
     </tr>
   `;
 }
-function Ma(r) {
+function mi(r) {
   return `
     <tr>
       <td colspan="${r + 2}" class="px-6 py-12 text-center">
@@ -2483,7 +1980,7 @@ function Ma(r) {
     </tr>
   `;
 }
-function Pa(r, e, t) {
+function gi(r, e, t) {
   const s = t ? `<button type="button" class="mt-2 px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600" onclick="this.dispatchEvent(new CustomEvent('retry', { bubbles: true }))">Retry</button>` : "";
   return `
     <tr>
@@ -2494,45 +1991,45 @@ function Pa(r, e, t) {
                   d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
           </svg>
           <h3 class="mt-2 text-sm font-medium text-gray-900">Error loading groups</h3>
-          <p class="mt-1 text-sm text-gray-500">${Pe(e)}</p>
+          <p class="mt-1 text-sm text-gray-500">${Ce(e)}</p>
           ${s}
         </div>
       </td>
     </tr>
   `;
 }
-function Yr(r = 768) {
+function jr(r = 768) {
   return typeof window > "u" ? !1 : window.innerWidth < r;
 }
-function Be(r, e = 768) {
-  return Yr(e) && r === "grouped" ? "flat" : r;
+function Ee(r, e = 768) {
+  return jr(e) && r === "grouped" ? "flat" : r;
 }
-const V = "search", K = "page", J = "perPage", Y = "filters", Q = "sort", ae = "state", De = "hiddenColumns", ie = "view_mode", se = "expanded_groups", Fe = [
+const G = "search", U = "page", H = "perPage", V = "filters", K = "sort", re = "state", $e = "hiddenColumns", se = "view_mode", Z = "expanded_groups", ke = [
+  G,
+  U,
+  H,
   V,
   K,
-  J,
-  Y,
-  Q,
-  ae,
-  De,
-  ie,
-  se
-], St = 1800, Ct = 600;
-function Ke(r, e) {
+  re,
+  $e,
+  se,
+  Z
+], dt = 1800, ut = 600;
+function De(r, e) {
   const t = e.toString();
   return t ? `${r}?${t}` : r;
 }
-function Qr(r, e) {
+function zr(r, e) {
   for (const t of e)
     r.delete(t);
 }
-function Wr(r) {
+function Nr(r) {
   const e = Math.max(
     256,
-    r.config.urlState?.maxURLLength || St
+    r.config.urlState?.maxURLLength || dt
   ), t = Math.max(
     64,
-    r.config.urlState?.maxFiltersLength || Ct
+    r.config.urlState?.maxFiltersLength || ut
   ), s = r.config.urlState?.enableStateToken !== !1;
   return {
     maxURLLength: e,
@@ -2540,7 +2037,7 @@ function Wr(r) {
     enableStateToken: s
   };
 }
-function Xr(r, e, t) {
+function Gr(r, e, t) {
   const s = String(e || "").trim();
   if (!s)
     return null;
@@ -2551,36 +2048,36 @@ function Xr(r, e, t) {
     return console.warn(`[DataGrid] Failed to parse ${t} payload from URL:`, n), null;
   }
 }
-function Zr(r, e, t = {}) {
-  const s = t.merge === !0, n = new Set(r.config.columns.map((i) => i.field)), o = Array.isArray(e.hiddenColumns) ? new Set(
-    e.hiddenColumns.map((i) => String(i || "").trim()).filter((i) => i.length > 0 && n.has(i))
+function Ur(r, e, t = {}) {
+  const s = t.merge === !0, n = new Set(r.config.columns.map((a) => a.field)), o = Array.isArray(e.hiddenColumns) ? new Set(
+    e.hiddenColumns.map((a) => String(a || "").trim()).filter((a) => a.length > 0 && n.has(a))
   ) : null;
   o ? (r.state.hiddenColumns = o, r.hasPersistedHiddenColumnState = !0) : s || (r.state.hiddenColumns = new Set(
-    r.config.columns.filter((i) => i.hidden).map((i) => i.field)
+    r.config.columns.filter((a) => a.hidden).map((a) => a.field)
   ), r.hasPersistedHiddenColumnState = !1);
-  const a = Array.isArray(e.columnOrder) ? e.columnOrder.map((i) => String(i || "").trim()).filter((i) => i.length > 0 && n.has(i)) : null;
-  if (a && a.length > 0) {
-    const i = r.mergeColumnOrder(a);
-    r.state.columnOrder = i, r.hasPersistedColumnOrderState = !0, r.didRestoreColumnOrder = !0;
+  const i = Array.isArray(e.columnOrder) ? e.columnOrder.map((a) => String(a || "").trim()).filter((a) => a.length > 0 && n.has(a)) : null;
+  if (i && i.length > 0) {
+    const a = r.mergeColumnOrder(i);
+    r.state.columnOrder = a, r.hasPersistedColumnOrderState = !0, r.didRestoreColumnOrder = !0;
     const l = r.defaultColumns.map((d) => d.field);
-    r.shouldReorderDOMOnRestore = l.join("|") !== i.join("|");
+    r.shouldReorderDOMOnRestore = l.join("|") !== a.join("|");
     const c = new Map(r.config.columns.map((d) => [d.field, d]));
-    r.config.columns = i.map((d) => c.get(d)).filter((d) => d !== void 0);
-  } else s || (r.state.columnOrder = r.config.columns.map((i) => i.field), r.hasPersistedColumnOrderState = !1, r.didRestoreColumnOrder = !1, r.shouldReorderDOMOnRestore = !1);
+    r.config.columns = a.map((d) => c.get(d)).filter((d) => d !== void 0);
+  } else s || (r.state.columnOrder = r.config.columns.map((a) => a.field), r.hasPersistedColumnOrderState = !1, r.didRestoreColumnOrder = !1, r.shouldReorderDOMOnRestore = !1);
   if (r.config.enableGroupedMode) {
     if (e.viewMode) {
-      const i = xt(e.viewMode);
-      i && (r.state.viewMode = Be(i));
+      const a = ct(e.viewMode);
+      a && (r.state.viewMode = Ee(a));
     }
-    r.state.expandMode = Z(e.expandMode, r.state.expandMode), Array.isArray(e.expandedGroups) ? (r.state.expandedGroups = new Set(
-      e.expandedGroups.map((i) => String(i || "").trim()).filter(Boolean)
+    r.state.expandMode = Y(e.expandMode, r.state.expandMode), Array.isArray(e.expandedGroups) ? (r.state.expandedGroups = new Set(
+      e.expandedGroups.map((a) => String(a || "").trim()).filter(Boolean)
     ), r.state.hasPersistedExpandState = !0) : e.expandMode !== void 0 && (r.state.hasPersistedExpandState = !0);
   }
 }
-function es(r, e) {
+function Hr(r, e) {
   e.persisted && r.applyPersistedStateSnapshot(e.persisted, { merge: !0 }), typeof e.search == "string" && (r.state.search = e.search), typeof e.page == "number" && Number.isFinite(e.page) && (r.state.currentPage = Math.max(1, Math.trunc(e.page))), typeof e.perPage == "number" && Number.isFinite(e.perPage) && (r.state.perPage = Math.max(1, Math.trunc(e.perPage))), Array.isArray(e.filters) && (r.state.filters = e.filters), Array.isArray(e.sort) && (r.state.sort = e.sort);
 }
-function ts(r) {
+function Vr(r) {
   const e = {
     version: 1,
     hiddenColumns: Array.from(r.state.hiddenColumns),
@@ -2589,7 +2086,7 @@ function ts(r) {
   };
   return r.config.enableGroupedMode && (e.viewMode = r.state.viewMode, e.expandMode = r.state.expandMode, e.expandedGroups = Array.from(r.state.expandedGroups)), e;
 }
-function rs(r) {
+function Kr(r) {
   return {
     version: 1,
     search: r.state.search || void 0,
@@ -2601,52 +2098,52 @@ function rs(r) {
     updatedAt: Date.now()
   };
 }
-function ss(r) {
+function Jr(r) {
   r.stateStore.savePersistedState(r.buildPersistedStateSnapshot());
 }
-function ns(r) {
+function Yr(r) {
   const e = new URLSearchParams(window.location.search);
-  r.didRestoreColumnOrder = !1, r.shouldReorderDOMOnRestore = !1, r.hasURLStateOverrides = Fe.some((c) => e.has(c));
-  const t = e.get(ae);
+  r.didRestoreColumnOrder = !1, r.shouldReorderDOMOnRestore = !1, r.hasURLStateOverrides = ke.some((c) => e.has(c));
+  const t = e.get(re);
   if (t) {
     const c = r.stateStore.resolveShareState(t);
     c && r.applyShareStateSnapshot(c);
   }
-  const s = e.get(V);
+  const s = e.get(G);
   if (s) {
     r.state.search = s;
     const c = document.querySelector(r.selectors.searchInput);
     c && (c.value = s);
   }
-  const n = e.get(K);
+  const n = e.get(U);
   if (n) {
     const c = parseInt(n, 10);
     r.state.currentPage = Number.isNaN(c) ? 1 : Math.max(1, c);
   }
-  const o = e.get(J);
+  const o = e.get(H);
   if (o) {
     const c = parseInt(o, 10), d = r.config.perPage || 10;
     r.state.perPage = Number.isNaN(c) ? d : Math.max(1, c);
     const u = document.querySelector(r.selectors.perPageSelect);
     u && (u.value = String(r.state.perPage));
   }
-  const a = e.get(Y);
-  if (a) {
-    const c = r.parseJSONArray(a, "filters");
+  const i = e.get(V);
+  if (i) {
+    const c = r.parseJSONArray(i, "filters");
     c && (r.state.filters = c);
   }
-  const i = e.get(Q);
-  if (i) {
-    const c = r.parseJSONArray(i, "sort");
+  const a = e.get(K);
+  if (a) {
+    const c = r.parseJSONArray(a, "sort");
     c && (r.state.sort = c);
   }
   if (r.config.enableGroupedMode) {
-    const c = xt(e.get(ie));
-    c && (r.state.viewMode = Be(c)), e.has(se) && (r.state.expandedGroups = Nr(
-      e.get(se)
+    const c = ct(e.get(se));
+    c && (r.state.viewMode = Ee(c)), e.has(Z) && (r.state.expandedGroups = Mr(
+      e.get(Z)
     ), r.state.expandMode = "explicit", r.state.hasPersistedExpandState = !0);
   }
-  const l = e.get(De);
+  const l = e.get($e);
   if (l) {
     const c = r.parseJSONArray(l, "hidden columns");
     if (c) {
@@ -2674,7 +2171,7 @@ function ns(r) {
     r.applyRestoredState();
   }, 0);
 }
-function os(r) {
+function Qr(r) {
   const e = document.querySelector(r.selectors.searchInput);
   e && (e.value = r.state.search);
   const t = document.querySelector(r.selectors.perPageSelect);
@@ -2687,29 +2184,29 @@ function os(r) {
   const s = r.config.columns.filter((n) => !r.state.hiddenColumns.has(n.field)).map((n) => n.field);
   r.updateColumnVisibility(s, !0), r.state.sort.length > 0 && r.updateSortIndicators();
 }
-function as(r, e = {}) {
+function Wr(r, e = {}) {
   r.persistStateSnapshot();
   const t = r.getURLStateConfig(), s = new URLSearchParams(window.location.search);
-  Qr(s, Fe), r.state.search && s.set(V, r.state.search), r.state.currentPage > 1 && s.set(K, String(r.state.currentPage)), r.state.perPage !== (r.config.perPage || 10) && s.set(J, String(r.state.perPage));
+  zr(s, ke), r.state.search && s.set(G, r.state.search), r.state.currentPage > 1 && s.set(U, String(r.state.currentPage)), r.state.perPage !== (r.config.perPage || 10) && s.set(H, String(r.state.perPage));
   let n = !1;
   if (r.state.filters.length > 0) {
-    const i = JSON.stringify(r.state.filters);
-    i.length <= t.maxFiltersLength ? s.set(Y, i) : n = !0;
+    const a = JSON.stringify(r.state.filters);
+    a.length <= t.maxFiltersLength ? s.set(V, a) : n = !0;
   }
-  r.state.sort.length > 0 && s.set(Q, JSON.stringify(r.state.sort)), r.config.enableGroupedMode && s.set(ie, r.state.viewMode);
-  let o = Ke(window.location.pathname, s);
-  const a = o.length > t.maxURLLength;
-  if (t.enableStateToken && (n || a)) {
-    s.delete(V), s.delete(K), s.delete(J), s.delete(Y), s.delete(Q);
-    const i = r.stateStore.createShareState(r.buildShareStateSnapshot());
-    i && s.set(ae, i), o = Ke(window.location.pathname, s);
+  r.state.sort.length > 0 && s.set(K, JSON.stringify(r.state.sort)), r.config.enableGroupedMode && s.set(se, r.state.viewMode);
+  let o = De(window.location.pathname, s);
+  const i = o.length > t.maxURLLength;
+  if (t.enableStateToken && (n || i)) {
+    s.delete(G), s.delete(U), s.delete(H), s.delete(V), s.delete(K);
+    const a = r.stateStore.createShareState(r.buildShareStateSnapshot());
+    a && s.set(re, a), o = De(window.location.pathname, s);
   }
   e.replace ? window.history.replaceState({}, "", o) : window.history.pushState({}, "", o), console.log("[DataGrid] URL updated:", o);
 }
-async function is(r) {
+async function Xr(r) {
   console.log("[DataGrid] ===== refresh() CALLED ====="), console.log("[DataGrid] Current sort state:", JSON.stringify(r.state.sort)), r.abortController && r.abortController.abort(), r.abortController = new AbortController();
   try {
-    const e = r.buildApiUrl(), t = await I(e, {
+    const e = r.buildApiUrl(), t = await R(e, {
       signal: r.abortController.signal,
       method: "GET",
       accept: "application/json"
@@ -2737,7 +2234,7 @@ async function is(r) {
     console.error("[DataGrid] Error fetching data:", e), r.showError("Failed to load data");
   }
 }
-function ls(r) {
+function Zr(r) {
   const e = new URLSearchParams(), t = r.buildQueryParams();
   Object.entries(t).forEach(([n, o]) => {
     o != null && e.append(n, String(o));
@@ -2745,13 +2242,13 @@ function ls(r) {
   const s = `${r.config.apiEndpoint}?${e.toString()}`;
   return console.log(`[DataGrid] API URL: ${s}`), s;
 }
-function cs(r) {
+function es(r) {
   const e = new URLSearchParams(), t = r.buildQueryParams();
   return Object.entries(t).forEach(([s, n]) => {
     n != null && e.append(s, String(n));
   }), e.toString();
 }
-function ds(r) {
+function ts(r) {
   const e = {};
   if (r.config.behaviors?.pagination) {
     const t = r.config.behaviors.pagination.buildQuery(
@@ -2774,10 +2271,10 @@ function ds(r) {
   }
   return r.isGroupedViewActive() && (e.group_by = r.config.groupByField || "translation_group_id"), e;
 }
-function us(r, e) {
+function rs(r, e) {
   return e.total !== void 0 && e.total !== null ? e.total : e.$meta?.count !== void 0 && e.$meta?.count !== null ? e.$meta.count : e.count !== void 0 && e.count !== null ? e.count : null;
 }
-function ps(r, e) {
+function ss(r, e) {
   if (e === null)
     return !1;
   const t = Math.max(1, r.state.perPage || r.config.perPage || 10), s = Math.max(1, Math.ceil(e / t));
@@ -2786,8 +2283,8 @@ function ps(r, e) {
   const o = t !== r.state.perPage || n !== r.state.currentPage;
   return o && (r.state.perPage = t, r.state.currentPage = n, r.pushStateToURL()), e === 0 ? !1 : o;
 }
-async function hs(r, e) {
-  const t = await I(`${r.config.apiEndpoint}/${e}`, {
+async function ns(r, e) {
+  const t = await R(`${r.config.apiEndpoint}/${e}`, {
     method: "GET",
     accept: "application/json"
   });
@@ -2799,7 +2296,7 @@ async function hs(r, e) {
     tabs: n.schema?.tabs || []
   };
 }
-function fs(r, e) {
+function os(r, e) {
   if (e && typeof e == "object" && "data" in e) {
     const t = e;
     return {
@@ -2810,33 +2307,33 @@ function fs(r, e) {
   }
   return { data: e };
 }
-function gs(r) {
+function is(r) {
   return r.lastSchema;
 }
-function ms(r) {
+function as(r) {
   return r.lastForm;
 }
-function bs(r) {
+function ls(r) {
   return r.lastSchema?.tabs || [];
 }
-function ys(r, e, t, s) {
+function cs(r, e, t, s) {
   const n = r.config.groupByField || "translation_group_id", o = t.filter((c) => !!c && typeof c == "object" && !Array.isArray(c));
-  let a = Ar(o, {
+  let i = yr(o, {
     defaultExpanded: !r.state.hasPersistedExpandState,
     expandMode: r.state.expandMode,
     expandedGroups: r.state.expandedGroups
   });
-  a || (a = kr(o, {
+  i || (i = br(o, {
     groupByField: n,
     defaultExpanded: !r.state.hasPersistedExpandState,
     expandMode: r.state.expandMode,
     expandedGroups: r.state.expandedGroups
   }));
-  const i = Dr(e);
-  i.size > 0 && (a = Br(a, i)), r.state.groupedData = a;
+  const a = Ar(e);
+  a.size > 0 && (i = kr(i, a)), r.state.groupedData = i;
   const l = r.config.columns.length;
-  for (const c of a.groups) {
-    const d = Vr(c, l);
+  for (const c of i.groups) {
+    const d = Fr(c, l);
     s.insertAdjacentHTML("beforeend", d);
     const u = s.lastElementChild;
     u && (u.addEventListener("click", () => r.toggleGroup(c.groupId)), u.addEventListener("keydown", (p) => {
@@ -2848,29 +2345,29 @@ function ys(r, e, t, s) {
       h.dataset.groupId = c.groupId, h.classList.add("group-child-row"), c.expanded || (h.style.display = "none"), s.appendChild(h);
     }
   }
-  for (const c of a.ungrouped) {
+  for (const c of i.ungrouped) {
     c.id && (r.recordsById[c.id] = c);
     const d = r.createTableRow(c);
     s.appendChild(d);
   }
-  console.log(`[DataGrid] Rendered ${a.groups.length} groups, ${a.ungrouped.length} ungrouped`);
+  console.log(`[DataGrid] Rendered ${i.groups.length} groups, ${i.ungrouped.length} ungrouped`);
 }
-function vs(r) {
+function ds(r) {
   return r.config.enableGroupedMode ? r.state.viewMode === "grouped" || r.state.viewMode === "matrix" : !1;
 }
-function ws(r, e) {
+function us(r, e) {
   r.isGroupedViewActive() && (r.state.viewMode = "flat", r.state.groupedData = null, r.pushStateToURL({ replace: !0 }), r.notify(e, "warning"), r.refresh());
 }
-function xs(r, e) {
+function ps(r, e) {
   return !r.isGroupedViewActive() || ![400, 404, 405, 422].includes(e) ? !1 : (r.fallbackGroupedMode("Grouped pagination is not supported by this panel. Switched to flat view."), !0);
 }
-function Ss(r, e) {
+function hs(r, e) {
   if (!r.isGroupedViewActive() || e.length === 0)
     return !1;
   const t = e.filter((s) => !!s && typeof s == "object" && !Array.isArray(s));
-  return t.length !== e.length || !ut(t) ? (r.fallbackGroupedMode("Grouped pagination contract is unavailable. Switched to flat view to avoid split groups."), !0) : !1;
+  return t.length !== e.length || !Ze(t) ? (r.fallbackGroupedMode("Grouped pagination contract is unavailable. Switched to flat view to avoid split groups."), !0) : !1;
 }
-function Cs(r, e) {
+function fs(r, e) {
   if (!r.state.groupedData) return;
   const t = String(e || "").trim();
   if (!t) return;
@@ -2879,7 +2376,7 @@ function Cs(r, e) {
   const n = r.state.groupedData.groups.find((o) => o.groupId === t);
   n && (n.expanded = r.isGroupExpandedByState(t)), r.updateGroupVisibility(t), r.pushStateToURL({ replace: !0 });
 }
-function $s(r, e) {
+function ms(r, e) {
   if (!r.config.enableGroupedMode)
     return;
   const t = new Set(
@@ -2887,13 +2384,13 @@ function $s(r, e) {
   );
   r.state.expandMode = "explicit", r.state.expandedGroups = t, r.state.hasPersistedExpandState = !0, r.updateGroupedRowsFromState(), r.pushStateToURL({ replace: !0 }), !r.state.groupedData && r.isGroupedViewActive() && r.refresh();
 }
-function Es(r) {
+function gs(r) {
   r.config.enableGroupedMode && (r.state.expandMode = "all", r.state.expandedGroups.clear(), r.state.hasPersistedExpandState = !0, r.updateGroupedRowsFromState(), r.pushStateToURL({ replace: !0 }), !r.state.groupedData && r.isGroupedViewActive() && r.refresh());
 }
-function ks(r) {
+function bs(r) {
   r.config.enableGroupedMode && (r.state.expandMode = "none", r.state.expandedGroups.clear(), r.state.hasPersistedExpandState = !0, r.updateGroupedRowsFromState(), r.pushStateToURL({ replace: !0 }), !r.state.groupedData && r.isGroupedViewActive() && r.refresh());
 }
-function As(r, e) {
+function ys(r, e) {
   const t = r.tableEl?.querySelector("tbody");
   if (!t) return;
   const s = t.querySelector(`tr[data-group-id="${e}"]`);
@@ -2901,47 +2398,47 @@ function As(r, e) {
   const n = r.isGroupExpandedByState(e);
   s.dataset.expanded = String(n), s.setAttribute("aria-expanded", String(n));
   const o = s.querySelector(".expand-icon");
-  o && (o.textContent = n ? "▼" : "▶"), t.querySelectorAll(`tr.group-child-row[data-group-id="${e}"]`).forEach((i) => {
-    i.style.display = n ? "" : "none";
+  o && (o.textContent = n ? "▼" : "▶"), t.querySelectorAll(`tr.group-child-row[data-group-id="${e}"]`).forEach((a) => {
+    a.style.display = n ? "" : "none";
   });
 }
-function Ls(r) {
+function vs(r) {
   if (r.state.groupedData)
     for (const e of r.state.groupedData.groups)
       e.expanded = r.isGroupExpandedByState(e.groupId), r.updateGroupVisibility(e.groupId);
 }
-function _s(r, e, t = !1) {
-  const s = Z(r.state.expandMode, "explicit");
+function ws(r, e, t = !1) {
+  const s = Y(r.state.expandMode, "explicit");
   return s === "all" ? !r.state.expandedGroups.has(e) : s === "none" ? r.state.expandedGroups.has(e) : r.state.expandedGroups.size === 0 ? t : r.state.expandedGroups.has(e);
 }
-function Rs(r, e) {
+function xs(r, e) {
   if (!r.config.enableGroupedMode) {
     console.warn("[DataGrid] Grouped mode not enabled");
     return;
   }
-  const t = Be(e);
+  const t = Ee(e);
   r.state.viewMode = t, t === "flat" && (r.state.groupedData = null), r.pushStateToURL(), r.refresh();
 }
-function Ts(r) {
+function Ss(r) {
   return r.state.viewMode;
 }
-function Is(r) {
+function Cs(r) {
   return r.state.groupedData;
 }
-function Ms(r, e, t = !1) {
+function Es(r, e, t = !1) {
   if (!r.tableEl) return;
   const s = new Set(e);
-  r.state.hiddenColumns.clear(), r.config.columns.forEach((a) => {
-    s.has(a.field) || r.state.hiddenColumns.add(a.field);
-  }), t || r.pushStateToURL(), r.tableEl.querySelectorAll("thead th[data-column]").forEach((a) => {
-    const i = a.dataset.column;
-    i && (a.style.display = s.has(i) ? "" : "none");
-  }), r.tableEl.querySelectorAll("tbody td[data-column]").forEach((a) => {
-    const i = a.dataset.column;
-    i && (a.style.display = s.has(i) ? "" : "none");
+  r.state.hiddenColumns.clear(), r.config.columns.forEach((i) => {
+    s.has(i.field) || r.state.hiddenColumns.add(i.field);
+  }), t || r.pushStateToURL(), r.tableEl.querySelectorAll("thead th[data-column]").forEach((i) => {
+    const a = i.dataset.column;
+    a && (i.style.display = s.has(a) ? "" : "none");
+  }), r.tableEl.querySelectorAll("tbody td[data-column]").forEach((i) => {
+    const a = i.dataset.column;
+    a && (i.style.display = s.has(a) ? "" : "none");
   }), r.syncColumnVisibilityCheckboxes();
 }
-function Ps(r) {
+function $s(r) {
   if (r.columnManager) {
     r.columnManager.syncWithGridState();
     return;
@@ -2954,7 +2451,7 @@ function Ps(r) {
     s && (s.checked = !r.state.hiddenColumns.has(t.field));
   });
 }
-function Bs(r, e) {
+function ks(r, e) {
   const t = r.tableEl?.querySelector("tbody");
   if (!t) {
     console.error("[DataGrid] tbody not found!");
@@ -2965,7 +2462,7 @@ function Bs(r, e) {
   console.log(`[DataGrid] renderData() called with ${s.length} items`), console.log("[DataGrid] First 3 items:", s.slice(0, 3));
   const n = r.getResponseTotal(e);
   if (r.state.totalRows = n ?? s.length, s.length === 0) {
-    r.isGroupedViewActive() ? t.innerHTML = Jr(r.config.columns.length) : t.innerHTML = `
+    r.isGroupedViewActive() ? t.innerHTML = Or(r.config.columns.length) : t.innerHTML = `
           <tr>
             <td colspan="${r.config.columns.length + 2}" class="px-6 py-8 text-center text-gray-500">
               No results found
@@ -2974,23 +2471,23 @@ function Bs(r, e) {
         `;
     return;
   }
-  r.recordsById = {}, r.isGroupedViewActive() ? r.renderGroupedData(e, s, t) : r.renderFlatData(s, t), r.state.hiddenColumns.size > 0 && t.querySelectorAll("td[data-column]").forEach((a) => {
-    const i = a.dataset.column;
-    i && r.state.hiddenColumns.has(i) && (a.style.display = "none");
+  r.recordsById = {}, r.isGroupedViewActive() ? r.renderGroupedData(e, s, t) : r.renderFlatData(s, t), r.state.hiddenColumns.size > 0 && t.querySelectorAll("td[data-column]").forEach((i) => {
+    const a = i.dataset.column;
+    a && r.state.hiddenColumns.has(a) && (i.style.display = "none");
   }), r.updateSelectionBindings();
 }
-function Ds(r, e, t) {
+function As(r, e, t) {
   e.forEach((s, n) => {
     console.log(`[DataGrid] Rendering row ${n + 1}: id=${s.id}`), s.id && (r.recordsById[s.id] = s);
     const o = r.createTableRow(s);
     t.appendChild(o);
   }), console.log(`[DataGrid] Finished appending ${e.length} rows to tbody`), console.log("[DataGrid] tbody.children.length =", t.children.length);
 }
-function Fs(r, e) {
+function Ls(r, e) {
   const t = e.rendererOptions ?? e.renderer_options;
   return !t || typeof t != "object" || Array.isArray(t) ? {} : t;
 }
-function qs(r, e) {
+function _s(r, e) {
   const t = document.createElement("tr");
   let s = ["hover:bg-gray-50"];
   r.config.rowClassProvider && (s = s.concat(r.config.rowClassProvider(e))), t.className = s.join(" ");
@@ -3002,28 +2499,28 @@ function qs(r, e) {
                data-id="${e.id}">
         <span class="sr-only">Select</span>
       </label>
-    `, t.appendChild(n), r.config.columns.forEach((i) => {
+    `, t.appendChild(n), r.config.columns.forEach((a) => {
     const l = document.createElement("td");
-    l.className = "px-6 py-4 whitespace-nowrap text-sm text-gray-800", l.setAttribute("data-column", i.field);
-    const c = e[i.field], d = typeof i.renderer == "string" ? i.renderer.trim() : "", u = {
-      options: r.resolveRendererOptions(i)
+    l.className = "px-6 py-4 whitespace-nowrap text-sm text-gray-800", l.setAttribute("data-column", a.field);
+    const c = e[a.field], d = typeof a.renderer == "string" ? a.renderer.trim() : "", u = {
+      options: r.resolveRendererOptions(a)
     };
-    if (i.render)
-      l.innerHTML = i.render(c, e);
-    else if (r.cellRendererRegistry.has(i.field)) {
-      const p = r.cellRendererRegistry.get(i.field);
-      l.innerHTML = p(c, e, i.field, u);
+    if (a.render)
+      l.innerHTML = a.render(c, e);
+    else if (r.cellRendererRegistry.has(a.field)) {
+      const p = r.cellRendererRegistry.get(a.field);
+      l.innerHTML = p(c, e, a.field, u);
     } else if (d && r.cellRendererRegistry.has(d)) {
       const p = r.cellRendererRegistry.get(d);
-      l.innerHTML = p(c, e, i.field, u);
-    } else c == null ? l.textContent = "-" : i.field.includes("_at") ? l.textContent = new Date(c).toLocaleDateString() : l.textContent = String(c);
+      l.innerHTML = p(c, e, a.field, u);
+    } else c == null ? l.textContent = "-" : a.field.includes("_at") ? l.textContent = new Date(c).toLocaleDateString() : l.textContent = String(c);
     t.appendChild(l);
   });
-  const o = r.config.actionBasePath || r.config.apiEndpoint, a = document.createElement("td");
-  if (a.className = "px-6 py-4 whitespace-nowrap text-end text-sm font-medium", a.dataset.role = "actions", a.dataset.fixed = "right", r.config.rowActions) {
-    const i = r.config.rowActions(e);
-    a.innerHTML = r.actionRenderer.renderRowActions(e, i), i.forEach((l) => {
-      const c = r.sanitizeActionId(l.label), d = a.querySelector(`[data-action-id="${c}"]`);
+  const o = r.config.actionBasePath || r.config.apiEndpoint, i = document.createElement("td");
+  if (i.className = "px-6 py-4 whitespace-nowrap text-end text-sm font-medium", i.dataset.role = "actions", i.dataset.fixed = "right", r.config.rowActions) {
+    const a = r.config.rowActions(e);
+    i.innerHTML = r.actionRenderer.renderRowActions(e, a), a.forEach((l) => {
+      const c = r.sanitizeActionId(l.label), d = i.querySelector(`[data-action-id="${c}"]`);
       l.disabled || d && d.addEventListener("click", async (u) => {
         if (u.preventDefault(), !d.disabled)
           try {
@@ -3036,7 +2533,7 @@ function qs(r, e) {
       });
     });
   } else if (r.config.useDefaultActions !== !1) {
-    const i = [
+    const a = [
       {
         label: "View",
         icon: "eye",
@@ -3062,8 +2559,8 @@ function qs(r, e) {
         variant: "danger"
       }
     ];
-    a.innerHTML = r.actionRenderer.renderRowActions(e, i), i.forEach((l) => {
-      const c = r.sanitizeActionId(l.label), d = a.querySelector(`[data-action-id="${c}"]`);
+    i.innerHTML = r.actionRenderer.renderRowActions(e, a), a.forEach((l) => {
+      const c = r.sanitizeActionId(l.label), d = i.querySelector(`[data-action-id="${c}"]`);
       d && d.addEventListener("click", async (u) => {
         if (u.preventDefault(), u.stopPropagation(), !d.disabled)
           try {
@@ -3076,15 +2573,15 @@ function qs(r, e) {
       });
     });
   }
-  return t.appendChild(a), t;
+  return t.appendChild(i), t;
 }
-function Os(r, e) {
+function Rs(r, e) {
   return e.toLowerCase().replace(/[^a-z0-9]/g, "-");
 }
-async function js(r, e) {
+async function Is(r, e) {
   if (await r.confirmAction("Are you sure you want to delete this item?"))
     try {
-      if (!(await I(`${r.config.apiEndpoint}/${e}`, {
+      if (!(await R(`${r.config.apiEndpoint}/${e}`, {
         method: "DELETE",
         accept: "application/json"
       })).ok)
@@ -3094,11 +2591,11 @@ async function js(r, e) {
       console.error("Error deleting item:", s), r.showError("Failed to delete item");
     }
 }
-function zs(r, e) {
-  const t = r.getResponseTotal(e) ?? r.state.totalRows, s = r.state.perPage * (r.state.currentPage - 1), n = t === 0 ? 0 : s + 1, o = Math.min(s + r.state.perPage, t), a = document.querySelector(r.selectors.tableInfoStart), i = document.querySelector(r.selectors.tableInfoEnd), l = document.querySelector(r.selectors.tableInfoTotal);
-  a && (a.textContent = String(n)), i && (i.textContent = String(o)), l && (l.textContent = String(t)), r.renderPaginationButtons(t);
+function Ts(r, e) {
+  const t = r.getResponseTotal(e) ?? r.state.totalRows, s = r.state.perPage * (r.state.currentPage - 1), n = t === 0 ? 0 : s + 1, o = Math.min(s + r.state.perPage, t), i = document.querySelector(r.selectors.tableInfoStart), a = document.querySelector(r.selectors.tableInfoEnd), l = document.querySelector(r.selectors.tableInfoTotal);
+  i && (i.textContent = String(n)), a && (a.textContent = String(o)), l && (l.textContent = String(t)), r.renderPaginationButtons(t);
 }
-function Ns(r, e) {
+function Ms(r, e) {
   const t = document.querySelector(r.selectors.paginationContainer);
   if (!t) return;
   const s = Math.ceil(e / r.state.perPage);
@@ -3118,10 +2615,10 @@ function Ns(r, e) {
         <span>Previous</span>
       </button>
     `);
-  const a = 5;
-  let i = Math.max(1, o - Math.floor(a / 2)), l = Math.min(s, i + a - 1);
-  l - i < a - 1 && (i = Math.max(1, l - a + 1));
-  for (let c = i; c <= l; c++) {
+  const i = 5;
+  let a = Math.max(1, o - Math.floor(i / 2)), l = Math.min(s, a + i - 1);
+  l - a < i - 1 && (a = Math.max(1, l - i + 1));
+  for (let c = a; c <= l; c++) {
     const d = c === o;
     n.push(`
         <button type="button"
@@ -3148,7 +2645,7 @@ function Ns(r, e) {
     });
   });
 }
-class Gs {
+class Ps {
   constructor(e) {
     this.sortable = null, this.searchInput = null, this.columnListEl = null, this.countBadgeEl = null, this.container = e.container, this.grid = e.grid, this.onReorder = e.onReorder, this.onToggle = e.onToggle, this.onReset = e.onReset, this.initialize();
   }
@@ -3165,9 +2662,9 @@ class Gs {
     const s = this.createHeader(e.length, e.length - t.size);
     this.container.appendChild(s);
     const n = document.createElement("div");
-    n.className = "column-list", n.setAttribute("role", "list"), n.setAttribute("aria-label", "Column visibility and order"), this.columnListEl = n, e.forEach((a) => {
-      const i = this.createColumnItem(a.field, a.label || a.field, !t.has(a.field));
-      n.appendChild(i);
+    n.className = "column-list", n.setAttribute("role", "list"), n.setAttribute("aria-label", "Column visibility and order"), this.columnListEl = n, e.forEach((i) => {
+      const a = this.createColumnItem(i.field, i.label || i.field, !t.has(i.field));
+      n.appendChild(a);
     }), this.container.appendChild(n);
     const o = this.createFooter();
     this.container.appendChild(o);
@@ -3182,10 +2679,10 @@ class Gs {
     n.className = "column-search-container";
     const o = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     o.setAttribute("class", "column-search-icon"), o.setAttribute("viewBox", "0 0 24 24"), o.setAttribute("fill", "none"), o.setAttribute("stroke", "currentColor"), o.setAttribute("stroke-width", "2");
-    const a = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-    a.setAttribute("cx", "11"), a.setAttribute("cy", "11"), a.setAttribute("r", "8");
-    const i = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    i.setAttribute("d", "m21 21-4.3-4.3"), o.appendChild(a), o.appendChild(i);
+    const i = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    i.setAttribute("cx", "11"), i.setAttribute("cy", "11"), i.setAttribute("r", "8");
+    const a = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    a.setAttribute("d", "m21 21-4.3-4.3"), o.appendChild(i), o.appendChild(a);
     const l = document.createElement("input");
     l.type = "text", l.className = "column-search-input", l.placeholder = "Filter columns...", l.setAttribute("aria-label", "Filter columns"), this.searchInput = l, l.addEventListener("input", () => {
       this.filterColumns(l.value);
@@ -3199,8 +2696,8 @@ class Gs {
   filterColumns(e) {
     const t = e.toLowerCase().trim();
     this.container.querySelectorAll(".column-item").forEach((n) => {
-      const o = n.querySelector(".column-label")?.textContent?.toLowerCase() || "", a = t === "" || o.includes(t);
-      n.style.display = a ? "" : "none";
+      const o = n.querySelector(".column-label")?.textContent?.toLowerCase() || "", i = t === "" || o.includes(t);
+      n.style.display = i ? "" : "none";
     }), this.updateScrollShadows();
   }
   /**
@@ -3227,8 +2724,8 @@ class Gs {
    */
   updateScrollShadows() {
     if (!this.columnListEl) return;
-    const e = this.columnListEl, t = e.scrollTop, s = e.scrollHeight, n = e.clientHeight, o = s > n, a = o && t > 0, i = o && t + n < s - 1;
-    e.classList.toggle("column-list--shadow-top", a), e.classList.toggle("column-list--shadow-bottom", i);
+    const e = this.columnListEl, t = e.scrollTop, s = e.scrollHeight, n = e.clientHeight, o = s > n, i = o && t > 0, a = o && t + n < s - 1;
+    e.classList.toggle("column-list--shadow-top", i), e.classList.toggle("column-list--shadow-bottom", a);
   }
   /**
    * Create footer with Reset to Default button
@@ -3244,8 +2741,8 @@ class Gs {
     n.setAttribute("d", "M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8");
     const o = document.createElementNS("http://www.w3.org/2000/svg", "path");
     o.setAttribute("d", "M3 3v5h5"), s.appendChild(n), s.appendChild(o);
-    const a = document.createElement("span");
-    return a.textContent = "Reset to Default", t.appendChild(s), t.appendChild(a), t.addEventListener("click", () => {
+    const i = document.createElement("span");
+    return i.textContent = "Reset to Default", t.appendChild(s), t.appendChild(i), t.addEventListener("click", () => {
       this.handleReset();
     }), e.appendChild(t), e;
   }
@@ -3261,10 +2758,10 @@ class Gs {
    * Includes full ARIA support for accessibility
    */
   createColumnItem(e, t, s) {
-    const n = `column-item-${e}`, o = `column-switch-${e}`, a = document.createElement("div");
-    a.className = "column-item", a.id = n, a.dataset.column = e, a.setAttribute("role", "listitem");
-    const i = document.createElement("div");
-    i.className = "column-item-content";
+    const n = `column-item-${e}`, o = `column-switch-${e}`, i = document.createElement("div");
+    i.className = "column-item", i.id = n, i.dataset.column = e, i.setAttribute("role", "listitem");
+    const a = document.createElement("div");
+    a.className = "column-item-content";
     const l = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     l.setAttribute("class", "drag-handle"), l.setAttribute("viewBox", "0 0 20 20"), l.setAttribute("fill", "currentColor"), l.setAttribute("aria-hidden", "true"), l.setAttribute("focusable", "false"), [
       [5, 4],
@@ -3273,12 +2770,12 @@ class Gs {
       [11, 4],
       [11, 10],
       [11, 16]
-    ].forEach(([w, v]) => {
+    ].forEach(([v, y]) => {
       const b = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-      b.setAttribute("cx", String(w)), b.setAttribute("cy", String(v)), b.setAttribute("r", "1.5"), l.appendChild(b);
+      b.setAttribute("cx", String(v)), b.setAttribute("cy", String(y)), b.setAttribute("r", "1.5"), l.appendChild(b);
     });
     const d = document.createElement("span");
-    d.className = "column-label", d.id = `${n}-label`, d.textContent = t, i.appendChild(l), i.appendChild(d);
+    d.className = "column-label", d.id = `${n}-label`, d.textContent = t, a.appendChild(l), a.appendChild(d);
     const u = document.createElement("label");
     u.className = "column-switch", u.htmlFor = o;
     const p = document.createElement("input");
@@ -3286,14 +2783,14 @@ class Gs {
     const h = document.createElement("span");
     h.id = `${n}-desc`, h.className = "sr-only", h.textContent = `Press Space or Enter to toggle ${t} column visibility. Currently ${s ? "visible" : "hidden"}.`;
     const f = document.createElement("span");
-    return f.className = "column-switch-slider", f.setAttribute("aria-hidden", "true"), u.appendChild(p), u.appendChild(f), a.appendChild(i), a.appendChild(u), a.appendChild(h), a;
+    return f.className = "column-switch-slider", f.setAttribute("aria-hidden", "true"), u.appendChild(p), u.appendChild(f), i.appendChild(a), i.appendChild(u), i.appendChild(h), i;
   }
   /**
    * Setup SortableJS for drag-and-drop reordering
    */
   setupDragAndDrop() {
     const e = this.container.querySelector(".column-list") || this.container;
-    this.sortable = Vt.create(e, {
+    this.sortable = Ft.create(e, {
       animation: 150,
       handle: ".drag-handle",
       ghostClass: "column-item-ghost",
@@ -3322,10 +2819,10 @@ class Gs {
         if (!s) return;
         const n = t.checked;
         t.setAttribute("aria-checked", String(n));
-        const o = `column-item-${s}-desc`, a = this.container.querySelector(`#${o}`);
-        if (a) {
-          const i = this.container.querySelector(`#column-item-${s}-label`)?.textContent || s;
-          a.textContent = `Press Space or Enter to toggle ${i} column visibility. Currently ${n ? "visible" : "hidden"}.`;
+        const o = `column-item-${s}-desc`, i = this.container.querySelector(`#${o}`);
+        if (i) {
+          const a = this.container.querySelector(`#column-item-${s}-label`)?.textContent || s;
+          i.textContent = `Press Space or Enter to toggle ${a} column visibility. Currently ${n ? "visible" : "hidden"}.`;
         }
         this.onToggle && this.onToggle(s, n), this.grid.config.behaviors?.columnVisibility && this.grid.config.behaviors.columnVisibility.toggleColumn(s, this.grid), this.updateCountBadge();
       });
@@ -3371,17 +2868,17 @@ class Gs {
     this.sortable && (this.sortable.destroy(), this.sortable = null);
   }
 }
-function Hs(r, e, t, s, n) {
-  const o = (a) => {
-    const i = a.target;
-    if (!i)
+function Bs(r, e, t, s, n) {
+  const o = (i) => {
+    const a = i.target;
+    if (!a)
       return;
-    const l = i.closest(t);
-    !l || !(l instanceof HTMLElement) || s(a, l);
+    const l = a.closest(t);
+    !l || !(l instanceof HTMLElement) || s(i, l);
   };
   return r.addEventListener(e, o, n), () => r.removeEventListener(e, o, n);
 }
-function Us(r) {
+function Ds(r) {
   const e = document.querySelector(r.selectors.searchInput);
   if (!e) {
     console.warn(`[DataGrid] Search input not found: ${r.selectors.searchInput}`);
@@ -3399,20 +2896,20 @@ function Us(r) {
     e.value = "", e.focus(), s(), r.state.search = "", r.pushStateToURL(), r.config.behaviors?.search ? await r.config.behaviors.search.onSearch("", r) : (r.resetPagination(), await r.refresh());
   }), s();
 }
-function Vs(r) {
+function Fs(r) {
   const e = document.querySelector(r.selectors.perPageSelect);
   e && e.addEventListener("change", async () => {
     r.state.perPage = parseInt(e.value, 10), r.resetPagination(), r.pushStateToURL(), await r.refresh();
   });
 }
-function Ks(r) {
+function qs(r) {
   document.querySelectorAll(r.selectors.filterRow).forEach((t) => {
     const s = async () => {
-      const n = t.dataset.filterColumn, o = t instanceof HTMLInputElement ? t.type.toLowerCase() : "", a = t instanceof HTMLSelectElement ? "eq" : o === "" || o === "text" || o === "search" || o === "email" || o === "tel" || o === "url" ? "ilike" : "eq", i = t.dataset.filterOperator || a, l = t.value;
+      const n = t.dataset.filterColumn, o = t instanceof HTMLInputElement ? t.type.toLowerCase() : "", i = t instanceof HTMLSelectElement ? "eq" : o === "" || o === "text" || o === "search" || o === "email" || o === "tel" || o === "url" ? "ilike" : "eq", a = t.dataset.filterOperator || i, l = t.value;
       if (!n) return;
       const c = r.state.filters.findIndex((d) => d.column === n);
       if (l) {
-        const d = { column: n, operator: i, value: l };
+        const d = { column: n, operator: a, value: l };
         c >= 0 ? r.state.filters[c] = d : r.state.filters.push(d);
       } else
         c >= 0 && r.state.filters.splice(c, 1);
@@ -3421,9 +2918,9 @@ function Ks(r) {
     t.addEventListener("input", s), t.addEventListener("change", s);
   });
 }
-function Js(r) {
+function Os(r) {
   const e = document.querySelector(r.selectors.columnToggleBtn), t = document.querySelector(r.selectors.columnToggleMenu);
-  !e || !t || (r.columnManager = new Gs({
+  !e || !t || (r.columnManager = new Ps({
     container: t,
     grid: r,
     onToggle: (s, n) => {
@@ -3434,7 +2931,7 @@ function Js(r) {
     }
   }));
 }
-function Ys(r) {
+function js(r) {
   const e = document.querySelector(r.selectors.exportMenu);
   if (!e) return;
   const t = e.querySelectorAll("[data-export-format]");
@@ -3442,33 +2939,33 @@ function Ys(r) {
     s.addEventListener("click", async () => {
       const n = s.dataset.exportFormat;
       if (!n || !r.config.behaviors?.export) return;
-      const o = r.config.behaviors.export.getConcurrency?.() || "single", a = [];
-      o === "single" ? t.forEach((d) => a.push(d)) : o === "per-format" && a.push(s);
-      const i = (d) => {
+      const o = r.config.behaviors.export.getConcurrency?.() || "single", i = [];
+      o === "single" ? t.forEach((d) => i.push(d)) : o === "per-format" && i.push(s);
+      const a = (d) => {
         const u = d.querySelector(".export-icon"), p = d.querySelector(".export-spinner");
         u && u.classList.add("hidden"), p && p.classList.remove("hidden");
       }, l = (d) => {
         const u = d.querySelector(".export-icon"), p = d.querySelector(".export-spinner");
         u && u.classList.remove("hidden"), p && p.classList.add("hidden");
       };
-      a.forEach((d) => {
-        d.setAttribute("data-export-loading", "true"), d.disabled = !0, i(d);
+      i.forEach((d) => {
+        d.setAttribute("data-export-loading", "true"), d.disabled = !0, a(d);
       });
       const c = o === "none";
-      c && (s.setAttribute("data-export-loading", "true"), i(s));
+      c && (s.setAttribute("data-export-loading", "true"), a(s));
       try {
         await r.config.behaviors.export.export(n, r);
       } catch (d) {
         console.error("[DataGrid] Export failed:", d);
       } finally {
-        a.forEach((d) => {
+        i.forEach((d) => {
           d.removeAttribute("data-export-loading"), d.disabled = !1, l(d);
         }), c && (s.removeAttribute("data-export-loading"), l(s));
       }
     });
   });
 }
-function Qs(r) {
+function zs(r) {
   if (!r.tableEl) return;
   r.tableEl.querySelectorAll("[data-sort-column]").forEach((s) => {
     s.addEventListener("click", async (n) => {
@@ -3476,33 +2973,33 @@ function Qs(r) {
       const o = s.dataset.sortColumn;
       if (!o) return;
       console.log(`[DataGrid] Sort button clicked for field: ${o}`);
-      const a = r.state.sort.find((l) => l.field === o);
-      let i = null;
-      a ? a.direction === "asc" ? (i = "desc", a.direction = i) : (r.state.sort = r.state.sort.filter((l) => l.field !== o), i = null, console.log(`[DataGrid] Sort cleared for field: ${o}`)) : (i = "asc", r.state.sort = [{ field: o, direction: i }]), console.log("[DataGrid] New sort state:", r.state.sort), r.pushStateToURL(), i !== null && r.config.behaviors?.sort ? (console.log("[DataGrid] Calling custom sort behavior"), await r.config.behaviors.sort.onSort(o, i, r)) : (console.log("[DataGrid] Calling refresh() for sort"), await r.refresh()), console.log("[DataGrid] Updating sort indicators"), r.updateSortIndicators();
+      const i = r.state.sort.find((l) => l.field === o);
+      let a = null;
+      i ? i.direction === "asc" ? (a = "desc", i.direction = a) : (r.state.sort = r.state.sort.filter((l) => l.field !== o), a = null, console.log(`[DataGrid] Sort cleared for field: ${o}`)) : (a = "asc", r.state.sort = [{ field: o, direction: a }]), console.log("[DataGrid] New sort state:", r.state.sort), r.pushStateToURL(), a !== null && r.config.behaviors?.sort ? (console.log("[DataGrid] Calling custom sort behavior"), await r.config.behaviors.sort.onSort(o, a, r)) : (console.log("[DataGrid] Calling refresh() for sort"), await r.refresh()), console.log("[DataGrid] Updating sort indicators"), r.updateSortIndicators();
     });
   }), r.tableEl.querySelectorAll("[data-sort]").forEach((s) => {
     s.addEventListener("click", async () => {
       const n = s.dataset.sort;
       if (!n) return;
-      const o = r.state.sort.find((i) => i.field === n);
-      let a = null;
-      o ? o.direction === "asc" ? (a = "desc", o.direction = a) : (r.state.sort = r.state.sort.filter((i) => i.field !== n), a = null) : (a = "asc", r.state.sort = [{ field: n, direction: a }]), r.pushStateToURL(), a !== null && r.config.behaviors?.sort ? await r.config.behaviors.sort.onSort(n, a, r) : await r.refresh(), r.updateSortIndicators();
+      const o = r.state.sort.find((a) => a.field === n);
+      let i = null;
+      o ? o.direction === "asc" ? (i = "desc", o.direction = i) : (r.state.sort = r.state.sort.filter((a) => a.field !== n), i = null) : (i = "asc", r.state.sort = [{ field: n, direction: i }]), r.pushStateToURL(), i !== null && r.config.behaviors?.sort ? await r.config.behaviors.sort.onSort(n, i, r) : await r.refresh(), r.updateSortIndicators();
     });
   });
 }
-function Ws(r) {
+function Ns(r) {
   if (!r.tableEl) return;
   r.tableEl.querySelectorAll("[data-sort-column]").forEach((s) => {
     const n = s.dataset.sortColumn;
     if (!n) return;
-    const o = r.state.sort.find((i) => i.field === n), a = s.querySelector("svg");
-    a && (o ? (s.classList.remove("opacity-0"), s.classList.add("opacity-100"), o.direction === "asc" ? (a.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />', a.classList.add("text-blue-600"), a.classList.remove("text-gray-400")) : (a.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />', a.classList.add("text-blue-600"), a.classList.remove("text-gray-400"))) : (a.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />', a.classList.remove("text-blue-600"), a.classList.add("text-gray-400")));
+    const o = r.state.sort.find((a) => a.field === n), i = s.querySelector("svg");
+    i && (o ? (s.classList.remove("opacity-0"), s.classList.add("opacity-100"), o.direction === "asc" ? (i.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />', i.classList.add("text-blue-600"), i.classList.remove("text-gray-400")) : (i.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />', i.classList.add("text-blue-600"), i.classList.remove("text-gray-400"))) : (i.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />', i.classList.remove("text-blue-600"), i.classList.add("text-gray-400")));
   }), r.tableEl.querySelectorAll("[data-sort]").forEach((s) => {
-    const n = s.dataset.sort, o = r.state.sort.find((i) => i.field === n), a = s.querySelector(".sort-indicator");
-    a && (a.textContent = o ? o.direction === "asc" ? "↑" : "↓" : "");
+    const n = s.dataset.sort, o = r.state.sort.find((a) => a.field === n), i = s.querySelector(".sort-indicator");
+    i && (i.textContent = o ? o.direction === "asc" ? "↑" : "↓" : "");
   });
 }
-function Xs(r) {
+function Gs(r) {
   const e = document.querySelector(r.selectors.selectAllCheckbox);
   e && e.addEventListener("change", () => {
     document.querySelectorAll(r.selectors.rowCheckboxes).forEach((s) => {
@@ -3512,7 +3009,7 @@ function Xs(r) {
     }), r.updateBulkActionsBar();
   }), r.updateSelectionBindings();
 }
-function Zs(r) {
+function Us(r) {
   document.querySelectorAll(r.selectors.rowCheckboxes).forEach((t) => {
     const s = t.dataset.id;
     s && (t.checked = r.state.selectedRows.has(s)), t.addEventListener("change", () => {
@@ -3520,19 +3017,19 @@ function Zs(r) {
     });
   });
 }
-function en(r) {
+function Hs(r) {
   const t = document.getElementById("bulk-actions-overlay")?.dataset?.bulkBase || "";
   document.querySelectorAll("[data-bulk-action]").forEach((o) => {
     o.addEventListener("click", async () => {
-      const a = o, i = a.dataset.bulkAction;
-      if (!i) return;
+      const i = o, a = i.dataset.bulkAction;
+      if (!a) return;
       const l = Array.from(r.state.selectedRows);
       if (l.length === 0) {
         r.notify("Please select items first", "warning");
         return;
       }
       if (r.config.bulkActions) {
-        const c = r.config.bulkActions.find((d) => d.id === i);
+        const c = r.config.bulkActions.find((d) => d.id === a);
         if (c) {
           try {
             await r.actionRenderer.executeBulkAction(c, l), r.state.selectedRows.clear(), r.updateBulkActionsBar(), await r.refresh();
@@ -3543,9 +3040,9 @@ function en(r) {
         }
       }
       if (t) {
-        const c = `${t}/${i}`, d = a.dataset.bulkConfirm, u = r.parseDatasetStringArray(a.dataset.bulkPayloadRequired), p = r.parseDatasetObject(a.dataset.bulkPayloadSchema), h = {
-          id: i,
-          label: a.textContent?.trim() || i,
+        const c = `${t}/${a}`, d = i.dataset.bulkConfirm, u = r.parseDatasetStringArray(i.dataset.bulkPayloadRequired), p = r.parseDatasetObject(i.dataset.bulkPayloadSchema), h = {
+          id: a,
+          label: i.textContent?.trim() || a,
           endpoint: c,
           confirm: d,
           payloadRequired: u,
@@ -3560,7 +3057,7 @@ function en(r) {
       }
       if (r.config.behaviors?.bulkActions)
         try {
-          await r.config.behaviors.bulkActions.execute(i, l, r), r.state.selectedRows.clear(), r.updateBulkActionsBar();
+          await r.config.behaviors.bulkActions.execute(a, l, r), r.state.selectedRows.clear(), r.updateBulkActionsBar();
         } catch (c) {
           console.error("Bulk action failed:", c), r.showError("Bulk action failed");
         }
@@ -3568,12 +3065,12 @@ function en(r) {
   });
   const n = document.getElementById("clear-selection-btn");
   n && n.addEventListener("click", () => {
-    r.state.selectedRows.clear(), r.updateBulkActionsBar(), document.querySelectorAll(".table-checkbox").forEach((i) => i.checked = !1);
-    const a = document.querySelector(r.selectors.selectAllCheckbox);
-    a && (a.checked = !1);
+    r.state.selectedRows.clear(), r.updateBulkActionsBar(), document.querySelectorAll(".table-checkbox").forEach((a) => a.checked = !1);
+    const i = document.querySelector(r.selectors.selectAllCheckbox);
+    i && (i.checked = !1);
   }), r.bindOverflowMenu();
 }
-function tn(r) {
+function Vs(r) {
   const e = document.getElementById("bulk-more-btn"), t = document.getElementById("bulk-overflow-menu");
   !e || !t || (e.addEventListener("click", (s) => {
     s.stopPropagation(), t.classList.toggle("hidden");
@@ -3585,7 +3082,7 @@ function tn(r) {
     s.stopPropagation();
   }));
 }
-function rn(r) {
+function Ks(r) {
   const e = document.getElementById("bulk-actions-overlay"), t = document.getElementById("selected-count"), s = r.state.selectedRows.size;
   if (console.log("[DataGrid] updateBulkActionsBar - overlay:", e, "countEl:", t, "count:", s), !e || !t) {
     console.error("[DataGrid] Missing bulk actions elements!");
@@ -3593,32 +3090,32 @@ function rn(r) {
   }
   t.textContent = String(s), s > 0 ? (e.classList.remove("hidden"), e.offsetHeight) : e.classList.add("hidden");
 }
-function sn(r) {
+function Js(r) {
   const e = document.getElementById("bulk-clear-selection");
   console.log("[DataGrid] Binding clear button:", e), e ? e.addEventListener("click", () => {
     console.log("[DataGrid] Clear button clicked!"), r.clearSelection();
   }) : console.error("[DataGrid] Clear button not found!");
 }
-function nn(r) {
+function Ys(r) {
   console.log("[DataGrid] Clearing selection..."), r.state.selectedRows.clear();
   const e = document.querySelector(r.selectors.selectAllCheckbox);
   e && (e.checked = !1), r.updateBulkActionsBar(), r.updateSelectionBindings();
 }
-function on(r, e, t) {
-  const s = e.getBoundingClientRect(), n = t.offsetHeight || 300, a = window.innerHeight - s.bottom, i = s.top, l = a < n && i > a, c = s.right - (t.offsetWidth || 224);
+function Qs(r, e, t) {
+  const s = e.getBoundingClientRect(), n = t.offsetHeight || 300, i = window.innerHeight - s.bottom, a = s.top, l = i < n && a > i, c = s.right - (t.offsetWidth || 224);
   t.style.left = `${Math.max(10, c)}px`, l ? (t.style.top = `${s.top - n - 8}px`, t.style.bottom = "auto") : (t.style.top = `${s.bottom + 8}px`, t.style.bottom = "auto");
 }
-function an(r) {
+function Ws(r) {
   r.dropdownAbortController && r.dropdownAbortController.abort(), r.dropdownAbortController = new AbortController();
   const { signal: e } = r.dropdownAbortController;
   document.querySelectorAll("[data-dropdown-toggle]").forEach((t) => {
     const s = t.dataset.dropdownToggle, n = document.getElementById(s || "");
     n && !n.classList.contains("hidden") && n.classList.add("hidden");
-  }), Hs(document, "click", "[data-dropdown-toggle]", (t, s) => {
+  }), Bs(document, "click", "[data-dropdown-toggle]", (t, s) => {
     t.stopPropagation();
     const n = s.dataset.dropdownToggle, o = document.getElementById(n || "");
-    o && (document.querySelectorAll("[data-dropdown-toggle]").forEach((a) => {
-      const i = a.dataset.dropdownToggle, l = document.getElementById(i || "");
+    o && (document.querySelectorAll("[data-dropdown-toggle]").forEach((i) => {
+      const a = i.dataset.dropdownToggle, l = document.getElementById(a || "");
       l && l !== o && l.classList.add("hidden");
     }), o.classList.toggle("hidden"));
   }, { signal: e }), document.addEventListener("click", (t) => {
@@ -3626,17 +3123,17 @@ function an(r) {
     if (s) {
       t.stopPropagation();
       const o = s.closest("[data-dropdown]")?.querySelector(".actions-menu");
-      document.querySelectorAll(".actions-menu").forEach((i) => {
-        i !== o && i.classList.add("hidden");
+      document.querySelectorAll(".actions-menu").forEach((a) => {
+        a !== o && a.classList.add("hidden");
       });
-      const a = o?.classList.contains("hidden");
-      o?.classList.toggle("hidden"), s.setAttribute("aria-expanded", a ? "true" : "false"), a && o && r.positionDropdownMenu(s, o);
+      const i = o?.classList.contains("hidden");
+      o?.classList.toggle("hidden"), s.setAttribute("aria-expanded", i ? "true" : "false"), i && o && r.positionDropdownMenu(s, o);
     } else
       t.target.closest("[data-dropdown-toggle], #column-toggle-menu, #export-menu") || (document.querySelectorAll(".actions-menu").forEach(
         (o) => o.classList.add("hidden")
       ), document.querySelectorAll("[data-dropdown-toggle]").forEach((o) => {
-        const a = o.dataset.dropdownToggle, i = document.getElementById(a || "");
-        i && i.classList.add("hidden");
+        const i = o.dataset.dropdownToggle, a = document.getElementById(i || "");
+        a && a.classList.add("hidden");
       }));
   }, { signal: e }), document.addEventListener("keydown", (t) => {
     t.key === "Escape" && (document.querySelectorAll(".actions-menu").forEach((s) => {
@@ -3649,19 +3146,19 @@ function an(r) {
     }));
   }, { signal: e });
 }
-function ln(r, e) {
+function Xs(r, e) {
   console.error(e), r.notifier.error(e);
 }
-function cn(r, e, t) {
+function Zs(r, e, t) {
   r.notifier.show({ message: e, type: t });
 }
-async function dn(r, e) {
+async function en(r, e) {
   return r.notifier.confirm(e);
 }
-async function un(r, e) {
-  return e instanceof Response ? rt(e) : e instanceof Error ? e.message : "An unexpected error occurred";
+async function tn(r, e) {
+  return e instanceof Response ? He(e) : e instanceof Error ? e.message : "An unexpected error occurred";
 }
-function pn(r, e) {
+function rn(r, e) {
   if (e)
     try {
       const t = JSON.parse(e);
@@ -3674,7 +3171,7 @@ function pn(r, e) {
       return;
     }
 }
-function hn(r, e) {
+function sn(r, e) {
   if (e)
     try {
       const t = JSON.parse(e);
@@ -3684,25 +3181,25 @@ function hn(r, e) {
       return;
     }
 }
-function fn(r, e) {
+function nn(r, e) {
   if (!r.tableEl) return;
   const t = r.mergeColumnOrder(e);
   r.state.columnOrder = t;
   const s = new Map(r.config.columns.map((n) => [n.field, n]));
   r.config.columns = t.map((n) => s.get(n)).filter((n) => n !== void 0), r.reorderTableColumns(t), r.persistStateSnapshot(), console.log("[DataGrid] Columns reordered:", t);
 }
-function gn(r) {
+function on(r) {
   r.config.behaviors?.columnVisibility?.clearSavedPrefs?.(), r.config.columns = r.defaultColumns.map((t) => ({ ...t })), r.state.columnOrder = r.config.columns.map((t) => t.field);
   const e = r.config.columns.filter((t) => !t.hidden).map((t) => t.field);
   r.tableEl ? (r.reorderTableColumns(r.state.columnOrder), r.updateColumnVisibility(e)) : (r.state.hiddenColumns = new Set(
     r.config.columns.filter((t) => t.hidden).map((t) => t.field)
   ), r.persistStateSnapshot()), r.columnManager && (r.columnManager.refresh(), r.columnManager.syncWithGridState()), console.log("[DataGrid] Columns reset to default");
 }
-function mn(r, e) {
-  const t = new Set(r.config.columns.map((a) => a.field)), s = new Set(e), n = e.filter((a) => t.has(a)), o = r.config.columns.map((a) => a.field).filter((a) => !s.has(a));
+function an(r, e) {
+  const t = new Set(r.config.columns.map((i) => i.field)), s = new Set(e), n = e.filter((i) => t.has(i)), o = r.config.columns.map((i) => i.field).filter((i) => !s.has(i));
   return [...n, ...o];
 }
-function bn(r, e) {
+function ln(r, e) {
   if (!r.tableEl) return;
   const t = r.tableEl.querySelector("thead tr:first-child");
   t && r.reorderRowCells(t, e, "th");
@@ -3711,27 +3208,27 @@ function bn(r, e) {
     r.reorderRowCells(o, e, "td");
   });
 }
-function yn(r, e, t, s) {
+function cn(r, e, t, s) {
   const n = Array.from(e.querySelectorAll(`${s}[data-column]`)), o = new Map(
     n.map((d) => [d.dataset.column, d])
-  ), a = Array.from(e.querySelectorAll(s)), i = e.querySelector(`${s}[data-role="selection"]`) || a.find((d) => d.querySelector('input[type="checkbox"]')), l = e.querySelector(`${s}[data-role="actions"]`) || a.find(
+  ), i = Array.from(e.querySelectorAll(s)), a = e.querySelector(`${s}[data-role="selection"]`) || i.find((d) => d.querySelector('input[type="checkbox"]')), l = e.querySelector(`${s}[data-role="actions"]`) || i.find(
     (d) => !d.dataset.column && (d.querySelector("[data-action]") || d.querySelector("[data-action-id]") || d.querySelector(".dropdown"))
   ), c = [];
-  i && c.push(i), t.forEach((d) => {
+  a && c.push(a), t.forEach((d) => {
     const u = o.get(d);
     u && c.push(u);
   }), l && c.push(l), c.forEach((d) => {
     e.appendChild(d);
   });
 }
-const k = class k {
+const $ = class $ {
   constructor(e) {
     this.tableEl = null, this.searchTimeout = null, this.abortController = null, this.dropdownAbortController = null, this.didRestoreColumnOrder = !1, this.shouldReorderDOMOnRestore = !1, this.recordsById = {}, this.columnManager = null, this.lastSchema = null, this.lastForm = null, this.hasURLStateOverrides = !1, this.hasPersistedHiddenColumnState = !1, this.hasPersistedColumnOrderState = !1, this.config = {
       perPage: 10,
       searchDelay: 300,
       behaviors: {},
       ...e
-    }, this.notifier = e.notifier || new W(), this.selectors = {
+    }, this.notifier = e.notifier || new J(), this.selectors = {
       table: `#${e.tableId}`,
       searchInput: "#table-search",
       perPageSelect: "#table-per-page",
@@ -3751,24 +3248,24 @@ const k = class k {
       ...e.selectors
     };
     const t = this.config.panelId || this.config.tableId;
-    this.stateStore = this.config.stateStore || Er({
+    this.stateStore = this.config.stateStore || gr({
       key: t,
       ...this.config.stateStoreConfig || {}
     });
-    const s = this.stateStore.loadPersistedState(), n = new Set(this.config.columns.map((x) => x.field)), o = new Set(
-      this.config.columns.filter((x) => x.hidden).map((x) => x.field)
-    ), a = !!s && Array.isArray(s.hiddenColumns);
-    this.hasPersistedHiddenColumnState = a;
-    const i = new Set(
-      (s?.hiddenColumns || []).filter((x) => n.has(x))
-    ), l = this.config.columns.map((x) => x.field), c = !!s && Array.isArray(s.columnOrder) && s.columnOrder.length > 0;
+    const s = this.stateStore.loadPersistedState(), n = new Set(this.config.columns.map((w) => w.field)), o = new Set(
+      this.config.columns.filter((w) => w.hidden).map((w) => w.field)
+    ), i = !!s && Array.isArray(s.hiddenColumns);
+    this.hasPersistedHiddenColumnState = i;
+    const a = new Set(
+      (s?.hiddenColumns || []).filter((w) => n.has(w))
+    ), l = this.config.columns.map((w) => w.field), c = !!s && Array.isArray(s.columnOrder) && s.columnOrder.length > 0;
     this.hasPersistedColumnOrderState = c;
-    const d = (s?.columnOrder || []).filter((x) => n.has(x)), u = c ? [...d, ...l.filter((x) => !d.includes(x))] : l, p = this.config.enableGroupedMode ? Or(t) : !1, h = this.config.enableGroupedMode ? zr(t) : null, f = this.config.enableGroupedMode ? qr(t) : "explicit", w = this.config.enableGroupedMode ? Fr(t) : /* @__PURE__ */ new Set(), v = Z(
+    const d = (s?.columnOrder || []).filter((w) => n.has(w)), u = c ? [...d, ...l.filter((w) => !d.includes(w))] : l, p = this.config.enableGroupedMode ? Rr(t) : !1, h = this.config.enableGroupedMode ? Tr(t) : null, f = this.config.enableGroupedMode ? _r(t) : "explicit", v = this.config.enableGroupedMode ? Lr(t) : /* @__PURE__ */ new Set(), y = Y(
       s?.expandMode,
       f
     ), b = new Set(
-      (s?.expandedGroups || Array.from(w)).map((x) => String(x).trim()).filter(Boolean)
-    ), E = this.config.enableGroupedMode ? s?.expandMode !== void 0 || b.size > 0 || p : !1, A = (this.config.enableGroupedMode ? s?.viewMode || h : null) || this.config.defaultViewMode || "flat";
+      (s?.expandedGroups || Array.from(v)).map((w) => String(w).trim()).filter(Boolean)
+    ), E = this.config.enableGroupedMode ? s?.expandMode !== void 0 || b.size > 0 || p : !1, k = (this.config.enableGroupedMode ? s?.viewMode || h : null) || this.config.defaultViewMode || "flat";
     this.state = {
       currentPage: 1,
       perPage: this.config.perPage || 10,
@@ -3777,20 +3274,20 @@ const k = class k {
       filters: [],
       sort: [],
       selectedRows: /* @__PURE__ */ new Set(),
-      hiddenColumns: a ? i : o,
+      hiddenColumns: i ? a : o,
       columnOrder: u,
-      viewMode: A,
-      expandMode: v,
+      viewMode: k,
+      expandMode: y,
       groupedData: null,
       expandedGroups: b,
       hasPersistedExpandState: E
-    }, this.actionRenderer = new Qt({
+    }, this.actionRenderer = new zt({
       mode: this.config.actionRenderMode || "dropdown",
       actionBasePath: this.config.actionBasePath || this.config.apiEndpoint,
       notifier: this.notifier
-    }), this.cellRendererRegistry = new gr(), this.config.cellRenderers && Object.entries(this.config.cellRenderers).forEach(([x, z]) => {
-      this.cellRendererRegistry.register(x, z);
-    }), this.defaultColumns = this.config.columns.map((x) => ({ ...x }));
+    }), this.cellRendererRegistry = new ir(), this.config.cellRenderers && Object.entries(this.config.cellRenderers).forEach(([w, q]) => {
+      this.cellRendererRegistry.register(w, q);
+    }), this.defaultColumns = this.config.columns.map((w) => ({ ...w }));
   }
   init() {
     if (console.log("[DataGrid] Initializing with config:", this.config), this.tableEl = document.querySelector(this.selectors.table), !this.tableEl) {
@@ -3806,238 +3303,238 @@ const k = class k {
     });
   }
   getURLStateConfig() {
-    return Wr(this);
+    return Nr(this);
   }
   parseJSONArray(e, t) {
-    return Xr(this, e, t);
+    return Gr(this, e, t);
   }
   applyPersistedStateSnapshot(e, t = {}) {
-    Zr(this, e, t);
+    Ur(this, e, t);
   }
   applyShareStateSnapshot(e) {
-    es(this, e);
+    Hr(this, e);
   }
   buildPersistedStateSnapshot() {
-    return ts(this);
+    return Vr(this);
   }
   buildShareStateSnapshot() {
-    return rs(this);
+    return Kr(this);
   }
   persistStateSnapshot() {
-    ss(this);
+    Jr(this);
   }
   restoreStateFromURL() {
-    ns(this);
+    Yr(this);
   }
   applyRestoredState() {
-    os(this);
+    Qr(this);
   }
   pushStateToURL(e = {}) {
-    as(this, e);
+    Wr(this, e);
   }
   syncURL() {
     this.pushStateToURL();
   }
   async refresh() {
-    return is(this);
+    return Xr(this);
   }
   buildApiUrl() {
-    return ls(this);
+    return Zr(this);
   }
   buildQueryString() {
-    return cs(this);
+    return es(this);
   }
   buildQueryParams() {
-    return ds(this);
+    return ts(this);
   }
   getResponseTotal(e) {
-    return us(this, e);
+    return rs(this, e);
   }
   normalizePagination(e) {
-    return ps(this, e);
+    return ss(this, e);
   }
   resetPagination() {
     this.state.currentPage = 1;
   }
   updateColumnVisibility(e, t = !1) {
-    Ms(this, e, t);
+    Es(this, e, t);
   }
   syncColumnVisibilityCheckboxes() {
-    Ps(this);
+    $s(this);
   }
   renderData(e) {
-    Bs(this, e);
+    ks(this, e);
   }
   renderFlatData(e, t) {
-    Ds(this, e, t);
+    As(this, e, t);
   }
   renderGroupedData(e, t, s) {
-    ys(this, e, t, s);
+    cs(this, e, t, s);
   }
   isGroupedViewActive() {
-    return vs(this);
+    return ds(this);
   }
   fallbackGroupedMode(e) {
-    ws(this, e);
+    us(this, e);
   }
   handleGroupedModeStatusFallback(e) {
-    return xs(this, e);
+    return ps(this, e);
   }
   handleGroupedModePayloadFallback(e) {
-    return Ss(this, e);
-  }
-  toggleGroup(e) {
-    Cs(this, e);
-  }
-  setExpandedGroups(e) {
-    $s(this, e);
-  }
-  expandAllGroups() {
-    Es(this);
-  }
-  collapseAllGroups() {
-    ks(this);
-  }
-  updateGroupVisibility(e) {
-    As(this, e);
-  }
-  updateGroupedRowsFromState() {
-    Ls(this);
-  }
-  isGroupExpandedByState(e, t = !1) {
-    return _s(this, e, t);
-  }
-  setViewMode(e) {
-    Rs(this, e);
-  }
-  getViewMode() {
-    return Ts(this);
-  }
-  getGroupedData() {
-    return Is(this);
-  }
-  async fetchDetail(e) {
     return hs(this, e);
   }
+  toggleGroup(e) {
+    fs(this, e);
+  }
+  setExpandedGroups(e) {
+    ms(this, e);
+  }
+  expandAllGroups() {
+    gs(this);
+  }
+  collapseAllGroups() {
+    bs(this);
+  }
+  updateGroupVisibility(e) {
+    ys(this, e);
+  }
+  updateGroupedRowsFromState() {
+    vs(this);
+  }
+  isGroupExpandedByState(e, t = !1) {
+    return ws(this, e, t);
+  }
+  setViewMode(e) {
+    xs(this, e);
+  }
+  getViewMode() {
+    return Ss(this);
+  }
+  getGroupedData() {
+    return Cs(this);
+  }
+  async fetchDetail(e) {
+    return ns(this, e);
+  }
   getSchema() {
-    return gs(this);
+    return is(this);
   }
   getForm() {
-    return ms(this);
+    return as(this);
   }
   getTabs() {
-    return bs(this);
+    return ls(this);
   }
   normalizeDetailResponse(e) {
-    return fs(this, e);
+    return os(this, e);
   }
   resolveRendererOptions(e) {
-    return Fs(this, e);
+    return Ls(this, e);
   }
   createTableRow(e) {
-    return qs(this, e);
+    return _s(this, e);
   }
   sanitizeActionId(e) {
-    return Os(this, e);
+    return Rs(this, e);
   }
   async handleDelete(e) {
-    return js(this, e);
+    return Is(this, e);
   }
   updatePaginationUI(e) {
-    zs(this, e);
+    Ts(this, e);
   }
   renderPaginationButtons(e) {
-    Ns(this, e);
+    Ms(this, e);
   }
   bindSearchInput() {
-    Us(this);
+    Ds(this);
   }
   bindPerPageSelect() {
-    Vs(this);
+    Fs(this);
   }
   bindFilterInputs() {
-    Ks(this);
+    qs(this);
   }
   bindColumnVisibility() {
-    Js(this);
+    Os(this);
   }
   bindExportButtons() {
-    Ys(this);
+    js(this);
   }
   bindSorting() {
-    Qs(this);
+    zs(this);
   }
   updateSortIndicators() {
-    Ws(this);
+    Ns(this);
   }
   bindSelection() {
-    Xs(this);
+    Gs(this);
   }
   updateSelectionBindings() {
-    Zs(this);
+    Us(this);
   }
   bindBulkActions() {
-    en(this);
+    Hs(this);
   }
   bindOverflowMenu() {
-    tn();
+    Vs();
   }
   updateBulkActionsBar() {
-    rn(this);
+    Ks(this);
   }
   bindBulkClearButton() {
-    sn(this);
+    Js(this);
   }
   clearSelection() {
-    nn(this);
+    Ys(this);
   }
   positionDropdownMenu(e, t) {
-    on(this, e, t);
+    Qs(this, e, t);
   }
   bindDropdownToggles() {
-    an(this);
+    Ws(this);
   }
   showError(e) {
-    ln(this, e);
+    Xs(this, e);
   }
   notify(e, t) {
-    cn(this, e, t);
+    Zs(this, e, t);
   }
   async confirmAction(e) {
-    return dn(this, e);
+    return en(this, e);
   }
   async extractError(e) {
-    return un(this, e);
+    return tn(this, e);
   }
   parseDatasetStringArray(e) {
-    return pn(this, e);
+    return rn(this, e);
   }
   parseDatasetObject(e) {
-    return hn(this, e);
+    return sn(this, e);
   }
   reorderColumns(e) {
-    fn(this, e);
+    nn(this, e);
   }
   resetColumnsToDefault() {
-    gn(this);
+    on(this);
   }
   mergeColumnOrder(e) {
-    return mn(this, e);
+    return an(this, e);
   }
   reorderTableColumns(e) {
-    bn(this, e);
+    ln(this, e);
   }
   reorderRowCells(e, t, s) {
-    yn(this, e, t, s);
+    cn(this, e, t, s);
   }
   destroy() {
     this.columnManager && (this.columnManager.destroy(), this.columnManager = null), this.dropdownAbortController && (this.dropdownAbortController.abort(), this.dropdownAbortController = null), this.abortController && (this.abortController.abort(), this.abortController = null), this.searchTimeout && (clearTimeout(this.searchTimeout), this.searchTimeout = null), console.log("[DataGrid] Instance destroyed");
   }
 };
-k.URL_KEY_SEARCH = V, k.URL_KEY_PAGE = K, k.URL_KEY_PER_PAGE = J, k.URL_KEY_FILTERS = Y, k.URL_KEY_SORT = Q, k.URL_KEY_STATE = ae, k.URL_KEY_HIDDEN_COLUMNS = De, k.URL_KEY_VIEW_MODE = ie, k.URL_KEY_EXPANDED_GROUPS = se, k.MANAGED_URL_KEYS = Fe, k.DEFAULT_MAX_URL_LENGTH = St, k.DEFAULT_MAX_FILTERS_LENGTH = Ct;
-let Ae = k;
-typeof window < "u" && (window.DataGrid = Ae);
-const Je = {
+$.URL_KEY_SEARCH = G, $.URL_KEY_PAGE = U, $.URL_KEY_PER_PAGE = H, $.URL_KEY_FILTERS = V, $.URL_KEY_SORT = K, $.URL_KEY_STATE = re, $.URL_KEY_HIDDEN_COLUMNS = $e, $.URL_KEY_VIEW_MODE = se, $.URL_KEY_EXPANDED_GROUPS = Z, $.MANAGED_URL_KEYS = ke, $.DEFAULT_MAX_URL_LENGTH = dt, $.DEFAULT_MAX_FILTERS_LENGTH = ut;
+let ge = $;
+typeof window < "u" && (window.DataGrid = ge);
+const Fe = {
   text: [
     { label: "contains", value: "ilike" },
     { label: "equals", value: "eq" },
@@ -4063,9 +3560,9 @@ const Je = {
     { label: "between", value: "between" }
   ]
 };
-class Ba {
+class bi {
   constructor(e) {
-    this.criteria = [], this.modal = null, this.container = null, this.searchInput = null, this.clearBtn = null, this.config = e, this.notifier = e.notifier || new W();
+    this.criteria = [], this.modal = null, this.container = null, this.searchInput = null, this.clearBtn = null, this.config = e, this.notifier = e.notifier || new J();
   }
   init() {
     if (this.modal = document.getElementById("advanced-search-modal"), this.container = document.getElementById("search-criteria-container"), this.searchInput = document.getElementById("table-search"), this.clearBtn = document.getElementById("search-clear-btn"), !this.modal || !this.container) {
@@ -4106,8 +3603,8 @@ class Ba {
     document.getElementById("advanced-search-btn")?.addEventListener("click", () => this.open());
     const t = document.getElementById("advanced-search-close"), s = document.getElementById("advanced-search-cancel"), n = document.getElementById("advanced-search-overlay");
     t?.addEventListener("click", () => this.close()), s?.addEventListener("click", () => this.close()), n?.addEventListener("click", () => this.close()), document.getElementById("add-criteria-btn")?.addEventListener("click", () => this.addCriterion()), document.getElementById("advanced-search-apply")?.addEventListener("click", () => this.applySearch());
-    const i = document.getElementById("save-search-preset-btn"), l = document.getElementById("load-search-preset-btn");
-    i?.addEventListener("click", () => this.savePreset()), l?.addEventListener("click", () => this.loadPreset());
+    const a = document.getElementById("save-search-preset-btn"), l = document.getElementById("load-search-preset-btn");
+    a?.addEventListener("click", () => this.savePreset()), l?.addEventListener("click", () => this.loadPreset());
   }
   bindClearButton() {
     if (!this.searchInput || !this.clearBtn) return;
@@ -4174,7 +3671,7 @@ class Ba {
         </svg>
       </button>
     `, s.querySelectorAll("select, input").forEach((o) => {
-      o.addEventListener("change", (a) => this.updateCriterion(a.target));
+      o.addEventListener("change", (i) => this.updateCriterion(i.target));
     }), s.querySelector('[data-action="remove"]')?.addEventListener("click", () => {
       this.removeCriterion(t);
     }), s;
@@ -4216,8 +3713,8 @@ class Ba {
       </button>
     `, t.querySelectorAll("[data-logic-index]").forEach((n) => {
       n.addEventListener("click", (o) => {
-        const a = o.target, i = parseInt(a.dataset.logicIndex || "0", 10), l = a.dataset.logicValue;
-        this.criteria[i].logic = l, this.renderCriteria();
+        const i = o.target, a = parseInt(i.dataset.logicIndex || "0", 10), l = i.dataset.logicValue;
+        this.criteria[a].logic = l, this.renderCriteria();
       });
     }), t;
   }
@@ -4228,13 +3725,13 @@ class Ba {
     s === "field" ? (this.criteria[t].field = n, this.renderCriteria()) : s === "operator" ? this.criteria[t].operator = n : s === "value" && (this.criteria[t].value = n);
   }
   getOperatorsForField(e) {
-    return e.operators && e.operators.length > 0 ? e.operators.map((t) => ({ label: t, value: t })) : Je[e.type] || Je.text;
+    return e.operators && e.operators.length > 0 ? e.operators.map((t) => ({ label: t, value: t })) : Fe[e.type] || Fe.text;
   }
   applySearch() {
     this.pushCriteriaToURL(), this.config.onSearch(this.criteria), this.renderChips(), this.close();
   }
   savePreset() {
-    new Ge({
+    new Te({
       title: "Save Search Preset",
       label: "Preset name",
       placeholder: "e.g. Active users filter",
@@ -4251,7 +3748,7 @@ class Ba {
       this.notifier.warning("No saved presets found.");
       return;
     }
-    new Ge({
+    new Te({
       title: "Load Search Preset",
       label: `Available presets: ${t.join(", ")}`,
       placeholder: "Enter preset name",
@@ -4290,8 +3787,8 @@ class Ba {
         return;
       }
       t && (t.placeholder = "", t.style.display = ""), s && s.classList.remove("hidden"), this.criteria.forEach((n, o) => {
-        const a = this.createChip(n, o);
-        e.appendChild(a);
+        const i = this.createChip(n, o);
+        e.appendChild(i);
       });
     }
   }
@@ -4301,9 +3798,9 @@ class Ba {
   createChip(e, t) {
     const s = document.createElement("div");
     s.className = "inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded border border-blue-200";
-    const o = this.config.fields.find((l) => l.name === e.field)?.label || e.field, a = e.operator === "ilike" ? "contains" : e.operator === "eq" ? "is" : e.operator;
+    const o = this.config.fields.find((l) => l.name === e.field)?.label || e.field, i = e.operator === "ilike" ? "contains" : e.operator === "eq" ? "is" : e.operator;
     s.innerHTML = `
-      <span>${o} ${a} "${e.value}"</span>
+      <span>${o} ${i} "${e.value}"</span>
       <button type="button"
               data-chip-index="${t}"
               class="ml-1 text-blue-600 hover:text-blue-800 focus:outline-none"
@@ -4313,8 +3810,8 @@ class Ba {
         </svg>
       </button>
     `;
-    const i = s.querySelector("[data-chip-index]");
-    return i && i.addEventListener("click", () => {
+    const a = s.querySelector("[data-chip-index]");
+    return a && a.addEventListener("click", () => {
       this.removeChip(t);
     }), s;
   }
@@ -4331,7 +3828,7 @@ class Ba {
     this.criteria = [], this.renderCriteria(), this.renderChips(), this.config.onClear && this.config.onClear();
   }
 }
-const Ye = {
+const qe = {
   text: [
     { label: "contains", value: "ilike" },
     { label: "is", value: "eq" },
@@ -4355,9 +3852,9 @@ const Ye = {
     { label: "is not", value: "ne" }
   ]
 };
-class Da {
+class yi {
   constructor(e) {
-    this.panel = null, this.container = null, this.previewElement = null, this.sqlPreviewElement = null, this.overlay = null, this.config = e, this.notifier = e.notifier || new W(), this.structure = { groups: [], groupLogic: [] }, this.init();
+    this.panel = null, this.container = null, this.previewElement = null, this.sqlPreviewElement = null, this.overlay = null, this.config = e, this.notifier = e.notifier || new J(), this.structure = { groups: [], groupLogic: [] }, this.init();
   }
   init() {
     if (this.panel = document.getElementById("filter-panel"), this.overlay = document.getElementById("filter-overlay"), this.previewElement = document.getElementById("filter-preview-text"), !this.panel) {
@@ -4462,10 +3959,10 @@ class Da {
       <button type="button" data-remove-group="${t}" class="text-xs text-red-600 hover:text-red-800">
         Remove group
       </button>
-    `, s.appendChild(n), e.conditions.forEach((a, i) => {
-      const l = this.createConditionElement(a, t, i);
-      if (s.appendChild(l), i < e.conditions.length - 1) {
-        const c = this.createConditionConnector(t, i, e.logic);
+    `, s.appendChild(n), e.conditions.forEach((i, a) => {
+      const l = this.createConditionElement(i, t, a);
+      if (s.appendChild(l), a < e.conditions.length - 1) {
+        const c = this.createConditionConnector(t, a, e.logic);
         s.appendChild(c);
       }
     });
@@ -4480,7 +3977,7 @@ class Da {
   createConditionElement(e, t, s) {
     const n = document.createElement("div");
     n.className = "flex items-center gap-2 mb-2";
-    const o = this.config.fields.find((a) => a.name === e.field) || this.config.fields[0];
+    const o = this.config.fields.find((i) => i.name === e.field) || this.config.fields[0];
     return n.innerHTML = `
       <div class="flex items-center text-gray-400 cursor-move" title="Drag to reorder">
         <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
@@ -4490,14 +3987,14 @@ class Da {
       </div>
 
       <select data-cond="${t}-${s}-field" class="py-1.5 px-2 text-sm border-gray-200 rounded-lg bg-white w-32">
-        ${this.config.fields.map((a) => `
-          <option value="${a.name}" ${a.name === e.field ? "selected" : ""}>${a.label}</option>
+        ${this.config.fields.map((i) => `
+          <option value="${i.name}" ${i.name === e.field ? "selected" : ""}>${i.label}</option>
         `).join("")}
       </select>
 
       <select data-cond="${t}-${s}-operator" class="py-1.5 px-2 text-sm border-gray-200 rounded-lg bg-white w-36">
-        ${this.getOperatorsForField(o).map((a) => `
-          <option value="${a.value}" ${a.value === e.operator ? "selected" : ""}>${a.label}</option>
+        ${this.getOperatorsForField(o).map((i) => `
+          <option value="${i.value}" ${i.value === e.operator ? "selected" : ""}>${i.label}</option>
         `).join("")}
       </select>
 
@@ -4522,8 +4019,8 @@ class Da {
     return e.type === "select" && e.options ? `
         <select data-cond="${s}-${n}-value" class="flex-1 min-w-[200px] py-1.5 px-2 text-sm border-gray-200 rounded-lg bg-white">
           <option value="">Select...</option>
-          ${e.options.map((a) => `
-            <option value="${a.value}" ${a.value === t.value ? "selected" : ""}>${a.label}</option>
+          ${e.options.map((i) => `
+            <option value="${i.value}" ${i.value === t.value ? "selected" : ""}>${i.label}</option>
           `).join("")}
         </select>
       ` : `
@@ -4561,8 +4058,8 @@ class Da {
       </button>
     `, t.querySelectorAll("[data-group-logic]").forEach((n) => {
       n.addEventListener("click", (o) => {
-        const a = o.target, i = parseInt(a.dataset.groupLogic || "0", 10), l = a.dataset.logicValue;
-        this.structure.groupLogic[i] = l, this.render();
+        const i = o.target, a = parseInt(i.dataset.groupLogic || "0", 10), l = i.dataset.logicValue;
+        this.structure.groupLogic[a] = l, this.render();
       });
     }), t;
   }
@@ -4571,20 +4068,20 @@ class Da {
     s && s.addEventListener("click", () => this.removeGroup(t));
     const n = e.querySelector(`[data-add-condition="${t}"]`);
     n && n.addEventListener("click", () => this.addCondition(t)), e.querySelectorAll("[data-cond]").forEach((o) => {
-      const a = o, [i, l, c] = a.dataset.cond.split("-"), d = parseInt(i, 10), u = parseInt(l, 10);
-      a.addEventListener("change", () => {
-        c === "field" ? (this.structure.groups[d].conditions[u].field = a.value, this.render()) : c === "operator" ? (this.structure.groups[d].conditions[u].operator = a.value, this.updatePreview()) : c === "value" && (this.structure.groups[d].conditions[u].value = a.value, this.updatePreview());
+      const i = o, [a, l, c] = i.dataset.cond.split("-"), d = parseInt(a, 10), u = parseInt(l, 10);
+      i.addEventListener("change", () => {
+        c === "field" ? (this.structure.groups[d].conditions[u].field = i.value, this.render()) : c === "operator" ? (this.structure.groups[d].conditions[u].operator = i.value, this.updatePreview()) : c === "value" && (this.structure.groups[d].conditions[u].value = i.value, this.updatePreview());
       });
     }), e.querySelectorAll("[data-remove-cond]").forEach((o) => {
-      o.addEventListener("click", (a) => {
-        const l = a.target.closest("[data-remove-cond]");
+      o.addEventListener("click", (i) => {
+        const l = i.target.closest("[data-remove-cond]");
         if (!l) return;
         const [c, d] = l.dataset.removeCond.split("-").map(Number);
         this.removeCondition(c, d);
       });
     }), e.querySelectorAll("[data-add-cond-or], [data-add-cond-and]").forEach((o) => {
-      o.addEventListener("click", (a) => {
-        const i = a.target, l = i.dataset.addCondOr !== void 0, c = l ? i.dataset.addCondOr : i.dataset.addCondAnd;
+      o.addEventListener("click", (i) => {
+        const a = i.target, l = a.dataset.addCondOr !== void 0, c = l ? a.dataset.addCondOr : a.dataset.addCondAnd;
         if (!c) return;
         const [d] = c.split("-").map(Number);
         this.structure.groups[d].logic = l ? "or" : "and", this.addCondition(d);
@@ -4602,7 +4099,7 @@ class Da {
     this.structure.groups.splice(e, 1), e < this.structure.groupLogic.length ? this.structure.groupLogic.splice(e, 1) : e > 0 && this.structure.groupLogic.length > 0 && this.structure.groupLogic.splice(e - 1, 1), this.structure.groups.length === 0 ? this.addGroup() : this.render();
   }
   getOperatorsForField(e) {
-    return e.operators && e.operators.length > 0 ? e.operators.map((t) => ({ label: t, value: t })) : Ye[e.type] || Ye.text;
+    return e.operators && e.operators.length > 0 ? e.operators.map((t) => ({ label: t, value: t })) : qe[e.type] || qe.text;
   }
   updatePreview() {
     const e = this.generateSQLPreview(), t = this.generateTextPreview();
@@ -4618,8 +4115,8 @@ class Da {
   generateSQLPreview() {
     const e = this.structure.groups.map((t) => {
       const s = t.conditions.filter((n) => n.value !== "" && n.value !== null).map((n) => {
-        const o = n.operator.toUpperCase(), a = typeof n.value == "string" ? `'${n.value}'` : n.value;
-        return `${n.field} ${o === "ILIKE" ? "ILIKE" : o === "EQ" ? "=" : o} ${a}`;
+        const o = n.operator.toUpperCase(), i = typeof n.value == "string" ? `'${n.value}'` : n.value;
+        return `${n.field} ${o === "ILIKE" ? "ILIKE" : o === "EQ" ? "=" : o} ${i}`;
       });
       return s.length === 0 ? "" : s.length === 1 ? s[0] : `( ${s.join(` ${t.logic.toUpperCase()} `)} )`;
     }).filter((t) => t !== "");
@@ -4632,8 +4129,8 @@ class Da {
   generateTextPreview() {
     const e = this.structure.groups.map((t) => {
       const s = t.conditions.filter((n) => n.value !== "" && n.value !== null).map((n) => {
-        const o = this.config.fields.find((l) => l.name === n.field), a = o?.label || n.field, i = this.getOperatorsForField(o).find((l) => l.value === n.operator)?.label || n.operator;
-        return `${a} ${i} "${n.value}"`;
+        const o = this.config.fields.find((l) => l.name === n.field), i = o?.label || n.field, a = this.getOperatorsForField(o).find((l) => l.value === n.operator)?.label || n.operator;
+        return `${i} ${a} "${n.value}"`;
       });
       return s.length === 0 ? "" : s.length === 1 ? s[0] : `( ${s.join(` ${t.logic.toUpperCase()} `)} )`;
     }).filter((t) => t !== "");
@@ -4721,7 +4218,7 @@ class Da {
     this.structure = e, this.render();
   }
 }
-class Fa {
+class vi {
   constructor(e) {
     if (this.searchableFields = e, !e || e.length === 0)
       throw new Error("At least one searchable field is required");
@@ -4738,18 +4235,18 @@ class Fa {
     t.resetPagination(), await t.refresh();
   }
 }
-class qa {
+class wi {
   buildFilters(e) {
     const t = {}, s = /* @__PURE__ */ new Map();
     return e.forEach((n) => {
       if (n.value === null || n.value === void 0 || n.value === "")
         return;
-      const o = n.operator || "eq", a = n.column;
-      s.has(a) || s.set(a, { operator: o, values: [] }), s.get(a).values.push(n.value);
+      const o = n.operator || "eq", i = n.column;
+      s.has(i) || s.set(i, { operator: o, values: [] }), s.get(i).values.push(n.value);
     }), s.forEach((n, o) => {
       if (n.values.length === 1) {
-        const a = n.operator === "eq" ? o : `${o}__${n.operator}`;
-        t[a] = n.values[0];
+        const i = n.operator === "eq" ? o : `${o}__${n.operator}`;
+        t[i] = n.values[0];
       } else
         n.operator === "ilike" ? t[`${o}__ilike`] = n.values.join(",") : n.operator === "eq" ? t[`${o}__in`] = n.values.join(",") : t[`${o}__${n.operator}`] = n.values.join(",");
     }), t;
@@ -4758,7 +4255,7 @@ class qa {
     s.resetPagination(), await s.refresh();
   }
 }
-class Oa {
+class xi {
   buildQuery(e, t) {
     return {
       limit: t,
@@ -4769,7 +4266,7 @@ class Oa {
     await t.refresh();
   }
 }
-class ja {
+class Si {
   buildQuery(e) {
     return !e || e.length === 0 ? {} : { order: e.map((s) => `${s.field} ${s.direction}`).join(",") };
   }
@@ -4777,7 +4274,7 @@ class ja {
     await s.refresh();
   }
 }
-class za {
+class Ci {
   constructor(e) {
     if (!e || !e.endpoint)
       throw new Error("export endpoint is required");
@@ -4794,11 +4291,11 @@ class za {
   async export(e, t) {
     if (!t)
       throw new Error("datagrid instance is required");
-    const s = vn(t, this.config, e);
-    s.delivery = wn(this.config, e);
+    const s = dn(t, this.config, e);
+    s.delivery = un(this.config, e);
     let n;
     try {
-      n = await I(this.getEndpoint(), {
+      n = await R(this.getEndpoint(), {
         method: "POST",
         json: s,
         headers: {
@@ -4806,35 +4303,35 @@ class za {
         }
       });
     } catch (o) {
-      const a = o instanceof Error ? o.message : "Network error during export";
-      throw D(t, "error", a), o;
+      const i = o instanceof Error ? o.message : "Network error during export";
+      throw P(t, "error", i), o;
     }
     if (n.status === 202) {
       const o = await n.json().catch(() => ({}));
-      D(t, "info", "Export queued. You can download it when ready.");
-      const a = o?.status_url || "";
-      if (a) {
-        const i = Cn(o, a);
+      P(t, "info", "Export queued. You can download it when ready.");
+      const i = o?.status_url || "";
+      if (i) {
+        const a = fn(o, i);
         try {
-          await $n(a, {
-            intervalMs: xn(this.config),
-            timeoutMs: Sn(this.config)
+          await mn(i, {
+            intervalMs: pn(this.config),
+            timeoutMs: hn(this.config)
           });
-          const l = await I(i, {
+          const l = await R(a, {
             method: "GET",
             headers: {
               Accept: "application/octet-stream"
             }
           });
           if (!l.ok) {
-            const c = await Le(l);
-            throw D(t, "error", c), new Error(c);
+            const c = await be(l);
+            throw P(t, "error", c), new Error(c);
           }
-          await We(l, s.definition || s.resource || "export", s.format), D(t, "success", "Export ready.");
+          await je(l, s.definition || s.resource || "export", s.format), P(t, "success", "Export ready.");
           return;
         } catch (l) {
           const c = l instanceof Error ? l.message : "Export failed";
-          throw D(t, "error", c), l;
+          throw P(t, "error", c), l;
         }
       }
       if (o?.download_url) {
@@ -4844,16 +4341,16 @@ class za {
       return;
     }
     if (!n.ok) {
-      const o = await Le(n);
-      throw D(t, "error", o), new Error(o);
+      const o = await be(n);
+      throw P(t, "error", o), new Error(o);
     }
-    await We(n, s.definition || s.resource || "export", s.format), D(t, "success", "Export ready.");
+    await je(n, s.definition || s.resource || "export", s.format), P(t, "success", "Export ready.");
   }
 }
-function vn(r, e, t) {
-  const s = In(t), n = kn(r, e), o = An(r, e), a = Ln(r), i = _n(a), l = {
+function dn(r, e, t) {
+  const s = Cn(t), n = bn(r, e), o = yn(r, e), i = vn(r), a = wn(i), l = {
     format: s,
-    query: i,
+    query: a,
     selection: n,
     columns: o,
     delivery: e.delivery || "auto"
@@ -4862,51 +4359,51 @@ function vn(r, e, t) {
   const c = e.sourceVariant || e.variant;
   return c && (l.source_variant = c), l;
 }
-function wn(r, e) {
+function un(r, e) {
   return r.delivery ? r.delivery : (r.asyncFormats && r.asyncFormats.length > 0 ? r.asyncFormats : ["pdf"]).includes(e) ? "async" : "auto";
 }
-function xn(r) {
+function pn(r) {
   const e = Number(r.statusPollIntervalMs);
   return Number.isFinite(e) && e > 0 ? e : 2e3;
 }
-function Sn(r) {
+function hn(r) {
   const e = Number(r.statusPollTimeoutMs);
   return Number.isFinite(e) && e >= 0 ? e : 3e5;
 }
-function Cn(r, e) {
+function fn(r, e) {
   return r?.download_url ? r.download_url : `${e.replace(/\/+$/, "")}/download`;
 }
-async function $n(r, e) {
+async function mn(r, e) {
   const t = Date.now(), s = Math.max(250, e.intervalMs);
   for (; ; ) {
-    const n = await I(r, {
+    const n = await R(r, {
       method: "GET",
       headers: {
         Accept: "application/json"
       }
     });
     if (!n.ok) {
-      const i = await Le(n);
-      throw new Error(i);
+      const a = await be(n);
+      throw new Error(a);
     }
-    const o = await n.json().catch(() => ({})), a = String(o?.state || "").toLowerCase();
-    if (a === "completed")
+    const o = await n.json().catch(() => ({})), i = String(o?.state || "").toLowerCase();
+    if (i === "completed")
       return o;
-    if (a === "failed")
+    if (i === "failed")
       throw new Error("Export failed");
-    if (a === "canceled")
+    if (i === "canceled")
       throw new Error("Export canceled");
-    if (a === "deleted")
+    if (i === "deleted")
       throw new Error("Export deleted");
     if (e.timeoutMs > 0 && Date.now() - t > e.timeoutMs)
       throw new Error("Export status timed out");
-    await En(s);
+    await gn(s);
   }
 }
-function En(r) {
+function gn(r) {
   return new Promise((e) => setTimeout(e, r));
 }
-function kn(r, e) {
+function bn(r, e) {
   if (e.selection?.mode)
     return e.selection;
   const t = Array.from(r.state.selectedRows || []), s = t.length > 0 ? "ids" : "all";
@@ -4915,68 +4412,68 @@ function kn(r, e) {
     ids: s === "ids" ? t : []
   };
 }
-function An(r, e) {
+function yn(r, e) {
   if (Array.isArray(e.columns) && e.columns.length > 0)
     return e.columns.slice();
   const t = r.state?.hiddenColumns ? new Set(r.state.hiddenColumns) : /* @__PURE__ */ new Set();
   return (Array.isArray(r.state?.columnOrder) && r.state.columnOrder.length > 0 ? r.state.columnOrder : r.config.columns.map((n) => n.field)).filter((n) => !t.has(n));
 }
-function Ln(r) {
+function vn(r) {
   const e = {}, t = r.config.behaviors || {};
   return t.pagination && Object.assign(e, t.pagination.buildQuery(r.state.currentPage, r.state.perPage)), r.state.search && t.search && Object.assign(e, t.search.buildQuery(r.state.search)), r.state.filters.length > 0 && t.filter && Object.assign(e, t.filter.buildFilters(r.state.filters)), r.state.sort.length > 0 && t.sort && Object.assign(e, t.sort.buildQuery(r.state.sort)), e;
 }
-function _n(r) {
+function wn(r) {
   const e = {}, t = [];
   return Object.entries(r).forEach(([s, n]) => {
     if (n == null || n === "")
       return;
     switch (s) {
       case "limit":
-        e.limit = Qe(n);
+        e.limit = Oe(n);
         return;
       case "offset":
-        e.offset = Qe(n);
+        e.offset = Oe(n);
         return;
       case "order":
       case "sort":
-        e.sort = Tn(String(n));
+        e.sort = Sn(String(n));
         return;
       case "q":
       case "search":
         e.search = String(n);
         return;
     }
-    const { field: o, op: a } = Rn(s);
-    o && t.push({ field: o, op: a, value: n });
+    const { field: o, op: i } = xn(s);
+    o && t.push({ field: o, op: i, value: n });
   }), t.length > 0 && (e.filters = t), e;
 }
-function Rn(r) {
+function xn(r) {
   const e = r.split("__"), t = e[0]?.trim() || "", s = e[1]?.trim() || "eq";
   return { field: t, op: s };
 }
-function Tn(r) {
+function Sn(r) {
   return r ? r.split(",").map((e) => e.trim()).filter(Boolean).map((e) => {
     const t = e.split(/\s+/), s = t[0] || "", n = t[1] || "asc";
     return { field: s, desc: n.toLowerCase() === "desc" };
   }).filter((e) => e.field) : [];
 }
-function In(r) {
+function Cn(r) {
   const e = String(r || "").trim().toLowerCase();
   return e === "excel" || e === "xls" ? "xlsx" : e || "csv";
 }
-function Qe(r) {
+function Oe(r) {
   const e = Number(r);
   return Number.isFinite(e) ? e : 0;
 }
-async function We(r, e, t) {
-  const s = await r.blob(), n = Mn(r, e, t), o = URL.createObjectURL(s), a = document.createElement("a");
-  a.href = o, a.download = n, a.rel = "noopener", document.body.appendChild(a), a.click(), a.remove(), URL.revokeObjectURL(o);
+async function je(r, e, t) {
+  const s = await r.blob(), n = En(r, e, t), o = URL.createObjectURL(s), i = document.createElement("a");
+  i.href = o, i.download = n, i.rel = "noopener", document.body.appendChild(i), i.click(), i.remove(), URL.revokeObjectURL(o);
 }
-function Mn(r, e, t) {
+function En(r, e, t) {
   const s = r.headers.get("content-disposition") || "", n = `${e}.${t}`;
-  return Pn(s) || n;
+  return $n(s) || n;
 }
-function Pn(r) {
+function $n(r) {
   if (!r) return null;
   const e = r.match(/filename\*=(?:UTF-8'')?([^;]+)/i);
   if (e && e[1])
@@ -4984,7 +4481,7 @@ function Pn(r) {
   const t = r.match(/filename="?([^";]+)"?/i);
   return t && t[1] ? t[1].trim() : null;
 }
-async function Le(r) {
+async function be(r) {
   if ((r.headers.get("content-type") || "").includes("application/json")) {
     const s = await r.json().catch(() => ({}));
     if (s?.error?.message)
@@ -4995,7 +4492,7 @@ async function Le(r) {
   const t = await r.text().catch(() => "");
   return t || `Export failed (${r.status})`;
 }
-function D(r, e, t) {
+function P(r, e, t) {
   const s = r.config.notifier;
   if (s && typeof s[e] == "function") {
     s[e](t);
@@ -5008,7 +4505,7 @@ function D(r, e, t) {
   }
   e === "error" && alert(t);
 }
-class Na {
+class Ei {
   constructor(e) {
     this.baseEndpoint = e;
   }
@@ -5019,30 +4516,30 @@ class Na {
     return this.baseEndpoint.endsWith("s") ? this.baseEndpoint : `${this.baseEndpoint}s`;
   }
   async execute(e, t, s) {
-    const n = this.getActionEndpoint(e), o = await I(n, {
+    const n = this.getActionEndpoint(e), o = await R(n, {
       method: "POST",
       json: { ids: t },
       accept: "application/json"
     });
     if (!o.ok) {
-      const a = await Ut(o, `Bulk action '${e}' failed`);
-      throw new Error(`Bulk action '${e}' failed: ${a}`);
+      const i = await Dt(o, `Bulk action '${e}' failed`);
+      throw new Error(`Bulk action '${e}' failed: ${i}`);
     }
     await s.refresh();
   }
 }
-function Bn(r) {
+function kn(r) {
   const e = (r || "").trim();
   return !e || e === "/" ? "" : "/" + e.replace(/^\/+|\/+$/g, "");
 }
-function Dn(r) {
+function An(r) {
   const e = (r || "").trim();
   return !e || e === "/" ? "" : e.replace(/\/+$/, "");
 }
-function $t(r) {
+function pt(r) {
   return typeof r == "object" && r !== null && "version" in r && r.version === 2;
 }
-class Fn {
+class Ln {
   constructor(e, t = "datatable_columns") {
     this.cachedOrder = null, this.storageKey = t;
   }
@@ -5057,15 +4554,15 @@ class Fn {
    * Preserves column order when writing visibility updates
    */
   toggleColumn(e, t) {
-    const s = !t.state.hiddenColumns.has(e), n = t.config.columns.filter((i) => i.field === e ? !s : !t.state.hiddenColumns.has(i.field)).map((i) => i.field), o = {};
-    t.config.columns.forEach((i) => {
-      o[i.field] = n.includes(i.field);
+    const s = !t.state.hiddenColumns.has(e), n = t.config.columns.filter((a) => a.field === e ? !s : !t.state.hiddenColumns.has(a.field)).map((a) => a.field), o = {};
+    t.config.columns.forEach((a) => {
+      o[a.field] = n.includes(a.field);
     });
-    const a = this.cachedOrder || t.state.columnOrder;
+    const i = this.cachedOrder || t.state.columnOrder;
     this.savePrefs({
       version: 2,
       visibility: o,
-      order: a.length > 0 ? a : void 0
+      order: i.length > 0 ? i : void 0
     }), t.updateColumnVisibility(n);
   }
   /**
@@ -5109,8 +4606,8 @@ class Fn {
       const t = this.loadPrefs();
       if (!t) return /* @__PURE__ */ new Set();
       const s = new Set(e), n = /* @__PURE__ */ new Set();
-      return Object.entries(t.visibility).forEach(([o, a]) => {
-        !a && s.has(o) && n.add(o);
+      return Object.entries(t.visibility).forEach(([o, i]) => {
+        !i && s.has(o) && n.add(o);
       }), n;
     } catch (t) {
       return console.warn("Failed to load column visibility state:", t), /* @__PURE__ */ new Set();
@@ -5124,7 +4621,7 @@ class Fn {
       const e = localStorage.getItem(this.storageKey);
       if (!e) return null;
       const t = JSON.parse(e);
-      if ($t(t))
+      if (pt(t))
         return t;
       const n = {
         version: 2,
@@ -5158,11 +4655,11 @@ class Fn {
     }
   }
 }
-class Ga extends Fn {
+class $i extends Ln {
   constructor(e, t) {
     const s = t.localStorageKey || `${t.resource}_datatable_columns`;
     super(e, s), this.syncTimeout = null, this.serverPrefs = null, this.resource = t.resource;
-    const n = Bn(t.basePath), o = Dn(t.apiBasePath);
+    const n = kn(t.basePath), o = An(t.apiBasePath);
     t.preferencesEndpoint ? this.preferencesEndpoint = t.preferencesEndpoint : o ? this.preferencesEndpoint = `${o}/panels/preferences` : n ? this.preferencesEndpoint = `${n}/api/panels/preferences` : this.preferencesEndpoint = "/api/panels/preferences", this.syncDebounce = t.syncDebounce ?? 1e3;
   }
   /**
@@ -5190,7 +4687,7 @@ class Ga extends Fn {
    */
   async loadFromServer() {
     try {
-      const e = await I(this.preferencesEndpoint, {
+      const e = await R(this.preferencesEndpoint, {
         method: "GET",
         credentials: "same-origin",
         headers: {
@@ -5206,7 +4703,7 @@ class Ga extends Fn {
       if (!n || !n[this.serverPrefsKey])
         return console.log("[ServerColumnVisibility] No column preferences in server response"), null;
       const o = n[this.serverPrefsKey];
-      return $t(o) ? (this.serverPrefs = o, this.savePrefs(o), console.log("[ServerColumnVisibility] Loaded prefs from server:", o), o) : (console.warn("[ServerColumnVisibility] Server prefs not in V2 format:", o), null);
+      return pt(o) ? (this.serverPrefs = o, this.savePrefs(o), console.log("[ServerColumnVisibility] Loaded prefs from server:", o), o) : (console.warn("[ServerColumnVisibility] Server prefs not in V2 format:", o), null);
     } catch (e) {
       return console.warn("[ServerColumnVisibility] Error loading server prefs:", e), null;
     }
@@ -5219,10 +4716,10 @@ class Ga extends Fn {
     const t = this.serverPrefs;
     if (t) {
       const s = /* @__PURE__ */ new Set();
-      Object.entries(t.visibility).forEach(([a, i]) => {
-        i || s.add(a);
+      Object.entries(t.visibility).forEach(([i, a]) => {
+        a || s.add(i);
       });
-      const n = new Set(e), o = (t.order || []).filter((a) => n.has(a));
+      const n = new Set(e), o = (t.order || []).filter((i) => n.has(i));
       return {
         hiddenColumns: s,
         columnOrder: o
@@ -5255,7 +4752,7 @@ class Ga extends Fn {
       order: e.state.columnOrder.length > 0 ? e.state.columnOrder : void 0
     };
     try {
-      const n = await I(this.preferencesEndpoint, {
+      const n = await R(this.preferencesEndpoint, {
         method: "POST",
         credentials: "same-origin",
         headers: {
@@ -5289,7 +4786,7 @@ class Ga extends Fn {
    */
   async clearServerPrefs() {
     try {
-      const e = await I(this.preferencesEndpoint, {
+      const e = await R(this.preferencesEndpoint, {
         method: "POST",
         credentials: "same-origin",
         headers: {
@@ -5312,12 +4809,12 @@ class Ga extends Fn {
     }
   }
 }
-const qn = {
+const _n = {
   async prompt(r) {
     const { PayloadInputModal: e } = await import("../chunks/payload-modal-C5KOUxSU.js");
     return e.prompt(r);
   }
-}, Xe = {
+}, ze = {
   view: 100,
   edit: 200,
   duplicate: 300,
@@ -5331,8 +4828,8 @@ const qn = {
   restore: 1100,
   delete: 9e3
   // Destructive actions last
-}, On = 5e3;
-class jn {
+}, Rn = 5e3;
+class In {
   constructor(e) {
     this.seenActions = /* @__PURE__ */ new Set(), this.config = {
       useDefaultFallback: !0,
@@ -5357,22 +4854,22 @@ class jn {
     let n = 0;
     const o = this.buildQueryContext();
     if (Array.isArray(t) && t.length > 0) {
-      for (const a of t) {
-        if (!a.name || !this.shouldIncludeAction(e, a)) continue;
-        const i = a.name.toLowerCase();
-        if (this.seenActions.has(i)) continue;
-        this.seenActions.add(i);
-        const l = this.resolveRecordActionState(e, a.name), c = this.buildActionFromSchema(e, a, o, l);
+      for (const i of t) {
+        if (!i.name || !this.shouldIncludeAction(e, i)) continue;
+        const a = i.name.toLowerCase();
+        if (this.seenActions.has(a)) continue;
+        this.seenActions.add(a);
+        const l = this.resolveRecordActionState(e, i.name), c = this.buildActionFromSchema(e, i, o, l);
         c && s.push({
           action: c,
-          name: a.name,
-          order: this.resolveActionOrder(a.name, a.order),
+          name: i.name,
+          order: this.resolveActionOrder(i.name, i.order),
           insertionIndex: n++
         });
       }
       this.config.appendDefaultActions && this.appendDefaultActionsOrdered(s, e, o, n);
     } else this.config.useDefaultFallback && this.appendDefaultActionsOrdered(s, e, o, n);
-    return s.sort((a, i) => a.order !== i.order ? a.order - i.order : a.insertionIndex - i.insertionIndex), s.map((a) => a.action);
+    return s.sort((i, a) => i.order !== a.order ? i.order - a.order : i.insertionIndex - a.insertionIndex), s.map((i) => i.action);
   }
   /**
    * Resolve action order using precedence:
@@ -5385,17 +4882,17 @@ class jn {
     if (typeof t == "number" && Number.isFinite(t))
       return t;
     const s = e.toLowerCase();
-    return this.config.actionOrderOverride?.[s] !== void 0 ? this.config.actionOrderOverride[s] : Xe[s] !== void 0 ? Xe[s] : On;
+    return this.config.actionOrderOverride?.[s] !== void 0 ? this.config.actionOrderOverride[s] : ze[s] !== void 0 ? ze[s] : Rn;
   }
   /**
    * Build a single action from schema definition
    */
   buildActionFromSchema(e, t, s, n) {
-    const o = t.name, a = t.label || t.label_key || o, i = t.variant || "secondary", l = t.icon, c = this.isNavigationAction(t), d = o === "delete";
+    const o = t.name, i = t.label || t.label_key || o, a = t.variant || "secondary", l = t.icon, c = this.isNavigationAction(t), d = o === "delete";
     return c ? this.applyActionState(
-      this.buildNavigationAction(e, t, a, i, l, s),
+      this.buildNavigationAction(e, t, i, a, l, s),
       n
-    ) : d ? this.applyActionState(this.buildDeleteAction(e, a, i, l), n) : this.applyActionState(this.buildPostAction(e, t, a, i, l), n);
+    ) : d ? this.applyActionState(this.buildDeleteAction(e, i, a, l), n) : this.applyActionState(this.buildPostAction(e, t, i, a, l), n);
   }
   /**
    * Check if action is a navigation action
@@ -5412,8 +4909,8 @@ class jn {
     for (const n of s) {
       const o = typeof n == "string" ? n.trim() : "";
       if (!o) continue;
-      const a = this.resolveRecordContextValue(e, o);
-      if (this.isEmptyPayloadValue(a))
+      const i = this.resolveRecordContextValue(e, o);
+      if (this.isEmptyPayloadValue(i))
         return !1;
     }
     return !0;
@@ -5441,7 +4938,7 @@ class jn {
       return t;
     const s = typeof e.reason_code == "string" ? e.reason_code.trim() : "";
     if (s) {
-      const n = ne(s);
+      const n = Pt(s);
       if (n?.message)
         return n.message;
     }
@@ -5474,23 +4971,23 @@ class jn {
     if (!s) return;
     if (!s.includes("."))
       return e[s];
-    const n = s.split(".").map((a) => a.trim()).filter(Boolean);
+    const n = s.split(".").map((i) => i.trim()).filter(Boolean);
     if (n.length === 0) return;
     let o = e;
-    for (const a of n) {
+    for (const i of n) {
       if (!o || typeof o != "object" || Array.isArray(o))
         return;
-      o = o[a];
+      o = o[i];
     }
     return o;
   }
   /**
    * Build navigation action (view, edit, etc.)
    */
-  buildNavigationAction(e, t, s, n, o, a) {
-    const i = String(e.id || ""), l = this.config.actionBasePath;
+  buildNavigationAction(e, t, s, n, o, i) {
+    const a = String(e.id || ""), l = this.config.actionBasePath;
     let c;
-    return t.href ? c = t.href.replace("{id}", i) : t.name === "edit" ? c = `${l}/${i}/edit` : c = `${l}/${i}`, a && (c += c.includes("?") ? `&${a}` : `?${a}`), {
+    return t.href ? c = t.href.replace("{id}", a) : t.name === "edit" ? c = `${l}/${a}/edit` : c = `${l}/${a}`, i && (c += c.includes("?") ? `&${i}` : `?${i}`), {
       id: t.name,
       label: s,
       icon: o || this.getDefaultIcon(t.name),
@@ -5504,7 +5001,7 @@ class jn {
    * Build delete action with confirmation
    */
   buildDeleteAction(e, t, s, n) {
-    const o = String(e.id || ""), a = this.config.apiEndpoint;
+    const o = String(e.id || ""), i = this.config.apiEndpoint;
     return {
       id: "delete",
       label: t,
@@ -5512,7 +5009,7 @@ class jn {
       variant: s === "secondary" ? "danger" : s,
       action: async () => {
         if (!window.confirm("Are you sure you want to delete this item?")) return;
-        if (!(await fetch(`${a}/${o}`, {
+        if (!(await fetch(`${i}/${o}`, {
           method: "DELETE",
           headers: { Accept: "application/json" }
         })).ok)
@@ -5524,41 +5021,41 @@ class jn {
    * Build POST action for workflow/panel actions
    */
   buildPostAction(e, t, s, n, o) {
-    const a = String(e.id || ""), i = t.name, l = `${this.config.apiEndpoint}/actions/${i}`;
+    const i = String(e.id || ""), a = t.name, l = `${this.config.apiEndpoint}/actions/${a}`;
     return {
-      id: i,
+      id: a,
       label: s,
-      icon: o || this.getDefaultIcon(i),
+      icon: o || this.getDefaultIcon(a),
       variant: n,
       action: async () => {
         if (t.confirm && !window.confirm(t.confirm))
           return;
         const c = await this.buildActionPayload(e, t);
         c !== null && await this.executePostAction({
-          actionName: i,
+          actionName: a,
           endpoint: l,
           payload: c,
-          recordId: a
+          recordId: i
         });
       }
     };
   }
   async executePostAction(e) {
-    const t = await Re(e.endpoint, e.payload);
+    const t = await ve(e.endpoint, e.payload);
     if (t.success)
       return this.config.onActionSuccess?.(e.actionName, t), e.actionName.toLowerCase() === "create_translation" && t.data && this.handleCreateTranslationSuccess(t.data, e.payload), t;
     if (!t.error)
       return t;
-    if (jt(t.error)) {
-      const n = zt(t.error);
+    if (Lt(t.error)) {
+      const n = _t(t.error);
       if (n && this.config.onTranslationBlocker) {
-        const o = { ...e.payload }, a = this.getContentChannel() || n.environment || null;
+        const o = { ...e.payload }, i = this.getContentChannel() || n.environment || null;
         return this.config.onTranslationBlocker({
           actionName: e.actionName,
           recordId: e.recordId,
           ...n,
-          channel: a,
-          environment: n.environment ?? a,
+          channel: i,
+          environment: n.environment ?? i,
           retry: async () => this.executePostAction({
             actionName: e.actionName,
             endpoint: e.endpoint,
@@ -5585,17 +5082,17 @@ class jn {
       console.warn("[SchemaActionBuilder] create_translation response missing id");
       return;
     }
-    const o = this.config.actionBasePath, a = new URLSearchParams();
-    n && a.set("locale", n);
-    const i = this.getContentChannel();
-    i && a.set("channel", i);
-    const l = a.toString(), c = `${o}/${s}/edit${l ? `?${l}` : ""}`, d = typeof t.source_locale == "string" ? t.source_locale : this.config.locale || "source", u = this.localeLabel(n || "unknown");
+    const o = this.config.actionBasePath, i = new URLSearchParams();
+    n && i.set("locale", n);
+    const a = this.getContentChannel();
+    a && i.set("channel", a);
+    const l = i.toString(), c = `${o}/${s}/edit${l ? `?${l}` : ""}`, d = typeof t.source_locale == "string" ? t.source_locale : this.config.locale || "source", u = this.localeLabel(n || "unknown");
     typeof window < "u" && "toastManager" in window ? window.toastManager.success(`${u} translation created`, {
       action: {
         label: `View ${d.toUpperCase()}`,
         handler: () => {
           const h = new URLSearchParams();
-          h.set("locale", d), i && h.set("channel", i);
+          h.set("locale", d), a && h.set("channel", a);
           const f = typeof t.id == "string" ? t.id : String(t.id || s);
           window.location.href = `${o}/${f}/edit?${h.toString()}`;
         }
@@ -5615,19 +5112,19 @@ class jn {
       const d = this.resolveExpectedVersion(e);
       d !== null && (n.expected_version = d);
     }
-    const a = this.normalizePayloadSchema(t.payload_schema), i = this.collectRequiredFields(t.payload_required, a);
-    if (s === "create_translation" && this.applySchemaTranslationContext(n, e, a), a?.properties)
-      for (const [d, u] of Object.entries(a.properties))
+    const i = this.normalizePayloadSchema(t.payload_schema), a = this.collectRequiredFields(t.payload_required, i);
+    if (s === "create_translation" && this.applySchemaTranslationContext(n, e, i), i?.properties)
+      for (const [d, u] of Object.entries(i.properties))
         n[d] === void 0 && u.default !== void 0 && (n[d] = u.default);
-    i.includes("idempotency_key") && this.isEmptyPayloadValue(n.idempotency_key) && (n.idempotency_key = this.generateIdempotencyKey(t.name, String(e.id || "")));
-    const l = i.filter((d) => this.isEmptyPayloadValue(n[d]));
+    a.includes("idempotency_key") && this.isEmptyPayloadValue(n.idempotency_key) && (n.idempotency_key = this.generateIdempotencyKey(t.name, String(e.id || "")));
+    const l = a.filter((d) => this.isEmptyPayloadValue(n[d]));
     if (l.length === 0)
       return n;
-    const c = await this.promptForPayload(t, l, a, n, e);
+    const c = await this.promptForPayload(t, l, i, n, e);
     if (c === null)
       return null;
     for (const d of l) {
-      const u = a?.properties?.[d], p = c[d] ?? "", h = this.coercePromptValue(p, d, u);
+      const u = i?.properties?.[d], p = c[d] ?? "", h = this.coercePromptValue(p, d, u);
       if (h.error)
         throw new Error(h.error);
       n[d] = h.value;
@@ -5641,7 +5138,7 @@ class jn {
   async promptForPayload(e, t, s, n, o) {
     if (t.length === 0)
       return {};
-    const a = t.map((l) => {
+    const i = t.map((l) => {
       const c = s?.properties?.[l];
       return {
         name: l,
@@ -5652,18 +5149,18 @@ class jn {
         options: this.buildFieldOptions(l, e.name, c, o, n)
       };
     });
-    return await qn.prompt({
+    return await _n.prompt({
       title: `Complete ${e.label || e.name}`,
-      fields: a
+      fields: i
     });
   }
   /**
    * Build field options from schema property
    */
   buildFieldOptions(e, t, s, n, o) {
-    const a = this.deriveCreateTranslationLocaleOptions(e, t, n, s, o);
-    if (a && a.length > 0)
-      return a;
+    const i = this.deriveCreateTranslationLocaleOptions(e, t, n, s, o);
+    if (i && i.length > 0)
+      return i;
     if (!s)
       return;
     if (s.oneOf)
@@ -5676,9 +5173,9 @@ class jn {
         value: this.stringifyDefault(l),
         label: this.stringifyDefault(l)
       }));
-    const i = this.buildExtensionFieldOptions(s);
-    if (i && i.length > 0)
-      return i;
+    const a = this.buildExtensionFieldOptions(s);
+    if (a && a.length > 0)
+      return a;
   }
   buildExtensionFieldOptions(e) {
     const t = e, s = t["x-options"] ?? t.x_options ?? t.xOptions;
@@ -5695,64 +5192,64 @@ class jn {
       }
       if (!o || typeof o != "object")
         continue;
-      const a = o.value, i = this.stringifyDefault(a);
-      if (!i)
+      const i = o.value, a = this.stringifyDefault(i);
+      if (!a)
         continue;
-      const l = o.label, c = this.stringifyDefault(l) || i;
-      n.push({ value: i, label: c });
+      const l = o.label, c = this.stringifyDefault(l) || a;
+      n.push({ value: a, label: c });
     }
     return n.length > 0 ? n : void 0;
   }
   deriveCreateTranslationLocaleOptions(e, t, s, n, o) {
     if (e.trim().toLowerCase() !== "locale" || t.trim().toLowerCase() !== "create_translation" || !s || typeof s != "object")
       return;
-    const a = this.asObject(s.translation_readiness), i = o && typeof o == "object" ? o : {};
-    let l = this.asStringArray(i.missing_locales);
-    if (l.length === 0 && (l = this.asStringArray(a?.missing_required_locales)), l.length === 0 && (l = this.asStringArray(s.missing_locales)), l.length === 0 && a) {
-      const v = this.asStringArray(a.required_locales), b = new Set(this.asStringArray(a.available_locales));
-      l = v.filter((E) => !b.has(E));
+    const i = this.asObject(s.translation_readiness), a = o && typeof o == "object" ? o : {};
+    let l = this.asStringArray(a.missing_locales);
+    if (l.length === 0 && (l = this.asStringArray(i?.missing_required_locales)), l.length === 0 && (l = this.asStringArray(s.missing_locales)), l.length === 0 && i) {
+      const y = this.asStringArray(i.required_locales), b = new Set(this.asStringArray(i.available_locales));
+      l = y.filter((E) => !b.has(E));
     }
     const c = this.asStringArray(n?.enum);
     if (c.length > 0) {
-      const v = new Set(c);
-      l = l.filter((b) => v.has(b));
+      const y = new Set(c);
+      l = l.filter((b) => y.has(b));
     }
     if (l.length === 0)
       return;
-    const d = this.extractStringField(i, "recommended_locale") || this.extractStringField(s, "recommended_locale") || this.extractStringField(a || {}, "recommended_locale"), u = this.asStringArray(
-      i.required_for_publish ?? s.required_for_publish ?? a?.required_for_publish ?? a?.required_locales
+    const d = this.extractStringField(a, "recommended_locale") || this.extractStringField(s, "recommended_locale") || this.extractStringField(i || {}, "recommended_locale"), u = this.asStringArray(
+      a.required_for_publish ?? s.required_for_publish ?? i?.required_for_publish ?? i?.required_locales
     ), p = this.asStringArray(
-      i.existing_locales ?? s.existing_locales ?? a?.available_locales
-    ), h = this.createTranslationLocaleLabelMap(n), f = /* @__PURE__ */ new Set(), w = [];
-    for (const v of l) {
-      const b = v.trim().toLowerCase();
+      a.existing_locales ?? s.existing_locales ?? i?.available_locales
+    ), h = this.createTranslationLocaleLabelMap(n), f = /* @__PURE__ */ new Set(), v = [];
+    for (const y of l) {
+      const b = y.trim().toLowerCase();
       if (!b || f.has(b))
         continue;
       f.add(b);
-      const E = d?.toLowerCase() === b, B = u.includes(b), A = [];
-      B && A.push("Required for publishing"), p.length > 0 && A.push(`${p.length} translation${p.length > 1 ? "s" : ""} exist`);
-      const x = A.length > 0 ? A.join(" • ") : void 0, z = h[b] || this.localeLabel(b);
-      let Ne = `${b.toUpperCase()} - ${z}`;
-      E && (Ne += " (recommended)"), w.push({
+      const E = d?.toLowerCase() === b, M = u.includes(b), k = [];
+      M && k.push("Required for publishing"), p.length > 0 && k.push(`${p.length} translation${p.length > 1 ? "s" : ""} exist`);
+      const w = k.length > 0 ? k.join(" • ") : void 0, q = h[b] || this.localeLabel(b);
+      let Ie = `${b.toUpperCase()} - ${q}`;
+      E && (Ie += " (recommended)"), v.push({
         value: b,
-        label: Ne,
-        description: x,
+        label: Ie,
+        description: w,
         recommended: E
       });
     }
-    return w.sort((v, b) => v.recommended && !b.recommended ? -1 : !v.recommended && b.recommended ? 1 : v.value.localeCompare(b.value)), w.length > 0 ? w : void 0;
+    return v.sort((y, b) => y.recommended && !b.recommended ? -1 : !y.recommended && b.recommended ? 1 : y.value.localeCompare(b.value)), v.length > 0 ? v : void 0;
   }
   applySchemaTranslationContext(e, t, s) {
     if (!s)
       return;
     const n = this.extractTranslationContextMap(s);
     if (Object.keys(n).length !== 0)
-      for (const [o, a] of Object.entries(n)) {
-        const i = o.trim(), l = a.trim();
-        if (!i || !l || !this.isEmptyPayloadValue(e[i]))
+      for (const [o, i] of Object.entries(n)) {
+        const a = o.trim(), l = i.trim();
+        if (!a || !l || !this.isEmptyPayloadValue(e[a]))
           continue;
         const c = this.resolveRecordContextValue(t, l);
-        c != null && (e[i] = this.clonePayloadValue(c));
+        c != null && (e[a] = this.clonePayloadValue(c));
       }
   }
   extractTranslationContextMap(e) {
@@ -5761,8 +5258,8 @@ class jn {
       return {};
     const s = {};
     for (const [n, o] of Object.entries(t)) {
-      const a = n.trim(), i = typeof o == "string" ? o.trim() : "";
-      !a || !i || (s[a] = i);
+      const i = n.trim(), a = typeof o == "string" ? o.trim() : "";
+      !i || !a || (s[i] = a);
     }
     return s;
   }
@@ -5775,19 +5272,19 @@ class jn {
       return t;
     if (Array.isArray(e.oneOf))
       for (const o of e.oneOf) {
-        const a = this.stringifyDefault(o?.const).trim().toLowerCase();
-        if (!a)
+        const i = this.stringifyDefault(o?.const).trim().toLowerCase();
+        if (!i)
           continue;
-        const i = this.stringifyDefault(o?.title).trim();
-        i && (t[a] = i);
+        const a = this.stringifyDefault(o?.title).trim();
+        a && (t[i] = a);
       }
     const s = e, n = s["x-options"] ?? s.x_options ?? s.xOptions;
     if (Array.isArray(n))
       for (const o of n) {
         if (!o || typeof o != "object")
           continue;
-        const a = this.stringifyDefault(o.value).trim().toLowerCase(), i = this.stringifyDefault(o.label).trim();
-        a && i && (t[a] = i);
+        const i = this.stringifyDefault(o.value).trim().toLowerCase(), a = this.stringifyDefault(o.label).trim();
+        i && a && (t[i] = a);
       }
     return t;
   }
@@ -5856,20 +5353,20 @@ class jn {
       for (const [l, c] of Object.entries(t))
         c && typeof c == "object" && !Array.isArray(c) && (s[l] = c);
     }
-    const n = e.required, o = Array.isArray(n) ? n.filter((l) => typeof l == "string").map((l) => l.trim()).filter((l) => l.length > 0) : void 0, a = e["x-translation-context"] ?? e.x_translation_context, i = a && typeof a == "object" && !Array.isArray(a) ? a : void 0;
+    const n = e.required, o = Array.isArray(n) ? n.filter((l) => typeof l == "string").map((l) => l.trim()).filter((l) => l.length > 0) : void 0, i = e["x-translation-context"] ?? e.x_translation_context, a = i && typeof i == "object" && !Array.isArray(i) ? i : void 0;
     return {
       type: typeof e.type == "string" ? e.type : void 0,
       required: o,
       properties: s,
-      ...i ? { "x-translation-context": i } : {}
+      ...a ? { "x-translation-context": a } : {}
     };
   }
   collectRequiredFields(e, t) {
-    const s = [], n = /* @__PURE__ */ new Set(), o = (a) => {
-      const i = a.trim();
-      !i || n.has(i) || (n.add(i), s.push(i));
+    const s = [], n = /* @__PURE__ */ new Set(), o = (i) => {
+      const a = i.trim();
+      !a || n.has(a) || (n.add(a), s.push(a));
     };
-    return Array.isArray(e) && e.forEach((a) => o(String(a))), Array.isArray(t?.required) && t.required.forEach((a) => o(String(a))), s;
+    return Array.isArray(e) && e.forEach((i) => o(String(i))), Array.isArray(t?.required) && t.required.forEach((i) => o(String(i))), s;
   }
   isEmptyPayloadValue(e) {
     return e == null ? !0 : typeof e == "string" ? e.trim() === "" : Array.isArray(e) ? e.length === 0 : typeof e == "object" ? Object.keys(e).length === 0 : !1;
@@ -5883,12 +5380,12 @@ class jn {
     if (n.length === 0)
       return { value: n };
     if (o === "number" || o === "integer") {
-      const a = Number(n);
-      return Number.isFinite(a) ? { value: o === "integer" ? Math.trunc(a) : a } : { value: null, error: `${t} must be a valid number` };
+      const i = Number(n);
+      return Number.isFinite(i) ? { value: o === "integer" ? Math.trunc(i) : i } : { value: null, error: `${t} must be a valid number` };
     }
     if (o === "boolean") {
-      const a = n.toLowerCase();
-      return a === "true" || a === "1" || a === "yes" ? { value: !0 } : a === "false" || a === "0" || a === "no" ? { value: !1 } : { value: null, error: `${t} must be true or false` };
+      const i = n.toLowerCase();
+      return i === "true" || i === "1" || i === "yes" ? { value: !0 } : i === "false" || i === "0" || i === "no" ? { value: !1 } : { value: null, error: `${t} must be true or false` };
     }
     if (o === "array" || o === "object")
       try {
@@ -5899,7 +5396,7 @@ class jn {
     return { value: n };
   }
   buildActionErrorMessage(e, t) {
-    return Nt(t, `${e} failed`);
+    return Rt(t, `${e} failed`);
   }
   /**
    * Build URL query context from locale/channel
@@ -5914,7 +5411,7 @@ class jn {
    * Append default actions (view, edit, delete) avoiding duplicates
    */
   appendDefaultActions(e, t, s) {
-    const n = String(t.id || ""), o = this.config.actionBasePath, a = this.config.apiEndpoint, i = [
+    const n = String(t.id || ""), o = this.config.actionBasePath, i = this.config.apiEndpoint, a = [
       {
         name: "view",
         button: {
@@ -5950,7 +5447,7 @@ class jn {
           variant: "danger",
           action: async () => {
             if (!window.confirm("Are you sure you want to delete this item?")) return;
-            if (!(await fetch(`${a}/${n}`, {
+            if (!(await fetch(`${i}/${n}`, {
               method: "DELETE",
               headers: { Accept: "application/json" }
             })).ok)
@@ -5959,14 +5456,14 @@ class jn {
         }
       }
     ];
-    for (const l of i)
+    for (const l of a)
       this.seenActions.has(l.name) || (this.seenActions.add(l.name), e.push(l.button));
   }
   /**
    * Append default actions with ordering metadata
    */
   appendDefaultActionsOrdered(e, t, s, n) {
-    const o = String(t.id || ""), a = this.config.actionBasePath, i = this.config.apiEndpoint, l = [
+    const o = String(t.id || ""), i = this.config.actionBasePath, a = this.config.apiEndpoint, l = [
       {
         name: "view",
         button: {
@@ -5975,7 +5472,7 @@ class jn {
           icon: "eye",
           variant: "secondary",
           action: () => {
-            let d = `${a}/${o}`;
+            let d = `${i}/${o}`;
             s && (d += `?${s}`), window.location.href = d;
           }
         }
@@ -5988,7 +5485,7 @@ class jn {
           icon: "edit",
           variant: "primary",
           action: () => {
-            let d = `${a}/${o}/edit`;
+            let d = `${i}/${o}/edit`;
             s && (d += `?${s}`), window.location.href = d;
           }
         }
@@ -6002,7 +5499,7 @@ class jn {
           variant: "danger",
           action: async () => {
             if (!window.confirm("Are you sure you want to delete this item?")) return;
-            if (!(await fetch(`${i}/${o}`, {
+            if (!(await fetch(`${a}/${o}`, {
               method: "DELETE",
               headers: { Accept: "application/json" }
             })).ok)
@@ -6040,13 +5537,13 @@ class jn {
     }[e.toLowerCase()];
   }
 }
-function Ha(r, e, t) {
-  return new jn(t).buildRowActions(r, e);
+function ki(r, e, t) {
+  return new In(t).buildRowActions(r, e);
 }
-function Ua(r) {
+function Ai(r) {
   return r.schema?.actions;
 }
-class qe extends st {
+class Ae extends Ve {
   constructor(e) {
     super({
       size: "lg",
@@ -6068,7 +5565,7 @@ class qe extends st {
   static showBlocker(e) {
     return new Promise((t) => {
       const s = e.onDismiss;
-      new qe({
+      new Ae({
         ...e,
         onDismiss: () => {
           s?.(), t();
@@ -6090,7 +5587,7 @@ class qe extends st {
             </div>
             <div>
               <h2 id="blocker-title" class="text-lg font-semibold text-gray-900 dark:text-white">
-                Cannot ${g(e)} ${g(t)}
+                Cannot ${m(e)} ${m(t)}
               </h2>
               <p id="blocker-description" class="text-sm text-gray-600 dark:text-gray-400 mt-0.5">
                 ${this.renderDescription(s)}
@@ -6120,7 +5617,7 @@ class qe extends st {
                   data-blocker-retry
                   class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   aria-describedby="retry-hint">
-            Retry ${g(e)}
+            Retry ${m(e)}
           </button>
         </div>
         <p id="retry-hint" class="sr-only">Retry the blocked action after creating missing translations</p>
@@ -6131,20 +5628,20 @@ class qe extends st {
     return e ? "Required translations are missing or incomplete. Create or complete the translations listed below." : "Required translations are missing. Create the translations listed below to continue.";
   }
   renderLocaleItem(e) {
-    const t = this.localeStates.get(e) || { loading: !1, created: !1 }, s = this.config.missingFieldsByLocale?.[e], n = Array.isArray(s) && s.length > 0, o = this.getLocaleLabel(e), a = t.loading ? "disabled" : "";
+    const t = this.localeStates.get(e) || { loading: !1, created: !1 }, s = this.config.missingFieldsByLocale?.[e], n = Array.isArray(s) && s.length > 0, o = this.getLocaleLabel(e), i = t.loading ? "disabled" : "";
     return `
       <li class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 ${t.loading ? "opacity-50" : ""}"
-          data-locale-item="${g(e)}"
+          data-locale-item="${m(e)}"
           role="listitem">
         <div class="flex items-start justify-between gap-4">
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2">
               <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 uppercase tracking-wide"
                     aria-label="Locale code">
-                ${g(e)}
+                ${m(e)}
               </span>
               <span class="text-sm font-medium text-gray-900 dark:text-white">
-                ${g(o)}
+                ${m(o)}
               </span>
               ${t.created ? `
                 <span class="inline-flex items-center text-xs text-green-600 dark:text-green-400" role="status">
@@ -6161,7 +5658,7 @@ class qe extends st {
                 <div class="flex flex-wrap gap-1.5">
                   ${s.map((l) => `
                     <span class="inline-flex items-center px-2 py-0.5 rounded text-xs bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800">
-                      ${g(l)}
+                      ${m(l)}
                     </span>
                   `).join("")}
                 </div>
@@ -6169,7 +5666,7 @@ class qe extends st {
             ` : ""}
           </div>
           <div class="flex items-center gap-2 flex-shrink-0">
-            ${t.created ? this.renderOpenButton(e, t.newRecordId) : this.renderCreateButton(e, a)}
+            ${t.created ? this.renderOpenButton(e, t.newRecordId) : this.renderCreateButton(e, i)}
             ${this.renderOpenButton(e, void 0, t.created)}
           </div>
         </div>
@@ -6189,7 +5686,7 @@ class qe extends st {
     return `
       <button type="button"
               data-blocker-action="create"
-              data-locale="${g(e)}"
+              data-locale="${m(e)}"
               ${t}
               class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
               aria-label="Create ${this.getLocaleLabel(e)} translation">
@@ -6202,15 +5699,15 @@ class qe extends st {
   }
   renderOpenButton(e, t, s = !1) {
     if (s) return "";
-    const n = this.config.navigationBasePath, o = t || this.config.recordId, a = new URLSearchParams();
-    a.set("locale", e);
-    const i = this.getContentChannel();
-    i && a.set("channel", i);
-    const l = `${n}/${o}/edit?${a.toString()}`;
+    const n = this.config.navigationBasePath, o = t || this.config.recordId, i = new URLSearchParams();
+    i.set("locale", e);
+    const a = this.getContentChannel();
+    a && i.set("channel", a);
+    const l = `${n}/${o}/edit?${i.toString()}`;
     return `
-      <a href="${g(l)}"
+      <a href="${m(l)}"
          data-blocker-action="open"
-         data-locale="${g(e)}"
+         data-locale="${m(e)}"
          class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 cursor-pointer transition-colors"
          aria-label="Open ${this.getLocaleLabel(e)} translation">
         <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -6248,14 +5745,14 @@ class qe extends st {
       await this.handleRetry();
     }), this.container?.querySelectorAll('[data-blocker-action="create"]')?.forEach((o) => {
       o.addEventListener("click", () => {
-        const a = o.getAttribute("data-locale");
-        a && this.handleCreateTranslation(a);
+        const i = o.getAttribute("data-locale");
+        i && this.handleCreateTranslation(i);
       });
     });
     const n = this.container?.querySelectorAll("[data-locale-item]");
-    n?.forEach((o, a) => {
-      o.addEventListener("keydown", (i) => {
-        i.key === "ArrowDown" && a < n.length - 1 ? (i.preventDefault(), n[a + 1].querySelector("[data-blocker-action]")?.focus()) : i.key === "ArrowUp" && a > 0 && (i.preventDefault(), n[a - 1].querySelector("[data-blocker-action]")?.focus());
+    n?.forEach((o, i) => {
+      o.addEventListener("keydown", (a) => {
+        a.key === "ArrowDown" && i < n.length - 1 ? (a.preventDefault(), n[i + 1].querySelector("[data-blocker-action]")?.focus()) : a.key === "ArrowUp" && i > 0 && (a.preventDefault(), n[i - 1].querySelector("[data-blocker-action]")?.focus());
       });
     });
   }
@@ -6269,20 +5766,20 @@ class qe extends st {
           locale: e
         }, n = this.getContentChannel();
         n && (s.channel = n, s.environment = n), this.config.panelName && (s.policy_entity = this.config.panelName);
-        const o = `${this.config.apiEndpoint}/actions/create_translation`, a = await Re(o, s);
-        if (a.success) {
-          t.loading = !1, t.created = !0, a.data?.id && (t.newRecordId = String(a.data.id)), this.updateLocaleItemUI(e);
-          const i = {
+        const o = `${this.config.apiEndpoint}/actions/create_translation`, i = await ve(o, s);
+        if (i.success) {
+          t.loading = !1, t.created = !0, i.data?.id && (t.newRecordId = String(i.data.id)), this.updateLocaleItemUI(e);
+          const a = {
             id: t.newRecordId || this.config.recordId,
             locale: e,
-            status: String(a.data?.status || "draft"),
-            translation_group_id: a.data?.translation_group_id ? String(a.data.translation_group_id) : void 0
+            status: String(i.data?.status || "draft"),
+            translation_group_id: i.data?.translation_group_id ? String(i.data.translation_group_id) : void 0
           };
-          this.config.onCreateSuccess?.(e, i);
+          this.config.onCreateSuccess?.(e, a);
         } else {
           t.loading = !1, this.updateLocaleItemUI(e);
-          const i = a.error?.message || "Failed to create translation";
-          this.config.onError?.(i);
+          const a = i.error?.message || "Failed to create translation";
+          this.config.onError?.(a);
         }
       } catch (s) {
         t.loading = !1, this.updateLocaleItemUI(e);
@@ -6298,8 +5795,8 @@ class qe extends st {
     if (!n) return;
     const o = document.createElement("div");
     o.innerHTML = this.renderLocaleItem(e);
-    const a = o.firstElementChild;
-    a && (n.replaceChild(a, t), a.querySelector('[data-blocker-action="create"]')?.addEventListener("click", () => {
+    const i = o.firstElementChild;
+    i && (n.replaceChild(i, t), i.querySelector('[data-blocker-action="create"]')?.addEventListener("click", () => {
       this.handleCreateTranslation(e);
     }));
   }
@@ -6319,16 +5816,16 @@ class qe extends st {
     return this.resolved || (this.resolved = !0, this.config.onDismiss?.()), !0;
   }
 }
-async function Va(r) {
+async function Li(r) {
   try {
-    await qe.showBlocker(r);
+    await Ae.showBlocker(r);
   } catch (e) {
     console.error("[TranslationBlockerModal] Render failed, using fallback:", e);
     const t = r.transition || "complete action", s = r.missingLocales.join(", "), n = `Cannot ${t}: Missing translations for ${s}`;
     typeof window < "u" && "toastManager" in window ? window.toastManager.error(n) : alert(n);
   }
 }
-const zn = [
+const Tn = [
   {
     key: "ready",
     label: "Ready",
@@ -6358,7 +5855,7 @@ const zn = [
     description: "Viewing fallback content or stale data"
   }
 ];
-class Et {
+class ht {
   constructor(e) {
     this.container = null;
     const t = typeof e.container == "string" ? document.querySelector(e.container) : e.container;
@@ -6368,7 +5865,7 @@ class Et {
       title: e.title || "",
       orientation: e.orientation || "horizontal",
       size: e.size || "default",
-      items: e.items || zn
+      items: e.items || Tn
     }, this.container = t;
   }
   /**
@@ -6385,7 +5882,7 @@ class Et {
    * Build HTML for the legend
    */
   buildHTML() {
-    const { title: e, orientation: t, size: s, items: n, containerClass: o } = this.config, a = t === "vertical", i = s === "sm", l = a ? "flex-col" : "flex-row flex-wrap", c = i ? "gap-2" : "gap-4", d = i ? "text-xs" : "text-sm", u = i ? "text-sm" : "text-base", p = e ? `<span class="font-medium text-gray-600 dark:text-gray-400 mr-2 ${d}">${this.escapeHtml(e)}</span>` : "", h = n.map((f) => this.renderItem(f, u, d)).join("");
+    const { title: e, orientation: t, size: s, items: n, containerClass: o } = this.config, i = t === "vertical", a = s === "sm", l = i ? "flex-col" : "flex-row flex-wrap", c = a ? "gap-2" : "gap-4", d = a ? "text-xs" : "text-sm", u = a ? "text-sm" : "text-base", p = e ? `<span class="font-medium text-gray-600 dark:text-gray-400 mr-2 ${d}">${this.escapeHtml(e)}</span>` : "", h = n.map((f) => this.renderItem(f, u, d)).join("");
     return `
       <div class="status-legend inline-flex items-center ${l} ${c} ${o}"
            role="list"
@@ -6428,32 +5925,32 @@ class Et {
     return e.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
   }
 }
-function Nn(r) {
-  const e = new Et(r);
+function Mn(r) {
+  const e = new ht(r);
   return e.render(), e;
 }
-function Ka() {
+function _i() {
   const r = document.querySelectorAll("[data-status-legend]"), e = [];
   return r.forEach((t) => {
     if (t.hasAttribute("data-status-legend-init"))
       return;
-    const s = t.dataset.orientation || "horizontal", n = t.dataset.size || "default", o = t.dataset.title || "", a = Nn({
+    const s = t.dataset.orientation || "horizontal", n = t.dataset.size || "default", o = t.dataset.title || "", i = Mn({
       container: t,
       orientation: s,
       size: n,
       title: o
     });
-    t.setAttribute("data-status-legend-init", "true"), e.push(a);
+    t.setAttribute("data-status-legend-init", "true"), e.push(i);
   }), e;
 }
-function Ja(r = {}) {
+function Ri(r = {}) {
   const e = document.createElement("div");
-  return new Et({
+  return new ht({
     container: e,
     ...r
   }).buildHTML();
 }
-const kt = [
+const ft = [
   {
     key: "all",
     label: "All",
@@ -6500,7 +5997,7 @@ const kt = [
     description: "Records currently viewed in fallback mode"
   }
 ];
-class Gn {
+class Pn {
   constructor(e) {
     if (this.container = null, this.config = e, this.container = typeof e.container == "string" ? document.querySelector(e.container) : e.container, this.state = {
       activeKey: null,
@@ -6520,7 +6017,7 @@ class Gn {
       console.warn("[QuickFilters] Container not found");
       return;
     }
-    const { size: e = "default", containerClass: t = "" } = this.config, s = e === "sm" ? "text-xs" : "text-sm", n = e === "sm" ? "px-2 py-1" : "px-3 py-1.5", o = this.config.filters.map((a) => this.renderFilterButton(a, s, n)).join("");
+    const { size: e = "default", containerClass: t = "" } = this.config, s = e === "sm" ? "text-xs" : "text-sm", n = e === "sm" ? "px-2 py-1" : "px-3 py-1.5", o = this.config.filters.map((i) => this.renderFilterButton(i, s, n)).join("");
     this.container.innerHTML = `
       <div class="quick-filters inline-flex items-center gap-1 flex-wrap ${t}"
            role="group"
@@ -6533,18 +6030,18 @@ class Gn {
    * Render a single filter button
    */
   renderFilterButton(e, t, s) {
-    const n = this.state.capabilities.get(e.key), o = n?.supported !== !1, a = this.state.activeKey === e.key, i = n?.disabledReason || "Filter not available", l = `inline-flex items-center gap-1 ${s} ${t} rounded-full font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500`;
+    const n = this.state.capabilities.get(e.key), o = n?.supported !== !1, i = this.state.activeKey === e.key, a = n?.disabledReason || "Filter not available", l = `inline-flex items-center gap-1 ${s} ${t} rounded-full font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500`;
     let c, d;
-    o ? a ? (c = `${e.styleClass || "bg-blue-100 text-blue-700"} ring-2 ring-offset-1 ring-blue-500`, d = 'aria-pressed="true"') : (c = e.styleClass || "bg-gray-100 text-gray-700 hover:bg-gray-200", d = 'aria-pressed="false"') : (c = "bg-gray-100 text-gray-400 cursor-not-allowed opacity-60", d = `aria-disabled="true" title="${_e(i)}"`);
+    o ? i ? (c = `${e.styleClass || "bg-blue-100 text-blue-700"} ring-2 ring-offset-1 ring-blue-500`, d = 'aria-pressed="true"') : (c = e.styleClass || "bg-gray-100 text-gray-700 hover:bg-gray-200", d = 'aria-pressed="false"') : (c = "bg-gray-100 text-gray-400 cursor-not-allowed opacity-60", d = `aria-disabled="true" title="${ye(a)}"`);
     const u = e.icon ? `<span aria-hidden="true">${e.icon}</span>` : "";
     return `
       <button type="button"
               class="quick-filter-btn ${l} ${c}"
-              data-filter-key="${_e(e.key)}"
+              data-filter-key="${ye(e.key)}"
               ${d}
               ${o ? "" : "disabled"}>
         ${u}
-        <span>${Oe(e.label)}</span>
+        <span>${Le(e.label)}</span>
       </button>
     `;
   }
@@ -6618,58 +6115,58 @@ class Gn {
     this.container && (this.container.innerHTML = ""), this.container = null;
   }
 }
-function Hn(r, e, t = {}) {
-  return new Gn({
+function Bn(r, e, t = {}) {
+  return new Pn({
     container: r,
-    filters: kt,
+    filters: ft,
     onFilterSelect: e,
     ...t
   });
 }
-function Ya(r) {
+function Ii(r) {
   const e = document.querySelectorAll("[data-quick-filters]"), t = [];
   return e.forEach((s) => {
     if (s.hasAttribute("data-quick-filters-init"))
       return;
-    const n = s.dataset.size || "default", o = Hn(
+    const n = s.dataset.size || "default", o = Bn(
       s,
-      (a) => r(a, s),
+      (i) => r(i, s),
       { size: n }
     );
     s.setAttribute("data-quick-filters-init", "true"), t.push(o);
   }), t;
 }
-function Qa(r = {}) {
+function Ti(r = {}) {
   const {
-    filters: e = kt,
+    filters: e = ft,
     activeKey: t = null,
     capabilities: s = [],
     size: n = "default",
     containerClass: o = ""
-  } = r, a = n === "sm" ? "text-xs" : "text-sm", i = n === "sm" ? "px-2 py-1" : "px-3 py-1.5", l = /* @__PURE__ */ new Map();
+  } = r, i = n === "sm" ? "text-xs" : "text-sm", a = n === "sm" ? "px-2 py-1" : "px-3 py-1.5", l = /* @__PURE__ */ new Map();
   for (const d of s)
     l.set(d.key, d);
   const c = e.map((d) => {
-    const u = l.get(d.key), p = u?.supported !== !1, h = t === d.key, f = u?.disabledReason || "Filter not available", w = `inline-flex items-center gap-1 ${i} ${a} rounded-full font-medium`;
-    let v;
-    p ? h ? v = `${d.styleClass || "bg-blue-100 text-blue-700"} ring-2 ring-offset-1 ring-blue-500` : v = d.styleClass || "bg-gray-100 text-gray-700" : v = "bg-gray-100 text-gray-400 cursor-not-allowed opacity-60";
-    const b = d.icon ? `<span>${d.icon}</span>` : "", E = p ? "" : `title="${_e(f)}"`;
-    return `<span class="${w} ${v}" ${E}>${b}<span>${Oe(d.label)}</span></span>`;
+    const u = l.get(d.key), p = u?.supported !== !1, h = t === d.key, f = u?.disabledReason || "Filter not available", v = `inline-flex items-center gap-1 ${a} ${i} rounded-full font-medium`;
+    let y;
+    p ? h ? y = `${d.styleClass || "bg-blue-100 text-blue-700"} ring-2 ring-offset-1 ring-blue-500` : y = d.styleClass || "bg-gray-100 text-gray-700" : y = "bg-gray-100 text-gray-400 cursor-not-allowed opacity-60";
+    const b = d.icon ? `<span>${d.icon}</span>` : "", E = p ? "" : `title="${ye(f)}"`;
+    return `<span class="${v} ${y}" ${E}>${b}<span>${Le(d.label)}</span></span>`;
   }).join("");
   return `<div class="quick-filters inline-flex items-center gap-1 flex-wrap ${o}">${c}</div>`;
 }
-function Oe(r) {
+function Le(r) {
   return r.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 }
-function _e(r) {
-  return Oe(r);
+function ye(r) {
+  return Le(r);
 }
-const he = "go-admin:translation-panel-expanded";
-class Un {
+const ce = "go-admin:translation-panel-expanded";
+class Dn {
   constructor(e) {
     this.toggleButton = null, this.panelElement = null, this.expandAllButton = null, this.collapseAllButton = null, this.groupControls = null, this.viewModeButtons = [], this.expanded = !1, this.boundToggleHandler = null, this.config = {
       ...e,
-      storageKey: e.storageKey || he
+      storageKey: e.storageKey || ce
     };
   }
   init() {
@@ -6714,7 +6211,7 @@ class Un {
     if (typeof window > "u" || !window.localStorage)
       return !1;
     try {
-      return window.localStorage.getItem(this.config.storageKey || he) === "true";
+      return window.localStorage.getItem(this.config.storageKey || ce) === "true";
     } catch {
       return !1;
     }
@@ -6722,7 +6219,7 @@ class Un {
   persistExpandedState(e) {
     if (!(typeof window > "u" || !window.localStorage))
       try {
-        window.localStorage.setItem(this.config.storageKey || he, e ? "true" : "false");
+        window.localStorage.setItem(this.config.storageKey || ce, e ? "true" : "false");
       } catch {
       }
   }
@@ -6742,13 +6239,13 @@ class Un {
     }));
   }
 }
-function Wa(r) {
-  return new Un(r);
+function Mi(r) {
+  return new Dn(r);
 }
-async function Vn(r, e, t = {}) {
-  const { apiEndpoint: s, notifier: n = new W(), maxFailuresToShow: o = 5 } = r, a = `${s}/bulk/create-missing-translations`;
+async function Fn(r, e, t = {}) {
+  const { apiEndpoint: s, notifier: n = new J(), maxFailuresToShow: o = 5 } = r, i = `${s}/bulk/create-missing-translations`;
   try {
-    const i = await fetch(a, {
+    const a = await fetch(i, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -6759,9 +6256,9 @@ async function Vn(r, e, t = {}) {
         locales: t.locales
       })
     });
-    if (!i.ok) {
-      const d = await i.text();
-      let u = `Request failed: ${i.status}`;
+    if (!a.ok) {
+      const d = await a.text();
+      let u = `Request failed: ${a.status}`;
       try {
         const p = JSON.parse(d);
         u = p.error || p.message || u;
@@ -6770,28 +6267,28 @@ async function Vn(r, e, t = {}) {
       }
       throw new Error(u);
     }
-    const l = await i.json(), c = Kn(l, o);
-    return Jn(c, n), r.onSuccess && r.onSuccess(c), c;
-  } catch (i) {
-    const l = i instanceof Error ? i : new Error(String(i));
+    const l = await a.json(), c = qn(l, o);
+    return On(c, n), r.onSuccess && r.onSuccess(c), c;
+  } catch (a) {
+    const l = a instanceof Error ? a : new Error(String(a));
     throw n.error(`Failed to create translations: ${l.message}`), r.onError && r.onError(l), l;
   }
 }
-function Kn(r, e) {
-  const t = r.data || [], s = r.created_count ?? t.filter((l) => l.success).length, n = r.failed_count ?? t.filter((l) => !l.success).length, o = r.skipped_count ?? 0, a = r.total ?? t.length, i = t.filter((l) => !l.success && l.error).slice(0, e).map((l) => ({
+function qn(r, e) {
+  const t = r.data || [], s = r.created_count ?? t.filter((l) => l.success).length, n = r.failed_count ?? t.filter((l) => !l.success).length, o = r.skipped_count ?? 0, i = r.total ?? t.length, a = t.filter((l) => !l.success && l.error).slice(0, e).map((l) => ({
     id: l.id,
     locale: l.locale,
     error: l.error || "Unknown error"
   }));
   return {
-    total: a,
+    total: i,
     created: s,
     failed: n,
     skipped: o,
-    failures: i
+    failures: a
   };
 }
-function Jn(r, e) {
+function On(r, e) {
   const { created: t, failed: s, skipped: n, total: o } = r;
   if (o === 0) {
     e.info("No translations to create");
@@ -6801,8 +6298,8 @@ function Jn(r, e) {
     `Created ${t}, failed ${s}${n > 0 ? `, skipped ${n}` : ""}`
   );
 }
-function Xa(r) {
-  const { created: e, failed: t, skipped: s, total: n, failures: o } = r, a = `
+function Pi(r) {
+  const { created: e, failed: t, skipped: s, total: n, failures: o } = r, i = `
     <div class="grid grid-cols-3 gap-4 mb-4">
       <div class="text-center p-3 bg-green-50 rounded">
         <div class="text-2xl font-bold text-green-700">${e}</div>
@@ -6818,8 +6315,8 @@ function Xa(r) {
       </div>
     </div>
   `;
-  let i = "";
-  return o.length > 0 && (i = `
+  let a = "";
+  return o.length > 0 && (a = `
       <div class="mt-4">
         <h4 class="text-sm font-medium text-gray-700 mb-2">Failure Details</h4>
         <div class="border rounded overflow-hidden">
@@ -6835,9 +6332,9 @@ function Xa(r) {
               ${o.map(
     (c) => `
         <tr>
-          <td class="px-3 py-2 text-sm text-gray-700">${fe(c.id)}</td>
-          <td class="px-3 py-2 text-sm text-gray-700">${fe(c.locale)}</td>
-          <td class="px-3 py-2 text-sm text-red-600">${fe(c.error)}</td>
+          <td class="px-3 py-2 text-sm text-gray-700">${de(c.id)}</td>
+          <td class="px-3 py-2 text-sm text-gray-700">${de(c.locale)}</td>
+          <td class="px-3 py-2 text-sm text-red-600">${de(c.error)}</td>
         </tr>
       `
   ).join("")}
@@ -6851,17 +6348,17 @@ function Xa(r) {
       <div class="mb-4 text-sm text-gray-600">
         Processed ${n} item${n !== 1 ? "s" : ""}
       </div>
-      ${a}
       ${i}
+      ${a}
     </div>
   `;
 }
-function Za(r) {
+function Bi(r) {
   const { created: e, failed: t, skipped: s } = r, n = [];
   return e > 0 && n.push(`<span class="text-green-600">+${e}</span>`), t > 0 && n.push(`<span class="text-red-600">${t} failed</span>`), s > 0 && n.push(`<span class="text-yellow-600">${s} skipped</span>`), n.join(" · ");
 }
-function ei(r, e, t) {
-  return async (s) => Vn(
+function Di(r, e, t) {
+  return async (s) => Fn(
     {
       apiEndpoint: r,
       notifier: e,
@@ -6870,10 +6367,10 @@ function ei(r, e, t) {
     s
   );
 }
-function fe(r) {
+function de(r) {
   return r.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 }
-const Yn = {
+const jn = {
   en: "English",
   es: "Spanish",
   fr: "French",
@@ -6892,11 +6389,11 @@ const Yn = {
   no: "Norwegian",
   fi: "Finnish"
 };
-function T(r) {
+function _(r) {
   const e = r.toLowerCase();
-  return Yn[e] || r.toUpperCase();
+  return jn[e] || r.toUpperCase();
 }
-class le {
+class ne {
   constructor(e) {
     this.element = null, this.config = {
       size: "sm",
@@ -6917,20 +6414,20 @@ class le {
    * Use when generating static HTML.
    */
   render() {
-    const { locale: e, size: t, mode: s, localeExists: n } = this.config, { loading: o, created: a, error: i } = this.state, l = T(e), c = t === "sm" ? "text-xs px-2 py-1" : "text-sm px-3 py-1.5", d = s === "button" ? "rounded-lg" : "rounded-full";
+    const { locale: e, size: t, mode: s, localeExists: n } = this.config, { loading: o, created: i, error: a } = this.state, l = _(e), c = t === "sm" ? "text-xs px-2 py-1" : "text-sm px-3 py-1.5", d = s === "button" ? "rounded-lg" : "rounded-full";
     let u, p = "";
-    o ? (u = "bg-gray-100 text-gray-600 border-gray-300", p = this.renderSpinner()) : a ? (u = "bg-green-100 text-green-700 border-green-300", p = this.renderCheckIcon()) : i ? (u = "bg-red-100 text-red-700 border-red-300", p = this.renderErrorIcon()) : n ? u = "bg-blue-100 text-blue-700 border-blue-300" : u = "bg-amber-100 text-amber-700 border-amber-300";
+    o ? (u = "bg-gray-100 text-gray-600 border-gray-300", p = this.renderSpinner()) : i ? (u = "bg-green-100 text-green-700 border-green-300", p = this.renderCheckIcon()) : a ? (u = "bg-red-100 text-red-700 border-red-300", p = this.renderErrorIcon()) : n ? u = "bg-blue-100 text-blue-700 border-blue-300" : u = "bg-amber-100 text-amber-700 border-amber-300";
     const h = this.renderActions();
     return `
       <div class="inline-flex items-center gap-1.5 ${c} ${d} border ${u}"
-           data-locale-action="${g(e)}"
+           data-locale-action="${m(e)}"
            data-locale-exists="${n}"
            data-loading="${o}"
-           data-created="${a}"
+           data-created="${i}"
            role="group"
            aria-label="${l} translation">
         ${p}
-        <span class="font-medium uppercase tracking-wide" aria-hidden="true">${g(e)}</span>
+        <span class="font-medium uppercase tracking-wide" aria-hidden="true">${m(e)}</span>
         <span class="sr-only">${l}</span>
         ${h}
       </div>
@@ -6940,15 +6437,15 @@ class le {
    * Render action buttons (create/open).
    */
   renderActions() {
-    const { locale: e, localeExists: t, size: s } = this.config, { loading: n, created: o } = this.state, a = s === "sm" ? "p-0.5" : "p-1", i = s === "sm" ? "w-3 h-3" : "w-4 h-4", l = [];
+    const { locale: e, localeExists: t, size: s } = this.config, { loading: n, created: o } = this.state, i = s === "sm" ? "p-0.5" : "p-1", a = s === "sm" ? "w-3 h-3" : "w-4 h-4", l = [];
     if (!t && !o && !n && l.push(`
         <button type="button"
-                class="inline-flex items-center justify-center ${a} rounded hover:bg-amber-200 focus:outline-none focus:ring-1 focus:ring-amber-500 transition-colors"
+                class="inline-flex items-center justify-center ${i} rounded hover:bg-amber-200 focus:outline-none focus:ring-1 focus:ring-amber-500 transition-colors"
                 data-action="create"
-                data-locale="${g(e)}"
-                aria-label="Create ${T(e)} translation"
-                title="Create ${T(e)} translation">
-          <svg class="${i}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                data-locale="${m(e)}"
+                aria-label="Create ${_(e)} translation"
+                title="Create ${_(e)} translation">
+          <svg class="${a}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
           </svg>
         </button>
@@ -6956,12 +6453,12 @@ class le {
       const c = o ? "hover:bg-green-200" : "hover:bg-blue-200", d = o ? "focus:ring-green-500" : "focus:ring-blue-500";
       l.push(`
         <button type="button"
-                class="inline-flex items-center justify-center ${a} rounded ${c} focus:outline-none focus:ring-1 ${d} transition-colors"
+                class="inline-flex items-center justify-center ${i} rounded ${c} focus:outline-none focus:ring-1 ${d} transition-colors"
                 data-action="open"
-                data-locale="${g(e)}"
-                aria-label="Open ${T(e)} translation"
-                title="Open ${T(e)} translation">
-          <svg class="${i}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                data-locale="${m(e)}"
+                aria-label="Open ${_(e)} translation"
+                title="Open ${_(e)} translation">
+          <svg class="${a}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
           </svg>
         </button>
@@ -6999,7 +6496,7 @@ class le {
           locale: this.config.locale
         }, t = this.getContentChannel();
         t && (e.channel = t, e.environment = t), this.config.panelName && (e.policy_entity = this.config.panelName);
-        const s = `${this.config.apiEndpoint}/actions/create_translation`, n = await Re(s, e);
+        const s = `${this.config.apiEndpoint}/actions/create_translation`, n = await ve(s, e);
         if (n.success) {
           const o = n.data?.id ? String(n.data.id) : void 0;
           this.setState({
@@ -7007,13 +6504,13 @@ class le {
             created: !0,
             newRecordId: o
           });
-          const a = {
+          const i = {
             id: o || this.config.recordId,
             locale: this.config.locale,
             status: String(n.data?.status || "draft"),
             translationGroupId: n.data?.translation_group_id ? String(n.data.translation_group_id) : void 0
           };
-          this.config.onCreateSuccess?.(this.config.locale, a);
+          this.config.onCreateSuccess?.(this.config.locale, i);
         } else {
           const o = n.error?.message || "Failed to create translation";
           this.setState({ loading: !1, error: o }), this.config.onError?.(this.config.locale, o);
@@ -7028,11 +6525,11 @@ class le {
    * Handle open translation action.
    */
   handleOpen() {
-    const { locale: e, navigationBasePath: t, recordId: s } = this.config, { newRecordId: n } = this.state, o = n || s, a = new URLSearchParams();
-    a.set("locale", e);
-    const i = this.getContentChannel();
-    i && a.set("channel", i);
-    const l = `${t}/${o}/edit?${a.toString()}`;
+    const { locale: e, navigationBasePath: t, recordId: s } = this.config, { newRecordId: n } = this.state, o = n || s, i = new URLSearchParams();
+    i.set("locale", e);
+    const a = this.getContentChannel();
+    a && i.set("channel", a);
+    const l = `${t}/${o}/edit?${i.toString()}`;
     this.config.onOpen?.(e, l), window.location.href = l;
   }
   /**
@@ -7082,35 +6579,35 @@ class le {
     return { ...this.state };
   }
 }
-function At(r) {
-  return new le(r).render();
+function mt(r) {
+  return new ne(r).render();
 }
-function ti(r, e) {
+function Fi(r, e) {
   return r.length === 0 ? "" : `
     <div class="flex flex-wrap items-center gap-2" role="list" aria-label="Missing translations">
       ${r.map((s) => {
     const n = { ...e, locale: s };
-    return At(n);
+    return mt(n);
   }).join("")}
     </div>
   `;
 }
-function ri(r, e) {
+function qi(r, e) {
   const t = /* @__PURE__ */ new Map();
   return r.querySelectorAll("[data-locale-action]").forEach((n) => {
     const o = n.getAttribute("data-locale-action");
     if (!o) return;
-    const a = n.getAttribute("data-locale-exists") === "true", i = { ...e, locale: o, localeExists: a }, l = new le(i), c = n.parentElement;
+    const i = n.getAttribute("data-locale-exists") === "true", a = { ...e, locale: o, localeExists: i }, l = new ne(a), c = n.parentElement;
     c && (l.mount(c), t.set(o, l));
   }), t;
 }
-function Ze(r, e, t, s, n) {
+function Ne(r, e, t, s, n) {
   const o = new URLSearchParams();
   o.set("locale", t);
-  const a = String(s ?? n ?? "").trim();
-  return a && o.set("channel", a), `${r}/${e}/edit?${o.toString()}`;
+  const i = String(s ?? n ?? "").trim();
+  return i && o.set("channel", i), `${r}/${e}/edit?${o.toString()}`;
 }
-class je {
+class _e {
   constructor(e) {
     this.element = null, this.localeChip = null, this.config = {
       showFormLockMessage: !0,
@@ -7147,14 +6644,14 @@ class je {
   render() {
     if (!this.isInFallbackMode())
       return "";
-    const { context: e, showFormLockMessage: t } = this.config, s = e.requestedLocale || "requested", n = e.resolvedLocale || "default", o = T(s), a = T(n), i = this.renderPrimaryCta(), l = this.renderSecondaryCta(), c = t ? this.renderFormLockMessage() : "";
+    const { context: e, showFormLockMessage: t } = this.config, s = e.requestedLocale || "requested", n = e.resolvedLocale || "default", o = _(s), i = _(n), a = this.renderPrimaryCta(), l = this.renderSecondaryCta(), c = t ? this.renderFormLockMessage() : "";
     return `
       <div class="fallback-banner bg-amber-50 border border-amber-200 rounded-lg shadow-sm"
            role="alert"
            aria-live="polite"
            data-fallback-banner="true"
-           data-requested-locale="${g(s)}"
-           data-resolved-locale="${g(n)}">
+           data-requested-locale="${m(s)}"
+           data-resolved-locale="${m(n)}">
         <div class="p-4">
           <div class="flex items-start gap-3">
             <!-- Warning Icon -->
@@ -7170,16 +6667,16 @@ class je {
                 Viewing fallback content
               </h3>
               <p class="mt-1 text-sm text-amber-700">
-                The <strong class="font-medium">${g(o)}</strong> (${g(s.toUpperCase())})
+                The <strong class="font-medium">${m(o)}</strong> (${m(s.toUpperCase())})
                 translation doesn't exist yet. You're viewing content from
-                <strong class="font-medium">${g(a)}</strong> (${g(n.toUpperCase())}).
+                <strong class="font-medium">${m(i)}</strong> (${m(n.toUpperCase())}).
               </p>
 
               ${c}
 
               <!-- Actions -->
               <div class="mt-4 flex flex-wrap items-center gap-3">
-                ${i}
+                ${a}
                 ${l}
               </div>
             </div>
@@ -7192,21 +6689,21 @@ class je {
    * Render the primary CTA (Create missing locale).
    */
   renderPrimaryCta() {
-    const { context: e, apiEndpoint: t, navigationBasePath: s, panelName: n, channel: o, environment: a } = this.config, i = e.requestedLocale, l = String(o ?? a ?? "").trim();
-    return !i || !e.recordId ? "" : `
+    const { context: e, apiEndpoint: t, navigationBasePath: s, panelName: n, channel: o, environment: i } = this.config, a = e.requestedLocale, l = String(o ?? i ?? "").trim();
+    return !a || !e.recordId ? "" : `
       <button type="button"
               class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-amber-600 rounded-lg hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors"
               data-action="create-translation"
-              data-locale="${g(i)}"
-              data-record-id="${g(e.recordId)}"
-              data-api-endpoint="${g(t)}"
-              data-panel="${g(n || "")}"
-              data-channel="${g(l)}"
-              aria-label="Create ${T(i)} translation">
+              data-locale="${m(a)}"
+              data-record-id="${m(e.recordId)}"
+              data-api-endpoint="${m(t)}"
+              data-panel="${m(n || "")}"
+              data-channel="${m(l)}"
+              aria-label="Create ${_(a)} translation">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
         </svg>
-        Create ${g(i.toUpperCase())} translation
+        Create ${m(a.toUpperCase())} translation
       </button>
     `;
   }
@@ -7217,17 +6714,17 @@ class je {
     const { context: e, navigationBasePath: t, channel: s, environment: n } = this.config, o = e.resolvedLocale;
     if (!o || !e.recordId)
       return "";
-    const a = Ze(t, e.recordId, o, s, n);
+    const i = Ne(t, e.recordId, o, s, n);
     return `
-      <a href="${g(a)}"
+      <a href="${m(i)}"
          class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-amber-700 bg-white border border-amber-300 rounded-lg hover:bg-amber-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors"
          data-action="open-source"
-         data-locale="${g(o)}"
-         aria-label="Open ${T(o)} translation">
+         data-locale="${m(o)}"
+         aria-label="Open ${_(o)} translation">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
         </svg>
-        Open ${g(o.toUpperCase())} (source)
+        Open ${m(o.toUpperCase())} (source)
       </a>
     `;
   }
@@ -7267,19 +6764,19 @@ class je {
    * Handle create translation action.
    */
   async handleCreate() {
-    const { context: e, apiEndpoint: t, panelName: s, channel: n, environment: o, navigationBasePath: a } = this.config, i = e.requestedLocale, l = e.recordId, c = String(n ?? o ?? "").trim() || void 0;
-    if (!i || !l) return;
-    await new le({
-      locale: i,
+    const { context: e, apiEndpoint: t, panelName: s, channel: n, environment: o, navigationBasePath: i } = this.config, a = e.requestedLocale, l = e.recordId, c = String(n ?? o ?? "").trim() || void 0;
+    if (!a || !l) return;
+    await new ne({
+      locale: a,
       recordId: l,
       apiEndpoint: t,
-      navigationBasePath: a,
+      navigationBasePath: i,
       panelName: s,
       channel: c,
       localeExists: !1,
       onCreateSuccess: (u, p) => {
         this.config.onCreateSuccess?.(u, p);
-        const h = Ze(a, p.id, u, c);
+        const h = Ne(i, p.id, u, c);
         window.location.href = h;
       },
       onError: (u, p) => {
@@ -7288,9 +6785,9 @@ class je {
     }).handleCreate();
   }
 }
-function Qn(r, e) {
+function zn(r, e) {
   if (!e.locked) {
-    Wn(r);
+    Nn(r);
     return;
   }
   if (r.classList.add("form-locked", "pointer-events-none", "opacity-75"), r.setAttribute("data-form-locked", "true"), r.setAttribute("data-lock-reason", e.reason || ""), r.querySelectorAll('input, textarea, select, button[type="submit"]').forEach((s) => {
@@ -7300,44 +6797,44 @@ function Qn(r, e) {
     s.setAttribute("data-form-lock-overlay", "true"), s.className = "absolute inset-0 bg-amber-50/30 cursor-not-allowed z-10", s.setAttribute("title", e.reason || "Form is locked"), window.getComputedStyle(r).position === "static" && (r.style.position = "relative"), r.appendChild(s);
   }
 }
-function Wn(r) {
+function Nn(r) {
   r.classList.remove("form-locked", "pointer-events-none", "opacity-75"), r.removeAttribute("data-form-locked"), r.removeAttribute("data-lock-reason"), r.querySelectorAll('[data-was-enabled="true"]').forEach((s) => {
     s.removeAttribute("disabled"), s.removeAttribute("data-was-enabled"), s.removeAttribute("aria-disabled");
   }), r.querySelector("[data-form-lock-overlay]")?.remove();
 }
-function si(r) {
+function Oi(r) {
   return r.getAttribute("data-form-locked") === "true";
 }
-function ni(r) {
+function ji(r) {
   return r.getAttribute("data-lock-reason");
 }
-function oi(r, e) {
-  const t = P(r);
-  return new je({ ...e, context: t }).render();
+function zi(r, e) {
+  const t = T(r);
+  return new _e({ ...e, context: t }).render();
 }
-function ai(r) {
-  const e = P(r);
+function Ni(r) {
+  const e = T(r);
   return e.fallbackUsed || e.missingRequestedLocale;
 }
-function ii(r, e) {
-  const t = new je(e);
+function Gi(r, e) {
+  const t = new _e(e);
   return t.mount(r), t;
 }
-function li(r, e) {
-  const t = P(e), n = new je({
+function Ui(r, e) {
+  const t = T(e), n = new _e({
     context: t,
     apiEndpoint: "",
     navigationBasePath: ""
   }).getFormLockState();
-  return Qn(r, n), n;
+  return zn(r, n), n;
 }
-class Lt {
+class gt {
   constructor(e, t) {
     this.chips = /* @__PURE__ */ new Map(), this.element = null, this.config = {
       maxChips: 3,
       size: "sm",
       ...t
-    }, this.readiness = _(e), this.actionState = this.extractActionState(e, "create_translation");
+    }, this.readiness = A(e), this.actionState = this.extractActionState(e, "create_translation");
   }
   /**
    * Extract action state for a specific action from the record.
@@ -7390,15 +6887,15 @@ class Lt {
       return "";
     const t = this.isCreateActionEnabled(), s = this.getDisabledReason(), n = this.getOverflowCount(), o = e.map(
       (l) => this.renderChip(l, t, s)
-    ).join(""), a = n > 0 ? this.renderOverflow(n) : "";
+    ).join(""), i = n > 0 ? this.renderOverflow(n) : "";
     return `
       <div class="${t ? "inline-flex items-center gap-1.5 flex-wrap" : "inline-flex items-center gap-1.5 flex-wrap opacity-60"}"
            data-inline-locale-chips="true"
-           data-record-id="${g(this.config.recordId)}"
+           data-record-id="${m(this.config.recordId)}"
            data-action-enabled="${t}"
            role="list"
            aria-label="Missing translations">
-        ${o}${a}
+        ${o}${i}
       </div>
     `;
   }
@@ -7406,13 +6903,13 @@ class Lt {
    * Render a single locale chip.
    */
   renderChip(e, t, s) {
-    const { recordId: n, apiEndpoint: o, navigationBasePath: a, panelName: i, channel: l, environment: c, size: d } = this.config, u = String(l ?? c ?? "").trim() || void 0;
-    return t ? At({
+    const { recordId: n, apiEndpoint: o, navigationBasePath: i, panelName: a, channel: l, environment: c, size: d } = this.config, u = String(l ?? c ?? "").trim() || void 0;
+    return t ? mt({
       locale: e,
       recordId: n,
       apiEndpoint: o,
-      navigationBasePath: a,
-      panelName: i,
+      navigationBasePath: i,
+      panelName: a,
       channel: u,
       localeExists: !1,
       size: d,
@@ -7425,18 +6922,18 @@ class Lt {
    * Render a disabled locale chip (no action buttons).
    */
   renderDisabledChip(e, t, s) {
-    const n = s === "md" ? "text-sm px-3 py-1.5" : "text-xs px-2 py-1", o = t || "Translation creation unavailable", a = T(e);
+    const n = s === "md" ? "text-sm px-3 py-1.5" : "text-xs px-2 py-1", o = t || "Translation creation unavailable", i = _(e);
     return `
       <div class="inline-flex items-center gap-1 ${n} rounded-full border border-gray-300 bg-gray-100 text-gray-500 cursor-not-allowed"
-           data-locale="${g(e)}"
+           data-locale="${m(e)}"
            data-disabled="true"
-           title="${g(o)}"
+           title="${m(o)}"
            role="listitem"
-           aria-label="${a} translation (unavailable)">
+           aria-label="${i} translation (unavailable)">
         <svg class="w-3 h-3 text-gray-400" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
           <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/>
         </svg>
-        <span class="font-medium uppercase tracking-wide">${g(e)}</span>
+        <span class="font-medium uppercase tracking-wide">${m(e)}</span>
       </div>
     `;
   }
@@ -7447,7 +6944,7 @@ class Lt {
     const { size: t } = this.config, s = t === "md" ? "text-sm px-2 py-1" : "text-xs px-1.5 py-0.5", n = this.readiness.missingRequiredLocales.join(", ").toUpperCase();
     return `
       <span class="${s} rounded text-gray-500 font-medium"
-            title="Also missing: ${g(n)}"
+            title="Also missing: ${m(n)}"
             aria-label="${e} more missing translations">
         +${e}
       </span>
@@ -7467,7 +6964,7 @@ class Lt {
     this.element.querySelectorAll("[data-locale-action]").forEach((t) => {
       const s = t.getAttribute("data-locale-action");
       if (!s) return;
-      const n = new le({
+      const n = new ne({
         locale: s,
         recordId: this.config.recordId,
         apiEndpoint: this.config.apiEndpoint,
@@ -7479,10 +6976,10 @@ class Lt {
         onCreateSuccess: this.config.onCreateSuccess,
         onError: this.config.onError
       });
-      this.chips.set(s, n), t.querySelector('[data-action="create"]')?.addEventListener("click", async (i) => {
-        i.preventDefault(), i.stopPropagation(), await n.handleCreate();
-      }), t.querySelector('[data-action="open"]')?.addEventListener("click", (i) => {
-        i.preventDefault(), i.stopPropagation(), n.handleOpen();
+      this.chips.set(s, n), t.querySelector('[data-action="create"]')?.addEventListener("click", async (a) => {
+        a.preventDefault(), a.stopPropagation(), await n.handleCreate();
+      }), t.querySelector('[data-action="open"]')?.addEventListener("click", (a) => {
+        a.preventDefault(), a.stopPropagation(), n.handleOpen();
       });
     });
   }
@@ -7493,29 +6990,29 @@ class Lt {
     return this.chips.get(e);
   }
 }
-function Xn(r, e) {
+function Gn(r, e) {
   const t = String(r.id || "");
-  return t ? new Lt(r, { ...e, recordId: t }).render() : "";
+  return t ? new gt(r, { ...e, recordId: t }).render() : "";
 }
-function ci(r) {
-  const e = _(r);
+function Hi(r) {
+  const e = A(r);
   return e.hasReadinessMetadata && e.missingRequiredLocales.length > 0;
 }
-function di(r, e, t) {
-  const s = String(e.id || ""), n = new Lt(e, { ...t, recordId: s });
+function Vi(r, e, t) {
+  const s = String(e.id || ""), n = new gt(e, { ...t, recordId: s });
   return n.mount(r), n;
 }
-function ui(r) {
-  return (e, t, s) => Xn(t, r);
+function Ki(r) {
+  return (e, t, s) => Gn(t, r);
 }
-function ce() {
+function oe() {
   return typeof navigator > "u" ? !1 : /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent);
 }
-function Zn() {
-  return ce() ? "⌘" : "Ctrl";
+function Un() {
+  return oe() ? "⌘" : "Ctrl";
 }
-function eo(r) {
-  if (ce())
+function Hn(r) {
+  if (oe())
     switch (r) {
       case "ctrl":
         return "⌃";
@@ -7537,11 +7034,11 @@ function eo(r) {
       return "Win";
   }
 }
-function _t(r) {
-  const e = r.modifiers.map(eo), t = to(r.key);
-  return ce() ? [...e, t].join("") : [...e, t].join("+");
+function bt(r) {
+  const e = r.modifiers.map(Hn), t = Vn(r.key);
+  return oe() ? [...e, t].join("") : [...e, t].join("+");
 }
-function to(r) {
+function Vn(r) {
   return {
     Enter: "↵",
     Escape: "Esc",
@@ -7554,7 +7051,7 @@ function to(r) {
     "]": "]"
   }[r] || r.toUpperCase();
 }
-class Rt {
+class yt {
   constructor(e = {}) {
     this.shortcuts = /* @__PURE__ */ new Map(), this.keydownHandler = null, this.boundElement = null, this.config = {
       enabled: !0,
@@ -7679,8 +7176,8 @@ class Rt {
     const s = t.key.toLowerCase(), n = e.key.toLowerCase();
     if (s !== n && t.code.toLowerCase() !== n)
       return !1;
-    const o = ce(), a = new Set(e.modifiers), i = a.has("ctrl"), l = a.has("meta"), c = a.has("alt"), d = a.has("shift");
-    return !(i && !(o ? t.metaKey : t.ctrlKey) || l && !o && !t.metaKey || c && !t.altKey || d && !t.shiftKey || !i && !l && (o ? t.metaKey : t.ctrlKey) || !c && t.altKey || !d && t.shiftKey);
+    const o = oe(), i = new Set(e.modifiers), a = i.has("ctrl"), l = i.has("meta"), c = i.has("alt"), d = i.has("shift");
+    return !(a && !(o ? t.metaKey : t.ctrlKey) || l && !o && !t.metaKey || c && !t.altKey || d && !t.shiftKey || !a && !l && (o ? t.metaKey : t.ctrlKey) || !c && t.altKey || !d && t.shiftKey);
   }
   /**
    * Check if an input element is focused.
@@ -7698,7 +7195,7 @@ class Rt {
     this.unbind(), this.shortcuts.clear();
   }
 }
-function ro(r) {
+function Kn(r) {
   const e = [];
   return r.onSave && e.push({
     id: "save",
@@ -7746,12 +7243,12 @@ function ro(r) {
     handler: r.onCreateTranslation
   }), e;
 }
-function pi(r) {
+function Ji(r) {
   const e = /* @__PURE__ */ new Map();
   for (const o of r) {
     if (o.enabled === !1) continue;
-    const a = e.get(o.category) || [];
-    a.push(o), e.set(o.category, a);
+    const i = e.get(o.category) || [];
+    i.push(o), e.set(o.category, i);
   }
   const t = {
     save: "Save & Submit",
@@ -7768,20 +7265,20 @@ function pi(r) {
       </div>
   `;
   for (const o of s) {
-    const a = e.get(o);
-    if (!(!a || a.length === 0)) {
+    const i = e.get(o);
+    if (!(!i || i.length === 0)) {
       n += `
       <div class="mb-4">
         <h4 class="text-sm font-medium text-gray-700 mb-2">${t[o]}</h4>
         <dl class="space-y-1">
     `;
-      for (const i of a) {
-        const l = _t(i);
+      for (const a of i) {
+        const l = bt(a);
         n += `
           <div class="flex justify-between items-center py-1">
-            <dt class="text-sm text-gray-600">${q(i.description)}</dt>
+            <dt class="text-sm text-gray-600">${D(a.description)}</dt>
             <dd class="flex-shrink-0 ml-4">
-              <kbd class="px-2 py-1 bg-gray-100 border border-gray-200 rounded text-xs font-mono text-gray-700">${q(l)}</kbd>
+              <kbd class="px-2 py-1 bg-gray-100 border border-gray-200 rounded text-xs font-mono text-gray-700">${D(l)}</kbd>
             </dd>
           </div>
       `;
@@ -7794,26 +7291,26 @@ function pi(r) {
   }
   return n += "</div>", n;
 }
-function q(r) {
+function D(r) {
   const e = typeof document < "u" ? document.createElement("div") : null;
   return e ? (e.textContent = r, e.innerHTML) : r.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
-const Tt = "admin_keyboard_shortcuts_settings", It = "admin_keyboard_shortcuts_hint_dismissed", te = {
+const vt = "admin_keyboard_shortcuts_settings", wt = "admin_keyboard_shortcuts_hint_dismissed", W = {
   enabled: !0,
   shortcuts: {},
   updatedAt: (/* @__PURE__ */ new Date()).toISOString()
 };
-function de() {
+function ie() {
   return typeof localStorage > "u" || !localStorage || typeof localStorage.getItem != "function" || typeof localStorage.setItem != "function" ? null : localStorage;
 }
-function so() {
-  const r = de();
+function Jn() {
+  const r = ie();
   if (!r)
-    return { ...te };
+    return { ...W };
   try {
-    const e = r.getItem(Tt);
+    const e = r.getItem(vt);
     if (!e)
-      return { ...te };
+      return { ...W };
     const t = JSON.parse(e);
     return {
       enabled: typeof t.enabled == "boolean" ? t.enabled : !0,
@@ -7821,40 +7318,40 @@ function so() {
       updatedAt: typeof t.updatedAt == "string" ? t.updatedAt : (/* @__PURE__ */ new Date()).toISOString()
     };
   } catch {
-    return { ...te };
+    return { ...W };
   }
 }
-function hi(r) {
-  const e = de();
+function Yi(r) {
+  const e = ie();
   if (e)
     try {
       const t = {
         ...r,
         updatedAt: (/* @__PURE__ */ new Date()).toISOString()
       };
-      e.setItem(Tt, JSON.stringify(t));
+      e.setItem(vt, JSON.stringify(t));
     } catch {
     }
 }
-function no() {
-  const r = de();
-  return r ? r.getItem(It) === "true" : !1;
+function Yn() {
+  const r = ie();
+  return r ? r.getItem(wt) === "true" : !1;
 }
-function oo() {
-  const r = de();
+function Qn() {
+  const r = ie();
   if (r)
     try {
-      r.setItem(It, "true");
+      r.setItem(wt, "true");
     } catch {
     }
 }
-function ao(r) {
-  if (no())
+function Wn(r) {
+  if (Yn())
     return null;
-  const { container: e, position: t = "bottom", onDismiss: s, onShowHelp: n, autoDismissMs: o = 1e4 } = r, a = document.createElement("div");
-  a.className = `shortcuts-discovery-hint fixed ${t === "top" ? "top-4" : "bottom-4"} right-4 z-50 animate-fade-in`, a.setAttribute("role", "alert"), a.setAttribute("aria-live", "polite");
-  const i = Zn();
-  a.innerHTML = `
+  const { container: e, position: t = "bottom", onDismiss: s, onShowHelp: n, autoDismissMs: o = 1e4 } = r, i = document.createElement("div");
+  i.className = `shortcuts-discovery-hint fixed ${t === "top" ? "top-4" : "bottom-4"} right-4 z-50 animate-fade-in`, i.setAttribute("role", "alert"), i.setAttribute("aria-live", "polite");
+  const a = Un();
+  i.innerHTML = `
     <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-4 max-w-sm">
       <div class="flex items-start gap-3">
         <div class="flex-shrink-0">
@@ -7868,7 +7365,7 @@ function ao(r) {
           </p>
           <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
             Press <kbd class="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-xs font-mono">?</kbd>
-            to view all shortcuts, or use <kbd class="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-xs font-mono">${i}+S</kbd> to save.
+            to view all shortcuts, or use <kbd class="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-xs font-mono">${a}+S</kbd> to save.
           </p>
           <div class="mt-3 flex items-center gap-2">
             <button type="button" data-hint-action="show-help"
@@ -7892,19 +7389,19 @@ function ao(r) {
     </div>
   `;
   const l = (c) => {
-    c && oo(), a.remove(), s?.();
+    c && Qn(), i.remove(), s?.();
   };
-  return a.querySelector('[data-hint-action="show-help"]')?.addEventListener("click", () => {
+  return i.querySelector('[data-hint-action="show-help"]')?.addEventListener("click", () => {
     l(!0), n?.();
-  }), a.querySelector('[data-hint-action="dismiss"]')?.addEventListener("click", () => {
+  }), i.querySelector('[data-hint-action="dismiss"]')?.addEventListener("click", () => {
     l(!0);
-  }), a.querySelector('[data-hint-action="close"]')?.addEventListener("click", () => {
+  }), i.querySelector('[data-hint-action="close"]')?.addEventListener("click", () => {
     l(!1);
   }), o > 0 && setTimeout(() => {
-    a.parentElement && l(!1);
-  }, o), e.appendChild(a), a;
+    i.parentElement && l(!1);
+  }, o), e.appendChild(i), i;
 }
-function fi(r) {
+function Qi(r) {
   const { container: e, shortcuts: t, settings: s, onSettingsChange: n } = r, o = {
     save: "Save & Submit",
     navigation: "Navigation",
@@ -7912,12 +7409,12 @@ function fi(r) {
     actions: "Actions",
     help: "Help",
     other: "Other"
-  }, a = /* @__PURE__ */ new Map();
+  }, i = /* @__PURE__ */ new Map();
   for (const p of t) {
-    const h = a.get(p.category) || [];
-    h.push(p), a.set(p.category, h);
+    const h = i.get(p.category) || [];
+    h.push(p), i.set(p.category, h);
   }
-  const i = ["save", "locale", "navigation", "actions", "help", "other"];
+  const a = ["save", "locale", "navigation", "actions", "help", "other"];
   let l = `
     <div class="shortcuts-settings space-y-6">
       <!-- Global toggle -->
@@ -7945,8 +7442,8 @@ function fi(r) {
       <!-- Per-shortcut toggles -->
       <div class="${s.enabled ? "" : "opacity-50 pointer-events-none"}" data-shortcuts-list>
   `;
-  for (const p of i) {
-    const h = a.get(p);
+  for (const p of a) {
+    const h = i.get(p);
     if (!(!h || h.length === 0)) {
       l += `
       <div class="space-y-2">
@@ -7956,22 +7453,22 @@ function fi(r) {
         <div class="space-y-1">
     `;
       for (const f of h) {
-        const w = s.shortcuts[f.id] !== !1, v = _t(f);
+        const v = s.shortcuts[f.id] !== !1, y = bt(f);
         l += `
         <div class="flex items-center justify-between py-2 px-3 rounded hover:bg-gray-50 dark:hover:bg-gray-700/50">
           <div class="flex items-center gap-3">
             <kbd class="px-2 py-1 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded text-xs font-mono text-gray-700 dark:text-gray-300">
-              ${q(v)}
+              ${D(y)}
             </kbd>
-            <span class="text-sm text-gray-700 dark:text-gray-300">${q(f.description)}</span>
+            <span class="text-sm text-gray-700 dark:text-gray-300">${D(f.description)}</span>
           </div>
           <input type="checkbox"
-                 id="shortcut-${q(f.id)}"
+                 id="shortcut-${D(f.id)}"
                  data-settings-action="toggle-shortcut"
-                 data-shortcut-id="${q(f.id)}"
-                 ${w ? "checked" : ""}
+                 data-shortcut-id="${D(f.id)}"
+                 ${v ? "checked" : ""}
                  class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                 aria-label="Enable ${q(f.description)} shortcut">
+                 aria-label="Enable ${D(f.description)} shortcut">
         </div>
       `;
       }
@@ -8013,10 +7510,10 @@ function fi(r) {
       n(f);
     });
   }), e.querySelector('[data-settings-action="reset"]')?.addEventListener("click", () => {
-    n({ ...te });
+    n({ ...W });
   });
 }
-function io(r, e) {
+function Xn(r, e) {
   const t = r;
   t.config && (t.config.enabled = e.enabled);
   for (const s of r.getShortcuts()) {
@@ -8024,35 +7521,35 @@ function io(r, e) {
     r.setEnabled(s.id, n);
   }
 }
-let ge = null;
-function gi() {
-  return ge || (ge = new Rt()), ge;
+let ue = null;
+function Wi() {
+  return ue || (ue = new yt()), ue;
 }
-function lo(r, e) {
-  const t = so(), s = new Rt({
+function Zn(r, e) {
+  const t = Jn(), s = new yt({
     ...e,
     enabled: t.enabled
-  }), n = ro(r);
+  }), n = Kn(r);
   for (const o of n)
     s.register(o);
-  return io(s, t), s.bind(), s;
+  return Xn(s, t), s.bind(), s;
 }
-function mi(r, e) {
-  const t = lo(r, e);
-  return e.hintContainer && ao({
+function Xi(r, e) {
+  const t = Zn(r, e);
+  return e.hintContainer && Wn({
     container: e.hintContainer,
     onShowHelp: e.onShowHelp,
     onDismiss: () => {
     }
   }), t;
 }
-const co = 1500, uo = 2e3, ze = "autosave", H = {
+const eo = 1500, to = 2e3, Re = "autosave", z = {
   idle: "",
   saving: "Saving...",
   saved: "Saved",
   error: "Save failed",
   conflict: "Conflict detected"
-}, po = {
+}, ro = {
   title: "Save Conflict",
   message: "This content was modified by someone else. Choose how to proceed:",
   useServer: "Use server version",
@@ -8060,23 +7557,23 @@ const co = 1500, uo = 2e3, ze = "autosave", H = {
   viewDiff: "View differences",
   dismiss: "Dismiss"
 };
-class Mt {
+class xt {
   constructor(e = {}) {
     this.state = "idle", this.conflictInfo = null, this.pendingData = null, this.lastError = null, this.debounceTimer = null, this.savedTimer = null, this.listeners = [], this.isDirty = !1, this.config = {
       container: e.container,
       onSave: e.onSave,
-      debounceMs: e.debounceMs ?? co,
-      savedDurationMs: e.savedDurationMs ?? uo,
+      debounceMs: e.debounceMs ?? eo,
+      savedDurationMs: e.savedDurationMs ?? to,
       notifier: e.notifier,
       showToasts: e.showToasts ?? !1,
-      classPrefix: e.classPrefix ?? ze,
-      labels: { ...H, ...e.labels },
+      classPrefix: e.classPrefix ?? Re,
+      labels: { ...z, ...e.labels },
       // Phase 3b conflict handling (TX-074)
       enableConflictDetection: e.enableConflictDetection ?? !1,
       onConflictResolve: e.onConflictResolve,
       fetchServerState: e.fetchServerState,
       allowForceSave: e.allowForceSave ?? !0,
-      conflictLabels: { ...po, ...e.conflictLabels }
+      conflictLabels: { ...ro, ...e.conflictLabels }
     };
   }
   // ---------------------------------------------------------------------------
@@ -8325,13 +7822,13 @@ class Mt {
     if (t)
       switch (e) {
         case "saved":
-          t.success(this.config.labels.saved ?? H.saved, 2e3);
+          t.success(this.config.labels.saved ?? z.saved, 2e3);
           break;
         case "error":
-          t.error(this.lastError?.message ?? this.config.labels.error ?? H.error);
+          t.error(this.lastError?.message ?? this.config.labels.error ?? z.error);
           break;
         case "conflict":
-          t.warning?.(this.config.labels.conflict ?? H.conflict);
+          t.warning?.(this.config.labels.conflict ?? z.conflict);
           break;
       }
   }
@@ -8382,8 +7879,8 @@ class Mt {
     e && e.addEventListener("click", () => this.retry());
   }
 }
-function bi(r) {
-  return new Mt({
+function Zi(r) {
+  return new xt({
     debounceMs: 1500,
     savedDurationMs: 2e3,
     showToasts: !1,
@@ -8400,8 +7897,8 @@ function bi(r) {
     ...r
   });
 }
-function yi(r, e = {}) {
-  const t = e.classPrefix ?? ze, n = { ...H, ...e.labels }[r] || "";
+function ea(r, e = {}) {
+  const t = e.classPrefix ?? Re, n = { ...z, ...e.labels }[r] || "";
   let o = "";
   switch (r) {
     case "saving":
@@ -8422,7 +7919,7 @@ function yi(r, e = {}) {
     <span class="${t}__label">${n}</span>
   </div>`;
 }
-function vi(r = ze) {
+function ta(r = Re) {
   return `
     .${r} {
       display: inline-flex;
@@ -8562,17 +8059,17 @@ function vi(r = ze) {
     }
   `;
 }
-function wi(r, e) {
+function ra(r, e) {
   const { watchFields: t, indicatorSelector: s, ...n } = e;
   let o = n.container;
   !o && s && (o = r.querySelector(s) ?? void 0);
-  const a = new Mt({
+  const i = new xt({
     ...n,
     container: o
-  }), i = () => {
+  }), a = () => {
     const p = new FormData(r), h = {};
-    return p.forEach((f, w) => {
-      h[w] = f;
+    return p.forEach((f, v) => {
+      h[v] = f;
     }), h;
   }, l = (p) => {
     const h = p.target;
@@ -8582,26 +8079,26 @@ function wi(r, e) {
         if (!f || !t.includes(f))
           return;
       }
-      a.markDirty(i());
+      i.markDirty(a());
     }
   };
   r.addEventListener("input", l), r.addEventListener("change", l), r.addEventListener("submit", async (p) => {
-    a.hasPendingChanges() && (p.preventDefault(), await a.save() && r.submit());
+    i.hasPendingChanges() && (p.preventDefault(), await i.save() && r.submit());
   });
   const c = (p) => {
-    a.hasPendingChanges() && (p.preventDefault(), p.returnValue = "");
+    i.hasPendingChanges() && (p.preventDefault(), p.returnValue = "");
   };
   window.addEventListener("beforeunload", c);
   const d = () => {
-    document.hidden && a.hasPendingChanges() && a.save();
+    document.hidden && i.hasPendingChanges() && i.save();
   };
   document.addEventListener("visibilitychange", d);
-  const u = a.destroy.bind(a);
-  return a.destroy = () => {
+  const u = i.destroy.bind(i);
+  return i.destroy = () => {
     r.removeEventListener("input", l), r.removeEventListener("change", l), window.removeEventListener("beforeunload", c), document.removeEventListener("visibilitychange", d), u();
-  }, a;
+  }, i;
 }
-const Pt = "char-counter", ho = "interpolation-preview", Bt = "dir-toggle", Dt = [
+const St = "char-counter", so = "interpolation-preview", Ct = "dir-toggle", Et = [
   // Mustache/Handlebars: {{name}}, {{user.name}}
   { pattern: /\{\{(\w+(?:\.\w+)*)\}\}/g, name: "Mustache", example: "{{name}}" },
   // ICU MessageFormat: {name}, {count, plural, ...}
@@ -8611,7 +8108,7 @@ const Pt = "char-counter", ho = "interpolation-preview", Bt = "dir-toggle", Dt =
   // Ruby/Python named: %(name)s, ${name}
   { pattern: /%\((\w+)\)[sdf]/g, name: "Named Printf", example: "%(name)s" },
   { pattern: /\$\{(\w+)\}/g, name: "Template Literal", example: "${name}" }
-], fo = {
+], no = {
   name: "John",
   count: "5",
   email: "user@example.com",
@@ -8621,7 +8118,7 @@ const Pt = "char-counter", ho = "interpolation-preview", Bt = "dir-toggle", Dt =
   item: "Product",
   total: "100"
 };
-class go {
+class oo {
   constructor(e) {
     this.counterEl = null, this.config = {
       input: e.input,
@@ -8630,7 +8127,7 @@ class go {
       hardLimit: e.hardLimit,
       thresholds: e.thresholds ?? this.buildDefaultThresholds(e),
       enforceHardLimit: e.enforceHardLimit ?? !1,
-      classPrefix: e.classPrefix ?? Pt,
+      classPrefix: e.classPrefix ?? St,
       formatDisplay: e.formatDisplay ?? this.defaultFormatDisplay.bind(this)
     }, this.boundUpdate = this.update.bind(this), this.init();
   }
@@ -8702,15 +8199,15 @@ class go {
     return t ? `${e} / ${t}` : `${e}`;
   }
 }
-class mo {
+class io {
   constructor(e) {
     this.previewEl = null, this.config = {
       input: e.input,
       container: e.container,
-      sampleValues: e.sampleValues ?? fo,
-      patterns: [...Dt, ...e.customPatterns ?? []],
+      sampleValues: e.sampleValues ?? no,
+      patterns: [...Et, ...e.customPatterns ?? []],
       highlightVariables: e.highlightVariables ?? !0,
-      classPrefix: e.classPrefix ?? ho
+      classPrefix: e.classPrefix ?? so
     }, this.boundUpdate = this.update.bind(this), this.init();
   }
   // ---------------------------------------------------------------------------
@@ -8741,9 +8238,9 @@ class mo {
     let e = this.config.input.value;
     for (const t of this.config.patterns)
       t.pattern.lastIndex = 0, e = e.replace(t.pattern, (s, n) => {
-        const a = (n ?? s).replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
-        for (const [i, l] of Object.entries(this.config.sampleValues))
-          if (i.toLowerCase() === a)
+        const i = (n ?? s).replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+        for (const [a, l] of Object.entries(this.config.sampleValues))
+          if (a.toLowerCase() === i)
             return l;
         return s;
       });
@@ -8767,12 +8264,12 @@ class mo {
     const e = this.config.input.value, t = this.getMatches(), s = this.config.classPrefix;
     if (t.length === 0)
       return this.escapeHtml(e);
-    t.sort((a, i) => a.start - i.start);
+    t.sort((i, a) => i.start - a.start);
     let n = "", o = 0;
-    for (const a of t) {
-      n += this.escapeHtml(e.slice(o, a.start));
-      const i = this.getSampleValue(a.variable), l = e.slice(a.start, a.end);
-      n += `<span class="${s}__variable" title="${this.escapeHtml(l)}">${this.escapeHtml(i ?? l)}</span>`, o = a.end;
+    for (const i of t) {
+      n += this.escapeHtml(e.slice(o, i.start));
+      const a = this.getSampleValue(i.variable), l = e.slice(i.start, i.end);
+      n += `<span class="${s}__variable" title="${this.escapeHtml(l)}">${this.escapeHtml(a ?? l)}</span>`, o = i.end;
     }
     return n += this.escapeHtml(e.slice(o)), n;
   }
@@ -8809,14 +8306,14 @@ class mo {
     return e.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
   }
 }
-class bo {
+class ao {
   constructor(e) {
     this.toggleEl = null, this.config = {
       input: e.input,
       container: e.container,
       initialDirection: e.initialDirection ?? "auto",
       persistenceKey: e.persistenceKey,
-      classPrefix: e.classPrefix ?? Bt,
+      classPrefix: e.classPrefix ?? Ct,
       onChange: e.onChange
     }, this.currentDirection = this.resolveInitialDirection(), this.init();
   }
@@ -8899,26 +8396,26 @@ class bo {
     </svg>`;
   }
 }
-function xi(r, e = {}) {
+function sa(r, e = {}) {
   const t = [], s = [], n = [];
   for (const o of e.charCounterFields ?? []) {
-    const a = r.querySelector(`[name="${o}"]`);
-    a && t.push(new go({
-      input: a,
+    const i = r.querySelector(`[name="${o}"]`);
+    i && t.push(new oo({
+      input: i,
       ...e.charCounterConfig
     }));
   }
   for (const o of e.interpolationFields ?? []) {
-    const a = r.querySelector(`[name="${o}"]`);
-    a && s.push(new mo({
-      input: a,
+    const i = r.querySelector(`[name="${o}"]`);
+    i && s.push(new io({
+      input: i,
       ...e.interpolationConfig
     }));
   }
   for (const o of e.directionToggleFields ?? []) {
-    const a = r.querySelector(`[name="${o}"]`);
-    a && n.push(new bo({
-      input: a,
+    const i = r.querySelector(`[name="${o}"]`);
+    i && n.push(new ao({
+      input: i,
       persistenceKey: `dir-${o}`,
       ...e.directionToggleConfig
     }));
@@ -8932,20 +8429,20 @@ function xi(r, e = {}) {
     }
   };
 }
-function Si(r, e, t, s = Pt) {
+function na(r, e, t, s = St) {
   const n = [s];
   t && n.push(`${s}--${t}`);
   const o = e ? `${r} / ${e}` : `${r}`;
   return `<span class="${n.join(" ")}" aria-live="polite">${o}</span>`;
 }
-function Ci(r, e = Bt) {
+function oa(r, e = Ct) {
   const t = r === "rtl", s = t ? '<path d="M13 8H3M6 5L3 8l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>' : '<path d="M3 8h10M10 5l3 3-3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>';
   return `<button type="button" class="${e}" aria-pressed="${t}" title="Toggle text direction (${r.toUpperCase()})">
     <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" width="16" height="16">${s}</svg>
     <span class="${e}__label">${r.toUpperCase()}</span>
   </button>`;
 }
-function $i() {
+function ia() {
   return `
     /* Character Counter */
     .char-counter {
@@ -9025,7 +8522,7 @@ function $i() {
     }
   `;
 }
-function Ei(r, e = Dt) {
+function aa(r, e = Et) {
   const t = [];
   for (const s of e) {
     s.pattern.lastIndex = 0;
@@ -9040,25 +8537,25 @@ function Ei(r, e = Dt) {
   }
   return t;
 }
-function ki(r, e, t) {
+function la(r, e, t) {
   return t && r >= t ? "error" : e && r >= e ? "warning" : null;
 }
-function Ai(r) {
+function ca(r) {
   return typeof r == "string" && ["none", "core", "core+exchange", "core+queue", "full"].includes(r) ? r : "none";
 }
-function yo(r) {
+function lo(r) {
   return r === "core+exchange" || r === "full";
 }
-function vo(r) {
+function co(r) {
   return r === "core+queue" || r === "full";
 }
-function Li(r) {
+function da(r) {
   return r !== "none";
 }
-function wo(r) {
-  return !r || typeof r != "object" ? null : Kt(r);
+function uo(r) {
+  return !r || typeof r != "object" ? null : qt(r);
 }
-class Ft {
+class $t {
   constructor(e) {
     this.capabilities = e;
   }
@@ -9079,7 +8576,7 @@ class Ft {
    */
   isModuleEnabledByMode(e) {
     const t = this.capabilities.profile;
-    return e === "exchange" ? yo(t) : vo(t);
+    return e === "exchange" ? lo(t) : co(t);
   }
   /**
    * Get module state from capabilities
@@ -9191,38 +8688,38 @@ class Ft {
     return this.capabilities.features[e] === !0;
   }
 }
-function et(r) {
-  const e = wo(r);
-  return e ? new Ft(e) : null;
+function Ge(r) {
+  const e = uo(r);
+  return e ? new $t(e) : null;
 }
-function _i() {
-  return new Ft({ ...Jt });
+function ua() {
+  return new $t({ ...Ot });
 }
-function Ri(r) {
-  return r.visible ? r.enabled ? "" : `aria-disabled="true"${r.reason ? ` title="${qt(r.reason)}"` : ""}` : 'aria-hidden="true" style="display: none;"';
+function pa(r) {
+  return r.visible ? r.enabled ? "" : `aria-disabled="true"${r.reason ? ` title="${kt(r.reason)}"` : ""}` : 'aria-hidden="true" style="display: none;"';
 }
-function xo(r) {
+function po(r) {
   if (r.enabled || !r.reason)
     return "";
   const e = (r.reasonCode || "").trim();
-  return e ? it(e, { size: "sm", showFullMessage: !0 }) : `
+  return e ? Bt(e, { size: "sm", showFullMessage: !0 }) : `
     <span class="capability-gate-reason text-gray-500 bg-gray-100"
           role="status"
-          aria-label="${qt(r.reason)}">
+          aria-label="${kt(r.reason)}">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 inline-block mr-1">
         <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd" />
       </svg>
-      ${So(r.reason)}
+      ${ho(r.reason)}
     </span>
   `.trim();
 }
-function So(r) {
+function ho(r) {
   return r.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 }
-function qt(r) {
+function kt(r) {
   return r.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 }
-function Ti() {
+function ha() {
   return `
     /* Capability Gate Styles */
     .capability-gate-reason {
@@ -9259,29 +8756,29 @@ function Ti() {
     }
   `;
 }
-function Co(r, e) {
+function fo(r, e) {
   if (!e.visible) {
     r.style.display = "none", r.setAttribute("aria-hidden", "true");
     return;
   }
-  r.style.display = "", r.removeAttribute("aria-hidden"), e.enabled ? (r.removeAttribute("aria-disabled"), r.classList.remove("capability-gate-disabled"), r.removeAttribute("title"), delete r.dataset.reasonCode, r.removeEventListener("click", tt, !0)) : (r.setAttribute("aria-disabled", "true"), r.classList.add("capability-gate-disabled"), e.reason && (r.setAttribute("title", e.reason), r.dataset.reasonCode = e.reasonCode || ""), r.addEventListener("click", tt, !0));
+  r.style.display = "", r.removeAttribute("aria-hidden"), e.enabled ? (r.removeAttribute("aria-disabled"), r.classList.remove("capability-gate-disabled"), r.removeAttribute("title"), delete r.dataset.reasonCode, r.removeEventListener("click", Ue, !0)) : (r.setAttribute("aria-disabled", "true"), r.classList.add("capability-gate-disabled"), e.reason && (r.setAttribute("title", e.reason), r.dataset.reasonCode = e.reasonCode || ""), r.addEventListener("click", Ue, !0));
 }
-function tt(r) {
+function Ue(r) {
   r.currentTarget.getAttribute("aria-disabled") === "true" && (r.preventDefault(), r.stopPropagation());
 }
-function Ii(r, e) {
+function fa(r, e) {
   r.querySelectorAll("[data-capability-gate]").forEach((s) => {
     const n = s.dataset.capabilityGate;
     if (n)
       try {
-        const o = JSON.parse(n), a = e.gateNavItem(o);
-        Co(s, a);
+        const o = JSON.parse(n), i = e.gateNavItem(o);
+        fo(s, i);
       } catch {
         console.warn("Invalid capability gate config:", n);
       }
   });
 }
-const $o = {
+const mo = {
   title: "My Translation Work",
   myAssignments: "My Assignments",
   dueSoon: "Due Soon",
@@ -9303,7 +8800,7 @@ const $o = {
   status: "Status",
   targetLocale: "Target",
   sourceTitle: "Content"
-}, Eo = [
+}, go = [
   {
     id: "all",
     label: "All",
@@ -9326,18 +8823,18 @@ const $o = {
     filters: { status: "review" }
   }
 ];
-class ko {
+class bo {
   constructor(e) {
     this.container = null, this.state = "loading", this.gateResult = null, this.data = null, this.error = null, this.activePreset = "all", this.refreshTimer = null, this.config = {
       myWorkEndpoint: e.myWorkEndpoint,
       queueEndpoint: e.queueEndpoint || "",
       panelBaseUrl: e.panelBaseUrl || "",
       capabilityGate: e.capabilityGate,
-      filterPresets: e.filterPresets || Eo,
+      filterPresets: e.filterPresets || go,
       refreshInterval: e.refreshInterval || 0,
       onAssignmentClick: e.onAssignmentClick,
       onActionClick: e.onActionClick,
-      labels: { ...$o, ...e.labels || {} }
+      labels: { ...mo, ...e.labels || {} }
     };
   }
   /**
@@ -9418,7 +8915,7 @@ class ko {
     if (!this.container) return;
     const e = this.config.labels;
     this.container.innerHTML = `
-      <div class="translator-dashboard" role="region" aria-label="${S(e.title)}">
+      <div class="translator-dashboard" role="region" aria-label="${x(e.title)}">
         ${this.renderHeader()}
         ${this.renderSummaryCards()}
         ${this.renderFilterBar()}
@@ -9430,7 +8927,7 @@ class ko {
     const e = this.config.labels;
     return `
       <div class="dashboard-header">
-        <h2 class="dashboard-title">${S(e.title)}</h2>
+        <h2 class="dashboard-title">${x(e.title)}</h2>
         <button type="button" class="dashboard-refresh-btn" aria-label="Refresh">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
             <path fill-rule="evenodd" d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h2.433a.75.75 0 000-1.5H3.989a.75.75 0 00-.75.75v4.242a.75.75 0 001.5 0v-2.43l.31.31a7 7 0 0011.712-3.138.75.75 0 00-1.449-.39zm-1.621-6.01a7 7 0 00-11.712 3.138.75.75 0 001.449.39 5.5 5.5 0 019.201-2.466l.312.311H10.51a.75.75 0 000 1.5h4.243a.75.75 0 00.75-.75V3.295a.75.75 0 00-1.5 0v2.43l-.311-.311z" clip-rule="evenodd" />
@@ -9456,7 +8953,7 @@ class ko {
     return `
       <div class="summary-card ${n}" role="listitem" data-summary="${e}">
         <div class="summary-count">${s}</div>
-        <div class="summary-label">${S(t)}</div>
+        <div class="summary-label">${x(t)}</div>
       </div>
     `;
   }
@@ -9486,7 +8983,7 @@ class ko {
               aria-selected="${t}"
               data-preset="${e.id}">
         ${e.icon || ""}
-        <span class="filter-label">${S(e.label)}</span>
+        <span class="filter-label">${x(e.label)}</span>
         ${n}
       </button>
     `;
@@ -9512,7 +9009,7 @@ class ko {
     return `
       <div class="dashboard-loading" role="status" aria-busy="true">
         <div class="loading-spinner"></div>
-        <p>${S(e.loading)}</p>
+        <p>${x(e.loading)}</p>
       </div>
     `;
   }
@@ -9523,9 +9020,9 @@ class ko {
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-10 h-10 text-red-500">
           <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
         </svg>
-        <p class="error-message">${S(e.error)}</p>
-        ${this.error ? `<p class="error-detail">${S(this.error.message)}</p>` : ""}
-        <button type="button" class="retry-btn">${S(e.retry)}</button>
+        <p class="error-message">${x(e.error)}</p>
+        ${this.error ? `<p class="error-detail">${x(this.error.message)}</p>` : ""}
+        <button type="button" class="retry-btn">${x(e.retry)}</button>
       </div>
     `;
   }
@@ -9536,8 +9033,8 @@ class ko {
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-12 h-12 text-gray-400">
           <path fill-rule="evenodd" d="M2.5 3A1.5 1.5 0 001 4.5v4A1.5 1.5 0 002.5 10h6A1.5 1.5 0 0010 8.5v-4A1.5 1.5 0 008.5 3h-6zm11 2A1.5 1.5 0 0012 6.5v7a1.5 1.5 0 001.5 1.5h4a1.5 1.5 0 001.5-1.5v-7A1.5 1.5 0 0017.5 5h-4zm-10 7A1.5 1.5 0 002 13.5v2A1.5 1.5 0 003.5 17h5A1.5 1.5 0 0010 15.5v-2A1.5 1.5 0 008.5 12h-5z" clip-rule="evenodd" />
         </svg>
-        <p class="empty-title">${S(e.noAssignments)}</p>
-        <p class="empty-description">${S(e.noAssignmentsDescription)}</p>
+        <p class="empty-title">${x(e.noAssignments)}</p>
+        <p class="empty-description">${x(e.noAssignmentsDescription)}</p>
       </div>
     `;
   }
@@ -9547,7 +9044,7 @@ class ko {
    * This is distinct from error state (transport failure) and empty state (no data).
    */
   renderDisabled() {
-    const e = this.gateResult?.reason || "Access to this feature is not available.", t = this.gateResult ? xo(this.gateResult) : "";
+    const e = this.gateResult?.reason || "Access to this feature is not available.", t = this.gateResult ? po(this.gateResult) : "";
     return `
       <div class="dashboard-disabled" role="alert" aria-live="polite">
         <div class="disabled-icon">
@@ -9556,7 +9053,7 @@ class ko {
           </svg>
         </div>
         <p class="disabled-title">Translator Dashboard Unavailable</p>
-        <p class="disabled-description">${S(e)}</p>
+        <p class="disabled-description">${x(e)}</p>
         ${t}
         <p class="disabled-help-text">
           Contact your administrator if you believe you should have access to this feature.
@@ -9573,11 +9070,11 @@ class ko {
         <table class="assignment-table" role="grid" aria-label="Translation assignments">
           <thead>
             <tr>
-              <th scope="col">${S(e.sourceTitle)}</th>
-              <th scope="col">${S(e.targetLocale)}</th>
-              <th scope="col">${S(e.status)}</th>
-              <th scope="col">${S(e.dueDate)}</th>
-              <th scope="col">${S(e.priority)}</th>
+              <th scope="col">${x(e.sourceTitle)}</th>
+              <th scope="col">${x(e.targetLocale)}</th>
+              <th scope="col">${x(e.status)}</th>
+              <th scope="col">${x(e.dueDate)}</th>
+              <th scope="col">${x(e.priority)}</th>
               <th scope="col" class="actions-col">Actions</th>
             </tr>
           </thead>
@@ -9590,22 +9087,22 @@ class ko {
   }
   renderAssignmentRow(e) {
     this.config.labels;
-    const t = Ao(e.due_state), s = Lo(e.priority), n = X(e.queue_state, {
+    const t = yo(e.due_state), s = vo(e.priority), n = ee(e.queue_state, {
       domain: "queue",
       size: "sm"
-    }), o = e.due_date ? Ro(new Date(e.due_date)) : "-";
+    }), o = e.due_date ? xo(new Date(e.due_date)) : "-";
     return `
-      <tr class="assignment-row" data-assignment-id="${G(e.id)}">
+      <tr class="assignment-row" data-assignment-id="${j(e.id)}">
         <td class="title-cell">
           <div class="title-content">
-            <span class="source-title">${S(e.source_title || e.source_path || e.id)}</span>
-            <span class="entity-type">${S(e.entity_type)}</span>
+            <span class="source-title">${x(e.source_title || e.source_path || e.id)}</span>
+            <span class="entity-type">${x(e.entity_type)}</span>
           </div>
         </td>
         <td class="locale-cell">
-          <span class="locale-badge">${S(e.target_locale.toUpperCase())}</span>
+          <span class="locale-badge">${x(e.target_locale.toUpperCase())}</span>
           <span class="locale-arrow">←</span>
-          <span class="locale-badge source">${S(e.source_locale.toUpperCase())}</span>
+          <span class="locale-badge source">${x(e.source_locale.toUpperCase())}</span>
         </td>
         <td class="status-cell">
           ${n}
@@ -9614,7 +9111,7 @@ class ko {
           ${o}
         </td>
         <td class="priority-cell">
-          <span class="priority-indicator ${s}">${S(_o(e.priority))}</span>
+          <span class="priority-indicator ${s}">${x(wo(e.priority))}</span>
         </td>
         <td class="actions-cell">
           ${this.renderAssignmentActions(e)}
@@ -9625,7 +9122,7 @@ class ko {
   renderAssignmentActions(e) {
     const t = this.config.labels, s = [], n = typeof this.config.onActionClick == "function";
     s.push(`
-      <button type="button" class="action-btn open-btn" data-action="open" title="${G(t.openAssignment)}">
+      <button type="button" class="action-btn open-btn" data-action="open" title="${j(t.openAssignment)}">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
           <path d="M5.433 13.917l1.262-3.155A4 4 0 017.58 9.42l6.92-6.918a2.121 2.121 0 013 3l-6.92 6.918c-.383.383-.84.685-1.343.886l-3.154 1.262a.5.5 0 01-.65-.65z" />
           <path d="M3.5 5.75c0-.69.56-1.25 1.25-1.25H10A.75.75 0 0010 3H4.75A2.75 2.75 0 002 5.75v9.5A2.75 2.75 0 004.75 18h9.5A2.75 2.75 0 0017 15.25V10a.75.75 0 00-1.5 0v5.25c0 .69-.56 1.25-1.25 1.25h-9.5c-.69 0-1.25-.56-1.25-1.25v-9.5z" />
@@ -9634,19 +9131,19 @@ class ko {
     `);
     const o = e.review_actions;
     return n && e.queue_state === "in_progress" && o.submit_review.enabled && s.push(`
-        <button type="button" class="action-btn submit-review-btn" data-action="submit_review" title="${G(t.submitForReview)}">
+        <button type="button" class="action-btn submit-review-btn" data-action="submit_review" title="${j(t.submitForReview)}">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
             <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />
           </svg>
         </button>
       `), n && e.queue_state === "review" && (o.approve.enabled && s.push(`
-          <button type="button" class="action-btn approve-btn" data-action="approve" title="${G(t.approve)}">
+          <button type="button" class="action-btn approve-btn" data-action="approve" title="${j(t.approve)}">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
               <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
             </svg>
           </button>
         `), o.reject.enabled && s.push(`
-          <button type="button" class="action-btn reject-btn" data-action="reject" title="${G(t.reject)}">
+          <button type="button" class="action-btn reject-btn" data-action="reject" title="${j(t.reject)}">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
               <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
             </svg>
@@ -9655,29 +9152,29 @@ class ko {
   }
   attachEventListeners() {
     if (!this.container) return;
-    this.container.querySelector(".dashboard-refresh-btn")?.addEventListener("click", () => this.loadData()), this.container.querySelector(".retry-btn")?.addEventListener("click", () => this.loadData()), this.container.querySelectorAll(".filter-preset").forEach((a) => {
-      a.addEventListener("click", () => {
-        const i = a.dataset.preset;
-        i && this.setActivePreset(i);
+    this.container.querySelector(".dashboard-refresh-btn")?.addEventListener("click", () => this.loadData()), this.container.querySelector(".retry-btn")?.addEventListener("click", () => this.loadData()), this.container.querySelectorAll(".filter-preset").forEach((i) => {
+      i.addEventListener("click", () => {
+        const a = i.dataset.preset;
+        a && this.setActivePreset(a);
       });
-    }), this.container.querySelectorAll(".assignment-row").forEach((a) => {
-      const i = a.dataset.assignmentId;
-      if (!i || !this.data) return;
-      const l = this.data.assignments.find((d) => d.id === i);
+    }), this.container.querySelectorAll(".assignment-row").forEach((i) => {
+      const a = i.dataset.assignmentId;
+      if (!a || !this.data) return;
+      const l = this.data.assignments.find((d) => d.id === a);
       if (!l) return;
-      a.querySelectorAll(".action-btn").forEach((d) => {
+      i.querySelectorAll(".action-btn").forEach((d) => {
         d.addEventListener("click", async (u) => {
           u.stopPropagation();
           const p = d.dataset.action;
           p && (p === "open" ? this.openAssignment(l) : typeof this.config.onActionClick == "function" && await this.config.onActionClick(p, l));
         });
-      }), a.addEventListener("click", () => {
+      }), i.addEventListener("click", () => {
         this.openAssignment(l);
       });
-    }), this.container.querySelectorAll(".summary-card").forEach((a) => {
-      a.addEventListener("click", () => {
-        const i = a.dataset.summary;
-        i === "review" ? this.setActivePreset("review") : i === "due_soon" || i === "overdue" ? this.setActivePreset("due_soon") : this.setActivePreset("all");
+    }), this.container.querySelectorAll(".summary-card").forEach((i) => {
+      i.addEventListener("click", () => {
+        const a = i.dataset.summary;
+        a === "review" ? this.setActivePreset("review") : a === "due_soon" || a === "overdue" ? this.setActivePreset("due_soon") : this.setActivePreset("all");
       });
     });
   }
@@ -9697,13 +9194,13 @@ class ko {
     return !s || !n ? "" : `${t}/${encodeURIComponent(s)}/${encodeURIComponent(n)}/edit`;
   }
 }
-function S(r) {
+function x(r) {
   return r.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 }
-function G(r) {
+function j(r) {
   return r.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 }
-function Ao(r) {
+function yo(r) {
   switch (r) {
     case "overdue":
       return "due-overdue";
@@ -9715,7 +9212,7 @@ function Ao(r) {
       return "";
   }
 }
-function Lo(r) {
+function vo(r) {
   switch (r) {
     case "urgent":
       return "priority-urgent";
@@ -9729,14 +9226,14 @@ function Lo(r) {
       return "priority-normal";
   }
 }
-function _o(r) {
+function wo(r) {
   return r.charAt(0).toUpperCase() + r.slice(1);
 }
-function Ro(r) {
+function xo(r) {
   const e = /* @__PURE__ */ new Date(), t = r.getTime() - e.getTime(), s = Math.ceil(t / (1e3 * 60 * 60 * 24));
   return s < 0 ? `${Math.abs(s)}d overdue` : s === 0 ? "Today" : s === 1 ? "Tomorrow" : s <= 7 ? `${s}d` : r.toLocaleDateString(void 0, { month: "short", day: "numeric" });
 }
-function Mi() {
+function ma() {
   return `
     /* Translator Dashboard Styles */
     .translator-dashboard {
@@ -10127,19 +9624,19 @@ function Mi() {
     }
   `;
 }
-function To(r, e) {
-  const t = new ko(e);
+function So(r, e) {
+  const t = new bo(e);
   return t.mount(r), t;
 }
-function Pi(r) {
-  return Io(r);
+function ga(r) {
+  return Co(r);
 }
-function Io(r, e = {}) {
+function Co(r, e = {}) {
   const t = r.dataset.myWorkEndpoint;
   if (!t)
     return console.warn("TranslatorDashboard: Missing data-my-work-endpoint attribute"), null;
-  const s = Mo(e);
-  return To(r, {
+  const s = Eo(e);
+  return So(r, {
     myWorkEndpoint: t,
     panelBaseUrl: r.dataset.panelBaseUrl,
     queueEndpoint: r.dataset.queueEndpoint,
@@ -10147,15 +9644,15 @@ function Io(r, e = {}) {
     capabilityGate: s || void 0
   });
 }
-function Mo(r) {
+function Eo(r) {
   if (r.capabilityGate)
     return r.capabilityGate;
   if (r.capabilitiesPayload !== void 0)
-    return et(r.capabilitiesPayload);
-  const e = Po();
-  return e === null ? null : et(e);
+    return Ge(r.capabilitiesPayload);
+  const e = $o();
+  return e === null ? null : Ge(e);
 }
-function Po() {
+function $o() {
   if (typeof window < "u") {
     const r = window.__TRANSLATION_CAPABILITIES__;
     if (r && typeof r == "object")
@@ -10172,7 +9669,7 @@ function Po() {
   }
   return null;
 }
-const Bo = {
+const ko = {
   title: "Import Translations",
   selectFile: "Select file or paste data",
   validateButton: "Validate",
@@ -10205,7 +9702,7 @@ const Bo = {
   continueOnError: "Continue on error",
   dryRun: "Dry run (preview only)"
 };
-class Do {
+class Ao {
   constructor(e) {
     this.container = null, this.state = "idle", this.validationResult = null, this.previewRows = [], this.selection = {
       selected: /* @__PURE__ */ new Set(),
@@ -10217,7 +9714,7 @@ class Do {
       dryRun: !1,
       async: !1
     }, this.error = null, this.file = null, this.rawData = "";
-    const t = { ...Bo, ...e.labels || {} };
+    const t = { ...ko, ...e.labels || {} };
     this.config = {
       validateEndpoint: e.validateEndpoint,
       applyEndpoint: e.applyEndpoint,
@@ -10320,7 +9817,7 @@ class Do {
     }
     this.state = "applying", this.error = null, this.render();
     try {
-      const a = {
+      const i = {
         rows: (this.validationResult?.results.filter(
           (c) => s.includes(c.index)
         ) || []).map((c) => {
@@ -10335,17 +9832,17 @@ class Do {
         continue_on_error: t.continueOnError,
         dry_run: t.dryRun,
         async: t.async
-      }, i = await fetch(this.config.applyEndpoint, {
+      }, a = await fetch(this.config.applyEndpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json"
         },
-        body: JSON.stringify(a)
+        body: JSON.stringify(i)
       });
-      if (!i.ok)
-        throw new Error(`Apply failed: ${i.status}`);
-      const l = await i.json();
+      if (!a.ok)
+        throw new Error(`Apply failed: ${a.status}`);
+      const l = await a.json();
       return this.state = "applied", this.config.onApplyComplete?.(l), this.render(), l;
     } catch (n) {
       return this.error = n instanceof Error ? n : new Error(String(n)), this.state = "error", this.config.onError?.(this.error), this.render(), null;
@@ -10411,7 +9908,7 @@ class Do {
     if (!this.container) return;
     const e = this.config.labels;
     this.container.innerHTML = `
-      <div class="exchange-import" role="dialog" aria-label="${m(e.title)}">
+      <div class="exchange-import" role="dialog" aria-label="${g(e.title)}">
         ${this.renderHeader()}
         ${this.renderContent()}
         ${this.renderFooter()}
@@ -10422,7 +9919,7 @@ class Do {
     const e = this.config.labels;
     return `
       <div class="import-header">
-        <h3 class="import-title">${m(e.title)}</h3>
+        <h3 class="import-title">${g(e.title)}</h3>
         ${this.validationResult ? this.renderSummaryBadges() : ""}
       </div>
     `;
@@ -10432,10 +9929,10 @@ class Do {
     const e = this.validationResult.summary, t = this.config.labels;
     return `
       <div class="import-summary-badges">
-        <span class="summary-badge success">${e.succeeded} ${m(t.success)}</span>
-        <span class="summary-badge error">${e.failed} ${m(t.error)}</span>
-        <span class="summary-badge conflict">${e.conflicts} ${m(t.conflict)}</span>
-        <span class="summary-badge skipped">${e.skipped} ${m(t.skipped)}</span>
+        <span class="summary-badge success">${e.succeeded} ${g(t.success)}</span>
+        <span class="summary-badge error">${e.failed} ${g(t.error)}</span>
+        <span class="summary-badge conflict">${e.conflicts} ${g(t.conflict)}</span>
+        <span class="summary-badge skipped">${e.skipped} ${g(t.skipped)}</span>
       </div>
     `;
   }
@@ -10463,7 +9960,7 @@ class Do {
       <div class="import-file-input">
         <label class="file-dropzone">
           <input type="file" accept=".csv,.json" class="file-input" />
-          <span class="dropzone-text">${m(e.selectFile)}</span>
+          <span class="dropzone-text">${g(e.selectFile)}</span>
         </label>
         <div class="or-divider">or</div>
         <textarea class="data-input" placeholder="Paste JSON or CSV data here..." rows="5"></textarea>
@@ -10474,7 +9971,7 @@ class Do {
     return `
       <div class="import-loading" role="status" aria-busy="true">
         <div class="loading-spinner"></div>
-        <p>${m(e)}</p>
+        <p>${g(e)}</p>
       </div>
     `;
   }
@@ -10484,22 +9981,22 @@ class Do {
       <div class="import-preview">
         <div class="preview-toolbar">
           <div class="selection-controls">
-            <button type="button" class="select-all-btn">${m(e.selectAll)}</button>
-            <button type="button" class="deselect-all-btn">${m(e.deselectAll)}</button>
-            <span class="selection-count">${t} / ${s} ${m(e.selectedCount)}</span>
+            <button type="button" class="select-all-btn">${g(e.selectAll)}</button>
+            <button type="button" class="deselect-all-btn">${g(e.deselectAll)}</button>
+            <span class="selection-count">${t} / ${s} ${g(e.selectedCount)}</span>
           </div>
           <div class="import-options">
             <label class="option-checkbox">
               <input type="checkbox" name="allowCreateMissing" ${this.applyOptions.allowCreateMissing ? "checked" : ""} />
-              ${m(e.allowCreateMissing)}
+              ${g(e.allowCreateMissing)}
             </label>
             <label class="option-checkbox">
               <input type="checkbox" name="continueOnError" ${this.applyOptions.continueOnError ? "checked" : ""} />
-              ${m(e.continueOnError)}
+              ${g(e.continueOnError)}
             </label>
             <label class="option-checkbox">
               <input type="checkbox" name="dryRun" ${this.applyOptions.dryRun ? "checked" : ""} />
-              ${m(e.dryRun)}
+              ${g(e.dryRun)}
             </label>
           </div>
         </div>
@@ -10510,11 +10007,11 @@ class Do {
                 <th scope="col" class="select-col">
                   <input type="checkbox" class="select-all-checkbox" ${this.selection.allSelected && this.selection.excluded.size === 0 ? "checked" : ""} />
                 </th>
-                <th scope="col">${m(e.resource)}</th>
-                <th scope="col">${m(e.field)}</th>
-                <th scope="col">${m(e.status)}</th>
-                <th scope="col">${m(e.translatedText)}</th>
-                <th scope="col">${m(e.conflictResolution)}</th>
+                <th scope="col">${g(e.resource)}</th>
+                <th scope="col">${g(e.field)}</th>
+                <th scope="col">${g(e.status)}</th>
+                <th scope="col">${g(e.translatedText)}</th>
+                <th scope="col">${g(e.conflictResolution)}</th>
               </tr>
             </thead>
             <tbody>
@@ -10527,7 +10024,7 @@ class Do {
   }
   renderPreviewRow(e) {
     this.config.labels;
-    const t = ot(e.status, "exchange"), s = e.status === "error", n = X(e.status, {
+    const t = Je(e.status, "exchange"), s = e.status === "error", n = ee(e.status, {
       domain: "exchange",
       size: "sm"
     });
@@ -10537,16 +10034,16 @@ class Do {
           <input type="checkbox" class="row-checkbox" ${e.isSelected ? "checked" : ""} ${s ? "disabled" : ""} />
         </td>
         <td class="resource-cell">
-          <span class="resource-type">${m(e.resource)}</span>
-          <span class="entity-id">${m(e.entityId)}</span>
+          <span class="resource-type">${g(e.resource)}</span>
+          <span class="entity-id">${g(e.entityId)}</span>
         </td>
-        <td class="field-cell">${m(e.fieldPath)}</td>
+        <td class="field-cell">${g(e.fieldPath)}</td>
         <td class="status-cell">
           ${n}
-          ${e.error ? `<span class="error-message" title="${ee(e.error)}">${m(Fo(e.error, 30))}</span>` : ""}
+          ${e.error ? `<span class="error-message" title="${Q(e.error)}">${g(Lo(e.error, 30))}</span>` : ""}
         </td>
         <td class="translation-cell">
-          <span class="translation-text" title="${ee(e.targetLocale)}">${m(e.targetLocale)}</span>
+          <span class="translation-text" title="${Q(e.targetLocale)}">${g(e.targetLocale)}</span>
         </td>
         <td class="resolution-cell">
           ${e.status === "conflict" ? this.renderConflictResolution(e) : "-"}
@@ -10558,12 +10055,12 @@ class Do {
     const t = this.config.labels, s = e.resolution || "skip";
     return `
       <select class="resolution-select" data-index="${e.index}">
-        <option value="skip" ${s === "skip" ? "selected" : ""}>${m(t.skip)}</option>
-        <option value="keep_current" ${s === "keep_current" ? "selected" : ""}>${m(t.keepCurrent)}</option>
-        <option value="accept_incoming" ${s === "accept_incoming" ? "selected" : ""}>${m(t.acceptIncoming)}</option>
-        <option value="force" ${s === "force" ? "selected" : ""}>${m(t.force)}</option>
+        <option value="skip" ${s === "skip" ? "selected" : ""}>${g(t.skip)}</option>
+        <option value="keep_current" ${s === "keep_current" ? "selected" : ""}>${g(t.keepCurrent)}</option>
+        <option value="accept_incoming" ${s === "accept_incoming" ? "selected" : ""}>${g(t.acceptIncoming)}</option>
+        <option value="force" ${s === "force" ? "selected" : ""}>${g(t.force)}</option>
       </select>
-      ${e.conflict ? `<button type="button" class="conflict-details-btn" data-index="${e.index}" title="${ee(t.conflictDetails)}">?</button>` : ""}
+      ${e.conflict ? `<button type="button" class="conflict-details-btn" data-index="${e.index}" title="${Q(t.conflictDetails)}">?</button>` : ""}
     `;
   }
   renderApplyResult() {
@@ -10584,8 +10081,8 @@ class Do {
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-10 h-10 text-red-500">
           <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
         </svg>
-        <p class="error-message">${m(this.error?.message || e.error)}</p>
-        <button type="button" class="reset-btn">${m(e.cancelButton)}</button>
+        <p class="error-message">${g(this.error?.message || e.error)}</p>
+        <button type="button" class="reset-btn">${g(e.cancelButton)}</button>
       </div>
     `;
   }
@@ -10593,18 +10090,18 @@ class Do {
     const e = this.config.labels, t = this.state === "validated" && this.getSelectedIndices().length > 0, s = this.getApplyGate();
     return `
       <div class="import-footer">
-        <button type="button" class="cancel-btn">${m(e.cancelButton)}</button>
+        <button type="button" class="cancel-btn">${g(e.cancelButton)}</button>
         ${this.state === "idle" ? `
           <button type="button" class="validate-btn" ${!this.file && !this.rawData ? "disabled" : ""}>
-            ${m(e.validateButton)}
+            ${g(e.validateButton)}
           </button>
         ` : ""}
         ${this.state === "validated" ? `
           <button type="button"
                   class="apply-btn"
                   ${!t || !s.enabled ? "disabled" : ""}
-                  ${s.enabled ? "" : `aria-disabled="true" title="${ee(s.reason || e.applyDisabledReason)}"`}>
-            ${m(e.applyButton)}
+                  ${s.enabled ? "" : `aria-disabled="true" title="${Q(s.reason || e.applyDisabledReason)}"`}>
+            ${g(e.applyButton)}
           </button>
         ` : ""}
       </div>
@@ -10625,8 +10122,8 @@ class Do {
       h.target.checked ? this.selectAll() : this.deselectAll();
     }), this.container.querySelectorAll(".row-checkbox").forEach((h) => {
       h.addEventListener("change", () => {
-        const f = h.closest(".preview-row"), w = parseInt(f?.dataset.index || "", 10);
-        isNaN(w) || this.toggleRowSelection(w);
+        const f = h.closest(".preview-row"), v = parseInt(f?.dataset.index || "", 10);
+        isNaN(v) || this.toggleRowSelection(v);
       });
     }), this.container.querySelectorAll(".resolution-select").forEach((h) => {
       h.addEventListener("change", () => {
@@ -10641,16 +10138,16 @@ class Do {
     });
   }
 }
-function m(r) {
+function g(r) {
   return r.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 }
-function ee(r) {
+function Q(r) {
   return r.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 }
-function Fo(r, e) {
+function Lo(r, e) {
   return r.length <= e ? r : r.slice(0, e - 3) + "...";
 }
-function Bi() {
+function ba() {
   return `
     /* Exchange Import Styles */
     .exchange-import {
@@ -10989,18 +10486,18 @@ function Bi() {
     }
   `;
 }
-function qo(r, e) {
-  const t = new Do(e);
+function _o(r, e) {
+  const t = new Ao(e);
   return t.mount(r), t;
 }
-function Di(r) {
+function ya(r) {
   const e = r.dataset.validateEndpoint, t = r.dataset.applyEndpoint;
-  return !e || !t ? (console.warn("ExchangeImport: Missing required data attributes"), null) : qo(r, {
+  return !e || !t ? (console.warn("ExchangeImport: Missing required data attributes"), null) : _o(r, {
     validateEndpoint: e,
     applyEndpoint: t
   });
 }
-const Oo = {
+const Ro = {
   title: "Job Progress",
   running: "In Progress",
   completed: "Completed",
@@ -11019,15 +10516,15 @@ const Oo = {
   startedAt: "Started",
   elapsed: "Elapsed",
   conflicts: "Conflicts"
-}, jo = 2e3, zo = 300, No = "async_job_";
-class Ot {
+}, Io = 2e3, To = 300, Mo = "async_job_";
+class At {
   constructor(e = {}) {
     this.container = null, this.job = null, this.pollingState = "idle", this.pollTimer = null, this.pollAttempts = 0, this.startTime = null, this.error = null;
-    const t = { ...Oo, ...e.labels || {} };
+    const t = { ...Ro, ...e.labels || {} };
     this.config = {
-      storageKeyPrefix: e.storageKeyPrefix || No,
-      pollInterval: e.pollInterval || jo,
-      maxPollAttempts: e.maxPollAttempts || zo,
+      storageKeyPrefix: e.storageKeyPrefix || Mo,
+      pollInterval: e.pollInterval || Io,
+      maxPollAttempts: e.maxPollAttempts || To,
       onComplete: e.onComplete,
       onFailed: e.onFailed,
       onError: e.onError,
@@ -11216,7 +10713,7 @@ class Ot {
     if (!this.container) return;
     const e = this.config.labels;
     this.container.innerHTML = `
-      <div class="async-progress" role="region" aria-label="${C(e.title)}">
+      <div class="async-progress" role="region" aria-label="${S(e.title)}">
         ${this.renderHeader()}
         ${this.renderContent()}
         ${this.renderFooter()}
@@ -11228,14 +10725,14 @@ class Ot {
     if (!this.job)
       return `
         <div class="progress-header idle">
-          <h4 class="progress-title">${C(e.title)}</h4>
-          <span class="progress-status">${C(e.noActiveJob)}</span>
+          <h4 class="progress-title">${S(e.title)}</h4>
+          <span class="progress-status">${S(e.noActiveJob)}</span>
         </div>
       `;
-    const t = ot(this.job.status, "exchange"), s = this.getStatusLabel(), n = this.pollingState === "paused" ? `<span class="progress-status ${t}">${C(s)}</span>` : X(this.job.status, { domain: "exchange", size: "sm" });
+    const t = Je(this.job.status, "exchange"), s = this.getStatusLabel(), n = this.pollingState === "paused" ? `<span class="progress-status ${t}">${S(s)}</span>` : ee(this.job.status, { domain: "exchange", size: "sm" });
     return `
       <div class="progress-header ${t}">
-        <h4 class="progress-title">${C(e.title)}</h4>
+        <h4 class="progress-title">${S(e.title)}</h4>
         ${n}
       </div>
     `;
@@ -11251,15 +10748,15 @@ class Ot {
         ${this.renderProgressBar(s)}
         <div class="progress-counters">
           <span class="counter processed">
-            <span class="counter-label">${C(e.processed)}:</span>
+            <span class="counter-label">${S(e.processed)}:</span>
             <span class="counter-value">${t.processed}${t.total ? ` / ${t.total}` : ""}</span>
           </span>
           <span class="counter succeeded">
-            <span class="counter-label">${C(e.succeeded)}:</span>
+            <span class="counter-label">${S(e.succeeded)}:</span>
             <span class="counter-value">${t.succeeded}</span>
           </span>
           <span class="counter failed">
-            <span class="counter-label">${C(e.failedCount)}:</span>
+            <span class="counter-label">${S(e.failedCount)}:</span>
             <span class="counter-value">${t.failed}</span>
           </span>
         </div>
@@ -11293,13 +10790,13 @@ class Ot {
     return `
       <div class="progress-info">
         <span class="info-item">
-          <span class="info-label">${C(e.jobId)}:</span>
-          <code class="info-value">${C(this.job.id)}</code>
+          <span class="info-label">${S(e.jobId)}:</span>
+          <code class="info-value">${S(this.job.id)}</code>
         </span>
         ${t ? `
           <span class="info-item">
-            <span class="info-label">${C(e.elapsed)}:</span>
-            <span class="info-value">${C(t)}</span>
+            <span class="info-label">${S(e.elapsed)}:</span>
+            <span class="info-value">${S(t)}</span>
           </span>
         ` : ""}
       </div>
@@ -11312,13 +10809,13 @@ class Ot {
     return `
       <div class="progress-conflicts">
         <span class="conflicts-header">
-          <span class="conflicts-label">${C(e.conflicts)}:</span>
+          <span class="conflicts-label">${S(e.conflicts)}:</span>
           <span class="conflicts-count">${t.total}</span>
         </span>
         <div class="conflicts-by-type">
           ${Object.entries(t.by_type).map(([s, n]) => `
               <span class="conflict-type">
-                <span class="type-name">${C(s)}:</span>
+                <span class="type-name">${S(s)}:</span>
                 <span class="type-count">${n}</span>
               </span>
             `).join("")}
@@ -11330,13 +10827,13 @@ class Ot {
     const e = this.error?.message || this.job?.error;
     return e ? `
       <div class="progress-error" role="alert">
-        <span class="error-message">${C(e)}</span>
+        <span class="error-message">${S(e)}</span>
       </div>
     ` : "";
   }
   renderFooter() {
     const e = this.config.labels, t = [];
-    return this.pollingState === "paused" && t.push(`<button type="button" class="resume-btn">${C(e.resume)}</button>`), this.pollingState === "polling" && t.push(`<button type="button" class="cancel-btn">${C(e.cancel)}</button>`), (this.error || this.job?.status === "failed") && t.push(`<button type="button" class="retry-btn">${C(e.retry)}</button>`), (this.job?.status === "completed" || this.job?.status === "failed") && t.push(`<button type="button" class="dismiss-btn">${C(e.dismiss)}</button>`), t.length === 0 ? "" : `
+    return this.pollingState === "paused" && t.push(`<button type="button" class="resume-btn">${S(e.resume)}</button>`), this.pollingState === "polling" && t.push(`<button type="button" class="cancel-btn">${S(e.cancel)}</button>`), (this.error || this.job?.status === "failed") && t.push(`<button type="button" class="retry-btn">${S(e.retry)}</button>`), (this.job?.status === "completed" || this.job?.status === "failed") && t.push(`<button type="button" class="dismiss-btn">${S(e.dismiss)}</button>`), t.length === 0 ? "" : `
       <div class="progress-footer">
         ${t.join("")}
       </div>
@@ -11367,18 +10864,18 @@ class Ot {
     const n = Math.floor(s / 60), o = s % 60;
     if (n < 60)
       return `${n}m ${o}s`;
-    const a = Math.floor(n / 60), i = n % 60;
-    return `${a}h ${i}m`;
+    const i = Math.floor(n / 60), a = n % 60;
+    return `${i}h ${a}m`;
   }
   attachEventListeners() {
     if (!this.container) return;
     this.container.querySelector(".resume-btn")?.addEventListener("click", () => this.resumePolling()), this.container.querySelector(".cancel-btn")?.addEventListener("click", () => this.stopPolling()), this.container.querySelector(".retry-btn")?.addEventListener("click", () => this.retry()), this.container.querySelector(".dismiss-btn")?.addEventListener("click", () => this.reset());
   }
 }
-function C(r) {
+function S(r) {
   return r.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 }
-function Fi() {
+function va() {
   return `
     /* Async Progress Styles */
     .async-progress {
@@ -11612,22 +11109,22 @@ function Fi() {
     }
   `;
 }
-function Go(r, e) {
-  const t = new Ot(e);
+function Po(r, e) {
+  const t = new At(e);
   return t.mount(r), t;
 }
-function qi(r) {
+function wa(r) {
   const e = r.dataset.pollInterval ? parseInt(r.dataset.pollInterval, 10) : void 0, t = r.dataset.autoStart !== "false";
-  return Go(r, {
+  return Po(r, {
     pollInterval: e,
     autoStart: t
   });
 }
-function Oi(r, e) {
-  const t = new Ot(e);
+function xa(r, e) {
+  const t = new At(e);
   return t.hasPersistedJob(r) ? t : null;
 }
-const me = {
+const pe = {
   sourceColumn: "Source",
   targetColumn: "Translation",
   driftBannerTitle: "Source content has changed",
@@ -11637,7 +11134,7 @@ const me = {
   copySourceButton: "Copy from source",
   fieldChangedIndicator: "Source changed"
 };
-function Ho(r) {
+function Bo(r) {
   const e = {
     sourceHash: null,
     sourceVersion: null,
@@ -11654,15 +11151,15 @@ function Ho(r) {
   }
   return e;
 }
-function Uo(r, e) {
+function Do(r, e) {
   return !r || !r.hasDrift ? !1 : r.changedFieldsSummary.fields.some(
     (t) => t.toLowerCase() === e.toLowerCase()
   );
 }
-function ji(r) {
+function Sa(r) {
   return !r || !r.hasDrift ? [] : [...r.changedFieldsSummary.fields];
 }
-class Vo {
+class Fo {
   constructor(e) {
     this.container = null, this.driftAcknowledged = !1;
     const t = typeof e.container == "string" ? document.querySelector(e.container) : e.container;
@@ -11678,7 +11175,7 @@ class Vo {
       onChange: e.onChange,
       onDriftAcknowledge: e.onDriftAcknowledge,
       onCopySource: e.onCopySource,
-      labels: { ...me, ...e.labels }
+      labels: { ...pe, ...e.labels }
     }, this.container = t;
   }
   /**
@@ -11695,23 +11192,23 @@ class Vo {
    * Build HTML for the editor
    */
   buildHTML() {
-    const { drift: e, labels: t, sourceLocale: s, targetLocale: n, fields: o } = this.config, a = this.shouldShowDriftBanner() ? this.renderDriftBanner(e, t) : "", i = o.map((l) => this.renderFieldRow(l, t)).join("");
+    const { drift: e, labels: t, sourceLocale: s, targetLocale: n, fields: o } = this.config, i = this.shouldShowDriftBanner() ? this.renderDriftBanner(e, t) : "", a = o.map((l) => this.renderFieldRow(l, t)).join("");
     return `
       <div class="side-by-side-editor" data-source-locale="${s}" data-target-locale="${n}">
-        ${a}
+        ${i}
         <div class="sbs-columns">
           <div class="sbs-header">
             <div class="sbs-column-header sbs-source-header">
-              <span class="sbs-column-title">${R(t.sourceColumn)}</span>
+              <span class="sbs-column-title">${L(t.sourceColumn)}</span>
               <span class="sbs-locale-badge">${s.toUpperCase()}</span>
             </div>
             <div class="sbs-column-header sbs-target-header">
-              <span class="sbs-column-title">${R(t.targetColumn)}</span>
+              <span class="sbs-column-title">${L(t.targetColumn)}</span>
               <span class="sbs-locale-badge">${n.toUpperCase()}</span>
             </div>
           </div>
           <div class="sbs-fields">
-            ${i}
+            ${a}
           </div>
         </div>
       </div>
@@ -11721,7 +11218,7 @@ class Vo {
    * Render the drift warning banner
    */
   renderDriftBanner(e, t) {
-    const s = { ...me, ...t }, n = e.changedFieldsSummary.count, o = e.changedFieldsSummary.fields, a = o.length > 0 ? `<ul class="sbs-drift-fields-list">${o.map((i) => `<li>${R(i)}</li>`).join("")}</ul>` : "";
+    const s = { ...pe, ...t }, n = e.changedFieldsSummary.count, o = e.changedFieldsSummary.fields, i = o.length > 0 ? `<ul class="sbs-drift-fields-list">${o.map((a) => `<li>${L(a)}</li>`).join("")}</ul>` : "";
     return `
       <div class="sbs-drift-banner" role="alert" aria-live="polite" data-drift-banner="true">
         <div class="sbs-drift-icon">
@@ -11730,16 +11227,16 @@ class Vo {
           </svg>
         </div>
         <div class="sbs-drift-content">
-          <h3 class="sbs-drift-title">${R(s.driftBannerTitle)}</h3>
+          <h3 class="sbs-drift-title">${L(s.driftBannerTitle)}</h3>
           <p class="sbs-drift-description">
-            ${R(s.driftBannerDescription)}
+            ${L(s.driftBannerDescription)}
             ${n > 0 ? `<span class="sbs-drift-count">${n} field${n !== 1 ? "s" : ""} changed.</span>` : ""}
           </p>
-          ${a}
+          ${i}
         </div>
         <div class="sbs-drift-actions">
           <button type="button" class="sbs-drift-acknowledge" data-action="acknowledge-drift">
-            ${R(s.driftAcknowledgeButton)}
+            ${L(s.driftAcknowledgeButton)}
           </button>
         </div>
       </div>
@@ -11749,27 +11246,27 @@ class Vo {
    * Render a single field row
    */
   renderFieldRow(e, t) {
-    const s = { ...me, ...t }, n = e.hasSourceChanged ? `<span class="sbs-field-changed" title="${R(s.fieldChangedIndicator)}">
+    const s = { ...pe, ...t }, n = e.hasSourceChanged ? `<span class="sbs-field-changed" title="${L(s.fieldChangedIndicator)}">
           <svg class="w-4 h-4 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
             <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd" />
           </svg>
-        </span>` : "", o = this.renderSourceField(e), a = this.renderTargetField(e), i = `
+        </span>` : "", o = this.renderSourceField(e), i = this.renderTargetField(e), a = `
       <button type="button"
               class="sbs-copy-source"
               data-action="copy-source"
-              data-field="${$(e.key)}"
-              title="${$(s.copySourceButton)}"
-              aria-label="${$(s.copySourceButton)} for ${$(e.label)}">
+              data-field="${C(e.key)}"
+              title="${C(s.copySourceButton)}"
+              aria-label="${C(s.copySourceButton)} for ${C(e.label)}">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
         </svg>
       </button>
     `;
     return `
-      <div class="${e.hasSourceChanged ? "sbs-field-row sbs-field-changed-row" : "sbs-field-row"}" data-field-key="${$(e.key)}">
+      <div class="${e.hasSourceChanged ? "sbs-field-row sbs-field-changed-row" : "sbs-field-row"}" data-field-key="${C(e.key)}">
         <div class="sbs-field-header">
           <label class="sbs-field-label">
-            ${R(e.label)}
+            ${L(e.label)}
             ${e.required ? '<span class="sbs-required">*</span>' : ""}
           </label>
           ${n}
@@ -11779,10 +11276,10 @@ class Vo {
             ${o}
           </div>
           <div class="sbs-field-actions">
-            ${i}
+            ${a}
           </div>
           <div class="sbs-target-field">
-            ${a}
+            ${i}
           </div>
         </div>
       </div>
@@ -11792,17 +11289,17 @@ class Vo {
    * Render source field (read-only)
    */
   renderSourceField(e) {
-    const t = R(e.sourceValue || "");
+    const t = L(e.sourceValue || "");
     return e.type === "textarea" || e.type === "richtext" || e.type === "html" ? `
         <div class="sbs-source-content sbs-textarea-field"
-             data-field="${$(e.key)}"
-             aria-label="Source: ${$(e.label)}">
+             data-field="${C(e.key)}"
+             aria-label="Source: ${C(e.label)}">
           ${t || '<span class="sbs-empty">Empty</span>'}
         </div>
       ` : `
       <div class="sbs-source-content sbs-text-field"
-           data-field="${$(e.key)}"
-           aria-label="Source: ${$(e.label)}">
+           data-field="${C(e.key)}"
+           aria-label="Source: ${C(e.label)}">
         ${t || '<span class="sbs-empty">Empty</span>'}
       </div>
     `;
@@ -11811,22 +11308,22 @@ class Vo {
    * Render target field (editable)
    */
   renderTargetField(e) {
-    const t = R(e.targetValue || ""), s = e.placeholder ? `placeholder="${$(e.placeholder)}"` : "", n = e.required ? "required" : "", o = e.maxLength ? `maxlength="${e.maxLength}"` : "";
+    const t = L(e.targetValue || ""), s = e.placeholder ? `placeholder="${C(e.placeholder)}"` : "", n = e.required ? "required" : "", o = e.maxLength ? `maxlength="${e.maxLength}"` : "";
     return e.type === "textarea" || e.type === "richtext" || e.type === "html" ? `
         <textarea class="sbs-target-input sbs-textarea-input"
-                  name="${$(e.key)}"
-                  data-field="${$(e.key)}"
-                  aria-label="Translation: ${$(e.label)}"
+                  name="${C(e.key)}"
+                  data-field="${C(e.key)}"
+                  aria-label="Translation: ${C(e.label)}"
                   ${s}
                   ${n}
                   ${o}>${t}</textarea>
       ` : `
       <input type="text"
              class="sbs-target-input sbs-text-input"
-             name="${$(e.key)}"
-             data-field="${$(e.key)}"
+             name="${C(e.key)}"
+             data-field="${C(e.key)}"
              value="${t}"
-             aria-label="Translation: ${$(e.label)}"
+             aria-label="Translation: ${C(e.label)}"
              ${s}
              ${n}
              ${o}>
@@ -11924,24 +11421,24 @@ class Vo {
     this.container && (this.container.innerHTML = ""), this.container = null;
   }
 }
-function Ko(r) {
-  const e = new Vo(r);
+function qo(r) {
+  const e = new Fo(r);
   return e.render(), e;
 }
-function zi(r, e, t, s, n) {
-  const o = Ho(e), a = s.map((i) => ({
-    key: i,
-    label: i.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()),
+function Ca(r, e, t, s, n) {
+  const o = Bo(e), i = s.map((a) => ({
+    key: a,
+    label: a.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()),
     type: "text",
-    hasSourceChanged: Uo(o, i),
-    sourceValue: String(t[i] || ""),
-    targetValue: String(e[i] || ""),
+    hasSourceChanged: Do(o, a),
+    sourceValue: String(t[a] || ""),
+    targetValue: String(e[a] || ""),
     sourceLocale: n.sourceLocale || "en",
     targetLocale: n.targetLocale || ""
   }));
-  return Ko({
+  return qo({
     container: r,
-    fields: a,
+    fields: i,
     drift: o,
     sourceLocale: n.sourceLocale || "en",
     targetLocale: n.targetLocale || "",
@@ -11950,7 +11447,7 @@ function zi(r, e, t, s, n) {
     ...n
   });
 }
-function Ni() {
+function Ea() {
   return `
     /* Side-by-Side Editor Styles */
     .side-by-side-editor {
@@ -12320,213 +11817,213 @@ function Ni() {
     }
   `;
 }
-function R(r) {
+function L(r) {
   return r.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 }
-function $(r) {
+function C(r) {
   return r.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 }
 export {
-  Qt as ActionRenderer,
-  Ba as AdvancedSearch,
-  Ot as AsyncProgress,
-  Mt as AutosaveIndicator,
-  be as CORE_READINESS_DISPLAY,
-  Ft as CapabilityGate,
-  gr as CellRendererRegistry,
-  go as CharacterCounter,
-  Gs as ColumnManager,
-  Ea as CommonRenderers,
-  Eo as DEFAULT_FILTER_PRESETS,
-  Dt as DEFAULT_INTERPOLATION_PATTERNS,
-  fo as DEFAULT_SAMPLE_VALUES,
-  me as DEFAULT_SIDE_BY_SIDE_LABELS,
-  zn as DEFAULT_STATUS_LEGEND_ITEMS,
-  kt as DEFAULT_TRANSLATION_QUICK_FILTERS,
-  Ce as DISABLED_REASON_DISPLAY,
-  Ae as DataGrid,
-  Fn as DefaultColumnVisibilityBehavior,
-  bo as DirectionToggle,
-  Se as EXCHANGE_JOB_STATUS_DISPLAY,
-  xe as EXCHANGE_ROW_STATUS_DISPLAY,
-  Do as ExchangeImport,
-  je as FallbackBanner,
-  Da as FilterBuilder,
-  Na as GoCrudBulkActionBehavior,
-  za as GoCrudExportBehavior,
-  qa as GoCrudFilterBehavior,
-  Oa as GoCrudPaginationBehavior,
-  Fa as GoCrudSearchBehavior,
-  ja as GoCrudSortBehavior,
-  Lt as InlineLocaleChips,
-  mo as InterpolationPreview,
-  Rt as KeyboardShortcutRegistry,
-  dt as LocalDataGridStateStore,
-  le as LocaleActionChip,
-  qn as PayloadInputModal,
-  $r as PreferencesDataGridStateStore,
-  ve as QUEUE_CONTENT_STATE_DISPLAY,
-  we as QUEUE_DUE_STATE_DISPLAY,
-  ye as QUEUE_STATE_DISPLAY,
-  Gn as QuickFilters,
-  jn as SchemaActionBuilder,
-  Ga as ServerColumnVisibilityBehavior,
-  Vo as SideBySideEditor,
-  Et as StatusLegend,
-  qe as TranslationBlockerModal,
-  Un as TranslationPanel,
-  ko as TranslatorDashboard,
-  Qn as applyFormLock,
-  Co as applyGateToElement,
-  io as applyShortcutSettings,
-  Ze as buildLocaleEditUrl,
-  Ha as buildSchemaRowActions,
-  Oi as checkForPersistedJob,
-  _a as collapseAllGroups,
-  Go as createAsyncProgress,
-  ei as createBulkCreateMissingHandler,
-  et as createCapabilityGate,
-  Er as createDataGridStateStore,
-  _i as createEmptyCapabilityGate,
-  qo as createExchangeImport,
-  ui as createInlineLocaleChipsRenderer,
-  sr as createLocaleBadgeRenderer,
-  ca as createReasonCodeCellRenderer,
-  Ko as createSideBySideEditor,
-  la as createStatusCellRenderer,
-  Nn as createStatusLegend,
-  bi as createTranslationAutosave,
-  Ca as createTranslationMatrixRenderer,
-  Wa as createTranslationPanel,
-  Hn as createTranslationQuickFilters,
-  ro as createTranslationShortcuts,
-  He as createTranslationStatusRenderer,
-  To as createTranslatorDashboard,
-  Nr as decodeExpandedGroupsToken,
-  Ei as detectInterpolations,
-  oo as dismissShortcutHint,
-  Ia as encodeExpandedGroupsToken,
-  Vn as executeBulkCreateMissing,
-  La as expandAllGroups,
-  Dr as extractBackendSummaries,
-  wo as extractCapabilities,
-  Ui as extractExchangeError,
-  Ua as extractSchemaActions,
-  Ho as extractSourceTargetDrift,
-  P as extractTranslationContext,
-  _ as extractTranslationReadiness,
-  _t as formatShortcutDisplay,
-  Vi as generateExchangeReport,
-  oa as getAllReasonCodes,
-  Fi as getAsyncProgressStyles,
-  vi as getAutosaveIndicatorStyles,
-  Ti as getCapabilityGateStyles,
-  ji as getChangedFields,
-  ki as getCharCountSeverity,
-  gi as getDefaultShortcutRegistry,
-  ne as getDisabledReasonDisplay,
-  Bi as getExchangeImportStyles,
-  Ra as getExpandedGroupIds,
-  $i as getFieldHelperStyles,
-  ni as getFormLockReason,
-  T as getLocaleLabel,
-  Sa as getMissingTranslationsCount,
-  eo as getModifierSymbol,
-  Fr as getPersistedExpandState,
-  zr as getPersistedViewMode,
-  Zn as getPrimaryModifierLabel,
-  aa as getSeverityCssClass,
-  Ni as getSideBySideEditorStyles,
-  ot as getStatusCssClass,
-  j as getStatusDisplay,
-  ua as getStatusVocabularyStyles,
-  na as getStatusesForDomain,
-  Mi as getTranslatorDashboardStyles,
-  Be as getViewModeForViewport,
-  Ki as groupRowResultsByStatus,
-  ut as hasBackendGroupedRows,
-  Uo as hasFieldDrift,
-  xa as hasMissingTranslations,
-  ha as hasTranslationContext,
-  fa as hasTranslationReadiness,
-  qi as initAsyncProgress,
-  Ii as initCapabilityGating,
-  Di as initExchangeImport,
-  ii as initFallbackBanner,
-  xi as initFieldHelpers,
-  wi as initFormAutosave,
-  li as initFormLock,
-  di as initInlineLocaleChips,
-  lo as initKeyboardShortcuts,
-  mi as initKeyboardShortcutsWithDiscovery,
-  ri as initLocaleActionChips,
-  Ya as initQuickFilters,
-  zi as initSideBySideEditorFromRecord,
-  Ka as initStatusLegends,
-  Pi as initTranslatorDashboard,
-  Io as initTranslatorDashboardWithOptions,
-  da as initializeVocabularyFromPayload,
-  Li as isCoreEnabled,
-  yo as isExchangeEnabled,
-  Ji as isExchangeError,
-  si as isFormLocked,
-  pa as isInFallbackMode,
-  ce as isMacPlatform,
-  Yr as isNarrowViewport,
-  vo as isQueueEnabled,
-  ga as isReadyForTransition,
-  no as isShortcutHintDismissed,
-  sa as isValidReasonCode,
-  ra as isValidStatus,
-  so as loadShortcutSettings,
-  Br as mergeBackendSummaries,
-  Ar as normalizeBackendGroupedRows,
-  Ai as parseCapabilityMode,
-  Yi as parseImportResult,
-  xt as parseViewMode,
-  ka as persistExpandState,
-  Ta as persistViewMode,
-  Wn as removeFormLock,
-  yi as renderAutosaveIndicator,
-  Xt as renderAvailableLocalesIndicator,
-  Za as renderBulkResultInline,
-  Xa as renderBulkResultSummary,
-  Si as renderCharacterCounter,
-  Ci as renderDirectionToggle,
-  xo as renderDisabledReasonBadge,
-  ao as renderDiscoveryHint,
-  oi as renderFallbackBannerFromRecord,
-  $a as renderFallbackWarning,
-  Ri as renderGateAriaAttributes,
-  Vr as renderGroupHeaderRow,
-  Gr as renderGroupHeaderSummary,
-  Jr as renderGroupedEmptyState,
-  Pa as renderGroupedErrorState,
-  Ma as renderGroupedLoadingState,
-  Xn as renderInlineLocaleChips,
-  At as renderLocaleActionChip,
-  ti as renderLocaleActionList,
-  lt as renderLocaleBadge,
-  va as renderLocaleCompleteness,
-  wa as renderMissingTranslationsBadge,
-  ya as renderPublishReadinessBadge,
-  Qa as renderQuickFiltersHTML,
-  ba as renderReadinessIndicator,
-  it as renderReasonCodeBadge,
-  ia as renderReasonCodeIndicator,
-  fi as renderShortcutSettingsUI,
-  pi as renderShortcutsHelpContent,
-  ma as renderStatusBadge,
-  Ja as renderStatusLegendHTML,
-  tr as renderTranslationMatrixCell,
-  Zt as renderTranslationStatusCell,
-  X as renderVocabularyStatusBadge,
-  at as renderVocabularyStatusIcon,
-  hi as saveShortcutSettings,
-  ai as shouldShowFallbackBanner,
-  ci as shouldShowInlineLocaleChips,
-  Va as showTranslationBlocker,
-  Aa as toggleGroupExpand,
-  kr as transformToGroups
+  zt as ActionRenderer,
+  bi as AdvancedSearch,
+  At as AsyncProgress,
+  xt as AutosaveIndicator,
+  Ma as CORE_READINESS_DISPLAY,
+  $t as CapabilityGate,
+  ir as CellRendererRegistry,
+  oo as CharacterCounter,
+  Ps as ColumnManager,
+  ai as CommonRenderers,
+  go as DEFAULT_FILTER_PRESETS,
+  Et as DEFAULT_INTERPOLATION_PATTERNS,
+  no as DEFAULT_SAMPLE_VALUES,
+  pe as DEFAULT_SIDE_BY_SIDE_LABELS,
+  Tn as DEFAULT_STATUS_LEGEND_ITEMS,
+  ft as DEFAULT_TRANSLATION_QUICK_FILTERS,
+  Pa as DISABLED_REASON_DISPLAY,
+  ge as DataGrid,
+  Ln as DefaultColumnVisibilityBehavior,
+  ao as DirectionToggle,
+  Ba as EXCHANGE_JOB_STATUS_DISPLAY,
+  Da as EXCHANGE_ROW_STATUS_DISPLAY,
+  Ao as ExchangeImport,
+  _e as FallbackBanner,
+  yi as FilterBuilder,
+  Ei as GoCrudBulkActionBehavior,
+  Ci as GoCrudExportBehavior,
+  wi as GoCrudFilterBehavior,
+  xi as GoCrudPaginationBehavior,
+  vi as GoCrudSearchBehavior,
+  Si as GoCrudSortBehavior,
+  gt as InlineLocaleChips,
+  io as InterpolationPreview,
+  yt as KeyboardShortcutRegistry,
+  Xe as LocalDataGridStateStore,
+  ne as LocaleActionChip,
+  _n as PayloadInputModal,
+  mr as PreferencesDataGridStateStore,
+  Fa as QUEUE_CONTENT_STATE_DISPLAY,
+  qa as QUEUE_DUE_STATE_DISPLAY,
+  Oa as QUEUE_STATE_DISPLAY,
+  Pn as QuickFilters,
+  In as SchemaActionBuilder,
+  $i as ServerColumnVisibilityBehavior,
+  Fo as SideBySideEditor,
+  ht as StatusLegend,
+  Ae as TranslationBlockerModal,
+  Dn as TranslationPanel,
+  bo as TranslatorDashboard,
+  zn as applyFormLock,
+  fo as applyGateToElement,
+  Xn as applyShortcutSettings,
+  Ne as buildLocaleEditUrl,
+  ki as buildSchemaRowActions,
+  xa as checkForPersistedJob,
+  ui as collapseAllGroups,
+  Po as createAsyncProgress,
+  Di as createBulkCreateMissingHandler,
+  Ge as createCapabilityGate,
+  gr as createDataGridStateStore,
+  ua as createEmptyCapabilityGate,
+  _o as createExchangeImport,
+  Ki as createInlineLocaleChipsRenderer,
+  Jt as createLocaleBadgeRenderer,
+  ja as createReasonCodeCellRenderer,
+  qo as createSideBySideEditor,
+  za as createStatusCellRenderer,
+  Mn as createStatusLegend,
+  Zi as createTranslationAutosave,
+  oi as createTranslationMatrixRenderer,
+  Mi as createTranslationPanel,
+  Bn as createTranslationQuickFilters,
+  Kn as createTranslationShortcuts,
+  Me as createTranslationStatusRenderer,
+  So as createTranslatorDashboard,
+  Mr as decodeExpandedGroupsToken,
+  aa as detectInterpolations,
+  Qn as dismissShortcutHint,
+  fi as encodeExpandedGroupsToken,
+  Fn as executeBulkCreateMissing,
+  di as expandAllGroups,
+  Ar as extractBackendSummaries,
+  uo as extractCapabilities,
+  Aa as extractExchangeError,
+  Ai as extractSchemaActions,
+  Bo as extractSourceTargetDrift,
+  T as extractTranslationContext,
+  A as extractTranslationReadiness,
+  bt as formatShortcutDisplay,
+  La as generateExchangeReport,
+  Na as getAllReasonCodes,
+  va as getAsyncProgressStyles,
+  ta as getAutosaveIndicatorStyles,
+  ha as getCapabilityGateStyles,
+  Sa as getChangedFields,
+  la as getCharCountSeverity,
+  Wi as getDefaultShortcutRegistry,
+  Pt as getDisabledReasonDisplay,
+  ba as getExchangeImportStyles,
+  pi as getExpandedGroupIds,
+  ia as getFieldHelperStyles,
+  ji as getFormLockReason,
+  _ as getLocaleLabel,
+  ni as getMissingTranslationsCount,
+  Hn as getModifierSymbol,
+  Lr as getPersistedExpandState,
+  Tr as getPersistedViewMode,
+  Un as getPrimaryModifierLabel,
+  Ga as getSeverityCssClass,
+  Ea as getSideBySideEditorStyles,
+  Je as getStatusCssClass,
+  Ke as getStatusDisplay,
+  Ua as getStatusVocabularyStyles,
+  Ha as getStatusesForDomain,
+  ma as getTranslatorDashboardStyles,
+  Ee as getViewModeForViewport,
+  _a as groupRowResultsByStatus,
+  Ze as hasBackendGroupedRows,
+  Do as hasFieldDrift,
+  si as hasMissingTranslations,
+  Yo as hasTranslationContext,
+  Qo as hasTranslationReadiness,
+  wa as initAsyncProgress,
+  fa as initCapabilityGating,
+  ya as initExchangeImport,
+  Gi as initFallbackBanner,
+  sa as initFieldHelpers,
+  ra as initFormAutosave,
+  Ui as initFormLock,
+  Vi as initInlineLocaleChips,
+  Zn as initKeyboardShortcuts,
+  Xi as initKeyboardShortcutsWithDiscovery,
+  qi as initLocaleActionChips,
+  Ii as initQuickFilters,
+  Ca as initSideBySideEditorFromRecord,
+  _i as initStatusLegends,
+  ga as initTranslatorDashboard,
+  Co as initTranslatorDashboardWithOptions,
+  Va as initializeVocabularyFromPayload,
+  da as isCoreEnabled,
+  lo as isExchangeEnabled,
+  Ra as isExchangeError,
+  Oi as isFormLocked,
+  Jo as isInFallbackMode,
+  oe as isMacPlatform,
+  jr as isNarrowViewport,
+  co as isQueueEnabled,
+  Wo as isReadyForTransition,
+  Yn as isShortcutHintDismissed,
+  Ka as isValidReasonCode,
+  Ja as isValidStatus,
+  Jn as loadShortcutSettings,
+  kr as mergeBackendSummaries,
+  yr as normalizeBackendGroupedRows,
+  ca as parseCapabilityMode,
+  Ia as parseImportResult,
+  ct as parseViewMode,
+  li as persistExpandState,
+  hi as persistViewMode,
+  Nn as removeFormLock,
+  ea as renderAutosaveIndicator,
+  Gt as renderAvailableLocalesIndicator,
+  Bi as renderBulkResultInline,
+  Pi as renderBulkResultSummary,
+  na as renderCharacterCounter,
+  oa as renderDirectionToggle,
+  po as renderDisabledReasonBadge,
+  Wn as renderDiscoveryHint,
+  zi as renderFallbackBannerFromRecord,
+  ii as renderFallbackWarning,
+  pa as renderGateAriaAttributes,
+  Fr as renderGroupHeaderRow,
+  Pr as renderGroupHeaderSummary,
+  Or as renderGroupedEmptyState,
+  gi as renderGroupedErrorState,
+  mi as renderGroupedLoadingState,
+  Gn as renderInlineLocaleChips,
+  mt as renderLocaleActionChip,
+  Fi as renderLocaleActionList,
+  Qe as renderLocaleBadge,
+  ti as renderLocaleCompleteness,
+  ri as renderMissingTranslationsBadge,
+  ei as renderPublishReadinessBadge,
+  Ti as renderQuickFiltersHTML,
+  Zo as renderReadinessIndicator,
+  Bt as renderReasonCodeBadge,
+  Ya as renderReasonCodeIndicator,
+  Qi as renderShortcutSettingsUI,
+  Ji as renderShortcutsHelpContent,
+  Xo as renderStatusBadge,
+  Ri as renderStatusLegendHTML,
+  Vt as renderTranslationMatrixCell,
+  Ut as renderTranslationStatusCell,
+  ee as renderVocabularyStatusBadge,
+  Mt as renderVocabularyStatusIcon,
+  Yi as saveShortcutSettings,
+  Ni as shouldShowFallbackBanner,
+  Hi as shouldShowInlineLocaleChips,
+  Li as showTranslationBlocker,
+  ci as toggleGroupExpand,
+  br as transformToGroups
 };
 //# sourceMappingURL=index.js.map
