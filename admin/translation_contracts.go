@@ -41,8 +41,10 @@ func TranslationSharedContractsPayload() map[string]any {
 	return map[string]any{
 		"schema_version":        translationSharedContractSchemaVersionCurrent,
 		"status_enums":          TranslationStatusEnumContract(),
+		"queue_contracts":       TranslationQueueContractPayload(),
 		"disabled_reason_codes": ActionDisabledReasonCodes(),
 		"source_target_drift":   TranslationSourceTargetDriftContract(),
+		"editor_contracts":      TranslationEditorContractPayload(),
 		"flow_vocabulary":       translationcore.VocabularyPayload(),
 		"openapi": map[string]any{
 			"schema_version": translationcore.SchemaVersion,
@@ -98,6 +100,33 @@ func TranslationSourceTargetDriftContract() map[string]any {
 		"summary_fields": []string{
 			translationSourceTargetDriftSummaryCountKey,
 			translationSourceTargetDriftSummaryFieldsKey,
+		},
+	}
+}
+
+// TranslationEditorContractPayload documents the editor-side field and assist
+// envelopes shared by backend payloads and frontend parsers.
+func TranslationEditorContractPayload() map[string]any {
+	return map[string]any{
+		"field_completeness": map[string]any{
+			"required_fields": []string{"required", "complete", "missing"},
+		},
+		"field_drift": map[string]any{
+			"required_fields": []string{"changed", "comparison_mode", "previous_source_value", "current_source_value"},
+			"comparison_modes": []string{translationEditorComparisonModeSnapshot, translationEditorComparisonModeHashOnly},
+		},
+		"field_validations": map[string]any{
+			"required_fields": []string{"valid", "message"},
+		},
+		"assist": map[string]any{
+			"glossary_matches_fallback_keys":    []string{"assist.glossary_matches", "glossary_matches"},
+			"style_guide_fallback_keys":         []string{"assist.style_guide_summary", "style_guide_summary"},
+			"translation_memory_key":            "translation_memory_suggestions",
+			"glossary_match_required_fields":    []string{"term", "preferred_translation", "field_paths"},
+			"style_guide_required_fields":       []string{"available", "title", "summary", "rules"},
+			"action_envelope_required_actions":  []string{"claim", "release", "submit_review", "approve", "reject", "archive"},
+			"assignment_action_state_payloads":  []string{"actions", "editor_actions", "assignment_action_states"},
+			"review_action_state_payloads":      []string{"review_actions", "review_action_states"},
 		},
 	}
 }

@@ -2,19 +2,46 @@ package admin
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"github.com/goliatone/go-admin/internal/primitives"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
+	translationcore "github.com/goliatone/go-admin/translations/core"
 	router "github.com/goliatone/go-router"
 )
 
 const translationQueueDueSoonWindow = 48 * time.Hour
 
+var translationQueuePrioritySortRank = map[string]int{
+	"low":    0,
+	"normal": 1,
+	"high":   2,
+	"urgent": 3,
+}
+
+var translationQueueDueStateSortRank = map[string]int{
+	translationQueueDueStateNone:    0,
+	translationQueueDueStateOnTrack: 1,
+	translationQueueDueStateSoon:    2,
+	translationQueueDueStateOverdue: 3,
+}
+
 type translationQueueBinding struct {
-	admin *Admin
-	now   func() time.Time
+	admin         *Admin
+	now           func() time.Time
+	idempotencyMu sync.Mutex
+	idempotency   map[string]translationQueueActionReplay
+}
+
+type translationQueueActionReplay struct {
+	PayloadHash string
+	Response    map[string]any
+	StoredAt    time.Time
 }
 
 func newTranslationQueueBinding(a *Admin) *translationQueueBinding {
@@ -22,9 +49,178 @@ func newTranslationQueueBinding(a *Admin) *translationQueueBinding {
 		return nil
 	}
 	return &translationQueueBinding{
-		admin: a,
-		now:   func() time.Time { return time.Now().UTC() },
+		admin:       a,
+		now:         func() time.Time { return time.Now().UTC() },
+		idempotency: map[string]translationQueueActionReplay{},
 	}
+}
+
+func (b *translationQueueBinding) Assignments(c router.Context) (payload any, err error) {
+	startedAt := time.Now()
+	obsCtx := c.Context()
+	defer func() {
+		recordTranslationAPIOperation(obsCtx, translationAPIObservation{
+			Operation: "translations.assignments.list",
+			Kind:      "read",
+			RequestID: requestIDFromContext(obsCtx),
+			TraceID:   traceIDFromContext(obsCtx),
+			TenantID:  tenantIDFromContext(obsCtx),
+			OrgID:     orgIDFromContext(obsCtx),
+			Duration:  time.Since(startedAt),
+			Err:       err,
+		})
+	}()
+	adminCtx, repo, now, err := b.prepareAssignmentRequest(c)
+	if err != nil {
+		return nil, err
+	}
+	obsCtx = adminCtx.Context
+
+	page := clampInt(atoiDefault(c.Query("page"), 1), 1, 10_000)
+	perPage := clampInt(atoiDefault(c.Query("per_page"), 50), 1, 200)
+	filter := b.assignmentFilterFromRequest(adminCtx, c)
+	assignments, total, err := b.listAssignments(adminCtx.Context, repo, filter, page, perPage)
+	if err != nil {
+		return nil, err
+	}
+	rows := make([]map[string]any, 0, len(assignments))
+	for _, assignment := range assignments {
+		rows = append(rows, b.assignmentContractRow(adminCtx.Context, assignment, now))
+	}
+	return map[string]any{
+		"data": rows,
+		"meta": map[string]any{
+			"page":                 page,
+			"per_page":             perPage,
+			"total":                total,
+			"updated_at":           now,
+			"supported_sort_keys":  TranslationQueueSupportedSortKeys(),
+			"default_sort":         translationQueueDefaultSortContract(),
+			"saved_filter_presets": TranslationQueueSavedFilterPresets(),
+		},
+	}, nil
+}
+
+func (b *translationQueueBinding) RunAssignmentAction(c router.Context, assignmentID, action string, body map[string]any) (payload any, err error) {
+	startedAt := time.Now()
+	obsCtx := c.Context()
+	defer func() {
+		recordTranslationAPIOperation(obsCtx, translationAPIObservation{
+			Operation: "translations.assignments.action." + strings.TrimSpace(strings.ToLower(action)),
+			Kind:      "write",
+			RequestID: requestIDFromContext(obsCtx),
+			TraceID:   traceIDFromContext(obsCtx),
+			TenantID:  tenantIDFromContext(obsCtx),
+			OrgID:     orgIDFromContext(obsCtx),
+			Duration:  time.Since(startedAt),
+			Err:       err,
+		})
+	}()
+	if err := rejectTranslationClientIdentityFields(body); err != nil {
+		return nil, err
+	}
+	adminCtx, repo, now, err := b.prepareAssignmentRequest(c)
+	if err != nil {
+		return nil, err
+	}
+	obsCtx = adminCtx.Context
+	identity := translationIdentityFromAdminContext(adminCtx)
+	if identity.ActorID == "" {
+		return nil, NewDomainError(string(translationcore.ErrorPermissionDenied), "assignment actions require an authenticated actor", map[string]any{
+			"component": "translation_queue_binding",
+			"action":    strings.TrimSpace(strings.ToLower(action)),
+		})
+	}
+	service := &DefaultTranslationQueueService{
+		Repository:    repo,
+		Activity:      b.admin.ActivityFeed(),
+		Notifications: b.admin.NotificationService(),
+		URLs:          b.admin.URLs(),
+	}
+
+	action = strings.TrimSpace(strings.ToLower(action))
+	assignmentID = strings.TrimSpace(assignmentID)
+	if assignmentID == "" {
+		return nil, requiredFieldDomainError("assignment_id", nil)
+	}
+	if action == "" {
+		return nil, requiredFieldDomainError("action", nil)
+	}
+
+	idempotencyKey := strings.TrimSpace(toString(body["idempotency_key"]))
+	if replay, ok, replayErr := b.lookupActionReplay(identity.ActorID, assignmentID, action, idempotencyKey, body); replayErr != nil {
+		return nil, replayErr
+	} else if ok {
+		if meta, _ := replay["meta"].(map[string]any); meta != nil {
+			meta["idempotency_hit"] = true
+			replay["meta"] = meta
+		}
+		return replay, nil
+	}
+
+	current, err := repo.Get(adminCtx.Context, assignmentID)
+	if err != nil {
+		return nil, err
+	}
+	if err := b.ensureAssignmentScope(identity, current); err != nil {
+		return nil, err
+	}
+	if err := b.requireAssignmentActionPermission(adminCtx, action, current); err != nil {
+		return nil, err
+	}
+
+	var updated TranslationAssignment
+	switch action {
+	case "claim":
+		expectedVersion := queueExpectedVersion(body)
+		if expectedVersion <= 0 {
+			expectedVersion = current.Version
+		}
+		updated, err = service.Claim(adminCtx.Context, TranslationQueueClaimInput{
+			AssignmentID:    assignmentID,
+			ClaimerID:       identity.ActorID,
+			ExpectedVersion: expectedVersion,
+		})
+	case "release":
+		expectedVersion := queueExpectedVersion(body)
+		if expectedVersion <= 0 {
+			expectedVersion = current.Version
+		}
+		updated, err = service.Release(adminCtx.Context, TranslationQueueReleaseInput{
+			AssignmentID:    assignmentID,
+			ActorID:         identity.ActorID,
+			ExpectedVersion: expectedVersion,
+		})
+	case "submit_review":
+		expectedVersion := queueExpectedVersion(body)
+		if expectedVersion <= 0 {
+			expectedVersion = current.Version
+		}
+		updated, err = b.runSubmitReviewAction(adminCtx, service, current, expectedVersion, body)
+	default:
+		return nil, validationDomainError("unsupported assignment action", map[string]any{
+			"field":  "action",
+			"action": action,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	response := map[string]any{
+		"data": map[string]any{
+			"assignment_id": assignmentID,
+			"status":        normalizeTranslationQueueState(string(updated.Status)),
+			"row_version":   updated.Version,
+			"updated_at":    updated.UpdatedAt,
+			"assignment":    b.assignmentContractRow(adminCtx.Context, updated, now),
+		},
+		"meta": map[string]any{
+			"idempotency_hit": false,
+		},
+	}
+	b.storeActionReplay(identity.ActorID, assignmentID, action, idempotencyKey, body, response)
+	return response, nil
 }
 
 func (b *translationQueueBinding) MyWork(c router.Context) (payload any, err error) {
@@ -221,6 +417,384 @@ func (b *translationQueueBinding) Queue(c router.Context) (payload any, err erro
 	}, nil
 }
 
+func (b *translationQueueBinding) prepareAssignmentRequest(c router.Context) (AdminContext, TranslationAssignmentRepository, time.Time, error) {
+	if b == nil || b.admin == nil {
+		return AdminContext{}, nil, time.Time{}, serviceNotConfiguredDomainError("translation queue binding", map[string]any{
+			"component": "translation_queue_binding",
+		})
+	}
+	adminCtx := b.admin.adminContextFromRequest(c, b.admin.config.DefaultLocale)
+	setTranslationTraceHeaders(c, adminCtx.Context)
+	if err := b.admin.requirePermission(adminCtx, PermAdminTranslationsView, "translations"); err != nil {
+		return AdminContext{}, nil, time.Time{}, err
+	}
+	repo, err := b.assignmentRepository()
+	if err != nil {
+		return AdminContext{}, nil, time.Time{}, err
+	}
+	return adminCtx, repo, b.now().UTC(), nil
+}
+
+func (b *translationQueueBinding) assignmentFilterFromRequest(adminCtx AdminContext, c router.Context) translationAssignmentListFilter {
+	actorID := strings.TrimSpace(primitives.FirstNonEmptyRaw(adminCtx.UserID, actorFromContext(adminCtx.Context)))
+	filter := translationAssignmentListFilter{
+		Status:     strings.TrimSpace(strings.ToLower(c.Query("status"))),
+		AssigneeID: translationQueueResolveActorFilter(c.Query("assignee_id"), actorID),
+		ReviewerID: translationQueueResolveActorFilter(c.Query("reviewer_id"), actorID),
+		DueState:   strings.TrimSpace(strings.ToLower(c.Query("due_state"))),
+		Locale:     strings.TrimSpace(strings.ToLower(primitives.FirstNonEmptyRaw(c.Query("locale"), c.Query("target_locale")))),
+		Priority:   strings.TrimSpace(strings.ToLower(c.Query("priority"))),
+		SortBy:     strings.TrimSpace(strings.ToLower(c.Query("sort"))),
+		SortDesc:   strings.EqualFold(strings.TrimSpace(c.Query("order")), "desc"),
+		TenantID:   strings.TrimSpace(primitives.FirstNonEmptyRaw(adminCtx.TenantID, tenantIDFromContext(adminCtx.Context))),
+		OrgID:      strings.TrimSpace(primitives.FirstNonEmptyRaw(adminCtx.OrgID, orgIDFromContext(adminCtx.Context))),
+	}
+	if !filter.SortDesc && strings.EqualFold(strings.TrimSpace(c.Query("direction")), "desc") {
+		filter.SortDesc = true
+	}
+	if filter.DueState != "" {
+		filter.DueState = normalizeTranslationQueueDueState(filter.DueState)
+	}
+	if filter.SortBy == "" {
+		filter.SortBy = strings.TrimSpace(strings.ToLower(c.Query("sort_by")))
+	}
+	if filter.SortBy == "" {
+		filter.SortBy = "updated_at"
+		filter.SortDesc = true
+	}
+	if reviewOnly := strings.TrimSpace(strings.ToLower(c.Query("review"))); reviewOnly == "1" || reviewOnly == "true" {
+		filter.Status = string(AssignmentStatusReview)
+	}
+	return filter
+}
+
+type translationAssignmentListFilter struct {
+	Status     string
+	AssigneeID string
+	ReviewerID string
+	DueState   string
+	Locale     string
+	Priority   string
+	SortBy     string
+	SortDesc   bool
+	TenantID   string
+	OrgID      string
+}
+
+func (b *translationQueueBinding) listAssignments(ctx context.Context, repo TranslationAssignmentRepository, filter translationAssignmentListFilter, page, perPage int) ([]TranslationAssignment, int, error) {
+	assignments, err := b.listAssignmentsForSummary(ctx, repo, filter.SortBy, nil)
+	if err != nil {
+		return nil, 0, err
+	}
+	matched := make([]TranslationAssignment, 0, len(assignments))
+	now := b.now().UTC()
+	for _, assignment := range assignments {
+		if !matchesAssignmentListFilter(assignment, filter, now) {
+			continue
+		}
+		matched = append(matched, assignment)
+	}
+	sortAssignments(matched, filter.SortBy, filter.SortDesc, now)
+	total := len(matched)
+	start := (page - 1) * perPage
+	if start >= total {
+		return []TranslationAssignment{}, total, nil
+	}
+	end := start + perPage
+	if end > total {
+		end = total
+	}
+	return matched[start:end], total, nil
+}
+
+func matchesAssignmentListFilter(assignment TranslationAssignment, filter translationAssignmentListFilter, now time.Time) bool {
+	if !translationQueueListFilterMatches(filter.Status, string(assignment.Status), normalizeTranslationQueueState) {
+		return false
+	}
+	if filter.AssigneeID != "" && !strings.EqualFold(strings.TrimSpace(assignment.AssigneeID), filter.AssigneeID) {
+		return false
+	}
+	if filter.ReviewerID != "" && !strings.EqualFold(strings.TrimSpace(firstNonEmpty(assignment.ReviewerID, assignment.LastReviewerID)), filter.ReviewerID) {
+		return false
+	}
+	if !translationQueueListFilterMatches(filter.DueState, translationQueueDueState(assignment.DueDate, now), normalizeTranslationQueueDueState) {
+		return false
+	}
+	if !translationQueueListFilterMatches(filter.Locale, assignment.TargetLocale, normalizeTranslationQueueLocaleFilterValue) {
+		return false
+	}
+	if !translationQueueListFilterMatches(filter.Priority, string(assignment.Priority), normalizeTranslationQueuePriorityFilterValue) {
+		return false
+	}
+	if filter.TenantID != "" && !strings.EqualFold(strings.TrimSpace(assignment.TenantID), filter.TenantID) {
+		return false
+	}
+	if filter.OrgID != "" && !strings.EqualFold(strings.TrimSpace(assignment.OrgID), filter.OrgID) {
+		return false
+	}
+	return true
+}
+
+func translationQueueResolveActorFilter(value, actorID string) string {
+	value = strings.TrimSpace(value)
+	if strings.EqualFold(value, "__me__") {
+		return strings.TrimSpace(actorID)
+	}
+	return value
+}
+
+func translationQueueListFilterMatches(filterValue, candidate string, normalize func(string) string) bool {
+	filterValue = strings.TrimSpace(filterValue)
+	if filterValue == "" {
+		return true
+	}
+	candidate = normalize(candidate)
+	if candidate == "" {
+		return false
+	}
+	for _, item := range strings.Split(filterValue, ",") {
+		if normalize(item) == candidate {
+			return true
+		}
+	}
+	return false
+}
+
+func normalizeTranslationQueuePriorityFilterValue(value string) string {
+	return strings.TrimSpace(strings.ToLower(value))
+}
+
+func normalizeTranslationQueueLocaleFilterValue(value string) string {
+	return strings.TrimSpace(strings.ToLower(value))
+}
+
+func sortAssignments(assignments []TranslationAssignment, sortBy string, sortDesc bool, now time.Time) {
+	sortBy = strings.TrimSpace(strings.ToLower(sortBy))
+	if sortBy == "" {
+		sortBy = "updated_at"
+		sortDesc = true
+	}
+	sort.SliceStable(assignments, func(i, j int) bool {
+		left := assignments[i]
+		right := assignments[j]
+		var comparison int
+		switch sortBy {
+		case "status":
+			comparison = strings.Compare(normalizeTranslationQueueState(string(left.Status)), normalizeTranslationQueueState(string(right.Status)))
+		case "assignee_id":
+			comparison = strings.Compare(strings.ToLower(strings.TrimSpace(left.AssigneeID)), strings.ToLower(strings.TrimSpace(right.AssigneeID)))
+		case "reviewer_id":
+			comparison = strings.Compare(
+				strings.ToLower(strings.TrimSpace(firstNonEmpty(left.ReviewerID, left.LastReviewerID))),
+				strings.ToLower(strings.TrimSpace(firstNonEmpty(right.ReviewerID, right.LastReviewerID))),
+			)
+		case "locale", "target_locale":
+			comparison = strings.Compare(strings.ToLower(strings.TrimSpace(left.TargetLocale)), strings.ToLower(strings.TrimSpace(right.TargetLocale)))
+		case "priority":
+			comparison = compareTranslationQueuePriority(left.Priority, right.Priority)
+		case "due_state":
+			comparison = compareTranslationQueueDueState(translationQueueDueState(left.DueDate, now), translationQueueDueState(right.DueDate, now))
+		case "due_date":
+			comparison = compareTimePtr(left.DueDate, right.DueDate)
+		case "created_at":
+			comparison = compareTime(left.CreatedAt, right.CreatedAt)
+		default:
+			comparison = compareTime(left.UpdatedAt, right.UpdatedAt)
+		}
+		if comparison == 0 {
+			return strings.ToLower(strings.TrimSpace(left.ID)) < strings.ToLower(strings.TrimSpace(right.ID))
+		}
+		if sortDesc {
+			return comparison > 0
+		}
+		return comparison < 0
+	})
+}
+
+func compareTimePtr(left, right *time.Time) int {
+	switch {
+	case left == nil && right == nil:
+		return 0
+	case left == nil:
+		return 1
+	case right == nil:
+		return -1
+	default:
+		return compareTime(*left, *right)
+	}
+}
+
+func compareTime(left, right time.Time) int {
+	switch {
+	case left.Equal(right):
+		return 0
+	case left.Before(right):
+		return -1
+	default:
+		return 1
+	}
+}
+
+func compareTranslationQueuePriority(left, right Priority) int {
+	return compareTranslationQueueSortRank(
+		translationQueuePriorityRank(string(left)),
+		translationQueuePriorityRank(string(right)),
+	)
+}
+
+func compareTranslationQueueDueState(left, right string) int {
+	return compareTranslationQueueSortRank(
+		translationQueueDueStateRank(left),
+		translationQueueDueStateRank(right),
+	)
+}
+
+func compareTranslationQueueSortRank(left, right int) int {
+	switch {
+	case left == right:
+		return 0
+	case left < right:
+		return -1
+	default:
+		return 1
+	}
+}
+
+func translationQueuePriorityRank(value string) int {
+	if rank, ok := translationQueuePrioritySortRank[strings.TrimSpace(strings.ToLower(value))]; ok {
+		return rank
+	}
+	return -1
+}
+
+func translationQueueDueStateRank(value string) int {
+	if rank, ok := translationQueueDueStateSortRank[normalizeTranslationQueueDueState(value)]; ok {
+		return rank
+	}
+	return -1
+}
+
+func (b *translationQueueBinding) ensureAssignmentScope(identity translationTransportIdentity, assignment TranslationAssignment) error {
+	if identity.TenantID != "" && assignment.TenantID != "" && !strings.EqualFold(identity.TenantID, assignment.TenantID) {
+		return NewDomainError(string(translationcore.ErrorPermissionDenied), "assignment scope does not match current tenant", map[string]any{
+			"assignment_id": assignment.ID,
+			"tenant_id":     assignment.TenantID,
+		})
+	}
+	if identity.OrgID != "" && assignment.OrgID != "" && !strings.EqualFold(identity.OrgID, assignment.OrgID) {
+		return NewDomainError(string(translationcore.ErrorPermissionDenied), "assignment scope does not match current organization", map[string]any{
+			"assignment_id": assignment.ID,
+			"org_id":        assignment.OrgID,
+		})
+	}
+	return nil
+}
+
+func (b *translationQueueBinding) requireAssignmentActionPermission(adminCtx AdminContext, action string, assignment TranslationAssignment) error {
+	switch action {
+	case "claim":
+		if err := b.admin.requirePermission(adminCtx, PermAdminTranslationsClaim, "translations"); err != nil {
+			return err
+		}
+		if assignment.Status != AssignmentStatusPending || assignment.AssignmentType != AssignmentTypeOpenPool {
+			return NewDomainError(string(translationcore.ErrorInvalidStatus), "assignment must be open pool before it can be claimed", map[string]any{
+				"assignment_id": assignment.ID,
+				"status":        assignment.Status,
+			})
+		}
+	case "release":
+		if err := b.admin.requirePermission(adminCtx, PermAdminTranslationsAssign, "translations"); err != nil {
+			return err
+		}
+		if assignment.Status != AssignmentStatusAssigned && assignment.Status != AssignmentStatusInProgress && assignment.Status != AssignmentStatusRejected {
+			return NewDomainError(string(translationcore.ErrorInvalidStatus), "assignment must be assigned or in progress before it can be released", map[string]any{
+				"assignment_id": assignment.ID,
+				"status":        assignment.Status,
+			})
+		}
+	case "submit_review":
+		if err := b.admin.requirePermission(adminCtx, PermAdminTranslationsEdit, "translations"); err != nil {
+			return err
+		}
+		if assignment.Status != AssignmentStatusInProgress {
+			return NewDomainError(string(translationcore.ErrorInvalidStatus), "assignment must be in progress before it can be submitted", map[string]any{
+				"assignment_id": assignment.ID,
+				"status":        assignment.Status,
+			})
+		}
+	default:
+		return validationDomainError("unsupported assignment action", map[string]any{
+			"field":  "action",
+			"action": action,
+		})
+	}
+	return nil
+}
+
+func (b *translationQueueBinding) lookupActionReplay(actorID, assignmentID, action, idempotencyKey string, payload map[string]any) (map[string]any, bool, error) {
+	idempotencyKey = strings.TrimSpace(idempotencyKey)
+	if b == nil || idempotencyKey == "" {
+		return nil, false, nil
+	}
+	recordKey := b.actionReplayKey(actorID, assignmentID, action, idempotencyKey)
+	payloadHash := actionReplayPayloadHash(payload)
+	now := b.now().UTC()
+
+	b.idempotencyMu.Lock()
+	defer b.idempotencyMu.Unlock()
+	record, ok := b.idempotency[recordKey]
+	if !ok {
+		return nil, false, nil
+	}
+	if now.Sub(record.StoredAt) > 24*time.Hour {
+		delete(b.idempotency, recordKey)
+		return nil, false, nil
+	}
+	if record.PayloadHash != payloadHash {
+		return nil, false, NewDomainError(string(translationcore.ErrorVersionConflict), "idempotency key was already used with a different assignment action payload", map[string]any{
+			"assignment_id":   assignmentID,
+			"action":          action,
+			"idempotency_key": idempotencyKey,
+		})
+	}
+	return primitives.CloneAnyMap(record.Response), true, nil
+}
+
+func (b *translationQueueBinding) storeActionReplay(actorID, assignmentID, action, idempotencyKey string, payload map[string]any, response map[string]any) {
+	idempotencyKey = strings.TrimSpace(idempotencyKey)
+	if b == nil || idempotencyKey == "" {
+		return
+	}
+	b.idempotencyMu.Lock()
+	defer b.idempotencyMu.Unlock()
+	b.idempotency[b.actionReplayKey(actorID, assignmentID, action, idempotencyKey)] = translationQueueActionReplay{
+		PayloadHash: actionReplayPayloadHash(payload),
+		Response:    primitives.CloneAnyMap(response),
+		StoredAt:    b.now().UTC(),
+	}
+}
+
+func (b *translationQueueBinding) actionReplayKey(actorID, assignmentID, action, idempotencyKey string) string {
+	return strings.Join([]string{
+		strings.TrimSpace(actorID),
+		strings.TrimSpace(assignmentID),
+		strings.TrimSpace(strings.ToLower(action)),
+		strings.TrimSpace(idempotencyKey),
+	}, "::")
+}
+
+func actionReplayPayloadHash(payload map[string]any) string {
+	if len(payload) == 0 {
+		return ""
+	}
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		return ""
+	}
+	sum := sha256.Sum256(encoded)
+	return hex.EncodeToString(sum[:])
+}
+
 func (b *translationQueueBinding) EntityTypesOptions(c router.Context) (any, error) {
 	if b == nil || b.admin == nil {
 		return nil, serviceNotConfiguredDomainError("translation queue binding", map[string]any{
@@ -369,7 +943,7 @@ func (b *translationQueueBinding) LocalesOptions(c router.Context) (any, error) 
 				}
 
 				if policy := b.translationPolicyForPanel(panel); policy != nil {
-					requiredLocales, _, resolved := resolveReadinessRequirements(
+					requiredLocales, _, resolved, _ := resolveReadinessRequirements(
 						adminCtx.Context,
 						policy,
 						panelName,
@@ -693,6 +1267,7 @@ func (b *translationQueueBinding) assignmentRepository() (TranslationAssignmentR
 
 func (b *translationQueueBinding) assignmentContractRow(ctx context.Context, assignment TranslationAssignment, now time.Time) map[string]any {
 	row := translationQueueAssignmentContractRow(assignment, now)
+	row["actions"] = b.assignmentActionStates(ctx, assignment)
 	row["review_actions"] = b.reviewActionStates(ctx, assignment.Status)
 	return row
 }
@@ -708,15 +1283,19 @@ func translationQueueAssignmentContractRow(assignment TranslationAssignment, now
 		"target_record_id":     strings.TrimSpace(assignment.TargetRecordID),
 		"source_locale":        strings.TrimSpace(assignment.SourceLocale),
 		"target_locale":        strings.TrimSpace(assignment.TargetLocale),
+		"work_scope":           normalizeTranslationAssignmentWorkScope(assignment.WorkScope),
 		"source_title":         strings.TrimSpace(assignment.SourceTitle),
 		"source_path":          strings.TrimSpace(assignment.SourcePath),
 		"assignee_id":          strings.TrimSpace(assignment.AssigneeID),
+		"reviewer_id":          strings.TrimSpace(firstNonEmpty(assignment.ReviewerID, assignment.LastReviewerID)),
 		"assignment_type":      strings.TrimSpace(string(assignment.AssignmentType)),
 		"content_state":        contentState,
 		"queue_state":          queueState,
 		"status":               queueState,
 		"priority":             strings.TrimSpace(string(assignment.Priority)),
 		"due_state":            translationQueueDueState(assignment.DueDate, now),
+		"row_version":          assignment.Version,
+		"version":              assignment.Version,
 		"updated_at":           assignment.UpdatedAt,
 		"created_at":           assignment.CreatedAt,
 	}
@@ -724,6 +1303,23 @@ func translationQueueAssignmentContractRow(assignment TranslationAssignment, now
 		row["due_date"] = assignment.DueDate
 	}
 	return row
+}
+
+func (b *translationQueueBinding) assignmentActionStates(ctx context.Context, assignment TranslationAssignment) map[string]any {
+	return map[string]any{
+		"claim":   b.claimActionState(ctx, assignment),
+		"release": b.releaseActionState(ctx, assignment),
+	}
+}
+
+func (b *translationQueueBinding) claimActionState(ctx context.Context, assignment TranslationAssignment) map[string]any {
+	statusAllowed := assignment.Status == AssignmentStatusPending && assignment.AssignmentType == AssignmentTypeOpenPool
+	return b.queueActionState(ctx, statusAllowed, PermAdminTranslationsClaim, "assignment must be open pool before it can be claimed")
+}
+
+func (b *translationQueueBinding) releaseActionState(ctx context.Context, assignment TranslationAssignment) map[string]any {
+	statusAllowed := assignment.Status == AssignmentStatusAssigned || assignment.Status == AssignmentStatusInProgress || assignment.Status == AssignmentStatusRejected
+	return b.queueActionState(ctx, statusAllowed, PermAdminTranslationsAssign, "assignment must be assigned or in progress before it can be released")
 }
 
 func (b *translationQueueBinding) reviewActionStates(ctx context.Context, status AssignmentStatus) map[string]any {

@@ -21,6 +21,7 @@ type TranslationAssignmentConflictError struct {
 	EntityType           string
 	SourceLocale         string
 	TargetLocale         string
+	WorkScope            string
 }
 
 func (e TranslationAssignmentConflictError) Error() string {

@@ -3,6 +3,8 @@ package admin
 import (
 	"strings"
 	"time"
+
+	translationcore "github.com/goliatone/go-admin/translations/core"
 )
 
 // AssignmentType controls how an assignment is picked up.
@@ -42,6 +44,8 @@ type TranslationAssignment struct {
 	ID                 string `json:"id"`
 	TranslationGroupID string `json:"translation_group_id"`
 	EntityType         string `json:"entity_type"`
+	TenantID           string `json:"tenant_id,omitempty"`
+	OrgID              string `json:"org_id,omitempty"`
 
 	SourceRecordID string `json:"source_record_id"`
 	SourceLocale   string `json:"source_locale"`
@@ -50,12 +54,14 @@ type TranslationAssignment struct {
 
 	SourceTitle string `json:"source_title,omitempty"`
 	SourcePath  string `json:"source_path,omitempty"`
+	WorkScope   string `json:"work_scope,omitempty"`
 
 	AssignmentType      AssignmentType   `json:"assignment_type"`
 	Status              AssignmentStatus `json:"status"`
 	Priority            Priority         `json:"priority"`
 	DueDate             *time.Time       `json:"due_date,omitempty"`
 	AssigneeID          string           `json:"assignee_id,omitempty"`
+	ReviewerID          string           `json:"reviewer_id,omitempty"`
 	AssignerID          string           `json:"assigner_id,omitempty"`
 	LastReviewerID      string           `json:"last_reviewer_id,omitempty"`
 	LastRejectionReason string           `json:"last_rejection_reason,omitempty"`
@@ -74,10 +80,9 @@ type TranslationAssignment struct {
 // ActiveUniquenessKey returns the canonical idempotency key for active assignments.
 func (a TranslationAssignment) ActiveUniquenessKey() string {
 	group := strings.TrimSpace(strings.ToLower(a.TranslationGroupID))
-	entity := strings.TrimSpace(strings.ToLower(a.EntityType))
-	source := strings.TrimSpace(strings.ToLower(a.SourceLocale))
 	target := strings.TrimSpace(strings.ToLower(a.TargetLocale))
-	return strings.Join([]string{group, entity, source, target}, ":")
+	workScope := normalizeTranslationAssignmentWorkScope(a.WorkScope)
+	return strings.Join([]string{group, target, workScope}, ":")
 }
 
 func (t AssignmentType) IsValid() bool {
@@ -114,6 +119,19 @@ func (s AssignmentStatus) IsTerminal() bool {
 	}
 }
 
+func (s AssignmentStatus) IsActive() bool {
+	switch s {
+	case AssignmentStatusPending,
+		AssignmentStatusAssigned,
+		AssignmentStatusInProgress,
+		AssignmentStatusReview,
+		AssignmentStatusRejected:
+		return true
+	default:
+		return false
+	}
+}
+
 func (p Priority) IsValid() bool {
 	switch p {
 	case PriorityLow, PriorityNormal, PriorityHigh, PriorityUrgent:
@@ -140,6 +158,9 @@ func (a TranslationAssignment) Validate() error {
 	if strings.TrimSpace(a.TargetLocale) == "" {
 		return requiredFieldDomainError("target_locale", nil)
 	}
+	if strings.TrimSpace(normalizeTranslationAssignmentWorkScope(a.WorkScope)) == "" {
+		return requiredFieldDomainError("work_scope", nil)
+	}
 	if !a.AssignmentType.IsValid() {
 		return validationDomainError("invalid assignment_type", map[string]any{
 			"field": "assignment_type",
@@ -161,4 +182,12 @@ func (a TranslationAssignment) Validate() error {
 		})
 	}
 	return nil
+}
+
+func normalizeTranslationAssignmentWorkScope(scope string) string {
+	scope = strings.TrimSpace(scope)
+	if scope == "" {
+		return translationcore.DefaultWorkScope
+	}
+	return scope
 }

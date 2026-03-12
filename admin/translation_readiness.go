@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/jinzhu/inflection"
+
+	translationcore "github.com/goliatone/go-admin/translations/core"
 )
 
 const (
@@ -36,9 +38,10 @@ type translationReadinessRequirementsCacheKey struct {
 }
 
 type translationReadinessRequirementsCacheValue struct {
-	locales  []string
-	fields   map[string][]string
-	resolved bool
+	locales          []string
+	fields           map[string][]string
+	resolved         bool
+	defaultWorkScope string
 }
 
 func buildRecordTranslationReadiness(
@@ -68,8 +71,9 @@ func buildRecordTranslationReadinessWithCache(
 	requiredLocales := []string{}
 	requiredFields := map[string][]string{}
 	requirementsResolved := false
+	requirements := TranslationRequirements{}
 	if cache == nil {
-		requiredLocales, requiredFields, requirementsResolved = resolveReadinessRequirements(ctx, policy, panelName, record, filters)
+		requiredLocales, requiredFields, requirementsResolved, requirements = resolveReadinessRequirements(ctx, policy, panelName, record, filters)
 	} else {
 		key := translationReadinessRequirementsCacheKey{
 			entityType:   strings.ToLower(strings.TrimSpace(panelName)),
@@ -84,12 +88,14 @@ func buildRecordTranslationReadinessWithCache(
 			requiredLocales = append([]string{}, cached.locales...)
 			requiredFields = cloneRequiredFields(cached.fields)
 			requirementsResolved = cached.resolved
+			requirements.DefaultWorkScope = cached.defaultWorkScope
 		} else {
-			requiredLocales, requiredFields, requirementsResolved = resolveReadinessRequirements(ctx, policy, panelName, record, filters)
+			requiredLocales, requiredFields, requirementsResolved, requirements = resolveReadinessRequirements(ctx, policy, panelName, record, filters)
 			cache.valuesByKey[key] = translationReadinessRequirementsCacheValue{
-				locales:  append([]string{}, requiredLocales...),
-				fields:   cloneRequiredFields(requiredFields),
-				resolved: requirementsResolved,
+				locales:          append([]string{}, requiredLocales...),
+				fields:           cloneRequiredFields(requiredFields),
+				resolved:         requirementsResolved,
+				defaultWorkScope: strings.TrimSpace(requirements.DefaultWorkScope),
 			}
 		}
 	}
@@ -117,6 +123,12 @@ func buildRecordTranslationReadinessWithCache(
 		"evaluated_environment":             environment,
 		"requirements_resolved":             requirementsResolved,
 	}
+	quickCreate := translationReadinessQuickCreatePayload(record, requiredLocales, missingLocales, requirements, requirementsResolved)
+	readiness["missing_locales"] = append([]string{}, quickCreate.MissingLocales...)
+	readiness["recommended_locale"] = quickCreate.RecommendedLocale
+	readiness["required_for_publish"] = append([]string{}, quickCreate.RequiredForPublish...)
+	readiness["default_assignment"] = translationReadinessDefaultAssignmentPayload(quickCreate.DefaultAssignment)
+	readiness["quick_create"] = translationReadinessQuickCreatePayloadMap(quickCreate)
 	if localeMetadata := translationReadinessLocaleMetadata(record); len(localeMetadata) > 0 {
 		readiness["locale_metadata"] = localeMetadata
 	}
@@ -184,12 +196,12 @@ func resolveReadinessRequirements(
 	panelName string,
 	record map[string]any,
 	filters map[string]any,
-) ([]string, map[string][]string, bool) {
+) ([]string, map[string][]string, bool, TranslationRequirements) {
 	requiredLocales := []string{}
 	requiredFields := map[string][]string{}
 	provider, ok := policy.(translationRequirementsProvider)
 	if !ok || provider == nil {
-		return requiredLocales, requiredFields, false
+		return requiredLocales, requiredFields, false, TranslationRequirements{}
 	}
 	input := TranslationPolicyInput{
 		EntityType:      strings.TrimSpace(panelName),
@@ -201,7 +213,7 @@ func resolveReadinessRequirements(
 	}
 	req, found, err := provider.Requirements(ctx, input)
 	if err != nil || !found {
-		return requiredLocales, requiredFields, false
+		return requiredLocales, requiredFields, false, TranslationRequirements{}
 	}
 	requiredLocales = translationReadinessLocaleList(req.Locales)
 	if len(requiredLocales) == 0 {
@@ -217,7 +229,7 @@ func resolveReadinessRequirements(
 			requiredFields[normalizedLocale] = normalizeRequiredFieldNames(fields)
 		}
 	}
-	return requiredLocales, requiredFields, true
+	return requiredLocales, requiredFields, true, req
 }
 
 func translationPolicyEntity(panelName string, record map[string]any) string {
@@ -593,4 +605,146 @@ func translationReadinessLocaleMetadata(record map[string]any) map[string]map[st
 		return nil
 	}
 	return out
+}
+
+type translationQuickCreateDefaultAssignment struct {
+	AutoCreateAssignment bool
+	WorkScope            string
+	Priority             string
+	AssigneeID           string
+	DueDate              string
+}
+
+type translationQuickCreatePayload struct {
+	Enabled            bool
+	MissingLocales     []string
+	RecommendedLocale  string
+	RequiredForPublish []string
+	DefaultAssignment  translationQuickCreateDefaultAssignment
+	DisabledReasonCode string
+	DisabledReason     string
+}
+
+func translationReadinessQuickCreatePayload(
+	record map[string]any,
+	requiredLocales, missingLocales []string,
+	req TranslationRequirements,
+	requirementsResolved bool,
+) translationQuickCreatePayload {
+	quickCreateMissing := translationReadinessQuickCreateLocales(record, missingLocales)
+	recommendedLocale := translationReadinessQuickCreateRecommendedLocale(record, quickCreateMissing, requiredLocales)
+	enabled, reasonCode, reason := translationReadinessQuickCreateAvailability(quickCreateMissing, requirementsResolved)
+	return translationQuickCreatePayload{
+		Enabled:            enabled,
+		MissingLocales:     append([]string{}, quickCreateMissing...),
+		RecommendedLocale:  recommendedLocale,
+		RequiredForPublish: translationReadinessLocaleList(requiredLocales),
+		DefaultAssignment: translationQuickCreateDefaultAssignment{
+			AutoCreateAssignment: false,
+			WorkScope:            strings.TrimSpace(firstNonEmpty(req.DefaultWorkScope, translationcore.DefaultWorkScope)),
+			Priority:             "normal",
+			AssigneeID:           "",
+			DueDate:              "",
+		},
+		DisabledReasonCode: reasonCode,
+		DisabledReason:     reason,
+	}
+}
+
+func translationReadinessQuickCreatePayloadMap(payload translationQuickCreatePayload) map[string]any {
+	return map[string]any{
+		"enabled":              payload.Enabled,
+		"missing_locales":      append([]string{}, payload.MissingLocales...),
+		"recommended_locale":   payload.RecommendedLocale,
+		"required_for_publish": append([]string{}, payload.RequiredForPublish...),
+		"default_assignment":   translationReadinessDefaultAssignmentPayload(payload.DefaultAssignment),
+		"disabled_reason_code": payload.DisabledReasonCode,
+		"disabled_reason":      payload.DisabledReason,
+	}
+}
+
+func translationReadinessDefaultAssignmentPayload(payload translationQuickCreateDefaultAssignment) map[string]any {
+	return map[string]any{
+		"auto_create_assignment": payload.AutoCreateAssignment,
+		"work_scope":             strings.TrimSpace(payload.WorkScope),
+		"priority":               strings.TrimSpace(payload.Priority),
+		"assignee_id":            strings.TrimSpace(payload.AssigneeID),
+		"due_date":               strings.TrimSpace(payload.DueDate),
+	}
+}
+
+func translationReadinessQuickCreateLocales(record map[string]any, missingLocales []string) []string {
+	out := translationReadinessLocaleList(missingLocales)
+	if !translationReadinessBoolField(record, []string{
+		"missing_requested_locale",
+		"translation.meta.missing_requested_locale",
+		"content_translation.meta.missing_requested_locale",
+	}) {
+		return out
+	}
+	requestedLocale := translationReadinessStringField(record, []string{
+		"requested_locale",
+		"translation.meta.requested_locale",
+		"content_translation.meta.requested_locale",
+	})
+	if requestedLocale == "" {
+		return out
+	}
+	out = append(out, requestedLocale)
+	return translationReadinessLocaleList(out)
+}
+
+func translationReadinessQuickCreateRecommendedLocale(record map[string]any, quickCreateLocales, requiredLocales []string) string {
+	if translationReadinessBoolField(record, []string{
+		"missing_requested_locale",
+		"translation.meta.missing_requested_locale",
+		"content_translation.meta.missing_requested_locale",
+	}) {
+		if requestedLocale := translationReadinessStringField(record, []string{
+			"requested_locale",
+			"translation.meta.requested_locale",
+			"content_translation.meta.requested_locale",
+		}); requestedLocale != "" {
+			return strings.ToLower(strings.TrimSpace(requestedLocale))
+		}
+	}
+	return translationReadinessRecommendedLocale(quickCreateLocales, requiredLocales)
+}
+
+func translationReadinessQuickCreateAvailability(locales []string, requirementsResolved bool) (bool, string, string) {
+	if !requirementsResolved {
+		return false, "policy_denied", "Policy currently blocks creating additional locale variants for this entry."
+	}
+	if len(locales) > 0 {
+		return true, "", ""
+	}
+	return false, "no_missing_locales", "All requested and required locales already exist for this entry."
+}
+
+func translationReadinessStringField(record map[string]any, paths []string) string {
+	for _, path := range paths {
+		value := translationReadinessNestedValue(record, strings.Split(path, ".")...)
+		if trimmed := strings.TrimSpace(toString(value)); trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
+}
+
+func translationReadinessBoolField(record map[string]any, paths []string) bool {
+	for _, path := range paths {
+		value := translationReadinessNestedValue(record, strings.Split(path, ".")...)
+		switch typed := value.(type) {
+		case bool:
+			return typed
+		case string:
+			switch strings.ToLower(strings.TrimSpace(typed)) {
+			case "true", "1", "yes", "on":
+				return true
+			case "false", "0", "no", "off":
+				return false
+			}
+		}
+	}
+	return false
 }

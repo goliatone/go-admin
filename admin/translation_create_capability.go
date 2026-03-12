@@ -18,6 +18,7 @@ type TranslationCreateInput struct {
 	PolicyEntity string
 	ContentType  string
 	Status       string
+	Metadata     map[string]any
 }
 
 // RepositoryTranslationCreator allows repositories to provide a first-class
@@ -39,5 +40,8 @@ func normalizeTranslationCreateInput(input TranslationCreateInput) TranslationCr
 	input.PolicyEntity = strings.TrimSpace(input.PolicyEntity)
 	input.ContentType = strings.TrimSpace(input.ContentType)
 	input.Status = strings.TrimSpace(input.Status)
+	if len(input.Metadata) > 0 {
+		input.Metadata = cloneAnyMap(input.Metadata)
+	}
 	return input
 }

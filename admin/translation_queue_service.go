@@ -204,6 +204,7 @@ func (s *DefaultTranslationQueueService) Approve(ctx context.Context, input Tran
 	assignment.Status = AssignmentStatusApproved
 	now := time.Now().UTC()
 	assignment.ApprovedAt = &now
+	assignment.ReviewerID = strings.TrimSpace(input.ReviewerID)
 	assignment.LastReviewerID = strings.TrimSpace(input.ReviewerID)
 
 	updated, err := s.Repository.Update(ctx, assignment, input.ExpectedVersion)
@@ -232,6 +233,7 @@ func (s *DefaultTranslationQueueService) Reject(ctx context.Context, input Trans
 	}
 
 	assignment.Status = AssignmentStatusRejected
+	assignment.ReviewerID = strings.TrimSpace(input.ReviewerID)
 	assignment.LastReviewerID = strings.TrimSpace(input.ReviewerID)
 	assignment.LastRejectionReason = strings.TrimSpace(input.Reason)
 
