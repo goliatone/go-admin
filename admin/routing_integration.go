@@ -1,9 +1,11 @@
 package admin
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/goliatone/go-admin/admin/routing"
+	router "github.com/goliatone/go-router"
 	urlkit "github.com/goliatone/go-urlkit"
 )
 
@@ -40,10 +42,10 @@ func (a *Admin) validateRouting() error {
 		return nil
 	}
 	if err := a.routingPlanner.Validate(); err != nil {
-		a.routingReport = a.routingPlanner.Report()
+		a.refreshRoutingReport()
 		return err
 	}
-	a.routingReport = a.routingPlanner.Report()
+	a.refreshRoutingReport()
 	return nil
 }
 
@@ -52,6 +54,7 @@ func (a *Admin) logRoutingStartupReport(stage string, err error) {
 		return
 	}
 
+	a.refreshRoutingReport()
 	report := a.RoutingReport()
 	attrs := []any{
 		"stage", strings.TrimSpace(stage),
@@ -122,6 +125,13 @@ func newURLKitRoutingAdapter(manager *urlkit.RouteManager) urlKitRoutingAdapter 
 	return urlKitRoutingAdapter{manager: manager}
 }
 
+func (a urlKitRoutingAdapter) RoutingURLKitCapabilities() routing.URLKitCapabilities {
+	if provider, ok := any(a.manager).(routing.URLKitCapabilityProvider); ok {
+		return provider.RoutingURLKitCapabilities()
+	}
+	return routing.URLKitCapabilities{}
+}
+
 func (a urlKitRoutingAdapter) EnsureGroup(path string) error {
 	if a.manager == nil {
 		return nil
@@ -150,4 +160,89 @@ func (a urlKitRoutingAdapter) RouteTemplate(group, route string) (string, error)
 		return "", nil
 	}
 	return a.manager.RouteTemplate(strings.TrimSpace(group), strings.TrimSpace(route))
+}
+
+type runtimeRouterAdapter interface {
+	Routes() []router.RouteDefinition
+	ValidateRoutes() []error
+}
+
+type adminRouterRoutingAdapter struct {
+	router runtimeRouterAdapter
+}
+
+func newAdminRouterRoutingAdapter(r AdminRouter) *adminRouterRoutingAdapter {
+	if r == nil {
+		return nil
+	}
+	adapter, ok := any(r).(runtimeRouterAdapter)
+	if !ok {
+		return nil
+	}
+	return &adminRouterRoutingAdapter{router: adapter}
+}
+
+func (a *adminRouterRoutingAdapter) Routes() []router.RouteDefinition {
+	if a == nil || a.router == nil {
+		return nil
+	}
+	return a.router.Routes()
+}
+
+func (a *adminRouterRoutingAdapter) ValidateRoutes() []error {
+	if a == nil || a.router == nil {
+		return nil
+	}
+	return a.router.ValidateRoutes()
+}
+
+func (a *adminRouterRoutingAdapter) RoutingRouterCapabilities() routing.RouterCapabilities {
+	if a == nil || a.router == nil {
+		return routing.RouterCapabilities{}
+	}
+	if provider, ok := any(a.router).(routing.RouterCapabilityProvider); ok {
+		return provider.RoutingRouterCapabilities()
+	}
+	return routing.RouterCapabilities{}
+}
+
+func (a *Admin) refreshRoutingReport() {
+	if a == nil || a.routingPlanner == nil {
+		return
+	}
+	base := a.routingPlanner.Report()
+	warnings := mergeRoutingWarnings(
+		base.Warnings,
+		routing.BuildAdapterWarnings(newURLKitRoutingAdapter(a.urlManager), newAdminRouterRoutingAdapter(a.router)),
+	)
+	a.routingReport = routing.BuildStartupReport(
+		base.EffectiveRoots,
+		base.Modules,
+		a.routingPlanner.Manifest(),
+		base.Conflicts,
+		warnings,
+	)
+}
+
+func mergeRoutingWarnings(groups ...[]string) []string {
+	seen := map[string]struct{}{}
+	out := make([]string, 0)
+	for _, warnings := range groups {
+		for _, warning := range warnings {
+			warning = strings.TrimSpace(warning)
+			if warning == "" {
+				continue
+			}
+			if _, ok := seen[warning]; ok {
+				continue
+			}
+			seen[warning] = struct{}{}
+			out = append(out, warning)
+		}
+	}
+	slices.Sort(out)
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
