@@ -6,6 +6,7 @@ import (
 	"github.com/goliatone/go-admin/internal/primitives"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	cmsblocks "github.com/goliatone/go-cms/blocks"
@@ -46,6 +47,7 @@ type GoCMSContentAdapter struct {
 
 	blockDefinitions  map[string]uuid.UUID
 	blockDefinitionBy map[uuid.UUID]string
+	blockDefinitionMu sync.RWMutex
 }
 
 // NewGoCMSContentAdapter wraps go-cms services into the admin CMSContentService contract.
@@ -366,28 +368,19 @@ func (a *GoCMSContentAdapter) BlockDefinitions(ctx context.Context) ([]CMSBlockD
 		return nil, err
 	}
 	defs := make([]CMSBlockDefinition, 0, len(records))
+	defCache := map[string]uuid.UUID{}
+	defNames := map[uuid.UUID]string{}
 	for _, record := range records {
 		if record == nil {
 			continue
 		}
 		def := convertBlockDefinition(reflect.ValueOf(record))
 		if def.ID != "" {
-			id := record.ID
-			env := blockDefinitionCacheEnv(ctx, def)
-			primary := strings.TrimSpace(primitives.FirstNonEmptyRaw(def.Slug, def.ID, def.Name))
-			if primary != "" {
-				a.blockDefinitions[blockDefinitionCacheKey(env, primary)] = id
-				a.blockDefinitionBy[id] = primary
-			}
-			if def.Name != "" {
-				a.blockDefinitions[blockDefinitionCacheKey(env, def.Name)] = id
-			}
-			if def.Slug != "" {
-				a.blockDefinitions[blockDefinitionCacheKey(env, def.Slug)] = id
-			}
+			collectGoCMSBlockDefinitionCacheEntries(defCache, defNames, ctx, def, record.ID, false)
 		}
 		defs = append(defs, def)
 	}
+	a.publishBlockDefinitionCache(defCache, defNames)
 	return defs, nil
 }
 
@@ -437,6 +430,10 @@ func (a *GoCMSContentAdapter) CreateBlockDefinition(ctx context.Context, def CMS
 		return nil, ErrNotFound
 	}
 	converted := convertBlockDefinition(reflect.ValueOf(created))
+	defCache := map[string]uuid.UUID{}
+	defNames := map[uuid.UUID]string{}
+	collectGoCMSBlockDefinitionCacheEntries(defCache, defNames, ctx, converted, created.ID, true)
+	a.publishBlockDefinitionCache(defCache, defNames)
 	return &converted, nil
 }
 
@@ -484,6 +481,10 @@ func (a *GoCMSContentAdapter) UpdateBlockDefinition(ctx context.Context, def CMS
 		return nil, ErrNotFound
 	}
 	converted := convertBlockDefinition(reflect.ValueOf(updated))
+	defCache := map[string]uuid.UUID{}
+	defNames := map[uuid.UUID]string{}
+	collectGoCMSBlockDefinitionCacheEntries(defCache, defNames, ctx, converted, updated.ID, true)
+	a.publishBlockDefinitionCache(defCache, defNames)
 	return &converted, nil
 }
 
@@ -745,10 +746,7 @@ func (a *GoCMSContentAdapter) resolveBlockDefinitionID(ctx context.Context, id s
 		return parsed, nil
 	}
 	a.refreshBlockDefinitions(ctx)
-	if defID, ok := a.blockDefinitions[blockDefinitionCacheKey(resolveCMSContentChannel("", ctx), id)]; ok {
-		return defID, nil
-	}
-	if defID, ok := a.blockDefinitions[blockDefinitionCacheKey("", id)]; ok {
+	if defID, ok := a.lookupBlockDefinitionID(ctx, id); ok {
 		return defID, nil
 	}
 	return uuid.Nil, ErrNotFound
@@ -758,6 +756,8 @@ func (a *GoCMSContentAdapter) blockDefinitionName(id uuid.UUID) string {
 	if id == uuid.Nil {
 		return ""
 	}
+	a.blockDefinitionMu.RLock()
+	defer a.blockDefinitionMu.RUnlock()
 	if name, ok := a.blockDefinitionBy[id]; ok {
 		return name
 	}
@@ -772,32 +772,86 @@ func (a *GoCMSContentAdapter) refreshBlockDefinitions(ctx context.Context) {
 	if err != nil {
 		return
 	}
+	defCache := map[string]uuid.UUID{}
+	defNames := map[uuid.UUID]string{}
 	for _, definition := range definitions {
 		if definition == nil {
 			continue
 		}
-		name := strings.TrimSpace(definition.Name)
-		slug := strings.TrimSpace(definition.Slug)
-		env := resolveCMSContentChannel("", ctx)
 		id := definition.ID
-		if id == uuid.Nil || (name == "" && slug == "") {
+		if id == uuid.Nil {
 			continue
 		}
-		primary := strings.TrimSpace(primitives.FirstNonEmptyRaw(slug, name))
-		if primary != "" {
-			a.blockDefinitions[blockDefinitionCacheKey(env, primary)] = id
-			a.blockDefinitions[blockDefinitionCacheKey("", primary)] = id
-			a.blockDefinitionBy[id] = primary
+		collectGoCMSBlockDefinitionCacheEntries(defCache, defNames, ctx, convertBlockDefinition(reflect.ValueOf(definition)), id, true)
+	}
+	a.publishBlockDefinitionCache(defCache, defNames)
+}
+
+func collectGoCMSBlockDefinitionCacheEntries(target map[string]uuid.UUID, names map[uuid.UUID]string, ctx context.Context, def CMSBlockDefinition, id uuid.UUID, includeGlobal bool) {
+	if id == uuid.Nil {
+		return
+	}
+	env := blockDefinitionCacheEnv(ctx, def)
+	primary := strings.TrimSpace(primitives.FirstNonEmptyRaw(def.Slug, def.ID, def.Name))
+	if primary != "" {
+		storeGoCMSBlockDefinitionCacheKey(target, env, primary, id)
+		if includeGlobal {
+			storeGoCMSBlockDefinitionCacheKey(target, "", primary, id)
 		}
-		if name != "" {
-			a.blockDefinitions[blockDefinitionCacheKey(env, name)] = id
-			a.blockDefinitions[blockDefinitionCacheKey("", name)] = id
+		names[id] = primary
+	}
+	for _, key := range []string{def.Name, def.Slug} {
+		if strings.TrimSpace(key) == "" {
+			continue
 		}
-		if slug != "" {
-			a.blockDefinitions[blockDefinitionCacheKey(env, slug)] = id
-			a.blockDefinitions[blockDefinitionCacheKey("", slug)] = id
+		storeGoCMSBlockDefinitionCacheKey(target, env, key, id)
+		if includeGlobal {
+			storeGoCMSBlockDefinitionCacheKey(target, "", key, id)
 		}
 	}
+}
+
+func storeGoCMSBlockDefinitionCacheKey(target map[string]uuid.UUID, env, key string, id uuid.UUID) {
+	cacheKey := blockDefinitionCacheKey(env, key)
+	if cacheKey == "" {
+		return
+	}
+	target[cacheKey] = id
+}
+
+func (a *GoCMSContentAdapter) publishBlockDefinitionCache(defs map[string]uuid.UUID, names map[uuid.UUID]string) {
+	if len(defs) == 0 && len(names) == 0 {
+		return
+	}
+	a.blockDefinitionMu.Lock()
+	defer a.blockDefinitionMu.Unlock()
+	for key, id := range defs {
+		a.blockDefinitions[key] = id
+	}
+	for id, name := range names {
+		a.blockDefinitionBy[id] = name
+	}
+}
+
+func (a *GoCMSContentAdapter) lookupBlockDefinitionID(ctx context.Context, id string) (uuid.UUID, bool) {
+	if a == nil {
+		return uuid.Nil, false
+	}
+	envKey := blockDefinitionCacheKey(resolveCMSContentChannel("", ctx), id)
+	globalKey := blockDefinitionCacheKey("", id)
+	a.blockDefinitionMu.RLock()
+	defer a.blockDefinitionMu.RUnlock()
+	if envKey != "" {
+		if defID, ok := a.blockDefinitions[envKey]; ok {
+			return defID, true
+		}
+	}
+	if globalKey != "" {
+		if defID, ok := a.blockDefinitions[globalKey]; ok {
+			return defID, true
+		}
+	}
+	return uuid.Nil, false
 }
 
 func (a *GoCMSContentAdapter) resolvePageID(ctx context.Context, contentID string) uuid.UUID {
