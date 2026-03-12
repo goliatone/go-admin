@@ -74,10 +74,14 @@ type ModuleManifest struct {
 // commands, and other contributions against the admin orchestrator.
 // Router can be nil if the admin has not been initialized yet.
 type ModuleContext struct {
-    Admin      *Admin
-    Router     AdminRouter
-    Locale     string
-    Translator Translator
+    Admin           *Admin
+    Router          AdminRouter
+    ProtectedRouter AdminRouter
+    PublicRouter    AdminRouter
+    AuthMiddleware  router.MiddlewareFunc
+    Locale          string
+    Translator      Translator
+    Routing         routing.ModuleContext
 }
 
 // AdminRouter is the minimal router surface exposed to modules.
@@ -86,6 +90,11 @@ type AdminRouter interface {
     Post(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo
     Put(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo
     Delete(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo
+}
+
+// RouteContractProvider exposes the explicit routing contract required for mounted modules.
+type RouteContractProvider interface {
+    RouteContract() routing.ModuleContract
 }
 ```
 
@@ -107,6 +116,10 @@ type TranslatorAware interface {
 ```
 
 MenuContributor is separate from Module; your module should implement Module and optionally MenuContributor/TranslatorAware.
+
+Mounted modules should also implement `RouteContractProvider`; module routing is
+no longer inferred. See `GUIDE_ROUTING.md` for the published slug, route
+ownership, mount, and manifest-review contract.
 
 ### Repository Interface
 
@@ -917,7 +930,13 @@ All panels default to span 12 (full width). See `admin/debug_module.go` for pane
 
 ### Router Access
 
-Modules register routes through `ModuleContext.Router`, which exposes the minimal `AdminRouter` interface (Get/Post/Put/Delete). The router is only set after `Admin.Initialize`, so guard against nil if you call registration outside the normal boot flow. If you need access outside module registration, use `Admin.PublicRouter()` after initialization.
+Modules register routes through `ModuleContext.Router`,
+`ModuleContext.ProtectedRouter`, and `ModuleContext.PublicRouter`. Mounted
+modules should resolve concrete paths from `ctx.Routing` instead of hardcoding
+absolute URLs. The router is only set after `Admin.Initialize`, so guard
+against nil if you call registration outside the normal boot flow. If you need
+access outside module registration, use `Admin.PublicRouter()` after
+initialization.
 
 ```go
 func (m *MyModule) Register(ctx ModuleContext) error {
@@ -928,6 +947,10 @@ func (m *MyModule) Register(ctx ModuleContext) error {
     return nil
 }
 ```
+
+For route-owning modules, implement `RouteContractProvider` and register paths
+through `ctx.Routing.RoutePath(...)`. That keeps route ownership, host root
+overrides, and manifest export coherent.
 
 ### Router Capabilities
 
