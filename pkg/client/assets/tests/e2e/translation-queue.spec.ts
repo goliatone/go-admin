@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { login, navigateToTranslationQueue } from './helpers';
 
-const fixturePath = new URL('../../../../../admin/testdata/translation_queue_phase8_fixtures.json', import.meta.url);
+const fixturePath = new URL('../../../../../admin/testdata/translation_queue_contract_fixtures.json', import.meta.url);
 const fixtures = JSON.parse(readFileSync(fixturePath, 'utf8'));
 
 test.describe('Translation Queue MVP', () => {
