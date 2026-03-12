@@ -1062,14 +1062,14 @@ func main() {
 		quickstart.WithUIDashboardActive(setup.NavigationSectionDashboard),
 	}
 	if translationCoreUIEnabled(adm) {
-		log.Printf("Translation family detail UI route enabled (/admin/translations/families/:family_id)")
+		log.Printf("Translation family detail/create-locale UI route enabled (/admin/translations/families/:family_id)")
 		log.Printf("Translation matrix UI route enabled (/admin/translations/matrix)")
 	}
 	if featureEnabled(adm.FeatureGate(), string(coreadmin.FeatureTranslationQueue)) {
 		uiRouteOpts = append(uiRouteOpts, quickstart.WithUITranslationDashboardRoute(true))
 		log.Printf("Translation dashboard UI route enabled (/admin/translations/dashboard)")
-		log.Printf("Translation queue UI route enabled (/admin/translations/queue)")
-		log.Printf("Translation editor UI route enabled (/admin/translations/assignments/:assignment_id/edit)")
+		log.Printf("Translation queue UI route enabled with inline claim/release actions (/admin/translations/queue)")
+		log.Printf("Translation editor UI route enabled with detail/update/autosave contracts (/admin/translations/assignments/:assignment_id/edit)")
 	}
 	if featureEnabled(adm.FeatureGate(), string(coreadmin.FeatureTranslationExchange)) {
 		uiRouteOpts = append(uiRouteOpts, quickstart.WithUITranslationExchangeRoute(true))
@@ -1137,6 +1137,7 @@ func main() {
 	}
 	if translationCoreUIEnabled(adm) {
 		registerTranslationQARoutes(r, cfg, cmsContentSvc, wrapAuthed)
+		log.Printf("Translation family create-locale QA route enabled (%s)", path.Join(cfg.BasePath, "translations", "families", exampleTranslationQAFamilyID))
 		log.Printf("Translation content summary QA route enabled (%s)", translationQAContentSummaryPath(cfg.BasePath))
 		log.Printf("Translation fallback edit QA route enabled (%s)", translationQAFallbackEditPath(cfg.BasePath))
 	}
@@ -1617,7 +1618,7 @@ func translationQAMenuItems(adm *admin.Admin, cfg admin.Config) []admin.MenuItem
 		{
 			ID:          "example.translation.qa.family",
 			Type:        admin.MenuItemTypeItem,
-			Label:       "Family Detail (QA)",
+			Label:       "Family Detail + Create Locale (QA)",
 			Icon:        "git-branch",
 			ParentID:    quickstart.NavigationGroupTranslationsID,
 			Menu:        menuCode,
@@ -1685,7 +1686,7 @@ func translationQAMenuItems(adm *admin.Admin, cfg admin.Config) []admin.MenuItem
 			admin.MenuItem{
 				ID:          "example.translation.qa.queue",
 				Type:        admin.MenuItemTypeItem,
-				Label:       "Queue Shell (QA)",
+				Label:       "Queue Workbench (QA)",
 				Icon:        "list-checks",
 				ParentID:    quickstart.NavigationGroupTranslationsID,
 				Menu:        menuCode,

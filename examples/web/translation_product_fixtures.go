@@ -19,7 +19,7 @@ const (
 	exampleTranslationQueueTargetLocale = "fr"
 	exampleTranslationQueueFallbackUser = "translator.demo"
 	exampleTranslationQAFamilyID        = "11111111-1111-1111-1111-111111111201"
-	exampleTranslationQAAssignmentID    = "tqa_1"
+	exampleTranslationQAAssignmentID    = "tqa_editor"
 )
 
 var exampleTranslationQueueTargetLocales = []string{"fr", "es", "de", "it", "pt", "ja"}
@@ -369,6 +369,39 @@ func seedExampleTranslationQueueFixture(
 	primarySourcePath := strings.TrimSpace(exchangePagePath(*sourcePage))
 	primaryTitle := strings.TrimSpace(sourcePage.Title)
 
+	editorSource, err := findPageBySlug(ctx, contentSvc, "home")
+	if err != nil {
+		return fmt.Errorf("translation editor qa source page lookup failed: %w", err)
+	}
+	if editorSource != nil {
+		editorGroupID := normalizeTranslationGroupID(editorSource.TranslationGroupID, editorSource.ID)
+		editorTarget, targetErr := findPageLocaleVariant(ctx, contentSvc, editorGroupID, "fr")
+		if targetErr != nil {
+			return fmt.Errorf("translation editor qa target page lookup failed: %w", targetErr)
+		}
+		if editorTarget != nil && strings.TrimSpace(editorGroupID) != "" {
+			editorAssignment := coreadmin.TranslationAssignment{
+				ID:                 exampleTranslationQAAssignmentID,
+				TranslationGroupID: editorGroupID,
+				EntityType:         "pages",
+				SourceRecordID:     strings.TrimSpace(editorSource.ID),
+				SourceLocale:       strings.ToLower(strings.TrimSpace(fixtureFirstNonEmptyString(editorSource.Locale, "en"))),
+				TargetLocale:       "fr",
+				TargetRecordID:     strings.TrimSpace(editorTarget.ID),
+				SourceTitle:        strings.TrimSpace(editorSource.Title),
+				SourcePath:         strings.TrimSpace(exchangePagePath(*editorSource)),
+				AssignmentType:     coreadmin.AssignmentTypeDirect,
+				Status:             coreadmin.AssignmentStatusInProgress,
+				Priority:           coreadmin.PriorityHigh,
+				AssigneeID:         assignees[0],
+				ClaimedAt:          fixtureTimePtr(now.Add(-90 * time.Minute)),
+			}
+			if err := seedOrRefreshQueueAssignment(ctx, repo, editorAssignment); err != nil {
+				return err
+			}
+		}
+	}
+
 	for index, assigneeID := range assignees {
 		targetLocale := exampleTranslationQueueTargetLocales[index%len(exampleTranslationQueueTargetLocales)]
 		inProgress := coreadmin.TranslationAssignment{
@@ -421,6 +454,50 @@ func seedExampleTranslationQueueFixture(
 		return fmt.Errorf("translation queue fixture review post %q missing translation_group_id", exampleTranslationQueuePostSource)
 	}
 	if err := seedOrRefreshQueueAssignment(ctx, repo, postAssignment); err != nil {
+		return err
+	}
+
+	assignedAssignee := assignees[0]
+	if len(assignees) > 1 {
+		assignedAssignee = assignees[1]
+	}
+	assignedDueDate := now.Add(72 * time.Hour)
+	assignedQueueItem := coreadmin.TranslationAssignment{
+		TranslationGroupID: normalizeTranslationGroupID(postSource.TranslationGroupID, postSource.ID),
+		EntityType:         "posts",
+		SourceRecordID:     strings.TrimSpace(postSource.ID),
+		SourceLocale:       strings.ToLower(strings.TrimSpace(fixtureFirstNonEmptyString(postSource.Locale, "en"))),
+		TargetLocale:       "nl",
+		SourceTitle:        strings.TrimSpace(postSource.Title),
+		SourcePath:         strings.TrimSpace(postAssignment.SourcePath),
+		AssignmentType:     coreadmin.AssignmentTypeDirect,
+		Status:             coreadmin.AssignmentStatusAssigned,
+		Priority:           coreadmin.PriorityNormal,
+		AssigneeID:         assignedAssignee,
+		ReviewerID:         assignees[0],
+		DueDate:            &assignedDueDate,
+	}
+	if err := seedOrRefreshQueueAssignment(ctx, repo, assignedQueueItem); err != nil {
+		return err
+	}
+
+	overdueDueDate := now.Add(-6 * time.Hour)
+	overdueQueueItem := coreadmin.TranslationAssignment{
+		TranslationGroupID: primaryGroupID,
+		EntityType:         "pages",
+		SourceRecordID:     strings.TrimSpace(sourcePage.ID),
+		SourceLocale:       primarySourceLocale,
+		TargetLocale:       "sv",
+		SourceTitle:        primaryTitle,
+		SourcePath:         primarySourcePath,
+		AssignmentType:     coreadmin.AssignmentTypeDirect,
+		Status:             coreadmin.AssignmentStatusInProgress,
+		Priority:           coreadmin.PriorityUrgent,
+		AssigneeID:         assignees[0],
+		DueDate:            &overdueDueDate,
+		ClaimedAt:          fixtureTimePtr(now.Add(-24 * time.Hour)),
+	}
+	if err := seedOrRefreshQueueAssignment(ctx, repo, overdueQueueItem); err != nil {
 		return err
 	}
 

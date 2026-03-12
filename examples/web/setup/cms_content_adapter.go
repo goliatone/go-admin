@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/goliatone/go-admin/pkg/admin"
@@ -33,6 +34,7 @@ type goCMSContentBridge struct {
 	defaultTemplate uuid.UUID
 	blockDefs       map[string]uuid.UUID
 	blockDefNames   map[uuid.UUID]string
+	blockDefMu      sync.RWMutex
 }
 
 func newGoCMSContentBridge(contentSvc any, blockSvc any, pageSvc any, defaultTemplate uuid.UUID, typeIDs map[string]uuid.UUID, contentTypes admin.CMSContentTypeService) admin.CMSContentService {
@@ -638,13 +640,20 @@ func (b *goCMSContentBridge) BlockDefinitions(ctx context.Context) ([]admin.CMSB
 	}
 	slice := deref(results[0])
 	out := make([]admin.CMSBlockDefinition, 0, slice.Len())
+	defCache := map[string]uuid.UUID{}
+	defNames := map[uuid.UUID]string{}
 	for i := 0; i < slice.Len(); i++ {
-		def := b.convertBlockDefinition(slice.Index(i))
+		item := slice.Index(i)
+		def := b.convertBlockDefinition(item)
+		if id, ok := extractUUID(deref(item), "ID"); ok {
+			collectBridgeBlockDefinitionCacheEntries(defCache, defNames, def, id)
+		}
 		if def.Environment == "" && env != "" {
 			def.Environment = env
 		}
 		out = append(out, def)
 	}
+	b.publishBlockDefinitionCache(defCache, defNames)
 	return out, nil
 }
 
@@ -701,6 +710,12 @@ func (b *goCMSContentBridge) CreateBlockDefinition(ctx context.Context, def admi
 		return nil, admin.ErrNotFound
 	}
 	created := b.convertBlockDefinition(results[0])
+	if id, ok := extractUUID(deref(results[0]), "ID"); ok {
+		defCache := map[string]uuid.UUID{}
+		defNames := map[uuid.UUID]string{}
+		collectBridgeBlockDefinitionCacheEntries(defCache, defNames, created, id)
+		b.publishBlockDefinitionCache(defCache, defNames)
+	}
 	return &created, nil
 }
 
@@ -759,6 +774,12 @@ func (b *goCMSContentBridge) UpdateBlockDefinition(ctx context.Context, def admi
 		return nil, admin.ErrNotFound
 	}
 	updated := b.convertBlockDefinition(results[0])
+	if id, ok := extractUUID(deref(results[0]), "ID"); ok {
+		defCache := map[string]uuid.UUID{}
+		defNames := map[uuid.UUID]string{}
+		collectBridgeBlockDefinitionCacheEntries(defCache, defNames, updated, id)
+		b.publishBlockDefinitionCache(defCache, defNames)
+	}
 	return &updated, nil
 }
 
@@ -1795,18 +1816,6 @@ func (b *goCMSContentBridge) convertBlockDefinition(val reflect.Value) admin.CMS
 	if def.Type == "" {
 		def.Type = strings.TrimSpace(def.Slug)
 	}
-	if id, ok := extractUUID(val, "ID"); ok && def.ID != "" {
-		if key := strings.TrimSpace(def.ID); key != "" {
-			b.blockDefs[strings.ToLower(key)] = id
-		}
-		if key := strings.TrimSpace(def.Slug); key != "" {
-			b.blockDefs[strings.ToLower(key)] = id
-		}
-		if key := strings.TrimSpace(def.Type); key != "" {
-			b.blockDefs[strings.ToLower(key)] = id
-		}
-		b.blockDefNames[id] = def.ID
-	}
 	return def
 }
 
@@ -1859,10 +1868,7 @@ func (b *goCMSContentBridge) resolveBlockDefinitionID(ctx context.Context, key s
 		return parsed
 	}
 	b.refreshBlockDefinitions(ctx)
-	if id, ok := b.blockDefs[strings.ToLower(key)]; ok {
-		return id
-	}
-	return uuid.Nil
+	return b.lookupBlockDefinitionID(key)
 }
 
 func (b *goCMSContentBridge) refreshBlockDefinitions(ctx context.Context) {
@@ -1881,30 +1887,70 @@ func (b *goCMSContentBridge) refreshBlockDefinitions(ctx context.Context) {
 	if value.Kind() != reflect.Slice {
 		return
 	}
+	defCache := map[string]uuid.UUID{}
+	defNames := map[uuid.UUID]string{}
 	for i := 0; i < value.Len(); i++ {
 		item := deref(value.Index(i))
-		name := strings.TrimSpace(stringField(item, "Name"))
 		id, ok := extractUUID(item, "ID")
-		if !ok || id == uuid.Nil || name == "" {
+		if !ok || id == uuid.Nil {
 			continue
 		}
-		lower := strings.ToLower(name)
-		b.blockDefs[lower] = id
-		b.blockDefNames[id] = name
-		if slug := strings.TrimSpace(stringField(item, "Slug")); slug != "" {
-			b.blockDefs[strings.ToLower(slug)] = id
-		}
+		collectBridgeBlockDefinitionCacheEntries(defCache, defNames, b.convertBlockDefinition(item), id)
 	}
+	b.publishBlockDefinitionCache(defCache, defNames)
 }
 
 func (b *goCMSContentBridge) blockDefinitionName(id uuid.UUID) string {
 	if id == uuid.Nil {
 		return ""
 	}
+	b.blockDefMu.RLock()
+	defer b.blockDefMu.RUnlock()
 	if name, ok := b.blockDefNames[id]; ok {
 		return name
 	}
 	return ""
+}
+
+func collectBridgeBlockDefinitionCacheEntries(target map[string]uuid.UUID, names map[uuid.UUID]string, def admin.CMSBlockDefinition, id uuid.UUID) {
+	if id == uuid.Nil || def.ID == "" {
+		return
+	}
+	for _, key := range []string{def.ID, def.Slug, def.Type} {
+		normalized := strings.ToLower(strings.TrimSpace(key))
+		if normalized == "" {
+			continue
+		}
+		target[normalized] = id
+	}
+	names[id] = def.ID
+}
+
+func (b *goCMSContentBridge) publishBlockDefinitionCache(defs map[string]uuid.UUID, names map[uuid.UUID]string) {
+	if len(defs) == 0 && len(names) == 0 {
+		return
+	}
+	b.blockDefMu.Lock()
+	defer b.blockDefMu.Unlock()
+	for key, id := range defs {
+		b.blockDefs[key] = id
+	}
+	for id, name := range names {
+		b.blockDefNames[id] = name
+	}
+}
+
+func (b *goCMSContentBridge) lookupBlockDefinitionID(key string) uuid.UUID {
+	normalized := strings.ToLower(strings.TrimSpace(key))
+	if normalized == "" {
+		return uuid.Nil
+	}
+	b.blockDefMu.RLock()
+	defer b.blockDefMu.RUnlock()
+	if id, ok := b.blockDefs[normalized]; ok {
+		return id
+	}
+	return uuid.Nil
 }
 
 func (b *goCMSContentBridge) convertBlockInstance(val reflect.Value, locale string) admin.CMSBlock {
