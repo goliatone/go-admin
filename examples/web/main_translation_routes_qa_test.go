@@ -41,17 +41,17 @@ func TestTranslationQAMenuItemsExposePhaseOneAndTwoRoutesForFullProfile(t *testi
 	}
 
 	items := translationQAMenuItems(adm, cfg)
-	if len(items) != 6 {
-		t.Fatalf("expected 6 QA items for full profile, got %d", len(items))
+	if len(items) != 5 {
+		t.Fatalf("expected 5 QA items for full profile, got %d", len(items))
 	}
 
-	assertMenuItemPath(t, items, "example.translation.qa.family", "/admin/translations/families/"+exampleTranslationQAFamilyID)
+	assertMenuItemPath(t, items, "example.translation.qa.family", translationQAFamilyPath("/admin"))
 	assertMenuItemLabel(t, items, "example.translation.qa.family", "Family Detail + Create Locale (QA)")
 	assertMenuItemPath(t, items, "example.translation.qa.content_summary", translationQAContentSummaryPath("/admin"))
 	assertMenuItemPath(t, items, "example.translation.qa.fallback_edit", translationQAFallbackEditPath("/admin"))
-	assertMenuItemPath(t, items, "example.translation.qa.matrix", "/admin/translations/matrix")
 	assertMenuItemPath(t, items, "example.translation.qa.queue", "/admin/translations/queue")
 	assertMenuItemPath(t, items, "example.translation.qa.editor", "/admin/translations/assignments/"+exampleTranslationQAAssignmentID+"/edit")
+	assertMenuItemLabel(t, items, "example.translation.qa.editor", "Assignment Editor (QA)")
 }
 
 func TestTranslationQAMenuItemsKeepCoreRoutesWhenQueueDisabled(t *testing.T) {
@@ -75,15 +75,14 @@ func TestTranslationQAMenuItemsKeepCoreRoutesWhenQueueDisabled(t *testing.T) {
 	}
 
 	items := translationQAMenuItems(adm, cfg)
-	if len(items) != 4 {
-		t.Fatalf("expected 4 QA items for core profile, got %d", len(items))
+	if len(items) != 3 {
+		t.Fatalf("expected 3 QA items for core profile, got %d", len(items))
 	}
 
-	assertMenuItemPath(t, items, "example.translation.qa.family", "/admin/translations/families/"+exampleTranslationQAFamilyID)
+	assertMenuItemPath(t, items, "example.translation.qa.family", translationQAFamilyPath("/admin"))
 	assertMenuItemLabel(t, items, "example.translation.qa.family", "Family Detail + Create Locale (QA)")
 	assertMenuItemPath(t, items, "example.translation.qa.content_summary", translationQAContentSummaryPath("/admin"))
 	assertMenuItemPath(t, items, "example.translation.qa.fallback_edit", translationQAFallbackEditPath("/admin"))
-	assertMenuItemPath(t, items, "example.translation.qa.matrix", "/admin/translations/matrix")
 	if findMenuItemByID(items, "example.translation.qa.queue") != nil {
 		t.Fatalf("expected queue QA item to be absent when queue capability disabled")
 	}
@@ -115,6 +114,11 @@ func TestRegisterTranslationQARoutesRedirectToSeededContentSummaryAndFallbackEdi
 		path     string
 		expected string
 	}{
+		{
+			name:     "family detail",
+			path:     translationQAFamilyPath(cfg.BasePath),
+			expected: fmt.Sprintf("/admin/translations/families/%s", normalizeTranslationGroupID(page.TranslationGroupID, page.ID)),
+		},
 		{
 			name:     "content summary",
 			path:     translationQAContentSummaryPath(cfg.BasePath),

@@ -65,7 +65,7 @@ func TestDevServeEquivalentTranslationRuntimeContracts(t *testing.T) {
 	adm.WithAuth(nil, nil)
 	adm.WithAuthorizer(translationRuntimeHarnessAllowAllAuthorizer{})
 
-	require.NoError(t, seedExampleTranslationQueueFixture(ctx, queueRepo, contentSvc, "runtime-user"))
+	require.NoError(t, seedExampleTranslationQueueFixture(ctx, queueRepo, contentSvc, "", "", "runtime-user"))
 
 	server, r := quickstart.NewFiberServer(
 		nil,

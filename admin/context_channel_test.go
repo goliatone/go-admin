@@ -21,7 +21,7 @@ func TestWithContentChannelMaintainsEnvironmentCompatibility(t *testing.T) {
 func TestNewAdminContextFromRouterPrefersChannelQuery(t *testing.T) {
 	mockCtx := router.NewMockContext()
 	mockCtx.QueriesM["channel"] = "public"
-	mockCtx.QueriesM["env"] = "staging"
+	mockCtx.QueriesM["content_channel"] = "staging"
 	mockCtx.On("Context").Return(context.Background())
 	mockCtx.On("IP").Return("127.0.0.1")
 

@@ -355,7 +355,7 @@ func TestPersistLocaleCookieSkipsWhenLocaleUnchanged(t *testing.T) {
 	}
 }
 
-func TestResolveRequestStateFallsBackToLegacyEnvQueryForContentChannel(t *testing.T) {
+func TestResolveRequestStateUsesSiteContentChannelQueryForContentChannel(t *testing.T) {
 	siteCfg := ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{
 		Environment:    "prod",
 		ContentChannel: "default",
@@ -364,13 +364,13 @@ func TestResolveRequestStateFallsBackToLegacyEnvQueryForContentChannel(t *testin
 	ctx := router.NewMockContext()
 	ctx.On("Context").Return(context.Background())
 	ctx.On("Path").Return("/site")
-	ctx.QueriesM["env"] = "staging"
+	ctx.QueriesM["site_content_channel"] = "staging"
 
 	_, state := ResolveRequestState(context.Background(), ctx, nil, admin.Config{}, siteCfg, nil)
 	if state.Environment != "prod" {
 		t.Fatalf("expected runtime environment to remain prod, got %q", state.Environment)
 	}
 	if state.ContentChannel != "staging" {
-		t.Fatalf("expected content channel to fallback to legacy env query staging, got %q", state.ContentChannel)
+		t.Fatalf("expected content channel to use site_content_channel staging, got %q", state.ContentChannel)
 	}
 }

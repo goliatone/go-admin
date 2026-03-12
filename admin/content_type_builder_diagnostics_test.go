@@ -72,10 +72,10 @@ func TestBlockDefinitionDiagnosticsEndpointIncludesChannelMetadata(t *testing.T)
 	}
 }
 
-func TestBlockDefinitionDiagnosticsEndpointFallsBackToLegacyEnvQuery(t *testing.T) {
+func TestBlockDefinitionDiagnosticsEndpointUsesDollarChannelQuery(t *testing.T) {
 	server, _ := setupBlockDefinitionTemplateServer(t, templateServerOptions{})
 
-	req := httptest.NewRequest("GET", "/admin/api/block_definitions_meta/diagnostics?env=staging", nil)
+	req := httptest.NewRequest("GET", "/admin/api/block_definitions_meta/diagnostics?%24channel=staging", nil)
 	req.Header.Set("X-User-ID", "user-1")
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
@@ -90,6 +90,6 @@ func TestBlockDefinitionDiagnosticsEndpointFallsBackToLegacyEnvQuery(t *testing.
 		t.Fatalf("unmarshal: %v", err)
 	}
 	if payload.RequestedChannel != "staging" {
-		t.Fatalf("expected legacy env query fallback to staging, got requested_channel=%q", payload.RequestedChannel)
+		t.Fatalf("expected $channel query to set requested_channel staging, got %q", payload.RequestedChannel)
 	}
 }
