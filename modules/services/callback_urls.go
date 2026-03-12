@@ -30,7 +30,7 @@ func (m *Module) ensureCallbackURLRoute() error {
 		return nil
 	}
 
-	if _, err := manager.AddRoutes(group, map[string]string{
+	if _, _, err := manager.AddRoutes(group, map[string]string{
 		route: defaultConnectionCallbackRoutePath,
 	}); err != nil {
 		return fmt.Errorf("modules/services: register callback route %q in group %q: %w", route, group, err)
