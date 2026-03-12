@@ -8,6 +8,7 @@ import (
 
 	"github.com/goliatone/go-admin/admin"
 	router "github.com/goliatone/go-router"
+	urlkit "github.com/goliatone/go-urlkit"
 )
 
 // ContentEntryUIOption customizes content entry UI routes.
@@ -289,4 +290,11 @@ func newContentEntryHandlers(adm *admin.Admin, cfg admin.Config, viewCtx UIViewC
 		dataGridStateStore: opts.dataGridStateStore,
 		dataGridURLState:   opts.dataGridURLState,
 	}
+}
+
+func (h *contentEntryHandlers) adminURLs() urlkit.Resolver {
+	if h == nil || h.admin == nil {
+		return nil
+	}
+	return h.admin.URLs()
 }

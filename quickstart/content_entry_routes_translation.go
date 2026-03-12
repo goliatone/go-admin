@@ -1,10 +1,12 @@
 package quickstart
 
 import (
+	"sort"
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
 	router "github.com/goliatone/go-router"
+	urlkit "github.com/goliatone/go-urlkit"
 )
 
 func contentEntryPanelSupportsTranslationUX(panel *admin.Panel) bool {
@@ -84,6 +86,89 @@ func contentEntryTranslationStateFromRecord(record map[string]any) contentEntryT
 	return state
 }
 
+func contentEntryTranslationGroupID(record map[string]any) string {
+	return contentEntryStringField(record, []string{
+		"translation_group_id",
+		"translation.meta.translation_group_id",
+		"content_translation.meta.translation_group_id",
+	})
+}
+
+func contentEntryTranslationFamilyURL(urls urlkit.Resolver, groupID string) string {
+	groupID = strings.TrimSpace(groupID)
+	if groupID == "" {
+		return ""
+	}
+	return strings.TrimSpace(resolveRouteURL(urls, "admin", "translations.families.id", map[string]string{
+		"family_id": groupID,
+	}, nil))
+}
+
+func contentEntryAttachTranslationFamilyLink(record map[string]any, urls urlkit.Resolver, enabled bool) map[string]any {
+	if len(record) == 0 || !enabled {
+		return record
+	}
+	groupID := contentEntryTranslationGroupID(record)
+	familyURL := contentEntryTranslationFamilyURL(urls, groupID)
+	if groupID == "" || familyURL == "" {
+		return record
+	}
+	out := cloneAnyMap(record)
+	out["translation_family_id"] = groupID
+	out["translation_family_url"] = familyURL
+	links, _ := out["links"].(map[string]any)
+	linked := cloneAnyMap(links)
+	if linked == nil {
+		linked = map[string]any{}
+	}
+	linked["translation_family"] = map[string]any{
+		"href":      familyURL,
+		"family_id": groupID,
+	}
+	out["links"] = linked
+	return out
+}
+
+func contentEntryAttachTranslationLocaleLinks(record map[string]any, routes contentEntryRoutes, editMode bool, enabled bool) map[string]any {
+	if len(record) == 0 || !enabled {
+		return record
+	}
+	recordID := strings.TrimSpace(anyToString(record["id"]))
+	if recordID == "" {
+		return record
+	}
+	locales := contentEntryTranslationLocales(record)
+	if len(locales) == 0 {
+		return record
+	}
+
+	links := map[string]any{}
+	for _, locale := range locales {
+		if locale == "" {
+			continue
+		}
+		target := routes.show(recordID)
+		if editMode {
+			target = routes.edit(recordID)
+		}
+		links[locale] = appendQueryParam(target, "locale", locale)
+	}
+	if len(links) == 0 {
+		return record
+	}
+
+	out := cloneAnyMap(record)
+	out["translation_locale_urls"] = links
+	nested, _ := out["links"].(map[string]any)
+	linked := cloneAnyMap(nested)
+	if linked == nil {
+		linked = map[string]any{}
+	}
+	linked["translation_locales"] = links
+	out["links"] = linked
+	return out
+}
+
 func contentEntryRequestedLocale(c router.Context, fallback string) string {
 	if c != nil {
 		if locale := strings.TrimSpace(c.Query("locale")); locale != "" {
@@ -125,6 +210,53 @@ func contentEntryBoolField(record map[string]any, paths []string) bool {
 		}
 	}
 	return false
+}
+
+func contentEntryTranslationLocales(record map[string]any) []string {
+	set := map[string]struct{}{}
+	for _, path := range []string{
+		"available_locales",
+		"translation_readiness.available_locales",
+		"translation.meta.available_locales",
+		"content_translation.meta.available_locales",
+	} {
+		for _, locale := range contentEntryStringSliceField(record, path) {
+			normalized := strings.TrimSpace(strings.ToLower(locale))
+			if normalized != "" {
+				set[normalized] = struct{}{}
+			}
+		}
+	}
+	out := make([]string, 0, len(set))
+	for locale := range set {
+		out = append(out, locale)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func contentEntryStringSliceField(record map[string]any, lookupPath string) []string {
+	value := contentEntryNestedValue(record, lookupPath)
+	raw, ok := value.([]any)
+	if !ok {
+		if typed, ok := value.([]string); ok {
+			out := make([]string, 0, len(typed))
+			for _, entry := range typed {
+				if normalized := strings.TrimSpace(entry); normalized != "" {
+					out = append(out, normalized)
+				}
+			}
+			return out
+		}
+		return nil
+	}
+	out := make([]string, 0, len(raw))
+	for _, entry := range raw {
+		if normalized := strings.TrimSpace(anyToString(entry)); normalized != "" {
+			out = append(out, normalized)
+		}
+	}
+	return out
 }
 
 func contentEntryNestedValue(record map[string]any, lookupPath string) any {
