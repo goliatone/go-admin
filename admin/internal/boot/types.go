@@ -1,6 +1,7 @@
 package boot
 
 import (
+	"github.com/goliatone/go-admin/admin/routing"
 	router "github.com/goliatone/go-router"
 	urlkit "github.com/goliatone/go-urlkit"
 )
@@ -235,7 +236,9 @@ type BootCtx interface {
 	Router() Router
 	AuthWrapper() HandlerWrapper
 	BasePath() string
+	AdminUIGroup() string
 	AdminAPIGroup() string
+	RoutingPlanner() routing.Planner
 	URLs() urlkit.Resolver
 	DefaultLocale() string
 	NavMenuCode() string

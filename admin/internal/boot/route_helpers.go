@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/goliatone/go-admin/admin/internal/listquery"
+	"github.com/goliatone/go-admin/admin/routing"
 	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
 )
@@ -147,7 +148,7 @@ func adminBasePath(ctx BootCtx) string {
 	if ctx == nil {
 		return ""
 	}
-	path := routePath(ctx, "admin", "dashboard")
+	path := routePath(ctx, ctx.AdminUIGroup(), "dashboard")
 	if path == "" {
 		return normalizeBasePath(ctx.BasePath())
 	}
@@ -155,6 +156,29 @@ func adminBasePath(ctx BootCtx) string {
 		return ""
 	}
 	return strings.TrimSuffix(path, "/")
+}
+
+func moduleRoutePath(ctx BootCtx, slug, surface, route string) string {
+	if ctx == nil || ctx.RoutingPlanner() == nil {
+		return ""
+	}
+	resolved, ok := ctx.RoutingPlanner().ResolvedModule(strings.TrimSpace(slug))
+	if !ok {
+		return ""
+	}
+	group := ""
+	switch strings.TrimSpace(surface) {
+	case routing.SurfaceUI:
+		group = resolved.UIGroupPath
+	case routing.SurfaceAPI:
+		group = resolved.APIGroupPath
+	case routing.SurfacePublicAPI:
+		group = resolved.PublicAPIGroupPath
+	}
+	if group == "" {
+		return ""
+	}
+	return routePath(ctx, group, route)
 }
 
 func prefixBasePath(basePath, path string) string {
