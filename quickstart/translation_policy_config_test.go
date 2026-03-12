@@ -131,3 +131,61 @@ func TestNormalizeTranslationPolicyConfigNormalizesEntityAliases(t *testing.T) {
 		t.Fatalf("expected alias article_type -> news, got %q", got)
 	}
 }
+
+func TestValidateTranslationPolicyConfigWorkflowSettings(t *testing.T) {
+	cfg := TranslationPolicyConfig{
+		RequiredFieldsStrategy: admin.RequiredFieldsValidationError,
+		Required: map[string]TranslationPolicyEntityConfig{
+			"articles": {
+				"publish": {
+					Locales:                 []string{"en"},
+					AssignmentLifecycleMode: "invalid_mode",
+					DefaultWorkScope:        "bad scope!",
+				},
+			},
+		},
+	}
+	_, err := ValidateTranslationPolicyConfig(cfg, translationPolicyValidationCatalogFixture())
+	if err == nil {
+		t.Fatalf("expected validation error")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, `invalid assignment lifecycle mode "invalid_mode"`) {
+		t.Fatalf("expected lifecycle mode validation error, got %q", msg)
+	}
+	if !strings.Contains(msg, `invalid default work scope "bad scope!"`) {
+		t.Fatalf("expected work scope validation error, got %q", msg)
+	}
+}
+
+func TestNormalizeTranslationPolicyConfigWorkflowSettings(t *testing.T) {
+	cfg := NormalizeTranslationPolicyConfig(TranslationPolicyConfig{
+		Required: map[string]TranslationPolicyEntityConfig{
+			"articles": {
+				"publish": {
+					AssignmentLifecycleMode: " auto_archive ",
+					DefaultWorkScope:        " editorial.review ",
+					Environments: map[string]TranslationCriteria{
+						"staging": {
+							AssignmentLifecycleMode: " single_active_per_locale ",
+							DefaultWorkScope:        " qa_signoff ",
+						},
+					},
+				},
+			},
+		},
+	})
+	publish := cfg.Required["articles"]["publish"]
+	if publish.AssignmentLifecycleMode != "auto_archive" {
+		t.Fatalf("expected auto_archive, got %q", publish.AssignmentLifecycleMode)
+	}
+	if publish.DefaultWorkScope != "editorial.review" {
+		t.Fatalf("expected normalized work scope editorial.review, got %q", publish.DefaultWorkScope)
+	}
+	if got := publish.Environments["staging"].AssignmentLifecycleMode; got != "single_active_per_locale" {
+		t.Fatalf("expected single_active_per_locale, got %q", got)
+	}
+	if got := publish.Environments["staging"].DefaultWorkScope; got != "qa_signoff" {
+		t.Fatalf("expected qa_signoff, got %q", got)
+	}
+}

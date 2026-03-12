@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/goliatone/go-admin/admin/routing"
 	auth "github.com/goliatone/go-auth"
 	router "github.com/goliatone/go-router"
 )
@@ -304,10 +305,95 @@ func TestModuleStartupValidationWarnPolicyAllowsStartup(t *testing.T) {
 	}
 }
 
+func TestLoadModulesRejectsMissingRouteContract(t *testing.T) {
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
+	if err := adm.RegisterModule(&noContractModule{id: "missing.contract"}); err != nil {
+		t.Fatalf("register failed: %v", err)
+	}
+	if err := adm.loadModules(context.Background()); err == nil {
+		t.Fatal("expected missing route contract failure")
+	}
+}
+
+func TestLoadModulesFailsFastOnRoutingConflicts(t *testing.T) {
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
+	alpha := &stubModule{
+		id: "alpha",
+		contract: routing.ModuleContract{
+			Slug: "alpha",
+			UIRoutes: map[string]string{
+				"alpha.index": "/shared",
+			},
+			Mount: routing.ModuleMountOverride{
+				UIBase: "/admin",
+			},
+		},
+	}
+	beta := &stubModule{
+		id: "beta",
+		contract: routing.ModuleContract{
+			Slug: "beta",
+			UIRoutes: map[string]string{
+				"beta.index": "/shared",
+			},
+			Mount: routing.ModuleMountOverride{
+				UIBase: "/admin",
+			},
+		},
+	}
+	if err := adm.RegisterModule(alpha); err != nil {
+		t.Fatalf("register alpha failed: %v", err)
+	}
+	if err := adm.RegisterModule(beta); err != nil {
+		t.Fatalf("register beta failed: %v", err)
+	}
+	if err := adm.loadModules(context.Background()); err == nil {
+		t.Fatal("expected module routing conflict failure")
+	}
+}
+
+func TestModuleContextExposesResolvedRoutingSurfaces(t *testing.T) {
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
+	mod := &routingAwareModule{id: "routing.aware"}
+	if err := adm.RegisterModule(mod); err != nil {
+		t.Fatalf("register failed: %v", err)
+	}
+
+	server := router.NewHTTPServer()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize failed: %v", err)
+	}
+
+	if mod.routing.Resolved.Slug != "routing_aware" {
+		t.Fatalf("expected resolved slug routing_aware, got %q", mod.routing.Resolved.Slug)
+	}
+	if mod.routing.RoutePath(routing.SurfaceUI, "routing_aware.page") != "/admin/routing_aware" {
+		t.Fatalf("expected ui route /admin/routing_aware, got %q", mod.routing.RoutePath(routing.SurfaceUI, "routing_aware.page"))
+	}
+	if mod.routing.RoutePath(routing.SurfaceAPI, "routing_aware.ping") != "/admin/api/routing_aware/ping" {
+		t.Fatalf("expected api route /admin/api/routing_aware/ping, got %q", mod.routing.RoutePath(routing.SurfaceAPI, "routing_aware.ping"))
+	}
+	if got := resolveURLWith(adm.URLs(), mod.routing.Resolved.UIGroupPath, "routing_aware.page", nil, nil); got != "/admin/routing_aware" {
+		t.Fatalf("expected ui route lookup /admin/routing_aware, got %q", got)
+	}
+	apiPath := resolveURLWith(adm.URLs(), mod.routing.Resolved.APIGroupPath, "routing_aware.ping", nil, nil)
+	if apiPath != "/admin/api/routing_aware/ping" {
+		t.Fatalf("expected api route lookup /admin/api/routing_aware/ping, got %q", apiPath)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, apiPath, nil)
+	res := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(res, req)
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected api route status 200, got %d body=%s", res.Code, res.Body.String())
+	}
+}
+
 type stubModule struct {
 	id         string
 	onRegister func()
 	manifestFn func() ModuleManifest
+	contract   routing.ModuleContract
 }
 
 func (m *stubModule) Manifest() ModuleManifest {
@@ -324,6 +410,19 @@ func (m *stubModule) Register(_ ModuleContext) error {
 	return nil
 }
 
+func (m *stubModule) RouteContract() routing.ModuleContract {
+	if m.contract.Slug != "" || len(m.contract.UIRoutes) > 0 || len(m.contract.APIRoutes) > 0 || len(m.contract.PublicAPIRoutes) > 0 {
+		return m.contract
+	}
+	slug := testModuleSlug(m.id)
+	return routing.ModuleContract{
+		Slug: slug,
+		UIRoutes: map[string]string{
+			slug + ".index": "/",
+		},
+	}
+}
+
 type menuModule struct {
 	id   string
 	menu []MenuItem
@@ -334,6 +433,16 @@ func (m *menuModule) Manifest() ModuleManifest {
 }
 
 func (m *menuModule) Register(_ ModuleContext) error { return nil }
+
+func (m *menuModule) RouteContract() routing.ModuleContract {
+	slug := testModuleSlug(m.id)
+	return routing.ModuleContract{
+		Slug: slug,
+		UIRoutes: map[string]string{
+			slug + ".index": "/",
+		},
+	}
+}
 
 func (m *menuModule) MenuItems(locale string) []MenuItem {
 	items := []MenuItem{}
@@ -379,6 +488,16 @@ func (m *translatorModule) Manifest() ModuleManifest {
 func (m *translatorModule) Register(ctx ModuleContext) error {
 	m.translator = ctx.Translator
 	return nil
+}
+
+func (m *translatorModule) RouteContract() routing.ModuleContract {
+	slug := testModuleSlug(m.id)
+	return routing.ModuleContract{
+		Slug: slug,
+		UIRoutes: map[string]string{
+			slug + ".index": "/",
+		},
+	}
 }
 
 type moduleAuthCounter struct {
@@ -433,6 +552,15 @@ func (m *moduleRouteProbe) Register(ctx ModuleContext) error {
 	return nil
 }
 
+func (m *moduleRouteProbe) RouteContract() routing.ModuleContract {
+	return routing.ModuleContract{
+		Slug: "route_probe",
+		UIRoutes: map[string]string{
+			"route_probe.index": "/",
+		},
+	}
+}
+
 type startupValidatorModule struct {
 	id          string
 	validateErr error
@@ -450,4 +578,63 @@ func (m *startupValidatorModule) Register(_ ModuleContext) error {
 func (m *startupValidatorModule) ValidateStartup(context.Context) error {
 	m.validated++
 	return m.validateErr
+}
+
+func (m *startupValidatorModule) RouteContract() routing.ModuleContract {
+	slug := testModuleSlug(m.id)
+	return routing.ModuleContract{
+		Slug: slug,
+		UIRoutes: map[string]string{
+			slug + ".index": "/",
+		},
+	}
+}
+
+func testModuleSlug(id string) string {
+	slug := strings.TrimSpace(strings.NewReplacer(".", "_", "-", "_").Replace(id))
+	if slug == "" {
+		return "test_module"
+	}
+	return slug
+}
+
+type noContractModule struct {
+	id string
+}
+
+func (m *noContractModule) Manifest() ModuleManifest {
+	return ModuleManifest{ID: m.id}
+}
+
+func (m *noContractModule) Register(ModuleContext) error {
+	return nil
+}
+
+type routingAwareModule struct {
+	id      string
+	routing routing.ModuleContext
+}
+
+func (m *routingAwareModule) Manifest() ModuleManifest {
+	return ModuleManifest{ID: m.id}
+}
+
+func (m *routingAwareModule) RouteContract() routing.ModuleContract {
+	return routing.ModuleContract{
+		Slug: "routing_aware",
+		UIRoutes: map[string]string{
+			"routing_aware.page": "/",
+		},
+		APIRoutes: map[string]string{
+			"routing_aware.ping": "/ping",
+		},
+	}
+}
+
+func (m *routingAwareModule) Register(ctx ModuleContext) error {
+	m.routing = ctx.Routing
+	ctx.ProtectedRouter.Get(ctx.Routing.RoutePath(routing.SurfaceAPI, "routing_aware.ping"), func(c router.Context) error {
+		return c.JSON(http.StatusOK, map[string]any{"ok": true})
+	})
+	return nil
 }

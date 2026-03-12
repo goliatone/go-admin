@@ -7,7 +7,7 @@ import (
 )
 
 func TestNewAppliesPermissionAndFeatureDefaults(t *testing.T) {
-	adm, err := New(Config{}, Dependencies{})
+	adm, err := New(Config{BasePath: "/admin"}, Dependencies{})
 	if err != nil {
 		t.Fatalf("admin.New: %v", err)
 	}
@@ -41,6 +41,21 @@ func TestNewAppliesPermissionAndFeatureDefaults(t *testing.T) {
 	}
 	if adm.config.URLs.Public.APIVersion != "v1" {
 		t.Fatalf("expected public URL API version default, got %q", adm.config.URLs.Public.APIVersion)
+	}
+	if !adm.config.Routing.Enabled {
+		t.Fatalf("expected routing enabled by default")
+	}
+	if adm.config.Routing.Roots.AdminRoot != "/admin" {
+		t.Fatalf("expected routing admin root /admin, got %q", adm.config.Routing.Roots.AdminRoot)
+	}
+	if adm.config.Routing.Roots.APIRoot != "/admin/api" {
+		t.Fatalf("expected routing api root /admin/api, got %q", adm.config.Routing.Roots.APIRoot)
+	}
+	if adm.config.Routing.Roots.PublicAPIRoot != "/api/v1" {
+		t.Fatalf("expected routing public api root /api/v1, got %q", adm.config.Routing.Roots.PublicAPIRoot)
+	}
+	if adm.config.Routing.Modules[debugRoutingSlug].Mount.UIBase != "/admin/debug" {
+		t.Fatalf("expected routing debug root /admin/debug, got %q", adm.config.Routing.Modules[debugRoutingSlug].Mount.UIBase)
 	}
 	if adm.config.Site.AllowLocaleFallback == nil || !*adm.config.Site.AllowLocaleFallback {
 		t.Fatalf("expected site locale fallback default true")
@@ -130,12 +145,25 @@ func TestNewAppliesPermissionAndFeatureDefaults(t *testing.T) {
 		t.Fatalf("expected commands.rpc.metadata_allowlist defaults")
 	}
 
-	adm2, err := New(Config{}, Dependencies{FeatureGate: featureGateFromKeys(FeatureCommands)})
+	adm2, err := New(Config{BasePath: "/admin"}, Dependencies{FeatureGate: featureGateFromKeys(FeatureCommands)})
 	if err != nil {
 		t.Fatalf("admin.New: %v", err)
 	}
 	if !featureEnabled(adm2.featureGate, FeatureCommands) {
 		t.Fatalf("expected feature gate to enable commands")
+	}
+
+	adm3, err := New(Config{
+		BasePath: "/admin",
+		Debug: DebugConfig{
+			BasePath: "/control/tools/debug",
+		},
+	}, Dependencies{})
+	if err != nil {
+		t.Fatalf("admin.New: %v", err)
+	}
+	if adm3.config.Routing.Modules[debugRoutingSlug].Mount.UIBase != "/control/tools/debug" {
+		t.Fatalf("expected custom routing debug root /control/tools/debug, got %q", adm3.config.Routing.Modules[debugRoutingSlug].Mount.UIBase)
 	}
 }
 
