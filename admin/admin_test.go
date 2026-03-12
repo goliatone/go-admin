@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/goliatone/go-admin/admin/routing"
 	auth "github.com/goliatone/go-auth"
 	"github.com/goliatone/go-command"
 	"github.com/goliatone/go-command/dispatcher"
@@ -131,7 +132,9 @@ func TestInitializeRegistersHealth(t *testing.T) {
 		BasePath:      "/admin",
 		DefaultLocale: "en",
 	}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
+	adm := mustNewAdmin(t, cfg, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCMS),
+	})
 	adm.WithAuthorizer(allowAll{})
 	server := router.NewHTTPServer()
 	r := server.Router()
@@ -154,7 +157,9 @@ func TestInitializeRunsPreRoutePreparation(t *testing.T) {
 		BasePath:      "/admin",
 		DefaultLocale: "en",
 	}
-	adm := mustNewAdmin(t, cfg, Dependencies{})
+	adm := mustNewAdmin(t, cfg, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCMS),
+	})
 
 	called := false
 	if err := adm.RegisterModule(&initModule{called: &called}); err != nil {
@@ -167,6 +172,55 @@ func TestInitializeRunsPreRoutePreparation(t *testing.T) {
 	}
 	if !called {
 		t.Fatalf("expected module Register to be called during Initialize")
+	}
+}
+
+func TestNewExposesRoutingReportAndPreservesDefaultTopologyWithoutOverrides(t *testing.T) {
+	cfg := Config{
+		Title:         "test admin",
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCMS),
+	})
+
+	report := adm.RoutingReport()
+	if report.EffectiveRoots.AdminRoot != "/admin" {
+		t.Fatalf("expected report admin root /admin, got %q", report.EffectiveRoots.AdminRoot)
+	}
+	if report.EffectiveRoots.APIRoot != "/admin/api" {
+		t.Fatalf("expected report api root /admin/api, got %q", report.EffectiveRoots.APIRoot)
+	}
+	if report.EffectiveRoots.PublicAPIRoot != "/api/v1" {
+		t.Fatalf("expected report public api root /api/v1, got %q", report.EffectiveRoots.PublicAPIRoot)
+	}
+
+	if got := resolveURLWith(adm.URLs(), "admin", "dashboard", nil, nil); got != "/admin/" {
+		t.Fatalf("expected /admin/, got %q", got)
+	}
+	if got := resolveURLWith(adm.URLs(), adminAPIGroupName(adm.config), "errors", nil, nil); got != "/admin/api/errors" {
+		t.Fatalf("expected /admin/api/errors, got %q", got)
+	}
+	if got := resolveURLWith(adm.URLs(), publicAPIGroupName(adm.config), "preview", map[string]string{"token": "token"}, nil); got != "/api/v1/preview/token" {
+		t.Fatalf("expected /api/v1/preview/token, got %q", got)
+	}
+
+	foundTranslations := false
+	for _, module := range report.Modules {
+		if module.Slug != "translations" {
+			continue
+		}
+		foundTranslations = true
+		if module.UIMountBase != "/admin/translations" {
+			t.Fatalf("expected translations ui mount /admin/translations, got %q", module.UIMountBase)
+		}
+		if module.APIMountBase != "/admin/api/translations" {
+			t.Fatalf("expected translations api mount /admin/api/translations, got %q", module.APIMountBase)
+		}
+	}
+	if !foundTranslations {
+		t.Fatalf("expected translations module in routing report, got %+v", report.Modules)
 	}
 }
 
@@ -183,6 +237,15 @@ func (m *initModule) Register(_ ModuleContext) error {
 		*m.called = true
 	}
 	return nil
+}
+
+func (m *initModule) RouteContract() routing.ModuleContract {
+	return routing.ModuleContract{
+		Slug: "init_module",
+		UIRoutes: map[string]string{
+			"init_module.index": "/",
+		},
+	}
 }
 
 func TestBootstrapSeedsWidgetsAndMenu(t *testing.T) {

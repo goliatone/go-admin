@@ -493,7 +493,7 @@ func TestServicesAPI_BeginConnectionResolvesProviderSpecificCallbackRoute(t *tes
 			if !ok || manager == nil {
 				t.Fatalf("expected URL manager")
 			}
-			if _, err := manager.AddRoutes(adm.AdminAPIGroup(), map[string]string{
+			if _, _, err := manager.AddRoutes(adm.AdminAPIGroup(), map[string]string{
 				"services.github.callback.custom": "/services/oauth/github/custom-callback",
 			}); err != nil {
 				t.Fatalf("add callback route: %v", err)

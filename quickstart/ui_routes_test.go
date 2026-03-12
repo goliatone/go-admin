@@ -101,7 +101,13 @@ func (r *uiRoutesCaptureRouter) WithLogger(logger router.Logger) router.Router[*
 
 func TestRegisterAdminUIRoutesTranslationExchangeRouteIsCapabilityGuarded(t *testing.T) {
 	cfg := NewAdminConfig("/admin", "Admin", "en")
-	adm, _, err := NewAdmin(cfg, AdapterHooks{})
+	adm, _, err := NewAdmin(
+		cfg,
+		AdapterHooks{},
+		WithFeatureDefaults(map[string]bool{
+			string(admin.FeatureCMS): false,
+		}),
+	)
 	if err != nil {
 		t.Fatalf("create admin: %v", err)
 	}
@@ -171,6 +177,7 @@ func TestRegisterAdminUIRoutesTranslationRoutesEnabledByCapabilityDefaults(t *te
 		cfg,
 		AdapterHooks{},
 		WithFeatureDefaults(map[string]bool{
+			string(admin.FeatureCMS):                 true,
 			string(admin.FeatureTranslationQueue):    true,
 			string(admin.FeatureTranslationExchange): true,
 		}),
@@ -190,7 +197,59 @@ func TestRegisterAdminUIRoutesTranslationRoutesEnabledByCapabilityDefaults(t *te
 	if captureRouter.getHandlers["/admin/translations/dashboard"] == nil {
 		t.Fatalf("expected translation dashboard route handler by default when queue capability enabled")
 	}
+	if captureRouter.getHandlers["/admin/translations/queue"] == nil {
+		t.Fatalf("expected translation queue shell route handler by default when queue capability enabled")
+	}
+	if captureRouter.getHandlers["/admin/translations/assignments/:assignment_id/edit"] == nil {
+		t.Fatalf("expected translation editor shell route handler by default when queue capability enabled")
+	}
 	if captureRouter.getHandlers["/admin/translations/exchange"] == nil {
 		t.Fatalf("expected translation exchange route handler by default when exchange capability enabled")
+	}
+}
+
+func TestRegisterAdminUIRoutesTranslationCoreShellsAreCapabilityGuarded(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	adm, _, err := NewAdmin(cfg, AdapterHooks{})
+	if err != nil {
+		t.Fatalf("create admin: %v", err)
+	}
+
+	disabledRouter := newUIRoutesCaptureRouter()
+	if err := RegisterAdminUIRoutes(disabledRouter, cfg, adm, nil); err != nil {
+		t.Fatalf("register ui routes: %v", err)
+	}
+	if disabledRouter.getHandlers["/admin/translations/families/:family_id"] != nil {
+		t.Fatalf("expected family-detail shell route to be absent when core capability disabled")
+	}
+	if disabledRouter.getHandlers["/admin/translations/matrix"] != nil {
+		t.Fatalf("expected matrix shell route to be absent when core capability disabled")
+	}
+
+	coreAdm, _, err := NewAdmin(
+		cfg,
+		AdapterHooks{},
+		WithFeatureDefaults(map[string]bool{
+			string(admin.FeatureCMS): true,
+		}),
+	)
+	if err != nil {
+		t.Fatalf("create core admin: %v", err)
+	}
+	registerTranslationCapabilities(
+		coreAdm,
+		TranslationProductConfig{Profile: TranslationProfileCore},
+		nil,
+		translationCapabilityModuleState{HasState: true},
+	)
+	enabledRouter := newUIRoutesCaptureRouter()
+	if err := RegisterAdminUIRoutes(enabledRouter, cfg, coreAdm, nil); err != nil {
+		t.Fatalf("register core ui routes: %v", err)
+	}
+	if enabledRouter.getHandlers["/admin/translations/families/:family_id"] == nil {
+		t.Fatalf("expected family-detail shell route handler when core capability enabled")
+	}
+	if enabledRouter.getHandlers["/admin/translations/matrix"] == nil {
+		t.Fatalf("expected matrix shell route handler when core capability enabled")
 	}
 }

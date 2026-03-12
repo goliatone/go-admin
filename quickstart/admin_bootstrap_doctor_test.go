@@ -23,6 +23,7 @@ func TestWithDoctorChecksRegistersCustomChecks(t *testing.T) {
 	adm, _, err := NewAdmin(
 		cfg,
 		AdapterHooks{},
+		WithFeatureDefaults(quickstartRoutingFeatureDefaults()),
 		WithDoctorChecks(
 			custom,
 			admin.DoctorCheck{ID: "", Run: nil},
@@ -34,7 +35,7 @@ func TestWithDoctorChecksRegistersCustomChecks(t *testing.T) {
 	t.Cleanup(adm.Commands().Reset)
 
 	ids := doctorCheckIDs(adm.DoctorChecks())
-	if !ids["quickstart.adapters"] || !ids["quickstart.routes"] || !ids["quickstart.blocks.seeded_defaults"] || !ids["quickstart.translation"] {
+	if !ids["quickstart.adapters"] || !ids["quickstart.routing"] || !ids["quickstart.routes"] || !ids["quickstart.blocks.seeded_defaults"] || !ids["quickstart.translation"] {
 		t.Fatalf("expected quickstart default doctor checks, got %v", ids)
 	}
 	if !ids["app.custom.health"] {

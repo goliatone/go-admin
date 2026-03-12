@@ -3,12 +3,22 @@ package admin
 import (
 	"errors"
 	"testing"
+
+	"github.com/goliatone/go-admin/admin/routing"
 )
 
 type registryStubModule struct{ manifest ModuleManifest }
 
 func (m registryStubModule) Manifest() ModuleManifest   { return m.manifest }
 func (registryStubModule) Register(ModuleContext) error { return nil }
+func (m registryStubModule) RouteContract() routing.ModuleContract {
+	return routing.ModuleContract{
+		Slug: "registry_stub",
+		UIRoutes: map[string]string{
+			"registry_stub.index": "/",
+		},
+	}
+}
 
 func TestRegistryTracksRegistrations(t *testing.T) {
 	reg := NewRegistry()

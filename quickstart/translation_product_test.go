@@ -10,6 +10,7 @@ import (
 	"github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-command/dispatcher"
 	"github.com/goliatone/go-command/registry"
+	goerrors "github.com/goliatone/go-errors"
 	urlkit "github.com/goliatone/go-urlkit"
 )
 
@@ -1271,37 +1272,29 @@ func TestFeatureFlagInteractionCMSEnabledStateStillValidatedWithModuleFeatureOve
 
 func TestTranslationProductRuntimeValidationQueueRouteCoherenceDiagnostics(t *testing.T) {
 	tests := []struct {
-		name                 string
-		includeDashboardUI   bool
-		includeMyWorkAPI     bool
-		expectedFailedChecks []string
+		name               string
+		includeDashboardUI bool
+		includeMyWorkAPI   bool
 	}{
 		{
-			name:               "dashboard without my-work API",
+			name:               "dashboard without my-work API still backfills coherent routes",
 			includeDashboardUI: true,
 			includeMyWorkAPI:   false,
-			expectedFailedChecks: []string{
-				"queue.route.api.translations.my_work",
-				"queue.coherence.dashboard_without_my_work_api",
-			},
 		},
 		{
-			name:               "my-work API without dashboard",
+			name:               "my-work API without dashboard still backfills coherent routes",
 			includeDashboardUI: false,
 			includeMyWorkAPI:   true,
-			expectedFailedChecks: []string{
-				"queue.route.translations.dashboard",
-				"queue.coherence.my_work_api_without_dashboard",
-			},
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Cleanup(func() { _ = registry.Stop(context.Background()) })
 			cfg := NewAdminConfig("/admin", "Admin", "en")
 			cfg.URLs.URLKit = translationRuntimeValidationURLKitConfig(tc.includeDashboardUI, tc.includeMyWorkAPI)
 
-			_, _, err := NewAdmin(cfg, AdapterHooks{}, WithTranslationProductConfig(TranslationProductConfig{
+			adm, _, err := NewAdmin(cfg, AdapterHooks{}, WithTranslationProductConfig(TranslationProductConfig{
 				SchemaVersion: TranslationProductSchemaVersionCurrent,
 				Profile:       TranslationProfileCoreQueue,
 				Queue: &TranslationQueueConfig{
@@ -1309,23 +1302,24 @@ func TestTranslationProductRuntimeValidationQueueRouteCoherenceDiagnostics(t *te
 					SupportedLocales: []string{"en", "es"},
 				},
 			}))
-			if err == nil {
-				t.Fatalf("expected runtime validation error")
+			if err != nil {
+				t.Fatalf("expected planner-backed route backfill, got %v", err)
 			}
-			if !errors.Is(err, ErrTranslationProductConfig) {
-				t.Fatalf("expected ErrTranslationProductConfig, got %v", err)
+			if adm.Commands() != nil {
+				t.Cleanup(adm.Commands().Reset)
 			}
-			var cfgErr translationProductConfigError
-			if !errors.As(err, &cfgErr) {
-				t.Fatalf("expected translationProductConfigError, got %T", err)
+			manager, ok := adm.URLs().(*urlkit.RouteManager)
+			if !ok || manager == nil {
+				t.Fatalf("expected route manager-backed resolver, got %T", adm.URLs())
 			}
-			if cfgErr.Code != "translation.productization.runtime.invalid" {
-				t.Fatalf("expected runtime.invalid code, got %s", cfgErr.Code)
+			if got, err := manager.ResolveWith("admin", "translations.dashboard", nil, nil); err != nil || got != "/admin/translations/dashboard" {
+				t.Fatalf("expected dashboard route to be backfilled, got %q", got)
 			}
-			for _, expected := range tc.expectedFailedChecks {
-				if !containsTranslationProductString(cfgErr.FailedChecks, expected) {
-					t.Fatalf("expected failed check %q, got %v", expected, cfgErr.FailedChecks)
-				}
+			if got, err := manager.ResolveWith(adm.AdminAPIGroup(), "translations.my_work", nil, nil); err != nil || got != "/admin/api/translations/my-work" {
+				t.Fatalf("expected my-work api route to be backfilled, got %q", got)
+			}
+			if got, err := manager.ResolveWith(adm.AdminAPIGroup(), "translations.queue", nil, nil); err != nil || got != "/admin/api/translations/queue" {
+				t.Fatalf("expected queue api route to remain resolvable, got %q", got)
 			}
 		})
 	}
@@ -1350,18 +1344,18 @@ func TestTranslationProductRuntimeValidationRejectsUnresolvableQueueAggregateRou
 	if err == nil {
 		t.Fatalf("expected runtime validation error for dynamic queue aggregate route")
 	}
-	var cfgErr translationProductConfigError
-	if !errors.As(err, &cfgErr) {
-		t.Fatalf("expected translationProductConfigError, got %T", err)
+	var typedErr *goerrors.Error
+	if !goerrors.As(err, &typedErr) {
+		t.Fatalf("expected typed goerrors.Error, got %T", err)
 	}
-	if cfgErr.Code != "translation.productization.runtime.invalid" {
-		t.Fatalf("expected runtime.invalid code, got %s", cfgErr.Code)
+	if typedErr.TextCode != "VALIDATION_ERROR" {
+		t.Fatalf("expected VALIDATION_ERROR, got %s", typedErr.TextCode)
 	}
-	if !containsTranslationProductString(cfgErr.FailedChecks, "queue.route.api.translations.my_work") {
-		t.Fatalf("expected missing my_work failed check, got %v", cfgErr.FailedChecks)
+	if typedErr.Message != "translation routing registration failed" {
+		t.Fatalf("expected translation routing registration failure, got %q", typedErr.Message)
 	}
-	if !containsTranslationProductString(cfgErr.FailedChecks, "queue.route.api.translations.my_work.resolver") {
-		t.Fatalf("expected resolver failed check, got %v", cfgErr.FailedChecks)
+	if got := fmt.Sprint(typedErr.Metadata["error"]); !strings.Contains(got, "translations.my_work") || !strings.Contains(got, "/translations/:id") {
+		t.Fatalf("expected route conflict metadata for translations.my_work, got %q", got)
 	}
 }
 

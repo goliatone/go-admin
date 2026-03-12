@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/goliatone/go-admin/admin/routing"
 	"github.com/stretchr/testify/require"
 
 	router "github.com/goliatone/go-router"
@@ -30,7 +31,9 @@ type stubCtx struct {
 	router     Router
 	wrapper    HandlerWrapper
 	basePath   string
+	adminUI    string
 	adminAPI   string
+	planner    routing.Planner
 	urls       urlkit.Resolver
 	responder  Responder
 	parseBody  func(router.Context) (map[string]any, error)
@@ -52,12 +55,19 @@ type stubCtx struct {
 func (s *stubCtx) Router() Router              { return s.router }
 func (s *stubCtx) AuthWrapper() HandlerWrapper { return s.wrapper }
 func (s *stubCtx) BasePath() string            { return s.basePath }
+func (s *stubCtx) AdminUIGroup() string {
+	if s.adminUI != "" {
+		return s.adminUI
+	}
+	return "admin"
+}
 func (s *stubCtx) AdminAPIGroup() string {
 	if s.adminAPI != "" {
 		return s.adminAPI
 	}
 	return "admin.api"
 }
+func (s *stubCtx) RoutingPlanner() routing.Planner { return s.planner }
 func (s *stubCtx) URLs() urlkit.Resolver {
 	if s.urls != nil {
 		return s.urls
@@ -180,8 +190,8 @@ func newTestURLManager(basePath string) *urlkit.RouteManager {
 							"workflows.id":                        "/workflows/:id",
 							"workflows.bindings":                  "/workflows/bindings",
 							"workflows.bindings.id":               "/workflows/bindings/:id",
-							"translations.export":                 "/translations/export",
-							"translations.template":               "/translations/template",
+							"translations.export":                 "/translations/exchange/export",
+							"translations.template":               "/translations/exchange/template",
 							"translations.my_work":                "/translations/my-work",
 							"translations.queue":                  "/translations/queue",
 							"translations.options.entity_types":   "/translations/options/entity-types",
@@ -189,9 +199,9 @@ func newTestURLManager(basePath string) *urlkit.RouteManager {
 							"translations.options.locales":        "/translations/options/locales",
 							"translations.options.groups":         "/translations/options/groups",
 							"translations.options.assignees":      "/translations/options/assignees",
-							"translations.jobs.id":                "/translations/jobs/:id",
-							"translations.import.validate":        "/translations/import/validate",
-							"translations.import.apply":           "/translations/import/apply",
+							"translations.jobs.id":                "/translations/exchange/jobs/:job_id",
+							"translations.import.validate":        "/translations/exchange/import/validate",
+							"translations.import.apply":           "/translations/exchange/import/apply",
 							"schemas":                             "/schemas",
 							"schemas.resource":                    "/schemas/:resource",
 							"panel":                               "/panels/:panel",
@@ -210,6 +220,40 @@ func newTestURLManager(basePath string) *urlkit.RouteManager {
 	return manager
 }
 
+type urlKitPlannerAdapter struct {
+	manager *urlkit.RouteManager
+}
+
+func (a urlKitPlannerAdapter) EnsureGroup(path string) error {
+	if a.manager == nil {
+		return nil
+	}
+	_, err := a.manager.EnsureGroup(path)
+	return err
+}
+
+func (a urlKitPlannerAdapter) AddRoutes(path string, routes map[string]string) error {
+	if a.manager == nil {
+		return nil
+	}
+	_, _, err := a.manager.AddRoutes(path, routes)
+	return err
+}
+
+func (a urlKitPlannerAdapter) RoutePath(groupPath, route string) (string, error) {
+	if a.manager == nil {
+		return "", nil
+	}
+	return a.manager.RoutePath(groupPath, route)
+}
+
+func (a urlKitPlannerAdapter) RouteTemplate(groupPath, route string) (string, error) {
+	if a.manager == nil {
+		return "", nil
+	}
+	return a.manager.RouteTemplate(groupPath, route)
+}
+
 func mustRoutePath(t *testing.T, ctx BootCtx, group, route string) string {
 	t.Helper()
 	path := routePath(ctx, group, route)
@@ -226,6 +270,55 @@ func mustRoutePathWithParams(t *testing.T, ctx BootCtx, group, route string, par
 		t.Fatalf("expected route path for %s.%s", group, route)
 	}
 	return path
+}
+
+func TestModuleRoutePathUsesPlannerResolvedGroups(t *testing.T) {
+	manager := newPlannerURLManager()
+	planner, err := routing.NewPlanner(routing.Config{
+		Roots: routing.RootsConfig{
+			AdminRoot: "/admin",
+			APIRoot:   "/admin/api",
+		},
+	}, urlKitPlannerAdapter{manager: manager})
+	require.NoError(t, err)
+	require.NoError(t, planner.RegisterModule(routing.ModuleContract{
+		Slug: "reports",
+		APIRoutes: map[string]string{
+			"reports.queue": "/queue",
+		},
+	}))
+
+	ctx := &stubCtx{
+		basePath: "",
+		urls:     manager,
+		planner:  planner,
+	}
+	require.Equal(t, "/admin/api/reports/queue", moduleRoutePath(ctx, "reports", routing.SurfaceAPI, "reports.queue"))
+}
+
+func newPlannerURLManager() *urlkit.RouteManager {
+	cfg := &urlkit.Config{
+		Groups: []urlkit.GroupConfig{
+			{
+				Name:    "admin",
+				BaseURL: "",
+				Routes: map[string]string{
+					"dashboard": "/admin/",
+				},
+				Groups: []urlkit.GroupConfig{
+					{
+						Name: "api",
+						Path: "",
+						Routes: map[string]string{
+							"dashboard": "/admin/api/dashboard",
+						},
+					},
+				},
+			},
+		},
+	}
+	manager, _ := urlkit.NewRouteManagerFromConfig(cfg)
+	return manager
 }
 
 func TestRunShortCircuitsOnError(t *testing.T) {

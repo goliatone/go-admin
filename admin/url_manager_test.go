@@ -3,6 +3,7 @@ package admin
 import (
 	"testing"
 
+	"github.com/goliatone/go-admin/admin/routing"
 	urlkit "github.com/goliatone/go-urlkit"
 )
 
@@ -121,6 +122,75 @@ func TestDefaultURLKitConfigPaths(t *testing.T) {
 	}
 	if translationsDashboard != "/admin/translations/dashboard" {
 		t.Fatalf("expected /admin/translations/dashboard, got %q", translationsDashboard)
+	}
+}
+
+func TestDefaultURLKitConfigUsesRoutingRootOverrides(t *testing.T) {
+	cfg := applyConfigDefaults(Config{
+		BasePath: "/admin",
+		Routing: routing.Config{
+			Roots: routing.RootsConfig{
+				AdminRoot:     "/control",
+				APIRoot:       "/api",
+				PublicAPIRoot: "/site/api/v2",
+			},
+		},
+	})
+	manager, err := newURLManager(cfg)
+	if err != nil {
+		t.Fatalf("newURLManager: %v", err)
+	}
+
+	adminDashboard, err := manager.Resolve("admin", "dashboard", nil, nil)
+	if err != nil {
+		t.Fatalf("resolve admin dashboard: %v", err)
+	}
+	if adminDashboard != "/control/" {
+		t.Fatalf("expected /control/, got %q", adminDashboard)
+	}
+
+	adminErrors, err := manager.Resolve(adminAPIGroupName(cfg), "errors", nil, nil)
+	if err != nil {
+		t.Fatalf("resolve %s errors: %v", adminAPIGroupName(cfg), err)
+	}
+	if adminErrors != "/api/errors" {
+		t.Fatalf("expected /api/errors, got %q", adminErrors)
+	}
+
+	publicPreview, err := manager.Resolve(publicAPIGroupName(cfg), "preview", urlkit.Params{"token": "token"}, nil)
+	if err != nil {
+		t.Fatalf("resolve %s preview: %v", publicAPIGroupName(cfg), err)
+	}
+	if publicPreview != "/site/api/v2/preview/token" {
+		t.Fatalf("expected /site/api/v2/preview/token, got %q", publicPreview)
+	}
+}
+
+func TestDefaultURLKitConfigSupportsVersionedAdminAPIGroup(t *testing.T) {
+	cfg := applyConfigDefaults(Config{
+		BasePath: "/admin",
+		URLs: URLConfig{
+			Admin: URLNamespaceConfig{
+				APIVersion: "v2",
+			},
+		},
+	})
+	manager, err := newURLManager(cfg)
+	if err != nil {
+		t.Fatalf("newURLManager: %v", err)
+	}
+
+	group := adminAPIGroupName(cfg)
+	if group != "admin.api.v2" {
+		t.Fatalf("expected admin api group admin.api.v2, got %q", group)
+	}
+
+	adminErrors, err := manager.Resolve(group, "errors", nil, nil)
+	if err != nil {
+		t.Fatalf("resolve %s errors: %v", group, err)
+	}
+	if adminErrors != "/admin/api/v2/errors" {
+		t.Fatalf("expected /admin/api/v2/errors, got %q", adminErrors)
 	}
 }
 

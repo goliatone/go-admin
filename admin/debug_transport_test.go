@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/goliatone/go-admin/admin/routing"
 	router "github.com/goliatone/go-router"
 )
 
@@ -380,4 +381,44 @@ func debugAPIPath(t *testing.T, adm *Admin, cfg DebugConfig, route string) strin
 		t.Fatalf("expected debug api path for %s", route)
 	}
 	return path
+}
+
+func TestDebugRoutesRespectRoutingMountOverrides(t *testing.T) {
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		Debug: DebugConfig{
+			Enabled: true,
+		},
+		Routing: routing.Config{
+			Roots: routing.RootsConfig{
+				AdminRoot: "/control",
+				APIRoot:   "/control/api",
+			},
+			Modules: map[string]routing.ModuleConfig{
+				debugRoutingSlug: {
+					Mount: routing.ModuleMountOverride{
+						UIBase: "/control/workbench/debug",
+					},
+				},
+			},
+		},
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromFlags(map[string]bool{"debug": true})})
+	adm.WithAuthorizer(allowAuthorizer{})
+	if err := adm.RegisterModule(NewDebugModule(cfg.Debug)); err != nil {
+		t.Fatalf("register debug module: %v", err)
+	}
+
+	server := router.NewHTTPServer()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+
+	if got := debugRoutePath(adm, cfg.Debug, "admin.debug", "index"); got != "/control/workbench/debug" {
+		t.Fatalf("expected planner-backed debug path, got %q", got)
+	}
+	if got := debugAPIPath(t, adm, cfg.Debug, "snapshot"); got != "/control/workbench/debug/api/snapshot" {
+		t.Fatalf("expected planner-backed debug api path, got %q", got)
+	}
 }
