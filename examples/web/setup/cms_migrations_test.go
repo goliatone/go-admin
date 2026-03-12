@@ -38,7 +38,9 @@ SELECT name FROM sqlite_master
 WHERE type = 'table' AND name IN (
     'locales','content_types','contents','content_translations',
     'pages','page_translations','menus','menu_items','menu_item_translations',
-    'templates','themes'
+    'templates','themes',
+    'content_families','locale_variants','translation_assignments','family_blockers',
+    'translation_assignment_events','exchange_jobs'
 )
 ORDER BY name`)
 	if err != nil {
@@ -58,6 +60,8 @@ ORDER BY name`)
 		"locales", "content_types", "contents", "content_translations",
 		"pages", "page_translations", "menus", "menu_items", "menu_item_translations",
 		"templates", "themes",
+		"content_families", "locale_variants", "translation_assignments", "family_blockers",
+		"translation_assignment_events", "exchange_jobs",
 	} {
 		if !tables[table] {
 			t.Fatalf("expected table %s to exist", table)
