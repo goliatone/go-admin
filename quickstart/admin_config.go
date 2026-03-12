@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/admin/routing"
 )
 
 // DefaultNavMenuCode is the quickstart default menu identifier.
@@ -176,6 +177,16 @@ func WithFeatureCatalogPath(path string) AdminConfigOption {
 			return
 		}
 		cfg.FeatureCatalogPath = strings.TrimSpace(path)
+	}
+}
+
+// WithRoutingConfig applies routing roots and per-module mount policy overrides.
+func WithRoutingConfig(routingCfg routing.Config) AdminConfigOption {
+	return func(cfg *admin.Config) {
+		if cfg == nil {
+			return
+		}
+		cfg.Routing = routingCfg
 	}
 }
 

@@ -13,6 +13,7 @@ Each helper is optional and composable.
 - `WithErrorConfig(cfg admin.ErrorConfig) AdminConfigOption` - Inputs: error config; outputs: option that applies error presentation defaults.
 - `WithErrorOptions(opt ErrorOption) AdminConfigOption` - Inputs: explicit error option overrides; outputs: option that applies targeted error fields.
 - `WithErrorsFromEnv(opts ...ErrorEnvOption) AdminConfigOption` - Deprecated compatibility shim; no longer reads process environment.
+- `WithRoutingConfig(cfg routing.Config) AdminConfigOption` - Inputs: routing roots/module mount overrides; outputs: option that applies explicit routing policy overrides during quickstart config assembly.
 - `WithScopeConfig(scope ScopeConfig) AdminConfigOption` - Inputs: scope config; outputs: option that applies single/multi-tenant defaults.
 - `WithScopeMode(mode ScopeMode) AdminConfigOption` - Inputs: scope mode (`single` or `multi`); outputs: option that sets the mode.
 - `WithDefaultScope(tenantID, orgID string) AdminConfigOption` - Inputs: default tenant/org IDs; outputs: option that sets defaults for single-tenant mode.
@@ -105,6 +106,79 @@ Each helper is optional and composable.
 - `NewSecureLinkNotificationBuilder(manager links.SecureLinkManager, opts ...linksecure.Option) links.LinkBuilder` - Inputs: notification manager + options; outputs: notification link builder.
 - `RegisterOnboardingRoutes(r router.Router[T], cfg admin.Config, handlers OnboardingHandlers, opts ...OnboardingRouteOption) error` - Inputs: router/config/handlers; outputs: error (registers onboarding API routes).
 - `RegisterUserMigrations(client *persistence.Client, opts ...UserMigrationsOption) error` - Inputs: persistence client + options; outputs: error (registers go-auth/go-users migrations using canonical profiles + source labels).
+
+## Routing policy overrides
+Quickstart exposes the `admin/routing` policy directly. Host roots and per-module mount overrides remain explicit, and startup logs plus doctor output now include effective roots, resolved module mounts, and conflicts.
+
+Release policy for quickstart matches core:
+
+- mounted modules must expose `RouteContract() routing.ModuleContract`
+- routing validation is strict fail-fast in every environment
+- public API exposure is opt-in through `PublicAPIRoutes`
+- the supported diagnostics surfaces are `adm.RoutingReport()`,
+  `adm.RoutingPlanner().Manifest()`, startup logs, and the `quickstart.routing`
+  doctor check
+
+See `../GUIDE_ROUTING.md` for the published external-module contract,
+manifest-diff workflow, and PR review guidance.
+
+```go
+cfg := quickstart.NewAdminConfig(
+	"/admin",
+	"Admin",
+	"en",
+	quickstart.WithRoutingConfig(routing.Config{
+		Roots: routing.RootsConfig{
+			AdminRoot:     "/control",
+			APIRoot:       "/ops/admin/api",
+			PublicAPIRoot: "/api/v2",
+		},
+		Modules: map[string]routing.ModuleConfig{
+			"preferences": {
+				Mount: routing.ModuleMountOverride{
+					UIBase: "/control/workbench/preferences",
+				},
+			},
+			"partner_tools": {
+				Mount: routing.ModuleMountOverride{
+					UIBase:  "/control/workbench/partner-tools",
+					APIBase: "/ops/admin/api/modules/partner-tools",
+				},
+			},
+		},
+	}),
+)
+```
+
+External-style modules keep declaring relative contracts and let the host compute absolute paths:
+
+```go
+type PartnerToolsModule struct{}
+
+func (*PartnerToolsModule) Manifest() admin.ModuleManifest {
+	return admin.ModuleManifest{ID: "partner.tools"}
+}
+
+func (*PartnerToolsModule) RouteContract() routing.ModuleContract {
+	return routing.ModuleContract{
+		Slug: "partner_tools",
+		UIRoutes: map[string]string{
+			"partner_tools.index": "/",
+		},
+		APIRoutes: map[string]string{
+			"partner_tools.ping": "/ping",
+		},
+	}
+}
+
+func (*PartnerToolsModule) Register(ctx admin.ModuleContext) error {
+	ctx.Router.Get(ctx.Routing.RoutePath(routing.SurfaceUI, "partner_tools.index"), handler)
+	ctx.ProtectedRouter.Get(ctx.Routing.RoutePath(routing.SurfaceAPI, "partner_tools.ping"), apiHandler)
+	return nil
+}
+```
+
+Fiber runtime route options can relax adapter behavior for path matching, but they do not disable `admin/routing` startup validation. Route ownership and path conflicts still fail before router mutation.
 
 ## Command routing
 Quickstart defaults to inline command execution. To opt into queued execution, configure policy and queue wiring explicitly.

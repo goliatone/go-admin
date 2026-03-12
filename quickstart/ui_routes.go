@@ -18,38 +18,55 @@ type UIViewContextBuilder func(ctx router.ViewContext, active string, c router.C
 type UIRouteOption func(*uiRouteOptions)
 
 type uiRouteOptions struct {
-	basePath                     string
-	dashboardPath                string
-	notificationsPath            string
-	activityPath                 string
-	featureFlagsPath             string
-	translationDashboardPath     string
-	translationExchangePath      string
-	dashboardTemplate            string
-	notificationsTemplate        string
-	activityTemplate             string
-	featureFlagsTemplate         string
-	translationDashboardTemplate string
-	translationExchangeTemplate  string
-	dashboardTitle               string
-	notificationsTitle           string
-	activityTitle                string
-	featureFlagsTitle            string
-	translationDashboardTitle    string
-	translationExchangeTitle     string
-	dashboardActive              string
-	notificationsActive          string
-	activityActive               string
-	featureFlagsActive           string
-	translationDashboardActive   string
-	translationExchangeActive    string
-	registerDashboard            bool
-	registerNotifications        bool
-	registerActivity             bool
-	registerFeatureFlags         bool
-	registerTranslationDashboard bool
-	registerTranslationExchange  bool
-	viewContext                  UIViewContextBuilder
+	basePath                        string
+	dashboardPath                   string
+	notificationsPath               string
+	activityPath                    string
+	featureFlagsPath                string
+	translationQueuePath            string
+	translationFamilyDetailPath     string
+	translationEditorPath           string
+	translationMatrixPath           string
+	translationDashboardPath        string
+	translationExchangePath         string
+	dashboardTemplate               string
+	notificationsTemplate           string
+	activityTemplate                string
+	featureFlagsTemplate            string
+	translationShellTemplate        string
+	translationDashboardTemplate    string
+	translationExchangeTemplate     string
+	dashboardTitle                  string
+	notificationsTitle              string
+	activityTitle                   string
+	featureFlagsTitle               string
+	translationQueueTitle           string
+	translationFamilyDetailTitle    string
+	translationEditorTitle          string
+	translationMatrixTitle          string
+	translationDashboardTitle       string
+	translationExchangeTitle        string
+	dashboardActive                 string
+	notificationsActive             string
+	activityActive                  string
+	featureFlagsActive              string
+	translationQueueActive          string
+	translationFamilyDetailActive   string
+	translationEditorActive         string
+	translationMatrixActive         string
+	translationDashboardActive      string
+	translationExchangeActive       string
+	registerDashboard               bool
+	registerNotifications           bool
+	registerActivity                bool
+	registerFeatureFlags            bool
+	registerTranslationQueue        bool
+	registerTranslationFamilyDetail bool
+	registerTranslationEditor       bool
+	registerTranslationMatrix       bool
+	registerTranslationDashboard    bool
+	registerTranslationExchange     bool
+	viewContext                     UIViewContextBuilder
 }
 
 // WithUIBasePath overrides the base path used to build default routes.
@@ -349,33 +366,53 @@ func RegisterAdminUIRoutes[T any](r router.Router[T], cfg admin.Config, adm *adm
 	exposure := resolveTranslationModuleExposureSnapshot(adm, nil)
 	queueModuleEnabled := exposure.Queue.CapabilityEnabled
 	exchangeModuleEnabled := exposure.Exchange.CapabilityEnabled
+	coreModuleEnabled := false
+	if _, ok := translationCapabilitiesStore.Load(adm); ok {
+		if caps := translationCapabilitiesForAdmin(adm); len(caps) > 0 {
+			productized, _ := caps["productized"].(bool)
+			coreModuleEnabled = productized && !strings.EqualFold(strings.TrimSpace(fmt.Sprint(caps["profile"])), "none")
+		}
+	}
 
 	options := uiRouteOptions{
-		basePath:                     strings.TrimSpace(cfg.BasePath),
-		dashboardTemplate:            "admin",
-		notificationsTemplate:        "notifications",
-		activityTemplate:             "resources/activity/list",
-		featureFlagsTemplate:         "resources/feature-flags/index",
-		translationDashboardTemplate: "resources/translations/dashboard",
-		translationExchangeTemplate:  "resources/translations/exchange",
-		dashboardTitle:               strings.TrimSpace(cfg.Title),
-		notificationsTitle:           strings.TrimSpace(cfg.Title),
-		activityTitle:                "Activity",
-		featureFlagsTitle:            "Feature Flags",
-		translationDashboardTitle:    "Translation Dashboard",
-		translationExchangeTitle:     "Translation Exchange",
-		dashboardActive:              "dashboard",
-		notificationsActive:          "notifications",
-		activityActive:               "activity",
-		featureFlagsActive:           "feature_flags",
-		translationDashboardActive:   "translation_dashboard",
-		translationExchangeActive:    "translation_exchange",
-		registerDashboard:            true,
-		registerNotifications:        true,
-		registerActivity:             true,
-		registerFeatureFlags:         true,
-		registerTranslationDashboard: queueModuleEnabled,
-		registerTranslationExchange:  exchangeModuleEnabled,
+		basePath:                        strings.TrimSpace(cfg.BasePath),
+		dashboardTemplate:               "admin",
+		notificationsTemplate:           "notifications",
+		activityTemplate:                "resources/activity/list",
+		featureFlagsTemplate:            "resources/feature-flags/index",
+		translationShellTemplate:        "resources/translations/shell",
+		translationDashboardTemplate:    "resources/translations/dashboard",
+		translationExchangeTemplate:     "resources/translations/exchange",
+		dashboardTitle:                  strings.TrimSpace(cfg.Title),
+		notificationsTitle:              strings.TrimSpace(cfg.Title),
+		activityTitle:                   "Activity",
+		featureFlagsTitle:               "Feature Flags",
+		translationQueueTitle:           "Translation Queue",
+		translationFamilyDetailTitle:    "Translation Family",
+		translationEditorTitle:          "Translation Editor",
+		translationMatrixTitle:          "Translation Matrix",
+		translationDashboardTitle:       "Translation Dashboard",
+		translationExchangeTitle:        "Translation Exchange",
+		dashboardActive:                 "dashboard",
+		notificationsActive:             "notifications",
+		activityActive:                  "activity",
+		featureFlagsActive:              "feature_flags",
+		translationQueueActive:          "translation_queue",
+		translationFamilyDetailActive:   "translation_families",
+		translationEditorActive:         "translation_editor",
+		translationMatrixActive:         "translation_matrix",
+		translationDashboardActive:      "translation_dashboard",
+		translationExchangeActive:       "translation_exchange",
+		registerDashboard:               true,
+		registerNotifications:           true,
+		registerActivity:                true,
+		registerFeatureFlags:            true,
+		registerTranslationQueue:        queueModuleEnabled,
+		registerTranslationFamilyDetail: coreModuleEnabled,
+		registerTranslationEditor:       queueModuleEnabled,
+		registerTranslationMatrix:       coreModuleEnabled,
+		registerTranslationDashboard:    queueModuleEnabled,
+		registerTranslationExchange:     exchangeModuleEnabled,
 	}
 	for _, opt := range opts {
 		if opt != nil {
@@ -385,7 +422,13 @@ func RegisterAdminUIRoutes[T any](r router.Router[T], cfg admin.Config, adm *adm
 	// Keep translation UI routes aligned with capability state even when callers
 	// explicitly opt in, so dashboard/exchange pages do not point to disabled APIs.
 	if !queueModuleEnabled {
+		options.registerTranslationQueue = false
+		options.registerTranslationEditor = false
 		options.registerTranslationDashboard = false
+	}
+	if !coreModuleEnabled {
+		options.registerTranslationFamilyDetail = false
+		options.registerTranslationMatrix = false
 	}
 	if !exchangeModuleEnabled {
 		options.registerTranslationExchange = false
@@ -408,6 +451,18 @@ func RegisterAdminUIRoutes[T any](r router.Router[T], cfg admin.Config, adm *adm
 	}
 	if options.translationDashboardPath == "" {
 		options.translationDashboardPath = path.Join(options.basePath, "translations", "dashboard")
+	}
+	if options.translationQueuePath == "" {
+		options.translationQueuePath = path.Join(options.basePath, "translations", "queue")
+	}
+	if options.translationFamilyDetailPath == "" {
+		options.translationFamilyDetailPath = path.Join(options.basePath, "translations", "families", ":family_id")
+	}
+	if options.translationEditorPath == "" {
+		options.translationEditorPath = path.Join(options.basePath, "translations", "assignments", ":assignment_id", "edit")
+	}
+	if options.translationMatrixPath == "" {
+		options.translationMatrixPath = path.Join(options.basePath, "translations", "matrix")
 	}
 	if options.translationExchangePath == "" {
 		options.translationExchangePath = path.Join(options.basePath, "translations", "exchange")
@@ -477,6 +532,68 @@ func RegisterAdminUIRoutes[T any](r router.Router[T], cfg admin.Config, adm *adm
 				"translation_queue_api_path":     prefixBasePath(apiBase, path.Join("translations", "queue")),
 				"translation_panels_base_path":   path.Join(options.basePath, "content"),
 			})
+		}))
+	}
+
+	renderTranslationShell := func(c router.Context, title, active, surface, description, endpoint string) error {
+		return renderView(c, options.translationShellTemplate, title, active, router.ViewContext{
+			"translation_shell_surface":     surface,
+			"translation_shell_title":       title,
+			"translation_shell_description": description,
+			"translation_shell_api_path":    endpoint,
+		})
+	}
+
+	if options.registerTranslationQueue {
+		r.Get(options.translationQueuePath, wrap(func(c router.Context) error {
+			apiBase := resolveAPIBase()
+			return renderTranslationShell(
+				c,
+				options.translationQueueTitle,
+				options.translationQueueActive,
+				"queue",
+				"Baseline queue shell for loading, empty, conflict, and kill-switch verification.",
+				prefixBasePath(apiBase, path.Join("translations", "queue")),
+			)
+		}))
+	}
+
+	if options.registerTranslationFamilyDetail {
+		r.Get(options.translationFamilyDetailPath, wrap(func(c router.Context) error {
+			return renderTranslationShell(
+				c,
+				options.translationFamilyDetailTitle,
+				options.translationFamilyDetailActive,
+				"family_detail",
+				"Flag-aware family detail shell used to exercise navigation and empty-state rendering before the full readiness UI lands.",
+				"",
+			)
+		}))
+	}
+
+	if options.registerTranslationEditor {
+		r.Get(options.translationEditorPath, wrap(func(c router.Context) error {
+			return renderTranslationShell(
+				c,
+				options.translationEditorTitle,
+				options.translationEditorActive,
+				"editor",
+				"Assignment editor shell for route rollout, kill-switch checks, and canonical conflict-state handling.",
+				"",
+			)
+		}))
+	}
+
+	if options.registerTranslationMatrix {
+		r.Get(options.translationMatrixPath, wrap(func(c router.Context) error {
+			return renderTranslationShell(
+				c,
+				options.translationMatrixTitle,
+				options.translationMatrixActive,
+				"matrix",
+				"Matrix shell used to validate route rollout and shared empty-state handling before the dense locale grid ships.",
+				"",
+			)
 		}))
 	}
 
