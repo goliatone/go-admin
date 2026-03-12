@@ -1,6 +1,87 @@
-// @ts-nocheck
-
 import type { NormalizedAgreementFormConfig } from './context';
+
+export interface AgreementFormRuntimeInputConfig {
+  base_path?: string;
+  api_base_path?: string;
+  user_id?: string;
+  is_edit?: boolean;
+  create_success?: boolean;
+  submit_mode?: string;
+  routes?: {
+    index?: string;
+    documents?: string;
+    create?: string;
+    documents_upload_url?: string;
+  };
+  initial_participants?: Array<Record<string, unknown>>;
+  initial_field_instances?: Array<Record<string, unknown>>;
+}
+
+export interface AgreementTitleSourceShape {
+  USER: string;
+  AUTOFILL: string;
+  SERVER_SEED: string;
+}
+
+export interface AgreementProgressState {
+  currentStep?: number | string;
+  document?: { id?: unknown } | null;
+  details?: { title?: unknown; message?: unknown } | null;
+  titleSource?: unknown;
+  participants?: unknown[];
+  fieldDefinitions?: unknown[];
+  fieldPlacements?: unknown[];
+  fieldRules?: unknown[];
+}
+
+interface ParticipantProgressShape {
+  name?: unknown;
+  email?: unknown;
+  role?: unknown;
+  signingStage?: unknown;
+  signing_stage?: unknown;
+  notify?: unknown;
+}
+
+export interface AgreementProgressOptions {
+  normalizeTitleSource?: (value: unknown, fallback?: string) => string;
+  titleSource?: AgreementTitleSourceShape;
+}
+
+export interface AgreementFormConfigNormalizationResult {
+  config: AgreementFormRuntimeInputConfig;
+  normalizedConfig: NormalizedAgreementFormConfig;
+  basePath: string;
+  apiBase: string;
+  apiVersionBase: string;
+  draftsEndpoint: string;
+  isEditMode: boolean;
+  createSuccess: boolean;
+  currentUserID: string;
+  submitMode: string;
+  documentsUploadURL: string;
+  initialParticipants: Array<Record<string, unknown>>;
+  initialFieldInstances: Array<Record<string, unknown>>;
+}
+
+export interface DraftRequestHelpers {
+  draftEndpointWithUserID(url: string): string;
+  draftRequestHeaders(includeContentType?: boolean): Record<string, string>;
+}
+
+export interface AgreementWizardPersistenceSettings {
+  WIZARD_STATE_VERSION: number;
+  WIZARD_STORAGE_KEY: string;
+  WIZARD_CHANNEL_NAME: string;
+  LEGACY_WIZARD_STORAGE_KEY: string;
+  SYNC_DEBOUNCE_MS: number;
+  SYNC_RETRY_DELAYS: number[];
+  WIZARD_STORAGE_MIGRATION_VERSION: number;
+  ACTIVE_TAB_STORAGE_KEY: string;
+  ACTIVE_TAB_HEARTBEAT_MS: number;
+  ACTIVE_TAB_STALE_MS: number;
+  TITLE_SOURCE: typeof AGREEMENT_TITLE_SOURCE;
+}
 
 export const AGREEMENT_TITLE_SOURCE = {
   USER: 'user',
@@ -8,7 +89,10 @@ export const AGREEMENT_TITLE_SOURCE = {
   SERVER_SEED: 'server_seed',
 } as const;
 
-export function normalizeAgreementTitleSource(value, fallback = AGREEMENT_TITLE_SOURCE.AUTOFILL) {
+export function normalizeAgreementTitleSource(
+  value: unknown,
+  fallback: string = AGREEMENT_TITLE_SOURCE.AUTOFILL,
+): string {
   const normalized = String(value || '').trim().toLowerCase();
   if (normalized === AGREEMENT_TITLE_SOURCE.USER) return AGREEMENT_TITLE_SOURCE.USER;
   if (normalized === AGREEMENT_TITLE_SOURCE.SERVER_SEED) return AGREEMENT_TITLE_SOURCE.SERVER_SEED;
@@ -16,14 +100,15 @@ export function normalizeAgreementTitleSource(value, fallback = AGREEMENT_TITLE_
   return fallback;
 }
 
-export function hasMeaningfulParticipantProgress(participant, index = 0) {
+export function hasMeaningfulParticipantProgress(participant: unknown, index = 0): boolean {
   if (!participant || typeof participant !== 'object') return false;
+  const candidate = participant as ParticipantProgressShape;
 
-  const name = String(participant.name ?? '').trim();
-  const email = String(participant.email ?? '').trim();
-  const role = String(participant.role ?? 'signer').trim().toLowerCase();
-  const signingStage = Number.parseInt(String(participant.signingStage ?? participant.signing_stage ?? 1), 10);
-  const notify = participant.notify !== false;
+  const name = String(candidate.name ?? '').trim();
+  const email = String(candidate.email ?? '').trim();
+  const role = String(candidate.role ?? 'signer').trim().toLowerCase();
+  const signingStage = Number.parseInt(String(candidate.signingStage ?? candidate.signing_stage ?? 1), 10);
+  const notify = candidate.notify !== false;
 
   if (name !== '' || email !== '') return true;
   if (role !== '' && role !== 'signer') return true;
@@ -32,7 +117,10 @@ export function hasMeaningfulParticipantProgress(participant, index = 0) {
   return index > 0;
 }
 
-export function hasMeaningfulWizardProgress(state, options = {}) {
+export function hasMeaningfulWizardProgress(
+  state: AgreementProgressState | null | undefined,
+  options: AgreementProgressOptions = {},
+): boolean {
   const {
     normalizeTitleSource = normalizeAgreementTitleSource,
     titleSource = AGREEMENT_TITLE_SOURCE,
@@ -65,7 +153,9 @@ export function hasMeaningfulWizardProgress(state, options = {}) {
   return false;
 }
 
-export function normalizeAgreementFormConfig(inputConfig = {}) {
+export function normalizeAgreementFormConfig(
+  inputConfig: AgreementFormRuntimeInputConfig = {},
+): AgreementFormConfigNormalizationResult {
   const config = inputConfig || {};
   const basePath = String(config.base_path || '').trim();
   const apiBase = String(config.api_base_path || '').trim() || `${basePath}/api`;
@@ -114,15 +204,15 @@ export function normalizeAgreementFormConfig(inputConfig = {}) {
   };
 }
 
-export function createDraftRequestHelpers(currentUserID) {
-  function draftEndpointWithUserID(url) {
+export function createDraftRequestHelpers(currentUserID: string): DraftRequestHelpers {
+  function draftEndpointWithUserID(url: string): string {
     if (!currentUserID) return url;
     const sep = url.includes('?') ? '&' : '?';
     return `${url}${sep}user_id=${encodeURIComponent(currentUserID)}`;
   }
 
-  function draftRequestHeaders(includeContentType = true) {
-    const headers = { Accept: 'application/json' };
+  function draftRequestHeaders(includeContentType = true): Record<string, string> {
+    const headers: Record<string, string> = { Accept: 'application/json' };
     if (includeContentType) headers['Content-Type'] = 'application/json';
     if (currentUserID) headers['X-User-ID'] = currentUserID;
     return headers;
@@ -134,7 +224,11 @@ export function createDraftRequestHelpers(currentUserID) {
   };
 }
 
-export function createAgreementWizardPersistenceSettings(options = {}) {
+export function createAgreementWizardPersistenceSettings(options: {
+  config?: AgreementFormRuntimeInputConfig;
+  currentUserID?: string;
+  isEditMode?: boolean;
+} = {}): AgreementWizardPersistenceSettings {
   const {
     config = {},
     currentUserID = '',

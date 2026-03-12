@@ -851,8 +851,8 @@ describe('Form submission guard', () => {
 });
 
 // ============================================================================
-// Task 9.9: Contract Tests for Fallback Normalization
-// Tests verifying normalization from flat and nested translation metadata keys
+// Contract Tests For Fallback Normalization
+// Tests verifying normalization from flat and nested translation metadata keys.
 // ============================================================================
 
 describe('Contract: Flat vs Nested Translation Metadata Normalization', () => {
@@ -1189,7 +1189,7 @@ describe('Contract: Flat vs Nested Translation Metadata Normalization', () => {
 });
 
 // ============================================================================
-// Task 9.9: Integration Tests - Forms and Forms Fallback Behavior
+// Integration Tests - Forms and Fallback Behavior
 // ============================================================================
 
 describe('Contract: Forms Fallback Detection Integration', () => {
@@ -1269,7 +1269,7 @@ describe('Contract: Forms Fallback Detection Integration', () => {
 });
 
 // ============================================================================
-// Phase 19: Translation Readiness Tests
+// Translation Readiness Tests
 // ============================================================================
 
 describe('extractTranslationReadiness', () => {
@@ -1629,7 +1629,7 @@ describe('Locale completeness rendering', () => {
 });
 
 // ============================================================================
-// Phase 19.2: Missing Translations Affordance Tests
+// Missing Translations Affordance Tests
 // ============================================================================
 
 describe('hasMissingTranslations', () => {
@@ -1750,7 +1750,7 @@ describe('renderMissingTranslationsBadge', () => {
 });
 
 // ============================================================================
-// Phase 19.4: Dual-Mode Compatibility Tests (Productized + Legacy)
+// Dual-Mode Compatibility Tests
 // ============================================================================
 
 describe('Dual-mode compatibility: fallback detection', () => {
@@ -2005,7 +2005,7 @@ describe('Dual-mode compatibility: form edit guard behavior', () => {
 console.log('All translation context tests completed');
 
 // ============================================================================
-// Phase 2: Translation Matrix Cell Tests (TX-032)
+// Translation Matrix Cell Tests
 // ============================================================================
 
 describe('renderTranslationMatrixCell', () => {
@@ -2257,11 +2257,11 @@ describe('renderTranslationMatrixCell', () => {
 });
 
 // ============================================================================
-// Task 19.6: Schema-Driven Action Authority Tests
-// Verify that productized template affordances do not duplicate schema actions
+// Schema-Driven Action Authority Tests
+// Verify that productized template affordances do not duplicate schema actions.
 // ============================================================================
 
-describe('Task 19.6: Schema Action Authority', () => {
+describe('Schema Action Authority', () => {
   // Helper function implementations for testing
   function extractTranslationReadiness(record) {
     const readiness = {

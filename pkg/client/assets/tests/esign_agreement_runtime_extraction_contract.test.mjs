@@ -67,3 +67,17 @@ test('runtime extraction contract: agreement-form extraction boundaries are docu
   assert.match(source, /Boot Phase Order/);
   assert.match(source, /Current Extraction Scope/);
 });
+
+test('runtime extraction contract: typed helper modules do not use ts-nocheck', () => {
+  const helperModules = [
+    '../src/esign/pages/agreement-form/bootstrap-config.ts',
+    '../src/esign/pages/agreement-form/telemetry.ts',
+    '../src/esign/pages/agreement-form/runtime-actions.ts',
+    '../src/esign/pages/agreement-form/form-payload.ts',
+  ];
+
+  for (const relativePath of helperModules) {
+    const source = read(path.resolve(testFileDir, relativePath));
+    assert.doesNotMatch(source, /@ts-nocheck/);
+  }
+});

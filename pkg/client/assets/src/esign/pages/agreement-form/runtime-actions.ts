@@ -1,6 +1,48 @@
-// @ts-nocheck
+interface RuntimeActionsStateShape {
+  serverDraftId?: string;
+  serverRevision?: number;
+  syncPending?: boolean;
+  [key: string]: unknown;
+}
 
-export function createAgreementRuntimeActionsController(options = {}) {
+interface RuntimeActionsStateManager {
+  collectFormState(): Record<string, unknown>;
+  updateState(nextState: Record<string, unknown>): void;
+  getState(): RuntimeActionsStateShape;
+  clear(): void;
+  setState(nextState: RuntimeActionsStateShape, options?: Record<string, unknown>): void;
+}
+
+interface RuntimeActionsSyncService {
+  delete(draftId: string): Promise<unknown>;
+  load(draftId: string): Promise<{ id: string; revision: number; wizard_state?: RuntimeActionsStateShape | null }>;
+}
+
+interface RuntimeActionsSyncOrchestrator {
+  scheduleSync(): void;
+  broadcastStateUpdate(): void;
+  manualRetry(): Promise<Record<string, unknown>> | Record<string, unknown>;
+  performSync(): Promise<Record<string, unknown>>;
+  takeControl(): boolean;
+}
+
+interface RuntimeActionsControllerOptions {
+  createSuccess?: boolean;
+  stateManager: RuntimeActionsStateManager;
+  syncOrchestrator: RuntimeActionsSyncOrchestrator;
+  syncService: RuntimeActionsSyncService;
+  surfaceSyncOutcome(
+    resultPromise: Promise<Record<string, unknown>> | Record<string, unknown>,
+    options?: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> | Record<string, unknown>;
+  announceError(message: string, code?: string): void;
+  getCurrentStep(): number;
+  reviewStep: number;
+  onReviewStepRequested(): void;
+  updateActiveTabOwnershipUI(state?: Record<string, unknown>): void;
+}
+
+export function createAgreementRuntimeActionsController(options: RuntimeActionsControllerOptions) {
   const {
     createSuccess,
     stateManager,
@@ -31,7 +73,7 @@ export function createAgreementRuntimeActionsController(options = {}) {
     syncOrchestrator.broadcastStateUpdate();
 
     if (serverDraftId) {
-      syncService.delete(serverDraftId).catch((error) => {
+      syncService.delete(serverDraftId).catch((error: unknown) => {
         console.warn('Failed to delete server draft after successful create:', error);
       });
     }
@@ -58,7 +100,7 @@ export function createAgreementRuntimeActionsController(options = {}) {
             }, { syncPending: false });
             window.location.reload();
           }
-        } catch (error) {
+        } catch (error: unknown) {
           console.error('Failed to load server draft:', error);
         }
       }

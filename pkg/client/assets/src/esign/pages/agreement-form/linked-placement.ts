@@ -1,5 +1,5 @@
 /**
- * Linked Field Placement Module (Phase 3)
+ * Linked field placement module.
  *
  * Enables automatic field placement propagation within link groups.
  * When a field in a link group is manually placed, its position is saved as a template.

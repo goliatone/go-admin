@@ -1,13 +1,13 @@
 /**
- * Tests for translation-bulk-actions.ts (Phase 2)
- * Tests bulk create-missing translations action and result summary rendering
+ * Tests for `translation-bulk-actions.ts`.
+ * Covers bulk create-missing translations and result summary rendering.
  */
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
 // ============================================================================
-// TX-037: Bulk Create Missing Translations Tests
+// Bulk Create Missing Translations Tests
 // ============================================================================
 
 describe('parseBulkResponse', () => {
@@ -386,7 +386,7 @@ describe('Bulk action handler creation', () => {
   });
 });
 
-describe('TX-070: Post-mutation group refresh', () => {
+describe('post-mutation group refresh', () => {
   // Test that bulk action completion triggers group data refresh
   it('should indicate need for group refresh after bulk action', () => {
     const summary = { total: 5, created: 3, failed: 0, skipped: 2, failures: [] };
