@@ -71,7 +71,7 @@ func TestPhase8RestartPersistencePostgresSurvivesRestartWhenDSNProvided(t *testi
 		_ = first.Close()
 		t.Fatalf("create postgres probe table: %v", err)
 	}
-	if _, err := first.BunDB.ExecContext(context.Background(), fmt.Sprintf(`INSERT INTO %s (id, marker) VALUES (1, $1) ON CONFLICT (id) DO UPDATE SET marker = EXCLUDED.marker`, tableName), marker); err != nil {
+	if _, err := first.BunDB.ExecContext(context.Background(), fmt.Sprintf(`INSERT INTO %s (id, marker) VALUES (1, ?) ON CONFLICT (id) DO UPDATE SET marker = EXCLUDED.marker`, tableName), marker); err != nil {
 		_ = first.Close()
 		t.Fatalf("insert postgres probe row: %v", err)
 	}

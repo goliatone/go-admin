@@ -466,6 +466,51 @@ func listJobRunRecords(ctx context.Context, idb bun.IDB, scope stores.Scope, agr
 	return records, nil
 }
 
+func listFieldValueRecordsByRecipient(ctx context.Context, idb bun.IDB, scope stores.Scope, agreementID, recipientID string) ([]stores.FieldValueRecord, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return nil, err
+	}
+	agreementID = normalizeRelationalID(agreementID)
+	recipientID = normalizeRelationalID(recipientID)
+	if agreementID == "" || recipientID == "" {
+		return nil, relationalInvalidRecordError("field_values", "agreement_id|recipient_id", "required")
+	}
+	records := make([]stores.FieldValueRecord, 0)
+	if err := idb.NewSelect().
+		Model(&records).
+		Where("tenant_id = ?", scope.TenantID).
+		Where("org_id = ?", scope.OrgID).
+		Where("agreement_id = ?", agreementID).
+		Where("recipient_id = ?", recipientID).
+		OrderExpr("updated_at ASC, id ASC").
+		Scan(ctx); err != nil {
+		return nil, err
+	}
+	return records, nil
+}
+
+func loadSignatureArtifactRecord(ctx context.Context, idb bun.IDB, scope stores.Scope, id string) (stores.SignatureArtifactRecord, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return stores.SignatureArtifactRecord{}, err
+	}
+	id = normalizeRelationalID(id)
+	if id == "" {
+		return stores.SignatureArtifactRecord{}, relationalInvalidRecordError("signature_artifacts", "id", "required")
+	}
+	record := stores.SignatureArtifactRecord{}
+	if err := idb.NewSelect().
+		Model(&record).
+		Where("tenant_id = ?", scope.TenantID).
+		Where("org_id = ?", scope.OrgID).
+		Where("id = ?", id).
+		Scan(ctx); err != nil {
+		return stores.SignatureArtifactRecord{}, mapSQLNotFound(err, "signature_artifacts", id)
+	}
+	return record, nil
+}
+
 func loadAgreementReminderStateRecord(ctx context.Context, idb bun.IDB, scope stores.Scope, agreementID, recipientID string) (stores.AgreementReminderStateRecord, error) {
 	scope, err := normalizedStoreScope(scope)
 	if err != nil {
@@ -491,4 +536,570 @@ func loadAgreementReminderStateRecord(ctx context.Context, idb bun.IDB, scope st
 		return stores.AgreementReminderStateRecord{}, mapSQLNotFound(err, "agreement_reminder_states", agreementID+"|"+recipientID)
 	}
 	return record, nil
+}
+
+func parseRelationalCursorOffset(raw string) int {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return 0
+	}
+	value, err := strconv.Atoi(raw)
+	if err != nil || value < 0 {
+		return 0
+	}
+	return value
+}
+
+func normalizeRelationalProviderAndEntity(provider, entityKind string) (string, string) {
+	return strings.ToLower(strings.TrimSpace(provider)), strings.ToLower(strings.TrimSpace(entityKind))
+}
+
+func relationalMappingSpecSortKey(record stores.MappingSpecRecord) string {
+	return strings.Join([]string{
+		strings.ToLower(strings.TrimSpace(record.Provider)),
+		strings.ToLower(strings.TrimSpace(record.Name)),
+		strconv.FormatInt(record.Version, 10),
+		strings.TrimSpace(record.ID),
+	}, "|")
+}
+
+func loadRemediationDispatchRecord(ctx context.Context, idb bun.IDB, dispatchID string) (stores.RemediationDispatchRecord, error) {
+	dispatchID = normalizeRelationalID(dispatchID)
+	if dispatchID == "" {
+		return stores.RemediationDispatchRecord{}, relationalInvalidRecordError("remediation_dispatches", "dispatch_id", "required")
+	}
+	record := relationalRemediationDispatchModel{}
+	if err := idb.NewSelect().
+		Model(&record).
+		Where("dispatch_id = ?", dispatchID).
+		Limit(1).
+		Scan(ctx); err != nil {
+		return stores.RemediationDispatchRecord{}, mapSQLNotFound(err, "remediation_dispatches", dispatchID)
+	}
+	return record.RemediationDispatchRecord, nil
+}
+
+func loadRemediationDispatchByIdempotencyKeyRecord(ctx context.Context, idb bun.IDB, scope stores.Scope, key string) (stores.RemediationDispatchRecord, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return stores.RemediationDispatchRecord{}, err
+	}
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return stores.RemediationDispatchRecord{}, relationalInvalidRecordError("remediation_dispatches", "idempotency_key", "required")
+	}
+	record := relationalRemediationDispatchModel{}
+	if err := idb.NewSelect().
+		Model(&record).
+		Where("tenant_id = ?", scope.TenantID).
+		Where("org_id = ?", scope.OrgID).
+		Where("idempotency_key = ?", key).
+		Limit(1).
+		Scan(ctx); err != nil {
+		return stores.RemediationDispatchRecord{}, mapSQLNotFound(err, "remediation_dispatches", key)
+	}
+	return record.RemediationDispatchRecord, nil
+}
+
+func loadSignerProfileRecord(ctx context.Context, idb bun.IDB, scope stores.Scope, subject, key string, now time.Time) (stores.SignerProfileRecord, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return stores.SignerProfileRecord{}, err
+	}
+	subject = strings.ToLower(strings.TrimSpace(subject))
+	key = strings.TrimSpace(key)
+	if subject == "" {
+		return stores.SignerProfileRecord{}, relationalInvalidRecordError("signer_profiles", "subject", "required")
+	}
+	if key == "" {
+		return stores.SignerProfileRecord{}, relationalInvalidRecordError("signer_profiles", "key", "required")
+	}
+	if now.IsZero() {
+		now = time.Now().UTC()
+	} else {
+		now = now.UTC()
+	}
+	record := stores.SignerProfileRecord{}
+	if err := idb.NewSelect().
+		Model(&record).
+		Where("tenant_id = ?", scope.TenantID).
+		Where("org_id = ?", scope.OrgID).
+		Where("subject = ?", subject).
+		Where("profile_key = ?", key).
+		Limit(1).
+		Scan(ctx); err != nil {
+		return stores.SignerProfileRecord{}, mapSQLNotFound(err, "signer_profiles", subject+"|"+key)
+	}
+	if !record.ExpiresAt.IsZero() && now.After(record.ExpiresAt.UTC()) {
+		return stores.SignerProfileRecord{}, relationalNotFoundError("signer_profiles", subject+"|"+key)
+	}
+	return record, nil
+}
+
+func listSavedSignerSignatureRecords(ctx context.Context, idb bun.IDB, scope stores.Scope, subject, signatureType string) ([]stores.SavedSignerSignatureRecord, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return nil, err
+	}
+	subject = strings.ToLower(strings.TrimSpace(subject))
+	signatureType = strings.ToLower(strings.TrimSpace(signatureType))
+	if subject == "" {
+		return nil, relationalInvalidRecordError("saved_signatures", "subject", "required")
+	}
+	if signatureType == "" {
+		return nil, relationalInvalidRecordError("saved_signatures", "type", "required")
+	}
+	records := make([]stores.SavedSignerSignatureRecord, 0)
+	if err := idb.NewSelect().
+		Model(&records).
+		Where("tenant_id = ?", scope.TenantID).
+		Where("org_id = ?", scope.OrgID).
+		Where("LOWER(subject) = ?", subject).
+		Where("LOWER(signature_type) = ?", signatureType).
+		Scan(ctx, &records); err != nil {
+		return nil, err
+	}
+	sort.Slice(records, func(i, j int) bool {
+		if records[i].CreatedAt.Equal(records[j].CreatedAt) {
+			return records[i].ID > records[j].ID
+		}
+		return records[i].CreatedAt.After(records[j].CreatedAt)
+	})
+	return records, nil
+}
+
+func countSavedSignerSignatureRecords(ctx context.Context, idb bun.IDB, scope stores.Scope, subject, signatureType string) (int, error) {
+	records, err := listSavedSignerSignatureRecords(ctx, idb, scope, subject, signatureType)
+	if err != nil {
+		return 0, err
+	}
+	return len(records), nil
+}
+
+func loadAgreementArtifactRecord(ctx context.Context, idb bun.IDB, scope stores.Scope, agreementID string) (stores.AgreementArtifactRecord, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return stores.AgreementArtifactRecord{}, err
+	}
+	agreementID = normalizeRelationalID(agreementID)
+	if agreementID == "" {
+		return stores.AgreementArtifactRecord{}, relationalInvalidRecordError("agreement_artifacts", "agreement_id", "required")
+	}
+	record := stores.AgreementArtifactRecord{}
+	if err := idb.NewSelect().
+		Model(&record).
+		Where("tenant_id = ?", scope.TenantID).
+		Where("org_id = ?", scope.OrgID).
+		Where("agreement_id = ?", agreementID).
+		Scan(ctx); err != nil {
+		return stores.AgreementArtifactRecord{}, mapSQLNotFound(err, "agreement_artifacts", agreementID)
+	}
+	return record, nil
+}
+
+func loadGoogleImportRunRecord(ctx context.Context, idb bun.IDB, scope stores.Scope, id string) (stores.GoogleImportRunRecord, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return stores.GoogleImportRunRecord{}, err
+	}
+	id = normalizeRelationalID(id)
+	if id == "" {
+		return stores.GoogleImportRunRecord{}, relationalInvalidRecordError("google_import_runs", "id", "required")
+	}
+	record := stores.GoogleImportRunRecord{}
+	if err := idb.NewSelect().
+		Model(&record).
+		Where("tenant_id = ?", scope.TenantID).
+		Where("org_id = ?", scope.OrgID).
+		Where("id = ?", id).
+		Scan(ctx); err != nil {
+		return stores.GoogleImportRunRecord{}, mapSQLNotFound(err, "google_import_runs", id)
+	}
+	return record, nil
+}
+
+func listGoogleImportRunRecords(ctx context.Context, idb bun.IDB, scope stores.Scope, query stores.GoogleImportRunQuery) ([]stores.GoogleImportRunRecord, string, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return nil, "", err
+	}
+	userID := normalizeRelationalID(query.UserID)
+	if userID == "" {
+		return nil, "", relationalInvalidRecordError("google_import_runs", "user_id", "required")
+	}
+	limit := query.Limit
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 50 {
+		limit = 50
+	}
+	offset := parseRelationalCursorOffset(query.Cursor)
+	records := make([]stores.GoogleImportRunRecord, 0)
+	sel := idb.NewSelect().
+		Model(&records).
+		Where("tenant_id = ?", scope.TenantID).
+		Where("org_id = ?", scope.OrgID).
+		Where("user_id = ?", userID)
+	if query.SortDesc {
+		sel = sel.OrderExpr("updated_at DESC, id DESC")
+	} else {
+		sel = sel.OrderExpr("updated_at ASC, id ASC")
+	}
+	if err := sel.Limit(limit+1).Offset(offset).Scan(ctx, &records); err != nil {
+		return nil, "", err
+	}
+	nextCursor := ""
+	if len(records) > limit {
+		records = records[:limit]
+		nextCursor = strconv.Itoa(offset + limit)
+	}
+	return records, nextCursor, nil
+}
+
+func listOutboxMessageRecords(ctx context.Context, idb bun.IDB, scope stores.Scope, query stores.OutboxQuery) ([]stores.OutboxMessageRecord, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return nil, err
+	}
+	query.Topic = strings.ToLower(strings.TrimSpace(query.Topic))
+	query.Status = strings.ToLower(strings.TrimSpace(query.Status))
+	rows := make([]OutboxMessageRecord, 0)
+	sel := idb.NewSelect().
+		Model(&rows).
+		Where("tenant_id = ?", scope.TenantID).
+		Where("org_id = ?", scope.OrgID)
+	if query.Topic != "" {
+		sel = sel.Where("LOWER(topic) = ?", query.Topic)
+	}
+	if query.Status != "" {
+		sel = sel.Where("LOWER(status) = ?", query.Status)
+	}
+	if query.SortDesc {
+		sel = sel.OrderExpr("created_at DESC, id ASC")
+	} else {
+		sel = sel.OrderExpr("created_at ASC, id ASC")
+	}
+	if query.Offset > 0 {
+		sel = sel.Offset(query.Offset)
+	}
+	if query.Limit > 0 {
+		sel = sel.Limit(query.Limit)
+	}
+	if err := sel.Scan(ctx, &rows); err != nil {
+		return nil, err
+	}
+	out := make([]stores.OutboxMessageRecord, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, cloneRelationalOutboxMessageRecord(row.Message))
+	}
+	return out, nil
+}
+
+func loadIntegrationCredentialRecord(ctx context.Context, idb bun.IDB, scope stores.Scope, provider, userID string) (stores.IntegrationCredentialRecord, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return stores.IntegrationCredentialRecord{}, err
+	}
+	provider = strings.ToLower(strings.TrimSpace(provider))
+	userID = normalizeRelationalID(userID)
+	if provider == "" {
+		return stores.IntegrationCredentialRecord{}, relationalInvalidRecordError("integration_credentials", "provider", "required")
+	}
+	if userID == "" {
+		return stores.IntegrationCredentialRecord{}, relationalInvalidRecordError("integration_credentials", "user_id", "required")
+	}
+	record := stores.IntegrationCredentialRecord{}
+	if err := idb.NewSelect().
+		Model(&record).
+		Where("tenant_id = ?", scope.TenantID).
+		Where("org_id = ?", scope.OrgID).
+		Where("provider = ?", provider).
+		Where("user_id = ?", userID).
+		Limit(1).
+		Scan(ctx); err != nil {
+		return stores.IntegrationCredentialRecord{}, mapSQLNotFound(err, "integration_credentials", provider+"|"+userID)
+	}
+	return record, nil
+}
+
+func listIntegrationCredentialRecords(ctx context.Context, idb bun.IDB, scope stores.Scope, provider, baseUserIDPrefix string) ([]stores.IntegrationCredentialRecord, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return nil, err
+	}
+	provider = strings.ToLower(strings.TrimSpace(provider))
+	if provider == "" {
+		return nil, relationalInvalidRecordError("integration_credentials", "provider", "required")
+	}
+	baseUserIDPrefix = normalizeRelationalID(baseUserIDPrefix)
+	records := make([]stores.IntegrationCredentialRecord, 0)
+	if err := idb.NewSelect().
+		Model(&records).
+		Where("tenant_id = ?", scope.TenantID).
+		Where("org_id = ?", scope.OrgID).
+		Where("provider = ?", provider).
+		Scan(ctx, &records); err != nil {
+		return nil, err
+	}
+	if baseUserIDPrefix != "" {
+		filtered := make([]stores.IntegrationCredentialRecord, 0, len(records))
+		for _, record := range records {
+			if record.UserID == baseUserIDPrefix || strings.HasPrefix(record.UserID, baseUserIDPrefix+"#") {
+				filtered = append(filtered, record)
+			}
+		}
+		records = filtered
+	}
+	sort.Slice(records, func(i, j int) bool {
+		return records[i].CreatedAt.After(records[j].CreatedAt)
+	})
+	return records, nil
+}
+
+func loadMappingSpecRecord(ctx context.Context, idb bun.IDB, scope stores.Scope, id string) (stores.MappingSpecRecord, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return stores.MappingSpecRecord{}, err
+	}
+	id = normalizeRelationalID(id)
+	if id == "" {
+		return stores.MappingSpecRecord{}, relationalInvalidRecordError("integration_mapping_specs", "id", "required")
+	}
+	record := stores.MappingSpecRecord{}
+	if err := idb.NewSelect().
+		Model(&record).
+		Where("tenant_id = ?", scope.TenantID).
+		Where("org_id = ?", scope.OrgID).
+		Where("id = ?", id).
+		Scan(ctx); err != nil {
+		return stores.MappingSpecRecord{}, mapSQLNotFound(err, "integration_mapping_specs", id)
+	}
+	return record, nil
+}
+
+func listMappingSpecRecords(ctx context.Context, idb bun.IDB, scope stores.Scope, provider string) ([]stores.MappingSpecRecord, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return nil, err
+	}
+	provider = strings.ToLower(strings.TrimSpace(provider))
+	records := make([]stores.MappingSpecRecord, 0)
+	sel := idb.NewSelect().
+		Model(&records).
+		Where("tenant_id = ?", scope.TenantID).
+		Where("org_id = ?", scope.OrgID)
+	if provider != "" {
+		sel = sel.Where("LOWER(provider) = ?", provider)
+	}
+	if err := sel.Scan(ctx, &records); err != nil {
+		return nil, err
+	}
+	sort.Slice(records, func(i, j int) bool {
+		return relationalMappingSpecSortKey(records[i]) < relationalMappingSpecSortKey(records[j])
+	})
+	return records, nil
+}
+
+func listIntegrationBindingRecords(ctx context.Context, idb bun.IDB, scope stores.Scope, provider, entityKind, internalID string) ([]stores.IntegrationBindingRecord, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return nil, err
+	}
+	provider, entityKind = normalizeRelationalProviderAndEntity(provider, entityKind)
+	internalID = normalizeRelationalID(internalID)
+	records := make([]stores.IntegrationBindingRecord, 0)
+	sel := idb.NewSelect().
+		Model(&records).
+		Where("tenant_id = ?", scope.TenantID).
+		Where("org_id = ?", scope.OrgID)
+	if provider != "" {
+		sel = sel.Where("provider = ?", provider)
+	}
+	if entityKind != "" {
+		sel = sel.Where("entity_kind = ?", entityKind)
+	}
+	if internalID != "" {
+		sel = sel.Where("internal_id = ?", internalID)
+	}
+	if err := sel.OrderExpr("updated_at ASC, id ASC").Scan(ctx, &records); err != nil {
+		return nil, err
+	}
+	return records, nil
+}
+
+func loadIntegrationSyncRunRecord(ctx context.Context, idb bun.IDB, scope stores.Scope, id string) (stores.IntegrationSyncRunRecord, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return stores.IntegrationSyncRunRecord{}, err
+	}
+	id = normalizeRelationalID(id)
+	if id == "" {
+		return stores.IntegrationSyncRunRecord{}, relationalInvalidRecordError("integration_sync_runs", "id", "required")
+	}
+	record := stores.IntegrationSyncRunRecord{}
+	if err := idb.NewSelect().
+		Model(&record).
+		Where("tenant_id = ?", scope.TenantID).
+		Where("org_id = ?", scope.OrgID).
+		Where("id = ?", id).
+		Scan(ctx); err != nil {
+		return stores.IntegrationSyncRunRecord{}, mapSQLNotFound(err, "integration_sync_runs", id)
+	}
+	return record, nil
+}
+
+func listIntegrationSyncRunRecords(ctx context.Context, idb bun.IDB, scope stores.Scope, provider string) ([]stores.IntegrationSyncRunRecord, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return nil, err
+	}
+	provider = strings.ToLower(strings.TrimSpace(provider))
+	records := make([]stores.IntegrationSyncRunRecord, 0)
+	sel := idb.NewSelect().
+		Model(&records).
+		Where("tenant_id = ?", scope.TenantID).
+		Where("org_id = ?", scope.OrgID)
+	if provider != "" {
+		sel = sel.Where("provider = ?", provider)
+	}
+	if err := sel.OrderExpr("started_at DESC, id ASC").Scan(ctx, &records); err != nil {
+		return nil, err
+	}
+	return records, nil
+}
+
+func listIntegrationCheckpointRecords(ctx context.Context, idb bun.IDB, scope stores.Scope, runID string) ([]stores.IntegrationCheckpointRecord, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return nil, err
+	}
+	runID = normalizeRelationalID(runID)
+	if runID == "" {
+		return nil, relationalInvalidRecordError("integration_checkpoints", "run_id", "required")
+	}
+	records := make([]stores.IntegrationCheckpointRecord, 0)
+	if err := idb.NewSelect().
+		Model(&records).
+		Where("tenant_id = ?", scope.TenantID).
+		Where("org_id = ?", scope.OrgID).
+		Where("run_id = ?", runID).
+		OrderExpr("updated_at ASC, id ASC").
+		Scan(ctx, &records); err != nil {
+		return nil, err
+	}
+	return records, nil
+}
+
+func loadIntegrationConflictRecord(ctx context.Context, idb bun.IDB, scope stores.Scope, id string) (stores.IntegrationConflictRecord, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return stores.IntegrationConflictRecord{}, err
+	}
+	id = normalizeRelationalID(id)
+	if id == "" {
+		return stores.IntegrationConflictRecord{}, relationalInvalidRecordError("integration_conflicts", "id", "required")
+	}
+	record := stores.IntegrationConflictRecord{}
+	if err := idb.NewSelect().
+		Model(&record).
+		Where("tenant_id = ?", scope.TenantID).
+		Where("org_id = ?", scope.OrgID).
+		Where("id = ?", id).
+		Scan(ctx); err != nil {
+		return stores.IntegrationConflictRecord{}, mapSQLNotFound(err, "integration_conflicts", id)
+	}
+	return record, nil
+}
+
+func listIntegrationConflictRecords(ctx context.Context, idb bun.IDB, scope stores.Scope, runID, status string) ([]stores.IntegrationConflictRecord, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return nil, err
+	}
+	runID = normalizeRelationalID(runID)
+	status = strings.ToLower(strings.TrimSpace(status))
+	records := make([]stores.IntegrationConflictRecord, 0)
+	sel := idb.NewSelect().
+		Model(&records).
+		Where("tenant_id = ?", scope.TenantID).
+		Where("org_id = ?", scope.OrgID)
+	if runID != "" {
+		sel = sel.Where("run_id = ?", runID)
+	}
+	if status != "" {
+		sel = sel.Where("status = ?", status)
+	}
+	if err := sel.OrderExpr("updated_at ASC, id ASC").Scan(ctx, &records); err != nil {
+		return nil, err
+	}
+	return records, nil
+}
+
+func listIntegrationChangeEventRecords(ctx context.Context, idb bun.IDB, scope stores.Scope, agreementID string) ([]stores.IntegrationChangeEventRecord, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return nil, err
+	}
+	agreementID = normalizeRelationalID(agreementID)
+	records := make([]stores.IntegrationChangeEventRecord, 0)
+	sel := idb.NewSelect().
+		Model(&records).
+		Where("tenant_id = ?", scope.TenantID).
+		Where("org_id = ?", scope.OrgID)
+	if agreementID != "" {
+		sel = sel.Where("agreement_id = ?", agreementID)
+	}
+	if err := sel.OrderExpr("emitted_at ASC, id ASC").Scan(ctx, &records); err != nil {
+		return nil, err
+	}
+	return records, nil
+}
+
+func loadPlacementRunRecord(ctx context.Context, idb bun.IDB, scope stores.Scope, agreementID, runID string) (stores.PlacementRunRecord, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return stores.PlacementRunRecord{}, err
+	}
+	agreementID = normalizeRelationalID(agreementID)
+	runID = normalizeRelationalID(runID)
+	if agreementID == "" {
+		return stores.PlacementRunRecord{}, relationalInvalidRecordError("placement_runs", "agreement_id", "required")
+	}
+	if runID == "" {
+		return stores.PlacementRunRecord{}, relationalInvalidRecordError("placement_runs", "id", "required")
+	}
+	record := stores.PlacementRunRecord{}
+	if err := idb.NewSelect().
+		Model(&record).
+		Where("tenant_id = ?", scope.TenantID).
+		Where("org_id = ?", scope.OrgID).
+		Where("agreement_id = ?", agreementID).
+		Where("id = ?", runID).
+		Scan(ctx); err != nil {
+		return stores.PlacementRunRecord{}, mapSQLNotFound(err, "placement_runs", runID)
+	}
+	return record, nil
+}
+
+func listPlacementRunRecords(ctx context.Context, idb bun.IDB, scope stores.Scope, agreementID string) ([]stores.PlacementRunRecord, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return nil, err
+	}
+	agreementID = normalizeRelationalID(agreementID)
+	if agreementID == "" {
+		return nil, relationalInvalidRecordError("placement_runs", "agreement_id", "required")
+	}
+	records := make([]stores.PlacementRunRecord, 0)
+	if err := idb.NewSelect().
+		Model(&records).
+		Where("tenant_id = ?", scope.TenantID).
+		Where("org_id = ?", scope.OrgID).
+		Where("agreement_id = ?", agreementID).
+		OrderExpr("created_at ASC, id ASC").
+		Scan(ctx, &records); err != nil {
+		return nil, err
+	}
+	return records, nil
 }

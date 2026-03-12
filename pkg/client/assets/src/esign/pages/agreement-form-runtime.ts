@@ -108,6 +108,9 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
   const SYNC_DEBOUNCE_MS = 2000;
   const SYNC_RETRY_DELAYS = [1000, 2000, 5000, 10000, 30000];
   const WIZARD_STORAGE_MIGRATION_VERSION = 1;
+  const ACTIVE_TAB_STORAGE_KEY = `esign_wizard_active_tab_v1:${encodeURIComponent(wizardScopeToken)}`;
+  const ACTIVE_TAB_HEARTBEAT_MS = 5000;
+  const ACTIVE_TAB_STALE_MS = 20000;
   const TITLE_SOURCE = {
     USER: 'user',
     AUTOFILL: 'autofill',
@@ -176,6 +179,63 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     if (normalized === TITLE_SOURCE.SERVER_SEED) return TITLE_SOURCE.SERVER_SEED;
     if (normalized === TITLE_SOURCE.AUTOFILL) return TITLE_SOURCE.AUTOFILL;
     return fallback;
+  }
+
+  function parseISOTimeToMillis(value) {
+    const parsed = Date.parse(String(value || '').trim());
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  function readActiveTabClaim() {
+    if (typeof window === 'undefined' || !window.localStorage) return null;
+    try {
+      const raw = window.localStorage.getItem(ACTIVE_TAB_STORAGE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') return null;
+      const tabId = String(parsed.tabId || '').trim();
+      if (!tabId) return null;
+      const claimedAt = String(parsed.claimedAt || '').trim();
+      const lastSeenAt = String(parsed.lastSeenAt || '').trim();
+      return {
+        tabId,
+        claimedAt,
+        lastSeenAt,
+      };
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function isActiveTabClaimFresh(claim, nowMs = Date.now()) {
+    if (!claim || typeof claim !== 'object') return false;
+    const lastSeenAtMs = parseISOTimeToMillis(claim.lastSeenAt || claim.claimedAt);
+    if (lastSeenAtMs <= 0) return false;
+    return (nowMs - lastSeenAtMs) < ACTIVE_TAB_STALE_MS;
+  }
+
+  function writeActiveTabClaim(claim) {
+    if (typeof window === 'undefined' || !window.localStorage) return false;
+    try {
+      window.localStorage.setItem(ACTIVE_TAB_STORAGE_KEY, JSON.stringify(claim));
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function clearActiveTabClaim(expectedTabID = '') {
+    if (typeof window === 'undefined' || !window.localStorage) return false;
+    try {
+      const current = readActiveTabClaim();
+      if (expectedTabID && current?.tabId && current.tabId !== expectedTabID) {
+        return false;
+      }
+      window.localStorage.removeItem(ACTIVE_TAB_STORAGE_KEY);
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   /**
@@ -686,10 +746,14 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
       this.retryCount = 0;
       this.isSyncing = false;
       this.channel = null;
-      this.isOwner = true;
+      this.isOwner = false;
+      this.currentClaim = null;
+      this.heartbeatTimer = null;
+      this.lastBlockedReason = '';
 
       this.initBroadcastChannel();
       this.initEventListeners();
+      this.evaluateActiveTabOwnership('startup', { allowClaimIfAvailable: true });
     }
 
     initBroadcastChannel() {
@@ -698,8 +762,6 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
       try {
         this.channel = new BroadcastChannel(WIZARD_CHANNEL_NAME);
         this.channel.onmessage = (event) => this.handleChannelMessage(event.data);
-        // Announce presence
-        this.channel.postMessage({ type: 'presence', tabId: this.getTabId() });
       } catch (error) {
         console.warn('BroadcastChannel not available:', error);
       }
@@ -712,17 +774,163 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
       return window._wizardTabId;
     }
 
+    broadcastMessage(message) {
+      this.channel?.postMessage(message);
+    }
+
+    isClaimOwnedByThisTab(claim) {
+      return String(claim?.tabId || '').trim() === this.getTabId();
+    }
+
+    buildActiveTabClaim(existingClaim = null) {
+      const now = new Date().toISOString();
+      return {
+        tabId: this.getTabId(),
+        claimedAt: this.isClaimOwnedByThisTab(existingClaim)
+          ? String(existingClaim?.claimedAt || now).trim() || now
+          : now,
+        lastSeenAt: now,
+      };
+    }
+
+    startHeartbeat() {
+      this.stopHeartbeat();
+      if (!this.isOwner) return;
+      this.heartbeatTimer = window.setInterval(() => {
+        this.refreshActiveTabClaim('heartbeat');
+      }, ACTIVE_TAB_HEARTBEAT_MS);
+    }
+
+    stopHeartbeat() {
+      if (!this.heartbeatTimer) return;
+      window.clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
+
+    updateOwnershipState(isOwner, reason = '', claim = null) {
+      this.isOwner = Boolean(isOwner);
+      this.currentClaim = claim || null;
+      this.lastBlockedReason = this.isOwner ? '' : String(reason || 'passive_tab').trim() || 'passive_tab';
+      if (this.isOwner) {
+        this.startHeartbeat();
+      } else {
+        this.stopHeartbeat();
+        this.statusUpdater('paused');
+      }
+      updateActiveTabOwnershipUI({
+        isOwner: this.isOwner,
+        reason: this.lastBlockedReason,
+        claim: this.currentClaim,
+      });
+    }
+
+    refreshActiveTabClaim(reason = 'heartbeat') {
+      if (!this.isOwner) return false;
+      const existingClaim = readActiveTabClaim();
+      if (existingClaim && !this.isClaimOwnedByThisTab(existingClaim) && isActiveTabClaimFresh(existingClaim)) {
+        this.updateOwnershipState(false, 'passive_tab', existingClaim);
+        return false;
+      }
+      const claim = this.buildActiveTabClaim(existingClaim);
+      if (!writeActiveTabClaim(claim)) {
+        return false;
+      }
+      this.currentClaim = claim;
+      if (reason !== 'heartbeat') {
+        this.broadcastMessage({
+          type: 'active_tab_claimed',
+          tabId: claim.tabId,
+          claimedAt: claim.claimedAt,
+          lastSeenAt: claim.lastSeenAt,
+          reason,
+        });
+        updateActiveTabOwnershipUI({
+          isOwner: true,
+          reason,
+          claim,
+        });
+      }
+      return true;
+    }
+
+    claimActiveTab(reason = 'claim') {
+      const existingClaim = readActiveTabClaim();
+      const hasFreshOtherOwner = existingClaim && !this.isClaimOwnedByThisTab(existingClaim) && isActiveTabClaimFresh(existingClaim);
+      if (hasFreshOtherOwner && reason !== 'take_control') {
+        this.updateOwnershipState(false, 'passive_tab', existingClaim);
+        return false;
+      }
+      const claim = this.buildActiveTabClaim(reason === 'take_control' ? null : existingClaim);
+      if (!writeActiveTabClaim(claim)) {
+        return false;
+      }
+      this.updateOwnershipState(true, reason, claim);
+      this.broadcastMessage({
+        type: 'active_tab_claimed',
+        tabId: claim.tabId,
+        claimedAt: claim.claimedAt,
+        lastSeenAt: claim.lastSeenAt,
+        reason,
+      });
+      return true;
+    }
+
+    releaseActiveTab(reason = 'release') {
+      const currentClaim = readActiveTabClaim();
+      if (this.isClaimOwnedByThisTab(currentClaim)) {
+        clearActiveTabClaim(this.getTabId());
+        this.broadcastMessage({
+          type: 'active_tab_released',
+          tabId: this.getTabId(),
+          reason,
+        });
+      }
+      this.updateOwnershipState(false, reason, null);
+    }
+
+    evaluateActiveTabOwnership(reason = 'check', options = {}) {
+      const allowClaimIfAvailable = options?.allowClaimIfAvailable === true;
+      const visible = typeof document === 'undefined' || document.visibilityState !== 'hidden';
+      const currentClaim = readActiveTabClaim();
+      if (!currentClaim || !isActiveTabClaimFresh(currentClaim)) {
+        if (allowClaimIfAvailable && visible) {
+          return this.claimActiveTab(reason);
+        }
+        this.updateOwnershipState(false, 'no_active_tab', null);
+        return false;
+      }
+      if (this.isClaimOwnedByThisTab(currentClaim)) {
+        this.updateOwnershipState(true, reason, currentClaim);
+        this.refreshActiveTabClaim('heartbeat');
+        return true;
+      }
+      this.updateOwnershipState(false, 'passive_tab', currentClaim);
+      return false;
+    }
+
+    ensureActiveTabOwnership(reason = 'sync', options = {}) {
+      return this.evaluateActiveTabOwnership(reason, {
+        allowClaimIfAvailable: options?.allowClaimIfAvailable !== false,
+      });
+    }
+
+    takeControl() {
+      return this.claimActiveTab('take_control');
+    }
+
     handleChannelMessage(data) {
       switch (data.type) {
-        case 'presence':
-          // Another tab is active, negotiate ownership
+        case 'active_tab_claimed':
           if (data.tabId !== this.getTabId()) {
-            this.channel?.postMessage({ type: 'ownership_claim', tabId: this.getTabId() });
+            this.evaluateActiveTabOwnership('remote_claim', { allowClaimIfAvailable: false });
           }
           break;
-        case 'ownership_claim':
-          // Yield ownership to the newer tab
-          this.isOwner = false;
+        case 'active_tab_released':
+          if (data.tabId !== this.getTabId()) {
+            this.evaluateActiveTabOwnership('remote_release', {
+              allowClaimIfAvailable: typeof document !== 'undefined' && document.visibilityState !== 'hidden',
+            });
+          }
           break;
         case 'state_updated':
           // Another tab updated state, reload from session
@@ -746,14 +954,14 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     }
 
     broadcastStateUpdate() {
-      this.channel?.postMessage({
+      this.broadcastMessage({
         type: 'state_updated',
         tabId: this.getTabId()
       });
     }
 
     broadcastSyncCompleted(draftId, revision) {
-      this.channel?.postMessage({
+      this.broadcastMessage({
         type: 'sync_completed',
         tabId: this.getTabId(),
         draftId,
@@ -765,22 +973,43 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
       // Force sync on visibility change
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'hidden') {
-          this.forceSync({ keepalive: true });
+          if (this.isOwner) {
+            this.forceSync({ keepalive: true });
+          }
+          return;
         }
+        this.evaluateActiveTabOwnership('visible', { allowClaimIfAvailable: true });
       });
 
       // Force sync on page hide
       window.addEventListener('pagehide', () => {
-        this.forceSync({ keepalive: true });
+        if (this.isOwner) {
+          this.forceSync({ keepalive: true });
+        }
+        this.releaseActiveTab('pagehide');
       });
 
       // Force sync on beforeunload
       window.addEventListener('beforeunload', () => {
-        this.forceSync({ keepalive: true });
+        if (this.isOwner) {
+          this.forceSync({ keepalive: true });
+        }
+        this.releaseActiveTab('beforeunload');
+      });
+
+      window.addEventListener('storage', (event) => {
+        if (event.key !== ACTIVE_TAB_STORAGE_KEY) return;
+        this.evaluateActiveTabOwnership('storage', {
+          allowClaimIfAvailable: typeof document !== 'undefined' && document.visibilityState !== 'hidden',
+        });
       });
     }
 
     scheduleSync() {
+      if (!this.ensureActiveTabOwnership('schedule_sync', { allowClaimIfAvailable: false })) {
+        this.statusUpdater('paused');
+        return;
+      }
       if (this.debounceTimer) {
         clearTimeout(this.debounceTimer);
       }
@@ -799,10 +1028,12 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
       }
 
       const useKeepalive = options && options.keepalive === true;
+      if (!this.ensureActiveTabOwnership(useKeepalive ? 'keepalive_sync' : 'force_sync', { allowClaimIfAvailable: true })) {
+        return { blocked: true, reason: 'passive_tab' };
+      }
       const state = this.stateManager.getState();
       if (!useKeepalive) {
-        await this.performSync();
-        return;
+        return this.performSync();
       }
 
       // Use keepalive PUT so route method remains canonical on unload/pagehide.
@@ -829,7 +1060,7 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
             const currentRevision = Number(error?.error?.details?.current_revision || 0);
             this.statusUpdater('conflict');
             this.showConflictDialog(currentRevision > 0 ? currentRevision : state.serverRevision);
-            return;
+            return { conflict: true };
           }
 
           if (!response.ok) {
@@ -844,24 +1075,26 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
             this.statusUpdater('saved');
             this.retryCount = 0;
             this.broadcastSyncCompleted(syncedDraftID, syncedRevision);
-            return;
+            return { success: true, draftId: syncedDraftID, revision: syncedRevision };
           }
         } catch (error) {
           // Fall back to canonical sync path.
         }
       }
 
-      await this.performSync();
+      return this.performSync();
     }
 
     async performSync() {
-      if (this.isSyncing) return;
-      if (!this.isOwner) return;
+      if (this.isSyncing) return { blocked: true, reason: 'sync_in_progress' };
+      if (!this.ensureActiveTabOwnership('perform_sync', { allowClaimIfAvailable: true })) {
+        return { blocked: true, reason: 'passive_tab' };
+      }
 
       const state = this.stateManager.getState();
       if (!state.syncPending) {
         this.statusUpdater('saved');
-        return;
+        return { skipped: true, reason: 'not_pending' };
       }
 
       this.isSyncing = true;
@@ -875,16 +1108,20 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
         this.statusUpdater('saved');
         this.retryCount = 0;
         this.broadcastSyncCompleted(result.result.id, result.result.revision);
+        return { success: true, draftId: result.result.id, revision: result.result.revision };
       } else if (result.conflict) {
         this.statusUpdater('conflict');
         this.showConflictDialog(result.currentRevision);
+        return { conflict: true, currentRevision: result.currentRevision };
       } else {
         this.statusUpdater('error');
         this.scheduleRetry();
+        return { error: true, reason: result.error || 'sync_failed' };
       }
     }
 
     scheduleRetry() {
+      if (!this.isOwner) return;
       if (this.retryCount >= SYNC_RETRY_DELAYS.length) {
         console.error('Max sync retries reached');
         return;
@@ -899,12 +1136,15 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     }
 
     manualRetry() {
+      if (!this.ensureActiveTabOwnership('manual_retry', { allowClaimIfAvailable: true })) {
+        return { blocked: true, reason: 'passive_tab' };
+      }
       this.retryCount = 0;
       if (this.retryTimer) {
         clearTimeout(this.retryTimer);
         this.retryTimer = null;
       }
-      this.performSync();
+      return this.performSync();
     }
 
     showConflictDialog(serverRevision) {
@@ -971,6 +1211,12 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
         text.textContent = 'Not synced';
         text.className = 'text-amber-600';
         retryBtn?.classList.remove('hidden');
+        break;
+      case 'paused':
+        icon.className = 'w-2 h-2 rounded-full bg-slate-400';
+        text.textContent = 'Open in another tab';
+        text.className = 'text-slate-600';
+        retryBtn?.classList.add('hidden');
         break;
       case 'conflict':
         icon.className = 'w-2 h-2 rounded-full bg-red-500';
@@ -2843,12 +3089,49 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
   const form = document.getElementById('agreement-form');
   const submitBtn = document.getElementById('submit-btn');
   const formAnnouncements = document.getElementById('form-announcements');
+  const activeTabBanner = document.getElementById('active-tab-banner');
+  const activeTabMessage = document.getElementById('active-tab-message');
+  const activeTabTakeControlBtn = document.getElementById('active-tab-take-control-btn');
+  const activeTabReloadBtn = document.getElementById('active-tab-reload-btn');
+
+  function setOwnershipControlledActionsDisabled(disabled) {
+    const wizardSaveButton = document.getElementById('wizard-save-btn');
+    if (wizardSaveButton instanceof HTMLButtonElement) {
+      wizardSaveButton.disabled = disabled;
+    }
+    if (submitBtn instanceof HTMLButtonElement) {
+      submitBtn.disabled = disabled;
+    }
+  }
+
+  function updateActiveTabOwnershipUI(context = {}) {
+    const isOwner = context?.isOwner !== false;
+    if (!activeTabBanner || !activeTabMessage) {
+      setOwnershipControlledActionsDisabled(!isOwner);
+      return;
+    }
+    if (isOwner) {
+      activeTabBanner.classList.add('hidden');
+      activeTabTakeControlBtn?.removeAttribute('disabled');
+      setOwnershipControlledActionsDisabled(false);
+      return;
+    }
+
+    const claim = context?.claim;
+    const seenLabel = claim?.lastSeenAt ? formatRelativeTime(claim.lastSeenAt) : 'recently';
+    activeTabMessage.textContent = `This agreement is active in another tab. Take control here to resume syncing and sending. Last seen ${seenLabel}.`;
+    activeTabBanner.classList.remove('hidden');
+    setOwnershipControlledActionsDisabled(true);
+  }
 
   function mapUserFacingError(message, code = '', status = 0) {
     const normalizedCode = String(code || '').trim().toUpperCase();
     const normalizedMessage = String(message || '').trim().toLowerCase();
     if (normalizedCode === 'DRAFT_SEND_NOT_FOUND' || normalizedCode === 'DRAFT_SESSION_STALE') {
       return 'Your saved draft session was replaced or expired. Please review and click Send again.';
+    }
+    if (normalizedCode === 'ACTIVE_TAB_OWNERSHIP_REQUIRED') {
+      return 'This agreement is active in another tab. Take control in this tab before saving or sending.';
     }
     if (normalizedCode === 'SCOPE_DENIED' || normalizedMessage.includes('scope denied')) {
       return "You don't have access to this organization's resources.";
@@ -2915,6 +3198,24 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
       alert(userMessage);
     }
   }
+
+  activeTabTakeControlBtn?.addEventListener('click', () => {
+    if (!syncOrchestrator.takeControl()) {
+      announceError('This agreement is active in another tab. Take control here before saving or sending.', 'ACTIVE_TAB_OWNERSHIP_REQUIRED');
+      return;
+    }
+    updateActiveTabOwnershipUI({ isOwner: true });
+    if (stateManager.getState()?.syncPending) {
+      syncOrchestrator.manualRetry();
+    }
+    if (currentStep === WIZARD_STEP.REVIEW) {
+      initSendReadinessCheck();
+    }
+  });
+
+  activeTabReloadBtn?.addEventListener('click', () => {
+    window.location.reload();
+  });
 
   function buildCanonicalAgreementPayload() {
     const participants = [];
@@ -3025,7 +3326,13 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
 
   async function persistLatestWizardState() {
     stateManager.updateState(stateManager.collectFormState());
-    await syncOrchestrator.forceSync();
+    const syncResult = await syncOrchestrator.forceSync();
+    if (syncResult?.blocked && syncResult.reason === 'passive_tab') {
+      throw {
+        code: 'ACTIVE_TAB_OWNERSHIP_REQUIRED',
+        message: 'This agreement is active in another tab. Take control in this tab before saving or sending.',
+      };
+    }
     const syncedState = stateManager.getState();
     if (syncedState?.syncPending) {
       throw new Error('Unable to sync latest draft changes');
@@ -3214,6 +3521,12 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
           if (!draftID || expectedRevision <= 0) {
             throw new Error('Draft session not available. Please try again.');
           }
+          if (!syncOrchestrator.ensureActiveTabOwnership('send', { allowClaimIfAvailable: true })) {
+            throw {
+              code: 'ACTIVE_TAB_OWNERSHIP_REQUIRED',
+              message: 'This agreement is active in another tab. Take control in this tab before sending.',
+            };
+          }
 
           const response = await fetch(
             draftEndpointWithUserID(`${draftsEndpoint}/${encodeURIComponent(draftID)}/send`),
@@ -3352,6 +3665,11 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
     wizardNextBtn.classList.toggle('hidden', currentStep === TOTAL_WIZARD_STEPS);
     wizardSaveBtn.classList.toggle('hidden', currentStep !== TOTAL_WIZARD_STEPS);
     submitBtn.classList.toggle('hidden', currentStep !== TOTAL_WIZARD_STEPS);
+    updateActiveTabOwnershipUI({
+      isOwner: syncOrchestrator.isOwner,
+      reason: syncOrchestrator.lastBlockedReason,
+      claim: syncOrchestrator.currentClaim,
+    });
 
     // Update next button text based on step
     if (currentStep < TOTAL_WIZARD_STEPS) {
@@ -5148,6 +5466,20 @@ export function initAgreementFormRuntime(inputConfig: AgreementFormRuntimeConfig
       `;
       sendConfirmation.classList.remove('hidden');
       submitBtn.disabled = false;
+    }
+
+    if (!syncOrchestrator.isOwner) {
+      sendValidationStatus.className = 'p-4 rounded-lg bg-slate-50 border border-slate-200';
+      sendValidationStatus.innerHTML = `
+        <div class="flex items-center gap-2 text-slate-800">
+          <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 00-2-2H7a2 2 0 00-2 2v6m10-6h2a2 2 0 012 2v6m-8 0h6a2 2 0 002-2v-2M9 17H7a2 2 0 01-2-2v-2m4 4l3-3m0 0l3 3m-3-3v8"/>
+          </svg>
+          <span class="font-medium">Take control in this tab before sending</span>
+        </div>
+      `;
+      sendConfirmation.classList.add('hidden');
+      submitBtn.disabled = true;
     }
 
     // Display issues

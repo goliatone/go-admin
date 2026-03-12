@@ -2,7 +2,6 @@ package persistence
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -15,7 +14,6 @@ import (
 // It uses SQL as the source of truth and executes runtime transactions directly against
 // relational tables.
 type StoreAdapter struct {
-	sync    *runtimeRelationalStoreSync
 	bunDB   *bun.DB
 	repos   *RepositoryFactory
 	dialect Dialect
@@ -40,16 +38,11 @@ func NewStoreAdapter(bootstrap *BootstrapResult) (*StoreAdapter, func() error, e
 		return nil, nil, fmt.Errorf("store adapter: unsupported runtime persistence dialect %q", bootstrap.Dialect)
 	}
 
-	sync, err := newRuntimeRelationalStoreSync(bootstrap)
-	if err != nil {
-		return nil, nil, err
-	}
 	repos, err := NewRepositoryFactoryFromDB(bootstrap.BunDB)
 	if err != nil {
 		return nil, nil, err
 	}
 	return &StoreAdapter{
-		sync:    sync,
 		bunDB:   bootstrap.BunDB,
 		repos:   repos,
 		dialect: bootstrap.Dialect,
@@ -61,7 +54,7 @@ func (s *StoreAdapter) WithTx(ctx context.Context, fn func(tx stores.TxStore) er
 	if fn == nil {
 		return nil
 	}
-	if s == nil || s.sync == nil || s.bunDB == nil {
+	if s == nil || s.bunDB == nil {
 		return fmt.Errorf("store adapter: store is not configured")
 	}
 	if ctx == nil {
@@ -73,32 +66,6 @@ func (s *StoreAdapter) WithTx(ctx context.Context, fn func(tx stores.TxStore) er
 		}
 		return fn(newRelationalTxStore(s, tx))
 	})
-}
-
-func (s *StoreAdapter) readStore(ctx context.Context) (*stores.InMemoryStore, error) {
-	if s == nil || s.sync == nil {
-		return nil, fmt.Errorf("store adapter: store is not configured")
-	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	snapshot, err := s.sync.loadSnapshot(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("store adapter: load runtime snapshot: %w", err)
-	}
-	return inMemoryStoreFromRuntimeSnapshot(snapshot)
-}
-
-func readWithStore[T any](ctx context.Context, s *StoreAdapter, fn func(*stores.InMemoryStore) (T, error)) (T, error) {
-	var zero T
-	if fn == nil {
-		return zero, nil
-	}
-	mem, err := s.readStore(ctx)
-	if err != nil {
-		return zero, err
-	}
-	return fn(mem)
 }
 
 func writeWithTx[T any](ctx context.Context, s *StoreAdapter, fn func(stores.TxStore) (T, error)) (T, error) {
@@ -129,29 +96,6 @@ func (s *StoreAdapter) lockRuntimeTransaction(ctx context.Context, tx bun.Tx) er
 		return fmt.Errorf("store adapter: acquire postgres runtime tx lock: %w", err)
 	}
 	return nil
-}
-
-func inMemoryStoreFromRuntimeSnapshot(snapshot runtimeStoreSnapshot) (*stores.InMemoryStore, error) {
-	payload, err := json.Marshal(snapshot)
-	if err != nil {
-		return nil, err
-	}
-	return stores.NewInMemoryStoreFromSnapshotPayload(payload)
-}
-
-func runtimeSnapshotFromInMemoryStore(mem *stores.InMemoryStore) (runtimeStoreSnapshot, error) {
-	if mem == nil {
-		return runtimeStoreSnapshot{}, fmt.Errorf("store adapter: tx store is not configured")
-	}
-	payload, err := mem.SnapshotPayload()
-	if err != nil {
-		return runtimeStoreSnapshot{}, err
-	}
-	snapshot := runtimeStoreSnapshot{}
-	if err := json.Unmarshal(payload, &snapshot); err != nil {
-		return runtimeStoreSnapshot{}, err
-	}
-	return snapshot, nil
 }
 
 // UpdateAuditEvent enforces append-only audit semantics at adapter boundary.

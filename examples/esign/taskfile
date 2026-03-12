@@ -232,6 +232,61 @@ function dev:smtp:init {
     echo 'User1:$2y$05$lvT6Z111jzakwt2mmmmeZOi64AqK3vpzilT5mRYTzXHxLZgSfe4Pm' > "$SCRIPT_DIR/ops/mailpit/development.txt"
 }
 
+function dev:docker:postgres {
+    local container_name="esign-dev-postgres"
+    local image="postgres:16-alpine"
+    local host_port="5439"
+    local db_name="esign"
+    local db_user="esign"
+    local db_password="esign"
+    local dsn="postgres://${db_user}:${db_password}@127.0.0.1:${host_port}/${db_name}?sslmode=disable"
+
+    if ! command -v docker >/dev/null 2>&1; then
+        lgr ERR "docker is required for dev:docker:postgres"
+        return 1
+    fi
+
+    if docker ps --format '{{.Names}}' | grep -qx "${container_name}"; then
+        lgr OK "postgres container already running: ${container_name}"
+        lgr OK "DSN: ${dsn}"
+        return 0
+    fi
+
+    if docker ps -a --format '{{.Names}}' | grep -qx "${container_name}"; then
+        lgr I "starting existing postgres container: ${container_name}"
+        if ! docker start "${container_name}" >/dev/null; then
+            lgr ERR "failed to start existing postgres container: ${container_name}"
+            return 1
+        fi
+    else
+        lgr I "creating postgres container: ${container_name}"
+        if ! docker run -d \
+            --name "${container_name}" \
+            -e POSTGRES_DB="${db_name}" \
+            -e POSTGRES_USER="${db_user}" \
+            -e POSTGRES_PASSWORD="${db_password}" \
+            -p "${host_port}:5432" \
+            "${image}" >/dev/null; then
+            lgr ERR "failed to create postgres container: ${container_name}"
+            return 1
+        fi
+    fi
+
+    lgr I "waiting for postgres to accept connections..."
+    local attempt
+    for attempt in $(seq 1 30); do
+        if docker exec "${container_name}" pg_isready -U "${db_user}" -d "${db_name}" >/dev/null 2>&1; then
+            lgr OK "postgres ready on port ${host_port}"
+            lgr OK "DSN: ${dsn}"
+            return 0
+        fi
+        sleep 1
+    done
+
+    lgr ERR "postgres container did not become ready in time: ${container_name}"
+    return 1
+}
+
 function release:verify {
     "${GO_BIN}" test ./release -run 'TestChecklistValidateRejectsUnapprovedSignoffs|TestChecklistValidatePassesForApprovedChecklist|TestValidateChecklistFileTemplateShowsPendingApprovals|TestChecklistValidateRejectsAPIOnlyFallback|TestChecklistValidateRejectsMissingProductizationAssertions|TestRunValidationProfilePassesSLOGates|TestSmokeE2EUsesRuntimeIssuedRecipientLinks|TestRunV2ValidationProfilePassesGates|TestEvaluateV2SLODetectsFailures|TestValidateV2ContractFreezeGuardPassesForCurrentSnapshot|TestValidateV2ContractFreezeGuardBlocksPostFreezeMismatchWithoutApproval|TestValidateV2ContractFreezeGuardAllowsApprovedPostFreezeException'
 }
