@@ -1,6 +1,65 @@
-// @ts-nocheck
+import type { AgreementFormRefs } from './refs';
 
-export function createAgreementFeedbackController(options = {}) {
+interface FeedbackStateShape {
+  updatedAt?: string;
+  syncPending?: boolean;
+}
+
+interface FeedbackStateManager {
+  getState(): FeedbackStateShape;
+}
+
+interface FeedbackAPIErrorPayload {
+  error?: {
+    code?: unknown;
+    message?: unknown;
+    details?: Record<string, unknown>;
+  };
+  code?: unknown;
+  message?: unknown;
+}
+
+export interface AgreementFeedbackAPIError {
+  status: number;
+  code: string;
+  details: Record<string, unknown>;
+  message: string;
+}
+
+interface FeedbackSyncOutcome {
+  blocked?: boolean;
+  reason?: string;
+  error?: unknown;
+  [key: string]: unknown;
+}
+
+interface SurfaceSyncOutcomeOptions {
+  errorMessage?: string;
+}
+
+interface AgreementFeedbackControllerOptions {
+  agreementRefs: AgreementFormRefs;
+  formAnnouncements?: HTMLElement | null;
+  stateManager: FeedbackStateManager;
+}
+
+export interface AgreementFeedbackController {
+  announceError(message: string, code?: string, status?: number): void;
+  formatRelativeTime(isoString?: string | null): string;
+  mapUserFacingError(message: string, code?: string, status?: number): string;
+  parseAPIError(response: Response, fallbackMessage?: string): Promise<AgreementFeedbackAPIError>;
+  restoreSyncStatusFromState(): void;
+  showSyncConflictDialog(serverRevision?: number | string): void;
+  surfaceSyncOutcome(
+    resultPromise: Promise<FeedbackSyncOutcome> | FeedbackSyncOutcome,
+    options?: SurfaceSyncOutcomeOptions,
+  ): Promise<FeedbackSyncOutcome>;
+  updateSyncStatus(status?: string): void;
+}
+
+export function createAgreementFeedbackController(
+  options: AgreementFeedbackControllerOptions,
+): AgreementFeedbackController {
   const {
     agreementRefs,
     formAnnouncements,
@@ -9,11 +68,11 @@ export function createAgreementFeedbackController(options = {}) {
 
   let currentSyncStatus = 'saved';
 
-  function formatRelativeTime(isoString) {
+  function formatRelativeTime(isoString?: string | null): string {
     if (!isoString) return 'unknown';
     const date = new Date(isoString);
     const now = new Date();
-    const diffMs = now - date;
+    const diffMs = now.getTime() - date.getTime();
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
@@ -25,7 +84,7 @@ export function createAgreementFeedbackController(options = {}) {
     return date.toLocaleDateString();
   }
 
-  function restoreSyncStatusFromState() {
+  function restoreSyncStatusFromState(): void {
     const state = stateManager.getState();
     if (currentSyncStatus !== 'paused') {
       return;
@@ -33,7 +92,7 @@ export function createAgreementFeedbackController(options = {}) {
     updateSyncStatus(state?.syncPending ? 'pending' : 'saved');
   }
 
-  function updateSyncStatus(status) {
+  function updateSyncStatus(status?: string): void {
     currentSyncStatus = String(status || '').trim() || 'saved';
     const indicator = agreementRefs.sync.indicator;
     const icon = agreementRefs.sync.icon;
@@ -86,7 +145,7 @@ export function createAgreementFeedbackController(options = {}) {
     }
   }
 
-  function showSyncConflictDialog(serverRevision) {
+  function showSyncConflictDialog(serverRevision?: number | string): void {
     const state = stateManager.getState();
     if (agreementRefs.conflict.localTime) {
       agreementRefs.conflict.localTime.textContent = formatRelativeTime(state.updatedAt);
@@ -100,7 +159,7 @@ export function createAgreementFeedbackController(options = {}) {
     agreementRefs.conflict.modal?.classList.remove('hidden');
   }
 
-  function mapUserFacingError(message, code = '', status = 0) {
+  function mapUserFacingError(message: string, code = '', status = 0): string {
     const normalizedCode = String(code || '').trim().toUpperCase();
     const normalizedMessage = String(message || '').trim().toLowerCase();
     if (normalizedCode === 'DRAFT_SEND_NOT_FOUND' || normalizedCode === 'DRAFT_SESSION_STALE') {
@@ -132,13 +191,13 @@ export function createAgreementFeedbackController(options = {}) {
     return 'Something went wrong. Please try again.';
   }
 
-  async function parseAPIError(response, fallbackMessage) {
+  async function parseAPIError(response: Response, fallbackMessage = ''): Promise<AgreementFeedbackAPIError> {
     const status = Number(response?.status || 0);
     let code = '';
     let message = '';
-    let details = {};
+    let details: Record<string, unknown> = {};
     try {
-      const payload = await response.json();
+      const payload = await response.json() as FeedbackAPIErrorPayload;
       code = String(payload?.error?.code || payload?.code || '').trim();
       message = String(payload?.error?.message || payload?.message || '').trim();
       details = (payload?.error?.details && typeof payload.error.details === 'object') ? payload.error.details : {};
@@ -163,19 +222,22 @@ export function createAgreementFeedbackController(options = {}) {
     };
   }
 
-  function announceError(message, code = '', status = 0) {
+  function announceError(message: string, code = '', status = 0): void {
     const userMessage = mapUserFacingError(message, code, status);
     if (formAnnouncements) {
       formAnnouncements.textContent = userMessage;
     }
-    if (window.toastManager) {
+    if (window.toastManager?.error) {
       window.toastManager.error(userMessage);
     } else {
       alert(userMessage);
     }
   }
 
-  async function surfaceSyncOutcome(resultPromise, options = {}) {
+  async function surfaceSyncOutcome(
+    resultPromise: Promise<FeedbackSyncOutcome> | FeedbackSyncOutcome,
+    options: SurfaceSyncOutcomeOptions = {},
+  ): Promise<FeedbackSyncOutcome> {
     const result = await resultPromise;
     if (result?.blocked && result.reason === 'passive_tab') {
       announceError(
@@ -185,7 +247,7 @@ export function createAgreementFeedbackController(options = {}) {
       return result;
     }
     if (result?.error && String(options.errorMessage || '').trim() !== '') {
-      announceError(options.errorMessage);
+      announceError(options.errorMessage || '');
     }
     return result;
   }

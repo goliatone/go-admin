@@ -74,6 +74,7 @@ test('runtime extraction contract: typed helper modules do not use ts-nocheck', 
     '../src/esign/pages/agreement-form/telemetry.ts',
     '../src/esign/pages/agreement-form/runtime-actions.ts',
     '../src/esign/pages/agreement-form/form-payload.ts',
+    '../src/esign/pages/agreement-form/feedback.ts',
   ];
 
   for (const relativePath of helperModules) {
@@ -85,10 +86,12 @@ test('runtime extraction contract: typed helper modules do not use ts-nocheck', 
 test('runtime extraction contract: smaller DOM controllers do not use ts-nocheck', () => {
   const controllerModules = [
     '../src/esign/pages/agreement-form/wizard-navigation.ts',
+    '../src/esign/pages/agreement-form/wizard-validation.ts',
     '../src/esign/pages/agreement-form/send-readiness.ts',
     '../src/esign/pages/agreement-form/participants.ts',
     '../src/esign/pages/agreement-form/document-selection.ts',
     '../src/esign/pages/agreement-form/field-definitions.ts',
+    '../src/esign/pages/agreement-form/placement-editor.ts',
   ];
 
   for (const relativePath of controllerModules) {

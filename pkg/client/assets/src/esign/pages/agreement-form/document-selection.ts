@@ -6,7 +6,9 @@ import { normalizeDocumentOption, parsePositiveInt } from './normalization';
 declare global {
   interface Window {
     toastManager?: {
+      info?(message: string): void;
       success(message: string): void;
+      error?(message: string): void;
     };
   }
 }

@@ -1,6 +1,41 @@
-// @ts-nocheck
+interface ValidationFieldRuleState {
+  participantId?: string;
+}
 
-export function createAgreementWizardValidationController(options = {}) {
+interface MissingSignatureSigner {
+  id?: string;
+  name?: string;
+}
+
+interface AgreementWizardValidationControllerOptions {
+  documentIdInput: HTMLInputElement;
+  titleInput: HTMLInputElement;
+  participantsContainer: HTMLElement;
+  fieldDefinitionsContainer: HTMLElement;
+  fieldRulesContainer?: HTMLElement | null;
+  addFieldBtn: HTMLElement;
+  ensureSelectedDocumentCompatibility(): boolean;
+  collectFieldRulesForState(): ValidationFieldRuleState[];
+  findSignersMissingRequiredSignatureField(): MissingSignatureSigner[];
+  missingSignatureFieldMessage(missingSigners: MissingSignatureSigner[]): string;
+  announceError(message: string): void;
+}
+
+export interface AgreementWizardValidationController {
+  validateStep(stepNum: number): boolean;
+}
+
+function roleSelect(entry: ParentNode): HTMLSelectElement | null {
+  return entry.querySelector('select[name*=".role"]') as HTMLSelectElement | null;
+}
+
+function fieldParticipantSelect(entry: ParentNode): HTMLSelectElement | null {
+  return entry.querySelector('.field-participant-select') as HTMLSelectElement | null;
+}
+
+export function createAgreementWizardValidationController(
+  options: AgreementWizardValidationControllerOptions,
+): AgreementWizardValidationController {
   const {
     documentIdInput,
     titleInput,
@@ -15,7 +50,7 @@ export function createAgreementWizardValidationController(options = {}) {
     announceError,
   } = options;
 
-  function validateStep(stepNum) {
+  function validateStep(stepNum: number): boolean {
     switch (stepNum) {
       case 1:
         if (!documentIdInput.value) {
@@ -36,15 +71,15 @@ export function createAgreementWizardValidationController(options = {}) {
         return true;
 
       case 3: {
-        const participantEntries = participantsContainer.querySelectorAll('.participant-entry');
+        const participantEntries = participantsContainer.querySelectorAll<HTMLElement>('.participant-entry');
         if (participantEntries.length === 0) {
           announceError('Please add at least one participant');
           return false;
         }
         let hasSigners = false;
         participantEntries.forEach((entry) => {
-          const roleSelect = entry.querySelector('select[name*=".role"]');
-          if (roleSelect.value === 'signer') {
+          const select = roleSelect(entry);
+          if (select?.value === 'signer') {
             hasSigners = true;
           }
         });
@@ -56,12 +91,12 @@ export function createAgreementWizardValidationController(options = {}) {
       }
 
       case 4: {
-        const fieldEntries = fieldDefinitionsContainer.querySelectorAll('.field-definition-entry');
-        for (const field of fieldEntries) {
-          const participantSelect = field.querySelector('.field-participant-select');
-          if (!participantSelect.value) {
+        const fieldEntries = fieldDefinitionsContainer.querySelectorAll<HTMLElement>('.field-definition-entry');
+        for (const field of Array.from(fieldEntries)) {
+          const participantSelect = fieldParticipantSelect(field);
+          if (!participantSelect?.value) {
             announceError('Please assign all fields to a signer');
-            participantSelect.focus();
+            participantSelect?.focus();
             return false;
           }
         }
@@ -70,7 +105,7 @@ export function createAgreementWizardValidationController(options = {}) {
         const unassignedRule = rules.find((rule) => !rule.participantId);
         if (unassignedRule) {
           announceError('Please assign all automation rules to a signer');
-          fieldRulesContainer?.querySelector('.field-rule-participant-select')?.focus();
+          fieldRulesContainer?.querySelector<HTMLSelectElement>('.field-rule-participant-select')?.focus();
           return false;
         }
 
