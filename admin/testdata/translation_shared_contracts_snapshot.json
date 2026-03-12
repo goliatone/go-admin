@@ -1,0 +1,299 @@
+{
+  "disabled_reason_codes": [
+    "TRANSLATION_MISSING",
+    "INVALID_STATUS",
+    "PERMISSION_DENIED",
+    "MISSING_CONTEXT",
+    "FEATURE_DISABLED"
+  ],
+  "editor_contracts": {
+    "assist": {
+      "action_envelope_required_actions": [
+        "claim",
+        "release",
+        "submit_review",
+        "approve",
+        "reject",
+        "archive"
+      ],
+      "assignment_action_state_payloads": [
+        "actions",
+        "editor_actions",
+        "assignment_action_states"
+      ],
+      "glossary_match_required_fields": [
+        "term",
+        "preferred_translation",
+        "field_paths"
+      ],
+      "glossary_matches_fallback_keys": [
+        "assist.glossary_matches",
+        "glossary_matches"
+      ],
+      "review_action_state_payloads": [
+        "review_actions",
+        "review_action_states"
+      ],
+      "style_guide_fallback_keys": [
+        "assist.style_guide_summary",
+        "style_guide_summary"
+      ],
+      "style_guide_required_fields": [
+        "available",
+        "title",
+        "summary",
+        "rules"
+      ],
+      "translation_memory_key": "translation_memory_suggestions"
+    },
+    "field_completeness": {
+      "required_fields": [
+        "required",
+        "complete",
+        "missing"
+      ]
+    },
+    "field_drift": {
+      "comparison_modes": [
+        "snapshot",
+        "hash_only"
+      ],
+      "required_fields": [
+        "changed",
+        "comparison_mode",
+        "previous_source_value",
+        "current_source_value"
+      ]
+    },
+    "field_validations": {
+      "required_fields": [
+        "valid",
+        "message"
+      ]
+    }
+  },
+  "flow_vocabulary": {
+    "assignment_lifecycle": [
+      "manual_archive",
+      "auto_archive",
+      "single_active_per_locale"
+    ],
+    "disabled_reason_codes": [
+      "TRANSLATION_MISSING",
+      "INVALID_STATUS",
+      "PERMISSION_DENIED",
+      "MISSING_CONTEXT",
+      "FEATURE_DISABLED"
+    ],
+    "error_codes": [
+      "VALIDATION_ERROR",
+      "NOT_FOUND",
+      "PERMISSION_DENIED",
+      "VERSION_CONFLICT",
+      "INVALID_STATUS_TRANSITION",
+      "MISSING_LINKAGE",
+      "DUPLICATE_ROW",
+      "STALE_SOURCE_HASH",
+      "POLICY_BLOCKED",
+      "INTERNAL_ERROR"
+    ],
+    "schema_version": 1,
+    "statuses": {
+      "assignment_status": [
+        "open",
+        "assigned",
+        "in_progress",
+        "in_review",
+        "changes_requested",
+        "approved",
+        "archived"
+      ],
+      "due_state": [
+        "none",
+        "on_track",
+        "due_soon",
+        "overdue"
+      ],
+      "family_blockers": [
+        "missing_locale",
+        "missing_field",
+        "pending_review",
+        "outdated_source",
+        "policy_denied"
+      ],
+      "family_readiness": [
+        "ready",
+        "blocked"
+      ],
+      "variant_status": [
+        "draft",
+        "in_progress",
+        "in_review",
+        "approved",
+        "published",
+        "archived"
+      ]
+    }
+  },
+  "openapi": {
+    "artifact_bytes": 8551,
+    "artifact_path": "translations/ui/openapi/translations.json",
+    "schema_version": 1
+  },
+  "queue_contracts": {
+    "default_sort": {
+      "key": "updated_at",
+      "order": "desc"
+    },
+    "saved_filter_presets": [
+      {
+        "description": "Assignments currently assigned to the active actor.",
+        "id": "mine",
+        "label": "Mine",
+        "query": {
+          "assignee_id": "__me__",
+          "order": "asc",
+          "sort": "due_date"
+        }
+      },
+      {
+        "description": "Claimable or active assignments that still need translator work.",
+        "id": "open",
+        "label": "Open",
+        "query": {
+          "order": "desc",
+          "sort": "updated_at",
+          "status": "pending,assigned,in_progress,rejected"
+        }
+      },
+      {
+        "description": "Assignments awaiting review for the active actor.",
+        "id": "needs_review",
+        "label": "Needs Review",
+        "query": {
+          "order": "asc",
+          "reviewer_id": "__me__",
+          "sort": "due_date",
+          "status": "review"
+        }
+      },
+      {
+        "description": "Past-due assignments across the visible queue scope.",
+        "id": "overdue",
+        "label": "Overdue",
+        "query": {
+          "due_state": "overdue",
+          "order": "asc",
+          "sort": "due_date"
+        }
+      },
+      {
+        "description": "Assignments marked high or urgent.",
+        "id": "high_priority",
+        "label": "High Priority",
+        "query": {
+          "order": "asc",
+          "priority": "high,urgent",
+          "sort": "due_date"
+        }
+      }
+    ],
+    "supported_sort_keys": [
+      "updated_at",
+      "created_at",
+      "due_date",
+      "due_state",
+      "status",
+      "locale",
+      "priority",
+      "assignee_id",
+      "reviewer_id"
+    ]
+  },
+  "schema_version": 1,
+  "source_target_drift": {
+    "key": "source_target_drift",
+    "required_fields": [
+      "source_hash",
+      "source_version",
+      "changed_fields_summary"
+    ],
+    "summary_fields": [
+      "count",
+      "fields"
+    ]
+  },
+  "status_enums": {
+    "all": [
+      "ready",
+      "missing_locales",
+      "missing_fields",
+      "missing_locales_and_fields",
+      "pending",
+      "assigned",
+      "in_progress",
+      "review",
+      "rejected",
+      "approved",
+      "published",
+      "archived",
+      "draft",
+      "overdue",
+      "due_soon",
+      "on_track",
+      "none",
+      "success",
+      "error",
+      "conflict",
+      "skipped",
+      "running",
+      "completed",
+      "failed"
+    ],
+    "core": {
+      "readiness_state": [
+        "ready",
+        "missing_locales",
+        "missing_fields",
+        "missing_locales_and_fields"
+      ]
+    },
+    "exchange": {
+      "job_status": [
+        "running",
+        "completed",
+        "failed"
+      ],
+      "row_status": [
+        "success",
+        "error",
+        "conflict",
+        "skipped"
+      ]
+    },
+    "queue": {
+      "content_state": [
+        "draft",
+        "review",
+        "ready",
+        "archived"
+      ],
+      "due_state": [
+        "overdue",
+        "due_soon",
+        "on_track",
+        "none"
+      ],
+      "queue_state": [
+        "pending",
+        "assigned",
+        "in_progress",
+        "review",
+        "rejected",
+        "approved",
+        "published",
+        "archived"
+      ]
+    }
+  }
+}
