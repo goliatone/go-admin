@@ -119,16 +119,6 @@ func resolveContentChannelFromRouter(c router.Context) string {
 		c.Header("X-Admin-Channel"),
 		c.Header("X-Content-Channel"),
 		c.Cookies("admin_channel"),
-		// Legacy compatibility keys (Phase 6 cleanup target).
-		c.Query("env"),
-		c.Query("environment"),
-		c.Query("content_env"),
-		c.Query("site_env"),
-		c.Header("X-Admin-Environment"),
-		c.Header("X-Environment"),
-		c.Header("X-Site-Environment"),
-		c.Cookies("admin_env"),
-		c.Cookies("site_env"),
 	}
 	for _, candidate := range candidates {
 		if channel := strings.TrimSpace(candidate); channel != "" {
