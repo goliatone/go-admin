@@ -1,8 +1,8 @@
 /**
- * Translation Operations Module Tests
+ * Translation operations module tests.
  *
- * Tests for Task 19.5: Shared translation operations entrypoint UI behavior
- * based on backend capability metadata gating with resolver-based links.
+ * Covers shared translation operations entrypoint UI behavior based on
+ * backend capability metadata gating with resolver-based links.
  */
 
 import { describe, it, before, after, beforeEach, afterEach, mock } from 'node:test';
@@ -629,10 +629,10 @@ describe('Disabled Module Non-Discovery', () => {
 });
 
 // ============================================================================
-// Task 19.7: Capability-Profile Test Matrix
+// Capability-Profile Test Matrix
 // ============================================================================
 
-describe('Task 19.7: Capability-Profile Test Matrix', () => {
+describe('Capability-Profile Test Matrix', () => {
   describe('Full Profile Behavioral Coverage (pages + posts)', () => {
     it('full profile: has both queue and exchange enabled', () => {
       assert.equal(isExchangeEnabled(FULL_CAPABILITIES), true);
@@ -940,10 +940,10 @@ describe('Task 19.7: Capability-Profile Test Matrix', () => {
 });
 
 // ============================================================================
-// Task 19.8: Accessibility and UX Copy Consistency Tests
+// Accessibility And UX Copy Consistency Tests
 // ============================================================================
 
-describe('Task 19.8: Accessibility and UX Copy Consistency', () => {
+describe('Accessibility and UX Copy Consistency', () => {
   describe('Entrypoint Accessibility Attributes', () => {
     it('entrypoints have consistent labels', () => {
       const entrypoints = buildTranslationEntrypoints(FULL_CAPABILITIES, '/admin');

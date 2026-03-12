@@ -41,7 +41,7 @@ export interface ExpandedRuleField {
   page: number;
   participantId: string;
   required: boolean;
-  /** Rule ID that generated this field (for link group creation in Phase 3) */
+  /** Rule ID that generated this field for link group creation. */
   ruleId?: string;
 }
 
@@ -72,7 +72,7 @@ export interface NormalizedPlacementInstance {
   width: number;
   height: number;
   placementSource: PlacementSource;
-  /** Link group ID for linked field placement (Phase 3) */
+  /** Link group ID for linked field placement. */
   linkGroupId?: string;
   /** Whether this field has been unlinked from its group */
   isUnlinked?: boolean;
@@ -88,7 +88,7 @@ export interface PlacementFormPayload {
   y: number;
   width: number;
   height: number;
-  /** Link group ID for linked field placement (Phase 3) */
+  /** Link group ID for linked field placement. */
   link_group_id?: string;
   /** Whether this field has been unlinked from its group */
   is_unlinked?: boolean;
@@ -111,7 +111,7 @@ export interface LinkGroupTemplatePosition {
 }
 
 /**
- * Link group definition for field placement (Phase 3)
+ * Link group definition for linked field placement.
  * Groups fields that should be placed together when any member is manually placed.
  */
 export interface LinkGroup {

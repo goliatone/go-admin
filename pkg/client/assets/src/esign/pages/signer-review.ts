@@ -1839,7 +1839,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
         completed: completed,
         hasError: false,
         lastError: null,
-        // Geometry metadata (will be populated from backend in Phase 18.BE.3)
+        // Geometry metadata is populated from backend field payloads when present.
         posX: field.pos_x || 0,
         posY: field.pos_y || 0,
         width: field.width || 150,

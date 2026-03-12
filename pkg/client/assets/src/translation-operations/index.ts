@@ -4,8 +4,8 @@
  * Provides shared UI behavior for translation operations (queue/exchange)
  * based on backend capability metadata gating.
  *
- * Task 19.5: Uses resolver-based links from backend capabilities,
- * not ad-hoc template-only flags.
+ * Uses resolver-based links from backend capabilities instead of
+ * ad-hoc template-only flags.
  */
 
 import {

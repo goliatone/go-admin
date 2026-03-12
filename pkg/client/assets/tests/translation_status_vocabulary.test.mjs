@@ -1,5 +1,5 @@
 /**
- * Translation Status Vocabulary Tests (Phase 5 - TX-052)
+ * Translation status vocabulary tests.
  */
 
 import { describe, it, mock } from 'node:test';
@@ -53,7 +53,7 @@ const {
   isValidReasonCode,
   getStatusesForDomain,
   getAllReasonCodes,
-  // CSS class helpers (TX-053)
+  // CSS class helpers
   getStatusCssClass,
   getSeverityCssClass,
   // Rendering functions
@@ -309,7 +309,7 @@ describe('getAllReasonCodes', () => {
 });
 
 // ============================================================================
-// CSS Class Helper Tests (TX-053)
+// CSS Class Helper Tests
 // ============================================================================
 
 describe('getStatusCssClass', () => {

@@ -170,7 +170,7 @@ export function expandRuleDefinitionsForPreview(rules: Array<Partial<FieldRuleSt
           page,
           participantId: asString(rule.participantId),
           required: rule.required !== false,
-          ruleId: baseRuleID, // Phase 3: Track rule ID for link group creation
+          ruleId: baseRuleID, // Track rule ID for link group creation.
         });
       }
       return;
@@ -185,7 +185,7 @@ export function expandRuleDefinitionsForPreview(rules: Array<Partial<FieldRuleSt
         page,
         participantId: asString(rule.participantId),
         required: rule.required !== false,
-        ruleId: baseRuleID, // Phase 3: Track rule ID for link group creation
+        ruleId: baseRuleID, // Track rule ID for link group creation.
       });
     }
   });

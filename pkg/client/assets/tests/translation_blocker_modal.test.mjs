@@ -358,7 +358,7 @@ test('common locale codes are recognized', () => {
 });
 
 // =============================================================================
-// Fallback Behavior Tests (Task 6.8)
+// Fallback Behavior Tests
 // =============================================================================
 
 test('modal handles missing_fields_by_locale being null gracefully', () => {
