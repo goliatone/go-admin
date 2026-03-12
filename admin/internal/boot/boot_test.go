@@ -198,11 +198,15 @@ func newTestURLManager(basePath string) *urlkit.RouteManager {
 							"workflows.bindings.id":               "/workflows/bindings/:id",
 							"translations.export":                 "/translations/exchange/export",
 							"translations.template":               "/translations/exchange/template",
+							"translations.assignments":            "/translations/assignments",
+							"translations.assignments.id":         "/translations/assignments/:assignment_id",
+							"translations.assignments.actions":    "/translations/assignments/:assignment_id/actions/:action",
 							"translations.families":               "/translations/families",
 							"translations.families.id":            "/translations/families/:family_id",
 							"translations.families.variants":      "/translations/families/:family_id/variants",
 							"translations.my_work":                "/translations/my-work",
 							"translations.queue":                  "/translations/queue",
+							"translations.variants.id":            "/translations/variants/:variant_id",
 							"translations.options.entity_types":   "/translations/options/entity-types",
 							"translations.options.source_records": "/translations/options/source-records",
 							"translations.options.locales":        "/translations/options/locales",
@@ -1122,6 +1126,9 @@ func TestTranslationExchangeRouteStepRegistersRoutes(t *testing.T) {
 }
 
 type stubTranslationQueueBinding struct {
+	assignmentsCalled           int
+	assignmentDetailCalled      int
+	updateVariantCalled         int
 	myWorkCalled               int
 	queueCalled                int
 	entityTypesOptionsCalled   int
@@ -1129,6 +1136,32 @@ type stubTranslationQueueBinding struct {
 	localesOptionsCalled       int
 	groupsOptionsCalled        int
 	assigneesOptionsCalled     int
+}
+
+func (s *stubTranslationQueueBinding) Assignments(_ router.Context) (any, error) {
+	s.assignmentsCalled++
+	return map[string]any{"scope": "assignments"}, nil
+}
+
+func (s *stubTranslationQueueBinding) AssignmentDetail(_ router.Context, id string) (any, error) {
+	s.assignmentDetailCalled++
+	return map[string]any{"assignment_id": id}, nil
+}
+
+func (s *stubTranslationQueueBinding) RunAssignmentAction(_ router.Context, id, action string, body map[string]any) (any, error) {
+	return map[string]any{
+		"assignment_id": id,
+		"action":        action,
+		"body":          body,
+	}, nil
+}
+
+func (s *stubTranslationQueueBinding) UpdateVariant(_ router.Context, id string, body map[string]any) (any, error) {
+	s.updateVariantCalled++
+	return map[string]any{
+		"variant_id": id,
+		"body":       body,
+	}, nil
 }
 
 func (s *stubTranslationQueueBinding) MyWork(_ router.Context) (any, error) {
@@ -1235,11 +1268,15 @@ func TestTranslationQueueRouteStepRegistersRoutes(t *testing.T) {
 	}
 
 	require.NoError(t, TranslationQueueRouteStep(ctx))
-	require.Len(t, rr.calls, 7)
+	require.Len(t, rr.calls, 11)
 	methodPaths := map[string]bool{}
 	for _, call := range rr.calls {
 		methodPaths[call.method+" "+call.path] = true
 	}
+	require.True(t, methodPaths["GET "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.assignments")])
+	require.True(t, methodPaths["GET "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.assignments.id")])
+	require.True(t, methodPaths["POST "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.assignments.actions")])
+	require.True(t, methodPaths["PATCH "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.variants.id")])
 	require.True(t, methodPaths["GET "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.my_work")])
 	require.True(t, methodPaths["GET "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.queue")])
 	require.True(t, methodPaths["GET "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.options.entity_types")])
@@ -1248,9 +1285,25 @@ func TestTranslationQueueRouteStepRegistersRoutes(t *testing.T) {
 	require.True(t, methodPaths["GET "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.options.groups")])
 	require.True(t, methodPaths["GET "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.options.assignees")])
 
+	detailPath := mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.assignments.id")
+	actionPath := mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.assignments.actions")
+	variantPath := mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.variants.id")
 	for _, call := range rr.calls {
-		require.NoError(t, call.handler(router.NewMockContext()))
+		requestCtx := router.NewMockContext()
+		switch call.path {
+		case detailPath:
+			requestCtx.ParamsM["assignment_id"] = "asg_1"
+		case actionPath:
+			requestCtx.ParamsM["assignment_id"] = "asg_1"
+			requestCtx.ParamsM["action"] = "claim"
+		case variantPath:
+			requestCtx.ParamsM["variant_id"] = "var_1"
+		}
+		require.NoError(t, call.handler(requestCtx))
 	}
+	require.Equal(t, 1, binding.assignmentsCalled)
+	require.Equal(t, 1, binding.assignmentDetailCalled)
+	require.Equal(t, 1, binding.updateVariantCalled)
 	require.Equal(t, 1, binding.myWorkCalled)
 	require.Equal(t, 1, binding.queueCalled)
 	require.Equal(t, 1, binding.entityTypesOptionsCalled)

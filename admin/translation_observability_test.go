@@ -12,8 +12,9 @@ import (
 )
 
 type capturingTranslationMetrics struct {
-	blockedTags []map[string]string
-	createTags  []map[string]string
+	blockedTags      []map[string]string
+	createTags       []map[string]string
+	createLocaleTags []map[string]string
 }
 
 func (m *capturingTranslationMetrics) IncrementBlockedTransition(_ context.Context, tags map[string]string) {
@@ -22,6 +23,10 @@ func (m *capturingTranslationMetrics) IncrementBlockedTransition(_ context.Conte
 
 func (m *capturingTranslationMetrics) IncrementCreateAction(_ context.Context, tags map[string]string) {
 	m.createTags = append(m.createTags, cloneTagsMap(tags))
+}
+
+func (m *capturingTranslationMetrics) IncrementCreateLocaleAction(_ context.Context, tags map[string]string) {
+	m.createLocaleTags = append(m.createLocaleTags, cloneTagsMap(tags))
 }
 
 func TestApplyTranslationPolicyRecordsBlockedTransitionMetric(t *testing.T) {
@@ -200,6 +205,65 @@ func TestPanelBindingCreateTranslationRecordsMetricOutcomes(t *testing.T) {
 			t.Fatalf("unexpected duplicate log attrs: %+v", attrs)
 		}
 	})
+}
+
+func TestRecordTranslationCreateLocaleMetricCapturesOutcomesAndTraceContext(t *testing.T) {
+	metrics := &capturingTranslationMetrics{}
+	original := defaultTranslationMetrics
+	originalLogger := translationObservabilityLogger
+	logCapture := &capturingSlogHandler{}
+	defaultTranslationMetrics = metrics
+	translationObservabilityLogger = slog.New(logCapture)
+	t.Cleanup(func() {
+		defaultTranslationMetrics = original
+		translationObservabilityLogger = originalLogger
+	})
+
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, requestIDContextKey, "req-create-locale-1")
+	ctx = context.WithValue(ctx, traceIDContextKey, "trace-create-locale-1")
+
+	recordTranslationCreateLocaleMetric(ctx, translationCreateLocaleEvent{
+		ContentType: "pages",
+		FamilyID:    "tg-page-1",
+		Locale:      "fr",
+		Environment: "production",
+		Outcome:     "success",
+	})
+	recordTranslationCreateLocaleMetric(ctx, translationCreateLocaleEvent{
+		ContentType: "pages",
+		FamilyID:    "tg-page-1",
+		Locale:      "fr",
+		Environment: "production",
+		Outcome:     "duplicate",
+		Err:         errors.New("translation already exists"),
+	})
+
+	if len(metrics.createLocaleTags) != 2 {
+		t.Fatalf("expected two create-locale metric events, got %d", len(metrics.createLocaleTags))
+	}
+	if metrics.createLocaleTags[0]["outcome"] != "success" || metrics.createLocaleTags[0]["content_type"] != "pages" {
+		t.Fatalf("unexpected success metric tags: %+v", metrics.createLocaleTags[0])
+	}
+	if metrics.createLocaleTags[1]["outcome"] != "duplicate" {
+		t.Fatalf("unexpected duplicate metric tags: %+v", metrics.createLocaleTags[1])
+	}
+
+	records := logCapture.Records()
+	if len(records) != 2 {
+		t.Fatalf("expected two create-locale log entries, got %d", len(records))
+	}
+	firstAttrs := slogRecordAttrs(records[0])
+	if firstAttrs["event"] != "translation.family.create_locale" || firstAttrs["outcome"] != "success" {
+		t.Fatalf("unexpected create-locale log attrs: %+v", firstAttrs)
+	}
+	if firstAttrs["request_id"] != "req-create-locale-1" || firstAttrs["trace_id"] != "trace-create-locale-1" {
+		t.Fatalf("expected request/trace ids on create-locale log, got %+v", firstAttrs)
+	}
+	secondAttrs := slogRecordAttrs(records[1])
+	if secondAttrs["outcome"] != "duplicate" || secondAttrs["target_locale"] != "fr" {
+		t.Fatalf("unexpected duplicate create-locale attrs: %+v", secondAttrs)
+	}
 }
 
 func cloneTagsMap(values map[string]string) map[string]string {

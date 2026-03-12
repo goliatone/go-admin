@@ -1104,6 +1104,13 @@ func TestPanelBindingListAndDetailIncludeTranslationReadiness(t *testing.T) {
 	if len(missing) != 1 || missing[0] != "fr" {
 		t.Fatalf("expected missing_required_locales [fr], got %v", missing)
 	}
+	quickCreate := extractMap(readiness["quick_create"])
+	if got := toString(quickCreate["recommended_locale"]); got != "fr" {
+		t.Fatalf("expected quick_create.recommended_locale fr, got %q", got)
+	}
+	if got := toStringSlice(quickCreate["required_for_publish"]); len(got) != 3 || got[0] != "en" || got[1] != "es" || got[2] != "fr" {
+		t.Fatalf("expected quick_create.required_for_publish [en es fr], got %v", got)
+	}
 
 	detail, err := binding.Detail(c, "en", "post_123")
 	if err != nil {
@@ -1117,6 +1124,10 @@ func TestPanelBindingListAndDetailIncludeTranslationReadiness(t *testing.T) {
 	readyFor, _ := readiness["ready_for_transition"].(map[string]bool)
 	if readyFor["publish"] {
 		t.Fatalf("expected publish readiness false when required locale is missing")
+	}
+	quickCreate = extractMap(readiness["quick_create"])
+	if got := toString(extractMap(quickCreate["default_assignment"])["priority"]); got != "normal" {
+		t.Fatalf("expected quick_create.default_assignment.priority normal, got %q", got)
 	}
 }
 

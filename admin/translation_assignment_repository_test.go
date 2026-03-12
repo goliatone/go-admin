@@ -173,3 +173,69 @@ func TestInMemoryTranslationAssignmentRepositoryArchiveReleasesActiveKey(t *test
 		t.Fatalf("expected new active assignment after archive, got %v", err)
 	}
 }
+
+func TestInMemoryTranslationAssignmentRepositoryAllowsConcurrentActiveAssignmentsAcrossWorkScopes(t *testing.T) {
+	repo := NewInMemoryTranslationAssignmentRepository()
+	ctx := context.Background()
+
+	if _, err := repo.Create(ctx, TranslationAssignment{
+		TranslationGroupID: "tg_123",
+		EntityType:         "pages",
+		SourceRecordID:     "page_1",
+		SourceLocale:       "en",
+		TargetLocale:       "es",
+		WorkScope:          "__all__",
+		AssignmentType:     AssignmentTypeOpenPool,
+		Status:             AssignmentStatusPending,
+		Priority:           PriorityNormal,
+	}); err != nil {
+		t.Fatalf("create __all__ assignment: %v", err)
+	}
+
+	if _, err := repo.Create(ctx, TranslationAssignment{
+		TranslationGroupID: "tg_123",
+		EntityType:         "pages",
+		SourceRecordID:     "page_1",
+		SourceLocale:       "en",
+		TargetLocale:       "es",
+		WorkScope:          "editorial.review",
+		AssignmentType:     AssignmentTypeOpenPool,
+		Status:             AssignmentStatusPending,
+		Priority:           PriorityNormal,
+	}); err != nil {
+		t.Fatalf("expected separate work_scope assignment to succeed, got %v", err)
+	}
+}
+
+func TestInMemoryTranslationAssignmentRepositoryApprovedAssignmentsDoNotOccupyActiveKey(t *testing.T) {
+	repo := NewInMemoryTranslationAssignmentRepository()
+	ctx := context.Background()
+
+	if _, err := repo.Create(ctx, TranslationAssignment{
+		TranslationGroupID: "tg_123",
+		EntityType:         "pages",
+		SourceRecordID:     "page_1",
+		SourceLocale:       "en",
+		TargetLocale:       "es",
+		WorkScope:          "__all__",
+		AssignmentType:     AssignmentTypeDirect,
+		Status:             AssignmentStatusApproved,
+		Priority:           PriorityNormal,
+	}); err != nil {
+		t.Fatalf("create approved assignment: %v", err)
+	}
+
+	if _, err := repo.Create(ctx, TranslationAssignment{
+		TranslationGroupID: "tg_123",
+		EntityType:         "pages",
+		SourceRecordID:     "page_1",
+		SourceLocale:       "en",
+		TargetLocale:       "es",
+		WorkScope:          "__all__",
+		AssignmentType:     AssignmentTypeOpenPool,
+		Status:             AssignmentStatusPending,
+		Priority:           PriorityNormal,
+	}); err != nil {
+		t.Fatalf("expected approved assignment not to block new active assignment, got %v", err)
+	}
+}

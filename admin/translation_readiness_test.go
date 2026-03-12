@@ -36,17 +36,20 @@ func (s *readinessPolicyCounterStub) Requirements(_ context.Context, input Trans
 
 func TestBuildRecordTranslationReadinessMissingLocales(t *testing.T) {
 	record := map[string]any{
-		"id":                   "page_1",
-		"locale":               "en",
-		"translation_group_id": "tg_1",
-		"available_locales":    []string{"en", "es"},
-		"title":                "Home",
-		"path":                 "/home",
+		"id":                       "page_1",
+		"locale":                   "en",
+		"translation_group_id":     "tg_1",
+		"available_locales":        []string{"en", "es"},
+		"requested_locale":         "fr",
+		"missing_requested_locale": true,
+		"title":                    "Home",
+		"path":                     "/home",
 	}
 	policy := readinessPolicyStub{
 		ok: true,
 		req: TranslationRequirements{
-			Locales: []string{"en", "es", "fr"},
+			Locales:          []string{"en", "es", "fr"},
+			DefaultWorkScope: "localization",
 			RequiredFields: map[string][]string{
 				"en": {"title", "path"},
 				"es": {"title", "path"},
@@ -72,6 +75,20 @@ func TestBuildRecordTranslationReadinessMissingLocales(t *testing.T) {
 	}
 	if env := toString(readiness["evaluated_environment"]); env != "production" {
 		t.Fatalf("expected evaluated_environment production, got %q", env)
+	}
+	quickCreate, _ := readiness["quick_create"].(map[string]any)
+	if quickCreate == nil {
+		t.Fatalf("expected quick_create payload")
+	}
+	if recommended := toString(quickCreate["recommended_locale"]); recommended != "fr" {
+		t.Fatalf("expected recommended_locale fr, got %q", recommended)
+	}
+	if required := toStringSlice(quickCreate["required_for_publish"]); len(required) != 3 || required[2] != "fr" {
+		t.Fatalf("expected required_for_publish [en es fr], got %v", required)
+	}
+	defaultAssignment, _ := quickCreate["default_assignment"].(map[string]any)
+	if got := toString(defaultAssignment["work_scope"]); got != "localization" {
+		t.Fatalf("expected default assignment work_scope localization, got %q", got)
 	}
 }
 
@@ -104,6 +121,58 @@ func TestBuildRecordTranslationReadinessMissingFields(t *testing.T) {
 	fields := missingFields["en"]
 	if len(fields) != 1 || fields[0] != "path" {
 		t.Fatalf("expected missing fields [path], got %v", fields)
+	}
+}
+
+func TestBuildRecordTranslationReadinessDefaultsWorkScopeWhenPolicyOmitsIt(t *testing.T) {
+	record := map[string]any{
+		"id":                   "page_1",
+		"locale":               "en",
+		"translation_group_id": "tg_1",
+		"available_locales":    []string{"en"},
+	}
+	policy := readinessPolicyStub{
+		ok: true,
+		req: TranslationRequirements{
+			Locales: []string{"en", "fr"},
+		},
+	}
+
+	readiness := buildRecordTranslationReadiness(context.Background(), policy, "pages", record, nil)
+	quickCreate, _ := readiness["quick_create"].(map[string]any)
+	defaultAssignment, _ := quickCreate["default_assignment"].(map[string]any)
+	if got := toString(defaultAssignment["work_scope"]); got != "__all__" {
+		t.Fatalf("expected default assignment work_scope __all__, got %q", got)
+	}
+}
+
+func TestBuildRecordTranslationReadinessDisablesQuickCreateWhenPolicyIsUnresolved(t *testing.T) {
+	record := map[string]any{
+		"id":                       "page_1",
+		"locale":                   "en",
+		"translation_group_id":     "tg_1",
+		"available_locales":        []string{"en"},
+		"requested_locale":         "fr",
+		"missing_requested_locale": true,
+	}
+	policy := readinessPolicyStub{ok: false}
+
+	readiness := buildRecordTranslationReadiness(context.Background(), policy, "pages", record, nil)
+	if readiness == nil {
+		t.Fatalf("expected readiness payload")
+	}
+	quickCreate, _ := readiness["quick_create"].(map[string]any)
+	if quickCreate == nil {
+		t.Fatalf("expected quick_create payload")
+	}
+	if enabled, _ := quickCreate["enabled"].(bool); enabled {
+		t.Fatalf("expected quick_create to be disabled when policy is unresolved")
+	}
+	if got := toString(quickCreate["disabled_reason_code"]); got != "policy_denied" {
+		t.Fatalf("expected policy_denied quick_create code, got %q", got)
+	}
+	if got := toString(quickCreate["recommended_locale"]); got != "fr" {
+		t.Fatalf("expected requested locale to remain the recommendation, got %q", got)
 	}
 }
 
