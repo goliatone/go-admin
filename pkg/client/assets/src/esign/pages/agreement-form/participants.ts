@@ -1,6 +1,66 @@
-// @ts-nocheck
+interface ParticipantRecordInput {
+  id?: unknown;
+  name?: unknown;
+  email?: unknown;
+  role?: unknown;
+  notify?: unknown;
+  signing_stage?: unknown;
+  signingStage?: unknown;
+}
 
-export function createParticipantsController(options = {}) {
+export interface SignerParticipantSummary {
+  id: string;
+  name: string;
+  email: string;
+}
+
+export interface ParticipantStateRecord {
+  tempId: string;
+  name: string;
+  email: string;
+  role: string;
+  notify: boolean;
+  signingStage: number;
+}
+
+interface ParticipantDraftInput {
+  id?: string;
+  name?: string;
+  email?: string;
+  role?: string;
+  notify?: boolean;
+  signing_stage?: number;
+}
+
+interface ParticipantsControllerOptions {
+  initialParticipants?: ParticipantRecordInput[];
+  onParticipantsChanged?(): void;
+}
+
+export interface ParticipantsController {
+  refs: {
+    participantsContainer: HTMLElement | null;
+    addParticipantBtn: HTMLElement | null;
+  };
+  initialize(): void;
+  bindEvents(): void;
+  addParticipant(data?: ParticipantDraftInput): void;
+  getSignerParticipants(): SignerParticipantSummary[];
+  collectParticipantsForState(): ParticipantStateRecord[];
+  restoreFromState(state: { participants?: ParticipantStateRecord[] } | null | undefined): void;
+}
+
+function inputElement(root: ParentNode, selector: string): HTMLInputElement | null {
+  const element = root.querySelector(selector);
+  return element instanceof HTMLInputElement ? element : null;
+}
+
+function selectElement(root: ParentNode, selector: string): HTMLSelectElement | null {
+  const element = root.querySelector(selector);
+  return element instanceof HTMLSelectElement ? element : null;
+}
+
+export function createParticipantsController(options: ParticipantsControllerOptions = {}): ParticipantsController {
   const {
     initialParticipants = [],
     onParticipantsChanged,
@@ -17,19 +77,24 @@ export function createParticipantsController(options = {}) {
     return `temp_${Date.now()}_${participantCounter++}`;
   }
 
-  function addParticipant(data = {}) {
-    const clone = participantTemplate.content.cloneNode(true);
+  function addParticipant(data: ParticipantDraftInput = {}) {
+    if (!(participantTemplate instanceof HTMLTemplateElement) || !participantsContainer) {
+      return;
+    }
+    const clone = participantTemplate.content.cloneNode(true) as DocumentFragment;
     const entry = clone.querySelector('.participant-entry');
+    if (!(entry instanceof HTMLElement)) return;
     const participantId = data.id || generateParticipantId();
     entry.setAttribute('data-participant-id', participantId);
 
-    const idInput = entry.querySelector('.participant-id-input');
-    const nameInput = entry.querySelector('input[name="participants[].name"]');
-    const emailInput = entry.querySelector('input[name="participants[].email"]');
-    const roleSelect = entry.querySelector('select[name="participants[].role"]');
-    const signingStageInput = entry.querySelector('input[name="participants[].signing_stage"]');
-    const notifyInput = entry.querySelector('input[name="participants[].notify"]');
+    const idInput = inputElement(entry, '.participant-id-input');
+    const nameInput = inputElement(entry, 'input[name="participants[].name"]');
+    const emailInput = inputElement(entry, 'input[name="participants[].email"]');
+    const roleSelect = selectElement(entry, 'select[name="participants[].role"]');
+    const signingStageInput = inputElement(entry, 'input[name="participants[].signing_stage"]');
+    const notifyInput = inputElement(entry, 'input[name="participants[].notify"]');
     const signingStageWrapper = entry.querySelector('.signing-stage-wrapper');
+    if (!idInput || !nameInput || !emailInput || !roleSelect) return;
 
     const formIndex = participantFormIndex++;
     idInput.name = `participants[${formIndex}].id`;
@@ -48,14 +113,14 @@ export function createParticipantsController(options = {}) {
     if (data.email) emailInput.value = data.email;
     if (data.role) roleSelect.value = data.role;
     if (signingStageInput && data.signing_stage) {
-      signingStageInput.value = data.signing_stage;
+      signingStageInput.value = String(data.signing_stage);
     }
     if (notifyInput) {
       notifyInput.checked = data.notify !== false;
     }
 
     const syncSigningStageVisibility = () => {
-      if (!signingStageWrapper || !signingStageInput) return;
+      if (!(signingStageWrapper instanceof HTMLElement) || !signingStageInput) return;
       const isSigner = roleSelect.value === 'signer';
       signingStageWrapper.classList.toggle('hidden', !isSigner);
       if (!isSigner) {
@@ -66,7 +131,7 @@ export function createParticipantsController(options = {}) {
     };
     syncSigningStageVisibility();
 
-    entry.querySelector('.remove-participant-btn').addEventListener('click', () => {
+    entry.querySelector('.remove-participant-btn')?.addEventListener('click', () => {
       entry.remove();
       onParticipantsChanged?.();
     });
@@ -80,6 +145,7 @@ export function createParticipantsController(options = {}) {
   }
 
   function initialize() {
+    if (!participantsContainer) return;
     if (initialParticipants.length > 0) {
       initialParticipants.forEach((participant) => {
         addParticipant({
@@ -97,7 +163,8 @@ export function createParticipantsController(options = {}) {
   }
 
   function bindEvents() {
-    addParticipantBtn.addEventListener('click', () => addParticipant());
+    if (!participantsContainer) return;
+    addParticipantBtn?.addEventListener('click', () => addParticipant());
 
     const participantObserver = new MutationObserver(() => {
       onParticipantsChanged?.();
@@ -105,52 +172,69 @@ export function createParticipantsController(options = {}) {
     participantObserver.observe(participantsContainer, { childList: true, subtree: true });
 
     participantsContainer.addEventListener('change', (e) => {
-      if (e.target.matches('select[name*=".role"]') || e.target.matches('input[name*=".name"]') || e.target.matches('input[name*=".email"]')) {
+      const target = e.target;
+      if (
+        target instanceof Element &&
+        (target.matches('select[name*=".role"]') || target.matches('input[name*=".name"]') || target.matches('input[name*=".email"]'))
+      ) {
         onParticipantsChanged?.();
       }
     });
     participantsContainer.addEventListener('input', (e) => {
-      if (e.target.matches('input[name*=".name"]') || e.target.matches('input[name*=".email"]')) {
+      const target = e.target;
+      if (
+        target instanceof Element &&
+        (target.matches('input[name*=".name"]') || target.matches('input[name*=".email"]'))
+      ) {
         onParticipantsChanged?.();
       }
     });
   }
 
-  function getSignerParticipants() {
+  function getSignerParticipants(): SignerParticipantSummary[] {
+    if (!participantsContainer) return [];
     const entries = participantsContainer.querySelectorAll('.participant-entry');
-    const signers = [];
+    const signers: SignerParticipantSummary[] = [];
     entries.forEach((entry) => {
       const participantId = entry.getAttribute('data-participant-id');
-      const roleSelect = entry.querySelector('select[name*=".role"]');
-      const nameInput = entry.querySelector('input[name*=".name"]');
-      const emailInput = entry.querySelector('input[name*=".email"]');
-      if (roleSelect.value === 'signer') {
+      const roleSelect = selectElement(entry, 'select[name*=".role"]');
+      const nameInput = inputElement(entry, 'input[name*=".name"]');
+      const emailInput = inputElement(entry, 'input[name*=".email"]');
+      if (roleSelect?.value === 'signer') {
         signers.push({
-          id: participantId,
-          name: nameInput.value || emailInput.value || 'Signer',
-          email: emailInput.value,
+          id: String(participantId || ''),
+          name: nameInput?.value || emailInput?.value || 'Signer',
+          email: emailInput?.value || '',
         });
       }
     });
     return signers;
   }
 
-  function collectParticipantsForState() {
-    const participants = [];
+  function collectParticipantsForState(): ParticipantStateRecord[] {
+    if (!participantsContainer) return [];
+    const participants: ParticipantStateRecord[] = [];
     participantsContainer.querySelectorAll('.participant-entry').forEach((entry) => {
       const id = entry.getAttribute('data-participant-id');
-      const name = entry.querySelector('input[name*=".name"]')?.value || '';
-      const email = entry.querySelector('input[name*=".email"]')?.value || '';
-      const role = entry.querySelector('select[name*=".role"]')?.value || 'signer';
-      const signingStage = parseInt(entry.querySelector('.signing-stage-input')?.value || '1', 10);
-      const notify = entry.querySelector('.notify-input')?.checked !== false;
-      participants.push({ tempId: id, name, email, role, notify, signingStage });
+      const name = inputElement(entry, 'input[name*=".name"]')?.value || '';
+      const email = inputElement(entry, 'input[name*=".email"]')?.value || '';
+      const role = selectElement(entry, 'select[name*=".role"]')?.value || 'signer';
+      const signingStage = Number.parseInt(inputElement(entry, '.signing-stage-input')?.value || '1', 10);
+      const notify = inputElement(entry, '.notify-input')?.checked !== false;
+      participants.push({
+        tempId: String(id || ''),
+        name,
+        email,
+        role,
+        notify,
+        signingStage: Number.isFinite(signingStage) ? signingStage : 1,
+      });
     });
     return participants;
   }
 
-  function restoreFromState(state) {
-    if (!state?.participants || state.participants.length === 0) return;
+  function restoreFromState(state: { participants?: ParticipantStateRecord[] } | null | undefined) {
+    if (!participantsContainer || !state?.participants || state.participants.length === 0) return;
     participantsContainer.innerHTML = '';
     participantFormIndex = 0;
     state.participants.forEach((participant) => {

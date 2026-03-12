@@ -1,8 +1,93 @@
-// @ts-nocheck
-
+import type { AgreementTitleSourceShape } from './bootstrap-config';
+import type { AgreementDocumentOption, DocumentSummary, DocumentTypeaheadState, DocumentPreviewState } from './contracts';
+import type { DocumentPreviewCard } from './preview-card';
 import { normalizeDocumentOption, parsePositiveInt } from './normalization';
 
-export function createDocumentSelectionController(options = {}) {
+declare global {
+  interface Window {
+    toastManager?: {
+      success(message: string): void;
+    };
+  }
+}
+
+interface DocumentSelectionStateManager {
+  hasResumableState(): boolean;
+  setTitleSource(source: string, options?: { syncPending?: boolean }): void;
+  updateDocument(doc: { id: string | null; title: string | null; pageCount: number | null }): void;
+  updateDetails(details: { title?: string; message?: string }, options?: { titleSource?: string }): void;
+  getState(): {
+    titleSource?: unknown;
+    details: { message?: string };
+  };
+}
+
+interface DocumentSelectionAPIError extends Error {
+  code?: string;
+  status?: number;
+}
+
+interface PendingRemediationDocument {
+  id: string;
+  title: string;
+  pageCount: number;
+  compatibilityReason: string;
+}
+
+interface DocumentSelectionControllerOptions {
+  apiBase: string;
+  apiVersionBase: string;
+  currentUserID: string;
+  documentsUploadURL: string;
+  isEditMode: boolean;
+  titleSource: AgreementTitleSourceShape;
+  normalizeTitleSource(value: unknown, fallback?: string): string;
+  stateManager: DocumentSelectionStateManager;
+  previewCard: DocumentPreviewCard;
+  parseAPIError(response: Response, fallbackMessage: string): Promise<DocumentSelectionAPIError>;
+  announceError(message: string, code?: string, status?: number): void;
+  showToast(message: string, type?: 'success' | 'error' | 'warning' | 'info'): void;
+  mapUserFacingError(message: string, code?: string, status?: number): string;
+  renderFieldRulePreview(): void;
+}
+
+export interface DocumentSelectionController {
+  refs: {
+    documentIdInput: HTMLInputElement | null;
+    selectedDocument: HTMLElement | null;
+    documentPicker: HTMLElement | null;
+    documentSearch: HTMLInputElement | null;
+    documentList: HTMLElement | null;
+    selectedDocumentTitle: HTMLElement | null;
+    selectedDocumentInfo: HTMLElement | null;
+    documentPageCountInput: HTMLInputElement | null;
+  };
+  bindEvents(): void;
+  initializeTitleSourceSeed(): void;
+  loadDocuments(): Promise<void>;
+  loadRecentDocuments(): Promise<void>;
+  ensureSelectedDocumentCompatibility(): boolean;
+  getCurrentDocumentPageCount(): number;
+}
+
+function elementById<T extends HTMLElement>(id: string): T | null {
+  const element = document.getElementById(id);
+  return element instanceof HTMLElement ? element as T : null;
+}
+
+function escapeHtml(text: unknown): string {
+  const div = document.createElement('div');
+  div.textContent = String(text ?? '');
+  return div.innerHTML;
+}
+
+function isDocumentSelectionError(error: unknown): error is { message?: unknown; code?: unknown; status?: unknown; name?: unknown } {
+  return typeof error === 'object' && error !== null;
+}
+
+export function createDocumentSelectionController(
+  options: DocumentSelectionControllerOptions,
+): DocumentSelectionController {
   const {
     apiBase,
     apiVersionBase,
@@ -20,37 +105,37 @@ export function createDocumentSelectionController(options = {}) {
     renderFieldRulePreview,
   } = options;
 
-  const documentIdInput = document.getElementById('document_id');
-  const selectedDocument = document.getElementById('selected-document');
-  const documentPicker = document.getElementById('document-picker');
-  const documentSearch = document.getElementById('document-search');
-  const documentList = document.getElementById('document-list');
-  const changeDocumentBtn = document.getElementById('change-document-btn');
-  const selectedDocumentTitle = document.getElementById('selected-document-title');
-  const selectedDocumentInfo = document.getElementById('selected-document-info');
-  const documentPageCountInput = document.getElementById('document_page_count');
-  const documentRemediationPanel = document.getElementById('document-remediation-panel');
-  const documentRemediationMessage = document.getElementById('document-remediation-message');
-  const documentRemediationStatus = document.getElementById('document-remediation-status');
-  const documentRemediationTriggerBtn = document.getElementById('document-remediation-trigger-btn');
-  const documentRemediationDismissBtn = document.getElementById('document-remediation-dismiss-btn');
-  const agreementTitleInput = document.getElementById('title');
+  const documentIdInput = elementById<HTMLInputElement>('document_id');
+  const selectedDocument = elementById<HTMLElement>('selected-document');
+  const documentPicker = elementById<HTMLElement>('document-picker');
+  const documentSearch = elementById<HTMLInputElement>('document-search');
+  const documentList = elementById<HTMLElement>('document-list');
+  const changeDocumentBtn = elementById<HTMLElement>('change-document-btn');
+  const selectedDocumentTitle = elementById<HTMLElement>('selected-document-title');
+  const selectedDocumentInfo = elementById<HTMLElement>('selected-document-info');
+  const documentPageCountInput = elementById<HTMLInputElement>('document_page_count');
+  const documentRemediationPanel = elementById<HTMLElement>('document-remediation-panel');
+  const documentRemediationMessage = elementById<HTMLElement>('document-remediation-message');
+  const documentRemediationStatus = elementById<HTMLElement>('document-remediation-status');
+  const documentRemediationTriggerBtn = elementById<HTMLButtonElement>('document-remediation-trigger-btn');
+  const documentRemediationDismissBtn = elementById<HTMLButtonElement>('document-remediation-dismiss-btn');
+  const agreementTitleInput = elementById<HTMLInputElement>('title');
 
   const TYPEAHEAD_DEBOUNCE_MS = 300;
   const RECENT_DOCUMENTS_LIMIT = 5;
   const SEARCH_RESULTS_LIMIT = 10;
 
-  const documentTypeahead = document.getElementById('document-typeahead');
-  const documentTypeaheadDropdown = document.getElementById('document-typeahead-dropdown');
-  const documentRecentSection = document.getElementById('document-recent-section');
-  const documentRecentList = document.getElementById('document-recent-list');
-  const documentSearchSection = document.getElementById('document-search-section');
-  const documentSearchList = document.getElementById('document-search-list');
-  const documentEmptyState = document.getElementById('document-empty-state');
-  const documentDropdownLoading = document.getElementById('document-dropdown-loading');
-  const documentSearchLoading = document.getElementById('document-search-loading');
+  const documentTypeahead = elementById<HTMLElement>('document-typeahead');
+  const documentTypeaheadDropdown = elementById<HTMLElement>('document-typeahead-dropdown');
+  const documentRecentSection = elementById<HTMLElement>('document-recent-section');
+  const documentRecentList = elementById<HTMLElement>('document-recent-list');
+  const documentSearchSection = elementById<HTMLElement>('document-search-section');
+  const documentSearchList = elementById<HTMLElement>('document-search-list');
+  const documentEmptyState = elementById<HTMLElement>('document-empty-state');
+  const documentDropdownLoading = elementById<HTMLElement>('document-dropdown-loading');
+  const documentSearchLoading = elementById<HTMLElement>('document-search-loading');
 
-  const typeaheadState = {
+  const typeaheadState: DocumentTypeaheadState = {
     isOpen: false,
     query: '',
     recentDocuments: [],
@@ -60,29 +145,23 @@ export function createDocumentSelectionController(options = {}) {
     isSearchMode: false,
   };
 
-  let documents = [];
-  let pendingRemediationDocument = null;
+  let documents: AgreementDocumentOption[] = [];
+  let pendingRemediationDocument: PendingRemediationDocument | null = null;
   let typeaheadSearchRequestID = 0;
-  let typeaheadSearchAbortController = null;
-  const remediationInFlightByDocument = new Set();
-  const remediationIdempotencyByDocument = new Map();
+  let typeaheadSearchAbortController: AbortController | null = null;
+  const remediationInFlightByDocument = new Set<string>();
+  const remediationIdempotencyByDocument = new Map<string, string>();
 
-  function normalizeDocumentCompatibilityTier(value) {
+  function normalizeDocumentCompatibilityTier(value: unknown): string {
     return String(value || '').trim().toLowerCase();
   }
 
-  function normalizeDocumentCompatibilityReason(value) {
+  function normalizeDocumentCompatibilityReason(value: unknown): string {
     return String(value || '').trim().toLowerCase();
   }
 
-  function isDocumentCompatibilityUnsupported(value) {
+  function isDocumentCompatibilityUnsupported(value: unknown): boolean {
     return normalizeDocumentCompatibilityTier(value) === 'unsupported';
-  }
-
-  function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
   }
 
   function initializeTitleSourceSeed() {
@@ -91,7 +170,7 @@ export function createDocumentSelectionController(options = {}) {
     }
   }
 
-  function setDocumentPageCountValue(value) {
+  function setDocumentPageCountValue(value: unknown) {
     const resolved = parsePositiveInt(value, 0);
     if (documentPageCountInput) {
       documentPageCountInput.value = String(resolved);
@@ -128,7 +207,7 @@ export function createDocumentSelectionController(options = {}) {
     void previewCard.setDocument(null, null, null);
   }
 
-  function buildPDFUnsupportedDocumentMessage(reason = '') {
+  function buildPDFUnsupportedDocumentMessage(reason = ''): string {
     const base = 'This document cannot be used because its PDF is incompatible with online signing.';
     const normalizedReason = normalizeDocumentCompatibilityReason(reason);
     if (!normalizedReason) {
@@ -152,7 +231,7 @@ export function createDocumentSelectionController(options = {}) {
     }
   }
 
-  function setDocumentRemediationStatus(message, type = 'info') {
+  function setDocumentRemediationStatus(message: string, type: 'info' | 'error' | 'success' = 'info') {
     if (!documentRemediationStatus) return;
     const text = String(message || '').trim();
     documentRemediationStatus.textContent = text;
@@ -160,7 +239,7 @@ export function createDocumentSelectionController(options = {}) {
     documentRemediationStatus.className = `mt-2 text-xs ${tone}`;
   }
 
-  function showDocumentRemediationPanel(doc, reason = '') {
+  function showDocumentRemediationPanel(doc: Partial<AgreementDocumentOption> | null, reason = '') {
     if (!doc || !documentRemediationPanel || !documentRemediationMessage) return;
     pendingRemediationDocument = {
       id: String(doc.id || '').trim(),
@@ -174,8 +253,8 @@ export function createDocumentSelectionController(options = {}) {
     documentRemediationPanel.classList.remove('hidden');
   }
 
-  function autoPopulateAgreementTitle(documentTitle) {
-    const titleInput = document.getElementById('title');
+  function autoPopulateAgreementTitle(documentTitle: unknown) {
+    const titleInput = agreementTitleInput;
     if (!titleInput) return;
 
     const state = stateManager.getState();
@@ -198,8 +277,11 @@ export function createDocumentSelectionController(options = {}) {
     }, { titleSource: titleSource.AUTOFILL });
   }
 
-  function applySelectedDocument(id, title, pages) {
-    documentIdInput.value = id;
+  function applySelectedDocument(id: string | null, title: string | null, pages: unknown) {
+    if (!documentIdInput || !selectedDocumentTitle || !selectedDocumentInfo || !selectedDocument || !documentPicker) {
+      return;
+    }
+    documentIdInput.value = String(id || '');
     selectedDocumentTitle.textContent = title || '';
     selectedDocumentInfo.textContent = `${pages} pages`;
     setDocumentPageCountValue(pages);
@@ -217,7 +299,7 @@ export function createDocumentSelectionController(options = {}) {
     resetDocumentRemediationState();
   }
 
-  function findDocumentByID(documentID) {
+  function findDocumentByID(documentID: unknown): AgreementDocumentOption | null {
     const targetID = String(documentID || '').trim();
     if (targetID === '') return null;
     const fromMainList = documents.find((doc) => String(doc.id || '').trim() === targetID);
@@ -251,6 +333,9 @@ export function createDocumentSelectionController(options = {}) {
   }
 
   function hydrateSelectedDocumentFromList() {
+    if (!selectedDocumentTitle || !selectedDocumentInfo || !selectedDocument || !documentPicker) {
+      return;
+    }
     const currentID = (documentIdInput?.value || '').trim();
     if (!currentID) return;
     const selected = documents.find((doc) => String(doc.id || '').trim() === currentID);
@@ -267,7 +352,7 @@ export function createDocumentSelectionController(options = {}) {
     documentPicker.classList.add('hidden');
   }
 
-  async function loadDocuments() {
+  async function loadDocuments(): Promise<void> {
     try {
       const params = new URLSearchParams({
         per_page: '100',
@@ -282,7 +367,7 @@ export function createDocumentSelectionController(options = {}) {
         const apiError = await parseAPIError(response, 'Failed to load documents');
         throw apiError;
       }
-      const data = await response.json();
+      const data = await response.json() as { records?: Record<string, unknown>[]; items?: Record<string, unknown>[] };
       const rawDocuments = Array.isArray(data?.records)
         ? data.records
         : (Array.isArray(data?.items) ? data.items : []);
@@ -298,13 +383,19 @@ export function createDocumentSelectionController(options = {}) {
         .filter((record) => record.id !== '');
       renderDocumentList(documents);
       hydrateSelectedDocumentFromList();
-    } catch (error) {
-      const userMessage = mapUserFacingError(error?.message || 'Failed to load documents', error?.code || '', error?.status || 0);
-      documentList.innerHTML = `<div class="p-4 text-center text-red-500 text-sm">${escapeHtml(userMessage)}</div>`;
+    } catch (error: unknown) {
+      const message = isDocumentSelectionError(error) ? String(error.message || 'Failed to load documents') : 'Failed to load documents';
+      const code = isDocumentSelectionError(error) ? String(error.code || '') : '';
+      const status = isDocumentSelectionError(error) ? Number(error.status || 0) : 0;
+      const userMessage = mapUserFacingError(message, code, status);
+      if (documentList) {
+        documentList.innerHTML = `<div class="p-4 text-center text-red-500 text-sm">${escapeHtml(userMessage)}</div>`;
+      }
     }
   }
 
-  function renderDocumentList(docs) {
+  function renderDocumentList(docs: AgreementDocumentOption[]) {
+    if (!documentList) return;
     if (docs.length === 0) {
       documentList.innerHTML = `
         <div class="p-4 text-center text-gray-500 text-sm">
@@ -350,10 +441,10 @@ export function createDocumentSelectionController(options = {}) {
       `;
     }).join('');
 
-    const options = documentList.querySelectorAll('.document-option');
+    const options = Array.from(documentList.querySelectorAll<HTMLElement>('.document-option'));
     options.forEach((btn, index) => {
       btn.addEventListener('click', () => selectDocument(btn));
-      btn.addEventListener('keydown', (e) => {
+      btn.addEventListener('keydown', (e: KeyboardEvent) => {
         let nextIndex = index;
         if (e.key === 'ArrowDown') {
           e.preventDefault();
@@ -381,7 +472,7 @@ export function createDocumentSelectionController(options = {}) {
     });
   }
 
-  function selectDocument(btn) {
+  function selectDocument(btn: Element) {
     const id = btn.getAttribute('data-document-id');
     const title = btn.getAttribute('data-document-title');
     const pages = btn.getAttribute('data-document-pages');
@@ -389,7 +480,7 @@ export function createDocumentSelectionController(options = {}) {
     const compatibilityReason = normalizeDocumentCompatibilityReason(btn.getAttribute('data-document-compatibility-reason'));
 
     if (isDocumentCompatibilityUnsupported(compatibilityTier)) {
-      showDocumentRemediationPanel({ id, title, pageCount: pages, compatibilityReason });
+      showDocumentRemediationPanel({ id: String(id || ''), title: String(title || ''), pageCount: parsePositiveInt(pages, 0), compatibilityReason });
       clearSelectedDocumentSelection();
       announceError(buildPDFUnsupportedDocumentMessage(compatibilityReason));
       documentSearch?.focus();
@@ -398,7 +489,7 @@ export function createDocumentSelectionController(options = {}) {
     applySelectedDocument(id, title, pages);
   }
 
-  async function pollRemediationStatus(statusURL, dispatchID, documentID) {
+  async function pollRemediationStatus(statusURL: string, dispatchID: string, documentID: string): Promise<void> {
     const normalizedStatusURL = String(statusURL || '').trim();
     if (!normalizedStatusURL) return;
     const startedAt = Date.now();
@@ -414,7 +505,7 @@ export function createDocumentSelectionController(options = {}) {
         const apiError = await parseAPIError(response, 'Failed to read remediation status');
         throw apiError;
       }
-      const payload = await response.json();
+      const payload = await response.json() as { dispatch?: Record<string, unknown> };
       const dispatch = payload?.dispatch || {};
       const rawStatus = String(dispatch?.status || '').trim().toLowerCase();
       if (rawStatus === 'succeeded') {
@@ -426,7 +517,11 @@ export function createDocumentSelectionController(options = {}) {
         const errorMessage = terminalReason
           ? `Remediation failed: ${terminalReason}`
           : 'Remediation did not complete. Please upload a new document or try again.';
-        throw { message: errorMessage, code: 'REMEDIATION_FAILED', status: 422 };
+        throw { message: errorMessage, code: 'REMEDIATION_FAILED', status: 422 } satisfies {
+          message: string;
+          code: string;
+          status: number;
+        };
       }
       const stageMessage = rawStatus === 'retrying'
         ? 'Remediation is retrying in the queue...'
@@ -436,10 +531,18 @@ export function createDocumentSelectionController(options = {}) {
       setDocumentRemediationStatus(stageMessage);
       await new Promise((resolve) => setTimeout(resolve, pollIntervalMS));
     }
-    throw { message: `Timed out waiting for remediation dispatch ${dispatchID} (${documentID})`, code: 'REMEDIATION_TIMEOUT', status: 504 };
+    throw {
+      message: `Timed out waiting for remediation dispatch ${dispatchID} (${documentID})`,
+      code: 'REMEDIATION_TIMEOUT',
+      status: 504,
+    } satisfies {
+      message: string;
+      code: string;
+      status: number;
+    };
   }
 
-  async function triggerPendingDocumentRemediation() {
+  async function triggerPendingDocumentRemediation(): Promise<void> {
     const pending = pendingRemediationDocument;
     if (!pending || !pending.id) return;
     const documentID = String(pending.id || '').trim();
@@ -468,7 +571,12 @@ export function createDocumentSelectionController(options = {}) {
         const apiError = await parseAPIError(triggerResponse, 'Failed to trigger remediation');
         throw apiError;
       }
-      const triggerPayload = await triggerResponse.json();
+      const triggerPayload = await triggerResponse.json() as {
+        receipt?: Record<string, unknown>;
+        dispatch_status_url?: string;
+        dispatch_id?: string;
+        mode?: string;
+      };
       const receipt = triggerPayload?.receipt || {};
       const dispatchID = String(receipt?.dispatch_id || triggerPayload?.dispatch_id || '').trim();
       const mode = String(receipt?.mode || triggerPayload?.mode || '').trim().toLowerCase();
@@ -493,9 +601,12 @@ export function createDocumentSelectionController(options = {}) {
       } else {
         showToast('Document remediated successfully. You can continue.', 'success');
       }
-    } catch (error) {
-      setDocumentRemediationStatus(String(error?.message || 'Remediation failed').trim(), 'error');
-      announceError(error?.message || 'Failed to remediate document', error?.code || '', error?.status || 0);
+    } catch (error: unknown) {
+      const message = isDocumentSelectionError(error) ? String(error.message || 'Remediation failed').trim() : 'Remediation failed';
+      const code = isDocumentSelectionError(error) ? String(error.code || '') : '';
+      const status = isDocumentSelectionError(error) ? Number(error.status || 0) : 0;
+      setDocumentRemediationStatus(message, 'error');
+      announceError(message, code, status);
     } finally {
       remediationInFlightByDocument.delete(documentID);
       if (documentRemediationTriggerBtn) {
@@ -505,9 +616,9 @@ export function createDocumentSelectionController(options = {}) {
     }
   }
 
-  function debounce(fn, delay) {
-    let timeoutId = null;
-    return (...args) => {
+  function debounce<T extends unknown[]>(fn: (...args: T) => void, delay: number) {
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    return (...args: T) => {
       if (timeoutId !== null) {
         clearTimeout(timeoutId);
       }
@@ -518,7 +629,7 @@ export function createDocumentSelectionController(options = {}) {
     };
   }
 
-  async function loadRecentDocuments() {
+  async function loadRecentDocuments(): Promise<void> {
     try {
       const params = new URLSearchParams({
         sort: 'updated_at',
@@ -536,7 +647,7 @@ export function createDocumentSelectionController(options = {}) {
         console.warn('Failed to load recent documents:', response.status);
         return;
       }
-      const data = await response.json();
+      const data = await response.json() as { records?: Record<string, unknown>[]; items?: Record<string, unknown>[] };
       const rawDocuments = Array.isArray(data?.records)
         ? data.records
         : (Array.isArray(data?.items) ? data.items : []);
@@ -544,12 +655,12 @@ export function createDocumentSelectionController(options = {}) {
         .map((record) => normalizeDocumentOption(record))
         .filter((record) => record.id !== '')
         .slice(0, RECENT_DOCUMENTS_LIMIT);
-    } catch (error) {
+    } catch (error: unknown) {
       console.warn('Error loading recent documents:', error);
     }
   }
 
-  async function searchDocuments(query) {
+  async function searchDocuments(query: string): Promise<void> {
     const trimmedQuery = query.trim();
     if (!trimmedQuery) {
       if (typeaheadSearchAbortController) {
@@ -592,7 +703,7 @@ export function createDocumentSelectionController(options = {}) {
         renderTypeaheadDropdown();
         return;
       }
-      const data = await response.json();
+      const data = await response.json() as { records?: Record<string, unknown>[]; items?: Record<string, unknown>[] };
       const rawDocuments = Array.isArray(data?.records)
         ? data.records
         : (Array.isArray(data?.items) ? data.items : []);
@@ -600,8 +711,8 @@ export function createDocumentSelectionController(options = {}) {
         .map((record) => normalizeDocumentOption(record))
         .filter((record) => record.id !== '')
         .slice(0, SEARCH_RESULTS_LIMIT);
-    } catch (error) {
-      if (error?.name === 'AbortError') {
+    } catch (error: unknown) {
+      if (isDocumentSelectionError(error) && error.name === 'AbortError') {
         return;
       }
       console.warn('Error searching documents:', error);
@@ -635,11 +746,11 @@ export function createDocumentSelectionController(options = {}) {
     documentList?.classList.remove('hidden');
   }
 
-  function renderTypeaheadList(container, docs, listType) {
+  function renderTypeaheadList(container: HTMLElement | null, docs: DocumentSummary[], listType: 'search' | 'recent') {
     if (!container) return;
 
     container.innerHTML = docs.map((doc, index) => {
-      const globalIndex = listType === 'search' ? index : index;
+      const globalIndex = index;
       const isSelected = typeaheadState.selectedIndex === globalIndex;
       const safeID = escapeHtml(String(doc.id || '').trim());
       const safeTitle = escapeHtml(String(doc.title || '').trim());
@@ -677,7 +788,7 @@ export function createDocumentSelectionController(options = {}) {
       `;
     }).join('');
 
-    container.querySelectorAll('.typeahead-option').forEach((btn) => {
+    container.querySelectorAll<HTMLElement>('.typeahead-option').forEach((btn) => {
       btn.addEventListener('click', () => selectDocumentFromTypeahead(btn));
     });
   }
@@ -723,7 +834,7 @@ export function createDocumentSelectionController(options = {}) {
     }
   }
 
-  function selectDocumentFromTypeahead(btn) {
+  function selectDocumentFromTypeahead(btn: Element) {
     const id = btn.getAttribute('data-document-id');
     const title = btn.getAttribute('data-document-title');
     const pages = btn.getAttribute('data-document-pages');
@@ -732,7 +843,7 @@ export function createDocumentSelectionController(options = {}) {
 
     if (!id) return;
     if (isDocumentCompatibilityUnsupported(compatibilityTier)) {
-      showDocumentRemediationPanel({ id, title, pageCount: pages, compatibilityReason });
+      showDocumentRemediationPanel({ id: String(id || ''), title: String(title || ''), pageCount: parsePositiveInt(pages, 0), compatibilityReason });
       clearSelectedDocumentSelection();
       announceError(buildPDFUnsupportedDocumentMessage(compatibilityReason));
       documentSearch?.focus();
@@ -748,7 +859,7 @@ export function createDocumentSelectionController(options = {}) {
     typeaheadState.searchResults = [];
   }
 
-  function scrollToSelectedOption() {
+  function scrollToSelectedOption(): void {
     if (!documentTypeaheadDropdown) return;
     const selectedOption = documentTypeaheadDropdown.querySelector(`[data-typeahead-index="${typeaheadState.selectedIndex}"]`);
     if (selectedOption) {
@@ -756,7 +867,7 @@ export function createDocumentSelectionController(options = {}) {
     }
   }
 
-  function handleTypeaheadKeydown(e) {
+  function handleTypeaheadKeydown(e: KeyboardEvent): void {
     if (!typeaheadState.isOpen) {
       if (e.key === 'ArrowDown' || e.key === 'Enter') {
         e.preventDefault();
@@ -820,11 +931,11 @@ export function createDocumentSelectionController(options = {}) {
     }
   }
 
-  function bindEvents() {
+  function bindEvents(): void {
     if (changeDocumentBtn) {
       changeDocumentBtn.addEventListener('click', () => {
-        selectedDocument.classList.add('hidden');
-        documentPicker.classList.remove('hidden');
+        selectedDocument?.classList.add('hidden');
+        documentPicker?.classList.remove('hidden');
         resetDocumentRemediationState();
         documentSearch?.focus();
         openTypeaheadDropdown();
@@ -844,8 +955,9 @@ export function createDocumentSelectionController(options = {}) {
     }
 
     if (documentSearch) {
-      documentSearch.addEventListener('input', (e) => {
+      documentSearch.addEventListener('input', (e: Event) => {
         const target = e.target;
+        if (!(target instanceof HTMLInputElement)) return;
         const term = target.value;
         typeaheadState.query = term;
 
@@ -876,9 +988,9 @@ export function createDocumentSelectionController(options = {}) {
       documentSearch.addEventListener('keydown', handleTypeaheadKeydown);
     }
 
-    document.addEventListener('click', (e) => {
+    document.addEventListener('click', (e: MouseEvent) => {
       const target = e.target;
-      if (documentTypeahead && !documentTypeahead.contains(target)) {
+      if (documentTypeahead && !(target instanceof Node && documentTypeahead.contains(target))) {
         closeTypeaheadDropdown();
       }
     });

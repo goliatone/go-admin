@@ -1,6 +1,67 @@
-// @ts-nocheck
+interface SendReadinessIssue {
+  severity: 'error' | 'warning';
+  message: string;
+  action: string;
+  step: number;
+}
 
-export function createSendReadinessController(options = {}) {
+interface SendReadinessSigner {
+  id?: string | null;
+  name: string;
+  email: string;
+}
+
+interface SendReadinessControllerOptions {
+  documentIdInput: HTMLInputElement | null;
+  selectedDocumentTitle: HTMLElement | null;
+  participantsContainer: ParentNode;
+  fieldDefinitionsContainer: ParentNode;
+  submitBtn: HTMLButtonElement | HTMLElement;
+  syncOrchestrator: { isOwner: boolean };
+  escapeHtml(value: unknown): string;
+  getSignerParticipants(): SendReadinessSigner[];
+  getCurrentDocumentPageCount(): number;
+  collectFieldRulesForState(): Record<string, unknown>[];
+  expandRulesForPreview(rules: Record<string, unknown>[], terminalPage: number): unknown[];
+  findSignersMissingRequiredSignatureField(): SendReadinessSigner[];
+  goToStep(step: number): void;
+}
+
+export interface SendReadinessController {
+  initSendReadinessCheck(): void;
+}
+
+function requireElement<T extends HTMLElement>(id: string): T | null {
+  const element = document.getElementById(id);
+  return element instanceof HTMLElement ? element as T : null;
+}
+
+function inputValue(root: ParentNode, selector: string, fallback = ''): string {
+  const element = root.querySelector(selector);
+  if (
+    element instanceof HTMLInputElement ||
+    element instanceof HTMLTextAreaElement ||
+    element instanceof HTMLSelectElement
+  ) {
+    return element.value || fallback;
+  }
+  return fallback;
+}
+
+function checkboxChecked(root: ParentNode, selector: string, fallback = false): boolean {
+  const element = root.querySelector(selector);
+  return element instanceof HTMLInputElement ? element.checked : fallback;
+}
+
+function setSubmitDisabled(submitBtn: HTMLElement | HTMLButtonElement, disabled: boolean): void {
+  if (submitBtn instanceof HTMLButtonElement) {
+    submitBtn.disabled = disabled;
+  }
+}
+
+export function createSendReadinessController(
+  options: SendReadinessControllerOptions,
+): SendReadinessController {
   const {
     documentIdInput,
     selectedDocumentTitle,
@@ -18,64 +79,88 @@ export function createSendReadinessController(options = {}) {
   } = options;
 
   function initSendReadinessCheck() {
-    const sendReadinessLoading = document.getElementById('send-readiness-loading');
-    const sendReadinessResults = document.getElementById('send-readiness-results');
-    const sendValidationStatus = document.getElementById('send-validation-status');
-    const sendValidationIssues = document.getElementById('send-validation-issues');
-    const sendIssuesList = document.getElementById('send-issues-list');
-    const sendConfirmation = document.getElementById('send-confirmation');
+    const sendReadinessLoading = requireElement<HTMLElement>('send-readiness-loading');
+    const sendReadinessResults = requireElement<HTMLElement>('send-readiness-results');
+    const sendValidationStatus = requireElement<HTMLElement>('send-validation-status');
+    const sendValidationIssues = requireElement<HTMLElement>('send-validation-issues');
+    const sendIssuesList = requireElement<HTMLElement>('send-issues-list');
+    const sendConfirmation = requireElement<HTMLElement>('send-confirmation');
 
-    const reviewAgreementTitle = document.getElementById('review-agreement-title');
-    const reviewDocumentTitle = document.getElementById('review-document-title');
-    const reviewParticipantCount = document.getElementById('review-participant-count');
-    const reviewStageCount = document.getElementById('review-stage-count');
-    const reviewParticipantsList = document.getElementById('review-participants-list');
-    const reviewFieldsSummary = document.getElementById('review-fields-summary');
+    const reviewAgreementTitle = requireElement<HTMLElement>('review-agreement-title');
+    const reviewDocumentTitle = requireElement<HTMLElement>('review-document-title');
+    const reviewParticipantCount = requireElement<HTMLElement>('review-participant-count');
+    const reviewStageCount = requireElement<HTMLElement>('review-stage-count');
+    const reviewParticipantsList = requireElement<HTMLElement>('review-participants-list');
+    const reviewFieldsSummary = requireElement<HTMLElement>('review-fields-summary');
+    const titleInput = document.getElementById('title');
 
-    const title = document.getElementById('title').value || 'Untitled';
-    const docTitle = selectedDocumentTitle.textContent || 'No document';
+    if (
+      !sendReadinessLoading ||
+      !sendReadinessResults ||
+      !sendValidationStatus ||
+      !sendValidationIssues ||
+      !sendIssuesList ||
+      !sendConfirmation ||
+      !reviewAgreementTitle ||
+      !reviewDocumentTitle ||
+      !reviewParticipantCount ||
+      !reviewStageCount ||
+      !reviewParticipantsList ||
+      !reviewFieldsSummary ||
+      !(titleInput instanceof HTMLInputElement)
+    ) {
+      return;
+    }
+
+    const title = titleInput.value || 'Untitled';
+    const docTitle = selectedDocumentTitle?.textContent || 'No document';
     const participantEntries = participantsContainer.querySelectorAll('.participant-entry');
     const fieldEntries = fieldDefinitionsContainer.querySelectorAll('.field-definition-entry');
     const expandedRuleFields = expandRulesForPreview(collectFieldRulesForState(), getCurrentDocumentPageCount());
     const signers = getSignerParticipants();
 
-    const stages = new Set();
+    const stages = new Set<number>();
     participantEntries.forEach((entry) => {
       const stageInput = entry.querySelector('.signing-stage-input');
       const roleSelect = entry.querySelector('select[name*=".role"]');
-      if (roleSelect.value === 'signer' && stageInput?.value) {
-        stages.add(parseInt(stageInput.value, 10));
+      if (
+        roleSelect instanceof HTMLSelectElement &&
+        roleSelect.value === 'signer' &&
+        stageInput instanceof HTMLInputElement &&
+        stageInput.value
+      ) {
+        stages.add(Number.parseInt(stageInput.value, 10));
       }
     });
 
     reviewAgreementTitle.textContent = title;
     reviewDocumentTitle.textContent = docTitle;
     reviewParticipantCount.textContent = `${participantEntries.length} (${signers.length} signers)`;
-    reviewStageCount.textContent = stages.size > 0 ? stages.size : '1';
+    reviewStageCount.textContent = String(stages.size > 0 ? stages.size : 1);
 
     reviewParticipantsList.innerHTML = '';
     participantEntries.forEach((entry) => {
-      const nameInput = entry.querySelector('input[name*=".name"]');
-      const emailInput = entry.querySelector('input[name*=".email"]');
-      const roleSelect = entry.querySelector('select[name*=".role"]');
-      const stageInput = entry.querySelector('.signing-stage-input');
-      const notifyInput = entry.querySelector('.notify-input');
+      const name = inputValue(entry, 'input[name*=".name"]');
+      const email = inputValue(entry, 'input[name*=".email"]');
+      const role = inputValue(entry, 'select[name*=".role"]', 'signer');
+      const stage = inputValue(entry, '.signing-stage-input');
+      const notify = checkboxChecked(entry, '.notify-input', true);
 
       const div = document.createElement('div');
       div.className = 'flex items-center justify-between text-sm';
       div.innerHTML = `
         <div>
-          <span class="font-medium">${escapeHtml(nameInput.value || emailInput.value)}</span>
-          <span class="text-gray-500 ml-2">${escapeHtml(emailInput.value)}</span>
+          <span class="font-medium">${escapeHtml(name || email)}</span>
+          <span class="text-gray-500 ml-2">${escapeHtml(email)}</span>
         </div>
         <div class="flex items-center gap-2">
-          <span class="px-2 py-0.5 rounded text-xs ${roleSelect.value === 'signer' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'}">
-            ${roleSelect.value === 'signer' ? 'Signer' : 'CC'}
+          <span class="px-2 py-0.5 rounded text-xs ${role === 'signer' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'}">
+            ${role === 'signer' ? 'Signer' : 'CC'}
           </span>
-          <span class="px-2 py-0.5 rounded text-xs ${notifyInput?.checked !== false ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}">
-            ${notifyInput?.checked !== false ? 'Notify' : 'No Notify'}
+          <span class="px-2 py-0.5 rounded text-xs ${notify ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}">
+            ${notify ? 'Notify' : 'No Notify'}
           </span>
-          ${roleSelect.value === 'signer' && stageInput?.value ? `<span class="text-xs text-gray-500">Stage ${stageInput.value}</span>` : ''}
+          ${role === 'signer' && stage ? `<span class="text-xs text-gray-500">Stage ${stage}</span>` : ''}
         </div>
       `;
       reviewParticipantsList.appendChild(div);
@@ -84,9 +169,9 @@ export function createSendReadinessController(options = {}) {
     const totalFields = fieldEntries.length + expandedRuleFields.length;
     reviewFieldsSummary.textContent = `${totalFields} field${totalFields !== 1 ? 's' : ''} defined (${fieldEntries.length} manual, ${expandedRuleFields.length} generated)`;
 
-    const issues = [];
+    const issues: SendReadinessIssue[] = [];
 
-    if (!documentIdInput.value) {
+    if (!documentIdInput?.value) {
       issues.push({ severity: 'error', message: 'No document selected', action: 'Go to Step 1', step: 1 });
     }
 
@@ -131,7 +216,7 @@ export function createSendReadinessController(options = {}) {
         </div>
       `;
       sendConfirmation.classList.add('hidden');
-      submitBtn.disabled = true;
+      setSubmitDisabled(submitBtn, true);
     } else if (hasWarnings) {
       sendValidationStatus.className = 'p-4 rounded-lg bg-amber-50 border border-amber-200';
       sendValidationStatus.innerHTML = `
@@ -143,7 +228,7 @@ export function createSendReadinessController(options = {}) {
         </div>
       `;
       sendConfirmation.classList.remove('hidden');
-      submitBtn.disabled = false;
+      setSubmitDisabled(submitBtn, false);
     } else {
       sendValidationStatus.className = 'p-4 rounded-lg bg-green-50 border border-green-200';
       sendValidationStatus.innerHTML = `
@@ -155,7 +240,7 @@ export function createSendReadinessController(options = {}) {
         </div>
       `;
       sendConfirmation.classList.remove('hidden');
-      submitBtn.disabled = false;
+      setSubmitDisabled(submitBtn, false);
     }
 
     if (!syncOrchestrator.isOwner) {
@@ -169,7 +254,7 @@ export function createSendReadinessController(options = {}) {
         </div>
       `;
       sendConfirmation.classList.add('hidden');
-      submitBtn.disabled = true;
+      setSubmitDisabled(submitBtn, true);
     }
 
     if (issues.length > 0) {
@@ -194,7 +279,7 @@ export function createSendReadinessController(options = {}) {
 
       sendIssuesList.querySelectorAll('[data-go-to-step]').forEach((button) => {
         button.addEventListener('click', () => {
-          const step = Number(button.getAttribute('data-go-to-step'));
+          const step = Number((button as HTMLElement).getAttribute('data-go-to-step'));
           if (Number.isFinite(step)) {
             goToStep(step);
           }
