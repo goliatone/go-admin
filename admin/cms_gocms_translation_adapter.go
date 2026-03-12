@@ -3,9 +3,10 @@ package admin
 import (
 	"context"
 	"errors"
-	"github.com/goliatone/go-admin/internal/primitives"
 	"reflect"
 	"strings"
+
+	"github.com/goliatone/go-admin/internal/primitives"
 
 	cmscontent "github.com/goliatone/go-cms/content"
 	cmspages "github.com/goliatone/go-cms/pages"
@@ -185,6 +186,7 @@ func applyCreateTranslationRequestFields(req reflect.Value, input TranslationCre
 	}
 	if len(input.Metadata) > 0 {
 		setMapField(req, "Metadata", cloneAnyMap(input.Metadata))
+		// TODO: Remove "Meta"
 		setMapField(req, "Meta", cloneAnyMap(input.Metadata))
 	}
 	setUUIDFieldByName(req, "CreatedBy", uuid.Nil)
