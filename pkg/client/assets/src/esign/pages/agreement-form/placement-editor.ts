@@ -64,6 +64,12 @@ interface PlacementEditorError extends Error {
   status?: number;
 }
 
+interface PlacementEditorErrorLike {
+  message?: string;
+  code?: string;
+  status?: number;
+}
+
 interface PlacementFieldData {
   definitionId: string;
   fieldType: string;
@@ -103,6 +109,27 @@ interface PlacementApiResponse {
 }
 
 interface PlacementModalResult extends PlacementRunResult {}
+
+interface PlacementTypeColors {
+  bg: string;
+  border: string;
+  fill: string;
+}
+
+interface PlacementFieldSize {
+  width: number;
+  height: number;
+}
+
+interface AddFieldInstanceOptions {
+  placementSource?: string;
+  linkGroupId?: string;
+  linkedFromFieldId?: string;
+}
+
+function isPlacementApiResponse(value: PlacementApiResponse | PlacementRunResult): value is PlacementApiResponse {
+  return typeof value === 'object' && value !== null && 'run' in value;
+}
 
 interface PlacementEditorRefs {
   loading: HTMLElement | null;
@@ -198,14 +225,14 @@ declare global {
       }): PDFLoadingTask;
     };
     toastManager?: {
-      info(message: string): void;
+      info?(message: string): void;
       success(message: string): void;
-      error(message: string): void;
+      error?(message: string): void;
     };
   }
 }
 
-const TYPE_COLORS = {
+const TYPE_COLORS: Record<string, PlacementTypeColors> = {
   signature: { bg: 'bg-blue-500', border: 'border-blue-500', fill: 'rgba(59, 130, 246, 0.2)' },
   name: { bg: 'bg-green-500', border: 'border-green-500', fill: 'rgba(34, 197, 94, 0.2)' },
   date_signed: { bg: 'bg-purple-500', border: 'border-purple-500', fill: 'rgba(168, 85, 247, 0.2)' },
@@ -214,7 +241,7 @@ const TYPE_COLORS = {
   initials: { bg: 'bg-orange-500', border: 'border-orange-500', fill: 'rgba(249, 115, 22, 0.2)' },
 };
 
-const DEFAULT_FIELD_SIZES = {
+const DEFAULT_FIELD_SIZES: Record<string, PlacementFieldSize> = {
   signature: { width: 200, height: 50 },
   name: { width: 180, height: 30 },
   date_signed: { width: 120, height: 30 },
@@ -242,7 +269,7 @@ export function createPlacementEditorController(
     onPlacementsChanged,
   } = options;
 
-  const state = {
+  const state: PlacementEditorState = {
     pdfDoc: null,
     currentPage: 1,
     totalPages: 1,
@@ -260,7 +287,7 @@ export function createPlacementEditorController(
     linkGroupState: initialLinkGroupState || createLinkGroupState(),
   };
 
-  const autoPlaceState = {
+  const autoPlaceState: AutoPlaceState = {
     currentRunId: null,
     suggestions: [],
     resolverScores: [],
@@ -270,6 +297,22 @@ export function createPlacementEditorController(
 
   function generatePlacementID(prefix = 'fi') {
     return `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  function getPlacementFieldItem(definitionId: string): HTMLElement | null {
+    return document.querySelector<HTMLElement>(`.placement-field-item[data-definition-id="${definitionId}"]`);
+  }
+
+  function getUnplacedFieldItems(): HTMLElement[] {
+    return Array.from(document.querySelectorAll<HTMLElement>('.placement-field-item:not(.opacity-50)'));
+  }
+
+  function queryButton(root: ParentNode, selector: string): HTMLButtonElement | null {
+    return root.querySelector(selector) as HTMLButtonElement | null;
+  }
+
+  function queryElement<T extends HTMLElement>(root: ParentNode, selector: string): T | null {
+    return root.querySelector(selector) as T | null;
   }
 
   function getPlacementEls(): PlacementEditorRefs {
@@ -314,10 +357,11 @@ export function createPlacementEditorController(
   }
 
   function buildPlacementFormEntries(): PlacementFormPayload[] {
-    return state.fieldInstances.map((instance, index) => toPlacementFormPayload(instance, index));
+    return state.fieldInstances.map((instance, index) =>
+      toPlacementFormPayload(instance as unknown as Record<string, unknown>, index));
   }
 
-  function updateFieldInstancesFormData(options = {}) {
+  function updateFieldInstancesFormData(options: { silent?: boolean } = {}): PlacementFormPayload[] {
     const { silent = false } = options;
     const els = getPlacementEls();
     if (els.fieldInstancesContainer) {
@@ -333,9 +377,9 @@ export function createPlacementEditorController(
     return placementEntries;
   }
 
-  function updatePlacementStats() {
+  function updatePlacementStats(): void {
     const els = getPlacementEls();
-    const paletteItems = Array.from(document.querySelectorAll('.placement-field-item'));
+    const paletteItems = Array.from(document.querySelectorAll<HTMLElement>('.placement-field-item'));
     const totalFields = paletteItems.length;
     const activeDefinitionIDs = new Set(
       paletteItems.map((item) => String(item.dataset.definitionId || '').trim()).filter((id) => id),
@@ -355,12 +399,12 @@ export function createPlacementEditorController(
     if (els.unplacedCount) els.unplacedCount.textContent = String(unplacedCount);
   }
 
-  function markFieldAsPlaced(definitionId, isAutoLinked = false) {
-    const fieldItem = document.querySelector(`.placement-field-item[data-definition-id="${definitionId}"]`);
+  function markFieldAsPlaced(definitionId: string, isAutoLinked = false): void {
+    const fieldItem = getPlacementFieldItem(definitionId);
     if (!fieldItem) return;
     fieldItem.classList.add('opacity-50');
     fieldItem.draggable = false;
-    const status = fieldItem.querySelector('.placement-status');
+    const status = fieldItem.querySelector<HTMLElement>('.placement-status');
     if (status) {
       status.textContent = 'Placed';
       status.classList.remove('text-amber-600');
@@ -371,12 +415,12 @@ export function createPlacementEditorController(
     }
   }
 
-  function unmarkFieldAsPlaced(definitionId) {
-    const fieldItem = document.querySelector(`.placement-field-item[data-definition-id="${definitionId}"]`);
+  function unmarkFieldAsPlaced(definitionId: string): void {
+    const fieldItem = getPlacementFieldItem(definitionId);
     if (!fieldItem) return;
     fieldItem.classList.remove('opacity-50');
     fieldItem.draggable = true;
-    const status = fieldItem.querySelector('.placement-status');
+    const status = fieldItem.querySelector<HTMLElement>('.placement-status');
     if (status) {
       status.textContent = 'Not placed';
       status.classList.remove('text-green-600');
@@ -384,8 +428,8 @@ export function createPlacementEditorController(
     }
   }
 
-  function flashLinkedSidebarItems() {
-    const items = document.querySelectorAll('.placement-field-item.just-linked');
+  function flashLinkedSidebarItems(): void {
+    const items = document.querySelectorAll<HTMLElement>('.placement-field-item.just-linked');
     items.forEach((item) => {
       item.classList.add('linked-flash');
       setTimeout(() => {
@@ -394,14 +438,12 @@ export function createPlacementEditorController(
     });
   }
 
-  function announceLinkedPlacements(count) {
+  function announceLinkedPlacements(count: number): void {
     const message = count === 1
       ? 'Auto-placed 1 linked field'
       : `Auto-placed ${count} linked fields`;
 
-    if (window.toastManager) {
-      window.toastManager.info(message);
-    }
+    window.toastManager?.info?.(message);
 
     const srAnnouncement = document.createElement('div');
     srAnnouncement.setAttribute('role', 'status');
@@ -414,7 +456,7 @@ export function createPlacementEditorController(
     flashLinkedSidebarItems();
   }
 
-  function createLinkToggle(definitionId, isLinked) {
+  function createLinkToggle(definitionId: string, isLinked: boolean): HTMLElement {
     const toggle = document.createElement('div');
     toggle.className = 'link-toggle flex justify-center py-0.5 cursor-pointer hover:bg-gray-100 rounded transition-colors';
     toggle.dataset.definitionId = definitionId;
@@ -449,7 +491,7 @@ export function createPlacementEditorController(
     return toggle;
   }
 
-  function updateLinkBatchButtonStates() {
+  function updateLinkBatchButtonStates(): void {
     const els = getPlacementEls();
     if (els.linkAllBtn) {
       els.linkAllBtn.disabled = state.linkGroupState.unlinkedDefinitions.size === 0;
@@ -466,7 +508,7 @@ export function createPlacementEditorController(
     }
   }
 
-  function setupLinkBatchActions() {
+  function setupLinkBatchActions(): void {
     const els = getPlacementEls();
     if (els.linkAllBtn && !els.linkAllBtn.dataset.bound) {
       els.linkAllBtn.dataset.bound = 'true';
@@ -503,7 +545,7 @@ export function createPlacementEditorController(
     updateLinkBatchButtonStates();
   }
 
-  function buildPlacementDefinitionsWithLinks() {
+  function buildPlacementDefinitionsWithLinks(): Array<PlacementFieldDefinition & { linkGroupId: string; isUnlinked: boolean }> {
     const placementDefinitions = collectPlacementFieldDefinitions();
     return placementDefinitions.map((definition) => {
       const definitionId = String(definition.definitionId || '').trim();
@@ -513,7 +555,7 @@ export function createPlacementEditorController(
     });
   }
 
-  function renderPlacementSidebar() {
+  function renderPlacementSidebar(): void {
     const els = getPlacementEls();
     if (!els.fieldsList) return;
 
@@ -581,18 +623,20 @@ export function createPlacementEditorController(
       fieldItem.appendChild(details);
       fieldItem.appendChild(status);
 
-      fieldItem.addEventListener('dragstart', (event) => {
+      fieldItem.addEventListener('dragstart', (event: DragEvent) => {
         if (isPlaced) {
           event.preventDefault();
           return;
         }
-        event.dataTransfer.setData('application/json', JSON.stringify({
+        event.dataTransfer?.setData('application/json', JSON.stringify({
           definitionId,
           fieldType,
           participantId,
           participantName,
         }));
-        event.dataTransfer.effectAllowed = 'copy';
+        if (event.dataTransfer) {
+          event.dataTransfer.effectAllowed = 'copy';
+        }
         fieldItem.classList.add('opacity-50');
       });
 
@@ -600,11 +644,11 @@ export function createPlacementEditorController(
         fieldItem.classList.remove('opacity-50');
       });
 
-      els.fieldsList.appendChild(fieldItem);
+      els.fieldsList?.appendChild(fieldItem);
 
       const nextDefinition = defsWithLinks[index + 1];
       if (linkGroupId && nextDefinition && nextDefinition.linkGroupId === linkGroupId) {
-        els.fieldsList.appendChild(createLinkToggle(definitionId, !isUnlinked));
+        els.fieldsList?.appendChild(createLinkToggle(definitionId, !isUnlinked));
       }
     });
 
@@ -612,32 +656,29 @@ export function createPlacementEditorController(
     updatePlacementStats();
   }
 
-  function refreshPlacementSidebar() {
+  function refreshPlacementSidebar(): void {
     renderPlacementSidebar();
   }
 
-  function toggleFieldLink(definitionId, currentlyLinked) {
+  function toggleFieldLink(definitionId: string, currentlyLinked: boolean): void {
     if (currentlyLinked) {
       state.linkGroupState = unlinkField(state.linkGroupState, definitionId);
-      if (window.toastManager) {
-        window.toastManager.info('Field unlinked');
-      }
+      window.toastManager?.info?.('Field unlinked');
     } else {
       state.linkGroupState = relinkField(state.linkGroupState, definitionId);
-      if (window.toastManager) {
-        window.toastManager.info('Field re-linked');
-      }
+      window.toastManager?.info?.('Field re-linked');
     }
     refreshPlacementSidebar();
   }
 
-  async function renderPage(pageNum) {
-    if (!state.pdfDoc) return;
+  async function renderPage(pageNum: number): Promise<void> {
+    const pdfDoc = state.pdfDoc;
+    if (!pdfDoc) return;
     const els = getPlacementEls();
     if (!els.canvas || !els.canvasContainer) return;
 
     const ctx = els.canvas.getContext('2d');
-    const page = await state.pdfDoc.getPage(pageNum);
+    const page = await pdfDoc.getPage(pageNum);
     const viewport = page.getViewport({ scale: state.scale });
 
     els.canvas.width = viewport.width;
@@ -656,14 +697,20 @@ export function createPlacementEditorController(
     renderFieldOverlays();
   }
 
-  function setLinkedPlacementTemplate(sourcePlacement) {
+  function setLinkedPlacementTemplate(sourcePlacement: PlacementEditorInstance): void {
     const result = setLinkGroupTemplatePosition(state.linkGroupState, sourcePlacement);
     if (!result) return;
     state.linkGroupState = addLinkGroup(state.linkGroupState, result.updatedGroup);
   }
 
-  function autoPlaceLinkedFieldsForPage(targetPage) {
-    const fieldDefinitions = new Map();
+  function autoPlaceLinkedFieldsForPage(targetPage: number): void {
+    const fieldDefinitions = new Map<string, {
+      type: string;
+      participantId: string;
+      participantName: string;
+      page: number;
+      linkGroupId?: string;
+    }>();
     collectPlacementFieldDefinitions().forEach((definition) => {
       const definitionId = String(definition.definitionId || '').trim();
       if (!definitionId) return;
@@ -698,16 +745,17 @@ export function createPlacementEditorController(
     }
   }
 
-  function triggerLinkedPlacements(sourcePlacement) {
+  function triggerLinkedPlacements(sourcePlacement: PlacementEditorInstance): void {
     setLinkedPlacementTemplate(sourcePlacement);
   }
 
-  function renderFieldOverlays() {
+  function renderFieldOverlays(): void {
     const els = getPlacementEls();
-    if (!els.overlays) return;
+    const overlays = els.overlays;
+    if (!overlays) return;
 
-    els.overlays.innerHTML = '';
-    els.overlays.style.pointerEvents = 'auto';
+    overlays.innerHTML = '';
+    overlays.style.pointerEvents = 'auto';
 
     state.fieldInstances
       .filter((instance) => instance.page === state.currentPage)
@@ -773,11 +821,11 @@ export function createPlacementEditorController(
           renderFieldOverlays();
         });
 
-        els.overlays.appendChild(overlay);
+        overlays.appendChild(overlay);
       });
   }
 
-  function addFieldInstance(fieldData, x, y, options = {}) {
+  function addFieldInstance(fieldData: PlacementFieldData, x: number, y: number, options: AddFieldInstanceOptions = {}): void {
     const sizes = DEFAULT_FIELD_SIZES[fieldData.fieldType] || DEFAULT_FIELD_SIZES.text;
     const placementSource = options.placementSource || PLACEMENT_SOURCE.MANUAL;
     const linkGroupId = options.linkGroupId || getFieldLinkGroup(state.linkGroupState, fieldData.definitionId)?.id;
@@ -809,8 +857,8 @@ export function createPlacementEditorController(
     updateFieldInstancesFormData();
   }
 
-  function addFieldInstanceFromSuggestion(fieldData, suggestion) {
-    const instance = {
+  function addFieldInstanceFromSuggestion(fieldData: PlacementFieldData, suggestion: PlacementSuggestion): void {
+    const instance: PlacementEditorInstance = {
       id: generatePlacementID('instance'),
       definitionId: fieldData.definitionId,
       type: fieldData.fieldType,
@@ -833,7 +881,7 @@ export function createPlacementEditorController(
     updateFieldInstancesFormData();
   }
 
-  function startDrag(event, instance, overlay) {
+  function startDrag(event: MouseEvent, instance: PlacementEditorInstance, overlay: HTMLElement): void {
     event.preventDefault();
     state.isDragging = true;
     state.selectedFieldId = instance.id;
@@ -843,7 +891,7 @@ export function createPlacementEditorController(
     const startLeft = instance.x * state.scale;
     const startTop = instance.y * state.scale;
 
-    function onMouseMove(nextEvent) {
+    function onMouseMove(nextEvent: MouseEvent): void {
       const dx = nextEvent.clientX - startX;
       const dy = nextEvent.clientY - startY;
       instance.x = Math.max(0, (startLeft + dx) / state.scale);
@@ -853,7 +901,7 @@ export function createPlacementEditorController(
       overlay.style.top = `${instance.y * state.scale}px`;
     }
 
-    function onMouseUp() {
+    function onMouseUp(): void {
       state.isDragging = false;
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
@@ -864,7 +912,7 @@ export function createPlacementEditorController(
     document.addEventListener('mouseup', onMouseUp);
   }
 
-  function startResize(event, instance) {
+  function startResize(event: MouseEvent, instance: PlacementEditorInstance): void {
     event.preventDefault();
     event.stopPropagation();
     state.isResizing = true;
@@ -874,7 +922,7 @@ export function createPlacementEditorController(
     const startWidth = instance.width;
     const startHeight = instance.height;
 
-    function onMouseMove(nextEvent) {
+    function onMouseMove(nextEvent: MouseEvent): void {
       const dx = (nextEvent.clientX - startX) / state.scale;
       const dy = (nextEvent.clientY - startY) / state.scale;
       instance.width = Math.max(30, startWidth + dx);
@@ -883,7 +931,7 @@ export function createPlacementEditorController(
       renderFieldOverlays();
     }
 
-    function onMouseUp() {
+    function onMouseUp(): void {
       state.isResizing = false;
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
@@ -894,7 +942,7 @@ export function createPlacementEditorController(
     document.addEventListener('mouseup', onMouseUp);
   }
 
-  function removeFieldInstance(instanceId) {
+  function removeFieldInstance(instanceId: string): void {
     const instance = state.fieldInstances.find((item) => item.id === instanceId);
     if (!instance) return;
     state.fieldInstances = state.fieldInstances.filter((item) => item.id !== instanceId);
@@ -904,15 +952,17 @@ export function createPlacementEditorController(
     updateFieldInstancesFormData();
   }
 
-  function setupDropZone(viewer, overlaysContainer) {
+  function setupDropZone(viewer: HTMLElement | null, overlaysContainer: HTMLElement | null): void {
     void overlaysContainer;
     const els = getPlacementEls();
     const canvas = els.canvas;
     if (!viewer || !canvas) return;
 
-    viewer.addEventListener('dragover', (event) => {
+    viewer.addEventListener('dragover', (event: DragEvent) => {
       event.preventDefault();
-      event.dataTransfer.dropEffect = 'copy';
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = 'copy';
+      }
       canvas.classList.add('ring-2', 'ring-blue-500', 'ring-inset');
     });
 
@@ -920,12 +970,12 @@ export function createPlacementEditorController(
       canvas.classList.remove('ring-2', 'ring-blue-500', 'ring-inset');
     });
 
-    viewer.addEventListener('drop', (event) => {
+    viewer.addEventListener('drop', (event: DragEvent) => {
       event.preventDefault();
       canvas.classList.remove('ring-2', 'ring-blue-500', 'ring-inset');
-      const data = event.dataTransfer.getData('application/json');
+      const data = event.dataTransfer?.getData('application/json') || '';
       if (!data) return;
-      const fieldData = JSON.parse(data);
+      const fieldData = JSON.parse(data) as PlacementFieldData;
       const canvasRect = canvas.getBoundingClientRect();
       const x = (event.clientX - canvasRect.left) / state.scale;
       const y = (event.clientY - canvasRect.top) / state.scale;
@@ -933,7 +983,7 @@ export function createPlacementEditorController(
     });
   }
 
-  function setupPageNavigation() {
+  function setupPageNavigation(): void {
     const els = getPlacementEls();
     els.prevBtn?.addEventListener('click', async () => {
       if (state.currentPage > 1) {
@@ -952,7 +1002,7 @@ export function createPlacementEditorController(
     });
   }
 
-  function setupZoomControls() {
+  function setupZoomControls(): void {
     const els = getPlacementEls();
     els.zoomIn?.addEventListener('click', async () => {
       state.scale = Math.min(3.0, state.scale + 0.25);
@@ -976,30 +1026,30 @@ export function createPlacementEditorController(
     });
   }
 
-  function getSelectedPolicyPreset() {
+  function getSelectedPolicyPreset(): string {
     return getPlacementEls().policyPreset?.value || 'balanced';
   }
 
-  function getScoreBadgeClass(score) {
+  function getScoreBadgeClass(score: number): string {
     if (score >= 0.8) return 'bg-green-100 text-green-800';
     if (score >= 0.6) return 'bg-blue-100 text-blue-800';
     if (score >= 0.4) return 'bg-yellow-100 text-yellow-800';
     return 'bg-gray-100 text-gray-600';
   }
 
-  function getConfidenceBadgeClass(confidence) {
+  function getConfidenceBadgeClass(confidence: number): string {
     if (confidence >= 0.9) return 'bg-green-100 text-green-800';
     if (confidence >= 0.7) return 'bg-blue-100 text-blue-800';
     if (confidence >= 0.5) return 'bg-yellow-100 text-yellow-800';
     return 'bg-red-100 text-red-800';
   }
 
-  function formatResolverLabel(resolverId) {
+  function formatResolverLabel(resolverId: string | undefined): string {
     if (!resolverId) return 'Unknown';
     return resolverId.split('_').map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
   }
 
-  function previewSuggestionOnDocument(suggestion) {
+  function previewSuggestionOnDocument(suggestion: PlacementSuggestion): void {
     if (suggestion.page_number !== state.currentPage) {
       state.currentPage = suggestion.page_number;
       void renderPage(suggestion.page_number);
@@ -1026,33 +1076,33 @@ export function createPlacementEditorController(
     setTimeout(() => preview.remove(), 3000);
   }
 
-  async function sendPlacementFeedback(acceptedCount, rejectedCount) {
+  async function sendPlacementFeedback(acceptedCount: number, rejectedCount: number): Promise<void> {
     void acceptedCount;
     void rejectedCount;
     return;
   }
 
-  function applyAcceptedSuggestions() {
+  function applyAcceptedSuggestions(): void {
     const modal = document.getElementById('placement-suggestions-modal');
     if (!modal) return;
-    const acceptedItems = modal.querySelectorAll('.suggestion-item[data-accepted="true"]');
+    const acceptedItems = modal.querySelectorAll<HTMLElement>('.suggestion-item[data-accepted="true"]');
 
     acceptedItems.forEach((item) => {
-      const index = Number.parseInt(item.dataset.index, 10);
+      const index = Number.parseInt(item.dataset.index || '', 10);
       const suggestion = autoPlaceState.suggestions[index];
       if (!suggestion) return;
 
       const fieldDef = getFieldDefinitionById(suggestion.field_definition_id);
       if (!fieldDef) return;
 
-      const fieldItem = document.querySelector(`.placement-field-item[data-definition-id="${suggestion.field_definition_id}"]`);
+      const fieldItem = getPlacementFieldItem(suggestion.field_definition_id);
       if (!fieldItem || fieldItem.classList.contains('opacity-50')) return;
 
       const fieldData = {
         definitionId: suggestion.field_definition_id,
         fieldType: fieldDef.type,
         participantId: fieldDef.participant_id,
-        participantName: fieldItem.dataset.participantName,
+        participantName: fieldItem.dataset.participantName || fieldDef.participant_name || 'Unassigned',
       };
 
       state.currentPage = suggestion.page_number;
@@ -1066,28 +1116,30 @@ export function createPlacementEditorController(
     showToast(`Applied ${acceptedItems.length} placement${acceptedItems.length !== 1 ? 's' : ''}`, 'success');
   }
 
-  function bindSuggestionActions(modal) {
-    modal.querySelectorAll('.accept-suggestion-btn').forEach((button) => {
+  function bindSuggestionActions(modal: HTMLElement): void {
+    modal.querySelectorAll<HTMLButtonElement>('.accept-suggestion-btn').forEach((button) => {
       button.addEventListener('click', () => {
-        const item = button.closest('.suggestion-item');
+        const item = button.closest<HTMLElement>('.suggestion-item');
+        if (!item) return;
         item.classList.add('border-green-500', 'bg-green-50');
         item.classList.remove('border-red-500', 'bg-red-50');
         item.dataset.accepted = 'true';
       });
     });
 
-    modal.querySelectorAll('.reject-suggestion-btn').forEach((button) => {
+    modal.querySelectorAll<HTMLButtonElement>('.reject-suggestion-btn').forEach((button) => {
       button.addEventListener('click', () => {
-        const item = button.closest('.suggestion-item');
+        const item = button.closest<HTMLElement>('.suggestion-item');
+        if (!item) return;
         item.classList.add('border-red-500', 'bg-red-50');
         item.classList.remove('border-green-500', 'bg-green-50');
         item.dataset.accepted = 'false';
       });
     });
 
-    modal.querySelectorAll('.preview-suggestion-btn').forEach((button) => {
+    modal.querySelectorAll<HTMLButtonElement>('.preview-suggestion-btn').forEach((button) => {
       button.addEventListener('click', () => {
-        const index = Number.parseInt(button.dataset.index, 10);
+        const index = Number.parseInt(button.dataset.index || '', 10);
         const suggestion = autoPlaceState.suggestions[index];
         if (suggestion) {
           previewSuggestionOnDocument(suggestion);
@@ -1096,7 +1148,7 @@ export function createPlacementEditorController(
     });
   }
 
-  function createSuggestionsModal() {
+  function createSuggestionsModal(): HTMLElement {
     const modal = document.createElement('div');
     modal.id = 'placement-suggestions-modal';
     modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 hidden';
@@ -1161,7 +1213,7 @@ export function createPlacementEditorController(
       </div>
     `;
 
-    modal.querySelector('#close-suggestions-modal').addEventListener('click', () => {
+    queryButton(modal, '#close-suggestions-modal')?.addEventListener('click', () => {
       modal.classList.add('hidden');
     });
 
@@ -1171,30 +1223,30 @@ export function createPlacementEditorController(
       }
     });
 
-    modal.querySelector('#accept-all-btn').addEventListener('click', () => {
-      modal.querySelectorAll('.suggestion-item').forEach((item) => {
+    queryButton(modal, '#accept-all-btn')?.addEventListener('click', () => {
+      modal.querySelectorAll<HTMLElement>('.suggestion-item').forEach((item) => {
         item.classList.add('border-green-500', 'bg-green-50');
         item.classList.remove('border-red-500', 'bg-red-50');
         item.dataset.accepted = 'true';
       });
     });
 
-    modal.querySelector('#reject-all-btn').addEventListener('click', () => {
-      modal.querySelectorAll('.suggestion-item').forEach((item) => {
+    queryButton(modal, '#reject-all-btn')?.addEventListener('click', () => {
+      modal.querySelectorAll<HTMLElement>('.suggestion-item').forEach((item) => {
         item.classList.add('border-red-500', 'bg-red-50');
         item.classList.remove('border-green-500', 'bg-green-50');
         item.dataset.accepted = 'false';
       });
     });
 
-    modal.querySelector('#apply-suggestions-btn').addEventListener('click', () => {
+    queryButton(modal, '#apply-suggestions-btn')?.addEventListener('click', () => {
       applyAcceptedSuggestions();
       modal.classList.add('hidden');
     });
 
-    modal.querySelector('#rerun-placement-btn').addEventListener('click', () => {
+    queryButton(modal, '#rerun-placement-btn')?.addEventListener('click', () => {
       modal.classList.add('hidden');
-      const modalPreset = modal.querySelector('#placement-policy-preset-modal');
+      const modalPreset = queryElement<HTMLSelectElement>(modal, '#placement-policy-preset-modal');
       const mainPreset = getPlacementEls().policyPreset;
       if (mainPreset && modalPreset) {
         mainPreset.value = modalPreset.value;
@@ -1205,23 +1257,27 @@ export function createPlacementEditorController(
     return modal;
   }
 
-  function openSuggestionsModal(result) {
-    let modal = document.getElementById('placement-suggestions-modal');
+  function openSuggestionsModal(result: PlacementModalResult): void {
+    let modal = document.getElementById('placement-suggestions-modal') as HTMLElement | null;
     if (!modal) {
       modal = createSuggestionsModal();
       document.body.appendChild(modal);
     }
 
-    const suggestionsContainer = modal.querySelector('#suggestions-list');
-    const resolverInfo = modal.querySelector('#resolver-info');
-    const runStats = modal.querySelector('#run-stats');
+    const suggestionsContainer = queryElement<HTMLElement>(modal, '#suggestions-list');
+    const resolverInfo = queryElement<HTMLElement>(modal, '#resolver-info');
+    const runStats = queryElement<HTMLElement>(modal, '#run-stats');
+
+    if (!suggestionsContainer || !resolverInfo || !runStats) {
+      return;
+    }
 
     resolverInfo.innerHTML = autoPlaceState.resolverScores.map((resolverScore) => `
       <div class="flex items-center justify-between text-xs py-1 border-b border-gray-100 last:border-0">
         <span class="font-medium capitalize">${escapeHtml(String(resolverScore?.resolver_id || '').replace(/_/g, ' '))}</span>
         <div class="flex items-center gap-2">
           ${resolverScore.supported ? `
-            <span class="px-1.5 py-0.5 rounded text-xs ${getScoreBadgeClass(resolverScore.score)}">
+            <span class="px-1.5 py-0.5 rounded text-xs ${getScoreBadgeClass(Number(resolverScore.score || 0))}">
               ${(Number(resolverScore?.score || 0) * 100).toFixed(0)}%
             </span>
           ` : `
@@ -1241,7 +1297,7 @@ export function createPlacementEditorController(
 
     suggestionsContainer.innerHTML = autoPlaceState.suggestions.map((suggestion, index) => {
       const fieldDef = getFieldDefinitionById(suggestion.field_definition_id);
-      const colors = TYPE_COLORS[fieldDef?.type] || TYPE_COLORS.text;
+      const colors = TYPE_COLORS[fieldDef?.type || 'text'] || TYPE_COLORS.text;
       const safeType = escapeHtml(String(fieldDef?.type || 'field').replace(/_/g, ' '));
       const safeSuggestionID = escapeHtml(String(suggestion?.id || ''));
       const safePageNumber = Math.max(1, Number(suggestion?.page_number || 1));
@@ -1261,7 +1317,7 @@ export function createPlacementEditorController(
               </div>
             </div>
             <div class="flex items-center gap-2">
-              <span class="confidence-badge px-2 py-0.5 rounded-full text-xs font-medium ${getConfidenceBadgeClass(suggestion.confidence)}">
+              <span class="confidence-badge px-2 py-0.5 rounded-full text-xs font-medium ${getConfidenceBadgeClass(Number(suggestion.confidence || 0))}">
                 ${(safeConfidence * 100).toFixed(0)}%
               </span>
               <span class="resolver-badge px-2 py-0.5 rounded bg-gray-100 text-gray-600 text-xs">
@@ -1298,17 +1354,17 @@ export function createPlacementEditorController(
     modal.classList.remove('hidden');
   }
 
-  function autoPlaceFallback() {
-    const unplacedFields = document.querySelectorAll('.placement-field-item:not(.opacity-50)');
+  function autoPlaceFallback(): void {
+    const unplacedFields = getUnplacedFieldItems();
     let yOffset = 100;
     unplacedFields.forEach((fieldItem) => {
       const fieldData = {
-        definitionId: fieldItem.dataset.definitionId,
-        fieldType: fieldItem.dataset.fieldType,
-        participantId: fieldItem.dataset.participantId,
-        participantName: fieldItem.dataset.participantName,
+        definitionId: fieldItem.dataset.definitionId || '',
+        fieldType: fieldItem.dataset.fieldType || 'text',
+        participantId: fieldItem.dataset.participantId || '',
+        participantName: fieldItem.dataset.participantName || 'Unassigned',
       };
-      const sizes = DEFAULT_FIELD_SIZES[fieldData.fieldType] || DEFAULT_FIELD_SIZES.text;
+      const sizes = DEFAULT_FIELD_SIZES[fieldData.fieldType || 'text'] || DEFAULT_FIELD_SIZES.text;
       state.currentPage = state.totalPages;
       addFieldInstance(fieldData, 300, yOffset + sizes.height / 2, { placementSource: PLACEMENT_SOURCE.AUTO_FALLBACK });
       yOffset += sizes.height + 20;
@@ -1319,17 +1375,17 @@ export function createPlacementEditorController(
     showToast('Fields placed using fallback layout', 'info');
   }
 
-  async function runAutoPlace() {
+  async function runAutoPlace(): Promise<void> {
     const els = getPlacementEls();
     if (!els.autoPlaceBtn || autoPlaceState.isRunning) return;
 
-    const unplacedFields = document.querySelectorAll('.placement-field-item:not(.opacity-50)');
+    const unplacedFields = getUnplacedFieldItems();
     if (unplacedFields.length === 0) {
       showToast('All fields are already placed', 'info');
       return;
     }
 
-    const agreementId = document.querySelector('input[name="id"]')?.value;
+    const agreementId = document.querySelector<HTMLInputElement>('input[name="id"]')?.value;
     if (!agreementId) {
       autoPlaceFallback();
       return;
@@ -1362,9 +1418,9 @@ export function createPlacementEditorController(
         throw await parseAPIError(response, 'Auto-placement failed');
       }
 
-      const result = await response.json();
-      const run = (result && typeof result === 'object' && result.run && typeof result.run === 'object')
-        ? result.run
+      const result = await response.json() as PlacementApiResponse | PlacementRunResult;
+      const run: PlacementRunResult = isPlacementApiResponse(result)
+        ? (result.run || {})
         : result;
 
       autoPlaceState.currentRunId = run?.run_id || run?.id || null;
@@ -1375,11 +1431,12 @@ export function createPlacementEditorController(
         showToast('No placement suggestions found. Try placing fields manually.', 'warning');
         autoPlaceFallback();
       } else {
-        openSuggestionsModal(result);
+        openSuggestionsModal(run);
       }
     } catch (error) {
       console.error('Auto-place error:', error);
-      const userMessage = mapUserFacingError(error?.message || 'Auto-placement failed', error?.code || '', error?.status || 0);
+      const normalizedError = (error && typeof error === 'object') ? error as PlacementEditorErrorLike : {};
+      const userMessage = mapUserFacingError(normalizedError.message || 'Auto-placement failed', normalizedError.code || '', normalizedError.status || 0);
       showToast(`Auto-placement failed: ${userMessage}`, 'error');
       autoPlaceFallback();
     } finally {
@@ -1394,7 +1451,7 @@ export function createPlacementEditorController(
     }
   }
 
-  function bindEvents() {
+  function bindEvents(): void {
     const els = getPlacementEls();
     if (els.autoPlaceBtn && !state.autoPlaceBound) {
       els.autoPlaceBtn.addEventListener('click', () => {
@@ -1404,7 +1461,7 @@ export function createPlacementEditorController(
     }
   }
 
-  async function initPlacementEditor() {
+  async function initPlacementEditor(): Promise<void> {
     const els = getPlacementEls();
     if (!documentIdInput?.value) {
       els.loading?.classList.add('hidden');
@@ -1472,7 +1529,8 @@ export function createPlacementEditorController(
       els.loading?.classList.add('hidden');
       els.noDocument?.classList.remove('hidden');
       if (els.noDocument) {
-        els.noDocument.textContent = `Failed to load PDF: ${mapUserFacingError(error?.message || 'Failed to load PDF')}`;
+        const normalizedError = (error && typeof error === 'object') ? error as PlacementEditorErrorLike : {};
+        els.noDocument.textContent = `Failed to load PDF: ${mapUserFacingError(normalizedError.message || 'Failed to load PDF')}`;
       }
     }
 
@@ -1480,7 +1538,9 @@ export function createPlacementEditorController(
     updateFieldInstancesFormData({ silent: true });
   }
 
-  function restoreFieldPlacementsFromState(nextState) {
+  function restoreFieldPlacementsFromState(
+    nextState: { fieldPlacements?: Array<Record<string, unknown> | null | undefined> } | null | undefined,
+  ): void {
     const fieldPlacements = Array.isArray(nextState?.fieldPlacements) ? nextState.fieldPlacements : [];
     state.fieldInstances = fieldPlacements.map((instance, index) => normalizePlacementInstance(instance, index));
     updateFieldInstancesFormData({ silent: true });
