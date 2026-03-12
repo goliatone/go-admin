@@ -113,7 +113,9 @@
     "expiration": "72h"
   },
   "translation": {
-    "profile": "full"
+    "profile": "full",
+    "exchange": true,
+    "queue": true
   },
   "datagrid": {
     "state_store_mode": "",

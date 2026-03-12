@@ -18,6 +18,8 @@ const (
 	exampleTranslationQueueOpenPoolSlug = "translation-exchange-ready"
 	exampleTranslationQueueTargetLocale = "fr"
 	exampleTranslationQueueFallbackUser = "translator.demo"
+	exampleTranslationQAFamilyID        = "11111111-1111-1111-1111-111111111201"
+	exampleTranslationQAAssignmentID    = "tqa_1"
 )
 
 var exampleTranslationQueueTargetLocales = []string{"fr", "es", "de", "it", "pt", "ja"}
