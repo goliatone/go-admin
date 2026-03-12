@@ -178,6 +178,7 @@ func mapToGoError(err error, mappers []goerrors.ErrorMapper) (*goerrors.Error, i
 			"entity_type":            normalizePolicyEntityKey(queueConflict.EntityType),
 			"source_locale":          strings.TrimSpace(strings.ToLower(queueConflict.SourceLocale)),
 			"target_locale":          strings.TrimSpace(strings.ToLower(queueConflict.TargetLocale)),
+			"work_scope":             strings.TrimSpace(queueConflict.WorkScope),
 		}
 		mapped = NewDomainError(TextCodeTranslationQueueConflict, queueConflict.Error(), meta)
 		status = mapped.Code
