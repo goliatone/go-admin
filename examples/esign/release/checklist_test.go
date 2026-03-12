@@ -100,7 +100,7 @@ func TestChecklistValidatePassesForApprovedChecklist(t *testing.T) {
 }
 
 func TestValidateChecklistFileTemplateShowsPendingApprovals(t *testing.T) {
-	path := filepath.Join("phase12_release_checklist.json")
+	path := filepath.Join("release_readiness_checklist.json")
 	_, issues, err := ValidateChecklistFile(path)
 	if err != nil {
 		t.Fatalf("ValidateChecklistFile: %v", err)

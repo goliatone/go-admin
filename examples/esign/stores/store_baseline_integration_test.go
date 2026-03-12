@@ -595,7 +595,7 @@ func TestSQLiteStorePhase0FixtureSnapshot(t *testing.T) {
 	}
 
 	actualCanonical := mustCanonicalJSON(t, snapshot)
-	goldenPath := filepath.Join("testdata", "phase0_fixture_snapshot.json")
+	goldenPath := filepath.Join("testdata", "store_fixture_snapshot.json")
 	if os.Getenv("UPDATE_PHASE0_FIXTURE") == "1" {
 		if err := os.MkdirAll(filepath.Dir(goldenPath), 0o755); err != nil {
 			t.Fatalf("create fixture snapshot dir: %v", err)
