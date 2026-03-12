@@ -92,7 +92,12 @@ func TestSigningServiceSubmitUsesTransactionBoundary(t *testing.T) {
 func TestAgreementServiceSendDoesNotRunPostCommitHooksWhenCommitFails(t *testing.T) {
 	store := newTxCommitErrorStore()
 	workflow := &stubAgreementEmailWorkflow{}
-	svc := NewAgreementService(store, WithAgreementEmailWorkflow(workflow))
+	dispatcher := &stubAgreementNotificationDispatchTrigger{}
+	svc := NewAgreementService(store,
+		WithAgreementEmailWorkflow(workflow),
+		WithAgreementNotificationOutbox(store),
+		WithAgreementNotificationDispatchTrigger(dispatcher),
+	)
 
 	ctx := context.Background()
 	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
@@ -139,6 +144,16 @@ func TestAgreementServiceSendDoesNotRunPostCommitHooksWhenCommitFails(t *testing
 	}
 	if workflow.sentCalls != 0 {
 		t.Fatalf("expected post-commit email hook not to run, got %d calls", workflow.sentCalls)
+	}
+	if dispatcher.calls != 0 {
+		t.Fatalf("expected outbox dispatcher not to run, got %d calls", dispatcher.calls)
+	}
+	outbox, err := store.ListOutboxMessages(ctx, scope, stores.OutboxQuery{Topic: NotificationOutboxTopicEmailSendSigningRequest})
+	if err != nil {
+		t.Fatalf("ListOutboxMessages: %v", err)
+	}
+	if len(outbox) != 1 {
+		t.Fatalf("expected one committed outbox message after replay recovery, got %+v", outbox)
 	}
 }
 
