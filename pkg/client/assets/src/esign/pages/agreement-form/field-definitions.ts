@@ -1,5 +1,10 @@
-// @ts-nocheck
-
+import type {
+  ExpandedRuleField,
+  FieldRuleFormPayload,
+  FieldRuleState,
+  LinkGroupState,
+  NormalizedPlacementInstance,
+} from './contracts';
 import {
   clampPageNumber,
   computeEffectiveRulePages,
@@ -13,8 +18,124 @@ import {
   addLinkGroup,
   createLinkGroup,
 } from './linked-placement';
+import type { SignerParticipantSummary } from './participants';
 
-export function createFieldDefinitionsController(options = {}) {
+declare global {
+  interface Window {
+    _initialFieldPlacementsData?: NormalizedPlacementInstance[];
+  }
+}
+
+interface FieldDefinitionInputRecord {
+  id?: unknown;
+  type?: unknown;
+  page?: unknown;
+  required?: unknown;
+  participant_id?: unknown;
+  participantId?: unknown;
+  participant_name?: unknown;
+  participantName?: unknown;
+  x?: unknown;
+  y?: unknown;
+  pos_x?: unknown;
+  pos_y?: unknown;
+  width?: unknown;
+  height?: unknown;
+  placement_source?: unknown;
+  placementSource?: unknown;
+}
+
+interface FieldDefinitionStateRecord {
+  tempId: string;
+  type: string;
+  participantTempId: string;
+  page: number;
+  required: boolean;
+}
+
+interface PlacementFieldDefinition {
+  definitionId: string;
+  fieldType: string;
+  participantId: string;
+  participantName: string;
+  page: number;
+  linkGroupId?: string;
+}
+
+interface FieldDefinitionLookupResult {
+  id: string;
+  type: string;
+  participant_id: string;
+  participant_name: string;
+  page: number;
+  link_group_id: string;
+}
+
+interface FieldDefinitionControllerOptions {
+  initialFieldInstances?: FieldDefinitionInputRecord[];
+  placementSource: { MANUAL: string };
+  getCurrentDocumentPageCount(): number;
+  getSignerParticipants(): SignerParticipantSummary[];
+  escapeHtml(value: unknown): string;
+  onDefinitionsChanged?(): void;
+  onRulesChanged?(): void;
+  onParticipantsChanged?(): void;
+  getPlacementLinkGroupState(): LinkGroupState;
+  setPlacementLinkGroupState(nextState: LinkGroupState): void;
+}
+
+export interface FieldDefinitionsController {
+  refs: {
+    fieldDefinitionsContainer: HTMLElement | null;
+    fieldRulesContainer: HTMLElement | null;
+    addFieldBtn: HTMLElement | null;
+    fieldPlacementsJSONInput: HTMLInputElement | null;
+    fieldRulesJSONInput: HTMLInputElement | null;
+  };
+  bindEvents(): void;
+  initialize(): void;
+  buildInitialPlacementInstances(): NormalizedPlacementInstance[];
+  collectFieldDefinitionsForState(): FieldDefinitionStateRecord[];
+  collectFieldRulesForState(): FieldRuleState[];
+  collectFieldRulesForForm(): FieldRuleFormPayload[];
+  expandRulesForPreview(rules: Array<Partial<FieldRuleState>>, terminalPage: number): ExpandedRuleField[];
+  renderFieldRulePreview(): void;
+  updateFieldParticipantOptions(): void;
+  collectPlacementFieldDefinitions(): PlacementFieldDefinition[];
+  getFieldDefinitionById(definitionId: string): FieldDefinitionLookupResult | null;
+  findSignersMissingRequiredSignatureField(): SignerParticipantSummary[];
+  missingSignatureFieldMessage(missingSigners: Array<SignerParticipantSummary | null | undefined>): string;
+  restoreFieldDefinitionsFromState(state: { fieldDefinitions?: FieldDefinitionStateRecord[] } | null | undefined): void;
+  restoreFieldRulesFromState(state: { fieldRules?: FieldRuleState[] } | null | undefined): void;
+}
+
+function elementById<T extends HTMLElement>(id: string): T | null {
+  const element = document.getElementById(id);
+  return element instanceof HTMLElement ? element as T : null;
+}
+
+function inputElement(root: ParentNode, selector: string): HTMLInputElement | null {
+  const element = root.querySelector(selector);
+  return element instanceof HTMLInputElement ? element : null;
+}
+
+function selectElement(root: ParentNode, selector: string): HTMLSelectElement | null {
+  const element = root.querySelector(selector);
+  return element instanceof HTMLSelectElement ? element : null;
+}
+
+function buttonElement(root: ParentNode, selector: string): HTMLButtonElement | null {
+  const element = root.querySelector(selector);
+  return element instanceof HTMLButtonElement ? element : null;
+}
+
+function htmlElement(root: ParentNode, selector: string): HTMLElement | null {
+  const element = root.querySelector(selector);
+  return element instanceof HTMLElement ? element : null;
+}
+export function createFieldDefinitionsController(
+  options: FieldDefinitionControllerOptions,
+): FieldDefinitionsController {
   const {
     initialFieldInstances = [],
     placementSource,
@@ -28,33 +149,33 @@ export function createFieldDefinitionsController(options = {}) {
     setPlacementLinkGroupState,
   } = options;
 
-  const fieldDefinitionsContainer = document.getElementById('field-definitions-container');
+  const fieldDefinitionsContainer = elementById<HTMLElement>('field-definitions-container');
   const fieldDefinitionTemplate = document.getElementById('field-definition-template');
-  const addFieldBtn = document.getElementById('add-field-btn');
-  const addFieldBtnContainer = document.getElementById('add-field-btn-container');
-  const addFieldDefinitionEmptyBtn = document.getElementById('add-field-definition-empty-btn');
-  const fieldDefinitionsEmptyState = document.getElementById('field-definitions-empty-state');
-  const fieldRulesContainer = document.getElementById('field-rules-container');
+  const addFieldBtn = elementById<HTMLElement>('add-field-btn');
+  const addFieldBtnContainer = elementById<HTMLElement>('add-field-btn-container');
+  const addFieldDefinitionEmptyBtn = elementById<HTMLElement>('add-field-definition-empty-btn');
+  const fieldDefinitionsEmptyState = elementById<HTMLElement>('field-definitions-empty-state');
+  const fieldRulesContainer = elementById<HTMLElement>('field-rules-container');
   const fieldRuleTemplate = document.getElementById('field-rule-template');
-  const addFieldRuleBtn = document.getElementById('add-field-rule-btn');
-  const fieldRulesEmptyState = document.getElementById('field-rules-empty-state');
-  const fieldRulesPreview = document.getElementById('field-rules-preview');
-  const fieldRulesJSONInput = document.getElementById('field_rules_json');
-  const fieldPlacementsJSONInput = document.getElementById('field_placements_json');
+  const addFieldRuleBtn = elementById<HTMLElement>('add-field-rule-btn');
+  const fieldRulesEmptyState = elementById<HTMLElement>('field-rules-empty-state');
+  const fieldRulesPreview = elementById<HTMLElement>('field-rules-preview');
+  const fieldRulesJSONInput = elementById<HTMLInputElement>('field_rules_json');
+  const fieldPlacementsJSONInput = elementById<HTMLInputElement>('field_placements_json');
 
   let fieldDefinitionCounter = 0;
   let fieldInstanceFormIndex = 0;
   let fieldRuleFormIndex = 0;
 
-  function generateFieldDefinitionId() {
+  function generateFieldDefinitionId(): string {
     return `temp_field_${Date.now()}_${fieldDefinitionCounter++}`;
   }
 
-  function generateFieldRuleId() {
+  function generateFieldRuleId(): string {
     return `rule_${Date.now()}_${fieldRuleFormIndex}`;
   }
 
-  function resolveSignerSelection(preferredValue, signers) {
+  function resolveSignerSelection(preferredValue: unknown, signers: SignerParticipantSummary[]): string {
     const preferred = String(preferredValue || '').trim();
     if (preferred && signers.some((signer) => signer.id === preferred)) {
       return preferred;
@@ -65,7 +186,11 @@ export function createFieldDefinitionsController(options = {}) {
     return '';
   }
 
-  function syncSignerSelectOptions(select, signers, preferredValue = '') {
+  function syncSignerSelectOptions(
+    select: HTMLSelectElement | null,
+    signers: SignerParticipantSummary[],
+    preferredValue = '',
+  ): void {
     if (!select) return;
     const resolvedSelection = resolveSignerSelection(preferredValue, signers);
     select.innerHTML = '<option value="">Select signer...</option>';
@@ -78,21 +203,31 @@ export function createFieldDefinitionsController(options = {}) {
     select.value = resolvedSelection;
   }
 
-  function reconcileSignerSelects(signers = getSignerParticipants()) {
+  function reconcileSignerSelects(signers: SignerParticipantSummary[] = getSignerParticipants()): void {
+    if (!fieldDefinitionsContainer) return;
     const participantSelects = fieldDefinitionsContainer.querySelectorAll('.field-participant-select');
     const ruleParticipantSelects = fieldRulesContainer
       ? fieldRulesContainer.querySelectorAll('.field-rule-participant-select')
       : [];
 
     participantSelects.forEach((select) => {
-      syncSignerSelectOptions(select, signers, select.value);
+      syncSignerSelectOptions(
+        select instanceof HTMLSelectElement ? select : null,
+        signers,
+        select instanceof HTMLSelectElement ? select.value : '',
+      );
     });
     ruleParticipantSelects.forEach((select) => {
-      syncSignerSelectOptions(select, signers, select.value);
+      syncSignerSelectOptions(
+        select instanceof HTMLSelectElement ? select : null,
+        signers,
+        select instanceof HTMLSelectElement ? select.value : '',
+      );
     });
   }
 
-  function updateFieldDefinitionsEmptyState() {
+  function updateFieldDefinitionsEmptyState(): void {
+    if (!fieldDefinitionsContainer || !fieldDefinitionsEmptyState) return;
     const fields = fieldDefinitionsContainer.querySelectorAll('.field-definition-entry');
     if (fields.length === 0) {
       fieldDefinitionsEmptyState.classList.remove('hidden');
@@ -109,43 +244,50 @@ export function createFieldDefinitionsController(options = {}) {
     fieldRulesEmptyState.classList.toggle('hidden', rows.length > 0);
   }
 
-  function collectFieldDefinitionsForState() {
-    const fieldDefinitions = [];
+  function collectFieldDefinitionsForState(): FieldDefinitionStateRecord[] {
+    if (!fieldDefinitionsContainer) return [];
+    const fieldDefinitions: FieldDefinitionStateRecord[] = [];
     fieldDefinitionsContainer.querySelectorAll('.field-definition-entry').forEach((entry) => {
       const id = entry.getAttribute('data-field-definition-id');
-      const type = entry.querySelector('.field-type-select')?.value || 'signature';
-      const participantId = entry.querySelector('.field-participant-select')?.value || '';
-      const page = parseInt(entry.querySelector('input[name*=".page"]')?.value || '1', 10);
-      const required = entry.querySelector('input[name*=".required"]')?.checked ?? true;
-      fieldDefinitions.push({ tempId: id, type, participantTempId: participantId, page, required });
+      const type = selectElement(entry, '.field-type-select')?.value || 'signature';
+      const participantId = selectElement(entry, '.field-participant-select')?.value || '';
+      const page = Number.parseInt(inputElement(entry, 'input[name*=".page"]')?.value || '1', 10);
+      const required = inputElement(entry, 'input[name*=".required"]')?.checked ?? true;
+      fieldDefinitions.push({
+        tempId: String(id || ''),
+        type,
+        participantTempId: participantId,
+        page: Number.isFinite(page) ? page : 1,
+        required,
+      });
     });
     return fieldDefinitions;
   }
 
-  function collectFieldRulesForState() {
+  function collectFieldRulesForState(): FieldRuleState[] {
     if (!fieldRulesContainer) return [];
     const terminalPage = getCurrentDocumentPageCount();
     const rows = fieldRulesContainer.querySelectorAll('.field-rule-entry');
-    const out = [];
+    const out: FieldRuleState[] = [];
     rows.forEach((row) => {
       const rule = normalizeFieldRuleState({
         id: row.getAttribute('data-field-rule-id') || '',
-        type: row.querySelector('.field-rule-type-select')?.value || '',
-        participantId: row.querySelector('.field-rule-participant-select')?.value || '',
-        fromPage: row.querySelector('.field-rule-from-page-input')?.value || '',
-        toPage: row.querySelector('.field-rule-to-page-input')?.value || '',
-        page: row.querySelector('.field-rule-page-input')?.value || '',
-        excludeLastPage: Boolean(row.querySelector('.field-rule-exclude-last-input')?.checked),
-        excludePages: parseExcludePagesCSV(row.querySelector('.field-rule-exclude-pages-input')?.value || ''),
-        required: (row.querySelector('.field-rule-required-select')?.value || '1') !== '0',
-      }, terminalPage);
+        type: selectElement(row, '.field-rule-type-select')?.value || '',
+        participantId: selectElement(row, '.field-rule-participant-select')?.value || '',
+        fromPage: inputElement(row, '.field-rule-from-page-input')?.value || '',
+        toPage: inputElement(row, '.field-rule-to-page-input')?.value || '',
+        page: inputElement(row, '.field-rule-page-input')?.value || '',
+        excludeLastPage: Boolean(inputElement(row, '.field-rule-exclude-last-input')?.checked),
+        excludePages: parseExcludePagesCSV(inputElement(row, '.field-rule-exclude-pages-input')?.value || ''),
+        required: (selectElement(row, '.field-rule-required-select')?.value || '1') !== '0',
+      } as unknown as Partial<FieldRuleState> & Record<string, unknown>, terminalPage);
       if (!rule.type) return;
       out.push(rule);
     });
     return out;
   }
 
-  function collectFieldRulesForForm() {
+  function collectFieldRulesForForm(): FieldRuleFormPayload[] {
     return collectFieldRulesForState().map((rule) => ({
       id: rule.id,
       type: rule.type,
@@ -159,11 +301,11 @@ export function createFieldDefinitionsController(options = {}) {
     }));
   }
 
-  function expandRulesForPreview(rules, terminalPage) {
+  function expandRulesForPreview(rules: Array<Partial<FieldRuleState>>, terminalPage: number): ExpandedRuleField[] {
     return expandRuleDefinitionsForPreview(rules, terminalPage);
   }
 
-  function renderFieldRulePreview() {
+  function renderFieldRulePreview(): void {
     if (!fieldRulesPreview) return;
     const rules = collectFieldRulesForState();
     const terminalPage = getCurrentDocumentPageCount();
@@ -180,7 +322,7 @@ export function createFieldDefinitionsController(options = {}) {
       return;
     }
 
-    const byType = expanded.reduce((acc, field) => {
+    const byType = expanded.reduce<Record<string, number>>((acc, field) => {
       const key = field.type;
       acc[key] = (acc[key] || 0) + 1;
       return acc;
@@ -198,25 +340,28 @@ export function createFieldDefinitionsController(options = {}) {
     `;
   }
 
-  function updateFieldParticipantOptions() {
+  function updateFieldParticipantOptions(): void {
     const signers = getSignerParticipants();
     reconcileSignerSelects(signers);
     renderFieldRulePreview();
   }
 
-  function updateFieldRuleRowUI(entry) {
-    const typeSelect = entry.querySelector('.field-rule-type-select');
-    const rangeStart = entry.querySelector('.field-rule-range-start-wrap');
-    const rangeEnd = entry.querySelector('.field-rule-range-end-wrap');
-    const pageWrap = entry.querySelector('.field-rule-page-wrap');
-    const excludeLastWrap = entry.querySelector('.field-rule-exclude-last-wrap');
-    const excludePagesWrap = entry.querySelector('.field-rule-exclude-pages-wrap');
-    const summary = entry.querySelector('.field-rule-summary');
-    const fromPageInput = entry.querySelector('.field-rule-from-page-input');
-    const toPageInput = entry.querySelector('.field-rule-to-page-input');
-    const pageInput = entry.querySelector('.field-rule-page-input');
-    const excludeLastInput = entry.querySelector('.field-rule-exclude-last-input');
-    const excludePagesInput = entry.querySelector('.field-rule-exclude-pages-input');
+  function updateFieldRuleRowUI(entry: ParentNode): void {
+    const typeSelect = selectElement(entry, '.field-rule-type-select');
+    const rangeStart = htmlElement(entry, '.field-rule-range-start-wrap');
+    const rangeEnd = htmlElement(entry, '.field-rule-range-end-wrap');
+    const pageWrap = htmlElement(entry, '.field-rule-page-wrap');
+    const excludeLastWrap = htmlElement(entry, '.field-rule-exclude-last-wrap');
+    const excludePagesWrap = htmlElement(entry, '.field-rule-exclude-pages-wrap');
+    const summary = htmlElement(entry, '.field-rule-summary');
+    const fromPageInput = inputElement(entry, '.field-rule-from-page-input');
+    const toPageInput = inputElement(entry, '.field-rule-to-page-input');
+    const pageInput = inputElement(entry, '.field-rule-page-input');
+    const excludeLastInput = inputElement(entry, '.field-rule-exclude-last-input');
+    const excludePagesInput = inputElement(entry, '.field-rule-exclude-pages-input');
+    if (!typeSelect || !rangeStart || !rangeEnd || !pageWrap || !excludeLastWrap || !excludePagesWrap || !summary) {
+      return;
+    }
     const terminalPage = getCurrentDocumentPageCount();
     const normalizedRule = normalizeFieldRuleState({
       type: typeSelect?.value || '',
@@ -226,7 +371,7 @@ export function createFieldDefinitionsController(options = {}) {
       excludeLastPage: Boolean(excludeLastInput?.checked),
       excludePages: parseExcludePagesCSV(excludePagesInput?.value || ''),
       required: true,
-    }, terminalPage);
+    } as unknown as Partial<FieldRuleState> & Record<string, unknown>, terminalPage);
     const fromPage = normalizedRule.fromPage > 0 ? normalizedRule.fromPage : 1;
     const toPage = normalizedRule.toPage > 0 ? normalizedRule.toPage : terminalPage;
     const page = normalizedRule.page > 0 ? normalizedRule.page : (normalizedRule.toPage > 0 ? normalizedRule.toPage : terminalPage);
@@ -263,25 +408,29 @@ export function createFieldDefinitionsController(options = {}) {
     }
   }
 
-  function addFieldRule(data = {}) {
-    if (!fieldRuleTemplate || !fieldRulesContainer) return;
-    const clone = fieldRuleTemplate.content.cloneNode(true);
+  function addFieldRule(data: Partial<FieldRuleState> & Record<string, unknown> = {}): void {
+    if (!(fieldRuleTemplate instanceof HTMLTemplateElement) || !fieldRulesContainer) return;
+    const clone = fieldRuleTemplate.content.cloneNode(true) as DocumentFragment;
     const entry = clone.querySelector('.field-rule-entry');
+    if (!(entry instanceof HTMLElement)) return;
     const ruleID = data.id || generateFieldRuleId();
     const formIndex = fieldRuleFormIndex++;
     const terminalPage = getCurrentDocumentPageCount();
 
     entry.setAttribute('data-field-rule-id', ruleID);
-    const idInput = entry.querySelector('.field-rule-id-input');
-    const typeSelect = entry.querySelector('.field-rule-type-select');
-    const participantSelect = entry.querySelector('.field-rule-participant-select');
-    const fromPageInput = entry.querySelector('.field-rule-from-page-input');
-    const toPageInput = entry.querySelector('.field-rule-to-page-input');
-    const pageInput = entry.querySelector('.field-rule-page-input');
-    const requiredSelect = entry.querySelector('.field-rule-required-select');
-    const excludeLastInput = entry.querySelector('.field-rule-exclude-last-input');
-    const excludePagesInput = entry.querySelector('.field-rule-exclude-pages-input');
-    const removeBtn = entry.querySelector('.remove-field-rule-btn');
+    const idInput = inputElement(entry, '.field-rule-id-input');
+    const typeSelect = selectElement(entry, '.field-rule-type-select');
+    const participantSelect = selectElement(entry, '.field-rule-participant-select');
+    const fromPageInput = inputElement(entry, '.field-rule-from-page-input');
+    const toPageInput = inputElement(entry, '.field-rule-to-page-input');
+    const pageInput = inputElement(entry, '.field-rule-page-input');
+    const requiredSelect = selectElement(entry, '.field-rule-required-select');
+    const excludeLastInput = inputElement(entry, '.field-rule-exclude-last-input');
+    const excludePagesInput = inputElement(entry, '.field-rule-exclude-pages-input');
+    const removeBtn = buttonElement(entry, '.remove-field-rule-btn');
+    if (!idInput || !typeSelect || !participantSelect || !fromPageInput || !toPageInput || !pageInput || !requiredSelect || !excludeLastInput || !excludePagesInput || !removeBtn) {
+      return;
+    }
 
     idInput.name = `field_rules[${formIndex}].id`;
     idInput.value = ruleID;
@@ -354,24 +503,27 @@ export function createFieldDefinitionsController(options = {}) {
     });
 
     fieldRulesContainer.appendChild(clone);
-    updateFieldRuleRowUI(fieldRulesContainer.lastElementChild);
+    updateFieldRuleRowUI(fieldRulesContainer.lastElementChild || entry);
     updateFieldRulesEmptyState();
     renderFieldRulePreview();
   }
 
-  function addFieldDefinition(data = {}) {
-    const clone = fieldDefinitionTemplate.content.cloneNode(true);
+  function addFieldDefinition(data: FieldDefinitionInputRecord = {}): void {
+    if (!(fieldDefinitionTemplate instanceof HTMLTemplateElement) || !fieldDefinitionsContainer) return;
+    const clone = fieldDefinitionTemplate.content.cloneNode(true) as DocumentFragment;
     const entry = clone.querySelector('.field-definition-entry');
+    if (!(entry instanceof HTMLElement)) return;
 
-    const fieldDefinitionId = data.id || generateFieldDefinitionId();
+    const fieldDefinitionId = String(data.id || generateFieldDefinitionId()).trim() || generateFieldDefinitionId();
     entry.setAttribute('data-field-definition-id', fieldDefinitionId);
 
-    const idInput = entry.querySelector('.field-definition-id-input');
-    const typeSelect = entry.querySelector('select[name="field_definitions[].type"]');
-    const participantSelect = entry.querySelector('select[name="field_definitions[].participant_id"]');
-    const pageInput = entry.querySelector('input[name="field_definitions[].page"]');
-    const requiredCheckbox = entry.querySelector('input[name="field_definitions[].required"]');
-    const dateSignedInfo = entry.querySelector('.field-date-signed-info');
+    const idInput = inputElement(entry, '.field-definition-id-input');
+    const typeSelect = selectElement(entry, 'select[name="field_definitions[].type"]');
+    const participantSelect = selectElement(entry, 'select[name="field_definitions[].participant_id"]');
+    const pageInput = inputElement(entry, 'input[name="field_definitions[].page"]');
+    const requiredCheckbox = inputElement(entry, 'input[name="field_definitions[].required"]');
+    const dateSignedInfo = htmlElement(entry, '.field-date-signed-info');
+    if (!idInput || !typeSelect || !participantSelect || !pageInput || !requiredCheckbox || !dateSignedInfo) return;
 
     const formIndex = fieldInstanceFormIndex++;
     idInput.name = `field_instances[${formIndex}].id`;
@@ -381,9 +533,9 @@ export function createFieldDefinitionsController(options = {}) {
     pageInput.name = `field_instances[${formIndex}].page`;
     requiredCheckbox.name = `field_instances[${formIndex}].required`;
 
-    if (data.type) typeSelect.value = data.type;
-    if (data.page) pageInput.value = String(clampPageNumber(data.page, getCurrentDocumentPageCount(), 1));
-    if (data.required !== undefined) requiredCheckbox.checked = data.required;
+    if (data.type) typeSelect.value = String(data.type);
+    if (data.page !== undefined) pageInput.value = String(clampPageNumber(data.page, getCurrentDocumentPageCount(), 1));
+    if (data.required !== undefined) requiredCheckbox.checked = Boolean(data.required);
 
     const preferredParticipantID = String(data.participant_id || data.participantId || '').trim();
     syncSignerSelectOptions(participantSelect, getSignerParticipants(), preferredParticipantID);
@@ -399,13 +551,13 @@ export function createFieldDefinitionsController(options = {}) {
       dateSignedInfo.classList.remove('hidden');
     }
 
-    entry.querySelector('.remove-field-definition-btn').addEventListener('click', () => {
+    buttonElement(entry, '.remove-field-definition-btn')?.addEventListener('click', () => {
       entry.remove();
       updateFieldDefinitionsEmptyState();
       onDefinitionsChanged?.();
     });
 
-    const fieldPageInput = entry.querySelector('input[name*=".page"]');
+    const fieldPageInput = inputElement(entry, 'input[name*=".page"]');
     const clampFieldPageInput = () => {
       if (!fieldPageInput) return;
       fieldPageInput.value = String(clampPageNumber(fieldPageInput.value, getCurrentDocumentPageCount(), 1));
@@ -418,16 +570,17 @@ export function createFieldDefinitionsController(options = {}) {
     updateFieldDefinitionsEmptyState();
   }
 
-  function bindEvents() {
-    addFieldBtn.addEventListener('click', () => addFieldDefinition());
-    addFieldDefinitionEmptyBtn.addEventListener('click', () => addFieldDefinition());
+  function bindEvents(): void {
+    addFieldBtn?.addEventListener('click', () => addFieldDefinition());
+    addFieldDefinitionEmptyBtn?.addEventListener('click', () => addFieldDefinition());
     addFieldRuleBtn?.addEventListener('click', () => addFieldRule({ to_page: getCurrentDocumentPageCount() }));
 
-    onParticipantsChanged && onParticipantsChanged();
+    onParticipantsChanged?.();
   }
 
-  function initialize() {
-    window._initialFieldPlacementsData = [];
+  function initialize(): void {
+    const initialPlacements: NormalizedPlacementInstance[] = [];
+    window._initialFieldPlacementsData = initialPlacements;
 
     initialFieldInstances.forEach((fieldDef) => {
       const id = String(fieldDef.id || '').trim();
@@ -443,7 +596,7 @@ export function createFieldDefinitionsController(options = {}) {
         page,
         required,
       });
-      window._initialFieldPlacementsData.push(normalizePlacementInstance({
+      initialPlacements.push(normalizePlacementInstance({
         id,
         definitionId: id,
         type,
@@ -455,7 +608,7 @@ export function createFieldDefinitionsController(options = {}) {
         width: Number(fieldDef.width || 150) || 150,
         height: Number(fieldDef.height || 32) || 32,
         placementSource: String(fieldDef.placement_source || fieldDef.placementSource || placementSource.MANUAL).trim() || placementSource.MANUAL,
-      }, window._initialFieldPlacementsData.length));
+      } as Record<string, unknown>, initialPlacements.length));
     });
     updateFieldDefinitionsEmptyState();
     updateFieldParticipantOptions();
@@ -463,23 +616,25 @@ export function createFieldDefinitionsController(options = {}) {
     renderFieldRulePreview();
   }
 
-  function buildInitialPlacementInstances() {
-    return Array.isArray(window._initialFieldPlacementsData)
-      ? window._initialFieldPlacementsData.map((instance, index) => normalizePlacementInstance(instance, index))
+  function buildInitialPlacementInstances(): NormalizedPlacementInstance[] {
+    const initialPlacements = window._initialFieldPlacementsData;
+    return Array.isArray(initialPlacements)
+      ? initialPlacements.map((instance, index) => normalizePlacementInstance(instance as unknown as Record<string, unknown>, index))
       : [];
   }
 
-  function collectPlacementFieldDefinitions() {
+  function collectPlacementFieldDefinitions(): PlacementFieldDefinition[] {
+    if (!fieldDefinitionsContainer) return [];
     const signers = getSignerParticipants();
     const signerNames = new Map(signers.map((signer) => [String(signer.id), signer.name || signer.email || 'Signer']));
-    const definitions = [];
+    const definitions: PlacementFieldDefinition[] = [];
 
     const manualFieldEntries = fieldDefinitionsContainer.querySelectorAll('.field-definition-entry');
     manualFieldEntries.forEach((field) => {
       const definitionId = String(field.getAttribute('data-field-definition-id') || '').trim();
-      const typeSelect = field.querySelector('.field-type-select');
-      const participantSelect = field.querySelector('.field-participant-select');
-      const pageInput = field.querySelector('input[name*=".page"]');
+      const typeSelect = selectElement(field, '.field-type-select');
+      const participantSelect = selectElement(field, '.field-participant-select');
+      const pageInput = inputElement(field, 'input[name*=".page"]');
       const fieldType = String(typeSelect?.value || 'text').trim() || 'text';
       const participantId = String(participantSelect?.value || '').trim();
       const page = parseInt(String(pageInput?.value || '1'), 10) || 1;
@@ -549,7 +704,7 @@ export function createFieldDefinitionsController(options = {}) {
     return uniqueDefinitions;
   }
 
-  function getFieldDefinitionById(definitionId) {
+  function getFieldDefinitionById(definitionId: string): FieldDefinitionLookupResult | null {
     const targetID = String(definitionId || '').trim();
     if (!targetID) return null;
 
@@ -567,16 +722,17 @@ export function createFieldDefinitionsController(options = {}) {
     };
   }
 
-  function findSignersMissingRequiredSignatureField() {
+  function findSignersMissingRequiredSignatureField(): SignerParticipantSummary[] {
+    if (!fieldDefinitionsContainer) return [];
     const signers = getSignerParticipants();
-    const signerSignatureFields = new Map();
+    const signerSignatureFields = new Map<string, boolean>();
     signers.forEach((signer) => signerSignatureFields.set(signer.id, false));
 
     const fieldDefinitionEntries = fieldDefinitionsContainer.querySelectorAll('.field-definition-entry');
     fieldDefinitionEntries.forEach((field) => {
-      const typeSelect = field.querySelector('.field-type-select');
-      const participantSelect = field.querySelector('.field-participant-select');
-      const requiredCheckbox = field.querySelector('input[name*=".required"]');
+      const typeSelect = selectElement(field, '.field-type-select');
+      const participantSelect = selectElement(field, '.field-participant-select');
+      const requiredCheckbox = inputElement(field, 'input[name*=".required"]');
       if (typeSelect?.value === 'signature' && participantSelect?.value && requiredCheckbox?.checked) {
         signerSignatureFields.set(participantSelect.value, true);
       }
@@ -592,7 +748,7 @@ export function createFieldDefinitionsController(options = {}) {
     return signers.filter((signer) => !signerSignatureFields.get(signer.id));
   }
 
-  function missingSignatureFieldMessage(missingSigners) {
+  function missingSignatureFieldMessage(missingSigners: Array<SignerParticipantSummary | null | undefined>): string {
     if (!Array.isArray(missingSigners) || missingSigners.length === 0) {
       return 'Each signer requires at least one required signature field.';
     }
@@ -603,8 +759,8 @@ export function createFieldDefinitionsController(options = {}) {
     return `Each signer requires at least one required signature field. Missing: ${names.join(', ')}`;
   }
 
-  function restoreFieldDefinitionsFromState(state) {
-    if (!state?.fieldDefinitions || state.fieldDefinitions.length === 0) return;
+  function restoreFieldDefinitionsFromState(state: { fieldDefinitions?: FieldDefinitionStateRecord[] } | null | undefined): void {
+    if (!fieldDefinitionsContainer || !state?.fieldDefinitions || state.fieldDefinitions.length === 0) return;
     fieldDefinitionsContainer.innerHTML = '';
     fieldInstanceFormIndex = 0;
     state.fieldDefinitions.forEach((fieldDefinition) => {
@@ -619,7 +775,7 @@ export function createFieldDefinitionsController(options = {}) {
     updateFieldDefinitionsEmptyState();
   }
 
-  function restoreFieldRulesFromState(state) {
+  function restoreFieldRulesFromState(state: { fieldRules?: FieldRuleState[] } | null | undefined): void {
     if (!Array.isArray(state?.fieldRules) || state.fieldRules.length === 0) return;
     if (!fieldRulesContainer) return;
     fieldRulesContainer.querySelectorAll('.field-rule-entry').forEach((entry) => entry.remove());

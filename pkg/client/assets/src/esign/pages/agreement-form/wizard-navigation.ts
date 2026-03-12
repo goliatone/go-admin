@@ -1,6 +1,56 @@
-// @ts-nocheck
+import type { ActiveTabClaim } from './active-tab-controller';
+import type { DocumentPreviewCard } from './preview-card';
 
-export function createWizardNavigationController(options = {}) {
+interface WizardStepMap {
+  DOCUMENT: number;
+  DETAILS: number;
+  PARTICIPANTS: number;
+  FIELDS: number;
+  PLACEMENT: number;
+  REVIEW: number;
+}
+
+interface WizardNavigationSyncLike {
+  isOwner: boolean;
+  lastBlockedReason: string;
+  currentClaim: ActiveTabClaim | null;
+}
+
+interface WizardNavigationControllerOptions {
+  totalWizardSteps: number;
+  wizardStep: WizardStepMap;
+  nextStepLabels: Record<number, string>;
+  submitBtn: HTMLElement;
+  syncOrchestrator: WizardNavigationSyncLike;
+  previewCard: DocumentPreviewCard;
+  updateActiveTabOwnershipUI(state?: {
+    isOwner: boolean;
+    reason: string;
+    claim: ActiveTabClaim | null;
+  }): void;
+  validateStep(stepNum: number): boolean;
+  onPlacementStep?(): void;
+  onReviewStep?(): void;
+  onStepChanged?(stepNum: number): void;
+  initialStep?: number;
+}
+
+export interface WizardNavigationController {
+  bindEvents(): void;
+  getCurrentStep(): number;
+  setCurrentStep(stepNum: number): void;
+  goToStep(stepNum: number): void;
+  updateWizardUI(): void;
+}
+
+function parseStepNumber(value: string | undefined, fallback = 0): number {
+  const parsed = Number.parseInt(String(value || '').trim(), 10);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+export function createWizardNavigationController(
+  options: WizardNavigationControllerOptions,
+): WizardNavigationController {
   const {
     totalWizardSteps,
     wizardStep,
@@ -18,9 +68,9 @@ export function createWizardNavigationController(options = {}) {
 
   let currentStep = initialStep;
 
-  const wizardStepBtns = document.querySelectorAll('.wizard-step-btn');
-  const wizardSteps = document.querySelectorAll('.wizard-step');
-  const wizardConnectors = document.querySelectorAll('.wizard-connector');
+  const wizardStepBtns = Array.from(document.querySelectorAll<HTMLElement>('.wizard-step-btn'));
+  const wizardSteps = Array.from(document.querySelectorAll<HTMLElement>('.wizard-step'));
+  const wizardConnectors = Array.from(document.querySelectorAll<HTMLElement>('.wizard-connector'));
   const wizardPrevBtn = document.getElementById('wizard-prev-btn');
   const wizardNextBtn = document.getElementById('wizard-next-btn');
   const wizardSaveBtn = document.getElementById('wizard-save-btn');
@@ -29,6 +79,7 @@ export function createWizardNavigationController(options = {}) {
     wizardStepBtns.forEach((btn, index) => {
       const stepNum = index + 1;
       const stepNumber = btn.querySelector('.wizard-step-number');
+      if (!(stepNumber instanceof HTMLElement)) return;
 
       if (stepNum < currentStep) {
         btn.classList.remove('text-gray-500', 'text-blue-600');
@@ -62,7 +113,7 @@ export function createWizardNavigationController(options = {}) {
     });
 
     wizardSteps.forEach((step) => {
-      const stepNum = parseInt(step.dataset.step, 10);
+      const stepNum = parseStepNumber(step.dataset.step);
       if (stepNum === currentStep) {
         step.classList.remove('hidden');
       } else {
@@ -70,9 +121,9 @@ export function createWizardNavigationController(options = {}) {
       }
     });
 
-    wizardPrevBtn.classList.toggle('hidden', currentStep === 1);
-    wizardNextBtn.classList.toggle('hidden', currentStep === totalWizardSteps);
-    wizardSaveBtn.classList.toggle('hidden', currentStep !== totalWizardSteps);
+    wizardPrevBtn?.classList.toggle('hidden', currentStep === 1);
+    wizardNextBtn?.classList.toggle('hidden', currentStep === totalWizardSteps);
+    wizardSaveBtn?.classList.toggle('hidden', currentStep !== totalWizardSteps);
     submitBtn.classList.toggle('hidden', currentStep !== totalWizardSteps);
     updateActiveTabOwnershipUI({
       isOwner: syncOrchestrator.isOwner,
@@ -82,12 +133,14 @@ export function createWizardNavigationController(options = {}) {
 
     if (currentStep < totalWizardSteps) {
       const nextStepName = nextStepLabels[currentStep] || 'Next';
-      wizardNextBtn.innerHTML = `
+      if (wizardNextBtn) {
+        wizardNextBtn.innerHTML = `
         ${nextStepName}
         <svg class="w-4 h-4 ml-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
         </svg>
       `;
+      }
     }
 
     if (currentStep === wizardStep.PLACEMENT) {
@@ -99,7 +152,7 @@ export function createWizardNavigationController(options = {}) {
     previewCard.updateVisibility(currentStep);
   }
 
-  function goToStep(stepNum) {
+  function goToStep(stepNum: number): void {
     if (stepNum < wizardStep.DOCUMENT || stepNum > totalWizardSteps) return;
 
     if (stepNum > currentStep) {
@@ -117,16 +170,17 @@ export function createWizardNavigationController(options = {}) {
   function bindEvents() {
     wizardStepBtns.forEach((btn) => {
       btn.addEventListener('click', () => {
-        const targetStep = parseInt(btn.dataset.step, 10);
+        const targetStep = parseStepNumber(btn.dataset.step);
         goToStep(targetStep);
       });
     });
 
-    wizardPrevBtn.addEventListener('click', () => goToStep(currentStep - 1));
-    wizardNextBtn.addEventListener('click', () => goToStep(currentStep + 1));
+    wizardPrevBtn?.addEventListener('click', () => goToStep(currentStep - 1));
+    wizardNextBtn?.addEventListener('click', () => goToStep(currentStep + 1));
 
-    wizardSaveBtn.addEventListener('click', () => {
+    wizardSaveBtn?.addEventListener('click', () => {
       const form = document.getElementById('agreement-form');
+      if (!(form instanceof HTMLFormElement)) return;
       const draftInput = document.createElement('input');
       draftInput.type = 'hidden';
       draftInput.name = 'save_as_draft';

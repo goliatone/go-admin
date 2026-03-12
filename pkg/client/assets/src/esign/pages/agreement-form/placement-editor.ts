@@ -1,6 +1,9 @@
-// @ts-nocheck
-
 import { PLACEMENT_SOURCE } from './constants';
+import type {
+  LinkGroupState,
+  NormalizedPlacementInstance,
+  PlacementFormPayload,
+} from './contracts';
 import {
   addLinkGroup,
   computeLinkedPlacementForPage,
@@ -11,6 +14,196 @@ import {
   unlinkField,
 } from './linked-placement';
 import { normalizePlacementInstance, toPlacementFormPayload } from './normalization';
+
+interface PDFPageViewport {
+  width: number;
+  height: number;
+}
+
+interface PDFRenderTask {
+  promise: Promise<unknown>;
+}
+
+interface PDFPageProxy {
+  getViewport(options: { scale: number }): PDFPageViewport;
+  render(options: {
+    canvasContext: CanvasRenderingContext2D | null;
+    viewport: PDFPageViewport;
+  }): PDFRenderTask;
+}
+
+interface PDFDocumentProxy {
+  numPages: number;
+  getPage(pageNumber: number): Promise<PDFPageProxy>;
+}
+
+interface PDFLoadingTask {
+  promise: Promise<PDFDocumentProxy>;
+}
+
+interface PlacementFieldDefinition {
+  definitionId: string;
+  fieldType: string;
+  participantId: string;
+  participantName: string;
+  page: number;
+  linkGroupId?: string;
+}
+
+interface PlacementFieldDefinitionLookupResult {
+  id: string;
+  type: string;
+  participant_id: string;
+  participant_name: string;
+  page: number;
+  link_group_id: string;
+}
+
+interface PlacementEditorError extends Error {
+  code?: string;
+  status?: number;
+}
+
+interface PlacementFieldData {
+  definitionId: string;
+  fieldType: string;
+  participantId: string;
+  participantName: string;
+}
+
+interface PlacementSuggestion {
+  id?: string;
+  field_definition_id: string;
+  page_number: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  resolver_id?: string;
+  confidence?: number;
+}
+
+interface PlacementResolverScore {
+  resolver_id?: string;
+  supported?: boolean;
+  score?: number;
+}
+
+interface PlacementRunResult {
+  run_id?: string;
+  id?: string;
+  status?: string;
+  elapsed_ms?: number;
+  suggestions?: PlacementSuggestion[];
+  resolver_scores?: PlacementResolverScore[];
+}
+
+interface PlacementApiResponse {
+  run?: PlacementRunResult;
+}
+
+interface PlacementModalResult extends PlacementRunResult {}
+
+interface PlacementEditorRefs {
+  loading: HTMLElement | null;
+  noDocument: HTMLElement | null;
+  fieldsList: HTMLElement | null;
+  viewer: HTMLElement | null;
+  canvas: HTMLCanvasElement | null;
+  overlays: HTMLElement | null;
+  canvasContainer: HTMLElement | null;
+  currentPage: HTMLElement | null;
+  totalPages: HTMLElement | null;
+  zoomLevel: HTMLElement | null;
+  totalFields: HTMLElement | null;
+  placedCount: HTMLElement | null;
+  unplacedCount: HTMLElement | null;
+  autoPlaceBtn: HTMLButtonElement | null;
+  policyPreset: HTMLSelectElement | null;
+  prevBtn: HTMLButtonElement | null;
+  nextBtn: HTMLButtonElement | null;
+  zoomIn: HTMLButtonElement | null;
+  zoomOut: HTMLButtonElement | null;
+  zoomFit: HTMLButtonElement | null;
+  linkBatchActions: HTMLElement | null;
+  linkAllBtn: HTMLButtonElement | null;
+  unlinkAllBtn: HTMLButtonElement | null;
+  fieldInstancesContainer: HTMLElement | null;
+}
+
+interface PlacementEditorInstance extends NormalizedPlacementInstance {
+  resolverId?: string;
+  confidence?: number;
+  placementRunId?: string | null;
+}
+
+interface PlacementEditorState {
+  pdfDoc: PDFDocumentProxy | null;
+  currentPage: number;
+  totalPages: number;
+  scale: number;
+  fieldInstances: PlacementEditorInstance[];
+  selectedFieldId: string | null;
+  isDragging: boolean;
+  isResizing: boolean;
+  dragOffset: { x: number; y: number };
+  uiHandlersBound: boolean;
+  autoPlaceBound: boolean;
+  loadRequestVersion: number;
+  linkGroupState: LinkGroupState;
+}
+
+interface AutoPlaceState {
+  currentRunId: string | null;
+  suggestions: PlacementSuggestion[];
+  resolverScores: PlacementResolverScore[];
+  policy: string | null;
+  isRunning: boolean;
+}
+
+interface PlacementEditorControllerOptions {
+  apiBase?: string;
+  apiVersionBase?: string;
+  documentIdInput?: HTMLInputElement | null;
+  fieldPlacementsJSONInput?: HTMLInputElement | null;
+  initialFieldInstances?: Array<Record<string, unknown> | null | undefined>;
+  initialLinkGroupState?: LinkGroupState | null;
+  collectPlacementFieldDefinitions(): PlacementFieldDefinition[];
+  getFieldDefinitionById(definitionId: string): PlacementFieldDefinitionLookupResult | null;
+  parseAPIError(response: Response, fallbackMessage: string): Promise<PlacementEditorError>;
+  mapUserFacingError(message: string, code?: string, status?: number): string;
+  showToast(message: string, type?: 'success' | 'error' | 'warning' | 'info'): void;
+  escapeHtml(value: unknown): string;
+  onPlacementsChanged?(): void;
+}
+
+export interface PlacementEditorController {
+  bindEvents(): void;
+  initPlacementEditor(): Promise<void>;
+  getState(): PlacementEditorState;
+  getLinkGroupState(): LinkGroupState;
+  setLinkGroupState(nextState: LinkGroupState | null | undefined): void;
+  buildPlacementFormEntries(): PlacementFormPayload[];
+  updateFieldInstancesFormData(options?: { silent?: boolean }): PlacementFormPayload[];
+  restoreFieldPlacementsFromState(nextState: { fieldPlacements?: Array<Record<string, unknown> | null | undefined> } | null | undefined): void;
+}
+
+declare global {
+  interface Window {
+    pdfjsLib?: {
+      getDocument(options: {
+        url: string;
+        withCredentials: boolean;
+        disableWorker: boolean;
+      }): PDFLoadingTask;
+    };
+    toastManager?: {
+      info(message: string): void;
+      success(message: string): void;
+      error(message: string): void;
+    };
+  }
+}
 
 const TYPE_COLORS = {
   signature: { bg: 'bg-blue-500', border: 'border-blue-500', fill: 'rgba(59, 130, 246, 0.2)' },
@@ -30,7 +223,9 @@ const DEFAULT_FIELD_SIZES = {
   initials: { width: 80, height: 40 },
 };
 
-export function createPlacementEditorController(options = {}) {
+export function createPlacementEditorController(
+  options: PlacementEditorControllerOptions,
+): PlacementEditorController {
   const {
     apiBase,
     apiVersionBase,
@@ -77,48 +272,48 @@ export function createPlacementEditorController(options = {}) {
     return `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
-  function getPlacementEls() {
+  function getPlacementEls(): PlacementEditorRefs {
     return {
-      loading: document.getElementById('placement-loading'),
-      noDocument: document.getElementById('placement-no-document'),
-      fieldsList: document.getElementById('placement-fields-list'),
-      viewer: document.getElementById('placement-viewer'),
-      canvas: document.getElementById('placement-pdf-canvas'),
-      overlays: document.getElementById('placement-overlays-container'),
-      canvasContainer: document.getElementById('placement-canvas-container'),
-      currentPage: document.getElementById('placement-current-page'),
-      totalPages: document.getElementById('placement-total-pages'),
-      zoomLevel: document.getElementById('placement-zoom-level'),
-      totalFields: document.getElementById('placement-total-fields'),
-      placedCount: document.getElementById('placement-placed-count'),
-      unplacedCount: document.getElementById('placement-unplaced-count'),
-      autoPlaceBtn: document.getElementById('auto-place-btn'),
-      policyPreset: document.getElementById('placement-policy-preset'),
-      prevBtn: document.getElementById('placement-prev-page'),
-      nextBtn: document.getElementById('placement-next-page'),
-      zoomIn: document.getElementById('placement-zoom-in'),
-      zoomOut: document.getElementById('placement-zoom-out'),
-      zoomFit: document.getElementById('placement-zoom-fit'),
-      linkBatchActions: document.getElementById('link-batch-actions'),
-      linkAllBtn: document.getElementById('link-all-btn'),
-      unlinkAllBtn: document.getElementById('unlink-all-btn'),
-      fieldInstancesContainer: document.getElementById('field-instances-container'),
+      loading: document.getElementById('placement-loading') as HTMLElement | null,
+      noDocument: document.getElementById('placement-no-document') as HTMLElement | null,
+      fieldsList: document.getElementById('placement-fields-list') as HTMLElement | null,
+      viewer: document.getElementById('placement-viewer') as HTMLElement | null,
+      canvas: document.getElementById('placement-pdf-canvas') as HTMLCanvasElement | null,
+      overlays: document.getElementById('placement-overlays-container') as HTMLElement | null,
+      canvasContainer: document.getElementById('placement-canvas-container') as HTMLElement | null,
+      currentPage: document.getElementById('placement-current-page') as HTMLElement | null,
+      totalPages: document.getElementById('placement-total-pages') as HTMLElement | null,
+      zoomLevel: document.getElementById('placement-zoom-level') as HTMLElement | null,
+      totalFields: document.getElementById('placement-total-fields') as HTMLElement | null,
+      placedCount: document.getElementById('placement-placed-count') as HTMLElement | null,
+      unplacedCount: document.getElementById('placement-unplaced-count') as HTMLElement | null,
+      autoPlaceBtn: document.getElementById('auto-place-btn') as HTMLButtonElement | null,
+      policyPreset: document.getElementById('placement-policy-preset') as HTMLSelectElement | null,
+      prevBtn: document.getElementById('placement-prev-page') as HTMLButtonElement | null,
+      nextBtn: document.getElementById('placement-next-page') as HTMLButtonElement | null,
+      zoomIn: document.getElementById('placement-zoom-in') as HTMLButtonElement | null,
+      zoomOut: document.getElementById('placement-zoom-out') as HTMLButtonElement | null,
+      zoomFit: document.getElementById('placement-zoom-fit') as HTMLButtonElement | null,
+      linkBatchActions: document.getElementById('link-batch-actions') as HTMLElement | null,
+      linkAllBtn: document.getElementById('link-all-btn') as HTMLButtonElement | null,
+      unlinkAllBtn: document.getElementById('unlink-all-btn') as HTMLButtonElement | null,
+      fieldInstancesContainer: document.getElementById('field-instances-container') as HTMLElement | null,
     };
   }
 
-  function getState() {
+  function getState(): PlacementEditorState {
     return state;
   }
 
-  function getLinkGroupState() {
+  function getLinkGroupState(): LinkGroupState {
     return state.linkGroupState;
   }
 
-  function setLinkGroupState(nextState) {
+  function setLinkGroupState(nextState: LinkGroupState | null | undefined): void {
     state.linkGroupState = nextState || createLinkGroupState();
   }
 
-  function buildPlacementFormEntries() {
+  function buildPlacementFormEntries(): PlacementFormPayload[] {
     return state.fieldInstances.map((instance, index) => toPlacementFormPayload(instance, index));
   }
 
