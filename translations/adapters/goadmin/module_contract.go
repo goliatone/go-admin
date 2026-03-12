@@ -35,7 +35,7 @@ func ModuleAPIRoutes() map[string]string {
 
 func AdminUIRoutes() map[string]string {
 	routes := prefixRoutes("/translations", ModuleUIRoutes())
-	routes["translations.queue"] = "/content/translations"
+	routes["translations.queue"] = "/translations/queue"
 	return routes
 }
 

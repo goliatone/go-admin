@@ -61,6 +61,8 @@ const (
 	AssignmentLifecycleSingleActivePerLang AssignmentLifecycleMode = "single_active_per_locale"
 )
 
+const DefaultWorkScope = "__all__"
+
 type DisabledReasonCode string
 
 const (

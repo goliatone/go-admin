@@ -20,6 +20,7 @@ type BackfillSourceVariant struct {
 	TranslationGroupID string            `json:"translation_group_id,omitempty"`
 	Locale             string            `json:"locale"`
 	Fields             map[string]string `json:"fields,omitempty"`
+	Metadata           map[string]any    `json:"metadata,omitempty"`
 	Status             string            `json:"status,omitempty"`
 	CreatedAt          time.Time         `json:"created_at,omitempty"`
 	UpdatedAt          time.Time         `json:"updated_at,omitempty"`
@@ -66,6 +67,7 @@ type BackfillVariant struct {
 	IsSource             bool              `json:"is_source"`
 	SourceHashAtLastSync string            `json:"source_hash_at_last_sync,omitempty"`
 	Fields               map[string]string `json:"fields,omitempty"`
+	Metadata             map[string]any    `json:"metadata,omitempty"`
 	SourceRecordID       string            `json:"source_record_id"`
 	TranslationGroupID   string            `json:"translation_group_id,omitempty"`
 	CreatedAt            time.Time         `json:"created_at,omitempty"`
@@ -173,6 +175,7 @@ func normalizeSourceVariant(record BackfillSourceVariant) BackfillSourceVariant 
 		normalizedFields[key] = strings.TrimSpace(value)
 	}
 	record.Fields = normalizedFields
+	record.Metadata = cloneAnyMap(record.Metadata)
 	return record
 }
 
@@ -287,6 +290,7 @@ func buildFamilyPlan(familyID string, records []BackfillSourceVariant, policy Ba
 			Status:             record.Status,
 			IsSource:           locale == sourceLocale,
 			Fields:             record.Fields,
+			Metadata:           cloneAnyMap(record.Metadata),
 			SourceRecordID:     record.SourceRecordID,
 			TranslationGroupID: record.TranslationGroupID,
 			CreatedAt:          record.CreatedAt,
@@ -327,13 +331,13 @@ func buildFamilyPlan(familyID string, records []BackfillSourceVariant, policy Ba
 			Locale:      locale,
 		})
 		family.Assignments = append(family.Assignments, BackfillAssignment{
-			ID:           DeterministicAssignmentID(records[0].Scope, familyID, locale, "__all__"),
+			ID:           DeterministicAssignmentID(records[0].Scope, familyID, locale, translationcore.DefaultWorkScope),
 			FamilyID:     familyID,
 			TenantID:     tenantID,
 			OrgID:        orgID,
 			SourceLocale: sourceLocale,
 			TargetLocale: locale,
-			WorkScope:    "__all__",
+			WorkScope:    translationcore.DefaultWorkScope,
 			Status:       string(translationcore.AssignmentStatusOpen),
 			Priority:     "normal",
 		})
