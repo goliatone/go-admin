@@ -46,6 +46,7 @@ func TestTranslationQAMenuItemsExposePhaseOneAndTwoRoutesForFullProfile(t *testi
 	}
 
 	assertMenuItemPath(t, items, "example.translation.qa.family", "/admin/translations/families/"+exampleTranslationQAFamilyID)
+	assertMenuItemLabel(t, items, "example.translation.qa.family", "Family Detail + Create Locale (QA)")
 	assertMenuItemPath(t, items, "example.translation.qa.content_summary", translationQAContentSummaryPath("/admin"))
 	assertMenuItemPath(t, items, "example.translation.qa.fallback_edit", translationQAFallbackEditPath("/admin"))
 	assertMenuItemPath(t, items, "example.translation.qa.matrix", "/admin/translations/matrix")
@@ -79,6 +80,7 @@ func TestTranslationQAMenuItemsKeepCoreRoutesWhenQueueDisabled(t *testing.T) {
 	}
 
 	assertMenuItemPath(t, items, "example.translation.qa.family", "/admin/translations/families/"+exampleTranslationQAFamilyID)
+	assertMenuItemLabel(t, items, "example.translation.qa.family", "Family Detail + Create Locale (QA)")
 	assertMenuItemPath(t, items, "example.translation.qa.content_summary", translationQAContentSummaryPath("/admin"))
 	assertMenuItemPath(t, items, "example.translation.qa.fallback_edit", translationQAFallbackEditPath("/admin"))
 	assertMenuItemPath(t, items, "example.translation.qa.matrix", "/admin/translations/matrix")
@@ -149,6 +151,17 @@ func assertMenuItemPath(t *testing.T, items []coreadmin.MenuItem, id, want strin
 	got, _ := item.Target["path"].(string)
 	if got != want {
 		t.Fatalf("expected %s path %q, got %q", id, want, got)
+	}
+}
+
+func assertMenuItemLabel(t *testing.T, items []coreadmin.MenuItem, id, want string) {
+	t.Helper()
+	item := findMenuItemByID(items, id)
+	if item == nil {
+		t.Fatalf("expected menu item %q", id)
+	}
+	if item.Label != want {
+		t.Fatalf("expected %s label %q, got %q", id, want, item.Label)
 	}
 }
 

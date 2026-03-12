@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	coreadmin "github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/examples/web/setup"
@@ -77,14 +78,24 @@ func TestSeedExampleTranslationQueueFixtureSeedsMyWorkAndQueueCoverageForProvide
 	require.NotEmpty(t, queueItems)
 
 	hasOpenPool := false
+	hasAssigned := false
+	hasOverdue := false
 	for _, item := range queueItems {
 		if item.AssignmentType == coreadmin.AssignmentTypeOpenPool &&
 			item.Status == coreadmin.AssignmentStatusPending &&
 			strings.TrimSpace(item.AssigneeID) == "" {
 			hasOpenPool = true
 		}
+		if item.Status == coreadmin.AssignmentStatusAssigned && strings.TrimSpace(item.AssigneeID) != "" {
+			hasAssigned = true
+		}
+		if item.Status == coreadmin.AssignmentStatusInProgress && item.DueDate != nil && item.DueDate.Before(time.Now().UTC()) {
+			hasOverdue = true
+		}
 	}
 	require.True(t, hasOpenPool, "expected seeded open-pool queue fixture assignment")
+	require.True(t, hasAssigned, "expected seeded assigned queue fixture assignment")
+	require.True(t, hasOverdue, "expected seeded overdue queue fixture assignment")
 }
 
 func TestSeedExampleTranslationQueueFixtureRequiresDependencies(t *testing.T) {

@@ -3,6 +3,7 @@ package setup
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 
 	"github.com/goliatone/go-admin/pkg/admin"
@@ -90,6 +91,21 @@ func (s *optionCapableBridgeContentServiceStub) CreateTranslation(_ context.Cont
 		return s.createTranslationRes, nil
 	}
 	return nil, admin.ErrNotFound
+}
+
+type bridgeBlockDefinitionRecordStub struct {
+	ID     uuid.UUID
+	Name   string
+	Slug   string
+	Schema map[string]any
+}
+
+type bridgeBlockServiceStub struct {
+	defs []*bridgeBlockDefinitionRecordStub
+}
+
+func (s *bridgeBlockServiceStub) ListDefinitions(context.Context, ...string) ([]*bridgeBlockDefinitionRecordStub, error) {
+	return append([]*bridgeBlockDefinitionRecordStub{}, s.defs...), nil
 }
 
 type optionCapableBridgeContentServiceNoTranslationStub struct {
@@ -446,4 +462,64 @@ func TestGoCMSContentBridgeCreateTranslationReturnsUnsupportedWhenCommandMissing
 	if !errors.Is(err, admin.ErrTranslationCreateUnsupported) {
 		t.Fatalf("expected ErrTranslationCreateUnsupported, got %v", err)
 	}
+}
+
+func TestGoCMSContentBridgeBlockDefinitionCacheSupportsConcurrentReads(t *testing.T) {
+	contentSvc := &optionCapableBridgeContentServiceStub{}
+	blockSvc := &bridgeBlockServiceStub{
+		defs: []*bridgeBlockDefinitionRecordStub{
+			{
+				ID:   uuid.New(),
+				Name: "hero",
+				Slug: "hero-banner",
+				Schema: map[string]any{
+					"x-block-type": "hero",
+				},
+			},
+			{
+				ID:   uuid.New(),
+				Name: "rich_text",
+				Slug: "rich-text",
+			},
+		},
+	}
+
+	service := newGoCMSContentBridge(contentSvc, blockSvc, nil, uuid.Nil, nil, nil)
+	bridge, ok := service.(*goCMSContentBridge)
+	if !ok || bridge == nil {
+		t.Fatalf("expected concrete bridge")
+	}
+
+	ctx := context.Background()
+	var wg sync.WaitGroup
+	for i := 0; i < 24; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < 100; j++ {
+				defs, err := bridge.BlockDefinitions(ctx)
+				if err != nil {
+					t.Errorf("BlockDefinitions failed: %v", err)
+					return
+				}
+				if len(defs) != 2 {
+					t.Errorf("expected 2 block definitions, got %d", len(defs))
+					return
+				}
+				if got := bridge.resolveBlockDefinitionID(ctx, "hero"); got != blockSvc.defs[0].ID {
+					t.Errorf("expected hero id %s, got %s", blockSvc.defs[0].ID, got)
+					return
+				}
+				if got := bridge.resolveBlockDefinitionID(ctx, "hero-banner"); got != blockSvc.defs[0].ID {
+					t.Errorf("expected hero-banner id %s, got %s", blockSvc.defs[0].ID, got)
+					return
+				}
+				if got := bridge.blockDefinitionName(blockSvc.defs[1].ID); got != "rich_text" {
+					t.Errorf("expected rich_text name, got %q", got)
+					return
+				}
+			}
+		}()
+	}
+	wg.Wait()
 }
