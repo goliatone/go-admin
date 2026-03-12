@@ -62,6 +62,10 @@ type DomainErrorCode struct {
 
 var defaultDomainErrorCodes = []DomainErrorCode{
 	{Code: TextCodeValidationError, Description: "Validation failed for the submitted payload.", Category: goerrors.CategoryValidation, HTTPStatus: 400},
+	{Code: string(translationcore.ErrorPermissionDenied), Description: "The request is not authorized for the current translation operation.", Category: goerrors.CategoryAuthz, HTTPStatus: 403},
+	{Code: string(translationcore.ErrorVersionConflict), Description: "The request version or idempotency state conflicts with the current server state.", Category: goerrors.CategoryConflict, HTTPStatus: 409},
+	{Code: string(translationcore.ErrorInvalidStatus), Description: "The requested action is invalid for the current resource state.", Category: goerrors.CategoryConflict, HTTPStatus: 409},
+	{Code: string(translationcore.ErrorPolicyBlocked), Description: "The requested action is blocked by translation policy or lifecycle rules.", Category: goerrors.CategoryConflict, HTTPStatus: 409},
 	{Code: TextCodeInvalidFeatureConfig, Description: "Feature configuration is invalid or missing dependencies.", Category: goerrors.CategoryValidation, HTTPStatus: 400},
 	{Code: TextCodeForbidden, Description: "The request is not authorized.", Category: goerrors.CategoryAuthz, HTTPStatus: 403},
 	{Code: TextCodeNotFound, Description: "The requested resource was not found.", Category: goerrors.CategoryNotFound, HTTPStatus: 404},
