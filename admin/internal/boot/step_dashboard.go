@@ -25,7 +25,7 @@ func DashboardStep(ctx BootCtx) error {
 	defaultLocale := ctx.DefaultLocale()
 
 	if binding.HasRenderer() {
-		htmlPath := routePath(ctx, "admin", "dashboard.page")
+		htmlPath := routePath(ctx, ctx.AdminUIGroup(), "dashboard.page")
 		routes = append(routes, RouteSpec{
 			Method: "GET",
 			Path:   htmlPath,

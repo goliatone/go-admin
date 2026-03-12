@@ -7,7 +7,7 @@ func HealthStep(ctx BootCtx) error {
 	if ctx == nil || ctx.Router() == nil {
 		return nil
 	}
-	path := routePath(ctx, "admin", "health")
+	path := routePath(ctx, ctx.AdminUIGroup(), "health")
 	responder := ctx.Responder()
 	if responder == nil {
 		return nil
