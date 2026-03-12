@@ -395,7 +395,7 @@ func normalizeAssignmentLifecycleMode(mode string) string {
 func normalizeWorkScope(scope string) string {
 	scope = strings.TrimSpace(scope)
 	if scope == "" {
-		return ""
+		return translationcore.DefaultWorkScope
 	}
 	scope = strings.ReplaceAll(scope, " ", "_")
 	allowed := true
