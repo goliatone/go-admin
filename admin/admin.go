@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/goliatone/go-admin/admin/routing"
+	translationgoadmin "github.com/goliatone/go-admin/translations/adapters/goadmin"
 	cmdrpc "github.com/goliatone/go-command/rpc"
 	"github.com/goliatone/go-featuregate/catalog"
 	fggate "github.com/goliatone/go-featuregate/gate"
@@ -27,6 +29,8 @@ type Admin struct {
 	featureCatalog               catalog.Catalog
 	featureCatalogResolver       catalog.MessageResolver
 	urlManager                   *urlkit.RouteManager
+	routingPlanner               routing.Planner
+	routingReport                routing.StartupReport
 	registry                     *Registry
 	cms                          CMSContainer
 	widgetSvc                    CMSWidgetService
@@ -261,6 +265,21 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 		}
 	}
 
+	routingPlanner, routingReport, err := newRoutingPlanner(cfg, urlManager)
+	if err != nil {
+		return nil, err
+	}
+	if routingPlanner != nil && (featureEnabled(featureGate, FeatureCMS) || featureEnabled(featureGate, FeatureTranslationExchange) || featureEnabled(featureGate, FeatureTranslationQueue)) {
+		if err := routingPlanner.RegisterModule(translationgoadmin.ModuleContract()); err != nil {
+			return nil, validationDomainError("translation routing registration failed", map[string]any{
+				"component": "translations",
+				"slug":      translationgoadmin.ModuleSlug,
+				"error":     strings.TrimSpace(err.Error()),
+			})
+		}
+		routingReport = routingPlanner.Report()
+	}
+
 	mediaLib := deps.MediaLibrary
 	if mediaLib == nil {
 		mediaLib = DisabledMediaLibrary{}
@@ -347,6 +366,8 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 		featureCatalog:         featureCatalog,
 		featureCatalogResolver: featureCatalogResolver,
 		urlManager:             urlManager,
+		routingPlanner:         routingPlanner,
+		routingReport:          routingReport,
 		registry:               registry,
 		cms:                    container,
 		widgetSvc:              container.WidgetService(),
@@ -506,6 +527,14 @@ func (a *Admin) WithModuleStartupPolicy(policy ModuleStartupPolicy) *Admin {
 		a.moduleStartupPolicy = ModuleStartupPolicyEnforce
 	}
 	return a
+}
+
+// RoutingReport exposes the current routing diagnostics snapshot.
+func (a *Admin) RoutingReport() routing.StartupReport {
+	if a == nil {
+		return routing.StartupReport{}
+	}
+	return a.routingReport
 }
 
 // WithAuth attaches an authenticator for route protection.

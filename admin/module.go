@@ -4,6 +4,7 @@ import (
 	"context"
 
 	modinternal "github.com/goliatone/go-admin/admin/internal/modules"
+	"github.com/goliatone/go-admin/admin/routing"
 	router "github.com/goliatone/go-router"
 )
 
@@ -25,6 +26,7 @@ type ModuleContext struct {
 	AuthMiddleware router.MiddlewareFunc
 	Locale         string
 	Translator     Translator
+	Routing        routing.ModuleContext
 }
 
 // Module defines the minimal contract for pluggable slices.
@@ -32,6 +34,11 @@ type ModuleContext struct {
 type Module interface {
 	Manifest() ModuleManifest
 	Register(ctx ModuleContext) error
+}
+
+// RouteContractProvider exposes the explicit routing contract required for mounted modules.
+type RouteContractProvider interface {
+	RouteContract() routing.ModuleContract
 }
 
 // ModuleStartupPolicy controls how startup validation errors are handled.

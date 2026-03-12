@@ -1,11 +1,13 @@
 package admin
 
+import translationcore "github.com/goliatone/go-admin/translations/core"
+
 // Canonical action disabled reason codes consumed by frontend action renderers.
 const (
-	ActionDisabledReasonCodeTranslationMissing = "TRANSLATION_MISSING"
-	ActionDisabledReasonCodeInvalidStatus      = "INVALID_STATUS"
-	ActionDisabledReasonCodePermissionDenied   = "PERMISSION_DENIED"
-	ActionDisabledReasonCodeMissingContext     = "MISSING_CONTEXT"
+	ActionDisabledReasonCodeTranslationMissing = string(translationcore.DisabledReasonTranslationMissing)
+	ActionDisabledReasonCodeInvalidStatus      = string(translationcore.DisabledReasonInvalidStatus)
+	ActionDisabledReasonCodePermissionDenied   = string(translationcore.DisabledReasonPermissionDenied)
+	ActionDisabledReasonCodeMissingContext     = string(translationcore.DisabledReasonMissingContext)
 	ActionDisabledReasonCodeFeatureDisabled    = TextCodeFeatureDisabled
 )
 

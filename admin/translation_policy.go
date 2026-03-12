@@ -47,9 +47,13 @@ func (input TranslationPolicyInput) effectiveEntity() string {
 
 // TranslationRequirements captures required locales and optional field checks.
 type TranslationRequirements struct {
-	Locales                []string
-	RequiredFields         map[string][]string
-	RequiredFieldsStrategy RequiredFieldsValidationStrategy
+	Locales                 []string
+	RequiredFields          map[string][]string
+	RequiredFieldsStrategy  RequiredFieldsValidationStrategy
+	ReviewRequired          bool
+	AllowPublishOverride    bool
+	AssignmentLifecycleMode string
+	DefaultWorkScope        string
 }
 
 // TranslationRequirementsResolver resolves translation requirements for a transition.

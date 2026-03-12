@@ -2,12 +2,15 @@ package admin
 
 import (
 	"context"
-	"github.com/goliatone/go-admin/internal/primitives"
+	"strings"
 
+	"github.com/goliatone/go-admin/admin/routing"
+	"github.com/goliatone/go-admin/internal/primitives"
 	urlkit "github.com/goliatone/go-urlkit"
 )
 
 const profileModuleID = "profile"
+const profileRouteKey = "profile.index"
 
 // ProfileModule registers a user profile panel and navigation entry.
 // Feature-gated via FeatureProfile and backed by ProfileService.
@@ -19,6 +22,7 @@ type ProfileModule struct {
 	updatePermission string
 	menuParent       string
 	skipMenu         bool
+	uiGroupPath      string
 	urls             urlkit.Resolver
 }
 
@@ -61,6 +65,12 @@ func (m *ProfileModule) Register(ctx ModuleContext) error {
 	if m.urls == nil {
 		m.urls = ctx.Admin.URLs()
 	}
+	if strings.TrimSpace(ctx.Routing.Resolved.UIGroupPath) != "" {
+		m.uiGroupPath = strings.TrimSpace(ctx.Routing.Resolved.UIGroupPath)
+	}
+	if path := ctx.Routing.RoutePath(routing.SurfaceUI, profileRouteKey); path != "" {
+		m.basePath = path
+	}
 
 	repo := NewProfileRepository(ctx.Admin.profile, m.defaultLocale)
 	avatarHidden := !featureEnabled(ctx.Admin.featureGate, FeatureMedia)
@@ -102,6 +112,15 @@ func (m *ProfileModule) Register(ctx ModuleContext) error {
 	return nil
 }
 
+func (m *ProfileModule) RouteContract() routing.ModuleContract {
+	return routing.ModuleContract{
+		Slug: profileModuleID,
+		UIRoutes: map[string]string{
+			profileRouteKey: "/",
+		},
+	}
+}
+
 func (m *ProfileModule) MenuItems(locale string) []MenuItem {
 	if m.skipMenu {
 		return nil
@@ -109,7 +128,11 @@ func (m *ProfileModule) MenuItems(locale string) []MenuItem {
 	if locale == "" {
 		locale = m.defaultLocale
 	}
-	path := resolveURLWith(m.urls, "admin", profileModuleID, nil, nil)
+	group := strings.TrimSpace(m.uiGroupPath)
+	if group == "" {
+		group = routing.DefaultUIGroupPath()
+	}
+	path := resolveURLWith(m.urls, group, profileRouteKey, nil, nil)
 	return []MenuItem{
 		{
 			Label:       "Profile",

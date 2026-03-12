@@ -4,20 +4,21 @@ import (
 	"net/http"
 	"sort"
 
+	translationcore "github.com/goliatone/go-admin/translations/core"
 	goerrors "github.com/goliatone/go-errors"
 	ferrors "github.com/goliatone/go-featuregate/ferrors"
 )
 
 const (
-	TextCodeValidationError                      = "VALIDATION_ERROR"
+	TextCodeValidationError                      = string(translationcore.ErrorValidation)
 	TextCodeInvalidFeatureConfig                 = "INVALID_FEATURE_CONFIG"
 	TextCodeForbidden                            = "FORBIDDEN"
-	TextCodeNotFound                             = "NOT_FOUND"
-	TextCodeFeatureDisabled                      = "FEATURE_DISABLED"
+	TextCodeNotFound                             = string(translationcore.ErrorNotFound)
+	TextCodeFeatureDisabled                      = string(translationcore.DisabledReasonFeatureDisabled)
 	TextCodeReplSessionLimit                     = "REPL_SESSION_LIMIT"
 	TextCodeWorkflowNotFound                     = "WORKFLOW_NOT_FOUND"
 	TextCodeWorkflowInvalidTransition            = "WORKFLOW_INVALID_TRANSITION"
-	TextCodeTranslationMissing                   = "TRANSLATION_MISSING"
+	TextCodeTranslationMissing                   = string(translationcore.DisabledReasonTranslationMissing)
 	TextCodeTranslationExists                    = "TRANSLATION_EXISTS"
 	TextCodeAutosaveConflict                     = "AUTOSAVE_CONFLICT"
 	TextCodeTranslationQueueConflict             = "TRANSLATION_QUEUE_CONFLICT"

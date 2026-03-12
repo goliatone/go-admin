@@ -1,7 +1,9 @@
 package admin
 
 import (
+	"github.com/goliatone/go-admin/admin/routing"
 	"github.com/goliatone/go-admin/internal/primitives"
+	translationgoadmin "github.com/goliatone/go-admin/translations/adapters/goadmin"
 	"strings"
 
 	urlkit "github.com/goliatone/go-urlkit"
@@ -99,69 +101,25 @@ func newURLManager(cfg Config) (*urlkit.RouteManager, error) {
 }
 
 func defaultURLKitConfig(cfg Config) *urlkit.Config {
-	adminRoutes := defaultAdminRoutes()
-	adminAPIRoutes := defaultAdminAPIRoutes()
-	debugRoutes := defaultAdminDebugRoutes()
-	debugAPIRoutes := defaultAdminDebugAPIRoutes()
-	publicAPIRoutes := defaultPublicAPIRoutes()
-
-	apiGroup := urlkit.GroupConfig{
-		Name: "api",
-		Path: "/" + cfg.URLs.Admin.APIPrefix,
-	}
-
-	if cfg.URLs.Admin.APIVersion != "" {
-		apiGroup.Groups = []urlkit.GroupConfig{
-			{
-				Name:   cfg.URLs.Admin.APIVersion,
-				Path:   "/" + cfg.URLs.Admin.APIVersion,
-				Routes: adminAPIRoutes,
-			},
-		}
-	} else {
-		apiGroup.Routes = adminAPIRoutes
-	}
-
-	debugAPIGroup := urlkit.GroupConfig{
-		Name:   "api",
-		Path:   "/api",
-		Routes: debugAPIRoutes,
-	}
-	debugGroup := urlkit.GroupConfig{
-		Name:   "debug",
-		Path:   "/debug",
-		Routes: debugRoutes,
-		Groups: []urlkit.GroupConfig{debugAPIGroup},
-	}
+	roots := effectiveRoutingRoots(cfg)
+	adminRoutes := rootedRoutes(roots.AdminRoot, defaultAdminRoutes())
+	adminAPIRoutes := rootedRoutes(roots.APIRoot, defaultAdminAPIRoutes())
+	publicAPIRoutes := rootedRoutes(roots.PublicAPIRoot, defaultPublicAPIRoutes())
 
 	adminGroup := urlkit.GroupConfig{
-		Name:    "admin",
-		BaseURL: cfg.URLs.Admin.BasePath,
+		Name:    routing.DefaultUIGroupPath(),
+		BaseURL: "",
 		Routes:  adminRoutes,
-		Groups:  []urlkit.GroupConfig{apiGroup, debugGroup},
+		Groups: []urlkit.GroupConfig{
+			rootedGroupConfig(routing.AdminAPIGroupPath(roots), adminAPIRoutes, routing.DefaultUIGroupPath()),
+		},
 	}
 	applyNamespaceTemplate(cfg.URLs.Admin, &adminGroup)
 
-	publicAPIGroup := urlkit.GroupConfig{
-		Name: "api",
-		Path: "/" + cfg.URLs.Public.APIPrefix,
-	}
-	if cfg.URLs.Public.APIVersion != "" {
-		publicAPIGroup.Groups = []urlkit.GroupConfig{
-			{
-				Name:   cfg.URLs.Public.APIVersion,
-				Path:   "/" + cfg.URLs.Public.APIVersion,
-				Routes: publicAPIRoutes,
-			},
-		}
-	} else {
-		publicAPIGroup.Routes = publicAPIRoutes
-	}
-
 	publicGroup := urlkit.GroupConfig{
 		Name:    "public",
-		BaseURL: cfg.URLs.Public.BasePath,
-		Groups:  []urlkit.GroupConfig{publicAPIGroup},
+		BaseURL: "",
+		Groups:  []urlkit.GroupConfig{rootedGroupConfig(publicAPIGroupName(cfg), publicAPIRoutes, "public")},
 	}
 	applyNamespaceTemplate(cfg.URLs.Public, &publicGroup)
 
@@ -186,19 +144,11 @@ func applyNamespaceTemplate(cfg URLNamespaceConfig, group *urlkit.GroupConfig) {
 }
 
 func adminAPIGroupName(cfg Config) string {
-	version := strings.TrimSpace(cfg.URLs.Admin.APIVersion)
-	if version == "" {
-		return "admin.api"
-	}
-	return "admin.api." + version
+	return routing.AdminAPIGroupPath(effectiveRoutingRoots(cfg))
 }
 
 func publicAPIGroupName(cfg Config) string {
-	version := strings.TrimSpace(cfg.URLs.Public.APIVersion)
-	if version == "" {
-		return "public.api"
-	}
-	return "public.api." + version
+	return routing.PublicAPIGroupPath(effectiveRoutingRoots(cfg))
 }
 
 func requiredURLKitRoutes(cfg Config) map[string][]string {
@@ -232,41 +182,103 @@ func validateURLKitRoutes(cfg Config, manager *urlkit.RouteManager) error {
 	return manager.Validate(requiredURLKitRoutes(cfg))
 }
 
-func defaultAdminRoutes() map[string]string {
-	return map[string]string{
-		"dashboard":              "/",
-		"dashboard.page":         "/dashboard",
-		"health":                 "/health",
-		"settings":               "/settings",
-		"preferences":            "/preferences",
-		"profile":                "/profile",
-		"users":                  "/users",
-		"users.id":               "/users/:id",
-		"user_profiles":          "/user-profiles",
-		"user_profiles.id":       "/user-profiles/:id",
-		"roles":                  "/roles",
-		"tenants":                "/tenants",
-		"tenants.id":             "/tenants/:id",
-		"organizations":          "/organizations",
-		"organizations.id":       "/organizations/:id",
-		"activity":               "/activity",
-		"feature_flags":          "/feature-flags",
-		"exports":                "/exports",
-		"content":                "/content",
-		"content.types":          "/content/types",
-		"content.block_library":  "/content/block-library",
-		"content.panel":          "/content/:panel",
-		"content.panel.id":       "/content/:panel/:id",
-		"content.panel.preview":  "/content/:panel/:id/preview",
-		"translations.dashboard": "/translations/dashboard",
-		"translations.queue":     "/content/translations",
-		"translations.exchange":  "/translations/exchange",
-		"block_conflicts":        "/block_conflicts",
+func effectiveRoutingRoots(cfg Config) routing.RootsConfig {
+	return cfg.Routing.Roots
+}
+
+func rootedRoutes(root string, routes map[string]string) map[string]string {
+	if len(routes) == 0 {
+		return nil
 	}
+	out := make(map[string]string, len(routes))
+	for routeKey, routePath := range routes {
+		trimmed := strings.TrimSpace(routePath)
+		if trimmed == "/" {
+			root = normalizeBasePath(root)
+			if root == "" {
+				out[routeKey] = "/"
+				continue
+			}
+			out[routeKey] = root + "/"
+			continue
+		}
+		out[routeKey] = joinBasePath(root, trimmed)
+	}
+	return out
+}
+
+func rootedGroupConfig(groupPath string, routes map[string]string, rootName string) urlkit.GroupConfig {
+	parts := strings.Split(strings.TrimSpace(groupPath), ".")
+	if len(parts) == 0 {
+		return urlkit.GroupConfig{}
+	}
+	if rootName != "" && parts[0] == rootName {
+		parts = parts[1:]
+	}
+	if len(parts) == 0 {
+		return urlkit.GroupConfig{
+			Name:   rootName,
+			Path:   "",
+			Routes: routes,
+		}
+	}
+
+	group := urlkit.GroupConfig{
+		Name: parts[len(parts)-1],
+		Path: "",
+	}
+	if len(parts) == 1 {
+		group.Routes = routes
+		return group
+	}
+
+	group.Routes = routes
+	for i := len(parts) - 2; i >= 0; i-- {
+		group = urlkit.GroupConfig{
+			Name:   parts[i],
+			Path:   "",
+			Groups: []urlkit.GroupConfig{group},
+		}
+	}
+	return group
+}
+
+func defaultAdminRoutes() map[string]string {
+	routes := map[string]string{
+		"dashboard":             "/",
+		"dashboard.page":        "/dashboard",
+		"health":                "/health",
+		"settings":              "/settings",
+		"preferences":           "/preferences",
+		"profile":               "/profile",
+		"users":                 "/users",
+		"users.id":              "/users/:id",
+		"user_profiles":         "/user-profiles",
+		"user_profiles.id":      "/user-profiles/:id",
+		"roles":                 "/roles",
+		"tenants":               "/tenants",
+		"tenants.id":            "/tenants/:id",
+		"organizations":         "/organizations",
+		"organizations.id":      "/organizations/:id",
+		"activity":              "/activity",
+		"feature_flags":         "/feature-flags",
+		"exports":               "/exports",
+		"content":               "/content",
+		"content.types":         "/content/types",
+		"content.block_library": "/content/block-library",
+		"content.panel":         "/content/:panel",
+		"content.panel.id":      "/content/:panel/:id",
+		"content.panel.preview": "/content/:panel/:id/preview",
+		"block_conflicts":       "/block_conflicts",
+	}
+	for routeKey, routePath := range translationgoadmin.AdminUIRoutes() {
+		routes[routeKey] = routePath
+	}
+	return routes
 }
 
 func defaultAdminAPIRoutes() map[string]string {
-	return map[string]string{
+	routes := map[string]string{
 		"activity":                            "/activity",
 		"bulk":                                "/bulk",
 		"bulk.rollback":                       "/bulk/:id/rollback",
@@ -313,18 +325,11 @@ func defaultAdminAPIRoutes() map[string]string {
 		"workflows.bindings.id":               "/workflows/bindings/:id",
 		"users.import":                        "/users-import",
 		"users.import.template":               "/users-import/template",
-		"translations.export":                 "/translations/export",
-		"translations.template":               "/translations/template",
-		"translations.my_work":                "/translations/my-work",
-		"translations.queue":                  "/translations/queue",
 		"translations.options.entity_types":   "/translations/options/entity-types",
 		"translations.options.source_records": "/translations/options/source-records",
 		"translations.options.locales":        "/translations/options/locales",
 		"translations.options.groups":         "/translations/options/groups",
 		"translations.options.assignees":      "/translations/options/assignees",
-		"translations.jobs.id":                "/translations/jobs/:id",
-		"translations.import.validate":        "/translations/import/validate",
-		"translations.import.apply":           "/translations/import/apply",
 		"users.bulk.assign_role":              "/users/bulk/assign-role",
 		"users.bulk.unassign_role":            "/users/bulk/unassign-role",
 		"panel":                               "/panels/:panel",
@@ -350,6 +355,10 @@ func defaultAdminAPIRoutes() map[string]string {
 		"icons.resolve":                       "/icons/resolve",
 		"icons.render":                        "/icons/render",
 	}
+	for routeKey, routePath := range translationgoadmin.AdminAPIRoutes() {
+		routes[routeKey] = routePath
+	}
+	return routes
 }
 
 func defaultAdminDebugRoutes() map[string]string {

@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 
+	"github.com/goliatone/go-admin/admin/routing"
 	urlkit "github.com/goliatone/go-urlkit"
 )
 
@@ -90,6 +91,7 @@ type Config struct {
 	DefaultOrgID    string
 
 	Commands CommandConfig
+	Routing  routing.Config
 }
 
 // SiteConfig controls public site API behavior exposed by go-admin.

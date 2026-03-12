@@ -1,6 +1,11 @@
 package admin
 
-import "github.com/goliatone/go-command"
+import (
+	"strings"
+
+	"github.com/goliatone/go-admin/admin/routing"
+	"github.com/goliatone/go-command"
+)
 
 // applyConfigDefaults fills deterministic defaults.
 func applyConfigDefaults(cfg Config) Config {
@@ -30,6 +35,9 @@ func applyConfigDefaults(cfg Config) Config {
 		cfg.Site.ViewProfileOverridePermission = "admin.site.view_profile_override"
 	}
 	cfg.URLs = normalizeURLConfig(cfg.URLs, cfg.BasePath)
+	cfg.Routing = routing.NormalizeConfig(cfg.Routing, routingRootDerivationInput(cfg))
+	cfg.Debug = normalizeDebugConfig(cfg.Debug, adminBasePath(cfg))
+	cfg.Routing = applyDefaultModuleRoutingConfig(cfg.Routing, cfg.Debug)
 
 	if cfg.SettingsPermission == "" {
 		cfg.SettingsPermission = "admin.settings.view"
@@ -172,7 +180,6 @@ func applyConfigDefaults(cfg Config) Config {
 		}
 	}
 
-	cfg.Debug = normalizeDebugConfig(cfg.Debug, cfg.BasePath)
 	cfg.Errors = normalizeErrorConfig(cfg.Errors, cfg.Debug)
 
 	cfg.Commands.Execution.DefaultMode = command.NormalizeExecutionMode(cfg.Commands.Execution.DefaultMode)
@@ -183,6 +190,42 @@ func applyConfigDefaults(cfg Config) Config {
 		cfg.Commands.Execution.PerCommand = map[string]command.ExecutionMode{}
 	}
 	cfg.Commands.RPC = applyRPCCommandConfigDefaults(cfg.Commands.RPC)
+
+	return cfg
+}
+
+func applyDefaultModuleRoutingConfig(cfg routing.Config, debugCfg DebugConfig) routing.Config {
+	if cfg.Modules == nil {
+		cfg.Modules = map[string]routing.ModuleConfig{}
+	}
+	defaults := map[string]routing.ModuleMountOverride{
+		featureFlagsModuleID: {
+			UIBase: joinBasePath(cfg.Roots.AdminRoot, "feature-flags"),
+		},
+		usersModuleID: {
+			UIBase: cfg.Roots.AdminRoot,
+		},
+		contentTypeBuilderModuleID: {
+			UIBase: joinBasePath(cfg.Roots.AdminRoot, "content"),
+		},
+		debugRoutingSlug: {
+			UIBase: normalizeBasePath(debugCfg.BasePath),
+		},
+	}
+
+	for slug, mount := range defaults {
+		moduleCfg := cfg.Modules[slug]
+		if strings.TrimSpace(moduleCfg.Mount.UIBase) == "" {
+			moduleCfg.Mount.UIBase = mount.UIBase
+		}
+		if strings.TrimSpace(moduleCfg.Mount.APIBase) == "" && strings.TrimSpace(mount.APIBase) != "" {
+			moduleCfg.Mount.APIBase = mount.APIBase
+		}
+		if strings.TrimSpace(moduleCfg.Mount.PublicAPIBase) == "" && strings.TrimSpace(mount.PublicAPIBase) != "" {
+			moduleCfg.Mount.PublicAPIBase = mount.PublicAPIBase
+		}
+		cfg.Modules[slug] = moduleCfg
+	}
 
 	return cfg
 }

@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"encoding/json"
+	"github.com/goliatone/go-admin/admin/routing"
 	"github.com/goliatone/go-admin/internal/primitives"
 	"io/fs"
 	"path"
@@ -24,18 +25,20 @@ import (
 )
 
 const (
-	contentTypeBuilderModuleID    = "content_type_builder"
-	contentTypePanelID            = "content_types"
-	blockDefinitionsPanelID       = "block_definitions"
-	contentTypeCreateCommandName  = "content_types.create"
-	contentTypeUpdateCommandName  = "content_types.update"
-	contentTypePublishCommandName = "content_types.publish"
-	contentTypeDeleteCommandName  = "content_types.delete"
-	contentTypeBuilderMenuGroupID = "content_modeling"
-	defaultFormIDOperationSuffix  = ".edit"
-	contentTypeSearchAdapterKey   = "content_types"
-	contentTypeBuilderPermissions = "content_types"
-	defaultContentChannelKey      = "default"
+	contentTypeBuilderModuleID       = "content_type_builder"
+	contentTypePanelID               = "content_types"
+	blockDefinitionsPanelID          = "block_definitions"
+	contentTypeCreateCommandName     = "content_types.create"
+	contentTypeUpdateCommandName     = "content_types.update"
+	contentTypePublishCommandName    = "content_types.publish"
+	contentTypeDeleteCommandName     = "content_types.delete"
+	contentTypeBuilderMenuGroupID    = "content_modeling"
+	defaultFormIDOperationSuffix     = ".edit"
+	contentTypeSearchAdapterKey      = "content_types"
+	contentTypeBuilderPermissions    = "content_types"
+	defaultContentChannelKey         = "default"
+	contentTypeBuilderTypesRouteKey  = "content_type_builder.types"
+	contentTypeBuilderBlocksRouteKey = "content_type_builder.block_library"
 )
 
 // SchemaValidationOptions captures schema validation/preview context.
@@ -77,6 +80,7 @@ type ContentTypeBuilderModule struct {
 	activity         ActivitySink
 	workflow         WorkflowEngine
 	workflowAuth     WorkflowAuthorizer
+	uiGroupPath      string
 	urls             urlkit.Resolver
 }
 
@@ -201,6 +205,9 @@ func (m *ContentTypeBuilderModule) Register(ctx ModuleContext) error {
 	if m.urls == nil {
 		m.urls = ctx.Admin.URLs()
 	}
+	if strings.TrimSpace(ctx.Routing.Resolved.UIGroupPath) != "" {
+		m.uiGroupPath = strings.TrimSpace(ctx.Routing.Resolved.UIGroupPath)
+	}
 	if m.defaultLocale == "" {
 		m.defaultLocale = ctx.Admin.config.DefaultLocale
 	}
@@ -273,17 +280,31 @@ func (m *ContentTypeBuilderModule) Register(ctx ModuleContext) error {
 	return nil
 }
 
+func (m *ContentTypeBuilderModule) RouteContract() routing.ModuleContract {
+	return routing.ModuleContract{
+		Slug: contentTypeBuilderModuleID,
+		UIRoutes: map[string]string{
+			contentTypeBuilderTypesRouteKey:  "/types",
+			contentTypeBuilderBlocksRouteKey: "/block-library",
+		},
+	}
+}
+
 // MenuItems contributes navigation for content modeling.
 // TODO: we should be able to configure menu icons
 func (m *ContentTypeBuilderModule) MenuItems(locale string) []MenuItem {
 	if locale == "" {
 		locale = m.defaultLocale
 	}
-	contentTypesPath := resolveURLWith(m.urls, "admin", "content.types", nil, nil)
+	group := strings.TrimSpace(m.uiGroupPath)
+	if group == "" {
+		group = routing.DefaultUIGroupPath()
+	}
+	contentTypesPath := resolveURLWith(m.urls, group, contentTypeBuilderTypesRouteKey, nil, nil)
 	if contentTypesPath == "" {
 		contentTypesPath = joinBasePath(m.basePath, path.Join("content", "types"))
 	}
-	blocksPath := resolveURLWith(m.urls, "admin", "content.block_library", nil, nil)
+	blocksPath := resolveURLWith(m.urls, group, contentTypeBuilderBlocksRouteKey, nil, nil)
 	if blocksPath == "" {
 		blocksPath = joinBasePath(m.basePath, path.Join("content", "block-library"))
 	}
@@ -549,7 +570,11 @@ func (m *ContentTypeBuilderModule) registerSearchAdapter(admin *Admin) {
 	if admin == nil || admin.search == nil || m.contentTypeSvc == nil {
 		return
 	}
-	contentTypesPath := resolveURLWith(m.urls, "admin", "content.types", nil, nil)
+	group := strings.TrimSpace(m.uiGroupPath)
+	if group == "" {
+		group = routing.DefaultUIGroupPath()
+	}
+	contentTypesPath := resolveURLWith(m.urls, group, contentTypeBuilderTypesRouteKey, nil, nil)
 	if contentTypesPath == "" {
 		contentTypesPath = joinBasePath(m.basePath, path.Join("content", "types"))
 	}

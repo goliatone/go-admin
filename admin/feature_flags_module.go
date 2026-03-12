@@ -1,13 +1,16 @@
 package admin
 
 import (
-	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
+
+	"github.com/goliatone/go-admin/admin/routing"
+	"github.com/goliatone/go-admin/internal/primitives"
 
 	urlkit "github.com/goliatone/go-urlkit"
 )
 
 const featureFlagsModuleID = "feature_flags"
+const featureFlagsRouteKey = "feature_flags.index"
 
 // FeatureFlagsModule registers the feature flags UI navigation entry.
 type FeatureFlagsModule struct {
@@ -16,6 +19,7 @@ type FeatureFlagsModule struct {
 	defaultLocale string
 	permission    string
 	menuParent    string
+	uiGroupPath   string
 	urls          urlkit.Resolver
 }
 
@@ -51,7 +55,22 @@ func (m *FeatureFlagsModule) Register(ctx ModuleContext) error {
 	if m.urls == nil {
 		m.urls = ctx.Admin.URLs()
 	}
+	if strings.TrimSpace(ctx.Routing.Resolved.UIGroupPath) != "" {
+		m.uiGroupPath = strings.TrimSpace(ctx.Routing.Resolved.UIGroupPath)
+	}
+	if path := ctx.Routing.RoutePath(routing.SurfaceUI, featureFlagsRouteKey); path != "" {
+		m.basePath = path
+	}
 	return nil
+}
+
+func (m *FeatureFlagsModule) RouteContract() routing.ModuleContract {
+	return routing.ModuleContract{
+		Slug: featureFlagsModuleID,
+		UIRoutes: map[string]string{
+			featureFlagsRouteKey: "/",
+		},
+	}
 }
 
 func (m *FeatureFlagsModule) MenuItems(locale string) []MenuItem {
@@ -63,7 +82,11 @@ func (m *FeatureFlagsModule) MenuItems(locale string) []MenuItem {
 		"type": "url",
 		"key":  featureFlagsModuleID,
 	}
-	if path := resolveURLWith(m.urls, "admin", "feature_flags", nil, nil); path != "" {
+	group := strings.TrimSpace(m.uiGroupPath)
+	if group == "" {
+		group = routing.DefaultUIGroupPath()
+	}
+	if path := resolveURLWith(m.urls, group, featureFlagsRouteKey, nil, nil); path != "" {
 		target["path"] = path
 	} else {
 		target["path"] = joinBasePath(basePath, "feature-flags")

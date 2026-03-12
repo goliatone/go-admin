@@ -8,12 +8,16 @@ import (
 	"strings"
 	"time"
 
+	"github.com/goliatone/go-admin/admin/routing"
 	urlkit "github.com/goliatone/go-urlkit"
 	"github.com/google/uuid"
 )
 
 const (
 	usersModuleID                   = "users"
+	usersRouteKey                   = "users.index"
+	usersRolesRouteKey              = "users.roles"
+	usersProfilesRouteKey           = "users.profiles"
 	rolesPanelID                    = "roles"
 	userProfilesPanelID             = "user-profiles"
 	roleDebugPermissionPrefix       = "admin.debug."
@@ -66,6 +70,7 @@ type UserManagementModule struct {
 	usersPerm     string
 	rolesPerm     string
 	menuParent    string
+	uiGroupPath   string
 	urls          urlkit.Resolver
 	userTabs      []PanelTab
 
@@ -173,6 +178,9 @@ func (m *UserManagementModule) Register(ctx ModuleContext) error {
 	}
 	if m.urls == nil {
 		m.urls = ctx.Admin.URLs()
+	}
+	if strings.TrimSpace(ctx.Routing.Resolved.UIGroupPath) != "" {
+		m.uiGroupPath = strings.TrimSpace(ctx.Routing.Resolved.UIGroupPath)
 	}
 
 	userRepo := NewUserPanelRepository(ctx.Admin.users)
@@ -370,13 +378,31 @@ func (m *UserManagementModule) Register(ctx ModuleContext) error {
 	return nil
 }
 
+func (m *UserManagementModule) RouteContract() routing.ModuleContract {
+	routes := map[string]string{
+		usersRouteKey:      "/users",
+		usersRolesRouteKey: "/roles",
+	}
+	if m.enableUserProfilesPanel {
+		routes[usersProfilesRouteKey] = "/user-profiles"
+	}
+	return routing.ModuleContract{
+		Slug:     usersModuleID,
+		UIRoutes: routes,
+	}
+}
+
 // MenuItems contributes navigation for users and roles.
 func (m *UserManagementModule) MenuItems(locale string) []MenuItem {
 	if locale == "" {
 		locale = m.defaultLocale
 	}
-	usersPath := resolveURLWith(m.urls, "admin", usersModuleID, nil, nil)
-	rolesPath := resolveURLWith(m.urls, "admin", rolesPanelID, nil, nil)
+	group := strings.TrimSpace(m.uiGroupPath)
+	if group == "" {
+		group = routing.DefaultUIGroupPath()
+	}
+	usersPath := resolveURLWith(m.urls, group, usersRouteKey, nil, nil)
+	rolesPath := resolveURLWith(m.urls, group, usersRolesRouteKey, nil, nil)
 	items := []MenuItem{
 		{
 			Label:       "Users",
@@ -402,7 +428,7 @@ func (m *UserManagementModule) MenuItems(locale string) []MenuItem {
 		},
 	}
 	if m.enableUserProfilesPanel {
-		profilesPath := resolveURLWith(m.urls, "admin", "user_profiles", nil, nil)
+		profilesPath := resolveURLWith(m.urls, group, usersProfilesRouteKey, nil, nil)
 		items = append(items, MenuItem{
 			Label:       "User Profiles",
 			LabelKey:    "menu.user_profiles",
