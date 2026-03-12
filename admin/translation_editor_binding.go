@@ -17,15 +17,16 @@ import (
 )
 
 const (
-	translationEditorMetadataKey                 = "translation_editor"
-	translationEditorRowVersionKey               = "row_version"
-	translationEditorSourceHashAtLastSyncKey     = "source_hash_at_last_sync"
-	translationEditorLastSyncedSourceFieldsKey   = "last_synced_source_fields"
-	translationEditorLastSavedAtKey              = "last_saved_at"
-	translationEditorLastSavedByKey              = "last_saved_by"
-	translationEditorComparisonModeSnapshot      = "snapshot"
-	translationEditorComparisonModeHashOnly      = "hash_only"
-	translationEditorDefaultVersion        int64 = 1
+	translationEditorMetadataKey                     = "translation_editor"
+	translationEditorAcknowledgedSourceHashKey       = "acknowledged_source_hash"
+	translationEditorRowVersionKey                   = "row_version"
+	translationEditorSourceHashAtLastSyncKey         = "source_hash_at_last_sync"
+	translationEditorLastSyncedSourceFieldsKey       = "last_synced_source_fields"
+	translationEditorLastSavedAtKey                  = "last_saved_at"
+	translationEditorLastSavedByKey                  = "last_saved_by"
+	translationEditorComparisonModeSnapshot          = "snapshot"
+	translationEditorComparisonModeHashOnly          = "hash_only"
+	translationEditorDefaultVersion            int64 = 1
 )
 
 type translationEditorContext struct {
@@ -46,6 +47,11 @@ type translationEditorContext struct {
 	TargetStatus         string
 	ActivityEntries      []ActivityEntry
 	HasTarget            bool
+}
+
+type translationEditorSourceSyncState struct {
+	SourceHash   string
+	SourceFields map[string]string
 }
 
 func (b *translationQueueBinding) AssignmentDetail(c router.Context, assignmentID string) (payload any, err error) {
@@ -84,11 +90,15 @@ func (b *translationQueueBinding) AssignmentDetail(c router.Context, assignmentI
 	if err != nil {
 		return nil, err
 	}
+	historyPage := clampInt(atoiDefault(c.Query("history_page"), 1), 1, 10_000)
+	historyPerPage := clampInt(atoiDefault(c.Query("history_per_page"), 10), 1, 100)
 
 	return map[string]any{
-		"data": b.assignmentDetailPayload(adminCtx.Context, assignment, editorCtx, now),
+		"data": b.assignmentDetailPayload(adminCtx.Context, assignment, editorCtx, now, historyPage, historyPerPage),
 		"meta": map[string]any{
-			"environment": environment,
+			"environment":      environment,
+			"history_page":     historyPage,
+			"history_per_page": historyPerPage,
 		},
 	}, nil
 }
@@ -173,7 +183,11 @@ func (b *translationQueueBinding) UpdateVariant(c router.Context, variantID stri
 	}
 
 	actorID := strings.TrimSpace(identity.ActorID)
-	updatedRecord, updatedFields, nextVersion, err := b.persistEditorVariantUpdate(adminCtx.Context, editorCtx, fields, metadata, actorID)
+	sourceSyncState, err := b.resolveEditorSourceSyncState(editorCtx, body, metadata)
+	if err != nil {
+		return nil, err
+	}
+	updatedRecord, updatedFields, nextVersion, err := b.persistEditorVariantUpdate(adminCtx.Context, editorCtx, fields, metadata, actorID, sourceSyncState)
 	if err != nil {
 		return nil, err
 	}
@@ -205,22 +219,22 @@ func (b *translationQueueBinding) UpdateVariant(c router.Context, variantID stri
 
 	return map[string]any{
 		"data": map[string]any{
-			"variant_id":                strings.TrimSpace(reloaded.TargetVariant.ID),
-			"family_id":                 strings.TrimSpace(reloaded.Family.ID),
-			"record_id":                 strings.TrimSpace(reloaded.TargetRecordID),
-			"status":                    strings.TrimSpace(reloaded.TargetStatus),
-			"row_version":               nextVersion,
-			"version":                   nextVersion,
-			"fields":                    cloneStringMap(reloaded.TargetFields),
-			"source_hash_at_last_sync":  strings.TrimSpace(reloaded.LastSyncedSourceHash),
-			"source_target_drift":       translationEditorDriftPayload(reloaded),
-			"field_completeness":        translationEditorFieldCompleteness(reloaded),
-			"field_drift":               translationEditorFieldDrift(reloaded),
-			"field_validations":         translationEditorFieldValidations(reloaded),
-			"updated_at":                translationEditorRecordUpdatedAt(updatedRecord),
-			"assignment_action_states":  b.assignmentEditorActionStates(adminCtx.Context, reloaded, currentAssignment),
-			"review_action_states":      b.reviewActionStates(adminCtx.Context, currentAssignment.Status),
-			"assist":                    translationEditorAssistPayload(reloaded),
+			"variant_id":               strings.TrimSpace(reloaded.TargetVariant.ID),
+			"family_id":                strings.TrimSpace(reloaded.Family.ID),
+			"record_id":                strings.TrimSpace(reloaded.TargetRecordID),
+			"status":                   strings.TrimSpace(reloaded.TargetStatus),
+			"row_version":              nextVersion,
+			"version":                  nextVersion,
+			"fields":                   cloneStringMap(reloaded.TargetFields),
+			"source_hash_at_last_sync": strings.TrimSpace(reloaded.LastSyncedSourceHash),
+			"source_target_drift":      translationEditorDriftPayload(reloaded),
+			"field_completeness":       translationEditorFieldCompleteness(reloaded),
+			"field_drift":              translationEditorFieldDrift(reloaded),
+			"field_validations":        translationEditorFieldValidations(reloaded),
+			"updated_at":               translationEditorRecordUpdatedAt(updatedRecord),
+			"assignment_action_states": b.assignmentEditorActionStates(adminCtx.Context, reloaded, currentAssignment),
+			"review_action_states":     b.reviewActionStates(adminCtx.Context, currentAssignment.Status),
+			"assist":                   translationEditorAssistPayload(reloaded),
 		},
 		"meta": map[string]any{
 			"environment": environment,
@@ -363,7 +377,7 @@ func (b *translationQueueBinding) loadVariantEditorContext(ctx context.Context, 
 	})
 }
 
-func (b *translationQueueBinding) assignmentDetailPayload(ctx context.Context, assignment TranslationAssignment, editorCtx translationEditorContext, now time.Time) map[string]any {
+func (b *translationQueueBinding) assignmentDetailPayload(ctx context.Context, assignment TranslationAssignment, editorCtx translationEditorContext, now time.Time, historyPage, historyPerPage int) map[string]any {
 	row := b.assignmentContractRow(ctx, assignment, now)
 	editorActions := b.assignmentEditorActionStates(ctx, editorCtx, assignment)
 	fieldCompleteness := translationEditorFieldCompleteness(editorCtx)
@@ -371,41 +385,46 @@ func (b *translationQueueBinding) assignmentDetailPayload(ctx context.Context, a
 	fieldValidations := translationEditorFieldValidations(editorCtx)
 	fields := translationEditorFieldPayloads(editorCtx)
 	comments, events := translationEditorTimeline(editorCtx, assignment)
+	attachments := translationEditorAttachments(editorCtx)
 
 	payload := map[string]any{
-		"assignment_id":          strings.TrimSpace(assignment.ID),
-		"family_id":              strings.TrimSpace(editorCtx.Family.ID),
-		"variant_id":             strings.TrimSpace(editorCtx.TargetVariant.ID),
-		"entity_type":            strings.TrimSpace(editorCtx.Family.ContentType),
-		"source_locale":          strings.TrimSpace(editorCtx.SourceVariant.Locale),
-		"target_locale":          strings.TrimSpace(assignment.TargetLocale),
-		"status":                 normalizeTranslationQueueState(string(assignment.Status)),
-		"priority":               strings.TrimSpace(string(assignment.Priority)),
-		"row_version":            editorCtx.TargetRowVersion,
-		"version":                editorCtx.TargetRowVersion,
-		"source_record_id":       strings.TrimSpace(editorCtx.SourceRecordID),
-		"target_record_id":       strings.TrimSpace(editorCtx.TargetRecordID),
-		"source_variant":         cloneFamilyVariantPayload(editorCtx.SourceVariant),
-		"target_variant":         cloneFamilyVariantPayload(editorCtx.TargetVariant),
-		"source_fields":          cloneStringMap(editorCtx.SourceFields),
-		"target_fields":          cloneStringMap(editorCtx.TargetFields),
-		"fields":                 fields,
-		"field_completeness":     fieldCompleteness,
-		"field_drift":            fieldDrift,
-		"field_validations":      fieldValidations,
-		"source_target_drift":    translationEditorDriftPayload(editorCtx),
-		"actions":                editorActions,
-		"editor_actions":         editorActions,
+		"assignment_id":            strings.TrimSpace(assignment.ID),
+		"assignment_row_version":   assignment.Version,
+		"assignment_version":       assignment.Version,
+		"family_id":                strings.TrimSpace(editorCtx.Family.ID),
+		"variant_id":               strings.TrimSpace(editorCtx.TargetVariant.ID),
+		"entity_type":              strings.TrimSpace(editorCtx.Family.ContentType),
+		"source_locale":            strings.TrimSpace(editorCtx.SourceVariant.Locale),
+		"target_locale":            strings.TrimSpace(assignment.TargetLocale),
+		"status":                   normalizeTranslationQueueState(string(assignment.Status)),
+		"priority":                 strings.TrimSpace(string(assignment.Priority)),
+		"row_version":              editorCtx.TargetRowVersion,
+		"version":                  editorCtx.TargetRowVersion,
+		"source_record_id":         strings.TrimSpace(editorCtx.SourceRecordID),
+		"target_record_id":         strings.TrimSpace(editorCtx.TargetRecordID),
+		"source_variant":           cloneFamilyVariantPayload(editorCtx.SourceVariant),
+		"target_variant":           cloneFamilyVariantPayload(editorCtx.TargetVariant),
+		"source_fields":            cloneStringMap(editorCtx.SourceFields),
+		"target_fields":            cloneStringMap(editorCtx.TargetFields),
+		"fields":                   fields,
+		"field_completeness":       fieldCompleteness,
+		"field_drift":              fieldDrift,
+		"field_validations":        fieldValidations,
+		"source_target_drift":      translationEditorDriftPayload(editorCtx),
+		"actions":                  editorActions,
+		"editor_actions":           editorActions,
 		"assignment_action_states": editorActions,
-		"review_actions":         b.reviewActionStates(ctx, assignment.Status),
-		"review_action_states":   b.reviewActionStates(ctx, assignment.Status),
-		"comments":               comments,
-		"events":                 events,
-		"attachments":            translationEditorAttachments(editorCtx),
-		"assist":                 translationEditorAssistPayload(editorCtx),
-		"glossary_matches":       translationEditorGlossaryMatches(editorCtx),
-		"style_guide_summary":    translationEditorStyleGuideSummary(editorCtx),
-		"translation_assignment": row,
+		"review_actions":           b.reviewActionStates(ctx, assignment.Status),
+		"review_action_states":     b.reviewActionStates(ctx, assignment.Status),
+		"comments":                 comments,
+		"events":                   events,
+		"history":                  translationEditorHistoryPayload(comments, events, historyPage, historyPerPage),
+		"attachments":              attachments,
+		"attachment_summary":       translationEditorAttachmentSummary(attachments),
+		"assist":                   translationEditorAssistPayload(editorCtx),
+		"glossary_matches":         translationEditorGlossaryMatches(editorCtx),
+		"style_guide_summary":      translationEditorStyleGuideSummary(editorCtx),
+		"translation_assignment":   row,
 	}
 	if assignment.DueDate != nil {
 		payload["due_date"] = assignment.DueDate
@@ -651,15 +670,15 @@ func translationEditorStyleGuideSummary(editorCtx translationEditorContext) map[
 	title := fmt.Sprintf("%s %s Style Guide", strings.ToUpper(locale), strings.Title(strings.ReplaceAll(contentType, "_", " ")))
 	summary := "Keep terminology consistent, preserve links/placeholders, and mirror source structure before stylistic changes."
 	return map[string]any{
-		"available":         true,
-		"locale":            locale,
-		"content_type":      contentType,
-		"title":             title,
-		"summary":           summary,
-		"summary_markdown":  summary,
-		"rules":             translationEditorStyleGuideRules(locale, contentType),
-		"last_reviewed_at":  "",
-		"style_guide_id":    "builtin:" + contentType + ":" + locale,
+		"available":        true,
+		"locale":           locale,
+		"content_type":     contentType,
+		"title":            title,
+		"summary":          summary,
+		"summary_markdown": summary,
+		"rules":            translationEditorStyleGuideRules(locale, contentType),
+		"last_reviewed_at": "",
+		"style_guide_id":   "builtin:" + contentType + ":" + locale,
 	}
 }
 
@@ -678,7 +697,29 @@ func translationEditorAttachments(editorCtx translationEditorContext) []map[stri
 		if !ok {
 			continue
 		}
-		out = append(out, cloneAnyMap(item))
+		normalized := cloneAnyMap(item)
+		if strings.TrimSpace(toString(normalized["id"])) == "" {
+			normalized["id"] = fmt.Sprintf("attachment-%d", len(out)+1)
+		}
+		if strings.TrimSpace(toString(normalized["kind"])) == "" {
+			normalized["kind"] = "reference"
+		}
+		if strings.TrimSpace(toString(normalized["filename"])) == "" {
+			normalized["filename"] = "attachment"
+		}
+		if _, ok := normalized["byte_size"]; !ok {
+			normalized["byte_size"] = 0
+		}
+		if _, ok := normalized["uploaded_at"]; !ok {
+			normalized["uploaded_at"] = ""
+		}
+		if _, ok := normalized["description"]; !ok {
+			normalized["description"] = ""
+		}
+		if _, ok := normalized["url"]; !ok {
+			normalized["url"] = ""
+		}
+		out = append(out, normalized)
 	}
 	return out
 }
@@ -696,6 +737,10 @@ func translationEditorTimeline(editorCtx translationEditorContext, assignment Tr
 		})
 	}
 	for _, entry := range editorCtx.ActivityEntries {
+		if comment, ok := translationEditorCommentFromActivity(entry); ok {
+			comments = append(comments, comment)
+			continue
+		}
 		events = append(events, map[string]any{
 			"id":         strings.TrimSpace(entry.ID),
 			"actor_id":   strings.TrimSpace(entry.Actor),
@@ -706,6 +751,110 @@ func translationEditorTimeline(editorCtx translationEditorContext, assignment Tr
 		})
 	}
 	return comments, events
+}
+
+func translationEditorCommentFromActivity(entry ActivityEntry) (map[string]any, bool) {
+	action := strings.TrimSpace(strings.ToLower(entry.Action))
+	if action == "" || !strings.Contains(action, "comment") {
+		return nil, false
+	}
+	metadata := cloneAnyMap(entry.Metadata)
+	body := strings.TrimSpace(firstNonEmpty(
+		toString(metadata["body"]),
+		toString(metadata["comment"]),
+		toString(metadata["message"]),
+		toString(metadata["text"]),
+		toString(metadata["reason"]),
+	))
+	if body == "" {
+		return nil, false
+	}
+	kind := strings.TrimSpace(firstNonEmpty(toString(metadata["kind"]), "comment"))
+	title := "Comment"
+	if strings.EqualFold(kind, "review_feedback") {
+		title = "Review feedback"
+	}
+	return map[string]any{
+		"id":         strings.TrimSpace(entry.ID),
+		"title":      title,
+		"author_id":  strings.TrimSpace(entry.Actor),
+		"actor_id":   strings.TrimSpace(entry.Actor),
+		"action":     strings.TrimSpace(entry.Action),
+		"body":       body,
+		"kind":       kind,
+		"metadata":   metadata,
+		"created_at": entry.CreatedAt,
+	}, true
+}
+
+func translationEditorHistoryPayload(comments, events []map[string]any, page, perPage int) map[string]any {
+	items := make([]map[string]any, 0, len(comments)+len(events))
+	for _, comment := range comments {
+		entry := cloneAnyMap(comment)
+		entry["entry_type"] = "comment"
+		if strings.TrimSpace(toString(entry["title"])) == "" {
+			entry["title"] = "Comment"
+		}
+		items = append(items, entry)
+	}
+	for _, event := range events {
+		entry := cloneAnyMap(event)
+		entry["entry_type"] = "event"
+		entry["title"] = strings.TrimSpace(firstNonEmpty(toString(entry["action"]), "Activity"))
+		items = append(items, entry)
+	}
+	sort.SliceStable(items, func(i, j int) bool {
+		left := strings.TrimSpace(toString(items[i]["created_at"]))
+		right := strings.TrimSpace(toString(items[j]["created_at"]))
+		return left > right
+	})
+	total := len(items)
+	if page <= 0 {
+		page = 1
+	}
+	if perPage <= 0 {
+		perPage = 10
+	}
+	start := (page - 1) * perPage
+	if start > total {
+		start = total
+	}
+	end := start + perPage
+	if end > total {
+		end = total
+	}
+	paged := []map[string]any{}
+	if start < end {
+		paged = items[start:end]
+	}
+	hasMore := end < total
+	nextPage := 0
+	if hasMore {
+		nextPage = page + 1
+	}
+	return map[string]any{
+		"items":     paged,
+		"page":      page,
+		"per_page":  perPage,
+		"total":     total,
+		"has_more":  hasMore,
+		"next_page": nextPage,
+	}
+}
+
+func translationEditorAttachmentSummary(attachments []map[string]any) map[string]any {
+	kinds := map[string]int{}
+	for _, attachment := range attachments {
+		kind := strings.TrimSpace(toString(attachment["kind"]))
+		if kind == "" {
+			kind = "reference"
+		}
+		kinds[kind]++
+	}
+	return map[string]any{
+		"total": len(attachments),
+		"kinds": kinds,
+	}
 }
 
 func translationEditorExpectedVersion(body map[string]any) int64 {
@@ -818,7 +967,43 @@ func translationEditorAssignmentByLocale(family translationservices.FamilyRecord
 	return TranslationAssignment{}
 }
 
-func (b *translationQueueBinding) persistEditorVariantUpdate(ctx context.Context, editorCtx translationEditorContext, fields map[string]string, metadata map[string]any, actorID string) (any, map[string]string, int64, error) {
+func (b *translationQueueBinding) resolveEditorSourceSyncState(editorCtx translationEditorContext, body, metadata map[string]any) (translationEditorSourceSyncState, error) {
+	state := translationEditorSourceSyncState{
+		SourceHash:   strings.TrimSpace(editorCtx.LastSyncedSourceHash),
+		SourceFields: cloneStringMap(editorCtx.LastSyncedFields),
+	}
+	requestedHash := strings.TrimSpace(firstNonEmpty(
+		toString(body[translationEditorAcknowledgedSourceHashKey]),
+		toString(body[translationEditorSourceHashAtLastSyncKey]),
+		toString(metadata[translationEditorAcknowledgedSourceHashKey]),
+		toString(metadata[translationEditorSourceHashAtLastSyncKey]),
+	))
+	if requestedHash == "" {
+		return state, nil
+	}
+
+	currentHash := strings.TrimSpace(editorCtx.CurrentSourceHash)
+	if currentHash != "" && strings.EqualFold(requestedHash, currentHash) {
+		return translationEditorSourceSyncState{
+			SourceHash:   currentHash,
+			SourceFields: cloneStringMap(editorCtx.SourceFields),
+		}, nil
+	}
+	if state.SourceHash != "" && strings.EqualFold(requestedHash, state.SourceHash) {
+		return state, nil
+	}
+	return translationEditorSourceSyncState{}, NewDomainError(string(translationcore.ErrorVersionConflict), "translation source acknowledgement is stale", map[string]any{
+		"field":                    translationEditorAcknowledgedSourceHashKey,
+		"variant_id":               strings.TrimSpace(editorCtx.TargetVariant.ID),
+		"family_id":                strings.TrimSpace(editorCtx.Family.ID),
+		"requested_source_hash":    requestedHash,
+		"source_hash_at_last_sync": state.SourceHash,
+		"current_source_hash":      currentHash,
+		"source_target_drift":      translationEditorDriftPayload(editorCtx),
+	})
+}
+
+func (b *translationQueueBinding) persistEditorVariantUpdate(ctx context.Context, editorCtx translationEditorContext, fields map[string]string, metadata map[string]any, actorID string, sourceSyncState translationEditorSourceSyncState) (any, map[string]string, int64, error) {
 	if b == nil || b.admin == nil || b.admin.contentSvc == nil {
 		return nil, nil, 0, serviceNotConfiguredDomainError("content service", map[string]any{
 			"component": "translation_editor_binding",
@@ -832,8 +1017,8 @@ func (b *translationQueueBinding) persistEditorVariantUpdate(ctx context.Context
 	if nextVersion <= 0 {
 		nextVersion = translationEditorDefaultVersion
 	}
-	syncHash := translationEditorHashFields(editorCtx.SourceFields)
-	syncFields := cloneStringMap(editorCtx.SourceFields)
+	syncHash := strings.TrimSpace(sourceSyncState.SourceHash)
+	syncFields := cloneStringMap(sourceSyncState.SourceFields)
 	now := b.now().UTC()
 
 	if strings.EqualFold(strings.TrimSpace(editorCtx.Family.ContentType), "pages") {
