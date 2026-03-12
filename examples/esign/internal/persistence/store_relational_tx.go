@@ -1411,7 +1411,7 @@ func listDocumentRecords(ctx context.Context, idb bun.IDB, scope stores.Scope, q
 		sel = sel.Where("LOWER(title) LIKE ?", "%"+strings.ToLower(titleFilter)+"%")
 	}
 	if createdBy := normalizeRelationalID(query.CreatedByUserID); createdBy != "" {
-		sel = sel.Where("created_by = ?", createdBy)
+		sel = sel.Where("created_by_user_id = ?", createdBy)
 	}
 	switch strings.ToLower(strings.TrimSpace(query.SortBy)) {
 	case "updated_at":
