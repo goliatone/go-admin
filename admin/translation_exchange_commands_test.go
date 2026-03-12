@@ -103,7 +103,7 @@ func TestTranslationImportApplyCommandPopulatesResult(t *testing.T) {
 	}
 }
 
-// Task 16.1: Command safety semantics - nil service returns typed error
+// Ensure nil services return a typed error.
 func TestTranslationExportCommandNilServiceReturnsError(t *testing.T) {
 	cmd := &TranslationExportCommand{Service: nil}
 	err := cmd.Execute(context.Background(), TranslationExportInput{
@@ -196,7 +196,7 @@ func TestTranslationImportRunCommandNilApplierReturnsError(t *testing.T) {
 	}
 }
 
-// Task 16.1: Command input validation - validation errors surface correctly
+// Ensure validation failures surface typed validation errors.
 func TestTranslationExportCommandValidationError(t *testing.T) {
 	service := &stubExchangeProcessor{}
 	cmd := &TranslationExportCommand{Service: service}
@@ -260,7 +260,7 @@ func TestTranslationImportRunCommandValidationError(t *testing.T) {
 	}
 }
 
-// Task 16.1: Run command composes validate+apply and populates combined result
+// Ensure the run command composes validate+apply and returns the combined result.
 func TestTranslationImportRunCommandPopulatesCombinedResult(t *testing.T) {
 	service := &stubExchangeProcessor{
 		validateResult: TranslationExchangeResult{

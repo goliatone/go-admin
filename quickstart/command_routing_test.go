@@ -12,20 +12,20 @@ import (
 	jobqueue "github.com/goliatone/go-job/queue"
 )
 
-const quickstartPhase6CommandName = "quickstart.phase6.dispatch"
+const quickstartQueuedCommandName = "quickstart.command_routing.dispatch"
 
-type quickstartPhase6Message struct {
+type quickstartQueuedMessage struct {
 	Value string `json:"value"`
 }
 
-func (quickstartPhase6Message) Type() string { return quickstartPhase6CommandName }
+func (quickstartQueuedMessage) Type() string { return quickstartQueuedCommandName }
 
-type quickstartPhase6InlineCommand struct {
+type quickstartQueuedInlineCommand struct {
 	calls int
-	last  quickstartPhase6Message
+	last  quickstartQueuedMessage
 }
 
-func (c *quickstartPhase6InlineCommand) Execute(_ context.Context, msg quickstartPhase6Message) error {
+func (c *quickstartQueuedInlineCommand) Execute(_ context.Context, msg quickstartQueuedMessage) error {
 	c.calls++
 	c.last = msg
 	return nil
@@ -66,7 +66,7 @@ func TestNewAdminWithCommandQueueRoutingDispatchesQueuedByPolicy(t *testing.T) {
 		AdapterHooks{},
 		WithCommandExecutionPolicy(admin.CommandExecutionPolicy{
 			PerCommand: map[string]gocommand.ExecutionMode{
-				quickstartPhase6CommandName: gocommand.ExecutionModeQueued,
+				quickstartQueuedCommandName: gocommand.ExecutionModeQueued,
 			},
 		}),
 		WithCommandQueueRouting(CommandQueueRoutingConfig{
@@ -79,20 +79,20 @@ func TestNewAdminWithCommandQueueRoutingDispatchesQueuedByPolicy(t *testing.T) {
 	}
 	t.Cleanup(adm.Commands().Reset)
 
-	inline := &quickstartPhase6InlineCommand{}
+	inline := &quickstartQueuedInlineCommand{}
 	if _, err := admin.RegisterCommand(adm.Commands(), inline); err != nil {
 		t.Fatalf("RegisterCommand: %v", err)
 	}
-	if err := admin.RegisterMessageFactory(adm.Commands(), quickstartPhase6CommandName, func(payload map[string]any, _ []string) (quickstartPhase6Message, error) {
-		return quickstartPhase6Message{Value: toString(payload["value"])}, nil
+	if err := admin.RegisterMessageFactory(adm.Commands(), quickstartQueuedCommandName, func(payload map[string]any, _ []string) (quickstartQueuedMessage, error) {
+		return quickstartQueuedMessage{Value: toString(payload["value"])}, nil
 	}); err != nil {
 		t.Fatalf("RegisterMessageFactory: %v", err)
 	}
 
-	receipt, err := adm.Commands().DispatchByNameWithOptions(context.Background(), quickstartPhase6CommandName, map[string]any{
+	receipt, err := adm.Commands().DispatchByNameWithOptions(context.Background(), quickstartQueuedCommandName, map[string]any{
 		"value": "queued",
 	}, nil, gocommand.DispatchOptions{
-		CorrelationID: "corr-phase6",
+		CorrelationID: "corr-command-routing",
 		Metadata: map[string]any{
 			"tenant_id": "tenant-1",
 		},
@@ -113,11 +113,11 @@ func TestNewAdminWithCommandQueueRoutingDispatchesQueuedByPolicy(t *testing.T) {
 	if enqueuer.last == nil {
 		t.Fatalf("expected enqueuer message capture")
 	}
-	if enqueuer.last.JobID != quickstartPhase6CommandName {
-		t.Fatalf("expected queued job id %q, got %q", quickstartPhase6CommandName, enqueuer.last.JobID)
+	if enqueuer.last.JobID != quickstartQueuedCommandName {
+		t.Fatalf("expected queued job id %q, got %q", quickstartQueuedCommandName, enqueuer.last.JobID)
 	}
-	if enqueuer.last.ExecutionID != "corr-phase6" {
-		t.Fatalf("expected correlation id corr-phase6, got %q", enqueuer.last.ExecutionID)
+	if enqueuer.last.ExecutionID != "corr-command-routing" {
+		t.Fatalf("expected correlation id corr-command-routing, got %q", enqueuer.last.ExecutionID)
 	}
 }
 
@@ -147,7 +147,7 @@ func TestCommandQueueRoutingFallbackReceiptWhenAdapterDoesNotExposeDispatchMetad
 		AdapterHooks{},
 		WithCommandExecutionPolicy(admin.CommandExecutionPolicy{
 			PerCommand: map[string]gocommand.ExecutionMode{
-				quickstartPhase6CommandName: gocommand.ExecutionModeQueued,
+				quickstartQueuedCommandName: gocommand.ExecutionModeQueued,
 			},
 		}),
 		WithCommandQueueRouting(CommandQueueRoutingConfig{
@@ -160,13 +160,13 @@ func TestCommandQueueRoutingFallbackReceiptWhenAdapterDoesNotExposeDispatchMetad
 	}
 	t.Cleanup(adm.Commands().Reset)
 
-	if err := admin.RegisterMessageFactory(adm.Commands(), quickstartPhase6CommandName, func(payload map[string]any, _ []string) (quickstartPhase6Message, error) {
-		return quickstartPhase6Message{Value: toString(payload["value"])}, nil
+	if err := admin.RegisterMessageFactory(adm.Commands(), quickstartQueuedCommandName, func(payload map[string]any, _ []string) (quickstartQueuedMessage, error) {
+		return quickstartQueuedMessage{Value: toString(payload["value"])}, nil
 	}); err != nil {
 		t.Fatalf("RegisterMessageFactory: %v", err)
 	}
 
-	receipt, err := adm.Commands().DispatchByNameWithOptions(context.Background(), quickstartPhase6CommandName, map[string]any{
+	receipt, err := adm.Commands().DispatchByNameWithOptions(context.Background(), quickstartQueuedCommandName, map[string]any{
 		"value": "queued",
 	}, nil, gocommand.DispatchOptions{})
 	if err != nil {

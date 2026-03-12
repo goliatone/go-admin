@@ -6,8 +6,8 @@ import (
 	"testing"
 )
 
-func TestTranslationEditorPhaseNineFixtureContracts(t *testing.T) {
-	data, err := os.ReadFile("testdata/translation_editor_phase9_fixtures.json")
+func TestTranslationEditorContractFixtures(t *testing.T) {
+	data, err := os.ReadFile("testdata/translation_editor_contract_fixtures.json")
 	if err != nil {
 		t.Fatalf("read fixture: %v", err)
 	}
@@ -40,9 +40,27 @@ func TestTranslationEditorPhaseNineFixtureContracts(t *testing.T) {
 	}
 	assertEditorActionEnvelope(t, update["assignment_action_states"], "submit_review")
 
+	history := extractMap(detail["history"])
+	if got := toInt(history["total"]); got <= 0 {
+		t.Fatalf("expected history total > 0, got %+v", history)
+	}
+	attachments, _ := detail["attachments"].([]any)
+	if len(attachments) == 0 {
+		t.Fatalf("expected fixture attachments")
+	}
+	attachmentSummary := extractMap(detail["attachment_summary"])
+	if got := toInt(attachmentSummary["total"]); got != len(attachments) {
+		t.Fatalf("expected attachment_summary total=%d, got %+v", len(attachments), attachmentSummary)
+	}
+
 	conflict := extractMap(extractMap(fixture["autosave_conflict"])["error"])
 	if got := toString(conflict["text_code"]); got != TextCodeAutosaveConflict {
 		t.Fatalf("expected autosave conflict text_code %q, got %q", TextCodeAutosaveConflict, got)
+	}
+
+	autoApprove := extractMap(extractMap(fixture["no_review_auto_approve"])["data"])
+	if got := toString(autoApprove["status"]); got != string(AssignmentStatusApproved) {
+		t.Fatalf("expected no_review_auto_approve status %q, got %q", AssignmentStatusApproved, got)
 	}
 
 	backcompat := extractMap(fixture["assist_backcompat"])

@@ -250,7 +250,7 @@ func TestTranslationExchangeBindingImportValidateRejectsUnsupportedFormatWithTyp
 	}
 }
 
-// Task 16.2: Adapter tests for HTTP parsing + command dispatch behavior
+// Ensure the binding parses HTTP input and dispatches commands correctly.
 
 func TestTranslationExchangeBindingExportParsesFilterFromJSON(t *testing.T) {
 	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
