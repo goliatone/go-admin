@@ -1,0 +1,494 @@
+{
+  "ready": {
+    "family_id": "family-ready",
+    "content_type": "pages",
+    "source_locale": "en",
+    "readiness_state": "ready",
+    "source_variant": {
+      "id": "variant-ready-en",
+      "family_id": "family-ready",
+      "locale": "en",
+      "status": "published",
+      "is_source": true,
+      "source_record_id": "page-ready-en",
+      "fields": {
+        "title": "Ready page"
+      },
+      "created_at": "2026-03-01T09:00:00Z",
+      "updated_at": "2026-03-02T09:00:00Z",
+      "published_at": "2026-03-03T09:00:00Z"
+    },
+    "locale_variants": [
+      {
+        "id": "variant-ready-en",
+        "family_id": "family-ready",
+        "locale": "en",
+        "status": "published",
+        "is_source": true,
+        "source_record_id": "page-ready-en",
+        "fields": {
+          "title": "Ready page"
+        },
+        "created_at": "2026-03-01T09:00:00Z",
+        "updated_at": "2026-03-02T09:00:00Z",
+        "published_at": "2026-03-03T09:00:00Z"
+      },
+      {
+        "id": "variant-ready-es",
+        "family_id": "family-ready",
+        "locale": "es",
+        "status": "published",
+        "is_source": false,
+        "source_record_id": "page-ready-es",
+        "fields": {
+          "title": "Pagina lista"
+        },
+        "created_at": "2026-03-01T10:00:00Z",
+        "updated_at": "2026-03-02T10:00:00Z",
+        "published_at": "2026-03-03T10:00:00Z"
+      },
+      {
+        "id": "variant-ready-fr",
+        "family_id": "family-ready",
+        "locale": "fr",
+        "status": "approved",
+        "is_source": false,
+        "source_record_id": "page-ready-fr",
+        "fields": {
+          "title": "Page prete"
+        },
+        "created_at": "2026-03-01T11:00:00Z",
+        "updated_at": "2026-03-02T11:00:00Z"
+      }
+    ],
+    "blockers": [],
+    "active_assignments": [
+      {
+        "id": "asg-ready-fr",
+        "family_id": "family-ready",
+        "variant_id": "variant-ready-fr",
+        "source_locale": "en",
+        "target_locale": "fr",
+        "work_scope": "__all__",
+        "status": "assigned",
+        "assignee_id": "translator.ready",
+        "reviewer_id": "review.ready",
+        "priority": "normal",
+        "due_date": "2026-03-16T12:00:00Z",
+        "created_at": "2026-03-03T11:00:00Z",
+        "updated_at": "2026-03-04T11:00:00Z"
+      }
+    ],
+    "publish_gate": {
+      "allowed": true,
+      "override_allowed": false,
+      "blocked_by": [],
+      "review_required": true
+    },
+    "readiness_summary": {
+      "state": "ready",
+      "required_locales": ["en", "es", "fr"],
+      "missing_locales": [],
+      "available_locales": ["en", "es", "fr"],
+      "blocker_codes": [],
+      "missing_required_locale_count": 0,
+      "pending_review_count": 0,
+      "outdated_locale_count": 0,
+      "publish_ready": true
+    }
+  },
+  "blocked": {
+    "family_id": "family-blocked",
+    "content_type": "news",
+    "source_locale": "en",
+    "readiness_state": "blocked",
+    "source_variant": {
+      "id": "variant-blocked-en",
+      "family_id": "family-blocked",
+      "locale": "en",
+      "status": "published",
+      "is_source": true,
+      "source_record_id": "news-blocked-en",
+      "fields": {
+        "title": "Blocked bulletin"
+      },
+      "created_at": "2026-03-01T09:00:00Z",
+      "updated_at": "2026-03-02T09:00:00Z"
+    },
+    "locale_variants": [
+      {
+        "id": "variant-blocked-en",
+        "family_id": "family-blocked",
+        "locale": "en",
+        "status": "published",
+        "is_source": true,
+        "source_record_id": "news-blocked-en",
+        "fields": {
+          "title": "Blocked bulletin"
+        },
+        "created_at": "2026-03-01T09:00:00Z",
+        "updated_at": "2026-03-02T09:00:00Z"
+      }
+    ],
+    "blockers": [
+      {
+        "id": "blocker-policy-denied",
+        "family_id": "family-blocked",
+        "blocker_code": "policy_denied",
+        "details": {
+          "reason": "Legal hold"
+        }
+      }
+    ],
+    "active_assignments": [],
+    "publish_gate": {
+      "allowed": false,
+      "override_allowed": false,
+      "blocked_by": ["policy_denied"],
+      "review_required": false
+    },
+    "readiness_summary": {
+      "state": "blocked",
+      "required_locales": ["en"],
+      "missing_locales": [],
+      "available_locales": ["en"],
+      "blocker_codes": ["policy_denied"],
+      "missing_required_locale_count": 0,
+      "pending_review_count": 0,
+      "outdated_locale_count": 0,
+      "publish_ready": false
+    }
+  },
+  "missing_locale": {
+    "family_id": "family-missing-locale",
+    "content_type": "pages",
+    "source_locale": "en",
+    "readiness_state": "blocked",
+    "source_variant": {
+      "id": "variant-missing-en",
+      "family_id": "family-missing-locale",
+      "locale": "en",
+      "status": "published",
+      "is_source": true,
+      "source_record_id": "page-missing-en",
+      "fields": {
+        "title": "Missing locale page"
+      },
+      "created_at": "2026-03-01T09:00:00Z",
+      "updated_at": "2026-03-02T09:00:00Z"
+    },
+    "locale_variants": [
+      {
+        "id": "variant-missing-en",
+        "family_id": "family-missing-locale",
+        "locale": "en",
+        "status": "published",
+        "is_source": true,
+        "source_record_id": "page-missing-en",
+        "fields": {
+          "title": "Missing locale page"
+        },
+        "created_at": "2026-03-01T09:00:00Z",
+        "updated_at": "2026-03-02T09:00:00Z"
+      },
+      {
+        "id": "variant-missing-es",
+        "family_id": "family-missing-locale",
+        "locale": "es",
+        "status": "published",
+        "is_source": false,
+        "source_record_id": "page-missing-es",
+        "fields": {
+          "title": "Pagina incompleta"
+        },
+        "created_at": "2026-03-01T10:00:00Z",
+        "updated_at": "2026-03-02T10:00:00Z"
+      }
+    ],
+    "blockers": [
+      {
+        "id": "blocker-missing-fr",
+        "family_id": "family-missing-locale",
+        "blocker_code": "missing_locale",
+        "locale": "fr",
+        "details": {}
+      }
+    ],
+    "active_assignments": [],
+    "publish_gate": {
+      "allowed": false,
+      "override_allowed": true,
+      "blocked_by": ["missing_locale"],
+      "review_required": true
+    },
+    "readiness_summary": {
+      "state": "blocked",
+      "required_locales": ["en", "es", "fr"],
+      "missing_locales": ["fr"],
+      "available_locales": ["en", "es"],
+      "blocker_codes": ["missing_locale"],
+      "missing_required_locale_count": 1,
+      "pending_review_count": 0,
+      "outdated_locale_count": 0,
+      "publish_ready": false
+    }
+  },
+  "missing_field": {
+    "family_id": "family-missing-field",
+    "content_type": "posts",
+    "source_locale": "en",
+    "readiness_state": "blocked",
+    "source_variant": {
+      "id": "variant-field-en",
+      "family_id": "family-missing-field",
+      "locale": "en",
+      "status": "published",
+      "is_source": true,
+      "source_record_id": "post-field-en",
+      "fields": {
+        "title": "Field coverage post"
+      },
+      "created_at": "2026-03-01T09:00:00Z",
+      "updated_at": "2026-03-02T09:00:00Z"
+    },
+    "locale_variants": [
+      {
+        "id": "variant-field-en",
+        "family_id": "family-missing-field",
+        "locale": "en",
+        "status": "published",
+        "is_source": true,
+        "source_record_id": "post-field-en",
+        "fields": {
+          "title": "Field coverage post"
+        },
+        "created_at": "2026-03-01T09:00:00Z",
+        "updated_at": "2026-03-02T09:00:00Z"
+      },
+      {
+        "id": "variant-field-es",
+        "family_id": "family-missing-field",
+        "locale": "es",
+        "status": "draft",
+        "is_source": false,
+        "source_record_id": "post-field-es",
+        "fields": {
+          "title": ""
+        },
+        "created_at": "2026-03-01T10:00:00Z",
+        "updated_at": "2026-03-02T10:00:00Z"
+      }
+    ],
+    "blockers": [
+      {
+        "id": "blocker-missing-title",
+        "family_id": "family-missing-field",
+        "blocker_code": "missing_field",
+        "locale": "es",
+        "field_path": "title",
+        "details": {}
+      }
+    ],
+    "active_assignments": [],
+    "publish_gate": {
+      "allowed": false,
+      "override_allowed": false,
+      "blocked_by": ["missing_field"],
+      "review_required": false
+    },
+    "readiness_summary": {
+      "state": "blocked",
+      "required_locales": ["en", "es"],
+      "missing_locales": [],
+      "available_locales": ["en", "es"],
+      "blocker_codes": ["missing_field"],
+      "missing_required_locale_count": 0,
+      "pending_review_count": 0,
+      "outdated_locale_count": 0,
+      "publish_ready": false
+    }
+  },
+  "pending_review": {
+    "family_id": "family-pending-review",
+    "content_type": "posts",
+    "source_locale": "en",
+    "readiness_state": "blocked",
+    "source_variant": {
+      "id": "variant-review-en",
+      "family_id": "family-pending-review",
+      "locale": "en",
+      "status": "published",
+      "is_source": true,
+      "source_record_id": "post-review-en",
+      "fields": {
+        "title": "Review pending post"
+      },
+      "created_at": "2026-03-01T09:00:00Z",
+      "updated_at": "2026-03-02T09:00:00Z"
+    },
+    "locale_variants": [
+      {
+        "id": "variant-review-en",
+        "family_id": "family-pending-review",
+        "locale": "en",
+        "status": "published",
+        "is_source": true,
+        "source_record_id": "post-review-en",
+        "fields": {
+          "title": "Review pending post"
+        },
+        "created_at": "2026-03-01T09:00:00Z",
+        "updated_at": "2026-03-02T09:00:00Z"
+      },
+      {
+        "id": "variant-review-es",
+        "family_id": "family-pending-review",
+        "locale": "es",
+        "status": "in_review",
+        "is_source": false,
+        "source_record_id": "post-review-es",
+        "fields": {
+          "title": "Post en revision"
+        },
+        "created_at": "2026-03-01T10:00:00Z",
+        "updated_at": "2026-03-05T10:00:00Z"
+      }
+    ],
+    "blockers": [
+      {
+        "id": "blocker-review-es",
+        "family_id": "family-pending-review",
+        "blocker_code": "pending_review",
+        "locale": "es",
+        "details": {}
+      }
+    ],
+    "active_assignments": [
+      {
+        "id": "asg-review-es",
+        "family_id": "family-pending-review",
+        "variant_id": "variant-review-es",
+        "source_locale": "en",
+        "target_locale": "es",
+        "work_scope": "__all__",
+        "status": "in_review",
+        "assignee_id": "translator.review",
+        "reviewer_id": "reviewer.review",
+        "priority": "high",
+        "due_date": "2026-03-12T12:00:00Z",
+        "created_at": "2026-03-04T11:00:00Z",
+        "updated_at": "2026-03-06T11:00:00Z"
+      }
+    ],
+    "publish_gate": {
+      "allowed": false,
+      "override_allowed": false,
+      "blocked_by": ["pending_review"],
+      "review_required": true
+    },
+    "readiness_summary": {
+      "state": "blocked",
+      "required_locales": ["en", "es"],
+      "missing_locales": [],
+      "available_locales": ["en", "es"],
+      "blocker_codes": ["pending_review"],
+      "missing_required_locale_count": 0,
+      "pending_review_count": 1,
+      "outdated_locale_count": 0,
+      "publish_ready": false
+    }
+  },
+  "outdated_source": {
+    "family_id": "family-outdated",
+    "content_type": "pages",
+    "source_locale": "en",
+    "readiness_state": "blocked",
+    "source_variant": {
+      "id": "variant-outdated-en",
+      "family_id": "family-outdated",
+      "locale": "en",
+      "status": "published",
+      "is_source": true,
+      "source_record_id": "page-outdated-en",
+      "fields": {
+        "title": "Outdated source page"
+      },
+      "created_at": "2026-03-01T09:00:00Z",
+      "updated_at": "2026-03-07T09:00:00Z",
+      "published_at": "2026-03-07T10:00:00Z"
+    },
+    "locale_variants": [
+      {
+        "id": "variant-outdated-en",
+        "family_id": "family-outdated",
+        "locale": "en",
+        "status": "published",
+        "is_source": true,
+        "source_record_id": "page-outdated-en",
+        "fields": {
+          "title": "Outdated source page"
+        },
+        "created_at": "2026-03-01T09:00:00Z",
+        "updated_at": "2026-03-07T09:00:00Z",
+        "published_at": "2026-03-07T10:00:00Z"
+      },
+      {
+        "id": "variant-outdated-fr",
+        "family_id": "family-outdated",
+        "locale": "fr",
+        "status": "approved",
+        "is_source": false,
+        "source_record_id": "page-outdated-fr",
+        "source_hash_at_last_sync": "stale-hash",
+        "fields": {
+          "title": "Page obsolete"
+        },
+        "created_at": "2026-03-01T10:00:00Z",
+        "updated_at": "2026-03-03T10:00:00Z"
+      }
+    ],
+    "blockers": [
+      {
+        "id": "blocker-outdated-fr",
+        "family_id": "family-outdated",
+        "blocker_code": "outdated_source",
+        "locale": "fr",
+        "details": {}
+      }
+    ],
+    "active_assignments": [
+      {
+        "id": "asg-outdated-fr",
+        "family_id": "family-outdated",
+        "variant_id": "variant-outdated-fr",
+        "source_locale": "en",
+        "target_locale": "fr",
+        "work_scope": "__all__",
+        "status": "assigned",
+        "assignee_id": "translator.fr",
+        "reviewer_id": "",
+        "priority": "urgent",
+        "due_date": "2026-03-09T12:00:00Z",
+        "created_at": "2026-03-07T11:00:00Z",
+        "updated_at": "2026-03-08T11:00:00Z"
+      }
+    ],
+    "publish_gate": {
+      "allowed": false,
+      "override_allowed": true,
+      "blocked_by": ["outdated_source"],
+      "review_required": false
+    },
+    "readiness_summary": {
+      "state": "blocked",
+      "required_locales": ["en", "fr"],
+      "missing_locales": [],
+      "available_locales": ["en", "fr"],
+      "blocker_codes": ["outdated_source"],
+      "missing_required_locale_count": 0,
+      "pending_review_count": 0,
+      "outdated_locale_count": 1,
+      "publish_ready": false
+    }
+  }
+}

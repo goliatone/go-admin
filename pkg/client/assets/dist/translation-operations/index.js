@@ -1,4 +1,5 @@
-import { n as f, E as A, h as S } from "../chunks/index-BJSr8R8b.js";
+import { n as f, E as A } from "../chunks/index-BmhyAsmn.js";
+import { h as S } from "../chunks/http-client-Dm229xuF.js";
 import { extractStructuredError as $ } from "../toast/error-helpers.js";
 const q = {
   QUEUE: "admin.translations.queue",
@@ -28,19 +29,19 @@ function b() {
 function y(e) {
   if (!e)
     return { visible: !1, enabled: !1 };
-  const t = e.visible === !0 || e.visible === void 0 && e.enabled, n = e.entry ?? { enabled: e.enabled }, s = n.enabled === !0, a = n.reason || (e.enabled ? void 0 : "module disabled by capability mode"), i = n.reason_code || (e.enabled ? void 0 : "FEATURE_DISABLED"), r = n.permission;
+  const t = e.visible === !0 || e.visible === void 0 && e.enabled, n = e.entry ?? { enabled: e.enabled }, s = n.enabled === !0, a = n.reason || (e.enabled ? void 0 : "module disabled by capability mode"), r = n.reason_code || (e.enabled ? void 0 : "FEATURE_DISABLED"), i = n.permission;
   return t ? !e.enabled || !s ? {
     visible: !0,
     enabled: !1,
     reason: a,
-    reasonCode: i,
-    permission: r
+    reasonCode: r,
+    permission: i
   } : { visible: !0, enabled: !0 } : {
     visible: !1,
     enabled: !1,
     reason: a,
-    reasonCode: i,
-    permission: r
+    reasonCode: r,
+    permission: i
   };
 }
 function I(e) {
@@ -49,36 +50,36 @@ function I(e) {
 function T(e) {
   return (e ?? b()).modules.queue.enabled;
 }
-function G(e) {
+function D(e) {
   return I(e) || T(e);
 }
 function g(e, t, n) {
   const s = t ?? b(), a = q[e];
   if (s.routes[a])
     return s.routes[a];
-  const i = (n ?? "").replace(/\/+$/, "");
+  const r = (n ?? "").replace(/\/+$/, "");
   switch (e) {
     case "QUEUE":
-      return s.modules.queue.enabled ? `${i}/content/translations` : null;
+      return s.modules.queue.enabled ? `${r}/content/translations` : null;
     case "EXCHANGE_UI":
-      return s.modules.exchange.enabled ? `${i}/translations/exchange` : null;
+      return s.modules.exchange.enabled ? `${r}/translations/exchange` : null;
     default:
       return null;
   }
 }
 function v(e, t) {
-  const n = e ?? b(), s = (t ?? "").replace(/\/+$/, ""), a = [], i = y(n.modules.queue), r = g("QUEUE", n, s);
-  i.visible && r && a.push({
+  const n = e ?? b(), s = (t ?? "").replace(/\/+$/, ""), a = [], r = y(n.modules.queue), i = g("QUEUE", n, s);
+  r.visible && i && a.push({
     id: "translation-queue",
     label: "Translation Queue",
     icon: "iconoir-language",
-    href: r,
+    href: i,
     module: "queue",
-    enabled: i.enabled,
+    enabled: r.enabled,
     description: "Manage translation assignments and review workflow",
-    disabledReason: i.reason,
-    disabledReasonCode: i.reasonCode,
-    permission: i.permission
+    disabledReason: r.reason,
+    disabledReasonCode: r.reasonCode,
+    permission: r.permission
   });
   const l = y(n.modules.exchange), c = g("EXCHANGE_UI", n, s);
   return l.visible && c && a.push({
@@ -97,8 +98,8 @@ function v(e, t) {
 function w(e, t) {
   const { asListItem: n = !1, className: s = "" } = t ?? {}, a = document.createElement("a");
   a.href = e.enabled ? e.href : "#", a.className = `nav-item translation-operation-link ${s}`.trim(), a.setAttribute("data-entrypoint-id", e.id), a.setAttribute("data-module", e.module), a.setAttribute("data-enabled", e.enabled ? "true" : "false"), e.enabled || (a.setAttribute("aria-disabled", "true"), a.classList.add("opacity-60", "cursor-not-allowed"));
-  const i = e.disabledReason?.trim(), r = i ? `${e.description || e.label} (${i})` : e.description || e.label;
-  a.setAttribute("aria-label", r), a.setAttribute("title", r);
+  const r = e.disabledReason?.trim(), i = r ? `${e.description || e.label} (${r})` : e.description || e.label;
+  a.setAttribute("aria-label", i), a.setAttribute("title", i);
   const l = document.createElement("i");
   l.className = `${e.icon} flex-shrink-0`, l.style.fontSize = "var(--sidebar-icon-size, 20px)", l.setAttribute("aria-hidden", "true"), a.appendChild(l);
   const c = document.createElement("span");
@@ -115,18 +116,18 @@ function w(e, t) {
   return a;
 }
 function L(e, t, n, s) {
-  const { asListItems: a = !1, headerLabel: i } = s ?? {}, r = typeof e == "string" ? document.querySelector(e) : e;
-  if (!r) return;
+  const { asListItems: a = !1, headerLabel: r } = s ?? {}, i = typeof e == "string" ? document.querySelector(e) : e;
+  if (!i) return;
   const l = v(t, n);
   if (l.length === 0) {
-    r.style.display = "none";
+    i.style.display = "none";
     return;
   }
-  r.style.display = "", r.innerHTML = "";
+  i.style.display = "", i.innerHTML = "";
   const c = document.createElement("nav");
-  if (c.setAttribute("aria-label", i || "Translation operations"), c.setAttribute("role", "navigation"), i) {
+  if (c.setAttribute("aria-label", r || "Translation operations"), c.setAttribute("role", "navigation"), r) {
     const u = `translation-ops-header-${Date.now()}`, p = document.createElement("h3");
-    p.id = u, p.className = "text-xs font-medium text-sidebar-text-muted uppercase tracking-wider px-3 py-2", p.textContent = i, c.appendChild(p), c.setAttribute("aria-labelledby", u);
+    p.id = u, p.className = "text-xs font-medium text-sidebar-text-muted uppercase tracking-wider px-3 py-2", p.textContent = r, c.appendChild(p), c.setAttribute("aria-labelledby", u);
   }
   const o = a ? document.createElement("ul") : document.createElement("div");
   o.className = "space-y-0.5", a && o.setAttribute("role", "list");
@@ -134,7 +135,7 @@ function L(e, t, n, s) {
     const p = w(u, { asListItem: a });
     o.appendChild(p);
   }
-  c.appendChild(o), r.appendChild(c);
+  c.appendChild(o), i.appendChild(c);
 }
 function h(e, t) {
   const n = e.headers.get(t);
@@ -167,14 +168,14 @@ async function R(e) {
     };
   const n = await S(t, { method: "GET" }), s = N(n);
   if (!n.ok) {
-    const i = await $(n);
+    const r = await $(n);
     return {
-      status: n.status === 409 || i.textCode === "VERSION_CONFLICT" ? "conflict" : "error",
-      message: i.message,
+      status: n.status === 409 || r.textCode === "VERSION_CONFLICT" ? "conflict" : "error",
+      message: r.message,
       requestId: s.requestId,
       traceId: s.traceId,
       statusCode: n.status,
-      errorCode: i.textCode
+      errorCode: r.textCode
     };
   }
   let a = null;
@@ -287,7 +288,7 @@ function E(e, t, n = {}) {
       e.innerHTML = O();
   }
 }
-async function D(e) {
+async function X(e) {
   const t = typeof e == "string" ? document.querySelector(e) : e;
   if (!t)
     return null;
@@ -340,17 +341,17 @@ class M {
       { headerLabel: "Translations" }
     ), t.querySelectorAll(".translation-operation-link").forEach((n) => {
       n.addEventListener("click", (s) => {
-        const a = n.dataset.entrypointId, i = this.entrypoints.find((r) => r.id === a);
-        if (!i || !i.enabled) {
+        const a = n.dataset.entrypointId, r = this.entrypoints.find((i) => i.id === a);
+        if (!r || !r.enabled) {
           s.preventDefault();
           return;
         }
-        this.config.onEntrypointClick && this.config.onEntrypointClick(i);
+        this.config.onEntrypointClick && this.config.onEntrypointClick(r);
       });
     }));
   }
 }
-function X(e) {
+function Q(e) {
   if (!document.querySelector("[data-translation-operations]")) return null;
   const n = new M({
     basePath: e ?? ""
@@ -363,9 +364,9 @@ export {
   b as extractTranslationCapabilities,
   R as fetchTranslationShellData,
   g as getTranslationRoute,
-  G as hasTranslationOperations,
-  X as initTranslationOperations,
-  D as initTranslationSurfaceShell,
+  D as hasTranslationOperations,
+  Q as initTranslationOperations,
+  X as initTranslationSurfaceShell,
   I as isExchangeEnabled,
   T as isQueueEnabled,
   w as renderEntrypointLink,

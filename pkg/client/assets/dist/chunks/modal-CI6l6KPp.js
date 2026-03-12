@@ -1,4 +1,4 @@
-import { e as p } from "./html-DyksyvcZ.js";
+import { a as p } from "./html-Br-oQr7i.js";
 const l = {
   sm: "max-w-sm",
   md: "max-w-md",
@@ -226,4 +226,4 @@ export {
   k as T,
   i as e
 };
-//# sourceMappingURL=modal-B2yUlSQt.js.map
+//# sourceMappingURL=modal-CI6l6KPp.js.map

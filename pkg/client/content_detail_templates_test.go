@@ -37,6 +37,15 @@ func TestContentDetailTemplateUsesPreHookWithoutBlockSuper(t *testing.T) {
 	if !strings.Contains(template, `partials/translation-summary.html`) {
 		t.Fatalf("expected content detail template to render translation summary include")
 	}
+	for _, fragment := range []string{
+		`translation_family_url=resource_item.translation_family_url`,
+		`translation_locale_urls=resource_item.translation_locale_urls`,
+	} {
+		if strings.Contains(template, fragment) {
+			continue
+		}
+		t.Fatalf("expected content detail template fragment not found: %q", fragment)
+	}
 }
 
 func TestContentFormTemplateInfersFallbackModeFromMissingRequestedLocale(t *testing.T) {
@@ -47,12 +56,31 @@ func TestContentFormTemplateInfersFallbackModeFromMissingRequestedLocale(t *test
 		"{% if fallback_missing_requested_locale %}",
 		`data-fallback-mode="true"`,
 		`partials/translation-summary.html`,
+		`translation_family_url=resource_item.translation_family_url`,
+		`translation_locale_urls=resource_item.translation_locale_urls`,
 	}
 	for _, fragment := range required {
 		if strings.Contains(template, fragment) {
 			continue
 		}
 		t.Fatalf("expected content form template fragment not found: %q", fragment)
+	}
+}
+
+func TestTranslationFamilyDetailTemplateBootstrapsClientRenderer(t *testing.T) {
+	template := mustReadClientTemplate(t, "resources/translations/family-detail.html")
+
+	required := []string{
+		`id="translation-family-detail-root"`,
+		`data-endpoint="{{ translation_family_api_path|default:"" }}"`,
+		`data-content-base-path="{{ translation_content_base|default:"" }}"`,
+		`initTranslationFamilyDetailPage`,
+	}
+	for _, fragment := range required {
+		if strings.Contains(template, fragment) {
+			continue
+		}
+		t.Fatalf("expected translation family detail template fragment not found: %q", fragment)
 	}
 }
 
