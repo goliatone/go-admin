@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
+	translationcore "github.com/goliatone/go-admin/translations/core"
 )
 
 // TranslationPolicyConfig captures translation enforcement rules for workflow transitions.
@@ -32,15 +33,23 @@ type TranslationPolicyEntityConfig map[string]TranslationPolicyTransitionConfig
 
 // TranslationPolicyTransitionConfig describes requirements for a transition and optional environments.
 type TranslationPolicyTransitionConfig struct {
-	Locales        []string                       `json:"locales,omitempty"`
-	RequiredFields map[string][]string            `json:"required_fields,omitempty"`
-	Environments   map[string]TranslationCriteria `json:"environments,omitempty"`
+	Locales                 []string                       `json:"locales,omitempty"`
+	RequiredFields          map[string][]string            `json:"required_fields,omitempty"`
+	ReviewRequired          *bool                          `json:"review_required,omitempty"`
+	AllowPublishOverride    *bool                          `json:"allow_publish_override,omitempty"`
+	AssignmentLifecycleMode string                         `json:"assignment_lifecycle_mode,omitempty"`
+	DefaultWorkScope        string                         `json:"default_work_scope,omitempty"`
+	Environments            map[string]TranslationCriteria `json:"environments,omitempty"`
 }
 
 // TranslationCriteria captures locale/field requirements for a transition or environment.
 type TranslationCriteria struct {
-	Locales        []string            `json:"locales,omitempty"`
-	RequiredFields map[string][]string `json:"required_fields,omitempty"`
+	Locales                 []string            `json:"locales,omitempty"`
+	RequiredFields          map[string][]string `json:"required_fields,omitempty"`
+	ReviewRequired          *bool               `json:"review_required,omitempty"`
+	AllowPublishOverride    *bool               `json:"allow_publish_override,omitempty"`
+	AssignmentLifecycleMode string              `json:"assignment_lifecycle_mode,omitempty"`
+	DefaultWorkScope        string              `json:"default_work_scope,omitempty"`
 }
 
 // TranslationPolicyValidationCatalog describes known policy entities/transitions/fields.
@@ -89,7 +98,9 @@ func DefaultTranslationPolicyValidationCatalog() TranslationPolicyValidationCata
 // - warn: records warnings
 // - ignore: suppresses unknown-key issues
 func ValidateTranslationPolicyConfig(cfg TranslationPolicyConfig, catalog TranslationPolicyValidationCatalog) (TranslationPolicyValidationResult, error) {
-	cfg = NormalizeTranslationPolicyConfig(cfg)
+	cfg.RequiredFieldsStrategy = normalizeRequiredFieldsStrategy(cfg.RequiredFieldsStrategy)
+	cfg.PageEntities = normalizeTranslationPolicyEntities(cfg.PageEntities)
+	cfg.EntityAliases = normalizeTranslationPolicyEntityAliases(cfg.EntityAliases)
 	result := TranslationPolicyValidationResult{}
 	if len(cfg.Required) == 0 || len(catalog.Entities) == 0 {
 		return result, nil
@@ -127,6 +138,14 @@ func ValidateTranslationPolicyConfig(cfg TranslationPolicyConfig, catalog Transl
 				&result,
 				&errorsOut,
 			)
+			validateTranslationWorkflowSettings(
+				fmt.Sprintf("entity %q transition %q", entity, transition),
+				transitionCfg.AssignmentLifecycleMode,
+				transitionCfg.DefaultWorkScope,
+				cfg.RequiredFieldsStrategy,
+				&result,
+				&errorsOut,
+			)
 			for _, env := range sortedKeys(transitionCfg.Environments) {
 				criteria := transitionCfg.Environments[env]
 				validateRequiredFieldLocales(
@@ -134,6 +153,14 @@ func ValidateTranslationPolicyConfig(cfg TranslationPolicyConfig, catalog Transl
 					fmt.Sprintf("entity %q transition %q environment %q", entity, transition, env),
 					criteria.RequiredFields,
 					knownFields,
+					&result,
+					&errorsOut,
+				)
+				validateTranslationWorkflowSettings(
+					fmt.Sprintf("entity %q transition %q environment %q", entity, transition, env),
+					criteria.AssignmentLifecycleMode,
+					criteria.DefaultWorkScope,
+					cfg.RequiredFieldsStrategy,
 					&result,
 					&errorsOut,
 				)
@@ -151,7 +178,55 @@ func NormalizeTranslationPolicyConfig(cfg TranslationPolicyConfig) TranslationPo
 	cfg.RequiredFieldsStrategy = normalizeRequiredFieldsStrategy(cfg.RequiredFieldsStrategy)
 	cfg.PageEntities = normalizeTranslationPolicyEntities(cfg.PageEntities)
 	cfg.EntityAliases = normalizeTranslationPolicyEntityAliases(cfg.EntityAliases)
+	if len(cfg.Required) > 0 {
+		normalized := make(map[string]TranslationPolicyEntityConfig, len(cfg.Required))
+		for entity, transitions := range cfg.Required {
+			nextTransitions := make(TranslationPolicyEntityConfig, len(transitions))
+			for transition, config := range transitions {
+				config.AssignmentLifecycleMode = normalizeAssignmentLifecycleMode(config.AssignmentLifecycleMode)
+				config.DefaultWorkScope = normalizeWorkScope(config.DefaultWorkScope)
+				if len(config.Environments) > 0 {
+					envs := make(map[string]TranslationCriteria, len(config.Environments))
+					for env, criteria := range config.Environments {
+						criteria.AssignmentLifecycleMode = normalizeAssignmentLifecycleMode(criteria.AssignmentLifecycleMode)
+						criteria.DefaultWorkScope = normalizeWorkScope(criteria.DefaultWorkScope)
+						envs[env] = criteria
+					}
+					config.Environments = envs
+				}
+				nextTransitions[transition] = config
+			}
+			normalized[entity] = nextTransitions
+		}
+		cfg.Required = normalized
+	}
 	return cfg
+}
+
+func validateTranslationWorkflowSettings(
+	context string,
+	lifecycleMode string,
+	workScope string,
+	strategy admin.RequiredFieldsValidationStrategy,
+	result *TranslationPolicyValidationResult,
+	errorsOut *[]string,
+) {
+	if lifecycleMode != "" && translationcore.NormalizeLifecycleMode(lifecycleMode) == "" {
+		appendValidationIssue(
+			result,
+			errorsOut,
+			strategy,
+			fmt.Sprintf("%s has invalid assignment lifecycle mode %q", context, lifecycleMode),
+		)
+	}
+	if workScope != "" && normalizeWorkScope(workScope) == "" {
+		appendValidationIssue(
+			result,
+			errorsOut,
+			strategy,
+			fmt.Sprintf("%s has invalid default work scope %q", context, workScope),
+		)
+	}
 }
 
 func normalizeTranslationPolicyEntities(values []string) []string {
@@ -311,4 +386,31 @@ func normalizeRequiredFieldsStrategy(strategy admin.RequiredFieldsValidationStra
 	default:
 		return admin.RequiredFieldsValidationError
 	}
+}
+
+func normalizeAssignmentLifecycleMode(mode string) string {
+	return translationcore.NormalizeLifecycleMode(mode)
+}
+
+func normalizeWorkScope(scope string) string {
+	scope = strings.TrimSpace(scope)
+	if scope == "" {
+		return ""
+	}
+	scope = strings.ReplaceAll(scope, " ", "_")
+	allowed := true
+	for _, r := range scope {
+		if r == '_' || r == '-' || r == ':' || r == '.' {
+			continue
+		}
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {
+			continue
+		}
+		allowed = false
+		break
+	}
+	if !allowed {
+		return ""
+	}
+	return scope
 }
