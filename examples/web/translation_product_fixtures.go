@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 	"crypto/sha256"
-	"encoding/json"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"github.com/goliatone/go-admin/internal/primitives"
 	"sort"
@@ -20,7 +20,6 @@ const (
 	exampleTranslationQueueOpenPoolSlug = "translation-exchange-ready"
 	exampleTranslationQueueTargetLocale = "fr"
 	exampleTranslationQueueFallbackUser = "translator.demo"
-	exampleTranslationQAFamilyID        = "11111111-1111-1111-1111-111111111201"
 	exampleTranslationQAAssignmentID    = "tqa_editor"
 )
 
@@ -337,6 +336,8 @@ func seedExampleTranslationQueueFixture(
 	ctx context.Context,
 	repo coreadmin.TranslationAssignmentRepository,
 	contentSvc coreadmin.CMSContentService,
+	tenantID string,
+	orgID string,
 	assigneeIDs ...string,
 ) error {
 	if ctx == nil {
@@ -361,6 +362,10 @@ func seedExampleTranslationQueueFixture(
 	if sourcePage == nil {
 		return fmt.Errorf("translation queue fixture source page %q not found", exampleTranslationQueueSourceSlug)
 	}
+	sourcePage, err = ensureScopedPageFamily(ctx, contentSvc, sourcePage, tenantID, orgID)
+	if err != nil {
+		return fmt.Errorf("translation queue fixture source page scope update failed: %w", err)
+	}
 
 	now := time.Now().UTC()
 	primaryGroupID := normalizeTranslationGroupID(sourcePage.TranslationGroupID, sourcePage.ID)
@@ -376,6 +381,10 @@ func seedExampleTranslationQueueFixture(
 		return fmt.Errorf("translation editor qa source page lookup failed: %w", err)
 	}
 	if editorSource != nil {
+		editorSource, err = ensureScopedPageFamily(ctx, contentSvc, editorSource, tenantID, orgID)
+		if err != nil {
+			return fmt.Errorf("translation editor qa source page scope update failed: %w", err)
+		}
 		editorGroupID := normalizeTranslationGroupID(editorSource.TranslationGroupID, editorSource.ID)
 		editorTarget, targetErr := findPageLocaleVariant(ctx, contentSvc, editorGroupID, "fr")
 		if targetErr != nil {
@@ -394,14 +403,20 @@ func seedExampleTranslationQueueFixture(
 					"body": "Publier la traduction depuis l'accueil.",
 				},
 				Metadata: map[string]any{
-					"tenant_id": "tenant-1",
-					"org_id":    "org-1",
+					"tenant_id": strings.TrimSpace(tenantID),
+					"org_id":    strings.TrimSpace(orgID),
 				},
 			})
 			if createErr != nil {
 				return fmt.Errorf("translation editor qa target page create failed: %w", createErr)
 			}
 			editorTarget = createdTarget
+		}
+		if editorTarget != nil {
+			editorTarget, err = ensureScopedPage(ctx, contentSvc, editorTarget, tenantID, orgID)
+			if err != nil {
+				return fmt.Errorf("translation editor qa target page scope update failed: %w", err)
+			}
 		}
 		if editorTarget != nil && strings.TrimSpace(editorGroupID) != "" {
 			staleSourceFields := map[string]string{
@@ -455,24 +470,24 @@ func seedExampleTranslationQueueFixture(
 				return fmt.Errorf("translation editor qa target page metadata update failed: %w", updateErr)
 			}
 			editorAssignment := coreadmin.TranslationAssignment{
-				ID:                 exampleTranslationQAAssignmentID,
-				TranslationGroupID: editorGroupID,
-				EntityType:         "pages",
-				TenantID:           "tenant-1",
-				OrgID:              "org-1",
-				SourceRecordID:     strings.TrimSpace(editorSource.ID),
-				SourceLocale:       strings.ToLower(strings.TrimSpace(fixtureFirstNonEmptyString(editorSource.Locale, "en"))),
-				TargetLocale:       "fr",
-				TargetRecordID:     strings.TrimSpace(editorTarget.ID),
-				AssignmentType:     coreadmin.AssignmentTypeDirect,
-				Status:             coreadmin.AssignmentStatusInProgress,
-				Priority:           coreadmin.PriorityHigh,
-				AssigneeID:         assignees[0],
-				ReviewerID:         assignees[0],
-				SourceTitle:        strings.TrimSpace(firstNonEmpty(editorSource.Title, sourceFields["title"])),
-				SourcePath:         strings.TrimSpace(firstNonEmpty(exchangePagePath(*editorSource), sourceFields["path"])),
+				ID:                  exampleTranslationQAAssignmentID,
+				TranslationGroupID:  editorGroupID,
+				EntityType:          "pages",
+				TenantID:            strings.TrimSpace(tenantID),
+				OrgID:               strings.TrimSpace(orgID),
+				SourceRecordID:      strings.TrimSpace(editorSource.ID),
+				SourceLocale:        strings.ToLower(strings.TrimSpace(fixtureFirstNonEmptyString(editorSource.Locale, "en"))),
+				TargetLocale:        "fr",
+				TargetRecordID:      strings.TrimSpace(editorTarget.ID),
+				AssignmentType:      coreadmin.AssignmentTypeDirect,
+				Status:              coreadmin.AssignmentStatusInProgress,
+				Priority:            coreadmin.PriorityHigh,
+				AssigneeID:          assignees[0],
+				ReviewerID:          assignees[0],
+				SourceTitle:         strings.TrimSpace(firstNonEmpty(editorSource.Title, sourceFields["title"])),
+				SourcePath:          strings.TrimSpace(firstNonEmpty(exchangePagePath(*editorSource), sourceFields["path"])),
 				LastRejectionReason: "Please tighten the CTA tone.",
-				ClaimedAt:          fixtureTimePtr(now.Add(-90 * time.Minute)),
+				ClaimedAt:           fixtureTimePtr(now.Add(-90 * time.Minute)),
 			}
 			if err := seedOrRefreshQueueAssignment(ctx, repo, editorAssignment); err != nil {
 				return err
@@ -485,6 +500,8 @@ func seedExampleTranslationQueueFixture(
 		inProgress := coreadmin.TranslationAssignment{
 			TranslationGroupID: primaryGroupID,
 			EntityType:         "pages",
+			TenantID:           strings.TrimSpace(tenantID),
+			OrgID:              strings.TrimSpace(orgID),
 			SourceRecordID:     strings.TrimSpace(sourcePage.ID),
 			SourceLocale:       primarySourceLocale,
 			TargetLocale:       targetLocale,
@@ -512,6 +529,8 @@ func seedExampleTranslationQueueFixture(
 	postAssignment := coreadmin.TranslationAssignment{
 		TranslationGroupID: normalizeTranslationGroupID(postSource.TranslationGroupID, postSource.ID),
 		EntityType:         "posts",
+		TenantID:           strings.TrimSpace(tenantID),
+		OrgID:              strings.TrimSpace(orgID),
 		SourceRecordID:     strings.TrimSpace(postSource.ID),
 		SourceLocale:       strings.ToLower(strings.TrimSpace(fixtureFirstNonEmptyString(postSource.Locale, "en"))),
 		TargetLocale:       "fr",
@@ -543,6 +562,8 @@ func seedExampleTranslationQueueFixture(
 	assignedQueueItem := coreadmin.TranslationAssignment{
 		TranslationGroupID: normalizeTranslationGroupID(postSource.TranslationGroupID, postSource.ID),
 		EntityType:         "posts",
+		TenantID:           strings.TrimSpace(tenantID),
+		OrgID:              strings.TrimSpace(orgID),
 		SourceRecordID:     strings.TrimSpace(postSource.ID),
 		SourceLocale:       strings.ToLower(strings.TrimSpace(fixtureFirstNonEmptyString(postSource.Locale, "en"))),
 		TargetLocale:       "nl",
@@ -563,6 +584,8 @@ func seedExampleTranslationQueueFixture(
 	overdueQueueItem := coreadmin.TranslationAssignment{
 		TranslationGroupID: primaryGroupID,
 		EntityType:         "pages",
+		TenantID:           strings.TrimSpace(tenantID),
+		OrgID:              strings.TrimSpace(orgID),
 		SourceRecordID:     strings.TrimSpace(sourcePage.ID),
 		SourceLocale:       primarySourceLocale,
 		TargetLocale:       "sv",
@@ -581,11 +604,19 @@ func seedExampleTranslationQueueFixture(
 
 	openPoolSource := sourcePage
 	if candidate, candidateErr := findPageBySlug(ctx, contentSvc, exampleTranslationQueueOpenPoolSlug); candidateErr == nil && candidate != nil {
-		openPoolSource = candidate
+		if scopedCandidate, scopeErr := ensureScopedPageFamily(ctx, contentSvc, candidate, tenantID, orgID); scopeErr == nil && scopedCandidate != nil {
+			openPoolSource = scopedCandidate
+		} else if scopeErr != nil {
+			return fmt.Errorf("translation queue fixture open-pool source scope update failed: %w", scopeErr)
+		} else {
+			openPoolSource = candidate
+		}
 	}
 	openPool := coreadmin.TranslationAssignment{
 		TranslationGroupID: normalizeTranslationGroupID(openPoolSource.TranslationGroupID, openPoolSource.ID),
 		EntityType:         "pages",
+		TenantID:           strings.TrimSpace(tenantID),
+		OrgID:              strings.TrimSpace(orgID),
 		SourceRecordID:     strings.TrimSpace(openPoolSource.ID),
 		SourceLocale:       strings.ToLower(strings.TrimSpace(fixtureFirstNonEmptyString(openPoolSource.Locale, "en"))),
 		TargetLocale:       "ja",
@@ -670,6 +701,117 @@ func normalizeQueueFixtureAssignees(values []string) []string {
 		out = append(out, trimmed)
 	}
 	return out
+}
+
+func ensureScopedPageFamily(
+	ctx context.Context,
+	contentSvc coreadmin.CMSContentService,
+	page *coreadmin.CMSPage,
+	tenantID string,
+	orgID string,
+) (*coreadmin.CMSPage, error) {
+	if page == nil {
+		return nil, nil
+	}
+	groupID := normalizeTranslationGroupID(page.TranslationGroupID, page.ID)
+	if strings.TrimSpace(groupID) == "" {
+		return ensureScopedPage(ctx, contentSvc, page, tenantID, orgID)
+	}
+	pages, err := contentSvc.Pages(ctx, "")
+	if err != nil {
+		return nil, err
+	}
+	for _, candidate := range pages {
+		if !matchesTranslationGroup(groupID, candidate.TranslationGroupID) && !matchesTranslationGroup(groupID, candidate.ID) {
+			continue
+		}
+		candidateCopy := cloneCMSPage(candidate)
+		if _, err := ensureScopedPage(ctx, contentSvc, &candidateCopy, tenantID, orgID); err != nil {
+			return nil, err
+		}
+	}
+	return ensureScopedPage(ctx, contentSvc, page, tenantID, orgID)
+}
+
+func ensureScopedPage(
+	ctx context.Context,
+	contentSvc coreadmin.CMSContentService,
+	page *coreadmin.CMSPage,
+	tenantID string,
+	orgID string,
+) (*coreadmin.CMSPage, error) {
+	if page == nil || contentSvc == nil {
+		return page, nil
+	}
+	updated := cloneCMSPage(*page)
+	if !applyFixtureScopeMetadata(&updated.Metadata, &updated.Data, tenantID, orgID) {
+		copy := cloneCMSPage(*page)
+		return &copy, nil
+	}
+	saved, err := contentSvc.UpdatePage(ctx, updated)
+	if err != nil {
+		return nil, err
+	}
+	if saved == nil {
+		copy := updated
+		return &copy, nil
+	}
+	return saved, nil
+}
+
+func ensureScopedContent(
+	ctx context.Context,
+	contentSvc coreadmin.CMSContentService,
+	content *coreadmin.CMSContent,
+	tenantID string,
+	orgID string,
+) (*coreadmin.CMSContent, error) {
+	if content == nil || contentSvc == nil {
+		return content, nil
+	}
+	updated := cloneCMSContent(*content)
+	if !applyFixtureScopeMetadata(&updated.Metadata, &updated.Data, tenantID, orgID) {
+		copy := cloneCMSContent(*content)
+		return &copy, nil
+	}
+	saved, err := contentSvc.UpdateContent(ctx, updated)
+	if err != nil {
+		return nil, err
+	}
+	if saved == nil {
+		copy := updated
+		return &copy, nil
+	}
+	return saved, nil
+}
+
+func applyFixtureScopeMetadata(metadata *map[string]any, data *map[string]any, tenantID string, orgID string) bool {
+	tenantID = strings.TrimSpace(tenantID)
+	orgID = strings.TrimSpace(orgID)
+	if tenantID == "" && orgID == "" {
+		return false
+	}
+	if metadata == nil && data == nil {
+		return false
+	}
+	changed := false
+	for _, target := range []*map[string]any{metadata, data} {
+		if target == nil {
+			continue
+		}
+		if *target == nil {
+			*target = map[string]any{}
+		}
+		if tenantID != "" && strings.TrimSpace(fmt.Sprint((*target)["tenant_id"])) != tenantID {
+			(*target)["tenant_id"] = tenantID
+			changed = true
+		}
+		if orgID != "" && strings.TrimSpace(fmt.Sprint((*target)["org_id"])) != orgID {
+			(*target)["org_id"] = orgID
+			changed = true
+		}
+	}
+	return changed
 }
 
 func fixtureTimePtr(value time.Time) *time.Time {
