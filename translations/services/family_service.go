@@ -248,18 +248,18 @@ func (s *InMemoryFamilyStore) LoadBackfillPlan(plan BackfillPlan) error {
 		}
 		for _, variant := range family.Variants {
 			record.Variants = append(record.Variants, FamilyVariant{
-				ID:             strings.TrimSpace(variant.ID),
-				FamilyID:       strings.TrimSpace(variant.FamilyID),
-				TenantID:       strings.TrimSpace(variant.TenantID),
-				OrgID:          strings.TrimSpace(variant.OrgID),
-				Locale:         strings.TrimSpace(strings.ToLower(variant.Locale)),
-				Status:         normalizeVariantStatus(variant.Status),
-				IsSource:       variant.IsSource,
+				ID:                   strings.TrimSpace(variant.ID),
+				FamilyID:             strings.TrimSpace(variant.FamilyID),
+				TenantID:             strings.TrimSpace(variant.TenantID),
+				OrgID:                strings.TrimSpace(variant.OrgID),
+				Locale:               strings.TrimSpace(strings.ToLower(variant.Locale)),
+				Status:               normalizeVariantStatus(variant.Status),
+				IsSource:             variant.IsSource,
 				SourceHashAtLastSync: strings.TrimSpace(variant.SourceHashAtLastSync),
-				Fields:         cloneStringMap(variant.Fields),
-				SourceRecordID: strings.TrimSpace(variant.SourceRecordID),
-				CreatedAt:      variant.CreatedAt,
-				UpdatedAt:      variant.UpdatedAt,
+				Fields:               cloneStringMap(variant.Fields),
+				SourceRecordID:       strings.TrimSpace(variant.SourceRecordID),
+				CreatedAt:            variant.CreatedAt,
+				UpdatedAt:            variant.UpdatedAt,
 			})
 		}
 		for _, assignment := range family.Assignments {
