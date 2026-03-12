@@ -112,6 +112,79 @@ function dev:cover {
 ##
 ## -----
 ##
+## esign:config:generate
+##
+## Regenerate e-sign runtime config structs/getters from examples/esign/config/app.json.
+function esign:config:generate {
+    go generate ./examples/esign/config
+}
+
+##
+## -----
+##
+## admin-shell:config:generate
+##
+## Regenerate admin-shell runtime config structs/getters from examples/admin-shell/internal/config/app.json.
+function admin-shell:config:generate {
+    go generate ./examples/admin-shell/internal/config
+}
+
+##
+## -----
+##
+## esign:migrate:*
+##
+## e-sign persistence migration CLI wrappers.
+## Optional arguments are forwarded to the CLI (for example: --config <path>).
+function esign:migrate {
+    go run ./examples/esign/cmd/migrate "$@"
+}
+
+function esign:migrate:status {
+    esign:migrate status "$@"
+}
+
+function esign:migrate:up {
+    esign:migrate up "$@"
+}
+
+function esign:migrate:down {
+    esign:migrate down "$@"
+}
+
+function esign:migrate:rollback-all {
+    esign:migrate rollback-all "$@"
+}
+
+function esign:migrate:validate-dialects {
+    esign:migrate validate-dialects "$@"
+}
+
+function esign:migrate:validate-fixtures {
+    esign:migrate validate-fixtures "$@"
+}
+
+##
+## -----
+##
+## esign:persistence:verify:*
+##
+## Persistence verification checks for sqlite/postgres gates.
+function esign:persistence:verify:sqlite {
+    ./ops/esign/persistence_ci.sh sqlite
+}
+
+function esign:persistence:verify:postgres {
+    ./ops/esign/persistence_ci.sh postgres
+}
+
+function esign:persistence:verify:all {
+    ./ops/esign/persistence_ci.sh all
+}
+
+##
+## -----
+##
 ## release:contracts:refresh
 ##
 ## Recompute and persist esign contract guard snapshots and
