@@ -40,13 +40,13 @@ func (p translationPolicy) Requirements(_ context.Context, input admin.Translati
 		locales = requiredLocalesFromFields(req.RequiredFields)
 	}
 	return admin.TranslationRequirements{
-		Locales:                locales,
-		RequiredFields:         cloneRequiredFields(req.RequiredFields),
-		RequiredFieldsStrategy: req.RequiredFieldsStrategy,
-		ReviewRequired:         req.ReviewRequired,
-		AllowPublishOverride:   req.AllowPublishOverride,
+		Locales:                 locales,
+		RequiredFields:          cloneRequiredFields(req.RequiredFields),
+		RequiredFieldsStrategy:  req.RequiredFieldsStrategy,
+		ReviewRequired:          req.ReviewRequired,
+		AllowPublishOverride:    req.AllowPublishOverride,
 		AssignmentLifecycleMode: req.AssignmentLifecycleMode,
-		DefaultWorkScope:       req.DefaultWorkScope,
+		DefaultWorkScope:        normalizeWorkScope(req.DefaultWorkScope),
 	}, true, nil
 }
 
@@ -154,24 +154,24 @@ func resolveTranslationRequirements(cfg TranslationPolicyConfig, input admin.Tra
 	if env := strings.TrimSpace(input.Environment); env != "" {
 		if criteria, ok := findEnvironmentCriteria(transitionCfg.Environments, env); ok {
 			return admin.TranslationRequirements{
-				Locales:                append([]string{}, criteria.Locales...),
-				RequiredFields:         cloneRequiredFields(criteria.RequiredFields),
-				RequiredFieldsStrategy: cfg.RequiredFieldsStrategy,
-				ReviewRequired:         criteria.ReviewRequired != nil && *criteria.ReviewRequired,
-				AllowPublishOverride:   criteria.AllowPublishOverride != nil && *criteria.AllowPublishOverride,
+				Locales:                 append([]string{}, criteria.Locales...),
+				RequiredFields:          cloneRequiredFields(criteria.RequiredFields),
+				RequiredFieldsStrategy:  cfg.RequiredFieldsStrategy,
+				ReviewRequired:          criteria.ReviewRequired != nil && *criteria.ReviewRequired,
+				AllowPublishOverride:    criteria.AllowPublishOverride != nil && *criteria.AllowPublishOverride,
 				AssignmentLifecycleMode: strings.TrimSpace(criteria.AssignmentLifecycleMode),
-				DefaultWorkScope:       strings.TrimSpace(criteria.DefaultWorkScope),
+				DefaultWorkScope:        normalizeWorkScope(criteria.DefaultWorkScope),
 			}, true
 		}
 	}
 	return admin.TranslationRequirements{
-		Locales:                append([]string{}, transitionCfg.Locales...),
-		RequiredFields:         cloneRequiredFields(transitionCfg.RequiredFields),
-		RequiredFieldsStrategy: cfg.RequiredFieldsStrategy,
-		ReviewRequired:         transitionCfg.ReviewRequired != nil && *transitionCfg.ReviewRequired,
-		AllowPublishOverride:   transitionCfg.AllowPublishOverride != nil && *transitionCfg.AllowPublishOverride,
+		Locales:                 append([]string{}, transitionCfg.Locales...),
+		RequiredFields:          cloneRequiredFields(transitionCfg.RequiredFields),
+		RequiredFieldsStrategy:  cfg.RequiredFieldsStrategy,
+		ReviewRequired:          transitionCfg.ReviewRequired != nil && *transitionCfg.ReviewRequired,
+		AllowPublishOverride:    transitionCfg.AllowPublishOverride != nil && *transitionCfg.AllowPublishOverride,
 		AssignmentLifecycleMode: strings.TrimSpace(transitionCfg.AssignmentLifecycleMode),
-		DefaultWorkScope:       strings.TrimSpace(transitionCfg.DefaultWorkScope),
+		DefaultWorkScope:        normalizeWorkScope(transitionCfg.DefaultWorkScope),
 	}, true
 }
 
