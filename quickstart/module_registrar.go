@@ -648,9 +648,9 @@ func translationCapabilityMenuItems(adm *admin.Admin, cfg admin.Config, menuCode
 			Locale:   locale,
 		})
 
-		queuePath := strings.TrimSpace(resolveAdminPanelURL(urls, cfg.BasePath, "translations"))
+		queuePath := strings.TrimSpace(resolveRoutePath(urls, "admin", "translations.queue"))
 		if queuePath == "" {
-			queuePath = prefixBasePath(basePath, path.Join("content", "translations"))
+			queuePath = prefixBasePath(basePath, path.Join("translations", "queue"))
 		}
 		items = append(items, admin.MenuItem{
 			ID:       parentID + ".translations.queue",
