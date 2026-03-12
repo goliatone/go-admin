@@ -17,6 +17,7 @@ import (
 	"github.com/goliatone/go-admin/quickstart"
 	commandregistry "github.com/goliatone/go-command/registry"
 	router "github.com/goliatone/go-router"
+	urlkit "github.com/goliatone/go-urlkit"
 	"github.com/stretchr/testify/require"
 )
 
@@ -39,6 +40,7 @@ func TestContentEntryEditRendersFallbackGuardForMissingRequestedLocale(t *testin
 	require.Contains(t, body, `Create FR`)
 	require.Contains(t, body, `Missing`)
 	require.Contains(t, body, `Missing Translations`)
+	require.Contains(t, body, `/admin/content/pages/`)
 
 	status, body = doUIRequest(t, fx.handler, fiber.MethodGet, fmt.Sprintf("/admin/content/pages/%s/edit?locale=es", fx.esVariantID))
 	require.Equal(t, fiber.StatusOK, status)
@@ -109,9 +111,12 @@ func newTranslationUIFixture(t *testing.T) translationUIFixture {
 		DefaultLocale: "en",
 		Title:         "Translation UI Test",
 	}
+	urlManager, err := quickstartTestTranslationURLManager()
+	require.NoError(t, err, "create translation url manager")
 	adm, err := coreadmin.New(cfg, coreadmin.Dependencies{
 		CMSContainer: cmsOpts.Container,
 		FeatureGate:  alwaysOnFeatureGate{},
+		URLManager:   urlManager,
 	})
 	require.NoError(t, err, "create admin")
 
@@ -167,6 +172,20 @@ func newTranslationUIFixture(t *testing.T) translationUIFixture {
 		fallbackID:  fallbackID,
 		esVariantID: esVariantID,
 	}
+}
+
+func quickstartTestTranslationURLManager() (*urlkit.RouteManager, error) {
+	return urlkit.NewRouteManagerFromConfig(&urlkit.Config{
+		Groups: []urlkit.GroupConfig{
+			{
+				Name:    "admin",
+				BaseURL: "/admin",
+				Routes: map[string]string{
+					"translations.families.id": "/translations/families/:family_id",
+				},
+			},
+		},
+	})
 }
 
 func newTranslationUITestPagesPanel(store stores.PageRepository) *coreadmin.PanelBuilder {

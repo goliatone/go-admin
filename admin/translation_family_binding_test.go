@@ -1,10 +1,12 @@
 package admin
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -169,6 +171,215 @@ func TestTranslationFamilyBindingDetailReturnsSourceAssignmentsAndPublishGate(t 
 	}
 }
 
+func TestTranslationFamilyBindingCreateVariantRecomputesReadinessAndRecordsAudit(t *testing.T) {
+	fixture := newTranslationFamilyMutationFixture(t, translationFamilyMutationFixtureOptions{
+		RequiredLocales: []string{"fr"},
+		ReviewRequired:  true,
+		LifecycleMode:   string(translationcore.AssignmentLifecycleSingleActivePerLang),
+	})
+
+	status, payload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/families/tg-page-1/variants?environment=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
+		"locale":                 "fr",
+		"auto_create_assignment": true,
+		"assignee_id":            "translator-9",
+		"priority":               "high",
+		"due_date":               "2026-02-20T15:00:00Z",
+	}, map[string]string{
+		"X-Idempotency-Key": "tx-family-create-fr",
+	})
+	if status != http.StatusOK {
+		t.Fatalf("status=%d want=200 payload=%+v", status, payload)
+	}
+
+	data := extractMap(payload["data"])
+	if got := toString(data["family_id"]); got != "tg-page-1" {
+		t.Fatalf("expected family_id tg-page-1, got %q", got)
+	}
+	if got := toString(data["locale"]); got != "fr" {
+		t.Fatalf("expected locale fr, got %q", got)
+	}
+	if got := toString(data["status"]); got != string(translationcore.VariantStatusDraft) {
+		t.Fatalf("expected variant status draft, got %q", got)
+	}
+
+	assignment := extractMap(data["assignment"])
+	if got := toString(assignment["status"]); got != string(translationcore.AssignmentStatusAssigned) {
+		t.Fatalf("expected seeded assignment status assigned, got %q", got)
+	}
+	if got := toString(assignment["assignee_id"]); got != "translator-9" {
+		t.Fatalf("expected assignee translator-9, got %q", got)
+	}
+
+	meta := extractMap(payload["meta"])
+	if hit, _ := meta["idempotency_hit"].(bool); hit {
+		t.Fatalf("expected first create request not to be an idempotency replay")
+	}
+	familyMeta := extractMap(meta["family"])
+	if got := toInt(familyMeta["missing_required_locale_count"]); got != 0 {
+		t.Fatalf("expected missing_required_locale_count=0, got %d", got)
+	}
+	if got := toInt(familyMeta["pending_review_count"]); got != 1 {
+		t.Fatalf("expected pending_review_count=1, got %d", got)
+	}
+	if got := toStringSlice(familyMeta["available_locales"]); len(got) != 2 || got[0] != "en" || got[1] != "fr" {
+		t.Fatalf("expected available locales [en fr], got %+v", got)
+	}
+	if got := toStringSlice(familyMeta["blocker_codes"]); len(got) != 1 || got[0] != "pending_review" {
+		t.Fatalf("expected blocker_codes [pending_review], got %+v", got)
+	}
+
+	detailStatus, detailPayload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodGet, "/admin/api/translations/families/tg-page-1?environment=production&tenant_id=tenant-1&org_id=org-1", nil, nil)
+	if detailStatus != http.StatusOK {
+		t.Fatalf("detail status=%d payload=%+v", detailStatus, detailPayload)
+	}
+	summary := extractMap(detailPayload["readiness_summary"])
+	if got := toInt(summary["missing_required_locale_count"]); got != 0 {
+		t.Fatalf("expected detail missing_required_locale_count=0, got %d", got)
+	}
+	if got := toInt(summary["pending_review_count"]); got != 1 {
+		t.Fatalf("expected detail pending_review_count=1, got %d", got)
+	}
+
+	entries, err := fixture.activity.List(context.Background(), 10)
+	if err != nil {
+		t.Fatalf("list activity entries: %v", err)
+	}
+	actions := map[string]bool{}
+	for _, entry := range entries {
+		actions[entry.Action] = true
+	}
+	for _, action := range []string{
+		"translation.family.variant_created",
+		"translation.family.blockers_changed",
+		"translation.family.assignment_seeded",
+	} {
+		if !actions[action] {
+			t.Fatalf("expected activity action %q, got %+v", action, actions)
+		}
+	}
+}
+
+func TestTranslationFamilyBindingCreateVariantRejectsDuplicateLocaleWithoutIdempotencyReplay(t *testing.T) {
+	fixture := newTranslationFamilyMutationFixture(t, translationFamilyMutationFixtureOptions{
+		RequiredLocales: []string{"fr"},
+	})
+
+	firstStatus, firstPayload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/families/tg-page-1/variants?environment=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
+		"locale": "fr",
+	}, nil)
+	if firstStatus != http.StatusOK {
+		t.Fatalf("first create status=%d payload=%+v", firstStatus, firstPayload)
+	}
+
+	secondStatus, secondPayload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/families/tg-page-1/variants?environment=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
+		"locale": "fr",
+	}, nil)
+	if secondStatus != http.StatusConflict {
+		t.Fatalf("expected duplicate create conflict, got status=%d payload=%+v", secondStatus, secondPayload)
+	}
+	if got := toString(extractMap(secondPayload["error"])["text_code"]); got != TextCodeTranslationExists {
+		t.Fatalf("expected text_code %q, got %q", TextCodeTranslationExists, got)
+	}
+}
+
+func TestTranslationFamilyBindingCreateVariantBlocksWhenPolicyIsUnavailable(t *testing.T) {
+	fixture := newTranslationFamilyMutationFixture(t, translationFamilyMutationFixtureOptions{
+		DisablePolicy: true,
+	})
+
+	status, payload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/families/tg-page-1/variants?environment=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
+		"locale": "fr",
+	}, nil)
+	if status != http.StatusConflict {
+		t.Fatalf("expected policy-blocked conflict, got status=%d payload=%+v", status, payload)
+	}
+	if got := toString(extractMap(payload["error"])["text_code"]); got != string(translationcore.ErrorPolicyBlocked) {
+		t.Fatalf("expected text_code %q, got %q", string(translationcore.ErrorPolicyBlocked), got)
+	}
+}
+
+func TestTranslationFamilyBindingCreateVariantManualArchiveModeBlocksReplacementAssignment(t *testing.T) {
+	fixture := newTranslationFamilyMutationFixture(t, translationFamilyMutationFixtureOptions{
+		RequiredLocales: []string{"fr"},
+		LifecycleMode:   string(translationcore.AssignmentLifecycleManualArchive),
+		Assignments: []TranslationAssignment{
+			{
+				ID:                 "asg-approved-fr",
+				TranslationGroupID: "tg-page-1",
+				EntityType:         "pages",
+				SourceRecordID:     "page-1",
+				SourceLocale:       "en",
+				TargetLocale:       "fr",
+				Status:             AssignmentStatusApproved,
+				Priority:           PriorityNormal,
+				CreatedAt:          time.Date(2026, 2, 17, 9, 0, 0, 0, time.UTC),
+				UpdatedAt:          time.Date(2026, 2, 17, 10, 0, 0, 0, time.UTC),
+			},
+		},
+	})
+
+	status, payload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/families/tg-page-1/variants?environment=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
+		"locale":                 "fr",
+		"auto_create_assignment": true,
+	}, nil)
+	if status != http.StatusConflict {
+		t.Fatalf("expected lifecycle conflict, got status=%d payload=%+v", status, payload)
+	}
+	if got := toString(extractMap(payload["error"])["text_code"]); got != string(translationcore.ErrorPolicyBlocked) {
+		t.Fatalf("expected text_code %q, got %q", string(translationcore.ErrorPolicyBlocked), got)
+	}
+
+	detailStatus, detailPayload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodGet, "/admin/api/translations/families/tg-page-1?environment=production&tenant_id=tenant-1&org_id=org-1", nil, nil)
+	if detailStatus != http.StatusOK {
+		t.Fatalf("detail status=%d payload=%+v", detailStatus, detailPayload)
+	}
+	summary := extractMap(detailPayload["readiness_summary"])
+	if got := toInt(summary["missing_required_locale_count"]); got != 1 {
+		t.Fatalf("expected missing_required_locale_count to remain 1, got %d", got)
+	}
+}
+
+func TestTranslationFamilyBindingCreateVariantIdempotencyReplayReturnsStablePayload(t *testing.T) {
+	fixture := newTranslationFamilyMutationFixture(t, translationFamilyMutationFixtureOptions{
+		RequiredLocales: []string{"fr"},
+	})
+
+	path := "/admin/api/translations/families/tg-page-1/variants?environment=production&tenant_id=tenant-1&org_id=org-1"
+	headers := map[string]string{"X-Idempotency-Key": "tx-idempotent-fr"}
+	body := map[string]any{
+		"locale": "fr",
+	}
+	firstStatus, firstPayload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodPost, path, body, headers)
+	if firstStatus != http.StatusOK {
+		t.Fatalf("first create status=%d payload=%+v", firstStatus, firstPayload)
+	}
+	secondStatus, secondPayload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodPost, path, body, headers)
+	if secondStatus != http.StatusOK {
+		t.Fatalf("second create status=%d payload=%+v", secondStatus, secondPayload)
+	}
+	if got := toString(extractMap(secondPayload["meta"])["idempotency_hit"]); strings.ToLower(got) != "true" {
+		meta := extractMap(secondPayload["meta"])
+		if hit, _ := meta["idempotency_hit"].(bool); !hit {
+			t.Fatalf("expected idempotency replay to set meta.idempotency_hit=true, got %+v", meta)
+		}
+	}
+
+	detailStatus, detailPayload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodGet, "/admin/api/translations/families/tg-page-1?environment=production&tenant_id=tenant-1&org_id=org-1", nil, nil)
+	if detailStatus != http.StatusOK {
+		t.Fatalf("detail status=%d payload=%+v", detailStatus, detailPayload)
+	}
+	variants, _ := detailPayload["locale_variants"].([]any)
+	count := 0
+	for _, item := range variants {
+		if toString(extractMap(item)["locale"]) == "fr" {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Fatalf("expected exactly one fr variant after idempotent replay, got %d", count)
+	}
+}
+
 func newTranslationFamilyTestApp(t *testing.T, binding *translationFamilyBinding) *fiber.App {
 	t.Helper()
 	adapter := router.NewFiberAdapter(func(_ *fiber.App) *fiber.App {
@@ -189,6 +400,13 @@ func newTranslationFamilyTestApp(t *testing.T, binding *translationFamilyBinding
 	})
 	r.Get("/admin/api/translations/families/:family_id", func(c router.Context) error {
 		payload, err := binding.Detail(c, c.Param("family_id"))
+		if err != nil {
+			return writeError(c, err)
+		}
+		return writeJSON(c, payload)
+	})
+	r.Post("/admin/api/translations/families/:family_id/variants", func(c router.Context) error {
+		payload, err := binding.Create(c, c.Param("family_id"))
 		if err != nil {
 			return writeError(c, err)
 		}
@@ -361,4 +579,206 @@ func toInt(value any) int {
 	default:
 		return 0
 	}
+}
+
+type translationFamilyMutationFixtureOptions struct {
+	RequiredLocales []string
+	ReviewRequired  bool
+	LifecycleMode   string
+	Assignments     []TranslationAssignment
+	DisablePolicy   bool
+}
+
+type translationFamilyMutationFixture struct {
+	app      *fiber.App
+	activity *ActivityFeed
+	content  *translationFamilyMutationContentService
+	repo     TranslationAssignmentRepository
+}
+
+func newTranslationFamilyMutationFixture(t *testing.T, options translationFamilyMutationFixtureOptions) translationFamilyMutationFixture {
+	t.Helper()
+	if len(options.RequiredLocales) == 0 {
+		options.RequiredLocales = []string{"fr"}
+	}
+	if options.LifecycleMode == "" {
+		options.LifecycleMode = string(translationcore.AssignmentLifecycleAutoArchive)
+	}
+
+	contentSvc := newTranslationFamilyMutationContentService()
+	_, err := contentSvc.CreatePage(context.Background(), CMSPage{
+		ID:                 "page-1",
+		Title:              "Page 1",
+		Slug:               "page-1",
+		Locale:             "en",
+		TranslationGroupID: "tg-page-1",
+		Status:             "published",
+		Data: map[string]any{
+			"path": "/page-1",
+			"body": "Hello world",
+		},
+		Metadata: map[string]any{
+			"tenant_id": "tenant-1",
+			"org_id":    "org-1",
+		},
+	})
+	if err != nil {
+		t.Fatalf("seed source page: %v", err)
+	}
+
+	activityFeed := NewActivityFeed()
+	contentSvc.WithActivitySink(activityFeed)
+	repo := NewInMemoryTranslationAssignmentRepository()
+	for _, assignment := range options.Assignments {
+		if _, err := repo.Create(context.Background(), assignment); err != nil {
+			t.Fatalf("seed assignment %q: %v", assignment.ID, err)
+		}
+	}
+
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+		FeatureGate:  featureGateFromKeys(FeatureCMS),
+		ActivitySink: activityFeed,
+	})
+	adm.WithAuthorizer(translationPermissionAuthorizer{
+		allowed: map[string]bool{
+			PermAdminTranslationsView: true,
+			PermAdminTranslationsEdit: true,
+		},
+	})
+	adm.UseCMS(&NoopCMSContainer{
+		widgets: NewInMemoryWidgetService(),
+		menus:   NewInMemoryMenuService(),
+		content: contentSvc.InMemoryContentService,
+	})
+	adm.contentSvc = contentSvc
+	adm.WithTranslationPolicy(readinessPolicyByEntityStub{
+		requirements: fixtureTranslationRequirementsByEntity(options),
+	})
+	if _, err := RegisterTranslationQueuePanel(adm, repo); err != nil {
+		t.Fatalf("register translation queue panel: %v", err)
+	}
+
+	binding := newTranslationFamilyBinding(adm)
+	binding.now = func() time.Time { return time.Date(2026, 2, 17, 12, 0, 0, 0, time.UTC) }
+	return translationFamilyMutationFixture{
+		app:      newTranslationFamilyTestApp(t, binding),
+		activity: activityFeed,
+		content:  contentSvc,
+		repo:     repo,
+	}
+}
+
+func fixtureTranslationRequirementsByEntity(options translationFamilyMutationFixtureOptions) map[string]TranslationRequirements {
+	if options.DisablePolicy {
+		return map[string]TranslationRequirements{}
+	}
+	requiredFields := map[string][]string{}
+	for _, locale := range options.RequiredLocales {
+		requiredFields[strings.ToLower(strings.TrimSpace(locale))] = []string{"title", "body"}
+	}
+	return map[string]TranslationRequirements{
+		"pages": {
+			Locales:                 append([]string{}, options.RequiredLocales...),
+			RequiredFields:          requiredFields,
+			ReviewRequired:          options.ReviewRequired,
+			AllowPublishOverride:    true,
+			AssignmentLifecycleMode: options.LifecycleMode,
+			DefaultWorkScope:        "localization",
+		},
+	}
+}
+
+type translationFamilyMutationContentService struct {
+	*InMemoryContentService
+}
+
+func newTranslationFamilyMutationContentService() *translationFamilyMutationContentService {
+	return &translationFamilyMutationContentService{InMemoryContentService: NewInMemoryContentService()}
+}
+
+func (s *translationFamilyMutationContentService) CreateTranslation(ctx context.Context, input TranslationCreateInput) (*CMSContent, error) {
+	input = normalizeTranslationCreateInput(input)
+	source, err := s.Page(ctx, input.SourceID, "")
+	if err != nil || source == nil {
+		return nil, ErrNotFound
+	}
+	pages, err := s.Pages(ctx, "")
+	if err != nil {
+		return nil, err
+	}
+	groupID := strings.TrimSpace(firstNonEmpty(source.TranslationGroupID, source.ID))
+	for _, page := range pages {
+		if !strings.EqualFold(strings.TrimSpace(firstNonEmpty(page.TranslationGroupID, page.ID)), groupID) {
+			continue
+		}
+		if strings.EqualFold(strings.TrimSpace(page.Locale), input.Locale) {
+			return nil, TranslationAlreadyExistsError{
+				Panel:              "pages",
+				EntityID:           source.ID,
+				SourceLocale:       source.Locale,
+				Locale:             input.Locale,
+				TranslationGroupID: groupID,
+			}
+		}
+	}
+
+	createdPage := cloneCMSPage(*source)
+	createdPage.ID = ""
+	createdPage.Locale = input.Locale
+	createdPage.Status = string(translationcore.VariantStatusDraft)
+	createdPage.TranslationGroupID = groupID
+	createdPage.Slug = strings.TrimSpace(firstNonEmpty(source.Slug+"-"+input.Locale, input.Locale))
+	createdPage.Metadata = cloneAnyMap(source.Metadata)
+	createdPage.Data = cloneAnyMap(source.Data)
+	if createdPage.Data == nil {
+		createdPage.Data = map[string]any{}
+	}
+	if pathValue := strings.TrimSpace(toString(createdPage.Data["path"])); pathValue != "" {
+		createdPage.Data["path"] = pathValue + "-" + input.Locale
+	}
+	created, err := s.CreatePage(ctx, createdPage)
+	if err != nil {
+		return nil, err
+	}
+	return &CMSContent{
+		ID:                 created.ID,
+		Title:              created.Title,
+		Slug:               created.Slug,
+		Locale:             created.Locale,
+		TranslationGroupID: created.TranslationGroupID,
+		ContentType:        "pages",
+		ContentTypeSlug:    "pages",
+		Status:             created.Status,
+		Data:               cloneAnyMap(created.Data),
+		Metadata:           cloneAnyMap(created.Metadata),
+	}, nil
+}
+
+func doTranslationFamilyJSONRequest(t *testing.T, app *fiber.App, method, target string, body map[string]any, headers map[string]string) (int, map[string]any) {
+	t.Helper()
+	var rawBody []byte
+	if body != nil {
+		encoded, err := json.Marshal(body)
+		if err != nil {
+			t.Fatalf("marshal request body: %v", err)
+		}
+		rawBody = encoded
+	}
+	req := httptest.NewRequest(method, target, bytes.NewReader(rawBody))
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	for key, value := range headers {
+		req.Header.Set(key, value)
+	}
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	defer resp.Body.Close()
+	payload := map[string]any{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response payload: %v", err)
+	}
+	return resp.StatusCode, payload
 }

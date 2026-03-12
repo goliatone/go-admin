@@ -42,6 +42,7 @@ type stubCtx struct {
 	navigation NavigationBinding
 	settings   SettingsBinding
 	workflows  WorkflowManagementBinding
+	families   TranslationFamiliesBinding
 	exchange   TranslationExchangeBinding
 	queue      TranslationQueueBinding
 	registry   SchemaRegistryBinding
@@ -92,6 +93,9 @@ func (s *stubCtx) ExportRegistrar() ExportRegistrar  { return nil }
 func (s *stubCtx) BootBulk() BulkBinding             { return nil }
 func (s *stubCtx) BootMedia() MediaBinding           { return nil }
 func (s *stubCtx) BootUserImport() UserImportBinding { return nil }
+func (s *stubCtx) BootTranslationFamilies() TranslationFamiliesBinding {
+	return s.families
+}
 func (s *stubCtx) BootTranslationExchange() TranslationExchangeBinding {
 	return s.exchange
 }
@@ -170,9 +174,11 @@ func newTestURLManager(basePath string) *urlkit.RouteManager {
 				Name:    "admin",
 				BaseURL: basePath,
 				Routes: map[string]string{
-					"dashboard":      "/",
-					"dashboard.page": "/dashboard",
-					"health":         "/health",
+					"dashboard":                "/",
+					"dashboard.page":           "/dashboard",
+					"health":                   "/health",
+					"translations.families":    "/translations/families",
+					"translations.families.id": "/translations/families/:family_id",
 				},
 				Groups: []urlkit.GroupConfig{
 					{
@@ -192,6 +198,9 @@ func newTestURLManager(basePath string) *urlkit.RouteManager {
 							"workflows.bindings.id":               "/workflows/bindings/:id",
 							"translations.export":                 "/translations/exchange/export",
 							"translations.template":               "/translations/exchange/template",
+							"translations.families":               "/translations/families",
+							"translations.families.id":            "/translations/families/:family_id",
+							"translations.families.variants":      "/translations/families/:family_id/variants",
 							"translations.my_work":                "/translations/my-work",
 							"translations.queue":                  "/translations/queue",
 							"translations.options.entity_types":   "/translations/options/entity-types",
@@ -1155,6 +1164,63 @@ func (s *stubTranslationQueueBinding) TranslationGroupsOptions(_ router.Context)
 func (s *stubTranslationQueueBinding) AssigneesOptions(_ router.Context) (any, error) {
 	s.assigneesOptionsCalled++
 	return []map[string]any{}, nil
+}
+
+type stubTranslationFamiliesBinding struct {
+	listCalled   int
+	detailCalled int
+	createCalled int
+}
+
+func (s *stubTranslationFamiliesBinding) List(_ router.Context) (any, error) {
+	s.listCalled++
+	return map[string]any{"items": []map[string]any{}}, nil
+}
+
+func (s *stubTranslationFamiliesBinding) Detail(_ router.Context, id string) (any, error) {
+	s.detailCalled++
+	return map[string]any{"family_id": id}, nil
+}
+
+func (s *stubTranslationFamiliesBinding) Create(_ router.Context, id string) (any, error) {
+	s.createCalled++
+	return map[string]any{"family_id": id, "data": map[string]any{"locale": "fr"}}, nil
+}
+
+func TestTranslationFamiliesRouteStepRegistersRoutes(t *testing.T) {
+	rr := &recordRouter{}
+	resp := &stubResponder{}
+	binding := &stubTranslationFamiliesBinding{}
+	ctx := &stubCtx{
+		router:    rr,
+		responder: resp,
+		basePath:  "/admin",
+		families:  binding,
+	}
+
+	require.NoError(t, TranslationFamiliesRouteStep(ctx))
+	require.Len(t, rr.calls, 3)
+
+	methodPaths := map[string]bool{}
+	for _, call := range rr.calls {
+		methodPaths[call.method+" "+call.path] = true
+	}
+	require.True(t, methodPaths["GET "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.families")])
+	require.True(t, methodPaths["GET "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.families.id")])
+	require.True(t, methodPaths["POST "+mustRoutePath(t, ctx, ctx.AdminAPIGroup(), "translations.families.variants")])
+
+	listCtx := router.NewMockContext()
+	detailCtx := router.NewMockContext()
+	detailCtx.ParamsM["family_id"] = "fam_123"
+	createCtx := router.NewMockContext()
+	createCtx.ParamsM["family_id"] = "fam_123"
+
+	require.NoError(t, rr.calls[0].handler(listCtx))
+	require.NoError(t, rr.calls[1].handler(detailCtx))
+	require.NoError(t, rr.calls[2].handler(createCtx))
+	require.Equal(t, 1, binding.listCalled)
+	require.Equal(t, 1, binding.detailCalled)
+	require.Equal(t, 1, binding.createCalled)
 }
 
 func TestTranslationQueueRouteStepRegistersRoutes(t *testing.T) {

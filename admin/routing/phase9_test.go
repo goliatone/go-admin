@@ -24,15 +24,24 @@ func TestPlannerConflictPolicyModesStillFailFast(t *testing.T) {
 					AdminRoot: "/admin",
 					APIRoot:   "/admin/api",
 				},
+				Modules: map[string]ModuleConfig{
+					"alpha": {
+						Mount: ModuleMountOverride{
+							UIBase: "/admin",
+						},
+					},
+					"beta": {
+						Mount: ModuleMountOverride{
+							UIBase: "/admin",
+						},
+					},
+				},
 			})
 
 			if err := planner.RegisterModule(ModuleContract{
 				Slug: "alpha",
 				UIRoutes: map[string]string{
 					"alpha.index": "/shared",
-				},
-				Mount: ModuleMountOverride{
-					UIBase: "/admin",
 				},
 			}); err != nil {
 				t.Fatalf("register alpha: %v", err)
@@ -42,9 +51,6 @@ func TestPlannerConflictPolicyModesStillFailFast(t *testing.T) {
 				Slug: "beta",
 				UIRoutes: map[string]string{
 					"beta.index": "/shared",
-				},
-				Mount: ModuleMountOverride{
-					UIBase: "/admin",
 				},
 			})
 			if err == nil {
