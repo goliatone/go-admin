@@ -62,7 +62,7 @@ if err := adm.Initialize(server.Router()); err != nil {
 ## Key extension points
 
 - Features: provide/override feature defaults with your gate implementation (core) or `quickstart.WithFeatureDefaults(...)`.
-- Modules: register host modules with `RegisterModule`; control startup validation behavior with `WithModuleStartupPolicy`.
+- Modules: register host modules with `RegisterModule`; mounted modules must expose `RouteContractProvider` so routing ownership stays explicit.
 - URLs: use `Config.URLs` + URLKit route names instead of hardcoding paths.
 - Commands: register typed commands and message factories for panel/API dispatch.
 - Panels: control canonical UI ownership (`PanelUIRouteMode*`) and canonical entry behavior (`PanelEntryMode*`).
@@ -93,6 +93,27 @@ cfg := admin.Config{
 	},
 }
 ```
+
+## Routing Policy
+
+`admin/routing` is the canonical routing policy package.
+
+- Hosts own absolute roots; modules declare relative route tables.
+- Mounted modules must implement `admin.RouteContractProvider`.
+- Startup routing validation is strict fail-fast in every environment.
+- Public API mounts are opt-in and only exist when a module declares `PublicAPIRoutes`.
+
+Operationally, the supported diagnostics are in-process:
+
+- `adm.RoutingReport()` for effective roots, resolved module mounts, warnings, and conflicts.
+- `adm.RoutingPlanner().Manifest()` for deterministic route-manifest export.
+
+A stable HTTP JSON routing report endpoint is not part of the first release of
+the clean-break routing API. Use the in-process report/manifest APIs or
+quickstart doctor output instead.
+
+See `GUIDE_ROUTING.md` for the external-module contract, release policy,
+and CI manifest-review guidance.
 
 ## Panel Entry Modes
 
@@ -199,6 +220,8 @@ Mapping behavior:
 ## References
 
 - Quickstart API and helpers: `quickstart/README.md`
+- Routing policy contract and CI review workflow: `GUIDE_ROUTING.md`
+- Routing incidents and operational context: `REPORT_ROUTES.md`
 - Example runtime config conventions: `examples/web/config/app.json` and `examples/web/README.md`
 - CMS and translation workflow guide: `docs/GUIDE_CMS.md`
 - Background command routing observability: `GUIDE_BKG_CMD_OBSERVABILITY.md`
