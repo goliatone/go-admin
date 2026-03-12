@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -28,6 +29,11 @@ type stubAgreementEmailWorkflow struct {
 	lastToken       string
 	sentErr         error
 	resentErr       error
+}
+
+type stubAgreementNotificationDispatchTrigger struct {
+	calls     int
+	lastScope stores.Scope
 }
 
 type capturingAgreementTokenService struct {
@@ -93,6 +99,11 @@ func (s *stubAgreementEmailWorkflow) OnAgreementResent(_ context.Context, scope 
 	s.lastType = notification.Type
 	s.lastToken = strings.TrimSpace(notification.Token.Token)
 	return s.resentErr
+}
+
+func (s *stubAgreementNotificationDispatchTrigger) NotifyScope(scope stores.Scope) {
+	s.calls++
+	s.lastScope = scope
 }
 
 func setupDraftAgreement(t *testing.T) (context.Context, stores.Scope, *stores.InMemoryStore, AgreementService, stores.AgreementRecord) {
@@ -574,6 +585,74 @@ func TestAgreementServiceSendDispatchesEmailWorkflow(t *testing.T) {
 	}
 }
 
+func TestAgreementServiceSendEnqueuesNotificationOutboxWhenConfigured(t *testing.T) {
+	ctx, scope, store, _, agreement := setupDraftAgreement(t)
+	workflow := &stubAgreementEmailWorkflow{}
+	dispatcher := &stubAgreementNotificationDispatchTrigger{}
+	svc := NewAgreementService(store,
+		WithAgreementEmailWorkflow(workflow),
+		WithAgreementNotificationOutbox(store),
+		WithAgreementNotificationDispatchTrigger(dispatcher),
+	)
+
+	signer, err := svc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("signer@example.com"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: primitives.Int(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer: %v", err)
+	}
+	if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        stringPtr(stores.FieldTypeSignature),
+		PageNumber:  primitives.Int(1),
+		Required:    boolPtr(true),
+	}); err != nil {
+		t.Fatalf("UpsertFieldDraft signature: %v", err)
+	}
+
+	if _, err := svc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "send-outbox"}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	if workflow.sentCalls != 0 {
+		t.Fatalf("expected workflow bypassed when outbox is configured, got %d calls", workflow.sentCalls)
+	}
+	if dispatcher.calls != 1 {
+		t.Fatalf("expected one async dispatch nudge, got %d", dispatcher.calls)
+	}
+	if dispatcher.lastScope != scope {
+		t.Fatalf("expected dispatcher scope %+v, got %+v", scope, dispatcher.lastScope)
+	}
+
+	outbox, err := store.ListOutboxMessages(ctx, scope, stores.OutboxQuery{Topic: NotificationOutboxTopicEmailSendSigningRequest})
+	if err != nil {
+		t.Fatalf("ListOutboxMessages: %v", err)
+	}
+	if len(outbox) != 1 {
+		t.Fatalf("expected one outbox message, got %+v", outbox)
+	}
+	var payload EmailSendSigningRequestOutboxPayload
+	if err := json.Unmarshal([]byte(outbox[0].PayloadJSON), &payload); err != nil {
+		t.Fatalf("Unmarshal outbox payload: %v", err)
+	}
+	if payload.AgreementID != agreement.ID {
+		t.Fatalf("expected agreement %q, got %q", agreement.ID, payload.AgreementID)
+	}
+	if payload.RecipientID != signer.ID {
+		t.Fatalf("expected recipient %q, got %q", signer.ID, payload.RecipientID)
+	}
+	if payload.Notification != string(NotificationSigningInvitation) {
+		t.Fatalf("expected notification %q, got %q", NotificationSigningInvitation, payload.Notification)
+	}
+	if payload.CorrelationID != "send-outbox" {
+		t.Fatalf("expected correlation send-outbox, got %q", payload.CorrelationID)
+	}
+	if payload.SignerToken == "" {
+		t.Fatal("expected outbox payload to include signer token")
+	}
+}
+
 func TestAgreementServiceSendPersistsSentStatusWhenEmailWorkflowFails(t *testing.T) {
 	ctx, scope, store, _, agreement := setupDraftAgreement(t)
 	workflow := &stubAgreementEmailWorkflow{sentErr: errors.New("smtp unavailable")}
@@ -891,6 +970,74 @@ func TestAgreementServiceResendDispatchesEmailWorkflow(t *testing.T) {
 	}
 	if workflow.lastToken == "" {
 		t.Fatal("expected resend workflow notification to include issued token")
+	}
+}
+
+func TestAgreementServiceResendEnqueuesNotificationOutboxWhenConfigured(t *testing.T) {
+	ctx, scope, store, _, agreement := setupDraftAgreement(t)
+	tokenService := stores.NewTokenService(store)
+	workflow := &stubAgreementEmailWorkflow{}
+	dispatcher := &stubAgreementNotificationDispatchTrigger{}
+	svc := NewAgreementService(store,
+		WithAgreementTokenService(tokenService),
+		WithAgreementEmailWorkflow(workflow),
+		WithAgreementNotificationOutbox(store),
+		WithAgreementNotificationDispatchTrigger(dispatcher),
+	)
+
+	signer, err := svc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        stringPtr("signer@example.com"),
+		Role:         stringPtr(stores.RecipientRoleSigner),
+		SigningOrder: primitives.Int(1),
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer: %v", err)
+	}
+	if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        stringPtr(stores.FieldTypeSignature),
+		PageNumber:  primitives.Int(1),
+		Required:    boolPtr(true),
+	}); err != nil {
+		t.Fatalf("UpsertFieldDraft signature: %v", err)
+	}
+	if _, err := svc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "send-key"}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+
+	resent, err := svc.Resend(ctx, scope, agreement.ID, ResendInput{IdempotencyKey: "resend-outbox"})
+	if err != nil {
+		t.Fatalf("Resend: %v", err)
+	}
+	if strings.TrimSpace(resent.Token.Token) == "" {
+		t.Fatal("expected resend result to include token")
+	}
+	if workflow.resentCalls != 0 {
+		t.Fatalf("expected resend workflow bypassed when outbox is configured, got %d calls", workflow.resentCalls)
+	}
+	if dispatcher.calls != 2 {
+		t.Fatalf("expected two async dispatch nudges, got %d", dispatcher.calls)
+	}
+
+	outbox, err := store.ListOutboxMessages(ctx, scope, stores.OutboxQuery{Topic: NotificationOutboxTopicEmailSendSigningRequest})
+	if err != nil {
+		t.Fatalf("ListOutboxMessages: %v", err)
+	}
+	if len(outbox) != 2 {
+		t.Fatalf("expected two outbox messages, got %+v", outbox)
+	}
+	var payload EmailSendSigningRequestOutboxPayload
+	if err := json.Unmarshal([]byte(outbox[1].PayloadJSON), &payload); err != nil {
+		t.Fatalf("Unmarshal resend outbox payload: %v", err)
+	}
+	if payload.Notification != string(NotificationSigningReminder) {
+		t.Fatalf("expected notification %q, got %q", NotificationSigningReminder, payload.Notification)
+	}
+	if payload.RecipientID != signer.ID {
+		t.Fatalf("expected recipient %q, got %q", signer.ID, payload.RecipientID)
+	}
+	if payload.CorrelationID != "resend-outbox" {
+		t.Fatalf("expected correlation resend-outbox, got %q", payload.CorrelationID)
 	}
 }
 

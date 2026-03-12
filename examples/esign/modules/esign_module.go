@@ -85,6 +85,7 @@ type ESignModule struct {
 	artifacts         services.ArtifactPipelineService
 	google            googleIntegrationService
 	googleImportQueue *jobs.GoogleDriveImportQueue
+	emailOutbox       *jobs.EmailOutboxDispatcher
 	integrations      services.IntegrationFoundationService
 	activityMap       *AuditActivityProjector
 	uploadManager     *uploader.Manager
@@ -166,11 +167,17 @@ func (m *ESignModule) GoogleIntegrationEnabled() bool {
 
 // Close releases background resources owned by the module runtime.
 func (m *ESignModule) Close() {
-	if m == nil || m.googleImportQueue == nil {
+	if m == nil {
 		return
 	}
-	m.googleImportQueue.Close()
-	m.googleImportQueue = nil
+	if m.googleImportQueue != nil {
+		m.googleImportQueue.Close()
+		m.googleImportQueue = nil
+	}
+	if m.emailOutbox != nil {
+		m.emailOutbox.Close()
+		m.emailOutbox = nil
+	}
 }
 
 // GoogleConnected reports whether the given user has an active Google integration connection in scope.
@@ -378,10 +385,18 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 	}
 	jobHandlers := jobs.NewHandlers(jobHandlerDeps)
 	emailWorkflow := jobs.NewAgreementWorkflow(jobHandlers)
+	emailOutbox, err := jobs.NewEmailOutboxDispatcher(m.store, jobs.NewEmailOutboxPublisher(jobHandlers))
+	if err != nil {
+		return fmt.Errorf("esign module: email outbox dispatcher: %w", err)
+	}
+	emailOutbox.NotifyScope(m.defaultScope)
+	m.emailOutbox = emailOutbox
 	m.agreements = services.NewAgreementService(m.store,
 		services.WithAgreementTokenService(m.tokens),
 		services.WithAgreementAuditStore(m.store),
 		services.WithAgreementReminderStore(m.store),
+		services.WithAgreementNotificationOutbox(m.store),
+		services.WithAgreementNotificationDispatchTrigger(emailOutbox),
 		services.WithAgreementEmailWorkflow(emailWorkflow),
 		services.WithAgreementPlacementObjectStore(objectStore),
 		services.WithAgreementPDFService(pdfService),

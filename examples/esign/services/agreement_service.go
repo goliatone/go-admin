@@ -23,12 +23,15 @@ type AgreementService struct {
 	tokens                AgreementTokenService
 	audits                stores.AuditEventStore
 	emails                AgreementEmailWorkflow
+	outbox                stores.OutboxStore
 	placementOrchestrator AgreementPlacementOrchestrator
 	placementPolicy       AgreementPlacementPolicyResolver
 	placementObjectStore  PlacementDocumentObjectStore
+	notificationDispatch  AgreementNotificationDispatchTrigger
 	tx                    stores.TransactionManager
 	customTokens          bool
 	customAudits          bool
+	customOutbox          bool
 	customPlacementRuns   bool
 	customReminders       bool
 	pdfs                  PDFService
@@ -67,6 +70,11 @@ type AgreementNotification struct {
 type AgreementEmailWorkflow interface {
 	OnAgreementSent(ctx context.Context, scope stores.Scope, notification AgreementNotification) error
 	OnAgreementResent(ctx context.Context, scope stores.Scope, notification AgreementNotification) error
+}
+
+// AgreementNotificationDispatchTrigger nudges async notification delivery without blocking the caller.
+type AgreementNotificationDispatchTrigger interface {
+	NotifyScope(scope stores.Scope)
 }
 
 // WithAgreementClock sets the service clock.
@@ -143,6 +151,27 @@ func WithAgreementEmailWorkflow(workflow AgreementEmailWorkflow) AgreementServic
 	}
 }
 
+// WithAgreementNotificationOutbox configures transactional notification outbox persistence.
+func WithAgreementNotificationOutbox(outbox stores.OutboxStore) AgreementServiceOption {
+	return func(s *AgreementService) {
+		if s == nil || outbox == nil {
+			return
+		}
+		s.outbox = outbox
+		s.customOutbox = !sameInstance(outbox, s.agreements)
+	}
+}
+
+// WithAgreementNotificationDispatchTrigger configures the async notification dispatcher nudge hook.
+func WithAgreementNotificationDispatchTrigger(trigger AgreementNotificationDispatchTrigger) AgreementServiceOption {
+	return func(s *AgreementService) {
+		if s == nil || trigger == nil {
+			return
+		}
+		s.notificationDispatch = trigger
+	}
+}
+
 // WithAgreementPDFService sets the shared PDF policy service used for compatibility gating.
 func WithAgreementPDFService(service PDFService) AgreementServiceOption {
 	return func(s *AgreementService) {
@@ -216,6 +245,9 @@ func (s AgreementService) forTx(tx stores.TxStore) AgreementService {
 	}
 	if !txSvc.customReminders {
 		txSvc.reminders = tx
+	}
+	if txSvc.outbox != nil && !txSvc.customOutbox {
+		txSvc.outbox = tx
 	}
 	if !txSvc.customAudits {
 		txSvc.audits = tx
@@ -979,7 +1011,23 @@ func (s AgreementService) Send(ctx context.Context, scope stores.Scope, agreemen
 				return err
 			}
 		}
-		if txSvc.emails != nil {
+		enqueuedNotification := false
+		if txSvc.outbox != nil {
+			for _, activeSigner := range activeSigners {
+				issued := issuedByRecipient[activeSigner.ID]
+				notification := AgreementNotification{
+					AgreementID:   transitioned.ID,
+					RecipientID:   activeSigner.ID,
+					CorrelationID: strings.TrimSpace(input.IdempotencyKey),
+					Type:          NotificationSigningInvitation,
+					Token:         issued,
+				}
+				if err := txSvc.enqueueEmailNotificationOutbox(ctx, scope, notification, AgreementSendNotificationFailedAuditEvent); err != nil {
+					return err
+				}
+			}
+			enqueuedNotification = len(activeSigners) > 0
+		} else if txSvc.emails != nil {
 			for _, activeSigner := range activeSigners {
 				issued := issuedByRecipient[activeSigner.ID]
 				notification := AgreementNotification{
@@ -1005,6 +1053,12 @@ func (s AgreementService) Send(ctx context.Context, scope stores.Scope, agreemen
 					return nil
 				})
 			}
+		}
+		if enqueuedNotification && hooks != nil && s.notificationDispatch != nil {
+			hooks.AfterCommit(func() error {
+				s.notificationDispatch.NotifyScope(scope)
+				return nil
+			})
 		}
 		return nil
 	}); err != nil {
@@ -1199,7 +1253,24 @@ func (s AgreementService) Resend(ctx context.Context, scope stores.Scope, agreem
 		if err := txSvc.recordReminderResendState(ctx, scope, agreement, target, resendSource, input.ReminderLease, input.ReminderLeaseSeconds); err != nil {
 			return err
 		}
-		if txSvc.emails != nil {
+		if txSvc.outbox != nil {
+			notification := AgreementNotification{
+				AgreementID:   agreement.ID,
+				RecipientID:   target.ID,
+				CorrelationID: strings.TrimSpace(input.IdempotencyKey),
+				Type:          NotificationSigningReminder,
+				Token:         issued,
+			}
+			if err := txSvc.enqueueEmailNotificationOutbox(ctx, scope, notification, AgreementResendNotificationFailedAuditEvent); err != nil {
+				return err
+			}
+			if hooks != nil && s.notificationDispatch != nil {
+				hooks.AfterCommit(func() error {
+					s.notificationDispatch.NotifyScope(scope)
+					return nil
+				})
+			}
+		} else if txSvc.emails != nil {
 			notification := AgreementNotification{
 				AgreementID:   agreement.ID,
 				RecipientID:   target.ID,
