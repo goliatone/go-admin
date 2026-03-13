@@ -164,6 +164,51 @@ func TestSeedExampleTranslationQueueFixtureAppliesRequestedScope(t *testing.T) {
 	}
 }
 
+func TestSeedExampleTranslationQueueFixtureRepairsLegacyQATargetFamily(t *testing.T) {
+	ctx := context.Background()
+	dsn := fmt.Sprintf("file:%s?cache=shared&_fk=1", filepath.Join(t.TempDir(), strings.ToLower(t.Name())+".db"))
+
+	cmsOpts, err := setup.SetupPersistentCMS(ctx, "en", dsn)
+	require.NoError(t, err)
+	require.NotNil(t, cmsOpts.Container)
+
+	contentSvc := cmsOpts.Container.ContentService()
+	require.NotNil(t, contentSvc)
+
+	source, err := findPageBySlug(ctx, contentSvc, "home")
+	require.NoError(t, err)
+	require.NotNil(t, source)
+	sourceGroupID := normalizeTranslationGroupID(source.TranslationGroupID, source.ID)
+	require.NotEmpty(t, strings.TrimSpace(sourceGroupID))
+
+	_, err = contentSvc.CreatePage(ctx, coreadmin.CMSPage{
+		Title:              "Guide d'accueil",
+		Slug:               "home-fr",
+		Locale:             "fr",
+		TranslationGroupID: "legacy-home-fr",
+		Status:             "draft",
+		Data: map[string]any{
+			"path": "/home-fr",
+			"body": "Legacy orphan target page.",
+		},
+	})
+	require.NoError(t, err)
+
+	repo := coreadmin.NewInMemoryTranslationAssignmentRepository()
+	err = seedExampleTranslationQueueFixture(ctx, repo, contentSvc, "", "")
+	require.NoError(t, err)
+
+	repairedTarget, err := findPageLocaleVariantForSource(ctx, contentSvc, source, sourceGroupID, "fr")
+	require.NoError(t, err)
+	require.NotNil(t, repairedTarget)
+	require.Equal(t, strings.ToLower(sourceGroupID), strings.ToLower(strings.TrimSpace(repairedTarget.TranslationGroupID)))
+
+	assignment, err := repo.Get(ctx, exampleTranslationQAAssignmentID)
+	require.NoError(t, err)
+	require.Equal(t, strings.TrimSpace(repairedTarget.ID), strings.TrimSpace(assignment.TargetRecordID))
+	require.Equal(t, strings.ToLower(sourceGroupID), strings.ToLower(strings.TrimSpace(assignment.TranslationGroupID)))
+}
+
 func TestTranslationQAFamilyTargetResolvesCurrentFixtureFamily(t *testing.T) {
 	ctx := context.Background()
 	dsn := fmt.Sprintf("file:%s?cache=shared&_fk=1", filepath.Join(t.TempDir(), strings.ToLower(t.Name())+".db"))

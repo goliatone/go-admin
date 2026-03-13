@@ -386,9 +386,17 @@ func seedExampleTranslationQueueFixture(
 			return fmt.Errorf("translation editor qa source page scope update failed: %w", err)
 		}
 		editorGroupID := normalizeTranslationGroupID(editorSource.TranslationGroupID, editorSource.ID)
-		editorTarget, targetErr := findPageLocaleVariant(ctx, contentSvc, editorGroupID, "fr")
+		editorTarget, targetErr := findPageLocaleVariantForSource(ctx, contentSvc, editorSource, editorGroupID, "fr")
 		if targetErr != nil {
 			return fmt.Errorf("translation editor qa target page lookup failed: %w", targetErr)
+		}
+		if editorTarget != nil && !matchesTranslationGroup(editorGroupID, editorTarget.TranslationGroupID) {
+			repairedTarget := cloneCMSPage(*editorTarget)
+			repairedTarget.TranslationGroupID = editorGroupID
+			editorTarget, err = contentSvc.UpdatePage(ctx, repairedTarget)
+			if err != nil {
+				return fmt.Errorf("translation editor qa target page family repair failed: %w", err)
+			}
 		}
 		if editorTarget == nil && strings.TrimSpace(editorGroupID) != "" {
 			createdTarget, createErr := contentSvc.CreatePage(ctx, coreadmin.CMSPage{
