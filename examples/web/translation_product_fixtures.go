@@ -488,7 +488,7 @@ func seedExampleTranslationQueueFixture(
 				TargetLocale:        "fr",
 				TargetRecordID:      strings.TrimSpace(editorTarget.ID),
 				AssignmentType:      coreadmin.AssignmentTypeDirect,
-				Status:              coreadmin.AssignmentStatusInProgress,
+				Status:              coreadmin.AssignmentStatusReview,
 				Priority:            coreadmin.PriorityHigh,
 				AssigneeID:          assignees[0],
 				ReviewerID:          assignees[0],
@@ -496,6 +496,7 @@ func seedExampleTranslationQueueFixture(
 				SourcePath:          strings.TrimSpace(firstNonEmpty(exchangePagePath(*editorSource), sourceFields["path"])),
 				LastRejectionReason: "Please tighten the CTA tone.",
 				ClaimedAt:           fixtureTimePtr(now.Add(-90 * time.Minute)),
+				SubmittedAt:         fixtureTimePtr(now.Add(-45 * time.Minute)),
 			}
 			if err := seedOrRefreshQueueAssignment(ctx, repo, editorAssignment); err != nil {
 				return err
@@ -548,6 +549,7 @@ func seedExampleTranslationQueueFixture(
 		Status:             coreadmin.AssignmentStatusReview,
 		Priority:           coreadmin.PriorityHigh,
 		AssigneeID:         assignees[0],
+		ReviewerID:         assignees[0],
 		DueDate:            &reviewDueDate,
 		ClaimedAt:          fixtureTimePtr(now),
 		SubmittedAt:        fixtureTimePtr(now.Add(-2 * time.Hour)),

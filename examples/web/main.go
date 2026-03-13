@@ -1071,15 +1071,16 @@ func main() {
 		// Keep dashboard HTML on the SSR transport route (/admin/dashboard).
 		quickstart.WithUIDashboardRoute(false),
 		quickstart.WithUIDashboardActive(setup.NavigationSectionDashboard),
-		// Keep unfinished translation dashboard out of the default QA surface.
-		quickstart.WithUITranslationDashboardRoute(false),
 	}
 	if translationCoreUIEnabled(adm) {
 		log.Printf("Translation family detail/create-locale UI route enabled (/admin/translations/families/:family_id)")
+		log.Printf("Translation matrix UI route enabled with dense coverage cells, sticky headers, and quick create/open actions (/admin/translations/matrix)")
 	}
 	if featureEnabled(adm.FeatureGate(), string(coreadmin.FeatureTranslationQueue)) {
-		log.Printf("Translation queue UI route enabled with inline claim/release actions (/admin/translations/queue)")
-		log.Printf("Translation editor UI route enabled with full source-target editing, autosave recovery, and sidebar history (/admin/translations/assignments/:assignment_id/edit)")
+		uiRouteOpts = append(uiRouteOpts, quickstart.WithUITranslationDashboardRoute(true))
+		log.Printf("Translation dashboard UI route enabled with aggregate cards, degraded-state metadata, and runbook links (/admin/translations/dashboard)")
+		log.Printf("Translation queue UI route enabled with reviewer state presets, inline claim/release, and review actions (/admin/translations/queue)")
+		log.Printf("Translation editor UI route enabled with reject-with-reason modal, QA surfacing, and workflow timeline (/admin/translations/assignments/:assignment_id/edit)")
 	}
 	if featureEnabled(adm.FeatureGate(), string(coreadmin.FeatureTranslationExchange)) {
 		uiRouteOpts = append(uiRouteOpts, quickstart.WithUITranslationExchangeRoute(true))
@@ -1658,6 +1659,22 @@ func translationQAMenuItems(adm *admin.Admin, cfg admin.Config) []admin.MenuItem
 			},
 		},
 		{
+			ID:          "example.translation.qa.matrix",
+			Type:        admin.MenuItemTypeItem,
+			Label:       "Translation Matrix (QA)",
+			Icon:        "layout-grid",
+			ParentID:    quickstart.NavigationGroupTranslationsID,
+			Menu:        menuCode,
+			Locale:      locale,
+			Position:    menuPosition(55),
+			Permissions: append([]string{}, permissions...),
+			Target: map[string]any{
+				"type": "url",
+				"path": translationQAMatrixPath(basePath),
+				"key":  "translation_matrix_qa",
+			},
+		},
+		{
 			ID:          "example.translation.qa.fallback_edit",
 			Type:        admin.MenuItemTypeItem,
 			Label:       "Fallback Edit (QA)",
@@ -1689,7 +1706,7 @@ func translationQAMenuItems(adm *admin.Admin, cfg admin.Config) []admin.MenuItem
 				Permissions: append([]string{}, permissions...),
 				Target: map[string]any{
 					"type": "url",
-					"path": path.Join(basePath, "translations", "queue"),
+					"path": translationQAQueuePath(basePath),
 					"key":  "translation_queue_qa",
 				},
 			},
@@ -1705,7 +1722,7 @@ func translationQAMenuItems(adm *admin.Admin, cfg admin.Config) []admin.MenuItem
 				Permissions: append([]string{}, permissions...),
 				Target: map[string]any{
 					"type": "url",
-					"path": path.Join(basePath, "translations", "assignments", exampleTranslationQAAssignmentID, "edit"),
+					"path": translationQAEditorPath(basePath),
 					"key":  "translation_editor_qa",
 				},
 			},
@@ -1746,6 +1763,18 @@ func translationQAContentSummaryPath(basePath string) string {
 
 func translationQAFallbackEditPath(basePath string) string {
 	return path.Join(basePath, "translations", "qa", "fallback-edit")
+}
+
+func translationQAMatrixPath(basePath string) string {
+	return path.Join(basePath, "translations", "matrix") + "?environment=production&tenant_id=tenant-1&org_id=org-1&locale_limit=4"
+}
+
+func translationQAQueuePath(basePath string) string {
+	return path.Join(basePath, "translations", "queue") + "?preset=review_inbox"
+}
+
+func translationQAEditorPath(basePath string) string {
+	return path.Join(basePath, "translations", "assignments", exampleTranslationQAAssignmentID, "edit")
 }
 
 func translationQAContentRedirectHandler(
