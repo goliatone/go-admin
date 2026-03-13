@@ -1,0 +1,19 @@
+{
+  "name": "@goliatone/sync-core",
+  "version": "0.0.0-phase1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist-types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist-types/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc --emitDeclarationOnly --outDir ./dist-types --declarationDir ./dist-types && vite build",
+    "test": "npm run build && node --test tests/*.test.mjs"
+  }
+}

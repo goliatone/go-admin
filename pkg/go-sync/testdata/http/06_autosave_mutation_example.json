@@ -1,0 +1,27 @@
+{
+  "data": {
+    "id": "agreement_draft_123",
+    "title": "Mutual NDA",
+    "status": "draft",
+    "participants": [
+      {
+        "id": "participant_1",
+        "role": "sender",
+        "name": "Ada Lovelace"
+      },
+      {
+        "id": "participant_2",
+        "role": "signer",
+        "name": "Grace Hopper"
+      }
+    ]
+  },
+  "revision": 13,
+  "updated_at": "2026-03-12T18:00:02Z",
+  "applied": true,
+  "replay": false,
+  "metadata": {
+    "operation": "autosave",
+    "source": "phase3_autosave_mutation"
+  }
+}

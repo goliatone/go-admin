@@ -53,13 +53,15 @@ interface StateBindingControllerOptions {
 export interface AgreementStateBindingController {
   bindChangeTracking(): void;
   debouncedTrackChanges(): void;
+  applyStateToUI(
+    state: AgreementStateShape | null | undefined,
+    options?: {
+      step?: number;
+      updatePreview?: boolean;
+      silent?: boolean;
+    },
+  ): void;
   renderInitialWizardUI(): void;
-}
-
-declare global {
-  interface Window {
-    _resumeToStep?: number;
-  }
 }
 
 export function createAgreementStateBindingController(
@@ -84,33 +86,79 @@ export function createAgreementStateBindingController(
   } = options;
 
   let trackingTimeout: ReturnType<typeof setTimeout> | null = null;
+  let isApplyingState = false;
+
+  function withStateApplicationGuard<T>(callback: () => T): T {
+    isApplyingState = true;
+    try {
+      return callback();
+    } finally {
+      isApplyingState = false;
+    }
+  }
+
+  function restoreDocumentState(state: AgreementStateShape | null | undefined): void {
+    const documentState = state?.document;
+    const selectedDoc = document.getElementById('selected-document');
+    const docPicker = document.getElementById('document-picker');
+    const docInfo = document.getElementById('selected-document-info');
+
+    documentIdInput.value = String(documentState?.id || '').trim();
+    if (documentPageCountInput) {
+      const pageCount = parsePositiveInt(documentState?.pageCount, 0) || 0;
+      documentPageCountInput.value = pageCount > 0 ? String(pageCount) : '';
+    }
+    if (selectedDocumentTitle) {
+      selectedDocumentTitle.textContent = String(documentState?.title || '').trim();
+    }
+    if (docInfo instanceof HTMLElement) {
+      const pageCount = parsePositiveInt(documentState?.pageCount, 0) || 0;
+      docInfo.textContent = pageCount > 0 ? `${pageCount} pages` : '';
+    }
+
+    if (documentIdInput.value) {
+      selectedDoc?.classList.remove('hidden');
+      docPicker?.classList.add('hidden');
+      return;
+    }
+
+    selectedDoc?.classList.add('hidden');
+    docPicker?.classList.remove('hidden');
+  }
+
+  function restoreDetailsState(state: AgreementStateShape | null | undefined): void {
+    agreementRefs.form.titleInput.value = String(state?.details?.title || '');
+    agreementRefs.form.messageInput.value = String(state?.details?.message || '');
+  }
 
   function debouncedTrackChanges(): void {
+    if (isApplyingState) return;
     if (trackingTimeout !== null) clearTimeout(trackingTimeout);
     trackingTimeout = setTimeout(() => {
       trackWizardStateChanges();
     }, 500);
   }
 
-  function restoreParticipantsFromState(): void {
-    participantsController.restoreFromState(stateManager.getState());
+  function restoreParticipantsFromState(state: AgreementStateShape | null | undefined): void {
+    participantsController.restoreFromState(state);
   }
 
-  function restoreFieldDefinitionsFromState(): void {
-    fieldDefinitionsController.restoreFieldDefinitionsFromState(stateManager.getState());
+  function restoreFieldDefinitionsFromState(state: AgreementStateShape | null | undefined): void {
+    fieldDefinitionsController.restoreFieldDefinitionsFromState(state);
   }
 
-  function restoreFieldRulesFromState(): void {
-    fieldDefinitionsController.restoreFieldRulesFromState(stateManager.getState());
+  function restoreFieldRulesFromState(state: AgreementStateShape | null | undefined): void {
+    fieldDefinitionsController.restoreFieldRulesFromState(state);
   }
 
-  function restoreFieldPlacementsFromState(): void {
-    placementController.restoreFieldPlacementsFromState(stateManager.getState());
+  function restoreFieldPlacementsFromState(state: AgreementStateShape | null | undefined): void {
+    placementController.restoreFieldPlacementsFromState(state);
   }
 
   function bindChangeTracking(): void {
     if (documentIdInput) {
       const observer = new MutationObserver(() => {
+        if (isApplyingState) return;
         trackWizardStateChanges();
       });
       observer.observe(documentIdInput, { attributes: true, attributeFilter: ['value'] });
@@ -142,34 +190,54 @@ export function createAgreementStateBindingController(
     fieldDefinitionsController.refs.fieldRulesContainer?.addEventListener('change', debouncedTrackChanges);
   }
 
-  function renderInitialWizardUI(): void {
-    if (window._resumeToStep) {
-      restoreParticipantsFromState();
-      restoreFieldDefinitionsFromState();
-      restoreFieldRulesFromState();
+  function applyStateToUI(
+    state: AgreementStateShape | null | undefined,
+    options: {
+      step?: number;
+      updatePreview?: boolean;
+      silent?: boolean;
+    } = {},
+  ): void {
+    withStateApplicationGuard(() => {
+      restoreDocumentState(state);
+      restoreDetailsState(state);
+      restoreParticipantsFromState(state);
+      restoreFieldDefinitionsFromState(state);
+      restoreFieldRulesFromState(state);
       updateFieldParticipantOptions();
-      restoreFieldPlacementsFromState();
+      restoreFieldPlacementsFromState(state);
 
-      const state = stateManager.getState();
-      if (state.document?.id) {
-        previewCard.setDocument(
-          state.document.id,
-          state.document.title || null,
-          state.document.pageCount ?? null,
-        );
+      if (options.updatePreview !== false) {
+        const documentState = state?.document;
+        if (documentState?.id) {
+          previewCard.setDocument(
+            documentState.id,
+            documentState.title || null,
+            documentState.pageCount ?? null,
+          );
+        } else {
+          previewCard.clear();
+        }
       }
 
-      wizardNavigationController.setCurrentStep(window._resumeToStep);
+      const nextStep = parsePositiveInt(
+        options.step ?? state?.currentStep,
+        wizardNavigationController.getCurrentStep(),
+      ) || 1;
+      wizardNavigationController.setCurrentStep(nextStep);
       wizardNavigationController.updateWizardUI();
-      delete window._resumeToStep;
+    });
+  }
+
+  function renderInitialWizardUI(): void {
+    wizardNavigationController.updateWizardUI();
+
+    if (documentIdInput.value) {
+      const docTitle = selectedDocumentTitle?.textContent || null;
+      const docPages = parsePositiveInt(documentPageCountInput?.value, 0) || null;
+      previewCard.setDocument(documentIdInput.value, docTitle, docPages);
     } else {
-      wizardNavigationController.updateWizardUI();
-
-      if (documentIdInput.value) {
-        const docTitle = selectedDocumentTitle?.textContent || null;
-        const docPages = parsePositiveInt(documentPageCountInput?.value, 0) || null;
-        previewCard.setDocument(documentIdInput.value, docTitle, docPages);
-      }
+      previewCard.clear();
     }
 
     if (isEditMode) {
@@ -180,6 +248,7 @@ export function createAgreementStateBindingController(
   return {
     bindChangeTracking,
     debouncedTrackChanges,
+    applyStateToUI,
     renderInitialWizardUI,
   };
 }

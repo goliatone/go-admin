@@ -40,7 +40,6 @@ interface ResumeStateManager {
   ): void;
   clear(): void;
   collectFormState(): ResumeWizardState;
-  restoreFormState(): void;
   hasResumableState(): boolean;
 }
 
@@ -73,6 +72,7 @@ interface ResumeControllerOptions {
   stateManager: ResumeStateManager;
   syncOrchestrator: ResumeSyncOrchestrator;
   syncService: ResumeSyncService;
+  applyResumedState(state: ResumeWizardState): void;
   hasMeaningfulWizardProgress(state: ResumeWizardState): boolean;
   formatRelativeTime(value?: string | null): string;
   emitWizardTelemetry(eventName: string, fields?: ResumeTelemetryFields): void;
@@ -87,12 +87,6 @@ export interface AgreementResumeController {
   maybeShowResumeDialog(): Promise<void>;
 }
 
-declare global {
-  interface Window {
-    _resumeToStep?: number;
-  }
-}
-
 export function createAgreementResumeController(
   options: ResumeControllerOptions,
 ): AgreementResumeController {
@@ -102,6 +96,7 @@ export function createAgreementResumeController(
     stateManager,
     syncOrchestrator,
     syncService,
+    applyResumedState,
     hasMeaningfulWizardProgress,
     formatRelativeTime,
     emitWizardTelemetry,
@@ -293,8 +288,7 @@ export function createAgreementResumeController(
 
     switch (action) {
       case 'continue':
-        stateManager.restoreFormState();
-        window._resumeToStep = stateManager.getState().currentStep;
+        applyResumedState(stateManager.getState());
         return;
       case 'start_new':
         await clearSavedResumeState({ deleteServerDraft: false });

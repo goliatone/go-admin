@@ -1,0 +1,22 @@
+{
+  "data": {
+    "id": "agreement_draft_123",
+    "title": "Mutual NDA",
+    "status": "draft",
+    "participants": [
+      {
+        "id": "participant_1",
+        "role": "sender",
+        "name": "Ada Lovelace"
+      }
+    ]
+  },
+  "revision": 12,
+  "updated_at": "2026-03-12T18:00:00Z",
+  "metadata": {
+    "kind": "agreement_draft",
+    "scope": {
+      "tenant": "tenant_1"
+    }
+  }
+}

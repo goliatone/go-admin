@@ -13,8 +13,6 @@ export interface WizardStateManagerOptions {
   parsePositiveInt(value: unknown, fallback?: number): number;
   hasMeaningfulWizardProgress(state: Record<string, any> | null): boolean;
   collectFormState(): Record<string, any>;
-  restoreDocumentState(state: Record<string, any>): void;
-  restoreDetailsState(state: Record<string, any>): void;
   emitTelemetry(eventName: string, fields?: Record<string, unknown>): void;
   sessionStorage?: Storage | null;
   now?(): string;
@@ -393,11 +391,5 @@ export class WizardStateManager {
       storageMigrationVersion: this.options.storageMigrationVersion,
       syncPending: true,
     };
-  }
-
-  restoreFormState(): void {
-    const state = this.getState();
-    this.options.restoreDocumentState(state);
-    this.options.restoreDetailsState(state);
   }
 }

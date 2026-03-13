@@ -1,0 +1,15 @@
+{
+  "data": {
+    "id": "agreement_draft_123",
+    "title": "Mutual NDA",
+    "status": "sent"
+  },
+  "revision": 14,
+  "updated_at": "2026-03-12T18:00:05Z",
+  "applied": true,
+  "replay": true,
+  "metadata": {
+    "operation": "send",
+    "idempotency_key": "idem_send_agreement_draft_123_v14"
+  }
+}

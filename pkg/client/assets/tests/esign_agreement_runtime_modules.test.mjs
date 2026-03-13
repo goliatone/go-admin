@@ -34,6 +34,11 @@ function agreementFormMarkup() {
         <input id="title" value="" />
         <textarea id="message"></textarea>
       </form>
+      <div id="selected-document" class="hidden">
+        <span id="selected-document-title"></span>
+        <span id="selected-document-info"></span>
+      </div>
+      <div id="document-picker"></div>
       <div id="active-tab-banner" class="hidden"></div>
       <div id="active-tab-message"></div>
       <button id="active-tab-take-control-btn" type="button">Take control</button>
@@ -46,6 +51,18 @@ function agreementFormMarkup() {
       <div id="conflict-local-time"></div>
       <div id="conflict-server-revision"></div>
       <div id="conflict-server-time"></div>
+      <button id="conflict-reload-btn" type="button">Reload latest</button>
+      <button id="conflict-force-btn" type="button">Force</button>
+      <button id="conflict-dismiss-btn" type="button">Dismiss</button>
+      <div id="resume-dialog-modal" class="hidden"></div>
+      <div id="resume-draft-title"></div>
+      <div id="resume-draft-document"></div>
+      <div id="resume-draft-step"></div>
+      <div id="resume-draft-time"></div>
+      <button id="resume-continue-btn" type="button">Continue</button>
+      <button id="resume-proceed-btn" type="button">Proceed</button>
+      <button id="resume-new-btn" type="button">New</button>
+      <button id="resume-discard-btn" type="button">Discard</button>
     </body>
   </html>`;
 }
@@ -60,6 +77,7 @@ function setGlobals(win) {
   globalThis.HTMLButtonElement = win.HTMLButtonElement;
   globalThis.HTMLFormElement = win.HTMLFormElement;
   globalThis.HTMLInputElement = win.HTMLInputElement;
+  globalThis.HTMLSelectElement = win.HTMLSelectElement;
   globalThis.HTMLTextAreaElement = win.HTMLTextAreaElement;
   globalThis.Storage = win.Storage;
   globalThis.Event = win.Event;
@@ -69,8 +87,8 @@ function setGlobals(win) {
   Object.defineProperty(globalThis, 'localStorage', { value: win.localStorage, configurable: true });
 }
 
-function setupDom() {
-  const dom = new JSDOM(agreementFormMarkup(), { url: 'http://localhost:8082/admin/content/esign_agreements/new' });
+function setupDom(markup = agreementFormMarkup()) {
+  const dom = new JSDOM(markup, { url: 'http://localhost:8082/admin/content/esign_agreements/new' });
   setGlobals(dom.window);
   Object.defineProperty(dom.window.document, 'visibilityState', {
     value: 'visible',
@@ -279,4 +297,306 @@ test('sync controller only starts active-tab coordination from start and stops i
 
   assert.equal(startCalls, 1);
   assert.equal(stopCalls, 1);
+});
+
+test('state binding applyStateToUI rehydrates document, participants, rules, placements, preview, and step', async () => {
+  setupDom();
+  const { createAgreementStateBindingController } = await importSourceModule('state-binding.ts');
+
+  const appliedCalls = [];
+  const previewCalls = [];
+  const wizardNavigationController = {
+    currentStep: 1,
+    getCurrentStep() {
+      return this.currentStep;
+    },
+    setCurrentStep(stepNum) {
+      this.currentStep = stepNum;
+      appliedCalls.push(`step:${stepNum}`);
+    },
+    updateWizardUI() {
+      appliedCalls.push('wizard-ui');
+    },
+  };
+  const controller = createAgreementStateBindingController({
+    titleSource: {
+      USER: 'user',
+      AUTOFILL: 'autofill',
+      SERVER_SEED: 'server_seed',
+    },
+    stateManager: {
+      getState() {
+        return {};
+      },
+      setTitleSource() {},
+    },
+    trackWizardStateChanges() {
+      appliedCalls.push('tracked');
+    },
+    participantsController: {
+      refs: {
+        participantsContainer: document.createElement('div'),
+        addParticipantBtn: null,
+      },
+      restoreFromState(state) {
+        appliedCalls.push(`participants:${state?.participants?.length || 0}`);
+      },
+    },
+    fieldDefinitionsController: {
+      refs: {
+        fieldDefinitionsContainer: document.createElement('div'),
+        fieldRulesContainer: document.createElement('div'),
+      },
+      restoreFieldDefinitionsFromState(state) {
+        appliedCalls.push(`definitions:${state?.fieldDefinitions?.length || 0}`);
+      },
+      restoreFieldRulesFromState(state) {
+        appliedCalls.push(`rules:${state?.fieldRules?.length || 0}`);
+      },
+      updateFieldParticipantOptions() {
+        appliedCalls.push('participant-options');
+      },
+    },
+    placementController: {
+      restoreFieldPlacementsFromState(state) {
+        appliedCalls.push(`placements:${state?.fieldPlacements?.length || 0}`);
+      },
+    },
+    updateFieldParticipantOptions() {
+      appliedCalls.push('update-field-participants');
+    },
+    previewCard: {
+      setDocument(id, title, pageCount) {
+        previewCalls.push({ type: 'set', id, title, pageCount });
+      },
+      clear() {
+        previewCalls.push({ type: 'clear' });
+      },
+    },
+    wizardNavigationController,
+    documentIdInput: document.getElementById('document_id'),
+    documentPageCountInput: document.getElementById('document_page_count'),
+    selectedDocumentTitle: document.getElementById('selected-document-title'),
+    agreementRefs: {
+      form: {
+        titleInput: document.getElementById('title'),
+        messageInput: document.getElementById('message'),
+      },
+      sync: {
+        indicator: document.getElementById('sync-status-indicator'),
+      },
+    },
+    parsePositiveInt(value, fallback = 0) {
+      const parsed = Number.parseInt(String(value ?? ''), 10);
+      return Number.isFinite(parsed) ? parsed : fallback;
+    },
+    isEditMode: false,
+  });
+
+  const state = {
+    currentStep: 6,
+    document: {
+      id: 'doc_123',
+      title: 'Mutual NDA',
+      pageCount: 4,
+    },
+    details: {
+      title: 'Agreement Title',
+      message: 'Agreement message',
+    },
+    participants: [{ tempId: 'participant_1' }],
+    fieldDefinitions: [{ tempId: 'field_1' }],
+    fieldRules: [{ id: 'rule_1' }],
+    fieldPlacements: [{ id: 'placement_1' }],
+  };
+
+  controller.applyStateToUI(state);
+  controller.applyStateToUI(state);
+
+  assert.equal(document.getElementById('document_id').value, 'doc_123');
+  assert.equal(document.getElementById('document_page_count').value, '4');
+  assert.equal(document.getElementById('title').value, 'Agreement Title');
+  assert.equal(document.getElementById('message').value, 'Agreement message');
+  assert.equal(document.getElementById('selected-document').classList.contains('hidden'), false);
+  assert.equal(document.getElementById('document-picker').classList.contains('hidden'), true);
+  assert.equal(document.getElementById('selected-document-title').textContent, 'Mutual NDA');
+  assert.equal(document.getElementById('selected-document-info').textContent, '4 pages');
+  assert.deepEqual(appliedCalls, [
+    'participants:1',
+    'definitions:1',
+    'rules:1',
+    'update-field-participants',
+    'placements:1',
+    'step:6',
+    'wizard-ui',
+    'participants:1',
+    'definitions:1',
+    'rules:1',
+    'update-field-participants',
+    'placements:1',
+    'step:6',
+    'wizard-ui',
+  ]);
+  assert.deepEqual(previewCalls, [
+    { type: 'set', id: 'doc_123', title: 'Mutual NDA', pageCount: 4 },
+    { type: 'set', id: 'doc_123', title: 'Mutual NDA', pageCount: 4 },
+  ]);
+});
+
+test('resume controller continue applies reconciled state without using boot-time globals', async () => {
+  setupDom();
+  const { createAgreementResumeController } = await importSourceModule('resume-flow.ts');
+
+  let appliedState = null;
+  const state = {
+    currentStep: 6,
+    updatedAt: '2026-03-13T10:00:00Z',
+    details: { title: 'Resume Me' },
+    document: { id: 'doc_123', title: 'Mutual NDA' },
+    participants: [{ tempId: 'participant_1' }],
+    fieldDefinitions: [{ tempId: 'field_1' }],
+    fieldRules: [{ id: 'rule_1' }],
+    fieldPlacements: [{ id: 'placement_1' }],
+    syncPending: false,
+    serverDraftId: null,
+  };
+  const stateManager = {
+    state,
+    getState() {
+      return this.state;
+    },
+    normalizeLoadedState(nextState) {
+      return nextState;
+    },
+    setState(nextState) {
+      this.state = nextState;
+    },
+    clear() {
+      this.state = {};
+    },
+    collectFormState() {
+      return this.state;
+    },
+    hasResumableState() {
+      return true;
+    },
+  };
+
+  const controller = createAgreementResumeController({
+    isEditMode: false,
+    storageKey: 'wizard-state',
+    stateManager,
+    syncOrchestrator: {
+      broadcastStateUpdate() {},
+      scheduleSync() {},
+    },
+    syncService: {
+      async load() {
+        throw new Error('not used');
+      },
+      async delete() {},
+    },
+    applyResumedState(nextState) {
+      appliedState = nextState;
+    },
+    hasMeaningfulWizardProgress() {
+      return true;
+    },
+    formatRelativeTime() {
+      return 'moments ago';
+    },
+    emitWizardTelemetry() {},
+  });
+
+  controller.bindEvents();
+  await controller.maybeShowResumeDialog();
+  document.getElementById('resume-continue-btn').click();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.equal(document.getElementById('resume-dialog-modal').classList.contains('hidden'), true);
+  assert.equal(appliedState.currentStep, 6);
+  assert.equal(appliedState.participants.length, 1);
+  assert.equal(appliedState.fieldDefinitions.length, 1);
+  assert.equal('_resumeToStep' in window, false);
+});
+
+test('runtime actions conflict reload rehydrates latest server draft without reloading the page', async () => {
+  setupDom();
+  const { createAgreementRuntimeActionsController } = await importSourceModule('runtime-actions.ts');
+
+  let appliedState = null;
+  const stateManager = {
+    state: {
+      serverDraftId: 'draft_123',
+      serverRevision: 4,
+      syncPending: false,
+    },
+    collectFormState() {
+      return this.state;
+    },
+    updateState(nextState) {
+      this.state = nextState;
+    },
+    getState() {
+      return this.state;
+    },
+    clear() {
+      this.state = {};
+    },
+    setState(nextState) {
+      this.state = nextState;
+    },
+  };
+
+  const controller = createAgreementRuntimeActionsController({
+    stateManager,
+    syncOrchestrator: {
+      scheduleSync() {},
+      broadcastStateUpdate() {},
+      manualRetry() {
+        return {};
+      },
+      performSync() {
+        return Promise.resolve({});
+      },
+      takeControl() {
+        return true;
+      },
+    },
+    syncService: {
+      async delete() {},
+      async load() {
+        return {
+          id: 'draft_123',
+          revision: 7,
+          wizard_state: {
+            currentStep: 6,
+            details: { title: 'Latest Server Draft' },
+          },
+        };
+      },
+    },
+    applyStateToUI(nextState) {
+      appliedState = nextState;
+    },
+    surfaceSyncOutcome(result) {
+      return result;
+    },
+    announceError() {},
+    getCurrentStep() {
+      return 1;
+    },
+    reviewStep: 6,
+    onReviewStepRequested() {},
+    updateActiveTabOwnershipUI() {},
+  });
+
+  document.getElementById('conflict-dialog-modal').classList.remove('hidden');
+  controller.bindRetryAndConflictHandlers();
+  document.getElementById('conflict-reload-btn').click();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.equal(appliedState.currentStep, 6);
+  assert.equal(stateManager.getState().serverRevision, 7);
+  assert.equal(document.getElementById('conflict-dialog-modal').classList.contains('hidden'), true);
 });

@@ -31,6 +31,7 @@ interface RuntimeActionsControllerOptions {
   stateManager: RuntimeActionsStateManager;
   syncOrchestrator: RuntimeActionsSyncOrchestrator;
   syncService: RuntimeActionsSyncService;
+  applyStateToUI(state: RuntimeActionsStateShape): void;
   surfaceSyncOutcome(
     resultPromise: Promise<Record<string, unknown>> | Record<string, unknown>,
     options?: Record<string, unknown>,
@@ -48,6 +49,7 @@ export function createAgreementRuntimeActionsController(options: RuntimeActionsC
     stateManager,
     syncOrchestrator,
     syncService,
+    applyStateToUI,
     surfaceSyncOutcome,
     announceError,
     getCurrentStep,
@@ -92,13 +94,14 @@ export function createAgreementRuntimeActionsController(options: RuntimeActionsC
         try {
           const serverDraft = await syncService.load(state.serverDraftId);
           if (serverDraft.wizard_state) {
-            stateManager.setState({
+            const nextState = {
               ...serverDraft.wizard_state,
               serverDraftId: serverDraft.id,
               serverRevision: serverDraft.revision,
               syncPending: false,
-            }, { syncPending: false });
-            window.location.reload();
+            };
+            stateManager.setState(nextState, { syncPending: false });
+            applyStateToUI(nextState);
           }
         } catch (error: unknown) {
           console.error('Failed to load server draft:', error);

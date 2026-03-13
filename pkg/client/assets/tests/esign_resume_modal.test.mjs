@@ -12,6 +12,18 @@ const templatePath = path.join(
   repoRoot,
   'pkg/client/templates/resources/esign-agreements/form.html'
 );
+const resumeFlowPath = path.join(
+  repoRoot,
+  'pkg/client/assets/src/esign/pages/agreement-form/resume-flow.ts'
+);
+const stateBindingPath = path.join(
+  repoRoot,
+  'pkg/client/assets/src/esign/pages/agreement-form/state-binding.ts'
+);
+const compositionPath = path.join(
+  repoRoot,
+  'pkg/client/assets/src/esign/pages/agreement-form/composition.ts'
+);
 
 function read(filePath) {
   return fs.readFileSync(filePath, 'utf8');
@@ -39,13 +51,26 @@ test('resume check uses meaningful wizard progress helper', () => {
 });
 
 test('resume actions route through shared stale-state cleanup helper', () => {
-  const source = read(runtimePath);
+  const source = read(resumeFlowPath);
   assert.match(source, /async function clearSavedResumeState\(options = \{\}\)/);
   assert.match(source, /async function handleResumeAction\(action\)/);
   assert.match(source, /case 'start_new':[\s\S]*clearSavedResumeState\(\{ deleteServerDraft: false \}\)/);
   assert.match(source, /case 'proceed':[\s\S]*clearSavedResumeState\(\{ deleteServerDraft: true \}\)/);
   assert.match(source, /case 'discard':[\s\S]*clearSavedResumeState\(\{ deleteServerDraft: true \}\)/);
   assert.match(source, /resume-proceed-btn[\s\S]*handleResumeAction\('proceed'\)/);
+});
+
+test('resume runtime uses explicit rehydration callbacks instead of boot-time window flags', () => {
+  const resumeSource = read(resumeFlowPath);
+  const stateBindingSource = read(stateBindingPath);
+  const compositionSource = read(compositionPath);
+
+  assert.match(resumeSource, /applyResumedState\(stateManager\.getState\(\)\)/);
+  assert.doesNotMatch(resumeSource, /_resumeToStep/);
+  assert.match(stateBindingSource, /applyStateToUI\(/);
+  assert.doesNotMatch(stateBindingSource, /_resumeToStep/);
+  assert.match(compositionSource, /applyRehydratedState/);
+  assert.match(compositionSource, /applyStateToUI: \(nextState\) => applyRehydratedState/);
 });
 
 test('legacy key migration writes scoped state and removes old key once', () => {

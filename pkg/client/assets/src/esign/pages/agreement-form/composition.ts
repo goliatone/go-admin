@@ -162,6 +162,12 @@ export function createAgreementFormRuntimeCoordinator(
   let feedbackController: AgreementFeedbackController | null = null;
   let runtimeActionsController: ReturnType<typeof createAgreementRuntimeActionsController> | null = null;
   let placementLinkGroupState: LinkGroupState = createLinkGroupState();
+  const applyRehydratedState = (
+    nextState: CoordinatorWizardState | null | undefined,
+    options: { step?: number; updatePreview?: boolean; silent?: boolean } = {},
+  ): void => {
+    stateBindingController?.applyStateToUI(nextState, options);
+  };
 
   const debouncedTrackChanges = () => stateBindingController?.debouncedTrackChanges?.();
   const trackWizardStateChanges = () => runtimeActionsController?.trackWizardStateChanges?.();
@@ -254,26 +260,6 @@ export function createAgreementFormRuntimeCoordinator(
         fieldRules: fieldDefinitionsController?.collectFieldRulesForState?.() || [],
       };
     },
-    restoreDocumentState: (state: CoordinatorWizardState) => {
-      if (!state?.document?.id) return;
-      const selectedDoc = document.getElementById('selected-document');
-      const docPicker = document.getElementById('document-picker');
-      const docTitle = document.getElementById('selected-document-title');
-      const docInfo = document.getElementById('selected-document-info');
-
-      agreementRefs.form.documentIdInput.value = state.document.id;
-      if (docTitle) docTitle.textContent = state.document.title || 'Selected Document';
-      if (docInfo) docInfo.textContent = state.document.pageCount ? `${state.document.pageCount} pages` : '';
-      if (agreementRefs.form.documentPageCountInput && state.document.pageCount) {
-        agreementRefs.form.documentPageCountInput.value = String(state.document.pageCount);
-      }
-      if (selectedDoc) selectedDoc.classList.remove('hidden');
-      if (docPicker) docPicker.classList.add('hidden');
-    },
-    restoreDetailsState: (state: CoordinatorWizardState) => {
-      agreementRefs.form.titleInput.value = state?.details?.title || '';
-      agreementRefs.form.messageInput.value = state?.details?.message || '';
-    },
     emitTelemetry: emitWizardTelemetry,
   });
   stateManager.start();
@@ -315,10 +301,16 @@ export function createAgreementFormRuntimeCoordinator(
       if (mergeResult.replacedLocalState) {
         const reconcilePromise = resumeController?.reconcileBootstrapState?.();
         if (reconcilePromise) {
-          void reconcilePromise.then(() => {
+          void reconcilePromise.then((resolvedState) => {
+            applyRehydratedState(resolvedState as CoordinatorWizardState, {
+              step: Number((resolvedState as CoordinatorWizardState)?.currentStep || 1),
+            });
             stateManager.notifyListeners();
           });
         } else {
+          applyRehydratedState(stateManager.getState() as CoordinatorWizardState, {
+            step: Number(stateManager.getState()?.currentStep || 1),
+          });
           stateManager.notifyListeners();
         }
       } else {
@@ -526,6 +518,9 @@ export function createAgreementFormRuntimeCoordinator(
     stateManager,
     syncOrchestrator,
     syncService,
+    applyStateToUI: (nextState) => applyRehydratedState(nextState as CoordinatorWizardState, {
+      step: Number((nextState as CoordinatorWizardState)?.currentStep || 1),
+    }),
     surfaceSyncOutcome,
     announceError,
     getCurrentStep: () => wizardNavigationController.getCurrentStep(),
@@ -593,6 +588,9 @@ export function createAgreementFormRuntimeCoordinator(
     stateManager,
     syncOrchestrator,
     syncService,
+    applyResumedState: (nextState) => applyRehydratedState(nextState as CoordinatorWizardState, {
+      step: Number((nextState as CoordinatorWizardState)?.currentStep || 1),
+    }),
     hasMeaningfulWizardProgress,
     formatRelativeTime,
     emitWizardTelemetry: (eventName, fields) => emitWizardTelemetry(eventName, fields as unknown as Record<string, unknown>),

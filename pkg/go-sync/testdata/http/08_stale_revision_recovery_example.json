@@ -1,0 +1,37 @@
+{
+  "error": {
+    "code": "STALE_REVISION",
+    "message": "resource has a newer revision",
+    "details": {
+      "current_revision": 13,
+      "resource": {
+        "data": {
+          "id": "agreement_draft_123",
+          "title": "Mutual NDA",
+          "status": "draft",
+          "participants": [
+            {
+              "id": "participant_1",
+              "role": "sender",
+              "name": "Ada Lovelace"
+            },
+            {
+              "id": "participant_2",
+              "role": "signer",
+              "name": "Grace Hopper"
+            }
+          ]
+        },
+        "revision": 13,
+        "updated_at": "2026-03-12T18:00:02Z",
+        "metadata": {
+          "kind": "agreement_draft",
+          "scope": {
+            "tenant": "tenant_1"
+          },
+          "source": "phase3_stale_revision_recovery"
+        }
+      }
+    }
+  }
+}
