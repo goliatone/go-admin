@@ -177,6 +177,15 @@ func (s *SyncService) Mutate(ctx context.Context, input core.MutationInput) (cor
 	}
 	if reservation != nil && s.idempotency != nil {
 		if err := s.idempotency.Commit(ctx, *reservation, result, s.idempotencyTTL); err != nil {
+			if recovered := s.recoverCommittedReplay(ctx, input, *reservation, result, scopedKey, err); recovered == nil {
+				s.metrics.ObserveMutation(ctx, time.Since(startedAt), true, mutationAttrs(input, nil))
+				s.logMutation(ctx, slog.LevelWarn, input, nil, map[string]any{
+					"scoped_idempotency_key": scopedKey,
+					"stored":                 true,
+					"recovered_commit":       true,
+				})
+				return result, nil
+			}
 			mapped := s.retryableError("persist idempotency result", err)
 			s.metrics.IncrementRetry(ctx, mutationAttrs(input, mapped))
 			s.metrics.ObserveMutation(ctx, time.Since(startedAt), false, mutationAttrs(input, mapped))
@@ -194,6 +203,28 @@ func (s *SyncService) Mutate(ctx context.Context, input core.MutationInput) (cor
 		"revision": result.Snapshot.Revision,
 	})
 	return result, nil
+}
+
+func (s *SyncService) recoverCommittedReplay(
+	ctx context.Context,
+	input core.MutationInput,
+	reservation store.IdempotencyReservation,
+	result core.MutationResult,
+	scopedKey string,
+	commitErr error,
+) error {
+	recoveringStore, ok := s.idempotency.(store.CommitRecoveryStore)
+	if !ok || recoveringStore == nil {
+		return commitErr
+	}
+	if err := recoveringStore.RecoverCommit(ctx, reservation, result, s.idempotencyTTL); err != nil {
+		s.logMutation(ctx, slog.LevelError, input, s.retryableError("recover idempotency result", err), map[string]any{
+			"scoped_idempotency_key": scopedKey,
+			"recovered_commit":       false,
+		})
+		return err
+	}
+	return nil
 }
 
 func (s *SyncService) reserveReplayKey(
