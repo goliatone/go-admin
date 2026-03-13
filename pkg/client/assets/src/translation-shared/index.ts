@@ -94,6 +94,14 @@ export {
   DISABLED_INTERACTIVE,
   FOCUS_RING,
   FOCUS_VISIBLE,
+
+  // Modal Patterns
+  MODAL_OVERLAY,
+  MODAL_CONTENT,
+
+  // Focus Utilities
+  trapFocus,
+  setupFieldTabOrder,
 } from './style-constants.js';
 
 // =============================================================================

@@ -11,6 +11,8 @@ import {
   HEADER_TITLE,
   HEADER_PRETITLE,
   HEADER_DESCRIPTION,
+  renderBreadcrumb,
+  buildQueueBreadcrumb,
 } from '../translation-shared/index.js';
 
 export type AssignmentDueState = 'none' | 'on_track' | 'due_soon' | 'overdue';
@@ -1008,8 +1010,10 @@ export class AssignmentQueueScreen {
       return;
     }
 
+    const basePath = this.config.editorBasePath.replace(/\/translations\/assignments.*$/, '') || '/admin';
     this.container.innerHTML = `
       <div class="assignment-queue-screen" data-assignment-queue="true">
+        ${renderBreadcrumb(buildQueueBreadcrumb(basePath))}
         <section class="assignment-queue-header">
           <div>
             <p class="${HEADER_PRETITLE}">Assignment Queue</p>
@@ -1673,7 +1677,7 @@ export function getAssignmentQueueStyles(): string {
     }
 
     .assignment-queue-state {
-      border: 1px dashed #d1d5db;
+      border: 1px solid #e5e7eb;
       border-radius: 0.75rem;
       padding: 1.5rem;
       background: #f9fafb;
@@ -1685,15 +1689,15 @@ export function getAssignmentQueueStyles(): string {
     }
 
     .assignment-queue-state.is-error {
-      background: #fff1f2;
-      border-color: #fda4af;
-      color: #9f1239;
+      background: #fef2f2;
+      border-color: #fecaca;
+      color: #991b1b;
     }
 
     .assignment-queue-state.is-conflict {
-      background: #fff7ed;
-      border-color: #fdba74;
-      color: #9a3412;
+      background: #fffbeb;
+      border-color: #fcd34d;
+      color: #92400e;
     }
 
     .assignment-queue-table-wrap {

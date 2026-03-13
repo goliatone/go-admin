@@ -1,6 +1,23 @@
 import { escapeAttribute, escapeHTML } from '../shared/html.js';
 import { readHTTPError } from '../shared/transport/http-client.js';
 import { extractStructuredError } from '../toast/error-helpers.js';
+import {
+  BTN_PRIMARY,
+  BTN_DANGER,
+  HEADER_PRETITLE,
+  HEADER_TITLE,
+  HEADER_DESCRIPTION,
+  EMPTY_STATE,
+  EMPTY_STATE_TITLE,
+  EMPTY_STATE_TEXT,
+  ERROR_STATE,
+  ERROR_STATE_TITLE,
+  ERROR_STATE_TEXT,
+  LOADING_STATE,
+  CARD,
+  renderBreadcrumb,
+  buildDashboardBreadcrumb,
+} from '../translation-shared/index.js';
 
 export type DashboardAlertState = 'ok' | 'warning' | 'critical' | 'degraded';
 export type TranslationDashboardScreenState = 'idle' | 'loading' | 'ready' | 'error';
@@ -678,7 +695,7 @@ function renderCard(card: TranslationDashboardCard): string {
     .join('');
 
   return `
-    <article class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm" data-dashboard-card="${escapeAttribute(card.id)}">
+    <article class="${CARD} p-4 shadow-sm" data-dashboard-card="${escapeAttribute(card.id)}">
       <div class="flex items-start justify-between gap-4">
         <div>
           <p class="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">${escapeHTML(card.label)}</p>
@@ -705,7 +722,7 @@ function renderAlerts(alerts: TranslationDashboardAlert[]): string {
   return `
     <section class="space-y-3" data-dashboard-alerts="true">
       ${alerts.map((alert) => `
-        <div class="rounded-2xl border px-4 py-3 text-sm ${escapeAttribute(alertToneContainerClass(alert.state))}" role="${escapeAttribute(alert.state === 'critical' ? 'alert' : 'status')}">
+        <div class="rounded-xl border px-4 py-3 text-sm ${escapeAttribute(alertToneContainerClass(alert.state))}" role="${escapeAttribute(alert.state === 'critical' ? 'alert' : 'status')}">
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p class="font-semibold">${escapeHTML(alert.code)}</p>
@@ -792,7 +809,7 @@ function renderTable(table: TranslationDashboardTable): string {
     ? renderTopOverdueTable(table)
     : renderBlockedFamiliesTable(table);
   return `
-    <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm" data-dashboard-table="${escapeAttribute(table.id)}">
+    <section class="overflow-hidden ${CARD} shadow-sm" data-dashboard-table="${escapeAttribute(table.id)}">
       <header class="flex items-center justify-between gap-3 border-b border-gray-200 px-4 py-3">
         <div>
           <h2 class="text-sm font-semibold uppercase tracking-[0.22em] text-gray-500">${escapeHTML(table.label)}</h2>
@@ -809,11 +826,11 @@ function renderRunbooks(runbooks: TranslationDashboardRunbook[]): string {
     return '';
   }
   return `
-    <section class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm" data-dashboard-runbooks="true">
+    <section class="${CARD} p-4 shadow-sm" data-dashboard-runbooks="true">
       <h2 class="text-sm font-semibold uppercase tracking-[0.22em] text-gray-500">Runbooks</h2>
       <div class="mt-4 grid gap-4 md:grid-cols-3">
         ${runbooks.map((runbook) => `
-          <article class="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+          <article class="rounded-xl border border-gray-200 bg-gray-50 p-4">
             <h3 class="text-sm font-semibold text-gray-900">${runbook.href ? `<a class="hover:underline" href="${escapeAttribute(runbook.href)}">${escapeHTML(runbook.title)}</a>` : escapeHTML(runbook.title)}</h3>
             <p class="mt-2 text-sm leading-6 text-gray-600">${escapeHTML(runbook.description)}</p>
           </article>
@@ -854,7 +871,7 @@ function renderSummaryMeta(payload: TranslationDashboardResponse): string {
     .filter(([, value]) => value)
     .map(([key, value]) => `${formatMetricLabel(key)}: ${value}`);
   return `
-    <section class="rounded-2xl border border-gray-200 bg-gray-900 px-5 py-4 text-sm text-gray-200 shadow-sm" data-dashboard-meta="true">
+    <section class="rounded-xl border border-gray-200 bg-gray-900 px-5 py-4 text-sm text-gray-200 shadow-sm" data-dashboard-meta="true">
       <div class="flex flex-wrap items-center gap-4">
         <span><strong class="font-semibold text-white">Environment:</strong> ${escapeHTML(payload.meta.environment || 'default')}</span>
         <span><strong class="font-semibold text-white">Refresh:</strong> ${escapeHTML(String(payload.meta.refreshIntervalMs))}ms</span>
@@ -870,18 +887,18 @@ function renderToolbar(payload: TranslationDashboardResponse | null, refreshing 
     ? new Date(payload.meta.generatedAt).toLocaleString()
     : 'Unavailable';
   return `
-    <section class="rounded-2xl border border-gray-200 bg-white px-5 py-4 shadow-sm" data-dashboard-toolbar="true">
+    <section class="${CARD} px-5 py-4 shadow-sm" data-dashboard-toolbar="true">
       <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <p class="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500">Manager Monitoring</p>
-          <h2 class="mt-2 text-xl font-semibold tracking-tight text-gray-900">Queue health and publish blockers</h2>
-          <p class="mt-2 text-sm text-gray-600">Track overdue work, review backlog, and family readiness without rebuilding aggregate state in the browser.</p>
+          <p class="${HEADER_PRETITLE}">Manager Monitoring</p>
+          <h2 class="${HEADER_TITLE} text-xl mt-2">Queue health and publish blockers</h2>
+          <p class="${HEADER_DESCRIPTION} mt-2">Track overdue work, review backlog, and family readiness without rebuilding aggregate state in the browser.</p>
         </div>
         <div class="flex flex-wrap items-center gap-3">
           <span class="text-xs uppercase tracking-[0.18em] text-gray-500" aria-live="polite" data-dashboard-refresh-status="true">
             ${escapeHTML(refreshing ? 'Refreshing dashboard…' : `Last updated ${generatedAt}`)}
           </span>
-          <button type="button" class="inline-flex items-center rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-400" data-dashboard-refresh-button="true" aria-label="Refresh translation dashboard" ${refreshing ? 'disabled' : ''}>
+          <button type="button" class="${BTN_PRIMARY}" data-dashboard-refresh-button="true" aria-label="Refresh translation dashboard" ${refreshing ? 'disabled' : ''}>
             ${escapeHTML(refreshing ? 'Refreshing…' : 'Refresh dashboard')}
           </button>
         </div>
@@ -896,12 +913,12 @@ function renderEmptyState(payload: TranslationDashboardResponse): string {
     ? `<a class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50" href="${escapeAttribute(runbook.href)}">${escapeHTML(runbook.title || 'Open runbook')}</a>`
     : '';
   return `
-    <section class="rounded-2xl border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-600 shadow-sm" data-dashboard-empty="true" role="status" aria-live="polite">
-      <p class="text-sm font-semibold uppercase tracking-[0.22em] text-gray-500">No active pressure</p>
+    <section class="${EMPTY_STATE} p-6 shadow-sm" data-dashboard-empty="true" role="status" aria-live="polite">
+      <p class="${EMPTY_STATE_TITLE}">No active pressure</p>
       <h3 class="mt-2 text-xl font-semibold text-gray-900">This scope is clear right now.</h3>
-      <p class="mt-3 max-w-2xl leading-6">Managers can refresh the aggregate snapshot to confirm the latest state or jump into a runbook if activity is expected to resume.</p>
+      <p class="${EMPTY_STATE_TEXT} mt-3 max-w-2xl leading-6">Managers can refresh the aggregate snapshot to confirm the latest state or jump into a runbook if activity is expected to resume.</p>
       <div class="mt-5 flex flex-wrap gap-3">
-        <button type="button" class="inline-flex items-center rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800" data-dashboard-refresh-button="true">Refresh dashboard</button>
+        <button type="button" class="${BTN_PRIMARY}" data-dashboard-refresh-button="true">Refresh dashboard</button>
         ${action}
       </div>
     </section>
@@ -913,9 +930,9 @@ function renderInlineError(error: unknown): string {
   const traceID = error instanceof TranslationDashboardRequestError ? error.traceId : undefined;
   const metadata = [requestID ? `Request ${requestID}` : '', traceID ? `Trace ${traceID}` : ''].filter(Boolean).join(' • ');
   return `
-    <section class="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800" data-dashboard-inline-error="true" role="alert">
-      <p class="font-semibold">Latest refresh failed</p>
-      <p class="mt-2">${escapeHTML(error instanceof Error ? error.message : 'Failed to load translation dashboard')}</p>
+    <section class="${ERROR_STATE} p-4" data-dashboard-inline-error="true" role="alert">
+      <p class="${ERROR_STATE_TITLE}">Latest refresh failed</p>
+      <p class="${ERROR_STATE_TEXT} mt-2">${escapeHTML(error instanceof Error ? error.message : 'Failed to load translation dashboard')}</p>
       ${metadata ? `<p class="mt-2 text-xs uppercase tracking-[0.16em] text-rose-700">${escapeHTML(metadata)}</p>` : ''}
     </section>
   `;
@@ -927,13 +944,13 @@ function renderError(error: unknown): string {
   const traceID = error instanceof TranslationDashboardRequestError ? error.traceId : undefined;
   const metadata = [requestID ? `Request ${requestID}` : '', traceID ? `Trace ${traceID}` : ''].filter(Boolean).join(' • ');
   return `
-    <section class="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800" data-dashboard-error="true" role="alert">
-      <p class="font-semibold">Translation dashboard unavailable</p>
-      <p class="mt-2">Managers can retry the aggregate request and return to queue-health monitoring once the endpoint recovers.</p>
-      <p class="mt-2">${escapeHTML(message)}</p>
+    <section class="${ERROR_STATE} p-4" data-dashboard-error="true" role="alert">
+      <p class="${ERROR_STATE_TITLE}">Translation dashboard unavailable</p>
+      <p class="${ERROR_STATE_TEXT} mt-2">Managers can retry the aggregate request and return to queue-health monitoring once the endpoint recovers.</p>
+      <p class="${ERROR_STATE_TEXT} mt-2">${escapeHTML(message)}</p>
       ${metadata ? `<p class="mt-2 text-xs uppercase tracking-[0.16em] text-rose-700">${escapeHTML(metadata)}</p>` : ''}
       <div class="mt-4">
-        <button type="button" class="inline-flex items-center rounded-lg bg-rose-700 px-4 py-2 text-sm font-medium text-white hover:bg-rose-800" data-dashboard-refresh-button="true">Retry dashboard</button>
+        <button type="button" class="${BTN_DANGER}" data-dashboard-refresh-button="true">Retry dashboard</button>
       </div>
     </section>
   `;
@@ -941,16 +958,16 @@ function renderError(error: unknown): string {
 
 function renderUnconfiguredState(): string {
   return `
-    <section class="rounded-2xl border border-dashed border-gray-300 bg-white p-5 text-sm text-gray-600" data-dashboard-empty="true">
-      <p class="font-semibold text-gray-900">Dashboard contract route is not wired.</p>
-      <p class="mt-2">Set a dashboard aggregate endpoint before initializing the dashboard client.</p>
+    <section class="${EMPTY_STATE} p-5" data-dashboard-empty="true">
+      <p class="${EMPTY_STATE_TITLE}">Dashboard contract route is not wired.</p>
+      <p class="${EMPTY_STATE_TEXT} mt-2">Set a dashboard aggregate endpoint before initializing the dashboard client.</p>
     </section>
   `;
 }
 
 function renderLoadingState(): string {
   return `
-    <section class="rounded-2xl border border-gray-200 bg-white p-5 text-sm text-gray-600" data-dashboard-loading="true" role="status" aria-live="polite">
+    <section class="${LOADING_STATE} p-5" data-dashboard-loading="true" role="status" aria-live="polite">
       Loading translation dashboard aggregates...
     </section>
   `;
@@ -1074,6 +1091,7 @@ export class TranslationDashboardPage {
 
     this.container.innerHTML = `
       <div class="space-y-4" data-dashboard="true">
+        ${renderBreadcrumb(buildDashboardBreadcrumb('/admin'))}
         ${renderToolbar(payload, this.refreshing)}
         ${renderSummaryMeta(payload)}
         ${inlineError}

@@ -5,6 +5,22 @@ import {
 import { escapeAttribute, escapeHTML } from '../shared/html.js';
 import { readHTTPError } from '../shared/transport/http-client.js';
 import { extractStructuredError } from '../toast/error-helpers.js';
+import {
+  BTN_PRIMARY,
+  BTN_SECONDARY_SM,
+  BTN_DANGER,
+  HEADER_PRETITLE,
+  HEADER_TITLE,
+  EMPTY_STATE,
+  EMPTY_STATE_TITLE,
+  EMPTY_STATE_TEXT,
+  ERROR_STATE,
+  ERROR_STATE_TITLE,
+  ERROR_STATE_TEXT,
+  LOADING_STATE,
+  renderBreadcrumb,
+  buildMatrixBreadcrumb,
+} from '../translation-shared/index.js';
 
 export type TranslationMatrixCellState =
   | 'ready'
@@ -907,7 +923,7 @@ function renderMatrixGrid(payload: TranslationMatrixResponse, selection: Transla
               const selected = selection.locales.includes(column.locale);
               return `
                 <th scope="col" class="border-b border-slate-200 bg-white px-3 py-3 text-left align-top">
-                  <button type="button" data-matrix-locale-toggle="${escapeAttribute(column.locale)}" class="flex w-full flex-col rounded-2xl border px-3 py-2 text-left transition ${selected ? 'border-sky-300 bg-sky-50' : 'border-slate-200 bg-slate-50 hover:border-slate-300'}">
+                  <button type="button" data-matrix-locale-toggle="${escapeAttribute(column.locale)}" class="flex w-full flex-col rounded-xl border px-3 py-2 text-left transition ${selected ? 'border-sky-300 bg-sky-50' : 'border-slate-200 bg-slate-50 hover:border-slate-300'}">
                     <span class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-700">${escapeHTML(column.label)}</span>
                     <span class="mt-1 text-[11px] text-slate-500">${escapeHTML(column.source_locale ? 'Source locale' : `${policy?.required_by_count ?? column.required_by_count} required families`)}</span>
                     <span class="mt-1 text-[11px] text-slate-400">${escapeHTML(policy && policy.optional_family_count > 0 ? `${policy.optional_family_count} optional` : 'Header action')}</span>
@@ -941,7 +957,7 @@ function renderMatrixGrid(payload: TranslationMatrixResponse, selection: Transla
                 const action = preferredCellAction(cell);
                 return `
                   <td class="border-b border-slate-200 px-3 py-3 align-top">
-                    <div class="min-w-[10rem] rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                    <div class="min-w-[10rem] rounded-xl border border-slate-200 bg-slate-50 p-3">
                       ${renderMatrixCellSummary(cell)}
                       <div class="mt-3">
                         ${renderActionButton(action, {
@@ -1015,10 +1031,10 @@ function renderViewportControls(payload: TranslationMatrixResponse): string {
           <p class="mt-2 text-sm text-slate-600">Rows ${escapeHTML(String(payload.data.rows.length))} of ${escapeHTML(String(payload.meta.total))} · Locales ${escapeHTML(String(payload.meta.locale_offset + 1))}-${escapeHTML(String(Math.min(payload.meta.locale_offset + payload.meta.locale_limit, payload.meta.total_locales)))} of ${escapeHTML(String(payload.meta.total_locales))}</p>
         </div>
         <div class="flex flex-wrap gap-3 text-xs font-semibold uppercase tracking-[0.16em]">
-          <button type="button" data-matrix-page="prev" class="rounded-xl border border-slate-200 px-3 py-2 ${previousPageDisabled ? 'cursor-not-allowed text-slate-300' : 'text-slate-700 hover:border-slate-300 hover:text-slate-950'}" ${previousPageDisabled ? 'disabled' : ''}>Prev families</button>
-          <button type="button" data-matrix-page="next" class="rounded-xl border border-slate-200 px-3 py-2 ${nextPageDisabled ? 'cursor-not-allowed text-slate-300' : 'text-slate-700 hover:border-slate-300 hover:text-slate-950'}" ${nextPageDisabled ? 'disabled' : ''}>Next families</button>
-          <button type="button" data-matrix-locales="prev" class="rounded-xl border border-slate-200 px-3 py-2 ${previousLocaleDisabled ? 'cursor-not-allowed text-slate-300' : 'text-slate-700 hover:border-slate-300 hover:text-slate-950'}" ${previousLocaleDisabled ? 'disabled' : ''}>Prev locales</button>
-          <button type="button" data-matrix-locales="next" class="rounded-xl border border-slate-200 px-3 py-2 ${nextLocaleDisabled ? 'cursor-not-allowed text-slate-300' : 'text-slate-700 hover:border-slate-300 hover:text-slate-950'}" ${nextLocaleDisabled ? 'disabled' : ''}>Next locales</button>
+          <button type="button" data-matrix-page="prev" class="${BTN_SECONDARY_SM}" ${previousPageDisabled ? 'disabled' : ''}>Prev families</button>
+          <button type="button" data-matrix-page="next" class="${BTN_SECONDARY_SM}" ${nextPageDisabled ? 'disabled' : ''}>Next families</button>
+          <button type="button" data-matrix-locales="prev" class="${BTN_SECONDARY_SM}" ${previousLocaleDisabled ? 'disabled' : ''}>Prev locales</button>
+          <button type="button" data-matrix-locales="next" class="${BTN_SECONDARY_SM}" ${nextLocaleDisabled ? 'disabled' : ''}>Next locales</button>
         </div>
       </div>
     </section>
@@ -1046,7 +1062,7 @@ function renderFilters(query: TranslationMatrixQuery, busy = false): string {
           <input name="locales" value="${escapeAttribute((query.locales || []).join(', '))}" class="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900" placeholder="fr, es">
         </label>
         <div class="flex items-end gap-3">
-          <button type="submit" class="inline-flex w-full items-center justify-center rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800" ${busy ? 'disabled' : ''}>${escapeHTML(busy ? 'Loading…' : 'Apply filters')}</button>
+          <button type="submit" class="${BTN_PRIMARY} w-full" ${busy ? 'disabled' : ''}>${escapeHTML(busy ? 'Loading…' : 'Apply filters')}</button>
         </div>
       </form>
     </section>
@@ -1054,24 +1070,24 @@ function renderFilters(query: TranslationMatrixQuery, busy = false): string {
 }
 
 function renderLoadingState(): string {
-  return `<section class="rounded-[28px] border border-slate-200 bg-white p-8 text-sm text-slate-500 shadow-sm" data-matrix-loading="true" role="status" aria-live="polite">Loading translation matrix…</section>`;
+  return `<section class="${LOADING_STATE} p-8 shadow-sm" data-matrix-loading="true" role="status" aria-live="polite">Loading translation matrix…</section>`;
 }
 
 function renderEmptyState(): string {
-  return `<section class="rounded-[28px] border border-dashed border-slate-300 bg-white p-8 text-sm text-slate-500 shadow-sm" data-matrix-empty="true" role="status" aria-live="polite"><p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">No rows</p><h2 class="mt-2 text-xl font-semibold text-slate-900">No families match this matrix scope.</h2><p class="mt-3 max-w-2xl leading-6">Adjust the filters, widen the locale window, or clear blocker constraints to inspect additional family coverage.</p></section>`;
+  return `<section class="${EMPTY_STATE} p-8 shadow-sm" data-matrix-empty="true" role="status" aria-live="polite"><p class="${EMPTY_STATE_TITLE}">No rows</p><h2 class="mt-2 text-xl font-semibold text-gray-900">No families match this matrix scope.</h2><p class="${EMPTY_STATE_TEXT} mt-3 max-w-2xl leading-6">Adjust the filters, widen the locale window, or clear blocker constraints to inspect additional family coverage.</p></section>`;
 }
 
 function renderErrorState(error: unknown): string {
   const requestId = error instanceof TranslationMatrixRequestError ? error.requestId : '';
   const traceId = error instanceof TranslationMatrixRequestError ? error.traceId : '';
   return `
-    <section class="rounded-[28px] border border-rose-200 bg-rose-50 p-6 text-sm text-rose-800 shadow-sm" data-matrix-error="true" role="alert">
-      <p class="text-xs font-semibold uppercase tracking-[0.18em] text-rose-600">Matrix unavailable</p>
+    <section class="${ERROR_STATE} p-6 shadow-sm" data-matrix-error="true" role="alert">
+      <p class="${ERROR_STATE_TITLE}">Matrix unavailable</p>
       <h2 class="mt-2 text-xl font-semibold text-rose-900">The matrix payload could not be loaded.</h2>
-      <p class="mt-3 leading-6">${escapeHTML(error instanceof Error ? error.message : 'Failed to load the translation matrix')}</p>
+      <p class="${ERROR_STATE_TEXT} mt-3 leading-6">${escapeHTML(error instanceof Error ? error.message : 'Failed to load the translation matrix')}</p>
       ${(requestId || traceId) ? `<p class="mt-3 text-xs uppercase tracking-[0.16em] text-rose-700">${escapeHTML([requestId ? `Request ${requestId}` : '', traceId ? `Trace ${traceId}` : ''].filter(Boolean).join(' • '))}</p>` : ''}
       <div class="mt-4">
-        <button type="button" data-matrix-retry="true" class="inline-flex items-center rounded-xl bg-rose-700 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-800">Retry matrix</button>
+        <button type="button" data-matrix-retry="true" class="${BTN_DANGER}">Retry matrix</button>
       </div>
     </section>
   `;
@@ -1095,11 +1111,12 @@ function renderMatrixPage(
       : `${renderBulkToolbar(payload, selection, feedback, working)}<div class="grid gap-5">${renderViewportControls(payload)}${renderMatrixGrid(payload, selection)}</div>`;
   return `
     <div class="grid gap-5" data-translation-matrix="true">
+      ${renderBreadcrumb(buildMatrixBreadcrumb('/admin'))}
       <section class="rounded-[32px] border border-slate-200 bg-gradient-to-br from-white via-slate-50 to-sky-50 px-6 py-6 shadow-sm" data-matrix-hero="true">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Translation Coverage</p>
-            <h1 class="mt-2 text-3xl font-semibold tracking-tight text-slate-950">${escapeHTML(title)}</h1>
+            <p class="${HEADER_PRETITLE}">Translation Coverage</p>
+            <h1 class="${HEADER_TITLE} mt-2">${escapeHTML(title)}</h1>
             <p class="mt-3 max-w-3xl text-sm leading-6 text-slate-600">Dense family-by-locale coverage with sticky headers, row pagination, locale windows, and quick actions for missing or in-flight work.</p>
           </div>
           ${summary ? `<p class="rounded-full border border-white/70 bg-white/80 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">${escapeHTML(summary)}</p>` : ''}
@@ -1405,7 +1422,7 @@ export class TranslationMatrixPage {
 export function initTranslationMatrixPage(root: HTMLElement, options: Partial<TranslationMatrixPageConfig> = {}): TranslationMatrixPage | null {
   const endpoint = asString(options.endpoint) || asString(root.dataset.endpoint);
   if (!endpoint) {
-    root.innerHTML = `<section class="rounded-[28px] border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-500" data-matrix-empty="true">Configure a matrix endpoint before initializing the translation matrix page.</section>`;
+    root.innerHTML = `<section class="${EMPTY_STATE} p-6" data-matrix-empty="true"><p class="${EMPTY_STATE_TITLE}">Configuration required</p><p class="${EMPTY_STATE_TEXT} mt-2">Configure a matrix endpoint before initializing the translation matrix page.</p></section>`;
     return null;
   }
   const page = new TranslationMatrixPage({

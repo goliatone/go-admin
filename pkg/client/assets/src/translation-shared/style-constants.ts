@@ -252,3 +252,84 @@ export const FOCUS_RING = 'focus:outline-none focus:ring-2 focus:ring-blue-500 f
 
 /** Focus visible only (keyboard navigation) */
 export const FOCUS_VISIBLE = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2';
+
+// =============================================================================
+// Modal/Dialog Patterns
+// =============================================================================
+
+/** Modal overlay backdrop */
+export const MODAL_OVERLAY = 'fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 px-4';
+
+/** Modal content container */
+export const MODAL_CONTENT = 'w-full max-w-xl rounded-xl border border-gray-200 bg-white p-6 shadow-2xl';
+
+// =============================================================================
+// Focus Trap Utility
+// =============================================================================
+
+/**
+ * Creates a focus trap within a modal element.
+ * Traps Tab navigation and handles Escape key to close.
+ *
+ * @param modal - The modal element to trap focus within
+ * @param onClose - Callback invoked when Escape is pressed
+ * @returns Cleanup function to remove event listeners
+ */
+export function trapFocus(modal: HTMLElement, onClose?: () => void): () => void {
+  const focusableSelector =
+    'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+  const getFocusableElements = (): HTMLElement[] => {
+    return Array.from(modal.querySelectorAll<HTMLElement>(focusableSelector));
+  };
+
+  const handleKeydown = (event: KeyboardEvent): void => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      onClose?.();
+      return;
+    }
+
+    if (event.key === 'Tab') {
+      const focusableElements = getFocusableElements();
+      if (focusableElements.length === 0) return;
+
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
+
+      if (event.shiftKey && document.activeElement === firstElement) {
+        event.preventDefault();
+        lastElement.focus();
+      } else if (!event.shiftKey && document.activeElement === lastElement) {
+        event.preventDefault();
+        firstElement.focus();
+      }
+    }
+  };
+
+  modal.addEventListener('keydown', handleKeydown);
+
+  // Focus the first focusable element
+  const focusableElements = getFocusableElements();
+  if (focusableElements.length > 0) {
+    focusableElements[0].focus();
+  }
+
+  return () => {
+    modal.removeEventListener('keydown', handleKeydown);
+  };
+}
+
+/**
+ * Sets up sequential tab indices for editor fields.
+ * Creates a logical Tab flow through source-target field pairs.
+ *
+ * @param container - Container element with data-field-input elements
+ * @param startIndex - Starting tabindex value (default: 1)
+ */
+export function setupFieldTabOrder(container: HTMLElement, startIndex = 1): void {
+  const inputs = container.querySelectorAll<HTMLElement>('[data-field-input]');
+  inputs.forEach((input, index) => {
+    input.setAttribute('tabindex', String(startIndex + index));
+  });
+}

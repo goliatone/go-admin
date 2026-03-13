@@ -5,6 +5,29 @@ import {
 import { escapeAttribute, escapeHTML } from '../shared/html.js';
 import { httpRequest, readHTTPError } from '../shared/transport/http-client.js';
 import { extractStructuredError } from '../toast/error-helpers.js';
+import {
+  BTN_PRIMARY,
+  BTN_SECONDARY,
+  BTN_DANGER,
+  BTN_SECONDARY_SM,
+  BTN_GHOST,
+  HEADER_PRETITLE,
+  HEADER_TITLE,
+  EMPTY_STATE,
+  EMPTY_STATE_TITLE,
+  EMPTY_STATE_TEXT,
+  ERROR_STATE,
+  ERROR_STATE_TITLE,
+  ERROR_STATE_TEXT,
+  LOADING_STATE,
+  CARD,
+  MODAL_OVERLAY,
+  MODAL_CONTENT,
+  trapFocus,
+  setupFieldTabOrder,
+  renderBreadcrumb,
+  buildEditorBreadcrumb,
+} from '../translation-shared/index.js';
 
 export type TranslationEditorComparisonMode = 'snapshot' | 'hash_only';
 
@@ -1079,7 +1102,7 @@ function buildSubmitSuccessMessage(detail: TranslationAssignmentEditorDetail, st
 
 function renderLoadingState(): string {
   return `
-    <section class="rounded-xl border border-gray-200 bg-white p-8 shadow-sm" aria-busy="true">
+    <section class="${LOADING_STATE} p-8 shadow-sm" aria-busy="true">
       <p class="text-sm font-medium text-gray-500">Loading translation assignment…</p>
     </section>
   `;
@@ -1087,18 +1110,18 @@ function renderLoadingState(): string {
 
 function renderEmptyState(title: string, message: string): string {
   return `
-    <section class="rounded-xl border border-dashed border-gray-300 bg-white p-8 text-center shadow-sm">
-      <h2 class="text-lg font-semibold text-gray-900">${escapeHTML(title)}</h2>
-      <p class="mt-2 text-sm text-gray-500">${escapeHTML(message)}</p>
+    <section class="${EMPTY_STATE} p-8 text-center shadow-sm">
+      <h2 class="${EMPTY_STATE_TITLE}">${escapeHTML(title)}</h2>
+      <p class="${EMPTY_STATE_TEXT} mt-2">${escapeHTML(message)}</p>
     </section>
   `;
 }
 
 function renderErrorState(title: string, message: string, state: TranslationEditorLoadState): string {
   return `
-    <section class="rounded-xl border border-rose-200 bg-rose-50 p-8 shadow-sm">
-      <h2 class="text-lg font-semibold text-rose-900">${escapeHTML(title)}</h2>
-      <p class="mt-2 text-sm text-rose-700">${escapeHTML(message)}</p>
+    <section class="${ERROR_STATE} p-8 shadow-sm">
+      <h2 class="${ERROR_STATE_TITLE}">${escapeHTML(title)}</h2>
+      <p class="${ERROR_STATE_TEXT} mt-2">${escapeHTML(message)}</p>
       ${renderDiagnostics(state)}
     </section>
   `;
@@ -1121,22 +1144,17 @@ function renderHeader(
   const submitTitle = detail.qa_results.submit_blocked
     ? 'Resolve QA blockers before submitting for review.'
     : (submitState?.reason || '');
-  const queueHref = basePath ? `${basePath}/queue` : '';
-  const familyHref = basePath && detail.family_id ? `${basePath}/families/${encodeURIComponent(detail.family_id)}` : '';
+  const assignmentId = assignment.id || detail.assignment_id || '';
   return `
-    <section class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-      <nav class="mb-4 flex items-center gap-2 text-sm text-gray-500" aria-label="Breadcrumb">
-        ${queueHref ? `<a href="${escapeAttribute(queueHref)}" class="hover:text-gray-900 hover:underline">Queue</a>` : '<span>Queue</span>'}
-        <span aria-hidden="true">›</span>
-        ${familyHref ? `<a href="${escapeAttribute(familyHref)}" class="hover:text-gray-900 hover:underline">${escapeHTML(detail.family_id)}</a>` : `<span>${escapeHTML(detail.family_id || 'Family')}</span>`}
-        <span aria-hidden="true">›</span>
-        <span class="font-medium text-gray-900">${escapeHTML(detail.target_locale?.toUpperCase() || 'Editor')}</span>
-      </nav>
+    <section class="${CARD} p-6 shadow-sm">
+      <div class="mb-4">
+        ${renderBreadcrumb(buildEditorBreadcrumb(assignmentId, basePath || '/admin'))}
+      </div>
       <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div class="space-y-3">
-          <p class="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">Assignment editor</p>
+          <p class="${HEADER_PRETITLE}">Assignment editor</p>
           <div>
-            <h1 class="text-3xl font-semibold tracking-tight text-gray-900">${escapeHTML(assignment.source_title || 'Translation assignment')}</h1>
+            <h1 class="${HEADER_TITLE}">${escapeHTML(assignment.source_title || 'Translation assignment')}</h1>
             <p class="mt-2 text-sm text-gray-600">
               ${escapeHTML(sourceLocale)} to ${escapeHTML(targetLocale)} • ${escapeHTML(sentenceCase(detail.status || assignment.status || 'draft'))} • Priority ${escapeHTML(detail.priority || 'normal')}
             </p>
@@ -1151,7 +1169,7 @@ function renderHeader(
         <div class="flex flex-wrap items-center gap-3">
           <button
             type="button"
-            class="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-900 ${saveDisabled ? 'cursor-not-allowed opacity-60' : 'hover:bg-gray-50'}"
+            class="${BTN_SECONDARY}"
             data-action="save-draft"
             ${saveDisabled ? 'disabled aria-disabled="true"' : ''}
           >
@@ -1159,7 +1177,7 @@ function renderHeader(
           </button>
           <button
             type="button"
-            class="rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white ${submitDisabled ? 'cursor-not-allowed opacity-60' : 'hover:bg-gray-800'}"
+            class="${BTN_PRIMARY}"
             data-action="submit-review"
             title="${escapeAttribute(submitTitle)}"
             ${submitDisabled ? 'disabled aria-disabled="true"' : ''}
@@ -1209,7 +1227,7 @@ function renderFieldList(detail: TranslationAssignmentEditorDetail): string {
             </div>
             <button
               type="button"
-              class="rounded-full border border-gray-300 px-3 py-1 text-xs font-medium text-gray-600 hover:border-gray-400 hover:text-gray-900"
+              class="${BTN_GHOST}"
               data-copy-source="${escapeAttribute(entry.path)}"
               aria-label="Copy source text to translation field for ${escapeAttribute(entry.label)}"
             >
@@ -1433,15 +1451,15 @@ function renderRejectModal(rejectDraft: TranslationEditorRejectDraft | null, sub
     return '';
   }
   return `
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/45 px-4" data-reject-modal="true">
-      <section class="w-full max-w-xl rounded-xl border border-gray-200 bg-white p-6 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="translation-reject-title">
+    <div class="${MODAL_OVERLAY}" data-reject-modal="true">
+      <section class="${MODAL_CONTENT}" role="dialog" aria-modal="true" aria-labelledby="translation-reject-title">
         <div class="flex items-start justify-between gap-4">
           <div>
             <p class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Review action</p>
             <h2 id="translation-reject-title" class="mt-2 text-2xl font-semibold text-gray-900">Request changes</h2>
             <p class="mt-2 text-sm text-gray-600">Capture the rejection reason so translators can see it directly in the editor timeline.</p>
           </div>
-          <button type="button" class="rounded-full border border-gray-300 px-3 py-1 text-sm text-gray-600 hover:border-gray-400 hover:text-gray-900" data-action="cancel-reject">Close</button>
+          <button type="button" class="${BTN_GHOST}" data-action="cancel-reject">Close</button>
         </div>
         <label class="mt-5 block text-sm font-medium text-gray-700">
           Reject reason
@@ -1451,10 +1469,10 @@ function renderRejectModal(rejectDraft: TranslationEditorRejectDraft | null, sub
           Reviewer note
           <textarea class="mt-2 min-h-[100px] w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100" data-reject-comment="true">${escapeHTML(rejectDraft.comment)}</textarea>
         </label>
-        ${rejectDraft.error ? `<p class="mt-3 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-3 text-sm font-medium text-rose-800">${escapeHTML(rejectDraft.error)}</p>` : ''}
+        ${rejectDraft.error ? `<p class="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-3 text-sm font-medium text-rose-800">${escapeHTML(rejectDraft.error)}</p>` : ''}
         <div class="mt-5 flex items-center justify-end gap-3">
-          <button type="button" class="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50" data-action="cancel-reject">Cancel</button>
-          <button type="button" class="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700 ${submitting ? 'cursor-not-allowed opacity-60' : ''}" data-action="confirm-reject" ${submitting ? 'disabled aria-disabled="true"' : ''}>${submitting ? 'Submitting…' : 'Request changes'}</button>
+          <button type="button" class="${BTN_SECONDARY}" data-action="cancel-reject">Cancel</button>
+          <button type="button" class="${BTN_DANGER}" data-action="confirm-reject" ${submitting ? 'disabled aria-disabled="true"' : ''}>${submitting ? 'Submitting…' : 'Request changes'}</button>
         </div>
       </section>
     </div>
@@ -1469,7 +1487,7 @@ function renderManagementActionsPanel(detail: TranslationAssignmentEditorDetail,
   const disabled = !archiveState?.enabled || submitting;
   return `
     <section
-      class="rounded-xl border border-gray-200 bg-white p-5"
+      class="${CARD} p-5"
       data-editor-panel="management-actions"
       aria-label="Management actions"
     >
@@ -1477,7 +1495,7 @@ function renderManagementActionsPanel(detail: TranslationAssignmentEditorDetail,
       <div class="mt-4 flex flex-wrap gap-3">
         <button
           type="button"
-          class="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-900 ${disabled ? 'cursor-not-allowed opacity-60' : 'hover:bg-gray-50'}"
+          class="${BTN_SECONDARY}"
           data-action="archive"
           title="${escapeAttribute(archiveState?.reason || '')}"
           ${disabled ? 'disabled aria-disabled="true"' : ''}
@@ -1491,14 +1509,14 @@ function renderManagementActionsPanel(detail: TranslationAssignmentEditorDetail,
 
 function renderAttachmentPanel(detail: TranslationAssignmentEditorDetail): string {
   return `
-    <section class="rounded-xl border border-gray-200 bg-white p-5">
+    <section class="${CARD} p-5">
       <div class="flex items-center justify-between gap-3">
         <h2 class="text-lg font-semibold text-gray-900">Attachments</h2>
         <span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">${detail.attachment_summary.total}</span>
       </div>
       ${detail.attachments.length
         ? `<ul class="mt-4 space-y-3">${detail.attachments.map((attachment) => `
-            <li class="rounded-2xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm text-gray-700">
+            <li class="rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm text-gray-700">
               <div class="flex items-start justify-between gap-3">
                 <div>
                   <p class="font-semibold text-gray-900">${escapeHTML(attachment.filename)}</p>
@@ -1539,8 +1557,8 @@ function renderTimelinePanel(detail: TranslationAssignmentEditorDetail): string 
           `).join('')}</ol>`
         : '<p class="mt-4 text-sm text-gray-500">No workflow entries available.</p>'}
       <div class="mt-4 flex items-center justify-between gap-3">
-        <button type="button" class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50" data-history-prev="true" ${history.page <= 1 ? 'disabled aria-disabled="true"' : ''}>Previous</button>
-        <button type="button" class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50" data-history-next="true" ${!history.has_more ? 'disabled aria-disabled="true"' : ''}>Next</button>
+        <button type="button" class="${BTN_SECONDARY_SM}" data-history-prev="true" ${history.page <= 1 ? 'disabled aria-disabled="true"' : ''}>Previous</button>
+        <button type="button" class="${BTN_SECONDARY_SM}" data-history-next="true" ${!history.has_more ? 'disabled aria-disabled="true"' : ''}>Next</button>
       </div>
     </section>
   `;
@@ -1572,7 +1590,7 @@ export function renderTranslationEditorState(
               <h2 class="text-lg font-semibold text-amber-900">Autosave conflict</h2>
               <p class="mt-1 text-sm text-amber-800">A newer server draft exists. Reload it before continuing.</p>
             </div>
-            <button type="button" class="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700" data-action="reload-server-state">Reload server draft</button>
+            <button type="button" class="${BTN_PRIMARY}" data-action="reload-server-state">Reload server draft</button>
           </div>
         </section>
       ` : ''}
@@ -1614,6 +1632,7 @@ export class TranslationEditorScreen {
   private lastSavedMessage = '';
   private autosaveTimer: ReturnType<typeof setTimeout> | null = null;
   private keyboardHandler: ((event: KeyboardEvent) => void) | null = null;
+  private focusTrapCleanup: (() => void) | null = null;
   private saving = false;
   private submitting = false;
   private rejectDraft: TranslationEditorRejectDraft | null = null;
@@ -1649,6 +1668,10 @@ export class TranslationEditorScreen {
       document.removeEventListener('keydown', this.keyboardHandler);
       this.keyboardHandler = null;
     }
+    if (this.focusTrapCleanup) {
+      this.focusTrapCleanup();
+      this.focusTrapCleanup = null;
+    }
     if (this.container) this.container.innerHTML = '';
     this.container = null;
   }
@@ -1681,6 +1704,8 @@ export class TranslationEditorScreen {
       rejectDraft: this.rejectDraft,
     });
     this.attachEventListeners();
+    // Set up logical tab order for translation fields
+    setupFieldTabOrder(this.container);
   }
 
   private attachEventListeners(): void {
@@ -1917,9 +1942,18 @@ export class TranslationEditorScreen {
       error,
     };
     this.render();
+    // Set up focus trapping for the reject modal
+    const modal = this.container?.querySelector<HTMLElement>('[data-reject-modal] [role="dialog"]');
+    if (modal) {
+      this.focusTrapCleanup = trapFocus(modal, () => this.closeRejectDialog());
+    }
   }
 
   private closeRejectDialog(): void {
+    if (this.focusTrapCleanup) {
+      this.focusTrapCleanup();
+      this.focusTrapCleanup = null;
+    }
     this.rejectDraft = null;
     this.render();
   }

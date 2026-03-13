@@ -1,6 +1,25 @@
 import { escapeAttribute, escapeHTML } from '../shared/html.js';
 import { httpRequest } from '../shared/transport/http-client.js';
 import { extractStructuredError } from '../toast/error-helpers.js';
+import {
+  BTN_PRIMARY,
+  BTN_SECONDARY,
+  BTN_GHOST,
+  HEADER_PRETITLE,
+  HEADER_TITLE,
+  EMPTY_STATE,
+  EMPTY_STATE_TITLE,
+  EMPTY_STATE_TEXT,
+  ERROR_STATE,
+  ERROR_STATE_TITLE,
+  ERROR_STATE_TEXT,
+  CARD,
+  MODAL_OVERLAY,
+  MODAL_CONTENT,
+  trapFocus,
+  renderBreadcrumb,
+  buildFamilyBreadcrumb,
+} from '../translation-shared/index.js';
 
 export type FamilyReadinessState = 'ready' | 'blocked';
 
@@ -1031,14 +1050,10 @@ function renderLocalePanel(detail: TranslationFamilyDetail, options: Translation
     return `
       <button
         type="button"
-        class="inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium ${
-          disabled
-            ? 'cursor-not-allowed bg-gray-200 text-gray-500'
-            : 'bg-gray-900 text-white hover:bg-gray-800'
-        }"
+        class="${BTN_PRIMARY}"
         data-family-create-locale="true"
         data-locale="${escapeAttribute(locale)}"
-        ${disabled ? 'aria-disabled="true"' : ''}
+        ${disabled ? 'disabled aria-disabled="true"' : ''}
         title="${escapeAttribute(disabled ? quickCreateReason : `Create ${locale.toUpperCase()} locale`)}"
       >
         Create locale
@@ -1069,7 +1084,7 @@ function renderLocalePanel(detail: TranslationFamilyDetail, options: Translation
 
   for (const locale of missingLocales) {
     rows.push(`
-      <li class="flex items-start justify-between gap-4 rounded-xl border border-dashed border-rose-300 bg-rose-50 p-4">
+      <li class="flex items-start justify-between gap-4 rounded-xl border border-rose-200 bg-rose-50 p-4">
         <div>
           <div class="flex items-center gap-2">
             <span class="text-sm font-semibold text-rose-900">${escapeHTML(locale.toUpperCase())}</span>
@@ -1083,7 +1098,7 @@ function renderLocalePanel(detail: TranslationFamilyDetail, options: Translation
   }
 
   return `
-    <section class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm" aria-labelledby="translation-family-locales">
+    <section class="${CARD} p-6 shadow-sm" aria-labelledby="translation-family-locales">
       <div class="flex items-center justify-between gap-3">
         <div>
           <h2 id="translation-family-locales" class="text-lg font-semibold text-gray-900">Locale coverage</h2>
@@ -1091,7 +1106,7 @@ function renderLocalePanel(detail: TranslationFamilyDetail, options: Translation
         </div>
       </div>
       <ul class="mt-5 space-y-3" role="list">
-        ${rows.join('') || '<li class="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">No locale variants available.</li>'}
+        ${rows.join('') || '<li class="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">No locale variants available.</li>'}
       </ul>
     </section>
   `;
@@ -1100,7 +1115,7 @@ function renderLocalePanel(detail: TranslationFamilyDetail, options: Translation
 function renderAssignmentPanel(detail: TranslationFamilyDetail): string {
   if (!detail.activeAssignments.length) {
     return `
-      <section class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm" aria-labelledby="translation-family-assignments">
+      <section class="${CARD} p-6 shadow-sm" aria-labelledby="translation-family-assignments">
         <h2 id="translation-family-assignments" class="text-lg font-semibold text-gray-900">Assignments</h2>
         <p class="mt-1 text-sm text-gray-500">No active assignments are attached to this family.</p>
       </section>
@@ -1108,7 +1123,7 @@ function renderAssignmentPanel(detail: TranslationFamilyDetail): string {
   }
 
   return `
-    <section class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm" aria-labelledby="translation-family-assignments">
+    <section class="${CARD} p-6 shadow-sm" aria-labelledby="translation-family-assignments">
       <h2 id="translation-family-assignments" class="text-lg font-semibold text-gray-900">Assignments</h2>
       <p class="mt-1 text-sm text-gray-500">Current cross-locale work in progress for this family.</p>
       <ul class="mt-5 space-y-3" role="list">
@@ -1160,7 +1175,7 @@ function renderPublishGatePanel(detail: TranslationFamilyDetail): string {
     : '<li class="text-sm text-gray-500">No blockers recorded.</li>';
 
   return `
-    <section class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm" aria-labelledby="translation-family-publish-gate">
+    <section class="${CARD} p-6 shadow-sm" aria-labelledby="translation-family-publish-gate">
       <h2 id="translation-family-publish-gate" class="text-lg font-semibold text-gray-900">Publish gate</h2>
       <div class="mt-4 rounded-xl ${detail.publishGate.allowed ? 'border border-emerald-200 bg-emerald-50' : 'border border-amber-200 bg-amber-50'} p-4">
         <div class="flex flex-wrap items-center gap-3">
@@ -1196,7 +1211,7 @@ function renderPublishGatePanel(detail: TranslationFamilyDetail): string {
 function renderActivityPanel(detail: TranslationFamilyDetail): string {
   const items = buildFamilyActivityPreview(detail);
   return `
-    <section class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm" aria-labelledby="translation-family-activity">
+    <section class="${CARD} p-6 shadow-sm" aria-labelledby="translation-family-activity">
       <h2 id="translation-family-activity" class="text-lg font-semibold text-gray-900">Activity preview</h2>
       <p class="mt-1 text-sm text-gray-500">Recent server timestamps across variants and active assignments.</p>
       ${
@@ -1260,9 +1275,9 @@ function renderFamilyLoadingState(message: string): string {
 function renderFamilyEmptyState(title: string, message: string): string {
   return `
     <div class="flex items-center justify-center py-16" role="status" aria-label="Empty">
-      <div class="max-w-md rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center shadow-sm">
-        <h2 class="text-lg font-semibold text-gray-900">${escapeHTML(title)}</h2>
-        <p class="mt-2 text-sm text-gray-500">${escapeHTML(message)}</p>
+      <div class="max-w-md ${EMPTY_STATE} p-8 text-center shadow-sm">
+        <h2 class="${EMPTY_STATE_TITLE}">${escapeHTML(title)}</h2>
+        <p class="${EMPTY_STATE_TEXT} mt-2">${escapeHTML(message)}</p>
       </div>
     </div>
   `;
@@ -1270,10 +1285,10 @@ function renderFamilyEmptyState(title: string, message: string): string {
 
 function renderFamilyErrorState(title: string, message: string): string {
   return `
-    <div class="rounded-2xl border border-rose-200 bg-rose-50 p-6" role="alert">
-      <h2 class="text-lg font-semibold text-rose-900">${escapeHTML(title)}</h2>
-      <p class="mt-2 text-sm text-rose-700">${escapeHTML(message)}</p>
-      <button type="button" class="ui-state-retry-btn mt-4 inline-flex items-center rounded-lg bg-white px-4 py-2 text-sm font-medium text-rose-700 shadow-sm ring-1 ring-inset ring-rose-200 hover:bg-rose-100">
+    <div class="${ERROR_STATE} p-6" role="alert">
+      <h2 class="${ERROR_STATE_TITLE}">${escapeHTML(title)}</h2>
+      <p class="${ERROR_STATE_TEXT} mt-2">${escapeHTML(message)}</p>
+      <button type="button" class="ui-state-retry-btn mt-4 ${BTN_SECONDARY}">
         Reload family detail
       </button>
     </div>
@@ -1328,14 +1343,10 @@ export function renderTranslationFamilyDetailState(
     ? `
       <button
         type="button"
-        class="inline-flex items-center rounded-full px-4 py-2 text-sm font-medium ${
-          quickCreateDisabled
-            ? 'cursor-not-allowed bg-gray-200 text-gray-500'
-            : 'bg-gray-900 text-white hover:bg-gray-800'
-        }"
+        class="${BTN_PRIMARY}"
         data-family-create-locale="true"
         data-locale="${escapeAttribute(detail.quickCreate.recommendedLocale)}"
-        ${quickCreateDisabled ? 'aria-disabled="true"' : ''}
+        ${quickCreateDisabled ? 'disabled aria-disabled="true"' : ''}
         title="${escapeAttribute(quickCreateDisabled ? detail.quickCreate.disabledReason || 'Locale creation is unavailable.' : `Create ${detail.quickCreate.recommendedLocale.toUpperCase()} locale`)}"
       >
         Create ${escapeHTML(detail.quickCreate.recommendedLocale.toUpperCase())}
@@ -1343,13 +1354,15 @@ export function renderTranslationFamilyDetailState(
     `
     : '';
 
+  const basePath = trimTrailingSlash(options.basePath || '/admin');
   return `
     <div class="translation-family-detail space-y-6" data-family-id="${escapeAttribute(detail.familyId)}" data-readiness-state="${escapeAttribute(detail.readinessState)}">
+      ${renderBreadcrumb(buildFamilyBreadcrumb(sourceTitle, basePath))}
       <section class="rounded-[28px] border border-gray-200 bg-[linear-gradient(135deg,#f8fafc,white)] p-6 shadow-sm">
         <div class="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">Translation family</p>
-            <h1 class="mt-2 text-3xl font-semibold tracking-tight text-gray-900">${escapeHTML(sourceTitle)}</h1>
+            <p class="${HEADER_PRETITLE}">Translation family</p>
+            <h1 class="${HEADER_TITLE} mt-2">${escapeHTML(sourceTitle)}</h1>
             <p class="mt-2 text-sm text-gray-600">${escapeHTML(detail.contentType)} · Source locale ${escapeHTML(detail.sourceLocale.toUpperCase())} · Family ${escapeHTML(detail.familyId)}</p>
           </div>
           <div class="flex flex-wrap items-center gap-2">
@@ -1539,10 +1552,10 @@ function openCreateLocaleDialog(config: CreateLocaleDialogConfig): void {
     : quickCreate.missingLocales[0];
 
   const overlay = doc.createElement('div');
-  overlay.className = 'fixed inset-0 z-[80] flex items-center justify-center bg-gray-900/50 p-4';
+  overlay.className = MODAL_OVERLAY;
   overlay.setAttribute('data-translation-create-locale-modal', 'true');
   overlay.innerHTML = `
-    <div class="w-full max-w-xl rounded-xl bg-white shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="translation-create-locale-title">
+    <div class="${MODAL_CONTENT}" role="dialog" aria-modal="true" aria-labelledby="translation-create-locale-title">
       <form class="p-6">
         <div class="flex items-start justify-between gap-4">
           <div>
@@ -1550,7 +1563,7 @@ function openCreateLocaleDialog(config: CreateLocaleDialogConfig): void {
             <h2 id="translation-create-locale-title" class="mt-2 text-2xl font-semibold text-gray-900">${escapeHTML(config.heading)}</h2>
             <p class="mt-2 text-sm text-gray-600">Server-authored recommendations and publish requirements for family ${escapeHTML(config.familyId)}.</p>
           </div>
-          <button type="button" data-close-modal="true" class="rounded-full bg-gray-100 px-3 py-1 text-sm font-medium text-gray-600 hover:bg-gray-200">Close</button>
+          <button type="button" data-close-modal="true" class="${BTN_GHOST}">Close</button>
         </div>
         <div class="mt-6 grid gap-4">
           <label class="grid gap-2">
@@ -1563,16 +1576,16 @@ function openCreateLocaleDialog(config: CreateLocaleDialogConfig): void {
               `).join('')}
             </select>
           </label>
-          <div class="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
+          <div class="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
             <p><strong>Required for publish:</strong> ${escapeHTML(quickCreate.requiredForPublish.join(', ') || 'None')}</p>
             <p class="mt-2"><strong>Recommended locale:</strong> ${escapeHTML(quickCreate.recommendedLocale.toUpperCase() || 'N/A')}</p>
             <p class="mt-2"><strong>Default work scope:</strong> ${escapeHTML(quickCreate.defaultAssignment.workScope || '__all__')}</p>
           </div>
-          <label class="flex items-center gap-3 rounded-2xl border border-gray-200 px-4 py-3">
+          <label class="flex items-center gap-3 rounded-xl border border-gray-200 px-4 py-3">
             <input type="checkbox" name="auto_create_assignment" class="h-4 w-4 rounded border-gray-300 text-sky-600" ${quickCreate.defaultAssignment.autoCreateAssignment ? 'checked' : ''}>
             <span class="text-sm text-gray-800">Seed an assignment now</span>
           </label>
-          <div data-assignment-fields="true" class="grid gap-4 rounded-2xl border border-gray-200 p-4">
+          <div data-assignment-fields="true" class="grid gap-4 rounded-xl border border-gray-200 p-4">
             <label class="grid gap-2">
               <span class="text-sm font-medium text-gray-900">Assignee</span>
               <input type="text" name="assignee_id" value="${escapeAttribute(quickCreate.defaultAssignment.assigneeId)}" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900">
@@ -1591,16 +1604,17 @@ function openCreateLocaleDialog(config: CreateLocaleDialogConfig): void {
             </label>
           </div>
         </div>
-        <div data-create-locale-feedback="true" class="mt-4 hidden rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"></div>
+        <div data-create-locale-feedback="true" class="mt-4 hidden rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"></div>
         <div class="mt-6 flex items-center justify-end gap-3">
-          <button type="button" data-close-modal="true" class="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50">Cancel</button>
-          <button type="submit" class="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800">${escapeHTML(config.submitLabel || 'Create locale')}</button>
+          <button type="button" data-close-modal="true" class="${BTN_SECONDARY}">Cancel</button>
+          <button type="submit" class="${BTN_PRIMARY}">${escapeHTML(config.submitLabel || 'Create locale')}</button>
         </div>
       </form>
     </div>
   `;
   doc.body.appendChild(overlay);
 
+  const modalContent = overlay.querySelector<HTMLElement>('[role="dialog"]');
   const form = overlay.querySelector('form');
   const localeField = overlay.querySelector<HTMLSelectElement>('select[name="locale"]');
   const autoCreateAssignmentField = overlay.querySelector<HTMLInputElement>('input[name="auto_create_assignment"]');
@@ -1612,12 +1626,16 @@ function openCreateLocaleDialog(config: CreateLocaleDialogConfig): void {
   const submitButton = overlay.querySelector<HTMLButtonElement>('button[type="submit"]');
 
   const close = (): void => {
+    cleanupFocusTrap();
     overlay.remove();
   };
   const syncAssignmentFields = (): void => {
     if (!assignmentFields || !autoCreateAssignmentField) return;
     assignmentFields.hidden = !autoCreateAssignmentField.checked;
   };
+
+  // Set up focus trapping with Escape key handling
+  const cleanupFocusTrap = modalContent ? trapFocus(modalContent, close) : () => {};
 
   syncAssignmentFields();
   autoCreateAssignmentField?.addEventListener('change', syncAssignmentFields);
