@@ -43,6 +43,11 @@ type ReservingIdempotencyStore interface {
 	Release(ctx context.Context, reservation IdempotencyReservation) error
 }
 
+// CommitRecoveryStore can finalize replay state after a mutation has already applied but Commit failed.
+type CommitRecoveryStore interface {
+	RecoverCommit(ctx context.Context, reservation IdempotencyReservation, result core.MutationResult, ttl time.Duration) error
+}
+
 // MemoryResourceStore is a deterministic in-memory ResourceStore useful for tests.
 type MemoryResourceStore struct {
 	mu              sync.RWMutex
@@ -140,11 +145,13 @@ type MemoryIdempotencyStore struct {
 	PutError       error
 	ReserveError   error
 	CommitError    error
+	RecoverError   error
 	ReleaseError   error
 	LastGetKey     string
 	LastPutKey     string
 	LastReserveKey string
 	LastCommitKey  string
+	LastRecoverKey string
 	LastReleaseKey string
 	LastTTL        time.Duration
 	counter        int64
@@ -275,6 +282,32 @@ func (s *MemoryIdempotencyStore) Commit(_ context.Context, reservation Idempoten
 		entry.expiresAt = time.Time{}
 	}
 	s.entries[s.LastCommitKey] = entry
+	return nil
+}
+
+// RecoverCommit stores a replay result after the mutation has already applied but Commit failed.
+func (s *MemoryIdempotencyStore) RecoverCommit(_ context.Context, reservation IdempotencyReservation, result core.MutationResult, ttl time.Duration) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.LastRecoverKey = strings.TrimSpace(reservation.Key)
+	s.LastTTL = ttl
+	if s.RecoverError != nil {
+		return s.RecoverError
+	}
+
+	entry := memoryIdempotencyEntry{
+		result: cloneMutationResult(result),
+	}
+	if existing, ok := s.entries[s.LastRecoverKey]; ok {
+		if existing.pending && existing.token != reservation.Token {
+			return core.NewError(core.CodeTemporaryFailure, "idempotency reservation not found", nil)
+		}
+	}
+	if ttl > 0 {
+		entry.expiresAt = s.now().Add(ttl)
+	}
+	s.entries[s.LastRecoverKey] = entry
 	return nil
 }
 
