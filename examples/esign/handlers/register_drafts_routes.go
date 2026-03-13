@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -176,12 +177,30 @@ func registerDraftRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg regist
 			if createdByUserID == "" {
 				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "created_by_user_id is required", nil)
 			}
+			services.LogSendDebug("draft_send_handler", "entry", services.SendDebugFields(scope, correlationID, map[string]any{
+				"draft_id":           draftID,
+				"expected_revision":  payload.ExpectedRevision,
+				"created_by_user_id": createdByUserID,
+			}))
+			services.LogSendDebug("draft_send_handler", "before_service_send", services.SendDebugFields(scope, correlationID, map[string]any{
+				"draft_id":           draftID,
+				"expected_revision":  payload.ExpectedRevision,
+				"created_by_user_id": createdByUserID,
+			}))
 			result, err := cfg.drafts.Send(c.Context(), scope, draftID, services.DraftSendInput{
 				ExpectedRevision: payload.ExpectedRevision,
 				CreatedByUserID:  createdByUserID,
 				IPAddress:        resolveAuditRequestIP(c, cfg),
+				CorrelationID:    correlationID,
 			})
 			if err != nil {
+				services.LogSendDebug("draft_send_handler", "service_send_failed", services.SendDebugFields(scope, correlationID, map[string]any{
+					"draft_id":           draftID,
+					"expected_revision":  payload.ExpectedRevision,
+					"created_by_user_id": createdByUserID,
+					"error":              strings.TrimSpace(err.Error()),
+					"elapsed_ms":         time.Since(startedAt).Milliseconds(),
+				}))
 				normalizedErr := normalizeDraftSendError(err)
 				logAPIOperation(c.Context(), "draft_send_precondition", correlationID, startedAt, normalizedErr, map[string]any{
 					"draft_id":           draftID,
@@ -192,12 +211,35 @@ func registerDraftRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg regist
 				})
 				return writeAPIError(c, normalizedErr, http.StatusUnprocessableEntity, "validation_failed", "unable to send draft", nil)
 			}
+			services.LogSendDebug("draft_send_handler", "after_service_send", services.SendDebugFields(scope, correlationID, map[string]any{
+				"draft_id":           draftID,
+				"expected_revision":  payload.ExpectedRevision,
+				"created_by_user_id": createdByUserID,
+				"agreement_id":       strings.TrimSpace(result.AgreementID),
+				"elapsed_ms":         time.Since(startedAt).Milliseconds(),
+			}))
 			respErr := c.JSON(http.StatusOK, map[string]any{
 				"agreement_id":  strings.TrimSpace(result.AgreementID),
 				"status":        strings.TrimSpace(result.Status),
 				"draft_id":      strings.TrimSpace(result.DraftID),
 				"draft_deleted": result.DraftDeleted,
 			})
+			if respErr != nil {
+				log.Printf("[esign-send] component=draft_send_handler phase=response_write_error correlation_id=%s draft_id=%s err=%v elapsed_ms=%d",
+					strings.TrimSpace(correlationID),
+					draftID,
+					respErr,
+					time.Since(startedAt).Milliseconds(),
+				)
+			} else {
+				services.LogSendDebug("draft_send_handler", "exit", services.SendDebugFields(scope, correlationID, map[string]any{
+					"draft_id":           draftID,
+					"expected_revision":  payload.ExpectedRevision,
+					"created_by_user_id": createdByUserID,
+					"agreement_id":       strings.TrimSpace(result.AgreementID),
+					"elapsed_ms":         time.Since(startedAt).Milliseconds(),
+				}))
+			}
 			logAPIOperation(c.Context(), "draft_send_precondition", correlationID, startedAt, respErr, map[string]any{
 				"draft_id":           draftID,
 				"expected_revision":  payload.ExpectedRevision,

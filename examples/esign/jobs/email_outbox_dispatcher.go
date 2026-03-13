@@ -17,6 +17,7 @@ const (
 	defaultEmailOutboxQueueCapacity = 64
 	defaultEmailOutboxSweepInterval = 30 * time.Second
 	defaultEmailOutboxBatchLimit    = 25
+	defaultEmailOutboxNotifyDelay   = 250 * time.Millisecond
 	emailOutboxConsumerID           = "esign-email-outbox"
 )
 
@@ -76,6 +77,7 @@ type EmailOutboxDispatcher struct {
 	publisher     stores.OutboxPublisher
 	sweepInterval time.Duration
 	batchLimit    int
+	notifyDelay   time.Duration
 	now           func() time.Time
 	queue         chan stores.Scope
 	closed        chan struct{}
@@ -98,6 +100,7 @@ func NewEmailOutboxDispatcher(store stores.OutboxStore, publisher stores.OutboxP
 		publisher:     publisher,
 		sweepInterval: defaultEmailOutboxSweepInterval,
 		batchLimit:    defaultEmailOutboxBatchLimit,
+		notifyDelay:   defaultEmailOutboxNotifyDelay,
 		now:           func() time.Time { return time.Now().UTC() },
 		queue:         make(chan stores.Scope, defaultEmailOutboxQueueCapacity),
 		closed:        make(chan struct{}),
@@ -118,16 +121,21 @@ func (d *EmailOutboxDispatcher) NotifyScope(scope stores.Scope) {
 		return
 	}
 	d.registerScope(scope)
+	services.LogSendDebug("email_outbox_dispatcher", "notify_scope", services.SendDebugFields(scope, "", map[string]any{
+		"notify_delay_ms": d.notifyDelay.Milliseconds(),
+	}))
 	select {
 	case <-d.closed:
 		return
 	default:
 	}
-	select {
-	case <-d.closed:
-	case d.queue <- scope:
-	default:
+	if d.notifyDelay <= 0 {
+		d.enqueueScope(scope)
+		return
 	}
+	time.AfterFunc(d.notifyDelay, func() {
+		d.enqueueScope(scope)
+	})
 }
 
 // Close stops the background dispatcher.
@@ -150,9 +158,11 @@ func (d *EmailOutboxDispatcher) worker() {
 		case <-d.closed:
 			return
 		case scope := <-d.queue:
+			services.LogSendDebug("email_outbox_dispatcher", "worker_received_scope", services.SendDebugFields(scope, "", nil))
 			d.dispatchScope(context.Background(), scope)
 		case <-ticker.C:
 			for _, scope := range d.snapshotScopes() {
+				services.LogSendDebug("email_outbox_dispatcher", "worker_sweep_scope", services.SendDebugFields(scope, "", nil))
 				d.dispatchScope(context.Background(), scope)
 			}
 		}
@@ -164,7 +174,12 @@ func (d *EmailOutboxDispatcher) dispatchScope(ctx context.Context, scope stores.
 	if scope.TenantID == "" || scope.OrgID == "" {
 		return
 	}
+	dispatchStartedAt := time.Now()
+	services.LogSendDebug("email_outbox_dispatcher", "dispatch_scope_start", services.SendDebugFields(scope, "", map[string]any{
+		"batch_limit": d.batchLimit,
+	}))
 	for {
+		loopStartedAt := time.Now()
 		result, err := stores.DispatchOutboxBatch(ctx, d.store, scope, d.publisher, stores.OutboxDispatchInput{
 			Consumer:   emailOutboxConsumerID,
 			Topic:      services.NotificationOutboxTopicEmailSendSigningRequest,
@@ -173,12 +188,38 @@ func (d *EmailOutboxDispatcher) dispatchScope(ctx context.Context, scope stores.
 			RetryDelay: DefaultRetryPolicy().BaseDelay,
 		})
 		if err != nil {
+			services.LogSendPhaseDuration("email_outbox_dispatcher", "dispatch_scope_failed", loopStartedAt, services.SendDebugFields(scope, "", map[string]any{
+				"error": strings.TrimSpace(err.Error()),
+			}))
 			log.Printf("email outbox dispatch failed: tenant=%s org=%s err=%v", scope.TenantID, scope.OrgID, err)
 			return
 		}
+		services.LogSendPhaseDuration("email_outbox_dispatcher", "dispatch_scope_batch", loopStartedAt, services.SendDebugFields(scope, "", map[string]any{
+			"claimed":   result.Claimed,
+			"published": result.Published,
+			"retrying":  result.Retrying,
+			"failed":    result.Failed,
+		}))
 		if result.Claimed == 0 {
+			services.LogSendPhaseDuration("email_outbox_dispatcher", "dispatch_scope_complete", dispatchStartedAt, services.SendDebugFields(scope, "", nil))
 			return
 		}
+	}
+}
+
+func (d *EmailOutboxDispatcher) enqueueScope(scope stores.Scope) {
+	if d == nil {
+		return
+	}
+	select {
+	case <-d.closed:
+		return
+	default:
+	}
+	select {
+	case <-d.closed:
+	case d.queue <- scope:
+	default:
 	}
 }
 

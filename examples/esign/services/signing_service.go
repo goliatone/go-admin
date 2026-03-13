@@ -165,7 +165,7 @@ func WithSigningAuditStore(store stores.AuditEventStore) SigningServiceOption {
 			return
 		}
 		s.audits = store
-		s.customAudits = true
+		s.customAudits = !sameInstance(store, s.agreements)
 	}
 }
 

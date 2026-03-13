@@ -108,6 +108,54 @@ func TestEmailOutboxDispatcherDrainsPendingMessages(t *testing.T) {
 	}
 }
 
+func TestEmailOutboxDispatcherNotifyScopeSchedulesDelayedDispatch(t *testing.T) {
+	ctx, scope, store, agreement, signerOne, _ := setupSentAgreementForWorkflow(t)
+	provider := &captureEmailProvider{}
+	publisher := NewEmailOutboxPublisher(NewHandlers(HandlerDependencies{
+		Agreements:    store,
+		JobRuns:       store,
+		EmailLogs:     store,
+		EmailProvider: provider,
+	}))
+	dispatcher, err := NewEmailOutboxDispatcher(store, publisher)
+	if err != nil {
+		t.Fatalf("NewEmailOutboxDispatcher: %v", err)
+	}
+	defer dispatcher.Close()
+	dispatcher.notifyDelay = 5 * time.Millisecond
+	dispatcher.now = func() time.Time { return time.Date(2026, 3, 12, 11, 0, 0, 0, time.UTC) }
+
+	payloadJSON, err := json.Marshal(services.EmailSendSigningRequestOutboxPayload{
+		AgreementID:   agreement.ID,
+		RecipientID:   signerOne.ID,
+		Notification:  string(services.NotificationSigningInvitation),
+		SignerToken:   "token-outbox-notify",
+		CorrelationID: "corr-outbox-notify",
+		DedupeKey:     strings.Join([]string{agreement.ID, signerOne.ID, string(services.NotificationSigningInvitation), "corr-outbox-notify"}, "|"),
+	})
+	if err != nil {
+		t.Fatalf("Marshal payload: %v", err)
+	}
+	if _, err := store.EnqueueOutboxMessage(ctx, scope, stores.OutboxMessageRecord{
+		ID:          uuid.NewString(),
+		Topic:       services.NotificationOutboxTopicEmailSendSigningRequest,
+		PayloadJSON: string(payloadJSON),
+		AvailableAt: dispatcher.now(),
+	}); err != nil {
+		t.Fatalf("EnqueueOutboxMessage: %v", err)
+	}
+
+	dispatcher.NotifyScope(scope)
+
+	deadline := time.Now().Add(500 * time.Millisecond)
+	for len(provider.inputs) == 0 && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if len(provider.inputs) != 1 {
+		t.Fatalf("expected delayed notify to dispatch exactly one email, got %d", len(provider.inputs))
+	}
+}
+
 func TestEmailOutboxPublisherAppendsFailureAuditOnDispatchError(t *testing.T) {
 	ctx, scope, store, agreement, signerOne, _ := setupSentAgreementForWorkflow(t)
 	publisher := NewEmailOutboxPublisher(NewHandlers(HandlerDependencies{

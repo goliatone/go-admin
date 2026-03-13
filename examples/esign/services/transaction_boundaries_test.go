@@ -157,6 +157,49 @@ func TestAgreementServiceSendDoesNotRunPostCommitHooksWhenCommitFails(t *testing
 	}
 }
 
+func TestAgreementServiceWithSharedAuditStoreRebindsAuditsForTx(t *testing.T) {
+	baseStore := stores.NewInMemoryStore()
+	svc := NewAgreementService(baseStore, WithAgreementAuditStore(baseStore))
+	if svc.customAudits {
+		t.Fatal("expected shared audit store to remain tx-bindable")
+	}
+
+	txStore := stores.NewInMemoryStore()
+	txSvc := svc.forTx(txStore)
+	if !sameInstance(txSvc.audits, txStore) {
+		t.Fatal("expected shared audit store to rebind to tx store")
+	}
+}
+
+func TestAgreementServiceWithCustomAuditStorePreservesCustomAuditStoreAcrossTx(t *testing.T) {
+	baseStore := stores.NewInMemoryStore()
+	customAuditStore := stores.NewInMemoryStore()
+	svc := NewAgreementService(baseStore, WithAgreementAuditStore(customAuditStore))
+	if !svc.customAudits {
+		t.Fatal("expected distinct audit store to remain custom")
+	}
+
+	txStore := stores.NewInMemoryStore()
+	txSvc := svc.forTx(txStore)
+	if !sameInstance(txSvc.audits, customAuditStore) {
+		t.Fatal("expected custom audit store to remain unchanged across tx binding")
+	}
+}
+
+func TestSigningServiceWithSharedAuditStoreRebindsAuditsForTx(t *testing.T) {
+	baseStore := stores.NewInMemoryStore()
+	svc := NewSigningService(baseStore, WithSigningAuditStore(baseStore))
+	if svc.customAudits {
+		t.Fatal("expected shared signing audit store to remain tx-bindable")
+	}
+
+	txStore := stores.NewInMemoryStore()
+	txSvc := svc.forTx(txStore)
+	if !sameInstance(txSvc.audits, txStore) {
+		t.Fatal("expected shared signing audit store to rebind to tx store")
+	}
+}
+
 func TestSigningServiceSubmitDoesNotRunPostCommitHooksWhenCommitFails(t *testing.T) {
 	store := newTxCommitErrorStore()
 	ctx := context.Background()

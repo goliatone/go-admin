@@ -105,7 +105,7 @@ func WithAgreementAuditStore(audits stores.AuditEventStore) AgreementServiceOpti
 			return
 		}
 		s.audits = audits
-		s.customAudits = true
+		s.customAudits = !sameInstance(audits, s.agreements)
 	}
 }
 
@@ -298,6 +298,7 @@ func (s AgreementService) withWriteTxHooks(ctx context.Context, fn func(Agreemen
 type SendInput struct {
 	IdempotencyKey string
 	IPAddress      string
+	CorrelationID  string
 }
 
 // VoidInput controls void transition behavior.
@@ -891,6 +892,10 @@ func (s AgreementService) Send(ctx context.Context, scope stores.Scope, agreemen
 		return stores.AgreementRecord{}, domainValidationError("agreements", "store", "not configured")
 	}
 	idempotencyKey := strings.TrimSpace(input.IdempotencyKey)
+	correlationID := strings.TrimSpace(input.CorrelationID)
+	if correlationID == "" {
+		correlationID = idempotencyKey
+	}
 	if replay, ok, err := s.resolveSendReplayFromAudit(ctx, scope, agreementID, idempotencyKey); err != nil {
 		return stores.AgreementRecord{}, err
 	} else if ok {
@@ -899,11 +904,26 @@ func (s AgreementService) Send(ctx context.Context, scope stores.Scope, agreemen
 	var result stores.AgreementRecord
 	sendCompatibilityTier := PDFCompatibilityTierFull
 	sendCompatibilityReason := ""
+	sendStartedAt := time.Now()
+	LogSendDebug("agreement_service", "send_start", SendDebugFields(scope, correlationID, map[string]any{
+		"agreement_id":    strings.TrimSpace(agreementID),
+		"idempotency_key": idempotencyKey,
+	}))
 	if err := s.withWriteTxHooks(ctx, func(txSvc AgreementService, hooks *stores.TxHooks) error {
+		loadAgreementStartedAt := time.Now()
 		agreement, err := txSvc.agreements.GetAgreement(ctx, scope, agreementID)
 		if err != nil {
+			LogSendPhaseDuration("agreement_service", "agreement_load_failed", loadAgreementStartedAt, SendDebugFields(scope, correlationID, map[string]any{
+				"agreement_id": strings.TrimSpace(agreementID),
+				"error":        strings.TrimSpace(err.Error()),
+			}))
 			return err
 		}
+		LogSendPhaseDuration("agreement_service", "agreement_loaded", loadAgreementStartedAt, SendDebugFields(scope, correlationID, map[string]any{
+			"agreement_id": strings.TrimSpace(agreement.ID),
+			"status":       strings.TrimSpace(agreement.Status),
+			"version":      agreement.Version,
+		}))
 		if agreement.Status != stores.AgreementStatusDraft {
 			if agreement.Status == stores.AgreementStatusSent && idempotencyKey != "" {
 				if replayed, replayErr := txSvc.wasSendRecordedWithIdempotencyKey(ctx, scope, agreementID, idempotencyKey); replayErr != nil {
@@ -915,10 +935,21 @@ func (s AgreementService) Send(ctx context.Context, scope stores.Scope, agreemen
 			}
 			return domainValidationError("agreements", "status", "send requires draft status")
 		}
+		compatibilityStartedAt := time.Now()
 		document, compatibility, err := txSvc.resolveAgreementDocumentCompatibility(ctx, scope, agreement)
 		if err != nil {
+			LogSendPhaseDuration("agreement_service", "compatibility_check_failed", compatibilityStartedAt, SendDebugFields(scope, correlationID, map[string]any{
+				"agreement_id": strings.TrimSpace(agreement.ID),
+				"error":        strings.TrimSpace(err.Error()),
+			}))
 			return err
 		}
+		LogSendPhaseDuration("agreement_service", "compatibility_check_complete", compatibilityStartedAt, SendDebugFields(scope, correlationID, map[string]any{
+			"agreement_id":         strings.TrimSpace(agreement.ID),
+			"document_id":          strings.TrimSpace(document.ID),
+			"compatibility_tier":   strings.TrimSpace(string(compatibility.Tier)),
+			"compatibility_reason": strings.TrimSpace(compatibility.Reason),
+		}))
 		sendCompatibilityTier = compatibility.Tier
 		sendCompatibilityReason = compatibility.Reason
 		if compatibility.Tier == PDFCompatibilityTierUnsupported && !policyAllowsAnalyzeOnlyUpload(txSvc.pdfs.Policy(ctx, scope)) {
@@ -928,10 +959,21 @@ func (s AgreementService) Send(ctx context.Context, scope stores.Scope, agreemen
 			})
 		}
 
+		validationStartedAt := time.Now()
 		validation, err := txSvc.ValidateBeforeSend(ctx, scope, agreementID)
 		if err != nil {
+			LogSendPhaseDuration("agreement_service", "validation_failed", validationStartedAt, SendDebugFields(scope, correlationID, map[string]any{
+				"agreement_id": strings.TrimSpace(agreement.ID),
+				"error":        strings.TrimSpace(err.Error()),
+			}))
 			return err
 		}
+		LogSendPhaseDuration("agreement_service", "validation_complete", validationStartedAt, SendDebugFields(scope, correlationID, map[string]any{
+			"agreement_id":     strings.TrimSpace(agreement.ID),
+			"recipient_count":  validation.RecipientCount,
+			"field_count":      validation.FieldCount,
+			"validation_valid": validation.Valid,
+		}))
 		if !validation.Valid {
 			first := validation.Issues[0]
 			return domainValidationError("agreements", first.Field, first.Message)
@@ -939,6 +981,7 @@ func (s AgreementService) Send(ctx context.Context, scope stores.Scope, agreemen
 		if txSvc.tokens == nil {
 			return domainValidationError("signing_tokens", "service", "not configured")
 		}
+		tokenIssueStartedAt := time.Now()
 		recipients, err := txSvc.agreements.ListRecipients(ctx, scope, agreementID)
 		if err != nil {
 			return err
@@ -963,7 +1006,13 @@ func (s AgreementService) Send(ctx context.Context, scope stores.Scope, agreemen
 		if len(issuedByRecipient) == 0 {
 			return domainValidationError("recipients", "role", "no active signer recipient found")
 		}
+		LogSendPhaseDuration("agreement_service", "token_issuance_complete", tokenIssueStartedAt, SendDebugFields(scope, correlationID, map[string]any{
+			"agreement_id":           strings.TrimSpace(agreement.ID),
+			"issued_recipient_count": len(issuedRecipientIDs),
+			"active_stage":           activeStage,
+		}))
 
+		transitionStartedAt := time.Now()
 		transitioned, err := txSvc.agreements.Transition(ctx, scope, agreementID, stores.AgreementTransitionInput{
 			ToStatus:        stores.AgreementStatusSent,
 			ExpectedVersion: agreement.Version,
@@ -978,14 +1027,33 @@ func (s AgreementService) Send(ctx context.Context, scope stores.Scope, agreemen
 			if rollbackErr != nil {
 				return errors.Join(err, rollbackErr)
 			}
+			LogSendPhaseDuration("agreement_service", "transition_failed", transitionStartedAt, SendDebugFields(scope, correlationID, map[string]any{
+				"agreement_id": strings.TrimSpace(agreement.ID),
+				"error":        strings.TrimSpace(err.Error()),
+			}))
 			return err
 		}
+		LogSendPhaseDuration("agreement_service", "transition_complete", transitionStartedAt, SendDebugFields(scope, correlationID, map[string]any{
+			"agreement_id": strings.TrimSpace(transitioned.ID),
+			"status":       strings.TrimSpace(transitioned.Status),
+			"version":      transitioned.Version,
+		}))
 		result = transitioned
+		reminderStartedAt := time.Now()
 		if err := txSvc.initializeReminderStatesForSend(ctx, scope, transitioned, recipients); err != nil {
+			LogSendPhaseDuration("agreement_service", "reminder_init_failed", reminderStartedAt, SendDebugFields(scope, correlationID, map[string]any{
+				"agreement_id": strings.TrimSpace(transitioned.ID),
+				"error":        strings.TrimSpace(err.Error()),
+			}))
 			return err
 		}
+		LogSendPhaseDuration("agreement_service", "reminder_init_complete", reminderStartedAt, SendDebugFields(scope, correlationID, map[string]any{
+			"agreement_id":    strings.TrimSpace(transitioned.ID),
+			"recipient_count": len(recipients),
+		}))
 
 		activeRecipientIDs := recipientIDs(activeSigners)
+		auditStartedAt := time.Now()
 		if err := txSvc.appendAuditEventWithIP(ctx, scope, transitioned.ID, "agreement.sent", "system", "", input.IPAddress, map[string]any{
 			"idempotency_key":          strings.TrimSpace(input.IdempotencyKey),
 			"status":                   transitioned.Status,
@@ -1000,8 +1068,16 @@ func (s AgreementService) Send(ctx context.Context, scope stores.Scope, agreemen
 				return append([]string{}, issuedRecipientIDs...)
 			}(),
 		}); err != nil {
+			LogSendPhaseDuration("agreement_service", "audit_failed", auditStartedAt, SendDebugFields(scope, correlationID, map[string]any{
+				"agreement_id": strings.TrimSpace(transitioned.ID),
+				"error":        strings.TrimSpace(err.Error()),
+			}))
 			return err
 		}
+		LogSendPhaseDuration("agreement_service", "audit_complete", auditStartedAt, SendDebugFields(scope, correlationID, map[string]any{
+			"agreement_id": strings.TrimSpace(transitioned.ID),
+			"active_stage": activeStage,
+		}))
 		if sendCompatibilityTier == PDFCompatibilityTierLimited {
 			if err := txSvc.appendAuditEvent(ctx, scope, transitioned.ID, "agreement.send_degraded_preview", "system", "", map[string]any{
 				"pdf_compatibility_tier":   strings.TrimSpace(string(sendCompatibilityTier)),
@@ -1012,20 +1088,33 @@ func (s AgreementService) Send(ctx context.Context, scope stores.Scope, agreemen
 			}
 		}
 		enqueuedNotification := false
+		enqueuedCount := 0
 		if txSvc.outbox != nil {
+			outboxStartedAt := time.Now()
 			for _, activeSigner := range activeSigners {
 				issued := issuedByRecipient[activeSigner.ID]
 				notification := AgreementNotification{
 					AgreementID:   transitioned.ID,
 					RecipientID:   activeSigner.ID,
-					CorrelationID: strings.TrimSpace(input.IdempotencyKey),
+					CorrelationID: correlationID,
 					Type:          NotificationSigningInvitation,
 					Token:         issued,
 				}
 				if err := txSvc.enqueueEmailNotificationOutbox(ctx, scope, notification, AgreementSendNotificationFailedAuditEvent); err != nil {
+					LogSendPhaseDuration("agreement_service", "outbox_enqueue_failed", outboxStartedAt, SendDebugFields(scope, correlationID, map[string]any{
+						"agreement_id": strings.TrimSpace(transitioned.ID),
+						"recipient_id": strings.TrimSpace(activeSigner.ID),
+						"error":        strings.TrimSpace(err.Error()),
+					}))
 					return err
 				}
+				enqueuedCount++
 			}
+			LogSendPhaseDuration("agreement_service", "outbox_enqueue_complete", outboxStartedAt, SendDebugFields(scope, correlationID, map[string]any{
+				"agreement_id":   strings.TrimSpace(transitioned.ID),
+				"enqueued_count": enqueuedCount,
+				"active_signers": len(activeSigners),
+			}))
 			enqueuedNotification = len(activeSigners) > 0
 		} else if txSvc.emails != nil {
 			for _, activeSigner := range activeSigners {
@@ -1059,14 +1148,29 @@ func (s AgreementService) Send(ctx context.Context, scope stores.Scope, agreemen
 				s.notificationDispatch.NotifyScope(scope)
 				return nil
 			})
+			LogSendDebug("agreement_service", "after_commit_notify_registered", SendDebugFields(scope, correlationID, map[string]any{
+				"agreement_id":   strings.TrimSpace(transitioned.ID),
+				"enqueued_count": enqueuedCount,
+			}))
 		}
 		return nil
 	}); err != nil {
+		LogSendPhaseDuration("agreement_service", "send_failed", sendStartedAt, SendDebugFields(scope, correlationID, map[string]any{
+			"agreement_id":    strings.TrimSpace(agreementID),
+			"idempotency_key": idempotencyKey,
+			"error":           strings.TrimSpace(err.Error()),
+		}))
 		if replay, ok, replayErr := s.resolveSendReplayFromAudit(ctx, scope, agreementID, idempotencyKey); replayErr == nil && ok {
 			return replay, nil
 		}
 		return stores.AgreementRecord{}, err
 	}
+	LogSendPhaseDuration("agreement_service", "send_complete", sendStartedAt, SendDebugFields(scope, correlationID, map[string]any{
+		"agreement_id":         strings.TrimSpace(result.ID),
+		"idempotency_key":      idempotencyKey,
+		"compatibility_tier":   strings.TrimSpace(string(sendCompatibilityTier)),
+		"compatibility_reason": strings.TrimSpace(sendCompatibilityReason),
+	}))
 	return result, nil
 }
 
