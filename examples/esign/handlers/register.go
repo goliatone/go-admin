@@ -58,6 +58,13 @@ func (r routeRegistrar) Delete(path string, handler router.HandlerFunc, mw ...ro
 	r.router.Delete(path, handler, r.withMiddleware(mw)...)
 }
 
+func (r routeRegistrar) Patch(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) {
+	if r.router == nil {
+		return
+	}
+	r.router.Patch(path, handler, r.withMiddleware(mw)...)
+}
+
 func (r routeRegistrar) withMiddleware(mw []router.MiddlewareFunc) []router.MiddlewareFunc {
 	if r.middleware == nil {
 		return mw
@@ -79,10 +86,11 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 	if err != nil {
 		return fmt.Errorf("esign handlers: invalid registration config: %w", err)
 	}
-	adminRoutes := wrapRouteRegistrar(r, cfg.adminRouteAuth)
+	adminRoutes := wrapRouteRegistrar(r, composeMiddleware(cfg.adminRouteAuth, traceResponseHeadersMiddleware()))
 
 	registerAdminCoreRoutes(adminRoutes, routes, cfg)
 	registerDraftRoutes(adminRoutes, routes, cfg)
+	registerSyncRoutes(adminRoutes, routes, cfg)
 	registerAgreementAuthoringRoutes(adminRoutes, routes, cfg)
 	registerGoogleRoutes(adminRoutes, routes, cfg)
 	registerIntegrationRoutes(adminRoutes, routes, cfg)
@@ -92,32 +100,12 @@ func Register(r coreadmin.AdminRouter, routes RouteSet, options ...RegisterOptio
 }
 
 func resolveAdminUserID(c router.Context) string {
-	if c == nil {
-		return ""
-	}
-	userID := ""
-	if userID == "" {
-		if actor, ok := auth.ActorFromRouterContext(c); ok && actor != nil {
-			userID = firstNonEmpty(strings.TrimSpace(actor.Subject), strings.TrimSpace(actor.ActorID))
-		}
-	}
-	if userID == "" {
-		if claims, ok := auth.GetClaims(c.Context()); ok && claims != nil {
-			userID = firstNonEmpty(strings.TrimSpace(claims.UserID()), strings.TrimSpace(claims.Subject()))
-		}
-	}
-	if userID == "" {
-		if claims, ok := auth.GetRouterClaims(c, ""); ok && claims != nil {
-			userID = firstNonEmpty(strings.TrimSpace(claims.UserID()), strings.TrimSpace(claims.Subject()))
-		}
-	}
-	if userID == "" {
-		userID = stableString(c.Query("user_id"))
-	}
-	if userID == "" {
-		userID = stableString(c.Header("X-User-ID"))
-	}
-	return stableString(userID)
+	return resolveAuthenticatedAdminUserID(c)
+}
+
+func resolveAuthenticatedAdminUserID(c router.Context) string {
+	identity := coreadmin.ResolveAuthenticatedRequestIdentity(c, coreadmin.AuthenticatedRequestScopeDefaults{})
+	return stableString(identity.ActorID)
 }
 
 func parsePageSize(raw string) int {
@@ -157,6 +145,58 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func composeMiddleware(middleware ...router.MiddlewareFunc) router.MiddlewareFunc {
+	filtered := make([]router.MiddlewareFunc, 0, len(middleware))
+	for _, mw := range middleware {
+		if mw != nil {
+			filtered = append(filtered, mw)
+		}
+	}
+	if len(filtered) == 0 {
+		return nil
+	}
+	return func(next router.HandlerFunc) router.HandlerFunc {
+		wrapped := next
+		for i := len(filtered) - 1; i >= 0; i-- {
+			wrapped = filtered[i](wrapped)
+		}
+		return wrapped
+	}
+}
+
+func traceResponseHeadersMiddleware() router.MiddlewareFunc {
+	return func(next router.HandlerFunc) router.HandlerFunc {
+		return func(c router.Context) error {
+			setTraceResponseHeaders(c)
+			return next(c)
+		}
+	}
+}
+
+func setTraceResponseHeaders(c router.Context) {
+	if c == nil {
+		return
+	}
+	requestID := stableString(c.Header("X-Request-ID"))
+	correlationID := firstNonEmpty(
+		stableString(c.Header("X-Correlation-ID")),
+		requestID,
+	)
+	traceID := firstNonEmpty(
+		stableString(c.Header("X-Trace-ID")),
+		correlationID,
+	)
+	if requestID != "" {
+		c.SetHeader("X-Request-ID", requestID)
+	}
+	if correlationID != "" {
+		c.SetHeader("X-Correlation-ID", correlationID)
+	}
+	if traceID != "" {
+		c.SetHeader("X-Trace-ID", traceID)
+	}
 }
 
 func formatTime(value *time.Time) string {

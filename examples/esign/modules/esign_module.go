@@ -20,7 +20,10 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/permissions"
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
+	esignsync "github.com/goliatone/go-admin/examples/esign/sync"
 	servicesmodule "github.com/goliatone/go-admin/modules/services"
+	synccore "github.com/goliatone/go-admin/pkg/go-sync/core"
+	syncservice "github.com/goliatone/go-admin/pkg/go-sync/service"
 	"github.com/goliatone/go-admin/quickstart"
 	fggate "github.com/goliatone/go-featuregate/gate"
 	jobqueue "github.com/goliatone/go-job/queue"
@@ -72,25 +75,27 @@ type ESignModule struct {
 	googleEnabled bool
 	uploadDir     string
 
-	store             eSignStore
-	services          *servicesmodule.Module
-	documents         services.DocumentService
-	tokens            stores.TokenService
-	agreements        services.AgreementService
-	reminders         services.AgreementReminderService
-	drafts            services.DraftService
-	signing           services.SigningService
-	signerProfiles    services.SignerProfileService
-	savedSignatures   services.SignerSavedSignatureService
-	artifacts         services.ArtifactPipelineService
-	google            googleIntegrationService
-	googleImportQueue *jobs.GoogleDriveImportQueue
-	emailOutbox       *jobs.EmailOutboxDispatcher
-	signingWorkflows  *jobs.SigningWorkflowOutboxDispatcher
-	integrations      services.IntegrationFoundationService
-	activityMap       *AuditActivityProjector
-	uploadManager     *uploader.Manager
-	remediationStatus jobqueue.DispatchStatusReader
+	store              eSignStore
+	services           *servicesmodule.Module
+	documents          services.DocumentService
+	tokens             stores.TokenService
+	agreements         services.AgreementService
+	reminders          services.AgreementReminderService
+	drafts             services.DraftService
+	draftSync          synccore.SyncService
+	draftSyncBootstrap *esignsync.AgreementDraftBootstrapper
+	signing            services.SigningService
+	signerProfiles     services.SignerProfileService
+	savedSignatures    services.SignerSavedSignatureService
+	artifacts          services.ArtifactPipelineService
+	google             googleIntegrationService
+	googleImportQueue  *jobs.GoogleDriveImportQueue
+	emailOutbox        *jobs.EmailOutboxDispatcher
+	signingWorkflows   *jobs.SigningWorkflowOutboxDispatcher
+	integrations       services.IntegrationFoundationService
+	activityMap        *AuditActivityProjector
+	uploadManager      *uploader.Manager
+	remediationStatus  jobqueue.DispatchStatusReader
 }
 
 func NewESignModule(basePath, defaultLocale, menuCode string) *ESignModule {
@@ -339,6 +344,13 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 
 	services.RegisterDomainErrorCodes()
 	m.settings = registerRuntimeSettings(ctx.Admin.SettingsService())
+	adminScopeDefaults := ctx.Admin.ScopeDefaults()
+	if adminScopeDefaults.Enabled {
+		m.defaultScope = stores.Scope{
+			TenantID: firstNonEmptyValue(strings.TrimSpace(adminScopeDefaults.TenantID), strings.TrimSpace(m.defaultScope.TenantID)),
+			OrgID:    firstNonEmptyValue(strings.TrimSpace(adminScopeDefaults.OrgID), strings.TrimSpace(m.defaultScope.OrgID)),
+		}
+	}
 	if m.defaultScope.TenantID == "" || m.defaultScope.OrgID == "" {
 		m.defaultScope = defaultModuleScope
 	}
@@ -424,6 +436,18 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		services.WithDraftAgreementService(m.agreements),
 		services.WithDraftAuditStore(m.store),
 	)
+	syncObserver := observability.NewSyncKernelObserver()
+	draftSync, err := syncservice.NewSyncService(
+		esignsync.NewAgreementDraftResourceStore(m.drafts),
+		esignsync.NewAgreementDraftIdempotencyStore(m.store),
+		syncservice.WithMetrics(syncObserver),
+		syncservice.WithLogger(syncObserver),
+	)
+	if err != nil {
+		return fmt.Errorf("esign module: agreement draft sync service: %w", err)
+	}
+	m.draftSync = draftSync
+	m.draftSyncBootstrap = esignsync.NewAgreementDraftBootstrapper(m.drafts)
 	signatureUploadTTL, signatureUploadSecret := resolveSignatureUploadSecurityPolicy()
 	m.signing = services.NewSigningService(m.store,
 		services.WithSigningAuditStore(m.store),
@@ -615,6 +639,8 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		handlers.WithAgreementDeliveryService(m.artifacts),
 		handlers.WithAgreementAuthoringService(m.agreements),
 		handlers.WithDraftWorkflowService(m.drafts),
+		handlers.WithAgreementDraftSyncService(m.draftSync),
+		handlers.WithAgreementDraftSyncBootstrap(m.draftSyncBootstrap),
 		handlers.WithSignerObjectStore(objectStore),
 		handlers.WithAgreementStatsService(m.store),
 		handlers.WithAuditEventStore(m.store),

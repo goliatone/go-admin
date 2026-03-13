@@ -35,14 +35,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("load runtime config: %v", err)
 	}
-	bootstrap, err := esignpersistence.Bootstrap(context.Background(), cfg)
-	if err != nil {
-		log.Fatalf("bootstrap persistence: %v", err)
-	}
-	defer func() {
-		_ = bootstrap.Close()
-	}()
-	store, cleanup, err := esignpersistence.NewStoreAdapter(bootstrap)
+	store, cleanup, err := esignpersistence.OpenStore(context.Background(), cfg)
 	if err != nil {
 		log.Fatalf("initialize runtime store: %v", err)
 	}

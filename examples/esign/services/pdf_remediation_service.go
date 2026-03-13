@@ -221,6 +221,7 @@ func (s PDFRemediationService) Remediate(ctx context.Context, scope stores.Scope
 		CorrelationID: correlationID,
 	})
 	if err != nil {
+		observeRemediationLockSignal(ctx, err)
 		_ = s.emitLifecycle(ctx, agreementID, actorID, PDFRemediationStatusFailed, s.now().UTC(), baseMeta, err.Error())
 		return PDFRemediationResult{}, err
 	}

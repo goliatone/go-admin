@@ -146,6 +146,9 @@ func (d *SigningWorkflowOutboxDispatcher) NotifyScope(scope stores.Scope) {
 		return
 	}
 	d.registerScope(scope)
+	services.LogSendDebug("signing_workflow_outbox_dispatcher", "notify_scope", services.SendDebugFields(scope, "", map[string]any{
+		"batch_limit": d.batchLimit,
+	}))
 	d.enqueueScope(scope)
 }
 
@@ -169,9 +172,11 @@ func (d *SigningWorkflowOutboxDispatcher) worker() {
 		case <-d.closed:
 			return
 		case scope := <-d.queue:
+			services.LogSendDebug("signing_workflow_outbox_dispatcher", "worker_received_scope", services.SendDebugFields(scope, "", nil))
 			d.dispatchScope(context.Background(), scope)
 		case <-ticker.C:
 			for _, scope := range d.snapshotScopes() {
+				services.LogSendDebug("signing_workflow_outbox_dispatcher", "worker_sweep_scope", services.SendDebugFields(scope, "", nil))
 				d.dispatchScope(context.Background(), scope)
 			}
 		}
@@ -183,11 +188,17 @@ func (d *SigningWorkflowOutboxDispatcher) dispatchScope(ctx context.Context, sco
 	if scope.TenantID == "" || scope.OrgID == "" {
 		return
 	}
+	dispatchStartedAt := time.Now()
+	services.LogSendDebug("signing_workflow_outbox_dispatcher", "dispatch_scope_start", services.SendDebugFields(scope, "", map[string]any{
+		"batch_limit": d.batchLimit,
+	}))
 	for _, topic := range []string{
 		services.SigningWorkflowOutboxTopicStageActivation,
 		services.SigningWorkflowOutboxTopicCompletion,
 	} {
+		topicStartedAt := time.Now()
 		for {
+			batchStartedAt := time.Now()
 			result, err := stores.DispatchOutboxBatch(ctx, d.store, scope, d.publisher, stores.OutboxDispatchInput{
 				Consumer:   signingWorkflowOutboxConsumerID,
 				Topic:      topic,
@@ -196,13 +207,47 @@ func (d *SigningWorkflowOutboxDispatcher) dispatchScope(ctx context.Context, sco
 				RetryDelay: DefaultRetryPolicy().BaseDelay,
 			})
 			if err != nil {
+				services.LogSendPhaseDuration("signing_workflow_outbox_dispatcher", "dispatch_scope_failed", batchStartedAt, services.SendDebugFields(scope, "", map[string]any{
+					"topic":              topic,
+					"error":              strings.TrimSpace(err.Error()),
+					"sqlite_lock":        sqliteDispatchLockReason(err) != "",
+					"sqlite_lock_reason": sqliteDispatchLockReason(err),
+				}))
 				log.Printf("signing workflow outbox dispatch failed: tenant=%s org=%s topic=%s err=%v", scope.TenantID, scope.OrgID, topic, err)
 				break
 			}
+			services.LogSendPhaseDuration("signing_workflow_outbox_dispatcher", "dispatch_scope_batch", batchStartedAt, services.SendDebugFields(scope, "", map[string]any{
+				"topic":     topic,
+				"claimed":   result.Claimed,
+				"published": result.Published,
+				"retrying":  result.Retrying,
+				"failed":    result.Failed,
+			}))
 			if result.Claimed == 0 {
+				services.LogSendPhaseDuration("signing_workflow_outbox_dispatcher", "dispatch_topic_complete", topicStartedAt, services.SendDebugFields(scope, "", map[string]any{
+					"topic": topic,
+				}))
 				break
 			}
 		}
+	}
+	services.LogSendPhaseDuration("signing_workflow_outbox_dispatcher", "dispatch_scope_complete", dispatchStartedAt, services.SendDebugFields(scope, "", nil))
+}
+
+func sqliteDispatchLockReason(err error) string {
+	if err == nil {
+		return ""
+	}
+	message := strings.ToLower(strings.TrimSpace(err.Error()))
+	switch {
+	case strings.Contains(message, "database is locked"):
+		return "database_is_locked"
+	case strings.Contains(message, "database table is locked"):
+		return "database_table_is_locked"
+	case strings.Contains(message, "database is busy"):
+		return "database_is_busy"
+	default:
+		return ""
 	}
 }
 

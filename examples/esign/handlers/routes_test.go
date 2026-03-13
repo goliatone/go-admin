@@ -75,6 +75,15 @@ func TestBuildRouteSetUsesResolverNamespaces(t *testing.T) {
 	if routes.AdminDraftSend != "/suite/api/v9/esign/drafts/:draft_id/send" {
 		t.Fatalf("expected draft send route /suite/api/v9/esign/drafts/:draft_id/send, got %q", routes.AdminDraftSend)
 	}
+	if routes.AdminSyncResource != "/suite/api/v9/esign/sync/resources/:kind/:id" {
+		t.Fatalf("expected sync resource route /suite/api/v9/esign/sync/resources/:kind/:id, got %q", routes.AdminSyncResource)
+	}
+	if routes.AdminSyncResourceAction != "/suite/api/v9/esign/sync/resources/:kind/:id/actions/:operation" {
+		t.Fatalf("expected sync resource action route /suite/api/v9/esign/sync/resources/:kind/:id/actions/:operation, got %q", routes.AdminSyncResourceAction)
+	}
+	if routes.AdminSyncBootstrapAgreementDraft != "/suite/api/v9/esign/sync/bootstrap/agreement-draft" {
+		t.Fatalf("expected sync bootstrap route /suite/api/v9/esign/sync/bootstrap/agreement-draft, got %q", routes.AdminSyncBootstrapAgreementDraft)
+	}
 	if routes.AdminAgreementsStats != "/suite/api/v9/esign/agreements/stats" {
 		t.Fatalf("expected admin agreement stats route /suite/api/v9/esign/agreements/stats, got %q", routes.AdminAgreementsStats)
 	}
@@ -196,6 +205,15 @@ func TestBuildRouteSetFallbacksWhenResolverMissing(t *testing.T) {
 	}
 	if routes.AdminDraftSend != "/admin/api/v1/esign/drafts/:draft_id/send" {
 		t.Fatalf("expected /admin/api/v1/esign/drafts/:draft_id/send, got %q", routes.AdminDraftSend)
+	}
+	if routes.AdminSyncResource != "/admin/api/v1/esign/sync/resources/:kind/:id" {
+		t.Fatalf("expected /admin/api/v1/esign/sync/resources/:kind/:id, got %q", routes.AdminSyncResource)
+	}
+	if routes.AdminSyncResourceAction != "/admin/api/v1/esign/sync/resources/:kind/:id/actions/:operation" {
+		t.Fatalf("expected /admin/api/v1/esign/sync/resources/:kind/:id/actions/:operation, got %q", routes.AdminSyncResourceAction)
+	}
+	if routes.AdminSyncBootstrapAgreementDraft != "/admin/api/v1/esign/sync/bootstrap/agreement-draft" {
+		t.Fatalf("expected /admin/api/v1/esign/sync/bootstrap/agreement-draft, got %q", routes.AdminSyncBootstrapAgreementDraft)
 	}
 	if routes.AdminAgreementsStats != "/admin/api/v1/esign/agreements/stats" {
 		t.Fatalf("expected /admin/api/v1/esign/agreements/stats, got %q", routes.AdminAgreementsStats)

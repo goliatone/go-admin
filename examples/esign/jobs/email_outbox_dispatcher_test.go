@@ -44,14 +44,15 @@ func TestEmailOutboxPublisherDispatchesSigningRequest(t *testing.T) {
 		t.Fatalf("PublishOutboxMessage: %v", err)
 	}
 
-	if len(provider.inputs) != 1 {
-		t.Fatalf("expected 1 outbound email, got %d", len(provider.inputs))
+	inputs := provider.Snapshot()
+	if len(inputs) != 1 {
+		t.Fatalf("expected 1 outbound email, got %d", len(inputs))
 	}
-	if provider.inputs[0].Recipient.ID != signerOne.ID {
-		t.Fatalf("expected recipient %q, got %q", signerOne.ID, provider.inputs[0].Recipient.ID)
+	if inputs[0].Recipient.ID != signerOne.ID {
+		t.Fatalf("expected recipient %q, got %q", signerOne.ID, inputs[0].Recipient.ID)
 	}
-	if provider.inputs[0].Notification != string(services.NotificationSigningInvitation) {
-		t.Fatalf("expected invitation notification type, got %q", provider.inputs[0].Notification)
+	if inputs[0].Notification != string(services.NotificationSigningInvitation) {
+		t.Fatalf("expected invitation notification type, got %q", inputs[0].Notification)
 	}
 }
 
@@ -93,8 +94,9 @@ func TestEmailOutboxDispatcherDrainsPendingMessages(t *testing.T) {
 
 	dispatcher.dispatchScope(context.Background(), scope)
 
-	if len(provider.inputs) != 1 {
-		t.Fatalf("expected 1 outbound email after dispatch, got %d", len(provider.inputs))
+	inputs := provider.Snapshot()
+	if len(inputs) != 1 {
+		t.Fatalf("expected 1 outbound email after dispatch, got %d", len(inputs))
 	}
 	outbox, err := store.ListOutboxMessages(ctx, scope, stores.OutboxQuery{
 		Topic:  services.NotificationOutboxTopicEmailSendSigningRequest,
@@ -148,11 +150,12 @@ func TestEmailOutboxDispatcherNotifyScopeSchedulesDelayedDispatch(t *testing.T) 
 	dispatcher.NotifyScope(scope)
 
 	deadline := time.Now().Add(500 * time.Millisecond)
-	for len(provider.inputs) == 0 && time.Now().Before(deadline) {
+	for len(provider.Snapshot()) == 0 && time.Now().Before(deadline) {
 		time.Sleep(10 * time.Millisecond)
 	}
-	if len(provider.inputs) != 1 {
-		t.Fatalf("expected delayed notify to dispatch exactly one email, got %d", len(provider.inputs))
+	inputs := provider.Snapshot()
+	if len(inputs) != 1 {
+		t.Fatalf("expected delayed notify to dispatch exactly one email, got %d", len(inputs))
 	}
 }
 

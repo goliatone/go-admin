@@ -92,18 +92,25 @@ func buildESignDocumentIngestionPageConfig(
 func buildESignAgreementFormPageConfig(
 	basePath string,
 	apiBasePath string,
-	userID string,
 	routes map[string]string,
 ) eSignPageConfig {
 	resolvedBasePath := normalizeESignBasePath(basePath)
+	resolvedAPIBase := normalizeAPIBasePath(apiBasePath)
+	syncBaseURL := path.Join(resolvedAPIBase, "esign")
 	return eSignPageConfig{
 		Page:        eSignPageAgreementForm,
 		ModulePath:  resolveESignModulePath(resolvedBasePath, eSignModuleAssetAgreementForm),
 		BasePath:    resolvedBasePath,
-		APIBasePath: normalizeAPIBasePath(apiBasePath),
+		APIBasePath: resolvedAPIBase,
 		Routes:      cloneStringMap(routes),
 		Context: map[string]any{
-			"user_id": strings.TrimSpace(userID),
+			"sync": map[string]any{
+				"base_url":          syncBaseURL,
+				"bootstrap_path":    path.Join(syncBaseURL, "sync", "bootstrap", "agreement-draft"),
+				"client_base_path":  path.Join(resolvedBasePath, "sync-client", "sync-core"),
+				"resource_kind":     "agreement_draft",
+				"action_operations": []string{"send", "discard"},
+			},
 		},
 	}
 }

@@ -27,9 +27,9 @@ func registerDraftRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg regist
 			if err := bindPayloadOrError(c, &payload, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid draft payload"); err != nil {
 				return err
 			}
-			createdByUserID := firstNonEmpty(strings.TrimSpace(payload.CreatedByUserID), resolveAdminUserID(c))
+			createdByUserID := resolveAuthenticatedAdminUserID(c)
 			if createdByUserID == "" {
-				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "created_by_user_id is required", nil)
+				return writeAPIError(c, nil, http.StatusUnauthorized, "UNAUTHENTICATED", "authenticated actor is required", nil)
 			}
 			documentID := ""
 			if payload.DocumentID != nil {
@@ -57,9 +57,9 @@ func registerDraftRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg regist
 			if err := enforceTransportSecurity(c, cfg); err != nil {
 				return asHandlerError(err)
 			}
-			createdByUserID := resolveAdminUserID(c)
+			createdByUserID := resolveAuthenticatedAdminUserID(c)
 			if createdByUserID == "" {
-				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "created_by_user_id is required", nil)
+				return writeAPIError(c, nil, http.StatusUnauthorized, "UNAUTHENTICATED", "authenticated actor is required", nil)
 			}
 			limit := parsePageSize(c.Query("limit"))
 			rows, nextCursor, total, err := cfg.drafts.List(c.Context(), cfg.resolveScope(c), services.DraftListInput{
@@ -89,9 +89,9 @@ func registerDraftRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg regist
 			if draftID == "" {
 				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "draft_id is required", nil)
 			}
-			createdByUserID := resolveAdminUserID(c)
+			createdByUserID := resolveAuthenticatedAdminUserID(c)
 			if createdByUserID == "" {
-				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "created_by_user_id is required", nil)
+				return writeAPIError(c, nil, http.StatusUnauthorized, "UNAUTHENTICATED", "authenticated actor is required", nil)
 			}
 			record, err := cfg.drafts.Get(c.Context(), cfg.resolveScope(c), draftID, createdByUserID)
 			if err != nil {
@@ -119,9 +119,9 @@ func registerDraftRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg regist
 			if err := bindPayloadOrError(c, &payload, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid draft payload"); err != nil {
 				return err
 			}
-			updatedByUserID := firstNonEmpty(strings.TrimSpace(payload.UpdatedByUserID), resolveAdminUserID(c))
+			updatedByUserID := resolveAuthenticatedAdminUserID(c)
 			if updatedByUserID == "" {
-				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "updated_by_user_id is required", nil)
+				return writeAPIError(c, nil, http.StatusUnauthorized, "UNAUTHENTICATED", "authenticated actor is required", nil)
 			}
 			record, err := cfg.drafts.Update(c.Context(), cfg.resolveScope(c), draftID, services.DraftUpdateInput{
 				ExpectedRevision: payload.ExpectedRevision,
@@ -145,9 +145,9 @@ func registerDraftRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg regist
 			if draftID == "" {
 				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "draft_id is required", nil)
 			}
-			createdByUserID := resolveAdminUserID(c)
+			createdByUserID := resolveAuthenticatedAdminUserID(c)
 			if createdByUserID == "" {
-				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "created_by_user_id is required", nil)
+				return writeAPIError(c, nil, http.StatusUnauthorized, "UNAUTHENTICATED", "authenticated actor is required", nil)
 			}
 			if err := cfg.drafts.Delete(c.Context(), cfg.resolveScope(c), draftID, createdByUserID); err != nil {
 				return writeAPIError(c, err, http.StatusNotFound, "NOT_FOUND", "draft not found", nil)
@@ -173,9 +173,9 @@ func registerDraftRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg regist
 			if err := bindPayloadOrError(c, &payload, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid draft send payload"); err != nil {
 				return err
 			}
-			createdByUserID := firstNonEmpty(strings.TrimSpace(payload.CreatedByUserID), resolveAdminUserID(c))
+			createdByUserID := resolveAuthenticatedAdminUserID(c)
 			if createdByUserID == "" {
-				return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "created_by_user_id is required", nil)
+				return writeAPIError(c, nil, http.StatusUnauthorized, "UNAUTHENTICATED", "authenticated actor is required", nil)
 			}
 			services.LogSendDebug("draft_send_handler", "entry", services.SendDebugFields(scope, correlationID, map[string]any{
 				"draft_id":           draftID,

@@ -501,6 +501,19 @@ func TestRuntimeMigratedPagesExposeValidatedESignModuleAssets(t *testing.T) {
 		body, _ := io.ReadAll(agreementAssetResp.Body)
 		t.Fatalf("expected agreement-form module asset status 200, got %d body=%s", agreementAssetResp.StatusCode, strings.TrimSpace(string(body)))
 	}
+	syncCoreResp := doRequest(t, app, http.MethodGet, "/admin/sync-client/sync-core/index.js", "", nil)
+	defer syncCoreResp.Body.Close()
+	if syncCoreResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(syncCoreResp.Body)
+		t.Fatalf("expected sync-core asset status 200, got %d body=%s", syncCoreResp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	syncCoreBody, err := io.ReadAll(syncCoreResp.Body)
+	if err != nil {
+		t.Fatalf("read sync-core asset body: %v", err)
+	}
+	if !strings.Contains(string(syncCoreBody), "@goliatone/sync-core") {
+		t.Fatalf("expected sync-core asset body to include runtime marker")
+	}
 }
 
 func TestRuntimeCoreAdminRoutesResolveAfterLogin(t *testing.T) {

@@ -273,14 +273,21 @@ func TestSigningServiceSubmitDoesNotRunPostCommitHooksWhenCommitFails(t *testing
 
 func TestArtifactPipelineGenerateExecutedUsesTransactionBoundary(t *testing.T) {
 	txErr := errors.New("tx sentinel")
-	store := newTxFailingStore(txErr)
-	svc := NewArtifactPipelineService(store, nil)
+	store := newTxFailingStore(nil)
+	ctx, scope, agreement := seedCompletedAgreementForArtifacts(t, store)
+	objectStore := newRecordingArtifactObjectStore(t, nil)
+	svc := NewArtifactPipelineService(store, NewDeterministicArtifactRenderer(), WithArtifactObjectStore(objectStore))
+	initialWithTxCalls := store.withTxCalls
+	store.err = txErr
 
-	_, err := svc.GenerateExecutedArtifact(context.Background(), stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}, "agreement-1", "corr-1")
+	_, err := svc.GenerateExecutedArtifact(ctx, scope, agreement.ID, "corr-1")
 	if !errors.Is(err, txErr) {
 		t.Fatalf("expected tx sentinel error, got %v", err)
 	}
-	if store.withTxCalls != 1 {
-		t.Fatalf("expected WithTx called once, got %d", store.withTxCalls)
+	if store.withTxCalls-initialWithTxCalls != 1 {
+		t.Fatalf("expected WithTx called once during finalize, got %d", store.withTxCalls-initialWithTxCalls)
+	}
+	if len(objectStore.uploads) != 1 {
+		t.Fatalf("expected render/upload to complete before tx failure, got %+v", objectStore.uploads)
 	}
 }

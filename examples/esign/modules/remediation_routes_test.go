@@ -9,7 +9,9 @@ import (
 
 	coreadmin "github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/examples/esign/commands"
+	appcfg "github.com/goliatone/go-admin/examples/esign/config"
 	"github.com/goliatone/go-admin/examples/esign/handlers"
+	esignpersistence "github.com/goliatone/go-admin/examples/esign/internal/persistence"
 	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
@@ -229,14 +231,19 @@ func TestRemediationDispatchStatusLookupPrefersQueueRetrying(t *testing.T) {
 	}
 }
 
-func TestRemediationDispatchStatusLookupPersistsAcrossSQLiteReopen(t *testing.T) {
+func TestRemediationDispatchStatusLookupPersistsAcrossRelationalReopen(t *testing.T) {
 	ctx := context.Background()
 	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
 	dsn := "file:" + filepath.Join(t.TempDir(), "remediation-dispatch.db") + "?cache=shared&_fk=1&_busy_timeout=5000"
+	cfg := appcfg.Defaults()
+	cfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectSQLite
+	cfg.Persistence.Migrations.LocalOnly = true
+	cfg.Persistence.SQLite.DSN = dsn
+	cfg.Persistence.Postgres.DSN = ""
 
-	store, err := stores.NewSQLiteStore(dsn)
+	store, cleanup, err := esignpersistence.OpenStore(ctx, cfg)
 	if err != nil {
-		t.Fatalf("new sqlite store: %v", err)
+		t.Fatalf("OpenStore: %v", err)
 	}
 	now := time.Date(2026, 3, 10, 9, 0, 0, 0, time.UTC)
 	if _, err := store.Create(ctx, scope, stores.DocumentRecord{
@@ -266,16 +273,21 @@ func TestRemediationDispatchStatusLookupPersistsAcrossSQLiteReopen(t *testing.T)
 	}); err != nil {
 		t.Fatalf("save remediation dispatch: %v", err)
 	}
-	if err := store.Close(); err != nil {
-		t.Fatalf("close sqlite store: %v", err)
+	if cleanup != nil {
+		if err := cleanup(); err != nil {
+			t.Fatalf("close relational store: %v", err)
+		}
+		cleanup = nil
 	}
 
-	reopened, err := stores.NewSQLiteStore(dsn)
+	reopened, reopenedCleanup, err := esignpersistence.OpenStore(ctx, cfg)
 	if err != nil {
-		t.Fatalf("reopen sqlite store: %v", err)
+		t.Fatalf("reopen relational store: %v", err)
 	}
 	t.Cleanup(func() {
-		_ = reopened.Close()
+		if reopenedCleanup != nil {
+			_ = reopenedCleanup()
+		}
 	})
 
 	lookup := newRemediationDispatchStatusLookup(reopened, reopened, nil)

@@ -285,6 +285,10 @@ func (a mapAuthorizer) Can(_ context.Context, action string, _ string) bool {
 }
 
 func withClaimsPermissions(perms ...string) router.MiddlewareFunc {
+	return withClaimsUserPermissions(testAdminUserID, perms...)
+}
+
+func withClaimsUserPermissions(userID string, perms ...string) router.MiddlewareFunc {
 	normalized := make([]string, 0, len(perms))
 	for _, perm := range perms {
 		perm = strings.TrimSpace(perm)
@@ -296,7 +300,7 @@ func withClaimsPermissions(perms ...string) router.MiddlewareFunc {
 	return func(next router.HandlerFunc) router.HandlerFunc {
 		return func(c router.Context) error {
 			claims := &auth.JWTClaims{
-				UID:      "test-admin",
+				UID:      strings.TrimSpace(userID),
 				UserRole: string(auth.RoleAdmin),
 				Scopes:   append([]string{}, normalized...),
 				Metadata: map[string]any{
@@ -1126,9 +1130,7 @@ func TestRegisterDraftWorkflowUnsupportedThenRemediateThenSend(t *testing.T) {
 		if payload != nil {
 			req.Header.Set("Content-Type", "application/json")
 		}
-		if strings.TrimSpace(userID) != "" {
-			req.Header.Set("X-User-ID", strings.TrimSpace(userID))
-		}
+		_ = userID
 		for key, value := range headers {
 			req.Header.Set(key, value)
 		}

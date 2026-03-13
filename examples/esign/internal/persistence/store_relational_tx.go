@@ -3168,6 +3168,10 @@ func (s *relationalTxStore) AppendDraftEvent(ctx context.Context, scope stores.S
 	return event, nil
 }
 
+func (s *relationalTxStore) ListDraftEvents(ctx context.Context, scope stores.Scope, draftID string, query stores.DraftAuditEventQuery) ([]stores.DraftAuditEventRecord, error) {
+	return listDraftAuditEventRecords(ctx, s.tx, scope, draftID, query)
+}
+
 func (s *relationalTxStore) Append(ctx context.Context, scope stores.Scope, event stores.AuditEventRecord) (stores.AuditEventRecord, error) {
 	scope, err := normalizedStoreScope(scope)
 	if err != nil {

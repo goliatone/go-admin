@@ -69,10 +69,22 @@ func TestValidateRejectsInvalidTrustedProxyCIDR(t *testing.T) {
 }
 
 func TestLoadDefaultsRepositoryDialectToSQLiteForDevelopment(t *testing.T) {
-	t.Setenv("APP_RUNTIME__PROFILE", "development")
-	t.Setenv("APP_RUNTIME__REPOSITORY_DIALECT", "")
+	basePath := writeTempFile(t, "app.json", `{
+  "runtime": {
+    "profile": "development",
+    "repository_dialect": ""
+  },
+  "persistence": {
+    "sqlite": {
+      "dsn": ""
+    },
+    "postgres": {
+      "dsn": ""
+    }
+  }
+}`)
 
-	cfg, err := Load()
+	cfg, err := Load(basePath)
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
@@ -85,11 +97,19 @@ func TestLoadDefaultsRepositoryDialectToSQLiteForDevelopment(t *testing.T) {
 }
 
 func TestLoadDefaultsRepositoryDialectToPostgresForProduction(t *testing.T) {
-	t.Setenv("APP_RUNTIME__PROFILE", "production")
-	t.Setenv("APP_RUNTIME__REPOSITORY_DIALECT", "")
-	t.Setenv("APP_PERSISTENCE__POSTGRES__DSN", "postgres://user:pass@localhost:5432/esign?sslmode=disable")
+	basePath := writeTempFile(t, "app.json", `{
+  "runtime": {
+    "profile": "production",
+    "repository_dialect": ""
+  },
+  "persistence": {
+    "postgres": {
+      "dsn": "postgres://user:pass@localhost:5432/esign?sslmode=disable"
+    }
+  }
+}`)
 
-	cfg, err := Load()
+	cfg, err := Load(basePath)
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
@@ -99,12 +119,20 @@ func TestLoadDefaultsRepositoryDialectToPostgresForProduction(t *testing.T) {
 }
 
 func TestLoadIgnoresLegacyTopLevelPostgresDSNForPostgresDialect(t *testing.T) {
-	t.Setenv("APP_RUNTIME__PROFILE", "production")
-	t.Setenv("APP_RUNTIME__REPOSITORY_DIALECT", "postgres")
-	t.Setenv("APP_PERSISTENCE__POSTGRES__DSN", "")
+	basePath := writeTempFile(t, "app.json", `{
+  "runtime": {
+    "profile": "production",
+    "repository_dialect": "postgres"
+  },
+  "persistence": {
+    "postgres": {
+      "dsn": ""
+    }
+  }
+}`)
 	t.Setenv("APP_POSTGRES__DSN", "postgres://legacy:legacy@localhost:5432/esign?sslmode=disable")
 
-	_, err := Load()
+	_, err := Load(basePath)
 	if err == nil {
 		t.Fatalf("expected load error when persistence.postgres.dsn is unset even when legacy top-level key is provided")
 	}
@@ -140,11 +168,19 @@ func TestLoadRejectsUnsupportedRepositoryDialect(t *testing.T) {
 }
 
 func TestLoadRequiresPostgresDSNWhenPostgresDialectSelected(t *testing.T) {
-	t.Setenv("APP_RUNTIME__PROFILE", "production")
-	t.Setenv("APP_RUNTIME__REPOSITORY_DIALECT", "postgres")
-	t.Setenv("APP_PERSISTENCE__POSTGRES__DSN", "")
+	basePath := writeTempFile(t, "app.json", `{
+  "runtime": {
+    "profile": "production",
+    "repository_dialect": "postgres"
+  },
+  "persistence": {
+    "postgres": {
+      "dsn": ""
+    }
+  }
+}`)
 
-	_, err := Load()
+	_, err := Load(basePath)
 	if err == nil {
 		t.Fatalf("expected load error when postgres dialect selected without dsn")
 	}
@@ -154,11 +190,19 @@ func TestLoadRequiresPostgresDSNWhenPostgresDialectSelected(t *testing.T) {
 }
 
 func TestLoadDefaultsUseStableSQLiteDSNForDevelopment(t *testing.T) {
-	t.Setenv("APP_RUNTIME__PROFILE", "development")
-	t.Setenv("APP_RUNTIME__REPOSITORY_DIALECT", "")
-	t.Setenv("APP_PERSISTENCE__SQLITE__DSN", "")
+	basePath := writeTempFile(t, "app.json", `{
+  "runtime": {
+    "profile": "development",
+    "repository_dialect": ""
+  },
+  "persistence": {
+    "sqlite": {
+      "dsn": ""
+    }
+  }
+}`)
 
-	cfg, err := Load()
+	cfg, err := Load(basePath)
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}

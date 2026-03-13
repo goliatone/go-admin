@@ -66,7 +66,7 @@ func TestPhase8GuardrailRuntimeWiringDoesNotDependOnLegacyStoreConstructors(t *t
 		"examples/esign/release",
 		"examples/esign/tools",
 	)
-	pattern := regexp.MustCompile(`(?m)\bNewSQLiteStore\(|\bNewPersistentStoreFromMemory\(`)
+	pattern := regexp.MustCompile(`(?m)\bNewSQLiteStore\(|\bNewPersistentStoreFromMemory\(|\bNewPersistentStoreFromDB\(`)
 	phase8AssertNoPatternMatches(t, repoRoot, files, pattern, "runtime/module/release/tooling layers must not wire e-sign store through legacy snapshot constructors")
 }
 
@@ -137,6 +137,32 @@ func TestPhase8GuardrailRuntimePersistenceWiringDoesNotUseSnapshotBackendContrac
 	)
 	pattern := regexp.MustCompile(`(?m)\bNewPersistentStoreFromDB\(|\bSQLitePersistenceBackend\b|\bruntimeRelationalStoreBackend\b`)
 	phase8AssertNoPatternMatches(t, repoRoot, files, pattern, "runtime persistence wiring must not depend on snapshot backend contracts")
+}
+
+func TestPhase8GuardrailLegacySnapshotStoreSymbolsRemoved(t *testing.T) {
+	repoRoot := phase8RepoRoot(t)
+	files := phase8GoFiles(t, repoRoot, "examples/esign")
+	allowed := map[string]bool{
+		filepath.Clean("examples/esign/internal/persistence/architecture_guardrails_test.go"): true,
+	}
+	pattern := regexp.MustCompile(`(?m)\bNewSQLiteStore\(|\bNewPersistentStoreFromMemory\(|\bNewPersistentStoreFromDB\(|\bSQLitePersistenceBackend\b|\b\*SQLiteStore\b|\btype\s+SQLiteStore\b`)
+	violations := make([]string, 0)
+	for _, file := range files {
+		rel := phase8Rel(repoRoot, file)
+		if allowed[filepath.Clean(rel)] {
+			continue
+		}
+		payload, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatalf("read %s: %v", rel, err)
+		}
+		if pattern.Match(payload) {
+			violations = append(violations, rel)
+		}
+	}
+	if len(violations) > 0 {
+		t.Fatalf("legacy snapshot store symbols detected: %v", violations)
+	}
 }
 
 func TestPhase8GuardrailRuntimeDialectResolutionRequiresNestedPersistenceDSNs(t *testing.T) {

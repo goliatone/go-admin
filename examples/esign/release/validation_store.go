@@ -37,22 +37,5 @@ func newValidationRuntimeStore(ctx context.Context, dsn string) (stores.Store, f
 	cfg.Persistence.SQLite.DSN = strings.TrimSpace(dsn)
 	cfg.Persistence.Postgres.DSN = ""
 
-	bootstrap, err := esignpersistence.Bootstrap(ctx, cfg)
-	if err != nil {
-		return nil, nil, err
-	}
-	store, storeCleanup, err := esignpersistence.NewStoreAdapter(bootstrap)
-	if err != nil {
-		_ = bootstrap.Close()
-		return nil, nil, err
-	}
-	return store, func() error {
-		if storeCleanup != nil {
-			if err := storeCleanup(); err != nil {
-				_ = bootstrap.Close()
-				return err
-			}
-		}
-		return bootstrap.Close()
-	}, nil
+	return esignpersistence.OpenStore(ctx, cfg)
 }

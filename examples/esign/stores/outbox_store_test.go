@@ -80,11 +80,10 @@ func TestInMemoryOutboxStoreClaimRetryAndSuccess(t *testing.T) {
 	}
 }
 
-func TestSQLiteStoreOutboxMessagePersistenceAcrossReload(t *testing.T) {
+func TestInMemoryStoreOutboxMessageSnapshotRoundTrip(t *testing.T) {
 	ctx := context.Background()
 	scope := Scope{TenantID: "tenant-batch", OrgID: "org-batch"}
-	store, dsn := newSQLiteStoreBatchTestStore(t)
-	defer func() { _ = store.Close() }()
+	store := NewInMemoryStore()
 
 	if _, err := store.EnqueueOutboxMessage(ctx, scope, OutboxMessageRecord{
 		Topic:       "email.send",
@@ -95,11 +94,7 @@ func TestSQLiteStoreOutboxMessagePersistenceAcrossReload(t *testing.T) {
 		t.Fatalf("EnqueueOutboxMessage: %v", err)
 	}
 
-	reloaded, err := NewSQLiteStore(dsn)
-	if err != nil {
-		t.Fatalf("reload NewSQLiteStore: %v", err)
-	}
-	defer func() { _ = reloaded.Close() }()
+	reloaded := reloadInMemoryStoreFromSnapshot(t, store)
 
 	messages, err := reloaded.ListOutboxMessages(ctx, scope, OutboxQuery{})
 	if err != nil {

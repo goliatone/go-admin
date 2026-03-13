@@ -64,11 +64,10 @@ func TestBuildESignDocumentIngestionPageConfigIncludesFeatureFlagsAndRoutes(t *t
 	}
 }
 
-func TestBuildESignAgreementFormPageConfigIncludesModuleAndUserContext(t *testing.T) {
+func TestBuildESignAgreementFormPageConfigIncludesModuleAndSyncContext(t *testing.T) {
 	cfg := buildESignAgreementFormPageConfig(
 		"/admin",
 		"/admin/api/v1",
-		"user-2",
 		map[string]string{
 			"index": "/admin/content/esign_agreements",
 		},
@@ -79,8 +78,28 @@ func TestBuildESignAgreementFormPageConfigIncludesModuleAndUserContext(t *testin
 	if got := cfg.Routes["index"]; got != "/admin/content/esign_agreements" {
 		t.Fatalf("expected routes.index to be preserved, got %q", got)
 	}
-	if got := rawToString(cfg.Context["user_id"]); got != "user-2" {
-		t.Fatalf("expected context.user_id=user-2, got %q", got)
+	syncCfg, ok := cfg.Context["sync"].(map[string]any)
+	if !ok || syncCfg == nil {
+		t.Fatalf("expected agreement form sync context, got %+v", cfg.Context["sync"])
+	}
+	if got := rawToString(syncCfg["base_url"]); got != "/admin/api/v1/esign" {
+		t.Fatalf("expected sync.base_url /admin/api/v1/esign, got %q", got)
+	}
+	if got := rawToString(syncCfg["bootstrap_path"]); got != "/admin/api/v1/esign/sync/bootstrap/agreement-draft" {
+		t.Fatalf("expected sync.bootstrap_path contract, got %q", got)
+	}
+	if got := rawToString(syncCfg["client_base_path"]); got != "/admin/sync-client/sync-core" {
+		t.Fatalf("expected sync.client_base_path contract, got %q", got)
+	}
+	if got := rawToString(syncCfg["resource_kind"]); got != "agreement_draft" {
+		t.Fatalf("expected sync.resource_kind agreement_draft, got %q", got)
+	}
+	if _, exists := cfg.Context["user_id"]; exists {
+		t.Fatalf("expected agreement form context to omit user_id, got %+v", cfg.Context["user_id"])
+	}
+	ops, ok := syncCfg["action_operations"].([]string)
+	if !ok || len(ops) != 2 || ops[0] != "send" || ops[1] != "discard" {
+		t.Fatalf("expected sync.action_operations=[send discard], got %+v", syncCfg["action_operations"])
 	}
 	if got := cfg.ModulePath; got != "/admin/assets/dist/esign/index.js" {
 		t.Fatalf("expected module path /admin/assets/dist/esign/index.js, got %q", got)

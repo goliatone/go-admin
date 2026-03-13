@@ -165,10 +165,10 @@ func (s *InMemoryStore) commitFromTx(txStore *InMemoryStore) error {
 	return nil
 }
 
-func (s *InMemoryStore) snapshot() (sqliteStoreSnapshot, error) {
+func (s *InMemoryStore) snapshot() (inMemoryStoreSnapshot, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	payload := sqliteStoreSnapshot{
+	payload := inMemoryStoreSnapshot{
 		Documents:                  s.documents,
 		Agreements:                 s.agreements,
 		Drafts:                     s.drafts,
@@ -213,16 +213,16 @@ func (s *InMemoryStore) snapshot() (sqliteStoreSnapshot, error) {
 	}
 	raw, err := json.Marshal(payload)
 	if err != nil {
-		return sqliteStoreSnapshot{}, fmt.Errorf("snapshot store state: %w", err)
+		return inMemoryStoreSnapshot{}, fmt.Errorf("snapshot store state: %w", err)
 	}
-	var cloned sqliteStoreSnapshot
+	var cloned inMemoryStoreSnapshot
 	if err := json.Unmarshal(raw, &cloned); err != nil {
-		return sqliteStoreSnapshot{}, fmt.Errorf("clone store state: %w", err)
+		return inMemoryStoreSnapshot{}, fmt.Errorf("clone store state: %w", err)
 	}
 	return cloned, nil
 }
 
-func (s *InMemoryStore) applySnapshot(snapshot sqliteStoreSnapshot) {
+func (s *InMemoryStore) applySnapshot(snapshot inMemoryStoreSnapshot) {
 	s.documents = ensureDocumentMap(snapshot.Documents)
 	s.agreements = ensureAgreementMap(snapshot.Agreements)
 	s.drafts = ensureDraftMap(snapshot.Drafts)
@@ -288,7 +288,7 @@ func (s *InMemoryStore) ApplySnapshotPayload(payload []byte) error {
 		return invalidRecordError("snapshot", "store", "not configured")
 	}
 	payload = []byte(strings.TrimSpace(string(payload)))
-	snapshot := sqliteStoreSnapshot{}
+	snapshot := inMemoryStoreSnapshot{}
 	if len(payload) > 0 {
 		if err := json.Unmarshal(payload, &snapshot); err != nil {
 			return fmt.Errorf("decode store snapshot payload: %w", err)

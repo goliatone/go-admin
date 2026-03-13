@@ -14,7 +14,7 @@ func phase0BaseTime() time.Time {
 	return time.Date(2026, 3, 1, 9, 0, 0, 0, time.UTC)
 }
 
-func createPhase0Document(t *testing.T, ctx context.Context, store *SQLiteStore, scope Scope, id string, createdAt time.Time) DocumentRecord {
+func createPhase0Document(t *testing.T, ctx context.Context, store Store, scope Scope, id string, createdAt time.Time) DocumentRecord {
 	t.Helper()
 	record, err := store.Create(ctx, scope, DocumentRecord{
 		ID:                 id,
@@ -31,7 +31,7 @@ func createPhase0Document(t *testing.T, ctx context.Context, store *SQLiteStore,
 	return record
 }
 
-func createPhase0Agreement(t *testing.T, ctx context.Context, store *SQLiteStore, scope Scope, id, documentID string, createdAt time.Time) AgreementRecord {
+func createPhase0Agreement(t *testing.T, ctx context.Context, store Store, scope Scope, id, documentID string, createdAt time.Time) AgreementRecord {
 	t.Helper()
 	record, err := store.CreateDraft(ctx, scope, AgreementRecord{
 		ID:         id,
@@ -47,11 +47,10 @@ func createPhase0Agreement(t *testing.T, ctx context.Context, store *SQLiteStore
 	return record
 }
 
-func TestSQLiteStorePhase0AgreementLifecycleBaseline(t *testing.T) {
+func TestInMemoryStorePhase0AgreementLifecycleBaseline(t *testing.T) {
 	ctx := context.Background()
 	scope := Scope{TenantID: "tenant-phase0", OrgID: "org-phase0"}
-	store, _ := newSQLiteStoreBatchTestStore(t)
-	defer func() { _ = store.Close() }()
+	store := NewInMemoryStore()
 
 	base := phase0BaseTime()
 	doc := createPhase0Document(t, ctx, store, scope, "doc-phase0", base)
@@ -123,11 +122,10 @@ func TestSQLiteStorePhase0AgreementLifecycleBaseline(t *testing.T) {
 	})
 }
 
-func TestSQLiteStorePhase0SigningTokenIssueRotateRevokeBaseline(t *testing.T) {
+func TestInMemoryStorePhase0SigningTokenIssueRotateRevokeBaseline(t *testing.T) {
 	ctx := context.Background()
 	scope := Scope{TenantID: "tenant-phase0", OrgID: "org-phase0"}
-	store, _ := newSQLiteStoreBatchTestStore(t)
-	defer func() { _ = store.Close() }()
+	store := NewInMemoryStore()
 
 	base := phase0BaseTime()
 	doc := createPhase0Document(t, ctx, store, scope, "doc-token", base)
@@ -188,11 +186,10 @@ func TestSQLiteStorePhase0SigningTokenIssueRotateRevokeBaseline(t *testing.T) {
 	}
 }
 
-func TestSQLiteStorePhase0AuditAppendOnlyBaseline(t *testing.T) {
+func TestInMemoryStorePhase0AuditAppendOnlyBaseline(t *testing.T) {
 	ctx := context.Background()
 	scope := Scope{TenantID: "tenant-phase0", OrgID: "org-phase0"}
-	store, _ := newSQLiteStoreBatchTestStore(t)
-	defer func() { _ = store.Close() }()
+	store := NewInMemoryStore()
 
 	base := phase0BaseTime()
 	doc := createPhase0Document(t, ctx, store, scope, "doc-audit", base)
@@ -232,11 +229,10 @@ func TestSQLiteStorePhase0AuditAppendOnlyBaseline(t *testing.T) {
 	}
 }
 
-func TestSQLiteStorePhase0OutboxAndJobRunBaseline(t *testing.T) {
+func TestInMemoryStorePhase0OutboxAndJobRunBaseline(t *testing.T) {
 	ctx := context.Background()
 	scope := Scope{TenantID: "tenant-phase0", OrgID: "org-phase0"}
-	store, _ := newSQLiteStoreBatchTestStore(t)
-	defer func() { _ = store.Close() }()
+	store := NewInMemoryStore()
 
 	base := phase0BaseTime()
 	doc := createPhase0Document(t, ctx, store, scope, "doc-jobs", base)
@@ -360,10 +356,10 @@ func TestSQLiteStorePhase0OutboxAndJobRunBaseline(t *testing.T) {
 	}
 }
 
-func TestSQLiteStorePhase0RestartPersistenceBaseline(t *testing.T) {
+func TestInMemoryStorePhase0SnapshotRoundTripBaseline(t *testing.T) {
 	ctx := context.Background()
 	scope := Scope{TenantID: "tenant-phase0", OrgID: "org-phase0"}
-	store, dsn := newSQLiteStoreBatchTestStore(t)
+	store := NewInMemoryStore()
 
 	base := phase0BaseTime()
 	doc := createPhase0Document(t, ctx, store, scope, "doc-restart", base)
@@ -442,15 +438,7 @@ func TestSQLiteStorePhase0RestartPersistenceBaseline(t *testing.T) {
 		t.Fatalf("MarkJobRunSucceeded: %v", err)
 	}
 
-	if err := store.Close(); err != nil {
-		t.Fatalf("Close before restart: %v", err)
-	}
-
-	reloaded, err := NewSQLiteStore(dsn)
-	if err != nil {
-		t.Fatalf("NewSQLiteStore reload: %v", err)
-	}
-	defer func() { _ = reloaded.Close() }()
+	reloaded := reloadInMemoryStoreFromSnapshot(t, store)
 
 	reloadedAgreement, err := reloaded.GetAgreement(ctx, scope, agreement.ID)
 	if err != nil {
@@ -501,11 +489,10 @@ type phase0FixtureSnapshot struct {
 	OutboxMessages []OutboxMessageRecord `json:"outbox_messages"`
 }
 
-func TestSQLiteStorePhase0FixtureSnapshot(t *testing.T) {
+func TestInMemoryStorePhase0FixtureSnapshot(t *testing.T) {
 	ctx := context.Background()
 	scope := Scope{TenantID: "tenant-phase0", OrgID: "org-phase0"}
-	store, _ := newSQLiteStoreBatchTestStore(t)
-	defer func() { _ = store.Close() }()
+	store := NewInMemoryStore()
 
 	base := phase0BaseTime()
 	doc := createPhase0Document(t, ctx, store, scope, "doc-fixture", base)

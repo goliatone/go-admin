@@ -24,6 +24,10 @@ const (
 
 	jobNamePDFGenerateExecuted    = "jobs.esign.pdf_generate_executed"
 	jobNamePDFGenerateCertificate = "jobs.esign.pdf_generate_certificate"
+
+	artifactPipelineComponent = "artifact_pipeline"
+	artifactTypeExecuted      = "executed"
+	artifactTypeCertificate   = "certificate"
 )
 
 // RenderedArtifact captures deterministic rendered artifact metadata.
@@ -216,6 +220,21 @@ type ArtifactPipelineService struct {
 	renderer    ArtifactRenderer
 }
 
+type preparedExecutedArtifact struct {
+	Agreement   stores.AgreementRecord
+	Recipients  []stores.RecipientRecord
+	Fields      []stores.FieldRecord
+	FieldValues []stores.FieldValueRecord
+	Events      []stores.AuditEventRecord
+}
+
+type preparedCertificateArtifact struct {
+	Agreement  stores.AgreementRecord
+	Recipients []stores.RecipientRecord
+	Events     []stores.AuditEventRecord
+	Executed   stores.AgreementArtifactRecord
+}
+
 // ArtifactPipelineOption customizes artifact pipeline dependencies.
 type ArtifactPipelineOption func(*ArtifactPipelineService)
 
@@ -294,148 +313,126 @@ func (s ArtifactPipelineService) RenderPages(ctx context.Context, scope stores.S
 }
 
 func (s ArtifactPipelineService) GenerateExecutedArtifact(ctx context.Context, scope stores.Scope, agreementID, correlationID string) (stores.AgreementArtifactRecord, error) {
+	startedAt := time.Now()
+	agreementID = strings.TrimSpace(agreementID)
+	LogSendDebug(artifactPipelineComponent, "generate_executed_start", artifactPipelineFields(scope, correlationID, agreementID, artifactTypeExecuted, nil))
+
+	prepareStartedAt := time.Now()
+	prepared, err := s.prepareExecutedArtifact(ctx, scope, agreementID)
+	if err != nil {
+		LogSendPhaseDuration(artifactPipelineComponent, "generate_executed_prepare_failed", prepareStartedAt, artifactPipelineFailureFields(scope, correlationID, agreementID, artifactTypeExecuted, "input_load_failure", err, nil))
+		return stores.AgreementArtifactRecord{}, err
+	}
+	LogSendPhaseDuration(artifactPipelineComponent, "generate_executed_prepare_complete", prepareStartedAt, artifactPipelineFields(scope, correlationID, agreementID, artifactTypeExecuted, map[string]any{
+		"recipient_count": len(prepared.Recipients),
+		"field_count":     len(prepared.Fields),
+		"value_count":     len(prepared.FieldValues),
+		"event_count":     len(prepared.Events),
+	}))
+
+	renderStartedAt := time.Now()
+	rendered, err := s.renderExecutedArtifact(ctx, scope, prepared, correlationID)
+	if err != nil {
+		LogSendPhaseDuration(artifactPipelineComponent, "generate_executed_render_failed", renderStartedAt, artifactPipelineFailureFields(scope, correlationID, agreementID, artifactTypeExecuted, "render_failure", err, nil))
+		return stores.AgreementArtifactRecord{}, err
+	}
+	LogSendPhaseDuration(artifactPipelineComponent, "generate_executed_render_complete", renderStartedAt, artifactPipelineFields(scope, correlationID, agreementID, artifactTypeExecuted, map[string]any{
+		"object_key":    rendered.ObjectKey,
+		"payload_bytes": len(rendered.Payload),
+		"sha256_prefix": shortHash(rendered.SHA256),
+	}))
+
+	uploadStartedAt := time.Now()
+	if err := s.persistArtifactBlob(ctx, rendered.ObjectKey, rendered.Payload); err != nil {
+		LogSendPhaseDuration(artifactPipelineComponent, "generate_executed_upload_failed", uploadStartedAt, artifactPipelineFailureFields(scope, correlationID, agreementID, artifactTypeExecuted, "upload_failure", err, map[string]any{
+			"object_key": rendered.ObjectKey,
+		}))
+		return stores.AgreementArtifactRecord{}, err
+	}
+	LogSendPhaseDuration(artifactPipelineComponent, "generate_executed_upload_complete", uploadStartedAt, artifactPipelineFields(scope, correlationID, agreementID, artifactTypeExecuted, map[string]any{
+		"object_key": rendered.ObjectKey,
+	}))
+
+	finalizeStartedAt := time.Now()
 	var record stores.AgreementArtifactRecord
 	if err := s.withWriteTx(ctx, func(txSvc ArtifactPipelineService) error {
-		var err error
-		record, err = txSvc.generateExecutedArtifact(ctx, scope, agreementID, correlationID)
-		return err
+		var finalizeErr error
+		record, finalizeErr = txSvc.finalizeExecutedArtifact(ctx, scope, agreementID, correlationID, prepared, rendered)
+		return finalizeErr
 	}); err != nil {
+		LogSendPhaseDuration(artifactPipelineComponent, "generate_executed_finalize_failed", finalizeStartedAt, artifactPipelineFailureFields(scope, correlationID, agreementID, artifactTypeExecuted, "finalize_failure", err, map[string]any{
+			"object_key": rendered.ObjectKey,
+		}))
 		return stores.AgreementArtifactRecord{}, err
 	}
-	return record, nil
-}
-
-func (s ArtifactPipelineService) generateExecutedArtifact(ctx context.Context, scope stores.Scope, agreementID, correlationID string) (stores.AgreementArtifactRecord, error) {
-	if s.agreements == nil || s.signing == nil || s.artifacts == nil {
-		return stores.AgreementArtifactRecord{}, domainValidationError("artifacts", "dependencies", "not configured")
-	}
-	agreement, err := s.agreements.GetAgreement(ctx, scope, agreementID)
-	if err != nil {
-		return stores.AgreementArtifactRecord{}, err
-	}
-	recipients, err := s.agreements.ListRecipients(ctx, scope, agreementID)
-	if err != nil {
-		return stores.AgreementArtifactRecord{}, err
-	}
-	fields, err := s.agreements.ListFields(ctx, scope, agreementID)
-	if err != nil {
-		return stores.AgreementArtifactRecord{}, err
-	}
-	allValues := make([]stores.FieldValueRecord, 0)
-	for _, recipient := range recipients {
-		values, err := s.signing.ListFieldValuesByRecipient(ctx, scope, agreementID, recipient.ID)
-		if err != nil {
-			return stores.AgreementArtifactRecord{}, err
-		}
-		allValues = append(allValues, values...)
-	}
-	events := make([]stores.AuditEventRecord, 0)
-	if s.audits != nil {
-		events, err = s.audits.ListForAgreement(ctx, scope, agreementID, stores.AuditEventQuery{SortDesc: false})
-		if err != nil {
-			return stores.AgreementArtifactRecord{}, err
-		}
-	}
-	rendered, err := s.renderer.RenderExecuted(ctx, ExecutedRenderInput{
-		Scope:         scope,
-		Agreement:     agreement,
-		Recipients:    recipients,
-		Fields:        fields,
-		FieldValues:   allValues,
-		Events:        events,
-		CorrelationID: correlationID,
-	})
-	if err != nil {
-		return stores.AgreementArtifactRecord{}, err
-	}
-	if err := s.persistArtifactBlob(ctx, rendered.ObjectKey, rendered.Payload); err != nil {
-		return stores.AgreementArtifactRecord{}, err
-	}
-	record, err := s.artifacts.SaveAgreementArtifacts(ctx, scope, stores.AgreementArtifactRecord{
-		AgreementID:       agreementID,
-		ExecutedObjectKey: rendered.ObjectKey,
-		ExecutedSHA256:    rendered.SHA256,
-		CorrelationID:     strings.TrimSpace(correlationID),
-	})
-	if err != nil {
-		return stores.AgreementArtifactRecord{}, err
-	}
-	if err := s.appendPipelineAudit(ctx, scope, agreement.ID, "artifact.executed_generated", correlationID, map[string]any{
+	LogSendPhaseDuration(artifactPipelineComponent, "generate_executed_finalize_complete", finalizeStartedAt, artifactPipelineFields(scope, correlationID, agreementID, artifactTypeExecuted, map[string]any{
 		"object_key": rendered.ObjectKey,
-		"sha256":     rendered.SHA256,
-	}); err != nil {
-		return stores.AgreementArtifactRecord{}, err
-	}
+	}))
+	LogSendPhaseDuration(artifactPipelineComponent, "generate_executed_complete", startedAt, artifactPipelineFields(scope, correlationID, agreementID, artifactTypeExecuted, map[string]any{
+		"object_key": rendered.ObjectKey,
+	}))
 	return record, nil
 }
 
 func (s ArtifactPipelineService) GenerateCertificateArtifact(ctx context.Context, scope stores.Scope, agreementID, correlationID string) (stores.AgreementArtifactRecord, error) {
+	startedAt := time.Now()
+	agreementID = strings.TrimSpace(agreementID)
+	LogSendDebug(artifactPipelineComponent, "generate_certificate_start", artifactPipelineFields(scope, correlationID, agreementID, artifactTypeCertificate, nil))
+
+	prepareStartedAt := time.Now()
+	prepared, err := s.prepareCertificateArtifact(ctx, scope, agreementID)
+	if err != nil {
+		LogSendPhaseDuration(artifactPipelineComponent, "generate_certificate_prepare_failed", prepareStartedAt, artifactPipelineFailureFields(scope, correlationID, agreementID, artifactTypeCertificate, "input_load_failure", err, nil))
+		return stores.AgreementArtifactRecord{}, err
+	}
+	LogSendPhaseDuration(artifactPipelineComponent, "generate_certificate_prepare_complete", prepareStartedAt, artifactPipelineFields(scope, correlationID, agreementID, artifactTypeCertificate, map[string]any{
+		"recipient_count":     len(prepared.Recipients),
+		"event_count":         len(prepared.Events),
+		"executed_sha256":     shortHash(prepared.Executed.ExecutedSHA256),
+		"executed_object_key": strings.TrimSpace(prepared.Executed.ExecutedObjectKey),
+	}))
+
+	renderStartedAt := time.Now()
+	rendered, err := s.renderCertificateArtifact(ctx, scope, prepared, correlationID)
+	if err != nil {
+		LogSendPhaseDuration(artifactPipelineComponent, "generate_certificate_render_failed", renderStartedAt, artifactPipelineFailureFields(scope, correlationID, agreementID, artifactTypeCertificate, "render_failure", err, nil))
+		return stores.AgreementArtifactRecord{}, err
+	}
+	LogSendPhaseDuration(artifactPipelineComponent, "generate_certificate_render_complete", renderStartedAt, artifactPipelineFields(scope, correlationID, agreementID, artifactTypeCertificate, map[string]any{
+		"object_key":    rendered.ObjectKey,
+		"payload_bytes": len(rendered.Payload),
+		"sha256_prefix": shortHash(rendered.SHA256),
+	}))
+
+	uploadStartedAt := time.Now()
+	if err := s.persistArtifactBlob(ctx, rendered.ObjectKey, rendered.Payload); err != nil {
+		LogSendPhaseDuration(artifactPipelineComponent, "generate_certificate_upload_failed", uploadStartedAt, artifactPipelineFailureFields(scope, correlationID, agreementID, artifactTypeCertificate, "upload_failure", err, map[string]any{
+			"object_key": rendered.ObjectKey,
+		}))
+		return stores.AgreementArtifactRecord{}, err
+	}
+	LogSendPhaseDuration(artifactPipelineComponent, "generate_certificate_upload_complete", uploadStartedAt, artifactPipelineFields(scope, correlationID, agreementID, artifactTypeCertificate, map[string]any{
+		"object_key": rendered.ObjectKey,
+	}))
+
+	finalizeStartedAt := time.Now()
 	var record stores.AgreementArtifactRecord
 	if err := s.withWriteTx(ctx, func(txSvc ArtifactPipelineService) error {
-		var err error
-		record, err = txSvc.generateCertificateArtifact(ctx, scope, agreementID, correlationID)
-		return err
+		var finalizeErr error
+		record, finalizeErr = txSvc.finalizeCertificateArtifact(ctx, scope, agreementID, correlationID, prepared, rendered)
+		return finalizeErr
 	}); err != nil {
+		LogSendPhaseDuration(artifactPipelineComponent, "generate_certificate_finalize_failed", finalizeStartedAt, artifactPipelineFailureFields(scope, correlationID, agreementID, artifactTypeCertificate, "finalize_failure", err, map[string]any{
+			"object_key": rendered.ObjectKey,
+		}))
 		return stores.AgreementArtifactRecord{}, err
 	}
-	return record, nil
-}
-
-func (s ArtifactPipelineService) generateCertificateArtifact(ctx context.Context, scope stores.Scope, agreementID, correlationID string) (stores.AgreementArtifactRecord, error) {
-	if s.agreements == nil || s.artifacts == nil {
-		return stores.AgreementArtifactRecord{}, domainValidationError("artifacts", "dependencies", "not configured")
-	}
-	agreement, err := s.agreements.GetAgreement(ctx, scope, agreementID)
-	if err != nil {
-		return stores.AgreementArtifactRecord{}, err
-	}
-	recipients, err := s.agreements.ListRecipients(ctx, scope, agreementID)
-	if err != nil {
-		return stores.AgreementArtifactRecord{}, err
-	}
-	events := make([]stores.AuditEventRecord, 0)
-	if s.audits != nil {
-		events, err = s.audits.ListForAgreement(ctx, scope, agreementID, stores.AuditEventQuery{SortDesc: false})
-		if err != nil {
-			return stores.AgreementArtifactRecord{}, err
-		}
-	}
-	existing, err := s.artifacts.GetAgreementArtifacts(ctx, scope, agreementID)
-	if err != nil {
-		return stores.AgreementArtifactRecord{}, err
-	}
-	rendered, err := s.renderer.RenderCertificate(ctx, CertificateRenderInput{
-		Scope:          scope,
-		Agreement:      agreement,
-		Recipients:     recipients,
-		Events:         events,
-		ExecutedSHA256: existing.ExecutedSHA256,
-		CorrelationID:  correlationID,
-	})
-	if err != nil {
-		return stores.AgreementArtifactRecord{}, err
-	}
-	if err := s.persistArtifactBlob(ctx, rendered.ObjectKey, rendered.Payload); err != nil {
-		return stores.AgreementArtifactRecord{}, err
-	}
-	record, err := s.artifacts.SaveAgreementArtifacts(ctx, scope, stores.AgreementArtifactRecord{
-		AgreementID:          agreementID,
-		CertificateObjectKey: rendered.ObjectKey,
-		CertificateSHA256:    rendered.SHA256,
-		CorrelationID:        strings.TrimSpace(correlationID),
-	})
-	if err != nil {
-		return stores.AgreementArtifactRecord{}, err
-	}
-	timelineHash := hashTimeline(events)
-	if err := s.appendPipelineAudit(ctx, scope, agreement.ID, "artifact.certificate_generated", correlationID, map[string]any{
-		"object_key":      rendered.ObjectKey,
-		"sha256":          rendered.SHA256,
-		"timeline_hash":   timelineHash,
-		"executed_sha256": existing.ExecutedSHA256,
-	}); err != nil {
-		return stores.AgreementArtifactRecord{}, err
-	}
+	LogSendPhaseDuration(artifactPipelineComponent, "generate_certificate_finalize_complete", finalizeStartedAt, artifactPipelineFields(scope, correlationID, agreementID, artifactTypeCertificate, map[string]any{
+		"object_key": rendered.ObjectKey,
+	}))
+	LogSendPhaseDuration(artifactPipelineComponent, "generate_certificate_complete", startedAt, artifactPipelineFields(scope, correlationID, agreementID, artifactTypeCertificate, map[string]any{
+		"object_key": rendered.ObjectKey,
+	}))
 	return record, nil
 }
 
@@ -530,6 +527,233 @@ func (s ArtifactPipelineService) persistArtifactBlob(ctx context.Context, object
 		return domainValidationError("artifacts", "object_store", "persisted artifact blob is not a valid pdf payload")
 	}
 	return nil
+}
+
+func (s ArtifactPipelineService) prepareExecutedArtifact(ctx context.Context, scope stores.Scope, agreementID string) (preparedExecutedArtifact, error) {
+	if s.agreements == nil || s.signing == nil || s.artifacts == nil {
+		return preparedExecutedArtifact{}, domainValidationError("artifacts", "dependencies", "not configured")
+	}
+	agreement, err := s.agreements.GetAgreement(ctx, scope, agreementID)
+	if err != nil {
+		return preparedExecutedArtifact{}, err
+	}
+	recipients, err := s.agreements.ListRecipients(ctx, scope, agreementID)
+	if err != nil {
+		return preparedExecutedArtifact{}, err
+	}
+	fields, err := s.agreements.ListFields(ctx, scope, agreementID)
+	if err != nil {
+		return preparedExecutedArtifact{}, err
+	}
+	allValues := make([]stores.FieldValueRecord, 0)
+	for _, recipient := range recipients {
+		values, err := s.signing.ListFieldValuesByRecipient(ctx, scope, agreementID, recipient.ID)
+		if err != nil {
+			return preparedExecutedArtifact{}, err
+		}
+		allValues = append(allValues, values...)
+	}
+	events := make([]stores.AuditEventRecord, 0)
+	if s.audits != nil {
+		events, err = s.audits.ListForAgreement(ctx, scope, agreementID, stores.AuditEventQuery{SortDesc: false})
+		if err != nil {
+			return preparedExecutedArtifact{}, err
+		}
+	}
+	return preparedExecutedArtifact{
+		Agreement:   agreement,
+		Recipients:  recipients,
+		Fields:      fields,
+		FieldValues: allValues,
+		Events:      events,
+	}, nil
+}
+
+func (s ArtifactPipelineService) renderExecutedArtifact(ctx context.Context, scope stores.Scope, prepared preparedExecutedArtifact, correlationID string) (RenderedArtifact, error) {
+	return s.renderer.RenderExecuted(ctx, ExecutedRenderInput{
+		Scope:         scope,
+		Agreement:     prepared.Agreement,
+		Recipients:    prepared.Recipients,
+		Fields:        prepared.Fields,
+		FieldValues:   prepared.FieldValues,
+		Events:        prepared.Events,
+		CorrelationID: correlationID,
+	})
+}
+
+func (s ArtifactPipelineService) finalizeExecutedArtifact(ctx context.Context, scope stores.Scope, agreementID, correlationID string, prepared preparedExecutedArtifact, rendered RenderedArtifact) (stores.AgreementArtifactRecord, error) {
+	if s.agreements == nil || s.artifacts == nil {
+		return stores.AgreementArtifactRecord{}, domainValidationError("artifacts", "dependencies", "not configured")
+	}
+	agreement, err := s.agreements.GetAgreement(ctx, scope, agreementID)
+	if err != nil {
+		return stores.AgreementArtifactRecord{}, err
+	}
+	if err := validateAgreementReadyForArtifactFinalize(agreement, artifactTypeExecuted); err != nil {
+		return stores.AgreementArtifactRecord{}, err
+	}
+	record, err := s.artifacts.SaveAgreementArtifacts(ctx, scope, stores.AgreementArtifactRecord{
+		AgreementID:       agreementID,
+		ExecutedObjectKey: rendered.ObjectKey,
+		ExecutedSHA256:    rendered.SHA256,
+		CorrelationID:     strings.TrimSpace(correlationID),
+	})
+	if err != nil {
+		return stores.AgreementArtifactRecord{}, err
+	}
+	if err := s.appendPipelineAudit(ctx, scope, agreement.ID, "artifact.executed_generated", correlationID, map[string]any{
+		"object_key": rendered.ObjectKey,
+		"sha256":     rendered.SHA256,
+	}); err != nil {
+		return stores.AgreementArtifactRecord{}, err
+	}
+	return record, nil
+}
+
+func (s ArtifactPipelineService) prepareCertificateArtifact(ctx context.Context, scope stores.Scope, agreementID string) (preparedCertificateArtifact, error) {
+	if s.agreements == nil || s.artifacts == nil {
+		return preparedCertificateArtifact{}, domainValidationError("artifacts", "dependencies", "not configured")
+	}
+	agreement, err := s.agreements.GetAgreement(ctx, scope, agreementID)
+	if err != nil {
+		return preparedCertificateArtifact{}, err
+	}
+	recipients, err := s.agreements.ListRecipients(ctx, scope, agreementID)
+	if err != nil {
+		return preparedCertificateArtifact{}, err
+	}
+	events := make([]stores.AuditEventRecord, 0)
+	if s.audits != nil {
+		events, err = s.audits.ListForAgreement(ctx, scope, agreementID, stores.AuditEventQuery{SortDesc: false})
+		if err != nil {
+			return preparedCertificateArtifact{}, err
+		}
+	}
+	existing, err := s.artifacts.GetAgreementArtifacts(ctx, scope, agreementID)
+	if err != nil {
+		return preparedCertificateArtifact{}, err
+	}
+	if strings.TrimSpace(existing.ExecutedSHA256) == "" || strings.TrimSpace(existing.ExecutedObjectKey) == "" {
+		return preparedCertificateArtifact{}, domainValidationError("artifacts", "executed_sha256", "executed artifact required before certificate generation")
+	}
+	return preparedCertificateArtifact{
+		Agreement:  agreement,
+		Recipients: recipients,
+		Events:     events,
+		Executed:   existing,
+	}, nil
+}
+
+func (s ArtifactPipelineService) renderCertificateArtifact(ctx context.Context, scope stores.Scope, prepared preparedCertificateArtifact, correlationID string) (RenderedArtifact, error) {
+	return s.renderer.RenderCertificate(ctx, CertificateRenderInput{
+		Scope:          scope,
+		Agreement:      prepared.Agreement,
+		Recipients:     prepared.Recipients,
+		Events:         prepared.Events,
+		ExecutedSHA256: prepared.Executed.ExecutedSHA256,
+		CorrelationID:  correlationID,
+	})
+}
+
+func (s ArtifactPipelineService) finalizeCertificateArtifact(ctx context.Context, scope stores.Scope, agreementID, correlationID string, prepared preparedCertificateArtifact, rendered RenderedArtifact) (stores.AgreementArtifactRecord, error) {
+	if s.agreements == nil || s.artifacts == nil {
+		return stores.AgreementArtifactRecord{}, domainValidationError("artifacts", "dependencies", "not configured")
+	}
+	agreement, err := s.agreements.GetAgreement(ctx, scope, agreementID)
+	if err != nil {
+		return stores.AgreementArtifactRecord{}, err
+	}
+	if err := validateAgreementReadyForArtifactFinalize(agreement, artifactTypeCertificate); err != nil {
+		return stores.AgreementArtifactRecord{}, err
+	}
+	existing, err := s.artifacts.GetAgreementArtifacts(ctx, scope, agreementID)
+	if err != nil {
+		return stores.AgreementArtifactRecord{}, err
+	}
+	if strings.TrimSpace(existing.ExecutedSHA256) == "" || strings.TrimSpace(existing.ExecutedObjectKey) == "" {
+		return stores.AgreementArtifactRecord{}, domainValidationError("artifacts", "executed_sha256", "executed artifact required before certificate finalize")
+	}
+	if strings.TrimSpace(existing.ExecutedSHA256) != strings.TrimSpace(prepared.Executed.ExecutedSHA256) {
+		return stores.AgreementArtifactRecord{}, domainValidationError("artifacts", "executed_sha256", "executed artifact changed before certificate finalize")
+	}
+	record, err := s.artifacts.SaveAgreementArtifacts(ctx, scope, stores.AgreementArtifactRecord{
+		AgreementID:          agreementID,
+		CertificateObjectKey: rendered.ObjectKey,
+		CertificateSHA256:    rendered.SHA256,
+		CorrelationID:        strings.TrimSpace(correlationID),
+	})
+	if err != nil {
+		return stores.AgreementArtifactRecord{}, err
+	}
+	timelineHash := hashTimeline(prepared.Events)
+	if err := s.appendPipelineAudit(ctx, scope, agreement.ID, "artifact.certificate_generated", correlationID, map[string]any{
+		"object_key":      rendered.ObjectKey,
+		"sha256":          rendered.SHA256,
+		"timeline_hash":   timelineHash,
+		"executed_sha256": existing.ExecutedSHA256,
+	}); err != nil {
+		return stores.AgreementArtifactRecord{}, err
+	}
+	return record, nil
+}
+
+func validateAgreementReadyForArtifactFinalize(agreement stores.AgreementRecord, artifactType string) error {
+	if strings.TrimSpace(agreement.ID) == "" {
+		return domainValidationError("artifacts", "agreement_id", "required")
+	}
+	if strings.TrimSpace(agreement.Status) != stores.AgreementStatusCompleted {
+		return domainValidationError("artifacts", "agreement_status", fmt.Sprintf("%s artifact generation requires completed agreement", strings.TrimSpace(artifactType)))
+	}
+	return nil
+}
+
+func artifactPipelineFields(scope stores.Scope, correlationID, agreementID, artifactType string, fields map[string]any) map[string]any {
+	base := SendDebugFields(scope, correlationID, map[string]any{
+		"agreement_id":  strings.TrimSpace(agreementID),
+		"artifact_type": strings.TrimSpace(artifactType),
+	})
+	for key, value := range fields {
+		base[key] = value
+	}
+	return base
+}
+
+func artifactPipelineFailureFields(scope stores.Scope, correlationID, agreementID, artifactType, errorKind string, err error, fields map[string]any) map[string]any {
+	out := artifactPipelineFields(scope, correlationID, agreementID, artifactType, fields)
+	out["error_kind"] = strings.TrimSpace(errorKind)
+	if err != nil {
+		out["error"] = strings.TrimSpace(err.Error())
+		if reason := sqliteLockReason(err); reason != "" {
+			out["sqlite_lock"] = true
+			out["sqlite_lock_reason"] = reason
+		}
+	}
+	return out
+}
+
+func sqliteLockReason(err error) string {
+	if err == nil {
+		return ""
+	}
+	message := strings.ToLower(strings.TrimSpace(err.Error()))
+	switch {
+	case strings.Contains(message, "database is locked"):
+		return "database_is_locked"
+	case strings.Contains(message, "database table is locked"):
+		return "database_table_is_locked"
+	case strings.Contains(message, "database is busy"):
+		return "database_is_busy"
+	default:
+		return ""
+	}
+}
+
+func shortHash(value string) string {
+	value = strings.TrimSpace(value)
+	if len(value) <= 12 {
+		return value
+	}
+	return value[:12]
 }
 
 func stageStatusFromRuns(runs []stores.JobRunRecord, jobName, fallback string) string {

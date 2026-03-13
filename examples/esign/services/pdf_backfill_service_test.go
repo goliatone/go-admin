@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	appcfg "github.com/goliatone/go-admin/examples/esign/config"
+	esignpersistence "github.com/goliatone/go-admin/examples/esign/internal/persistence"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	"github.com/goliatone/go-uploader"
 )
@@ -57,15 +59,25 @@ func TestPDFBackfillServiceRunIsIdempotent(t *testing.T) {
 	}
 }
 
-func TestPDFBackfillServiceSQLiteMigrationSmoke(t *testing.T) {
+func TestPDFBackfillServiceRelationalSQLiteMigrationSmoke(t *testing.T) {
 	ctx := context.Background()
 	scope := stores.Scope{TenantID: "tenant-smoke", OrgID: "org-smoke"}
 	dsn := "file:" + filepath.Join(t.TempDir(), "pdf_backfill_smoke.db") + "?_busy_timeout=5000&_foreign_keys=on"
-	sqliteStore, err := stores.NewSQLiteStore(dsn)
+	cfg := appcfg.Defaults()
+	cfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectSQLite
+	cfg.Persistence.Migrations.LocalOnly = true
+	cfg.Persistence.SQLite.DSN = dsn
+	cfg.Persistence.Postgres.DSN = ""
+
+	sqliteStore, cleanup, err := esignpersistence.OpenStore(ctx, cfg)
 	if err != nil {
-		t.Fatalf("NewSQLiteStore: %v", err)
+		t.Fatalf("OpenStore: %v", err)
 	}
-	defer sqliteStore.Close()
+	defer func() {
+		if cleanup != nil {
+			_ = cleanup()
+		}
+	}()
 
 	objects := uploader.NewManager(uploader.WithProvider(uploader.NewFSProvider(t.TempDir())))
 	source := GenerateDeterministicPDF(1)
@@ -84,14 +96,21 @@ func TestPDFBackfillServiceSQLiteMigrationSmoke(t *testing.T) {
 		t.Fatalf("expected sqlite smoke backfill update, got %+v", result)
 	}
 
-	if err := sqliteStore.Close(); err != nil {
-		t.Fatalf("Close sqlite store: %v", err)
+	if cleanup != nil {
+		if err := cleanup(); err != nil {
+			t.Fatalf("close relational store: %v", err)
+		}
+		cleanup = nil
 	}
-	reloaded, err := stores.NewSQLiteStore(dsn)
+	reloaded, reloadCleanup, err := esignpersistence.OpenStore(ctx, cfg)
 	if err != nil {
-		t.Fatalf("reopen sqlite store: %v", err)
+		t.Fatalf("reopen relational store: %v", err)
 	}
-	defer reloaded.Close()
+	defer func() {
+		if reloadCleanup != nil {
+			_ = reloadCleanup()
+		}
+	}()
 
 	reloadedDoc, err := reloaded.Get(ctx, scope, doc.ID)
 	if err != nil {

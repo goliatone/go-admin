@@ -20,6 +20,12 @@ func setupDraftWorkflowApp(t *testing.T, draftSvc services.DraftService, scope s
 	t.Helper()
 	return setupRegisterTestApp(t,
 		WithAuthorizer(authorizerFromAllowedMap(draftWorkflowPermissionSet())),
+		WithAdminRouteMiddleware(withClaimsUserPermissions(testAdminUserID,
+			DefaultPermissions.AdminCreate,
+			DefaultPermissions.AdminView,
+			DefaultPermissions.AdminEdit,
+			DefaultPermissions.AdminSend,
+		)),
 		WithDraftWorkflowService(draftSvc),
 		WithDefaultScope(scope),
 	)
@@ -37,9 +43,7 @@ func doDraftRequest(t *testing.T, app *fiber.App, method, path, userID string, p
 	}
 	req := httptest.NewRequest(method, path, body)
 	req.Header.Set("Accept", "application/json")
-	if strings.TrimSpace(userID) != "" {
-		req.Header.Set("X-User-ID", strings.TrimSpace(userID))
-	}
+	_ = userID
 	if payload != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}

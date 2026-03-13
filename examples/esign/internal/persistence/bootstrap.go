@@ -10,7 +10,6 @@ import (
 	"time"
 
 	appcfg "github.com/goliatone/go-admin/examples/esign/config"
-	"github.com/goliatone/go-admin/examples/esign/stores"
 	persistence "github.com/goliatone/go-persistence-bun"
 	_ "github.com/lib/pq"
 	"github.com/uptrace/bun"
@@ -174,7 +173,7 @@ func openDialectDB(ctx context.Context, dialect Dialect, dsn string) (*sql.DB, s
 			_ = sqlDB.Close()
 			return nil, nil, "", fmt.Errorf("persistence bootstrap: ping sqlite: %w", err)
 		}
-		if err := stores.ConfigureSQLiteConnection(ctx, sqlDB); err != nil {
+		if err := ConfigureSQLiteConnection(ctx, sqlDB); err != nil {
 			_ = sqlDB.Close()
 			return nil, nil, "", fmt.Errorf("persistence bootstrap: configure sqlite: %w", err)
 		}

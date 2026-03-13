@@ -6,7 +6,9 @@ import (
 	"encoding/hex"
 	"errors"
 	"net/url"
+	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -43,12 +45,24 @@ func (alwaysFailEmailProvider) Send(context.Context, EmailSendInput) (string, er
 }
 
 type captureTemplateProvider struct {
+	mu     sync.Mutex
 	inputs []EmailSendInput
 }
 
 func (p *captureTemplateProvider) Send(_ context.Context, input EmailSendInput) (string, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	p.inputs = append(p.inputs, input)
 	return "provider-" + input.Recipient.ID, nil
+}
+
+func (p *captureTemplateProvider) Snapshot() []EmailSendInput {
+	if p == nil {
+		return nil
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return slices.Clone(p.inputs)
 }
 
 type failingBackfillDocumentStore struct {
@@ -399,12 +413,13 @@ func TestRunCompletionWorkflowBuildsScopedCompletionLinks(t *testing.T) {
 	if err := handlers.RunCompletionWorkflow(ctx, scope, agreement.ID, "corr-complete-link"); err != nil {
 		t.Fatalf("RunCompletionWorkflow: %v", err)
 	}
-	if len(provider.inputs) == 0 {
+	inputs := provider.Snapshot()
+	if len(inputs) == 0 {
 		t.Fatal("expected completion email provider input")
 	}
 	var completionInput EmailSendInput
 	found := false
-	for _, input := range provider.inputs {
+	for _, input := range inputs {
 		if input.TemplateCode == completionCCTemplate && input.Recipient.ID == cc.ID {
 			completionInput = input
 			found = true
@@ -412,7 +427,7 @@ func TestRunCompletionWorkflowBuildsScopedCompletionLinks(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Fatalf("expected completion template input for cc recipient, got %+v", provider.inputs)
+		t.Fatalf("expected completion template input for cc recipient, got %+v", inputs)
 	}
 	if completionInput.CompletionURL == "" {
 		t.Fatal("expected completion URL in completion email payload")

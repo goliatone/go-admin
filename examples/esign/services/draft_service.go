@@ -107,6 +107,7 @@ type DraftSendInput struct {
 	CreatedByUserID  string
 	IPAddress        string
 	CorrelationID    string
+	IdempotencyKey   string
 }
 
 // DraftSendResult captures send conversion output contract.
@@ -756,8 +757,12 @@ func (s DraftService) Send(ctx context.Context, scope stores.Scope, id string, i
 		}))
 		auditStartedAt := time.Now()
 		if err := txSvc.appendDraftAudit(txCtx, scope, draft.ID, "draft.sent", strings.TrimSpace(input.CreatedByUserID), map[string]any{
-			"agreement_id": strings.TrimSpace(sent.ID),
-			"wizard_id":    draft.WizardID,
+			"agreement_id":    strings.TrimSpace(sent.ID),
+			"wizard_id":       draft.WizardID,
+			"idempotency_key": strings.TrimSpace(input.IdempotencyKey),
+			"revision":        draft.Revision + 1,
+			"status":          "sent",
+			"draft_deleted":   true,
 		}); err != nil {
 			LogSendPhaseDuration("draft_service", "draft_audit_failed", auditStartedAt, SendDebugFields(scope, correlationID, map[string]any{
 				"draft_id":     strings.TrimSpace(draft.ID),

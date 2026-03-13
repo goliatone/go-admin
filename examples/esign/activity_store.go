@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	esignpersistence "github.com/goliatone/go-admin/examples/esign/internal/persistence"
 	"github.com/goliatone/go-admin/internal/primitives"
 	"os"
 	"path/filepath"
@@ -80,7 +81,7 @@ func newSQLiteESignActivityStore(dsn string) (*eSignActivityStore, error) {
 		_ = db.Close()
 		return nil, fmt.Errorf("ping esign activity sqlite: %w", err)
 	}
-	if err := stores.ConfigureSQLiteConnection(context.Background(), db); err != nil {
+	if err := esignpersistence.ConfigureSQLiteConnection(context.Background(), db); err != nil {
 		_ = db.Close()
 		return nil, err
 	}

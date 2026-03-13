@@ -15,6 +15,8 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/permissions"
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
+	esignsync "github.com/goliatone/go-admin/examples/esign/sync"
+	synccore "github.com/goliatone/go-admin/pkg/go-sync/core"
 	"github.com/goliatone/go-admin/quickstart"
 	auth "github.com/goliatone/go-auth"
 	goerrors "github.com/goliatone/go-errors"
@@ -61,6 +63,8 @@ type registerConfig struct {
 	agreementDelivery     AgreementDeliveryService
 	agreementAuthoring    AgreementAuthoringService
 	drafts                DraftWorkflowService
+	sync                  synccore.SyncService
+	syncBootstrap         AgreementDraftSyncBootstrapService
 	objectStore           SignerObjectStore
 	agreements            AgreementStatsService
 	auditEvents           stores.AuditEventStore
@@ -188,6 +192,10 @@ type DraftWorkflowService interface {
 	Update(ctx context.Context, scope stores.Scope, id string, input services.DraftUpdateInput) (stores.DraftRecord, error)
 	Delete(ctx context.Context, scope stores.Scope, id, createdByUserID string) error
 	Send(ctx context.Context, scope stores.Scope, id string, input services.DraftSendInput) (services.DraftSendResult, error)
+}
+
+type AgreementDraftSyncBootstrapService interface {
+	Bootstrap(ctx context.Context, scope stores.Scope, actorID string) (esignsync.AgreementDraftBootstrapPayload, error)
 }
 
 // SignerObjectStore resolves and persists signer-facing asset/signature blobs by object key.
@@ -424,6 +432,24 @@ func WithDraftWorkflowService(service DraftWorkflowService) RegisterOption {
 			return
 		}
 		cfg.drafts = service
+	}
+}
+
+func WithAgreementDraftSyncService(service synccore.SyncService) RegisterOption {
+	return func(cfg *registerConfig) {
+		if cfg == nil {
+			return
+		}
+		cfg.sync = service
+	}
+}
+
+func WithAgreementDraftSyncBootstrap(service AgreementDraftSyncBootstrapService) RegisterOption {
+	return func(cfg *registerConfig) {
+		if cfg == nil {
+			return
+		}
+		cfg.syncBootstrap = service
 	}
 }
 
@@ -1030,69 +1056,18 @@ func (cfg registerConfig) logSecurityEvent(event string, fields map[string]any) 
 }
 
 func defaultScopeResolver(c router.Context, fallback stores.Scope) stores.Scope {
-	scope := fallback
-	if c == nil {
-		return scope
-	}
-	tenantID := stableString(c.Query("tenant_id"))
-	if tenantID == "" {
-		tenantID = stableString(c.Header("X-Tenant-ID"))
-	}
-	if tenantID != "" {
-		scope.TenantID = tenantID
-	}
-	orgID := stableString(c.Query("org_id"))
-	if orgID == "" {
-		orgID = stableString(c.Header("X-Org-ID"))
-	}
-	if orgID != "" {
-		scope.OrgID = orgID
-	}
+	scope := defaultActorScopeResolver(c)
+	scope.TenantID = firstNonEmpty(scope.TenantID, fallback.TenantID)
+	scope.OrgID = firstNonEmpty(scope.OrgID, fallback.OrgID)
 	return scope
 }
 
 func defaultActorScopeResolver(c router.Context) stores.Scope {
-	if c == nil {
-		return stores.Scope{}
+	identity := coreadmin.ResolveAuthenticatedRequestIdentity(c, coreadmin.AuthenticatedRequestScopeDefaults{})
+	return stores.Scope{
+		TenantID: stableString(identity.TenantID),
+		OrgID:    stableString(identity.OrgID),
 	}
-	fromActor := func(tenantID, orgID string, metadata map[string]any) stores.Scope {
-		scope := stores.Scope{
-			TenantID: stableString(tenantID),
-			OrgID:    stableString(orgID),
-		}
-		if scope.TenantID == "" {
-			scope.TenantID = metadataString(metadata, "tenant_id", "tenant", "default_tenant", "default_tenant_id")
-		}
-		if scope.OrgID == "" {
-			scope.OrgID = metadataString(metadata, "organization_id", "org_id", "org", "default_org_id")
-		}
-		return scope
-	}
-	if actor, ok := auth.ActorFromRouterContext(c); ok && actor != nil {
-		scope := fromActor(actor.TenantID, actor.OrganizationID, actor.Metadata)
-		if scope.TenantID != "" || scope.OrgID != "" {
-			return scope
-		}
-	}
-	if actor, ok := auth.ActorFromContext(c.Context()); ok && actor != nil {
-		scope := fromActor(actor.TenantID, actor.OrganizationID, actor.Metadata)
-		if scope.TenantID != "" || scope.OrgID != "" {
-			return scope
-		}
-	}
-	if claims, ok := auth.GetClaims(c.Context()); ok && claims != nil {
-		return stores.Scope{
-			TenantID: metadataString(claimsMetadata(claims), "tenant_id", "tenant", "default_tenant", "default_tenant_id"),
-			OrgID:    metadataString(claimsMetadata(claims), "organization_id", "org_id", "org", "default_org_id"),
-		}
-	}
-	if claims, ok := auth.GetRouterClaims(c, ""); ok && claims != nil {
-		return stores.Scope{
-			TenantID: metadataString(claimsMetadata(claims), "tenant_id", "tenant", "default_tenant", "default_tenant_id"),
-			OrgID:    metadataString(claimsMetadata(claims), "organization_id", "org_id", "org", "default_org_id"),
-		}
-	}
-	return stores.Scope{}
 }
 
 func claimsMetadata(claims auth.AuthClaims) map[string]any {

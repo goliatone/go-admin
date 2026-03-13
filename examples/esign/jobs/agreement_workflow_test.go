@@ -2,6 +2,8 @@ package jobs
 
 import (
 	"context"
+	"slices"
+	"sync"
 	"testing"
 
 	"github.com/goliatone/go-admin/examples/esign/services"
@@ -9,12 +11,24 @@ import (
 )
 
 type captureEmailProvider struct {
+	mu     sync.Mutex
 	inputs []EmailSendInput
 }
 
 func (p *captureEmailProvider) Send(_ context.Context, input EmailSendInput) (string, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	p.inputs = append(p.inputs, input)
 	return "provider-" + input.Recipient.ID, nil
+}
+
+func (p *captureEmailProvider) Snapshot() []EmailSendInput {
+	if p == nil {
+		return nil
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return slices.Clone(p.inputs)
 }
 
 func setupSentAgreementForWorkflow(t *testing.T) (context.Context, stores.Scope, *stores.InMemoryStore, stores.AgreementRecord, stores.RecipientRecord, stores.RecipientRecord) {
@@ -102,17 +116,18 @@ func TestAgreementWorkflowOnAgreementSentDispatchesActiveSigner(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("OnAgreementSent: %v", err)
 	}
-	if len(provider.inputs) != 1 {
-		t.Fatalf("expected 1 outbound email, got %d", len(provider.inputs))
+	inputs := provider.Snapshot()
+	if len(inputs) != 1 {
+		t.Fatalf("expected 1 outbound email, got %d", len(inputs))
 	}
-	if provider.inputs[0].Recipient.ID != signerOne.ID {
-		t.Fatalf("expected active signer %q, got %q", signerOne.ID, provider.inputs[0].Recipient.ID)
+	if inputs[0].Recipient.ID != signerOne.ID {
+		t.Fatalf("expected active signer %q, got %q", signerOne.ID, inputs[0].Recipient.ID)
 	}
-	if provider.inputs[0].SignURL == "" {
+	if inputs[0].SignURL == "" {
 		t.Fatal("expected sign URL in invitation payload")
 	}
-	if provider.inputs[0].Notification != string(services.NotificationSigningInvitation) {
-		t.Fatalf("expected invitation notification type, got %q", provider.inputs[0].Notification)
+	if inputs[0].Notification != string(services.NotificationSigningInvitation) {
+		t.Fatalf("expected invitation notification type, got %q", inputs[0].Notification)
 	}
 }
 
@@ -135,17 +150,18 @@ func TestAgreementWorkflowOnAgreementResentDispatchesTargetRecipient(t *testing.
 	}); err != nil {
 		t.Fatalf("OnAgreementResent: %v", err)
 	}
-	if len(provider.inputs) != 1 {
-		t.Fatalf("expected 1 outbound email, got %d", len(provider.inputs))
+	inputs := provider.Snapshot()
+	if len(inputs) != 1 {
+		t.Fatalf("expected 1 outbound email, got %d", len(inputs))
 	}
-	if provider.inputs[0].Recipient.ID != signerTwo.ID {
-		t.Fatalf("expected recipient %q, got %q", signerTwo.ID, provider.inputs[0].Recipient.ID)
+	if inputs[0].Recipient.ID != signerTwo.ID {
+		t.Fatalf("expected recipient %q, got %q", signerTwo.ID, inputs[0].Recipient.ID)
 	}
-	if provider.inputs[0].SignURL == "" {
+	if inputs[0].SignURL == "" {
 		t.Fatal("expected sign URL in resend payload")
 	}
-	if provider.inputs[0].Notification != string(services.NotificationSigningReminder) {
-		t.Fatalf("expected reminder notification type, got %q", provider.inputs[0].Notification)
+	if inputs[0].Notification != string(services.NotificationSigningReminder) {
+		t.Fatalf("expected reminder notification type, got %q", inputs[0].Notification)
 	}
 }
 
@@ -163,16 +179,17 @@ func TestAgreementWorkflowRunStageActivationWorkflowDispatchesNewlyActiveSigners
 	if err := workflow.RunStageActivationWorkflow(ctx, scope, agreement.ID, []string{signerTwo.ID}, "corr-stage-activation"); err != nil {
 		t.Fatalf("RunStageActivationWorkflow: %v", err)
 	}
-	if len(provider.inputs) != 1 {
-		t.Fatalf("expected 1 outbound stage activation email, got %d", len(provider.inputs))
+	inputs := provider.Snapshot()
+	if len(inputs) != 1 {
+		t.Fatalf("expected 1 outbound stage activation email, got %d", len(inputs))
 	}
-	if provider.inputs[0].Recipient.ID != signerTwo.ID {
-		t.Fatalf("expected stage-two recipient %q, got %q", signerTwo.ID, provider.inputs[0].Recipient.ID)
+	if inputs[0].Recipient.ID != signerTwo.ID {
+		t.Fatalf("expected stage-two recipient %q, got %q", signerTwo.ID, inputs[0].Recipient.ID)
 	}
-	if provider.inputs[0].SignURL == "" {
+	if inputs[0].SignURL == "" {
 		t.Fatal("expected sign URL in stage activation payload")
 	}
-	if provider.inputs[0].Notification != string(services.NotificationSigningInvitation) {
-		t.Fatalf("expected invitation notification type, got %q", provider.inputs[0].Notification)
+	if inputs[0].Notification != string(services.NotificationSigningInvitation) {
+		t.Fatalf("expected invitation notification type, got %q", inputs[0].Notification)
 	}
 }

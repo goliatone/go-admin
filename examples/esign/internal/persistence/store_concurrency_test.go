@@ -12,11 +12,8 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/stores"
 )
 
-func TestLegacyPersistentStoreFromMemoryAllowsStaleTxOverwrite(t *testing.T) {
-	store, err := stores.NewPersistentStoreFromMemory(stores.NewInMemoryStore(), func(context.Context, []byte) error { return nil })
-	if err != nil {
-		t.Fatalf("NewPersistentStoreFromMemory: %v", err)
-	}
+func TestInMemoryStoreAllowsStaleTxOverwrite(t *testing.T) {
+	store := stores.NewInMemoryStore()
 	scope := stores.Scope{TenantID: "tenant-race", OrgID: "org-race"}
 	ctx := context.Background()
 	draft := createRuntimeDraft(t, ctx, store, scope)

@@ -11,6 +11,31 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/stores"
 )
 
+type failingDraftAuditStore struct {
+	*stores.InMemoryStore
+	err         error
+	withTxCalls int
+}
+
+type failingDraftAuditTx struct {
+	stores.TxStore
+	err error
+}
+
+func (tx failingDraftAuditTx) AppendDraftEvent(ctx context.Context, scope stores.Scope, event stores.DraftAuditEventRecord) (stores.DraftAuditEventRecord, error) {
+	if tx.err != nil {
+		return stores.DraftAuditEventRecord{}, tx.err
+	}
+	return tx.TxStore.AppendDraftEvent(ctx, scope, event)
+}
+
+func (s *failingDraftAuditStore) WithTx(ctx context.Context, fn func(tx stores.TxStore) error) error {
+	s.withTxCalls++
+	return s.InMemoryStore.WithTx(ctx, func(tx stores.TxStore) error {
+		return fn(failingDraftAuditTx{TxStore: tx, err: s.err})
+	})
+}
+
 func TestDraftServiceSendRollbackKeepsDraftWhenValidationFails(t *testing.T) {
 	ctx := context.Background()
 	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
@@ -67,6 +92,88 @@ func TestDraftServiceSendRollbackKeepsDraftWhenValidationFails(t *testing.T) {
 	}
 	if len(agreements) != 0 {
 		t.Fatalf("expected no agreements persisted on failed send, got %d", len(agreements))
+	}
+}
+
+func TestDraftServiceCreateStoresDraftAuditEventsSeparately(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+
+	draftSvc := NewDraftService(store, WithDraftAgreementService(NewAgreementService(store)))
+	draft, replay, err := draftSvc.Create(ctx, scope, DraftCreateInput{
+		WizardID:        "wiz-audit-1",
+		WizardState:     map[string]any{"details": map[string]any{"title": "Audit Draft"}},
+		Title:           "Audit Draft",
+		CurrentStep:     2,
+		CreatedByUserID: "author-1",
+	})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if replay {
+		t.Fatalf("expected initial create replay=false")
+	}
+
+	events, err := store.ListDraftEvents(ctx, scope, draft.ID, stores.DraftAuditEventQuery{})
+	if err != nil {
+		t.Fatalf("ListDraftEvents: %v", err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("expected one draft audit event, got %d", len(events))
+	}
+	if events[0].DraftID != draft.ID {
+		t.Fatalf("expected draft audit event for %s, got %s", draft.ID, events[0].DraftID)
+	}
+	if events[0].EventType != "draft.created" {
+		t.Fatalf("expected draft.created event, got %s", events[0].EventType)
+	}
+
+	agreementEvents, err := store.ListForAgreement(ctx, scope, draft.ID, stores.AuditEventQuery{})
+	if err != nil {
+		t.Fatalf("ListForAgreement: %v", err)
+	}
+	if len(agreementEvents) != 0 {
+		t.Fatalf("expected no agreement audit events for draft ID, got %d", len(agreementEvents))
+	}
+}
+
+func TestDraftServiceCreateRollsBackWhenDraftAuditAppendFails(t *testing.T) {
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	sentinel := errors.New("draft audit sentinel")
+	store := &failingDraftAuditStore{
+		InMemoryStore: stores.NewInMemoryStore(),
+		err:           sentinel,
+	}
+
+	draftSvc := NewDraftService(store, WithDraftAgreementService(NewAgreementService(store)))
+	_, _, err := draftSvc.Create(ctx, scope, DraftCreateInput{
+		WizardID:        "wiz-audit-fail-1",
+		WizardState:     map[string]any{"details": map[string]any{"title": "Audit Failure Draft"}},
+		Title:           "Audit Failure Draft",
+		CurrentStep:     2,
+		CreatedByUserID: "author-1",
+	})
+	if !errors.Is(err, sentinel) {
+		t.Fatalf("expected draft audit sentinel error, got %v", err)
+	}
+	if store.withTxCalls != 1 {
+		t.Fatalf("expected WithTx called once, got %d", store.withTxCalls)
+	}
+
+	drafts, nextCursor, err := store.ListDraftSessions(ctx, scope, stores.DraftQuery{
+		CreatedByUserID: "author-1",
+		Limit:           10,
+	})
+	if err != nil {
+		t.Fatalf("ListDraftSessions: %v", err)
+	}
+	if nextCursor != "" {
+		t.Fatalf("expected empty cursor, got %q", nextCursor)
+	}
+	if len(drafts) != 0 {
+		t.Fatalf("expected draft create rollback, got %d drafts", len(drafts))
 	}
 }
 

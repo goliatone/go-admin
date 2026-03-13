@@ -52,6 +52,11 @@ const (
 	resolveSegment          = "resolve"
 	publishSegment          = "publish"
 	sendSegment             = "send"
+	syncSegment             = "sync"
+	resourcesSegment        = "resources"
+	actionsSegment          = "actions"
+	bootstrapSegment        = "bootstrap"
+	agreementDraftSegment   = "agreement-draft"
 	diagnosticsSegment      = "diagnostics"
 	inboundSegment          = "inbound"
 	outboundSegment         = "outbound"
@@ -76,41 +81,44 @@ type RouteSet struct {
 	AdminAPIBase  string
 	PublicAPIBase string
 
-	AdminHome                      string
-	AdminStatus                    string
-	AdminAPIStatus                 string
-	AdminDrafts                    string
-	AdminDraft                     string
-	AdminDraftSend                 string
-	AdminAgreementsStats           string
-	AdminAgreementParticipants     string
-	AdminAgreementParticipant      string
-	AdminAgreementFieldDefinitions string
-	AdminAgreementFieldDefinition  string
-	AdminAgreementFieldInstances   string
-	AdminAgreementFieldInstance    string
-	AdminAgreementSendReadiness    string
-	AdminAgreementAutoPlace        string
-	AdminAgreementPlacementRuns    string
-	AdminAgreementPlacementRun     string
-	AdminAgreementPlacementApply   string
-	AdminSmokeRecipientLinks       string
-	AdminDocumentsUpload           string
-	AdminDocumentRemediate         string
-	AdminRemediationDispatchStatus string
-	SignerSession                  string
-	SignerConsent                  string
-	SignerFieldValues              string
-	SignerSignature                string
-	SignerSignatureUpload          string
-	SignerSignatureObject          string
-	SignerTelemetry                string
-	SignerSubmit                   string
-	SignerDecline                  string
-	SignerAssets                   string
-	SignerProfile                  string
-	SignerSavedSignatures          string
-	SignerSavedSignature           string
+	AdminHome                        string
+	AdminStatus                      string
+	AdminAPIStatus                   string
+	AdminDrafts                      string
+	AdminDraft                       string
+	AdminDraftSend                   string
+	AdminSyncResource                string
+	AdminSyncResourceAction          string
+	AdminSyncBootstrapAgreementDraft string
+	AdminAgreementsStats             string
+	AdminAgreementParticipants       string
+	AdminAgreementParticipant        string
+	AdminAgreementFieldDefinitions   string
+	AdminAgreementFieldDefinition    string
+	AdminAgreementFieldInstances     string
+	AdminAgreementFieldInstance      string
+	AdminAgreementSendReadiness      string
+	AdminAgreementAutoPlace          string
+	AdminAgreementPlacementRuns      string
+	AdminAgreementPlacementRun       string
+	AdminAgreementPlacementApply     string
+	AdminSmokeRecipientLinks         string
+	AdminDocumentsUpload             string
+	AdminDocumentRemediate           string
+	AdminRemediationDispatchStatus   string
+	SignerSession                    string
+	SignerConsent                    string
+	SignerFieldValues                string
+	SignerSignature                  string
+	SignerSignatureUpload            string
+	SignerSignatureObject            string
+	SignerTelemetry                  string
+	SignerSubmit                     string
+	SignerDecline                    string
+	SignerAssets                     string
+	SignerProfile                    string
+	SignerSavedSignatures            string
+	SignerSavedSignature             string
 
 	AdminGoogleOAuthConnect      string
 	AdminGoogleOAuthDisconnect   string
@@ -154,44 +162,47 @@ func BuildRouteSet(urls urlkit.Resolver, adminBasePath, adminAPIGroup string) Ro
 	signingBase := joinPath(publicAPIBase, esignSegment, signingSegment)
 
 	return RouteSet{
-		AdminBasePath:                  adminBase,
-		AdminAPIBase:                   adminAPIBase,
-		PublicAPIBase:                  publicAPIBase,
-		AdminHome:                      joinPath(adminBase, esignSegment),
-		AdminStatus:                    joinPath(adminBase, esignSegment, adminStatusSegment),
-		AdminAPIStatus:                 joinPath(adminAPIBase, esignSegment, adminStatusSegment),
-		AdminDrafts:                    joinPath(adminAPIBase, esignSegment, draftsSegment),
-		AdminDraft:                     joinPath(adminAPIBase, esignSegment, draftsSegment, ":draft_id"),
-		AdminDraftSend:                 joinPath(adminAPIBase, esignSegment, draftsSegment, ":draft_id", sendSegment),
-		AdminAgreementsStats:           joinPath(adminAPIBase, esignSegment, agreementsSegment, statsSegment),
-		AdminAgreementParticipants:     joinPath(adminAPIBase, esignSegment, agreementsSegment, ":agreement_id", participantsSegment),
-		AdminAgreementParticipant:      joinPath(adminAPIBase, esignSegment, agreementsSegment, ":agreement_id", participantsSegment, ":participant_id"),
-		AdminAgreementFieldDefinitions: joinPath(adminAPIBase, esignSegment, agreementsSegment, ":agreement_id", fieldDefinitionsSegment),
-		AdminAgreementFieldDefinition:  joinPath(adminAPIBase, esignSegment, agreementsSegment, ":agreement_id", fieldDefinitionsSegment, ":field_definition_id"),
-		AdminAgreementFieldInstances:   joinPath(adminAPIBase, esignSegment, agreementsSegment, ":agreement_id", fieldInstancesSegment),
-		AdminAgreementFieldInstance:    joinPath(adminAPIBase, esignSegment, agreementsSegment, ":agreement_id", fieldInstancesSegment, ":field_instance_id"),
-		AdminAgreementSendReadiness:    joinPath(adminAPIBase, esignSegment, agreementsSegment, ":agreement_id", sendReadinessSegment),
-		AdminAgreementAutoPlace:        joinPath(adminAPIBase, esignSegment, agreementsSegment, ":agreement_id", autoPlaceSegment),
-		AdminAgreementPlacementRuns:    joinPath(adminAPIBase, esignSegment, agreementsSegment, ":agreement_id", placementRunsSegment),
-		AdminAgreementPlacementRun:     joinPath(adminAPIBase, esignSegment, agreementsSegment, ":agreement_id", placementRunsSegment, ":placement_run_id"),
-		AdminAgreementPlacementApply:   joinPath(adminAPIBase, esignSegment, agreementsSegment, ":agreement_id", placementRunsSegment, ":placement_run_id", applySegment),
-		AdminSmokeRecipientLinks:       joinPath(adminAPIBase, esignSegment, smokeSegment, recipientLinksSegment),
-		AdminDocumentsUpload:           joinPath(adminAPIBase, esignSegment, documentsSegment, uploadSegment),
-		AdminDocumentRemediate:         joinPath(adminAPIBase, esignSegment, documentsSegment, ":document_id", remediateSegment),
-		AdminRemediationDispatchStatus: joinPath(adminAPIBase, esignSegment, dispatchesSegment, ":dispatch_id"),
-		SignerSession:                  joinPath(signingBase, sessionSegment, ":token"),
-		SignerConsent:                  joinPath(signingBase, consentSegment, ":token"),
-		SignerFieldValues:              joinPath(signingBase, fieldValuesSegment, ":token"),
-		SignerSignature:                joinPath(signingBase, fieldValuesSegment, signatureSegment, ":token"),
-		SignerSignatureUpload:          joinPath(signingBase, signatureUploadSegment, ":token"),
-		SignerSignatureObject:          joinPath(signingBase, signatureUploadSegment, objectSegment),
-		SignerTelemetry:                joinPath(signingBase, telemetrySegment, ":token"),
-		SignerSubmit:                   joinPath(signingBase, submitSegment, ":token"),
-		SignerDecline:                  joinPath(signingBase, declineSegment, ":token"),
-		SignerAssets:                   joinPath(signingBase, assetsSegment, ":token"),
-		SignerProfile:                  joinPath(signingBase, profileSegment, ":token"),
-		SignerSavedSignatures:          joinPath(signingBase, signaturesSegment, ":token"),
-		SignerSavedSignature:           joinPath(signingBase, signaturesSegment, ":token", ":id"),
+		AdminBasePath:                    adminBase,
+		AdminAPIBase:                     adminAPIBase,
+		PublicAPIBase:                    publicAPIBase,
+		AdminHome:                        joinPath(adminBase, esignSegment),
+		AdminStatus:                      joinPath(adminBase, esignSegment, adminStatusSegment),
+		AdminAPIStatus:                   joinPath(adminAPIBase, esignSegment, adminStatusSegment),
+		AdminDrafts:                      joinPath(adminAPIBase, esignSegment, draftsSegment),
+		AdminDraft:                       joinPath(adminAPIBase, esignSegment, draftsSegment, ":draft_id"),
+		AdminDraftSend:                   joinPath(adminAPIBase, esignSegment, draftsSegment, ":draft_id", sendSegment),
+		AdminSyncResource:                joinPath(adminAPIBase, esignSegment, syncSegment, resourcesSegment, ":kind", ":id"),
+		AdminSyncResourceAction:          joinPath(adminAPIBase, esignSegment, syncSegment, resourcesSegment, ":kind", ":id", actionsSegment, ":operation"),
+		AdminSyncBootstrapAgreementDraft: joinPath(adminAPIBase, esignSegment, syncSegment, bootstrapSegment, agreementDraftSegment),
+		AdminAgreementsStats:             joinPath(adminAPIBase, esignSegment, agreementsSegment, statsSegment),
+		AdminAgreementParticipants:       joinPath(adminAPIBase, esignSegment, agreementsSegment, ":agreement_id", participantsSegment),
+		AdminAgreementParticipant:        joinPath(adminAPIBase, esignSegment, agreementsSegment, ":agreement_id", participantsSegment, ":participant_id"),
+		AdminAgreementFieldDefinitions:   joinPath(adminAPIBase, esignSegment, agreementsSegment, ":agreement_id", fieldDefinitionsSegment),
+		AdminAgreementFieldDefinition:    joinPath(adminAPIBase, esignSegment, agreementsSegment, ":agreement_id", fieldDefinitionsSegment, ":field_definition_id"),
+		AdminAgreementFieldInstances:     joinPath(adminAPIBase, esignSegment, agreementsSegment, ":agreement_id", fieldInstancesSegment),
+		AdminAgreementFieldInstance:      joinPath(adminAPIBase, esignSegment, agreementsSegment, ":agreement_id", fieldInstancesSegment, ":field_instance_id"),
+		AdminAgreementSendReadiness:      joinPath(adminAPIBase, esignSegment, agreementsSegment, ":agreement_id", sendReadinessSegment),
+		AdminAgreementAutoPlace:          joinPath(adminAPIBase, esignSegment, agreementsSegment, ":agreement_id", autoPlaceSegment),
+		AdminAgreementPlacementRuns:      joinPath(adminAPIBase, esignSegment, agreementsSegment, ":agreement_id", placementRunsSegment),
+		AdminAgreementPlacementRun:       joinPath(adminAPIBase, esignSegment, agreementsSegment, ":agreement_id", placementRunsSegment, ":placement_run_id"),
+		AdminAgreementPlacementApply:     joinPath(adminAPIBase, esignSegment, agreementsSegment, ":agreement_id", placementRunsSegment, ":placement_run_id", applySegment),
+		AdminSmokeRecipientLinks:         joinPath(adminAPIBase, esignSegment, smokeSegment, recipientLinksSegment),
+		AdminDocumentsUpload:             joinPath(adminAPIBase, esignSegment, documentsSegment, uploadSegment),
+		AdminDocumentRemediate:           joinPath(adminAPIBase, esignSegment, documentsSegment, ":document_id", remediateSegment),
+		AdminRemediationDispatchStatus:   joinPath(adminAPIBase, esignSegment, dispatchesSegment, ":dispatch_id"),
+		SignerSession:                    joinPath(signingBase, sessionSegment, ":token"),
+		SignerConsent:                    joinPath(signingBase, consentSegment, ":token"),
+		SignerFieldValues:                joinPath(signingBase, fieldValuesSegment, ":token"),
+		SignerSignature:                  joinPath(signingBase, fieldValuesSegment, signatureSegment, ":token"),
+		SignerSignatureUpload:            joinPath(signingBase, signatureUploadSegment, ":token"),
+		SignerSignatureObject:            joinPath(signingBase, signatureUploadSegment, objectSegment),
+		SignerTelemetry:                  joinPath(signingBase, telemetrySegment, ":token"),
+		SignerSubmit:                     joinPath(signingBase, submitSegment, ":token"),
+		SignerDecline:                    joinPath(signingBase, declineSegment, ":token"),
+		SignerAssets:                     joinPath(signingBase, assetsSegment, ":token"),
+		SignerProfile:                    joinPath(signingBase, profileSegment, ":token"),
+		SignerSavedSignatures:            joinPath(signingBase, signaturesSegment, ":token"),
+		SignerSavedSignature:             joinPath(signingBase, signaturesSegment, ":token", ":id"),
 
 		AdminGoogleOAuthConnect:      joinPath(adminAPIBase, esignSegment, integrationsSegment, googleSegment, connectSegment),
 		AdminGoogleOAuthDisconnect:   joinPath(adminAPIBase, esignSegment, integrationsSegment, googleSegment, disconnectSegment),

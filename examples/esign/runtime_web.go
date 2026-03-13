@@ -26,6 +26,7 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	"github.com/goliatone/go-admin/internal/templateview"
 	"github.com/goliatone/go-admin/pkg/client"
+	syncdata "github.com/goliatone/go-admin/pkg/go-sync/data"
 	"github.com/goliatone/go-admin/quickstart"
 	auth "github.com/goliatone/go-auth"
 	goerrors "github.com/goliatone/go-errors"
@@ -499,6 +500,7 @@ func registerESignWebRoutes(
 	}
 	contentEntryViewContext := quickstart.DefaultAdminUIViewContextBuilder(adm, cfg)
 	googleEnabled := featureEnabledInSystemScope(adm.FeatureGate(), "esign_google")
+	registerESignSyncClientAssets(r, basePath)
 
 	r.Get("/", func(c router.Context) error {
 		return c.Redirect(basePath, http.StatusFound)
@@ -626,6 +628,16 @@ func registerESignWebRoutes(
 	}
 
 	return nil
+}
+
+func registerESignSyncClientAssets(r router.Router[*fiber.App], basePath string) {
+	if r == nil {
+		return
+	}
+	r.Static(path.Join(normalizeESignBasePath(basePath), "sync-client", "sync-core"), ".", router.Static{
+		FS:   syncdata.ClientSyncCoreFS(),
+		Root: ".",
+	})
 }
 
 func registerESignGoogleIntegrationUIRoutes(
@@ -860,24 +872,9 @@ func registerESignDocumentUploadRoute(
 }
 
 func resolveESignUploadScope(c router.Context, fallback stores.Scope) stores.Scope {
-	scope := fallback
-	if c == nil {
-		return scope
-	}
-	tenantID := strings.TrimSpace(c.Query("tenant_id"))
-	if tenantID == "" {
-		tenantID = strings.TrimSpace(c.Header("X-Tenant-ID"))
-	}
-	if tenantID != "" {
-		scope.TenantID = tenantID
-	}
-	orgID := strings.TrimSpace(c.Query("org_id"))
-	if orgID == "" {
-		orgID = strings.TrimSpace(c.Header("X-Org-ID"))
-	}
-	if orgID != "" {
-		scope.OrgID = orgID
-	}
+	scope := resolveESignActorScope(c)
+	scope.TenantID = firstNonEmptyValue(strings.TrimSpace(scope.TenantID), strings.TrimSpace(fallback.TenantID))
+	scope.OrgID = firstNonEmptyValue(strings.TrimSpace(scope.OrgID), strings.TrimSpace(fallback.OrgID))
 	return scope
 }
 
@@ -1116,14 +1113,8 @@ func resolveESignAdminUserID(c router.Context) string {
 				return userID
 			}
 		}
-		if userID := strings.TrimSpace(c.Query("user_id")); userID != "" {
-			return userID
-		}
-		if userID := strings.TrimSpace(c.Header("X-User-ID")); userID != "" {
-			return userID
-		}
 	}
-	return firstNonEmptyValue(strings.TrimSpace(appcfg.Active().Auth.AdminID), defaultESignDemoAdminID)
+	return ""
 }
 
 func resolveGoogleAccountID(c router.Context) string {
@@ -1186,7 +1177,6 @@ func withESignContentEntryViewContext(
 		pageCfg := buildESignAgreementFormPageConfig(
 			viewContextString(ctx, "base_path", "/admin"),
 			viewContextString(ctx, "api_base_path", "/admin/api/v1"),
-			userID,
 			viewContextRoutes(ctx),
 		)
 		return withESignPageConfig(ctx, pageCfg)
