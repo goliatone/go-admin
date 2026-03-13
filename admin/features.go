@@ -30,6 +30,8 @@ const (
 	FeatureOrganizations       FeatureKey = "organizations"
 	FeatureTranslationExchange FeatureKey = "translations.exchange"
 	FeatureTranslationQueue    FeatureKey = "translations.queue"
+	FeatureTranslationQAStyle  FeatureKey = "translations.qa.style"
+	FeatureTranslationQATerms  FeatureKey = "translations.qa.terminology"
 )
 
 // ErrFeatureDisabled signals a disabled feature gate.
