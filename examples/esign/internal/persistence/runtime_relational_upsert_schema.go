@@ -40,6 +40,7 @@ type runtimeStoreSnapshot struct {
 	SignerProfileIndex         map[string]string                                `json:"signer_profile_index"`
 	SavedSignerSignatures      map[string]stores.SavedSignerSignatureRecord     `json:"saved_signatures"`
 	FieldValues                map[string]stores.FieldValueRecord               `json:"field_values"`
+	DraftAuditEvents           map[string]stores.DraftAuditEventRecord          `json:"draft_audit_events"`
 	AuditEvents                map[string]stores.AuditEventRecord               `json:"audit_events"`
 	AgreementArtifacts         map[string]stores.AgreementArtifactRecord        `json:"agreement_artifacts"`
 	EmailLogs                  map[string]stores.EmailLogRecord                 `json:"email_logs"`
@@ -683,6 +684,33 @@ func runtimeStoreTableUpsertSpecs() []runtimeTableUpsertSpec {
 						"version":               version,
 						"created_at":            createdAt,
 						"updated_at":            updatedAt,
+					})
+				}
+				return rows
+			},
+		},
+		{
+			table:    "draft_audit_events",
+			columns:  []string{"id", "tenant_id", "org_id", "draft_id", "event_type", "actor_type", "actor_id", "metadata_json", "created_at"},
+			conflict: []string{"id"},
+			rows: func(snapshot runtimeStoreSnapshot) []map[string]any {
+				rows := make([]map[string]any, 0, len(snapshot.DraftAuditEvents))
+				for _, record := range sortedMapValues(snapshot.DraftAuditEvents) {
+					createdAt := requiredTime(record.CreatedAt, now())
+					metadataJSON := strings.TrimSpace(record.MetadataJSON)
+					if metadataJSON == "" {
+						metadataJSON = "{}"
+					}
+					rows = append(rows, map[string]any{
+						"id":            strings.TrimSpace(record.ID),
+						"tenant_id":     strings.TrimSpace(record.TenantID),
+						"org_id":        strings.TrimSpace(record.OrgID),
+						"draft_id":      strings.TrimSpace(record.DraftID),
+						"event_type":    strings.TrimSpace(record.EventType),
+						"actor_type":    strings.TrimSpace(record.ActorType),
+						"actor_id":      strings.TrimSpace(record.ActorID),
+						"metadata_json": metadataJSON,
+						"created_at":    createdAt,
 					})
 				}
 				return rows

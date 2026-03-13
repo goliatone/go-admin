@@ -45,6 +45,7 @@ type RepositoryFactory struct {
 	fieldInstances            repository.Repository[*stores.FieldInstanceRecord]
 	signingTokens             repository.Repository[*stores.SigningTokenRecord]
 	fieldValues               repository.Repository[*stores.FieldValueRecord]
+	draftAuditEvents          repository.Repository[*stores.DraftAuditEventRecord]
 	auditEvents               repository.Repository[*stores.AuditEventRecord]
 	signatureArtifacts        repository.Repository[*stores.SignatureArtifactRecord]
 	signerProfiles            repository.Repository[*stores.SignerProfileRecord]
@@ -146,6 +147,7 @@ func (f *RepositoryFactory) initRepositories() {
 	f.fieldInstances = newRepositoryWithFactoryConfig(f.db, fieldInstanceHandlers(), f.repositoryDBOptions)
 	f.signingTokens = newRepositoryWithFactoryConfig(f.db, signingTokenHandlers(), f.repositoryDBOptions)
 	f.fieldValues = newRepositoryWithFactoryConfig(f.db, fieldValueHandlers(), f.repositoryDBOptions)
+	f.draftAuditEvents = newRepositoryWithFactoryConfig(f.db, draftAuditEventHandlers(), f.repositoryDBOptions)
 	f.auditEvents = newRepositoryWithFactoryConfig(f.db, auditEventHandlers(), f.repositoryDBOptions)
 	f.signatureArtifacts = newRepositoryWithFactoryConfig(f.db, signatureArtifactHandlers(), f.repositoryDBOptions)
 	f.signerProfiles = newRepositoryWithFactoryConfig(f.db, signerProfileHandlers(), f.repositoryDBOptions)
@@ -243,6 +245,13 @@ func (f *RepositoryFactory) FieldValues() repository.Repository[*stores.FieldVal
 		return nil
 	}
 	return f.fieldValues
+}
+
+func (f *RepositoryFactory) DraftAuditEvents() repository.Repository[*stores.DraftAuditEventRecord] {
+	if f == nil {
+		return nil
+	}
+	return f.draftAuditEvents
 }
 
 func (f *RepositoryFactory) AuditEvents() repository.Repository[*stores.AuditEventRecord] {
@@ -492,6 +501,15 @@ func fieldValueHandlers() repository.ModelHandlers[*stores.FieldValueRecord] {
 		func() *stores.FieldValueRecord { return &stores.FieldValueRecord{} },
 		func(record *stores.FieldValueRecord) string { return record.ID },
 		func(record *stores.FieldValueRecord, id string) { record.ID = id },
+		"id",
+	)
+}
+
+func draftAuditEventHandlers() repository.ModelHandlers[*stores.DraftAuditEventRecord] {
+	return newStringIDModelHandlers(
+		func() *stores.DraftAuditEventRecord { return &stores.DraftAuditEventRecord{} },
+		func(record *stores.DraftAuditEventRecord) string { return record.ID },
+		func(record *stores.DraftAuditEventRecord, id string) { record.ID = id },
 		"id",
 	)
 }

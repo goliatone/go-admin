@@ -36,7 +36,7 @@ func TestResolveAppLocalMigrationFSUsesConfigSiblingDataDirNotStoresDir(t *testi
 	}
 
 	cfg := appcfg.Defaults()
-	cfg.Migrations.LocalDir = "data/sql/migrations"
+	cfg.Persistence.Migrations.LocalDir = "data/sql/migrations"
 	cfg.ConfigPath = filepath.Join(configDir, "app.json")
 
 	resolved, err := resolveAppLocalMigrationFS(cfg)

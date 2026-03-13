@@ -20,10 +20,6 @@ func (c Config) GetConfigPath() string {
 	return c.ConfigPath
 }
 
-func (c Config) GetDatabases() Databases {
-	return c.Databases
-}
-
 func (c Config) GetEmail() Email {
 	return c.Email
 }
@@ -36,16 +32,12 @@ func (c Config) GetGoogle() Google {
 	return c.Google
 }
 
-func (c Config) GetMigrations() Migrations {
-	return c.Migrations
-}
-
 func (c Config) GetNetwork() Network {
 	return c.Network
 }
 
-func (c Config) GetPostgres() Postgres {
-	return c.Postgres
+func (c Config) GetPersistence() Persistence {
+	return c.Persistence
 }
 
 func (c Config) GetPublic() Public {
@@ -58,10 +50,6 @@ func (c Config) GetReminders() Reminders {
 
 func (c Config) GetRuntime() Runtime {
 	return c.Runtime
-}
-
-func (c Config) GetSQLite() Sqlite {
-	return c.SQLite
 }
 
 func (c Config) GetServer() Server {
@@ -150,14 +138,26 @@ func (a Auth) GetSigningKey() string {
 	return a.SigningKey
 }
 
-// Databases Getters
+// Command Getters
 
-func (d Databases) GetContentDSN() string {
-	return d.ContentDSN
+func (c Command) GetArgs() []string {
+	return c.Args
 }
 
-func (d Databases) GetESignDSN() string {
-	return d.ESignDSN
+func (c Command) GetBin() string {
+	return c.Bin
+}
+
+func (c Command) GetMaxLogBytes() int {
+	return c.MaxLogBytes
+}
+
+func (c Command) GetMaxPdfBytes() int64 {
+	return c.MaxPdfBytes
+}
+
+func (c Command) GetTimeoutMS() int {
+	return c.TimeoutMS
 }
 
 // Debug Getters
@@ -314,6 +314,24 @@ func (p Pdf) GetPreviewFallbackEnabled() bool {
 	return p.PreviewFallbackEnabled
 }
 
+func (p Pdf) GetRemediation() Remediation {
+	return p.Remediation
+}
+
+// Persistence Getters
+
+func (p Persistence) GetMigrations() Migrations {
+	return p.Migrations
+}
+
+func (p Persistence) GetPostgres() Postgres {
+	return p.Postgres
+}
+
+func (p Persistence) GetSQLite() Sqlite {
+	return p.SQLite
+}
+
 // Postgres Getters
 
 func (p Postgres) GetDSN() string {
@@ -346,6 +364,32 @@ func (r RateLimit) GetSignerSubmit() SignerSession {
 
 func (r RateLimit) GetSignerWrite() SignerSession {
 	return r.SignerWrite
+}
+
+// Remediation Getters
+
+func (r Remediation) GetAutoOnUpload() bool {
+	return r.AutoOnUpload
+}
+
+func (r Remediation) GetCandidateReasons() []string {
+	return r.CandidateReasons
+}
+
+func (r Remediation) GetCommand() Command {
+	return r.Command
+}
+
+func (r Remediation) GetEnabled() bool {
+	return r.Enabled
+}
+
+func (r Remediation) GetExecutionMode() string {
+	return r.ExecutionMode
+}
+
+func (r Remediation) GetLeaseTTLMS() int {
+	return r.LeaseTTLMS
 }
 
 // Reminders Getters

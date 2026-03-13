@@ -3,25 +3,22 @@
 package config
 
 type Config struct {
-	Admin      Admin      `json:"admin" koanf:"admin"`
-	App        App        `json:"app" koanf:"app"`
-	Auth       Auth       `json:"auth" koanf:"auth"`
-	ConfigPath string     `json:"-" koanf:"-"`
-	Databases  Databases  `json:"databases" koanf:"databases"`
-	Email      Email      `json:"email" koanf:"email"`
-	Features   Features   `json:"features" koanf:"features"`
-	Google     Google     `json:"google" koanf:"google"`
-	Migrations Migrations `json:"migrations" koanf:"migrations"`
-	Network    Network    `json:"network" koanf:"network"`
-	Postgres   Postgres   `json:"postgres" koanf:"postgres"`
-	Public     Public     `json:"public" koanf:"public"`
-	Reminders  Reminders  `json:"reminders" koanf:"reminders"`
-	Runtime    Runtime    `json:"runtime" koanf:"runtime"`
-	SQLite     Sqlite     `json:"sqlite" koanf:"sqlite"`
-	Server     Server     `json:"server" koanf:"server"`
-	Services   Services   `json:"services" koanf:"services"`
-	Signer     Signer     `json:"signer" koanf:"signer"`
-	Storage    Storage    `json:"storage" koanf:"storage"`
+	Admin       Admin       `json:"admin" koanf:"admin"`
+	App         App         `json:"app" koanf:"app"`
+	Auth        Auth        `json:"auth" koanf:"auth"`
+	ConfigPath  string      `json:"-" koanf:"-"`
+	Email       Email       `json:"email" koanf:"email"`
+	Features    Features    `json:"features" koanf:"features"`
+	Google      Google      `json:"google" koanf:"google"`
+	Network     Network     `json:"network" koanf:"network"`
+	Persistence Persistence `json:"persistence" koanf:"persistence"`
+	Public      Public      `json:"public" koanf:"public"`
+	Reminders   Reminders   `json:"reminders" koanf:"reminders"`
+	Runtime     Runtime     `json:"runtime" koanf:"runtime"`
+	Server      Server      `json:"server" koanf:"server"`
+	Services    Services    `json:"services" koanf:"services"`
+	Signer      Signer      `json:"signer" koanf:"signer"`
+	Storage     Storage     `json:"storage" koanf:"storage"`
 }
 
 type Admin struct {
@@ -49,9 +46,12 @@ type Auth struct {
 	SigningKey    string `json:"signing_key" koanf:"signing_key"`
 }
 
-type Databases struct {
-	ContentDSN string `json:"content_dsn" koanf:"content_dsn"`
-	ESignDSN   string `json:"esign_dsn" koanf:"esign_dsn"`
+type Command struct {
+	Args        []string `json:"args" koanf:"args"`
+	Bin         string   `json:"bin" koanf:"bin"`
+	MaxLogBytes int      `json:"max_log_bytes" koanf:"max_log_bytes"`
+	MaxPdfBytes int64    `json:"max_pdf_bytes" koanf:"max_pdf_bytes"`
+	TimeoutMS   int      `json:"timeout_ms" koanf:"timeout_ms"`
 }
 
 type Debug struct {
@@ -97,35 +97,24 @@ type Network struct {
 }
 
 type Pdf struct {
-	AllowEncrypted         bool           `json:"allow_encrypted" koanf:"allow_encrypted"`
-	AllowJavaScriptActions bool           `json:"allow_javascript_actions" koanf:"allow_javascript_actions"`
-	CompatibilityMode      string         `json:"compatibility_mode" koanf:"compatibility_mode"`
-	MaxDecompressedBytes   int64          `json:"max_decompressed_bytes" koanf:"max_decompressed_bytes"`
-	MaxObjects             int            `json:"max_objects" koanf:"max_objects"`
-	MaxPages               int            `json:"max_pages" koanf:"max_pages"`
-	MaxSourceBytes         int64          `json:"max_source_bytes" koanf:"max_source_bytes"`
-	NormalizationTimeoutMS int            `json:"normalization_timeout_ms" koanf:"normalization_timeout_ms"`
-	ParseTimeoutMS         int            `json:"parse_timeout_ms" koanf:"parse_timeout_ms"`
-	PipelineMode           string         `json:"pipeline_mode" koanf:"pipeline_mode"`
-	PreviewFallbackEnabled bool           `json:"preview_fallback_enabled" koanf:"preview_fallback_enabled"`
-	Remediation            PdfRemediation `json:"remediation" koanf:"remediation"`
+	AllowEncrypted         bool        `json:"allow_encrypted" koanf:"allow_encrypted"`
+	AllowJavaScriptActions bool        `json:"allow_javascript_actions" koanf:"allow_javascript_actions"`
+	CompatibilityMode      string      `json:"compatibility_mode" koanf:"compatibility_mode"`
+	MaxDecompressedBytes   int64       `json:"max_decompressed_bytes" koanf:"max_decompressed_bytes"`
+	MaxObjects             int         `json:"max_objects" koanf:"max_objects"`
+	MaxPages               int         `json:"max_pages" koanf:"max_pages"`
+	MaxSourceBytes         int64       `json:"max_source_bytes" koanf:"max_source_bytes"`
+	NormalizationTimeoutMS int         `json:"normalization_timeout_ms" koanf:"normalization_timeout_ms"`
+	ParseTimeoutMS         int         `json:"parse_timeout_ms" koanf:"parse_timeout_ms"`
+	PipelineMode           string      `json:"pipeline_mode" koanf:"pipeline_mode"`
+	PreviewFallbackEnabled bool        `json:"preview_fallback_enabled" koanf:"preview_fallback_enabled"`
+	Remediation            Remediation `json:"remediation" koanf:"remediation"`
 }
 
-type PdfRemediation struct {
-	AutoOnUpload     bool                  `json:"auto_on_upload" koanf:"auto_on_upload"`
-	CandidateReasons []string              `json:"candidate_reasons" koanf:"candidate_reasons"`
-	Command          PdfRemediationCommand `json:"command" koanf:"command"`
-	Enabled          bool                  `json:"enabled" koanf:"enabled"`
-	ExecutionMode    string                `json:"execution_mode" koanf:"execution_mode"`
-	LeaseTTLMS       int                   `json:"lease_ttl_ms" koanf:"lease_ttl_ms"`
-}
-
-type PdfRemediationCommand struct {
-	Args        []string `json:"args" koanf:"args"`
-	Bin         string   `json:"bin" koanf:"bin"`
-	MaxLogBytes int      `json:"max_log_bytes" koanf:"max_log_bytes"`
-	MaxPdfBytes int64    `json:"max_pdf_bytes" koanf:"max_pdf_bytes"`
-	TimeoutMS   int      `json:"timeout_ms" koanf:"timeout_ms"`
+type Persistence struct {
+	Migrations Migrations `json:"migrations" koanf:"migrations"`
+	Postgres   Postgres   `json:"postgres" koanf:"postgres"`
+	SQLite     Sqlite     `json:"sqlite" koanf:"sqlite"`
 }
 
 type Postgres struct {
@@ -142,6 +131,15 @@ type RateLimit struct {
 	SignerSession SignerSession `json:"signer_session" koanf:"signer_session"`
 	SignerSubmit  SignerSession `json:"signer_submit" koanf:"signer_submit"`
 	SignerWrite   SignerSession `json:"signer_write" koanf:"signer_write"`
+}
+
+type Remediation struct {
+	AutoOnUpload     bool     `json:"auto_on_upload" koanf:"auto_on_upload"`
+	CandidateReasons []string `json:"candidate_reasons" koanf:"candidate_reasons"`
+	Command          Command  `json:"command" koanf:"command"`
+	Enabled          bool     `json:"enabled" koanf:"enabled"`
+	ExecutionMode    string   `json:"execution_mode" koanf:"execution_mode"`
+	LeaseTTLMS       int      `json:"lease_ttl_ms" koanf:"lease_ttl_ms"`
 }
 
 type Reminders struct {

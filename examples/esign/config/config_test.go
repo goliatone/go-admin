@@ -79,15 +79,15 @@ func TestLoadDefaultsRepositoryDialectToSQLiteForDevelopment(t *testing.T) {
 	if cfg.Runtime.RepositoryDialect != RepositoryDialectSQLite {
 		t.Fatalf("expected %q repository dialect for development, got %q", RepositoryDialectSQLite, cfg.Runtime.RepositoryDialect)
 	}
-	if strings.TrimSpace(cfg.SQLite.DSN) == "" {
-		t.Fatalf("expected sqlite.dsn to be resolved for development")
+	if strings.TrimSpace(cfg.Persistence.SQLite.DSN) == "" {
+		t.Fatalf("expected persistence.sqlite.dsn to be resolved for development")
 	}
 }
 
 func TestLoadDefaultsRepositoryDialectToPostgresForProduction(t *testing.T) {
 	t.Setenv("APP_RUNTIME__PROFILE", "production")
 	t.Setenv("APP_RUNTIME__REPOSITORY_DIALECT", "")
-	t.Setenv("APP_POSTGRES__DSN", "postgres://user:pass@localhost:5432/esign?sslmode=disable")
+	t.Setenv("APP_PERSISTENCE__POSTGRES__DSN", "postgres://user:pass@localhost:5432/esign?sslmode=disable")
 
 	cfg, err := Load()
 	if err != nil {
@@ -98,33 +98,33 @@ func TestLoadDefaultsRepositoryDialectToPostgresForProduction(t *testing.T) {
 	}
 }
 
-func TestLoadIgnoresLegacyDatabaseDSNForPostgresDialect(t *testing.T) {
+func TestLoadIgnoresLegacyTopLevelPostgresDSNForPostgresDialect(t *testing.T) {
 	t.Setenv("APP_RUNTIME__PROFILE", "production")
 	t.Setenv("APP_RUNTIME__REPOSITORY_DIALECT", "postgres")
-	t.Setenv("APP_POSTGRES__DSN", "")
-	t.Setenv("APP_DATABASES__ESIGN_DSN", "postgres://legacy:legacy@localhost:5432/esign?sslmode=disable")
+	t.Setenv("APP_PERSISTENCE__POSTGRES__DSN", "")
+	t.Setenv("APP_POSTGRES__DSN", "postgres://legacy:legacy@localhost:5432/esign?sslmode=disable")
 
 	_, err := Load()
 	if err == nil {
-		t.Fatalf("expected load error when postgres.dsn is unset even when legacy alias is provided")
+		t.Fatalf("expected load error when persistence.postgres.dsn is unset even when legacy top-level key is provided")
 	}
-	if !strings.Contains(err.Error(), "postgres.dsn is required") {
-		t.Fatalf("expected postgres.dsn required validation error, got %v", err)
+	if !strings.Contains(err.Error(), "persistence.postgres.dsn is required") {
+		t.Fatalf("expected persistence.postgres.dsn required validation error, got %v", err)
 	}
 }
 
-func TestLoadIgnoresLegacyDatabaseDSNForSQLiteDialect(t *testing.T) {
+func TestLoadIgnoresLegacyTopLevelSQLiteDSNForSQLiteDialect(t *testing.T) {
 	t.Setenv("APP_RUNTIME__PROFILE", "development")
 	t.Setenv("APP_RUNTIME__REPOSITORY_DIALECT", "sqlite")
-	t.Setenv("APP_SQLITE__DSN", "file:/tmp/esign-primary.sqlite?_busy_timeout=5000&_foreign_keys=on")
-	t.Setenv("APP_DATABASES__ESIGN_DSN", "file:/tmp/esign-legacy.sqlite?_busy_timeout=5000&_foreign_keys=on")
+	t.Setenv("APP_PERSISTENCE__SQLITE__DSN", "file:/tmp/esign-primary.sqlite?_busy_timeout=5000&_foreign_keys=on")
+	t.Setenv("APP_SQLITE__DSN", "file:/tmp/esign-legacy.sqlite?_busy_timeout=5000&_foreign_keys=on")
 
 	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
-	if got := strings.TrimSpace(cfg.SQLite.DSN); !strings.Contains(got, "esign-primary.sqlite") {
-		t.Fatalf("expected sqlite.dsn to ignore databases.esign_dsn, got %q", got)
+	if got := strings.TrimSpace(cfg.Persistence.SQLite.DSN); !strings.Contains(got, "esign-primary.sqlite") {
+		t.Fatalf("expected persistence.sqlite.dsn to ignore legacy top-level sqlite.dsn, got %q", got)
 	}
 }
 
@@ -142,21 +142,21 @@ func TestLoadRejectsUnsupportedRepositoryDialect(t *testing.T) {
 func TestLoadRequiresPostgresDSNWhenPostgresDialectSelected(t *testing.T) {
 	t.Setenv("APP_RUNTIME__PROFILE", "production")
 	t.Setenv("APP_RUNTIME__REPOSITORY_DIALECT", "postgres")
-	t.Setenv("APP_POSTGRES__DSN", "")
+	t.Setenv("APP_PERSISTENCE__POSTGRES__DSN", "")
 
 	_, err := Load()
 	if err == nil {
 		t.Fatalf("expected load error when postgres dialect selected without dsn")
 	}
-	if !strings.Contains(err.Error(), "postgres.dsn is required") {
-		t.Fatalf("expected postgres.dsn required validation error, got %v", err)
+	if !strings.Contains(err.Error(), "persistence.postgres.dsn is required") {
+		t.Fatalf("expected persistence.postgres.dsn required validation error, got %v", err)
 	}
 }
 
 func TestLoadDefaultsUseStableSQLiteDSNForDevelopment(t *testing.T) {
 	t.Setenv("APP_RUNTIME__PROFILE", "development")
 	t.Setenv("APP_RUNTIME__REPOSITORY_DIALECT", "")
-	t.Setenv("APP_SQLITE__DSN", "")
+	t.Setenv("APP_PERSISTENCE__SQLITE__DSN", "")
 
 	cfg, err := Load()
 	if err != nil {
@@ -165,24 +165,24 @@ func TestLoadDefaultsUseStableSQLiteDSNForDevelopment(t *testing.T) {
 	if cfg.Runtime.RepositoryDialect != RepositoryDialectSQLite {
 		t.Fatalf("expected %q repository dialect for development, got %q", RepositoryDialectSQLite, cfg.Runtime.RepositoryDialect)
 	}
-	if strings.TrimSpace(cfg.SQLite.DSN) == "" || !strings.Contains(cfg.SQLite.DSN, "go-admin-esign.sqlite") {
-		t.Fatalf("expected stable sqlite dsn containing go-admin-esign.sqlite, got %q", cfg.SQLite.DSN)
+	if strings.TrimSpace(cfg.Persistence.SQLite.DSN) == "" || !strings.Contains(cfg.Persistence.SQLite.DSN, "go-admin-esign.sqlite") {
+		t.Fatalf("expected stable persistence.sqlite.dsn containing go-admin-esign.sqlite, got %q", cfg.Persistence.SQLite.DSN)
 	}
 }
 
 func TestLoadSupportsMigrationsConfigOverrides(t *testing.T) {
-	t.Setenv("APP_MIGRATIONS__LOCAL_DIR", "tmp/migrations")
-	t.Setenv("APP_MIGRATIONS__LOCAL_ONLY", "true")
+	t.Setenv("APP_PERSISTENCE__MIGRATIONS__LOCAL_DIR", "tmp/migrations")
+	t.Setenv("APP_PERSISTENCE__MIGRATIONS__LOCAL_ONLY", "true")
 
 	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
-	if cfg.Migrations.LocalDir != "tmp/migrations" {
-		t.Fatalf("expected migrations.local_dir override, got %q", cfg.Migrations.LocalDir)
+	if cfg.Persistence.Migrations.LocalDir != "tmp/migrations" {
+		t.Fatalf("expected persistence.migrations.local_dir override, got %q", cfg.Persistence.Migrations.LocalDir)
 	}
-	if !cfg.Migrations.LocalOnly {
-		t.Fatalf("expected migrations.local_only override=true")
+	if !cfg.Persistence.Migrations.LocalOnly {
+		t.Fatalf("expected persistence.migrations.local_only override=true")
 	}
 }
 

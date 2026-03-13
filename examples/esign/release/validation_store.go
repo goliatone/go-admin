@@ -33,9 +33,9 @@ func resolveValidationSQLiteDSN(runLabel string) (string, func()) {
 func newValidationRuntimeStore(ctx context.Context, dsn string) (stores.Store, func() error, error) {
 	cfg := appcfg.Defaults()
 	cfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectSQLite
-	cfg.Migrations.LocalOnly = true
-	cfg.SQLite.DSN = strings.TrimSpace(dsn)
-	cfg.Postgres.DSN = ""
+	cfg.Persistence.Migrations.LocalOnly = true
+	cfg.Persistence.SQLite.DSN = strings.TrimSpace(dsn)
+	cfg.Persistence.Postgres.DSN = ""
 
 	bootstrap, err := esignpersistence.Bootstrap(ctx, cfg)
 	if err != nil {

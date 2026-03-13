@@ -136,18 +136,18 @@ func resolveDialectInput(cfg appcfg.Config) string {
 }
 
 func resolveDSN(cfg appcfg.Config, dialect Dialect) (string, error) {
-	sqliteDSN := strings.TrimSpace(cfg.SQLite.DSN)
-	postgresDSN := strings.TrimSpace(cfg.Postgres.DSN)
+	sqliteDSN := strings.TrimSpace(cfg.Persistence.SQLite.DSN)
+	postgresDSN := strings.TrimSpace(cfg.Persistence.Postgres.DSN)
 
 	switch dialect {
 	case DialectSQLite:
 		if sqliteDSN == "" {
-			return "", fmt.Errorf("persistence bootstrap: sqlite.dsn is required when runtime.repository_dialect=%s", DialectSQLite)
+			return "", fmt.Errorf("persistence bootstrap: persistence.sqlite.dsn is required when runtime.repository_dialect=%s", DialectSQLite)
 		}
 		return sqliteDSN, nil
 	case DialectPostgres:
 		if postgresDSN == "" {
-			return "", fmt.Errorf("persistence bootstrap: postgres.dsn is required when runtime.repository_dialect=%s", DialectPostgres)
+			return "", fmt.Errorf("persistence bootstrap: persistence.postgres.dsn is required when runtime.repository_dialect=%s", DialectPostgres)
 		}
 		return postgresDSN, nil
 	default:

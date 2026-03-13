@@ -24,7 +24,7 @@ const (
 // DraftService coordinates six-step wizard draft persistence and send conversion.
 type DraftService struct {
 	drafts     stores.DraftStore
-	audits     stores.AuditEventStore
+	audits     stores.DraftAuditEventStore
 	agreements AgreementService
 	tx         stores.TransactionManager
 	now        func() time.Time
@@ -55,7 +55,7 @@ func WithDraftTTL(ttl time.Duration) DraftServiceOption {
 }
 
 // WithDraftAuditStore overrides append-only audit sink for draft lifecycle events.
-func WithDraftAuditStore(audits stores.AuditEventStore) DraftServiceOption {
+func WithDraftAuditStore(audits stores.DraftAuditEventStore) DraftServiceOption {
 	return func(s *DraftService) {
 		if s == nil || audits == nil {
 			return
@@ -194,31 +194,36 @@ func (s DraftService) Create(ctx context.Context, scope stores.Scope, input Draf
 
 	now := s.now().UTC()
 	expiresAt := now.Add(s.ttl).UTC()
-	record, replay, err := s.drafts.CreateDraftSession(ctx, scope, stores.DraftRecord{
-		WizardID:        wizardID,
-		CreatedByUserID: createdByUserID,
-		DocumentID:      documentID,
-		Title:           strings.TrimSpace(input.Title),
-		CurrentStep:     input.CurrentStep,
-		WizardStateJSON: mustJSON(normalizedWizardState),
-		CreatedAt:       now,
-		UpdatedAt:       now,
-		ExpiresAt:       expiresAt,
+	record := stores.DraftRecord{}
+	replay := false
+	err = s.withWriteTx(ctx, func(txSvc DraftService) error {
+		record, replay, err = txSvc.drafts.CreateDraftSession(ctx, scope, stores.DraftRecord{
+			WizardID:        wizardID,
+			CreatedByUserID: createdByUserID,
+			DocumentID:      documentID,
+			Title:           strings.TrimSpace(input.Title),
+			CurrentStep:     input.CurrentStep,
+			WizardStateJSON: mustJSON(normalizedWizardState),
+			CreatedAt:       now,
+			UpdatedAt:       now,
+			ExpiresAt:       expiresAt,
+		})
+		if err != nil {
+			return err
+		}
+
+		eventType := "draft.created"
+		if replay {
+			eventType = "draft.replayed"
+		}
+		return txSvc.appendDraftAudit(ctx, scope, record.ID, eventType, createdByUserID, map[string]any{
+			"wizard_id":    record.WizardID,
+			"current_step": record.CurrentStep,
+			"revision":     record.Revision,
+			"replay":       replay,
+		})
 	})
 	if err != nil {
-		return stores.DraftRecord{}, false, err
-	}
-
-	eventType := "draft.created"
-	if replay {
-		eventType = "draft.replayed"
-	}
-	if err := s.appendDraftAudit(ctx, scope, record.ID, eventType, createdByUserID, map[string]any{
-		"wizard_id":    record.WizardID,
-		"current_step": record.CurrentStep,
-		"revision":     record.Revision,
-		"replay":       replay,
-	}); err != nil {
 		return stores.DraftRecord{}, false, err
 	}
 	return record, replay, nil
@@ -321,15 +326,19 @@ func (s DraftService) Update(ctx context.Context, scope stores.Scope, id string,
 		patch.DocumentID = &documentID
 	}
 
-	record, err := s.drafts.UpdateDraftSession(ctx, scope, strings.TrimSpace(id), patch, input.ExpectedRevision)
+	record := stores.DraftRecord{}
+	err = s.withWriteTx(ctx, func(txSvc DraftService) error {
+		record, err = txSvc.drafts.UpdateDraftSession(ctx, scope, strings.TrimSpace(id), patch, input.ExpectedRevision)
+		if err != nil {
+			return err
+		}
+		return txSvc.appendDraftAudit(ctx, scope, record.ID, "draft.updated", strings.TrimSpace(input.UpdatedByUserID), map[string]any{
+			"wizard_id":    record.WizardID,
+			"current_step": record.CurrentStep,
+			"revision":     record.Revision,
+		})
+	})
 	if err != nil {
-		return stores.DraftRecord{}, err
-	}
-	if err := s.appendDraftAudit(ctx, scope, record.ID, "draft.updated", strings.TrimSpace(input.UpdatedByUserID), map[string]any{
-		"wizard_id":    record.WizardID,
-		"current_step": record.CurrentStep,
-		"revision":     record.Revision,
-	}); err != nil {
 		return stores.DraftRecord{}, err
 	}
 	return record, nil
@@ -646,15 +655,14 @@ func (s DraftService) Delete(ctx context.Context, scope stores.Scope, id, create
 	if err != nil {
 		return err
 	}
-	if err := s.drafts.DeleteDraftSession(ctx, scope, strings.TrimSpace(id)); err != nil {
-		return err
-	}
-	if err := s.appendDraftAudit(ctx, scope, draft.ID, "draft.deleted", strings.TrimSpace(createdByUserID), map[string]any{
-		"wizard_id": draft.WizardID,
-	}); err != nil {
-		return err
-	}
-	return nil
+	return s.withWriteTx(ctx, func(txSvc DraftService) error {
+		if err := txSvc.drafts.DeleteDraftSession(ctx, scope, strings.TrimSpace(id)); err != nil {
+			return err
+		}
+		return txSvc.appendDraftAudit(ctx, scope, draft.ID, "draft.deleted", strings.TrimSpace(createdByUserID), map[string]any{
+			"wizard_id": draft.WizardID,
+		})
+	})
 }
 
 // Send converts a draft to a sent agreement in a single transaction and deletes the draft on success.
@@ -812,15 +820,20 @@ func (s DraftService) CleanupExpiredDrafts(ctx context.Context, before time.Time
 	if before.IsZero() {
 		before = s.now().UTC()
 	}
-	count, err := s.drafts.DeleteExpiredDraftSessions(ctx, before)
+	count := 0
+	err := s.withWriteTx(ctx, func(txSvc DraftService) error {
+		var err error
+		count, err = txSvc.drafts.DeleteExpiredDraftSessions(ctx, before)
+		if err != nil {
+			return err
+		}
+		return txSvc.appendDraftAudit(ctx, stores.Scope{TenantID: "system", OrgID: "system"}, "draft_cleanup", "draft.cleanup_expired", "system", map[string]any{
+			"deleted": count,
+			"before":  before.UTC().Format(time.RFC3339Nano),
+		})
+	})
 	if err != nil {
 		return 0, err
-	}
-	if err := s.appendDraftAudit(ctx, stores.Scope{TenantID: "system", OrgID: "system"}, "draft_cleanup", "draft.cleanup_expired", "system", map[string]any{
-		"deleted": count,
-		"before":  before.UTC().Format(time.RFC3339Nano),
-	}); err != nil {
-		return count, err
 	}
 	return count, nil
 }
@@ -1186,8 +1199,8 @@ func (s DraftService) appendDraftAudit(ctx context.Context, scope stores.Scope, 
 	if err != nil {
 		return fmt.Errorf("draft audit encode %s for %s: %w", strings.TrimSpace(eventType), strings.TrimSpace(draftID), err)
 	}
-	if _, err := s.audits.Append(ctx, scope, stores.AuditEventRecord{
-		AgreementID:  strings.TrimSpace(draftID),
+	if _, err := s.audits.AppendDraftEvent(ctx, scope, stores.DraftAuditEventRecord{
+		DraftID:      strings.TrimSpace(draftID),
 		EventType:    strings.TrimSpace(eventType),
 		ActorType:    actorType,
 		ActorID:      strings.TrimSpace(actorID),

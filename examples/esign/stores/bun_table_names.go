@@ -54,6 +54,10 @@ func (*SavedSignerSignatureRecord) TableName() string {
 	return "saved_signer_signatures"
 }
 
+func (*DraftAuditEventRecord) TableName() string {
+	return "draft_audit_events"
+}
+
 func (*AuditEventRecord) TableName() string {
 	return "audit_events"
 }

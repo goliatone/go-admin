@@ -41,6 +41,7 @@ type InMemoryStore struct {
 	signerProfileIndex         map[string]string
 	savedSignerSignatures      map[string]SavedSignerSignatureRecord
 	fieldValues                map[string]FieldValueRecord
+	draftAuditEvents           map[string]DraftAuditEventRecord
 	auditEvents                map[string]AuditEventRecord
 	agreementArtifacts         map[string]AgreementArtifactRecord
 	emailLogs                  map[string]EmailLogRecord
@@ -85,6 +86,7 @@ func NewInMemoryStore() *InMemoryStore {
 		signerProfileIndex:         map[string]string{},
 		savedSignerSignatures:      map[string]SavedSignerSignatureRecord{},
 		fieldValues:                map[string]FieldValueRecord{},
+		draftAuditEvents:           map[string]DraftAuditEventRecord{},
 		auditEvents:                map[string]AuditEventRecord{},
 		agreementArtifacts:         map[string]AgreementArtifactRecord{},
 		emailLogs:                  map[string]EmailLogRecord{},
@@ -183,6 +185,7 @@ func (s *InMemoryStore) snapshot() (sqliteStoreSnapshot, error) {
 		SignerProfileIndex:         s.signerProfileIndex,
 		SavedSignerSignatures:      s.savedSignerSignatures,
 		FieldValues:                s.fieldValues,
+		DraftAuditEvents:           s.draftAuditEvents,
 		AuditEvents:                s.auditEvents,
 		AgreementArtifacts:         s.agreementArtifacts,
 		EmailLogs:                  s.emailLogs,
@@ -236,6 +239,7 @@ func (s *InMemoryStore) applySnapshot(snapshot sqliteStoreSnapshot) {
 	s.signerProfileIndex = ensureStringMap(snapshot.SignerProfileIndex)
 	s.savedSignerSignatures = ensureSavedSignerSignatureMap(snapshot.SavedSignerSignatures)
 	s.fieldValues = ensureFieldValueMap(snapshot.FieldValues)
+	s.draftAuditEvents = ensureDraftAuditEventMap(snapshot.DraftAuditEvents)
 	s.auditEvents = ensureAuditEventMap(snapshot.AuditEvents)
 	s.agreementArtifacts = ensureAgreementArtifactMap(snapshot.AgreementArtifacts)
 	s.emailLogs = ensureEmailLogMap(snapshot.EmailLogs)
@@ -2891,6 +2895,80 @@ func (s *InMemoryStore) Append(ctx context.Context, scope Scope, event AuditEven
 	}
 	s.auditEvents[key] = event
 	return event, nil
+}
+
+func (s *InMemoryStore) AppendDraftEvent(ctx context.Context, scope Scope, event DraftAuditEventRecord) (DraftAuditEventRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return DraftAuditEventRecord{}, err
+	}
+	if normalizeID(event.ID) == "" {
+		event.ID = uuid.NewString()
+	}
+	event.ID = normalizeID(event.ID)
+	event.DraftID = normalizeID(event.DraftID)
+	if event.DraftID == "" {
+		return DraftAuditEventRecord{}, invalidRecordError("draft_audit_events", "draft_id", "required")
+	}
+	if strings.TrimSpace(event.EventType) == "" {
+		return DraftAuditEventRecord{}, invalidRecordError("draft_audit_events", "event_type", "required")
+	}
+
+	event.TenantID = scope.TenantID
+	event.OrgID = scope.OrgID
+	event.CreatedAt = normalizeRecordTime(event.CreatedAt)
+
+	key := scopedKey(scope, event.ID)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, exists := s.draftAuditEvents[key]; exists {
+		return DraftAuditEventRecord{}, invalidRecordError("draft_audit_events", "id", "already exists")
+	}
+	s.draftAuditEvents[key] = event
+	return event, nil
+}
+
+func (s *InMemoryStore) ListDraftEvents(ctx context.Context, scope Scope, draftID string, query DraftAuditEventQuery) ([]DraftAuditEventRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return nil, err
+	}
+	draftID = normalizeID(draftID)
+	if draftID == "" {
+		return nil, invalidRecordError("draft_audit_events", "draft_id", "required")
+	}
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	out := make([]DraftAuditEventRecord, 0)
+	for _, record := range s.draftAuditEvents {
+		if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
+			continue
+		}
+		if record.DraftID != draftID {
+			continue
+		}
+		out = append(out, record)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if query.SortDesc {
+			return out[i].CreatedAt.After(out[j].CreatedAt)
+		}
+		return out[i].CreatedAt.Before(out[j].CreatedAt)
+	})
+	if query.Offset > 0 {
+		if query.Offset >= len(out) {
+			return []DraftAuditEventRecord{}, nil
+		}
+		out = out[query.Offset:]
+	}
+	if query.Limit > 0 && query.Limit < len(out) {
+		out = out[:query.Limit]
+	}
+	return out, nil
 }
 
 func (s *InMemoryStore) ListForAgreement(ctx context.Context, scope Scope, agreementID string, query AuditEventQuery) ([]AuditEventRecord, error) {

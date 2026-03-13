@@ -33,9 +33,9 @@ func newRuntimeSQLiteAdapter(t *testing.T) (*StoreAdapter, func()) {
 	t.Helper()
 	cfg := appcfg.Defaults()
 	cfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectSQLite
-	cfg.Migrations.LocalOnly = true
-	cfg.SQLite.DSN = "file:" + filepath.Join(t.TempDir(), "runtime-relational-service.db") + "?_busy_timeout=5000&_foreign_keys=on"
-	cfg.Postgres.DSN = ""
+	cfg.Persistence.Migrations.LocalOnly = true
+	cfg.Persistence.SQLite.DSN = "file:" + filepath.Join(t.TempDir(), "runtime-relational-service.db") + "?_busy_timeout=5000&_foreign_keys=on"
+	cfg.Persistence.Postgres.DSN = ""
 
 	bootstrap, err := Bootstrap(context.Background(), cfg)
 	if err != nil {
@@ -48,8 +48,8 @@ func newRuntimePostgresAdapter(t *testing.T) (*StoreAdapter, func()) {
 	t.Helper()
 	cfg := appcfg.Defaults()
 	cfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectPostgres
-	cfg.Postgres.DSN = requirePostgresTestDSN(t)
-	cfg.SQLite.DSN = ""
+	cfg.Persistence.Postgres.DSN = requirePostgresTestDSN(t)
+	cfg.Persistence.SQLite.DSN = ""
 
 	bootstrap, err := Bootstrap(context.Background(), cfg)
 	if err != nil {

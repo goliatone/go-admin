@@ -101,6 +101,7 @@ func (b *runtimeRelationalStoreSync) loadSnapshotWithIDB(ctx context.Context, id
 		SignerProfileIndex:         map[string]string{},
 		SavedSignerSignatures:      map[string]stores.SavedSignerSignatureRecord{},
 		FieldValues:                map[string]stores.FieldValueRecord{},
+		DraftAuditEvents:           map[string]stores.DraftAuditEventRecord{},
 		AuditEvents:                map[string]stores.AuditEventRecord{},
 		AgreementArtifacts:         map[string]stores.AgreementArtifactRecord{},
 		EmailLogs:                  map[string]stores.EmailLogRecord{},
@@ -298,6 +299,17 @@ func (b *runtimeRelationalStoreSync) loadSnapshotWithIDB(ctx context.Context, id
 			continue
 		}
 		snapshot.FieldValues[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
+	}
+
+	draftAuditEvents, err := listRepositoryRecords(ctx, idb, b.factory.DraftAuditEvents())
+	if err != nil {
+		return snapshot, fmt.Errorf("runtime relational store sync: list draft audit events: %w", err)
+	}
+	for _, record := range draftAuditEvents {
+		if record == nil {
+			continue
+		}
+		snapshot.DraftAuditEvents[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
 	}
 
 	auditEvents, err := listRepositoryRecords(ctx, idb, b.factory.AuditEvents())
@@ -524,7 +536,7 @@ func (b *runtimeRelationalStoreSync) persistSnapshot(ctx context.Context, snapsh
 
 	for i := len(specs) - 1; i >= 0; i-- {
 		spec := specs[i]
-		if strings.EqualFold(strings.TrimSpace(spec.table), "audit_events") {
+		if isAppendOnlyRuntimeTable(spec.table) {
 			continue
 		}
 		tableColumns := columnMap[spec.table]
@@ -831,7 +843,7 @@ func upsertRuntimeRowForDialect(
 		}
 		assignments = append(assignments, column+" = excluded."+column)
 	}
-	if strings.EqualFold(strings.TrimSpace(spec.table), "audit_events") {
+	if isAppendOnlyRuntimeTable(spec.table) {
 		assignments = nil
 	}
 
@@ -846,6 +858,15 @@ func upsertRuntimeRowForDialect(
 		return err
 	}
 	return nil
+}
+
+func isAppendOnlyRuntimeTable(table string) bool {
+	switch strings.ToLower(strings.TrimSpace(table)) {
+	case "audit_events", "draft_audit_events":
+		return true
+	default:
+		return false
+	}
 }
 
 func deleteMissingRowsByKey(

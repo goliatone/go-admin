@@ -84,8 +84,8 @@ func TestPhase8MigrationContractVersionParityAcrossDialectTrees(t *testing.T) {
 func TestPhase8RepositoryStoreParitySQLiteAndPostgresContract(t *testing.T) {
 	cfg := appcfg.Defaults()
 	cfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectSQLite
-	cfg.SQLite.DSN = "file:" + filepath.Join(t.TempDir(), "phase8-parity.sqlite") + "?_busy_timeout=5000&_foreign_keys=on"
-	cfg.Postgres.DSN = ""
+	cfg.Persistence.SQLite.DSN = "file:" + filepath.Join(t.TempDir(), "phase8-parity.sqlite") + "?_busy_timeout=5000&_foreign_keys=on"
+	cfg.Persistence.Postgres.DSN = ""
 
 	handles, err := OpenClient(context.Background(), cfg)
 	if err != nil {
@@ -108,6 +108,7 @@ func TestPhase8RepositoryStoreParitySQLiteAndPostgresContract(t *testing.T) {
 		"field_instances",
 		"signing_tokens",
 		"field_values",
+		"draft_audit_events",
 		"audit_events",
 		"signature_artifacts",
 		"signer_profiles",
@@ -187,7 +188,7 @@ func orderedSourceRootsForPhase8(t *testing.T) map[string]fs.FS {
 	t.Helper()
 	cfg := appcfg.Defaults()
 	cfg.Services.ModuleEnabled = true
-	cfg.Migrations.LocalOnly = false
+	cfg.Persistence.Migrations.LocalOnly = false
 
 	authRoot, err := resolveMigrationFS(auth.GetMigrationsFS(), "data/sql/migrations")
 	if err != nil {

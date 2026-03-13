@@ -47,12 +47,12 @@ type EmailConfig = Email
 type EmailSMTPConfig = SMTP
 type SignerConfig = Signer
 type SignerPDFConfig = Pdf
-type SignerPDFRemediationConfig = PdfRemediation
-type SignerPDFRemediationCommandConfig = PdfRemediationCommand
+type SignerPDFRemediationConfig = Remediation
+type SignerPDFRemediationCommandConfig = Command
 type ServicesConfig = Services
 type GoogleConfig = Google
 type PublicConfig = Public
-type DatabasesConfig = Databases
+type PersistenceConfig = Persistence
 type SQLiteConfig = Sqlite
 type PostgresConfig = Postgres
 type MigrationsConfig = Migrations
@@ -302,16 +302,17 @@ func Defaults() Config {
 		Public: PublicConfig{
 			BaseURL: "http://localhost:8082",
 		},
-		Databases: DatabasesConfig{},
-		SQLite: SQLiteConfig{
-			DSN: defaultSQLiteDSN,
-		},
-		Postgres: PostgresConfig{
-			DSN: "",
-		},
-		Migrations: MigrationsConfig{
-			LocalDir:  defaultMigrationsLocalDir,
-			LocalOnly: false,
+		Persistence: PersistenceConfig{
+			SQLite: SQLiteConfig{
+				DSN: defaultSQLiteDSN,
+			},
+			Postgres: PostgresConfig{
+				DSN: "",
+			},
+			Migrations: MigrationsConfig{
+				LocalDir:  defaultMigrationsLocalDir,
+				LocalOnly: false,
+			},
 		},
 		Network: NetworkConfig{
 			RateLimitTrustProxyHeaders: false,
@@ -516,12 +517,12 @@ func validateRepositoryDialect(c *Config) error {
 	}
 	switch c.Runtime.RepositoryDialect {
 	case RepositoryDialectSQLite:
-		if strings.TrimSpace(c.SQLite.DSN) == "" {
-			return fmt.Errorf("sqlite.dsn is required when runtime.repository_dialect=%s", RepositoryDialectSQLite)
+		if strings.TrimSpace(c.Persistence.SQLite.DSN) == "" {
+			return fmt.Errorf("persistence.sqlite.dsn is required when runtime.repository_dialect=%s", RepositoryDialectSQLite)
 		}
 	case RepositoryDialectPostgres:
-		if strings.TrimSpace(c.Postgres.DSN) == "" {
-			return fmt.Errorf("postgres.dsn is required when runtime.repository_dialect=%s", RepositoryDialectPostgres)
+		if strings.TrimSpace(c.Persistence.Postgres.DSN) == "" {
+			return fmt.Errorf("persistence.postgres.dsn is required when runtime.repository_dialect=%s", RepositoryDialectPostgres)
 		}
 	}
 	return nil
@@ -725,17 +726,15 @@ func (c *Config) applyPersistenceDefaults() {
 		}
 	}
 
-	c.Databases.ESignDSN = strings.TrimSpace(c.Databases.ESignDSN)
-	c.Databases.ContentDSN = strings.TrimSpace(c.Databases.ContentDSN)
-	c.SQLite.DSN = strings.TrimSpace(c.SQLite.DSN)
-	c.Postgres.DSN = strings.TrimSpace(c.Postgres.DSN)
-	c.Migrations.LocalDir = strings.TrimSpace(c.Migrations.LocalDir)
-	if c.Migrations.LocalDir == "" {
-		c.Migrations.LocalDir = defaultMigrationsLocalDir
+	c.Persistence.SQLite.DSN = strings.TrimSpace(c.Persistence.SQLite.DSN)
+	c.Persistence.Postgres.DSN = strings.TrimSpace(c.Persistence.Postgres.DSN)
+	c.Persistence.Migrations.LocalDir = strings.TrimSpace(c.Persistence.Migrations.LocalDir)
+	if c.Persistence.Migrations.LocalDir == "" {
+		c.Persistence.Migrations.LocalDir = defaultMigrationsLocalDir
 	}
 
-	if c.SQLite.DSN == "" {
-		c.SQLite.DSN = defaultSQLiteDSN
+	if c.Persistence.SQLite.DSN == "" {
+		c.Persistence.SQLite.DSN = defaultSQLiteDSN
 	}
 }
 

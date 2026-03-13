@@ -21,6 +21,7 @@ type FixtureSet struct {
 	FieldID                 string
 	FieldValueID            string
 	SignatureArtifactID     string
+	DraftAuditEventID       string
 	AuditEventID            string
 	EmailLogID              string
 	IntegrationCredentialID string
@@ -50,6 +51,7 @@ func SeedCoreFixtures(ctx context.Context, db bun.IDB, scope Scope) (FixtureSet,
 		FieldID:                 uuid.NewString(),
 		FieldValueID:            uuid.NewString(),
 		SignatureArtifactID:     uuid.NewString(),
+		DraftAuditEventID:       uuid.NewString(),
 		AuditEventID:            uuid.NewString(),
 		EmailLogID:              uuid.NewString(),
 		IntegrationCredentialID: uuid.NewString(),
@@ -132,6 +134,13 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
 INSERT INTO audit_events (id, tenant_id, org_id, agreement_id, event_type, actor_type, actor_id, ip_address, user_agent, metadata_json, created_at)
 VALUES (?, ?, ?, ?, 'agreement.created', 'user', 'fixture-user', '127.0.0.1', 'fixture-agent', '{}', ?)
 `, fx.AuditEventID, scope.TenantID, scope.OrgID, fx.AgreementID, now); err != nil {
+		return FixtureSet{}, err
+	}
+
+	if _, err := db.ExecContext(ctx, `
+INSERT INTO draft_audit_events (id, tenant_id, org_id, draft_id, event_type, actor_type, actor_id, metadata_json, created_at)
+VALUES (?, ?, ?, ?, 'draft.created', 'user', 'fixture-user', '{}', ?)
+`, fx.DraftAuditEventID, scope.TenantID, scope.OrgID, "fixture-draft-id", now); err != nil {
 		return FixtureSet{}, err
 	}
 

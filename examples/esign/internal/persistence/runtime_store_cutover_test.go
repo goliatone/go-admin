@@ -14,9 +14,9 @@ func newPhase10SQLiteBootstrap(t *testing.T, dsn string) *BootstrapResult {
 	t.Helper()
 	cfg := appcfg.Defaults()
 	cfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectSQLite
-	cfg.Migrations.LocalOnly = true
-	cfg.SQLite.DSN = dsn
-	cfg.Postgres.DSN = ""
+	cfg.Persistence.Migrations.LocalOnly = true
+	cfg.Persistence.SQLite.DSN = dsn
+	cfg.Persistence.Postgres.DSN = ""
 
 	bootstrap, err := Bootstrap(context.Background(), cfg)
 	if err != nil {

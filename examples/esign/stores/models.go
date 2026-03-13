@@ -454,6 +454,20 @@ type SavedSignerSignatureRecord struct {
 	CreatedAt        time.Time
 }
 
+// DraftAuditEventRecord captures append-only draft lifecycle events before an agreement exists.
+type DraftAuditEventRecord struct {
+	bun.BaseModel `bun:"table:draft_audit_events,alias:dae"`
+	ID            string
+	TenantID      string
+	OrgID         string
+	DraftID       string
+	EventType     string
+	ActorType     string
+	ActorID       string
+	MetadataJSON  string
+	CreatedAt     time.Time
+}
+
 // AuditEventRecord represents append-only lifecycle and security events.
 type AuditEventRecord struct {
 	bun.BaseModel `bun:"table:audit_events,alias:aev"`
@@ -946,6 +960,12 @@ type DraftQuery struct {
 	Limit           int
 	Cursor          string
 	SortDesc        bool
+}
+
+type DraftAuditEventQuery struct {
+	Limit    int
+	Offset   int
+	SortDesc bool
 }
 
 type AuditEventQuery struct {

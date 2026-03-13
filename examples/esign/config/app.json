@@ -35,7 +35,7 @@
     "profile": "development",
     "startup_policy": "enforce",
     "strict_startup": false,
-    "repository_dialect": ""
+    "repository_dialect": "postgres"
   },
   "reminders": {
     "enabled": false,
@@ -91,10 +91,7 @@
         "enabled": false,
         "execution_mode": "inline",
         "auto_on_upload": false,
-        "candidate_reasons": [
-          "import.failed",
-          "parse.failed"
-        ],
+        "candidate_reasons": ["import.failed", "parse.failed"],
         "lease_ttl_ms": 60000,
         "command": {
           "bin": "gs",
@@ -136,26 +133,21 @@
   "public": {
     "base_url": "http://localhost:8082"
   },
-  "databases": {
-    "esign_dsn": "postgres://esign:esign@127.0.0.1:5439/esign?sslmode=disable",
-    "content_dsn": ""
-  },
-  "sqlite": {
-    "dsn": "file:data/db/go-admin-esign.sqlite?_busy_timeout=5000&_foreign_keys=on"
-  },
-  "postgres": {
-    "dsn": ""
-  },
-  "migrations": {
-    "local_dir": "data/sql/migrations",
-    "local_only": false
+  "persistence": {
+    "sqlite": {
+      "dsn": "file:data/db/go-admin-esign.sqlite?_busy_timeout=5000&_foreign_keys=on"
+    },
+    "postgres": {
+      "dsn": "postgres://esign:esign@127.0.0.1:5439/esign?sslmode=disable"
+    },
+    "migrations": {
+      "local_dir": "data/sql/migrations",
+      "local_only": false
+    }
   },
   "network": {
     "rate_limit_trust_proxy_headers": false,
-    "trusted_proxy_cidrs": [
-      "127.0.0.1/32",
-      "::1/128"
-    ],
+    "trusted_proxy_cidrs": ["127.0.0.1/32", "::1/128"],
     "rate_limit": {
       "signer_session": {
         "max_requests": 60,

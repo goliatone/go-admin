@@ -139,33 +139,30 @@ func TestPhase8GuardrailRuntimePersistenceWiringDoesNotUseSnapshotBackendContrac
 	phase8AssertNoPatternMatches(t, repoRoot, files, pattern, "runtime persistence wiring must not depend on snapshot backend contracts")
 }
 
-func TestPhase8GuardrailLegacyDSNAliasesAreIgnoredByRuntimeDialectResolution(t *testing.T) {
+func TestPhase8GuardrailRuntimeDialectResolutionRequiresNestedPersistenceDSNs(t *testing.T) {
 	sqliteCfg := appcfg.Defaults()
 	sqliteCfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectSQLite
-	sqliteCfg.SQLite.DSN = ""
-	sqliteCfg.Databases.ESignDSN = "file:/tmp/legacy.sqlite?_busy_timeout=5000&_foreign_keys=on"
+	sqliteCfg.Persistence.SQLite.DSN = ""
 	if _, err := resolveDSN(sqliteCfg, DialectSQLite); err == nil {
-		t.Fatalf("expected sqlite resolveDSN failure when sqlite.dsn is missing and only legacy alias is set")
+		t.Fatalf("expected sqlite resolveDSN failure when persistence.sqlite.dsn is missing")
 	}
 
 	postgresCfg := appcfg.Defaults()
 	postgresCfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectPostgres
-	postgresCfg.Postgres.DSN = ""
-	postgresCfg.Databases.ESignDSN = "postgres://legacy:legacy@localhost:5432/esign?sslmode=disable"
+	postgresCfg.Persistence.Postgres.DSN = ""
 	if _, err := resolveDSN(postgresCfg, DialectPostgres); err == nil {
-		t.Fatalf("expected postgres resolveDSN failure when postgres.dsn is missing and only legacy alias is set")
+		t.Fatalf("expected postgres resolveDSN failure when persistence.postgres.dsn is missing")
 	}
 
-	ignoredAliasCfg := appcfg.Defaults()
-	ignoredAliasCfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectSQLite
-	ignoredAliasCfg.SQLite.DSN = "file:/tmp/sqlite-safe.sqlite?_busy_timeout=5000&_foreign_keys=on"
-	ignoredAliasCfg.Databases.ESignDSN = "postgres://legacy:legacy@localhost:5432/esign?sslmode=disable"
-	dsn, err := resolveDSN(ignoredAliasCfg, DialectSQLite)
+	nestedCfg := appcfg.Defaults()
+	nestedCfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectSQLite
+	nestedCfg.Persistence.SQLite.DSN = "file:/tmp/sqlite-safe.sqlite?_busy_timeout=5000&_foreign_keys=on"
+	dsn, err := resolveDSN(nestedCfg, DialectSQLite)
 	if err != nil {
-		t.Fatalf("expected explicit sqlite.dsn to resolve even with conflicting legacy alias present: %v", err)
+		t.Fatalf("expected explicit persistence.sqlite.dsn to resolve: %v", err)
 	}
-	if dsn != ignoredAliasCfg.SQLite.DSN {
-		t.Fatalf("expected resolveDSN to return sqlite.dsn %q, got %q", ignoredAliasCfg.SQLite.DSN, dsn)
+	if dsn != nestedCfg.Persistence.SQLite.DSN {
+		t.Fatalf("expected resolveDSN to return persistence.sqlite.dsn %q, got %q", nestedCfg.Persistence.SQLite.DSN, dsn)
 	}
 }
 

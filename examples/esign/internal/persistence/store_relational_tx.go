@@ -1411,7 +1411,7 @@ func listDocumentRecords(ctx context.Context, idb bun.IDB, scope stores.Scope, q
 		sel = sel.Where("LOWER(title) LIKE ?", "%"+strings.ToLower(titleFilter)+"%")
 	}
 	if createdBy := normalizeRelationalID(query.CreatedByUserID); createdBy != "" {
-		sel = sel.Where("created_by_user_id = ?", createdBy)
+		sel = sel.Where("created_by = ?", createdBy)
 	}
 	switch strings.ToLower(strings.TrimSpace(query.SortBy)) {
 	case "updated_at":
@@ -3141,6 +3141,31 @@ func (s *relationalTxStore) RevokeActiveSigningTokens(ctx context.Context, scope
 		return 0, err
 	}
 	return int(rows), nil
+}
+
+func (s *relationalTxStore) AppendDraftEvent(ctx context.Context, scope stores.Scope, event stores.DraftAuditEventRecord) (stores.DraftAuditEventRecord, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return stores.DraftAuditEventRecord{}, err
+	}
+	event.ID = normalizeRelationalID(event.ID)
+	if event.ID == "" {
+		event.ID = uuid.NewString()
+	}
+	event.DraftID = normalizeRelationalID(event.DraftID)
+	if event.DraftID == "" {
+		return stores.DraftAuditEventRecord{}, relationalInvalidRecordError("draft_audit_events", "draft_id", "required")
+	}
+	if strings.TrimSpace(event.EventType) == "" {
+		return stores.DraftAuditEventRecord{}, relationalInvalidRecordError("draft_audit_events", "event_type", "required")
+	}
+	event.TenantID = scope.TenantID
+	event.OrgID = scope.OrgID
+	event.CreatedAt = relationalTimeOrNow(event.CreatedAt)
+	if _, err := s.tx.NewInsert().Model(&event).Exec(ctx); err != nil {
+		return stores.DraftAuditEventRecord{}, relationalUniqueConstraintError(err, "draft_audit_events", "id")
+	}
+	return event, nil
 }
 
 func (s *relationalTxStore) Append(ctx context.Context, scope stores.Scope, event stores.AuditEventRecord) (stores.AuditEventRecord, error) {

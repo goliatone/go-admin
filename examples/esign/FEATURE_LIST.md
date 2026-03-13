@@ -1,5 +1,8 @@
 # Feature List
 
+## Fingerprinting
+Can we do a file chunk fingerprinting to see which files between google drives might be related and come up with a way to get lineage
+i.e. my personal account has the original draft, moved to colabs, make copy, make copy for client, etc
 
 ## Editing
 

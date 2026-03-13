@@ -48,7 +48,7 @@ func TestRegisterOrderedSourcesDefaultOrder(t *testing.T) {
 
 	cfg := appcfg.Defaults()
 	cfg.Services.ModuleEnabled = true
-	cfg.Migrations.LocalOnly = false
+	cfg.Persistence.Migrations.LocalOnly = false
 
 	labels := make([]string, 0)
 	err := registerOrderedSources(client, cfg, withMigrationObserver(func(reg migrationRegistration) {
@@ -79,7 +79,7 @@ func TestRegisterOrderedSourcesLocalOnly(t *testing.T) {
 	defer cleanup()
 
 	cfg := appcfg.Defaults()
-	cfg.Migrations.LocalOnly = true
+	cfg.Persistence.Migrations.LocalOnly = true
 
 	labels := make([]string, 0)
 	err := registerOrderedSources(client, cfg, withMigrationObserver(func(reg migrationRegistration) {
@@ -96,8 +96,8 @@ func TestRegisterOrderedSourcesLocalOnly(t *testing.T) {
 func TestBootstrapSQLiteRunsMigrationsAndReadiness(t *testing.T) {
 	cfg := appcfg.Defaults()
 	cfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectSQLite
-	cfg.Migrations.LocalOnly = true
-	cfg.SQLite.DSN = "file:" + filepath.Join(t.TempDir(), "bootstrap-phase2.db") + "?_fk=1&_busy_timeout=5000"
+	cfg.Persistence.Migrations.LocalOnly = true
+	cfg.Persistence.SQLite.DSN = "file:" + filepath.Join(t.TempDir(), "bootstrap-phase2.db") + "?_fk=1&_busy_timeout=5000"
 
 	result, err := Bootstrap(context.Background(), cfg)
 	if err != nil {
@@ -134,14 +134,14 @@ func TestResolveDialectInputDefaultsByProfile(t *testing.T) {
 
 func TestResolveDSNRequiresDialectSpecificDSNFields(t *testing.T) {
 	cfg := appcfg.Defaults()
-	cfg.SQLite.DSN = ""
-	cfg.Postgres.DSN = ""
+	cfg.Persistence.SQLite.DSN = ""
+	cfg.Persistence.Postgres.DSN = ""
 
 	if _, err := resolveDSN(cfg, DialectSQLite); err == nil {
-		t.Fatalf("expected sqlite resolveDSN to fail when sqlite.dsn is empty")
+		t.Fatalf("expected sqlite resolveDSN to fail when persistence.sqlite.dsn is empty")
 	}
 
 	if _, err := resolveDSN(cfg, DialectPostgres); err == nil {
-		t.Fatalf("expected postgres resolveDSN to fail when postgres.dsn is empty")
+		t.Fatalf("expected postgres resolveDSN to fail when persistence.postgres.dsn is empty")
 	}
 }

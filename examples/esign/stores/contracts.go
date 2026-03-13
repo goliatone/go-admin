@@ -107,6 +107,12 @@ type AuditEventStore interface {
 	ListForAgreement(ctx context.Context, scope Scope, agreementID string, query AuditEventQuery) ([]AuditEventRecord, error)
 }
 
+// DraftAuditEventStore defines append-only draft lifecycle audit persistence.
+type DraftAuditEventStore interface {
+	AppendDraftEvent(ctx context.Context, scope Scope, event DraftAuditEventRecord) (DraftAuditEventRecord, error)
+	ListDraftEvents(ctx context.Context, scope Scope, draftID string, query DraftAuditEventQuery) ([]DraftAuditEventRecord, error)
+}
+
 // AgreementArtifactStore defines immutable persistence for executed/certificate agreement artifacts.
 type AgreementArtifactStore interface {
 	SaveAgreementArtifacts(ctx context.Context, scope Scope, record AgreementArtifactRecord) (AgreementArtifactRecord, error)
@@ -216,6 +222,7 @@ type TxStore interface {
 	SignatureArtifactStore
 	SignerProfileStore
 	SavedSignerSignatureStore
+	DraftAuditEventStore
 	SigningTokenStore
 	AuditEventStore
 	AgreementArtifactStore

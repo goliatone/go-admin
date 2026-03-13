@@ -15,8 +15,8 @@ func newSQLiteBootstrapForStoreAdapterTests(t *testing.T) *BootstrapResult {
 	t.Helper()
 	cfg := appcfg.Defaults()
 	cfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectSQLite
-	cfg.Migrations.LocalOnly = true
-	cfg.SQLite.DSN = "file:" + filepath.Join(t.TempDir(), "phase4-store-adapter.db") + "?_fk=1&_busy_timeout=5000"
+	cfg.Persistence.Migrations.LocalOnly = true
+	cfg.Persistence.SQLite.DSN = "file:" + filepath.Join(t.TempDir(), "phase4-store-adapter.db") + "?_fk=1&_busy_timeout=5000"
 
 	result, err := Bootstrap(context.Background(), cfg)
 	if err != nil {

@@ -15,8 +15,8 @@ func newPostgresBootstrapForStoreAdapterTests(t *testing.T) *BootstrapResult {
 	t.Helper()
 	cfg := appcfg.Defaults()
 	cfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectPostgres
-	cfg.Postgres.DSN = requirePostgresTestDSN(t)
-	cfg.SQLite.DSN = ""
+	cfg.Persistence.Postgres.DSN = requirePostgresTestDSN(t)
+	cfg.Persistence.SQLite.DSN = ""
 
 	result, err := Bootstrap(context.Background(), cfg)
 	if err != nil {

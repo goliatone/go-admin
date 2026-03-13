@@ -16,9 +16,9 @@ func TestPhase11ReminderStateUpsertAfterRestartUsesLogicalKey(t *testing.T) {
 
 	cfg := appcfg.Defaults()
 	cfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectSQLite
-	cfg.Migrations.LocalOnly = true
-	cfg.SQLite.DSN = dsn
-	cfg.Postgres.DSN = ""
+	cfg.Persistence.Migrations.LocalOnly = true
+	cfg.Persistence.SQLite.DSN = dsn
+	cfg.Persistence.Postgres.DSN = ""
 
 	first, err := Bootstrap(context.Background(), cfg)
 	if err != nil {

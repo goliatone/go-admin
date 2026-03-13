@@ -23,7 +23,7 @@ func TestEnsureRuntimeParityColumnsSQLiteRepairsEmailLogUpdatedAtColumn(t *testi
 	defer func() { _ = client.Close() }()
 
 	cfg := appcfg.Defaults()
-	cfg.Migrations.LocalOnly = true
+	cfg.Persistence.Migrations.LocalOnly = true
 	if err := registerOrderedSources(client, cfg); err != nil {
 		t.Fatalf("registerOrderedSources: %v", err)
 	}
@@ -67,7 +67,7 @@ func TestEnsureRuntimeParityColumnsSQLiteBackfillsEmailLogUpdatedAt(t *testing.T
 	defer func() { _ = client.Close() }()
 
 	cfg := appcfg.Defaults()
-	cfg.Migrations.LocalOnly = true
+	cfg.Persistence.Migrations.LocalOnly = true
 	if err := registerOrderedSources(client, cfg); err != nil {
 		t.Fatalf("registerOrderedSources: %v", err)
 	}

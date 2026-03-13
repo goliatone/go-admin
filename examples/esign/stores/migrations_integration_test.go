@@ -137,6 +137,7 @@ func TestMigrationsApplySeedAndRollbackSQLite(t *testing.T) {
 		"field_definitions",
 		"field_instances",
 		"field_values",
+		"draft_audit_events",
 		"signature_artifacts",
 		"audit_events",
 		"email_logs",

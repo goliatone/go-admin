@@ -84,9 +84,9 @@ func TestStoreAdapterPreservesCommittedStateUnderConcurrentWithTx(t *testing.T) 
 	dsn := "file:" + filepath.Join(t.TempDir(), "runtime-store-concurrency.db") + "?_busy_timeout=5000&_foreign_keys=on"
 	cfg := appcfg.Defaults()
 	cfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectSQLite
-	cfg.Migrations.LocalOnly = true
-	cfg.SQLite.DSN = dsn
-	cfg.Postgres.DSN = ""
+	cfg.Persistence.Migrations.LocalOnly = true
+	cfg.Persistence.SQLite.DSN = dsn
+	cfg.Persistence.Postgres.DSN = ""
 
 	bootstrap, err := Bootstrap(context.Background(), cfg)
 	if err != nil {
@@ -226,9 +226,9 @@ func TestStoreAdapterWithTxRollsBackOnPanic(t *testing.T) {
 	dsn := "file:" + filepath.Join(t.TempDir(), "runtime-store-panic.db") + "?_busy_timeout=5000&_foreign_keys=on"
 	cfg := appcfg.Defaults()
 	cfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectSQLite
-	cfg.Migrations.LocalOnly = true
-	cfg.SQLite.DSN = dsn
-	cfg.Postgres.DSN = ""
+	cfg.Persistence.Migrations.LocalOnly = true
+	cfg.Persistence.SQLite.DSN = dsn
+	cfg.Persistence.Postgres.DSN = ""
 
 	bootstrap, err := Bootstrap(context.Background(), cfg)
 	if err != nil {
@@ -278,9 +278,9 @@ func TestStoreAdapterConcurrentWithTxDoesNotRaceOnEntry(t *testing.T) {
 	dsn := "file:" + filepath.Join(t.TempDir(), "runtime-store-entry.db") + "?_busy_timeout=5000&_foreign_keys=on"
 	cfg := appcfg.Defaults()
 	cfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectSQLite
-	cfg.Migrations.LocalOnly = true
-	cfg.SQLite.DSN = dsn
-	cfg.Postgres.DSN = ""
+	cfg.Persistence.Migrations.LocalOnly = true
+	cfg.Persistence.SQLite.DSN = dsn
+	cfg.Persistence.Postgres.DSN = ""
 
 	bootstrap, err := Bootstrap(context.Background(), cfg)
 	if err != nil {

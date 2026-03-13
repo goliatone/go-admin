@@ -16,9 +16,9 @@ func TestRuntimeRelationalStoreSyncLoadPayloadKeysReminderStatesByScopeAgreement
 	dsn := "file:" + filepath.Join(t.TempDir(), "runtime-reminder-keying.db") + "?_fk=1&_busy_timeout=5000"
 	cfg := appcfg.Defaults()
 	cfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectSQLite
-	cfg.Migrations.LocalOnly = true
-	cfg.SQLite.DSN = dsn
-	cfg.Postgres.DSN = ""
+	cfg.Persistence.Migrations.LocalOnly = true
+	cfg.Persistence.SQLite.DSN = dsn
+	cfg.Persistence.Postgres.DSN = ""
 
 	ctx := context.Background()
 	bootstrap, err := Bootstrap(ctx, cfg)

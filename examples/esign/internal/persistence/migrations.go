@@ -58,7 +58,7 @@ func registerOrderedSources(client *persistence.Client, cfg appcfg.Config, opts 
 	}
 
 	orderedSources := make([]persistence.OrderedMigrationSource, 0, 4)
-	if !cfg.Migrations.LocalOnly {
+	if !cfg.Persistence.Migrations.LocalOnly {
 		authRoot, err := resolveMigrationFS(auth.GetMigrationsFS(), "data/sql/migrations")
 		if err != nil {
 			return fmt.Errorf("resolve %s migrations: %w", migrationSourceLabelAuth, err)
@@ -127,7 +127,7 @@ func resolveMigrationFS(source fs.FS, subdir string) (fs.FS, error) {
 }
 
 func resolveAppLocalMigrationFS(cfg appcfg.Config) (fs.FS, error) {
-	localDir := strings.TrimSpace(cfg.Migrations.LocalDir)
+	localDir := strings.TrimSpace(cfg.Persistence.Migrations.LocalDir)
 	if localDir == "" {
 		localDir = "data/sql/migrations"
 	}

@@ -397,6 +397,38 @@ func listAuditEventRecords(ctx context.Context, idb bun.IDB, scope stores.Scope,
 	return records, nil
 }
 
+func listDraftAuditEventRecords(ctx context.Context, idb bun.IDB, scope stores.Scope, draftID string, query stores.DraftAuditEventQuery) ([]stores.DraftAuditEventRecord, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return nil, err
+	}
+	draftID = strings.TrimSpace(draftID)
+	if draftID == "" {
+		return nil, relationalInvalidRecordError("draft_audit_events", "draft_id", "required")
+	}
+	records := make([]stores.DraftAuditEventRecord, 0)
+	sel := idb.NewSelect().
+		Model(&records).
+		Where("tenant_id = ?", scope.TenantID).
+		Where("org_id = ?", scope.OrgID).
+		Where("draft_id = ?", draftID)
+	if query.SortDesc {
+		sel = sel.OrderExpr("created_at DESC, id DESC")
+	} else {
+		sel = sel.OrderExpr("created_at ASC, id ASC")
+	}
+	if query.Limit > 0 {
+		sel = sel.Limit(query.Limit)
+	}
+	if query.Offset > 0 {
+		sel = sel.Offset(query.Offset)
+	}
+	if err := sel.Scan(ctx, &records); err != nil {
+		return nil, err
+	}
+	return records, nil
+}
+
 func listEmailLogRecords(ctx context.Context, idb bun.IDB, scope stores.Scope, agreementID string) ([]stores.EmailLogRecord, error) {
 	scope, err := normalizedStoreScope(scope)
 	if err != nil {

@@ -207,7 +207,7 @@ func productionRuntimeConfig() appcfg.Config {
 func TestNewESignRuntimeStoreCreatesCanonicalRuntimeAdapterFromSQLiteBootstrapDSN(t *testing.T) {
 	cfg := appcfg.Defaults()
 	cfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectSQLite
-	cfg.SQLite.DSN = "file:" + filepath.Join(t.TempDir(), "runtime-store.db") + "?_busy_timeout=5000&_foreign_keys=on"
+	cfg.Persistence.SQLite.DSN = "file:" + filepath.Join(t.TempDir(), "runtime-store.db") + "?_busy_timeout=5000&_foreign_keys=on"
 	bootstrap, err := esignpersistence.Bootstrap(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("Bootstrap sqlite runtime store test: %v", err)
@@ -233,8 +233,8 @@ func TestNewESignRuntimeStoreSupportsPostgresWhenBootstrapHandlesPresent(t *test
 	dsn := requirePostgresRuntimeTestDSN(t)
 	cfg := appcfg.Defaults()
 	cfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectPostgres
-	cfg.Postgres.DSN = dsn
-	cfg.SQLite.DSN = ""
+	cfg.Persistence.Postgres.DSN = dsn
+	cfg.Persistence.SQLite.DSN = ""
 	bootstrap, err := esignpersistence.Bootstrap(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("Bootstrap postgres runtime store test: %v", err)

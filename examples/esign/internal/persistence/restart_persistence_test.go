@@ -15,8 +15,8 @@ func TestPhase8RestartPersistenceSQLiteSurvivesRestart(t *testing.T) {
 	dsn := "file:" + filepath.Join(t.TempDir(), "phase8-restart.sqlite") + "?_busy_timeout=5000&_foreign_keys=on"
 	cfg := appcfg.Defaults()
 	cfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectSQLite
-	cfg.SQLite.DSN = dsn
-	cfg.Postgres.DSN = ""
+	cfg.Persistence.SQLite.DSN = dsn
+	cfg.Persistence.Postgres.DSN = ""
 
 	const tableName = "phase8_restart_probe_sqlite"
 	const marker = "phase8-sqlite"
@@ -57,8 +57,8 @@ func TestPhase8RestartPersistencePostgresSurvivesRestartWhenDSNProvided(t *testi
 
 	cfg := appcfg.Defaults()
 	cfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectPostgres
-	cfg.Postgres.DSN = dsn
-	cfg.SQLite.DSN = ""
+	cfg.Persistence.Postgres.DSN = dsn
+	cfg.Persistence.SQLite.DSN = ""
 
 	tableName := fmt.Sprintf("phase8_restart_probe_postgres_%d", time.Now().UnixNano())
 	marker := fmt.Sprintf("phase8-postgres-%d", time.Now().UnixNano())

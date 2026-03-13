@@ -387,6 +387,20 @@ func (s *StoreAdapter) RevokeActiveSigningTokens(ctx context.Context, scope stor
 	})
 }
 
+func (s *StoreAdapter) AppendDraftEvent(ctx context.Context, scope stores.Scope, event stores.DraftAuditEventRecord) (stores.DraftAuditEventRecord, error) {
+	return writeWithTx(ctx, s, func(tx stores.TxStore) (stores.DraftAuditEventRecord, error) {
+		return tx.AppendDraftEvent(ctx, scope, event)
+	})
+}
+
+func (s *StoreAdapter) ListDraftEvents(ctx context.Context, scope stores.Scope, draftID string, query stores.DraftAuditEventQuery) ([]stores.DraftAuditEventRecord, error) {
+	idb, err := requireAdapterIDB(s)
+	if err != nil {
+		return nil, err
+	}
+	return listDraftAuditEventRecords(ctx, idb, scope, draftID, query)
+}
+
 func (s *StoreAdapter) Append(ctx context.Context, scope stores.Scope, event stores.AuditEventRecord) (stores.AuditEventRecord, error) {
 	return writeWithTx(ctx, s, func(tx stores.TxStore) (stores.AuditEventRecord, error) {
 		return tx.Append(ctx, scope, event)

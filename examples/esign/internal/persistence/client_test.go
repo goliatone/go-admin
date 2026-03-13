@@ -11,9 +11,9 @@ import (
 func TestOpenClientSQLiteRegistersSourcesAndMigrates(t *testing.T) {
 	cfg := appcfg.Defaults()
 	cfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectSQLite
-	cfg.SQLite.DSN = "file:" + filepath.Join(t.TempDir(), "open-client.sqlite") + "?_busy_timeout=5000&_foreign_keys=on"
-	cfg.Postgres.DSN = ""
-	cfg.Migrations.LocalOnly = false
+	cfg.Persistence.SQLite.DSN = "file:" + filepath.Join(t.TempDir(), "open-client.sqlite") + "?_busy_timeout=5000&_foreign_keys=on"
+	cfg.Persistence.Postgres.DSN = ""
+	cfg.Persistence.Migrations.LocalOnly = false
 
 	handles, err := OpenClient(context.Background(), cfg)
 	if err != nil {
@@ -38,7 +38,7 @@ func TestOpenClientSQLiteRegistersSourcesAndMigrates(t *testing.T) {
 func TestResolveRuntimeDialectAndDSN(t *testing.T) {
 	cfg := appcfg.Defaults()
 	cfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectSQLite
-	cfg.SQLite.DSN = "file:test.sqlite?_busy_timeout=5000&_foreign_keys=on"
+	cfg.Persistence.SQLite.DSN = "file:test.sqlite?_busy_timeout=5000&_foreign_keys=on"
 
 	dialect, err := ResolveRuntimeDialect(cfg)
 	if err != nil {
@@ -51,7 +51,7 @@ func TestResolveRuntimeDialectAndDSN(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ResolveRuntimeDSN: %v", err)
 	}
-	if dsn != cfg.SQLite.DSN {
-		t.Fatalf("expected sqlite dsn %q, got %q", cfg.SQLite.DSN, dsn)
+	if dsn != cfg.Persistence.SQLite.DSN {
+		t.Fatalf("expected sqlite dsn %q, got %q", cfg.Persistence.SQLite.DSN, dsn)
 	}
 }

@@ -8,6 +8,10 @@ config:
       json: "-"
       koanf: "-"
 
+persistence:
+  - name: sqlite
+    override: SQLite
+
 admin:
   - name: public_api
     override: PublicAPI
@@ -75,6 +79,22 @@ pdf:
     type: int
   - name: normalization_timeout_ms
     override: NormalizationTimeoutMS
+    type: int
+
+remediation:
+  - name: lease_ttl_ms
+    override: LeaseTTLMS
+    type: int
+
+command:
+  - name: timeout_ms
+    override: TimeoutMS
+    type: int
+  - name: max_pdf_bytes
+    override: MaxPdfBytes
+    type: int64
+  - name: max_log_bytes
+    override: MaxLogBytes
     type: int
 
 services:

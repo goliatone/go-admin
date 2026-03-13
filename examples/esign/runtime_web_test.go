@@ -1441,7 +1441,7 @@ func setESignRuntimeTestConfig(googleEnabled bool) {
 	cfg.Google.CredentialActiveKeyID = "v1"
 	cfg.Public.BaseURL = "http://localhost:8082"
 	cfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectSQLite
-	cfg.SQLite.DSN = fmt.Sprintf(
+	cfg.Persistence.SQLite.DSN = fmt.Sprintf(
 		"file:runtime-web-test-%d-%d?mode=memory&cache=shared&_busy_timeout=5000&_foreign_keys=on",
 		os.Getpid(),
 		atomic.AddUint64(&esignRuntimeDSNSeq, 1),

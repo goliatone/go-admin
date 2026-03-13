@@ -20,7 +20,7 @@ const defaultESignSQLiteFilename = "go-admin-esign.db"
 // ResolveSQLiteDSN returns the preferred DSN for the e-sign example store.
 func ResolveSQLiteDSN() string {
 	cfg := appcfg.Active()
-	if value := strings.TrimSpace(cfg.SQLite.DSN); value != "" {
+	if value := strings.TrimSpace(cfg.Persistence.SQLite.DSN); value != "" {
 		return value
 	}
 	filename := strings.TrimSuffix(defaultESignSQLiteFilename, ".db")
@@ -68,6 +68,7 @@ type sqliteStoreSnapshot struct {
 	SignerProfileIndex         map[string]string                         `json:"signer_profile_index"`
 	SavedSignerSignatures      map[string]SavedSignerSignatureRecord     `json:"saved_signatures"`
 	FieldValues                map[string]FieldValueRecord               `json:"field_values"`
+	DraftAuditEvents           map[string]DraftAuditEventRecord          `json:"draft_audit_events"`
 	AuditEvents                map[string]AuditEventRecord               `json:"audit_events"`
 	AgreementArtifacts         map[string]AgreementArtifactRecord        `json:"agreement_artifacts"`
 	EmailLogs                  map[string]EmailLogRecord                 `json:"email_logs"`
@@ -1486,6 +1487,13 @@ func ensureSavedSignerSignatureMap(in map[string]SavedSignerSignatureRecord) map
 func ensureFieldValueMap(in map[string]FieldValueRecord) map[string]FieldValueRecord {
 	if in == nil {
 		return map[string]FieldValueRecord{}
+	}
+	return in
+}
+
+func ensureDraftAuditEventMap(in map[string]DraftAuditEventRecord) map[string]DraftAuditEventRecord {
+	if in == nil {
+		return map[string]DraftAuditEventRecord{}
 	}
 	return in
 }
