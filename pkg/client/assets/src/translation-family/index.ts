@@ -886,7 +886,7 @@ function variantTone(status: string): string {
     case 'in_progress':
       return 'bg-sky-100 text-sky-700';
     default:
-      return 'bg-slate-100 text-slate-700';
+      return 'bg-gray-100 text-gray-700';
   }
 }
 
@@ -900,7 +900,7 @@ function assignmentTone(status: string): string {
     case 'changes_requested':
       return 'bg-rose-100 text-rose-700';
     default:
-      return 'bg-slate-100 text-slate-700';
+      return 'bg-gray-100 text-gray-700';
   }
 }
 
@@ -915,7 +915,7 @@ function blockerTone(code: string): string {
     case 'outdated_source':
       return 'bg-violet-100 text-violet-700';
     default:
-      return 'bg-slate-100 text-slate-700';
+      return 'bg-gray-100 text-gray-700';
   }
 }
 
@@ -991,30 +991,30 @@ function renderFamilySummaryMetrics(detail: TranslationFamilyDetail): string {
     {
       label: 'Required locales',
       value: detail.readinessSummary.requiredLocales.length,
-      tone: 'text-slate-900',
+      tone: 'text-gray-900',
     },
     {
       label: 'Missing locales',
       value: detail.readinessSummary.missingRequiredLocaleCount,
-      tone: detail.readinessSummary.missingRequiredLocaleCount > 0 ? 'text-rose-700' : 'text-slate-900',
+      tone: detail.readinessSummary.missingRequiredLocaleCount > 0 ? 'text-rose-700' : 'text-gray-900',
     },
     {
       label: 'Pending review',
       value: detail.readinessSummary.pendingReviewCount,
-      tone: detail.readinessSummary.pendingReviewCount > 0 ? 'text-amber-700' : 'text-slate-900',
+      tone: detail.readinessSummary.pendingReviewCount > 0 ? 'text-amber-700' : 'text-gray-900',
     },
     {
       label: 'Outdated locales',
       value: detail.readinessSummary.outdatedLocaleCount,
-      tone: detail.readinessSummary.outdatedLocaleCount > 0 ? 'text-violet-700' : 'text-slate-900',
+      tone: detail.readinessSummary.outdatedLocaleCount > 0 ? 'text-violet-700' : 'text-gray-900',
     },
   ];
 
   return metrics
     .map(
       (metric) => `
-        <div class="rounded-xl border border-slate-200 bg-white p-4">
-          <div class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">${escapeHTML(metric.label)}</div>
+        <div class="rounded-xl border border-gray-200 bg-white p-4">
+          <div class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">${escapeHTML(metric.label)}</div>
           <div class="mt-2 text-2xl font-semibold ${metric.tone}">${escapeHTML(metric.value)}</div>
         </div>
       `
@@ -1033,8 +1033,8 @@ function renderLocalePanel(detail: TranslationFamilyDetail, options: Translation
         type="button"
         class="inline-flex items-center rounded-lg px-3 py-2 text-sm font-medium ${
           disabled
-            ? 'cursor-not-allowed bg-slate-200 text-slate-500'
-            : 'bg-sky-600 text-white hover:bg-sky-700'
+            ? 'cursor-not-allowed bg-gray-200 text-gray-500'
+            : 'bg-gray-900 text-white hover:bg-gray-800'
         }"
         data-family-create-locale="true"
         data-locale="${escapeAttribute(locale)}"
@@ -1049,18 +1049,18 @@ function renderLocalePanel(detail: TranslationFamilyDetail, options: Translation
     const href = buildContentLink(contentBasePath, detail, variant);
     const openLink = href
       ? `<a href="${escapeAttribute(href)}" class="text-sm font-medium text-sky-700 hover:text-sky-800">Open locale</a>`
-      : `<span class="text-sm text-slate-400">No content route</span>`;
+      : `<span class="text-sm text-gray-400">No content route</span>`;
     const title = variant.fields.title || variant.fields.slug || `${detail.contentType} ${variant.locale.toUpperCase()}`;
     return `
-      <li class="flex items-start justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4">
+      <li class="flex items-start justify-between gap-4 rounded-xl border border-gray-200 bg-white p-4">
         <div class="min-w-0">
           <div class="flex flex-wrap items-center gap-2">
-            <span class="text-sm font-semibold text-slate-900">${escapeHTML(variant.locale.toUpperCase())}</span>
-            ${variant.isSource ? '<span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">Source</span>' : ''}
+            <span class="text-sm font-semibold text-gray-900">${escapeHTML(variant.locale.toUpperCase())}</span>
+            ${variant.isSource ? '<span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">Source</span>' : ''}
             <span class="rounded-full px-2 py-0.5 text-xs font-medium ${variantTone(variant.status)}">${escapeHTML(sentenceCase(variant.status))}</span>
           </div>
-          <p class="mt-2 text-sm text-slate-600">${escapeHTML(title)}</p>
-          <p class="mt-1 text-xs text-slate-500">Updated ${escapeHTML(formatTimestamp(variant.updatedAt || variant.createdAt)) || 'n/a'}</p>
+          <p class="mt-2 text-sm text-gray-600">${escapeHTML(title)}</p>
+          <p class="mt-1 text-xs text-gray-500">Updated ${escapeHTML(formatTimestamp(variant.updatedAt || variant.createdAt)) || 'n/a'}</p>
         </div>
         <div class="flex-shrink-0">${openLink}</div>
       </li>
@@ -1083,15 +1083,15 @@ function renderLocalePanel(detail: TranslationFamilyDetail, options: Translation
   }
 
   return `
-    <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm" aria-labelledby="translation-family-locales">
+    <section class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm" aria-labelledby="translation-family-locales">
       <div class="flex items-center justify-between gap-3">
         <div>
-          <h2 id="translation-family-locales" class="text-lg font-semibold text-slate-900">Locale coverage</h2>
-          <p class="mt-1 text-sm text-slate-500">Server-authored locale availability and variant state for this family.</p>
+          <h2 id="translation-family-locales" class="text-lg font-semibold text-gray-900">Locale coverage</h2>
+          <p class="mt-1 text-sm text-gray-500">Server-authored locale availability and variant state for this family.</p>
         </div>
       </div>
       <ul class="mt-5 space-y-3" role="list">
-        ${rows.join('') || '<li class="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">No locale variants available.</li>'}
+        ${rows.join('') || '<li class="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">No locale variants available.</li>'}
       </ul>
     </section>
   `;
@@ -1100,17 +1100,17 @@ function renderLocalePanel(detail: TranslationFamilyDetail, options: Translation
 function renderAssignmentPanel(detail: TranslationFamilyDetail): string {
   if (!detail.activeAssignments.length) {
     return `
-      <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm" aria-labelledby="translation-family-assignments">
-        <h2 id="translation-family-assignments" class="text-lg font-semibold text-slate-900">Assignments</h2>
-        <p class="mt-1 text-sm text-slate-500">No active assignments are attached to this family.</p>
+      <section class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm" aria-labelledby="translation-family-assignments">
+        <h2 id="translation-family-assignments" class="text-lg font-semibold text-gray-900">Assignments</h2>
+        <p class="mt-1 text-sm text-gray-500">No active assignments are attached to this family.</p>
       </section>
     `;
   }
 
   return `
-    <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm" aria-labelledby="translation-family-assignments">
-      <h2 id="translation-family-assignments" class="text-lg font-semibold text-slate-900">Assignments</h2>
-      <p class="mt-1 text-sm text-slate-500">Current cross-locale work in progress for this family.</p>
+    <section class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm" aria-labelledby="translation-family-assignments">
+      <h2 id="translation-family-assignments" class="text-lg font-semibold text-gray-900">Assignments</h2>
+      <p class="mt-1 text-sm text-gray-500">Current cross-locale work in progress for this family.</p>
       <ul class="mt-5 space-y-3" role="list">
         ${detail.activeAssignments
           .map((assignment) => {
@@ -1121,20 +1121,20 @@ function renderAssignmentPanel(detail: TranslationFamilyDetail): string {
                 ? 'bg-rose-100 text-rose-700'
                 : dueState === 'due_soon'
                   ? 'bg-amber-100 text-amber-700'
-                  : 'bg-slate-100 text-slate-700';
+                  : 'bg-gray-100 text-gray-700';
             return `
-              <li class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <li class="rounded-xl border border-gray-200 bg-gray-50 p-4">
                 <div class="flex flex-wrap items-center gap-2">
-                  <span class="text-sm font-semibold text-slate-900">${escapeHTML(assignment.targetLocale.toUpperCase())}</span>
+                  <span class="text-sm font-semibold text-gray-900">${escapeHTML(assignment.targetLocale.toUpperCase())}</span>
                   <span class="rounded-full px-2 py-0.5 text-xs font-medium ${assignmentTone(assignment.status)}">${escapeHTML(sentenceCase(assignment.status))}</span>
                   <span class="rounded-full px-2 py-0.5 text-xs font-medium ${dueTone}">${escapeHTML(dueLabel)}</span>
                 </div>
-                <p class="mt-2 text-sm text-slate-600">
+                <p class="mt-2 text-sm text-gray-600">
                   ${escapeHTML(assignment.assigneeId || 'Unassigned')}
-                  <span class="text-slate-400">·</span>
+                  <span class="text-gray-400">·</span>
                   Priority ${escapeHTML(assignment.priority || 'normal')}
                 </p>
-                <p class="mt-1 text-xs text-slate-500">Updated ${escapeHTML(formatTimestamp(assignment.updatedAt || assignment.createdAt)) || 'n/a'}</p>
+                <p class="mt-1 text-xs text-gray-500">Updated ${escapeHTML(formatTimestamp(assignment.updatedAt || assignment.createdAt)) || 'n/a'}</p>
               </li>
             `;
           })
@@ -1152,16 +1152,16 @@ function renderPublishGatePanel(detail: TranslationFamilyDetail): string {
           return `
             <li class="flex flex-wrap items-center gap-2">
               <span class="rounded-full px-2 py-0.5 text-xs font-medium ${blockerTone(blocker.blockerCode)}">${escapeHTML(sentenceCase(blocker.blockerCode))}</span>
-              ${scope ? `<span class="text-sm text-slate-600">${escapeHTML(scope)}</span>` : ''}
+              ${scope ? `<span class="text-sm text-gray-600">${escapeHTML(scope)}</span>` : ''}
             </li>
           `;
         })
         .join('')
-    : '<li class="text-sm text-slate-500">No blockers recorded.</li>';
+    : '<li class="text-sm text-gray-500">No blockers recorded.</li>';
 
   return `
-    <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm" aria-labelledby="translation-family-publish-gate">
-      <h2 id="translation-family-publish-gate" class="text-lg font-semibold text-slate-900">Publish gate</h2>
+    <section class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm" aria-labelledby="translation-family-publish-gate">
+      <h2 id="translation-family-publish-gate" class="text-lg font-semibold text-gray-900">Publish gate</h2>
       <div class="mt-4 rounded-xl ${detail.publishGate.allowed ? 'border border-emerald-200 bg-emerald-50' : 'border border-amber-200 bg-amber-50'} p-4">
         <div class="flex flex-wrap items-center gap-3">
           ${renderReadinessChip(detail.readinessState)}
@@ -1177,15 +1177,15 @@ function renderPublishGatePanel(detail: TranslationFamilyDetail): string {
       </div>
       <div class="mt-5 grid gap-4 md:grid-cols-2">
         <div>
-          <h3 class="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">Blockers</h3>
+          <h3 class="text-sm font-semibold uppercase tracking-[0.18em] text-gray-500">Blockers</h3>
           <ul class="mt-3 space-y-2" role="list">${blockers}</ul>
         </div>
         <div>
-          <h3 class="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">Policy</h3>
-          <ul class="mt-3 space-y-2 text-sm text-slate-600" role="list">
-            <li>Review required: <strong class="text-slate-900">${detail.publishGate.reviewRequired ? 'Yes' : 'No'}</strong></li>
-            <li>Override allowed: <strong class="text-slate-900">${detail.publishGate.overrideAllowed ? 'Yes' : 'No'}</strong></li>
-            <li>Available locales: <strong class="text-slate-900">${escapeHTML(detail.readinessSummary.availableLocales.join(', ') || 'None')}</strong></li>
+          <h3 class="text-sm font-semibold uppercase tracking-[0.18em] text-gray-500">Policy</h3>
+          <ul class="mt-3 space-y-2 text-sm text-gray-600" role="list">
+            <li>Review required: <strong class="text-gray-900">${detail.publishGate.reviewRequired ? 'Yes' : 'No'}</strong></li>
+            <li>Override allowed: <strong class="text-gray-900">${detail.publishGate.overrideAllowed ? 'Yes' : 'No'}</strong></li>
+            <li>Available locales: <strong class="text-gray-900">${escapeHTML(detail.readinessSummary.availableLocales.join(', ') || 'None')}</strong></li>
           </ul>
         </div>
       </div>
@@ -1196,33 +1196,33 @@ function renderPublishGatePanel(detail: TranslationFamilyDetail): string {
 function renderActivityPanel(detail: TranslationFamilyDetail): string {
   const items = buildFamilyActivityPreview(detail);
   return `
-    <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm" aria-labelledby="translation-family-activity">
-      <h2 id="translation-family-activity" class="text-lg font-semibold text-slate-900">Activity preview</h2>
-      <p class="mt-1 text-sm text-slate-500">Recent server timestamps across variants and active assignments.</p>
+    <section class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm" aria-labelledby="translation-family-activity">
+      <h2 id="translation-family-activity" class="text-lg font-semibold text-gray-900">Activity preview</h2>
+      <p class="mt-1 text-sm text-gray-500">Recent server timestamps across variants and active assignments.</p>
       ${
         items.length
           ? `<ol class="mt-5 space-y-3" role="list">
               ${items
                 .map(
                   (item) => `
-                    <li class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <li class="rounded-xl border border-gray-200 bg-gray-50 p-4">
                       <div class="flex flex-wrap items-center gap-2">
-                        <span class="text-sm font-semibold text-slate-900">${escapeHTML(item.title)}</span>
+                        <span class="text-sm font-semibold text-gray-900">${escapeHTML(item.title)}</span>
                         <span class="rounded-full px-2 py-0.5 text-xs font-medium ${
                           item.tone === 'success'
                             ? 'bg-emerald-100 text-emerald-700'
                             : item.tone === 'warning'
                               ? 'bg-amber-100 text-amber-700'
-                              : 'bg-slate-100 text-slate-700'
+                              : 'bg-gray-100 text-gray-700'
                         }">${escapeHTML(formatTimestamp(item.timestamp))}</span>
                       </div>
-                      <p class="mt-2 text-sm text-slate-600">${escapeHTML(item.detail)}</p>
+                      <p class="mt-2 text-sm text-gray-600">${escapeHTML(item.detail)}</p>
                     </li>
                   `
                 )
                 .join('')}
             </ol>`
-          : '<p class="mt-4 text-sm text-slate-500">No activity timestamps are available for this family yet.</p>'
+          : '<p class="mt-4 text-sm text-gray-500">No activity timestamps are available for this family yet.</p>'
       }
     </section>
   `;
@@ -1239,7 +1239,7 @@ function renderDiagnostics(state: TranslationFamilyDetailLoadState): string {
     <div class="mt-4 flex flex-wrap gap-2" aria-label="Diagnostics">
       ${chips
         .map(
-          (chip) => `<span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">${chip}</span>`
+          (chip) => `<span class="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">${chip}</span>`
         )
         .join('')}
     </div>
@@ -1249,8 +1249,8 @@ function renderDiagnostics(state: TranslationFamilyDetailLoadState): string {
 function renderFamilyLoadingState(message: string): string {
   return `
     <div class="flex items-center justify-center py-16" aria-busy="true" aria-label="Loading">
-      <div class="flex flex-col items-center gap-3 text-slate-500">
-        <span class="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-slate-500"></span>
+      <div class="flex flex-col items-center gap-3 text-gray-500">
+        <span class="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-gray-500"></span>
         <span class="text-sm">${escapeHTML(message)}</span>
       </div>
     </div>
@@ -1260,9 +1260,9 @@ function renderFamilyLoadingState(message: string): string {
 function renderFamilyEmptyState(title: string, message: string): string {
   return `
     <div class="flex items-center justify-center py-16" role="status" aria-label="Empty">
-      <div class="max-w-md rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center shadow-sm">
-        <h2 class="text-lg font-semibold text-slate-900">${escapeHTML(title)}</h2>
-        <p class="mt-2 text-sm text-slate-500">${escapeHTML(message)}</p>
+      <div class="max-w-md rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center shadow-sm">
+        <h2 class="text-lg font-semibold text-gray-900">${escapeHTML(title)}</h2>
+        <p class="mt-2 text-sm text-gray-500">${escapeHTML(message)}</p>
       </div>
     </div>
   `;
@@ -1330,8 +1330,8 @@ export function renderTranslationFamilyDetailState(
         type="button"
         class="inline-flex items-center rounded-full px-4 py-2 text-sm font-medium ${
           quickCreateDisabled
-            ? 'cursor-not-allowed bg-slate-200 text-slate-500'
-            : 'bg-sky-600 text-white hover:bg-sky-700'
+            ? 'cursor-not-allowed bg-gray-200 text-gray-500'
+            : 'bg-gray-900 text-white hover:bg-gray-800'
         }"
         data-family-create-locale="true"
         data-locale="${escapeAttribute(detail.quickCreate.recommendedLocale)}"
@@ -1345,16 +1345,16 @@ export function renderTranslationFamilyDetailState(
 
   return `
     <div class="translation-family-detail space-y-6" data-family-id="${escapeAttribute(detail.familyId)}" data-readiness-state="${escapeAttribute(detail.readinessState)}">
-      <section class="rounded-[28px] border border-slate-200 bg-[linear-gradient(135deg,#f8fafc,white)] p-6 shadow-sm">
+      <section class="rounded-[28px] border border-gray-200 bg-[linear-gradient(135deg,#f8fafc,white)] p-6 shadow-sm">
         <div class="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Translation family</p>
-            <h1 class="mt-2 text-3xl font-semibold tracking-tight text-slate-950">${escapeHTML(sourceTitle)}</h1>
-            <p class="mt-2 text-sm text-slate-600">${escapeHTML(detail.contentType)} · Source locale ${escapeHTML(detail.sourceLocale.toUpperCase())} · Family ${escapeHTML(detail.familyId)}</p>
+            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">Translation family</p>
+            <h1 class="mt-2 text-3xl font-semibold tracking-tight text-gray-900">${escapeHTML(sourceTitle)}</h1>
+            <p class="mt-2 text-sm text-gray-600">${escapeHTML(detail.contentType)} · Source locale ${escapeHTML(detail.sourceLocale.toUpperCase())} · Family ${escapeHTML(detail.familyId)}</p>
           </div>
           <div class="flex flex-wrap items-center gap-2">
             ${renderReadinessChip(detail.readinessState)}
-            <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">${escapeHTML(blockerSummary)}</span>
+            <span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">${escapeHTML(blockerSummary)}</span>
             ${createLocaleCTA}
           </div>
         </div>
@@ -1539,23 +1539,23 @@ function openCreateLocaleDialog(config: CreateLocaleDialogConfig): void {
     : quickCreate.missingLocales[0];
 
   const overlay = doc.createElement('div');
-  overlay.className = 'fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/50 p-4';
+  overlay.className = 'fixed inset-0 z-[80] flex items-center justify-center bg-gray-900/50 p-4';
   overlay.setAttribute('data-translation-create-locale-modal', 'true');
   overlay.innerHTML = `
-    <div class="w-full max-w-xl rounded-3xl bg-white shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="translation-create-locale-title">
+    <div class="w-full max-w-xl rounded-xl bg-white shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="translation-create-locale-title">
       <form class="p-6">
         <div class="flex items-start justify-between gap-4">
           <div>
-            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Create locale</p>
-            <h2 id="translation-create-locale-title" class="mt-2 text-2xl font-semibold text-slate-950">${escapeHTML(config.heading)}</h2>
-            <p class="mt-2 text-sm text-slate-600">Server-authored recommendations and publish requirements for family ${escapeHTML(config.familyId)}.</p>
+            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Create locale</p>
+            <h2 id="translation-create-locale-title" class="mt-2 text-2xl font-semibold text-gray-900">${escapeHTML(config.heading)}</h2>
+            <p class="mt-2 text-sm text-gray-600">Server-authored recommendations and publish requirements for family ${escapeHTML(config.familyId)}.</p>
           </div>
-          <button type="button" data-close-modal="true" class="rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-600 hover:bg-slate-200">Close</button>
+          <button type="button" data-close-modal="true" class="rounded-full bg-gray-100 px-3 py-1 text-sm font-medium text-gray-600 hover:bg-gray-200">Close</button>
         </div>
         <div class="mt-6 grid gap-4">
           <label class="grid gap-2">
-            <span class="text-sm font-medium text-slate-900">Locale</span>
-            <select name="locale" class="rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900">
+            <span class="text-sm font-medium text-gray-900">Locale</span>
+            <select name="locale" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900">
               ${quickCreate.missingLocales.map((locale) => `
                 <option value="${escapeAttribute(locale)}" ${locale === selectedLocale ? 'selected' : ''}>
                   ${escapeHTML(locale.toUpperCase())}${locale === quickCreate.recommendedLocale ? ' (recommended)' : ''}
@@ -1563,38 +1563,38 @@ function openCreateLocaleDialog(config: CreateLocaleDialogConfig): void {
               `).join('')}
             </select>
           </label>
-          <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+          <div class="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
             <p><strong>Required for publish:</strong> ${escapeHTML(quickCreate.requiredForPublish.join(', ') || 'None')}</p>
             <p class="mt-2"><strong>Recommended locale:</strong> ${escapeHTML(quickCreate.recommendedLocale.toUpperCase() || 'N/A')}</p>
             <p class="mt-2"><strong>Default work scope:</strong> ${escapeHTML(quickCreate.defaultAssignment.workScope || '__all__')}</p>
           </div>
-          <label class="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3">
-            <input type="checkbox" name="auto_create_assignment" class="h-4 w-4 rounded border-slate-300 text-sky-600" ${quickCreate.defaultAssignment.autoCreateAssignment ? 'checked' : ''}>
-            <span class="text-sm text-slate-800">Seed an assignment now</span>
+          <label class="flex items-center gap-3 rounded-2xl border border-gray-200 px-4 py-3">
+            <input type="checkbox" name="auto_create_assignment" class="h-4 w-4 rounded border-gray-300 text-sky-600" ${quickCreate.defaultAssignment.autoCreateAssignment ? 'checked' : ''}>
+            <span class="text-sm text-gray-800">Seed an assignment now</span>
           </label>
-          <div data-assignment-fields="true" class="grid gap-4 rounded-2xl border border-slate-200 p-4">
+          <div data-assignment-fields="true" class="grid gap-4 rounded-2xl border border-gray-200 p-4">
             <label class="grid gap-2">
-              <span class="text-sm font-medium text-slate-900">Assignee</span>
-              <input type="text" name="assignee_id" value="${escapeAttribute(quickCreate.defaultAssignment.assigneeId)}" class="rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900">
+              <span class="text-sm font-medium text-gray-900">Assignee</span>
+              <input type="text" name="assignee_id" value="${escapeAttribute(quickCreate.defaultAssignment.assigneeId)}" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900">
             </label>
             <label class="grid gap-2">
-              <span class="text-sm font-medium text-slate-900">Priority</span>
-              <select name="priority" class="rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900">
+              <span class="text-sm font-medium text-gray-900">Priority</span>
+              <select name="priority" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900">
                 ${['low', 'normal', 'high', 'urgent'].map((priority) => `
                   <option value="${priority}" ${priority === (quickCreate.defaultAssignment.priority || 'normal') ? 'selected' : ''}>${sentenceCase(priority)}</option>
                 `).join('')}
               </select>
             </label>
             <label class="grid gap-2">
-              <span class="text-sm font-medium text-slate-900">Due date</span>
-              <input type="datetime-local" name="due_date" value="${escapeAttribute(toDateTimeLocalInputValue(quickCreate.defaultAssignment.dueDate))}" class="rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900">
+              <span class="text-sm font-medium text-gray-900">Due date</span>
+              <input type="datetime-local" name="due_date" value="${escapeAttribute(toDateTimeLocalInputValue(quickCreate.defaultAssignment.dueDate))}" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900">
             </label>
           </div>
         </div>
         <div data-create-locale-feedback="true" class="mt-4 hidden rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"></div>
         <div class="mt-6 flex items-center justify-end gap-3">
-          <button type="button" data-close-modal="true" class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
-          <button type="submit" class="rounded-xl bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700">${escapeHTML(config.submitLabel || 'Create locale')}</button>
+          <button type="button" data-close-modal="true" class="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50">Cancel</button>
+          <button type="submit" class="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800">${escapeHTML(config.submitLabel || 'Create locale')}</button>
         </div>
       </form>
     </div>

@@ -4,6 +4,14 @@ import {
 } from '../translation-contracts/index.js';
 import { httpRequest, readHTTPError } from '../shared/transport/http-client.js';
 import { extractStructuredError, type StructuredError } from '../toast/error-helpers.js';
+import {
+  BTN_PRIMARY_SM,
+  BTN_SECONDARY_SM,
+  BTN_DANGER_SM,
+  HEADER_TITLE,
+  HEADER_PRETITLE,
+  HEADER_DESCRIPTION,
+} from '../translation-shared/index.js';
 
 export type AssignmentDueState = 'none' | 'on_track' | 'due_soon' | 'overdue';
 export type AssignmentQueueState =
@@ -16,6 +24,7 @@ export type AssignmentQueueState =
   | 'published'
   | 'archived';
 export type AssignmentPriority = 'low' | 'normal' | 'high' | 'urgent';
+export type AssignmentQueueReviewState = 'qa_blocked';
 export type AssignmentSortKey =
   | 'updated_at'
   | 'created_at'
@@ -34,6 +43,8 @@ export interface AssignmentListFilters {
   dueState?: AssignmentDueState;
   locale?: string;
   priority?: string;
+  reviewState?: AssignmentQueueReviewState;
+  translationGroupId?: string;
 }
 
 export interface AssignmentQueueSavedFilterQuery {
@@ -43,6 +54,7 @@ export interface AssignmentQueueSavedFilterQuery {
   due_state?: string;
   locale?: string;
   priority?: string;
+  translation_group_id?: string;
   sort?: AssignmentSortKey;
   order?: 'asc' | 'desc';
 }
@@ -51,6 +63,7 @@ export interface AssignmentQueueSavedFilterPreset {
   id: string;
   label: string;
   description?: string;
+  review_state?: AssignmentQueueReviewState;
   query: AssignmentQueueSavedFilterQuery;
 }
 
@@ -127,6 +140,10 @@ export interface AssignmentListMeta {
     order: 'asc' | 'desc';
   };
   saved_filter_presets: AssignmentQueueSavedFilterPreset[];
+  saved_review_filter_presets: AssignmentQueueSavedFilterPreset[];
+  default_review_filter_preset?: string;
+  review_actor_id?: string;
+  review_aggregate_counts: Record<string, number>;
 }
 
 export interface AssignmentListResponse {
@@ -228,6 +245,34 @@ export const DEFAULT_ASSIGNMENT_QUEUE_SAVED_FILTERS: AssignmentQueueSavedFilterP
     label: 'High Priority',
     description: 'Assignments marked high or urgent.',
     query: { priority: 'high,urgent', sort: 'due_date', order: 'asc' },
+  },
+];
+
+export const DEFAULT_ASSIGNMENT_QUEUE_REVIEW_FILTERS: AssignmentQueueSavedFilterPreset[] = [
+  {
+    id: 'review_inbox',
+    label: 'Review Inbox',
+    description: 'Assignments currently waiting on the active reviewer.',
+    query: { status: 'review', reviewer_id: '__me__', sort: 'due_date', order: 'asc' },
+  },
+  {
+    id: 'review_overdue',
+    label: 'Review Overdue',
+    description: 'Reviewer-owned assignments that are already overdue.',
+    query: { status: 'review', reviewer_id: '__me__', due_state: 'overdue', sort: 'due_date', order: 'asc' },
+  },
+  {
+    id: 'review_blocked',
+    label: 'QA Blocked',
+    description: 'Reviewer inbox items with blocking QA findings.',
+    review_state: 'qa_blocked',
+    query: { status: 'review', reviewer_id: '__me__', sort: 'due_date', order: 'asc' },
+  },
+  {
+    id: 'review_changes_requested',
+    label: 'Changes Requested',
+    description: 'Assignments the active reviewer already sent back for fixes.',
+    query: { status: 'rejected', reviewer_id: '__me__', sort: 'updated_at', order: 'desc' },
   },
 ];
 
@@ -333,6 +378,7 @@ function normalizeSavedFilterPreset(value: unknown): AssignmentQueueSavedFilterP
     id,
     label,
     description: asString(raw.description) || undefined,
+    review_state: (asString(raw.review_state) || undefined) as AssignmentQueueReviewState | undefined,
     query: {
       status: asString(queryRaw.status) || undefined,
       assignee_id: asString(queryRaw.assignee_id) || undefined,
@@ -340,18 +386,22 @@ function normalizeSavedFilterPreset(value: unknown): AssignmentQueueSavedFilterP
       due_state: asString(queryRaw.due_state) || undefined,
       locale: asString(queryRaw.locale) || undefined,
       priority: asString(queryRaw.priority) || undefined,
+      translation_group_id: asString(queryRaw.translation_group_id) || undefined,
       sort: (asString(queryRaw.sort) || undefined) as AssignmentSortKey | undefined,
       order: (asString(queryRaw.order) || undefined) as 'asc' | 'desc' | undefined,
     },
   };
 }
 
-function normalizeSavedFilterPresets(values: unknown): AssignmentQueueSavedFilterPreset[] {
+function normalizeSavedFilterPresets(
+  values: unknown,
+  fallback: AssignmentQueueSavedFilterPreset[] = DEFAULT_ASSIGNMENT_QUEUE_SAVED_FILTERS
+): AssignmentQueueSavedFilterPreset[] {
   const items = Array.isArray(values) ? values : [];
   const normalized = items
     .map((value) => normalizeSavedFilterPreset(value))
     .filter((value): value is AssignmentQueueSavedFilterPreset => value !== null);
-  return normalized.length ? normalized : DEFAULT_ASSIGNMENT_QUEUE_SAVED_FILTERS.map(cloneSavedFilterPreset);
+  return normalized.length ? normalized : fallback.map(cloneSavedFilterPreset);
 }
 
 function cloneSavedFilterPreset(preset: AssignmentQueueSavedFilterPreset): AssignmentQueueSavedFilterPreset {
@@ -359,8 +409,20 @@ function cloneSavedFilterPreset(preset: AssignmentQueueSavedFilterPreset): Assig
     id: preset.id,
     label: preset.label,
     description: preset.description,
+    review_state: preset.review_state,
     query: { ...preset.query },
   };
+}
+
+function normalizeAggregateCounts(value: unknown): Record<string, number> {
+  const raw = asRecord(value);
+  const out: Record<string, number> = {};
+  for (const [key, candidate] of Object.entries(raw)) {
+    const normalized = asNumber(candidate);
+    if (!key.trim()) continue;
+    out[key.trim()] = normalized;
+  }
+  return out;
 }
 
 function uniqueFilterOptions(values: Array<string | undefined>): string[] {
@@ -395,7 +457,11 @@ export function normalizeAssignmentListMeta(value: unknown): AssignmentListMeta 
       key: (asString(defaultSortRaw.key) || 'updated_at') as AssignmentSortKey,
       order: (asString(defaultSortRaw.order) || 'desc') as 'asc' | 'desc',
     },
-    saved_filter_presets: normalizeSavedFilterPresets(raw.saved_filter_presets),
+    saved_filter_presets: normalizeSavedFilterPresets(raw.saved_filter_presets, DEFAULT_ASSIGNMENT_QUEUE_SAVED_FILTERS),
+    saved_review_filter_presets: normalizeSavedFilterPresets(raw.saved_review_filter_presets, DEFAULT_ASSIGNMENT_QUEUE_REVIEW_FILTERS),
+    default_review_filter_preset: asString(raw.default_review_filter_preset) || undefined,
+    review_actor_id: asString(raw.review_actor_id) || undefined,
+    review_aggregate_counts: normalizeAggregateCounts(raw.review_aggregate_counts),
   };
 }
 
@@ -407,6 +473,8 @@ export function buildAssignmentListQuery(state: AssignmentListQueryState = {}): 
   if (state.dueState) params.set('due_state', state.dueState);
   if (state.locale) params.set('locale', state.locale);
   if (state.priority) params.set('priority', state.priority);
+  if (state.reviewState) params.set('review_state', state.reviewState);
+  if (state.translationGroupId) params.set('translation_group_id', state.translationGroupId);
   if (state.page && state.page > 0) params.set('page', String(state.page));
   if (state.perPage && state.perPage > 0) params.set('per_page', String(state.perPage));
   if (state.sort) params.set('sort', state.sort);
@@ -549,6 +617,8 @@ export function presetToQueryState(preset: AssignmentQueueSavedFilterPreset): As
     dueState: preset.query.due_state as AssignmentDueState | undefined,
     locale: preset.query.locale,
     priority: preset.query.priority,
+    reviewState: preset.review_state,
+    translationGroupId: preset.query.translation_group_id,
     sort: preset.query.sort,
     order: preset.query.order,
     page: 1,
@@ -561,6 +631,25 @@ function buildActionIdempotencyKey(action: 'claim' | 'release', row: AssignmentL
 
 function buildReviewActionIdempotencyKey(action: 'approve' | 'reject' | 'archive', row: AssignmentListRow): string {
   return `queue-${action}-${row.id}-${row.version}-${Date.now()}`;
+}
+
+function findInitialQueuePreset(
+  presetId: string,
+): { kind: 'standard' | 'review'; preset: AssignmentQueueSavedFilterPreset } | null {
+  const normalizedPresetId = asString(presetId);
+  if (!normalizedPresetId) return null;
+
+  const standardPreset = DEFAULT_ASSIGNMENT_QUEUE_SAVED_FILTERS.find((entry) => entry.id === normalizedPresetId);
+  if (standardPreset) {
+    return { kind: 'standard', preset: standardPreset };
+  }
+
+  const reviewPreset = DEFAULT_ASSIGNMENT_QUEUE_REVIEW_FILTERS.find((entry) => entry.id === normalizedPresetId);
+  if (reviewPreset) {
+    return { kind: 'review', preset: reviewPreset };
+  }
+
+  return null;
 }
 
 function cloneRow(row: AssignmentListRow): AssignmentListRow {
@@ -671,19 +760,31 @@ export class AssignmentQueueScreen {
   private rows: AssignmentListRow[] = [];
   private queryState: AssignmentListQueryState;
   private activePresetId: string;
+  private activeReviewPresetId = '';
+  private activeReviewState: AssignmentQueueReviewState | null = null;
   private feedback: AssignmentQueueFeedback | null = null;
   private error: AssignmentQueueRequestError | Error | null = null;
   private pendingActions = new Set<string>();
 
   constructor(config: AssignmentQueueScreenConfig) {
+    const requestedPresetId = asString(config.initialPresetId);
     this.config = {
       endpoint: config.endpoint,
       editorBasePath: config.editorBasePath || '',
       title: config.title || 'Translation Queue',
       description: config.description || 'Filter assignments, claim open work, and release items back to the pool without leaving the queue.',
-      initialPresetId: config.initialPresetId || 'open',
+      initialPresetId: requestedPresetId || 'open',
     };
-    const preset = DEFAULT_ASSIGNMENT_QUEUE_SAVED_FILTERS.find((entry) => entry.id === this.config.initialPresetId)
+    const initialPreset = findInitialQueuePreset(requestedPresetId);
+    if (initialPreset?.kind === 'review') {
+      this.activePresetId = 'custom';
+      this.activeReviewPresetId = initialPreset.preset.id;
+      this.activeReviewState = initialPreset.preset.review_state || null;
+      this.queryState = presetToQueryState(initialPreset.preset);
+      return;
+    }
+
+    const preset = initialPreset?.preset
       || DEFAULT_ASSIGNMENT_QUEUE_SAVED_FILTERS[1]
       || DEFAULT_ASSIGNMENT_QUEUE_SAVED_FILTERS[0];
     this.activePresetId = preset?.id || 'open';
@@ -721,6 +822,10 @@ export class AssignmentQueueScreen {
 
   getActivePresetId(): string {
     return this.activePresetId;
+  }
+
+  getActiveReviewPresetId(): string {
+    return this.activeReviewPresetId;
   }
 
   async load(): Promise<void> {
@@ -832,7 +937,7 @@ export class AssignmentQueueScreen {
         message: action === 'approve'
           ? 'Assignment approved.'
           : action === 'reject'
-            ? 'Assignment rejected.'
+            ? 'Changes requested.'
             : 'Assignment archived.',
       };
     } catch (error) {
@@ -849,6 +954,21 @@ export class AssignmentQueueScreen {
       return;
     }
     this.activePresetId = preset.id;
+    this.activeReviewPresetId = '';
+    this.activeReviewState = null;
+    this.queryState = presetToQueryState(preset);
+    this.feedback = null;
+    void this.load();
+  }
+
+  private setActiveReviewPreset(presetId: string): void {
+    const preset = this.savedReviewFilterPresets.find((entry) => entry.id === presetId);
+    if (!preset) {
+      return;
+    }
+    this.activePresetId = 'custom';
+    this.activeReviewPresetId = preset.id;
+    this.activeReviewState = preset.review_state || null;
     this.queryState = presetToQueryState(preset);
     this.feedback = null;
     void this.load();
@@ -856,6 +976,8 @@ export class AssignmentQueueScreen {
 
   private updateFilter(next: Partial<AssignmentListQueryState>): void {
     this.activePresetId = 'custom';
+    this.activeReviewPresetId = '';
+    this.activeReviewState = null;
     this.queryState = {
       ...this.queryState,
       ...next,
@@ -871,6 +993,16 @@ export class AssignmentQueueScreen {
       : DEFAULT_ASSIGNMENT_QUEUE_SAVED_FILTERS.map(cloneSavedFilterPreset);
   }
 
+  private get savedReviewFilterPresets(): AssignmentQueueSavedFilterPreset[] {
+    return this.response?.meta.saved_review_filter_presets?.length
+      ? this.response.meta.saved_review_filter_presets.map(cloneSavedFilterPreset)
+      : DEFAULT_ASSIGNMENT_QUEUE_REVIEW_FILTERS.map(cloneSavedFilterPreset);
+  }
+
+  private get visibleRows(): AssignmentListRow[] {
+    return this.rows;
+  }
+
   private render(): void {
     if (!this.container) {
       return;
@@ -880,17 +1012,18 @@ export class AssignmentQueueScreen {
       <div class="assignment-queue-screen" data-assignment-queue="true">
         <section class="assignment-queue-header">
           <div>
-            <p class="assignment-queue-kicker">Assignment Queue</p>
-            <h1 class="assignment-queue-title">${escapeHtml(this.config.title)}</h1>
-            <p class="assignment-queue-description">${escapeHtml(this.config.description)}</p>
+            <p class="${HEADER_PRETITLE}">Assignment Queue</p>
+            <h1 class="${HEADER_TITLE}">${escapeHtml(this.config.title)}</h1>
+            <p class="${HEADER_DESCRIPTION} max-w-2xl">${escapeHtml(this.config.description)}</p>
           </div>
           <div class="assignment-queue-summary">
-            <span class="summary-pill">Rows ${this.rows.length}</span>
+            <span class="summary-pill">Rows ${this.visibleRows.length}</span>
             <span class="summary-pill">Total ${this.response?.meta.total ?? 0}</span>
-            <button type="button" class="queue-refresh-button" data-queue-refresh="true">Refresh</button>
+            <button type="button" class="${BTN_SECONDARY_SM}" data-queue-refresh="true">Refresh</button>
           </div>
         </section>
         ${this.renderFeedback()}
+        ${this.renderReviewStateBar()}
         ${this.renderPresetBar()}
         ${this.renderFilters()}
         ${this.renderBody()}
@@ -928,7 +1061,7 @@ export class AssignmentQueueScreen {
         ${this.savedFilterPresets.map((preset) => `
           <button
             type="button"
-            class="queue-preset-button ${this.activePresetId === preset.id ? 'is-active' : ''}"
+            class="${BTN_SECONDARY_SM} queue-preset-button ${this.activePresetId === preset.id ? 'is-active' : ''}"
             data-preset-id="${escapeAttr(preset.id)}"
             role="tab"
             aria-selected="${this.activePresetId === preset.id ? 'true' : 'false'}"
@@ -941,13 +1074,45 @@ export class AssignmentQueueScreen {
     `;
   }
 
+  private renderReviewStateBar(): string {
+    if (!this.savedReviewFilterPresets.length) {
+      return '';
+    }
+    const counts = this.response?.meta.review_aggregate_counts || {};
+    const actorID = this.response?.meta.review_actor_id;
+    const reviewerStateEnabled = Boolean(actorID);
+    return `
+      <section class="assignment-review-presets" aria-label="Reviewer queue states">
+        <div class="review-preset-copy">
+          <p class="${HEADER_PRETITLE}">Reviewer states</p>
+          <p class="review-preset-description">${escapeHtml(actorID ? `Signed in as ${actorID}` : 'Reviewer queue states are available when reviewer metadata is present.')}</p>
+        </div>
+        <div class="assignment-review-presets-grid">
+          ${this.savedReviewFilterPresets.map((preset) => `
+            <button
+              type="button"
+              class="review-preset-button ${this.activeReviewPresetId === preset.id ? 'is-active' : ''}"
+              data-review-preset-id="${escapeAttr(preset.id)}"
+              title="${escapeAttr(reviewerStateEnabled ? (preset.description || preset.label) : 'Reviewer metadata is required to use this preset.')}"
+              ${reviewerStateEnabled ? '' : 'disabled aria-disabled="true"'}
+            >
+              <span>${escapeHtml(preset.label)}</span>
+              <strong>${counts[preset.id] ?? 0}</strong>
+            </button>
+          `).join('')}
+        </div>
+      </section>
+    `;
+  }
+
   private renderFilters(): string {
+    const rows = this.visibleRows;
     const statuses = ['', 'pending', 'assigned', 'in_progress', 'review', 'rejected', 'approved'];
     const dueStates: AssignmentDueState[] = ['none', 'on_track', 'due_soon', 'overdue'];
     const priorities = ['', 'low', 'normal', 'high', 'urgent'];
-    const locales = ['', ...uniqueFilterOptions(this.rows.map((row) => row.target_locale))];
-    const assignees = ['', ...uniqueFilterOptions(this.rows.map((row) => row.assignee_id))];
-    const reviewers = ['', ...uniqueFilterOptions(this.rows.map((row) => row.reviewer_id))];
+    const locales = ['', ...uniqueFilterOptions(rows.map((row) => row.target_locale))];
+    const assignees = ['', ...uniqueFilterOptions(rows.map((row) => row.assignee_id))];
+    const reviewers = ['', ...uniqueFilterOptions(rows.map((row) => row.reviewer_id))];
     const sortKeys = this.response?.meta.supported_sort_keys?.length
       ? this.response.meta.supported_sort_keys
       : ['updated_at', 'due_date', 'priority', 'status', 'locale'];
@@ -985,6 +1150,7 @@ export class AssignmentQueueScreen {
   }
 
   private renderBody(): string {
+    const rows = this.visibleRows;
     if (this.state === 'loading' && !this.rows.length) {
       return `<div class="assignment-queue-state" data-queue-state="loading">Loading queue…</div>`;
     }
@@ -994,7 +1160,7 @@ export class AssignmentQueueScreen {
     if (this.state === 'conflict' && !this.rows.length) {
       return this.renderErrorState('conflict', this.error?.message || 'The queue response is stale. Refresh and try again.');
     }
-    if (!this.rows.length) {
+    if (!rows.length) {
       return `<div class="assignment-queue-state" data-queue-state="empty">No assignments match the current filters.</div>`;
     }
     return `
@@ -1012,7 +1178,7 @@ export class AssignmentQueueScreen {
             </tr>
           </thead>
           <tbody>
-            ${this.rows.map((row) => this.renderRow(row)).join('')}
+            ${rows.map((row) => this.renderRow(row)).join('')}
           </tbody>
         </table>
       </div>
@@ -1024,7 +1190,7 @@ export class AssignmentQueueScreen {
       <div class="assignment-queue-state ${kind === 'conflict' ? 'is-conflict' : 'is-error'}" data-queue-state="${kind}" role="alert">
         <strong>${kind === 'conflict' ? 'Version conflict' : 'Queue unavailable'}</strong>
         <span>${escapeHtml(message)}</span>
-        <button type="button" class="queue-refresh-button" data-queue-refresh="true">Retry</button>
+        <button type="button" class="${BTN_SECONDARY_SM}" data-queue-refresh="true">Retry</button>
       </div>
     `;
   }
@@ -1086,7 +1252,7 @@ export class AssignmentQueueScreen {
             <div class="queue-action-group" data-action-group="lifecycle">
               <button
                 type="button"
-                class="queue-action-button"
+                class="${BTN_SECONDARY_SM}"
                 data-action="claim"
                 data-assignment-id="${escapeAttr(row.id)}"
                 ${claimDisabled ? 'disabled' : ''}
@@ -1097,7 +1263,7 @@ export class AssignmentQueueScreen {
               </button>
               <button
                 type="button"
-                class="queue-action-button"
+                class="${BTN_SECONDARY_SM}"
                 data-action="release"
                 data-assignment-id="${escapeAttr(row.id)}"
                 ${releaseDisabled ? 'disabled' : ''}
@@ -1111,7 +1277,7 @@ export class AssignmentQueueScreen {
               <div class="queue-action-group" data-action-group="review">
                 <button
                   type="button"
-                  class="queue-action-button review-approve-button"
+                  class="${BTN_PRIMARY_SM}"
                   data-action="approve"
                   data-assignment-id="${escapeAttr(row.id)}"
                   ${pendingApprove || !row.review_actions.approve.enabled ? 'disabled' : ''}
@@ -1122,7 +1288,7 @@ export class AssignmentQueueScreen {
                 </button>
                 <button
                   type="button"
-                  class="queue-action-button review-reject-button"
+                  class="${BTN_DANGER_SM}"
                   data-action="reject"
                   data-assignment-id="${escapeAttr(row.id)}"
                   ${pendingReject || !row.review_actions.reject.enabled ? 'disabled' : ''}
@@ -1137,7 +1303,7 @@ export class AssignmentQueueScreen {
               <div class="queue-action-group" data-action-group="manage">
                 <button
                   type="button"
-                  class="queue-action-button review-archive-button"
+                  class="${BTN_SECONDARY_SM}"
                   data-action="archive"
                   data-assignment-id="${escapeAttr(row.id)}"
                   ${pendingArchive || !row.review_actions.archive.enabled ? 'disabled' : ''}
@@ -1164,6 +1330,15 @@ export class AssignmentQueueScreen {
         const presetId = button.dataset.presetId;
         if (presetId) {
           this.setActivePreset(presetId);
+        }
+      });
+    });
+
+    this.container.querySelectorAll<HTMLElement>('[data-review-preset-id]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const presetId = button.dataset.reviewPresetId;
+        if (presetId) {
+          this.setActiveReviewPreset(presetId);
         }
       });
     });
@@ -1320,12 +1495,12 @@ export function getAssignmentQueueStyles(): string {
     .assignment-queue-screen {
       display: flex;
       flex-direction: column;
-      gap: 1rem;
-      background: linear-gradient(180deg, #f8fafc 0%, #ffffff 40%);
-      border-radius: 1rem;
-      padding: 1.5rem;
+      gap: 0.75rem;
+      background: linear-gradient(180deg, #f9fafb 0%, #ffffff 40%);
+      border-radius: 0.75rem;
+      padding: 1rem;
       box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
-      border: 1px solid #dbe4ee;
+      border: 1px solid #e5e7eb;
     }
 
     .assignment-queue-header {
@@ -1336,28 +1511,6 @@ export function getAssignmentQueueStyles(): string {
       flex-wrap: wrap;
     }
 
-    .assignment-queue-kicker {
-      margin: 0;
-      font-size: 0.75rem;
-      text-transform: uppercase;
-      letter-spacing: 0.16em;
-      color: #64748b;
-      font-weight: 700;
-    }
-
-    .assignment-queue-title {
-      margin: 0.35rem 0 0;
-      font-size: 2rem;
-      line-height: 1.1;
-      color: #0f172a;
-    }
-
-    .assignment-queue-description {
-      margin: 0.5rem 0 0;
-      color: #475569;
-      max-width: 52rem;
-    }
-
     .assignment-queue-summary {
       display: flex;
       align-items: center;
@@ -1366,36 +1519,25 @@ export function getAssignmentQueueStyles(): string {
     }
 
     .summary-pill,
-    .queue-refresh-button,
-    .queue-preset-button,
-    .queue-action-button,
     .queue-filter-field select {
       border-radius: 999px;
-      border: 1px solid #cbd5e1;
+      border: 1px solid #d1d5db;
       background: #ffffff;
-      color: #0f172a;
+      color: #111827;
       font: inherit;
     }
 
     .summary-pill {
       padding: 0.45rem 0.8rem;
       font-size: 0.85rem;
-      color: #334155;
+      color: #374151;
     }
 
-    .queue-refresh-button,
-    .queue-action-button,
-    .queue-preset-button {
-      cursor: pointer;
-      padding: 0.55rem 0.95rem;
-      transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease, transform 0.15s ease;
-    }
-
-    .queue-refresh-button:hover,
-    .queue-action-button:hover,
-    .queue-preset-button:hover {
-      border-color: #2563eb;
-      transform: translateY(-1px);
+    /* Preset button active state override for site btn classes */
+    .queue-preset-button.is-active {
+      background: #111827;
+      border-color: #111827;
+      color: #f9fafb;
     }
 
     .assignment-queue-feedback {
@@ -1438,10 +1580,78 @@ export function getAssignmentQueueStyles(): string {
       flex-wrap: wrap;
     }
 
-    .queue-preset-button.is-active {
-      background: #0f172a;
-      border-color: #0f172a;
-      color: #f8fafc;
+    .assignment-review-presets {
+      display: grid;
+      gap: 0.75rem;
+      border: 1px solid #e5e7eb;
+      border-radius: 0.75rem;
+      padding: 0.75rem;
+      background:
+        radial-gradient(circle at top left, rgba(14, 165, 233, 0.12), transparent 40%),
+        linear-gradient(135deg, #f9fafb 0%, #eff6ff 100%);
+    }
+
+    .review-preset-copy {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .review-preset-description {
+      margin: 0;
+      font-size: 0.9rem;
+      color: #374151;
+    }
+
+    .assignment-review-presets-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 0.75rem;
+    }
+
+    .review-preset-button {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      border-radius: 0.5rem;
+      border: 1px solid #bfdbfe;
+      background: rgba(255, 255, 255, 0.9);
+      color: #111827;
+      padding: 0.85rem 1rem;
+      cursor: pointer;
+      font: inherit;
+      transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .review-preset-button strong {
+      display: inline-flex;
+      min-width: 2rem;
+      justify-content: center;
+      border-radius: 999px;
+      background: #dbeafe;
+      color: #1d4ed8;
+      padding: 0.25rem 0.55rem;
+      font-size: 0.82rem;
+    }
+
+    .review-preset-button:hover {
+      border-color: #2563eb;
+      transform: translateY(-1px);
+      box-shadow: 0 12px 30px rgba(37, 99, 235, 0.12);
+    }
+
+    .review-preset-button.is-active {
+      border-color: #111827;
+      background: #111827;
+      color: #f9fafb;
+    }
+
+    .review-preset-button.is-active strong {
+      background: rgba(255, 255, 255, 0.14);
+      color: #f9fafb;
     }
 
     .assignment-queue-filters {
@@ -1454,7 +1664,7 @@ export function getAssignmentQueueStyles(): string {
       display: flex;
       flex-direction: column;
       gap: 0.35rem;
-      color: #334155;
+      color: #374151;
       font-size: 0.9rem;
     }
 
@@ -1463,11 +1673,11 @@ export function getAssignmentQueueStyles(): string {
     }
 
     .assignment-queue-state {
-      border: 1px dashed #cbd5e1;
-      border-radius: 1rem;
-      padding: 2rem;
-      background: #f8fafc;
-      color: #334155;
+      border: 1px dashed #d1d5db;
+      border-radius: 0.75rem;
+      padding: 1.5rem;
+      background: #f9fafb;
+      color: #374151;
       display: flex;
       flex-direction: column;
       gap: 0.75rem;
@@ -1488,8 +1698,8 @@ export function getAssignmentQueueStyles(): string {
 
     .assignment-queue-table-wrap {
       overflow-x: auto;
-      border-radius: 1rem;
-      border: 1px solid #dbe4ee;
+      border-radius: 0.75rem;
+      border: 1px solid #e5e7eb;
       background: #ffffff;
     }
 
@@ -1502,7 +1712,7 @@ export function getAssignmentQueueStyles(): string {
     .assignment-queue-table th,
     .assignment-queue-table td {
       padding: 1rem;
-      border-bottom: 1px solid #e2e8f0;
+      border-bottom: 1px solid #e5e7eb;
       text-align: left;
       vertical-align: middle;
     }
@@ -1511,8 +1721,8 @@ export function getAssignmentQueueStyles(): string {
       font-size: 0.78rem;
       text-transform: uppercase;
       letter-spacing: 0.08em;
-      color: #64748b;
-      background: #f8fafc;
+      color: #6b7280;
+      background: #f9fafb;
     }
 
     .assignment-queue-row {
@@ -1522,7 +1732,7 @@ export function getAssignmentQueueStyles(): string {
 
     .assignment-queue-row:hover,
     .assignment-queue-row:focus {
-      background: #f8fafc;
+      background: #f9fafb;
       box-shadow: inset 3px 0 0 #2563eb;
     }
 
@@ -1539,7 +1749,7 @@ export function getAssignmentQueueStyles(): string {
     .queue-owner-cell span,
     .queue-due-cell span,
     .queue-status-cell span {
-      color: #475569;
+      color: #4b5563;
       font-size: 0.88rem;
     }
 
@@ -1563,8 +1773,8 @@ export function getAssignmentQueueStyles(): string {
     }
 
     .locale-pill {
-      background: #e2e8f0;
-      color: #0f172a;
+      background: #e5e7eb;
+      color: #111827;
     }
 
     .locale-pill.locale-target {
@@ -1573,13 +1783,13 @@ export function getAssignmentQueueStyles(): string {
     }
 
     .locale-arrow {
-      color: #64748b;
+      color: #6b7280;
       font-weight: 700;
     }
 
     .priority-low {
       background: #f1f5f9;
-      color: #475569;
+      color: #4b5563;
     }
 
     .priority-normal {
@@ -1598,8 +1808,8 @@ export function getAssignmentQueueStyles(): string {
     }
 
     .due-none {
-      background: #e2e8f0;
-      color: #475569;
+      background: #e5e7eb;
+      color: #4b5563;
     }
 
     .due-on_track {
@@ -1658,23 +1868,6 @@ export function getAssignmentQueueStyles(): string {
       justify-content: flex-end;
     }
 
-    .review-approve-button {
-      border-color: #86efac;
-      color: #166534;
-    }
-
-    .review-reject-button {
-      border-color: #fda4af;
-      color: #be123c;
-    }
-
-    .queue-action-button[disabled],
-    .queue-action-button[aria-disabled="true"] {
-      cursor: not-allowed;
-      opacity: 0.55;
-      transform: none;
-    }
-
     @media (max-width: 900px) {
       .assignment-queue-screen {
         padding: 1rem;
@@ -1716,11 +1909,14 @@ export function initAssignmentQueueScreen(container: HTMLElement): AssignmentQue
   if (!endpoint) {
     return null;
   }
+  const locationSearch = typeof window !== 'undefined' && window?.location?.search
+    ? new URLSearchParams(window.location.search)
+    : null;
   return createAssignmentQueueScreen(container, {
     endpoint,
     editorBasePath: container.dataset.editorBasePath || '',
     title: container.dataset.title,
     description: container.dataset.description,
-    initialPresetId: container.dataset.initialPresetId,
+    initialPresetId: container.dataset.initialPresetId || locationSearch?.get('preset') || '',
   });
 }

@@ -229,6 +229,20 @@ export interface TranslationEditorRenderOptions {
   basePath?: string;
 }
 
+export interface TranslationEditorRejectDraft {
+  reason: string;
+  comment: string;
+  error?: string;
+}
+
+export interface TranslationEditorRuntimeState {
+  feedback?: { kind: 'success' | 'error' | 'conflict'; message: string } | null;
+  lastSavedMessage?: string;
+  saving?: boolean;
+  submitting?: boolean;
+  rejectDraft?: TranslationEditorRejectDraft | null;
+}
+
 export interface TranslationEditorScreenConfig {
   endpoint: string;
   variantEndpointBase: string;
@@ -975,12 +989,12 @@ function autosaveStateLabel(
     return { tone: 'bg-amber-100 text-amber-700', text: 'Autosaving draft…', state: 'saving' };
   }
   if (hasDirtyFields) {
-    return { tone: 'bg-slate-100 text-slate-700', text: 'Unsaved changes', state: 'dirty' };
+    return { tone: 'bg-gray-100 text-gray-700', text: 'Unsaved changes', state: 'dirty' };
   }
   if (lastSavedMessage) {
     return { tone: 'bg-emerald-100 text-emerald-700', text: lastSavedMessage, state: 'saved' };
   }
-  return { tone: 'bg-slate-100 text-slate-700', text: 'No pending changes', state: 'idle' };
+  return { tone: 'bg-gray-100 text-gray-700', text: 'No pending changes', state: 'idle' };
 }
 
 function renderDiagnostics(state: TranslationEditorLoadState): string {
@@ -990,7 +1004,7 @@ function renderDiagnostics(state: TranslationEditorLoadState): string {
     state.errorCode ? `Code ${escapeHTML(state.errorCode)}` : '',
   ].filter(Boolean);
   if (!parts.length) return '';
-  return `<p class="mt-3 text-xs text-slate-500">${parts.join(' · ')}</p>`;
+  return `<p class="mt-3 text-xs text-gray-500">${parts.join(' · ')}</p>`;
 }
 
 function renderFeedback(
@@ -1009,26 +1023,80 @@ function renderFeedback(
   `;
 }
 
+function qaSummaryChips(detail: TranslationAssignmentEditorDetail): string {
+  const qa = detail.qa_results;
+  if (!qa.enabled || qa.summary.finding_count <= 0) {
+    return '';
+  }
+  return `
+    <span class="rounded-full bg-amber-100 px-3 py-1 font-medium text-amber-700">Warnings ${qa.summary.warning_count}</span>
+    <span class="rounded-full ${qa.summary.blocker_count > 0 ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'} px-3 py-1 font-medium">
+      ${qa.summary.blocker_count > 0 ? `Blockers ${qa.summary.blocker_count}` : 'No blockers'}
+    </span>
+  `;
+}
+
+function buildSaveFeedbackMessage(qa: TranslationEditorQAResults, isAutosave: boolean): { kind: 'success' | 'conflict'; message: string; lastSaved: string } {
+  if (qa.summary.blocker_count > 0) {
+    return {
+      kind: 'conflict',
+      message: `Draft saved with ${qa.summary.blocker_count} QA blocker${qa.summary.blocker_count === 1 ? '' : 's'} and ${qa.summary.warning_count} warning${qa.summary.warning_count === 1 ? '' : 's'}. Submit remains blocked.`,
+      lastSaved: isAutosave ? `Autosaved · ${qa.summary.blocker_count} blocker${qa.summary.blocker_count === 1 ? '' : 's'} remain` : 'Draft saved',
+    };
+  }
+  if (qa.summary.warning_count > 0) {
+    return {
+      kind: 'success',
+      message: `Draft saved with ${qa.summary.warning_count} QA warning${qa.summary.warning_count === 1 ? '' : 's'}. Submit remains available.`,
+      lastSaved: isAutosave ? `Autosaved · ${qa.summary.warning_count} warning${qa.summary.warning_count === 1 ? '' : 's'}` : 'Draft saved',
+    };
+  }
+  return {
+    kind: 'success',
+    message: 'Draft saved.',
+    lastSaved: isAutosave ? 'Draft saved automatically' : 'Draft saved',
+  };
+}
+
+function buildSubmitBlockedMessage(detail: TranslationAssignmentEditorDetail): string {
+  const qa = detail.qa_results;
+  if (qa.submit_blocked) {
+    return `Resolve ${qa.summary.blocker_count} QA blocker${qa.summary.blocker_count === 1 ? '' : 's'} before submitting for review. ${qa.summary.warning_count} warning${qa.summary.warning_count === 1 ? '' : 's'} remain advisory.`;
+  }
+  return 'Submit for review is unavailable.';
+}
+
+function buildSubmitSuccessMessage(detail: TranslationAssignmentEditorDetail, status: string): string {
+  const qa = detail.qa_results;
+  const suffix = qa.summary.warning_count > 0
+    ? ` ${qa.summary.warning_count} QA warning${qa.summary.warning_count === 1 ? '' : 's'} remain visible to reviewers.`
+    : '';
+  if (status === 'approved') {
+    return `Submitted and auto-approved.${suffix}`;
+  }
+  return `Submitted for review.${suffix}`;
+}
+
 function renderLoadingState(): string {
   return `
-    <section class="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm" aria-busy="true">
-      <p class="text-sm font-medium text-slate-500">Loading translation assignment…</p>
+    <section class="rounded-xl border border-gray-200 bg-white p-8 shadow-sm" aria-busy="true">
+      <p class="text-sm font-medium text-gray-500">Loading translation assignment…</p>
     </section>
   `;
 }
 
 function renderEmptyState(title: string, message: string): string {
   return `
-    <section class="rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center shadow-sm">
-      <h2 class="text-lg font-semibold text-slate-900">${escapeHTML(title)}</h2>
-      <p class="mt-2 text-sm text-slate-500">${escapeHTML(message)}</p>
+    <section class="rounded-xl border border-dashed border-gray-300 bg-white p-8 text-center shadow-sm">
+      <h2 class="text-lg font-semibold text-gray-900">${escapeHTML(title)}</h2>
+      <p class="mt-2 text-sm text-gray-500">${escapeHTML(message)}</p>
     </section>
   `;
 }
 
 function renderErrorState(title: string, message: string, state: TranslationEditorLoadState): string {
   return `
-    <section class="rounded-3xl border border-rose-200 bg-rose-50 p-8 shadow-sm">
+    <section class="rounded-xl border border-rose-200 bg-rose-50 p-8 shadow-sm">
       <h2 class="text-lg font-semibold text-rose-900">${escapeHTML(title)}</h2>
       <p class="mt-2 text-sm text-rose-700">${escapeHTML(message)}</p>
       ${renderDiagnostics(state)}
@@ -1041,7 +1109,8 @@ function renderHeader(
   autosaveLabel: { tone: string; text: string; state: string },
   hasDirtyFields: boolean,
   submitting: boolean,
-  saving: boolean
+  saving: boolean,
+  basePath = ''
 ): string {
   const submitState = detail.assignment_action_states.submit_review;
   const submitDisabled = !submitState?.enabled || saving || submitting || detail.qa_results.submit_blocked;
@@ -1052,27 +1121,37 @@ function renderHeader(
   const submitTitle = detail.qa_results.submit_blocked
     ? 'Resolve QA blockers before submitting for review.'
     : (submitState?.reason || '');
+  const queueHref = basePath ? `${basePath}/queue` : '';
+  const familyHref = basePath && detail.family_id ? `${basePath}/families/${encodeURIComponent(detail.family_id)}` : '';
   return `
-    <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+    <section class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+      <nav class="mb-4 flex items-center gap-2 text-sm text-gray-500" aria-label="Breadcrumb">
+        ${queueHref ? `<a href="${escapeAttribute(queueHref)}" class="hover:text-gray-900 hover:underline">Queue</a>` : '<span>Queue</span>'}
+        <span aria-hidden="true">›</span>
+        ${familyHref ? `<a href="${escapeAttribute(familyHref)}" class="hover:text-gray-900 hover:underline">${escapeHTML(detail.family_id)}</a>` : `<span>${escapeHTML(detail.family_id || 'Family')}</span>`}
+        <span aria-hidden="true">›</span>
+        <span class="font-medium text-gray-900">${escapeHTML(detail.target_locale?.toUpperCase() || 'Editor')}</span>
+      </nav>
       <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div class="space-y-3">
-          <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Assignment editor</p>
+          <p class="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">Assignment editor</p>
           <div>
-            <h1 class="text-3xl font-semibold tracking-tight text-slate-950">${escapeHTML(assignment.source_title || 'Translation assignment')}</h1>
-            <p class="mt-2 text-sm text-slate-600">
+            <h1 class="text-3xl font-semibold tracking-tight text-gray-900">${escapeHTML(assignment.source_title || 'Translation assignment')}</h1>
+            <p class="mt-2 text-sm text-gray-600">
               ${escapeHTML(sourceLocale)} to ${escapeHTML(targetLocale)} • ${escapeHTML(sentenceCase(detail.status || assignment.status || 'draft'))} • Priority ${escapeHTML(detail.priority || 'normal')}
             </p>
           </div>
-          <div class="flex flex-wrap gap-2 text-xs text-slate-600">
-            <span class="rounded-full bg-slate-100 px-3 py-1 font-medium">Assignee ${escapeHTML(assignment.assignee_id || 'Unassigned')}</span>
-            <span class="rounded-full bg-slate-100 px-3 py-1 font-medium">Reviewer ${escapeHTML(assignment.reviewer_id || 'Not set')}</span>
+          <div class="flex flex-wrap gap-2 text-xs text-gray-600">
+            <span class="rounded-full bg-gray-100 px-3 py-1 font-medium">Assignee ${escapeHTML(assignment.assignee_id || 'Unassigned')}</span>
+            <span class="rounded-full bg-gray-100 px-3 py-1 font-medium">Reviewer ${escapeHTML(assignment.reviewer_id || 'Not set')}</span>
             <span class="rounded-full px-3 py-1 font-medium ${autosaveLabel.tone}" data-autosave-state="${escapeAttribute(autosaveLabel.state)}">${escapeHTML(autosaveLabel.text)}</span>
+            ${qaSummaryChips(detail)}
           </div>
         </div>
         <div class="flex flex-wrap items-center gap-3">
           <button
             type="button"
-            class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 ${saveDisabled ? 'cursor-not-allowed opacity-60' : 'hover:border-slate-400 hover:text-slate-900'}"
+            class="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-900 ${saveDisabled ? 'cursor-not-allowed opacity-60' : 'hover:bg-gray-50'}"
             data-action="save-draft"
             ${saveDisabled ? 'disabled aria-disabled="true"' : ''}
           >
@@ -1080,7 +1159,7 @@ function renderHeader(
           </button>
           <button
             type="button"
-            class="rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white ${submitDisabled ? 'cursor-not-allowed opacity-60' : 'hover:bg-sky-700'}"
+            class="rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white ${submitDisabled ? 'cursor-not-allowed opacity-60' : 'hover:bg-gray-800'}"
             data-action="submit-review"
             title="${escapeAttribute(submitTitle)}"
             ${submitDisabled ? 'disabled aria-disabled="true"' : ''}
@@ -1122,30 +1201,31 @@ function renderFieldList(detail: TranslationAssignmentEditorDetail): string {
   return `
     <section class="space-y-4">
       ${detail.fields.map((entry) => `
-        <article class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm" data-editor-field="${escapeAttribute(entry.path)}">
+        <article class="rounded-xl border border-gray-200 bg-white p-5" data-editor-field="${escapeAttribute(entry.path)}">
           <div class="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 class="text-lg font-semibold text-slate-950">${escapeHTML(entry.label)}</h2>
-              <p class="mt-1 text-xs uppercase tracking-[0.18em] text-slate-500">${escapeHTML(entry.path)}${entry.required ? ' • Required' : ''}</p>
+              <h2 class="text-lg font-semibold text-gray-900">${escapeHTML(entry.label)}</h2>
+              <p class="mt-1 text-xs uppercase tracking-[0.18em] text-gray-500">${escapeHTML(entry.path)}${entry.required ? ' • Required' : ''}</p>
             </div>
             <button
               type="button"
-              class="rounded-full border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 hover:border-slate-400 hover:text-slate-900"
+              class="rounded-full border border-gray-300 px-3 py-1 text-xs font-medium text-gray-600 hover:border-gray-400 hover:text-gray-900"
               data-copy-source="${escapeAttribute(entry.path)}"
+              aria-label="Copy source text to translation field for ${escapeAttribute(entry.label)}"
             >
               Copy source
             </button>
           </div>
           <div class="mt-4 grid gap-4 xl:grid-cols-2">
-            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Source</p>
-              <div class="mt-2 whitespace-pre-wrap text-sm text-slate-800">${escapeHTML(entry.source_value || 'No source text')}</div>
+            <div class="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+              <p class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Source</p>
+              <div class="mt-2 whitespace-pre-wrap text-sm text-gray-800">${escapeHTML(entry.source_value || 'No source text')}</div>
             </div>
-            <div class="rounded-2xl border ${entry.validation.valid ? 'border-slate-200' : 'border-rose-200'} bg-white p-4">
-              <label class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500" for="editor-field-${escapeAttribute(entry.path)}">Translation</label>
+            <div class="rounded-2xl border ${entry.validation.valid ? 'border-gray-200' : 'border-rose-200'} bg-white p-4">
+              <label class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500" for="editor-field-${escapeAttribute(entry.path)}">Translation</label>
               ${entry.input_type === 'textarea'
-                ? `<textarea id="editor-field-${escapeAttribute(entry.path)}" class="mt-2 min-h-[140px] w-full rounded-2xl border border-slate-300 px-3 py-3 text-sm text-slate-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100" data-field-input="${escapeAttribute(entry.path)}">${escapeHTML(entry.target_value)}</textarea>`
-                : `<input id="editor-field-${escapeAttribute(entry.path)}" type="text" class="mt-2 w-full rounded-2xl border border-slate-300 px-3 py-3 text-sm text-slate-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100" data-field-input="${escapeAttribute(entry.path)}" value="${escapeAttribute(entry.target_value)}" />`}
+                ? `<textarea id="editor-field-${escapeAttribute(entry.path)}" class="mt-2 min-h-[140px] w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100" data-field-input="${escapeAttribute(entry.path)}">${escapeHTML(entry.target_value)}</textarea>`
+                : `<input id="editor-field-${escapeAttribute(entry.path)}" type="text" class="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-100" data-field-input="${escapeAttribute(entry.path)}" value="${escapeAttribute(entry.target_value)}" />`}
               <div class="mt-2 flex flex-wrap gap-2 text-xs">
                 <span class="rounded-full px-2.5 py-1 ${entry.completeness.missing ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}">
                   ${entry.completeness.missing ? 'Missing required content' : 'Ready to submit'}
@@ -1167,60 +1247,85 @@ function renderAssistPanel(detail: TranslationAssignmentEditorDetail): string {
   const glossary = detail.assist.glossary_matches;
   const styleGuide = detail.assist.style_guide_summary;
   return `
-    <section class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-      <h2 class="text-lg font-semibold text-slate-950">Assist</h2>
+    <section class="rounded-xl border border-gray-200 bg-white p-5">
+      <h2 class="text-lg font-semibold text-gray-900">Assist</h2>
       <div class="mt-4 space-y-4">
         <div>
-          <h3 class="text-sm font-semibold text-slate-800">Glossary</h3>
+          <h3 class="text-sm font-semibold text-gray-800">Glossary</h3>
           ${glossary.length
             ? `<ul class="mt-3 space-y-2">${glossary.map((entry) => `
-                <li class="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-700">
-                  <strong class="text-slate-950">${escapeHTML(entry.term)}</strong> → ${escapeHTML(entry.preferred_translation)}
-                  ${entry.notes ? `<p class="mt-1 text-xs text-slate-500">${escapeHTML(entry.notes)}</p>` : ''}
+                <li class="rounded-2xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm text-gray-700">
+                  <strong class="text-gray-900">${escapeHTML(entry.term)}</strong> → ${escapeHTML(entry.preferred_translation)}
+                  ${entry.notes ? `<p class="mt-1 text-xs text-gray-500">${escapeHTML(entry.notes)}</p>` : ''}
                 </li>
               `).join('')}</ul>`
-            : '<p class="mt-3 text-sm text-slate-500">Glossary matches unavailable for this assignment.</p>'}
+            : '<p class="mt-3 text-sm text-gray-500">Glossary matches unavailable for this assignment.</p>'}
         </div>
         <div>
-          <h3 class="text-sm font-semibold text-slate-800">Style guide</h3>
+          <h3 class="text-sm font-semibold text-gray-800">Style guide</h3>
           ${styleGuide.available
             ? `
-              <div class="mt-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3">
-                <p class="text-sm font-semibold text-slate-900">${escapeHTML(styleGuide.title)}</p>
-                <p class="mt-2 text-sm text-slate-700">${escapeHTML(styleGuide.summary)}</p>
-                <ul class="mt-3 space-y-2 text-sm text-slate-700">
+              <div class="mt-3 rounded-2xl border border-gray-200 bg-gray-50 px-3 py-3">
+                <p class="text-sm font-semibold text-gray-900">${escapeHTML(styleGuide.title)}</p>
+                <p class="mt-2 text-sm text-gray-700">${escapeHTML(styleGuide.summary)}</p>
+                <ul class="mt-3 space-y-2 text-sm text-gray-700">
                   ${styleGuide.rules.map((rule) => `<li>• ${escapeHTML(rule)}</li>`).join('')}
                 </ul>
               </div>
             `
-            : '<p class="mt-3 text-sm text-slate-500">Style-guide guidance is unavailable. Editing remains enabled.</p>'}
+            : '<p class="mt-3 text-sm text-gray-500">Style-guide guidance is unavailable. Editing remains enabled.</p>'}
         </div>
       </div>
     </section>
   `;
 }
 
-function renderReviewFeedbackPanel(detail: TranslationAssignmentEditorDetail): string {
-  const comments = detail.review_feedback.comments;
-  if (!comments.length && !detail.last_rejection_reason) {
-    return '';
+interface TranslationEditorTimelineItem {
+  id: string;
+  title: string;
+  body: string;
+  created_at: string;
+  badge: string;
+  tone: 'review' | 'qa' | 'event';
+}
+
+function buildTimelineItems(detail: TranslationAssignmentEditorDetail): TranslationEditorTimelineItem[] {
+  const items: TranslationEditorTimelineItem[] = detail.history.items.map((entry) => ({
+    id: entry.id,
+    title: entry.title || sentenceCase(entry.entry_type),
+    body: entry.body || '',
+    created_at: entry.created_at,
+    badge: entry.kind === 'review_feedback' ? 'Reviewer feedback' : entry.entry_type === 'comment' ? 'Comment' : 'Activity',
+    tone: entry.kind === 'review_feedback' ? 'review' : 'event',
+  }));
+
+  if (detail.qa_results.enabled && detail.qa_results.summary.finding_count > 0) {
+    items.push({
+      id: 'timeline:qa-summary',
+      title: 'Current QA findings',
+      body: `${detail.qa_results.summary.blocker_count} blocker${detail.qa_results.summary.blocker_count === 1 ? '' : 's'} and ${detail.qa_results.summary.warning_count} warning${detail.qa_results.summary.warning_count === 1 ? '' : 's'} are active on this draft.`,
+      created_at: detail.translation_assignment.updated_at || detail.due_date || '',
+      badge: detail.qa_results.submit_blocked ? 'Submit blocked' : 'Warnings visible',
+      tone: 'qa',
+    });
   }
-  return `
-    <section class="rounded-3xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
-      <h2 class="text-lg font-semibold text-amber-950">Reviewer feedback</h2>
-      ${detail.last_rejection_reason
-        ? `<p class="mt-3 rounded-2xl bg-white/70 px-3 py-3 text-sm text-amber-900">${escapeHTML(detail.last_rejection_reason)}</p>`
-        : ''}
-      ${comments.length
-        ? `<ol class="mt-4 space-y-3">${comments.map((entry) => `
-            <li class="rounded-2xl border border-amber-200 bg-white px-3 py-3 text-sm text-amber-900">
-              <p>${escapeHTML(entry.body || 'Feedback unavailable')}</p>
-              <p class="mt-2 text-xs text-amber-700">${escapeHTML(entry.author_id || 'Reviewer')}${entry.created_at ? ` • ${escapeHTML(formatTimestamp(entry.created_at))}` : ''}</p>
-            </li>
-          `).join('')}</ol>`
-        : ''}
-    </section>
-  `;
+
+  if (detail.last_rejection_reason && !items.some((entry) => entry.body === detail.last_rejection_reason)) {
+    items.push({
+      id: 'timeline:last-rejection-reason',
+      title: 'Reviewer feedback',
+      body: detail.last_rejection_reason,
+      created_at: detail.translation_assignment.updated_at || '',
+      badge: 'Reviewer feedback',
+      tone: 'review',
+    });
+  }
+
+  return items.sort((left, right) => {
+    const leftTime = left.created_at ? Date.parse(left.created_at) : 0;
+    const rightTime = right.created_at ? Date.parse(right.created_at) : 0;
+    return rightTime - leftTime;
+  });
 }
 
 function renderQAPanel(detail: TranslationAssignmentEditorDetail): string {
@@ -1228,17 +1333,40 @@ function renderQAPanel(detail: TranslationAssignmentEditorDetail): string {
   if (!qa.enabled) {
     return '';
   }
-  const findings = qa.findings;
+  const blockers = qa.findings.filter((finding) => finding.severity === 'blocker');
+  const warnings = qa.findings.filter((finding) => finding.severity !== 'blocker');
+  const renderFindings = (findings: TranslationEditorQAFinding[], severity: 'blocker' | 'warning'): string => {
+    if (!findings.length) {
+      return '';
+    }
+    return `
+      <section data-qa-group="${escapeAttribute(severity === 'blocker' ? 'blockers' : 'warnings')}">
+        <h3 class="text-sm font-semibold ${severity === 'blocker' ? 'text-rose-800' : 'text-amber-800'}">
+          ${severity === 'blocker' ? `Blocking findings (${findings.length})` : `Warnings (${findings.length})`}
+        </h3>
+        <ol class="mt-3 space-y-3">${findings.map((finding) => `
+          <li class="rounded-2xl border ${severity === 'blocker' ? 'border-rose-200 bg-white text-rose-900' : 'border-amber-200 bg-white text-amber-900'} px-3 py-3 text-sm">
+            <div class="flex items-center justify-between gap-3">
+              <strong>${escapeHTML(sentenceCase(finding.category))}</strong>
+              <span class="rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] ${severity === 'blocker' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}">${escapeHTML(finding.severity)}</span>
+            </div>
+            <p class="mt-2">${escapeHTML(finding.message)}</p>
+            ${finding.field_path ? `<p class="mt-2 text-xs opacity-80">Field ${escapeHTML(finding.field_path)}</p>` : ''}
+          </li>
+        `).join('')}</ol>
+      </section>
+    `;
+  };
   return `
-    <section class="rounded-3xl border ${qa.submit_blocked ? 'border-rose-200 bg-rose-50' : 'border-slate-200 bg-white'} p-5 shadow-sm">
+    <section class="rounded-xl border ${qa.submit_blocked ? 'border-rose-200 bg-rose-50' : 'border-gray-200 bg-white'} p-5">
       <div class="flex items-center justify-between gap-3">
         <div>
-          <h2 class="text-lg font-semibold text-slate-950">QA checks</h2>
-          <p class="mt-1 text-sm ${qa.submit_blocked ? 'text-rose-700' : 'text-slate-600'}">
+          <h2 class="text-lg font-semibold text-gray-900">QA checks</h2>
+          <p class="mt-1 text-sm ${qa.submit_blocked ? 'text-rose-700' : 'text-gray-600'}">
             ${qa.submit_blocked ? 'Submit is blocked until blockers are resolved.' : 'Warnings are advisory; blockers must be resolved before submit.'}
           </p>
         </div>
-        <span class="rounded-full ${qa.submit_blocked ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-700'} px-3 py-1 text-xs font-semibold">
+        <span class="rounded-full ${qa.submit_blocked ? 'bg-rose-100 text-rose-700' : 'bg-gray-100 text-gray-700'} px-3 py-1 text-xs font-semibold">
           ${qa.summary.finding_count} findings
         </span>
       </div>
@@ -1246,18 +1374,9 @@ function renderQAPanel(detail: TranslationAssignmentEditorDetail): string {
         <span class="rounded-full bg-amber-100 px-3 py-1 font-medium text-amber-800">Warnings ${qa.summary.warning_count}</span>
         <span class="rounded-full bg-rose-100 px-3 py-1 font-medium text-rose-800">Blockers ${qa.summary.blocker_count}</span>
       </div>
-      ${findings.length
-        ? `<ol class="mt-4 space-y-3">${findings.map((finding) => `
-            <li class="rounded-2xl border ${finding.severity === 'blocker' ? 'border-rose-200 bg-white text-rose-900' : 'border-amber-200 bg-white text-amber-900'} px-3 py-3 text-sm">
-              <div class="flex items-center justify-between gap-3">
-                <strong>${escapeHTML(sentenceCase(finding.category))}</strong>
-                <span class="rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] ${finding.severity === 'blocker' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}">${escapeHTML(finding.severity)}</span>
-              </div>
-              <p class="mt-2">${escapeHTML(finding.message)}</p>
-              ${finding.field_path ? `<p class="mt-2 text-xs opacity-80">Field ${escapeHTML(finding.field_path)}</p>` : ''}
-            </li>
-          `).join('')}</ol>`
-        : '<p class="mt-4 text-sm text-slate-500">No QA findings for this assignment.</p>'}
+      ${(blockers.length || warnings.length)
+        ? `<div class="mt-4 space-y-4">${renderFindings(blockers, 'blocker')}${renderFindings(warnings, 'warning')}</div>`
+        : '<p class="mt-4 text-sm text-gray-500">No QA findings for this assignment.</p>'}
     </section>
   `;
 }
@@ -1277,25 +1396,25 @@ function renderReviewActionsPanel(detail: TranslationAssignmentEditorDetail, sub
     },
     {
       key: 'reject',
-      label: 'Reject',
+      label: 'Request changes',
       state: rejectState,
       tone: 'border-rose-300 text-rose-700',
     },
   ];
   return `
     <section
-      class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"
+      class="rounded-xl border border-gray-200 bg-white p-5"
       data-editor-panel="review-actions"
       aria-label="Review actions"
     >
-      <h2 class="text-lg font-semibold text-slate-950">Review actions</h2>
+      <h2 class="text-lg font-semibold text-gray-900">Review actions</h2>
       <div class="mt-4 flex flex-wrap gap-3">
         ${actions.map((action) => {
           const disabled = !action.state?.enabled || submitting;
           return `
             <button
               type="button"
-              class="rounded-xl border px-4 py-2 text-sm font-semibold ${action.tone} ${disabled ? 'cursor-not-allowed opacity-60' : 'hover:bg-slate-50'}"
+              class="rounded-lg border px-4 py-2 text-sm font-semibold ${action.tone} ${disabled ? 'cursor-not-allowed opacity-60' : 'hover:bg-gray-50'}"
               data-action="${escapeAttribute(action.key)}"
               title="${escapeAttribute(action.state?.reason || '')}"
               ${disabled ? 'disabled aria-disabled="true"' : ''}
@@ -1309,6 +1428,39 @@ function renderReviewActionsPanel(detail: TranslationAssignmentEditorDetail, sub
   `;
 }
 
+function renderRejectModal(rejectDraft: TranslationEditorRejectDraft | null, submitting: boolean): string {
+  if (!rejectDraft) {
+    return '';
+  }
+  return `
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/45 px-4" data-reject-modal="true">
+      <section class="w-full max-w-xl rounded-xl border border-gray-200 bg-white p-6 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="translation-reject-title">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Review action</p>
+            <h2 id="translation-reject-title" class="mt-2 text-2xl font-semibold text-gray-900">Request changes</h2>
+            <p class="mt-2 text-sm text-gray-600">Capture the rejection reason so translators can see it directly in the editor timeline.</p>
+          </div>
+          <button type="button" class="rounded-full border border-gray-300 px-3 py-1 text-sm text-gray-600 hover:border-gray-400 hover:text-gray-900" data-action="cancel-reject">Close</button>
+        </div>
+        <label class="mt-5 block text-sm font-medium text-gray-700">
+          Reject reason
+          <textarea class="mt-2 min-h-[120px] w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-100" data-reject-reason="true">${escapeHTML(rejectDraft.reason)}</textarea>
+        </label>
+        <label class="mt-4 block text-sm font-medium text-gray-700">
+          Reviewer note
+          <textarea class="mt-2 min-h-[100px] w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100" data-reject-comment="true">${escapeHTML(rejectDraft.comment)}</textarea>
+        </label>
+        ${rejectDraft.error ? `<p class="mt-3 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-3 text-sm font-medium text-rose-800">${escapeHTML(rejectDraft.error)}</p>` : ''}
+        <div class="mt-5 flex items-center justify-end gap-3">
+          <button type="button" class="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50" data-action="cancel-reject">Cancel</button>
+          <button type="button" class="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700 ${submitting ? 'cursor-not-allowed opacity-60' : ''}" data-action="confirm-reject" ${submitting ? 'disabled aria-disabled="true"' : ''}>${submitting ? 'Submitting…' : 'Request changes'}</button>
+        </div>
+      </section>
+    </div>
+  `;
+}
+
 function renderManagementActionsPanel(detail: TranslationAssignmentEditorDetail, submitting: boolean): string {
   if (!shouldShowManagementActions(detail)) {
     return '';
@@ -1317,15 +1469,15 @@ function renderManagementActionsPanel(detail: TranslationAssignmentEditorDetail,
   const disabled = !archiveState?.enabled || submitting;
   return `
     <section
-      class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"
+      class="rounded-xl border border-gray-200 bg-white p-5"
       data-editor-panel="management-actions"
       aria-label="Management actions"
     >
-      <h2 class="text-lg font-semibold text-slate-950">Management actions</h2>
+      <h2 class="text-lg font-semibold text-gray-900">Management actions</h2>
       <div class="mt-4 flex flex-wrap gap-3">
         <button
           type="button"
-          class="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 ${disabled ? 'cursor-not-allowed opacity-60' : 'hover:bg-slate-50'}"
+          class="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-900 ${disabled ? 'cursor-not-allowed opacity-60' : 'hover:bg-gray-50'}"
           data-action="archive"
           title="${escapeAttribute(archiveState?.reason || '')}"
           ${disabled ? 'disabled aria-disabled="true"' : ''}
@@ -1339,53 +1491,56 @@ function renderManagementActionsPanel(detail: TranslationAssignmentEditorDetail,
 
 function renderAttachmentPanel(detail: TranslationAssignmentEditorDetail): string {
   return `
-    <section class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+    <section class="rounded-xl border border-gray-200 bg-white p-5">
       <div class="flex items-center justify-between gap-3">
-        <h2 class="text-lg font-semibold text-slate-950">Attachments</h2>
-        <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">${detail.attachment_summary.total}</span>
+        <h2 class="text-lg font-semibold text-gray-900">Attachments</h2>
+        <span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">${detail.attachment_summary.total}</span>
       </div>
       ${detail.attachments.length
         ? `<ul class="mt-4 space-y-3">${detail.attachments.map((attachment) => `
-            <li class="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-700">
+            <li class="rounded-2xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm text-gray-700">
               <div class="flex items-start justify-between gap-3">
                 <div>
-                  <p class="font-semibold text-slate-900">${escapeHTML(attachment.filename)}</p>
-                  <p class="mt-1 text-xs uppercase tracking-[0.18em] text-slate-500">${escapeHTML(attachment.kind)}</p>
+                  <p class="font-semibold text-gray-900">${escapeHTML(attachment.filename)}</p>
+                  <p class="mt-1 text-xs uppercase tracking-[0.18em] text-gray-500">${escapeHTML(attachment.kind)}</p>
                 </div>
-                <span class="text-xs text-slate-500">${escapeHTML(byteSizeLabel(attachment.byte_size))}</span>
+                <span class="text-xs text-gray-500">${escapeHTML(byteSizeLabel(attachment.byte_size))}</span>
               </div>
-              ${attachment.description ? `<p class="mt-2 text-xs text-slate-500">${escapeHTML(attachment.description)}</p>` : ''}
-              ${attachment.uploaded_at ? `<p class="mt-2 text-xs text-slate-500">Uploaded ${escapeHTML(formatTimestamp(attachment.uploaded_at))}</p>` : ''}
+              ${attachment.description ? `<p class="mt-2 text-xs text-gray-500">${escapeHTML(attachment.description)}</p>` : ''}
+              ${attachment.uploaded_at ? `<p class="mt-2 text-xs text-gray-500">Uploaded ${escapeHTML(formatTimestamp(attachment.uploaded_at))}</p>` : ''}
             </li>
           `).join('')}</ul>`
-        : '<p class="mt-4 text-sm text-slate-500">No reference attachments for this assignment.</p>'}
+        : '<p class="mt-4 text-sm text-gray-500">No reference attachments for this assignment.</p>'}
     </section>
   `;
 }
 
-function renderHistoryPanel(detail: TranslationAssignmentEditorDetail): string {
+function renderTimelinePanel(detail: TranslationAssignmentEditorDetail): string {
   const history = detail.history;
+  const items = buildTimelineItems(detail);
   return `
-    <section class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+    <section class="rounded-xl border border-gray-200 bg-white p-5">
       <div class="flex items-center justify-between gap-3">
-        <h2 class="text-lg font-semibold text-slate-950">History</h2>
-        <span class="text-xs text-slate-500">Page ${history.page} of ${Math.max(1, Math.ceil(history.total / Math.max(1, history.per_page)))}</span>
+        <h2 class="text-lg font-semibold text-gray-900">Workflow timeline</h2>
+        <span class="text-xs text-gray-500">Page ${history.page} of ${Math.max(1, Math.ceil(history.total / Math.max(1, history.per_page)))}</span>
       </div>
-      ${history.items.length
-        ? `<ol class="mt-4 space-y-3">${history.items.map((entry) => `
-            <li class="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-700" data-history-entry="${escapeAttribute(entry.id)}">
+      ${items.length
+        ? `<ol class="mt-4 space-y-3">${items.map((entry) => `
+            <li class="rounded-2xl border ${entry.tone === 'review' ? 'border-amber-200 bg-amber-50' : entry.tone === 'qa' ? 'border-rose-200 bg-rose-50' : 'border-gray-200 bg-gray-50'} px-3 py-3 text-sm ${entry.tone === 'review' ? 'text-amber-900' : entry.tone === 'qa' ? 'text-rose-900' : 'text-gray-700'}" data-history-entry="${escapeAttribute(entry.id)}">
               <div class="flex items-start justify-between gap-3">
-                <p class="font-semibold text-slate-900">${escapeHTML(entry.title || sentenceCase(entry.entry_type))}</p>
-                <span class="text-xs text-slate-500">${escapeHTML(formatTimestamp(entry.created_at))}</span>
+                <div class="space-y-2">
+                  <p class="font-semibold ${entry.tone === 'review' ? 'text-amber-950' : entry.tone === 'qa' ? 'text-rose-950' : 'text-gray-900'}">${escapeHTML(entry.title)}</p>
+                  <span class="inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] ${entry.tone === 'review' ? 'bg-white/80 text-amber-700' : entry.tone === 'qa' ? 'bg-white/90 text-rose-700' : 'bg-white/80 text-gray-600'}">${escapeHTML(entry.badge)}</span>
+                </div>
+                <span class="text-xs ${entry.tone === 'review' ? 'text-amber-700' : entry.tone === 'qa' ? 'text-rose-700' : 'text-gray-500'}">${escapeHTML(formatTimestamp(entry.created_at) || 'Current')}</span>
               </div>
-              ${entry.body ? `<p class="mt-2 text-sm text-slate-700">${escapeHTML(entry.body)}</p>` : ''}
-              ${entry.action ? `<p class="mt-2 text-xs text-slate-500">Action ${escapeHTML(entry.action)}</p>` : ''}
+              ${entry.body ? `<p class="mt-2 text-sm">${escapeHTML(entry.body)}</p>` : ''}
             </li>
           `).join('')}</ol>`
-        : '<p class="mt-4 text-sm text-slate-500">No history entries available.</p>'}
+        : '<p class="mt-4 text-sm text-gray-500">No workflow entries available.</p>'}
       <div class="mt-4 flex items-center justify-between gap-3">
-        <button type="button" class="rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:border-slate-400" data-history-prev="true" ${history.page <= 1 ? 'disabled aria-disabled="true"' : ''}>Previous</button>
-        <button type="button" class="rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:border-slate-400" data-history-next="true" ${!history.has_more ? 'disabled aria-disabled="true"' : ''}>Next</button>
+        <button type="button" class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50" data-history-prev="true" ${history.page <= 1 ? 'disabled aria-disabled="true"' : ''}>Previous</button>
+        <button type="button" class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50" data-history-next="true" ${!history.has_more ? 'disabled aria-disabled="true"' : ''}>Next</button>
       </div>
     </section>
   `;
@@ -1395,12 +1550,7 @@ export function renderTranslationEditorState(
   loadState: TranslationEditorLoadState,
   editorState?: TranslationEditorState | null,
   options: TranslationEditorRenderOptions = {},
-  runtime: {
-    feedback?: { kind: 'success' | 'error' | 'conflict'; message: string } | null;
-    lastSavedMessage?: string;
-    saving?: boolean;
-    submitting?: boolean;
-  } = {}
+  runtime: TranslationEditorRuntimeState = {}
 ): string {
   if (loadState.status === 'loading') return renderLoadingState();
   if (loadState.status === 'empty') return renderEmptyState('Assignment unavailable', loadState.message || 'No assignment detail payload was returned.');
@@ -1414,15 +1564,15 @@ export function renderTranslationEditorState(
   return `
     <div class="translation-editor-screen space-y-6" data-translation-editor="true">
       ${renderFeedback(runtime.feedback || null)}
-      ${renderHeader(detail, autosaveLabel, hasDirtyFields, runtime.submitting === true, runtime.saving === true)}
+      ${renderHeader(detail, autosaveLabel, hasDirtyFields, runtime.submitting === true, runtime.saving === true, options.basePath || '')}
       ${conflictState ? `
-        <section class="rounded-3xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
+        <section class="rounded-xl border border-amber-200 bg-amber-50 p-5">
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 class="text-lg font-semibold text-amber-900">Autosave conflict</h2>
               <p class="mt-1 text-sm text-amber-800">A newer server draft exists. Reload it before continuing.</p>
             </div>
-            <button type="button" class="rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700" data-action="reload-server-state">Reload server draft</button>
+            <button type="button" class="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700" data-action="reload-server-state">Reload server draft</button>
           </div>
         </section>
       ` : ''}
@@ -1433,14 +1583,14 @@ export function renderTranslationEditorState(
         <aside class="space-y-6">
           ${renderReviewActionsPanel(detail, runtime.submitting === true)}
           ${renderManagementActionsPanel(detail, runtime.submitting === true)}
-          ${renderReviewFeedbackPanel(detail)}
           ${renderQAPanel(detail)}
           ${renderAssistPanel(detail)}
           ${renderAttachmentPanel(detail)}
-          ${renderHistoryPanel(detail)}
+          ${renderTimelinePanel(detail)}
           ${renderDiagnostics(loadState)}
         </aside>
       </div>
+      ${renderRejectModal(runtime.rejectDraft || null, runtime.submitting === true)}
     </div>
   `;
 }
@@ -1450,12 +1600,7 @@ export function renderTranslationEditorPage(
   loadState: TranslationEditorLoadState,
   editorState?: TranslationEditorState | null,
   options: TranslationEditorRenderOptions = {},
-  runtime: {
-    feedback?: { kind: 'success' | 'error' | 'conflict'; message: string } | null;
-    lastSavedMessage?: string;
-    saving?: boolean;
-    submitting?: boolean;
-  } = {}
+  runtime: TranslationEditorRuntimeState = {}
 ): void {
   root.innerHTML = renderTranslationEditorState(loadState, editorState, options, runtime);
 }
@@ -1468,8 +1613,10 @@ export class TranslationEditorScreen {
   private feedback: { kind: 'success' | 'error' | 'conflict'; message: string } | null = null;
   private lastSavedMessage = '';
   private autosaveTimer: ReturnType<typeof setTimeout> | null = null;
+  private keyboardHandler: ((event: KeyboardEvent) => void) | null = null;
   private saving = false;
   private submitting = false;
+  private rejectDraft: TranslationEditorRejectDraft | null = null;
 
   constructor(config: TranslationEditorScreenConfig) {
     this.config = {
@@ -1482,12 +1629,26 @@ export class TranslationEditorScreen {
 
   mount(container: HTMLElement): void {
     this.container = container;
+    this.keyboardHandler = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key === 's') {
+        event.preventDefault();
+        void this.saveDirtyFields(false);
+      }
+      if (event.key === 'Escape' && this.rejectDraft) {
+        this.closeRejectDialog();
+      }
+    };
+    document.addEventListener('keydown', this.keyboardHandler);
     this.render();
     void this.load();
   }
 
   unmount(): void {
     if (this.autosaveTimer) clearTimeout(this.autosaveTimer);
+    if (this.keyboardHandler) {
+      document.removeEventListener('keydown', this.keyboardHandler);
+      this.keyboardHandler = null;
+    }
     if (this.container) this.container.innerHTML = '';
     this.container = null;
   }
@@ -1517,6 +1678,7 @@ export class TranslationEditorScreen {
       lastSavedMessage: this.lastSavedMessage,
       saving: this.saving,
       submitting: this.submitting,
+      rejectDraft: this.rejectDraft,
     });
     this.attachEventListeners();
   }
@@ -1554,10 +1716,28 @@ export class TranslationEditorScreen {
       void this.runReviewAction('approve');
     });
     this.container.querySelector<HTMLElement>('[data-action="reject"]')?.addEventListener('click', () => {
-      void this.runReviewAction('reject');
+      this.openRejectDialog();
     });
     this.container.querySelector<HTMLElement>('[data-action="archive"]')?.addEventListener('click', () => {
       void this.runReviewAction('archive');
+    });
+    this.container.querySelectorAll<HTMLElement>('[data-action="cancel-reject"]').forEach((element) => {
+      element.addEventListener('click', () => {
+        this.closeRejectDialog();
+      });
+    });
+    this.container.querySelector<HTMLElement>('[data-action="confirm-reject"]')?.addEventListener('click', () => {
+      void this.confirmReject();
+    });
+    this.container.querySelector<HTMLTextAreaElement>('[data-reject-reason="true"]')?.addEventListener('input', (event) => {
+      const target = event.currentTarget as HTMLTextAreaElement;
+      if (!this.rejectDraft) return;
+      this.rejectDraft = { ...this.rejectDraft, reason: target.value, error: '' };
+    });
+    this.container.querySelector<HTMLTextAreaElement>('[data-reject-comment="true"]')?.addEventListener('input', (event) => {
+      const target = event.currentTarget as HTMLTextAreaElement;
+      if (!this.rejectDraft) return;
+      this.rejectDraft = { ...this.rejectDraft, comment: target.value };
     });
     this.container.querySelector<HTMLElement>('[data-action="reload-server-state"]')?.addEventListener('click', () => {
       this.feedback = { kind: 'conflict', message: 'Reloaded the latest server draft.' };
@@ -1611,9 +1791,10 @@ export class TranslationEditorScreen {
     }
     const payload = await response.json();
     this.editorState = applyEditorUpdateResponse(this.editorState, payload);
-    this.lastSavedMessage = isAutosave ? 'Draft saved automatically' : 'Draft saved';
-    if (!isAutosave) {
-      this.feedback = { kind: 'success', message: 'Draft saved.' };
+    const qaFeedback = buildSaveFeedbackMessage(this.editorState.detail.qa_results, isAutosave);
+    this.lastSavedMessage = qaFeedback.lastSaved;
+    if (!isAutosave || qaFeedback.kind === 'conflict') {
+      this.feedback = { kind: qaFeedback.kind, message: qaFeedback.message };
     }
     this.saving = false;
     this.render();
@@ -1635,7 +1816,7 @@ export class TranslationEditorScreen {
       this.feedback = {
         kind: this.editorState.detail.qa_results.submit_blocked ? 'conflict' : 'error',
         message: this.editorState.detail.qa_results.submit_blocked
-          ? 'Resolve QA blockers before submitting for review.'
+          ? buildSubmitBlockedMessage(this.editorState.detail)
           : missingRequiredFields.length
             ? `Complete required fields before submitting for review: ${missingRequiredFields.join(', ')}.`
             : 'Submit for review is unavailable.',
@@ -1668,15 +1849,13 @@ export class TranslationEditorScreen {
     const status = asString(asRecord(payload).data && asRecord(asRecord(payload).data).status);
     this.feedback = {
       kind: 'success',
-      message: status === 'approved'
-        ? 'Submitted and auto-approved.'
-        : 'Submitted for review.',
+      message: buildSubmitSuccessMessage(this.editorState.detail, status),
     };
     this.submitting = false;
     await this.load(this.editorState.detail.history.page);
   }
 
-  private async runReviewAction(action: 'approve' | 'reject' | 'archive'): Promise<void> {
+  private async runReviewAction(action: 'approve' | 'reject' | 'archive', rejectInput?: { reason: string; comment?: string }): Promise<void> {
     if (!this.editorState || this.submitting) return;
     const detail = this.editorState.detail;
     const actionState = action === 'archive'
@@ -1691,15 +1870,16 @@ export class TranslationEditorScreen {
       expected_version: detail.translation_assignment.version,
     };
     if (action === 'reject') {
-      const reason = typeof window !== 'undefined'
-        ? window.prompt('Reject reason')
-        : '';
+      const reason = rejectInput?.reason || '';
       if (!reason || !reason.trim()) {
-        this.feedback = { kind: 'error', message: 'Reject reason is required.' };
+        this.openRejectDialog('Reject reason is required.');
         this.render();
         return;
       }
       request.reason = reason.trim();
+      if (rejectInput?.comment?.trim()) {
+        request.comment = rejectInput.comment.trim();
+      }
     }
     this.submitting = true;
     this.render();
@@ -1722,11 +1902,40 @@ export class TranslationEditorScreen {
       message: action === 'approve'
         ? 'Assignment approved.'
         : action === 'reject'
-          ? 'Assignment rejected.'
+          ? 'Changes requested.'
           : 'Assignment archived.',
     };
+    this.rejectDraft = null;
     this.submitting = false;
     await this.load(this.editorState.detail.history.page);
+  }
+
+  private openRejectDialog(error = ''): void {
+    this.rejectDraft = {
+      reason: this.rejectDraft?.reason || '',
+      comment: this.rejectDraft?.comment || '',
+      error,
+    };
+    this.render();
+  }
+
+  private closeRejectDialog(): void {
+    this.rejectDraft = null;
+    this.render();
+  }
+
+  private async confirmReject(): Promise<void> {
+    if (!this.rejectDraft) {
+      return;
+    }
+    const reason = this.rejectDraft.reason.trim();
+    const comment = this.rejectDraft.comment.trim();
+    if (!reason) {
+      this.rejectDraft = { ...this.rejectDraft, error: 'Reject reason is required.' };
+      this.render();
+      return;
+    }
+    await this.runReviewAction('reject', { reason, comment });
   }
 }
 

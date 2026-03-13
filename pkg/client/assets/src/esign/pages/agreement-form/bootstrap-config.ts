@@ -1,9 +1,15 @@
 import type { NormalizedAgreementFormConfig } from './context';
 
 export interface AgreementFormRuntimeInputConfig {
+  sync?: {
+    base_url?: string;
+    bootstrap_path?: string;
+    client_base_path?: string;
+    resource_kind?: string;
+    action_operations?: string[];
+  };
   base_path?: string;
   api_base_path?: string;
-  user_id?: string;
   is_edit?: boolean;
   create_success?: boolean;
   submit_mode?: string;
@@ -51,32 +57,32 @@ export interface AgreementProgressOptions {
 export interface AgreementFormConfigNormalizationResult {
   config: AgreementFormRuntimeInputConfig;
   normalizedConfig: NormalizedAgreementFormConfig;
+  syncConfig: NormalizedAgreementSyncConfig;
   basePath: string;
   apiBase: string;
   apiVersionBase: string;
-  draftsEndpoint: string;
   isEditMode: boolean;
   createSuccess: boolean;
-  currentUserID: string;
   submitMode: string;
   documentsUploadURL: string;
   initialParticipants: Array<Record<string, unknown>>;
   initialFieldInstances: Array<Record<string, unknown>>;
 }
 
-export interface DraftRequestHelpers {
-  draftEndpointWithUserID(url: string): string;
-  draftRequestHeaders(includeContentType?: boolean): Record<string, string>;
+export interface NormalizedAgreementSyncConfig {
+  base_url: string;
+  bootstrap_path: string;
+  client_base_path: string;
+  resource_kind: string;
+  action_operations: string[];
 }
 
 export interface AgreementWizardPersistenceSettings {
   WIZARD_STATE_VERSION: number;
   WIZARD_STORAGE_KEY: string;
   WIZARD_CHANNEL_NAME: string;
-  LEGACY_WIZARD_STORAGE_KEY: string;
   SYNC_DEBOUNCE_MS: number;
   SYNC_RETRY_DELAYS: number[];
-  WIZARD_STORAGE_MIGRATION_VERSION: number;
   ACTIVE_TAB_STORAGE_KEY: string;
   ACTIVE_TAB_HEARTBEAT_MS: number;
   ACTIVE_TAB_STALE_MS: number;
@@ -161,19 +167,29 @@ export function normalizeAgreementFormConfig(
   const apiBase = String(config.api_base_path || '').trim() || `${basePath}/api`;
   const normalizedAPIBase = apiBase.replace(/\/+$/, '');
   const apiVersionBase = /\/v\d+$/i.test(normalizedAPIBase) ? normalizedAPIBase : `${normalizedAPIBase}/v1`;
-  const draftsEndpoint = `${apiVersionBase}/esign/drafts`;
   const isEditMode = Boolean(config.is_edit);
   const createSuccess = Boolean(config.create_success);
-  const currentUserID = String(config.user_id || '').trim();
   const submitMode = String(config.submit_mode || 'json').trim().toLowerCase();
   const documentsUploadURL = String(config.routes?.documents_upload_url || '').trim() || `${basePath}/content/esign_documents/new`;
   const initialParticipants = Array.isArray(config.initial_participants) ? config.initial_participants : [];
   const initialFieldInstances = Array.isArray(config.initial_field_instances) ? config.initial_field_instances : [];
+  const syncConfig = config.sync && typeof config.sync === 'object' ? config.sync : {};
+  const actionOperations = Array.isArray(syncConfig.action_operations)
+    ? syncConfig.action_operations.map((value) => String(value || '').trim()).filter(Boolean)
+    : [];
+  const defaultSyncBaseURL = `${apiVersionBase}/esign`;
+  const normalizedSyncConfig: NormalizedAgreementSyncConfig = {
+    base_url: String(syncConfig.base_url || '').trim() || defaultSyncBaseURL,
+    bootstrap_path: String(syncConfig.bootstrap_path || '').trim() || `${defaultSyncBaseURL}/sync/bootstrap/agreement-draft`,
+    client_base_path: String(syncConfig.client_base_path || '').trim() || `${basePath}/sync-client/sync-core`,
+    resource_kind: String(syncConfig.resource_kind || '').trim() || 'agreement_draft',
+    action_operations: actionOperations.length > 0 ? actionOperations : ['send', 'discard'],
+  };
 
   const normalizedConfig: NormalizedAgreementFormConfig = {
+    sync: normalizedSyncConfig,
     base_path: basePath,
     api_base_path: apiBase,
-    user_id: currentUserID,
     is_edit: isEditMode,
     create_success: createSuccess,
     submit_mode: submitMode,
@@ -190,13 +206,12 @@ export function normalizeAgreementFormConfig(
   return {
     config,
     normalizedConfig,
+    syncConfig: normalizedSyncConfig,
     basePath,
     apiBase,
     apiVersionBase,
-    draftsEndpoint,
     isEditMode,
     createSuccess,
-    currentUserID,
     submitMode,
     documentsUploadURL,
     initialParticipants,
@@ -204,34 +219,18 @@ export function normalizeAgreementFormConfig(
   };
 }
 
-export function createDraftRequestHelpers(currentUserID: string): DraftRequestHelpers {
-  function draftEndpointWithUserID(url: string): string {
-    if (!currentUserID) return url;
-    const sep = url.includes('?') ? '&' : '?';
-    return `${url}${sep}user_id=${encodeURIComponent(currentUserID)}`;
-  }
-
-  function draftRequestHeaders(includeContentType = true): Record<string, string> {
-    const headers: Record<string, string> = { Accept: 'application/json' };
-    if (includeContentType) headers['Content-Type'] = 'application/json';
-    if (currentUserID) headers['X-User-ID'] = currentUserID;
-    return headers;
-  }
-
-  return {
-    draftEndpointWithUserID,
-    draftRequestHeaders,
-  };
+export function createSyncRequestHeaders(includeContentType = true): Record<string, string> {
+  const headers: Record<string, string> = { Accept: 'application/json' };
+  if (includeContentType) headers['Content-Type'] = 'application/json';
+  return headers;
 }
 
 export function createAgreementWizardPersistenceSettings(options: {
   config?: AgreementFormRuntimeInputConfig;
-  currentUserID?: string;
   isEditMode?: boolean;
 } = {}): AgreementWizardPersistenceSettings {
   const {
     config = {},
-    currentUserID = '',
     isEditMode = false,
   } = options;
 
@@ -244,7 +243,6 @@ export function createAgreementWizardPersistenceSettings(options: {
   ).trim().toLowerCase();
   const wizardScopeToken = [
     wizardModeToken,
-    currentUserID || 'anonymous',
     wizardRouteToken || 'agreement-form',
   ].join('|');
 
@@ -252,10 +250,8 @@ export function createAgreementWizardPersistenceSettings(options: {
     WIZARD_STATE_VERSION: 1,
     WIZARD_STORAGE_KEY: `esign_wizard_state_v1:${encodeURIComponent(wizardScopeToken)}`,
     WIZARD_CHANNEL_NAME: `esign_wizard_sync:${encodeURIComponent(wizardScopeToken)}`,
-    LEGACY_WIZARD_STORAGE_KEY: 'esign_wizard_state_v1',
     SYNC_DEBOUNCE_MS: 2000,
     SYNC_RETRY_DELAYS: [1000, 2000, 5000, 10000, 30000],
-    WIZARD_STORAGE_MIGRATION_VERSION: 1,
     ACTIVE_TAB_STORAGE_KEY: `esign_wizard_active_tab_v1:${encodeURIComponent(wizardScopeToken)}`,
     ACTIVE_TAB_HEARTBEAT_MS: 5000,
     ACTIVE_TAB_STALE_MS: 20000,

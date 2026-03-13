@@ -20,6 +20,17 @@ export interface AgreementFormConfig extends AgreementFormRuntimeConfig {
 
 function normalizeAgreementFormConfig(config: AgreementFormConfig): AgreementFormRuntimeConfig {
   return {
+    sync: config.sync && typeof config.sync === 'object'
+      ? {
+        base_url: String(config.sync.base_url || '').trim(),
+        bootstrap_path: String(config.sync.bootstrap_path || '').trim(),
+        client_base_path: String(config.sync.client_base_path || '').trim(),
+        resource_kind: String(config.sync.resource_kind || '').trim(),
+        action_operations: Array.isArray(config.sync.action_operations)
+          ? config.sync.action_operations.map((value) => String(value || '').trim()).filter(Boolean)
+          : [],
+      }
+      : undefined,
     base_path: String(config.base_path || config.basePath || '').trim(),
     api_base_path: String(config.api_base_path || config.apiBasePath || '').trim(),
     user_id: String(config.user_id || '').trim(),
@@ -64,6 +75,13 @@ export function initAgreementForm(config: AgreementFormConfig): AgreementFormCon
 }
 
 export function bootstrapAgreementForm(config: {
+  sync?: {
+    base_url?: string;
+    bootstrap_path?: string;
+    client_base_path?: string;
+    resource_kind?: string;
+    action_operations?: string[];
+  };
   basePath?: string;
   apiBasePath?: string;
   base_path?: string;
@@ -84,6 +102,7 @@ export function bootstrapAgreementForm(config: {
   };
 }): void {
   const controller = new AgreementFormController({
+    sync: config.sync,
     basePath: config.basePath,
     apiBasePath: config.apiBasePath,
     base_path: config.base_path,
@@ -116,6 +135,7 @@ if (typeof document !== 'undefined') {
     try {
       const config = JSON.parse(configScript.textContent || '{}');
       bootstrapAgreementForm({
+        sync: config.sync && typeof config.sync === 'object' ? config.sync : undefined,
         base_path: config.base_path || config.basePath,
         api_base_path: config.api_base_path || config.apiBasePath,
         user_id: config.user_id || config.userId,

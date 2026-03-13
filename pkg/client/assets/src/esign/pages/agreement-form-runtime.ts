@@ -4,6 +4,13 @@ import type { AgreementFormRuntime } from './agreement-form/context';
 import { createAgreementFormRuntimeCoordinator } from './agreement-form/composition';
 
 export interface AgreementFormRuntimeConfig {
+  sync?: {
+    base_url?: string;
+    bootstrap_path?: string;
+    client_base_path?: string;
+    resource_kind?: string;
+    action_operations?: string[];
+  };
   base_path?: string;
   api_base_path?: string;
   user_id?: string;

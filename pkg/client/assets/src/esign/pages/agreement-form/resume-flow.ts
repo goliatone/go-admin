@@ -48,16 +48,20 @@ interface ResumeDraftRecord {
   revision?: number;
   updated_at?: string;
   updatedAt?: string;
+  resource_ref?: any;
   wizard_state?: ResumeWizardState | null;
 }
 
 interface ResumeSyncService {
+  bootstrap(): Promise<{ resourceRef: any; snapshot: { ref: any; data: Record<string, unknown>; revision: number; updatedAt: string } }>;
+  create(state: Record<string, unknown>): Promise<ResumeDraftRecord>;
   load(draftId: string): Promise<ResumeDraftRecord>;
-  delete(draftId: string): Promise<void>;
+  dispose(draftId: string): Promise<void>;
 }
 
 interface ResumeSyncOrchestrator {
   broadcastStateUpdate(): void;
+  broadcastDraftDisposed?(draftId: string, reason?: string): void;
   scheduleSync(): void;
 }
 
@@ -138,6 +142,32 @@ export function createAgreementResumeController(
     }));
     const localDraftID = String(localState?.serverDraftId || '').trim();
     if (!localDraftID) {
+      if (!hasMeaningfulWizardProgress(localState)) {
+        try {
+          const bootstrapped = await syncService.bootstrap();
+          stateManager.setState({
+            ...(bootstrapped.snapshot?.data?.wizard_state && typeof bootstrapped.snapshot.data.wizard_state === 'object'
+              ? bootstrapped.snapshot.data.wizard_state
+              : {}),
+            resourceRef: bootstrapped.resourceRef,
+            serverDraftId: String(bootstrapped.snapshot?.ref?.id || '').trim() || null,
+            serverRevision: Number(bootstrapped.snapshot?.revision || 0),
+            lastSyncedAt: String(bootstrapped.snapshot?.updatedAt || '').trim() || null,
+            syncPending: false,
+          }, { syncPending: false, notify: false });
+          return stateManager.getState();
+        } catch (error: unknown) {
+          logSendWarn('resume_reconcile_bootstrap_failed', buildSendDebugFields({
+            state: localState,
+            storageKey,
+            ownership: getActiveTabDebugState?.() || undefined,
+            sendAttemptId: null,
+            extra: {
+              source: 'bootstrap_failed_keep_local',
+            },
+          }));
+        }
+      }
       stateManager.setState(localState, { syncPending: Boolean(localState.syncPending), notify: false });
       logSendInfo('resume_reconcile_complete', buildSendDebugFields({
         state: localState,
@@ -155,6 +185,7 @@ export function createAgreementResumeController(
       const serverDraft = await syncService.load(localDraftID);
       const serverState = stateManager.normalizeLoadedState({
         ...(serverDraft?.wizard_state && typeof serverDraft.wizard_state === 'object' ? serverDraft.wizard_state : {}),
+        resourceRef: serverDraft?.resource_ref || localState.resourceRef || null,
         serverDraftId: String(serverDraft?.id || localDraftID).trim() || localDraftID,
         serverRevision: Number(serverDraft?.revision || 0),
         lastSyncedAt: String(serverDraft?.updated_at || serverDraft?.updatedAt || '').trim() || localState.lastSyncedAt,
@@ -251,12 +282,15 @@ export function createAgreementResumeController(
 
     stateManager.clear();
     syncOrchestrator.broadcastStateUpdate();
+    if (staleServerDraftID) {
+      syncOrchestrator.broadcastDraftDisposed?.(staleServerDraftID, deleteServerDraft ? 'resume_clear_delete' : 'resume_clear_local');
+    }
 
     if (!deleteServerDraft || !staleServerDraftID) {
       return;
     }
     try {
-      await syncService.delete(staleServerDraftID);
+      await syncService.dispose(staleServerDraftID);
     } catch (error: unknown) {
       console.warn('Failed to delete server draft:', error);
     }
@@ -288,18 +322,33 @@ export function createAgreementResumeController(
 
     switch (action) {
       case 'continue':
+        if (!String(stateManager.getState()?.serverDraftId || '').trim() && hasMeaningfulWizardProgress(currentSnapshot)) {
+          await syncService.create(currentSnapshot);
+        }
         applyResumedState(stateManager.getState());
         return;
       case 'start_new':
         await clearSavedResumeState({ deleteServerDraft: false });
-        persistSnapshotIfMeaningful(currentSnapshot);
+        if (hasMeaningfulWizardProgress(currentSnapshot)) {
+          await syncService.create(currentSnapshot);
+        } else {
+          await reconcileBootstrapState();
+        }
+        applyResumedState(stateManager.getState());
         return;
       case 'proceed':
         await clearSavedResumeState({ deleteServerDraft: true });
-        persistSnapshotIfMeaningful(currentSnapshot);
+        if (hasMeaningfulWizardProgress(currentSnapshot)) {
+          await syncService.create(currentSnapshot);
+        } else {
+          await reconcileBootstrapState();
+        }
+        applyResumedState(stateManager.getState());
         return;
       case 'discard':
         await clearSavedResumeState({ deleteServerDraft: true });
+        await reconcileBootstrapState();
+        applyResumedState(stateManager.getState());
         return;
       default:
         return;

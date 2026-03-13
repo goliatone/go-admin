@@ -251,7 +251,9 @@ test('translation editor runtime: renders full screen with history, attachments,
   assert.match(html, /Draft saved automatically/i);
   assert.match(html, /Copy source/i);
   assert.match(html, /Homepage localization brief/i);
-  assert.match(html, /Review feedback/i);
+  assert.match(html, /Workflow timeline/i);
+  assert.match(html, /Reviewer feedback/i);
+  assert.match(html, /Current QA findings/i);
   assert.match(html, /FR Pages Style Guide/i);
   assert.match(html, /Request req-editor/);
   assert.match(html, /Resolve QA blockers before submitting for review\./i);
@@ -288,7 +290,28 @@ test('translation editor runtime: separates review actions from management actio
   assert.match(reviewHTML, /Review actions/);
   assert.match(reviewHTML, /data-action="approve"/);
   assert.match(reviewHTML, /data-action="reject"/);
+  assert.match(reviewHTML, /Request changes/);
   assert.match(reviewHTML, /data-editor-panel="management-actions"/);
+});
+
+test('translation editor runtime: reject modal renders reviewer inputs', () => {
+  const reviewDetail = normalizeAssignmentEditorDetail(makeReviewReadyFixture());
+  const html = renderTranslationEditorState(
+    { status: 'ready', detail: reviewDetail },
+    createTranslationEditorState(reviewDetail),
+    {},
+    {
+      rejectDraft: {
+        reason: 'Please preserve the CTA token.',
+        comment: 'Keep the glossary term consistent.',
+      },
+    }
+  );
+
+  assert.match(html, /data-reject-modal="true"/);
+  assert.match(html, /Request changes/);
+  assert.match(html, /Reject reason/);
+  assert.match(html, /Reviewer note/);
 });
 
 test('translation editor runtime: submit guard blocks QA-blocked actions before transport', async () => {

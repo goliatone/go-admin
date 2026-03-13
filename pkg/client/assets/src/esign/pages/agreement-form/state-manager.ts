@@ -1,8 +1,11 @@
+import type {
+  SyncCoreResourceRef,
+  SyncCoreResourceSnapshot,
+} from './sync-core-loader';
+
 export interface WizardStateManagerOptions {
   storageKey: string;
-  legacyStorageKey: string;
   stateVersion: number;
-  storageMigrationVersion: number;
   totalWizardSteps: number;
   titleSource: {
     USER: string;
@@ -28,7 +31,6 @@ export class WizardStateManager {
   }
 
   start(): void {
-    this.migrateLegacyStateIfNeeded();
     this.state = this.loadFromSession() || this.createInitialState();
   }
 
@@ -60,7 +62,7 @@ export class WizardStateManager {
       fieldPlacements: [],
       fieldRules: [],
       titleSource: this.options.titleSource.AUTOFILL,
-      storageMigrationVersion: this.options.storageMigrationVersion,
+      resourceRef: null,
       serverDraftId: null,
       serverRevision: 0,
       lastSyncedAt: null,
@@ -70,34 +72,6 @@ export class WizardStateManager {
 
   private generateWizardId(): string {
     return `wizard_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  }
-
-  private migrateLegacyStateIfNeeded(): void {
-    const storage = this.storage();
-    if (!storage) return;
-
-    try {
-      const scopedRaw = storage.getItem(this.options.storageKey);
-      const legacyRaw = storage.getItem(this.options.legacyStorageKey);
-      if (!legacyRaw) return;
-      if (scopedRaw) {
-        storage.removeItem(this.options.legacyStorageKey);
-        return;
-      }
-      const parsedLegacy = JSON.parse(legacyRaw);
-      const migrated = this.normalizeLoadedState({
-        ...parsedLegacy,
-        storageMigrationVersion: this.options.storageMigrationVersion,
-      });
-      storage.setItem(this.options.storageKey, JSON.stringify(migrated));
-      storage.removeItem(this.options.legacyStorageKey);
-      this.options.emitTelemetry('wizard_resume_migration_used', {
-        from: this.options.legacyStorageKey,
-        to: this.options.storageKey,
-      });
-    } catch {
-      storage.removeItem(this.options.legacyStorageKey);
-    }
   }
 
   private loadFromSession(): Record<string, any> | null {
@@ -161,10 +135,7 @@ export class WizardStateManager {
     normalized.createdAt = String(state.createdAt ?? initial.createdAt);
     normalized.updatedAt = String(state.updatedAt ?? initial.updatedAt);
     normalized.titleSource = this.options.normalizeTitleSource(state.titleSource, inferredTitleSource);
-    normalized.storageMigrationVersion = this.options.parsePositiveInt(
-      state.storageMigrationVersion,
-      this.options.storageMigrationVersion,
-    ) || this.options.storageMigrationVersion;
+    normalized.resourceRef = this.normalizeResourceRef(state.resourceRef ?? state.resource_ref);
 
     const serverDraftID = String(state.serverDraftId ?? '').trim();
     normalized.serverDraftId = serverDraftID || null;
@@ -173,6 +144,34 @@ export class WizardStateManager {
     normalized.syncPending = Boolean(state.syncPending);
 
     return normalized;
+  }
+
+  private normalizeResourceRef(value: unknown): SyncCoreResourceRef | null {
+    if (!value || typeof value !== 'object') {
+      return null;
+    }
+    const candidate = value as Record<string, unknown>;
+    const kind = String(candidate.kind ?? '').trim();
+    const id = String(candidate.id ?? '').trim();
+    if (kind === '' || id === '') {
+      return null;
+    }
+    const rawScope = candidate.scope;
+    const scope = rawScope && typeof rawScope === 'object' && !Array.isArray(rawScope)
+      ? Object.entries(rawScope as Record<string, unknown>).reduce<Record<string, string>>((acc, [key, raw]) => {
+        const nextKey = String(key || '').trim();
+        if (nextKey !== '') {
+          acc[nextKey] = String(raw ?? '').trim();
+        }
+        return acc;
+      }, {})
+      : undefined;
+
+    return {
+      kind,
+      id,
+      scope: scope && Object.keys(scope).length > 0 ? scope : undefined,
+    };
   }
 
   private migrateState(_oldState: any): Record<string, any> | null {
@@ -185,7 +184,6 @@ export class WizardStateManager {
 
     try {
       this.state.updatedAt = this.now();
-      this.state.storageMigrationVersion = this.options.storageMigrationVersion;
       storage.setItem(this.options.storageKey, JSON.stringify(this.state));
     } catch {
       // Best effort cache only.
@@ -273,6 +271,60 @@ export class WizardStateManager {
     }, { syncPending: false });
   }
 
+  bindResourceRef(resourceRef: SyncCoreResourceRef | null, options: { notify?: boolean; save?: boolean } = {}): void {
+    const normalizedRef = this.normalizeResourceRef(resourceRef);
+    this.setState({
+      ...this.getState(),
+      resourceRef: normalizedRef,
+      serverDraftId: normalizedRef?.id || null,
+    }, {
+      save: options.save,
+      notify: options.notify,
+      syncPending: false,
+    });
+  }
+
+  applyServerSnapshot(
+    snapshot: SyncCoreResourceSnapshot<Record<string, any>>,
+    options: { notify?: boolean; save?: boolean; preserveDirty?: boolean } = {},
+  ): Record<string, any> {
+    const localState = this.getState();
+    const preserveDirty = options.preserveDirty === true && localState.syncPending === true;
+    if (preserveDirty) {
+      this.setState({
+        ...localState,
+        resourceRef: snapshot.ref,
+        serverDraftId: snapshot.ref.id,
+        serverRevision: snapshot.revision,
+        lastSyncedAt: snapshot.updatedAt,
+        syncPending: true,
+      }, {
+        save: options.save,
+        notify: options.notify,
+        syncPending: true,
+      });
+      return this.getState();
+    }
+
+    const payload = snapshot?.data && typeof snapshot.data === 'object'
+      ? snapshot.data
+      : {};
+    const nextState = this.normalizeLoadedState({
+      ...(payload?.wizard_state && typeof payload.wizard_state === 'object' ? payload.wizard_state : {}),
+      resourceRef: snapshot.ref,
+      serverDraftId: snapshot.ref.id,
+      serverRevision: snapshot.revision,
+      lastSyncedAt: snapshot.updatedAt,
+      syncPending: false,
+    });
+    this.setState(nextState, {
+      save: options.save,
+      notify: options.notify,
+      syncPending: false,
+    });
+    return this.getState();
+  }
+
   applyRemoteSync(serverDraftId: string, serverRevision: number, options: { lastSyncedAt?: string; save?: boolean; notify?: boolean } = {}): {
     preservedLocalChanges: boolean;
     state: Record<string, any>;
@@ -344,7 +396,6 @@ export class WizardStateManager {
     const storage = this.storage();
     this.state = this.createInitialState();
     storage?.removeItem(this.options.storageKey);
-    storage?.removeItem(this.options.legacyStorageKey);
     this.notifyListeners();
   }
 
@@ -379,6 +430,7 @@ export class WizardStateManager {
 
     return {
       ...formState,
+      resourceRef: state.resourceRef || null,
       titleSource: activeTitleSource,
       serverDraftId: state.serverDraftId,
       serverRevision: state.serverRevision,
@@ -388,7 +440,6 @@ export class WizardStateManager {
       version: state.version,
       createdAt: state.createdAt,
       updatedAt: this.now(),
-      storageMigrationVersion: this.options.storageMigrationVersion,
       syncPending: true,
     };
   }

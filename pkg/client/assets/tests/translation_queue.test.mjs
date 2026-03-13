@@ -8,6 +8,8 @@ const fixtures = JSON.parse(await readFile(fixtureURL, 'utf8'));
 const {
   AssignmentQueueScreen,
   applyOptimisticAssignmentAction,
+  buildAssignmentListURL,
+  initAssignmentQueueScreen,
   normalizeAssignmentListResponse,
 } = await import('../dist/translation-queue/index.js');
 
@@ -57,9 +59,42 @@ test('translation queue contracts: normalize shared fixture metadata and rows', 
   });
 
   assert.equal(response.meta.saved_filter_presets.length, 5);
+  assert.equal(response.meta.saved_review_filter_presets.length, 4);
+  assert.equal(response.meta.default_review_filter_preset, 'review_inbox');
+  assert.equal(response.meta.review_aggregate_counts.review_blocked, 1);
   assert.equal(response.meta.default_sort.key, 'updated_at');
   assert.equal(response.data[0].actions.claim.enabled, true);
   assert.equal(response.data[0].actions.release.reason_code, 'INVALID_STATUS');
+});
+
+test('translation queue contracts: review presets fall back to review defaults when metadata is missing', () => {
+  const response = normalizeAssignmentListResponse({
+    meta: {
+      ...fixtures.meta,
+      saved_review_filter_presets: [],
+    },
+    data: fixtures.states.open_pool.data,
+  });
+
+  assert.deepEqual(
+    response.meta.saved_review_filter_presets.map((preset) => preset.id),
+    ['review_inbox', 'review_overdue', 'review_blocked', 'review_changes_requested']
+  );
+});
+
+test('translation queue contracts: canonical list urls preserve review state and translation group filters', () => {
+  const url = buildAssignmentListURL('/admin/api/translations/assignments', {
+    reviewerId: '__me__',
+    reviewState: 'qa_blocked',
+    translationGroupId: 'tg-page-1',
+    sort: 'due_date',
+    order: 'asc',
+  });
+
+  assert.equal(
+    url,
+    '/admin/api/translations/assignments?reviewer_id=__me__&review_state=qa_blocked&translation_group_id=tg-page-1&sort=due_date&order=asc'
+  );
 });
 
 test('translation queue contracts: optimistic claim state enables release and submit review', () => {
@@ -93,6 +128,8 @@ test('translation queue runtime: mount renders saved filters and rows from share
 
   assert.equal(screen.getState(), 'ready');
   assert.match(container.innerHTML, /High Priority/);
+  assert.match(container.innerHTML, /Reviewer states/);
+  assert.match(container.innerHTML, /Review Inbox/);
   assert.match(container.innerHTML, /Claim/);
   assert.match(container.innerHTML, /Launch page/);
   assert.match(container.innerHTML, /Due State/);
@@ -180,4 +217,122 @@ test('translation queue runtime: review rows keep reviewer actions separate from
   assert.match(container.innerHTML, /data-action="reject"/);
   assert.match(container.innerHTML, /data-action-group="manage"/);
   assert.match(container.innerHTML, /data-action="archive"/);
+});
+
+test('translation queue runtime: review presets can bootstrap from explicit config', async () => {
+  let firstURL = '';
+  globalThis.fetch = mock.fn(async (input) => {
+    firstURL = String(input);
+    return createJsonResponse({
+      meta: {
+        ...fixtures.states.review_ready.meta,
+        ...fixtures.meta,
+      },
+      data: fixtures.states.review_ready.data,
+    });
+  });
+
+  const screen = new AssignmentQueueScreen({
+    endpoint: '/admin/api/translations/assignments',
+    editorBasePath: '/admin/translations/assignments',
+    initialPresetId: 'review_inbox',
+  });
+  const container = createContainer();
+  screen.mount(container);
+  await flushAsync();
+
+  assert.equal(screen.getActiveReviewPresetId(), 'review_inbox');
+  assert.match(firstURL, /status=review/);
+  assert.match(firstURL, /reviewer_id=__me__/);
+});
+
+test('translation queue runtime: qa-blocked review preset requests server-side review_state filtering', async () => {
+  let firstURL = '';
+  globalThis.fetch = mock.fn(async (input) => {
+    firstURL = String(input);
+    return createJsonResponse({
+      meta: {
+        ...fixtures.states.qa_summary.meta,
+        ...fixtures.meta,
+      },
+      data: fixtures.states.qa_summary.data,
+    });
+  });
+
+  const screen = new AssignmentQueueScreen({
+    endpoint: '/admin/api/translations/assignments',
+    editorBasePath: '/admin/translations/assignments',
+    initialPresetId: 'review_blocked',
+  });
+  screen.mount(createContainer());
+  await flushAsync();
+
+  assert.equal(screen.getActiveReviewPresetId(), 'review_blocked');
+  assert.match(firstURL, /review_state=qa_blocked/);
+  assert.match(firstURL, /reviewer_id=__me__/);
+});
+
+test('translation queue runtime: init screen reads preset from location query when dataset is empty', async () => {
+  let firstURL = '';
+  globalThis.fetch = mock.fn(async (input) => {
+    firstURL = String(input);
+    return createJsonResponse({
+      meta: {
+        ...fixtures.states.review_ready.meta,
+        ...fixtures.meta,
+      },
+      data: fixtures.states.review_ready.data,
+    });
+  });
+
+  const previousWindow = globalThis.window;
+  globalThis.window = {
+    location: {
+      search: '?preset=review_inbox',
+    },
+  };
+
+  try {
+    const container = createContainer({
+      endpoint: '/admin/api/translations/assignments',
+      editorBasePath: '/admin/translations/assignments',
+    });
+    const screen = initAssignmentQueueScreen(container);
+    assert.ok(screen);
+    await flushAsync();
+
+    assert.equal(screen.getActiveReviewPresetId(), 'review_inbox');
+    assert.match(firstURL, /status=review/);
+    assert.match(firstURL, /reviewer_id=__me__/);
+  } finally {
+    globalThis.window = previousWindow;
+  }
+});
+
+test('translation queue runtime: actorless reviewer states stay visible but disabled', async () => {
+  globalThis.fetch = mock.fn(async () => createJsonResponse({
+    meta: {
+      ...fixtures.meta,
+      review_actor_id: '',
+      review_aggregate_counts: {
+        review_inbox: 0,
+        review_overdue: 0,
+        review_blocked: 0,
+        review_changes_requested: 0,
+      },
+    },
+    data: fixtures.states.review_ready.data,
+  }));
+
+  const screen = new AssignmentQueueScreen({
+    endpoint: '/admin/api/translations/assignments',
+    editorBasePath: '/admin/translations/assignments',
+  });
+  const container = createContainer();
+  screen.mount(container);
+  await flushAsync();
+
+  assert.match(container.innerHTML, /Reviewer queue states are available when reviewer metadata is present\./);
+  assert.match(container.innerHTML, /data-review-preset-id="review_inbox"/);
+  assert.match(container.innerHTML, /disabled aria-disabled="true"/);
 });

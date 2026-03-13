@@ -162,6 +162,9 @@ export function createAgreementFeedbackController(
   function mapUserFacingError(message: string, code = '', status = 0): string {
     const normalizedCode = String(code || '').trim().toUpperCase();
     const normalizedMessage = String(message || '').trim().toLowerCase();
+    if (normalizedCode === 'STALE_REVISION') {
+      return 'A newer version of this draft exists. Reload the latest draft or force your changes.';
+    }
     if (normalizedCode === 'DRAFT_SEND_NOT_FOUND' || normalizedCode === 'DRAFT_SESSION_STALE') {
       return 'Your saved draft session was replaced or expired. Please review and click Send again.';
     }

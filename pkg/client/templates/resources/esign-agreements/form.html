@@ -232,7 +232,13 @@
   {
     "base_path": "{{ base_path }}",
     "api_base_path": "{{ api_base_path|default:"" }}",
-    "user_id": "{{ user_id|default:session_user.id|default:session_user.subject|default:""|escapejs }}",
+    "sync": {
+      "base_url": "{{ api_base_path|default:"/admin/api/v1" }}/esign",
+      "bootstrap_path": "{{ api_base_path|default:"/admin/api/v1" }}/esign/sync/bootstrap/agreement-draft",
+      "client_base_path": "{{ base_path|default:"/admin" }}/sync-client/sync-core",
+      "resource_kind": "agreement_draft",
+      "action_operations": ["send", "discard"]
+    },
     "is_edit": {{ is_edit|default:false|yesno:"true,false" }},
     "create_success": {{ create_success|default:false|yesno:"true,false" }},
     "submit_mode": "json",

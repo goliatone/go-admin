@@ -34,8 +34,11 @@ interface SubmitDraftRecord {
 interface SubmitSendPayload {
   agreement_id?: string;
   id?: string;
+  draft_deleted?: boolean;
   data?: {
     id?: string;
+    agreement_id?: string;
+    draft_deleted?: boolean;
   };
 }
 
@@ -56,15 +59,13 @@ interface SubmitStateManager {
 interface SubmitSyncService {
   create(state: Record<string, unknown>): Promise<SubmitDraftRecord>;
   load(draftId: string): Promise<SubmitDraftRecord>;
+  send(expectedRevision: number, idempotencyKey: string, metadata?: Record<string, unknown>): Promise<SubmitSendPayload>;
 }
 
 interface SubmitSyncOrchestrator {
-  isOwner?: boolean;
-  currentClaim?: { tabId?: string; claimedAt?: string; lastSeenAt?: string } | null;
-  lastBlockedReason?: string;
   forceSync(): Promise<SubmitSyncResult>;
-  ensureActiveTabOwnership(reason: string, options?: { allowClaimIfAvailable?: boolean }): boolean;
   broadcastStateUpdate(): void;
+  broadcastDraftDisposed?(draftId: string, reason?: string): void;
 }
 
 interface SubmitControllerError extends Error {
@@ -85,11 +86,7 @@ interface SubmitControllerOptions {
   documentPageCountInput?: HTMLInputElement | null;
   fieldPlacementsJSONInput?: HTMLInputElement | HTMLTextAreaElement | null;
   fieldRulesJSONInput?: HTMLInputElement | HTMLTextAreaElement | null;
-  currentUserID: string;
   storageKey: string;
-  draftsEndpoint: string;
-  draftEndpointWithUserID(url: string): string;
-  draftRequestHeaders(includeContentType?: boolean): Record<string, string>;
   syncService: SubmitSyncService;
   syncOrchestrator: SubmitSyncOrchestrator;
   stateManager: SubmitStateManager;
@@ -111,10 +108,12 @@ interface SubmitControllerOptions {
   emitWizardTelemetry(eventName: string, fields?: Record<string, unknown>): void;
   parseAPIError(response: Response, fallbackMessage: string): Promise<AgreementFeedbackAPIError>;
   goToStep(stepNum: number): void;
+  showSyncConflictDialog?(serverRevision?: number | string): void;
   surfaceSyncOutcome?(
     resultPromise: Promise<Record<string, unknown>> | Record<string, unknown>,
     options?: Record<string, unknown>,
   ): Promise<Record<string, unknown>> | Record<string, unknown>;
+  updateSyncStatus?(status?: string): void;
   activeTabOwnershipRequiredCode?: string;
   getActiveTabDebugState?(): SendDebugOwnershipState | null;
   addFieldBtn: HTMLElement;
@@ -139,6 +138,49 @@ function isSubmitControllerError(error: unknown): error is { message?: unknown; 
   return typeof error === 'object' && error !== null;
 }
 
+function submitControllerError(
+  code: string,
+  message: string,
+  extras: { status?: number; currentRevision?: number; conflict?: { currentRevision?: number } } = {},
+): SubmitControllerError & { currentRevision?: number; conflict?: { currentRevision?: number } } {
+  const error = new Error(message) as SubmitControllerError & {
+    currentRevision?: number;
+    conflict?: { currentRevision?: number };
+  };
+  error.code = String(code || '').trim();
+  if (Number(extras.status || 0) > 0) {
+    error.status = Number(extras.status || 0);
+  }
+  if (Number(extras.currentRevision || 0) > 0) {
+    error.currentRevision = Number(extras.currentRevision || 0);
+  }
+  if (Number(extras.conflict?.currentRevision || 0) > 0) {
+    error.conflict = {
+      currentRevision: Number(extras.conflict?.currentRevision || 0),
+    };
+  }
+  return error;
+}
+
+function resolveConflictRevision(error: unknown, fallback = 0): number {
+  if (!isSubmitControllerError(error)) {
+    return Number(fallback || 0);
+  }
+  const candidate = error as SubmitControllerError & {
+    currentRevision?: unknown;
+    conflict?: { currentRevision?: unknown } | null;
+  };
+  const direct = Number(candidate.currentRevision || 0);
+  if (direct > 0) {
+    return direct;
+  }
+  const conflictRevision = Number(candidate.conflict?.currentRevision || 0);
+  if (conflictRevision > 0) {
+    return conflictRevision;
+  }
+  return Number(fallback || 0);
+}
+
 export function createAgreementFormSubmitController(
   options: SubmitControllerOptions,
 ): AgreementFormSubmitController {
@@ -155,11 +197,7 @@ export function createAgreementFormSubmitController(
     documentPageCountInput,
     fieldPlacementsJSONInput,
     fieldRulesJSONInput,
-    currentUserID,
     storageKey,
-    draftsEndpoint,
-    draftEndpointWithUserID,
-    draftRequestHeaders,
     syncService,
     syncOrchestrator,
     stateManager,
@@ -181,7 +219,9 @@ export function createAgreementFormSubmitController(
     emitWizardTelemetry,
     parseAPIError,
     goToStep,
+    showSyncConflictDialog,
     surfaceSyncOutcome,
+    updateSyncStatus,
     activeTabOwnershipRequiredCode = 'ACTIVE_TAB_OWNERSHIP_REQUIRED',
     getActiveTabDebugState,
     addFieldBtn,
@@ -189,11 +229,7 @@ export function createAgreementFormSubmitController(
   let activeSendAttemptID: string | null = null;
 
   function ownershipState(): SendDebugOwnershipState {
-    return getActiveTabDebugState?.() || {
-      isOwner: typeof syncOrchestrator.isOwner === 'boolean' ? syncOrchestrator.isOwner : undefined,
-      claim: syncOrchestrator.currentClaim || null,
-      blockedReason: String(syncOrchestrator.lastBlockedReason || '').trim() || undefined,
-    };
+    return getActiveTabDebugState?.() || {};
   }
 
   function setSubmitButtonState(label: string, spinning = false): void {
@@ -341,7 +377,7 @@ export function createAgreementFormSubmitController(
         }));
         throw error;
       }
-      logSendWarn('ensure_draft_ready_for_send_stale_recreate', buildSendDebugFields({
+      logSendWarn('ensure_draft_ready_for_send_missing_remote_draft', buildSendDebugFields({
         state: syncedState,
         storageKey,
         ownership: ownershipState(),
@@ -351,29 +387,17 @@ export function createAgreementFormSubmitController(
           status: 404,
         },
       }));
-      const recreated = await syncService.create({
-        ...stateManager.getState(),
-        ...stateManager.collectFormState(),
+      emitWizardTelemetry('wizard_send_not_found', {
+        draft_id: currentDraftID,
+        status: 404,
+        phase: 'pre_send',
       });
-      const draftID = String(recreated?.id || '').trim();
-      const revision = Number(recreated?.revision || 0);
-      stateManager.markSynced(draftID, revision);
-      emitWizardTelemetry('wizard_send_stale_draft_recovered', {
-        stale_draft_id: currentDraftID,
-        recovered_draft_id: draftID,
-      });
-      logSendInfo('ensure_draft_ready_for_send_recreated', buildSendDebugFields({
-        state: stateManager.getState(),
-        storageKey,
-        ownership: ownershipState(),
-        sendAttemptId: activeSendAttemptID,
-        extra: {
-          loadedDraftId: draftID,
-          loadedRevision: revision,
-          staleDraftId: currentDraftID,
-        },
-      }));
-      return { draftID, revision };
+      await resyncAfterSendNotFound().catch(() => {});
+      throw submitControllerError(
+        'DRAFT_SEND_NOT_FOUND',
+        'Draft not found',
+        { status: 404 },
+      );
     }
   }
 
@@ -381,6 +405,7 @@ export function createAgreementFormSubmitController(
     const currentState = stateManager.getState();
     stateManager.setState({
       ...currentState,
+      resourceRef: null,
       serverDraftId: null,
       serverRevision: 0,
       lastSyncedAt: null,
@@ -511,21 +536,6 @@ export function createAgreementFormSubmitController(
             if (!draftID || expectedRevision <= 0) {
               throw new Error('Draft session not available. Please try again.');
             }
-            if (!syncOrchestrator.ensureActiveTabOwnership('send', { allowClaimIfAvailable: true })) {
-              logSendWarn('send_submit_blocked', buildSendDebugFields({
-                state: stateManager.getState(),
-                storageKey,
-                ownership: ownershipState(),
-                sendAttemptId: activeSendAttemptID,
-                extra: {
-                  reason: 'active_tab_required',
-                },
-              }));
-              throw {
-                code: activeTabOwnershipRequiredCode,
-                message: 'This agreement is active in another tab. Take control in this tab before sending.',
-              };
-            }
 
             logSendInfo('send_request_start', buildSendDebugFields({
               state: stateManager.getState(),
@@ -537,35 +547,14 @@ export function createAgreementFormSubmitController(
                 expectedRevision,
               },
             }));
-            const response = await fetch(
-              draftEndpointWithUserID(`${draftsEndpoint}/${encodeURIComponent(draftID)}/send`),
-              {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: draftRequestHeaders(),
-                body: JSON.stringify({
-                  expected_revision: expectedRevision,
-                  created_by_user_id: currentUserID,
-                }),
-              }
-            );
-            if (!response.ok) {
-              const apiError = await parseAPIError(response, 'Failed to send agreement');
-              if (String(apiError?.code || '').trim().toUpperCase() === 'DRAFT_SEND_NOT_FOUND') {
-                emitWizardTelemetry('wizard_send_not_found', {
-                  draft_id: draftID,
-                  status: Number(apiError?.status || 0),
-                });
-                await resyncAfterSendNotFound().catch(() => {});
-                throw {
-                  ...apiError,
-                  code: 'DRAFT_SESSION_STALE',
-                };
-              }
-              throw apiError;
-            }
-            const payload = await response.json() as SubmitSendPayload;
-            const agreementID = String(payload?.agreement_id || payload?.id || payload?.data?.id || '').trim();
+            const payload = await syncService.send(expectedRevision, activeSendAttemptID || draftID);
+            const agreementID = String(
+              payload?.agreement_id
+              || payload?.id
+              || payload?.data?.agreement_id
+              || payload?.data?.id
+              || '',
+            ).trim();
             logSendInfo('send_request_success', buildSendDebugFields({
               state: stateManager.getState(),
               storageKey,
@@ -580,6 +569,7 @@ export function createAgreementFormSubmitController(
 
             stateManager.clear();
             syncOrchestrator.broadcastStateUpdate();
+            syncOrchestrator.broadcastDraftDisposed?.(draftID, 'send_completed');
             activeSendAttemptID = null;
 
             if (agreementID && indexRoute) {
@@ -594,8 +584,30 @@ export function createAgreementFormSubmitController(
           } catch (error: unknown) {
             const normalizedError = isSubmitControllerError(error) ? error : {};
             const message = String(normalizedError.message || 'Failed to process agreement').trim();
-            const code = String(normalizedError.code || '').trim();
+            let code = String(normalizedError.code || '').trim();
             const status = Number(normalizedError.status || 0);
+            if (code.toUpperCase() === 'STALE_REVISION') {
+              const currentRevision = resolveConflictRevision(error, Number(stateManager.getState()?.serverRevision || 0));
+              updateSyncStatus?.('conflict');
+              showSyncConflictDialog?.(currentRevision);
+              emitWizardTelemetry('wizard_send_conflict', {
+                draft_id: String(stateManager.getState()?.serverDraftId || '').trim(),
+                current_revision: currentRevision,
+                status: status || 409,
+              });
+              submitBtn.disabled = false;
+              setSubmitButtonState('Send for Signature', false);
+              activeSendAttemptID = null;
+              return;
+            }
+            if (code.toUpperCase() === 'NOT_FOUND') {
+              code = 'DRAFT_SEND_NOT_FOUND';
+              emitWizardTelemetry('wizard_send_not_found', {
+                draft_id: String(stateManager.getState()?.serverDraftId || '').trim(),
+                status: status || 404,
+              });
+              await resyncAfterSendNotFound().catch(() => {});
+            }
             logSendWarn('send_request_failed', buildSendDebugFields({
               state: stateManager.getState(),
               storageKey,

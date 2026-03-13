@@ -79,4 +79,32 @@ test.describe('Translation Queue MVP', () => {
     await expect(row.locator('[data-action-group="manage"]')).toBeVisible();
     await expect(row.locator('[data-action-group="manage"] [data-action="archive"]')).toBeVisible();
   });
+
+  test('reviewer state presets render aggregate counts and support qa-blocked filtering', async ({ page }) => {
+    await page.route('**/api/translations/assignments*', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          meta: {
+            ...fixtures.states.qa_summary.meta,
+            ...fixtures.meta,
+          },
+          data: fixtures.states.qa_summary.data,
+        }),
+      });
+    });
+
+    await navigateToTranslationQueue(page);
+
+    const reviewerStates = page.locator('[data-review-preset-id="review_blocked"]');
+    await expect(reviewerStates).toBeVisible();
+    await expect(reviewerStates).toContainText('QA Blocked');
+    await expect(reviewerStates).toContainText('1');
+
+    await reviewerStates.click();
+
+    await expect(page.locator('[data-queue-state="empty"]')).toHaveCount(0);
+    await expect(page.locator('[data-assignment-id="asg-qa-1"] .queue-qa-chip.is-blocked')).toBeVisible();
+  });
 });

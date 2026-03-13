@@ -51,12 +51,19 @@ test('resume modal template includes explicit proceed action', () => {
   assert.match(html, /This agreement is OK, proceed/);
 });
 
-test('wizard runtime scopes storage and channel keys by mode/user/route', () => {
+test('wizard runtime scopes storage and channel keys by mode and route', () => {
   const source = read(bootstrapConfigPath);
   assert.match(source, /wizardModeToken = isEditMode \? 'edit' : 'create'/);
   assert.match(source, /wizardScopeToken = \[/);
   assert.match(source, /WIZARD_STORAGE_KEY:\s*`esign_wizard_state_v1:\$\{encodeURIComponent\(wizardScopeToken\)\}`/);
   assert.match(source, /WIZARD_CHANNEL_NAME:\s*`esign_wizard_sync:\$\{encodeURIComponent\(wizardScopeToken\)\}`/);
+});
+
+test('sync request helpers rely on authenticated transport context instead of user_id request hints', () => {
+  const source = read(bootstrapConfigPath);
+  assert.match(source, /export function createSyncRequestHeaders\(includeContentType = true\): Record<string, string>/);
+  assert.doesNotMatch(source, /user_id=/);
+  assert.doesNotMatch(source, /X-User-ID/);
 });
 
 test('resume check uses meaningful wizard progress helper', () => {
@@ -90,14 +97,14 @@ test('resume runtime uses explicit rehydration callbacks instead of boot-time wi
   assert.match(compositionSource, /applyStateToUI: \(nextState\) => applyRehydratedState/);
 });
 
-test('legacy key migration writes scoped state and removes old key once', () => {
+test('wizard state manager no longer carries legacy storage migration bridges', () => {
   const bootstrapSource = read(bootstrapConfigPath);
   const stateManagerSource = read(stateManagerPath);
-  assert.match(bootstrapSource, /LEGACY_WIZARD_STORAGE_KEY: 'esign_wizard_state_v1'/);
-  assert.match(stateManagerSource, /migrateLegacyStateIfNeeded\(\)/);
-  assert.match(stateManagerSource, /storageMigrationVersion: this\.options\.storageMigrationVersion/);
-  assert.match(stateManagerSource, /storage\.removeItem\(this\.options\.legacyStorageKey\)/);
-  assert.match(stateManagerSource, /wizard_resume_migration_used/);
+  assert.doesNotMatch(bootstrapSource, /LEGACY_WIZARD_STORAGE_KEY/);
+  assert.doesNotMatch(bootstrapSource, /WIZARD_STORAGE_MIGRATION_VERSION/);
+  assert.doesNotMatch(stateManagerSource, /migrateLegacyStateIfNeeded\(\)/);
+  assert.doesNotMatch(stateManagerSource, /storageMigrationVersion/);
+  assert.doesNotMatch(stateManagerSource, /legacyStorageKey/);
 });
 
 test('create flow title provenance prevents stale server seed from locking title', () => {
@@ -111,8 +118,9 @@ test('create flow title provenance prevents stale server seed from locking title
 test('send flow performs pre-send handshake and stale draft recovery', () => {
   const source = read(formSubmitPath);
   assert.match(source, /async function ensureDraftReadyForSend\(\)/);
-  assert.match(source, /wizard_send_stale_draft_recovered/);
   assert.match(source, /DRAFT_SEND_NOT_FOUND/);
   assert.match(source, /resyncAfterSendNotFound/);
   assert.match(source, /wizard_send_not_found/);
+  assert.match(source, /wizard_send_conflict/);
+  assert.doesNotMatch(source, /wizard_send_stale_draft_recovered/);
 });

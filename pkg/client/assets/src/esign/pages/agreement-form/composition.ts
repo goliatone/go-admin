@@ -36,7 +36,7 @@ import {
   type AgreementProgressState,
   type AgreementTitleSourceShape,
   createAgreementWizardPersistenceSettings,
-  createDraftRequestHelpers,
+  createSyncRequestHeaders,
   hasMeaningfulWizardProgress,
   normalizeAgreementFormConfig,
   normalizeAgreementTitleSource,
@@ -112,38 +112,30 @@ export function createAgreementFormRuntimeCoordinator(
   const {
     config,
     normalizedConfig,
+    syncConfig,
     basePath,
     apiBase,
     apiVersionBase,
-    draftsEndpoint,
     isEditMode,
     createSuccess,
-    currentUserID,
     submitMode,
     documentsUploadURL,
     initialParticipants,
     initialFieldInstances,
   } = normalizeAgreementFormConfig(inputConfig);
-  const {
-    draftEndpointWithUserID,
-    draftRequestHeaders,
-  } = createDraftRequestHelpers(currentUserID);
   const agreementRefs = collectAgreementFormRefs(document);
   const {
     WIZARD_STATE_VERSION,
     WIZARD_STORAGE_KEY,
     WIZARD_CHANNEL_NAME,
-    LEGACY_WIZARD_STORAGE_KEY,
     SYNC_DEBOUNCE_MS,
     SYNC_RETRY_DELAYS,
-    WIZARD_STORAGE_MIGRATION_VERSION,
     ACTIVE_TAB_STORAGE_KEY,
     ACTIVE_TAB_HEARTBEAT_MS,
     ACTIVE_TAB_STALE_MS,
     TITLE_SOURCE,
   } = createAgreementWizardPersistenceSettings({
     config,
-    currentUserID,
     isEditMode,
   });
 
@@ -237,9 +229,7 @@ export function createAgreementFormRuntimeCoordinator(
 
   const stateManager = new WizardStateManager({
     storageKey: WIZARD_STORAGE_KEY,
-    legacyStorageKey: LEGACY_WIZARD_STORAGE_KEY,
     stateVersion: WIZARD_STATE_VERSION,
-    storageMigrationVersion: WIZARD_STORAGE_MIGRATION_VERSION,
     totalWizardSteps: TOTAL_WIZARD_STEPS,
     titleSource: TITLE_SOURCE,
     normalizeTitleSource,
@@ -282,10 +272,8 @@ export function createAgreementFormRuntimeCoordinator(
 
   const syncService = new DraftSyncService({
     stateManager,
-    currentUserID,
-    draftsEndpoint,
-    draftEndpointWithUserID,
-    draftRequestHeaders,
+    requestHeaders: createSyncRequestHeaders,
+    syncConfig,
   });
 
   let syncOrchestrator: SyncController;
@@ -296,51 +284,50 @@ export function createAgreementFormRuntimeCoordinator(
     staleMs: ACTIVE_TAB_STALE_MS,
     telemetry: emitWizardTelemetry,
     onOwnershipChange: (state) => {
-      if (!state.isOwner) {
-        updateSyncStatus('paused');
-      } else {
-        restoreSyncStatusFromState();
-      }
+      restoreSyncStatusFromState();
       ownershipUI.render(state);
     },
-    onRemoteState: (remoteState) => {
-      const mergeResult = stateManager.applyRemoteState(remoteState, {
-        save: true,
-        notify: false,
-      });
-      if (mergeResult.replacedLocalState) {
-        const reconcilePromise = resumeController?.reconcileBootstrapState?.();
-        if (reconcilePromise) {
-          void reconcilePromise.then((resolvedState) => {
-            applyRehydratedState(resolvedState as CoordinatorWizardState, {
-              step: Number((resolvedState as CoordinatorWizardState)?.currentStep || 1),
-            });
-            stateManager.notifyListeners();
-          });
-        } else {
-          applyRehydratedState(stateManager.getState() as CoordinatorWizardState, {
-            step: Number(stateManager.getState()?.currentStep || 1),
-          });
-          stateManager.notifyListeners();
-        }
-      } else {
-        stateManager.notifyListeners();
+    onRemoteState: () => {},
+    onRemoteSync: (draftId) => {
+      if (String(stateManager.getState()?.serverDraftId || '').trim() !== String(draftId || '').trim()) {
+        return;
       }
+      if (stateManager.getState()?.syncPending) {
+        return;
+      }
+      void syncOrchestrator?.refreshCurrentDraft({ preserveDirty: true, force: true }).then(() => {
+        applyRehydratedState(stateManager.getState() as CoordinatorWizardState, {
+          step: Number(stateManager.getState()?.currentStep || 1),
+        });
+      });
     },
-    onRemoteSync: (draftId, revision) => {
-      stateManager.applyRemoteSync(draftId, revision, {
-        save: true,
+    onRemoteDraftDisposed: (draftId) => {
+      if (String(stateManager.getState()?.serverDraftId || '').trim() !== String(draftId || '').trim()) {
+        return;
+      }
+      if (stateManager.getState()?.syncPending) {
+        return;
+      }
+      stateManager.setState({
+        ...stateManager.getState(),
+        serverDraftId: null,
+        serverRevision: 0,
+        lastSyncedAt: null,
+        resourceRef: null,
+      }, {
         notify: true,
+        save: true,
+        syncPending: false,
       });
     },
     onVisibilityHidden: () => {
-      void syncOrchestrator?.forceSync({ keepalive: true });
+      void syncOrchestrator?.forceSync();
     },
     onPageHide: () => {
-      void syncOrchestrator?.forceSync({ keepalive: true });
+      void syncOrchestrator?.forceSync();
     },
     onBeforeUnload: () => {
-      void syncOrchestrator?.forceSync({ keepalive: true });
+      void syncOrchestrator?.forceSync();
     },
   });
 
@@ -353,10 +340,8 @@ export function createAgreementFormRuntimeCoordinator(
     showConflictDialog: showSyncConflictDialog,
     syncDebounceMs: SYNC_DEBOUNCE_MS,
     syncRetryDelays: SYNC_RETRY_DELAYS,
-    currentUserID,
-    draftsEndpoint,
-    draftEndpointWithUserID,
-    draftRequestHeaders,
+    documentRef: document,
+    windowRef: window,
   });
 
   const agreementFormContext: AgreementFormContext = {
@@ -365,7 +350,6 @@ export function createAgreementFormRuntimeCoordinator(
     basePath,
     apiBase,
     apiVersionBase,
-    draftsEndpoint,
     previewCard,
     emitTelemetry: emitWizardTelemetry,
     stateManager,
@@ -395,7 +379,6 @@ export function createAgreementFormRuntimeCoordinator(
   const documentSelectionController: DocumentSelectionController = createDocumentSelectionController({
     apiBase,
     apiVersionBase,
-    currentUserID,
     documentsUploadURL,
     isEditMode,
     titleSource: TITLE_SOURCE,
@@ -621,11 +604,7 @@ export function createAgreementFormRuntimeCoordinator(
     documentPageCountInput,
     fieldPlacementsJSONInput,
     fieldRulesJSONInput,
-    currentUserID,
     storageKey: WIZARD_STORAGE_KEY,
-    draftsEndpoint,
-    draftEndpointWithUserID,
-    draftRequestHeaders,
     syncService,
     syncOrchestrator,
     stateManager,
@@ -647,7 +626,9 @@ export function createAgreementFormRuntimeCoordinator(
     emitWizardTelemetry,
     parseAPIError,
     goToStep: (stepNum) => wizardNavigationController.goToStep(stepNum),
+    showSyncConflictDialog,
     surfaceSyncOutcome,
+    updateSyncStatus,
     getActiveTabDebugState,
     addFieldBtn,
   });

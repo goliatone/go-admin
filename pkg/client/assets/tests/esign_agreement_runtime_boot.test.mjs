@@ -88,6 +88,13 @@ function setupDom() {
       base_path: '/admin',
       api_base_path: '/admin/api',
       user_id: 'user-123',
+      sync: {
+        base_url: '/admin/api/v1/esign',
+        bootstrap_path: '/admin/api/v1/esign/sync/bootstrap/agreement-draft',
+        client_base_path: '/admin/sync-client/sync-core',
+        resource_kind: 'agreement_draft',
+        action_operations: ['send'],
+      },
       is_edit: false,
       create_success: false,
       submit_mode: 'json',
@@ -105,11 +112,6 @@ function setupDom() {
   return dom;
 }
 
-function activeTabStorageKey() {
-  const scopeToken = ['create', 'user-123', '/admin/content/esign_agreements/new'].join('|');
-  return `esign_wizard_active_tab_v1:${encodeURIComponent(scopeToken)}`;
-}
-
 function jsonResponse(payload) {
   return {
     ok: true,
@@ -122,11 +124,164 @@ function flush() {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
-function createFetchStub() {
-  const calls = [];
+function createSyncHarness() {
+  let draftCounter = 0;
+  const drafts = new Map();
+  const nextTimestamp = () => new Date(Date.UTC(2026, 2, 12, 12, 0, drafts.size + 1)).toISOString();
+
+  function draftRef(id) {
+    return {
+      kind: 'agreement_draft',
+      id,
+      scope: { user_id: 'user-123' },
+    };
+  }
+
+  function snapshotFromState(id, revision, wizardState) {
+    return {
+      ref: draftRef(id),
+      data: {
+        id,
+        revision,
+        updated_at: nextTimestamp(),
+        wizard_state: structuredClone(wizardState),
+      },
+      revision,
+      updatedAt: nextTimestamp(),
+      metadata: {
+        wizard_id: wizardState.wizardId,
+      },
+    };
+  }
+
+  const module = {
+    createInMemoryCache() {
+      const cache = new Map();
+      return {
+        set(ref, snapshot) {
+          cache.set(ref.id, structuredClone(snapshot));
+          return snapshot;
+        },
+        clear(ref) {
+          cache.delete(ref.id);
+        },
+      };
+    },
+    createFetchSyncTransport() {
+      return {
+        async load(ref) {
+          const snapshot = drafts.get(ref.id);
+          if (!snapshot) {
+            throw { code: 'NOT_FOUND', message: 'draft not found' };
+          }
+          return structuredClone(snapshot);
+        },
+        async mutate(input) {
+          const current = drafts.get(input.ref.id);
+          if (!current) {
+            throw { code: 'NOT_FOUND', message: 'draft not found' };
+          }
+          if (Number(input.expectedRevision || 0) !== Number(current.revision || 0)) {
+            throw {
+              code: 'STALE_REVISION',
+              message: 'stale revision',
+              currentRevision: current.revision,
+              conflict: {
+                code: 'STALE_REVISION',
+                message: 'stale revision',
+                currentRevision: current.revision,
+                latestSnapshot: structuredClone(current),
+                staleSnapshot: structuredClone(current),
+              },
+            };
+          }
+          if (input.operation === 'send') {
+            drafts.delete(input.ref.id);
+            return {
+              snapshot: {
+                ref: input.ref,
+                data: {
+                  id: input.ref.id,
+                  agreement_id: 'agreement-123',
+                  draft_deleted: true,
+                },
+                revision: current.revision + 1,
+                updatedAt: nextTimestamp(),
+                metadata: { operation: 'send' },
+              },
+              applied: true,
+              replay: false,
+            };
+          }
+          const nextWizardState = structuredClone(input.payload?.wizard_state || {});
+          const nextSnapshot = snapshotFromState(input.ref.id, current.revision + 1, nextWizardState);
+          drafts.set(input.ref.id, nextSnapshot);
+          return {
+            snapshot: structuredClone(nextSnapshot),
+            applied: true,
+            replay: false,
+          };
+        },
+      };
+    },
+    createSyncEngine({ transport }) {
+      return {
+        resource(ref) {
+          let snapshot = drafts.get(ref.id) ? structuredClone(drafts.get(ref.id)) : null;
+          return {
+            getSnapshot() {
+              return snapshot ? structuredClone(snapshot) : null;
+            },
+            getState() {
+              return {
+                ref,
+                status: snapshot ? 'ready' : 'idle',
+                snapshot: snapshot ? structuredClone(snapshot) : null,
+                invalidated: false,
+                queueDepth: 0,
+                error: null,
+                conflict: null,
+              };
+            },
+            subscribe() {
+              return () => {};
+            },
+            async load() {
+              snapshot = await transport.load(ref);
+              return structuredClone(snapshot);
+            },
+            async mutate(input) {
+              const response = await transport.mutate({ ...input, ref });
+              snapshot = structuredClone(response.snapshot);
+              if (response.snapshot?.data?.draft_deleted) {
+                drafts.delete(ref.id);
+              } else {
+                drafts.set(ref.id, structuredClone(response.snapshot));
+              }
+              return response;
+            },
+            invalidate() {},
+            async refresh() {
+              snapshot = await transport.load(ref);
+              return structuredClone(snapshot);
+            },
+          };
+        },
+      };
+    },
+    parseReadEnvelope(ref, payload) {
+      return {
+        ref,
+        data: payload.data,
+        revision: payload.revision,
+        updatedAt: payload.updated_at,
+        metadata: payload.metadata,
+      };
+    },
+  };
+
   const fetchStub = async (url) => {
     const href = String(url);
-    calls.push(href);
     if (href.includes('/panels/esign_documents')) {
       return jsonResponse({
         items: [
@@ -141,19 +296,64 @@ function createFetchStub() {
         ],
       });
     }
+    if (href.includes('/esign/sync/bootstrap/agreement-draft')) {
+      draftCounter += 1;
+      const id = `draft-${draftCounter}`;
+      const wizardState = {
+        wizardId: `wizard-${draftCounter}`,
+        currentStep: 1,
+        document: { id: null, title: null, pageCount: null },
+        details: { title: '', message: '' },
+        participants: [],
+        fieldDefinitions: [],
+        fieldPlacements: [],
+        fieldRules: [],
+        titleSource: 'autofill',
+        syncPending: false,
+      };
+      const snapshot = snapshotFromState(id, 1, wizardState);
+      drafts.set(id, snapshot);
+      return {
+        ok: true,
+        status: 201,
+        json: async () => ({
+          resource_ref: snapshot.ref,
+          wizard_id: wizardState.wizardId,
+          draft: {
+            data: snapshot.data,
+            revision: snapshot.revision,
+            updated_at: snapshot.updatedAt,
+            metadata: snapshot.metadata,
+          },
+        }),
+      };
+    }
     if (href.includes('/esign/drafts')) {
       return jsonResponse({ items: [] });
     }
     return jsonResponse({});
   };
-  return { calls, fetchStub };
+
+  return { fetchStub, module };
+}
+
+function createFetchStub() {
+  const calls = [];
+  const harness = createSyncHarness();
+  const fetchStub = async (url, init) => {
+    const href = String(url);
+    calls.push(href);
+    return harness.fetchStub(url, init);
+  };
+  return { calls, fetchStub, harness };
 }
 
 test('agreement form boot loads documents from the built bundle without throwing', async () => {
   setupDom();
-  const { calls, fetchStub } = createFetchStub();
+  const { calls, fetchStub, harness } = createFetchStub();
   const originalFetch = globalThis.fetch;
   globalThis.fetch = fetchStub;
+  window.__esignSyncCoreLoader = async () => harness.module;
 
   try {
     const controller = new AgreementFormController({
@@ -180,6 +380,7 @@ test('agreement form boot loads documents from the built bundle without throwing
 
     controller.destroy();
   } finally {
+    delete window.__esignSyncCoreLoader;
     globalThis.fetch = originalFetch;
   }
 });
@@ -191,9 +392,10 @@ test('agreement form boot succeeds when ownership banner nodes are absent', asyn
   document.getElementById('active-tab-take-control-btn')?.remove();
   document.getElementById('active-tab-reload-btn')?.remove();
 
-  const { calls, fetchStub } = createFetchStub();
+  const { calls, fetchStub, harness } = createFetchStub();
   const originalFetch = globalThis.fetch;
   globalThis.fetch = fetchStub;
+  window.__esignSyncCoreLoader = async () => harness.module;
 
   try {
     const controller = new AgreementFormController({
@@ -219,15 +421,17 @@ test('agreement form boot succeeds when ownership banner nodes are absent', asyn
 
     controller.destroy();
   } finally {
+    delete window.__esignSyncCoreLoader;
     globalThis.fetch = originalFetch;
   }
 });
 
-test('agreement form destroy releases the active-tab claim', async () => {
+test('agreement form destroy does not persist legacy active-tab ownership state', async () => {
   setupDom();
-  const { fetchStub } = createFetchStub();
+  const { fetchStub, harness } = createFetchStub();
   const originalFetch = globalThis.fetch;
   globalThis.fetch = fetchStub;
+  window.__esignSyncCoreLoader = async () => harness.module;
 
   try {
     const controller = new AgreementFormController({
@@ -246,29 +450,22 @@ test('agreement form destroy releases the active-tab claim', async () => {
     await flush();
     await flush();
 
-    const storageKey = activeTabStorageKey();
-    assert.notEqual(window.localStorage.getItem(storageKey), null);
-
     controller.destroy();
-
-    assert.equal(window.localStorage.getItem(storageKey), null);
+    assert.equal(window.localStorage.length, 0);
   } finally {
+    delete window.__esignSyncCoreLoader;
     globalThis.fetch = originalFetch;
   }
 });
 
-test('agreement form take control clears the stale passive-tab sync status', async () => {
+test('agreement form ignores stale localStorage ownership leftovers on boot', async () => {
   setupDom();
-  const storageKey = activeTabStorageKey();
-  window.localStorage.setItem(storageKey, JSON.stringify({
-    tabId: 'tab-other',
-    claimedAt: new Date().toISOString(),
-    lastSeenAt: new Date().toISOString(),
-  }));
+  window.localStorage.setItem('legacy-ownership-claim', JSON.stringify({ stale: true }));
 
-  const { fetchStub } = createFetchStub();
+  const { fetchStub, harness } = createFetchStub();
   const originalFetch = globalThis.fetch;
   globalThis.fetch = fetchStub;
+  window.__esignSyncCoreLoader = async () => harness.module;
 
   try {
     const controller = new AgreementFormController({
@@ -288,26 +485,21 @@ test('agreement form take control clears the stale passive-tab sync status', asy
     await flush();
 
     const syncStatusText = document.getElementById('sync-status-text');
-    const takeControlButton = document.getElementById('active-tab-take-control-btn');
-
-    assert.equal(syncStatusText?.textContent?.trim(), 'Open in another tab');
-    takeControlButton?.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
-    await flush();
-    await flush();
-
     assert.notEqual(syncStatusText?.textContent?.trim(), 'Open in another tab');
 
     controller.destroy();
   } finally {
+    delete window.__esignSyncCoreLoader;
     globalThis.fetch = originalFetch;
   }
 });
 
 test('agreement form controller destroy releases the shared runtime so a new controller can re-init', async () => {
   setupDom();
-  const { calls, fetchStub } = createFetchStub();
+  const { calls, fetchStub, harness } = createFetchStub();
   const originalFetch = globalThis.fetch;
   globalThis.fetch = fetchStub;
+  window.__esignSyncCoreLoader = async () => harness.module;
 
   try {
     const first = new AgreementFormController({
@@ -350,6 +542,7 @@ test('agreement form controller destroy releases the shared runtime so a new con
 
     second.destroy();
   } finally {
+    delete window.__esignSyncCoreLoader;
     globalThis.fetch = originalFetch;
   }
 });

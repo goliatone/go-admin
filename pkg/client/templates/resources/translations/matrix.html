@@ -1,0 +1,41 @@
+{% extends "layout.html" %}
+
+{% block title %}Translation Matrix - {{ title }}{% endblock %}
+
+{% block content %}
+<header class="px-8 py-6 border-b border-slate-200 bg-white">
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Translations</p>
+      <h1 class="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Matrix view</h1>
+      <p class="mt-2 max-w-4xl text-sm text-slate-600">
+        Scan family-by-locale coverage, page through dense locale windows, and trigger quick create or open actions without leaving the matrix.
+      </p>
+    </div>
+  </div>
+</header>
+
+<div class="flex-1 overflow-y-auto bg-slate-50 p-8">
+  <div class="mx-auto max-w-[96rem]">
+    <div
+      id="translation-matrix-root"
+      data-endpoint="{{ translation_matrix_api_path|default:"" }}"
+      data-title="Translation Matrix"
+    ></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="module">
+import { initTranslationMatrixPage } from '{{ base_path }}/assets/dist/translation-matrix/index.js';
+
+const root = document.getElementById('translation-matrix-root');
+if (root) {
+  initTranslationMatrixPage(root, {
+    endpoint: root.dataset.endpoint || '',
+    title: root.dataset.title || 'Translation Matrix',
+  });
+}
+</script>
+{% endblock %}

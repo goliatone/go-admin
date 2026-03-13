@@ -1,0 +1,204 @@
+/**
+ * Translation CSS Custom Properties
+ *
+ * Theme tokens for translation UI surfaces. These inherit from site tokens
+ * where available and provide consistent semantic colors for status indicators.
+ *
+ * Usage: Include this file in the main CSS bundle or import in translation modules.
+ *
+ * These tokens can be promoted to site-wide use once validated in translation surfaces.
+ */
+
+:root {
+  /* ==========================================================================
+     Inherit from Site Tokens
+     ========================================================================== */
+
+  --translation-color-primary: var(--site-color-primary, #0f766e);
+  --translation-color-accent: var(--site-color-accent, #f59e0b);
+  --translation-color-surface: var(--site-color-surface, #ffffff);
+
+  /* ==========================================================================
+     Status Colors - Success
+     Used for: ready, approved, published, on_track
+     ========================================================================== */
+
+  --translation-status-success-bg: #ecfdf5;
+  --translation-status-success-text: #065f46;
+  --translation-status-success-border: #a7f3d0;
+  --translation-status-success-icon: #10b981;
+
+  /* ==========================================================================
+     Status Colors - Warning
+     Used for: pending_review, due_soon, missing_field
+     ========================================================================== */
+
+  --translation-status-warning-bg: #fffbeb;
+  --translation-status-warning-text: #92400e;
+  --translation-status-warning-border: #fcd34d;
+  --translation-status-warning-icon: #f59e0b;
+
+  /* ==========================================================================
+     Status Colors - Error
+     Used for: blocked, overdue, rejected, missing_locale
+     ========================================================================== */
+
+  --translation-status-error-bg: #fef2f2;
+  --translation-status-error-text: #991b1b;
+  --translation-status-error-border: #fecaca;
+  --translation-status-error-icon: #ef4444;
+
+  /* ==========================================================================
+     Status Colors - Info
+     Used for: in_progress, assigned, in_review
+     ========================================================================== */
+
+  --translation-status-info-bg: #eff6ff;
+  --translation-status-info-text: #1e40af;
+  --translation-status-info-border: #bfdbfe;
+  --translation-status-info-icon: #3b82f6;
+
+  /* ==========================================================================
+     Status Colors - Neutral
+     Used for: draft, archived, none, not_required
+     ========================================================================== */
+
+  --translation-status-neutral-bg: #f3f4f6;
+  --translation-status-neutral-text: #374151;
+  --translation-status-neutral-border: #d1d5db;
+  --translation-status-neutral-icon: #6b7280;
+
+  /* ==========================================================================
+     Status Colors - Purple (Review/Changes Requested)
+     Used for: in_review, changes_requested
+     ========================================================================== */
+
+  --translation-status-purple-bg: #f5f3ff;
+  --translation-status-purple-text: #5b21b6;
+  --translation-status-purple-border: #c4b5fd;
+  --translation-status-purple-icon: #8b5cf6;
+
+  /* ==========================================================================
+     Exchange Status Colors
+     ========================================================================== */
+
+  --translation-exchange-success-bg: #ecfdf5;
+  --translation-exchange-success-text: #065f46;
+
+  --translation-exchange-error-bg: #fef2f2;
+  --translation-exchange-error-text: #991b1b;
+
+  --translation-exchange-conflict-bg: #fff7ed;
+  --translation-exchange-conflict-text: #c2410c;
+
+  --translation-exchange-skipped-bg: #f3f4f6;
+  --translation-exchange-skipped-text: #374151;
+
+  /* ==========================================================================
+     Disabled Reason Colors
+     ========================================================================== */
+
+  --translation-disabled-permission-bg: #fef2f2;
+  --translation-disabled-permission-text: #991b1b;
+
+  --translation-disabled-missing-bg: #fffbeb;
+  --translation-disabled-missing-text: #92400e;
+
+  --translation-disabled-invalid-bg: #f3f4f6;
+  --translation-disabled-invalid-text: #374151;
+
+  /* ==========================================================================
+     UI Surface Colors
+     ========================================================================== */
+
+  --translation-surface-card: #ffffff;
+  --translation-surface-muted: #f9fafb;
+  --translation-surface-page: #f3f4f6;
+
+  --translation-border-default: #e5e7eb;
+  --translation-border-subtle: #f3f4f6;
+  --translation-border-focus: #3b82f6;
+
+  /* ==========================================================================
+     Text Colors
+     ========================================================================== */
+
+  --translation-text-default: #111827;
+  --translation-text-muted: #6b7280;
+  --translation-text-dimmed: #9ca3af;
+
+  /* ==========================================================================
+     Interactive Colors
+     ========================================================================== */
+
+  --translation-button-primary-bg: var(--color-primary, #1f2937);
+  --translation-button-primary-text: #ffffff;
+  --translation-button-primary-hover: var(--color-primary-hover, #374151);
+
+  --translation-link-color: #2563eb;
+  --translation-link-hover: #1d4ed8;
+
+  /* ==========================================================================
+     Spacing Tokens (for consistency)
+     ========================================================================== */
+
+  --translation-spacing-xs: 0.25rem; /* 4px */
+  --translation-spacing-sm: 0.5rem; /* 8px */
+  --translation-spacing-md: 1rem; /* 16px */
+  --translation-spacing-lg: 1.5rem; /* 24px */
+  --translation-spacing-xl: 2rem; /* 32px */
+
+  /* ==========================================================================
+     Border Radius Tokens
+     ========================================================================== */
+
+  --translation-radius-sm: 0.375rem; /* 6px - rounded-md */
+  --translation-radius-md: 0.5rem; /* 8px - rounded-lg */
+  --translation-radius-lg: 0.75rem; /* 12px - rounded-xl */
+  --translation-radius-full: 9999px; /* rounded-full */
+
+  /* ==========================================================================
+     Shadow Tokens
+     ========================================================================== */
+
+  --translation-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --translation-shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --translation-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+
+  /* ==========================================================================
+     Z-Index Scale
+     ========================================================================== */
+
+  --translation-z-dropdown: 50;
+  --translation-z-modal: 100;
+  --translation-z-toast: 200;
+}
+
+/* Dark mode overrides (when needed) */
+[data-theme='dark'] {
+  --translation-status-success-bg: rgba(16, 185, 129, 0.15);
+  --translation-status-success-text: #6ee7b7;
+
+  --translation-status-warning-bg: rgba(245, 158, 11, 0.15);
+  --translation-status-warning-text: #fcd34d;
+
+  --translation-status-error-bg: rgba(239, 68, 68, 0.15);
+  --translation-status-error-text: #fca5a5;
+
+  --translation-status-info-bg: rgba(59, 130, 246, 0.15);
+  --translation-status-info-text: #93c5fd;
+
+  --translation-status-neutral-bg: rgba(107, 114, 128, 0.15);
+  --translation-status-neutral-text: #d1d5db;
+
+  --translation-surface-card: #1f2937;
+  --translation-surface-muted: #111827;
+  --translation-surface-page: #0f172a;
+
+  --translation-border-default: #374151;
+  --translation-border-subtle: #1f2937;
+
+  --translation-text-default: #f9fafb;
+  --translation-text-muted: #9ca3af;
+  --translation-text-dimmed: #6b7280;
+}

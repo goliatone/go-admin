@@ -14,16 +14,17 @@ interface RuntimeActionsStateManager {
 }
 
 interface RuntimeActionsSyncService {
-  delete(draftId: string): Promise<unknown>;
+  dispose(draftId: string): Promise<unknown>;
   load(draftId: string): Promise<{ id: string; revision: number; wizard_state?: RuntimeActionsStateShape | null }>;
 }
 
 interface RuntimeActionsSyncOrchestrator {
   scheduleSync(): void;
   broadcastStateUpdate(): void;
+  broadcastDraftDisposed?(draftId: string, reason?: string): void;
+  refreshCurrentDraft?(options?: { preserveDirty?: boolean; force?: boolean }): Promise<Record<string, unknown>>;
   manualRetry(): Promise<Record<string, unknown>> | Record<string, unknown>;
   performSync(): Promise<Record<string, unknown>>;
-  takeControl(): boolean;
 }
 
 interface RuntimeActionsControllerOptions {
@@ -75,8 +76,9 @@ export function createAgreementRuntimeActionsController(options: RuntimeActionsC
     syncOrchestrator.broadcastStateUpdate();
 
     if (serverDraftId) {
-      syncService.delete(serverDraftId).catch((error: unknown) => {
-        console.warn('Failed to delete server draft after successful create:', error);
+      syncOrchestrator.broadcastDraftDisposed?.(serverDraftId, 'agreement_created');
+      syncService.dispose(serverDraftId).catch((error: unknown) => {
+        console.warn('Failed to dispose sync draft after successful create:', error);
       });
     }
   }
@@ -89,23 +91,9 @@ export function createAgreementRuntimeActionsController(options: RuntimeActionsC
     });
 
     document.getElementById('conflict-reload-btn')?.addEventListener('click', async () => {
-      const state = stateManager.getState();
-      if (state.serverDraftId) {
-        try {
-          const serverDraft = await syncService.load(state.serverDraftId);
-          if (serverDraft.wizard_state) {
-            const nextState = {
-              ...serverDraft.wizard_state,
-              serverDraftId: serverDraft.id,
-              serverRevision: serverDraft.revision,
-              syncPending: false,
-            };
-            stateManager.setState(nextState, { syncPending: false });
-            applyStateToUI(nextState);
-          }
-        } catch (error: unknown) {
-          console.error('Failed to load server draft:', error);
-        }
+      if (syncOrchestrator.refreshCurrentDraft) {
+        await syncOrchestrator.refreshCurrentDraft({ preserveDirty: false, force: true });
+        applyStateToUI(stateManager.getState());
       }
       document.getElementById('conflict-dialog-modal')?.classList.add('hidden');
     });
@@ -132,16 +120,8 @@ export function createAgreementRuntimeActionsController(options: RuntimeActionsC
 
   function bindOwnershipHandlers() {
     document.getElementById('active-tab-take-control-btn')?.addEventListener('click', async () => {
-      if (!syncOrchestrator.takeControl()) {
-        announceError('This agreement is active in another tab. Take control here before saving or sending.', 'ACTIVE_TAB_OWNERSHIP_REQUIRED');
-        return;
-      }
-      updateActiveTabOwnershipUI({ isOwner: true });
-      if (stateManager.getState()?.syncPending) {
-        await surfaceSyncOutcome(syncOrchestrator.manualRetry(), {
-          errorMessage: 'Unable to sync latest draft changes. Please try again.',
-        });
-      }
+      updateActiveTabOwnershipUI();
+      await syncOrchestrator.refreshCurrentDraft?.({ preserveDirty: true, force: true });
       if (getCurrentStep() === reviewStep) {
         onReviewStepRequested();
       }

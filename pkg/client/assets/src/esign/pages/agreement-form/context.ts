@@ -6,9 +6,15 @@ import type { ActiveTabController } from './active-tab-controller';
 import type { SyncController } from './sync-controller';
 
 export interface NormalizedAgreementFormConfig {
+  sync?: {
+    base_url: string;
+    bootstrap_path: string;
+    client_base_path: string;
+    resource_kind: string;
+    action_operations: string[];
+  };
   base_path: string;
   api_base_path: string;
-  user_id: string;
   is_edit: boolean;
   create_success: boolean;
   submit_mode: string;
@@ -33,7 +39,6 @@ export interface AgreementFormContext {
   basePath: string;
   apiBase: string;
   apiVersionBase: string;
-  draftsEndpoint: string;
   previewCard: DocumentPreviewCard;
   emitTelemetry(eventName: string, fields?: Record<string, unknown>): void;
   stateManager: WizardStateManager;

@@ -55,6 +55,9 @@ test('Phase 5 contract: document preview card uses canonical PDF route with stal
 test('Phase 5 contract: agreement form template defaults to JSON submit mode and pins PDF.js script', () => {
   const source = read(templatePath);
   assert.match(source, /"submit_mode": "json"/);
+  assert.match(source, /"sync": \{/);
+  assert.match(source, /"client_base_path": "\{\{ base_path\|default:"\/admin" \}\}\/sync-client\/sync-core"/);
+  assert.match(source, /"bootstrap_path": "\{\{ api_base_path\|default:"\/admin\/api\/v1" \}\}\/esign\/sync\/bootstrap\/agreement-draft"/);
   assert.match(source, /cdnjs\.cloudflare\.com\/ajax\/libs\/pdf\.js\/3\.11\.174\/pdf\.min\.js/);
   assert.match(source, /integrity="sha384-/);
 });

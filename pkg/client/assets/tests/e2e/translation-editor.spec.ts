@@ -70,6 +70,90 @@ function makeReviewReadyFixture() {
   return next;
 }
 
+function makeSubmitReadyUpdateFixture() {
+  const next = structuredClone(fixtures.variant_update);
+  next.data.qa_results = {
+    ...next.data.qa_results,
+    findings: [],
+    submit_blocked: false,
+    summary: {
+      finding_count: 0,
+      warning_count: 0,
+      blocker_count: 0,
+    },
+    categories: {
+      style: {
+        ...next.data.qa_results.categories.style,
+        finding_count: 0,
+        warning_count: 0,
+        blocker_count: 0,
+      },
+      terminology: {
+        ...next.data.qa_results.categories.terminology,
+        finding_count: 0,
+        warning_count: 0,
+        blocker_count: 0,
+      },
+    },
+  };
+  return next;
+}
+
+function makeRejectedDetailFixture() {
+  const next = structuredClone(fixtures.detail);
+  next.data.status = 'rejected';
+  next.data.translation_assignment = {
+    ...next.data.translation_assignment,
+    status: 'rejected',
+    queue_state: 'rejected',
+  };
+  next.data.assignment_action_states = {
+    ...next.data.assignment_action_states,
+    submit_review: {
+      enabled: false,
+      permission: 'admin.translations.edit',
+      reason: 'assignment must be in progress',
+      reason_code: 'INVALID_STATUS',
+    },
+  };
+  next.data.review_action_states = {
+    ...next.data.review_action_states,
+    approve: {
+      enabled: false,
+      permission: 'admin.translations.approve',
+      reason: 'assignment must be in review',
+      reason_code: 'INVALID_STATUS',
+    },
+    reject: {
+      enabled: false,
+      permission: 'admin.translations.approve',
+      reason: 'assignment must be in review',
+      reason_code: 'INVALID_STATUS',
+    },
+  };
+  next.data.last_rejection_reason = 'Please preserve the CTA token.';
+  next.data.review_feedback = {
+    last_rejection_reason: 'Please preserve the CTA token.',
+    comments: [
+      {
+        id: 'feedback-1',
+        body: 'Please preserve the CTA token.',
+        kind: 'review_feedback',
+        created_at: '2026-03-12T22:18:30.419211Z',
+        author_id: 'reviewer-1',
+      },
+      {
+        id: 'feedback-2',
+        body: 'Keep the glossary term consistent.',
+        kind: 'review_feedback',
+        created_at: '2026-03-12T22:19:30.419211Z',
+        author_id: 'reviewer-1',
+      },
+    ],
+  };
+  return next;
+}
+
 function makeAutosaveConflictFixture() {
   return {
     error: {
@@ -98,14 +182,14 @@ test.describe('Translation Assignment Editor', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify(fixtures.detail),
+        body: JSON.stringify(makeSubmitReadyFixture()),
       });
     });
     await page.route('**/api/translations/variants/*', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify(fixtures.variant_update),
+        body: JSON.stringify(makeSubmitReadyUpdateFixture()),
       });
     });
 
@@ -237,5 +321,41 @@ test.describe('Translation Assignment Editor', () => {
     await expect(page.locator('[data-editor-feedback-kind="success"]')).toContainText('Assignment approved');
     await expect(page.locator('[data-editor-panel="review-actions"]')).toHaveCount(0);
     await expect(page.locator('[data-editor-panel="management-actions"]')).toBeVisible();
+  });
+
+  test('reject modal captures reviewer feedback and timeline shows the round trip', async ({ page }) => {
+    let detailLoads = 0;
+    await page.route(`**/api/translations/assignments/${assignmentID}*`, async (route) => {
+      const url = route.request().url();
+      if (url.includes('/actions/reject')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(fixtures.review_reject),
+        });
+        return;
+      }
+      detailLoads += 1;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(detailLoads === 1 ? makeReviewReadyFixture() : makeRejectedDetailFixture()),
+      });
+    });
+
+    await page.goto(`/admin/translations/assignments/${assignmentID}/edit`);
+    await page.waitForLoadState('networkidle');
+
+    await page.locator('[data-editor-panel="review-actions"] [data-action="reject"]').click();
+    await expect(page.locator('[data-reject-modal="true"]')).toBeVisible();
+    await page.locator('[data-reject-reason="true"]').fill('Please preserve the CTA token.');
+    await page.locator('[data-reject-comment="true"]').fill('Keep the glossary term consistent.');
+    await page.locator('[data-action="confirm-reject"]').click();
+
+    await expect(page.locator('[data-editor-feedback-kind="success"]')).toContainText('Changes requested');
+    await expect(page.locator('text=Workflow timeline')).toBeVisible();
+    await expect(page.locator('text=Please preserve the CTA token.')).toBeVisible();
+    await expect(page.locator('text=Keep the glossary term consistent.')).toBeVisible();
+    await expect(page.locator('text=Current QA findings')).toBeVisible();
   });
 });

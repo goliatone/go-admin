@@ -124,6 +124,161 @@ async function importSourceModule(relativePath) {
   return import(`${pathToFileURL(outputPath).href}?t=${Date.now()}`);
 }
 
+function waitForAsyncHandlers() {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+function buildSubmitControllerFixture(overrides = {}) {
+  const form = document.getElementById('agreement-form');
+  const submitBtn = document.getElementById('submit-btn');
+  const documentIdInput = document.getElementById('document_id');
+  const documentSearch = document.createElement('input');
+  const participantsContainer = document.createElement('div');
+  const fieldDefinitionsContainer = document.createElement('div');
+  const fieldRulesContainer = document.createElement('div');
+  const addParticipantBtn = document.createElement('button');
+  const addFieldBtn = document.createElement('button');
+
+  documentIdInput.value = 'doc-1';
+
+  const participantEntry = document.createElement('div');
+  participantEntry.className = 'participant-entry';
+  const participantRole = document.createElement('select');
+  participantRole.name = 'participants.0.role';
+  participantRole.innerHTML = '<option value="signer">Signer</option>';
+  participantRole.value = 'signer';
+  participantEntry.appendChild(participantRole);
+  participantsContainer.appendChild(participantEntry);
+
+  const fieldDefinitionEntry = document.createElement('div');
+  fieldDefinitionEntry.className = 'field-definition-entry';
+  const fieldParticipant = document.createElement('select');
+  fieldParticipant.className = 'field-participant-select';
+  fieldParticipant.innerHTML = '<option value="participant-1">Signer</option>';
+  fieldParticipant.value = 'participant-1';
+  fieldDefinitionEntry.appendChild(fieldParticipant);
+  fieldDefinitionsContainer.appendChild(fieldDefinitionEntry);
+
+  form.appendChild(participantsContainer);
+  form.appendChild(fieldDefinitionsContainer);
+  form.appendChild(fieldRulesContainer);
+
+  const stateManager = overrides.stateManager || {
+    state: {
+      currentStep: 6,
+      syncPending: false,
+      serverDraftId: 'draft-1',
+      serverRevision: 2,
+    },
+    updateState() {},
+    collectFormState() {
+      return this.state;
+    },
+    getState() {
+      return this.state;
+    },
+    markSynced(draftId, revision) {
+      this.state = {
+        ...this.state,
+        serverDraftId: draftId,
+        serverRevision: revision,
+        syncPending: false,
+      };
+    },
+    setState(nextState) {
+      this.state = {
+        ...this.state,
+        ...nextState,
+      };
+    },
+    clear() {
+      this.state = {};
+    },
+  };
+
+  return {
+    config: { routes: { index: '/admin/content/esign_agreements' } },
+    form,
+    submitBtn,
+    documentIdInput,
+    documentSearch,
+    participantsContainer,
+    addParticipantBtn,
+    fieldDefinitionsContainer,
+    fieldRulesContainer,
+    documentPageCountInput: null,
+    fieldPlacementsJSONInput: null,
+    fieldRulesJSONInput: null,
+    storageKey: 'wizard-state',
+    syncService: {
+      async create() {
+        return { id: 'draft-new', revision: 1 };
+      },
+      async load() {
+        return { id: 'draft-1', revision: 2 };
+      },
+      async send() {
+        return { agreement_id: 'agreement-1' };
+      },
+      ...(overrides.syncService || {}),
+    },
+    syncOrchestrator: {
+      async forceSync() {
+        return { success: true };
+      },
+      broadcastStateUpdate() {},
+      ...(overrides.syncOrchestrator || {}),
+    },
+    stateManager,
+    submitMode: 'json',
+    totalWizardSteps: 6,
+    wizardStep: { FIELDS: 4 },
+    getCurrentStep() {
+      return 6;
+    },
+    getPlacementState() {
+      return { fieldInstances: [] };
+    },
+    getCurrentDocumentPageCount() {
+      return 1;
+    },
+    ensureSelectedDocumentCompatibility() {
+      return true;
+    },
+    collectFieldRulesForState() {
+      return [];
+    },
+    collectFieldRulesForForm() {
+      return [];
+    },
+    expandRulesForPreview() {
+      return [];
+    },
+    findSignersMissingRequiredSignatureField() {
+      return [];
+    },
+    missingSignatureFieldMessage() {
+      return '';
+    },
+    getSignerParticipants() {
+      return [];
+    },
+    buildCanonicalAgreementPayload() {
+      return {};
+    },
+    announceError() {},
+    emitWizardTelemetry() {},
+    async parseAPIError() {
+      return { status: 500, code: '', details: {}, message: 'Request failed' };
+    },
+    goToStep() {},
+    showSyncConflictDialog() {},
+    updateSyncStatus() {},
+    addFieldBtn,
+    ...(overrides.options || {}),
+  };
+}
+
 test('collectAgreementFormRefs returns required refs and throws targeted errors for missing required nodes', async () => {
   setupDom();
   const { collectAgreementFormRefs } = await importSourceModule('refs.ts');
@@ -140,7 +295,7 @@ test('collectAgreementFormRefs returns required refs and throws targeted errors 
   );
 });
 
-test('ownership UI controller renders passive state and re-enables actions for owner state', async () => {
+test('ownership UI controller keeps authoring actions enabled for coordinated tabs', async () => {
   setupDom();
   const [{ collectAgreementFormRefs }, { createOwnershipUIController }] = await Promise.all([
     importSourceModule('refs.ts'),
@@ -158,26 +313,27 @@ test('ownership UI controller renders passive state and re-enables actions for o
     claim: { lastSeenAt: '2026-03-12T10:00:00Z' },
   });
 
-  assert.equal(refs.ownership.banner?.classList.contains('hidden'), false);
-  assert.equal(refs.form.submitBtn.disabled, true);
-  assert.equal(refs.form.wizardSaveBtn.disabled, true);
-  assert.match(refs.ownership.message?.textContent || '', /moments ago/);
-
-  controller.render({
-    isOwner: true,
-    coordinationAvailable: true,
-  });
-
   assert.equal(refs.ownership.banner?.classList.contains('hidden'), true);
   assert.equal(refs.form.submitBtn.disabled, false);
   assert.equal(refs.form.wizardSaveBtn.disabled, false);
+
+  controller.render({
+    coordinationAvailable: false,
+    claim: { lastSeenAt: '2026-03-12T10:00:00Z' },
+  });
+
+  assert.equal(refs.ownership.banner?.classList.contains('hidden'), false);
+  assert.equal(refs.form.submitBtn.disabled, false);
+  assert.equal(refs.form.wizardSaveBtn.disabled, false);
+  assert.match(refs.ownership.message?.textContent || '', /moments ago/);
 });
 
-test('active tab controller construction is side-effect free and start claims ownership explicitly', async () => {
+test('active tab controller construction is side-effect free and only broadcasts same-draft events', async () => {
   const dom = setupDom();
   const { ActiveTabController } = await importSourceModule('active-tab-controller.ts');
   const ownershipStates = [];
   const broadcastMessages = [];
+  const remoteSyncCalls = [];
   const channel = {
     onmessage: null,
     postMessage(message) {
@@ -196,7 +352,9 @@ test('active tab controller construction is side-effect free and start claims ow
       ownershipStates.push(state);
     },
     onRemoteState() {},
-    onRemoteSync() {},
+    onRemoteSync(draftId, revision) {
+      remoteSyncCalls.push({ draftId, revision });
+    },
     onVisibilityHidden() {},
     onPageHide() {},
     onBeforeUnload() {},
@@ -208,19 +366,39 @@ test('active tab controller construction is side-effect free and start claims ow
   });
 
   assert.equal(ownershipStates.length, 0);
-  assert.equal(dom.window.localStorage.getItem('test-active-tab'), null);
   assert.equal(broadcastMessages.length, 0);
 
   controller.start();
+  controller.setActiveDraft('draft-1');
 
   assert.equal(controller.isOwner, true);
   assert.equal(ownershipStates.length > 0, true);
-  assert.notEqual(dom.window.localStorage.getItem('test-active-tab'), null);
-  assert.equal(broadcastMessages[0]?.type, 'active_tab_claimed');
+  assert.equal(dom.window.localStorage.getItem('test-active-tab'), null);
+
+  controller.broadcastSyncCompleted('draft-1', 3);
+  assert.equal(broadcastMessages[0]?.type, 'sync_completed');
+
+  channel.onmessage?.({
+    data: {
+      type: 'sync_completed',
+      tabId: 'tab-other',
+      draftId: 'draft-2',
+      revision: 5,
+    },
+  });
+  assert.equal(remoteSyncCalls.length, 0);
+
+  channel.onmessage?.({
+    data: {
+      type: 'sync_completed',
+      tabId: 'tab-other',
+      draftId: 'draft-1',
+      revision: 5,
+    },
+  });
+  assert.deepEqual(remoteSyncCalls, [{ draftId: 'draft-1', revision: 5 }]);
 
   controller.stop();
-
-  assert.equal(dom.window.localStorage.getItem('test-active-tab'), null);
 });
 
 test('sync controller only starts active-tab coordination from start and stops it on destroy', async () => {
@@ -232,17 +410,12 @@ test('sync controller only starts active-tab coordination from start and stops i
     isOwner: true,
     currentClaim: null,
     lastBlockedReason: '',
+    setActiveDraft() {},
     start() {
       startCalls += 1;
     },
     stop() {
       stopCalls += 1;
-    },
-    ensureOwnership() {
-      return true;
-    },
-    takeControl() {
-      return true;
     },
     broadcastStateUpdate() {},
     broadcastSyncCompleted() {},
@@ -263,6 +436,8 @@ test('sync controller only starts active-tab coordination from start and stops i
       markSynced() {},
     },
     syncService: {
+      async start() {},
+      destroy() {},
       async sync() {
         return { success: true, result: { id: 'draft-1', revision: 1 } };
       },
@@ -272,14 +447,8 @@ test('sync controller only starts active-tab coordination from start and stops i
     showConflictDialog() {},
     syncDebounceMs: 5,
     syncRetryDelays: [5],
-    currentUserID: 'user-123',
-    draftsEndpoint: '/api/v1/esign/drafts',
-    draftEndpointWithUserID(url) {
-      return url;
-    },
-    draftRequestHeaders() {
-      return { Accept: 'application/json' };
-    },
+    documentRef: document,
+    windowRef: window,
     fetchImpl: async () => ({
       ok: true,
       status: 200,
@@ -297,6 +466,192 @@ test('sync controller only starts active-tab coordination from start and stops i
 
   assert.equal(startCalls, 1);
   assert.equal(stopCalls, 1);
+});
+
+test('sync controller surfaces same-draft stale conflicts instead of passive-tab blocking', async () => {
+  const { SyncController } = await importSourceModule('sync-controller.ts');
+  const statusUpdates = [];
+  const conflictRevisions = [];
+
+  const controller = new SyncController({
+    stateManager: {
+      getState() {
+        return {
+          syncPending: true,
+          details: { title: 'Conflict Draft' },
+          currentStep: 2,
+          document: { id: 'doc-1' },
+          serverDraftId: 'draft-1',
+          serverRevision: 2,
+        };
+      },
+    },
+    syncService: {
+      async start() {},
+      destroy() {},
+      async sync() {
+        return { success: false, conflict: true, currentRevision: 3 };
+      },
+    },
+    activeTabController: {
+      isOwner: true,
+      currentClaim: null,
+      lastBlockedReason: '',
+      setActiveDraft() {},
+      start() {},
+      stop() {},
+      broadcastStateUpdate() {},
+      broadcastSyncCompleted() {},
+    },
+    statusUpdater(status) {
+      statusUpdates.push(status);
+    },
+    showConflictDialog(revision) {
+      conflictRevisions.push(revision);
+    },
+    syncDebounceMs: 5,
+    syncRetryDelays: [5],
+    documentRef: document,
+    windowRef: window,
+  });
+
+  const result = await controller.performSync();
+
+  assert.equal(result.conflict, true);
+  assert.deepEqual(conflictRevisions, [3]);
+  assert.deepEqual(statusUpdates.slice(-2), ['saving', 'conflict']);
+});
+
+test('sync controller refreshes the bound draft on window focus', async () => {
+  setupDom();
+  const { SyncController } = await importSourceModule('sync-controller.ts');
+  let refreshCalls = 0;
+
+  const controller = new SyncController({
+    stateManager: {
+      getState() {
+        return {
+          syncPending: false,
+          serverDraftId: 'draft-1',
+        };
+      },
+    },
+    syncService: {
+      async start() {},
+      destroy() {},
+      async refresh() {
+        refreshCalls += 1;
+        return { id: 'draft-1', revision: 2 };
+      },
+      async sync() {
+        return { success: true };
+      },
+    },
+    activeTabController: {
+      isOwner: true,
+      currentClaim: null,
+      lastBlockedReason: '',
+      setActiveDraft() {},
+      start() {},
+      stop() {},
+      broadcastStateUpdate() {},
+      broadcastSyncCompleted() {},
+    },
+    statusUpdater() {},
+    showConflictDialog() {},
+    syncDebounceMs: 5,
+    syncRetryDelays: [5],
+    documentRef: document,
+    windowRef: window,
+  });
+
+  controller.start();
+  window.dispatchEvent(new window.Event('focus'));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.equal(refreshCalls, 1);
+  controller.destroy();
+});
+
+test('submit controller does not recreate an existing draft when the pre-send handshake returns not found', async () => {
+  setupDom();
+  const { createAgreementFormSubmitController } = await importSourceModule('form-submit.ts');
+  let createCalls = 0;
+  let forceSyncCalls = 0;
+
+  const controller = createAgreementFormSubmitController(buildSubmitControllerFixture({
+    syncService: {
+      async create() {
+        createCalls += 1;
+        return { id: 'draft-recreated', revision: 3 };
+      },
+      async load() {
+        const error = new Error('HTTP 404');
+        error.status = 404;
+        throw error;
+      },
+    },
+    syncOrchestrator: {
+      async forceSync() {
+        forceSyncCalls += 1;
+        return { success: true };
+      },
+    },
+  }));
+
+  await assert.rejects(
+    () => controller.ensureDraftReadyForSend(),
+    (error) => error?.code === 'DRAFT_SEND_NOT_FOUND' && error?.status === 404,
+  );
+  assert.equal(createCalls, 0);
+  assert.equal(forceSyncCalls, 2);
+});
+
+test('submit controller routes send-time stale revisions through the shared conflict recovery UI', async () => {
+  setupDom();
+  const { createAgreementFormSubmitController } = await importSourceModule('form-submit.ts');
+  const statusUpdates = [];
+  const conflictRevisions = [];
+  const telemetry = [];
+
+  const controller = createAgreementFormSubmitController(buildSubmitControllerFixture({
+    syncService: {
+      async send() {
+        throw {
+          code: 'STALE_REVISION',
+          message: 'stale revision',
+          currentRevision: 4,
+          conflict: {
+            currentRevision: 4,
+          },
+        };
+      },
+    },
+    options: {
+      updateSyncStatus(status) {
+        statusUpdates.push(status);
+      },
+      showSyncConflictDialog(revision) {
+        conflictRevisions.push(revision);
+      },
+      emitWizardTelemetry(eventName, fields) {
+        telemetry.push({ eventName, fields });
+      },
+    },
+  }));
+
+  controller.bindEvents();
+  document.getElementById('agreement-form').dispatchEvent(new window.Event('submit', {
+    bubbles: true,
+    cancelable: true,
+  }));
+  await waitForAsyncHandlers();
+  await waitForAsyncHandlers();
+
+  assert.deepEqual(conflictRevisions, [4]);
+  assert.equal(statusUpdates.includes('conflict'), true);
+  assert.equal(document.getElementById('submit-btn').disabled, false);
+  assert.equal(telemetry.some((entry) => entry.eventName === 'wizard_send_conflict'), true);
 });
 
 test('state binding applyStateToUI rehydrates document, participants, rules, placements, preview, and step', async () => {
@@ -488,13 +843,38 @@ test('resume controller continue applies reconciled state without using boot-tim
     stateManager,
     syncOrchestrator: {
       broadcastStateUpdate() {},
+      broadcastDraftDisposed() {},
       scheduleSync() {},
     },
     syncService: {
+      async bootstrap() {
+        return {
+          resourceRef: { kind: 'agreement_draft', id: 'draft_123' },
+          snapshot: {
+            ref: { kind: 'agreement_draft', id: 'draft_123' },
+            data: { wizard_state: stateManager.state },
+            revision: 1,
+            updatedAt: '2026-03-13T10:00:00Z',
+          },
+        };
+      },
+      async create(nextState) {
+        stateManager.state = {
+          ...nextState,
+          serverDraftId: 'draft_123',
+          serverRevision: 2,
+          syncPending: false,
+        };
+        return {
+          id: 'draft_123',
+          revision: 2,
+          wizard_state: stateManager.state,
+        };
+      },
       async load() {
         throw new Error('not used');
       },
-      async delete() {},
+      async dispose() {},
     },
     applyResumedState(nextState) {
       appliedState = nextState;
@@ -518,6 +898,78 @@ test('resume controller continue applies reconciled state without using boot-tim
   assert.equal(appliedState.participants.length, 1);
   assert.equal(appliedState.fieldDefinitions.length, 1);
   assert.equal('_resumeToStep' in window, false);
+});
+
+test('resume controller clears stale completed draft ids so finished agreements are not resumed', async () => {
+  setupDom();
+  const { createAgreementResumeController } = await importSourceModule('resume-flow.ts');
+
+  const stateManager = {
+    state: {
+      currentStep: 6,
+      details: { title: 'Completed Draft' },
+      document: { id: 'doc_123', title: 'Mutual NDA' },
+      serverDraftId: 'draft_123',
+      serverRevision: 5,
+      syncPending: false,
+    },
+    getState() {
+      return this.state;
+    },
+    normalizeLoadedState(nextState) {
+      return nextState;
+    },
+    setState(nextState) {
+      this.state = nextState;
+    },
+    clear() {
+      this.state = {};
+    },
+    collectFormState() {
+      return this.state;
+    },
+    hasResumableState() {
+      return true;
+    },
+  };
+
+  const controller = createAgreementResumeController({
+    isEditMode: false,
+    storageKey: 'wizard-state',
+    stateManager,
+    syncOrchestrator: {
+      broadcastStateUpdate() {},
+      broadcastDraftDisposed() {},
+      scheduleSync() {},
+    },
+    syncService: {
+      async bootstrap() {
+        throw new Error('not used');
+      },
+      async create() {
+        throw new Error('not used');
+      },
+      async load() {
+        const error = new Error('HTTP 404');
+        error.status = 404;
+        throw error;
+      },
+      async dispose() {},
+    },
+    applyResumedState() {},
+    hasMeaningfulWizardProgress() {
+      return true;
+    },
+    formatRelativeTime() {
+      return 'moments ago';
+    },
+    emitWizardTelemetry() {},
+  });
+
+  const resolved = await controller.reconcileBootstrapState();
+
+  assert.equal(resolved.serverDraftId, null);
+  assert.equal(resolved.serverRevision, 0);
 });
 
 test('runtime actions conflict reload rehydrates latest server draft without reloading the page', async () => {
@@ -553,28 +1005,26 @@ test('runtime actions conflict reload rehydrates latest server draft without rel
     syncOrchestrator: {
       scheduleSync() {},
       broadcastStateUpdate() {},
+      async refreshCurrentDraft() {
+        stateManager.setState({
+          currentStep: 6,
+          serverDraftId: 'draft_123',
+          serverRevision: 7,
+          syncPending: false,
+          details: { title: 'Latest Server Draft' },
+        });
+        return { success: true };
+      },
       manualRetry() {
         return {};
       },
       performSync() {
         return Promise.resolve({});
       },
-      takeControl() {
-        return true;
-      },
     },
     syncService: {
-      async delete() {},
-      async load() {
-        return {
-          id: 'draft_123',
-          revision: 7,
-          wizard_state: {
-            currentStep: 6,
-            details: { title: 'Latest Server Draft' },
-          },
-        };
-      },
+      async dispose() {},
+      async load() { return { id: 'draft_123', revision: 7 }; },
     },
     applyStateToUI(nextState) {
       appliedState = nextState;

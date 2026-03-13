@@ -39,7 +39,6 @@ interface PendingRemediationDocument {
 interface DocumentSelectionControllerOptions {
   apiBase: string;
   apiVersionBase: string;
-  currentUserID: string;
   documentsUploadURL: string;
   isEditMode: boolean;
   titleSource: AgreementTitleSourceShape;
@@ -93,7 +92,6 @@ export function createDocumentSelectionController(
   const {
     apiBase,
     apiVersionBase,
-    currentUserID,
     documentsUploadURL,
     isEditMode,
     titleSource,
@@ -638,9 +636,6 @@ export function createDocumentSelectionController(
         sort_desc: 'true',
         per_page: String(RECENT_DOCUMENTS_LIMIT),
       });
-      if (currentUserID) {
-        params.set('created_by_user_id', currentUserID);
-      }
       const response = await fetch(`${apiBase}/panels/esign_documents?${params}`, {
         credentials: 'same-origin',
         headers: { Accept: 'application/json' },
